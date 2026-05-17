@@ -19084,7 +19084,7 @@ function DayView(_ref57) {
           hasEv ? _pbFmt(ev) : "—")
       );
     };
-    var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey) {
+    var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey, tags) {
       var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
       var bt = isTotal ? "2px solid #ccc" : "none";
       var br = "1px solid #e0ddd6";
@@ -19114,8 +19114,18 @@ function DayView(_ref57) {
           _pbSlash(st.sumPnl, st.expected, gradeReal)),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           _pbSlash(st.sumPlanned, st.expectedPlanned, gradePlanned, 500)),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt } },
-          _pbSlash(st.sumMax, st.expectedMax, gradeMax, 500))
+        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
+          _pbSlash(st.sumMax, st.expectedMax, gradeMax, 500)),
+        React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
+          tags && tags.length > 0
+            ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },
+                tags.map(function(t, i) {
+                  return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600,
+                    background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, t);
+                })
+              )
+            : null
+        )
       );
     };
     var _pbExpRow = function(rowKey) {
@@ -19147,6 +19157,7 @@ function DayView(_ref57) {
       };
       var subRows = [];
       var _totReal = null, _totPlan = null, _totMax = null;
+      var _totRealCnt = 0, _totPlanCnt = 0, _totMaxCnt = 0;
       expRecs.forEach(function(r) {
         var rKey = r.stock + "_" + (r.signal.id || r.signal.time || "");
         var rExp = !!pnlRecordExpandSet[rKey];
@@ -19160,9 +19171,10 @@ function DayView(_ref57) {
         var isOk = s.result === "ok";
         var isNg = s.result === "ng";
         var bb = "1px solid #e8e5de";
+        if (entered) _totRealCnt++;
         if (realPnl != null) { _totReal = (_totReal || 0) + realPnl; }
-        if (planPnl != null) { _totPlan = (_totPlan || 0) + planPnl; }
-        if (maxPnl  != null) { _totMax  = (_totMax  || 0) + maxPnl;  }
+        if (planPnl != null) { _totPlan = (_totPlan || 0) + planPnl; _totPlanCnt++; }
+        if (maxPnl  != null) { _totMax  = (_totMax  || 0) + maxPnl;  _totMaxCnt++;  }
         var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
         var gPlan = planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null;
         var gMax  = maxPnl  != null ? _profitGradeFromPnl(maxPnl,  1) : null;
@@ -19200,7 +19212,7 @@ function DayView(_ref57) {
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
-            React.createElement("td", { colSpan: 8, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+            React.createElement("td", { colSpan: 9, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
               React.createElement(EntryLogCard, {
                 record: r,
                 onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); }
@@ -19209,11 +19221,14 @@ function DayView(_ref57) {
           ));
         }
       });
+      var _totRealGrade = _totRealCnt > 0 ? _profitGradeFromPnlReal(_totReal != null ? _totReal : 0, _totRealCnt) : null;
+      var _totPlanGrade = _totPlanCnt > 0 ? _profitGradeFromPnl(_totPlan != null ? _totPlan : 0, _totPlanCnt) : null;
+      var _totMaxGrade  = _totMaxCnt  > 0 ? _profitGradeFromPnl(_totMax  != null ? _totMax  : 0, _totMaxCnt)  : null;
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
-        React.createElement("td", { colSpan: 5, style: { padding: "5px 8px", textAlign: "right", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計"),
-        React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", color: _rPnlCol(_totReal), fontWeight: 700 } }, _rPnlFmt(_totReal)),
-        React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", color: _rPnlCol(_totPlan), fontWeight: 700 } }, _rPnlFmt(_totPlan)),
-        React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", color: _rPnlCol(_totMax), fontWeight: 700 } }, _rPnlFmt(_totMax))
+        React.createElement("td", { colSpan: 5, style: { padding: "5px 8px", textAlign: "center", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計"),
+        React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDisp(_totReal, _totRealGrade)),
+        React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDisp(_totPlan, _totPlanGrade)),
+        React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDisp(_totMax,  _totMaxGrade))
       );
       var sortToggle = rowKey === "__total__"
         ? React.createElement("div", { style: { display: "flex", gap: 4, padding: "4px 6px" } },
@@ -19229,7 +19244,7 @@ function DayView(_ref57) {
           )
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
-        React.createElement("td", { colSpan: 8, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+        React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
           sortToggle,
           React.createElement("div", { style: { overflowX: "auto" } },
             React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
@@ -19252,8 +19267,38 @@ function DayView(_ref57) {
         )
       );
     };
+    var _pbTagsFor = function(recs) {
+      var seen = {}, result = [];
+      recs.forEach(function(r) {
+        var t = _elTagLabel(r.signal);
+        if (!seen[t]) { seen[t] = true; result.push(t); }
+      });
+      return result;
+    };
+    var _pbGradeLegend = (function() {
+      var grades = ["A","B","C","D","E","F","G"];
+      var mkRow = function(title, descs) {
+        return React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px 6px", marginBottom: 2 } },
+          React.createElement("span", { style: { fontSize: 9, color: "#888", minWidth: 70, flexShrink: 0 } }, title),
+          grades.map(function(g) {
+            var gs = _GRADE_STYLE[g];
+            return React.createElement("span", { key: g, style: { display: "inline-flex", alignItems: "center", gap: 2, fontSize: 9, whiteSpace: "nowrap" } },
+              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border,
+                fontWeight: 800, fontSize: 8, flexShrink: 0 } }, g),
+              React.createElement("span", { style: { color: "#888" } }, descs[g])
+            );
+          })
+        );
+      };
+      return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8, fontSize: 9 } },
+        mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-" }),
+        mkRow("想定/最大損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-" })
+      );
+    })();
     return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 8, color: "#333" } }, "📊 本日の損益データ"),
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
+      _pbGradeLegend,
       React.createElement("div", { style: { overflowX: "auto" } },
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
           React.createElement("thead", null,
@@ -19265,7 +19310,8 @@ function DayView(_ref57) {
               _pbTh("勝率"),
               _pbTh("実現損益/期待値"),
               _pbTh(React.createElement("span", null, "想定損益/期待値 ", React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#999" } }, "(100株あたり)"))),
-              _pbTh(React.createElement("span", null, "最大損益/期待値 ", React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#999" } }, "(100株あたり)")))
+              _pbTh(React.createElement("span", null, "最大損益/期待値 ", React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#999" } }, "(100株あたり)"))),
+              _pbTh("タグ")
             )
           ),
           React.createElement("tbody", null,
@@ -19274,7 +19320,7 @@ function DayView(_ref57) {
                 _profitGradeFromPnlReal(_pbAllReal, _pbAllEnt),
                 _profitGradeFromPnl(_pbAll.sumPlanned, _pbAll.sumPlanned !== 0 ? _pbAll.total : 0),
                 _profitGradeFromPnl(_pbAll.sumMax, _pbAll.sumMax !== 0 ? _pbAll.total : 0),
-                _pbAllEnt > 0, "__total__"),
+                _pbAllEnt > 0, "__total__", _pbTagsFor(_pbAllRecs)),
               pnlTableExpand === "__total__" ? _pbExpRow("__total__") : null
             ] : null,
             _pbStks.map(function(sk) {
@@ -19284,7 +19330,7 @@ function DayView(_ref57) {
                   _profitGradeFromPnlReal(_pbRealByStk[sk], _pbEntByStk[sk]),
                   _profitGradeFromPnl(skSt.sumPlanned, skSt.sumPlanned !== 0 ? skSt.total : 0),
                   _profitGradeFromPnl(skSt.sumMax, skSt.sumMax !== 0 ? skSt.total : 0),
-                  _pbEntByStk[sk] > 0, sk),
+                  _pbEntByStk[sk] > 0, sk, _pbTagsFor(_pbByStk[sk])),
                 pnlTableExpand === sk ? _pbExpRow(sk) : null
               ];
             })
