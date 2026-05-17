@@ -19156,6 +19156,7 @@ function DayView(_ref57) {
           return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
         };
         var rows = [];
+        var _totReal = null, _totPlan = null, _totMax = null;
         expRecs.forEach(function(r) {
           var rKey = r.stock + "_" + (r.signal.id || r.signal.time || "");
           var rExp = !!pnlRecordExpandSet[rKey];
@@ -19169,6 +19170,9 @@ function DayView(_ref57) {
           var isOk = s.result === "ok";
           var isNg = s.result === "ng";
           var bb = "1px solid #e8e5de";
+          if (realPnl != null) { _totReal = (_totReal || 0) + realPnl; }
+          if (planPnl != null) { _totPlan = (_totPlan || 0) + planPnl; }
+          if (maxPnl  != null) { _totMax  = (_totMax  || 0) + maxPnl;  }
           rows.push(React.createElement("tr", {
             key: rKey + "_row",
             style: { background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" },
@@ -19180,10 +19184,14 @@ function DayView(_ref57) {
           },
             React.createElement("td", { style: { padding: "5px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, color: "#F97316", width: "1%" } },
               rExp ? "▼" : "▶"),
-            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 600, fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%" } },
-              React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, r.stock),
-              s.time && React.createElement("span", { style: { color: "#666", marginLeft: 4, fontWeight: 400 } }, s.time),
-              !entered && React.createElement("span", { style: { marginLeft: 4, fontSize: 9, color: "#aaa", fontWeight: 400 } }, "見送り")
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#9A3412" } },
+              r.stock),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
+              s.time || "—"),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%" } },
+              entered
+                ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700 } }, "実エントリー")
+                : React.createElement("span", { style: { color: "#888" } }, "見送り")
             ),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
               isOk ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○") :
@@ -19199,7 +19207,7 @@ function DayView(_ref57) {
           ));
           if (rExp) {
             rows.push(React.createElement("tr", { key: rKey + "_detail" },
-              React.createElement("td", { colSpan: 6, style: { padding: "0 0 4px 0", borderBottom: "1px solid #FB923C" } },
+              React.createElement("td", { colSpan: 8, style: { padding: "0 0 4px 0", borderBottom: "1px solid #FB923C" } },
                 React.createElement(EntryLogCard, {
                   record: r,
                   onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); }
@@ -19208,6 +19216,12 @@ function DayView(_ref57) {
             ));
           }
         });
+        var totRow = React.createElement("tr", { key: "__tot__", style: { background: "#FFF7ED" } },
+          React.createElement("td", { colSpan: 5, style: { padding: "5px 8px", textAlign: "right", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計"),
+          React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", color: _rPnlCol(_totReal), fontWeight: 700 } }, _rPnlFmt(_totReal)),
+          React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", color: _rPnlCol(_totPlan), fontWeight: 700 } }, _rPnlFmt(_totPlan)),
+          React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", color: _rPnlCol(_totMax), fontWeight: 700 } }, _rPnlFmt(_totMax))
+        );
         return React.createElement("div", { style: { marginTop: 8, borderTop: "2px solid #FB923C", paddingTop: 6 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 4px 6px" } },
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } },
@@ -19223,13 +19237,16 @@ function DayView(_ref57) {
                 React.createElement("tr", { style: { background: "#FFF7ED" } },
                   _rTh("", { width: "1%" }),
                   _rTh("銘柄", { width: "1%" }),
+                  _rTh("時間", { width: "1%" }),
+                  _rTh("区分", { width: "1%" }),
                   _rTh("勝敗", { width: "1%" }),
                   _rTh("実現損益"),
-                  _rTh("想定損益"),
-                  _rTh("最大損益")
+                  _rTh(React.createElement("span", null, "想定損益", React.createElement("br", null), React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#b07050" } }, "(100株あたり)"))),
+                  _rTh(React.createElement("span", null, "最大損益", React.createElement("br", null), React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#b07050" } }, "(100株あたり)")))
                 )
               ),
-              React.createElement("tbody", null, rows)
+              React.createElement("tbody", null, rows),
+              React.createElement("tfoot", null, totRow)
             )
           )
         );
