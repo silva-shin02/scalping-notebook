@@ -24126,6 +24126,12 @@ function EntryLogView(_ref_elv) {
                   : React.createElement("span", { style: { marginRight: 4, fontSize: 10 } }, "　"),
           date,
           isHoliday ? React.createElement("span", { style: { marginLeft: 4, fontSize: 10, fontWeight: 400, color: "#7C3AED" } }, "(祝日・休場)") : null,
+          React.createElement("button", {
+            onClick: function(e) { e.stopPropagation(); handleGoDate(dateRef, "trades"); },
+            title: date + " の取引タブへ",
+            style: { marginLeft: 6, fontSize: 9, padding: "1px 5px", background: "#EFF6FF", border: "1px solid #93C5FD",
+              borderRadius: 3, cursor: "pointer", color: "#1D4ED8", lineHeight: 1.3, verticalAlign: "middle", fontWeight: 600 }
+          }, "→取引"),
           isExp ? React.createElement("button", {
             onClick: function(e) { e.stopPropagation(); setSvDateExpand(null); setSvRecExpand({}); },
             style: { marginLeft: 6, fontSize: 10, padding: "1px 5px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#666", lineHeight: 1.3, verticalAlign: "middle" }
