@@ -24049,7 +24049,10 @@ function EntryLogView(_ref_elv) {
     };
     var _svSlash = function(sum, ev, grade) {
       var hasSum = sum !== 0, hasEv = ev != null;
-      if (!hasSum && !hasEv) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+      if (!hasSum && !hasEv) return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+        grade ? _svBadge(grade) : null,
+        React.createElement("span", { style: { color: "#ccc" } }, "—")
+      );
       return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
         grade ? _svBadge(grade) : null,
         React.createElement("span", { style: { fontWeight: 600, color: hasSum ? _svCol(sum) : "#ccc" } }, hasSum ? _svFmt(sum) : "—"),
@@ -24255,9 +24258,9 @@ function EntryLogView(_ref_elv) {
       dates.map(function(date) {
         var dateSt = _elCalcStats(byDate[date]);
         var dateEnt = byDate[date].filter(function(r) { return _elIsEntered(r.signal, r.item); });
-        var gradeReal = dateEnt.length > 0 ? _profitGradeFromPnlReal(dateSt.sumPnl, dateEnt.length) : null;
-        var gradePlan = dateSt.sumPlanned !== 0 ? _profitGradeFromPnl(dateSt.sumPlanned, dateSt.total) : null;
-        var gradeMax  = dateSt.sumMax  !== 0 ? _profitGradeFromPnl(dateSt.sumMax,  dateSt.total) : null;
+        var gradeReal = _profitGradeFromPnlReal(dateSt.sumPnl, dateEnt.length);
+        var gradePlan = _profitGradeFromPnl(dateSt.sumPlanned, dateSt.total);
+        var gradeMax  = _profitGradeFromPnl(dateSt.sumMax,  dateSt.total);
         var tags = _svDateTags(date);
         return [
           _svRow(date, dateSt, gradeReal, gradePlan, gradeMax, tags),
