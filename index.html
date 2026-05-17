@@ -24030,6 +24030,12 @@ function EntryLogView(_ref_elv) {
     });
     // 期間内の全平日（月〜金）を列挙（記録のない日も含む）
     var dates = (function() {
+      // toISOString()はUTC日付のためJST等でズレる → ローカル日付文字列を使う
+      var _localDateStr = function(d) {
+        return d.getFullYear() + '-' +
+          String(d.getMonth() + 1).padStart(2, '0') + '-' +
+          String(d.getDate()).padStart(2, '0');
+      };
       var today = new Date();
       today.setHours(0, 0, 0, 0);
       var startDate, endDate = new Date(today);
@@ -24048,7 +24054,9 @@ function EntryLogView(_ref_elv) {
         else if (period === "1y") startDate.setFullYear(startDate.getFullYear() - 1);
         else if (selRecs.length > 0) {
           var minDate = selRecs.reduce(function(m, r) { return r.date < m ? r.date : m; }, selRecs[0].date);
-          startDate = new Date(minDate);
+          // YYYY-MM-DD文字列をローカル日付として解釈
+          var parts = minDate.split('-');
+          startDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
         }
       }
       var result = [];
@@ -24056,7 +24064,7 @@ function EntryLogView(_ref_elv) {
       cur.setHours(0, 0, 0, 0);
       while (cur <= endDate) {
         var d = cur.getDay();
-        if (d >= 1 && d <= 5) result.push(cur.toISOString().slice(0, 10));
+        if (d >= 1 && d <= 5) result.push(_localDateStr(cur));
         cur.setDate(cur.getDate() + 1);
       }
       return result.sort(function(a, b) { return svDateSort === "desc" ? b.localeCompare(a) : a.localeCompare(b); });
