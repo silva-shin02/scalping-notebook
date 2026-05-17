@@ -24070,6 +24070,9 @@ function EntryLogView(_ref_elv) {
       return result.sort(function(a, b) { return svDateSort === "desc" ? b.localeCompare(a) : a.localeCompare(b); });
     })();
 
+    // 祝日セット
+    var _svHolidaySet = _buildHolidayDateSet(data.trades || {}, (data.custom && data.custom.eventCategories) || []);
+
     // ヘルパー関数
     var _svFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
     var _svCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
@@ -24105,38 +24108,43 @@ function EntryLogView(_ref_elv) {
 
     // 日付行
     var _svRow = function(date, st, gradeReal, gradePlanned, gradeMax, tags) {
-      var hasRecs = st.total > 0;
+      var isHoliday = !!_svHolidaySet[date];
+      var hasRecs = !isHoliday && st.total > 0;
       var isExp = hasRecs && svDateExpand === date;
       var bg = isExp ? "#FFF7ED" : "transparent";
       var bb = "1px solid #e0ddd6";
       var br = "1px solid #e0ddd6";
       var dateRef = date;
+      var _dash = React.createElement("span", { style: { color: "#ccc" } }, "ー");
       return React.createElement("tr", { key: date,
         style: { background: bg, cursor: hasRecs ? "pointer" : "default" },
         onClick: hasRecs ? function() { setSvDateExpand(isExp ? null : dateRef); setSvRecExpand({}); } : undefined
       },
-        React.createElement("td", { style: { padding: "5px 8px", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap", width: "1%", color: hasRecs ? "#9A3412" : "#bbb", borderBottom: bb, borderRight: br } },
-          hasRecs ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶") : React.createElement("span", { style: { marginRight: 4, fontSize: 10 } }, "　"),
+        React.createElement("td", { style: { padding: "5px 8px", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap", width: "1%",
+          color: isHoliday ? "#7C3AED" : (hasRecs ? "#9A3412" : "#bbb"), borderBottom: bb, borderRight: br } },
+          hasRecs ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶")
+                  : React.createElement("span", { style: { marginRight: 4, fontSize: 10 } }, "　"),
           date,
+          isHoliday ? React.createElement("span", { style: { marginLeft: 4, fontSize: 10, fontWeight: 400, color: "#7C3AED" } }, "(祝日・休場)") : null,
           isExp ? React.createElement("button", {
             onClick: function(e) { e.stopPropagation(); setSvDateExpand(null); setSvRecExpand({}); },
             style: { marginLeft: 6, fontSize: 10, padding: "1px 5px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#666", lineHeight: 1.3, verticalAlign: "middle" }
           }, "閉じる") : null
         ),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, st.total),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, st.ok || "0"),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, st.ng || "0"),
+        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, isHoliday ? _dash : st.total),
+        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, isHoliday ? _dash : (st.ok || "0")),
+        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, isHoliday ? _dash : (st.ng || "0")),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br,
           color: st.winPct != null ? (st.winPct >= 60 ? "#C0392B" : st.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
-          fontWeight: st.winPct != null ? 700 : 400 } }, st.winPct != null ? st.winPct + "%" : "—"),
+          fontWeight: st.winPct != null ? 700 : 400 } }, isHoliday ? _dash : (st.winPct != null ? st.winPct + "%" : "—")),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-          _svSlash(st.sumPnl, st.expected, gradeReal)),
+          isHoliday ? _dash : _svSlash(st.sumPnl, st.expected, gradeReal)),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-          _svSlash(st.sumPlanned, st.expectedPlanned, gradePlanned)),
+          isHoliday ? _dash : _svSlash(st.sumPlanned, st.expectedPlanned, gradePlanned)),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-          _svSlash(st.sumMax, st.expectedMax, gradeMax)),
+          isHoliday ? _dash : _svSlash(st.sumMax, st.expectedMax, gradeMax)),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb } },
-          tags && tags.length > 0
+          !isHoliday && tags && tags.length > 0
             ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },
                 tags.map(function(t, i) {
                   return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600,
