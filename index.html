@@ -19271,15 +19271,6 @@ function DayView(_ref57) {
       var c = _pbCharts[stk + "_" + date] || {};
       return [].concat(c.chartShapeTags || [], c.stockTags || []).map(stripCat);
     };
-    var _pbAllStockTags = (function() {
-      var seen = {}, result = [];
-      _pbStks.forEach(function(sk) {
-        _pbStockTags(sk).forEach(function(t) {
-          if (!seen[t]) { seen[t] = true; result.push(t); }
-        });
-      });
-      return result;
-    })();
     var _pbGradeLegend = (function() {
       var grades = ["A","B","C","D","E","F","G"];
       var mkRow = function(title, descs) {
@@ -19325,7 +19316,7 @@ function DayView(_ref57) {
                 _profitGradeFromPnlReal(_pbAllReal, _pbAllEnt),
                 _profitGradeFromPnl(_pbAll.sumPlanned, _pbAll.sumPlanned !== 0 ? _pbAll.total : 0),
                 _profitGradeFromPnl(_pbAll.sumMax, _pbAll.sumMax !== 0 ? _pbAll.total : 0),
-                _pbAllEnt > 0, "__total__", _pbAllStockTags),
+                _pbAllEnt > 0, "__total__", null),
               pnlTableExpand === "__total__" ? _pbExpRow("__total__") : null
             ] : null,
             _pbStks.map(function(sk) {
