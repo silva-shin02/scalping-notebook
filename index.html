@@ -19267,14 +19267,19 @@ function DayView(_ref57) {
         )
       );
     };
-    var _pbTagsFor = function(recs) {
+    var _pbStockTags = function(stk) {
+      var c = _pbCharts[stk + "_" + date] || {};
+      return Array.isArray(c.stockTags) ? c.stockTags : [];
+    };
+    var _pbAllStockTags = (function() {
       var seen = {}, result = [];
-      recs.forEach(function(r) {
-        var t = _elTagLabel(r.signal);
-        if (!seen[t]) { seen[t] = true; result.push(t); }
+      _pbStks.forEach(function(sk) {
+        _pbStockTags(sk).forEach(function(t) {
+          if (!seen[t]) { seen[t] = true; result.push(t); }
+        });
       });
       return result;
-    };
+    })();
     var _pbGradeLegend = (function() {
       var grades = ["A","B","C","D","E","F","G"];
       var mkRow = function(title, descs) {
@@ -19320,7 +19325,7 @@ function DayView(_ref57) {
                 _profitGradeFromPnlReal(_pbAllReal, _pbAllEnt),
                 _profitGradeFromPnl(_pbAll.sumPlanned, _pbAll.sumPlanned !== 0 ? _pbAll.total : 0),
                 _profitGradeFromPnl(_pbAll.sumMax, _pbAll.sumMax !== 0 ? _pbAll.total : 0),
-                _pbAllEnt > 0, "__total__", _pbTagsFor(_pbAllRecs)),
+                _pbAllEnt > 0, "__total__", _pbAllStockTags),
               pnlTableExpand === "__total__" ? _pbExpRow("__total__") : null
             ] : null,
             _pbStks.map(function(sk) {
@@ -19330,7 +19335,7 @@ function DayView(_ref57) {
                   _profitGradeFromPnlReal(_pbRealByStk[sk], _pbEntByStk[sk]),
                   _profitGradeFromPnl(skSt.sumPlanned, skSt.sumPlanned !== 0 ? skSt.total : 0),
                   _profitGradeFromPnl(skSt.sumMax, skSt.sumMax !== 0 ? skSt.total : 0),
-                  _pbEntByStk[sk] > 0, sk, _pbTagsFor(_pbByStk[sk])),
+                  _pbEntByStk[sk] > 0, sk, _pbStockTags(sk)),
                 pnlTableExpand === sk ? _pbExpRow(sk) : null
               ];
             })
