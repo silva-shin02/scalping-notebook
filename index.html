@@ -23576,6 +23576,13 @@ function EntryLogView(_ref_elv) {
     calMonth = _uCalMA[0], setCalMonth = _uCalMA[1];
   var _uCalExp = useState(null), _uCalExpA = _slicedToArray(_uCalExp, 2),
     calExpandDate = _uCalExpA[0], setCalExpandDate = _uCalExpA[1];
+  // ── 日別タブ テーブル用 state ──
+  var _uCalTbl1 = useState("desc"), _uCalTbl1A = _slicedToArray(_uCalTbl1, 2),
+    calTblSort = _uCalTbl1A[0], setCalTblSort = _uCalTbl1A[1];
+  var _uCalTbl2 = useState(null), _uCalTbl2A = _slicedToArray(_uCalTbl2, 2),
+    calTblExpand = _uCalTbl2A[0], setCalTblExpand = _uCalTbl2A[1];
+  var _uCalTbl3 = useState({}), _uCalTbl3A = _slicedToArray(_uCalTbl3, 2),
+    calTblRecExp = _uCalTbl3A[0], setCalTblRecExp = _uCalTbl3A[1];
   var _uTStkF = useState(""), _uTStkFA = _slicedToArray(_uTStkF, 2),
     timeStockFil = _uTStkFA[0], setTimeStockFil = _uTStkFA[1];
   var _uCStkF = useState(""), _uCStkFA = _slicedToArray(_uCStkF, 2),
@@ -23999,6 +24006,281 @@ function EntryLogView(_ref_elv) {
                     );
                   })
                 : sorted.map(function(r, i) { return _renderRecCardWithCtrl(r, i, sorted.length, currentOrder, calExpandDate); })
+          )
+        );
+      })(),
+      // ── 日付別テーブル ──
+      (function() {
+        var _tblHolidaySet = _buildHolidayDateSet(data.trades || {}, (data.custom && data.custom.eventCategories) || []);
+        var tblDates = (function() {
+          var result = [];
+          var daysInM = new Date(cy, cm, 0).getDate();
+          for (var i = 1; i <= daysInM; i++) {
+            var dd2 = new Date(cy, cm - 1, i);
+            var dow2 = dd2.getDay();
+            if (dow2 >= 1 && dow2 <= 5) result.push(curM + "-" + pad2(i));
+          }
+          return calTblSort === "asc" ? result : result.reverse();
+        })();
+        var _tFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
+        var _tCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+        var _tBadge = function(grade) {
+          var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
+          return React.createElement("span", { title: grade,
+            style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 18, height: 18, borderRadius: "50%",
+              background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
+              fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
+          }, grade);
+        };
+        var _tTh = function(label, extra) {
+          return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%", textAlign: "center" }, extra || {}) }, label);
+        };
+        var _tSlash = function(sum, ev, grade) {
+          var hasSum = sum !== 0, hasEv = ev != null;
+          if (!hasSum && !hasEv) return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+            grade ? _tBadge(grade) : null,
+            React.createElement("span", { style: { color: "#ccc" } }, "—")
+          );
+          return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+            grade ? _tBadge(grade) : null,
+            React.createElement("span", { style: { fontWeight: 600, color: hasSum ? _tCol(sum) : "#ccc" } }, hasSum ? _tFmt(sum) : "—"),
+            React.createElement("span", { style: { color: "#bbb" } }, " / "),
+            React.createElement("span", { style: { color: hasEv ? _tCol(ev) : "#ccc" } }, hasEv ? _tFmt(ev) : "—")
+          );
+        };
+        var _tDateTags = function(date) {
+          var seen = {}, result2 = [];
+          (byDate[date] || []).forEach(function(r) {
+            var c = (data.charts || {})[r.stock + "_" + date] || {};
+            [].concat(c.chartShapeTags || [], c.stockTags || []).map(stripCat).forEach(function(t) {
+              if (!seen[t]) { seen[t] = true; result2.push(t); }
+            });
+          });
+          return result2;
+        };
+        var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags) {
+          var isHoliday = !!_tblHolidaySet[date];
+          var hasRecs = !isHoliday && st.total > 0;
+          var isExp = hasRecs && calTblExpand === date;
+          var bg = isExp ? "#FFF7ED" : "transparent";
+          var bb = "1px solid #e0ddd6", br = "1px solid #e0ddd6";
+          var dateRef = date;
+          var _dash = React.createElement("span", { style: { color: "#ccc" } }, "ー");
+          return React.createElement("tr", { key: date,
+            style: { background: bg, cursor: hasRecs ? "pointer" : "default" },
+            onClick: hasRecs ? function() { setCalTblExpand(isExp ? null : dateRef); setCalTblRecExp({}); } : undefined
+          },
+            React.createElement("td", { style: { padding: "5px 8px", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap", width: "1%",
+              color: isHoliday ? "#7C3AED" : (hasRecs ? "#9A3412" : "#bbb"), borderBottom: bb, borderRight: br } },
+              hasRecs ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶")
+                      : React.createElement("span", { style: { marginRight: 4, fontSize: 10 } }, "　"),
+              date,
+              isHoliday ? React.createElement("span", { style: { marginLeft: 4, fontSize: 10, fontWeight: 400, color: "#7C3AED" } }, "(祝日・休場)") : null,
+              hasRecs ? React.createElement("button", {
+                onClick: function(e) { e.stopPropagation(); handleGoDate(dateRef, "trades"); },
+                title: date + " の取引タブへ",
+                style: { marginLeft: 6, fontSize: 9, padding: "1px 5px", background: "#EFF6FF", border: "1px solid #93C5FD",
+                  borderRadius: 3, cursor: "pointer", color: "#1D4ED8", lineHeight: 1.3, verticalAlign: "middle", fontWeight: 600 }
+              }, "→取引") : null,
+              isExp ? React.createElement("button", {
+                onClick: function(e) { e.stopPropagation(); setCalTblExpand(null); setCalTblRecExp({}); },
+                style: { marginLeft: 6, fontSize: 10, padding: "1px 5px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#666", lineHeight: 1.3, verticalAlign: "middle" }
+              }, "閉じる") : null
+            ),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, isHoliday ? _dash : st.total),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, isHoliday ? _dash : (st.ok || "0")),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, isHoliday ? _dash : (st.ng || "0")),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br,
+              color: st.winPct != null ? (st.winPct >= 60 ? "#C0392B" : st.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
+              fontWeight: st.winPct != null ? 700 : 400 } }, isHoliday ? _dash : (st.winPct != null ? st.winPct + "%" : "—")),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
+              isHoliday ? _dash : _tSlash(st.sumPnl, st.expected, gradeReal)),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
+              isHoliday ? _dash : _tSlash(st.sumPlanned, st.expectedPlanned, gradePlan)),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
+              isHoliday ? _dash : _tSlash(st.sumMax, st.expectedMax, gradeMax)),
+            React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb } },
+              !isHoliday && tags && tags.length > 0
+                ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },
+                    tags.map(function(t, i) {
+                      return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600,
+                        background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, t);
+                    })
+                  )
+                : null
+            )
+          );
+        };
+        var _tExpRow = function(date) {
+          var recs = (byDate[date] || []).slice().sort(function(a, b) {
+            if (a.stock !== b.stock) return a.stock.localeCompare(b.stock);
+            return (a.signal.time || "99:99").localeCompare(b.signal.time || "99:99");
+          });
+          if (!recs.length) return null;
+          var _rPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+          var _rPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+          var _rTh = function(label, extra) {
+            return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
+          };
+          var _rPnlDisp = function(v, grade) {
+            if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+              grade && grade !== "Z" ? _tBadge(grade) : null,
+              React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v))
+            );
+          };
+          var subRows = [];
+          var _totReal = null, _totPlan = null, _totMax = null;
+          var _totRealCnt = 0, _totPlanCnt = 0, _totMaxCnt = 0;
+          recs.forEach(function(r) {
+            var rKey = r.stock + "_" + (r.signal.id || r.signal.time || "");
+            var rExp = !!calTblRecExp[rKey];
+            var s = r.signal, item = r.item;
+            var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+            var _per100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
+            var realPnl = (item && item.pnl != null) ? Number(item.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+            var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+            var maxPnl  = _elSignedVal(s.maxPnl, s.maxPnlSign);
+            var realPnlN = realPnl != null ? _per100(realPnl) : null;
+            var planPnlN = planPnl != null ? _per100(planPnl) : null;
+            var maxPnlN  = maxPnl  != null ? _per100(maxPnl)  : null;
+            var entered = _elIsEntered(s, item);
+            var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
+            var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
+            var maxGrade  = maxPnlN  != null ? _profitGradeFromPnl(maxPnlN, 1)  : null;
+            if (realPnlN != null) { _totReal = (_totReal || 0) + realPnlN; _totRealCnt++; }
+            if (planPnlN != null) { _totPlan = (_totPlan || 0) + planPnlN; _totPlanCnt++; }
+            if (maxPnlN  != null) { _totMax  = (_totMax  || 0) + maxPnlN;  _totMaxCnt++; }
+            var entLabel = entered
+              ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
+              : React.createElement("span", { style: { color: "#888" } }, "見送り");
+            var sigLabel = s.isCustomTag ? (s.customTagText || "(その他)") : (s.tag || "(未設定)");
+            var rKeyRef = rKey;
+            subRows.push(
+              React.createElement("tr", { key: rKey,
+                style: { cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" },
+                onClick: function() { setCalTblRecExp(function(prev) { var n = Object.assign({}, prev); if (n[rKeyRef]) delete n[rKeyRef]; else n[rKeyRef] = true; return n; }); }
+              },
+                React.createElement("td", { style: { padding: "4px 8px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", fontWeight: 700, color: "#9A3412" } },
+                  React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
+                  r.stock
+                ),
+                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, s.time || "—"),
+                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
+                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sigLabel),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _rPnlDisp(realPnlN, realGrade)),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _rPnlDisp(planPnlN, planGrade)),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _rPnlDisp(maxPnlN, maxGrade))
+              )
+            );
+            if (rExp) {
+              subRows.push(
+                React.createElement("tr", { key: rKey + "_card" },
+                  React.createElement("td", { colSpan: 7, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                    React.createElement(EntryLogCard, { record: r, onEdit: handleEdit, onGoDate: handleGoDate })
+                  )
+                )
+              );
+            }
+          });
+          var _totRealGrade = _totRealCnt > 0 ? _profitGradeFromPnlReal(_totReal != null ? _totReal : 0, _totRealCnt) : null;
+          var _totPlanGrade = _totPlanCnt > 0 ? _profitGradeFromPnl(_totPlan != null ? _totPlan : 0, _totPlanCnt) : null;
+          var _totMaxGrade  = _totMaxCnt  > 0 ? _profitGradeFromPnl(_totMax  != null ? _totMax  : 0, _totMaxCnt)  : null;
+          var totRow = React.createElement("tr", { key: "__ctot__", style: { background: "#FFF7ED" } },
+            React.createElement("td", { colSpan: 4, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C" } }, "合計"),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _rPnlDisp(_totReal, _totRealGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _rPnlDisp(_totPlan, _totPlanGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _rPnlDisp(_totMax, _totMaxGrade))
+          );
+          return React.createElement("tr", { key: date + "_texp" },
+            React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+              React.createElement("div", { style: { overflowX: "auto" } },
+                React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } },
+                  React.createElement("thead", null,
+                    React.createElement("tr", null,
+                      _rTh("銘柄", { textAlign: "left" }), _rTh("時間"), _rTh("エントリー"), _rTh("シグナル"),
+                      _rTh("実現損益"), _rTh("想定損益"), _rTh("最大損益")
+                    )
+                  ),
+                  React.createElement("tbody", null, subRows),
+                  React.createElement("tfoot", null, totRow)
+                )
+              )
+            )
+          );
+        };
+        var _tGradeLegend = (function() {
+          var grades = ["A","B","C","D","E","F","G"];
+          var mkRow = function(title, descs) {
+            return React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px 6px", marginBottom: 2 } },
+              React.createElement("span", { style: { fontSize: 9, color: "#888", minWidth: 70, flexShrink: 0 } }, title),
+              grades.map(function(g) {
+                var gs = _GRADE_STYLE[g];
+                return React.createElement("span", { key: g, style: { display: "inline-flex", alignItems: "center", gap: 2, fontSize: 9, whiteSpace: "nowrap" } },
+                  React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border,
+                    fontWeight: 800, fontSize: 8, flexShrink: 0 } }, g),
+                  React.createElement("span", { style: { color: "#888" } }, descs[g])
+                );
+              })
+            );
+          };
+          return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8 } },
+            mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-" }),
+            mkRow("想定/最大損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-" })
+          );
+        })();
+        var sortToggle = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
+          React.createElement("span", { style: { fontSize: 10, color: "#888", fontWeight: 700 } }, "並び替え:"),
+          [["desc", "新しい順"], ["asc", "古い順"]].map(function(kv) {
+            var on = calTblSort === kv[0];
+            return React.createElement("button", { key: kv[0],
+              onClick: function() { setCalTblSort(kv[0]); },
+              style: { padding: "2px 8px", fontSize: 10, fontWeight: on ? 700 : 400, cursor: "pointer",
+                background: on ? "#FB923C" : "#f5f4f0", color: on ? "#fff" : "#555",
+                border: "1px solid " + (on ? "#F97316" : "#ddd"), borderRadius: 4 }
+            }, kv[1]);
+          })
+        );
+        var thead = React.createElement("thead", null,
+          React.createElement("tr", null,
+            React.createElement("th", { style: { padding: "5px 8px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "left" } }, "日付"),
+            _tTh("件数"), _tTh("勝"), _tTh("負"), _tTh("勝率"),
+            _tTh("実現損益 / 期待値"),
+            React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
+              React.createElement("div", null, "想定損益 / 期待値"),
+              React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
+            ),
+            React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
+              React.createElement("div", null, "最大損益 / 期待値"),
+              React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
+            ),
+            _tTh("タグ", { width: "auto" })
+          )
+        );
+        var tbody = React.createElement("tbody", null,
+          tblDates.map(function(date) {
+            var dateRecs = byDate[date] || [];
+            var dateSt = _elCalcStats(dateRecs);
+            var dateEnt = dateRecs.filter(function(r) { return _elIsEntered(r.signal, r.item); });
+            var gradeReal = _profitGradeFromPnlReal(dateSt.sumPnl, dateEnt.length);
+            var gradePlan = _profitGradeFromPnl(dateSt.sumPlanned, dateSt.total);
+            var gradeMax  = _profitGradeFromPnl(dateSt.sumMax, dateSt.total);
+            var tags = _tDateTags(date);
+            return [
+              _tRow(date, dateSt, gradeReal, gradePlan, gradeMax, tags),
+              calTblExpand === date ? _tExpRow(date) : null
+            ];
+          })
+        );
+        return React.createElement("div", { style: { marginTop: 16 } },
+          _tGradeLegend,
+          sortToggle,
+          React.createElement("div", { style: { overflowX: "auto" } },
+            React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12, background: "#fff" } },
+              thead, tbody
+            )
           )
         );
       })()
