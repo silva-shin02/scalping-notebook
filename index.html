@@ -19113,8 +19113,8 @@ function DayView(_ref57) {
               _pbTh("負"),
               _pbTh("勝率"),
               _pbTh("実現損益/期待値"),
-              _pbTh("想定損益/期待値"),
-              _pbTh("最大損益/期待値")
+              _pbTh(React.createElement("span", null, "想定損益/期待値", React.createElement("br", null), React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#999" } }, "(100株あたり)"))),
+              _pbTh(React.createElement("span", null, "最大損益/期待値", React.createElement("br", null), React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#999" } }, "(100株あたり)")))
             )
           ),
           React.createElement("tbody", null,
@@ -19134,7 +19134,6 @@ function DayView(_ref57) {
           )
         )
       ),
-      React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginTop: 4 } }, "※ 損益・期待値は100株あたり換算"),
       pnlTableExpand && (function() {
         var expRecs = pnlTableExpand === "__total__"
           ? _pbAllRecs.slice().sort(function(a, b) {
