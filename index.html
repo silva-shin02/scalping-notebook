@@ -11721,8 +11721,39 @@ function ForeignMarketTable(_p) {
     updArr(type, function(arr){ return arr.filter(function(e){ return e.id !== id; }); });
   };
   var renameRow = function(type, id, newName) {
-    updArr(type, function(arr){
-      return arr.map(function(e){ return e.id === id ? Object.assign({}, e, { name: newName }) : e; });
+    var key = type === "indicator" ? "indicators" : "stocks";
+    // 現在日から旧名称を取得
+    var curArr = (fmDay && fmDay[key]) || [];
+    var entry = curArr.find(function(e) { return e.id === id; });
+    var oldName = entry ? entry.name : null;
+    if (!newName || !newName.trim()) return;
+    save(function(prev) {
+      var prevFm = prev.foreignMarkets || {};
+      var newFm = {};
+      Object.keys(prevFm).forEach(function(d) {
+        var dayData = prevFm[d];
+        if (!dayData) { newFm[d] = dayData; return; }
+        var arr = (dayData[key] || []).slice();
+        arr = arr.map(function(e) {
+          // 現在日はidで照合、他の日は旧名称で照合
+          if (d === date ? e.id === id : (oldName && e.name === oldName)) {
+            return Object.assign({}, e, { name: newName.trim() });
+          }
+          return e;
+        });
+        newFm[d] = Object.assign({}, dayData, _defineProperty({}, key, arr));
+      });
+      // デフォルト設定の名称も更新（将来の新規日付に反映）
+      var prevDefs = prev.custom && prev.custom.foreignMarketDefaults;
+      var defArr = prevDefs && prevDefs[key === "indicators" ? "indicators" : "stocks"];
+      var newCustom = prev.custom;
+      if (oldName && defArr) {
+        var newDefArr = defArr.map(function(n) { return n === oldName ? newName.trim() : n; });
+        newCustom = Object.assign({}, prev.custom, {
+          foreignMarketDefaults: Object.assign({}, prevDefs, _defineProperty({}, key === "indicators" ? "indicators" : "stocks", newDefArr))
+        });
+      }
+      return Object.assign({}, prev, { foreignMarkets: newFm, custom: newCustom });
     });
   };
   var commitValue = function(type, id, val) {
