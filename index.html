@@ -23941,6 +23941,10 @@ function EntryLogView(_ref_elv) {
               React.createElement("span", { style: { fontSize: 11, opacity: 0.85 } },
                 "○" + st.ok + " ✕" + st.ng + (st.winPct != null ? "  " + st.winPct + "%" : "")),
               React.createElement("button", {
+                onClick: function() { setEditTarget({ date: calExpandDate, stock: "" }); },
+                style: { fontSize: 10, padding: "2px 7px", background: "#FB923C", border: "1px solid #F97316", borderRadius: 4, cursor: "pointer", color: "#fff", fontWeight: 700, whiteSpace: "nowrap" }
+              }, "＋ 追加"),
+              React.createElement("button", {
                 onClick: function() { handleGoDate(calExpandDate); },
                 style: { fontSize: 10, padding: "2px 7px", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 4, cursor: "pointer", color: "#fff", whiteSpace: "nowrap" }
               }, "詳細 →"),
@@ -24193,6 +24197,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _rPnlDisp(_totPlan, _totPlanGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _rPnlDisp(_totMax, _totMaxGrade))
           );
+          var _tAddDateRef = date;
           return React.createElement("tr", { key: date + "_texp" },
             React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
               React.createElement("div", { style: { overflowX: "auto" } },
@@ -24206,6 +24211,12 @@ function EntryLogView(_ref_elv) {
                   React.createElement("tbody", null, subRows),
                   React.createElement("tfoot", null, totRow)
                 )
+              ),
+              React.createElement("div", { style: { padding: "6px 10px", borderTop: "1px solid #f0ede6" } },
+                React.createElement("button", {
+                  onClick: function() { setEditTarget({ date: _tAddDateRef, stock: "" }); },
+                  style: { padding: "4px 14px", fontSize: 11, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" }
+                }, "＋ 追加")
               )
             )
           );
@@ -24525,6 +24536,7 @@ function EntryLogView(_ref_elv) {
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _rPnlDisp(_totPlan, _totPlanGrade)),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _rPnlDisp(_totMax, _totMaxGrade))
       );
+      var _svAddDateRef = date;
       return React.createElement("tr", { key: date + "_exp" },
         React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
           React.createElement("div", { style: { overflowX: "auto" } },
@@ -24542,6 +24554,12 @@ function EntryLogView(_ref_elv) {
               React.createElement("tbody", null, subRows),
               React.createElement("tfoot", null, totRow)
             )
+          ),
+          React.createElement("div", { style: { padding: "6px 10px", borderTop: "1px solid #f0ede6" } },
+            React.createElement("button", {
+              onClick: function() { setEditTarget({ date: _svAddDateRef, stock: selStock }); },
+              style: { padding: "4px 14px", fontSize: 11, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" }
+            }, "＋ 追加")
           )
         )
       );
@@ -24654,7 +24672,15 @@ function EntryLogView(_ref_elv) {
           "期待値 " + (selSt.expected > 0 ? "+" : "") + selSt.expected + "円"),
         React.createElement("span", { style: { color: "#666", marginLeft: 4 } },
           "実エントリー" + selEnt.length + "件 勝率" + (selEntSt.winPct != null ? selEntSt.winPct + "%" : "—") +
-          "  見送り" + selSkp.length + "件 勝率" + (selSkpSt.winPct != null ? selSkpSt.winPct + "%" : "—"))
+          "  見送り" + selSkp.length + "件 勝率" + (selSkpSt.winPct != null ? selSkpSt.winPct + "%" : "—")),
+        React.createElement("button", {
+          onClick: function() {
+            var d = new Date(); var pad = function(n) { return n < 10 ? "0" + n : "" + n; };
+            var today = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+            setEditTarget({ date: today, stock: selStock });
+          },
+          style: { marginLeft: "auto", padding: "4px 12px", fontSize: 11, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer", flexShrink: 0 }
+        }, "＋ 追加")
       ),
       // テーブル
       React.createElement("div", { style: { padding: "8px 8px 0" } },
