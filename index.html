@@ -25326,6 +25326,13 @@ function EntryLogView(_ref_elv) {
         byDate2[r.date].push(r);
       });
       var dkeys = Object.keys(byDate2).sort(function(a, b) { return b.localeCompare(a); });
+      var _byDow = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+      var _dowLabel = ["", "月", "火", "水", "木", "金"];
+      grp.records.forEach(function(r) {
+        var _dp = r.date.split("-");
+        var _wd = new Date(+_dp[0], +_dp[1]-1, +_dp[2]).getDay();
+        if (_wd >= 1 && _wd <= 5) _byDow[_wd].push(r);
+      });
       return React.createElement("div", null,
         React.createElement("div", { style: { padding: "10px 12px", background: "#fff", borderBottom: "1px solid #f0ede8" } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 2 } }, "📅 日別集計"),
@@ -25391,6 +25398,71 @@ function EntryLogView(_ref_elv) {
                             React.createElement("span", { style: { color: "#aaa" } }, " / "),
                             React.createElement("span", { style: { color: dst.expectedMax != null ? (dst.expectedMax > 0 ? "#C0392B" : dst.expectedMax < 0 ? "#1E8449" : "#888") : "#ccc" } },
                               dst.expectedMax != null ? (dst.expectedMax > 0 ? "+" : "") + dst.expectedMax + "円" : "—"))
+                        : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+                  );
+                })
+              )
+            )
+          )
+        ),
+        // ── 曜日別集計 ──
+        React.createElement("div", { style: { padding: "10px 12px", background: "#fff", borderBottom: "1px solid #f0ede8" } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 2 } }, "📆 曜日別集計"),
+          React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "損益・期待値は100株あたり換算"),
+          React.createElement("div", { style: { overflowX: "auto" } },
+            React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+              React.createElement("thead", null,
+                React.createElement("tr", { style: { background: "#f5f4f0" } },
+                  React.createElement("th", { style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "曜日"),
+                  React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "件"),
+                  React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "勝"),
+                  React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "負"),
+                  React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "勝率"),
+                  React.createElement("th", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "損益"),
+                  React.createElement("th", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "期待値"),
+                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計想定損益/期待値"),
+                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計最大損益/期待値")
+                )
+              ),
+              React.createElement("tbody", null,
+                [1, 2, 3, 4, 5].map(function(wd) {
+                  var wrecs = _byDow[wd];
+                  var wst = _elCalcStats(wrecs);
+                  return React.createElement("tr", { key: wd },
+                    React.createElement("td", { style: { padding: "5px 8px", borderBottom: "1px solid #f0ede8", fontWeight: 700, fontSize: 12 } }, _dowLabel[wd]),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontWeight: 700, fontSize: 11 } },
+                      wrecs.length > 0 ? wrecs.length : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11 } }, wrecs.length > 0 ? (wst.ok || "0") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11 } }, wrecs.length > 0 ? (wst.ng || "0") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8",
+                      color: wst.winPct != null ? (wst.winPct >= 60 ? "#C0392B" : wst.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
+                      fontWeight: wst.winPct != null ? 700 : 400, fontSize: 11 } }, wst.winPct != null ? wst.winPct + "%" : "—"),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8",
+                      fontSize: 11, whiteSpace: "nowrap",
+                      color: wst.sumPnl !== 0 ? (wst.sumPnl > 0 ? "#C0392B" : "#1E8449") : "#ccc",
+                      fontWeight: wst.sumPnl !== 0 ? 600 : 400 } },
+                      wrecs.length > 0 ? (wst.sumPnl !== 0 ? (wst.sumPnl > 0 ? "+" : "") + wst.sumPnl + "円" : "—") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8",
+                      fontSize: 11, whiteSpace: "nowrap",
+                      color: wst.expected != null ? (wst.expected > 0 ? "#C0392B" : wst.expected < 0 ? "#1E8449" : "#888") : "#ccc" } },
+                      wrecs.length > 0 ? (wst.expected != null ? (wst.expected > 0 ? "+" : "") + wst.expected + "円" : "—") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
+                      wrecs.length > 0 && (wst.sumPlanned !== 0 || wst.expectedPlanned != null)
+                        ? React.createElement("span", null,
+                            React.createElement("span", { style: { fontWeight: 600, color: wst.sumPlanned > 0 ? "#C0392B" : wst.sumPlanned < 0 ? "#1E8449" : "#ccc" } },
+                              wst.sumPlanned !== 0 ? (wst.sumPlanned > 0 ? "+" : "") + wst.sumPlanned + "円" : "—"),
+                            React.createElement("span", { style: { color: "#aaa" } }, " / "),
+                            React.createElement("span", { style: { color: wst.expectedPlanned != null ? (wst.expectedPlanned > 0 ? "#C0392B" : wst.expectedPlanned < 0 ? "#1E8449" : "#888") : "#ccc" } },
+                              wst.expectedPlanned != null ? (wst.expectedPlanned > 0 ? "+" : "") + wst.expectedPlanned + "円" : "—"))
+                        : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
+                      wrecs.length > 0 && (wst.sumMax !== 0 || wst.expectedMax != null)
+                        ? React.createElement("span", null,
+                            React.createElement("span", { style: { fontWeight: 600, color: wst.sumMax > 0 ? "#C0392B" : wst.sumMax < 0 ? "#1E8449" : "#ccc" } },
+                              wst.sumMax !== 0 ? (wst.sumMax > 0 ? "+" : "") + wst.sumMax + "円" : "—"),
+                            React.createElement("span", { style: { color: "#aaa" } }, " / "),
+                            React.createElement("span", { style: { color: wst.expectedMax != null ? (wst.expectedMax > 0 ? "#C0392B" : wst.expectedMax < 0 ? "#1E8449" : "#888") : "#ccc" } },
+                              wst.expectedMax != null ? (wst.expectedMax > 0 ? "+" : "") + wst.expectedMax + "円" : "—"))
                         : React.createElement("span", { style: { color: "#ccc" } }, "—"))
                   );
                 })
