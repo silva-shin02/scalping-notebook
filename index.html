@@ -24412,12 +24412,72 @@ function EntryLogView(_ref_elv) {
             ];
           })
         );
-        return React.createElement("div", { style: { marginTop: 16 } },
-          _tGradeLegend,
-          sortToggle,
-          React.createElement("div", { style: { overflowX: "auto" } },
-            React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12, background: "#fff" } },
-              thead, tbody
+        var _dtByDow = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+        var _dtDowLabel = ["", "月", "火", "水", "木", "金"];
+        Object.keys(byDate).forEach(function(dk) {
+          var _dp2 = dk.split("-");
+          var _wd2 = new Date(+_dp2[0], +_dp2[1]-1, +_dp2[2]).getDay();
+          if (_wd2 >= 1 && _wd2 <= 5) (byDate[dk] || []).forEach(function(r) { _dtByDow[_wd2].push(r); });
+        });
+        return React.createElement(React.Fragment, null,
+          React.createElement("div", { style: { marginTop: 16 } },
+            _tGradeLegend,
+            sortToggle,
+            React.createElement("div", { style: { overflowX: "auto" } },
+              React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12, background: "#fff" } },
+                thead, tbody
+              )
+            )
+          ),
+          React.createElement("div", { style: { marginTop: 16 } },
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 2 } }, "📆 曜日別集計"),
+            React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "損益・期待値は100株あたり換算"),
+            React.createElement("div", { style: { overflowX: "auto" } },
+              React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12, background: "#fff" } },
+                React.createElement("thead", null,
+                  React.createElement("tr", { style: { background: "#f5f4f0" } },
+                    React.createElement("th", { style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "曜日"),
+                    _tTh("件"), _tTh("勝"), _tTh("負"), _tTh("勝率"),
+                    _tTh("実現損益 / 期待値"),
+                    React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
+                      React.createElement("div", null, "想定損益 / 期待値"),
+                      React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
+                    ),
+                    React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
+                      React.createElement("div", null, "最大損益 / 期待値"),
+                      React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
+                    )
+                  )
+                ),
+                React.createElement("tbody", null,
+                  [1, 2, 3, 4, 5].map(function(wd) {
+                    var wrecs = _dtByDow[wd];
+                    var wst = _elCalcStats(wrecs);
+                    var wEnt = wrecs.filter(function(r) { return _elIsEntered(r.signal, r.item); });
+                    var gradeReal = _profitGradeFromPnlReal(wst.sumPnl, wEnt.length);
+                    var gradePlan = _profitGradeFromPnl(wst.sumPlanned, wst.total);
+                    var gradeMax  = _profitGradeFromPnl(wst.sumMax, wst.total);
+                    var bb = "1px solid #e0ddd6";
+                    var br = "1px solid #e0ddd6";
+                    var _dash = React.createElement("span", { style: { color: "#ccc" } }, "ー");
+                    return React.createElement("tr", { key: wd },
+                      React.createElement("td", { style: { padding: "5px 8px", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", width: "1%", borderBottom: bb, borderRight: br } }, _dtDowLabel[wd]),
+                      React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: bb, borderRight: br } }, wrecs.length > 0 ? wst.total : _dash),
+                      React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: bb, borderRight: br } }, wrecs.length > 0 ? (wst.ok || "0") : _dash),
+                      React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: bb, borderRight: br } }, wrecs.length > 0 ? (wst.ng || "0") : _dash),
+                      React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: bb, borderRight: br,
+                        color: wst.winPct != null ? (wst.winPct >= 60 ? "#C0392B" : wst.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
+                        fontWeight: wst.winPct != null ? 700 : 400 } }, wrecs.length > 0 ? (wst.winPct != null ? wst.winPct + "%" : "—") : _dash),
+                      React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
+                        wrecs.length > 0 ? _tSlash(wst.sumPnl, wst.expected, gradeReal) : _dash),
+                      React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
+                        wrecs.length > 0 ? _tSlash(wst.sumPlanned, wst.expectedPlanned, gradePlan) : _dash),
+                      React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb } },
+                        wrecs.length > 0 ? _tSlash(wst.sumMax, wst.expectedMax, gradeMax) : _dash)
+                    );
+                  })
+                )
+              )
             )
           )
         );
