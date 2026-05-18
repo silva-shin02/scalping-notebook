@@ -24022,7 +24022,8 @@ function EntryLogView(_ref_elv) {
           for (var i = 1; i <= daysInM; i++) {
             var dd2 = new Date(cy, cm - 1, i);
             var dow2 = dd2.getDay();
-            if (dow2 >= 1 && dow2 <= 5) result.push(curM + "-" + pad2(i));
+            var ds2 = curM + "-" + pad2(i);
+            if (dow2 >= 1 && dow2 <= 5 && ds2 <= todayStr) result.push(ds2);
           }
           return calTblSort === "asc" ? result : result.reverse();
         })();
@@ -24055,10 +24056,14 @@ function EntryLogView(_ref_elv) {
         };
         var _tDateTags = function(date) {
           var seen = {}, result2 = [];
-          (byDate[date] || []).forEach(function(r) {
-            var c = (data.charts || {})[r.stock + "_" + date] || {};
+          var stocks = [];
+          (byDate[date] || []).forEach(function(r) { if (stocks.indexOf(r.stock) < 0) stocks.push(r.stock); });
+          stocks.sort();
+          stocks.forEach(function(stk) {
+            var c = (data.charts || {})[stk + "_" + date] || {};
             [].concat(c.chartShapeTags || [], c.stockTags || []).map(stripCat).forEach(function(t) {
-              if (!seen[t]) { seen[t] = true; result2.push(t); }
+              var key = stk + "\t" + t;
+              if (!seen[key]) { seen[key] = true; result2.push({ stock: stk, tag: t }); }
             });
           });
           return result2;
@@ -24107,9 +24112,14 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb } },
               !isHoliday && tags && tags.length > 0
                 ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },
-                    tags.map(function(t, i) {
-                      return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600,
-                        background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, t);
+                    tags.map(function(item, i) {
+                      return React.createElement("span", { key: i, style: { display: "inline-flex", alignItems: "center", gap: 2,
+                        padding: "1px 5px", fontSize: 9, fontWeight: 600,
+                        background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } },
+                        React.createElement("span", { style: { color: "#F97316", fontWeight: 700 } }, item.stock),
+                        React.createElement("span", { style: { color: "#bbb", margin: "0 1px" } }, ":"),
+                        item.tag
+                      );
                     })
                   )
                 : null
