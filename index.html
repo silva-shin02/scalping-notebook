@@ -9805,7 +9805,8 @@ function EntrySignalSection(_ref_es) {
   var data = _ref_es.allData,
       save = _ref_es.save,
       stock = _ref_es.stock,
-      date = _ref_es.date;
+      date = _ref_es.date,
+      onOpenEntryLog = _ref_es.onOpenEntryLog;
   var charts = (data && data.charts) || {};
   var ck = stock + "_" + date;
   var c = charts[ck] || {};
@@ -10059,11 +10060,23 @@ function EntrySignalSection(_ref_es) {
     React.createElement("div", {
       style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6, gap: 8 }
     },
-      React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#1a1a1a", paddingTop: 2 } },
-        "🎯 エントリー記録",
-        records.length > 0 && React.createElement("span", {
-          style: { marginLeft: 8, fontSize: 11, color: "#888", fontWeight: 500 }
-        }, "(" + records.length + "件)")
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingTop: 2 } },
+        React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#1a1a1a" } },
+          "🎯 エントリー記録",
+          records.length > 0 && React.createElement("span", {
+            style: { marginLeft: 8, fontSize: 11, color: "#888", fontWeight: 500 }
+          }, "(" + records.length + "件)")
+        ),
+        onOpenEntryLog && React.createElement("button", {
+          onClick: onOpenEntryLog,
+          title: "エントリー記録帳を開く",
+          style: {
+            padding: "3px 10px", fontSize: 11, fontWeight: 700,
+            background: "#FFF7ED", border: "1.5px solid #FDBA74",
+            borderRadius: 6, cursor: "pointer", color: "#9A3412",
+            lineHeight: 1.4
+          }
+        }, "📖 記録帳")
       ),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } },
         // ── 実現損益グレード + 補足 ──
@@ -10420,7 +10433,8 @@ var ChartSection = React.memo(function ChartSection(_ref32) {
     custom = _ref32.custom,
     cfg = _ref32.cfg,
     onSelectDate = _ref32.onSelectDate,
-    onJumpToNews = _ref32.onJumpToNews;
+    onJumpToNews = _ref32.onJumpToNews,
+    onOpenEntryLog = _ref32.onOpenEntryLog;
   var ck = stock + "_" + date;
   var cd = data.charts[ck] || {
     macroLocal: "",
@@ -11530,7 +11544,8 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     allData: data,
     save: save,
     stock: stock,
-    date: date
+    date: date,
+    onOpenEntryLog: onOpenEntryLog
   }),
   // ── メモ (RichMemoEditor 総括タブと同じシステム) ──
   /*#__PURE__*/React.createElement("div", {
@@ -18923,6 +18938,7 @@ function DayView(_ref57) {
     custom: custom,
     cfg: cfg,
     onSelectDate: jumpTo,
+    onOpenEntryLog: onOpenEntryLog || null,
     onJumpToNews: function(catName, niId) {
       // ① ニュース側でメインカテゴリ/サブカテゴリ切替+対象記事へのスクロール+
       //    ハイライトを行うため、jumpTarget state にセット
