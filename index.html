@@ -832,6 +832,32 @@ function migrateData(d) {
       });
     }
   } catch(e) { console.warn("[migrateData] image cleanup error:", e); }
+  // ── 外国市場 指標名一括リネーム（一回限り） ──
+  if (!d._migFmRename1 && d.foreignMarkets && typeof d.foreignMarkets === "object") {
+    try {
+      var _fmRenames = { "NYダウ": "ダウ平均株価" };
+      Object.keys(d.foreignMarkets).forEach(function(dt) {
+        var day = d.foreignMarkets[dt];
+        if (!day) return;
+        ["indicators", "stocks"].forEach(function(key) {
+          if (!Array.isArray(day[key])) return;
+          day[key] = day[key].map(function(e) {
+            var mapped = _fmRenames[e.name];
+            return mapped ? Object.assign({}, e, { name: mapped }) : e;
+          });
+        });
+      });
+      // custom.foreignMarketDefaults も更新
+      if (d.custom && d.custom.foreignMarketDefaults) {
+        ["indicators", "stocks"].forEach(function(key) {
+          var arr = d.custom.foreignMarketDefaults[key];
+          if (!Array.isArray(arr)) return;
+          d.custom.foreignMarketDefaults[key] = arr.map(function(n) { return _fmRenames[n] || n; });
+        });
+      }
+      d._migFmRename1 = true;
+    } catch(e) { console.warn("[migrateData] fmRename error:", e); }
+  }
   return d;
 }
 function stLoad() {
