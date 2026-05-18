@@ -18213,7 +18213,7 @@ function StockQuickRefTable(_props_qrt) {
               { label: "日付", pad: "6px 8px" },
               { label: "地合い", pad: "6px 12px" },
               { label: "利益獲得度（実/想/最）", pad: "6px 8px" },
-              { label: "タグ", pad: "6px 12px" }
+              { label: "イベント・タグ", pad: "6px 12px" }
             ].map(function(h) {
               return React.createElement("th", {
                 key: h.label,
@@ -18300,15 +18300,35 @@ function StockQuickRefTable(_props_qrt) {
             })()),
             React.createElement("td", {
               style: { padding: "7px 12px", width: "100%" }
-            }, [].concat(_toConsumableArray((c2 && c2.chartShapeTags) || []),
-                        _toConsumableArray((c2 && c2.stockTags) || [])).slice(0, 8).map(function(t) {
-              return React.createElement("span", {
-                key: t,
-                style: { display: "inline-block", padding: "1px 6px", borderRadius: 5,
-                  fontSize: 10, fontWeight: 600, background: "#EEF4FF",
-                  color: "#1a1a1a", border: "1px solid #7A9CC8", margin: "1px" }
-              }, stripCat(t));
-            }))
+            }, (function() {
+              var _dayEvents = ((data.trades && data.trades[d] && data.trades[d].events) || []);
+              var _tags = [].concat(_toConsumableArray((c2 && c2.chartShapeTags) || []),
+                                    _toConsumableArray((c2 && c2.stockTags) || [])).slice(0, 8);
+              var _hasContent = _dayEvents.length > 0 || _tags.length > 0;
+              if (!_hasContent) return React.createElement("span", { style: { color: "#ddd" } }, "—");
+              return React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" } },
+                _dayEvents.map(function(ev, ei) {
+                  var _evTitle = ev.title || (ev.contentHtml ? stripHtml(ev.contentHtml) : (ev.content || "(無題)"));
+                  var _prefix = (ev.allDay === false && ev.startTime) ? ev.startTime + " " : "";
+                  return React.createElement("span", {
+                    key: "ev_" + ei,
+                    title: _evTitle,
+                    style: { display: "inline-block", padding: "1px 6px", borderRadius: 5,
+                      fontSize: 10, fontWeight: 600, background: "#F0FDF4",
+                      color: "#166534", border: "1px solid #86EFAC", margin: "1px",
+                      maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+                  }, "📅 " + _prefix + _evTitle);
+                }),
+                _tags.map(function(t) {
+                  return React.createElement("span", {
+                    key: t,
+                    style: { display: "inline-block", padding: "1px 6px", borderRadius: 5,
+                      fontSize: 10, fontWeight: 600, background: "#EEF4FF",
+                      color: "#1a1a1a", border: "1px solid #7A9CC8", margin: "1px" }
+                  }, stripCat(t));
+                })
+              );
+            })()))
           );
         }))
       )
