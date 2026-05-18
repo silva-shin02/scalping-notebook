@@ -9596,9 +9596,12 @@ function makeTagPoolHandlers(data, save, custom) {
       };
       var ch = _objectSpread({}, data.charts);
       Object.keys(ch).forEach(function(k) {
-        if (ch[k].stockTags) ch[k] = _objectSpread(_objectSpread({}, ch[k]), {}, {
-          stockTags: ch[k].stockTags.map(renameTag)
-        });
+        var _c = ch[k], _upd = {};
+        if (_c.stockTags)      _upd.stockTags      = _c.stockTags.map(renameTag);
+        if (_c.chartShapeTags) _upd.chartShapeTags = _c.chartShapeTags.map(renameTag);
+        if (_c.flowOpenTags)   _upd.flowOpenTags   = _c.flowOpenTags.map(renameTag);
+        if (_c.flowMoveTags)   _upd.flowMoveTags   = _c.flowMoveTags.map(renameTag);
+        if (Object.keys(_upd).length) ch[k] = _objectSpread(_objectSpread({}, _c), {}, _upd);
       });
       var tr = _objectSpread({}, data.trades);
       Object.keys(tr).forEach(function(k) {
@@ -9648,9 +9651,12 @@ function makeTagPoolHandlers(data, save, custom) {
       var renameTag = function(t) { return t === oldTag ? newTag : t; };
       var ch = _objectSpread({}, data.charts);
       Object.keys(ch).forEach(function(k) {
-        if (ch[k].stockTags) ch[k] = _objectSpread(_objectSpread({}, ch[k]), {}, {
-          stockTags: ch[k].stockTags.map(renameTag)
-        });
+        var _c = ch[k], _upd = {};
+        if (_c.stockTags)      _upd.stockTags      = _c.stockTags.map(renameTag);
+        if (_c.chartShapeTags) _upd.chartShapeTags = _c.chartShapeTags.map(renameTag);
+        if (_c.flowOpenTags)   _upd.flowOpenTags   = _c.flowOpenTags.map(renameTag);
+        if (_c.flowMoveTags)   _upd.flowMoveTags   = _c.flowMoveTags.map(renameTag);
+        if (Object.keys(_upd).length) ch[k] = _objectSpread(_objectSpread({}, _c), {}, _upd);
       });
       var tr = _objectSpread({}, data.trades);
       Object.keys(tr).forEach(function(k) {
@@ -9692,9 +9698,12 @@ function makeTagPoolHandlers(data, save, custom) {
       var renameTag = function(t) { return t === oldName ? newName : t; };
       var ch = _objectSpread({}, data.charts);
       Object.keys(ch).forEach(function(k) {
-        if (ch[k].stockTags) ch[k] = _objectSpread(_objectSpread({}, ch[k]), {}, {
-          stockTags: ch[k].stockTags.map(renameTag)
-        });
+        var _c = ch[k], _upd = {};
+        if (_c.stockTags)      _upd.stockTags      = _c.stockTags.map(renameTag);
+        if (_c.chartShapeTags) _upd.chartShapeTags = _c.chartShapeTags.map(renameTag);
+        if (_c.flowOpenTags)   _upd.flowOpenTags   = _c.flowOpenTags.map(renameTag);
+        if (_c.flowMoveTags)   _upd.flowMoveTags   = _c.flowMoveTags.map(renameTag);
+        if (Object.keys(_upd).length) ch[k] = _objectSpread(_objectSpread({}, _c), {}, _upd);
       });
       var tr = _objectSpread({}, data.trades);
       Object.keys(tr).forEach(function(k) {
