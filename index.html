@@ -18965,6 +18965,11 @@ function DayView(_ref57) {
           title: "チャート分析ツールを開く",
           style: { padding: "9px 12px", fontSize: 12, fontWeight: 600, background: "#EEF2FF", border: "1.5px solid #C7D2FE", borderRadius: 6, cursor: "pointer", color: "#4338CA", minHeight: IS_TOUCH ? 40 : 32 }
         }, "📐 チャート分析"),
+        onOpenEntryLog && React.createElement("button", {
+          onClick: onOpenEntryLog,
+          title: "エントリー記録帳を開く",
+          style: { padding: "9px 12px", fontSize: 12, fontWeight: 600, background: "#FFF7ED", border: "1.5px solid #FDBA74", borderRadius: 6, cursor: "pointer", color: "#9A3412", minHeight: IS_TOUCH ? 40 : 32 }
+        }, "📖 記録帳"),
         React.createElement("button", {
           onClick: function() { setTradeEditTarget(null); setShowForm(true); },
           style: { padding: "9px 18px", fontSize: 13, fontWeight: 600, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 40 : 32 }
