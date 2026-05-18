@@ -858,6 +858,25 @@ function migrateData(d) {
       d._migFmRename1 = true;
     } catch(e) { console.warn("[migrateData] fmRename error:", e); }
   }
+  // ── 材料タグ/カテゴリのクリーンアップ（企業・資源・外交・その他のみ残す） ──
+  if (!d._migCatClean1) {
+    try {
+      if (d.custom) {
+        var _keepCats = { "企業": 1, "資源": 1, "外交": 1, "その他": 1 };
+        if (d.custom.cats && typeof d.custom.cats === "object" && !Array.isArray(d.custom.cats)) {
+          var _newCats = {};
+          Object.keys(d.custom.cats).forEach(function(k) {
+            if (_keepCats[k]) _newCats[k] = d.custom.cats[k];
+          });
+          d.custom.cats = _newCats;
+        }
+        if (Array.isArray(d.custom.tags)) {
+          d.custom.tags = [];
+        }
+      }
+      d._migCatClean1 = true;
+    } catch(e) { console.warn("[migrateData] catClean error:", e); }
+  }
   return d;
 }
 function stLoad() {
@@ -1158,6 +1177,8 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
     signalTags: 1, signalDefs: 1, flowOpenTags: 1, flowMoveTags: 1,
     newsCategories: 1, newsSubCats: 1, newsCatDefaults: 1, newsSubCatDefaults: 1, stocks: 1,
     eventCategories: 1 };
+  // バージョンに関係なく常にローカル値を優先するキー（削除が確実に反映される）
+  var _ALWAYS_LOCAL_WINS_KEYS = { cats: 1, tags: 1 };
   var _remoteIsNewer = false;
   var _localIsNewer = !!_parentLocalNewer; // 親レベルで既にローカル優先と判定済みならそれを継承
   if (remote && typeof remote === "object" && typeof remote._v === "number" &&
@@ -1179,9 +1200,10 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
       else if (_remoteIsNewer) { /* skip: remote is newer and key is absent → deleted */ }
       else { out[key] = lv; }
     }
+    else if (_ALWAYS_LOCAL_WINS_KEYS[key] && lv !== undefined) {
+      out[key] = lv;
+    }
     else if (_localIsNewer && _LOCAL_WINS_KEYS[key] && lv !== undefined) {
-      // ★ ローカルが新しく、ローカル値がある場合は deep merge せずローカルを優先
-      //   （削除したカテゴリ/タグがリモートから復活するのを防ぐ）
       out[key] = lv;
     }
     else { out[key] = _mergeRemoteMeta(lv, rv, _localIsNewer); }
@@ -11824,44 +11846,6 @@ function ForeignMarketTable(_p) {
     var str = abs >= 100 ? Math.round(abs).toLocaleString() : (Math.round(abs * 100) / 100).toFixed(2).replace(/\.?0+$/, "");
     return (diff >= 0 ? "+" : "-") + str;
   };
-  // ── 列スタイル ──
-  // 名称列: 現在の全エントリの最長名に合わせて動的に幅を決定
-  var _allFmEntries = fmDay ? (fmDay.indicators || []).concat(fmDay.stocks || []) : [];
-  var _nameTextW = _allFmEntries.reduce(function(acc, e) {
-    var name = e.name || "";
-    var w = 0;
-    for (var i = 0; i < name.length; i++) { w += name.charCodeAt(i) > 0x7E ? 13 : 8; }
-    return Math.max(acc, w);
-  }, 80); // 最低80pxのテキスト幅
-  // テキスト幅 + 1文字余白(13px) + 左padding(8px) + gap(4px) + 編集ボタン類(32px)
-  var _nameColW = _nameTextW + 13 + 8 + 4 + 32;
-  var colName = {
-    width: _nameColW, flexShrink: 0, padding: "6px 8px", borderRight: "1px solid #e8e5e0",
-    display: "flex", alignItems: "center", gap: 4, boxSizing: "border-box", overflow: "hidden"
-  };
-  // ドラッグハンドル列
-  var colDrag = {
-    width: 22, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-    cursor: "grab", color: "#ccc", fontSize: 14, userSelect: "none",
-    touchAction: "none", borderRight: "1px solid #e8e5e0"
-  };
-  // 数値入力 + 前日比 を一体化した領域
-  var colValArea = {
-    flex: "0 0 auto", display: "flex", alignItems: "stretch",
-    borderRight: "1px solid #e8e5e0"
-  };
-  var colValInput = { width: 76, flexShrink: 0, borderRight: "1px solid #f0ede8" };
-  var colDiff = {
-    minWidth: 84, padding: "3px 8px",
-    display: "flex", flexDirection: "column",
-    alignItems: "flex-end", justifyContent: "center", gap: 1
-  };
-  // スパークライン列（5日・22日・50日）
-  var colSpark5  = { flex: "0 0 150px", display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 3px", borderRight: "1px solid #e8e5e0" };
-  var colSpark22 = { flex: "0 0 160px", display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 3px", borderRight: "1px solid #e8e5e0" };
-  var colSpark50 = { flex: "0 0 160px", display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 3px", borderRight: "1px solid #e8e5e0" };
-  var colMemo = { width: 16, flexShrink: 0, display: "flex", alignItems: "center",
-    justifyContent: "center", cursor: "pointer" };
   var iconBtn = { cursor: "pointer", fontSize: 10, color: "#ccc", flexShrink: 0, padding: "1px 3px",
     lineHeight: 1, userSelect: "none", transition: "color .1s" };
 
@@ -11894,95 +11878,99 @@ function ForeignMarketTable(_p) {
         ? /*#__PURE__*/React.createElement("div", {
             style: { padding: "6px 10px", fontSize: 12, color: "#bbb", fontStyle: "italic" }
           }, "データなし")
-        : arr.map(function(entry, entryIdx) {
-            var prevVal = _fmPrevValue(foreignMarkets, date, entry.name, type);
-            var diff = (typeof entry.value === "number" && typeof prevVal === "number") ? entry.value - prevVal : null;
-            var diffStr = fmtDiff(diff);
-            var pct = (diff !== null && prevVal !== 0) ? diff / Math.abs(prevVal) * 100 : null;
-            var pctStr = pct !== null ? (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%" : null;
-            var diffColor = diff == null ? "#bbb" : diff >= 0 ? "#DC2626" : "#16A34A";
-            var arrow = diff == null ? "" : diff > 0 ? "▲" : diff < 0 ? "▼" : "→";
-            var hasBigMove = pct !== null && Math.abs(pct) >= 1;
-            // ── スパークライン: 50日ベースで変化率を計算し、5日・22日・50日を同スケールで表示 ──
-            var _sv50 = _fmPrevValues(foreignMarkets, date, entry.name, type, 50);
-            var _sv50nums = _sv50.filter(function(v) { return typeof v === "number"; });
-            var _svBase = _sv50nums.length > 0 ? _sv50nums[0] : null;
-            var _toRate = function(v) {
-              if (typeof v !== "number" || _svBase === null || _svBase === 0) return null;
-              return (v - _svBase) / Math.abs(_svBase) * 100;
-            };
-            var _sr50 = _sv50.map(_toRate);
-            var _sr22 = _sr50.slice(-22);
-            var _sr5  = _sr50.slice(-5);
-            var _srNums50 = _sr50.filter(function(v) { return v !== null; });
-            var _sparkYMin = _srNums50.length > 1 ? Math.min.apply(null, _srNums50) : 0;
-            var _sparkYMax = _srNums50.length > 1 ? Math.max.apply(null, _srNums50) : 0;
-            var memoIsOpen = !!openMemos[entry.id];
-            var _rowHovId = "fmrow_" + entry.id;
-            var isDragSrc = dragState && dragState.type === type && dragState.fromIdx === entryIdx;
-            var isDragOver = dragState && dragState.type === type && dragState.overIdx === entryIdx && dragState.fromIdx !== entryIdx;
-            return /*#__PURE__*/React.createElement(React.Fragment, { key: entry.id },
-              /*#__PURE__*/React.createElement("div", {
-                id: _rowHovId,
-                draggable: true,
-                onDragStart: function(e) {
-                  setDragState({ type: type, fromIdx: entryIdx, overIdx: null });
-                  e.dataTransfer.effectAllowed = "move";
-                },
-                onDragOver: function(e) {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  if (dragState && dragState.type === type && dragState.overIdx !== entryIdx) {
-                    setDragState(function(ds) { return ds ? Object.assign({}, ds, { overIdx: entryIdx }) : ds; });
-                  }
-                },
-                onDrop: function(e) {
-                  e.preventDefault();
-                  if (dragState && dragState.type === type && dragState.fromIdx !== entryIdx) {
-                    reorderArr(type, dragState.fromIdx, entryIdx);
-                  }
-                  setDragState(null);
-                },
-                onDragEnd: function() { setDragState(null); },
-                style: { display: "flex", alignItems: "stretch",
-                  borderBottom: memoIsOpen ? "none" : "1px solid #f0ede8",
-                  borderTop: isDragOver ? "2px solid #4338CA" : "none",
-                  minHeight: 42,
+        : /*#__PURE__*/React.createElement("div", { style: { padding: "6px 6px 2px" } },
+            arr.map(function(entry, entryIdx) {
+              var prevVal = _fmPrevValue(foreignMarkets, date, entry.name, type);
+              var diff = (typeof entry.value === "number" && typeof prevVal === "number") ? entry.value - prevVal : null;
+              var diffStr = fmtDiff(diff);
+              var pct = (diff !== null && prevVal !== 0) ? diff / Math.abs(prevVal) * 100 : null;
+              var pctStr = pct !== null ? (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%" : null;
+              var diffColor = diff == null ? "#bbb" : diff >= 0 ? "#DC2626" : "#16A34A";
+              var arrow = diff == null ? "" : diff > 0 ? "▲" : diff < 0 ? "▼" : "→";
+              var hasBigMove = pct !== null && Math.abs(pct) >= 1;
+              var _sv50 = _fmPrevValues(foreignMarkets, date, entry.name, type, 50);
+              var _sv50nums = _sv50.filter(function(v) { return typeof v === "number"; });
+              var _svBase = _sv50nums.length > 0 ? _sv50nums[0] : null;
+              var _toRate = function(v) {
+                if (typeof v !== "number" || _svBase === null || _svBase === 0) return null;
+                return (v - _svBase) / Math.abs(_svBase) * 100;
+              };
+              var _sr50 = _sv50.map(_toRate);
+              var _sr22 = _sr50.slice(-22);
+              var _sr5  = _sr50.slice(-5);
+              var _srNums50 = _sr50.filter(function(v) { return v !== null; });
+              var _sparkYMin = _srNums50.length > 1 ? Math.min.apply(null, _srNums50) : 0;
+              var _sparkYMax = _srNums50.length > 1 ? Math.max.apply(null, _srNums50) : 0;
+              var memoIsOpen = !!openMemos[entry.id];
+              var isDragSrc = dragState && dragState.type === type && dragState.fromIdx === entryIdx;
+              var isDragOver = dragState && dragState.type === type && dragState.overIdx === entryIdx && dragState.fromIdx !== entryIdx;
+              return /*#__PURE__*/React.createElement("div", {
+                key: entry.id,
+                style: {
+                  border: "1px solid " + (isDragOver ? "#4338CA" : "#e0ddd6"),
+                  borderRadius: 8, marginBottom: 6, overflow: "hidden",
                   opacity: isDragSrc ? 0.45 : 1,
-                  background: hasBigMove ? (diff > 0 ? "rgba(220,38,38,0.03)" : "rgba(22,163,74,0.03)") : "transparent",
-                  transition: "background .1s, opacity .1s" },
-                onMouseEnter: IS_TOUCH ? undefined : function(e){ e.currentTarget.style.background = "#f9f8f6"; },
-                onMouseLeave: IS_TOUCH ? undefined : function(e){
-                  e.currentTarget.style.background = hasBigMove ? (diff > 0 ? "rgba(220,38,38,0.03)" : "rgba(22,163,74,0.03)") : "transparent";
+                  background: hasBigMove ? (diff > 0 ? "rgba(220,38,38,0.03)" : "rgba(22,163,74,0.03)") : "#fff",
+                  transition: "opacity .1s"
                 }
               },
-                // ── ドラッグハンドル ──
-                /*#__PURE__*/React.createElement("div", { style: colDrag }, "⋮⋮"),
-                // ── 名称列 ──
-                /*#__PURE__*/React.createElement("div", { style: colName },
-                  /*#__PURE__*/React.createElement("span", {
-                    style: { flex: 1, fontSize: 13, lineHeight: 1.4, overflow: "hidden",
-                      textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }
-                  }, entry.name),
-                  /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 0, flexShrink: 0, opacity: 0.5 } },
+                // ── 上段: drag + name + value + diff + memo ──
+                /*#__PURE__*/React.createElement("div", {
+                  draggable: true,
+                  onDragStart: function(e) {
+                    setDragState({ type: type, fromIdx: entryIdx, overIdx: null });
+                    e.dataTransfer.effectAllowed = "move";
+                  },
+                  onDragOver: function(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dragState && dragState.type === type && dragState.overIdx !== entryIdx) {
+                      setDragState(function(ds) { return ds ? Object.assign({}, ds, { overIdx: entryIdx }) : ds; });
+                    }
+                  },
+                  onDrop: function(e) {
+                    e.preventDefault();
+                    if (dragState && dragState.type === type && dragState.fromIdx !== entryIdx) {
+                      reorderArr(type, dragState.fromIdx, entryIdx);
+                    }
+                    setDragState(null);
+                  },
+                  onDragEnd: function() { setDragState(null); },
+                  style: { display: "flex", alignItems: "stretch", minHeight: 40,
+                    borderBottom: "1px solid #f0ede8" }
+                },
+                  /*#__PURE__*/React.createElement("div", {
+                    style: { width: 22, flexShrink: 0, display: "flex", alignItems: "center",
+                      justifyContent: "center", cursor: "grab", color: "#ccc", fontSize: 14,
+                      userSelect: "none", touchAction: "none", borderRight: "1px solid #f0ede8" }
+                  }, "⋮⋮"),
+                  /*#__PURE__*/React.createElement("div", {
+                    style: { flex: 1, padding: "6px 8px", display: "flex", alignItems: "center",
+                      gap: 4, boxSizing: "border-box", overflow: "hidden", borderRight: "1px solid #f0ede8" }
+                  },
                     /*#__PURE__*/React.createElement("span", {
-                      title: "名前変更", style: iconBtn,
-                      onClick: function() {
-                        var nn = window.prompt("名前を変更", entry.name);
-                        if (nn && nn.trim() && nn.trim() !== entry.name) renameRow(type, entry.id, nn.trim());
-                      }
-                    }, "✎"),
-                    /*#__PURE__*/React.createElement("span", {
-                      title: "削除", style: iconBtn,
-                      onClick: function() {
-                        if (window.confirm(entry.name + " を削除しますか？")) delRow(type, entry.id);
-                      }
-                    }, "×")
-                  )
-                ),
-                // ── 数値入力 + 前日比（同一エリア）──
-                /*#__PURE__*/React.createElement("div", { style: colValArea },
-                  /*#__PURE__*/React.createElement("div", { style: colValInput },
+                      style: { flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.4,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }
+                    }, entry.name),
+                    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 0, flexShrink: 0, opacity: 0.5 } },
+                      /*#__PURE__*/React.createElement("span", {
+                        title: "名前変更", style: iconBtn,
+                        onClick: function() {
+                          var nn = window.prompt("名前を変更", entry.name);
+                          if (nn && nn.trim() && nn.trim() !== entry.name) renameRow(type, entry.id, nn.trim());
+                        }
+                      }, "✎"),
+                      /*#__PURE__*/React.createElement("span", {
+                        title: "削除", style: iconBtn,
+                        onClick: function() {
+                          if (window.confirm(entry.name + " を削除しますか？")) delRow(type, entry.id);
+                        }
+                      }, "×")
+                    )
+                  ),
+                  /*#__PURE__*/React.createElement("div", {
+                    style: { width: 76, flexShrink: 0, borderRight: "1px solid #f0ede8" }
+                  },
                     /*#__PURE__*/React.createElement(_FMValueInput, {
                       key: entry.id, initVal: entry.value,
                       onCommit: function(v){ commitValue(type, entry.id, v); },
@@ -11993,7 +11981,11 @@ function ForeignMarketTable(_p) {
                       }
                     })
                   ),
-                  /*#__PURE__*/React.createElement("div", { style: colDiff },
+                  /*#__PURE__*/React.createElement("div", {
+                    style: { width: 90, flexShrink: 0, padding: "3px 8px", display: "flex",
+                      flexDirection: "column", alignItems: "flex-end", justifyContent: "center",
+                      gap: 1, borderRight: "1px solid #f0ede8" }
+                  },
                     /*#__PURE__*/React.createElement("div", {
                       style: { display: "flex", alignItems: "baseline", gap: 2, justifyContent: "flex-end" }
                     },
@@ -12010,90 +12002,79 @@ function ForeignMarketTable(_p) {
                         background: hasBigMove ? (diff > 0 ? "rgba(220,38,38,0.1)" : "rgba(22,163,74,0.1)") : "transparent",
                         padding: hasBigMove ? "0 3px" : 0, borderRadius: 3 }
                     }, pctStr)
+                  ),
+                  /*#__PURE__*/React.createElement("div", {
+                    style: { width: 32, flexShrink: 0, display: "flex", alignItems: "center",
+                      justifyContent: "center", cursor: "pointer" },
+                    onClick: function() {
+                      setOpenMemos(function(prev) {
+                        var n = Object.assign({}, prev);
+                        if (n[entry.id]) delete n[entry.id]; else n[entry.id] = true;
+                        return n;
+                      });
+                    },
+                    title: "メモ"
+                  },
+                    /*#__PURE__*/React.createElement("span", {
+                      style: { fontSize: 13, lineHeight: 1,
+                        color: (entry.memo && entry.memo.trim()) ? sColor : "#d0cfc8" }
+                    }, "💬")
                   )
                 ),
-                // ── スパークライン 5日・22日・50日（同スケール・変化率） ──
-                /*#__PURE__*/React.createElement("div", { style: colSpark5 },
-                  /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr5,  w: 144, h: 56, yMin: _sparkYMin, yMax: _sparkYMax })
-                ),
-                /*#__PURE__*/React.createElement("div", { style: colSpark22 },
-                  /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr22, w: 154, h: 56, yMin: _sparkYMin, yMax: _sparkYMax })
-                ),
-                /*#__PURE__*/React.createElement("div", { style: colSpark50 },
-                  /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr50, w: 154, h: 56, yMin: _sparkYMin, yMax: _sparkYMax })
-                ),
-                // ── メモボタン ──
+                // ── 下段: スパークライン 5日・22日・50日 ──
                 /*#__PURE__*/React.createElement("div", {
-                  style: colMemo,
-                  onClick: function() {
-                    setOpenMemos(function(prev) {
-                      var n = Object.assign({}, prev);
-                      if (n[entry.id]) delete n[entry.id]; else n[entry.id] = true;
-                      return n;
-                    });
-                  },
-                  title: "メモ"
+                  style: { display: "flex", background: "#fafaf8" }
                 },
-                  /*#__PURE__*/React.createElement("span", {
-                    style: { fontSize: 13, lineHeight: 1,
-                      color: (entry.memo && entry.memo.trim()) ? sColor : "#d0cfc8" }
-                  }, "💬")
+                  /*#__PURE__*/React.createElement("div", {
+                    style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+                      padding: "3px 4px 5px", borderRight: "1px solid #f0ede8" }
+                  },
+                    /*#__PURE__*/React.createElement("div", {
+                      style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
+                    }, "5日"),
+                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr5, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax })
+                  ),
+                  /*#__PURE__*/React.createElement("div", {
+                    style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+                      padding: "3px 4px 5px", borderRight: "1px solid #f0ede8" }
+                  },
+                    /*#__PURE__*/React.createElement("div", {
+                      style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
+                    }, "22日"),
+                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr22, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax })
+                  ),
+                  /*#__PURE__*/React.createElement("div", {
+                    style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+                      padding: "3px 4px 5px" }
+                  },
+                    /*#__PURE__*/React.createElement("div", {
+                      style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
+                    }, "50日"),
+                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr50, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax })
+                  )
+                ),
+                // ── メモ欄 ──
+                memoIsOpen && /*#__PURE__*/React.createElement("div", {
+                  style: { padding: "4px 8px 6px", background: "#fffdf5",
+                    borderTop: "1px solid #f0ede8" }
+                },
+                  /*#__PURE__*/React.createElement("textarea", {
+                    value: entry.memo || "",
+                    onChange: function(e) { commitMemo(type, entry.id, e.target.value); },
+                    placeholder: "メモ（相場状況・ニュース等）",
+                    rows: 2,
+                    style: { width: "100%", fontSize: 12, border: "1px solid #e0ddd6", borderRadius: 4,
+                      padding: "4px 6px", resize: "vertical", fontFamily: "inherit",
+                      boxSizing: "border-box", outline: "none", background: "#fff", lineHeight: 1.5 }
+                  })
                 )
-              ),
-              memoIsOpen && /*#__PURE__*/React.createElement("div", {
-                style: { padding: "4px 8px 6px", background: "#fffdf5",
-                  borderBottom: "1px solid #f0ede8" }
-              },
-                /*#__PURE__*/React.createElement("textarea", {
-                  value: entry.memo || "",
-                  onChange: function(e) { commitMemo(type, entry.id, e.target.value); },
-                  placeholder: "メモ（相場状況・ニュース等）",
-                  rows: 2,
-                  style: { width: "100%", fontSize: 12, border: "1px solid #e0ddd6", borderRadius: 4,
-                    padding: "4px 6px", resize: "vertical", fontFamily: "inherit",
-                    boxSizing: "border-box", outline: "none", background: "#fff", lineHeight: 1.5 }
-                })
-              )
-            );
-          })
+              );
+            })
+          )
     );
   };
 
-  var tableHeader = /*#__PURE__*/React.createElement("div", {
-    style: { display: "flex", alignItems: "center", background: "#f5f4f0", borderBottom: "2px solid #e0ddd6" }
-  },
-    /*#__PURE__*/React.createElement("div", { style: { width: 22, flexShrink: 0, borderRight: "1px solid #e0ddd6" } }),
-    /*#__PURE__*/React.createElement("div", {
-      style: { width: _nameColW, flexShrink: 0, padding: "5px 8px", fontSize: 11, fontWeight: 700, color: "#888",
-        borderRight: "1px solid #e0ddd6", boxSizing: "border-box" }
-    }, "名称"),
-    /*#__PURE__*/React.createElement("div", {
-      style: { flex: "0 0 auto", display: "flex", borderRight: "1px solid #e0ddd6" }
-    },
-      /*#__PURE__*/React.createElement("div", {
-        style: { width: 76, padding: "5px 6px", fontSize: 11, fontWeight: 700, color: "#888",
-          borderRight: "1px solid #e8e5e0", textAlign: "right" }
-      }, "数値"),
-      /*#__PURE__*/React.createElement("div", {
-        style: { minWidth: 84, padding: "5px 8px", fontSize: 11, fontWeight: 700, color: "#888", textAlign: "right" }
-      }, "前日比")
-    ),
-    /*#__PURE__*/React.createElement("div", {
-      style: { flex: "0 0 150px", padding: "5px 3px", fontSize: 11, fontWeight: 700, color: "#888",
-        textAlign: "center", borderRight: "1px solid #e0ddd6" }
-    }, "5日"),
-    /*#__PURE__*/React.createElement("div", {
-      style: { flex: "0 0 160px", padding: "5px 3px", fontSize: 11, fontWeight: 700, color: "#888",
-        textAlign: "center", borderRight: "1px solid #e0ddd6" }
-    }, "22日"),
-    /*#__PURE__*/React.createElement("div", {
-      style: { flex: "0 0 160px", padding: "5px 3px", fontSize: 11, fontWeight: 700, color: "#888",
-        textAlign: "center", borderRight: "1px solid #e0ddd6" }
-    }, "50日"),
-    /*#__PURE__*/React.createElement("div", {
-      style: { width: 16, flexShrink: 0, padding: "5px 2px" }
-    }, "")
-  );
+  var tableHeader = null;
   var topBar = /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 8 }
   },
