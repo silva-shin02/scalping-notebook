@@ -28745,6 +28745,9 @@ function SummaryHistoryView(_ref_shv) {
   // ピンのみ
   var _us_shvPO = useState(false), _us_shvPOA = _slicedToArray(_us_shvPO, 2),
       pinnedOnly = _us_shvPOA[0], setPinnedOnly = _us_shvPOA[1];
+  // スターのみ（将来用: 現時点ではデータに starred プロパティなし）
+  var _us_shvSO = useState(false), _us_shvSOA = _slicedToArray(_us_shvSO, 2),
+      starredOnly = _us_shvSOA[0], setStarredOnly = _us_shvSOA[1];
   // 全文展開セット
   var _us_shvEx = useState(new Set()), _us_shvExA = _slicedToArray(_us_shvEx, 2),
       expanded = _us_shvExA[0], setExpanded = _us_shvExA[1];
@@ -28756,14 +28759,18 @@ function SummaryHistoryView(_ref_shv) {
   };
 
   var clearAllFilter = function() {
-    setKeyword(""); setDateFrom(""); setDateTo(""); setPinnedOnly(false);
+    setKeyword(""); setDateFrom(""); setDateTo(""); setPinnedOnly(false); setStarredOnly(false);
   };
-  var hasAnyFilter = !!keyword.trim() || !!dateFrom || !!dateTo || pinnedOnly;
+  var hasAnyFilter = !!keyword.trim() || !!dateFrom || !!dateTo || pinnedOnly || starredOnly;
 
   // 全件集計
   var allFlat = useMemo(function() {
     return _shvCollectFlat(trades);
   }, [trades]);
+
+  var starredCount = useMemo(function() {
+    return allFlat.filter(function(e) { return !!e.starred; }).length;
+  }, [allFlat]);
 
   // 絞込適用 + ソート
   var filtered = useMemo(function() {
@@ -28771,6 +28778,7 @@ function SummaryHistoryView(_ref_shv) {
     if (dateFrom) arr = arr.filter(function(e) { return e.date >= dateFrom; });
     if (dateTo)   arr = arr.filter(function(e) { return e.date <= dateTo; });
     if (pinnedOnly) arr = arr.filter(function(e) { return !!e.pinned; });
+    if (starredOnly) arr = arr.filter(function(e) { return !!e.starred; });
     var kw = (keyword || "").trim().toLowerCase();
     if (kw) {
       arr = arr.filter(function(e) {
@@ -28782,7 +28790,7 @@ function SummaryHistoryView(_ref_shv) {
       if (a.date === b.date) return 0;
       return sortDir === "desc" ? (a.date < b.date ? 1 : -1) : (a.date < b.date ? -1 : 1);
     });
-  }, [allFlat, dateFrom, dateTo, pinnedOnly, keyword, sortDir]);
+  }, [allFlat, dateFrom, dateTo, pinnedOnly, starredOnly, keyword, sortDir]);
 
   // ピン留めと通常分離 + 件数を 1 パスで (旧: filter×2 + reduce ×1)
   var _shvSplit = useMemo(function() {
