@@ -19497,6 +19497,10 @@ function Calendar(_ref60) {
     });
     return result;
   }, [data && data.charts]);
+  // 祝日・休場セット（Zバッジ表示除外用）
+  var calHolidaySet = useMemo(function() {
+    return _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories);
+  }, [data && data.trades, data && data.custom && data.custom.eventCategories]);
   var grid = /*#__PURE__*/React.createElement("div", {
     onMouseLeave: IS_TOUCH ? undefined : function () {
       return setHovered(null);
@@ -19584,31 +19588,48 @@ function Calendar(_ref60) {
               color: monDow === 6 ? "#C0392B" : monDow === 5 ? "#2874A6" : "#1a1a1a"
             }
           }, d),
-          gradeByDate[key] && (function() {
+          (function() {
             var _gd = gradeByDate[key];
-            var _gs = _GRADE_STYLE[_gd.grade] || _GRADE_STYLE.Z;
-            var _s = _gd.sum;
-            var _sDisp = (_s > 0 ? "+" : "") + (_s >= 10000 || _s <= -10000
-              ? (Math.round(_s / 100) / 10) + "k"
-              : _s.toLocaleString());
-            return React.createElement(React.Fragment, null,
-              /*#__PURE__*/React.createElement("span", {
-                title: "損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n合計: " + (_s > 0 ? "+" : "") + _s.toLocaleString() + "円",
+            if (_gd) {
+              var _gs = _GRADE_STYLE[_gd.grade] || _GRADE_STYLE.Z;
+              var _s = _gd.sum;
+              var _sDisp = (_s > 0 ? "+" : "") + (_s >= 10000 || _s <= -10000
+                ? (Math.round(_s / 100) / 10) + "k"
+                : _s.toLocaleString());
+              return React.createElement(React.Fragment, null,
+                /*#__PURE__*/React.createElement("span", {
+                  title: "損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n合計: " + (_s > 0 ? "+" : "") + _s.toLocaleString() + "円",
+                  style: {
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    width: 16, height: 16, borderRadius: "50%",
+                    background: _gs.bg, color: _gs.color,
+                    border: "1.5px solid " + _gs.border,
+                    fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0
+                  }
+                }, _gd.grade),
+                /*#__PURE__*/React.createElement("span", {
+                  style: {
+                    fontSize: 9, fontWeight: 700, color: _s >= 0 ? "#C0392B" : "#1E8449",
+                    lineHeight: 1, whiteSpace: "nowrap"
+                  }
+                }, _sDisp)
+              );
+            }
+            // 取引なし平日（土日・祝日・未来を除く）→ Z バッジ
+            if (monDow < 5 && !calHolidaySet[key] && key <= today) {
+              var _zs = _GRADE_STYLE.Z;
+              return React.createElement("span", {
+                title: "取引なし",
                 style: {
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   width: 16, height: 16, borderRadius: "50%",
-                  background: _gs.bg, color: _gs.color,
-                  border: "1.5px solid " + _gs.border,
+                  background: _zs.bg, color: _zs.color,
+                  border: "1.5px solid " + _zs.border,
                   fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0
                 }
-              }, _gd.grade),
-              /*#__PURE__*/React.createElement("span", {
-                style: {
-                  fontSize: 9, fontWeight: 700, color: _s >= 0 ? "#C0392B" : "#1E8449",
-                  lineHeight: 1, whiteSpace: "nowrap"
-                }
-              }, _sDisp)
-            );
+              }, "Z");
+            }
+            return null;
           })()
         ),
         /*#__PURE__*/React.createElement("button", {
@@ -31984,26 +32005,29 @@ function App() {
     setSel(todayStr());
     setSelTab("news");
   };
-  // 月次サマリ: data.trades を 1 パスで集計し、trades/cY/cM 変化時のみ再計算 (保存ラグ防止)
+  // 月次サマリ: 現在システム(data.charts signals)で集計
   var _mAgg = useMemo(function() {
     var out = { mPnl: 0, mCnt: 0, mW: 0 };
-    if (!data || !data.trades) return out;
+    if (!data || !data.charts) return out;
     var mpKey = cY + "-" + String(cM + 1).padStart(2, "0");
-    var trades = data.trades;
-    var keys = Object.keys(trades);
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      if (k.length < mpKey.length || k.charCodeAt(0) !== mpKey.charCodeAt(0) || !k.startsWith(mpKey)) continue;
-      var items = (trades[k] && trades[k].items) || [];
-      for (var j = 0; j < items.length; j++) {
-        var p = Number(items[j].pnl) || 0;
+    Object.keys(data.charts).forEach(function(ck) {
+      var parts = ck.split("_");
+      var dt = parts[parts.length - 1];
+      if (!dt || !dt.startsWith(mpKey)) return;
+      var c = data.charts[ck];
+      if (!c || !Array.isArray(c.signals)) return;
+      c.signals.forEach(function(sig) {
+        var s = _compatSignal(sig);
+        if (!_elIsEntered(s, null)) return;
+        var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+        var p = v != null ? v : 0;
         out.mPnl += p;
         out.mCnt += 1;
         if (p > 0) out.mW += 1;
-      }
-    }
+      });
+    });
     return out;
-  }, [data && data.trades, cY, cM]);
+  }, [data && data.charts, cY, cM]);
   if (loading) return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
