@@ -11831,10 +11831,10 @@ function ForeignMarketTable(_p) {
     alignItems: "flex-end", justifyContent: "center", gap: 1
   };
   // スパークライン列（5日・22日・50日）
-  var colSpark5  = { flex: "0 0 76px", display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 3px", borderRight: "1px solid #e8e5e0" };
-  var colSpark22 = { flex: "0 0 84px", display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 3px", borderRight: "1px solid #e8e5e0" };
-  var colSpark50 = { flex: "0 0 84px", display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 3px", borderRight: "1px solid #e8e5e0" };
-  var colMemo = { width: 28, flexShrink: 0, display: "flex", alignItems: "center",
+  var colSpark5  = { flex: "0 0 110px", display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 3px", borderRight: "1px solid #e8e5e0" };
+  var colSpark22 = { flex: "0 0 120px", display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 3px", borderRight: "1px solid #e8e5e0" };
+  var colSpark50 = { flex: "0 0 120px", display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 3px", borderRight: "1px solid #e8e5e0" };
+  var colMemo = { width: 22, flexShrink: 0, display: "flex", alignItems: "center",
     justifyContent: "center", cursor: "pointer" };
   var iconBtn = { cursor: "pointer", fontSize: 10, color: "#ccc", flexShrink: 0, padding: "1px 3px",
     lineHeight: 1, userSelect: "none", transition: "color .1s" };
@@ -11988,13 +11988,13 @@ function ForeignMarketTable(_p) {
                 ),
                 // ── スパークライン 5日・22日・50日（同スケール・変化率） ──
                 /*#__PURE__*/React.createElement("div", { style: colSpark5 },
-                  /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr5,  w: 68, h: 22, yMin: _sparkYMin, yMax: _sparkYMax })
+                  /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr5,  w: 104, h: 40, yMin: _sparkYMin, yMax: _sparkYMax })
                 ),
                 /*#__PURE__*/React.createElement("div", { style: colSpark22 },
-                  /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr22, w: 76, h: 22, yMin: _sparkYMin, yMax: _sparkYMax })
+                  /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr22, w: 114, h: 40, yMin: _sparkYMin, yMax: _sparkYMax })
                 ),
                 /*#__PURE__*/React.createElement("div", { style: colSpark50 },
-                  /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr50, w: 76, h: 22, yMin: _sparkYMin, yMax: _sparkYMax })
+                  /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr50, w: 114, h: 40, yMin: _sparkYMin, yMax: _sparkYMax })
                 ),
                 // ── メモボタン ──
                 /*#__PURE__*/React.createElement("div", {
@@ -12053,19 +12053,19 @@ function ForeignMarketTable(_p) {
       }, "前日比")
     ),
     /*#__PURE__*/React.createElement("div", {
-      style: { flex: "0 0 76px", padding: "5px 3px", fontSize: 11, fontWeight: 700, color: "#888",
+      style: { flex: "0 0 110px", padding: "5px 3px", fontSize: 11, fontWeight: 700, color: "#888",
         textAlign: "center", borderRight: "1px solid #e0ddd6" }
     }, "5日"),
     /*#__PURE__*/React.createElement("div", {
-      style: { flex: "0 0 84px", padding: "5px 3px", fontSize: 11, fontWeight: 700, color: "#888",
+      style: { flex: "0 0 120px", padding: "5px 3px", fontSize: 11, fontWeight: 700, color: "#888",
         textAlign: "center", borderRight: "1px solid #e0ddd6" }
     }, "22日"),
     /*#__PURE__*/React.createElement("div", {
-      style: { flex: "0 0 84px", padding: "5px 3px", fontSize: 11, fontWeight: 700, color: "#888",
+      style: { flex: "0 0 120px", padding: "5px 3px", fontSize: 11, fontWeight: 700, color: "#888",
         textAlign: "center", borderRight: "1px solid #e0ddd6" }
     }, "50日"),
     /*#__PURE__*/React.createElement("div", {
-      style: { width: 28, flexShrink: 0, padding: "5px 2px" }
+      style: { width: 22, flexShrink: 0, padding: "5px 2px" }
     }, "")
   );
   var topBar = /*#__PURE__*/React.createElement("div", {
