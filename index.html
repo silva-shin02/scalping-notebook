@@ -12148,11 +12148,32 @@ function ForeignMarketSettingsModal(_p) {
       var u = Object.assign({}, d); u[type] = arr; return u;
     });
   };
+  var moveItem = function(type, idx, dir) {
+    updDefs(function(d) {
+      var arr = (d[type] || []).slice();
+      var ni = idx + dir;
+      if (ni < 0 || ni >= arr.length) return d;
+      var tmp = arr[ni]; arr[ni] = arr[idx]; arr[idx] = tmp;
+      var u = Object.assign({}, d); u[type] = arr; return u;
+    });
+  };
+  var _btnMove = { padding: "3px 7px", fontSize: 11, background: "#f5f4f0",
+    border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", lineHeight: 1 };
   var renderDefSection = function(type, label, arr, addVal, setAddVal) {
     return /*#__PURE__*/React.createElement("div", { style: { marginBottom: 22 } },
       /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#444", marginBottom: 8 } }, label),
       arr.map(function(item, idx) {
         return /*#__PURE__*/React.createElement("div", { key: idx, style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 5 } },
+          /*#__PURE__*/React.createElement("button", {
+            style: Object.assign({}, _btnMove, { opacity: idx === 0 ? 0.3 : 1, cursor: idx === 0 ? "default" : "pointer" }),
+            disabled: idx === 0,
+            onClick: function(){ moveItem(type, idx, -1); }
+          }, "↑"),
+          /*#__PURE__*/React.createElement("button", {
+            style: Object.assign({}, _btnMove, { opacity: idx === arr.length - 1 ? 0.3 : 1, cursor: idx === arr.length - 1 ? "default" : "pointer" }),
+            disabled: idx === arr.length - 1,
+            onClick: function(){ moveItem(type, idx, 1); }
+          }, "↓"),
           /*#__PURE__*/React.createElement("input", {
             type: "text", value: item,
             style: { flex: 1, fontSize: 13, padding: "5px 8px", border: "1px solid #ddd", borderRadius: 5, outline: "none" },
