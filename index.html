@@ -18133,22 +18133,18 @@ function StockQuickRefTable(_props_qrt) {
   var effectiveWO = (typeof weekOffset === "number") ? weekOffset : localWO;
   var setWO = setWeekOffset || setLocalWO;
 
-  // 月曜日を起点に7日分
-  var getMondayOf = function(d) {
-    var nd = new Date(d);
-    var day = nd.getDay(), diff = nd.getDate() - day + (day === 0 ? -6 : 1);
-    nd.setDate(diff);
-    nd.setHours(0,0,0,0);
-    return nd;
-  };
-  var baseMonday = getMondayOf(new Date());
-  baseMonday.setDate(baseMonday.getDate() + effectiveWO * 7);
-  var weekDates = Array.from({ length: 7 }, function(_, i) {
-    var d = new Date(baseMonday);
-    d.setDate(d.getDate() + i);
+  // highlightDate（閲覧日）を起点に14日分
+  var _qrtLocalStr = function(d) {
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  };
+  var baseDate = highlightDate ? new Date(highlightDate + "T00:00:00") : new Date();
+  baseDate.setDate(baseDate.getDate() + effectiveWO * 14);
+  var weekDates = Array.from({ length: 14 }, function(_, i) {
+    var d = new Date(baseDate);
+    d.setDate(d.getDate() - 13 + i);
+    return _qrtLocalStr(d);
   });
-  var weekLabel = weekDates[0].slice(5).replace("-", "/") + "（月）〜 " + weekDates[6].slice(5).replace("-", "/") + "（日）";
+  var weekLabel = weekDates[0].slice(5).replace("-", "/") + " 〜 " + weekDates[13].slice(5).replace("-", "/");
 
   // 祝日・休場日 Set (今日の予定タブで「祝日・休場」カテゴリのイベントが付いた日)
   var _qrtHolidaySet = useMemo(function() {
@@ -32311,7 +32307,7 @@ function App() {
       alignItems: "center",
       flexWrap: "wrap"
     }
-  }, IS_TOUCH && [["損益", (mPnl > 0 ? "+" : "") + mPnl.toLocaleString() + "円", mPnl >= 0 ? "#C0392B" : "#1E8449"], ["取引", mCnt + "件", "#1a1a1a"], ["勝率", mCnt > 0 ? Math.round(mW / mCnt * 100) + "%" : "—", "#1a1a1a"]].map(function (_ref72) {
+  }, [["損益", (mPnl > 0 ? "+" : "") + mPnl.toLocaleString() + "円", mPnl >= 0 ? "#C0392B" : "#1E8449"], ["取引", mCnt + "件", "#1a1a1a"], ["勝率", mCnt > 0 ? Math.round(mW / mCnt * 100) + "%" : "—", "#1a1a1a"]].map(function (_ref72) {
     var _ref73 = _slicedToArray(_ref72, 3),
       la = _ref73[0],
       v = _ref73[1],
