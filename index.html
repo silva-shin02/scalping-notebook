@@ -11622,9 +11622,19 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
   ));
 });
 // ── 外国市場: ヘルパー関数群 ──
-function _fmPrevValue(foreignMarkets, currentDate, name, type) {
+// 土日・休場日を除いた営業日かどうか判定
+function _fmIsBizDay(d, holidaySet) {
+  var dow = new Date(d + "T00:00:00").getDay();
+  if (dow === 0 || dow === 6) return false;          // 土日
+  if (holidaySet && holidaySet[d]) return false;     // 米市場休場など
+  return true;
+}
+// 直前の値を返す（前日比計算用。土日・休場日をスキップして直近営業日を探す）
+function _fmPrevValue(foreignMarkets, currentDate, name, type, holidaySet) {
   if (!foreignMarkets) return null;
-  var dates = Object.keys(foreignMarkets).filter(function(d){ return d < currentDate; }).sort().reverse();
+  var dates = Object.keys(foreignMarkets)
+    .filter(function(d) { return d < currentDate && _fmIsBizDay(d, holidaySet); })
+    .sort().reverse();
   for (var i = 0; i < dates.length; i++) {
     var day = foreignMarkets[dates[i]];
     if (!day) continue;
@@ -11635,11 +11645,11 @@ function _fmPrevValue(foreignMarkets, currentDate, name, type) {
   }
   return null;
 }
-// 直近 n 日分の値を配列で返す（スパークライン用）
-function _fmPrevValues(foreignMarkets, currentDate, name, type, n) {
+// 直近 n 営業日分の値を配列で返す（スパークライン用）
+function _fmPrevValues(foreignMarkets, currentDate, name, type, n, holidaySet) {
   if (!foreignMarkets) return [];
   var dates = Object.keys(foreignMarkets)
-    .filter(function(d) { return d <= currentDate; })
+    .filter(function(d) { return d <= currentDate && _fmIsBizDay(d, holidaySet); })
     .sort().reverse().slice(0, n);
   dates.reverse();
   return dates.map(function(d) {
@@ -11652,11 +11662,11 @@ function _fmPrevValues(foreignMarkets, currentDate, name, type, n) {
     return null;
   });
 }
-// 直近 n 日分の日付配列を返す（_fmPrevValues と並列で使用）
-function _fmPrevDates(foreignMarkets, currentDate, n) {
+// 直近 n 営業日分の日付配列を返す（_fmPrevValues と並列で使用）
+function _fmPrevDates(foreignMarkets, currentDate, n, holidaySet) {
   if (!foreignMarkets) return [];
   return Object.keys(foreignMarkets)
-    .filter(function(d) { return d <= currentDate; })
+    .filter(function(d) { return d <= currentDate && _fmIsBizDay(d, holidaySet); })
     .sort().reverse().slice(0, n).reverse();
 }
 // スパークライン（3スタイル切替対応 + 起点終点日付 + ホバーツールチップ）
@@ -11988,6 +11998,10 @@ function ForeignMarketTable(_p) {
   // ドラッグ状態: { type, fromIdx, overIdx }
   var _uDrag = useState(null), _uDragA = _slicedToArray(_uDrag, 2),
     dragState = _uDragA[0], setDragState = _uDragA[1];
+  // 米市場休場を含む休場日セット（土日除外フィルタで使用）
+  var _fmHolidaySet = useMemo(function() {
+    return _buildHolidayDateSet(data.trades || {}, (data.custom && data.custom.eventCategories) || []);
+  }, [data.trades, data.custom && data.custom.eventCategories]);
   // スパークラインスタイル (1/2/3)
   var _uSV = useState(function(){ try { return parseInt(localStorage.getItem("fm_sparkline_v")||"1",10)||1; } catch(e){return 1;} }),
       _uSVA = _slicedToArray(_uSV, 2),
@@ -12028,7 +12042,7 @@ function ForeignMarketTable(_p) {
           }, "データなし")
         : /*#__PURE__*/React.createElement("div", { style: { padding: "6px 6px 2px" } },
             arr.map(function(entry, entryIdx) {
-              var prevVal = _fmPrevValue(foreignMarkets, date, entry.name, type);
+              var prevVal = _fmPrevValue(foreignMarkets, date, entry.name, type, _fmHolidaySet);
               var diff = (typeof entry.value === "number" && typeof prevVal === "number") ? entry.value - prevVal : null;
               var diffStr = fmtDiff(diff);
               var pct = (diff !== null && prevVal !== 0) ? diff / Math.abs(prevVal) * 100 : null;
@@ -12036,7 +12050,7 @@ function ForeignMarketTable(_p) {
               var diffColor = diff == null ? "#bbb" : diff >= 0 ? "#DC2626" : "#16A34A";
               var arrow = diff == null ? "" : diff > 0 ? "▲" : diff < 0 ? "▼" : "→";
               var hasBigMove = pct !== null && Math.abs(pct) >= 1;
-              var _sv50 = _fmPrevValues(foreignMarkets, date, entry.name, type, 50);
+              var _sv50 = _fmPrevValues(foreignMarkets, date, entry.name, type, 50, _fmHolidaySet);
               var _sv50nums = _sv50.filter(function(v) { return typeof v === "number"; });
               var _svBase = _sv50nums.length > 0 ? _sv50nums[0] : null;
               var _toRate = function(v) {
@@ -12049,7 +12063,7 @@ function ForeignMarketTable(_p) {
               var _srNums50 = _sr50.filter(function(v) { return v !== null; });
               var _sparkYMin = _srNums50.length > 1 ? Math.min.apply(null, _srNums50) : 0;
               var _sparkYMax = _srNums50.length > 1 ? Math.max.apply(null, _srNums50) : 0;
-              var _dates50 = _fmPrevDates(foreignMarkets, date, 50);
+              var _dates50 = _fmPrevDates(foreignMarkets, date, 50, _fmHolidaySet);
               var _dates22 = _dates50.slice(-22);
               var _dates5  = _dates50.slice(-5);
               var memoIsOpen = !!openMemos[entry.id];
