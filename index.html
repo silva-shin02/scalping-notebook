@@ -11652,42 +11652,167 @@ function _fmPrevValues(foreignMarkets, currentDate, name, type, n) {
     return null;
   });
 }
-// スパークライン SVG（直近 n 日の折れ線）
-// values: 数値または null の配列（変化率等に変換済みでも可）
-// yMin/yMax: 省略時は自動（複数スパークラインを同スケールにするため外部から渡す）
+// 直近 n 日分の日付配列を返す（_fmPrevValues と並列で使用）
+function _fmPrevDates(foreignMarkets, currentDate, n) {
+  if (!foreignMarkets) return [];
+  return Object.keys(foreignMarkets)
+    .filter(function(d) { return d <= currentDate; })
+    .sort().reverse().slice(0, n).reverse();
+}
+// スパークライン（3スタイル切替対応 + 起点終点日付 + ホバーツールチップ）
+// variant 1: エリア塗りつぶし  2: ゼロライン基準上下カラー  3: 折れ線＋高安マーカー
 function _FMSparkline(_p) {
-  var values = _p.values, w = _p.w || 64, h = _p.h || 22,
-      fixedYMin = _p.yMin, fixedYMax = _p.yMax;
-  var nums = values.filter(function(v) { return typeof v === "number"; });
-  if (nums.length < 2) return null;
-  var lastVal = nums[nums.length - 1];
-  var firstVal = nums[0];
+  var values = _p.values, dates = _p.dates || [],
+      w = _p.w || 120, h = _p.h || 52,
+      fixedYMin = _p.yMin, fixedYMax = _p.yMax,
+      variant = _p.variant || 1;
+  var _hs = useState(null), hoverIdx = _hs[0], setHoverIdx = _hs[1];
+  var uidRef = useRef(null);
+  if (!uidRef.current) uidRef.current = "fm" + Math.random().toString(36).slice(2, 8);
+  var uid = uidRef.current;
+  var indexed = [];
+  for (var _i = 0; _i < values.length; _i++) {
+    if (typeof values[_i] === "number") indexed.push({ v: values[_i], date: dates[_i] || null });
+  }
+  if (indexed.length < 2) return null;
+  var nums = indexed.map(function(d) { return d.v; });
+  var lastVal = nums[nums.length - 1], firstVal = nums[0];
   var color = lastVal > firstVal ? "#DC2626" : lastVal < firstVal ? "#16A34A" : "#bbb";
-  var pad = 2;
+  var pad = 4;
   var min = fixedYMin !== undefined ? fixedYMin : Math.min.apply(null, nums);
   var max = fixedYMax !== undefined ? fixedYMax : Math.max.apply(null, nums);
   var range = max - min;
+  var fmtD = function(d) {
+    if (!d) return "";
+    var m = d.match(/\d{4}-(\d{2})-(\d{2})/);
+    return m ? (m[1] * 1) + "/" + m[2] : d;
+  };
+  var startDate = indexed[0].date, endDate = indexed[indexed.length - 1].date;
+  var dateRow = React.createElement("div", {
+    style: { display: "flex", justifyContent: "space-between", fontSize: 9,
+      color: "#c0bdba", marginTop: 1, padding: "0 " + pad + "px", boxSizing: "border-box", lineHeight: 1 }
+  },
+    React.createElement("span", null, fmtD(startDate)),
+    React.createElement("span", null, fmtD(endDate))
+  );
   if (range === 0) {
-    return React.createElement("svg", { width: w, height: h, style: { display: "block" } },
-      React.createElement("line", { x1: pad, y1: h / 2, x2: w - pad, y2: h / 2,
-        stroke: color, strokeWidth: 1.5, strokeLinecap: "round" })
+    return React.createElement("div", { style: { position: "relative", width: w } },
+      React.createElement("svg", { width: w, height: h, style: { display: "block" } },
+        React.createElement("line", { x1: pad, y1: h / 2, x2: w - pad, y2: h / 2,
+          stroke: color, strokeWidth: 1.5, strokeLinecap: "round" })
+      ), dateRow
     );
   }
-  // null（土日祝休場）をスキップし、有効データのみを等間隔に並べた連続パスを描画
-  var pts = nums.map(function(v, i) {
-    var x = nums.length > 1 ? pad + (i / (nums.length - 1)) * (w - pad * 2) : w / 2;
-    var y = h - pad - ((v - min) / range) * (h - pad * 2);
-    return { x: x, y: y };
+  var pts = indexed.map(function(d, i) {
+    var x = indexed.length > 1 ? pad + (i / (indexed.length - 1)) * (w - pad * 2) : w / 2;
+    var y = h - pad - ((d.v - min) / range) * (h - pad * 2);
+    return { x: x, y: y, v: d.v, date: d.date };
   });
-  if (pts.length === 1) {
-    return React.createElement("svg", { width: w, height: h, style: { display: "block" } },
-      React.createElement("circle", { cx: pts[0].x, cy: pts[0].y, r: 1.5, fill: color })
-    );
+  var linePath = pts.map(function(p, pi) {
+    return (pi === 0 ? "M" : "L") + p.x.toFixed(1) + "," + p.y.toFixed(1);
+  }).join(" ");
+  var areaPath = linePath + " L" + pts[pts.length-1].x.toFixed(1) + "," + (h - pad + 1)
+              + " L" + pts[0].x.toFixed(1) + "," + (h - pad + 1) + " Z";
+  var hovPt = (hoverIdx !== null && pts[hoverIdx]) ? pts[hoverIdx] : null;
+  var svgChildren = [];
+
+  if (variant === 1) {
+    // ── 案1: エリア塗りつぶし ──
+    var fillColor1 = lastVal > firstVal ? "rgba(220,38,38,0.13)" : lastVal < firstVal ? "rgba(22,163,74,0.13)" : "rgba(180,180,180,0.1)";
+    svgChildren.push(React.createElement("path", { key: "area", d: areaPath, fill: fillColor1, stroke: "none" }));
+    svgChildren.push(React.createElement("path", { key: "line", d: linePath, fill: "none", stroke: color,
+      strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" }));
+
+  } else if (variant === 2) {
+    // ── 案2: ゼロライン基準・上下カラー塗り分け ──
+    var y0 = h - pad - ((0 - min) / range) * (h - pad * 2);
+    y0 = Math.max(pad, Math.min(h - pad, y0));
+    var clipAboveId = "fmca-" + uid, clipBelowId = "fmcb-" + uid;
+    svgChildren.push(React.createElement("defs", { key: "defs" },
+      React.createElement("clipPath", { id: clipAboveId },
+        React.createElement("rect", { x: 0, y: 0, width: w, height: y0 })
+      ),
+      React.createElement("clipPath", { id: clipBelowId },
+        React.createElement("rect", { x: 0, y: y0, width: w, height: h - y0 + pad })
+      )
+    ));
+    svgChildren.push(React.createElement("path", { key: "fill-above", d: areaPath,
+      fill: "rgba(220,38,38,0.18)", stroke: "none", clipPath: "url(#" + clipAboveId + ")" }));
+    svgChildren.push(React.createElement("path", { key: "fill-below", d: areaPath,
+      fill: "rgba(22,163,74,0.18)", stroke: "none", clipPath: "url(#" + clipBelowId + ")" }));
+    svgChildren.push(React.createElement("line", { key: "zeroline",
+      x1: pad, y1: y0, x2: w - pad, y2: y0,
+      stroke: "#aaa", strokeWidth: 0.8, strokeDasharray: "3,2" }));
+    svgChildren.push(React.createElement("path", { key: "line", d: linePath, fill: "none",
+      stroke: "#444", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" }));
+
+  } else if (variant === 3) {
+    // ── 案3: 折れ線＋最高値▲・最安値▼マーカー＋エンドポイント強調 ──
+    var minIdx = 0, maxIdx = 0;
+    for (var _mi = 1; _mi < pts.length; _mi++) {
+      if (pts[_mi].v < pts[minIdx].v) minIdx = _mi;
+      if (pts[_mi].v > pts[maxIdx].v) maxIdx = _mi;
+    }
+    svgChildren.push(React.createElement("path", { key: "line", d: linePath, fill: "none", stroke: color,
+      strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" }));
+    // 起点: 白抜き小丸
+    svgChildren.push(React.createElement("circle", { key: "s-dot",
+      cx: pts[0].x, cy: pts[0].y, r: 2.5, fill: "#fff", stroke: color, strokeWidth: 1.5 }));
+    // 終点: 塗り大丸
+    svgChildren.push(React.createElement("circle", { key: "e-dot",
+      cx: pts[pts.length-1].x, cy: pts[pts.length-1].y, r: 4, fill: color, stroke: "#fff", strokeWidth: 1.5 }));
+    // 最安値 ▼ (中間点のみ)
+    if (minIdx !== 0 && minIdx !== pts.length - 1) {
+      var mx = pts[minIdx].x, my = pts[minIdx].y;
+      svgChildren.push(React.createElement("polygon", { key: "min-tri",
+        points: mx + "," + (my+5) + " " + (mx-4) + "," + my + " " + (mx+4) + "," + my,
+        fill: "#16A34A" }));
+    }
+    // 最高値 ▲ (中間点のみ)
+    if (maxIdx !== 0 && maxIdx !== pts.length - 1) {
+      var _mx2 = pts[maxIdx].x, _my2 = pts[maxIdx].y;
+      svgChildren.push(React.createElement("polygon", { key: "max-tri",
+        points: _mx2 + "," + (_my2-5) + " " + (_mx2-4) + "," + _my2 + " " + (_mx2+4) + "," + _my2,
+        fill: "#DC2626" }));
+    }
   }
-  var d = pts.map(function(p, pi) { return (pi === 0 ? "M" : "L") + p.x.toFixed(1) + "," + p.y.toFixed(1); }).join(" ");
-  return React.createElement("svg", { width: w, height: h, style: { display: "block" } },
-    React.createElement("path", { d: d, fill: "none", stroke: color,
-      strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" })
+
+  // ホバードット（全スタイル共通）
+  if (hovPt) {
+    svgChildren.push(React.createElement("circle", { key: "hov",
+      cx: hovPt.x, cy: hovPt.y, r: 3,
+      fill: variant === 2 ? "#444" : color, stroke: "#fff", strokeWidth: 1.5 }));
+  }
+
+  return React.createElement("div", { style: { position: "relative", width: w, userSelect: "none" } },
+    React.createElement("svg", {
+      width: w, height: h, style: { display: "block", cursor: "crosshair" },
+      onMouseMove: function(e) {
+        var rect = e.currentTarget.getBoundingClientRect();
+        var mx = e.clientX - rect.left;
+        var best = 0, bestD = Infinity;
+        for (var pi = 0; pi < pts.length; pi++) {
+          var dist = Math.abs(pts[pi].x - mx);
+          if (dist < bestD) { bestD = dist; best = pi; }
+        }
+        setHoverIdx(best);
+      },
+      onMouseLeave: function() { setHoverIdx(null); }
+    }, svgChildren),
+    hovPt && React.createElement("div", {
+      style: {
+        position: "absolute", pointerEvents: "none", zIndex: 10,
+        left: Math.min(Math.max(0, hovPt.x - 28), w - 58),
+        top: hovPt.y > h * 0.55 ? 2 : h - 30,
+        background: "rgba(24,24,28,0.86)", color: "#fff",
+        fontSize: 9, padding: "2px 5px", borderRadius: 4,
+        whiteSpace: "nowrap", lineHeight: 1.6
+      }
+    },
+      React.createElement("div", null, fmtD(hovPt.date)),
+      React.createElement("div", null, (hovPt.v >= 0 ? "+" : "") + hovPt.v.toFixed(2) + "%")
+    ),
+    dateRow
   );
 }
 function _fmToHalfWidth(s) {
@@ -11863,6 +11988,20 @@ function ForeignMarketTable(_p) {
   // ドラッグ状態: { type, fromIdx, overIdx }
   var _uDrag = useState(null), _uDragA = _slicedToArray(_uDrag, 2),
     dragState = _uDragA[0], setDragState = _uDragA[1];
+  // スパークラインスタイル (1/2/3)
+  var _uSV = useState(function(){ try { return parseInt(localStorage.getItem("fm_sparkline_v")||"1",10)||1; } catch(e){return 1;} }),
+      _uSVA = _slicedToArray(_uSV, 2),
+      sparklineVariant = _uSVA[0], setSparklineVariant = _uSVA[1];
+  var setVariant = function(v) {
+    try { localStorage.setItem("fm_sparkline_v", String(v)); } catch(e) {}
+    setSparklineVariant(v);
+  };
+  // 早見表ポップアップ
+  var _allCustomStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : [];
+  var _uHY = useState(false), _uHYA = _slicedToArray(_uHY, 2),
+      showHayamihyo = _uHYA[0], setShowHayamihyo = _uHYA[1];
+  var _uHYS = useState(_allCustomStocks[0] || ""), _uHYSA = _slicedToArray(_uHYS, 2),
+      hayamihyoStock = _uHYSA[0], setHayamihyoStock = _uHYSA[1];
 
   var commitMemo = function(type, id, memo) {
     updArr(type, function(arr) {
@@ -11910,6 +12049,9 @@ function ForeignMarketTable(_p) {
               var _srNums50 = _sr50.filter(function(v) { return v !== null; });
               var _sparkYMin = _srNums50.length > 1 ? Math.min.apply(null, _srNums50) : 0;
               var _sparkYMax = _srNums50.length > 1 ? Math.max.apply(null, _srNums50) : 0;
+              var _dates50 = _fmPrevDates(foreignMarkets, date, 50);
+              var _dates22 = _dates50.slice(-22);
+              var _dates5  = _dates50.slice(-5);
               var memoIsOpen = !!openMemos[entry.id];
               var isDragSrc = dragState && dragState.type === type && dragState.fromIdx === entryIdx;
               var isDragOver = dragState && dragState.type === type && dragState.overIdx === entryIdx && dragState.fromIdx !== entryIdx;
@@ -11954,12 +12096,13 @@ function ForeignMarketTable(_p) {
                       userSelect: "none", touchAction: "none", borderRight: "1px solid #f0ede8" }
                   }, "⋮⋮"),
                   /*#__PURE__*/React.createElement("div", {
-                    style: { flex: 1, padding: "6px 8px", display: "flex", alignItems: "center",
+                    style: { flexGrow: 0, flexShrink: 1, width: "max-content", maxWidth: "45%",
+                      padding: "6px 8px", display: "flex", alignItems: "center",
                       gap: 4, boxSizing: "border-box", overflow: "hidden", borderRight: "1px solid #f0ede8" }
                   },
                     /*#__PURE__*/React.createElement("span", {
-                      style: { flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.4,
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }
+                      style: { fontSize: 13, fontWeight: 600, lineHeight: 1.4,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
                     }, entry.name),
                     /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 0, flexShrink: 0, opacity: 0.5 } },
                       /*#__PURE__*/React.createElement("span", {
@@ -12013,6 +12156,19 @@ function ForeignMarketTable(_p) {
                     }, pctStr)
                   ),
                   /*#__PURE__*/React.createElement("div", {
+                    style: { width: 30, flexShrink: 0, display: "flex", alignItems: "center",
+                      justifyContent: "center", cursor: "pointer", borderRight: "1px solid #f0ede8" },
+                    onClick: function() {
+                      if (_allCustomStocks.length > 0 && !hayamihyoStock) setHayamihyoStock(_allCustomStocks[0]);
+                      setShowHayamihyo(true);
+                    },
+                    title: "早見表"
+                  },
+                    /*#__PURE__*/React.createElement("span", {
+                      style: { fontSize: 11, lineHeight: 1, color: "#8B8FA8", fontWeight: 600 }
+                    }, "表")
+                  ),
+                  /*#__PURE__*/React.createElement("div", {
                     style: { width: 32, flexShrink: 0, display: "flex", alignItems: "center",
                       justifyContent: "center", cursor: "pointer" },
                     onClick: function() {
@@ -12041,7 +12197,7 @@ function ForeignMarketTable(_p) {
                     /*#__PURE__*/React.createElement("div", {
                       style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
                     }, "5日"),
-                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr5, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax })
+                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr5, dates: _dates5, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax, variant: sparklineVariant })
                   ),
                   /*#__PURE__*/React.createElement("div", {
                     style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
@@ -12050,7 +12206,7 @@ function ForeignMarketTable(_p) {
                     /*#__PURE__*/React.createElement("div", {
                       style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
                     }, "22日"),
-                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr22, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax })
+                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr22, dates: _dates22, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax, variant: sparklineVariant })
                   ),
                   /*#__PURE__*/React.createElement("div", {
                     style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
@@ -12059,7 +12215,7 @@ function ForeignMarketTable(_p) {
                     /*#__PURE__*/React.createElement("div", {
                       style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
                     }, "50日"),
-                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr50, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax })
+                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr50, dates: _dates50, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax, variant: sparklineVariant })
                   )
                 ),
                 // ── メモ欄 ──
@@ -12101,12 +12257,27 @@ function ForeignMarketTable(_p) {
           background: "#F0F4FF", whiteSpace: "nowrap", lineHeight: 1 }
       }, "🔗 Google Financeで確認")
     ),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: onOpenSettings,
-      title: "デフォルト設定",
-      style: { fontSize: 12, padding: "4px 10px", background: "#f5f4f0",
-        border: "1px solid #ddd", borderRadius: 5, cursor: "pointer", color: "#555" }
-    }, "⚙️ 設定")
+    /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+      /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginRight: 2 } }, "グラフ"),
+      [1, 2, 3].map(function(v) {
+        return /*#__PURE__*/React.createElement("button", {
+          key: v,
+          onClick: function() { setVariant(v); },
+          title: v === 1 ? "エリア塗りつぶし" : v === 2 ? "ゼロライン基準" : "高安マーカー",
+          style: { fontSize: 11, padding: "3px 7px", cursor: "pointer", borderRadius: 4,
+            border: "1px solid " + (sparklineVariant === v ? "#4338CA" : "#ddd"),
+            background: sparklineVariant === v ? "#EEF2FF" : "#f5f4f0",
+            color: sparklineVariant === v ? "#4338CA" : "#666",
+            fontWeight: sparklineVariant === v ? 700 : 400 }
+        }, "案" + v);
+      }),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: onOpenSettings,
+        title: "デフォルト設定",
+        style: { fontSize: 12, padding: "4px 10px", background: "#f5f4f0",
+          border: "1px solid #ddd", borderRadius: 5, cursor: "pointer", color: "#555", marginLeft: 4 }
+      }, "⚙️ 設定")
+    )
   );
   // fmDay が null の間はtopBarのみ表示（useEffectで自動作成される）
   if (!fmDay) {
@@ -12114,6 +12285,64 @@ function ForeignMarketTable(_p) {
   }
   var indicators = fmDay.indicators || [];
   var stocks = fmDay.stocks || [];
+
+  // ── 早見表ポップアップ ──
+  var hayamihyoModal = showHayamihyo && /*#__PURE__*/React.createElement("div", {
+    style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 2000,
+      display: "flex", alignItems: "flex-start", justifyContent: "center",
+      paddingTop: 48, paddingBottom: 24, overflowY: "auto" },
+    onClick: function(e) { if (e.target === e.currentTarget) setShowHayamihyo(false); }
+  },
+    /*#__PURE__*/React.createElement("div", {
+      style: { background: "#fff", borderRadius: 12, width: "95%", maxWidth: 680,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.18)", position: "relative", overflow: "hidden" }
+    },
+      // ヘッダー
+      /*#__PURE__*/React.createElement("div", {
+        style: { display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px", borderBottom: "1px solid #e8e6e0", background: "#f9f8f5" }
+      },
+        /*#__PURE__*/React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#333" } }, "📋 早見表"),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: function() { setShowHayamihyo(false); },
+          style: { fontSize: 16, lineHeight: 1, border: "none", background: "transparent",
+            cursor: "pointer", color: "#888", padding: "4px 8px" }
+        }, "✕")
+      ),
+      // 銘柄タブ
+      _allCustomStocks.length > 0 && /*#__PURE__*/React.createElement("div", {
+        style: { display: "flex", flexWrap: "wrap", gap: 4, padding: "8px 12px",
+          borderBottom: "1px solid #e8e6e0", background: "#fafaf8" }
+      },
+        _allCustomStocks.map(function(s) {
+          var isActive = s === hayamihyoStock;
+          return /*#__PURE__*/React.createElement("button", {
+            key: s,
+            onClick: function() { setHayamihyoStock(s); },
+            style: { fontSize: 12, padding: "4px 10px", cursor: "pointer", borderRadius: 6,
+              border: "1px solid " + (isActive ? "#1a1a1a" : "#ddd"),
+              background: isActive ? "#1a1a1a" : "#fff",
+              color: isActive ? "#fff" : "#444",
+              fontWeight: isActive ? 700 : 400 }
+          }, s);
+        })
+      ),
+      // テーブル本体
+      /*#__PURE__*/React.createElement("div", { style: { padding: "0 4px 8px", overflowY: "auto", maxHeight: "65vh" } },
+        hayamihyoStock
+          ? /*#__PURE__*/React.createElement(StockQuickRefTable, {
+              data: data,
+              activeStock: hayamihyoStock,
+              highlightDate: date,
+              onSelectDate: null
+            })
+          : /*#__PURE__*/React.createElement("div", {
+              style: { padding: 24, textAlign: "center", color: "#aaa", fontSize: 13 }
+            }, "銘柄を選択してください")
+      )
+    )
+  );
+
   return /*#__PURE__*/React.createElement("div", null,
     topBar,
     /*#__PURE__*/React.createElement("div", {
@@ -12122,7 +12351,8 @@ function ForeignMarketTable(_p) {
       tableHeader,
       renderSection("indicator", "📊 指標", "#4338CA", "#EEF2FF", indicators, 0),
       renderSection("stock", "🏢 銘柄", "#15803D", "#F0FDF4", stocks, indicators.length)
-    )
+    ),
+    hayamihyoModal
   );
 }
 // ── 外国市場: デフォルト設定モーダル ──
