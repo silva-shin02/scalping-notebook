@@ -23142,7 +23142,7 @@ function EntryRecordForm(_ref_erf) {
           var on = !fIsCustom && fTag === t;
           return React.createElement("button", {
             key: t,
-            onClick: function() { setFIsCustom(false); setFTag(t); },
+            onClick: function() { if (on) { setFTag(""); } else { setFIsCustom(false); setFTag(t); } },
             style: {
               padding: "6px 10px", fontSize: 12, fontWeight: 600,
               border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
