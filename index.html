@@ -20659,17 +20659,21 @@ function _caBuildUrl(code, date, draftId) {
 }
 
 // chart_annotator を別タブで開く
+// <a> 要素クリック方式: iPad/Android を含む全デバイスでポップアップブロック回避
 function _caOpen(code, date, draftId) {
   var url = _caBuildUrl(code, date, draftId);
   try { console.log("[CA] open url:", url); } catch(_){}
-  var w = null;
-  try { w = window.open(url, "_blank"); } catch(e) {
-    console.warn("[chart_annotator] open failed:", e);
-  }
-  // iPad Safari などで window.open がブロックされた場合は同タブ遷移にフォールバック
-  if (!w) {
+  try {
+    var a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch(e) {
     try { window.location.href = url; } catch(e2) {
-      console.warn("[chart_annotator] fallback navigation failed:", e2);
+      console.warn("[chart_annotator] open failed:", e2);
     }
   }
 }
