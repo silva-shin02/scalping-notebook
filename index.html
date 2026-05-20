@@ -3431,6 +3431,7 @@ function ImageAnnotator(_ref7) {
   var _tHandlers = useRef({ts:null,tm:null,te:null}); // stable touch handler refs (re-registered once)
   var _mHandlers = useRef({mv:null,up:null}); // stable mouse handler refs (document-level tracking)
   var textDragRef = useRef(null); // テキストのドラッグ追跡 {idx, sx, sy, ox, oy, dragged}
+  var ctrlPanRef = useRef(null); // Ctrl+ドラッグ → ツールを問わずパン
   // ★ 2本指ダブルタップ → 消しゴム切替（ピンチと共存: 動かず短時間で離れたらタップ確定）
   var twoFingerRef = useRef({ startTime: 0, startD: 0, prevTapTime: 0, moved: false, prevTool: null });
   // ★ Android Chrome バグ対策: ピンチ開始の最初の数フレームで pinchRef が立つ前に
@@ -4204,6 +4205,11 @@ function ImageAnnotator(_ref7) {
     //    一度でも 2本指を検知していたら、全指離脱まで描画開始を抑止
     if (multiTouchSeenRef.current) return;
     e.preventDefault();
+    // Ctrl+ドラッグ → ツールに関わらずパン（PC専用）
+    if (!e.touches && (e.ctrlKey || e.metaKey)) {
+      ctrlPanRef.current = { sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y };
+      return;
+    }
     if (tool === "pan") {
       var s = e.touches ? e.touches[0] : e;
       panRef.current = {
@@ -4323,6 +4329,11 @@ function ImageAnnotator(_ref7) {
     //    一度でも 2本指を検知していたら、全指離脱まで onMove を停止
     if (multiTouchSeenRef.current) return;
     e.preventDefault();
+    if (ctrlPanRef.current) {
+      setPan({ x: ctrlPanRef.current.px + (e.clientX - ctrlPanRef.current.sx),
+               y: ctrlPanRef.current.py + (e.clientY - ctrlPanRef.current.sy) });
+      return;
+    }
     if (tool === "pan" && panRef.current) {
       var s = e.touches ? e.touches[0] : e;
       setPan({
@@ -4431,6 +4442,10 @@ function ImageAnnotator(_ref7) {
     }
   };
   var onEnd = function onEnd(e) {
+    if (ctrlPanRef.current) {
+      ctrlPanRef.current = null;
+      return;
+    }
     if (tool === "pan") {
       panRef.current = null;
       return;
@@ -5405,6 +5420,16 @@ function ImageAnnotator(_ref7) {
         imageRendering: "auto",
         cursor: tool === "pan" ? "grab" : tool === "eraser" ? "cell" : tool === "lasso" ? "default" : "crosshair",
         touchAction: "none"
+      },
+      onMouseMove: function(e) {
+        // Ctrl押下中はgrabカーソルをリアルタイムに更新
+        if (!ctrlPanRef.current && (e.ctrlKey || e.metaKey)) {
+          e.currentTarget.style.cursor = "grab";
+        } else if (ctrlPanRef.current) {
+          e.currentTarget.style.cursor = "grabbing";
+        } else {
+          e.currentTarget.style.cursor = "";
+        }
       },
       onMouseDown: function(e) {
         // ★ Android Chrome 対策: synthetic mouse event がピンチ中に発火することがある
@@ -11990,7 +12015,8 @@ function _FMHayamihyoTable(_p) {
 // ── 外国市場テーブル ──
 function ForeignMarketTable(_p) {
   var date = _p.date, data = _p.data, save = _p.save, custom = _p.custom, onOpenSettings = _p.onOpenSettings,
-      showSections = _p.showSections || ["indicator", "stock"];
+      showSections = _p.showSections || ["indicator", "stock"],
+      hideSectionLabel = !!_p.hideSectionLabel;
   var foreignMarkets = data.foreignMarkets || {};
   var fmDay = foreignMarkets[date] || null;
   var defs = custom.foreignMarketDefaults || {};
@@ -12159,7 +12185,7 @@ function ForeignMarketTable(_p) {
         style: { display: "flex", alignItems: "center", justifyContent: "space-between",
           background: sBg, padding: "5px 8px", borderBottom: "1px solid #e0ddd6" }
       },
-        /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: sColor } }, sLabel),
+        !hideSectionLabel && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: sColor } }, sLabel),
         /*#__PURE__*/React.createElement("button", {
           onClick: function(){ addRow(type); },
           style: { fontSize: 11, padding: "2px 8px", background: "#fff",
@@ -18797,6 +18823,7 @@ function DayView(_ref57) {
     _useStateITA = _slicedToArray(_useStateIT, 2),
     indTab = _useStateITA[0], setIndTab = _useStateITA[1];
   var _setIndTab = function(t) { try { localStorage.setItem("scalping_ind_tab_v1", t); } catch(e) {} setIndTab(t); };
+  var indTabDragRef = useRef(null);
   // 取引タブからのエントリー記録編集対象
   var _useStateTET = useState(null),
     _useStateTETA = _slicedToArray(_useStateTET, 2),
@@ -19311,21 +19338,40 @@ function DayView(_ref57) {
     /*#__PURE__*/React.createElement("div", {
       style: { display: "flex", gap: 2, marginBottom: 14, borderBottom: "2px solid #1a1a1a", overflowX: "auto" }
     },
-      [["fm", "🌏 外国市場"], ["nikkei", "📈 日経平均株価"]].map(function(pair) {
-        var k = pair[0], la = pair[1];
-        return /*#__PURE__*/React.createElement("button", {
-          key: k, onClick: function() { _setIndTab(k); },
-          style: { padding: IS_TOUCH ? "10px 14px" : "10px 16px", fontSize: 13, fontWeight: 600,
-            border: "none", background: indTab === k ? "#1a1a1a" : "transparent",
-            color: indTab === k ? "#fff" : "#888", cursor: "pointer",
-            borderRadius: "8px 8px 0 0", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 44 : 36 }
-        }, la);
-      })
+      (function() {
+        var _itL = { "fm": "🌏 外国市場", "nikkei": "📈 日経平均株価" };
+        var _ito = (custom.indTabOrder && custom.indTabOrder.length === 2 && custom.indTabOrder.every(function(k) { return !!_itL[k]; }))
+          ? custom.indTabOrder : ["fm", "nikkei"];
+        return _ito.map(function(k, i) {
+          return /*#__PURE__*/React.createElement("button", {
+            key: k,
+            draggable: true,
+            onClick: function() { _setIndTab(k); },
+            onDragStart: function(e) { indTabDragRef.current = i; e.dataTransfer.effectAllowed = "move"; },
+            onDragOver: function(e) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; },
+            onDrop: function(e) {
+              e.preventDefault();
+              var from = indTabDragRef.current;
+              indTabDragRef.current = null;
+              if (from === null || from === i) return;
+              var no = _ito.slice();
+              no.splice(i, 0, no.splice(from, 1)[0]);
+              updCustom({ indTabOrder: no });
+            },
+            onDragEnd: function() { indTabDragRef.current = null; },
+            style: { padding: IS_TOUCH ? "10px 14px" : "10px 16px", fontSize: 13, fontWeight: 600,
+              border: "none", background: indTab === k ? "#1a1a1a" : "transparent",
+              color: indTab === k ? "#fff" : "#888", cursor: IS_TOUCH ? "pointer" : "grab",
+              borderRadius: "8px 8px 0 0", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 44 : 36 }
+          }, _itL[k]);
+        });
+      })()
     ),
     indTab === "fm" && /*#__PURE__*/React.createElement(React.Fragment, null,
       /*#__PURE__*/React.createElement(ForeignMarketTable, {
         date: date, data: data, save: save, custom: custom,
         showSections: ["indicator"],
+        hideSectionLabel: true,
         onOpenSettings: function() { setShowFmSettings(true); }
       }),
       showFmSettings && /*#__PURE__*/React.createElement(ForeignMarketSettingsModal, {
@@ -19389,6 +19435,7 @@ function DayView(_ref57) {
     ? /*#__PURE__*/React.createElement(React.Fragment, null,
         /*#__PURE__*/React.createElement(ForeignMarketTable, {
           date: date, data: data, save: save, custom: custom,
+          showSections: ["stock"],
           onOpenSettings: function() { setShowFmSettings(true); }
         }),
         showFmSettings && /*#__PURE__*/React.createElement(ForeignMarketSettingsModal, {
