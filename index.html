@@ -23665,7 +23665,7 @@ function EntryRecordForm(_ref_erf) {
           var on = fResult === kv[1];
           return React.createElement("button", {
             key: kv[1] || "none",
-            onClick: function() { setFResult(kv[1]); },
+            onClick: function() { setFResult(kv[1]); if (kv[1] === "ng") { setFPlanSign("-"); setFMaxSign("-"); } },
             style: {
               padding: "8px 12px", fontSize: 13, fontWeight: 600,
               border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
