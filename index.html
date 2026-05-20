@@ -9991,9 +9991,10 @@ function EntrySignalSection(_ref_es) {
   var _esGroupByCategory = function(recs) {
     var byTag = {};
     recs.forEach(function(r) {
-      var k = r.signal.isCustomTag ? "__c__" + (r.signal.customTagText || "(空)") : (r.signal.tag || "(未設定)");
-      if (!byTag[k]) byTag[k] = { records: [], label: _elTagLabel(r.signal), isCustom: !!r.signal.isCustomTag };
-      byTag[k].records.push(r);
+      _elTagEntries(r.signal).forEach(function(e) {
+        if (!byTag[e.key]) byTag[e.key] = { records: [], label: e.label, isCustom: e.isCustom };
+        byTag[e.key].records.push(r);
+      });
     });
     var orderedKeys = signalTagsMaster.filter(function(t) { return byTag[t]; });
     var customKeys = Object.keys(byTag).filter(function(k) {
@@ -20881,12 +20882,14 @@ function _hdTagKey(s) {
 }
 
 // タグ別集計：{ key -> { label, records, stats } }
+// 複数シグナルを持つレコードは各タグに重複カウント
 function _hdGroupByTag(records) {
   var map = {};
   records.forEach(function(r) {
-    var k = _hdTagKey(r.signal);
-    if (!map[k]) map[k] = { key: k, label: _elTagLabel(r.signal), records: [] };
-    map[k].records.push(r);
+    _elTagEntries(r.signal).forEach(function(e) {
+      if (!map[e.key]) map[e.key] = { key: e.key, label: e.label, records: [] };
+      map[e.key].records.push(r);
+    });
   });
   Object.keys(map).forEach(function(k) {
     map[k].stats = _elCalcStats(map[k].records);
@@ -23320,9 +23323,19 @@ function _elFilterPeriod(records, period) {
 
 // ── タグ表示用（その他の場合はカスタムテキスト） ──
 function _elTagLabel(s) {
-  var parts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []));
-  if (s.isCustomTag) parts = parts.concat([s.customTagText || "(その他)"]);
-  return parts.length > 0 ? parts.join(" / ") : "(未設定)";
+  if (s.tags && s.tags.length > 0) return s.tags[0];
+  if (s.tag && s.tag !== "__custom__") return s.tag;
+  if (s.isCustomTag) return s.customTagText || "(その他)";
+  return "(未設定)";
+}
+// 複数シグナルを持つレコードのキー一覧 [{key, label, isCustom}] を返す
+function _elTagEntries(s) {
+  var entries = [];
+  var stdTags = s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []);
+  stdTags.forEach(function(t) { entries.push({ key: t, label: t, isCustom: false }); });
+  if (s.isCustomTag) entries.push({ key: "__c__" + (s.customTagText || "(空)"), label: s.customTagText || "(その他)", isCustom: true });
+  if (entries.length === 0) entries.push({ key: "(未設定)", label: "(未設定)", isCustom: false });
+  return entries;
 }
 
 // ── 既存取引記録（items[]）から候補を取得 ──
@@ -24277,12 +24290,14 @@ function EntryLogView(_ref_elv) {
     });
   };
   // カテゴリ別グルーピング (signalTags 順、各内は時刻昇順)
+  // 複数シグナルを持つレコードは各シグナルのグループに重複して入る
   var _groupByCategory = function(records, _signalTags) {
     var byTag = {};
     records.forEach(function(r) {
-      var k = r.signal.isCustomTag ? "__c__" + (r.signal.customTagText || "(空)") : (r.signal.tag || "(未設定)");
-      if (!byTag[k]) byTag[k] = { records: [], label: _elTagLabel(r.signal), isCustom: !!r.signal.isCustomTag };
-      byTag[k].records.push(r);
+      _elTagEntries(r.signal).forEach(function(e) {
+        if (!byTag[e.key]) byTag[e.key] = { records: [], label: e.label, isCustom: e.isCustom };
+        byTag[e.key].records.push(r);
+      });
     });
     // 順序: signalTags の順 → カスタム入力 → (未設定) (末尾)
     var orderedKeys = (_signalTags || []).filter(function(t) { return byTag[t]; });
@@ -25644,10 +25659,12 @@ function EntryLogView(_ref_elv) {
 
   var renderSignalView = function() {
     var byTag = {};
+    // 複数シグナルを持つレコードは各シグナルのグループに重複して入る
     filtered.forEach(function(r) {
-      var key = r.signal.isCustomTag ? "__c__" + (r.signal.customTagText || "(空)") : r.signal.tag || "(未設定)";
-      if (!byTag[key]) byTag[key] = { records: [], label: _elTagLabel(r.signal), isCustom: !!r.signal.isCustomTag, customText: r.signal.customTagText || "" };
-      byTag[key].records.push(r);
+      _elTagEntries(r.signal).forEach(function(e) {
+        if (!byTag[e.key]) byTag[e.key] = { records: [], label: e.label, isCustom: e.isCustom, customText: e.isCustom ? (r.signal.customTagText || "") : "" };
+        byTag[e.key].records.push(r);
+      });
     });
     var keys = Object.keys(byTag)
       .filter(function(k) { return byTag[k].isCustom || signalTags.indexOf(k) >= 0; })
@@ -26303,12 +26320,11 @@ function EntryLogView(_ref_elv) {
     var rowRecs = filtered;
     if (crossMode === "entered") rowRecs = rowRecs.filter(function(r) { return _elIsEntered(r.signal, r.item); });
     else if (crossMode === "skipped") rowRecs = rowRecs.filter(function(r) { return !_elIsEntered(r.signal, r.item); });
-    // カラムキー集計
+    // カラムキー集計（複数シグナルは全タグをカラムに展開）
     var colKeys = {};
     var rowKeys = {};
     rowRecs.forEach(function(r) {
-      var ck = r.signal.isCustomTag ? "__c__" + (r.signal.customTagText || "(空)") : r.signal.tag || "(未設定)";
-      colKeys[ck] = _elTagLabel(r.signal);
+      _elTagEntries(r.signal).forEach(function(e) { colKeys[e.key] = e.label; });
       rowKeys[r.stock] = true;
     });
     var cols = Object.keys(colKeys).sort();
@@ -26319,8 +26335,7 @@ function EntryLogView(_ref_elv) {
     // セル計算
     var getCell = function(stock, ck) {
       var recs = rowRecs.filter(function(r) {
-        var rck = r.signal.isCustomTag ? "__c__" + (r.signal.customTagText || "(空)") : r.signal.tag || "(未設定)";
-        return r.stock === stock && rck === ck;
+        return r.stock === stock && _elTagEntries(r.signal).some(function(e) { return e.key === ck; });
       });
       var st = _elCalcStats(recs);
       return { recs: recs, stats: st };
