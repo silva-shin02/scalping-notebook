@@ -17710,7 +17710,7 @@ function SearchView(_ref45) {
           var ent = _elIsEntered(s, null);
           if (!entFilters.some(function(f) { return (f === "true") === ent; })) return;
         }
-        hits.push({ stock: st, date: dt, tag: s.tag, isCustomTag: s.isCustomTag, customTagText: s.customTagText, result: s.result, tradeType: s.tradeType, entered: _elIsEntered(s, null), rationale: s.rationale, priceIn: s.priceIn, priceOut: s.priceOut, chartImg: c.chartImg });
+        hits.push({ stock: st, date: dt, tag: s.tag, tags: s.tags, isCustomTag: s.isCustomTag, customTagText: s.customTagText, result: s.result, tradeType: s.tradeType, entered: _elIsEntered(s, null), rationale: s.rationale, priceIn: s.priceIn, priceOut: s.priceOut, chartImg: c.chartImg });
       });
     });
     hits.sort(function(a, b) { return b.date.localeCompare(a.date) || a.stock.localeCompare(b.stock); });
@@ -17720,7 +17720,6 @@ function SearchView(_ref45) {
       hits.length === 0 && /*#__PURE__*/React.createElement("div", { style:{fontSize:12,color:"#aaa"} }, "\u8A72\u5F53\u306A\u3057"),
       hits.map(function(h, i) {
         var src = h.chartImg ? imgSrc(h.chartImg) : null;
-        var tagLabel = h.isCustomTag ? (h.customTagText || "(その他)") : (h.tag || "");
         return /*#__PURE__*/React.createElement("div", {
           key: h.date + "|" + h.stock + "|" + i,
           onClick: function() { onSelectDate(h.date, "charts"); },
@@ -17744,13 +17743,19 @@ function SearchView(_ref45) {
                        color: h.entered ? "#2E7D32" : "#888",
                        borderRadius:4, border:"1px solid " + (h.entered ? "#A9DFBF" : "#ddd") }
             }, h.entered ? "\u5B9F\u30A8\u30F3\u30C8\u30EA\u30FC" : "\u898B\u9001\u308A"),
-            tagLabel && /*#__PURE__*/React.createElement("span", {
+            (h.tags && h.tags.length > 0 ? h.tags : (h.tag && h.tag !== "__custom__" ? [h.tag] : [])).map(function(t) {
+              return /*#__PURE__*/React.createElement("span", {
+                key: t,
+                style: { padding:"2px 8px",fontSize:11,fontWeight:600,
+                         background:"#FFEDD5", color:"#9A3412",
+                         borderRadius:5, border:"1px solid #FB923C" }
+              }, t);
+            }),
+            h.isCustomTag && /*#__PURE__*/React.createElement("span", {
               style: { padding:"2px 8px",fontSize:11,fontWeight:600,
-                       background: h.isCustomTag ? "#EEF2FF" : "#FFEDD5",
-                       color: h.isCustomTag ? "#4338CA" : "#9A3412",
-                       borderRadius:5,
-                       border: h.isCustomTag ? "1px solid #C7D2FE" : "1px solid #FB923C" }
-            }, tagLabel),
+                       background:"#EEF2FF", color:"#4338CA",
+                       borderRadius:5, border:"1px solid #C7D2FE" }
+            }, h.customTagText || "(その他)"),
             h.tradeType && /*#__PURE__*/React.createElement("span", {
               style: { padding:"2px 6px",fontSize:10,fontWeight:700,
                        background: h.tradeType === "\u7A7A\u58F2" ? "#FCEBEB" : "#EAF3DE",
@@ -23315,8 +23320,9 @@ function _elFilterPeriod(records, period) {
 
 // ── タグ表示用（その他の場合はカスタムテキスト） ──
 function _elTagLabel(s) {
-  if (s.isCustomTag) return s.customTagText || "(その他)";
-  return s.tag || "(未設定)";
+  var parts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []));
+  if (s.isCustomTag) parts = parts.concat([s.customTagText || "(その他)"]);
+  return parts.length > 0 ? parts.join(" / ") : "(未設定)";
 }
 
 // ── 既存取引記録（items[]）から候補を取得 ──
@@ -23419,9 +23425,9 @@ function EntryRecordForm(_ref_erf) {
   var _useStateE7 = useState(!!initSig.isCustomTag),
     _useStateE8 = _slicedToArray(_useStateE7, 2),
     fIsCustom = _useStateE8[0], setFIsCustom = _useStateE8[1];
-  var _useStateE9 = useState(initSig.tag || (signalTags[0] || "")),
+  var _useStateE9 = useState(initSig.tags ? initSig.tags : (initSig.tag && initSig.tag !== "__custom__" ? [initSig.tag] : [])),
     _useStateE10 = _slicedToArray(_useStateE9, 2),
-    fTag = _useStateE10[0], setFTag = _useStateE10[1];
+    fTags = _useStateE10[0], setFTags = _useStateE10[1];
   var _useStateE11 = useState(initSig.customTagText || ""),
     _useStateE12 = _slicedToArray(_useStateE11, 2),
     fCustomText = _useStateE12[0], setFCustomText = _useStateE12[1];
@@ -23508,7 +23514,8 @@ function EntryRecordForm(_ref_erf) {
     _fiFlushAll();
     var sig = {
       id: isEdit ? initSig.id : _sigId(),
-      tag: fIsCustom ? "__custom__" : fTag,
+      tag: fTags.length > 0 ? fTags[0] : (fIsCustom ? "__custom__" : ""),
+      tags: fTags,
       result: fResult,
       memo: initSig.memo || "", // 既存memoは温存
       time: fTime || "",
@@ -23623,10 +23630,10 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { style: SH_ }, "🎯 エントリーシグナル"),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } },
         signalTags.map(function(t) {
-          var on = !fIsCustom && fTag === t;
+          var on = fTags.includes(t);
           return React.createElement("button", {
             key: t,
-            onClick: function() { if (on) { setFTag(""); } else { setFIsCustom(false); setFTag(t); } },
+            onClick: function() { setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.concat([t]); }); },
             style: {
               padding: "6px 10px", fontSize: 12, fontWeight: 600,
               border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
@@ -23640,7 +23647,7 @@ function EntryRecordForm(_ref_erf) {
           var on = fIsCustom;
           return React.createElement("button", {
             key: "__custom__",
-            onClick: function() { setFIsCustom(true); },
+            onClick: function() { setFIsCustom(!on); },
             style: {
               padding: "6px 10px", fontSize: 12, fontWeight: 600,
               border: on ? "1.5px solid #6366F1" : "1px solid #ddd",
@@ -23968,15 +23975,23 @@ function EntryLogCard(_ref_elc) {
           border: "1px solid " + (entered ? "#A9DFBF" : "#ddd")
         }
       }, entered ? "実エントリー" : "見送り"),
-      React.createElement("span", {
+      (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(t) {
+        return React.createElement("span", {
+          key: t,
+          style: {
+            padding: "2px 8px", fontSize: 11, fontWeight: 600,
+            background: "#FFEDD5", color: "#9A3412",
+            borderRadius: 5, border: "1px solid #FB923C"
+          }
+        }, t);
+      }),
+      s.isCustomTag && React.createElement("span", {
         style: {
           padding: "2px 8px", fontSize: 11, fontWeight: 600,
-          background: s.isCustomTag ? "#EEF2FF" : "#FFEDD5",
-          color: s.isCustomTag ? "#4338CA" : "#9A3412",
-          borderRadius: 5,
-          border: s.isCustomTag ? "1px solid #C7D2FE" : "1px solid #FB923C"
+          background: "#EEF2FF", color: "#4338CA",
+          borderRadius: 5, border: "1px solid #C7D2FE"
         }
-      }, tagLabel),
+      }, s.customTagText || "(その他)"),
       s.result && React.createElement("span", {
         style: {
           padding: "2px 6px", fontSize: 10, fontWeight: 700,
@@ -24779,7 +24794,8 @@ function EntryLogView(_ref_elv) {
             var entLabel = entered
               ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
               : React.createElement("span", { style: { color: "#888" } }, "見送り");
-            var sigLabel = s.isCustomTag ? (s.customTagText || "(その他)") : (s.tag || "(未設定)");
+            var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+            var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
             var rKeyRef = rKey;
             subRows.push(
               React.createElement("tr", { key: rKey,
@@ -25179,7 +25195,8 @@ function EntryLogView(_ref_elv) {
         var entLabel = entered
           ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
           : React.createElement("span", { style: { color: "#888" } }, "見送り");
-        var sigLabel = s.isCustomTag ? (s.customTagText || "(その他)") : (s.tag || "(未設定)");
+        var _svSigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+        var sigLabel = _svSigParts.length > 0 ? _svSigParts.join(" / ") : "(未設定)";
         var rKeyRef = rKey;
         subRows.push(
           React.createElement("tr", { key: rKey,
