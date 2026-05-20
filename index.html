@@ -12215,6 +12215,17 @@ function ForeignMarketTable(_p) {
   };
 
   var renderSection = function(type, sLabel, sColor, sBg, arr, startIdx) {
+    // 最長の指標名・銘柄名を canvas で計測して名前列幅を固定する
+    var _nameColW = (function() {
+      try {
+        var _c = document.createElement('canvas');
+        var _ctx = _c.getContext('2d');
+        _ctx.font = '600 13px -apple-system,"Helvetica Neue",sans-serif';
+        var _max = 60;
+        arr.forEach(function(e) { var w = _ctx.measureText(e.name).width; if (w > _max) _max = w; });
+        return Math.ceil(_max) + 60; // 水平padding 16px + アイコンボタン群 ~40px + 余白
+      } catch(_e) { return 140; }
+    })();
     return /*#__PURE__*/React.createElement(React.Fragment, null,
       /*#__PURE__*/React.createElement("div", {
         style: { display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -12301,7 +12312,7 @@ function ForeignMarketTable(_p) {
                       userSelect: "none", touchAction: "none", borderRight: "1px solid #f0ede8" }
                   }, "⋮⋮"),
                   /*#__PURE__*/React.createElement("div", {
-                    style: { flexGrow: 0, flexShrink: 1, width: "max-content", maxWidth: "45%",
+                    style: { width: _nameColW, flexShrink: 0,
                       padding: "6px 8px", display: "flex", alignItems: "center",
                       gap: 4, boxSizing: "border-box", overflow: "hidden", borderRight: "1px solid #f0ede8" }
                   },
@@ -12518,7 +12529,7 @@ function ForeignMarketTable(_p) {
     },
       tableHeader,
       (showSections.indexOf("indicator") >= 0) && renderSection("indicator", "📊 指標", "#4338CA", "#EEF2FF", indicators, 0),
-      (showSections.indexOf("stock") >= 0) && renderSection("stock", "🏢 銘柄", "#15803D", "#F0FDF4", stocks, indicators.length)
+      (showSections.indexOf("stock") >= 0) && renderSection("stock", "🏢 銘柄", "#15803D", "#F0FDF4", stocks, showSections.indexOf("indicator") >= 0 ? indicators.length : 0)
     )
   );
 }
