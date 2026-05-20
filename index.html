@@ -3432,6 +3432,7 @@ function ImageAnnotator(_ref7) {
   var _mHandlers = useRef({mv:null,up:null}); // stable mouse handler refs (document-level tracking)
   var textDragRef = useRef(null); // テキストのドラッグ追跡 {idx, sx, sy, ox, oy, dragged}
   var ctrlPanRef = useRef(null); // Ctrl+ドラッグ → ツールを問わずパン
+  var bothBtnPanRef = useRef(null); // 左右同時押しドラッグ → ツールを問わずパン
   // ★ 2本指ダブルタップ → 消しゴム切替（ピンチと共存: 動かず短時間で離れたらタップ確定）
   var twoFingerRef = useRef({ startTime: 0, startD: 0, prevTapTime: 0, moved: false, prevTool: null });
   // ★ Android Chrome バグ対策: ピンチ開始の最初の数フレームで pinchRef が立つ前に
@@ -4334,6 +4335,12 @@ function ImageAnnotator(_ref7) {
                y: ctrlPanRef.current.py + (e.clientY - ctrlPanRef.current.sy) });
       return;
     }
+    if (bothBtnPanRef.current) {
+      if (e.buttons !== 3) { bothBtnPanRef.current = null; return; }
+      setPan({ x: bothBtnPanRef.current.px + (e.clientX - bothBtnPanRef.current.sx),
+               y: bothBtnPanRef.current.py + (e.clientY - bothBtnPanRef.current.sy) });
+      return;
+    }
     if (tool === "pan" && panRef.current) {
       var s = e.touches ? e.touches[0] : e;
       setPan({
@@ -4444,6 +4451,10 @@ function ImageAnnotator(_ref7) {
   var onEnd = function onEnd(e) {
     if (ctrlPanRef.current) {
       ctrlPanRef.current = null;
+      return;
+    }
+    if (bothBtnPanRef.current) {
+      bothBtnPanRef.current = null;
       return;
     }
     if (tool === "pan") {
@@ -5418,12 +5429,15 @@ function ImageAnnotator(_ref7) {
         cursor: tool === "pan" ? "grab" : tool === "eraser" ? "cell" : tool === "lasso" ? "default" : "crosshair",
         touchAction: "none"
       },
+      onContextMenu: function(e) { e.preventDefault(); },
       onMouseMove: function(e) {
-        // Ctrl押下中はgrabカーソルをリアルタイムに更新
-        if (!ctrlPanRef.current && (e.ctrlKey || e.metaKey)) {
-          e.currentTarget.style.cursor = "grab";
-        } else if (ctrlPanRef.current) {
+        // Ctrl押下中 or 左右同時押し中はgrabカーソルをリアルタイムに更新
+        if (bothBtnPanRef.current || ctrlPanRef.current) {
           e.currentTarget.style.cursor = "grabbing";
+        } else if (e.ctrlKey || e.metaKey) {
+          e.currentTarget.style.cursor = "grab";
+        } else if (e.buttons === 3) {
+          e.currentTarget.style.cursor = "grab";
         } else {
           e.currentTarget.style.cursor = "";
         }
@@ -5433,6 +5447,23 @@ function ImageAnnotator(_ref7) {
         //    pinchRef または multiTouchSeenRef が立っているなら描画を開始しない
         if (pinchRef.current) return;
         if (multiTouchSeenRef.current) return;
+        // 左右同時押し → ツールに関わらずパン（進行中の描画はキャンセル）
+        if (e.buttons === 3) {
+          e.preventDefault();
+          drawRef.current = { on: false };
+          ctrlPanRef.current = null;
+          panRef.current = null;
+          bothBtnPanRef.current = { sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y };
+          var _mmH2 = function(ev) { _mHandlers.current.mv && _mHandlers.current.mv(ev); };
+          var _muH2 = function(ev) {
+            _mHandlers.current.up && _mHandlers.current.up(ev);
+            document.removeEventListener("mousemove", _mmH2);
+            document.removeEventListener("mouseup", _muH2);
+          };
+          document.addEventListener("mousemove", _mmH2);
+          document.addEventListener("mouseup", _muH2);
+          return;
+        }
         onStart(e);
         // ★ documentレベルでmousemove/mouseupを追跡
         // scale() transformでcanvas境界を超えてもドラッグが途切れない
