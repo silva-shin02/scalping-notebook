@@ -12135,9 +12135,16 @@ function ForeignMarketTable(_p) {
     try { localStorage.setItem("fm_sparkline_v", String(v)); } catch(e) {}
     setSparklineVariant(v);
   };
-  // 早見表ポップアップ（値: null=非表示 / 文字列=表示中の銘柄・指標名）
-  var _uHY = useState(null), _uHYA = _slicedToArray(_uHY, 2),
-      hayamihyoName = _uHYA[0], setHayamihyoName = _uHYA[1];
+  // 早見表インライン展開（entry.id → true のマップ）
+  var _uHY = useState({}), _uHYA = _slicedToArray(_uHY, 2),
+      openHayamihyos = _uHYA[0], setOpenHayamihyos = _uHYA[1];
+  var toggleHayamihyo = function(id) {
+    setOpenHayamihyos(function(prev) {
+      var n = Object.assign({}, prev);
+      if (n[id]) delete n[id]; else n[id] = true;
+      return n;
+    });
+  };
 
   var commitMemo = function(type, id, memo) {
     updArr(type, function(arr) {
@@ -12293,12 +12300,14 @@ function ForeignMarketTable(_p) {
                   ),
                   /*#__PURE__*/React.createElement("div", {
                     style: { width: 46, flexShrink: 0, display: "flex", alignItems: "center",
-                      justifyContent: "center", cursor: "pointer", borderRight: "1px solid #f0ede8" },
-                    onClick: function() { setHayamihyoName(entry.name); },
+                      justifyContent: "center", cursor: "pointer", borderRight: "1px solid #f0ede8",
+                      background: openHayamihyos[entry.id] ? "#EEF2FF" : "transparent" },
+                    onClick: function() { toggleHayamihyo(entry.id); },
                     title: "早見表"
                   },
                     /*#__PURE__*/React.createElement("span", {
-                      style: { fontSize: 10, lineHeight: 1, color: "#8B8FA8", fontWeight: 600 }
+                      style: { fontSize: 10, lineHeight: 1,
+                        color: openHayamihyos[entry.id] ? "#4338CA" : "#555", fontWeight: 600 }
                     }, "早見表")
                   ),
                   /*#__PURE__*/React.createElement("div", {
@@ -12350,6 +12359,27 @@ function ForeignMarketTable(_p) {
                     }, "50日"),
                     /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr50, dates: _dates50, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax, variant: sparklineVariant })
                   )
+                ),
+                // ── 早見表（インライン展開） ──
+                openHayamihyos[entry.id] && /*#__PURE__*/React.createElement("div", {
+                  style: { borderTop: "1px solid #e0ddd6", background: "#f9f8f5" }
+                },
+                  /*#__PURE__*/React.createElement("div", {
+                    style: { display: "flex", justifyContent: "flex-end", padding: "4px 8px 0" }
+                  },
+                    /*#__PURE__*/React.createElement("button", {
+                      onClick: function() { toggleHayamihyo(entry.id); },
+                      style: { fontSize: 11, color: "#888", background: "none", border: "none",
+                        cursor: "pointer", padding: "2px 4px" }
+                    }, "畳む ▲")
+                  ),
+                  /*#__PURE__*/React.createElement(_FMHayamihyoTable, {
+                    foreignMarkets: foreignMarkets,
+                    name: entry.name,
+                    type: type,
+                    currentDate: date,
+                    holidaySet: _fmHolidaySet
+                  })
                 ),
                 // ── メモ欄 ──
                 memoIsOpen && /*#__PURE__*/React.createElement("div", {
@@ -12419,41 +12449,6 @@ function ForeignMarketTable(_p) {
   var indicators = fmDay.indicators || [];
   var stocks = fmDay.stocks || [];
 
-  // ── 早見表ポップアップ（その行の銘柄・指標専用） ──
-  var hayamihyoModal = hayamihyoName && /*#__PURE__*/React.createElement("div", {
-    style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 2000,
-      display: "flex", alignItems: "flex-start", justifyContent: "center",
-      paddingTop: 48, paddingBottom: 24, overflowY: "auto" },
-    onClick: function(e) { if (e.target === e.currentTarget) setHayamihyoName(null); }
-  },
-    /*#__PURE__*/React.createElement("div", {
-      style: { background: "#fff", borderRadius: 12, width: "95%", maxWidth: 680,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.18)", position: "relative", overflow: "hidden" }
-    },
-      /*#__PURE__*/React.createElement("div", {
-        style: { display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 16px", borderBottom: "1px solid #e8e6e0", background: "#f9f8f5" }
-      },
-        /*#__PURE__*/React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#333" } },
-          "📋 " + hayamihyoName + " 早見表"),
-        /*#__PURE__*/React.createElement("button", {
-          onClick: function() { setHayamihyoName(null); },
-          style: { fontSize: 16, lineHeight: 1, border: "none", background: "transparent",
-            cursor: "pointer", color: "#888", padding: "4px 8px" }
-        }, "✕")
-      ),
-      /*#__PURE__*/React.createElement("div", { style: { overflowY: "auto", maxHeight: "70vh" } },
-        /*#__PURE__*/React.createElement(_FMHayamihyoTable, {
-          foreignMarkets: foreignMarkets,
-          name: hayamihyoName,
-          type: (indicators.some(function(e){ return e.name === hayamihyoName; }) ? "indicator" : "stock"),
-          currentDate: date,
-          holidaySet: _fmHolidaySet
-        })
-      )
-    )
-  );
-
   return /*#__PURE__*/React.createElement("div", null,
     topBar,
     /*#__PURE__*/React.createElement("div", {
@@ -12462,8 +12457,7 @@ function ForeignMarketTable(_p) {
       tableHeader,
       renderSection("indicator", "📊 指標", "#4338CA", "#EEF2FF", indicators, 0),
       renderSection("stock", "🏢 銘柄", "#15803D", "#F0FDF4", stocks, indicators.length)
-    ),
-    hayamihyoModal
+    )
   );
 }
 // ── 外国市場: デフォルト設定モーダル ──
