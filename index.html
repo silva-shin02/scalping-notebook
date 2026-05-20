@@ -11989,7 +11989,8 @@ function _FMHayamihyoTable(_p) {
 }
 // ── 外国市場テーブル ──
 function ForeignMarketTable(_p) {
-  var date = _p.date, data = _p.data, save = _p.save, custom = _p.custom, onOpenSettings = _p.onOpenSettings;
+  var date = _p.date, data = _p.data, save = _p.save, custom = _p.custom, onOpenSettings = _p.onOpenSettings,
+      showSections = _p.showSections || ["indicator", "stock"];
   var foreignMarkets = data.foreignMarkets || {};
   var fmDay = foreignMarkets[date] || null;
   var defs = custom.foreignMarketDefaults || {};
@@ -12306,7 +12307,7 @@ function ForeignMarketTable(_p) {
                     title: "早見表"
                   },
                     /*#__PURE__*/React.createElement("span", {
-                      style: { fontSize: 10, lineHeight: 1,
+                      style: { fontSize: 12, lineHeight: 1,
                         color: openHayamihyos[entry.id] ? "#4338CA" : "#555", fontWeight: 600 }
                     }, "早見表")
                   ),
@@ -12455,8 +12456,8 @@ function ForeignMarketTable(_p) {
       style: { border: "1px solid #e0ddd6", borderRadius: 8, overflow: "hidden", background: "#fff" }
     },
       tableHeader,
-      renderSection("indicator", "📊 指標", "#4338CA", "#EEF2FF", indicators, 0),
-      renderSection("stock", "🏢 銘柄", "#15803D", "#F0FDF4", stocks, indicators.length)
+      (showSections.indexOf("indicator") >= 0) && renderSection("indicator", "📊 指標", "#4338CA", "#EEF2FF", indicators, 0),
+      (showSections.indexOf("stock") >= 0) && renderSection("stock", "🏢 銘柄", "#15803D", "#F0FDF4", stocks, indicators.length)
     )
   );
 }
@@ -18791,6 +18792,11 @@ function DayView(_ref57) {
     _useStateFMS2 = _slicedToArray(_useStateFMS, 2),
     showFmSettings = _useStateFMS2[0],
     setShowFmSettings = _useStateFMS2[1];
+  // 指標タブのサブタブ ("fm" | "nikkei")
+  var _useStateIT = useState(function() { try { return localStorage.getItem("scalping_ind_tab_v1") || "fm"; } catch(e) { return "fm"; } }),
+    _useStateITA = _slicedToArray(_useStateIT, 2),
+    indTab = _useStateITA[0], setIndTab = _useStateITA[1];
+  var _setIndTab = function(t) { try { localStorage.setItem("scalping_ind_tab_v1", t); } catch(e) {} setIndTab(t); };
   // 取引タブからのエントリー記録編集対象
   var _useStateTET = useState(null),
     _useStateTETA = _slicedToArray(_useStateTET, 2),
@@ -19231,7 +19237,7 @@ function DayView(_ref57) {
       borderBottom: "2px solid #1a1a1a",
       overflowX: "auto"
     }
-  }, [["events", "\uD83D\uDCC5 \u4ECA\u65E5\u306E\u4E88\u5B9A\u30FB\u30E1\u30E2", hasEventsData || hasSummaryData], ["news", "📰 ニュース", hasNewsData], ["charts", "銘柄別記録", hasChartData], ["trades", "📋 取引", hasTradeData]].map(function (_ref58) {
+  }, [["events", "\uD83D\uDCC5 \u4ECA\u65E5\u306E\u4E88\u5B9A\u30FB\u30E1\u30E2", hasEventsData || hasSummaryData], ["news", "📰 ニュース", hasNewsData], ["indicators", "📊 指標", hasFmData], ["charts", "銘柄別記録", hasChartData], ["trades", "📋 取引", hasTradeData]].map(function (_ref58) {
     var _ref59 = _slicedToArray(_ref58, 3),
       k = _ref59[0],
       la = _ref59[1],
@@ -19301,8 +19307,66 @@ function DayView(_ref57) {
       setFmActive(false);
       _safeSetTab("charts");
     }
-  }), tab === "charts" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(StockTabs, {
-    stocks: allStocks,
+  }), tab === "indicators" && /*#__PURE__*/React.createElement("div", null,
+    /*#__PURE__*/React.createElement("div", {
+      style: { display: "flex", gap: 2, marginBottom: 14, borderBottom: "2px solid #1a1a1a", overflowX: "auto" }
+    },
+      [["fm", "🌏 外国市場"], ["nikkei", "📈 日経平均株価"]].map(function(pair) {
+        var k = pair[0], la = pair[1];
+        return /*#__PURE__*/React.createElement("button", {
+          key: k, onClick: function() { _setIndTab(k); },
+          style: { padding: IS_TOUCH ? "10px 14px" : "10px 16px", fontSize: 13, fontWeight: 600,
+            border: "none", background: indTab === k ? "#1a1a1a" : "transparent",
+            color: indTab === k ? "#fff" : "#888", cursor: "pointer",
+            borderRadius: "8px 8px 0 0", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 44 : 36 }
+        }, la);
+      })
+    ),
+    indTab === "fm" && /*#__PURE__*/React.createElement(React.Fragment, null,
+      /*#__PURE__*/React.createElement(ForeignMarketTable, {
+        date: date, data: data, save: save, custom: custom,
+        showSections: ["indicator"],
+        onOpenSettings: function() { setShowFmSettings(true); }
+      }),
+      showFmSettings && /*#__PURE__*/React.createElement(ForeignMarketSettingsModal, {
+        custom: custom, save: save, onClose: function() { setShowFmSettings(false); }
+      })
+    ),
+    indTab === "nikkei" && /*#__PURE__*/React.createElement(React.Fragment, null,
+      /*#__PURE__*/React.createElement(StockQuickRefTableWithChart, {
+        data: data, activeStock: "日経平均株価",
+        onSelectDate: onSelectDate, highlightDate: date,
+        weekOffset: weekOffset, setWeekOffset: setWeekOffset
+      }),
+      /*#__PURE__*/React.createElement("div", null,
+        /*#__PURE__*/React.createElement(ChartSectionDailyCandle, {
+          stock: "日経平均株価", data: data, custom: custom, cfg: cfg, highlightDate: date
+        })
+      ),
+      /*#__PURE__*/React.createElement("div", { style: Card },
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 15, fontWeight: 700, marginBottom: 12 } },
+          "日経平均株価 — ", date),
+        /*#__PURE__*/React.createElement(ChartSection, {
+          stock: "日経平均株価", date: date, data: data, save: save,
+          custom: custom, cfg: cfg, onSelectDate: jumpTo,
+          onOpenEntryLog: onOpenEntryLog || null,
+          onJumpToNews: function(catName, niId) {
+            if (catName && niId) {
+              setJumpTarget({ catName: catName, niId: niId, ts: Date.now() });
+              setChartReturnCtx({ stock: "日経平均株価" });
+            } else if (catName) {
+              try {
+                var _svN = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}");
+                localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({}, _svN, { newsCat: catName })));
+              } catch(e){}
+            }
+            _safeSetTab("news");
+          }
+        })
+      )
+    )
+  ), tab === "charts" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(StockTabs, {
+    stocks: allStocks.filter(function(s) { return s !== "日経平均株価"; }),
     active: fmActive ? "" : activeStock,
     onSelect: function(s) { setCs(s); setFmActive(false); },
     onReorder: function onReorder(stocks) {
