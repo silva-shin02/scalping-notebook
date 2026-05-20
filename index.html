@@ -12010,12 +12010,9 @@ function ForeignMarketTable(_p) {
     try { localStorage.setItem("fm_sparkline_v", String(v)); } catch(e) {}
     setSparklineVariant(v);
   };
-  // 早見表ポップアップ
-  var _allCustomStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : [];
-  var _uHY = useState(false), _uHYA = _slicedToArray(_uHY, 2),
-      showHayamihyo = _uHYA[0], setShowHayamihyo = _uHYA[1];
-  var _uHYS = useState(_allCustomStocks[0] || ""), _uHYSA = _slicedToArray(_uHYS, 2),
-      hayamihyoStock = _uHYSA[0], setHayamihyoStock = _uHYSA[1];
+  // 早見表ポップアップ（値: null=非表示 / 文字列=表示中の銘柄・指標名）
+  var _uHY = useState(null), _uHYA = _slicedToArray(_uHY, 2),
+      hayamihyoName = _uHYA[0], setHayamihyoName = _uHYA[1];
 
   var commitMemo = function(type, id, memo) {
     updArr(type, function(arr) {
@@ -12172,10 +12169,7 @@ function ForeignMarketTable(_p) {
                   /*#__PURE__*/React.createElement("div", {
                     style: { width: 30, flexShrink: 0, display: "flex", alignItems: "center",
                       justifyContent: "center", cursor: "pointer", borderRight: "1px solid #f0ede8" },
-                    onClick: function() {
-                      if (_allCustomStocks.length > 0 && !hayamihyoStock) setHayamihyoStock(_allCustomStocks[0]);
-                      setShowHayamihyo(true);
-                    },
+                    onClick: function() { setHayamihyoName(entry.name); },
                     title: "早見表"
                   },
                     /*#__PURE__*/React.createElement("span", {
@@ -12300,59 +12294,36 @@ function ForeignMarketTable(_p) {
   var indicators = fmDay.indicators || [];
   var stocks = fmDay.stocks || [];
 
-  // ── 早見表ポップアップ ──
-  var hayamihyoModal = showHayamihyo && /*#__PURE__*/React.createElement("div", {
+  // ── 早見表ポップアップ（その行の銘柄・指標専用） ──
+  var hayamihyoModal = hayamihyoName && /*#__PURE__*/React.createElement("div", {
     style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 2000,
       display: "flex", alignItems: "flex-start", justifyContent: "center",
       paddingTop: 48, paddingBottom: 24, overflowY: "auto" },
-    onClick: function(e) { if (e.target === e.currentTarget) setShowHayamihyo(false); }
+    onClick: function(e) { if (e.target === e.currentTarget) setHayamihyoName(null); }
   },
     /*#__PURE__*/React.createElement("div", {
       style: { background: "#fff", borderRadius: 12, width: "95%", maxWidth: 680,
         boxShadow: "0 8px 32px rgba(0,0,0,0.18)", position: "relative", overflow: "hidden" }
     },
-      // ヘッダー
       /*#__PURE__*/React.createElement("div", {
         style: { display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "12px 16px", borderBottom: "1px solid #e8e6e0", background: "#f9f8f5" }
       },
-        /*#__PURE__*/React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#333" } }, "📋 早見表"),
+        /*#__PURE__*/React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#333" } },
+          "📋 " + hayamihyoName + " 早見表"),
         /*#__PURE__*/React.createElement("button", {
-          onClick: function() { setShowHayamihyo(false); },
+          onClick: function() { setHayamihyoName(null); },
           style: { fontSize: 16, lineHeight: 1, border: "none", background: "transparent",
             cursor: "pointer", color: "#888", padding: "4px 8px" }
         }, "✕")
       ),
-      // 銘柄タブ
-      _allCustomStocks.length > 0 && /*#__PURE__*/React.createElement("div", {
-        style: { display: "flex", flexWrap: "wrap", gap: 4, padding: "8px 12px",
-          borderBottom: "1px solid #e8e6e0", background: "#fafaf8" }
-      },
-        _allCustomStocks.map(function(s) {
-          var isActive = s === hayamihyoStock;
-          return /*#__PURE__*/React.createElement("button", {
-            key: s,
-            onClick: function() { setHayamihyoStock(s); },
-            style: { fontSize: 12, padding: "4px 10px", cursor: "pointer", borderRadius: 6,
-              border: "1px solid " + (isActive ? "#1a1a1a" : "#ddd"),
-              background: isActive ? "#1a1a1a" : "#fff",
-              color: isActive ? "#fff" : "#444",
-              fontWeight: isActive ? 700 : 400 }
-          }, s);
+      /*#__PURE__*/React.createElement("div", { style: { padding: "0 4px 8px", overflowY: "auto", maxHeight: "70vh" } },
+        /*#__PURE__*/React.createElement(StockQuickRefTable, {
+          data: data,
+          activeStock: hayamihyoName,
+          highlightDate: date,
+          onSelectDate: null
         })
-      ),
-      // テーブル本体
-      /*#__PURE__*/React.createElement("div", { style: { padding: "0 4px 8px", overflowY: "auto", maxHeight: "65vh" } },
-        hayamihyoStock
-          ? /*#__PURE__*/React.createElement(StockQuickRefTable, {
-              data: data,
-              activeStock: hayamihyoStock,
-              highlightDate: date,
-              onSelectDate: null
-            })
-          : /*#__PURE__*/React.createElement("div", {
-              style: { padding: 24, textAlign: "center", color: "#aaa", fontSize: 13 }
-            }, "銘柄を選択してください")
       )
     )
   );
