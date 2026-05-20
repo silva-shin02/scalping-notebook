@@ -417,6 +417,12 @@ var getMC = function getMC(l) {
   return MACRO_COLORS[l] || MACRO_COLORS["普通"];
 };
 var DAYS_JP = ["日", "月", "火", "水", "木", "金", "土"];
+// 日付文字列(YYYY-MM-DD)に日本語曜日を付加するヘルパー → "YYYY-MM-DD（曜）"
+function _fmtDow(d) {
+  if (!d) return d || "";
+  var dow = new Date(d + "T00:00:00").getDay();
+  return d + "（" + DAYS_JP[dow] + "）";
+}
 var OPEN_TAGS = ["大幅GU：+5.0%～", "中幅GU：+3.0%～+5.0%", "小幅GU：+1.0%～+3.0%", "寄り横ばい：-1.0%～+1.0%", "小幅GD：-1.0%～-3.0%", "中幅GD：-3.0%～-5.0%", "大幅GD：-5.0%～"];
 var MOVE_TAGS = []; // デフォルト値動きタグは削除（custom.flowMoveTagsは保存）
 var TECH_TAGS = [];
@@ -12464,7 +12470,7 @@ function ForeignMarketTable(_p) {
     /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
       /*#__PURE__*/React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#333" } },
         "🌏 外国市場",
-        /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 400, color: "#999", marginLeft: 8 } }, date)
+        /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 400, color: "#999", marginLeft: 8 } }, _fmtDow(date))
       ),
       /*#__PURE__*/React.createElement("a", {
         href: "https://www.google.com/finance/beta?hl=ja",
@@ -17730,7 +17736,7 @@ function SearchView(_ref45) {
         }),
         /*#__PURE__*/React.createElement("div", { style:{flex:1,minWidth:0} },
           /*#__PURE__*/React.createElement("div", { style:{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginBottom:3} },
-            /*#__PURE__*/React.createElement("span", { style:{fontSize:13,fontWeight:700,color:"#1a1a1a"} }, h.date),
+            /*#__PURE__*/React.createElement("span", { style:{fontSize:13,fontWeight:700,color:"#1a1a1a"} }, _fmtDow(h.date)),
             /*#__PURE__*/React.createElement("span", { style:{fontSize:12,fontWeight:600,color:"#9A3412"} }, h.stock),
             /*#__PURE__*/React.createElement("span", {
               style: { padding:"2px 6px",fontSize:10,fontWeight:600,
@@ -23941,7 +23947,7 @@ function EntryLogCard(_ref_elc) {
     onMouseLeave: function(e) { e.currentTarget.style.borderColor = "#e0ddd6"; }
   },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 } },
-      React.createElement("span", { style: { fontSize: 13, fontWeight: 700 } }, record.date),
+      React.createElement("span", { style: { fontSize: 13, fontWeight: 700 } }, _fmtDow(record.date)),
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666" } }, s.time),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 600, color: "#9A3412" } }, record.stock),
       s.tradeType && React.createElement("span", {
@@ -24688,7 +24694,7 @@ function EntryLogView(_ref_elv) {
               color: isHoliday ? "#7C3AED" : (hasRecs ? "#9A3412" : "#bbb"), borderBottom: bb, borderRight: br } },
               hasRecs ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶")
                       : React.createElement("span", { style: { marginRight: 4, fontSize: 10 } }, "　"),
-              date,
+              _fmtDow(date),
               isHoliday ? React.createElement("span", { style: { marginLeft: 4, fontSize: 10, fontWeight: 400, color: "#7C3AED" } }, "(祝日・休場)") : null,
               hasRecs ? React.createElement("button", {
                 onClick: function(e) { e.stopPropagation(); handleGoDate(dateRef, "trades"); },
@@ -26026,7 +26032,7 @@ function EntryLogView(_ref_elv) {
           if (!expRecs.length) return null;
           return React.createElement("div", { style: { padding: "8px 0 0" } },
             React.createElement("div", { style: { padding: "4px 12px 6px", fontSize: 11, color: "#9A3412", fontWeight: 700 } },
-              "▶ " + expDate + "  " + expRecs.length + "件"),
+              "▶ " + _fmtDow(expDate) + "  " + expRecs.length + "件"),
             expRecs.map(function(r) {
               return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, onEdit: handleEdit, onGoDate: handleGoDate });
             })
@@ -26643,8 +26649,8 @@ function EntryLogView(_ref_elv) {
                   isClickable && React.createElement("span", {
                     style: { color: pnlBreak === "date" ? "#4338CA" : "#1E8449",
                       textDecoration: "underline", textDecorationStyle: "dotted" }
-                  }, k),
-                  !isClickable && k
+                  }, pnlBreak === "date" ? _fmtDow(k) : k),
+                  !isClickable && (pnlBreak === "date" ? _fmtDow(k) : k)
                 ),
                 React.createElement("td", { style: { padding: "7px 8px", textAlign: "right", fontWeight: 700,
                   color: g.pnl >= 0 ? "#C0392B" : "#1E8449" } },
@@ -26691,7 +26697,7 @@ function EntryLogView(_ref_elv) {
                   style: { background: "none", border: "none", padding: 0, cursor: "pointer",
                     fontWeight: 700, fontSize: 12, color: "#4338CA",
                     textDecoration: "underline", textDecorationStyle: "dotted", minWidth: 78 }
-                }, r.date),
+                }, _fmtDow(r.date)),
                 r.signal.time && React.createElement("span", { style: { color: "#888", minWidth: 34, fontSize: 11 } }, r.signal.time),
                 // 銘柄名 → 銘柄別記録へジャンプ
                 React.createElement("button", {
