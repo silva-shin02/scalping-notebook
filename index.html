@@ -9892,7 +9892,7 @@ function SignalHistoryPopup(_ref_shp) {
         style: { display:"flex",gap:10,alignItems:"center",padding:"8px 0",
                  borderBottom: i < entries.length - 1 ? "1px solid #eee" : "none" }
       },
-      /*#__PURE__*/React.createElement("div", { style:{fontSize:13,fontWeight:600,color:"#333",minWidth:90} }, ent.date),
+      /*#__PURE__*/React.createElement("div", { style:{fontSize:13,fontWeight:600,color:"#333",minWidth:90} }, _fmtDow(ent.date)),
       /*#__PURE__*/React.createElement("span", {
         style: { fontSize:16, minWidth:20 }
       }, ent.result === "ok" ? "\u25CB" : ent.result === "ng" ? "\u2717" : "\u2014"),
@@ -11754,7 +11754,7 @@ function _FMSparkline(_p) {
   var fmtD = function(d) {
     if (!d) return "";
     var m = d.match(/\d{4}-(\d{2})-(\d{2})/);
-    return m ? (m[1] * 1) + "/" + m[2] : d;
+    return m ? (m[1] * 1) + "/" + m[2] + "（" + DAYS_JP[new Date(d + "T00:00:00").getDay()] + "）" : d;
   };
   var startDate = indexed[0].date, endDate = indexed[indexed.length - 1].date;
   var dateRow = React.createElement("div", {
@@ -18510,7 +18510,7 @@ function NikkeiPriceChart(_p) {
     },
       hovPt
         ? React.createElement(React.Fragment, null,
-            React.createElement("span", { style: { fontWeight: 700 } }, hovPt.date),
+            React.createElement("span", { style: { fontWeight: 700 } }, _fmtDow(hovPt.date)),
             React.createElement("span", null, "終値: ",
               React.createElement("span", { style: { fontWeight: 700, color: "#333" } },
                 Math.round(hovPt.close).toLocaleString() + "円")),
@@ -24546,7 +24546,7 @@ function EntryLogView(_ref_elv) {
           React.createElement("div", {
             style: { fontSize: 13, fontWeight: 700, padding: "8px 12px", background: "#1a1a1a", color: "#fff", borderRadius: "6px 6px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" }
           },
-            React.createElement("span", null, calExpandDate + "  " + allRecs.length + "件"),
+            React.createElement("span", null, _fmtDow(calExpandDate) + "  " + allRecs.length + "件"),
             React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
               React.createElement("span", { style: { fontSize: 11, opacity: 0.85 } },
                 "○" + st.ok + " ✕" + st.ng + (st.winPct != null ? "  " + st.winPct + "%" : "")),
@@ -25097,7 +25097,7 @@ function EntryLogView(_ref_elv) {
           color: isHoliday ? "#7C3AED" : (hasRecs ? "#9A3412" : "#bbb"), borderBottom: bb, borderRight: br } },
           hasRecs ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶")
                   : React.createElement("span", { style: { marginRight: 4, fontSize: 10 } }, "　"),
-          date,
+          _fmtDow(date),
           isHoliday ? React.createElement("span", { style: { marginLeft: 4, fontSize: 10, fontWeight: 400, color: "#7C3AED" } }, "(祝日・休場)") : null,
           React.createElement("button", {
             onClick: function(e) { e.stopPropagation(); handleGoDate(dateRef, "trades"); },
@@ -28167,7 +28167,7 @@ function DailyCandleChart(_props_dcc) {
             fontFamily: "monospace", border: "1px solid #444"
           }
         },
-          React.createElement("div", { style: { fontWeight: 700 } }, b.date),
+          React.createElement("div", { style: { fontWeight: 700 } }, _fmtDow(b.date)),
           React.createElement("div", null, "始: ¥" + Math.round(b.open).toLocaleString()),
           React.createElement("div", null, "高: ¥" + Math.round(b.high).toLocaleString()),
           React.createElement("div", null, "安: ¥" + Math.round(b.low).toLocaleString()),
