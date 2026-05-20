@@ -5066,9 +5066,6 @@ function ImageAnnotator(_ref7) {
     id: "rect",
     label: "四角"
   }, {
-    id: "circle",
-    label: "丸"
-  }, {
     id: "marker",
     label: "マーカー"
   }, {
@@ -5123,8 +5120,8 @@ function ImageAnnotator(_ref7) {
   };
   // ツールボタン共通スタイルヘルパー
   var TB = function(active, bg, fg) {
-    return { padding: IS_TOUCH ? "4px 6px" : "6px 10px", fontSize: IS_TOUCH ? 11 : 12,
-      fontWeight: 700, borderRadius: 5, border: "none", cursor: "pointer",
+    return { padding: IS_TOUCH ? "3px 5px" : "4px 7px", fontSize: IS_TOUCH ? 10 : 11,
+      fontWeight: 700, borderRadius: 4, border: "none", cursor: "pointer",
       whiteSpace: "nowrap", flexShrink: 0,
       background: active ? (bg||"#6366F1") : "#2a2a2a",
       color: active ? (fg||"#fff") : "#aaa" };
