@@ -33340,6 +33340,41 @@ ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.c
     document.addEventListener("touchcancel", _clearEdge, { passive: true, capture: true });
   } catch(e){}
 })();
+// ── Safari iOS / iPadOS プルリフレッシュ（下スワイプでページ更新）抑制 ──
+// CSS overscroll-behavior:none だけでは古い Safari で効かないため JS でも制御する。
+// ・ページ最上部（scrollY === 0）からの下方向スワイプのみ preventDefault。
+// ・スクロール可能な内部要素（モーダル・textarea 等）が scrollTop > 0 なら通常動作を維持。
+(function(){
+  try {
+    var _prStartY = 0;
+    document.addEventListener('touchstart', function(e) {
+      _prStartY = (e.touches && e.touches[0]) ? e.touches[0].clientY : 0;
+    }, { passive: true, capture: false });
+
+    document.addEventListener('touchmove', function(e) {
+      if (!e.touches || e.touches.length !== 1) return;
+      var dy = e.touches[0].clientY - _prStartY;
+      if (dy <= 0) return; // 上スワイプ・横移動は対象外
+
+      // ページ自体が最上部でなければプルリフレッシュは発動しない
+      var pageTop = (window.scrollY || window.pageYOffset ||
+                     document.documentElement.scrollTop ||
+                     document.body.scrollTop || 0) === 0;
+      if (!pageTop) return;
+
+      // タッチ開始要素から祖先をたどり、上方向にスクロール余地があるものがあれば
+      // 内部スクロールとして扱い、preventDefault しない（通常スクロールを妨げない）
+      var node = e.target;
+      while (node && node !== document.documentElement) {
+        if (node.nodeType === 1 && node.scrollTop > 0) return;
+        node = node.parentElement;
+      }
+
+      // ここに到達 = ページ最上部 + 内部にスクロール余地なし → プルリフレッシュ抑制
+      try { e.preventDefault(); } catch(_) {}
+    }, { passive: false, capture: false });
+  } catch(e) {}
+})();
 // ── 診断ツール: Ctrl+Shift+D で不可視要素検出モード ON/OFF ──
 (function(){
   var _diagOn = false, _diagHL = null;
