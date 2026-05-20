@@ -11862,6 +11862,131 @@ function _FMValueInput(_p) {
     }
   });
 }
+// ── 外国市場: 早見表（数値・前日比一覧） ──
+function _FMHayamihyoTable(_p) {
+  var foreignMarkets = _p.foreignMarkets, name = _p.name, type = _p.type,
+      currentDate = _p.currentDate, holidaySet = _p.holidaySet || {};
+  var _uWO = useState(0), _uWOA = _slicedToArray(_uWO, 2),
+      wo = _uWOA[0], setWo = _uWOA[1];
+
+  // 表示する14日間を生成（currentDate を起点に weekOffset 単位でスライド）
+  var _fmhFmt = function(s) { return s.replace(/^(\d{4})-(\d{2})-(\d{2})$/, function(_,y,m,d){ return (m*1) + "/" + d; }); };
+  var _baseD = new Date(currentDate + "T00:00:00");
+  _baseD.setDate(_baseD.getDate() + wo * 14);
+  var windowDates = Array.from({ length: 14 }, function(_, i) {
+    var d = new Date(_baseD); d.setDate(d.getDate() - 13 + i);
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  });
+  var weekLabel = _fmhFmt(windowDates[0]) + " 〜 " + _fmhFmt(windowDates[13]);
+
+  var getValue = function(d) {
+    var day = foreignMarkets[d]; if (!day) return null;
+    var arr = type === "indicator" ? (day.indicators||[]) : (day.stocks||[]);
+    for (var j = 0; j < arr.length; j++) {
+      if (arr[j].name === name && typeof arr[j].value === "number") return arr[j].value;
+    }
+    return null;
+  };
+  var fmtVal = function(v) {
+    if (v === null) return "—";
+    var abs = Math.abs(v);
+    return abs >= 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 })
+         : abs >= 1    ? (Math.round(v * 100) / 100).toFixed(2).replace(/\.?0+$/, "")
+         : v.toPrecision(4);
+  };
+  var fmtDiff = function(diff) {
+    if (diff === null) return null;
+    var abs = Math.abs(diff);
+    var s = abs >= 100 ? Math.round(abs).toLocaleString()
+          : abs >= 1   ? (Math.round(abs * 100) / 100).toFixed(2).replace(/\.?0+$/, "")
+          : abs.toPrecision(3);
+    return (diff >= 0 ? "+" : "-") + s;
+  };
+
+  return React.createElement("div", { style: { padding: "4px 8px 8px" } },
+    // ナビゲーション
+    React.createElement("div", {
+      style: { display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: 8, gap: 8 }
+    },
+      React.createElement("button", {
+        onClick: function(){ setWo(function(o){ return o-1; }); },
+        style: { padding: "6px 12px", fontSize: 13, fontWeight: 600,
+          background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6,
+          cursor: "pointer", color: "#555" }
+      }, "＜"),
+      React.createElement("span", { style: { fontSize: 12, color: "#888", fontWeight: 600 } }, weekLabel),
+      React.createElement("button", {
+        onClick: function(){ setWo(function(o){ return o+1; }); },
+        style: { padding: "6px 12px", fontSize: 13, fontWeight: 600,
+          background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6,
+          cursor: "pointer", color: "#555" }
+      }, "＞")
+    ),
+    // テーブル
+    React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("table", {
+        style: { width: "100%", fontSize: 12, borderCollapse: "collapse" }
+      },
+        React.createElement("thead", null,
+          React.createElement("tr", { style: { background: "#f5f4f0" } },
+            ["日付", "数値", "前日比", "前日比(%)"].map(function(h) {
+              return React.createElement("th", {
+                key: h,
+                style: { textAlign: h === "日付" ? "left" : "right",
+                  padding: "6px 10px", fontWeight: 600, fontSize: 11,
+                  color: "#888", whiteSpace: "nowrap" }
+              }, h);
+            })
+          )
+        ),
+        React.createElement("tbody", null, windowDates.map(function(d) {
+          var dow = new Date(d + "T00:00:00").getDay();
+          var isSat = dow === 6, isSun = dow === 0;
+          var isHL = d === currentDate;
+          var isHoliday = !!holidaySet[d];
+          var isOff = isSat || isSun || isHoliday;
+          var dateColor = isHoliday ? "#9333EA" : isSun ? "#C0392B" : isSat ? "#2874A6" : "inherit";
+          var val = isOff ? null : getValue(d);
+          var prevVal = isOff ? null : _fmPrevValue(foreignMarkets, d, name, type, holidaySet);
+          var diff = (val !== null && prevVal !== null) ? val - prevVal : null;
+          var pct  = (diff !== null && prevVal !== 0) ? diff / Math.abs(prevVal) * 100 : null;
+          var diffColor = diff === null ? "#bbb" : diff > 0 ? "#DC2626" : diff < 0 ? "#16A34A" : "#888";
+          var arrow = diff === null ? "" : diff > 0 ? "▲" : diff < 0 ? "▼" : "→";
+          return React.createElement("tr", {
+            key: d,
+            style: { borderBottom: "1px solid #f0eeea",
+              background: isHL ? "#EEF2FF" : "transparent",
+              opacity: isOff ? 0.38 : 1 }
+          },
+            React.createElement("td", {
+              style: { padding: "7px 10px", whiteSpace: "nowrap",
+                fontWeight: isHL ? 700 : 400, color: dateColor }
+            }, _fmhFmt(d) + "（" + DAYS_JP[dow] + "）" + (isHoliday ? " 休" : "")),
+            React.createElement("td", {
+              style: { padding: "7px 10px", textAlign: "right",
+                fontVariantNumeric: "tabular-nums", fontWeight: val !== null ? 600 : 400,
+                color: val !== null ? "#222" : "#ccc" }
+            }, fmtVal(val)),
+            React.createElement("td", {
+              style: { padding: "7px 10px", textAlign: "right",
+                fontVariantNumeric: "tabular-nums", color: diffColor, whiteSpace: "nowrap" }
+            }, diff !== null ? arrow + " " + fmtDiff(diff) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
+            React.createElement("td", {
+              style: { padding: "7px 10px", textAlign: "right",
+                fontVariantNumeric: "tabular-nums", color: diffColor, whiteSpace: "nowrap" }
+            }, pct !== null
+              ? React.createElement("span", {
+                  style: { background: Math.abs(pct) >= 1 ? (pct > 0 ? "rgba(220,38,38,0.1)" : "rgba(22,163,74,0.1)") : "transparent",
+                    padding: Math.abs(pct) >= 1 ? "1px 4px" : 0, borderRadius: 3, fontWeight: Math.abs(pct) >= 1 ? 700 : 400 }
+                }, (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%")
+              : React.createElement("span", { style: { color: "#ddd" } }, "—"))
+          );
+        }))
+      )
+    )
+  );
+}
 // ── 外国市場テーブル ──
 function ForeignMarketTable(_p) {
   var date = _p.date, data = _p.data, save = _p.save, custom = _p.custom, onOpenSettings = _p.onOpenSettings;
@@ -12167,14 +12292,14 @@ function ForeignMarketTable(_p) {
                     }, pctStr)
                   ),
                   /*#__PURE__*/React.createElement("div", {
-                    style: { width: 30, flexShrink: 0, display: "flex", alignItems: "center",
+                    style: { width: 46, flexShrink: 0, display: "flex", alignItems: "center",
                       justifyContent: "center", cursor: "pointer", borderRight: "1px solid #f0ede8" },
                     onClick: function() { setHayamihyoName(entry.name); },
                     title: "早見表"
                   },
                     /*#__PURE__*/React.createElement("span", {
-                      style: { fontSize: 11, lineHeight: 1, color: "#8B8FA8", fontWeight: 600 }
-                    }, "表")
+                      style: { fontSize: 10, lineHeight: 1, color: "#8B8FA8", fontWeight: 600 }
+                    }, "早見表")
                   ),
                   /*#__PURE__*/React.createElement("div", {
                     style: { width: 32, flexShrink: 0, display: "flex", alignItems: "center",
@@ -12317,12 +12442,13 @@ function ForeignMarketTable(_p) {
             cursor: "pointer", color: "#888", padding: "4px 8px" }
         }, "✕")
       ),
-      /*#__PURE__*/React.createElement("div", { style: { padding: "0 4px 8px", overflowY: "auto", maxHeight: "70vh" } },
-        /*#__PURE__*/React.createElement(StockQuickRefTable, {
-          data: data,
-          activeStock: hayamihyoName,
-          highlightDate: date,
-          onSelectDate: null
+      /*#__PURE__*/React.createElement("div", { style: { overflowY: "auto", maxHeight: "70vh" } },
+        /*#__PURE__*/React.createElement(_FMHayamihyoTable, {
+          foreignMarkets: foreignMarkets,
+          name: hayamihyoName,
+          type: (indicators.some(function(e){ return e.name === hayamihyoName; }) ? "indicator" : "stock"),
+          currentDate: date,
+          holidaySet: _fmHolidaySet
         })
       )
     )
