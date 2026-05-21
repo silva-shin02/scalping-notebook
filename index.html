@@ -3372,6 +3372,8 @@ function ImageAnnotator(_ref7) {
   var logicalSizeRef = useRef({w:0,h:0}); // ★ 画像の論理サイズ（=ストローク座標空間）
   var strokesRef = useRef([]);
   var histRef = useRef([[]]);
+  // ★ 保存直後はキャンバス再初期化をスキップ（保存後に img props が変わっても画面フラッシュしない）
+  var justSavedRef = useRef(false);
   var futRef = useRef([]);
   var drawRef = useRef({
     on: false,
@@ -3899,6 +3901,12 @@ function ImageAnnotator(_ref7) {
   useEffect(function () {
     var c = canvasRef.current;
     if (!c) return;
+    // ★ 保存直後は再初期化をスキップ（画面フラッシュ防止）
+    // ナビゲーション(onPrev/onNext)の場合はjustSavedRefがfalseなので通常通り初期化される
+    if (justSavedRef.current) {
+      justSavedRef.current = false;
+      return;
+    }
     var ctx = c.getContext("2d");
 
     // 画像ロード成功時の共通処理（新アーキテクチャ: 画像は <img>、canvas はストローク専用）
@@ -4964,6 +4972,8 @@ function ImageAnnotator(_ref7) {
     // ★ 新しい base64 が生成できなかった(tainted等)場合、既存の imageUrl を温存
     //   （そうしないと他端末/再読込時に画像が表示できなくなる）
     if (!base64 && img.imageUrl) saved.imageUrl = img.imageUrl;
+    // ★ 保存直後の img props 変化によるキャンバス再初期化をスキップするフラグ
+    justSavedRef.current = true;
     onSave(saved);
     // ★ iPad Safari 対策: 書き込み保存直後にページリロード/BFCache復帰が起きると
     //   デバウンス中の localStorage/Firebase 保存が間に合わず書き込みが消失する。
@@ -32713,6 +32723,10 @@ function App() {
       setShowStockHistory(false);
       setShowNewsHistory(false);
       setShowSummaryHistory(false);
+    } else if (token && token.indexOf("modal:") === 0) {
+      // ★ modal:xxx:... トークンは useModalBack の内部処理由来。
+      // 誤ってここに来た場合はDayViewを閉じないよう無視する。
+      // (通常は _sn_internalBack フラグで App の handler に到達する前に return されるが防御的に処理)
     } else {
       // 未知のトークンは念のため root 扱い (modal:imgannot:... 等の内部 token もここに来るが、
       // ImageAnnotator の capture phase listener が stopImmediatePropagation するので通常到達しない)
