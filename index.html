@@ -39,6 +39,16 @@ canvas{image-rendering:high-quality;-webkit-image-rendering:high-quality}
 <body>
 <div id="root"><div style="display:flex;align-items:center;justify-content:center;height:80vh;font-size:15px;color:#888">読み込み中...</div></div>
 <script>
+// Service Worker 登録: Firebase Storage リクエストをキャッシュして課金を削減
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").then(function(reg) {
+    console.log("[SW] registered, scope:", reg.scope);
+  })["catch"](function(e) {
+    console.warn("[SW] registration failed:", e);
+  });
+}
+</script>
+<script>
 /**
  * @license React
  * react.production.min.js
@@ -1591,7 +1601,10 @@ function _uploadToStorage(path, b64, mime) {
   var blob = base64ToBlob(b64, mime);
   _fbTrack("st_ul", blob.size);
   var ref = _fbStorageRef.ref(path);
-  return ref.put(blob).then(function() { return ref.getDownloadURL(); })
+  // Cache-Control: public を設定することでFirebase側のCDNキャッシュを有効化
+  // 同じファイルへの2回目以降のアクセスはCDNから返され、課金対象外になる
+  var metadata = { contentType: mime, cacheControl: "public, max-age=31536000" };
+  return ref.put(blob, metadata).then(function() { return ref.getDownloadURL(); })
     ["catch"](function(e) { console.warn("Storage upload err:", e); return null; });
 }
 
