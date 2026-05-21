@@ -39,6 +39,16 @@ canvas{image-rendering:high-quality;-webkit-image-rendering:high-quality}
 <body>
 <div id="root"><div style="display:flex;align-items:center;justify-content:center;height:80vh;font-size:15px;color:#888">読み込み中...</div></div>
 <script>
+// Service Worker 登録: Firebase Storage リクエストをキャッシュして課金を削減
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").then(function(reg) {
+    console.log("[SW] registered, scope:", reg.scope);
+  })["catch"](function(e) {
+    console.warn("[SW] registration failed:", e);
+  });
+}
+</script>
+<script>
 /**
  * @license React
  * react.production.min.js
@@ -917,6 +927,9 @@ function stLoad() {
         try { localStorage.setItem(ST_KEY, JSON.stringify(d)); } catch(e){}
       }
     }
+    // 起動時に localStorage の base64 を IDB にバックアップ（localStorage溢れ対策）
+    // IDB初期化完了を待つために遅延実行
+    setTimeout(function() { _stSaveImagesToIdb(d); }, 5000);
     return d;
   } catch (_unused2) {
     console.warn("[stLoad] parse error, using EMPTY");
@@ -935,7 +948,7 @@ function stSave(d, immediate) {
   }
   _stSaveTimer = setTimeout(function() {
     _stFlush(true);
-  }, 600);
+  }, 1500);
 }
 function _stFlush(skipBlur) {
   // ★ 軽量化方式B: 画面遷移/タブ切替/ページ離脱の直前に呼ばれたとき、
@@ -953,7 +966,26 @@ function _stFlush(skipBlur) {
     var s = JSON.stringify(_stSaveLatest);
     var refCount = (s.match(/"__ref__"/g) || []).length;
     if (refCount > 0) console.warn("[stSave] WARNING: saving " + refCount + " __ref__ values to localStorage — images may be lost");
-    localStorage.setItem(ST_KEY, s);
+    try {
+      localStorage.setItem(ST_KEY, s);
+    } catch(quotaErr) {
+      // localStorage容量超過 → imageUrlがある画像をIDBに退避してから、base64を除いた軽量版を保存
+      console.warn("[stSave] localStorage quota exceeded — syncing images to IDB, saving stripped data");
+      _stSaveImagesToIdb(_stSaveLatest);
+      var stripped = JSON.stringify(_stSaveLatest, function(key, val) {
+        // imageUrlが存在する画像のbase64のみ削除（IDB/Firebaseから復元可能なものだけ）
+        if ((key === "base64" || key === "orig_base64") && typeof val === "string" && val.length > 100) {
+          var parent = this;
+          if ((key === "base64" && parent.imageUrl) || (key === "orig_base64" && parent.origImageUrl)) {
+            return null;
+          }
+        }
+        return val;
+      });
+      try { localStorage.setItem(ST_KEY, stripped); } catch(e2) {
+        console.warn("[stSave] Even stripped save failed:", e2);
+      }
+    }
   } catch (_unused3) {}
   _stSaveLatest = null;
 }
@@ -1458,7 +1490,15 @@ var _snIdbReady = false;
   try {
     var req = indexedDB.open("sn_imgcache_v1", 1);
     req.onupgradeneeded = function(e) { e.target.result.createObjectStore("imgs"); };
-    req.onsuccess = function(e) { _snIdb = e.target.result; _snIdbReady = true; };
+    req.onsuccess = function(e) {
+      _snIdb = e.target.result; _snIdbReady = true;
+      // ブラウザが容量不足でもIDBを消去しないよう永続化を要求
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then(function(granted) {
+          console.log("[IDB] Persistent storage:", granted ? "granted" : "not granted");
+        });
+      }
+    };
     req.onerror = function() { console.warn("[IDB] open failed"); };
   } catch(e) { console.warn("[IDB] not available"); }
 })();
@@ -1486,6 +1526,46 @@ function snIdbDel(key) {
     var tx = _snIdb.transaction("imgs", "readwrite");
     tx.objectStore("imgs")["delete"](key);
   } catch(e) {}
+}
+
+// ── Cache API（IDBの次の防衛線: Firebase fetch 結果をブラウザキャッシュにも保存）──
+var _SN_CACHE_NAME = "sn-images-v1";
+function snCacheGet(url) {
+  if (!("caches" in window)) return Promise.resolve(null);
+  return window.caches.open(_SN_CACHE_NAME).then(function(cache) {
+    return cache.match(url);
+  }).then(function(res) {
+    if (!res || !res.ok) return null;
+    return res.blob();
+  })["catch"](function() { return null; });
+}
+function snCachePut(url, blob) {
+  if (!("caches" in window)) return;
+  try {
+    window.caches.open(_SN_CACHE_NAME).then(function(cache) {
+      cache.put(url, new Response(blob, { headers: { "Content-Type": blob.type || "image/png" } }));
+    })["catch"](function() {});
+  } catch(e) {}
+}
+
+// ── imageUrl を持つ画像の base64 を IDB に同期（localStorageの代替バックアップ）──
+function _stSaveImagesToIdb(data) {
+  function walk(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(walk); return; }
+    if (typeof obj.mt === "string") {
+      if (obj.imageUrl && typeof obj.base64 === "string" && obj.base64.length > 100) {
+        snIdbSet("img_" + obj.imageUrl, { base64: obj.base64, mt: obj.mt });
+      }
+      if (obj.origImageUrl && typeof obj.orig_base64 === "string" && obj.orig_base64.length > 100) {
+        snIdbSet("img_" + obj.origImageUrl, { base64: obj.orig_base64, mt: obj.orig_mt || obj.mt });
+      }
+    }
+    for (var k in obj) {
+      if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") walk(obj[k]);
+    }
+  }
+  walk(data);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1521,7 +1601,10 @@ function _uploadToStorage(path, b64, mime) {
   var blob = base64ToBlob(b64, mime);
   _fbTrack("st_ul", blob.size);
   var ref = _fbStorageRef.ref(path);
-  return ref.put(blob).then(function() { return ref.getDownloadURL(); })
+  // Cache-Control: public を設定することでFirebase側のCDNキャッシュを有効化
+  // 同じファイルへの2回目以降のアクセスはCDNから返され、課金対象外になる
+  var metadata = { contentType: mime, cacheControl: "public, max-age=31536000" };
+  return ref.put(blob, metadata).then(function() { return ref.getDownloadURL(); })
     ["catch"](function(e) { console.warn("Storage upload err:", e); return null; });
 }
 
@@ -1656,62 +1739,64 @@ function preloadImages(dataRef, setData, stSaveFn) {
     }
     var t = queue.shift();
     var idbKey = "img_" + t.url;
-    // ★ IndexedDBキャッシュを先にチェック → ヒットすればStorage DLスキップ
+    // 削除済みオブジェクトへの書き込みを防ぐ生存確認 + base64適用
+    function applyB64(b64) {
+      var stillAlive = false;
+      try { (function checkAlive(obj) {
+        if (stillAlive || !obj || typeof obj !== "object") return;
+        if (Array.isArray(obj)) { obj.forEach(checkAlive); return; }
+        if (obj === t.obj) { stillAlive = true; return; }
+        for (var k in obj) { if (stillAlive) break; if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") checkAlive(obj[k]); }
+      })(dataRef.current); } catch(e) { stillAlive = true; }
+      if (stillAlive) { t.obj[t.key] = b64; dirty = true; }
+    }
+    // ① IDB を確認
     snIdbGet(idbKey).then(function(cached) {
       if (cached && cached.base64) {
-        var stillAlive = false;
-        try { (function checkAlive(obj) {
-          if (stillAlive || !obj || typeof obj !== "object") return;
-          if (Array.isArray(obj)) { obj.forEach(checkAlive); return; }
-          if (obj === t.obj) { stillAlive = true; return; }
-          for (var k in obj) { if (stillAlive) break; if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") checkAlive(obj[k]); }
-        })(dataRef.current); } catch(e) { stillAlive = true; }
-        if (stillAlive) { t.obj[t.key] = cached.base64; dirty = true; }
-        done++;
-        next();
+        // ★ IDB ヒット: Firebase 通信なし
+        applyB64(cached.base64);
+        done++; next();
         return;
       }
-      // IndexedDBにない → Storage からDL
-      fetch(t.url).then(function(r) {
-        if (!r.ok) throw new Error(r.status);
-        return r.blob();
-      }).then(function(blob) {
-        _fbTrack("st_dl", blob.size);
-        return new Promise(function(resolve, reject) {
-          var reader = new FileReader();
-          reader.onload = function() { resolve(reader.result.split(",")[1]); };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      }).then(function(b64) {
-        var stillAlive = false;
-        try {
-          (function checkAlive(obj) {
-            if (stillAlive || !obj || typeof obj !== "object") return;
-            if (Array.isArray(obj)) { obj.forEach(checkAlive); return; }
-            if (obj === t.obj) { stillAlive = true; return; }
-            for (var k in obj) {
-              if (stillAlive) break;
-              if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") {
-                checkAlive(obj[k]);
-              }
-            }
-          })(dataRef.current);
-        } catch(e) { stillAlive = true; }
-        if (stillAlive) {
-          t.obj[t.key] = b64;
-          snIdbSet(idbKey, { base64: b64, mt: t.mt });
-          dirty = true;
+      // ② Cache API を確認（IDBの次の防衛線）
+      snCacheGet(t.url).then(function(blob) {
+        if (blob) {
+          // ★ Cache API ヒット: Firebase 通信なし
+          return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(reader.result.split(",")[1]); };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          }).then(function(b64) {
+            snIdbSet(idbKey, { base64: b64, mt: t.mt }); // 次回はIDBで即ヒット
+            applyB64(b64);
+            done++; next();
+          });
         }
-        done++;
-        next();
+        // ③ Firebase Storage からダウンロード（初回のみ）
+        return fetch(t.url).then(function(r) {
+          if (!r.ok) throw new Error(r.status);
+          return r.blob();
+        }).then(function(blob) {
+          _fbTrack("st_dl", blob.size);
+          snCachePut(t.url, blob); // ★ Cache API に保存（次回DL防止）
+          return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(reader.result.split(",")[1]); };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }).then(function(b64) {
+          applyB64(b64);
+          snIdbSet(idbKey, { base64: b64, mt: t.mt });
+          done++; next();
+        });
       })["catch"](function() {
-        failed++;
-        next();
+        failed++; next();
       });
     });
   }
-  for (var i = 0; i < Math.min(3, queue.length); i++) next();
+  for (var i = 0; i < Math.min(6, queue.length); i++) next();
 }
 
 // ── HTML 文字列中の data URL 画像を Storage にアップロード ──
@@ -10053,15 +10138,15 @@ function EntrySignalSection(_ref_es) {
     });
   };
 
-  var sortedRecs = records;
-  var groupedRecs = null;
-  if (sortMode === "time") {
-    sortedRecs = _esSortByTime(records);
-  } else if (sortMode === "custom") {
-    sortedRecs = _esSortByOrder(records, c.signalsOrder || []);
-  } else if (sortMode === "category") {
-    groupedRecs = _esGroupByCategory(records);
-  }
+  var _sortResult = useMemo(function() {
+    var sr = records, gr = null;
+    if (sortMode === "time") sr = _esSortByTime(records);
+    else if (sortMode === "custom") sr = _esSortByOrder(records, c.signalsOrder || []);
+    else if (sortMode === "category") gr = _esGroupByCategory(records);
+    return [sr, gr];
+  }, [records, sortMode, c.signalsOrder, signalTagsMaster]); // eslint-disable-line
+  var sortedRecs = _sortResult[0];
+  var groupedRecs = _sortResult[1];
   var currentOrder = sortedRecs.map(_esRecKey);
 
   // ── カスタム順移動: ▲▼ ボタン用 ──
@@ -27612,6 +27697,7 @@ function DailyCandleChart(_props_dcc) {
   var didInitRef = useRef(false);
   var dragRef = useRef(null);   // {type:"pan"|"none", startX, startY, startVS, startPShift}
   var pinchRef = useRef(null);  // {dist, mid, startXZ, startYZ, startVS, startPShift}
+  var _chartRef = useRef({});
   // データソース選択 (sparse / full)
   var sourceData = useMemo(function() {
     if (showSparse) {
@@ -27735,6 +27821,12 @@ function DailyCandleChart(_props_dcc) {
     if (yz <= 1.0) return 0;
     return Math.max(-1, Math.min(1, ps));
   };
+  // 最新の描画パラメータをrefに同期（イベントハンドラが毎回再登録しないために参照する）
+  _chartRef.current = {
+    effectiveXZoom: effectiveXZoom, effectiveYZoom: effectiveYZoom,
+    autoFitXZoom: autoFitXZoom, displayBarsLen: displayBars.length,
+    innerW: innerW, viewStart: viewStart, pShift: pShift
+  };
   // ────────── resize observer ──────────
   useEffect(function() {
     if (!wrapRef.current) return;
@@ -27746,8 +27838,8 @@ function DailyCandleChart(_props_dcc) {
     update();
     var ro = (typeof ResizeObserver !== "undefined") ? new ResizeObserver(update) : null;
     if (ro) ro.observe(wrapRef.current);
-    var t1 = setTimeout(update, 50);
-    var t2 = setTimeout(update, 250);
+    var t1 = setTimeout(update, 100);
+    var t2 = null;
     window.addEventListener("resize", update);
     return function() {
       clearTimeout(t1); clearTimeout(t2);
@@ -27808,14 +27900,17 @@ function DailyCandleChart(_props_dcc) {
     var onWheel = function(e) {
       if (!focusedRef.current) return; // ★ 非 focus 時は親に wheel を通す (画面スクロール継続)
       e.preventDefault();
+      var _cr = _chartRef.current;
+      var _xz = _cr.effectiveXZoom, _yz = _cr.effectiveYZoom;
+      var _afz = _cr.autoFitXZoom, _iw = _cr.innerW, _bl = _cr.displayBarsLen;
       if (e.shiftKey) {
         // 横移動: deltaY を横スクロールに
         var dx = e.deltaY * 0.5;
         setViewStart(function(vs) {
-          var curSlotW2 = BASE_SLOT_W * effectiveXZoom;
-          var curViewSpan2 = innerW / curSlotW2;
+          var curSlotW2 = BASE_SLOT_W * _xz;
+          var curViewSpan2 = _iw / curSlotW2;
           var nvs = vs + dx / curSlotW2;
-          return clampViewStart(nvs, curViewSpan2, displayBars.length);
+          return clampViewStart(nvs, curViewSpan2, _bl);
         });
         return;
       }
@@ -27823,47 +27918,47 @@ function DailyCandleChart(_props_dcc) {
         // 縦シフト
         setPShift(function(ps) {
           var nps = ps - e.deltaY * 0.002;
-          return clampPShift(nps, effectiveYZoom);
+          return clampPShift(nps, _yz);
         });
         return;
       }
       // X ズーム (中心: マウス位置の data index)
       var rect = wrap.getBoundingClientRect();
       var mx = e.clientX - rect.left;
-      var iCenter = xToI(mx);
+      var _sw = BASE_SLOT_W * _xz;
+      var iCenter = _cr.viewStart + (mx - padL - _sw / 2) / _sw;
       var factor = Math.exp(-e.deltaY * 0.002);
-      var curXZ = effectiveXZoom;
-      var newXZ = Math.max(Z_MIN, Math.min(Z_MAX, curXZ * factor));
+      var newXZ = Math.max(Z_MIN, Math.min(Z_MAX, _xz * factor));
       // autoFit が下限。それを下回ろうとしたら autoFit に止める
-      if (newXZ < autoFitXZoom) newXZ = autoFitXZoom;
-      var actualFactor = newXZ / curXZ;
+      if (newXZ < _afz) newXZ = _afz;
+      var actualFactor = newXZ / _xz;
       // 中心 iCenter を保持して viewStart を再計算
       var newSlotW = BASE_SLOT_W * newXZ;
-      var newViewSpan = innerW / newSlotW;
+      var newViewSpan = _iw / newSlotW;
       var newVS = iCenter - (mx - padL - newSlotW / 2) / newSlotW;
-      newVS = clampViewStart(newVS, newViewSpan, displayBars.length);
+      newVS = clampViewStart(newVS, newViewSpan, _bl);
       setXZoom(newXZ);
       setViewStart(newVS);
       // Y は X の実変化率に追従 (X が頭打ちで止まれば Y も止まる)
-      var curYZ = effectiveYZoom;
-      var newYZ = Math.max(Y_MIN, Math.min(Y_MAX, curYZ * actualFactor));
+      var newYZ = Math.max(Y_MIN, Math.min(Y_MAX, _yz * actualFactor));
       setYZoom(newYZ);
     };
     wrap.addEventListener("wheel", onWheel, { passive: false });
     return function() {
       try { wrap.removeEventListener("wheel", onWheel, { passive: false }); } catch(e){}
     };
-  }, [effectiveXZoom, effectiveYZoom, autoFitXZoom, displayBars.length, innerW]);
+  }, []);
   // touch: pan / pinch
   useEffect(function() {
     var wrap = wrapRef.current;
     if (!wrap) return;
     var onTouchStart = function(e) {
       if (!focusedRef.current) setFocused(true);
+      var _cr = _chartRef.current;
       if (e.touches.length === 1) {
         var t = e.touches[0];
         dragRef.current = { type: "pan", startX: t.clientX, startY: t.clientY,
-          startVS: viewStart, startPShift: pShift };
+          startVS: _cr.viewStart, startPShift: _cr.pShift };
         pinchRef.current = null;
       } else if (e.touches.length === 2) {
         var t1 = e.touches[0], t2 = e.touches[1];
@@ -27872,15 +27967,19 @@ function DailyCandleChart(_props_dcc) {
         var midX = (t1.clientX + t2.clientX) / 2;
         var rect = wrap.getBoundingClientRect();
         var midRel = midX - rect.left;
+        var _sw = BASE_SLOT_W * _cr.effectiveXZoom;
         pinchRef.current = {
           dist: dist, midX: midRel,
-          startXZ: effectiveXZoom, startYZ: effectiveYZoom,
-          startVS: viewStart, iCenter: xToI(midRel)
+          startXZ: _cr.effectiveXZoom, startYZ: _cr.effectiveYZoom,
+          startVS: _cr.viewStart, iCenter: _cr.viewStart + (midRel - padL - _sw / 2) / _sw
         };
         dragRef.current = null;
       }
     };
     var onTouchMove = function(e) {
+      var _cr = _chartRef.current;
+      var _xz = _cr.effectiveXZoom, _yz = _cr.effectiveYZoom;
+      var _afz = _cr.autoFitXZoom, _iw = _cr.innerW, _bl = _cr.displayBarsLen;
       if (e.touches.length === 2 && pinchRef.current) {
         e.preventDefault();
         var t1 = e.touches[0], t2 = e.touches[1];
@@ -27889,12 +27988,12 @@ function DailyCandleChart(_props_dcc) {
         var p = pinchRef.current;
         var ratio = dist / Math.max(1, p.dist);
         var newXZ = Math.max(Z_MIN, Math.min(Z_MAX, p.startXZ * ratio));
-        if (newXZ < autoFitXZoom) newXZ = autoFitXZoom;
+        if (newXZ < _afz) newXZ = _afz;
         var actualFactor = newXZ / p.startXZ;
         var newSlotW = BASE_SLOT_W * newXZ;
-        var newViewSpan = innerW / newSlotW;
+        var newViewSpan = _iw / newSlotW;
         var newVS = p.iCenter - (p.midX - padL - newSlotW / 2) / newSlotW;
-        newVS = clampViewStart(newVS, newViewSpan, displayBars.length);
+        newVS = clampViewStart(newVS, newViewSpan, _bl);
         setXZoom(newXZ);
         setViewStart(newVS);
         var newYZ = Math.max(Y_MIN, Math.min(Y_MAX, p.startYZ * actualFactor));
@@ -27905,18 +28004,18 @@ function DailyCandleChart(_props_dcc) {
         var d = dragRef.current;
         var dxp = t.clientX - d.startX;
         var dyp = t.clientY - d.startY;
-        var curSlotW2 = BASE_SLOT_W * effectiveXZoom;
-        var curViewSpan2 = innerW / curSlotW2;
+        var curSlotW2 = BASE_SLOT_W * _xz;
+        var curViewSpan2 = _iw / curSlotW2;
         var newVS2 = d.startVS - dxp / curSlotW2;
-        newVS2 = clampViewStart(newVS2, curViewSpan2, displayBars.length);
+        newVS2 = clampViewStart(newVS2, curViewSpan2, _bl);
         setViewStart(newVS2);
         // 縦ドラッグ: yZoom > 1 のときのみ pShift 更新
         // 画面上 dy ピクセル動かす ↔ pShift Δ = -2*dy / (priceH*(yZoom-1))
-        if (effectiveYZoom > 1.0 && priceH > 1) {
-          var yRange = priceH * (effectiveYZoom - 1);
+        if (_yz > 1.0 && priceH > 1) {
+          var yRange = priceH * (_yz - 1);
           if (yRange > 1) {
             var dPShift = 2 * dyp / yRange;
-            var newPS = clampPShift(d.startPShift + dPShift, effectiveYZoom);
+            var newPS = clampPShift(d.startPShift + dPShift, _yz);
             setPShift(newPS);
           }
         }
@@ -27936,7 +28035,7 @@ function DailyCandleChart(_props_dcc) {
       try { wrap.removeEventListener("touchend", onTouchEnd); } catch(e){}
       try { wrap.removeEventListener("touchcancel", onTouchEnd); } catch(e){}
     };
-  }, [viewStart, pShift, effectiveXZoom, effectiveYZoom, priceH, displayBars.length, autoFitXZoom, innerW]);
+  }, []);
   // mouse drag (pan)
   var onMouseDown = function(e) {
     if (!focused) setFocused(true);
@@ -27946,20 +28045,21 @@ function DailyCandleChart(_props_dcc) {
   useEffect(function() {
     var onMove = function(e) {
       if (!dragRef.current || dragRef.current.type !== "pan") return;
+      var _cr = _chartRef.current;
       var d = dragRef.current;
       var dx = e.clientX - d.startX;
       var dy = e.clientY - d.startY;
-      var curSlotW2 = BASE_SLOT_W * effectiveXZoom;
-      var curViewSpan2 = innerW / curSlotW2;
+      var curSlotW2 = BASE_SLOT_W * _cr.effectiveXZoom;
+      var curViewSpan2 = _cr.innerW / curSlotW2;
       var newVS = d.startVS - dx / curSlotW2;
-      newVS = clampViewStart(newVS, curViewSpan2, displayBars.length);
+      newVS = clampViewStart(newVS, curViewSpan2, _cr.displayBarsLen);
       setViewStart(newVS);
       // 縦ドラッグ: yZoom > 1 のときのみ pShift 更新
-      if (effectiveYZoom > 1.0 && priceH > 1) {
-        var yRange = priceH * (effectiveYZoom - 1);
+      if (_cr.effectiveYZoom > 1.0 && priceH > 1) {
+        var yRange = priceH * (_cr.effectiveYZoom - 1);
         if (yRange > 1) {
           var dPShift = 2 * dy / yRange;
-          var newPS = clampPShift(d.startPShift + dPShift, effectiveYZoom);
+          var newPS = clampPShift(d.startPShift + dPShift, _cr.effectiveYZoom);
           setPShift(newPS);
         }
       }
@@ -27971,7 +28071,7 @@ function DailyCandleChart(_props_dcc) {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [effectiveXZoom, effectiveYZoom, priceH, displayBars.length, innerW]);
+  }, []);
   // ────────── ホバー(tooltip) ──────────
   var onMouseMove = function(e) {
     if (dragRef.current) return; // ドラッグ中はツールチップ抑制
