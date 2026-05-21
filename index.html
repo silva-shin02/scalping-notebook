@@ -19339,10 +19339,7 @@ function DayView(_ref57) {
         minHeight: IS_TOUCH ? 44 : 36
       }
     }, hasDot && /*#__PURE__*/React.createElement(RedDot, null), la);
-  })), /*#__PURE__*/React.createElement(SignalDashboard, {
-    data: data,
-    onOpenLog: onOpenEntryLog || null
-  }), tab === "events" && /*#__PURE__*/React.createElement("div", null,
+  })), tab === "events" && /*#__PURE__*/React.createElement("div", null,
     /*#__PURE__*/React.createElement(EventsTab, {
       dd: dd,
       date: date,
@@ -33236,10 +33233,7 @@ function App() {
       cursor: "pointer",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "\uD83D\uDD04"), fbBadge)), !showSearch && /*#__PURE__*/React.createElement(SignalDashboard, {
-    data: data,
-    onOpenLog: function() { setShowEntryLog(true); }
-  }), showSearch ? /*#__PURE__*/React.createElement(SearchView, {
+  }, "\uD83D\uDD04"), fbBadge)), showSearch ? /*#__PURE__*/React.createElement(SearchView, {
     data: data,
     save: save,
     onSelectDate: function onSelectDate(d, tab) {
