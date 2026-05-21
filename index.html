@@ -32202,6 +32202,219 @@ function StockHistoryView(_ref_shv) {
   );
 }
 
+// ── ホーム画面「+予定」モーダル ──
+// EventsTab の編集フォームと同じ構成に「予定日」欄を追加したスタンドアロン版。
+function HomeEventFormModal(_p_hef) {
+  var data = _p_hef.data, save = _p_hef.save, onClose = _p_hef.onClose;
+  var custom = data.custom || {};
+  var allStocks = (custom.stocks && custom.stocks.length > 0) ? custom.stocks : _DEF_STOCKS_FROZEN;
+  var eventCategories = (Array.isArray(custom.eventCategories) && custom.eventCategories.length > 0)
+    ? custom.eventCategories
+    : [{ id: "evcat_other", name: "その他", color: "#6366F1" }];
+
+  // 今日の日付 (JST)
+  var _todayStr = (function() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  })();
+
+  var _usDraft = useState({
+    date: _todayStr, title: "", allDay: true,
+    startTime: "", endTime: "", content: "", contentHtml: "",
+    endDate: "", relatedStocks: [],
+    categoryId: (eventCategories[0] && eventCategories[0].id) || ""
+  });
+  var _usDraftA = _slicedToArray(_usDraft, 2), draft = _usDraftA[0], setDraft = _usDraftA[1];
+
+  useModalBack(true, onClose, "home-event-form");
+
+  var upd = function(patch) { setDraft(function(p) { return Object.assign({}, p, patch); }); };
+
+  var togRelStock = function(stk) {
+    var arr = (draft.relatedStocks || []).slice();
+    var i = arr.indexOf(stk);
+    if (i >= 0) arr.splice(i, 1); else arr.push(stk);
+    upd({ relatedStocks: arr });
+  };
+
+  var saveDraft = function() {
+    _fiFlushAll();
+    var titleNow = draft.title;
+    try {
+      var inps = document.querySelectorAll("input[data-fi-key='hefDraftTitle']");
+      if (inps.length) titleNow = inps[inps.length-1].value || "";
+    } catch(_e) {}
+    var html = (draft.contentHtml || "").trim();
+    var hasHtml = _hasText(html);
+    if (!titleNow.trim() && !hasHtml) return;
+    var clean = {
+      id: Date.now(), title: titleNow.trim(),
+      allDay: !(draft.startTime || draft.endTime),
+      startTime: draft.startTime || "", endTime: draft.endTime || "",
+      content: "", contentHtml: hasHtml ? html : "",
+      endDate: (draft.endDate || "").trim(),
+      relatedStocks: (draft.relatedStocks || []).slice(),
+      categoryId: draft.categoryId || ""
+    };
+    var targetDate = draft.date || _todayStr;
+    save(function(prevData) {
+      var prevDd = (prevData.trades && prevData.trades[targetDate]) || {};
+      var prevEvents = Array.isArray(prevDd.events) ? prevDd.events : [];
+      return Object.assign({}, prevData, {
+        trades: Object.assign({}, prevData.trades, _defineProperty({}, targetDate,
+          Object.assign({}, prevDd, { events: prevEvents.concat([clean]) })))
+      });
+    });
+    onClose();
+  };
+
+  var inputStyle = { fontSize: 14, padding: "8px 10px", border: "1px solid #ccc", borderRadius: 6, boxSizing: "border-box" };
+  var labelStyle = { fontSize: 11, color: "#888", fontWeight: 600, marginBottom: 4 };
+
+  return React.createElement("div", {
+    onClick: onClose,
+    style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }
+  },
+    React.createElement("div", {
+      onClick: function(e){ e.stopPropagation(); },
+      style: { background: "#fff", borderRadius: 12, maxWidth: 520, width: "100%",
+        maxHeight: "90vh", display: "flex", flexDirection: "column" }
+    },
+      // ヘッダ
+      React.createElement("div", {
+        style: { display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px", borderBottom: "1px solid #e0ddd6", flexShrink: 0 }
+      },
+        React.createElement("span", { style: { fontSize: 14, fontWeight: 700 } }, "📅 予定を追加"),
+        React.createElement("button", {
+          onClick: onClose,
+          style: { padding: "6px 14px", fontSize: 13, fontWeight: 600,
+            background: "#f5f4f0", color: "#555", border: "1px solid #ccc", borderRadius: 6, cursor: "pointer" }
+        }, "キャンセル")
+      ),
+      // フォーム本体
+      React.createElement("div", {
+        style: { padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }
+      },
+        // 予定日
+        React.createElement("div", null,
+          React.createElement("div", { style: labelStyle }, "予定日"),
+          React.createElement("input", {
+            type: "date", value: draft.date,
+            onChange: function(e){ upd({ date: e.target.value }); },
+            style: Object.assign({}, inputStyle, { width: "auto" })
+          })
+        ),
+        // タイトル
+        React.createElement("div", null,
+          React.createElement("div", { style: labelStyle }, "タイトル"),
+          React.createElement(FastInput, {
+            type: "text", "data-fi-key": "hefDraftTitle",
+            value: draft.title,
+            onChange: function(v){ upd({ title: v }); },
+            placeholder: "例: トヨタ決算発表 / FOMC など",
+            style: Object.assign({}, inputStyle, { width: "100%" })
+          })
+        ),
+        // カテゴリ
+        React.createElement("div", null,
+          React.createElement("div", { style: labelStyle }, "カテゴリ"),
+          React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+            eventCategories.map(function(c) {
+              var on = draft.categoryId === c.id;
+              return React.createElement("button", {
+                key: c.id,
+                onClick: function(){ upd({ categoryId: c.id }); },
+                style: { padding: "5px 10px", fontSize: 12, fontWeight: 600,
+                  background: on ? c.color : "#fff", color: on ? "#fff" : "#444",
+                  border: "1px solid " + (on ? c.color : "#ddd"),
+                  borderRadius: 5, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 4 }
+              },
+                React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: on ? "#fff" : c.color, opacity: on ? 0.9 : 1 } }),
+                c.name
+              );
+            })
+          )
+        ),
+        // 時間帯
+        React.createElement("div", null,
+          React.createElement("div", { style: labelStyle }, "時間帯"),
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+            React.createElement("input", {
+              type: "time", value: draft.startTime || "",
+              onChange: function(e){ upd({ startTime: e.target.value, allDay: e.target.value ? false : draft.allDay }); },
+              style: { fontSize: 14, padding: "6px 8px", border: "1px solid #ccc", borderRadius: 5 }
+            }),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "〜"),
+            React.createElement("input", {
+              type: "time", value: draft.endTime || "",
+              onChange: function(e){ upd({ endTime: e.target.value, allDay: e.target.value ? false : draft.allDay }); },
+              style: { fontSize: 14, padding: "6px 8px", border: "1px solid #ccc", borderRadius: 5 }
+            })
+          ),
+          React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginTop: 3 } }, "空欄のまま保存すると「終日」として記録されます")
+        ),
+        // 終了日
+        React.createElement("div", null,
+          React.createElement("div", { style: labelStyle }, "終了日（複数日にわたる場合）"),
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+            React.createElement("input", {
+              type: "date", value: draft.endDate || "",
+              onChange: function(e){ upd({ endDate: e.target.value }); },
+              style: { fontSize: 13, padding: "6px 8px", border: "1px solid #ccc", borderRadius: 5 }
+            }),
+            draft.endDate && React.createElement("button", {
+              onClick: function(){ upd({ endDate: "" }); },
+              style: { fontSize: 11, padding: "4px 10px", background: "#fff", color: "#888",
+                border: "1px solid #ddd", borderRadius: 4, cursor: "pointer" }
+            }, "クリア")
+          )
+        ),
+        // 内容メモ
+        React.createElement("div", null,
+          React.createElement("div", { style: labelStyle }, "内容メモ"),
+          React.createElement(MemoEditableField, {
+            key: "mef_hef_new",
+            html: draft.contentHtml || "",
+            onChange: function(h){ upd({ contentHtml: h }); },
+            placeholder: "詳細、メモ、URLなど",
+            autoEdit: true, inlineButtons: false,
+            guardOwner: "homeEventEdit_new"
+          })
+        ),
+        // 関連銘柄
+        allStocks.length > 0 && React.createElement("div", null,
+          React.createElement("div", { style: labelStyle }, "関連銘柄"),
+          React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
+            allStocks.filter(function(s){ return s !== "日経平均株価"; }).map(function(stk) {
+              var on = (draft.relatedStocks || []).indexOf(stk) >= 0;
+              return React.createElement("button", {
+                key: stk, onClick: function(){ togRelStock(stk); },
+                style: { padding: "4px 10px", fontSize: 11, fontWeight: 600,
+                  background: on ? "#4F46E5" : "#fff", color: on ? "#fff" : "#444",
+                  border: "1px solid " + (on ? "#4F46E5" : "#ddd"),
+                  borderRadius: 5, cursor: "pointer" }
+              }, (on ? "✓ " : "") + stk);
+            })
+          )
+        ),
+        // 保存ボタン
+        React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", paddingTop: 4 } },
+          React.createElement("button", {
+            onMouseDown: _fiFlushAll, onTouchStart: _fiFlushAll,
+            onClick: saveDraft,
+            style: { padding: "8px 24px", fontSize: 13, fontWeight: 700,
+              background: "#10B981", color: "#fff", border: "none",
+              borderRadius: 6, cursor: "pointer" }
+          }, "保存")
+        )
+      )
+    )
+  );
+}
+
 function App() {
   var _useState151 = useState(stLoad()),
     _useState152 = _slicedToArray(_useState151, 2),
@@ -32247,6 +32460,11 @@ function App() {
     _useState170 = _slicedToArray(_useState169, 2),
     fbStatus = _useState170[0],
     setFbStatus = _useState170[1];
+  // ホーム「+予定」モーダル
+  var _useStateHEF = useState(false),
+    _useStateHEFA = _slicedToArray(_useStateHEF, 2),
+    showHomeEventForm = _useStateHEFA[0],
+    setShowHomeEventForm = _useStateHEFA[1];
   // エントリー記録帳
   var _useStateEL1 = useState(false),
     _useStateEL2 = _slicedToArray(_useStateEL1, 2),
@@ -33107,20 +33325,6 @@ function App() {
       }
     }, v));
   }), /*#__PURE__*/React.createElement("button", {
-    onClick: function() { try { window.open(CA_URL, "_blank", "noopener"); } catch(e){} },
-    title: "チャート分析ツールを開く",
-    style: {
-      padding: "8px 12px",
-      fontSize: 12,
-      fontWeight: 700,
-      background: "#EEF2FF",
-      border: "1.5px solid #C7D2FE",
-      borderRadius: 7,
-      cursor: "pointer",
-      color: "#4338CA",
-      minHeight: IS_TOUCH ? 44 : 36
-    }
-  }, "\uD83D\uDCD0 \u30C1\u30E3\u30FC\u30C8\u5206\u6790"), /*#__PURE__*/React.createElement("button", {
     onClick: function() { setShowEntryLog(true); },
     title: "エントリー記録帳",
     style: {
@@ -33134,7 +33338,7 @@ function App() {
       color: "#9A3412",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "\uD83D\uDCD6 \u30A8\u30F3\u30C8\u30EA\u30FC\u8A18\u9332\u5E33"), /*#__PURE__*/React.createElement("button", {
+  }, "📖 エントリー記録帳"), /*#__PURE__*/React.createElement("button", {
     onClick: function() { setShowStockHistory(true); },
     title: "銘柄別記録",
     style: {
@@ -33148,9 +33352,9 @@ function App() {
       color: "#1565C0",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "\uD83D\uDCCA \u9298\u67C4\u5225\u8A18\u9332"), /*#__PURE__*/React.createElement("button", {
+  }, "📊 銘柄別記録"), /*#__PURE__*/React.createElement("button", {
     onClick: function() { setShowNewsHistory(true); },
-    title: "\u30CB\u30E5\u30FC\u30B9\u4E00\u89A7\uFF08\u30AB\u30C6\u30B4\u30EA\u00B7\u30B5\u30D6\u30BF\u30D6\u3054\u3068\u306B\u6642\u7CFB\u5217\u95B2\u89A7\uFF09",
+    title: "ニュース一覧（カテゴリ·サブタブごとに時系列閲覧）",
     style: {
       padding: "8px 12px",
       fontSize: 12,
@@ -33162,9 +33366,9 @@ function App() {
       color: "#92400E",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "\uD83D\uDCF0 \u30CB\u30E5\u30FC\u30B9\u4E00\u89A7"), /*#__PURE__*/React.createElement("button", {
+  }, "📰 ニュース一覧"), /*#__PURE__*/React.createElement("button", {
     onClick: function() { setShowSummaryHistory(true); },
-    title: "\u30E1\u30E2\u00B7\u30A2\u30A4\u30C7\u30A3\u30A2\u4E00\u89A7\uFF08\u904E\u53BB\u306E\u5168\u4F53\u30E1\u30E2\u3092\u6642\u7CFB\u5217\u3067\u632F\u308A\u8FD4\u308A\uFF09",
+    title: "メモ·アイディア一覧（過去の全体メモを時系列で振り返り）",
     style: {
       padding: "8px 12px",
       fontSize: 12,
@@ -33176,21 +33380,21 @@ function App() {
       color: "#6B21A8",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "\uD83D\uDCDD \u30E1\u30E2\u00B7\u30A2\u30A4\u30C7\u30A3\u30A2\u4E00\u89A7"), /*#__PURE__*/React.createElement("button", {
-    onClick: function() { setShowEntryForm(true); },
-    title: "エントリー新規記録",
+  }, "📝 メモ·アイディア一覧"), /*#__PURE__*/React.createElement("button", {
+    onClick: function() { setShowHomeEventForm(true); },
+    title: "予定を追加",
     style: {
-      padding: "8px 12px",
+      padding: "8px 14px",
       fontSize: 12,
       fontWeight: 700,
-      background: "#1a1a1a",
-      border: "1.5px solid #1a1a1a",
+      background: "#10B981",
+      border: "none",
       borderRadius: 7,
       cursor: "pointer",
       color: "#fff",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "\u2795 \u8A18\u9332"), /*#__PURE__*/React.createElement("button", {
+  }, "＋ 予定"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setShowSearch(true);
     },
@@ -33205,7 +33409,7 @@ function App() {
       color: "#4338CA",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "\uD83D\uDD0D"), /*#__PURE__*/React.createElement("button", {
+  }, "🔍"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setShowSettings(true);
     },
@@ -33218,23 +33422,7 @@ function App() {
       cursor: "pointer",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "\u2699\uFE0F"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      try { _stFlush(); } catch(e){}
-      location.reload();
-    },
-    title: "画面を更新",
-    style: {
-      padding: "8px 11px",
-      fontSize: 17,
-      background: "#f5f4f0",
-      border: "1px solid #ddd",
-      borderRadius: 7,
-      cursor: "pointer",
-      minHeight: IS_TOUCH ? 44 : 36
-    }
-  }, "\uD83D\uDD04"), fbBadge)), showSearch ? /*#__PURE__*/React.createElement(SearchView, {
-    data: data,
+  }, "⚙️"), fbBadge)), showSearch ? /*#__PURE__*/React.createElement(SearchView, {
     save: save,
     onSelectDate: function onSelectDate(d, tab) {
       setSel(d);
@@ -33265,6 +33453,10 @@ function App() {
     save: save,
     initial: null,
     onClose: function() { setShowEntryForm(false); }
+  }), showHomeEventForm && /*#__PURE__*/React.createElement(HomeEventFormModal, {
+    data: data,
+    save: save,
+    onClose: function() { setShowHomeEventForm(false); }
   })));
 }
 // 起動時: 前回ロードで残った警告バナーを除去
