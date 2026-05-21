@@ -917,6 +917,9 @@ function stLoad() {
         try { localStorage.setItem(ST_KEY, JSON.stringify(d)); } catch(e){}
       }
     }
+    // 起動時に localStorage の base64 を IDB にバックアップ（localStorage溢れ対策）
+    // IDB初期化完了を待つために遅延実行
+    setTimeout(function() { _stSaveImagesToIdb(d); }, 5000);
     return d;
   } catch (_unused2) {
     console.warn("[stLoad] parse error, using EMPTY");
@@ -953,7 +956,26 @@ function _stFlush(skipBlur) {
     var s = JSON.stringify(_stSaveLatest);
     var refCount = (s.match(/"__ref__"/g) || []).length;
     if (refCount > 0) console.warn("[stSave] WARNING: saving " + refCount + " __ref__ values to localStorage — images may be lost");
-    localStorage.setItem(ST_KEY, s);
+    try {
+      localStorage.setItem(ST_KEY, s);
+    } catch(quotaErr) {
+      // localStorage容量超過 → imageUrlがある画像をIDBに退避してから、base64を除いた軽量版を保存
+      console.warn("[stSave] localStorage quota exceeded — syncing images to IDB, saving stripped data");
+      _stSaveImagesToIdb(_stSaveLatest);
+      var stripped = JSON.stringify(_stSaveLatest, function(key, val) {
+        // imageUrlが存在する画像のbase64のみ削除（IDB/Firebaseから復元可能なものだけ）
+        if ((key === "base64" || key === "orig_base64") && typeof val === "string" && val.length > 100) {
+          var parent = this;
+          if ((key === "base64" && parent.imageUrl) || (key === "orig_base64" && parent.origImageUrl)) {
+            return null;
+          }
+        }
+        return val;
+      });
+      try { localStorage.setItem(ST_KEY, stripped); } catch(e2) {
+        console.warn("[stSave] Even stripped save failed:", e2);
+      }
+    }
   } catch (_unused3) {}
   _stSaveLatest = null;
 }
@@ -1458,7 +1480,15 @@ var _snIdbReady = false;
   try {
     var req = indexedDB.open("sn_imgcache_v1", 1);
     req.onupgradeneeded = function(e) { e.target.result.createObjectStore("imgs"); };
-    req.onsuccess = function(e) { _snIdb = e.target.result; _snIdbReady = true; };
+    req.onsuccess = function(e) {
+      _snIdb = e.target.result; _snIdbReady = true;
+      // ブラウザが容量不足でもIDBを消去しないよう永続化を要求
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persist().then(function(granted) {
+          console.log("[IDB] Persistent storage:", granted ? "granted" : "not granted");
+        });
+      }
+    };
     req.onerror = function() { console.warn("[IDB] open failed"); };
   } catch(e) { console.warn("[IDB] not available"); }
 })();
@@ -1486,6 +1516,46 @@ function snIdbDel(key) {
     var tx = _snIdb.transaction("imgs", "readwrite");
     tx.objectStore("imgs")["delete"](key);
   } catch(e) {}
+}
+
+// ── Cache API（IDBの次の防衛線: Firebase fetch 結果をブラウザキャッシュにも保存）──
+var _SN_CACHE_NAME = "sn-images-v1";
+function snCacheGet(url) {
+  if (!("caches" in window)) return Promise.resolve(null);
+  return window.caches.open(_SN_CACHE_NAME).then(function(cache) {
+    return cache.match(url);
+  }).then(function(res) {
+    if (!res || !res.ok) return null;
+    return res.blob();
+  })["catch"](function() { return null; });
+}
+function snCachePut(url, blob) {
+  if (!("caches" in window)) return;
+  try {
+    window.caches.open(_SN_CACHE_NAME).then(function(cache) {
+      cache.put(url, new Response(blob, { headers: { "Content-Type": blob.type || "image/png" } }));
+    })["catch"](function() {});
+  } catch(e) {}
+}
+
+// ── imageUrl を持つ画像の base64 を IDB に同期（localStorageの代替バックアップ）──
+function _stSaveImagesToIdb(data) {
+  function walk(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(walk); return; }
+    if (typeof obj.mt === "string") {
+      if (obj.imageUrl && typeof obj.base64 === "string" && obj.base64.length > 100) {
+        snIdbSet("img_" + obj.imageUrl, { base64: obj.base64, mt: obj.mt });
+      }
+      if (obj.origImageUrl && typeof obj.orig_base64 === "string" && obj.orig_base64.length > 100) {
+        snIdbSet("img_" + obj.origImageUrl, { base64: obj.orig_base64, mt: obj.orig_mt || obj.mt });
+      }
+    }
+    for (var k in obj) {
+      if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") walk(obj[k]);
+    }
+  }
+  walk(data);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1656,58 +1726,60 @@ function preloadImages(dataRef, setData, stSaveFn) {
     }
     var t = queue.shift();
     var idbKey = "img_" + t.url;
-    // ★ IndexedDBキャッシュを先にチェック → ヒットすればStorage DLスキップ
+    // 削除済みオブジェクトへの書き込みを防ぐ生存確認 + base64適用
+    function applyB64(b64) {
+      var stillAlive = false;
+      try { (function checkAlive(obj) {
+        if (stillAlive || !obj || typeof obj !== "object") return;
+        if (Array.isArray(obj)) { obj.forEach(checkAlive); return; }
+        if (obj === t.obj) { stillAlive = true; return; }
+        for (var k in obj) { if (stillAlive) break; if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") checkAlive(obj[k]); }
+      })(dataRef.current); } catch(e) { stillAlive = true; }
+      if (stillAlive) { t.obj[t.key] = b64; dirty = true; }
+    }
+    // ① IDB を確認
     snIdbGet(idbKey).then(function(cached) {
       if (cached && cached.base64) {
-        var stillAlive = false;
-        try { (function checkAlive(obj) {
-          if (stillAlive || !obj || typeof obj !== "object") return;
-          if (Array.isArray(obj)) { obj.forEach(checkAlive); return; }
-          if (obj === t.obj) { stillAlive = true; return; }
-          for (var k in obj) { if (stillAlive) break; if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") checkAlive(obj[k]); }
-        })(dataRef.current); } catch(e) { stillAlive = true; }
-        if (stillAlive) { t.obj[t.key] = cached.base64; dirty = true; }
-        done++;
-        next();
+        // ★ IDB ヒット: Firebase 通信なし
+        applyB64(cached.base64);
+        done++; next();
         return;
       }
-      // IndexedDBにない → Storage からDL
-      fetch(t.url).then(function(r) {
-        if (!r.ok) throw new Error(r.status);
-        return r.blob();
-      }).then(function(blob) {
-        _fbTrack("st_dl", blob.size);
-        return new Promise(function(resolve, reject) {
-          var reader = new FileReader();
-          reader.onload = function() { resolve(reader.result.split(",")[1]); };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      }).then(function(b64) {
-        var stillAlive = false;
-        try {
-          (function checkAlive(obj) {
-            if (stillAlive || !obj || typeof obj !== "object") return;
-            if (Array.isArray(obj)) { obj.forEach(checkAlive); return; }
-            if (obj === t.obj) { stillAlive = true; return; }
-            for (var k in obj) {
-              if (stillAlive) break;
-              if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") {
-                checkAlive(obj[k]);
-              }
-            }
-          })(dataRef.current);
-        } catch(e) { stillAlive = true; }
-        if (stillAlive) {
-          t.obj[t.key] = b64;
-          snIdbSet(idbKey, { base64: b64, mt: t.mt });
-          dirty = true;
+      // ② Cache API を確認（IDBの次の防衛線）
+      snCacheGet(t.url).then(function(blob) {
+        if (blob) {
+          // ★ Cache API ヒット: Firebase 通信なし
+          return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(reader.result.split(",")[1]); };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          }).then(function(b64) {
+            snIdbSet(idbKey, { base64: b64, mt: t.mt }); // 次回はIDBで即ヒット
+            applyB64(b64);
+            done++; next();
+          });
         }
-        done++;
-        next();
+        // ③ Firebase Storage からダウンロード（初回のみ）
+        return fetch(t.url).then(function(r) {
+          if (!r.ok) throw new Error(r.status);
+          return r.blob();
+        }).then(function(blob) {
+          _fbTrack("st_dl", blob.size);
+          snCachePut(t.url, blob); // ★ Cache API に保存（次回DL防止）
+          return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(reader.result.split(",")[1]); };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }).then(function(b64) {
+          applyB64(b64);
+          snIdbSet(idbKey, { base64: b64, mt: t.mt });
+          done++; next();
+        });
       })["catch"](function() {
-        failed++;
-        next();
+        failed++; next();
       });
     });
   }
