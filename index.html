@@ -3235,6 +3235,11 @@ function ImageAnnotator(_ref7) {
     _useStateCCS = _slicedToArray(_useStateCC, 2),
     cancelConfirm = _useStateCCS[0],
     setCancelConfirm = _useStateCCS[1];
+  // ★ ナビゲーション（前後切り替え）確認用: null | callback
+  var _useStateNavConf = useState(null),
+    _useStateNavConfS = _slicedToArray(_useStateNavConf, 2),
+    navConfirm = _useStateNavConfS[0],
+    setNavConfirm = _useStateNavConfS[1];
   var _useState33 = useState("#E53935"),
     _useState34 = _slicedToArray(_useState33, 2),
     color = _useState34[0],
@@ -3394,8 +3399,7 @@ function ImageAnnotator(_ref7) {
     var onPopCapture = function(e) {
       // ImageAnnotator 内部処理由来の back (e.g. 確認モーダルのキャンセル) は無視
       if (window._sn_internalBack) return;
-      var hasUnsaved = (histRef.current && histRef.current.length > 1) || textInputState;
-      if (!hasUnsaved) return; // 未保存なし → 親の useModalBack に任せる (即閉じる)
+      // ★ 常に確認モーダルを表示する（未保存チェックは行わない）
       // 未保存あり → 履歴を積み直して確認モーダル表示、親 listener を呼ばせない
       try {
         var prev = window.history.state;
@@ -3410,6 +3414,16 @@ function ImageAnnotator(_ref7) {
     window.addEventListener("popstate", onPopCapture, true);
     return function() { window.removeEventListener("popstate", onPopCapture, true); };
   }, [textInputState]);
+  // ── ページリロード / タブ閉じ時に確認ダイアログ（beforeunload） ──
+  useEffect(function() {
+    var onBeforeUnload = function(e) {
+      e.preventDefault();
+      e.returnValue = '書き込み画面を開いています。ページを離れると未保存の内容が失われる可能性があります。';
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return function() { window.removeEventListener('beforeunload', onBeforeUnload); };
+  }, []);
   // ツールが描画系のとき、色/線幅/不透明度/フォント変更をツール別設定として保存
   useEffect(function() {
     if (!DRAW_TOOLS[tool]) return;
@@ -5213,7 +5227,7 @@ function ImageAnnotator(_ref7) {
             },
               /*#__PURE__*/React.createElement("button", {
                 onClick: function(){
-                  if(histRef.current.length > 1 || textInputState){ setCancelConfirm(true); } else { onClose(); }
+                  setCancelConfirm(true);
                 },
                 style: Object.assign({}, TB(false,"#444","#ccc"), { flexShrink:0 })
               }, "\u30AD\u30E3\u30F3\u30BB\u30EB"),
@@ -5340,12 +5354,12 @@ function ImageAnnotator(_ref7) {
       /*#__PURE__*/React.createElement("div",{style:{width:1,height:20,background:"#333",flexShrink:0}}),
       /*#__PURE__*/React.createElement("div",{style:{display:"flex",gap:3,alignItems:"center",flexShrink:0}},
         /*#__PURE__*/React.createElement("button",{
-          onClick:onPrev?function(){done(onPrev);}:undefined, disabled:!onPrev,
+          onClick:onPrev?function(){setNavConfirm(onPrev);}:undefined, disabled:!onPrev,
           style:{padding:"3px 9px",borderRadius:4,border:"none",cursor:onPrev?"pointer":"default",fontSize:15,fontWeight:700,background:"#2a2a2a",color:onPrev?"#fff":"#444"}
         },"\u2191"),
         navLabel && /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#555",minWidth:24,textAlign:"center"}},navLabel),
         /*#__PURE__*/React.createElement("button",{
-          onClick:onNext?function(){done(onNext);}:undefined, disabled:!onNext,
+          onClick:onNext?function(){setNavConfirm(onNext);}:undefined, disabled:!onNext,
           style:{padding:"3px 9px",borderRadius:4,border:"none",cursor:onNext?"pointer":"default",fontSize:15,fontWeight:700,background:"#2a2a2a",color:onNext?"#fff":"#444"}
         },"\u2193")
       )
@@ -5508,7 +5522,7 @@ function ImageAnnotator(_ref7) {
       return e.stopPropagation();
     },
     onClick: function onClick() {
-      return done(onPrev);
+      setNavConfirm(onPrev);
     },
     style: {
       position: "absolute",
@@ -5536,7 +5550,7 @@ function ImageAnnotator(_ref7) {
       return e.stopPropagation();
     },
     onClick: function onClick() {
-      return done(onNext);
+      setNavConfirm(onNext);
     },
     style: {
       position: "absolute",
@@ -5561,7 +5575,7 @@ function ImageAnnotator(_ref7) {
   onPrevItem && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function(e){ e.stopPropagation(); },
     onTouchStart: function(e){ e.stopPropagation(); },
-    onClick: function(){ done(onPrevItem); },
+    onClick: function(){ setNavConfirm(onPrevItem); },
     title: "前の記事",
     style: {
       position: "absolute",
@@ -5586,7 +5600,7 @@ function ImageAnnotator(_ref7) {
   onNextItem && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function(e){ e.stopPropagation(); },
     onTouchStart: function(e){ e.stopPropagation(); },
-    onClick: function(){ done(onNextItem); },
+    onClick: function(){ setNavConfirm(onNextItem); },
     title: "次の記事",
     style: {
       position: "absolute",
@@ -6168,9 +6182,9 @@ cancelConfirm && ReactDOM.createPortal(
     },
       React.createElement('div',{style:{fontSize:26,marginBottom:10}},'✎️'),
       React.createElement('div',{style:{fontSize:15,fontWeight:700,color:'#1a1a1a',marginBottom:8}},
-        'キャンセルしますか？'),
+        '書き込み画面を終了しますか？'),
       React.createElement('div',{style:{fontSize:13,color:'#555',lineHeight:1.7,marginBottom:22,whiteSpace:'pre-wrap'}},
-        'キャンセルすると、保存されていない\n描き込みは全て失われます。'),
+        '現在の書き込みを保存してから終了します。'),
       React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}},
         React.createElement('button',{
           onClick:function(e){
@@ -6188,23 +6202,7 @@ cancelConfirm && ReactDOM.createPortal(
           },
           style:{padding:'11px 0',background:'#6366F1',color:'#fff',border:'none',
             borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700,width:'100%'}
-        },'💾 保存してから終了'),
-        React.createElement('button',{
-          onClick:function(e){
-            e.stopPropagation();
-            setCancelConfirm(false);
-            var _st = window.history.state;
-            if (_st && _st._sn && String(_st._sn).indexOf("modal:imgannot:") === 0) {
-              window._sn_internalBack = true;
-              try { window.history.back(); } catch(_) { onClose(); }
-            } else {
-              onClose();
-            }
-          },
-          style:{padding:'11px 0',background:'#fff',color:'#C0392B',
-            border:'1.5px solid #C0392B',
-            borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700,width:'100%'}
-        },'🗑 保存せずに終了'),
+        },'💾 保存して終了'),
         React.createElement('button',{
           onClick:function(e){e.stopPropagation();setCancelConfirm(false);},
           style:{padding:'10px 0',background:'#f5f5f5',color:'#555',border:'none',
@@ -6214,7 +6212,44 @@ cancelConfirm && ReactDOM.createPortal(
     )
   ),
   document.body
-))
+),
+// ★ ナビゲーション確認ダイアログ（前後画像・前後記事への切り替え時）
+navConfirm && ReactDOM.createPortal(
+  React.createElement('div',{
+    style:{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:20000,
+      display:'flex',alignItems:'center',justifyContent:'center'}
+  },
+    React.createElement('div',{
+      style:{background:'#fff',borderRadius:14,padding:'24px 26px',maxWidth:320,width:'90%',textAlign:'center',
+        boxShadow:'0 8px 40px rgba(0,0,0,.35)'}
+    },
+      React.createElement('div',{style:{fontSize:26,marginBottom:10}},'🖼️'),
+      React.createElement('div',{style:{fontSize:15,fontWeight:700,color:'#1a1a1a',marginBottom:8}},
+        '画像を切り替えますか？'),
+      React.createElement('div',{style:{fontSize:13,color:'#555',lineHeight:1.7,marginBottom:22}},
+        '現在の書き込みを保存してから切り替えます。'),
+      React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+        React.createElement('button',{
+          onClick:function(e){
+            e.stopPropagation();
+            var cb = navConfirm;
+            setNavConfirm(null);
+            done(cb);
+          },
+          style:{padding:'11px 0',background:'#6366F1',color:'#fff',border:'none',
+            borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700,width:'100%'}
+        },'💾 保存して切り替え'),
+        React.createElement('button',{
+          onClick:function(e){e.stopPropagation();setNavConfirm(null);},
+          style:{padding:'10px 0',background:'#f5f5f5',color:'#555',border:'none',
+            borderRadius:8,cursor:'pointer',fontSize:13,width:'100%'}
+        },'キャンセル（このまま編集）')
+      )
+    )
+  ),
+  document.body
+)
+)
 }
 
 // ── UI Atoms ──
