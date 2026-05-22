@@ -5066,7 +5066,15 @@ function ImageAnnotator(_ref7) {
     justSavedRef.current = true;
     onSave(saved);
     // ★ 画面遷移を先行させる: cb() を先に呼び、重い flush 処理は次のマクロタスクへ
-    if (typeof cb === "function") cb();
+    if (typeof cb === "function") {
+      cb();
+      // ★ ナビゲーション後は新しい画像でキャンバスを再初期化するためリセット
+      //   justSavedRef を false に戻し、ストロークも空にする
+      justSavedRef.current = false;
+      strokesRef.current = [];
+      histRef.current = [[]];
+      futRef.current = [];
+    }
     setTimeout(function() {
       _stFlush(true);
       window._snFbFlushPending = true;
