@@ -5540,7 +5540,8 @@ function ImageAnnotator(_ref7) {
         } else if (e.buttons === 3) {
           e.currentTarget.style.cursor = "grab";
         } else {
-          e.currentTarget.style.cursor = "";
+          // ★ ツールに応じたカーソルを維持（空文字にするとarrowに戻るため）
+          e.currentTarget.style.cursor = tool === "pan" ? "grab" : tool === "eraser" ? "cell" : tool === "lasso" ? "default" : "crosshair";
         }
       },
       onMouseDown: function(e) {
