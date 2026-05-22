@@ -990,9 +990,21 @@ function _stFlush(skipBlur) {
   _stSaveLatest = null;
 }
 // 画面離脱・visibilitychange 等の「未保存内容を吸い上げる必要がある」タイミングでは blur 経由で保存
-window.addEventListener("beforeunload", function(){ _stFlush(false); });
-document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") _stFlush(false); });
-window.addEventListener("pagehide", function(){ _stFlush(false); });
+// ★ ImageAnnotatorが開いている場合は先に自動保存させる（iOSメモリ退避でストローク消失防止）
+window.addEventListener("beforeunload", function(){
+  if (typeof window._snAnnotAutoSave === "function") window._snAnnotAutoSave();
+  _stFlush(false);
+});
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState==="hidden") {
+    if (typeof window._snAnnotAutoSave === "function") window._snAnnotAutoSave();
+    _stFlush(false);
+  }
+});
+window.addEventListener("pagehide", function(){
+  if (typeof window._snAnnotAutoSave === "function") window._snAnnotAutoSave();
+  _stFlush(false);
+});
 function cfLoad() {
   try {
     var s = localStorage.getItem(CF_KEY);
@@ -3451,10 +3463,14 @@ function ImageAnnotator(_ref7) {
   var blobUrlRef = useRef(null); // ★ <img> 要素に渡す blob URL（アンマウント時に revoke）
   var dprRef = useRef(1);        // ★ devicePixelRatio（高DPI対応）
   var logicalSizeRef = useRef({w:0,h:0}); // ★ 画像の論理サイズ（=ストローク座標空間）
+  var doneRef = useRef(null);    // ★ done() の最新版を保持（_snAnnotAutoSaveから参照）
   var strokesRef = useRef([]);
   var histRef = useRef([[]]);
   // ★ 保存直後はキャンバス再初期化をスキップ（保存後に img props が変わっても画面フラッシュしない）
   var justSavedRef = useRef(false);
+  // ★ 編集中フラグ: ストローク変更後・保存完了前。trueのときポーリングmergeによる
+  //   canvas再初期化をスキップし、描きかけの内容を保護する。
+  var dirtyRef = useRef(false);
   var futRef = useRef([]);
   var drawRef = useRef({
     on: false,
@@ -3945,6 +3961,7 @@ function ImageAnnotator(_ref7) {
     setCanUndo(true);
     setCanRedo(false);
     updateCommitted(strokes); // 確定済みキャッシュを更新
+    dirtyRef.current = true;  // ★ 編集中フラグON: ポーリングmergeによる再初期化を防ぐ
   }
   var undo = function undo() {
     if (textInputState) return;
@@ -3959,6 +3976,7 @@ function ImageAnnotator(_ref7) {
     updateCommitted(prev);
     setCanUndo(histRef.current.length > 1);
     setCanRedo(true);
+    dirtyRef.current = true; // ★ Undo も編集操作
   };
   var redo = function redo() {
     if (textInputState) return;
@@ -3975,8 +3993,22 @@ function ImageAnnotator(_ref7) {
     updateCommitted(next);
     setCanUndo(true);
     setCanRedo(rest.length > 0);
+    dirtyRef.current = true; // ★ Redo も編集操作
   };
 
+  // ── visibilitychange 時の自動保存フック（iOSメモリ退避対策）──
+  //   ページが隠れる直前に done() を呼んでストロークを _stSaveLatest に反映する。
+  //   グローバルの visibilitychange ハンドラが _stFlush する前に実行されるよう
+  //   window._snAnnotAutoSave として登録し、そちらから呼んでもらう。
+  //   doneRef.current を使うことで常に最新の done() を参照する。
+  useEffect(function () {
+    window._snAnnotAutoSave = function() {
+      if (dirtyRef.current && doneRef.current) {
+        doneRef.current(); // cb なし: 画面を閉じずにストロークだけ保存
+      }
+    };
+    return function() { delete window._snAnnotAutoSave; };
+  }, []);
   // ── 初期化 ──
   useEffect(function () {
     var handler = function(e) {
@@ -3997,6 +4029,9 @@ function ImageAnnotator(_ref7) {
       justSavedRef.current = false;
       return;
     }
+    // ★ 編集中（未保存のストロークあり）はポーリングmergeによるimg prop変化でも再初期化しない
+    //   setData(merged)で img オブジェクト参照が変わってもキャンバスの描きかけを保護する
+    if (dirtyRef.current) return;
     var ctx = c.getContext("2d");
 
     // 画像ロード成功時の共通処理（新アーキテクチャ: 画像は <img>、canvas はストローク専用）
@@ -5023,65 +5058,73 @@ function ImageAnnotator(_ref7) {
       drawRef.current.on = false;
     }
     strokesRef.current = _curStrokes;
-    // ── 3. 確定した内容でキャンバスを再描画してキャプチャ ──
-    rebuild(_curStrokes);
-    var c = canvasRef.current;
-    var base64 = null;
-    try {
-      // ★ 保存用: 論理解像度(1x)のキャンバスにベース画像+ストロークを合成描画
-      //   新アーキテクチャ: canvas はストローク専用なので、保存時は必ず画像と合成する
-      var _ls = logicalSizeRef.current;
-      if (_ls.w > 0 && baseImgRef.current) {
-        var _expC = document.createElement("canvas");
-        _expC.width = _ls.w;
-        _expC.height = _ls.h;
-        var _expCtx = _expC.getContext("2d");
-        _expCtx.imageSmoothingEnabled = true;
-        _expCtx.imageSmoothingQuality = "high";
-        _expCtx.drawImage(baseImgRef.current, 0, 0, _ls.w, _ls.h);
-        _curStrokes.forEach(function(s) { drawStroke(_expCtx, s); });
-        base64 = _expC.toDataURL("image/png").split(",")[1];
-      } else {
-        // フォールバック: ベース画像がない場合（通常発生しない）
-        base64 = c.toDataURL("image/png").split(",")[1];
-      }
-    } catch(e) {
-      console.warn("[Annotator] toDataURL failed (tainted canvas), saving strokes only:", e);
-    }
-    var saved = {
-      base64: base64 || (img.base64 && img.base64 !== "__ref__" ? img.base64 : null),
-      mt: base64 ? "image/png" : (img.mt || "image/png"),
+    // ── 3. ストロークを即時保存（画面を閉じる前に必ず永続化）──
+    //   base64(PNG)の生成は重いので後回しにして、まずストロークデータだけ保存する。
+    //   これによりiPadのメモリ退避やブラウザ強制終了でもストロークが消えない。
+    var _savedNow = {
+      base64: (img.base64 && img.base64 !== "__ref__") ? img.base64 : null, // 旧base64を引き継ぐ
+      mt: img.mt || "image/png",
       id: Date.now(),
       orig_base64: (img.orig_base64 && img.orig_base64 !== "__ref__") ? img.orig_base64 : ((img.base64 && img.base64 !== "__ref__") ? img.base64 : null),
       orig_mt: img.orig_mt || img.mt,
       strokes: _curStrokes
     };
-    // Storage URL があれば引き継ぐ（次回fbPutで再アップロード不要）
-    if (img.origImageUrl) saved.origImageUrl = img.origImageUrl;
-    else if (img.imageUrl) saved.origImageUrl = img.imageUrl;
-    // ★ 新しい base64 が生成できなかった(tainted等)場合、既存の imageUrl を温存
-    //   （そうしないと他端末/再読込時に画像が表示できなくなる）
-    if (!base64 && img.imageUrl) saved.imageUrl = img.imageUrl;
-    // ★ 保存直後の img props 変化によるキャンバス再初期化をスキップするフラグ
+    if (img.origImageUrl) _savedNow.origImageUrl = img.origImageUrl;
+    else if (img.imageUrl) _savedNow.origImageUrl = img.imageUrl;
+    if (img.imageUrl) _savedNow.imageUrl = img.imageUrl;
+    // ★ 編集中フラグOFF / 保存直後フラグON
+    dirtyRef.current = false;
     justSavedRef.current = true;
-    onSave(saved);
-    // ★ 画面遷移を先行させる: cb() を先に呼び、重い flush 処理は次のマクロタスクへ
+    onSave(_savedNow); // ストロークをデータstateへ反映 → _stSaveLatest が更新される
+    // ── 4. 画面遷移を先行させる ──
+    //   cb() (onClose/onPrev/onNext) → 画面が即座に閉じる
     if (typeof cb === "function") {
       cb();
-      // ★ ナビゲーション後は新しい画像でキャンバスを再初期化するためリセット
-      //   justSavedRef を false に戻し、ストロークも空にする
+      // ナビゲーション後は新しい画像でcanvasを再初期化するためリセット
       justSavedRef.current = false;
       strokesRef.current = [];
       histRef.current = [[]];
       futRef.current = [];
     }
+    // ── 5. 重いPNG生成は非同期（画面遷移完了後に実行）──
+    //   base64が更新されたら onSave を再度呼んで上書き保存する。
+    //   refs をキャプチャしておくことでコンポーネントアンマウント後も安全に使用できる。
+    var _capLS = { w: logicalSizeRef.current.w, h: logicalSizeRef.current.h };
+    var _capBaseImg = baseImgRef.current;
+    var _capStrokes = _curStrokes;
+    var _capImg = img;
     setTimeout(function() {
+      var base64 = null;
+      try {
+        if (_capLS.w > 0 && _capBaseImg) {
+          var _expC = document.createElement("canvas");
+          _expC.width = _capLS.w;
+          _expC.height = _capLS.h;
+          var _expCtx = _expC.getContext("2d");
+          _expCtx.imageSmoothingEnabled = true;
+          _expCtx.imageSmoothingQuality = "high";
+          _expCtx.drawImage(_capBaseImg, 0, 0, _capLS.w, _capLS.h);
+          _capStrokes.forEach(function(s) { drawStroke(_expCtx, s); });
+          base64 = _expC.toDataURL("image/png").split(",")[1];
+        }
+      } catch(e) {
+        console.warn("[Annotator] async toDataURL failed:", e);
+      }
+      if (base64) {
+        // base64が生成できたら上書き保存（strokes保存済みなのでbase64更新のみ）
+        // imageUrlを除去することで次回fbPut時に新しいbase64がStorageへアップロードされる
+        var _savedFull = Object.assign({}, _savedNow, { base64: base64, mt: "image/png" });
+        delete _savedFull.imageUrl;
+        onSave(_savedFull);
+      }
       _stFlush(true);
       window._snFbFlushPending = true;
       if (typeof window._snFbFlushNow === "function") window._snFbFlushNow();
       setTimeout(function() { window._snFbFlushPending = false; }, 2000);
     }, 0);
   };
+  // ★ done() の最新版を doneRef に保持（毎レンダーで更新）
+  doneRef.current = done;
 
   // ── 選択UIのcanvas→screen変換 ──
   var selUI = selBounds && canvasRef.current ? function () {
