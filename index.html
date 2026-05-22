@@ -998,6 +998,16 @@ window.addEventListener("pagehide", function(){ _stFlush(false); });
 //   ページをリロードして最新状態を反映する。
 window.addEventListener("pageshow", function(e) {
   if (e.persisted) {
+    // ★ 連続リロードループを防ぐため、30秒以内の再リロードはスキップ
+    var _BFC_KEY = '_sn_bfc_reload_ts';
+    var _now = Date.now();
+    var _last = 0;
+    try { _last = Number(sessionStorage.getItem(_BFC_KEY)) || 0; } catch(_) {}
+    if (_now - _last < 30000) {
+      console.log("[pageshow] BFCache restore — throttled, skipping reload");
+      return;
+    }
+    try { sessionStorage.setItem(_BFC_KEY, String(_now)); } catch(_) {}
     console.log("[pageshow] BFCache restore detected — reloading to sync state");
     location.reload();
   }
@@ -3506,7 +3516,11 @@ function ImageAnnotator(_ref7) {
       e.returnValue = '書き込み画面を開いています。ページを離れると未保存の内容が失われる可能性があります。';
       return e.returnValue;
     };
-    window.addEventListener('beforeunload', onBeforeUnload);
+    // ★ iOS Safari は beforeunload ダイアログ非対応のため登録しない
+    var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (!_isIOS) {
+      window.addEventListener('beforeunload', onBeforeUnload);
+    }
     return function() { window.removeEventListener('beforeunload', onBeforeUnload); };
   }, []);
   // ツールが描画系のとき、色/線幅/不透明度/フォント変更をツール別設定として保存
