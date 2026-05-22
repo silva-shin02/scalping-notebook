@@ -5435,10 +5435,24 @@ function ImageAnnotator(_ref7) {
         },"\u2193")
       )
     ),
-    /* 記事ナビのラベルだけツールバー上部に表示（ボタンは画面両端） */
-    itemNavLabel && (onPrevItem||onNextItem) && /*#__PURE__*/React.createElement(React.Fragment, null,
+    /* 記事ナビ: ←ラベル→ をツールバーに表示 */
+    (onPrevItem||onNextItem) && /*#__PURE__*/React.createElement(React.Fragment, null,
       /*#__PURE__*/React.createElement("div",{style:{width:1,height:20,background:"#333",flexShrink:0}}),
-      /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#7ec4ff",flexShrink:0,padding:"2px 6px",background:"#1a3a52",borderRadius:3}},itemNavLabel)
+      /*#__PURE__*/React.createElement("div",{style:{display:"flex",gap:4,alignItems:"center",flexShrink:0}},
+        onPrevItem && /*#__PURE__*/React.createElement("button",{
+          onClick:function(){ setNavConfirm(onPrevItem); },
+          title:"前の記事",
+          style:{padding:"3px 9px",borderRadius:4,border:"1px solid rgba(126,196,255,.4)",cursor:"pointer",
+            fontSize:15,fontWeight:700,background:"#1a3a52",color:"#7ec4ff",flexShrink:0}
+        },"←"),
+        itemNavLabel && /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#7ec4ff",flexShrink:0,padding:"2px 6px",background:"#1a3a52",borderRadius:3}},itemNavLabel),
+        onNextItem && /*#__PURE__*/React.createElement("button",{
+          onClick:function(){ setNavConfirm(onNextItem); },
+          title:"次の記事",
+          style:{padding:"3px 9px",borderRadius:4,border:"1px solid rgba(126,196,255,.4)",cursor:"pointer",
+            fontSize:15,fontWeight:700,background:"#1a3a52",color:"#7ec4ff",flexShrink:0}
+        },"→")
+      )
     )
   )
   ), /*#__PURE__*/React.createElement("div", {
@@ -5632,54 +5646,6 @@ function ImageAnnotator(_ref7) {
     }
   }, "\u203A")),
   /* ── 記事ナビボタン（画面両端、画像ナビの下側） ── */
-  onPrevItem && /*#__PURE__*/React.createElement("button", {
-    onMouseDown: function(e){ e.stopPropagation(); },
-    onTouchStart: function(e){ e.stopPropagation(); },
-    onClick: function(){ setNavConfirm(onPrevItem); },
-    title: "前の記事",
-    style: {
-      position: "absolute",
-      left: 12,
-      top: 12,
-      width: 44,
-      height: 64,
-      borderRadius: 8,
-      background: "rgba(26,58,82,.85)",
-      border: "1px solid rgba(126,196,255,.4)",
-      color: "#7ec4ff",
-      fontSize: 24,
-      fontWeight: 700,
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 10
-    }
-  }, "\u2190"),
-  onNextItem && /*#__PURE__*/React.createElement("button", {
-    onMouseDown: function(e){ e.stopPropagation(); },
-    onTouchStart: function(e){ e.stopPropagation(); },
-    onClick: function(){ setNavConfirm(onNextItem); },
-    title: "次の記事",
-    style: {
-      position: "absolute",
-      right: 12,
-      top: 12,
-      width: 44,
-      height: 64,
-      borderRadius: 8,
-      background: "rgba(26,58,82,.85)",
-      border: "1px solid rgba(126,196,255,.4)",
-      color: "#7ec4ff",
-      fontSize: 24,
-      fontWeight: 700,
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 10
-    }
-  }, "\u2192"),
   /* ── バーチャルジョイスティック (pan ツール & タッチ時のみ、表示トグル ON のとき) ── */
   IS_TOUCH && joystickVisible && /*#__PURE__*/React.createElement("div", {
     style: { position:"absolute", left:joystickPos.left, bottom:joystickPos.bottom, zIndex:10010, userSelect:"none", touchAction:"none" },
