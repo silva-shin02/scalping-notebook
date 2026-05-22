@@ -10543,6 +10543,9 @@ function _NikkeiManualInput(_p) {
     if (cd && typeof cd.prevDayChange === "number" && Math.abs(cd.prevDayChange - signed) < 0.5) return;
     upd("prevDayChange", signed);
     setSignOverride(null);
+    // ★ 前日比から地合いを自動設定
+    var suggestedMacro = _nikkeiMacroFromChange(signed);
+    if (suggestedMacro) upd("macroLocal", suggestedMacro);
   };
   var toggleSign = function() {
     var newSign = (sign === "+") ? "-" : "+";
@@ -10574,9 +10577,7 @@ function _NikkeiManualInput(_p) {
       var diffRounded = Math.round(diff);
       upd("prevDayChange", diffRounded);
       var suggestedMacro = _nikkeiMacroFromChange(diffRounded);
-      if (suggestedMacro && (!cd.macroLocal || cd.macroLocal === "普通")) {
-        upd("macroLocal", suggestedMacro);
-      }
+      if (suggestedMacro) upd("macroLocal", suggestedMacro);
     }
   };
   return /*#__PURE__*/React.createElement("span", {
@@ -10594,8 +10595,9 @@ function _NikkeiManualInput(_p) {
         inputMode: "decimal",
         value: closeStr,
         onChange: commitClose,
-        debounceMs: 400,
+        debounceMs: 86400000,
         placeholder: "0",
+        onKeyDown: function(e) { if (e.key === "Enter") { e.target.__fiCommit && e.target.__fiCommit(); e.target.blur(); } },
         style: {
           width: 90, fontSize: 12, padding: "3px 6px",
           border: "1px solid #ccc", borderRadius: 5, textAlign: "right",
@@ -10629,8 +10631,9 @@ function _NikkeiManualInput(_p) {
         inputMode: "decimal",
         value: absStr,
         onChange: commitChange,
-        debounceMs: 400,
+        debounceMs: 86400000,
         placeholder: "0",
+        onKeyDown: function(e) { if (e.key === "Enter") { e.target.__fiCommit && e.target.__fiCommit(); e.target.blur(); } },
         style: {
           width: 70, fontSize: 12, padding: "3px 6px",
           border: "1px solid #ccc", borderRadius: 5, textAlign: "right",
