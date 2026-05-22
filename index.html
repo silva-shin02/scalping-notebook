@@ -12383,18 +12383,33 @@ function ForeignMarketTable(_p) {
               var arrow = diff == null ? "" : diff > 0 ? "▲" : diff < 0 ? "▼" : "→";
               var hasBigMove = pct !== null && Math.abs(pct) >= 1;
               var _sv50 = _fmPrevValues(foreignMarkets, date, entry.name, type, 50, _fmHolidaySet);
-              var _sv50nums = _sv50.filter(function(v) { return typeof v === "number"; });
-              var _svBase = _sv50nums.length > 0 ? _sv50nums[0] : null;
-              var _toRate = function(v) {
-                if (typeof v !== "number" || _svBase === null || _svBase === 0) return null;
-                return (v - _svBase) / Math.abs(_svBase) * 100;
+              var _sv22 = _sv50.slice(-22);
+              var _sv5  = _sv50.slice(-5);
+              // ★ 各期間で独自の基準値（window 先頭の非 null 値）を使って変化率を計算
+              //   → 5日は5日前比、22日は22日前比、50日は50日前比で表示されるので
+              //      直近の上下が正しく反映される
+              var _makeRate = function(sv) {
+                var base = null;
+                for (var _bi = 0; _bi < sv.length; _bi++) {
+                  if (typeof sv[_bi] === "number") { base = sv[_bi]; break; }
+                }
+                return sv.map(function(v) {
+                  if (typeof v !== "number" || base === null || base === 0) return null;
+                  return (v - base) / Math.abs(base) * 100;
+                });
               };
-              var _sr50 = _sv50.map(_toRate);
-              var _sr22 = _sr50.slice(-22);
-              var _sr5  = _sr50.slice(-5);
-              var _srNums50 = _sr50.filter(function(v) { return v !== null; });
-              var _sparkYMin = _srNums50.length > 1 ? Math.min.apply(null, _srNums50) : 0;
-              var _sparkYMax = _srNums50.length > 1 ? Math.max.apply(null, _srNums50) : 0;
+              var _sr50 = _makeRate(_sv50);
+              var _sr22 = _makeRate(_sv22);
+              var _sr5  = _makeRate(_sv5);
+              // ★ Y軸スケールも各期間で独立（共有スケールだと5日の変動が圧縮されて逆方向に見える）
+              var _makeYRange = function(sr) {
+                var nums = sr.filter(function(v) { return v !== null; });
+                return { min: nums.length > 1 ? Math.min.apply(null, nums) : 0,
+                         max: nums.length > 1 ? Math.max.apply(null, nums) : 0 };
+              };
+              var _yr50 = _makeYRange(_sr50);
+              var _yr22 = _makeYRange(_sr22);
+              var _yr5  = _makeYRange(_sr5);
               var _dates50 = _fmPrevDates(foreignMarkets, date, 50, _fmHolidaySet);
               var _dates22 = _dates50.slice(-22);
               var _dates5  = _dates50.slice(-5);
@@ -12542,7 +12557,7 @@ function ForeignMarketTable(_p) {
                     /*#__PURE__*/React.createElement("div", {
                       style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
                     }, "5日"),
-                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr5, dates: _dates5, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax, variant: sparklineVariant })
+                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr5, dates: _dates5, w: 120, h: 52, yMin: _yr5.min, yMax: _yr5.max, variant: sparklineVariant })
                   ),
                   /*#__PURE__*/React.createElement("div", {
                     style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
@@ -12551,7 +12566,7 @@ function ForeignMarketTable(_p) {
                     /*#__PURE__*/React.createElement("div", {
                       style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
                     }, "22日"),
-                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr22, dates: _dates22, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax, variant: sparklineVariant })
+                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr22, dates: _dates22, w: 120, h: 52, yMin: _yr22.min, yMax: _yr22.max, variant: sparklineVariant })
                   ),
                   /*#__PURE__*/React.createElement("div", {
                     style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
@@ -12560,7 +12575,7 @@ function ForeignMarketTable(_p) {
                     /*#__PURE__*/React.createElement("div", {
                       style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
                     }, "50日"),
-                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr50, dates: _dates50, w: 120, h: 52, yMin: _sparkYMin, yMax: _sparkYMax, variant: sparklineVariant })
+                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sr50, dates: _dates50, w: 120, h: 52, yMin: _yr50.min, yMax: _yr50.max, variant: sparklineVariant })
                   )
                 ),
                 // ── 早見表（インライン展開） ──
