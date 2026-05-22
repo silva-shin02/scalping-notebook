@@ -32,6 +32,7 @@ button,input,select,textarea{font-family:inherit}
 .dc-chart-wrap::-webkit-scrollbar-thumb:hover{background:#6a6a6a}
 .news-hscroll{scrollbar-width:auto;scrollbar-color:#b8b5ac #f0efeb}
 canvas{image-rendering:high-quality;-webkit-image-rendering:high-quality}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
@@ -3323,11 +3324,12 @@ function ImageAnnotator(_ref7) {
     _useStateCCS = _slicedToArray(_useStateCC, 2),
     cancelConfirm = _useStateCCS[0],
     setCancelConfirm = _useStateCCS[1];
-  // ★ ナビゲーション（前後切り替え）確認用: null | callback
-  var _useStateNavConf = useState(null),
-    _useStateNavConfS = _slicedToArray(_useStateNavConf, 2),
-    navConfirm = _useStateNavConfS[0],
-    setNavConfirm = _useStateNavConfS[1];
+  // ★ ナビゲーション自動保存中フラグ（確認ダイアログ廃止）
+  var _useStateNavSav = useState(false),
+    _useStateNavSavS = _slicedToArray(_useStateNavSav, 2),
+    navSaving = _useStateNavSavS[0],
+    setNavSaving = _useStateNavSavS[1];
+  var navPendingFnRef = useRef(null); // 保存完了後に実行するナビ関数
   var _useState33 = useState("#E53935"),
     _useState34 = _slicedToArray(_useState33, 2),
     color = _useState34[0],
@@ -3996,6 +3998,22 @@ function ImageAnnotator(_ref7) {
     dirtyRef.current = true; // ★ Redo も編集操作
   };
 
+  // ── ナビゲーション自動保存 useEffect ──
+  //   navSaving が true になったら1フレーム待って（「保存中…」が画面に描画されるのを待つ）
+  //   doneRef.current(cb, {afterPng:true}) を呼ぶ。
+  //   afterPng=true にすることで PNG生成完了後にナビゲーションが実行される。
+  useEffect(function() {
+    if (!navSaving) return;
+    var raf = requestAnimationFrame(function() {
+      doneRef.current(function() {
+        var fn = navPendingFnRef.current;
+        navPendingFnRef.current = null;
+        setNavSaving(false);
+        if (fn) fn();
+      }, { afterPng: true });
+    });
+    return function() { cancelAnimationFrame(raf); };
+  }, [navSaving]);
   // ── visibilitychange 時の自動保存フック（iOSメモリ退避対策）──
   //   ページが隠れる直前に done() を呼んでストロークを _stSaveLatest に反映する。
   //   グローバルの visibilitychange ハンドラが _stFlush する前に実行されるよう
@@ -5028,7 +5046,8 @@ function ImageAnnotator(_ref7) {
     }
     stopJoystick();
   };
-  var done = function done(cb) {
+  var done = function done(cb, opts) {
+    var afterPng = opts && opts.afterPng; // trueのとき cb() をPNG生成後に呼ぶ（ナビ自動保存用）
     // ── 1. アクティブなインラインテキスト編集を先に確定 ──
     var _curStrokes = strokesRef.current;
     if (textInputState) {
@@ -5076,23 +5095,28 @@ function ImageAnnotator(_ref7) {
     dirtyRef.current = false;
     justSavedRef.current = true;
     onSave(_savedNow); // ストロークをデータstateへ反映 → _stSaveLatest が更新される
-    // ── 4. 画面遷移を先行させる ──
-    //   cb() (onClose/onPrev/onNext) → 画面が即座に閉じる
-    if (typeof cb === "function") {
+    // ── 4. cb() の呼び出しタイミング ──
+    //   afterPng=false(通常): 画面遷移を先行させる（保存ボタン→素早く閉じる）
+    //   afterPng=true(ナビ): PNG生成完了後に cb() を呼ぶ（「保存中…」表示中に処理）
+    if (!afterPng && typeof cb === "function") {
       cb();
       // ナビゲーション後は新しい画像でcanvasを再初期化するためリセット
       justSavedRef.current = false;
       strokesRef.current = [];
       histRef.current = [[]];
       futRef.current = [];
+    } else if (afterPng && typeof cb === "function") {
+      // afterPng の場合もキャンバス状態をリセット（「保存中…」中は操作不能にする）
+      justSavedRef.current = false;
+      strokesRef.current = [];
+      histRef.current = [[]];
+      futRef.current = [];
     }
-    // ── 5. 重いPNG生成は非同期（画面遷移完了後に実行）──
-    //   base64が更新されたら onSave を再度呼んで上書き保存する。
+    // ── 5. PNG生成（非同期）──
     //   refs をキャプチャしておくことでコンポーネントアンマウント後も安全に使用できる。
     var _capLS = { w: logicalSizeRef.current.w, h: logicalSizeRef.current.h };
     var _capBaseImg = baseImgRef.current;
     var _capStrokes = _curStrokes;
-    var _capImg = img;
     setTimeout(function() {
       var base64 = null;
       try {
@@ -5121,10 +5145,19 @@ function ImageAnnotator(_ref7) {
       window._snFbFlushPending = true;
       if (typeof window._snFbFlushNow === "function") window._snFbFlushNow();
       setTimeout(function() { window._snFbFlushPending = false; }, 2000);
+      // afterPng=true の場合は PNG 完了後にナビゲーション実行
+      if (afterPng && typeof cb === "function") cb();
     }, 0);
   };
   // ★ done() の最新版を doneRef に保持（毎レンダーで更新）
   doneRef.current = done;
+  // ★ ナビゲーション自動保存のトリガー
+  //   確認ダイアログの代わりに navSaving=true をセットして自動保存+ナビを開始する
+  var triggerNavSave = function(fn) {
+    if (navSaving) return; // 保存中の2重押し防止
+    navPendingFnRef.current = fn;
+    setNavSaving(true);
+  };
 
   // ── 選択UIのcanvas→screen変換 ──
   var selUI = selBounds && canvasRef.current ? function () {
@@ -5476,12 +5509,12 @@ function ImageAnnotator(_ref7) {
       /*#__PURE__*/React.createElement("div",{style:{width:1,height:20,background:"#333",flexShrink:0}}),
       /*#__PURE__*/React.createElement("div",{style:{display:"flex",gap:3,alignItems:"center",flexShrink:0}},
         /*#__PURE__*/React.createElement("button",{
-          onClick:onPrev?function(){setNavConfirm(onPrev);}:undefined, disabled:!onPrev,
+          onClick:onPrev?function(){triggerNavSave(onPrev);}:undefined, disabled:!onPrev,
           style:{padding:"3px 9px",borderRadius:4,border:"none",cursor:onPrev?"pointer":"default",fontSize:15,fontWeight:700,background:"#2a2a2a",color:onPrev?"#fff":"#444"}
         },"\u2191"),
         navLabel && /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#555",minWidth:24,textAlign:"center"}},navLabel),
         /*#__PURE__*/React.createElement("button",{
-          onClick:onNext?function(){setNavConfirm(onNext);}:undefined, disabled:!onNext,
+          onClick:onNext?function(){triggerNavSave(onNext);}:undefined, disabled:!onNext,
           style:{padding:"3px 9px",borderRadius:4,border:"none",cursor:onNext?"pointer":"default",fontSize:15,fontWeight:700,background:"#2a2a2a",color:onNext?"#fff":"#444"}
         },"\u2193")
       )
@@ -5491,14 +5524,14 @@ function ImageAnnotator(_ref7) {
       /*#__PURE__*/React.createElement("div",{style:{width:1,height:20,background:"#333",flexShrink:0}}),
       /*#__PURE__*/React.createElement("div",{style:{display:"flex",gap:4,alignItems:"center",flexShrink:0}},
         onPrevItem && /*#__PURE__*/React.createElement("button",{
-          onClick:function(){ setNavConfirm(onPrevItem); },
+          onClick:function(){ triggerNavSave(onPrevItem); },
           title:"前の記事",
           style:{padding:"3px 9px",borderRadius:4,border:"1px solid rgba(126,196,255,.4)",cursor:"pointer",
             fontSize:15,fontWeight:700,background:"#1a3a52",color:"#7ec4ff",flexShrink:0}
         },"←"),
         itemNavLabel && /*#__PURE__*/React.createElement("span",{style:{fontSize:10,color:"#7ec4ff",flexShrink:0,padding:"2px 6px",background:"#1a3a52",borderRadius:3}},itemNavLabel),
         onNextItem && /*#__PURE__*/React.createElement("button",{
-          onClick:function(){ setNavConfirm(onNextItem); },
+          onClick:function(){ triggerNavSave(onNextItem); },
           title:"次の記事",
           style:{padding:"3px 9px",borderRadius:4,border:"1px solid rgba(126,196,255,.4)",cursor:"pointer",
             fontSize:15,fontWeight:700,background:"#1a3a52",color:"#7ec4ff",flexShrink:0}
@@ -5654,7 +5687,7 @@ function ImageAnnotator(_ref7) {
   ), onPrev && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function onMouseDown(e) { e.stopPropagation(); },
     onTouchStart: function onTouchStart(e) { e.stopPropagation(); },
-    onClick: function onClick() { setNavConfirm(onPrev); },
+    onClick: function onClick() { triggerNavSave(onPrev); },
     style: {
       position: "absolute",
       left: 12,
@@ -5676,7 +5709,7 @@ function ImageAnnotator(_ref7) {
   }, "\u2039"), onNext && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function onMouseDown(e) { e.stopPropagation(); },
     onTouchStart: function onTouchStart(e) { e.stopPropagation(); },
-    onClick: function onClick() { setNavConfirm(onNext); },
+    onClick: function onClick() { triggerNavSave(onNext); },
     style: {
       position: "absolute",
       right: 12,
@@ -6288,38 +6321,25 @@ cancelConfirm && ReactDOM.createPortal(
   ),
   document.body
 ),
-// ★ ナビゲーション確認ダイアログ（前後画像・前後記事への切り替え時）
-navConfirm && ReactDOM.createPortal(
+// ★ ナビゲーション自動保存中オーバーレイ（確認ダイアログを廃止して自動保存に変更）
+navSaving && ReactDOM.createPortal(
   React.createElement('div',{
-    style:{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:20000,
-      display:'flex',alignItems:'center',justifyContent:'center'}
+    style:{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:20000,
+      display:'flex',alignItems:'center',justifyContent:'center',
+      pointerEvents:'all' /* タップ/クリックをブロック */}
   },
     React.createElement('div',{
-      style:{background:'#fff',borderRadius:14,padding:'24px 26px',maxWidth:320,width:'90%',textAlign:'center',
-        boxShadow:'0 8px 40px rgba(0,0,0,.35)'}
+      style:{background:'rgba(30,30,30,.92)',borderRadius:12,padding:'18px 28px',
+        display:'flex',alignItems:'center',gap:12,
+        boxShadow:'0 4px 24px rgba(0,0,0,.4)',color:'#fff'}
     },
-      React.createElement('div',{style:{fontSize:26,marginBottom:10}},'🖼️'),
-      React.createElement('div',{style:{fontSize:15,fontWeight:700,color:'#1a1a1a',marginBottom:8}},
-        '画像を切り替えますか？'),
-      React.createElement('div',{style:{fontSize:13,color:'#555',lineHeight:1.7,marginBottom:22}},
-        '現在の書き込みを保存してから切り替えます。'),
-      React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}},
-        React.createElement('button',{
-          onClick:function(e){
-            e.stopPropagation();
-            var cb = navConfirm;
-            setNavConfirm(null);
-            done(cb);
-          },
-          style:{padding:'11px 0',background:'#6366F1',color:'#fff',border:'none',
-            borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:700,width:'100%'}
-        },'💾 保存して切り替え'),
-        React.createElement('button',{
-          onClick:function(e){e.stopPropagation();setNavConfirm(null);},
-          style:{padding:'10px 0',background:'#f5f5f5',color:'#555',border:'none',
-            borderRadius:8,cursor:'pointer',fontSize:13,width:'100%'}
-        },'キャンセル（このまま編集）')
-      )
+      React.createElement('div',{
+        style:{width:20,height:20,border:'3px solid rgba(255,255,255,.3)',
+          borderTopColor:'#fff',borderRadius:'50%',
+          animation:'spin 0.7s linear infinite',flexShrink:0}
+      }),
+      React.createElement('span',{style:{fontSize:14,fontWeight:600,letterSpacing:'.02em'}},
+        '保存中…')
     )
   ),
   document.body
