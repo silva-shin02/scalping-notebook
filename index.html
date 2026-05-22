@@ -5065,19 +5065,14 @@ function ImageAnnotator(_ref7) {
     // ★ 保存直後の img props 変化によるキャンバス再初期化をスキップするフラグ
     justSavedRef.current = true;
     onSave(saved);
-    // ★ iPad Safari 対策: 書き込み保存直後にページリロード/BFCache復帰が起きると
-    //   デバウンス中の localStorage/Firebase 保存が間に合わず書き込みが消失する。
-    //   onSave 内で save() が呼ばれた結果をここで即時 flush する。
-    _stFlush(true);
-    // ★ 全端末対策: 次回の save() を即時Firebase同期モードにするフラグをセット。
-    //   onSave → save() が同期的に呼ばれた場合は既にデバウンスタイマーがセット済みなので
-    //   即時flush。RichMemoEditor等の scheduleEmit(400ms遅延) 経由の場合はフラグで
-    //   次回save()時にimmediate扱いにする。
-    window._snFbFlushPending = true;
-    if (typeof window._snFbFlushNow === "function") window._snFbFlushNow();
-    // フラグを一定時間後に自動解除（save()が呼ばれなかったケースの安全弁）
-    setTimeout(function() { window._snFbFlushPending = false; }, 2000);
+    // ★ 画面遷移を先行させる: cb() を先に呼び、重い flush 処理は次のマクロタスクへ
     if (typeof cb === "function") cb();
+    setTimeout(function() {
+      _stFlush(true);
+      window._snFbFlushPending = true;
+      if (typeof window._snFbFlushNow === "function") window._snFbFlushNow();
+      setTimeout(function() { window._snFbFlushPending = false; }, 2000);
+    }, 0);
   };
 
   // ── 選択UIのcanvas→screen変換 ──
@@ -5591,15 +5586,17 @@ function ImageAnnotator(_ref7) {
       }
     })
   ), onPrev && /*#__PURE__*/React.createElement("button", {
-    onMouseDown: function onMouseDown(e) {
-      return e.stopPropagation();
-    },
+    onMouseDown: function onMouseDown(e) { e.stopPropagation(); },
     onTouchStart: function onTouchStart(e) {
-      return e.stopPropagation();
+      e.stopPropagation();
+      // ★ 長押し(600ms)でのみ発動 — 誤タップ防止
+      var el = e.currentTarget;
+      el._lpFired = false;
+      el._lpTimer = setTimeout(function() { el._lpFired = true; setNavConfirm(onPrev); }, 600);
     },
-    onClick: function onClick() {
-      setNavConfirm(onPrev);
-    },
+    onTouchEnd: function onTouchEnd(e) { clearTimeout(e.currentTarget._lpTimer); e.preventDefault(); },
+    onTouchMove: function onTouchMove(e) { clearTimeout(e.currentTarget._lpTimer); },
+    onClick: function onClick() { setNavConfirm(onPrev); },
     style: {
       position: "absolute",
       left: 12,
@@ -5619,15 +5616,16 @@ function ImageAnnotator(_ref7) {
       zIndex: 10
     }
   }, "\u2039"), onNext && /*#__PURE__*/React.createElement("button", {
-    onMouseDown: function onMouseDown(e) {
-      return e.stopPropagation();
-    },
+    onMouseDown: function onMouseDown(e) { e.stopPropagation(); },
     onTouchStart: function onTouchStart(e) {
-      return e.stopPropagation();
+      e.stopPropagation();
+      var el = e.currentTarget;
+      el._lpFired = false;
+      el._lpTimer = setTimeout(function() { el._lpFired = true; setNavConfirm(onNext); }, 600);
     },
-    onClick: function onClick() {
-      setNavConfirm(onNext);
-    },
+    onTouchEnd: function onTouchEnd(e) { clearTimeout(e.currentTarget._lpTimer); e.preventDefault(); },
+    onTouchMove: function onTouchMove(e) { clearTimeout(e.currentTarget._lpTimer); },
+    onClick: function onClick() { setNavConfirm(onNext); },
     style: {
       position: "absolute",
       right: 12,
@@ -5650,9 +5648,16 @@ function ImageAnnotator(_ref7) {
   /* ── 記事ナビボタン（画面両端、画像ナビの下側） ── */
   onPrevItem && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function(e){ e.stopPropagation(); },
-    onTouchStart: function(e){ e.stopPropagation(); },
+    onTouchStart: function(e){
+      e.stopPropagation();
+      var el = e.currentTarget;
+      el._lpFired = false;
+      el._lpTimer = setTimeout(function() { el._lpFired = true; setNavConfirm(onPrevItem); }, 600);
+    },
+    onTouchEnd: function(e){ clearTimeout(e.currentTarget._lpTimer); e.preventDefault(); },
+    onTouchMove: function(e){ clearTimeout(e.currentTarget._lpTimer); },
     onClick: function(){ setNavConfirm(onPrevItem); },
-    title: "前の記事",
+    title: "前の記事（長押しで切替）",
     style: {
       position: "absolute",
       left: 12,
@@ -5675,9 +5680,16 @@ function ImageAnnotator(_ref7) {
   }, "\u2190"),
   onNextItem && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function(e){ e.stopPropagation(); },
-    onTouchStart: function(e){ e.stopPropagation(); },
+    onTouchStart: function(e){
+      e.stopPropagation();
+      var el = e.currentTarget;
+      el._lpFired = false;
+      el._lpTimer = setTimeout(function() { el._lpFired = true; setNavConfirm(onNextItem); }, 600);
+    },
+    onTouchEnd: function(e){ clearTimeout(e.currentTarget._lpTimer); e.preventDefault(); },
+    onTouchMove: function(e){ clearTimeout(e.currentTarget._lpTimer); },
     onClick: function(){ setNavConfirm(onNextItem); },
-    title: "次の記事",
+    title: "次の記事（長押しで切替）",
     style: {
       position: "absolute",
       right: 12,
