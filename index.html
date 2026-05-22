@@ -5587,15 +5587,7 @@ function ImageAnnotator(_ref7) {
     })
   ), onPrev && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function onMouseDown(e) { e.stopPropagation(); },
-    onTouchStart: function onTouchStart(e) {
-      e.stopPropagation();
-      // ★ 長押し(600ms)でのみ発動 — 誤タップ防止
-      var el = e.currentTarget;
-      el._lpFired = false;
-      el._lpTimer = setTimeout(function() { el._lpFired = true; setNavConfirm(onPrev); }, 600);
-    },
-    onTouchEnd: function onTouchEnd(e) { clearTimeout(e.currentTarget._lpTimer); e.preventDefault(); },
-    onTouchMove: function onTouchMove(e) { clearTimeout(e.currentTarget._lpTimer); },
+    onTouchStart: function onTouchStart(e) { e.stopPropagation(); },
     onClick: function onClick() { setNavConfirm(onPrev); },
     style: {
       position: "absolute",
@@ -5617,14 +5609,7 @@ function ImageAnnotator(_ref7) {
     }
   }, "\u2039"), onNext && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function onMouseDown(e) { e.stopPropagation(); },
-    onTouchStart: function onTouchStart(e) {
-      e.stopPropagation();
-      var el = e.currentTarget;
-      el._lpFired = false;
-      el._lpTimer = setTimeout(function() { el._lpFired = true; setNavConfirm(onNext); }, 600);
-    },
-    onTouchEnd: function onTouchEnd(e) { clearTimeout(e.currentTarget._lpTimer); e.preventDefault(); },
-    onTouchMove: function onTouchMove(e) { clearTimeout(e.currentTarget._lpTimer); },
+    onTouchStart: function onTouchStart(e) { e.stopPropagation(); },
     onClick: function onClick() { setNavConfirm(onNext); },
     style: {
       position: "absolute",
@@ -5648,16 +5633,9 @@ function ImageAnnotator(_ref7) {
   /* ── 記事ナビボタン（画面両端、画像ナビの下側） ── */
   onPrevItem && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function(e){ e.stopPropagation(); },
-    onTouchStart: function(e){
-      e.stopPropagation();
-      var el = e.currentTarget;
-      el._lpFired = false;
-      el._lpTimer = setTimeout(function() { el._lpFired = true; setNavConfirm(onPrevItem); }, 600);
-    },
-    onTouchEnd: function(e){ clearTimeout(e.currentTarget._lpTimer); e.preventDefault(); },
-    onTouchMove: function(e){ clearTimeout(e.currentTarget._lpTimer); },
+    onTouchStart: function(e){ e.stopPropagation(); },
     onClick: function(){ setNavConfirm(onPrevItem); },
-    title: "前の記事（長押しで切替）",
+    title: "前の記事",
     style: {
       position: "absolute",
       left: 12,
@@ -5679,16 +5657,9 @@ function ImageAnnotator(_ref7) {
   }, "\u2190"),
   onNextItem && /*#__PURE__*/React.createElement("button", {
     onMouseDown: function(e){ e.stopPropagation(); },
-    onTouchStart: function(e){
-      e.stopPropagation();
-      var el = e.currentTarget;
-      el._lpFired = false;
-      el._lpTimer = setTimeout(function() { el._lpFired = true; setNavConfirm(onNextItem); }, 600);
-    },
-    onTouchEnd: function(e){ clearTimeout(e.currentTarget._lpTimer); e.preventDefault(); },
-    onTouchMove: function(e){ clearTimeout(e.currentTarget._lpTimer); },
+    onTouchStart: function(e){ e.stopPropagation(); },
     onClick: function(){ setNavConfirm(onNextItem); },
-    title: "次の記事（長押しで切替）",
+    title: "次の記事",
     style: {
       position: "absolute",
       right: 12,
