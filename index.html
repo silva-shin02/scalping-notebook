@@ -1646,6 +1646,25 @@ function origImgSrc(img) {
   return null;
 }
 
+// ── 画像アップロード状態ストア（サムネイルオーバーレイ用）──
+// ReactのstateではなくモジュールレベルのPub/Subストア。
+// imgId（done()でDate.now()を設定）をキーに "uploading" | "done" を管理する。
+var _imgUploadStore = {};
+var _imgUploadSubs = [];
+function _imgUploadSet(id, status) {
+  if (id == null) return;
+  if (status === null) { delete _imgUploadStore[id]; }
+  else { _imgUploadStore[id] = status; }
+  for (var _ius = 0; _ius < _imgUploadSubs.length; _ius++) _imgUploadSubs[_ius]();
+}
+function _imgUploadSubscribe(fn) {
+  _imgUploadSubs.push(fn);
+  return function() { _imgUploadSubs = _imgUploadSubs.filter(function(f){ return f !== fn; }); };
+}
+function _imgUploadGet(id) {
+  return (id != null && _imgUploadStore[id]) || null;
+}
+
 // ── CA サムネ専用 IDB キャッシュ画像コンポーネント ──
 // chart-annotator の thumbUrl は data 構造に入らない一時表示用なので preloadImages の対象外。
 // 表示時に IDB をチェック → ヒットなら data: URL で表示 (Storage DL ゼロ)、
@@ -5098,6 +5117,20 @@ function ImageAnnotator(_ref7) {
     if (img.origImageUrl) _savedNow.origImageUrl = img.origImageUrl;
     else if (img.imageUrl) _savedNow.origImageUrl = img.imageUrl;
     if (img.imageUrl) _savedNow.imageUrl = img.imageUrl;
+    // ★ アップロード状態をサムネイルに反映（アップロード中…→✓）
+    var _uploadImgId = _savedNow.id;
+    _imgUploadSet(_uploadImgId, "uploading");
+    // fbPut完了時のコールバックを登録（_snFbFlushNow / save()の両方から呼ばれる）
+    var _fbDoneCb = function() {
+      _imgUploadSet(_uploadImgId, "done");
+      setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 2500);
+    };
+    window._snFbPutDoneCallback = _fbDoneCb;
+    // Firebase未設定・タイムアウトのフォールバック（15秒後に自動クリア）
+    setTimeout(function() {
+      if (_imgUploadGet(_uploadImgId) === "uploading") { _fbDoneCb(); }
+      if (window._snFbPutDoneCallback === _fbDoneCb) window._snFbPutDoneCallback = null;
+    }, 15000);
     // ★ 編集中フラグOFF / 保存直後フラグON
     dirtyRef.current = false;
     justSavedRef.current = true;
@@ -7327,6 +7360,42 @@ function PasteZone(_ref13) {
 }
 
 // ── ImgGrid（onUpdateImg追加：ZoomLightboxで書き込みを開けるようにする）──
+// ── useImgUploadStatus: アップロード状態を購読するカスタムフック ──
+function useImgUploadStatus(id) {
+  var _us = useState(function() { return _imgUploadGet(id); });
+  var st = _slicedToArray(_us, 2);
+  var upSt = st[0], setUpSt = st[1];
+  useEffect(function() {
+    setUpSt(_imgUploadGet(id));
+    return _imgUploadSubscribe(function() { setUpSt(_imgUploadGet(id)); });
+  }, [id]);
+  return upSt;
+}
+// ── ImgThumb: アップロード状態オーバーレイ付きサムネイル ──
+function ImgThumb(_ref_it) {
+  var img = _ref_it.img, onClick = _ref_it.onClick, imgStyle = _ref_it.imgStyle;
+  var upSt = useImgUploadStatus(img && img.id);
+  var br = (imgStyle && imgStyle.borderRadius) || 5;
+  return /*#__PURE__*/React.createElement("div", {
+    style: { position: "relative", display: "inline-block", lineHeight: 0 }
+  },
+    /*#__PURE__*/React.createElement("img", {
+      src: imgSrc(img), onClick: onClick, style: imgStyle, alt: ""
+    }),
+    upSt ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: "absolute", inset: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: upSt === "uploading" ? "rgba(0,0,0,0.55)" : "rgba(34,197,94,0.82)",
+        borderRadius: br,
+        fontSize: upSt === "uploading" ? 10 : 20,
+        color: "#fff", fontWeight: 600,
+        pointerEvents: "none",
+        whiteSpace: "nowrap"
+      }
+    }, upSt === "uploading" ? "アップロード中…" : "✓") : null
+  );
+}
 function ImgGrid(_ref15) {
   var images = _ref15.images,
     onRemove = _ref15.onRemove,
@@ -7351,23 +7420,20 @@ function ImgGrid(_ref15) {
     } : null;
     return /*#__PURE__*/React.createElement("div", {
       key: i,
-      style: {
-        position: "relative"
-      }
-    }, /*#__PURE__*/React.createElement("img", {
-      src: src,
+      style: { position: "relative" }
+    }, /*#__PURE__*/React.createElement(ImgThumb, {
+      img: img,
       onClick: function onClick() {
         if (onAnnotate) return onAnnotate(i);
         return onEnlarge && onEnlarge(i);
       },
-      style: {
+      imgStyle: {
         height: IMG_H,
         borderRadius: 6,
         display: "block",
         cursor: onAnnotate ? "pointer" : "zoom-in",
         border: "1px solid #e0ddd6"
-      },
-      alt: ""
+      }
     }), /*#__PURE__*/React.createElement("div", {
       style: {
         position: "absolute",
@@ -16850,14 +16916,11 @@ function CalendarPreview(_ref40) {
         marginTop: 6
       }
     }, images.map(function (img, i) {
-      var src = imgSrc(img);
       return /*#__PURE__*/React.createElement("div", {
         key: i,
-        style: {
-          position: "relative"
-        }
-      }, /*#__PURE__*/React.createElement("img", {
-        src: src,
+        style: { position: "relative" }
+      }, /*#__PURE__*/React.createElement(ImgThumb, {
+        img: img,
         onClick: function onClick() {
           if (save && onUpdate) {
             return setAnnotTarget({
@@ -16869,13 +16932,12 @@ function CalendarPreview(_ref40) {
           }
           return openImgs(images, i, onUpdate);
         },
-        style: {
+        imgStyle: {
           height: IMG_H,
           borderRadius: 5,
           cursor: (save && onUpdate) ? "pointer" : "zoom-in",
           border: "1px solid #e0ddd6"
-        },
-        alt: ""
+        }
       }));
     }));
   };
@@ -32988,6 +33050,10 @@ function App() {
             fbPut(cfgRef.current, dataRef.current).then(function() {
               fbStatusRef.current = "ok";
               console.log("[_snFbFlushNow] immediate fbPut done");
+              if (typeof window._snFbPutDoneCallback === "function") {
+                window._snFbPutDoneCallback();
+                window._snFbPutDoneCallback = null;
+              }
             })["catch"](function(e) {
               console.warn("[_snFbFlushNow] fbPut failed:", e);
               fbStatusRef.current = "err";
@@ -33031,6 +33097,10 @@ function App() {
         fbSyncTimerRef.current = null;
         fbPut(cfgRef.current, dataRef.current).then(function () {
           fbStatusRef.current = "ok";
+          if (typeof window._snFbPutDoneCallback === "function") {
+            window._snFbPutDoneCallback();
+            window._snFbPutDoneCallback = null;
+          }
           skipTimerRef.current = setTimeout(function () {
             skipRef.current = false;
             skipTimerRef.current = null;
@@ -33047,6 +33117,10 @@ function App() {
           fbSyncTimerRef.current = null;
           fbPut(cfgRef.current, dataRef.current).then(function () {
             fbStatusRef.current = "ok";
+            if (typeof window._snFbPutDoneCallback === "function") {
+              window._snFbPutDoneCallback();
+              window._snFbPutDoneCallback = null;
+            }
             skipTimerRef.current = setTimeout(function () {
               skipRef.current = false;
               skipTimerRef.current = null;
