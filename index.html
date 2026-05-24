@@ -1980,8 +1980,10 @@ function _uploadAllImages(data) {
         // 既にimageUrl有り → アップロード不要
         if (obj.imageUrl) { out[k] = "__ref__"; continue; }
         // アップロード対象
-        var _id = path + "_img";
+        // ★ Strategy2: コンテンツハッシュベースのパス（インデックス変更・並び替えで孤児ファイルが生じない）
         var _b64 = obj.base64, _mt = obj.mt;
+        var _hashInput = _b64.length + "_" + _b64.substring(0, 2000) + _b64.substring(Math.floor(_b64.length / 2), Math.floor(_b64.length / 2) + 2000) + _b64.substring(_b64.length - 1000);
+        var _id = "img_" + _fbHashStr(_hashInput);
         (function(target, id, b64, mt) {
           uploads.push(
             _uploadToStorage("notebook-images/" + id + (mt === "image/png" ? ".png" : ".jpg"), b64, mt)
@@ -1996,8 +1998,9 @@ function _uploadAllImages(data) {
       }
       if (isImage && k === "orig_base64" && typeof obj.orig_base64 === "string" && obj.orig_base64.length > 100) {
         if (obj.origImageUrl) { out[k] = "__ref__"; continue; }
-        var _oid = path + "_orig";
+        // ★ Strategy2: orig もコンテンツハッシュベース
         var _ob64 = obj.orig_base64, _omt = obj.orig_mt || obj.mt || "image/png";
+        var _oid = "orig_" + _fbHashStr(_ob64.length + "_" + _ob64.substring(0, 2000) + _ob64.substring(_ob64.length - 1000));
         (function(target, id, b64, mt) {
           uploads.push(
             _uploadToStorage("notebook-images/" + id + (mt === "image/png" ? ".png" : ".jpg"), b64, mt)
@@ -5169,6 +5172,8 @@ function ImageAnnotator(_ref7) {
       }
     }, 5000);
     // ★ 編集中フラグOFF / 保存直後フラグON
+    // ★ Strategy1: ストローク変更有無を保存（dirtyRef.currentをfalseにする前にキャプチャ）
+    var _wasDirty = dirtyRef.current;
     dirtyRef.current = false;
     justSavedRef.current = true;
     onSave(_savedNow); // ストロークをデータstateへ反映 → _stSaveLatest が更新される
@@ -5215,9 +5220,14 @@ function ImageAnnotator(_ref7) {
       clearTimeout(_reflectFallback);
       if (base64) {
         // base64が生成できたら上書き保存（strokes保存済みなのでbase64更新のみ）
-        // imageUrlを除去することで次回fbPut時に新しいbase64がStorageへアップロードされる
         var _savedFull = Object.assign({}, _savedNow, { base64: base64, mt: "image/png" });
-        delete _savedFull.imageUrl;
+        // ★ Strategy1: ストロークが変更された場合 OR 初回アップロード（imageUrlなし）の場合のみ
+        //   imageUrl を削除して Storage への再アップロードを強制する。
+        //   ナビ操作・iOS自動保存など編集なしの done() では既存 imageUrl を保持し
+        //   Storage 再アップロードをスキップする（孤児ファイル防止・帯域節約）。
+        if (_wasDirty || !_savedNow.imageUrl) {
+          delete _savedFull.imageUrl;
+        }
         onSave(_savedFull);
       }
       _imgUploadSet(_uploadImgId, "done");
