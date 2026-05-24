@@ -5124,7 +5124,7 @@ function ImageAnnotator(_ref7) {
     var _reflectFallback = setTimeout(function() {
       if (_imgUploadGet(_uploadImgId) === "uploading") {
         _imgUploadSet(_uploadImgId, "done");
-        setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 1500);
+        setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 2500);
       }
     }, 5000);
     // ★ 編集中フラグOFF / 保存直後フラグON
@@ -5180,7 +5180,7 @@ function ImageAnnotator(_ref7) {
         onSave(_savedFull);
       }
       _imgUploadSet(_uploadImgId, "done");
-      setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 1500);
+      setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 2500);
       _stFlush(true);
       window._snFbFlushPending = true;
       if (typeof window._snFbFlushNow === "function") window._snFbFlushNow();
@@ -7361,15 +7361,17 @@ function PasteZone(_ref13) {
 
 // ── ImgGrid（onUpdateImg追加：ZoomLightboxで書き込みを開けるようにする）──
 // ── useImgUploadStatus: アップロード状態を購読するカスタムフック ──
+// useEffect は paint 後の非同期実行なので、
+// setTimeout(0) の PNG 生成完了より後に走ることがある → status を拾えない。
+// useSyncExternalStore は render 中に同期読み込みするため確実に値を取得できる。
 function useImgUploadStatus(id) {
-  var _us = useState(function() { return _imgUploadGet(id); });
-  var st = _slicedToArray(_us, 2);
-  var upSt = st[0], setUpSt = st[1];
-  useEffect(function() {
-    setUpSt(_imgUploadGet(id));
-    return _imgUploadSubscribe(function() { setUpSt(_imgUploadGet(id)); });
-  }, [id]);
-  return upSt;
+  // useSyncExternalStore(subscribe, getSnapshot)
+  // subscribe: ストア変化時にコールバックを呼ぶ（モジュールレベルの安定関数）
+  // getSnapshot: render 時に呼ばれ現在値を返す（id を閉じ込める）
+  return React.useSyncExternalStore(
+    _imgUploadSubscribe,
+    function() { return _imgUploadGet(id); }
+  );
 }
 // ── ImgThumb: アップロード状態オーバーレイ付きサムネイル ──
 function ImgThumb(_ref_it) {
