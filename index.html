@@ -1142,6 +1142,12 @@ function _fbAuth(cfg) {
   return cfg && cfg.fbSecret ? "?auth=" + cfg.fbSecret : "";
 }
 function makeFbUrl(cfg) {
+  // ★ meta.json を正とする（data.json は廃止。旧DB フォールバックは fbGet 内で処理）
+  var b = _fbBase(cfg);
+  return b ? b + "/meta.json" + _fbAuth(cfg) : null;
+}
+function _makeFbDataUrl(cfg) {
+  // 旧DB フォールバック専用: data.json への URL
   var b = _fbBase(cfg);
   return b ? b + "/data.json" + _fbAuth(cfg) : null;
 }
@@ -1264,54 +1270,41 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
   return out;
 }
 
-// ── Firebase GET: フルデータ（初回 / バージョン変化時のみ使用） ──
-function fbGet(_x2) {
-  return _fbGet.apply(this, arguments);
-}
-function _fbGet() {
-  _fbGet = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(cfg) {
-    var url, r, d, _t;
-    return _regenerator().w(function (_context5) {
-      while (1) switch (_context5.p = _context5.n) {
-        case 0:
-          url = makeFbUrl(cfg);
-          if (url) { _context5.n = 1; break; }
-          return _context5.a(2, null);
-        case 1:
-          _context5.p = 1;
-          _context5.n = 2;
-          return fetch(url);
-        case 2:
-          r = _context5.v;
-          if (r.ok) { _context5.n = 3; break; }
-          return _context5.a(2, null);
-        case 3:
-          _context5.n = 4;
-          return r.text();
-        case 4:
-          var _txt5 = _context5.v;
-          // 通信量トラッキング（レスポンステキストの実サイズ）
-          try { _fbTrack("db_dl", _txt5 ? _txt5.length : 0); } catch(e){}
-          try { d = _txt5 ? JSON.parse(_txt5) : null; } catch(e) { d = null; }
-          if (!(d === null || d === undefined)) { _context5.n = 5; break; }
-          return _context5.a(2, "EMPTY");
-        case 5:
-          return _context5.a(2, d && _typeof(d) === "object" && (d.trades || d.charts) ? d : "EMPTY");
-        case 6:
-          _context5.p = 6;
-          _t = _context5.v;
-          return _context5.a(2, null);
+// ── Firebase GET: フルデータ取得（初回 / バージョン変化時のみ使用） ──
+// ★ meta.json を読む（data.json は廃止）。
+//   meta.json が 404 の場合は旧DB（data.json のみ存在）へフォールバック。
+function fbGet(cfg) {
+  var metaUrl = makeFbUrl(cfg);       // → /meta.json
+  var dataUrl = _makeFbDataUrl(cfg);  // → /data.json（旧DBフォールバック）
+  if (!metaUrl) return Promise.resolve(null);
+  function _parse(txt) {
+    try { _fbTrack("db_dl", txt ? txt.length : 0); } catch(e){}
+    var d = null;
+    try { d = txt ? JSON.parse(txt) : null; } catch(e) { d = null; }
+    if (d === null || d === undefined) return "EMPTY";
+    return (d && _typeof(d) === "object" && (d.trades || d.charts)) ? d : "EMPTY";
+  }
+  return fetch(metaUrl)
+    .then(function(r) {
+      if (r.ok) return r.text().then(_parse);
+      // 404 → 旧DB: meta.json 未作成 → data.json にフォールバック
+      if (r.status === 404 && dataUrl) {
+        console.log("[fbGet] meta.json not found, falling back to data.json (old DB)");
+        return fetch(dataUrl).then(function(r2) {
+          if (!r2.ok) return null;
+          return r2.text().then(_parse);
+        });
       }
-    }, _callee5, null, [[1, 6]]);
-  }));
-  return _fbGet.apply(this, arguments);
+      return null;
+    })
+    ["catch"](function() { return null; });
 }
 
-// ── Firebase PUT: 画像→Storage、メタ→data.json + meta.json ──
+// ── Firebase PUT: 画像→Storage、メタ→meta.json のみ（data.json は廃止） ──
 var _fbLocalV = 0;
-// 直前 PUT 時点での dataBody / metaBody の長さ + ハッシュ。
+// 直前 PUT 時点での metaBody の長さ + ハッシュ。
 // fbPut 直前にこれと比較し、同じなら PUT をスキップ (Firebase 書き込み量削減)。
-var _fbLastPutHash = null;     // string: <dataLen>:<dataHash>:<metaLen>:<metaHash>
+var _fbLastPutHash = null;     // string: <metaLen>:<metaHash>
 function _fbHashStr(s) {
   // 軽量ハッシュ。FNV-1a 32bit。衝突確率は実用上無視できる。
   var h = 2166136261 >>> 0;
@@ -1343,23 +1336,18 @@ function _fbPut() {
           fbData = _context6.v;
           _fbLocalV = fbData._v || Date.now();
           _context6.n = 3;
-          // data.json: imageURL付き（strokes等含む）
-          // meta.json: 軽量（base64/strokes除去、imageUrl保持 → 別端末で画像表示可能）
-          // ★ fbData（アップロード後）から生成することで新規imageUrlがmeta.jsonに入る
+          // ★ meta.json のみ書き込み（data.json は廃止）
+          //   fbData（Storage アップロード後）から生成することで新規 imageUrl が meta.json に入る
           var _lightMeta = _buildMeta(fbData);
           _lightMeta._v = _fbLocalV;
-          var _dataBody = JSON.stringify(fbData);
           var _metaBody = JSON.stringify(_lightMeta);
           // ★ 内容無変化スキップ: 直前 PUT と同じ内容なら Firebase 書き込みをスキップ。
           // ハッシュには _v を含めると Date.now の差で毎回違うため、_v を除いた本体で比較する。
-          // 安全側: data に _v 以外の変更があれば必ず PUT、_v だけが進んだ場合はスキップ可。
           // 並行 fbPut の競合を避けるため、スキップフラグはローカル変数で扱う。
           var _shouldSkip = false;
           try {
-            var dataNoV = _dataBody.replace(/,?"_v":\d+/g, "");
             var metaNoV = _metaBody.replace(/,?"_v":\d+/g, "");
-            var sig = dataNoV.length + ":" + _fbHashStr(dataNoV) + ":" +
-                      metaNoV.length + ":" + _fbHashStr(metaNoV);
+            var sig = metaNoV.length + ":" + _fbHashStr(metaNoV);
             if (_fbLastPutHash && _fbLastPutHash === sig) {
               _shouldSkip = true;
             } else {
@@ -1370,26 +1358,18 @@ function _fbPut() {
             console.log("[fbPut] skipped (no content change, _v=" + _fbLocalV + ")");
             return _context6.a(2);
           }
-          _fbTrack("db_ul", _dataBody.length + _metaBody.length);
-          return Promise.all([
-            fetch(base + "/data.json" + auth, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: _dataBody
-            }),
-            fetch(base + "/meta.json" + auth, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: _metaBody
-            })
-          ]).then(function(rs) {
+          _fbTrack("db_ul", _metaBody.length);
+          return fetch(base + "/meta.json" + auth, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: _metaBody
+          }).then(function(r) {
             // HTTP 4xx/5xx でも fetch は resolve するため、明示的に検査
-            // 失敗していたらハッシュをリセットして次回再送できるように
-            if (!rs[0].ok || !rs[1].ok) {
+            if (!r.ok) {
               _fbLastPutHash = null;
-              console.warn("[fbPut] HTTP error: data=" + rs[0].status + " meta=" + rs[1].status);
+              console.warn("[fbPut] HTTP error: meta=" + r.status);
             }
-            return rs;
+            return r;
           });
         case 3:
           _context6.n = 5;
