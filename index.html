@@ -1859,7 +1859,10 @@ function _collectAndUploadHtmlDataUrls(data, uploadsArr) {
       var b64 = src.substring(commaIdx + 1);
       if (!b64 || b64.length < 100) continue;
       (function(srcKey, mt2, b642) {
-        var pid = "html_" + Date.now() + "_" + Math.random().toString(36).substr(2, 7);
+        // ★ ランダムパスではなくコンテンツハッシュに基づく固定パスを使用。
+        //   毎回の fbPut で同じ画像を別ファイルとして重複アップロードするのを防ぐ。
+        //   同じ画像 → 同じパス → 上書き（Storage 増加なし）
+        var pid = "html_" + _fbHashStr(b642);
         var ext = mt2 === "image/png" ? ".png" : (mt2 === "image/gif" ? ".gif" : ".jpg");
         uploadsArr.push(
           _uploadToStorage("notebook-images/" + pid + ext, b642, mt2)
@@ -1906,6 +1909,36 @@ function _replaceHtmlDataUrls(html, map) {
   return changed ? tmp.innerHTML : html;
 }
 
+// ── React state のデータツリー全体に htmlUrlMap を適用（data: → https:）──
+// 変更があればアイデンティティが変わる新オブジェクトを返す。変更なしは同一参照を返す。
+// これにより setData は本当に変わった場合のみ呼ばれる。
+function _applyHtmlUrlMapToData(obj, map) {
+  if (!map || Object.keys(map).length === 0) return obj;
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    var _changed = false;
+    var _arr = obj.map(function(item) {
+      var r = _applyHtmlUrlMapToData(item, map);
+      if (r !== item) _changed = true;
+      return r;
+    });
+    return _changed ? _arr : obj;
+  }
+  if (typeof obj === "object") {
+    var _chg = false;
+    var _out = {};
+    for (var _k in obj) {
+      if (!obj.hasOwnProperty(_k)) continue;
+      var _v = obj[_k];
+      var _rv = typeof _v === "string" ? _replaceHtmlDataUrls(_v, map) : _applyHtmlUrlMapToData(_v, map);
+      _out[_k] = _rv;
+      if (_rv !== _v) _chg = true;
+    }
+    return _chg ? _out : obj;
+  }
+  if (typeof obj === "string") return _replaceHtmlDataUrls(obj, map);
+  return obj;
+}
 // ── データツリーを走査し、画像の base64 を Storage にアップロード ──
 // Firebase PUT 前に呼び出す。戻り値: base64を除去したデータ (imageUrl付き)
 function _uploadAllImages(data) {
@@ -2008,6 +2041,14 @@ function _uploadAllImages(data) {
     // ★ 元の _v（ユーザ操作時刻）を温存。なければ現在時刻。
     //   これによりFirebaseに保存される_vがローカルの_vと一致し、削除復活バグを防ぐ。
     prepared._v = (data && typeof data._v === "number") ? data._v : Date.now();
+    // ★ アップロード完了した data: URL → Storage URL マップを呼び出し元に渡す。
+    //   呼び出し元が React state を更新することで、次回 fbPut では data: URL が
+    //   存在しなくなり再アップロードが不要になる（帯域節約）。
+    if (Object.keys(htmlUrlMap).length > 0 && typeof window._snHtmlUploadCb === "function") {
+      var _cb = window._snHtmlUploadCb;
+      window._snHtmlUploadCb = null;
+      _cb(htmlUrlMap);
+    }
     return prepared;
   });
 }
@@ -33102,6 +33143,18 @@ function App() {
       skipRef.current = true;
       if (skipTimerRef.current) clearTimeout(skipTimerRef.current);
       fbStatusRef.current = "syncing";
+      // ★ HTML data: URL → Storage URL 置換コールバック。
+      //   _uploadAllImages が HTML 画像をアップロードした後に呼ばれ、
+      //   React state を更新することで次回 fbPut での再アップロードを防ぐ。
+      window._snHtmlUploadCb = function(map) {
+        var _upd = _applyHtmlUrlMapToData(dataRef.current, map);
+        if (_upd !== dataRef.current) {
+          console.log("[htmlUpload] state updated: replaced " + Object.keys(map).length + " data: URL(s) with Storage URL(s)");
+          dataRef.current = _upd;
+          setData(_upd);
+          stSave(_upd, false);
+        }
+      };
       if (immediate) {
         // ★ 即時 Firebase 同期: デバウンスせず直ちに PUT
         if (fbSyncTimerRef.current) clearTimeout(fbSyncTimerRef.current);
@@ -33116,6 +33169,7 @@ function App() {
           console.warn("fbPut failed:", e);
           fbStatusRef.current = "err";
           skipRef.current = false;
+          window._snHtmlUploadCb = null;
         });
       } else {
         // ★ Firebase同期をデバウンス（3秒）: 連続save時は最後の1回だけ実行
@@ -33132,6 +33186,7 @@ function App() {
             console.warn("fbPut failed:", e);
             fbStatusRef.current = "err";
             skipRef.current = false;
+            window._snHtmlUploadCb = null;
           });
         }, 3000);
       }
