@@ -4052,8 +4052,13 @@ function ImageAnnotator(_ref7) {
     if (dirtyRef.current) return;
     var ctx = c.getContext("2d");
 
+    // ★ ナビゲーション高速連打などで useEffect が再実行された場合、
+    //   前回の非同期 onload コールバックを無効化するフラグ
+    var cancelled = false;
+
     // 画像ロード成功時の共通処理（新アーキテクチャ: 画像は <img>、canvas はストローク専用）
     var onImageReady = function(bImg, imgUrl) {
+      if (cancelled) return; // ★ 既に次の img に切り替わっている場合は無視
       var nw = bImg.naturalWidth, nh = bImg.naturalHeight;
       var MAX_CANVAS_AREA = 16777216;
       var area = nw * nh;
@@ -4166,6 +4171,8 @@ function ImageAnnotator(_ref7) {
         bImg3.src = src;
       });
     }
+    // ★ cleanup: 次の img に切り替わったとき、古い onload コールバックを無効化する
+    return function() { cancelled = true; };
   }, [img && (img.id || img.imageUrl || (img.base64 && img.base64.length)), img && img.strokes && img.strokes.length]);
   // Native canvas event listeners (registered once via stable ref wrappers)
   useEffect(function () {
