@@ -5117,20 +5117,16 @@ function ImageAnnotator(_ref7) {
     if (img.origImageUrl) _savedNow.origImageUrl = img.origImageUrl;
     else if (img.imageUrl) _savedNow.origImageUrl = img.imageUrl;
     if (img.imageUrl) _savedNow.imageUrl = img.imageUrl;
-    // ★ アップロード状態をサムネイルに反映（アップロード中…→✓）
+    // ★ サムネイル反映中インジケーター（PNG生成完了まで「反映中…」を表示）
     var _uploadImgId = _savedNow.id;
     _imgUploadSet(_uploadImgId, "uploading");
-    // fbPut完了時のコールバックを登録（_snFbFlushNow / save()の両方から呼ばれる）
-    var _fbDoneCb = function() {
-      _imgUploadSet(_uploadImgId, "done");
-      setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 2500);
-    };
-    window._snFbPutDoneCallback = _fbDoneCb;
-    // Firebase未設定・タイムアウトのフォールバック（15秒後に自動クリア）
-    setTimeout(function() {
-      if (_imgUploadGet(_uploadImgId) === "uploading") { _fbDoneCb(); }
-      if (window._snFbPutDoneCallback === _fbDoneCb) window._snFbPutDoneCallback = null;
-    }, 15000);
+    // PNG生成失敗・例外時のフォールバック（5秒後に自動クリア）
+    var _reflectFallback = setTimeout(function() {
+      if (_imgUploadGet(_uploadImgId) === "uploading") {
+        _imgUploadSet(_uploadImgId, "done");
+        setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 1500);
+      }
+    }, 5000);
     // ★ 編集中フラグOFF / 保存直後フラグON
     dirtyRef.current = false;
     justSavedRef.current = true;
@@ -5174,6 +5170,8 @@ function ImageAnnotator(_ref7) {
       } catch(e) {
         console.warn("[Annotator] async toDataURL failed:", e);
       }
+      // ★ PNG生成完了 → サムネイル反映中インジケーターを「✓」に切り替える
+      clearTimeout(_reflectFallback);
       if (base64) {
         // base64が生成できたら上書き保存（strokes保存済みなのでbase64更新のみ）
         // imageUrlを除去することで次回fbPut時に新しいbase64がStorageへアップロードされる
@@ -5181,6 +5179,8 @@ function ImageAnnotator(_ref7) {
         delete _savedFull.imageUrl;
         onSave(_savedFull);
       }
+      _imgUploadSet(_uploadImgId, "done");
+      setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 1500);
       _stFlush(true);
       window._snFbFlushPending = true;
       if (typeof window._snFbFlushNow === "function") window._snFbFlushNow();
@@ -7402,7 +7402,7 @@ function ImgThumb(_ref_it) {
                        borderTopColor: "#fff", borderRadius: "50%",
                        animation: "spin 0.7s linear infinite" }
             }),
-            "アップロード中…"
+            "反映中…"
           )
         : "✓"
     ) : null
@@ -33062,10 +33062,6 @@ function App() {
             fbPut(cfgRef.current, dataRef.current).then(function() {
               fbStatusRef.current = "ok";
               console.log("[_snFbFlushNow] immediate fbPut done");
-              if (typeof window._snFbPutDoneCallback === "function") {
-                window._snFbPutDoneCallback();
-                window._snFbPutDoneCallback = null;
-              }
             })["catch"](function(e) {
               console.warn("[_snFbFlushNow] fbPut failed:", e);
               fbStatusRef.current = "err";
@@ -33109,10 +33105,6 @@ function App() {
         fbSyncTimerRef.current = null;
         fbPut(cfgRef.current, dataRef.current).then(function () {
           fbStatusRef.current = "ok";
-          if (typeof window._snFbPutDoneCallback === "function") {
-            window._snFbPutDoneCallback();
-            window._snFbPutDoneCallback = null;
-          }
           skipTimerRef.current = setTimeout(function () {
             skipRef.current = false;
             skipTimerRef.current = null;
@@ -33129,10 +33121,6 @@ function App() {
           fbSyncTimerRef.current = null;
           fbPut(cfgRef.current, dataRef.current).then(function () {
             fbStatusRef.current = "ok";
-            if (typeof window._snFbPutDoneCallback === "function") {
-              window._snFbPutDoneCallback();
-              window._snFbPutDoneCallback = null;
-            }
             skipTimerRef.current = setTimeout(function () {
               skipRef.current = false;
               skipTimerRef.current = null;
