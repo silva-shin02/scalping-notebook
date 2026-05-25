@@ -8931,6 +8931,7 @@ function TagPicker(_ref17) {
     },
     /*#__PURE__*/React.createElement("span", {
       onClick: tog,
+      onTouchEnd: function(e) { e.preventDefault(); if (tog) tog(); },
       style: _objectSpread(_objectSpread({
         padding: IS_TOUCH ? "7px 14px" : "5px 12px",
         borderRadius: hasAfter ? "7px 0 0 7px" : "7px",
