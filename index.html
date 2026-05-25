@@ -38,6 +38,7 @@ canvas{image-rendering:high-quality;-webkit-image-rendering:high-quality}
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 </head>
 <body>
+<div id="sn-upload-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#F59E0B;color:#fff;padding:10px 16px;text-align:center;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.2);align-items:center;justify-content:center;gap:8px;font-family:-apple-system,sans-serif">📤 アップロード中… しばらくお待ちください</div>
 <div id="root"><div style="display:flex;align-items:center;justify-content:center;height:80vh;font-size:15px;color:#888">読み込み中...</div></div>
 <script>
 // Service Worker 登録: Firebase Storage リクエストをキャッシュして課金を削減
@@ -1648,6 +1649,28 @@ function _imgUploadSubscribe(fn) {
 function _imgUploadGet(id) {
   return (id != null && _imgUploadStore[id]) || null;
 }
+
+// ── アップロードバナー DOM制御（Reactのバッチングに依存しない直接操作）──
+var _snBannerImgActive = false;
+var _snBannerFbActive = false;
+function _snBannerUpdate() {
+  var el = document.getElementById("sn-upload-banner");
+  if (!el) return;
+  var show = _snBannerImgActive || _snBannerFbActive;
+  el.style.display = show ? "flex" : "none";
+}
+// PNG生成中バナー: _imgUploadStore の変化を購読
+_imgUploadSubscribe(function() {
+  _snBannerImgActive = Object.keys(_imgUploadStore).some(function(k) {
+    return _imgUploadStore[k] === "uploading";
+  });
+  _snBannerUpdate();
+});
+// Firebase PUT中バナー: _snFbFlushNow から呼ばれるグローバルコールバック
+window._snBannerSetFb = function(active) {
+  _snBannerFbActive = active;
+  _snBannerUpdate();
+};
 
 // ── CA サムネ専用 IDB キャッシュ画像コンポーネント ──
 // chart-annotator の thumbUrl は data 構造に入らない一時表示用なので preloadImages の対象外。
@@ -5145,9 +5168,14 @@ function ImageAnnotator(_ref7) {
     if (img.origImageUrl) _savedNow.origImageUrl = img.origImageUrl;
     else if (img.imageUrl) _savedNow.origImageUrl = img.imageUrl;
     if (img.imageUrl) _savedNow.imageUrl = img.imageUrl;
-    // ★ サムネイル反映中インジケーター（PNG生成完了まで「反映中…」を表示）
+    // ★ 編集中フラグOFF / 保存直後フラグON
+    // ★ Strategy1: ストローク変更有無を保存（dirtyRef.currentをfalseにする前にキャプチャ）
+    var _wasDirty = dirtyRef.current;
+    // ★ サムネイル反映中インジケーター（実際に変更がある場合のみ表示）
     var _uploadImgId = _savedNow.id;
-    _imgUploadSet(_uploadImgId, "uploading");
+    if (_wasDirty || !img.imageUrl) {
+      _imgUploadSet(_uploadImgId, "uploading");
+    }
     // PNG生成失敗・例外時のフォールバック（5秒後に自動クリア）
     var _reflectFallback = setTimeout(function() {
       if (_imgUploadGet(_uploadImgId) === "uploading") {
@@ -5155,9 +5183,6 @@ function ImageAnnotator(_ref7) {
         setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 2500);
       }
     }, 5000);
-    // ★ 編集中フラグOFF / 保存直後フラグON
-    // ★ Strategy1: ストローク変更有無を保存（dirtyRef.currentをfalseにする前にキャプチャ）
-    var _wasDirty = dirtyRef.current;
     dirtyRef.current = false;
     justSavedRef.current = true;
     onSave(_savedNow); // ストロークをデータstateへ反映 → _stSaveLatest が更新される
@@ -32898,19 +32923,6 @@ function App() {
     _useState170 = _slicedToArray(_useState169, 2),
     fbStatus = _useState170[0],
     setFbStatus = _useState170[1],
-    _useStateIU = useState(false),
-    _useStateIUA = _slicedToArray(_useStateIU, 2),
-    anyImgUploading = _useStateIUA[0],
-    setAnyImgUploading = _useStateIUA[1];
-  // _imgUploadStore を購読: "uploading" エントリが1つでもあればバナー表示
-  useEffect(function() {
-    return _imgUploadSubscribe(function() {
-      var hasUploading = Object.keys(_imgUploadStore).some(function(k) {
-        return _imgUploadStore[k] === "uploading";
-      });
-      setAnyImgUploading(hasUploading);
-    });
-  }, []);
   // ホーム「+予定」モーダル
   var _useStateHEF = useState(false),
     _useStateHEFA = _slicedToArray(_useStateHEF, 2),
@@ -33276,12 +33288,17 @@ function App() {
             // デバウンス中のタイマーがあれば即時発火
             clearTimeout(fbSyncTimerRef.current);
             fbSyncTimerRef.current = null;
+            if (typeof window._snBannerSetFb === "function") window._snBannerSetFb(true);
             fbPut(cfgRef.current, dataRef.current).then(function() {
               fbStatusRef.current = "ok";
+              setFbStatus("ok");
+              if (typeof window._snBannerSetFb === "function") window._snBannerSetFb(false);
               console.log("[_snFbFlushNow] immediate fbPut done");
             })["catch"](function(e) {
               console.warn("[_snFbFlushNow] fbPut failed:", e);
               fbStatusRef.current = "err";
+              setFbStatus("err");
+              if (typeof window._snBannerSetFb === "function") window._snBannerSetFb(false);
             });
           }
           // タイマーがなくても、直前のsave()でskipRef等のみ設定された可能性あり
@@ -33563,20 +33580,6 @@ function App() {
       minHeight: "100vh"
     }
   },
-  // ── アップロード中バナー（PNG生成開始〜Firebase PUT完了まで表示）──
-  (anyImgUploading || fbStatus === "uploading") && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "fixed", top: 0, left: 0, right: 0, zIndex: 99999,
-      background: "#F59E0B", color: "#fff",
-      padding: "10px 16px", textAlign: "center",
-      fontSize: 13, fontWeight: 700,
-      boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-      display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-    }
-  },
-    /*#__PURE__*/React.createElement("span", { style: { fontSize: 16 } }, "📤"),
-    "アップロード中… しばらくお待ちください"
-  ),
   showSettings && /*#__PURE__*/React.createElement(SettingsModal, {
     cfg: cfg,
     onSave: saveCfg,
