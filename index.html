@@ -18703,6 +18703,7 @@ function NikkeiPriceChart(_p) {
   });
 
   var hovPt = (hovIdx !== null && hovIdx >= 0 && hovIdx < n) ? filteredPoints[hovIdx] : null;
+  var lastPt = filteredPoints[n - 1];
   var periodLabels = [["1m","1ヶ月"],["3m","3ヶ月"],["6m","6ヶ月"],["1y","1年"],["all","全期間"]];
 
   // 前日比: highlightDateの終値 vs その直前の営業日の終値（allPoints基準）
@@ -18713,7 +18714,7 @@ function NikkeiPriceChart(_p) {
       var hlClose = allPoints[hlIdx].close;
       var prevClose = allPoints[hlIdx - 1].close;
       var prevDate = allPoints[hlIdx - 1].date;
-      var prevDow = DAYS_JP[(new Date(prevDate)).getDay()];
+      var prevDow = DAYS_JP[(new Date(prevDate + "T00:00:00")).getDay()];
       var prevMD = (prevDate.slice(5,7)).replace(/^0/,"") + "/" + prevDate.slice(8);
       prevDayDiff = { diff: hlClose - prevClose, prevMD: prevMD, prevDow: prevDow };
     }
