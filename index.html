@@ -5205,10 +5205,12 @@ function ImageAnnotator(_ref7) {
     }
     // ── 5. PNG生成（非同期）──
     //   refs をキャプチャしておくことでコンポーネントアンマウント後も安全に使用できる。
+    //   rAF×2 でバナーが確実に描画されてからブロック処理に入る（setTimeout(0)だと
+    //   ブラウザのpaintより先に発火してバナーが見えないため）
     var _capLS = { w: logicalSizeRef.current.w, h: logicalSizeRef.current.h };
     var _capBaseImg = baseImgRef.current;
     var _capStrokes = _curStrokes;
-    setTimeout(function() {
+    var _pngWork = function() {
       var base64 = null;
       try {
         if (_capLS.w > 0 && _capBaseImg) {
@@ -5247,7 +5249,13 @@ function ImageAnnotator(_ref7) {
       setTimeout(function() { window._snFbFlushPending = false; }, 2000);
       // afterPng=true の場合は PNG 完了後にナビゲーション実行
       if (afterPng && typeof cb === "function") cb();
-    }, 0);
+    };
+    // rAF×2: 1枚目でバナーDOMが確定 → 2枚目でpaint完了 → その後PNG生成ブロック
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        _pngWork();
+      });
+    });
   };
   // ★ done() の最新版を doneRef に保持（毎レンダーで更新）
   doneRef.current = done;
