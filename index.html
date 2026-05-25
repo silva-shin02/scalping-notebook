@@ -1000,11 +1000,15 @@ document.addEventListener("visibilitychange", function(){
   if(document.visibilityState==="hidden") {
     if (typeof window._snAnnotAutoSave === "function") window._snAnnotAutoSave();
     _stFlush(false);
+    // ★ Firebase への即時flush（デバウンス中のPUTをiOS Killより前に確定させる）
+    if (typeof window._snFbFlushNow === "function") window._snFbFlushNow();
   }
 });
 window.addEventListener("pagehide", function(){
   if (typeof window._snAnnotAutoSave === "function") window._snAnnotAutoSave();
   _stFlush(false);
+  // ★ Firebase への即時flush（pagehide = iOSのBFCache退避・ページ破棄直前）
+  if (typeof window._snFbFlushNow === "function") window._snFbFlushNow();
 });
 function cfLoad() {
   try {
@@ -32942,11 +32946,16 @@ function App() {
       return _regenerator().w(function (_context3) {
         while (1) switch (_context3.p = _context3.n) {
           case 0:
-            if (!skipRef.current) {
-              _context3.n = 1;
-              break;
-            }
-            return _context3.a(2);
+            // ★ スキップ条件: (1)skipRef=true (save直後30秒) または (2)ユーザーが入力中
+            //   入力中にsetData()でReact再レンダリングが走ると入力がリセットされるため
+            if (skipRef.current) { return _context3.a(2); }
+            if ((function(){
+              var ae = document.activeElement;
+              return !!(ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" ||
+                ae.isContentEditable || ae.getAttribute("contenteditable") === "true"));
+            })()) { return _context3.a(2); }
+            _context3.n = 1;
+            break;
           case 1:
             _context3.p = 1; // try
             _context3.n = 2;
