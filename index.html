@@ -24974,7 +24974,7 @@ function EntryLogView(_ref_elv) {
           });
           return result2;
         };
-        var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags) {
+        var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
           var isHoliday = !!_tblHolidaySet[date];
           var hasRecs = !isHoliday && st.total > 0;
           var isExp = hasRecs && calTblExpand === date;
@@ -24982,6 +24982,19 @@ function EntryLogView(_ref_elv) {
           var bb = "1px solid #e0ddd6", br = "1px solid #e0ddd6";
           var dateRef = date;
           var _dash = React.createElement("span", { style: { color: "#ccc" } }, "ー");
+          // 難易度バッジ
+          var _dtDiffCell = (function() {
+            if (isHoliday || !recs || !recs.length) return _dash;
+            var cnt = { A: 0, B: 0, C: 0 };
+            recs.forEach(function(r) { var d = r.signal.difficulty; if (d && cnt[d] !== undefined) cnt[d]++; });
+            var parts = [];
+            if (cnt.A > 0) parts.push(React.createElement("span", { key: "A", style: { color: "#1E8449", fontWeight: 700 } }, "A" + cnt.A));
+            if (cnt.B > 0) parts.push(React.createElement("span", { key: "B", style: { color: "#9A3412", fontWeight: 700 } }, "B" + cnt.B));
+            if (cnt.C > 0) parts.push(React.createElement("span", { key: "C", style: { color: "#7C3AED", fontWeight: 700 } }, "C" + cnt.C));
+            return parts.length > 0
+              ? React.createElement("span", { style: { display: "inline-flex", gap: 3 } }, parts)
+              : React.createElement("span", { style: { color: "#ccc" } }, "—");
+          })();
           return React.createElement("tr", { key: date,
             style: { background: bg, cursor: hasRecs ? "pointer" : "default" },
             onClick: hasRecs ? function() { setCalTblExpand(isExp ? null : dateRef); setCalTblRecExp({}); } : undefined
@@ -25009,6 +25022,8 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br,
               color: st.winPct != null ? (st.winPct >= 60 ? "#C0392B" : st.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
               fontWeight: st.winPct != null ? 700 : 400 } }, isHoliday ? _dash : (st.winPct != null ? st.winPct + "%" : "—")),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
+              _dtDiffCell),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : _tSlash(st.sumPnl, st.expected, gradeReal)),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
@@ -25174,7 +25189,7 @@ function EntryLogView(_ref_elv) {
         var thead = React.createElement("thead", null,
           React.createElement("tr", null,
             React.createElement("th", { style: { padding: "5px 8px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "left" } }, "日付"),
-            _tTh("件数"), _tTh("勝"), _tTh("負"), _tTh("勝率"),
+            _tTh("件数"), _tTh("勝"), _tTh("負"), _tTh("勝率"), _tTh("難易度"),
             _tTh("実現損益 / 期待値"),
             React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
               React.createElement("div", null, "想定損益 / 期待値"),
@@ -25197,7 +25212,7 @@ function EntryLogView(_ref_elv) {
             var gradeMax  = _profitGradeFromPnl(dateSt.sumMax, dateSt.total);
             var tags = _tDateTags(date);
             return [
-              _tRow(date, dateSt, gradeReal, gradePlan, gradeMax, tags),
+              _tRow(date, dateSt, gradeReal, gradePlan, gradeMax, tags, dateRecs),
               calTblExpand === date ? _tExpRow(date) : null
             ];
           })
