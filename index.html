@@ -24933,32 +24933,8 @@ function EntryLogView(_ref_elv) {
           }
           return calTblSort === "asc" ? result : result.reverse();
         })();
-        var _tFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
-        var _tCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-        var _tBadge = function(grade) {
-          var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
-          return React.createElement("span", { title: grade,
-            style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-              width: 18, height: 18, borderRadius: "50%",
-              background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
-              fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
-          }, grade);
-        };
         var _tTh = function(label, extra) {
           return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%", textAlign: "center" }, extra || {}) }, label);
-        };
-        var _tSlash = function(sum, ev, grade) {
-          var hasSum = sum !== 0, hasEv = ev != null;
-          if (!hasSum && !hasEv) return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-            grade ? _tBadge(grade) : null,
-            React.createElement("span", { style: { color: "#ccc" } }, "—")
-          );
-          return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-            grade ? _tBadge(grade) : null,
-            React.createElement("span", { style: { fontWeight: 600, color: hasSum ? _tCol(sum) : "#ccc" } }, hasSum ? _tFmt(sum) : "—"),
-            React.createElement("span", { style: { color: "#bbb" } }, " / "),
-            React.createElement("span", { style: { color: hasEv ? _tCol(ev) : "#ccc" } }, hasEv ? _tFmt(ev) : "—")
-          );
         };
         var _tDateTags = function(date) {
           var seen = {}, result2 = [];
@@ -24973,33 +24949,6 @@ function EntryLogView(_ref_elv) {
             });
           });
           return result2;
-        };
-        // 難易度別内訳つき PnL セル（合計・A・B・C を縦並び）
-        var _DIFF_COL = { A: "#1E8449", B: "#9A3412", C: "#7C3AED" };
-        var _tDiffBreak = function(recs, totalSum, totalEv, grade, sumKey, evKey) {
-          var top = _tSlash(totalSum, totalEv, grade);
-          if (!recs || !recs.length) return top;
-          var lines = ["A", "B", "C"].reduce(function(acc, d) {
-            var gr = recs.filter(function(r) { return r.signal.difficulty === d; });
-            if (!gr.length) return acc;
-            var gs = _elCalcStats(gr);
-            var v = gs[sumKey], e = gs[evKey];
-            acc.push(
-              React.createElement("span", { key: d + "_l", style: { color: _DIFF_COL[d], fontWeight: 700, textAlign: "right" } }, d),
-              React.createElement("span", { key: d + "_c", style: { color: "#ccc", textAlign: "center" } }, ":"),
-              React.createElement("span", { key: d + "_v", style: { fontWeight: v !== 0 ? 600 : 400, color: v !== 0 ? (v > 0 ? "#C0392B" : "#1E8449") : "#999", textAlign: "right", whiteSpace: "nowrap" } },
-                v !== 0 ? (v > 0 ? "+" : "") + v + "円" : "—"),
-              React.createElement("span", { key: d + "_s", style: { color: "#bbb", textAlign: "center" } }, "/"),
-              React.createElement("span", { key: d + "_e", style: { color: e != null ? (e > 0 ? "#C0392B" : e < 0 ? "#1E8449" : "#888") : "#999", textAlign: "right", whiteSpace: "nowrap" } },
-                e != null ? (e > 0 ? "+" : "") + e + "円" : "—")
-            );
-            return acc;
-          }, []);
-          if (!lines.length) return top;
-          return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
-            React.createElement("div", null, top),
-            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "10px 8px auto 10px auto", alignItems: "center", columnGap: 2, rowGap: 1, fontSize: 10, marginTop: 2, paddingTop: 2, borderTop: "1px dashed #ccc" } }, lines)
-          );
         };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
           var isHoliday = !!_tblHolidaySet[date];
@@ -25950,6 +25899,58 @@ function EntryLogView(_ref_elv) {
             background: "#fefdf8", borderTop: "1px solid #eee", lineHeight: 1.5 }
         }, "ℹ 削除しても既存の戦績記録は残ります（選択肢から外れるだけ）。リネームは既存記録にも反映されます。")
       )
+    );
+  };
+
+  // ── 難易度別内訳セル用ヘルパー（カレンダーテーブル・シグナル統計共通） ──
+  var _tFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
+  var _tCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+  var _tBadge = function(grade) {
+    var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
+    return React.createElement("span", { title: grade,
+      style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 18, height: 18, borderRadius: "50%",
+        background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
+        fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
+    }, grade);
+  };
+  var _tSlash = function(sum, ev, grade) {
+    var hasSum = sum !== 0, hasEv = ev != null;
+    if (!hasSum && !hasEv) return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+      grade ? _tBadge(grade) : null,
+      React.createElement("span", { style: { color: "#ccc" } }, "—")
+    );
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+      grade ? _tBadge(grade) : null,
+      React.createElement("span", { style: { fontWeight: 600, color: hasSum ? _tCol(sum) : "#ccc" } }, hasSum ? _tFmt(sum) : "—"),
+      React.createElement("span", { style: { color: "#bbb" } }, " / "),
+      React.createElement("span", { style: { color: hasEv ? _tCol(ev) : "#ccc" } }, hasEv ? _tFmt(ev) : "—")
+    );
+  };
+  var _DIFF_COL = { A: "#1E8449", B: "#9A3412", C: "#7C3AED" };
+  var _tDiffBreak = function(recs, totalSum, totalEv, grade, sumKey, evKey) {
+    var top = _tSlash(totalSum, totalEv, grade);
+    if (!recs || !recs.length) return top;
+    var lines = ["A", "B", "C"].reduce(function(acc, d) {
+      var gr = recs.filter(function(r) { return r.signal.difficulty === d; });
+      if (!gr.length) return acc;
+      var gs = _elCalcStats(gr);
+      var v = gs[sumKey], e = gs[evKey];
+      acc.push(
+        React.createElement("span", { key: d + "_l", style: { color: _DIFF_COL[d], fontWeight: 700, textAlign: "right" } }, d),
+        React.createElement("span", { key: d + "_c", style: { color: "#ccc", textAlign: "center" } }, ":"),
+        React.createElement("span", { key: d + "_v", style: { fontWeight: v !== 0 ? 600 : 400, color: v !== 0 ? (v > 0 ? "#C0392B" : "#1E8449") : "#999", textAlign: "right", whiteSpace: "nowrap" } },
+          v !== 0 ? (v > 0 ? "+" : "") + v + "円" : "—"),
+        React.createElement("span", { key: d + "_s", style: { color: "#bbb", textAlign: "center" } }, "/"),
+        React.createElement("span", { key: d + "_e", style: { color: e != null ? (e > 0 ? "#C0392B" : e < 0 ? "#1E8449" : "#888") : "#999", textAlign: "right", whiteSpace: "nowrap" } },
+          e != null ? (e > 0 ? "+" : "") + e + "円" : "—")
+      );
+      return acc;
+    }, []);
+    if (!lines.length) return top;
+    return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: 1, width: "100%" } },
+      React.createElement("div", { style: { textAlign: "center" } }, top),
+      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "10px 8px auto 10px auto", alignItems: "center", justifyContent: "center", columnGap: 2, rowGap: 1, fontSize: 10, marginTop: 2, paddingTop: 2, borderTop: "1px dashed #ccc" } }, lines)
     );
   };
 
