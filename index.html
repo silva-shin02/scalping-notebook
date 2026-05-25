@@ -10814,7 +10814,8 @@ var ChartSection = React.memo(function ChartSection(_ref32) {
     cfg = _ref32.cfg,
     onSelectDate = _ref32.onSelectDate,
     onJumpToNews = _ref32.onJumpToNews,
-    onOpenEntryLog = _ref32.onOpenEntryLog;
+    onOpenEntryLog = _ref32.onOpenEntryLog,
+    hideSignals = _ref32.hideSignals;
   var ck = stock + "_" + date;
   var cd = data.charts[ck] || {
     macroLocal: "",
@@ -11920,7 +11921,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
   }, pool, {
     label: "\u30C1\u30E3\u30FC\u30C8\u5F62\u72B6\u30BF\u30B0",
     hideAddRoot: true
-  })), /*#__PURE__*/React.createElement(EntrySignalSection, {
+  })), !hideSignals && /*#__PURE__*/React.createElement(EntrySignalSection, {
     allData: data,
     save: save,
     stock: stock,
@@ -19667,7 +19668,29 @@ function DayView(_ref57) {
       ),
       /*#__PURE__*/React.createElement(NikkeiPriceChart, {
         data: data, onSelectDate: onSelectDate, highlightDate: date
-      })
+      }),
+      /*#__PURE__*/React.createElement("div", { style: Card },
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 15, fontWeight: 700, marginBottom: 12 } },
+          "日経平均株価 — ", date),
+        /*#__PURE__*/React.createElement(ChartSection, {
+          stock: "日経平均株価", date: date, data: data, save: save,
+          custom: custom, cfg: cfg, onSelectDate: jumpTo,
+          hideSignals: true,
+          onOpenEntryLog: onOpenEntryLog || null,
+          onJumpToNews: function(catName, niId) {
+            if (catName && niId) {
+              setJumpTarget({ catName: catName, niId: niId, ts: Date.now() });
+              setChartReturnCtx({ stock: "日経平均株価" });
+            } else if (catName) {
+              try {
+                var _svN = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}");
+                localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({}, _svN, { newsCat: catName })));
+              } catch(e){}
+            }
+            _safeSetTab("news");
+          }
+        })
+      )
     )
   ), tab === "charts" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(StockTabs, {
     stocks: allStocks.filter(function(s) { return s !== "日経平均株価"; }),
