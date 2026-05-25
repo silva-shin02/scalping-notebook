@@ -32897,7 +32897,20 @@ function App() {
     _useState169 = useState("none"),
     _useState170 = _slicedToArray(_useState169, 2),
     fbStatus = _useState170[0],
-    setFbStatus = _useState170[1];
+    setFbStatus = _useState170[1],
+    _useStateIU = useState(false),
+    _useStateIUA = _slicedToArray(_useStateIU, 2),
+    anyImgUploading = _useStateIUA[0],
+    setAnyImgUploading = _useStateIUA[1];
+  // _imgUploadStore を購読: "uploading" エントリが1つでもあればバナー表示
+  useEffect(function() {
+    return _imgUploadSubscribe(function() {
+      var hasUploading = Object.keys(_imgUploadStore).some(function(k) {
+        return _imgUploadStore[k] === "uploading";
+      });
+      setAnyImgUploading(hasUploading);
+    });
+  }, []);
   // ホーム「+予定」モーダル
   var _useStateHEF = useState(false),
     _useStateHEFA = _slicedToArray(_useStateHEF, 2),
@@ -33550,8 +33563,8 @@ function App() {
       minHeight: "100vh"
     }
   },
-  // ── アップロード中バナー（画像保存時のFirebase PUT中に表示）──
-  fbStatus === "uploading" && /*#__PURE__*/React.createElement("div", {
+  // ── アップロード中バナー（PNG生成開始〜Firebase PUT完了まで表示）──
+  (anyImgUploading || fbStatus === "uploading") && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 99999,
       background: "#F59E0B", color: "#fff",
