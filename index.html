@@ -38,7 +38,6 @@ canvas{image-rendering:high-quality;-webkit-image-rendering:high-quality}
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 </head>
 <body>
-<div id="sn-upload-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#F59E0B;color:#fff;padding:10px 16px;text-align:center;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.2);align-items:center;justify-content:center;gap:8px;font-family:-apple-system,sans-serif">📤 アップロード中… しばらくお待ちください</div>
 <div id="root"><div style="display:flex;align-items:center;justify-content:center;height:80vh;font-size:15px;color:#888">読み込み中...</div></div>
 <script>
 // Service Worker 登録: Firebase Storage リクエストをキャッシュして課金を削減
@@ -1649,28 +1648,6 @@ function _imgUploadSubscribe(fn) {
 function _imgUploadGet(id) {
   return (id != null && _imgUploadStore[id]) || null;
 }
-
-// ── アップロードバナー DOM制御（Reactのバッチングに依存しない直接操作）──
-var _snBannerImgActive = false;
-var _snBannerFbActive = false;
-function _snBannerUpdate() {
-  var el = document.getElementById("sn-upload-banner");
-  if (!el) return;
-  var show = _snBannerImgActive || _snBannerFbActive;
-  el.style.display = show ? "flex" : "none";
-}
-// PNG生成中バナー: _imgUploadStore の変化を購読
-_imgUploadSubscribe(function() {
-  _snBannerImgActive = Object.keys(_imgUploadStore).some(function(k) {
-    return _imgUploadStore[k] === "uploading";
-  });
-  _snBannerUpdate();
-});
-// Firebase PUT中バナー: _snFbFlushNow から呼ばれるグローバルコールバック
-window._snBannerSetFb = function(active) {
-  _snBannerFbActive = active;
-  _snBannerUpdate();
-};
 
 // ── CA サムネ専用 IDB キャッシュ画像コンポーネント ──
 // chart-annotator の thumbUrl は data 構造に入らない一時表示用なので preloadImages の対象外。
@@ -33296,17 +33273,12 @@ function App() {
             // デバウンス中のタイマーがあれば即時発火
             clearTimeout(fbSyncTimerRef.current);
             fbSyncTimerRef.current = null;
-            if (typeof window._snBannerSetFb === "function") window._snBannerSetFb(true);
             fbPut(cfgRef.current, dataRef.current).then(function() {
               fbStatusRef.current = "ok";
-              setFbStatus("ok");
-              if (typeof window._snBannerSetFb === "function") window._snBannerSetFb(false);
               console.log("[_snFbFlushNow] immediate fbPut done");
             })["catch"](function(e) {
               console.warn("[_snFbFlushNow] fbPut failed:", e);
               fbStatusRef.current = "err";
-              setFbStatus("err");
-              if (typeof window._snBannerSetFb === "function") window._snBannerSetFb(false);
             });
           }
           // タイマーがなくても、直前のsave()でskipRef等のみ設定された可能性あり
@@ -33357,10 +33329,8 @@ function App() {
         // ★ 即時 Firebase 同期: デバウンスせず直ちに PUT
         if (fbSyncTimerRef.current) clearTimeout(fbSyncTimerRef.current);
         fbSyncTimerRef.current = null;
-        setFbStatus("uploading"); // バナー表示
         fbPut(cfgRef.current, dataRef.current).then(function () {
           fbStatusRef.current = "ok";
-          setFbStatus("ok");
           skipTimerRef.current = setTimeout(function () {
             skipRef.current = false;
             skipTimerRef.current = null;
@@ -33368,7 +33338,6 @@ function App() {
         })["catch"](function (e) {
           console.warn("fbPut failed:", e);
           fbStatusRef.current = "err";
-          setFbStatus("err");
           skipRef.current = false;
           window._snHtmlUploadCb = null;
         });
@@ -33536,11 +33505,11 @@ function App() {
       padding: "6px 10px",
       borderRadius: 6,
       border: "1px solid",
-      color: fbStatus === "ok" ? "#166534" : (fbStatus === "syncing" || fbStatus === "uploading") ? "#92400E" : "#991B1B",
-      background: fbStatus === "ok" ? "#F0FDF4" : (fbStatus === "syncing" || fbStatus === "uploading") ? "#FFFBEB" : "#FEF2F2",
-      borderColor: fbStatus === "ok" ? "#A7F3D0" : (fbStatus === "syncing" || fbStatus === "uploading") ? "#FDE68A" : "#FECACA"
+      color: fbStatus === "ok" ? "#166534" : fbStatus === "syncing" ? "#92400E" : "#991B1B",
+      background: fbStatus === "ok" ? "#F0FDF4" : fbStatus === "syncing" ? "#FFFBEB" : "#FEF2F2",
+      borderColor: fbStatus === "ok" ? "#A7F3D0" : fbStatus === "syncing" ? "#FDE68A" : "#FECACA"
     }
-  }, fbStatus === "ok" ? "🔥 同期済" : fbStatus === "uploading" ? "📤 アップロード中" : fbStatus === "syncing" ? "⏳ 同期中" : "⚠️ 接続エラー") : /*#__PURE__*/React.createElement("div", {
+  }, fbStatus === "ok" ? "🔥 同期済" : fbStatus === "syncing" ? "⏳ 同期中" : "⚠️ 接続エラー") : /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 4
