@@ -24984,22 +24984,21 @@ function EntryLogView(_ref_elv) {
             if (!gr.length) return acc;
             var gs = _elCalcStats(gr);
             var v = gs[sumKey], e = gs[evKey];
-            acc.push(React.createElement("div", { key: d,
-              style: { fontSize: 10, display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
-              React.createElement("span", { style: { color: _DIFF_COL[d], fontWeight: 700, minWidth: 8 } }, d),
-              React.createElement("span", { style: { color: "#ccc" } }, ":"),
-              React.createElement("span", { style: { fontWeight: v !== 0 ? 600 : 400, color: v !== 0 ? (v > 0 ? "#C0392B" : "#1E8449") : "#999" } },
+            acc.push(
+              React.createElement("span", { key: d + "_l", style: { color: _DIFF_COL[d], fontWeight: 700, textAlign: "right" } }, d),
+              React.createElement("span", { key: d + "_c", style: { color: "#ccc", textAlign: "center" } }, ":"),
+              React.createElement("span", { key: d + "_v", style: { fontWeight: v !== 0 ? 600 : 400, color: v !== 0 ? (v > 0 ? "#C0392B" : "#1E8449") : "#999", textAlign: "right", whiteSpace: "nowrap" } },
                 v !== 0 ? (v > 0 ? "+" : "") + v + "円" : "—"),
-              React.createElement("span", { style: { color: "#bbb" } }, "/"),
-              React.createElement("span", { style: { color: e != null ? (e > 0 ? "#C0392B" : e < 0 ? "#1E8449" : "#888") : "#999" } },
+              React.createElement("span", { key: d + "_s", style: { color: "#bbb", textAlign: "center" } }, "/"),
+              React.createElement("span", { key: d + "_e", style: { color: e != null ? (e > 0 ? "#C0392B" : e < 0 ? "#1E8449" : "#888") : "#999", textAlign: "right", whiteSpace: "nowrap" } },
                 e != null ? (e > 0 ? "+" : "") + e + "円" : "—")
-            ));
+            );
             return acc;
           }, []);
           if (!lines.length) return top;
           return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
             React.createElement("div", null, top),
-            lines
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "10px 8px auto 10px auto", alignItems: "center", columnGap: 2, rowGap: 1, fontSize: 10, marginTop: 1 } }, lines)
           );
         };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
