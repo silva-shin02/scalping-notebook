@@ -26196,6 +26196,7 @@ function EntryLogView(_ref_elv) {
                 React.createElement("tr", { style: { background: "#f5f4f0" } },
                   React.createElement("th", { style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "日付"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "件"),
+                  React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%", whiteSpace: "nowrap" } }, "難易度"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "勝"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "負"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "勝率"),
@@ -26212,6 +26213,16 @@ function EntryLogView(_ref_elv) {
                   var isOn = sigSubExpand === "date_" + dk;
                   var dkRef = dk;
                   var _dp = dk.split("-"); var _dow = ["日","月","火","水","木","金","土"][new Date(+_dp[0], +_dp[1]-1, +_dp[2]).getDay()];
+                  // 難易度バッジ
+                  var _dCnt = { A: 0, B: 0, C: 0 };
+                  drecs.forEach(function(r) { var d = r.signal.difficulty; if (d && _dCnt[d] !== undefined) _dCnt[d]++; });
+                  var _dParts = [];
+                  if (_dCnt.A > 0) _dParts.push(React.createElement("span", { key: "A", style: { color: "#1E8449", fontWeight: 700 } }, "A" + _dCnt.A));
+                  if (_dCnt.B > 0) _dParts.push(React.createElement("span", { key: "B", style: { color: "#9A3412", fontWeight: 700 } }, "B" + _dCnt.B));
+                  if (_dCnt.C > 0) _dParts.push(React.createElement("span", { key: "C", style: { color: "#7C3AED", fontWeight: 700 } }, "C" + _dCnt.C));
+                  var _diffCell = _dParts.length > 0
+                    ? React.createElement("span", { style: { display: "inline-flex", gap: 3 } }, _dParts)
+                    : React.createElement("span", { style: { color: "#ccc" } }, "—");
                   return React.createElement("tr", {
                     key: dk,
                     onClick: function() { setSigSubExpand(isOn ? null : "date_" + dkRef); },
@@ -26220,6 +26231,7 @@ function EntryLogView(_ref_elv) {
                     React.createElement("td", { style: { padding: "5px 8px", borderBottom: "1px solid #f0ede8", fontWeight: isOn ? 700 : 400, fontSize: 11, whiteSpace: "nowrap", width: "1%" } },
                       (isOn ? "▶ " : "") + dk + " (" + _dow + ")"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontWeight: 700, fontSize: 11 } }, drecs.length),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } }, _diffCell),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11 } }, dst.ok || "0"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11 } }, dst.ng || "0"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8",
