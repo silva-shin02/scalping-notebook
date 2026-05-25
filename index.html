@@ -24974,6 +24974,34 @@ function EntryLogView(_ref_elv) {
           });
           return result2;
         };
+        // 難易度別内訳つき PnL セル（合計・A・B・C を縦並び）
+        var _DIFF_COL = { A: "#1E8449", B: "#9A3412", C: "#7C3AED" };
+        var _tDiffBreak = function(recs, totalSum, totalEv, grade, sumKey, evKey) {
+          var top = _tSlash(totalSum, totalEv, grade);
+          if (!recs || !recs.length) return top;
+          var lines = ["A", "B", "C"].reduce(function(acc, d) {
+            var gr = recs.filter(function(r) { return r.signal.difficulty === d; });
+            if (!gr.length) return acc;
+            var gs = _elCalcStats(gr);
+            var v = gs[sumKey], e = gs[evKey];
+            acc.push(React.createElement("div", { key: d,
+              style: { fontSize: 10, display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
+              React.createElement("span", { style: { color: _DIFF_COL[d], fontWeight: 700, minWidth: 8 } }, d),
+              React.createElement("span", { style: { color: "#ccc" } }, ":"),
+              React.createElement("span", { style: { fontWeight: v !== 0 ? 600 : 400, color: v !== 0 ? (v > 0 ? "#C0392B" : "#1E8449") : "#999" } },
+                v !== 0 ? (v > 0 ? "+" : "") + v + "円" : "—"),
+              React.createElement("span", { style: { color: "#bbb" } }, "/"),
+              React.createElement("span", { style: { color: e != null ? (e > 0 ? "#C0392B" : e < 0 ? "#1E8449" : "#888") : "#999" } },
+                e != null ? (e > 0 ? "+" : "") + e + "円" : "—")
+            ));
+            return acc;
+          }, []);
+          if (!lines.length) return top;
+          return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
+            React.createElement("div", null, top),
+            lines
+          );
+        };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
           var isHoliday = !!_tblHolidaySet[date];
           var hasRecs = !isHoliday && st.total > 0;
@@ -24982,19 +25010,6 @@ function EntryLogView(_ref_elv) {
           var bb = "1px solid #e0ddd6", br = "1px solid #e0ddd6";
           var dateRef = date;
           var _dash = React.createElement("span", { style: { color: "#ccc" } }, "ー");
-          // 難易度バッジ
-          var _dtDiffCell = (function() {
-            if (isHoliday || !recs || !recs.length) return _dash;
-            var cnt = { A: 0, B: 0, C: 0 };
-            recs.forEach(function(r) { var d = r.signal.difficulty; if (d && cnt[d] !== undefined) cnt[d]++; });
-            var parts = [];
-            if (cnt.A > 0) parts.push(React.createElement("span", { key: "A", style: { color: "#1E8449", fontWeight: 700 } }, "A" + cnt.A));
-            if (cnt.B > 0) parts.push(React.createElement("span", { key: "B", style: { color: "#9A3412", fontWeight: 700 } }, "B" + cnt.B));
-            if (cnt.C > 0) parts.push(React.createElement("span", { key: "C", style: { color: "#7C3AED", fontWeight: 700 } }, "C" + cnt.C));
-            return parts.length > 0
-              ? React.createElement("span", { style: { display: "inline-flex", gap: 3 } }, parts)
-              : React.createElement("span", { style: { color: "#ccc" } }, "—");
-          })();
           return React.createElement("tr", { key: date,
             style: { background: bg, cursor: hasRecs ? "pointer" : "default" },
             onClick: hasRecs ? function() { setCalTblExpand(isExp ? null : dateRef); setCalTblRecExp({}); } : undefined
@@ -25023,13 +25038,11 @@ function EntryLogView(_ref_elv) {
               color: st.winPct != null ? (st.winPct >= 60 ? "#C0392B" : st.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
               fontWeight: st.winPct != null ? 700 : 400 } }, isHoliday ? _dash : (st.winPct != null ? st.winPct + "%" : "—")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              _dtDiffCell),
-            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : _tSlash(st.sumPnl, st.expected, gradeReal)),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : _tSlash(st.sumPlanned, st.expectedPlanned, gradePlan)),
+              isHoliday ? _dash : _tDiffBreak(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : _tSlash(st.sumMax, st.expectedMax, gradeMax)),
+              isHoliday ? _dash : _tDiffBreak(recs, st.sumMax, st.expectedMax, gradeMax, "sumMax", "expectedMax")),
             React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb } },
               !isHoliday && tags && tags.length > 0
                 ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },
@@ -25189,7 +25202,7 @@ function EntryLogView(_ref_elv) {
         var thead = React.createElement("thead", null,
           React.createElement("tr", null,
             React.createElement("th", { style: { padding: "5px 8px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "left" } }, "日付"),
-            _tTh("件数"), _tTh("勝"), _tTh("負"), _tTh("勝率"), _tTh("難易度"),
+            _tTh("件数"), _tTh("勝"), _tTh("負"), _tTh("勝率"),
             _tTh("実現損益 / 期待値"),
             React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
               React.createElement("div", null, "想定損益 / 期待値"),
@@ -26211,14 +26224,13 @@ function EntryLogView(_ref_elv) {
                 React.createElement("tr", { style: { background: "#f5f4f0" } },
                   React.createElement("th", { style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "日付"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "件"),
-                  React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%", whiteSpace: "nowrap" } }, "難易度"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "勝"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "負"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "勝率"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "損益"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "期待値"),
-                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計想定損益/期待値"),
-                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計最大損益/期待値")
+                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計想定損益/期待値"),
+                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計最大損益/期待値")
                 )
               ),
               React.createElement("tbody", null,
@@ -26228,16 +26240,6 @@ function EntryLogView(_ref_elv) {
                   var isOn = sigSubExpand === "date_" + dk;
                   var dkRef = dk;
                   var _dp = dk.split("-"); var _dow = ["日","月","火","水","木","金","土"][new Date(+_dp[0], +_dp[1]-1, +_dp[2]).getDay()];
-                  // 難易度バッジ
-                  var _dCnt = { A: 0, B: 0, C: 0 };
-                  drecs.forEach(function(r) { var d = r.signal.difficulty; if (d && _dCnt[d] !== undefined) _dCnt[d]++; });
-                  var _dParts = [];
-                  if (_dCnt.A > 0) _dParts.push(React.createElement("span", { key: "A", style: { color: "#1E8449", fontWeight: 700 } }, "A" + _dCnt.A));
-                  if (_dCnt.B > 0) _dParts.push(React.createElement("span", { key: "B", style: { color: "#9A3412", fontWeight: 700 } }, "B" + _dCnt.B));
-                  if (_dCnt.C > 0) _dParts.push(React.createElement("span", { key: "C", style: { color: "#7C3AED", fontWeight: 700 } }, "C" + _dCnt.C));
-                  var _diffCell = _dParts.length > 0
-                    ? React.createElement("span", { style: { display: "inline-flex", gap: 3 } }, _dParts)
-                    : React.createElement("span", { style: { color: "#ccc" } }, "—");
                   return React.createElement("tr", {
                     key: dk,
                     onClick: function() { setSigSubExpand(isOn ? null : "date_" + dkRef); },
@@ -26246,7 +26248,6 @@ function EntryLogView(_ref_elv) {
                     React.createElement("td", { style: { padding: "5px 8px", borderBottom: "1px solid #f0ede8", fontWeight: isOn ? 700 : 400, fontSize: 11, whiteSpace: "nowrap", width: "1%" } },
                       (isOn ? "▶ " : "") + dk + " (" + _dow + ")"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontWeight: 700, fontSize: 11 } }, drecs.length),
-                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } }, _diffCell),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11 } }, dst.ok || "0"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11 } }, dst.ng || "0"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8",
@@ -26261,24 +26262,10 @@ function EntryLogView(_ref_elv) {
                       fontSize: 11, whiteSpace: "nowrap",
                       color: dst.expected != null ? (dst.expected > 0 ? "#C0392B" : dst.expected < 0 ? "#1E8449" : "#888") : "#ccc" } },
                       dst.expected != null ? (dst.expected > 0 ? "+" : "") + dst.expected + "円" : "—"),
-                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      (dst.sumPlanned !== 0 || dst.expectedPlanned != null)
-                        ? React.createElement("span", null,
-                            React.createElement("span", { style: { fontWeight: 600, color: dst.sumPlanned > 0 ? "#C0392B" : dst.sumPlanned < 0 ? "#1E8449" : "#ccc" } },
-                              dst.sumPlanned !== 0 ? (dst.sumPlanned > 0 ? "+" : "") + dst.sumPlanned + "円" : "—"),
-                            React.createElement("span", { style: { color: "#aaa" } }, " / "),
-                            React.createElement("span", { style: { color: dst.expectedPlanned != null ? (dst.expectedPlanned > 0 ? "#C0392B" : dst.expectedPlanned < 0 ? "#1E8449" : "#888") : "#ccc" } },
-                              dst.expectedPlanned != null ? (dst.expectedPlanned > 0 ? "+" : "") + dst.expectedPlanned + "円" : "—"))
-                        : React.createElement("span", { style: { color: "#ccc" } }, "—")),
-                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      (dst.sumMax !== 0 || dst.expectedMax != null)
-                        ? React.createElement("span", null,
-                            React.createElement("span", { style: { fontWeight: 600, color: dst.sumMax > 0 ? "#C0392B" : dst.sumMax < 0 ? "#1E8449" : "#ccc" } },
-                              dst.sumMax !== 0 ? (dst.sumMax > 0 ? "+" : "") + dst.sumMax + "円" : "—"),
-                            React.createElement("span", { style: { color: "#aaa" } }, " / "),
-                            React.createElement("span", { style: { color: dst.expectedMax != null ? (dst.expectedMax > 0 ? "#C0392B" : dst.expectedMax < 0 ? "#1E8449" : "#888") : "#ccc" } },
-                              dst.expectedMax != null ? (dst.expectedMax > 0 ? "+" : "") + dst.expectedMax + "円" : "—"))
-                        : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
+                      _tDiffBreak(drecs, dst.sumPlanned, dst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
+                    React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
+                      _tDiffBreak(drecs, dst.sumMax, dst.expectedMax, null, "sumMax", "expectedMax"))
                   );
                 })
               )
