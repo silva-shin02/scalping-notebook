@@ -25730,11 +25730,15 @@ function EntryLogView(_ref_elv) {
         if (!cc || !Array.isArray(cc.signals)) return;
         var changed = false;
         var sigs = cc.signals.map(function(s) {
-          if (!s.isCustomTag && s.tag === oldName) {
-            changed = true;
-            return Object.assign({}, s, { tag: t });
-          }
-          return s;
+          if (s.isCustomTag) return s;
+          var tagMatch = s.tag === oldName;
+          var tagsMatch = Array.isArray(s.tags) && s.tags.includes(oldName);
+          if (!tagMatch && !tagsMatch) return s;
+          changed = true;
+          var updated = Object.assign({}, s);
+          if (tagMatch) updated.tag = t;
+          if (tagsMatch) updated.tags = s.tags.map(function(x) { return x === oldName ? t : x; });
+          return updated;
         });
         if (changed) charts[ck] = Object.assign({}, cc, { signals: sigs });
       });
