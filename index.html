@@ -18629,10 +18629,6 @@ function NikkeiPriceChart(_p) {
       chartPeriod = _uPerA[0], setChartPeriod = _uPerA[1];
   var _uHov = useState(null), _uHovA = _slicedToArray(_uHov, 2),
       hovIdx = _uHovA[0], setHovIdx = _uHovA[1];
-  var _uSMA = useState(true), _uSMAA = _slicedToArray(_uSMA, 2),
-      showSMA5 = _uSMAA[0], setShowSMA5 = _uSMAA[1];
-  var _uSMA25 = useState(true), _uSMA25A = _slicedToArray(_uSMA25, 2),
-      showSMA25 = _uSMA25A[0], setShowSMA25 = _uSMA25A[1];
 
   var allPoints = useMemo(function() {
     var charts = (data && data.charts) || {};
@@ -18663,14 +18659,6 @@ function NikkeiPriceChart(_p) {
     return allPoints.filter(function(p) { return p.date >= cutStr; });
   }, [allPoints, chartPeriod]);
 
-  var calcSMA = function(pts, n) {
-    return pts.map(function(_, i) {
-      if (i < n - 1) return null;
-      var sum = 0;
-      for (var j = i - n + 1; j <= i; j++) sum += pts[j].close;
-      return sum / n;
-    });
-  };
 
   if (filteredPoints.length < 2) {
     return React.createElement("div", {
@@ -18697,17 +18685,6 @@ function NikkeiPriceChart(_p) {
   }).join(" ");
   var areaPath = mainPath + " L" + toX(n-1).toFixed(1) + "," + (PT + cH) + " L" + PL.toFixed(1) + "," + (PT + cH) + " Z";
 
-  var sma5vals = calcSMA(filteredPoints, 5);
-  var sma25vals = calcSMA(filteredPoints, 25);
-  var makeSMAPath = function(vals) {
-    var d = ""; var started = false;
-    vals.forEach(function(v, i) {
-      if (v === null) { started = false; return; }
-      d += (started ? "L" : "M") + toX(i).toFixed(1) + "," + toY(v).toFixed(1) + " ";
-      started = true;
-    });
-    return d.trim();
-  };
 
   var yTicks = [];
   var nTicks = 4;
@@ -18717,10 +18694,11 @@ function NikkeiPriceChart(_p) {
   for (var ti = tickStart; ti <= yMax; ti += tickStep) { yTicks.push(ti); }
 
   var xLabels = [];
+  var labelStep = n <= 15 ? 1 : n <= 30 ? 2 : n <= 60 ? 5 : 10;
   filteredPoints.forEach(function(p, i) {
-    var day = p.date.slice(8);
-    if (day === "01" || i === 0) {
-      xLabels.push({ i: i, label: p.date.slice(5, 7) + "/" + day });
+    var isMonthStart = p.date.slice(8) === "01";
+    if (i === 0 || i === n - 1 || i % labelStep === 0 || isMonthStart) {
+      xLabels.push({ i: i, label: p.date.slice(5, 7) + "/" + p.date.slice(8), monthStart: isMonthStart });
     }
   });
 
@@ -18758,27 +18736,6 @@ function NikkeiPriceChart(_p) {
           }, kv[1]);
         })
       )
-    ),
-    React.createElement("div", {
-      style: { display: "flex", gap: 8, padding: "5px 12px", borderBottom: "1px solid #f0ede8", background: "#fefefe" }
-    },
-      [
-        { key: "sma5", label: "SMA5", color: "#F59E0B", on: showSMA5, toggle: function() { setShowSMA5(!showSMA5); } },
-        { key: "sma25", label: "SMA25", color: "#6366F1", on: showSMA25, toggle: function() { setShowSMA25(!showSMA25); } }
-      ].map(function(item) {
-        return React.createElement("button", {
-          key: item.key, onClick: item.toggle,
-          style: { display: "flex", alignItems: "center", gap: 4, padding: "2px 8px",
-            fontSize: 11, fontWeight: 600, border: "1px solid " + (item.on ? item.color : "#ddd"),
-            background: item.on ? (item.color + "18") : "#fff",
-            color: item.on ? item.color : "#bbb", borderRadius: 4, cursor: "pointer" }
-        },
-          React.createElement("span", {
-            style: { display: "inline-block", width: 16, height: 2, background: item.on ? item.color : "#ddd", borderRadius: 1 }
-          }),
-          item.label
-        );
-      })
     ),
     React.createElement("div", {
       style: { minHeight: 22, padding: "3px 12px", fontSize: 11, color: "#555",
@@ -18822,10 +18779,14 @@ function NikkeiPriceChart(_p) {
           );
         }),
         xLabels.map(function(xl) {
-          return React.createElement("text", {
-            key: xl.i, x: toX(xl.i), y: H - 4,
-            textAnchor: "middle", fontSize: 9, fill: "#bbb"
-          }, xl.label);
+          return React.createElement("g", { key: xl.i },
+            React.createElement("line", { x1: toX(xl.i), y1: PT + cH, x2: toX(xl.i), y2: PT + cH + 4, stroke: xl.monthStart ? "#999" : "#ddd", strokeWidth: 1 }),
+            React.createElement("text", {
+              x: toX(xl.i), y: H - 2,
+              textAnchor: "middle", fontSize: 9, fill: xl.monthStart ? "#666" : "#bbb",
+              fontWeight: xl.monthStart ? 700 : 400
+            }, xl.label)
+          );
         }),
         React.createElement("defs", null,
           React.createElement("linearGradient", { id: "nikkeiAreaGrad", x1: "0", y1: "0", x2: "0", y2: "1" },
@@ -18834,14 +18795,17 @@ function NikkeiPriceChart(_p) {
           )
         ),
         React.createElement("path", { d: areaPath, fill: "url(#nikkeiAreaGrad)", stroke: "none" }),
-        showSMA25 && React.createElement("path", {
-          d: makeSMAPath(sma25vals), fill: "none", stroke: "#6366F1", strokeWidth: 1.5, strokeDasharray: "4,2", opacity: 0.8
-        }),
-        showSMA5 && React.createElement("path", {
-          d: makeSMAPath(sma5vals), fill: "none", stroke: "#F59E0B", strokeWidth: 1.5, strokeDasharray: "2,2", opacity: 0.8
-        }),
         React.createElement("path", {
           d: mainPath, fill: "none", stroke: "#DC2626", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round"
+        }),
+        filteredPoints.map(function(p, i) {
+          return React.createElement("circle", {
+            key: "dot_" + i,
+            cx: toX(i), cy: toY(p.close),
+            r: hovIdx === i ? 5 : 3,
+            fill: "#DC2626", stroke: "#fff", strokeWidth: 1.5,
+            style: { cursor: "pointer" }
+          });
         }),
         hovIdx !== null && React.createElement("g", null,
           React.createElement("line", {
@@ -19078,13 +19042,7 @@ function StockQuickRefTable(_props_qrt) {
 
 // ── StockQuickRefTable + NikkeiPriceChart ラッパー ──
 function StockQuickRefTableWithChart(_props_qrtc) {
-  return React.createElement(React.Fragment, null,
-    React.createElement(StockQuickRefTable, _props_qrtc),
-    _props_qrtc.activeStock === "日経平均株価" && React.createElement(NikkeiPriceChart, {
-      data: _props_qrtc.data,
-      onSelectDate: _props_qrtc.onSelectDate
-    })
-  );
+  return React.createElement(StockQuickRefTable, _props_qrtc);
 }
 
 // ── DayView ──
@@ -19696,6 +19654,9 @@ function DayView(_ref57) {
           stock: "日経平均株価", data: data, custom: custom, cfg: cfg, highlightDate: date
         })
       ),
+      /*#__PURE__*/React.createElement(NikkeiPriceChart, {
+        data: data, onSelectDate: onSelectDate
+      }),
       /*#__PURE__*/React.createElement("div", { style: Card },
         /*#__PURE__*/React.createElement("div", { style: { fontSize: 15, fontWeight: 700, marginBottom: 12 } },
           "日経平均株価 — ", date),
