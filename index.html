@@ -24998,7 +24998,7 @@ function EntryLogView(_ref_elv) {
           if (!lines.length) return top;
           return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
             React.createElement("div", null, top),
-            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "10px 8px auto 10px auto", alignItems: "center", columnGap: 2, rowGap: 1, fontSize: 10, marginTop: 1 } }, lines)
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "10px 8px auto 10px auto", alignItems: "center", columnGap: 2, rowGap: 1, fontSize: 10, marginTop: 2, paddingTop: 2, borderTop: "1px dashed #ccc" } }, lines)
           );
         };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
