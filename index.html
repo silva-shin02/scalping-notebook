@@ -19930,7 +19930,36 @@ function DayView(_ref57) {
           hasEv ? _pbFmt(ev) : "—")
       );
     };
-    var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey, tags) {
+    var _pbABAll = function(recs, allSum, allEv, grade, sumKey, evKey) {
+      var abRecs = (recs || []).filter(function(r) {
+        var d = r.signal && r.signal.difficulty;
+        return d === "A" || d === "B";
+      });
+      var abSum = 0, abEv = null;
+      if (abRecs.length > 0) {
+        var abSt = _elCalcStats(abRecs);
+        abSum = abSt[sumKey] || 0;
+        abEv = abSt[evKey] != null ? abSt[evKey] : null;
+      }
+      if (allSum === 0 && allEv == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+      var sumEl = React.createElement("span", { style: { whiteSpace: "nowrap" } },
+        React.createElement("span", { style: { fontWeight: 600, color: abSum !== 0 ? _pbCol(abSum) : "#ccc" } }, abSum !== 0 ? _pbFmt(abSum) : "—"),
+        abSum !== allSum ? React.createElement("span", { style: { color: allSum !== 0 ? _pbCol(allSum) : "#aaa", fontSize: 10 } }, "(" + (allSum !== 0 ? _pbFmt(allSum) : "—") + ")") : null
+      );
+      var evEl = (allEv == null && abEv == null)
+        ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+        : React.createElement("span", { style: { whiteSpace: "nowrap" } },
+            React.createElement("span", { style: { color: abEv != null ? _pbCol(abEv) : "#ccc" } }, abEv != null ? _pbFmt(abEv) : "—"),
+            abEv !== allEv ? React.createElement("span", { style: { color: allEv != null ? _pbCol(allEv) : "#aaa", fontSize: 10 } }, "(" + (allEv != null ? _pbFmt(allEv) : "—") + ")") : null
+          );
+      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+        grade ? _pbBadge(grade) : null,
+        sumEl,
+        React.createElement("span", { style: { color: "#bbb" } }, " / "),
+        evEl
+      );
+    };
+    var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey, tags, recs) {
       var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
       var bt = isTotal ? "2px solid #ccc" : "none";
       var br = "1px solid #e0ddd6";
@@ -19959,9 +19988,9 @@ function DayView(_ref57) {
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           _pbSlash(st.sumPnl, st.expected, gradeReal)),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
-          _pbSlash(st.sumPlanned, st.expectedPlanned, gradePlanned, 500)),
+          _pbABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned")),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
-          _pbSlash(st.sumMax, st.expectedMax, gradeMax, 500)),
+          _pbABAll(recs, st.sumMax, st.expectedMax, gradeMax, "sumMax", "expectedMax")),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
           tags && tags.length > 0
             ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },
@@ -20162,7 +20191,7 @@ function DayView(_ref57) {
                 _profitGradeFromPnlReal(_pbAllReal, _pbAllEnt),
                 _profitGradeFromPnl(_pbAll.sumPlanned, _pbAll.sumPlanned !== 0 ? _pbAll.total : 0),
                 _profitGradeFromPnl(_pbAll.sumMax, _pbAll.sumMax !== 0 ? _pbAll.total : 0),
-                _pbAllEnt > 0, "__total__", null),
+                _pbAllEnt > 0, "__total__", null, _pbAllRecs),
               pnlTableExpand === "__total__" ? _pbExpRow("__total__") : null
             ] : null,
             _pbStks.map(function(sk) {
@@ -20172,13 +20201,102 @@ function DayView(_ref57) {
                   _profitGradeFromPnlReal(_pbRealByStk[sk], _pbEntByStk[sk]),
                   _profitGradeFromPnl(skSt.sumPlanned, skSt.sumPlanned !== 0 ? skSt.total : 0),
                   _profitGradeFromPnl(skSt.sumMax, skSt.sumMax !== 0 ? skSt.total : 0),
-                  _pbEntByStk[sk] > 0, sk, _pbStockTags(sk)),
+                  _pbEntByStk[sk] > 0, sk, _pbStockTags(sk), _pbByStk[sk]),
                 pnlTableExpand === sk ? _pbExpRow(sk) : null
               ];
             })
           )
         )
       )
+    );
+  })(),
+  // ── 当日全シグナル詳細テーブル ──
+  (function() {
+    var _dtCharts = data.charts || {};
+    var _dtItems = dd.items || [];
+    var _dtAllRecs = [];
+    allStocks.forEach(function(stk) {
+      var _dtC = _dtCharts[stk + "_" + date] || {};
+      var _dtSigs = Array.isArray(_dtC.signals) ? _dtC.signals : [];
+      _dtSigs.forEach(function(sig) {
+        var s = _compatSignal(sig);
+        var item = null;
+        if (s.itemId != null) {
+          for (var _ii2 = 0; _ii2 < _dtItems.length; _ii2++) {
+            if (String(_dtItems[_ii2].id) === String(s.itemId)) { item = _dtItems[_ii2]; break; }
+          }
+        }
+        _dtAllRecs.push({ date: date, stock: stk, signal: s, item: item });
+      });
+    });
+    if (!_dtAllRecs.length) return null;
+    _dtAllRecs.sort(function(a, b) {
+      var ta = a.signal.time || "99:99", tb = b.signal.time || "99:99";
+      if (ta !== tb) return ta.localeCompare(tb);
+      return a.stock.localeCompare(b.stock);
+    });
+    var _dtFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+    var _dtCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+    var _th = function(label, sub) {
+      return React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } },
+        React.createElement("div", null, label),
+        sub ? React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, sub) : null
+      );
+    };
+    return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, overflowX: "auto" }) },
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 8, color: "#333" } }, "📋 本日のシグナル一覧"),
+      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+        React.createElement("thead", null,
+          React.createElement("tr", { style: { background: "#f5f4f0" } },
+            React.createElement("th", { style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap" } }, "銘柄"),
+            _th("時間"), _th("シグナル"), _th("難易度"), _th("参加"), _th("結果"),
+            _th("実現損益", "100株あたり"), _th("想定損益", "100株あたり"), _th("最大損益", "100株あたり")
+          )
+        ),
+        React.createElement("tbody", null,
+          _dtAllRecs.map(function(r, i) {
+            var s = r.signal, item = r.item;
+            var entered = _elIsEntered(s, item);
+            var sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+            var per100 = function(v) { return sh > 0 ? Math.round(v / sh * 100) : Math.round(v); };
+            var realRaw = (item && item.pnl != null) ? Number(item.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+            var planRaw = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+            var maxRaw  = _elSignedVal(s.maxPnl, s.maxPnlSign);
+            var realN = realRaw != null ? per100(realRaw) : null;
+            var planN = planRaw != null ? per100(planRaw) : null;
+            var maxN  = maxRaw  != null ? per100(maxRaw)  : null;
+            var tagLabel = _elTagLabel(s);
+            var bb = "1px solid #f0ede8";
+            return React.createElement("tr", { key: r.stock + "_" + (s.id || i),
+              style: { background: i % 2 === 0 ? "#fff" : "#fafaf8" }
+            },
+              React.createElement("td", { style: { padding: "5px 8px", borderBottom: bb, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, r.stock),
+              React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: bb, color: "#666", whiteSpace: "nowrap" } }, s.time || "—"),
+              React.createElement("td", { style: { padding: "5px 6px", borderBottom: bb, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, tagLabel || "—"),
+              React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: bb } },
+                s.difficulty
+                  ? React.createElement("span", { style: { padding: "1px 6px", fontSize: 10, fontWeight: 700, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FDBA74" } }, s.difficulty)
+                  : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+              React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: bb } },
+                React.createElement("span", { style: { padding: "1px 6px", fontSize: 10, fontWeight: 700,
+                  background: entered ? "#DCFCE7" : "#f5f4f0",
+                  color: entered ? "#14532D" : "#888",
+                  borderRadius: 3, border: "1px solid " + (entered ? "#86EFAC" : "#ddd") } },
+                  entered ? "○" : "—")),
+              React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: bb } },
+                s.result === "ok"
+                  ? React.createElement("span", { style: { padding: "1px 6px", fontSize: 10, fontWeight: 700, background: "#DCFCE7", color: "#14532D", borderRadius: 3, border: "1px solid #86EFAC" } }, "○")
+                  : s.result === "ng"
+                  ? React.createElement("span", { style: { padding: "1px 6px", fontSize: 10, fontWeight: 700, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, border: "1px solid #FCA5A5" } }, "✕")
+                  : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+              React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: bb, fontWeight: realN != null ? 600 : 400, color: _dtCol(realN), whiteSpace: "nowrap" } }, _dtFmt(realN)),
+              React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: bb, fontWeight: planN != null ? 600 : 400, color: _dtCol(planN), whiteSpace: "nowrap" } }, _dtFmt(planN)),
+              React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: bb, fontWeight: maxN != null ? 600 : 400, color: _dtCol(maxN), whiteSpace: "nowrap" } }, _dtFmt(maxN))
+            );
+          })
+        )
+      ),
+      React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginTop: 4 } }, "※ 損益は100株あたり換算")
     );
   })(),
   showForm && React.createElement(EntryRecordForm, {
@@ -24979,9 +25097,9 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : _tSlash(st.sumPnl, st.expected, gradeReal)),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : _tDiffBreak(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
+              isHoliday ? _dash : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : _tDiffBreak(recs, st.sumMax, st.expectedMax, gradeMax, "sumMax", "expectedMax")),
+              isHoliday ? _dash : _tABAll(recs, st.sumMax, st.expectedMax, gradeMax, "sumMax", "expectedMax")),
             React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, verticalAlign: "top" } },
               !isHoliday && tags && tags.length > 0
                 ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 } },
@@ -25251,9 +25369,9 @@ function EntryLogView(_ref_elv) {
                       React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
                         wrecs.length > 0 ? _tSlash(wst.sumPnl, wst.expected, gradeReal) : _dash),
                       React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-                        wrecs.length > 0 ? _tSlash(wst.sumPlanned, wst.expectedPlanned, gradePlan) : _dash),
+                        wrecs.length > 0 ? _tABAll(wrecs, wst.sumPlanned, wst.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned") : _dash),
                       React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb } },
-                        wrecs.length > 0 ? _tSlash(wst.sumMax, wst.expectedMax, gradeMax) : _dash)
+                        wrecs.length > 0 ? _tABAll(wrecs, wst.sumMax, wst.expectedMax, gradeMax, "sumMax", "expectedMax") : _dash)
                     );
                   })
                 )
@@ -25969,6 +26087,39 @@ function EntryLogView(_ref_elv) {
     );
   };
 
+  // B以上(C含む全体) 形式で想定/最大損益を表示するヘルパー
+  var _tABAll = function(recs, allSum, allEv, grade, sumKey, evKey) {
+    var abRecs = (recs || []).filter(function(r) {
+      var d = r.signal && r.signal.difficulty;
+      return d === "A" || d === "B";
+    });
+    var abSum = 0, abEv = null;
+    if (abRecs.length > 0) {
+      var abSt = _elCalcStats(abRecs);
+      abSum = abSt[sumKey] || 0;
+      abEv = abSt[evKey] != null ? abSt[evKey] : null;
+    }
+    if (allSum === 0 && allEv == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+    var fmt = function(v) { return (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+    var col = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+    var sumEl = React.createElement("span", { style: { whiteSpace: "nowrap" } },
+      React.createElement("span", { style: { fontWeight: 600, color: abSum !== 0 ? col(abSum) : "#ccc" } }, abSum !== 0 ? fmt(abSum) : "—"),
+      abSum !== allSum ? React.createElement("span", { style: { color: allSum !== 0 ? col(allSum) : "#aaa", fontSize: 10 } }, "(" + (allSum !== 0 ? fmt(allSum) : "—") + ")") : null
+    );
+    var evEl = (allEv == null && abEv == null)
+      ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+      : React.createElement("span", { style: { whiteSpace: "nowrap" } },
+          React.createElement("span", { style: { color: abEv != null ? col(abEv) : "#ccc" } }, abEv != null ? fmt(abEv) : "—"),
+          abEv !== allEv ? React.createElement("span", { style: { color: allEv != null ? col(allEv) : "#aaa", fontSize: 10 } }, "(" + (allEv != null ? fmt(allEv) : "—") + ")") : null
+        );
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+      grade ? _tBadge(grade) : null,
+      sumEl,
+      React.createElement("span", { style: { color: "#bbb" } }, " / "),
+      evEl
+    );
+  };
+
   var renderSignalView = function() {
     var byTag = {};
     // 複数シグナルを持つレコードは各シグナルのグループに重複して入る
@@ -26281,9 +26432,9 @@ function EntryLogView(_ref_elv) {
                       color: dst.expected != null ? (dst.expected > 0 ? "#C0392B" : dst.expected < 0 ? "#1E8449" : "#888") : "#ccc" } },
                       dst.expected != null ? (dst.expected > 0 ? "+" : "") + dst.expected + "円" : "—"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      _tDiffBreak(drecs, dst.sumPlanned, dst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
+                      _tABAll(drecs, dst.sumPlanned, dst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      _tDiffBreak(drecs, dst.sumMax, dst.expectedMax, null, "sumMax", "expectedMax"))
+                      _tABAll(drecs, dst.sumMax, dst.expectedMax, null, "sumMax", "expectedMax"))
                   );
                 })
               )
@@ -26332,22 +26483,12 @@ function EntryLogView(_ref_elv) {
                       color: wst.expected != null ? (wst.expected > 0 ? "#C0392B" : wst.expected < 0 ? "#1E8449" : "#888") : "#ccc" } },
                       wrecs.length > 0 ? (wst.expected != null ? (wst.expected > 0 ? "+" : "") + wst.expected + "円" : "—") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      wrecs.length > 0 && (wst.sumPlanned !== 0 || wst.expectedPlanned != null)
-                        ? React.createElement("span", null,
-                            React.createElement("span", { style: { fontWeight: 600, color: wst.sumPlanned > 0 ? "#C0392B" : wst.sumPlanned < 0 ? "#1E8449" : "#ccc" } },
-                              wst.sumPlanned !== 0 ? (wst.sumPlanned > 0 ? "+" : "") + wst.sumPlanned + "円" : "—"),
-                            React.createElement("span", { style: { color: "#aaa" } }, " / "),
-                            React.createElement("span", { style: { color: wst.expectedPlanned != null ? (wst.expectedPlanned > 0 ? "#C0392B" : wst.expectedPlanned < 0 ? "#1E8449" : "#888") : "#ccc" } },
-                              wst.expectedPlanned != null ? (wst.expectedPlanned > 0 ? "+" : "") + wst.expectedPlanned + "円" : "—"))
+                      wrecs.length > 0
+                        ? _tABAll(wrecs, wst.sumPlanned, wst.expectedPlanned, null, "sumPlanned", "expectedPlanned")
                         : React.createElement("span", { style: { color: "#ccc" } }, "—")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      wrecs.length > 0 && (wst.sumMax !== 0 || wst.expectedMax != null)
-                        ? React.createElement("span", null,
-                            React.createElement("span", { style: { fontWeight: 600, color: wst.sumMax > 0 ? "#C0392B" : wst.sumMax < 0 ? "#1E8449" : "#ccc" } },
-                              wst.sumMax !== 0 ? (wst.sumMax > 0 ? "+" : "") + wst.sumMax + "円" : "—"),
-                            React.createElement("span", { style: { color: "#aaa" } }, " / "),
-                            React.createElement("span", { style: { color: wst.expectedMax != null ? (wst.expectedMax > 0 ? "#C0392B" : wst.expectedMax < 0 ? "#1E8449" : "#888") : "#ccc" } },
-                              wst.expectedMax != null ? (wst.expectedMax > 0 ? "+" : "") + wst.expectedMax + "円" : "—"))
+                      wrecs.length > 0
+                        ? _tABAll(wrecs, wst.sumMax, wst.expectedMax, null, "sumMax", "expectedMax")
                         : React.createElement("span", { style: { color: "#ccc" } }, "—"))
                   );
                 })
@@ -26429,23 +26570,9 @@ function EntryLogView(_ref_elv) {
                       color: sst.expected != null ? (sst.expected > 0 ? "#C0392B" : sst.expected < 0 ? "#1E8449" : "#888") : "#ccc" } },
                       sst.expected != null ? (sst.expected > 0 ? "+" : "") + sst.expected + "円" : "—"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      (sst.sumPlanned !== 0 || sst.expectedPlanned != null)
-                        ? React.createElement("span", null,
-                            React.createElement("span", { style: { fontWeight: 600, color: sst.sumPlanned > 0 ? "#C0392B" : sst.sumPlanned < 0 ? "#1E8449" : "#ccc" } },
-                              sst.sumPlanned !== 0 ? (sst.sumPlanned > 0 ? "+" : "") + sst.sumPlanned + "円" : "—"),
-                            React.createElement("span", { style: { color: "#aaa" } }, " / "),
-                            React.createElement("span", { style: { color: sst.expectedPlanned != null ? (sst.expectedPlanned > 0 ? "#C0392B" : sst.expectedPlanned < 0 ? "#1E8449" : "#888") : "#ccc" } },
-                              sst.expectedPlanned != null ? (sst.expectedPlanned > 0 ? "+" : "") + sst.expectedPlanned + "円" : "—"))
-                        : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                      _tABAll(srecs, sst.sumPlanned, sst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      (sst.sumMax !== 0 || sst.expectedMax != null)
-                        ? React.createElement("span", null,
-                            React.createElement("span", { style: { fontWeight: 600, color: sst.sumMax > 0 ? "#C0392B" : sst.sumMax < 0 ? "#1E8449" : "#ccc" } },
-                              sst.sumMax !== 0 ? (sst.sumMax > 0 ? "+" : "") + sst.sumMax + "円" : "—"),
-                            React.createElement("span", { style: { color: "#aaa" } }, " / "),
-                            React.createElement("span", { style: { color: sst.expectedMax != null ? (sst.expectedMax > 0 ? "#C0392B" : sst.expectedMax < 0 ? "#1E8449" : "#888") : "#ccc" } },
-                              sst.expectedMax != null ? (sst.expectedMax > 0 ? "+" : "") + sst.expectedMax + "円" : "—"))
-                        : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+                      _tABAll(srecs, sst.sumMax, sst.expectedMax, null, "sumMax", "expectedMax"))
                   );
                 })
               )
@@ -29532,6 +29659,20 @@ function _shvCollectFlat(trades) {
   });
   return out;
 }
+// 全 trades から総括（tradesSummaryMemo）のある日を集める
+function _shvCollectSoukatsu(trades) {
+  if (!trades) return [];
+  var out = [];
+  Object.keys(trades).forEach(function(date) {
+    var dd = trades[date];
+    if (!dd) return;
+    var html = _summaryMemoToHtml(dd.tradesSummaryMemo)
+      || (dd.summary ? dd.summary.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>") : "");
+    if (!_hasText(html)) return;
+    out.push({ date: date, html: html, pinned: false });
+  });
+  return out;
+}
 
 // 該当日の summaryPinned を更新
 function _shvTogPin(saveFn, date) {
@@ -29712,6 +29853,10 @@ function SummaryHistoryView(_ref_shv) {
       onSelectDate = _ref_shv.onSelectDate;
   var trades = data.trades || {};
 
+  // タブ: "memo" | "soukatsu"
+  var _us_shvTab = useState("memo"), _us_shvTabA = _slicedToArray(_us_shvTab, 2),
+      shvTab = _us_shvTabA[0], setShvTab = _us_shvTabA[1];
+
   // 並び順
   var _us_shvSD = useState("desc"), _us_shvSDA = _slicedToArray(_us_shvSD, 2),
       sortDir = _us_shvSDA[0], setSortDir = _us_shvSDA[1];
@@ -29745,9 +29890,13 @@ function SummaryHistoryView(_ref_shv) {
   var hasAnyFilter = !!keyword.trim() || !!dateFrom || !!dateTo || pinnedOnly || starredOnly;
 
   // 全件集計
-  var allFlat = useMemo(function() {
+  var memoFlat = useMemo(function() {
     return _shvCollectFlat(trades);
   }, [trades]);
+  var soukatsuFlat = useMemo(function() {
+    return _shvCollectSoukatsu(trades);
+  }, [trades]);
+  var allFlat = shvTab === "soukatsu" ? soukatsuFlat : memoFlat;
 
   var starredCount = useMemo(function() {
     return allFlat.filter(function(e) { return !!e.starred; }).length;
@@ -29790,7 +29939,7 @@ function SummaryHistoryView(_ref_shv) {
   // 今日へ移動 / 今日に追記
   var todayStr = (function(){ var d=new Date(); var y=d.getFullYear(); var m=("0"+(d.getMonth()+1)).slice(-2); var dd2=("0"+d.getDate()).slice(-2); return y+"-"+m+"-"+dd2; })();
   var goToday = function() {
-    if (onSelectDate) onSelectDate(todayStr, "events");
+    if (onSelectDate) onSelectDate(todayStr, shvTab === "soukatsu" ? "trades" : "events");
   };
   var appendToToday = function(srcDate, srcHtml) {
     if (srcDate === todayStr) return;
@@ -29816,10 +29965,26 @@ function SummaryHistoryView(_ref_shv) {
     ),
     // ヘッダ
     React.createElement("div", {
-      style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }
+      style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }
     },
       React.createElement("button", { onClick: onBack, style: btnGhost }, "← 戻る"),
       React.createElement("div", { style: { fontSize: 17, fontWeight: 700, flex: 1 } }, "📝 メモ・アイディア一覧")
+    ),
+    // タブ切替
+    React.createElement("div", {
+      style: { display: "flex", gap: 0, borderBottom: "2px solid #e0ddd6", marginBottom: 12 }
+    },
+      [["memo", "💡 メモ・アイディア"], ["soukatsu", "📋 総括"]].map(function(kv) {
+        var on = shvTab === kv[0];
+        return React.createElement("button", {
+          key: kv[0],
+          onClick: function() { setShvTab(kv[0]); },
+          style: { padding: "8px 16px", fontSize: 13, fontWeight: 700,
+            background: on ? "#FFEDD5" : "#fafaf8",
+            border: "none", borderBottom: on ? "2.5px solid #9A3412" : "2.5px solid transparent",
+            color: on ? "#9A3412" : "#888", cursor: "pointer", whiteSpace: "nowrap", marginBottom: -2 }
+        }, kv[1]);
+      })
     ),
     // 絞込ツールバー
     React.createElement("div", {
@@ -29903,15 +30068,15 @@ function SummaryHistoryView(_ref_shv) {
       React.createElement("div", { style: { flex: 1 } }),
       React.createElement("button", {
         onClick: goToday,
-        title: "今日 (" + todayStr + ") のメモ・アイディアを書く / 開く",
+        title: "今日 (" + todayStr + ") の" + (shvTab === "soukatsu" ? "総括" : "メモ・アイディア") + "を書く / 開く",
         style: { padding: "6px 12px", fontSize: 12, fontWeight: 700,
           background: "#1a1a1a", color: "#fff",
           border: "1.5px solid #1a1a1a", borderRadius: 6, cursor: "pointer",
           minHeight: IS_TOUCH ? 40 : 32 }
       }, "+ 今日に書く")
     ),
-    // ピン留めセクション
-    pinnedItems.length > 0 && React.createElement("div", {
+    // ピン留めセクション (メモタブのみ)
+    shvTab === "memo" && pinnedItems.length > 0 && React.createElement("div", {
       style: { marginBottom: 16 }
     },
       React.createElement("div", {
@@ -29938,18 +30103,21 @@ function SummaryHistoryView(_ref_shv) {
           style: { padding: 30, textAlign: "center", color: "#999", fontSize: 13,
             background: "#fafaf7", border: "1px dashed #ddd", borderRadius: 8 }
         }, hasAnyFilter
-          ? "絞込条件に一致するメモがありません。"
-          : "まだメモ・アイディアが記録されていません。「+ 今日に書く」から始めてみましょう。")
+          ? "絞込条件に一致する記録がありません。"
+          : shvTab === "soukatsu"
+            ? "まだ総括が記録されていません。日別ページの取引タブから「本日の総括」を書いてみましょう。"
+            : "まだメモ・アイディアが記録されていません。「+ 今日に書く」から始めてみましょう。")
       : nonPinnedItems.map(function(e){
+          var isSoukatsu = shvTab === "soukatsu";
           return React.createElement(_SummaryCard, {
             key: "shv_" + e.date,
             entry: e,
             todayStr: todayStr,
             isExpanded: expanded.has(e.date),
-            togPin: function(){ _shvTogPin(save, e.date); },
+            togPin: isSoukatsu ? function(){} : function(){ _shvTogPin(save, e.date); },
             togExpand: function(){ togExpand(e.date); },
             appendToToday: function(){ appendToToday(e.date, e.html); },
-            onOpen: function(){ if (onSelectDate) onSelectDate(e.date, "events"); }
+            onOpen: function(){ if (onSelectDate) onSelectDate(e.date, isSoukatsu ? "trades" : "events"); }
           });
         })
   );
