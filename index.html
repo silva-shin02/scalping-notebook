@@ -19943,8 +19943,8 @@ function DayView(_ref57) {
       }
       if (allSum === 0 && allEv == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
       var sumEl = React.createElement("span", { style: { whiteSpace: "nowrap" } },
-        React.createElement("span", { style: { fontWeight: 600, color: abSum !== 0 ? _pbCol(abSum) : "#ccc" } }, abSum !== 0 ? _pbFmt(abSum) : "—"),
-        abSum !== allSum ? React.createElement("span", { style: { color: allSum !== 0 ? _pbCol(allSum) : "#aaa", fontSize: 10 } }, "(" + (allSum !== 0 ? _pbFmt(allSum) : "—") + ")") : null
+        React.createElement("span", { style: { fontWeight: 600, color: _pbCol(abSum) } }, _pbFmt(abSum)),
+        abSum !== allSum ? React.createElement("span", { style: { color: _pbCol(allSum), fontSize: 10 } }, "(" + _pbFmt(allSum) + ")") : null
       );
       var evEl = (allEv == null && abEv == null)
         ? React.createElement("span", { style: { color: "#ccc" } }, "—")
@@ -26161,8 +26161,8 @@ function EntryLogView(_ref_elv) {
     var fmt = function(v) { return (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
     var col = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var sumEl = React.createElement("span", { style: { whiteSpace: "nowrap" } },
-      React.createElement("span", { style: { fontWeight: 600, color: abSum !== 0 ? col(abSum) : "#ccc" } }, abSum !== 0 ? fmt(abSum) : "—"),
-      abSum !== allSum ? React.createElement("span", { style: { color: allSum !== 0 ? col(allSum) : "#aaa", fontSize: 10 } }, "(" + (allSum !== 0 ? fmt(allSum) : "—") + ")") : null
+      React.createElement("span", { style: { fontWeight: 600, color: col(abSum) } }, fmt(abSum)),
+      abSum !== allSum ? React.createElement("span", { style: { color: col(allSum), fontSize: 10 } }, "(" + fmt(allSum) + ")") : null
     );
     var evEl = (allEv == null && abEv == null)
       ? React.createElement("span", { style: { color: "#ccc" } }, "—")
