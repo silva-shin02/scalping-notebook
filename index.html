@@ -20394,6 +20394,8 @@ function DayView(_ref57) {
             s.time || "—"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", color: "#555" } },
             (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])).join(" / ") || "—"),
+          React.createElement("td", { style: { padding: "5px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
+            s.difficulty ? _pbBadge(s.difficulty) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             isOk ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○") :
             isNg ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "✕") :
@@ -20413,7 +20415,7 @@ function DayView(_ref57) {
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
-            React.createElement("td", { colSpan: 9, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+            React.createElement("td", { colSpan: 10, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
               React.createElement(EntryLogCard, {
                 record: r,
                 onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); }
@@ -20435,7 +20437,7 @@ function DayView(_ref57) {
         );
       };
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
-        React.createElement("td", { colSpan: 6, style: { padding: "5px 8px", textAlign: "center", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計"),
+        React.createElement("td", { colSpan: 7, style: { padding: "5px 8px", textAlign: "center", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計"),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDisp(_totReal, _totRealGrade)),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDispABAllPb(_totPlanABpb, _totPlan)),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDispABAllPb(_totMaxABpb, _totMax))
@@ -20464,6 +20466,7 @@ function DayView(_ref57) {
                   _rTh("銘柄", { width: "1%" }),
                   _rTh("時間", { width: "1%" }),
                   _rTh("シグナル"),
+                  _rTh("E難易度", { width: "1%" }),
                   _rTh("勝敗", { width: "1%" }),
                   _rTh("区分", { width: "1%" }),
                   _rTh("実現損益"),
