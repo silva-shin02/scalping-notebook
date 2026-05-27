@@ -20185,6 +20185,82 @@ function DayView(_ref57) {
       }, _trSuccessCount, "勝", _trFailCount, "敗"))
     )
   ),
+  // ── シグナル分布（エントリー記録直下） ──
+  (function() {
+    var _trHmCharts = data.charts || {};
+    var _trHmItems = dd.items || [];
+    var _TRBANDS = ["9:00","9:15","9:30","9:45","10:00","10:15","10:30","10:45","11:00","11:15","11:30","11:45","12:00","12:15","12:30","12:45","13:00","13:15","13:30","13:45","14:00","14:15","14:30","14:45","15:00"];
+    var _trBk = function(t) {
+      if (!t || t === "99:99") return null;
+      var pts = t.split(":"), mins = parseInt(pts[0]) * 60 + parseInt(pts[1] || 0);
+      for (var bi = _TRBANDS.length - 2; bi >= 0; bi--) {
+        var bp = _TRBANDS[bi].split(":"), bm = parseInt(bp[0]) * 60 + parseInt(bp[1]);
+        if (mins >= bm) return _TRBANDS[bi];
+      }
+      return _TRBANDS[0];
+    };
+    var _trHmMap = {}, _trHmUsed = {};
+    var _trHmStks = allStocks.filter(function(stk) {
+      var c = _trHmCharts[stk + "_" + date] || {};
+      return Array.isArray(c.signals) && c.signals.length > 0;
+    });
+    if (!_trHmStks.length) return null;
+    _trHmStks.forEach(function(stk) {
+      var sigs = (_trHmCharts[stk + "_" + date] || {}).signals || [];
+      sigs.forEach(function(sig) {
+        var s = _compatSignal(sig);
+        var item = null;
+        if (s.itemId != null) {
+          for (var _ij = 0; _ij < _trHmItems.length; _ij++) {
+            if (String(_trHmItems[_ij].id) === String(s.itemId)) { item = _trHmItems[_ij]; break; }
+          }
+        }
+        var entered = _elIsEntered(s, item);
+        var bk = _trBk(s.time || "99:99"); if (!bk) return;
+        var key = stk + "_" + bk;
+        if (!_trHmMap[key]) _trHmMap[key] = [];
+        _trHmMap[key].push({ result: s.result, entered: entered });
+        _trHmUsed[bk] = true;
+      });
+    });
+    var _trHmBands = _TRBANDS.filter(function(b) { return _trHmUsed[b]; });
+    if (!_trHmBands.length) return null;
+    return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 10, color: "#333" } }, "🗓 シグナル分布"),
+      React.createElement("div", { style: { overflowX: "auto" } },
+        React.createElement("table", { style: { borderCollapse: "separate", borderSpacing: 2, fontSize: 10 } },
+          React.createElement("thead", null,
+            React.createElement("tr", null,
+              React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#888" } }, ""),
+              _trHmBands.map(function(b) {
+                return React.createElement("th", { key: b, style: { padding: "2px 4px", fontWeight: 600, color: "#888", textAlign: "center", minWidth: 34, whiteSpace: "nowrap" } }, b);
+              })
+            )
+          ),
+          React.createElement("tbody", null,
+            _trHmStks.map(function(stk) {
+              return React.createElement("tr", { key: stk },
+                React.createElement("td", { style: { padding: "3px 6px", fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, stk),
+                _trHmBands.map(function(b) {
+                  var cells = _trHmMap[stk + "_" + b] || [];
+                  if (cells.length === 0) return React.createElement("td", { key: b, style: { padding: "3px 4px", textAlign: "center", color: "#ddd", background: "#fafaf8", borderRadius: 3 } }, "·");
+                  var hasOk = cells.some(function(c) { return c.result === "ok" && c.entered; });
+                  var hasNg = cells.some(function(c) { return c.result === "ng" && c.entered; });
+                  var anyEnt = cells.some(function(c) { return c.entered; });
+                  var bg = hasOk && !hasNg ? "#DCFCE7" : hasNg && !hasOk ? "#FEE2E2" : anyEnt ? "#FEF9C3" : "#FFEDD5";
+                  var col = hasOk && !hasNg ? "#15803D" : hasNg && !hasOk ? "#DC2626" : anyEnt ? "#854D0E" : "#9A3412";
+                  var lbl = cells.length > 1 ? cells.length + "" : (anyEnt ? (hasOk ? "○" : hasNg ? "×" : "△") : "△");
+                  return React.createElement("td", { key: b, title: stk + " " + b + ": " + cells.length + "件",
+                    style: { padding: "3px 5px", textAlign: "center", background: bg, color: col,
+                      fontWeight: 700, borderRadius: 3, border: "1px solid #e8e5de" } }, lbl);
+                })
+              );
+            })
+          )
+        )
+      )
+    );
+  })(),
   // ── 銘柄別損益集計テーブル（全シグナル対象）──
   (function() {
     // 当日の全銘柄・全シグナルを収集（エントリー有無を問わない）
@@ -20576,7 +20652,6 @@ function DayView(_ref57) {
     });
     var _dtFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
     var _dtCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-    // 各レコードの損益（100株換算）を事前計算
     var _dtRecData = _dtAllRecs.map(function(r) {
       var s = r.signal, item = r.item;
       var entered = _elIsEntered(s, item);
@@ -20593,42 +20668,7 @@ function DayView(_ref57) {
         maxN:  maxRaw  != null ? per100(maxRaw)  : null
       };
     });
-    // ① 累積PnLグラフ用データ
-    var _cumReal = [], _cumPlan = [];
-    var _srReal = 0, _srPlan = 0;
-    _dtRecData.forEach(function(d) {
-      if (d.entered && d.realN != null) _srReal += d.realN;
-      if (d.planN != null) _srPlan += d.planN;
-      _cumReal.push({ v: _srReal });
-      _cumPlan.push({ v: _srPlan });
-    });
-    var _n = _dtRecData.length;
-    var _allVals = _cumReal.map(function(d) { return d.v; }).concat(_cumPlan.map(function(d) { return d.v; })).concat([0]);
-    var _vMin = Math.min.apply(null, _allVals), _vMax = Math.max.apply(null, _allVals);
-    var _vRange = _vMax - _vMin || 1;
-    var _gW = 480, _gH = 120, _gPL = 52, _gPT = 10, _gPB = 22, _gPR = 10;
-    var _gIW = _gW - _gPL - _gPR, _gIH = _gH - _gPT - _gPB;
-    var _xOf = function(i) { return _gPL + (_n <= 1 ? _gIW / 2 : i / (_n - 1) * _gIW); };
-    var _yOf = function(v) { return _gPT + _gIH - (v - _vMin) / _vRange * _gIH; };
-    var _zeroY = _yOf(0);
-    var _ptStr = function(arr) { return arr.map(function(d, i) { return _xOf(i) + "," + _yOf(d.v); }).join(" "); };
-    var _graphEl = React.createElement("svg", { width: "100%", viewBox: "0 0 " + _gW + " " + _gH, style: { display: "block", overflow: "visible" } },
-      React.createElement("line", { x1: _gPL, y1: _zeroY, x2: _gW - _gPR, y2: _zeroY, stroke: "#e0ddd6", strokeWidth: 1 }),
-      React.createElement("text", { x: _gPL - 4, y: _zeroY + 4, textAnchor: "end", fontSize: 9, fill: "#aaa" }, "0"),
-      _vMax > 0 ? React.createElement("text", { x: _gPL - 4, y: _gPT + 5, textAnchor: "end", fontSize: 9, fill: "#C0392B" }, "+" + _vMax.toLocaleString()) : null,
-      _vMin < 0 ? React.createElement("text", { x: _gPL - 4, y: _gPT + _gIH + 4, textAnchor: "end", fontSize: 9, fill: "#1E8449" }, _vMin.toLocaleString()) : null,
-      _n > 0 ? React.createElement("text", { x: _xOf(0), y: _gH - 4, textAnchor: "middle", fontSize: 9, fill: "#aaa" }, _dtRecData[0].time !== "99:99" ? _dtRecData[0].time : "") : null,
-      _n > 1 ? React.createElement("text", { x: _xOf(_n - 1), y: _gH - 4, textAnchor: "middle", fontSize: 9, fill: "#aaa" }, _dtRecData[_n - 1].time !== "99:99" ? _dtRecData[_n - 1].time : "") : null,
-      _n > 1 ? React.createElement("polyline", { points: _ptStr(_cumPlan), fill: "none", stroke: "#94A3B8", strokeWidth: 1.5, strokeDasharray: "4,3", opacity: 0.8 }) : null,
-      _n > 1 ? React.createElement("polyline", { points: _ptStr(_cumReal), fill: "none", stroke: "#F97316", strokeWidth: 2 }) : null,
-      _cumReal.map(function(d, i) {
-        return _dtRecData[i].entered && _dtRecData[i].realN != null
-          ? React.createElement("circle", { key: "c" + i, cx: _xOf(i), cy: _yOf(d.v), r: 3,
-              fill: d.v >= 0 ? "#F97316" : "#1E8449", stroke: "#fff", strokeWidth: 1 })
-          : null;
-      })
-    );
-    // ② 勝敗シーケンス
+    // 勝敗シーケンス
     var _entRecs = _dtRecData.filter(function(d) { return d.entered; });
     var _maxWin = 0, _maxLose = 0, _sc = 0;
     var _streakArr = _entRecs.map(function(d) {
@@ -20637,8 +20677,8 @@ function DayView(_ref57) {
       else { _sc = 0; }
       return _sc;
     });
-    // ③ 時間帯別成績
-    var _BANDS = ["9:00","9:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00"];
+    // 時間帯（15分間隔）
+    var _BANDS = ["9:00","9:15","9:30","9:45","10:00","10:15","10:30","10:45","11:00","11:15","11:30","11:45","12:00","12:15","12:30","12:45","13:00","13:15","13:30","13:45","14:00","14:15","14:30","14:45","15:00"];
     var _bandKey = function(t) {
       if (!t || t === "99:99") return null;
       var pts = t.split(":"), mins = parseInt(pts[0]) * 60 + parseInt(pts[1] || 0);
@@ -20648,50 +20688,45 @@ function DayView(_ref57) {
       }
       return _BANDS[0];
     };
+    // 時間帯別成績（エントリー分のみ）
     var _bandMap = {};
     _dtRecData.forEach(function(d) {
       if (!d.entered) return;
       var bk = _bandKey(d.time); if (!bk) return;
-      if (!_bandMap[bk]) _bandMap[bk] = { ok: 0, ng: 0, pnl: 0 };
+      if (!_bandMap[bk]) _bandMap[bk] = { ok: 0, ng: 0, sum: 0 };
       if (d.result === "ok") _bandMap[bk].ok++;
       else if (d.result === "ng") _bandMap[bk].ng++;
-      if (d.realN != null) _bandMap[bk].pnl += d.realN;
+      if (d.realN != null) _bandMap[bk].sum += d.realN;
     });
     var _usedBands = _BANDS.filter(function(b) { return !!_bandMap[b]; });
-    // ④ 難易度別成績
-    var _diffMap = { A: { ok: 0, ng: 0, pnl: 0, cnt: 0 }, B: { ok: 0, ng: 0, pnl: 0, cnt: 0 }, C: { ok: 0, ng: 0, pnl: 0, cnt: 0 } };
+    // 難易度別成績
+    var _diffMap = { A: { ok: 0, ng: 0, sum: 0, cnt: 0 }, B: { ok: 0, ng: 0, sum: 0, cnt: 0 }, C: { ok: 0, ng: 0, sum: 0, cnt: 0 } };
     _dtRecData.forEach(function(d) {
       var dm = _diffMap[d.difficulty]; if (!dm) return;
       dm.cnt++;
       if (d.entered) {
         if (d.result === "ok") dm.ok++;
         else if (d.result === "ng") dm.ng++;
-        if (d.realN != null) dm.pnl += d.realN;
+        if (d.realN != null) dm.sum += d.realN;
       }
     });
-    // ⑤ 見送り検証
+    // 見送り検証
     var _skipped = _dtRecData.filter(function(d) { return !d.entered; });
     var _skipFail = _skipped.filter(function(d) { return d.planN != null && d.planN > 0; });
     var _skipOk   = _skipped.filter(function(d) { return d.planN == null || d.planN <= 0; });
-    var _skipFailPnl = _skipFail.reduce(function(s, d) { return s + (d.planN || 0); }, 0);
-    // ⑥ 銘柄別PnLバー
-    var _stkPnl = {};
-    _dtRecData.forEach(function(d) {
-      if (!d.entered || d.realN == null) return;
-      _stkPnl[d.stock] = (_stkPnl[d.stock] || 0) + d.realN;
-    });
-    var _stkList = Object.keys(_stkPnl).sort(function(a, b) { return _stkPnl[b] - _stkPnl[a]; });
-    var _stkAbsMax = Math.max.apply(null, _stkList.map(function(s) { return Math.abs(_stkPnl[s]); }).concat([1]));
-    // ⑦ ヒートマップ
+    var _skipFailSum = _skipFail.reduce(function(s, d) { return s + (d.planN || 0); }, 0);
+    // シグナル分布（全シグナル対象、15分帯）
     var _hmStks = allStocks.filter(function(stk) { return (_dtCharts[stk + "_" + date] || {}).signals; });
-    var _hmBands = _usedBands.length > 0 ? _usedBands : _BANDS.slice(0, 6);
+    var _hmUsedBands = {};
     var _hmMap = {};
     _dtRecData.forEach(function(d) {
       var bk = _bandKey(d.time); if (!bk) return;
+      _hmUsedBands[bk] = true;
       var key = d.stock + "_" + bk;
       if (!_hmMap[key]) _hmMap[key] = [];
       _hmMap[key].push(d);
     });
+    var _hmBands = _BANDS.filter(function(b) { return _hmUsedBands[b]; });
     // ヘルパー
     var _hd = function(txt, icon) {
       return React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 8, display: "flex", alignItems: "center", gap: 4 } },
@@ -20702,21 +20737,7 @@ function DayView(_ref57) {
     };
     return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 12, color: "#333" } }, "📊 本日のデータ"),
-      // ① 累積PnLグラフ
-      _card([
-        _hd("累積PnLグラフ", "📈"),
-        _graphEl,
-        React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 4, fontSize: 10, color: "#888" } },
-          React.createElement("span", null,
-            React.createElement("span", { style: { display: "inline-block", width: 14, height: 2, background: "#F97316", verticalAlign: "middle", marginRight: 3 } }),
-            "実現PnL"),
-          React.createElement("span", null,
-            React.createElement("svg", { width: 14, height: 6, style: { verticalAlign: "middle", marginRight: 3 } },
-              React.createElement("line", { x1: 0, y1: 3, x2: 14, y2: 3, stroke: "#94A3B8", strokeWidth: 1.5, strokeDasharray: "4,3" })),
-            "想定PnL（全シグナル）")
-        )
-      ], { marginBottom: 10 }),
-      // ② 勝敗シーケンス
+      // 勝敗シーケンス
       _card([
         _hd("勝敗シーケンス", "🔵"),
         _entRecs.length === 0
@@ -20744,9 +20765,8 @@ function DayView(_ref57) {
               )
             )
       ], { marginBottom: 10 }),
-      // ③④⑤ 3列
+      // 3列: 時間帯別成績 / 難易度別成績 / 見送り検証
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 10 } },
-        // ③ 時間帯別成績
         _card([
           _hd("時間帯別成績", "⏱"),
           _usedBands.length === 0
@@ -20756,7 +20776,7 @@ function DayView(_ref57) {
                   React.createElement("tr", { style: { borderBottom: "1px solid #eee" } },
                     React.createElement("th", { style: { textAlign: "left", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "時間帯"),
                     React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "勝/負"),
-                    React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "PnL")
+                    React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "実現損益")
                   )
                 ),
                 React.createElement("tbody", null,
@@ -20770,14 +20790,13 @@ function DayView(_ref57) {
                         React.createElement("span", { style: { color: "#DC2626", marginLeft: 4 } }, m.ng), "敗",
                         wp != null ? React.createElement("span", { style: { color: "#888", marginLeft: 4, fontSize: 10 } }, wp + "%") : null
                       ),
-                      React.createElement("td", { style: { padding: "3px 4px", textAlign: "right", fontWeight: 600, color: _dtCol(m.pnl), whiteSpace: "nowrap" } },
-                        m.pnl !== 0 ? _dtFmt(m.pnl) : "—")
+                      React.createElement("td", { style: { padding: "3px 4px", textAlign: "right", fontWeight: 600, color: _dtCol(m.sum), whiteSpace: "nowrap" } },
+                        m.sum !== 0 ? _dtFmt(m.sum) : "—")
                     );
                   })
                 )
               )
         ]),
-        // ④ 難易度別成績
         _card([
           _hd("難易度別成績", "🏅"),
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
@@ -20785,7 +20804,7 @@ function DayView(_ref57) {
               React.createElement("tr", { style: { borderBottom: "1px solid #eee" } },
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "難易度"),
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "勝/負"),
-                React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "実現PnL")
+                React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "実現損益")
               )
             ),
             React.createElement("tbody", null,
@@ -20807,14 +20826,13 @@ function DayView(_ref57) {
                          wp != null ? React.createElement("span", { key: "w", style: { color: "#888", marginLeft: 4, fontSize: 10 } }, wp + "%") : null]
                       : React.createElement("span", { style: { color: "#aaa" } }, "見送りのみ")
                   ),
-                  React.createElement("td", { style: { padding: "4px 4px", textAlign: "right", fontWeight: 600, color: _dtCol(m.pnl), whiteSpace: "nowrap" } },
-                    m.pnl !== 0 ? _dtFmt(m.pnl) : "—")
+                  React.createElement("td", { style: { padding: "4px 4px", textAlign: "right", fontWeight: 600, color: _dtCol(m.sum), whiteSpace: "nowrap" } },
+                    m.sum !== 0 ? _dtFmt(m.sum) : "—")
                 );
               })
             )
           )
         ]),
-        // ⑤ 見送り検証
         _card([
           _hd("見送り検証", "🔍"),
           React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, fontSize: 11 } },
@@ -20827,7 +20845,7 @@ function DayView(_ref57) {
               React.createElement("span", null,
                 React.createElement("b", { style: { color: "#DC2626" } }, _skipFail.length, "件"),
                 _skipFail.length > 0
-                  ? React.createElement("span", { style: { color: "#DC2626", marginLeft: 5, fontSize: 10 } }, _dtFmt(_skipFailPnl), "機会損失")
+                  ? React.createElement("span", { style: { color: "#DC2626", marginLeft: 5, fontSize: 10 } }, _dtFmt(_skipFailSum), "機会損失")
                   : null
               )
             ),
@@ -20843,65 +20861,44 @@ function DayView(_ref57) {
           )
         ])
       ),
-      // ⑥⑦ 2列
-      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
-        // ⑥ 銘柄別PnLバー
-        _card([
-          _hd("銘柄別PnL", "📊"),
-          _stkList.length === 0
-            ? React.createElement("div", { style: { color: "#aaa", fontSize: 11 } }, "エントリーデータなし")
-            : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
-                _stkList.map(function(stk) {
-                  var v = _stkPnl[stk], barW = Math.abs(v) / _stkAbsMax * 100;
-                  return React.createElement("div", { key: stk, style: { display: "flex", alignItems: "center", gap: 6, fontSize: 11 } },
-                    React.createElement("div", { style: { width: 44, textAlign: "right", fontWeight: 700, color: "#9A3412", flexShrink: 0 } }, stk),
-                    React.createElement("div", { style: { flex: 1, height: 12, background: "#f5f4f0", borderRadius: 2, overflow: "hidden" } },
-                      React.createElement("div", { style: { height: "100%", width: barW + "%", background: v >= 0 ? "#F97316" : "#1E8449", borderRadius: 2 } })
-                    ),
-                    React.createElement("div", { style: { width: 80, textAlign: "right", fontWeight: 600, color: _dtCol(v), whiteSpace: "nowrap", flexShrink: 0 } }, _dtFmt(v))
-                  );
-                })
-              )
-        ]),
-        // ⑦ シグナル分布ヒートマップ
-        _card([
-          _hd("シグナル分布", "🗓"),
-          _hmStks.length === 0
-            ? React.createElement("div", { style: { color: "#aaa", fontSize: 11 } }, "データなし")
-            : React.createElement("div", { style: { overflowX: "auto" } },
-                React.createElement("table", { style: { borderCollapse: "separate", borderSpacing: 2, fontSize: 10 } },
-                  React.createElement("thead", null,
-                    React.createElement("tr", null,
-                      React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#888" } }, ""),
-                      _hmBands.map(function(b) {
-                        return React.createElement("th", { key: b, style: { padding: "2px 4px", fontWeight: 600, color: "#888", textAlign: "center", minWidth: 36, whiteSpace: "nowrap" } }, b);
-                      })
-                    )
-                  ),
-                  React.createElement("tbody", null,
-                    _hmStks.map(function(stk) {
-                      return React.createElement("tr", { key: stk },
-                        React.createElement("td", { style: { padding: "3px 6px", fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, stk),
-                        _hmBands.map(function(b) {
-                          var cells = _hmMap[stk + "_" + b] || [];
-                          if (cells.length === 0) return React.createElement("td", { key: b, style: { padding: "3px 4px", textAlign: "center", color: "#ddd", background: "#fafaf8", borderRadius: 3 } }, "·");
-                          var hasOk = cells.some(function(c) { return c.result === "ok" && c.entered; });
-                          var hasNg = cells.some(function(c) { return c.result === "ng" && c.entered; });
-                          var anyEnt = cells.some(function(c) { return c.entered; });
-                          var bg = hasOk && !hasNg ? "#DCFCE7" : hasNg && !hasOk ? "#FEE2E2" : anyEnt ? "#FEF9C3" : "#FFEDD5";
-                          var col = hasOk && !hasNg ? "#15803D" : hasNg && !hasOk ? "#DC2626" : anyEnt ? "#854D0E" : "#9A3412";
-                          var lbl = cells.length > 1 ? cells.length + "" : (anyEnt ? (hasOk ? "○" : hasNg ? "×" : "△") : "△");
-                          return React.createElement("td", { key: b, title: stk + " " + b + ": " + cells.length + "件",
-                            style: { padding: "3px 6px", textAlign: "center", background: bg, color: col,
-                              fontWeight: 700, borderRadius: 3, border: "1px solid #e8e5de" } }, lbl);
-                        })
-                      );
+      // シグナル分布（全幅）
+      _card([
+        _hd("シグナル分布", "🗓"),
+        _hmStks.length === 0 || _hmBands.length === 0
+          ? React.createElement("div", { style: { color: "#aaa", fontSize: 11 } }, "データなし")
+          : React.createElement("div", { style: { overflowX: "auto" } },
+              React.createElement("table", { style: { borderCollapse: "separate", borderSpacing: 2, fontSize: 10 } },
+                React.createElement("thead", null,
+                  React.createElement("tr", null,
+                    React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#888" } }, ""),
+                    _hmBands.map(function(b) {
+                      return React.createElement("th", { key: b, style: { padding: "2px 4px", fontWeight: 600, color: "#888", textAlign: "center", minWidth: 34, whiteSpace: "nowrap" } }, b);
                     })
                   )
+                ),
+                React.createElement("tbody", null,
+                  _hmStks.map(function(stk) {
+                    return React.createElement("tr", { key: stk },
+                      React.createElement("td", { style: { padding: "3px 6px", fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, stk),
+                      _hmBands.map(function(b) {
+                        var cells = _hmMap[stk + "_" + b] || [];
+                        if (cells.length === 0) return React.createElement("td", { key: b, style: { padding: "3px 4px", textAlign: "center", color: "#ddd", background: "#fafaf8", borderRadius: 3 } }, "·");
+                        var hasOk = cells.some(function(c) { return c.result === "ok" && c.entered; });
+                        var hasNg = cells.some(function(c) { return c.result === "ng" && c.entered; });
+                        var anyEnt = cells.some(function(c) { return c.entered; });
+                        var bg = hasOk && !hasNg ? "#DCFCE7" : hasNg && !hasOk ? "#FEE2E2" : anyEnt ? "#FEF9C3" : "#FFEDD5";
+                        var col = hasOk && !hasNg ? "#15803D" : hasNg && !hasOk ? "#DC2626" : anyEnt ? "#854D0E" : "#9A3412";
+                        var lbl = cells.length > 1 ? cells.length + "" : (anyEnt ? (hasOk ? "○" : hasNg ? "×" : "△") : "△");
+                        return React.createElement("td", { key: b, title: stk + " " + b + ": " + cells.length + "件",
+                          style: { padding: "3px 5px", textAlign: "center", background: bg, color: col,
+                            fontWeight: 700, borderRadius: 3, border: "1px solid #e8e5de" } }, lbl);
+                      })
+                    );
+                  })
                 )
               )
-        ])
-      )
+            )
+      ])
     );
   })(),
   showForm && React.createElement(EntryRecordForm, {
