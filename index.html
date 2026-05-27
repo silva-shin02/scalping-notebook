@@ -10497,6 +10497,8 @@ function EntrySignalSection(_ref_es) {
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; }
   });
   var _esTotRealGrade = _esTotRealCnt > 0 ? _profitGradeFromPnlReal(_esTotReal != null ? _esTotReal : 0, _esTotRealCnt) : null;
+  var _esTotPlanGrade = _esTotPlanCnt > 0 ? _profitGradeFromPnl(_esTotPlan != null ? _esTotPlan : 0, _esTotPlanCnt) : null;
+  var _esTotMaxGrade  = _esTotMaxCnt  > 0 ? _profitGradeFromPnl(_esTotMax  != null ? _esTotMax  : 0, _esTotMaxCnt)  : null;
 
   return React.createElement("div", { style: { marginTop: 12, marginBottom: 12 } },
     // ── ヘッダー行: 見出し + グレード表示 ──
@@ -10682,15 +10684,21 @@ function EntrySignalSection(_ref_es) {
           };
           var isCustomMode = sortMode === "custom";
           var totRow = React.createElement("tr", { key: "__estot__", style: { background: "#FFF7ED" } },
-            React.createElement("td", { colSpan: 4, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
+            React.createElement("td", { colSpan: 5, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esTotRealCnt > 0 ? _esRPnlDisp(_esTotReal, _esTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              _esRPnlDispABAll(_esTotPlanAB, _esTotPlan)
+              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+                _esTotPlanGrade ? _esBadge(_esTotPlanGrade) : null,
+                _esRPnlDispABAll(_esTotPlanAB, _esTotPlan)
+              )
             ),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              _esRPnlDispABAll(_esTotMaxAB, _esTotMax)
+              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+                _esTotMaxGrade ? _esBadge(_esTotMaxGrade) : null,
+                _esRPnlDispABAll(_esTotMaxAB, _esTotMax)
+              )
             ),
             isCustomMode ? React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }) : null
           );
@@ -10722,12 +10730,17 @@ function EntrySignalSection(_ref_es) {
               prevGrpLabel = grpLabel;
               dataRows.push(
                 React.createElement("tr", { key: "__grp__" + grpLabel },
-                  React.createElement("td", { colSpan: isCustomMode ? 8 : 7, style: { padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 9 : 8, style: { padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", borderBottom: "1px solid #f0ede6" } },
                     "🏷 " + grpLabel
                   )
                 )
               );
             }
+            var resultEl = s.result === "ok"
+              ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "○")
+              : s.result === "ng"
+                ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700, fontSize: 13 } }, "×")
+                : React.createElement("span", { style: { color: "#ccc" } }, "—");
             var rKeyRef = rKey;
             var recIdx = isCustomMode ? (sortedRecs || []).indexOf(r) : 0;
             var totalRecs = isCustomMode ? (sortedRecs || []).length : 0;
@@ -10740,9 +10753,10 @@ function EntrySignalSection(_ref_es) {
                   React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                   s.time || "—"
                 ),
-                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
                 React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sigLabel),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6",
+                React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
+                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
+                React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%",
                   color: s.difficulty ? (s.difficulty === "A" ? "#B71C1C" : s.difficulty === "B" ? "#C62828" : "#666") : "#ccc",
                   fontWeight: s.difficulty ? 700 : 400 } }, s.difficulty || "—"),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(realPnlN, realGrade)),
@@ -10770,7 +10784,7 @@ function EntrySignalSection(_ref_es) {
             if (rExp) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: isCustomMode ? 8 : 7, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 9 : 8, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
@@ -10782,9 +10796,10 @@ function EntrySignalSection(_ref_es) {
               React.createElement("thead", null,
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left" }),
-                  _esTh("エントリー"),
                   _esTh("シグナル"),
-                  _esTh("E難易度"),
+                  _esTh("結果", { width: "1%" }),
+                  _esTh("エントリー"),
+                  _esTh("難易度", { width: "1%" }),
                   _esTh("実現損益"),
                   _esTh("想定損益"),
                   _esTh("最大損益"),
