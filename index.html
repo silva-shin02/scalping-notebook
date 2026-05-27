@@ -25339,7 +25339,33 @@ function EntryLogView(_ref_elv) {
             _tTh("タグ", { width: "auto" })
           )
         );
+        // ── 月合計行 ──
+        var _tMonthRecs = [];
+        tblDates.forEach(function(date) { (byDate[date] || []).forEach(function(r) { _tMonthRecs.push(r); }); });
+        var _tMonthSt  = _tMonthRecs.length > 0 ? _elCalcStats(_tMonthRecs) : { total: 0, ok: 0, ng: 0, winPct: null, sumPnl: 0, expected: null, sumPlanned: 0, expectedPlanned: null, sumMax: 0, expectedMax: null };
+        var _tMonthEnt = _tMonthRecs.filter(function(r) { return _elIsEntered(r.signal, r.item); });
+        var _tMonthGradeReal = _tMonthSt.total > 0 ? _profitGradeFromPnlReal(_tMonthSt.sumPnl, _tMonthEnt.length) : null;
+        var _tMonthGradePlan = _tMonthSt.total > 0 ? _profitGradeFromPnl(_tMonthSt.sumPlanned, _tMonthSt.total) : null;
+        var _tMonthGradeMax  = _tMonthSt.total > 0 ? _profitGradeFromPnl(_tMonthSt.sumMax,  _tMonthSt.total) : null;
+        var _bb2 = "2px solid #c0b8a8";
+        var _tMonthRow = React.createElement("tr", { key: "__monthtot__", style: { background: "#F5F0E8" } },
+          React.createElement("td", { style: { padding: "5px 8px", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", width: "1%", color: "#9A3412", borderBottom: _bb2, borderTop: "2px solid #c0b8a8" } }, "📊 " + curM + " 合計"),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, fontSize: 11, borderBottom: _bb2, borderTop: _bb2 } }, _tMonthSt.total || 0),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2 } }, _tMonthSt.ok || 0),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2 } }, _tMonthSt.ng || 0),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2,
+            color: _tMonthSt.winPct != null ? (_tMonthSt.winPct >= 60 ? "#C0392B" : _tMonthSt.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
+            fontWeight: _tMonthSt.winPct != null ? 700 : 400 } }, _tMonthSt.winPct != null ? _tMonthSt.winPct + "%" : "—"),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
+            _tSlash(_tMonthSt.sumPnl, _tMonthSt.expected, _tMonthGradeReal)),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
+            _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned")),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
+            _tABAll(_tMonthRecs, _tMonthSt.sumMax, _tMonthSt.expectedMax, _tMonthGradeMax, "sumMax", "expectedMax")),
+          React.createElement("td", { style: { borderBottom: _bb2, borderTop: _bb2 } })
+        );
         var tbody = React.createElement("tbody", null,
+          _tMonthRow,
           tblDates.map(function(date) {
             var dateRecs = byDate[date] || [];
             var dateSt = _elCalcStats(dateRecs);
