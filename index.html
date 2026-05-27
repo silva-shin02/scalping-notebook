@@ -10222,6 +10222,8 @@ function EntrySignalSection(_ref_es) {
       dragRecKey = _useStateESDRA[0], setDragRecKey = _useStateESDRA[1];
   var _useStateESDO = useState(null), _useStateESDOA = _slicedToArray(_useStateESDO, 2),
       dragOverKey = _useStateESDOA[0], setDragOverKey = _useStateESDOA[1];
+  var _useStateETRE = useState({}), _useStateETREA = _slicedToArray(_useStateETRE, 2),
+      tableRecExp = _useStateETREA[0], setTableRecExp = _useStateETREA[1];
 
   // signal を EntryLogCard が期待する record 形式に変換 (旧→新 shim 込み)
   var records = useMemo(function() {
@@ -10446,6 +10448,56 @@ function EntrySignalSection(_ref_es) {
     }, renderRow(row1), renderRow(row2));
   };
 
+  // ── テーブル用ヘルパー ──
+  var _esRPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+  var _esRPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+  var _esBadge = function(grade) {
+    if (!grade) return null;
+    var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
+    return React.createElement("span", { title: grade,
+      style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 18, height: 18, borderRadius: "50%",
+        background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
+        fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
+    }, grade);
+  };
+  var _esRPnlDisp = function(v, grade) {
+    if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+      grade && grade !== "Z" ? _esBadge(grade) : null,
+      React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(v) } }, _esRPnlFmt(v))
+    );
+  };
+  var _esRPnlDispABAll = function(abV, allV) {
+    if (abV == null && allV == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+      React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(abV) } }, _esRPnlFmt(abV)),
+      abV !== allV ? React.createElement("span", { style: { color: _esRPnlCol(allV), fontSize: 10 } }, "(" + _esRPnlFmt(allV) + ")") : null
+    );
+  };
+  // ── テーブル合計集計 ──
+  var _esTotReal = null, _esTotPlan = null, _esTotMax = null;
+  var _esTotRealCnt = 0, _esTotPlanCnt = 0, _esTotMaxCnt = 0;
+  var _esTotPlanAB = null, _esTotMaxAB = null;
+  records.forEach(function(r) {
+    var s = r.signal, rIt = r.item;
+    var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+    var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
+    var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+    var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+    var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
+    var rpN = rp != null ? _p100(rp) : null;
+    var ppN = pp != null ? _p100(pp) : null;
+    var mpN = mp != null ? _p100(mp) : null;
+    if (rpN != null) { _esTotReal = (_esTotReal || 0) + rpN; _esTotRealCnt++; }
+    if (ppN != null) { _esTotPlan = (_esTotPlan || 0) + ppN; _esTotPlanCnt++; }
+    if (mpN != null) { _esTotMax  = (_esTotMax  || 0) + mpN; _esTotMaxCnt++; }
+    var _isAB = (s.difficulty === "A" || s.difficulty === "B");
+    if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; }
+    if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; }
+  });
+  var _esTotRealGrade = _esTotRealCnt > 0 ? _profitGradeFromPnlReal(_esTotReal != null ? _esTotReal : 0, _esTotRealCnt) : null;
+
   return React.createElement("div", { style: { marginTop: 12, marginBottom: 12 } },
     // ── ヘッダー行: 見出し + グレード表示 ──
     React.createElement("div", {
@@ -10590,7 +10642,7 @@ function EntrySignalSection(_ref_es) {
       ),
       sortMode === "custom" && React.createElement("span", {
         style: { fontSize: 10, color: "#666", marginLeft: "auto" }
-      }, "⋮⋮ ドラッグ または ▲▼ で並び替え")
+      }, "▲▼ で並び替え")
     ),
     records.length === 0
       ? React.createElement("div", {
@@ -10600,32 +10652,128 @@ function EntrySignalSection(_ref_es) {
             background: "#fafaf8", borderRadius: 6, border: "1px dashed #e0ddd6"
           }
         }, "エントリー記録がありません。「+ 追加」から記録できます。")
-      : groupedRecs
-        ? // カテゴリ別表示
-          groupedRecs.map(function(grp) {
-            return React.createElement("div", { key: grp.key, style: { marginBottom: 8 } },
-              React.createElement("div", {
-                style: { padding: "4px 10px", fontSize: 11, fontWeight: 700,
-                  color: grp.isCustom ? "#4338CA" : "#9A3412",
-                  background: grp.isCustom ? "#EEF2FF" : "#FFEDD5",
-                  borderRadius: 4, marginBottom: 4,
-                  display: "flex", justifyContent: "space-between" }
+      : (function() {
+          var tblItems = groupedRecs
+            ? groupedRecs.reduce(function(acc, grp) { return acc.concat(grp.records.map(function(r) { return { r: r, grpLabel: grp.label }; })); }, [])
+            : (sortedRecs || []).map(function(r) { return { r: r, grpLabel: null }; });
+          var _esTh = function(label, extra) {
+            return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
+          };
+          var isCustomMode = sortMode === "custom";
+          var totRow = React.createElement("tr", { key: "__estot__", style: { background: "#FFF7ED" } },
+            React.createElement("td", { colSpan: 4, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+              _esTotRealCnt > 0 ? _esRPnlDisp(_esTotReal, _esTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
+            ),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+              _esRPnlDispABAll(_esTotPlanAB, _esTotPlan)
+            ),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+              _esRPnlDispABAll(_esTotMaxAB, _esTotMax)
+            ),
+            isCustomMode ? React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }) : null
+          );
+          var prevGrpLabel = null;
+          var dataRows = [];
+          tblItems.forEach(function(tblItem) {
+            var r = tblItem.r, grpLabel = tblItem.grpLabel;
+            var rKey = _esRecKey(r);
+            var rExp = !!tableRecExp[rKey];
+            var s = r.signal, rIt = r.item;
+            var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+            var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
+            var realPnl = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+            var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+            var maxPnl  = _elSignedVal(s.maxPnl, s.maxPnlSign);
+            var realPnlN = realPnl != null ? _p100(realPnl) : null;
+            var planPnlN = planPnl != null ? _p100(planPnl) : null;
+            var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
+            var entered = _elIsEntered(s, rIt);
+            var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
+            var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
+            var maxGrade  = maxPnlN  != null ? _profitGradeFromPnl(maxPnlN, 1)  : null;
+            var entLabel = entered
+              ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
+              : React.createElement("span", { style: { color: "#888" } }, "見送り");
+            var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+            var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
+            if (grpLabel !== null && grpLabel !== prevGrpLabel) {
+              prevGrpLabel = grpLabel;
+              dataRows.push(
+                React.createElement("tr", { key: "__grp__" + grpLabel },
+                  React.createElement("td", { colSpan: isCustomMode ? 8 : 7, style: { padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", borderBottom: "1px solid #f0ede6" } },
+                    "🏷 " + grpLabel
+                  )
+                )
+              );
+            }
+            var rKeyRef = rKey;
+            var recIdx = isCustomMode ? (sortedRecs || []).indexOf(r) : 0;
+            var totalRecs = isCustomMode ? (sortedRecs || []).length : 0;
+            dataRows.push(
+              React.createElement("tr", { key: rKey,
+                style: { cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" },
+                onClick: function() { setTableRecExp(function(prev) { var n = Object.assign({}, prev); if (n[rKeyRef]) delete n[rKeyRef]; else n[rKeyRef] = true; return n; }); }
               },
-                React.createElement("span", null, "🎯 " + grp.label),
-                React.createElement("span", { style: { color: "#888", fontWeight: 500 } }, grp.records.length + "件")
-              ),
-              grp.records.map(function(r) {
-                return React.createElement(EntryLogCard, {
-                  key: _esRecKey(r),
-                  record: r, onEdit: function(rec) { setEditTarget(rec); }
-                });
-              })
+                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
+                  React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
+                  s.time || "—"
+                ),
+                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
+                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sigLabel),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6",
+                  color: s.difficulty ? (s.difficulty === "A" ? "#B71C1C" : s.difficulty === "B" ? "#C62828" : "#666") : "#ccc",
+                  fontWeight: s.difficulty ? 700 : 400 } }, s.difficulty || "—"),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(realPnlN, realGrade)),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(planPnlN, planGrade)),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esRPnlDisp(maxPnlN, maxGrade)),
+                isCustomMode ? React.createElement("td", {
+                  style: { padding: "2px 4px", textAlign: "center", borderBottom: "1px solid #f0ede6" },
+                  onClick: function(e) { e.stopPropagation(); }
+                },
+                  React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1 } },
+                    React.createElement("button", {
+                      disabled: recIdx === 0,
+                      onClick: function(e) { e.stopPropagation(); _esMoveRec(rKeyRef, -1); },
+                      style: { width: 22, height: 14, padding: 0, fontSize: 9, border: "1px solid #ccc", background: "#fafafa", borderRadius: 2, cursor: recIdx === 0 ? "default" : "pointer", opacity: recIdx === 0 ? 0.3 : 1 }
+                    }, "▲"),
+                    React.createElement("button", {
+                      disabled: recIdx >= totalRecs - 1,
+                      onClick: function(e) { e.stopPropagation(); _esMoveRec(rKeyRef, 1); },
+                      style: { width: 22, height: 14, padding: 0, fontSize: 9, border: "1px solid #ccc", background: "#fafafa", borderRadius: 2, cursor: recIdx >= totalRecs - 1 ? "default" : "pointer", opacity: recIdx >= totalRecs - 1 ? 0.3 : 1 }
+                    }, "▼")
+                  )
+                ) : null
+              )
             );
-          })
-        : // 時間順 / カスタム順
-          sortedRecs.map(function(r, i) {
-            return _esRenderRec(r, i, sortedRecs.length);
-          }),
+            if (rExp) {
+              dataRows.push(
+                React.createElement("tr", { key: rKey + "_card" },
+                  React.createElement("td", { colSpan: isCustomMode ? 8 : 7, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                    React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setEditTarget(rec); } })
+                  )
+                )
+              );
+            }
+          });
+          return React.createElement("div", { style: { overflowX: "auto", marginBottom: 8 } },
+            React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } },
+              React.createElement("thead", null,
+                React.createElement("tr", null,
+                  _esTh("時間", { textAlign: "left" }),
+                  _esTh("エントリー"),
+                  _esTh("シグナル"),
+                  _esTh("E難易度"),
+                  _esTh("実現損益"),
+                  _esTh("想定損益"),
+                  _esTh("最大損益"),
+                  isCustomMode ? _esTh("並替") : null
+                )
+              ),
+              React.createElement("tbody", null, [totRow].concat(dataRows))
+            )
+          );
+        })(),
     // ── 追加ボタン（記録あり時: リスト末尾）──
     records.length > 0 && React.createElement("div", { style: { marginTop: 6, marginBottom: 2 } },
       React.createElement("button", {
@@ -10637,27 +10785,6 @@ function EntrySignalSection(_ref_es) {
           minHeight: IS_TOUCH ? 36 : 28
         }
       }, "+ 追加")
-    ),
-    // ── 損益合計行 ──
-    records.length > 0 && (_esHasReal || _esHasPlan || _esHasMax) && React.createElement("div", {
-      style: { marginTop: 10, paddingTop: 8, borderTop: "1px solid #e0ddd6",
-        display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12 }
-    },
-      _esHasReal && React.createElement("div", null,
-        React.createElement("span", { style: { color: "#666" } }, "実現損益: "),
-        React.createElement("span", { style: { fontWeight: 700, color: _esRealSum > 0 ? "#C0392B" : _esRealSum < 0 ? "#1E8449" : "#888" } },
-          (_esRealSum > 0 ? "+" : "") + _esRealSum.toLocaleString() + "円")
-      ),
-      _esHasPlan && React.createElement("div", null,
-        React.createElement("span", { style: { color: "#666" } }, "想定損益: "),
-        React.createElement("span", { style: { fontWeight: 600, color: _esPlanSum > 0 ? "#C0392B" : _esPlanSum < 0 ? "#1E8449" : "#888" } },
-          (_esPlanSum > 0 ? "+" : "") + _esPlanSum.toLocaleString() + "円")
-      ),
-      _esHasMax && React.createElement("div", null,
-        React.createElement("span", { style: { color: "#666" } }, "最大可能損益: "),
-        React.createElement("span", { style: { fontWeight: 600, color: _esMaxSum > 0 ? "#C0392B" : _esMaxSum < 0 ? "#1E8449" : "#888" } },
-          (_esMaxSum > 0 ? "+" : "") + _esMaxSum.toLocaleString() + "円")
-      )
     ),
     editTarget && React.createElement(EntryRecordForm, {
       data: data,
