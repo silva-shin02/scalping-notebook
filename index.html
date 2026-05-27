@@ -10624,27 +10624,6 @@ function EntrySignalSection(_ref_es) {
         background: "#f5f4f0", borderRadius: 6, marginBottom: 8,
         fontSize: 12, flexWrap: "wrap" }
     },
-      records.length >= 2 && React.createElement("span", { style: { color: "#666", fontWeight: 600, flexShrink: 0 } }, "並び替え:"),
-      records.length >= 2 && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
-        [["time", "⏱ 時間順"], ["custom", "🖐 カスタム"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
-          var val = kv[0], lbl = kv[1];
-          var on = sortMode === val;
-          return React.createElement("button", {
-            key: val,
-            onClick: function() { setSortMode(val); },
-            style: {
-              padding: "4px 10px", fontSize: 12, fontWeight: 600,
-              border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
-              background: on ? "#FFEDD5" : "#fff",
-              color: on ? "#9A3412" : "#888",
-              borderRadius: 4, cursor: "pointer"
-            }
-          }, lbl);
-        })
-      ),
-      records.length >= 2 && sortMode === "custom" && React.createElement("span", {
-        style: { fontSize: 10, color: "#666" }
-      }, "▲▼ で並び替え"),
       (function() {
         var allExp = records.every(function(r) { return !!tableRecExp[_esRecKey(r)]; });
         return React.createElement("button", {
@@ -10660,12 +10639,30 @@ function EntrySignalSection(_ref_es) {
             }
           },
           style: {
-            marginLeft: "auto", padding: "4px 10px", fontSize: 11, fontWeight: 600,
+            padding: "4px 10px", fontSize: 11, fontWeight: 600,
             border: "1px solid #ddd", background: "#fff",
             color: "#555", borderRadius: 4, cursor: "pointer", flexShrink: 0
           }
         }, allExp ? "▲ すべて折りたたむ" : "▼ すべて展開");
-      })()
+      })(),
+      records.length >= 2 && React.createElement("span", { style: { color: "#666", fontWeight: 600, flexShrink: 0 } }, "並び替え:"),
+      records.length >= 2 && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
+        [["time", "⏱ 時間順"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
+          var val = kv[0], lbl = kv[1];
+          var on = sortMode === val;
+          return React.createElement("button", {
+            key: val,
+            onClick: function() { setSortMode(val); },
+            style: {
+              padding: "4px 10px", fontSize: 12, fontWeight: 600,
+              border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
+              background: on ? "#FFEDD5" : "#fff",
+              color: on ? "#9A3412" : "#888",
+              borderRadius: 4, cursor: "pointer"
+            }
+          }, lbl);
+        })
+      )
     ),
     records.length === 0
       ? React.createElement("div", {
@@ -19296,8 +19293,13 @@ function DayView(_ref57) {
     _useStatePRSA = _slicedToArray(_useStatePRS, 2),
     pnlRecordExpandSet = _useStatePRSA[0],
     setPnlRecordExpandSet = _useStatePRSA[1];
+  // 取引タブ エントリー記録テーブルの展開状態
+  var _useStateTTRE = useState({}),
+    _useStateTTREA = _slicedToArray(_useStateTTRE, 2),
+    trTableRecExp = _useStateTTREA[0],
+    setTrTableRecExp = _useStateTTREA[1];
   // 合計展開時のソート順
-  var _useStatePSO = useState("stock"),
+  var _useStatePSO = useState("time"),
     _useStatePSOA = _slicedToArray(_useStatePSO, 2),
     pnlSortOrder = _useStatePSOA[0],
     setPnlSortOrder = _useStatePSOA[1];
@@ -19971,13 +19973,168 @@ function DayView(_ref57) {
     _trEntryRecords.length === 0 && !showForm && React.createElement("div", {
       style: { textAlign: "center", padding: 20, color: "#ccc", fontSize: 13 }
     }, "記録なし"),
-    _trEntryRecords.map(function(record) {
-      return React.createElement(EntryLogCard, {
-        key: record.stock + "_" + (record.signal.id || ""),
-        record: record,
-        onEdit: function(r) { setTradeEditTarget(r); setShowForm(true); }
+    _trEntryRecords.length > 0 && (function() {
+      var _trRPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+      var _trRPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+      var _trBadge = function(grade) {
+        if (!grade) return null;
+        var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
+        return React.createElement("span", { title: grade,
+          style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 18, height: 18, borderRadius: "50%",
+            background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
+            fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
+        }, grade);
+      };
+      var _trRPnlDisp = function(v, grade) {
+        if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+          grade && grade !== "Z" ? _trBadge(grade) : null,
+          React.createElement("span", { style: { fontWeight: 600, color: _trRPnlCol(v) } }, _trRPnlFmt(v))
+        );
+      };
+      var _trRPnlDispABAll = function(abV, allV) {
+        if (abV == null && allV == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+          React.createElement("span", { style: { fontWeight: 600, color: _trRPnlCol(abV) } }, _trRPnlFmt(abV)),
+          abV !== allV ? React.createElement("span", { style: { color: _trRPnlCol(allV), fontSize: 10 } }, "(" + _trRPnlFmt(allV) + ")") : null
+        );
+      };
+      var _trTh = function(label, extra) {
+        return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
+      };
+      var _trRecKey = function(r) { return r.stock + "_" + (r.signal.id || r.signal.time || ""); };
+      var _trTotReal = null, _trTotPlan = null, _trTotMax = null;
+      var _trTotRealCnt = 0, _trTotPlanCnt = 0, _trTotMaxCnt = 0;
+      var _trTotPlanAB = null, _trTotMaxAB = null;
+      _trEntryRecords.forEach(function(r) {
+        var s = r.signal, rIt = r.item;
+        var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+        var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
+        var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+        var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+        var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
+        var rpN = rp != null ? _p100(rp) : null;
+        var ppN = pp != null ? _p100(pp) : null;
+        var mpN = mp != null ? _p100(mp) : null;
+        if (rpN != null) { _trTotReal = (_trTotReal || 0) + rpN; _trTotRealCnt++; }
+        if (ppN != null) { _trTotPlan = (_trTotPlan || 0) + ppN; _trTotPlanCnt++; }
+        if (mpN != null) { _trTotMax  = (_trTotMax  || 0) + mpN; _trTotMaxCnt++; }
+        var _isAB = (s.difficulty === "A" || s.difficulty === "B");
+        if (ppN != null && _isAB) { _trTotPlanAB = (_trTotPlanAB || 0) + ppN; }
+        if (mpN != null && _isAB) { _trTotMaxAB  = (_trTotMaxAB  || 0) + mpN; }
       });
-    }),
+      var _trTotRealGrade = _trTotRealCnt > 0 ? _profitGradeFromPnlReal(_trTotReal != null ? _trTotReal : 0, _trTotRealCnt) : null;
+      var _trTotPlanGrade = _trTotPlanCnt > 0 ? _profitGradeFromPnl(_trTotPlan != null ? _trTotPlan : 0, _trTotPlanCnt) : null;
+      var _trTotMaxGrade  = _trTotMaxCnt  > 0 ? _profitGradeFromPnl(_trTotMax  != null ? _trTotMax  : 0, _trTotMaxCnt)  : null;
+      var allTrExp = _trEntryRecords.every(function(r) { return !!trTableRecExp[_trRecKey(r)]; });
+      var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
+        React.createElement("td", { colSpan: 6, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+          _trTotRealCnt > 0 ? _trRPnlDisp(_trTotReal, _trTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+            _trTotPlanGrade ? _trBadge(_trTotPlanGrade) : null,
+            _trRPnlDispABAll(_trTotPlanAB, _trTotPlan)
+          )
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+            _trTotMaxGrade ? _trBadge(_trTotMaxGrade) : null,
+            _trRPnlDispABAll(_trTotMaxAB, _trTotMax)
+          )
+        )
+      );
+      var dataRows = [];
+      _trEntryRecords.forEach(function(r) {
+        var rKey = _trRecKey(r);
+        var rExp = !!trTableRecExp[rKey];
+        var s = r.signal, rIt = r.item;
+        var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+        var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
+        var realPnl = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+        var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+        var maxPnl  = _elSignedVal(s.maxPnl, s.maxPnlSign);
+        var realPnlN = realPnl != null ? _p100(realPnl) : null;
+        var planPnlN = planPnl != null ? _p100(planPnl) : null;
+        var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
+        var entered = _elIsEntered(s, rIt);
+        var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
+        var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
+        var maxGrade  = maxPnlN  != null ? _profitGradeFromPnl(maxPnlN, 1)  : null;
+        var entLabel = entered
+          ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
+          : React.createElement("span", { style: { color: "#888" } }, "見送り");
+        var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+        var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
+        var resultEl = s.result === "ok"
+          ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "○")
+          : s.result === "ng"
+            ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700, fontSize: 13 } }, "×")
+            : React.createElement("span", { style: { color: "#ccc" } }, "—");
+        var rKeyRef = rKey;
+        dataRows.push(
+          React.createElement("tr", { key: rKey,
+            style: { cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" },
+            onClick: function() { setTrTableRecExp(function(prev) { var n = Object.assign({}, prev); if (n[rKeyRef]) delete n[rKeyRef]; else n[rKeyRef] = true; return n; }); }
+          },
+            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
+              React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
+              s.time || "—"
+            ),
+            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
+            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sigLabel),
+            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
+            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
+            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%",
+              color: s.difficulty ? (s.difficulty === "A" ? "#B71C1C" : s.difficulty === "B" ? "#C62828" : "#666") : "#ccc",
+              fontWeight: s.difficulty ? 700 : 400 } }, s.difficulty || "—"),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(realPnlN, realGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(planPnlN, planGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trRPnlDisp(maxPnlN, maxGrade))
+          )
+        );
+        if (rExp) {
+          dataRows.push(
+            React.createElement("tr", { key: rKey + "_card" },
+              React.createElement("td", { colSpan: 9, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
+              )
+            )
+          );
+        }
+      });
+      return React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "0 0 8px 0" } },
+          React.createElement("button", {
+            onClick: function() {
+              if (allTrExp) { setTrTableRecExp({}); }
+              else { setTrTableRecExp(function() { var n = {}; _trEntryRecords.forEach(function(r) { n[_trRecKey(r)] = true; }); return n; }); }
+            },
+            style: { padding: "4px 10px", fontSize: 11, fontWeight: 600, border: "1px solid #ddd", background: "#fff", color: "#555", borderRadius: 4, cursor: "pointer" }
+          }, allTrExp ? "▲ すべて折りたたむ" : "▼ すべて展開")
+        ),
+        React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } },
+            React.createElement("thead", null,
+              React.createElement("tr", null,
+                _trTh("時間", { textAlign: "left" }),
+                _trTh("銘柄"),
+                _trTh("シグナル"),
+                _trTh("結果", { width: "1%" }),
+                _trTh("エントリー"),
+                _trTh("難易度", { width: "1%" }),
+                _trTh("実現損益"),
+                _trTh("想定損益"),
+                _trTh("最大損益")
+              )
+            ),
+            React.createElement("tbody", null, [totRow].concat(dataRows))
+          )
+        )
+      );
+    })(),
     _trEntryRecords.length > 0 && React.createElement("div", {
       style: { display: "flex", gap: 20, marginTop: 12, paddingTop: 10, borderTop: "1px solid #e0ddd6", fontSize: 14, alignItems: "center", flexWrap: "wrap" }
     },
