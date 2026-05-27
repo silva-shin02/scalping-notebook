@@ -10616,14 +10616,14 @@ function EntrySignalSection(_ref_es) {
         }
       }, "+ 追加")
     ),
-    // 並び替えセグメント (記録が 2 件以上のときのみ表示)
-    records.length >= 2 && React.createElement("div", {
+    // 並び替え + 展開操作バー
+    records.length > 0 && React.createElement("div", {
       style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
         background: "#f5f4f0", borderRadius: 6, marginBottom: 8,
         fontSize: 12, flexWrap: "wrap" }
     },
-      React.createElement("span", { style: { color: "#666", fontWeight: 600, flexShrink: 0 } }, "並び替え:"),
-      React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
+      records.length >= 2 && React.createElement("span", { style: { color: "#666", fontWeight: 600, flexShrink: 0 } }, "並び替え:"),
+      records.length >= 2 && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
         [["time", "⏱ 時間順"], ["custom", "🖐 カスタム"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
           var val = kv[0], lbl = kv[1];
           var on = sortMode === val;
@@ -10640,9 +10640,30 @@ function EntrySignalSection(_ref_es) {
           }, lbl);
         })
       ),
-      sortMode === "custom" && React.createElement("span", {
-        style: { fontSize: 10, color: "#666", marginLeft: "auto" }
-      }, "▲▼ で並び替え")
+      records.length >= 2 && sortMode === "custom" && React.createElement("span", {
+        style: { fontSize: 10, color: "#666" }
+      }, "▲▼ で並び替え"),
+      (function() {
+        var allExp = records.every(function(r) { return !!tableRecExp[_esRecKey(r)]; });
+        return React.createElement("button", {
+          onClick: function() {
+            if (allExp) {
+              setTableRecExp({});
+            } else {
+              setTableRecExp(function() {
+                var n = {};
+                records.forEach(function(r) { n[_esRecKey(r)] = true; });
+                return n;
+              });
+            }
+          },
+          style: {
+            marginLeft: "auto", padding: "4px 10px", fontSize: 11, fontWeight: 600,
+            border: "1px solid #ddd", background: "#fff",
+            color: "#555", borderRadius: 4, cursor: "pointer", flexShrink: 0
+          }
+        }, allExp ? "▲ すべて折りたたむ" : "▼ すべて展開");
+      })()
     ),
     records.length === 0
       ? React.createElement("div", {
