@@ -20225,6 +20225,27 @@ function DayView(_ref57) {
     });
     var _trHmBands = _TRBANDS.filter(function(b) { return _trHmUsed[b]; });
     if (!_trHmBands.length) return null;
+    var _trHmLegend = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "3px 12px", marginTop: 7, fontSize: 9, color: "#888", alignItems: "center" } },
+      [
+        { bg: "#DCFCE7", col: "#15803D", lbl: "○", desc: "勝ち" },
+        { bg: "#FEE2E2", col: "#DC2626", lbl: "×", desc: "負け" },
+        { bg: "#FEF9C3", col: "#854D0E", lbl: "△", desc: "勝敗混在／結果未記録" },
+        { bg: "#FFEDD5", col: "#9A3412", lbl: "△", desc: "見送り" },
+        { bg: "#FEE2E2", col: "#DC2626", lbl: "2", desc: "複数シグナル（件数）" }
+      ].map(function(item, i) {
+        return React.createElement("span", { key: i, style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 16, height: 14, background: item.bg, border: "1px solid #e8e5de", borderRadius: 2,
+            color: item.col, fontWeight: 700, fontSize: 9 } }, item.lbl),
+          item.desc
+        );
+      }).concat([
+        React.createElement("span", { key: "none", style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+          React.createElement("span", { style: { color: "#ddd", fontWeight: 700 } }, "·"),
+          "シグナルなし"
+        )
+      ])
+    );
     return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 10, color: "#333" } }, "🗓 シグナル分布"),
       React.createElement("div", { style: { overflowX: "auto" } },
@@ -20258,7 +20279,8 @@ function DayView(_ref57) {
             })
           )
         )
-      )
+      ),
+      _trHmLegend
     );
   })(),
   // ── 銘柄別損益集計テーブル（全シグナル対象）──
@@ -20700,7 +20722,7 @@ function DayView(_ref57) {
     });
     var _usedBands = _BANDS.filter(function(b) { return !!_bandMap[b]; });
     // 難易度別成績
-    var _diffMap = { A: { ok: 0, ng: 0, sum: 0, cnt: 0 }, B: { ok: 0, ng: 0, sum: 0, cnt: 0 }, C: { ok: 0, ng: 0, sum: 0, cnt: 0 } };
+    var _diffMap = { A: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 }, B: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 }, C: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 } };
     _dtRecData.forEach(function(d) {
       var dm = _diffMap[d.difficulty]; if (!dm) return;
       dm.cnt++;
@@ -20708,6 +20730,9 @@ function DayView(_ref57) {
         if (d.result === "ok") dm.ok++;
         else if (d.result === "ng") dm.ng++;
         if (d.realN != null) dm.sum += d.realN;
+      } else {
+        dm.skip++;
+        if (d.planN != null) dm.skipPlan += d.planN;
       }
     });
     // 見送り検証
@@ -20784,7 +20809,8 @@ function DayView(_ref57) {
                     var m = _bandMap[b], tot = m.ok + m.ng;
                     var wp = tot > 0 ? Math.round(m.ok / tot * 100) : null;
                     return React.createElement("tr", { key: b, style: { borderBottom: "1px solid #f5f4f0" } },
-                      React.createElement("td", { style: { padding: "3px 4px", color: "#666", whiteSpace: "nowrap" } }, b + "〜"),
+                      React.createElement("td", { style: { padding: "3px 4px", color: "#666", whiteSpace: "nowrap" } },
+                        (function() { var bi = _BANDS.indexOf(b); return b + "〜" + (_BANDS[bi + 1] || ""); })()),
                       React.createElement("td", { style: { padding: "3px 4px", textAlign: "center", whiteSpace: "nowrap" } },
                         React.createElement("span", { style: { color: "#15803D" } }, m.ok), "勝",
                         React.createElement("span", { style: { color: "#DC2626", marginLeft: 4 } }, m.ng), "敗",
@@ -20799,6 +20825,7 @@ function DayView(_ref57) {
         ]),
         _card([
           _hd("難易度別成績", "🏅"),
+          React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 600, marginBottom: 3 } }, "エントリー時"),
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
               React.createElement("tr", { style: { borderBottom: "1px solid #eee" } },
@@ -20824,10 +20851,37 @@ function DayView(_ref57) {
                       ? [React.createElement("span", { key: "o", style: { color: "#15803D" } }, m.ok), "勝",
                          React.createElement("span", { key: "n", style: { color: "#DC2626", marginLeft: 4 } }, m.ng), "敗",
                          wp != null ? React.createElement("span", { key: "w", style: { color: "#888", marginLeft: 4, fontSize: 10 } }, wp + "%") : null]
-                      : React.createElement("span", { style: { color: "#aaa" } }, "見送りのみ")
+                      : React.createElement("span", { style: { color: "#aaa" } }, "—")
                   ),
                   React.createElement("td", { style: { padding: "4px 4px", textAlign: "right", fontWeight: 600, color: _dtCol(m.sum), whiteSpace: "nowrap" } },
                     m.sum !== 0 ? _dtFmt(m.sum) : "—")
+                );
+              })
+            )
+          ),
+          React.createElement("div", { style: { fontSize: 10, color: "#666", fontWeight: 600, marginTop: 10, marginBottom: 3 } }, "見送り時"),
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+            React.createElement("thead", null,
+              React.createElement("tr", { style: { borderBottom: "1px solid #eee" } },
+                React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "難易度"),
+                React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "件数"),
+                React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "想定損益")
+              )
+            ),
+            React.createElement("tbody", null,
+              ["A","B","C"].map(function(dif) {
+                var m = _diffMap[dif]; if (m.skip === 0) return null;
+                var gs = _GRADE_STYLE[dif] || _GRADE_STYLE.Z;
+                return React.createElement("tr", { key: dif, style: { borderBottom: "1px solid #f5f4f0" } },
+                  React.createElement("td", { style: { padding: "4px 4px", textAlign: "center" } },
+                    React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: 18, height: 18, borderRadius: "50%",
+                      background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
+                      fontWeight: 800, fontSize: 10 } }, dif)
+                  ),
+                  React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", color: "#666" } }, m.skip, "件"),
+                  React.createElement("td", { style: { padding: "4px 4px", textAlign: "right", fontWeight: 600, color: _dtCol(m.skipPlan), whiteSpace: "nowrap" } },
+                    m.skipPlan !== 0 ? _dtFmt(m.skipPlan) : "—")
                 );
               })
             )
@@ -20866,36 +20920,59 @@ function DayView(_ref57) {
         _hd("シグナル分布", "🗓"),
         _hmStks.length === 0 || _hmBands.length === 0
           ? React.createElement("div", { style: { color: "#aaa", fontSize: 11 } }, "データなし")
-          : React.createElement("div", { style: { overflowX: "auto" } },
-              React.createElement("table", { style: { borderCollapse: "separate", borderSpacing: 2, fontSize: 10 } },
-                React.createElement("thead", null,
-                  React.createElement("tr", null,
-                    React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#888" } }, ""),
-                    _hmBands.map(function(b) {
-                      return React.createElement("th", { key: b, style: { padding: "2px 4px", fontWeight: 600, color: "#888", textAlign: "center", minWidth: 34, whiteSpace: "nowrap" } }, b);
+          : React.createElement("div", null,
+              React.createElement("div", { style: { overflowX: "auto" } },
+                React.createElement("table", { style: { borderCollapse: "separate", borderSpacing: 2, fontSize: 10 } },
+                  React.createElement("thead", null,
+                    React.createElement("tr", null,
+                      React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#888" } }, ""),
+                      _hmBands.map(function(b) {
+                        return React.createElement("th", { key: b, style: { padding: "2px 4px", fontWeight: 600, color: "#888", textAlign: "center", minWidth: 34, whiteSpace: "nowrap" } }, b);
+                      })
+                    )
+                  ),
+                  React.createElement("tbody", null,
+                    _hmStks.map(function(stk) {
+                      return React.createElement("tr", { key: stk },
+                        React.createElement("td", { style: { padding: "3px 6px", fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, stk),
+                        _hmBands.map(function(b) {
+                          var cells = _hmMap[stk + "_" + b] || [];
+                          if (cells.length === 0) return React.createElement("td", { key: b, style: { padding: "3px 4px", textAlign: "center", color: "#ddd", background: "#fafaf8", borderRadius: 3 } }, "·");
+                          var hasOk = cells.some(function(c) { return c.result === "ok" && c.entered; });
+                          var hasNg = cells.some(function(c) { return c.result === "ng" && c.entered; });
+                          var anyEnt = cells.some(function(c) { return c.entered; });
+                          var bg = hasOk && !hasNg ? "#DCFCE7" : hasNg && !hasOk ? "#FEE2E2" : anyEnt ? "#FEF9C3" : "#FFEDD5";
+                          var col = hasOk && !hasNg ? "#15803D" : hasNg && !hasOk ? "#DC2626" : anyEnt ? "#854D0E" : "#9A3412";
+                          var lbl = cells.length > 1 ? cells.length + "" : (anyEnt ? (hasOk ? "○" : hasNg ? "×" : "△") : "△");
+                          return React.createElement("td", { key: b, title: stk + " " + b + ": " + cells.length + "件",
+                            style: { padding: "3px 5px", textAlign: "center", background: bg, color: col,
+                              fontWeight: 700, borderRadius: 3, border: "1px solid #e8e5de" } }, lbl);
+                        })
+                      );
                     })
                   )
-                ),
-                React.createElement("tbody", null,
-                  _hmStks.map(function(stk) {
-                    return React.createElement("tr", { key: stk },
-                      React.createElement("td", { style: { padding: "3px 6px", fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, stk),
-                      _hmBands.map(function(b) {
-                        var cells = _hmMap[stk + "_" + b] || [];
-                        if (cells.length === 0) return React.createElement("td", { key: b, style: { padding: "3px 4px", textAlign: "center", color: "#ddd", background: "#fafaf8", borderRadius: 3 } }, "·");
-                        var hasOk = cells.some(function(c) { return c.result === "ok" && c.entered; });
-                        var hasNg = cells.some(function(c) { return c.result === "ng" && c.entered; });
-                        var anyEnt = cells.some(function(c) { return c.entered; });
-                        var bg = hasOk && !hasNg ? "#DCFCE7" : hasNg && !hasOk ? "#FEE2E2" : anyEnt ? "#FEF9C3" : "#FFEDD5";
-                        var col = hasOk && !hasNg ? "#15803D" : hasNg && !hasOk ? "#DC2626" : anyEnt ? "#854D0E" : "#9A3412";
-                        var lbl = cells.length > 1 ? cells.length + "" : (anyEnt ? (hasOk ? "○" : hasNg ? "×" : "△") : "△");
-                        return React.createElement("td", { key: b, title: stk + " " + b + ": " + cells.length + "件",
-                          style: { padding: "3px 5px", textAlign: "center", background: bg, color: col,
-                            fontWeight: 700, borderRadius: 3, border: "1px solid #e8e5de" } }, lbl);
-                      })
-                    );
-                  })
                 )
+              ),
+              React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "3px 12px", marginTop: 7, fontSize: 9, color: "#888", alignItems: "center" } },
+                [
+                  { bg: "#DCFCE7", col: "#15803D", lbl: "○", desc: "勝ち" },
+                  { bg: "#FEE2E2", col: "#DC2626", lbl: "×", desc: "負け" },
+                  { bg: "#FEF9C3", col: "#854D0E", lbl: "△", desc: "勝敗混在／結果未記録" },
+                  { bg: "#FFEDD5", col: "#9A3412", lbl: "△", desc: "見送り" },
+                  { bg: "#FEE2E2", col: "#DC2626", lbl: "2", desc: "複数シグナル（件数）" }
+                ].map(function(item, i) {
+                  return React.createElement("span", { key: i, style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+                    React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: 16, height: 14, background: item.bg, border: "1px solid #e8e5de", borderRadius: 2,
+                      color: item.col, fontWeight: 700, fontSize: 9 } }, item.lbl),
+                    item.desc
+                  );
+                }).concat([
+                  React.createElement("span", { key: "none", style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+                    React.createElement("span", { style: { color: "#ddd", fontWeight: 700 } }, "·"),
+                    "シグナルなし"
+                  )
+                ])
               )
             )
       ])
@@ -20925,18 +21002,7 @@ function DayView(_ref57) {
     },
     title: "📝 本日の総括",
     guardKey: "tradesSummary_" + date
-  })), /*#__PURE__*/React.createElement("div", {
-    style: Card
-  }, /*#__PURE__*/React.createElement(MemoSection, {
-    memo: dd.tradesMemo || {
-      text: "",
-      images: []
-    },
-    onChange: function onChange(v) {
-      return updDay("tradesMemo", v);
-    },
-    guardKey: "tradesMemo_" + date
-  }))));
+  })));
 }
 
 // ── Calendar（PC・スマホ共通：クリックでボトムシート、PCはホバープレビューも）──
