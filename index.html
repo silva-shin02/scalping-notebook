@@ -20179,33 +20179,19 @@ function DayView(_ref57) {
                   React.createElement("button", {
                     onClick: function(e) {
                       e.stopPropagation();
-                      var newSign = _cfSign === "+" ? null : "+";
+                      var newSign = _cfSign === "+" ? "-" : (_cfSign === "-" ? null : "+");
                       var upd = Object.assign({}, _cfS, { osConfSign: newSign });
                       if (newSign === "+") upd.result = "ng";
+                      else if (newSign === "-") upd.result = "ok";
                       _elSaveSignal(save, _cfR.stock, date, upd, false);
                     },
-                    style: { padding: "1px 4px", fontSize: 11,
-                      border: "1px solid " + (_cfSign === "+" ? "#C0392B" : "#ddd"),
-                      background: _cfSign === "+" ? "#FCEBEB" : "#fff",
-                      color: _cfSign === "+" ? "#C0392B" : "#999",
+                    style: { padding: "1px 6px", fontSize: 11,
+                      border: "1px solid " + (_cfSign === "+" ? "#C0392B" : _cfSign === "-" ? "#1E8449" : "#bbb"),
+                      background: _cfSign === "+" ? "#FCEBEB" : _cfSign === "-" ? "#EAF3DE" : "#f5f5f5",
+                      color: _cfSign === "+" ? "#C0392B" : _cfSign === "-" ? "#1E8449" : "#999",
                       borderRadius: 3, cursor: "pointer",
-                      fontWeight: _cfSign === "+" ? 700 : 400, lineHeight: 1.2 }
-                  }, "+"),
-                  React.createElement("button", {
-                    onClick: function(e) {
-                      e.stopPropagation();
-                      var newSign = _cfSign === "-" ? null : "-";
-                      var upd = Object.assign({}, _cfS, { osConfSign: newSign });
-                      if (newSign === "-") upd.result = "ok";
-                      _elSaveSignal(save, _cfR.stock, date, upd, false);
-                    },
-                    style: { padding: "1px 4px", fontSize: 11,
-                      border: "1px solid " + (_cfSign === "-" ? "#1E8449" : "#ddd"),
-                      background: _cfSign === "-" ? "#EAF3DE" : "#fff",
-                      color: _cfSign === "-" ? "#1E8449" : "#999",
-                      borderRadius: 3, cursor: "pointer",
-                      fontWeight: _cfSign === "-" ? 700 : 400, lineHeight: 1.2 }
-                  }, "-"),
+                      fontWeight: _cfSign ? 700 : 400, lineHeight: 1.2 }
+                  }, _cfSign || "\u00B1"),
                   React.createElement(FastInput, {
                     type: "text", inputMode: "decimal",
                     value: _cfS.osConfVal != null ? String(_cfS.osConfVal) : "",
@@ -24808,61 +24794,59 @@ function EntryRecordForm(_ref_erf) {
         placeholder: "",
         style: Object.assign({}, I, { marginBottom: 6 })
       }),
-      // OS値
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 8 } },
-        React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600, minWidth: 90 } }, "OS値"),
-        React.createElement("input", {
-          type: "text", inputMode: "decimal",
-          value: fOsVal,
-          onChange: function(e) { setFOsVal(_toHankaku(e.target.value)); },
-          onKeyDown: function(e) {
-            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-              e.preventDefault();
-              var _cur = _toHankaku(fOsVal).trim();
-              var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
-              setFOsVal(String(_n + (e.key === "ArrowUp" ? 1 : -1)));
-            }
-          },
-          placeholder: "0",
-          style: { width: 80, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", outline: "none" }
-        }),
-        React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "\u5186")
-      ),
-      // 確定値（水準線比）
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 8 } },
-        React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600, minWidth: 90 } }, "確定値（水準線比）"),
-        [["+", "#C0392B", "#FCEBEB"], ["-", "#1E8449", "#EAF3DE"]].map(function(sv) {
-          var on = fOsConfSign === sv[0];
-          return React.createElement("button", {
-            key: sv[0],
+      // OS値 + 確定値（水準線比）横並び
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 16, marginTop: 4, marginBottom: 8, flexWrap: "wrap" } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+          React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "OS値"),
+          React.createElement("input", {
+            type: "text", inputMode: "decimal",
+            value: fOsVal,
+            onChange: function(e) { setFOsVal(_toHankaku(e.target.value)); },
+            onKeyDown: function(e) {
+              if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                e.preventDefault();
+                var _cur = _toHankaku(fOsVal).trim();
+                var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
+                setFOsVal(String(_n + (e.key === "ArrowUp" ? 1 : -1)));
+              }
+            },
+            placeholder: "0",
+            style: { width: 52, padding: "6px 6px", fontSize: 13, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", outline: "none" }
+          }),
+          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "\u5186")
+        ),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+          React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "確定値（水準線比）"),
+          React.createElement("button", {
             onClick: function() {
-              var newSign = on ? null : sv[0];
+              var newSign = fOsConfSign === "+" ? "-" : (fOsConfSign === "-" ? null : "+");
               setFOsConfSign(newSign);
               if (newSign === "+") setFResult("ng");
               else if (newSign === "-") setFResult("ok");
             },
-            style: { padding: "6px 12px", fontSize: 13, fontWeight: on ? 700 : 400,
-              border: on ? "1.5px solid " + sv[1] : "1px solid #ddd",
-              background: on ? sv[2] : "#fff", color: on ? sv[1] : "#555",
-              borderRadius: 6, cursor: "pointer" }
-          }, sv[0]);
-        }),
-        React.createElement("input", {
-          type: "text", inputMode: "decimal",
-          value: fOsConfVal,
-          onChange: function(e) { setFOsConfVal(_toHankaku(e.target.value)); },
-          onKeyDown: function(e) {
-            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-              e.preventDefault();
-              var _cur = _toHankaku(fOsConfVal).trim();
-              var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
-              setFOsConfVal(String(_n + (e.key === "ArrowUp" ? 1 : -1)));
-            }
-          },
-          placeholder: "0",
-          style: { width: 80, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", outline: "none" }
-        }),
-        React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "\u5186")
+            style: { padding: "5px 10px", fontSize: 13, fontWeight: fOsConfSign ? 700 : 400,
+              border: "1px solid " + (fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#bbb"),
+              background: fOsConfSign === "+" ? "#FCEBEB" : fOsConfSign === "-" ? "#EAF3DE" : "#f5f4f0",
+              color: fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#999",
+              borderRadius: 5, cursor: "pointer", minWidth: 36 }
+          }, fOsConfSign || "\u00B1"),
+          React.createElement("input", {
+            type: "text", inputMode: "decimal",
+            value: fOsConfVal,
+            onChange: function(e) { setFOsConfVal(_toHankaku(e.target.value)); },
+            onKeyDown: function(e) {
+              if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                e.preventDefault();
+                var _cur = _toHankaku(fOsConfVal).trim();
+                var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
+                setFOsConfVal(String(_n + (e.key === "ArrowUp" ? 1 : -1)));
+              }
+            },
+            placeholder: "0",
+            style: { width: 52, padding: "6px 6px", fontSize: 13, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", outline: "none" }
+          }),
+          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "\u5186")
+        )
       ),
       // 結果
       React.createElement("div", { style: SH_ }, "結果"),
