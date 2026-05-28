@@ -20196,7 +20196,7 @@ function DayView(_ref57) {
                 _trTh("銘柄"),
                 _trTh("シグナル"),
                 _trTh("結果", { width: "1%" }),
-                _trTh("水準OS値", { width: "1%" }),
+                _trTh("OS値", { width: "1%" }),
                 _trTh("エントリー"),
                 _trTh("難易度", { width: "1%" }),
                 _trTh("実現損益"),
@@ -20554,7 +20554,7 @@ function DayView(_ref57) {
                   _rTh("銘柄", { width: "1%" }),
                   _rTh("時間", { width: "1%" }),
                   _rTh("シグナル"),
-                  _rTh("水準OS値", { width: "1%" }),
+                  _rTh("OS値", { width: "1%" }),
                   _rTh("E難易度", { width: "1%" }),
                   _rTh("勝敗", { width: "1%" }),
                   _rTh("区分", { width: "1%" }),
@@ -24511,7 +24511,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateTPD = useState(initSig.tpDifficulty || ""),
     _useStateTPDA = _slicedToArray(_useStateTPD, 2),
     fTpDifficulty = _useStateTPDA[0], setFTpDifficulty = _useStateTPDA[1];
-  // ── 水準OS値 ──
+  // ── OS値 ──
   var _useStateOSV = useState(initSig.osVal != null ? String(initSig.osVal) : ""),
     _useStateOSVA = _slicedToArray(_useStateOSV, 2),
     fOsVal = _useStateOSVA[0], setFOsVal = _useStateOSVA[1];
@@ -24733,9 +24733,9 @@ function EntryRecordForm(_ref_erf) {
           }, kv[0]);
         })
       ),
-      // 水準OS値
+      // OS値
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 8 } },
-        React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600, minWidth: 90 } }, "水準OS値"),
+        React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600, minWidth: 90 } }, "OS値"),
         React.createElement("input", {
           type: "text", inputMode: "decimal",
           value: fOsVal,
@@ -25952,7 +25952,7 @@ function EntryLogView(_ref_elv) {
                 React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } },
                   React.createElement("thead", null,
                     React.createElement("tr", null,
-                      _rTh("銘柄", { textAlign: "left" }), _rTh("時間"), _rTh("エントリー"), _rTh("シグナル"), _rTh("水準OS値"), _rTh("E難易度"),
+                      _rTh("銘柄", { textAlign: "left" }), _rTh("時間"), _rTh("エントリー"), _rTh("シグナル"), _rTh("OS値"), _rTh("E難易度"),
                       _rTh("実現損益"), _rTh("想定損益"), _rTh("最大損益")
                     )
                   ),
