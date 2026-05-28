@@ -24762,41 +24762,13 @@ function EntryRecordForm(_ref_erf) {
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
           React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "OS値（水準線比）"),
           React.createElement("input", {
-            type: "text", inputMode: "decimal",
+            type: "number", inputMode: "numeric", step: "1", min: "0",
             value: fOsVal,
-            onChange: function(e) { setFOsVal(_toHankaku(e.target.value)); },
-            onKeyDown: function(e) {
-              if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-                e.preventDefault();
-                var _cur = _toHankaku(fOsVal).trim();
-                var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
-                setFOsVal(String(_n + (e.key === "ArrowUp" ? 1 : -1)));
-              }
-            },
+            onChange: function(e) { setFOsVal(e.target.value); },
             placeholder: "0",
-            style: { width: 38, padding: "6px 4px", fontSize: 13, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", outline: "none" }
+            style: Object.assign({}, I, { width: 80, textAlign: "right" })
           }),
-          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "\u5186"),
-          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2 } },
-            React.createElement("button", {
-              type: "button",
-              onClick: function() {
-                var _cur = _toHankaku(fOsVal).trim();
-                var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
-                setFOsVal(String(_n + 1));
-              },
-              style: { fontSize: 10, lineHeight: 1, padding: "2px 6px", border: "1px solid #ccc", borderRadius: 4, background: "#f5f4f0", cursor: "pointer" }
-            }, "\u25b2"),
-            React.createElement("button", {
-              type: "button",
-              onClick: function() {
-                var _cur = _toHankaku(fOsVal).trim();
-                var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
-                setFOsVal(String(_n - 1));
-              },
-              style: { fontSize: 10, lineHeight: 1, padding: "2px 6px", border: "1px solid #ccc", borderRadius: 4, background: "#f5f4f0", cursor: "pointer" }
-            }, "\u25bc")
-          )
+          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "\u5186")
         ),
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
           React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "確定値（水準線比）"),
@@ -24812,41 +24784,13 @@ function EntryRecordForm(_ref_erf) {
               borderRadius: 5, cursor: "pointer", minWidth: 36 }
           }, fOsConfSign || "\u00B1"),
           React.createElement("input", {
-            type: "text", inputMode: "decimal",
+            type: "number", inputMode: "numeric", step: "1", min: "0",
             value: fOsConfVal,
-            onChange: function(e) { setFOsConfVal(_toHankaku(e.target.value)); },
-            onKeyDown: function(e) {
-              if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-                e.preventDefault();
-                var _cur = _toHankaku(fOsConfVal).trim();
-                var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
-                setFOsConfVal(String(_n + (e.key === "ArrowUp" ? 1 : -1)));
-              }
-            },
+            onChange: function(e) { setFOsConfVal(e.target.value); },
             placeholder: "0",
-            style: { width: 38, padding: "6px 4px", fontSize: 13, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", outline: "none" }
+            style: Object.assign({}, I, { width: 80, textAlign: "right" })
           }),
-          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "\u5186"),
-          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2 } },
-            React.createElement("button", {
-              type: "button",
-              onClick: function() {
-                var _cur = _toHankaku(fOsConfVal).trim();
-                var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
-                setFOsConfVal(String(_n + 1));
-              },
-              style: { fontSize: 10, lineHeight: 1, padding: "2px 6px", border: "1px solid #ccc", borderRadius: 4, background: "#f5f4f0", cursor: "pointer" }
-            }, "\u25b2"),
-            React.createElement("button", {
-              type: "button",
-              onClick: function() {
-                var _cur = _toHankaku(fOsConfVal).trim();
-                var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
-                setFOsConfVal(String(_n - 1));
-              },
-              style: { fontSize: 10, lineHeight: 1, padding: "2px 6px", border: "1px solid #ccc", borderRadius: 4, background: "#f5f4f0", cursor: "pointer" }
-            }, "\u25bc")
-          )
+          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "\u5186")
         )
       ),
       // 結果
@@ -24940,19 +24884,7 @@ function EntryRecordForm(_ref_erf) {
                   placeholder: "100",
                   style: Object.assign({}, I, { width: 140, textAlign: "right" })
                 }),
-                React.createElement("span", { style: { fontSize: 12, color: "#666" } }, "株"),
-                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2 } },
-                  React.createElement("button", {
-                    type: "button",
-                    onClick: function() { setFShares(function(v) { return String((parseInt(v) || 0) + 100); }); },
-                    style: { fontSize: 10, lineHeight: 1, padding: "2px 8px", border: "1px solid #ccc", borderRadius: 4, background: "#f5f4f0", cursor: "pointer" }
-                  }, "▲"),
-                  React.createElement("button", {
-                    type: "button",
-                    onClick: function() { setFShares(function(v) { return String(Math.max(0, (parseInt(v) || 0) - 100)); }); },
-                    style: { fontSize: 10, lineHeight: 1, padding: "2px 8px", border: "1px solid #ccc", borderRadius: 4, background: "#f5f4f0", cursor: "pointer" }
-                  }, "▼")
-                )
+                React.createElement("span", { style: { fontSize: 12, color: "#666" } }, "株")
               )
             )
           ),
