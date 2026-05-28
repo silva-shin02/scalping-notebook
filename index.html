@@ -6746,8 +6746,19 @@ function FastInput(_props_fi) {
     if (autoResize && multiline && ref.current) _fiAutoResize(ref.current);
   });
 
+  var transformInput = _props_fi.transformInput || null;
   var handleInput = function(e) {
-    pending.current = e.target.value;
+    var _fi_v = e.target.value;
+    if (transformInput) {
+      var _fi_vt = transformInput(_fi_v);
+      if (_fi_vt !== _fi_v) {
+        var _fi_pos = e.target.selectionEnd;
+        e.target.value = _fi_vt;
+        try { e.target.setSelectionRange(_fi_pos, _fi_pos); } catch(_) {}
+        _fi_v = _fi_vt;
+      }
+    }
+    pending.current = _fi_v;
     if (debounceMs > 0) {
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(commit, debounceMs);
@@ -6787,7 +6798,7 @@ function FastInput(_props_fi) {
   Object.keys(_props_fi).forEach(function(k) {
     if (k === "value" || k === "onChange" || k === "multiline" || k === "debounceMs" ||
         k === "onBlur" || k === "onFocus" || k === "onInput" || k === "defaultValue" ||
-        k === "inputRef" || k === "ref" || k === "autoResize") return;
+        k === "inputRef" || k === "ref" || k === "autoResize" || k === "transformInput") return;
     passProps[k] = _props_fi[k];
   });
   passProps.ref = setRef;
@@ -6990,6 +7001,11 @@ function RichTextEditor(_ref12) {
       s.addRange(savedRange.current);
     }
     document.execCommand(cmd, false, val || null);
+    // ★ コマンド実行後も選択を維持して連続適用できるようにする
+    var _sSel = window.getSelection();
+    if (_sSel && _sSel.rangeCount && _sSel.toString().length) {
+      savedRange.current = _sSel.getRangeAt(0).cloneRange();
+    }
     lastVal.current = ref.current.innerHTML;
     onChange(ref.current.innerHTML);
   };
@@ -10938,6 +10954,7 @@ function _NikkeiManualInput(_p) {
         onChange: commitClose,
         debounceMs: 86400000,
         placeholder: "0",
+        transformInput: _toHankaku,
         onKeyDown: function(e) { if (e.key === "Enter") { e.target.__fiCommit && e.target.__fiCommit(); e.target.blur(); } },
         style: {
           width: 90, fontSize: 12, padding: "3px 6px",
@@ -10974,6 +10991,7 @@ function _NikkeiManualInput(_p) {
         onChange: commitChange,
         debounceMs: 86400000,
         placeholder: "0",
+        transformInput: _toHankaku,
         onKeyDown: function(e) { if (e.key === "Enter") { e.target.__fiCommit && e.target.__fiCommit(); e.target.blur(); } },
         style: {
           width: 70, fontSize: 12, padding: "3px 6px",
@@ -12332,11 +12350,24 @@ function _FMSparkline(_p) {
     dateRow
   );
 }
-function _fmToHalfWidth(s) {
-  return (s || "").replace(/[０-９．]/g, function(c){
-    return c === "．" ? "." : String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
-  });
+function _toHankaku(s) {
+  // 全角→半角変換（数値入力欄用）
+  return (s || "").split("").map(function(c) {
+    var code = c.charCodeAt(0);
+    // 全角ASCII変換 (！～ → !~)
+    if (code >= 0xFF01 && code <= 0xFF5E) return String.fromCharCode(code - 0xFEE0);
+    // 全角スペース
+    if (code === 0x3000) return " ";
+    // 句点「。」→「.」
+    if (code === 0x3002) return ".";
+    // 読点「、」→「,」
+    if (code === 0x3001) return ",";
+    // 長音符「ー」→「-」
+    if (code === 0x30FC) return "-";
+    return c;
+  }).join("");
 }
+function _fmToHalfWidth(s) { return _toHankaku(s); }
 // 数値入力セル: ローカルstate管理・全角→半角変換付き
 function _FMValueInput(_p) {
   var initVal = _p.initVal, onCommit = _p.onCommit, onEnter = _p.onEnter;
@@ -20203,104 +20234,6 @@ function DayView(_ref57) {
       }, _trSuccessCount, "勝", _trFailCount, "敗"))
     )
   ),
-  // ── シグナル分布（エントリー記録直下） ──
-  (function() {
-    var _trHmCharts = data.charts || {};
-    var _trHmItems = dd.items || [];
-    var _TRBANDS = ["9:00","9:15","9:30","9:45","10:00","10:15","10:30","10:45","11:00","11:15","11:30","11:45","12:00","12:15","12:30","12:45","13:00","13:15","13:30","13:45","14:00","14:15","14:30","14:45","15:00"];
-    var _trBk = function(t) {
-      if (!t || t === "99:99") return null;
-      var pts = t.split(":"), mins = parseInt(pts[0]) * 60 + parseInt(pts[1] || 0);
-      for (var bi = _TRBANDS.length - 2; bi >= 0; bi--) {
-        var bp = _TRBANDS[bi].split(":"), bm = parseInt(bp[0]) * 60 + parseInt(bp[1]);
-        if (mins >= bm) return _TRBANDS[bi];
-      }
-      return _TRBANDS[0];
-    };
-    var _trHmMap = {}, _trHmUsed = {};
-    var _trHmStks = allStocks.filter(function(stk) {
-      var c = _trHmCharts[stk + "_" + date] || {};
-      return Array.isArray(c.signals) && c.signals.length > 0;
-    });
-    if (!_trHmStks.length) return null;
-    _trHmStks.forEach(function(stk) {
-      var sigs = (_trHmCharts[stk + "_" + date] || {}).signals || [];
-      sigs.forEach(function(sig) {
-        var s = _compatSignal(sig);
-        var item = null;
-        if (s.itemId != null) {
-          for (var _ij = 0; _ij < _trHmItems.length; _ij++) {
-            if (String(_trHmItems[_ij].id) === String(s.itemId)) { item = _trHmItems[_ij]; break; }
-          }
-        }
-        var entered = _elIsEntered(s, item);
-        var bk = _trBk(s.time || "99:99"); if (!bk) return;
-        var key = stk + "_" + bk;
-        if (!_trHmMap[key]) _trHmMap[key] = [];
-        _trHmMap[key].push({ result: s.result, entered: entered });
-        _trHmUsed[bk] = true;
-      });
-    });
-    var _trHmBands = _TRBANDS.filter(function(b) { return _trHmUsed[b]; });
-    if (!_trHmBands.length) return null;
-    var _trHmLegend = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "3px 12px", marginTop: 7, fontSize: 9, color: "#888", alignItems: "center" } },
-      [
-        { bg: "#DCFCE7", col: "#15803D", lbl: "○", desc: "勝ち" },
-        { bg: "#FEE2E2", col: "#DC2626", lbl: "×", desc: "負け" },
-        { bg: "#FEF9C3", col: "#854D0E", lbl: "△", desc: "勝敗混在／結果未記録" },
-        { bg: "#FFEDD5", col: "#9A3412", lbl: "△", desc: "見送り" },
-        { bg: "#FEE2E2", col: "#DC2626", lbl: "2", desc: "複数シグナル（件数）" }
-      ].map(function(item, i) {
-        return React.createElement("span", { key: i, style: { display: "inline-flex", alignItems: "center", gap: 3 } },
-          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 16, height: 14, background: item.bg, border: "1px solid #e8e5de", borderRadius: 2,
-            color: item.col, fontWeight: 700, fontSize: 9 } }, item.lbl),
-          item.desc
-        );
-      }).concat([
-        React.createElement("span", { key: "none", style: { display: "inline-flex", alignItems: "center", gap: 3 } },
-          React.createElement("span", { style: { color: "#ddd", fontWeight: 700 } }, "·"),
-          "シグナルなし"
-        )
-      ])
-    );
-    return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 10, color: "#333" } }, "🗓 シグナル分布"),
-      React.createElement("div", { style: { overflowX: "auto" } },
-        React.createElement("table", { style: { borderCollapse: "separate", borderSpacing: 2, fontSize: 10 } },
-          React.createElement("thead", null,
-            React.createElement("tr", null,
-              React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#888" } }, ""),
-              _trHmBands.map(function(b) {
-                return React.createElement("th", { key: b, style: { padding: "2px 4px", fontWeight: 600, color: "#888", textAlign: "center", minWidth: 34, whiteSpace: "nowrap" } }, b);
-              })
-            )
-          ),
-          React.createElement("tbody", null,
-            _trHmStks.map(function(stk) {
-              return React.createElement("tr", { key: stk },
-                React.createElement("td", { style: { padding: "3px 6px", fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, stk),
-                _trHmBands.map(function(b) {
-                  var cells = _trHmMap[stk + "_" + b] || [];
-                  if (cells.length === 0) return React.createElement("td", { key: b, style: { padding: "3px 4px", textAlign: "center", color: "#ddd", background: "#fafaf8", borderRadius: 3 } }, "·");
-                  var hasOk = cells.some(function(c) { return c.result === "ok" && c.entered; });
-                  var hasNg = cells.some(function(c) { return c.result === "ng" && c.entered; });
-                  var anyEnt = cells.some(function(c) { return c.entered; });
-                  var bg = hasOk && !hasNg ? "#DCFCE7" : hasNg && !hasOk ? "#FEE2E2" : anyEnt ? "#FEF9C3" : "#FFEDD5";
-                  var col = hasOk && !hasNg ? "#15803D" : hasNg && !hasOk ? "#DC2626" : anyEnt ? "#854D0E" : "#9A3412";
-                  var lbl = cells.length > 1 ? cells.length + "" : (anyEnt ? (hasOk ? "○" : hasNg ? "×" : "△") : "△");
-                  return React.createElement("td", { key: b, title: stk + " " + b + ": " + cells.length + "件",
-                    style: { padding: "3px 5px", textAlign: "center", background: bg, color: col,
-                      fontWeight: 700, borderRadius: 3, border: "1px solid #e8e5de" } }, lbl);
-                })
-              );
-            })
-          )
-        )
-      ),
-      _trHmLegend
-    );
-  })(),
   // ── 銘柄別損益集計テーブル（全シグナル対象）──
   (function() {
     // 当日の全銘柄・全シグナルを収集（エントリー有無を問わない）
@@ -20677,6 +20610,23 @@ function DayView(_ref57) {
       )
     );
   })(),
+  /*#__PURE__*/React.createElement("div", {
+    style: Card
+  },
+  /*#__PURE__*/React.createElement(MemoSection, {
+    memo: dd.tradesSummaryMemo || (dd.summary
+      ? { text: (dd.summary || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"), images: [] }
+      : { text: "", images: [] }),
+    onChange: function onChange(v) {
+      // tradesSummaryMemo を新規フィールドとして保存。旧 summary フィールドは空にしておく
+      // (互換: 旧 summary が残っていても次回読み込み時 tradesSummaryMemo 優先で表示される)
+      updDay("tradesSummaryMemo", v);
+      // 旧 summary の二重表示を防ぐためクリア
+      if (dd.summary) updDay("summary", "");
+    },
+    title: "📝 本日の総括",
+    guardKey: "tradesSummary_" + date
+  })),
   // ── 本日のデータ ──
   (function() {
     var _dtCharts = data.charts || {};
@@ -21015,24 +20965,7 @@ function DayView(_ref57) {
       ? { stock: tradeEditTarget.stock, date: tradeEditTarget.date, signal: tradeEditTarget.signal }
       : { date: date, stock: allStocks[0] || "" },
     onClose: function() { setShowForm(false); setTradeEditTarget(null); }
-  }),
-  /*#__PURE__*/React.createElement("div", {
-    style: Card
-  },
-  /*#__PURE__*/React.createElement(MemoSection, {
-    memo: dd.tradesSummaryMemo || (dd.summary
-      ? { text: (dd.summary || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"), images: [] }
-      : { text: "", images: [] }),
-    onChange: function onChange(v) {
-      // tradesSummaryMemo を新規フィールドとして保存。旧 summary フィールドは空にしておく
-      // (互換: 旧 summary が残っていても次回読み込み時 tradesSummaryMemo 優先で表示される)
-      updDay("tradesSummaryMemo", v);
-      // 旧 summary の二重表示を防ぐためクリア
-      if (dd.summary) updDay("summary", "");
-    },
-    title: "📝 本日の総括",
-    guardKey: "tradesSummary_" + date
-  }))));
+  })));
 }
 
 // ── Calendar（PC・スマホ共通：クリックでボトムシート、PCはホバープレビューも）──
