@@ -10776,7 +10776,7 @@ function EntrySignalSection(_ref_es) {
                   s.time || "—"
                 ),
                 React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sigLabel),
-                React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
+                React.createElement("td", { style: { padding: "4px 2px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
                 React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
                 React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%",
                   color: s.difficulty ? (s.difficulty === "A" ? "#B71C1C" : s.difficulty === "B" ? "#C62828" : "#666") : "#ccc",
@@ -20134,7 +20134,7 @@ function DayView(_ref57) {
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sigLabel),
-            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
+            React.createElement("td", { style: { padding: "4px 2px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
             React.createElement("td", {
               style: { padding: "1px 2px", textAlign: "right", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", minWidth: 52 },
               onClick: function(e) { e.stopPropagation(); }
@@ -20152,7 +20152,17 @@ function DayView(_ref57) {
                     var n = _ov === "" ? null : (isNaN(Number(_ov)) ? null : Number(_ov));
                     _elSaveSignal(save, _osR.stock, date, Object.assign({}, _osS, { osVal: n }), false);
                   },
-                  onKeyDown: function(e) { if (e.key === "Enter") { e.target.__fiCommit && e.target.__fiCommit(); e.target.blur(); } },
+                  onKeyDown: function(e) {
+                    if (e.key === "Enter") { e.target.__fiCommit && e.target.__fiCommit(); e.target.blur(); return; }
+                    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                      var _cur = _toHankaku(e.target.value).trim();
+                      var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
+                      var _newN = _n + (e.key === "ArrowUp" ? 1 : -1);
+                      e.target.value = String(_newN);
+                      _elSaveSignal(save, _osR.stock, date, Object.assign({}, _osS, { osVal: _newN }), false);
+                    }
+                  },
                   style: { width: "100%", fontSize: 11, border: "none", outline: "none",
                     textAlign: "right", padding: "3px 4px", background: "transparent",
                     fontVariantNumeric: "tabular-nums" }
@@ -24740,6 +24750,14 @@ function EntryRecordForm(_ref_erf) {
           type: "text", inputMode: "decimal",
           value: fOsVal,
           onChange: function(e) { setFOsVal(_toHankaku(e.target.value)); },
+          onKeyDown: function(e) {
+            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+              e.preventDefault();
+              var _cur = _toHankaku(fOsVal).trim();
+              var _n = _cur === "" ? 0 : (isNaN(Number(_cur)) ? 0 : Number(_cur));
+              setFOsVal(String(_n + (e.key === "ArrowUp" ? 1 : -1)));
+            }
+          },
           placeholder: "0",
           style: { width: 80, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", outline: "none" }
         }),
