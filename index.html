@@ -28527,13 +28527,19 @@ function useModalBack(open, onClose, token) {
     return function() {
       window.removeEventListener("popstate", onPop);
       if (!closedByPop.v) {
-        try {
-          if (window.history.state && window.history.state._sn === myToken) {
-            // App側のpopstateリスナーに「これはモーダル閉じ動作によるbackなのでビュー状態を変えるな」と伝える
-            window._sn_internalBack = true;
-            window.history.back();
-          }
-        } catch(e) {}
+        // ★ setTimeout(0) で defer: 同フレーム内で別モーダルが pushState した場合に
+        //   そのトークンを確認してから back() を判断する。
+        //   「保存直後に別画像をタップ」するとAのback()がBのエントリーを誤って消し
+        //   Bが即閉じる or 履歴が枯渇してページリロードになる問題を防ぐ。
+        var _backToken = myToken;
+        setTimeout(function() {
+          try {
+            if (window.history.state && window.history.state._sn === _backToken) {
+              window._sn_internalBack = true;
+              window.history.back();
+            }
+          } catch(e) {}
+        }, 0);
       }
     };
   }, [open]);
