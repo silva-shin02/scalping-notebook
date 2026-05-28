@@ -10228,7 +10228,7 @@ function EntrySignalSection(_ref_es) {
       showAddForm = _useStateES2A[0], setShowAddForm = _useStateES2A[1];
   // ── 並び替え state (チャート内 EntrySignalSection 用) ──
   var _useStateESS = useState(function() {
-    try { var v = localStorage.getItem('sn_chartentry_sortmode'); return (v === "custom" || v === "category") ? v : "time"; }
+    try { var v = localStorage.getItem('sn_chartentry_sortmode'); return (v === "custom" || v === "category" || v === "difficulty") ? v : "time"; }
     catch(e) { return "time"; }
   }), _useStateESSA = _slicedToArray(_useStateESS, 2),
       sortMode = _useStateESSA[0], setSortMode = _useStateESSA[1];
@@ -10301,11 +10301,26 @@ function EntrySignalSection(_ref_es) {
     });
   };
 
+  var _DIFF_RANK = { A: 0, B: 1, C: 2 };
+  var _esSortByDifficulty = function(recs) {
+    return recs.slice().sort(function(a, b) {
+      var da = (a.signal && a.signal.difficulty) || "";
+      var db = (b.signal && b.signal.difficulty) || "";
+      var ra = _DIFF_RANK[da] != null ? _DIFF_RANK[da] : 99;
+      var rb = _DIFF_RANK[db] != null ? _DIFF_RANK[db] : 99;
+      if (ra !== rb) return ra - rb;
+      var ta = (a.signal && a.signal.time) || "99:99";
+      var tb = (b.signal && b.signal.time) || "99:99";
+      if (ta !== tb) return ta.localeCompare(tb);
+      return ((a.signal && a.signal.id) || "").localeCompare((b.signal && b.signal.id) || "");
+    });
+  };
   var _sortResult = useMemo(function() {
     var sr = records, gr = null;
     if (sortMode === "time") sr = _esSortByTime(records);
     else if (sortMode === "custom") sr = _esSortByOrder(records, c.signalsOrder || []);
     else if (sortMode === "category") gr = _esGroupByCategory(records);
+    else if (sortMode === "difficulty") sr = _esSortByDifficulty(records);
     return [sr, gr];
   }, [records, sortMode, c.signalsOrder, signalTagsMaster]); // eslint-disable-line
   var sortedRecs = _sortResult[0];
@@ -10679,7 +10694,7 @@ function EntrySignalSection(_ref_es) {
       })(),
       records.length >= 2 && React.createElement("span", { style: { color: "#666", fontWeight: 600, flexShrink: 0 } }, "並び替え:"),
       records.length >= 2 && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
-        [["time", "⏱ 時間順"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
+        [["time", "⏱ 時間順"], ["difficulty", "🎯 E難易度順"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
           var val = kv[0], lbl = kv[1];
           var on = sortMode === val;
           return React.createElement("button", {
