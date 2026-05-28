@@ -20404,6 +20404,51 @@ function DayView(_ref57) {
         ) : null
       );
     };
+    // ★ 実現損益: B以上ランクを主表示、全体ランクを括弧サブ表示（_pbABAll と同じ構造）
+    var _pbRealABAll = function(recs) {
+      if (!recs || !recs.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+      var abRecs = recs.filter(function(r) {
+        var d = r.signal && r.signal.difficulty;
+        return d === "A" || d === "B";
+      });
+      var allSt = _elCalcStats(recs);
+      var abSt  = abRecs.length > 0 ? _elCalcStats(abRecs) : null;
+      // 生合計（_profitGradeFromPnlReal 用 — 未正規化の実際の損益合計）
+      var _rawPnl = function(rs) {
+        return rs.reduce(function(a, r) {
+          var v = (r.item && r.item.pnl != null) ? Number(r.item.pnl)
+                : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign);
+          return a + (v != null ? v : 0);
+        }, 0);
+      };
+      var _entCnt = function(rs) { return rs.filter(function(r) { return _elIsEntered(r.signal, r.item); }).length; };
+      var allRaw = _rawPnl(recs), allEnt = _entCnt(recs);
+      var abRaw  = _rawPnl(abRecs), abEnt  = _entCnt(abRecs);
+      if (allSt.sumPnl === 0 && allEnt === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+      var abGrade  = abEnt  > 0 ? _profitGradeFromPnlReal(abRaw,  abEnt)  : null;
+      var allGrade = allEnt > 0 ? _profitGradeFromPnlReal(allRaw, allEnt) : null;
+      var mainGrade = abEnt > 0 ? abGrade  : allGrade;
+      var mainSum   = abEnt > 0 ? (abSt ? abSt.sumPnl : 0) : allSt.sumPnl;
+      var allSum    = allSt.sumPnl;
+      var _mkSm = function(g) {
+        var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
+        return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color,
+          border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
+      };
+      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+        mainGrade ? _pbBadge(mainGrade) : null,
+        React.createElement("span", { style: { fontWeight: 600, color: _pbCol(mainSum) } }, _pbFmt(mainSum)),
+        abEnt > 0 && mainSum !== allSum
+          ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+              React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
+              allGrade ? _mkSm(allGrade) : null,
+              React.createElement("span", { style: { color: _pbCol(allSum), fontSize: 10 } }, _pbFmt(allSum)),
+              React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, ")")
+            )
+          : null
+      );
+    };
     var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey, tags, recs) {
       var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
       var bt = isTotal ? "2px solid #ccc" : "none";
@@ -20431,7 +20476,7 @@ function DayView(_ref57) {
           color: st.winPct != null ? (st.winPct >= 60 ? "#C0392B" : st.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
           fontWeight: st.winPct != null ? 700 : 400 } }, st.winPct != null ? st.winPct + "%" : "—"),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
-          _pbSlash(st.sumPnl, st.expected, gradeReal)),
+          _pbRealABAll(recs)),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           _pbABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned")),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
