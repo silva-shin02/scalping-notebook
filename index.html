@@ -20427,8 +20427,9 @@ function DayView(_ref57) {
       if (allSt.sumPnl === 0 && allEnt === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
       var abGrade  = abEnt  > 0 ? _profitGradeFromPnlReal(abRaw,  abEnt)  : null;
       var allGrade = allEnt > 0 ? _profitGradeFromPnlReal(allRaw, allEnt) : null;
-      var mainGrade = abEnt > 0 ? abGrade  : allGrade;
-      var mainSum   = abEnt > 0 ? (abSt ? abSt.sumPnl : 0) : allSt.sumPnl;
+      // B以上なし → 主表示は D/0円固定。B以上あり → AB grade+sum
+      var mainGrade = abEnt > 0 ? abGrade : "D";
+      var mainSum   = abEnt > 0 ? (abSt ? abSt.sumPnl : 0) : 0;
       var allSum    = allSt.sumPnl;
       var _mkSm = function(g) {
         var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
@@ -20437,9 +20438,10 @@ function DayView(_ref57) {
           border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
       };
       return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-        mainGrade ? _pbBadge(mainGrade) : null,
+        _pbBadge(mainGrade),
         React.createElement("span", { style: { fontWeight: 600, color: _pbCol(mainSum) } }, _pbFmt(mainSum)),
-        abEnt > 0 && mainSum !== allSum
+        // 括弧サブ: B以上なし・あり問わず全体ランクを常に表示
+        allEnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
               React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
               allGrade ? _mkSm(allGrade) : null,
