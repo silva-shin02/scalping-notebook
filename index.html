@@ -20196,7 +20196,7 @@ function DayView(_ref57) {
                 _trTh("銘柄"),
                 _trTh("シグナル"),
                 _trTh("結果", { width: "1%" }),
-                _trTh("水準線OS", { width: "1%" }),
+                _trTh("水準OS値", { width: "1%" }),
                 _trTh("エントリー"),
                 _trTh("難易度", { width: "1%" }),
                 _trTh("実現損益"),
@@ -20466,6 +20466,8 @@ function DayView(_ref57) {
             s.time || "—"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", color: "#555" } },
             (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])).join(" / ") || "—"),
+          React.createElement("td", { style: { padding: "4px 6px", textAlign: "right", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%", color: "#555" } },
+            s.osVal != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, (s.osVal > 0 ? "+" : "") + s.osVal + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "5px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             s.difficulty ? _pbBadge(s.difficulty) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
@@ -20487,7 +20489,7 @@ function DayView(_ref57) {
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
-            React.createElement("td", { colSpan: 10, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+            React.createElement("td", { colSpan: 11, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
               React.createElement(EntryLogCard, {
                 record: r,
                 onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); }
@@ -20523,7 +20525,7 @@ function DayView(_ref57) {
         );
       };
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
-        React.createElement("td", { colSpan: 7, style: { padding: "5px 8px", textAlign: "center", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計"),
+        React.createElement("td", { colSpan: 8, style: { padding: "5px 8px", textAlign: "center", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計"),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDisp(_totReal, _totRealGrade)),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDispABAllPb(_totMaxABpb, _totMax, _totMaxGradeABpb, _totMaxGrade))
@@ -20552,6 +20554,7 @@ function DayView(_ref57) {
                   _rTh("銘柄", { width: "1%" }),
                   _rTh("時間", { width: "1%" }),
                   _rTh("シグナル"),
+                  _rTh("水準OS値", { width: "1%" }),
                   _rTh("E難易度", { width: "1%" }),
                   _rTh("勝敗", { width: "1%" }),
                   _rTh("区分", { width: "1%" }),
@@ -24508,7 +24511,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateTPD = useState(initSig.tpDifficulty || ""),
     _useStateTPDA = _slicedToArray(_useStateTPD, 2),
     fTpDifficulty = _useStateTPDA[0], setFTpDifficulty = _useStateTPDA[1];
-  // ── 水準線OS値 ──
+  // ── 水準OS値 ──
   var _useStateOSV = useState(initSig.osVal != null ? String(initSig.osVal) : ""),
     _useStateOSVA = _slicedToArray(_useStateOSV, 2),
     fOsVal = _useStateOSVA[0], setFOsVal = _useStateOSVA[1];
@@ -24730,9 +24733,9 @@ function EntryRecordForm(_ref_erf) {
           }, kv[0]);
         })
       ),
-      // 水準線OS値
+      // 水準OS値
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 8 } },
-        React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600, minWidth: 90 } }, "\u6C34\u6E96\u7AFCOS\u5024"),
+        React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600, minWidth: 90 } }, "水準OS値"),
         React.createElement("input", {
           type: "text", inputMode: "decimal",
           value: fOsVal,
@@ -25949,7 +25952,7 @@ function EntryLogView(_ref_elv) {
                 React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } },
                   React.createElement("thead", null,
                     React.createElement("tr", null,
-                      _rTh("銘柄", { textAlign: "left" }), _rTh("時間"), _rTh("エントリー"), _rTh("シグナル"), _rTh("水準線OS"), _rTh("E難易度"),
+                      _rTh("銘柄", { textAlign: "left" }), _rTh("時間"), _rTh("エントリー"), _rTh("シグナル"), _rTh("水準OS値"), _rTh("E難易度"),
                       _rTh("実現損益"), _rTh("想定損益"), _rTh("最大損益")
                     )
                   ),
