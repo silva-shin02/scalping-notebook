@@ -26079,7 +26079,24 @@ function EntryLogView(_ref_elv) {
             var ds2 = curM + "-" + pad2(i);
             if (dow2 >= 1 && dow2 <= 5 && ds2 <= todayStr) result.push(ds2);
           }
-          return calTblSort === "asc" ? result : result.reverse();
+          if (calTblSort === "asc") return result;
+          if (calTblSort === "difficulty") {
+            var _gRkD = { A:0, B:1, C:2 };
+            return result.slice().sort(function(a, b) {
+              var raA = byDate[a] || [], raB = byDate[b] || [];
+              var rkA = raA.reduce(function(best, r) {
+                var d = r.signal && r.signal.difficulty;
+                var rk = _gRkD[d]; return (rk != null && rk < best) ? rk : best;
+              }, 99);
+              var rkB = raB.reduce(function(best, r) {
+                var d = r.signal && r.signal.difficulty;
+                var rk = _gRkD[d]; return (rk != null && rk < best) ? rk : best;
+              }, 99);
+              if (rkA !== rkB) return rkA - rkB;
+              return a.localeCompare(b);
+            });
+          }
+          return result.reverse();
         })();
         var _tTh = function(label, extra) {
           return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%", textAlign: "center" }, extra || {}) }, label);
@@ -26353,7 +26370,7 @@ function EntryLogView(_ref_elv) {
         })();
         var sortToggle = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
           React.createElement("span", { style: { fontSize: 10, color: "#888", fontWeight: 700 } }, "並び替え:"),
-          [["desc", "新しい順"], ["asc", "古い順"]].map(function(kv) {
+          [["desc", "新しい順"], ["asc", "古い順"], ["difficulty", "🎯 E難易度順"]].map(function(kv) {
             var on = calTblSort === kv[0];
             return React.createElement("button", { key: kv[0],
               onClick: function() { setCalTblSort(kv[0]); },
@@ -26562,6 +26579,22 @@ function EntryLogView(_ref_elv) {
         var d = cur.getDay();
         if (d >= 1 && d <= 5) result.push(_localDateStr(cur));
         cur.setDate(cur.getDate() + 1);
+      }
+      if (svDateSort === "difficulty") {
+        var _gRkSv = { A:0, B:1, C:2 };
+        return result.slice().sort(function(a, b) {
+          var raA = byDate[a] || [], raB = byDate[b] || [];
+          var rkA = raA.reduce(function(best, r) {
+            var d = r.signal && r.signal.difficulty;
+            var rk = _gRkSv[d]; return (rk != null && rk < best) ? rk : best;
+          }, 99);
+          var rkB = raB.reduce(function(best, r) {
+            var d = r.signal && r.signal.difficulty;
+            var rk = _gRkSv[d]; return (rk != null && rk < best) ? rk : best;
+          }, 99);
+          if (rkA !== rkB) return rkA - rkB;
+          return a.localeCompare(b);
+        });
       }
       return result.sort(function(a, b) { return svDateSort === "desc" ? b.localeCompare(a) : a.localeCompare(b); });
     })();
@@ -26869,7 +26902,7 @@ function EntryLogView(_ref_elv) {
     // 並び替えトグル
     var sortToggle = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 10, color: "#888", fontWeight: 700 } }, "並び替え:"),
-      [["desc", "新しい順"], ["asc", "古い順"]].map(function(kv) {
+      [["desc", "新しい順"], ["asc", "古い順"], ["difficulty", "🎯 E難易度順"]].map(function(kv) {
         var on = svDateSort === kv[0];
         return React.createElement("button", { key: kv[0],
           onClick: function() { setSvDateSort(kv[0]); },
