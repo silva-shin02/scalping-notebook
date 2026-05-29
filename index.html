@@ -28643,6 +28643,11 @@ function EntryLogView(_ref_elv) {
 // - open が true になる瞬間に pushState で履歴追加
 // - popstate 発火 → onClose 呼び出し（履歴は既に消費済み）
 // - onClose 以外の方法（ボタン等）で open=false になった場合は history.back() で履歴消費
+//
+// ★ 多重モーダル時の誤発火防止:
+//   cleanup の back() は「自分のエントリを掃除するだけ」の内部操作であり、
+//   他のモーダルの onPop を誤発火させてはならない。
+//   _sn_cleanupBack フラグで cleanup 起因の popstate を識別し、onPop でスキップする。
 function useModalBack(open, onClose, token) {
   useEffect(function() {
     if (!open) return undefined;
@@ -28650,6 +28655,9 @@ function useModalBack(open, onClose, token) {
     try { window.history.pushState({ _sn: myToken }, ""); } catch(e) {}
     var closedByPop = { v: false };
     var onPop = function() {
+      // ★ 別モーダルのcleanupが history.back() したとき発生する popstate は無視する。
+      //    これにより「注釈モーダルを保存→ビューアーが誤って閉じる」問題を防ぐ。
+      if (window._sn_cleanupBack) return;
       closedByPop.v = true;
       try { onClose(); } catch(e) {}
     };
@@ -28657,16 +28665,20 @@ function useModalBack(open, onClose, token) {
     return function() {
       window.removeEventListener("popstate", onPop);
       if (!closedByPop.v) {
-        // ★ setTimeout(0) で defer: 同フレーム内で別モーダルが pushState した場合に
-        //   そのトークンを確認してから back() を判断する。
-        //   「保存直後に別画像をタップ」するとAのback()がBのエントリーを誤って消し
-        //   Bが即閉じる or 履歴が枯渇してページリロードになる問題を防ぐ。
         var _backToken = myToken;
         setTimeout(function() {
           try {
             if (window.history.state && window.history.state._sn === _backToken) {
+              // ★ onPopCapture (ImageAnnotator 確認ダイアログ抑止) と
+              //    onPop (他モーダルの誤発火抑止) の両方にフラグを立てる。
               window._sn_internalBack = true;
+              window._sn_cleanupBack  = true;
               window.history.back();
+              // popstate イベントが伝播した後にフラグをリセット
+              setTimeout(function() {
+                window._sn_internalBack = false;
+                window._sn_cleanupBack  = false;
+              }, 0);
             }
           } catch(e) {}
         }, 0);
