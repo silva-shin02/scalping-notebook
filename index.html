@@ -28649,6 +28649,10 @@ function EntryLogView(_ref_elv) {
 //   他のモーダルの onPop を誤発火させてはならない。
 //   _sn_cleanupBack フラグで cleanup 起因の popstate を識別し、onPop でスキップする。
 function useModalBack(open, onClose, token) {
+  // ★ open の最新値を常に保持する ref。
+  //    cleanup の setTimeout(0) 内で「すでに再オープンされていないか」を確認するために使う。
+  var isCurrentlyOpenRef = useRef(false);
+  isCurrentlyOpenRef.current = open;
   useEffect(function() {
     if (!open) return undefined;
     var myToken = "modal:" + token + ":" + Date.now() + ":" + Math.random().toString(36).slice(2,7);
@@ -28666,9 +28670,15 @@ function useModalBack(open, onClose, token) {
       window.removeEventListener("popstate", onPop);
       if (!closedByPop.v) {
         var _backToken = myToken;
+        var _openRef = isCurrentlyOpenRef;
         setTimeout(function() {
           try {
-            if (window.history.state && window.history.state._sn === _backToken) {
+            // ★ モーダルが既に再オープンされていたら back() しない。
+            //    例: annotTarget が null→新値 に即座に切り替わった場合、
+            //    open は再び true になっているため back() をスキップする。
+            //    これにより「保存直後に別画像を開くと強制リロード」問題を防ぐ。
+            if (!_openRef.current &&
+                window.history.state && window.history.state._sn === _backToken) {
               // ★ onPopCapture (ImageAnnotator 確認ダイアログ抑止) と
               //    onPop (他モーダルの誤発火抑止) の両方にフラグを立てる。
               window._sn_internalBack = true;
