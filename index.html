@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8"/>
@@ -20111,6 +20111,7 @@ function DayView(_ref57) {
       var _trTotRealCnt = 0, _trTotPlanCnt = 0, _trTotMaxCnt = 0;
       var _trTotPlanAB = null, _trTotMaxAB = null;
       var _trTotPlanABCnt = 0, _trTotMaxABCnt = 0;
+      var _trAlphaByStkRaw = {};
       _trEntryRecords.forEach(function(r) {
         var s = r.signal, rIt = r.item;
         var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
@@ -20127,12 +20128,38 @@ function DayView(_ref57) {
         var _isAB = (s.difficulty === "A" || s.difficulty === "B");
         if (ppN != null && _isAB) { _trTotPlanAB = (_trTotPlanAB || 0) + ppN; _trTotPlanABCnt++; }
         if (mpN != null && _isAB) { _trTotMaxAB  = (_trTotMaxAB  || 0) + mpN; _trTotMaxABCnt++; }
+        if (!_trAlphaByStkRaw[r.stock]) _trAlphaByStkRaw[r.stock] = { confSum: 0, confCnt: 0, osSum: 0, osCnt: 0 };
+        var _rawConf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+        if (_rawConf != null) { _trAlphaByStkRaw[r.stock].confSum += _rawConf; _trAlphaByStkRaw[r.stock].confCnt++; }
+        if (s.osVal != null) { _trAlphaByStkRaw[r.stock].osSum += Number(s.osVal); _trAlphaByStkRaw[r.stock].osCnt++; }
       });
       var _trTotRealGrade = _trTotRealCnt > 0 ? _profitGradeFromPnlReal(_trTotReal != null ? _trTotReal : 0, _trTotRealCnt) : null;
       var _trTotPlanGrade = _trTotPlanCnt > 0 ? _profitGradeFromPnl(_trTotPlan != null ? _trTotPlan : 0, _trTotPlanCnt) : null;
       var _trTotMaxGrade  = _trTotMaxCnt  > 0 ? _profitGradeFromPnl(_trTotMax  != null ? _trTotMax  : 0, _trTotMaxCnt)  : null;
       var _trTotPlanGradeAB = _trTotPlanABCnt > 0 ? _profitGradeFromPnl(_trTotPlanAB != null ? _trTotPlanAB : 0, _trTotPlanABCnt) : null;
       var _trTotMaxGradeAB  = _trTotMaxABCnt  > 0 ? _profitGradeFromPnl(_trTotMaxAB  != null ? _trTotMaxAB  : 0, _trTotMaxABCnt)  : null;
+      var _trAlphaByStk = {};
+      Object.keys(_trAlphaByStkRaw).forEach(function(stk) {
+        var d = _trAlphaByStkRaw[stk];
+        var avgConf = d.confCnt > 0 ? d.confSum / d.confCnt : null;
+        _trAlphaByStk[stk] = {
+          minAlpha: avgConf != null ? Math.round((avgConf + 1) * 10) / 10 : null,
+          tgtAlpha: avgConf != null ? Math.round((avgConf + 25) * 10) / 10 : null,
+          maxAlpha: d.osCnt > 0 ? Math.round(d.osSum / d.osCnt * 10) / 10 : null
+        };
+      });
+      var _trStkList = Object.keys(_trAlphaByStk);
+      var _trSumMin = 0, _trSumTgt = 0, _trSumMax = 0, _trCntMin = 0, _trCntTgt = 0, _trCntMax = 0;
+      _trStkList.forEach(function(stk) {
+        var d = _trAlphaByStk[stk];
+        if (d.minAlpha != null) { _trSumMin += d.minAlpha; _trCntMin++; }
+        if (d.tgtAlpha != null) { _trSumTgt += d.tgtAlpha; _trCntTgt++; }
+        if (d.maxAlpha != null) { _trSumMax += d.maxAlpha; _trCntMax++; }
+      });
+      var _trAvgMinAlpha = _trCntMin > 0 ? Math.round(_trSumMin / _trCntMin * 10) / 10 : null;
+      var _trAvgTgtAlpha = _trCntTgt > 0 ? Math.round(_trSumTgt / _trCntTgt * 10) / 10 : null;
+      var _trAvgMaxAlpha = _trCntMax > 0 ? Math.round(_trSumMax / _trCntMax * 10) / 10 : null;
+      var _trAlphaFmt = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "#0369A1" } }, v + "円"); };
       var allTrExp = _trEntryRecords.every(function(r) { return !!trTableRecExp[_trRecKey(r)]; });
       var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 8, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
@@ -20144,6 +20171,15 @@ function DayView(_ref57) {
         ),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
           _trRPnlDispABAll(_trTotMaxAB, _trTotMax, _trTotMaxGradeAB, _trTotMaxGrade)
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", color: "#999" } },
+          _trCntMin > 0 ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 600 } }, "銘柄平均 " + _trAvgMinAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", color: "#999" } },
+          _trCntTgt > 0 ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 600 } }, "銘柄平均 " + _trAvgTgtAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", color: "#999" } },
+          _trCntMax > 0 ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 600 } }, "銘柄平均 " + _trAvgMaxAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")
         )
       );
       var dataRows = [];
@@ -20161,6 +20197,10 @@ function DayView(_ref57) {
         var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
         var entered = _elIsEntered(s, rIt);
         var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
+        var _rStkAlpha = _trAlphaByStk[r.stock] || {};
+        var _rMinAlpha = _rStkAlpha.minAlpha != null ? _rStkAlpha.minAlpha : null;
+        var _rTgtAlpha = _rStkAlpha.tgtAlpha != null ? _rStkAlpha.tgtAlpha : null;
+        var _rMaxAlpha = _rStkAlpha.maxAlpha != null ? _rStkAlpha.maxAlpha : null;
         var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
         var maxGrade  = maxPnlN  != null ? _profitGradeFromPnl(maxPnlN, 1)  : null;
         var entLabel = entered
@@ -20233,13 +20273,16 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(realPnlN, realGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(planPnlN, planGrade)),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trRPnlDisp(maxPnlN, maxGrade))
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(maxPnlN, maxGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trAlphaFmt(_rMinAlpha)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trAlphaFmt(_rTgtAlpha)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trAlphaFmt(_rMaxAlpha))
           )
         );
         if (rExp) {
           dataRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 14, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
               )
             )
@@ -20270,10 +20313,57 @@ function DayView(_ref57) {
                 _trTh("結果", { width: "1%" }),
                 _trTh("実現損益"),
                 _trTh("想定損益"),
-                _trTh("最大損益")
+                _trTh("最大損益"),
+                _trTh("最低利益α値"),
+                _trTh("目標利益α値"),
+                _trTh("最大利益α値")
               )
             ),
             React.createElement("tbody", null, [totRow].concat(dataRows))
+          )
+        ),
+        // ── 理想α値サマリーカード（IIFE内 = _trStkList にアクセス可）──
+        _trStkList.length > 0 && React.createElement("div", {
+          style: { marginTop: 10, padding: "10px 14px", borderRadius: 10, background: "#F0F9FF", border: "1px solid #BAE6FD" }
+        },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 6, letterSpacing: 0.5 } }, "α 理想α値サマリー（本日・銘柄別）"),
+          React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "その銘柄でα値を何円に固定していたら…という1日単位の値"),
+          React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } },
+            React.createElement("thead", null,
+              React.createElement("tr", null,
+                React.createElement("th", { style: { padding: "3px 8px", textAlign: "left", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "1px solid #BAE6FD" } }, "銘柄"),
+                React.createElement("th", { style: { padding: "3px 8px", textAlign: "center", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "1px solid #BAE6FD" } }, "最低利益α値"),
+                React.createElement("th", { style: { padding: "3px 4px", textAlign: "center", fontWeight: 400, color: "#94A3B8", fontSize: 9, borderBottom: "1px solid #BAE6FD" } }, "確定値平均＋1"),
+                React.createElement("th", { style: { padding: "3px 8px", textAlign: "center", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "1px solid #BAE6FD" } }, "目標利益α値"),
+                React.createElement("th", { style: { padding: "3px 4px", textAlign: "center", fontWeight: 400, color: "#94A3B8", fontSize: 9, borderBottom: "1px solid #BAE6FD" } }, "確定値平均＋25"),
+                React.createElement("th", { style: { padding: "3px 8px", textAlign: "center", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "1px solid #BAE6FD" } }, "最大利益α値"),
+                React.createElement("th", { style: { padding: "3px 4px", textAlign: "center", fontWeight: 400, color: "#94A3B8", fontSize: 9, borderBottom: "1px solid #BAE6FD" } }, "OS値平均")
+              )
+            ),
+            React.createElement("tbody", null,
+              _trStkList.map(function(stk) {
+                var d = _trAlphaByStk[stk];
+                return React.createElement("tr", { key: stk },
+                  React.createElement("td", { style: { padding: "4px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11 } }, stk),
+                  React.createElement("td", { style: { padding: "4px 8px", textAlign: "center", fontWeight: 700, color: "#0369A1", fontSize: 12 } }, d.minAlpha != null ? d.minAlpha + "円" : "—"),
+                  React.createElement("td", null),
+                  React.createElement("td", { style: { padding: "4px 8px", textAlign: "center", fontWeight: 700, color: "#0369A1", fontSize: 12 } }, d.tgtAlpha != null ? d.tgtAlpha + "円" : "—"),
+                  React.createElement("td", null),
+                  React.createElement("td", { style: { padding: "4px 8px", textAlign: "center", fontWeight: 700, color: "#0369A1", fontSize: 12 } }, d.maxAlpha != null ? d.maxAlpha + "円" : "—"),
+                  React.createElement("td", null)
+                );
+              }).concat(
+                _trStkList.length > 1 ? [React.createElement("tr", { key: "__avg__", style: { borderTop: "1px solid #BAE6FD" } },
+                  React.createElement("td", { style: { padding: "4px 8px", fontWeight: 600, color: "#64748B", fontSize: 10 } }, "平均"),
+                  React.createElement("td", { style: { padding: "4px 8px", textAlign: "center", fontWeight: 700, color: "#0C4A6E", fontSize: 12 } }, _trAvgMinAlpha != null ? _trAvgMinAlpha + "円" : "—"),
+                  React.createElement("td", null),
+                  React.createElement("td", { style: { padding: "4px 8px", textAlign: "center", fontWeight: 700, color: "#0C4A6E", fontSize: 12 } }, _trAvgTgtAlpha != null ? _trAvgTgtAlpha + "円" : "—"),
+                  React.createElement("td", null),
+                  React.createElement("td", { style: { padding: "4px 8px", textAlign: "center", fontWeight: 700, color: "#0C4A6E", fontSize: 12 } }, _trAvgMaxAlpha != null ? _trAvgMaxAlpha + "円" : "—"),
+                  React.createElement("td", null)
+                )] : []
+              )
+            )
           )
         )
       );
@@ -24676,14 +24766,13 @@ function EntryRecordForm(_ref_erf) {
   var _useStateOSV = useState(initSig.osVal != null ? String(initSig.osVal) : ""),
     _useStateOSVA = _slicedToArray(_useStateOSV, 2),
     fOsVal = _useStateOSVA[0], setFOsVal = _useStateOSVA[1];
-  // ── ホールドした場合 高値（水準線比）──
-  var _useStateHHV = useState(initSig.holdHighVal != null ? String(initSig.holdHighVal) : ""),
-    _useStateHHVA = _slicedToArray(_useStateHHV, 2),
-    fHoldHighVal = _useStateHHVA[0], setFHoldHighVal = _useStateHHVA[1];
-  // ── ホールドした場合 確定値（水準線比）──
-  var _useStateHCV = useState(initSig.holdConfVal != null ? String(initSig.holdConfVal) : ""),
-    _useStateHCVA = _slicedToArray(_useStateHCV, 2),
-    fHoldConfVal = _useStateHCVA[0], setFHoldConfVal = _useStateHCVA[1];
+  // ── ホールドした場合の予想損益 ──
+  var _useStateHPS = useState(initSig.holdPnlSign || "+"),
+    _useStateHPSA = _slicedToArray(_useStateHPS, 2),
+    fHoldPnlSign = _useStateHPSA[0], setFHoldPnlSign = _useStateHPSA[1];
+  var _useStateHPV = useState(initSig.holdPnl != null ? String(Math.abs(Number(initSig.holdPnl))) : ""),
+    _useStateHPVA = _slicedToArray(_useStateHPV, 2),
+    fHoldPnlVal = _useStateHPVA[0], setFHoldPnlVal = _useStateHPVA[1];
   // ── 確定値（水準線比）──
   var _useStateOCSign = useState(initSig.osConfSign || null),
     _useStateOCSignA = _slicedToArray(_useStateOCSign, 2),
@@ -24691,6 +24780,13 @@ function EntryRecordForm(_ref_erf) {
   var _useStateOCVal = useState(initSig.osConfVal != null ? String(initSig.osConfVal) : ""),
     _useStateOCValA = _slicedToArray(_useStateOCVal, 2),
     fOsConfVal = _useStateOCValA[0], setFOsConfVal = _useStateOCValA[1];
+  // ── 想定値幅（水準線比）──
+  var _useStateEWSign = useState(null),
+    _useStateEWSignA = _slicedToArray(_useStateEWSign, 2),
+    fEstWidthSign = _useStateEWSignA[0], setFEstWidthSign = _useStateEWSignA[1];
+  var _useStateEWVal = useState(""),
+    _useStateEWValA = _slicedToArray(_useStateEWVal, 2),
+    fEstWidthVal = _useStateEWValA[0], setFEstWidthVal = _useStateEWValA[1];
   // ── 売り/買い ──
   var _useStateTT = useState(initSig.tradeType || "空売"),
     _useStateTTA = _slicedToArray(_useStateTT, 2),
@@ -24731,6 +24827,45 @@ function EntryRecordForm(_ref_erf) {
     setFReal(String(absVal));
   }, [fPriceIn, fPriceOut, fShares, fTradeType, fEntered]);
 
+  // ── 想定値幅を自動計算（α値 - 確定値） ──
+  useEffect(function() {
+    var ck = fStock + "_" + fDate;
+    var cd = data.charts && data.charts[ck];
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
+    if (av == null || fOsConfVal === "") { setFEstWidthSign(null); setFEstWidthVal(""); return; }
+    var confSigned = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
+    var width = av - confSigned;
+    setFEstWidthSign(width === 0 ? null : (width > 0 ? "+" : "-"));
+    setFEstWidthVal(String(Math.abs(width)));
+  }, [fStock, fDate, data, fOsConfSign, fOsConfVal]);
+
+  // ── 想定値幅の符号から結果を自動選択 ──
+  useEffect(function() {
+    if (fEstWidthVal === "" || fEstWidthSign == null) return;
+    setFResult(fEstWidthSign === "+" ? "ok" : "ng");
+  }, [fEstWidthSign, fEstWidthVal]);
+
+  // ── 想定損益を自動計算（想定値幅×100、OS値-α値≥10時は特例） ──
+  useEffect(function() {
+    var ck = fStock + "_" + fDate;
+    var cd = data.charts && data.charts[ck];
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
+    var osV = Number(fOsVal) || 0;
+    if (av != null && osV > 0 && osV < av) {
+      setFPlanSign(null); setFPlan("0"); return;
+    }
+    if (av != null && osV > 0 && (osV - av) >= 10) {
+      setFPlanSign("-");
+      setFPlan(String(Math.round((osV - av) * 100)));
+      return;
+    }
+    if (fEstWidthVal === "" || fEstWidthSign == null) return;
+    var w = Number(fEstWidthVal) || 0;
+    var planAmt = Math.round(w * 100);
+    setFPlanSign(planAmt === 0 ? null : fEstWidthSign);
+    setFPlan(String(planAmt));
+  }, [fStock, fDate, data, fOsVal, fEstWidthSign, fEstWidthVal]);
+
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
 
@@ -24761,8 +24896,8 @@ function EntryRecordForm(_ref_erf) {
       osVal: fOsVal !== "" ? (isNaN(Number(_toHankaku(fOsVal))) ? null : Number(_toHankaku(fOsVal))) : null,
       osConfSign: fOsConfSign || null,
       osConfVal: fOsConfVal !== "" ? (isNaN(Number(_toHankaku(fOsConfVal))) ? null : Number(_toHankaku(fOsConfVal))) : null,
-      holdHighVal: fHoldHighVal !== "" ? (isNaN(Number(_toHankaku(fHoldHighVal))) ? null : Number(_toHankaku(fHoldHighVal))) : null,
-      holdConfVal: fHoldConfVal !== "" ? (isNaN(Number(_toHankaku(fHoldConfVal))) ? null : Number(_toHankaku(fHoldConfVal))) : null,
+      holdPnl: fHoldPnlVal !== "" ? Number(fHoldPnlVal) : null,
+      holdPnlSign: fHoldPnlSign,
       realizedPnl: fEntered && fReal !== "" ? Number(fReal) : null,
       realizedPnlSign: fRealSign,
       profitGrade: null,
@@ -24939,50 +25074,112 @@ function EntryRecordForm(_ref_erf) {
           }, fOsConfSign || "±"),
           React.createElement("input", {
             type: "number", inputMode: "numeric", step: "1",
-            value: fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0),
-            onChange: function(e) {
-              var n = e.target.value === "" ? 0 : Number(e.target.value);
-              if (n < 0) { setFOsConfSign("-"); setFOsConfVal(String(Math.abs(n))); }
-              else if (n > 0) { setFOsConfSign("+"); setFOsConfVal(String(n)); }
-              else { setFOsConfSign(null); setFOsConfVal("0"); }
-            },
+            value: fOsConfVal,
+            onChange: function(e) { var v = _toHankakuNum(e.target.value); setFOsConfVal(v); if ((Number(v) || 0) === 0) setFOsConfSign(null); },
             placeholder: "0",
             style: Object.assign({}, I, { width: 80, textAlign: "right" })
           }),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
         )
       ),
-      // ホールドした場合の予想値
-      React.createElement("div", {
-        style: { marginTop: 6, marginBottom: 8, padding: "8px 10px", borderRadius: 8,
-          background: "#F8F9FA", border: "1px solid #e5e5e5" }
-      },
-        React.createElement("div", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 } },
-          "ホールドした場合の予想値"
+      // 想定値幅（α値ー確定値）
+      React.createElement("div", { style: { marginTop: 6, marginBottom: 2 } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
+          React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "想定値幅（水準線比）"),
+          React.createElement("button", {
+            onClick: function() {
+              setFEstWidthSign(fEstWidthSign === "+" ? "-" : "+");
+            },
+            style: { padding: "5px 10px", fontSize: 13, fontWeight: fEstWidthSign ? 700 : 400,
+              border: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#bbb"),
+              background: fEstWidthSign === "+" ? "#EAF3DE" : fEstWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
+              color: fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#999",
+              borderRadius: 5, cursor: "pointer", minWidth: 36 }
+          }, fEstWidthSign || "±"),
+          React.createElement("input", {
+            type: "number", inputMode: "numeric", step: "1",
+            value: fEstWidthVal,
+            onChange: function(e) { setFEstWidthVal(e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0))); },
+            placeholder: "0",
+            style: Object.assign({}, I, { width: 80, textAlign: "right" })
+          }),
+          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
         ),
-        React.createElement("div", { style: { display: "flex", gap: 16, flexWrap: "wrap" } },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-            React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "高値（水準線比）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#aaa", paddingLeft: 2, marginBottom: 6 } }, "想定値幅＝α値ー確定値（ともに水準線比）")
+      ),
+      // 想定損益（自動計算）+ 最大可能損益 横並び
+      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
+        React.createElement("div", null,
+          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "想定損益（100株換算）"),
+          React.createElement("span", {
+            style: {
+              display: "inline-block", padding: "5px 14px",
+              fontSize: 15, fontWeight: 800,
+              color: fPlanSign === "+" ? "#1E8449" : fPlanSign === "-" ? "#C0392B" : "#555",
+              background: fPlanSign === "+" ? "#EAF3DE" : fPlanSign === "-" ? "#FCEBEB" : "#f5f5f5",
+              borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#A9DFBF" : fPlanSign === "-" ? "#F5B7B1" : "#ddd"),
+              minWidth: 80, textAlign: "right"
+            }
+          }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
+        ),
+        React.createElement("div", null,
+          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "最大可能損益（100株あたり）"),
+          React.createElement("div", { style: { display: "flex", gap: 4 } },
+            React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden" } },
+              ["+", "-"].map(function(sg) {
+                var on = fMaxSign === sg;
+                return React.createElement("button", {
+                  key: sg,
+                  onClick: function() { setFMaxSign(sg); },
+                  style: {
+                    padding: "8px 10px", fontSize: 14, fontWeight: 700, border: "none",
+                    background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
+                    color: on ? "#fff" : "#888",
+                    cursor: "pointer", width: 32
+                  }
+                }, sg);
+              })
+            ),
             React.createElement("input", {
-              type: "number", inputMode: "numeric", step: "1", min: "0",
-              value: fHoldHighVal,
-              onChange: function(e) { setFHoldHighVal(e.target.value); },
+              type: "number", inputMode: "numeric", min: "0", step: "100",
+              value: fMax, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFMax(v); if ((Number(v) || 0) === 0) setFMaxSign(null); },
               placeholder: "0",
-              style: Object.assign({}, I, { width: 80, textAlign: "right" })
+              style: Object.assign({}, I, { flex: 1, textAlign: "right" })
             }),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
-          ),
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-            React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "確定値（水準線比）"),
-            React.createElement("input", {
-              type: "number", inputMode: "numeric", step: "1", min: "0",
-              value: fHoldConfVal,
-              onChange: function(e) { setFHoldConfVal(e.target.value); },
-              placeholder: "0",
-              style: Object.assign({}, I, { width: 80, textAlign: "right" })
-            }),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+            React.createElement("span", { style: { alignSelf: "center", fontSize: 12, color: "#666" } }, "円")
           )
+        )
+      ),
+      // ホールドした場合の予想損益（コンパクト）
+      React.createElement("div", {
+        style: { marginTop: 4, marginBottom: 6, padding: "5px 8px", borderRadius: 6,
+          background: "#F8F9FA", border: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }
+      },
+        React.createElement("span", { style: { fontSize: 10, color: "#999", fontWeight: 700, whiteSpace: "nowrap" } }, "ホールド予想損益"),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 3 } },
+          React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
+            ["+", "-"].map(function(sg) {
+              var on = fHoldPnlSign === sg;
+              return React.createElement("button", {
+                key: sg,
+                onClick: function() { setFHoldPnlSign(sg); },
+                style: {
+                  padding: "3px 7px", fontSize: 12, fontWeight: 700, border: "none",
+                  background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
+                  color: on ? "#fff" : "#888",
+                  cursor: "pointer", width: 26
+                }
+              }, sg);
+            })
+          ),
+          React.createElement("input", {
+            type: "number", inputMode: "numeric", min: "0", step: "100",
+            value: fHoldPnlVal,
+            onChange: function(e) { var v = _toHankakuNum(e.target.value); setFHoldPnlVal(v); if ((Number(v) || 0) === 0) setFHoldPnlSign(null); },
+            placeholder: "0",
+            style: Object.assign({}, I, { width: 80, textAlign: "right", padding: "4px 6px", fontSize: 12 })
+          }),
+          React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "円")
         )
       ),
       // 結果
@@ -25022,17 +25219,6 @@ function EntryRecordForm(_ref_erf) {
           }, val, React.createElement("span", { style: { fontSize: 10, fontWeight: 400, marginLeft: 3, color: on ? "#B45309" : "#aaa" } }, sub));
         })
       ),
-      // 根拠
-      React.createElement("div", { style: SH_ }, "\u30A8\u30F3\u30C8\u30EA\u30FC\u6839\u62E0"),
-      React.createElement(FastInput, {
-        multiline: true,
-        autoResize: true,
-        value: fRationale,
-        onChange: function(v) { setFRationale(v); },
-        placeholder: "",
-        rows: 2,
-        style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56 })
-      }),
       // 実エントリー
       React.createElement("div", { style: SH_ }, "実エントリー"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
@@ -25124,83 +25310,17 @@ function EntryRecordForm(_ref_erf) {
           )
         )
       ),
-      // 損益
-      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
-        React.createElement("div", null,
-          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "想定損益（100株あたり換算）"),
-          React.createElement("div", { style: { display: "flex", gap: 4 } },
-            React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden" } },
-              ["+", "-"].map(function(sg) {
-                var on = fPlanSign === sg;
-                return React.createElement("button", {
-                  key: sg,
-                  onClick: function() { setFPlanSign(sg); },
-                  style: {
-                    padding: "8px 10px", fontSize: 14, fontWeight: 700, border: "none",
-                    background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
-                    color: on ? "#fff" : "#888",
-                    cursor: "pointer", width: 32
-                  }
-                }, sg);
-              })
-            ),
-            React.createElement("input", {
-              type: "number", inputMode: "numeric", min: "0", step: "100",
-              value: fPlan, onChange: function(e) { setFPlan(_toHankakuNum(e.target.value)); },
-              placeholder: "0",
-              style: Object.assign({}, I, { flex: 1, textAlign: "right" })
-            }),
-            React.createElement("span", { style: { alignSelf: "center", fontSize: 12, color: "#666" } }, "円")
-          )
-        ),
-        React.createElement("div", null,
-          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "最大可能損益（100株あたり換算）"),
-          React.createElement("div", { style: { display: "flex", gap: 4 } },
-            React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden" } },
-              ["+", "-"].map(function(sg) {
-                var on = fMaxSign === sg;
-                return React.createElement("button", {
-                  key: sg,
-                  onClick: function() { setFMaxSign(sg); },
-                  style: {
-                    padding: "8px 10px", fontSize: 14, fontWeight: 700, border: "none",
-                    background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
-                    color: on ? "#fff" : "#888",
-                    cursor: "pointer", width: 32
-                  }
-                }, sg);
-              })
-            ),
-            React.createElement("input", {
-              type: "number", inputMode: "numeric", min: "0", step: "100",
-              value: fMax, onChange: function(e) { setFMax(_toHankakuNum(e.target.value)); },
-              placeholder: "0",
-              style: Object.assign({}, I, { flex: 1, textAlign: "right" })
-            }),
-            React.createElement("span", { style: { alignSelf: "center", fontSize: 12, color: "#666" } }, "円")
-          )
-        )
-      ),
-      // 反省
-      // \u5229\u78BA\u96E3\u6613\u5EA6
-      React.createElement("div", { style: SH_ }, "\uD83C\uDFAF \u5229\u78BA\u96E3\u6613\u5EA6"),
-      React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        [["A", "\u7C21\u5358"], ["B", "\u666E\u901A"], ["C", "\u96E3\u3057\u3044"]].map(function(pair) {
-          var val = pair[0], sub = pair[1];
-          var on = fTpDifficulty === val;
-          return React.createElement("button", {
-            key: val,
-            onClick: function() { setFTpDifficulty(on ? "" : val); },
-            style: {
-              flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: 700,
-              border: on ? "1.5px solid #16A34A" : "1px solid #ddd",
-              background: on ? "#DCFCE7" : "#fff",
-              color: on ? "#14532D" : "#888",
-              borderRadius: 6, cursor: "pointer", textAlign: "center"
-            }
-          }, val, React.createElement("span", { style: { fontSize: 10, fontWeight: 400, marginLeft: 3, color: on ? "#15803D" : "#aaa" } }, sub));
-        })
-      ),
+      // 根拠
+      React.createElement("div", { style: SH_ }, "\u30A8\u30F3\u30C8\u30EA\u30FC\u6839\u62E0"),
+      React.createElement(FastInput, {
+        multiline: true,
+        autoResize: true,
+        value: fRationale,
+        onChange: function(v) { setFRationale(v); },
+        placeholder: "",
+        rows: 2,
+        style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56 })
+      }),
       React.createElement("div", { style: SH_ }, "\u53CD\u7701\u30FB\u30E1\u30E2"),
       React.createElement(FastInput, {
         multiline: true,
