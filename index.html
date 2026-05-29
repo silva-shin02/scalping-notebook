@@ -20720,27 +20720,50 @@ function DayView(_ref57) {
       );
     })();
     // ── 理想α値の計算（0〜20円・1円刻み）──
+    // ルール: α値 > OS値 → エントリーなし(0円)
+    //         OS値 - α値 >= 10 → 損切り: -(OS値-α値)×100
+    //         それ以外 → (α値 - 確定値) × 100
     var _pbAlphaByStk = {};
     _pbStks.forEach(function(sk) {
       var recs = _pbByStk[sk] || [];
       var confSum = 0, confCnt = 0, osSum = 0, osCnt = 0;
+      var sigData = [];
       recs.forEach(function(rec) {
         var sig = rec.signal;
         var conf = sig.osConfVal != null ? (sig.osConfSign === "-" ? -(Number(sig.osConfVal)) : Number(sig.osConfVal)) : null;
+        var osV = sig.osVal != null ? Number(sig.osVal) : null;
         if (conf != null) { confSum += conf; confCnt++; }
-        if (sig.osVal != null) { osSum += Number(sig.osVal); osCnt++; }
+        if (osV != null) { osSum += osV; osCnt++; }
+        sigData.push({ conf: conf, osVal: osV });
       });
       var avgConf = confCnt > 0 ? confSum / confCnt : null;
       var minA = avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 1)), 20) : null;
       var tgtA = avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 25)), 20) : null;
       var maxA = osCnt > 0 ? Math.min(Math.max(0, Math.round(osSum / osCnt)), 20) : null;
+      var calcProfit = function(alpha) {
+        if (alpha == null) return null;
+        var total = 0, hasAny = false;
+        sigData.forEach(function(d) {
+          if (d.osVal == null) return;
+          hasAny = true;
+          if (alpha > d.osVal) {
+            // OS値 < α値 → エントリーなし、損益0
+          } else if (d.osVal - alpha >= 10) {
+            // 損切り（10円オーバー → 固定-1000円）
+            total += -1000;
+          } else {
+            // 通常: 確定値がなければスキップ
+            if (d.conf == null) { hasAny = false; return; }
+            total += (alpha - d.conf) * 100;
+          }
+        });
+        return hasAny ? Math.round(total) : null;
+      };
       _pbAlphaByStk[sk] = {
-        minAlpha: minA,
-        tgtAlpha: tgtA,
-        maxAlpha: maxA,
-        minProfit: minA != null && confCnt > 0 ? Math.round((confCnt * minA - confSum) * 100) : null,
-        tgtProfit: tgtA != null && confCnt > 0 ? Math.round((confCnt * tgtA - confSum) * 100) : null,
-        maxProfit: maxA != null && confCnt > 0 ? Math.round((confCnt * maxA - confSum) * 100) : null
+        minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA,
+        minProfit: calcProfit(minA),
+        tgtProfit: calcProfit(tgtA),
+        maxProfit: calcProfit(maxA)
       };
     });
     var _pbTotMinProfit = null, _pbTotTgtProfit = null, _pbTotMaxProfit = null;
