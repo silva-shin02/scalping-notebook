@@ -24761,7 +24761,7 @@ function EntryRecordForm(_ref_erf) {
     var cd = data.charts && data.charts[ck];
     var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
     var osV = Number(fOsVal) || 0;
-    if (av != null && osV > 0 && (osV - av) >= 11) {
+    if (av != null && osV > 0 && (osV - av) >= 10) {
       setFPlanSign("-");
       setFPlan(String(Math.round((osV - av) * 100)));
       return;
@@ -24986,6 +24986,28 @@ function EntryRecordForm(_ref_erf) {
               if (n < 0) { setFOsConfSign("-"); setFOsConfVal(String(Math.abs(n))); }
               else if (n > 0) { setFOsConfSign("+"); setFOsConfVal(String(n)); }
               else { setFOsConfSign(null); setFOsConfVal("0"); }
+            },
+            onKeyDown: function(e) {
+              var cur = parseInt(fOsConfVal) || 0;
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (fOsConfSign === "-") {
+                  setFOsConfVal(String(cur + 1));
+                } else if (!fOsConfSign || cur === 0) {
+                  setFOsConfSign("-"); setFOsConfVal("1");
+                } else {
+                  if (cur > 1) setFOsConfVal(String(cur - 1));
+                  else { setFOsConfSign(null); setFOsConfVal("0"); }
+                }
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                if (fOsConfSign === "-") {
+                  if (cur > 1) setFOsConfVal(String(cur - 1));
+                  else { setFOsConfSign(null); setFOsConfVal("0"); }
+                } else {
+                  setFOsConfSign("+"); setFOsConfVal(String(cur + 1));
+                }
+              }
             },
             placeholder: "0",
             style: Object.assign({}, I, { width: 80, textAlign: "right" })
