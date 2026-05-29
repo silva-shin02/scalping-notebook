@@ -24676,14 +24676,13 @@ function EntryRecordForm(_ref_erf) {
   var _useStateOSV = useState(initSig.osVal != null ? String(initSig.osVal) : ""),
     _useStateOSVA = _slicedToArray(_useStateOSV, 2),
     fOsVal = _useStateOSVA[0], setFOsVal = _useStateOSVA[1];
-  // ── ホールドした場合 高値（水準線比）──
-  var _useStateHHV = useState(initSig.holdHighVal != null ? String(initSig.holdHighVal) : ""),
-    _useStateHHVA = _slicedToArray(_useStateHHV, 2),
-    fHoldHighVal = _useStateHHVA[0], setFHoldHighVal = _useStateHHVA[1];
-  // ── ホールドした場合 確定値（水準線比）──
-  var _useStateHCV = useState(initSig.holdConfVal != null ? String(initSig.holdConfVal) : ""),
-    _useStateHCVA = _slicedToArray(_useStateHCV, 2),
-    fHoldConfVal = _useStateHCVA[0], setFHoldConfVal = _useStateHCVA[1];
+  // ── ホールドした場合の予想損益 ──
+  var _useStateHPS = useState(initSig.holdPnlSign || "+"),
+    _useStateHPSA = _slicedToArray(_useStateHPS, 2),
+    fHoldPnlSign = _useStateHPSA[0], setFHoldPnlSign = _useStateHPSA[1];
+  var _useStateHPV = useState(initSig.holdPnl != null ? String(Math.abs(Number(initSig.holdPnl))) : ""),
+    _useStateHPVA = _slicedToArray(_useStateHPV, 2),
+    fHoldPnlVal = _useStateHPVA[0], setFHoldPnlVal = _useStateHPVA[1];
   // ── 確定値（水準線比）──
   var _useStateOCSign = useState(initSig.osConfSign || null),
     _useStateOCSignA = _slicedToArray(_useStateOCSign, 2),
@@ -24803,8 +24802,8 @@ function EntryRecordForm(_ref_erf) {
       osVal: fOsVal !== "" ? (isNaN(Number(_toHankaku(fOsVal))) ? null : Number(_toHankaku(fOsVal))) : null,
       osConfSign: fOsConfSign || null,
       osConfVal: fOsConfVal !== "" ? (isNaN(Number(_toHankaku(fOsConfVal))) ? null : Number(_toHankaku(fOsConfVal))) : null,
-      holdHighVal: fHoldHighVal !== "" ? (isNaN(Number(_toHankaku(fHoldHighVal))) ? null : Number(_toHankaku(fHoldHighVal))) : null,
-      holdConfVal: fHoldConfVal !== "" ? (isNaN(Number(_toHankaku(fHoldConfVal))) ? null : Number(_toHankaku(fHoldConfVal))) : null,
+      holdPnl: fHoldPnlVal !== "" ? Number(fHoldPnlVal) : null,
+      holdPnlSign: fHoldPnlSign,
       realizedPnl: fEntered && fReal !== "" ? Number(fReal) : null,
       realizedPnlSign: fRealSign,
       profitGrade: null,
@@ -25033,37 +25032,42 @@ function EntryRecordForm(_ref_erf) {
           }
         }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
       ),
-      // ホールドした場合の予想値
+      // ホールドした場合の予想損益
       React.createElement("div", {
         style: { marginTop: 6, marginBottom: 8, padding: "8px 10px", borderRadius: 8,
           background: "#F8F9FA", border: "1px solid #e5e5e5" }
       },
-        React.createElement("div", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 } },
-          "ホールドした場合の予想値"
+        React.createElement("div", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 0.5, marginBottom: 8 } },
+          "ホールドした場合の予想損益"
         ),
-        React.createElement("div", { style: { display: "flex", gap: 16, flexWrap: "wrap" } },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-            React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "高値（水準線比）"),
-            React.createElement("input", {
-              type: "number", inputMode: "numeric", step: "1", min: "0",
-              value: fHoldHighVal,
-              onChange: function(e) { setFHoldHighVal(e.target.value); },
-              placeholder: "0",
-              style: Object.assign({}, I, { width: 80, textAlign: "right" })
-            }),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+          React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden" } },
+            ["+", "-"].map(function(sg) {
+              var on = fHoldPnlSign === sg;
+              return React.createElement("button", {
+                key: sg,
+                onClick: function() { setFHoldPnlSign(sg); },
+                style: {
+                  padding: "8px 10px", fontSize: 14, fontWeight: 700, border: "none",
+                  background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
+                  color: on ? "#fff" : "#888",
+                  cursor: "pointer", width: 32
+                }
+              }, sg);
+            })
           ),
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-            React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "確定値（水準線比）"),
-            React.createElement("input", {
-              type: "number", inputMode: "numeric", step: "1", min: "0",
-              value: fHoldConfVal,
-              onChange: function(e) { setFHoldConfVal(e.target.value); },
-              placeholder: "0",
-              style: Object.assign({}, I, { width: 80, textAlign: "right" })
-            }),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
-          )
+          React.createElement("input", {
+            type: "number", inputMode: "numeric", min: "0", step: "100",
+            value: fHoldPnlVal,
+            onChange: function(e) { setFHoldPnlVal(_toHankakuNum(e.target.value)); },
+            onKeyDown: function(e) {
+              if (e.key === "ArrowUp")   { e.preventDefault(); setFHoldPnlVal(function(v) { return String((parseInt(v) || 0) + 100); }); }
+              if (e.key === "ArrowDown") { e.preventDefault(); setFHoldPnlVal(function(v) { return String(Math.max(0, (parseInt(v) || 0) - 100)); }); }
+            },
+            placeholder: "0",
+            style: Object.assign({}, I, { width: 120, textAlign: "right" })
+          }),
+          React.createElement("span", { style: { fontSize: 12, color: "#666" } }, "円")
         )
       ),
       // 結果
