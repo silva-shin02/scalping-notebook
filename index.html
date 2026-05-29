@@ -12071,7 +12071,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
       },
       sm: true
     });
-  }))), (chartImgs.length > 0 || stock === "日経平均株価") && /*#__PURE__*/React.createElement("div", {
+  }))), (chartImgs.length > 0 && stock !== "日経平均株価") && /*#__PURE__*/React.createElement("div", {
     style: {
       background: "#f8f7f4",
       borderRadius: 10,
@@ -34856,7 +34856,30 @@ function App() {
       setFbStatus("paused");
     } else setFbStatus("none");
   };
-  var exportData = function exportData() {
+  // ── 一回限り: 日経平均株価 の chartImg / chartImgs を削除 ──
+  useEffect(function() {
+    try {
+      if (localStorage.getItem("sn_nikkei_chart_cleaned_v1") === "1") return;
+      var d = dataRef.current;
+      if (d && d.charts) {
+        var _changed = false;
+        var _newCharts = Object.assign({}, d.charts);
+        Object.keys(_newCharts).forEach(function(key) {
+          if (key.indexOf("日経平均株価_") === 0) {
+            var _ch = _newCharts[key];
+            if (_ch && (_ch.chartImg || (_ch.chartImgs && _ch.chartImgs.length > 0))) {
+              _newCharts[key] = Object.assign({}, _ch, { chartImg: null, chartImgs: [] });
+              _changed = true;
+              console.log("[cleanup] removed nikkei chartImg from", key);
+            }
+          }
+        });
+        if (_changed) save(Object.assign({}, d, { charts: _newCharts }));
+      }
+      localStorage.setItem("sn_nikkei_chart_cleaned_v1", "1");
+    } catch(e) { console.warn("[cleanup] nikkei chart cleanup error:", e); }
+  }, []);
+    var exportData = function exportData() {
     var b = new Blob([JSON.stringify(dataRef.current, null, 2)], {
       type: "application/json"
     });
