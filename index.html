@@ -24691,6 +24691,13 @@ function EntryRecordForm(_ref_erf) {
   var _useStateOCVal = useState(initSig.osConfVal != null ? String(initSig.osConfVal) : ""),
     _useStateOCValA = _slicedToArray(_useStateOCVal, 2),
     fOsConfVal = _useStateOCValA[0], setFOsConfVal = _useStateOCValA[1];
+  // ── 想定値幅（水準線比）──
+  var _useStateEWSign = useState(null),
+    _useStateEWSignA = _slicedToArray(_useStateEWSign, 2),
+    fEstWidthSign = _useStateEWSignA[0], setFEstWidthSign = _useStateEWSignA[1];
+  var _useStateEWVal = useState(""),
+    _useStateEWValA = _slicedToArray(_useStateEWVal, 2),
+    fEstWidthVal = _useStateEWValA[0], setFEstWidthVal = _useStateEWValA[1];
   // ── 売り/買い ──
   var _useStateTT = useState(initSig.tradeType || "空売"),
     _useStateTTA = _slicedToArray(_useStateTT, 2),
@@ -24730,6 +24737,41 @@ function EntryRecordForm(_ref_erf) {
     setFRealSign(diff >= 0 ? "+" : "-");
     setFReal(String(absVal));
   }, [fPriceIn, fPriceOut, fShares, fTradeType, fEntered]);
+
+  // ── 想定値幅を自動計算（α値 - 確定値） ──
+  useEffect(function() {
+    var ck = fStock + "_" + fDate;
+    var cd = data.charts && data.charts[ck];
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
+    if (av == null || fOsConfVal === "") { setFEstWidthSign(null); setFEstWidthVal(""); return; }
+    var confSigned = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
+    var width = av - confSigned;
+    setFEstWidthSign(width >= 0 ? "+" : "-");
+    setFEstWidthVal(String(Math.abs(width)));
+  }, [fStock, fDate, data, fOsConfSign, fOsConfVal]);
+
+  // ── 想定値幅の符号から結果を自動選択 ──
+  useEffect(function() {
+    if (fEstWidthVal === "" || fEstWidthSign == null) return;
+    setFResult(fEstWidthSign === "+" ? "ok" : "ng");
+  }, [fEstWidthSign, fEstWidthVal]);
+
+  // ── 想定損益を自動計算（想定値幅×100、OS値-α値≥11時は特例） ──
+  useEffect(function() {
+    var ck = fStock + "_" + fDate;
+    var cd = data.charts && data.charts[ck];
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
+    var osV = Number(fOsVal) || 0;
+    if (av != null && osV > 0 && (osV - av) >= 11) {
+      setFPlanSign("-");
+      setFPlan(String(Math.round((osV - av) * 100)));
+      return;
+    }
+    if (fEstWidthVal === "" || fEstWidthSign == null) return;
+    var w = Number(fEstWidthVal) || 0;
+    setFPlanSign(fEstWidthSign);
+    setFPlan(String(Math.round(w * 100)));
+  }, [fStock, fDate, data, fOsVal, fEstWidthSign, fEstWidthVal]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -24939,7 +24981,7 @@ function EntryRecordForm(_ref_erf) {
           }, fOsConfSign || "±"),
           React.createElement("input", {
             type: "number", inputMode: "numeric", step: "1",
-            value: fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0),
+            value: fOsConfVal,
             onChange: function(e) {
               var n = e.target.value === "" ? 0 : Number(e.target.value);
               if (n < 0) { setFOsConfSign("-"); setFOsConfVal(String(Math.abs(n))); }
@@ -24951,6 +24993,45 @@ function EntryRecordForm(_ref_erf) {
           }),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
         )
+      ),
+      // 想定値幅（α値ー確定値）
+      React.createElement("div", { style: { marginTop: 6, marginBottom: 2 } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
+          React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "想定値幅（水準線比）"),
+          React.createElement("button", {
+            onClick: function() {
+              setFEstWidthSign(fEstWidthSign === "+" ? "-" : "+");
+            },
+            style: { padding: "5px 10px", fontSize: 13, fontWeight: fEstWidthSign ? 700 : 400,
+              border: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#bbb"),
+              background: fEstWidthSign === "+" ? "#EAF3DE" : fEstWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
+              color: fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#999",
+              borderRadius: 5, cursor: "pointer", minWidth: 36 }
+          }, fEstWidthSign || "±"),
+          React.createElement("input", {
+            type: "number", inputMode: "numeric", step: "1",
+            value: fEstWidthVal,
+            onChange: function(e) { setFEstWidthVal(e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0))); },
+            placeholder: "0",
+            style: Object.assign({}, I, { width: 80, textAlign: "right" })
+          }),
+          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+        ),
+        React.createElement("div", { style: { fontSize: 10, color: "#aaa", paddingLeft: 2, marginBottom: 6 } }, "想定値幅＝α値ー確定値（ともに水準線比）")
+      ),
+      // 想定損益（自動計算）
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
+        React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "想定損益（100株換算）"),
+        React.createElement("span", {
+          style: {
+            display: "inline-block", padding: "5px 14px",
+            fontSize: 15, fontWeight: 800,
+            color: fPlanSign === "+" ? "#1E8449" : fPlanSign === "-" ? "#C0392B" : "#555",
+            background: fPlanSign === "+" ? "#EAF3DE" : fPlanSign === "-" ? "#FCEBEB" : "#f5f5f5",
+            borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#A9DFBF" : fPlanSign === "-" ? "#F5B7B1" : "#ddd"),
+            minWidth: 80, textAlign: "right"
+          }
+        }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
       ),
       // ホールドした場合の予想値
       React.createElement("div", {
