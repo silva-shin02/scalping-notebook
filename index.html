@@ -20732,9 +20732,9 @@ function DayView(_ref57) {
       });
       var avgConf = confCnt > 0 ? confSum / confCnt : null;
       _pbAlphaByStk[sk] = {
-        minAlpha: avgConf != null ? Math.min(Math.round((avgConf + 1) * 10) / 10, 20) : null,
-        tgtAlpha: avgConf != null ? Math.min(Math.round((avgConf + 25) * 10) / 10, 20) : null,
-        maxAlpha: osCnt > 0 ? Math.min(Math.round(osSum / osCnt * 10) / 10, 20) : null
+        minAlpha: avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 1)), 20) : null,
+        tgtAlpha: avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 25)), 20) : null,
+        maxAlpha: osCnt > 0 ? Math.min(Math.max(0, Math.round(osSum / osCnt)), 20) : null
       };
     });
     var _pbHasAlpha = _pbStks.some(function(sk) {
