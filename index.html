@@ -24823,7 +24823,7 @@ function EntryRecordForm(_ref_erf) {
       ? (inV - outV) * shares
       : (outV - inV) * shares;
     var absVal = Math.round(Math.abs(diff));
-    setFRealSign(diff >= 0 ? "+" : "-");
+    setFRealSign(absVal === 0 ? null : (diff >= 0 ? "+" : "-"));
     setFReal(String(absVal));
   }, [fPriceIn, fPriceOut, fShares, fTradeType, fEntered]);
 
@@ -24835,7 +24835,7 @@ function EntryRecordForm(_ref_erf) {
     if (av == null || fOsConfVal === "") { setFEstWidthSign(null); setFEstWidthVal(""); return; }
     var confSigned = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
     var width = av - confSigned;
-    setFEstWidthSign(width >= 0 ? "+" : "-");
+    setFEstWidthSign(width === 0 ? null : (width > 0 ? "+" : "-"));
     setFEstWidthVal(String(Math.abs(width)));
   }, [fStock, fDate, data, fOsConfSign, fOsConfVal]);
 
@@ -24845,12 +24845,15 @@ function EntryRecordForm(_ref_erf) {
     setFResult(fEstWidthSign === "+" ? "ok" : "ng");
   }, [fEstWidthSign, fEstWidthVal]);
 
-  // ── 想定損益を自動計算（想定値幅×100、OS値-α値≥11時は特例） ──
+  // ── 想定損益を自動計算（想定値幅×100、OS値-α値≥10時は特例） ──
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
     var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
     var osV = Number(fOsVal) || 0;
+    if (av != null && osV > 0 && osV < av) {
+      setFPlanSign(null); setFPlan("0"); return;
+    }
     if (av != null && osV > 0 && (osV - av) >= 10) {
       setFPlanSign("-");
       setFPlan(String(Math.round((osV - av) * 100)));
@@ -24858,8 +24861,9 @@ function EntryRecordForm(_ref_erf) {
     }
     if (fEstWidthVal === "" || fEstWidthSign == null) return;
     var w = Number(fEstWidthVal) || 0;
-    setFPlanSign(fEstWidthSign);
-    setFPlan(String(Math.round(w * 100)));
+    var planAmt = Math.round(w * 100);
+    setFPlanSign(planAmt === 0 ? null : fEstWidthSign);
+    setFPlan(String(planAmt));
   }, [fStock, fDate, data, fOsVal, fEstWidthSign, fEstWidthVal]);
 
   // 取引候補
@@ -25071,7 +25075,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("input", {
             type: "number", inputMode: "numeric", step: "1",
             value: fOsConfVal,
-            onChange: function(e) { setFOsConfVal(_toHankakuNum(e.target.value)); },
+            onChange: function(e) { var v = _toHankakuNum(e.target.value); setFOsConfVal(v); if ((Number(v) || 0) === 0) setFOsConfSign(null); },
             placeholder: "0",
             style: Object.assign({}, I, { width: 80, textAlign: "right" })
           }),
@@ -25138,7 +25142,7 @@ function EntryRecordForm(_ref_erf) {
             ),
             React.createElement("input", {
               type: "number", inputMode: "numeric", min: "0", step: "100",
-              value: fMax, onChange: function(e) { setFMax(_toHankakuNum(e.target.value)); },
+              value: fMax, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFMax(v); if ((Number(v) || 0) === 0) setFMaxSign(null); },
               placeholder: "0",
               style: Object.assign({}, I, { flex: 1, textAlign: "right" })
             }),
@@ -25171,7 +25175,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("input", {
             type: "number", inputMode: "numeric", min: "0", step: "100",
             value: fHoldPnlVal,
-            onChange: function(e) { setFHoldPnlVal(_toHankakuNum(e.target.value)); },
+            onChange: function(e) { var v = _toHankakuNum(e.target.value); setFHoldPnlVal(v); if ((Number(v) || 0) === 0) setFHoldPnlSign(null); },
             placeholder: "0",
             style: Object.assign({}, I, { width: 80, textAlign: "right", padding: "4px 6px", fontSize: 12 })
           }),
@@ -25298,7 +25302,7 @@ function EntryRecordForm(_ref_erf) {
             ),
             React.createElement("input", {
               type: "number", inputMode: "numeric", min: "0", step: "100",
-              value: fReal, onChange: function(e) { setFReal(_toHankakuNum(e.target.value)); },
+              value: fReal, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFReal(v); if ((Number(v) || 0) === 0) setFRealSign(null); },
               placeholder: "0",
               style: Object.assign({}, I, { flex: 1, textAlign: "right" })
             }),
