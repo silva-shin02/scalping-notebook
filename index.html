@@ -20719,7 +20719,7 @@ function DayView(_ref57) {
         mkRow("想定/最大損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-" })
       );
     })();
-    // ── 理想α値の計算（max 20円キャップ）──
+    // ── 理想α値の計算（0〜20円・1円刻み）──
     var _pbAlphaByStk = {};
     _pbStks.forEach(function(sk) {
       var recs = _pbByStk[sk] || [];
@@ -20731,11 +20731,24 @@ function DayView(_ref57) {
         if (sig.osVal != null) { osSum += Number(sig.osVal); osCnt++; }
       });
       var avgConf = confCnt > 0 ? confSum / confCnt : null;
+      var minA = avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 1)), 20) : null;
+      var tgtA = avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 25)), 20) : null;
+      var maxA = osCnt > 0 ? Math.min(Math.max(0, Math.round(osSum / osCnt)), 20) : null;
       _pbAlphaByStk[sk] = {
-        minAlpha: avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 1)), 20) : null,
-        tgtAlpha: avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 25)), 20) : null,
-        maxAlpha: osCnt > 0 ? Math.min(Math.max(0, Math.round(osSum / osCnt)), 20) : null
+        minAlpha: minA,
+        tgtAlpha: tgtA,
+        maxAlpha: maxA,
+        minProfit: minA != null && confCnt > 0 ? Math.round((confCnt * minA - confSum) * 100) : null,
+        tgtProfit: tgtA != null && confCnt > 0 ? Math.round((confCnt * tgtA - confSum) * 100) : null,
+        maxProfit: maxA != null && confCnt > 0 ? Math.round((confCnt * maxA - confSum) * 100) : null
       };
+    });
+    var _pbTotMinProfit = null, _pbTotTgtProfit = null, _pbTotMaxProfit = null;
+    _pbStks.forEach(function(sk) {
+      var d = _pbAlphaByStk[sk];
+      if (d.minProfit != null) _pbTotMinProfit = (_pbTotMinProfit || 0) + d.minProfit;
+      if (d.tgtProfit != null) _pbTotTgtProfit = (_pbTotTgtProfit || 0) + d.tgtProfit;
+      if (d.maxProfit != null) _pbTotMaxProfit = (_pbTotMaxProfit || 0) + d.maxProfit;
     });
     var _pbHasAlpha = _pbStks.some(function(sk) {
       var d = _pbAlphaByStk[sk];
@@ -20783,34 +20796,56 @@ function DayView(_ref57) {
         )
       ),
       _pbHasAlpha && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（最大20円）"),
-        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を何円に固定していたら最適だったか（確定値の平均ベース）"),
-        React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11 } },
-          React.createElement("thead", null,
-            React.createElement("tr", null,
-              React.createElement("th", { style: { padding: "2px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "1px solid #BAE6FD", textAlign: "left" } }, "銘柄"),
-              React.createElement("th", { style: { padding: "2px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "1px solid #BAE6FD", textAlign: "center" } }, "最低利益α値"),
-              React.createElement("th", { style: { padding: "2px 4px", fontWeight: 400, color: "#94A3B8", fontSize: 9, borderBottom: "1px solid #BAE6FD", textAlign: "center" } }, "確定値平均＋1"),
-              React.createElement("th", { style: { padding: "2px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "1px solid #BAE6FD", textAlign: "center" } }, "目標利益α値"),
-              React.createElement("th", { style: { padding: "2px 4px", fontWeight: 400, color: "#94A3B8", fontSize: 9, borderBottom: "1px solid #BAE6FD", textAlign: "center" } }, "確定値平均＋25"),
-              React.createElement("th", { style: { padding: "2px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "1px solid #BAE6FD", textAlign: "center" } }, "最大利益α値"),
-              React.createElement("th", { style: { padding: "2px 4px", fontWeight: 400, color: "#94A3B8", fontSize: 9, borderBottom: "1px solid #BAE6FD", textAlign: "center" } }, "OS値平均")
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜20円）"),
+        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）"),
+        React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
+            React.createElement("thead", null,
+              React.createElement("tr", null,
+                React.createElement("th", { style: { padding: "2px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "left" } }, "銘柄"),
+                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, "最低利益α値"),
+                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" } }, "想定利益"),
+                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, "目標利益α値"),
+                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" } }, "想定利益"),
+                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, "最大利益α値"),
+                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" } }, "想定利益")
+              )
+            ),
+            React.createElement("tbody", null,
+              _pbStks.map(function(sk) {
+                var d = _pbAlphaByStk[sk];
+                var fmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
+                var fmtP = function(v) {
+                  if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+                  var col = v > 0 ? "#1E8449" : v < 0 ? "#C0392B" : "#888";
+                  return React.createElement("span", { style: { fontWeight: 700, color: col } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円");
+                };
+                return React.createElement("tr", { key: sk, style: { borderBottom: "1px solid #dbeafe" } },
+                  React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11 } }, sk),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, fmtA(d.minAlpha)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, fmtP(d.minProfit)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, fmtA(d.tgtAlpha)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, fmtP(d.tgtProfit)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, fmtA(d.maxAlpha)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, fmtP(d.maxProfit))
+                );
+              }).concat(
+                _pbStks.length > 1 && (_pbTotMinProfit != null || _pbTotTgtProfit != null || _pbTotMaxProfit != null)
+                  ? [React.createElement("tr", { key: "__total__", style: { borderTop: "2px solid #BAE6FD", background: "#EFF6FF" } },
+                      React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#555", fontSize: 10 } }, "合計"),
+                      React.createElement("td", { style: { borderLeft: "1px solid #dbeafe" } }),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: _pbTotMinProfit > 0 ? "#1E8449" : _pbTotMinProfit < 0 ? "#C0392B" : "#888" } },
+                        _pbTotMinProfit != null ? (_pbTotMinProfit > 0 ? "+" : "") + _pbTotMinProfit.toLocaleString() + "円" : "—"),
+                      React.createElement("td", { style: { borderLeft: "1px solid #dbeafe" } }),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: _pbTotTgtProfit > 0 ? "#1E8449" : _pbTotTgtProfit < 0 ? "#C0392B" : "#888" } },
+                        _pbTotTgtProfit != null ? (_pbTotTgtProfit > 0 ? "+" : "") + _pbTotTgtProfit.toLocaleString() + "円" : "—"),
+                      React.createElement("td", { style: { borderLeft: "1px solid #dbeafe" } }),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: _pbTotMaxProfit > 0 ? "#1E8449" : _pbTotMaxProfit < 0 ? "#C0392B" : "#888" } },
+                        _pbTotMaxProfit != null ? (_pbTotMaxProfit > 0 ? "+" : "") + _pbTotMaxProfit.toLocaleString() + "円" : "—")
+                    )]
+                  : []
+              )
             )
-          ),
-          React.createElement("tbody", null,
-            _pbStks.map(function(sk) {
-              var d = _pbAlphaByStk[sk];
-              var fmt = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
-              return React.createElement("tr", { key: sk },
-                React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11 } }, sk),
-                React.createElement("td", { style: { padding: "3px 8px", textAlign: "center", fontSize: 12 } }, fmt(d.minAlpha)),
-                React.createElement("td", null),
-                React.createElement("td", { style: { padding: "3px 8px", textAlign: "center", fontSize: 12 } }, fmt(d.tgtAlpha)),
-                React.createElement("td", null),
-                React.createElement("td", { style: { padding: "3px 8px", textAlign: "center", fontSize: 12 } }, fmt(d.maxAlpha)),
-                React.createElement("td", null)
-              );
-            })
           )
         )
       )
