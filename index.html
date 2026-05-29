@@ -20111,6 +20111,8 @@ function DayView(_ref57) {
       var _trTotRealCnt = 0, _trTotPlanCnt = 0, _trTotMaxCnt = 0;
       var _trTotPlanAB = null, _trTotMaxAB = null;
       var _trTotPlanABCnt = 0, _trTotMaxABCnt = 0;
+      var _trIdealMinSum = 0, _trIdealTgtSum = 0, _trIdealMaxSum = 0;
+      var _trIdealMinCnt = 0, _trIdealTgtCnt = 0, _trIdealMaxCnt = 0;
       _trEntryRecords.forEach(function(r) {
         var s = r.signal, rIt = r.item;
         var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
@@ -20127,12 +20129,25 @@ function DayView(_ref57) {
         var _isAB = (s.difficulty === "A" || s.difficulty === "B");
         if (ppN != null && _isAB) { _trTotPlanAB = (_trTotPlanAB || 0) + ppN; _trTotPlanABCnt++; }
         if (mpN != null && _isAB) { _trTotMaxAB  = (_trTotMaxAB  || 0) + mpN; _trTotMaxABCnt++; }
+        var _trConf = (s.osConfVal != null)
+          ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal))
+          : null;
+        var _trMinA = _trConf != null ? _trConf + 1 : null;
+        var _trTgtA = _trConf != null ? _trConf + 25 : null;
+        var _trMaxA = s.osVal != null ? Number(s.osVal) : null;
+        if (_trMinA != null) { _trIdealMinSum += _trMinA; _trIdealMinCnt++; }
+        if (_trTgtA != null) { _trIdealTgtSum += _trTgtA; _trIdealTgtCnt++; }
+        if (_trMaxA != null) { _trIdealMaxSum += _trMaxA; _trIdealMaxCnt++; }
       });
       var _trTotRealGrade = _trTotRealCnt > 0 ? _profitGradeFromPnlReal(_trTotReal != null ? _trTotReal : 0, _trTotRealCnt) : null;
       var _trTotPlanGrade = _trTotPlanCnt > 0 ? _profitGradeFromPnl(_trTotPlan != null ? _trTotPlan : 0, _trTotPlanCnt) : null;
       var _trTotMaxGrade  = _trTotMaxCnt  > 0 ? _profitGradeFromPnl(_trTotMax  != null ? _trTotMax  : 0, _trTotMaxCnt)  : null;
       var _trTotPlanGradeAB = _trTotPlanABCnt > 0 ? _profitGradeFromPnl(_trTotPlanAB != null ? _trTotPlanAB : 0, _trTotPlanABCnt) : null;
       var _trTotMaxGradeAB  = _trTotMaxABCnt  > 0 ? _profitGradeFromPnl(_trTotMaxAB  != null ? _trTotMaxAB  : 0, _trTotMaxABCnt)  : null;
+      var _trAvgMinAlpha = _trIdealMinCnt > 0 ? Math.round(_trIdealMinSum / _trIdealMinCnt * 10) / 10 : null;
+      var _trAvgTgtAlpha = _trIdealTgtCnt > 0 ? Math.round(_trIdealTgtSum / _trIdealTgtCnt * 10) / 10 : null;
+      var _trAvgMaxAlpha = _trIdealMaxCnt > 0 ? Math.round(_trIdealMaxSum / _trIdealMaxCnt * 10) / 10 : null;
+      var _trAlphaFmt = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "#0369A1" } }, v + "円"); };
       var allTrExp = _trEntryRecords.every(function(r) { return !!trTableRecExp[_trRecKey(r)]; });
       var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 8, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
@@ -20144,6 +20159,15 @@ function DayView(_ref57) {
         ),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
           _trRPnlDispABAll(_trTotMaxAB, _trTotMax, _trTotMaxGradeAB, _trTotMaxGrade)
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", color: "#999" } },
+          _trIdealMinCnt > 0 ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 600 } }, "平均 " + _trAvgMinAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", color: "#999" } },
+          _trIdealTgtCnt > 0 ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 600 } }, "平均 " + _trAvgTgtAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6", color: "#999" } },
+          _trIdealMaxCnt > 0 ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 600 } }, "平均 " + _trAvgMaxAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")
         )
       );
       var dataRows = [];
@@ -20161,6 +20185,12 @@ function DayView(_ref57) {
         var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
         var entered = _elIsEntered(s, rIt);
         var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
+        var _rConf = (s.osConfVal != null)
+          ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal))
+          : null;
+        var _rMinAlpha = _rConf != null ? _rConf + 1 : null;
+        var _rTgtAlpha = _rConf != null ? _rConf + 25 : null;
+        var _rMaxAlpha = s.osVal != null ? Number(s.osVal) : null;
         var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
         var maxGrade  = maxPnlN  != null ? _profitGradeFromPnl(maxPnlN, 1)  : null;
         var entLabel = entered
@@ -20233,13 +20263,16 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(realPnlN, realGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(planPnlN, planGrade)),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trRPnlDisp(maxPnlN, maxGrade))
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(maxPnlN, maxGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trAlphaFmt(_rMinAlpha)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trAlphaFmt(_rTgtAlpha)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trAlphaFmt(_rMaxAlpha))
           )
         );
         if (rExp) {
           dataRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 14, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
               )
             )
@@ -20270,7 +20303,10 @@ function DayView(_ref57) {
                 _trTh("結果", { width: "1%" }),
                 _trTh("実現損益"),
                 _trTh("想定損益"),
-                _trTh("最大損益")
+                _trTh("最大損益"),
+                _trTh("最低利益α値"),
+                _trTh("目標利益α値"),
+                _trTh("最大利益α値")
               )
             ),
             React.createElement("tbody", null, [totRow].concat(dataRows))
@@ -20326,6 +20362,38 @@ function DayView(_ref57) {
       React.createElement("div", null, "成功/失敗 ", React.createElement("span", {
         style: { fontWeight: 600 }
       }, _trSuccessCount, "勝", _trFailCount, "敗"))
+    )
+  ),
+  // ── 理想α値サマリーカード ──
+  (_trIdealMinCnt > 0 || _trIdealTgtCnt > 0 || _trIdealMaxCnt > 0) && React.createElement("div", {
+    style: { marginTop: 10, padding: "10px 14px", borderRadius: 10, background: "#F0F9FF", border: "1px solid #BAE6FD" }
+  },
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 8, letterSpacing: 0.5 } }, "α 理想α値サマリー（本日の取引）"),
+    React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
+      React.createElement("div", { style: { flex: 1, minWidth: 120, background: "#fff", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 12px" } },
+        React.createElement("div", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700, marginBottom: 4 } }, "最低利益α値"),
+        React.createElement("div", { style: { fontSize: 10, color: "#555", marginBottom: 2 } }, "（1円以上の利益が出る最低ライン）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#64748B", marginBottom: 1 } }, "確定値 ＋ 1円"),
+        React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#0369A1", marginTop: 4 } },
+          _trIdealMinCnt > 0 ? "平均 " + _trAvgMinAlpha + "円" : "—"
+        )
+      ),
+      React.createElement("div", { style: { flex: 1, minWidth: 120, background: "#fff", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 12px" } },
+        React.createElement("div", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700, marginBottom: 4 } }, "目標利益α値"),
+        React.createElement("div", { style: { fontSize: 10, color: "#555", marginBottom: 2 } }, "（100株で2500円以上の利益ライン）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#64748B", marginBottom: 1 } }, "確定値 ＋ 25円"),
+        React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#0369A1", marginTop: 4 } },
+          _trIdealTgtCnt > 0 ? "平均 " + _trAvgTgtAlpha + "円" : "—"
+        )
+      ),
+      React.createElement("div", { style: { flex: 1, minWidth: 120, background: "#fff", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 12px" } },
+        React.createElement("div", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700, marginBottom: 4 } }, "最大利益α値"),
+        React.createElement("div", { style: { fontSize: 10, color: "#555", marginBottom: 2 } }, "（利益を最大化できたα値）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#64748B", marginBottom: 1 } }, "OS値"),
+        React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#0369A1", marginTop: 4 } },
+          _trIdealMaxCnt > 0 ? "平均 " + _trAvgMaxAlpha + "円" : "—"
+        )
+      )
     )
   ),
   // ── 銘柄別損益集計テーブル（全シグナル対象）──
