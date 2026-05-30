@@ -10810,6 +10810,27 @@ function EntrySignalSection(_ref_es) {
             var realPnlN = realPnl != null ? _p100(realPnl) : null;
             var planPnlN = planPnl != null ? _p100(planPnl) : null;
             var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
+            // α値が設定されている場合、想定損益・最大損益を動的再計算（表示専用）
+            if (c.alphaVal != null && s.osVal != null) {
+              var _avDyn = c.alphaVal;
+              var _osVDyn = Number(s.osVal);
+              var _confDyn = s.osConfVal != null
+                ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal))
+                : null;
+              var _diffDyn = _osVDyn - _avDyn;
+              var _dynPnl = null;
+              if (_diffDyn < 0) {
+                _dynPnl = 0;
+              } else if (_diffDyn >= 10) {
+                _dynPnl = -Math.round(_diffDyn * 100);
+              } else if (_confDyn != null) {
+                _dynPnl = Math.round((_avDyn - _confDyn) * 100);
+              }
+              if (_dynPnl != null) {
+                planPnl = _dynPnl; planPnlN = _dynPnl;
+                maxPnl  = _dynPnl; maxPnlN  = _dynPnl;
+              }
+            }
             var entered = _elIsEntered(s, rIt);
             var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
             var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
