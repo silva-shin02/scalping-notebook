@@ -24984,11 +24984,26 @@ function EntryRecordForm(_ref_erf) {
     setFEstWidthVal(String(Math.abs(width)));
   }, [fStock, fDate, data, fOsConfSign, fOsConfVal, fOsVal]);
 
-  // ── 想定値幅の符号から結果を自動選択 ──
+  // ── 結果を自動選択（OS値・α値・確定値の組み合わせによる判定） ──
+  //   OS値-α値 < 0           → E基準未達(miss)
+  //   OS値-α値 0〜9 かつ 確定値<α値 → 成功(ok)
+  //   OS値-α値 0〜9 かつ 確定値≥α値 → 失敗(ng)
+  //   OS値-α値 ≥ 10          → 失敗(ng)
   useEffect(function() {
-    if (fEstWidthVal === "" || fEstWidthSign == null) return;
-    setFResult(fEstWidthSign === "+" ? "ok" : "ng");
-  }, [fEstWidthSign, fEstWidthVal]);
+    var ck = fStock + "_" + fDate;
+    var cd = data.charts && data.charts[ck];
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
+    if (av == null) return;
+    var osV = Number(fOsVal) || 0;
+    if (osV <= 0) return;
+    var diff = osV - av;
+    if (diff < 0) { setFResult("miss"); return; }
+    if (diff >= 10) { setFResult("ng"); return; }
+    // diff 0〜9: 確定値で判定
+    if (fOsConfVal === "") return;
+    var confSigned = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
+    setFResult(confSigned < av ? "ok" : "ng");
+  }, [fStock, fDate, data, fOsVal, fOsConfSign, fOsConfVal]);
 
   // ── 想定損益を自動計算（想定値幅×100、OS値-α値≥10時は特例） ──
   useEffect(function() {
@@ -25314,11 +25329,11 @@ function EntryRecordForm(_ref_erf) {
       // 結果
       React.createElement("div", { style: SH_ }, "結果"),
       React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        [["○ 成功", "ok", "#1E8449", "#EAF3DE"], ["× 失敗", "ng", "#C0392B", "#FCEBEB"], ["— 未確定", "", "#888", "#f5f4f0"]].map(function(kv) {
+        [["○ 成功", "ok", "#1E8449", "#EAF3DE"], ["× 失敗", "ng", "#C0392B", "#FCEBEB"], ["△ E基準未達", "miss", "#B45309", "#FEF3C7"]].map(function(kv) {
           var on = fResult === kv[1];
           return React.createElement("button", {
-            key: kv[1] || "none",
-            onClick: function() { setFResult(kv[1]); if (kv[1] === "ng") { setFPlanSign("-"); setFMaxSign("-"); } else if (kv[1] === "ok") { setFPlanSign("+"); setFMaxSign("+"); } },
+            key: kv[1],
+            onClick: function() { setFResult(kv[1]); if (kv[1] === "ng") { setFPlanSign("-"); } else if (kv[1] === "ok") { setFPlanSign("+"); } },
             style: {
               padding: "8px 12px", fontSize: 13, fontWeight: 600,
               border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
