@@ -20275,7 +20275,18 @@ function DayView(_ref57) {
             ),
             React.createElement("tbody", null, [totRow].concat(dataRows))
           )
-        )
+        ),
+        (function() {
+          var _trVirtByStk = {};
+          _trEntryRecords.forEach(function(r) {
+            var s = r.signal;
+            if (!_trVirtByStk[r.stock]) _trVirtByStk[r.stock] = [];
+            var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+            _trVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf });
+          });
+          if (!Object.keys(_trVirtByStk).length) return null;
+          return React.createElement(VirtualAlphaCalc, { sigsByStock: _trVirtByStk });
+        })()
       );
     })(),
     _trEntryRecords.length > 0 && React.createElement("div", {
@@ -20690,7 +20701,21 @@ function DayView(_ref57) {
               React.createElement("tbody", null, subRows),
               React.createElement("tfoot", null, totRow)
             )
-          )
+          ),
+          (function() {
+            var _expVirtByStk = {};
+            var _expSrcRecs = rowKey === "__total__" ? _pbAllRecs : (expRecs || []);
+            _expSrcRecs.forEach(function(r) {
+              var s = r.signal;
+              if (!_expVirtByStk[r.stock]) _expVirtByStk[r.stock] = [];
+              var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+              _expVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf });
+            });
+            if (!Object.keys(_expVirtByStk).length) return null;
+            return React.createElement("div", { style: { padding: "4px 6px" } },
+              React.createElement(VirtualAlphaCalc, { sigsByStock: _expVirtByStk })
+            );
+          })()
         )
       );
     };
@@ -20736,18 +20761,13 @@ function DayView(_ref57) {
         if (osV != null) { osSum += osV; osCnt++; }
         sigData.push({ conf: conf, osVal: osV });
       });
-      var avgConf = confCnt > 0 ? confSum / confCnt : null;
-      var minA = avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 1)), 20) : null;
-      var tgtA = avgConf != null ? Math.min(Math.max(0, Math.round(avgConf + 25)), 20) : null;
-      var maxA = osCnt > 0 ? Math.min(Math.max(0, Math.round(osSum / osCnt)), 20) : null;
       var calcProfit = function(alpha) {
-        if (alpha == null) return null;
         var total = 0, hasAny = false;
         sigData.forEach(function(d) {
           if (d.osVal == null) return;
           hasAny = true;
           if (alpha > d.osVal) {
-            // OS値 < α値 → エントリーなし、損益0
+            // α値 > OS値 → エントリーなし、損益0
           } else if (d.osVal - alpha >= 10) {
             // 損切り（超過分 × 100円）
             total += -(d.osVal - alpha) * 100;
@@ -20759,11 +20779,21 @@ function DayView(_ref57) {
         });
         return hasAny ? Math.round(total) : null;
       };
+      // 0〜20を全探索して最適α値を決定
+      var minA = null, tgtA = null, maxA = null, maxP = null;
+      for (var _a = 0; _a <= 20; _a++) {
+        var _p = calcProfit(_a);
+        if (_p == null) continue;
+        if (minA == null && _p >= 1) minA = _a;
+        if (tgtA == null && _p >= 2500) tgtA = _a;
+        if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; }
+      }
       _pbAlphaByStk[sk] = {
         minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA,
-        minProfit: calcProfit(minA),
-        tgtProfit: calcProfit(tgtA),
-        maxProfit: calcProfit(maxA)
+        minProfit: minA != null ? calcProfit(minA) : null,
+        tgtProfit: tgtA != null ? calcProfit(tgtA) : null,
+        maxProfit: maxA != null ? calcProfit(maxA) : null,
+        sigData: sigData
       };
     });
     var _pbTotMinProfit = null, _pbTotTgtProfit = null, _pbTotMaxProfit = null;
@@ -24715,6 +24745,60 @@ function _toHankakuDecimal(s) {
     .replace(/[^0-9.]/g, "");
   var parts = str.split(".");
   return parts.length > 1 ? parts[0] + "." + parts.slice(1).join("") : str;
+}
+
+// ============================================================
+// VirtualAlphaCalc: 仮想α値シミュレーター
+// ============================================================
+function VirtualAlphaCalc(_ref_vac) {
+  var sigsByStock = _ref_vac.sigsByStock;
+  var stocks = Object.keys(sigsByStock);
+  var _s1 = useState(stocks[0] || ""), _s1a = _slicedToArray(_s1, 2);
+  var selStock = _s1a[0], setSelStock = _s1a[1];
+  var _s2 = useState(""), _s2a = _slicedToArray(_s2, 2);
+  var alphaStr = _s2a[0], setAlphaStr = _s2a[1];
+  if (!stocks.length) return null;
+  var alpha = Number(_toHankaku(alphaStr));
+  var result = null;
+  if (alphaStr !== "" && !isNaN(alpha)) {
+    var sigs = sigsByStock[selStock] || [];
+    var total = 0, hasAny = false;
+    sigs.forEach(function(d) {
+      if (d.osVal == null) return;
+      hasAny = true;
+      if (alpha > d.osVal) {
+        // エントリーなし
+      } else if (d.osVal - alpha >= 10) {
+        total += -(d.osVal - alpha) * 100;
+      } else {
+        if (d.conf == null) return;
+        total += (alpha - d.conf) * 100;
+      }
+    });
+    if (hasAny) result = Math.round(total);
+  }
+  var resColor = result == null ? "#aaa" : result > 0 ? "#1E8449" : result < 0 ? "#C0392B" : "#888";
+  return React.createElement("div", {
+    style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8, padding: "6px 10px", borderRadius: 7, background: "#FFFBF0", border: "1px solid #FDE68A" }
+  },
+    React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#92400E" } }, "🔢 仮想α値シミュレーター"),
+    stocks.length > 1 && React.createElement("select", {
+      value: selStock,
+      onChange: function(e) { setSelStock(e.target.value); },
+      style: { fontSize: 11, border: "1px solid #ccc", borderRadius: 4, padding: "2px 6px", background: "#fff" }
+    }, stocks.map(function(s) { return React.createElement("option", { key: s, value: s }, s); })),
+    React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "α値"),
+    React.createElement("input", {
+      type: "number", inputMode: "decimal", value: alphaStr,
+      onChange: function(e) { setAlphaStr(_toHankaku(e.target.value)); },
+      placeholder: "0",
+      style: { width: 64, fontSize: 12, border: "1px solid #ccc", borderRadius: 4, padding: "3px 6px", textAlign: "right" }
+    }),
+    React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "円 →"),
+    React.createElement("span", { style: { fontSize: 14, fontWeight: 800, color: resColor, minWidth: 80 } },
+      result != null ? (result > 0 ? "+" : "") + result.toLocaleString() + "円" : "—"
+    )
+  );
 }
 
 // ============================================================
