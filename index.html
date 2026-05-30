@@ -25191,19 +25191,23 @@ function EntryRecordForm(_ref_erf) {
 
   // ── 結果損益を自動計算 ──
   //   ホールド足高値≥10: -(高値×100) 優先
-  //   ↓(+): (変動数値 - 確定値) × 100
-  //   ↑(-): -(変動数値 - 確定値) × 100  ※変動数値は絶対値
+  //   result = (α ± 確定値 ± 変動値) × 100
+  //   ↓(+) → 加算、↑(-) → 減算（各絶対値を使用）
   useEffect(function() {
     var _hhv = Number(fHoldHighVal) || 0;
     if (_hhv >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(_hhv * 100)); return; }
-    if (!fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
+    var _ck = fStock + "_" + fDate;
+    var _cd = data.charts && data.charts[_ck];
+    var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
+    if (_av == null || !fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
     var _hw = Number(fHoldWidthVal) || 0;
-    var _conf = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
-    var _base = (_hw - _conf) * 100;
-    var _result = fHoldWidthSign === "+" ? _base : -_base;
+    var _cv = Number(fOsConfVal) || 0;
+    var _confAdj = fOsConfSign === "+" ? _cv : fOsConfSign === "-" ? -_cv : 0;
+    var _holdAdj = fHoldWidthSign === "+" ? _hw : fHoldWidthSign === "-" ? -_hw : 0;
+    var _result = (_av + _confAdj + _holdAdj) * 100;
     setFHoldPnlSign(_result >= 0 ? "+" : "-");
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fHoldWidthSign, fHoldWidthVal, fOsConfSign, fOsConfVal, fHoldHighVal]);
+  }, [fStock, fDate, data, fHoldWidthSign, fHoldWidthVal, fOsConfSign, fOsConfVal, fHoldHighVal]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -25450,7 +25454,7 @@ function EntryRecordForm(_ref_erf) {
               background: fOsConfSign === "+" ? "#FCEBEB" : fOsConfSign === "-" ? "#EAF3DE" : "#f5f4f0",
               color: fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#999",
               borderRadius: 5, cursor: "pointer", minWidth: 36 }
-          }, fOsConfSign || "±"),
+          }, fOsConfSign === "+" ? "↓" : fOsConfSign === "-" ? "↑" : "↕"),
           React.createElement("input", {
             type: "number", inputMode: "numeric", step: "1",
             value: fOsConfVal,
@@ -25553,10 +25557,10 @@ function EntryRecordForm(_ref_erf) {
             })
           )
         ),
-        // 変動数値（確定値比）
+        // 変動値（確定値比）
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
-            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "変動数値（確定値比）"),
+            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "変動値（確定値比）"),
             React.createElement("button", {
               onClick: function() {
                 // ↑("-")→↓("+")→未選択(null)→↑("-")のサイクル
