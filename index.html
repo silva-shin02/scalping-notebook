@@ -1648,6 +1648,15 @@ function _imgUploadSubscribe(fn) {
 function _imgUploadGet(id) {
   return (id != null && _imgUploadStore[id]) || null;
 }
+// ★ 1枚でも「反映中(uploading)」の画像があるか判定。
+//   ポーリングのリモートマージ（setData→再マウント）が反映中のアップロードを
+//   中断して「強制リロード・アップロード未完了」を起こすのを防ぐために使う。
+function _imgUploadAnyPending() {
+  for (var _k in _imgUploadStore) {
+    if (_imgUploadStore[_k] === "uploading") return true;
+  }
+  return false;
+}
 
 // ── CA サムネ専用 IDB キャッシュ画像コンポーネント ──
 // chart-annotator の thumbUrl は data 構造に入らない一時表示用なので preloadImages の対象外。
@@ -5187,23 +5196,8 @@ function ImageAnnotator(_ref7) {
     var _capLS = { w: logicalSizeRef.current.w, h: logicalSizeRef.current.h };
     var _capBaseImg = baseImgRef.current;
     var _capStrokes = _curStrokes;
-    var _pngWork = function() {
-      var base64 = null;
-      try {
-        if (_capLS.w > 0 && _capBaseImg) {
-          var _expC = document.createElement("canvas");
-          _expC.width = _capLS.w;
-          _expC.height = _capLS.h;
-          var _expCtx = _expC.getContext("2d");
-          _expCtx.imageSmoothingEnabled = true;
-          _expCtx.imageSmoothingQuality = "high";
-          _expCtx.drawImage(_capBaseImg, 0, 0, _capLS.w, _capLS.h);
-          _capStrokes.forEach(function(s) { drawStroke(_expCtx, s); });
-          base64 = _expC.toDataURL("image/png").split(",")[1];
-        }
-      } catch(e) {
-        console.warn("[Annotator] async toDataURL failed:", e);
-      }
+    // ★ PNG生成（エンコード）完了後の共通後処理。base64=null の場合は保存スキップ。
+    var _finishPng = function(base64) {
       // ★ PNG生成完了 → サムネイル反映中インジケーターを「✓」に切り替える
       clearTimeout(_reflectFallback);
       if (base64) {
@@ -5226,6 +5220,48 @@ function ImageAnnotator(_ref7) {
       setTimeout(function() { window._snFbFlushPending = false; }, 2000);
       // afterPng=true の場合は PNG 完了後にナビゲーション実行
       if (afterPng && typeof cb === "function") cb();
+    };
+    var _pngWork = function() {
+      var _expC, _expCtx;
+      try {
+        if (_capLS.w > 0 && _capBaseImg) {
+          _expC = document.createElement("canvas");
+          _expC.width = _capLS.w;
+          _expC.height = _capLS.h;
+          _expCtx = _expC.getContext("2d");
+          _expCtx.imageSmoothingEnabled = true;
+          _expCtx.imageSmoothingQuality = "high";
+          _expCtx.drawImage(_capBaseImg, 0, 0, _capLS.w, _capLS.h);
+          _capStrokes.forEach(function(s) { drawStroke(_expCtx, s); });
+        }
+      } catch(e) {
+        console.warn("[Annotator] PNG draw failed:", e);
+        _finishPng(null);
+        return;
+      }
+      if (!_expC) { _finishPng(null); return; }
+      // ★ ラグ対策: toDataURL（同期）はメインスレッドを長時間ブロックし、反映中に
+      //   他の画像が開けない・操作がカクつく原因になる。toBlob（非同期）でエンコードを
+      //   オフロードし、UIブロックを最小化する。toBlob非対応環境のみ toDataURL にフォールバック。
+      try {
+        if (_expC.toBlob) {
+          _expC.toBlob(function(blob) {
+            if (!blob) { _finishPng(null); return; }
+            var _fr = new FileReader();
+            _fr.onload = function() {
+              var _b64 = String(_fr.result || "").split(",")[1] || null;
+              _finishPng(_b64);
+            };
+            _fr.onerror = function() { _finishPng(null); };
+            _fr.readAsDataURL(blob);
+          }, "image/png");
+          return;
+        }
+        _finishPng(_expC.toDataURL("image/png").split(",")[1]);
+      } catch(e) {
+        console.warn("[Annotator] async PNG encode failed:", e);
+        _finishPng(null);
+      }
     };
     // rAF×2: 1枚目でバナーDOMが確定 → 2枚目でpaint完了 → その後PNG生成ブロック
     requestAnimationFrame(function() {
@@ -34622,8 +34658,11 @@ function App() {
         while (1) switch (_context3.p = _context3.n) {
           case 0:
             // ★ スキップ条件: (1)skipRef=true (save直後30秒) または (2)ユーザーが入力中
-            //   入力中にsetData()でReact再レンダリングが走ると入力がリセットされるため
+            //   または (3)画像が反映中(uploading) / 書き込み保存直後のFlush待ち。
+            //   入力中・反映中にsetData()でReact再レンダリングが走ると、入力がリセットされたり
+            //   反映中のアップロードが中断されて「強制リロード・アップロード未完了」になるため。
             if (skipRef.current) { return _context3.a(2); }
+            if (_imgUploadAnyPending() || window._snFbFlushPending) { return _context3.a(2); }
             if ((function(){
               var ae = document.activeElement;
               return !!(ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" ||
