@@ -25196,7 +25196,8 @@ function EntryRecordForm(_ref_erf) {
       setFPlan(String(Math.round((osV - av) * 100)));
       return;
     }
-    if (fEstWidthVal === "" || fEstWidthSign == null) return;
+    if (fEstWidthVal === "") return;
+    if (fEstWidthSign == null) { setFPlanSign(null); setFPlan("0"); return; }
     var w = Number(fEstWidthVal) || 0;
     var planAmt = Math.round(w * 100);
     setFPlanSign(planAmt === 0 ? null : fEstWidthSign);
@@ -25619,9 +25620,9 @@ function EntryRecordForm(_ref_erf) {
             })
           )
         ),
-        // 変動値（確定値比）
+        // ホールド足確定値 / ホールド足高値（縦並び）
         React.createElement("div", { style: { marginBottom: 8 } },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
             React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "ホールド足確定値(水準線比)"),
             React.createElement("div", {
               style: { display: "flex", alignItems: "center", border: "1px solid " + (fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
@@ -25679,8 +25680,9 @@ function EntryRecordForm(_ref_erf) {
                 }
               )
             ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-            React.createElement("span", { style: { fontSize: 12, color: "#ccc", margin: "0 6px" } }, "|"),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+          ),
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
             React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（水準線比）"),
             React.createElement("div", {
               style: { display: "flex", alignItems: "center", border: "1px solid " + (fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
