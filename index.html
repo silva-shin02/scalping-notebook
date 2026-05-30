@@ -10757,7 +10757,28 @@ function EntrySignalSection(_ref_es) {
           var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
           save(function(prev) {
             var pCharts = Object.assign({}, (prev && prev.charts) || {});
-            pCharts[ck] = Object.assign({}, pCharts[ck] || {}, { alphaVal: n });
+            var _ce = Object.assign({}, pCharts[ck] || {});
+            if (n != null) _ce.alphaVal = n; else delete _ce.alphaVal;
+            // α値変更時: シグナルの想定損益・最大損益も再計算して保存
+            if (n != null && Array.isArray(_ce.signals)) {
+              _ce.signals = _ce.signals.map(function(s) {
+                if (s.osVal == null) return s;
+                var _osV = Number(s.osVal);
+                var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+                var _diff = _osV - n;
+                var _pnl = null;
+                if (_diff < 0) _pnl = 0;
+                else if (_diff >= 10) _pnl = -Math.round(_diff * 100);
+                else if (_conf != null) _pnl = Math.round((n - _conf) * 100);
+                if (_pnl == null) return s;
+                var _sg = _pnl >= 0 ? "+" : "-";
+                return Object.assign({}, s, {
+                  plannedPnl: Math.abs(_pnl), plannedPnlSign: _sg,
+                  maxPnl: Math.abs(_pnl), maxPnlSign: _sg
+                });
+              });
+            }
+            pCharts[ck] = _ce;
             return Object.assign({}, prev, { charts: pCharts });
           });
         },
@@ -25015,6 +25036,8 @@ function EntryRecordForm(_ref_erf) {
     // OS値がα値未満の場合、想定値幅は0
     var osV = Number(fOsVal) || 0;
     if (osV > 0 && osV < av) { setFEstWidthSign(null); setFEstWidthVal("0"); return; }
+    // OS値ーα値が10以上の場合、想定値幅は -(OS値ーα値)
+    if (osV > 0 && osV - av >= 10) { setFEstWidthSign("-"); setFEstWidthVal(String(osV - av)); return; }
     var confSigned = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
     var width = av - confSigned;
     setFEstWidthSign(width === 0 ? null : (width > 0 ? "+" : "-"));
