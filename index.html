@@ -25044,6 +25044,12 @@ function EntryRecordForm(_ref_erf) {
   var _useStateHWV = useState(initSig.holdWidth != null ? String(Math.abs(Number(initSig.holdWidth))) : ""),
     _useStateHWVA = _slicedToArray(_useStateHWV, 2),
     fHoldWidthVal = _useStateHWVA[0], setFHoldWidthVal = _useStateHWVA[1];
+  var _useStateHHS = useState(initSig.holdHighSign || null),
+    _useStateHHSA = _slicedToArray(_useStateHHS, 2),
+    fHoldHighSign = _useStateHHSA[0], setFHoldHighSign = _useStateHHSA[1];
+  var _useStateHHV = useState(initSig.holdHighVal != null ? String(Math.abs(Number(initSig.holdHighVal))) : ""),
+    _useStateHHVA = _slicedToArray(_useStateHHV, 2),
+    fHoldHighVal = _useStateHHVA[0], setFHoldHighVal = _useStateHHVA[1];
   // ── 確定値（水準線比）──
   var _useStateOCSign = useState(initSig.osConfSign || null),
     _useStateOCSignA = _slicedToArray(_useStateOCSign, 2),
@@ -25147,6 +25153,7 @@ function EntryRecordForm(_ref_erf) {
     // diff 0〜9: 確定値で判定
     if (fOsConfVal === "") return;
     var confSigned = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
+    if (confSigned === 0) { setFResult("draw"); return; }
     setFResult(confSigned < av ? "ok" : "ng");
   }, [fStock, fDate, data, fOsVal, fOsConfSign, fOsConfVal]);
 
@@ -25182,17 +25189,17 @@ function EntryRecordForm(_ref_erf) {
     setFHoldWidthVal(String(Math.abs(_w)));
   }, [fStock, fDate, data, fHoldOsConf]);
 
-  // ── 結果損益を自動計算（想定損益 ± 変動数値×100）──
-  //   ↓(+): 想定損益 + 変動数値×100
-  //   ↑(-): 想定損益 − 変動数値×100  ※変動数値は絶対値で計算
+  // ── 結果損益を自動計算（ホールド足高値≥10時は優先、それ以外は想定損益±変動数値×100）──
   useEffect(function() {
+    var _hhv = Number(fHoldHighVal) || 0;
+    if (_hhv >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(_hhv * 100)); return; }
     if (!fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
     var _signedPlan = fPlanSign === "-" ? -(Number(fPlan) || 0) : (Number(fPlan) || 0);
     var _hw = Number(fHoldWidthVal) || 0;
     var _result = fHoldWidthSign === "+" ? _signedPlan + _hw * 100 : _signedPlan - _hw * 100;
     setFHoldPnlSign(_result >= 0 ? "+" : "-");
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fHoldWidthSign, fHoldWidthVal, fPlanSign, fPlan]);
+  }, [fHoldWidthSign, fHoldWidthVal, fPlanSign, fPlan, fHoldHighVal]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -25234,6 +25241,8 @@ function EntryRecordForm(_ref_erf) {
       holdWidth: fHoldWidthVal !== "" ? Number(fHoldWidthVal) : null,
       holdPnl: fHoldPnlVal !== "" ? Number(fHoldPnlVal) : null,
       holdPnlSign: fHoldPnlSign || null,
+      holdHighVal: fHoldHighVal !== "" ? Number(fHoldHighVal) : null,
+      holdHighSign: fHoldHighSign || null,
       realizedPnl: fEntered && fReal !== "" ? Number(fReal) : null,
       realizedPnlSign: fRealSign,
       profitGrade: null,
@@ -25452,7 +25461,7 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
         React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 700, whiteSpace: "nowrap" } }, "結果"),
         React.createElement("div", { style: { display: "flex", gap: 4 } },
-          [["○ 成功", "ok", "#C0392B", "#FCEBEB"], ["× 失敗", "ng", "#1E8449", "#EAF3DE"], ["△ E基準未達", "miss", "#B45309", "#FEF3C7"]].map(function(kv) {
+          [["○ 成功", "ok", "#C0392B", "#FCEBEB"], ["△ 引き分け", "draw", "#6B7280", "#F3F4F6"], ["× 失敗", "ng", "#1E8449", "#EAF3DE"], ["ー E基準未達", "miss", "#B45309", "#FEF3C7"]].map(function(kv) {
             var on = fResult === kv[1];
             return React.createElement("button", {
               key: kv[1],
@@ -25575,6 +25584,28 @@ function EntryRecordForm(_ref_erf) {
                   var _ws = fHoldWidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0);
                   setFHoldOsConf(_av2 - _ws);
                 }
+              },
+              placeholder: "0",
+              style: Object.assign({}, I, { width: 80, textAlign: "right" })
+            }),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+            React.createElement("span", { style: { fontSize: 12, color: "#ccc", margin: "0 6px" } }, "|"),
+            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（α値）"),
+            React.createElement("button", {
+              onClick: function() {
+                setFHoldHighSign(fHoldHighSign === "-" ? "+" : fHoldHighSign === "+" ? null : "-");
+              },
+              style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldHighSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
+                border: "1px solid " + (fHoldHighSign === "+" ? "#C0392B" : fHoldHighSign === "-" ? "#1E8449" : "#bbb"),
+                background: fHoldHighSign === "+" ? "#FCEBEB" : fHoldHighSign === "-" ? "#EAF3DE" : "#f5f4f0",
+                color: fHoldHighSign === "+" ? "#C0392B" : fHoldHighSign === "-" ? "#1E8449" : "#999" }
+            }, fHoldHighSign === "-" ? "↑" : fHoldHighSign === "+" ? "↓" : "↕"),
+            React.createElement("input", {
+              type: "number", inputMode: "numeric", step: "1",
+              value: fHoldHighVal,
+              onChange: function(e) {
+                var _v = e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0));
+                setFHoldHighVal(_v);
               },
               placeholder: "0",
               style: Object.assign({}, I, { width: 80, textAlign: "right" })
