@@ -25118,28 +25118,29 @@ function EntryRecordForm(_ref_erf) {
     setFReal(String(absVal));
   }, [fPriceIn, fPriceOut, fShares, fTradeType, fEntered]);
 
-  // ── 想定値幅を自動計算（α値 - 確定値） ──
+  // ── 想定値幅を自動計算（α値 - 確定値絶対値） ──
+  //   α - 確定値 < 0 → ↓(+)緑、> 0 → ↑(-)赤、= 0 → ↕
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
     var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
     if (av == null || fOsConfVal === "") { setFEstWidthSign(null); setFEstWidthVal(""); return; }
-    // OS値がα値未満の場合、想定値幅は0
     var osV = Number(fOsVal) || 0;
     if (osV > 0 && osV < av) { setFEstWidthSign(null); setFEstWidthVal("0"); return; }
-    // OS値ーα値が10以上の場合、想定値幅は -(OS値ーα値)
     if (osV > 0 && osV - av >= 10) { setFEstWidthSign("-"); setFEstWidthVal(String(osV - av)); return; }
-    var confSigned = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
-    var width = av - confSigned;
-    setFEstWidthSign(width === 0 ? null : (width > 0 ? "+" : "-"));
+    var confAbs = Number(fOsConfVal) || 0;
+    var width = av - confAbs;
+    setFEstWidthSign(width === 0 ? null : (width < 0 ? "+" : "-"));
     setFEstWidthVal(String(Math.abs(width)));
-  }, [fStock, fDate, data, fOsConfSign, fOsConfVal, fOsVal]);
+  }, [fStock, fDate, data, fOsConfVal, fOsVal]);
 
   // ── 結果を自動選択（OS値・α値・確定値の組み合わせによる判定） ──
-  //   OS値-α値 < 0           → E基準未達(miss)
-  //   OS値-α値 0〜9 かつ 確定値<α値 → 成功(ok)
-  //   OS値-α値 0〜9 かつ 確定値≥α値 → 失敗(ng)
-  //   OS値-α値 ≥ 10          → 失敗(ng)
+  //   OS値-α値 < 0                    → E基準未達(miss)
+  //   OS値-α値 ≥ 10                   → 失敗(ng)
+  //   OS値-α値 0〜9: 確定値(符号付き) vs α値
+  //     確定値 < α値 → 成功(ok)
+  //     確定値 = α値 → 引き分け(draw)
+  //     確定値 > α値 → 失敗(ng)
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
@@ -25150,11 +25151,12 @@ function EntryRecordForm(_ref_erf) {
     var diff = osV - av;
     if (diff < 0) { setFResult("miss"); return; }
     if (diff >= 10) { setFResult("ng"); return; }
-    // diff 0〜9: 確定値で判定
+    // diff 0〜9: 確定値(符号付き)とα値を比較
     if (fOsConfVal === "") return;
-    var confSigned = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
-    if (confSigned === 0) { setFResult("draw"); return; }
-    setFResult(confSigned < av ? "ok" : "ng");
+    var confSigned = fOsConfSign === "+" ? (Number(fOsConfVal) || 0) : fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
+    if (confSigned < av) { setFResult("ok"); return; }
+    if (confSigned === av) { setFResult("draw"); return; }
+    setFResult("ng");
   }, [fStock, fDate, data, fOsVal, fOsConfSign, fOsConfVal]);
 
   // ── 想定損益を自動計算（想定値幅×100、OS値-α値≥10時は特例） ──
@@ -25454,7 +25456,7 @@ function EntryRecordForm(_ref_erf) {
               background: fOsConfSign === "+" ? "#FCEBEB" : fOsConfSign === "-" ? "#EAF3DE" : "#f5f4f0",
               color: fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#999",
               borderRadius: 5, cursor: "pointer", minWidth: 36 }
-          }, fOsConfSign === "+" ? "↓" : fOsConfSign === "-" ? "↑" : "↕"),
+          }, fOsConfSign === "+" ? "↑" : fOsConfSign === "-" ? "↓" : "↕"),
           React.createElement("input", {
             type: "number", inputMode: "numeric", step: "1",
             value: fOsConfVal,
@@ -25498,9 +25500,9 @@ function EntryRecordForm(_ref_erf) {
               setFEstWidthSign(fEstWidthSign === "-" ? "+" : fEstWidthSign === "+" ? null : "-");
             },
             style: { padding: "5px 10px", fontSize: 13, fontWeight: fEstWidthSign ? 700 : 400,
-              border: "1px solid " + (fEstWidthSign === "+" ? "#C0392B" : fEstWidthSign === "-" ? "#1E8449" : "#bbb"),
-              background: fEstWidthSign === "+" ? "#FCEBEB" : fEstWidthSign === "-" ? "#EAF3DE" : "#f5f4f0",
-              color: fEstWidthSign === "+" ? "#C0392B" : fEstWidthSign === "-" ? "#1E8449" : "#999",
+              border: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#bbb"),
+              background: fEstWidthSign === "+" ? "#EAF3DE" : fEstWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
+              color: fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#999",
               borderRadius: 5, cursor: "pointer", minWidth: 36 }
           }, fEstWidthSign === "-" ? "↑" : fEstWidthSign === "+" ? "↓" : "↕"),
           React.createElement("input", {
@@ -25575,9 +25577,9 @@ function EntryRecordForm(_ref_erf) {
                 }
               },
               style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldWidthSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
-                border: "1px solid " + (fHoldWidthSign === "+" ? "#C0392B" : fHoldWidthSign === "-" ? "#1E8449" : "#bbb"),
-                background: fHoldWidthSign === "+" ? "#FCEBEB" : fHoldWidthSign === "-" ? "#EAF3DE" : "#f5f4f0",
-                color: fHoldWidthSign === "+" ? "#C0392B" : fHoldWidthSign === "-" ? "#1E8449" : "#999" }
+                border: "1px solid " + (fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#bbb"),
+                background: fHoldWidthSign === "+" ? "#EAF3DE" : fHoldWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
+                color: fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#999" }
             }, fHoldWidthSign === "-" ? "↑" : fHoldWidthSign === "+" ? "↓" : "↕"),
             React.createElement("input", {
               type: "number", inputMode: "numeric", step: "1",
@@ -25604,9 +25606,9 @@ function EntryRecordForm(_ref_erf) {
                 setFHoldHighSign(fHoldHighSign === "-" ? "+" : fHoldHighSign === "+" ? null : "-");
               },
               style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldHighSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
-                border: "1px solid " + (fHoldHighSign === "+" ? "#C0392B" : fHoldHighSign === "-" ? "#1E8449" : "#bbb"),
-                background: fHoldHighSign === "+" ? "#FCEBEB" : fHoldHighSign === "-" ? "#EAF3DE" : "#f5f4f0",
-                color: fHoldHighSign === "+" ? "#C0392B" : fHoldHighSign === "-" ? "#1E8449" : "#999" }
+                border: "1px solid " + (fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#bbb"),
+                background: fHoldHighSign === "+" ? "#EAF3DE" : fHoldHighSign === "-" ? "#FCEBEB" : "#f5f4f0",
+                color: fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#999" }
             }, fHoldHighSign === "-" ? "↑" : fHoldHighSign === "+" ? "↓" : "↕"),
             React.createElement("input", {
               type: "number", inputMode: "numeric", step: "1",
