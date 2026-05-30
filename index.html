@@ -10565,8 +10565,8 @@ function EntrySignalSection(_ref_es) {
     );
   };
   // ── テーブル合計集計 ──
-  var _esTotReal = null, _esTotPlan = null, _esTotMax = null;
-  var _esTotRealCnt = 0, _esTotPlanCnt = 0, _esTotMaxCnt = 0;
+  var _esTotReal = null, _esTotPlan = null, _esTotMax = null, _esTotHold = null;
+  var _esTotRealCnt = 0, _esTotPlanCnt = 0, _esTotMaxCnt = 0, _esTotHoldCnt = 0;
   var _esTotPlanAB = null, _esTotMaxAB = null;
   var _esTotPlanABCnt = 0, _esTotMaxABCnt = 0;
   records.forEach(function(r) {
@@ -10576,12 +10576,15 @@ function EntrySignalSection(_ref_es) {
     var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
     var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
+    var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
     var rpN = rp != null ? _p100(rp) : null;
     var ppN = pp != null ? _p100(pp) : null;
     var mpN = mp != null ? _p100(mp) : null;
+    var hpN = hp != null ? _p100(hp) : null;
     if (rpN != null) { _esTotReal = (_esTotReal || 0) + rpN; _esTotRealCnt++; }
     if (ppN != null) { _esTotPlan = (_esTotPlan || 0) + ppN; _esTotPlanCnt++; }
     if (mpN != null) { _esTotMax  = (_esTotMax  || 0) + mpN; _esTotMaxCnt++; }
+    if (hpN != null) { _esTotHold = (_esTotHold || 0) + hpN; _esTotHoldCnt++; }
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
     if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; _esTotMaxABCnt++; }
@@ -10833,7 +10836,10 @@ function EntrySignalSection(_ref_es) {
               _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
             ),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              React.createElement("span", { style: { color: "#ccc" } }, "—")
+              _esTotHoldCnt > 0
+                ? React.createElement("span", { style: { fontWeight: 700, fontSize: 11, color: (_esTotHold||0) > 0 ? "#C0392B" : (_esTotHold||0) < 0 ? "#1E8449" : "#888" } },
+                    ((_esTotHold||0) > 0 ? "+" : "") + (_esTotHold||0).toLocaleString() + "円")
+                : React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),
             isCustomMode ? React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }) : null
           );
@@ -20237,8 +20243,8 @@ function DayView(_ref57) {
         return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
       };
       var _trRecKey = function(r) { return r.stock + "_" + (r.signal.id || r.signal.time || ""); };
-      var _trTotReal = null, _trTotPlan = null, _trTotMax = null;
-      var _trTotRealCnt = 0, _trTotPlanCnt = 0, _trTotMaxCnt = 0;
+      var _trTotReal = null, _trTotPlan = null, _trTotMax = null, _trTotHold = null;
+      var _trTotRealCnt = 0, _trTotPlanCnt = 0, _trTotMaxCnt = 0, _trTotHoldCnt = 0;
       var _trTotPlanAB = null, _trTotMaxAB = null;
       var _trTotPlanABCnt = 0, _trTotMaxABCnt = 0;
       _trEntryRecords.forEach(function(r) {
@@ -20248,12 +20254,15 @@ function DayView(_ref57) {
         var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
         var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
         var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
+        var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
         var rpN = rp != null ? _p100(rp) : null;
         var ppN = pp != null ? _p100(pp) : null;
         var mpN = mp != null ? _p100(mp) : null;
+        var hpN = hp != null ? _p100(hp) : null;
         if (rpN != null) { _trTotReal = (_trTotReal || 0) + rpN; _trTotRealCnt++; }
         if (ppN != null) { _trTotPlan = (_trTotPlan || 0) + ppN; _trTotPlanCnt++; }
         if (mpN != null) { _trTotMax  = (_trTotMax  || 0) + mpN; _trTotMaxCnt++; }
+        if (hpN != null) { _trTotHold = (_trTotHold || 0) + hpN; _trTotHoldCnt++; }
         var _isAB = (s.difficulty === "A" || s.difficulty === "B");
         if (ppN != null && _isAB) { _trTotPlanAB = (_trTotPlanAB || 0) + ppN; _trTotPlanABCnt++; }
         if (mpN != null && _isAB) { _trTotMaxAB  = (_trTotMaxAB  || 0) + mpN; _trTotMaxABCnt++; }
@@ -20273,7 +20282,10 @@ function DayView(_ref57) {
           _trRPnlDispABAll(_trTotPlanAB, _trTotPlan, _trTotPlanGradeAB, _trTotPlanGrade)
         ),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-          React.createElement("span", { style: { color: "#ccc" } }, "—")
+          _trTotHoldCnt > 0
+            ? React.createElement("span", { style: { fontWeight: 700, fontSize: 11, color: (_trTotHold||0) > 0 ? "#C0392B" : (_trTotHold||0) < 0 ? "#1E8449" : "#888" } },
+                ((_trTotHold||0) > 0 ? "+" : "") + (_trTotHold||0).toLocaleString() + "円")
+            : React.createElement("span", { style: { color: "#ccc" } }, "—")
         )
       );
       var dataRows = [];
