@@ -10758,7 +10758,7 @@ function EntrySignalSection(_ref_es) {
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値"),
       React.createElement("input", {
         type: "number", inputMode: "numeric", step: "1",
-        value: c.alphaVal != null ? String(c.alphaVal) : "",
+        value: c.alphaVal != null ? String(c.alphaVal) : "0",
         onChange: function(e) {
           var v = e.target.value;
           var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
@@ -10823,9 +10823,6 @@ function EntrySignalSection(_ref_es) {
             ),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
-            ),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               React.createElement("span", { style: { color: "#ccc" } }, "—")
@@ -10929,14 +10926,18 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(realPnlN, realGrade)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(planPnlN, planGrade)),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, holdResultEl),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, (function() {
                   var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
-                  if (_hp == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
                   var _isMiss = s.result === "miss";
-                  var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
-                  var _txt = (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円";
-                  return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col } }, _isMiss ? "(" + _txt + ")" : _txt);
+                  var _pnlEl = _hp == null ? null : (function() {
+                    var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
+                    var _txt = (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円";
+                    return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col, fontSize: 10 } }, _isMiss ? "(" + _txt + ")" : _txt);
+                  })();
+                  return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
+                    holdResultEl,
+                    _pnlEl
+                  );
                 })()),
                 isCustomMode ? React.createElement("td", {
                   style: { padding: "2px 4px", textAlign: "center", borderBottom: "1px solid #f0ede6" },
@@ -10960,7 +10961,7 @@ function EntrySignalSection(_ref_es) {
             if (rExp) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: isCustomMode ? 12 : 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 11 : 10, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
@@ -10983,8 +10984,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("エントリー"),
                   _esTh("実現損益"),
                   _esTh("想定損益"),
-                  _esTh("ホールド勝敗"),
-                  _esTh("結果損益（α値比）"),
+                  _esTh("ホールド勝敗/結果損益（α値比）"),
                   isCustomMode ? _esTh("並替") : null
                 )
               ),
@@ -20266,9 +20266,6 @@ function DayView(_ref57) {
         ),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
           React.createElement("span", { style: { color: "#ccc" } }, "—")
-        ),
-        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-          React.createElement("span", { style: { color: "#ccc" } }, "—")
         )
       );
       var dataRows = [];
@@ -20364,21 +20361,24 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(realPnlN, realGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(planPnlN, planGrade)),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, holdResultEl),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, (function() {
               var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
-              if (_hp == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
               var _isMiss = s.result === "miss";
-              var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
-              var _txt = (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円";
-              return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col } }, _isMiss ? "(" + _txt + ")" : _txt);
+              var _pnlEl = _hp == null ? null : (function() {
+                var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
+                var _txt = (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円";
+                return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col, fontSize: 10 } }, _isMiss ? "(" + _txt + ")" : _txt);
+              })();
+              return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
+                holdResultEl, _pnlEl
+              );
             })())
           )
         );
         if (rExp) {
           dataRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
               )
             )
@@ -20409,8 +20409,7 @@ function DayView(_ref57) {
                 _trTh("結果", { width: "1%" }),
                 _trTh("実現損益"),
                 _trTh("想定損益"),
-                _trTh("ホールド勝敗"),
-                _trTh("結果損益（α値比）")
+                _trTh("ホールド勝敗/結果損益（α値比）")
               )
             ),
             React.createElement("tbody", null, [totRow].concat(dataRows))
@@ -25081,6 +25080,20 @@ function EntryRecordForm(_ref_erf) {
   var _useStateSH = useState(initSig.shares != null ? String(initSig.shares) : "100"),
     _useStateSHA = _slicedToArray(_useStateSH, 2),
     fShares = _useStateSHA[0], setFShares = _useStateSHA[1];
+  // ── Entry/Exit OS値（水準線比）──
+  var _useStateEOSS = useState(initSig.entryOsSign || null),
+    _useStateEOSSA = _slicedToArray(_useStateEOSS, 2),
+    fEntryOsSign = _useStateEOSSA[0], setFEntryOsSign = _useStateEOSSA[1];
+  var _useStateEOSV = useState(initSig.entryOsVal != null ? String(initSig.entryOsVal) : ""),
+    _useStateEOSVA = _slicedToArray(_useStateEOSV, 2),
+    fEntryOsVal = _useStateEOSVA[0], setFEntryOsVal = _useStateEOSVA[1];
+  var _useStateXOSS = useState(initSig.exitOsSign || null),
+    _useStateXOSSA = _slicedToArray(_useStateXOSS, 2),
+    fExitOsSign = _useStateXOSSA[0], setFExitOsSign = _useStateXOSSA[1];
+  var _useStateXOSV = useState(initSig.exitOsVal != null ? String(initSig.exitOsVal) : ""),
+    _useStateXOSVA = _slicedToArray(_useStateXOSV, 2),
+    fExitOsVal = _useStateXOSVA[0], setFExitOsVal = _useStateXOSVA[1];
+
   // 利益獲得度はチャートレベルに移動済み (EntrySignalSection で管理)
 
   // ── 入り・出価格・株数から実現損益を自動計算 ──
@@ -25169,12 +25182,17 @@ function EntryRecordForm(_ref_erf) {
     setFHoldWidthVal(String(Math.abs(_w)));
   }, [fStock, fDate, data, fHoldOsConf]);
 
-  // ── 結果損益を自動計算（変動数値 × 100） ──
+  // ── 結果損益を自動計算（想定損益 ± 変動数値×100）──
+  //   ↓(+): 想定損益 + 変動数値×100
+  //   ↑(-): 想定損益 − 変動数値×100  ※変動数値は絶対値で計算
   useEffect(function() {
     if (!fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
-    setFHoldPnlSign(fHoldWidthSign);
-    setFHoldPnlVal(String(Math.round((Number(fHoldWidthVal) || 0) * 100)));
-  }, [fHoldWidthSign, fHoldWidthVal]);
+    var _signedPlan = fPlanSign === "-" ? -(Number(fPlan) || 0) : (Number(fPlan) || 0);
+    var _hw = Number(fHoldWidthVal) || 0;
+    var _result = fHoldWidthSign === "+" ? _signedPlan + _hw * 100 : _signedPlan - _hw * 100;
+    setFHoldPnlSign(_result >= 0 ? "+" : "-");
+    setFHoldPnlVal(String(Math.abs(Math.round(_result))));
+  }, [fHoldWidthSign, fHoldWidthVal, fPlanSign, fPlan]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -25196,6 +25214,10 @@ function EntryRecordForm(_ref_erf) {
       tradeType: fTradeType,
       priceIn: fEntered && fPriceIn !== "" ? fPriceIn : null,
       priceOut: fEntered && fPriceOut !== "" ? fPriceOut : null,
+      entryOsSign: fEntered ? (fEntryOsSign || null) : null,
+      entryOsVal: fEntered && fEntryOsVal !== "" ? Number(fEntryOsVal) : null,
+      exitOsSign: fEntered ? (fExitOsSign || null) : null,
+      exitOsVal: fEntered && fExitOsVal !== "" ? Number(fExitOsVal) : null,
       shares: fEntered && fShares !== "" ? (parseInt(fShares) || null) : null,
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
@@ -25380,7 +25402,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "この日のα値"),
           React.createElement("input", {
             type: "number", inputMode: "numeric", min: "0", max: "20", step: "1",
-            value: _av != null ? String(_av) : "",
+            value: _av != null ? String(_av) : "0",
             onChange: function(e) { _saveAlpha(e.target.value); },
             placeholder: "0〜20",
             style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E",
@@ -25430,7 +25452,7 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
         React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 700, whiteSpace: "nowrap" } }, "結果"),
         React.createElement("div", { style: { display: "flex", gap: 4 } },
-          [["○ 成功", "ok", "#1E8449", "#EAF3DE"], ["× 失敗", "ng", "#C0392B", "#FCEBEB"], ["△ E基準未達", "miss", "#B45309", "#FEF3C7"]].map(function(kv) {
+          [["○ 成功", "ok", "#C0392B", "#FCEBEB"], ["× 失敗", "ng", "#1E8449", "#EAF3DE"], ["△ E基準未達", "miss", "#B45309", "#FEF3C7"]].map(function(kv) {
             var on = fResult === kv[1];
             return React.createElement("button", {
               key: kv[1],
@@ -25446,20 +25468,24 @@ function EntryRecordForm(_ref_erf) {
           })
         )
       ),
-      // 想定値幅（α値ー確定値）
+      // 想定値幅
       React.createElement("div", { style: { marginTop: 6, marginBottom: 2 } },
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
-          React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "想定値幅"),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
+          React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } },
+            "想定値幅",
+            React.createElement("span", { style: { fontSize: 12, color: "#aaa", fontWeight: 400 } }, "（α値ー確定値）")
+          ),
           React.createElement("button", {
             onClick: function() {
-              setFEstWidthSign(fEstWidthSign === "+" ? "-" : fEstWidthSign === "-" ? null : "+");
+              // ↑(-)→↓(+)→未選択のサイクル
+              setFEstWidthSign(fEstWidthSign === "-" ? "+" : fEstWidthSign === "+" ? null : "-");
             },
             style: { padding: "5px 10px", fontSize: 13, fontWeight: fEstWidthSign ? 700 : 400,
-              border: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#bbb"),
-              background: fEstWidthSign === "+" ? "#EAF3DE" : fEstWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
-              color: fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#999",
+              border: "1px solid " + (fEstWidthSign === "+" ? "#C0392B" : fEstWidthSign === "-" ? "#1E8449" : "#bbb"),
+              background: fEstWidthSign === "+" ? "#FCEBEB" : fEstWidthSign === "-" ? "#EAF3DE" : "#f5f4f0",
+              color: fEstWidthSign === "+" ? "#C0392B" : fEstWidthSign === "-" ? "#1E8449" : "#999",
               borderRadius: 5, cursor: "pointer", minWidth: 36 }
-          }, fEstWidthSign || "±"),
+          }, fEstWidthSign === "-" ? "↑" : fEstWidthSign === "+" ? "↓" : "↕"),
           React.createElement("input", {
             type: "number", inputMode: "numeric", step: "1",
             value: fEstWidthVal,
@@ -25471,8 +25497,7 @@ function EntryRecordForm(_ref_erf) {
           _estWidthIsOsLow
             ? React.createElement("span", { style: { fontSize: 11, color: "#b07050", marginLeft: 4 } }, "∵OS値がα未満のため")
             : null
-        ),
-        React.createElement("div", { style: { fontSize: 10, color: "#aaa", paddingLeft: 2, marginBottom: 6 } }, "想定値幅＝α値ー確定値")
+        )
       ),
       // 想定損益（自動計算）
       React.createElement("div", { style: { marginBottom: 8 } },
@@ -25481,9 +25506,9 @@ function EntryRecordForm(_ref_erf) {
           style: {
             display: "inline-block", padding: "5px 14px",
             fontSize: 15, fontWeight: 800,
-            color: fPlanSign === "+" ? "#1E8449" : fPlanSign === "-" ? "#C0392B" : "#555",
-            background: fPlanSign === "+" ? "#EAF3DE" : fPlanSign === "-" ? "#FCEBEB" : "#f5f5f5",
-            borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#A9DFBF" : fPlanSign === "-" ? "#F5B7B1" : "#ddd"),
+            color: fPlanSign === "+" ? "#C0392B" : fPlanSign === "-" ? "#1E8449" : "#555",
+            background: fPlanSign === "+" ? "#FCEBEB" : fPlanSign === "-" ? "#EAF3DE" : "#f5f5f5",
+            borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#F5B7B1" : fPlanSign === "-" ? "#A9DFBF" : "#ddd"),
             minWidth: 80, textAlign: "right"
           }
         }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
@@ -25500,7 +25525,7 @@ function EntryRecordForm(_ref_erf) {
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益の変動"),
           React.createElement("div", { style: { display: "flex", gap: 6 } },
-            [["○ 利益+", "yes", "#1E8449", "#EAF3DE"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["× 損失+", "no", "#C0392B", "#FCEBEB"]].map(function(kv) {
+            [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["× 損失+", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
               var on = fHoldProfit === kv[1];
               return React.createElement("button", {
                 key: kv[1],
@@ -25515,10 +25540,10 @@ function EntryRecordForm(_ref_erf) {
             })
           )
         ),
-        // 変動数値（α値比）
+        // 変動数値（確定値比）
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
-            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "変動数値（α値比）"),
+            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "変動数値（確定値比）"),
             React.createElement("button", {
               onClick: function() {
                 // ↑("-")→↓("+")→未選択(null)→↑("-")のサイクル
@@ -25556,12 +25581,11 @@ function EntryRecordForm(_ref_erf) {
             }),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
           ),
-          React.createElement("div", { style: { fontSize: 10, color: "#aaa", paddingLeft: 2 } }, "変動数値＝α値ー確定値（ホールド時）")
         ),
-        // 結果損益（α値比）- 自動計算バッジ
+        // 結果損益 - 自動計算バッジ
         React.createElement("div", null,
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
-            "結果損益（α値比）",
+            "結果損益",
             React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
           React.createElement("span", {
             style: {
@@ -25641,22 +25665,64 @@ function EntryRecordForm(_ref_erf) {
               )
             )
           ),
-          React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 4 } },
-            React.createElement("label", { style: { fontSize: 11, color: "#666" } }, "価格（入り）",
-              React.createElement("input", {
-                type: "number", inputMode: "decimal", step: "any",
-                value: fPriceIn, onChange: function(e) { setFPriceIn(_toHankakuDecimal(e.target.value)); },
-                placeholder: "0",
-                style: Object.assign({}, I, { textAlign: "right", marginTop: 2 })
-              })
+          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+              React.createElement("label", { style: { fontSize: 11, color: "#666", display: "flex", flexDirection: "column", flex: 1 } }, "価格（入り）",
+                React.createElement("input", {
+                  type: "number", inputMode: "decimal", step: "any",
+                  value: fPriceIn, onChange: function(e) { setFPriceIn(_toHankakuDecimal(e.target.value)); },
+                  placeholder: "0",
+                  style: Object.assign({}, I, { textAlign: "right", marginTop: 2 })
+                })
+              ),
+              React.createElement("div", { style: { display: "flex", flexDirection: "column", flex: 1 } },
+                React.createElement("span", { style: { fontSize: 11, color: "#666", marginBottom: 2 } }, "Entry-OS値（水準線比）"),
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+                  React.createElement("button", {
+                    onClick: function() { setFEntryOsSign(function(p) { return p === "+" ? "-" : p === "-" ? null : "+"; }); },
+                    style: { padding: "5px 8px", fontSize: 12, fontWeight: fEntryOsSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 32,
+                      border: "1px solid " + (fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#bbb"),
+                      background: fEntryOsSign === "+" ? "#FCEBEB" : fEntryOsSign === "-" ? "#EAF3DE" : "#f5f4f0",
+                      color: fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#999" }
+                  }, fEntryOsSign || "±"),
+                  React.createElement("input", {
+                    type: "number", inputMode: "numeric", step: "1",
+                    value: fEntryOsVal, onChange: function(e) { setFEntryOsVal(_toHankakuNum(e.target.value)); },
+                    placeholder: "0",
+                    style: Object.assign({}, I, { flex: 1, textAlign: "right" })
+                  }),
+                  React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
+                )
+              )
             ),
-            React.createElement("label", { style: { fontSize: 11, color: "#666" } }, "価格（出）",
-              React.createElement("input", {
-                type: "number", inputMode: "decimal", step: "any",
-                value: fPriceOut, onChange: function(e) { setFPriceOut(_toHankakuDecimal(e.target.value)); },
-                placeholder: "0",
-                style: Object.assign({}, I, { textAlign: "right", marginTop: 2 })
-              })
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+              React.createElement("label", { style: { fontSize: 11, color: "#666", display: "flex", flexDirection: "column", flex: 1 } }, "価格（出）",
+                React.createElement("input", {
+                  type: "number", inputMode: "decimal", step: "any",
+                  value: fPriceOut, onChange: function(e) { setFPriceOut(_toHankakuDecimal(e.target.value)); },
+                  placeholder: "0",
+                  style: Object.assign({}, I, { textAlign: "right", marginTop: 2 })
+                })
+              ),
+              React.createElement("div", { style: { display: "flex", flexDirection: "column", flex: 1 } },
+                React.createElement("span", { style: { fontSize: 11, color: "#666", marginBottom: 2 } }, "Exit-OS値（水準線比）"),
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+                  React.createElement("button", {
+                    onClick: function() { setFExitOsSign(function(p) { return p === "+" ? "-" : p === "-" ? null : "+"; }); },
+                    style: { padding: "5px 8px", fontSize: 12, fontWeight: fExitOsSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 32,
+                      border: "1px solid " + (fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#bbb"),
+                      background: fExitOsSign === "+" ? "#FCEBEB" : fExitOsSign === "-" ? "#EAF3DE" : "#f5f4f0",
+                      color: fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#999" }
+                  }, fExitOsSign || "±"),
+                  React.createElement("input", {
+                    type: "number", inputMode: "numeric", step: "1",
+                    value: fExitOsVal, onChange: function(e) { setFExitOsVal(_toHankakuNum(e.target.value)); },
+                    placeholder: "0",
+                    style: Object.assign({}, I, { flex: 1, textAlign: "right" })
+                  }),
+                  React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
+                )
+              )
             )
           ),
           React.createElement("div", { style: { display: "flex", gap: 4 } },
