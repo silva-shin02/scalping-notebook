@@ -20629,8 +20629,6 @@ function DayView(_ref57) {
             s.time || "—"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", color: "#555" } },
             (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])).join(" / ") || "—"),
-          React.createElement("td", { style: { padding: "5px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
-            s.difficulty ? _pbBadge(s.difficulty) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%", color: "#555" } },
             s.osVal != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, (s.osVal > 0 ? "+" : "") + s.osVal + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
@@ -20645,6 +20643,8 @@ function DayView(_ref57) {
             isNg ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "✕") :
             React.createElement("span", { style: { color: "#ccc" } }, "—")
           ),
+          React.createElement("td", { style: { padding: "5px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
+            s.difficulty ? _pbBadge(s.difficulty) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%" } },
             entered
               ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700 } }, "実エントリー")
@@ -20724,10 +20724,10 @@ function DayView(_ref57) {
                   _rTh("銘柄", { width: "1%" }),
                   _rTh("時間", { width: "1%" }),
                   _rTh("シグナル"),
-                  _rTh("E難易度", { width: "1%" }),
                   _rTh("OS値", { width: "1%" }),
                   _rTh("確定値", { width: "1%" }),
                   _rTh("勝敗", { width: "1%" }),
+                  _rTh("E難易度", { width: "1%" }),
                   _rTh("区分", { width: "1%" }),
                   _rTh("実現損益"),
                   _rTh(React.createElement("span", null, "想定損益 ", React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#b07050" } }, "(100株あたり)"))),
@@ -20824,11 +20824,15 @@ function DayView(_ref57) {
         if (tgtA == null && _p >= 2500) tgtA = _a;
         if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; }
       }
+      // 想定利益最大で2500円未満の場合は最も2500円に近いα値(=最大利益α値)を目標α値として使用
+      var tgtIsFallback = false;
+      if (tgtA == null && maxA != null) { tgtA = maxA; tgtIsFallback = true; }
       _pbAlphaByStk[sk] = {
         minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA,
         minProfit: minA != null ? calcProfit(minA) : null,
         tgtProfit: tgtA != null ? calcProfit(tgtA) : null,
         maxProfit: maxA != null ? calcProfit(maxA) : null,
+        tgtIsFallback: tgtIsFallback,
         sigData: sigData
       };
     });
@@ -24908,7 +24912,19 @@ function EntryRecordForm(_ref_erf) {
   var _useStateOSV = useState(initSig.osVal != null ? String(initSig.osVal) : ""),
     _useStateOSVA = _slicedToArray(_useStateOSV, 2),
     fOsVal = _useStateOSVA[0], setFOsVal = _useStateOSVA[1];
-  // ── ホールドした場合の予想損益 ──
+  // ── ホールドした場合の値幅記録 ──
+  // holdProfit: "yes"(利益出た) / "no"(出なかった) / null
+  var _useStateHP0 = useState(initSig.holdProfit || null),
+    _useStateHP0A = _slicedToArray(_useStateHP0, 2),
+    fHoldProfit = _useStateHP0A[0], setFHoldProfit = _useStateHP0A[1];
+  // holdExtractSign / holdExtract: 抜けた値幅（1円単位、100株換算なし）
+  var _useStateHES = useState(initSig.holdExtractSign || "+"),
+    _useStateHESA = _slicedToArray(_useStateHES, 2),
+    fHoldExtractSign = _useStateHESA[0], setFHoldExtractSign = _useStateHESA[1];
+  var _useStateHEV = useState(initSig.holdExtract != null ? String(Math.abs(Number(initSig.holdExtract))) : ""),
+    _useStateHEVA = _slicedToArray(_useStateHEV, 2),
+    fHoldExtract = _useStateHEVA[0], setFHoldExtract = _useStateHEVA[1];
+  // holdPnlSign / holdPnl: 最大利益（100株換算、100円単位）— 既存フィールド流用
   var _useStateHPS = useState(initSig.holdPnlSign || "+"),
     _useStateHPSA = _slicedToArray(_useStateHPS, 2),
     fHoldPnlSign = _useStateHPSA[0], setFHoldPnlSign = _useStateHPSA[1];
@@ -25056,6 +25072,9 @@ function EntryRecordForm(_ref_erf) {
       osVal: fOsVal !== "" ? (isNaN(Number(_toHankaku(fOsVal))) ? null : Number(_toHankaku(fOsVal))) : null,
       osConfSign: fOsConfSign || null,
       osConfVal: fOsConfVal !== "" ? (isNaN(Number(_toHankaku(fOsConfVal))) ? null : Number(_toHankaku(fOsConfVal))) : null,
+      holdProfit: fHoldProfit || null,
+      holdExtract: fHoldExtract !== "" ? Number(fHoldExtract) : null,
+      holdExtractSign: fHoldExtract !== "" ? fHoldExtractSign : null,
       holdPnl: fHoldPnlVal !== "" ? Number(fHoldPnlVal) : null,
       holdPnlSign: fHoldPnlSign,
       realizedPnl: fEntered && fReal !== "" ? Number(fReal) : null,
@@ -25294,36 +25313,91 @@ function EntryRecordForm(_ref_erf) {
           }
         }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
       ),
-      // ホールドした場合の予想損益（コンパクト）
+      // ホールドした場合の値幅記録
+      React.createElement("div", { style: SH_ }, "ホールドした場合"),
       React.createElement("div", {
-        style: { marginTop: 4, marginBottom: 6, padding: "5px 8px", borderRadius: 6,
-          background: "#F8F9FA", border: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }
+        style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
       },
-        React.createElement("span", { style: { fontSize: 10, color: "#999", fontWeight: 700, whiteSpace: "nowrap" } }, "ホールド予想損益"),
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 3 } },
-          React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
-            ["+", "-"].map(function(sg) {
-              var on = fHoldPnlSign === sg;
+        // 利益が出ていたか
+        React.createElement("div", { style: { marginBottom: 8 } },
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "ホールドしていたら利益は出ていたか"),
+          React.createElement("div", { style: { display: "flex", gap: 6 } },
+            [["○ 出た", "yes", "#1E8449", "#EAF3DE"], ["× 出なかった", "no", "#C0392B", "#FCEBEB"]].map(function(kv) {
+              var on = fHoldProfit === kv[1];
               return React.createElement("button", {
-                key: sg,
-                onClick: function() { setFHoldPnlSign(sg); },
+                key: kv[1],
+                onClick: function() { setFHoldProfit(on ? null : kv[1]); },
                 style: {
-                  padding: "3px 7px", fontSize: 12, fontWeight: 700, border: "none",
-                  background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
-                  color: on ? "#fff" : "#888",
-                  cursor: "pointer", width: 26
+                  padding: "6px 12px", fontSize: 12, fontWeight: 600, borderRadius: 5, cursor: "pointer",
+                  border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
+                  background: on ? kv[3] : "#fff",
+                  color: on ? kv[2] : "#555"
                 }
-              }, sg);
+              }, kv[0]);
             })
-          ),
-          React.createElement("input", {
-            type: "number", inputMode: "numeric", min: "0", step: "100",
-            value: fHoldPnlVal,
-            onChange: function(e) { var v = _toHankakuNum(e.target.value); setFHoldPnlVal(v); if ((Number(v) || 0) === 0) setFHoldPnlSign(null); },
-            placeholder: "0",
-            style: Object.assign({}, I, { width: 80, textAlign: "right", padding: "4px 6px", fontSize: 12 })
-          }),
-          React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "円")
+          )
+        ),
+        // 何円抜けたか（1円単位）
+        React.createElement("div", { style: { marginBottom: 8 } },
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
+            "何円の値幅を取れていたか",
+            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "1株あたり・1円単位")),
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+            React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+              ["+", "-"].map(function(sg) {
+                var on = fHoldExtractSign === sg;
+                return React.createElement("button", {
+                  key: sg,
+                  onClick: function() { setFHoldExtractSign(sg); },
+                  style: {
+                    padding: "6px 10px", fontSize: 13, fontWeight: 700, border: "none",
+                    background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
+                    color: on ? "#fff" : "#888",
+                    cursor: "pointer", width: 32
+                  }
+                }, sg);
+              })
+            ),
+            React.createElement("input", {
+              type: "number", inputMode: "decimal", min: "0", step: "1",
+              value: fHoldExtract,
+              onChange: function(e) { var v = _toHankakuNum(e.target.value); setFHoldExtract(v); },
+              placeholder: "0",
+              style: Object.assign({}, I, { width: 80, textAlign: "right" })
+            }),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+          )
+        ),
+        // 最大利益（100株換算・100円単位）
+        React.createElement("div", null,
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
+            "最大何円の利益が出ていたか",
+            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算・100円単位")),
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+            React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+              ["+", "-"].map(function(sg) {
+                var on = fHoldPnlSign === sg;
+                return React.createElement("button", {
+                  key: sg,
+                  onClick: function() { setFHoldPnlSign(sg); },
+                  style: {
+                    padding: "6px 10px", fontSize: 13, fontWeight: 700, border: "none",
+                    background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
+                    color: on ? "#fff" : "#888",
+                    cursor: "pointer", width: 32
+                  }
+                }, sg);
+              })
+            ),
+            React.createElement("input", {
+              type: "number", inputMode: "numeric", min: "0", step: "100",
+              value: fHoldPnlVal,
+              onChange: function(e) { var v = _toHankakuNum(e.target.value); setFHoldPnlVal(v); if ((Number(v) || 0) === 0) setFHoldPnlSign(null); },
+              placeholder: "0",
+              style: Object.assign({}, I, { width: 80, textAlign: "right" })
+            }),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+          )
         )
       ),
       // 結果
@@ -34005,6 +34079,36 @@ function StockHistoryView(_ref_shv) {
         thumbHeight: 140
       })
     ),
+    // 銘柄ごとの理想α値入力（メモ欄の上）
+    selStock && (function() {
+      var _stkAlpha = (data.custom.stockDefaultAlpha || {})[selStock];
+      var _saveAlpha = function(v) {
+        var n = v !== "" ? Number(v) : null;
+        save(function(prev) {
+          var pc = prev.custom || {};
+          var nm = Object.assign({}, pc.stockDefaultAlpha || {});
+          if (n != null && !isNaN(n)) nm[selStock] = n;
+          else delete nm[selStock];
+          return Object.assign({}, prev, { custom: Object.assign({}, pc, { stockDefaultAlpha: nm }) });
+        });
+      };
+      return React.createElement("div", {
+        style: { background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8,
+                 padding: "8px 12px", marginBottom: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }
+      },
+        React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap" } }, "α 理想α値（目標）"),
+        React.createElement("input", {
+          type: "number", inputMode: "numeric", min: "0", max: "20", step: "1",
+          value: _stkAlpha != null ? String(_stkAlpha) : "",
+          onChange: function(e) { _saveAlpha(e.target.value); },
+          placeholder: "0〜20",
+          style: { padding: "4px 8px", fontSize: 13, border: "1px solid #BAE6FD", borderRadius: 5,
+                   width: 72, textAlign: "right", outline: "none" }
+        }),
+        React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円"),
+        React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, selStock + " の理想α値として保存されます")
+      );
+    })(),
     // 銘柄情報セクション (タブ切替で複数のリッチメモを管理)
     selStock && React.createElement(StockInfoSection, {
       data: data,
