@@ -25128,11 +25128,11 @@ function EntryRecordForm(_ref_erf) {
     var osV = Number(fOsVal) || 0;
     if (osV > 0 && osV < av) { setFEstWidthSign(null); setFEstWidthVal("0"); return; }
     if (osV > 0 && osV - av >= 10) { setFEstWidthSign("-"); setFEstWidthVal(String(osV - av)); return; }
-    var confAbs = Number(fOsConfVal) || 0;
-    var width = av - confAbs;
+    var confSigned = fOsConfSign === "+" ? (Number(fOsConfVal) || 0) : fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : 0;
+    var width = av - confSigned;
     setFEstWidthSign(width === 0 ? null : (width > 0 ? "+" : "-"));
     setFEstWidthVal(String(Math.abs(width)));
-  }, [fStock, fDate, data, fOsConfVal, fOsVal]);
+  }, [fStock, fDate, data, fOsConfSign, fOsConfVal, fOsVal]);
 
   // ── 結果を自動選択（OS値・α値・確定値の組み合わせによる判定） ──
   //   OS値-α値 < 0                    → E基準未達(miss)
