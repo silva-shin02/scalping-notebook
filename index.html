@@ -25219,12 +25219,23 @@ function EntryRecordForm(_ref_erf) {
         placeholder: "",
         style: Object.assign({}, I, { marginBottom: 6 })
       }),
-      // この日のα値（チャートデータから自動反映）
+      // この日のα値（編集可能）
       (function() {
         var _ck = fStock + "_" + fDate;
         var _cd = data.charts && data.charts[_ck];
         var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
-        if (_av == null) return null;
+        var _saveAlpha = function(val) {
+          var n = val !== "" ? Number(val) : null;
+          save(function(prev) {
+            var _pCharts = prev.charts || {};
+            var _nc = Object.assign({}, _pCharts);
+            var _entry = Object.assign({}, _nc[_ck] || {});
+            if (n != null && !isNaN(n)) _entry.alphaVal = n;
+            else delete _entry.alphaVal;
+            _nc[_ck] = _entry;
+            return Object.assign({}, prev, { charts: _nc });
+          });
+        };
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6, marginTop: 2, marginBottom: 6,
             padding: "4px 10px", borderRadius: 6, background: "#F0F9FF",
@@ -25232,7 +25243,16 @@ function EntryRecordForm(_ref_erf) {
         },
           React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "α"),
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "この日のα値"),
-          React.createElement("span", { style: { color: "#0C4A6E", fontWeight: 800, fontSize: 13 } }, _av.toLocaleString() + "円")
+          React.createElement("input", {
+            type: "number", inputMode: "numeric", min: "0", max: "20", step: "1",
+            value: _av != null ? String(_av) : "",
+            onChange: function(e) { _saveAlpha(e.target.value); },
+            placeholder: "0〜20",
+            style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E",
+                     border: "1px solid #BAE6FD", borderRadius: 4, width: 64,
+                     textAlign: "right", outline: "none", background: "#fff" }
+          }),
+          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })(),
       // OS値 + 確定値（水準線比）横並び
@@ -25274,7 +25294,7 @@ function EntryRecordForm(_ref_erf) {
       // 想定値幅（α値ー確定値）
       React.createElement("div", { style: { marginTop: 6, marginBottom: 2 } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
-          React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "想定値幅（水準線比）"),
+          React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "想定値幅"),
           React.createElement("button", {
             onClick: function() {
               setFEstWidthSign(fEstWidthSign === "+" ? "-" : "+");
@@ -25297,7 +25317,7 @@ function EntryRecordForm(_ref_erf) {
             ? React.createElement("span", { style: { fontSize: 11, color: "#b07050", marginLeft: 4 } }, "∵OS値がα未満のため")
             : null
         ),
-        React.createElement("div", { style: { fontSize: 10, color: "#aaa", paddingLeft: 2, marginBottom: 6 } }, "想定値幅＝α値ー確定値（ともに水準線比）")
+        React.createElement("div", { style: { fontSize: 10, color: "#aaa", paddingLeft: 2, marginBottom: 6 } }, "想定値幅＝α値ー確定値")
       ),
       // 想定損益（自動計算）
       React.createElement("div", { style: { marginBottom: 8 } },
