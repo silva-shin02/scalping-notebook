@@ -25141,20 +25141,28 @@ function EntryRecordForm(_ref_erf) {
     setFReal(String(absVal));
   }, [fPriceIn, fPriceOut, fShares, fTradeType, fEntered]);
 
-  // ── 想定値幅を自動計算（α値 - 確定値絶対値） ──
-  //   α - 確定値 < 0 → ↓(+)緑、> 0 → ↑(-)赤、= 0 → ↕
+  // ── 想定値幅 + 想定損益を同時計算（α変更時のラグ防止） ──
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
     var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
-    if (av == null || fOsConfVal === "") { setFEstWidthSign(null); setFEstWidthVal(""); return; }
     var osV = Number(fOsVal) || 0;
-    if (osV > 0 && osV < av) { setFEstWidthSign(null); setFEstWidthVal("0"); return; }
-    if (osV > 0 && osV - av >= 10) { setFEstWidthSign("-"); setFEstWidthVal(String(osV - av)); return; }
+    if (av != null && osV > 0 && osV < av) {
+      setFEstWidthSign(null); setFEstWidthVal("0");
+      setFPlanSign(null); setFPlan("0"); return;
+    }
+    if (av != null && osV > 0 && osV - av >= 10) {
+      setFEstWidthSign("-"); setFEstWidthVal(String(osV - av));
+      setFPlanSign("-"); setFPlan(String(Math.round((osV - av) * 100))); return;
+    }
+    if (av == null || fOsConfVal === "") { setFEstWidthSign(null); setFEstWidthVal(""); return; }
     var confSigned = fOsConfSign === "+" ? (Number(fOsConfVal) || 0) : fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : 0;
     var width = av - confSigned;
-    setFEstWidthSign(width === 0 ? null : (width > 0 ? "+" : "-"));
-    setFEstWidthVal(String(Math.abs(width)));
+    var wSign = width === 0 ? null : (width > 0 ? "+" : "-");
+    setFEstWidthSign(wSign); setFEstWidthVal(String(Math.abs(width)));
+    if (wSign == null) { setFPlanSign(null); setFPlan("0"); return; }
+    var planAmt = Math.round(Math.abs(width) * 100);
+    setFPlanSign(planAmt === 0 ? null : wSign); setFPlan(String(planAmt));
   }, [fStock, fDate, data, fOsConfSign, fOsConfVal, fOsVal]);
 
   // ── 結果を自動選択（OS値・α値・確定値の組み合わせによる判定） ──
@@ -25204,16 +25212,29 @@ function EntryRecordForm(_ref_erf) {
     setFPlan(String(planAmt));
   }, [fStock, fDate, data, fOsVal, fEstWidthSign, fEstWidthVal]);
 
-  // ── 変動数値を自動計算（α値 - holdOsConf） ──
+  // ── 変動数値 + 結果損益を同時計算（α変更時のラグ防止） ──
   useEffect(function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
     var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
+    var _osV = Number(fOsVal) || 0;
     if (_av == null || fHoldOsConf == null) return;
     var _w = _av - fHoldOsConf;
-    setFHoldWidthSign(_w === 0 ? null : (_w > 0 ? "+" : "-"));
-    setFHoldWidthVal(String(Math.abs(_w)));
-  }, [fStock, fDate, data, fHoldOsConf]);
+    var _wSg = _w === 0 ? null : (_w > 0 ? "+" : "-");
+    setFHoldWidthSign(_wSg); setFHoldWidthVal(String(Math.abs(_w)));
+    // 結果損益も同時に計算
+    if (_osV > 0 && _osV - _av >= 10) {
+      setFHoldPnlSign("-"); setFHoldPnlVal(String(Math.round((_osV - _av) * 100))); return;
+    }
+    if (fHoldHighSign === "-") {
+      var _hhExcess = (Number(fHoldHighVal) || 0) - _av;
+      if (_hhExcess >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(Math.round(_hhExcess * 100))); return; }
+    }
+    if (!_wSg) { setFHoldPnlSign(null); setFHoldPnlVal("0"); return; }
+    var _result = (_av + (_wSg === "+" ? Math.abs(_w) : -Math.abs(_w))) * 100;
+    setFHoldPnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
+    setFHoldPnlVal(String(Math.abs(Math.round(_result))));
+  }, [fStock, fDate, data, fOsVal, fHoldOsConf, fHoldHighSign, fHoldHighVal]);
 
   // ── 結果損益を自動計算 ──
   //   中間条件: OS値-α値 ≥ 10 → -(OS値-α値)×100
