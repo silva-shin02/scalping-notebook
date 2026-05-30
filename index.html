@@ -25265,48 +25265,19 @@ function EntryRecordForm(_ref_erf) {
         ),
         React.createElement("div", { style: { fontSize: 10, color: "#aaa", paddingLeft: 2, marginBottom: 6 } }, "想定値幅＝α値ー確定値（ともに水準線比）")
       ),
-      // 想定損益（自動計算）+ 最大可能損益 横並び
-      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 } },
-        React.createElement("div", null,
-          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "想定損益（100株換算）"),
-          React.createElement("span", {
-            style: {
-              display: "inline-block", padding: "5px 14px",
-              fontSize: 15, fontWeight: 800,
-              color: fPlanSign === "+" ? "#1E8449" : fPlanSign === "-" ? "#C0392B" : "#555",
-              background: fPlanSign === "+" ? "#EAF3DE" : fPlanSign === "-" ? "#FCEBEB" : "#f5f5f5",
-              borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#A9DFBF" : fPlanSign === "-" ? "#F5B7B1" : "#ddd"),
-              minWidth: 80, textAlign: "right"
-            }
-          }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
-        ),
-        React.createElement("div", null,
-          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "最大可能損益（100株あたり）"),
-          React.createElement("div", { style: { display: "flex", gap: 4 } },
-            React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden" } },
-              ["+", "-"].map(function(sg) {
-                var on = fMaxSign === sg;
-                return React.createElement("button", {
-                  key: sg,
-                  onClick: function() { setFMaxSign(sg); },
-                  style: {
-                    padding: "8px 10px", fontSize: 14, fontWeight: 700, border: "none",
-                    background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
-                    color: on ? "#fff" : "#888",
-                    cursor: "pointer", width: 32
-                  }
-                }, sg);
-              })
-            ),
-            React.createElement("input", {
-              type: "number", inputMode: "numeric", min: "0", step: "100",
-              value: fMax, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFMax(v); if ((Number(v) || 0) === 0) setFMaxSign(null); },
-              placeholder: "0",
-              style: Object.assign({}, I, { flex: 1, textAlign: "right" })
-            }),
-            React.createElement("span", { style: { alignSelf: "center", fontSize: 12, color: "#666" } }, "円")
-          )
-        )
+      // 想定損益（自動計算）
+      React.createElement("div", { style: { marginBottom: 8 } },
+        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "想定損益（100株換算）"),
+        React.createElement("span", {
+          style: {
+            display: "inline-block", padding: "5px 14px",
+            fontSize: 15, fontWeight: 800,
+            color: fPlanSign === "+" ? "#1E8449" : fPlanSign === "-" ? "#C0392B" : "#555",
+            background: fPlanSign === "+" ? "#EAF3DE" : fPlanSign === "-" ? "#FCEBEB" : "#f5f5f5",
+            borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#A9DFBF" : fPlanSign === "-" ? "#F5B7B1" : "#ddd"),
+            minWidth: 80, textAlign: "right"
+          }
+        }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
       ),
       // ホールドした場合の予想損益（コンパクト）
       React.createElement("div", {
