@@ -31,6 +31,8 @@ button,input,select,textarea{font-family:inherit}
 .dc-chart-wrap::-webkit-scrollbar-thumb{background:#4a4a4a;border-radius:4px;border:3px solid #0d0d0d}
 .dc-chart-wrap::-webkit-scrollbar-thumb:hover{background:#6a6a6a}
 .news-hscroll{scrollbar-width:auto;scrollbar-color:#b8b5ac #f0efeb}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
 canvas{image-rendering:high-quality;-webkit-image-rendering:high-quality}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
@@ -25191,30 +25193,24 @@ function EntryRecordForm(_ref_erf) {
     setFHoldWidthVal(String(Math.abs(_w)));
   }, [fStock, fDate, data, fHoldOsConf]);
 
-  // ── 結果損益を自動計算 ──
-  //   result = (α ± 確定値 ± 変動値) × 100
-  //   ホールド足高値システム: OS値-α値 < 10 の場合のみ有効
-  //     ホールド足高値 - α値 ≥ 10 → -(超過分×100) を優先
+  // ── 結果損益を自動計算（想定損益と同じシステム: ホールド足確定値×100） ──
   useEffect(function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
     var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
-    // OS値-α値 < 10 のときのみホールド足高値システムを適用
     var _osV = Number(fOsVal) || 0;
-    if (_av != null && (_osV === 0 || _osV - _av < 10) && fHoldHighSign === "-") {
-      var _hhv = Number(fHoldHighVal) || 0;
-      var _hhExcess = _hhv - _av;
-      if (_hhExcess >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(Math.round(_hhExcess * 100))); return; }
+    if (_av != null && _osV > 0 && _osV < _av) { setFHoldPnlSign(null); setFHoldPnlVal("0"); return; }
+    if (_av != null && _osV > 0 && _osV - _av >= 10) {
+      setFHoldPnlSign("-");
+      setFHoldPnlVal(String(Math.round((_osV - _av) * 100)));
+      return;
     }
-    if (_av == null || !fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
+    if (!fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
     var _hw = Number(fHoldWidthVal) || 0;
-    var _cv = Number(fOsConfVal) || 0;
-    var _confAdj = fOsConfSign === "-" ? _cv : fOsConfSign === "+" ? -_cv : 0;
-    var _holdAdj = fHoldWidthSign === "+" ? _hw : fHoldWidthSign === "-" ? -_hw : 0;
-    var _result = (_av + _confAdj + _holdAdj) * 100;
-    setFHoldPnlSign(_result >= 0 ? "+" : "-");
-    setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, fOsVal, fHoldWidthSign, fHoldWidthVal, fOsConfSign, fOsConfVal, fHoldHighSign, fHoldHighVal]);
+    var _pnl = Math.round(_hw * 100);
+    setFHoldPnlSign(_pnl === 0 ? null : fHoldWidthSign);
+    setFHoldPnlVal(String(_pnl));
+  }, [fStock, fDate, data, fOsVal, fHoldWidthSign, fHoldWidthVal]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -25574,7 +25570,7 @@ function EntryRecordForm(_ref_erf) {
         // 変動値（確定値比）
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
-            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "変動値（確定値比）"),
+            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "ホールド足確定値(水準線比)"),
             React.createElement("div", {
               style: { display: "flex", alignItems: "center", border: "1px solid " + (fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
             },
