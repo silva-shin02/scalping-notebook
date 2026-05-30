@@ -25451,24 +25451,28 @@ function EntryRecordForm(_ref_erf) {
         ),
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
           React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "確定値（水準線比）"),
-          React.createElement("button", {
-            onClick: function() {
-              var newSign = fOsConfSign === "+" ? "-" : (fOsConfSign === "-" ? null : "+");
-              setFOsConfSign(newSign);
-            },
-            style: { padding: "5px 10px", fontSize: 13, fontWeight: fOsConfSign ? 700 : 400,
-              border: "1px solid " + (fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#bbb"),
-              background: fOsConfSign === "+" ? "#FCEBEB" : fOsConfSign === "-" ? "#EAF3DE" : "#f5f4f0",
-              color: fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#999",
-              borderRadius: 5, cursor: "pointer", minWidth: 36 }
-          }, fOsConfSign === "+" ? "↑" : fOsConfSign === "-" ? "↓" : "↕"),
-          React.createElement("input", {
-            type: "number", inputMode: "numeric", step: "1",
-            value: fOsConfVal,
-            onChange: function(e) { var v = _toHankakuNum(e.target.value); setFOsConfVal(v); if ((Number(v) || 0) === 0) setFOsConfSign(null); },
-            placeholder: "0",
-            style: Object.assign({}, I, { width: 80, textAlign: "right" })
-          }),
+          React.createElement("div", {
+            style: { display: "flex", alignItems: "center", border: "1px solid " + (fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#ccc"), borderRadius: 6, overflow: "hidden" }
+          },
+            React.createElement("button", {
+              onClick: function() {
+                var newSign = fOsConfSign === "+" ? "-" : (fOsConfSign === "-" ? null : "+");
+                setFOsConfSign(newSign);
+              },
+              style: { padding: "5px 10px", fontSize: 13, fontWeight: fOsConfSign ? 700 : 400,
+                border: "none", borderRight: "1px solid " + (fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#ccc"),
+                background: fOsConfSign === "+" ? "#FCEBEB" : fOsConfSign === "-" ? "#EAF3DE" : "#f5f4f0",
+                color: fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#999",
+                cursor: "pointer", minWidth: 36 }
+            }, fOsConfSign === "+" ? "↑" : fOsConfSign === "-" ? "↓" : "↕"),
+            React.createElement("input", {
+              type: "number", inputMode: "numeric", step: "1",
+              value: fOsConfVal,
+              onChange: function(e) { var v = _toHankakuNum(e.target.value); setFOsConfVal(v); if ((Number(v) || 0) === 0) setFOsConfSign(null); },
+              placeholder: "0",
+              style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "transparent", width: 80, textAlign: "right" }
+            })
+          ),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
         )
       ),
@@ -25499,24 +25503,27 @@ function EntryRecordForm(_ref_erf) {
             "想定値幅",
             React.createElement("span", { style: { fontSize: 12, color: "#aaa", fontWeight: 400 } }, "（α値ー確定値）")
           ),
-          React.createElement("button", {
-            onClick: function() {
-              // ↑(-)→↓(+)→未選択のサイクル
-              setFEstWidthSign(fEstWidthSign === "-" ? "+" : fEstWidthSign === "+" ? null : "-");
-            },
-            style: { padding: "5px 10px", fontSize: 13, fontWeight: fEstWidthSign ? 700 : 400,
-              border: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#bbb"),
-              background: fEstWidthSign === "+" ? "#EAF3DE" : fEstWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
-              color: fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#999",
-              borderRadius: 5, cursor: "pointer", minWidth: 36 }
-          }, fEstWidthSign === "-" ? "↑" : fEstWidthSign === "+" ? "↓" : "↕"),
-          React.createElement("input", {
-            type: "number", inputMode: "numeric", step: "1",
-            value: fEstWidthVal,
-            onChange: function(e) { setFEstWidthVal(e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0))); },
-            placeholder: "0",
-            style: Object.assign({}, I, { width: 80, textAlign: "right" })
-          }),
+          React.createElement("div", {
+            style: { display: "flex", alignItems: "center", border: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
+          },
+            React.createElement("button", {
+              onClick: function() {
+                setFEstWidthSign(fEstWidthSign === "-" ? "+" : fEstWidthSign === "+" ? null : "-");
+              },
+              style: { padding: "5px 10px", fontSize: 13, fontWeight: fEstWidthSign ? 700 : 400,
+                border: "none", borderRight: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#ccc"),
+                background: fEstWidthSign === "+" ? "#EAF3DE" : fEstWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
+                color: fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#999",
+                cursor: "pointer", minWidth: 36 }
+            }, fEstWidthSign === "-" ? "↑" : fEstWidthSign === "+" ? "↓" : "↕"),
+            React.createElement("input", {
+              type: "number", inputMode: "numeric", step: "1",
+              value: fEstWidthVal,
+              onChange: function(e) { setFEstWidthVal(e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0))); },
+              placeholder: "0",
+              style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "transparent", width: 80, textAlign: "right" }
+            })
+          ),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
           _estWidthIsOsLow
             ? React.createElement("span", { style: { fontSize: 11, color: "#b07050", marginLeft: 4 } }, "∵OS値がα未満のため")
@@ -25568,63 +25575,70 @@ function EntryRecordForm(_ref_erf) {
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
             React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "変動値（確定値比）"),
-            React.createElement("button", {
-              onClick: function() {
-                // ↑("-")→↓("+")→未選択(null)→↑("-")のサイクル
-                var _newSg = fHoldWidthSign === "-" ? "+" : fHoldWidthSign === "+" ? null : "-";
-                setFHoldWidthSign(_newSg);
-                var _ck2 = fStock + "_" + fDate;
-                var _cd2 = data.charts && data.charts[_ck2];
-                var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : null;
-                if (_av2 != null && fHoldWidthVal !== "") {
-                  var _ws = _newSg === "-" ? -(Number(fHoldWidthVal)||0) : (Number(fHoldWidthVal)||0);
-                  setFHoldOsConf(_av2 - _ws);
-                }
-              },
-              style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldWidthSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
-                border: "1px solid " + (fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#bbb"),
-                background: fHoldWidthSign === "+" ? "#EAF3DE" : fHoldWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
-                color: fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#999" }
-            }, fHoldWidthSign === "-" ? "↑" : fHoldWidthSign === "+" ? "↓" : "↕"),
-            React.createElement("input", {
-              type: "number", inputMode: "numeric", step: "1",
-              value: fHoldWidthVal,
-              onChange: function(e) {
-                var _v = e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0));
-                setFHoldWidthVal(_v);
-                var _ck2 = fStock + "_" + fDate;
-                var _cd2 = data.charts && data.charts[_ck2];
-                var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : null;
-                if (_av2 != null && _v !== "" && fHoldWidthSign != null) {
-                  var _ws = fHoldWidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0);
-                  setFHoldOsConf(_av2 - _ws);
-                }
-              },
-              placeholder: "0",
-              style: Object.assign({}, I, { width: 80, textAlign: "right" })
-            }),
+            React.createElement("div", {
+              style: { display: "flex", alignItems: "center", border: "1px solid " + (fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
+            },
+              React.createElement("button", {
+                onClick: function() {
+                  var _newSg = fHoldWidthSign === "-" ? "+" : fHoldWidthSign === "+" ? null : "-";
+                  setFHoldWidthSign(_newSg);
+                  var _ck2 = fStock + "_" + fDate;
+                  var _cd2 = data.charts && data.charts[_ck2];
+                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : null;
+                  if (_av2 != null && fHoldWidthVal !== "") {
+                    var _ws = _newSg === "-" ? -(Number(fHoldWidthVal)||0) : (Number(fHoldWidthVal)||0);
+                    setFHoldOsConf(_av2 - _ws);
+                  }
+                },
+                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldWidthSign ? 700 : 400, cursor: "pointer", minWidth: 36,
+                  border: "none", borderRight: "1px solid " + (fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#ccc"),
+                  background: fHoldWidthSign === "+" ? "#EAF3DE" : fHoldWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
+                  color: fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#999" }
+              }, fHoldWidthSign === "-" ? "↑" : fHoldWidthSign === "+" ? "↓" : "↕"),
+              React.createElement("input", {
+                type: "number", inputMode: "numeric", step: "1",
+                value: fHoldWidthVal,
+                onChange: function(e) {
+                  var _v = e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0));
+                  setFHoldWidthVal(_v);
+                  var _ck2 = fStock + "_" + fDate;
+                  var _cd2 = data.charts && data.charts[_ck2];
+                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : null;
+                  if (_av2 != null && _v !== "" && fHoldWidthSign != null) {
+                    var _ws = fHoldWidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0);
+                    setFHoldOsConf(_av2 - _ws);
+                  }
+                },
+                placeholder: "0",
+                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "transparent", width: 80, textAlign: "right" }
+              })
+            ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             React.createElement("span", { style: { fontSize: 12, color: "#ccc", margin: "0 6px" } }, "|"),
             React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（水準線比）"),
-            React.createElement("button", {
-              onClick: function() {
-                setFHoldHighSign(fHoldHighSign === "-" ? "+" : fHoldHighSign === "+" ? null : "-");
-              },
-              style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldHighSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
-                border: "1px solid " + (fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#bbb"),
-                background: fHoldHighSign === "+" ? "#EAF3DE" : fHoldHighSign === "-" ? "#FCEBEB" : "#f5f4f0",
-                color: fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#999" }
-            }, fHoldHighSign === "-" ? "↑" : fHoldHighSign === "+" ? "↓" : "↕"),
-            React.createElement("input", {
-              type: "number", inputMode: "numeric", step: "1",
-              value: fHoldHighVal,
-              onChange: function(e) {
-                var _v = e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0));
-                setFHoldHighVal(_v);
-              },
-              placeholder: "0",
-              style: Object.assign({}, I, { width: 80, textAlign: "right" })
-            }),
+            React.createElement("div", {
+              style: { display: "flex", alignItems: "center", border: "1px solid " + (fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
+            },
+              React.createElement("button", {
+                onClick: function() {
+                  setFHoldHighSign(fHoldHighSign === "-" ? "+" : fHoldHighSign === "+" ? null : "-");
+                },
+                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldHighSign ? 700 : 400, cursor: "pointer", minWidth: 36,
+                  border: "none", borderRight: "1px solid " + (fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#ccc"),
+                  background: fHoldHighSign === "+" ? "#EAF3DE" : fHoldHighSign === "-" ? "#FCEBEB" : "#f5f4f0",
+                  color: fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#999" }
+              }, fHoldHighSign === "-" ? "↑" : fHoldHighSign === "+" ? "↓" : "↕"),
+              React.createElement("input", {
+                type: "number", inputMode: "numeric", step: "1",
+                value: fHoldHighVal,
+                onChange: function(e) {
+                  var _v = e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0));
+                  setFHoldHighVal(_v);
+                },
+                placeholder: "0",
+                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "transparent", width: 80, textAlign: "right" }
+              })
+            ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
           ),
           (function() {
