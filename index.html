@@ -25372,7 +25372,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "想定値幅"),
           React.createElement("button", {
             onClick: function() {
-              setFEstWidthSign(fEstWidthSign === "+" ? "-" : "+");
+              setFEstWidthSign(fEstWidthSign === "+" ? "-" : fEstWidthSign === "-" ? null : "+");
             },
             style: { padding: "5px 10px", fontSize: 13, fontWeight: fEstWidthSign ? 700 : 400,
               border: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#bbb"),
@@ -25432,58 +25432,21 @@ function EntryRecordForm(_ref_erf) {
             })
           )
         ),
-        // 損益の変動幅
-        React.createElement("div", { style: { marginBottom: 8 } },
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
-            "損益の変動幅",
-            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "1株あたり・1円単位")),
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-            React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-              ["+", "-"].map(function(sg) {
-                var on = fHoldExtractSign === sg;
-                return React.createElement("button", {
-                  key: sg,
-                  onClick: function() { setFHoldExtractSign(sg); },
-                  style: {
-                    padding: "6px 10px", fontSize: 13, fontWeight: 700, border: "none",
-                    background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
-                    color: on ? "#fff" : "#888",
-                    cursor: "pointer", width: 32
-                  }
-                }, sg);
-              })
-            ),
-            React.createElement("input", {
-              type: "number", inputMode: "decimal", min: "0", step: "1",
-              value: fHoldExtract,
-              onChange: function(e) { var v = _toHankakuNum(e.target.value); setFHoldExtract(v); },
-              placeholder: "0",
-              style: Object.assign({}, I, { width: 80, textAlign: "right" })
-            }),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
-          )
-        ),
-        // 最大利益（100株換算・100円単位）
+        // 結果損益（100株換算・100円単位）
         React.createElement("div", null,
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
-            "最大損益",
+            "結果損益",
             React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算・100円単位")),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-            React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-              ["+", "-"].map(function(sg) {
-                var on = fHoldPnlSign === sg;
-                return React.createElement("button", {
-                  key: sg,
-                  onClick: function() { setFHoldPnlSign(sg); },
-                  style: {
-                    padding: "6px 10px", fontSize: 13, fontWeight: 700, border: "none",
-                    background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
-                    color: on ? "#fff" : "#888",
-                    cursor: "pointer", width: 32
-                  }
-                }, sg);
-              })
-            ),
+            React.createElement("button", {
+              onClick: function() { setFHoldPnlSign(function(prev) { return prev === "+" ? "-" : prev === "-" ? null : "+"; }); },
+              style: {
+                padding: "6px 10px", fontSize: 13, fontWeight: fHoldPnlSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
+                border: "1px solid " + (fHoldPnlSign === "+" ? "#C0392B" : fHoldPnlSign === "-" ? "#1E8449" : "#bbb"),
+                background: fHoldPnlSign === "+" ? "#FCEBEB" : fHoldPnlSign === "-" ? "#EAF3DE" : "#f5f4f0",
+                color: fHoldPnlSign === "+" ? "#C0392B" : fHoldPnlSign === "-" ? "#1E8449" : "#999"
+              }
+            }, fHoldPnlSign || "±"),
             React.createElement("input", {
               type: "number", inputMode: "numeric", min: "0", step: "100",
               value: fHoldPnlVal,
@@ -25598,21 +25561,15 @@ function EntryRecordForm(_ref_erf) {
             )
           ),
           React.createElement("div", { style: { display: "flex", gap: 4 } },
-            React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden" } },
-              ["+", "-"].map(function(sg) {
-                var on = fRealSign === sg;
-                return React.createElement("button", {
-                  key: sg,
-                  onClick: function() { setFRealSign(sg); },
-                  style: {
-                    padding: "8px 10px", fontSize: 14, fontWeight: 700, border: "none",
-                    background: on ? (sg === "+" ? "#1E8449" : "#C0392B") : "#fff",
-                    color: on ? "#fff" : "#888",
-                    cursor: "pointer", width: 32
-                  }
-                }, sg);
-              })
-            ),
+            React.createElement("button", {
+              onClick: function() { setFRealSign(function(prev) { return prev === "+" ? "-" : prev === "-" ? null : "+"; }); },
+              style: {
+                padding: "8px 10px", fontSize: 13, fontWeight: fRealSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
+                border: "1px solid " + (fRealSign === "+" ? "#C0392B" : fRealSign === "-" ? "#1E8449" : "#bbb"),
+                background: fRealSign === "+" ? "#FCEBEB" : fRealSign === "-" ? "#EAF3DE" : "#f5f4f0",
+                color: fRealSign === "+" ? "#C0392B" : fRealSign === "-" ? "#1E8449" : "#999"
+              }
+            }, fRealSign || "±"),
             React.createElement("input", {
               type: "number", inputMode: "numeric", min: "0", step: "100",
               value: fReal, onChange: function(e) { setFReal(_toHankakuNum(e.target.value)); },
