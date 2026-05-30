@@ -25320,7 +25320,7 @@ function EntryRecordForm(_ref_erf) {
       },
         // 利益が出ていたか
         React.createElement("div", { style: { marginBottom: 8 } },
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "ホールドしていたら利益は出ていたか"),
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "収益"),
           React.createElement("div", { style: { display: "flex", gap: 6 } },
             [["○ 出た", "yes", "#1E8449", "#EAF3DE"], ["× 出なかった", "no", "#C0392B", "#FCEBEB"]].map(function(kv) {
               var on = fHoldProfit === kv[1];
@@ -25340,7 +25340,7 @@ function EntryRecordForm(_ref_erf) {
         // 何円抜けたか（1円単位）
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
-            "何円の値幅を取れていたか",
+            "抜き幅",
             React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "1株あたり・1円単位")),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
             React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
@@ -25371,7 +25371,7 @@ function EntryRecordForm(_ref_erf) {
         // 最大利益（100株換算・100円単位）
         React.createElement("div", null,
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
-            "最大何円の利益が出ていたか",
+            "最大損益",
             React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算・100円単位")),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
             React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
