@@ -25521,7 +25521,8 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "変動数値（α値比）"),
             React.createElement("button", {
               onClick: function() {
-                var _newSg = fHoldWidthSign === "+" ? "-" : fHoldWidthSign === "-" ? null : "+";
+                // ↑("-")→↓("+")→未選択(null)→↑("-")のサイクル
+                var _newSg = fHoldWidthSign === "-" ? "+" : fHoldWidthSign === "+" ? null : "-";
                 setFHoldWidthSign(_newSg);
                 var _ck2 = fStock + "_" + fDate;
                 var _cd2 = data.charts && data.charts[_ck2];
@@ -25535,7 +25536,7 @@ function EntryRecordForm(_ref_erf) {
                 border: "1px solid " + (fHoldWidthSign === "+" ? "#C0392B" : fHoldWidthSign === "-" ? "#1E8449" : "#bbb"),
                 background: fHoldWidthSign === "+" ? "#FCEBEB" : fHoldWidthSign === "-" ? "#EAF3DE" : "#f5f4f0",
                 color: fHoldWidthSign === "+" ? "#C0392B" : fHoldWidthSign === "-" ? "#1E8449" : "#999" }
-            }, fHoldWidthSign || "±"),
+            }, fHoldWidthSign === "-" ? "↑" : fHoldWidthSign === "+" ? "↓" : "↕"),
             React.createElement("input", {
               type: "number", inputMode: "numeric", step: "1",
               value: fHoldWidthVal,
