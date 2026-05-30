@@ -10943,12 +10943,14 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, (function() {
                   var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
                   var _isMiss = s.result === "miss";
+                  var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
                   var _hpNum = _hp == null ? null : React.createElement("span", {
                     style: { fontWeight: _isMiss ? 400 : 600, fontSize: 10,
                       color: _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888") }
                   }, (_isMiss ? "(" : "") + (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円" + (_isMiss ? ")" : ""));
                   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
                     holdResultEl,
+                    !_isMiss && _hg ? _esBadge(_hg) : null,
                     _hpNum
                   );
                 })()),
@@ -11012,7 +11014,7 @@ function EntrySignalSection(_ref_es) {
       signals.forEach(function(s) {
         var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
         if (!_virtByStk[stock]) _virtByStk[stock] = [];
-        _virtByStk[stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf });
+        _virtByStk[stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf, holdOsConf: s.holdOsConf != null ? Number(s.holdOsConf) : null, holdHighVal: s.holdHighVal != null ? Number(s.holdHighVal) : null, holdHighSign: s.holdHighSign || null });
       });
       return React.createElement("div", { style: { marginTop: 10 } },
         React.createElement(VirtualAlphaCalc, { sigsByStock: _virtByStk })
@@ -20383,13 +20385,14 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, (function() {
               var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
               var _isMiss = s.result === "miss";
+              var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
               var _pnlEl = _hp == null ? null : (function() {
                 var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
                 var _txt = (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円";
                 return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col, fontSize: 10 } }, _isMiss ? "(" + _txt + ")" : _txt);
               })();
-              return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
-                holdResultEl, _pnlEl
+              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
+                holdResultEl, !_isMiss && _hg ? _trBadge(_hg) : null, _pnlEl
               );
             })())
           )
@@ -20440,7 +20443,7 @@ function DayView(_ref57) {
             var s = r.signal;
             if (!_trVirtByStk[r.stock]) _trVirtByStk[r.stock] = [];
             var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-            _trVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf });
+            _trVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf, holdOsConf: s.holdOsConf != null ? Number(s.holdOsConf) : null, holdHighVal: s.holdHighVal != null ? Number(s.holdHighVal) : null, holdHighSign: s.holdHighSign || null });
           });
           if (!Object.keys(_trVirtByStk).length) return null;
           return React.createElement(VirtualAlphaCalc, { sigsByStock: _trVirtByStk });
@@ -20783,13 +20786,12 @@ function DayView(_ref57) {
             _rPnlDisp(planPnl, gPlan)),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
             (function() {
+              var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
               var _sym = s.holdProfit === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
                 : s.holdProfit === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
                 : s.holdProfit === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
-              var _num = holdPnl == null ? null : React.createElement("span", { style: { fontWeight: 600, fontSize: 10, color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } },
-                (holdPnl > 0 ? "+" : "") + holdPnl.toLocaleString() + "円");
-              if (!_sym && !_num) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym || React.createElement("span", { style: { color: "#ccc" } }, "—"), _num);
+              if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
             })())
         ));
         if (rExp) {
@@ -20882,7 +20884,7 @@ function DayView(_ref57) {
               var s = r.signal;
               if (!_expVirtByStk[r.stock]) _expVirtByStk[r.stock] = [];
               var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-              _expVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf });
+              _expVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf, holdOsConf: s.holdOsConf != null ? Number(s.holdOsConf) : null, holdHighVal: s.holdHighVal != null ? Number(s.holdHighVal) : null, holdHighSign: s.holdHighSign || null });
             });
             if (!Object.keys(_expVirtByStk).length) return null;
             return React.createElement("div", { style: { padding: "4px 6px" } },
@@ -24941,29 +24943,38 @@ function VirtualAlphaCalc(_ref_vac) {
   var _s1 = useState({}), _s1a = _slicedToArray(_s1, 2);
   var alphaByStock = _s1a[0], setAlphaByStock = _s1a[1];
   if (!stocks.length) return null;
-  var calcResult = function(stock, aStr) {
+  var calcResults = function(stock, aStr) {
     var alpha = Number(_toHankaku(aStr));
     if (aStr === "" || isNaN(alpha)) return null;
     var sigs = sigsByStock[stock] || [];
-    var total = 0, hasAny = false;
+    var planTotal = 0, resultTotal = 0, hasPlan = false, hasResult = false;
     sigs.forEach(function(d) {
       if (d.osVal == null) return;
-      hasAny = true;
-      if (alpha > d.osVal) { /* エントリーなし */ }
-      else if (d.osVal - alpha >= 10) { total += -(d.osVal - alpha) * 100; }
-      else { if (d.conf == null) return; total += (alpha - d.conf) * 100; }
+      if (alpha > d.osVal) return; // エントリーなし
+      // 想定損益
+      if (d.osVal - alpha >= 10) { planTotal += -(d.osVal - alpha) * 100; hasPlan = true; }
+      else if (d.conf != null) { planTotal += (alpha - d.conf) * 100; hasPlan = true; }
+      // 結果損益
+      if (d.osVal - alpha >= 10) { resultTotal += -(d.osVal - alpha) * 100; hasResult = true; }
+      else if (d.holdHighSign === "-" && d.holdHighVal != null && (d.holdHighVal - alpha) >= 10) {
+        resultTotal += -((d.holdHighVal - alpha) * 100); hasResult = true;
+      } else if (d.holdOsConf != null) {
+        resultTotal += (alpha + (alpha - d.holdOsConf)) * 100; hasResult = true;
+      }
     });
-    return hasAny ? Math.round(total) : null;
+    return { plan: hasPlan ? Math.round(planTotal) : null, result: hasResult ? Math.round(resultTotal) : null };
   };
+  var fmtAmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+  var amtCol = function(v) { return v == null ? "#aaa" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
   return React.createElement("div", {
     style: { marginTop: 8, padding: "6px 10px", borderRadius: 7, background: "#FFFBF0", border: "1px solid #FDE68A" }
   },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#92400E", marginBottom: 6 } }, "α値シミュレーション"),
-    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
+    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
       stocks.map(function(stock) {
         var aStr = alphaByStock[stock] || "";
-        var result = calcResult(stock, aStr);
-        var resColor = result == null ? "#aaa" : result > 0 ? "#C0392B" : result < 0 ? "#1E8449" : "#888";
+        var res = calcResults(stock, aStr);
+        var plan = res ? res.plan : null, result = res ? res.result : null;
         return React.createElement("div", { key: stock, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
           stocks.length > 1 && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#92400E", minWidth: 48 } }, stock),
           React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "α値"),
@@ -24982,10 +24993,11 @@ function VirtualAlphaCalc(_ref_vac) {
               function() { setAlphaByStock(function(prev) { var n = Object.assign({}, prev); n[stock] = String(Math.max(0, (parseFloat(prev[stock]||"")||0) - 1)); return n; }); }
             )
           ),
-          React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "円 →"),
-          React.createElement("span", { style: { fontSize: 14, fontWeight: 800, color: resColor, minWidth: 60 } },
-            result != null ? (result > 0 ? "+" : "") + result.toLocaleString() + "円" : "—"
-          )
+          React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "円"),
+          React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "→ 想定"),
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: amtCol(plan) } }, fmtAmt(plan)),
+          React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "結果"),
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: amtCol(result) } }, fmtAmt(result))
         );
       })
     )
@@ -27140,13 +27152,12 @@ function EntryLogView(_ref_elv) {
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _rPnlDisp(planPnlN, planGrade)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } },
                   (function() {
+                    var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
                     var _sym = s.holdProfit === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
                       : s.holdProfit === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
                       : s.holdProfit === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
-                    var _num = holdPnl == null ? null : React.createElement("span", { style: { fontWeight: 600, fontSize: 10, color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } },
-                      (holdPnl > 0 ? "+" : "") + holdPnl.toLocaleString() + "円");
-                    if (!_sym && !_num) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-                    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym || React.createElement("span", { style: { color: "#ccc" } }, "—"), _num);
+                    if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+                    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
                   })())
               )
             );
@@ -27650,13 +27661,12 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _rPnlDisp(planPnlN, planGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } },
               (function() {
+                var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
                 var _sym = s.holdProfit === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
                   : s.holdProfit === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
                   : s.holdProfit === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
-                var _num = holdPnl == null ? null : React.createElement("span", { style: { fontWeight: 600, fontSize: 10, color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } },
-                  (holdPnl > 0 ? "+" : "") + holdPnl.toLocaleString() + "円");
-                if (!_sym && !_num) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-                return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym || React.createElement("span", { style: { color: "#ccc" } }, "—"), _num);
+                if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+                return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
               })())
           )
         );
