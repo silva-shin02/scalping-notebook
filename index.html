@@ -24899,9 +24899,9 @@ function _toHankakuDecimal(s) {
 
 // ── タブレット用 ▲▼ ステッパーボタン (数値入力欄に添付) ──
 var _stepBtn = function(onInc, onDec) {
-  var _bs = { flex: "1", padding: "0", border: "none", background: "inherit", cursor: "pointer", fontSize: 13, minWidth: 28, lineHeight: "1", display: "flex", alignItems: "center", justifyContent: "center" };
-  return React.createElement("div", { style: { display: "flex", flexDirection: "column", borderLeft: "1px solid #ddd", flexShrink: 0, background: "#f5f4f0" } },
-    React.createElement("button", { type: "button", tabIndex: -1, onMouseDown: function(e) { e.preventDefault(); }, onClick: onInc, style: Object.assign({}, _bs, { borderBottom: "1px solid #ddd" }) }, "▲"),
+  var _bs = { flex: "1", padding: "0", border: "none", background: "transparent", cursor: "pointer", fontSize: 9, minWidth: 20, lineHeight: "1", display: "flex", alignItems: "center", justifyContent: "center", color: "#c0c0c0" };
+  return React.createElement("div", { style: { display: "flex", flexDirection: "column", borderLeft: "1px solid #ebebeb", flexShrink: 0, background: "#fafafa" } },
+    React.createElement("button", { type: "button", tabIndex: -1, onMouseDown: function(e) { e.preventDefault(); }, onClick: onInc, style: Object.assign({}, _bs, { borderBottom: "1px solid #ebebeb" }) }, "▲"),
     React.createElement("button", { type: "button", tabIndex: -1, onMouseDown: function(e) { e.preventDefault(); }, onClick: onDec, style: _bs }, "▼")
   );
 };
@@ -25591,7 +25591,7 @@ function EntryRecordForm(_ref_erf) {
             borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#F5B7B1" : fPlanSign === "-" ? "#A9DFBF" : "#ddd"),
             minWidth: 80, textAlign: "right"
           }
-        }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
+        }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
       ),
       // Entry→Hold想定値
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
@@ -25601,25 +25601,6 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
       },
-        // 損益の変動
-        React.createElement("div", { style: { marginBottom: 8 } },
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益の変動"),
-          React.createElement("div", { style: { display: "flex", gap: 6 } },
-            [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["× 損失+", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
-              var on = fHoldProfit === kv[1];
-              return React.createElement("button", {
-                key: kv[1],
-                onClick: function() { setFHoldProfit(on ? null : kv[1]); },
-                style: {
-                  padding: "6px 14px", fontSize: 15, fontWeight: 700, borderRadius: 5, cursor: "pointer",
-                  border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
-                  background: on ? kv[3] : "#fff",
-                  color: on ? kv[2] : "#aaa"
-                }
-              }, kv[0]);
-            })
-          )
-        ),
         // ホールド足確定値 / ホールド足高値（縦並び）
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
@@ -25682,7 +25663,7 @@ function EntryRecordForm(_ref_erf) {
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
           ),
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" } },
             React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（水準線比）"),
             React.createElement("div", {
               style: { display: "flex", alignItems: "center", border: "1px solid " + (fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
@@ -25711,40 +25692,58 @@ function EntryRecordForm(_ref_erf) {
                 function() { setFHoldHighVal(String(Math.max(0, (Number(fHoldHighVal)||0) - 1))); }
               )
             ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
-          ),
-          (function() {
-            if (fHoldHighVal === "") return null;
-            var _ck3 = fStock + "_" + fDate;
-            var _cd3 = data.charts && data.charts[_ck3];
-            var _av3 = _cd3 && _cd3.alphaVal != null ? _cd3.alphaVal : null;
-            if (_av3 == null) return null;
-            var _shhv = fHoldHighSign === "-" ? (Number(fHoldHighVal) || 0) : fHoldHighSign === "+" ? -(Number(fHoldHighVal) || 0) : 0;
-            var _diff = _shhv - _av3;
-            var _isUp = _diff > 0, _isDn = _diff < 0;
-            return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 4, paddingLeft: 2 } },
-              React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "α値比"),
-              React.createElement("span", {
-                style: { fontSize: 13, fontWeight: 700, color: _isUp ? "#C0392B" : _isDn ? "#1E8449" : "#999" }
-              }, (_isUp ? "↑" : _isDn ? "↓" : "↕") + Math.abs(_diff) + "円")
-            );
-          })()
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+            (function() {
+              if (fHoldHighVal === "") return null;
+              var _ck3 = fStock + "_" + fDate;
+              var _cd3 = data.charts && data.charts[_ck3];
+              var _av3 = _cd3 && _cd3.alphaVal != null ? _cd3.alphaVal : null;
+              if (_av3 == null) return null;
+              var _shhv = fHoldHighSign === "-" ? (Number(fHoldHighVal) || 0) : fHoldHighSign === "+" ? -(Number(fHoldHighVal) || 0) : 0;
+              var _diff = _shhv - _av3;
+              var _isUp = _diff > 0, _isDn = _diff < 0;
+              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, marginLeft: 4 } },
+                React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "α値比"),
+                React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: _isUp ? "#C0392B" : _isDn ? "#1E8449" : "#999" } },
+                  (_isUp ? "↑" : _isDn ? "↓" : "↕") + Math.abs(_diff) + "円")
+              );
+            })()
         ),
-        // 結果損益 - 自動計算バッジ
-        React.createElement("div", null,
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
-            "結果損益",
-            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-          React.createElement("span", {
-            style: {
-              display: "inline-block", padding: "5px 14px",
-              fontSize: 14, fontWeight: 800,
-              color: fHoldPnlSign === "+" ? "#C0392B" : fHoldPnlSign === "-" ? "#1E8449" : "#555",
-              background: fHoldPnlSign === "+" ? "#FCEBEB" : fHoldPnlSign === "-" ? "#EAF3DE" : "#f5f5f5",
-              borderRadius: 6, border: "1px solid " + (fHoldPnlSign === "+" ? "#F5B7B1" : fHoldPnlSign === "-" ? "#A9DFBF" : "#ddd"),
-              minWidth: 80, textAlign: "right"
-            }
-          }, fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—")
+        // 結果損益 + 損益変化（横並び）
+        React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
+          React.createElement("div", null,
+            React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
+              "結果損益",
+              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
+            React.createElement("span", {
+              style: {
+                display: "inline-block", padding: "5px 14px",
+                fontSize: 14, fontWeight: 800,
+                color: fHoldPnlSign === "+" ? "#C0392B" : fHoldPnlSign === "-" ? "#1E8449" : "#555",
+                background: fHoldPnlSign === "+" ? "#FCEBEB" : fHoldPnlSign === "-" ? "#EAF3DE" : "#f5f5f5",
+                borderRadius: 6, border: "1px solid " + (fHoldPnlSign === "+" ? "#F5B7B1" : fHoldPnlSign === "-" ? "#A9DFBF" : "#ddd"),
+                minWidth: 80, textAlign: "right"
+              }
+            }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—")
+          ),
+          React.createElement("div", null,
+            React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
+            React.createElement("div", { style: { display: "flex", gap: 5 } },
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["× 損失+", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
+                var on = fHoldProfit === kv[1];
+                return React.createElement("button", {
+                  key: kv[1],
+                  onClick: function() { setFHoldProfit(on ? null : kv[1]); },
+                  style: {
+                    padding: "5px 10px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
+                    border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
+                    background: on ? kv[3] : "#fff",
+                    color: on ? kv[2] : "#aaa"
+                  }
+                }, kv[0]);
+              })
+            )
+          )
         )
       ),
       // 難易度
