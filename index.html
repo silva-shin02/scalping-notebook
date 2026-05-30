@@ -25382,11 +25382,11 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
       },
-        // 利益の伸び
+        // 損益の変動
         React.createElement("div", { style: { marginBottom: 8 } },
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "利益の伸び"),
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益の変動"),
           React.createElement("div", { style: { display: "flex", gap: 6 } },
-            [["○", "yes", "#1E8449", "#EAF3DE"], ["×", "no", "#C0392B", "#FCEBEB"], ["△", "mid", "#B45309", "#FEF3C7"]].map(function(kv) {
+            [["○ 利益+", "yes", "#1E8449", "#EAF3DE"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["× 損失+", "no", "#C0392B", "#FCEBEB"]].map(function(kv) {
               var on = fHoldProfit === kv[1];
               return React.createElement("button", {
                 key: kv[1],
@@ -25401,10 +25401,10 @@ function EntryRecordForm(_ref_erf) {
             })
           )
         ),
-        // 抜き幅（水準線比）
+        // 損益の変動幅
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
-            "抜き幅（水準線比）",
+            "損益の変動幅",
             React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "1株あたり・1円単位")),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
             React.createElement("div", { style: { display: "flex", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
