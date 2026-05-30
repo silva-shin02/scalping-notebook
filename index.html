@@ -10755,7 +10755,7 @@ function EntrySignalSection(_ref_es) {
       )
     ),
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "2px 0" } },
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値"),
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値（水準線比）"),
       React.createElement("input", {
         type: "number", inputMode: "numeric", step: "1",
         value: c.alphaVal != null ? String(c.alphaVal) : "0",
@@ -25400,7 +25400,7 @@ function EntryRecordForm(_ref_erf) {
         placeholder: "",
         style: Object.assign({}, I, { marginBottom: 6 })
       }),
-      // この日のα値（編集可能）
+      // この日のα値（水準線比）（編集可能）
       (function() {
         var _ck = fStock + "_" + fDate;
         var _cd = data.charts && data.charts[_ck];
@@ -25423,7 +25423,7 @@ function EntryRecordForm(_ref_erf) {
             border: "1px solid #BAE6FD", fontSize: 12 }
         },
           React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "α"),
-          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "この日のα値"),
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "この日のα値（水準線比）"),
           React.createElement("input", {
             type: "number", inputMode: "numeric", min: "0", max: "20", step: "1",
             value: _av != null ? String(_av) : "0",
