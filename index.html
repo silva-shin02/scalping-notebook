@@ -25483,7 +25483,10 @@ function EntryRecordForm(_ref_erf) {
         }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
       ),
       // Entry→Hold想定値
-      React.createElement("div", { style: SH_ }, "Entry→Hold想定値"),
+      React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
+        "Entry→Hold想定値",
+        fResult === "miss" && React.createElement("span", { style: { fontSize: 10, color: "#E53E3E", fontWeight: 600, letterSpacing: 0 } }, "※水準値でエントリーしていたと仮定")
+      ),
       React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
       },
