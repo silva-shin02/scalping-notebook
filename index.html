@@ -10777,12 +10777,18 @@ function EntrySignalSection(_ref_es) {
                 if (_diff < 0) _pnl = 0;
                 else if (_diff >= 10) _pnl = -Math.round(_diff * 100);
                 else if (_conf != null) _pnl = Math.round((n - _conf) * 100);
-                if (_pnl == null) return s;
-                var _sg = _pnl >= 0 ? "+" : "-";
-                return Object.assign({}, s, {
-                  plannedPnl: Math.abs(_pnl), plannedPnlSign: _sg,
-                  maxPnl: Math.abs(_pnl), maxPnlSign: _sg
-                });
+                var _updSig = s;
+                if (_pnl != null) {
+                  var _sg = _pnl >= 0 ? "+" : "-";
+                  _updSig = Object.assign({}, s, { plannedPnl: Math.abs(_pnl), plannedPnlSign: _sg, maxPnl: Math.abs(_pnl), maxPnlSign: _sg });
+                }
+                // holdOsConf が記録されていれば holdWidth/holdPnl も再計算
+                if (s.holdOsConf != null) {
+                  var _hw = n - Number(s.holdOsConf);
+                  var _hwSg = _hw >= 0 ? "+" : "-";
+                  _updSig = Object.assign({}, _updSig, { holdWidthSign: _hwSg, holdWidth: Math.abs(_hw), holdPnl: Math.abs(Math.round(_hw * 100)), holdPnlSign: _hwSg });
+                }
+                return _updSig;
               });
             }
             pCharts[ck] = _ce;
@@ -10975,7 +10981,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("実現損益"),
                   _esTh("想定損益"),
                   _esTh("ホールド勝敗"),
-                  _esTh("結果損益"),
+                  _esTh("結果損益（α値比）"),
                   isCustomMode ? _esTh("並替") : null
                 )
               ),
@@ -20398,7 +20404,7 @@ function DayView(_ref57) {
                 _trTh("実現損益"),
                 _trTh("想定損益"),
                 _trTh("ホールド勝敗"),
-                _trTh("結果損益")
+                _trTh("結果損益（α値比）")
               )
             ),
             React.createElement("tbody", null, [totRow].concat(dataRows))
@@ -25015,13 +25021,24 @@ function EntryRecordForm(_ref_erf) {
   var _useStateHEV = useState(initSig.holdExtract != null ? String(Math.abs(Number(initSig.holdExtract))) : ""),
     _useStateHEVA = _slicedToArray(_useStateHEV, 2),
     fHoldExtract = _useStateHEVA[0], setFHoldExtract = _useStateHEVA[1];
-  // holdPnlSign / holdPnl: 最大利益（100株換算、100円単位）— 既存フィールド流用
-  var _useStateHPS = useState(initSig.holdPnlSign || "+"),
+  // holdPnlSign / holdPnl: 結果損益（α値比, 100株換算）— 自動計算
+  var _useStateHPS = useState(initSig.holdPnlSign || null),
     _useStateHPSA = _slicedToArray(_useStateHPS, 2),
     fHoldPnlSign = _useStateHPSA[0], setFHoldPnlSign = _useStateHPSA[1];
   var _useStateHPV = useState(initSig.holdPnl != null ? String(Math.abs(Number(initSig.holdPnl))) : ""),
     _useStateHPVA = _slicedToArray(_useStateHPV, 2),
     fHoldPnlVal = _useStateHPVA[0], setFHoldPnlVal = _useStateHPVA[1];
+  // holdOsConf: α値比の基準（holdWidth = α - holdOsConf）- 内部保持
+  var _useStateHOC = useState(initSig.holdOsConf != null ? Number(initSig.holdOsConf) : null),
+    _useStateHOCA = _slicedToArray(_useStateHOC, 2),
+    fHoldOsConf = _useStateHOCA[0], setFHoldOsConf = _useStateHOCA[1];
+  // holdWidthSign / holdWidthVal: 変動数値（1円単位）= α - holdOsConf
+  var _useStateHWS = useState(initSig.holdWidthSign || null),
+    _useStateHWSA = _slicedToArray(_useStateHWS, 2),
+    fHoldWidthSign = _useStateHWSA[0], setFHoldWidthSign = _useStateHWSA[1];
+  var _useStateHWV = useState(initSig.holdWidth != null ? String(Math.abs(Number(initSig.holdWidth))) : ""),
+    _useStateHWVA = _slicedToArray(_useStateHWV, 2),
+    fHoldWidthVal = _useStateHWVA[0], setFHoldWidthVal = _useStateHWVA[1];
   // ── 確定値（水準線比）──
   var _useStateOCSign = useState(initSig.osConfSign || null),
     _useStateOCSignA = _slicedToArray(_useStateOCSign, 2),
@@ -25135,6 +25152,24 @@ function EntryRecordForm(_ref_erf) {
     setFPlan(String(planAmt));
   }, [fStock, fDate, data, fOsVal, fEstWidthSign, fEstWidthVal]);
 
+  // ── 変動数値を自動計算（α値 - holdOsConf） ──
+  useEffect(function() {
+    var _ck = fStock + "_" + fDate;
+    var _cd = data.charts && data.charts[_ck];
+    var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
+    if (_av == null || fHoldOsConf == null) return;
+    var _w = _av - fHoldOsConf;
+    setFHoldWidthSign(_w === 0 ? null : (_w > 0 ? "+" : "-"));
+    setFHoldWidthVal(String(Math.abs(_w)));
+  }, [fStock, fDate, data, fHoldOsConf]);
+
+  // ── 結果損益を自動計算（変動数値 × 100） ──
+  useEffect(function() {
+    if (!fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
+    setFHoldPnlSign(fHoldWidthSign);
+    setFHoldPnlVal(String(Math.round((Number(fHoldWidthVal) || 0) * 100)));
+  }, [fHoldWidthSign, fHoldWidthVal]);
+
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
 
@@ -25166,10 +25201,11 @@ function EntryRecordForm(_ref_erf) {
       osConfSign: fOsConfSign || null,
       osConfVal: fOsConfVal !== "" ? (isNaN(Number(_toHankaku(fOsConfVal))) ? null : Number(_toHankaku(fOsConfVal))) : null,
       holdProfit: fHoldProfit || null,
-      holdExtract: fHoldExtract !== "" ? Number(fHoldExtract) : null,
-      holdExtractSign: fHoldExtract !== "" ? fHoldExtractSign : null,
+      holdOsConf: fHoldOsConf,
+      holdWidthSign: fHoldWidthSign || null,
+      holdWidth: fHoldWidthVal !== "" ? Number(fHoldWidthVal) : null,
       holdPnl: fHoldPnlVal !== "" ? Number(fHoldPnlVal) : null,
-      holdPnlSign: fHoldPnlSign,
+      holdPnlSign: fHoldPnlSign || null,
       realizedPnl: fEntered && fReal !== "" ? Number(fReal) : null,
       realizedPnlSign: fRealSign,
       profitGrade: null,
@@ -25470,30 +25506,63 @@ function EntryRecordForm(_ref_erf) {
             })
           )
         ),
-        // 結果損益（100株換算・100円単位）
-        React.createElement("div", null,
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
-            "結果損益",
-            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算・100円単位")),
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+        // 変動数値（α値比）
+        React.createElement("div", { style: { marginBottom: 8 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
+            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "変動数値（α値比）"),
             React.createElement("button", {
-              onClick: function() { setFHoldPnlSign(function(prev) { return prev === "+" ? "-" : prev === "-" ? null : "+"; }); },
-              style: {
-                padding: "6px 10px", fontSize: 13, fontWeight: fHoldPnlSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
-                border: "1px solid " + (fHoldPnlSign === "+" ? "#C0392B" : fHoldPnlSign === "-" ? "#1E8449" : "#bbb"),
-                background: fHoldPnlSign === "+" ? "#FCEBEB" : fHoldPnlSign === "-" ? "#EAF3DE" : "#f5f4f0",
-                color: fHoldPnlSign === "+" ? "#C0392B" : fHoldPnlSign === "-" ? "#1E8449" : "#999"
-              }
-            }, fHoldPnlSign || "±"),
+              onClick: function() {
+                var _newSg = fHoldWidthSign === "+" ? "-" : fHoldWidthSign === "-" ? null : "+";
+                setFHoldWidthSign(_newSg);
+                var _ck2 = fStock + "_" + fDate;
+                var _cd2 = data.charts && data.charts[_ck2];
+                var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : null;
+                if (_av2 != null && fHoldWidthVal !== "") {
+                  var _ws = _newSg === "-" ? -(Number(fHoldWidthVal)||0) : (Number(fHoldWidthVal)||0);
+                  setFHoldOsConf(_av2 - _ws);
+                }
+              },
+              style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldWidthSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
+                border: "1px solid " + (fHoldWidthSign === "+" ? "#C0392B" : fHoldWidthSign === "-" ? "#1E8449" : "#bbb"),
+                background: fHoldWidthSign === "+" ? "#FCEBEB" : fHoldWidthSign === "-" ? "#EAF3DE" : "#f5f4f0",
+                color: fHoldWidthSign === "+" ? "#C0392B" : fHoldWidthSign === "-" ? "#1E8449" : "#999" }
+            }, fHoldWidthSign || "±"),
             React.createElement("input", {
-              type: "number", inputMode: "numeric", min: "0", step: "100",
-              value: fHoldPnlVal,
-              onChange: function(e) { var v = _toHankakuNum(e.target.value); setFHoldPnlVal(v); if ((Number(v) || 0) === 0) setFHoldPnlSign(null); },
+              type: "number", inputMode: "numeric", step: "1",
+              value: fHoldWidthVal,
+              onChange: function(e) {
+                var _v = e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0));
+                setFHoldWidthVal(_v);
+                var _ck2 = fStock + "_" + fDate;
+                var _cd2 = data.charts && data.charts[_ck2];
+                var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : null;
+                if (_av2 != null && _v !== "" && fHoldWidthSign != null) {
+                  var _ws = fHoldWidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0);
+                  setFHoldOsConf(_av2 - _ws);
+                }
+              },
               placeholder: "0",
               style: Object.assign({}, I, { width: 80, textAlign: "right" })
             }),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
-          )
+          ),
+          React.createElement("div", { style: { fontSize: 10, color: "#aaa", paddingLeft: 2 } }, "変動数値＝α値ー確定値（ホールド時）")
+        ),
+        // 結果損益（α値比）- 自動計算バッジ
+        React.createElement("div", null,
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
+            "結果損益（α値比）",
+            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
+          React.createElement("span", {
+            style: {
+              display: "inline-block", padding: "5px 14px",
+              fontSize: 14, fontWeight: 800,
+              color: fHoldPnlSign === "+" ? "#C0392B" : fHoldPnlSign === "-" ? "#1E8449" : "#555",
+              background: fHoldPnlSign === "+" ? "#FCEBEB" : fHoldPnlSign === "-" ? "#EAF3DE" : "#f5f5f5",
+              borderRadius: 6, border: "1px solid " + (fHoldPnlSign === "+" ? "#F5B7B1" : fHoldPnlSign === "-" ? "#A9DFBF" : "#ddd"),
+              minWidth: 80, textAlign: "right"
+            }
+          }, fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—")
         )
       ),
       // 難易度
