@@ -25189,17 +25189,21 @@ function EntryRecordForm(_ref_erf) {
     setFHoldWidthVal(String(Math.abs(_w)));
   }, [fStock, fDate, data, fHoldOsConf]);
 
-  // ── 結果損益を自動計算（ホールド足高値≥10時は優先、それ以外は想定損益±変動数値×100）──
+  // ── 結果損益を自動計算 ──
+  //   ホールド足高値≥10: -(高値×100) 優先
+  //   ↓(+): (変動数値 - 確定値) × 100
+  //   ↑(-): -(変動数値 - 確定値) × 100  ※変動数値は絶対値
   useEffect(function() {
     var _hhv = Number(fHoldHighVal) || 0;
     if (_hhv >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(_hhv * 100)); return; }
     if (!fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
-    var _signedPlan = fPlanSign === "-" ? -(Number(fPlan) || 0) : (Number(fPlan) || 0);
     var _hw = Number(fHoldWidthVal) || 0;
-    var _result = fHoldWidthSign === "+" ? _signedPlan + _hw * 100 : _signedPlan - _hw * 100;
+    var _conf = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
+    var _base = (_hw - _conf) * 100;
+    var _result = fHoldWidthSign === "+" ? _base : -_base;
     setFHoldPnlSign(_result >= 0 ? "+" : "-");
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fHoldWidthSign, fHoldWidthVal, fPlanSign, fPlan, fHoldHighVal]);
+  }, [fHoldWidthSign, fHoldWidthVal, fOsConfSign, fOsConfVal, fHoldHighVal]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
