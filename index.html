@@ -10819,7 +10819,7 @@ function EntrySignalSection(_ref_es) {
               _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
             ),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              _esRPnlDispABAll(_esTotMaxAB, _esTotMax, _esTotMaxGradeAB, _esTotMaxGrade)
+              React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),
             isCustomMode ? React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }) : null
           );
@@ -10862,7 +10862,13 @@ function EntrySignalSection(_ref_es) {
             var entered = _elIsEntered(s, rIt);
             var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
             var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
-            var maxGrade  = maxPnlN  != null ? _profitGradeFromPnl(maxPnlN, 1)  : null;
+            var holdResultEl = s.holdProfit === "yes"
+              ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
+              : s.holdProfit === "mid"
+                ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
+                : s.holdProfit === "no"
+                  ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
+                  : React.createElement("span", { style: { color: "#ccc" } }, "—");
             var entLabel = entered
               ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
               : React.createElement("span", { style: { color: "#888" } }, "見送り");
@@ -10914,7 +10920,7 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(realPnlN, realGrade)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(planPnlN, planGrade)),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esRPnlDisp(maxPnlN, maxGrade)),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, holdResultEl),
                 isCustomMode ? React.createElement("td", {
                   style: { padding: "2px 4px", textAlign: "center", borderBottom: "1px solid #f0ede6" },
                   onClick: function(e) { e.stopPropagation(); }
@@ -10960,7 +10966,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("エントリー"),
                   _esTh("実現損益"),
                   _esTh("想定損益"),
-                  _esTh("最大損益"),
+                  _esTh("ホールド勝敗"),
                   isCustomMode ? _esTh("並替") : null
                 )
               ),
@@ -20228,7 +20234,7 @@ function DayView(_ref57) {
           _trRPnlDispABAll(_trTotPlanAB, _trTotPlan, _trTotPlanGradeAB, _trTotPlanGrade)
         ),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-          _trRPnlDispABAll(_trTotMaxAB, _trTotMax, _trTotMaxGradeAB, _trTotMaxGrade)
+          React.createElement("span", { style: { color: "#ccc" } }, "—")
         )
       );
       var dataRows = [];
@@ -20247,7 +20253,13 @@ function DayView(_ref57) {
         var entered = _elIsEntered(s, rIt);
         var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
         var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
-        var maxGrade  = maxPnlN  != null ? _profitGradeFromPnl(maxPnlN, 1)  : null;
+        var holdResultEl = s.holdProfit === "yes"
+          ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
+          : s.holdProfit === "mid"
+            ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
+            : s.holdProfit === "no"
+              ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
+              : React.createElement("span", { style: { color: "#ccc" } }, "—");
         var entLabel = entered
           ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
           : React.createElement("span", { style: { color: "#888" } }, "見送り");
@@ -20318,7 +20330,7 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(realPnlN, realGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(planPnlN, planGrade)),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trRPnlDisp(maxPnlN, maxGrade))
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, holdResultEl)
           )
         );
         if (rExp) {
@@ -20355,7 +20367,7 @@ function DayView(_ref57) {
                 _trTh("結果", { width: "1%" }),
                 _trTh("実現損益"),
                 _trTh("想定損益"),
-                _trTh("最大損益")
+                _trTh("ホールド勝敗")
               )
             ),
             React.createElement("tbody", null, [totRow].concat(dataRows))
@@ -24653,8 +24665,7 @@ function _GradeBadges3(_p) {
   };
   var items = [
     { key: "real", label: "実", fullLabel: "実現損益",    abKey: null },
-    { key: "plan", label: "想", fullLabel: "想定損益",    abKey: "planAB" },
-    { key: "max",  label: "最", fullLabel: "最大可能損益", abKey: "maxAB" }
+    { key: "plan", label: "想", fullLabel: "想定損益",    abKey: "planAB" }
   ];
   return React.createElement("div", {
     style: { display: "flex", gap: 3, alignItems: "center", flexWrap: "nowrap" }
@@ -25742,7 +25753,7 @@ function EntryLogCard(_ref_elc) {
       s.priceIn && s.priceOut && " → ",
       s.priceOut && React.createElement("span", { style: { fontWeight: 600 } }, "出" + s.priceOut)
     ),
-    (planPnl != null || maxPnl != null || realPnl != null) && React.createElement("div", {
+    (planPnl != null || realPnl != null) && React.createElement("div", {
       style: { display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11, color: "#666", marginTop: 4 }
     },
       realPnl != null && React.createElement("span", null, "実: ",
@@ -25752,11 +25763,7 @@ function EntryLogCard(_ref_elc) {
       planPnl != null && React.createElement("span", null, "計画: ",
         React.createElement("span", {
           style: { fontWeight: 600, color: planPnl > 0 ? "#C0392B" : planPnl < 0 ? "#1E8449" : "#888" }
-        }, (planPnl > 0 ? "+" : "") + planPnl.toLocaleString() + "円")),
-      maxPnl != null && React.createElement("span", null, "最大: ",
-        React.createElement("span", {
-          style: { fontWeight: 600, color: maxPnl > 0 ? "#C0392B" : maxPnl < 0 ? "#1E8449" : "#888" }
-        }, (maxPnl > 0 ? "+" : "") + maxPnl.toLocaleString() + "円"))
+        }, (planPnl > 0 ? "+" : "") + planPnl.toLocaleString() + "円"))
     ),
     s.rationale && React.createElement("div", {
       style: { fontSize: 11, color: "#555", marginTop: 6, lineHeight: 1.5, whiteSpace: "pre-wrap" }
