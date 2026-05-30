@@ -10821,6 +10821,9 @@ function EntrySignalSection(_ref_es) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("span", { style: { color: "#ccc" } }, "—")
+            ),
             isCustomMode ? React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }) : null
           );
           var prevGrpLabel = null;
@@ -10920,7 +10923,12 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(realPnlN, realGrade)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(planPnlN, planGrade)),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, holdResultEl),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, holdResultEl),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, (function() {
+                  var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+                  if (_hp == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+                  return React.createElement("span", { style: { fontWeight: 600, color: _hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888" } }, (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円");
+                })()),
                 isCustomMode ? React.createElement("td", {
                   style: { padding: "2px 4px", textAlign: "center", borderBottom: "1px solid #f0ede6" },
                   onClick: function(e) { e.stopPropagation(); }
@@ -10943,7 +10951,7 @@ function EntrySignalSection(_ref_es) {
             if (rExp) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: isCustomMode ? 11 : 10, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 12 : 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
@@ -10967,6 +10975,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("実現損益"),
                   _esTh("想定損益"),
                   _esTh("ホールド勝敗"),
+                  _esTh("結果損益"),
                   isCustomMode ? _esTh("並替") : null
                 )
               ),
@@ -20248,6 +20257,9 @@ function DayView(_ref57) {
         ),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
           React.createElement("span", { style: { color: "#ccc" } }, "—")
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+          React.createElement("span", { style: { color: "#ccc" } }, "—")
         )
       );
       var dataRows = [];
@@ -20343,13 +20355,18 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(realPnlN, realGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(planPnlN, planGrade)),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, holdResultEl)
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, holdResultEl),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, (function() {
+              var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+              if (_hp == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+              return React.createElement("span", { style: { fontWeight: 600, color: _hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888" } }, (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円");
+            })())
           )
         );
         if (rExp) {
           dataRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
               )
             )
@@ -20380,7 +20397,8 @@ function DayView(_ref57) {
                 _trTh("結果", { width: "1%" }),
                 _trTh("実現損益"),
                 _trTh("想定損益"),
-                _trTh("ホールド勝敗")
+                _trTh("ホールド勝敗"),
+                _trTh("結果損益")
               )
             ),
             React.createElement("tbody", null, [totRow].concat(dataRows))
@@ -25366,6 +25384,26 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
         )
       ),
+      // 結果（インライン・コンパクト）
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
+        React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 700, whiteSpace: "nowrap" } }, "結果"),
+        React.createElement("div", { style: { display: "flex", gap: 4 } },
+          [["○ 成功", "ok", "#1E8449", "#EAF3DE"], ["× 失敗", "ng", "#C0392B", "#FCEBEB"], ["△ E基準未達", "miss", "#B45309", "#FEF3C7"]].map(function(kv) {
+            var on = fResult === kv[1];
+            return React.createElement("button", {
+              key: kv[1],
+              onClick: function() { setFResult(kv[1]); if (kv[1] === "ng") { setFPlanSign("-"); } else if (kv[1] === "ok") { setFPlanSign("+"); } },
+              style: {
+                padding: "4px 8px", fontSize: 11, fontWeight: 600,
+                border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
+                background: on ? kv[3] : "#fff",
+                color: on ? kv[2] : "#555",
+                borderRadius: 5, cursor: "pointer"
+              }
+            }, kv[0]);
+          })
+        )
+      ),
       // 想定値幅（α値ー確定値）
       React.createElement("div", { style: { marginTop: 6, marginBottom: 2 } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
@@ -25408,8 +25446,8 @@ function EntryRecordForm(_ref_erf) {
           }
         }, fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
       ),
-      // ホールドした場合の値幅記録
-      React.createElement("div", { style: SH_ }, "ホールドした場合"),
+      // Entry→Hold想定値
+      React.createElement("div", { style: SH_ }, "Entry→Hold想定値"),
       React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
       },
@@ -25457,24 +25495,6 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
           )
         )
-      ),
-      // 結果
-      React.createElement("div", { style: SH_ }, "結果"),
-      React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        [["○ 成功", "ok", "#1E8449", "#EAF3DE"], ["× 失敗", "ng", "#C0392B", "#FCEBEB"], ["△ E基準未達", "miss", "#B45309", "#FEF3C7"]].map(function(kv) {
-          var on = fResult === kv[1];
-          return React.createElement("button", {
-            key: kv[1],
-            onClick: function() { setFResult(kv[1]); if (kv[1] === "ng") { setFPlanSign("-"); } else if (kv[1] === "ok") { setFPlanSign("+"); } },
-            style: {
-              padding: "8px 12px", fontSize: 13, fontWeight: 600,
-              border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
-              background: on ? kv[3] : "#fff",
-              color: on ? kv[2] : "#555",
-              borderRadius: 6, cursor: "pointer", flex: 1
-            }
-          }, kv[0]);
-        })
       ),
       // 難易度
       React.createElement("div", { style: SH_ }, "\u2B50 \u30A8\u30F3\u30C8\u30EA\u30FC\u96E3\u6613\u5EA6"),
