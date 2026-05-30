@@ -25130,7 +25130,7 @@ function EntryRecordForm(_ref_erf) {
     if (osV > 0 && osV - av >= 10) { setFEstWidthSign("-"); setFEstWidthVal(String(osV - av)); return; }
     var confAbs = Number(fOsConfVal) || 0;
     var width = av - confAbs;
-    setFEstWidthSign(width === 0 ? null : (width < 0 ? "+" : "-"));
+    setFEstWidthSign(width === 0 ? null : (width > 0 ? "+" : "-"));
     setFEstWidthVal(String(Math.abs(width)));
   }, [fStock, fDate, data, fOsConfVal, fOsVal]);
 
