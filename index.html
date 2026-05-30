@@ -20984,7 +20984,7 @@ function DayView(_ref57) {
                 var fmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
                 var fmtP = function(v) {
                   if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-                  var col = v > 0 ? "#1E8449" : v < 0 ? "#C0392B" : "#888";
+                  var col = v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888";
                   return React.createElement("span", { style: { fontWeight: 700, color: col } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円");
                 };
                 return React.createElement("tr", { key: sk, style: { borderBottom: "1px solid #dbeafe" } },
@@ -24890,7 +24890,7 @@ function VirtualAlphaCalc(_ref_vac) {
     });
     if (hasAny) result = Math.round(total);
   }
-  var resColor = result == null ? "#aaa" : result > 0 ? "#1E8449" : result < 0 ? "#C0392B" : "#888";
+  var resColor = result == null ? "#aaa" : result > 0 ? "#C0392B" : result < 0 ? "#1E8449" : "#888";
   return React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 8, padding: "6px 10px", borderRadius: 7, background: "#FFFBF0", border: "1px solid #FDE68A" }
   },
