@@ -10933,7 +10933,10 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, (function() {
                   var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
                   if (_hp == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-                  return React.createElement("span", { style: { fontWeight: 600, color: _hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888" } }, (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円");
+                  var _isMiss = s.result === "miss";
+                  var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
+                  var _txt = (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円";
+                  return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col } }, _isMiss ? "(" + _txt + ")" : _txt);
                 })()),
                 isCustomMode ? React.createElement("td", {
                   style: { padding: "2px 4px", textAlign: "center", borderBottom: "1px solid #f0ede6" },
@@ -20365,7 +20368,10 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, (function() {
               var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
               if (_hp == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-              return React.createElement("span", { style: { fontWeight: 600, color: _hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888" } }, (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円");
+              var _isMiss = s.result === "miss";
+              var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
+              var _txt = (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円";
+              return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col } }, _isMiss ? "(" + _txt + ")" : _txt);
             })())
           )
         );
