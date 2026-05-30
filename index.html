@@ -25192,15 +25192,20 @@ function EntryRecordForm(_ref_erf) {
   }, [fStock, fDate, data, fHoldOsConf]);
 
   // ── 結果損益を自動計算 ──
-  //   ホールド足高値≥10: -(高値×100) 優先
   //   result = (α ± 確定値 ± 変動値) × 100
-  //   ↓(+) → 加算、↑(-) → 減算（各絶対値を使用）
+  //   ホールド足高値システム: OS値-α値 < 10 の場合のみ有効
+  //     ホールド足高値 - α値 ≥ 10 → -(超過分×100) を優先
   useEffect(function() {
-    var _hhv = Number(fHoldHighVal) || 0;
-    if (_hhv >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(_hhv * 100)); return; }
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
     var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
+    // OS値-α値 < 10 のときのみホールド足高値システムを適用
+    var _osV = Number(fOsVal) || 0;
+    if (_av != null && (_osV === 0 || _osV - _av < 10)) {
+      var _hhv = Number(fHoldHighVal) || 0;
+      var _hhExcess = _hhv - _av;
+      if (_hhExcess >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(Math.round(_hhExcess * 100))); return; }
+    }
     if (_av == null || !fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
     var _hw = Number(fHoldWidthVal) || 0;
     var _cv = Number(fOsConfVal) || 0;
@@ -25209,7 +25214,7 @@ function EntryRecordForm(_ref_erf) {
     var _result = (_av + _confAdj + _holdAdj) * 100;
     setFHoldPnlSign(_result >= 0 ? "+" : "-");
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, fHoldWidthSign, fHoldWidthVal, fOsConfSign, fOsConfVal, fHoldHighVal]);
+  }, [fStock, fDate, data, fOsVal, fHoldWidthSign, fHoldWidthVal, fOsConfSign, fOsConfVal, fHoldHighVal]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
