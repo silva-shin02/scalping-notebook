@@ -25470,7 +25470,7 @@ function EntryRecordForm(_ref_erf) {
               value: fOsConfVal,
               onChange: function(e) { var v = _toHankakuNum(e.target.value); setFOsConfVal(v); if ((Number(v) || 0) === 0) setFOsConfSign(null); },
               placeholder: "0",
-              style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "transparent", width: 80, textAlign: "right" }
+              style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
             })
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
@@ -25521,7 +25521,7 @@ function EntryRecordForm(_ref_erf) {
               value: fEstWidthVal,
               onChange: function(e) { setFEstWidthVal(e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0))); },
               placeholder: "0",
-              style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "transparent", width: 80, textAlign: "right" }
+              style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
             })
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -25610,7 +25610,7 @@ function EntryRecordForm(_ref_erf) {
                   }
                 },
                 placeholder: "0",
-                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "transparent", width: 80, textAlign: "right" }
+                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
               })
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -25636,7 +25636,7 @@ function EntryRecordForm(_ref_erf) {
                   setFHoldHighVal(_v);
                 },
                 placeholder: "0",
-                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "transparent", width: 80, textAlign: "right" }
+                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
               })
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
