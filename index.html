@@ -31,8 +31,6 @@ button,input,select,textarea{font-family:inherit}
 .dc-chart-wrap::-webkit-scrollbar-thumb{background:#4a4a4a;border-radius:4px;border:3px solid #0d0d0d}
 .dc-chart-wrap::-webkit-scrollbar-thumb:hover{background:#6a6a6a}
 .news-hscroll{scrollbar-width:auto;scrollbar-color:#b8b5ac #f0efeb}
-input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-input[type=number]{-moz-appearance:textfield;appearance:textfield}
 canvas{image-rendering:high-quality;-webkit-image-rendering:high-quality}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
@@ -25470,7 +25468,7 @@ function EntryRecordForm(_ref_erf) {
                 border: "none", borderRight: "1px solid " + (fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#ccc"),
                 background: fOsConfSign === "+" ? "#FCEBEB" : fOsConfSign === "-" ? "#EAF3DE" : "#f5f4f0",
                 color: fOsConfSign === "+" ? "#C0392B" : fOsConfSign === "-" ? "#1E8449" : "#999",
-                cursor: "pointer", minWidth: 36 }
+                cursor: "pointer", minWidth: 36, flexShrink: 0 }
             }, fOsConfSign === "+" ? "↑" : fOsConfSign === "-" ? "↓" : "↕"),
             React.createElement("input", {
               type: "number", inputMode: "numeric", step: "1",
@@ -25521,7 +25519,7 @@ function EntryRecordForm(_ref_erf) {
                 border: "none", borderRight: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#ccc"),
                 background: fEstWidthSign === "+" ? "#EAF3DE" : fEstWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
                 color: fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#999",
-                cursor: "pointer", minWidth: 36 }
+                cursor: "pointer", minWidth: 36, flexShrink: 0 }
             }, fEstWidthSign === "-" ? "↑" : fEstWidthSign === "+" ? "↓" : "↕"),
             React.createElement("input", {
               type: "number", inputMode: "numeric", step: "1",
@@ -25597,7 +25595,7 @@ function EntryRecordForm(_ref_erf) {
                     setFHoldOsConf(_av2 - _ws);
                   }
                 },
-                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldWidthSign ? 700 : 400, cursor: "pointer", minWidth: 36,
+                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldWidthSign ? 700 : 400, cursor: "pointer", minWidth: 36, flexShrink: 0,
                   border: "none", borderRight: "1px solid " + (fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#ccc"),
                   background: fHoldWidthSign === "+" ? "#EAF3DE" : fHoldWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
                   color: fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#999" }
@@ -25630,7 +25628,7 @@ function EntryRecordForm(_ref_erf) {
                 onClick: function() {
                   setFHoldHighSign(fHoldHighSign === "-" ? "+" : fHoldHighSign === "+" ? null : "-");
                 },
-                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldHighSign ? 700 : 400, cursor: "pointer", minWidth: 36,
+                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldHighSign ? 700 : 400, cursor: "pointer", minWidth: 36, flexShrink: 0,
                   border: "none", borderRight: "1px solid " + (fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#ccc"),
                   background: fHoldHighSign === "+" ? "#EAF3DE" : fHoldHighSign === "-" ? "#FCEBEB" : "#f5f4f0",
                   color: fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#999" }
