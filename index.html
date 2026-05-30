@@ -25209,7 +25209,7 @@ function EntryRecordForm(_ref_erf) {
     if (_av == null || !fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
     var _hw = Number(fHoldWidthVal) || 0;
     var _cv = Number(fOsConfVal) || 0;
-    var _confAdj = fOsConfSign === "+" ? _cv : fOsConfSign === "-" ? -_cv : 0;
+    var _confAdj = fOsConfSign === "-" ? _cv : fOsConfSign === "+" ? -_cv : 0;
     var _holdAdj = fHoldWidthSign === "+" ? _hw : fHoldWidthSign === "-" ? -_hw : 0;
     var _result = (_av + _confAdj + _holdAdj) * 100;
     setFHoldPnlSign(_result >= 0 ? "+" : "-");
