@@ -24975,11 +24975,14 @@ function EntryRecordForm(_ref_erf) {
     var cd = data.charts && data.charts[ck];
     var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
     if (av == null || fOsConfVal === "") { setFEstWidthSign(null); setFEstWidthVal(""); return; }
+    // OS値がα値未満の場合、想定値幅は0
+    var osV = Number(fOsVal) || 0;
+    if (osV > 0 && osV < av) { setFEstWidthSign(null); setFEstWidthVal("0"); return; }
     var confSigned = fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
     var width = av - confSigned;
     setFEstWidthSign(width === 0 ? null : (width > 0 ? "+" : "-"));
     setFEstWidthVal(String(Math.abs(width)));
-  }, [fStock, fDate, data, fOsConfSign, fOsConfVal]);
+  }, [fStock, fDate, data, fOsConfSign, fOsConfVal, fOsVal]);
 
   // ── 想定値幅の符号から結果を自動選択 ──
   useEffect(function() {
@@ -25054,6 +25057,16 @@ function EntryRecordForm(_ref_erf) {
     }
     onClose();
   };
+
+  // OS値がα値未満かどうか（想定値幅0の補足表示用）
+  var _estWidthIsOsLow = (function() {
+    var ck = fStock + "_" + fDate;
+    var cd = data.charts && data.charts[ck];
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : null;
+    if (av == null) return false;
+    var osV = Number(fOsVal) || 0;
+    return osV > 0 && osV < av;
+  })();
 
   var I = {
     padding: "9px 10px",
@@ -25245,7 +25258,10 @@ function EntryRecordForm(_ref_erf) {
             placeholder: "0",
             style: Object.assign({}, I, { width: 80, textAlign: "right" })
           }),
-          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+          _estWidthIsOsLow
+            ? React.createElement("span", { style: { fontSize: 11, color: "#b07050", marginLeft: 4 } }, "∵OS値がα未満のため")
+            : null
         ),
         React.createElement("div", { style: { fontSize: 10, color: "#aaa", paddingLeft: 2, marginBottom: 6 } }, "想定値幅＝α値ー確定値（ともに水準線比）")
       ),
