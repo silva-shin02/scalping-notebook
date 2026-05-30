@@ -10974,6 +10974,19 @@ function EntrySignalSection(_ref_es) {
             )
           );
         })(),
+    // ── 理想α値テーブル（記録あり時: 追加ボタン直前）──
+    (function() {
+      if (!signals.length) return null;
+      var _virtByStk = {};
+      signals.forEach(function(s) {
+        var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+        if (!_virtByStk[stock]) _virtByStk[stock] = [];
+        _virtByStk[stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf });
+      });
+      return React.createElement("div", { style: { marginTop: 10 } },
+        React.createElement(VirtualAlphaCalc, { sigsByStock: _virtByStk })
+      );
+    })(),
     // ── 追加ボタン（記録あり時: リスト末尾）──
     records.length > 0 && React.createElement("div", { style: { marginTop: 6, marginBottom: 2 } },
       React.createElement("button", {
