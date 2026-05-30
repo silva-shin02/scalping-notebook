@@ -5210,7 +5210,14 @@ function ImageAnnotator(_ref7) {
         if (_wasDirty || !_savedNow.imageUrl) {
           delete _savedFull.imageUrl;
         }
-        onSave(_savedFull);
+        // ★ ラグ対策: base64入りの onSave は React state の大規模更新を伴い
+        //   メインスレッドを長時間ブロックする。startTransition で低優先度更新に
+        //   マークし、ユーザー操作（他画像クリックなど）を先に処理させる。
+        if (typeof React.startTransition === "function") {
+          React.startTransition(function() { onSave(_savedFull); });
+        } else {
+          onSave(_savedFull);
+        }
       }
       _imgUploadSet(_uploadImgId, "done");
       setTimeout(function() { _imgUploadSet(_uploadImgId, null); }, 2500);
