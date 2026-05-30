@@ -25201,7 +25201,7 @@ function EntryRecordForm(_ref_erf) {
     var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
     // OS値-α値 < 10 のときのみホールド足高値システムを適用
     var _osV = Number(fOsVal) || 0;
-    if (_av != null && (_osV === 0 || _osV - _av < 10)) {
+    if (_av != null && (_osV === 0 || _osV - _av < 10) && fHoldHighSign === "-") {
       var _hhv = Number(fHoldHighVal) || 0;
       var _hhExcess = _hhv - _av;
       if (_hhExcess >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(Math.round(_hhExcess * 100))); return; }
@@ -25214,7 +25214,7 @@ function EntryRecordForm(_ref_erf) {
     var _result = (_av + _confAdj + _holdAdj) * 100;
     setFHoldPnlSign(_result >= 0 ? "+" : "-");
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, fOsVal, fHoldWidthSign, fHoldWidthVal, fOsConfSign, fOsConfVal, fHoldHighVal]);
+  }, [fStock, fDate, data, fOsVal, fHoldWidthSign, fHoldWidthVal, fOsConfSign, fOsConfVal, fHoldHighSign, fHoldHighVal]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -25605,7 +25605,7 @@ function EntryRecordForm(_ref_erf) {
             }),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             React.createElement("span", { style: { fontSize: 12, color: "#ccc", margin: "0 6px" } }, "|"),
-            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（α値）"),
+            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（水準線比）"),
             React.createElement("button", {
               onClick: function() {
                 setFHoldHighSign(fHoldHighSign === "-" ? "+" : fHoldHighSign === "+" ? null : "-");
@@ -25627,6 +25627,22 @@ function EntryRecordForm(_ref_erf) {
             }),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
           ),
+          (function() {
+            if (fHoldHighVal === "") return null;
+            var _ck3 = fStock + "_" + fDate;
+            var _cd3 = data.charts && data.charts[_ck3];
+            var _av3 = _cd3 && _cd3.alphaVal != null ? _cd3.alphaVal : null;
+            if (_av3 == null) return null;
+            var _shhv = fHoldHighSign === "-" ? (Number(fHoldHighVal) || 0) : fHoldHighSign === "+" ? -(Number(fHoldHighVal) || 0) : 0;
+            var _diff = _shhv - _av3;
+            var _isUp = _diff > 0, _isDn = _diff < 0;
+            return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 4, paddingLeft: 2 } },
+              React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "α値比"),
+              React.createElement("span", {
+                style: { fontSize: 13, fontWeight: 700, color: _isUp ? "#C0392B" : _isDn ? "#1E8449" : "#999" }
+              }, (_isUp ? "↑" : _isDn ? "↓" : "↕") + Math.abs(_diff) + "円")
+            );
+          })()
         ),
         // 結果損益 - 自動計算バッジ
         React.createElement("div", null,
