@@ -10576,7 +10576,9 @@ function EntrySignalSection(_ref_es) {
     var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
     var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
-    var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+    var hp = (c.alphaVal != null && s.holdOsConf != null)
+      ? (function() { var _avH = c.alphaVal; return Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100); })()
+      : _elSignedVal(s.holdPnl, s.holdPnlSign);
     var rpN = rp != null ? _p100(rp) : null;
     var ppN = pp != null ? _p100(pp) : null;
     var mpN = mp != null ? _p100(mp) : null;
@@ -10927,6 +10929,12 @@ function EntrySignalSection(_ref_es) {
                 maxPnl  = _dynPnl; maxPnlN  = _dynPnl;
               }
             }
+            // α値が設定されている場合、結果損益も動的再計算（表示専用）
+            var _holdPnlDyn = _elSignedVal(s.holdPnl, s.holdPnlSign);
+            if (c.alphaVal != null && s.holdOsConf != null) {
+              var _avH = c.alphaVal;
+              _holdPnlDyn = Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100);
+            }
             var entered = _elIsEntered(s, rIt);
             var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
             var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
@@ -10989,7 +10997,7 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(realPnlN, realGrade)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(planPnlN, planGrade)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, (function() {
-                  var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+                  var _hp = _holdPnlDyn;
                   var _isMiss = s.result === "miss";
                   var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
                   var _hpNum = _hp == null ? null : React.createElement("span", {
