@@ -20693,13 +20693,15 @@ function DayView(_ref57) {
         React.createElement("span", { style: { fontWeight: sumFw || 600, color: _pbCol(sum) } }, _pbFmt(sum))
       );
     };
-    var _pbABAll = function(recs, allSum, allEv, grade, sumKey, evKey) {
+    var _pbABAll = function(recs, allSum, allEv, grade, sumKey, evKey, dynAbSum) {
       var abRecs = (recs || []).filter(function(r) {
         var d = r.signal && r.signal.difficulty;
         return d === "A" || d === "B";
       });
       var abSum = 0;
-      if (abRecs.length > 0) {
+      if (dynAbSum !== undefined) {
+        abSum = dynAbSum !== null ? dynAbSum : 0;
+      } else if (abRecs.length > 0) {
         var abSt = _elCalcStats(abRecs);
         abSum = abSt[sumKey] || 0;
       }
@@ -20802,7 +20804,7 @@ function DayView(_ref57) {
           _pbRealABAll(recs)),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
-            var _dynSP = null;
+            var _dynSP = null, _dynSPAB = null;
             (recs || []).forEach(function(r) {
               var s = r.signal;
               var _cD = _pbCharts[r.stock + "_" + date]; var _aD = pbSimAlpha !== null ? pbSimAlpha : (_cD && _cD.alphaVal != null ? _cD.alphaVal : null);
@@ -20813,9 +20815,10 @@ function DayView(_ref57) {
                 var _pD = _dfD < 0 ? 0 : _dfD >= 10 ? -Math.round(_dfD * 100) : (_cfD != null ? Math.round((_aD - _cfD) * 100) : null);
                 if (_pD != null) pp = _pD;
               }
-              if (pp != null) _dynSP = (_dynSP || 0) + pp;
+              if (pp != null) { _dynSP = (_dynSP || 0) + pp; if (s.difficulty === "A" || s.difficulty === "B") _dynSPAB = (_dynSPAB || 0) + pp; }
             });
-            return _pbABAll(recs, _dynSP !== null ? _dynSP : st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned");
+            var _hasAlpha = (recs || []).some(function(r) { var _cD = _pbCharts[r.stock + "_" + date]; return pbSimAlpha !== null || (_cD && _cD.alphaVal != null); });
+            return _pbABAll(recs, _dynSP !== null ? _dynSP : st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned", _hasAlpha ? _dynSPAB : undefined);
           })()),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
