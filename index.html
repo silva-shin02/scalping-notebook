@@ -25087,13 +25087,15 @@ function _compatSignal(sig) {
 function _vcol(n, isRed) {
   var v = Math.abs(n || 0);
   if (isRed) {
-    if (v >= 20) return "#991B1B"; // 濃い赤（20円以上）
-    if (v >= 10) return "#DC2626"; // 赤（10〜19円）
-    return "#EF4444";              // 薄め赤（10円未満）
+    if (v >= 20) return "#991B1B"; // 濃い赤（20円〜）
+    if (v >= 15) return "#B91C1C"; // やや濃い赤（15〜19円）
+    if (v >= 10) return "#DC2626"; // 赤（10〜14円）
+    return "#EF4444";              // 薄め赤（0〜9円）
   } else {
-    if (v >= 20) return "#14532D"; // 濃い緑（20円以上）
-    if (v >= 10) return "#16A34A"; // 緑（10〜19円）
-    return "#22C55E";              // 薄め緑（10円未満）
+    if (v >= 20) return "#14532D"; // 濃い緑（20円〜）
+    if (v >= 15) return "#15803D"; // やや濃い緑（15〜19円）
+    if (v >= 10) return "#16A34A"; // 緑（10〜14円）
+    return "#22C55E";              // 薄め緑（0〜9円）
   }
 }
 function _elSignedVal(v, sign) {
