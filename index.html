@@ -11084,19 +11084,6 @@ function EntrySignalSection(_ref_es) {
             )
           );
         })(),
-    // ── 理想α値テーブル（記録あり時: 追加ボタン直前）──
-    (function() {
-      if (!signals.length) return null;
-      var _virtByStk = {};
-      signals.forEach(function(s) {
-        var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-        if (!_virtByStk[stock]) _virtByStk[stock] = [];
-        _virtByStk[stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf, holdOsConf: s.holdOsConf != null ? Number(s.holdOsConf) : null, holdHighVal: s.holdHighVal != null ? Number(s.holdHighVal) : null, holdHighSign: s.holdHighSign || null });
-      });
-      return React.createElement("div", { style: { marginTop: 10 } },
-        React.createElement(VirtualAlphaCalc, { sigsByStock: _virtByStk })
-      );
-    })(),
     // ── 追加ボタン（記録あり時: リスト末尾）──
     records.length > 0 && React.createElement("div", { style: { marginTop: 6, marginBottom: 2 } },
       React.createElement("button", {
@@ -19608,6 +19595,9 @@ function DayView(_ref57) {
     _useStatePSOA = _slicedToArray(_useStatePSO, 2),
     pnlSortOrder = _useStatePSOA[0],
     setPnlSortOrder = _useStatePSOA[1];
+  // 本日の損益データ 全銘柄シミュレーションα値
+  var _uPbSim = useState(null), _uPbSimA = _slicedToArray(_uPbSim, 2),
+    pbSimAlpha = _uPbSimA[0], setPbSimAlpha = _uPbSimA[1];
   // initialTab が外部で変わったら反映する。(例: ホームから sel を維持したまま
   // SummaryHistory 経由で別日付のメモを「→開く」した場合、selTab は summary に
   // なるが既にマウント済みの DayView は新規 useState 初期化を行わないので
@@ -20751,7 +20741,7 @@ function DayView(_ref57) {
             var _dynSP = null;
             (recs || []).forEach(function(r) {
               var s = r.signal;
-              var _cD = _pbCharts[r.stock + "_" + date]; var _aD = _cD && _cD.alphaVal != null ? _cD.alphaVal : null;
+              var _cD = _pbCharts[r.stock + "_" + date]; var _aD = pbSimAlpha !== null ? pbSimAlpha : (_cD && _cD.alphaVal != null ? _cD.alphaVal : null);
               var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
               if (_aD != null && s.osVal != null) {
                 var _cfD = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -20767,7 +20757,7 @@ function DayView(_ref57) {
           (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hTot = null;
-            recs.forEach(function(r) { var _cR = _pbCharts[r.stock + "_" + date]; var _aR = _cR && _cR.alphaVal != null ? _cR.alphaVal : null; var hp = (_aR != null && r.signal.holdOsConf != null) ? Math.round((_aR + (_aR - Number(r.signal.holdOsConf))) * 100) : _elSignedVal(r.signal.holdPnl, r.signal.holdPnlSign); if (hp != null) { _hTot = (_hTot||0) + hp; } });
+            recs.forEach(function(r) { var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : null); var hp = (_aR != null && r.signal.holdOsConf != null) ? Math.round((_aR + (_aR - Number(r.signal.holdOsConf))) * 100) : _elSignedVal(r.signal.holdPnl, r.signal.holdPnlSign); if (hp != null) { _hTot = (_hTot||0) + hp; } });
             if (_hTot == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             return React.createElement("span", { style: { fontWeight: 700, color: _hTot > 0 ? "#C0392B" : _hTot < 0 ? "#1E8449" : "#888" } },
               (_hTot > 0 ? "+" : "") + _hTot.toLocaleString() + "円");
@@ -20825,8 +20815,8 @@ function DayView(_ref57) {
           : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
         var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
         var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
-        // α値が設定されている場合、動的再計算（表示専用）
-        var _alphaRec = (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
+        // α値が設定されている場合、動的再計算（表示専用）。pbSimAlpha が設定されている場合は全銘柄共通で上書き。
+        var _alphaRec = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
         if (_alphaRec != null && s.osVal != null) {
           var _confR = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
           var _diffR = Number(s.osVal) - _alphaRec;
@@ -21043,7 +21033,7 @@ function DayView(_ref57) {
                 var s = r.signal;
                 var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
                 var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
-                var _aW = (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
+                var _aW = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
                 if (_aW != null && s.osVal != null) {
                   var _cW = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
                   var _dW = Number(s.osVal) - _aW;
@@ -21204,6 +21194,30 @@ function DayView(_ref57) {
     return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
       _pbGradeLegend,
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 10px", background: "#FFF7ED", borderRadius: 6, border: "1px solid #FFE0BB", flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "全銘柄α値（シミュレーション）"),
+        React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+          React.createElement("input", {
+            type: "number", inputMode: "numeric", step: "1", placeholder: "—",
+            value: pbSimAlpha !== null ? String(pbSimAlpha) : "",
+            onChange: function(e) {
+              var v = e.target.value;
+              setPbSimAlpha(v === "" ? null : isNaN(Number(v)) ? null : Number(v));
+            },
+            style: { width: 60, padding: "4px 6px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+          }),
+          _stepBtn(
+            function() { setPbSimAlpha(function(prev) { var n = prev !== null ? prev : 0; return n < 20 ? n + 1 : n; }); },
+            function() { setPbSimAlpha(function(prev) { var n = prev !== null ? prev : 0; return n > 0 ? n - 1 : 0; }); }
+          )
+        ),
+        React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+        React.createElement("button", {
+          onClick: function() { setPbSimAlpha(null); },
+          style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }
+        }, "解除"),
+        pbSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "※各銘柄のα値を上書きしてシミュレーション中")
+      ),
       React.createElement("div", { style: { overflowX: "auto" } },
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
           React.createElement("thead", null,
@@ -26521,6 +26535,15 @@ function EntryLogView(_ref_elv) {
     calSigFil = _uCSigFA[0], setCalSigFil = _uCSigFA[1];
   var _uCResF = useState(""), _uCResFA = _slicedToArray(_uCResF, 2),
     calResFil = _uCResFA[0], setCalResFil = _uCResFA[1];
+  // 一括α値シミュレーション
+  var _uSimAlpha = useState(""), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
+    simAlphaStr = _uSimAlphaA[0], setSimAlphaStr = _uSimAlphaA[1];
+  var _uSimMode = useState("month"), _uSimModeA = _slicedToArray(_uSimMode, 2),
+    simPeriodMode = _uSimModeA[0], setSimPeriodMode = _uSimModeA[1];
+  var _uSimFrom = useState(""), _uSimFromA = _slicedToArray(_uSimFrom, 2),
+    simFrom = _uSimFromA[0], setSimFrom = _uSimFromA[1];
+  var _uSimTo = useState(""), _uSimToA = _slicedToArray(_uSimTo, 2),
+    simTo = _uSimToA[0], setSimTo = _uSimToA[1];
 
   // 全レコード収集 → フィルタ適用
   var allRecords = useMemo(function() {
@@ -27549,7 +27572,108 @@ function EntryLogView(_ref_elv) {
           var _wd2 = new Date(+_dp2[0], +_dp2[1]-1, +_dp2[2]).getDay();
           if (_wd2 >= 1 && _wd2 <= 5) (byDate[dk] || []).forEach(function(r) { _dtByDow[_wd2].push(r); });
         });
+        // ── 一括α値シミュレーション ──
+        var _simEl = (function() {
+          var _simA = simAlphaStr !== "" && !isNaN(Number(simAlphaStr)) ? Number(simAlphaStr) : null;
+          // 対象期間のレコードを取得
+          var _simRecs = allRecords.slice();
+          if (simPeriodMode === "month") {
+            _simRecs = _simRecs.filter(function(r) { return r.date && r.date.slice(0,7) === curM; });
+          } else if (simPeriodMode === "3m") {
+            var _now = new Date(); _now.setDate(1);
+            _now.setMonth(_now.getMonth() - 3);
+            var _3mFrom = _now.getFullYear() + "-" + (String(_now.getMonth()+1).padStart(2,"0")) + "-01";
+            _simRecs = _simRecs.filter(function(r) { return r.date >= _3mFrom; });
+          } else if (simPeriodMode === "custom") {
+            if (simFrom) _simRecs = _simRecs.filter(function(r) { return r.date >= simFrom; });
+            if (simTo)   _simRecs = _simRecs.filter(function(r) { return r.date <= simTo; });
+          }
+          // 計算
+          var _sTotPlan = null, _sTotHold = null;
+          var _sTotPlanCnt = 0, _sTotHoldCnt = 0, _sHoldUnrec = 0;
+          _simRecs.forEach(function(r) {
+            var s = r.signal;
+            if (_simA != null && s.osVal != null) {
+              var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+              var _df = Number(s.osVal) - _simA;
+              var _dp = _df < 0 ? 0 : _df >= 10 ? -Math.round(_df * 100) : (_cf != null ? Math.round((_simA - _cf) * 100) : null);
+              if (_dp != null) { _sTotPlan = (_sTotPlan||0) + _dp; _sTotPlanCnt++; }
+            }
+            if (_simA != null && s.holdOsConf != null) {
+              var _hw = _simA - Number(s.holdOsConf);
+              _sTotHold = (_sTotHold||0) + Math.round((_simA + _hw) * 100); _sTotHoldCnt++;
+            } else if (s.holdOsConf == null) { _sHoldUnrec++; }
+          });
+          var _pFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+          var _pCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+          var _periodLabels = [["month","今月"], ["3m","3ヶ月"], ["all","全期間"], ["custom","カスタム"]];
+          return React.createElement("div", { style: { margin: "14px 0 10px", padding: "12px 14px", background: "#FFFBF5", border: "1.5px solid #FB923C", borderRadius: 8 } },
+            React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#9A3412", marginBottom: 10 } }, "📊 一括α値シミュレーション"),
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 } },
+              React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600, whiteSpace: "nowrap" } }, "α値:"),
+              React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+                React.createElement("input", {
+                  type: "number", inputMode: "numeric", step: "1", placeholder: "0",
+                  value: simAlphaStr,
+                  onChange: function(e) { setSimAlphaStr(e.target.value); },
+                  style: { width: 70, padding: "5px 6px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+                }),
+                _stepBtn(
+                  function() { setSimAlphaStr(String((Number(simAlphaStr)||0) + 1)); },
+                  function() { setSimAlphaStr(String(Math.max(0, (Number(simAlphaStr)||0) - 1))); }
+                )
+              ),
+              React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+              React.createElement("button", {
+                onClick: function() { setSimAlphaStr(""); },
+                style: { fontSize: 11, padding: "3px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }
+              }, "クリア"),
+              React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
+                _periodLabels.map(function(kv) {
+                  var on = simPeriodMode === kv[0];
+                  return React.createElement("button", { key: kv[0], onClick: function() { setSimPeriodMode(kv[0]); },
+                    style: { padding: "3px 10px", fontSize: 11, fontWeight: on ? 700 : 400, borderRadius: 4, cursor: "pointer",
+                      border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
+                      background: on ? "#FFEDD5" : "#fff", color: on ? "#9A3412" : "#666" }
+                  }, kv[1]);
+                })
+              )
+            ),
+            simPeriodMode === "custom" && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" } },
+              React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "開始:"),
+              React.createElement("input", { type: "date", value: simFrom, onChange: function(e) { setSimFrom(e.target.value); },
+                style: { fontSize: 11, padding: "3px 6px", border: "1px solid #ccc", borderRadius: 4 } }),
+              React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "〜"),
+              React.createElement("input", { type: "date", value: simTo, onChange: function(e) { setSimTo(e.target.value); },
+                style: { fontSize: 11, padding: "3px 6px", border: "1px solid #ccc", borderRadius: 4 } })
+            ),
+            _simA == null
+              ? React.createElement("div", { style: { fontSize: 12, color: "#aaa" } }, "α値を入力するとシミュレーション結果が表示されます")
+              : React.createElement("div", { style: { display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" } },
+                  React.createElement("div", null,
+                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "想定損益合計（" + _sTotPlanCnt + "件）"),
+                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_sTotPlan) } }, _pFmt(_sTotPlan))
+                  ),
+                  React.createElement("div", null,
+                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } },
+                      "H結果損益合計（" + _sTotHoldCnt + "件）",
+                      _sHoldUnrec > 0 ? React.createElement("span", { style: { color: "#aaa", marginLeft: 4 } }, "※" + _sHoldUnrec + "件未記録") : null
+                    ),
+                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_sTotHold) } }, _pFmt(_sTotHold))
+                  ),
+                  React.createElement("div", { style: { fontSize: 10, color: "#aaa" } },
+                    "対象期間: ",
+                    simPeriodMode === "month" ? curM + "の全営業日" :
+                    simPeriodMode === "3m" ? "直近3ヶ月" :
+                    simPeriodMode === "all" ? "全期間" :
+                    (simFrom || "?") + " 〜 " + (simTo || "?"),
+                    " / " + _simRecs.length + "シグナル"
+                  )
+                )
+          );
+        })();
         return React.createElement(React.Fragment, null,
+          _simEl,
           React.createElement("div", { style: { marginTop: 16 } },
             _tGradeLegend,
             sortToggle,
