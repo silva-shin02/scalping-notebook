@@ -20654,6 +20654,7 @@ function DayView(_ref57) {
           color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
           rowKey ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶") : null,
           label,
+          !isTotal && (function() { var _avc = _pbCharts[rowKey + "_" + date]; var _av = _avc && _avc.alphaVal != null ? _avc.alphaVal : null; return _av != null ? React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, "α:" + _av + "円") : null; })(),
           isExp ? React.createElement("button", {
             onClick: function(e) { e.stopPropagation(); setPnlTableExpand(null); setPnlRecordExpandSet({}); },
             style: { marginLeft: 6, fontSize: 10, padding: "1px 5px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#666", lineHeight: 1.3, verticalAlign: "middle" }
@@ -20678,15 +20679,6 @@ function DayView(_ref57) {
             return React.createElement("span", { style: { fontWeight: 700, color: _hTot > 0 ? "#C0392B" : _hTot < 0 ? "#1E8449" : "#888" } },
               (_hTot > 0 ? "+" : "") + _hTot.toLocaleString() + "円");
           })()),
-        React.createElement("td", { style: { padding: "4px 8px", textAlign: "center", borderBottom: bb, borderTop: bt, borderRight: br } },
-          (function() {
-            if (isTotal) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-            var _avc = _pbCharts[rowKey + "_" + date];
-            var _av = _avc && _avc.alphaVal != null ? _avc.alphaVal : null;
-            if (_av == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-            return React.createElement("span", { style: { fontWeight: 700, color: "#0369A1", fontSize: 12 } }, _av + "円");
-          })()
-        ),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
           tags && tags.length > 0
             ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },
@@ -21011,7 +21003,6 @@ function DayView(_ref57) {
               _pbTh("実現損益"),
               _pbTh(React.createElement("span", null, "想定損益 ", React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#999" } }, "(100株あたり)"))),
               _pbTh("ホールド勝敗/結果損益"),
-              _pbTh("この日のα値"),
               _pbTh("タグ")
             )
           ),
@@ -25269,45 +25260,24 @@ function EntryRecordForm(_ref_erf) {
     setFPlan(String(planAmt));
   }, [fStock, fDate, data, fOsVal, fEstWidthSign, fEstWidthVal]);
 
-  // ── 変動数値 + 結果損益を同時計算（α変更時のラグ防止） ──
+  // ── α値変更時: holdOsConfをholdWidthSign/Valから逆算して更新（ホールド足確定値の表示を固定） ──
   useEffect(function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
     var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
-    var _osV = Number(fOsVal) || 0;
-    if (_av == null || fHoldOsConf == null) return;
-    var _w = _av - fHoldOsConf;
-    var _wSg = _w === 0 ? null : (_w > 0 ? "+" : "-");
-    setFHoldWidthSign(_wSg); setFHoldWidthVal(String(Math.abs(_w)));
-    // 結果損益も同時に計算
-    if (_osV > 0 && _osV - _av >= 10) {
-      setFHoldPnlSign("-"); setFHoldPnlVal(String(Math.round((_osV - _av) * 100))); return;
-    }
-    if (fHoldHighSign === "-") {
-      var _hhExcess = (Number(fHoldHighVal) || 0) - _av;
-      if (_hhExcess >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(Math.round(_hhExcess * 100))); return; }
-    }
-    if (!_wSg) { setFHoldPnlSign(null); setFHoldPnlVal("0"); return; }
-    var _result = (_av + (_wSg === "+" ? Math.abs(_w) : -Math.abs(_w))) * 100;
-    setFHoldPnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
-    setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, fOsVal, fHoldOsConf, fHoldHighSign, fHoldHighVal]);
+    if (_av == null || fHoldWidthSign == null || fHoldWidthVal === "") return;
+    var _hwSigned = fHoldWidthSign === "+" ? Number(fHoldWidthVal) : -Number(fHoldWidthVal);
+    var _newOsConf = _av - _hwSigned;
+    if (_newOsConf !== fHoldOsConf) setFHoldOsConf(_newOsConf);
+  }, [fStock, fDate, data]);
 
   // ── 結果損益を自動計算 ──
-  //   中間条件: OS値-α値 ≥ 10 → -(OS値-α値)×100
   //   高値特例: ホールド足高値-α値 ≥ 10 → -(高値-α値)×100
   //   通常: (α値 + 変動値符号付き) × 100
   useEffect(function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
     var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
-    var _osV = Number(fOsVal) || 0;
-    // 中間条件
-    if (_av != null && _osV > 0 && _osV - _av >= 10) {
-      setFHoldPnlSign("-");
-      setFHoldPnlVal(String(Math.round((_osV - _av) * 100)));
-      return;
-    }
     // 高値特例: OS値条件なし、常に判定
     if (_av != null && fHoldHighSign === "-") {
       var _hhv = Number(fHoldHighVal) || 0;
@@ -25321,7 +25291,7 @@ function EntryRecordForm(_ref_erf) {
     var _result = (_av + _holdAdj) * 100;
     setFHoldPnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, fOsVal, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal]);
+  }, [fStock, fDate, data, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
