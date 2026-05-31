@@ -10586,10 +10586,21 @@ function EntrySignalSection(_ref_es) {
       return _stored;
     })();
     var mp = pp;
-    var hp = (c.alphaVal != null && s.holdOsConf != null)
-      ? (function() { var _avH = c.alphaVal; return Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100); })()
-      : _elSignedVal(s.holdPnl, s.holdPnlSign);
-    if (s.holdOsConf == null) _esTotHoldHasUnrecorded = true;
+    var hp = (function() {
+      var _avH = c.alphaVal;
+      if (_avH == null) return _elSignedVal(s.holdPnl, s.holdPnlSign);
+      if (s.holdHighSign === "-" && s.holdHighVal != null) {
+        var _hhE = Number(s.holdHighVal) - _avH;
+        if (_hhE >= 10) return -Math.round(_hhE * 100);
+      }
+      if (s.holdWidthSign != null && s.holdWidth != null) {
+        var _hwS = s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth);
+        return Math.round((_avH + _hwS) * 100);
+      }
+      if (s.holdOsConf != null) return Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100);
+      return _elSignedVal(s.holdPnl, s.holdPnlSign);
+    })();
+    if (s.holdWidthSign == null && s.holdOsConf == null) _esTotHoldHasUnrecorded = true;
     var rpN = rp != null ? _p100(rp) : null;
     var ppN = pp != null ? _p100(pp) : null;
     var mpN = mp != null ? _p100(mp) : null;
@@ -10893,13 +10904,15 @@ function EntrySignalSection(_ref_es) {
           var isCustomMode = sortMode === "custom";
           var totRow = React.createElement("tr", { key: "__estot__", style: { background: "#FFF7ED" } },
             React.createElement("td", { colSpan: 7, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esTotRealCnt > 0 ? _esRPnlDisp(_esTotReal, _esTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
             ),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+            React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
+            React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
+            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esTotHoldCnt > 0
                 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
                     React.createElement("span", { style: { fontWeight: 700, fontSize: 11, color: (_esTotHold||0) > 0 ? "#C0392B" : (_esTotHold||0) < 0 ? "#1E8449" : "#888" } },
@@ -10947,11 +10960,25 @@ function EntrySignalSection(_ref_es) {
               }
             }
             // α値が設定されている場合、結果損益も動的再計算（表示専用）
+            // フォームと同じ計算式: holdWidth固定 → holdOsConfより正確
             var _holdPnlDyn = _elSignedVal(s.holdPnl, s.holdPnlSign);
-            if (c.alphaVal != null && s.holdOsConf != null) {
-              var _avH = c.alphaVal;
-              _holdPnlDyn = Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100);
+            var _avH = c.alphaVal;
+            if (_avH != null) {
+              var _hpCalced = false;
+              if (s.holdHighSign === "-" && s.holdHighVal != null) {
+                var _hhE = Number(s.holdHighVal) - _avH;
+                if (_hhE >= 10) { _holdPnlDyn = -Math.round(_hhE * 100); _hpCalced = true; }
+              }
+              if (!_hpCalced) {
+                if (s.holdWidthSign != null && s.holdWidth != null) {
+                  var _hwS = s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth);
+                  _holdPnlDyn = Math.round((_avH + _hwS) * 100);
+                } else if (s.holdOsConf != null) {
+                  _holdPnlDyn = Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100);
+                }
+              }
             }
+            var _holdIsUnrecorded = s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null;
             var entered = _elIsEntered(s, rIt);
             var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
             var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
@@ -10973,7 +11000,7 @@ function EntrySignalSection(_ref_es) {
               prevGrpLabel = grpLabel;
               dataRows.push(
                 React.createElement("tr", { key: "__grp__" + grpLabel },
-                  React.createElement("td", { colSpan: isCustomMode ? 11 : 10, style: { padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 13 : 12, style: { padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", borderBottom: "1px solid #f0ede6" } },
                     "🏷 " + grpLabel
                   )
                 )
@@ -11020,22 +11047,40 @@ function EntrySignalSection(_ref_es) {
                   s.osVal != null
                     ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, s.osVal + "\u5186")
                     : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   Number(s.osConfVal) === 0
                     ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, "0\u5186")
                     : s.osConfSign
                       ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } },
                           s.osConfSign + (s.osConfVal != null ? s.osConfVal + "\u5186" : ""))
                       : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
-                React.createElement("td", { style: { padding: "4px 2px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
-                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(realPnlN, realGrade)),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(planPnlN, planGrade)),
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+                  (function() {
+                    if (c.alphaVal == null || s.osConfVal == null) return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
+                    var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
+                    var _ew = c.alphaVal - _cf;
+                    if (_ew === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
+                    var _ewSign = _ew > 0 ? "\u2193" : "\u2191";
+                    return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _ew > 0 ? "#1E8449" : "#C0392B", fontWeight: 600 } }, _ewSign + Math.abs(_ew));
+                  })()),
+                React.createElement("td", { style: { padding: "2px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(realPnlN, realGrade)),
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(planPnlN, planGrade)),
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+                  s.holdWidthSign != null && s.holdWidth != null
+                    ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: s.holdWidthSign === "+" ? "#1E8449" : "#C0392B", fontWeight: 600 } },
+                        (s.holdWidthSign === "+" ? "\u2193" : "\u2191") + s.holdWidth)
+                    : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+                  s.holdHighVal != null
+                    ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: s.holdHighSign === "+" ? "#1E8449" : "#C0392B", fontWeight: 600 } },
+                        (s.holdHighSign === "+" ? "\u2193" : s.holdHighSign === "-" ? "\u2191" : "") + s.holdHighVal)
+                    : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, (function() {
                   var _hp = _holdPnlDyn;
                   var _isMiss = s.result === "miss";
                   var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
-                  var _hpNum = s.holdOsConf == null
+                  var _hpNum = _holdIsUnrecorded
                     ? React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "未記録")
                     : (_hp == null ? null : React.createElement("span", {
                         style: { fontWeight: _isMiss ? 400 : 600, fontSize: 10,
@@ -11069,7 +11114,7 @@ function EntrySignalSection(_ref_es) {
             if (rExp) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: isCustomMode ? 11 : 10, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 13 : 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
@@ -11082,16 +11127,18 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left" }),
                   _esTh("シグナル"),
-                  _esTh("難易度", { width: "1%" }),
-                  React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: "1%" } },
+                  _esTh("難", { width: "1%" }),
+                  React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: "1%" } },
                     "OS値",
                     c.alphaVal != null && React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + c.alphaVal + "円")
                   ),
                   _esTh("確定値", { width: "1%" }),
+                  _esTh("値幅", { width: "1%" }),
                   _esTh("結果", { width: "1%" }),
-                  _esTh("エントリー"),
                   _esTh("実現損益"),
                   _esTh("想定損益"),
+                  _esTh("H確定値", { width: "1%" }),
+                  _esTh("H高値", { width: "1%" }),
                   _esTh("ホールド勝敗/結果損益"),
                   isCustomMode ? _esTh("並替") : null
                 )
@@ -19410,7 +19457,7 @@ function StockQuickRefTable(_props_qrt) {
             [
               { label: "日付", pad: "6px 8px" },
               { label: "地合い", pad: "6px 12px" },
-              { label: "利益獲得度（実/想/最）", pad: "6px 8px" },
+              { label: "利益獲得度（実/想/H）", pad: "6px 8px" },
               { label: "イベント・タグ", pad: "6px 12px" }
             ].map(function(h) {
               return React.createElement("th", {
@@ -24942,39 +24989,33 @@ var _GRADE_DESC_REAL = {
 };
 // チャート（stock_date）のシグナル配列から3種の損益グレードを自動計算するヘルパー
 function _elCalcChartGrades(signals) {
-  var realSum = 0, planSum = 0, maxSum = 0;
-  var realCount = 0, planCount = 0, maxCount = 0;
-  var planSumAB = 0, maxSumAB = 0, planCountAB = 0, maxCountAB = 0;
+  var realSum = 0, planSum = 0, holdSum = 0;
+  var realCount = 0, planCount = 0, holdCount = 0;
+  var planSumAB = 0, planCountAB = 0;
   (signals || []).forEach(function(sig) {
     var s = _compatSignal(sig);
     var isAB = s.difficulty === "A" || s.difficulty === "B";
-    // 実現損益: 実エントリーのみカウント
     if (_elIsEntered(s, null)) {
       realCount++;
       var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
       if (rv != null) realSum += rv;
     }
-    // 想定・最大損益: 値が入力されていればカウント（エントリー有無問わず）
     var pv = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (pv != null) {
       planSum += pv; planCount++;
       if (isAB) { planSumAB += pv; planCountAB++; }
     }
-    var mv = _elSignedVal(s.maxPnl, s.maxPnlSign);
-    if (mv != null) {
-      maxSum += mv; maxCount++;
-      if (isAB) { maxSumAB += mv; maxCountAB++; }
-    }
+    var hv = _elSignedVal(s.holdPnl, s.holdPnlSign);
+    if (hv != null) { holdSum += hv; holdCount++; }
   });
   return {
     real:   _profitGradeFromPnlReal(realSum, realCount),
     plan:   _profitGradeFromPnl(planSum, planCount),
-    max:    _profitGradeFromPnl(maxSum,  maxCount),
+    hold:   _profitGradeFromPnl(holdSum, holdCount),
     planAB: planCountAB > 0 ? _profitGradeFromPnl(planSumAB, planCountAB) : null,
-    maxAB:  maxCountAB  > 0 ? _profitGradeFromPnl(maxSumAB,  maxCountAB)  : null,
-    realSum: realCount  > 0 ? realSum  : null,
-    planSum: planCount  > 0 ? planSum  : null,
-    maxSum:  maxCount   > 0 ? maxSum   : null,
+    realSum: realCount > 0 ? realSum : null,
+    planSum: planCount > 0 ? planSum : null,
+    holdSum: holdCount > 0 ? holdSum : null,
     count: realCount
   };
 }
@@ -24996,7 +25037,8 @@ function _GradeBadges3(_p) {
   };
   var items = [
     { key: "real", label: "実", fullLabel: "実現損益",    abKey: null },
-    { key: "plan", label: "想", fullLabel: "想定損益",    abKey: "planAB" }
+    { key: "plan", label: "想", fullLabel: "想定損益",    abKey: "planAB" },
+    { key: "hold", label: "H",  fullLabel: "結果損益(H)", abKey: null }
   ];
   return React.createElement("div", {
     style: { display: "flex", gap: 3, alignItems: "center", flexWrap: "nowrap" }
@@ -25178,12 +25220,34 @@ function _toHankakuDecimal(s) {
   return parts.length > 1 ? parts[0] + "." + parts.slice(1).join("") : str;
 }
 
-// ── タブレット用 ▲▼ ステッパーボタン (数値入力欄に添付) ──
+// ── タブレット用 ▲▼ ステッパーボタン (数値入力欄に添付) ── 長押しで連続変化
+var _lpState = null;
+function _clearLpState() {
+  if (_lpState) { clearTimeout(_lpState.to); if (_lpState.iv) clearInterval(_lpState.iv); _lpState = null; }
+}
 var _stepBtn = function(onInc, onDec) {
   var _bs = { flex: "1", padding: "0", border: "none", background: "transparent", cursor: "pointer", fontSize: 9, minWidth: 20, lineHeight: "1", display: "flex", alignItems: "center", justifyContent: "center", color: "#c0c0c0" };
+  var _startLp = function(fn, e) {
+    e.preventDefault();
+    _clearLpState();
+    fn();
+    var _to = setTimeout(function() {
+      if (_lpState) _lpState.iv = setInterval(fn, 80);
+    }, 350);
+    _lpState = { to: _to, iv: null };
+    document.addEventListener("mouseup", _clearLpState, { once: true });
+    document.addEventListener("touchend", _clearLpState, { once: true });
+    document.addEventListener("touchcancel", _clearLpState, { once: true });
+  };
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", borderLeft: "1px solid #ebebeb", flexShrink: 0, background: "#fafafa" } },
-    React.createElement("button", { type: "button", tabIndex: -1, onMouseDown: function(e) { e.preventDefault(); }, onClick: onInc, style: Object.assign({}, _bs, { borderBottom: "1px solid #ebebeb" }) }, "▲"),
-    React.createElement("button", { type: "button", tabIndex: -1, onMouseDown: function(e) { e.preventDefault(); }, onClick: onDec, style: _bs }, "▼")
+    React.createElement("button", { type: "button", tabIndex: -1,
+      onMouseDown: function(e) { _startLp(onInc, e); },
+      onTouchStart: function(e) { _startLp(onInc, e); },
+      style: Object.assign({}, _bs, { borderBottom: "1px solid #ebebeb" }) }, "▲"),
+    React.createElement("button", { type: "button", tabIndex: -1,
+      onMouseDown: function(e) { _startLp(onDec, e); },
+      onTouchStart: function(e) { _startLp(onDec, e); },
+      style: _bs }, "▼")
   );
 };
 
