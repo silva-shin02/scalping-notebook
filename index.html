@@ -10810,8 +10810,55 @@ function EntrySignalSection(_ref_es) {
         function() { var n = c.alphaVal != null ? c.alphaVal : 0; if (n > 0) { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); _ce.alphaVal = n - 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); } }
       )
       ),
-      React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+      React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+      React.createElement("button", {
+        onClick: function() {
+          save(function(prev) {
+            var pCharts = Object.assign({}, (prev && prev.charts) || {});
+            var _ce = Object.assign({}, pCharts[ck] || {});
+            _ce.alphaVal = 0;
+            if (Array.isArray(_ce.signals)) {
+              _ce.signals = _ce.signals.map(function(s) {
+                if (s.osVal == null) return s;
+                var _osV = Number(s.osVal), _n = 0;
+                var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+                var _diff = _osV - _n;
+                var _pnl = null;
+                if (_diff < 0) _pnl = 0;
+                else if (_diff >= 10) _pnl = -Math.round(_diff * 100);
+                else if (_conf != null) _pnl = Math.round((_n - _conf) * 100);
+                var _updSig = s;
+                if (_pnl != null) { var _sg = _pnl >= 0 ? "+" : "-"; _updSig = Object.assign({}, s, { plannedPnl: Math.abs(_pnl), plannedPnlSign: _sg, maxPnl: Math.abs(_pnl), maxPnlSign: _sg }); }
+                if (s.holdOsConf != null) { var _hw = _n - Number(s.holdOsConf); var _hwSg = _hw >= 0 ? "+" : "-"; var _hp = Math.round((_n + _hw) * 100); _updSig = Object.assign({}, _updSig, { holdWidthSign: _hwSg, holdWidth: Math.abs(_hw), holdPnl: Math.abs(_hp), holdPnlSign: _hp >= 0 ? "+" : "-" }); }
+                return _updSig;
+              });
+            }
+            pCharts[ck] = _ce;
+            return Object.assign({}, prev, { charts: pCharts });
+          });
+        },
+        style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
+      }, "リセット")
     ),
+    records.length > 0 ? React.createElement("div", {
+      style: { display: "flex", gap: 12, marginBottom: 6, padding: "4px 10px", background: "#FFF7ED", borderRadius: 6, border: "1px solid #FFE0BB", alignItems: "center", flexWrap: "wrap" }
+    },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "合計"),
+      React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
+        "想定損益: ",
+        _esTotPlanCnt > 0
+          ? React.createElement("span", { style: { fontWeight: 700, color: (_esTotPlan||0) > 0 ? "#C0392B" : (_esTotPlan||0) < 0 ? "#1E8449" : "#888" } },
+              ((_esTotPlan||0) > 0 ? "+" : "") + (_esTotPlan||0).toLocaleString() + "円")
+          : React.createElement("span", { style: { color: "#ccc" } }, "—")
+      ),
+      React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
+        "結果損益: ",
+        _esTotHoldCnt > 0
+          ? React.createElement("span", { style: { fontWeight: 700, color: (_esTotHold||0) > 0 ? "#C0392B" : (_esTotHold||0) < 0 ? "#1E8449" : "#888" } },
+              ((_esTotHold||0) > 0 ? "+" : "") + (_esTotHold||0).toLocaleString() + "円")
+          : React.createElement("span", { style: { color: "#ccc" } }, "—")
+      )
+    ) : null,
     records.length === 0
       ? React.createElement("div", {
           style: {
@@ -20856,6 +20903,106 @@ function DayView(_ref57) {
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
         React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+          rowKey !== "__total__" ? React.createElement("div", {
+            style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" }
+          },
+            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値（水準線比）"),
+            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+              React.createElement("input", {
+                type: "number", inputMode: "numeric", step: "1",
+                value: (function() { var _avc = _pbCharts[rowKey + "_" + date]; return _avc && _avc.alphaVal != null ? String(_avc.alphaVal) : "0"; })(),
+                onChange: function(e) {
+                  var v = e.target.value;
+                  var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
+                  var _ck = rowKey + "_" + date;
+                  save(function(prev) {
+                    var pCharts = Object.assign({}, (prev && prev.charts) || {});
+                    var _ce = Object.assign({}, pCharts[_ck] || {});
+                    if (n != null) _ce.alphaVal = n; else delete _ce.alphaVal;
+                    if (n != null && Array.isArray(_ce.signals)) {
+                      _ce.signals = _ce.signals.map(function(s) {
+                        if (s.osVal == null) return s;
+                        var _osV = Number(s.osVal);
+                        var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+                        var _diff = _osV - n;
+                        var _pnl = null;
+                        if (_diff < 0) _pnl = 0;
+                        else if (_diff >= 10) _pnl = -Math.round(_diff * 100);
+                        else if (_conf != null) _pnl = Math.round((n - _conf) * 100);
+                        var _updSig = s;
+                        if (_pnl != null) { var _sg = _pnl >= 0 ? "+" : "-"; _updSig = Object.assign({}, s, { plannedPnl: Math.abs(_pnl), plannedPnlSign: _sg, maxPnl: Math.abs(_pnl), maxPnlSign: _sg }); }
+                        if (s.holdOsConf != null) { var _hw = n - Number(s.holdOsConf); var _hwSg = _hw >= 0 ? "+" : "-"; var _hp = Math.round((n + _hw) * 100); _updSig = Object.assign({}, _updSig, { holdWidthSign: _hwSg, holdWidth: Math.abs(_hw), holdPnl: Math.abs(_hp), holdPnlSign: _hp >= 0 ? "+" : "-" }); }
+                        return _updSig;
+                      });
+                    }
+                    pCharts[_ck] = _ce;
+                    return Object.assign({}, prev, { charts: pCharts });
+                  });
+                },
+                placeholder: "0",
+                style: { width: 60, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+              }),
+              _stepBtn(
+                function() { var _ck = rowKey + "_" + date; var n = (_pbCharts[_ck] && _pbCharts[_ck].alphaVal != null ? _pbCharts[_ck].alphaVal : 0); if (n < 20) { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ck] || {}); _ce.alphaVal = n + 1; pCharts[_ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); } },
+                function() { var _ck = rowKey + "_" + date; var n = (_pbCharts[_ck] && _pbCharts[_ck].alphaVal != null ? _pbCharts[_ck].alphaVal : 0); if (n > 0) { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ck] || {}); _ce.alphaVal = n - 1; pCharts[_ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); } }
+              )
+            ),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+            React.createElement("button", {
+              onClick: function() {
+                var _ck = rowKey + "_" + date;
+                save(function(prev) {
+                  var pCharts = Object.assign({}, (prev && prev.charts) || {});
+                  var _ce = Object.assign({}, pCharts[_ck] || {});
+                  _ce.alphaVal = 0;
+                  if (Array.isArray(_ce.signals)) {
+                    _ce.signals = _ce.signals.map(function(s) {
+                      if (s.osVal == null) return s;
+                      var _osV = Number(s.osVal), _n = 0;
+                      var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+                      var _diff = _osV - _n;
+                      var _pnl = null;
+                      if (_diff < 0) _pnl = 0;
+                      else if (_diff >= 10) _pnl = -Math.round(_diff * 100);
+                      else if (_conf != null) _pnl = Math.round((_n - _conf) * 100);
+                      var _updSig = s;
+                      if (_pnl != null) { var _sg = _pnl >= 0 ? "+" : "-"; _updSig = Object.assign({}, s, { plannedPnl: Math.abs(_pnl), plannedPnlSign: _sg, maxPnl: Math.abs(_pnl), maxPnlSign: _sg }); }
+                      if (s.holdOsConf != null) { var _hw = _n - Number(s.holdOsConf); var _hwSg = _hw >= 0 ? "+" : "-"; var _hp = Math.round((_n + _hw) * 100); _updSig = Object.assign({}, _updSig, { holdWidthSign: _hwSg, holdWidth: Math.abs(_hw), holdPnl: Math.abs(_hp), holdPnlSign: _hp >= 0 ? "+" : "-" }); }
+                      return _updSig;
+                    });
+                  }
+                  pCharts[_ck] = _ce;
+                  return Object.assign({}, prev, { charts: pCharts });
+                });
+              },
+              style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
+            }, "リセット"),
+            (function() {
+              var _ck = rowKey + "_" + date;
+              var _recs = expRecs || [];
+              var _totPb = null, _totPbCnt = 0, _totHPb = null, _totHPbCnt = 0;
+              _recs.forEach(function(r) {
+                var s = r.signal;
+                var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+                var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+                if (pp != null) { _totPb = (_totPb || 0) + pp; _totPbCnt++; }
+                if (hp != null) { _totHPb = (_totHPb || 0) + hp; _totHPbCnt++; }
+              });
+              if (_totPbCnt === 0 && _totHPbCnt === 0) return null;
+              return React.createElement("span", { style: { display: "inline-flex", gap: 10, marginLeft: 8, paddingLeft: 8, borderLeft: "1px solid #f0ede6", flexWrap: "wrap" } },
+                _totPbCnt > 0 ? React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
+                  "想定損益合計: ",
+                  React.createElement("span", { style: { fontWeight: 700, color: (_totPb||0) > 0 ? "#C0392B" : (_totPb||0) < 0 ? "#1E8449" : "#888" } },
+                    ((_totPb||0) > 0 ? "+" : "") + (_totPb||0).toLocaleString() + "円")
+                ) : null,
+                _totHPbCnt > 0 ? React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
+                  "結果損益合計: ",
+                  React.createElement("span", { style: { fontWeight: 700, color: (_totHPb||0) > 0 ? "#C0392B" : (_totHPb||0) < 0 ? "#1E8449" : "#888" } },
+                    ((_totHPb||0) > 0 ? "+" : "") + (_totHPb||0).toLocaleString() + "円")
+                ) : null
+              );
+            })()
+          ) : null,
           sortToggle,
           React.createElement("div", { style: { overflowX: "auto" } },
             React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
