@@ -14362,12 +14362,13 @@ function EventsTab(_ref_evt) {
   };
   var deleteEvent = function(id) {
     if (!window.confirm("\u3053\u306E\u4E88\u5B9A\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F")) return;
+    var delDate = (draft && typeof draft.originalDate === "string" && draft.originalDate) ? draft.originalDate : date;
     save(function(prevData) {
-      var prevDd = (prevData.trades && prevData.trades[date]) || {};
+      var prevDd = (prevData.trades && prevData.trades[delDate]) || {};
       var prevEvents = Array.isArray(prevDd.events) ? prevDd.events : [];
       var newEvents = prevEvents.filter(function(e) { return e.id !== id; });
       return _objectSpread(_objectSpread({}, prevData), {}, {
-        trades: _objectSpread(_objectSpread({}, prevData.trades), {}, _defineProperty({}, date,
+        trades: _objectSpread(_objectSpread({}, prevData.trades), {}, _defineProperty({}, delDate,
           _objectSpread(_objectSpread({}, prevDd), {}, { events: newEvents })))
       });
     });
@@ -14453,7 +14454,7 @@ function EventsTab(_ref_evt) {
         style: { fontSize: 13, color: "#888", fontWeight: 600 }
       }, "\uD83D\uDCC5 ", events.length, " \u4EF6"),
       /*#__PURE__*/React.createElement("button", {
-        onClick: openNew,
+        onClick: function() { openNew(date); },
         style: {
           padding: "8px 14px", fontSize: 13, fontWeight: 700,
           background: "#10B981", color: "#fff", border: "none",
