@@ -25821,8 +25821,10 @@ function EntryRecordForm(_ref_erf) {
       if (_hhExcess >= 10) { setFHoldPnlSign("-"); setFHoldPnlVal(String(Math.round(_hhExcess * 100))); return; }
     }
     // 通常: (α値 + 変動値符号付き) × 100
-    if (_av == null || !fHoldWidthSign || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
+    if (_av == null || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
     var _hw = Number(fHoldWidthVal) || 0;
+    // 値が0の場合は符号不問で計算（↕のまま0円表示を可能にする）
+    if (!fHoldWidthSign && _hw !== 0) { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
     var _holdAdj = fHoldWidthSign === "+" ? _hw : fHoldWidthSign === "-" ? -_hw : 0;
     var _result = (_av + _holdAdj) * 100;
     setFHoldPnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
@@ -25841,7 +25843,15 @@ function EntryRecordForm(_ref_erf) {
       else setFHoldProfit("none");
       return;
     }
-    if (sHold === 0 || sPlan === 0) return;
+    if (sPlan === 0) return;
+    // sHold === 0 かつ holdPnlVal が明示的に入力済みの場合: sPlanの符号で判定
+    if (sHold === 0) {
+      if (fHoldPnlVal === "") return; // 未入力は判定しない
+      if (sPlan < 0) setFHoldProfit("yes");
+      else if (sPlan > 0) setFHoldProfit("mid");
+      else setFHoldProfit("none");
+      return;
+    }
     if (sPlan > 0 && sHold > 0) {
       if (sHold > sPlan) setFHoldProfit("yes");
       else if (sHold < sPlan) setFHoldProfit("mid");
