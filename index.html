@@ -21254,6 +21254,37 @@ function DayView(_ref57) {
       if (d.tgtProfit != null) _pbTotTgtProfit = (_pbTotTgtProfit || 0) + d.tgtProfit;
       if (d.maxProfit != null) _pbTotMaxProfit = (_pbTotMaxProfit || 0) + d.maxProfit;
     });
+    // ── 全銘柄統合 理想α値（全シグナルを一つのα値で最適化） ──
+    var _pbAllAlphaResult = (function() {
+      if (_pbStks.length <= 1) return null;
+      var allSigData = [];
+      _pbStks.forEach(function(sk) { allSigData = allSigData.concat(_pbAlphaByStk[sk].sigData); });
+      if (!allSigData.length) return null;
+      var calcAll = function(alpha) {
+        var total = 0, hasAny = false;
+        allSigData.forEach(function(d) {
+          if (d.osVal == null) return;
+          hasAny = true;
+          if (alpha > d.osVal) { /* エントリーなし */ }
+          else if (d.osVal - alpha >= 10) { total += -(d.osVal - alpha) * 100; }
+          else { if (d.conf == null) { hasAny = false; return; } total += (alpha - d.conf) * 100; }
+        });
+        return hasAny ? Math.round(total) : null;
+      };
+      var minA = null, tgtA = null, maxA = null, maxP = null;
+      for (var _aa = 0; _aa <= 20; _aa++) {
+        var _pp = calcAll(_aa);
+        if (_pp == null) continue;
+        if (minA == null && _pp >= 1) minA = _aa;
+        if (tgtA == null && _pp >= 2500) tgtA = _aa;
+        if (maxP == null || _pp > maxP) { maxP = _pp; maxA = _aa; }
+      }
+      if (tgtA == null && maxA != null) tgtA = maxA;
+      return { minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA,
+               minProfit: minA != null ? calcAll(minA) : null,
+               tgtProfit: tgtA != null ? calcAll(tgtA) : null,
+               maxProfit: maxA != null ? calcAll(maxA) : null };
+    })();
     var _pbHasAlpha = _pbStks.some(function(sk) {
       var d = _pbAlphaByStk[sk];
       return d.minAlpha != null || d.tgtAlpha != null || d.maxAlpha != null;
@@ -21370,7 +21401,23 @@ function DayView(_ref57) {
                       React.createElement("td", { style: { borderLeft: "1px solid #dbeafe" } }),
                       React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: _pbTotMaxProfit > 0 ? "#C0392B" : _pbTotMaxProfit < 0 ? "#1E8449" : "#888" } },
                         _pbTotMaxProfit != null ? (_pbTotMaxProfit > 0 ? "+" : "") + _pbTotMaxProfit.toLocaleString() + "円" : "—")
-                    )]
+                    ),
+                    _pbAllAlphaResult ? React.createElement("tr", { key: "__allalpha__", style: { borderTop: "1px solid #BAE6FD", background: "#DBEAFE" } },
+                      React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, whiteSpace: "nowrap" } }, "全銘柄",
+                        React.createElement("div", { style: { fontSize: 8, fontWeight: 400, color: "#64748B", marginTop: 1 } }, "統合最適α")),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #93C5FD" } },
+                        _pbAllAlphaResult.minAlpha != null ? React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, _pbAllAlphaResult.minAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: (_pbAllAlphaResult.minProfit||0) > 0 ? "#C0392B" : (_pbAllAlphaResult.minProfit||0) < 0 ? "#1E8449" : "#888" } },
+                        _pbAllAlphaResult.minProfit != null ? (_pbAllAlphaResult.minProfit > 0 ? "+" : "") + _pbAllAlphaResult.minProfit.toLocaleString() + "円" : "—"),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #93C5FD" } },
+                        _pbAllAlphaResult.tgtAlpha != null ? React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, _pbAllAlphaResult.tgtAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: (_pbAllAlphaResult.tgtProfit||0) > 0 ? "#C0392B" : (_pbAllAlphaResult.tgtProfit||0) < 0 ? "#1E8449" : "#888" } },
+                        _pbAllAlphaResult.tgtProfit != null ? (_pbAllAlphaResult.tgtProfit > 0 ? "+" : "") + _pbAllAlphaResult.tgtProfit.toLocaleString() + "円" : "—"),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #93C5FD" } },
+                        _pbAllAlphaResult.maxAlpha != null ? React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, _pbAllAlphaResult.maxAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: (_pbAllAlphaResult.maxProfit||0) > 0 ? "#C0392B" : (_pbAllAlphaResult.maxProfit||0) < 0 ? "#1E8449" : "#888" } },
+                        _pbAllAlphaResult.maxProfit != null ? (_pbAllAlphaResult.maxProfit > 0 ? "+" : "") + _pbAllAlphaResult.maxProfit.toLocaleString() + "円" : "—")
+                    ) : null]
                   : []
               )
             )
@@ -25481,6 +25528,13 @@ function EntryRecordForm(_ref_erf) {
 
   // 利益獲得度はチャートレベルに移動済み (EntrySignalSection で管理)
 
+  // ── α値をレンダー時に明示的に取得（useEffect依存配列で値変化を捕捉するため） ──
+  var _fAlpha = (function() {
+    var _ck = fStock + "_" + fDate;
+    var _cd = data.charts && data.charts[_ck];
+    return (_cd != null && _cd.alphaVal != null) ? _cd.alphaVal : null;
+  })();
+
   // ── 入り・出価格・株数から実現損益を自動計算 ──
   useEffect(function() {
     if (!fEntered) return;
@@ -25519,7 +25573,7 @@ function EntryRecordForm(_ref_erf) {
     if (wSign == null) { setFPlanSign(null); setFPlan("0"); return; }
     var planAmt = Math.round(Math.abs(width) * 100);
     setFPlanSign(planAmt === 0 ? null : wSign); setFPlan(String(planAmt));
-  }, [fStock, fDate, data, fOsConfSign, fOsConfVal, fOsVal]);
+  }, [fStock, fDate, data, _fAlpha, fOsConfSign, fOsConfVal, fOsVal]);
 
   // ── 結果を自動選択（OS値・α値・確定値の組み合わせによる判定） ──
   //   OS値-α値 < 0                    → E基準未達(miss)
@@ -25544,7 +25598,7 @@ function EntryRecordForm(_ref_erf) {
     if (confSigned < av) { setFResult("ok"); return; }
     if (confSigned === av) { setFResult("draw"); return; }
     setFResult("ng");
-  }, [fStock, fDate, data, fOsVal, fOsConfSign, fOsConfVal]);
+  }, [fStock, fDate, data, _fAlpha, fOsVal, fOsConfSign, fOsConfVal]);
 
   // ── 想定損益を自動計算（想定値幅×100、OS値-α値≥10時は特例） ──
   useEffect(function() {
@@ -25566,7 +25620,7 @@ function EntryRecordForm(_ref_erf) {
     var planAmt = Math.round(w * 100);
     setFPlanSign(planAmt === 0 ? null : fEstWidthSign);
     setFPlan(String(planAmt));
-  }, [fStock, fDate, data, fOsVal, fEstWidthSign, fEstWidthVal]);
+  }, [fStock, fDate, data, _fAlpha, fOsVal, fEstWidthSign, fEstWidthVal]);
 
   // ── α値変更時: holdOsConfをholdWidthSign/Valから逆算して更新（ホールド足確定値の表示を固定） ──
   useEffect(function() {
@@ -25577,7 +25631,7 @@ function EntryRecordForm(_ref_erf) {
     var _hwSigned = fHoldWidthSign === "+" ? Number(fHoldWidthVal) : -Number(fHoldWidthVal);
     var _newOsConf = _av - _hwSigned;
     if (_newOsConf !== fHoldOsConf) setFHoldOsConf(_newOsConf);
-  }, [fStock, fDate, data]);
+  }, [fStock, fDate, data, _fAlpha]);
 
   // ── 結果損益を自動計算 ──
   //   高値特例: ホールド足高値-α値 ≥ 10 → -(高値-α値)×100
@@ -25599,12 +25653,20 @@ function EntryRecordForm(_ref_erf) {
     var _result = (_av + _holdAdj) * 100;
     setFHoldPnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal]);
+  }, [fStock, fDate, data, _fAlpha, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal]);
 
   // ── 損益変化（holdProfit）を自動選択 ──
   useEffect(function() {
     var sHold = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
     var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
+    // 結果が△(draw)の場合: 結果損益の符号で○×ーを自動選択
+    if (fResult === "draw") {
+      if (fHoldPnlVal === "") return;
+      if (sHold > 0) setFHoldProfit("yes");
+      else if (sHold < 0) setFHoldProfit("no");
+      else setFHoldProfit("none");
+      return;
+    }
     if (sHold === 0 || sPlan === 0) return;
     if (sPlan > 0 && sHold > 0) {
       if (sHold > sPlan) setFHoldProfit("yes");
@@ -25617,7 +25679,7 @@ function EntryRecordForm(_ref_erf) {
     } else if (sPlan < 0 && sHold > 0) {
       setFHoldProfit("yes");
     }
-  }, [fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign]);
+  }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign]);
 
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
