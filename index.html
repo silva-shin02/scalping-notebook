@@ -26661,8 +26661,9 @@ function EntryLogCard(_ref_elc) {
       ),
       // 入出価格
       (s.priceIn || s.priceOut) && _chip("価格", (s.priceIn ? "入" + s.priceIn : "") + (s.priceIn && s.priceOut ? "→" : "") + (s.priceOut ? "出" + s.priceOut : ""), "#555"),
-      // 区切り（ホールド系がある場合）
-      (s.holdWidthSign || s.holdHighVal != null || holdPnl != null) && React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
+      // 区切り＋ホールドデータ有無
+      React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
+      !(s.holdWidthSign || s.holdHighVal != null || holdPnl != null) && React.createElement("span", { style: { fontSize: 10, color: "#bbb", alignSelf: "center", fontStyle: "italic" } }, "Hデータ無し"),
       // H変動幅（holdWidth）
       s.holdWidthSign != null && s.holdWidth != null && _chip("H変動", (s.holdWidthSign === "+" ? "↓" : "↑") + s.holdWidth + "円", s.holdWidthSign === "+" ? "#1E8449" : "#C0392B"),
       // H高値（holdHighVal）
