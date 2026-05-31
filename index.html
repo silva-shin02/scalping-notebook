@@ -10950,9 +10950,11 @@ function EntrySignalSection(_ref_es) {
               ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
               : s.holdProfit === "mid"
                 ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
-                : s.holdProfit === "no"
-                  ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
-                  : React.createElement("span", { style: { color: "#ccc" } }, "—");
+                : s.holdProfit === "none"
+                  ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
+                  : s.holdProfit === "no"
+                    ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
+                    : React.createElement("span", { style: { color: "#ccc" } }, "—");
             var entLabel = entered
               ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
               : React.createElement("span", { style: { color: "#888" } }, "見送り");
@@ -20375,9 +20377,11 @@ function DayView(_ref57) {
           ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
           : s.holdProfit === "mid"
             ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
-            : s.holdProfit === "no"
-              ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
-              : React.createElement("span", { style: { color: "#ccc" } }, "—");
+            : s.holdProfit === "none"
+              ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
+              : s.holdProfit === "no"
+                ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
+                : React.createElement("span", { style: { color: "#ccc" } }, "—");
         var entLabel = entered
           ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
           : React.createElement("span", { style: { color: "#888" } }, "見送り");
@@ -20734,12 +20738,27 @@ function DayView(_ref57) {
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           _pbRealABAll(recs)),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
-          _pbABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned")),
+          (function() {
+            var _dynSP = null;
+            (recs || []).forEach(function(r) {
+              var s = r.signal;
+              var _cD = _pbCharts[r.stock + "_" + date]; var _aD = _cD && _cD.alphaVal != null ? _cD.alphaVal : null;
+              var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+              if (_aD != null && s.osVal != null) {
+                var _cfD = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+                var _dfD = Number(s.osVal) - _aD;
+                var _pD = _dfD < 0 ? 0 : _dfD >= 10 ? -Math.round(_dfD * 100) : (_cfD != null ? Math.round((_aD - _cfD) * 100) : null);
+                if (_pD != null) pp = _pD;
+              }
+              if (pp != null) _dynSP = (_dynSP || 0) + pp;
+            });
+            return _pbABAll(recs, _dynSP !== null ? _dynSP : st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned");
+          })()),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hTot = null;
-            recs.forEach(function(r) { var hp = _elSignedVal(r.signal.holdPnl, r.signal.holdPnlSign); if (hp != null) { _hTot = (_hTot||0) + hp; } });
+            recs.forEach(function(r) { var _cR = _pbCharts[r.stock + "_" + date]; var _aR = _cR && _cR.alphaVal != null ? _cR.alphaVal : null; var hp = (_aR != null && r.signal.holdOsConf != null) ? Math.round((_aR + (_aR - Number(r.signal.holdOsConf))) * 100) : _elSignedVal(r.signal.holdPnl, r.signal.holdPnlSign); if (hp != null) { _hTot = (_hTot||0) + hp; } });
             if (_hTot == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             return React.createElement("span", { style: { fontWeight: 700, color: _hTot > 0 ? "#C0392B" : _hTot < 0 ? "#1E8449" : "#888" } },
               (_hTot > 0 ? "+" : "") + _hTot.toLocaleString() + "円");
@@ -20797,6 +20816,17 @@ function DayView(_ref57) {
           : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
         var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
         var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
+        // α値が設定されている場合、動的再計算（表示専用）
+        var _alphaRec = (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
+        if (_alphaRec != null && s.osVal != null) {
+          var _confR = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+          var _diffR = Number(s.osVal) - _alphaRec;
+          var _dpR = _diffR < 0 ? 0 : _diffR >= 10 ? -Math.round(_diffR * 100) : (_confR != null ? Math.round((_alphaRec - _confR) * 100) : null);
+          if (_dpR != null) planPnl = _dpR;
+        }
+        if (_alphaRec != null && s.holdOsConf != null) {
+          holdPnl = Math.round((_alphaRec + (_alphaRec - Number(s.holdOsConf))) * 100);
+        }
         var entered = _elIsEntered(s, item);
         var isOk = s.result === "ok";
         var isNg = s.result === "ng";
@@ -20856,6 +20886,7 @@ function DayView(_ref57) {
               var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
               var _sym = s.holdProfit === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
                 : s.holdProfit === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
+                : s.holdProfit === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
                 : s.holdProfit === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
               if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
@@ -21003,6 +21034,14 @@ function DayView(_ref57) {
                 var s = r.signal;
                 var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
                 var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+                var _aW = (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
+                if (_aW != null && s.osVal != null) {
+                  var _cW = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+                  var _dW = Number(s.osVal) - _aW;
+                  var _pW = _dW < 0 ? 0 : _dW >= 10 ? -Math.round(_dW * 100) : (_cW != null ? Math.round((_aW - _cW) * 100) : null);
+                  if (_pW != null) pp = _pW;
+                }
+                if (_aW != null && s.holdOsConf != null) { hp = Math.round((_aW + (_aW - Number(s.holdOsConf))) * 100); }
                 if (pp != null) { _totPb = (_totPb || 0) + pp; _totPbCnt++; }
                 if (hp != null) { _totHPb = (_totHPb || 0) + hp; _totHPbCnt++; }
               });
@@ -25742,7 +25781,7 @@ function EntryRecordForm(_ref_erf) {
             var on = fResult === kv[1];
             return React.createElement("button", {
               key: kv[1],
-              onClick: function() { setFResult(kv[1]); if (kv[1] === "ng") { setFPlanSign("-"); } else if (kv[1] === "ok") { setFPlanSign("+"); } },
+              onClick: function() { setFResult(kv[1]); if (kv[1] === "ng") { setFPlanSign("-"); } else if (kv[1] === "ok") { setFPlanSign("+"); } if (kv[1] === "miss") { setFHoldPnlVal("0"); setFHoldPnlSign("+"); setFHoldProfit("none"); } },
               style: {
                 padding: "4px 8px", fontSize: 11, fontWeight: 600,
                 border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
@@ -25943,7 +25982,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
             React.createElement("div", { style: { display: "flex", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["× 損失+", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失+", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
                 var on = fHoldProfit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
@@ -27308,6 +27347,7 @@ function EntryLogView(_ref_elv) {
                     var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
                     var _sym = s.holdProfit === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
                       : s.holdProfit === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
+                      : s.holdProfit === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
                       : s.holdProfit === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
                     if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
                     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
@@ -27814,6 +27854,7 @@ function EntryLogView(_ref_elv) {
                 var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
                 var _sym = s.holdProfit === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
                   : s.holdProfit === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
+                  : s.holdProfit === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
                   : s.holdProfit === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
                 if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
                 return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
