@@ -26584,111 +26584,102 @@ function EntryLogCard(_ref_elc) {
   var realPnl = (item && item.pnl != null) ? Number(item.pnl)
     : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
   var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-  var maxPnl = _elSignedVal(s.maxPnl, s.maxPnlSign);
-  var tagLabel = _elTagLabel(s);
+  var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
+  // ── コンパクト数値チップ helper ──
+  var _chip = function(label, value, valueColor, extra) {
+    return React.createElement("div", { style: Object.assign({ display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 }, extra || {}) },
+      React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2, whiteSpace: "nowrap" } }, label),
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: valueColor || "#333", lineHeight: 1.3, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, value)
+    );
+  };
+  var _pnlColor = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+  var _pnlFmt = function(v) { return (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+  // 結果バッジ
+  var _resultBadge = function(res) {
+    var map = { ok: ["○", "#1E8449", "#EAF3DE", "#A9DFBF"], ng: ["×", "#C0392B", "#FCEBEB", "#F5C6CB"], draw: ["△", "#6B7280", "#F3F4F6", "#D1D5DB"], miss: ["ー", "#B45309", "#FEF9C3", "#FDE68A"] };
+    var m = map[res]; if (!m) return null;
+    return React.createElement("span", { style: { padding: "2px 6px", fontSize: 10, fontWeight: 700, background: m[2], color: m[1], borderRadius: 4, border: "1px solid " + m[3] } }, m[0]);
+  };
+  // ホールド勝敗バッジ
+  var _hpBadge = function(hp) {
+    var map = { yes: ["○", "#1E8449"], mid: ["△", "#B45309"], none: ["ー", "#888"], no: ["×", "#C0392B"] };
+    var m = map[hp]; if (!m) return null;
+    return React.createElement("span", { style: { fontWeight: 700, color: m[1], marginRight: 2 } }, m[0]);
+  };
+  // グレードバッジ
+  var _gradeBadge = function(grade) {
+    if (!grade || grade === "Z") return null;
+    var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 2, flexShrink: 0 } }, grade);
+  };
 
   return React.createElement("div", {
-    style: {
-      background: "#fff", border: "1px solid #e0ddd6", borderRadius: 8,
-      padding: 10, marginBottom: 6, cursor: "pointer"
-    },
+    style: { background: "#fff", border: "1px solid #e0ddd6", borderRadius: 8, padding: "8px 10px", marginBottom: 6, cursor: "pointer" },
     onClick: function() { onEdit(record); },
     onMouseEnter: function(e) { e.currentTarget.style.borderColor = "#F97316"; },
     onMouseLeave: function(e) { e.currentTarget.style.borderColor = "#e0ddd6"; }
   },
-    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 } },
-      React.createElement("span", { style: { fontSize: 13, fontWeight: 700 } }, _fmtDow(record.date)),
-      s.time && React.createElement("span", { style: { fontSize: 12, color: "#666" } }, s.time),
-      React.createElement("span", { style: { fontSize: 12, fontWeight: 600, color: "#9A3412" } }, record.stock),
-      s.tradeType && React.createElement("span", {
-        style: {
-          padding: "2px 6px", fontSize: 10, fontWeight: 700,
-          background: s.tradeType === "空売" ? "#FCEBEB" : "#EAF3DE",
-          color: s.tradeType === "空売" ? "#C0392B" : "#1E8449",
-          borderRadius: 4,
-          border: "1px solid " + (s.tradeType === "空売" ? "#F5C6CB" : "#A9DFBF")
-        }
-      }, s.tradeType),
-      React.createElement("span", {
-        style: {
-          padding: "2px 6px", fontSize: 10, fontWeight: 600,
-          background: entered ? "#E8F5E9" : "#f5f4f0",
-          color: entered ? "#2E7D32" : "#888",
-          borderRadius: 4,
-          border: "1px solid " + (entered ? "#A9DFBF" : "#ddd")
-        }
-      }, entered ? "実エントリー" : "見送り"),
+    // ── ヘッダー行（日付・時間・銘柄・バッジ群） ──
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" } }, _fmtDow(record.date)),
+      s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time),
+      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock),
+      s.tradeType && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: s.tradeType === "空売" ? "#FCEBEB" : "#EAF3DE", color: s.tradeType === "空売" ? "#C0392B" : "#1E8449", borderRadius: 4, border: "1px solid " + (s.tradeType === "空売" ? "#F5C6CB" : "#A9DFBF") } }, s.tradeType),
+      React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: entered ? "#E8F5E9" : "#f5f4f0", color: entered ? "#2E7D32" : "#888", borderRadius: 4, border: "1px solid " + (entered ? "#A9DFBF" : "#ddd") } }, entered ? "実エントリー" : "見送り"),
       (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(t) {
-        return React.createElement("span", {
-          key: t,
-          style: {
-            padding: "2px 8px", fontSize: 11, fontWeight: 600,
-            background: "#FFEDD5", color: "#9A3412",
-            borderRadius: 5, border: "1px solid #FB923C"
-          }
-        }, t);
+        return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, t);
       }),
-      s.isCustomTag && React.createElement("span", {
-        style: {
-          padding: "2px 8px", fontSize: 11, fontWeight: 600,
-          background: "#EEF2FF", color: "#4338CA",
-          borderRadius: 5, border: "1px solid #C7D2FE"
-        }
-      }, s.customTagText || "(その他)"),
-      s.result && React.createElement("span", {
-        style: {
-          padding: "2px 6px", fontSize: 10, fontWeight: 700,
-          background: s.result === "ok" ? "#EAF3DE" : s.result === "ng" ? "#FCEBEB" : "#f5f4f0",
-          color: s.result === "ok" ? "#1E8449" : s.result === "ng" ? "#C0392B" : "#888",
-          borderRadius: 4,
-          border: "1px solid " + (s.result === "ok" ? "#A9DFBF" : s.result === "ng" ? "#F5C6CB" : "#ddd")
-        }
-      }, s.result === "ok" ? "成功" : s.result === "ng" ? "失敗" : "—"),
-      s.difficulty && React.createElement("span", {
-        style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 4, border: "1px solid #FDBA74" }
-      }, "E難易度" + s.difficulty),
-      s.tpDifficulty && React.createElement("span", {
-        style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#DCFCE7", color: "#14532D", borderRadius: 4, border: "1px solid #86EFAC" }
-      }, "利確" + s.tpDifficulty),
+      s.isCustomTag && React.createElement("span", { style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#EEF2FF", color: "#4338CA", borderRadius: 5, border: "1px solid #C7D2FE" } }, s.customTagText || "(その他)"),
+      s.result && _resultBadge(s.result),
+      s.difficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 4, border: "1px solid #FDBA74" } }, "E難易度" + s.difficulty),
+      s.tpDifficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#DCFCE7", color: "#14532D", borderRadius: 4, border: "1px solid #86EFAC" } }, "利確" + s.tpDifficulty),
       record.stockTags && record.stockTags.map(function(t) {
-        return React.createElement("span", {
-          key: t,
-          style: { padding: "1px 6px", fontSize: 10, fontWeight: 600,
-            background: "#EFF6FF", color: "#1D4ED8",
-            borderRadius: 4, border: "1px solid #BFDBFE" }
-        }, "📌 " + t);
-      }),
-      // 利益獲得度はチャートレベルで表示 (EntrySignalSection 見出し)
+        return React.createElement("span", { key: t, style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, border: "1px solid #BFDBFE" } }, "📌 " + t);
+      })
     ),
-    (s.priceIn || s.priceOut) && React.createElement("div", {
-      style: { fontSize: 11, color: "#555", marginTop: 4 }
-    },
-      "価格: ",
-      s.priceIn && React.createElement("span", { style: { fontWeight: 600 } }, "入" + s.priceIn),
-      s.priceIn && s.priceOut && " → ",
-      s.priceOut && React.createElement("span", { style: { fontWeight: 600 } }, "出" + s.priceOut)
+    // ── コンパクト数値グリッド ──
+    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: (s.rationale || s.reflection || s.priceIn || s.priceOut) ? 6 : 0 } },
+      // OS値
+      s.osVal != null && _chip("OS値", (s.osVal > 0 ? "+" : "") + s.osVal + "円", s.osVal > 0 ? "#C0392B" : "#888"),
+      // 確定値
+      (s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) && _chip("確定値",
+        Number(s.osConfVal) === 0 ? "0円" : (s.osConfSign + (s.osConfVal != null ? s.osConfVal + "円" : "")),
+        s.osConfSign === "-" ? "#1E8449" : s.osConfSign === "+" ? "#888" : "#888"),
+      // 想定損益
+      planPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
+        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "想定損益"),
+        React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(planPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
+          _gradeBadge(planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null),
+          _pnlFmt(planPnl))
+      ),
+      // 実現損益（実エントリー時のみ）
+      entered && realPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
+        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "実現損益"),
+        React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(realPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
+          _gradeBadge(realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null),
+          _pnlFmt(realPnl))
+      ),
+      // 入出価格
+      (s.priceIn || s.priceOut) && _chip("価格", (s.priceIn ? "入" + s.priceIn : "") + (s.priceIn && s.priceOut ? "→" : "") + (s.priceOut ? "出" + s.priceOut : ""), "#555"),
+      // 区切り（ホールド系がある場合）
+      (s.holdWidthSign || s.holdHighVal != null || holdPnl != null) && React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
+      // H変動幅（holdWidth）
+      s.holdWidthSign != null && s.holdWidth != null && _chip("H変動", (s.holdWidthSign === "+" ? "↓" : "↑") + s.holdWidth + "円", s.holdWidthSign === "+" ? "#1E8449" : "#C0392B"),
+      // H高値（holdHighVal）
+      s.holdHighVal != null && _chip("H高値", (s.holdHighSign === "-" ? "↑" : "↓") + s.holdHighVal, s.holdHighSign === "-" ? "#C0392B" : "#1E8449"),
+      // 結果損益（holdPnl）
+      holdPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
+        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
+        React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
+          _hpBadge(s.holdProfit),
+          _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
+          _pnlFmt(holdPnl))
+      )
     ),
-    (planPnl != null || realPnl != null) && React.createElement("div", {
-      style: { display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11, color: "#666", marginTop: 4 }
-    },
-      realPnl != null && React.createElement("span", null, "実: ",
-        React.createElement("span", {
-          style: { fontWeight: 700, color: realPnl > 0 ? "#C0392B" : realPnl < 0 ? "#1E8449" : "#888" }
-        }, (realPnl > 0 ? "+" : "") + realPnl.toLocaleString() + "円")),
-      planPnl != null && React.createElement("span", null, "計画: ",
-        React.createElement("span", {
-          style: { fontWeight: 600, color: planPnl > 0 ? "#C0392B" : planPnl < 0 ? "#1E8449" : "#888" }
-        }, (planPnl > 0 ? "+" : "") + planPnl.toLocaleString() + "円"))
-    ),
-    s.rationale && React.createElement("div", {
-      style: { fontSize: 11, color: "#555", marginTop: 6, lineHeight: 1.5, whiteSpace: "pre-wrap" }
-    }, "根拠: " + s.rationale),
-    s.reflection && React.createElement("div", {
-      style: { fontSize: 11, color: "#777", marginTop: 4, lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" }
-    }, s.reflection),
-    onGoDate && React.createElement("div", {
-      style: { textAlign: "right", marginTop: 4 }
-    },
+    // ── 根拠・振り返り ──
+    s.rationale && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale),
+    s.reflection && React.createElement("div", { style: { fontSize: 11, color: "#777", marginTop: 4, lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection),
+    onGoDate && React.createElement("div", { style: { textAlign: "right", marginTop: 4 } },
       React.createElement("button", {
         onClick: function(e) { e.stopPropagation(); onGoDate(record.date); },
         style: { fontSize: 10, padding: "3px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#666" }
