@@ -12773,6 +12773,145 @@ function _FMValueInput(_p) {
     }
   });
 }
+// ── 外国市場: 日経平均チャートと同システムのラインチャート ──
+function _FMPriceChart(_p) {
+  var foreignMarkets = _p.foreignMarkets, name = _p.name, type = _p.type,
+      currentDate = _p.currentDate, holidaySet = _p.holidaySet || {};
+  var _uPer = useState("22"), _uPerA = _slicedToArray(_uPer, 2),
+      period = _uPerA[0], setPeriod = _uPerA[1];
+  var _uHov = useState(null), _uHovA = _slicedToArray(_uHov, 2),
+      hovIdx = _uHovA[0], setHovIdx = _uHovA[1];
+  var nMax = period === "5" ? 5 : period === "22" ? 22 : period === "50" ? 50 : 200;
+  var allVals = _fmPrevValues(foreignMarkets, currentDate, name, type, nMax, holidaySet);
+  var allDates = _fmPrevDates(foreignMarkets, currentDate, nMax, holidaySet);
+  var points = [];
+  for (var _pi = 0; _pi < allVals.length; _pi++) {
+    if (typeof allVals[_pi] === "number") points.push({ date: allDates[_pi] || "", value: allVals[_pi] });
+  }
+  if (points.length < 2) {
+    return React.createElement("div", {
+      style: { padding: "10px 12px", textAlign: "center", color: "#ccc", fontSize: 11, background: "#fafaf8" }
+    }, "データが不足しています");
+  }
+  var W = 580, H = 150, PL = 56, PR = 10, PT = 8, PB = 26;
+  var cW = W - PL - PR, cH = H - PT - PB;
+  var n = points.length;
+  var vals = points.map(function(p) { return p.value; });
+  var minC = Math.min.apply(null, vals), maxC = Math.max.apply(null, vals);
+  var rawRange = maxC - minC;
+  var pad = Math.max(rawRange * 0.08, maxC > 0 ? maxC * 0.005 : 0.01);
+  var yMin = minC - pad, yMax = maxC + pad, yRange = yMax - yMin;
+  var toX = function(i) { return n > 1 ? PL + (i / (n - 1)) * cW : PL + cW / 2; };
+  var toY = function(v) { return yRange > 0 ? PT + (1 - (v - yMin) / yRange) * cH : PT + cH / 2; };
+  var linePath = points.map(function(p, i) { return (i === 0 ? "M" : "L") + toX(i).toFixed(1) + "," + toY(p.value).toFixed(1); }).join(" ");
+  var areaPath = linePath + " L" + toX(n-1).toFixed(1) + "," + (PT + cH) + " L" + PL.toFixed(1) + "," + (PT + cH) + " Z";
+  var lastVal = points[n-1].value, firstVal = points[0].value;
+  var lineColor = lastVal > firstVal ? "#DC2626" : lastVal < firstVal ? "#16A34A" : "#888";
+  var gradId = "fmpc_" + name.replace(/[^a-zA-Z0-9]/g, "_") + "_" + period;
+  var fmtV = function(v) { return Math.abs(v) < 10 ? v.toFixed(2) : Math.round(v).toLocaleString(); };
+  var yTicks = [];
+  var _ts = Math.pow(10, Math.floor(Math.log10(rawRange > 0 ? rawRange : 1))) / 2;
+  if (_ts === 0) _ts = 0.1;
+  for (var _ti = Math.ceil(yMin / _ts) * _ts, _tc = 0; _ti <= yMax && _tc < 8; _ti += _ts, _tc++) yTicks.push(_ti);
+  var xLabels = [];
+  var lStep = n <= 8 ? 1 : n <= 15 ? 2 : n <= 30 ? 5 : 10;
+  points.forEach(function(p, i) { if (i === 0 || i === n - 1 || i % lStep === 0) xLabels.push({ i: i, label: p.date.slice(5, 7) + "/" + p.date.slice(8) }); });
+  var hovPt = (hovIdx !== null && hovIdx >= 0 && hovIdx < n) ? points[hovIdx] : null;
+  var prevDiff = n >= 2 ? (points[n-1].value - points[n-2].value) : null;
+  var periodBtns = [["5","5日"], ["22","22日"], ["50","50日"], ["all","全期間"]];
+  return React.createElement("div", { style: { borderTop: "1px solid #f0ede8", background: "#fff" } },
+    React.createElement("div", {
+      style: { display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "4px 8px 3px", borderBottom: "1px solid #f0ede8", background: "#fafaf8", flexWrap: "wrap", gap: 4 }
+    },
+      React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } },
+        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#333" } }, "📈 チャート"),
+        prevDiff !== null && React.createElement("span", {
+          style: { fontSize: 10, color: prevDiff >= 0 ? "#DC2626" : "#16A34A", fontWeight: 600 }
+        }, "前日比 " + (prevDiff >= 0 ? "+" : "") + fmtV(prevDiff))
+      ),
+      React.createElement("div", { style: { display: "flex", gap: 3 } },
+        periodBtns.map(function(kv) {
+          var on = period === kv[0];
+          return React.createElement("button", {
+            key: kv[0],
+            onClick: function() { setPeriod(kv[0]); setHovIdx(null); },
+            style: { padding: "2px 6px", fontSize: 10, fontWeight: 600,
+              border: on ? "1.5px solid #1a1a1a" : "1px solid #ddd",
+              background: on ? "#1a1a1a" : "#fff", color: on ? "#fff" : "#888",
+              borderRadius: 3, cursor: "pointer" }
+          }, kv[1]);
+        })
+      )
+    ),
+    React.createElement("div", {
+      style: { minHeight: 18, padding: "2px 8px", fontSize: 10, color: "#555",
+        background: "#fafaf8", borderBottom: "1px solid #f0ede8", display: "flex", alignItems: "center", gap: 8 }
+    },
+      hovPt
+        ? React.createElement(React.Fragment, null,
+            React.createElement("span", { style: { fontWeight: 700 } }, hovPt.date.slice(5, 7) + "/" + hovPt.date.slice(8)),
+            React.createElement("span", null, React.createElement("span", { style: { fontWeight: 700, color: "#333" } }, fmtV(hovPt.value)))
+          )
+        : React.createElement("span", { style: { color: "#ccc" } }, "グラフにカーソルを合わせると詳細表示")
+    ),
+    React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("svg", {
+        width: W, height: H,
+        style: { display: "block", minWidth: W, cursor: "crosshair" },
+        onMouseMove: function(e) {
+          var rect = e.currentTarget.getBoundingClientRect();
+          var mx = e.clientX - rect.left;
+          if (mx < PL || mx > PL + cW) { setHovIdx(null); return; }
+          setHovIdx(Math.max(0, Math.min(n - 1, Math.round((mx - PL) / cW * (n - 1)))));
+        },
+        onMouseLeave: function() { setHovIdx(null); }
+      },
+        yTicks.map(function(tv, ti) {
+          var y = toY(tv);
+          return React.createElement("g", { key: ti },
+            React.createElement("line", { x1: PL, y1: y, x2: PL + cW, y2: y, stroke: "#f0ede8", strokeWidth: 1 }),
+            React.createElement("text", { x: PL - 4, y: y + 3, textAnchor: "end", fontSize: 8, fill: "#aaa" }, fmtV(tv))
+          );
+        }),
+        xLabels.map(function(xl) {
+          return React.createElement("g", { key: xl.i },
+            React.createElement("line", { x1: toX(xl.i), y1: PT + cH, x2: toX(xl.i), y2: PT + cH + 4, stroke: "#ddd", strokeWidth: 1 }),
+            React.createElement("text", { x: toX(xl.i), y: H - 2, textAnchor: "middle", fontSize: 8, fill: "#bbb" }, xl.label)
+          );
+        }),
+        React.createElement("defs", null,
+          React.createElement("linearGradient", { id: gradId, x1: "0", y1: "0", x2: "0", y2: "1" },
+            React.createElement("stop", { offset: "0%", stopColor: lineColor, stopOpacity: 0.15 }),
+            React.createElement("stop", { offset: "100%", stopColor: lineColor, stopOpacity: 0 })
+          )
+        ),
+        React.createElement("path", { d: areaPath, fill: "url(#" + gradId + ")", stroke: "none" }),
+        React.createElement("path", { d: linePath, fill: "none", stroke: lineColor, strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" }),
+        n <= 60 && points.map(function(p, i) {
+          return React.createElement("circle", {
+            key: i, cx: toX(i), cy: toY(p.value),
+            r: hovIdx === i ? 4 : 2, fill: lineColor, stroke: "#fff", strokeWidth: 1
+          });
+        }),
+        hovIdx !== null && React.createElement("g", null,
+          React.createElement("line", { x1: toX(hovIdx), y1: PT, x2: toX(hovIdx), y2: PT + cH, stroke: "#888", strokeWidth: 1, strokeDasharray: "3,2" }),
+          React.createElement("circle", { cx: toX(hovIdx), cy: toY(points[hovIdx].value), r: 4, fill: lineColor, stroke: "#fff", strokeWidth: 1.5 })
+        )
+      )
+    ),
+    React.createElement("div", {
+      style: { display: "flex", gap: 12, padding: "3px 8px 4px", borderTop: "1px solid #f0ede8",
+        fontSize: 10, color: "#666", flexWrap: "wrap", background: "#fafaf8" }
+    },
+      React.createElement("span", null, "最高: ", React.createElement("span", { style: { fontWeight: 700, color: "#DC2626" } }, fmtV(maxC))),
+      React.createElement("span", null, "最安: ", React.createElement("span", { style: { fontWeight: 700, color: "#16A34A" } }, fmtV(minC))),
+      React.createElement("span", null, "直近: ", React.createElement("span", { style: { fontWeight: 700, color: "#333" } }, fmtV(lastVal))),
+      React.createElement("span", { style: { color: "#aaa" } }, n + "日分")
+    )
+  );
+}
+
 // ── 外国市場: 早見表（数値・前日比一覧） ──
 function _FMHayamihyoTable(_p) {
   var foreignMarkets = _p.foreignMarkets, name = _p.name, type = _p.type,
@@ -13252,38 +13391,13 @@ function ForeignMarketTable(_p) {
                     }, "💬")
                   )
                 ),
-                // ── 下段: スパークライン 5日・22日・50日 ──
-                /*#__PURE__*/React.createElement("div", {
-                  style: { display: "flex", background: "#fafaf8" }
-                },
-                  /*#__PURE__*/React.createElement("div", {
-                    style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-                      padding: "3px 4px 5px", borderRight: "1px solid #f0ede8" }
-                  },
-                    /*#__PURE__*/React.createElement("div", {
-                      style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
-                    }, "5日"),
-                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sv5, dates: _dates5, w: 120, h: 52, yMin: _yr5.min, yMax: _yr5.max, variant: sparklineVariant })
-                  ),
-                  /*#__PURE__*/React.createElement("div", {
-                    style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-                      padding: "3px 4px 5px", borderRight: "1px solid #f0ede8" }
-                  },
-                    /*#__PURE__*/React.createElement("div", {
-                      style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
-                    }, "22日"),
-                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sv22, dates: _dates22, w: 120, h: 52, yMin: _yr22.min, yMax: _yr22.max, variant: sparklineVariant })
-                  ),
-                  /*#__PURE__*/React.createElement("div", {
-                    style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-                      padding: "3px 4px 5px" }
-                  },
-                    /*#__PURE__*/React.createElement("div", {
-                      style: { fontSize: 10, color: "#aaa", lineHeight: 1, marginBottom: 2 }
-                    }, "50日"),
-                    /*#__PURE__*/React.createElement(_FMSparkline, { values: _sv50, dates: _dates50, w: 120, h: 52, yMin: _yr50.min, yMax: _yr50.max, variant: sparklineVariant })
-                  )
-                ),
+                /*#__PURE__*/React.createElement(_FMPriceChart, {
+                  foreignMarkets: foreignMarkets,
+                  name: entry.name,
+                  type: type,
+                  currentDate: date,
+                  holidaySet: _fmHolidaySet
+                }),
                 // ── 早見表（インライン展開） ──
                 openHayamihyos[entry.id] && /*#__PURE__*/React.createElement("div", {
                   style: { borderTop: "1px solid #e0ddd6", background: "#f9f8f5" }
@@ -13344,27 +13458,12 @@ function ForeignMarketTable(_p) {
           background: "#F0F4FF", whiteSpace: "nowrap", lineHeight: 1 }
       }, "🔗 Google Financeで確認")
     ),
-    /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-      /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginRight: 2 } }, "グラフ"),
-      [1, 2, 3].map(function(v) {
-        return /*#__PURE__*/React.createElement("button", {
-          key: v,
-          onClick: function() { setVariant(v); },
-          title: v === 1 ? "エリア塗りつぶし" : v === 2 ? "ゼロライン基準" : "高安マーカー",
-          style: { fontSize: 11, padding: "3px 7px", cursor: "pointer", borderRadius: 4,
-            border: "1px solid " + (sparklineVariant === v ? "#4338CA" : "#ddd"),
-            background: sparklineVariant === v ? "#EEF2FF" : "#f5f4f0",
-            color: sparklineVariant === v ? "#4338CA" : "#666",
-            fontWeight: sparklineVariant === v ? 700 : 400 }
-        }, "案" + v);
-      }),
-      /*#__PURE__*/React.createElement("button", {
-        onClick: onOpenSettings,
-        title: "デフォルト設定",
-        style: { fontSize: 12, padding: "4px 10px", background: "#f5f4f0",
-          border: "1px solid #ddd", borderRadius: 5, cursor: "pointer", color: "#555", marginLeft: 4 }
-      }, "⚙️ 設定")
-    )
+    /*#__PURE__*/React.createElement("button", {
+      onClick: onOpenSettings,
+      title: "デフォルト設定",
+      style: { fontSize: 12, padding: "4px 10px", background: "#f5f4f0",
+        border: "1px solid #ddd", borderRadius: 5, cursor: "pointer", color: "#555" }
+    }, "⚙️ 設定")
   );
   // fmDay が null の間はtopBarのみ表示（useEffectで自動作成される）
   if (!fmDay) {
@@ -14106,8 +14205,40 @@ function EventsTab(_ref_evt) {
       date = _ref_evt.date,
       save = _ref_evt.save,
       allStocks = _ref_evt.allStocks,
-      custom = _ref_evt.custom;
+      custom = _ref_evt.custom,
+      data = _ref_evt.data;
   var events = getDayEvents(dd);
+  // 今週（月〜日）の日付配列
+  var weekDates = useMemo(function() {
+    var d = new Date(date + "T00:00:00");
+    var dow = d.getDay();
+    var diffToMon = dow === 0 ? -6 : 1 - dow;
+    var dates = [];
+    for (var i = 0; i < 7; i++) {
+      var cur = new Date(d);
+      cur.setDate(d.getDate() + diffToMon + i);
+      var y = cur.getFullYear();
+      var m = String(cur.getMonth() + 1).padStart(2, "0");
+      var day = String(cur.getDate()).padStart(2, "0");
+      dates.push(y + "-" + m + "-" + day);
+    }
+    return dates;
+  }, [date]);
+  // 今週のイベント一覧（全曜日）
+  var weekEvents = useMemo(function() {
+    if (!data) return [];
+    var result = [];
+    weekDates.forEach(function(d) {
+      var dayData = (data.trades && data.trades[d]) || {};
+      var dayEvs = Array.isArray(dayData.events) ? dayData.events : [];
+      dayEvs.forEach(function(ev) { result.push({ date: d, ev: ev }); });
+    });
+    result.sort(function(a, b) {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return (a.ev.startTime || "99:99").localeCompare(b.ev.startTime || "99:99");
+    });
+    return result;
+  }, [data, weekDates]);
   // イベントカテゴリ
   var eventCategories = (custom && Array.isArray(custom.eventCategories) && custom.eventCategories.length > 0)
     ? custom.eventCategories
@@ -14128,9 +14259,12 @@ function EventsTab(_ref_evt) {
       window.__snEditingGuard.canLeave(doClose);
     } else { doClose(); }
   }, "events-edit");
-  var openNew = function() {
+  var openNew = function(initialDate) {
+    var d = initialDate || date;
     setDraft({
       id: "new",
+      date: d,
+      originalDate: d,
       title: "",
       allDay: true,
       startTime: "",
@@ -14143,8 +14277,8 @@ function EventsTab(_ref_evt) {
     });
     setEditId("new");
   };
-  var openEdit = function(ev) {
-    // 既存の plain content を初期 HTML に変換 (改行を <br> 化)
+  var openEdit = function(ev, evDate) {
+    var d = evDate || date;
     var initHtml = ev.contentHtml || "";
     if (!initHtml && ev.content) {
       var t = ev.content;
@@ -14152,6 +14286,8 @@ function EventsTab(_ref_evt) {
     }
     setDraft({
       id: ev.id,
+      date: d,
+      originalDate: d,
       title: ev.title || "",
       allDay: ev.allDay !== false && !ev.startTime,
       startTime: ev.startTime || "",
@@ -14166,10 +14302,7 @@ function EventsTab(_ref_evt) {
   };
   var saveDraft = function() {
     if (!draft) return;
-    // FastInput の debounce 中の値を確実に拾うため、各 FastInput の commit を発火
     _fiFlushAll();
-    // commit (= setState) の new state は同フレームでは取れないため、
-    // DOM から直接タイトル等の最新値を読み取る (data-fi-key 経由)。
     var titleNow = draft.title;
     try {
       var inps = document.querySelectorAll("input[data-fi-key='evDraftTitle']");
@@ -14180,12 +14313,9 @@ function EventsTab(_ref_evt) {
     var clean = {
       id: (draft.id === "new") ? Date.now() : draft.id,
       title: (titleNow || "").trim(),
-      // 時刻が 1 つでも入っていれば allDay=false。両方空なら allDay=true (終日)
       allDay: !(draft.startTime || draft.endTime),
       startTime: draft.startTime || "",
       endTime: draft.endTime || "",
-      // 新規/編集ともに contentHtml を正とする。
-      // 旧 content は新規入力では空、既存編集時はそのまま残す (互換のため二重持ちは避ける)
       content: (draft.id === "new") ? "" : (hasHtml ? "" : (draft.content || "")),
       contentHtml: hasHtml ? html : "",
       endDate: (draft.endDate || "").trim(),
@@ -14193,22 +14323,30 @@ function EventsTab(_ref_evt) {
       categoryId: draft.categoryId || ""
     };
     if (!clean.title && !hasHtml && !clean.content) {
-      // 空のままなら作成しない
       setEditId(null); setDraft(null); return;
     }
+    var targetDate = (draft.date || "").trim() || date;
+    var origDate = (draft.originalDate || "").trim() || date;
     save(function(prevData) {
-      var prevDd = (prevData.trades && prevData.trades[date]) || {};
-      var prevEvents = Array.isArray(prevDd.events) ? prevDd.events : [];
-      var newEvents;
-      if (draft.id === "new") {
-        newEvents = prevEvents.concat([clean]);
-      } else {
-        newEvents = prevEvents.map(function(e) { return e.id === clean.id ? clean : e; });
+      var newTrades = Object.assign({}, prevData.trades || {});
+      // 日付変更時: 元の日付から削除
+      if (draft.id !== "new" && origDate !== targetDate) {
+        var origDd = newTrades[origDate] || {};
+        var origEvs = Array.isArray(origDd.events) ? origDd.events : [];
+        newTrades[origDate] = Object.assign({}, origDd, { events: origEvs.filter(function(e) { return e.id !== clean.id; }) });
       }
-      return _objectSpread(_objectSpread({}, prevData), {}, {
-        trades: _objectSpread(_objectSpread({}, prevData.trades), {}, _defineProperty({}, date,
-          _objectSpread(_objectSpread({}, prevDd), {}, { events: newEvents })))
-      });
+      var targetDd = newTrades[targetDate] || {};
+      var targetEvs = Array.isArray(targetDd.events) ? targetDd.events : [];
+      var newEvs;
+      if (draft.id === "new") {
+        newEvs = targetEvs.concat([clean]);
+      } else if (origDate === targetDate) {
+        newEvs = targetEvs.map(function(e) { return e.id === clean.id ? clean : e; });
+      } else {
+        newEvs = targetEvs.concat([clean]);
+      }
+      newTrades[targetDate] = Object.assign({}, targetDd, { events: newEvs });
+      return Object.assign({}, prevData, { trades: newTrades });
     });
     setEditId(null); setDraft(null);
   };
@@ -14240,7 +14378,60 @@ function EventsTab(_ref_evt) {
     if (ev.startTime) return ev.startTime + " ~";
     return "";
   };
+  var weekLabel = weekDates[0].slice(5).replace("-", "/") + " 〜 " + weekDates[6].slice(5).replace("-", "/");
   return /*#__PURE__*/React.createElement("div", null,
+    // 今週の予定
+    /*#__PURE__*/React.createElement("div", {
+      style: { marginBottom: 16, border: "1px solid #D1FAE5", borderRadius: 8, overflow: "hidden" }
+    },
+      /*#__PURE__*/React.createElement("div", {
+        style: { display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "8px 12px", background: "#ECFDF5", borderBottom: "1px solid #D1FAE5", flexWrap: "wrap", gap: 6 }
+      },
+        /*#__PURE__*/React.createElement("span", {
+          style: { fontSize: 13, fontWeight: 700, color: "#065F46" }
+        }, "📅 今週の予定 (", weekLabel, ")"),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: function() { openNew(date); },
+          style: { padding: "6px 12px", fontSize: 12, fontWeight: 700,
+            background: "#10B981", color: "#fff", border: "none",
+            borderRadius: 6, cursor: "pointer" }
+        }, "+ 予定を追加")
+      ),
+      weekEvents.length === 0
+        ? /*#__PURE__*/React.createElement("div", {
+            style: { padding: "12px 14px", textAlign: "center", color: "#aaa", fontSize: 12 }
+          }, "今週の予定はありません")
+        : /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexDirection: "column" } },
+            weekEvents.map(function(item, idx) {
+              var d = item.date, ev = item.ev;
+              var isToday = d === date;
+              var tr = fmtTimeRange(ev);
+              var dateLabel = d.slice(5).replace("-", "/") + "（" + DAYS_JP[new Date(d + "T00:00:00").getDay()] + "）";
+              var evColor = getEventColor(ev, eventCategories);
+              return /*#__PURE__*/React.createElement("div", {
+                key: d + "_" + ev.id,
+                onClick: function() { openEdit(ev, d); },
+                style: {
+                  display: "flex", alignItems: "stretch", gap: 8,
+                  padding: "8px 10px",
+                  background: isToday ? "#F0FDF4" : "#fff",
+                  borderTop: idx > 0 ? "1px solid #F0F0F0" : "none",
+                  cursor: "pointer"
+                }
+              },
+                /*#__PURE__*/React.createElement("div", {
+                  style: { width: 3, alignSelf: "stretch", background: evColor, borderRadius: 2, flexShrink: 0 }
+                }),
+                /*#__PURE__*/React.createElement("div", { style: { minWidth: 54, fontSize: 11, color: isToday ? "#065F46" : "#888", fontWeight: isToday ? 700 : 500, flexShrink: 0, paddingTop: 1 } }, dateLabel),
+                /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                  /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: "#1a1a1a", wordBreak: "break-word" } }, ev.title || "(無題)"),
+                  tr && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "#888", marginTop: 1 } }, "⏰ ", tr)
+                )
+              );
+            })
+          )
+    ),
     // ヘッダ + 追加ボタン
     /*#__PURE__*/React.createElement("div", {
       style: {
@@ -14385,6 +14576,19 @@ function EventsTab(_ref_evt) {
         /*#__PURE__*/React.createElement("div", {
           style: { padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }
         },
+          // 日付
+          /*#__PURE__*/React.createElement("div", null,
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "#888", fontWeight: 600, marginBottom: 4 } }, "日付"),
+            /*#__PURE__*/React.createElement("input", {
+              type: "date",
+              value: draft.date || date,
+              onChange: function(e) {
+                var v = e.target.value;
+                setDraft(function(p) { return _objectSpread(_objectSpread({}, p), {}, { date: v }); });
+              },
+              style: { fontSize: 14, padding: "6px 8px", border: "1px solid #ccc", borderRadius: 6 }
+            })
+          ),
           // タイトル
           /*#__PURE__*/React.createElement("div", null,
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "#888", fontWeight: 600, marginBottom: 4 } },
@@ -20169,7 +20373,8 @@ function DayView(_ref57) {
       date: date,
       save: save,
       allStocks: allStocks,
-      custom: custom
+      custom: custom,
+      data: data
     }),
     /*#__PURE__*/React.createElement("div", {
       style: { fontSize: 15, fontWeight: 700, color: "#1a1a1a", marginTop: 24, marginBottom: 8 }
