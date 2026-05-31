@@ -10575,8 +10575,17 @@ function EntrySignalSection(_ref_es) {
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
     var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
     var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-    var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-    var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
+    var pp = (function() {
+      var _stored = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+      if (c.alphaVal != null && s.osVal != null) {
+        var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+        var _diff = Number(s.osVal) - c.alphaVal;
+        var _dynP = _diff < 0 ? 0 : _diff >= 10 ? -Math.round(_diff * 100) : (_conf != null ? Math.round((c.alphaVal - _conf) * 100) : null);
+        if (_dynP != null) return _dynP;
+      }
+      return _stored;
+    })();
+    var mp = pp;
     var hp = (c.alphaVal != null && s.holdOsConf != null)
       ? (function() { var _avH = c.alphaVal; return Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100); })()
       : _elSignedVal(s.holdPnl, s.holdPnlSign);
