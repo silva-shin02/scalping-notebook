@@ -25834,8 +25834,8 @@ function EntryRecordForm(_ref_erf) {
                        textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { var n = _av != null ? _av : 0; if (n < 20) _saveAlpha(String(n + 1)); },
-              function() { var n = _av != null ? _av : 0; if (n > 0) _saveAlpha(String(n - 1)); }
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 0; if (_n >= 20) return prev; _ent.alphaVal = _n + 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 0; if (_n <= 0) return prev; _ent.alphaVal = _n - 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
             )
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
@@ -25854,8 +25854,8 @@ function EntryRecordForm(_ref_erf) {
               style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", width: 80, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { setFOsVal(String((Number(fOsVal)||0) + 1)); },
-              function() { setFOsVal(String(Math.max(0, (Number(fOsVal)||0) - 1))); }
+              function() { setFOsVal(function(v) { return String((Number(v)||0) + 1); }); },
+              function() { setFOsVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
             )
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
@@ -25939,8 +25939,8 @@ function EntryRecordForm(_ref_erf) {
               style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { setFEstWidthVal(String((Number(fEstWidthVal)||0) + 1)); },
-              function() { setFEstWidthVal(String(Math.max(0, (Number(fEstWidthVal)||0) - 1))); }
+              function() { setFEstWidthVal(function(v) { return String((Number(v)||0) + 1); }); },
+              function() { setFEstWidthVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
             )
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -26013,22 +26013,8 @@ function EntryRecordForm(_ref_erf) {
                 style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() {
-                  var _v = String((Number(fHoldWidthVal)||0) + 1);
-                  setFHoldWidthVal(_v);
-                  var _ck2 = fStock + "_" + fDate;
-                  var _cd2 = data.charts && data.charts[_ck2];
-                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : null;
-                  if (_av2 != null && fHoldWidthSign != null) { setFHoldOsConf(_av2 - (fHoldWidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0))); }
-                },
-                function() {
-                  var _v = String(Math.max(0, (Number(fHoldWidthVal)||0) - 1));
-                  setFHoldWidthVal(_v);
-                  var _ck2 = fStock + "_" + fDate;
-                  var _cd2 = data.charts && data.charts[_ck2];
-                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : null;
-                  if (_av2 != null && fHoldWidthSign != null) { setFHoldOsConf(_av2 - (fHoldWidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0))); }
-                }
+                function() { setFHoldWidthVal(function(v) { return String((Number(v)||0) + 1); }); },
+                function() { setFHoldWidthVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
               )
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
@@ -26058,8 +26044,8 @@ function EntryRecordForm(_ref_erf) {
                 style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { setFHoldHighVal(String((Number(fHoldHighVal)||0) + 1)); },
-                function() { setFHoldHighVal(String(Math.max(0, (Number(fHoldHighVal)||0) - 1))); }
+                function() { setFHoldHighVal(function(v) { return String((Number(v)||0) + 1); }); },
+                function() { setFHoldHighVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
               )
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -26200,8 +26186,8 @@ function EntryRecordForm(_ref_erf) {
                     style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
                   }),
                   _stepBtn(
-                    function() { setFPriceIn(String((parseFloat(fPriceIn)||0) + 1)); },
-                    function() { setFPriceIn(String(Math.max(0, (parseFloat(fPriceIn)||0) - 1))); }
+                    function() { setFPriceIn(function(v) { return String((parseFloat(v)||0) + 1); }); },
+                    function() { setFPriceIn(function(v) { return String(Math.max(0, (parseFloat(v)||0) - 1)); }); }
                   )
                 )
               ),
@@ -26223,8 +26209,8 @@ function EntryRecordForm(_ref_erf) {
                       style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }
                     }),
                     _stepBtn(
-                      function() { setFEntryOsVal(String((Number(fEntryOsVal)||0) + 1)); },
-                      function() { setFEntryOsVal(String(Math.max(0, (Number(fEntryOsVal)||0) - 1))); }
+                      function() { setFEntryOsVal(function(v) { return String((Number(v)||0) + 1); }); },
+                      function() { setFEntryOsVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
                     )
                   ),
                   React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
@@ -26241,8 +26227,8 @@ function EntryRecordForm(_ref_erf) {
                     style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
                   }),
                   _stepBtn(
-                    function() { setFPriceOut(String((parseFloat(fPriceOut)||0) + 1)); },
-                    function() { setFPriceOut(String(Math.max(0, (parseFloat(fPriceOut)||0) - 1))); }
+                    function() { setFPriceOut(function(v) { return String((parseFloat(v)||0) + 1); }); },
+                    function() { setFPriceOut(function(v) { return String(Math.max(0, (parseFloat(v)||0) - 1)); }); }
                   )
                 )
               ),
@@ -26264,8 +26250,8 @@ function EntryRecordForm(_ref_erf) {
                       style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }
                     }),
                     _stepBtn(
-                      function() { setFExitOsVal(String((Number(fExitOsVal)||0) + 1)); },
-                      function() { setFExitOsVal(String(Math.max(0, (Number(fExitOsVal)||0) - 1))); }
+                      function() { setFExitOsVal(function(v) { return String((Number(v)||0) + 1); }); },
+                      function() { setFExitOsVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
                     )
                   ),
                   React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
@@ -26291,8 +26277,8 @@ function EntryRecordForm(_ref_erf) {
                 style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }
               }),
               _stepBtn(
-                function() { setFReal(String((parseInt(fReal)||0) + 100)); },
-                function() { setFReal(String(Math.max(0, (parseInt(fReal)||0) - 100))); }
+                function() { setFReal(function(v) { return String((parseInt(v)||0) + 100); }); },
+                function() { setFReal(function(v) { return String(Math.max(0, (parseInt(v)||0) - 100)); }); }
               )
             ),
             React.createElement("span", { style: { alignSelf: "center", fontSize: 12, color: "#666" } }, "円")
@@ -27714,8 +27700,8 @@ function EntryLogView(_ref_elv) {
                   style: { width: 70, padding: "5px 6px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
                 }),
                 _stepBtn(
-                  function() { setSimAlphaStr(String((Number(simAlphaStr)||0) + 1)); },
-                  function() { setSimAlphaStr(String(Math.max(0, (Number(simAlphaStr)||0) - 1))); }
+                  function() { setSimAlphaStr(function(v) { return String((Number(v)||0) + 1); }); },
+                  function() { setSimAlphaStr(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
                 )
               ),
               React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -34995,8 +34981,8 @@ function StockHistoryView(_ref_shv) {
                      width: 72, textAlign: "right", boxSizing: "border-box" }
           }),
           _stepBtn(
-            function() { var n = _stkAlpha != null ? _stkAlpha : 0; if (n < 20) _saveAlpha(String(n + 1)); },
-            function() { var n = _stkAlpha != null ? _stkAlpha : 0; if (n > 0) _saveAlpha(String(n - 1)); }
+            function() { save(function(prev) { var _pc = prev.custom || {}; var _nm = Object.assign({}, _pc.stockDefaultAlpha || {}); var _n = _nm[selStock] != null ? _nm[selStock] : 0; if (_n >= 20) return prev; _nm[selStock] = _n + 1; return Object.assign({}, prev, { custom: Object.assign({}, _pc, { stockDefaultAlpha: _nm }) }); }); },
+            function() { save(function(prev) { var _pc = prev.custom || {}; var _nm = Object.assign({}, _pc.stockDefaultAlpha || {}); var _n = _nm[selStock] != null ? _nm[selStock] : 0; if (_n <= 0) return prev; _nm[selStock] = _n - 1; return Object.assign({}, prev, { custom: Object.assign({}, _pc, { stockDefaultAlpha: _nm }) }); }); }
           )
         ),
         React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円"),
