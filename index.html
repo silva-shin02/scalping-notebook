@@ -21305,7 +21305,136 @@ function DayView(_ref57) {
       var d = _pbAlphaByStk[sk];
       return d.minAlpha != null || d.tgtAlpha != null || d.maxAlpha != null;
     });
-    return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
+    // ── ホールド変動分析の事前計算（同IIFEスコープ内で実行） ──
+    var _haEl = (function() {
+      if (!_pbAllRecs.length) return null;
+      var _hpFmtHA = function(v) { if (v == null) return React.createElement("span",{style:{color:"#ccc"}},"—"); var col=v>0?"#C0392B":v<0?"#1E8449":"#888"; return React.createElement("span",{style:{fontWeight:700,color:col}},(v>0?"+":"")+v.toLocaleString()+"円"); };
+      var _hwFmtHA = function(v) { if (v == null) return React.createElement("span",{style:{color:"#ccc"}},"—"); var col=v>0?"#C0392B":v<0?"#1E8449":"#888"; return React.createElement("span",{style:{fontWeight:700,color:col}},(v>0?"+":Math.abs(v)===v?"+":"")+v+"円"); };
+      var _thHA = function(l,e){ return React.createElement("th",{style:Object.assign({padding:"4px 8px",fontWeight:700,borderBottom:"2px solid #ddd",whiteSpace:"nowrap",textAlign:"center",fontSize:10,color:"#555"},e||{})},l); };
+      var _tdHA = function(c,e){ return React.createElement("td",{style:Object.assign({padding:"4px 8px",textAlign:"center",fontSize:11,borderBottom:"1px solid #f0ede6"},e||{})},c); };
+      var _haRecs = _pbAllRecs.map(function(r) {
+        var s = r.signal;
+        var _aR = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock+"_"+date]; return _c&&_c.alphaVal!=null?_c.alphaVal:null; })();
+        var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+        if (_aR != null) {
+          var _hpCH = false;
+          if (s.holdHighSign==="-"&&s.holdHighVal!=null){var _hhEH=Number(s.holdHighVal)-_aR;if(_hhEH>=10){hp=-Math.round(_hhEH*100);_hpCH=true;}}
+          if (!_hpCH){if(s.holdOsConf!=null){hp=Math.round((_aR+(_aR-Number(s.holdOsConf)))*100);}else if(s.holdWidthSign!=null&&s.holdWidth!=null){hp=Math.round((_aR+(s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth)))*100);}}
+        }
+        var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+        if (_aR!=null&&s.osVal!=null){var _cfH=s.osConfVal!=null?(s.osConfSign==="-"?-(Number(s.osConfVal)):Number(s.osConfVal)):null;var _dfH=Number(s.osVal)-_aR;var _pxH=_dfH<0?0:_dfH>=10?-Math.round(_dfH*100):(_cfH!=null?Math.round((_aR-_cfH)*100):null);if(_pxH!=null)pp=_pxH;}
+        var _drH=(function(){if(_aR==null||s.osVal==null||Number(s.osVal)<=0)return null;var _dv=Number(s.osVal)-_aR;if(_dv<0)return"miss";if(_dv>=10)return"ng";if(s.osConfVal==null||s.osConfVal==="")return null;var _cf3=s.osConfSign==="+"?Number(s.osConfVal):s.osConfSign==="-"?-Number(s.osConfVal):0;return _cf3<_aR?"ok":_cf3===_aR?"draw":"ng";})();
+        var dispRH=_drH!==null?_drH:s.result;
+        var dynHpH=(function(){if(hp==null)return s.holdProfit;if(dispRH==="draw"){return hp>0?"yes":hp<0?"no":"none";}if(pp==null)return s.holdProfit;if(pp>0&&hp>0){return hp>pp?"yes":hp<pp?"mid":"none";}if(pp<0&&hp<0)return"no";if(pp>0&&hp<0)return"no";if(pp<0&&hp>0)return"yes";if(hp===0)return"none";return s.holdProfit;})();
+        var hw=null;
+        if(_aR!=null&&s.holdOsConf!=null){hw=_aR-Number(s.holdOsConf);}else if(s.holdWidthSign!=null&&s.holdWidth!=null){hw=s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth);}
+        return {s:s,stock:r.stock,hp:hp,pp:pp,dynHp:dynHpH,hw:hw,aR:_aR};
+      }).filter(function(h){return h.dynHp!=null||h.hp!=null;});
+      if (!_haRecs.length) return null;
+      var _hCatH={yes:[],mid:[],none:[],no:[]};
+      _haRecs.forEach(function(h){if(_hCatH[h.dynHp])_hCatH[h.dynHp].push(h);});
+      var _hTotalH=_haRecs.length;
+      var _avgH=function(arr,key){var vals=arr.map(function(h){return h[key];}).filter(function(v){return v!=null;});return vals.length?Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length):null;};
+      var _hwHasDataH=_haRecs.some(function(h){return h.hw!=null;});
+      // α値別期待値
+      var _hAlphaEVH=[];
+      for(var _haI=0;_haI<=20;_haI++){(function(_av2){var _hpA2=_pbAllRecs.map(function(r){var s=r.signal;var hp2=null;var _hpC4=false;if(s.holdHighSign==="-"&&s.holdHighVal!=null){var _hhE4=Number(s.holdHighVal)-_av2;if(_hhE4>=10){hp2=-Math.round(_hhE4*100);_hpC4=true;}}if(!_hpC4){if(s.holdOsConf!=null){hp2=Math.round((_av2+(_av2-Number(s.holdOsConf)))*100);}else if(s.holdWidthSign!=null&&s.holdWidth!=null){hp2=Math.round((_av2+(s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth)))*100);}}return hp2;}).filter(function(v){return v!=null;});if(_hpA2.length>0){_hAlphaEVH.push({alpha:_av2,ev:Math.round(_hpA2.reduce(function(a,b){return a+b;},0)/_hpA2.length),cnt:_hpA2.length});}})(_haI);}
+      // 銘柄別集計
+      var _hByStkH={};
+      _haRecs.forEach(function(h){if(!_hByStkH[h.stock])_hByStkH[h.stock]={yes:0,mid:0,none:0,no:0,hpArr:[],hwArr:[]};if(_hByStkH[h.stock][h.dynHp]!=null)_hByStkH[h.stock][h.dynHp]++;if(h.hp!=null)_hByStkH[h.stock].hpArr.push(h.hp);if(h.hw!=null)_hByStkH[h.stock].hwArr.push(h.hw);});
+      var _stkKeysH=Object.keys(_hByStkH).sort();
+      return React.createElement("div",{style:Object.assign({},Card,{marginTop:8})},
+        React.createElement("div",{style:{fontSize:13,fontWeight:700,marginBottom:10,color:"#333"}},"📐 ホールド変動分析"),
+        // ① 基本成績
+        React.createElement("div",{style:{marginBottom:14}},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールド成績"),
+          React.createElement("div",{style:{overflowX:"auto"}},
+            React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",fontSize:11}},
+              React.createElement("thead",null,React.createElement("tr",{style:{background:"#f5f4f0"}},_thHA("銘柄",{textAlign:"left"}),_thHA("件"),_thHA("○"),_thHA("△"),_thHA("ー"),_thHA("×"),_thHA("勝率"),_thHA("期待値"),_hwHasDataH?_thHA("avg変動幅"):null)),
+              React.createElement("tbody",null,
+                _stkKeysH.map(function(sk){
+                  var d=_hByStkH[sk];var tot=d.yes+d.mid+d.none+d.no;
+                  var winPct=tot>0?Math.round((d.yes+d.mid)/tot*100):null;
+                  var ev=d.hpArr.length?Math.round(d.hpArr.reduce(function(a,b){return a+b;},0)/d.hpArr.length):null;
+                  var hwAvg=d.hwArr.length?Math.round(d.hwArr.reduce(function(a,b){return a+b;},0)/d.hwArr.length*10)/10:null;
+                  var _cav=(function(){var _cc=_pbCharts[sk+"_"+date];return _cc&&_cc.alphaVal!=null?_cc.alphaVal:null;})();
+                  return React.createElement("tr",{key:sk},
+                    _tdHA(React.createElement("span",{style:{fontWeight:700,color:"#9A3412"}},sk,_cav!=null?React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#0369A1",marginLeft:4}},"α:"+_cav+"円"):null),{textAlign:"left",whiteSpace:"nowrap"}),
+                    _tdHA(tot),
+                    _tdHA(React.createElement("span",{style:{color:"#1E8449",fontWeight:d.yes?700:400}},d.yes||0)),
+                    _tdHA(React.createElement("span",{style:{color:"#B45309",fontWeight:d.mid?700:400}},d.mid||0)),
+                    _tdHA(React.createElement("span",{style:{color:"#888"}},d.none||0)),
+                    _tdHA(React.createElement("span",{style:{color:"#C0392B",fontWeight:d.no?700:400}},d.no||0)),
+                    _tdHA(winPct!=null?React.createElement("span",{style:{color:winPct>=50?"#C0392B":"#1E8449",fontWeight:700}},winPct+"%"):React.createElement("span",{style:{color:"#ccc"}},"—")),
+                    _tdHA(_hpFmtHA(ev)),
+                    _hwHasDataH?_tdHA(hwAvg!=null?_hwFmtHA(hwAvg):React.createElement("span",{style:{color:"#ccc"}},"—")):null
+                  );
+                }).concat([React.createElement("tr",{key:"__tot__",style:{background:"#f5f4f0",fontWeight:700}},
+                  _tdHA(React.createElement("span",{style:{fontWeight:700,color:"#555"}},"合計"),{textAlign:"left"}),
+                  _tdHA(_hTotalH),
+                  _tdHA(React.createElement("span",{style:{color:"#1E8449",fontWeight:700}},_hCatH.yes.length)),
+                  _tdHA(React.createElement("span",{style:{color:"#B45309",fontWeight:700}},_hCatH.mid.length)),
+                  _tdHA(React.createElement("span",{style:{color:"#888"}},_hCatH.none.length)),
+                  _tdHA(React.createElement("span",{style:{color:"#C0392B",fontWeight:700}},_hCatH.no.length)),
+                  _tdHA((function(){var t=_hCatH.yes.length+_hCatH.mid.length+_hCatH.none.length+_hCatH.no.length;return t>0?React.createElement("span",{style:{color:Math.round((_hCatH.yes.length+_hCatH.mid.length)/t*100)>=50?"#C0392B":"#1E8449",fontWeight:700}},Math.round((_hCatH.yes.length+_hCatH.mid.length)/t*100)+"%"):React.createElement("span",{style:{color:"#ccc"}},"—");})()),
+                  _tdHA(_hpFmtHA(_avgH(_haRecs,"hp"))),
+                  _hwHasDataH?_tdHA(_avgH(_haRecs,"hw")!=null?_hwFmtHA(_avgH(_haRecs,"hw")):React.createElement("span",{style:{color:"#ccc"}},"—")):null
+                )])
+              )
+            )
+          )
+        ),
+        // ② 変動幅分析
+        _hwHasDataH?React.createElement("div",{style:{marginBottom:14}},
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"変動幅分析（確定値基準）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"正＝有利方向（下落） 負＝不利方向（上昇）")),
+          React.createElement("div",{style:{overflowX:"auto"}},
+            React.createElement("table",{style:{borderCollapse:"collapse",fontSize:11}},
+              React.createElement("thead",null,React.createElement("tr",{style:{background:"#f5f4f0"}},_thHA("区分",{textAlign:"left"}),_thHA("件"),_thHA("平均変動幅"),_thHA("中央値"),_thHA("最大(有利)"),_thHA("最大(不利)"))),
+              React.createElement("tbody",null,
+                [{key:"yes",label:"○ 完全利益",col:"#1E8449"},{key:"mid",label:"△ 部分利益",col:"#B45309"},{key:"none",label:"ー 変化なし",col:"#888"},{key:"no",label:"× 損失",col:"#C0392B"},{key:"__all__",label:"全体",col:"#333"}].map(function(row){
+                  var arr=row.key==="__all__"?_haRecs:_hCatH[row.key];
+                  var hwArr=arr.map(function(h){return h.hw;}).filter(function(v){return v!=null;});
+                  if(!hwArr.length)return null;
+                  var avg3=Math.round(hwArr.reduce(function(a,b){return a+b;},0)/hwArr.length*10)/10;
+                  var sorted3=hwArr.slice().sort(function(a,b){return a-b;});var m3=Math.floor(sorted3.length/2);
+                  var med3=sorted3.length%2?sorted3[m3]:Math.round((sorted3[m3-1]+sorted3[m3])/2*10)/10;
+                  var maxFav3=Math.max.apply(null,hwArr);var maxAdv3=Math.min.apply(null,hwArr);
+                  return React.createElement("tr",{key:row.key,style:row.key==="__all__"?{background:"#f5f4f0",fontWeight:700}:{}},
+                    _tdHA(React.createElement("span",{style:{color:row.col,fontWeight:700}},row.label),{textAlign:"left",whiteSpace:"nowrap"}),
+                    _tdHA(hwArr.length),_tdHA(_hwFmtHA(avg3)),_tdHA(_hwFmtHA(med3)),
+                    _tdHA(React.createElement("span",{style:{color:"#C0392B",fontWeight:maxFav3>0?700:400}},(maxFav3>0?"+":"")+maxFav3+"円")),
+                    _tdHA(React.createElement("span",{style:{color:"#1E8449",fontWeight:maxAdv3<0?700:400}},(maxAdv3>0?"+":"")+maxAdv3+"円"))
+                  );
+                }).filter(Boolean)
+              )
+            )
+          )
+        ):null,
+        // ③ α値別ホールド期待値バーグラフ
+        _hAlphaEVH.length>0?React.createElement("div",null,
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"α値別ホールド期待値"),
+          React.createElement("div",{style:{overflowX:"auto"}},
+            React.createElement("div",{style:{display:"flex",gap:4,alignItems:"flex-end",flexWrap:"wrap",padding:"4px 0"}},
+              (function(){
+                var maxEvH=Math.max.apply(null,_hAlphaEVH.map(function(d){return Math.abs(d.ev)||0;}));
+                return _hAlphaEVH.map(function(d){
+                  var barH=maxEvH>0?Math.round(Math.abs(d.ev)/maxEvH*48):4;
+                  var isPos=d.ev>=0;var col=isPos?"#C0392B":"#1E8449";
+                  var isCur=(pbSimAlpha!==null&&pbSimAlpha===d.alpha)||(pbSimAlpha===null&&_pbStks.some(function(sk){var _cc2=_pbCharts[sk+"_"+date];return _cc2&&_cc2.alphaVal===d.alpha;}));
+                  return React.createElement("div",{key:d.alpha,style:{display:"flex",flexDirection:"column",alignItems:"center",gap:2,minWidth:28}},
+                    React.createElement("span",{style:{fontSize:9,fontWeight:700,color:col,whiteSpace:"nowrap"}},(d.ev>0?"+":"")+d.ev+"円"),
+                    React.createElement("div",{style:{width:22,height:barH||4,background:isPos?"#FEE2E2":"#D1FAE5",border:"1.5px solid "+col,borderRadius:2,boxSizing:"border-box",outline:isCur?"2px solid #0369A1":"none"}}),
+                    React.createElement("span",{style:{fontSize:9,color:isCur?"#0369A1":"#888",fontWeight:isCur?700:400}},d.alpha+"円")
+                  );
+                });
+              })()
+            )
+          ),
+          React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:4}},"※ 青枠＝現在のα値 / 棒＝期待値の相対比較")
+        ):null
+      );
+    })();
+    var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
       _pbGradeLegend,
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 10px", background: "#FFF7ED", borderRadius: 6, border: "1px solid #FFE0BB", flexWrap: "wrap" } },
@@ -21441,6 +21570,7 @@ function DayView(_ref57) {
         )
       )
     );
+    return React.createElement(React.Fragment, null, _pbMainEl, _haEl);
   })(),
   /*#__PURE__*/React.createElement("div", {
     style: Card
