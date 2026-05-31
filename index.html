@@ -25520,6 +25520,24 @@ function EntryRecordForm(_ref_erf) {
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
   }, [fStock, fDate, data, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal]);
 
+  // ── 損益変化（holdProfit）を自動選択 ──
+  useEffect(function() {
+    var sHold = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
+    var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
+    if (sHold === 0 || sPlan === 0) return;
+    if (sPlan > 0 && sHold > 0) {
+      if (sHold > sPlan) setFHoldProfit("yes");
+      else if (sHold < sPlan) setFHoldProfit("mid");
+      else setFHoldProfit("none");
+    } else if (sPlan < 0 && sHold < 0) {
+      setFHoldProfit("no");
+    } else if (sPlan > 0 && sHold < 0) {
+      setFHoldProfit("no");
+    } else if (sPlan < 0 && sHold > 0) {
+      setFHoldProfit("yes");
+    }
+  }, [fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign]);
+
   // 取引候補
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
 
@@ -26005,7 +26023,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
             React.createElement("div", { style: { display: "flex", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失+", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
                 var on = fHoldProfit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
