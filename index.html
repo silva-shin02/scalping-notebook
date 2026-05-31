@@ -10982,30 +10982,7 @@ function EntrySignalSection(_ref_es) {
             var entered = _elIsEntered(s, rIt);
             var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
             var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
-            var holdResultEl = s.holdProfit === "yes"
-              ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
-              : s.holdProfit === "mid"
-                ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
-                : s.holdProfit === "none"
-                  ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
-                  : s.holdProfit === "no"
-                    ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
-                    : React.createElement("span", { style: { color: "#ccc" } }, "—");
-            var entLabel = entered
-              ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
-              : React.createElement("span", { style: { color: "#888" } }, "見送り");
-            var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
-            var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
-            if (grpLabel !== null && grpLabel !== prevGrpLabel) {
-              prevGrpLabel = grpLabel;
-              dataRows.push(
-                React.createElement("tr", { key: "__grp__" + grpLabel },
-                  React.createElement("td", { colSpan: isCustomMode ? 13 : 12, style: { padding: "3px 10px", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", borderBottom: "1px solid #f0ede6" } },
-                    "🏷 " + grpLabel
-                  )
-                )
-              );
-            }
+            // _dynResult はholdProfit動的計算にも使うため先に計算
             var _dynResult = (function() {
               if (c.alphaVal == null || s.osVal == null || Number(s.osVal) <= 0) return null;
               var _av = c.alphaVal, _osV = Number(s.osVal), _diff = _osV - _av;
@@ -11018,6 +10995,33 @@ function EntrySignalSection(_ref_es) {
               return "ng";
             })();
             var _dispResult = _dynResult !== null ? _dynResult : s.result;
+            // ホールド勝敗を動的計算（α値による holdPnl・planPnl の変化に追従）
+            var _dynHoldProfitES = (function() {
+              var hp = _holdPnlDyn, pp = planPnlN;
+              if (hp == null) return s.holdProfit;
+              if (_dispResult === "draw") { return hp > 0 ? "yes" : hp < 0 ? "no" : "none"; }
+              if (pp == null) return s.holdProfit;
+              if (pp > 0 && hp > 0) { return hp > pp ? "yes" : hp < pp ? "mid" : "none"; }
+              if (pp < 0 && hp < 0) return "no";
+              if (pp > 0 && hp < 0) return "no";
+              if (pp < 0 && hp > 0) return "yes";
+              if (hp === 0) return "none";
+              return s.holdProfit;
+            })();
+            var holdResultEl = _dynHoldProfitES === "yes"
+              ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
+              : _dynHoldProfitES === "mid"
+                ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
+                : _dynHoldProfitES === "none"
+                  ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
+                  : _dynHoldProfitES === "no"
+                    ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
+                    : React.createElement("span", { style: { color: "#ccc" } }, "—");
+            var entLabel = entered
+              ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
+              : React.createElement("span", { style: { color: "#888" } }, "見送り");
+            var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+            var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
             var resultEl = _dispResult === "ok"
               ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "○")
               : _dispResult === "ng"
@@ -20950,10 +20954,22 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
             (function() {
               var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
-              var _sym = s.holdProfit === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
-                : s.holdProfit === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
-                : s.holdProfit === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
-                : s.holdProfit === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
+              var _dynHpExp = (function() {
+                var hp = holdPnl, pp = planPnl;
+                if (hp == null) return s.holdProfit;
+                if (_dispResExp === "draw") { return hp > 0 ? "yes" : hp < 0 ? "no" : "none"; }
+                if (pp == null) return s.holdProfit;
+                if (pp > 0 && hp > 0) { return hp > pp ? "yes" : hp < pp ? "mid" : "none"; }
+                if (pp < 0 && hp < 0) return "no";
+                if (pp > 0 && hp < 0) return "no";
+                if (pp < 0 && hp > 0) return "yes";
+                if (hp === 0) return "none";
+                return s.holdProfit;
+              })();
+              var _sym = _dynHpExp === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
+                : _dynHpExp === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
+                : _dynHpExp === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
+                : _dynHpExp === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
               if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
             })())
