@@ -21442,6 +21442,209 @@ function DayView(_ref57) {
       )
     );
   })(),
+  // ── ホールド変動分析 ──
+  (function() {
+    if (!_pbAllRecs || !_pbAllRecs.length) return null;
+    // hold データを持つレコードのみ抽出し動的α値で再計算
+    var _haRecs = _pbAllRecs.map(function(r) {
+      var s = r.signal;
+      var _aR = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
+      // dynamic holdPnl
+      var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+      if (_aR != null) {
+        var _hpC2 = false;
+        if (s.holdHighSign === "-" && s.holdHighVal != null) { var _hhE2 = Number(s.holdHighVal) - _aR; if (_hhE2 >= 10) { hp = -Math.round(_hhE2 * 100); _hpC2 = true; } }
+        if (!_hpC2) {
+          if (s.holdOsConf != null) { hp = Math.round((_aR + (_aR - Number(s.holdOsConf))) * 100); }
+          else if (s.holdWidthSign != null && s.holdWidth != null) { hp = Math.round((_aR + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); }
+        }
+      }
+      // dynamic planPnl
+      var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+      if (_aR != null && s.osVal != null) {
+        var _cfX = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+        var _dfX = Number(s.osVal) - _aR;
+        var _pX = _dfX < 0 ? 0 : _dfX >= 10 ? -Math.round(_dfX * 100) : (_cfX != null ? Math.round((_aR - _cfX) * 100) : null);
+        if (_pX != null) pp = _pX;
+      }
+      // dynamic result
+      var _drX = (function() {
+        if (_aR == null || s.osVal == null || Number(s.osVal) <= 0) return null;
+        var _dv = Number(s.osVal) - _aR;
+        if (_dv < 0) return "miss"; if (_dv >= 10) return "ng";
+        if (s.osConfVal == null || s.osConfVal === "") return null;
+        var _cf2 = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
+        return _cf2 < _aR ? "ok" : _cf2 === _aR ? "draw" : "ng";
+      })();
+      var dispR = _drX !== null ? _drX : s.result;
+      // dynamic holdProfit
+      var dynHp = (function() {
+        if (hp == null) return s.holdProfit;
+        if (dispR === "draw") { return hp > 0 ? "yes" : hp < 0 ? "no" : "none"; }
+        if (pp == null) return s.holdProfit;
+        if (pp > 0 && hp > 0) { return hp > pp ? "yes" : hp < pp ? "mid" : "none"; }
+        if (pp < 0 && hp < 0) return "no"; if (pp > 0 && hp < 0) return "no"; if (pp < 0 && hp > 0) return "yes";
+        if (hp === 0) return "none"; return s.holdProfit;
+      })();
+      // holdWidth符号付き（正=有利方向、負=不利方向）
+      var hw = null;
+      if (_aR != null && s.holdOsConf != null) { hw = _aR - Number(s.holdOsConf); }
+      else if (s.holdWidthSign != null && s.holdWidth != null) { hw = s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth); }
+      return { s: s, stock: r.stock, hp: hp, pp: pp, dynHp: dynHp, hw: hw, aR: _aR };
+    }).filter(function(h) { return h.dynHp != null || h.hp != null; });
+    if (!_haRecs.length) return null;
+    // カテゴリ別集計
+    var _hCat = { yes: [], mid: [], none: [], no: [] };
+    _haRecs.forEach(function(h) { if (_hCat[h.dynHp]) _hCat[h.dynHp].push(h); });
+    var _hTotal = _haRecs.length;
+    var _avg = function(arr, key) {
+      var vals = arr.map(function(h){ return h[key]; }).filter(function(v){ return v != null; });
+      return vals.length ? Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length) : null;
+    };
+    var _median = function(arr, key) {
+      var vals = arr.map(function(h){ return h[key]; }).filter(function(v){ return v != null; }).slice().sort(function(a,b){return a-b;});
+      if (!vals.length) return null;
+      var m = Math.floor(vals.length/2);
+      return vals.length%2 ? vals[m] : Math.round((vals[m-1]+vals[m])/2*10)/10;
+    };
+    var _pct = function(n) { return _hTotal > 0 ? Math.round(n/_hTotal*100) : 0; };
+    var _hpFmt = function(v) { if (v == null) return React.createElement("span",{style:{color:"#ccc"}},"—"); var col=v>0?"#C0392B":v<0?"#1E8449":"#888"; return React.createElement("span",{style:{fontWeight:700,color:col}},(v>0?"+":"")+v.toLocaleString()+"円"); };
+    var _hwFmt = function(v) { if (v == null) return React.createElement("span",{style:{color:"#ccc"}},"—"); var col=v>0?"#C0392B":v<0?"#1E8449":"#888"; return React.createElement("span",{style:{fontWeight:700,color:col}},(v>0?"+":"")+v+"円"); };
+    // 期待値
+    var _hEV = _avg(_haRecs, "hp");
+    // α値別ホールド期待値（0〜20）
+    var _hAlphaEV = [];
+    for (var _ha2=0; _ha2<=20; _ha2++) {
+      var _haVal2 = _ha2;
+      var _hpArr2 = _pbAllRecs.map(function(r){ var s=r.signal; var hp2=null; var _hpC3=false;
+        if(s.holdHighSign==="-"&&s.holdHighVal!=null){var _hhE3=Number(s.holdHighVal)-_haVal2;if(_hhE3>=10){hp2=-Math.round(_hhE3*100);_hpC3=true;}}
+        if(!_hpC3){if(s.holdOsConf!=null){hp2=Math.round((_haVal2+(_haVal2-Number(s.holdOsConf)))*100);}else if(s.holdWidthSign!=null&&s.holdWidth!=null){var _hwV2=s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth);hp2=Math.round((_haVal2+_hwV2)*100);}}
+        return hp2;
+      }).filter(function(v){return v!=null;});
+      if (_hpArr2.length > 0) { var _evV=Math.round(_hpArr2.reduce(function(a,b){return a+b;},0)/_hpArr2.length); _hAlphaEV.push({alpha:_haVal2,ev:_evV,cnt:_hpArr2.length}); }
+    }
+    // 銘柄別集計
+    var _hByStk = {};
+    _haRecs.forEach(function(h) { if(!_hByStk[h.stock])_hByStk[h.stock]={yes:0,mid:0,none:0,no:0,hpArr:[],hwArr:[]}; if(_hByStk[h.stock][h.dynHp]!=null)_hByStk[h.stock][h.dynHp]++; if(h.hp!=null)_hByStk[h.stock].hpArr.push(h.hp); if(h.hw!=null)_hByStk[h.stock].hwArr.push(h.hw); });
+    var _stkKeys = Object.keys(_hByStk).sort();
+    var _symEl = function(hp) { return hp==="yes"?React.createElement("span",{style:{color:"#1E8449",fontWeight:700}},"○"):hp==="mid"?React.createElement("span",{style:{color:"#B45309",fontWeight:700}},"△"):hp==="none"?React.createElement("span",{style:{color:"#888",fontWeight:700}},"ー"):hp==="no"?React.createElement("span",{style:{color:"#C0392B",fontWeight:700}},"×"):null; };
+    var _th = function(label,extra){ return React.createElement("th",{style:Object.assign({padding:"4px 8px",fontWeight:700,borderBottom:"2px solid #ddd",whiteSpace:"nowrap",textAlign:"center",fontSize:10,color:"#555"},extra||{})},label); };
+    var _td = function(content,extra){ return React.createElement("td",{style:Object.assign({padding:"4px 8px",textAlign:"center",fontSize:11,borderBottom:"1px solid #f0ede6"},extra||{})},content); };
+    // holdWidthの有効データあり？
+    var _hwHasData = _haRecs.some(function(h){ return h.hw != null; });
+    return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 8 }) },
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 10, color: "#333" } }, "📐 ホールド変動分析"),
+      // ① 基本成績サマリー
+      React.createElement("div", { style: { marginBottom: 14 } },
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 6, borderBottom: "1px solid #e0ddd6", paddingBottom: 4 } }, "ホールド成績"),
+        React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+            React.createElement("thead", null,
+              React.createElement("tr", { style: { background: "#f5f4f0" } },
+                _th("", { textAlign: "left", width: "1%" }),
+                _th("銘柄", { textAlign: "left" }),
+                _th("件"),_th("○"),_th("△"),_th("ー"),_th("×"),_th("勝率"),_th("期待値"),_th("avg変動幅")
+              )
+            ),
+            React.createElement("tbody", null,
+              _stkKeys.map(function(sk) {
+                var d = _hByStk[sk]; var tot=d.yes+d.mid+d.none+d.no;
+                var winPct=tot>0?Math.round((d.yes+d.mid)/tot*100):null;
+                var ev=d.hpArr.length?Math.round(d.hpArr.reduce(function(a,b){return a+b;},0)/d.hpArr.length):null;
+                var hwAvg=d.hwArr.length?Math.round(d.hwArr.reduce(function(a,b){return a+b;},0)/d.hwArr.length*10)/10:null;
+                return React.createElement("tr",{key:sk},
+                  _td(React.createElement("span",{style:{fontSize:9,color:"#F97316"}},"▶"),{textAlign:"center"}),
+                  _td(React.createElement("span",{style:{fontWeight:700,color:"#9A3412"}},[sk,React.createElement("div",{key:"a",style:{fontSize:9,fontWeight:400,color:"#0369A1"}},(function(){var _c=_pbCharts[sk+"_"+date];var _av=_c&&_c.alphaVal!=null?_c.alphaVal:null;return _av!=null?"α:"+_av+"円":"";})()])]),{textAlign:"left"}),
+                  _td(tot),
+                  _td(d.yes||0,{color:"#1E8449",fontWeight:d.yes?700:400}),
+                  _td(d.mid||0,{color:"#B45309",fontWeight:d.mid?700:400}),
+                  _td(d.none||0,{color:"#888"}),
+                  _td(d.no||0,{color:"#C0392B",fontWeight:d.no?700:400}),
+                  _td(winPct!=null?React.createElement("span",{style:{color:winPct>=50?"#C0392B":"#1E8449",fontWeight:700}},winPct+"%"):React.createElement("span",{style:{color:"#ccc"}},"—")),
+                  _td(_hpFmt(ev)),
+                  _td(_hwHasData&&hwAvg!=null?_hwFmt(hwAvg):React.createElement("span",{style:{color:"#ccc"}},"—"))
+                );
+              }).concat([React.createElement("tr",{key:"__tot__",style:{background:"#f5f4f0",fontWeight:700}},
+                _td("",{textAlign:"center"}),
+                _td(React.createElement("span",{style:{fontWeight:700,color:"#555"}},"合計"),{textAlign:"left"}),
+                _td(_hTotal),
+                _td(React.createElement("span",{style:{color:"#1E8449",fontWeight:700}},_hCat.yes.length||0)),
+                _td(React.createElement("span",{style:{color:"#B45309",fontWeight:700}},_hCat.mid.length||0)),
+                _td(React.createElement("span",{style:{color:"#888"}},_hCat.none.length||0)),
+                _td(React.createElement("span",{style:{color:"#C0392B",fontWeight:700}},_hCat.no.length||0)),
+                _td((function(){var t=_hCat.yes.length+_hCat.mid.length+_hCat.none.length+_hCat.no.length;return t>0?React.createElement("span",{style:{color:Math.round((_hCat.yes.length+_hCat.mid.length)/t*100)>=50?"#C0392B":"#1E8449",fontWeight:700}},Math.round((_hCat.yes.length+_hCat.mid.length)/t*100)+"%"):React.createElement("span",{style:{color:"#ccc"}},"—");})()),
+                _td(_hpFmt(_hEV)),
+                _td(_hwHasData&&_avg(_haRecs,"hw")!=null?_hwFmt(_avg(_haRecs,"hw")):React.createElement("span",{style:{color:"#ccc"}},"—"))
+              )])
+            )
+          )
+        )
+      ),
+      // ② 変動幅詳細（holdWidthデータがある場合のみ）
+      _hwHasData ? React.createElement("div", { style: { marginBottom: 14 } },
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 6, borderBottom: "1px solid #e0ddd6", paddingBottom: 4 } }, "変動幅分析（確定値基準）",
+          React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"正＝有利方向（下落）、負＝不利方向（上昇）")),
+        React.createElement("div",{style:{overflowX:"auto"}},
+          React.createElement("table",{style:{borderCollapse:"collapse",fontSize:11}},
+            React.createElement("thead",null,
+              React.createElement("tr",{style:{background:"#f5f4f0"}},
+                _th("区分",{textAlign:"left"}),_th("件"),_th("平均変動幅"),_th("中央値"),_th("最大(有利)"),_th("最大(不利)")
+              )
+            ),
+            React.createElement("tbody",null,
+              [
+                {key:"yes",label:"○ 完全利益",col:"#1E8449"},
+                {key:"mid",label:"△ 部分利益",col:"#B45309"},
+                {key:"none",label:"ー 変化なし",col:"#888"},
+                {key:"no",label:"× 損失",col:"#C0392B"},
+                {key:"__all__",label:"全体",col:"#333"}
+              ].map(function(row) {
+                var arr = row.key==="__all__" ? _haRecs : _hCat[row.key];
+                var hwArr=arr.map(function(h){return h.hw;}).filter(function(v){return v!=null;});
+                if(!hwArr.length) return null;
+                var avg2=Math.round(hwArr.reduce(function(a,b){return a+b;},0)/hwArr.length*10)/10;
+                var sorted=hwArr.slice().sort(function(a,b){return a-b;});
+                var m=Math.floor(sorted.length/2);
+                var med2=sorted.length%2?sorted[m]:Math.round((sorted[m-1]+sorted[m])/2*10)/10;
+                var maxFav=Math.max.apply(null,hwArr); var maxAdv=Math.min.apply(null,hwArr);
+                return React.createElement("tr",{key:row.key,style:row.key==="__all__"?{background:"#f5f4f0",fontWeight:700}:{}},
+                  _td(React.createElement("span",{style:{color:row.col,fontWeight:700}},row.label),{textAlign:"left",whiteSpace:"nowrap"}),
+                  _td(hwArr.length),
+                  _td(_hwFmt(avg2)),
+                  _td(_hwFmt(med2)),
+                  _td(React.createElement("span",{style:{color:"#C0392B",fontWeight:maxFav>0?700:400}},(maxFav>0?"+":"")+maxFav+"円")),
+                  _td(React.createElement("span",{style:{color:"#1E8449",fontWeight:maxAdv<0?700:400}},(maxAdv>0?"+":"")+maxAdv+"円"))
+                );
+              }).filter(Boolean)
+            )
+          )
+        )
+      ) : null,
+      // ③ α値別ホールド期待値
+      _hAlphaEV.length > 0 ? React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"α値別ホールド期待値"),
+        React.createElement("div",{style:{overflowX:"auto"}},
+          React.createElement("div",{style:{display:"flex",gap:4,alignItems:"flex-end",flexWrap:"wrap",padding:"4px 0"}},
+            (function(){
+              var evs=_hAlphaEV.map(function(d){return d.ev;});
+              var maxEv=Math.max.apply(null,evs.map(function(v){return Math.abs(v)||0}));
+              return _hAlphaEV.map(function(d){
+                var barH=maxEv>0?Math.round(Math.abs(d.ev)/maxEv*48):4;
+                var isPos=d.ev>=0; var col=isPos?"#C0392B":"#1E8449";
+                var isCur=(pbSimAlpha!==null&&pbSimAlpha===d.alpha)||(pbSimAlpha===null&&_pbStks.some(function(sk){var _c=_pbCharts[sk+"_"+date];return _c&&_c.alphaVal===d.alpha;}));
+                return React.createElement("div",{key:d.alpha,style:{display:"flex",flexDirection:"column",alignItems:"center",gap:2,minWidth:28}},
+                  React.createElement("span",{style:{fontSize:9,fontWeight:700,color:col,whiteSpace:"nowrap"}},(d.ev>0?"+":"")+d.ev+"円"),
+                  React.createElement("div",{style:{width:22,height:barH||4,background:isPos?"#FEE2E2":"#D1FAE5",border:"1.5px solid "+col,borderRadius:2,boxSizing:"border-box",outline:isCur?"2px solid #0369A1":"none"}}),
+                  React.createElement("span",{style:{fontSize:9,color:isCur?"#0369A1":"#888",fontWeight:isCur?700:400}},d.alpha+"円")
+                );
+              });
+            })()
+          )
+        ),
+        React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:4}},"※ 青枠＝現在設定中のα値 / 棒グラフ高さ＝期待値の相対比較（件数："+_hAlphaEV.reduce(function(a,d){return Math.max(a,d.cnt);},0)+"件max）")
+      ) : null
+    );
+  })(),
   /*#__PURE__*/React.createElement("div", {
     style: Card
   },
