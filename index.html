@@ -21444,11 +21444,25 @@ function DayView(_ref57) {
   })(),
   // ── ホールド変動分析 ──
   (function() {
-    if (!_pbAllRecs || !_pbAllRecs.length) return null;
+    // ※ _pbAllRecs はスコープ外のため data.charts から再構築
+    var _haCharts = data.charts || {};
+    var _haItems = dd.items || [];
+    var _haAllRecs = [];
+    allStocks.forEach(function(stk) {
+      var _haCht = _haCharts[stk + "_" + date] || {};
+      var _haSigs = Array.isArray(_haCht.signals) ? _haCht.signals : [];
+      _haSigs.forEach(function(sig) {
+        var s = _compatSignal(sig);
+        var item = null;
+        if (s.itemId != null) { for (var _haii = 0; _haii < _haItems.length; _haii++) { if (String(_haItems[_haii].id) === String(s.itemId)) { item = _haItems[_haii]; break; } } }
+        _haAllRecs.push({ date: date, stock: stk, signal: s, item: item });
+      });
+    });
+    if (!_haAllRecs.length) return null;
     // hold データを持つレコードのみ抽出し動的α値で再計算
-    var _haRecs = _pbAllRecs.map(function(r) {
+    var _haRecs = _haAllRecs.map(function(r) {
       var s = r.signal;
-      var _aR = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
+      var _aR = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _haCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
       // dynamic holdPnl
       var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
       if (_aR != null) {
@@ -21516,7 +21530,7 @@ function DayView(_ref57) {
     var _hAlphaEV = [];
     for (var _ha2=0; _ha2<=20; _ha2++) {
       var _haVal2 = _ha2;
-      var _hpArr2 = _pbAllRecs.map(function(r){ var s=r.signal; var hp2=null; var _hpC3=false;
+      var _hpArr2 = _haAllRecs.map(function(r){ var s=r.signal; var hp2=null; var _hpC3=false;
         if(s.holdHighSign==="-"&&s.holdHighVal!=null){var _hhE3=Number(s.holdHighVal)-_haVal2;if(_hhE3>=10){hp2=-Math.round(_hhE3*100);_hpC3=true;}}
         if(!_hpC3){if(s.holdOsConf!=null){hp2=Math.round((_haVal2+(_haVal2-Number(s.holdOsConf)))*100);}else if(s.holdWidthSign!=null&&s.holdWidth!=null){var _hwV2=s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth);hp2=Math.round((_haVal2+_hwV2)*100);}}
         return hp2;
@@ -21554,7 +21568,7 @@ function DayView(_ref57) {
                 var hwAvg=d.hwArr.length?Math.round(d.hwArr.reduce(function(a,b){return a+b;},0)/d.hwArr.length*10)/10:null;
                 return React.createElement("tr",{key:sk},
                   _td(React.createElement("span",{style:{fontSize:9,color:"#F97316"}},"▶"),{textAlign:"center"}),
-                  _td(React.createElement("span",{style:{fontWeight:700,color:"#9A3412"}},[sk,React.createElement("div",{key:"a",style:{fontSize:9,fontWeight:400,color:"#0369A1"}},(function(){var _c=_pbCharts[sk+"_"+date];var _av=_c&&_c.alphaVal!=null?_c.alphaVal:null;return _av!=null?"α:"+_av+"円":"";})()])]),{textAlign:"left"}),
+                  _td(React.createElement("span",{style:{fontWeight:700,color:"#9A3412"}},[sk,React.createElement("div",{key:"a",style:{fontSize:9,fontWeight:400,color:"#0369A1"}},(function(){var _c=_haCharts[sk+"_"+date];var _av=_c&&_c.alphaVal!=null?_c.alphaVal:null;return _av!=null?"α:"+_av+"円":"";})()])]),{textAlign:"left"}),
                   _td(tot),
                   _td(d.yes||0,{color:"#1E8449",fontWeight:d.yes?700:400}),
                   _td(d.mid||0,{color:"#B45309",fontWeight:d.mid?700:400}),
@@ -21631,7 +21645,7 @@ function DayView(_ref57) {
               return _hAlphaEV.map(function(d){
                 var barH=maxEv>0?Math.round(Math.abs(d.ev)/maxEv*48):4;
                 var isPos=d.ev>=0; var col=isPos?"#C0392B":"#1E8449";
-                var isCur=(pbSimAlpha!==null&&pbSimAlpha===d.alpha)||(pbSimAlpha===null&&_pbStks.some(function(sk){var _c=_pbCharts[sk+"_"+date];return _c&&_c.alphaVal===d.alpha;}));
+                var isCur=(pbSimAlpha!==null&&pbSimAlpha===d.alpha)||(pbSimAlpha===null&&allStocks.some(function(sk){var _c=_haCharts[sk+"_"+date];return _c&&_c.alphaVal===d.alpha;}));
                 return React.createElement("div",{key:d.alpha,style:{display:"flex",flexDirection:"column",alignItems:"center",gap:2,minWidth:28}},
                   React.createElement("span",{style:{fontSize:9,fontWeight:700,color:col,whiteSpace:"nowrap"}},(d.ev>0?"+":"")+d.ev+"円"),
                   React.createElement("div",{style:{width:22,height:barH||4,background:isPos?"#FEE2E2":"#D1FAE5",border:"1.5px solid "+col,borderRadius:2,boxSizing:"border-box",outline:isCur?"2px solid #0369A1":"none"}}),
