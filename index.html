@@ -976,6 +976,34 @@ function stSave(d, immediate) {
     _stFlush(true);
   }, 1500);
 }
+// imageUrlがある画像のbase64を除いた軽量JSONを返す（localStorage保存用）
+function _stStrip(data) {
+  return JSON.stringify(data, function(key, val) {
+    if ((key === "base64" || key === "orig_base64") && typeof val === "string" && val.length > 100) {
+      var parent = this;
+      if ((key === "base64" && parent.imageUrl) || (key === "orig_base64" && parent.origImageUrl)) {
+        return null;
+      }
+    }
+    return val;
+  });
+}
+function _stWriteToStorage(data) {
+  try {
+    var s = _stStrip(data);
+    var refCount = (s.match(/"__ref__"/g) || []).length;
+    if (refCount > 0) console.warn("[stSave] WARNING: saving " + refCount + " __ref__ values to localStorage — images may be lost");
+    try {
+      localStorage.setItem(ST_KEY, s);
+    } catch(quotaErr) {
+      console.warn("[stSave] localStorage quota exceeded — syncing images to IDB");
+      _stSaveImagesToIdb(data);
+      try { localStorage.setItem(ST_KEY, _stStrip(data)); } catch(e2) {
+        console.warn("[stSave] Even stripped save failed:", e2);
+      }
+    }
+  } catch (_unused3) {}
+}
 function _stFlush(skipBlur) {
   // ★ 軽量化方式B: 画面遷移/タブ切替/ページ離脱の直前に呼ばれたとき、
   //   フォーカス中の入力欄を blur して onBlur ハンドラを起動 → 親 onChange 経由で値を保存
@@ -988,32 +1016,17 @@ function _stFlush(skipBlur) {
   }
   if (_stSaveLatest === null) return;
   clearTimeout(_stSaveTimer);
-  try {
-    var s = JSON.stringify(_stSaveLatest);
-    var refCount = (s.match(/"__ref__"/g) || []).length;
-    if (refCount > 0) console.warn("[stSave] WARNING: saving " + refCount + " __ref__ values to localStorage — images may be lost");
-    try {
-      localStorage.setItem(ST_KEY, s);
-    } catch(quotaErr) {
-      // localStorage容量超過 → imageUrlがある画像をIDBに退避してから、base64を除いた軽量版を保存
-      console.warn("[stSave] localStorage quota exceeded — syncing images to IDB, saving stripped data");
-      _stSaveImagesToIdb(_stSaveLatest);
-      var stripped = JSON.stringify(_stSaveLatest, function(key, val) {
-        // imageUrlが存在する画像のbase64のみ削除（IDB/Firebaseから復元可能なものだけ）
-        if ((key === "base64" || key === "orig_base64") && typeof val === "string" && val.length > 100) {
-          var parent = this;
-          if ((key === "base64" && parent.imageUrl) || (key === "orig_base64" && parent.origImageUrl)) {
-            return null;
-          }
-        }
-        return val;
-      });
-      try { localStorage.setItem(ST_KEY, stripped); } catch(e2) {
-        console.warn("[stSave] Even stripped save failed:", e2);
-      }
-    }
-  } catch (_unused3) {}
+  var _snap = _stSaveLatest;
   _stSaveLatest = null;
+  // ★ メインスレッドをブロックしないようrequestIdleCallbackで非同期書き込み
+  //   ただしページ離脱・visibilitychange（skipBlur=false）は同期で確実に書く
+  if (!skipBlur) {
+    _stWriteToStorage(_snap);
+  } else if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(function() { _stWriteToStorage(_snap); }, { timeout: 2000 });
+  } else {
+    setTimeout(function() { _stWriteToStorage(_snap); }, 0);
+  }
 }
 // 画面離脱・visibilitychange 等の「未保存内容を吸い上げる必要がある」タイミングでは blur 経由で保存
 // ★ ImageAnnotatorが開いている場合は先に自動保存させる（iOSメモリ退避でストローク消失防止）
@@ -5267,13 +5280,19 @@ function ImageAnnotator(_ref7) {
       var _expC, _expCtx;
       try {
         if (_capLS.w > 0 && _capBaseImg) {
+          // ★ iPad メモリ対策: 長辺2048px上限でスケールダウン
+          var _MAX_SIDE = 2048;
+          var _expScale = Math.min(1, _MAX_SIDE / Math.max(_capLS.w, _capLS.h));
+          var _expW = Math.round(_capLS.w * _expScale);
+          var _expH = Math.round(_capLS.h * _expScale);
           _expC = document.createElement("canvas");
-          _expC.width = _capLS.w;
-          _expC.height = _capLS.h;
+          _expC.width = _expW;
+          _expC.height = _expH;
           _expCtx = _expC.getContext("2d");
           _expCtx.imageSmoothingEnabled = true;
           _expCtx.imageSmoothingQuality = "high";
-          _expCtx.drawImage(_capBaseImg, 0, 0, _capLS.w, _capLS.h);
+          _expCtx.drawImage(_capBaseImg, 0, 0, _expW, _expH);
+          _expCtx.scale(_expScale, _expScale);
           _capStrokes.forEach(function(s) { drawStroke(_expCtx, s); });
         }
       } catch(e) {
