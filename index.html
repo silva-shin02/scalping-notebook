@@ -11191,18 +11191,7 @@ function EntrySignalSection(_ref_es) {
               ),
               React.createElement("tbody", null, [totRow].concat(dataRows))
             )
-          ),
-          (function() {
-            var _esVirtByStk = {};
-            _esVirtByStk[stock] = records.map(function(r) {
-              var s = r.signal;
-              var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-              return { osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf, holdOsConf: s.holdOsConf != null ? Number(s.holdOsConf) : null, holdHighVal: s.holdHighVal != null ? Number(s.holdHighVal) : null, holdHighSign: s.holdHighSign || null };
-            }).filter(function(d) { return d.osVal != null; });
-            if (!_esVirtByStk[stock].length) return null;
-            var _cutLByStk = {}; _cutLByStk[stock] = c.cutLine != null ? c.cutLine : 10;
-            return React.createElement(VirtualAlphaCalc, { sigsByStock: _esVirtByStk, cutLineByStock: _cutLByStk });
-          })()
+          )
           );
         })(),
     // ── 追加ボタン（記録あり時: リスト末尾）──
@@ -21799,7 +21788,7 @@ function DayView(_ref57) {
         React.createElement("button", {
           onClick: function() { setPbSimAlpha(null); },
           style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }
-        }, "解除"),
+        }, "リセット"),
         pbSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "※各銘柄のα値を上書きしてシミュレーション中")
       ),
       React.createElement("div", { style: { overflowX: "auto" } },
