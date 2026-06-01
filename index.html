@@ -1587,6 +1587,29 @@ function _stSaveImagesToIdb(data) {
   walk(data);
 }
 
+// ── メモリ対策: activeDate 以外の日付配下の画像 base64 を state から外す（in-place 破壊的変更）──
+//   imageUrl がある画像のみ対象（Storage/IDB から復元可能）。未アップロード画像（imageUrlなし）は
+//   base64 が唯一のコピーなので絶対に外さない。戻り値: 外した数。
+function _evictNonActiveImages(data, activeDate) {
+  var evicted = 0;
+  function walk(obj, inActive) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { for (var ai = 0; ai < obj.length; ai++) walk(obj[ai], inActive); return; }
+    if (typeof obj.mt === "string" && !inActive) {
+      if (obj.imageUrl && typeof obj.base64 === "string" && obj.base64.length > 100) { obj.base64 = null; evicted++; }
+      if (obj.origImageUrl && typeof obj.orig_base64 === "string" && obj.orig_base64.length > 100) { obj.orig_base64 = null; evicted++; }
+    }
+    for (var k in obj) {
+      if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") {
+        var childActive = inActive || (!!activeDate && k.indexOf(activeDate) >= 0);
+        walk(obj[k], childActive);
+      }
+    }
+  }
+  walk(data, false);
+  return evicted;
+}
+
 // ══════════════════════════════════════════════════════════
 // ── Firebase Storage ──
 // ══════════════════════════════════════════════════════════
@@ -1740,14 +1763,17 @@ function CaThumbImg(_p_cti) {
 // imageUrlがあるがbase64がない画像をバックグラウンドでDL→base64化→localStorage保存
 // 一度キャッシュすれば以降は即座表示（Storage通信は初回1回のみ）
 var _preloadRunning = false;
-function preloadImages(dataRef, setData, stSaveFn) {
+// ★ メモリ対策: activeDate を指定すると、その日付配下の画像 base64 のみ state に hydrate する。
+//   （data.charts["<銘柄>_<日付>"] / data.trades["<日付>"] のように日付がキーに含まれる subtree のみ対象）
+//   activeDate が null/未指定なら hydrate 対象なし（imageUrl 表示にフォールバック）。
+function preloadImages(dataRef, setData, stSaveFn, activeDate) {
   if (_preloadRunning) return;
   var targets = [];
-  function walk(obj) {
+  function walk(obj, inActive) {
     if (!obj || typeof obj !== "object") return;
-    if (Array.isArray(obj)) { obj.forEach(walk); return; }
+    if (Array.isArray(obj)) { for (var ai = 0; ai < obj.length; ai++) walk(obj[ai], inActive); return; }
     var isImg = typeof obj.mt === "string" && (obj.imageUrl || obj.origImageUrl);
-    if (isImg) {
+    if (isImg && inActive) {
       if (obj.imageUrl && (!obj.base64 || obj.base64 === "__ref__" || obj.base64 === null)) {
         targets.push({ obj: obj, key: "base64", url: obj.imageUrl, mt: obj.mt });
       }
@@ -1757,11 +1783,12 @@ function preloadImages(dataRef, setData, stSaveFn) {
     }
     for (var k in obj) {
       if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") {
-        walk(obj[k]);
+        var childActive = inActive || (!!activeDate && k.indexOf(activeDate) >= 0);
+        walk(obj[k], childActive);
       }
     }
   }
-  walk(dataRef.current);
+  walk(dataRef.current, false);
   if (targets.length === 0) return;
   _preloadRunning = true;
   console.log("[preload] Downloading " + targets.length + " images from Storage...");
@@ -36478,7 +36505,8 @@ function App() {
     fbSyncTimerRef = useRef(null),
     dataRef = useRef(EMPTY),
     cfgRef = useRef({}),
-    fbStatusRef = useRef("none");
+    fbStatusRef = useRef("none"),
+    selRef = useRef(null); // 現在表示中の日付（preloadImages のアクティブ日付）
   var fileRef = useRef();
   var startPolling = function startPolling(c) {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -36536,7 +36564,7 @@ function App() {
                 setData(merged);
                 stSave(merged);
                 dataRef.current = merged;
-                preloadImages(dataRef, setData, stSave);
+                preloadImages(dataRef, setData, stSave, selRef.current);
               }
             }
           case 4: // fallthrough
@@ -36571,7 +36599,7 @@ function App() {
             // ★ 案E: ローカル _v >= リモート _v → DL せず localStorage のデータをそのまま使用
             //   ld は既に setData/dataRef 済 (上で実行) → そのまま継続。imageUrl のみの画像だけ preload。
             setFbStatus("ok");
-            setTimeout(function() { preloadImages(dataRef, setData, stSave); }, 2000);
+            setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
           } else if (res.status === "ok" && res.data) {
             // ★ 丸ごと上書きせず、ローカルとマージ（__ref__ はローカル値を維持）
             var remote = migrateData(res.data);
@@ -36586,7 +36614,7 @@ function App() {
               dataRef.current = ld;
               fbPut(lc, ld)["catch"](function(e){ console.warn("fbPut(local-wins) failed:", e); });
               setFbStatus("ok");
-              setTimeout(function() { preloadImages(dataRef, setData, stSave); }, 2000);
+              setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
             } else {
               var _mr1 = _mergeRemoteMeta(ld, remote);
               console.log("[FB] initial load: merged remote into local",
@@ -36596,7 +36624,7 @@ function App() {
               stSave(_mr1);
               dataRef.current = _mr1;
               setFbStatus("ok");
-              setTimeout(function() { preloadImages(dataRef, setData, stSave); }, 2000);
+              setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
             }
           } else setFbStatus("err");
           startPolling(lc);
@@ -36611,7 +36639,7 @@ function App() {
         if (lc && lc.fbUrl && lc.fbPaused !== false) setFbStatus("paused");
         setLoading(false);
         // imageUrlのみ残っている画像をバックグラウンドでキャッシュ
-        setTimeout(function() { preloadImages(dataRef, setData, stSave); }, 2000);
+        setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
       }
     } catch (e) {
       console.error(e);
@@ -36632,6 +36660,24 @@ function App() {
       localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({}, _old, {sel:sel, selTab:selTab})));
     } catch(e) {}
   }, [sel, selTab]);
+  // ── メモリ対策: 表示日付が変わったら、非アクティブ日付の画像 base64 を state から外し、
+  //   新しい表示日付の画像を hydrate する（白画面kill対策／iPad）──
+  useEffect(function () {
+    selRef.current = sel;
+    if (!dataRef.current) return;
+    // 非アクティブ日付の画像 base64 を破棄してメモリ解放（imageUrl持ちのみ／復元可能）
+    var evicted = _evictNonActiveImages(dataRef.current, sel);
+    if (evicted > 0) {
+      var _next = Object.assign({}, dataRef.current);
+      dataRef.current = _next;
+      setData(_next);
+    }
+    // 新しい表示日付の画像を Storage/IDB から hydrate（少し遅延させて遷移描画を優先）
+    if (sel) {
+      var _t = setTimeout(function () { preloadImages(dataRef, setData, stSave, sel); }, 300);
+      return function () { clearTimeout(_t); };
+    }
+  }, [sel]);
   // ── Firebase使用量超過時の自動停止 ──
   useEffect(function() {
     _fbSetAutoPauseCb(function() {
@@ -36923,7 +36969,7 @@ function App() {
         } else if (res.status === "skip") {
           // ★ 案E: ローカル _v >= リモート _v → DL せず ローカルそのまま使用
           setFbStatus("ok");
-          setTimeout(function() { preloadImages(dataRef, setData, stSave); }, 2000);
+          setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
         } else if (res.status === "ok" && res.data) {
           // ★ 丸ごと上書きせず、ローカルとマージ
           var remote = migrateData(res.data);
@@ -36934,7 +36980,7 @@ function App() {
             console.log("[FB] saveCfg reconnect: local is newer (lv=" + _lv + " > rv=" + _rv + "), pushing local to remote");
             fbPut(c, cur)["catch"](function(e){ console.warn("fbPut(local-wins) failed:", e); });
             setFbStatus("ok");
-            setTimeout(function() { preloadImages(dataRef, setData, stSave); }, 2000);
+            setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
           } else {
             var _mr2 = _mergeRemoteMeta(cur, remote);
             console.log("[FB] saveCfg reconnect: merged remote into local");
@@ -36942,7 +36988,7 @@ function App() {
             stSave(_mr2);
             dataRef.current = _mr2;
             setFbStatus("ok");
-            setTimeout(function() { preloadImages(dataRef, setData, stSave); }, 2000);
+            setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
           }
         } else setFbStatus("err");
         startPolling(c);
