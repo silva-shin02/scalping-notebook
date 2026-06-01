@@ -3972,7 +3972,7 @@ function DayView(_ref57) {
       _pbAllEnt  += _pbEntByStk[sk];
     });
     var _pbAll = _elCalcStats(_pbAllRecs);
-    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0; (recs || []).forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : null); var _cutLOkNg = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var dynR = null; if (_aR != null && s.osVal != null && Number(s.osVal) > 0) { var _dv = Number(s.osVal) - _aR; if (_dv < 0) dynR = "miss"; else if (_dv >= _cutLOkNg) dynR = "ng"; else if (s.osConfVal != null && s.osConfVal !== "") { var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; dynR = _cf < _aR ? "ok" : _cf === _aR ? "draw" : "ng"; } } var res = dynR !== null ? dynR : s.result; if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
+    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0; (recs || []).forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : 5); var _cutLOkNg = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var dynR = null; if (_aR != null && s.osVal != null && Number(s.osVal) > 0) { var _dv = Number(s.osVal) - _aR; if (_dv < 0) dynR = "miss"; else if (_dv >= _cutLOkNg) dynR = "ng"; else if (s.osConfVal != null && s.osConfVal !== "") { var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; dynR = _cf < _aR ? "ok" : _cf === _aR ? "draw" : "ng"; } } var res = dynR !== null ? dynR : s.result; if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
     var _pbFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
     var _pbCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _pbTh = function(label, extra) {
@@ -4090,7 +4090,7 @@ function DayView(_ref57) {
           color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
           rowKey ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶") : null,
           label,
-          !isTotal && (function() { var _avc = _pbCharts[rowKey + "_" + date]; var _av = _avc && _avc.alphaVal != null ? _avc.alphaVal : null; return _av != null ? React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, "α:" + _av + "円") : null; })(),
+          !isTotal && (function() { var _avc = _pbCharts[rowKey + "_" + date]; var _av = _avc && _avc.alphaVal != null ? _avc.alphaVal : 5; return _av != null ? React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, "α:" + _av + "円") : null; })(),
           isExp ? React.createElement("button", {
             onClick: function(e) { e.stopPropagation(); setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); delete n[keyRef]; return n; }); },
             style: { marginLeft: 6, fontSize: 10, padding: "1px 5px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#666", lineHeight: 1.3, verticalAlign: "middle" }
@@ -4111,7 +4111,7 @@ function DayView(_ref57) {
             var _dynSP = null, _dynSPAB = null;
             (recs || []).forEach(function(r) {
               var s = r.signal;
-              var _cD = _pbCharts[r.stock + "_" + date]; var _aD = pbSimAlpha !== null ? pbSimAlpha : (_cD && _cD.alphaVal != null ? _cD.alphaVal : null);
+              var _cD = _pbCharts[r.stock + "_" + date]; var _aD = pbSimAlpha !== null ? pbSimAlpha : (_cD && _cD.alphaVal != null ? _cD.alphaVal : 5);
               var _cutLpbD = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cD && _cD.cutLine != null ? _cD.cutLine : 10);
               var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
               if (_aD != null && s.osVal != null) {
@@ -4129,7 +4129,7 @@ function DayView(_ref57) {
           (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hTot = null;
-            recs.forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : null); var _cutLR = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var hp; if (_aR != null) { var _hpC = false; if (s.osVal != null && _aR > Number(s.osVal)) { hp = null; _hpC = true; } if (!_hpC && s.holdHighSign === "-" && s.holdHighVal != null) { var _hhE = Number(s.holdHighVal) - _aR; if (_hhE >= _cutLR) { hp = -Math.round(_hhE * 100); _hpC = true; } } if (!_hpC && s.osVal != null && (Number(s.osVal) - _aR) >= _cutLR) { hp = -Math.round((Number(s.osVal) - _aR) * 100); _hpC = true; } if (!_hpC) { if (s.holdOsConf != null) { hp = Math.round((_aR + (_aR - Number(s.holdOsConf))) * 100); } else if (s.holdWidthSign != null && s.holdWidth != null) { hp = Math.round((_aR + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } } } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } if (hp != null) { _hTot = (_hTot||0) + hp; } });
+            recs.forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : 5); var _cutLR = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var hp; if (_aR != null) { var _hpC = false; if (s.osVal != null && _aR > Number(s.osVal)) { hp = null; _hpC = true; } if (!_hpC && s.holdHighSign === "-" && s.holdHighVal != null) { var _hhE = Number(s.holdHighVal) - _aR; if (_hhE >= _cutLR) { hp = -Math.round(_hhE * 100); _hpC = true; } } if (!_hpC && s.osVal != null && (Number(s.osVal) - _aR) >= _cutLR) { hp = -Math.round((Number(s.osVal) - _aR) * 100); _hpC = true; } if (!_hpC) { if (s.holdOsConf != null) { hp = Math.round((_aR + (_aR - Number(s.holdOsConf))) * 100); } else if (s.holdWidthSign != null && s.holdWidth != null) { hp = Math.round((_aR + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } } } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } if (hp != null) { _hTot = (_hTot||0) + hp; } });
             if (_hTot == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             return React.createElement("span", { style: { fontWeight: 700, color: _hTot > 0 ? "#C0392B" : _hTot < 0 ? "#1E8449" : "#888" } },
               (_hTot > 0 ? "+" : "") + _hTot.toLocaleString() + "円");
@@ -4188,7 +4188,7 @@ function DayView(_ref57) {
         var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
         var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
         
-        var _alphaRec = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
+        var _alphaRec = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : 5; })();
         var _cutLrec = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _cR2 = _pbCharts[r.stock + "_" + date]; return _cR2 && _cR2.cutLine != null ? _cR2.cutLine : 10; })();
         if (_alphaRec != null && s.osVal != null) {
           var _confR = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -4365,7 +4365,7 @@ function DayView(_ref57) {
               [["stock", "銘柄別α値"], ["all", "全銘柄一括α値"]].map(function(_m) {
                 var _on = pbAlphaMode === _m[0];
                 return React.createElement("button", { key: _m[0],
-                  onClick: function() { if (_m[0] === "stock") { setPbSimAlpha(null); setPbSimCutLine(null); } setPbAlphaMode(_m[0]); },
+                  onClick: function() { if (_m[0] === "stock") { setPbSimAlpha(null); setPbSimCutLine(null); } else { setPbSimAlpha(function(p) { return p == null ? 5 : p; }); } setPbAlphaMode(_m[0]); },
                   style: { padding: "3px 12px", fontSize: 11, fontWeight: _on ? 700 : 400, cursor: "pointer", borderRadius: 5,
                     border: _on ? "1.5px solid #FB923C" : "1px solid #ddd", background: _on ? "#FFEDD5" : "#fff", color: _on ? "#9A3412" : "#666" }
                 }, _m[1]);
@@ -4378,17 +4378,19 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "全銘柄α値（水準線比）"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
               React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1", placeholder: "—",
+                type: "number", inputMode: "numeric", step: "1", min: "0", max: "20", placeholder: "—",
                 value: pbSimAlpha !== null ? String(pbSimAlpha) : "",
                 onChange: function(e) {
                   var v = e.target.value;
-                  setPbSimAlpha(v === "" ? null : isNaN(Number(v)) ? null : Number(v));
+                  var _n = v === "" ? null : isNaN(Number(v)) ? null : Number(v);
+                  if (_n != null) { if (_n > 20) _n = 20; if (_n < 0) _n = 0; }
+                  setPbSimAlpha(_n);
                 },
                 style: { width: 64, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 0; return n < 20 ? n + 1 : n; }); },
-                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 0; return n > 0 ? n - 1 : 0; }); }
+                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 5; return n < 20 ? n + 1 : n; }); },
+                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 5; return n > 0 ? n - 1 : 0; }); }
               )
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -4420,7 +4422,7 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap", flexShrink: 0 } }, "銘柄別α値"),
             _pbStks.map(function(sk) {
               var _skCk = sk + "_" + date;
-              var _skAlpha = (_pbCharts[_skCk] && _pbCharts[_skCk].alphaVal != null) ? _pbCharts[_skCk].alphaVal : 0;
+              var _skAlpha = (_pbCharts[_skCk] && _pbCharts[_skCk].alphaVal != null) ? _pbCharts[_skCk].alphaVal : 5;
               var _saveSkAlpha = function(n) {
                 save(function(prev) {
                   var pCharts = Object.assign({}, (prev && prev.charts) || {});
@@ -4471,11 +4473,12 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値（水準線比）"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
               React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1",
-                value: (function() { var _avc = _pbCharts[rowKey + "_" + date]; return _avc && _avc.alphaVal != null ? String(_avc.alphaVal) : "0"; })(),
+                type: "number", inputMode: "numeric", step: "1", min: "0", max: "20",
+                value: (function() { var _avc = _pbCharts[rowKey + "_" + date]; return _avc && _avc.alphaVal != null ? String(_avc.alphaVal) : "5"; })(),
                 onChange: function(e) {
                   var v = e.target.value;
                   var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
+                  if (n != null) { if (n > 20) n = 20; if (n < 0) n = 0; }
                   var _ck = rowKey + "_" + date;
                   save(function(prev) {
                     var pCharts = Object.assign({}, (prev && prev.charts) || {});
@@ -4506,8 +4509,8 @@ function DayView(_ref57) {
                 style: { width: 60, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { var _ckRef = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ckRef] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 0; if (_n >= 20) return prev; _ce.alphaVal = _n + 1; pCharts[_ckRef] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
-                function() { var _ckRef = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ckRef] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 0; if (_n <= 0) return prev; _ce.alphaVal = _n - 1; pCharts[_ckRef] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
+                function() { var _ckRef = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ckRef] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n >= 20) return prev; _ce.alphaVal = _n + 1; pCharts[_ckRef] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
+                function() { var _ckRef = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ckRef] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n <= 0) return prev; _ce.alphaVal = _n - 1; pCharts[_ckRef] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
               )
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -4576,7 +4579,7 @@ function DayView(_ref57) {
                 var s = r.signal;
                 var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
                 var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
-                var _aW = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
+                var _aW = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : 5; })();
                 var _cutLW = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _cR3 = _pbCharts[r.stock + "_" + date]; return _cR3 && _cR3.cutLine != null ? _cR3.cutLine : 10; })();
                 if (_aW != null && s.osVal != null) {
                   var _cW = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;

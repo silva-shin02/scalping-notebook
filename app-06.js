@@ -160,7 +160,7 @@ function EntryLogView(_ref_elv) {
   var _uCResF = useState(""), _uCResFA = _slicedToArray(_uCResF, 2),
     calResFil = _uCResFA[0], setCalResFil = _uCResFA[1];
   
-  var _uSimAlpha = useState(""), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
+  var _uSimAlpha = useState("5"), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
     simAlphaStr = _uSimAlphaA[0], setSimAlphaStr = _uSimAlphaA[1];
   var _uSimMode = useState("month"), _uSimModeA = _slicedToArray(_uSimMode, 2),
     simPeriodMode = _uSimModeA[0], setSimPeriodMode = _uSimModeA[1];
@@ -1430,19 +1430,19 @@ function EntryLogView(_ref_elv) {
               React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600, whiteSpace: "nowrap" } }, "α値:"),
               React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
                 React.createElement("input", {
-                  type: "number", inputMode: "numeric", step: "1", placeholder: "0",
+                  type: "number", inputMode: "numeric", step: "1", min: "0", max: "20", placeholder: "0〜20",
                   value: simAlphaStr,
-                  onChange: function(e) { setSimAlphaStr(e.target.value); },
+                  onChange: function(e) { var v = e.target.value; if (v === "") { setSimAlphaStr(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 20) n = 20; if (n < 0) n = 0; setSimAlphaStr(String(n)); },
                   style: { width: 70, padding: "5px 6px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
                 }),
                 _stepBtn(
-                  function() { setSimAlphaStr(function(v) { return String((Number(v)||0) + 1); }); },
+                  function() { setSimAlphaStr(function(v) { return String(Math.min(20, (Number(v)||0) + 1)); }); },
                   function() { setSimAlphaStr(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
                 )
               ),
               React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
               React.createElement("button", {
-                onClick: function() { setSimAlphaStr(""); },
+                onClick: function() { setSimAlphaStr("5"); },
                 style: { fontSize: 11, padding: "3px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }
               }, "クリア"),
               React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },

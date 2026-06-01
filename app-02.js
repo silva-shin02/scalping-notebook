@@ -4284,11 +4284,12 @@ function EntrySignalSection(_ref_es) {
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値（水準線比）"),
       React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
       React.createElement("input", {
-        type: "number", inputMode: "numeric", step: "1",
-        value: c.alphaVal != null ? String(c.alphaVal) : "0",
+        type: "number", inputMode: "numeric", step: "1", min: "0", max: "20",
+        value: c.alphaVal != null ? String(c.alphaVal) : "5",
         onChange: function(e) {
           var v = e.target.value;
           var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
+          if (n != null) { if (n > 20) n = 20; if (n < 0) n = 0; }
           save(function(prev) {
             var pCharts = Object.assign({}, (prev && prev.charts) || {});
             var _ce = Object.assign({}, pCharts[ck] || {});
@@ -4328,8 +4329,8 @@ function EntrySignalSection(_ref_es) {
         style: { width: 80, padding: "5px 4px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
       }),
       _stepBtn(
-        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 0; if (_n >= 20) return prev; _ce.alphaVal = _n + 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
-        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 0; if (_n <= 0) return prev; _ce.alphaVal = _n - 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
+        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n >= 20) return prev; _ce.alphaVal = _n + 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
+        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n <= 0) return prev; _ce.alphaVal = _n - 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
       )
       ),
       React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
