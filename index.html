@@ -27444,14 +27444,20 @@ function EntryLogView(_ref_elv) {
         );
       })
     );
-    var rSize = 5;
+    // 0円, 1〜4円, 5〜9円, 10〜14円 … の特殊バケット
+    var _osBucketKey = function(v) { return v === 0 ? 0 : v <= 4 ? 1 : Math.floor(v / 5) * 5; };
+    var _osBucketLabel = function(k) {
+      if (k === 0) return "0円";
+      if (k === 1) return "1〜4円";
+      return k + "〜" + (k + 4) + "円";
+    };
     var hist = {};
-    osVals.forEach(function(v) { var k = Math.floor(v / rSize) * rSize; hist[k] = (hist[k] || 0) + 1; });
+    osVals.forEach(function(v) { var k = _osBucketKey(v); hist[k] = (hist[k] || 0) + 1; });
     var hKeys = Object.keys(hist).map(Number).sort(function(a, b) { return a - b; });
     var hMax = Math.max.apply(null, hKeys.map(function(k) { return hist[k]; }));
     var histSec = React.createElement("div", null,
-      _secH("📊 OS値 分布（5円単位）"),
-      hKeys.map(function(k) { return _bar(k + "～" + (k + rSize - 1) + "円", hist[k], hMax, "#FB923C", hist[k] + "件"); })
+      _secH("📊 OS値 分布"),
+      hKeys.map(function(k) { return _bar(_osBucketLabel(k), hist[k], hMax, "#FB923C", hist[k] + "件"); })
     );
     var byRes = { ok: [], ng: [], none: [] };
     osRecs.forEach(function(r) {
@@ -27465,23 +27471,25 @@ function EntryLogView(_ref_elv) {
       aNg != null && _bar("×失敗 (" + byRes.ng.length + "件)", aNg, rMax, "#C0392B", aNg + "円"),
       aNone != null && _bar("—未確定 (" + byRes.none.length + "件)", aNone, rMax, "#aaa", aNone + "円")
     );
-    var _osSlotKey = function(t) {
+    // 時間帯スロット: :00〜:15, :16〜:30, :31〜:45, :46〜(次):00
+    var _tsSlotIdx = function(m) { return m <= 15 ? 0 : m <= 30 ? 1 : m <= 45 ? 2 : 3; };
+    var _tsSlotKey = function(t) {
       if (!t) return null;
       var parts = t.split(":"); var h = parseInt(parts[0]), m = parseInt(parts[1]);
       if (isNaN(h) || isNaN(m)) return null;
-      return h * 100 + Math.floor(m / 15) * 15;
+      return h * 4 + _tsSlotIdx(m);
     };
-    var _osSlotLabel = function(k) {
-      var h = Math.floor(k / 100), sm = k % 100;
-      var em = sm + 14, eh = h;
-      if (em >= 60) { em -= 60; eh++; }
+    var _tsSlotLabel = function(key) {
+      var h = Math.floor(key / 4), si = key % 4;
       var p = function(n) { return n < 10 ? "0" + n : "" + n; };
-      return p(h) + ":" + p(sm) + "〜" + p(eh) + ":" + p(em);
+      var ss = ["00","16","31","46"], es = ["15","30","45","00"];
+      var eh = si === 3 ? h + 1 : h;
+      return p(h) + ":" + ss[si] + "〜" + p(eh) + ":" + es[si];
     };
     var bySlot = {}, slotLabels = {};
     osRecs.forEach(function(r) {
-      var k = _osSlotKey(r.signal.time || ""); if (k == null) return;
-      if (!bySlot[k]) { bySlot[k] = []; slotLabels[k] = _osSlotLabel(k); }
+      var k = _tsSlotKey(r.signal.time || ""); if (k == null) return;
+      if (!bySlot[k]) { bySlot[k] = []; slotLabels[k] = _tsSlotLabel(k); }
       bySlot[k].push(Number(r.signal.osVal));
     });
     var slotKeys = Object.keys(bySlot).map(Number).sort(function(a, b) { return a - b; });
