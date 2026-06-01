@@ -27444,13 +27444,13 @@ function EntryLogView(_ref_elv) {
         );
       })
     );
-    var rSize = osMax <= 30 ? 5 : osMax <= 100 ? 10 : osMax <= 300 ? 20 : 50;
+    var rSize = 5;
     var hist = {};
     osVals.forEach(function(v) { var k = Math.floor(v / rSize) * rSize; hist[k] = (hist[k] || 0) + 1; });
     var hKeys = Object.keys(hist).map(Number).sort(function(a, b) { return a - b; });
     var hMax = Math.max.apply(null, hKeys.map(function(k) { return hist[k]; }));
     var histSec = React.createElement("div", null,
-      _secH("📊 OS値 分布（" + rSize + "円単位）"),
+      _secH("📊 OS値 分布（5円単位）"),
       hKeys.map(function(k) { return _bar(k + "～" + (k + rSize - 1) + "円", hist[k], hMax, "#FB923C", hist[k] + "件"); })
     );
     var byRes = { ok: [], ng: [], none: [] };
@@ -27465,19 +27465,31 @@ function EntryLogView(_ref_elv) {
       aNg != null && _bar("×失敗 (" + byRes.ng.length + "件)", aNg, rMax, "#C0392B", aNg + "円"),
       aNone != null && _bar("—未確定 (" + byRes.none.length + "件)", aNone, rMax, "#aaa", aNone + "円")
     );
-    var byHr = {};
+    var _osSlotKey = function(t) {
+      if (!t) return null;
+      var parts = t.split(":"); var h = parseInt(parts[0]), m = parseInt(parts[1]);
+      if (isNaN(h) || isNaN(m)) return null;
+      return h * 100 + Math.floor(m / 15) * 15;
+    };
+    var _osSlotLabel = function(k) {
+      var h = Math.floor(k / 100), sm = k % 100;
+      var em = sm + 14, eh = h;
+      if (em >= 60) { em -= 60; eh++; }
+      var p = function(n) { return n < 10 ? "0" + n : "" + n; };
+      return p(h) + ":" + p(sm) + "〜" + p(eh) + ":" + p(em);
+    };
+    var bySlot = {}, slotLabels = {};
     osRecs.forEach(function(r) {
-      var t = r.signal.time || ""; if (!t) return;
-      var h = parseInt(t.split(":")[0]); if (isNaN(h)) return;
-      if (!byHr[h]) byHr[h] = [];
-      byHr[h].push(Number(r.signal.osVal));
+      var k = _osSlotKey(r.signal.time || ""); if (k == null) return;
+      if (!bySlot[k]) { bySlot[k] = []; slotLabels[k] = _osSlotLabel(k); }
+      bySlot[k].push(Number(r.signal.osVal));
     });
-    var hrKeys = Object.keys(byHr).map(Number).sort(function(a, b) { return a - b; });
-    var hrAvgs = hrKeys.map(function(h) { return { h: h, avg: avgOf(byHr[h]), cnt: byHr[h].length }; });
-    var hrMax2 = hrAvgs.length ? Math.max.apply(null, hrAvgs.map(function(x) { return x.avg; })) : 0;
-    var hrSec = hrKeys.length > 0 ? React.createElement("div", null,
-      _secH("⏱ 時間帯別 平均OS値"),
-      hrAvgs.map(function(x) { return _bar(x.h + "時台 (" + x.cnt + "件)", x.avg, hrMax2, "#7C3AED", x.avg + "円"); })
+    var slotKeys = Object.keys(bySlot).map(Number).sort(function(a, b) { return a - b; });
+    var slotAvgs = slotKeys.map(function(k) { return { label: slotLabels[k], avg: avgOf(bySlot[k]), cnt: bySlot[k].length }; });
+    var hrMax2 = slotAvgs.length ? Math.max.apply(null, slotAvgs.map(function(x) { return x.avg; })) : 0;
+    var hrSec = slotKeys.length > 0 ? React.createElement("div", null,
+      _secH("⏱ 時間帯別 平均OS値（15分区切り）"),
+      slotAvgs.map(function(x) { return _bar(x.label + " (" + x.cnt + "件)", x.avg, hrMax2, "#7C3AED", x.avg + "円"); })
     ) : null;
     var bySig = {};
     osRecs.forEach(function(r) {
