@@ -411,20 +411,17 @@ function EntryLogView(_ref_elv) {
       })
     );
     
-    var _osBucketKey = function(v) { return v === 0 ? 0 : v <= 4 ? 1 : Math.floor(v / 5) * 5; };
+    var _osBucketKey = function(v) { return v === 0 ? 0 : Math.floor((v - 1) / 5) * 5 + 1; };
     var _osBucketLabel = function(k) {
       if (k === 0) return "0円";
-      if (k === 1) return "1〜4円";
       return k + "〜" + (k + 4) + "円";
     };
     var hist = {};
     osVals.forEach(function(v) { var k = _osBucketKey(v); hist[k] = (hist[k] || 0) + 1; });
-    
+
     var _maxBucket = _osBucketKey(osMax);
-    var _allBuckets = [];
-    if (_maxBucket >= 0) _allBuckets.push(0);
-    if (_maxBucket >= 1) _allBuckets.push(1);
-    for (var _bk = 5; _bk <= _maxBucket; _bk += 5) { _allBuckets.push(_bk); }
+    var _allBuckets = [0];
+    for (var _bk = 1; _bk <= _maxBucket; _bk += 5) { _allBuckets.push(_bk); }
     var hKeys = _allBuckets.slice().sort(function(a, b) { return b - a; });
     hKeys.forEach(function(k) { if (hist[k] == null) hist[k] = 0; });
     var hMax = Math.max.apply(null, hKeys.map(function(k) { return hist[k]; })) || 1;
@@ -1077,6 +1074,14 @@ function EntryLogView(_ref_elv) {
               })()
             ),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
+              isHoliday ? _dash : (function() {
+                var _cfRt = recs.filter(function(r) { return r.signal.osConfVal != null && r.signal.osConfVal !== ""; });
+                if (!_cfRt.length) return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
+                var _cfAt = Math.round(_cfRt.reduce(function(a, r) { var s = r.signal; return a + (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)); }, 0) / _cfRt.length * 10) / 10;
+                return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, (_cfAt > 0 ? "+" : "") + _cfAt + "\u5186");
+              })()
+            ),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : _tSlash(st.sumPnl, st.expected, gradeReal)),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : (_simActive ? _simFmt(_dPlan) : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned"))),
@@ -1298,7 +1303,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("span", { style: { fontSize: 9, color: "#aaa", whiteSpace: "nowrap" } }, "※この日全体にα/損切りを適用して試算")
           );
           return React.createElement("tr", { key: date + "_texp" },
-            React.createElement("td", { colSpan: 10, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+            React.createElement("td", { colSpan: 11, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
               _tSortToggle,
               _tAlphaBar,
               React.createElement("div", { style: { overflowX: "auto" } },
@@ -1358,15 +1363,15 @@ function EntryLogView(_ref_elv) {
         var thead = React.createElement("thead", null,
           React.createElement("tr", null,
             React.createElement("th", { style: { padding: "5px 8px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "left" } }, "日付"),
-            _tTh("件数"), _tTh("勝"), _tTh("負"), _tTh("勝率"), _tTh("平均OS値"),
+            _tTh("件数"), _tTh("勝"), _tTh("負"), _tTh("勝率"), _tTh("平均OS値"), _tTh("平均確定値"),
             _tTh("実現損益"),
-            React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
+            React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%" } },
               React.createElement("div", null, "想定損益"),
-              React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
+              React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株)")
             ),
-            React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
-              React.createElement("div", null, "ホールド損益（α値比）"),
-              React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
+            React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%" } },
+              React.createElement("div", null, "ホールド損益"),
+              React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(α比/100株)")
             ),
             _tTh("タグ", { width: "auto" })
           )
@@ -1399,6 +1404,14 @@ function EntryLogView(_ref_elv) {
               if (!_osRm.length) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _osAm = Math.round(_osRm.reduce(function(a, r) { return a + Number(r.signal.osVal); }, 0) / _osRm.length * 10) / 10;
               return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, _osAm + "\u5186");
+            })()
+          ),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
+            (function() {
+              var _cfRm = _tMonthRecs.filter(function(r) { return r.signal.osConfVal != null && r.signal.osConfVal !== ""; });
+              if (!_cfRm.length) return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
+              var _cfAm = Math.round(_cfRm.reduce(function(a, r) { var s = r.signal; return a + (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)); }, 0) / _cfRm.length * 10) / 10;
+              return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, (_cfAm > 0 ? "+" : "") + _cfAm + "\u5186");
             })()
           ),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
@@ -1544,10 +1557,10 @@ function EntryLogView(_ref_elv) {
           );
         })();
         return React.createElement(React.Fragment, null,
-          _simEl,
           React.createElement("div", { style: { marginTop: 16 } },
             _tGradeLegend,
             sortToggle,
+            _simEl,
             React.createElement("div", { style: { overflowX: "auto" } },
               React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12, background: "#fff" } },
                 thead, tbody
@@ -3121,27 +3134,13 @@ function EntryLogView(_ref_elv) {
         )
       ),
       
-      React.createElement("div", { style: { display: "flex", gap: 0, borderBottom: "1px solid #e0ddd6", marginTop: 12, borderTop: "1px solid #e0ddd6" } },
-        [["time", "⏰ 時間帯別"], ["date", "📅 日別"], ["stock", "📈 銘柄別"], ["diff", "🎚 難易度別"]].map(function(kv) {
-          var on = sigSubTab === kv[0];
-          return React.createElement("button", {
-            key: kv[0],
-            onClick: function() { setSigSubTab(kv[0]); },
-            style: {
-              padding: "7px 14px", fontSize: 11, fontWeight: 700,
-              background: on ? "#fff" : "#f5f4f0",
-              border: "none", borderBottom: on ? "2px solid #FB923C" : "2px solid transparent",
-              color: on ? "#9A3412" : "#888", cursor: "pointer", whiteSpace: "nowrap"
-            }
-          }, kv[1]);
+      React.createElement("div", { style: { marginTop: 12 } },
+        [["time", renderTimeSubTab], ["date", renderDateSubTab], ["stock", renderStockSubTab], ["diff", renderDiffSubTab]].map(function(_rs) {
+          return React.createElement("div", { key: _rs[0],
+            style: { border: "1px solid #e0ddd6", borderRadius: 8, overflow: "hidden", marginBottom: 12 } },
+            _rs[1]()
+          );
         })
-      ),
-      
-      React.createElement("div", { style: { border: "1px solid #e0ddd6", borderTop: "none", borderRadius: "0 0 8px 8px", overflow: "hidden" } },
-        sigSubTab === "time"  && renderTimeSubTab(),
-        sigSubTab === "date"  && renderDateSubTab(),
-        sigSubTab === "stock" && renderStockSubTab(),
-        sigSubTab === "diff"  && renderDiffSubTab()
       ),
       React.createElement("div", { style: { fontSize: 11, color: "#999", padding: "8px 14px 4px", lineHeight: 1.7 } },
         "【期待値とは】1トレードあたりの平均損益の見込み額。「勝率 × 平均利益 ＋ 負け率 × 平均損失」で算出。プラスなら長期的に利益が期待できる戦略、マイナスなら改善が必要。"
