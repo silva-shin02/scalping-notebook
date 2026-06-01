@@ -19920,9 +19920,11 @@ function DayView(_ref57) {
     _useStatePSOA = _slicedToArray(_useStatePSO, 2),
     pnlSortOrder = _useStatePSOA[0],
     setPnlSortOrder = _useStatePSOA[1];
-  // 本日の損益データ 全銘柄シミュレーションα値
+  // 本日の損益データ 全銘柄シミュレーションα値・損切りライン
   var _uPbSim = useState(null), _uPbSimA = _slicedToArray(_uPbSim, 2),
     pbSimAlpha = _uPbSimA[0], setPbSimAlpha = _uPbSimA[1];
+  var _uPbSimCL = useState(null), _uPbSimCLA = _slicedToArray(_uPbSimCL, 2),
+    pbSimCutLine = _uPbSimCLA[0], setPbSimCutLine = _uPbSimCLA[1];
   // initialTab が外部で変わったら反映する。(例: ホームから sel を維持したまま
   // SummaryHistory 経由で別日付のメモを「→開く」した場合、selTab は summary に
   // なるが既にマウント済みの DayView は新規 useState 初期化を行わないので
@@ -20936,7 +20938,7 @@ function DayView(_ref57) {
       _pbAllEnt  += _pbEntByStk[sk];
     });
     var _pbAll = _elCalcStats(_pbAllRecs);
-    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0; (recs || []).forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : null); var _cutLOkNg = _cR && _cR.cutLine != null ? _cR.cutLine : 10; var dynR = null; if (_aR != null && s.osVal != null && Number(s.osVal) > 0) { var _dv = Number(s.osVal) - _aR; if (_dv < 0) dynR = "miss"; else if (_dv >= _cutLOkNg) dynR = "ng"; else if (s.osConfVal != null && s.osConfVal !== "") { var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; dynR = _cf < _aR ? "ok" : _cf === _aR ? "draw" : "ng"; } } var res = dynR !== null ? dynR : s.result; if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
+    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0; (recs || []).forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : null); var _cutLOkNg = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var dynR = null; if (_aR != null && s.osVal != null && Number(s.osVal) > 0) { var _dv = Number(s.osVal) - _aR; if (_dv < 0) dynR = "miss"; else if (_dv >= _cutLOkNg) dynR = "ng"; else if (s.osConfVal != null && s.osConfVal !== "") { var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; dynR = _cf < _aR ? "ok" : _cf === _aR ? "draw" : "ng"; } } var res = dynR !== null ? dynR : s.result; if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
     var _pbFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
     var _pbCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _pbTh = function(label, extra) {
@@ -21075,7 +21077,7 @@ function DayView(_ref57) {
             (recs || []).forEach(function(r) {
               var s = r.signal;
               var _cD = _pbCharts[r.stock + "_" + date]; var _aD = pbSimAlpha !== null ? pbSimAlpha : (_cD && _cD.alphaVal != null ? _cD.alphaVal : null);
-              var _cutLpbD = _cD && _cD.cutLine != null ? _cD.cutLine : 10;
+              var _cutLpbD = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cD && _cD.cutLine != null ? _cD.cutLine : 10);
               var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
               if (_aD != null && s.osVal != null) {
                 var _cfD = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -21092,7 +21094,7 @@ function DayView(_ref57) {
           (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hTot = null;
-            recs.forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : null); var _cutLR = _cR && _cR.cutLine != null ? _cR.cutLine : 10; var hp; if (_aR != null) { var _hpC = false; if (s.osVal != null && _aR > Number(s.osVal)) { hp = null; _hpC = true; } if (!_hpC && s.holdHighSign === "-" && s.holdHighVal != null) { var _hhE = Number(s.holdHighVal) - _aR; if (_hhE >= _cutLR) { hp = -Math.round(_hhE * 100); _hpC = true; } } if (!_hpC && s.osVal != null && (Number(s.osVal) - _aR) >= _cutLR) { hp = -Math.round((Number(s.osVal) - _aR) * 100); _hpC = true; } if (!_hpC) { if (s.holdOsConf != null) { hp = Math.round((_aR + (_aR - Number(s.holdOsConf))) * 100); } else if (s.holdWidthSign != null && s.holdWidth != null) { hp = Math.round((_aR + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } } } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } if (hp != null) { _hTot = (_hTot||0) + hp; } });
+            recs.forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : null); var _cutLR = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var hp; if (_aR != null) { var _hpC = false; if (s.osVal != null && _aR > Number(s.osVal)) { hp = null; _hpC = true; } if (!_hpC && s.holdHighSign === "-" && s.holdHighVal != null) { var _hhE = Number(s.holdHighVal) - _aR; if (_hhE >= _cutLR) { hp = -Math.round(_hhE * 100); _hpC = true; } } if (!_hpC && s.osVal != null && (Number(s.osVal) - _aR) >= _cutLR) { hp = -Math.round((Number(s.osVal) - _aR) * 100); _hpC = true; } if (!_hpC) { if (s.holdOsConf != null) { hp = Math.round((_aR + (_aR - Number(s.holdOsConf))) * 100); } else if (s.holdWidthSign != null && s.holdWidth != null) { hp = Math.round((_aR + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } } } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } if (hp != null) { _hTot = (_hTot||0) + hp; } });
             if (_hTot == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             return React.createElement("span", { style: { fontWeight: 700, color: _hTot > 0 ? "#C0392B" : _hTot < 0 ? "#1E8449" : "#888" } },
               (_hTot > 0 ? "+" : "") + _hTot.toLocaleString() + "円");
@@ -21152,7 +21154,7 @@ function DayView(_ref57) {
         var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
         // α値が設定されている場合、動的再計算（表示専用）。pbSimAlpha が設定されている場合は全銘柄共通で上書き。
         var _alphaRec = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
-        var _cutLrec = (function(){ var _cR2 = _pbCharts[r.stock + "_" + date]; return _cR2 && _cR2.cutLine != null ? _cR2.cutLine : 10; })();
+        var _cutLrec = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _cR2 = _pbCharts[r.stock + "_" + date]; return _cR2 && _cR2.cutLine != null ? _cR2.cutLine : 10; })();
         if (_alphaRec != null && s.osVal != null) {
           var _confR = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
           var _diffR = Number(s.osVal) - _alphaRec;
@@ -21322,7 +21324,50 @@ function DayView(_ref57) {
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
         React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
-          rowKey !== "__total__" ? React.createElement("div", {
+          rowKey === "__total__" ? React.createElement("div", {
+            style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap", background: pbSimAlpha !== null ? "#FFFBF0" : "transparent" }
+          },
+            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "全銘柄α値（水準線比）"),
+            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+              React.createElement("input", {
+                type: "number", inputMode: "numeric", step: "1", placeholder: "—",
+                value: pbSimAlpha !== null ? String(pbSimAlpha) : "",
+                onChange: function(e) {
+                  var v = e.target.value;
+                  setPbSimAlpha(v === "" ? null : isNaN(Number(v)) ? null : Number(v));
+                },
+                style: { width: 64, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+              }),
+              _stepBtn(
+                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 0; return n < 20 ? n + 1 : n; }); },
+                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 0; return n > 0 ? n - 1 : 0; }); }
+              )
+            ),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+            React.createElement("button", {
+              onClick: function() { setPbSimAlpha(null); setPbSimCutLine(null); },
+              style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
+            }, "リセット"),
+            React.createElement("span", { style: { color: "#ddd", fontSize: 14, margin: "0 2px" } }, "|"),
+            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "損切りライン"),
+            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+              React.createElement("input", {
+                type: "number", inputMode: "numeric", step: "1", placeholder: "10",
+                value: pbSimCutLine !== null ? String(pbSimCutLine) : "",
+                onChange: function(e) {
+                  var v = _toHankaku(e.target.value).trim();
+                  setPbSimCutLine(v === "" ? null : isNaN(Number(v)) ? null : Number(v));
+                },
+                style: { width: 52, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+              }),
+              _stepBtn(
+                function() { setPbSimCutLine(function(p) { var n = p !== null ? p : 10; return n + 1; }); },
+                function() { setPbSimCutLine(function(p) { var n = p !== null ? p : 10; return n > 1 ? n - 1 : 1; }); }
+              )
+            ),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+            pbSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309", marginLeft: 6 } }, "※各銘柄のα値を上書きしてシミュレーション中")
+          ) : React.createElement("div", {
             style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" }
           },
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値（水準線比）"),
@@ -21434,7 +21479,7 @@ function DayView(_ref57) {
                 var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
                 var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
                 var _aW = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : null; })();
-                var _cutLW = (function(){ var _cR3 = _pbCharts[r.stock + "_" + date]; return _cR3 && _cR3.cutLine != null ? _cR3.cutLine : 10; })();
+                var _cutLW = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _cR3 = _pbCharts[r.stock + "_" + date]; return _cR3 && _cR3.cutLine != null ? _cR3.cutLine : 10; })();
                 if (_aW != null && s.osVal != null) {
                   var _cW = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
                   var _dW = Number(s.osVal) - _aW;
@@ -21459,7 +21504,7 @@ function DayView(_ref57) {
                 ) : null
               );
             })()
-          ) : null,
+          ),
           sortToggle,
           React.createElement("div", { style: { overflowX: "auto" } },
             React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
@@ -21643,7 +21688,7 @@ function DayView(_ref57) {
         var s = r.signal;
         var _aR = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock+"_"+date]; return _c&&_c.alphaVal!=null?_c.alphaVal:null; })();
         var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
-        var _cutLHA = (function(){ var _cRHA = _pbCharts[r.stock+"_"+date]; return _cRHA&&_cRHA.cutLine!=null?_cRHA.cutLine:10; })();
+        var _cutLHA = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _cRHA = _pbCharts[r.stock+"_"+date]; return _cRHA&&_cRHA.cutLine!=null?_cRHA.cutLine:10; })();
         if (_aR != null) {
           var _hpCH = false;
           if(s.osVal!=null&&_aR>Number(s.osVal)){hp=null;_hpCH=true;}
@@ -21668,7 +21713,7 @@ function DayView(_ref57) {
       var _hwHasDataH=_haRecs.some(function(h){return h.hw!=null;});
       // α値別期待値
       var _hAlphaEVH=[];
-      for(var _haI=0;_haI<=20;_haI++){(function(_av2){var _hpA2=_pbAllRecs.map(function(r){var s=r.signal;var _cRev=_pbCharts[r.stock+"_"+date];var _clEV=_cRev&&_cRev.cutLine!=null?_cRev.cutLine:10;var hp2=null;var _hpC4=false;if(s.osVal!=null&&_av2>Number(s.osVal)){return null;}if(s.holdHighSign==="-"&&s.holdHighVal!=null){var _hhE4=Number(s.holdHighVal)-_av2;if(_hhE4>=_clEV){hp2=-Math.round(_hhE4*100);_hpC4=true;}}if(!_hpC4&&s.osVal!=null&&(Number(s.osVal)-_av2)>=_clEV){hp2=-Math.round((Number(s.osVal)-_av2)*100);_hpC4=true;}if(!_hpC4){if(s.holdOsConf!=null){hp2=Math.round((_av2+(_av2-Number(s.holdOsConf)))*100);}else if(s.holdWidthSign!=null&&s.holdWidth!=null){hp2=Math.round((_av2+(s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth)))*100);}}return hp2;}).filter(function(v){return v!=null;});if(_hpA2.length>0){_hAlphaEVH.push({alpha:_av2,ev:Math.round(_hpA2.reduce(function(a,b){return a+b;},0)/_hpA2.length),cnt:_hpA2.length});}})(_haI);}
+      for(var _haI=0;_haI<=20;_haI++){(function(_av2){var _hpA2=_pbAllRecs.map(function(r){var s=r.signal;var _cRev=_pbCharts[r.stock+"_"+date];var _clEV=(pbSimAlpha!==null&&pbSimCutLine!==null)?pbSimCutLine:(_cRev&&_cRev.cutLine!=null?_cRev.cutLine:10);var hp2=null;var _hpC4=false;if(s.osVal!=null&&_av2>Number(s.osVal)){return null;}if(s.holdHighSign==="-"&&s.holdHighVal!=null){var _hhE4=Number(s.holdHighVal)-_av2;if(_hhE4>=_clEV){hp2=-Math.round(_hhE4*100);_hpC4=true;}}if(!_hpC4&&s.osVal!=null&&(Number(s.osVal)-_av2)>=_clEV){hp2=-Math.round((Number(s.osVal)-_av2)*100);_hpC4=true;}if(!_hpC4){if(s.holdOsConf!=null){hp2=Math.round((_av2+(_av2-Number(s.holdOsConf)))*100);}else if(s.holdWidthSign!=null&&s.holdWidth!=null){hp2=Math.round((_av2+(s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth)))*100);}}return hp2;}).filter(function(v){return v!=null;});if(_hpA2.length>0){_hAlphaEVH.push({alpha:_av2,ev:Math.round(_hpA2.reduce(function(a,b){return a+b;},0)/_hpA2.length),cnt:_hpA2.length});}})(_haI);}
       // 銘柄別集計
       var _hByStkH={};
       _haRecs.forEach(function(h){if(!_hByStkH[h.stock])_hByStkH[h.stock]={yes:0,mid:0,none:0,no:0,hpArr:[],hwArr:[]};if(_hByStkH[h.stock][h.dynHp]!=null)_hByStkH[h.stock][h.dynHp]++;if(h.hp!=null)_hByStkH[h.stock].hpArr.push(h.hp);if(h.hw!=null)_hByStkH[h.stock].hwArr.push(h.hw);});
@@ -21767,30 +21812,6 @@ function DayView(_ref57) {
     var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
       _pbGradeLegend,
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 10px", background: "#FFF7ED", borderRadius: 6, border: "1px solid #FFE0BB", flexWrap: "wrap" } },
-        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "全銘柄α値（シミュレーション）"),
-        React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-          React.createElement("input", {
-            type: "number", inputMode: "numeric", step: "1", placeholder: "—",
-            value: pbSimAlpha !== null ? String(pbSimAlpha) : "",
-            onChange: function(e) {
-              var v = e.target.value;
-              setPbSimAlpha(v === "" ? null : isNaN(Number(v)) ? null : Number(v));
-            },
-            style: { width: 60, padding: "4px 6px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-          }),
-          _stepBtn(
-            function() { setPbSimAlpha(function(prev) { var n = prev !== null ? prev : 0; return n < 20 ? n + 1 : n; }); },
-            function() { setPbSimAlpha(function(prev) { var n = prev !== null ? prev : 0; return n > 0 ? n - 1 : 0; }); }
-          )
-        ),
-        React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-        React.createElement("button", {
-          onClick: function() { setPbSimAlpha(null); },
-          style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }
-        }, "リセット"),
-        pbSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "※各銘柄のα値を上書きしてシミュレーション中")
-      ),
       React.createElement("div", { style: { overflowX: "auto" } },
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
           React.createElement("thead", null,
