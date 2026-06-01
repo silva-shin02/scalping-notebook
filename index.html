@@ -3356,9 +3356,9 @@ function ZoomLightbox(_ref6) {
     style: {
       position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
       width: 32, height: 120, borderRadius: "0 8px 8px 0",
-      background: "rgba(99,102,241,.35)", border: "none", color: "#fff",
+      background: "rgba(99,102,241,.6)", border: "none", color: "#fff",
       fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center",
-      justifyContent: "center", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)"
+      justifyContent: "center"
     }
   }, "\u25C0"),
   onNextItem && /*#__PURE__*/React.createElement("button", {
@@ -3368,9 +3368,9 @@ function ZoomLightbox(_ref6) {
     style: {
       position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
       width: 32, height: 120, borderRadius: "8px 0 0 8px",
-      background: "rgba(99,102,241,.35)", border: "none", color: "#fff",
+      background: "rgba(99,102,241,.6)", border: "none", color: "#fff",
       fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center",
-      justifyContent: "center", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)"
+      justifyContent: "center"
     }
   }, "\u25B6")
   )), annotOpen && annotProps && /*#__PURE__*/React.createElement(ImageAnnotator, {
@@ -5218,6 +5218,16 @@ function ImageAnnotator(_ref7) {
     //   refs をキャプチャしておくことでコンポーネントアンマウント後も安全に使用できる。
     //   rAF×2 でバナーが確実に描画されてからブロック処理に入る（setTimeout(0)だと
     //   ブラウザのpaintより先に発火してバナーが見えないため）
+    // ★ 変更なし＋既存base64あり → PNG再生成スキップして即座にナビゲーション
+    if (!_wasDirty && _savedNow.base64) {
+      clearTimeout(_reflectFallback);
+      _stFlush(true);
+      window._snFbFlushPending = true;
+      if (typeof window._snFbFlushNow === "function") window._snFbFlushNow();
+      setTimeout(function() { window._snFbFlushPending = false; }, 2000);
+      if (afterPng && typeof cb === "function") cb();
+      return;
+    }
     var _capLS = { w: logicalSizeRef.current.w, h: logicalSizeRef.current.h };
     var _capBaseImg = baseImgRef.current;
     var _capStrokes = _curStrokes;
@@ -5894,9 +5904,9 @@ function ImageAnnotator(_ref7) {
     /*#__PURE__*/React.createElement("div", {
       ref: joystickRingRef,
       style: { width:108, height:108, borderRadius:"50%",
-        background:"rgba(255,255,255,0.12)",
-        border:"2px solid rgba(255,255,255,0.25)",
-        backdropFilter:"blur(8px)", display:"flex", alignItems:"center", justifyContent:"center",
+        background:"rgba(255,255,255,0.18)",
+        border:"2px solid rgba(255,255,255,0.35)",
+        display:"flex", alignItems:"center", justifyContent:"center",
         position:"relative", boxShadow:"0 4px 20px rgba(0,0,0,0.4)",
         transition:"border 0.15s, background 0.15s" }
     },
@@ -5933,7 +5943,7 @@ function ImageAnnotator(_ref7) {
       style: { display:"flex", borderRadius:8, overflow:"hidden",
         border:"1px solid rgba(255,255,255,0.15)",
         boxShadow:"0 2px 12px rgba(0,0,0,0.4)", background:"rgba(30,30,30,0.92)",
-        backdropFilter:"blur(12px)", pointerEvents:"auto",
+        pointerEvents:"auto",
         cursor: IS_TOUCH ? "default" : "grab" }
     },
       /* ドラッグハンドル: Pointer Events + setPointerCapture（PC/タッチ共通） */
@@ -6106,7 +6116,6 @@ function ImageAnnotator(_ref7) {
       borderRadius: 12,
       padding: "7px 10px",
       boxShadow: "0 6px 28px rgba(0,0,0,.7)",
-      backdropFilter: "blur(10px)",
       maxWidth: "calc(100vw - 16px)",
       overflowX: "auto",
       overflowY: "hidden",
