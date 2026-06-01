@@ -4069,20 +4069,20 @@ function EntrySignalSection(_ref_es) {
     var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
     var pp = (function() {
       var _stored = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-      if (c.alphaVal != null && s.osVal != null) {
+      var _avS = c.alphaVal != null ? c.alphaVal : 5;
+      if (s.osVal != null) {
         var _cutLSum = c.cutLine != null ? c.cutLine : 10;
         var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-        var _diff = Number(s.osVal) - c.alphaVal;
-        if (c.alphaVal > Number(s.osVal)) return 0;
-        var _dynP = _diff < 0 ? 0 : _diff >= _cutLSum ? -Math.round(_diff * 100) : (_conf != null ? Math.round((c.alphaVal - _conf) * 100) : null);
+        var _diff = Number(s.osVal) - _avS;
+        if (_avS > Number(s.osVal)) return 0;
+        var _dynP = _diff < 0 ? 0 : _diff >= _cutLSum ? -Math.round(_diff * 100) : (_conf != null ? Math.round((_avS - _conf) * 100) : null);
         if (_dynP != null) return _dynP;
       }
       return _stored;
     })();
     var mp = pp;
     var hp = (function() {
-      var _avH = c.alphaVal;
-      if (_avH == null) return _elSignedVal(s.holdPnl, s.holdPnlSign);
+      var _avH = c.alphaVal != null ? c.alphaVal : 5;
       var _cutLhp = c.cutLine != null ? c.cutLine : 10;
       if (s.osVal != null && _avH > Number(s.osVal)) return null;
       if (s.osVal != null && (Number(s.osVal) - _avH) >= _cutLhp) return -Math.round((Number(s.osVal) - _avH) * 100);
@@ -4339,12 +4339,12 @@ function EntrySignalSection(_ref_es) {
           save(function(prev) {
             var pCharts = Object.assign({}, (prev && prev.charts) || {});
             var _ce = Object.assign({}, pCharts[ck] || {});
-            _ce.alphaVal = 0;
+            delete _ce.alphaVal;
             if (Array.isArray(_ce.signals)) {
               var _cutLReset = _ce.cutLine != null ? _ce.cutLine : 10;
               _ce.signals = _ce.signals.map(function(s) {
                 if (s.osVal == null) return s;
-                var _osV = Number(s.osVal), _n = 0;
+                var _osV = Number(s.osVal), _n = 5;
                 var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
                 var _diff = _osV - _n;
                 var _pnl = null;
@@ -4465,8 +4465,8 @@ function EntrySignalSection(_ref_es) {
             var planPnlN = planPnl != null ? _p100(planPnl) : null;
             var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
             
-            if (c.alphaVal != null && s.osVal != null) {
-              var _avDyn = c.alphaVal;
+            if (s.osVal != null) {
+              var _avDyn = c.alphaVal != null ? c.alphaVal : 5;
               var _osVDyn = Number(s.osVal);
               var _cutLDyn = c.cutLine != null ? c.cutLine : 10;
               var _confDyn = s.osConfVal != null
@@ -4489,7 +4489,7 @@ function EntrySignalSection(_ref_es) {
             
             
             var _holdPnlDyn = _elSignedVal(s.holdPnl, s.holdPnlSign);
-            var _avH = c.alphaVal;
+            var _avH = c.alphaVal != null ? c.alphaVal : 5;
             if (_avH != null) {
               var _hpCalced = false;
               var _cutLH = c.cutLine != null ? c.cutLine : 10;
@@ -4518,8 +4518,8 @@ function EntrySignalSection(_ref_es) {
             var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
             
             var _dynResult = (function() {
-              if (c.alphaVal == null || s.osVal == null || Number(s.osVal) <= 0) return null;
-              var _av = c.alphaVal, _osV = Number(s.osVal), _diff = _osV - _av;
+              if (s.osVal == null || Number(s.osVal) <= 0) return null;
+              var _av = (c.alphaVal != null ? c.alphaVal : 5), _osV = Number(s.osVal), _diff = _osV - _av;
               if (_diff < 0) return "miss";
               if (_diff >= (c.cutLine != null ? c.cutLine : 10)) return "ng";
               if (s.osConfVal == null || s.osConfVal === "") return null;
@@ -4594,9 +4594,9 @@ function EntrySignalSection(_ref_es) {
                       : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   (function() {
-                    if (c.alphaVal == null || s.osConfVal == null) return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
+                    if (s.osConfVal == null) return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
                     var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
-                    var _ew = c.alphaVal - _cf;
+                    var _ew = (c.alphaVal != null ? c.alphaVal : 5) - _cf;
                     if (_ew === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
                     var _ewAbs = Math.abs(_ew);
                     return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
@@ -4669,7 +4669,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("難", { width: "1%" }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: "1%" } },
                     "OS値",
-                    c.alphaVal != null && React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + c.alphaVal + "円")
+                    React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + (c.alphaVal != null ? c.alphaVal : 5) + "円")
                   ),
                   _esTh("確定値", { width: "1%" }),
                   _esTh("値幅", { width: "1%" }),

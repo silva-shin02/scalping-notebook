@@ -337,7 +337,17 @@ function migrateData(d) {
   if (!d.custom.newsSubCatDefaults || typeof d.custom.newsSubCatDefaults !== "object") d.custom.newsSubCatDefaults = {};
   if (!d.custom.stockSubCatRefs || typeof d.custom.stockSubCatRefs !== "object") d.custom.stockSubCatRefs = {};
   if (!d.custom.stockInfoTabs || typeof d.custom.stockInfoTabs !== "object") d.custom.stockInfoTabs = {};
-  
+
+  if (!d.custom._alphaDefault5Mig) {
+    if (d.charts && typeof d.charts === "object") {
+      Object.keys(d.charts).forEach(function(_ck) {
+        var _cc = d.charts[_ck];
+        if (_cc && _cc.alphaVal != null && Number(_cc.alphaVal) === 0) delete _cc.alphaVal;
+      });
+    }
+    d.custom._alphaDefault5Mig = true;
+  }
+
   
   
   
