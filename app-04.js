@@ -2882,6 +2882,8 @@ function DayView(_ref57) {
     pbSimAlpha = _uPbSimA[0], setPbSimAlpha = _uPbSimA[1];
   var _uPbSimCL = useState(null), _uPbSimCLA = _slicedToArray(_uPbSimCL, 2),
     pbSimCutLine = _uPbSimCLA[0], setPbSimCutLine = _uPbSimCLA[1];
+  var _uPbAMode = useState("stock"), _uPbAModeA = _slicedToArray(_uPbAMode, 2),
+    pbAlphaMode = _uPbAModeA[0], setPbAlphaMode = _uPbAModeA[1];
   
   
   
@@ -4357,7 +4359,20 @@ function DayView(_ref57) {
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
         React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
-          rowKey === "__total__" ? React.createElement(React.Fragment, null, React.createElement("div", {
+          rowKey === "__total__" ? React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
+              React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "α値の入力方法:"),
+              [["stock", "銘柄別α値"], ["all", "全銘柄一括α値"]].map(function(_m) {
+                var _on = pbAlphaMode === _m[0];
+                return React.createElement("button", { key: _m[0],
+                  onClick: function() { if (_m[0] === "stock") { setPbSimAlpha(null); setPbSimCutLine(null); } setPbAlphaMode(_m[0]); },
+                  style: { padding: "3px 12px", fontSize: 11, fontWeight: _on ? 700 : 400, cursor: "pointer", borderRadius: 5,
+                    border: _on ? "1.5px solid #FB923C" : "1px solid #ddd", background: _on ? "#FFEDD5" : "#fff", color: _on ? "#9A3412" : "#666" }
+                }, _m[1]);
+              }),
+              React.createElement("span", { style: { fontSize: 10, color: "#aaa", whiteSpace: "nowrap" } }, "※どちらか一方のみ有効")
+            ),
+            pbAlphaMode === "all" && React.createElement("div", {
             style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap", background: pbSimAlpha !== null ? "#FFFBF0" : "transparent" }
           },
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "全銘柄α値（水準線比）"),
@@ -4401,7 +4416,7 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             pbSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309", marginLeft: 6 } }, "※各銘柄のα値を上書きしてシミュレーション中")
           ),
-          _pbStks.length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
+          pbAlphaMode === "stock" && _pbStks.length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap", flexShrink: 0 } }, "銘柄別α値"),
             _pbStks.map(function(sk) {
               var _skCk = sk + "_" + date;
