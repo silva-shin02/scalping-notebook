@@ -4178,7 +4178,7 @@ function DayView(_ref57) {
       var _rPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
       var _rPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
       var _rTh = function(label, extra) {
-        return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
+        return React.createElement("th", { style: Object.assign({ padding: "3px 3px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "center", fontSize: 10, lineHeight: 1.15, color: "#9A3412" }, extra || {}) }, label);
       };
       var _rPnlDisp = function(v, grade) {
         if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -4374,7 +4374,7 @@ function DayView(_ref57) {
           )
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
-        React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+        React.createElement("td", { colSpan: 11, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
           rowKey === "__total__" ? React.createElement(React.Fragment, null,
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
               React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "α値の入力方法:"),
@@ -4624,7 +4624,7 @@ function DayView(_ref57) {
           ),
           sortToggle,
           React.createElement("div", { style: { overflowX: "auto" } },
-            React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 11 } },
+            React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
               React.createElement("thead", null,
                 React.createElement("tr", { style: { background: "#FFF7ED" } },
                   _rTh("", { width: "1%" }),
@@ -4638,10 +4638,10 @@ function DayView(_ref57) {
                   _rTh("E難易度", { width: "1%" }),
                   _rTh("区分", { width: "1%" }),
                   _rTh("実現損益"),
-                  _rTh(React.createElement("span", null, "想定損益 ", React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#b07050" } }, "(100株あたり)"))),
+                  _rTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "(100株)"))),
                   _rTh("H高値", { width: "1%" }),
                   _rTh("H確定値", { width: "1%" }),
-                  _rTh("ホールド勝敗/結果損益")
+                  _rTh(React.createElement("span", null, "H勝敗/", React.createElement("span", { style: { display: "block" } }, "結果損益")))
                 )
               ),
               React.createElement("tbody", null, subRows),
