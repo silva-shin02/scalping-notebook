@@ -3154,8 +3154,13 @@ function _elCalcStats(records) {
   var plannedWins = [], plannedLosses = [];
   var maxWins = [], maxLosses = [];
   var holdHasData = false;
+  var hYes = 0, hMid = 0, hNone = 0, hNo = 0;
   records.forEach(function(r) {
     var s = r.signal;
+    if (s.holdProfit === "yes") hYes++;
+    else if (s.holdProfit === "mid") hMid++;
+    else if (s.holdProfit === "none") hNone++;
+    else if (s.holdProfit === "no") hNo++;
     if (s.result === "ok") ok++;
     else if (s.result === "ng") ng++;
     else if (s.result === "draw") draw++;
@@ -3219,7 +3224,9 @@ function _elCalcStats(records) {
     avgWin: avgWin, avgLoss: avgLoss, expected: expected,
     sumPnl: sumPnl, sumPlanned: sumPlanned, sumMax: sumMax,
     expectedPlanned: expectedPlanned, expectedMax: expectedMax,
-    sumHold: holdHasData ? sumHold : null
+    sumHold: holdHasData ? sumHold : null,
+    hYes: hYes, hMid: hMid, hNone: hNone, hNo: hNo,
+    holdResTotal: hYes + hMid + hNone + hNo
   };
 }
 

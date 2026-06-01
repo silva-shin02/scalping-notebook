@@ -21,6 +21,7 @@ function EntryStatsSummary(_ref_ess) {
         StatCell("件数", st.total + "件"),
         StatCell("勝率", st.winPct != null ? st.winPct + "%" : "—", st.winPct != null && st.winPct >= 50 ? "#1E8449" : "#C0392B"),
         StatCell("○/✕", st.ok + "/" + st.ng),
+        st.holdResTotal > 0 && StatCell("ホールド○/△/ー/×", st.hYes + "/" + st.hMid + "/" + st.hNone + "/" + st.hNo, "#7C3AED"),
         st.sumPnl !== 0 && StatCell("実pnl合計", (st.sumPnl > 0 ? "+" : "") + st.sumPnl.toLocaleString() + "円", st.sumPnl > 0 ? "#C0392B" : "#1E8449")
       )
     );
@@ -423,17 +424,27 @@ function EntryLogView(_ref_elv) {
       _secH("📊 OS値 分布"),
       hKeys.map(function(k) { return _bar(_osBucketLabel(k), hist[k], hMax, "#FB923C", hist[k] + "件"); })
     );
-    var byRes = { ok: [], ng: [], none: [] };
+    var _diffRank = { A: 0, B: 1, C: 2, D: 3, E: 4, F: 5, G: 6 };
+    var byDiff = {};
     osRecs.forEach(function(r) {
-      (r.signal.result === "ok" ? byRes.ok : r.signal.result === "ng" ? byRes.ng : byRes.none).push(Number(r.signal.osVal));
+      var d = r.signal.difficulty || "(未設定)";
+      if (!byDiff[d]) byDiff[d] = [];
+      byDiff[d].push(Number(r.signal.osVal));
     });
-    var aOk = avgOf(byRes.ok), aNg = avgOf(byRes.ng), aNone = avgOf(byRes.none);
-    var rMax = Math.max(aOk || 0, aNg || 0, aNone || 0);
+    var diffKeys = Object.keys(byDiff).sort(function(a, b) {
+      var ra = _diffRank[a] != null ? _diffRank[a] : 98, rb = _diffRank[b] != null ? _diffRank[b] : 98;
+      return ra - rb;
+    });
+    var diffAvgs = diffKeys.map(function(k) { return { k: k, avg: avgOf(byDiff[k]), cnt: byDiff[k].length }; });
+    var dMaxAv = diffAvgs.length ? Math.max.apply(null, diffAvgs.map(function(x) { return x.avg; })) : 0;
     var resSec = React.createElement("div", null,
-      _secH("🎯 結果別 平均OS値"),
-      aOk != null && _bar("○成功 (" + byRes.ok.length + "件)", aOk, rMax, "#1E8449", aOk + "円"),
-      aNg != null && _bar("×失敗 (" + byRes.ng.length + "件)", aNg, rMax, "#C0392B", aNg + "円"),
-      aNone != null && _bar("—未確定 (" + byRes.none.length + "件)", aNone, rMax, "#aaa", aNone + "円")
+      _secH("🎯 E難易度別 平均OS値"),
+      diffAvgs.length === 0
+        ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", padding: "2px 0" } }, "難易度の記録がありません")
+        : diffAvgs.map(function(x) {
+            var lbl = x.k === "(未設定)" ? "(未設定)" : "難易度" + x.k;
+            return _bar(lbl + " (" + x.cnt + "件)", x.avg, dMaxAv, "#0EA5E9", x.avg + "円");
+          })
     );
     
     var _osConfSigned = function(s) {
@@ -1524,6 +1535,70 @@ function EntryLogView(_ref_elv) {
                         wrecs.length > 0 ? (function() { var _h = wst.sumHold; if (_h == null) return _dash; return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })() : _dash)
                     );
                   })
+                )
+              )
+            )
+          ),
+          React.createElement("div", { style: { marginTop: 16 } },
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 2 } }, "🎯 E難易度別集計"),
+            React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "損益は100株あたり換算 / ホールド勝敗は ○勝・△分・ー無・×負"),
+            React.createElement("div", { style: { overflowX: "auto" } },
+              React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12, background: "#fff" } },
+                React.createElement("thead", null,
+                  React.createElement("tr", { style: { background: "#f5f4f0" } },
+                    React.createElement("th", { style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "E難易度"),
+                    _tTh("件"), _tTh("勝"), _tTh("負"), _tTh("勝率"),
+                    _tTh("実現損益"),
+                    React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
+                      React.createElement("div", null, "想定損益"),
+                      React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
+                    ),
+                    React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
+                      React.createElement("div", null, "ホールド損益（α値比）"),
+                      React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
+                    ),
+                    _tTh("ホールド勝敗")
+                  )
+                ),
+                React.createElement("tbody", null,
+                  (function() {
+                    var _diffRankDt = { A: 0, B: 1, C: 2, D: 3, E: 4, F: 5, G: 6 };
+                    var _dtByDiff = {};
+                    _tMonthRecs.forEach(function(r) {
+                      var d = (r.signal && r.signal.difficulty) || "(未設定)";
+                      if (!_dtByDiff[d]) _dtByDiff[d] = [];
+                      _dtByDiff[d].push(r);
+                    });
+                    var _dtDiffKeys = Object.keys(_dtByDiff).sort(function(a, b) {
+                      var ra = _diffRankDt[a] != null ? _diffRankDt[a] : 98, rb = _diffRankDt[b] != null ? _diffRankDt[b] : 98;
+                      return ra - rb;
+                    });
+                    if (_dtDiffKeys.length === 0) {
+                      return React.createElement("tr", null, React.createElement("td", { colSpan: 9, style: { padding: 10, textAlign: "center", color: "#aaa", fontSize: 11 } }, "該当なし"));
+                    }
+                    var _bbd = "1px solid #e0ddd6";
+                    var _dashD = React.createElement("span", { style: { color: "#ccc" } }, "ー");
+                    return _dtDiffKeys.map(function(dk) {
+                      var drecs = _dtByDiff[dk];
+                      var dst = _elCalcStats(drecs);
+                      var dEnt = drecs.filter(function(r) { return _elIsEntered(r.signal, r.item); });
+                      var gradeReal = _profitGradeFromPnlReal(dst.sumPnl, dEnt.length);
+                      var gradePlan = _profitGradeFromPnl(dst.sumPlanned, dst.total);
+                      return React.createElement("tr", { key: dk },
+                        React.createElement("td", { style: { padding: "5px 8px", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", width: "1%", borderBottom: _bbd, borderRight: _bbd } }, dk === "(未設定)" ? "(未設定)" : dk),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: _bbd, borderRight: _bbd } }, dst.total),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: _bbd, borderRight: _bbd } }, dst.ok || "0"),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: _bbd, borderRight: _bbd } }, dst.ng || "0"),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: _bbd, borderRight: _bbd,
+                          color: dst.winPct != null ? (dst.winPct >= 60 ? "#C0392B" : dst.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
+                          fontWeight: dst.winPct != null ? 700 : 400 } }, dst.winPct != null ? dst.winPct + "%" : "—"),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, _tSlash(dst.sumPnl, dst.expected, gradeReal)),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, _tABAll(drecs, dst.sumPlanned, dst.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, (function() { var _h = dst.sumHold; if (_h == null) return _dashD; return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bbd, color: "#7C3AED", fontWeight: 700 } }, dst.holdResTotal > 0 ? (dst.hYes + "/" + dst.hMid + "/" + dst.hNone + "/" + dst.hNo) : _dashD)
+                      );
+                    });
+                  })()
                 )
               )
             )
