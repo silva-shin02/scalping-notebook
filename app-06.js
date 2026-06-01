@@ -2574,6 +2574,108 @@ function EntryLogView(_ref_elv) {
       return { slot: s, recs: recs, stats: _calcD(recs) };
     });
 
+
+    var _sigPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+    var _sigYen = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+    var _sigWpCol = function(wp) { return wp == null ? "#ccc" : wp >= 60 ? "#C0392B" : wp >= 40 ? "#888" : "#1E8449"; };
+    var _sigAvgOS = function(recs) {
+      var rs = recs.filter(function(r) { return r.signal.osVal != null; });
+      if (!rs.length) return null;
+      return Math.round(rs.reduce(function(a, r) { return a + Number(r.signal.osVal); }, 0) / rs.length * 10) / 10;
+    };
+    var _sigAvgConf = function(recs) {
+      var rs = recs.filter(function(r) { return r.signal.osConfVal != null && r.signal.osConfVal !== ""; });
+      if (!rs.length) return null;
+      return Math.round(rs.reduce(function(a, r) { var s = r.signal; return a + (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)); }, 0) / rs.length * 10) / 10;
+    };
+    var _sigKpiCard = function(label, val, color, sub) {
+      return React.createElement("div", { key: label, style: { flex: "1 1 90px", minWidth: 90, background: "#fff", border: "1px solid #e8e3d8",
+        borderRadius: 8, padding: "8px 10px", textAlign: "center" } },
+        React.createElement("div", { style: { fontSize: 10, color: "#999", fontWeight: 700, marginBottom: 3 } }, label),
+        React.createElement("div", { style: { fontSize: 18, fontWeight: 800, color: color || "#333", lineHeight: 1.1, whiteSpace: "nowrap" } }, val),
+        sub ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginTop: 2 } }, sub) : null
+      );
+    };
+
+    var _sigRichTable = function(opts) {
+      var rows = opts.rows.filter(function(r) { return r.recs.length > 0; });
+      if (rows.length === 0) {
+        return React.createElement("div", { style: { padding: "10px 12px", background: "#fff" } },
+          React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 4 } }, opts.icon + " " + opts.title),
+          React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "記録なし"));
+      }
+      var perf = rows.map(function(r) { return { key: r.key, ev: _calcD(r.recs).expectedPlanned, n: r.recs.length }; })
+                     .filter(function(p) { return p.ev != null && p.n >= 2; });
+      var bestKey = null, worstKey = null;
+      if (perf.length >= 2) {
+        var sorted = perf.slice().sort(function(a, b) { return b.ev - a.ev; });
+        bestKey = sorted[0].key; worstKey = sorted[sorted.length - 1].key;
+        if (bestKey === worstKey || sorted[0].ev === sorted[sorted.length - 1].ev) { bestKey = sorted[0].key; worstKey = null; }
+      }
+      var _hh = function(t, extra) { return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#9A3412" }, extra || {}) }, t); };
+      var allRecs = rows.reduce(function(a, r) { return a.concat(r.recs); }, []);
+      var _cell = function(content, isTot, extra) {
+        return React.createElement("td", { style: Object.assign({ padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: isTot ? "2px solid #ccc" : "1px solid #f0ede8" }, extra || {}) }, content);
+      };
+      var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
+      var _mkRow = function(label, labelColor, recs, isTot, tagKey) {
+        var st = _calcD(recs);
+        var wp = st.winPct, os = _sigAvgOS(recs), cf = _sigAvgConf(recs);
+        var isBest = !isTot && tagKey != null && tagKey === bestKey;
+        var isWorst = !isTot && tagKey != null && tagKey === worstKey;
+        var canExp = !isTot && opts.expandPrefix && recs.length > 0;
+        var isOn = canExp && sigSubExpand === opts.expandPrefix + tagKey;
+        var lb = isBest ? "3px solid #1E8449" : isWorst ? "3px solid #C0392B" : "3px solid transparent";
+        return React.createElement("tr", {
+          key: isTot ? "__tot__" : tagKey,
+          onClick: canExp ? function() { setSigSubExpand(isOn ? null : opts.expandPrefix + tagKey); } : undefined,
+          style: { background: isTot ? "#F5F0E8" : (isOn ? "#FFF7ED" : "transparent"), cursor: canExp ? "pointer" : "default" }
+        },
+          React.createElement("td", { style: { padding: "5px 8px", fontWeight: 700, fontSize: 11, whiteSpace: "nowrap", width: "1%", borderBottom: isTot ? "2px solid #ccc" : "1px solid #f0ede8", borderLeft: lb, color: labelColor || "#333" } },
+            (isOn ? "▶ " : "") + label,
+            isBest ? React.createElement("span", { style: { marginLeft: 4, fontSize: 9, color: "#1E8449", fontWeight: 800 } }, "▲得意") : null,
+            isWorst ? React.createElement("span", { style: { marginLeft: 4, fontSize: 9, color: "#C0392B", fontWeight: 800 } }, "▼苦手") : null
+          ),
+          _cell(recs.length, isTot, { fontWeight: 700 }),
+          _cell(wp != null ? wp + "%" : _dash, isTot, { color: _sigWpCol(wp), fontWeight: wp != null ? 700 : 400 }),
+          _cell(st.miss ? st.miss : _dash, isTot, { color: st.miss ? "#7C3AED" : "#ccc", fontWeight: st.miss ? 700 : 400 }),
+          _cell(os != null ? os + "円" : _dash, isTot, { fontVariantNumeric: "tabular-nums" }),
+          _cell(cf != null ? (cf > 0 ? "+" : "") + cf + "円" : _dash, isTot, { fontVariantNumeric: "tabular-nums" }),
+          _cell(st.sumPlanned !== 0 ? React.createElement("span", { style: { fontWeight: 600, color: _sigPnlCol(st.sumPlanned) } }, _sigYen(st.sumPlanned)) : _dash, isTot),
+          _cell(st.expectedPlanned != null ? React.createElement("span", { style: { fontWeight: 800, color: _sigPnlCol(st.expectedPlanned) } }, _sigYen(st.expectedPlanned)) : _dash, isTot)
+        );
+      };
+      return React.createElement("div", { style: { padding: "10px 12px", background: "#fff" } },
+        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, opts.icon + " " + opts.title),
+        React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "損益は100株あたり換算 / 期待値＝1トレード平均見込み（想定）/ ▲得意▼苦手は期待値で判定（2件以上）"),
+        React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+            React.createElement("thead", null,
+              React.createElement("tr", { style: { background: "#f5f4f0" } },
+                _hh(opts.headLabel, { textAlign: "left", paddingLeft: 8 }), _hh("件"), _hh("勝率"), _hh("E未達"), _hh("平均OS値"), _hh("平均確定値"), _hh("想定損益"), _hh("期待値")
+              )
+            ),
+            React.createElement("tbody", null,
+              [_mkRow("合計", "#9A3412", allRecs, true, null)].concat(
+                rows.map(function(r) { return _mkRow(r.label, r.labelColor, r.recs, false, r.key); })
+              )
+            )
+          )
+        ),
+        opts.expandPrefix && sigSubExpand && sigSubExpand.indexOf(opts.expandPrefix) === 0 && (function() {
+          var ek = sigSubExpand.slice(opts.expandPrefix.length);
+          var row = null;
+          for (var i = 0; i < rows.length; i++) { if (String(rows[i].key) === ek) { row = rows[i]; break; } }
+          if (!row) return null;
+          var er = row.recs.slice().sort(function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); });
+          return React.createElement("div", { style: { padding: "6px 0 0" } },
+            React.createElement("div", { style: { padding: "4px 4px 6px", fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "▶ " + row.label + "  " + er.length + "件"),
+            er.map(function(r) { return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate }); })
+          );
+        })()
+      );
+    };
+
     
     var renderTimeSubTab = function() {
       var timeSlotRows = slotStats.reduce(function(acc, ss, i) {
@@ -3023,6 +3125,44 @@ function EntryLogView(_ref_elv) {
       );
     };
 
+
+    renderTimeSubTab = function() {
+      var rows = slotStats.map(function(ss) { return { key: ss.slot[0], label: ss.slot[0] + "〜" + ss.slot[1], recs: ss.recs }; });
+      return _sigRichTable({ title: "時間帯別集計", icon: "⏰", headLabel: "時間帯", rows: rows, expandPrefix: "time_" });
+    };
+    renderDateSubTab = function() {
+      var byDate2 = {};
+      grp.records.forEach(function(r) { if (!byDate2[r.date]) byDate2[r.date] = []; byDate2[r.date].push(r); });
+      var dkeys = Object.keys(byDate2).sort(function(a, b) { return b.localeCompare(a); });
+      var dateRows = dkeys.map(function(dk) { var _dp = dk.split("-"); var _dow = ["日","月","火","水","木","金","土"][new Date(+_dp[0], +_dp[1]-1, +_dp[2]).getDay()]; return { key: dk, label: dk + " (" + _dow + ")", recs: byDate2[dk] }; });
+      var _byDow = { 1: [], 2: [], 3: [], 4: [], 5: [] }; var _dowLabel = ["", "月", "火", "水", "木", "金"];
+      grp.records.forEach(function(r) { var _dp = r.date.split("-"); var _wd = new Date(+_dp[0], +_dp[1]-1, +_dp[2]).getDay(); if (_wd >= 1 && _wd <= 5) _byDow[_wd].push(r); });
+      var dowRows = [1,2,3,4,5].map(function(wd) { return { key: "dow" + wd, label: _dowLabel[wd] + "曜", recs: _byDow[wd] }; });
+      return React.createElement(React.Fragment, null,
+        _sigRichTable({ title: "日別集計", icon: "📅", headLabel: "日付", rows: dateRows, expandPrefix: "date_" }),
+        React.createElement("div", { style: { borderTop: "1px solid #f0ede8" } }, _sigRichTable({ title: "曜日別集計", icon: "📆", headLabel: "曜日", rows: dowRows, expandPrefix: null }))
+      );
+    };
+    renderStockSubTab = function() {
+      var byStock2 = {};
+      grp.records.forEach(function(r) { if (!byStock2[r.stock]) byStock2[r.stock] = []; byStock2[r.stock].push(r); });
+      var skeys = Object.keys(byStock2).sort(function(a, b) { return byStock2[b].length - byStock2[a].length; });
+      var rows = skeys.map(function(sk) { return { key: sk, label: sk, recs: byStock2[sk], labelColor: "#9A3412" }; });
+      return _sigRichTable({ title: "銘柄別集計", icon: "📈", headLabel: "銘柄", rows: rows, expandPrefix: "stock_" });
+    };
+    renderDiffSubTab = function() {
+      var DIFF_LABEL = { A: "A（易）", B: "B（普）", C: "C（難）" };
+      var DIFF_COLOR = { A: "#1E8449", B: "#9A3412", C: "#7C3AED" };
+      var mk = function(field) { var m = { A: [], B: [], C: [], "__none__": [] }; grp.records.forEach(function(r) { var v = r.signal[field] || "__none__"; if (!m[v]) m[v] = []; m[v].push(r); }); return m; };
+      var rowsOf = function(m) { return ["A","B","C","__none__"].filter(function(k) { return (m[k] || []).length > 0; }).map(function(k) { return { key: k, label: k === "__none__" ? "未設定" : DIFF_LABEL[k], recs: m[k], labelColor: DIFF_COLOR[k] || "#aaa" }; }); };
+      var byEnt = mk("difficulty"); var byTp = mk("tpDifficulty");
+      var hasTp = grp.records.some(function(r) { return r.signal.tpDifficulty; });
+      return React.createElement(React.Fragment, null,
+        _sigRichTable({ title: "エントリー難易度別", icon: "🎚", headLabel: "難易度", rows: rowsOf(byEnt), expandPrefix: "diff_" }),
+        hasTp ? React.createElement("div", { style: { borderTop: "1px solid #f0ede8" } }, _sigRichTable({ title: "利確難易度別", icon: "🎯", headLabel: "難易度", rows: rowsOf(byTp), expandPrefix: "tpdiff_" })) : null
+      );
+    };
+
     return React.createElement("div", null,
       addBar,
       
@@ -3108,7 +3248,16 @@ function EntryLogView(_ref_elv) {
               }, "×")
             )
           ),
-      
+
+      React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", padding: "12px", background: "#FFF7ED", border: "1px solid #e0ddd6", borderTop: "none" } },
+        _sigKpiCard("件数", stats.total + "戦", "#333", ent.length > 0 ? "実" + ent.length + "/見送" + skp.length : null),
+        _sigKpiCard("勝率", stats.winPct != null ? stats.winPct + "%" : "—", _sigWpCol(stats.winPct), (stats.ok || 0) + "勝" + (stats.ng || 0) + "敗"),
+        _sigKpiCard("E未達", (stats.miss || 0) + "件", stats.miss ? "#7C3AED" : "#bbb", "α>OS値"),
+        _sigKpiCard("期待値", stats.expectedPlanned != null ? _sigYen(stats.expectedPlanned) : "—", _sigPnlCol(stats.expectedPlanned), "1トレード平均"),
+        _sigKpiCard("想定損益", stats.sumPlanned !== 0 ? _sigYen(stats.sumPlanned) : "—", _sigPnlCol(stats.sumPlanned), "合計"),
+        _sigKpiCard("実現損益", stats.sumPnl !== 0 ? _sigYen(stats.sumPnl) : "—", _sigPnlCol(stats.sumPnl), "合計")
+      ),
+
       !grp.isCustom && React.createElement("div", { style: { border: "1px solid #e0ddd6", borderTop: "none" } },
         React.createElement("div", null,
           React.createElement("div", {
