@@ -12498,6 +12498,8 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     cfg: cfg,
     onSimilarSearch: runSimilarSearch,
     onPatternSearch: function(){ setPatOpen(true); }
+  }), stock === "日経平均株価" && /*#__PURE__*/React.createElement(NikkeiPriceChart, {
+    data: data, onSelectDate: onSelectDate, highlightDate: date
   }), /*#__PURE__*/React.createElement(TagPicker, _extends({
     cats: custom.chartShapeCats || {},
     tags: custom.chartShapeTags || [],
@@ -20549,9 +20551,6 @@ function DayView(_ref57) {
           stock: "日経平均株価", data: data, custom: custom, cfg: cfg, highlightDate: date
         })
       ),
-      /*#__PURE__*/React.createElement(NikkeiPriceChart, {
-        data: data, onSelectDate: onSelectDate, highlightDate: date
-      }),
       /*#__PURE__*/React.createElement("div", { style: Card },
         /*#__PURE__*/React.createElement("div", { style: { fontSize: 15, fontWeight: 700, marginBottom: 12 } },
           "日経平均株価 — ", date),
