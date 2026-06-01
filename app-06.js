@@ -1865,10 +1865,23 @@ function EntryLogView(_ref_elv) {
         var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
         var _per100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
         var realPnl = (item && item.pnl != null) ? Number(item.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-        var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
+        var _aiSv = _elAlphaInfo(r, data);
+        var planPnlN = _elDynPlanned(s, _aiSv.alpha, _aiSv.cutLine);
+        var holdPnl = _elDynHold(s, _aiSv.alpha, _aiSv.cutLine);
+        var _dynResSv = _elDynResult(s, _aiSv.alpha, _aiSv.cutLine);
+        var _dynHPsv = (function() {
+          var hp = holdPnl, pp = planPnlN;
+          if (hp == null) return s.holdProfit;
+          if (_dynResSv === "miss" || _dynResSv === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
+          if (pp == null) return s.holdProfit;
+          if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
+          if (pp < 0 && hp < 0) return "no";
+          if (pp > 0 && hp < 0) return "no";
+          if (pp < 0 && hp > 0) return "yes";
+          if (hp === 0) return "none";
+          return s.holdProfit;
+        })();
         var realPnlN = realPnl != null ? _per100(realPnl) : null;
-        var planPnlN = planPnl != null ? _per100(planPnl) : null;
         var entered = _elIsEntered(s, item);
         var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
         var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
@@ -1910,10 +1923,10 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } },
               (function() {
                 var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
-                var _sym = s.holdProfit === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
-                  : s.holdProfit === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
-                  : s.holdProfit === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
-                  : s.holdProfit === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
+                var _sym = _dynHPsv === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
+                  : _dynHPsv === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
+                  : _dynHPsv === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
+                  : _dynHPsv === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
                 if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
                 return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
               })())

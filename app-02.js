@@ -4367,11 +4367,12 @@ function EntrySignalSection(_ref_es) {
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "損切りライン"),
       React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
         React.createElement("input", {
-          type: "number", inputMode: "numeric", step: "1",
+          type: "number", inputMode: "numeric", step: "1", min: "1",
           value: c.cutLine != null ? String(c.cutLine) : "10",
           onChange: function(e) {
             var v = _toHankaku(e.target.value).trim();
             var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
+            if (n != null && n < 1) n = 1;
             save(function(prev) {
               var pCharts = Object.assign({}, (prev && prev.charts) || {});
               var _ce = Object.assign({}, pCharts[ck] || {});

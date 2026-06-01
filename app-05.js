@@ -3606,17 +3606,22 @@ function VirtualAlphaCalc(_ref_vac) {
     var planTotal = 0, resultTotal = 0, hasPlan = false, hasResult = false;
     sigs.forEach(function(d) {
       if (d.osVal == null) return;
-      if (alpha > d.osVal) return; 
-      
-      if (d.osVal - alpha >= cutLine) { planTotal += -(d.osVal - alpha) * 100; hasPlan = true; }
-      else if (d.conf != null) { planTotal += (alpha - d.conf) * 100; hasPlan = true; }
-      
-      if (d.holdHighSign === "-" && d.holdHighVal != null && (d.holdHighVal - alpha) >= cutLine) {
-        resultTotal += -((d.holdHighVal - alpha) * 100); hasResult = true;
-      } else if (d.osVal - alpha >= cutLine) {
-        resultTotal += -(d.osVal - alpha) * 100; hasResult = true;
-      } else if (d.holdOsConf != null) {
-        resultTotal += (alpha + (alpha - d.holdOsConf)) * 100; hasResult = true;
+      var _miss = alpha > d.osVal;
+
+      if (!_miss) {
+        if (d.osVal - alpha >= cutLine) { planTotal += -(d.osVal - alpha) * 100; hasPlan = true; }
+        else if (d.conf != null) { planTotal += (alpha - d.conf) * 100; hasPlan = true; }
+      }
+
+      var _hhEnter = d.holdHighSign === "-" && d.holdHighVal != null && d.holdHighVal > alpha;
+      if (!_miss || _hhEnter) {
+        if (d.holdHighSign === "-" && d.holdHighVal != null && (d.holdHighVal - alpha) >= cutLine) {
+          resultTotal += -((d.holdHighVal - alpha) * 100); hasResult = true;
+        } else if (!_miss && d.osVal - alpha >= cutLine) {
+          resultTotal += -(d.osVal - alpha) * 100; hasResult = true;
+        } else if (d.holdOsConf != null) {
+          resultTotal += (alpha + (alpha - d.holdOsConf)) * 100; hasResult = true;
+        }
       }
     });
     return { plan: hasPlan ? Math.round(planTotal) : null, result: hasResult ? Math.round(resultTotal) : null };
@@ -3932,7 +3937,7 @@ function EntryRecordForm(_ref_erf) {
     var _hwSigned = fHoldWidthSign === "+" ? Number(fHoldWidthVal) : -Number(fHoldWidthVal);
     var _newOsConf = _av - _hwSigned;
     if (_newOsConf !== fHoldOsConf) setFHoldOsConf(_newOsConf);
-  }, [fStock, fDate, data, _fAlpha]);
+  }, [fStock, fDate, data, _fAlpha, fHoldWidthSign, fHoldWidthVal]);
 
   
   
