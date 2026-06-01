@@ -1,0 +1,28 @@
+# FILEMAP — 分割ファイル対応表
+読み込み順: vendor.js → app-01.js → ... (index.html の末尾に記載)
+各 app-*.js は「トップレベル文の境界」で分割。連結すると元コードと一致。
+
+## app-01.js (元 L378-6573)
+_React, useState, useEffect, useRef, useCallback, useMemo, IS_TOUCH, debounce, IMG_H, DEF_STOCKS, DEF_FM_INDICATORS, DEF_FM_STOCKS, DEF_NEWS_CATS, _DEF_STOCKS_FROZEN, _DEF_NEWS_CATS_FROZEN, MACRO_LEVELS, MACRO_LABELS, MACRO_LABELS_STOCK, MACRO_COLORS, getMC, DAYS_JP, _fmtDow, OPEN_TAGS, MOVE_TAGS, TECH_TAGS, GRADES, TAG_SEL, TAG_UNS, _TAG_QC, _isDarkColor, _tagColorTriple, EMPTY, ST_KEY, CF_KEY, getFC, dateFmt, todayStr, stripCat, stripHtml, _hasText, calcSim, fileToImg, _fileToImg, getAllNewsCatsData, getCatData, hasCatContent, getDayEvents, hasEventsContent, getEventColor, getEventCategoryName, _buildHolidayDateSet, _collectCatTagsFromTrades, _filterTagPoolForCat, migrateData, stLoad, _stSaveTimer, _stSaveLatest, stSave, _stStrip, _stWriteToStorage, _stFlush, cfLoad, cfSave, _FB_USAGE_PREFIX, _fbUsageCache, _fbUsageFlushTimer, _fbUsageKey, _fbUsageGet, _fbUsageFlush, _fbUsageSave, _fbUsageFormat, _FB_FREE, _fbWarnShown, _fbAutoPauseCb, _fbSetAutoPauseCb, _fbTrack, _fbCheckLimits, _fbShowBanner, _fbBase, _fbAuth, makeFbUrl, _makeFbDataUrl, _HEAVY_KEYS, _stripHeavy, _buildMeta, _mergeRemoteMeta, fbGet, _fbLocalV, _fbLastPutHash, _fbHashStr, fbPut, _fbPut, fbPollV, _fbPollV, fbInitialLoad, _snIdb, _snIdbReady, snIdbGet, snIdbSet, snIdbDel, _SN_CACHE_NAME, snCacheGet, snCachePut, _stSaveImagesToIdb, _evictNonActiveImages, _fbStorageRef, _FB_STORAGE_BUCKET, fbStorageInit, base64ToBlob, _uploadToStorage, urlToBase64, imgSrc, origImgSrc, _imgUploadStore, _imgUploadSubs, _imgUploadSet, _imgUploadSubscribe, _imgUploadGet, _imgUploadAnyPending, CaThumbImg, _preloadRunning, preloadImages, _collectAndUploadHtmlDataUrls, _replaceHtmlDataUrls, _applyHtmlUrlMapToData, _uploadAllImages, analyzeChart, _analyzeChart, ANNOT_PRESET_KEY, DEF_PRESETS, _clipStroke, ColorPicker, TextEditor, ZoomLightbox, ImageAnnotator, Pill
+
+## app-02.js (元 L6574-12637)
+CPill, FlowChips, DeleteDlg, AddBtn, FastInput, _fiFlushAll, AutoTextarea, RichTextEditor, PasteZone, useImgUploadStatus, ImgThumb, ImgGrid, RichMemoEditor, LightTextarea, _summaryMemoToHtml, MemoSection, TagPicker, makeShapeTagPoolHandlers, makeTagPoolHandlers, _sigId, _sigStats, _sigStockHistory, SignalHistoryPopup, EntrySignalSection, _nikkeiMacroFromChange, _NikkeiManualInput, ChartSection
+
+## app-03.js (元 L12638-17335)
+_fmIsBizDay, _fmPrevValue, _fmPrevValues, _fmPrevDates, _FMSparkline, _toHankaku, _fmToHalfWidth, _FMValueInput, _FMPriceChart, _FMHayamihyoTable, ForeignMarketTable, ForeignMarketSettingsModal, StockTabs, _RenameRow, NewsCatTabs, EventsTab, NewsTab
+
+## app-04.js (元 L17336-22687)
+TradeForm, TradeItemCard, CalendarPreview, SearchView, SettingsModal, NikkeiPriceChart, StockQuickRefTable, StockQuickRefTableWithChart, DayView
+
+## app-05.js (元 L22688-27460)
+Calendar, EventCategoryManagementModal, _hdRecentRecords, _hdEnteredOnly, _hdTagKey, _hdGroupByTag, _hdWinTop3, _hdLoseTop3, _hdConsecutiveLosses, SignalDashboard, CA_URL, DEFAULT_STOCK_MAP, _caGetStockInfo, _caResolveDate, _caBuildUrl, _caOpen, _caMetaCache, _caMetaInFlight, CA_META_TTL, _caFetchMeta, _caFilterByStockDate, _caDraftInFlight, _caFetchDraftData, _caExtractCode, _CA_BAR_CACHE_PREFIX, _caBarCacheGet, _caBarCacheSet, _caFindPrevDraftMeta, _businessDaysBetween, _MACRO_LOCAL_RANGES, _macroLocalFromPct, _macroLastClose, _macroLocalDetectFromCa, _simResample, _simComputeFeatures, _simCosine, _simHammingMatch, _simScoreDetail, _simScore, _simFeatureMemCache, _simBulkFeaturesLoaded, _simBulkFeaturesPromise, _simLoadFeature, _simSaveFeature, _simBulkLoadAllFeatures, _simEnsureFeature, _EVT_ROUND_GRIDS, _evtDetectIndicatorCrosses, _evtDetectRoundNumberCrosses, _evtDetectHighLowUpdates, _evtDetectVolumeSpikes, _evtDetectConsecutiveCandles, _evtDetectOpenType, _evtDetectAll, _patDetectBreakdownReject, _patDetectAll, _evtEnsureEvents, _patEnsurePatterns, PATTERN_DEFS, PatternSearchDialog, SimilarSearchDialog, CAChartSection, _elCollectAllSignals, _elIsEntered, _compatSignal, _vcol, _elSignedVal, _elCalcStats, _profitGradeFromPnl, _profitGradeFromPnlReal, _GRADE_STYLE, _GRADE_DESC, _GRADE_DESC_REAL, _elCalcChartGrades, _GradeBadges3, _elPnlPeriodFilter, _elFilterPeriod, _elTagLabel, _elTagEntries, _elGetItemCandidates, _elSetItemSignalRef, _elSaveSignal, _elDeleteSignal, _toHankakuNum, _toHankakuDecimal, _lpState, _clearLpState, _stepBtn, VirtualAlphaCalc, EntryRecordForm, EntryLogCard
+
+## app-06.js (元 L27461-31104)
+EntryStatsSummary, EntryLogView
+
+## app-07.js (元 L31105-36524)
+useModalBack, _shvIsStockNewsTag, _csCollectNewsForStock, _ntExtractStockFromTag, _aggregateBarsToDaily, ChartSectionDailyCandle, _parseDailyCsv, _bizDaysBetween, _dcVerifiedStocks, _dcSaveCsvToFb, _dcLoadCsvUploadedAt, _dcLoadCsvFromFb, _dcCacheLoad, _dcCacheSave, _calcEMA, _pickPriceStep, DailyCandleChart, _nhvUpdateNi, _nhvDeleteNi, _nhvAddNiToDate, _nhvCollectFlat, NewsHistoryView, _shvCollectFlat, _shvCollectSoukatsu, _shvTogPin, _shvAppendToToday, _SummaryCard, SummaryHistoryView, SI_DEFAULT_TAB_NAMES, SI_TEMPLATE_TAB_NAMES, _siFormatRelTime, _siGetTabs, _siSetTabs, _siGetTabContent, _siUpdateTabContent, _siAddTab, _siDelTab, _siRenameTab, _siReorderTab, _siCopyFromOtherStock, StockInfoTabsManagementModal, _renderUnsavedDialog, MemoEditableField, StockInfoSection, StockHistoryView
+
+## app-08.js (元 L36525-37896)
+HomeEventFormModal, App
+
