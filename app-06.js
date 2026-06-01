@@ -151,6 +151,10 @@ function EntryLogView(_ref_elv) {
     calTblRecExp = _uCalTbl3A[0], setCalTblRecExp = _uCalTbl3A[1];
   var _uCalTbl4 = useState("time"), _uCalTbl4A = _slicedToArray(_uCalTbl4, 2),
     calTblRowSort = _uCalTbl4A[0], setCalTblRowSort = _uCalTbl4A[1];
+  var _uTExpA = useState("5"), _uTExpAA = _slicedToArray(_uTExpA, 2),
+    tExpAlpha = _uTExpAA[0], setTExpAlpha = _uTExpAA[1];
+  var _uTExpC = useState("10"), _uTExpCA = _slicedToArray(_uTExpC, 2),
+    tExpCut = _uTExpCA[0], setTExpCut = _uTExpCA[1];
   var _uTStkF = useState(""), _uTStkFA = _slicedToArray(_uTStkF, 2),
     timeStockFil = _uTStkFA[0], setTimeStockFil = _uTStkFA[1];
   var _uCStkF = useState(""), _uCStkFA = _slicedToArray(_uCStkF, 2),
@@ -1106,6 +1110,8 @@ function EntryLogView(_ref_elv) {
             return (a.signal.time || "99:99").localeCompare(b.signal.time || "99:99");
           });
           if (!recs.length) return null;
+          var _ovA = (tExpAlpha !== "" && !isNaN(Number(tExpAlpha))) ? Number(tExpAlpha) : 5;
+          var _ovC = (tExpCut !== "" && !isNaN(Number(tExpCut))) ? Number(tExpCut) : 10;
           var _rPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
           var _rPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
           var _rTh = function(label, extra) {
@@ -1130,10 +1136,22 @@ function EntryLogView(_ref_elv) {
             var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
             var _per100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
             var realPnl = (item && item.pnl != null) ? Number(item.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-            var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-            var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
+            var planPnlN = _elDynPlanned(s, _ovA, _ovC);
+            var holdPnl = _elDynHold(s, _ovA, _ovC);
+            var _dynRes = _elDynResult(s, _ovA, _ovC);
+            var _dynHP = (function() {
+              var hp = holdPnl, pp = planPnlN;
+              if (hp == null) return s.holdProfit;
+              if (_dynRes === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
+              if (pp == null) return s.holdProfit;
+              if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
+              if (pp < 0 && hp < 0) return "no";
+              if (pp > 0 && hp < 0) return "no";
+              if (pp < 0 && hp > 0) return "yes";
+              if (hp === 0) return "none";
+              return s.holdProfit;
+            })();
             var realPnlN = realPnl != null ? _per100(realPnl) : null;
-            var planPnlN = planPnl != null ? _per100(planPnl) : null;
             var entered = _elIsEntered(s, item);
             var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
             var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
@@ -1177,10 +1195,10 @@ function EntryLogView(_ref_elv) {
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } },
                   (function() {
                     var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
-                    var _sym = s.holdProfit === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
-                      : s.holdProfit === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
-                      : s.holdProfit === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
-                      : s.holdProfit === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
+                    var _sym = _dynHP === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
+                      : _dynHP === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
+                      : _dynHP === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
+                      : _dynHP === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
                     if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
                     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
                   })())
@@ -1245,9 +1263,43 @@ function EntryLogView(_ref_elv) {
               }, kv[1]);
             })
           );
+          var _tAlphaBar = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "2px 8px 6px", flexWrap: "wrap" } },
+            React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700 } }, "α値"),
+            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
+              React.createElement("input", {
+                type: "number", inputMode: "numeric", min: "0", max: "20", step: "1", value: tExpAlpha,
+                onChange: function(e) { var v = e.target.value; if (v === "") { setTExpAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 20) n = 20; if (n < 0) n = 0; setTExpAlpha(String(n)); },
+                style: { width: 46, padding: "2px 4px", fontSize: 11, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+              }),
+              _stepBtn(
+                function() { setTExpAlpha(function(v) { return String(Math.min(20, (Number(v)||0) + 1)); }); },
+                function() { setTExpAlpha(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
+              )
+            ),
+            React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円"),
+            React.createElement("span", { style: { fontSize: 10, color: "#555", fontWeight: 700, marginLeft: 4 } }, "損切り"),
+            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
+              React.createElement("input", {
+                type: "number", inputMode: "numeric", min: "0", step: "1", value: tExpCut,
+                onChange: function(e) { var v = e.target.value; if (v === "") { setTExpCut(""); return; } var n = Number(v); if (isNaN(n)) return; if (n < 0) n = 0; setTExpCut(String(n)); },
+                style: { width: 42, padding: "2px 4px", fontSize: 11, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+              }),
+              _stepBtn(
+                function() { setTExpCut(function(v) { return String((Number(v)||0) + 1); }); },
+                function() { setTExpCut(function(v) { return String(Math.max(1, (Number(v)||0) - 1)); }); }
+              )
+            ),
+            React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円"),
+            React.createElement("button", {
+              onClick: function() { setTExpAlpha("5"); setTExpCut("10"); },
+              style: { fontSize: 10, padding: "1px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
+            }, "リセット"),
+            React.createElement("span", { style: { fontSize: 9, color: "#aaa", whiteSpace: "nowrap" } }, "※この日全体にα/損切りを適用して試算")
+          );
           return React.createElement("tr", { key: date + "_texp" },
             React.createElement("td", { colSpan: 10, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
               _tSortToggle,
+              _tAlphaBar,
               React.createElement("div", { style: { overflowX: "auto" } },
                 React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } },
                   React.createElement("thead", null,
