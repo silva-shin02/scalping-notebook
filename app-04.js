@@ -3604,13 +3604,14 @@ function DayView(_ref57) {
         var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
         var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
         var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+        var _aiTr0 = _elAlphaInfo(r, data);
+        var pp = _elDynPlanned(s, _aiTr0.alpha, _aiTr0.cutLine);
         var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
-        var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+        var hp = _elDynHold(s, _aiTr0.alpha, _aiTr0.cutLine);
         var rpN = rp != null ? _p100(rp) : null;
-        var ppN = pp != null ? _p100(pp) : null;
+        var ppN = pp;
         var mpN = mp != null ? _p100(mp) : null;
-        var hpN = hp != null ? _p100(hp) : null;
+        var hpN = hp;
         if (rpN != null) { _trTotReal = (_trTotReal || 0) + rpN; _trTotRealCnt++; }
         if (ppN != null) { _trTotPlan = (_trTotPlan || 0) + ppN; _trTotPlanCnt++; }
         if (mpN != null) { _trTotMax  = (_trTotMax  || 0) + mpN; _trTotMaxCnt++; }
@@ -3648,21 +3649,34 @@ function DayView(_ref57) {
         var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
         var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
         var realPnl = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-        var maxPnl  = _elSignedVal(s.maxPnl, s.maxPnlSign);
+        var _aiTr = _elAlphaInfo(r, data);
+        var planPnlN = _elDynPlanned(s, _aiTr.alpha, _aiTr.cutLine);
+        var maxPnlN  = planPnlN;
+        var _hpTr = _elDynHold(s, _aiTr.alpha, _aiTr.cutLine);
+        var _dynResTr = _elDynResult(s, _aiTr.alpha, _aiTr.cutLine);
+        var _dynHPtr = (function() {
+          var hp = _hpTr, pp = planPnlN;
+          if (hp == null) return s.holdProfit;
+          if (_dynResTr === "miss" || _dynResTr === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
+          if (pp == null) return s.holdProfit;
+          if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
+          if (pp < 0 && hp < 0) return "no";
+          if (pp > 0 && hp < 0) return "no";
+          if (pp < 0 && hp > 0) return "yes";
+          if (hp === 0) return "none";
+          return s.holdProfit;
+        })();
         var realPnlN = realPnl != null ? _p100(realPnl) : null;
-        var planPnlN = planPnl != null ? _p100(planPnl) : null;
-        var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
         var entered = _elIsEntered(s, rIt);
         var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
         var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
-        var holdResultEl = s.holdProfit === "yes"
+        var holdResultEl = _dynHPtr === "yes"
           ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
-          : s.holdProfit === "mid"
+          : _dynHPtr === "mid"
             ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
-            : s.holdProfit === "none"
+            : _dynHPtr === "none"
               ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
-              : s.holdProfit === "no"
+              : _dynHPtr === "no"
                 ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×")
                 : React.createElement("span", { style: { color: "#ccc" } }, "—");
         var entLabel = entered
@@ -3670,9 +3684,9 @@ function DayView(_ref57) {
           : React.createElement("span", { style: { color: "#888" } }, "見送り");
         var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
-        var resultEl = s.result === "ok"
+        var resultEl = _dynResTr === "ok"
           ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "○")
-          : s.result === "ng"
+          : _dynResTr === "ng"
             ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700, fontSize: 13 } }, "×")
             : React.createElement("span", { style: { color: "#ccc" } }, "—");
         var rKeyRef = rKey;
@@ -3736,8 +3750,8 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(realPnlN, realGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(planPnlN, planGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, (function() {
-              var _hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
-              var _isMiss = s.result === "miss";
+              var _hp = _hpTr;
+              var _isMiss = _dynResTr === "miss";
               var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
               var _pnlEl = _hp == null ? null : (function() {
                 var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
@@ -3754,7 +3768,7 @@ function DayView(_ref57) {
           dataRows.push(
             React.createElement("tr", { key: rKey + "_card" },
               React.createElement("td", { colSpan: 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
-                React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
+                React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
               )
             )
           );
@@ -4304,6 +4318,8 @@ function DayView(_ref57) {
             React.createElement("td", { colSpan: 15, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
               React.createElement(EntryLogCard, {
                 record: r,
+                alpha: (pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : 5; })()),
+                cutLine: ((pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.cutLine != null ? _c.cutLine : 10; })()),
                 onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); }
               })
             )

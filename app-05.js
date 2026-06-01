@@ -4739,8 +4739,24 @@ function EntryLogCard(_ref_elc) {
   var entered = _elIsEntered(s, item);
   var realPnl = (item && item.pnl != null) ? Number(item.pnl)
     : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
-  var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-  var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
+  var _elcAi = (_ref_elc.alpha != null)
+    ? { alpha: Number(_ref_elc.alpha), cutLine: (_ref_elc.cutLine != null ? Number(_ref_elc.cutLine) : 10) }
+    : (_ref_elc.data ? _elAlphaInfo(record, _ref_elc.data) : null);
+  var planPnl = _elcAi ? _elDynPlanned(s, _elcAi.alpha, _elcAi.cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+  var holdPnl = _elcAi ? _elDynHold(s, _elcAi.alpha, _elcAi.cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
+  var _dispResult = _elcAi ? _elDynResult(s, _elcAi.alpha, _elcAi.cutLine) : s.result;
+  var _dispHP = _elcAi ? (function() {
+    var hp = holdPnl, pp = planPnl;
+    if (hp == null) return s.holdProfit;
+    if (_dispResult === "miss" || _dispResult === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
+    if (pp == null) return s.holdProfit;
+    if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
+    if (pp < 0 && hp < 0) return "no";
+    if (pp > 0 && hp < 0) return "no";
+    if (pp < 0 && hp > 0) return "yes";
+    if (hp === 0) return "none";
+    return s.holdProfit;
+  })() : s.holdProfit;
   
   var _chip = function(label, value, valueColor, extra) {
     return React.createElement("div", { style: Object.assign({ display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 }, extra || {}) },
@@ -4786,7 +4802,7 @@ function EntryLogCard(_ref_elc) {
         return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, t);
       }),
       s.isCustomTag && React.createElement("span", { style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#EEF2FF", color: "#4338CA", borderRadius: 5, border: "1px solid #C7D2FE" } }, s.customTagText || "(その他)"),
-      s.result && _resultBadge(s.result),
+      _dispResult && _resultBadge(_dispResult),
       s.difficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 4, border: "1px solid #FDBA74" } }, "E難易度" + s.difficulty),
       s.tpDifficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#DCFCE7", color: "#14532D", borderRadius: 4, border: "1px solid #86EFAC" } }, "利確" + s.tpDifficulty),
       record.stockTags && record.stockTags.map(function(t) {
@@ -4828,7 +4844,7 @@ function EntryLogCard(_ref_elc) {
       holdPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
         React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
         React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
-          _hpBadge(s.holdProfit),
+          _hpBadge(_dispHP),
           _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
           _pnlFmt(holdPnl))
       )

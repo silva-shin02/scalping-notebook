@@ -297,7 +297,7 @@ function EntryLogView(_ref_elv) {
     var recKey = _recKey(r);
     if (sortMode !== "custom") {
       return React.createElement(EntryLogCard, {
-        key: recKey, record: r, onEdit: handleEdit, onGoDate: handleGoDate
+        key: recKey, record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate
       });
     }
     var isDragging = dragRecKey === recKey;
@@ -356,7 +356,7 @@ function EntryLogView(_ref_elv) {
       
       React.createElement("div", { style: { flex: 1, minWidth: 0 } },
         React.createElement(EntryLogCard, {
-          record: r, onEdit: handleEdit, onGoDate: handleGoDate
+          record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate
         })
       )
     );
@@ -920,7 +920,7 @@ function EntryLogView(_ref_elv) {
                         React.createElement("span", { style: { color: "#888", fontWeight: 500 } }, g.records.length + "件")
                       ),
                       g.records.map(function(r) {
-                        return React.createElement(EntryLogCard, { key: _recKey(r), record: r, onEdit: handleEdit, onGoDate: handleGoDate });
+                        return React.createElement(EntryLogCard, { key: _recKey(r), record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate });
                       })
                     );
                   })
@@ -1209,7 +1209,7 @@ function EntryLogView(_ref_elv) {
               subRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
                   React.createElement("td", { colSpan: 10, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
-                    React.createElement(EntryLogCard, { record: r, onEdit: handleEdit, onGoDate: handleGoDate })
+                    React.createElement(EntryLogCard, { record: r, alpha: _ovA, cutLine: _ovC, onEdit: handleEdit, onGoDate: handleGoDate })
                   )
                 )
               );
@@ -1936,7 +1936,7 @@ function EntryLogView(_ref_elv) {
           subRows.push(
             React.createElement("tr", { key: rKey + "_card" },
               React.createElement("td", { colSpan: 8, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
-                React.createElement(EntryLogCard, { record: r, onEdit: handleEdit, onGoDate: handleGoDate })
+                React.createElement(EntryLogCard, { record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate })
               )
             )
           );
@@ -2630,7 +2630,7 @@ function EntryLogView(_ref_elv) {
                 sortedSlotRecs.length === 0
                   ? React.createElement("div", { style: { textAlign: "center", color: "#bbb", padding: "12px 0", fontSize: 12 } }, "記録なし")
                   : sortedSlotRecs.map(function(r) {
-                      return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, onEdit: handleEdit, onGoDate: handleGoDate });
+                      return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate });
                     })
               )
             )
@@ -2796,7 +2796,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("div", { style: { padding: "4px 12px 6px", fontSize: 11, color: "#9A3412", fontWeight: 700 } },
               "▶ " + _fmtDow(expDate) + "  " + expRecs.length + "件"),
             expRecs.map(function(r) {
-              return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, onEdit: handleEdit, onGoDate: handleGoDate });
+              return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate });
             })
           );
         })()
@@ -2864,7 +2864,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("div", { style: { padding: "4px 12px 6px", fontSize: 11, color: "#9A3412", fontWeight: 700 } },
               "▶ " + expStock + "  " + expRecs.length + "件"),
             expRecs.map(function(r) {
-              return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, onEdit: handleEdit, onGoDate: handleGoDate });
+              return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate });
             })
           );
         })()
@@ -2985,7 +2985,7 @@ function EntryLogView(_ref_elv) {
               React.createElement("div", { style: { padding: "4px 12px 6px", fontSize: 11, fontWeight: 700, color: "#9A3412" } },
                 "▶ " + expLabel + "  " + expRecs.length + "件"),
               expRecs.map(function(r) {
-                return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, onEdit: handleEdit, onGoDate: handleGoDate });
+                return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate });
               })
             );
           })()

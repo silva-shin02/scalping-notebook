@@ -3902,7 +3902,7 @@ function EntrySignalSection(_ref_es) {
     var recKey = _esRecKey(r);
     if (sortMode !== "custom") {
       return React.createElement(EntryLogCard, {
-        key: recKey, record: r, onEdit: function(rec) { setEditTarget(rec); }
+        key: recKey, record: r, data: data, onEdit: function(rec) { setEditTarget(rec); }
       });
     }
     var isDragging = dragRecKey === recKey;
@@ -3957,7 +3957,7 @@ function EntrySignalSection(_ref_es) {
       ),
       React.createElement("div", { style: { flex: 1, minWidth: 0 } },
         React.createElement(EntryLogCard, {
-          record: r, onEdit: function(rec) { setEditTarget(rec); }
+          record: r, data: data, onEdit: function(rec) { setEditTarget(rec); }
         })
       )
     );
@@ -4618,7 +4618,7 @@ function EntrySignalSection(_ref_es) {
                     : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, (function() {
                   var _hp = _holdPnlDyn;
-                  var _isMiss = s.result === "miss";
+                  var _isMiss = _dispResult === "miss";
                   var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
                   var _hpNum = _holdIsUnrecorded
                     ? React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "未記録")
@@ -4655,7 +4655,7 @@ function EntrySignalSection(_ref_es) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
                   React.createElement("td", { colSpan: isCustomMode ? 13 : 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
-                    React.createElement(EntryLogCard, { record: r, onEdit: function(rec) { setEditTarget(rec); } })
+                    React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
               );
