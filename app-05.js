@@ -3146,7 +3146,54 @@ function _elSignedVal(v, sign) {
 
 
 
-function _elCalcStats(records) {
+function _elAlphaInfo(r, data) {
+  var c = (data && data.charts) ? data.charts[r.stock + "_" + r.date] : null;
+  return {
+    alpha: (c && c.alphaVal != null) ? Number(c.alphaVal) : null,
+    cutLine: (c && c.cutLine != null) ? Number(c.cutLine) : 10
+  };
+}
+function _elDynResult(s, alpha, cutLine) {
+  if (alpha != null && s.osVal != null && Number(s.osVal) > 0) {
+    var dv = Number(s.osVal) - alpha;
+    if (dv < 0) return "miss";
+    if (dv >= cutLine) return "ng";
+    if (s.osConfVal != null && s.osConfVal !== "") {
+      var cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
+      return cf < alpha ? "ok" : cf === alpha ? "draw" : "ng";
+    }
+  }
+  return s.result;
+}
+function _elDynPlanned(s, alpha, cutLine) {
+  var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+  if (alpha != null && s.osVal != null) {
+    var cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+    var df = Number(s.osVal) - alpha;
+    var pD = df < 0 ? 0 : df >= cutLine ? -Math.round(df * 100) : (cf != null ? Math.round((alpha - cf) * 100) : null);
+    if (pD != null) pp = pD;
+  }
+  return pp;
+}
+function _elDynHold(s, alpha, cutLine) {
+  if (alpha == null) return _elSignedVal(s.holdPnl, s.holdPnlSign);
+  if (s.osVal != null && alpha > Number(s.osVal)) return null;
+  var hp, done = false;
+  if (s.holdHighSign === "-" && s.holdHighVal != null) {
+    var hhE = Number(s.holdHighVal) - alpha;
+    if (hhE >= cutLine) { hp = -Math.round(hhE * 100); done = true; }
+  }
+  if (!done && s.osVal != null && (Number(s.osVal) - alpha) >= cutLine) { hp = -Math.round((Number(s.osVal) - alpha) * 100); done = true; }
+  if (!done) {
+    if (s.holdOsConf != null) { hp = Math.round((alpha + (alpha - Number(s.holdOsConf))) * 100); }
+    else if (s.holdWidthSign != null && s.holdWidth != null) { hp = Math.round((alpha + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); }
+    else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); }
+  }
+  return hp;
+}
+
+function _elCalcStats(records, data) {
+  var _liveA = !!(data && data.charts);
   var total = records.length;
   var ok = 0, ng = 0, draw = 0, miss = 0;
   var sumPnl = 0, sumPlanned = 0, sumMax = 0, sumHold = 0;
@@ -3161,10 +3208,12 @@ function _elCalcStats(records) {
     else if (s.holdProfit === "mid") hMid++;
     else if (s.holdProfit === "none") hNone++;
     else if (s.holdProfit === "no") hNo++;
-    if (s.result === "ok") ok++;
-    else if (s.result === "ng") ng++;
-    else if (s.result === "draw") draw++;
-    else if (s.result === "miss") miss++;
+    var _ai = _liveA ? _elAlphaInfo(r, data) : null;
+    var _res = _liveA ? _elDynResult(s, _ai.alpha, _ai.cutLine) : s.result;
+    if (_res === "ok") ok++;
+    else if (_res === "ng") ng++;
+    else if (_res === "draw") draw++;
+    else if (_res === "miss") miss++;
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
     var _per100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
     var pn = (r.item && r.item.pnl != null)
@@ -3176,9 +3225,9 @@ function _elCalcStats(records) {
       if (pnN > 0) wins.push(pnN);
       else if (pnN < 0) losses.push(pnN);
     }
-    var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+    var pp = _liveA ? _elDynPlanned(s, _ai.alpha, _ai.cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (pp != null) {
-      var ppN = _per100(pp);
+      var ppN = _liveA ? Math.round(pp) : _per100(pp);
       sumPlanned += ppN;
       if (ppN > 0) plannedWins.push(ppN);
       else if (ppN < 0) plannedLosses.push(ppN);
@@ -3190,9 +3239,9 @@ function _elCalcStats(records) {
       if (mpN > 0) maxWins.push(mpN);
       else if (mpN < 0) maxLosses.push(mpN);
     }
-    var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
+    var hp = _liveA ? _elDynHold(s, _ai.alpha, _ai.cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
     if (hp != null) {
-      var hpN = _per100(hp);
+      var hpN = _liveA ? Math.round(hp) : _per100(hp);
       sumHold += hpN;
       holdHasData = true;
     }

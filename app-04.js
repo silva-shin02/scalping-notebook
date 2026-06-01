@@ -3974,7 +3974,7 @@ function DayView(_ref57) {
     var _pbFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
     var _pbCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _pbTh = function(label, extra) {
-      return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%", textAlign: "center" }, extra || {}) }, label);
+      return React.createElement("th", { style: Object.assign({ padding: "4px 3px", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%", textAlign: "center", fontSize: 10, lineHeight: 1.2 }, extra || {}) }, label);
     };
     var _pbBadge = function(grade) {
       var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
@@ -4084,7 +4084,7 @@ function DayView(_ref57) {
         style: { background: bg, cursor: rowKey ? "pointer" : "default" },
         onClick: rowKey ? function() { setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); if (n[keyRef]) delete n[keyRef]; else n[keyRef] = true; return n; }); if (isExp) setPnlRecordExpandSet({}); } : undefined
       },
-        React.createElement("td", { style: { padding: "5px 8px", textAlign: "center", fontWeight: isTotal ? 700 : 600, fontSize: 12, whiteSpace: "nowrap", width: "1%",
+        React.createElement("td", { style: { padding: "3px 5px", textAlign: "left", fontWeight: isTotal ? 700 : 600, fontSize: 11, whiteSpace: "nowrap", width: "auto",
           color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
           rowKey ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶") : null,
           label,
@@ -4094,17 +4094,17 @@ function DayView(_ref57) {
             style: { marginLeft: 6, fontSize: 10, padding: "1px 5px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#666", lineHeight: 1.3, verticalAlign: "middle" }
           }, "閉じる") : null
         ),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderTop: bt, borderRight: br, fontWeight: isTotal ? 700 : 400 } }, st.total),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderTop: bt, borderRight: br, color: "#1E8449", fontWeight: st.ok ? 700 : 400 } }, st.ok || "0"),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderTop: bt, borderRight: br, color: "#6B7280", fontWeight: (st.draw || 0) > 0 ? 700 : 400 } }, st.draw || "0"),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderTop: bt, borderRight: br, color: "#C0392B", fontWeight: st.ng ? 700 : 400 } }, st.ng || "0"),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderTop: bt, borderRight: br, color: "#B45309", fontWeight: (st.miss || 0) > 0 ? 700 : 400 } }, st.miss || "0"),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderTop: bt, borderRight: br,
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, fontWeight: isTotal ? 700 : 400 } }, st.total),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#1E8449", fontWeight: st.ok ? 700 : 400 } }, st.ok || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#6B7280", fontWeight: (st.draw || 0) > 0 ? 700 : 400 } }, st.draw || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#C0392B", fontWeight: st.ng ? 700 : 400 } }, st.ng || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#B45309", fontWeight: (st.miss || 0) > 0 ? 700 : 400 } }, st.miss || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br,
           color: st.winPct != null ? (st.winPct >= 60 ? "#C0392B" : st.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
           fontWeight: st.winPct != null ? 700 : 400 } }, st.winPct != null ? st.winPct + "%" : "—"),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           _pbRealABAll(recs)),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
             var _dynSP = null, _dynSPAB = null;
             (recs || []).forEach(function(r) {
@@ -4123,7 +4123,7 @@ function DayView(_ref57) {
             var _hasAlpha = (recs || []).some(function(r) { var _cD = _pbCharts[r.stock + "_" + date]; return pbSimAlpha !== null || (_cD && _cD.alphaVal != null); });
             return _pbABAll(recs, _dynSP !== null ? _dynSP : st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned", _hasAlpha ? _dynSPAB : undefined);
           })()),
-        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hTot = null;
@@ -4224,7 +4224,7 @@ function DayView(_ref57) {
             rExp ? "▼" : "▶"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#9A3412" } },
             r.stock),
-          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
+          React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             s.time || "—"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", color: "#555" } },
             (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])).join(" / ") || "—"),
@@ -4246,7 +4246,7 @@ function DayView(_ref57) {
               var _ewAbs = Math.abs(_ew);
               return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "↓" : "↑") + _ewAbs);
             })()),
-          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
+          React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             isOk ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○") :
             isNg ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") :
             isDraw ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700 } }, "△") :
@@ -4879,10 +4879,10 @@ function DayView(_ref57) {
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
       _pbGradeLegend,
       React.createElement("div", { style: { overflowX: "auto" } },
-        React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
           React.createElement("thead", null,
             React.createElement("tr", { style: { background: "#f5f4f0" } },
-              _pbTh("銘柄"),
+              _pbTh("銘柄", { width: "auto", textAlign: "left" }),
               _pbTh("件"),
               _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")),
               _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")),
@@ -4890,9 +4890,9 @@ function DayView(_ref57) {
               _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
               _pbTh("勝率"),
               _pbTh("実現損益"),
-              _pbTh(React.createElement("span", null, "想定損益 ", React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#999" } }, "(100株あたり)"))),
-              _pbTh("ホールド勝敗/結果損益"),
-              _pbTh("タグ")
+              _pbTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)"))),
+              _pbTh(React.createElement("span", null, "H勝敗/", React.createElement("span", { style: { display: "block" } }, "結果損益"))),
+              _pbTh("タグ", { width: "auto", textAlign: "left" })
             )
           ),
           React.createElement("tbody", null,
