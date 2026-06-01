@@ -14974,6 +14974,13 @@ function NewsTab(_ref36) {
   var _usMvMd = useState("move"), _usMvMdS = _slicedToArray(_usMvMd, 2), moveMode = _usMvMdS[0], setMoveMode = _usMvMdS[1];
   // 追加: クローン先 [{cat, subCat}, ...]
   var _usCT = useState([]), _usCTS = _slicedToArray(_usCT, 2), cloneTargets = _usCTS[0], setCloneTargets = _usCTS[1];
+  // カテゴリ管理: サブカテゴリとして移動 / データ一括移動
+  var _usCMMvM = useState(""), _usCMMvMS = _slicedToArray(_usCMMvM, 2), catMgmtMoveToMain = _usCMMvMS[0], setCatMgmtMoveToMain = _usCMMvMS[1];
+  var _usCMBT = useState(""), _usCMBTS = _slicedToArray(_usCMBT, 2), catMgmtBulkTo = _usCMBTS[0], setCatMgmtBulkTo = _usCMBTS[1];
+  var _usCMBS = useState(""), _usCMBSS = _slicedToArray(_usCMBS, 2), catMgmtBulkToSub = _usCMBSS[0], setCatMgmtBulkToSub = _usCMBSS[1];
+  // サブカテゴリ管理: データ一括移動
+  var _usSCBT = useState(""), _usSCBTS = _slicedToArray(_usSCBT, 2), subCatMgmtBulkTo = _usSCBTS[0], setSubCatMgmtBulkTo = _usSCBTS[1];
+  var _usSCBS2 = useState(""), _usSCBS2S = _slicedToArray(_usSCBS2, 2), subCatMgmtBulkToSub = _usSCBS2S[0], setSubCatMgmtBulkToSub = _usSCBS2S[1];
   useModalBack(moveTarget != null, function(){ setMoveTarget(null); }, "news-move");
   // クローン削除確認モーダル: { niId, cloneCount } or null
   var _usDC = useState(null), _usDCS = _slicedToArray(_usDC, 2), delConfirmTarget = _usDCS[0], setDelConfirmTarget = _usDCS[1];
@@ -15764,6 +15771,51 @@ function NewsTab(_ref36) {
     var t = arr[newIdx]; arr[newIdx] = arr[idx]; arr[idx] = t;
     updCustom({ newsCategories: arr });
   };
+  var moveMainCatToSubCat = function(cat, targetMainCat) {
+    if (!cat || !targetMainCat || cat === targetMainCat) return;
+    save(function(prevData) {
+      var pc = prevData.custom || {};
+      var newCats = (pc.newsCategories || []).filter(function(c) { return c !== cat; });
+      var newSubCats = Object.assign({}, pc.newsSubCats || {});
+      var targetSubs = (newSubCats[targetMainCat] || []).slice();
+      if (targetSubs.indexOf(cat) < 0) targetSubs.push(cat);
+      newSubCats[targetMainCat] = targetSubs;
+      var newCatDefs = Object.assign({}, pc.newsCatDefaults || {});
+      var newSubDefs = Object.assign({}, pc.newsSubCatDefaults || {});
+      if (newCatDefs[cat]) { newSubDefs[targetMainCat + "::" + cat] = newCatDefs[cat]; delete newCatDefs[cat]; }
+      var prevEC = pc.shvExtraCats || {}, newEC = {}, pfx = cat + "::";
+      Object.keys(prevEC).forEach(function(stk) {
+        newEC[stk] = (prevEC[stk] || []).map(function(k) {
+          if (k === cat) return targetMainCat + "::" + cat;
+          if (k.indexOf(pfx) === 0) return targetMainCat + "::" + k;
+          return k;
+        });
+      });
+      return Object.assign({}, prevData, { custom: Object.assign({}, pc, { newsCategories: newCats.length > 0 ? newCats : [].concat(DEF_NEWS_CATS), newsSubCats: newSubCats, newsCatDefaults: newCatDefs, newsSubCatDefaults: newSubDefs, shvExtraCats: newEC }) });
+    });
+  };
+  var bulkMoveNewsData = function(fromKey, toKey, fromParentCat) {
+    if (!fromKey || !toKey || fromKey === toKey) return;
+    save(function(prevData) {
+      var pc = prevData.custom || {};
+      var newTrades = Object.assign({}, prevData.trades || {});
+      Object.keys(newTrades).forEach(function(dt) {
+        var dd2 = newTrades[dt];
+        if (!dd2 || !dd2.newsCats || !dd2.newsCats[fromKey]) return;
+        var fromData = dd2.newsCats[fromKey], toData = dd2.newsCats[toKey] || {};
+        var nc = Object.assign({}, dd2.newsCats);
+        nc[toKey] = Object.assign({}, toData, { newsItems: (toData.newsItems || []).concat(fromData.newsItems || []) });
+        delete nc[fromKey];
+        newTrades[dt] = Object.assign({}, dd2, { newsCats: nc });
+      });
+      var newCats = (pc.newsCategories || []).slice();
+      var newSubCats = Object.assign({}, pc.newsSubCats || {});
+      var isMain = newCats.indexOf(fromKey) >= 0;
+      if (isMain) { newCats = newCats.filter(function(c) { return c !== fromKey; }); delete newSubCats[fromKey]; }
+      if (fromParentCat) newSubCats[fromParentCat] = (newSubCats[fromParentCat] || []).filter(function(s) { return s !== fromKey; });
+      return Object.assign({}, prevData, { custom: Object.assign({}, pc, { newsCategories: (isMain && newCats.length === 0) ? [].concat(DEF_NEWS_CATS) : newCats, newsSubCats: newSubCats }), trades: newTrades });
+    });
+  };
   var catHasData = function catHasData(cat) {
     return hasCatContent(getCatData(dd, cat));
   };
@@ -16405,7 +16457,79 @@ function NewsTab(_ref36) {
           )
         ),
         // 削除
-        /*#__PURE__*/React.createElement("div", {
+        // サブカテゴリとして移動
+        !orphan && /*#__PURE__*/React.createElement("div", { style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 } },
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "↪ 別カテゴリのサブカテゴリとして移動"),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 } }, "「", cat, "」を選択したメインカテゴリの配下に移動します。データはそのまま引き継がれます。"),
+          /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
+            /*#__PURE__*/React.createElement("select", {
+              value: catMgmtMoveToMain,
+              onChange: function(e) { setCatMgmtMoveToMain(e.target.value); },
+              style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
+            },
+              /*#__PURE__*/React.createElement("option", { value: "" }, "移動先を選択…"),
+              newsCategories.filter(function(c) { return c !== cat; }).map(function(c) {
+                return /*#__PURE__*/React.createElement("option", { key: c, value: c }, c);
+              })
+            ),
+            /*#__PURE__*/React.createElement("button", {
+              disabled: !catMgmtMoveToMain,
+              onClick: function() {
+                if (!catMgmtMoveToMain) return;
+                if (window.confirm("「" + cat + "」を「" + catMgmtMoveToMain + "」のサブカテゴリに移動しますか？")) {
+                  moveMainCatToSubCat(cat, catMgmtMoveToMain);
+                  setCatMgmtMoveToMain("");
+                  setCatMgmtTarget(null);
+                }
+              },
+              style: { padding: "6px 14px", fontSize: 13, fontWeight: 700, background: catMgmtMoveToMain ? "#EFF6FF" : "#f5f4f0", color: catMgmtMoveToMain ? "#1D4ED8" : "#bbb", border: "1px solid " + (catMgmtMoveToMain ? "#BFDBFE" : "#ddd"), borderRadius: 6, cursor: catMgmtMoveToMain ? "pointer" : "not-allowed" }
+            }, "移動")
+          )
+        ),
+        // データを別カテゴリへ一括移動
+        /*#__PURE__*/React.createElement("div", { style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 } },
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📦 データを別カテゴリへ一括移動"),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 } }, "「", cat, "」内の全画像・ニュースを別カテゴリに一括移動し、このカテゴリを削除します。"),
+          /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+            /*#__PURE__*/React.createElement("select", {
+              value: catMgmtBulkTo,
+              onChange: function(e) { setCatMgmtBulkTo(e.target.value); setCatMgmtBulkToSub(""); },
+              style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
+            },
+              /*#__PURE__*/React.createElement("option", { value: "" }, "移動先カテゴリを選択…"),
+              newsCategories.filter(function(c) { return c !== cat; }).map(function(c) {
+                return /*#__PURE__*/React.createElement("option", { key: c, value: c }, c);
+              })
+            )
+          ),
+          catMgmtBulkTo && ((custom.newsSubCats || {})[catMgmtBulkTo] || []).length > 0 && /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+            /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#666", whiteSpace: "nowrap" } }, "サブカテゴリ:"),
+            /*#__PURE__*/React.createElement("select", {
+              value: catMgmtBulkToSub,
+              onChange: function(e) { setCatMgmtBulkToSub(e.target.value); },
+              style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
+            },
+              /*#__PURE__*/React.createElement("option", { value: "" }, "(サブなし = メイン直下)"),
+              ((custom.newsSubCats || {})[catMgmtBulkTo] || []).map(function(s) {
+                return /*#__PURE__*/React.createElement("option", { key: s, value: s }, s);
+              })
+            )
+          ),
+          /*#__PURE__*/React.createElement("button", {
+            disabled: !catMgmtBulkTo,
+            onClick: function() {
+              if (!catMgmtBulkTo) return;
+              var dest = catMgmtBulkToSub || catMgmtBulkTo;
+              var destLabel = catMgmtBulkToSub ? (catMgmtBulkTo + " › " + catMgmtBulkToSub) : catMgmtBulkTo;
+              if (window.confirm("「" + cat + "」の全データを「" + destLabel + "」に移動し、「" + cat + "」を削除しますか？\nこの操作は元に戻せません。")) {
+                bulkMoveNewsData(cat, dest, null);
+                setCatMgmtBulkTo(""); setCatMgmtBulkToSub("");
+                setCatMgmtTarget(null);
+              }
+            },
+            style: { padding: "6px 14px", fontSize: 13, fontWeight: 700, background: catMgmtBulkTo ? "#FFF7ED" : "#f5f4f0", color: catMgmtBulkTo ? "#9A3412" : "#bbb", border: "1px solid " + (catMgmtBulkTo ? "#FDBA74" : "#ddd"), borderRadius: 6, cursor: catMgmtBulkTo ? "pointer" : "not-allowed" }
+          }, "📦 一括移動して削除")
+        ),        /*#__PURE__*/React.createElement("div", {
           style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 }
         },
           /*#__PURE__*/React.createElement("button", {
@@ -16566,7 +16690,50 @@ function NewsTab(_ref36) {
           }, (on ? "\u2713 " : "") + stk);
         }))
       ),
-      // 削除ボタン
+      // データを別カテゴリへ一括移動
+      /*#__PURE__*/React.createElement("div", { style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 } },
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📦 データを別カテゴリへ一括移動"),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 } }, "「", subCatMgmtTarget, "」内の全画像・ニュースを別カテゴリ（メイン・サブ）へ一括移動します。"),
+        /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+          /*#__PURE__*/React.createElement("select", {
+            value: subCatMgmtBulkTo,
+            onChange: function(e) { setSubCatMgmtBulkTo(e.target.value); setSubCatMgmtBulkToSub(""); },
+            style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
+          },
+            /*#__PURE__*/React.createElement("option", { value: "" }, "移動先カテゴリを選択…"),
+            newsCategories.map(function(c) {
+              return /*#__PURE__*/React.createElement("option", { key: c, value: c }, c);
+            })
+          )
+        ),
+        subCatMgmtBulkTo && ((custom.newsSubCats || {})[subCatMgmtBulkTo] || []).filter(function(s) { return s !== subCatMgmtTarget; }).length > 0 && /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+          /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#666", whiteSpace: "nowrap" } }, "サブカテゴリ:"),
+          /*#__PURE__*/React.createElement("select", {
+            value: subCatMgmtBulkToSub,
+            onChange: function(e) { setSubCatMgmtBulkToSub(e.target.value); },
+            style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
+          },
+            /*#__PURE__*/React.createElement("option", { value: "" }, "(サブなし = メイン直下)"),
+            ((custom.newsSubCats || {})[subCatMgmtBulkTo] || []).filter(function(s) { return s !== subCatMgmtTarget; }).map(function(s) {
+              return /*#__PURE__*/React.createElement("option", { key: s, value: s }, s);
+            })
+          )
+        ),
+        /*#__PURE__*/React.createElement("button", {
+          disabled: !subCatMgmtBulkTo,
+          onClick: function() {
+            if (!subCatMgmtBulkTo) return;
+            var dest = subCatMgmtBulkToSub || subCatMgmtBulkTo;
+            var destLabel = subCatMgmtBulkToSub ? (subCatMgmtBulkTo + " › " + subCatMgmtBulkToSub) : subCatMgmtBulkTo;
+            if (window.confirm("「" + subCatMgmtTarget + "」の全データを「" + destLabel + "」に移動し、「" + subCatMgmtTarget + "」を削除しますか？\nこの操作は元に戻せません。")) {
+              bulkMoveNewsData(subCatMgmtTarget, dest, currentCat);
+              setSubCatMgmtBulkTo(""); setSubCatMgmtBulkToSub("");
+              setSubCatMgmtTarget(null);
+            }
+          },
+          style: { padding: "6px 14px", fontSize: 13, fontWeight: 700, background: subCatMgmtBulkTo ? "#FFF7ED" : "#f5f4f0", color: subCatMgmtBulkTo ? "#9A3412" : "#bbb", border: "1px solid " + (subCatMgmtBulkTo ? "#FDBA74" : "#ddd"), borderRadius: 6, cursor: subCatMgmtBulkTo ? "pointer" : "not-allowed" }
+        }, "📦 一括移動して削除")
+      ),      // 削除ボタン
       /*#__PURE__*/React.createElement("div", {
         style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 }
       },
