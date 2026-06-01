@@ -3328,10 +3328,13 @@ var _GRADE_DESC_REAL = {
   Z: "取引なし"
 };
 
-function _elCalcChartGrades(signals) {
+function _elCalcChartGrades(signals, alpha, cutLine) {
+  var _live = alpha != null;
+  var _a = alpha, _c = (cutLine != null ? cutLine : 10);
   var realSum = 0, planSum = 0, holdSum = 0;
   var realCount = 0, planCount = 0, holdCount = 0;
   var planSumAB = 0, planCountAB = 0;
+  var osVals = [], confVals = [], holdConfVals = [];
   (signals || []).forEach(function(sig) {
     var s = _compatSignal(sig);
     var isAB = s.difficulty === "A" || s.difficulty === "B";
@@ -3340,14 +3343,19 @@ function _elCalcChartGrades(signals) {
       var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
       if (rv != null) realSum += rv;
     }
-    var pv = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+    var pv = _live ? _elDynPlanned(s, _a, _c) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (pv != null) {
       planSum += pv; planCount++;
       if (isAB) { planSumAB += pv; planCountAB++; }
     }
-    var hv = _elSignedVal(s.holdPnl, s.holdPnlSign);
+    var hv = _live ? _elDynHold(s, _a, _c) : _elSignedVal(s.holdPnl, s.holdPnlSign);
     if (hv != null) { holdSum += hv; holdCount++; }
+    if (s.osVal != null) osVals.push(Number(s.osVal));
+    var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+    if (_cf != null) confVals.push(_cf);
+    if (s.holdOsConf != null) holdConfVals.push(Number(s.holdOsConf));
   });
+  var _avg = function(a) { return a.length ? Math.round(a.reduce(function(x, y) { return x + y; }, 0) / a.length * 10) / 10 : null; };
   return {
     real:   _profitGradeFromPnlReal(realSum, realCount),
     plan:   _profitGradeFromPnl(planSum, planCount),
@@ -3356,7 +3364,9 @@ function _elCalcChartGrades(signals) {
     realSum: realCount > 0 ? realSum : null,
     planSum: planCount > 0 ? planSum : null,
     holdSum: holdCount > 0 ? holdSum : null,
-    count: realCount
+    count: realCount,
+    osAvg: _avg(osVals), confAvg: _avg(confVals), holdConfAvg: _avg(holdConfVals),
+    alphaUsed: _live ? _a : null
   };
 }
 

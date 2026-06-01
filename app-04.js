@@ -2755,12 +2755,27 @@ function StockQuickRefTable(_props_qrt) {
               style: { padding: "5px 14px", whiteSpace: "nowrap" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
-              var _cg = _elCalcChartGrades(c2.signals);
-              
-              if (_cg.real === "Z" && _cg.plan === "Z" && _cg.max === "Z") {
+              var _cgA = c2.alphaVal != null ? Number(c2.alphaVal) : 5;
+              var _cgC = c2.cutLine != null ? Number(c2.cutLine) : 10;
+              var _cg = _elCalcChartGrades(c2.signals, _cgA, _cgC);
+              if (_cg.real === "Z" && _cg.plan === "Z" && _cg.hold === "Z" && _cg.osAvg == null) {
                 return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               }
-              return React.createElement(_GradeBadges3, { grades: _cg, size: 18 });
+              var _rawItem = function(lbl, v) {
+                if (v == null) return null;
+                return React.createElement("span", { style: { whiteSpace: "nowrap" } }, lbl, React.createElement("b", { style: { color: "#555", fontWeight: 700 } }, (v > 0 ? "+" : "") + v));
+              };
+              return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-start" } },
+                React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+                  React.createElement(_GradeBadges3, { grades: _cg, size: 18 }),
+                  React.createElement("span", { style: { fontSize: 8, color: "#aaa", whiteSpace: "nowrap" }, title: "想定/Hグレードはα値依存（このα値での試算）" }, "α" + _cgA)
+                ),
+                (_cg.osAvg != null || _cg.confAvg != null || _cg.holdConfAvg != null) && React.createElement("div", { style: { display: "flex", gap: 6, fontSize: 9, color: "#888", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+                  _rawItem("OS", _cg.osAvg),
+                  _rawItem("確", _cg.confAvg),
+                  _rawItem("H確", _cg.holdConfAvg)
+                )
+              );
             })()),
             React.createElement("td", {
               style: { padding: "7px 12px", width: "100%" }
