@@ -3154,7 +3154,26 @@ function NewsTab(_ref36) {
           return k;
         });
       });
-      return Object.assign({}, prevData, { custom: Object.assign({}, pc, { newsCategories: newCats.length > 0 ? newCats : [].concat(DEF_NEWS_CATS), newsSubCats: newSubCats, newsCatDefaults: newCatDefs, newsSubCatDefaults: newSubDefs, shvExtraCats: newEC }) });
+
+      var newTrades = Object.assign({}, prevData.trades || {});
+      Object.keys(newTrades).forEach(function(dt) {
+        var dd2 = newTrades[dt];
+        if (!dd2 || !dd2.newsCats || !dd2.newsCats[cat]) return;
+        var fromData = dd2.newsCats[cat];
+        var nc = Object.assign({}, dd2.newsCats);
+        var toData = nc[targetMainCat] || {};
+        var movedItems = (fromData.newsItems || []).map(function(ni) { return Object.assign({}, ni, { subCat: cat }); });
+        var fm = fromData.newsMemo;
+        if (fm && ((fm.text && String(fm.text).trim()) || (fm.images && fm.images.length))) {
+          movedItems.push({ id: "nimemo_" + cat + "_" + dt, text: fm.text || "", images: (fm.images || []).slice(), subCat: cat });
+        }
+        var newToTags = (toData.marketTags || []).slice();
+        (fromData.marketTags || []).forEach(function(t) { if (newToTags.indexOf(t) < 0) newToTags.push(t); });
+        nc[targetMainCat] = Object.assign({}, toData, { newsItems: (toData.newsItems || []).concat(movedItems), marketTags: newToTags });
+        delete nc[cat];
+        newTrades[dt] = Object.assign({}, dd2, { newsCats: nc });
+      });
+      return Object.assign({}, prevData, { trades: newTrades, custom: Object.assign({}, pc, { newsCategories: newCats.length > 0 ? newCats : [].concat(DEF_NEWS_CATS), newsSubCats: newSubCats, newsCatDefaults: newCatDefs, newsSubCatDefaults: newSubDefs, shvExtraCats: newEC }) });
     });
   };
   var bulkMoveNewsData = function(fromKey, toKey, fromParentCat) {
