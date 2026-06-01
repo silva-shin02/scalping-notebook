@@ -20869,7 +20869,85 @@ function DayView(_ref57) {
             _trCutLineByStk[r.stock] = _cTr && _cTr.cutLine != null ? _cTr.cutLine : 10;
           });
           if (!Object.keys(_trVirtByStk).length) return null;
-          return React.createElement(VirtualAlphaCalc, { sigsByStock: _trVirtByStk, cutLineByStock: _trCutLineByStk });
+          // ── 理想α値テーブル ──
+          var _trStks = Object.keys(_trVirtByStk);
+          var _trAlphaByStk = {};
+          _trStks.forEach(function(sk) {
+            var sigs = _trVirtByStk[sk];
+            var cutLine = _trCutLineByStk[sk] != null ? _trCutLineByStk[sk] : 10;
+            var calcProfit = function(alpha) {
+              var total = 0, hasAny = false;
+              sigs.forEach(function(d) {
+                if (d.osVal == null) return;
+                hasAny = true;
+                if (alpha > d.osVal) { /* エントリーなし */ }
+                else if (d.osVal - alpha >= cutLine) { total += -(d.osVal - alpha) * 100; }
+                else { if (d.conf == null) { hasAny = false; return; } total += (alpha - d.conf) * 100; }
+              });
+              return hasAny ? Math.round(total) : null;
+            };
+            var minA = null, tgtA = null, maxA = null, maxP = null;
+            for (var _a = 0; _a <= 20; _a++) {
+              var _p = calcProfit(_a);
+              if (_p == null) continue;
+              if (minA == null && _p >= 1) minA = _a;
+              if (tgtA == null && _p >= 2500) tgtA = _a;
+              if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; }
+            }
+            if (tgtA == null && maxA != null) tgtA = maxA;
+            _trAlphaByStk[sk] = {
+              minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA,
+              minProfit: minA != null ? calcProfit(minA) : null,
+              tgtProfit: tgtA != null ? calcProfit(tgtA) : null,
+              maxProfit: maxA != null ? calcProfit(maxA) : null
+            };
+          });
+          var _trHasAlpha = _trStks.some(function(sk) {
+            var d = _trAlphaByStk[sk]; return d.minAlpha != null || d.tgtAlpha != null || d.maxAlpha != null;
+          });
+          var _fmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
+          var _fmtP = function(v) {
+            if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+            return React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円");
+          };
+          var _aTh = function(label, extra) { return React.createElement("th", { style: Object.assign({ padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" }, extra || {}) }, label); };
+          var _idealAlphaTable = _trHasAlpha ? React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜20円）"),
+            React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）"),
+            React.createElement("div", { style: { overflowX: "auto" } },
+              React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
+                React.createElement("thead", null,
+                  React.createElement("tr", null,
+                    _aTh("銘柄", { textAlign: "left" }),
+                    _aTh("最低利益α値", { borderLeft: "1px solid #dbeafe" }),
+                    _aTh("想定利益", { fontWeight: 600 }),
+                    _aTh("目標利益α値", { borderLeft: "1px solid #dbeafe" }),
+                    _aTh("想定利益", { fontWeight: 600 }),
+                    _aTh("最大利益α値", { borderLeft: "1px solid #dbeafe" }),
+                    _aTh("想定利益", { fontWeight: 600 })
+                  )
+                ),
+                React.createElement("tbody", null,
+                  _trStks.map(function(sk) {
+                    var d = _trAlphaByStk[sk];
+                    return React.createElement("tr", { key: sk, style: { borderBottom: "1px solid #dbeafe" } },
+                      React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11 } }, sk),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, _fmtA(d.minAlpha)),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, _fmtP(d.minProfit)),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, _fmtA(d.tgtAlpha)),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, _fmtP(d.tgtProfit)),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, _fmtA(d.maxAlpha)),
+                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, _fmtP(d.maxProfit))
+                    );
+                  })
+                )
+              )
+            )
+          ) : null;
+          return React.createElement(React.Fragment, null,
+            _idealAlphaTable,
+            React.createElement(VirtualAlphaCalc, { sigsByStock: _trVirtByStk, cutLineByStock: _trCutLineByStk })
+          );
         })()
       );
     })(),
