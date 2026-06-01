@@ -3022,7 +3022,10 @@ function TagPicker(_ref17) {
           borderRadius: 7,
           cursor: "grab"
         }
-      }, React.createElement(TagBtn, {
+      }, onReorderItems && items.length > 1 ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", justifyContent: "center", marginRight: 1, flexShrink: 0 } },
+        React.createElement("button", { title: "前へ", onClick: function(e){ e.stopPropagation(); if(ti>0){ var a=_toConsumableArray(items); var x=a.splice(ti,1)[0]; a.splice(ti-1,0,x); onReorderItems(cat, a); } }, style: { border:"none", background:"transparent", padding:0, lineHeight:1, fontSize:9, cursor: ti>0?"pointer":"default", color: ti>0?"#9A3412":"#ddd" } }, "▲"),
+        React.createElement("button", { title: "後へ", onClick: function(e){ e.stopPropagation(); if(ti<items.length-1){ var a=_toConsumableArray(items); var x=a.splice(ti,1)[0]; a.splice(ti+1,0,x); onReorderItems(cat, a); } }, style: { border:"none", background:"transparent", padding:0, lineHeight:1, fontSize:9, cursor: ti<items.length-1?"pointer":"default", color: ti<items.length-1?"#9A3412":"#ddd" } }, "▼")
+      ) : null, React.createElement(TagBtn, {
         label: item,
         on: on,
         tagKey: tag,
@@ -3096,7 +3099,10 @@ function TagPicker(_ref17) {
         borderRadius: 7,
         cursor: "grab"
       }
-    }, React.createElement(TagBtn, {
+    }, onReorderLoose && (tags || []).length > 1 ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", justifyContent: "center", marginRight: 1, flexShrink: 0 } },
+      React.createElement("button", { title: "前へ", onClick: function(e){ e.stopPropagation(); if(ti>0){ var a=_toConsumableArray(tags); var x=a.splice(ti,1)[0]; a.splice(ti-1,0,x); onReorderLoose(a); } }, style: { border:"none", background:"transparent", padding:0, lineHeight:1, fontSize:9, cursor: ti>0?"pointer":"default", color: ti>0?"#9A3412":"#ddd" } }, "▲"),
+      React.createElement("button", { title: "後へ", onClick: function(e){ e.stopPropagation(); if(ti<(tags||[]).length-1){ var a=_toConsumableArray(tags); var x=a.splice(ti,1)[0]; a.splice(ti+1,0,x); onReorderLoose(a); } }, style: { border:"none", background:"transparent", padding:0, lineHeight:1, fontSize:9, cursor: ti<(tags||[]).length-1?"pointer":"default", color: ti<(tags||[]).length-1?"#9A3412":"#ddd" } }, "▼")
+    ) : null, React.createElement(TagBtn, {
       label: lbl,
       on: on,
       tagKey: tag,
@@ -3104,7 +3110,7 @@ function TagPicker(_ref17) {
         return _onToggle(tag);
       },
       onDel: function onDel() {
-        
+
         if (onDelTag) onDelTag(tag);
       },
       onRename: onRenameLoose ? function(newName) { onRenameLoose(tag, newName); } : undefined
