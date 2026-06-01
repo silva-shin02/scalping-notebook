@@ -1142,6 +1142,7 @@ function EntryLogView(_ref_elv) {
             var _dynHP = (function() {
               var hp = holdPnl, pp = planPnlN;
               if (hp == null) return s.holdProfit;
+              if (_dynRes === "miss") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
               if (_dynRes === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
               if (pp == null) return s.holdProfit;
               if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";

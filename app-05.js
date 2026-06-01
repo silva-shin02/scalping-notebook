@@ -3177,7 +3177,9 @@ function _elDynPlanned(s, alpha, cutLine) {
 }
 function _elDynHold(s, alpha, cutLine) {
   if (alpha == null) return _elSignedVal(s.holdPnl, s.holdPnlSign);
-  if (s.osVal != null && alpha > Number(s.osVal)) return null;
+  if (s.osVal != null && alpha > Number(s.osVal)) {
+    if (!(s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) > alpha)) return null;
+  }
   var hp, done = false;
   if (s.holdHighSign === "-" && s.holdHighVal != null) {
     var hhE = Number(s.holdHighVal) - alpha;
@@ -3941,6 +3943,12 @@ function EntryRecordForm(_ref_erf) {
     var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : 5;
     
     var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 10;
+    if (fResult === "miss") {
+
+      if (!(fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) > _av)) {
+        setFHoldPnlSign("+"); setFHoldPnlVal("0"); return;
+      }
+    }
     if (_av != null && fHoldHighSign === "-") {
       var _hhv = Number(fHoldHighVal) || 0;
       var _hhExcess = _hhv - _av;
@@ -3955,13 +3963,20 @@ function EntryRecordForm(_ref_erf) {
     var _result = (_av + _holdAdj) * 100;
     setFHoldPnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, _fAlpha, _fCutLine, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal]);
+  }, [fStock, fDate, data, _fAlpha, _fCutLine, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal, fResult]);
 
   
   useEffect(function() {
     var sHold = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
     var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
-    
+
+    if (fResult === "miss") {
+      if (fHoldPnlVal === "") { setFHoldProfit("none"); return; }
+      if (sHold > 0) setFHoldProfit("yes");
+      else if (sHold < 0) setFHoldProfit("no");
+      else setFHoldProfit("none");
+      return;
+    }
     if (fResult === "draw") {
       if (fHoldPnlVal === "") return;
       if (sHold > 0) setFHoldProfit("yes");
@@ -4276,7 +4291,7 @@ function EntryRecordForm(_ref_erf) {
             var on = fResult === kv[1];
             return React.createElement("button", {
               key: kv[1],
-              onClick: function() { setFResult(kv[1]); if (kv[1] === "ng") { setFPlanSign("-"); } else if (kv[1] === "ok") { setFPlanSign("+"); } if (kv[1] === "miss") { setFHoldPnlVal("0"); setFHoldPnlSign("+"); setFHoldProfit("none"); } },
+              onClick: function() { setFResult(kv[1]); if (kv[1] === "ng") { setFPlanSign("-"); } else if (kv[1] === "ok") { setFPlanSign("+"); } },
               style: {
                 padding: "4px 8px", fontSize: 11, fontWeight: 600,
                 border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
@@ -4342,8 +4357,7 @@ function EntryRecordForm(_ref_erf) {
       ),
       
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
-        "Entry→Hold想定値",
-        fResult === "miss" && React.createElement("span", { style: { fontSize: 10, color: "#E53E3E", fontWeight: 600, letterSpacing: 0 } }, "※水準値でエントリーしていたと仮定")
+        "Entry→Hold想定値"
       ),
       React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }

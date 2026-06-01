@@ -4533,6 +4533,7 @@ function EntrySignalSection(_ref_es) {
             var _dynHoldProfitES = (function() {
               var hp = _holdPnlDyn, pp = planPnlN;
               if (hp == null) return s.holdProfit;
+              if (_dispResult === "miss") { return hp > 0 ? "yes" : hp < 0 ? "no" : "none"; }
               if (_dispResult === "draw") { return hp > 0 ? "yes" : hp < 0 ? "no" : "none"; }
               if (pp == null) return s.holdProfit;
               if (pp > 0 && hp > 0) { return hp > pp ? "yes" : hp < pp ? "mid" : "none"; }
