@@ -989,7 +989,7 @@ function EntryLogView(_ref_elv) {
         
         var _tSimCalc = function(recs, simAlpha) {
           if (simAlpha == null || !recs || !recs.length) return null;
-          var _sOk = 0, _sNg = 0, _sPlan = null, _sHold = null;
+          var _sOk = 0, _sNg = 0, _sMiss = 0, _sPlan = null, _sHold = null;
           recs.forEach(function(r) {
             var s = r.signal;
             var _cRs = (data.charts || {})[r.stock + "_" + r.date];
@@ -1005,6 +1005,7 @@ function EntryLogView(_ref_elv) {
               }
               if (_dynR === "ok") _sOk++;
               else if (_dynR === "ng") _sNg++;
+              else if (_dynR === "miss") _sMiss++;
             }
             if (s.osVal != null) {
               var _cf1 = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -1020,7 +1021,7 @@ function EntryLogView(_ref_elv) {
             if (_hp != null) _sHold = (_sHold || 0) + _hp;
           });
           var _sTot = _sOk + _sNg;
-          return { ok: _sOk, ng: _sNg, winPct: _sTot > 0 ? Math.round(_sOk / _sTot * 100) : null, plan: _sPlan, hold: _sHold };
+          return { ok: _sOk, ng: _sNg, miss: _sMiss, winPct: _sTot > 0 ? Math.round(_sOk / _sTot * 100) : null, plan: _sPlan, hold: _sHold };
         };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
           var isHoliday = !!_tblHolidaySet[date];
@@ -1034,6 +1035,7 @@ function EntryLogView(_ref_elv) {
           var _dash = React.createElement("span", { style: { color: "#ccc" } }, "ー");
           var _dOk = _simActive ? _simSt.ok : st.ok;
           var _dNg = _simActive ? _simSt.ng : st.ng;
+          var _dMiss = _simActive ? _simSt.miss : st.miss;
           var _dWinPct = _simActive ? _simSt.winPct : st.winPct;
           var _dPlan = _simActive ? _simSt.plan : null;
           var _dHold = _simActive ? _simSt.hold : st.sumHold;
@@ -1062,6 +1064,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, isHoliday ? _dash : st.total),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br, color: _simActive ? "#C0392B" : "inherit" } }, isHoliday ? _dash : (_dOk || "0")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br, color: _simActive ? "#1E8449" : "inherit" } }, isHoliday ? _dash : (_dNg || "0")),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br, color: (_dMiss ? "#7C3AED" : "#ccc") } }, isHoliday ? _dash : (_dMiss || "0")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br,
               color: _dWinPct != null ? (_dWinPct >= 60 ? "#C0392B" : _dWinPct >= 40 ? "#888" : "#1E8449") : "#ccc",
               fontWeight: _dWinPct != null ? 700 : 400 } }, isHoliday ? _dash : (_dWinPct != null ? _dWinPct + "%" : "—")),
@@ -1303,7 +1306,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("span", { style: { fontSize: 9, color: "#aaa", whiteSpace: "nowrap" } }, "※この日全体にα/損切りを適用して試算")
           );
           return React.createElement("tr", { key: date + "_texp" },
-            React.createElement("td", { colSpan: 11, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+            React.createElement("td", { colSpan: 12, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
               _tSortToggle,
               _tAlphaBar,
               React.createElement("div", { style: { overflowX: "auto" } },
@@ -1363,7 +1366,7 @@ function EntryLogView(_ref_elv) {
         var thead = React.createElement("thead", null,
           React.createElement("tr", null,
             React.createElement("th", { style: { padding: "5px 8px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "left" } }, "日付"),
-            _tTh("件数"), _tTh("勝"), _tTh("負"), _tTh("勝率"), _tTh("平均OS値"), _tTh("平均確定値"),
+            _tTh("件数"), _tTh("勝"), _tTh("負"), _tTh("E未達"), _tTh("勝率"), _tTh("平均OS値"), _tTh("平均確定値"),
             _tTh("実現損益"),
             React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%" } },
               React.createElement("div", null, "想定損益"),
@@ -1387,6 +1390,7 @@ function EntryLogView(_ref_elv) {
         var _tMSimActive = _tMSimSt != null;
         var _tMdOk = _tMSimActive ? _tMSimSt.ok : _tMonthSt.ok;
         var _tMdNg = _tMSimActive ? _tMSimSt.ng : _tMonthSt.ng;
+        var _tMdMiss = _tMSimActive ? _tMSimSt.miss : _tMonthSt.miss;
         var _tMdWinPct = _tMSimActive ? _tMSimSt.winPct : _tMonthSt.winPct;
         var _tMSimFmt = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
         var _bb2 = "2px solid #c0b8a8";
@@ -1395,6 +1399,7 @@ function EntryLogView(_ref_elv) {
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, fontSize: 11, borderBottom: _bb2, borderTop: _bb2 } }, _tMonthSt.total || 0),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2, color: _tMSimActive ? "#C0392B" : "inherit" } }, _tMdOk || 0),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2, color: _tMSimActive ? "#1E8449" : "inherit" } }, _tMdNg || 0),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2, color: (_tMdMiss ? "#7C3AED" : "#ccc") } }, _tMdMiss || 0),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2,
             color: _tMdWinPct != null ? (_tMdWinPct >= 60 ? "#C0392B" : _tMdWinPct >= 40 ? "#888" : "#1E8449") : "#ccc",
             fontWeight: _tMdWinPct != null ? 700 : 400 } }, _tMdWinPct != null ? _tMdWinPct + "%" : "—"),
@@ -1558,6 +1563,13 @@ function EntryLogView(_ref_elv) {
         })();
         return React.createElement(React.Fragment, null,
           React.createElement("div", { style: { marginTop: 16 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 10 } },
+              React.createElement("button", { onClick: function() { setCalMonth(prevM); setCalExpandDate(null); },
+                style: { padding: "4px 14px", fontSize: 14, background: "#fff", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#555" } }, "← 前月"),
+              React.createElement("span", { style: { fontSize: 14, fontWeight: 700, color: "#9A3412", minWidth: 96, textAlign: "center" } }, cy + "年" + cm + "月"),
+              React.createElement("button", { onClick: function() { setCalMonth(nextM); setCalExpandDate(null); },
+                style: { padding: "4px 14px", fontSize: 14, background: "#fff", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#555" } }, "翌月 →")
+            ),
             _tGradeLegend,
             sortToggle,
             _simEl,
