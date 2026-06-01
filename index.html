@@ -896,6 +896,29 @@ function migrateData(d) {
       d._migCatClean1 = true;
     } catch(e) { console.warn("[migrateData] catClean error:", e); }
   }
+  // ── シグナルタグのリネーム移行（マスター削除後も既存エントリーに旧名が残るケース対応） ──
+  if (!d._migSignalRename1) {
+    try {
+      var _sigRenames = { "底つきサイン否定水準線OS": "底つきサイン水準線OS" };
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var cc = d.charts[ck];
+          if (!cc || !Array.isArray(cc.signals)) return;
+          cc.signals = cc.signals.map(function(s) {
+            if (s.isCustomTag) return s;
+            var updated = Object.assign({}, s);
+            if (updated.tag && _sigRenames[updated.tag]) updated.tag = _sigRenames[updated.tag];
+            if (Array.isArray(updated.tags)) {
+              var newTags = updated.tags.map(function(x) { return _sigRenames[x] || x; });
+              updated.tags = newTags.filter(function(x, i) { return newTags.indexOf(x) === i; });
+            }
+            return updated;
+          });
+        });
+      }
+      d._migSignalRename1 = true;
+    } catch(e) { console.warn("[migrateData] sigRename error:", e); }
+  }
   return d;
 }
 function stLoad() {
@@ -28990,13 +29013,18 @@ function EntryLogView(_ref_elv) {
     var t = (newName || "").trim();
     if (!t) { window.alert("シグナル名を入力してください"); return false; }
     if (t === oldName) { return true; } // no-op
-    if (signalTags.includes(t)) { window.alert("「" + t + "」は既に登録されています"); return false; }
+    var isMerge = signalTags.includes(t);
+    if (isMerge && !window.confirm("「" + t + "」は既に登録されています。\n「" + oldName + "」を「" + t + "」に統合しますか？\n既存の記録も全て書き換えられます。")) return false;
     save(function(prev) {
       var c = prev.custom || {};
       var tags = (c.signalTags || []).slice();
       var idx = tags.indexOf(oldName);
       if (idx < 0) return prev;
-      tags[idx] = t;
+      if (isMerge) {
+        tags.splice(idx, 1); // 統合先が既存なので旧名をマスターから削除するだけ
+      } else {
+        tags[idx] = t;
+      }
       // 既存記録のタグも一括置換（カスタム入力でない正式タグのみ）
       var charts = Object.assign({}, prev.charts || {});
       Object.keys(charts).forEach(function(ck) {
@@ -29011,7 +29039,11 @@ function EntryLogView(_ref_elv) {
           changed = true;
           var updated = Object.assign({}, s);
           if (tagMatch) updated.tag = t;
-          if (tagsMatch) updated.tags = s.tags.map(function(x) { return x === oldName ? t : x; });
+          if (tagsMatch) {
+            // 置換後に重複が生じる場合は除去
+            var newTags = s.tags.map(function(x) { return x === oldName ? t : x; });
+            updated.tags = newTags.filter(function(x, i) { return newTags.indexOf(x) === i; });
+          }
           return updated;
         });
         if (changed) charts[ck] = Object.assign({}, cc, { signals: sigs });
