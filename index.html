@@ -21692,7 +21692,7 @@ function DayView(_ref57) {
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
         React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
-          rowKey === "__total__" ? React.createElement("div", {
+          rowKey === "__total__" ? React.createElement(React.Fragment, null, React.createElement("div", {
             style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap", background: pbSimAlpha !== null ? "#FFFBF0" : "transparent" }
           },
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "全銘柄α値（水準線比）"),
@@ -21735,7 +21735,57 @@ function DayView(_ref57) {
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             pbSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309", marginLeft: 6 } }, "※各銘柄のα値を上書きしてシミュレーション中")
-          ) : React.createElement("div", {
+)
+          _pbStks.length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
+            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap", flexShrink: 0 } }, "銘柄別α値"),
+            _pbStks.map(function(sk) {
+              var _skCk = sk + "_" + date;
+              var _skAlpha = (_pbCharts[_skCk] && _pbCharts[_skCk].alphaVal != null) ? _pbCharts[_skCk].alphaVal : 0;
+              var _saveSkAlpha = function(n) {
+                save(function(prev) {
+                  var pCharts = Object.assign({}, (prev && prev.charts) || {});
+                  var _ce = Object.assign({}, pCharts[_skCk] || {});
+                  if (n != null) _ce.alphaVal = n; else delete _ce.alphaVal;
+                  if (n != null && Array.isArray(_ce.signals)) {
+                    var _cutLsk = _ce.cutLine != null ? _ce.cutLine : 10;
+                    _ce.signals = _ce.signals.map(function(s) {
+                      if (s.osVal == null) return s;
+                      var _osV = Number(s.osVal);
+                      var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
+                      var _diff = _osV - n;
+                      var _pnl = null;
+                      if (_diff < 0) _pnl = 0;
+                      else if (_diff >= _cutLsk) _pnl = -Math.round(_diff * 100);
+                      else if (_conf != null) _pnl = Math.round((n - _conf) * 100);
+                      var _updSig = s;
+                      if (_pnl != null) { var _sg = _pnl >= 0 ? "+" : "-"; _updSig = Object.assign({}, s, { plannedPnl: Math.abs(_pnl), plannedPnlSign: _sg, maxPnl: Math.abs(_pnl), maxPnlSign: _sg }); }
+                      if (s.holdOsConf != null) { var _hw = n - Number(s.holdOsConf); var _hwSg = _hw >= 0 ? "+" : "-"; var _hp = Math.round((n + _hw) * 100); _updSig = Object.assign({}, _updSig, { holdWidthSign: _hwSg, holdWidth: Math.abs(_hw), holdPnl: Math.abs(_hp), holdPnlSign: _hp >= 0 ? "+" : "-" }); }
+                      return _updSig;
+                    });
+                  }
+                  pCharts[_skCk] = _ce;
+                  return Object.assign({}, prev, { charts: pCharts });
+                });
+              };
+              return React.createElement("div", { key: sk, style: { display: "inline-flex", alignItems: "center", gap: 4, background: "#f9f8f6", border: "1px solid #e8e5de", borderRadius: 5, padding: "2px 6px" } },
+                React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, sk),
+                React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
+                  React.createElement("input", {
+                    type: "number", inputMode: "numeric", step: "1",
+                    value: String(_skAlpha),
+                    onChange: function(e) { var v = e.target.value; _saveSkAlpha(v === "" ? null : isNaN(Number(v)) ? null : Number(v)); },
+                    style: { width: 52, padding: "3px 4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+                  }),
+                  _stepBtn(
+                    function() { _saveSkAlpha(_skAlpha < 20 ? _skAlpha + 1 : _skAlpha); },
+                    function() { _saveSkAlpha(_skAlpha > 0 ? _skAlpha - 1 : 0); }
+                  )
+                ),
+                React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
+              );
+            })
+          )
+        ) : React.createElement("div", {
             style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" }
           },
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値（水準線比）"),
