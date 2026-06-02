@@ -2748,11 +2748,12 @@ function StockQuickRefTable(_props_qrt) {
                   { label: "実現損益", pad: "6px 10px" },
                   { label: "イベント・タグ", pad: "6px 12px" }
                 ]
-            ).map(function(h) {
+            ).map(function(h, _hi, _harr) {
               return React.createElement("th", {
                 key: h.label,
                 style: { textAlign: "left", padding: h.pad, fontWeight: 600,
-                  fontSize: 11, color: "#888", whiteSpace: "nowrap" }
+                  fontSize: 11, color: "#888", whiteSpace: "nowrap",
+                  borderRight: _hi < _harr.length - 1 ? "1px solid #e3e0da" : "none" }
               }, h.label);
             })
           )
@@ -2780,10 +2781,10 @@ function StockQuickRefTable(_props_qrt) {
               style: { padding: "7px 8px",
                 fontWeight: isHL ? 700 : (isHoliday ? 700 : 400),
                 whiteSpace: "nowrap",
-                color: dateColor }
+                color: dateColor, borderRight: "1px solid #efece7" }
             }, d.slice(5) + "（" + dow2 + "）"),
             React.createElement("td", {
-              style: { padding: "7px 12px", whiteSpace: "nowrap" }
+              style: { padding: "7px 12px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             },
               isHoliday
                 ? React.createElement("span", {
@@ -2822,7 +2823,7 @@ function StockQuickRefTable(_props_qrt) {
                 : null
             ),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 10px", whiteSpace: "nowrap" }
+              style: { padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2839,7 +2840,7 @@ function StockQuickRefTable(_props_qrt) {
               );
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 10px", whiteSpace: "nowrap" }
+              style: { padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -3717,11 +3718,9 @@ function DayView(_ref57) {
       var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 9, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-          _trTotRealCnt > 0 ? _trRPnlDisp(_trTotReal, _trTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
-        ),
-        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
           _trRPnlDispABAll(_trTotPlanAB, _trTotPlan, _trTotPlanGradeAB, _trTotPlanGrade)
         ),
+        React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
         React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
         React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
@@ -3729,6 +3728,9 @@ function DayView(_ref57) {
             ? React.createElement("span", { style: { fontWeight: 700, fontSize: 11, color: (_trTotHold||0) > 0 ? "#C0392B" : (_trTotHold||0) < 0 ? "#1E8449" : "#888" } },
                 ((_trTotHold||0) > 0 ? "+" : "") + (_trTotHold||0).toLocaleString() + "円")
             : React.createElement("span", { style: { color: "#ccc" } }, "—")
+        ),
+        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+          _trTotRealCnt > 0 ? _trRPnlDisp(_trTotReal, _trTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
         )
       );
       var dataRows = [];
@@ -3848,18 +3850,26 @@ function DayView(_ref57) {
               })()),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _trRPnlDisp(realPnlN, realGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynResTr === "miss" ? _qMissCell() : _trRPnlDisp(planPnlN, planGrade)),
-            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+            React.createElement("td", { style: { padding: "4px 2px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               s.holdHighVal != null
                 ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
                     (s.holdHighSign === "+" ? "↓" : s.holdHighSign === "-" ? "↑" : "") + s.holdHighVal)
                 : React.createElement("span", { style: { color: "#ddd" } }, "—")),
-            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+            React.createElement("td", { style: { padding: "4px 2px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               s.holdWidth != null
                 ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: s.holdWidth >= 10 ? 700 : 600 } }, (s.holdWidthSign === "-" ? "↑" : s.holdWidthSign === "+" ? "↓" : "↕") + s.holdWidth)
                 : React.createElement("span", { style: { color: "#ddd" } }, "—")),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, (function() {
+            React.createElement("td", { style: { padding: "4px 2px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+              (function() {
+                if (s.holdWidth == null || s.holdWidth === "") return React.createElement("span", { style: { color: "#ddd" } }, "—");
+                var _hcf = s.holdWidthSign === "-" ? Number(s.holdWidth) : s.holdWidthSign === "+" ? -Number(s.holdWidth) : 0;
+                var _ewH = (_aiTr.alpha != null ? _aiTr.alpha : 5) - _hcf;
+                if (_ewH === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
+                var _ewHAbs = Math.abs(_ewH);
+                return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: _ewHAbs >= 10 ? 700 : 600 } }, (_ewH > 0 ? "↓" : "↑") + _ewHAbs);
+              })()),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, (function() {
               var _hp = _hpTr;
               var _isMiss = _dynResTr === "miss";
               if (_isMiss) return _qMissCell();
@@ -3872,13 +3882,14 @@ function DayView(_ref57) {
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
                 holdResultEl, !_isMiss && _hg ? _trBadge(_hg) : null, _pnlEl
               );
-            })())
+            })()),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _trRPnlDisp(realPnlN, realGrade))
           )
         );
         if (rExp) {
           dataRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 14, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 15, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
               )
             )
@@ -3908,11 +3919,12 @@ function DayView(_ref57) {
                 _trTh("α値比値幅", { width: "1%" }),
                 _trTh("エントリー"),
                 _trTh("結果", { width: "1%" }),
-                _trTh("実現損益"),
                 _trTh("想定損益"),
-                _trTh("H高値", { width: "1%" }),
-                _trTh("H確定値", { width: "1%" }),
-                _trTh("H勝敗/結果損益（α値比）")
+                _trTh("H高値", { width: "1%", padding: "4px 2px" }),
+                _trTh("H確定値", { width: "1%", padding: "4px 2px" }),
+                _trTh("α比H値幅", { width: "1%", padding: "4px 2px" }),
+                _trTh("H勝敗/結果損益（α値比）"),
+                _trTh("実現損益")
               )
             ),
             React.createElement("tbody", null, [totRow].concat(dataRows))

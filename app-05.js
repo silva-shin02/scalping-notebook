@@ -3685,17 +3685,17 @@ function VirtualAlphaCalc(_ref_vac) {
           React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "α値"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
-              type: "number", inputMode: "numeric", min: "0", max: "20", step: "1", value: aStr,
+              type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", value: aStr,
               onChange: function(e) {
                 var v = _toHankaku(e.target.value);
-                if (v !== "") { var _vn = Number(v); if (!isNaN(_vn)) { if (_vn > 20) _vn = 20; if (_vn < 0) _vn = 0; v = String(_vn); } }
+                if (v !== "") { var _vn = Number(v); if (!isNaN(_vn)) { if (_vn > 30) _vn = 30; if (_vn < 0) _vn = 0; v = String(_vn); } }
                 setAlphaByStock(function(prev) { var n = Object.assign({}, prev); n[stock] = v; return n; });
               },
-              placeholder: "0〜20",
+              placeholder: "0〜30",
               style: { width: 64, fontSize: 12, border: "none", outline: "none", background: "#fff", padding: "3px 6px", textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { setAlphaByStock(function(prev) { var n = Object.assign({}, prev); n[stock] = String(Math.min(20, (parseFloat(prev[stock]||"5")||0) + 1)); return n; }); },
+              function() { setAlphaByStock(function(prev) { var n = Object.assign({}, prev); n[stock] = String(Math.min(30, (parseFloat(prev[stock]||"5")||0) + 1)); return n; }); },
               function() { setAlphaByStock(function(prev) { var n = Object.assign({}, prev); n[stock] = String(Math.max(0, (parseFloat(prev[stock]||"5")||0) - 1)); return n; }); }
             )
           ),
@@ -4286,7 +4286,7 @@ function EntryRecordForm(_ref_erf) {
         var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : 5;
         var _saveAlpha = function(val) {
           var n = val !== "" ? Number(val) : null;
-          if (n != null && !isNaN(n)) { if (n > 20) n = 20; if (n < 0) n = 0; }
+          if (n != null && !isNaN(n)) { if (n > 30) n = 30; if (n < 0) n = 0; }
           save(function(prev) {
             var _pCharts = prev.charts || {};
             var _nc = Object.assign({}, _pCharts);
@@ -4306,16 +4306,16 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "この日のα値（水準線比）"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
-              type: "number", inputMode: "numeric", min: "0", max: "20", step: "1",
+              type: "number", inputMode: "numeric", min: "0", max: "30", step: "1",
               value: _av != null ? String(_av) : "5",
               onChange: function(e) { _saveAlpha(e.target.value); },
-              placeholder: "0〜20",
+              placeholder: "0〜30",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E",
                        border: "none", outline: "none", background: "#fff", width: 64,
                        textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 5; if (_n >= 20) return prev; _ent.alphaVal = _n + 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 5; if (_n >= 30) return prev; _ent.alphaVal = _n + 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
               function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 5; if (_n <= 0) return prev; _ent.alphaVal = _n - 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
             )
           ),
@@ -4658,14 +4658,14 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 2 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 6, overflow: "hidden" } },
                   React.createElement("input", {
-                    type: "number", inputMode: "numeric", min: "0", max: "20", step: "1",
+                    type: "number", inputMode: "numeric", min: "0", max: "30", step: "1",
                     value: fTradeAlpha,
-                    onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "") { setFTradeAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 20) n = 20; if (n < 0) n = 0; setFTradeAlpha(String(n)); },
+                    onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "") { setFTradeAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setFTradeAlpha(String(n)); },
                     placeholder: "—",
                     style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", width: 70, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
                   }),
                   _stepBtn(
-                    function() { setFTradeAlpha(function(v) { return String(Math.min(20, (Number(v)||0) + 1)); }); },
+                    function() { setFTradeAlpha(function(v) { return String(Math.min(30, (Number(v)||0) + 1)); }); },
                     function() { setFTradeAlpha(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
                   )
                 ),

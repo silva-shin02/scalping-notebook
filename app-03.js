@@ -467,12 +467,13 @@ function _FMHayamihyoTable(_p) {
       },
         React.createElement("thead", null,
           React.createElement("tr", { style: { background: "#f5f4f0" } },
-            ["日付", "数値", "前日比", "前日比(%)"].map(function(h) {
+            ["日付", "数値", "前日比", "前日比(%)"].map(function(h, _hi, _harr) {
               return React.createElement("th", {
                 key: h,
                 style: { textAlign: h === "日付" ? "left" : "right",
                   padding: "6px 10px", fontWeight: 600, fontSize: 11,
-                  color: "#888", whiteSpace: "nowrap" }
+                  color: "#888", whiteSpace: "nowrap",
+                  borderRight: _hi < _harr.length - 1 ? "1px solid #e3e0da" : "none" }
               }, h);
             })
           )
@@ -498,16 +499,16 @@ function _FMHayamihyoTable(_p) {
           },
             React.createElement("td", {
               style: { padding: "7px 10px", whiteSpace: "nowrap",
-                fontWeight: isHL ? 700 : 400, color: dateColor }
+                fontWeight: isHL ? 700 : 400, color: dateColor, borderRight: "1px solid #efece7" }
             }, _fmhFmt(d) + "（" + DAYS_JP[dow] + "）" + (isHoliday ? " 休" : "")),
             React.createElement("td", {
               style: { padding: "7px 10px", textAlign: "right",
                 fontVariantNumeric: "tabular-nums", fontWeight: val !== null ? 600 : 400,
-                color: val !== null ? "#222" : "#ccc" }
+                color: val !== null ? "#222" : "#ccc", borderRight: "1px solid #efece7" }
             }, fmtVal(val)),
             React.createElement("td", {
               style: { padding: "7px 10px", textAlign: "right",
-                fontVariantNumeric: "tabular-nums", color: diffColor, whiteSpace: "nowrap" }
+                fontVariantNumeric: "tabular-nums", color: diffColor, whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, diff !== null ? arrow + " " + fmtDiff(diff) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", {
               style: { padding: "7px 10px", textAlign: "right",
