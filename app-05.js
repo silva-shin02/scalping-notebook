@@ -4849,6 +4849,22 @@ function EntryLogCard(_ref_elc) {
           _pnlFmt(planPnl))
       ),
       
+      React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
+      !(s.holdWidthSign || s.holdHighVal != null || holdPnl != null) && React.createElement("span", { style: { fontSize: 10, color: "#bbb", alignSelf: "center", fontStyle: "italic" } }, "Hデータ無し"),
+
+      s.holdHighVal != null && _chip("H高値", (s.holdHighSign === "-" ? "↑" : "↓") + s.holdHighVal, _vcol(s.holdHighVal, s.holdHighSign === "-")),
+
+      s.holdWidthSign != null && s.holdWidth != null && _chip("H変動", (s.holdWidthSign === "+" ? "↓" : "↑") + s.holdWidth + "円", _vcol(s.holdWidth, s.holdWidthSign === "-")),
+
+      holdPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
+        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
+        React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
+          _hpBadge(_dispHP),
+          _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
+          _pnlFmt(holdPnl))
+      ),
+
+      React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
       entered && realPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
         React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "実現損益"),
         React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(realPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
@@ -4856,23 +4872,8 @@ function EntryLogCard(_ref_elc) {
           _gradeBadge(realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null),
           _pnlFmt(realPnl))
       ),
-      
-      (s.priceIn || s.priceOut) && _chip("価格", (s.priceIn ? "入" + s.priceIn : "") + (s.priceIn && s.priceOut ? "→" : "") + (s.priceOut ? "出" + s.priceOut : ""), "#555"),
-      
-      React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
-      !(s.holdWidthSign || s.holdHighVal != null || holdPnl != null) && React.createElement("span", { style: { fontSize: 10, color: "#bbb", alignSelf: "center", fontStyle: "italic" } }, "Hデータ無し"),
-      
-      s.holdWidthSign != null && s.holdWidth != null && _chip("H変動", (s.holdWidthSign === "+" ? "↓" : "↑") + s.holdWidth + "円", _vcol(s.holdWidth, s.holdWidthSign === "-")),
-      
-      s.holdHighVal != null && _chip("H高値", (s.holdHighSign === "-" ? "↑" : "↓") + s.holdHighVal, _vcol(s.holdHighVal, s.holdHighSign === "-")),
-      
-      holdPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
-        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
-        React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
-          _hpBadge(_dispHP),
-          _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
-          _pnlFmt(holdPnl))
-      )
+
+      (s.priceIn || s.priceOut) && _chip("価格", (s.priceIn ? "入" + s.priceIn : "") + (s.priceIn && s.priceOut ? "→" : "") + (s.priceOut ? "出" + s.priceOut : ""), "#555")
     ),
     
     s.rationale && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale),

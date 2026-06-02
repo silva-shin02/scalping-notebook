@@ -3772,9 +3772,8 @@ function DayView(_ref57) {
                     (s.holdHighSign === "+" ? "↓" : s.holdHighSign === "-" ? "↑" : "") + s.holdHighVal)
                 : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-              s.holdWidthSign != null && s.holdWidth != null
-                ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: s.holdWidth >= 10 ? 700 : 600 } },
-                    (s.holdWidthSign === "+" ? "↓" : "↑") + s.holdWidth)
+              s.holdOsConf != null
+                ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, Number(s.holdOsConf) === 0 ? "0" : (Number(s.holdOsConf) > 0 ? "+" : "") + s.holdOsConf)
                 : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, (function() {
               var _hp = _hpTr;
@@ -4892,7 +4891,7 @@ function DayView(_ref57) {
         ),
         
         _hwHasDataH?React.createElement("div",{style:{marginBottom:14}},
-          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールド中の値動き（伸び・逆行）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"確定値基準・1株あたり / 利益方向＝赤・損失方向＝緑")),
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールド中の値動き（水準線からの上下）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"確定値基準・1株あたり / 下方向＝赤・上方向＝緑")),
           (function(){
             var _cats=[
               {key:"__all__",label:"全体",col:"#9A3412",recs:_haRecs},
@@ -4914,13 +4913,13 @@ function DayView(_ref57) {
                   React.createElement("div",{style:{fontSize:11,fontWeight:700,color:c.col,marginBottom:6}},c.label+" ("+hws.length+"件)"),
                   React.createElement("div",{style:{display:"flex",gap:16,alignItems:"flex-end",flexWrap:"wrap"}},
                     React.createElement("div",null,
-                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"↓ 利益方向に伸び"),
-                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#C0392B",lineHeight:1}},favAvg!=null?"+"+favAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"↓ 水準線より下方向"),
+                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#C0392B",lineHeight:1}},favAvg!=null?favAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
                       React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},fav.length+"件の平均")
                     ),
                     React.createElement("div",null,
-                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"↑ 損失方向に逆行"),
-                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#1E8449",lineHeight:1}},advAvg!=null?"-"+advAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"↑ 水準線より上方向"),
+                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#1E8449",lineHeight:1}},advAvg!=null?advAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
                       React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},adv.length+"件の平均")
                     )
                   )
