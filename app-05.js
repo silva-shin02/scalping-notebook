@@ -4867,6 +4867,7 @@ function EntryLogCard(_ref_elc) {
       entered && realPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
         React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "実現損益"),
         React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(realPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
+          _tradeAlphaChip(s),
           _gradeBadge(realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null),
           _pnlFmt(realPnl))
       ),

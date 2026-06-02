@@ -3761,7 +3761,7 @@ function EntryLogView(_ref_elv) {
               style: { flex: 1, background: "#FDECEA", border: "1px solid #FFCDD2", borderRadius: 6, padding: "6px 10px", fontSize: 11 }
             },
               React.createElement("div", { style: { color: "#C0392B", fontWeight: 700, marginBottom: 2 } }, "🏆 ベスト取引"),
-              React.createElement("div", { style: { fontWeight: 700, color: "#C0392B", fontSize: 13 } }, (bv > 0 ? "+" : "") + (bv || 0).toLocaleString() + "円"),
+              React.createElement("div", { style: { fontWeight: 700, color: "#C0392B", fontSize: 13 } }, _tradeAlphaChip(_pnlBest.signal), (bv > 0 ? "+" : "") + (bv || 0).toLocaleString() + "円"),
               React.createElement("div", { style: { color: "#555", marginTop: 2 } },
                 React.createElement("button", {
                   onClick: function() { handleGoStock(_pnlBest.stock); },
@@ -3776,7 +3776,7 @@ function EntryLogView(_ref_elv) {
               style: { flex: 1, background: "#EAF3DE", border: "1px solid #A9DFBF", borderRadius: 6, padding: "6px 10px", fontSize: 11 }
             },
               React.createElement("div", { style: { color: "#1E8449", fontWeight: 700, marginBottom: 2 } }, "📉 ワースト取引"),
-              React.createElement("div", { style: { fontWeight: 700, color: "#1E8449", fontSize: 13 } }, (wv > 0 ? "+" : "") + (wv || 0).toLocaleString() + "円"),
+              React.createElement("div", { style: { fontWeight: 700, color: "#1E8449", fontSize: 13 } }, _tradeAlphaChip(_pnlWorst.signal), (wv > 0 ? "+" : "") + (wv || 0).toLocaleString() + "円"),
               React.createElement("div", { style: { color: "#555", marginTop: 2 } },
                 React.createElement("button", {
                   onClick: function() { handleGoStock(_pnlWorst.stock); },
@@ -3925,7 +3925,8 @@ function EntryLogView(_ref_elv) {
                   background: "#f5f4f0", color: "#666" } }, _elTagLabel(r.signal)),
                 v != null
                   ? React.createElement("span", { style: { fontWeight: 700,
-                      color: v >= 0 ? "#C0392B" : "#1E8449", marginLeft: "auto" } },
+                      color: v >= 0 ? "#C0392B" : "#1E8449", marginLeft: "auto", display: "inline-flex", alignItems: "center" } },
+                      _tradeAlphaChip(r.signal),
                       (v > 0 ? "+" : "") + v.toLocaleString() + "円")
                   : React.createElement("span", { style: { color: "#bbb", marginLeft: "auto", fontSize: 11 } }, "損益未入力"),
                 r.signal.result && React.createElement("span", {
