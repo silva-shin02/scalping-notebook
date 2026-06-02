@@ -696,8 +696,54 @@ function EntryLogView(_ref_elv) {
         )
       );
     })();
+    var holdSec = (function() {
+      var _liveA = !!(data && data.charts);
+      var deltas = [], better = 0, worse = 0, same = 0, betterVals = [], worseVals = [];
+      osRecs.forEach(function(r) {
+        var s = r.signal;
+        var ai = _liveA ? _elAlphaInfo(r, data) : { alpha: null, cutLine: null };
+        var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+        var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
+        var pp = _liveA ? _elDynPlanned(s, ai.alpha, ai.cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+        var hp = _liveA ? _elDynHold(s, ai.alpha, ai.cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
+        if (pp == null || hp == null) return;
+        var ppN = _liveA ? Math.round(pp) : _p100(pp);
+        var hpN = _liveA ? Math.round(hp) : _p100(hp);
+        var d = hpN - ppN;
+        deltas.push(d);
+        if (d > 0) { better++; betterVals.push(d); }
+        else if (d < 0) { worse++; worseVals.push(d); }
+        else same++;
+      });
+      if (!deltas.length) return null;
+      var n = deltas.length;
+      var avgD = Math.round(deltas.reduce(function(a, b) { return a + b; }, 0) / n);
+      var betterAvg = betterVals.length ? Math.round(betterVals.reduce(function(a, b) { return a + b; }, 0) / betterVals.length) : null;
+      var worseAvg = worseVals.length ? Math.round(worseVals.reduce(function(a, b) { return a + b; }, 0) / worseVals.length) : null;
+      var verdict = better > worse ? "ホールドした方が良いことが多い" : worse > better ? "想定通り利確した方が良いことが多い" : "有利・不利が同数";
+      var verdictCol = better > worse ? "#C0392B" : worse > better ? "#1E8449" : "#888";
+      var _box = function(label, valTxt, col) {
+        return React.createElement("div", { style: { background: "#f5f4f0", border: "1px solid #e0ddd6", borderRadius: 6, padding: "6px 10px", minWidth: 64, textAlign: "center", flexShrink: 0 } },
+          React.createElement("div", { style: { fontSize: 9, color: "#888", fontWeight: 600 } }, label),
+          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: col || "#333", marginTop: 2 } }, valTxt));
+      };
+      return React.createElement("div", null,
+        _secH("🔄 ホールドによる損益変化（" + n + "件）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "ホールド損益−想定損益。プラス＝ホールドした方が有利・100株換算"),
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: verdictCol, marginBottom: 8 } }, "→ " + verdict + "（有利" + better + "件 / 不利" + worse + "件" + (same ? " / 同じ" + same + "件" : "") + "）"),
+        React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
+          _box("ホールド有利", better + "件", "#C0392B"),
+          _box("ホールド不利", worse + "件", "#1E8449"),
+          same ? _box("変化なし", same + "件", "#888") : null,
+          _box("平均変化", (avgD > 0 ? "+" : "") + avgD.toLocaleString() + "円", avgD > 0 ? "#C0392B" : avgD < 0 ? "#1E8449" : "#888"),
+          betterAvg != null ? _box("有利時平均", "+" + betterAvg.toLocaleString() + "円", "#C0392B") : null,
+          worseAvg != null ? _box("不利時平均", worseAvg.toLocaleString() + "円", "#1E8449") : null
+        )
+      );
+    })();
     return React.createElement("div", { style: { marginTop: 8 } },
       sumSec,
+      holdSec,
       React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
         React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, histSec, hrSec),
         React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, resSec, sigSec)

@@ -4902,68 +4902,41 @@ function DayView(_ref57) {
           )
         ),
         
-        _hwHasDataH?React.createElement("div",{style:{marginBottom:14}},
-          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールド中の値動き（確定値からの上下）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"確定値基準・1株あたり / 上方向＝赤・下方向＝緑 ／ H高値=確定値からの上昇・損切ライン(α+cutLine)越え")),
-          (function(){
-            var _cats=[
-              {key:"__all__",label:"全体",col:"#9A3412",recs:_haRecs},
-              {key:"yes",label:"○ 完全利益",col:"#1E8449",recs:_hCatH.yes},
-              {key:"mid",label:"△ 部分利益",col:"#B45309",recs:_hCatH.mid},
-              {key:"no",label:"× 損失",col:"#C0392B",recs:_hCatH.no},
-              {key:"none",label:"ー 変化なし",col:"#888",recs:_hCatH.none}
-            ];
-            var _avgArr=function(arr){return arr.length?Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10:null;};
-
-            var _confUp=function(s){if(s.osConfVal==null||s.osConfVal==="")return null;return s.osConfSign==="+"?Number(s.osConfVal):s.osConfSign==="-"?-Number(s.osConfVal):0;};
-            var _highUp=function(s){if(s.holdHighVal==null)return null;return s.holdHighSign==="-"?Number(s.holdHighVal):s.holdHighSign==="+"?-Number(s.holdHighVal):0;};
-            var _hcUp=function(s){if(s.holdWidth==null||s.holdWidthSign==null)return null;return s.holdWidthSign==="-"?Number(s.holdWidth):-Number(s.holdWidth);};
-            return React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:8}},
-              _cats.map(function(c){
-
-                var highRises=[],crossed=0;
-                c.recs.forEach(function(h){
-                  var s=h.s,cu=_confUp(s),hu=_highUp(s);
-                  if(cu!=null&&hu!=null)highRises.push(hu-cu);
-                  if(s.holdHighSign==="-"&&s.holdHighVal!=null&&h.aR!=null&&h.cutL!=null&&(Number(s.holdHighVal)-h.aR)>=h.cutL)crossed++;
-                });
-
-                var hcDiffs=[];
-                c.recs.forEach(function(h){var s=h.s,cu=_confUp(s),hc=_hcUp(s);if(cu!=null&&hc!=null)hcDiffs.push(hc-cu);});
-                if(!highRises.length&&!hcDiffs.length)return null;
-                var highAvg=_avgArr(highRises);
-                var hcUp=hcDiffs.filter(function(v){return v>0;});
-                var hcDn=hcDiffs.filter(function(v){return v<0;}).map(function(v){return -v;});
-                var hcUpAvg=_avgArr(hcUp),hcDnAvg=_avgArr(hcDn);
-                var isAll=c.key==="__all__";
-                return React.createElement("div",{key:c.key,style:{flex:isAll?"1 1 100%":"1 1 220px",minWidth:200,background:isAll?"#FFF7ED":"#fff",border:"1px solid "+(isAll?"#FB923C":"#e8e3d8"),borderRadius:8,padding:"8px 12px"}},
-                  React.createElement("div",{style:{fontSize:11,fontWeight:700,color:c.col,marginBottom:6}},c.label+" ("+c.recs.length+"件)"),
-                  React.createElement("div",{style:{display:"flex",gap:18,alignItems:"flex-end",flexWrap:"wrap"}},
-                    React.createElement("div",null,
-                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"H高値↑ 確定値からの上昇"),
-                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#C0392B",lineHeight:1}},highAvg!=null?highAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
-                      React.createElement("div",{style:{fontSize:9,color:crossed>0?"#C0392B":"#aaa",marginTop:2,fontWeight:crossed>0?700:400}},"損切ライン越え "+crossed+"件")
-                    ),
-                    React.createElement("div",null,
-                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"H確定値 確定値から"),
-                      React.createElement("div",{style:{display:"flex",gap:10,alignItems:"flex-end"}},
-                        React.createElement("div",null,
-                          React.createElement("div",{style:{fontSize:8,color:"#aaa",fontWeight:700}},"↑ 上方向"),
-                          React.createElement("div",{style:{fontSize:16,fontWeight:800,color:"#C0392B",lineHeight:1}},hcUpAvg!=null?hcUpAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
-                          React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},hcUp.length+"件")
-                        ),
-                        React.createElement("div",null,
-                          React.createElement("div",{style:{fontSize:8,color:"#aaa",fontWeight:700}},"↓ 下方向"),
-                          React.createElement("div",{style:{fontSize:16,fontWeight:800,color:"#1E8449",lineHeight:1}},hcDnAvg!=null?hcDnAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
-                          React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},hcDn.length+"件")
-                        )
-                      )
-                    )
-                  )
-                );
-              }).filter(Boolean)
-            );
-          })()
-        ):null,
+        (function(){
+          var deltas=[],better=0,worse=0,same=0,betterVals=[],worseVals=[];
+          _haRecs.forEach(function(h){
+            if(h.hp==null||h.pp==null)return;
+            var d=h.hp-h.pp;
+            deltas.push(d);
+            if(d>0){better++;betterVals.push(d);}
+            else if(d<0){worse++;worseVals.push(d);}
+            else same++;
+          });
+          if(!deltas.length)return null;
+          var n=deltas.length;
+          var avgD=Math.round(deltas.reduce(function(a,b){return a+b;},0)/n);
+          var betterAvg=betterVals.length?Math.round(betterVals.reduce(function(a,b){return a+b;},0)/betterVals.length):null;
+          var worseAvg=worseVals.length?Math.round(worseVals.reduce(function(a,b){return a+b;},0)/worseVals.length):null;
+          var verdict=better>worse?"ホールドした方が良いことが多い":worse>better?"想定通り利確した方が良いことが多い":"有利・不利が同数";
+          var verdictCol=better>worse?"#C0392B":worse>better?"#1E8449":"#888";
+          var _box=function(label,valTxt,col){
+            return React.createElement("div",{style:{background:"#fff",border:"1px solid #e8e3d8",borderRadius:8,padding:"6px 12px",minWidth:84,textAlign:"center"}},
+              React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700}},label),
+              React.createElement("div",{style:{fontSize:16,fontWeight:800,color:col||"#333",marginTop:2}},valTxt));
+          };
+          return React.createElement("div",{style:{marginBottom:14}},
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールドによる損益変化",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"ホールド損益−想定損益・100株換算 / プラス＝ホールドが有利")),
+            React.createElement("div",{style:{fontSize:13,fontWeight:800,color:verdictCol,marginBottom:8}},"→ "+verdict+"（有利"+better+"件 / 不利"+worse+"件"+(same?" / 同じ"+same+"件":"")+"）"),
+            React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+              _box("ホールド有利",better+"件","#C0392B"),
+              _box("ホールド不利",worse+"件","#1E8449"),
+              same?_box("変化なし",same+"件","#888"):null,
+              _box("平均変化",(avgD>0?"+":"")+avgD.toLocaleString()+"円",avgD>0?"#C0392B":avgD<0?"#1E8449":"#888"),
+              betterAvg!=null?_box("有利時の平均","+"+betterAvg.toLocaleString()+"円","#C0392B"):null,
+              worseAvg!=null?_box("不利時の平均",worseAvg.toLocaleString()+"円","#1E8449"):null
+            )
+          );
+        })(),
         
         _hAlphaEVH.length>0?React.createElement("div",null,
           React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"α値別ホールド期待値"),
