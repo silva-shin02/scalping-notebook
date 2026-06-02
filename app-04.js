@@ -4365,11 +4365,13 @@ function DayView(_ref57) {
           ) : null
         );
       };
+      var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
-        React.createElement("td", { colSpan: 12, style: { padding: "5px 8px", textAlign: "center", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計"),
-        React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDisp(_totReal, _totRealGrade)),
-        React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
+        React.createElement("td", { colSpan: 12, style: { padding: "5px 8px", textAlign: "right", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計 →"),
+        React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade)),
+        React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("想定損益"), _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
+          _lblTot("H結果損益"),
           _totHoldCnt > 0
             ? React.createElement("span", { style: { fontWeight: 700, color: (_totHold||0) > 0 ? "#C0392B" : (_totHold||0) < 0 ? "#1E8449" : "#888" } },
                 ((_totHold||0) > 0 ? "+" : "") + (_totHold||0).toLocaleString() + "円")
@@ -4876,29 +4878,42 @@ function DayView(_ref57) {
         ),
         
         _hwHasDataH?React.createElement("div",{style:{marginBottom:14}},
-          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"変動幅分析（確定値基準）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"正＝有利方向（下落） 負＝不利方向（上昇）")),
-          React.createElement("div",{style:{overflowX:"auto"}},
-            React.createElement("table",{style:{borderCollapse:"collapse",fontSize:11}},
-              React.createElement("thead",null,React.createElement("tr",{style:{background:"#f5f4f0"}},_thHA("区分",{textAlign:"left"}),_thHA("件"),_thHA("平均変動幅"),_thHA("中央値"),_thHA("最大(有利)"),_thHA("最大(不利)"))),
-              React.createElement("tbody",null,
-                [{key:"yes",label:"○ 完全利益",col:"#1E8449"},{key:"mid",label:"△ 部分利益",col:"#B45309"},{key:"none",label:"ー 変化なし",col:"#888"},{key:"no",label:"× 損失",col:"#C0392B"},{key:"__all__",label:"全体",col:"#333"}].map(function(row){
-                  var arr=row.key==="__all__"?_haRecs:_hCatH[row.key];
-                  var hwArr=arr.map(function(h){return h.hw;}).filter(function(v){return v!=null;});
-                  if(!hwArr.length)return null;
-                  var avg3=Math.round(hwArr.reduce(function(a,b){return a+b;},0)/hwArr.length*10)/10;
-                  var sorted3=hwArr.slice().sort(function(a,b){return a-b;});var m3=Math.floor(sorted3.length/2);
-                  var med3=sorted3.length%2?sorted3[m3]:Math.round((sorted3[m3-1]+sorted3[m3])/2*10)/10;
-                  var maxFav3=Math.max.apply(null,hwArr);var maxAdv3=Math.min.apply(null,hwArr);
-                  return React.createElement("tr",{key:row.key,style:row.key==="__all__"?{background:"#f5f4f0",fontWeight:700}:{}},
-                    _tdHA(React.createElement("span",{style:{color:row.col,fontWeight:700}},row.label),{textAlign:"left",whiteSpace:"nowrap"}),
-                    _tdHA(hwArr.length),_tdHA(_hwFmtHA(avg3)),_tdHA(_hwFmtHA(med3)),
-                    _tdHA(React.createElement("span",{style:{color:"#C0392B",fontWeight:maxFav3>0?700:400}},(maxFav3>0?"+":"")+maxFav3+"円")),
-                    _tdHA(React.createElement("span",{style:{color:"#1E8449",fontWeight:maxAdv3<0?700:400}},(maxAdv3>0?"+":"")+maxAdv3+"円"))
-                  );
-                }).filter(Boolean)
-              )
-            )
-          )
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールド中の値動き（伸び・逆行）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"確定値基準・1株あたり / 利益方向＝赤・損失方向＝緑")),
+          (function(){
+            var _cats=[
+              {key:"__all__",label:"全体",col:"#9A3412",recs:_haRecs},
+              {key:"yes",label:"○ 完全利益",col:"#1E8449",recs:_hCatH.yes},
+              {key:"mid",label:"△ 部分利益",col:"#B45309",recs:_hCatH.mid},
+              {key:"no",label:"× 損失",col:"#C0392B",recs:_hCatH.no},
+              {key:"none",label:"ー 変化なし",col:"#888",recs:_hCatH.none}
+            ];
+            var _avgArr=function(arr){return arr.length?Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10:null;};
+            return React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:8}},
+              _cats.map(function(c){
+                var hws=c.recs.map(function(h){return h.hw;}).filter(function(v){return v!=null;});
+                if(!hws.length)return null;
+                var fav=hws.filter(function(v){return v>0;});
+                var adv=hws.filter(function(v){return v<0;}).map(function(v){return -v;});
+                var favAvg=_avgArr(fav),advAvg=_avgArr(adv);
+                var isAll=c.key==="__all__";
+                return React.createElement("div",{key:c.key,style:{flex:isAll?"1 1 100%":"1 1 160px",minWidth:150,background:isAll?"#FFF7ED":"#fff",border:"1px solid "+(isAll?"#FB923C":"#e8e3d8"),borderRadius:8,padding:"8px 12px"}},
+                  React.createElement("div",{style:{fontSize:11,fontWeight:700,color:c.col,marginBottom:6}},c.label+" ("+hws.length+"件)"),
+                  React.createElement("div",{style:{display:"flex",gap:16,alignItems:"flex-end",flexWrap:"wrap"}},
+                    React.createElement("div",null,
+                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"↓ 利益方向に伸び"),
+                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#C0392B",lineHeight:1}},favAvg!=null?"+"+favAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                      React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},fav.length+"件の平均")
+                    ),
+                    React.createElement("div",null,
+                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"↑ 損失方向に逆行"),
+                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#1E8449",lineHeight:1}},advAvg!=null?"-"+advAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                      React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},adv.length+"件の平均")
+                    )
+                  )
+                );
+              }).filter(Boolean)
+            );
+          })()
         ):null,
         
         _hAlphaEVH.length>0?React.createElement("div",null,
