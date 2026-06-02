@@ -3751,15 +3751,17 @@ function DayView(_ref57) {
                   },
                   style: { width: "100%", fontSize: 11, border: "none", outline: "none",
                     textAlign: "right", padding: "3px 4px", background: "transparent",
-                    fontVariantNumeric: "tabular-nums" }
+                    fontVariantNumeric: "tabular-nums",
+                    color: _osS.osVal != null ? _vcol(_osS.osVal, true) : "#333",
+                    fontWeight: (_osS.osVal != null && Number(_osS.osVal) >= 10) ? 700 : 600 }
                 });
               })(r)
             ),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               s.osConfVal != null && Number(s.osConfVal) === 0
-                ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, "0")
+                ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#888" } }, "0")
                 : s.osConfSign
-                  ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } },
+                  ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.osConfVal, s.osConfSign === "+"), fontWeight: Number(s.osConfVal) >= 10 ? 700 : 600 } },
                       "\u2195" + (s.osConfVal != null ? String(Math.abs(Number(s.osConfVal))) : ""))
                   : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
@@ -4843,7 +4845,7 @@ function DayView(_ref57) {
         var dynHpH=(function(){if(hp==null)return s.holdProfit;if(dispRH==="draw"){return hp>0?"yes":hp<0?"no":"none";}if(pp==null)return s.holdProfit;if(pp>0&&hp>0){return hp>pp?"yes":hp<pp?"mid":"none";}if(pp<0&&hp<0)return"no";if(pp>0&&hp<0)return"no";if(pp<0&&hp>0)return"yes";if(hp===0)return"none";return s.holdProfit;})();
         var hw=null;
         if(_aR!=null&&s.holdOsConf!=null){hw=_aR-Number(s.holdOsConf);}else if(s.holdWidthSign!=null&&s.holdWidth!=null){hw=s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth);}
-        return {s:s,stock:r.stock,hp:hp,pp:pp,dynHp:dynHpH,hw:hw,aR:_aR};
+        return {s:s,stock:r.stock,hp:hp,pp:pp,dynHp:dynHpH,hw:hw,aR:_aR,cutL:_cutLHA};
       }).filter(function(h){return h.dynHp!=null||h.hp!=null;});
       if (!_haRecs.length) return null;
       var _hCatH={yes:[],mid:[],none:[],no:[]};
@@ -4901,7 +4903,7 @@ function DayView(_ref57) {
         ),
         
         _hwHasDataH?React.createElement("div",{style:{marginBottom:14}},
-          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールド中の値動き（水準線からの上下）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"確定値基準・1株あたり / 下方向＝赤・上方向＝緑")),
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールド中の値動き（確定値からの上下）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"確定値基準・1株あたり / 上方向＝緑・下方向＝赤 ／ H高値=確定値からの上昇・損切ライン(α+cutLine)越え")),
           (function(){
             var _cats=[
               {key:"__all__",label:"全体",col:"#9A3412",recs:_haRecs},
@@ -4911,26 +4913,50 @@ function DayView(_ref57) {
               {key:"none",label:"ー 変化なし",col:"#888",recs:_hCatH.none}
             ];
             var _avgArr=function(arr){return arr.length?Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10:null;};
+
+            var _confUp=function(s){if(s.osConfVal==null||s.osConfVal==="")return null;return s.osConfSign==="+"?Number(s.osConfVal):s.osConfSign==="-"?-Number(s.osConfVal):0;};
+            var _highUp=function(s){if(s.holdHighVal==null)return null;return s.holdHighSign==="-"?Number(s.holdHighVal):s.holdHighSign==="+"?-Number(s.holdHighVal):0;};
+            var _hcUp=function(s){if(s.holdWidth==null||s.holdWidthSign==null)return null;return s.holdWidthSign==="-"?Number(s.holdWidth):-Number(s.holdWidth);};
             return React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:8}},
               _cats.map(function(c){
-                var hws=c.recs.map(function(h){return h.hw;}).filter(function(v){return v!=null;});
-                if(!hws.length)return null;
-                var fav=hws.filter(function(v){return v>0;});
-                var adv=hws.filter(function(v){return v<0;}).map(function(v){return -v;});
-                var favAvg=_avgArr(fav),advAvg=_avgArr(adv);
+
+                var highRises=[],crossed=0;
+                c.recs.forEach(function(h){
+                  var s=h.s,cu=_confUp(s),hu=_highUp(s);
+                  if(cu!=null&&hu!=null)highRises.push(hu-cu);
+                  if(s.holdHighSign==="-"&&s.holdHighVal!=null&&h.aR!=null&&h.cutL!=null&&(Number(s.holdHighVal)-h.aR)>=h.cutL)crossed++;
+                });
+
+                var hcDiffs=[];
+                c.recs.forEach(function(h){var s=h.s,cu=_confUp(s),hc=_hcUp(s);if(cu!=null&&hc!=null)hcDiffs.push(hc-cu);});
+                if(!highRises.length&&!hcDiffs.length)return null;
+                var highAvg=_avgArr(highRises);
+                var hcUp=hcDiffs.filter(function(v){return v>0;});
+                var hcDn=hcDiffs.filter(function(v){return v<0;}).map(function(v){return -v;});
+                var hcUpAvg=_avgArr(hcUp),hcDnAvg=_avgArr(hcDn);
                 var isAll=c.key==="__all__";
-                return React.createElement("div",{key:c.key,style:{flex:isAll?"1 1 100%":"1 1 160px",minWidth:150,background:isAll?"#FFF7ED":"#fff",border:"1px solid "+(isAll?"#FB923C":"#e8e3d8"),borderRadius:8,padding:"8px 12px"}},
-                  React.createElement("div",{style:{fontSize:11,fontWeight:700,color:c.col,marginBottom:6}},c.label+" ("+hws.length+"件)"),
-                  React.createElement("div",{style:{display:"flex",gap:16,alignItems:"flex-end",flexWrap:"wrap"}},
+                return React.createElement("div",{key:c.key,style:{flex:isAll?"1 1 100%":"1 1 220px",minWidth:200,background:isAll?"#FFF7ED":"#fff",border:"1px solid "+(isAll?"#FB923C":"#e8e3d8"),borderRadius:8,padding:"8px 12px"}},
+                  React.createElement("div",{style:{fontSize:11,fontWeight:700,color:c.col,marginBottom:6}},c.label+" ("+c.recs.length+"件)"),
+                  React.createElement("div",{style:{display:"flex",gap:18,alignItems:"flex-end",flexWrap:"wrap"}},
                     React.createElement("div",null,
-                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"↓ 水準線より下方向"),
-                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#C0392B",lineHeight:1}},favAvg!=null?favAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
-                      React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},fav.length+"件の平均")
+                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"H高値↑ 確定値からの上昇"),
+                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#1E8449",lineHeight:1}},highAvg!=null?highAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                      React.createElement("div",{style:{fontSize:9,color:crossed>0?"#C0392B":"#aaa",marginTop:2,fontWeight:crossed>0?700:400}},"損切ライン越え "+crossed+"件")
                     ),
                     React.createElement("div",null,
-                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"↑ 水準線より上方向"),
-                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#1E8449",lineHeight:1}},advAvg!=null?advAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
-                      React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},adv.length+"件の平均")
+                      React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"H確定値 確定値から"),
+                      React.createElement("div",{style:{display:"flex",gap:10,alignItems:"flex-end"}},
+                        React.createElement("div",null,
+                          React.createElement("div",{style:{fontSize:8,color:"#aaa",fontWeight:700}},"↑ 上方向"),
+                          React.createElement("div",{style:{fontSize:16,fontWeight:800,color:"#1E8449",lineHeight:1}},hcUpAvg!=null?hcUpAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                          React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},hcUp.length+"件")
+                        ),
+                        React.createElement("div",null,
+                          React.createElement("div",{style:{fontSize:8,color:"#aaa",fontWeight:700}},"↓ 下方向"),
+                          React.createElement("div",{style:{fontSize:16,fontWeight:800,color:"#C0392B",lineHeight:1}},hcDnAvg!=null?hcDnAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                          React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},hcDn.length+"件")
+                        )
+                      )
                     )
                   )
                 );
