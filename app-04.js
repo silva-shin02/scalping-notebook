@@ -4903,7 +4903,7 @@ function DayView(_ref57) {
         ),
         
         _hwHasDataH?React.createElement("div",{style:{marginBottom:14}},
-          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールド中の値動き（確定値からの上下）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"確定値基準・1株あたり / 上方向＝緑・下方向＝赤 ／ H高値=確定値からの上昇・損切ライン(α+cutLine)越え")),
+          React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールド中の値動き（確定値からの上下）",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"確定値基準・1株あたり / 上方向＝赤・下方向＝緑 ／ H高値=確定値からの上昇・損切ライン(α+cutLine)越え")),
           (function(){
             var _cats=[
               {key:"__all__",label:"全体",col:"#9A3412",recs:_haRecs},
@@ -4940,7 +4940,7 @@ function DayView(_ref57) {
                   React.createElement("div",{style:{display:"flex",gap:18,alignItems:"flex-end",flexWrap:"wrap"}},
                     React.createElement("div",null,
                       React.createElement("div",{style:{fontSize:9,color:"#888",fontWeight:700,marginBottom:1}},"H高値↑ 確定値からの上昇"),
-                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#1E8449",lineHeight:1}},highAvg!=null?highAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                      React.createElement("div",{style:{fontSize:18,fontWeight:800,color:"#C0392B",lineHeight:1}},highAvg!=null?highAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
                       React.createElement("div",{style:{fontSize:9,color:crossed>0?"#C0392B":"#aaa",marginTop:2,fontWeight:crossed>0?700:400}},"損切ライン越え "+crossed+"件")
                     ),
                     React.createElement("div",null,
@@ -4948,12 +4948,12 @@ function DayView(_ref57) {
                       React.createElement("div",{style:{display:"flex",gap:10,alignItems:"flex-end"}},
                         React.createElement("div",null,
                           React.createElement("div",{style:{fontSize:8,color:"#aaa",fontWeight:700}},"↑ 上方向"),
-                          React.createElement("div",{style:{fontSize:16,fontWeight:800,color:"#1E8449",lineHeight:1}},hcUpAvg!=null?hcUpAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                          React.createElement("div",{style:{fontSize:16,fontWeight:800,color:"#C0392B",lineHeight:1}},hcUpAvg!=null?hcUpAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
                           React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},hcUp.length+"件")
                         ),
                         React.createElement("div",null,
                           React.createElement("div",{style:{fontSize:8,color:"#aaa",fontWeight:700}},"↓ 下方向"),
-                          React.createElement("div",{style:{fontSize:16,fontWeight:800,color:"#C0392B",lineHeight:1}},hcDnAvg!=null?hcDnAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
+                          React.createElement("div",{style:{fontSize:16,fontWeight:800,color:"#1E8449",lineHeight:1}},hcDnAvg!=null?hcDnAvg+"円":React.createElement("span",{style:{color:"#ccc"}},"—")),
                           React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:2}},hcDn.length+"件")
                         )
                       )
