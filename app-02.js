@@ -4036,10 +4036,14 @@ function EntrySignalSection(_ref_es) {
         fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
     }, grade);
   };
-  var _esRPnlDisp = function(v, grade) {
-    if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var _esRPnlDisp = function(v, grade, showZ) {
+    var badge = (grade && (grade !== "Z" || showZ)) ? _esBadge(grade) : null;
+    if (v == null) {
+      if (badge == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, badge);
+    }
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-      grade && grade !== "Z" ? _esBadge(grade) : null,
+      badge,
       React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(v) } }, _esRPnlFmt(v))
     );
   };
@@ -4438,9 +4442,6 @@ function EntrySignalSection(_ref_es) {
           var totRow = React.createElement("tr", { key: "__estot__", style: { background: "#FFF7ED" } },
             React.createElement("td", { colSpan: 7, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              _esTotRealCnt > 0 ? _esRPnlDisp(_esTotReal, _esTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
-            ),
-            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
             ),
             React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
@@ -4453,6 +4454,9 @@ function EntrySignalSection(_ref_es) {
                     _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
                   )
                 : React.createElement("span", { style: { color: "#ccc" } }, "—")
+            ),
+            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+              _esTotRealCnt > 0 ? _esRPnlDisp(_esTotReal, _esTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),
             isCustomMode ? React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }) : null
           );
@@ -4521,7 +4525,7 @@ function EntrySignalSection(_ref_es) {
             }
             var _holdIsUnrecorded = s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null;
             var entered = _elIsEntered(s, rIt);
-            var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
+            var realGrade = entered ? ((realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null) : "Z";
             var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
             
             var _dynResult = (function() {
@@ -4610,7 +4614,6 @@ function EntrySignalSection(_ref_es) {
                     return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
                   })()),
                 React.createElement("td", { style: { padding: "2px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
-                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _esRPnlDisp(realPnlN, realGrade)),
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(planPnlN, planGrade)),
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   s.holdHighVal != null
@@ -4618,11 +4621,11 @@ function EntrySignalSection(_ref_es) {
                         (s.holdHighSign === "+" ? "\u2193" : s.holdHighSign === "-" ? "\u2191" : "") + s.holdHighVal)
                     : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-                  s.holdWidthSign != null && s.holdWidth != null
+                  s.holdWidth != null
                     ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: s.holdWidth >= 10 ? 700 : 600 } },
                         (s.holdWidthSign === "-" ? "\u2191" : s.holdWidthSign === "+" ? "\u2193" : "\u2195") + s.holdWidth)
                     : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, (function() {
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, (function() {
                   var _hp = _holdPnlDyn;
                   var _isMiss = _dispResult === "miss";
                   var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
@@ -4638,6 +4641,7 @@ function EntrySignalSection(_ref_es) {
                     _hpNum
                   );
                 })()),
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _tradeAlphaChip(s), _esRPnlDisp(realPnlN, realGrade, !entered)),
                 isCustomMode ? React.createElement("td", {
                   style: { padding: "2px 4px", textAlign: "center", borderBottom: "1px solid #f0ede6" },
                   onClick: function(e) { e.stopPropagation(); }
@@ -4682,11 +4686,11 @@ function EntrySignalSection(_ref_es) {
                   _esTh("確定値", { width: "1%" }),
                   _esTh("α値比値幅", { width: "1%" }),
                   _esTh("結果", { width: "1%" }),
-                  _esTh("実現損益"),
                   _esTh("想定損益"),
                   _esTh("H高値", { width: "1%" }),
                   _esTh("H確定値", { width: "1%" }),
                   _esTh("H勝敗/結果損益"),
+                  _esTh("実現損益"),
                   isCustomMode ? _esTh("並替") : null
                 )
               ),

@@ -3861,12 +3861,15 @@ function EntryRecordForm(_ref_erf) {
   var _ewSignedRef = useRef(0);
   var _hhSignedRef = useRef(0);
   var _hwSignedRef = useRef(0);
-  _oscSignedRef.current = (fOsConfSign === "+" ? 1 : fOsConfSign === "-" ? -1 : 0) * Math.abs(Number(fOsConfVal) || 0);
-  _ewSignedRef.current  = (fEstWidthSign === "-" ? 1 : fEstWidthSign === "+" ? -1 : 0) * Math.abs(Number(fEstWidthVal) || 0);
-  _hhSignedRef.current  = (fHoldHighSign === "-" ? 1 : fHoldHighSign === "+" ? -1 : 0) * Math.abs(Number(fHoldHighVal) || 0);
-  _hwSignedRef.current  = (fHoldWidthSign === "-" ? 1 : fHoldWidthSign === "+" ? -1 : 0) * Math.abs(Number(fHoldWidthVal) || 0);
+  var _signedFromState = function(valStr, mul) { return (valStr === "" || valStr == null) ? null : mul * Math.abs(Number(valStr) || 0); };
+  _oscSignedRef.current = _signedFromState(fOsConfVal,  fOsConfSign === "+" ? 1 : fOsConfSign === "-" ? -1 : 0);
+  _ewSignedRef.current  = _signedFromState(fEstWidthVal,  fEstWidthSign === "-" ? 1 : fEstWidthSign === "+" ? -1 : 0);
+  _hhSignedRef.current  = _signedFromState(fHoldHighVal,  fHoldHighSign === "-" ? 1 : fHoldHighSign === "+" ? -1 : 0);
+  _hwSignedRef.current  = _signedFromState(fHoldWidthVal, fHoldWidthSign === "-" ? 1 : fHoldWidthSign === "+" ? -1 : 0);
 
   var _applySigned = function(ref, delta, upSign, downSign, setVal, setSign, after) {
+
+    if (ref.current == null) { ref.current = 0; setVal("0"); setSign(null); if (after) after(0); return; }
     var s = ref.current + delta;
     ref.current = s;
     if (s > 0) { setVal(String(s)); setSign(upSign); }
@@ -4884,7 +4887,7 @@ function EntryLogCard(_ref_elc) {
         (s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) ? _chip("確定値",
           Number(s.osConfVal) === 0 ? "0円" : (s.osConfSign === "+" ? "↑" : s.osConfSign === "-" ? "↓" : "↕") + Math.abs(Number(s.osConfVal)) + "円",
           Number(s.osConfVal) === 0 ? "#888" : _vcol(s.osConfVal, s.osConfSign === "+")) : null,
-        (s.holdWidthSign != null && s.holdWidth != null) ? _chip("H確定値", (s.holdWidthSign === "-" ? "↑" : s.holdWidthSign === "+" ? "↓" : "↕") + s.holdWidth + "円", _vcol(s.holdWidth, s.holdWidthSign === "-")) : null
+        (s.holdWidth != null) ? _chip("H確定値", (s.holdWidthSign === "-" ? "↑" : s.holdWidthSign === "+" ? "↓" : "↕") + s.holdWidth + "円", _vcol(s.holdWidth, s.holdWidthSign === "-")) : null
       ),
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
