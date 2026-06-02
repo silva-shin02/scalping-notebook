@@ -4445,18 +4445,18 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "全銘柄α値（水準線比）"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
               React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1", min: "0", max: "20", placeholder: "—",
+                type: "number", inputMode: "numeric", step: "1", min: "0", max: "30", placeholder: "—",
                 value: pbSimAlpha !== null ? String(pbSimAlpha) : "",
                 onChange: function(e) {
                   var v = e.target.value;
                   var _n = v === "" ? null : isNaN(Number(v)) ? null : Number(v);
-                  if (_n != null) { if (_n > 20) _n = 20; if (_n < 0) _n = 0; }
+                  if (_n != null) { if (_n > 30) _n = 30; if (_n < 0) _n = 0; }
                   setPbSimAlpha(_n);
                 },
                 style: { width: 64, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 5; return n < 20 ? n + 1 : n; }); },
+                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 5; return n < 30 ? n + 1 : n; }); },
                 function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 5; return n > 0 ? n - 1 : 0; }); }
               )
             ),
@@ -4540,12 +4540,12 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値（水準線比）"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
               React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1", min: "0", max: "20",
+                type: "number", inputMode: "numeric", step: "1", min: "0", max: "30",
                 value: (function() { var _avc = _pbCharts[rowKey + "_" + date]; return _avc && _avc.alphaVal != null ? String(_avc.alphaVal) : "5"; })(),
                 onChange: function(e) {
                   var v = e.target.value;
                   var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
-                  if (n != null) { if (n > 20) n = 20; if (n < 0) n = 0; }
+                  if (n != null) { if (n > 30) n = 30; if (n < 0) n = 0; }
                   var _ck = rowKey + "_" + date;
                   save(function(prev) {
                     var pCharts = Object.assign({}, (prev && prev.charts) || {});
@@ -4576,7 +4576,7 @@ function DayView(_ref57) {
                 style: { width: 60, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { var _ckRef = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ckRef] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n >= 20) return prev; _ce.alphaVal = _n + 1; pCharts[_ckRef] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
+                function() { var _ckRef = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ckRef] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n >= 30) return prev; _ce.alphaVal = _n + 1; pCharts[_ckRef] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
                 function() { var _ckRef = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ckRef] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n <= 0) return prev; _ce.alphaVal = _n - 1; pCharts[_ckRef] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
               )
             ),
@@ -4766,7 +4766,7 @@ function DayView(_ref57) {
       };
       
       var minA = null, tgtA = null, maxA = null, maxP = null;
-      for (var _a = 0; _a <= 20; _a++) {
+      for (var _a = 0; _a <= 30; _a++) {
         var _p = calcProfit(_a);
         if (_p == null) continue;
         if (minA == null && _p >= 1) minA = _a;
@@ -4811,7 +4811,7 @@ function DayView(_ref57) {
         return hasAny ? Math.round(total) : null;
       };
       var minA = null, tgtA = null, maxA = null, maxP = null;
-      for (var _aa = 0; _aa <= 20; _aa++) {
+      for (var _aa = 0; _aa <= 30; _aa++) {
         var _pp = calcAll(_aa);
         if (_pp == null) continue;
         if (minA == null && _pp >= 1) minA = _aa;
@@ -5019,7 +5019,7 @@ function DayView(_ref57) {
         )
       ),
       _pbHasAlpha && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜20円）"),
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜30円）"),
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）"),
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },

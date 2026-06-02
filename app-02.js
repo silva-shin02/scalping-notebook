@@ -4294,12 +4294,12 @@ function EntrySignalSection(_ref_es) {
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値（水準線比）"),
       React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
       React.createElement("input", {
-        type: "number", inputMode: "numeric", step: "1", min: "0", max: "20",
+        type: "number", inputMode: "numeric", step: "1", min: "0", max: "30",
         value: c.alphaVal != null ? String(c.alphaVal) : "5",
         onChange: function(e) {
           var v = e.target.value;
           var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
-          if (n != null) { if (n > 20) n = 20; if (n < 0) n = 0; }
+          if (n != null) { if (n > 30) n = 30; if (n < 0) n = 0; }
           save(function(prev) {
             var pCharts = Object.assign({}, (prev && prev.charts) || {});
             var _ce = Object.assign({}, pCharts[ck] || {});
@@ -4339,7 +4339,7 @@ function EntrySignalSection(_ref_es) {
         style: { width: 80, padding: "5px 4px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
       }),
       _stepBtn(
-        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n >= 20) return prev; _ce.alphaVal = _n + 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
+        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n >= 30) return prev; _ce.alphaVal = _n + 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
         function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n <= 0) return prev; _ce.alphaVal = _n - 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
       )
       ),
@@ -6021,7 +6021,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
       return hasAny ? Math.round(total) : null;
     };
     var _iaMinA = null, _iaTgtA = null, _iaMaxA = null, _iaMaxP = null;
-    for (var _aa = 0; _aa <= 20; _aa++) {
+    for (var _aa = 0; _aa <= 30; _aa++) {
       var _ap = _iaCalc(_aa);
       if (_ap == null) continue;
       if (_iaMinA == null && _ap >= 1) _iaMinA = _aa;
@@ -6034,7 +6034,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     var _iaFmtP = function(v) { if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
     var _iaTh = function(l, e) { return React.createElement("th", { style: Object.assign({ padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" }, e || {}) }, l); };
     return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜20円）"),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜30円）"),
       React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）"),
       React.createElement("div", { style: { overflowX: "auto" } },
         React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },

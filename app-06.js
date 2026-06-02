@@ -495,7 +495,7 @@ function EntryLogView(_ref_elv) {
       return c && c.cutLine != null ? c.cutLine : 10;
     };
     var alphaRows = [];
-    for (var _av = 0; _av <= 20; _av++) {
+    for (var _av = 0; _av <= 30; _av++) {
       var _sumP = 0, _cntP = 0, _miss = 0, _unk = 0;
       osRecs.forEach(function(r) {
         var s = r.signal;
@@ -1443,12 +1443,12 @@ function EntryLogView(_ref_elv) {
             React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700 } }, "α値"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
               React.createElement("input", {
-                type: "number", inputMode: "numeric", min: "0", max: "20", step: "1", value: tExpAlpha,
-                onChange: function(e) { var v = e.target.value; if (v === "") { setTExpAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 20) n = 20; if (n < 0) n = 0; setTExpAlpha(String(n)); },
+                type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", value: tExpAlpha,
+                onChange: function(e) { var v = e.target.value; if (v === "") { setTExpAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setTExpAlpha(String(n)); },
                 style: { width: 46, padding: "2px 4px", fontSize: 11, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { setTExpAlpha(function(v) { return String(Math.min(20, (Number(v)||0) + 1)); }); },
+                function() { setTExpAlpha(function(v) { return String(Math.min(30, (Number(v)||0) + 1)); }); },
                 function() { setTExpAlpha(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
               )
             ),
@@ -1668,13 +1668,13 @@ function EntryLogView(_ref_elv) {
               React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600, whiteSpace: "nowrap" } }, "α値:"),
               React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
                 React.createElement("input", {
-                  type: "number", inputMode: "numeric", step: "1", min: "0", max: "20", placeholder: "0〜20",
+                  type: "number", inputMode: "numeric", step: "1", min: "0", max: "30", placeholder: "0〜30",
                   value: simAlphaStr,
-                  onChange: function(e) { var v = e.target.value; if (v === "") { setSimAlphaStr(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 20) n = 20; if (n < 0) n = 0; setSimAlphaStr(String(n)); },
+                  onChange: function(e) { var v = e.target.value; if (v === "") { setSimAlphaStr(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setSimAlphaStr(String(n)); },
                   style: { width: 70, padding: "5px 6px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
                 }),
                 _stepBtn(
-                  function() { setSimAlphaStr(function(v) { return String(Math.min(20, (Number(v)||0) + 1)); }); },
+                  function() { setSimAlphaStr(function(v) { return String(Math.min(30, (Number(v)||0) + 1)); }); },
                   function() { setSimAlphaStr(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
                 )
               ),
