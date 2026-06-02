@@ -1,0 +1,16 @@
+{
+  "name": "Scalping Notebook",
+  "short_name": "Scalping NB",
+  "description": "スキャルピング（短期売買）の記録・分析ノート",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fafaf8",
+  "theme_color": "#1a1a1a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
