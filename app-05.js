@@ -4629,13 +4629,11 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("div", { style: { display: "flex", flexDirection: "column", flex: 1 } },
                 React.createElement("span", { style: { fontSize: 11, color: "#666", marginBottom: 2 } }, "Entry-OS値（水準線比）"),
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-                  React.createElement("button", {
-                    onClick: function() { setFEntryOsSign(function(p) { return p === "+" ? "-" : p === "-" ? null : "+"; }); },
-                    style: { padding: "5px 8px", fontSize: 12, fontWeight: fEntryOsSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 32,
-                      border: "1px solid " + (fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#bbb"),
-                      background: fEntryOsSign === "+" ? "#FCEBEB" : fEntryOsSign === "-" ? "#EAF3DE" : "#f5f4f0",
-                      color: fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#999" }
-                  }, fEntryOsSign || "↕"),
+                  React.createElement("span", {
+                    title: "水準線からの値幅",
+                    style: { padding: "5px 8px", fontSize: 12, fontWeight: 700, borderRadius: 5, minWidth: 32, textAlign: "center",
+                      border: "1px solid #bbb", background: "#f5f4f0", color: "#999", alignSelf: "stretch", display: "inline-flex", alignItems: "center", justifyContent: "center" }
+                  }, "↕"),
                   React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", flex: 1 } },
                     React.createElement("input", {
                       type: "number", inputMode: "numeric", step: "1",
@@ -4670,13 +4668,11 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("div", { style: { display: "flex", flexDirection: "column", flex: 1 } },
                 React.createElement("span", { style: { fontSize: 11, color: "#666", marginBottom: 2 } }, "Exit-OS値（水準線比）"),
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-                  React.createElement("button", {
-                    onClick: function() { setFExitOsSign(function(p) { return p === "+" ? "-" : p === "-" ? null : "+"; }); },
-                    style: { padding: "5px 8px", fontSize: 12, fontWeight: fExitOsSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 32,
-                      border: "1px solid " + (fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#bbb"),
-                      background: fExitOsSign === "+" ? "#FCEBEB" : fExitOsSign === "-" ? "#EAF3DE" : "#f5f4f0",
-                      color: fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#999" }
-                  }, fExitOsSign || "↕"),
+                  React.createElement("span", {
+                    title: "水準線からの値幅",
+                    style: { padding: "5px 8px", fontSize: 12, fontWeight: 700, borderRadius: 5, minWidth: 32, textAlign: "center",
+                      border: "1px solid #bbb", background: "#f5f4f0", color: "#999", alignSelf: "stretch", display: "inline-flex", alignItems: "center", justifyContent: "center" }
+                  }, "↕"),
                   React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", flex: 1 } },
                     React.createElement("input", {
                       type: "number", inputMode: "numeric", step: "1",
@@ -4694,29 +4690,18 @@ function EntryRecordForm(_ref_erf) {
               )
             )
           ),
-          React.createElement("div", { style: { display: "flex", gap: 4 } },
-            React.createElement("button", {
-              onClick: function() { setFRealSign(function(prev) { return prev === "+" ? "-" : prev === "-" ? null : "+"; }); },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+            React.createElement("span", {
               style: {
-                padding: "8px 10px", fontSize: 13, fontWeight: fRealSign ? 700 : 400, borderRadius: 5, cursor: "pointer", minWidth: 36,
-                border: "1px solid " + (fRealSign === "+" ? "#C0392B" : fRealSign === "-" ? "#1E8449" : "#bbb"),
-                background: fRealSign === "+" ? "#FCEBEB" : fRealSign === "-" ? "#EAF3DE" : "#f5f4f0",
-                color: fRealSign === "+" ? "#C0392B" : fRealSign === "-" ? "#1E8449" : "#999"
+                display: "inline-block", padding: "8px 16px", fontSize: 16, fontWeight: 800,
+                color: fRealSign === "+" ? "#C0392B" : fRealSign === "-" ? "#1E8449" : "#555",
+                background: fRealSign === "+" ? "#FCEBEB" : fRealSign === "-" ? "#EAF3DE" : "#f5f5f5",
+                borderRadius: 6, border: "1px solid " + (fRealSign === "+" ? "#F5B7B1" : fRealSign === "-" ? "#A9DFBF" : "#ddd"),
+                minWidth: 120, textAlign: "right"
               }
-            }, fRealSign || "↕"),
-            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", flex: 1 } },
-              React.createElement("input", {
-                type: "number", inputMode: "numeric", min: "0", step: "100",
-                value: fReal, onChange: function(e) { setFReal(_toHankakuNum(e.target.value)); },
-                placeholder: "0",
-                style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }
-              }),
-              _stepBtn(
-                function() { setFReal(function(v) { return String((parseInt(v)||0) + 100); }); },
-                function() { setFReal(function(v) { return String(Math.max(0, (parseInt(v)||0) - 100)); }); }
-              )
-            ),
-            React.createElement("span", { style: { alignSelf: "center", fontSize: 12, color: "#666" } }, "円")
+            }, (fReal === "" || fReal == null) ? "—" : (fReal === "0" ? "0円" : (fRealSign === "-" ? "−" : "+") + Number(fReal).toLocaleString() + "円")),
+            React.createElement("span", { style: { fontSize: 11, color: "#0369A1", whiteSpace: "nowrap" } },
+              "⚡ 価格×株数で自動計算（" + (fTradeType === "空売" ? "入値−出値" : "出値−入値") + "）")
           )
         )
       ),
