@@ -3194,8 +3194,8 @@ function _elDynHold(s, alpha, cutLine) {
   }
   if (!done && s.osVal != null && (Number(s.osVal) - alpha) >= cutLine) { hp = -Math.round((Number(s.osVal) - alpha) * 100); done = true; }
   if (!done) {
-    if (s.holdOsConf != null) { hp = Math.round((alpha + (alpha - Number(s.holdOsConf))) * 100); }
-    else if (s.holdWidth != null) { var _hwS0 = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0; hp = Math.round((alpha + _hwS0) * 100); }
+    if (s.holdWidth != null) { var _hwS0 = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0; hp = Math.round((alpha + _hwS0) * 100); }
+    else if (s.holdOsConf != null) { hp = Math.round((alpha + (alpha - Number(s.holdOsConf))) * 100); }
     else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); }
   }
   return hp;
