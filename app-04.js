@@ -2652,15 +2652,30 @@ function StockQuickRefTable(_props_qrt) {
     }, _qrFmtAmt(v) + (suffix || ""));
   };
 
+  var _qrMkBadgeSm = function(g) {
+    var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
+    return React.createElement("span", { style: {
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: 13, height: 13, borderRadius: "50%", background: gs.bg, color: gs.color,
+      border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, lineHeight: 1, flexShrink: 0
+    } }, g);
+  };
   var _qrPlanChip = function(g) {
     if (!g || g.plan === "Z") return React.createElement("span", { style: { color: "#ccc", fontSize: 11 } }, "—");
-    var main = g.planAB || "D";
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1 } },
-      _qrMkBadge(main),
-      React.createElement("span", { style: { fontSize: 8, color: "#bbb", lineHeight: 1 } }, "("),
-      _qrMkBadge(g.plan),
-      React.createElement("span", { style: { fontSize: 8, color: "#bbb", lineHeight: 1 } }, ")"),
-      React.createElement("span", { style: { marginLeft: 3 } }, _qrAmtSpan(g.planSum))
+    if (g.planAB == null) {
+      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+        _qrMkBadge(g.plan), _qrAmtSpan(g.planSum));
+    }
+    var _abAmt = g.planSumAB != null ? g.planSumAB : g.planSum;
+    var _showParen = _abAmt !== g.planSum;
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+      _qrMkBadge(g.planAB), _qrAmtSpan(_abAmt),
+      _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
+        React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
+        _qrMkBadgeSm(g.plan),
+        React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _qrAmtCol(g.planSum), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(g.planSum)),
+        React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "）")
+      ) : null
     );
   };
   var _qrHoldChip = function(g) {
@@ -2816,11 +2831,11 @@ function StockQuickRefTable(_props_qrt) {
               if (_g5.plan === "Z" && _g5.hold === "Z") {
                 return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               }
-              return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } },
-                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 3, flexWrap: "nowrap" } },
-                  _qrMLab("想"), _qrALab(5), _qrPlanChip(_g5), _qrSep(), _qrALab(10), _qrPlanChip(_g10)),
-                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 3, flexWrap: "nowrap" } },
-                  _qrMLab("H"), _qrALab(5), _qrHoldChip(_g5), _qrSep(), _qrALab(10), _qrHoldChip(_g10))
+              return React.createElement("div", { style: { display: "grid",
+                gridTemplateColumns: "auto auto auto auto auto auto",
+                columnGap: 4, rowGap: 4, alignItems: "center", justifyItems: "start", width: "fit-content" } },
+                _qrMLab("想"), _qrALab(5), _qrPlanChip(_g5), _qrSep(), _qrALab(10), _qrPlanChip(_g10),
+                _qrMLab("H"), _qrALab(5), _qrHoldChip(_g5), _qrSep(), _qrALab(10), _qrHoldChip(_g10)
               );
             })()),
             isNikkei ? null : React.createElement("td", {

@@ -3393,6 +3393,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     plan:   _profitGradeFromPnl(planSum, planCount),
     hold:   _profitGradeFromPnl(holdSum, holdCount),
     planAB: planCountAB > 0 ? _profitGradeFromPnl(planSumAB, planCountAB) : null,
+    planSumAB: planCountAB > 0 ? planSumAB : null,
     realSum: realCount > 0 ? realSum : null,
     planSum: planCount > 0 ? planSum : null,
     holdSum: holdCount > 0 ? holdSum : null,
