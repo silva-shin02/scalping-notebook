@@ -4779,7 +4779,7 @@ function _NikkeiManualInput(_p) {
   };
   
   var curClose = (cd && typeof cd.dayClose === "number") ? cd.dayClose : null;
-  var closeStr = (curClose == null) ? "" : Math.round(curClose).toString();
+  var closeStr = (curClose == null) ? "" : String(curClose);
   var commitClose = function(newStr) {
     var s = (newStr || "").trim().replace(/,/g, "");
     if (s === "" || s === ".") {
@@ -4788,7 +4788,7 @@ function _NikkeiManualInput(_p) {
     }
     var n = parseFloat(s);
     if (isNaN(n) || n < 0) return;
-    if (cd && typeof cd.dayClose === "number" && Math.abs(cd.dayClose - n) < 0.5) return;
+    if (cd && typeof cd.dayClose === "number" && Math.abs(cd.dayClose - n) < 0.001) return;
     upd("dayClose", n);
     
     var prevClose = _p.getPrevClose ? _p.getPrevClose() : null;
@@ -4817,7 +4817,7 @@ function _NikkeiManualInput(_p) {
         onChange: commitClose,
         debounceMs: 86400000,
         placeholder: "0",
-        transformInput: _toHankaku,
+        transformInput: _toHankakuDecimal,
         onKeyDown: function(e) { if (e.key === "Enter") { e.target.__fiCommit && e.target.__fiCommit(); e.target.blur(); } },
         style: {
           width: 90, fontSize: 12, padding: "3px 6px",

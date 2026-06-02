@@ -3582,7 +3582,7 @@ function _toHankakuNum(s) {
 function _toHankakuDecimal(s) {
   var str = String(s == null ? "" : s)
     .replace(/[０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
-    .replace(/。/g, ".")
+    .replace(/[。．]/g, ".")
     .replace(/[^0-9.]/g, "");
   var parts = str.split(".");
   return parts.length > 1 ? parts[0] + "." + parts.slice(1).join("") : str;
