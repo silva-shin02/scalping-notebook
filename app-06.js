@@ -698,7 +698,7 @@ function EntryLogView(_ref_elv) {
     })();
     var holdSec = (function() {
       var _liveA = !!(data && data.charts);
-      var deltas = [], better = 0, worse = 0, same = 0, betterVals = [], worseVals = [];
+      var deltas = [], profUp = 0, profDn = 0, lossDn = 0, lossUp = 0, flat = 0;
       osRecs.forEach(function(r) {
         var s = r.signal;
         var ai = _liveA ? _elAlphaInfo(r, data) : { alpha: null, cutLine: null };
@@ -711,16 +711,16 @@ function EntryLogView(_ref_elv) {
         var hpN = _liveA ? Math.round(hp) : _p100(hp);
         var d = hpN - ppN;
         deltas.push(d);
-        if (d > 0) { better++; betterVals.push(d); }
-        else if (d < 0) { worse++; worseVals.push(d); }
-        else same++;
+        if (d === 0) flat++;
+        else if (hpN > 0) { if (d > 0) profUp++; else profDn++; }
+        else if (hpN < 0) { if (d > 0) lossDn++; else lossUp++; }
+        else { if (d > 0) lossDn++; else profDn++; }
       });
       if (!deltas.length) return null;
       var n = deltas.length;
       var avgD = Math.round(deltas.reduce(function(a, b) { return a + b; }, 0) / n);
-      var betterAvg = betterVals.length ? Math.round(betterVals.reduce(function(a, b) { return a + b; }, 0) / betterVals.length) : null;
-      var worseAvg = worseVals.length ? Math.round(worseVals.reduce(function(a, b) { return a + b; }, 0) / worseVals.length) : null;
-      var verdict = better > worse ? "ホールドした方が良いことが多い" : worse > better ? "想定通り利確した方が良いことが多い" : "改善・悪化が同数";
+      var better = profUp + lossDn, worse = profDn + lossUp;
+      var verdict = better > worse ? "ホールドした方が良いことが多い" : worse > better ? "想定通り利確した方が良いことが多い" : "良し悪し拮抗";
       var verdictCol = better > worse ? "#C0392B" : worse > better ? "#1E8449" : "#888";
       var _box = function(label, valTxt, col) {
         return React.createElement("div", { style: { background: "#f5f4f0", border: "1px solid #e0ddd6", borderRadius: 6, padding: "6px 10px", minWidth: 64, textAlign: "center", flexShrink: 0 } },
@@ -729,15 +729,15 @@ function EntryLogView(_ref_elv) {
       };
       return React.createElement("div", null,
         _secH("🔄 ホールドによる損益変化（" + n + "件）"),
-        React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "ホールド損益−想定損益。プラス＝ホールドで改善・100株換算"),
-        React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: verdictCol, marginBottom: 8 } }, "→ " + verdict + "（改善" + better + "件 / 悪化" + worse + "件" + (same ? " / 同じ" + same + "件" : "") + "）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "ホールド損益−想定損益。100株換算 / 赤＝ホールドで良化（利益増加・損失減少）・緑＝悪化"),
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: verdictCol, marginBottom: 8 } }, "→ " + verdict + "（良化" + better + "件 / 悪化" + worse + "件" + (flat ? " / 変動なし" + flat + "件" : "") + "）"),
         React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
-          _box("ホールド改善", better + "件", "#C0392B"),
-          _box("ホールド悪化", worse + "件", "#1E8449"),
-          same ? _box("変化なし", same + "件", "#888") : null,
-          _box("平均変化", (avgD > 0 ? "+" : "") + avgD.toLocaleString() + "円", avgD > 0 ? "#C0392B" : avgD < 0 ? "#1E8449" : "#888"),
-          betterAvg != null ? _box("改善時平均", "+" + betterAvg.toLocaleString() + "円", "#C0392B") : null,
-          worseAvg != null ? _box("悪化時平均", worseAvg.toLocaleString() + "円", "#1E8449") : null
+          _box("利益増加", profUp + "件", "#C0392B"),
+          _box("損失減少", lossDn + "件", "#C0392B"),
+          _box("変動なし", flat + "件", "#888"),
+          _box("利益減少", profDn + "件", "#1E8449"),
+          _box("損失増加", lossUp + "件", "#1E8449"),
+          _box("平均変化", (avgD > 0 ? "+" : "") + avgD.toLocaleString() + "円", avgD > 0 ? "#C0392B" : avgD < 0 ? "#1E8449" : "#888")
         )
       );
     })();

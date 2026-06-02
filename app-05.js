@@ -3213,10 +3213,6 @@ function _elCalcStats(records, data) {
   var hYes = 0, hMid = 0, hNone = 0, hNo = 0;
   records.forEach(function(r) {
     var s = r.signal;
-    if (s.holdProfit === "yes") hYes++;
-    else if (s.holdProfit === "mid") hMid++;
-    else if (s.holdProfit === "none") hNone++;
-    else if (s.holdProfit === "no") hNo++;
     var _ai = _liveA ? _elAlphaInfo(r, data) : null;
     var _res = _liveA ? _elDynResult(s, _ai.alpha, _ai.cutLine) : s.result;
     if (_res === "ok") ok++;
@@ -3254,6 +3250,21 @@ function _elCalcStats(records, data) {
       sumHold += hpN;
       holdHasData = true;
     }
+
+    var _hc;
+    if (!_liveA || hp == null) _hc = s.holdProfit;
+    else if (_res === "miss" || _res === "draw") _hc = hp > 0 ? "yes" : hp < 0 ? "no" : "none";
+    else if (pp == null) _hc = s.holdProfit;
+    else if (pp > 0 && hp > 0) _hc = hp > pp ? "yes" : hp < pp ? "mid" : "none";
+    else if (pp < 0 && hp < 0) _hc = "no";
+    else if (pp > 0 && hp < 0) _hc = "no";
+    else if (pp < 0 && hp > 0) _hc = "yes";
+    else if (hp === 0) _hc = "none";
+    else _hc = s.holdProfit;
+    if (_hc === "yes") hYes++;
+    else if (_hc === "mid") hMid++;
+    else if (_hc === "none") hNone++;
+    else if (_hc === "no") hNo++;
   });
   var winPct = (ok + ng) > 0 ? Math.round(ok / (ok + ng) * 100) : null;
   var avgWin = wins.length > 0 ? Math.round(wins.reduce(function(a, b) { return a + b; }, 0) / wins.length) : 0;
