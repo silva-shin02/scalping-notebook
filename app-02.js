@@ -4598,7 +4598,7 @@ function EntrySignalSection(_ref_es) {
                     ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#888" } }, "0\u5186")
                     : s.osConfSign
                       ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.osConfVal, s.osConfSign === "+"), fontWeight: Number(s.osConfVal) >= 10 ? 700 : 600 } },
-                          s.osConfSign + (s.osConfVal != null ? s.osConfVal + "\u5186" : ""))
+                          "\u2195" + (s.osConfVal != null ? Math.abs(Number(s.osConfVal)) + "\u5186" : ""))
                       : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   (function() {
@@ -4620,7 +4620,7 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   s.holdWidthSign != null && s.holdWidth != null
                     ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: s.holdWidth >= 10 ? 700 : 600 } },
-                        (s.holdWidthSign === "+" ? "\u2193" : "\u2191") + s.holdWidth)
+                        "\u2195" + s.holdWidth)
                     : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, (function() {
                   var _hp = _holdPnlDyn;
@@ -4680,13 +4680,13 @@ function EntrySignalSection(_ref_es) {
                     React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + (c.alphaVal != null ? c.alphaVal : 5) + "円")
                   ),
                   _esTh("確定値", { width: "1%" }),
-                  _esTh("値幅", { width: "1%" }),
+                  _esTh("α値比値幅", { width: "1%" }),
                   _esTh("結果", { width: "1%" }),
                   _esTh("実現損益"),
                   _esTh("想定損益"),
                   _esTh("H高値", { width: "1%" }),
                   _esTh("H確定値", { width: "1%" }),
-                  _esTh("ホールド勝敗/結果損益"),
+                  _esTh("H勝敗/結果損益"),
                   isCustomMode ? _esTh("並替") : null
                 )
               ),
