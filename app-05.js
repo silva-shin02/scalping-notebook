@@ -3123,6 +3123,13 @@ function _compatSignal(sig) {
 
 
 
+function _tradeAlphaChip(s, extra) {
+  if (!s || s.tradeAlpha == null) return null;
+  return React.createElement("span", { title: "取引時の採用α値",
+    style: Object.assign({ display: "inline-block", fontSize: 9, fontWeight: 700, color: "#0369A1",
+      background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 3, padding: "0 3px",
+      marginRight: 3, verticalAlign: "middle", whiteSpace: "nowrap" }, extra || {}) }, "α" + s.tradeAlpha);
+}
 function _vcol(n, isRed) {
   var v = Math.abs(n || 0);
   if (isRed) {
@@ -3820,7 +3827,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateSH = useState(initSig.shares != null ? String(initSig.shares) : "100"),
     _useStateSHA = _slicedToArray(_useStateSH, 2),
     fShares = _useStateSHA[0], setFShares = _useStateSHA[1];
-  
+  var _useStateTA = useState(initSig.tradeAlpha != null ? String(initSig.tradeAlpha) : ""),
+    _useStateTAA = _slicedToArray(_useStateTA, 2),
+    fTradeAlpha = _useStateTAA[0], setFTradeAlpha = _useStateTAA[1];
+
   var _useStateEOSS = useState(initSig.entryOsSign || null),
     _useStateEOSSA = _slicedToArray(_useStateEOSS, 2),
     fEntryOsSign = _useStateEOSSA[0], setFEntryOsSign = _useStateEOSSA[1];
@@ -4046,6 +4056,7 @@ function EntryRecordForm(_ref_erf) {
       exitOsSign: fEntered ? (fExitOsSign || null) : null,
       exitOsVal: fEntered && fExitOsVal !== "" ? Number(fExitOsVal) : null,
       shares: fEntered && fShares !== "" ? (parseInt(fShares) || null) : null,
+      tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
       maxPnl: fMax !== "" ? Number(fMax) : null,
@@ -4557,7 +4568,7 @@ function EntryRecordForm(_ref_erf) {
             }, "⚡ 自動計算")
           ),
           
-          React.createElement("div", { style: { marginBottom: 6 } },
+          React.createElement("div", { style: { marginBottom: 6, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-start" } },
             React.createElement("label", { style: { fontSize: 11, color: "#666" } }, "株数",
               React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 2 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden" } },
@@ -4570,7 +4581,7 @@ function EntryRecordForm(_ref_erf) {
                       if (e.key === "ArrowDown") { e.preventDefault(); setFShares(function(v) { return String(Math.max(0, (parseInt(v) || 0) - 100)); }); }
                     },
                     placeholder: "100",
-                    style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", width: 140, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
+                    style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", width: 120, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
                   }),
                   _stepBtn(
                     function() { setFShares(function(v) { return String((parseInt(v)||0) + 100); }); },
@@ -4578,6 +4589,24 @@ function EntryRecordForm(_ref_erf) {
                   )
                 ),
                 React.createElement("span", { style: { fontSize: 12, color: "#666" } }, "株")
+              )
+            ),
+            React.createElement("label", { style: { fontSize: 11, color: "#0369A1", fontWeight: 700 } }, "α値（取引時の採用値）",
+              React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 2 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 6, overflow: "hidden" } },
+                  React.createElement("input", {
+                    type: "number", inputMode: "numeric", min: "0", max: "20", step: "1",
+                    value: fTradeAlpha,
+                    onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "") { setFTradeAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 20) n = 20; if (n < 0) n = 0; setFTradeAlpha(String(n)); },
+                    placeholder: "—",
+                    style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", width: 70, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
+                  }),
+                  _stepBtn(
+                    function() { setFTradeAlpha(function(v) { return String(Math.min(20, (Number(v)||0) + 1)); }); },
+                    function() { setFTradeAlpha(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
+                  )
+                ),
+                React.createElement("span", { style: { fontSize: 12, color: "#666" } }, "円")
               )
             )
           ),

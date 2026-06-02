@@ -4292,7 +4292,7 @@ function DayView(_ref57) {
               : React.createElement("span", { style: { color: "#888" } }, "見送り")
           ),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
-            _rPnlDisp(realPnl, gReal)),
+            _tradeAlphaChip(s), _rPnlDisp(realPnl, gReal)),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
             _rPnlDisp(planPnl, gPlan)),
           React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
