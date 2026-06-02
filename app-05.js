@@ -4854,9 +4854,9 @@ function EntryLogCard(_ref_elc) {
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
         (s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) ? _chip("確定値",
-          Number(s.osConfVal) === 0 ? "0円" : "↕" + Math.abs(Number(s.osConfVal)) + "円",
+          Number(s.osConfVal) === 0 ? "0円" : (s.osConfSign === "+" ? "↑" : s.osConfSign === "-" ? "↓" : "↕") + Math.abs(Number(s.osConfVal)) + "円",
           Number(s.osConfVal) === 0 ? "#888" : _vcol(s.osConfVal, s.osConfSign === "+")) : null,
-        (s.holdWidthSign != null && s.holdWidth != null) ? _chip("H確定値", "↕" + s.holdWidth + "円", _vcol(s.holdWidth, s.holdWidthSign === "-")) : null
+        (s.holdWidthSign != null && s.holdWidth != null) ? _chip("H確定値", (s.holdWidthSign === "-" ? "↑" : s.holdWidthSign === "+" ? "↓" : "↕") + s.holdWidth + "円", _vcol(s.holdWidth, s.holdWidthSign === "-")) : null
       ),
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
