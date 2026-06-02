@@ -3855,7 +3855,35 @@ function EntryRecordForm(_ref_erf) {
     _useStateXOSVA = _slicedToArray(_useStateXOSV, 2),
     fExitOsVal = _useStateXOSVA[0], setFExitOsVal = _useStateXOSVA[1];
 
-  
+
+
+  var _oscSignedRef = useRef(0);
+  var _ewSignedRef = useRef(0);
+  var _hhSignedRef = useRef(0);
+  var _hwSignedRef = useRef(0);
+  _oscSignedRef.current = (fOsConfSign === "+" ? 1 : fOsConfSign === "-" ? -1 : 0) * Math.abs(Number(fOsConfVal) || 0);
+  _ewSignedRef.current  = (fEstWidthSign === "-" ? 1 : fEstWidthSign === "+" ? -1 : 0) * Math.abs(Number(fEstWidthVal) || 0);
+  _hhSignedRef.current  = (fHoldHighSign === "-" ? 1 : fHoldHighSign === "+" ? -1 : 0) * Math.abs(Number(fHoldHighVal) || 0);
+  _hwSignedRef.current  = (fHoldWidthSign === "-" ? 1 : fHoldWidthSign === "+" ? -1 : 0) * Math.abs(Number(fHoldWidthVal) || 0);
+
+  var _applySigned = function(ref, delta, upSign, downSign, setVal, setSign, after) {
+    var s = ref.current + delta;
+    ref.current = s;
+    if (s > 0) { setVal(String(s)); setSign(upSign); }
+    else if (s < 0) { setVal(String(-s)); setSign(downSign); }
+    else { setVal("0"); setSign(null); }
+    if (after) after(s);
+  };
+
+  var _hwAfter = function(s) {
+    var _ck2 = fStock + "_" + fDate;
+    var _cd2 = data.charts && data.charts[_ck2];
+    var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : 5;
+    if (_av2 == null || s === 0) return;
+    setFHoldOsConf(_av2 - (-s));
+  };
+
+
 
   
   var _fAlpha = (function() {
@@ -4313,8 +4341,8 @@ function EntryRecordForm(_ref_erf) {
               style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { var v = String((Number(fOsConfVal)||0) + 1); setFOsConfVal(v); },
-              function() { var v = String(Math.max(0, (Number(fOsConfVal)||0) - 1)); setFOsConfVal(v); if ((Number(v)||0) === 0) setFOsConfSign(null); }
+              function() { _applySigned(_oscSignedRef, 1, "+", "-", setFOsConfVal, setFOsConfSign); },
+              function() { _applySigned(_oscSignedRef, -1, "+", "-", setFOsConfVal, setFOsConfSign); }
             )
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
@@ -4368,8 +4396,8 @@ function EntryRecordForm(_ref_erf) {
               style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { setFEstWidthVal(function(v) { return String((Number(v)||0) + 1); }); },
-              function() { setFEstWidthVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
+              function() { _applySigned(_ewSignedRef, 1, "-", "+", setFEstWidthVal, setFEstWidthSign); },
+              function() { _applySigned(_ewSignedRef, -1, "-", "+", setFEstWidthVal, setFEstWidthSign); }
             )
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -4426,8 +4454,8 @@ function EntryRecordForm(_ref_erf) {
                 style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { setFHoldHighVal(function(v) { return String((Number(v)||0) + 1); }); },
-                function() { setFHoldHighVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
+                function() { _applySigned(_hhSignedRef, 1, "-", "+", setFHoldHighVal, setFHoldHighSign); },
+                function() { _applySigned(_hhSignedRef, -1, "-", "+", setFHoldHighVal, setFHoldHighSign); }
               )
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -4487,8 +4515,8 @@ function EntryRecordForm(_ref_erf) {
                 style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { setFHoldWidthVal(function(v) { return String((Number(v)||0) + 1); }); },
-                function() { setFHoldWidthVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
+                function() { _applySigned(_hwSignedRef, 1, "-", "+", setFHoldWidthVal, setFHoldWidthSign, _hwAfter); },
+                function() { _applySigned(_hwSignedRef, -1, "-", "+", setFHoldWidthVal, setFHoldWidthSign, _hwAfter); }
               )
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
