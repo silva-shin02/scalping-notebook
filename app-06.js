@@ -73,7 +73,7 @@ function EntryLogView(_ref_elv) {
     return Math.round(rs.reduce(function(a, r) { var s = r.signal; return a + (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)); }, 0) / rs.length * 10) / 10;
   };
   var _elvAvgHoldWidth = function(recs) {
-    var rs = recs.filter(function(r) { return r.signal.holdWidth != null && r.signal.holdWidthSign != null; });
+    var rs = recs.filter(function(r) { return r.signal.holdWidth != null; });
     if (!rs.length) return null;
     return Math.round(rs.reduce(function(a, r) { var s = r.signal; return a + (s.holdWidthSign === "-" ? -Number(s.holdWidth) : Number(s.holdWidth)); }, 0) / rs.length * 10) / 10;
   };
@@ -754,7 +754,7 @@ function EntryLogView(_ref_elv) {
         var b = buckets[k]; b.cnt++;
         if (s.osConfVal != null && s.osConfVal !== "") b.conf.push(s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal));
         if (s.holdHighVal != null) b.high.push(s.holdHighSign === "-" ? Number(s.holdHighVal) : s.holdHighSign === "+" ? -Number(s.holdHighVal) : 0);
-        if (s.holdWidth != null && s.holdWidthSign != null) b.hconf.push(s.holdWidthSign === "-" ? Number(s.holdWidth) : -Number(s.holdWidth));
+        if (s.holdWidth != null) b.hconf.push(s.holdWidthSign === "-" ? Number(s.holdWidth) : -Number(s.holdWidth));
         var ai = _liveA ? _elAlphaInfo(r, data) : { alpha: null, cutLine: null };
         var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
         var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };

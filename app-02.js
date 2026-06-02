@@ -4107,7 +4107,7 @@ function EntrySignalSection(_ref_es) {
       if (s.holdOsConf != null) return Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100);
       return _elSignedVal(s.holdPnl, s.holdPnlSign);
     })();
-    if (s.holdWidthSign == null && s.holdOsConf == null) _esTotHoldHasUnrecorded = true;
+    if (s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null) _esTotHoldHasUnrecorded = true;
     var rpN = rp != null ? _p100(rp) : null;
     var ppN = pp != null ? _p100(pp) : null;
     var mpN = mp != null ? _p100(mp) : null;
