@@ -2602,6 +2602,7 @@ function StockQuickRefTable(_props_qrt) {
   var data = _props_qrt.data;
   var activeStock = _props_qrt.activeStock;
   var onSelectDate = _props_qrt.onSelectDate;
+  var save = _props_qrt.save;
   var highlightDate = _props_qrt.highlightDate;
   var weekOffset = _props_qrt.weekOffset;
   var setWeekOffset = _props_qrt.setWeekOffset;
@@ -2676,6 +2677,7 @@ function StockQuickRefTable(_props_qrt) {
             [
               { label: "日付", pad: "6px 8px" },
               { label: "地合い", pad: "6px 12px" },
+              { label: "α値", pad: "6px 8px" },
               { label: "利益獲得度（実/想/H）", pad: "6px 8px" },
               { label: "イベント・タグ", pad: "6px 12px" }
             ].map(function(h) {
@@ -2751,6 +2753,40 @@ function StockQuickRefTable(_props_qrt) {
                   )
                 : null
             ),
+            React.createElement("td", {
+              style: { padding: "5px 8px", whiteSpace: "nowrap" }
+            }, (function() {
+              if (isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
+              var _ckA = activeStock + "_" + d;
+              var _avA = (c2 && c2.alphaVal != null) ? c2.alphaVal : 5;
+              if (typeof save !== "function") {
+                return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1" } }, "α" + _avA + "円");
+              }
+              return React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" }, onClick: function(e){ e.stopPropagation(); } },
+                React.createElement("input", {
+                  type: "number", inputMode: "numeric", step: "1", min: "0", max: "20",
+                  value: String(_avA),
+                  onClick: function(e){ e.stopPropagation(); },
+                  onChange: function(e) {
+                    var v = e.target.value;
+                    var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
+                    if (n != null) { if (n > 20) n = 20; if (n < 0) n = 0; }
+                    save(function(prev) {
+                      var pCharts = Object.assign({}, (prev && prev.charts) || {});
+                      var _ce = Object.assign({}, pCharts[_ckA] || {});
+                      if (n != null) _ce.alphaVal = n; else delete _ce.alphaVal;
+                      pCharts[_ckA] = _ce;
+                      return Object.assign({}, prev, { charts: pCharts });
+                    });
+                  },
+                  style: { width: 42, padding: "3px 4px", fontSize: 11, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+                }),
+                _stepBtn(
+                  function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ckA] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n >= 20) return prev; _ce.alphaVal = _n + 1; pCharts[_ckA] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
+                  function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[_ckA] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n <= 0) return prev; _ce.alphaVal = _n - 1; pCharts[_ckA] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
+                )
+              );
+            })()),
             React.createElement("td", {
               style: { padding: "5px 14px", whiteSpace: "nowrap" }
             }, (function() {
@@ -3433,7 +3469,7 @@ function DayView(_ref57) {
     ),
     indTab === "nikkei" && React.createElement(React.Fragment, null,
       React.createElement(StockQuickRefTableWithChart, {
-        data: data, activeStock: "日経平均株価",
+        data: data, activeStock: "日経平均株価", save: save,
         onSelectDate: onSelectDate, highlightDate: date,
         weekOffset: weekOffset, setWeekOffset: setWeekOffset
       }),
@@ -3501,6 +3537,7 @@ function DayView(_ref57) {
     data: data,
     activeStock: activeStock,
     onSelectDate: onSelectDate,
+    save: save,
     highlightDate: date,
     weekOffset: weekOffset,
     setWeekOffset: setWeekOffset
@@ -4903,20 +4940,21 @@ function DayView(_ref57) {
         ),
         
         (function(){
-          var deltas=[],profUp=0,profDn=0,lossDn=0,lossUp=0,flat=0;
+          var deltas=[],profUp=0,profDn=0,lossDn=0,lossUp=0,profConv=0,lossConv=0,flat=0;
           _haRecs.forEach(function(h){
             if(h.hp==null||h.pp==null)return;
             var d=h.hp-h.pp;
             deltas.push(d);
             if(d===0)flat++;
-            else if(h.hp>0){if(d>0)profUp++;else profDn++;}
-            else if(h.hp<0){if(d>0)lossDn++;else lossUp++;}
-            else{if(d>0)lossDn++;else profDn++;}
+            else if(h.pp>=0&&h.hp<0)lossConv++;
+            else if(h.pp<0&&h.hp>=0)profConv++;
+            else if(h.hp>=0){if(d>0)profUp++;else profDn++;}
+            else{if(d>0)lossDn++;else lossUp++;}
           });
           if(!deltas.length)return null;
           var n=deltas.length;
           var avgD=Math.round(deltas.reduce(function(a,b){return a+b;},0)/n);
-          var better=profUp+lossDn,worse=profDn+lossUp;
+          var better=profUp+lossDn+profConv,worse=profDn+lossUp+lossConv;
           var verdict=better>worse?"ホールドした方が良いことが多い":worse>better?"想定通り利確した方が良いことが多い":"良し悪し拮抗";
           var verdictCol=better>worse?"#C0392B":worse>better?"#1E8449":"#888";
           var _box=function(label,valTxt,col){
@@ -4925,14 +4963,18 @@ function DayView(_ref57) {
               React.createElement("div",{style:{fontSize:16,fontWeight:800,color:col||"#333",marginTop:2}},valTxt));
           };
           return React.createElement("div",{style:{marginBottom:14}},
-            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールドによる損益変化",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"ホールド損益−想定損益・100株換算 / 赤＝良化（利益増加・損失減少）・緑＝悪化")),
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールドによる損益変化",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"ホールド損益−想定損益・100株換算 / 赤＝良化・緑＝悪化（転化＝想定と損益の符号が逆転）")),
             React.createElement("div",{style:{fontSize:13,fontWeight:800,color:verdictCol,marginBottom:8}},"→ "+verdict+"（良化"+better+"件 / 悪化"+worse+"件"+(flat?" / 変動なし"+flat+"件":"")+"）"),
             React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
               _box("利益増加",profUp+"件","#C0392B"),
+              _box("利益転化",profConv+"件","#C0392B"),
               _box("損失減少",lossDn+"件","#C0392B"),
               _box("変動なし",flat+"件","#888"),
               _box("利益減少",profDn+"件","#1E8449"),
-              _box("損失増加",lossUp+"件","#1E8449"),
+              _box("損失転化",lossConv+"件","#1E8449"),
+              _box("損失増加",lossUp+"件","#1E8449")
+            ),
+            React.createElement("div",{style:{marginTop:8}},
               _box("平均変化",(avgD>0?"+":"")+avgD.toLocaleString()+"円",avgD>0?"#C0392B":avgD<0?"#1E8449":"#888")
             )
           );

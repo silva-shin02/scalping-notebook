@@ -4950,6 +4950,7 @@ function StockHistoryView(_ref_shv) {
     selStock && React.createElement(StockQuickRefTableWithChart, {
       data: data,
       activeStock: selStock,
+      save: save,
       onSelectDate: function(d){ if (onSelectDate) onSelectDate(d, "trades"); },
       highlightDate: (function(){ var d=new Date(); var y=d.getFullYear(); var m=("0"+(d.getMonth()+1)).slice(-2); var dd2=("0"+d.getDate()).slice(-2); return y+"-"+m+"-"+dd2; })()
     }),
