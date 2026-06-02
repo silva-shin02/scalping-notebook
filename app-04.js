@@ -4412,7 +4412,7 @@ function DayView(_ref57) {
                   (s.holdHighSign === "-" ? "↑" : "↓") + s.holdHighVal)
               : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
-            s.holdWidthSign != null && s.holdWidth != null
+            s.holdWidth != null
               ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: s.holdWidth >= 10 ? 700 : 600 } },
                   (s.holdWidthSign === "-" ? "↑" : s.holdWidthSign === "+" ? "↓" : "↕") + s.holdWidth)
               : React.createElement("span", { style: { color: "#ddd" } }, "—")),
