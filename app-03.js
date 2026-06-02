@@ -1717,7 +1717,7 @@ function EventsTab(_ref_evt) {
     var result = [];
     weekDates.forEach(function(d) {
       var dayData = (data.trades && data.trades[d]) || {};
-      var dayEvs = Array.isArray(dayData.events) ? dayData.events : [];
+      var dayEvs = (Array.isArray(dayData.events) ? dayData.events : []).filter(function(e){ return e && !e._deleted; });
       dayEvs.forEach(function(ev) { result.push({ date: d, ev: ev }); });
     });
     result.sort(function(a, b) {
@@ -1843,7 +1843,8 @@ function EventsTab(_ref_evt) {
     save(function(prevData) {
       var prevDd = (prevData.trades && prevData.trades[delDate]) || {};
       var prevEvents = Array.isArray(prevDd.events) ? prevDd.events : [];
-      var newEvents = prevEvents.filter(function(e) { return e.id !== id; });
+
+      var newEvents = prevEvents.map(function(e) { return e && e.id === id ? _objectSpread(_objectSpread({}, e), {}, { _deleted: true }) : e; });
       return _objectSpread(_objectSpread({}, prevData), {}, {
         trades: _objectSpread(_objectSpread({}, prevData.trades), {}, _defineProperty({}, delDate,
           _objectSpread(_objectSpread({}, prevDd), {}, { events: newEvents })))

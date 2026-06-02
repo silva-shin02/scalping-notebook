@@ -223,7 +223,7 @@ function hasCatContent(cd) {
 
 function getDayEvents(dd) {
   if (!dd || !Array.isArray(dd.events)) return [];
-  var arr = dd.events.slice();
+  var arr = dd.events.filter(function(e) { return e && !e._deleted; });
   arr.sort(function(a, b) {
     var ta = (a && a.startTime) || (a && a.allDay ? "" : "99:99");
     var tb = (b && b.startTime) || (b && b.allDay ? "" : "99:99");
@@ -235,7 +235,7 @@ function getDayEvents(dd) {
 function hasEventsContent(dd) {
   if (!dd || !Array.isArray(dd.events)) return false;
   return dd.events.some(function(ev) {
-    return ev && (_hasText(ev.title) || _hasText(ev.content) || _hasText(ev.contentHtml));
+    return ev && !ev._deleted && (_hasText(ev.title) || _hasText(ev.content) || _hasText(ev.contentHtml));
   });
 }
 
@@ -288,7 +288,7 @@ function _buildHolidayDateSet(trades, eventCategories) {
     var dd = trades[dt];
     if (!dd || !Array.isArray(dd.events)) return;
     dd.events.forEach(function(ev) {
-      if (!ev || !ev.categoryId) return;
+      if (!ev || ev._deleted || !ev.categoryId) return;
       if (!holidayIds[ev.categoryId]) return;
       addRange(dt, ev.endDate || "");
     });
@@ -858,11 +858,22 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
     if (remote[0] && typeof remote[0] === "object" && remote[0].id !== undefined) {
       var localMap = {};
       (local || []).forEach(function(item) { if (item && item.id !== undefined) localMap[item.id] = item; });
-      return remote.map(function(rItem) {
+      var _seenIds = {};
+      var _mergedArr = remote.map(function(rItem) {
         if (!rItem || typeof rItem !== "object") return rItem;
+        _seenIds[rItem.id] = 1;
         var lItem = localMap[rItem.id];
-        return lItem ? _mergeRemoteMeta(lItem, rItem, _parentLocalNewer) : rItem;
+        var m = lItem ? _mergeRemoteMeta(lItem, rItem, _parentLocalNewer) : rItem;
+
+        if (m && typeof m === "object" && ((lItem && lItem._deleted) || rItem._deleted)) m._deleted = true;
+        return m;
       });
+
+
+      (local || []).forEach(function(lItem) {
+        if (lItem && lItem._deleted && lItem.id !== undefined && !_seenIds[lItem.id]) _mergedArr.push(lItem);
+      });
+      return _mergedArr;
     }
     
     return remote.map(function(rItem, i) {

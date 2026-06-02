@@ -52,8 +52,8 @@ function Calendar(_ref60) {
       var dd = data.trades[dt];
       if (!dd || !Array.isArray(dd.events)) return;
       dd.events.forEach(function(ev) {
-        if (!ev) return;
-        
+        if (!ev || ev._deleted) return;
+
         if (!m[dt]) m[dt] = [];
         m[dt].push(ev);
         

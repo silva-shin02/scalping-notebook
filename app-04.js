@@ -514,7 +514,7 @@ function CalendarPreview(_ref40) {
       var ev = trades[dt] && trades[dt].events;
       if (!Array.isArray(ev)) return;
       ev.forEach(function(e) {
-        if (!e) return;
+        if (!e || e._deleted) return;
         var start = dt;
         var end = e.endDate && e.endDate >= start ? e.endDate : start;
         if (date >= start && date <= end) out.push(e);
@@ -2780,7 +2780,7 @@ function StockQuickRefTable(_props_qrt) {
             React.createElement("td", {
               style: { padding: "7px 12px", width: "100%" }
             }, (function() {
-              var _dayEvents = ((data.trades && data.trades[d] && data.trades[d].events) || []);
+              var _dayEvents = ((data.trades && data.trades[d] && data.trades[d].events) || []).filter(function(e){ return e && !e._deleted; });
               var _tags = [].concat(_toConsumableArray((c2 && c2.chartShapeTags) || []),
                                     _toConsumableArray((c2 && c2.stockTags) || [])).slice(0, 8);
               var _hasContent = _dayEvents.length > 0 || _tags.length > 0;
