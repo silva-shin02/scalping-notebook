@@ -1353,7 +1353,7 @@ function EntryLogView(_ref_elv) {
                     return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
                   })()),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _rPnlDisp(realPnlN, realGrade)),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _rPnlDisp(planPnlN, planGrade)),
+                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynRes === "miss" ? _qMissCell() : _rPnlDisp(planPnlN, planGrade)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   s.holdHighVal != null
                     ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -1365,6 +1365,7 @@ function EntryLogView(_ref_elv) {
                     : React.createElement("span", { style: { color: "#ddd" } }, "—")),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } },
                   (function() {
+                    if (_dynRes === "miss") return _qMissCell();
                     var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
                     var _sym = _dynHP === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
                       : _dynHP === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
@@ -1497,7 +1498,7 @@ function EntryLogView(_ref_elv) {
           );
         };
         var _tGradeLegend = (function() {
-          var grades = ["A","B","C","D","E","F","G"];
+          var grades = ["A","B","C","D","E","F","G","Q"];
           var mkRow = function(title, descs) {
             return React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px 6px", marginBottom: 2 } },
               React.createElement("span", { style: { fontSize: 9, color: "#888", minWidth: 70, flexShrink: 0 } }, title),
@@ -1513,8 +1514,8 @@ function EntryLogView(_ref_elv) {
             );
           };
           return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8 } },
-            mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-" }),
-            mkRow("想定損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-" })
+            mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-", Q:"E基準未達のため非表示" }),
+            mkRow("想定損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-", Q:"E基準未達のため非表示" })
           );
         })();
         var sortToggle = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
@@ -2119,7 +2120,7 @@ function EntryLogView(_ref_elv) {
                 return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
               })()),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _rPnlDisp(realPnlN, realGrade)),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _rPnlDisp(planPnlN, planGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynResSv === "miss" ? _qMissCell() : _rPnlDisp(planPnlN, planGrade)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               s.holdHighVal != null
                 ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -2131,6 +2132,7 @@ function EntryLogView(_ref_elv) {
                 : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } },
               (function() {
+                if (_dynResSv === "miss") return _qMissCell();
                 var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
                 var _sym = _dynHPsv === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
                   : _dynHPsv === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
@@ -2225,7 +2227,7 @@ function EntryLogView(_ref_elv) {
 
     
     var _svGradeLegend = (function() {
-      var grades = ["A","B","C","D","E","F","G"];
+      var grades = ["A","B","C","D","E","F","G","Q"];
       var mkRow = function(title, descs) {
         return React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px 6px", marginBottom: 2 } },
           React.createElement("span", { style: { fontSize: 9, color: "#888", minWidth: 70, flexShrink: 0 } }, title),
@@ -2241,8 +2243,8 @@ function EntryLogView(_ref_elv) {
         );
       };
       return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8, marginTop: 6 } },
-        mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-" }),
-        mkRow("想定損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-" })
+        mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-", Q:"E基準未達のため非表示" }),
+        mkRow("想定損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-", Q:"E基準未達のため非表示" })
       );
     })();
 

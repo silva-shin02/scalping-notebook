@@ -3195,7 +3195,7 @@ function _elDynHold(s, alpha, cutLine) {
   if (!done && s.osVal != null && (Number(s.osVal) - alpha) >= cutLine) { hp = -Math.round((Number(s.osVal) - alpha) * 100); done = true; }
   if (!done) {
     if (s.holdOsConf != null) { hp = Math.round((alpha + (alpha - Number(s.holdOsConf))) * 100); }
-    else if (s.holdWidthSign != null && s.holdWidth != null) { hp = Math.round((alpha + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); }
+    else if (s.holdWidth != null) { var _hwS0 = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0; hp = Math.round((alpha + _hwS0) * 100); }
     else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); }
   }
   return hp;
@@ -3331,20 +3331,34 @@ var _GRADE_STYLE = {
   E: { bg: "#F1F8E9", color: "#558B2F", border: "#AED581" },
   F: { bg: "#E8F5E9", color: "#2E7D32", border: "#A5D6A7" },
   G: { bg: "#C8E6C9", color: "#1B5E20", border: "#81C784" },
-  Z: { bg: "#f5f4f0", color: "#888",    border: "#ddd" }
+  Z: { bg: "#f5f4f0", color: "#888",    border: "#ddd" },
+  Q: { bg: "#FEF3C7", color: "#B45309", border: "#FCD34D" }
 };
 
 var _GRADE_DESC = {
   A: "2501円~", B: "1001~2500円", C: "1~1000円",
   D: "0円", E: "-1~-1000円", F: "-1001~-2500円", G: "-2501円~",
-  Z: "取引なし"
+  Z: "取引なし", Q: "E基準未達のため非表示"
 };
 
 var _GRADE_DESC_REAL = {
   A: "25001円~", B: "10001~25000円", C: "1~10000円",
   D: "0円", E: "-1~-10000円", F: "-10001~-25000円", G: "-25001円~",
-  Z: "取引なし"
+  Z: "取引なし", Q: "E基準未達のため非表示"
 };
+
+
+function _qMissCell(size) {
+  var sz = size || 16;
+  var gs = _GRADE_STYLE.Q;
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
+    React.createElement("span", { title: "E基準未達のため非表示",
+      style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: sz, height: sz,
+        borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border,
+        fontWeight: 800, fontSize: Math.round(sz * 0.6), flexShrink: 0 } }, "Q"),
+    React.createElement("span", { style: { color: "#888" } }, "ー")
+  );
+}
 
 function _elCalcChartGrades(signals, alpha, cutLine) {
   var _live = alpha != null;
@@ -3882,7 +3896,7 @@ function EntryRecordForm(_ref_erf) {
     var _ck2 = fStock + "_" + fDate;
     var _cd2 = data.charts && data.charts[_ck2];
     var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : 5;
-    if (_av2 == null || s === 0) return;
+    if (_av2 == null) return;
     setFHoldOsConf(_av2 - (-s));
   };
 
@@ -3899,6 +3913,12 @@ function EntryRecordForm(_ref_erf) {
     var _cd = data.charts && data.charts[_ck];
     return (_cd != null && _cd.cutLine != null) ? _cd.cutLine : 10;
   })();
+
+  var _fMiss = (_fAlpha != null && Number(fOsVal) > 0 && Number(fOsVal) < _fAlpha);
+  var _fMissEl = React.createElement("span", {
+    style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
+      color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
+  }, "E基準未達のため非表示");
 
   
   useEffect(function() {
@@ -4412,7 +4432,7 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { marginBottom: 8 } },
         React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "想定損益（100株換算）"),
-        React.createElement("span", {
+        _fMiss ? _fMissEl : React.createElement("span", {
           style: {
             display: "inline-block", padding: "5px 14px",
             fontSize: 15, fontWeight: 800,
@@ -4531,7 +4551,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            React.createElement("span", {
+            _fMiss ? _fMissEl : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -4891,12 +4911,14 @@ function EntryLogCard(_ref_elc) {
       ),
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
+        _dispResult === "miss" ? _chip("想定損益", _qMissCell(14), "#888") :
         planPnl != null ? React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
           React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "想定損益"),
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(planPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
             _gradeBadge(planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null),
             _pnlFmt(planPnl))
         ) : null,
+        _dispResult === "miss" ? _chip("H損益", _qMissCell(14), "#888") :
         holdPnl != null ? React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
           React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },

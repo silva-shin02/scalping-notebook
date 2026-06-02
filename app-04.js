@@ -3834,7 +3834,7 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _trRPnlDisp(realPnlN, realGrade)),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _trRPnlDisp(planPnlN, planGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynResTr === "miss" ? _qMissCell() : _trRPnlDisp(planPnlN, planGrade)),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               s.holdHighVal != null
                 ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -3847,6 +3847,7 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, (function() {
               var _hp = _hpTr;
               var _isMiss = _dynResTr === "miss";
+              if (_isMiss) return _qMissCell();
               var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
               var _pnlEl = _hp == null ? null : (function() {
                 var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
@@ -4003,7 +4004,7 @@ function DayView(_ref57) {
         var _trCount = _trEntryRecords.filter(function(r){ return _elIsEntered(r.signal, r.item); }).length;
         var _tg = _profitGradeFromPnlReal(_trRealSum, _trCount);
         var _ts = _GRADE_STYLE[_tg] || _GRADE_STYLE.Z;
-        var _trLegendPairs = [["A","25001円~"],["B","10001~25000円"],["C","1~10000円"],["D","0円"],["E","-1~-10000円"],["F","-10001~-25000円"],["G","-25001円~"],["Z","取引なし"]];
+        var _trLegendPairs = [["A","25001円~"],["B","10001~25000円"],["C","1~10000円"],["D","0円"],["E","-1~-10000円"],["F","-10001~-25000円"],["G","-25001円~"],["Z","取引なし"],["Q","E基準未達のため非表示"]];
         var _trRenderLegendRow = function(items) {
           return React.createElement("div", { style: { display: "flex", gap: "3px 8px", flexWrap: "wrap" } },
             items.map(function(pair) {
@@ -4756,7 +4757,7 @@ function DayView(_ref57) {
       return [].concat(c.chartShapeTags || [], c.stockTags || []).map(stripCat);
     };
     var _pbGradeLegend = (function() {
-      var grades = ["A","B","C","D","E","F","G"];
+      var grades = ["A","B","C","D","E","F","G","Q"];
       var mkRow = function(title, descs) {
         return React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px 6px", marginBottom: 2 } },
           React.createElement("span", { style: { fontSize: 9, color: "#888", minWidth: 70, flexShrink: 0 } }, title),
@@ -4772,8 +4773,8 @@ function DayView(_ref57) {
         );
       };
       return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8, fontSize: 9 } },
-        mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-" }),
-        mkRow("想定損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-" })
+        mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-", Q:"E基準未達のため非表示" }),
+        mkRow("想定損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-", Q:"E基準未達のため非表示" })
       );
     })();
     

@@ -4100,8 +4100,8 @@ function EntrySignalSection(_ref_es) {
         var _hhE = Number(s.holdHighVal) - _avH;
         if (_hhE >= _cutLhp) return -Math.round(_hhE * 100);
       }
-      if (s.holdWidthSign != null && s.holdWidth != null) {
-        var _hwS = s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth);
+      if (s.holdWidth != null) {
+        var _hwS = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0;
         return Math.round((_avH + _hwS) * 100);
       }
       if (s.holdOsConf != null) return Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100);
@@ -4180,7 +4180,7 @@ function EntrySignalSection(_ref_es) {
                   whiteSpace: "nowrap" }
               }, amtTxt)
             ),
-            _renderGradeLegend2Row([["A","25001円~"],["B","10001~25000円"],["C","1~10000円"],["D","0円"],["E","-1~-10000円"],["F","-10001~-25000円"],["G","-25001円~"],["Z","取引なし"]])
+            _renderGradeLegend2Row([["A","25001円~"],["B","10001~25000円"],["C","1~10000円"],["D","0円"],["E","-1~-10000円"],["F","-10001~-25000円"],["G","-25001円~"],["Z","取引なし"],["Q","E基準未達のため非表示"]])
           );
         })(),
         
@@ -4228,7 +4228,7 @@ function EntrySignalSection(_ref_es) {
               });
             })()
           ),
-          _renderGradeLegend2Row([["A","2501円~"],["B","1001~2500円"],["C","1~1000円"],["D","0円"],["E","-1~-1000円"],["F","-1001~-2500円"],["G","-2501円~"],["Z","取引なし"]])
+          _renderGradeLegend2Row([["A","2501円~"],["B","1001~2500円"],["C","1~1000円"],["D","0円"],["E","-1~-1000円"],["F","-1001~-2500円"],["G","-2501円~"],["Z","取引なし"],["Q","E基準未達のため非表示"]])
         )
       )
     ),
@@ -4515,8 +4515,8 @@ function EntrySignalSection(_ref_es) {
                 _holdPnlDyn = -Math.round((Number(s.osVal) - _avH) * 100); _hpCalced = true;
               }
               if (!_hpCalced) {
-                if (s.holdWidthSign != null && s.holdWidth != null) {
-                  var _hwS = s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth);
+                if (s.holdWidth != null) {
+                  var _hwS = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0;
                   _holdPnlDyn = Math.round((_avH + _hwS) * 100);
                 } else if (s.holdOsConf != null) {
                   _holdPnlDyn = Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100);
@@ -4614,7 +4614,7 @@ function EntrySignalSection(_ref_es) {
                     return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
                   })()),
                 React.createElement("td", { style: { padding: "2px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
-                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _esRPnlDisp(planPnlN, planGrade)),
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dispResult === "miss" ? _qMissCell() : _esRPnlDisp(planPnlN, planGrade)),
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   s.holdHighVal != null
                     ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -4628,6 +4628,7 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, (function() {
                   var _hp = _holdPnlDyn;
                   var _isMiss = _dispResult === "miss";
+                  if (_isMiss) return _qMissCell();
                   var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
                   var _hpNum = _holdIsUnrecorded
                     ? React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "未記録")
