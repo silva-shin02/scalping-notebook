@@ -4834,34 +4834,34 @@ function EntryLogCard(_ref_elc) {
       })
     ),
     
-    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: (s.rationale || s.reflection || s.priceIn || s.priceOut) ? 6 : 0 } },
-      
-      s.osVal != null && _chip("OS値", (s.osVal > 0 ? "+" : "") + s.osVal + "円", _vcol(s.osVal, true)),
-      
-      (s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) && _chip("確定値",
-        Number(s.osConfVal) === 0 ? "0円" : (s.osConfSign + (s.osConfVal != null ? s.osConfVal + "円" : "")),
-        Number(s.osConfVal) === 0 ? "#888" : _vcol(s.osConfVal, s.osConfSign === "+")),
-      
-      planPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
-        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "想定損益"),
-        React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(planPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
-          _gradeBadge(planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null),
-          _pnlFmt(planPnl))
+    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start", marginBottom: (s.rationale || s.reflection || s.priceIn || s.priceOut) ? 6 : 0 } },
+
+      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
+        s.osVal != null ? _chip("OS値", s.osVal + "円", _vcol(s.osVal, true)) : null,
+        s.holdHighVal != null ? _chip("H高値", (s.holdHighSign === "-" ? "↑" : s.holdHighSign === "+" ? "↓" : "") + s.holdHighVal, _vcol(s.holdHighVal, s.holdHighSign === "-")) : null
       ),
-      
-      React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
-      !(s.holdWidthSign || s.holdHighVal != null || holdPnl != null) && React.createElement("span", { style: { fontSize: 10, color: "#bbb", alignSelf: "center", fontStyle: "italic" } }, "Hデータ無し"),
 
-      s.holdHighVal != null && _chip("H高値", (s.holdHighSign === "-" ? "↑" : "↓") + s.holdHighVal, _vcol(s.holdHighVal, s.holdHighSign === "-")),
+      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
+        (s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) ? _chip("確定値",
+          Number(s.osConfVal) === 0 ? "0円" : "↕" + Math.abs(Number(s.osConfVal)) + "円",
+          Number(s.osConfVal) === 0 ? "#888" : _vcol(s.osConfVal, s.osConfSign === "+")) : null,
+        (s.holdWidthSign != null && s.holdWidth != null) ? _chip("H確定値", "↕" + s.holdWidth + "円", _vcol(s.holdWidth, s.holdWidthSign === "-")) : null
+      ),
 
-      s.holdWidthSign != null && s.holdWidth != null && _chip("H変動", (s.holdWidthSign === "+" ? "↓" : "↑") + s.holdWidth + "円", _vcol(s.holdWidth, s.holdWidthSign === "-")),
-
-      holdPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
-        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
-        React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
-          _hpBadge(_dispHP),
-          _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
-          _pnlFmt(holdPnl))
+      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
+        planPnl != null ? React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
+          React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "想定損益"),
+          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(planPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
+            _gradeBadge(planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null),
+            _pnlFmt(planPnl))
+        ) : null,
+        holdPnl != null ? React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
+          React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
+          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
+            _hpBadge(_dispHP),
+            _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
+            _pnlFmt(holdPnl))
+        ) : null
       ),
 
       React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),

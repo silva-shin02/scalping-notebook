@@ -3642,7 +3642,7 @@ function DayView(_ref57) {
       var _trTotMaxGradeAB  = _trTotMaxABCnt  > 0 ? _profitGradeFromPnl(_trTotMaxAB  != null ? _trTotMaxAB  : 0, _trTotMaxABCnt)  : null;
       var allTrExp = _trEntryRecords.every(function(r) { return !!trTableRecExp[_trRecKey(r)]; });
       var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
-        React.createElement("td", { colSpan: 8, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
+        React.createElement("td", { colSpan: 9, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
           _trTotRealCnt > 0 ? _trRPnlDisp(_trTotReal, _trTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
         ),
@@ -3760,8 +3760,17 @@ function DayView(_ref57) {
                 ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, "0")
                 : s.osConfSign
                   ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } },
-                      s.osConfSign + (s.osConfVal != null ? String(s.osConfVal) : ""))
+                      "\u2195" + (s.osConfVal != null ? String(Math.abs(Number(s.osConfVal))) : ""))
                   : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+              (function() {
+                if (s.osConfVal == null || s.osConfVal === "") return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
+                var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
+                var _ew = (_aiTr.alpha != null ? _aiTr.alpha : 5) - _cf;
+                if (_ew === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
+                var _ewAbs = Math.abs(_ew);
+                return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
+              })()),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _trRPnlDisp(realPnlN, realGrade)),
@@ -3772,8 +3781,8 @@ function DayView(_ref57) {
                     (s.holdHighSign === "+" ? "↓" : s.holdHighSign === "-" ? "↑" : "") + s.holdHighVal)
                 : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-              s.holdOsConf != null
-                ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums" } }, Number(s.holdOsConf) === 0 ? "0" : (Number(s.holdOsConf) > 0 ? "+" : "") + s.holdOsConf)
+              s.holdWidthSign != null && s.holdWidth != null
+                ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: s.holdWidth >= 10 ? 700 : 600 } }, "↕" + s.holdWidth)
                 : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, (function() {
               var _hp = _hpTr;
@@ -3793,7 +3802,7 @@ function DayView(_ref57) {
         if (rExp) {
           dataRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 14, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
               )
             )
@@ -3820,13 +3829,14 @@ function DayView(_ref57) {
                 _trTh("難易度", { width: "1%" }),
                 _trTh("OS値", { width: "1%" }),
                 _trTh("確定値", { width: "1%" }),
+                _trTh("α値比値幅", { width: "1%" }),
                 _trTh("エントリー"),
                 _trTh("結果", { width: "1%" }),
                 _trTh("実現損益"),
                 _trTh("想定損益"),
                 _trTh("H高値", { width: "1%" }),
                 _trTh("H確定値", { width: "1%" }),
-                _trTh("ホールド勝敗/結果損益（α値比）")
+                _trTh("H勝敗/結果損益（α値比）")
               )
             ),
             React.createElement("tbody", null, [totRow].concat(dataRows))
