@@ -720,7 +720,7 @@ function EntryLogView(_ref_elv) {
       var avgD = Math.round(deltas.reduce(function(a, b) { return a + b; }, 0) / n);
       var betterAvg = betterVals.length ? Math.round(betterVals.reduce(function(a, b) { return a + b; }, 0) / betterVals.length) : null;
       var worseAvg = worseVals.length ? Math.round(worseVals.reduce(function(a, b) { return a + b; }, 0) / worseVals.length) : null;
-      var verdict = better > worse ? "ホールドした方が良いことが多い" : worse > better ? "想定通り利確した方が良いことが多い" : "有利・不利が同数";
+      var verdict = better > worse ? "ホールドした方が良いことが多い" : worse > better ? "想定通り利確した方が良いことが多い" : "改善・悪化が同数";
       var verdictCol = better > worse ? "#C0392B" : worse > better ? "#1E8449" : "#888";
       var _box = function(label, valTxt, col) {
         return React.createElement("div", { style: { background: "#f5f4f0", border: "1px solid #e0ddd6", borderRadius: 6, padding: "6px 10px", minWidth: 64, textAlign: "center", flexShrink: 0 } },
@@ -729,21 +729,83 @@ function EntryLogView(_ref_elv) {
       };
       return React.createElement("div", null,
         _secH("🔄 ホールドによる損益変化（" + n + "件）"),
-        React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "ホールド損益−想定損益。プラス＝ホールドした方が有利・100株換算"),
-        React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: verdictCol, marginBottom: 8 } }, "→ " + verdict + "（有利" + better + "件 / 不利" + worse + "件" + (same ? " / 同じ" + same + "件" : "") + "）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "ホールド損益−想定損益。プラス＝ホールドで改善・100株換算"),
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: verdictCol, marginBottom: 8 } }, "→ " + verdict + "（改善" + better + "件 / 悪化" + worse + "件" + (same ? " / 同じ" + same + "件" : "") + "）"),
         React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
-          _box("ホールド有利", better + "件", "#C0392B"),
-          _box("ホールド不利", worse + "件", "#1E8449"),
+          _box("ホールド改善", better + "件", "#C0392B"),
+          _box("ホールド悪化", worse + "件", "#1E8449"),
           same ? _box("変化なし", same + "件", "#888") : null,
           _box("平均変化", (avgD > 0 ? "+" : "") + avgD.toLocaleString() + "円", avgD > 0 ? "#C0392B" : avgD < 0 ? "#1E8449" : "#888"),
-          betterAvg != null ? _box("有利時平均", "+" + betterAvg.toLocaleString() + "円", "#C0392B") : null,
-          worseAvg != null ? _box("不利時平均", worseAvg.toLocaleString() + "円", "#1E8449") : null
+          betterAvg != null ? _box("改善時平均", "+" + betterAvg.toLocaleString() + "円", "#C0392B") : null,
+          worseAvg != null ? _box("悪化時平均", worseAvg.toLocaleString() + "円", "#1E8449") : null
+        )
+      );
+    })();
+    var osHoldTrendSec = (function() {
+      var _liveA = !!(data && data.charts);
+      var buckets = {};
+      osRecs.forEach(function(r) {
+        var s = r.signal;
+        var k = _osBucketKey(Number(s.osVal));
+        if (!buckets[k]) buckets[k] = { cnt: 0, conf: [], high: [], hconf: [], delta: [] };
+        var b = buckets[k]; b.cnt++;
+        if (s.osConfVal != null && s.osConfVal !== "") b.conf.push(s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal));
+        if (s.holdHighVal != null) b.high.push(s.holdHighSign === "-" ? Number(s.holdHighVal) : s.holdHighSign === "+" ? -Number(s.holdHighVal) : 0);
+        if (s.holdWidth != null && s.holdWidthSign != null) b.hconf.push(s.holdWidthSign === "-" ? Number(s.holdWidth) : -Number(s.holdWidth));
+        var ai = _liveA ? _elAlphaInfo(r, data) : { alpha: null, cutLine: null };
+        var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+        var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
+        var pp = _liveA ? _elDynPlanned(s, ai.alpha, ai.cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+        var hp = _liveA ? _elDynHold(s, ai.alpha, ai.cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
+        if (pp != null && hp != null) b.delta.push((_liveA ? Math.round(hp) : _p100(hp)) - (_liveA ? Math.round(pp) : _p100(pp)));
+      });
+      var keys = Object.keys(buckets).map(Number).sort(function(a, b) { return a - b; });
+      if (!keys.length) return null;
+      var _avg1 = function(arr) { return arr.length ? Math.round(arr.reduce(function(a, b) { return a + b; }, 0) / arr.length * 10) / 10 : null; };
+      var _avgI = function(arr) { return arr.length ? Math.round(arr.reduce(function(a, b) { return a + b; }, 0) / arr.length) : null; };
+      var _sCell = function(v, cnt) {
+        if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+        var col = v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888";
+        var arr = v > 0 ? "↑" : v < 0 ? "↓" : "";
+        return React.createElement("span", { style: { color: col, fontWeight: 700, fontVariantNumeric: "tabular-nums" } }, arr + Math.abs(v) + "円",
+          cnt != null ? React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 400, marginLeft: 1 } }, "(" + cnt + ")") : null);
+      };
+      var _pCell = function(v) {
+        if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+        var col = v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888";
+        return React.createElement("span", { style: { color: col, fontWeight: 700, fontVariantNumeric: "tabular-nums" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円");
+      };
+      var _th = function(t, ex) { return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, fontSize: 10, color: "#9A3412", borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center" }, ex || {}) }, t); };
+      var _td = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" }, ex || {}) }, c); };
+      return React.createElement("div", null,
+        _secH("📐 OS値別 ホールド傾向"),
+        React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "OS値帯ごとの平均。確定値・H高値・H確定値は水準線比（↑上=赤/↓下=緑、カッコ内は件数）、損益変化はホールド損益−想定損益(100株)"),
+        React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+            React.createElement("thead", null, React.createElement("tr", null,
+              _th("OS値", { textAlign: "left", paddingLeft: 8 }), _th("件"), _th("平均確定値"), _th("平均H高値"), _th("平均H確定値"), _th("損益変化")
+            )),
+            React.createElement("tbody", null,
+              keys.map(function(k) {
+                var b = buckets[k];
+                return React.createElement("tr", { key: k },
+                  _td(_osBucketLabel(k), { textAlign: "left", fontWeight: 700, color: "#9A3412", paddingLeft: 8 }),
+                  _td(b.cnt + "件"),
+                  _td(_sCell(_avg1(b.conf), b.conf.length)),
+                  _td(_sCell(_avg1(b.high), b.high.length)),
+                  _td(_sCell(_avg1(b.hconf), b.hconf.length)),
+                  _td(_pCell(_avgI(b.delta)))
+                );
+              })
+            )
+          )
         )
       );
     })();
     return React.createElement("div", { style: { marginTop: 8 } },
       sumSec,
       holdSec,
+      osHoldTrendSec,
       React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
         React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, histSec, hrSec),
         React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, resSec, sigSec)
