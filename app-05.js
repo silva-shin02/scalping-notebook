@@ -3920,6 +3920,7 @@ function EntryRecordForm(_ref_erf) {
   })();
 
   var _fMiss = (_fAlpha != null && Number(fOsVal) >= 0 && Number(fOsVal) < _fAlpha);
+  var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) > _fAlpha);
   var _fMissEl = React.createElement("span", {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
       color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
@@ -4577,7 +4578,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            _fMiss ? _fMissEl : React.createElement("span", {
+            (_fMiss && !_fHoldHighOverA) ? _fMissEl : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -4932,7 +4933,7 @@ function EntryLogCard(_ref_elc) {
             _gradeBadge(planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null),
             _pnlFmt(planPnl))
         ) : null,
-        _dispResult === "miss" ? _chip("H損益", _qMissCell(14), "#888") :
+        (_dispResult === "miss" && holdPnl == null) ? _chip("H損益", _qMissCell(14), "#888") :
         holdPnl != null ? React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
           React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },

@@ -1157,11 +1157,7 @@ function EntryLogView(_ref_elv) {
               var _dp = _df < 0 ? 0 : _df >= _cutLs ? -Math.round(_df * 100) : (_cf1 != null ? Math.round((simAlpha - _cf1) * 100) : null);
               if (_dp != null) _sPlan = (_sPlan || 0) + _dp;
             }
-            var _hp = null, _hpC = false;
-            if (s.osVal != null && simAlpha > Number(s.osVal)) { _hpC = true; }
-            if (!_hpC && s.holdHighSign === "-" && s.holdHighVal != null) { var _hhE = Number(s.holdHighVal) - simAlpha; if (_hhE >= _cutLs) { _hp = -Math.round(_hhE * 100); _hpC = true; } }
-            if (!_hpC && s.osVal != null) { var _dfOs = Number(s.osVal) - simAlpha; if (_dfOs >= _cutLs) { _hp = -Math.round(_dfOs * 100); _hpC = true; } }
-            if (!_hpC && s.holdOsConf != null) { var _hw2 = simAlpha - Number(s.holdOsConf); _hp = Math.round((simAlpha + _hw2) * 100); }
+            var _hp = _elDynHold(s, simAlpha, _cutLs);
             if (_hp != null) _sHold = (_sHold || 0) + _hp;
           });
           var _sTot = _sOk + _sNg;
@@ -1375,7 +1371,7 @@ function EntryLogView(_ref_elv) {
                     : React.createElement("span", { style: { color: "#ddd" } }, "—")),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   (function() {
-                    if (_dynRes === "miss") return _slashCell({ch:"ー",col:"#B45309"}, null, null, true);
+                    if (holdPnl == null) return _dynRes === "miss" ? _slashCell({ch:"ー",col:"#B45309"}, null, null, true) : React.createElement("span", { style: { color: "#ccc" } }, "—");
                     var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
                     var _symH = _dynHP === "yes" ? {ch:"○",col:"#1E8449"} : _dynHP === "mid" ? {ch:"△",col:"#B45309"} : _dynHP === "none" ? {ch:"ー",col:"#888"} : _dynHP === "no" ? {ch:"×",col:"#C0392B"} : null;
                     if (!_symH && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -2140,7 +2136,7 @@ function EntryLogView(_ref_elv) {
                 : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } },
               (function() {
-                if (_dynResSv === "miss") return _qMissCell();
+                if (holdPnl == null) return _dynResSv === "miss" ? _qMissCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
                 var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
                 var _sym = _dynHPsv === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
                   : _dynHPsv === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")

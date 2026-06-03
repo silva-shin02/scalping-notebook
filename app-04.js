@@ -3872,7 +3872,7 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, (function() {
               var _hp = _hpTr;
               var _isMiss = _dynResTr === "miss";
-              if (_isMiss) return _qMissCell();
+              if (_isMiss && _hp == null) return _qMissCell();
               var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
               var _pnlEl = _hp == null ? null : (function() {
                 var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
@@ -4197,7 +4197,7 @@ function DayView(_ref57) {
           (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hTot = null;
-            recs.forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : 10); var _cutLR = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var hp; if (_aR != null) { var _hpC = false; if (s.osVal != null && _aR > Number(s.osVal)) { hp = null; _hpC = true; } if (!_hpC && s.holdHighSign === "-" && s.holdHighVal != null) { var _hhE = Number(s.holdHighVal) - _aR; if (_hhE >= _cutLR) { hp = -Math.round(_hhE * 100); _hpC = true; } } if (!_hpC && s.osVal != null && (Number(s.osVal) - _aR) >= _cutLR) { hp = -Math.round((Number(s.osVal) - _aR) * 100); _hpC = true; } if (!_hpC) { if (s.holdOsConf != null) { hp = Math.round((_aR + (_aR - Number(s.holdOsConf))) * 100); } else if (s.holdWidth != null) { hp = Math.round((_aR + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } } } else { hp = _elSignedVal(s.holdPnl, s.holdPnlSign); } if (hp != null) { _hTot = (_hTot||0) + hp; } });
+            recs.forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : 10); var _cutLR = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign); if (hp != null) { _hTot = (_hTot||0) + hp; } });
             if (_hTot == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             return React.createElement("span", { style: { fontWeight: 700, color: _hTot > 0 ? "#C0392B" : _hTot < 0 ? "#1E8449" : "#888" } },
               (_hTot > 0 ? "+" : "") + _hTot.toLocaleString() + "円");
@@ -4273,7 +4273,7 @@ function DayView(_ref57) {
           var _dpR = _diffR < 0 ? 0 : _diffR >= _cutLrec ? -Math.round(_diffR * 100) : (_confR != null ? Math.round((_alphaRec - _confR) * 100) : null);
           if (_dpR != null) planPnl = _dpR;
         }
-        if (_alphaRec != null) { var _hpCE = false; if (s.osVal != null && _alphaRec > Number(s.osVal)) { holdPnl = null; _hpCE = true; } if (!_hpCE && s.holdHighSign === "-" && s.holdHighVal != null) { var _hhEE = Number(s.holdHighVal) - _alphaRec; if (_hhEE >= _cutLrec) { holdPnl = -Math.round(_hhEE * 100); _hpCE = true; } } if (!_hpCE && s.osVal != null && (Number(s.osVal) - _alphaRec) >= _cutLrec) { holdPnl = -Math.round((Number(s.osVal) - _alphaRec) * 100); _hpCE = true; } if (!_hpCE) { if (s.holdOsConf != null) { holdPnl = Math.round((_alphaRec + (_alphaRec - Number(s.holdOsConf))) * 100); } else if (s.holdWidth != null) { holdPnl = Math.round((_alphaRec + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); } } }
+        if (_alphaRec != null) { holdPnl = _elDynHold(s, _alphaRec, _cutLrec); }
         var entered = _elIsEntered(s, item);
         var _dynResExp = (function() { if (_alphaRec == null || s.osVal == null || Number(s.osVal) < 0) return null; var _dv = Number(s.osVal) - _alphaRec; if (_dv < 0) return "miss"; if (_dv >= _cutLrec) return "ng"; if (s.osConfVal == null || s.osConfVal === "") return null; var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; return _cf < _alphaRec ? "ok" : _cf === _alphaRec ? "draw" : "ng"; })();
         var _dispResExp = _dynResExp !== null ? _dynResExp : s.result;
@@ -4351,7 +4351,7 @@ function DayView(_ref57) {
               : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
             (function() {
-              if (isMiss) return _pbSlashCell({ch:"ー",col:"#B45309"}, null, null, true);
+              if (holdPnl == null) return isMiss ? _pbSlashCell({ch:"ー",col:"#B45309"}, null, null, true) : React.createElement("span", { style: { color: "#ccc" } }, "—");
               var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
               var _dynHpExp = (function() {
                 var hp = holdPnl, pp = planPnl;
@@ -4666,7 +4666,7 @@ function DayView(_ref57) {
                   var _pW = _dW < 0 ? 0 : _dW >= _cutLW ? -Math.round(_dW * 100) : (_cW != null ? Math.round((_aW - _cW) * 100) : null);
                   if (_pW != null) pp = _pW;
                 }
-                if (_aW != null) { var _hpWC = false; if (s.osVal != null && _aW > Number(s.osVal)) { hp = null; _hpWC = true; } if (!_hpWC && s.holdHighSign === "-" && s.holdHighVal != null) { var _hhW = Number(s.holdHighVal) - _aW; if (_hhW >= _cutLW) { hp = -Math.round(_hhW * 100); _hpWC = true; } } if (!_hpWC && s.osVal != null && (Number(s.osVal) - _aW) >= _cutLW) { hp = -Math.round((Number(s.osVal) - _aW) * 100); _hpWC = true; } if (!_hpWC && s.holdOsConf != null) { hp = Math.round((_aW + (_aW - Number(s.holdOsConf))) * 100); } else if (!_hpWC && s.holdWidth != null) { hp = Math.round((_aW + (s.holdWidthSign === "+" ? Number(s.holdWidth) : -Number(s.holdWidth))) * 100); } }
+                if (_aW != null) { hp = _elDynHold(s, _aW, _cutLW); }
                 if (pp != null) { _totPb = (_totPb || 0) + pp; _totPbCnt++; }
                 if (hp != null) { _totHPb = (_totHPb || 0) + hp; _totHPbCnt++; }
               });
@@ -4885,13 +4885,7 @@ function DayView(_ref57) {
         var _aR = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock+"_"+date]; return _c&&_c.alphaVal!=null?_c.alphaVal:10; })();
         var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
         var _cutLHA = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _cRHA = _pbCharts[r.stock+"_"+date]; return _cRHA&&_cRHA.cutLine!=null?_cRHA.cutLine:10; })();
-        if (_aR != null) {
-          var _hpCH = false;
-          if(s.osVal!=null&&_aR>Number(s.osVal)){hp=null;_hpCH=true;}
-          if (!_hpCH&&s.holdHighSign==="-"&&s.holdHighVal!=null){var _hhEH=Number(s.holdHighVal)-_aR;if(_hhEH>=_cutLHA){hp=-Math.round(_hhEH*100);_hpCH=true;}}
-          if(!_hpCH&&s.osVal!=null&&(Number(s.osVal)-_aR)>=_cutLHA){hp=-Math.round((Number(s.osVal)-_aR)*100);_hpCH=true;}
-          if (!_hpCH){if(s.holdOsConf!=null){hp=Math.round((_aR+(_aR-Number(s.holdOsConf)))*100);}else if(s.holdWidth!=null){hp=Math.round((_aR+(s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth)))*100);}}
-        }
+        if (_aR != null) { hp = _elDynHold(s, _aR, _cutLHA); }
         var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
         if (_aR!=null&&s.osVal!=null){var _cfH=s.osConfVal!=null?(s.osConfSign==="-"?-(Number(s.osConfVal)):Number(s.osConfVal)):null;var _dfH=Number(s.osVal)-_aR;var _pxH=_dfH<0?0:_dfH>=_cutLHA?-Math.round(_dfH*100):(_cfH!=null?Math.round((_aR-_cfH)*100):null);if(_pxH!=null)pp=_pxH;}
         var _drH=(function(){if(_aR==null||s.osVal==null||Number(s.osVal)<0)return null;var _dv=Number(s.osVal)-_aR;if(_dv<0)return"miss";if(_dv>=_cutLHA)return"ng";if(s.osConfVal==null||s.osConfVal==="")return null;var _cf3=s.osConfSign==="+"?Number(s.osConfVal):s.osConfSign==="-"?-Number(s.osConfVal):0;return _cf3<_aR?"ok":_cf3===_aR?"draw":"ng";})();
@@ -4909,7 +4903,7 @@ function DayView(_ref57) {
       var _hwHasDataH=_haRecs.some(function(h){return h.hw!=null;});
       
       var _hAlphaEVH=[];
-      for(var _haI=0;_haI<=30;_haI++){(function(_av2){var _hpA2=_pbAllRecs.map(function(r){var s=r.signal;var _cRev=_pbCharts[r.stock+"_"+date];var _clEV=(pbSimAlpha!==null&&pbSimCutLine!==null)?pbSimCutLine:(_cRev&&_cRev.cutLine!=null?_cRev.cutLine:10);var hp2=null;var _hpC4=false;if(s.osVal!=null&&_av2>Number(s.osVal)){return null;}if(s.holdHighSign==="-"&&s.holdHighVal!=null){var _hhE4=Number(s.holdHighVal)-_av2;if(_hhE4>=_clEV){hp2=-Math.round(_hhE4*100);_hpC4=true;}}if(!_hpC4&&s.osVal!=null&&(Number(s.osVal)-_av2)>=_clEV){hp2=-Math.round((Number(s.osVal)-_av2)*100);_hpC4=true;}if(!_hpC4){if(s.holdOsConf!=null){hp2=Math.round((_av2+(_av2-Number(s.holdOsConf)))*100);}else if(s.holdWidth!=null){hp2=Math.round((_av2+(s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth)))*100);}}return hp2;}).filter(function(v){return v!=null;});if(_hpA2.length>0){_hAlphaEVH.push({alpha:_av2,ev:Math.round(_hpA2.reduce(function(a,b){return a+b;},0)/_hpA2.length),cnt:_hpA2.length});}})(_haI);}
+      for(var _haI=0;_haI<=30;_haI++){(function(_av2){var _hpA2=_pbAllRecs.map(function(r){var s=r.signal;var _cRev=_pbCharts[r.stock+"_"+date];var _clEV=(pbSimAlpha!==null&&pbSimCutLine!==null)?pbSimCutLine:(_cRev&&_cRev.cutLine!=null?_cRev.cutLine:10);return _elDynHold(s, _av2, _clEV);}).filter(function(v){return v!=null;});if(_hpA2.length>0){_hAlphaEVH.push({alpha:_av2,ev:Math.round(_hpA2.reduce(function(a,b){return a+b;},0)/_hpA2.length),cnt:_hpA2.length});}})(_haI);}
       
       var _hByStkH={};
       _haRecs.forEach(function(h){if(!_hByStkH[h.stock])_hByStkH[h.stock]={yes:0,mid:0,none:0,no:0,hpArr:[],hwArr:[]};if(_hByStkH[h.stock][h.dynHp]!=null)_hByStkH[h.stock][h.dynHp]++;if(h.hp!=null)_hByStkH[h.stock].hpArr.push(h.hp);if(h.hw!=null)_hByStkH[h.stock].hwArr.push(h.hw);});

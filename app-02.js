@@ -4533,28 +4533,8 @@ function EntrySignalSection(_ref_es) {
             
             var _holdPnlDyn = _elSignedVal(s.holdPnl, s.holdPnlSign);
             var _avH = c.alphaVal != null ? c.alphaVal : 10;
-            if (_avH != null) {
-              var _hpCalced = false;
-              var _cutLH = c.cutLine != null ? c.cutLine : 10;
-              if (s.osVal != null && _avH > Number(s.osVal)) {
-                _holdPnlDyn = null; _hpCalced = true;
-              }
-              if (!_hpCalced && s.holdHighSign === "-" && s.holdHighVal != null) {
-                var _hhE = Number(s.holdHighVal) - _avH;
-                if (_hhE >= _cutLH) { _holdPnlDyn = -Math.round(_hhE * 100); _hpCalced = true; }
-              }
-              if (!_hpCalced && s.osVal != null && (Number(s.osVal) - _avH) >= _cutLH) {
-                _holdPnlDyn = -Math.round((Number(s.osVal) - _avH) * 100); _hpCalced = true;
-              }
-              if (!_hpCalced) {
-                if (s.holdWidth != null) {
-                  var _hwS = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0;
-                  _holdPnlDyn = Math.round((_avH + _hwS) * 100);
-                } else if (s.holdOsConf != null) {
-                  _holdPnlDyn = Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100);
-                }
-              }
-            }
+            var _cutLH = c.cutLine != null ? c.cutLine : 10;
+            if (_avH != null) { _holdPnlDyn = _elDynHold(s, _avH, _cutLH); }
             var _holdIsUnrecorded = s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null;
             var entered = _elIsEntered(s, rIt);
             var realGrade = entered ? ((realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null) : "Z";
@@ -4663,7 +4643,7 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, (function() {
                   var _hp = _holdPnlDyn;
                   var _isMiss = _dispResult === "miss";
-                  if (_isMiss) return _qMissCell();
+                  if (_isMiss && _hp == null) return _qMissCell();
                   var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
                   var _hpNum = _holdIsUnrecorded
                     ? React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "未記録")
