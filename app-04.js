@@ -4328,7 +4328,7 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
             _tradeAlphaChip(s), _rPnlDisp(realPnl, gReal)),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
-            _rPnlDisp(planPnl, gPlan)),
+            isMiss ? _qMissCell() : _rPnlDisp(planPnl, gPlan)),
           React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             s.holdHighVal != null
               ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -4341,6 +4341,7 @@ function DayView(_ref57) {
               : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
             (function() {
+              if (isMiss) return _qMissCell();
               var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
               var _dynHpExp = (function() {
                 var hp = holdPnl, pp = planPnl;
