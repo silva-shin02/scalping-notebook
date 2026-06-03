@@ -2660,28 +2660,32 @@ function StockQuickRefTable(_props_qrt) {
       border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, lineHeight: 1, flexShrink: 0
     } }, g);
   };
-  var _qrCapNote = function(amt) {
-    if (amt == null) return null;
-    var g = _profitGradeFromPnl(amt, 1);
+  var _qrCapGrid = function(badgeNode, numNode, capAmt) {
+    var g = _profitGradeFromPnl(capAmt, 1);
     var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
-    var col = amt < 0 ? "#1E8449" : amt > 0 ? "#C0392B" : "#888";
+    var col = capAmt < 0 ? "#1E8449" : capAmt > 0 ? "#C0392B" : "#888";
+    var capBadge = (g && g !== "Z") ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0 } }, g) : React.createElement("span", null);
+    var _pr = function(ch) { return React.createElement("span", { style: { fontSize: 11, color: "#bbb", lineHeight: 1 } }, ch); };
     return React.createElement("div", { title: "損切り値ちょうどで損切りできていた場合の損失額（100株換算）",
-      style: { display: "inline-flex", alignItems: "center", gap: 3, marginTop: 1 } },
-      (g && g !== "Z") ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0 } }, g) : null,
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: col, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(amt) + "円")
+      style: { display: "grid", gridTemplateColumns: "auto auto auto auto", columnGap: 3, rowGap: 1, alignItems: "center", justifyItems: "start", width: "fit-content" } },
+      React.createElement("span", null), badgeNode, numNode, React.createElement("span", null),
+      _pr("（"), capBadge,
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: col, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(capAmt) + "円"),
+      _pr("）")
     );
   };
   var _qrPlanChip = function(g) {
     if (!g || g.plan === "Z") return React.createElement("span", { style: { color: "#ccc", fontSize: 11 } }, "—");
-    var _main;
+    var badgeNode, numNode;
     if (g.planAB == null) {
-      _main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
-        _qrMkBadge(g.plan), _qrAmtSpan(g.planSum));
+      badgeNode = _qrMkBadge(g.plan);
+      numNode = _qrAmtSpan(g.planSum);
     } else {
       var _abAmt = g.planSumAB != null ? g.planSumAB : g.planSum;
       var _showParen = _abAmt !== g.planSum;
-      _main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
-        _qrMkBadge(g.planAB), _qrAmtSpan(_abAmt),
+      badgeNode = _qrMkBadge(g.planAB);
+      numNode = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+        _qrAmtSpan(_abAmt),
         _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
           React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
           _qrMkBadgeSm(g.plan),
@@ -2690,17 +2694,18 @@ function StockQuickRefTable(_props_qrt) {
         ) : null
       );
     }
-    if (!(g.planHasStop && g.planCapSum != null)) return _main;
-    return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
-      _main, _qrCapNote(g.planCapSum));
+    if (!(g.planHasStop && g.planCapSum != null)) {
+      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, badgeNode, numNode);
+    }
+    return _qrCapGrid(badgeNode, numNode, g.planCapSum);
   };
   var _qrHoldChip = function(g) {
     if (!g || g.hold === "Z") return React.createElement("span", { style: { color: "#ccc", fontSize: 11 } }, "—");
-    var _main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
-      _qrMkBadge(g.hold), _qrAmtSpan(g.holdSum));
-    if (!(g.holdHasStop && g.holdCapSum != null)) return _main;
-    return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
-      _main, _qrCapNote(g.holdCapSum));
+    var badgeNode = _qrMkBadge(g.hold), numNode = _qrAmtSpan(g.holdSum);
+    if (!(g.holdHasStop && g.holdCapSum != null)) {
+      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, badgeNode, numNode);
+    }
+    return _qrCapGrid(badgeNode, numNode, g.holdCapSum);
   };
 
   var _qrALab = function(n) {
