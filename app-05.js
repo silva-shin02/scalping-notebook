@@ -3217,17 +3217,21 @@ function _elCapNoteAmt(amount, opts) {
   if (amount == null) return null;
   var _g = _profitGradeFromPnl(amount, 1);
   var _gs = _GRADE_STYLE[_g] || _GRADE_STYLE.Z;
-  var _cs = opts.circle || 14;
+  var _fs = opts.fontSize || 11;
+  var _cs = opts.circle || (_fs + 3);
+  var _col = amount < 0 ? "#1E8449" : amount > 0 ? "#C0392B" : "#888";
   return React.createElement("div", {
     title: opts.title || "損切り値ちょうどで損切りできていた場合の損失額（100株換算）",
-    style: Object.assign({ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 3,
-      fontSize: opts.fontSize || 12, color: "#888", fontWeight: 700,
+    style: Object.assign({ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 1,
+      fontSize: _fs, color: _col, fontWeight: 700,
       whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 }, opts.style || {})
   },
+    React.createElement("span", null, "（"),
     (_g && _g !== "Z") ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
       width: _cs, height: _cs, borderRadius: "50%", background: _gs.bg, color: _gs.color,
-      border: "1px solid " + _gs.border, fontWeight: 800, fontSize: Math.round(_cs * 0.6), lineHeight: 1, flexShrink: 0 } }, _g) : null,
-    React.createElement("span", null, "（" + amount.toLocaleString() + "円）")
+      border: "1px solid " + _gs.border, fontWeight: 800, fontSize: Math.round(_cs * 0.6), lineHeight: 1, flexShrink: 0, marginRight: 1 } }, _g) : null,
+    React.createElement("span", null, amount.toLocaleString() + "円"),
+    React.createElement("span", null, "）")
   );
 }
 function _elCapNote(cutLine, opts) {
@@ -4560,7 +4564,7 @@ function EntryRecordForm(_ref_erf) {
           }
         }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—"),
         (!_fMiss && Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine)
-          ? _elCapNote(_fCutLine, { fontSize: 13, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
+          ? _elCapNote(_fCutLine, { fontSize: 15, circle: 16, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
       ),
 
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
@@ -4681,7 +4685,7 @@ function EntryRecordForm(_ref_erf) {
               }
             }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—"),
             ((fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine) || (Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine))
-              ? _elCapNote(_fCutLine, { fontSize: 13, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
+              ? _elCapNote(_fCutLine, { fontSize: 14, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
           ),
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),

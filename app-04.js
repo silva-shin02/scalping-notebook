@@ -2660,7 +2660,7 @@ function StockQuickRefTable(_props_qrt) {
       border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, lineHeight: 1, flexShrink: 0
     } }, g);
   };
-  var _qrCapNote = function(amt) { return _elCapNoteAmt(amt, { fontSize: 10, circle: 12, style: { marginTop: 0 } }); };
+  var _qrCapNote = function(amt) { return _elCapNoteAmt(amt, { style: { marginTop: 0 } }); };
   var _qrPlanChip = function(g) {
     if (!g || g.plan === "Z") return React.createElement("span", { style: { color: "#ccc", fontSize: 11 } }, "—");
     var _main;
@@ -4435,7 +4435,7 @@ function DayView(_ref57) {
         React.createElement("td", { colSpan: 2, style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
         React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("想定損益"), _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade),
-          (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap, { fontSize: 10, circle: 12 }) : null),
+          (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
         React.createElement("td", { colSpan: 2, style: { borderTop: "2px solid #FB923C" } }),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
           _lblTot("H結果損益"),
@@ -4443,7 +4443,7 @@ function DayView(_ref57) {
             ? React.createElement("span", { style: { fontWeight: 700, color: (_totHold||0) > 0 ? "#C0392B" : (_totHold||0) < 0 ? "#1E8449" : "#888" } },
                 ((_totHold||0) > 0 ? "+" : "") + (_totHold||0).toLocaleString() + "円")
             : React.createElement("span", { style: { color: "#ccc" } }, "—"),
-          (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap, { fontSize: 10, circle: 12 }) : null),
+          (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
       );
       var sortToggle = rowKey === "__total__"

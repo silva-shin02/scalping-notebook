@@ -1667,14 +1667,14 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { textAlign: "left", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, "合計"),
             React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblCtot("想定損益"), _rPnlDispABAll(_totPlanAB, _totPlan, _totPlanGradeAB, _totPlanGrade),
-              (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap, { fontSize: 10, circle: 12 }) : null),
+              (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
             React.createElement("td", { colSpan: 2, style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
               _lblCtot("H結果損益"),
               _totHoldCnt > 0
                 ? _rPnlDisp(_totHold, _totHoldGrade)
                 : React.createElement("span", { style: { color: "#ccc" } }, "—"),
-              (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap, { fontSize: 10, circle: 12 }) : null),
+              (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblCtot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
           );
           var _tAddDateRef = date;
@@ -2441,7 +2441,7 @@ function EntryLogView(_ref_elv) {
         React.createElement("td", { colSpan: 6, style: { textAlign: "right", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C" } }, "合計 →"),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblSvtot("実現損益"), _rPnlDisp(_totReal, _totRealGrade)),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblSvtot("想定損益"), _rPnlDispABAllSv(_totPlanABsv, _totPlan, _totPlanGradeABsv, _totPlanGrade),
-          (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap, { fontSize: 10, circle: 12 }) : null),
+          (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
         React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }),
         React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
@@ -2450,7 +2450,7 @@ function EntryLogView(_ref_elv) {
             ? React.createElement("span", { style: { fontWeight: 700, color: (_totHold||0) > 0 ? "#C0392B" : (_totHold||0) < 0 ? "#1E8449" : "#888" } },
                 ((_totHold||0) > 0 ? "+" : "") + (_totHold||0).toLocaleString() + "円")
             : React.createElement("span", { style: { color: "#ccc" } }, "—"),
-          (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap, { fontSize: 10, circle: 12 }) : null)
+          (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null)
       );
       var _svAddDateRef = date;
       return React.createElement("tr", { key: date + "_exp" },
