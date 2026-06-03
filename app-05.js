@@ -3185,7 +3185,7 @@ function _elDynPlanned(s, alpha, cutLine) {
 function _elDynHold(s, alpha, cutLine) {
   if (alpha == null) return _elSignedVal(s.holdPnl, s.holdPnlSign);
   if (s.osVal != null && alpha > Number(s.osVal)) {
-    if (!(s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) > alpha)) return null;
+    if (!(s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= alpha)) return null;
   }
   var hp, done = false;
   if (s.holdHighSign === "-" && s.holdHighVal != null) {
@@ -3920,7 +3920,7 @@ function EntryRecordForm(_ref_erf) {
   })();
 
   var _fMiss = (_fAlpha != null && Number(fOsVal) >= 0 && Number(fOsVal) < _fAlpha);
-  var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) > _fAlpha);
+  var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
   var _fMissEl = React.createElement("span", {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
       color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
@@ -4038,7 +4038,7 @@ function EntryRecordForm(_ref_erf) {
     var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 10;
     if (fResult === "miss") {
 
-      if (!(fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) > _av)) {
+      if (!(fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _av)) {
         setFHoldPnlSign("+"); setFHoldPnlVal("0"); return;
       }
     }
