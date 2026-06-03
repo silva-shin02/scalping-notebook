@@ -203,6 +203,8 @@ function EntryLogView(_ref_elv) {
   
   var _uSimAlpha = useState("10"), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
     simAlphaStr = _uSimAlphaA[0], setSimAlphaStr = _uSimAlphaA[1];
+  var _uSimCut = useState("10"), _uSimCutA = _slicedToArray(_uSimCut, 2),
+    simCutStr = _uSimCutA[0], setSimCutStr = _uSimCutA[1];
   var _uDiffRA = useState("10"), _uDiffRAA = _slicedToArray(_uDiffRA, 2),
     diffResAlpha = _uDiffRAA[0], setDiffResAlpha = _uDiffRAA[1];
   var _uSimMode = useState("month"), _uSimModeA = _slicedToArray(_uSimMode, 2),
@@ -1890,33 +1892,50 @@ function EntryLogView(_ref_elv) {
             if (simTo)   _simRecs = _simRecs.filter(function(r) { return r.date <= simTo; });
           }
           
+          var _simCut = (simCutStr !== "" && !isNaN(Number(simCutStr))) ? Number(simCutStr) : 10;
+          var _capYen = -Math.round(_simCut * 100);
           var _sTotPlan = null, _sTotHold = null;
+          var _sTotPlanCap = null, _sTotHoldCap = null;
           var _sTotPlanCnt = 0, _sTotHoldCnt = 0, _sHoldUnrec = 0;
+          var _sPlanDays = {}, _sHoldDays = {};
           _simRecs.forEach(function(r) {
             var s = r.signal;
             if (_simA != null && s.osVal != null) {
-              var _cRsim = (data.charts || {})[r.stock + "_" + r.date]; var _cutLsim = _cRsim && _cRsim.cutLine != null ? _cRsim.cutLine : 10;
               var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
               var _df = Number(s.osVal) - _simA;
-              var _dp = _df < 0 ? 0 : _df >= _cutLsim ? -Math.round(_df * 100) : (_cf != null ? Math.round((_simA - _cf) * 100) : null);
-              if (_dp != null) { _sTotPlan = (_sTotPlan||0) + _dp; _sTotPlanCnt++; }
+              var _isStop = _df >= _simCut;
+              var _dp = _df < 0 ? 0 : _isStop ? -Math.round(_df * 100) : (_cf != null ? Math.round((_simA - _cf) * 100) : null);
+              if (_dp != null) {
+                _sTotPlan = (_sTotPlan||0) + _dp; _sTotPlanCnt++; _sPlanDays[r.date] = 1;
+                _sTotPlanCap = (_sTotPlanCap||0) + (_isStop ? _capYen : _dp);
+              }
             }
             if (_simA != null) {
-              var _cRh = (data.charts || {})[r.stock + "_" + r.date]; var _cutLh = _cRh && _cRh.cutLine != null ? _cRh.cutLine : 10;
               if (s.osVal != null && _simA > Number(s.osVal)) {
 
               } else {
-                var _hph = null;
-                if (s.holdHighSign === "-" && s.holdHighVal != null) { var _hhEh = Number(s.holdHighVal) - _simA; if (_hhEh >= _cutLh) _hph = -Math.round(_hhEh * 100); }
-                if (_hph == null && s.osVal != null) { var _dfOsh = Number(s.osVal) - _simA; if (_dfOsh >= _cutLh) _hph = -Math.round(_dfOsh * 100); }
+                var _hph = null, _hStop = false;
+                if (s.holdHighSign === "-" && s.holdHighVal != null) { var _hhEh = Number(s.holdHighVal) - _simA; if (_hhEh >= _simCut) { _hph = -Math.round(_hhEh * 100); _hStop = true; } }
+                if (_hph == null && s.osVal != null) { var _dfOsh = Number(s.osVal) - _simA; if (_dfOsh >= _simCut) { _hph = -Math.round(_dfOsh * 100); _hStop = true; } }
                 if (_hph == null && s.holdOsConf != null) { var _hwh = _simA - Number(s.holdOsConf); _hph = Math.round((_simA + _hwh) * 100); }
-                if (_hph != null) { _sTotHold = (_sTotHold||0) + _hph; _sTotHoldCnt++; }
+                if (_hph != null) {
+                  _sTotHold = (_sTotHold||0) + _hph; _sTotHoldCnt++; _sHoldDays[r.date] = 1;
+                  _sTotHoldCap = (_sTotHoldCap||0) + (_hStop ? _capYen : _hph);
+                }
                 else if (s.holdOsConf == null) { _sHoldUnrec++; }
               }
             }
           });
+          var _nPlanDays = Object.keys(_sPlanDays).length;
+          var _nHoldDays = Object.keys(_sHoldDays).length;
+          var _avgPlanDay = _nPlanDays > 0 ? Math.round((_sTotPlan||0) / _nPlanDays) : null;
+          var _avgPlanDayCap = _nPlanDays > 0 ? Math.round((_sTotPlanCap||0) / _nPlanDays) : null;
+          var _avgHoldDay = _nHoldDays > 0 ? Math.round((_sTotHold||0) / _nHoldDays) : null;
+          var _avgHoldDayCap = _nHoldDays > 0 ? Math.round((_sTotHoldCap||0) / _nHoldDays) : null;
           var _pFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
           var _pCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+          var _capFmt = function(v) { return v == null ? "" : "（" + (v > 0 ? "+" : "") + v.toLocaleString() + "円）"; };
+          var _capBlock = function(v) { return v == null ? null : React.createElement("span", { title: "損切り値（" + _simCut + "円）で損切りできた場合", style: { fontSize: 11, fontWeight: 700, color: _pCol(v), marginLeft: 3 } }, _capFmt(v)); };
           var _periodLabels = [["1w","1週間（月〜金）"], ["month","今月"], ["3m","3ヶ月"], ["all","全期間"], ["custom","カスタム"]];
           return React.createElement("div", { style: { margin: "14px 0 10px", padding: "12px 14px", background: "#FFFBF5", border: "1.5px solid #FB923C", borderRadius: 8 } },
             React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#9A3412", marginBottom: 10 } }, "📊 一括α値シミュレーション"),
@@ -1935,8 +1954,22 @@ function EntryLogView(_ref_elv) {
                 )
               ),
               React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+              React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600, whiteSpace: "nowrap", marginLeft: 4 } }, "損切り値:"),
+              React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+                React.createElement("input", {
+                  type: "number", inputMode: "numeric", step: "1", min: "0", max: "30", placeholder: "0〜30",
+                  value: simCutStr,
+                  onChange: function(e) { var v = e.target.value; if (v === "") { setSimCutStr(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setSimCutStr(String(n)); },
+                  style: { width: 70, padding: "5px 6px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
+                }),
+                _stepBtn(
+                  function() { setSimCutStr(function(v) { return String(Math.min(30, (Number(v)||0) + 1)); }); },
+                  function() { setSimCutStr(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
+                )
+              ),
+              React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
               React.createElement("button", {
-                onClick: function() { setSimAlphaStr("10"); },
+                onClick: function() { setSimAlphaStr("10"); setSimCutStr("10"); },
                 style: { fontSize: 11, padding: "3px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }
               }, "クリア"),
               React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
@@ -1963,14 +1996,26 @@ function EntryLogView(_ref_elv) {
               : React.createElement("div", { style: { display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" } },
                   React.createElement("div", null,
                     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "想定損益合計（" + _sTotPlanCnt + "件）"),
-                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_sTotPlan) } }, _pFmt(_sTotPlan))
+                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_sTotPlan) } }, _pFmt(_sTotPlan)),
+                    _capBlock(_sTotPlanCap)
                   ),
                   React.createElement("div", null,
                     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } },
                       "H結果損益合計（" + _sTotHoldCnt + "件）",
                       _sHoldUnrec > 0 ? React.createElement("span", { style: { color: "#aaa", marginLeft: 4 } }, "※" + _sHoldUnrec + "件未記録") : null
                     ),
-                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_sTotHold) } }, _pFmt(_sTotHold))
+                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_sTotHold) } }, _pFmt(_sTotHold)),
+                    _capBlock(_sTotHoldCap)
+                  ),
+                  React.createElement("div", null,
+                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "1日当たり平均想定損益（" + _nPlanDays + "日）"),
+                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_avgPlanDay) } }, _pFmt(_avgPlanDay)),
+                    _capBlock(_avgPlanDayCap)
+                  ),
+                  React.createElement("div", null,
+                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "1日当たり平均結果損益（" + _nHoldDays + "日）"),
+                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_avgHoldDay) } }, _pFmt(_avgHoldDay)),
+                    _capBlock(_avgHoldDayCap)
                   ),
                   React.createElement("div", { style: { fontSize: 10, color: "#aaa" } },
                     "対象期間: ",
