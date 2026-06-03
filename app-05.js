@@ -4280,6 +4280,25 @@ function EntryRecordForm(_ref_erf) {
         style: Object.assign({}, I, { marginBottom: 6 })
       }),
       
+      React.createElement("div", { style: SH_ }, "\u2B50 \u30A8\u30F3\u30C8\u30EA\u30FC\u96E3\u6613\u5EA6"),
+      React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
+        [["A", "簡単"], ["B", "普通"], ["C", "難しい"]].map(function(pair) {
+          var val = pair[0], sub = pair[1];
+          var on = fDifficulty === val;
+          return React.createElement("button", {
+            key: val,
+            onClick: function() { setFDifficulty(on ? "" : val); },
+            style: {
+              flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: 700,
+              border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
+              background: on ? "#FFEDD5" : "#fff",
+              color: on ? "#9A3412" : "#888",
+              borderRadius: 6, cursor: "pointer", textAlign: "center"
+            }
+          }, val, React.createElement("span", { style: { fontSize: 10, fontWeight: 400, marginLeft: 3, color: on ? "#B45309" : "#aaa" } }, sub));
+        })
+      ),
+      
       (function() {
         var _ck = fStock + "_" + fDate;
         var _cd = data.charts && data.charts[_ck];
@@ -4584,24 +4603,6 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
       
-      React.createElement("div", { style: SH_ }, "\u2B50 \u30A8\u30F3\u30C8\u30EA\u30FC\u96E3\u6613\u5EA6"),
-      React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        [["A", "簡単"], ["B", "普通"], ["C", "難しい"]].map(function(pair) {
-          var val = pair[0], sub = pair[1];
-          var on = fDifficulty === val;
-          return React.createElement("button", {
-            key: val,
-            onClick: function() { setFDifficulty(on ? "" : val); },
-            style: {
-              flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: 700,
-              border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
-              background: on ? "#FFEDD5" : "#fff",
-              color: on ? "#9A3412" : "#888",
-              borderRadius: 6, cursor: "pointer", textAlign: "center"
-            }
-          }, val, React.createElement("span", { style: { fontSize: 10, fontWeight: 400, marginLeft: 3, color: on ? "#B45309" : "#aaa" } }, sub));
-        })
-      ),
       
       React.createElement("div", { style: SH_ }, "実エントリー"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
