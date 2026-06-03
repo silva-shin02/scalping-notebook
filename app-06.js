@@ -4135,6 +4135,29 @@ function EntryLogView(_ref_elv) {
       return (_elSignedVal(b.signal.realizedPnl, b.signal.realizedPnlSign) || 0) < (_elSignedVal(a.signal.realizedPnl, a.signal.realizedPnlSign) || 0) ? b : a;
     }) : null;
 
+
+    var _pnlAllRecs = _elPnlPeriodFilter(allRecords, pnlPeriod, pnlFrom, pnlTo);
+    var _planSum = 0, _holdSum = 0, _realSumAll = 0;
+    var _daySet = {}, _realDaySet = {};
+    _pnlAllRecs.forEach(function(r) {
+      var ai = _elAlphaInfo(r, data);
+      var pp = _elDynPlanned(r.signal, ai.alpha, ai.cutLine);
+      var hp = _elDynHold(r.signal, ai.alpha, ai.cutLine);
+      if (pp != null) { _planSum += pp; _daySet[r.date] = 1; }
+      if (hp != null) { _holdSum += hp; }
+      if (_elIsEntered(r.signal, r.item)) {
+        var rv = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign);
+        if (rv != null) { _realSumAll += rv; _realDaySet[r.date] = 1; }
+      }
+    });
+    var _nDays = Object.keys(_daySet).length;
+    var _nRealDays = Object.keys(_realDaySet).length;
+    var _avgPlanDay = _nDays > 0 ? Math.round(_planSum / _nDays) : null;
+    var _avgHoldDay = _nDays > 0 ? Math.round(_holdSum / _nDays) : null;
+    var _avgRealDay = _nRealDays > 0 ? Math.round(_realSumAll / _nRealDays) : null;
+    var _avgCol = function(v) { return v == null ? "#888" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+    var _avgFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円/日"; };
+
     
     var _byGroup = {};
     _pnlBase.forEach(function(r) {
@@ -4269,7 +4292,24 @@ function EntryLogView(_ref_elv) {
             React.createElement("span", { style: { color: "#888" } }, "損益比 "),
             React.createElement("span", { style: { fontWeight: 700, color: _pnlRR >= 1 ? "#C0392B" : "#1E8449" } }, _pnlRR + " : 1"))
         ),
-        
+
+        React.createElement("div", { style: { display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + _pnlGS.border } },
+          React.createElement("div", null,
+            React.createElement("span", { style: { color: "#888" } }, "1日平均 想定損益 "),
+            React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgPlanDay) } }, _avgFmt(_avgPlanDay))),
+          React.createElement("div", null,
+            React.createElement("span", { style: { color: "#888" } }, "1日平均 結果損益(H) "),
+            React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgHoldDay) } }, _avgFmt(_avgHoldDay))),
+          React.createElement("div", null,
+            React.createElement("span", { style: { color: "#888" } }, "1日平均 実現損益 "),
+            React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgRealDay) } }, _avgFmt(_avgRealDay))),
+          React.createElement("div", null,
+            React.createElement("span", { style: { color: "#888" } }, "対象 "),
+            React.createElement("span", { style: { fontWeight: 700 } }, _nDays + "日"))
+        ),
+        React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 4 } },
+          "※ 1日平均＝期間内の合計÷記録のある日数（想定・結果は全シグナル基準、実現は実エントリーのみ・100株換算）"),
+
         (_pnlBest || _pnlWorst) && React.createElement("div", {
           style: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }
         },
@@ -4493,7 +4533,7 @@ function EntryLogView(_ref_elv) {
     React.createElement("div", {
       style: { display: "flex", gap: 4, marginBottom: 10, borderBottom: "1px solid #e0ddd6", overflowX: "auto" }
     },
-      [["date", "📅 日別"], ["stock", "📈 銘柄別"], ["signal", "🎯 シグナル別"], ["cross", "⚡ クロス集計"], ["pnl", "💰 実現損益"], ["os", "📊 OS値"]].map(function(kv) {
+      [["date", "📅 日別"], ["stock", "📈 銘柄別"], ["signal", "🎯 シグナル別"], ["cross", "⚡ クロス集計"], ["pnl", "💰 損益"], ["os", "📊 OS値"]].map(function(kv) {
         var on = view === kv[0];
         return React.createElement("button", {
           key: kv[0],
