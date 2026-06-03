@@ -2970,7 +2970,7 @@ function DayView(_ref57) {
     pbSimAlpha = _uPbSimA[0], setPbSimAlpha = _uPbSimA[1];
   var _uPbSimCL = useState(null), _uPbSimCLA = _slicedToArray(_uPbSimCL, 2),
     pbSimCutLine = _uPbSimCLA[0], setPbSimCutLine = _uPbSimCLA[1];
-  var _uPbAMode = useState("stock"), _uPbAModeA = _slicedToArray(_uPbAMode, 2),
+  var _uPbAMode = useState("all"), _uPbAModeA = _slicedToArray(_uPbAMode, 2),
     pbAlphaMode = _uPbAModeA[0], setPbAlphaMode = _uPbAModeA[1];
   
   
@@ -4168,8 +4168,6 @@ function DayView(_ref57) {
           color: st.winPct != null ? (st.winPct >= 60 ? "#C0392B" : st.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
           fontWeight: st.winPct != null ? 700 : 400 } }, st.winPct != null ? st.winPct + "%" : "—"),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
-          _pbRealABAll(recs)),
-        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
             var _dynSP = null, _dynSPAB = null;
             (recs || []).forEach(function(r) {
@@ -4197,6 +4195,8 @@ function DayView(_ref57) {
             return React.createElement("span", { style: { fontWeight: 700, color: _hTot > 0 ? "#C0392B" : _hTot < 0 ? "#1E8449" : "#888" } },
               (_hTot > 0 ? "+" : "") + _hTot.toLocaleString() + "円");
           })()),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
+          _pbRealABAll(recs)),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
           tags && tags.length > 0
             ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },
@@ -4433,8 +4433,8 @@ function DayView(_ref57) {
         React.createElement("td", { colSpan: 11, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
           rowKey === "__total__" ? React.createElement(React.Fragment, null,
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
-              React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "α値の入力方法:"),
-              [["stock", "銘柄別α値"], ["all", "全銘柄一括α値"]].map(function(_m) {
+              React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "α値変更:"),
+              [["stock", "銘柄別"], ["all", "全銘柄一括"]].map(function(_m) {
                 var _on = pbAlphaMode === _m[0];
                 return React.createElement("button", { key: _m[0],
                   onClick: function() { if (_m[0] === "stock") { setPbSimAlpha(null); setPbSimCutLine(null); } else { setPbSimAlpha(function(p) { return p == null ? 5 : p; }); } setPbAlphaMode(_m[0]); },
@@ -4491,7 +4491,7 @@ function DayView(_ref57) {
             pbSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309", marginLeft: 6 } }, "※各銘柄のα値を上書きしてシミュレーション中")
           ),
           pbAlphaMode === "stock" && _pbStks.length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
-            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap", flexShrink: 0 } }, "銘柄別α値"),
+            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap", flexShrink: 0 } }, "銘柄別"),
             _pbStks.map(function(sk) {
               var _skCk = sk + "_" + date;
               var _skAlpha = (_pbCharts[_skCk] && _pbCharts[_skCk].alphaVal != null) ? _pbCharts[_skCk].alphaVal : 5;
@@ -5017,19 +5017,19 @@ function DayView(_ref57) {
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
       _pbGradeLegend,
       React.createElement("div", { style: { overflowX: "auto" } },
-        React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
           React.createElement("thead", null,
             React.createElement("tr", { style: { background: "#f5f4f0" } },
-              _pbTh("銘柄", { width: "auto", textAlign: "left" }),
+              _pbTh("銘柄", { width: 120, textAlign: "left" }),
               _pbTh("件", { width: 34 }),
               _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝"), { width: 30 }),
               _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "引"), { width: 30 }),
               _pbTh(React.createElement("span", { style: { color: "#C0392B" } }, "負"), { width: 30 }),
               _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達"), { width: 40 }),
               _pbTh("勝率", { width: 52 }),
-              _pbTh("実現損益", { width: 80 }),
               _pbTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
               _pbTh(React.createElement("span", null, "H勝敗/", React.createElement("span", { style: { display: "block" } }, "結果損益")), { width: 78 }),
+              _pbTh("実現損益", { width: 80 }),
               _pbTh("タグ", { width: 120, textAlign: "left" })
             )
           ),
