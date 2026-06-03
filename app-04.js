@@ -2805,14 +2805,14 @@ function StockQuickRefTable(_props_qrt) {
                   },
                     typeof c2.dayClose === "number"
                       ? React.createElement("span", { style: { color: "#333" } },
-                          Math.round(c2.dayClose).toLocaleString())
+                          activeStock === "日経平均株価" ? c2.dayClose.toLocaleString(undefined, { maximumFractionDigits: 2 }) : Math.round(c2.dayClose).toLocaleString())
                       : null,
                     
                     activeStock === "日経平均株価" && typeof c2.prevDayChange === "number"
                       ? React.createElement("span", {
                           style: { marginLeft: typeof c2.dayClose === "number" ? 4 : 0,
                             color: c2.prevDayChange >= 0 ? "#DC2626" : "#16A34A" }
-                        }, "(" + (c2.prevDayChange >= 0 ? "+" : "") + Math.round(c2.prevDayChange).toLocaleString() + "\u5186)")
+                        }, "(" + (c2.prevDayChange >= 0 ? "+" : "") + c2.prevDayChange.toLocaleString(undefined, { maximumFractionDigits: 2 }) + "\u5186)")
                       : (activeStock !== "日経平均株価" && typeof c2.prevDayPct === "number"
                         ? React.createElement("span", {
                             style: { marginLeft: typeof c2.dayClose === "number" ? 4 : 0,

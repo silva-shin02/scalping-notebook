@@ -4834,7 +4834,7 @@ function _NikkeiManualInput(_p) {
     var prevClose = _p.getPrevClose ? _p.getPrevClose() : null;
     if (typeof prevClose === "number" && prevClose > 0) {
       var diff = n - prevClose;
-      var diffRounded = Math.round(diff);
+      var diffRounded = Math.round(diff * 100) / 100;
       upd("prevDayChange", diffRounded);
       var suggestedMacro = _nikkeiMacroFromChange(diffRounded);
       if (suggestedMacro) upd("macroLocal", suggestedMacro);
