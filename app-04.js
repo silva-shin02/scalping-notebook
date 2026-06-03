@@ -4236,6 +4236,13 @@ function DayView(_ref57) {
           React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v))
         );
       };
+      var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0 3px", fontWeight: 400 } }, "/"); };
+      var _pbSlashCell = function(symObj, grade, pnl, missFlag) {
+        var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
+        var badge = missFlag ? _pbBadge("Q") : (grade && grade !== "Z" ? _pbBadge(grade) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
+        var amt = missFlag ? React.createElement("span", { style: { color: "#888" } }, "—") : (pnl != null ? React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(pnl) } }, _rPnlFmt(pnl)) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, sym, _sl(), badge, _sl(), amt);
+      };
       var subRows = [];
       var _totReal = null, _totPlan = null, _totHold = null;
       var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
@@ -4293,6 +4300,8 @@ function DayView(_ref57) {
             s.time || "—"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", color: "#555" } },
             (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])).join(" / ") || "—"),
+          React.createElement("td", { style: { padding: "5px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
+            s.difficulty ? _pbBadge(s.difficulty) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             s.osVal != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.osVal, true), fontWeight: s.osVal >= 10 ? 700 : 600 } }, s.osVal + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
@@ -4311,24 +4320,13 @@ function DayView(_ref57) {
               var _ewAbs = Math.abs(_ew);
               return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "↓" : "↑") + _ewAbs);
             })()),
-          React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
-            isOk ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○") :
-            isNg ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") :
-            isDraw ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700 } }, "△") :
-            isMiss ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700, fontSize: 10 } }, "ー") :
-            React.createElement("span", { style: { color: "#ccc" } }, "—")
-          ),
-          React.createElement("td", { style: { padding: "5px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
-            s.difficulty ? _pbBadge(s.difficulty) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%" } },
             entered
               ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700 } }, "実エントリー")
               : React.createElement("span", { style: { color: "#888" } }, "見送り")
           ),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
-            _tradeAlphaChip(s), _rPnlDisp(realPnl, gReal)),
-          React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
-            isMiss ? _qMissCell() : _rPnlDisp(planPnl, gPlan)),
+            _pbSlashCell(isOk ? {ch:"○",col:"#1E8449"} : isNg ? {ch:"×",col:"#C0392B"} : isDraw ? {ch:"△",col:"#6B7280"} : isMiss ? {ch:"ー",col:"#B45309"} : null, gPlan, planPnl, isMiss)),
           React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             s.holdHighVal != null
               ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -4339,9 +4337,9 @@ function DayView(_ref57) {
               ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: s.holdWidth >= 10 ? 700 : 600 } },
                   (s.holdWidthSign === "-" ? "↑" : s.holdWidthSign === "+" ? "↓" : "↕") + s.holdWidth)
               : React.createElement("span", { style: { color: "#ddd" } }, "—")),
-          React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
+          React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
             (function() {
-              if (isMiss) return _qMissCell();
+              if (isMiss) return _pbSlashCell({ch:"ー",col:"#B45309"}, null, null, true);
               var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
               var _dynHpExp = (function() {
                 var hp = holdPnl, pp = planPnl;
@@ -4355,17 +4353,16 @@ function DayView(_ref57) {
                 if (hp === 0) return "none";
                 return s.holdProfit;
               })();
-              var _sym = _dynHpExp === "yes" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
-                : _dynHpExp === "mid" ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "△")
-                : _dynHpExp === "none" ? React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー")
-                : _dynHpExp === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
-              if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
-            })())
+              var _symH = _dynHpExp === "yes" ? {ch:"○",col:"#1E8449"} : _dynHpExp === "mid" ? {ch:"△",col:"#B45309"} : _dynHpExp === "none" ? {ch:"ー",col:"#888"} : _dynHpExp === "no" ? {ch:"×",col:"#C0392B"} : null;
+              if (!_symH && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+              return _pbSlashCell(_symH, _hg, holdPnl, false);
+            })()),
+          React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
+            _tradeAlphaChip(s), _rPnlDisp(realPnl, gReal))
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
-            React.createElement("td", { colSpan: 15, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+            React.createElement("td", { colSpan: 14, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
               React.createElement(EntryLogCard, {
                 record: r,
                 alpha: (pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : 5; })()),
@@ -4402,15 +4399,17 @@ function DayView(_ref57) {
       };
       var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
-        React.createElement("td", { colSpan: 12, style: { padding: "5px 8px", textAlign: "right", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555" } }, "合計 →"),
-        React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade)),
+        React.createElement("td", { colSpan: 2, style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
+        React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("想定損益"), _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
+        React.createElement("td", { colSpan: 2, style: { borderTop: "2px solid #FB923C" } }),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
           _lblTot("H結果損益"),
           _totHoldCnt > 0
             ? React.createElement("span", { style: { fontWeight: 700, color: (_totHold||0) > 0 ? "#C0392B" : (_totHold||0) < 0 ? "#1E8449" : "#888" } },
                 ((_totHold||0) > 0 ? "+" : "") + (_totHold||0).toLocaleString() + "円")
-            : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+            : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+        React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
       );
       var sortToggle = rowKey === "__total__"
         ? React.createElement("div", { style: { display: "flex", gap: 4, padding: "4px 6px" } },
@@ -4683,17 +4682,16 @@ function DayView(_ref57) {
                   _rTh("銘柄", { width: "1%" }),
                   _rTh("時間", { width: "1%" }),
                   _rTh("シグナル"),
+                  _rTh("E難易度", { width: "1%" }),
                   _rTh("OS値", { width: "1%" }),
                   _rTh("確定値", { width: "1%" }),
                   _rTh("α値比値幅", { width: "1%" }),
-                  _rTh("勝敗", { width: "1%" }),
-                  _rTh("E難易度", { width: "1%" }),
                   _rTh("区分", { width: "1%" }),
-                  _rTh("実現損益"),
-                  _rTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "(100株)"))),
+                  _rTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額"))),
                   _rTh("H高値", { width: "1%" }),
                   _rTh("H確定値", { width: "1%" }),
-                  _rTh(React.createElement("span", null, "H勝敗/", React.createElement("span", { style: { display: "block" } }, "結果損益")))
+                  _rTh(React.createElement("span", null, "H勝敗/結果損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額"))),
+                  _rTh("実現損益")
                 )
               ),
               React.createElement("tbody", null, subRows),
