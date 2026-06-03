@@ -4346,7 +4346,50 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })(),
-      
+
+      (function() {
+        var _ckC = fStock + "_" + fDate;
+        var _cdC = data.charts && data.charts[_ckC];
+        var _cv = _cdC && _cdC.cutLine != null ? _cdC.cutLine : 10;
+        var _saveCut = function(val) {
+          var n = val !== "" ? Number(val) : null;
+          if (n != null && !isNaN(n)) { if (n < 1) n = 1; if (n > 30) n = 30; }
+          save(function(prev) {
+            var _pCharts = prev.charts || {};
+            var _nc = Object.assign({}, _pCharts);
+            var _entry = Object.assign({}, _nc[_ckC] || {});
+            if (n != null && !isNaN(n)) _entry.cutLine = n;
+            else delete _entry.cutLine;
+            _nc[_ckC] = _entry;
+            return Object.assign({}, prev, { charts: _nc });
+          });
+        };
+        return React.createElement("div", {
+          style: { display: "inline-flex", alignItems: "center", gap: 6, marginTop: 2, marginBottom: 6, marginLeft: 8,
+            padding: "4px 10px", borderRadius: 6, background: "#FEF2F2",
+            border: "1px solid #FECACA", fontSize: 12 }
+        },
+          React.createElement("span", { style: { color: "#B91C1C", fontWeight: 700 } }, "損切"),
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "この日の損切り値"),
+          React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FECACA", borderRadius: 4, overflow: "hidden" } },
+            React.createElement("input", {
+              type: "number", inputMode: "numeric", min: "1", max: "30", step: "1",
+              value: _cv != null ? String(_cv) : "10",
+              onChange: function(e) { _saveCut(e.target.value); },
+              placeholder: "10",
+              style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#7F1D1D",
+                       border: "none", outline: "none", background: "#fff", width: 64,
+                       textAlign: "right", boxSizing: "border-box" }
+            }),
+            _stepBtn(
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ckC] || {}); var _n = _ent.cutLine != null ? _ent.cutLine : 10; if (_n >= 30) return prev; _ent.cutLine = _n + 1; _pC[_ckC] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ckC] || {}); var _n = _ent.cutLine != null ? _ent.cutLine : 10; if (_n <= 1) return prev; _ent.cutLine = _n - 1; _pC[_ckC] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
+            )
+          ),
+          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
+        );
+      })(),
+
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 16, marginTop: 4, marginBottom: 4, flexWrap: "wrap" } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
           React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "OS値（水準線比）"),
