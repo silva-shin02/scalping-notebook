@@ -2966,7 +2966,7 @@ function DayView(_ref57) {
     pnlSortOrder = _useStatePSOA[0],
     setPnlSortOrder = _useStatePSOA[1];
   
-  var _uPbSim = useState(null), _uPbSimA = _slicedToArray(_uPbSim, 2),
+  var _uPbSim = useState(10), _uPbSimA = _slicedToArray(_uPbSim, 2),
     pbSimAlpha = _uPbSimA[0], setPbSimAlpha = _uPbSimA[1];
   var _uPbSimCL = useState(null), _uPbSimCLA = _slicedToArray(_uPbSimCL, 2),
     pbSimCutLine = _uPbSimCLA[0], setPbSimCutLine = _uPbSimCLA[1];
