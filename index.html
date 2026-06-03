@@ -37,6 +37,9 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 input[type=number]{-moz-appearance:textfield}
 canvas{image-rendering:high-quality;-webkit-image-rendering:high-quality}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* メモ編集欄: 選択ハイライトを半透明にして文字色が透けて見えるようにする */
+.sn-rme-editable::selection,.sn-rme-editable *::selection{background:rgba(100,150,255,0.30)}
+.sn-rme-editable::-moz-selection,.sn-rme-editable *::-moz-selection{background:rgba(100,150,255,0.30)}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>

@@ -1696,7 +1696,7 @@ function RichMemoEditor(_propsRME) {
       React.createElement("span", { style: { display: "inline-block", width: 6, flexShrink: 0 } }),
       React.createElement(ColorPicker, {
         value: curTextColor,
-        onChange: function(c) { setCurTextColor(c); pushColorHist(c); },
+        onChange: function(c) { setCurTextColor(c); pushColorHist(c); fmt("foreColor", c); },
         history: colorHist,
         onHistory: pushColorHist,
         quickColors: textColors,
@@ -1857,6 +1857,7 @@ function RichMemoEditor(_propsRME) {
     React.createElement("div", { style: { position: "relative" } },
       React.createElement("div", {
         ref: ref,
+        className: "sn-rme-editable",
         contentEditable: true,
         suppressContentEditableWarning: true,
         onInput: function() {
