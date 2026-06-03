@@ -1336,9 +1336,9 @@ function EntryLogView(_ref_elv) {
                   r.stock
                 ),
                 React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, s.time || "—"),
-                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   _sigParts.length > 0
-                    ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return React.createElement("div", { key: _i, style: { whiteSpace: "nowrap" } }, _t); }))
+                    ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return React.createElement("div", { key: _i, style: { whiteSpace: "normal", wordBreak: "break-word" } }, _t); }))
                     : "(未設定)"),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6",
                   color: s.difficulty ? (_DIFF_COL[s.difficulty] || "#555") : "#ccc", fontWeight: s.difficulty ? 700 : 400 } },
@@ -1488,8 +1488,8 @@ function EntryLogView(_ref_elv) {
                 React.createElement("table", { style: { width: "auto", borderCollapse: "collapse", fontSize: 11 } },
                   React.createElement("thead", null,
                     React.createElement("tr", null,
-                      _rTh("銘柄", { textAlign: "left" }), _rTh("時間"), _rTh("シグナル", { width: "1%" }), _rTh("E難易度"), _rTh("OS値", { width: "1%" }), _rTh("確定値", { width: "1%" }), _rTh("α値比値幅", { width: "1%" }), _rTh("E", { width: "1%" }),
-                      _rTh("想定損益"), _rTh("H高値", { width: "1%" }), _rTh("H確定値", { width: "1%" }), _rTh("H勝敗/結果損益"), _rTh("実現損益")
+                      _rTh("銘柄", { textAlign: "left", width: 60 }), _rTh("時間", { width: 48 }), _rTh("シグナル", { width: 190 }), _rTh(React.createElement("span", null, "E", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "難易度")), { width: 46 }), _rTh("OS値", { width: 48 }), _rTh("確定値", { width: 58 }), _rTh("α値比値幅", { width: 54 }), _rTh("E", { width: 74 }),
+                      _rTh("想定損益", { width: 138 }), _rTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "高値")), { width: 46 }), _rTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "確定値")), { width: 54 }), _rTh("H勝敗/結果損益", { width: 128 }), _rTh("実現損益", { width: 88 })
                     )
                   ),
                   React.createElement("tbody", null, subRows),

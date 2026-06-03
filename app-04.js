@@ -4298,12 +4298,12 @@ function DayView(_ref57) {
             r.stock),
           React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             s.time || "—"),
-          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", color: "#555", width: "1%" } },
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555" } },
             (function() {
               var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : []));
               if (!_sigs.length) return "—";
               return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
-                _sigs.map(function(_t, _i) { return React.createElement("div", { key: _i, style: { whiteSpace: "nowrap" } }, _t); }));
+                _sigs.map(function(_t, _i) { return React.createElement("div", { key: _i, style: { whiteSpace: "normal", wordBreak: "break-word" } }, _t); }));
             })()),
           React.createElement("td", { style: { padding: "5px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             s.difficulty ? _pbBadge(s.difficulty) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
@@ -4683,20 +4683,20 @@ function DayView(_ref57) {
             React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
               React.createElement("thead", null,
                 React.createElement("tr", { style: { background: "#FFF7ED" } },
-                  _rTh("", { width: "1%" }),
-                  _rTh("銘柄", { width: "1%" }),
-                  _rTh("時間", { width: "1%" }),
-                  _rTh("シグナル", { width: "1%" }),
-                  _rTh("E難易度", { width: "1%" }),
-                  _rTh("OS値", { width: "1%" }),
-                  _rTh("確定値", { width: "1%" }),
-                  _rTh("α値比値幅", { width: "1%" }),
-                  _rTh("E", { width: "1%" }),
-                  _rTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額"))),
-                  _rTh("H高値", { width: "1%" }),
-                  _rTh("H確定値", { width: "1%" }),
-                  _rTh(React.createElement("span", null, "H勝敗/結果損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額"))),
-                  _rTh("実現損益")
+                  _rTh("", { width: 20 }),
+                  _rTh("銘柄", { width: 52 }),
+                  _rTh("時間", { width: 44 }),
+                  _rTh("シグナル", { width: 180 }),
+                  _rTh(React.createElement("span", null, "E", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "難易度")), { width: 44 }),
+                  _rTh("OS値", { width: 46 }),
+                  _rTh("確定値", { width: 54 }),
+                  _rTh("α値比値幅", { width: 50 }),
+                  _rTh("E", { width: 70 }),
+                  _rTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 132 }),
+                  _rTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "高値")), { width: 44 }),
+                  _rTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "確定値")), { width: 50 }),
+                  _rTh(React.createElement("span", null, "H勝敗/結果損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 122 }),
+                  _rTh("実現損益", { width: 82 })
                 )
               ),
               React.createElement("tbody", null, subRows),
