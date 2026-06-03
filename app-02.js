@@ -4621,7 +4621,10 @@ function EntrySignalSection(_ref_es) {
                   React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                   s.time || "—"
                 ),
-                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sigLabel),
+                React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
+                  _sigParts.length > 0
+                    ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return React.createElement("div", { key: _i, style: { whiteSpace: "normal", wordBreak: "break-word" } }, _t); }))
+                    : "(未設定)"),
                 React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%",
                   color: s.difficulty ? (s.difficulty === "A" ? "#B71C1C" : s.difficulty === "B" ? "#C62828" : "#666") : "#ccc",
                   fontWeight: s.difficulty ? 700 : 400 } }, s.difficulty || "—"),
@@ -4709,22 +4712,22 @@ function EntrySignalSection(_ref_es) {
             React.createElement("table", { style: { width: "auto", borderCollapse: "collapse", fontSize: 11 } },
               React.createElement("thead", null,
                 React.createElement("tr", null,
-                  _esTh("時間", { textAlign: "left" }),
-                  _esTh("シグナル"),
-                  _esTh("難", { width: "1%" }),
-                  React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: "1%" } },
+                  _esTh("時間", { textAlign: "left", width: 50 }),
+                  _esTh("シグナル", { width: 190 }),
+                  _esTh("難", { width: 38 }),
+                  React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: 52 } },
                     "OS値",
                     React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + (c.alphaVal != null ? c.alphaVal : 5) + "円")
                   ),
-                  _esTh("確定値", { width: "1%" }),
-                  _esTh("α値比値幅", { width: "1%" }),
-                  _esTh("結果", { width: "1%" }),
-                  _esTh("想定損益"),
-                  _esTh("H高値", { width: "1%" }),
-                  _esTh("H確定値", { width: "1%" }),
-                  _esTh("H勝敗/結果損益"),
-                  _esTh("実現損益"),
-                  isCustomMode ? _esTh("並替") : null
+                  _esTh("確定値", { width: 58 }),
+                  _esTh("α値比値幅", { width: 54 }),
+                  _esTh("結果", { width: 40 }),
+                  _esTh("想定損益", { width: 96 }),
+                  _esTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "高値")), { width: 46 }),
+                  _esTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "確定値")), { width: 54 }),
+                  _esTh("H勝敗/結果損益", { width: 116 }),
+                  _esTh("実現損益", { width: 90 }),
+                  isCustomMode ? _esTh("並替", { width: 40 }) : null
                 )
               ),
               React.createElement("tbody", null, [totRow].concat(dataRows).concat([botTotRow]))
