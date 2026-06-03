@@ -3221,8 +3221,10 @@ function ImageAnnotator(_ref7) {
   var baseRef = useRef(null);
   var baseImgRef = useRef(null); 
   var blobUrlRef = useRef(null); 
-  var dprRef = useRef(1);        
-  var logicalSizeRef = useRef({w:0,h:0}); 
+  var dprRef = useRef(1);
+  var maxScaleRef = useRef(1);
+  var scRef = useRef(1);
+  var logicalSizeRef = useRef({w:0,h:0});
   var doneRef = useRef(null);    
   var strokesRef = useRef([]);
   var histRef = useRef([[]]);
@@ -3692,7 +3694,39 @@ function ImageAnnotator(_ref7) {
     var dpr = dprRef.current;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, c.width, c.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (baseImgRef.current) {
+      try { ctx.drawImage(baseImgRef.current, 0, 0, logicalSizeRef.current.w, logicalSizeRef.current.h); } catch(e) {}
+    }
+    return true;
+  }
+
+  function _applyRenderScale(z) {
+    var c = canvasRef.current;
+    if (!c) return false;
+    var ls = logicalSizeRef.current;
+    if (!ls.w || !ls.h) return false;
+    var dpr = window.devicePixelRatio || 1;
+    var zz = Math.max(z || 1, 1);
+    var maxScale = maxScaleRef.current || 1;
+    var fit = scRef.current || 1;
+    var scale = Math.min(fit * zz * dpr, maxScale);
+    if (scale < 0.05) scale = 0.05;
+    var tw = Math.round(ls.w * scale), th = Math.round(ls.h * scale);
+    if (c.width === tw && c.height === th) return false;
+    dprRef.current = scale;
+    c.width = tw;
+    c.height = th;
+    if (overlayCanvasRef.current) {
+      overlayCanvasRef.current.width = c.width;
+      overlayCanvasRef.current.height = c.height;
+    }
+    var ctx = c.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
     return true;
   }
   function rebuild(strokes) {
@@ -3828,31 +3862,15 @@ function ImageAnnotator(_ref7) {
       }
       
       
-      var devDPR = window.devicePixelRatio || 1;
-      var dpr = devDPR;
-      if (nw * dpr * nh * dpr > MAX_CANVAS_AREA) {
-        dpr = Math.sqrt(MAX_CANVAS_AREA / (nw * nh));
-      }
-      dpr = Math.max(1, dpr);
-      dprRef.current = dpr;
-      logicalSizeRef.current = { w: nw, h: nh };
-      c.width = Math.round(nw * dpr);
-      c.height = Math.round(nh * dpr);
-      console.log("[Annotator] DPR=" + dpr + " logical=" + nw + "×" + nh + " physical=" + c.width + "×" + c.height + " display=" + (window.innerWidth*0.96).toFixed(0) + " devicePixelRatio=" + window.devicePixelRatio);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      
-      
       baseImgRef.current = bImg;
-      
+      logicalSizeRef.current = { w: nw, h: nh };
+      scRef.current = Math.min((window.innerWidth * 0.96) / nw, ((window.innerHeight - 130) * 0.96) / nh, 1);
+      maxScaleRef.current = Math.sqrt(MAX_CANVAS_AREA / (nw * nh));
+      _applyRenderScale(1);
+      console.log("[Annotator] renderScale=" + dprRef.current.toFixed(3) + " logical=" + nw + "×" + nh + " physical=" + c.width + "×" + c.height + " maxScale=" + maxScaleRef.current.toFixed(3) + " devicePixelRatio=" + window.devicePixelRatio);
+
       setImgSrcState(imgUrl || null);
-      
-      if (overlayCanvasRef.current) {
-        overlayCanvasRef.current.width = c.width;
-        overlayCanvasRef.current.height = c.height;
-      }
-      
+
       baseRef.current = null;
       var saved = Array.isArray(img.strokes) ? img.strokes : [];
       
@@ -3869,7 +3887,7 @@ function ImageAnnotator(_ref7) {
         }
       }
       strokesRef.current = _toConsumableArray(saved);
-      saved.forEach(function (s) { return drawStroke(ctx, s); });
+      rebuild(saved);
       histRef.current = [_toConsumableArray(saved)];
       futRef.current = [];
       setCanUndo(false);
@@ -3877,12 +3895,8 @@ function ImageAnnotator(_ref7) {
       try {
         committedRef.current = ctx.getImageData(0, 0, c.width, c.height);
       } catch(e) { committedRef.current = null; }
-      var cw = window.innerWidth * 0.96,
-        ch = (window.innerHeight - 130) * 0.96;
-      
-      var sc = Math.min(cw / nw, ch / nh, 1);
-      setDispW(Math.round(nw * sc));
-      setDispH(Math.round(nh * sc));
+      setDispW(Math.round(nw * scRef.current));
+      setDispH(Math.round(nh * scRef.current));
     };
 
     
@@ -3932,7 +3946,17 @@ function ImageAnnotator(_ref7) {
     
     return function() { cancelled = true; };
   }, [img && (img.id || img.imageUrl || (img.base64 && img.base64.length)), img && img.strokes && img.strokes.length]);
-  
+
+  useEffect(function () {
+    if (!canvasRef.current || !logicalSizeRef.current.w) return;
+    var t = setTimeout(function () {
+      if (_applyRenderScale(zoom)) {
+        rebuild(strokesRef.current);
+      }
+    }, 160);
+    return function() { clearTimeout(t); };
+  }, [zoom]);
+
   useEffect(function () {
     var el = canvasRef.current;
     if (!el) return;
