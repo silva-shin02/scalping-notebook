@@ -3249,6 +3249,7 @@ function _elCalcStats(records, data) {
   var plannedWins = [], plannedLosses = [];
   var maxWins = [], maxLosses = [];
   var holdHasData = false;
+  var planCapSum = 0, holdCapSum = 0, planHasStop = false, holdHasStop = false;
   var hYes = 0, hMid = 0, hNone = 0, hNo = 0;
   records.forEach(function(r) {
     var s = r.signal;
@@ -3275,6 +3276,9 @@ function _elCalcStats(records, data) {
       sumPlanned += ppN;
       if (ppN > 0) plannedWins.push(ppN);
       else if (ppN < 0) plannedLosses.push(ppN);
+      var _pStop = _liveA && _elPlanIsStop(s, _ai.alpha, _ai.cutLine);
+      if (_pStop) planHasStop = true;
+      planCapSum += _pStop ? _elCapLossYen(_ai.cutLine) : ppN;
     }
     var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
     if (mp != null) {
@@ -3288,6 +3292,9 @@ function _elCalcStats(records, data) {
       var hpN = _liveA ? Math.round(hp) : _per100(hp);
       sumHold += hpN;
       holdHasData = true;
+      var _hStop = _liveA && _elHoldIsStop(s, _ai.alpha, _ai.cutLine);
+      if (_hStop) holdHasStop = true;
+      holdCapSum += _hStop ? _elCapLossYen(_ai.cutLine) : hpN;
     }
 
     var _hc;
@@ -3333,6 +3340,9 @@ function _elCalcStats(records, data) {
     sumPnl: sumPnl, sumPlanned: sumPlanned, sumMax: sumMax,
     expectedPlanned: expectedPlanned, expectedMax: expectedMax,
     sumHold: holdHasData ? sumHold : null,
+    planCapSum: planHasStop ? planCapSum : null,
+    holdCapSum: (holdHasData && holdHasStop) ? holdCapSum : null,
+    planHasStop: planHasStop, holdHasStop: holdHasStop,
     hYes: hYes, hMid: hMid, hNone: hNone, hNo: hNo,
     holdResTotal: hYes + hMid + hNone + hNo
   };

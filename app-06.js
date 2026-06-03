@@ -1379,6 +1379,7 @@ function EntryLogView(_ref_elv) {
         var _tSimCalc = function(recs, simAlpha) {
           if (simAlpha == null || !recs || !recs.length) return null;
           var _sOk = 0, _sNg = 0, _sMiss = 0, _sPlan = null, _sHold = null;
+          var _sPlanCap = null, _sHoldCap = null, _sPlanStop = false, _sHoldStop = false;
           recs.forEach(function(r) {
             var s = r.signal;
             var _cRs = (data.charts || {})[r.stock + "_" + r.date];
@@ -1399,14 +1400,28 @@ function EntryLogView(_ref_elv) {
             if (s.osVal != null) {
               var _cf1 = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
               var _df = Number(s.osVal) - simAlpha;
-              var _dp = _df < 0 ? 0 : _df >= _cutLs ? -Math.round(_df * 100) : (_cf1 != null ? Math.round((simAlpha - _cf1) * 100) : null);
-              if (_dp != null) _sPlan = (_sPlan || 0) + _dp;
+              var _pStop = _df >= _cutLs;
+              var _dp = _df < 0 ? 0 : _pStop ? -Math.round(_df * 100) : (_cf1 != null ? Math.round((simAlpha - _cf1) * 100) : null);
+              if (_dp != null) {
+                _sPlan = (_sPlan || 0) + _dp;
+                if (_pStop) _sPlanStop = true;
+                _sPlanCap = (_sPlanCap || 0) + (_pStop ? _elCapLossYen(_cutLs) : _dp);
+              }
             }
             var _hp = _elDynHold(s, simAlpha, _cutLs);
-            if (_hp != null) _sHold = (_sHold || 0) + _hp;
+            if (_hp != null) {
+              _sHold = (_sHold || 0) + _hp;
+              var _hStop = _elHoldIsStop(s, simAlpha, _cutLs);
+              if (_hStop) _sHoldStop = true;
+              _sHoldCap = (_sHoldCap || 0) + (_hStop ? _elCapLossYen(_cutLs) : _hp);
+            }
           });
           var _sTot = _sOk + _sNg;
-          return { ok: _sOk, ng: _sNg, miss: _sMiss, winPct: _sTot > 0 ? Math.round(_sOk / _sTot * 100) : null, plan: _sPlan, hold: _sHold };
+          return { ok: _sOk, ng: _sNg, miss: _sMiss, winPct: _sTot > 0 ? Math.round(_sOk / _sTot * 100) : null, plan: _sPlan, hold: _sHold,
+            planCapSum: _sPlanStop ? _sPlanCap : null, holdCapSum: _sHoldStop ? _sHoldCap : null, planHasStop: _sPlanStop, holdHasStop: _sHoldStop };
+        };
+        var _tCapNote = function(hasStop, capSum) {
+          return (hasStop && capSum != null) ? _elCapNoteAmt(capSum) : null;
         };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
           var isHoliday = !!_tblHolidaySet[date];
@@ -1472,9 +1487,11 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : _tSlash(st.sumPnl, st.expected, gradeReal)),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : (_simActive ? _simFmt(_dPlan) : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned"))),
+              isHoliday ? _dash : (_simActive ? _simFmt(_dPlan) : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
+              isHoliday ? null : _tCapNote(_simActive ? _simSt.planHasStop : st.planHasStop, _simActive ? _simSt.planCapSum : st.planCapSum)),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : (_simActive ? _simFmt(_dHold) : (function() { var _h = st.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })())),
+              isHoliday ? _dash : (_simActive ? _simFmt(_dHold) : (function() { var _h = st.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
+              isHoliday ? null : _tCapNote(_simActive ? _simSt.holdHasStop : st.holdHasStop, _simActive ? _simSt.holdCapSum : st.holdCapSum)),
             React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, verticalAlign: "top" } },
               !isHoliday && tags && tags.length > 0
                 ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 } },
@@ -1847,9 +1864,11 @@ function EntryLogView(_ref_elv) {
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
             _tSlash(_tMonthSt.sumPnl, _tMonthSt.expected, _tMonthGradeReal)),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            _tMSimActive ? _tMSimFmt(_tMSimSt.plan) : _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned")),
+            _tMSimActive ? _tMSimFmt(_tMSimSt.plan) : _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned"),
+            _tCapNote(_tMSimActive ? _tMSimSt.planHasStop : _tMonthSt.planHasStop, _tMSimActive ? _tMSimSt.planCapSum : _tMonthSt.planCapSum)),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            _tMSimActive ? _tMSimFmt(_tMSimSt.hold) : (function() { var _h = _tMonthSt.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
+            _tMSimActive ? _tMSimFmt(_tMSimSt.hold) : (function() { var _h = _tMonthSt.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })(),
+            _tCapNote(_tMSimActive ? _tMSimSt.holdHasStop : _tMonthSt.holdHasStop, _tMSimActive ? _tMSimSt.holdCapSum : _tMonthSt.holdCapSum)),
           React.createElement("td", { style: { borderBottom: _bb2, borderTop: _bb2 } })
         );
         var tbody = React.createElement("tbody", null,
