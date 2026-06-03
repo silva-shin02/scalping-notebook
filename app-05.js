@@ -3943,7 +3943,7 @@ function EntryRecordForm(_ref_erf) {
     var cd = data.charts && data.charts[ck];
     var av = cd && cd.alphaVal != null ? cd.alphaVal : 5;
     var osV = Number(fOsVal) || 0;
-    if (av != null && osV > 0 && osV < av) {
+    if (av != null && osV >= 0 && osV < av) {
       setFEstWidthSign(null); setFEstWidthVal("0");
       setFPlanSign(null); setFPlan("0"); return;
     }
@@ -4159,7 +4159,7 @@ function EntryRecordForm(_ref_erf) {
     var av = cd && cd.alphaVal != null ? cd.alphaVal : 5;
     if (av == null) return false;
     var osV = Number(fOsVal) || 0;
-    return osV > 0 && osV < av;
+    return osV >= 0 && osV < av;
   })();
 
   var I = {
