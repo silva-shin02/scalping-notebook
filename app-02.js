@@ -1649,14 +1649,43 @@ function RichMemoEditor(_propsRME) {
         el.style.background = "";
       }
     });
-    
+
+
+    var _carriesDeco = function(el) {
+      if (!el || el.nodeType !== 1) return false;
+      if (type === "underline") {
+        if (el.tagName === "U") return true;
+        var _td = ((el.style && el.style.textDecoration) || "") + " " + ((el.style && el.style.textDecorationLine) || "");
+        return _td.indexOf("underline") >= 0;
+      } else if (type === "text") {
+        if (el.tagName === "FONT" && el.hasAttribute("color")) return true;
+        return !!(el.style && el.style.color);
+      } else if (type === "hilite") {
+        return !!(el.style && (el.style.backgroundColor || el.style.background));
+      }
+      return false;
+    };
+    var _lift = wrapper, _pp = _lift.parentNode, _guard = 0;
+    while (_pp && _pp !== ref.current && _pp.nodeType === 1 && _guard++ < 40) {
+      if (!_carriesDeco(_pp)) { _lift = _pp; _pp = _pp.parentNode; continue; }
+      var _grand = _pp.parentNode;
+      if (!_grand) break;
+      var _rightClone = _pp.cloneNode(false);
+      var _sib = _lift.nextSibling;
+      while (_sib) { var _nx = _sib.nextSibling; _rightClone.appendChild(_sib); _sib = _nx; }
+      _grand.insertBefore(_lift, _pp.nextSibling);
+      if (_rightClone.childNodes.length) _grand.insertBefore(_rightClone, _lift.nextSibling);
+      if (!_pp.childNodes.length) _grand.removeChild(_pp);
+      _pp = _grand;
+    }
+
     var nr = document.createRange();
     nr.selectNodeContents(wrapper);
     sel.removeAllRanges();
     sel.addRange(nr);
     savedRange.current = nr.cloneRange();
     emit();
-    
+
     setTimeout(_detectActiveFmt, 0);
   };
   var ToolbarContent = function() {
