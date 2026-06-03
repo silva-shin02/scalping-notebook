@@ -4110,7 +4110,7 @@ function EntrySignalSection(_ref_es) {
     var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
     var pp = (function() {
       var _stored = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-      var _avS = c.alphaVal != null ? c.alphaVal : 5;
+      var _avS = c.alphaVal != null ? c.alphaVal : 10;
       if (s.osVal != null) {
         var _cutLSum = c.cutLine != null ? c.cutLine : 10;
         var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -4123,7 +4123,7 @@ function EntrySignalSection(_ref_es) {
     })();
     var mp = pp;
     var hp = (function() {
-      var _avH = c.alphaVal != null ? c.alphaVal : 5;
+      var _avH = c.alphaVal != null ? c.alphaVal : 10;
       var _cutLhp = c.cutLine != null ? c.cutLine : 10;
       if (s.osVal != null && _avH > Number(s.osVal)) return null;
       if (s.osVal != null && (Number(s.osVal) - _avH) >= _cutLhp) return -Math.round((Number(s.osVal) - _avH) * 100);
@@ -4326,7 +4326,7 @@ function EntrySignalSection(_ref_es) {
       React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
       React.createElement("input", {
         type: "number", inputMode: "numeric", step: "1", min: "0", max: "30",
-        value: c.alphaVal != null ? String(c.alphaVal) : "5",
+        value: c.alphaVal != null ? String(c.alphaVal) : "10",
         onChange: function(e) {
           var v = e.target.value;
           var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
@@ -4370,8 +4370,8 @@ function EntrySignalSection(_ref_es) {
         style: { width: 80, padding: "5px 4px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
       }),
       _stepBtn(
-        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n >= 30) return prev; _ce.alphaVal = _n + 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
-        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 5; if (_n <= 0) return prev; _ce.alphaVal = _n - 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
+        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 10; if (_n >= 30) return prev; _ce.alphaVal = _n + 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); },
+        function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.alphaVal != null ? _ce.alphaVal : 10; if (_n <= 0) return prev; _ce.alphaVal = _n - 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
       )
       ),
       React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -4509,7 +4509,7 @@ function EntrySignalSection(_ref_es) {
             var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
             
             if (s.osVal != null) {
-              var _avDyn = c.alphaVal != null ? c.alphaVal : 5;
+              var _avDyn = c.alphaVal != null ? c.alphaVal : 10;
               var _osVDyn = Number(s.osVal);
               var _cutLDyn = c.cutLine != null ? c.cutLine : 10;
               var _confDyn = s.osConfVal != null
@@ -4532,7 +4532,7 @@ function EntrySignalSection(_ref_es) {
             
             
             var _holdPnlDyn = _elSignedVal(s.holdPnl, s.holdPnlSign);
-            var _avH = c.alphaVal != null ? c.alphaVal : 5;
+            var _avH = c.alphaVal != null ? c.alphaVal : 10;
             if (_avH != null) {
               var _hpCalced = false;
               var _cutLH = c.cutLine != null ? c.cutLine : 10;
@@ -4562,7 +4562,7 @@ function EntrySignalSection(_ref_es) {
             
             var _dynResult = (function() {
               if (s.osVal == null || Number(s.osVal) < 0) return null;
-              var _av = (c.alphaVal != null ? c.alphaVal : 5), _osV = Number(s.osVal), _diff = _osV - _av;
+              var _av = (c.alphaVal != null ? c.alphaVal : 10), _osV = Number(s.osVal), _diff = _osV - _av;
               if (_diff < 0) return "miss";
               if (_diff >= (c.cutLine != null ? c.cutLine : 10)) return "ng";
               if (s.osConfVal == null || s.osConfVal === "") return null;
@@ -4643,7 +4643,7 @@ function EntrySignalSection(_ref_es) {
                   (function() {
                     if (s.osConfVal == null) return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
                     var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
-                    var _ew = (c.alphaVal != null ? c.alphaVal : 5) - _cf;
+                    var _ew = (c.alphaVal != null ? c.alphaVal : 10) - _cf;
                     if (_ew === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
                     var _ewAbs = Math.abs(_ew);
                     return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
@@ -4717,7 +4717,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("難", { width: 38 }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: 52 } },
                     "OS値",
-                    React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + (c.alphaVal != null ? c.alphaVal : 5) + "円")
+                    React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + (c.alphaVal != null ? c.alphaVal : 10) + "円")
                   ),
                   _esTh("確定値", { width: 58 }),
                   _esTh("α値比値幅", { width: 54 }),

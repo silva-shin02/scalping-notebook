@@ -184,7 +184,7 @@ function EntryLogView(_ref_elv) {
     calTblRecExp = _uCalTbl3A[0], setCalTblRecExp = _uCalTbl3A[1];
   var _uCalTbl4 = useState("time"), _uCalTbl4A = _slicedToArray(_uCalTbl4, 2),
     calTblRowSort = _uCalTbl4A[0], setCalTblRowSort = _uCalTbl4A[1];
-  var _uTExpA = useState("5"), _uTExpAA = _slicedToArray(_uTExpA, 2),
+  var _uTExpA = useState("10"), _uTExpAA = _slicedToArray(_uTExpA, 2),
     tExpAlpha = _uTExpAA[0], setTExpAlpha = _uTExpAA[1];
   var _uTExpC = useState("10"), _uTExpCA = _slicedToArray(_uTExpC, 2),
     tExpCut = _uTExpCA[0], setTExpCut = _uTExpCA[1];
@@ -197,7 +197,7 @@ function EntryLogView(_ref_elv) {
   var _uCResF = useState(""), _uCResFA = _slicedToArray(_uCResF, 2),
     calResFil = _uCResFA[0], setCalResFil = _uCResFA[1];
   
-  var _uSimAlpha = useState("5"), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
+  var _uSimAlpha = useState("10"), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
     simAlphaStr = _uSimAlphaA[0], setSimAlphaStr = _uSimAlphaA[1];
   var _uSimMode = useState("month"), _uSimModeA = _slicedToArray(_uSimMode, 2),
     simPeriodMode = _uSimModeA[0], setSimPeriodMode = _uSimModeA[1];
@@ -1262,7 +1262,7 @@ function EntryLogView(_ref_elv) {
             return (a.signal.time || "99:99").localeCompare(b.signal.time || "99:99");
           });
           if (!recs.length) return null;
-          var _ovA = (tExpAlpha !== "" && !isNaN(Number(tExpAlpha))) ? Number(tExpAlpha) : 5;
+          var _ovA = (tExpAlpha !== "" && !isNaN(Number(tExpAlpha))) ? Number(tExpAlpha) : 10;
           var _ovC = (tExpCut !== "" && !isNaN(Number(tExpCut))) ? Number(tExpCut) : 10;
           var _rPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
           var _rPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
@@ -1475,7 +1475,7 @@ function EntryLogView(_ref_elv) {
             ),
             React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円"),
             React.createElement("button", {
-              onClick: function() { setTExpAlpha("5"); setTExpCut("10"); },
+              onClick: function() { setTExpAlpha("10"); setTExpCut("10"); },
               style: { fontSize: 10, padding: "1px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
             }, "リセット"),
             React.createElement("span", { style: { fontSize: 9, color: "#aaa", whiteSpace: "nowrap" } }, "※この日全体にα/損切りを適用して試算")
@@ -1688,7 +1688,7 @@ function EntryLogView(_ref_elv) {
               ),
               React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
               React.createElement("button", {
-                onClick: function() { setSimAlphaStr("5"); },
+                onClick: function() { setSimAlphaStr("10"); },
                 style: { fontSize: 11, padding: "3px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }
               }, "クリア"),
               React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },

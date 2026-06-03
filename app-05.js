@@ -3156,7 +3156,7 @@ function _elSignedVal(v, sign) {
 function _elAlphaInfo(r, data) {
   var c = (data && data.charts) ? data.charts[r.stock + "_" + r.date] : null;
   return {
-    alpha: (c && c.alphaVal != null) ? Number(c.alphaVal) : 5,
+    alpha: (c && c.alphaVal != null) ? Number(c.alphaVal) : 10,
     cutLine: (c && c.cutLine != null) ? Number(c.cutLine) : 10
   };
 }
@@ -3677,7 +3677,7 @@ function VirtualAlphaCalc(_ref_vac) {
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#92400E", marginBottom: 6 } }, "α値シミュレーション"),
     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
       stocks.map(function(stock) {
-        var aStr = alphaByStock[stock] || "5";
+        var aStr = alphaByStock[stock] || "10";
         var res = calcResults(stock, aStr);
         var plan = res ? res.plan : null, result = res ? res.result : null;
         return React.createElement("div", { key: stock, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
@@ -3900,7 +3900,7 @@ function EntryRecordForm(_ref_erf) {
   var _hwAfter = function(s) {
     var _ck2 = fStock + "_" + fDate;
     var _cd2 = data.charts && data.charts[_ck2];
-    var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : 5;
+    var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : 10;
     if (_av2 == null) return;
     setFHoldOsConf(_av2 - (-s));
   };
@@ -3911,7 +3911,7 @@ function EntryRecordForm(_ref_erf) {
   var _fAlpha = (function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
-    return (_cd != null && _cd.alphaVal != null) ? _cd.alphaVal : 5;
+    return (_cd != null && _cd.alphaVal != null) ? _cd.alphaVal : 10;
   })();
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
@@ -3945,7 +3945,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
-    var av = cd && cd.alphaVal != null ? cd.alphaVal : 5;
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : 10;
     var osV = Number(fOsVal) || 0;
     if (av != null && osV >= 0 && osV < av) {
       setFEstWidthSign(null); setFEstWidthVal("0");
@@ -3976,7 +3976,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
-    var av = cd && cd.alphaVal != null ? cd.alphaVal : 5;
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : 10;
     if (av == null) return;
     var osV = Number(fOsVal) || 0;
     if (osV <= 0) return;
@@ -3996,7 +3996,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
-    var av = cd && cd.alphaVal != null ? cd.alphaVal : 5;
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : 10;
     var osV = Number(fOsVal) || 0;
     if (av != null && osV > 0 && osV < av) {
       setFPlanSign(null); setFPlan("0"); return;
@@ -4019,7 +4019,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
-    var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : 5;
+    var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : 10;
     if (_av == null || fHoldWidthSign == null || fHoldWidthVal === "") return;
     var _hwSigned = fHoldWidthSign === "+" ? Number(fHoldWidthVal) : -Number(fHoldWidthVal);
     var _newOsConf = _av - _hwSigned;
@@ -4032,7 +4032,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
-    var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : 5;
+    var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : 10;
     
     var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 10;
     if (fResult === "miss") {
@@ -4160,7 +4160,7 @@ function EntryRecordForm(_ref_erf) {
   var _estWidthIsOsLow = (function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
-    var av = cd && cd.alphaVal != null ? cd.alphaVal : 5;
+    var av = cd && cd.alphaVal != null ? cd.alphaVal : 10;
     if (av == null) return false;
     var osV = Number(fOsVal) || 0;
     return osV >= 0 && osV < av;
@@ -4306,7 +4306,7 @@ function EntryRecordForm(_ref_erf) {
       (function() {
         var _ck = fStock + "_" + fDate;
         var _cd = data.charts && data.charts[_ck];
-        var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : 5;
+        var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : 10;
         var _saveAlpha = function(val) {
           var n = val !== "" ? Number(val) : null;
           if (n != null && !isNaN(n)) { if (n > 30) n = 30; if (n < 0) n = 0; }
@@ -4330,7 +4330,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "number", inputMode: "numeric", min: "0", max: "30", step: "1",
-              value: _av != null ? String(_av) : "5",
+              value: _av != null ? String(_av) : "10",
               onChange: function(e) { _saveAlpha(e.target.value); },
               placeholder: "0〜30",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E",
@@ -4338,8 +4338,8 @@ function EntryRecordForm(_ref_erf) {
                        textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 5; if (_n >= 30) return prev; _ent.alphaVal = _n + 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
-              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 5; if (_n <= 0) return prev; _ent.alphaVal = _n - 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 10; if (_n >= 30) return prev; _ent.alphaVal = _n + 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 10; if (_n <= 0) return prev; _ent.alphaVal = _n - 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
             )
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
@@ -4512,7 +4512,7 @@ function EntryRecordForm(_ref_erf) {
               if (fHoldHighVal === "") return null;
               var _ck3 = fStock + "_" + fDate;
               var _cd3 = data.charts && data.charts[_ck3];
-              var _av3 = _cd3 && _cd3.alphaVal != null ? _cd3.alphaVal : 5;
+              var _av3 = _cd3 && _cd3.alphaVal != null ? _cd3.alphaVal : 10;
               if (_av3 == null) return null;
               var _shhv = fHoldHighSign === "-" ? (Number(fHoldHighVal) || 0) : fHoldHighSign === "+" ? -(Number(fHoldHighVal) || 0) : 0;
               var _diff = _shhv - _av3;
@@ -4535,7 +4535,7 @@ function EntryRecordForm(_ref_erf) {
                   setFHoldWidthSign(_newSg);
                   var _ck2 = fStock + "_" + fDate;
                   var _cd2 = data.charts && data.charts[_ck2];
-                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : 5;
+                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : 10;
                   if (_av2 != null && fHoldWidthVal !== "") {
                     var _ws = _newSg === "-" ? -(Number(fHoldWidthVal)||0) : (Number(fHoldWidthVal)||0);
                     setFHoldOsConf(_av2 - _ws);
@@ -4554,7 +4554,7 @@ function EntryRecordForm(_ref_erf) {
                   setFHoldWidthVal(_v);
                   var _ck2 = fStock + "_" + fDate;
                   var _cd2 = data.charts && data.charts[_ck2];
-                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : 5;
+                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : 10;
                   if (_av2 != null && _v !== "" && fHoldWidthSign != null) {
                     var _ws = fHoldWidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0);
                     setFHoldOsConf(_av2 - _ws);
