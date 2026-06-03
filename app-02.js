@@ -4491,6 +4491,7 @@ function EntrySignalSection(_ref_es) {
             ),
             isCustomMode ? React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }) : null
           );
+          var botTotRow = React.cloneElement(totRow, { key: "__estotbot__" });
           var prevGrpLabel = null;
           var dataRows = [];
           tblItems.forEach(function(tblItem) {
@@ -4726,7 +4727,7 @@ function EntrySignalSection(_ref_es) {
                   isCustomMode ? _esTh("並替") : null
                 )
               ),
-              React.createElement("tbody", null, [totRow].concat(dataRows))
+              React.createElement("tbody", null, [totRow].concat(dataRows).concat([botTotRow]))
             )
           )
           );
