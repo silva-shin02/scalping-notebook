@@ -1489,10 +1489,11 @@ function RichMemoEditor(_propsRME) {
       savedRange.current = endR.cloneRange();
     } else {
       try { document.execCommand(cmd, false, val || null); } catch(_){}
+      try { var _ls = window.getSelection(); if (_ls && _ls.rangeCount && _ls.toString().length) savedRange.current = _ls.getRangeAt(0).cloneRange(); } catch(_){}
     }
     emit();
   };
-  
+
   var wrapStyle = function(styleText) {
     if (!ref.current) return;
     _restoreSel();
@@ -1678,12 +1679,12 @@ function RichMemoEditor(_propsRME) {
         onMouseDown: function(e){
           e.preventDefault();
           if (activeFmt.text) clearDecoration("text");
-          else { fmt("foreColor", curTextColor); _collapseSel(); }
+          else { fmt("foreColor", curTextColor); }
         },
         onTouchEnd: function(e){
           e.preventDefault();
           if (activeFmt.text) clearDecoration("text");
-          else { fmt("foreColor", curTextColor); _collapseSel(); }
+          else { fmt("foreColor", curTextColor); }
         },
         title: activeFmt.text ? "文字色: 適用中 (タップで解除)" : "文字色を適用",
         style: { fontSize: 14, fontWeight: 700, color: curTextColor,
@@ -1708,12 +1709,12 @@ function RichMemoEditor(_propsRME) {
         onMouseDown: function(e){
           e.preventDefault();
           if (activeFmt.underline) clearDecoration("underline");
-          else { wrapStyle(_underlineStyle(curUnderlineColor)); _collapseSel(); }
+          else { wrapStyle(_underlineStyle(curUnderlineColor)); }
         },
         onTouchEnd: function(e){
           e.preventDefault();
           if (activeFmt.underline) clearDecoration("underline");
-          else { wrapStyle(_underlineStyle(curUnderlineColor)); _collapseSel(); }
+          else { wrapStyle(_underlineStyle(curUnderlineColor)); }
         },
         title: activeFmt.underline ? "下線: 適用中 (タップで解除)" : "下線を適用",
         style: { fontSize: 13, fontWeight: 700, color: "#333",
@@ -1741,12 +1742,12 @@ function RichMemoEditor(_propsRME) {
         onMouseDown: function(e){
           e.preventDefault();
           if (activeFmt.hilite) clearDecoration("hilite");
-          else { _applyHilite(curHiliteColor); _collapseSel(); }
+          else { _applyHilite(curHiliteColor); }
         },
         onTouchEnd: function(e){
           e.preventDefault();
           if (activeFmt.hilite) clearDecoration("hilite");
-          else { _applyHilite(curHiliteColor); _collapseSel(); }
+          else { _applyHilite(curHiliteColor); }
         },
         title: activeFmt.hilite ? "マーカー: 適用中 (タップで解除)" : "蛍光ハイライトを適用",
         style: { fontSize: 13, fontWeight: 700, color: "#333",
