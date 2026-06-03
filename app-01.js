@@ -3852,20 +3852,24 @@ function ImageAnnotator(_ref7) {
     var onImageReady = function(bImg, imgUrl) {
       if (cancelled) return; 
       var nw = bImg.naturalWidth, nh = bImg.naturalHeight;
-      var MAX_CANVAS_AREA = 16777216;
+      var MAX_CANVAS_AREA = 33554432;  // 32M（旧16M→引き上げ：高解像度スクショを縮小せず読み込む）
+      var MAX_CANVAS_DIM = 8192;       // 1辺の上限（iPadのcanvas制限内に収めSafariの間引きを防ぐ）
       var area = nw * nh;
-      var scale = 1;
-      if (area > MAX_CANVAS_AREA) {
-        scale = Math.sqrt(MAX_CANVAS_AREA / area);
+      // 面積 or 1辺が上限を超える場合のみ論理サイズを縮小
+      var _byArea = area > MAX_CANVAS_AREA ? Math.sqrt(MAX_CANVAS_AREA / area) : 1;
+      var _byDim = Math.max(nw, nh) > MAX_CANVAS_DIM ? MAX_CANVAS_DIM / Math.max(nw, nh) : 1;
+      var scale = Math.min(_byArea, _byDim);
+      if (scale < 1) {
         nw = Math.floor(nw * scale);
         nh = Math.floor(nh * scale);
       }
-      
-      
+
+
       baseImgRef.current = bImg;
       logicalSizeRef.current = { w: nw, h: nh };
       scRef.current = Math.min((window.innerWidth * 0.96) / nw, ((window.innerHeight - 130) * 0.96) / nh, 1);
-      maxScaleRef.current = Math.sqrt(MAX_CANVAS_AREA / (nw * nh));
+      // 物理canvasが面積・1辺の上限を超えないよう maxScale を算出
+      maxScaleRef.current = Math.min(Math.sqrt(MAX_CANVAS_AREA / (nw * nh)), MAX_CANVAS_DIM / Math.max(nw, nh));
       _applyRenderScale(1);
       console.log("[Annotator] renderScale=" + dprRef.current.toFixed(3) + " logical=" + nw + "×" + nh + " physical=" + c.width + "×" + c.height + " maxScale=" + maxScaleRef.current.toFixed(3) + " devicePixelRatio=" + window.devicePixelRatio);
 
