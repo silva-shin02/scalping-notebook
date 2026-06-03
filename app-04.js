@@ -2649,7 +2649,7 @@ function StockQuickRefTable(_props_qrt) {
   var _qrAmtSpan = function(v, suffix) {
     return React.createElement("span", {
       style: { fontSize: 11, fontWeight: 700, color: _qrAmtCol(v), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }
-    }, _qrFmtAmt(v) + (suffix || ""));
+    }, _qrFmtAmt(v) + (suffix != null ? suffix : "円"));
   };
 
   var _qrMkBadgeSm = function(g) {
@@ -2689,7 +2689,7 @@ function StockQuickRefTable(_props_qrt) {
         _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
           React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
           _qrMkBadgeSm(g.plan),
-          React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _qrAmtCol(g.planSum), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(g.planSum)),
+          React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _qrAmtCol(g.planSum), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(g.planSum) + "円"),
           React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "）")
         ) : null
       );
