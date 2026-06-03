@@ -4680,7 +4680,7 @@ function DayView(_ref57) {
           ),
           sortToggle,
           React.createElement("div", { style: { overflowX: "auto" } },
-            React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
+            React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
               React.createElement("thead", null,
                 React.createElement("tr", { style: { background: "#FFF7ED" } },
                   _rTh("", { width: "1%" }),

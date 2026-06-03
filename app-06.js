@@ -1485,7 +1485,7 @@ function EntryLogView(_ref_elv) {
               _tSortToggle,
               _tAlphaBar,
               React.createElement("div", { style: { overflowX: "auto" } },
-                React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } },
+                React.createElement("table", { style: { width: "auto", borderCollapse: "collapse", fontSize: 11 } },
                   React.createElement("thead", null,
                     React.createElement("tr", null,
                       _rTh("銘柄", { textAlign: "left" }), _rTh("時間"), _rTh("シグナル", { width: "1%" }), _rTh("E難易度"), _rTh("OS値", { width: "1%" }), _rTh("確定値", { width: "1%" }), _rTh("α値比値幅", { width: "1%" }), _rTh("E", { width: "1%" }),
