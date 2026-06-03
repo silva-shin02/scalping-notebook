@@ -4418,7 +4418,9 @@ function EntryRecordForm(_ref_erf) {
             "想定値幅",
             React.createElement("span", { style: { fontSize: 12, color: "#aaa", fontWeight: 400 } }, "（α値ー確定値）")
           ),
-          React.createElement("div", {
+          _estWidthIsOsLow
+            ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 80, padding: "5px 10px", fontSize: 14, fontWeight: 700, color: "#aaa", border: "1px solid #e5e5e5", borderRadius: 6, background: "#fafafa" } }, "ー")
+            : React.createElement("div", {
             style: { display: "flex", alignItems: "center", border: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
           },
             React.createElement("button", {
