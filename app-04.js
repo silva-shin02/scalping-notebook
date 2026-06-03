@@ -4236,7 +4236,7 @@ function DayView(_ref57) {
           React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v))
         );
       };
-      var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0 3px", fontWeight: 400 } }, "/"); };
+      var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0 1px", fontWeight: 400 } }, "/"); };
       var _pbSlashCell = function(symObj, grade, pnl, missFlag) {
         var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
         var badge = missFlag ? _pbBadge("Q") : (grade && grade !== "Z" ? _pbBadge(grade) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
@@ -4681,12 +4681,12 @@ function DayView(_ref57) {
                   _rTh("", { width: "1%" }),
                   _rTh("銘柄", { width: "1%" }),
                   _rTh("時間", { width: "1%" }),
-                  _rTh("シグナル"),
+                  _rTh("シグナル", { width: "1%" }),
                   _rTh("E難易度", { width: "1%" }),
                   _rTh("OS値", { width: "1%" }),
                   _rTh("確定値", { width: "1%" }),
                   _rTh("α値比値幅", { width: "1%" }),
-                  _rTh("区分", { width: "1%" }),
+                  _rTh("E", { width: "1%" }),
                   _rTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額"))),
                   _rTh("H高値", { width: "1%" }),
                   _rTh("H確定値", { width: "1%" }),
