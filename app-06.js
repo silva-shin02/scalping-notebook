@@ -199,6 +199,8 @@ function EntryLogView(_ref_elv) {
   
   var _uSimAlpha = useState("10"), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
     simAlphaStr = _uSimAlphaA[0], setSimAlphaStr = _uSimAlphaA[1];
+  var _uDiffRA = useState("10"), _uDiffRAA = _slicedToArray(_uDiffRA, 2),
+    diffResAlpha = _uDiffRAA[0], setDiffResAlpha = _uDiffRAA[1];
   var _uSimMode = useState("month"), _uSimModeA = _slicedToArray(_uSimMode, 2),
     simPeriodMode = _uSimModeA[0], setSimPeriodMode = _uSimModeA[1];
   var _uSimFrom = useState(""), _uSimFromA = _slicedToArray(_uSimFrom, 2),
@@ -475,14 +477,61 @@ function EntryLogView(_ref_elv) {
     });
     var diffAvgs = diffKeys.map(function(k) { return { k: k, avg: avgOf(byDiff[k]), cnt: byDiff[k].length }; });
     var dMaxAv = diffAvgs.length ? Math.max.apply(null, diffAvgs.map(function(x) { return x.avg; })) : 0;
+    var _dra = (diffResAlpha !== "" && !isNaN(Number(diffResAlpha))) ? Number(diffResAlpha) : 10;
+    var _diffResMap = {};
+    osRecs.forEach(function(r) {
+      var s = r.signal; var d = s.difficulty || "(未設定)";
+      if (!_diffResMap[d]) _diffResMap[d] = { ok: 0, draw: 0, ng: 0, miss: 0, cnt: 0, plan: 0, hold: 0, holdCnt: 0 };
+      var m = _diffResMap[d]; var _cl = _elAlphaInfo(r, data).cutLine;
+      var _res = _elDynResult(s, _dra, _cl);
+      m.cnt++;
+      if (_res === "ok") m.ok++; else if (_res === "draw") m.draw++; else if (_res === "ng") m.ng++; else if (_res === "miss") m.miss++;
+      var _pp = _elDynPlanned(s, _dra, _cl); if (_pp != null) m.plan += _pp;
+      var _hp = _elDynHold(s, _dra, _cl); if (_hp != null) { m.hold += _hp; m.holdCnt++; }
+    });
+    var _diffResKeys = Object.keys(_diffResMap).sort(function(a, b) { var ra = _diffRank[a] != null ? _diffRank[a] : 98, rb = _diffRank[b] != null ? _diffRank[b] : 98; return ra - rb; });
+    var _drTh = function(t, ex) { return React.createElement("th", { style: Object.assign({ padding: "2px 5px", fontWeight: 700, fontSize: 10, color: "#9A3412", borderBottom: "2px solid #FB923C", textAlign: "center", whiteSpace: "nowrap" }, ex || {}) }, t); };
+    var _drTd = function(c, col, ex) { return React.createElement("td", { style: Object.assign({ padding: "2px 5px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", color: col || "#333", fontWeight: 700, fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+    var _drPnlFmt = function(v) { return (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+    var _drPnlCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+    var _drStepBtn = function(lbl, fn) { return React.createElement("button", { onClick: fn, style: { width: 24, height: 24, fontSize: 13, border: "1px solid #ccc", background: "#f5f4f0", borderRadius: 4, cursor: "pointer", color: "#555", lineHeight: 1 } }, lbl); };
     var resSec = React.createElement("div", null,
-      _secH("🎯 E難易度別 平均OS値"),
-      diffAvgs.length === 0
+      _secH("🎯 E難易度別 結果（α値で再判定）"),
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 6, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "α値"),
+        _drStepBtn("−", function() { setDiffResAlpha(function(v) { return String(Math.max(0, (Number(v) || 0) - 1)); }); }),
+        React.createElement("input", { type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", value: diffResAlpha, onChange: function(e) { var v = e.target.value; if (v === "") { setDiffResAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setDiffResAlpha(String(n)); }, style: { width: 50, padding: "3px 6px", fontSize: 12, border: "1px solid #ccc", borderRadius: 4, textAlign: "right", fontWeight: 700, boxSizing: "border-box" } }),
+        _drStepBtn("＋", function() { setDiffResAlpha(function(v) { return String(Math.min(30, (Number(v) || 0) + 1)); }); }),
+        React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円で全件の結果(○△×ー)を再判定")
+      ),
+      _diffResKeys.length === 0
         ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", padding: "2px 0" } }, "難易度の記録がありません")
-        : diffAvgs.map(function(x) {
-            var lbl = x.k === "(未設定)" ? "(未設定)" : "難易度" + x.k;
-            return _bar(lbl + " (" + x.cnt + "件)", x.avg, dMaxAv, "#0EA5E9", x.avg + "円");
-          })
+        : React.createElement("div", { style: { overflowX: "auto" } },
+            React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", minWidth: "100%", fontSize: 11 } },
+              React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
+                _drTh("難易度", { textAlign: "left" }), _drTh("件"),
+                _drTh(React.createElement("span", { style: { color: "#1E8449" } }, "○")),
+                _drTh(React.createElement("span", { style: { color: "#6B7280" } }, "△")),
+                _drTh(React.createElement("span", { style: { color: "#C0392B" } }, "×")),
+                _drTh(React.createElement("span", { style: { color: "#B45309" } }, "ー")),
+                _drTh("勝率"), _drTh("想定利益"), _drTh("H利益")
+              )),
+              React.createElement("tbody", null, _diffResKeys.map(function(k) {
+                var m = _diffResMap[k]; var _wd = m.ok + m.ng; var _wp = _wd > 0 ? Math.round(m.ok / _wd * 100) : null;
+                return React.createElement("tr", { key: k },
+                  React.createElement("td", { style: { padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, k === "(未設定)" ? "(未設定)" : "難易度" + k),
+                  _drTd(m.cnt, "#333", { fontWeight: 600 }),
+                  _drTd(m.ok || "—", m.ok ? "#1E8449" : "#ccc"),
+                  _drTd(m.draw || "—", m.draw ? "#6B7280" : "#ccc"),
+                  _drTd(m.ng || "—", m.ng ? "#C0392B" : "#ccc"),
+                  _drTd(m.miss || "—", m.miss ? "#B45309" : "#ccc"),
+                  _drTd(_wp != null ? _wp + "%" : "—", _wp != null ? (_wp >= 50 ? "#C0392B" : "#1E8449") : "#ccc"),
+                  _drTd(_drPnlFmt(m.plan), _drPnlCol(m.plan), { fontWeight: 600 }),
+                  _drTd(m.holdCnt > 0 ? _drPnlFmt(m.hold) : "—", m.holdCnt > 0 ? _drPnlCol(m.hold) : "#ccc", { fontWeight: 600 })
+                );
+              }))
+            )
+          )
     );
     
     var _osConfSigned = function(s) {
@@ -589,37 +638,41 @@ function EntryLogView(_ref_elv) {
       )
     );
 
-    var _cmpPlanSum = 0, _cmpPlanCnt = 0, _cmpPlanWin = 0, _cmpHoldSum = 0, _cmpHoldCnt = 0, _cmpHoldWin = 0;
+    var _cmpP = { sum: 0, cnt: 0, win: 0, ws: 0, ls: 0, lc: 0 }, _cmpH = { sum: 0, cnt: 0, win: 0, ws: 0, ls: 0, lc: 0 };
+    var _cmpAdd = function(o, v) { if (v == null) return; o.sum += v; o.cnt++; if (v > 0) { o.win++; o.ws += v; } else if (v < 0) { o.ls += v; o.lc++; } };
     osRecs.forEach(function(r) {
       var s = r.signal; var _ai = _elAlphaInfo(r, data);
-      var _pp = _elDynPlanned(s, _ai.alpha, _ai.cutLine);
-      var _hp = _elDynHold(s, _ai.alpha, _ai.cutLine);
-      if (_pp != null) { _cmpPlanSum += _pp; _cmpPlanCnt++; if (_pp > 0) _cmpPlanWin++; }
-      if (_hp != null) { _cmpHoldSum += _hp; _cmpHoldCnt++; if (_hp > 0) _cmpHoldWin++; }
+      _cmpAdd(_cmpP, _elDynPlanned(s, _ai.alpha, _ai.cutLine));
+      _cmpAdd(_cmpH, _elDynHold(s, _ai.alpha, _ai.cutLine));
     });
-    var _cmpMax = Math.max(Math.abs(_cmpPlanSum), Math.abs(_cmpHoldSum), 1);
-    var _cmpBar = function(label, sum, cnt, win, color) {
-      var _avg = cnt > 0 ? Math.round(sum / cnt) : null;
-      var _wp = cnt > 0 ? Math.round(win / cnt * 100) : null;
+    var _cmpMax = Math.max(Math.abs(_cmpP.sum), Math.abs(_cmpH.sum), 1);
+    var _cmpBar = function(label, o, color) {
+      var _avg = o.cnt > 0 ? Math.round(o.sum / o.cnt) : null;
+      var _wp = o.cnt > 0 ? Math.round(o.win / o.cnt * 100) : null;
+      var _aw = o.win > 0 ? Math.round(o.ws / o.win) : null;
+      var _al = o.lc > 0 ? Math.round(o.ls / o.lc) : null;
+      var _pf = o.ls < 0 ? Math.round(o.ws / -o.ls * 100) / 100 : (o.ws > 0 ? "∞" : null);
       return React.createElement("div", { style: { marginBottom: 8 } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, marginBottom: 2 } },
           React.createElement("span", { style: { color: color } }, label),
-          React.createElement("span", { style: { color: sum > 0 ? "#C0392B" : sum < 0 ? "#1E8449" : "#888", fontVariantNumeric: "tabular-nums" } }, (sum > 0 ? "+" : "") + sum.toLocaleString() + "円")
+          React.createElement("span", { style: { color: o.sum > 0 ? "#C0392B" : o.sum < 0 ? "#1E8449" : "#888", fontVariantNumeric: "tabular-nums" } }, (o.sum > 0 ? "+" : "") + o.sum.toLocaleString() + "円")
         ),
         React.createElement("div", { style: { height: 10, background: "#f0ede6", borderRadius: 5, overflow: "hidden" } },
-          React.createElement("div", { style: { width: Math.round(Math.abs(sum) / _cmpMax * 100) + "%", height: "100%", background: color, borderRadius: 5 } })
+          React.createElement("div", { style: { width: Math.round(Math.abs(o.sum) / _cmpMax * 100) + "%", height: "100%", background: color, borderRadius: 5 } })
         ),
         React.createElement("div", { style: { fontSize: 10, color: "#666", marginTop: 2 } },
-          "期待値 " + (_avg != null ? (_avg > 0 ? "+" : "") + _avg.toLocaleString() + "円" : "—") + " / 勝率 " + (_wp != null ? _wp + "%" : "—") + " / " + cnt + "件")
+          "期待値 " + (_avg != null ? (_avg > 0 ? "+" : "") + _avg.toLocaleString() + "円" : "—") + " / 勝率 " + (_wp != null ? _wp + "%" : "—") + " / " + o.cnt + "件"),
+        React.createElement("div", { style: { fontSize: 10, color: "#888", marginTop: 1 } },
+          "PF " + (_pf == null ? "—" : _pf) + " / 勝平均 " + (_aw != null ? "+" + _aw.toLocaleString() + "円" : "—") + " / 負平均 " + (_al != null ? _al.toLocaleString() + "円" : "—"))
       );
     };
     var cmpKpiSec = React.createElement("div", null,
       _secH("⚖️ 利確（想定） vs ホールド 総合比較"),
       React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "各銘柄の設定α値で全件を再計算（100株換算）。バー＝利益合計。期待値＝1件平均。"),
-      _cmpBar("利確（想定）", _cmpPlanSum, _cmpPlanCnt, _cmpPlanWin, "#0EA5E9"),
-      _cmpBar("ホールド", _cmpHoldSum, _cmpHoldCnt, _cmpHoldWin, "#FB923C"),
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, marginTop: 4, color: _cmpHoldSum > _cmpPlanSum ? "#C0392B" : _cmpHoldSum < _cmpPlanSum ? "#1E8449" : "#888" } },
-        _cmpHoldSum > _cmpPlanSum ? "→ ホールドの方が +" + (_cmpHoldSum - _cmpPlanSum).toLocaleString() + "円 有利" : _cmpHoldSum < _cmpPlanSum ? "→ 利確の方が +" + (_cmpPlanSum - _cmpHoldSum).toLocaleString() + "円 有利" : "→ 拮抗")
+      _cmpBar("利確（想定）", _cmpP, "#0EA5E9"),
+      _cmpBar("ホールド", _cmpH, "#FB923C"),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, marginTop: 4, color: _cmpH.sum > _cmpP.sum ? "#C0392B" : _cmpH.sum < _cmpP.sum ? "#1E8449" : "#888" } },
+        _cmpH.sum > _cmpP.sum ? "→ ホールドの方が +" + (_cmpH.sum - _cmpP.sum).toLocaleString() + "円 有利" : _cmpH.sum < _cmpP.sum ? "→ 利確の方が +" + (_cmpP.sum - _cmpH.sum).toLocaleString() + "円 有利" : "→ 拮抗")
     );
 
     var _flowPts = [];
@@ -633,6 +686,8 @@ function EntryLogView(_ref_elv) {
     });
     var _flowMin = 0, _flowMax = 0;
     _flowPts.forEach(function(p) { p.forEach(function(y) { if (y != null) { if (y < _flowMin) _flowMin = y; if (y > _flowMax) _flowMax = y; } }); });
+    _flowMin = Math.floor(_flowMin / 5) * 5; _flowMax = Math.ceil(_flowMax / 5) * 5; if (_flowMax === _flowMin) _flowMax = _flowMin + 5;
+    var _fTicks = []; for (var _ft = _flowMin; _ft <= _flowMax; _ft += 5) _fTicks.push(_ft);
     var _flowAvg = [0,1,2,3].map(function(i) { var vs = _flowPts.map(function(p){ return p[i]; }).filter(function(y){ return y != null; }); return vs.length ? Math.round(vs.reduce(function(a,b){ return a+b; }, 0) / vs.length) : null; });
     var _fW = 340, _fH = 180, _fPadX = 40, _fPadTop = 14, _fPadBot = 28;
     var _fXOf = function(i) { return _fPadX + i * (_fW - _fPadX - 12) / 3; };
@@ -644,8 +699,10 @@ function EntryLogView(_ref_elv) {
       React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "水準線(0)基準・上=赤側/下=緑側。薄線＝各記録(" + _flowPts.length + "件)、太線＝平均。※OS値の上下は確定値と同じ側と仮定。"),
       React.createElement("div", { style: { overflowX: "auto" } },
         React.createElement("svg", { viewBox: "0 0 " + _fW + " " + _fH, style: { width: "100%", maxWidth: 560, height: "auto", display: "block" } },
-          React.createElement("line", { x1: _fPadX, y1: _fYOf(0), x2: _fW - 12, y2: _fYOf(0), stroke: "#bbb", strokeDasharray: "3 3", strokeWidth: 1 }),
-          React.createElement("text", { x: 2, y: _fYOf(0) + 3, fontSize: 8, fill: "#999" }, "水準0"),
+          _fTicks.map(function(t) { return React.createElement("g", { key: "gl" + t },
+            React.createElement("line", { x1: _fPadX, y1: _fYOf(t), x2: _fW - 12, y2: _fYOf(t), stroke: t === 0 ? "#bbb" : "#eee", strokeWidth: 1, strokeDasharray: t === 0 ? "3 3" : null }),
+            React.createElement("text", { x: _fPadX - 4, y: _fYOf(t) + 3, fontSize: 7, fill: t === 0 ? "#999" : "#bbb", textAnchor: "end" }, (t > 0 ? "+" : "") + t + "円")
+          ); }),
           _flowPts.map(function(p, i) { return React.createElement("path", { key: "f" + i, d: _fPath(p), fill: "none", stroke: "#9CA3AF", strokeWidth: 0.6, opacity: 0.22 }); }),
           React.createElement("path", { d: _fPath(_flowAvg), fill: "none", stroke: "#C0392B", strokeWidth: 2.5, opacity: 0.95 }),
           _flowAvg.map(function(y, i) { return y == null ? null : React.createElement("g", { key: "a" + i },
@@ -981,6 +1038,7 @@ function EntryLogView(_ref_elv) {
     return React.createElement("div", { style: { marginTop: 8 } },
       sumSec,
       cmpKpiSec,
+      resSec,
       reachSec,
       holdSec,
       priceFlowSec,
@@ -990,7 +1048,7 @@ function EntryLogView(_ref_elv) {
       ),
       React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
         React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, histSec, hrSec),
-        React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, resSec, sigSec)
+        React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, sigSec)
       ),
       React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
         React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, holdAlphaSec),
