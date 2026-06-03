@@ -1729,7 +1729,7 @@ function RichMemoEditor(_propsRME) {
       React.createElement("span", { style: { display: "inline-block", width: 6, flexShrink: 0 } }),
       React.createElement(ColorPicker, {
         value: curUnderlineColor,
-        onChange: function(c) { setCurUnderlineColor(c); pushColorHist(c); },
+        onChange: function(c) { setCurUnderlineColor(c); pushColorHist(c); if (activeFmt.underline) clearDecoration("underline"); wrapStyle(_underlineStyle(c)); },
         history: colorHist,
         onHistory: pushColorHist,
         quickColors: underlineColors,
@@ -1759,7 +1759,7 @@ function RichMemoEditor(_propsRME) {
       React.createElement("span", { style: { display: "inline-block", width: 6, flexShrink: 0 } }),
       React.createElement(ColorPicker, {
         value: curHiliteColor,
-        onChange: function(c) { setCurHiliteColor(c); pushColorHist(c); },
+        onChange: function(c) { setCurHiliteColor(c); pushColorHist(c); if (activeFmt.hilite) clearDecoration("hilite"); _applyHilite(c); },
         history: colorHist,
         onHistory: pushColorHist,
         quickColors: hiliteColors,
