@@ -2660,7 +2660,17 @@ function StockQuickRefTable(_props_qrt) {
       border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, lineHeight: 1, flexShrink: 0
     } }, g);
   };
-  var _qrCapNote = function(amt) { return _elCapNoteAmt(amt, { style: { marginTop: 0 } }); };
+  var _qrCapNote = function(amt) {
+    if (amt == null) return null;
+    var g = _profitGradeFromPnl(amt, 1);
+    var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
+    var col = amt < 0 ? "#1E8449" : amt > 0 ? "#C0392B" : "#888";
+    return React.createElement("div", { title: "損切り値ちょうどで損切りできていた場合の損失額（100株換算）",
+      style: { display: "inline-flex", alignItems: "center", gap: 3, marginTop: 1 } },
+      (g && g !== "Z") ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0 } }, g) : null,
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: col, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(amt) + "円")
+    );
+  };
   var _qrPlanChip = function(g) {
     if (!g || g.plan === "Z") return React.createElement("span", { style: { color: "#ccc", fontSize: 11 } }, "—");
     var _main;

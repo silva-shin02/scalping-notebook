@@ -171,6 +171,10 @@ function EntryLogView(_ref_elv) {
     sigSubTab = _uSigSubA[0], setSigSubTab = _uSigSubA[1];
   var _uSigExp = useState(null), _uSigExpA = _slicedToArray(_uSigExp, 2),
     sigSubExpand = _uSigExpA[0], setSigSubExpand = _uSigExpA[1];
+  var _uSigDA = useState(null), _uSigDAA = _slicedToArray(_uSigDA, 2),
+    sigDateAlpha = _uSigDAA[0], setSigDateAlpha = _uSigDAA[1];
+  var _uSigDC = useState(null), _uSigDCA = _slicedToArray(_uSigDC, 2),
+    sigDateCut = _uSigDCA[0], setSigDateCut = _uSigDCA[1];
   var _uCalM = useState(""), _uCalMA = _slicedToArray(_uCalM, 2),
     calMonth = _uCalMA[0], setCalMonth = _uCalMA[1];
   var _uCalExp = useState(null), _uCalExpA = _slicedToArray(_uCalExp, 2),
@@ -3115,10 +3119,83 @@ function EntryLogView(_ref_elv) {
           React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 4 } }, opts.icon + " " + opts.title),
           React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "記録なし"));
       }
+      var perf = rows.map(function(r) { return { key: r.key, ev: _calcD(r.recs).expectedPlanned, n: r.recs.length }; })
+                     .filter(function(p) { return p.ev != null && p.n >= 2; });
+      var bestKey = null, worstKey = null;
+      if (perf.length >= 2) {
+        var sorted = perf.slice().sort(function(a, b) { return b.ev - a.ev; });
+        bestKey = sorted[0].key; worstKey = sorted[sorted.length - 1].key;
+        if (bestKey === worstKey || sorted[0].ev === sorted[sorted.length - 1].ev) { bestKey = sorted[0].key; worstKey = null; }
+      }
+      var _hh = function(t, extra) { return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#9A3412" }, extra || {}) }, t); };
+      var allRecs = rows.reduce(function(a, r) { return a.concat(r.recs); }, []);
+      var _cell = function(content, isTot, extra) {
+        return React.createElement("td", { style: Object.assign({ padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: isTot ? "2px solid #ccc" : "1px solid #f0ede8" }, extra || {}) }, content);
+      };
+      var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
+      var _mkRow = function(label, labelColor, recs, isTot, tagKey) {
+        var st = _calcD(recs);
+        var wp = st.winPct, os = _sigAvgOS(recs), cf = _sigAvgConf(recs);
+        var isBest = !isTot && tagKey != null && tagKey === bestKey;
+        var isWorst = !isTot && tagKey != null && tagKey === worstKey;
+        var canExp = !isTot && opts.expandPrefix && recs.length > 0;
+        var isOn = canExp && sigSubExpand === opts.expandPrefix + tagKey;
+        var lb = isBest ? "3px solid #1E8449" : isWorst ? "3px solid #C0392B" : "3px solid transparent";
+        return React.createElement("tr", {
+          key: isTot ? "__tot__" : tagKey,
+          onClick: canExp ? function() { setSigSubExpand(isOn ? null : opts.expandPrefix + tagKey); } : undefined,
+          style: { background: isTot ? "#F5F0E8" : (isOn ? "#FFF7ED" : "transparent"), cursor: canExp ? "pointer" : "default" }
+        },
+          React.createElement("td", { style: { padding: "5px 8px", fontWeight: 700, fontSize: 11, whiteSpace: "nowrap", width: "1%", borderBottom: isTot ? "2px solid #ccc" : "1px solid #f0ede8", borderLeft: lb, color: labelColor || "#333" } },
+            (isOn ? "▶ " : "") + label,
+            isBest ? React.createElement("span", { style: { marginLeft: 4, fontSize: 9, color: "#1E8449", fontWeight: 800 } }, "▲得意") : null,
+            isWorst ? React.createElement("span", { style: { marginLeft: 4, fontSize: 9, color: "#C0392B", fontWeight: 800 } }, "▼苦手") : null
+          ),
+          _cell(recs.length, isTot, { fontWeight: 700 }),
+          _cell(wp != null ? wp + "%" : _dash, isTot, { color: _sigWpCol(wp), fontWeight: wp != null ? 700 : 400 }),
+          _cell(st.miss ? st.miss : _dash, isTot, { color: st.miss ? "#7C3AED" : "#ccc", fontWeight: st.miss ? 700 : 400 }),
+          _cell(os != null ? os + "円" : _dash, isTot, { fontVariantNumeric: "tabular-nums" }),
+          _cell(cf != null ? (cf > 0 ? "+" : "") + cf + "円" : _dash, isTot, { fontVariantNumeric: "tabular-nums" }),
+          _cell(st.sumPlanned !== 0 ? React.createElement("span", { style: { fontWeight: 600, color: _sigPnlCol(st.sumPlanned) } }, _sigYen(st.sumPlanned)) : _dash, isTot),
+          _cell(st.expectedPlanned != null ? React.createElement("span", { style: { fontWeight: 800, color: _sigPnlCol(st.expectedPlanned) } }, _sigYen(st.expectedPlanned)) : _dash, isTot)
+        );
+      };
+      return React.createElement("div", { style: { padding: "10px 12px", background: "#fff" } },
+        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, opts.icon + " " + opts.title),
+        React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "損益は100株あたり換算 / 期待値＝1トレード平均見込み（想定）/ ▲得意▼苦手は期待値で判定（2件以上）"),
+        React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+            React.createElement("thead", null,
+              React.createElement("tr", { style: { background: "#f5f4f0" } },
+                _hh(opts.headLabel, { textAlign: "left", paddingLeft: 8 }), _hh("件"), _hh("勝率"), _hh("E未達"), _hh("平均OS値"), _hh("平均確定値"), _hh("想定損益"), _hh("期待値")
+              )
+            ),
+            React.createElement("tbody", null,
+              [_mkRow("合計", "#9A3412", allRecs, true, null)].concat(
+                rows.map(function(r) { return _mkRow(r.label, r.labelColor, r.recs, false, r.key); })
+              )
+            )
+          )
+        ),
+        opts.expandPrefix && sigSubExpand && sigSubExpand.indexOf(opts.expandPrefix) === 0 && (function() {
+          var ek = sigSubExpand.slice(opts.expandPrefix.length);
+          var row = null;
+          for (var i = 0; i < rows.length; i++) { if (String(rows[i].key) === ek) { row = rows[i]; break; } }
+          if (!row) return null;
+          var er = row.recs.slice().sort(function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); });
+          return React.createElement("div", { style: { padding: "6px 0 0" } },
+            React.createElement("div", { style: { padding: "4px 4px 6px", fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "▶ " + row.label + "  " + er.length + "件"),
+            er.map(function(r) { return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate }); })
+          );
+        })()
+      );
+    };
+
+    var _sigDateFlat = function(opts) {
+      var rows = opts.rows.filter(function(r) { return r.recs.length > 0; });
+      var _ovA = sigDateAlpha, _ovC = sigDateCut;
       var _hh = function(t, extra) { return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#9A3412" }, extra || {}) }, t); };
       var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
-      var _expBase = (opts.expandPrefix || ("sig_" + opts.title)) + "::";
-      var _td = function(content, extra) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, extra || {}) }, content); };
       var _gBadge = function(g) { if (!g || g === "Z") return null; var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z; return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 2, flexShrink: 0 } }, g); };
       var _pnlCell = function(v) { if (v == null) return _dash; var col = v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: col, whiteSpace: "nowrap" } }, _gBadge(_profitGradeFromPnl(v, 1)), (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
       var _osCell = function(s) { return s.osVal != null ? React.createElement("span", { style: { color: _vcol(s.osVal, true), fontWeight: Number(s.osVal) >= 10 ? 700 : 600 } }, s.osVal + "円") : _dash; };
@@ -3129,22 +3206,48 @@ function EntryLogView(_ref_elv) {
       };
       var _hHighCell = function(s) { return s.holdHighVal != null ? React.createElement("span", { style: { color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: Number(s.holdHighVal) >= 10 ? 700 : 600 } }, (s.holdHighSign === "+" ? "↓" : s.holdHighSign === "-" ? "↑" : "") + s.holdHighVal) : _dash; };
       var _hConfCell = function(s) { return s.holdWidth != null ? React.createElement("span", { style: { color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: Number(s.holdWidth) >= 10 ? 700 : 600 } }, (s.holdWidthSign === "-" ? "↑" : s.holdWidthSign === "+" ? "↓" : "↕") + s.holdWidth) : _dash; };
+      var _numInput = function(val, onCh, color, ph) {
+        return React.createElement("input", { type: "number", inputMode: "numeric", step: "1", placeholder: ph,
+          value: val != null ? String(val) : "",
+          onChange: onCh,
+          style: { width: 54, padding: "3px 6px", fontSize: 12, fontWeight: 700, border: "1px solid " + color, borderRadius: 4, textAlign: "right", boxSizing: "border-box", outline: "none" } });
+      };
+      var _hasOv = (_ovA != null || _ovC != null);
+      var header = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 } },
+        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, opts.icon + " " + opts.title),
+        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginLeft: 6 } }, "一括α値"),
+        _numInput(_ovA, function(e){ var v=e.target.value; var n=v===""?null:(isNaN(Number(v))?null:Number(v)); if(n!=null){ if(n>30)n=30; if(n<0)n=0; } setSigDateAlpha(n); }, "#BAE6FD", "各日"),
+        React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円"),
+        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#B91C1C", marginLeft: 6 } }, "損切り値"),
+        _numInput(_ovC, function(e){ var v=e.target.value; var n=v===""?null:(isNaN(Number(v))?null:Number(v)); if(n!=null && n<1)n=1; setSigDateCut(n); }, "#FECACA", "各日"),
+        React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円"),
+        _hasOv ? React.createElement("button", { onClick: function(){ setSigDateAlpha(null); setSigDateCut(null); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット") : null,
+        _hasOv ? React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "※全エントリーに一括適用中") : null
+      );
+      if (rows.length === 0) {
+        return React.createElement("div", { style: { padding: "10px 12px", background: "#fff" } }, header,
+          React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "記録なし"));
+      }
       var bodyRows = [];
-      rows.forEach(function(grpRow) {
+      rows.forEach(function(grpRow, gi) {
         var recs = grpRow.recs.slice().sort(function(a, b) {
           if (a.date !== b.date) return b.date.localeCompare(a.date);
           return (a.signal.time || "").localeCompare(b.signal.time || "");
         });
-        recs.forEach(function(r) {
+        recs.forEach(function(r, ri) {
           var s = r.signal;
-          var ai = _elAlphaInfo(r, data);
-          var planPnl = _elDynPlanned(s, ai.alpha, ai.cutLine);
-          var holdPnl = _elDynHold(s, ai.alpha, ai.cutLine);
-          var isMiss = _elDynResult(s, ai.alpha, ai.cutLine) === "miss";
-          var _ek = _expBase + r.stock + "_" + r.signal.id;
+          var aiBase = _elAlphaInfo(r, data);
+          var aAlpha = _ovA != null ? _ovA : aiBase.alpha;
+          var aCut = _ovC != null ? _ovC : aiBase.cutLine;
+          var planPnl = _elDynPlanned(s, aAlpha, aCut);
+          var holdPnl = _elDynHold(s, aAlpha, aCut);
+          var isMiss = _elDynResult(s, aAlpha, aCut) === "miss";
+          var _ek = "sigdflat::" + r.stock + "_" + r.signal.id;
           var _on = sigSubExpand === _ek;
           var _dp = r.date.split("-");
           var _dow = ["日","月","火","水","木","金","土"][new Date(+_dp[0], +_dp[1]-1, +_dp[2]).getDay()];
+          var _topB = (gi > 0 && ri === 0) ? "3px solid #c8a26a" : "1px solid #f0ede8";
+          var _td = function(content, extra) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: _topB, fontVariantNumeric: "tabular-nums" }, extra || {}) }, content); };
           bodyRows.push(React.createElement("tr", {
             key: _ek,
             onClick: function() { setSigSubExpand(_on ? null : _ek); },
@@ -3163,15 +3266,15 @@ function EntryLogView(_ref_elv) {
           if (_on) {
             bodyRows.push(React.createElement("tr", { key: _ek + "_card" },
               React.createElement("td", { colSpan: 9, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
-                React.createElement(EntryLogCard, { record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate })
+                React.createElement(EntryLogCard, { record: r, alpha: aAlpha, cutLine: aCut, data: data, onEdit: handleEdit, onGoDate: handleGoDate })
               )
             ));
           }
         });
       });
       return React.createElement("div", { style: { padding: "10px 12px", background: "#fff" } },
-        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, opts.icon + " " + opts.title),
-        React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "1行=1エントリー（" + opts.headLabel + "順）／値は水準線比・損益は100株換算。行タップで明細"),
+        header,
+        React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "1行=1エントリー（日付順）／値は水準線比・損益は100株換算。空欄=各日の設定値・行タップで明細"),
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
@@ -3648,7 +3751,7 @@ function EntryLogView(_ref_elv) {
       grp.records.forEach(function(r) { var _dp = r.date.split("-"); var _wd = new Date(+_dp[0], +_dp[1]-1, +_dp[2]).getDay(); if (_wd >= 1 && _wd <= 5) _byDow[_wd].push(r); });
       var dowRows = [1,2,3,4,5].map(function(wd) { return { key: "dow" + wd, label: _dowLabel[wd] + "曜", recs: _byDow[wd] }; });
       return React.createElement(React.Fragment, null,
-        _sigRichTable({ title: "日別集計", icon: "📅", headLabel: "日付", rows: dateRows, expandPrefix: "date_" }),
+        _sigDateFlat({ title: "日別集計", icon: "📅", headLabel: "日付", rows: dateRows }),
         React.createElement("div", { style: { borderTop: "1px solid #f0ede8" } }, _sigRichTable({ title: "曜日別集計", icon: "📆", headLabel: "曜日", rows: dowRows, expandPrefix: null }))
       );
     };
