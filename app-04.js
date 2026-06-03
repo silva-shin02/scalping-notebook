@@ -4039,7 +4039,7 @@ function DayView(_ref57) {
     var _pbFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
     var _pbCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _pbTh = function(label, extra) {
-      return React.createElement("th", { style: Object.assign({ padding: "4px 3px", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%", textAlign: "center", fontSize: 10, lineHeight: 1.2 }, extra || {}) }, label);
+      return React.createElement("th", { style: Object.assign({ padding: "4px 3px", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%", textAlign: "center", fontSize: 10, lineHeight: 1.2, whiteSpace: "nowrap" }, extra || {}) }, label);
     };
     var _pbBadge = function(grade) {
       var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
@@ -4692,10 +4692,10 @@ function DayView(_ref57) {
                   _rTh("確定値", { width: 54 }),
                   _rTh("α値比値幅", { width: 50 }),
                   _rTh("E", { width: 70 }),
-                  _rTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 132 }),
+                  _rTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 104 }),
                   _rTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "高値")), { width: 44 }),
                   _rTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "確定値")), { width: 50 }),
-                  _rTh(React.createElement("span", null, "H勝敗/結果損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 122 }),
+                  _rTh(React.createElement("span", null, "H勝敗/結果損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 100 }),
                   _rTh("実現損益", { width: 82 })
                 )
               ),
@@ -5017,20 +5017,20 @@ function DayView(_ref57) {
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
       _pbGradeLegend,
       React.createElement("div", { style: { overflowX: "auto" } },
-        React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
           React.createElement("thead", null,
             React.createElement("tr", { style: { background: "#f5f4f0" } },
               _pbTh("銘柄", { width: "auto", textAlign: "left" }),
-              _pbTh("件"),
-              _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")),
-              _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")),
-              _pbTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")),
-              _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
-              _pbTh("勝率"),
-              _pbTh("実現損益"),
-              _pbTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)"))),
-              _pbTh(React.createElement("span", null, "H勝敗/", React.createElement("span", { style: { display: "block" } }, "結果損益"))),
-              _pbTh("タグ", { width: "auto", textAlign: "left" })
+              _pbTh("件", { width: 34 }),
+              _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝"), { width: 30 }),
+              _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "引"), { width: 30 }),
+              _pbTh(React.createElement("span", { style: { color: "#C0392B" } }, "負"), { width: 30 }),
+              _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達"), { width: 40 }),
+              _pbTh("勝率", { width: 52 }),
+              _pbTh("実現損益", { width: 80 }),
+              _pbTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
+              _pbTh(React.createElement("span", null, "H勝敗/", React.createElement("span", { style: { display: "block" } }, "結果損益")), { width: 78 }),
+              _pbTh("タグ", { width: 120, textAlign: "left" })
             )
           ),
           React.createElement("tbody", null,
