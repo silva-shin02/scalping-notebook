@@ -4267,6 +4267,7 @@ function DayView(_ref57) {
       var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
       var _totPlanABpb = null;
       var _totPlanABCntpb = 0;
+      var _totPlanCap = null, _totHoldCap = null, _totPlanStop = false, _totHoldStop = false;
       expRecs.forEach(function(r) {
         var rKey = r.stock + "_" + (r.signal.id || r.signal.time || "");
         var rExp = !!pnlRecordExpandSet[rKey];
@@ -4296,8 +4297,14 @@ function DayView(_ref57) {
         var bb = "1px solid #e8e5de";
         if (entered) _totRealCnt++;
         if (realPnl != null) { _totReal = (_totReal || 0) + realPnl; }
-        if (planPnl != null) { _totPlan = (_totPlan || 0) + planPnl; _totPlanCnt++; }
-        if (holdPnl != null) { _totHold = (_totHold || 0) + holdPnl; _totHoldCnt++; }
+        if (planPnl != null) { _totPlan = (_totPlan || 0) + planPnl; _totPlanCnt++;
+          var _pStopT = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
+          if (_pStopT) _totPlanStop = true;
+          _totPlanCap = (_totPlanCap || 0) + (_pStopT ? _elCapLossYen(_cutLrec) : planPnl); }
+        if (holdPnl != null) { _totHold = (_totHold || 0) + holdPnl; _totHoldCnt++;
+          var _hStopT = (_alphaRec != null && _elHoldIsStop(s, _alphaRec, _cutLrec));
+          if (_hStopT) _totHoldStop = true;
+          _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_cutLrec) : holdPnl); }
         var _isABpb = (s.difficulty === "A" || s.difficulty === "B");
         if (planPnl != null && _isABpb) { _totPlanABpb = (_totPlanABpb || 0) + planPnl; _totPlanABCntpb++; }
         var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
@@ -4427,14 +4434,16 @@ function DayView(_ref57) {
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
         React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
-        React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("想定損益"), _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
+        React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("想定損益"), _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade),
+          (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap, { fontSize: 10, circle: 12 }) : null),
         React.createElement("td", { colSpan: 2, style: { borderTop: "2px solid #FB923C" } }),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
           _lblTot("H結果損益"),
           _totHoldCnt > 0
             ? React.createElement("span", { style: { fontWeight: 700, color: (_totHold||0) > 0 ? "#C0392B" : (_totHold||0) < 0 ? "#1E8449" : "#888" } },
                 ((_totHold||0) > 0 ? "+" : "") + (_totHold||0).toLocaleString() + "円")
-            : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+            : React.createElement("span", { style: { color: "#ccc" } }, "—"),
+          (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap, { fontSize: 10, circle: 12 }) : null),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
       );
       var sortToggle = rowKey === "__total__"
