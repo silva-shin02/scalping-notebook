@@ -3201,6 +3201,36 @@ function _elDynHold(s, alpha, cutLine) {
   return hp;
 }
 
+function _elPlanIsStop(s, alpha, cutLine) {
+  return alpha != null && s.osVal != null && (Number(s.osVal) - alpha) >= (cutLine != null ? cutLine : 10);
+}
+function _elHoldIsStop(s, alpha, cutLine) {
+  if (alpha == null) return false;
+  var _cl = cutLine != null ? cutLine : 10;
+  if (s.holdHighSign === "-" && s.holdHighVal != null && (Number(s.holdHighVal) - alpha) >= _cl) return true;
+  if (s.osVal != null && (Number(s.osVal) - alpha) >= _cl) return true;
+  return false;
+}
+function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
+function _elCapNote(cutLine, opts) {
+  opts = opts || {};
+  var _cl = cutLine != null ? cutLine : 10;
+  var _v = _elCapLossYen(_cl);
+  var _g = _profitGradeFromPnl(_v, 1);
+  var _gs = _GRADE_STYLE[_g] || _GRADE_STYLE.Z;
+  return React.createElement("div", {
+    title: "損切り値（" + _cl + "円）ちょうどで損切りできていた場合の損失額（100株換算）",
+    style: Object.assign({ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 2,
+      fontSize: opts.fontSize || 9, color: "#888", fontWeight: 700,
+      whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 }, opts.style || {})
+  },
+    (_g && _g !== "Z") ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: 11, height: 11, borderRadius: "50%", background: _gs.bg, color: _gs.color,
+      border: "1px solid " + _gs.border, fontWeight: 800, fontSize: 7, lineHeight: 1, flexShrink: 0 } }, _g) : null,
+    React.createElement("span", null, "（" + _v.toLocaleString() + "円）")
+  );
+}
+
 function _elCalcStats(records, data) {
   var _liveA = !!(data && data.charts);
   var total = records.length;
@@ -4511,9 +4541,11 @@ function EntryRecordForm(_ref_erf) {
             borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#F5B7B1" : fPlanSign === "-" ? "#A9DFBF" : "#ddd"),
             minWidth: 80, textAlign: "right"
           }
-        }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—")
+        }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—"),
+        (!_fMiss && Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine)
+          ? _elCapNote(_fCutLine, { fontSize: 11, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
       ),
-      
+
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
         "Entry→Hold想定値"
       ),
@@ -4630,7 +4662,9 @@ function EntryRecordForm(_ref_erf) {
                 borderRadius: 6, border: "1px solid " + (fHoldPnlSign === "+" ? "#F5B7B1" : fHoldPnlSign === "-" ? "#A9DFBF" : "#ddd"),
                 minWidth: 80, textAlign: "right"
               }
-            }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—")
+            }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—"),
+            ((fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine) || (Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine))
+              ? _elCapNote(_fCutLine, { fontSize: 11, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
           ),
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
@@ -4974,7 +5008,8 @@ function EntryLogCard(_ref_elc) {
           React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "想定損益"),
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(planPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
             _gradeBadge(planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null),
-            _pnlFmt(planPnl))
+            _pnlFmt(planPnl)),
+          (_elcAi && _elPlanIsStop(s, _elcAi.alpha, _elcAi.cutLine)) ? _elCapNote(_elcAi.cutLine) : null
         ) : null,
         (_dispResult === "miss" && holdPnl == null) ? _chip("H損益", _qMissCell(14), "#888") :
         holdPnl != null ? React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
@@ -4982,7 +5017,8 @@ function EntryLogCard(_ref_elc) {
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
             _hpBadge(_dispHP),
             _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
-            _pnlFmt(holdPnl))
+            _pnlFmt(holdPnl)),
+          (_elcAi && _elHoldIsStop(s, _elcAi.alpha, _elcAi.cutLine)) ? _elCapNote(_elcAi.cutLine) : null
         ) : null
       ),
 

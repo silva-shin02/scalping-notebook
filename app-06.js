@@ -1599,7 +1599,8 @@ function EntryLogView(_ref_elv) {
                   })()),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, entLabel),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
-                  _slashCell(_dynRes === "ok" ? {ch:"○",col:"#1E8449"} : _dynRes === "ng" ? {ch:"×",col:"#C0392B"} : _dynRes === "draw" ? {ch:"△",col:"#6B7280"} : _dynRes === "miss" ? {ch:"ー",col:"#B45309"} : null, planGrade, planPnlN, _dynRes === "miss")),
+                  _slashCell(_dynRes === "ok" ? {ch:"○",col:"#1E8449"} : _dynRes === "ng" ? {ch:"×",col:"#C0392B"} : _dynRes === "draw" ? {ch:"△",col:"#6B7280"} : _dynRes === "miss" ? {ch:"ー",col:"#B45309"} : null, planGrade, planPnlN, _dynRes === "miss"),
+                  _elPlanIsStop(s, _ovA, _ovC) ? _elCapNote(_ovC) : null),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   s.holdHighVal != null
                     ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -1616,7 +1617,8 @@ function EntryLogView(_ref_elv) {
                     var _symH = _dynHP === "yes" ? {ch:"○",col:"#1E8449"} : _dynHP === "mid" ? {ch:"△",col:"#B45309"} : _dynHP === "none" ? {ch:"ー",col:"#888"} : _dynHP === "no" ? {ch:"×",col:"#C0392B"} : null;
                     if (!_symH && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
                     return _slashCell(_symH, _hg, holdPnl, false);
-                  })()),
+                  })(),
+                  (holdPnl != null && _elHoldIsStop(s, _ovA, _ovC)) ? _elCapNote(_ovC) : null),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _rPnlDisp(realPnlN, realGrade))
               )
             );
@@ -2364,7 +2366,7 @@ function EntryLogView(_ref_elv) {
                 return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
               })()),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _rPnlDisp(realPnlN, realGrade)),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynResSv === "miss" ? _qMissCell() : _rPnlDisp(planPnlN, planGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynResSv === "miss" ? _qMissCell() : React.createElement(React.Fragment, null, _rPnlDisp(planPnlN, planGrade), _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine) ? _elCapNote(_aiSv.cutLine) : null)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               s.holdHighVal != null
                 ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -2384,7 +2386,8 @@ function EntryLogView(_ref_elv) {
                   : _dynHPsv === "no" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "×") : null;
                 if (!_sym && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
                 return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(holdPnl, _hg));
-              })())
+              })(),
+              (holdPnl != null && _elHoldIsStop(s, _aiSv.alpha, _aiSv.cutLine)) ? _elCapNote(_aiSv.cutLine) : null)
           )
         );
         if (rExp) {

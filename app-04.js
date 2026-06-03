@@ -3850,7 +3850,7 @@ function DayView(_ref57) {
               })()),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, resultEl),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynResTr === "miss" ? _qMissCell() : _trRPnlDisp(planPnlN, planGrade)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynResTr === "miss" ? _qMissCell() : React.createElement(React.Fragment, null, _trRPnlDisp(planPnlN, planGrade), _elPlanIsStop(s, _aiTr.alpha, _aiTr.cutLine) ? _elCapNote(_aiTr.cutLine) : null)),
             React.createElement("td", { style: { padding: "4px 2px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               s.holdHighVal != null
                 ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -3879,8 +3879,11 @@ function DayView(_ref57) {
                 var _txt = (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円";
                 return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col, fontSize: 10 } }, _isMiss ? "(" + _txt + ")" : _txt);
               })();
-              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
-                holdResultEl, !_isMiss && _hg ? _trBadge(_hg) : null, _pnlEl
+              return React.createElement(React.Fragment, null,
+                React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
+                  holdResultEl, !_isMiss && _hg ? _trBadge(_hg) : null, _pnlEl
+                ),
+                (_hp != null && _elHoldIsStop(s, _aiTr.alpha, _aiTr.cutLine)) ? _elCapNote(_aiTr.cutLine) : null
               );
             })()),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _trRPnlDisp(realPnlN, realGrade))
@@ -4338,7 +4341,8 @@ function DayView(_ref57) {
               : React.createElement("span", { style: { color: "#888" } }, "見送り")
           ),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
-            _pbSlashCell(isOk ? {ch:"○",col:"#1E8449"} : isNg ? {ch:"×",col:"#C0392B"} : isDraw ? {ch:"△",col:"#6B7280"} : isMiss ? {ch:"ー",col:"#B45309"} : null, gPlan, planPnl, isMiss)),
+            _pbSlashCell(isOk ? {ch:"○",col:"#1E8449"} : isNg ? {ch:"×",col:"#C0392B"} : isDraw ? {ch:"△",col:"#6B7280"} : isMiss ? {ch:"ー",col:"#B45309"} : null, gPlan, planPnl, isMiss),
+            (_alphaRec != null && s.osVal != null && (Number(s.osVal) - _alphaRec) >= _cutLrec) ? _elCapNote(_cutLrec) : null),
           React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             s.holdHighVal != null
               ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: s.holdHighVal >= 10 ? 700 : 600 } },
@@ -4368,7 +4372,8 @@ function DayView(_ref57) {
               var _symH = _dynHpExp === "yes" ? {ch:"○",col:"#1E8449"} : _dynHpExp === "mid" ? {ch:"△",col:"#B45309"} : _dynHpExp === "none" ? {ch:"ー",col:"#888"} : _dynHpExp === "no" ? {ch:"×",col:"#C0392B"} : null;
               if (!_symH && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
               return _pbSlashCell(_symH, _hg, holdPnl, false);
-            })()),
+            })(),
+            (holdPnl != null && _elHoldIsStop(s, _alphaRec, _cutLrec)) ? _elCapNote(_cutLrec) : null),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
             _tradeAlphaChip(s), _rPnlDisp(realPnl, gReal))
         ));
