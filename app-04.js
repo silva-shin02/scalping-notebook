@@ -2660,28 +2660,37 @@ function StockQuickRefTable(_props_qrt) {
       border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, lineHeight: 1, flexShrink: 0
     } }, g);
   };
+  var _qrCapNote = function(amt) { return _elCapNoteAmt(amt, { fontSize: 10, circle: 12, style: { marginTop: 0 } }); };
   var _qrPlanChip = function(g) {
     if (!g || g.plan === "Z") return React.createElement("span", { style: { color: "#ccc", fontSize: 11 } }, "—");
+    var _main;
     if (g.planAB == null) {
-      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+      _main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
         _qrMkBadge(g.plan), _qrAmtSpan(g.planSum));
+    } else {
+      var _abAmt = g.planSumAB != null ? g.planSumAB : g.planSum;
+      var _showParen = _abAmt !== g.planSum;
+      _main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+        _qrMkBadge(g.planAB), _qrAmtSpan(_abAmt),
+        _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
+          React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
+          _qrMkBadgeSm(g.plan),
+          React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _qrAmtCol(g.planSum), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(g.planSum)),
+          React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "）")
+        ) : null
+      );
     }
-    var _abAmt = g.planSumAB != null ? g.planSumAB : g.planSum;
-    var _showParen = _abAmt !== g.planSum;
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
-      _qrMkBadge(g.planAB), _qrAmtSpan(_abAmt),
-      _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
-        React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
-        _qrMkBadgeSm(g.plan),
-        React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _qrAmtCol(g.planSum), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(g.planSum)),
-        React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "）")
-      ) : null
-    );
+    if (!(g.planHasStop && g.planCapSum != null)) return _main;
+    return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
+      _main, _qrCapNote(g.planCapSum));
   };
   var _qrHoldChip = function(g) {
     if (!g || g.hold === "Z") return React.createElement("span", { style: { color: "#ccc", fontSize: 11 } }, "—");
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+    var _main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
       _qrMkBadge(g.hold), _qrAmtSpan(g.holdSum));
+    if (!(g.holdHasStop && g.holdCapSum != null)) return _main;
+    return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
+      _main, _qrCapNote(g.holdCapSum));
   };
 
   var _qrALab = function(n) {

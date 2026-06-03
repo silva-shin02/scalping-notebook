@@ -3212,23 +3212,28 @@ function _elHoldIsStop(s, alpha, cutLine) {
   return false;
 }
 function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
-function _elCapNote(cutLine, opts) {
+function _elCapNoteAmt(amount, opts) {
   opts = opts || {};
-  var _cl = cutLine != null ? cutLine : 10;
-  var _v = _elCapLossYen(_cl);
-  var _g = _profitGradeFromPnl(_v, 1);
+  if (amount == null) return null;
+  var _g = _profitGradeFromPnl(amount, 1);
   var _gs = _GRADE_STYLE[_g] || _GRADE_STYLE.Z;
+  var _cs = opts.circle || 14;
   return React.createElement("div", {
-    title: "損切り値（" + _cl + "円）ちょうどで損切りできていた場合の損失額（100株換算）",
-    style: Object.assign({ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 2,
-      fontSize: opts.fontSize || 9, color: "#888", fontWeight: 700,
+    title: opts.title || "損切り値ちょうどで損切りできていた場合の損失額（100株換算）",
+    style: Object.assign({ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 3,
+      fontSize: opts.fontSize || 12, color: "#888", fontWeight: 700,
       whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 }, opts.style || {})
   },
     (_g && _g !== "Z") ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-      width: 11, height: 11, borderRadius: "50%", background: _gs.bg, color: _gs.color,
-      border: "1px solid " + _gs.border, fontWeight: 800, fontSize: 7, lineHeight: 1, flexShrink: 0 } }, _g) : null,
-    React.createElement("span", null, "（" + _v.toLocaleString() + "円）")
+      width: _cs, height: _cs, borderRadius: "50%", background: _gs.bg, color: _gs.color,
+      border: "1px solid " + _gs.border, fontWeight: 800, fontSize: Math.round(_cs * 0.6), lineHeight: 1, flexShrink: 0 } }, _g) : null,
+    React.createElement("span", null, "（" + amount.toLocaleString() + "円）")
   );
+}
+function _elCapNote(cutLine, opts) {
+  opts = opts || {};
+  var _cl = cutLine != null ? cutLine : 10;
+  return _elCapNoteAmt(_elCapLossYen(_cl), Object.assign({ title: "損切り値（" + _cl + "円）ちょうどで損切りできていた場合の損失額（100株換算）" }, opts));
 }
 
 function _elCalcStats(records, data) {
@@ -3396,6 +3401,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   var realSum = 0, planSum = 0, holdSum = 0;
   var realCount = 0, planCount = 0, holdCount = 0;
   var planSumAB = 0, planCountAB = 0;
+  var planCapSum = 0, holdCapSum = 0, planHasStop = false, holdHasStop = false;
   var osVals = [], confVals = [], holdConfVals = [];
   (signals || []).forEach(function(sig) {
     var s = _compatSignal(sig);
@@ -3409,9 +3415,17 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     if (pv != null) {
       planSum += pv; planCount++;
       if (isAB) { planSumAB += pv; planCountAB++; }
+      var _pStop = _live && _elPlanIsStop(s, _a, _c);
+      if (_pStop) planHasStop = true;
+      planCapSum += _pStop ? _elCapLossYen(_c) : pv;
     }
     var hv = _live ? _elDynHold(s, _a, _c) : _elSignedVal(s.holdPnl, s.holdPnlSign);
-    if (hv != null) { holdSum += hv; holdCount++; }
+    if (hv != null) {
+      holdSum += hv; holdCount++;
+      var _hStop = _live && _elHoldIsStop(s, _a, _c);
+      if (_hStop) holdHasStop = true;
+      holdCapSum += _hStop ? _elCapLossYen(_c) : hv;
+    }
     if (s.osVal != null) osVals.push(Number(s.osVal));
     var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
     if (_cf != null) confVals.push(_cf);
@@ -3427,6 +3441,9 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     realSum: realCount > 0 ? realSum : null,
     planSum: planCount > 0 ? planSum : null,
     holdSum: holdCount > 0 ? holdSum : null,
+    planCapSum: (planCount > 0 && planHasStop) ? planCapSum : null,
+    holdCapSum: (holdCount > 0 && holdHasStop) ? holdCapSum : null,
+    planHasStop: planHasStop, holdHasStop: holdHasStop,
     count: realCount,
     osAvg: _avg(osVals), confAvg: _avg(confVals), holdConfAvg: _avg(holdConfVals),
     alphaUsed: _live ? _a : null
@@ -4543,7 +4560,7 @@ function EntryRecordForm(_ref_erf) {
           }
         }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—"),
         (!_fMiss && Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine)
-          ? _elCapNote(_fCutLine, { fontSize: 11, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
+          ? _elCapNote(_fCutLine, { fontSize: 13, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
       ),
 
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
@@ -4664,7 +4681,7 @@ function EntryRecordForm(_ref_erf) {
               }
             }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—"),
             ((fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine) || (Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine))
-              ? _elCapNote(_fCutLine, { fontSize: 11, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
+              ? _elCapNote(_fCutLine, { fontSize: 13, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
           ),
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
