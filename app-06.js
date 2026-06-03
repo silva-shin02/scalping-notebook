@@ -450,17 +450,16 @@ function EntryLogView(_ref_elv) {
       })
     );
     
-    var _osBucketKey = function(v) { return v === 0 ? 0 : Math.floor((v - 1) / 5) * 5 + 1; };
+    var _osBucketKey = function(v) { return Math.round(Number(v)); };
     var _osBucketLabel = function(k) {
-      if (k === 0) return "0円";
-      return k + "〜" + (k + 4) + "円";
+      return k + "円";
     };
     var hist = {};
     osVals.forEach(function(v) { var k = _osBucketKey(v); hist[k] = (hist[k] || 0) + 1; });
 
     var _maxBucket = _osBucketKey(osMax);
     var _allBuckets = [0];
-    for (var _bk = 1; _bk <= _maxBucket; _bk += 5) { _allBuckets.push(_bk); }
+    for (var _bk = 1; _bk <= _maxBucket; _bk += 1) { _allBuckets.push(_bk); }
     var hKeys = _allBuckets.slice().sort(function(a, b) { return b - a; });
     hKeys.forEach(function(k) { if (hist[k] == null) hist[k] = 0; });
     var hMax = Math.max.apply(null, hKeys.map(function(k) { return hist[k]; })) || 1;
