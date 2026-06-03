@@ -4169,6 +4169,13 @@ function DayView(_ref57) {
           fontWeight: st.winPct != null ? 700 : 400 } }, st.winPct != null ? st.winPct + "%" : "—"),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
+            var _osArr = (recs || []).map(function(_r){ return _r.signal.osVal; }).filter(function(_v){ return _v != null && _v !== ""; }).map(Number);
+            if (!_osArr.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+            var _avgOs = Math.round(_osArr.reduce(function(_a, _b){ return _a + _b; }, 0) / _osArr.length * 10) / 10;
+            return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_avgOs, true), fontWeight: _avgOs >= 10 ? 700 : 600 } }, _avgOs + "円");
+          })()),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
+          (function() {
             var _dynSP = null, _dynSPAB = null;
             (recs || []).forEach(function(r) {
               var s = r.signal;
@@ -4430,7 +4437,7 @@ function DayView(_ref57) {
           )
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
-        React.createElement("td", { colSpan: 11, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+        React.createElement("td", { colSpan: 12, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
           rowKey === "__total__" ? React.createElement(React.Fragment, null,
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
               React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "α値変更:"),
@@ -5027,6 +5034,7 @@ function DayView(_ref57) {
               _pbTh(React.createElement("span", { style: { color: "#C0392B" } }, "負"), { width: 30 }),
               _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達"), { width: 40 }),
               _pbTh("勝率", { width: 52 }),
+              _pbTh(React.createElement("span", null, "平均", React.createElement("span", { style: { display: "block" } }, "OS値")), { width: 50 }),
               _pbTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
               _pbTh(React.createElement("span", null, "H勝敗/", React.createElement("span", { style: { display: "block" } }, "結果損益")), { width: 78 }),
               _pbTh("実現損益", { width: 80 }),
