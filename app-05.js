@@ -3876,11 +3876,15 @@ function EntryRecordForm(_ref_erf) {
   var _ewSignedRef = useRef(0);
   var _hhSignedRef = useRef(0);
   var _hwSignedRef = useRef(0);
+  var _entryOsSignedRef = useRef(0);
+  var _exitOsSignedRef = useRef(0);
   var _signedFromState = function(valStr, mul) { return (valStr === "" || valStr == null) ? null : mul * Math.abs(Number(valStr) || 0); };
   _oscSignedRef.current = _signedFromState(fOsConfVal,  fOsConfSign === "+" ? 1 : fOsConfSign === "-" ? -1 : 0);
   _ewSignedRef.current  = _signedFromState(fEstWidthVal,  fEstWidthSign === "-" ? 1 : fEstWidthSign === "+" ? -1 : 0);
   _hhSignedRef.current  = _signedFromState(fHoldHighVal,  fHoldHighSign === "-" ? 1 : fHoldHighSign === "+" ? -1 : 0);
   _hwSignedRef.current  = _signedFromState(fHoldWidthVal, fHoldWidthSign === "-" ? 1 : fHoldWidthSign === "+" ? -1 : 0);
+  _entryOsSignedRef.current = _signedFromState(fEntryOsVal, fEntryOsSign === "+" ? 1 : fEntryOsSign === "-" ? -1 : 0);
+  _exitOsSignedRef.current  = _signedFromState(fExitOsVal,  fExitOsSign === "+" ? 1 : fExitOsSign === "-" ? -1 : 0);
 
   var _applySigned = function(ref, delta, upSign, downSign, setVal, setSign, after) {
 
@@ -4695,21 +4699,24 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("div", { style: { display: "flex", flexDirection: "column", flex: 1 } },
                 React.createElement("span", { style: { fontSize: 11, color: "#666", marginBottom: 2 } }, "Entry-OS値（水準線比）"),
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-                  React.createElement("span", {
-                    title: "水準線からの値幅",
-                    style: { padding: "5px 8px", fontSize: 12, fontWeight: 700, borderRadius: 5, minWidth: 32, textAlign: "center",
-                      border: "1px solid #bbb", background: "#f5f4f0", color: "#999", alignSelf: "stretch", display: "inline-flex", alignItems: "center", justifyContent: "center" }
-                  }, "↕"),
-                  React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", flex: 1 } },
+                  React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid " + (fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#ccc"), borderRadius: 6, overflow: "hidden", flex: 1 } },
+                    React.createElement("button", {
+                      onClick: function() { setFEntryOsSign(fEntryOsSign === "+" ? "-" : (fEntryOsSign === "-" ? null : "+")); },
+                      style: { padding: "5px 10px", fontSize: 13, fontWeight: fEntryOsSign ? 700 : 400,
+                        border: "none", borderRight: "1px solid " + (fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#ccc"),
+                        background: fEntryOsSign === "+" ? "#FCEBEB" : fEntryOsSign === "-" ? "#EAF3DE" : "#f5f4f0",
+                        color: fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#999",
+                        cursor: "pointer", minWidth: 36, flexShrink: 0 }
+                    }, fEntryOsSign === "+" ? "↑" : fEntryOsSign === "-" ? "↓" : "↕"),
                     React.createElement("input", {
                       type: "number", inputMode: "numeric", step: "1",
-                      value: fEntryOsVal, onChange: function(e) { setFEntryOsVal(_toHankakuNum(e.target.value)); },
+                      value: fEntryOsVal, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFEntryOsVal(v); if ((Number(v) || 0) === 0) setFEntryOsSign(null); },
                       placeholder: "0",
                       style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }
                     }),
                     _stepBtn(
-                      function() { setFEntryOsVal(function(v) { return String((Number(v)||0) + 1); }); },
-                      function() { setFEntryOsVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
+                      function() { _applySigned(_entryOsSignedRef, 1, "+", "-", setFEntryOsVal, setFEntryOsSign); },
+                      function() { _applySigned(_entryOsSignedRef, -1, "+", "-", setFEntryOsVal, setFEntryOsSign); }
                     )
                   ),
                   React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
@@ -4734,21 +4741,24 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("div", { style: { display: "flex", flexDirection: "column", flex: 1 } },
                 React.createElement("span", { style: { fontSize: 11, color: "#666", marginBottom: 2 } }, "Exit-OS値（水準線比）"),
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-                  React.createElement("span", {
-                    title: "水準線からの値幅",
-                    style: { padding: "5px 8px", fontSize: 12, fontWeight: 700, borderRadius: 5, minWidth: 32, textAlign: "center",
-                      border: "1px solid #bbb", background: "#f5f4f0", color: "#999", alignSelf: "stretch", display: "inline-flex", alignItems: "center", justifyContent: "center" }
-                  }, "↕"),
-                  React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", flex: 1 } },
+                  React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid " + (fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#ccc"), borderRadius: 6, overflow: "hidden", flex: 1 } },
+                    React.createElement("button", {
+                      onClick: function() { setFExitOsSign(fExitOsSign === "+" ? "-" : (fExitOsSign === "-" ? null : "+")); },
+                      style: { padding: "5px 10px", fontSize: 13, fontWeight: fExitOsSign ? 700 : 400,
+                        border: "none", borderRight: "1px solid " + (fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#ccc"),
+                        background: fExitOsSign === "+" ? "#FCEBEB" : fExitOsSign === "-" ? "#EAF3DE" : "#f5f4f0",
+                        color: fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#999",
+                        cursor: "pointer", minWidth: 36, flexShrink: 0 }
+                    }, fExitOsSign === "+" ? "↑" : fExitOsSign === "-" ? "↓" : "↕"),
                     React.createElement("input", {
                       type: "number", inputMode: "numeric", step: "1",
-                      value: fExitOsVal, onChange: function(e) { setFExitOsVal(_toHankakuNum(e.target.value)); },
+                      value: fExitOsVal, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFExitOsVal(v); if ((Number(v) || 0) === 0) setFExitOsSign(null); },
                       placeholder: "0",
                       style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }
                     }),
                     _stepBtn(
-                      function() { setFExitOsVal(function(v) { return String((Number(v)||0) + 1); }); },
-                      function() { setFExitOsVal(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
+                      function() { _applySigned(_exitOsSignedRef, 1, "+", "-", setFExitOsVal, setFExitOsSign); },
+                      function() { _applySigned(_exitOsSignedRef, -1, "+", "-", setFExitOsVal, setFExitOsSign); }
                     )
                   ),
                   React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
