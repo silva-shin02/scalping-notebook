@@ -3161,7 +3161,7 @@ function _elAlphaInfo(r, data) {
   };
 }
 function _elDynResult(s, alpha, cutLine) {
-  if (alpha != null && s.osVal != null && Number(s.osVal) > 0) {
+  if (alpha != null && s.osVal != null && Number(s.osVal) >= 0) {
     var dv = Number(s.osVal) - alpha;
     if (dv < 0) return "miss";
     if (dv >= cutLine) return "ng";
@@ -3915,7 +3915,7 @@ function EntryRecordForm(_ref_erf) {
     return (_cd != null && _cd.cutLine != null) ? _cd.cutLine : 10;
   })();
 
-  var _fMiss = (_fAlpha != null && Number(fOsVal) > 0 && Number(fOsVal) < _fAlpha);
+  var _fMiss = (_fAlpha != null && Number(fOsVal) >= 0 && Number(fOsVal) < _fAlpha);
   var _fMissEl = React.createElement("span", {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
       color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }

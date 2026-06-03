@@ -4560,7 +4560,7 @@ function EntrySignalSection(_ref_es) {
             var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
             
             var _dynResult = (function() {
-              if (s.osVal == null || Number(s.osVal) <= 0) return null;
+              if (s.osVal == null || Number(s.osVal) < 0) return null;
               var _av = (c.alphaVal != null ? c.alphaVal : 5), _osV = Number(s.osVal), _diff = _osV - _av;
               if (_diff < 0) return "miss";
               if (_diff >= (c.cutLine != null ? c.cutLine : 10)) return "ng";

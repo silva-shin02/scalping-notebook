@@ -1138,7 +1138,7 @@ function EntryLogView(_ref_elv) {
             var s = r.signal;
             var _cRs = (data.charts || {})[r.stock + "_" + r.date];
             var _cutLs = _cRs && _cRs.cutLine != null ? _cRs.cutLine : 10;
-            if (s.osVal != null && Number(s.osVal) > 0) {
+            if (s.osVal != null && Number(s.osVal) >= 0) {
               var _dv = Number(s.osVal) - simAlpha;
               var _dynR = null;
               if (_dv < 0) _dynR = "miss";
