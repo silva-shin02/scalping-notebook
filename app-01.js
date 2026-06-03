@@ -3209,11 +3209,6 @@ function ImageAnnotator(_ref7) {
     imgSrcState = _useStateImgSrcS[0],
     setImgSrcState = _useStateImgSrcS[1];
 
-  var _useDiag = useState(""),
-    _useDiagA = _slicedToArray(_useDiag, 2),
-    _diag = _useDiagA[0],
-    setDiag = _useDiagA[1];
-
   
   var _useState63 = useState(null),
     _useState64 = _slicedToArray(_useState63, 2),
@@ -3873,15 +3868,6 @@ function ImageAnnotator(_ref7) {
       maxScaleRef.current = Math.sqrt(MAX_CANVAS_AREA / (nw * nh));
       _applyRenderScale(1);
       console.log("[Annotator] renderScale=" + dprRef.current.toFixed(3) + " logical=" + nw + "×" + nh + " physical=" + c.width + "×" + c.height + " maxScale=" + maxScaleRef.current.toFixed(3) + " devicePixelRatio=" + window.devicePixelRatio);
-      try {
-        setDiag("元画像 " + bImg.naturalWidth + "×" + bImg.naturalHeight
-          + " / 描画 " + c.width + "×" + c.height
-          + " / 表示 " + Math.round(nw * scRef.current) + "×" + Math.round(nh * scRef.current)
-          + " / dpr " + (window.devicePixelRatio || 1)
-          + " / scale " + dprRef.current.toFixed(2)
-          + " / maxS " + maxScaleRef.current.toFixed(2)
-          + " / win " + window.innerWidth + "×" + window.innerHeight);
-      } catch(e) {}
 
       setImgSrcState(imgUrl || null);
 
@@ -5474,14 +5460,7 @@ function ImageAnnotator(_ref7) {
       
       if (e.touches.length === 0) multiTouchSeenRef.current = false;
     }
-  }, _diag ? React.createElement("div", {
-    style: {
-      position: "fixed", top: IS_TOUCH ? 116 : 70, left: 8, zIndex: 100000,
-      background: "rgba(0,0,0,0.78)", color: "#fff", fontSize: 11, lineHeight: 1.35,
-      padding: "5px 9px", borderRadius: 6, maxWidth: "92vw", whiteSpace: "normal",
-      pointerEvents: "none", fontFamily: "monospace"
-    }
-  }, "🔍 " + _diag) : null, React.createElement("div", {
+  }, React.createElement("div", {
     style: {
       position: "relative",
       width: dispW,
