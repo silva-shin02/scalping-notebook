@@ -516,10 +516,10 @@ function EntryLogView(_ref_elv) {
     }
     var _bestProfit = Math.max.apply(null, alphaRows.map(function(x){ return x.cntP > 0 ? x.sumP : -Infinity; }));
     var _aTh2 = function(t, extra) {
-      return React.createElement("th", { style: Object.assign({ padding: "3px 6px", fontWeight: 700, fontSize: 10, color: "#9A3412", borderBottom: "2px solid #FB923C", textAlign: "center", whiteSpace: "nowrap" }, extra || {}) }, t);
+      return React.createElement("th", { style: Object.assign({ padding: "2px 5px", fontWeight: 700, fontSize: 10, color: "#9A3412", borderBottom: "2px solid #FB923C", textAlign: "center", whiteSpace: "nowrap" }, extra || {}) }, t);
     };
     var _aTd2 = function(c, col) {
-      return React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", color: col || "#333", fontVariantNumeric: "tabular-nums" } }, c);
+      return React.createElement("td", { style: { padding: "1px 5px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", color: col || "#333", fontVariantNumeric: "tabular-nums" } }, c);
     };
     var _apCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _apFmt = function(v) { return (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
@@ -541,8 +541,8 @@ function EntryLogView(_ref_elv) {
             alphaRows.map(function(x) {
               var _best = x.cntP > 0 && x.sumP === _bestProfit && _bestProfit > -Infinity;
               return React.createElement("tr", { key: x.a, style: { background: _best ? "#FEF3C7" : "transparent" } },
-                React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, x.a + "円", _best ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 4 } }, "★最高") : null),
-                React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", fontWeight: _best ? 800 : 600, color: x.cntP > 0 ? _apCol(x.sumP) : "#ccc", fontVariantNumeric: "tabular-nums" } }, x.cntP > 0 ? _apFmt(x.sumP) : "—"),
+                React.createElement("td", { style: { padding: "1px 5px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, x.a + "円", _best ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 4 } }, "★最高") : null),
+                React.createElement("td", { style: { padding: "1px 5px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", fontWeight: _best ? 800 : 600, color: x.cntP > 0 ? _apCol(x.sumP) : "#ccc", fontVariantNumeric: "tabular-nums" } }, x.cntP > 0 ? _apFmt(x.sumP) : "—"),
                 _aTd2(x.avgP != null ? _apFmt(x.avgP) : "—", x.avgP != null ? _apCol(x.avgP) : "#ccc"),
                 _aTd2(x.cntP > 0 ? x.cntP : "—", x.cntP > 0 ? "#333" : "#ccc"),
                 _aTd2(x.unk > 0 ? x.unk : "—", "#bbb")
@@ -577,9 +577,9 @@ function EntryLogView(_ref_elv) {
               var _diff = x.sumH - _p;
               var _best = x.cntH > 0 && x.sumH === _bestHoldA && _bestHoldA > -Infinity;
               return React.createElement("tr", { key: x.a, style: { background: _best ? "#FEF3C7" : "transparent" } },
-                React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, x.a + "円", _best ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 4 } }, "★最高") : null),
+                React.createElement("td", { style: { padding: "1px 5px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, x.a + "円", _best ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 4 } }, "★最高") : null),
                 _aTd2(_pCnt > 0 ? _apFmt(_p) : "—", _pCnt > 0 ? _apCol(_p) : "#ccc"),
-                React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", fontWeight: _best ? 800 : 600, color: x.cntH > 0 ? _apCol(x.sumH) : "#ccc", fontVariantNumeric: "tabular-nums" } }, x.cntH > 0 ? _apFmt(x.sumH) : "—"),
+                React.createElement("td", { style: { padding: "1px 5px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", fontWeight: _best ? 800 : 600, color: x.cntH > 0 ? _apCol(x.sumH) : "#ccc", fontVariantNumeric: "tabular-nums" } }, x.cntH > 0 ? _apFmt(x.sumH) : "—"),
                 _aTd2((x.cntH > 0 && _pCnt > 0) ? _apFmt(_diff) : "—", (x.cntH > 0 && _pCnt > 0) ? _apCol(_diff) : "#ccc"),
                 _aTd2(x.cntH > 0 ? x.cntH : "—", x.cntH > 0 ? "#333" : "#ccc")
               );
@@ -669,8 +669,8 @@ function EntryLogView(_ref_elv) {
           React.createElement("tbody", null, _osHoldKeys.map(function(k) {
             var m = _osHoldMap[k]; var _avg = m.cnt > 0 ? Math.round(m.sum / m.cnt) : null; var _wp = m.cnt > 0 ? Math.round(m.win / m.cnt * 100) : null;
             return React.createElement("tr", { key: k },
-              React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _osBucketLabel(k)),
-              React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", fontWeight: 700, color: _apCol(m.sum), fontVariantNumeric: "tabular-nums" } }, _apFmt(m.sum)),
+              React.createElement("td", { style: { padding: "1px 5px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _osBucketLabel(k)),
+              React.createElement("td", { style: { padding: "1px 5px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", fontWeight: 700, color: _apCol(m.sum), fontVariantNumeric: "tabular-nums" } }, _apFmt(m.sum)),
               _aTd2(_avg != null ? _apFmt(_avg) : "—", _avg != null ? _apCol(_avg) : "#ccc"),
               _aTd2(_wp != null ? _wp + "%" : "—", _wp != null && _wp >= 50 ? "#C0392B" : "#1E8449"),
               _aTd2(m.cnt, "#333"));
@@ -717,8 +717,8 @@ function EntryLogView(_ref_elv) {
           React.createElement("tbody", null, _cutRows.map(function(x) {
             var _best = x.cnt > 0 && x.sum === _bestCut && _bestCut > -Infinity;
             return React.createElement("tr", { key: x.cl, style: { background: _best ? "#FEF3C7" : "transparent" } },
-              React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, x.cl + "円", _best ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 4 } }, "★最高") : null),
-              React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", fontWeight: _best ? 800 : 600, color: x.cnt > 0 ? _apCol(x.sum) : "#ccc", fontVariantNumeric: "tabular-nums" } }, x.cnt > 0 ? _apFmt(x.sum) : "—"),
+              React.createElement("td", { style: { padding: "1px 5px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, x.cl + "円", _best ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 4 } }, "★最高") : null),
+              React.createElement("td", { style: { padding: "1px 5px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", fontWeight: _best ? 800 : 600, color: x.cnt > 0 ? _apCol(x.sum) : "#ccc", fontVariantNumeric: "tabular-nums" } }, x.cnt > 0 ? _apFmt(x.sum) : "—"),
               _aTd2(x.avg != null ? _apFmt(x.avg) : "—", x.avg != null ? _apCol(x.avg) : "#ccc"),
               _aTd2(x.cnt > 0 ? x.cnt : "—", x.cnt > 0 ? "#333" : "#ccc"));
           }))
@@ -984,15 +984,18 @@ function EntryLogView(_ref_elv) {
       reachSec,
       holdSec,
       priceFlowSec,
-      osHoldTrendSec,
-      osHoldProfitSec,
+      React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
+        React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, osHoldTrendSec),
+        React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, osHoldProfitSec)
+      ),
       React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
         React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, histSec, hrSec),
         React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, resSec, sigSec)
       ),
-      alphaResSec,
-      holdAlphaSec,
-      cutHoldSec,
+      React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
+        React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, holdAlphaSec),
+        React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, cutHoldSec)
+      ),
       devSec,
       svgSec
     );
