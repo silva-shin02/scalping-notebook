@@ -552,7 +552,76 @@ function EntryLogView(_ref_elv) {
         )
       )
     );
-    
+
+    var holdAlphaRows = [];
+    for (var _avH2 = 0; _avH2 <= 30; _avH2++) {
+      var _sumH2 = 0, _cntH2 = 0;
+      osRecs.forEach(function(r) { var _hp = _elDynHold(r.signal, _avH2, _cutLineOf(r)); if (_hp != null) { _sumH2 += _hp; _cntH2++; } });
+      holdAlphaRows.push({ a: _avH2, sumH: _sumH2, cntH: _cntH2, avgH: _cntH2 > 0 ? Math.round(_sumH2 / _cntH2) : null });
+    }
+    var _bestHoldA = Math.max.apply(null, holdAlphaRows.map(function(x){ return x.cntH > 0 ? x.sumH : -Infinity; }));
+    var holdAlphaSec = React.createElement("div", null,
+      _secH("💹 α値別 想定 vs ホールド利益（α値ごとに全件を再計算）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "各α値で全件を「利確（想定）」と「ホールド」した場合の利益合計（100株換算）。差＝ホールド−想定（赤＝ホールド有利）。★＝ホールド利益が最大のα値。"),
+      React.createElement("div", { style: { overflowX: "auto" } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", minWidth: "100%", fontSize: 11 } },
+          React.createElement("thead", null,
+            React.createElement("tr", { style: { background: "#FFF7ED" } },
+              _aTh2("α値", { textAlign: "left" }), _aTh2("想定利益"), _aTh2("ホールド利益"), _aTh2("差(H−想定)"), _aTh2("件数")
+            )
+          ),
+          React.createElement("tbody", null,
+            holdAlphaRows.map(function(x) {
+              var _p = alphaRows[x.a] ? alphaRows[x.a].sumP : 0;
+              var _pCnt = alphaRows[x.a] ? alphaRows[x.a].cntP : 0;
+              var _diff = x.sumH - _p;
+              var _best = x.cntH > 0 && x.sumH === _bestHoldA && _bestHoldA > -Infinity;
+              return React.createElement("tr", { key: x.a, style: { background: _best ? "#FEF3C7" : "transparent" } },
+                React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, x.a + "円", _best ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 4 } }, "★最高") : null),
+                _aTd2(_pCnt > 0 ? _apFmt(_p) : "—", _pCnt > 0 ? _apCol(_p) : "#ccc"),
+                React.createElement("td", { style: { padding: "3px 6px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", fontWeight: _best ? 800 : 600, color: x.cntH > 0 ? _apCol(x.sumH) : "#ccc", fontVariantNumeric: "tabular-nums" } }, x.cntH > 0 ? _apFmt(x.sumH) : "—"),
+                _aTd2((x.cntH > 0 && _pCnt > 0) ? _apFmt(_diff) : "—", (x.cntH > 0 && _pCnt > 0) ? _apCol(_diff) : "#ccc"),
+                _aTd2(x.cntH > 0 ? x.cntH : "—", x.cntH > 0 ? "#333" : "#ccc")
+              );
+            })
+          )
+        )
+      )
+    );
+
+    var _cmpPlanSum = 0, _cmpPlanCnt = 0, _cmpPlanWin = 0, _cmpHoldSum = 0, _cmpHoldCnt = 0, _cmpHoldWin = 0;
+    osRecs.forEach(function(r) {
+      var s = r.signal; var _ai = _elAlphaInfo(r, data);
+      var _pp = _elDynPlanned(s, _ai.alpha, _ai.cutLine);
+      var _hp = _elDynHold(s, _ai.alpha, _ai.cutLine);
+      if (_pp != null) { _cmpPlanSum += _pp; _cmpPlanCnt++; if (_pp > 0) _cmpPlanWin++; }
+      if (_hp != null) { _cmpHoldSum += _hp; _cmpHoldCnt++; if (_hp > 0) _cmpHoldWin++; }
+    });
+    var _cmpMax = Math.max(Math.abs(_cmpPlanSum), Math.abs(_cmpHoldSum), 1);
+    var _cmpBar = function(label, sum, cnt, win, color) {
+      var _avg = cnt > 0 ? Math.round(sum / cnt) : null;
+      var _wp = cnt > 0 ? Math.round(win / cnt * 100) : null;
+      return React.createElement("div", { style: { marginBottom: 8 } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, marginBottom: 2 } },
+          React.createElement("span", { style: { color: color } }, label),
+          React.createElement("span", { style: { color: sum > 0 ? "#C0392B" : sum < 0 ? "#1E8449" : "#888", fontVariantNumeric: "tabular-nums" } }, (sum > 0 ? "+" : "") + sum.toLocaleString() + "円")
+        ),
+        React.createElement("div", { style: { height: 10, background: "#f0ede6", borderRadius: 5, overflow: "hidden" } },
+          React.createElement("div", { style: { width: Math.round(Math.abs(sum) / _cmpMax * 100) + "%", height: "100%", background: color, borderRadius: 5 } })
+        ),
+        React.createElement("div", { style: { fontSize: 10, color: "#666", marginTop: 2 } },
+          "期待値 " + (_avg != null ? (_avg > 0 ? "+" : "") + _avg.toLocaleString() + "円" : "—") + " / 勝率 " + (_wp != null ? _wp + "%" : "—") + " / " + cnt + "件")
+      );
+    };
+    var cmpKpiSec = React.createElement("div", null,
+      _secH("⚖️ 利確（想定） vs ホールド 総合比較"),
+      React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "各銘柄の設定α値で全件を再計算（100株換算）。バー＝利益合計。期待値＝1件平均。"),
+      _cmpBar("利確（想定）", _cmpPlanSum, _cmpPlanCnt, _cmpPlanWin, "#0EA5E9"),
+      _cmpBar("ホールド", _cmpHoldSum, _cmpHoldCnt, _cmpHoldWin, "#FB923C"),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, marginTop: 4, color: _cmpHoldSum > _cmpPlanSum ? "#C0392B" : _cmpHoldSum < _cmpPlanSum ? "#1E8449" : "#888" } },
+        _cmpHoldSum > _cmpPlanSum ? "→ ホールドの方が +" + (_cmpHoldSum - _cmpPlanSum).toLocaleString() + "円 有利" : _cmpHoldSum < _cmpPlanSum ? "→ 利確の方が +" + (_cmpPlanSum - _cmpHoldSum).toLocaleString() + "円 有利" : "→ 拮抗")
+    );
+
     var _tsSlotIdx = function(m) { return m <= 15 ? 0 : m <= 30 ? 1 : m <= 45 ? 2 : 3; };
     var _tsSlotKey = function(t) {
       if (!t) return null;
@@ -807,6 +876,7 @@ function EntryLogView(_ref_elv) {
     })();
     return React.createElement("div", { style: { marginTop: 8 } },
       sumSec,
+      cmpKpiSec,
       holdSec,
       osHoldTrendSec,
       React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
@@ -814,6 +884,7 @@ function EntryLogView(_ref_elv) {
         React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, resSec, sigSec)
       ),
       alphaResSec,
+      holdAlphaSec,
       devSec,
       svgSec
     );
