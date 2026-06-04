@@ -3905,8 +3905,8 @@ function DayView(_ref57) {
                 return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col, fontSize: 10 } }, _isMiss ? "(" + _txt + ")" : _txt);
               })();
               return React.createElement(React.Fragment, null,
-                React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
-                  holdResultEl, !_isMiss && _hg ? _trBadge(_hg) : null, _pnlEl
+                React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+                  _trLane(holdResultEl, 16), _trLane(!_isMiss && _hg ? _trBadge(_hg) : null, 22), _trLane(_pnlEl, 72, "flex-start")
                 ),
                 (_hp != null && _elHoldIsStop(s, _aiTr.alpha, _aiTr.cutLine)) ? _elCapNote(_aiTr.cutLine) : null
               );

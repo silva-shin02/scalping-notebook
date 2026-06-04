@@ -4067,15 +4067,17 @@ function EntrySignalSection(_ref_es) {
         fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
     }, grade);
   };
+  var _esLane = function(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); };
   var _esRPnlDisp = function(v, grade, showZ) {
     var badge = (grade && (grade !== "Z" || showZ)) ? _esBadge(grade) : null;
     if (v == null) {
       if (badge == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
       return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, badge);
     }
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-      badge,
-      React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(v) } }, _esRPnlFmt(v))
+    // ランク・金額を固定幅レーンに入れて列内で縦そろえ。
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+      _esLane(badge, 22),
+      _esLane(React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(v) } }, _esRPnlFmt(v)), 72, "flex-start")
     );
   };
   var _esRPnlDispABAll = function(abV, allV, abGrade, allGrade) {
@@ -4646,10 +4648,10 @@ function EntrySignalSection(_ref_es) {
                         style: { fontWeight: _missDisp ? 400 : 600, fontSize: 10,
                           color: _missDisp ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888") }
                       }, (_missDisp ? "(" : "") + (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円" + (_missDisp ? ")" : "")));
-                  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
-                    holdResultEl,
-                    !_missDisp && _hg ? _esBadge(_hg) : null,
-                    _hpNum
+                  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+                    _esLane(holdResultEl, 16),
+                    _esLane(!_missDisp && _hg ? _esBadge(_hg) : null, 22),
+                    _esLane(_hpNum, 72, "flex-start")
                   );
                 })()),
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _tradeAlphaChip(s), _esRPnlDisp(realPnlN, realGrade, !entered)),
