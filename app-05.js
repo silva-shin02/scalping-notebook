@@ -3419,6 +3419,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   var realCount = 0, planCount = 0, holdCount = 0;
   var planSumAB = 0, planCountAB = 0;
   var planCapSum = 0, holdCapSum = 0, planHasStop = false, holdHasStop = false;
+  var holdSumPlanCap = 0, holdSumPlanCapAB = 0, holdCountAB = 0;
   var osVals = [], confVals = [], holdConfVals = [];
   (signals || []).forEach(function(sig) {
     var s = _compatSignal(sig);
@@ -3442,6 +3443,10 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       var _hStop = _live && _elHoldIsStop(s, _a, _c);
       if (_hStop) holdHasStop = true;
       holdCapSum += _hStop ? _elCapLossYen(_c) : hv;
+      // 結果損益: 想定が損切りの行は想定額にキャップ（損切を踏まえた値）。
+      var _hCapPlan = (_live && _elPlanIsStop(s, _a, _c) && pv != null) ? pv : hv;
+      holdSumPlanCap += _hCapPlan;
+      if (isAB) { holdSumPlanCapAB += _hCapPlan; holdCountAB++; }
     }
     if (s.osVal != null) osVals.push(Number(s.osVal));
     var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -3460,6 +3465,10 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     holdSum: holdCount > 0 ? holdSum : null,
     planCapSum: (planCount > 0 && planHasStop) ? planCapSum : null,
     holdCapSum: (holdCount > 0 && holdHasStop) ? holdCapSum : null,
+    holdPlanCap: _profitGradeFromPnl(holdSumPlanCap, holdCount),
+    holdSumPlanCap: holdCount > 0 ? holdSumPlanCap : null,
+    holdPlanCapAB: holdCountAB > 0 ? _profitGradeFromPnl(holdSumPlanCapAB, holdCountAB) : null,
+    holdSumPlanCapAB: holdCountAB > 0 ? holdSumPlanCapAB : null,
     planHasStop: planHasStop, holdHasStop: holdHasStop,
     count: realCount,
     osAvg: _avg(osVals), confAvg: _avg(confVals), holdConfAvg: _avg(holdConfVals),

@@ -2694,18 +2694,30 @@ function StockQuickRefTable(_props_qrt) {
         ) : null
       );
     }
-    if (!(g.planHasStop && g.planCapSum != null)) {
-      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, badgeNode, numNode);
-    }
-    return _qrCapGrid(badgeNode, numNode, g.planCapSum);
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, badgeNode, numNode);
   };
   var _qrHoldChip = function(g) {
     if (!g || g.hold === "Z") return React.createElement("span", { style: { color: "#ccc", fontSize: 11 } }, "—");
-    var badgeNode = _qrMkBadge(g.hold), numNode = _qrAmtSpan(g.holdSum);
-    if (!(g.holdHasStop && g.holdCapSum != null)) {
-      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, badgeNode, numNode);
+    // 結果損益は「損切を踏まえたキャップ後」値で、B以上を主表示・全体をカッコ併記。
+    var badgeNode, numNode;
+    if (g.holdPlanCapAB == null) {
+      badgeNode = _qrMkBadge(g.holdPlanCap);
+      numNode = _qrAmtSpan(g.holdSumPlanCap);
+    } else {
+      var _abAmt = g.holdSumPlanCapAB != null ? g.holdSumPlanCapAB : g.holdSumPlanCap;
+      var _showParen = _abAmt !== g.holdSumPlanCap;
+      badgeNode = _qrMkBadge(g.holdPlanCapAB);
+      numNode = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+        _qrAmtSpan(_abAmt),
+        _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
+          React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
+          _qrMkBadgeSm(g.holdPlanCap),
+          React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _qrAmtCol(g.holdSumPlanCap), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(g.holdSumPlanCap) + "円"),
+          React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "）")
+        ) : null
+      );
     }
-    return _qrCapGrid(badgeNode, numNode, g.holdCapSum);
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, badgeNode, numNode);
   };
 
   var _qrALab = function(n) {
@@ -3713,6 +3725,7 @@ function DayView(_ref57) {
       var _trTotRealCnt = 0, _trTotPlanCnt = 0, _trTotMaxCnt = 0, _trTotHoldCnt = 0;
       var _trTotPlanAB = null, _trTotMaxAB = null;
       var _trTotPlanABCnt = 0, _trTotMaxABCnt = 0;
+      var _trTotHoldCap = null, _trTotHoldCapAB = null, _trTotHoldABCnt = 0, _trTotHoldPlanStopDiff = false;
       _trEntryRecords.forEach(function(r) {
         var s = r.signal, rIt = r.item;
         var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
@@ -3726,11 +3739,16 @@ function DayView(_ref57) {
         var ppN = pp;
         var mpN = mp != null ? _p100(mp) : null;
         var hpN = hp;
+        var _isAB = (s.difficulty === "A" || s.difficulty === "B");
         if (rpN != null) { _trTotReal = (_trTotReal || 0) + rpN; _trTotRealCnt++; }
         if (ppN != null) { _trTotPlan = (_trTotPlan || 0) + ppN; _trTotPlanCnt++; }
         if (mpN != null) { _trTotMax  = (_trTotMax  || 0) + mpN; _trTotMaxCnt++; }
-        if (hpN != null) { _trTotHold = (_trTotHold || 0) + hpN; _trTotHoldCnt++; }
-        var _isAB = (s.difficulty === "A" || s.difficulty === "B");
+        if (hpN != null) { _trTotHold = (_trTotHold || 0) + hpN; _trTotHoldCnt++;
+          var _pStopTr = _elPlanIsStop(s, _aiTr0.alpha, _aiTr0.cutLine);
+          var _hCapTr = (_pStopTr && ppN != null) ? ppN : hpN;
+          _trTotHoldCap = (_trTotHoldCap || 0) + _hCapTr;
+          if (_isAB) { _trTotHoldCapAB = (_trTotHoldCapAB || 0) + _hCapTr; _trTotHoldABCnt++; }
+          if (_pStopTr && ppN != null && hpN !== ppN) _trTotHoldPlanStopDiff = true; }
         if (ppN != null && _isAB) { _trTotPlanAB = (_trTotPlanAB || 0) + ppN; _trTotPlanABCnt++; }
         if (mpN != null && _isAB) { _trTotMaxAB  = (_trTotMaxAB  || 0) + mpN; _trTotMaxABCnt++; }
       });
@@ -3739,6 +3757,8 @@ function DayView(_ref57) {
       var _trTotMaxGrade  = _trTotMaxCnt  > 0 ? _profitGradeFromPnl(_trTotMax  != null ? _trTotMax  : 0, _trTotMaxCnt)  : null;
       var _trTotPlanGradeAB = _trTotPlanABCnt > 0 ? _profitGradeFromPnl(_trTotPlanAB != null ? _trTotPlanAB : 0, _trTotPlanABCnt) : null;
       var _trTotMaxGradeAB  = _trTotMaxABCnt  > 0 ? _profitGradeFromPnl(_trTotMaxAB  != null ? _trTotMaxAB  : 0, _trTotMaxABCnt)  : null;
+      var _trTotHoldCapGrade = _trTotHoldCnt > 0 ? _profitGradeFromPnl(_trTotHoldCap != null ? _trTotHoldCap : 0, _trTotHoldCnt) : null;
+      var _trTotHoldCapGradeAB = _trTotHoldABCnt > 0 ? _profitGradeFromPnl(_trTotHoldCapAB != null ? _trTotHoldCapAB : 0, _trTotHoldABCnt) : null;
       var allTrExp = _trEntryRecords.every(function(r) { return !!trTableRecExp[_trRecKey(r)]; });
       var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 9, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
@@ -3750,8 +3770,10 @@ function DayView(_ref57) {
         React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
           _trTotHoldCnt > 0
-            ? React.createElement("span", { style: { fontWeight: 700, fontSize: 11, color: (_trTotHold||0) > 0 ? "#C0392B" : (_trTotHold||0) < 0 ? "#1E8449" : "#888" } },
-                ((_trTotHold||0) > 0 ? "+" : "") + (_trTotHold||0).toLocaleString() + "円")
+            ? React.createElement(React.Fragment, null,
+                _trRPnlDispABAll(_trTotHoldCapAB, _trTotHoldCap, _trTotHoldCapGradeAB, _trTotHoldCapGrade),
+                (_trTotHoldPlanStopDiff && _trTotHold != null) ? React.createElement("div", { style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _trTotHold.toLocaleString() + "円）") : null
+              )
             : React.createElement("span", { style: { color: "#ccc" } }, "—")
         ),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
@@ -3898,20 +3920,25 @@ function DayView(_ref57) {
               var _hp = _hpTr;
               var _isMiss = _dynResTr === "miss";
               if (_isMiss && _hp == null) return _qMissCell();
-              var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
-              var _pnlEl = _hp == null ? null : (function() {
-                var _col = _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888");
-                var _txt = (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円";
+              // 想定が損切りの行は結果損益額を想定額にキャップ。本来額は下にカッコ表示。
+              var _planStopTr = _elPlanIsStop(s, _aiTr.alpha, _aiTr.cutLine);
+              var _capV = (_planStopTr && planPnlN != null) ? planPnlN : _hp;
+              var _hg = _capV != null ? _profitGradeFromPnl(_capV, 1) : null;
+              var _pnlEl = _capV == null ? null : (function() {
+                var _col = _isMiss ? (_capV > 0 ? "#E07070" : _capV < 0 ? "#70A888" : "#aaa") : (_capV > 0 ? "#C0392B" : _capV < 0 ? "#1E8449" : "#888");
+                var _txt = (_capV > 0 ? "+" : "") + _capV.toLocaleString() + "円";
                 return React.createElement("span", { style: { fontWeight: _isMiss ? 400 : 600, color: _col, fontSize: 10 } }, _isMiss ? "(" + _txt + ")" : _txt);
               })();
               return React.createElement(React.Fragment, null,
                 React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
                   _trLane(holdResultEl, 16), _trLane(!_isMiss && _hg ? _trBadge(_hg) : null, 22), _trLane(_pnlEl, 72, "flex-start")
                 ),
-                (_hp != null && _elHoldIsStop(s, _aiTr.alpha, _aiTr.cutLine)) ? _elCapNote(_aiTr.cutLine) : null
+                (_planStopTr && planPnlN != null && _hp != null && _hp !== planPnlN)
+                  ? React.createElement("div", { style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _hp.toLocaleString() + "円）")
+                  : null
               );
             })()),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _trRPnlDisp(realPnlN, realGrade))
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trLane(_tradeAlphaChip(s), 26, "flex-end"), _trRPnlDisp(realPnlN, realGrade))
           )
         );
         if (rExp) {
@@ -4408,7 +4435,7 @@ function DayView(_ref57) {
             })(),
             (holdPnl != null && _elHoldIsStop(s, _alphaRec, _cutLrec)) ? _elCapNote(_cutLrec) : null),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
-            _tradeAlphaChip(s), _rPnlDisp(realPnl, gReal))
+            _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnl, gReal))
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
