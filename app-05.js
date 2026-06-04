@@ -3213,6 +3213,9 @@ function _elHoldIsStop(s, alpha, cutLine) {
 }
 function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
 function _elCapNoteAmt(amount, opts) {
+  // 「仮に損切値ちょうどで損切できていたら」の損失額（カッコ表示）は非表示にする。
+  // 表示を復活させたい場合はこの return を外す。_elCapNote も内部でこれを呼ぶため全箇所が一括で消える。
+  return null;
   opts = opts || {};
   if (amount == null) return null;
   var _g = _profitGradeFromPnl(amount, 1);
