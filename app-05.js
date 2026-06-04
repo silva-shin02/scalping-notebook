@@ -5042,15 +5042,20 @@ function EntryLogCard(_ref_elc) {
             _pnlFmt(planPnl)),
           (_elcAi && _elPlanIsStop(s, _elcAi.alpha, _elcAi.cutLine)) ? _elCapNote(_elcAi.cutLine) : null
         ) : null,
-        (_dispResult === "miss" && holdPnl == null) ? _chip("H損益", _qMissCell(14), "#888") :
-        holdPnl != null ? React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
-          React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
-          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
-            _hpBadge(_dispHP),
-            _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
-            _pnlFmt(holdPnl)),
-          (_elcAi && _elHoldIsStop(s, _elcAi.alpha, _elcAi.cutLine)) ? _elCapNote(_elcAi.cutLine) : null
-        ) : null
+        (function() {
+          // 実エントリー行は miss でも本物の結果として通常表示。見送り×miss のみ薄カッコ表示（テーブルと統一）。
+          var _missDispC = _dispResult === "miss" && !entered;
+          if (_missDispC && holdPnl == null) return _chip("H損益", _qMissCell(14), "#888");
+          if (holdPnl == null) return null;
+          return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
+            React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
+            React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: _missDispC ? 400 : 700, color: _missDispC ? (holdPnl > 0 ? "#E07070" : holdPnl < 0 ? "#70A888" : "#aaa") : _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
+              _hpBadge(_dispHP),
+              _missDispC ? null : _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
+              (_missDispC ? "(" : "") + _pnlFmt(holdPnl) + (_missDispC ? ")" : "")),
+            (_elcAi && _elHoldIsStop(s, _elcAi.alpha, _elcAi.cutLine)) ? _elCapNote(_elcAi.cutLine) : null
+          );
+        })()
       ),
 
       React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
