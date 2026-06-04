@@ -4915,7 +4915,7 @@ function DayView(_ref57) {
     var _haEl = (function() {
       if (!_pbAllRecs.length) return null;
       var _hpFmtHA = function(v) { if (v == null) return React.createElement("span",{style:{color:"#ccc"}},"—"); var col=v>0?"#C0392B":v<0?"#1E8449":"#888"; return React.createElement("span",{style:{fontWeight:700,color:col}},(v>0?"+":"")+v.toLocaleString()+"円"); };
-      var _hwFmtHA = function(v) { if (v == null) return React.createElement("span",{style:{color:"#ccc"}},"—"); var col=v>0?"#C0392B":v<0?"#1E8449":"#888"; return React.createElement("span",{style:{fontWeight:700,color:col}},"↕"+Math.abs(v)+"円"); };
+      var _hwFmtHA = function(v) { if (v == null) return React.createElement("span",{style:{color:"#ccc"}},"—"); var col=v>0?"#C0392B":v<0?"#1E8449":"#888"; return React.createElement("span",{style:{fontWeight:700,color:col}},(v>0?"↑":v<0?"↓":"↕")+Math.abs(v)+"円"); };
       var _thHA = function(l,e){ return React.createElement("th",{style:Object.assign({padding:"4px 8px",fontWeight:700,borderBottom:"2px solid #ddd",whiteSpace:"nowrap",textAlign:"center",fontSize:10,color:"#555"},e||{})},l); };
       var _tdHA = function(c,e){ return React.createElement("td",{style:Object.assign({padding:"4px 8px",textAlign:"center",fontSize:11,borderBottom:"1px solid #f0ede6"},e||{})},c); };
       var _haRecs = _pbAllRecs.map(function(r) {
@@ -4970,7 +4970,7 @@ function DayView(_ref57) {
                     _tdHA(React.createElement("span",{style:{color:"#C0392B",fontWeight:d.no?700:400}},d.no||0)),
                     _tdHA(winPct!=null?React.createElement("span",{style:{color:winPct>=50?"#C0392B":"#1E8449",fontWeight:700}},winPct+"%"):React.createElement("span",{style:{color:"#ccc"}},"—")),
                     _tdHA(_hpFmtHA(ev)),
-                    _hwHasDataH?_tdHA(hwAvg!=null?React.createElement("div",null,_hwFmtHA(hwAvg),d.hwArr.length?React.createElement("div",{style:{fontSize:9,color:"#999",fontWeight:400,marginTop:2,whiteSpace:"normal",lineHeight:1.4}},d.hwArr.map(function(_w){return "↕"+Math.abs(_w)+"円";}).join(" / ")):null):React.createElement("span",{style:{color:"#ccc"}},"—")):null
+                    _hwHasDataH?_tdHA(hwAvg!=null?React.createElement("div",null,_hwFmtHA(hwAvg),d.hwArr.length?React.createElement("div",{style:{fontSize:9,color:"#999",fontWeight:400,marginTop:2,whiteSpace:"normal",lineHeight:1.4}},d.hwArr.map(function(_w){return (_w>0?"↑":_w<0?"↓":"↕")+Math.abs(_w)+"円";}).join(" / ")):null):React.createElement("span",{style:{color:"#ccc"}},"—")):null
                   );
                 }).concat([React.createElement("tr",{key:"__tot__",style:{background:"#f5f4f0",fontWeight:700}},
                   _tdHA(React.createElement("span",{style:{fontWeight:700,color:"#555"}},"合計"),{textAlign:"left"}),
@@ -5172,8 +5172,7 @@ function DayView(_ref57) {
         )
       )
     );
-    return React.createElement(React.Fragment, null, _pbMainEl, _haEl);
-  })(),
+    return React.createElement(React.Fragment, null, _pbMainEl,
   React.createElement("div", {
     style: Card
   },
@@ -5191,7 +5190,9 @@ function DayView(_ref57) {
     title: "📝 本日の総括",
     guardKey: "tradesSummary_" + date
   })),
-  
+  _haEl);
+  })(),
+
   (function() {
     var _dtCharts = data.charts || {};
     var _dtItems = dd.items || [];
