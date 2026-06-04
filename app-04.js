@@ -3678,11 +3678,12 @@ function DayView(_ref57) {
             fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
         }, grade);
       };
+      var _trLane = function(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); };
       var _trRPnlDisp = function(v, grade) {
         if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-          grade && grade !== "Z" ? _trBadge(grade) : null,
-          React.createElement("span", { style: { fontWeight: 600, color: _trRPnlCol(v) } }, _trRPnlFmt(v))
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+          _trLane(grade && grade !== "Z" ? _trBadge(grade) : null, 22),
+          _trLane(React.createElement("span", { style: { fontWeight: 600, color: _trRPnlCol(v) } }, _trRPnlFmt(v)), 72, "flex-start")
         );
       };
       var _trRPnlDispABAll = function(abV, allV, abGrade, allGrade) {
@@ -4263,11 +4264,12 @@ function DayView(_ref57) {
       var _rTh = function(label, extra) {
         return React.createElement("th", { style: Object.assign({ padding: "3px 3px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "center", fontSize: 10, lineHeight: 1.15, color: "#9A3412" }, extra || {}) }, label);
       };
+      var _lane = function(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); };
       var _rPnlDisp = function(v, grade) {
         if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-          grade && grade !== "Z" ? _pbBadge(grade) : null,
-          React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v))
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+          _lane(grade && grade !== "Z" ? _pbBadge(grade) : null, 20),
+          _lane(React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v)), 72, "flex-start")
         );
       };
       var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0 1px", fontWeight: 400 } }, "/"); };
@@ -4275,7 +4277,7 @@ function DayView(_ref57) {
         var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
         var badge = missFlag ? _pbBadge("Q") : (grade && grade !== "Z" ? _pbBadge(grade) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
         var amt = missFlag ? React.createElement("span", { style: { color: "#888" } }, "—") : (pnl != null ? React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(pnl) } }, _rPnlFmt(pnl)) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, sym, _sl(), badge, _sl(), amt);
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _lane(sym, 16), _sl(), _lane(badge, 20), _sl(), _lane(amt, 72, "flex-start"));
       };
       var subRows = [];
       var _totReal = null, _totPlan = null, _totHold = null;
