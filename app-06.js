@@ -213,6 +213,8 @@ function EntryLogView(_ref_elv) {
     simFrom = _uSimFromA[0], setSimFrom = _uSimFromA[1];
   var _uSimTo = useState(""), _uSimToA = _slicedToArray(_uSimTo, 2),
     simTo = _uSimToA[0], setSimTo = _uSimToA[1];
+  var _uOsSlot = useState(null), _uOsSlotA = _slicedToArray(_uOsSlot, 2),
+    osSlotSel = _uOsSlotA[0], setOsSlotSel = _uOsSlotA[1];
 
   
   var allRecords = useMemo(function() {
@@ -428,8 +430,8 @@ function EntryLogView(_ref_elv) {
       return React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412",
         marginBottom: 8, paddingBottom: 4, borderBottom: "1px solid #f0ede6", marginTop: 14 } }, t);
     };
-    var _bar = function(label, val, maxV, col, valTxt) {
-      return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 3 } },
+    var _bar = function(label, val, maxV, col, valTxt, onClick, active) {
+      return React.createElement("div", { onClick: onClick || undefined, style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 3, cursor: onClick ? "pointer" : "default", background: active ? "#F3E8FF" : "transparent", borderRadius: 4 } },
         React.createElement("div", { style: { width: 90, fontSize: 10, color: "#555", textAlign: "right",
           flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, label),
         React.createElement("div", { style: { flex: 1, background: "#f5f4f0", borderRadius: 2, height: 16, overflow: "hidden" } },
@@ -806,14 +808,25 @@ function EntryLogView(_ref_elv) {
     osRecs.forEach(function(r) {
       var k = _tsSlotKey(r.signal.time || ""); if (k == null) return;
       if (!bySlot[k]) { bySlot[k] = []; slotLabels[k] = _tsSlotLabel(k); }
-      bySlot[k].push(Number(r.signal.osVal));
+      bySlot[k].push(r);
     });
     var slotKeys = Object.keys(bySlot).map(Number).sort(function(a, b) { return a - b; });
-    var slotAvgs = slotKeys.map(function(k) { return { label: slotLabels[k], avg: avgOf(bySlot[k]), cnt: bySlot[k].length }; });
+    var slotAvgs = slotKeys.map(function(k) { return { key: k, label: slotLabels[k], avg: avgOf(bySlot[k].map(function(r) { return Number(r.signal.osVal); })), cnt: bySlot[k].length }; });
     var hrMax2 = slotAvgs.length ? Math.max.apply(null, slotAvgs.map(function(x) { return x.avg; })) : 0;
     var hrSec = slotKeys.length > 0 ? React.createElement("div", null,
       _secH("⏱ 時間帯別 平均OS値（15分区切り）"),
-      slotAvgs.map(function(x) { return _bar(x.label + " (" + x.cnt + "件)", x.avg, hrMax2, "#7C3AED", x.avg + "円"); })
+      React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "-4px 0 4px" } }, "※ 時間帯をタップでその時間帯の記録一覧を表示"),
+      slotAvgs.map(function(x) {
+        var _act = osSlotSel === x.key;
+        return React.createElement("div", { key: x.key },
+          _bar(x.label + " (" + x.cnt + "件)", x.avg, hrMax2, "#7C3AED", x.avg + "円", function() { setOsSlotSel(_act ? null : x.key); }, _act),
+          _act ? React.createElement("div", { style: { margin: "3px 0 8px", paddingLeft: 6, borderLeft: "2px solid #7C3AED" } },
+            bySlot[x.key].slice().sort(function(a, b) { return (a.signal.time || "").localeCompare(b.signal.time || ""); }).map(function(r) {
+              return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate });
+            })
+          ) : null
+        );
+      })
     ) : null;
     var bySig = {};
     osRecs.forEach(function(r) {
