@@ -1392,11 +1392,12 @@ function EntryLogView(_ref_elv) {
         var _tSimCalc = function(recs, simAlpha) {
           if (simAlpha == null || !recs || !recs.length) return null;
           var _sOk = 0, _sNg = 0, _sMiss = 0, _sPlan = null, _sHold = null;
-          var _sPlanCap = null, _sHoldCap = null, _sPlanStop = false, _sHoldStop = false;
+          var _sPlanAB = null, _sHoldCap = null, _sHoldCapAB = null;
           recs.forEach(function(r) {
             var s = r.signal;
             var _cRs = (data.charts || {})[r.stock + "_" + r.date];
             var _cutLs = _cRs && _cRs.cutLine != null ? _cRs.cutLine : 10;
+            var _isAB = (s.difficulty === "A" || s.difficulty === "B");
             if (s.osVal != null && Number(s.osVal) >= 0) {
               var _dv = Number(s.osVal) - simAlpha;
               var _dynR = null;
@@ -1410,31 +1411,44 @@ function EntryLogView(_ref_elv) {
               else if (_dynR === "ng") _sNg++;
               else if (_dynR === "miss") _sMiss++;
             }
+            var _dpVal = null;
             if (s.osVal != null) {
               var _cf1 = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
               var _df = Number(s.osVal) - simAlpha;
               var _pStop = _df >= _cutLs;
               var _dp = _df < 0 ? 0 : _pStop ? -Math.round(_df * 100) : (_cf1 != null ? Math.round((simAlpha - _cf1) * 100) : null);
               if (_dp != null) {
+                _dpVal = _dp;
                 _sPlan = (_sPlan || 0) + _dp;
-                if (_pStop) _sPlanStop = true;
-                _sPlanCap = (_sPlanCap || 0) + (_pStop ? _elCapLossYen(_cutLs) : _dp);
+                if (_isAB) _sPlanAB = (_sPlanAB || 0) + _dp;
               }
             }
             var _hp = _elDynHold(s, simAlpha, _cutLs);
             if (_hp != null) {
+              // 結果損益: 想定が損切りの行はホールドでも同水準で損切りされる前提で想定額にキャップ。
+              var _planStopH = _elPlanIsStop(s, simAlpha, _cutLs);
+              var _hCapV = (_planStopH && _dpVal != null) ? _dpVal : _hp;
               _sHold = (_sHold || 0) + _hp;
-              var _hStop = _elHoldIsStop(s, simAlpha, _cutLs);
-              if (_hStop) _sHoldStop = true;
-              _sHoldCap = (_sHoldCap || 0) + (_hStop ? _elCapLossYen(_cutLs) : _hp);
+              _sHoldCap = (_sHoldCap || 0) + _hCapV;
+              if (_isAB) _sHoldCapAB = (_sHoldCapAB || 0) + _hCapV;
             }
           });
           var _sTot = _sOk + _sNg;
-          return { ok: _sOk, ng: _sNg, miss: _sMiss, winPct: _sTot > 0 ? Math.round(_sOk / _sTot * 100) : null, plan: _sPlan, hold: _sHold,
-            planCapSum: _sPlanStop ? _sPlanCap : null, holdCapSum: _sHoldStop ? _sHoldCap : null, planHasStop: _sPlanStop, holdHasStop: _sHoldStop };
+          return { ok: _sOk, ng: _sNg, miss: _sMiss, winPct: _sTot > 0 ? Math.round(_sOk / _sTot * 100) : null,
+            plan: _sPlan, planAB: _sPlanAB, hold: _sHold, holdCap: _sHoldCap, holdCapAB: _sHoldCapAB };
         };
         var _tCapNote = function(hasStop, capSum) {
           return (hasStop && capSum != null) ? _elCapNoteAmt(capSum) : null;
+        };
+        // B以上(A・B難易度)を主表示、全体(C含む)をカッコで併記。
+        var _tAB2 = function(abV, allV) {
+          var _f = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+          var _c = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+          if (abV == null && allV == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+          return React.createElement("span", { style: { whiteSpace: "nowrap" } },
+            React.createElement("span", { style: { fontWeight: 700, color: _c(abV) } }, _f(abV)),
+            (abV !== allV) ? React.createElement("span", { style: { fontSize: 10, color: _c(allV), marginLeft: 1 } }, "（" + _f(allV) + "）") : null
+          );
         };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
           var isHoliday = !!_tblHolidaySet[date];
@@ -1500,11 +1514,9 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : _tSlash(st.sumPnl, st.expected, gradeReal)),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : (_simActive ? _simFmt(_dPlan) : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
-              isHoliday ? null : _tCapNote(_simActive ? _simSt.planHasStop : st.planHasStop, _simActive ? _simSt.planCapSum : st.planCapSum)),
+              isHoliday ? _dash : (_simActive ? _tAB2(_simSt.planAB, _simSt.plan) : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned"))),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : (_simActive ? _simFmt(_dHold) : (function() { var _h = st.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
-              isHoliday ? null : _tCapNote(_simActive ? _simSt.holdHasStop : st.holdHasStop, _simActive ? _simSt.holdCapSum : st.holdCapSum)),
+              isHoliday ? _dash : (_simActive ? _tAB2(_simSt.holdCapAB, _simSt.holdCap) : (function() { var _h = st.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })())),
             React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, verticalAlign: "top" } },
               !isHoliday && tags && tags.length > 0
                 ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 } },
@@ -1898,11 +1910,9 @@ function EntryLogView(_ref_elv) {
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
             _tSlash(_tMonthSt.sumPnl, _tMonthSt.expected, _tMonthGradeReal)),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            _tMSimActive ? _tMSimFmt(_tMSimSt.plan) : _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned"),
-            _tCapNote(_tMSimActive ? _tMSimSt.planHasStop : _tMonthSt.planHasStop, _tMSimActive ? _tMSimSt.planCapSum : _tMonthSt.planCapSum)),
+            _tMSimActive ? _tAB2(_tMSimSt.planAB, _tMSimSt.plan) : _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            _tMSimActive ? _tMSimFmt(_tMSimSt.hold) : (function() { var _h = _tMonthSt.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })(),
-            _tCapNote(_tMSimActive ? _tMSimSt.holdHasStop : _tMonthSt.holdHasStop, _tMSimActive ? _tMSimSt.holdCapSum : _tMonthSt.holdCapSum)),
+            _tMSimActive ? _tAB2(_tMSimSt.holdCapAB, _tMSimSt.holdCap) : (function() { var _h = _tMonthSt.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
           React.createElement("td", { style: { borderBottom: _bb2, borderTop: _bb2 } })
         );
         var tbody = React.createElement("tbody", null,
@@ -1948,47 +1958,45 @@ function EntryLogView(_ref_elv) {
           var _simCut = (simCutStr !== "" && !isNaN(Number(simCutStr))) ? Number(simCutStr) : 10;
           var _capYen = -Math.round(_simCut * 100);
           var _sTotPlan = null, _sTotHold = null;
-          var _sTotPlanCap = null, _sTotHoldCap = null;
+          var _sTotPlanAB = null, _sTotHoldCapAll = null, _sTotHoldCapAB = null;
           var _sTotPlanCnt = 0, _sTotHoldCnt = 0, _sHoldUnrec = 0;
           var _sPlanDays = {}, _sHoldDays = {};
+          // 詳細表と同じ共有ロジック(_elDynPlanned/_elDynHold/_elPlanIsStop)で集計。一律 _simCut を適用。
           _simRecs.forEach(function(r) {
             var s = r.signal;
-            if (_simA != null && s.osVal != null) {
-              var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-              var _df = Number(s.osVal) - _simA;
-              var _isStop = _df >= _simCut;
-              var _dp = _df < 0 ? 0 : _isStop ? -Math.round(_df * 100) : (_cf != null ? Math.round((_simA - _cf) * 100) : null);
-              if (_dp != null) {
-                _sTotPlan = (_sTotPlan||0) + _dp; _sTotPlanCnt++; _sPlanDays[r.date] = 1;
-                _sTotPlanCap = (_sTotPlanCap||0) + (_isStop ? _capYen : _dp);
-              }
+            var _isABb = (s.difficulty === "A" || s.difficulty === "B");
+            var _dpB = _elDynPlanned(s, _simA, _simCut);
+            if (_dpB != null) {
+              _sTotPlan = (_sTotPlan||0) + _dpB; _sTotPlanCnt++; _sPlanDays[r.date] = 1;
+              if (_isABb) _sTotPlanAB = (_sTotPlanAB||0) + _dpB;
             }
-            if (_simA != null) {
-              if (s.osVal != null && _simA > Number(s.osVal)) {
-
-              } else {
-                var _hph = null, _hStop = false;
-                if (s.holdHighSign === "-" && s.holdHighVal != null) { var _hhEh = Number(s.holdHighVal) - _simA; if (_hhEh >= _simCut) { _hph = -Math.round(_hhEh * 100); _hStop = true; } }
-                if (_hph == null && s.osVal != null) { var _dfOsh = Number(s.osVal) - _simA; if (_dfOsh >= _simCut) { _hph = -Math.round(_dfOsh * 100); _hStop = true; } }
-                if (_hph == null && s.holdOsConf != null) { var _hwh = _simA - Number(s.holdOsConf); _hph = Math.round((_simA + _hwh) * 100); }
-                if (_hph != null) {
-                  _sTotHold = (_sTotHold||0) + _hph; _sTotHoldCnt++; _sHoldDays[r.date] = 1;
-                  _sTotHoldCap = (_sTotHoldCap||0) + (_hStop ? _capYen : _hph);
-                }
-                else if (s.holdOsConf == null) { _sHoldUnrec++; }
-              }
+            var _hpB = _elDynHold(s, _simA, _simCut);
+            if (_hpB != null) {
+              // 想定が損切りの行は結果損益を想定額にキャップ。
+              var _hCapVb = (_elPlanIsStop(s, _simA, _simCut) && _dpB != null) ? _dpB : _hpB;
+              _sTotHold = (_sTotHold||0) + _hpB; _sTotHoldCnt++; _sHoldDays[r.date] = 1;
+              _sTotHoldCapAll = (_sTotHoldCapAll||0) + _hCapVb;
+              if (_isABb) _sTotHoldCapAB = (_sTotHoldCapAB||0) + _hCapVb;
+            } else if (s.osVal != null && Number(s.osVal) >= _simA && s.holdOsConf == null && s.holdWidth == null && s.holdHighVal == null) {
+              _sHoldUnrec++;
             }
           });
           var _nPlanDays = Object.keys(_sPlanDays).length;
           var _nHoldDays = Object.keys(_sHoldDays).length;
           var _avgPlanDay = _nPlanDays > 0 ? Math.round((_sTotPlan||0) / _nPlanDays) : null;
-          var _avgPlanDayCap = _nPlanDays > 0 ? Math.round((_sTotPlanCap||0) / _nPlanDays) : null;
-          var _avgHoldDay = _nHoldDays > 0 ? Math.round((_sTotHold||0) / _nHoldDays) : null;
-          var _avgHoldDayCap = _nHoldDays > 0 ? Math.round((_sTotHoldCap||0) / _nHoldDays) : null;
+          var _avgPlanDayAB = _nPlanDays > 0 && _sTotPlanAB != null ? Math.round(_sTotPlanAB / _nPlanDays) : _avgPlanDay;
+          var _avgHoldDay = _nHoldDays > 0 ? Math.round((_sTotHoldCapAll||0) / _nHoldDays) : null;
+          var _avgHoldDayAB = _nHoldDays > 0 && _sTotHoldCapAB != null ? Math.round(_sTotHoldCapAB / _nHoldDays) : _avgHoldDay;
           var _pFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
           var _pCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-          var _capFmt = function(v) { return v == null ? "" : "（" + (v > 0 ? "+" : "") + v.toLocaleString() + "円）"; };
-          var _capBlock = function(v) { return v == null ? null : React.createElement("span", { title: "損切り値（" + _simCut + "円）で損切りできた場合", style: { fontSize: 11, fontWeight: 700, color: _pCol(v), marginLeft: 3 } }, _capFmt(v)); };
+          // B以上を主表示、全体(C含む)をカッコ併記。
+          var _pAB2 = function(abV, allV) {
+            if (abV == null && allV == null) return React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#ccc" } }, "—");
+            return React.createElement("span", { style: { whiteSpace: "nowrap" } },
+              React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(abV) } }, _pFmt(abV)),
+              (abV !== allV) ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: _pCol(allV), marginLeft: 2 } }, "（" + _pFmt(allV) + "）") : null
+            );
+          };
           var _periodLabels = [["1w","1週間（月〜金）"], ["month","今月"], ["3m","3ヶ月"], ["all","全期間"], ["custom","カスタム"]];
           return React.createElement("div", { style: { margin: "14px 0 10px", padding: "12px 14px", background: "#FFFBF5", border: "1.5px solid #FB923C", borderRadius: 8 } },
             React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#9A3412", marginBottom: 10 } }, "📊 一括α値シミュレーション"),
@@ -2048,27 +2056,23 @@ function EntryLogView(_ref_elv) {
               ? React.createElement("div", { style: { fontSize: 12, color: "#aaa" } }, "α値を入力するとシミュレーション結果が表示されます")
               : React.createElement("div", { style: { display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" } },
                   React.createElement("div", null,
-                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "想定損益合計（" + _sTotPlanCnt + "件）"),
-                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_sTotPlan) } }, _pFmt(_sTotPlan)),
-                    _capBlock(_sTotPlanCap)
+                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "想定損益合計（" + _sTotPlanCnt + "件・B以上／全体）"),
+                    _pAB2(_sTotPlanAB, _sTotPlan)
                   ),
                   React.createElement("div", null,
                     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } },
-                      "H結果損益合計（" + _sTotHoldCnt + "件）",
+                      "H結果損益合計（" + _sTotHoldCnt + "件・B以上／全体）",
                       _sHoldUnrec > 0 ? React.createElement("span", { style: { color: "#aaa", marginLeft: 4 } }, "※" + _sHoldUnrec + "件未記録") : null
                     ),
-                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_sTotHold) } }, _pFmt(_sTotHold)),
-                    _capBlock(_sTotHoldCap)
+                    _pAB2(_sTotHoldCapAB, _sTotHoldCapAll)
                   ),
                   React.createElement("div", null,
                     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "1日当たり平均想定損益（" + _nPlanDays + "日）"),
-                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_avgPlanDay) } }, _pFmt(_avgPlanDay)),
-                    _capBlock(_avgPlanDayCap)
+                    _pAB2(_avgPlanDayAB, _avgPlanDay)
                   ),
                   React.createElement("div", null,
                     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "1日当たり平均結果損益（" + _nHoldDays + "日）"),
-                    React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_avgHoldDay) } }, _pFmt(_avgHoldDay)),
-                    _capBlock(_avgHoldDayCap)
+                    _pAB2(_avgHoldDayAB, _avgHoldDay)
                   ),
                   React.createElement("div", { style: { fontSize: 10, color: "#aaa" } },
                     "対象期間: ",
