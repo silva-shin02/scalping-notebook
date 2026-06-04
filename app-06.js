@@ -1542,9 +1542,10 @@ function EntryLogView(_ref_elv) {
           };
           var _rPnlDisp = function(v, grade) {
             if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-              grade && grade !== "Z" ? _tBadge(grade) : null,
-              React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v))
+            // ランク・金額を固定幅レーンに入れて列内で縦そろえ。
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+              _lane(grade && grade !== "Z" ? _tBadge(grade) : null, 20),
+              _lane(React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v)), 72, "flex-start")
             );
           };
           var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0 1px", fontWeight: 400 } }, "/"); };
@@ -2390,11 +2391,13 @@ function EntryLogView(_ref_elv) {
       var _rTh = function(label, extra) {
         return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
       };
+      var _lane = function(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); };
       var _rPnlDisp = function(v, grade) {
         if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-          grade && grade !== "Z" ? _svBadge(grade) : null,
-          React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v))
+        // ランク・金額を固定幅レーンに入れて列内で縦そろえ。
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+          _lane(grade && grade !== "Z" ? _svBadge(grade) : null, 20),
+          _lane(React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v)), 72, "flex-start")
         );
       };
       var subRows = [];
@@ -2508,7 +2511,7 @@ function EntryLogView(_ref_elv) {
                 var _planStopH = _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine);
                 var _capV = (_planStopH && planPnlN != null) ? planPnlN : holdPnl;
                 var _capG = _capV != null ? _profitGradeFromPnl(_capV, 1) : null;
-                return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _sym, _rPnlDisp(_capV, _capG));
+                return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _lane(_sym || React.createElement("span", { style: { color: "#ccc" } }, "—"), 16), _rPnlDisp(_capV, _capG));
               })(),
               (holdPnl != null && _elHoldIsStop(s, _aiSv.alpha, _aiSv.cutLine)) ? _elCapNote(_aiSv.cutLine) : null,
               (_elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine) && planPnlN != null && holdPnl != null && holdPnl !== planPnlN)
