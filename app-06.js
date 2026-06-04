@@ -1548,11 +1548,14 @@ function EntryLogView(_ref_elv) {
             );
           };
           var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0 1px", fontWeight: 400 } }, "/"); };
+          var _lane = function(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); };
           var _slashCell = function(symObj, grade, pnl, missFlag) {
             var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
             var badge = missFlag ? _tBadge("Q") : (grade && grade !== "Z" ? _tBadge(grade) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
             var amt = missFlag ? React.createElement("span", { style: { color: "#888" } }, "—") : (pnl != null ? React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(pnl) } }, _rPnlFmt(pnl)) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
-            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, sym, _sl(), badge, _sl(), amt);
+            // 記号・ランク・金額を固定幅レーンに入れて全体幅を一定化し、行ごとに縦の列がそろうようにする。
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+              _lane(sym, 16), _sl(), _lane(badge, 20), _sl(), _lane(amt, 72, "flex-start"));
           };
           var subRows = [];
           var _totReal = null, _totPlan = null, _totHold = null;
