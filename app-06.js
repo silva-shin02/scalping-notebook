@@ -1562,6 +1562,7 @@ function EntryLogView(_ref_elv) {
           var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
           var _totPlanCap = null, _totHoldCap = null, _totPlanStop = false, _totHoldStop = false;
           var _totHoldPlanCap = null, _totHoldPlanStopDiff = false;
+          var _totHoldAB = null, _totHoldABCnt = 0;
           var _totPlanAB = null;
           var _totPlanABCnt = 0;
           recs.forEach(function(r) {
@@ -1603,6 +1604,9 @@ function EntryLogView(_ref_elv) {
               if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
             var _isABt = (s.difficulty === "A" || s.difficulty === "B");
             if (planPnlN != null && _isABt) { _totPlanAB = (_totPlanAB || 0) + planPnlN; _totPlanABCnt++; }
+            if (holdPnl != null && _isABt) {
+              var _pStopHab = _elPlanIsStop(s, _ovA, _ovC);
+              _totHoldAB = (_totHoldAB || 0) + ((_pStopHab && planPnlN != null) ? planPnlN : holdPnl); _totHoldABCnt++; }
             var entLabel = entered
               ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
               : React.createElement("span", { style: { color: "#888" } }, "見送り");
@@ -1690,6 +1694,7 @@ function EntryLogView(_ref_elv) {
           var _totPlanGradeAB = _totPlanABCnt > 0 ? _profitGradeFromPnl(_totPlanAB != null ? _totPlanAB : 0, _totPlanABCnt) : null;
           var _totHoldGrade = _totHoldCnt > 0 ? _profitGradeFromPnl(_totHold != null ? _totHold : 0, _totHoldCnt) : null;
           var _totHoldPlanCapGrade = _totHoldCnt > 0 ? _profitGradeFromPnl(_totHoldPlanCap != null ? _totHoldPlanCap : 0, _totHoldCnt) : null;
+          var _totHoldABGrade = _totHoldABCnt > 0 ? _profitGradeFromPnl(_totHoldAB != null ? _totHoldAB : 0, _totHoldABCnt) : null;
           var _rPnlDispABAll = function(abV, allV, abGrade, allGrade) {
             var _fmtAB = function(v) { return v != null ? (v > 0 ? "+" : "") + v.toLocaleString() + "円" : "—"; };
             var _colAB = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
@@ -1721,7 +1726,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
               _lblCtot("H結果損益"),
               _totHoldCnt > 0
-                ? _rPnlDisp(_totHoldPlanCap, _totHoldPlanCapGrade)
+                ? _rPnlDispABAll(_totHoldAB, _totHoldPlanCap, _totHoldABGrade, _totHoldPlanCapGrade)
                 : React.createElement("span", { style: { color: "#ccc" } }, "—"),
               (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null,
               (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _totHold.toLocaleString() + "円）") : null),
@@ -2399,6 +2404,7 @@ function EntryLogView(_ref_elv) {
       var _totHoldPlanCap = null, _totHoldPlanStopDiff = false;
       var _totPlanABsv = null;
       var _totPlanABCntsv = 0;
+      var _totHoldABsv = null, _totHoldABCntsv = 0;
       recs.forEach(function(r) {
         var rKey = r.stock + "_" + (r.signal.id || r.signal.time || "");
         var rExp = !!svRecExpand[rKey];
@@ -2439,6 +2445,9 @@ function EntryLogView(_ref_elv) {
           if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
         var _isABsv = (s.difficulty === "A" || s.difficulty === "B");
         if (planPnlN != null && _isABsv) { _totPlanABsv = (_totPlanABsv || 0) + planPnlN; _totPlanABCntsv++; }
+        if (holdPnl != null && _isABsv) {
+          var _pStopHabSv = _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine);
+          _totHoldABsv = (_totHoldABsv || 0) + ((_pStopHabSv && planPnlN != null) ? planPnlN : holdPnl); _totHoldABCntsv++; }
         var entLabel = entered
           ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
           : React.createElement("span", { style: { color: "#888" } }, "見送り");
@@ -2520,6 +2529,8 @@ function EntryLogView(_ref_elv) {
       var _totRealGrade = _totRealCnt > 0 ? _profitGradeFromPnlReal(_totReal != null ? _totReal : 0, _totRealCnt) : null;
       var _totPlanGrade = _totPlanCnt > 0 ? _profitGradeFromPnl(_totPlan != null ? _totPlan : 0, _totPlanCnt) : null;
       var _totPlanGradeABsv = _totPlanABCntsv > 0 ? _profitGradeFromPnl(_totPlanABsv != null ? _totPlanABsv : 0, _totPlanABCntsv) : null;
+      var _totHoldPlanCapGradeSv = _totHoldCnt > 0 ? _profitGradeFromPnl(_totHoldPlanCap != null ? _totHoldPlanCap : 0, _totHoldCnt) : null;
+      var _totHoldABGradeSv = _totHoldABCntsv > 0 ? _profitGradeFromPnl(_totHoldABsv != null ? _totHoldABsv : 0, _totHoldABCntsv) : null;
       var _rPnlDispABAllSv = function(abV, allV, abGrade, allGrade) {
         var _fmtAB = function(v) { return v != null ? (v > 0 ? "+" : "") + v.toLocaleString() + "円" : "—"; };
         var _colAB = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
@@ -2552,8 +2563,7 @@ function EntryLogView(_ref_elv) {
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
           _lblSvtot("H結果損益"),
           _totHoldCnt > 0
-            ? React.createElement("span", { style: { fontWeight: 700, color: (_totHoldPlanCap||0) > 0 ? "#C0392B" : (_totHoldPlanCap||0) < 0 ? "#1E8449" : "#888" } },
-                ((_totHoldPlanCap||0) > 0 ? "+" : "") + (_totHoldPlanCap||0).toLocaleString() + "円")
+            ? _rPnlDispABAllSv(_totHoldABsv, _totHoldPlanCap, _totHoldABGradeSv, _totHoldPlanCapGradeSv)
             : React.createElement("span", { style: { color: "#ccc" } }, "—"),
           (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null,
           (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _totHold.toLocaleString() + "円）") : null)
