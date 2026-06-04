@@ -4122,21 +4122,14 @@ function EntrySignalSection(_ref_es) {
       return _stored;
     })();
     var mp = pp;
+    var _enteredTot = _elIsEntered(s, rIt);
     var hp = (function() {
       var _avH = c.alphaVal != null ? c.alphaVal : 10;
       var _cutLhp = c.cutLine != null ? c.cutLine : 10;
-      if (s.osVal != null && _avH > Number(s.osVal)) return null;
-      if (s.osVal != null && (Number(s.osVal) - _avH) >= _cutLhp) return -Math.round((Number(s.osVal) - _avH) * 100);
-      if (s.holdHighSign === "-" && s.holdHighVal != null) {
-        var _hhE = Number(s.holdHighVal) - _avH;
-        if (_hhE >= _cutLhp) return -Math.round(_hhE * 100);
-      }
-      if (s.holdWidth != null) {
-        var _hwS = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0;
-        return Math.round((_avH + _hwS) * 100);
-      }
-      if (s.holdOsConf != null) return Math.round((_avH + (_avH - Number(s.holdOsConf))) * 100);
-      return _elSignedVal(s.holdPnl, s.holdPnlSign);
+      // 見送り（未エントリー）かつ miss（OS値<α値）の行は従来どおり合計に含めない。
+      // 実エントリーした行は miss でも本物の結果として算入する（行表示と同じ _elDynHold で算出）。
+      if (s.osVal != null && _avH > Number(s.osVal) && !_enteredTot) return null;
+      return _elDynHold(s, _avH, _cutLhp);
     })();
     if (s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null) _esTotHoldHasUnrecorded = true;
     var rpN = rp != null ? _p100(rp) : null;
@@ -4643,17 +4636,19 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, (function() {
                   var _hp = _holdPnlDyn;
                   var _isMiss = _dispResult === "miss";
-                  if (_isMiss && _hp == null) return _qMissCell();
+                  // 実エントリーした行は miss 判定でも本物の結果として通常表示（カッコ・薄色なし）にする。
+                  var _missDisp = _isMiss && !entered;
+                  if (_missDisp && _hp == null) return _qMissCell();
                   var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
                   var _hpNum = _holdIsUnrecorded
                     ? React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "未記録")
                     : (_hp == null ? null : React.createElement("span", {
-                        style: { fontWeight: _isMiss ? 400 : 600, fontSize: 10,
-                          color: _isMiss ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888") }
-                      }, (_isMiss ? "(" : "") + (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円" + (_isMiss ? ")" : "")));
+                        style: { fontWeight: _missDisp ? 400 : 600, fontSize: 10,
+                          color: _missDisp ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888") }
+                      }, (_missDisp ? "(" : "") + (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円" + (_missDisp ? ")" : "")));
                   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
                     holdResultEl,
-                    !_isMiss && _hg ? _esBadge(_hg) : null,
+                    !_missDisp && _hg ? _esBadge(_hg) : null,
                     _hpNum
                   );
                 })()),
