@@ -1667,7 +1667,7 @@ function EntryLogView(_ref_elv) {
                   })(),
                   (holdPnl != null && _elHoldIsStop(s, _ovA, _ovC)) ? _elCapNote(_ovC) : null,
                   (_elPlanIsStop(s, _ovA, _ovC) && planPnlN != null && holdPnl != null && holdPnl !== planPnlN)
-                    ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益（100株換算）", style: { fontSize: 10, color: "#888", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + holdPnl.toLocaleString() + "円）")
+                    ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + holdPnl.toLocaleString() + "円）")
                     : null),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _tradeAlphaChip(s), _rPnlDisp(realPnlN, realGrade))
               )
@@ -1721,7 +1721,7 @@ function EntryLogView(_ref_elv) {
                 ? _rPnlDisp(_totHoldPlanCap, _totHoldPlanCapGrade)
                 : React.createElement("span", { style: { color: "#ccc" } }, "—"),
               (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null,
-              (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 10, color: "#888", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _totHold.toLocaleString() + "円）") : null),
+              (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _totHold.toLocaleString() + "円）") : null),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblCtot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
           );
           var _tAddDateRef = date;
@@ -2500,7 +2500,7 @@ function EntryLogView(_ref_elv) {
               })(),
               (holdPnl != null && _elHoldIsStop(s, _aiSv.alpha, _aiSv.cutLine)) ? _elCapNote(_aiSv.cutLine) : null,
               (_elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine) && planPnlN != null && holdPnl != null && holdPnl !== planPnlN)
-                ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益（100株換算）", style: { fontSize: 10, color: "#888", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + holdPnl.toLocaleString() + "円）")
+                ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + holdPnl.toLocaleString() + "円）")
                 : null)
           )
         );
@@ -2553,7 +2553,7 @@ function EntryLogView(_ref_elv) {
                 ((_totHoldPlanCap||0) > 0 ? "+" : "") + (_totHoldPlanCap||0).toLocaleString() + "円")
             : React.createElement("span", { style: { color: "#ccc" } }, "—"),
           (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null,
-          (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 10, color: "#888", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _totHold.toLocaleString() + "円）") : null)
+          (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _totHold.toLocaleString() + "円）") : null)
       );
       var _svAddDateRef = date;
       return React.createElement("tr", { key: date + "_exp" },
