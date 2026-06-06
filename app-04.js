@@ -2674,22 +2674,26 @@ function StockQuickRefTable(_props_qrt) {
       _pr("）")
     );
   };
+  // 金額を固定幅・右寄せにして、カッコや内側の数字が縦にそろうようにする。
+  var _qrAmtR = function(v, w, fs) {
+    return React.createElement("span", { style: { display: "inline-flex", justifyContent: "flex-end", width: w, minWidth: w, fontSize: fs, fontWeight: 700, color: _qrAmtCol(v), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(v) + "円");
+  };
   var _qrPlanChip = function(g) {
     if (!g || g.plan === "Z") return React.createElement("span", { style: { color: "#ccc", fontSize: 11 } }, "—");
     var badgeNode, numNode;
     if (g.planAB == null) {
       badgeNode = _qrMkBadge(g.plan);
-      numNode = _qrAmtSpan(g.planSum);
+      numNode = _qrAmtR(g.planSum, 52, 11);
     } else {
       var _abAmt = g.planSumAB != null ? g.planSumAB : g.planSum;
       var _showParen = _abAmt !== g.planSum;
       badgeNode = _qrMkBadge(g.planAB);
       numNode = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
-        _qrAmtSpan(_abAmt),
+        _qrAmtR(_abAmt, 52, 11),
         _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
           React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
           _qrMkBadgeSm(g.plan),
-          React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _qrAmtCol(g.planSum), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(g.planSum) + "円"),
+          _qrAmtR(g.planSum, 44, 9),
           React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "）")
         ) : null
       );
@@ -2702,17 +2706,17 @@ function StockQuickRefTable(_props_qrt) {
     var badgeNode, numNode;
     if (g.holdPlanCapAB == null) {
       badgeNode = _qrMkBadge(g.holdPlanCap);
-      numNode = _qrAmtSpan(g.holdSumPlanCap);
+      numNode = _qrAmtR(g.holdSumPlanCap, 52, 11);
     } else {
       var _abAmt = g.holdSumPlanCapAB != null ? g.holdSumPlanCapAB : g.holdSumPlanCap;
       var _showParen = _abAmt !== g.holdSumPlanCap;
       badgeNode = _qrMkBadge(g.holdPlanCapAB);
       numNode = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
-        _qrAmtSpan(_abAmt),
+        _qrAmtR(_abAmt, 52, 11),
         _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
           React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
           _qrMkBadgeSm(g.holdPlanCap),
-          React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _qrAmtCol(g.holdSumPlanCap), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(g.holdSumPlanCap) + "円"),
+          _qrAmtR(g.holdSumPlanCap, 44, 9),
           React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "）")
         ) : null
       );
