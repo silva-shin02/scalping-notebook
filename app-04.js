@@ -2869,7 +2869,7 @@ function StockQuickRefTable(_props_qrt) {
                 return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               }
               return React.createElement("div", { style: { display: "grid",
-                gridTemplateColumns: "auto auto minmax(125px, max-content) auto auto auto",
+                gridTemplateColumns: "auto auto minmax(156px, max-content) auto auto auto",
                 columnGap: 4, rowGap: 4, alignItems: "start", justifyItems: "start", width: "fit-content" } },
                 _qrMLab("想"), _qrALab(5), _qrPlanChip(_g5), _qrSep(), _qrALab(10), _qrPlanChip(_g10),
                 _qrMLab("H"), _qrALab(5), _qrHoldChip(_g5), _qrSep(), _qrALab(10), _qrHoldChip(_g10)
