@@ -3332,6 +3332,14 @@ function EntryLogView(_ref_elv) {
         if (!s.osConfSign) return _dash;
         return React.createElement("span", { style: { color: _vcol(s.osConfVal, s.osConfSign === "+"), fontWeight: Number(s.osConfVal) >= 10 ? 700 : 600 } }, (s.osConfSign === "+" ? "↑" : s.osConfSign === "-" ? "↓" : "↕") + Math.abs(Number(s.osConfVal)) + "円");
       };
+      var _ewCell = function(s, alpha) {
+        if (alpha == null || s.osConfVal == null || s.osConfVal === "") return _dash;
+        var _cfEw = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
+        var _ew = alpha - _cfEw;
+        if (_ew === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
+        var _ewAbs = Math.abs(_ew);
+        return React.createElement("span", { style: { color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "↓" : "↑") + _ewAbs);
+      };
       var _hHighCell = function(s) { return s.holdHighVal != null ? React.createElement("span", { style: { color: _vcol(s.holdHighVal, s.holdHighSign === "-"), fontWeight: Number(s.holdHighVal) >= 10 ? 700 : 600 } }, (s.holdHighSign === "+" ? "↓" : s.holdHighSign === "-" ? "↑" : "") + s.holdHighVal) : _dash; };
       var _hConfCell = function(s) { return s.holdWidth != null ? React.createElement("span", { style: { color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: Number(s.holdWidth) >= 10 ? 700 : 600 } }, (s.holdWidthSign === "-" ? "↑" : s.holdWidthSign === "+" ? "↓" : "↕") + s.holdWidth) : _dash; };
       var _numInput = function(val, onCh, color, ph) {
@@ -3386,6 +3394,7 @@ function EntryLogView(_ref_elv) {
             _td(r.stock, { color: "#9A3412", fontWeight: 700 }),
             _td(_osCell(s)),
             _td(_confCell(s)),
+            _td(_ewCell(s, aAlpha)),
             _td(_hHighCell(s)),
             _td(_hConfCell(s)),
             _td(isMiss ? _qMissCell() : _pnlCell(planPnl)),
@@ -3393,7 +3402,7 @@ function EntryLogView(_ref_elv) {
           ));
           if (_on) {
             bodyRows.push(React.createElement("tr", { key: _ek + "_card" },
-              React.createElement("td", { colSpan: 9, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+              React.createElement("td", { colSpan: 10, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
                 React.createElement(EntryLogCard, { record: r, alpha: aAlpha, cutLine: aCut, data: data, onEdit: handleEdit, onGoDate: handleGoDate })
               )
             ));
@@ -3407,7 +3416,7 @@ function EntryLogView(_ref_elv) {
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
-                _hh("日付", { textAlign: "left", paddingLeft: 8 }), _hh("時間"), _hh("銘柄"), _hh("OS値"), _hh("確定値"), _hh("H高値"), _hh("H確定値"), _hh("想定損益"), _hh("結果損益(H)")
+                _hh("日付", { textAlign: "left", paddingLeft: 8 }), _hh("時間"), _hh("銘柄"), _hh("OS値"), _hh("確定値"), _hh("α値比値幅"), _hh("H高値"), _hh("H確定値"), _hh("想定損益"), _hh("結果損益(H)")
               )
             ),
             React.createElement("tbody", null, bodyRows)
