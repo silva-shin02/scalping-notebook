@@ -4472,6 +4472,7 @@ function EntrySignalSection(_ref_es) {
             ),
             React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
             React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
+            React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esTotHoldCnt > 0
                 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
@@ -4635,6 +4636,15 @@ function EntrySignalSection(_ref_es) {
                     ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.holdWidth, s.holdWidthSign === "-"), fontWeight: s.holdWidth >= 10 ? 700 : 600 } },
                         (s.holdWidthSign === "-" ? "\u2191" : s.holdWidthSign === "+" ? "\u2193" : "\u2195") + s.holdWidth)
                     : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
+                  (function() {
+                    if (s.holdWidth == null || s.holdWidth === "") return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
+                    var _hcf = s.holdWidthSign === "-" ? Number(s.holdWidth) : s.holdWidthSign === "+" ? -Number(s.holdWidth) : 0;
+                    var _ewH = (c.alphaVal != null ? c.alphaVal : 10) - _hcf;
+                    if (_ewH === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
+                    var _ewHAbs = Math.abs(_ewH);
+                    return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: _ewHAbs >= 10 ? 700 : 600 } }, (_ewH > 0 ? "\u2193" : "\u2191") + _ewHAbs);
+                  })()),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, (function() {
                   var _hp = _holdPnlDyn;
                   var _isMiss = _dispResult === "miss";
@@ -4677,7 +4687,7 @@ function EntrySignalSection(_ref_es) {
             if (rExp) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: isCustomMode ? 13 : 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 14 : 13, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
@@ -4702,6 +4712,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("想定損益", { width: 96 }),
                   _esTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "高値")), { width: 46 }),
                   _esTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "確定値")), { width: 54 }),
+                  _esTh(React.createElement("span", null, "α値比", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "H値幅")), { width: 54 }),
                   _esTh("H勝敗/結果損益", { width: 116 }),
                   _esTh("実現損益", { width: 90 }),
                   isCustomMode ? _esTh("並替", { width: 40 }) : null
