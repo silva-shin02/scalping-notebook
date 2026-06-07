@@ -1445,9 +1445,16 @@ function EntryLogView(_ref_elv) {
           var _f = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
           var _c = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
           if (abV == null && allV == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-          return React.createElement("span", { style: { whiteSpace: "nowrap" } },
+          var _abG = abV != null ? _profitGradeFromPnl(abV, 1) : null;
+          var _allG = allV != null ? _profitGradeFromPnl(allV, 1) : null;
+          var _mkSmBadge = function(g) {
+            var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
+            return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
+          };
+          return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+            _abG ? _tBadge(_abG) : null,
             React.createElement("span", { style: { fontWeight: 700, color: _c(abV) } }, _f(abV)),
-            (abV !== allV) ? React.createElement("span", { style: { fontSize: 10, marginLeft: 1, whiteSpace: "nowrap" } }, React.createElement("span", { style: { color: "#d6c8b8", fontWeight: 400, margin: "0 2px" } }, "/"), React.createElement("span", { style: { color: _c(allV) } }, _f(allV))) : null
+            (abV !== allV) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 10, whiteSpace: "nowrap" } }, React.createElement("span", { style: { color: "#d6c8b8", fontWeight: 400, margin: "0 2px" } }, "/"), _allG ? _mkSmBadge(_allG) : null, React.createElement("span", { style: { color: _c(allV) } }, _f(allV))) : null
           );
         };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
