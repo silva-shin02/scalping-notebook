@@ -4128,9 +4128,8 @@ function EntrySignalSection(_ref_es) {
     var hp = (function() {
       var _avH = c.alphaVal != null ? c.alphaVal : 10;
       var _cutLhp = c.cutLine != null ? c.cutLine : 10;
-      // 見送り（未エントリー）かつ miss（OS値<α値）の行は従来どおり合計に含めない。
-      // 実エントリーした行は miss でも本物の結果として算入する（行表示と同じ _elDynHold で算出）。
-      if (s.osVal != null && _avH > Number(s.osVal) && !_enteredTot) return null;
+      // 行表示と一致させる: _elDynHold が値を返す行のみ合計に算入する。
+      // miss(OS値<α)かつ見送りでも H高値がα到達なら _elDynHold は実損益を返す（→算入）。H高値未到達なら null（→除外）。
       return _elDynHold(s, _avH, _cutLhp);
     })();
     if (s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null) _esTotHoldHasUnrecorded = true;
@@ -4437,16 +4436,14 @@ function EntrySignalSection(_ref_es) {
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
         "想定損益: ",
         _esTotPlanCnt > 0
-          ? React.createElement("span", { style: { fontWeight: 700, color: (_esTotPlan||0) > 0 ? "#C0392B" : (_esTotPlan||0) < 0 ? "#1E8449" : "#888" } },
-              ((_esTotPlan||0) > 0 ? "+" : "") + (_esTotPlan||0).toLocaleString() + "円")
+          ? _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
           : React.createElement("span", { style: { color: "#ccc" } }, "—")
       ),
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
         "結果損益: ",
         _esTotHoldCnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
-              React.createElement("span", { style: { fontWeight: 700, color: (_esTotHold||0) > 0 ? "#C0392B" : (_esTotHold||0) < 0 ? "#1E8449" : "#888" } },
-                ((_esTotHold||0) > 0 ? "+" : "") + (_esTotHold||0).toLocaleString() + "円"),
+              _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
               _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
             )
           : React.createElement("span", { style: { color: "#ccc" } }, "—")
