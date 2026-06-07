@@ -4105,6 +4105,7 @@ function EntrySignalSection(_ref_es) {
   var _esTotPlanAB = null, _esTotMaxAB = null, _esTotHoldAB = null;
   var _esTotPlanABCnt = 0, _esTotMaxABCnt = 0, _esTotHoldABCnt = 0;
   var _esTotHoldHasUnrecorded = false;
+  var _esTotHoldActual = null, _esTotHoldPlanStopDiff = false;
   records.forEach(function(r) {
     var s = r.signal, rIt = r.item;
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
@@ -4140,11 +4141,19 @@ function EntrySignalSection(_ref_es) {
     if (rpN != null) { _esTotReal = (_esTotReal || 0) + rpN; _esTotRealCnt++; }
     if (ppN != null) { _esTotPlan = (_esTotPlan || 0) + ppN; _esTotPlanCnt++; }
     if (mpN != null) { _esTotMax  = (_esTotMax  || 0) + mpN; _esTotMaxCnt++; }
-    if (hpN != null) { _esTotHold = (_esTotHold || 0) + hpN; _esTotHoldCnt++; }
+    // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
+    var _planStopTot = _elPlanIsStop(s, c.alphaVal != null ? c.alphaVal : 10, c.cutLine != null ? c.cutLine : 10);
+    var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
+    if (hpN != null) {
+      _esTotHold = (_esTotHold || 0) + _hCapN;
+      _esTotHoldActual = (_esTotHoldActual || 0) + hpN;
+      _esTotHoldCnt++;
+      if (_planStopTot && ppN != null && hpN !== ppN) _esTotHoldPlanStopDiff = true;
+    }
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
     if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; _esTotMaxABCnt++; }
-    if (hpN != null && _isAB) { _esTotHoldAB = (_esTotHoldAB || 0) + hpN; _esTotHoldABCnt++; }
+    if (hpN != null && _isAB) { _esTotHoldAB = (_esTotHoldAB || 0) + _hCapN; _esTotHoldABCnt++; }
   });
   var _esTotRealGrade = _esTotRealCnt > 0 ? _profitGradeFromPnlReal(_esTotReal != null ? _esTotReal : 0, _esTotRealCnt) : null;
   var _esTotPlanGrade = _esTotPlanCnt > 0 ? _profitGradeFromPnl(_esTotPlan != null ? _esTotPlan : 0, _esTotPlanCnt) : null;
@@ -4444,6 +4453,7 @@ function EntrySignalSection(_ref_es) {
         _esTotHoldCnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
               _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
+              (_esTotHoldPlanStopDiff && _esTotHoldActual != null) ? React.createElement("span", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap" } }, "（" + _esTotHoldActual.toLocaleString() + "円）") : null,
               _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
             )
           : React.createElement("span", { style: { color: "#ccc" } }, "—")
@@ -4477,6 +4487,7 @@ function EntrySignalSection(_ref_es) {
               _esTotHoldCnt > 0
                 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
                     _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
+                    (_esTotHoldPlanStopDiff && _esTotHoldActual != null) ? React.createElement("span", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap" } }, "（" + _esTotHoldActual.toLocaleString() + "円）") : null,
                     _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
                   )
                 : React.createElement("span", { style: { color: "#ccc" } }, "—")
@@ -4658,17 +4669,33 @@ function EntrySignalSection(_ref_es) {
                   // 実エントリーした行は miss 判定でも本物の結果として通常表示（カッコ・薄色なし）にする。
                   var _missDisp = _isMiss && !entered && !_hHighReached;
                   if (_missDisp && _hp == null) return _qMissCell();
-                  var _hg = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
-                  var _hpNum = _holdIsUnrecorded
-                    ? React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "未記録")
-                    : (_hp == null ? null : React.createElement("span", {
-                        style: { fontWeight: _missDisp ? 400 : 600, fontSize: 10,
-                          color: _missDisp ? (_hp > 0 ? "#E07070" : _hp < 0 ? "#70A888" : "#aaa") : (_hp > 0 ? "#C0392B" : _hp < 0 ? "#1E8449" : "#888") }
-                      }, (_missDisp ? "(" : "") + (_hp > 0 ? "+" : "") + _hp.toLocaleString() + "円" + (_missDisp ? ")" : "")));
-                  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-                    _esLane(holdResultEl, 16),
-                    _esLane(!_missDisp && _hg ? _esBadge(_hg) : null, 22),
-                    _esLane(_hpNum, 72, "flex-start")
+                  if (_holdIsUnrecorded) {
+                    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+                      _esLane(holdResultEl, 16),
+                      _esLane(null, 22),
+                      _esLane(React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "未記録"), 72, "flex-start")
+                    );
+                  }
+                  // 想定が損切りの行は結果損益を想定額にキャップ。ランクもキャップ後の値で付与。本来額は下にカッコで縦並び表示。
+                  var _planStop = _elPlanIsStop(s, _avH, _cutLH);
+                  var _capV = (_planStop && planPnlN != null) ? planPnlN : _hp;
+                  var _hg = _capV != null ? _profitGradeFromPnl(_capV, 1) : null;
+                  var _hpNum = _capV == null ? null : React.createElement("span", {
+                    style: { fontWeight: _missDisp ? 400 : 600, fontSize: 10,
+                      color: _missDisp ? (_capV > 0 ? "#E07070" : _capV < 0 ? "#70A888" : "#aaa") : (_capV > 0 ? "#C0392B" : _capV < 0 ? "#1E8449" : "#888") }
+                  }, (_missDisp ? "(" : "") + (_capV > 0 ? "+" : "") + _capV.toLocaleString() + "円" + (_missDisp ? ")" : ""));
+                  var _showOrig = _planStop && planPnlN != null && _hp != null && _hp !== planPnlN;
+                  return React.createElement(React.Fragment, null,
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+                      _esLane(holdResultEl, 16),
+                      _esLane(!_missDisp && _hg ? _esBadge(_hg) : null, 22),
+                      _esLane(_hpNum, 72, "flex-start")
+                    ),
+                    _showOrig ? React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", lineHeight: 1.2, marginTop: 1 } },
+                      _esLane(null, 16),
+                      _esLane(null, 22),
+                      _esLane(React.createElement("span", { title: "損切りせず保有し続けた場合の本来の結果損益（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（" + _hp.toLocaleString() + "円）"), 72, "flex-start")
+                    ) : null
                   );
                 })()),
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esLane(_tradeAlphaChip(s), 26, "flex-end"), _esRPnlDisp(realPnlN, realGrade, !entered)),
