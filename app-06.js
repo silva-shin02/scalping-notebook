@@ -3382,7 +3382,7 @@ function EntryLogView(_ref_elv) {
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#B91C1C", marginLeft: 6 } }, "損切り値"),
         _numInput(_ovC, function(e){ var v=e.target.value; var n=v===""?null:(isNaN(Number(v))?null:Number(v)); if(n!=null && n<1)n=1; setSigDateCut(n); }, "#FECACA", "各日"),
         React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円"),
-        _hasOv ? React.createElement("button", { onClick: function(){ setSigDateAlpha(null); setSigDateCut(null); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット") : null,
+        _hasOv ? React.createElement("button", { onClick: function(){ setSigDateAlpha(10); setSigDateCut(10); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット") : null,
         _hasOv ? React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "※全エントリーに一括適用中") : null
       );
       if (rows.length === 0) {

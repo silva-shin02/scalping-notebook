@@ -4603,7 +4603,7 @@ function DayView(_ref57) {
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             React.createElement("button", {
-              onClick: function() { setPbSimAlpha(null); setPbSimCutLine(null); },
+              onClick: function() { setPbSimAlpha(10); setPbSimCutLine(10); },
               style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
             }, "リセット"),
             React.createElement("span", { style: { color: "#ddd", fontSize: 14, margin: "0 2px" } }, "|"),

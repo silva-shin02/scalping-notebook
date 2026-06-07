@@ -4436,7 +4436,19 @@ function EntrySignalSection(_ref_es) {
           function() { save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce = Object.assign({}, pCharts[ck] || {}); var _n = _ce.cutLine != null ? _ce.cutLine : 10; if (_n <= 1) return prev; _ce.cutLine = _n - 1; pCharts[ck] = _ce; return Object.assign({}, prev, { charts: pCharts }); }); }
         )
       ),
-      React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+      React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+      React.createElement("button", {
+        onClick: function() {
+          save(function(prev) {
+            var pCharts = Object.assign({}, (prev && prev.charts) || {});
+            var _ce = Object.assign({}, pCharts[ck] || {});
+            delete _ce.cutLine;
+            pCharts[ck] = _ce;
+            return Object.assign({}, prev, { charts: pCharts });
+          });
+        },
+        style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
+      }, "リセット")
     ),
     records.length > 0 ? React.createElement("div", {
       style: { display: "flex", gap: 12, marginBottom: 6, padding: "4px 10px", background: "#FFF7ED", borderRadius: 6, border: "1px solid #FFE0BB", alignItems: "center", flexWrap: "wrap" }
