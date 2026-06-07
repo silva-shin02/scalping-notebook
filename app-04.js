@@ -3936,7 +3936,8 @@ function DayView(_ref57) {
                   _trLane(holdResultEl, 16), _trLane(!_isMiss && _hg ? _trBadge(_hg) : null, 22), _trLane(_pnlEl, 72, "flex-start")
                 ),
                 (_planStopTr && planPnlN != null && _hp != null && _hp !== planPnlN)
-                  ? React.createElement("div", { style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _hp.toLocaleString() + "円）")
+                  ? React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", lineHeight: 1.2, marginTop: 1 } },
+                      _trLane(null, 16), _trLane(null, 22), _trLane(React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（" + _hp.toLocaleString() + "円）"), 72, "flex-start"))
                   : null
               );
             })()),
