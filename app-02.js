@@ -4490,7 +4490,7 @@ function EntrySignalSection(_ref_es) {
                       _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
                       _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
                     ),
-                    (_esTotHoldPlanStopDiff && _esTotHoldActual != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, "（" + _esTotHoldActual.toLocaleString() + "円）") : null
+                    (_esTotHoldPlanStopDiff && _esTotHoldActual != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（"), _esBadge(_profitGradeFromPnl(_esTotHoldActual, _esTotHoldCnt)), React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, _esTotHoldActual.toLocaleString() + "円）")) : null
                   )
                 : React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),
@@ -4687,16 +4687,17 @@ function EntrySignalSection(_ref_es) {
                       color: _missDisp ? (_capV > 0 ? "#E07070" : _capV < 0 ? "#70A888" : "#aaa") : (_capV > 0 ? "#C0392B" : _capV < 0 ? "#1E8449" : "#888") }
                   }, (_missDisp ? "(" : "") + (_capV > 0 ? "+" : "") + _capV.toLocaleString() + "円" + (_missDisp ? ")" : ""));
                   var _showOrig = _planStop && planPnlN != null && _hp != null && _hp !== planPnlN;
+                  var _hgOrig = _hp != null ? _profitGradeFromPnl(_hp, 1) : null;
                   return React.createElement(React.Fragment, null,
                     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
                       _esLane(holdResultEl, 16),
                       _esLane(!_missDisp && _hg ? _esBadge(_hg) : null, 22),
                       _esLane(_hpNum, 72, "flex-start")
                     ),
-                    _showOrig ? React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", lineHeight: 1.2, marginTop: 1 } },
-                      _esLane(null, 16),
-                      _esLane(null, 22),
-                      _esLane(React.createElement("span", { title: "損切りせず保有し続けた場合の本来の結果損益（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（" + _hp.toLocaleString() + "円）"), 72, "flex-start")
+                    _showOrig ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益（100株換算）", style: { display: "flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", lineHeight: 1.2, marginTop: 1 } },
+                      _esLane(React.createElement("span", { style: { fontSize: 10, color: "#333", fontWeight: 700 } }, "（"), 16),
+                      _esLane(_hgOrig ? _esBadge(_hgOrig) : null, 22),
+                      _esLane(React.createElement("span", { style: { fontSize: 10, color: "#333", fontWeight: 700 } }, _hp.toLocaleString() + "円）"), 72, "flex-start")
                     ) : null
                   );
                 })()),
