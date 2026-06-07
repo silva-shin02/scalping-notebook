@@ -4314,6 +4314,7 @@ function DayView(_ref57) {
       var _totPlanABpb = null;
       var _totPlanABCntpb = 0;
       var _totPlanCap = null, _totHoldCap = null, _totPlanStop = false, _totHoldStop = false;
+      var _totHoldPlanCap = null, _totHoldPlanCapAB = null, _totHoldPlanCapABCnt = 0, _totHoldPlanStopDiffPb = false;
       expRecs.forEach(function(r) {
         var rKey = r.stock + "_" + (r.signal.id || r.signal.time || "");
         var rExp = !!pnlRecordExpandSet[rKey];
@@ -4353,6 +4354,14 @@ function DayView(_ref57) {
           _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_cutLrec) : holdPnl); }
         var _isABpb = (s.difficulty === "A" || s.difficulty === "B");
         if (planPnl != null && _isABpb) { _totPlanABpb = (_totPlanABpb || 0) + planPnl; _totPlanABCntpb++; }
+        if (holdPnl != null) {
+          // 想定が損切りの行は結果損益を想定額にキャップした合計（per-row のキャップ表示と一致）。本来額は _totHold に保持。
+          var _pStopH = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
+          var _hCapPb = (_pStopH && planPnl != null) ? planPnl : holdPnl;
+          _totHoldPlanCap = (_totHoldPlanCap || 0) + _hCapPb;
+          if (_isABpb) { _totHoldPlanCapAB = (_totHoldPlanCapAB || 0) + _hCapPb; _totHoldPlanCapABCnt++; }
+          if (_pStopH && planPnl != null && holdPnl !== planPnl) _totHoldPlanStopDiffPb = true;
+        }
         var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
         var gPlan = planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null;
         subRows.push(React.createElement("tr", {
@@ -4427,7 +4436,6 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
             (function() {
               if (holdPnl == null) return isMiss ? _pbSlashCell({ch:"ー",col:"#B45309"}, null, null, true) : React.createElement("span", { style: { color: "#ccc" } }, "—");
-              var _hg = holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null;
               var _dynHpExp = (function() {
                 var hp = holdPnl, pp = planPnl;
                 if (hp == null) return s.holdProfit;
@@ -4442,7 +4450,20 @@ function DayView(_ref57) {
               })();
               var _symH = _dynHpExp === "yes" ? {ch:"○",col:"#1E8449"} : _dynHpExp === "mid" ? {ch:"△",col:"#B45309"} : _dynHpExp === "none" ? {ch:"ー",col:"#888"} : _dynHpExp === "no" ? {ch:"×",col:"#C0392B"} : null;
               if (!_symH && holdPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-              return _pbSlashCell(_symH, _hg, holdPnl, false);
+              // 想定が損切りの行は結果損益を想定額にキャップ。ランクもキャップ後の値で付与。本来額は下にカッコで縦並び（金額の真下に整列）。
+              var _planStopPb = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
+              var _capV = (_planStopPb && planPnl != null) ? planPnl : holdPnl;
+              var _hg = _capV != null ? _profitGradeFromPnl(_capV, 1) : null;
+              var _showOrig = _planStopPb && planPnl != null && holdPnl != null && holdPnl !== planPnl;
+              if (!_showOrig) return _pbSlashCell(_symH, _hg, _capV, false);
+              var _slHide = function() { return React.createElement("span", { style: { color: "transparent", margin: "0 1px", fontWeight: 400 } }, "/"); };
+              return React.createElement(React.Fragment, null,
+                React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } }, _pbSlashCell(_symH, _hg, _capV, false)),
+                React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", lineHeight: 1.2, marginTop: 1 } },
+                  _lane(null, 16), _slHide(), _lane(null, 20), _slHide(),
+                  _lane(React.createElement("span", { title: "損切りせず保有し続けた場合の本来の結果損益（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（" + holdPnl.toLocaleString() + "円）"), 72, "flex-start")
+                )
+              );
             })(),
             (holdPnl != null && _elHoldIsStop(s, _alphaRec, _cutLrec)) ? _elCapNote(_cutLrec) : null),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
@@ -4464,6 +4485,8 @@ function DayView(_ref57) {
       var _totRealGrade = _totRealCnt > 0 ? _profitGradeFromPnlReal(_totReal != null ? _totReal : 0, _totRealCnt) : null;
       var _totPlanGrade = _totPlanCnt > 0 ? _profitGradeFromPnl(_totPlan != null ? _totPlan : 0, _totPlanCnt) : null;
       var _totPlanGradeABpb = _totPlanABCntpb > 0 ? _profitGradeFromPnl(_totPlanABpb != null ? _totPlanABpb : 0, _totPlanABCntpb) : null;
+      var _totHoldCapGradePb = _totHoldCnt > 0 ? _profitGradeFromPnl(_totHoldPlanCap != null ? _totHoldPlanCap : 0, _totHoldCnt) : null;
+      var _totHoldCapGradeABpb = _totHoldPlanCapABCnt > 0 ? _profitGradeFromPnl(_totHoldPlanCapAB != null ? _totHoldPlanCapAB : 0, _totHoldPlanCapABCnt) : null;
       var _rPnlDispABAllPb = function(abV, allV, abGrade, allGrade) {
         var _fmtAB = function(v) { return v != null ? (v > 0 ? "+" : "") + v.toLocaleString() + "円" : "—"; };
         var _colAB = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
@@ -4495,10 +4518,10 @@ function DayView(_ref57) {
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
           _lblTot("H結果損益"),
           _totHoldCnt > 0
-            ? React.createElement("span", { style: { fontWeight: 700, color: (_totHold||0) > 0 ? "#C0392B" : (_totHold||0) < 0 ? "#1E8449" : "#888" } },
-                ((_totHold||0) > 0 ? "+" : "") + (_totHold||0).toLocaleString() + "円")
-            : React.createElement("span", { style: { color: "#ccc" } }, "—"),
-          (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null),
+            ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+                _rPnlDispABAllPb(_totHoldPlanCapAB, _totHoldPlanCap, _totHoldCapGradeABpb, _totHoldCapGradePb),
+                (_totHoldPlanStopDiffPb && _totHold != null) ? React.createElement("span", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap" } }, "（" + _totHold.toLocaleString() + "円）") : null)
+            : React.createElement("span", { style: { color: "#ccc" } }, "—")),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
       );
       var sortToggle = rowKey === "__total__"
