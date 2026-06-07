@@ -4102,8 +4102,8 @@ function EntrySignalSection(_ref_es) {
   
   var _esTotReal = null, _esTotPlan = null, _esTotMax = null, _esTotHold = null;
   var _esTotRealCnt = 0, _esTotPlanCnt = 0, _esTotMaxCnt = 0, _esTotHoldCnt = 0;
-  var _esTotPlanAB = null, _esTotMaxAB = null;
-  var _esTotPlanABCnt = 0, _esTotMaxABCnt = 0;
+  var _esTotPlanAB = null, _esTotMaxAB = null, _esTotHoldAB = null;
+  var _esTotPlanABCnt = 0, _esTotMaxABCnt = 0, _esTotHoldABCnt = 0;
   var _esTotHoldHasUnrecorded = false;
   records.forEach(function(r) {
     var s = r.signal, rIt = r.item;
@@ -4145,12 +4145,15 @@ function EntrySignalSection(_ref_es) {
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
     if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; _esTotMaxABCnt++; }
+    if (hpN != null && _isAB) { _esTotHoldAB = (_esTotHoldAB || 0) + hpN; _esTotHoldABCnt++; }
   });
   var _esTotRealGrade = _esTotRealCnt > 0 ? _profitGradeFromPnlReal(_esTotReal != null ? _esTotReal : 0, _esTotRealCnt) : null;
   var _esTotPlanGrade = _esTotPlanCnt > 0 ? _profitGradeFromPnl(_esTotPlan != null ? _esTotPlan : 0, _esTotPlanCnt) : null;
   var _esTotMaxGrade  = _esTotMaxCnt  > 0 ? _profitGradeFromPnl(_esTotMax  != null ? _esTotMax  : 0, _esTotMaxCnt)  : null;
   var _esTotPlanGradeAB = _esTotPlanABCnt > 0 ? _profitGradeFromPnl(_esTotPlanAB != null ? _esTotPlanAB : 0, _esTotPlanABCnt) : null;
   var _esTotMaxGradeAB  = _esTotMaxABCnt  > 0 ? _profitGradeFromPnl(_esTotMaxAB  != null ? _esTotMaxAB  : 0, _esTotMaxABCnt)  : null;
+  var _esTotHoldGrade   = _esTotHoldCnt   > 0 ? _profitGradeFromPnl(_esTotHold   != null ? _esTotHold   : 0, _esTotHoldCnt)   : null;
+  var _esTotHoldGradeAB = _esTotHoldABCnt > 0 ? _profitGradeFromPnl(_esTotHoldAB != null ? _esTotHoldAB : 0, _esTotHoldABCnt) : null;
 
   return React.createElement("div", { style: { marginTop: 12, marginBottom: 12 } },
     
@@ -4476,8 +4479,7 @@ function EntrySignalSection(_ref_es) {
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esTotHoldCnt > 0
                 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
-                    React.createElement("span", { style: { fontWeight: 700, fontSize: 11, color: (_esTotHold||0) > 0 ? "#C0392B" : (_esTotHold||0) < 0 ? "#1E8449" : "#888" } },
-                      ((_esTotHold||0) > 0 ? "+" : "") + (_esTotHold||0).toLocaleString() + "円"),
+                    _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
                     _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
                   )
                 : React.createElement("span", { style: { color: "#ccc" } }, "—")
