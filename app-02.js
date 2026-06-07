@@ -4092,10 +4092,10 @@ function EntrySignalSection(_ref_es) {
       abGrade ? _esBadge(abGrade) : null,
       React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(abV) } }, _esRPnlFmt(abV)),
       abV !== allV ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-        React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
+        React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
         allGrade ? _mkSmBadge(allGrade) : null,
         React.createElement("span", { style: { color: _esRPnlCol(allV), fontSize: 10 } }, _esRPnlFmt(allV)),
-        React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, ")")
+        null
       ) : null
     );
   };

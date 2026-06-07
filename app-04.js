@@ -2691,10 +2691,9 @@ function StockQuickRefTable(_props_qrt) {
       numNode = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
         _qrAmtR(_abAmt, 52, 11),
         _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
-          React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
+          React.createElement("span", { style: { fontSize: 10, color: "#d6c8b8", fontWeight: 400, lineHeight: 1, marginRight: 2 } }, "/"),
           _qrMkBadgeSm(g.plan),
-          _qrAmtR(g.planSum, 44, 9),
-          React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "）")
+          _qrAmtR(g.planSum, 44, 9)
         ) : null
       );
     }
@@ -2714,10 +2713,9 @@ function StockQuickRefTable(_props_qrt) {
       numNode = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
         _qrAmtR(_abAmt, 52, 11),
         _showParen ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 1 } },
-          React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "（"),
+          React.createElement("span", { style: { fontSize: 10, color: "#d6c8b8", fontWeight: 400, lineHeight: 1, marginRight: 2 } }, "/"),
           _qrMkBadgeSm(g.holdPlanCap),
-          _qrAmtR(g.holdSumPlanCap, 44, 9),
-          React.createElement("span", { style: { fontSize: 9, color: "#bbb", lineHeight: 1 } }, "）")
+          _qrAmtR(g.holdSumPlanCap, 44, 9)
         ) : null
       );
     }
@@ -3714,10 +3712,10 @@ function DayView(_ref57) {
           abGrade ? _trBadge(abGrade) : null,
           React.createElement("span", { style: { fontWeight: 600, color: _trRPnlCol(abV) } }, _trRPnlFmt(abV)),
           abV !== allV ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-            React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
+            React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
             allGrade ? _mkSmBadge(allGrade) : null,
             React.createElement("span", { style: { color: _trRPnlCol(allV), fontSize: 10 } }, _trRPnlFmt(allV)),
-            React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, ")")
+            null
           ) : null
         );
       };
@@ -4143,10 +4141,10 @@ function DayView(_ref57) {
         abGrade ? _pbBadge(abGrade) : null,
         React.createElement("span", { style: { fontWeight: 600, color: _pbCol(abSum) } }, _pbFmt(abSum)),
         abSum !== allSum ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-          React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
+          React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
           allGrade ? _mkSmBadge(allGrade) : null,
           React.createElement("span", { style: { color: _pbCol(allSum), fontSize: 10 } }, _pbFmt(allSum)),
-          React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, ")")
+          null
         ) : null
       );
     };
@@ -4189,10 +4187,10 @@ function DayView(_ref57) {
         
         allEnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-              React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
+              React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
               allGrade ? _mkSm(allGrade) : null,
               React.createElement("span", { style: { color: _pbCol(allSum), fontSize: 10 } }, _pbFmt(allSum)),
-              React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, ")")
+              null
             )
           : null
       );
@@ -4480,10 +4478,10 @@ function DayView(_ref57) {
           abGrade ? _pbBadge(abGrade) : null,
           React.createElement("span", { style: { fontWeight: 600, color: _colAB(abV) } }, _fmtAB(abV)),
           abV !== allV ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-            React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
+            React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
             allGrade ? _mkSmBadge(allGrade) : null,
             React.createElement("span", { style: { color: _colAB(allV), fontSize: 10 } }, _fmtAB(allV)),
-            React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, ")")
+            null
           ) : null
         );
       };

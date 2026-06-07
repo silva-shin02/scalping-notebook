@@ -1289,7 +1289,7 @@ function EntryLogView(_ref_elv) {
               return React.createElement("span", { style: { whiteSpace: "nowrap" } },
                 "想定 ",
                 React.createElement("span", { style: { fontWeight: 600, color: _colFS(_abP) } }, _abP !== 0 ? _fmtFS(_abP) : "—"),
-                _abP !== _allP ? React.createElement("span", { style: { color: _colFS(_allP), fontSize: 10 } }, "(" + (_allP !== 0 ? _fmtFS(_allP) : "—") + ")") : null
+                _abP !== _allP ? React.createElement("span", { style: { fontSize: 10, whiteSpace: "nowrap" } }, React.createElement("span", { style: { color: "#d6c8b8", fontWeight: 400, margin: "0 2px" } }, "/"), React.createElement("span", { style: { color: _colFS(_allP) } }, _allP !== 0 ? _fmtFS(_allP) : "—")) : null
               );
             })(),
             (function() {
@@ -1447,7 +1447,7 @@ function EntryLogView(_ref_elv) {
           if (abV == null && allV == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
           return React.createElement("span", { style: { whiteSpace: "nowrap" } },
             React.createElement("span", { style: { fontWeight: 700, color: _c(abV) } }, _f(abV)),
-            (abV !== allV) ? React.createElement("span", { style: { fontSize: 10, color: _c(allV), marginLeft: 1 } }, "（" + _f(allV) + "）") : null
+            (abV !== allV) ? React.createElement("span", { style: { fontSize: 10, marginLeft: 1, whiteSpace: "nowrap" } }, React.createElement("span", { style: { color: "#d6c8b8", fontWeight: 400, margin: "0 2px" } }, "/"), React.createElement("span", { style: { color: _c(allV) } }, _f(allV))) : null
           );
         };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
@@ -1731,10 +1731,10 @@ function EntryLogView(_ref_elv) {
               abGrade ? _tBadge(abGrade) : null,
               React.createElement("span", { style: { fontWeight: 600, color: _colAB(abV) } }, _fmtAB(abV)),
               abV !== allV ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-                React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
+                React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
                 allGrade ? _mkSmBadge(allGrade) : null,
                 React.createElement("span", { style: { color: _colAB(allV), fontSize: 10 } }, _fmtAB(allV)),
-                React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, ")")
+                null
               ) : null
             );
           };
@@ -2003,7 +2003,7 @@ function EntryLogView(_ref_elv) {
             if (abV == null && allV == null) return React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#ccc" } }, "—");
             return React.createElement("span", { style: { whiteSpace: "nowrap" } },
               React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(abV) } }, _pFmt(abV)),
-              (abV !== allV) ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: _pCol(allV), marginLeft: 2 } }, "（" + _pFmt(allV) + "）") : null
+              (abV !== allV) ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, marginLeft: 2, whiteSpace: "nowrap" } }, React.createElement("span", { style: { color: "#d6c8b8", fontWeight: 400, margin: "0 3px" } }, "/"), React.createElement("span", { style: { color: _pCol(allV) } }, _pFmt(allV))) : null
             );
           };
           var _periodLabels = [["1w","1週間（月〜金）"], ["month","今月"], ["3m","3ヶ月"], ["all","全期間"], ["custom","カスタム"]];
@@ -2570,10 +2570,10 @@ function EntryLogView(_ref_elv) {
           abGrade ? _svBadge(abGrade) : null,
           React.createElement("span", { style: { fontWeight: 600, color: _colAB(abV) } }, _fmtAB(abV)),
           abV !== allV ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-            React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
+            React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
             allGrade ? _mkSmBadge(allGrade) : null,
             React.createElement("span", { style: { color: _colAB(allV), fontSize: 10 } }, _fmtAB(allV)),
-            React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, ")")
+            null
           ) : null
         );
       };
@@ -3153,10 +3153,10 @@ function EntryLogView(_ref_elv) {
       abGrade ? _tBadge(abGrade) : null,
       React.createElement("span", { style: { fontWeight: 600, color: col(abSum) } }, fmt(abSum)),
       abSum !== allSum ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-        React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, "("),
+        React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
         allGrade ? _mkSmBadge(allGrade) : null,
         React.createElement("span", { style: { color: col(allSum), fontSize: 10 } }, fmt(allSum)),
-        React.createElement("span", { style: { color: "#bbb", fontSize: 10 } }, ")")
+        null
       ) : null
     );
   };
