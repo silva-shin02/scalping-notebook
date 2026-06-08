@@ -4581,7 +4581,7 @@ function EntrySignalSection(_ref_es) {
                 ),
                 React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   _sigParts.length > 0
-                    ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return React.createElement("div", { key: _i, style: { whiteSpace: "normal", wordBreak: "break-word" } }, _t); }))
+                    ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return React.createElement("div", { key: _i, style: { whiteSpace: "nowrap" } }, _t); }))
                     : "(未設定)"),
                 React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%",
                   color: s.difficulty ? (s.difficulty === "A" ? "#B71C1C" : s.difficulty === "B" ? "#C62828" : "#666") : "#ccc",
@@ -4616,9 +4616,7 @@ function EntrySignalSection(_ref_es) {
                         _esRPnlDisp(planPnlN, planGrade)
                       )
                 ),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
-                  _elHoldBoth(s, _avH, _cutLH),
-                  (_holdPnlDyn != null && _elHoldIsStop(s, _avH, _cutLH)) ? _elCapNote(_cutLH) : null),
+                _elHoldTd2(s, _avH, _cutLH, { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" }, (_holdPnlDyn != null && _elHoldIsStop(s, _avH, _cutLH)) ? _elCapNote(_cutLH) : null),
                 React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esLane(_tradeAlphaChip(s), 26, "flex-end"), _esRPnlDisp(realPnlN, realGrade, !entered)),
                 isCustomMode ? React.createElement("td", {
                   style: { padding: "2px 4px", textAlign: "center", borderBottom: "1px solid #f0ede6" },
@@ -4642,7 +4640,7 @@ function EntrySignalSection(_ref_es) {
             if (rExp) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: isCustomMode ? 11 : 10, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 12 : 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
@@ -4655,7 +4653,7 @@ function EntrySignalSection(_ref_es) {
               React.createElement("thead", null,
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left", width: 50 }),
-                  _esTh("シグナル", { width: 130 }),
+                  _esTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
                   _esTh("予想OS度", { width: 54 }),
                   _esTh("α値", { width: 36 }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: 52 } },
@@ -4665,7 +4663,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("確定値", { width: 58 }),
                   _esTh("α値比値幅", { width: 54 }),
                   _esTh("結果/想定損益", { width: 116 }),
-                  _esTh(React.createElement("span", null, "H ", React.createElement("span", { style: { fontSize: 9, color: "#888", fontWeight: 400 } }, "①H1/②H2"))),
+                  _esTh("H１"), _esTh("H２"),
                   _esTh("実現損益", { width: 90 }),
                   isCustomMode ? _esTh("並替", { width: 40 }) : null
                 )

@@ -3335,6 +3335,21 @@ function _elHoldSumBoth(sumH1, sumH2) {
     React.createElement("span", { key: "sep", style: { color: "#ddd" } }, "｜"),
     React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), _f(sumH2)));
 }
+// 明細表用: 「H１」td と「H２」td の2セル(配列)を返す。各セル内は横一列(nowrap)。tr の子に配列として置けば2列になる。
+function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
+  return [
+    React.createElement("td", { key: "h1c", style: tdStyle }, _elHoldFlow(s, alpha, cutLine, false, true), capNote || null),
+    React.createElement("td", { key: "h2c", style: tdStyle }, _elHold2Cell(s, alpha, cutLine))
+  ];
+}
+// 集計表用: 「H１合計」td と「H２合計」td の2セル(配列)。
+function _elHoldSumTd2(sumH1, sumH2, tdStyle) {
+  var _f = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
+  return [
+    React.createElement("td", { key: "h1s", style: tdStyle }, _f(sumH1)),
+    React.createElement("td", { key: "h2s", style: tdStyle }, _f(sumH2))
+  ];
+}
 function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
 function _elCapNoteAmt(amount, opts) {
   // 「仮に損切値ちょうどで損切できていたら」の損失額（カッコ表示）は非表示にする。
@@ -5137,7 +5152,7 @@ function EntryRecordForm(_ref_erf) {
               ? _elCapNote(_fCutLine, { fontSize: 14, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
           ),
           React.createElement("div", null,
-            React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
+            React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化", React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（H１比）")),
             React.createElement("div", { style: { display: "flex", gap: 5 } },
               [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
                 var on = fHold2Profit === kv[1];
