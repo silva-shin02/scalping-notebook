@@ -4364,7 +4364,7 @@ function EntryRecordForm(_ref_erf) {
         style: Object.assign({}, I, { marginBottom: 6 })
       }),
       
-      React.createElement("div", { style: SH_ }, "\u2B50 \u4E88\u60F3OS\u5EA6"),
+      React.createElement("div", { style: SH_ }, "\u4E88\u60F3OS\u5EA6"),
       React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u5186\u301C / B:10\u301C19\u5186 / C:0\u301C9\u5186\uFF09\u3002\u03B1\u5024\u306F\u81EA\u52D5: A\u219220 / B\u219210 / C\u21925"),
       React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
         [["A", "20円〜"], ["B", "10〜19円"], ["C", "0〜9円"]].map(function(pair) {
@@ -4407,11 +4407,11 @@ function EntryRecordForm(_ref_erf) {
             border: "1px solid #BAE6FD", fontSize: 12 }
         },
           React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "α"),
-          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "この日のα値（水準線比）"),
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "採用α値（水準線比）"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "number", inputMode: "numeric", min: "0", max: "30", step: "1",
-              value: _av != null ? String(_av) : "",
+              value: _av != null ? String(_av) : (fDifficulty ? String(_gradeAlpha(fDifficulty)) : ""),
               onChange: function(e) { _saveAlpha(e.target.value); },
               placeholder: "各記録",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E",
@@ -4419,8 +4419,8 @@ function EntryRecordForm(_ref_erf) {
                        textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 10; if (_n >= 30) return prev; _ent.alphaVal = _n + 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
-              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : 10; if (_n <= 0) return prev; _ent.alphaVal = _n - 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : _gradeAlpha(fDifficulty); if (_n >= 30) return prev; _ent.alphaVal = _n + 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : _gradeAlpha(fDifficulty); if (_n <= 0) return prev; _ent.alphaVal = _n - 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
             )
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
