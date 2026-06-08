@@ -3875,7 +3875,7 @@ function EntrySignalSection(_ref_es) {
     });
   };
 
-  var _DIFF_RANK = { A: 0, B: 1, C: 2 };
+  var _DIFF_RANK = { A: 0, B: 1, C: 2, D: 3 };
   var _esSortByDifficulty = function(recs) {
     return recs.slice().sort(function(a, b) {
       var da = (a.signal && a.signal.difficulty) || "";
