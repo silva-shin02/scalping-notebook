@@ -3219,6 +3219,101 @@ function _elHoldIsStop(s, alpha, cutLine) {
   if (s.osVal != null && (Number(s.osVal) - alpha) >= _cl) return true;
   return false;
 }
+// === H2（Hold2）: 既存hold*ロジックを流用するための仮想signalと描画ヘルパー ===
+// hold2*フィールドをhold*の名前にマッピングした仮想signalを返す（osValは共通なので元のまま）。
+function _h2sig(s) {
+  return {
+    osVal: s.osVal,
+    plannedPnl: s.plannedPnl, plannedPnlSign: s.plannedPnlSign, result: s.result,
+    osConfVal: s.osConfVal, osConfSign: s.osConfSign,
+    holdHighSign: s.hold2HighSign, holdHighVal: s.hold2HighVal,
+    holdWidthSign: s.hold2WidthSign, holdWidth: s.hold2Width,
+    holdOsConf: s.hold2OsConf,
+    holdPnl: s.hold2Pnl, holdPnlSign: s.hold2PnlSign,
+    holdProfit: s.hold2Profit
+  };
+}
+function _elDynHold2(s, alpha, cutLine) { return _elDynHold(_h2sig(s), alpha, cutLine); }
+function _elHoldIsStop2(s, alpha, cutLine) { return _elHoldIsStop(_h2sig(s), alpha, cutLine); }
+function _elHas2Data(s) { return !!(s && (s.hold2HighVal != null || s.hold2Width != null || s.hold2OsConf != null || s.hold2Pnl != null)); }
+// Hold2期待度（○/△を集計対象・×は参考表示のみ）
+function _elH2ExpCounts(s) { return s.hold2Exp; }
+function _elHoldGradeBadge(g) {
+  if (!g || g === "Z") return null;
+  var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
+  return React.createElement("span", { key: "g", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
+}
+// 統合Hセル: 「H高値 → H確定値 / α値比H値幅 / 勝敗・結果損益」を1つのインライン要素で返す。
+// isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、想定損益・結果はエントリー共通）。
+function _elHoldFlow(s, alpha, cutLine, isH2) {
+  var hs = isH2 ? _h2sig(s) : s;
+  var _sep = function(ch) { return React.createElement("span", { key: "s" + ch + Math.round(alpha == null ? 0 : 0), style: { color: "#ccc", margin: "0 2px" } }, ch); };
+  var nodes = [];
+  if (hs.holdHighVal != null) {
+    nodes.push(React.createElement("span", { key: "hh", style: { fontVariantNumeric: "tabular-nums", color: _vcol(hs.holdHighVal, hs.holdHighSign === "-"), fontWeight: 700 } },
+      (hs.holdHighSign === "+" ? "↓" : hs.holdHighSign === "-" ? "↑" : "") + hs.holdHighVal));
+  }
+  if (hs.holdWidth != null) {
+    nodes.push(React.createElement("span", { key: "a1", style: { color: "#ccc", margin: "0 2px" } }, "→"));
+    nodes.push(React.createElement("span", { key: "hw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(hs.holdWidth, hs.holdWidthSign === "-"), fontWeight: 700 } },
+      (hs.holdWidthSign === "-" ? "↑" : hs.holdWidthSign === "+" ? "↓" : "↕") + hs.holdWidth));
+  }
+  if (alpha != null && hs.holdWidth != null) {
+    var _hcf = hs.holdWidthSign === "-" ? Number(hs.holdWidth) : hs.holdWidthSign === "+" ? -Number(hs.holdWidth) : 0;
+    var _ewH = alpha - _hcf;
+    var _ewHAbs = Math.abs(_ewH);
+    nodes.push(React.createElement("span", { key: "a2", style: { color: "#ccc", margin: "0 2px" } }, "/"));
+    nodes.push(_ewH === 0
+      ? React.createElement("span", { key: "aw", style: { color: "#888" } }, "α0")
+      : React.createElement("span", { key: "aw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs));
+  }
+  var holdPnl = (alpha != null) ? _elDynHold(hs, alpha, cutLine) : _elSignedVal(hs.holdPnl, hs.holdPnlSign);
+  var planPnl = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+  var res = (alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result;
+  if (holdPnl != null) {
+    var hp = holdPnl, pp = planPnl;
+    var dynHP = (function() {
+      if (hp == null) return hs.holdProfit;
+      if (res === "miss" || res === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
+      if (pp == null) return hs.holdProfit;
+      if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
+      if (pp < 0 && hp < 0) return "no";
+      if (pp > 0 && hp < 0) return "no";
+      if (pp < 0 && hp > 0) return "yes";
+      if (hp === 0) return "none";
+      return hs.holdProfit;
+    })();
+    var symMap = { yes: ["○", "#1E8449"], mid: ["△", "#B45309"], none: ["ー", "#888"], no: ["×", "#C0392B"] };
+    var sym = symMap[dynHP];
+    nodes.push(React.createElement("span", { key: "a3", style: { color: "#ccc", margin: "0 2px" } }, "/"));
+    nodes.push(React.createElement("span", { key: "hp", style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
+      sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
+      _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
+      React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円")
+    ));
+  } else if (res === "miss") {
+    nodes.push(React.createElement("span", { key: "a3", style: { color: "#ccc", margin: "0 2px" } }, "/"));
+    nodes.push(React.createElement("span", { key: "hp", style: { color: "#B45309", fontWeight: 700 } }, "ー"));
+  }
+  if (nodes.length === 0) return React.createElement("span", { style: { color: "#ddd" } }, "—");
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", justifyContent: "center", fontSize: 11, lineHeight: 1.5 } }, nodes);
+}
+// H2期待度セル: ○/△→記号＋統合表示、×→「ー（統合表示）」グレー控えめ、未選択→空欄
+function _elHold2Cell(s, alpha, cutLine) {
+  var exp = s.hold2Exp;
+  if (!exp) return React.createElement("span", { style: { color: "#ddd" } }, "—");
+  if (exp === "×") {
+    if (!_elHas2Data(s)) return React.createElement("span", { style: { color: "#bbb" } }, "ー");
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", color: "#aaa", fontSize: 11, whiteSpace: "nowrap" } },
+      React.createElement("span", { key: "d", style: { marginRight: 1 } }, "ー（"),
+      React.createElement("span", { key: "f", style: { opacity: 0.7 } }, _elHoldFlow(s, alpha, cutLine, true)),
+      React.createElement("span", { key: "e" }, "）"));
+  }
+  var _ec = { "○": "#1E8449", "△": "#B45309" };
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, whiteSpace: "nowrap" } },
+    React.createElement("span", { key: "sym", style: { color: _ec[exp] || "#666", fontWeight: 800, marginRight: 3 } }, exp),
+    _elHoldFlow(s, alpha, cutLine, true));
+}
 function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
 function _elCapNoteAmt(amount, opts) {
   // 「仮に損切値ちょうどで損切できていたら」の損失額（カッコ表示）は非表示にする。
@@ -3262,6 +3357,8 @@ function _elCalcStats(records, data, simResolve) {
   var holdHasData = false;
   var planCapSum = 0, holdCapSum = 0, planHasStop = false, holdHasStop = false;
   var hYes = 0, hMid = 0, hNone = 0, hNo = 0;
+  var sumHold2 = 0, hold2HasData = false, hold2CapSum = 0, hold2HasStop = false;
+  var h2Yes = 0, h2Mid = 0, h2None = 0, h2No = 0;
   records.forEach(function(r) {
     var s = r.signal;
     var _ai = _liveA ? (simResolve ? simResolve(r) : _elAlphaInfo(r, data)) : null;
@@ -3322,6 +3419,34 @@ function _elCalcStats(records, data, simResolve) {
     else if (_hc === "mid") hMid++;
     else if (_hc === "none") hNone++;
     else if (_hc === "no") hNo++;
+
+    // H2（Hold2期待度が○/△の記録のみ集計。×は参考表示のみで集計対象外）
+    if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
+      var _h2 = _h2sig(s);
+      var hp2 = _liveA ? _elDynHold(_h2, _ai.alpha, _ai.cutLine) : _elSignedVal(_h2.holdPnl, _h2.holdPnlSign);
+      if (hp2 != null) {
+        var hp2N = _liveA ? Math.round(hp2) : _per100(hp2);
+        sumHold2 += hp2N;
+        hold2HasData = true;
+        var _h2Stop = _liveA && _elHoldIsStop(_h2, _ai.alpha, _ai.cutLine);
+        if (_h2Stop) hold2HasStop = true;
+        hold2CapSum += _h2Stop ? _elCapLossYen(_ai.cutLine) : hp2N;
+      }
+      var _hc2;
+      if (!_liveA || hp2 == null) _hc2 = _h2.holdProfit;
+      else if (_res === "miss" || _res === "draw") _hc2 = hp2 > 0 ? "yes" : hp2 < 0 ? "no" : "none";
+      else if (pp == null) _hc2 = _h2.holdProfit;
+      else if (pp > 0 && hp2 > 0) _hc2 = hp2 > pp ? "yes" : hp2 < pp ? "mid" : "none";
+      else if (pp < 0 && hp2 < 0) _hc2 = "no";
+      else if (pp > 0 && hp2 < 0) _hc2 = "no";
+      else if (pp < 0 && hp2 > 0) _hc2 = "yes";
+      else if (hp2 === 0) _hc2 = "none";
+      else _hc2 = _h2.holdProfit;
+      if (_hc2 === "yes") h2Yes++;
+      else if (_hc2 === "mid") h2Mid++;
+      else if (_hc2 === "none") h2None++;
+      else if (_hc2 === "no") h2No++;
+    }
   });
   var winPct = (ok + ng) > 0 ? Math.round(ok / (ok + ng) * 100) : null;
   var avgWin = wins.length > 0 ? Math.round(wins.reduce(function(a, b) { return a + b; }, 0) / wins.length) : 0;
@@ -3355,7 +3480,12 @@ function _elCalcStats(records, data, simResolve) {
     holdCapSum: (holdHasData && holdHasStop) ? holdCapSum : null,
     planHasStop: planHasStop, holdHasStop: holdHasStop,
     hYes: hYes, hMid: hMid, hNone: hNone, hNo: hNo,
-    holdResTotal: hYes + hMid + hNone + hNo
+    holdResTotal: hYes + hMid + hNone + hNo,
+    sumHold2: hold2HasData ? sumHold2 : null,
+    hold2CapSum: (hold2HasData && hold2HasStop) ? hold2CapSum : null,
+    hold2HasStop: hold2HasStop,
+    h2Yes: h2Yes, h2Mid: h2Mid, h2None: h2None, h2No: h2No,
+    hold2ResTotal: h2Yes + h2Mid + h2None + h2No
   };
 }
 
@@ -3899,7 +4029,36 @@ function EntryRecordForm(_ref_erf) {
   var _useStateHHV = useState(initSig.holdHighVal != null ? String(Math.abs(Number(initSig.holdHighVal))) : ""),
     _useStateHHVA = _slicedToArray(_useStateHHV, 2),
     fHoldHighVal = _useStateHHVA[0], setFHoldHighVal = _useStateHHVA[1];
-  
+
+  // === Hold2（H2）state — Hold1と同一構成 + 期待度(hold2Exp) ===
+  var _useStateH2Exp = useState(initSig.hold2Exp || null),
+    _useStateH2ExpA = _slicedToArray(_useStateH2Exp, 2),
+    fHold2Exp = _useStateH2ExpA[0], setFHold2Exp = _useStateH2ExpA[1];
+  var _useStateH2HP = useState(initSig.hold2Profit || null),
+    _useStateH2HPA = _slicedToArray(_useStateH2HP, 2),
+    fHold2Profit = _useStateH2HPA[0], setFHold2Profit = _useStateH2HPA[1];
+  var _useStateH2PS = useState(initSig.hold2PnlSign || null),
+    _useStateH2PSA = _slicedToArray(_useStateH2PS, 2),
+    fHold2PnlSign = _useStateH2PSA[0], setFHold2PnlSign = _useStateH2PSA[1];
+  var _useStateH2PV = useState(initSig.hold2Pnl != null ? String(Math.abs(Number(initSig.hold2Pnl))) : ""),
+    _useStateH2PVA = _slicedToArray(_useStateH2PV, 2),
+    fHold2PnlVal = _useStateH2PVA[0], setFHold2PnlVal = _useStateH2PVA[1];
+  var _useStateH2OC = useState(initSig.hold2OsConf != null ? Number(initSig.hold2OsConf) : null),
+    _useStateH2OCA = _slicedToArray(_useStateH2OC, 2),
+    fHold2OsConf = _useStateH2OCA[0], setFHold2OsConf = _useStateH2OCA[1];
+  var _useStateH2WS = useState(initSig.hold2WidthSign || null),
+    _useStateH2WSA = _slicedToArray(_useStateH2WS, 2),
+    fHold2WidthSign = _useStateH2WSA[0], setFHold2WidthSign = _useStateH2WSA[1];
+  var _useStateH2WV = useState(initSig.hold2Width != null ? String(Math.abs(Number(initSig.hold2Width))) : ""),
+    _useStateH2WVA = _slicedToArray(_useStateH2WV, 2),
+    fHold2WidthVal = _useStateH2WVA[0], setFHold2WidthVal = _useStateH2WVA[1];
+  var _useStateH2HS = useState(initSig.hold2HighSign || null),
+    _useStateH2HSA = _slicedToArray(_useStateH2HS, 2),
+    fHold2HighSign = _useStateH2HSA[0], setFHold2HighSign = _useStateH2HSA[1];
+  var _useStateH2HV = useState(initSig.hold2HighVal != null ? String(Math.abs(Number(initSig.hold2HighVal))) : ""),
+    _useStateH2HVA = _slicedToArray(_useStateH2HV, 2),
+    fHold2HighVal = _useStateH2HVA[0], setFHold2HighVal = _useStateH2HVA[1];
+
   var _useStateOCSign = useState(initSig.osConfSign || null),
     _useStateOCSignA = _slicedToArray(_useStateOCSign, 2),
     fOsConfSign = _useStateOCSignA[0], setFOsConfSign = _useStateOCSignA[1];
@@ -3961,6 +4120,8 @@ function EntryRecordForm(_ref_erf) {
   var _ewSignedRef = useRef(0);
   var _hhSignedRef = useRef(0);
   var _hwSignedRef = useRef(0);
+  var _h2hSignedRef = useRef(0);
+  var _h2wSignedRef = useRef(0);
   var _entryOsSignedRef = useRef(0);
   var _exitOsSignedRef = useRef(0);
   var _signedFromState = function(valStr, mul) { return (valStr === "" || valStr == null) ? null : mul * Math.abs(Number(valStr) || 0); };
@@ -3968,6 +4129,8 @@ function EntryRecordForm(_ref_erf) {
   _ewSignedRef.current  = _signedFromState(fEstWidthVal,  fEstWidthSign === "-" ? 1 : fEstWidthSign === "+" ? -1 : 0);
   _hhSignedRef.current  = _signedFromState(fHoldHighVal,  fHoldHighSign === "-" ? 1 : fHoldHighSign === "+" ? -1 : 0);
   _hwSignedRef.current  = _signedFromState(fHoldWidthVal, fHoldWidthSign === "-" ? 1 : fHoldWidthSign === "+" ? -1 : 0);
+  _h2hSignedRef.current = _signedFromState(fHold2HighVal,  fHold2HighSign === "-" ? 1 : fHold2HighSign === "+" ? -1 : 0);
+  _h2wSignedRef.current = _signedFromState(fHold2WidthVal, fHold2WidthSign === "-" ? 1 : fHold2WidthSign === "+" ? -1 : 0);
   _entryOsSignedRef.current = _signedFromState(fEntryOsVal, fEntryOsSign === "+" ? 1 : fEntryOsSign === "-" ? -1 : 0);
   _exitOsSignedRef.current  = _signedFromState(fExitOsVal,  fExitOsSign === "+" ? 1 : fExitOsSign === "-" ? -1 : 0);
 
@@ -3987,6 +4150,11 @@ function EntryRecordForm(_ref_erf) {
     if (_av2 == null) return;
     setFHoldOsConf(_av2 - (-s));
   };
+  var _h2wAfter = function(s) {
+    var _av2 = _fAlpha;
+    if (_av2 == null) return;
+    setFHold2OsConf(_av2 - (-s));
+  };
 
 
 
@@ -4000,6 +4168,7 @@ function EntryRecordForm(_ref_erf) {
 
   var _fMiss = (_fAlpha != null && Number(fOsVal) >= 0 && Number(fOsVal) < _fAlpha);
   var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
+  var _fHold2HighOverA = (_fAlpha != null && fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) || 0) >= _fAlpha);
   var _fMissEl = React.createElement("span", {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
       color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
@@ -4178,7 +4347,78 @@ function EntryRecordForm(_ref_erf) {
     }
   }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign]);
 
-  
+  // === Hold2(H2) 自動計算（H1と同一ロジック） ===
+  useEffect(function() {
+    var _av = _fAlpha;
+    if (_av == null || fHold2WidthSign == null || fHold2WidthVal === "") return;
+    var _hwSigned = fHold2WidthSign === "+" ? Number(fHold2WidthVal) : -Number(fHold2WidthVal);
+    var _newOsConf = _av - _hwSigned;
+    if (_newOsConf !== fHold2OsConf) setFHold2OsConf(_newOsConf);
+  }, [fStock, fDate, data, _fAlpha, fHold2WidthSign, fHold2WidthVal]);
+
+  useEffect(function() {
+    var _ck = fStock + "_" + fDate;
+    var _cd = data.charts && data.charts[_ck];
+    var _av = _fAlpha;
+    var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 10;
+    if (fResult === "miss") {
+      if (!(fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) || 0) >= _av)) {
+        setFHold2PnlSign("+"); setFHold2PnlVal("0"); return;
+      }
+    }
+    if (_av != null && fHold2HighSign === "-") {
+      var _hhv = Number(fHold2HighVal) || 0;
+      var _hhExcess = _hhv - _av;
+      if (_hhExcess >= _cutLHold) { setFHold2PnlSign("-"); setFHold2PnlVal(String(Math.round(_hhExcess * 100))); return; }
+    }
+    if (_av == null || fHold2WidthVal === "") { setFHold2PnlSign(null); setFHold2PnlVal(""); return; }
+    var _hw = Number(fHold2WidthVal) || 0;
+    if (!fHold2WidthSign && _hw !== 0) { setFHold2PnlSign(null); setFHold2PnlVal(""); return; }
+    var _holdAdj = fHold2WidthSign === "+" ? _hw : fHold2WidthSign === "-" ? -_hw : 0;
+    var _result = (_av + _holdAdj) * 100;
+    setFHold2PnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
+    setFHold2PnlVal(String(Math.abs(Math.round(_result))));
+  }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult]);
+
+  useEffect(function() {
+    var sHold = fHold2PnlVal !== "" ? (Number(fHold2PnlVal)||0) * (fHold2PnlSign === "-" ? -1 : 1) : 0;
+    var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
+    if (fResult === "miss") {
+      if (fHold2PnlVal === "") { setFHold2Profit("none"); return; }
+      if (sHold > 0) setFHold2Profit("yes");
+      else if (sHold < 0) setFHold2Profit("no");
+      else setFHold2Profit("none");
+      return;
+    }
+    if (fResult === "draw") {
+      if (fHold2PnlVal === "") return;
+      if (sHold > 0) setFHold2Profit("yes");
+      else if (sHold < 0) setFHold2Profit("no");
+      else setFHold2Profit("none");
+      return;
+    }
+    if (sPlan === 0) return;
+    if (sHold === 0) {
+      if (fHold2PnlVal === "") return;
+      if (sPlan < 0) setFHold2Profit("yes");
+      else if (sPlan > 0) setFHold2Profit("mid");
+      else setFHold2Profit("none");
+      return;
+    }
+    if (sPlan > 0 && sHold > 0) {
+      if (sHold > sPlan) setFHold2Profit("yes");
+      else if (sHold < sPlan) setFHold2Profit("mid");
+      else setFHold2Profit("none");
+    } else if (sPlan < 0 && sHold < 0) {
+      setFHold2Profit("no");
+    } else if (sPlan > 0 && sHold < 0) {
+      setFHold2Profit("no");
+    } else if (sPlan < 0 && sHold > 0) {
+      setFHold2Profit("yes");
+    }
+  }, [fResult, fPlan, fPlanSign, fHold2PnlVal, fHold2PnlSign]);
+
+
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
 
   var handleSave = function() {
@@ -4222,6 +4462,15 @@ function EntryRecordForm(_ref_erf) {
       holdPnlSign: fHoldPnlSign || null,
       holdHighVal: fHoldHighVal !== "" ? Number(fHoldHighVal) : null,
       holdHighSign: fHoldHighSign || null,
+      hold2Exp: fHold2Exp || null,
+      hold2Profit: fHold2Exp ? (fHold2Profit || null) : null,
+      hold2OsConf: fHold2Exp ? fHold2OsConf : null,
+      hold2WidthSign: fHold2Exp ? (fHold2WidthSign || null) : null,
+      hold2Width: (fHold2Exp && fHold2WidthVal !== "") ? Number(fHold2WidthVal) : null,
+      hold2Pnl: (fHold2Exp && fHold2PnlVal !== "") ? Number(fHold2PnlVal) : null,
+      hold2PnlSign: fHold2Exp ? (fHold2PnlSign || null) : null,
+      hold2HighVal: (fHold2Exp && fHold2HighVal !== "") ? Number(fHold2HighVal) : null,
+      hold2HighSign: fHold2Exp ? (fHold2HighSign || null) : null,
       realizedPnl: fEntered && fReal !== "" ? Number(fReal) : null,
       realizedPnlSign: fRealSign,
       profitGrade: null,
@@ -4596,12 +4845,12 @@ function EntryRecordForm(_ref_erf) {
       ),
 
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
-        "Entry→Hold想定値"
+        "Hold１"
       ),
       React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
       },
-        
+
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" } },
             React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（水準線比）"),
@@ -4733,10 +4982,164 @@ function EntryRecordForm(_ref_erf) {
               })
             )
           )
+        ),
+
+        React.createElement("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed #ddd" } },
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
+            "Hold2期待度",
+            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×でHold2欄が出ます）")),
+          React.createElement("div", { style: { display: "flex", gap: 5 } },
+            [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"]].map(function(kv) {
+              var on = fHold2Exp === kv[0];
+              return React.createElement("button", {
+                key: kv[0],
+                onClick: function() { setFHold2Exp(on ? null : kv[0]); },
+                style: {
+                  padding: "5px 16px", fontSize: 15, fontWeight: 800, borderRadius: 5, cursor: "pointer",
+                  border: on ? "1.5px solid " + kv[1] : "1px solid #ddd",
+                  background: on ? kv[2] : "#fff",
+                  color: on ? kv[1] : "#bbb"
+                }
+              }, kv[0]);
+            })
+          )
         )
       ),
-      
-      
+
+      fHold2Exp ? React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) }, "Hold２") : null,
+      fHold2Exp ? React.createElement("div", {
+        style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F4F6F8", border: "1px solid " + (fHold2Exp === "×" ? "#e3c9c9" : "#cfe0d2") }
+      },
+
+        React.createElement("div", { style: { marginBottom: 8 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" } },
+            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（水準線比）"),
+            React.createElement("div", {
+              style: { display: "flex", alignItems: "center", border: "1px solid " + (fHold2HighSign === "+" ? "#1E8449" : fHold2HighSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
+            },
+              React.createElement("button", {
+                onClick: function() {
+                  setFHold2HighSign(fHold2HighSign === "-" ? "+" : fHold2HighSign === "+" ? null : "-");
+                },
+                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHold2HighSign ? 700 : 400, cursor: "pointer", minWidth: 36, flexShrink: 0,
+                  border: "none", borderRight: "1px solid " + (fHold2HighSign === "+" ? "#1E8449" : fHold2HighSign === "-" ? "#C0392B" : "#ccc"),
+                  background: fHold2HighSign === "+" ? "#EAF3DE" : fHold2HighSign === "-" ? "#FCEBEB" : "#f5f4f0",
+                  color: fHold2HighSign === "+" ? "#1E8449" : fHold2HighSign === "-" ? "#C0392B" : "#999" }
+              }, fHold2HighSign === "-" ? "↑" : fHold2HighSign === "+" ? "↓" : "↕"),
+              React.createElement("input", {
+                type: "number", inputMode: "numeric", step: "1",
+                value: fHold2HighVal,
+                onChange: function(e) {
+                  var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
+                  setFHold2HighVal(_v);
+                },
+                placeholder: "0",
+                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
+              }),
+              _stepBtn(
+                function() { _applySigned(_h2hSignedRef, 1, "-", "+", setFHold2HighVal, setFHold2HighSign); },
+                function() { _applySigned(_h2hSignedRef, -1, "-", "+", setFHold2HighVal, setFHold2HighSign); }
+              )
+            ),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+            (function() {
+              if (fHold2HighVal === "") return null;
+              var _av3 = _fAlpha;
+              if (_av3 == null) return null;
+              var _shhv = fHold2HighSign === "-" ? (Number(fHold2HighVal) || 0) : fHold2HighSign === "+" ? -(Number(fHold2HighVal) || 0) : 0;
+              var _diff = _shhv - _av3;
+              var _isUp = _diff > 0, _isDn = _diff < 0;
+              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, marginLeft: 4 } },
+                React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "α値比"),
+                React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: _isUp ? "#C0392B" : _isDn ? "#1E8449" : "#999" } },
+                  (_isUp ? "↑" : _isDn ? "↓" : "↕") + Math.abs(_diff) + "円")
+              );
+            })()
+          ),
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
+            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "ホールド足確定値(水準線比)"),
+            React.createElement("div", {
+              style: { display: "flex", alignItems: "center", border: "1px solid " + (fHold2WidthSign === "+" ? "#1E8449" : fHold2WidthSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
+            },
+              React.createElement("button", {
+                onClick: function() {
+                  var _newSg = fHold2WidthSign === "-" ? "+" : fHold2WidthSign === "+" ? null : "-";
+                  setFHold2WidthSign(_newSg);
+                  var _av2 = _fAlpha;
+                  if (_av2 != null && fHold2WidthVal !== "") {
+                    var _ws = _newSg === "-" ? -(Number(fHold2WidthVal)||0) : (Number(fHold2WidthVal)||0);
+                    setFHold2OsConf(_av2 - _ws);
+                  }
+                },
+                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHold2WidthSign ? 700 : 400, cursor: "pointer", minWidth: 36, flexShrink: 0,
+                  border: "none", borderRight: "1px solid " + (fHold2WidthSign === "+" ? "#1E8449" : fHold2WidthSign === "-" ? "#C0392B" : "#ccc"),
+                  background: fHold2WidthSign === "+" ? "#EAF3DE" : fHold2WidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
+                  color: fHold2WidthSign === "+" ? "#1E8449" : fHold2WidthSign === "-" ? "#C0392B" : "#999" }
+              }, fHold2WidthSign === "-" ? "↑" : fHold2WidthSign === "+" ? "↓" : "↕"),
+              React.createElement("input", {
+                type: "number", inputMode: "numeric", step: "1",
+                value: fHold2WidthVal,
+                onChange: function(e) {
+                  var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
+                  setFHold2WidthVal(_v);
+                  var _av2 = _fAlpha;
+                  if (_av2 != null && _v !== "" && fHold2WidthSign != null) {
+                    var _ws = fHold2WidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0);
+                    setFHold2OsConf(_av2 - _ws);
+                  }
+                },
+                placeholder: "0",
+                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
+              }),
+              _stepBtn(
+                function() { _applySigned(_h2wSignedRef, 1, "-", "+", setFHold2WidthVal, setFHold2WidthSign, _h2wAfter); },
+                function() { _applySigned(_h2wSignedRef, -1, "-", "+", setFHold2WidthVal, setFHold2WidthSign, _h2wAfter); }
+              )
+            ),
+            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
+          )
+        ),
+
+        React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
+          React.createElement("div", null,
+            React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
+              "結果損益",
+              React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
+            (_fMiss && !_fHold2HighOverA) ? _fMissEl : React.createElement("span", {
+              style: {
+                display: "inline-block", padding: "5px 14px",
+                fontSize: 14, fontWeight: 800,
+                color: fHold2PnlSign === "+" ? "#C0392B" : fHold2PnlSign === "-" ? "#1E8449" : "#555",
+                background: fHold2PnlSign === "+" ? "#FCEBEB" : fHold2PnlSign === "-" ? "#EAF3DE" : "#f5f5f5",
+                borderRadius: 6, border: "1px solid " + (fHold2PnlSign === "+" ? "#F5B7B1" : fHold2PnlSign === "-" ? "#A9DFBF" : "#ddd"),
+                minWidth: 80, textAlign: "right"
+              }
+            }, fHold2PnlVal === "0" ? "0円" : fHold2PnlVal ? (fHold2PnlSign === "-" ? "−" : "+") + Number(fHold2PnlVal).toLocaleString() + "円" : "—"),
+            ((fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) - _fAlpha) >= _fCutLine) || (Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine))
+              ? _elCapNote(_fCutLine, { fontSize: 14, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
+          ),
+          React.createElement("div", null,
+            React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
+            React.createElement("div", { style: { display: "flex", gap: 5 } },
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
+                var on = fHold2Profit === kv[1];
+                return React.createElement("button", {
+                  key: kv[1],
+                  onClick: function() { setFHold2Profit(on ? null : kv[1]); },
+                  style: {
+                    padding: "5px 10px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
+                    border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
+                    background: on ? kv[3] : "#fff",
+                    color: on ? kv[2] : "#aaa"
+                  }
+                }, kv[0]);
+              })
+            )
+          )
+        )
+      ) : null,
+
+
       React.createElement("div", { style: SH_ }, "実エントリー"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
         [["あり", true], ["見送り", false]].map(function(kv) {
@@ -5040,15 +5443,13 @@ function EntryLogCard(_ref_elc) {
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start", marginBottom: (s.rationale || s.reflection || s.priceIn || s.priceOut) ? 6 : 0 } },
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
-        s.osVal != null ? _chip("OS値", s.osVal + "円", _vcol(s.osVal, true)) : null,
-        s.holdHighVal != null ? _chip("H高値", (s.holdHighSign === "-" ? "↑" : s.holdHighSign === "+" ? "↓" : "") + s.holdHighVal, _vcol(s.holdHighVal, s.holdHighSign === "-")) : null
+        s.osVal != null ? _chip("OS値", s.osVal + "円", _vcol(s.osVal, true)) : null
       ),
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
         (s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) ? _chip("確定値",
           Number(s.osConfVal) === 0 ? "0円" : (s.osConfSign === "+" ? "↑" : s.osConfSign === "-" ? "↓" : "↕") + Math.abs(Number(s.osConfVal)) + "円",
-          Number(s.osConfVal) === 0 ? "#888" : _vcol(s.osConfVal, s.osConfSign === "+")) : null,
-        (s.holdWidth != null) ? _chip("H確定値", (s.holdWidthSign === "-" ? "↑" : s.holdWidthSign === "+" ? "↓" : "↕") + s.holdWidth + "円", _vcol(s.holdWidth, s.holdWidthSign === "-")) : null
+          Number(s.osConfVal) === 0 ? "#888" : _vcol(s.osConfVal, s.osConfSign === "+")) : null
       ),
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
@@ -5059,21 +5460,7 @@ function EntryLogCard(_ref_elc) {
             _gradeBadge(planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null),
             _pnlFmt(planPnl)),
           (_elcAi && _elPlanIsStop(s, _elcAi.alpha, _elcAi.cutLine)) ? _elCapNote(_elcAi.cutLine) : null
-        ) : null,
-        (function() {
-          // 実エントリー行は miss でも本物の結果として通常表示。見送り×miss のみ薄カッコ表示（テーブルと統一）。
-          var _missDispC = _dispResult === "miss" && !entered;
-          if (_missDispC && holdPnl == null) return _chip("H損益", _qMissCell(14), "#888");
-          if (holdPnl == null) return null;
-          return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
-            React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "H損益"),
-            React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: _missDispC ? 400 : 700, color: _missDispC ? (holdPnl > 0 ? "#E07070" : holdPnl < 0 ? "#70A888" : "#aaa") : _pnlColor(holdPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
-              _hpBadge(_dispHP),
-              _missDispC ? null : _gradeBadge(holdPnl != null ? _profitGradeFromPnl(holdPnl, 1) : null),
-              (_missDispC ? "(" : "") + _pnlFmt(holdPnl) + (_missDispC ? ")" : "")),
-            (_elcAi && _elHoldIsStop(s, _elcAi.alpha, _elcAi.cutLine)) ? _elCapNote(_elcAi.cutLine) : null
-          );
-        })()
+        ) : null
       ),
 
       React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
@@ -5087,7 +5474,14 @@ function EntryLogCard(_ref_elc) {
 
       (s.priceIn || s.priceOut) && _chip("価格", (s.priceIn ? "入" + s.priceIn : "") + (s.priceIn && s.priceOut ? "→" : "") + (s.priceOut ? "出" + s.priceOut : ""), "#555")
     ),
-    
+
+    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: (s.rationale || s.reflection) ? 6 : 0, paddingTop: 4, borderTop: "1px solid #f0ede6" } },
+      React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "H１"),
+      _elHoldFlow(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10, false),
+      s.hold2Exp ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２期待度") : null,
+      s.hold2Exp ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10) : null
+    ),
+
     s.rationale && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale),
     s.reflection && React.createElement("div", { style: { fontSize: 11, color: "#777", marginTop: 4, lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection),
     onGoDate && React.createElement("div", { style: { textAlign: "right", marginTop: 4 } },
