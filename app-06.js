@@ -541,7 +541,7 @@ function EntryLogView(_ref_elv) {
           )
     );
     
-    var _OS_BANDS = { A: { min: 20, max: Infinity, label: "20円〜" }, B: { min: 15, max: 19, label: "15〜19円" }, C: { min: 10, max: 14, label: "10〜14円" }, D: { min: 0, max: 9, label: "〜9円" } };
+    var _OS_BANDS = { A: { min: 20, max: Infinity, label: "20円〜" }, B: { min: 15, max: 19, label: "15〜19円" }, C: { min: 10, max: 14, label: "10〜14円" }, D: { min: 5, max: 9, label: "5〜9円" }, E: { min: 0, max: 4, label: "0〜4円" } };
     var _osHitMap = {}; var _osHitTot = 0, _osHitOk = 0, _osHitDevSum = 0;
     osRecs.forEach(function(r) {
       var s = r.signal; var g = s.difficulty;
@@ -553,7 +553,7 @@ function EntryLogView(_ref_elv) {
       var m = _osHitMap[g]; m.cnt++; m.osSum += act; m.devSum += dev; if (hit) m.ok++;
       _osHitTot++; if (hit) _osHitOk++; _osHitDevSum += dev;
     });
-    var _osHitKeys = ["A", "B", "C", "D"].filter(function(k) { return _osHitMap[k]; });
+    var _osHitKeys = ["A", "B", "C", "D", "E"].filter(function(k) { return _osHitMap[k]; });
     var _devCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _devFmt = function(v) { return (v > 0 ? "+" : "") + (Math.round(v * 10) / 10) + "円"; };
     var _osHitSec = _osHitTot === 0 ? null : React.createElement("div", null,
@@ -3156,11 +3156,11 @@ function EntryLogView(_ref_elv) {
       React.createElement("span", { style: { fontWeight: 600, color: _tCol(sum) } }, _tFmt(sum))
     );
   };
-  var _DIFF_COL = { A: "#1a1a1a", B: "#1a1a1a", C: "#1a1a1a", D: "#1a1a1a" };
+  var _DIFF_COL = { A: "#1a1a1a", B: "#1a1a1a", C: "#1a1a1a", D: "#1a1a1a", E: "#1a1a1a" };
   var _tDiffBreak = function(recs, totalSum, totalEv, grade, sumKey, evKey) {
     var top = _tSlash(totalSum, totalEv, grade);
     if (!recs || !recs.length) return top;
-    var lines = ["A", "B", "C", "D"].reduce(function(acc, d) {
+    var lines = ["A", "B", "C", "D", "E"].reduce(function(acc, d) {
       var gr = recs.filter(function(r) { return r.signal.difficulty === d; });
       if (!gr.length) return acc;
       var gs = _calcD(gr);
@@ -3826,10 +3826,10 @@ function EntryLogView(_ref_elv) {
 
     
     var renderDiffSubTab = function() {
-      var DIFF_ORDER = ["A", "B", "C", "D"];
-      var DIFF_LABEL = { A: "A（20円〜）", B: "B（15〜19円）", C: "C（10〜14円）", D: "D（〜9円）" };
+      var DIFF_ORDER = ["A", "B", "C", "D", "E"];
+      var DIFF_LABEL = { A: "A（20円〜）", B: "B（15〜19円）", C: "C（10〜14円）", D: "D（5〜9円）", E: "E（0〜4円）" };
       var _groupByField = function(field) {
-        var grpMap = { A: [], B: [], C: [], D: [], "__none__": [] };
+        var grpMap = { A: [], B: [], C: [], D: [], E: [], "__none__": [] };
         grp.records.forEach(function(r) {
           var v = r.signal[field] || "__none__";
           if (!grpMap[v]) grpMap[v] = [];
@@ -3977,10 +3977,10 @@ function EntryLogView(_ref_elv) {
       return _sigRichTable({ title: "銘柄別集計", icon: "📈", headLabel: "銘柄", rows: rows, expandPrefix: "stock_" });
     };
     renderDiffSubTab = function() {
-      var DIFF_LABEL = { A: "A（20円〜）", B: "B（15〜19円）", C: "C（10〜14円）", D: "D（〜9円）" };
-      var DIFF_COLOR = { A: "#1E8449", B: "#9A3412", C: "#7C3AED", D: "#0E7490" };
-      var mk = function(field) { var m = { A: [], B: [], C: [], D: [], "__none__": [] }; grp.records.forEach(function(r) { var v = r.signal[field] || "__none__"; if (!m[v]) m[v] = []; m[v].push(r); }); return m; };
-      var rowsOf = function(m) { return ["A","B","C","D","__none__"].filter(function(k) { return (m[k] || []).length > 0; }).map(function(k) { return { key: k, label: k === "__none__" ? "未設定" : DIFF_LABEL[k], recs: m[k], labelColor: DIFF_COLOR[k] || "#aaa" }; }); };
+      var DIFF_LABEL = { A: "A（20円〜）", B: "B（15〜19円）", C: "C（10〜14円）", D: "D（5〜9円）", E: "E（0〜4円）" };
+      var DIFF_COLOR = { A: "#1E8449", B: "#9A3412", C: "#7C3AED", D: "#0E7490", E: "#BE185D" };
+      var mk = function(field) { var m = { A: [], B: [], C: [], D: [], E: [], "__none__": [] }; grp.records.forEach(function(r) { var v = r.signal[field] || "__none__"; if (!m[v]) m[v] = []; m[v].push(r); }); return m; };
+      var rowsOf = function(m) { return ["A","B","C","D","E","__none__"].filter(function(k) { return (m[k] || []).length > 0; }).map(function(k) { return { key: k, label: k === "__none__" ? "未設定" : DIFF_LABEL[k], recs: m[k], labelColor: DIFF_COLOR[k] || "#aaa" }; }); };
       var byEnt = mk("difficulty"); var byTp = mk("tpDifficulty");
       var hasTp = grp.records.some(function(r) { return r.signal.tpDifficulty; });
       return React.createElement(React.Fragment, null,

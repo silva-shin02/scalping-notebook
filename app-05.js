@@ -3153,8 +3153,8 @@ function _elSignedVal(v, sign) {
 
 
 
-var _OS_GRADE_ALPHA = { A: 20, B: 15, C: 10, D: 5 };
-// 予想OS度(難易度 A/B/C/D)から各記録のα値を決定。未設定(予想OS度なし)は従来どおり10。
+var _OS_GRADE_ALPHA = { A: 20, B: 15, C: 10, D: 5, E: 0 };
+// 予想OS度(難易度 A/B/C/D/E)から各記録のα値を決定。未設定(予想OS度なし)は従来どおり10。
 function _gradeAlpha(difficulty) {
   return (difficulty != null && _OS_GRADE_ALPHA[difficulty] != null) ? _OS_GRADE_ALPHA[difficulty] : 10;
 }
@@ -4365,9 +4365,9 @@ function EntryRecordForm(_ref_erf) {
       }),
       
       React.createElement("div", { style: SH_ }, "\u4E88\u60F3OS\u5EA6"),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u5186\u301C / B:15\u301C19\u5186 / C:10\u301C14\u5186 / D:\u301C9\u5186\uFF09\u3002\u03B1\u5024\u306F\u81EA\u52D5: A\u219220 / B\u219215 / C\u219210 / D\u21925"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u5186\u301C / B:15\u301C19\u5186 / C:10\u301C14\u5186 / D:5\u301C9\u5186 / E:0\u301C4\u5186\uFF09\u3002\u03B1\u5024\u306F\u81EA\u52D5: A\u219220 / B\u219215 / C\u219210 / D\u21925 / E\u21920"),
       React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        [["A", "20円〜"], ["B", "15〜19円"], ["C", "10〜14円"], ["D", "〜9円"]].map(function(pair) {
+        [["A", "20円〜"], ["B", "15〜19円"], ["C", "10〜14円"], ["D", "5〜9円"], ["E", "0〜4円"]].map(function(pair) {
           var val = pair[0], sub = pair[1];
           var on = fDifficulty === val;
           return React.createElement("button", {

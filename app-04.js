@@ -2340,7 +2340,7 @@ function SettingsModal(_ref54) {
     React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "🧹 メンテナンス"),
     React.createElement("button", {
       onClick: function() {
-        if (!window.confirm("全エントリー記録の「予想OS度（A/B/C/D）」の選択をすべて解除します。\n（損益データは消えません／元に戻せません）\n実行しますか？")) return;
+        if (!window.confirm("全エントリー記録の「予想OS度（A/B/C/D/E）」の選択をすべて解除します。\n（損益データは消えません／元に戻せません）\n実行しますか？")) return;
         save(function(prev) {
           var _ch = Object.assign({}, (prev && prev.charts) || {});
           Object.keys(_ch).forEach(function(k) {
@@ -5369,7 +5369,7 @@ function DayView(_ref57) {
     });
     var _usedBands = _BANDS.filter(function(b) { return !!_bandMap[b]; });
     
-    var _diffMap = { A: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 }, B: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 }, C: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 }, D: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 } };
+    var _diffMap = { A: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 }, B: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 }, C: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 }, D: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 }, E: { ok: 0, ng: 0, sum: 0, cnt: 0, skip: 0, skipPlan: 0 } };
     _dtRecData.forEach(function(d) {
       var dm = _diffMap[d.difficulty]; if (!dm) return;
       dm.cnt++;
@@ -5482,7 +5482,7 @@ function DayView(_ref57) {
               )
             ),
             React.createElement("tbody", null,
-              ["A","B","C","D"].map(function(dif) {
+              ["A","B","C","D","E"].map(function(dif) {
                 var m = _diffMap[dif]; if (m.cnt === 0) return null;
                 var ent = m.ok + m.ng, wp = ent > 0 ? Math.round(m.ok / ent * 100) : null;
                 var gs = _GRADE_STYLE[dif] || _GRADE_STYLE.Z;
@@ -5516,7 +5516,7 @@ function DayView(_ref57) {
               )
             ),
             React.createElement("tbody", null,
-              ["A","B","C","D"].map(function(dif) {
+              ["A","B","C","D","E"].map(function(dif) {
                 var m = _diffMap[dif]; if (m.skip === 0) return null;
                 var gs = _GRADE_STYLE[dif] || _GRADE_STYLE.Z;
                 return React.createElement("tr", { key: dif, style: { borderBottom: "1px solid #f5f4f0" } },
