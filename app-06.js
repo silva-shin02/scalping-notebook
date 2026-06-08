@@ -188,9 +188,9 @@ function EntryLogView(_ref_elv) {
     calTblRecExp = _uCalTbl3A[0], setCalTblRecExp = _uCalTbl3A[1];
   var _uCalTbl4 = useState("time"), _uCalTbl4A = _slicedToArray(_uCalTbl4, 2),
     calTblRowSort = _uCalTbl4A[0], setCalTblRowSort = _uCalTbl4A[1];
-  var _uTExpA = useState("10"), _uTExpAA = _slicedToArray(_uTExpA, 2),
+  var _uTExpA = useState(""), _uTExpAA = _slicedToArray(_uTExpA, 2),
     tExpAlpha = _uTExpAA[0], setTExpAlpha = _uTExpAA[1];
-  var _uTExpC = useState("10"), _uTExpCA = _slicedToArray(_uTExpC, 2),
+  var _uTExpC = useState(""), _uTExpCA = _slicedToArray(_uTExpC, 2),
     tExpCut = _uTExpCA[0], setTExpCut = _uTExpCA[1];
   var _uTStkF = useState(""), _uTStkFA = _slicedToArray(_uTStkF, 2),
     timeStockFil = _uTStkFA[0], setTimeStockFil = _uTStkFA[1];
@@ -205,7 +205,7 @@ function EntryLogView(_ref_elv) {
     simAlphaStr = _uSimAlphaA[0], setSimAlphaStr = _uSimAlphaA[1];
   var _uSimCut = useState(""), _uSimCutA = _slicedToArray(_uSimCut, 2),
     simCutStr = _uSimCutA[0], setSimCutStr = _uSimCutA[1];
-  var _uDiffRA = useState("10"), _uDiffRAA = _slicedToArray(_uDiffRA, 2),
+  var _uDiffRA = useState(""), _uDiffRAA = _slicedToArray(_uDiffRA, 2),
     diffResAlpha = _uDiffRAA[0], setDiffResAlpha = _uDiffRAA[1];
   var _uSimMode = useState("month"), _uSimModeA = _slicedToArray(_uSimMode, 2),
     simPeriodMode = _uSimModeA[0], setSimPeriodMode = _uSimModeA[1];
@@ -484,17 +484,17 @@ function EntryLogView(_ref_elv) {
     });
     var diffAvgs = diffKeys.map(function(k) { return { k: k, avg: avgOf(byDiff[k]), cnt: byDiff[k].length }; });
     var dMaxAv = diffAvgs.length ? Math.max.apply(null, diffAvgs.map(function(x) { return x.avg; })) : 0;
-    var _dra = (diffResAlpha !== "" && !isNaN(Number(diffResAlpha))) ? Number(diffResAlpha) : 10;
+    var _dra = (diffResAlpha !== "" && !isNaN(Number(diffResAlpha))) ? Number(diffResAlpha) : null;
     var _diffResMap = {};
     osRecs.forEach(function(r) {
       var s = r.signal; var d = s.difficulty || "(未設定)";
       if (!_diffResMap[d]) _diffResMap[d] = { ok: 0, draw: 0, ng: 0, miss: 0, cnt: 0, plan: 0, hold: 0, holdCnt: 0 };
-      var m = _diffResMap[d]; var _cl = _elAlphaInfo(r, data).cutLine;
-      var _res = _elDynResult(s, _dra, _cl);
+      var m = _diffResMap[d]; var _aiD = _elAlphaInfo(r, data); var _cl = _aiD.cutLine; var _draA = _dra != null ? _dra : _aiD.alpha;
+      var _res = _elDynResult(s, _draA, _cl);
       m.cnt++;
       if (_res === "ok") m.ok++; else if (_res === "draw") m.draw++; else if (_res === "ng") m.ng++; else if (_res === "miss") m.miss++;
-      var _pp = _elDynPlanned(s, _dra, _cl); if (_pp != null) m.plan += _pp;
-      var _hp = _elDynHold(s, _dra, _cl); if (_hp != null) { m.hold += _hp; m.holdCnt++; }
+      var _pp = _elDynPlanned(s, _draA, _cl); if (_pp != null) m.plan += _pp;
+      var _hp = _elDynHold(s, _draA, _cl); if (_hp != null) { m.hold += _hp; m.holdCnt++; }
     });
     var _diffResKeys = Object.keys(_diffResMap).sort(function(a, b) { var ra = _diffRank[a] != null ? _diffRank[a] : 98, rb = _diffRank[b] != null ? _diffRank[b] : 98; return ra - rb; });
     var _drTh = function(t, ex) { return React.createElement("th", { style: Object.assign({ padding: "2px 5px", fontWeight: 700, fontSize: 10, color: "#9A3412", borderBottom: "2px solid #FB923C", textAlign: "center", whiteSpace: "nowrap" }, ex || {}) }, t); };
@@ -507,9 +507,9 @@ function EntryLogView(_ref_elv) {
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 6, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "α値"),
         _drStepBtn("−", function() { setDiffResAlpha(function(v) { return String(Math.max(0, (Number(v) || 0) - 1)); }); }),
-        React.createElement("input", { type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", value: diffResAlpha, onChange: function(e) { var v = e.target.value; if (v === "") { setDiffResAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setDiffResAlpha(String(n)); }, style: { width: 50, padding: "3px 6px", fontSize: 12, border: "1px solid #ccc", borderRadius: 4, textAlign: "right", fontWeight: 700, boxSizing: "border-box" } }),
+        React.createElement("input", { type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", placeholder: "各記録", value: diffResAlpha, onChange: function(e) { var v = e.target.value; if (v === "") { setDiffResAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setDiffResAlpha(String(n)); }, style: { width: 50, padding: "3px 6px", fontSize: 12, border: "1px solid #ccc", borderRadius: 4, textAlign: "right", fontWeight: 700, boxSizing: "border-box" } }),
         _drStepBtn("＋", function() { setDiffResAlpha(function(v) { return String(Math.min(30, (Number(v) || 0) + 1)); }); }),
-        React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円で全件の結果(○△×ー)を再判定")
+        React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円で再判定（空欄=各記録の採用α値）")
       ),
       _diffResKeys.length === 0
         ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", padding: "2px 0" } }, "予想OS度の記録がありません")
@@ -1591,8 +1591,9 @@ function EntryLogView(_ref_elv) {
             return (a.signal.time || "99:99").localeCompare(b.signal.time || "99:99");
           });
           if (!recs.length) return null;
-          var _ovA = (tExpAlpha !== "" && !isNaN(Number(tExpAlpha))) ? Number(tExpAlpha) : 10;
-          var _ovC = (tExpCut !== "" && !isNaN(Number(tExpCut))) ? Number(tExpCut) : 10;
+          // 空欄=各記録の採用α値(signal.alphaVal)を使用。値を入れた時のみ全記録に一括試算。
+          var _ovAraw = (tExpAlpha !== "" && !isNaN(Number(tExpAlpha))) ? Number(tExpAlpha) : null;
+          var _ovCraw = (tExpCut !== "" && !isNaN(Number(tExpCut))) ? Number(tExpCut) : null;
           var _rPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
           var _rPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
           var _rTh = function(label, extra) {
@@ -1628,6 +1629,9 @@ function EntryLogView(_ref_elv) {
             var rKey = r.stock + "_" + (r.signal.id || r.signal.time || "");
             var rExp = !!calTblRecExp[rKey];
             var s = r.signal, item = r.item;
+            var _aiBT = _elAlphaInfo(r, data);
+            var _ovA = _ovAraw != null ? _ovAraw : _aiBT.alpha;
+            var _ovC = _ovCraw != null ? _ovCraw : _aiBT.cutLine;
             var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
             var _per100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
             var realPnl = (item && item.pnl != null) ? Number(item.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
@@ -1815,7 +1819,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700 } }, "α値"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
               React.createElement("input", {
-                type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", value: tExpAlpha,
+                type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", placeholder: "各記録", value: tExpAlpha,
                 onChange: function(e) { var v = e.target.value; if (v === "") { setTExpAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setTExpAlpha(String(n)); },
                 style: { width: 46, padding: "2px 4px", fontSize: 11, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
               }),
@@ -1828,7 +1832,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("span", { style: { fontSize: 10, color: "#555", fontWeight: 700, marginLeft: 4 } }, "損切り"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
               React.createElement("input", {
-                type: "number", inputMode: "numeric", min: "0", step: "1", value: tExpCut,
+                type: "number", inputMode: "numeric", min: "0", step: "1", placeholder: "各記録", value: tExpCut,
                 onChange: function(e) { var v = e.target.value; if (v === "") { setTExpCut(""); return; } var n = Number(v); if (isNaN(n)) return; if (n < 0) n = 0; setTExpCut(String(n)); },
                 style: { width: 42, padding: "2px 4px", fontSize: 11, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
               }),
@@ -1839,10 +1843,10 @@ function EntryLogView(_ref_elv) {
             ),
             React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円"),
             React.createElement("button", {
-              onClick: function() { setTExpAlpha("10"); setTExpCut("10"); },
+              onClick: function() { setTExpAlpha(""); setTExpCut(""); },
               style: { fontSize: 10, padding: "1px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
             }, "リセット"),
-            React.createElement("span", { style: { fontSize: 9, color: "#aaa", whiteSpace: "nowrap" } }, "※この日全体にα/損切りを適用して試算")
+            React.createElement("span", { style: { fontSize: 9, color: "#aaa", whiteSpace: "nowrap" } }, "※空欄=各記録の採用α値。値を入れると全記録に一括試算（保存しません）")
           );
           return React.createElement("tr", { key: date + "_texp" },
             React.createElement("td", { colSpan: 12, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
