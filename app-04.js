@@ -4083,7 +4083,13 @@ function DayView(_ref57) {
       });
     });
     var _pbStks = Object.keys(_pbByStk).sort();
-    if (!_pbStks.length) return null;
+    var _soukatsuEl = React.createElement("div", { style: Card }, React.createElement(MemoSection, {
+      memo: dd.tradesSummaryMemo || (dd.summary ? { text: (dd.summary || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"), images: [] } : { text: "", images: [] }),
+      onChange: function(v) { updDay("tradesSummaryMemo", v); if (dd.summary) updDay("summary", ""); },
+      title: "📝 本日の総括",
+      guardKey: "tradesSummary_" + date
+    }));
+    if (!_pbStks.length) return _soukatsuEl;
     
     var _pbAllRecs = [];
     var _pbAllReal = 0, _pbAllEnt = 0;
@@ -5264,25 +5270,7 @@ function DayView(_ref57) {
         )
       )
     );
-    return React.createElement(React.Fragment, null, _pbMainEl,
-  React.createElement("div", {
-    style: Card
-  },
-  React.createElement(MemoSection, {
-    memo: dd.tradesSummaryMemo || (dd.summary
-      ? { text: (dd.summary || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"), images: [] }
-      : { text: "", images: [] }),
-    onChange: function onChange(v) {
-      
-      
-      updDay("tradesSummaryMemo", v);
-      
-      if (dd.summary) updDay("summary", "");
-    },
-    title: "📝 本日の総括",
-    guardKey: "tradesSummary_" + date
-  })),
-  _haEl);
+    return React.createElement(React.Fragment, null, _pbMainEl, _soukatsuEl, _haEl);
   })(),
 
   (function() {
