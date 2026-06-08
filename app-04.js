@@ -4161,6 +4161,20 @@ function DayView(_ref57) {
       });
       _wkByDay[_wd] = _arr;
     });
+    // 週用α解決（日次simと独立・r.date基準）: wkSimAlpha(全銘柄) > wkSimAlphaByStock(銘柄別) > signal.alphaVal > 予想OS度
+    var _wkAlphaOf = function(r) {
+      if (wkSimAlpha !== null) return wkSimAlpha;
+      if (wkSimAlphaByStock && wkSimAlphaByStock[r.stock] != null) return wkSimAlphaByStock[r.stock];
+      var s = r.signal;
+      return s && s.alphaVal != null ? s.alphaVal : _gradeAlpha(s && s.difficulty);
+    };
+    var _wkCutOf = function(r) {
+      if (wkSimAlpha !== null && wkSimCutLine !== null) return wkSimCutLine;
+      var _c = _pbCharts[r.stock + "_" + r.date];
+      return _c && _c.cutLine != null ? _c.cutLine : 10;
+    };
+    var _wkSimResolve = function(r) { return { alpha: _wkAlphaOf(r), cutLine: _wkCutOf(r) }; };
+    var _wkSimActive = (wkSimAlpha !== null) || (wkSimAlphaByStock && Object.keys(wkSimAlphaByStock).length > 0);
     var _wkMainEl = (function() {
       if (!_wkAllRecs.length) return null;
       var _DOWJP = ["日", "月", "火", "水", "木", "金", "土"];
@@ -4187,7 +4201,7 @@ function DayView(_ref57) {
         return out.slice(0, 6);
       };
       var _wkRow = function(label, labelColor, recs, isTotal, rowKey) {
-        var st = _elCalcStats(recs, data);
+        var st = _elCalcStats(recs, data, _wkSimResolve);
         var _ent = _wkEntCnt(recs);
         var _osv = _wkAvgOs(recs);
         var _isExp = !!pnlTableExpandSet[rowKey];
@@ -4216,16 +4230,108 @@ function DayView(_ref57) {
             (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
         );
       };
+      // 週: 銘柄別グルーピング + 理想α値（0〜30円）計算
+      var _wkByStk = {};
+      _wkAllRecs.forEach(function(r) { if (!_wkByStk[r.stock]) _wkByStk[r.stock] = []; _wkByStk[r.stock].push(r); });
+      var _wkStks = Object.keys(_wkByStk).sort(function(a, b) { var ia = _pbStkOrder.indexOf(a), ib = _pbStkOrder.indexOf(b); if (ia !== -1 || ib !== -1) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; } return a < b ? -1 : a > b ? 1 : 0; });
+      var _wkIdealByStk = {};
+      _wkStks.forEach(function(sk) {
+        var sigData = (_wkByStk[sk] || []).map(function(rec) {
+          var sig = rec.signal;
+          var conf = sig.osConfVal != null ? (sig.osConfSign === "-" ? -(Number(sig.osConfVal)) : Number(sig.osConfVal)) : null;
+          var osV = sig.osVal != null ? Number(sig.osVal) : null;
+          var _cl = (function() { var _c = _pbCharts[rec.stock + "_" + rec.date]; return _c && _c.cutLine != null ? _c.cutLine : 10; })();
+          return { conf: conf, osVal: osV, cutLine: _cl, sig: sig };
+        });
+        var calcProfit = function(alpha) { var total = 0, hasAny = false; sigData.forEach(function(d) { if (d.osVal == null) return; hasAny = true; var _cl = d.cutLine != null ? d.cutLine : 10; if (alpha > d.osVal) {} else if (d.osVal - alpha >= _cl) { total += -(d.osVal - alpha) * 100; } else { if (d.conf == null) { hasAny = false; return; } total += (alpha - d.conf) * 100; } }); return hasAny ? Math.round(total) : null; };
+        var calcHold = function(alpha) { var total = 0, hasAny = false; sigData.forEach(function(d) { if (d.osVal == null) return; hasAny = true; var hp = _elDynHold(d.sig, alpha, d.cutLine != null ? d.cutLine : 10); if (hp != null) total += hp; }); return hasAny ? Math.round(total) : null; };
+        var minA = null, tgtA = null, maxA = null, maxP = null;
+        for (var _a = 0; _a <= 30; _a++) { var _p = calcProfit(_a); if (_p == null) continue; if (minA == null && _p >= 1) minA = _a; if (tgtA == null && _p >= 2500) tgtA = _a; if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; } }
+        if (tgtA == null && maxA != null) tgtA = maxA;
+        _wkIdealByStk[sk] = { minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA, minProfit: minA != null ? calcProfit(minA) : null, tgtProfit: tgtA != null ? calcProfit(tgtA) : null, maxProfit: maxA != null ? calcProfit(maxA) : null, minHold: minA != null ? calcHold(minA) : null, tgtHold: tgtA != null ? calcHold(tgtA) : null, maxHold: maxA != null ? calcHold(maxA) : null };
+      });
+      var _wkAlphaPanel = React.createElement("div", { style: { border: "1px solid #FB923C", borderRadius: 8, marginBottom: 8, background: "#FFFBF5", overflow: "hidden" } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
+          React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555" } }, "α一括シミュレーション（保存しません）:"),
+          [["all", "全銘柄一括"], ["stock", "銘柄別"]].map(function(_m) {
+            var _on = wkAlphaMode === _m[0];
+            return React.createElement("button", { key: _m[0],
+              onClick: function() { if (_m[0] === "stock") { setWkSimAlpha(null); setWkSimCutLine(null); } else { setWkSimAlpha(function(p) { return p == null ? 10 : p; }); } setWkAlphaMode(_m[0]); },
+              style: { padding: "3px 12px", fontSize: 11, fontWeight: _on ? 700 : 400, cursor: "pointer", borderRadius: 5, border: _on ? "1.5px solid #FB923C" : "1px solid #ddd", background: _on ? "#FFEDD5" : "#fff", color: _on ? "#9A3412" : "#666" } }, _m[1]);
+          })
+        ),
+        wkAlphaMode === "all" && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", flexWrap: "wrap" } },
+          React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "全銘柄α値"),
+          React.createElement("input", { type: "number", inputMode: "numeric", step: "1", min: "0", max: "30", placeholder: "—",
+            value: wkSimAlpha !== null ? String(wkSimAlpha) : "",
+            onChange: function(e) { var v = _toHankakuNum(e.target.value); var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v)); if (n != null) { if (n > 30) n = 30; if (n < 0) n = 0; } setWkSimAlpha(n); },
+            style: { width: 64, padding: "4px", fontSize: 12, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", boxSizing: "border-box" } }),
+          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+          React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginLeft: 6 } }, "損切りライン"),
+          React.createElement("input", { type: "number", inputMode: "numeric", step: "1", placeholder: "10",
+            value: wkSimCutLine !== null ? String(wkSimCutLine) : "",
+            onChange: function(e) { var v = _toHankakuNum(e.target.value); setWkSimCutLine(v === "" ? null : (isNaN(Number(v)) ? null : Number(v))); },
+            style: { width: 52, padding: "4px", fontSize: 12, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", boxSizing: "border-box" } }),
+          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
+          React.createElement("button", { onClick: function() { setWkSimAlpha(null); setWkSimCutLine(null); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット"),
+          wkSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309", marginLeft: 6 } }, "※保存しない試算中")
+        ),
+        wkAlphaMode === "stock" && _wkStks.length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", flexWrap: "wrap" } },
+          React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555" } }, "銘柄別"),
+          _wkStks.map(function(sk) {
+            var _sa = (wkSimAlphaByStock && wkSimAlphaByStock[sk] != null) ? wkSimAlphaByStock[sk] : null;
+            var _setSk = function(n) { setWkSimAlphaByStock(function(prev) { var nx = Object.assign({}, prev); if (n != null) nx[sk] = n; else delete nx[sk]; return nx; }); };
+            return React.createElement("div", { key: sk, style: { display: "inline-flex", alignItems: "center", gap: 4, background: "#f9f8f6", border: "1px solid #e8e5de", borderRadius: 5, padding: "2px 6px" } },
+              React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, sk),
+              React.createElement("input", { type: "number", inputMode: "numeric", step: "1", placeholder: "各記録",
+                value: _sa != null ? String(_sa) : "",
+                onChange: function(e) { var v = _toHankakuNum(e.target.value); _setSk(v === "" ? null : (isNaN(Number(v)) ? null : Number(v))); },
+                style: { width: 52, padding: "3px 4px", fontSize: 12, border: "1px solid #ccc", borderRadius: 4, textAlign: "right", boxSizing: "border-box" } }),
+              React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
+            );
+          }),
+          React.createElement("button", { onClick: function() { setWkSimAlphaByStock({}); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット")
+        )
+      );
+      var _wkFmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
+      var _wkFmtP = function(v) { if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var col = v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; return React.createElement("span", { style: { fontWeight: 700, color: col } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
+      var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜30円・週間）"),
+        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の全記録で、α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）"),
+        React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
+            React.createElement("thead", null, React.createElement("tr", null,
+              ["銘柄", "最低利益α値", "想定利益", "目標利益α値", "想定利益", "最大利益α値", "想定利益"].map(function(h, i) { return React.createElement("th", { key: i, style: { padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: i === 0 ? "left" : "center", borderLeft: (i > 1 && i % 2 === 1) ? "1px solid #dbeafe" : "none" } }, h); })
+            )),
+            React.createElement("tbody", null,
+              _wkStks.map(function(sk) { var d = _wkIdealByStk[sk];
+                return React.createElement("tr", { key: sk, style: { borderBottom: "1px solid #dbeafe" } },
+                  React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11 } }, sk),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, _wkFmtA(d.minAlpha)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center" } }, _wkFmtP(d.minProfit)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, _wkFmtA(d.tgtAlpha)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center" } }, _wkFmtP(d.tgtProfit)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, _wkFmtA(d.maxAlpha)),
+                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center" } }, _wkFmtP(d.maxProfit))
+                );
+              })
+            )
+          )
+        )
+      );
       var _wkExpRow = function(recs, rowKey) {
+        var _isTotal = rowKey === "wk__total__";
         return React.createElement("tr", { key: rowKey + "_exp" },
           React.createElement("td", { colSpan: 12, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+            _isTotal ? _wkAlphaPanel : null,
+            _isTotal ? _wkIdealEl : null,
             recs.length ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
               recs.map(function(r) {
                 return React.createElement(EntryLogCard, {
                   key: r.stock + "_" + r.signal.id,
                   record: r,
-                  alpha: (r.signal.alphaVal != null ? r.signal.alphaVal : _gradeAlpha(r.signal.difficulty)),
-                  cutLine: (function() { var _c = _pbCharts[r.stock + "_" + r.date]; return _c && _c.cutLine != null ? _c.cutLine : 10; })(),
+                  alpha: _wkAlphaOf(r),
+                  cutLine: _wkCutOf(r),
                   onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); }
                 });
               })
@@ -4235,7 +4341,7 @@ function DayView(_ref57) {
       };
       return React.createElement("div", { style: Card },
         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 2, color: "#333" } }, "📅 今週の損益データ"),
-        React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, _wkDates[0].slice(5).replace("-", "/") + "（月）〜 " + _wkDates[4].slice(5).replace("-", "/") + "（金）"),
+        React.createElement("div", { style: { fontSize: 10, color: _wkSimActive ? "#B45309" : "#888", marginBottom: 6, fontWeight: _wkSimActive ? 700 : 400 } }, _wkDates[0].slice(5).replace("-", "/") + "（月）〜 " + _wkDates[4].slice(5).replace("-", "/") + "（金）" + (_wkSimActive ? " ／ α試算中（保存しません）" : "")),
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
             React.createElement("thead", null,

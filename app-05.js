@@ -3250,7 +3250,7 @@ function _elCapNote(cutLine, opts) {
   return _elCapNoteAmt(_elCapLossYen(_cl), Object.assign({ title: "損切り値（" + _cl + "円）ちょうどで損切りできていた場合の損失額（100株換算）" }, opts));
 }
 
-function _elCalcStats(records, data) {
+function _elCalcStats(records, data, simResolve) {
   var _liveA = !!(data && data.charts);
   var total = records.length;
   var ok = 0, ng = 0, draw = 0, miss = 0;
@@ -3263,7 +3263,7 @@ function _elCalcStats(records, data) {
   var hYes = 0, hMid = 0, hNone = 0, hNo = 0;
   records.forEach(function(r) {
     var s = r.signal;
-    var _ai = _liveA ? _elAlphaInfo(r, data) : null;
+    var _ai = _liveA ? (simResolve ? simResolve(r) : _elAlphaInfo(r, data)) : null;
     var _res = _liveA ? _elDynResult(s, _ai.alpha, _ai.cutLine) : s.result;
     if (_res === "ok") ok++;
     else if (_res === "ng") ng++;
