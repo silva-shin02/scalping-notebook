@@ -3741,22 +3741,13 @@ function DayView(_ref57) {
         );
       };
       var _trRPnlDispABAll = function(abV, allV, abGrade, allGrade) {
-        if (abV == null && allV == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        var _mkSmBadge = function(g) {
-          var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
-          return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color,
-            border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
-        };
+        // 全ランク(全体)のみ表示。B以上/全ランクのAB分割は廃止。
+        var _v = allV != null ? allV : abV;
+        var _g = allGrade || abGrade;
+        if (_v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
         return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-          abGrade ? _trBadge(abGrade) : null,
-          React.createElement("span", { style: { fontWeight: 600, color: _trRPnlCol(abV) } }, _trRPnlFmt(abV)),
-          abV !== allV ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-            React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
-            allGrade ? _mkSmBadge(allGrade) : null,
-            React.createElement("span", { style: { color: _trRPnlCol(allV), fontSize: 10 } }, _trRPnlFmt(allV)),
-            null
-          ) : null
+          _g ? _trBadge(_g) : null,
+          React.createElement("span", { style: { fontWeight: 600, color: _trRPnlCol(_v) } }, _trRPnlFmt(_v))
         );
       };
       var _trTh = function(label, extra) {
@@ -4428,48 +4419,20 @@ function DayView(_ref57) {
       );
     };
     var _pbABAll = function(recs, allSum, allEv, grade, sumKey, evKey, dynAbSum) {
-      var abRecs = (recs || []).filter(function(r) {
-        var d = r.signal && r.signal.difficulty;
-        return d === "A" || d === "B";
-      });
-      var abSum = 0;
-      if (dynAbSum !== undefined) {
-        abSum = dynAbSum !== null ? dynAbSum : 0;
-      } else if (abRecs.length > 0) {
-        var abSt = _elCalcStats(abRecs, data);
-        abSum = abSt[sumKey] || 0;
-      }
+      // 全ランク(全体)の合計のみ表示。B以上/全ランクのAB分割は廃止。
       if (allSum === 0 && allEv == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
       var allCnt = (recs || []).length;
-      var abGrade = abRecs.length > 0 ? _profitGradeFromPnl(abSum, abRecs.length) : null;
       var allGrade = allCnt > 0 ? _profitGradeFromPnl(allSum, allCnt) : null;
-      var _mkSmBadge = function(g) {
-        var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
-        return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-          width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color,
-          border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
-      };
       return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-        abGrade ? _pbBadge(abGrade) : null,
-        React.createElement("span", { style: { fontWeight: 600, color: _pbCol(abSum) } }, _pbFmt(abSum)),
-        abSum !== allSum ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-          React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
-          allGrade ? _mkSmBadge(allGrade) : null,
-          React.createElement("span", { style: { color: _pbCol(allSum), fontSize: 10 } }, _pbFmt(allSum)),
-          null
-        ) : null
+        allGrade ? _pbBadge(allGrade) : null,
+        React.createElement("span", { style: { fontWeight: 600, color: _pbCol(allSum) } }, _pbFmt(allSum))
       );
     };
     
     var _pbRealABAll = function(recs) {
+      // 全ランク(全体)の実現損益のみ表示。AB分割は廃止。
       if (!recs || !recs.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-      var abRecs = recs.filter(function(r) {
-        var d = r.signal && r.signal.difficulty;
-        return d === "A" || d === "B";
-      });
       var allSt = _elCalcStats(recs, data);
-      var abSt  = abRecs.length > 0 ? _elCalcStats(abRecs, data) : null;
-      
       var _rawPnl = function(rs) {
         return rs.reduce(function(a, r) {
           var v = (r.item && r.item.pnl != null) ? Number(r.item.pnl)
@@ -4479,32 +4442,11 @@ function DayView(_ref57) {
       };
       var _entCnt = function(rs) { return rs.filter(function(r) { return _elIsEntered(r.signal, r.item); }).length; };
       var allRaw = _rawPnl(recs), allEnt = _entCnt(recs);
-      var abRaw  = _rawPnl(abRecs), abEnt  = _entCnt(abRecs);
       if (allSt.sumPnl === 0 && allEnt === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-      var abGrade  = abEnt  > 0 ? _profitGradeFromPnlReal(abRaw,  abEnt)  : null;
-      var allGrade = allEnt > 0 ? _profitGradeFromPnlReal(allRaw, allEnt) : null;
-      
-      var mainGrade = abEnt > 0 ? abGrade : "D";
-      var mainSum   = abEnt > 0 ? (abSt ? abSt.sumPnl : 0) : 0;
-      var allSum    = allSt.sumPnl;
-      var _mkSm = function(g) {
-        var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
-        return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-          width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color,
-          border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
-      };
+      var allGrade = allEnt > 0 ? _profitGradeFromPnlReal(allRaw, allEnt) : "D";
       return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-        _pbBadge(mainGrade),
-        React.createElement("span", { style: { fontWeight: 600, color: _pbCol(mainSum) } }, _pbFmt(mainSum)),
-        
-        allEnt > 0
-          ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-              React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
-              allGrade ? _mkSm(allGrade) : null,
-              React.createElement("span", { style: { color: _pbCol(allSum), fontSize: 10 } }, _pbFmt(allSum)),
-              null
-            )
-          : null
+        _pbBadge(allGrade),
+        React.createElement("span", { style: { fontWeight: 600, color: _pbCol(allSt.sumPnl) } }, _pbFmt(allSt.sumPnl))
       );
     };
     var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey, tags, recs) {
@@ -4826,24 +4768,15 @@ function DayView(_ref57) {
       var _totHoldCapGradePb = _totHoldCnt > 0 ? _profitGradeFromPnl(_totHoldPlanCap != null ? _totHoldPlanCap : 0, _totHoldCnt) : null;
       var _totHoldCapGradeABpb = _totHoldPlanCapABCnt > 0 ? _profitGradeFromPnl(_totHoldPlanCapAB != null ? _totHoldPlanCapAB : 0, _totHoldPlanCapABCnt) : null;
       var _rPnlDispABAllPb = function(abV, allV, abGrade, allGrade) {
+        // 全ランク(全体)のみ表示。B以上/全ランクのAB分割は廃止。
         var _fmtAB = function(v) { return v != null ? (v > 0 ? "+" : "") + v.toLocaleString() + "円" : "—"; };
         var _colAB = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-        if (abV == null && allV == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        var _mkSmBadge = function(g) {
-          var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
-          return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color,
-            border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
-        };
+        var _v = allV != null ? allV : abV;
+        var _g = allGrade || abGrade;
+        if (_v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
         return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-          abGrade ? _pbBadge(abGrade) : null,
-          React.createElement("span", { style: { fontWeight: 600, color: _colAB(abV) } }, _fmtAB(abV)),
-          abV !== allV ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-            React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
-            allGrade ? _mkSmBadge(allGrade) : null,
-            React.createElement("span", { style: { color: _colAB(allV), fontSize: 10 } }, _fmtAB(allV)),
-            null
-          ) : null
+          _g ? _pbBadge(_g) : null,
+          React.createElement("span", { style: { fontWeight: 600, color: _colAB(_v) } }, _fmtAB(_v))
         );
       };
       var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };

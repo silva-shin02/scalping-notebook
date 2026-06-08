@@ -3502,7 +3502,7 @@ function _GradeBadges3(_p) {
   };
   var items = [
     { key: "real", label: "実", fullLabel: "実現損益",    abKey: null },
-    { key: "plan", label: "想", fullLabel: "想定損益",    abKey: "planAB" },
+    { key: "plan", label: "想", fullLabel: "想定損益",    abKey: null },
     { key: "hold", label: "H",  fullLabel: "結果損益(H)", abKey: null }
   ];
   return React.createElement("div", {

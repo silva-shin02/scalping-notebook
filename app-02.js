@@ -4085,22 +4085,13 @@ function EntrySignalSection(_ref_es) {
     );
   };
   var _esRPnlDispABAll = function(abV, allV, abGrade, allGrade) {
-    if (abV == null && allV == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-    var _mkSmBadge = function(g) {
-      var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
-      return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-        width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color,
-        border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
-    };
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-      abGrade ? _esBadge(abGrade) : null,
-      React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(abV) } }, _esRPnlFmt(abV)),
-      abV !== allV ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-        React.createElement("span", { style: { color: "#d6c8b8", fontSize: 10, fontWeight: 400, margin: "0 2px" } }, "/"),
-        allGrade ? _mkSmBadge(allGrade) : null,
-        React.createElement("span", { style: { color: _esRPnlCol(allV), fontSize: 10 } }, _esRPnlFmt(allV)),
-        null
-      ) : null
+    // 全ランク(全体)の合計のみ表示。B以上/全ランクのAB分割は廃止。
+    var _v = allV != null ? allV : abV;
+    var _g = allGrade || abGrade;
+    if (_v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+      _g ? _esBadge(_g) : null,
+      React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(_v) } }, _esRPnlFmt(_v))
     );
   };
   
@@ -4713,7 +4704,7 @@ function EntrySignalSection(_ref_es) {
                   isCustomMode ? _esTh("並替", { width: 40 }) : null
                 )
               ),
-              React.createElement("tbody", null, [totRow].concat(dataRows).concat([botTotRow]))
+              React.createElement("tbody", null, dataRows.concat([botTotRow]))
             )
           )
           );
