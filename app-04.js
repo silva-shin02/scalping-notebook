@@ -3038,6 +3038,15 @@ function DayView(_ref57) {
   // 銘柄別の一括αシミュレーション（保存しない）。{銘柄: α}。null/未設定=各記録の採用α値
   var _uPbSimBS = useState({}), _uPbSimBSA = _slicedToArray(_uPbSimBS, 2),
     pbSimAlphaByStock = _uPbSimBSA[0], setPbSimAlphaByStock = _uPbSimBSA[1];
+  // 今週の損益データ用の一括αシミュレーション（日次とは独立・保存しない）
+  var _uWkSim = useState(null), _uWkSimA = _slicedToArray(_uWkSim, 2),
+    wkSimAlpha = _uWkSimA[0], setWkSimAlpha = _uWkSimA[1];
+  var _uWkSimCL = useState(null), _uWkSimCLA = _slicedToArray(_uWkSimCL, 2),
+    wkSimCutLine = _uWkSimCLA[0], setWkSimCutLine = _uWkSimCLA[1];
+  var _uWkAMode = useState("all"), _uWkAModeA = _slicedToArray(_uWkAMode, 2),
+    wkAlphaMode = _uWkAModeA[0], setWkAlphaMode = _uWkAModeA[1];
+  var _uWkSimBS = useState({}), _uWkSimBSA = _slicedToArray(_uWkSimBS, 2),
+    wkSimAlphaByStock = _uWkSimBSA[0], setWkSimAlphaByStock = _uWkSimBSA[1];
   
   
   
@@ -4128,13 +4137,141 @@ function DayView(_ref57) {
       if (ia !== -1 || ib !== -1) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; }
       return a < b ? -1 : a > b ? 1 : 0;
     });
+
+    // ===== 今週の損益データ（表示中の日付が属する週の月〜金）=====
+    var _wkMon = getMondayOf(new Date(date + "T00:00:00"));
+    var _wkDates = Array.from({ length: 5 }, function(_, _wi0) {
+      var _wd0 = new Date(_wkMon); _wd0.setDate(_wd0.getDate() + _wi0);
+      return _wd0.getFullYear() + "-" + String(_wd0.getMonth() + 1).padStart(2, "0") + "-" + String(_wd0.getDate()).padStart(2, "0");
+    });
+    var _wkByDay = {}, _wkAllRecs = [];
+    _wkDates.forEach(function(_wd) {
+      var _arr = [];
+      var _itemsW = (data.trades && data.trades[_wd] && data.trades[_wd].items) || [];
+      allStocks.forEach(function(_stk) {
+        var _cW = _pbCharts[_stk + "_" + _wd];
+        var _sigsW = (_cW && Array.isArray(_cW.signals)) ? _cW.signals : [];
+        _sigsW.forEach(function(_sig) {
+          var _s = _compatSignal(_sig);
+          var _it = null;
+          if (_s.itemId != null) { for (var _wj = 0; _wj < _itemsW.length; _wj++) { if (String(_itemsW[_wj].id) === String(_s.itemId)) { _it = _itemsW[_wj]; break; } } }
+          var _rec = { date: _wd, stock: _stk, signal: _s, item: _it };
+          _arr.push(_rec); _wkAllRecs.push(_rec);
+        });
+      });
+      _wkByDay[_wd] = _arr;
+    });
+    var _wkMainEl = (function() {
+      if (!_wkAllRecs.length) return null;
+      var _DOWJP = ["日", "月", "火", "水", "木", "金", "土"];
+      var _wkBadge = function(g) {
+        var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
+        return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 } }, g);
+      };
+      var _wkAmt = function(v) { return React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, (v > 0 ? "+" : "") + (v || 0).toLocaleString() + "円"); };
+      var _wkPnlCell = function(grade, sum) {
+        if (!grade || grade === "Z" || sum == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkBadge(grade), _wkAmt(sum));
+      };
+      var _wkTh = function(label, extra) {
+        return React.createElement("th", { style: Object.assign({ padding: "4px 3px", fontWeight: 700, borderBottom: "2px solid #ddd", textAlign: "center", fontSize: 10, lineHeight: 1.2, whiteSpace: "nowrap", color: "#555" }, extra || {}) }, label);
+      };
+      var _wkEntCnt = function(rs) { return rs.filter(function(r) { return _elIsEntered(r.signal, r.item); }).length; };
+      var _wkAvgOs = function(rs) {
+        var a = rs.map(function(r) { return r.signal.osVal; }).filter(function(v) { return v != null && v !== ""; }).map(Number);
+        return a.length ? Math.round(a.reduce(function(x, y) { return x + y; }, 0) / a.length * 10) / 10 : null;
+      };
+      var _wkTags = function(rs) {
+        var seen = {}, out = [];
+        rs.forEach(function(r) { (r.signal.tags || []).forEach(function(t) { if (t && !seen[t]) { seen[t] = 1; out.push(t); } }); });
+        return out.slice(0, 6);
+      };
+      var _wkRow = function(label, labelColor, recs, isTotal, rowKey) {
+        var st = _elCalcStats(recs, data);
+        var _ent = _wkEntCnt(recs);
+        var _osv = _wkAvgOs(recs);
+        var _isExp = !!pnlTableExpandSet[rowKey];
+        var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
+        var bt = isTotal ? "2px solid #ccc" : "none";
+        var br = "1px solid #e0ddd6";
+        var _td = function(child, extra) { return React.createElement("td", { style: Object.assign({ padding: "3px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, whiteSpace: "nowrap" }, extra || {}) }, child); };
+        return React.createElement("tr", {
+          key: rowKey,
+          style: { background: _isExp ? "#FFF7ED" : (isTotal ? "#F5F0E8" : "transparent"), cursor: "pointer" },
+          onClick: function() { setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); if (n[rowKey]) delete n[rowKey]; else n[rowKey] = true; return n; }); }
+        },
+          React.createElement("td", { style: { padding: "3px 5px", textAlign: "left", fontWeight: isTotal ? 700 : 600, fontSize: 11, whiteSpace: "nowrap", color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
+            React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, _isExp ? "▼" : "▶"), label),
+          _td(st.total, { fontWeight: isTotal ? 700 : 400 }),
+          _td(st.ok || "0", { color: "#1E8449", fontWeight: st.ok ? 700 : 400 }),
+          _td(st.draw || "0", { color: "#6B7280" }),
+          _td(st.ng || "0", { color: "#C0392B", fontWeight: st.ng ? 700 : 400 }),
+          _td(st.miss || "0", { color: "#B45309" }),
+          _td(st.winPct != null ? st.winPct + "%" : "—", { color: st.winPct != null ? (st.winPct >= 60 ? "#C0392B" : st.winPct >= 40 ? "#888" : "#1E8449") : "#ccc", fontWeight: st.winPct != null ? 700 : 400 }),
+          _td(_osv != null ? React.createElement("span", { style: { color: _vcol(_osv, true), fontWeight: _osv >= 10 ? 700 : 600 } }, _osv + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+          _td(_wkPnlCell(_profitGradeFromPnl(st.sumPlanned, st.sumPlanned !== 0 ? st.total : 0), st.sumPlanned)),
+          _td(_wkPnlCell(_profitGradeFromPnl(st.sumHold || 0, (st.sumHold != null && st.sumHold !== 0) ? st.total : 0), st.sumHold)),
+          _td(_wkPnlCell(_profitGradeFromPnlReal(st.sumPnl, (_ent > 0 && st.sumPnl !== 0) ? _ent : 0), _ent > 0 ? st.sumPnl : null)),
+          React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
+            (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
+        );
+      };
+      var _wkExpRow = function(recs, rowKey) {
+        return React.createElement("tr", { key: rowKey + "_exp" },
+          React.createElement("td", { colSpan: 12, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+            recs.length ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+              recs.map(function(r) {
+                return React.createElement(EntryLogCard, {
+                  key: r.stock + "_" + r.signal.id,
+                  record: r,
+                  alpha: (r.signal.alphaVal != null ? r.signal.alphaVal : _gradeAlpha(r.signal.difficulty)),
+                  cutLine: (function() { var _c = _pbCharts[r.stock + "_" + r.date]; return _c && _c.cutLine != null ? _c.cutLine : 10; })(),
+                  onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); }
+                });
+              })
+            ) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
+          )
+        );
+      };
+      return React.createElement("div", { style: Card },
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 2, color: "#333" } }, "📅 今週の損益データ"),
+        React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, _wkDates[0].slice(5).replace("-", "/") + "（月）〜 " + _wkDates[4].slice(5).replace("-", "/") + "（金）"),
+        React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
+            React.createElement("thead", null,
+              React.createElement("tr", { style: { background: "#f5f4f0" } },
+                _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
+                _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")), _wkTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")), _wkTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
+                _wkTh("勝率"), _wkTh("平均OS値"), _wkTh("想定損益"), _wkTh("H結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
+              )
+            ),
+            React.createElement("tbody", null,
+              [
+                _wkRow("週合計", "#555", _wkAllRecs, true, "wk__total__"),
+                !!pnlTableExpandSet["wk__total__"] ? _wkExpRow(_wkAllRecs, "wk__total__") : null
+              ].concat(
+                _wkDates.map(function(_wd) {
+                  var _dobj = new Date(_wd + "T00:00:00");
+                  var _lbl = _DOWJP[_dobj.getDay()] + " " + _wd.slice(5).replace("-", "/");
+                  var _rk = "wk_" + _wd;
+                  return [
+                    _wkRow(_lbl, null, _wkByDay[_wd], false, _rk),
+                    !!pnlTableExpandSet[_rk] ? _wkExpRow(_wkByDay[_wd], _rk) : null
+                  ];
+                })
+              )
+            )
+          )
+        )
+      );
+    })();
     var _soukatsuEl = React.createElement("div", { style: Card }, React.createElement(MemoSection, {
       memo: dd.tradesSummaryMemo || (dd.summary ? { text: (dd.summary || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"), images: [] } : { text: "", images: [] }),
       onChange: function(v) { updDay("tradesSummaryMemo", v); if (dd.summary) updDay("summary", ""); },
       title: "📝 本日の総括",
       guardKey: "tradesSummary_" + date
     }));
-    if (!_pbStks.length) return _soukatsuEl;
+    if (!_pbStks.length) return React.createElement(React.Fragment, null, _wkMainEl, _soukatsuEl);
     
     var _pbAllRecs = [];
     var _pbAllReal = 0, _pbAllEnt = 0;
@@ -5242,7 +5379,7 @@ function DayView(_ref57) {
         )
       )
     );
-    return React.createElement(React.Fragment, null, _pbMainEl, _soukatsuEl, _haEl);
+    return React.createElement(React.Fragment, null, _pbMainEl, _wkMainEl, _soukatsuEl, _haEl);
   })(),
 
   (function() {
