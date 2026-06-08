@@ -1744,8 +1744,8 @@ function EntryLogView(_ref_elv) {
               var _pStopHab = _elPlanIsStop(s, _ovA, _ovC);
               _totHoldAB = (_totHoldAB || 0) + ((_pStopHab && planPnlN != null) ? planPnlN : holdPnl); _totHoldABCnt++; }
             var entLabel = entered
-              ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
-              : React.createElement("span", { style: { color: "#888" } }, "見送り");
+              ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 14 } }, "〇")
+              : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
             var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
             var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
             var rKeyRef = rKey;
@@ -1791,17 +1791,15 @@ function EntryLogView(_ref_elv) {
                   _slashCell(_dynRes === "ok" ? {ch:"○",col:"#1E8449"} : _dynRes === "ng" ? {ch:"×",col:"#C0392B"} : _dynRes === "draw" ? {ch:"△",col:"#6B7280"} : _dynRes === "miss" ? {ch:"ー",col:"#B45309"} : null, planGrade, planPnlN, _dynRes === "miss"),
                   _elPlanIsStop(s, _ovA, _ovC) ? _elCapNote(_ovC) : null),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
-                  _elHoldFlow(s, _ovA, _ovC, false),
+                  _elHoldBoth(s, _ovA, _ovC),
                   (holdPnl != null && _elHoldIsStop(s, _ovA, _ovC)) ? _elCapNote(_ovC) : null),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
-                  _elHold2Cell(s, _ovA, _ovC)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnlN, realGrade))
               )
             );
             if (rExp) {
               subRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: 13, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, alpha: _ovA, cutLine: _ovC, onEdit: handleEdit, onGoDate: handleGoDate })
                   )
                 )
@@ -1833,17 +1831,22 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblCtot("想定損益"), _rPnlDispABAll(_totPlanAB, _totPlan, _totPlanGradeAB, _totPlanGrade),
               (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
-              _lblCtot("H１合計"),
-              _totHoldCnt > 0
-                ? _rPnlDispABAll(_totHoldAB, _totHoldPlanCap, _totHoldABGrade, _totHoldPlanCapGrade)
-                : React.createElement("span", { style: { color: "#ccc" } }, "—"),
-              (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null,
-              (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（"), _tBadge(_profitGradeFromPnl(_totHold, _totHoldCnt)), React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, _totHold.toLocaleString() + "円）")) : null),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
-              _lblCtot("H２合計"),
-              _totHold2Cnt > 0
-                ? (function() { var _g2 = _profitGradeFromPnl(_totHold2 != null ? _totHold2 : 0, _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _tBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })()
-                : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+              React.createElement("div", { style: { display: "inline-flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap", justifyContent: "center" } },
+                React.createElement("div", null,
+                  _lblCtot("H①合計"),
+                  _totHoldCnt > 0
+                    ? _rPnlDispABAll(_totHoldAB, _totHoldPlanCap, _totHoldABGrade, _totHoldPlanCapGrade)
+                    : React.createElement("span", { style: { color: "#ccc" } }, "—"),
+                  (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null,
+                  (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（"), _tBadge(_profitGradeFromPnl(_totHold, _totHoldCnt)), React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, _totHold.toLocaleString() + "円）")) : null),
+                React.createElement("span", { style: { color: "#ddd", alignSelf: "center" } }, "｜"),
+                React.createElement("div", null,
+                  _lblCtot("H②合計"),
+                  _totHold2Cnt > 0
+                    ? (function() { var _g2 = _profitGradeFromPnl(_totHold2 != null ? _totHold2 : 0, _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _tBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })()
+                    : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+              )
+            ),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblCtot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
           );
           var _tAddDateRef = date;
@@ -1902,8 +1905,8 @@ function EntryLogView(_ref_elv) {
                 React.createElement("table", { style: { width: "auto", borderCollapse: "collapse", fontSize: 11 } },
                   React.createElement("thead", null,
                     React.createElement("tr", null,
-                      _rTh("銘柄", { textAlign: "left", width: 60 }), _rTh("時間", { width: 48 }), _rTh("シグナル", { width: 190 }), _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 46 }), _rTh("α値", { width: 34 }), _rTh("OS値", { width: 48 }), _rTh("確定値", { width: 58 }), _rTh("α値比値幅", { width: 54 }), _rTh("E", { width: 74 }),
-                      _rTh("想定損益", { width: 112 }), _rTh("H１", { width: 168 }), _rTh("H２期待度", { width: 168 }), _rTh("実現損益", { width: 88 })
+                      _rTh("銘柄", { textAlign: "left", width: 60 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 130 }), _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 40 }), _rTh("α値", { width: 32 }), _rTh("OS値", { width: 44 }), _rTh("確定値", { width: 50 }), _rTh("α値比値幅", { width: 48 }), _rTh("E", { width: 30 }),
+                      _rTh("想定損益", { width: 96 }), _rTh(React.createElement("span", null, "H ", React.createElement("span", { style: { fontSize: 9, color: "#888", fontWeight: 400 } }, "①H1/②H2")), {}), _rTh("実現損益", { width: 84 })
                     )
                   ),
                   React.createElement("tbody", null, subRows),
@@ -2568,8 +2571,8 @@ function EntryLogView(_ref_elv) {
           var _pStopHabSv = _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine);
           _totHoldABsv = (_totHoldABsv || 0) + ((_pStopHabSv && planPnlN != null) ? planPnlN : holdPnl); _totHoldABCntsv++; }
         var entLabel = entered
-          ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "実エントリー")
-          : React.createElement("span", { style: { color: "#888" } }, "見送り");
+          ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 14 } }, "〇")
+          : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
         var _svSigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         var sigLabel = _svSigParts.length > 0 ? _svSigParts.join(" / ") : "(未設定)";
         var rKeyRef = rKey;
@@ -2606,17 +2609,15 @@ function EntryLogView(_ref_elv) {
               })()),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynResSv === "miss" ? _qMissCell() : React.createElement(React.Fragment, null, _rPnlDisp(planPnlN, planGrade), _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine) ? _elCapNote(_aiSv.cutLine) : null)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
-              _elHoldFlow(s, _aiSv.alpha, _aiSv.cutLine, false),
+              _elHoldBoth(s, _aiSv.alpha, _aiSv.cutLine),
               (holdPnl != null && _elHoldIsStop(s, _aiSv.alpha, _aiSv.cutLine)) ? _elCapNote(_aiSv.cutLine) : null),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
-              _elHold2Cell(s, _aiSv.alpha, _aiSv.cutLine)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnlN, realGrade))
           )
         );
         if (rExp) {
           subRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 10, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 9, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate })
               )
             )
@@ -2646,17 +2647,22 @@ function EntryLogView(_ref_elv) {
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblSvtot("想定損益"), _rPnlDispABAllSv(_totPlanABsv, _totPlan, _totPlanGradeABsv, _totPlanGrade),
           (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
-          _lblSvtot("H１合計"),
-          _totHoldCnt > 0
-            ? _rPnlDispABAllSv(_totHoldABsv, _totHoldPlanCap, _totHoldABGradeSv, _totHoldPlanCapGradeSv)
-            : React.createElement("span", { style: { color: "#ccc" } }, "—"),
-          (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null,
-          (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（"), _svBadge(_profitGradeFromPnl(_totHold, _totHoldCnt)), React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, _totHold.toLocaleString() + "円）")) : null),
-        React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
-          _lblSvtot("H２合計"),
-          _totHold2Cnt > 0
-            ? (function() { var _g2 = _profitGradeFromPnl(_totHold2 != null ? _totHold2 : 0, _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _svBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })()
-            : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+          React.createElement("div", { style: { display: "inline-flex", alignItems: "flex-start", gap: 6, flexWrap: "wrap", justifyContent: "center" } },
+            React.createElement("div", null,
+              _lblSvtot("H①合計"),
+              _totHoldCnt > 0
+                ? _rPnlDispABAllSv(_totHoldABsv, _totHoldPlanCap, _totHoldABGradeSv, _totHoldPlanCapGradeSv)
+                : React.createElement("span", { style: { color: "#ccc" } }, "—"),
+              (_totHoldStop && _totHoldCap != null) ? _elCapNoteAmt(_totHoldCap) : null,
+              (_totHoldPlanStopDiff && _totHold != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（"), _svBadge(_profitGradeFromPnl(_totHold, _totHoldCnt)), React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, _totHold.toLocaleString() + "円）")) : null),
+            React.createElement("span", { style: { color: "#ddd", alignSelf: "center" } }, "｜"),
+            React.createElement("div", null,
+              _lblSvtot("H②合計"),
+              _totHold2Cnt > 0
+                ? (function() { var _g2 = _profitGradeFromPnl(_totHold2 != null ? _totHold2 : 0, _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _svBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })()
+                : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+          )
+        ),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblSvtot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
       );
       var _svAddDateRef = date;
@@ -2667,14 +2673,13 @@ function EntryLogView(_ref_elv) {
               React.createElement("thead", null,
                 React.createElement("tr", null,
                   _rTh("時間", { textAlign: "left" }),
-                  _rTh("エントリー"),
-                  _rTh("シグナル"),
+                  _rTh("E", { width: "1%" }),
+                  _rTh("シグナル", { width: 130 }),
                   _rTh("OS値", { width: "1%" }),
                   _rTh("確定値", { width: "1%" }),
                   _rTh("α値比値幅", { width: "1%" }),
                   _rTh("想定損益"),
-                  _rTh("H１"),
-                  _rTh("H２期待度"),
+                  _rTh(React.createElement("span", null, "H ", React.createElement("span", { style: { fontSize: 9, color: "#888", fontWeight: 400 } }, "①H1/②H2"))),
                   _rTh("実現損益")
                 )
               ),
@@ -3457,12 +3462,11 @@ function EntryLogView(_ref_elv) {
             _td(_confCell(s)),
             _td(_ewCell(s, aAlpha)),
             _td(isMiss ? _qMissCell() : _pnlCell(planPnl)),
-            _td(_elHoldFlow(s, aAlpha, aCut, false)),
-            _td(_elHold2Cell(s, aAlpha, aCut))
+            _td(_elHoldBoth(s, aAlpha, aCut))
           ));
           if (_on) {
             bodyRows.push(React.createElement("tr", { key: _ek + "_card" },
-              React.createElement("td", { colSpan: 9, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+              React.createElement("td", { colSpan: 8, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
                 React.createElement(EntryLogCard, { record: r, alpha: aAlpha, cutLine: aCut, data: data, onEdit: handleEdit, onGoDate: handleGoDate })
               )
             ));
@@ -3476,7 +3480,7 @@ function EntryLogView(_ref_elv) {
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
-                _hh("日付", { textAlign: "left", paddingLeft: 8 }), _hh("時間"), _hh("銘柄"), _hh("OS値"), _hh("確定値"), _hh("α値比値幅"), _hh("想定損益"), _hh("H１"), _hh("H２期待度")
+                _hh("日付", { textAlign: "left", paddingLeft: 8 }), _hh("時間"), _hh("銘柄"), _hh("OS値"), _hh("確定値"), _hh("α値比値幅"), _hh("想定損益"), _hh(React.createElement("span", null, "H ", React.createElement("span", { style: { fontSize: 9, color: "#888", fontWeight: 400 } }, "①H1/②H2")))
               )
             ),
             React.createElement("tbody", null, bodyRows)

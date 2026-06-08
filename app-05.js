@@ -3271,16 +3271,18 @@ function _elHoldFlow(s, alpha, cutLine, isH2) {
   var planPnl = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
   var res = (alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result;
   if (holdPnl != null) {
-    var hp = holdPnl, pp = planPnl;
+    var hp = holdPnl;
+    // H2の損益変化はH1の結果損益との比較。H1は従来どおり想定損益との比較。
+    var pp = isH2 ? ((alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign)) : planPnl;
     var dynHP = (function() {
       if (hp == null) return hs.holdProfit;
-      if (res === "miss" || res === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
-      if (pp == null) return hs.holdProfit;
+      if (!isH2 && (res === "miss" || res === "draw")) return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
+      if (pp == null) return isH2 ? (hp > 0 ? "yes" : hp < 0 ? "no" : "none") : hs.holdProfit;
+      if (hp === 0) return pp < 0 ? "yes" : pp > 0 ? "mid" : "none";
       if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
       if (pp < 0 && hp < 0) return "no";
       if (pp > 0 && hp < 0) return "no";
       if (pp < 0 && hp > 0) return "yes";
-      if (hp === 0) return "none";
       return hs.holdProfit;
     })();
     var symMap = { yes: ["○", "#1E8449"], mid: ["△", "#B45309"], none: ["ー", "#888"], no: ["×", "#C0392B"] };
@@ -3313,6 +3315,16 @@ function _elHold2Cell(s, alpha, cutLine) {
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, whiteSpace: "nowrap" } },
     React.createElement("span", { key: "sym", style: { color: _ec[exp] || "#666", fontWeight: 800, marginRight: 3 } }, exp),
     _elHoldFlow(s, alpha, cutLine, true));
+}
+// H1とH2期待度を1セル内に横並び表示（表のH列を1列に統合するため）。H2期待度が未選択ならH1のみ。
+function _elHoldBoth(s, alpha, cutLine) {
+  var h1 = _elHoldFlow(s, alpha, cutLine, false);
+  if (!s.hold2Exp) return h1;
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 2, justifyContent: "center" } },
+    React.createElement("span", { key: "h1", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 2 } }, "①"), h1),
+    React.createElement("span", { key: "sep", style: { color: "#ddd", margin: "0 3px" } }, "｜"),
+    React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 2 } }, "②"), _elHold2Cell(s, alpha, cutLine))
+  );
 }
 function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
 function _elCapNoteAmt(amount, opts) {
@@ -4381,42 +4393,32 @@ function EntryRecordForm(_ref_erf) {
   }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult]);
 
   useEffect(function() {
-    var sHold = fHold2PnlVal !== "" ? (Number(fHold2PnlVal)||0) * (fHold2PnlSign === "-" ? -1 : 1) : 0;
-    var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
-    if (fResult === "miss") {
-      if (fHold2PnlVal === "") { setFHold2Profit("none"); return; }
+    // H2の損益変化は「H1の結果損益」との比較。
+    if (fHold2PnlVal === "") return;
+    var sHold = (Number(fHold2PnlVal)||0) * (fHold2PnlSign === "-" ? -1 : 1);
+    var sBase = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
+    if (sBase === 0) {
       if (sHold > 0) setFHold2Profit("yes");
       else if (sHold < 0) setFHold2Profit("no");
       else setFHold2Profit("none");
       return;
     }
-    if (fResult === "draw") {
-      if (fHold2PnlVal === "") return;
-      if (sHold > 0) setFHold2Profit("yes");
-      else if (sHold < 0) setFHold2Profit("no");
-      else setFHold2Profit("none");
-      return;
-    }
-    if (sPlan === 0) return;
     if (sHold === 0) {
-      if (fHold2PnlVal === "") return;
-      if (sPlan < 0) setFHold2Profit("yes");
-      else if (sPlan > 0) setFHold2Profit("mid");
-      else setFHold2Profit("none");
+      setFHold2Profit(sBase < 0 ? "yes" : sBase > 0 ? "mid" : "none");
       return;
     }
-    if (sPlan > 0 && sHold > 0) {
-      if (sHold > sPlan) setFHold2Profit("yes");
-      else if (sHold < sPlan) setFHold2Profit("mid");
+    if (sBase > 0 && sHold > 0) {
+      if (sHold > sBase) setFHold2Profit("yes");
+      else if (sHold < sBase) setFHold2Profit("mid");
       else setFHold2Profit("none");
-    } else if (sPlan < 0 && sHold < 0) {
+    } else if (sBase < 0 && sHold < 0) {
       setFHold2Profit("no");
-    } else if (sPlan > 0 && sHold < 0) {
+    } else if (sBase > 0 && sHold < 0) {
       setFHold2Profit("no");
-    } else if (sPlan < 0 && sHold > 0) {
+    } else if (sBase < 0 && sHold > 0) {
       setFHold2Profit("yes");
     }
-  }, [fResult, fPlan, fPlanSign, fHold2PnlVal, fHold2PnlSign]);
+  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign]);
 
 
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -4463,14 +4465,14 @@ function EntryRecordForm(_ref_erf) {
       holdHighVal: fHoldHighVal !== "" ? Number(fHoldHighVal) : null,
       holdHighSign: fHoldHighSign || null,
       hold2Exp: fHold2Exp || null,
-      hold2Profit: fHold2Exp ? (fHold2Profit || null) : null,
-      hold2OsConf: fHold2Exp ? fHold2OsConf : null,
-      hold2WidthSign: fHold2Exp ? (fHold2WidthSign || null) : null,
-      hold2Width: (fHold2Exp && fHold2WidthVal !== "") ? Number(fHold2WidthVal) : null,
-      hold2Pnl: (fHold2Exp && fHold2PnlVal !== "") ? Number(fHold2PnlVal) : null,
-      hold2PnlSign: fHold2Exp ? (fHold2PnlSign || null) : null,
-      hold2HighVal: (fHold2Exp && fHold2HighVal !== "") ? Number(fHold2HighVal) : null,
-      hold2HighSign: fHold2Exp ? (fHold2HighSign || null) : null,
+      hold2Profit: fHold2Profit || null,
+      hold2OsConf: fHold2OsConf,
+      hold2WidthSign: fHold2WidthSign || null,
+      hold2Width: fHold2WidthVal !== "" ? Number(fHold2WidthVal) : null,
+      hold2Pnl: fHold2PnlVal !== "" ? Number(fHold2PnlVal) : null,
+      hold2PnlSign: fHold2PnlSign || null,
+      hold2HighVal: fHold2HighVal !== "" ? Number(fHold2HighVal) : null,
+      hold2HighSign: fHold2HighSign || null,
       realizedPnl: fEntered && fReal !== "" ? Number(fReal) : null,
       realizedPnlSign: fRealSign,
       profitGrade: null,
@@ -5006,8 +5008,8 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
 
-      fHold2Exp ? React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) }, "Hold２") : null,
-      fHold2Exp ? React.createElement("div", {
+      React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) }, "Hold２"),
+      React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F4F6F8", border: "1px solid " + (fHold2Exp === "×" ? "#e3c9c9" : "#cfe0d2") }
       },
 
@@ -5137,7 +5139,7 @@ function EntryRecordForm(_ref_erf) {
             )
           )
         )
-      ) : null,
+      ),
 
 
       React.createElement("div", { style: SH_ }, "実エントリー"),
