@@ -541,7 +541,7 @@ function EntryLogView(_ref_elv) {
           )
     );
     
-    var _OS_BANDS = { A: { min: 20, max: Infinity, label: "20〜" }, B: { min: 10, max: 19, label: "10〜19" }, C: { min: 0, max: 9, label: "0〜9" } };
+    var _OS_BANDS = { A: { min: 20, max: Infinity, label: "20円〜" }, B: { min: 10, max: 19, label: "10〜19円" }, C: { min: 0, max: 9, label: "0〜9円" } };
     var _osHitMap = {}; var _osHitTot = 0, _osHitOk = 0, _osHitDevSum = 0;
     osRecs.forEach(function(r) {
       var s = r.signal; var g = s.difficulty;
@@ -3827,7 +3827,7 @@ function EntryLogView(_ref_elv) {
     
     var renderDiffSubTab = function() {
       var DIFF_ORDER = ["A", "B", "C"];
-      var DIFF_LABEL = { A: "A（20〜）", B: "B（10〜19）", C: "C（0〜9）" };
+      var DIFF_LABEL = { A: "A（20円〜）", B: "B（10〜19円）", C: "C（0〜9円）" };
       var _groupByField = function(field) {
         var grpMap = { A: [], B: [], C: [], "__none__": [] };
         grp.records.forEach(function(r) {
@@ -3977,7 +3977,7 @@ function EntryLogView(_ref_elv) {
       return _sigRichTable({ title: "銘柄別集計", icon: "📈", headLabel: "銘柄", rows: rows, expandPrefix: "stock_" });
     };
     renderDiffSubTab = function() {
-      var DIFF_LABEL = { A: "A（20〜）", B: "B（10〜19）", C: "C（0〜9）" };
+      var DIFF_LABEL = { A: "A（20円〜）", B: "B（10〜19円）", C: "C（0〜9円）" };
       var DIFF_COLOR = { A: "#1E8449", B: "#9A3412", C: "#7C3AED" };
       var mk = function(field) { var m = { A: [], B: [], C: [], "__none__": [] }; grp.records.forEach(function(r) { var v = r.signal[field] || "__none__"; if (!m[v]) m[v] = []; m[v].push(r); }); return m; };
       var rowsOf = function(m) { return ["A","B","C","__none__"].filter(function(k) { return (m[k] || []).length > 0; }).map(function(k) { return { key: k, label: k === "__none__" ? "未設定" : DIFF_LABEL[k], recs: m[k], labelColor: DIFF_COLOR[k] || "#aaa" }; }); };

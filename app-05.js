@@ -4365,9 +4365,9 @@ function EntryRecordForm(_ref_erf) {
       }),
       
       React.createElement("div", { style: SH_ }, "\u2B50 \u4E88\u60F3OS\u5EA6"),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u301C / B:10\u301C19 / C:0\u301C9 \u5186\uFF09\u3002\u03B1\u5024\u306F\u81EA\u52D5: A\u219220 / B\u219210 / C\u21925"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u5186\u301C / B:10\u301C19\u5186 / C:0\u301C9\u5186\uFF09\u3002\u03B1\u5024\u306F\u81EA\u52D5: A\u219220 / B\u219210 / C\u21925"),
       React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        [["A", "20〜円"], ["B", "10〜19円"], ["C", "0〜9円"]].map(function(pair) {
+        [["A", "20円〜"], ["B", "10〜19円"], ["C", "0〜9円"]].map(function(pair) {
           var val = pair[0], sub = pair[1];
           var on = fDifficulty === val;
           return React.createElement("button", {
