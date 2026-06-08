@@ -4367,20 +4367,19 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { style: SH_ }, "\u4E88\u60F3OS\u5EA6"),
       React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u5186\u301C / B:15\u301C19\u5186 / C:10\u301C14\u5186 / D:5\u301C9\u5186 / E:0\u301C4\u5186\uFF09\u3002\u03B1\u5024\u306F\u81EA\u52D5: A\u219220 / B\u219215 / C\u219210 / D\u21925 / E\u21920"),
       React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        [["A", "20円〜"], ["B", "15〜19円"], ["C", "10〜14円"], ["D", "5〜9円"], ["E", "0〜4円"]].map(function(pair) {
-          var val = pair[0], sub = pair[1];
+        ["A", "B", "C", "D", "E"].map(function(val) {
           var on = fDifficulty === val;
           return React.createElement("button", {
             key: val,
             onClick: function() { setFDifficulty(on ? "" : val); },
             style: {
-              flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: 700,
-              border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
-              background: on ? "#FFEDD5" : "#fff",
-              color: on ? "#9A3412" : "#888",
+              flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: on ? 800 : 700,
+              border: on ? "2px solid #1a1a1a" : "1px solid #ddd",
+              background: on ? "#f3f4f6" : "#fff",
+              color: "#1a1a1a",
               borderRadius: 6, cursor: "pointer", textAlign: "center"
             }
-          }, val, React.createElement("span", { style: { fontSize: 10, fontWeight: 400, marginLeft: 3, color: on ? "#B45309" : "#aaa" } }, sub));
+          }, val);
         })
       ),
       
