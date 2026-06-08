@@ -2675,7 +2675,7 @@ function EntryLogView(_ref_elv) {
       );
       var _svAddDateRef = date;
       return React.createElement("tr", { key: date + "_exp" },
-        React.createElement("td", { colSpan: 9, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+        React.createElement("td", { colSpan: 6, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
           React.createElement("div", { style: { overflowX: "auto" } },
             React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 11 } },
               React.createElement("thead", null,
@@ -2738,8 +2738,8 @@ function EntryLogView(_ref_elv) {
           React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
         ),
         React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
-          React.createElement("div", null, "H損益（α値比）"),
-          React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
+          React.createElement("div", null, "H損益①/②"),
+          React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(α比・100株)")
         ),
         _svTh("実現損益"),
         _svTh("タグ", { width: "auto" })
