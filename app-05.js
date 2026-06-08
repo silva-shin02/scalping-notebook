@@ -3570,6 +3570,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   var planSumAB = 0, planCountAB = 0;
   var planCapSum = 0, holdCapSum = 0, planHasStop = false, holdHasStop = false;
   var holdSumPlanCap = 0, holdSumPlanCapAB = 0, holdCountAB = 0;
+  var hold2Sum = 0, hold2Count = 0;
   var osVals = [], confVals = [], holdConfVals = [];
   (signals || []).forEach(function(sig) {
     var s = _compatSignal(sig);
@@ -3599,6 +3600,10 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       holdSumPlanCap += _hCapPlan;
       if (isAB) { holdSumPlanCapAB += _hCapPlan; holdCountAB++; }
     }
+    if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
+      var hv2 = _elDynHold2(s, _aSig, _c);
+      if (hv2 != null) { hold2Sum += hv2; hold2Count++; }
+    }
     if (s.osVal != null) osVals.push(Number(s.osVal));
     var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
     if (_cf != null) confVals.push(_cf);
@@ -3620,6 +3625,8 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     holdSumPlanCap: holdCount > 0 ? holdSumPlanCap : null,
     holdPlanCapAB: holdCountAB > 0 ? _profitGradeFromPnl(holdSumPlanCapAB, holdCountAB) : null,
     holdSumPlanCapAB: holdCountAB > 0 ? holdSumPlanCapAB : null,
+    hold2Grade: hold2Count > 0 ? _profitGradeFromPnl(hold2Sum, hold2Count) : null,
+    hold2Sum: hold2Count > 0 ? hold2Sum : null,
     planHasStop: planHasStop, holdHasStop: holdHasStop,
     count: realCount,
     osAvg: _avg(osVals), confAvg: _avg(confVals), holdConfAvg: _avg(holdConfVals),

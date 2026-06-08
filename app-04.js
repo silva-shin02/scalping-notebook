@@ -2804,7 +2804,7 @@ function StockQuickRefTable(_props_qrt) {
                   { label: "日付", pad: "6px 8px" },
                   { label: "地合い", pad: "6px 12px" },
                   { label: "想定損益", pad: "6px 10px" },
-                  { label: "H損益", pad: "6px 10px" },
+                  { label: "H損益①/②", pad: "6px 10px" },
                   { label: "実現損益", pad: "6px 10px" },
                   { label: "イベント・タグ", pad: "6px 12px" }
                 ]
@@ -2898,9 +2898,11 @@ function StockQuickRefTable(_props_qrt) {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA);
-              if (_g.holdPlanCap === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
-              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
-                _qrMkBadge(_g.holdPlanCap), _qrAmtSpan(_g.holdSumPlanCap, "円"));
+              if (_g.holdPlanCap === "Z" && _g.hold2Sum == null) return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
+              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+                React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700 } }, "①"), _qrMkBadge(_g.holdPlanCap), _qrAmtSpan(_g.holdSumPlanCap, "円")),
+                _g.hold2Sum != null ? React.createElement("span", { style: { color: "#ddd" } }, "｜") : null,
+                _g.hold2Sum != null ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2 } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700 } }, "②"), _g.hold2Grade ? _qrMkBadge(_g.hold2Grade) : null, _qrAmtSpan(_g.hold2Sum, "円")) : null);
             })()),
             isNikkei ? null : React.createElement("td", {
               style: { padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
