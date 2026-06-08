@@ -488,13 +488,14 @@ function EntryLogView(_ref_elv) {
     var _diffResMap = {};
     osRecs.forEach(function(r) {
       var s = r.signal; var d = s.difficulty || "(未設定)";
-      if (!_diffResMap[d]) _diffResMap[d] = { ok: 0, draw: 0, ng: 0, miss: 0, cnt: 0, plan: 0, hold: 0, holdCnt: 0 };
+      if (!_diffResMap[d]) _diffResMap[d] = { ok: 0, draw: 0, ng: 0, miss: 0, cnt: 0, plan: 0, hold: 0, holdCnt: 0, hold2: 0, hold2Cnt: 0 };
       var m = _diffResMap[d]; var _aiD = _elAlphaInfo(r, data); var _cl = _aiD.cutLine; var _draA = _dra != null ? _dra : _aiD.alpha;
       var _res = _elDynResult(s, _draA, _cl);
       m.cnt++;
       if (_res === "ok") m.ok++; else if (_res === "draw") m.draw++; else if (_res === "ng") m.ng++; else if (_res === "miss") m.miss++;
       var _pp = _elDynPlanned(s, _draA, _cl); if (_pp != null) m.plan += _pp;
       var _hp = _elDynHold(s, _draA, _cl); if (_hp != null) { m.hold += _hp; m.holdCnt++; }
+      if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) { var _hp2 = _elDynHold2(s, _draA, _cl); if (_hp2 != null) { m.hold2 += _hp2; m.hold2Cnt++; } }
     });
     var _diffResKeys = Object.keys(_diffResMap).sort(function(a, b) { var ra = _diffRank[a] != null ? _diffRank[a] : 98, rb = _diffRank[b] != null ? _diffRank[b] : 98; return ra - rb; });
     var _drTh = function(t, ex) { return React.createElement("th", { style: Object.assign({ padding: "2px 5px", fontWeight: 700, fontSize: 10, color: "#9A3412", borderBottom: "2px solid #FB923C", textAlign: "center", whiteSpace: "nowrap" }, ex || {}) }, t); };
@@ -521,7 +522,7 @@ function EntryLogView(_ref_elv) {
                 _drTh(React.createElement("span", { style: { color: "#6B7280" } }, "△")),
                 _drTh(React.createElement("span", { style: { color: "#C0392B" } }, "×")),
                 _drTh(React.createElement("span", { style: { color: "#B45309" } }, "ー")),
-                _drTh("勝率"), _drTh("想定利益"), _drTh("H利益")
+                _drTh("勝率"), _drTh("想定利益"), _drTh("H利益①/②")
               )),
               React.createElement("tbody", null, _diffResKeys.map(function(k) {
                 var m = _diffResMap[k]; var _wd = m.ok + m.ng; var _wp = _wd > 0 ? Math.round(m.ok / _wd * 100) : null;
@@ -534,7 +535,7 @@ function EntryLogView(_ref_elv) {
                   _drTd(m.miss || "—", m.miss ? "#B45309" : "#ccc"),
                   _drTd(_wp != null ? _wp + "%" : "—", _wp != null ? (_wp >= 50 ? "#C0392B" : "#1E8449") : "#ccc"),
                   _drTd(_drPnlFmt(m.plan), _drPnlCol(m.plan), { fontWeight: 600 }),
-                  _drTd(m.holdCnt > 0 ? _drPnlFmt(m.hold) : "—", m.holdCnt > 0 ? _drPnlCol(m.hold) : "#ccc", { fontWeight: 600 })
+                  _drTd(_elHoldSumBoth(m.holdCnt > 0 ? m.hold : null, m.hold2Cnt > 0 ? m.hold2 : null))
                 );
               }))
             )
@@ -1626,9 +1627,12 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : (_simActive ? _tAB2(_simSt.planAB, _simSt.plan) : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned"))),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : (_simActive ? _tAB2(_simSt.holdCapAB, _simSt.holdCap) : (function() { var _h = st.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })())),
-            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : (function() { var _h = st.sumHold2; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
+              isHoliday ? _dash : (_simActive
+                ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, flexWrap: "wrap", justifyContent: "center" } },
+                    React.createElement("span", null, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "①"), _tAB2(_simSt.holdCapAB, _simSt.holdCap)),
+                    React.createElement("span", { style: { color: "#ddd" } }, "｜"),
+                    React.createElement("span", null, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), (st.sumHold2 == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: st.sumHold2 > 0 ? "#C0392B" : st.sumHold2 < 0 ? "#1E8449" : "#888" } }, (st.sumHold2 > 0 ? "+" : "") + st.sumHold2.toLocaleString() + "円"))))
+                : _elHoldSumBoth(st.sumHold, st.sumHold2))),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : _tSlash(st.sumPnl, st.expected, gradeReal)),
             React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, verticalAlign: "top" } },
@@ -1898,7 +1902,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("span", { style: { fontSize: 9, color: "#aaa", whiteSpace: "nowrap" } }, "※空欄=各記録の採用α値。値を入れると全記録に一括試算（保存しません）")
           );
           return React.createElement("tr", { key: date + "_texp" },
-            React.createElement("td", { colSpan: 13, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+            React.createElement("td", { colSpan: 12, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
               _tSortToggle,
               _tAlphaBar,
               React.createElement("div", { style: { overflowX: "auto" } },
@@ -1964,12 +1968,8 @@ function EntryLogView(_ref_elv) {
               React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株)")
             ),
             React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%" } },
-              React.createElement("div", null, "H１損益"),
-              React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(α比/100株)")
-            ),
-            React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%" } },
-              React.createElement("div", null, "H２損益"),
-              React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(○/△・100株)")
+              React.createElement("div", null, "H損益①/②"),
+              React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(α比・100株)")
             ),
             _tTh("実現損益"),
             _tTh("タグ", { width: "auto" })
@@ -2018,9 +2018,12 @@ function EntryLogView(_ref_elv) {
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
             _tMSimActive ? _tAB2(_tMSimSt.planAB, _tMSimSt.plan) : _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            _tMSimActive ? _tAB2(_tMSimSt.holdCapAB, _tMSimSt.holdCap) : (function() { var _h = _tMonthSt.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
-          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            (function() { var _h = _tMonthSt.sumHold2; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
+            _tMSimActive
+              ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, flexWrap: "wrap", justifyContent: "center" } },
+                  React.createElement("span", null, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "①"), _tAB2(_tMSimSt.holdCapAB, _tMSimSt.holdCap)),
+                  React.createElement("span", { style: { color: "#ddd" } }, "｜"),
+                  React.createElement("span", null, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), (_tMonthSt.sumHold2 == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _tMonthSt.sumHold2 > 0 ? "#C0392B" : _tMonthSt.sumHold2 < 0 ? "#1E8449" : "#888" } }, (_tMonthSt.sumHold2 > 0 ? "+" : "") + _tMonthSt.sumHold2.toLocaleString() + "円"))))
+              : _elHoldSumBoth(_tMonthSt.sumHold, _tMonthSt.sumHold2)),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
             _tSlash(_tMonthSt.sumPnl, _tMonthSt.expected, _tMonthGradeReal)),
           React.createElement("td", { style: { borderBottom: _bb2, borderTop: _bb2 } })
@@ -2068,7 +2071,7 @@ function EntryLogView(_ref_elv) {
           var _simCut = (simCutStr !== "" && !isNaN(Number(simCutStr))) ? Number(simCutStr) : 10;
           var _capYen = -Math.round(_simCut * 100);
           var _sTotPlan = null, _sTotHold = null;
-          var _sTotPlanAB = null, _sTotHoldCapAll = null, _sTotHoldCapAB = null;
+          var _sTotPlanAB = null, _sTotHoldCapAll = null, _sTotHoldCapAB = null, _sTotHold2 = null, _sTotHold2Cnt = 0;
           var _sTotPlanCnt = 0, _sTotHoldCnt = 0, _sHoldUnrec = 0;
           var _sPlanDays = {}, _sHoldDays = {};
           // 詳細表と同じ共有ロジック(_elDynPlanned/_elDynHold/_elPlanIsStop)で集計。一律 _simCut を適用。
@@ -2090,6 +2093,7 @@ function EntryLogView(_ref_elv) {
             } else if (s.osVal != null && Number(s.osVal) >= _simA && s.holdOsConf == null && s.holdWidth == null && s.holdHighVal == null) {
               _sHoldUnrec++;
             }
+            if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) { var _hp2B = _elDynHold2(s, _simA, _simCut); if (_hp2B != null) { _sTotHold2 = (_sTotHold2||0) + _hp2B; _sTotHold2Cnt++; } }
           });
           var _nPlanDays = Object.keys(_sPlanDays).length;
           var _nHoldDays = Object.keys(_sHoldDays).length;
@@ -2169,10 +2173,14 @@ function EntryLogView(_ref_elv) {
                   ),
                   React.createElement("div", null,
                     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } },
-                      "H結果損益合計（" + _sTotHoldCnt + "件）",
+                      "H①結果損益合計（" + _sTotHoldCnt + "件）",
                       _sHoldUnrec > 0 ? React.createElement("span", { style: { color: "#aaa", marginLeft: 4 } }, "※" + _sHoldUnrec + "件未記録") : null
                     ),
                     _pAB2(_sTotHoldCapAB, _sTotHoldCapAll)
+                  ),
+                  React.createElement("div", null,
+                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "H②結果損益合計（" + _sTotHold2Cnt + "件・○/△）"),
+                    _sTotHold2 != null ? React.createElement("span", { style: { fontWeight: 700, color: _sTotHold2 > 0 ? "#C0392B" : _sTotHold2 < 0 ? "#1E8449" : "#888" } }, (_sTotHold2 > 0 ? "+" : "") + _sTotHold2.toLocaleString() + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")
                   ),
                   React.createElement("div", null,
                     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "1日当たり平均想定損益（" + _nPlanDays + "日）"),
@@ -2253,7 +2261,7 @@ function EntryLogView(_ref_elv) {
                       React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
                         wrecs.length > 0 ? _tABAll(wrecs, wst.sumPlanned, wst.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned") : _dash),
                       React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-                        wrecs.length > 0 ? (function() { var _h = wst.sumHold; if (_h == null) return _dash; return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })() : _dash),
+                        wrecs.length > 0 ? _elHoldSumBoth(wst.sumHold, wst.sumHold2) : _dash),
                       React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb } },
                         wrecs.length > 0 ? _tSlash(wst.sumPnl, wst.expected, gradeReal) : _dash)
                     );
@@ -2313,7 +2321,7 @@ function EntryLogView(_ref_elv) {
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd, color: "#0369A1", fontWeight: 600 } }, _gradeAlpha(dk === "(未設定)" ? null : dk) + "円"),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: _bbd, borderRight: _bbd } }, dst.total),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, _tABAll(drecs, dst.sumPlanned, dst.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
-                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, (function() { var _h = dst.sumHold; if (_h == null) return _dashD; return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, _elHoldSumBoth(dst.sumHold, dst.sumHold2)),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd, color: "#7C3AED", fontWeight: 700 } }, dst.holdResTotal > 0 ? (dst.hYes + "/" + dst.hMid + "/" + dst.hNone + "/" + dst.hNo) : _dashD),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd } }, _tSlash(dst.sumPnl, dst.expected, gradeReal))
                       );
@@ -2478,7 +2486,7 @@ function EntryLogView(_ref_elv) {
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
           isHoliday ? _dash : _tABAll(_svDateRecs, st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned")),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-          isHoliday ? _dash : (function() { var _h = st.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),
+          isHoliday ? _dash : _elHoldSumBoth(st.sumHold, st.sumHold2)),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
           isHoliday ? _dash : _svSlash(st.sumPnl, st.expected, gradeReal)),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb } },
@@ -3520,11 +3528,7 @@ function EntryLogView(_ref_elv) {
             hasRecs ? _tABAll(ss.recs, ss.stats.sumPlanned, ss.stats.expectedPlanned, null, "sumPlanned", "expectedPlanned")
                     : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: slotOn ? "none" : "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-            hasRecs ? (function() { var _h = ss.stats.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()
-                    : React.createElement("span", { style: { color: "#ccc" } }, "—")),
-          React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: slotOn ? "none" : "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-            hasRecs ? (function() { var _h = ss.stats.sumHold2; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()
-                    : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+            hasRecs ? _elHoldSumBoth(ss.stats.sumHold, ss.stats.sumHold2) : React.createElement("span", { style: { color: "#ccc" } }, "—"))
         ));
         
         if (slotOn && hasRecs) {
@@ -3599,8 +3603,7 @@ function EntryLogView(_ref_elv) {
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "件"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "損益"),
                   React.createElement("th", { style: { padding: "5px 12px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計想定損益"),
-                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計H１損益（α値比）"),
-                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計H２損益（○/△）")
+                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計H損益①/②")
                 )
               ),
               React.createElement("tbody", null,
@@ -3615,7 +3618,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "2px solid #ccc", fontSize: 11, whiteSpace: "nowrap" } },
               _tABAll(grp.records, at.sumPlanned, at.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "2px solid #ccc", fontSize: 11, whiteSpace: "nowrap" } },
-              (function() { var _h = at.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })())
+              _elHoldSumBoth(at.sumHold, at.sumHold2))
           );
         })(),
         timeSlotRows
@@ -3654,7 +3657,7 @@ function EntryLogView(_ref_elv) {
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", width: "1%" } }, "件"),
                   React.createElement("th", { style: { padding: "5px 6px", textAlign: "right", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "損益"),
                   React.createElement("th", { style: { padding: "5px 12px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計想定損益"),
-                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計最大損益")
+                  React.createElement("th", { style: { padding: "5px 12px", textAlign: "center", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "累計H損益①/②")
                 )
               ),
               React.createElement("tbody", null,
@@ -3680,7 +3683,7 @@ function EntryLogView(_ref_elv) {
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
                       _tABAll(drecs, dst.sumPlanned, dst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      (function() { var _h = dst.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })())
+                      _elHoldSumBoth(dst.sumHold, dst.sumHold2))
                   );
                 })
               )
@@ -3721,7 +3724,7 @@ function EntryLogView(_ref_elv) {
                         : React.createElement("span", { style: { color: "#ccc" } }, "—")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
                       wrecs.length > 0
-                        ? (function() { var _h = wst.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()
+                        ? _elHoldSumBoth(wst.sumHold, wst.sumHold2)
                         : React.createElement("span", { style: { color: "#ccc" } }, "—"))
                   );
                 })
@@ -3792,7 +3795,7 @@ function EntryLogView(_ref_elv) {
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
                       _tABAll(srecs, sst.sumPlanned, sst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      (function() { var _h = sst.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })())
+                      _elHoldSumBoth(sst.sumHold, sst.sumHold2))
                   );
                 })
               )
@@ -3843,7 +3846,7 @@ function EntryLogView(_ref_elv) {
       var _pnlColor = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#ccc"; };
       var _pnlStr  = function(v) { return v !== 0 ? (v > 0 ? "+" : "") + v + "円" : "—"; };
       var _evStr   = function(v) { return v != null ? (v > 0 ? "+" : "") + v + "円" : "—"; };
-      var _slashCell = function(sum, ev, sumP, evP, sumH) {
+      var _slashCell = function(sum, ev, sumP, evP, sumH, sumH2) {
         return [
           React.createElement("td", { key: "pnl", style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8",
             fontSize: 11, whiteSpace: "nowrap", color: _pnlColor(sum), fontWeight: sum !== 0 ? 600 : 400 } },
@@ -3853,8 +3856,8 @@ function EntryLogView(_ref_elv) {
               ? React.createElement("span", { style: { fontWeight: 600, color: _pnlColor(sumP) } }, _pnlStr(sumP))
               : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { key: "hold", style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-            sumH != null
-              ? React.createElement("span", { style: { fontWeight: 700, color: _pnlColor(sumH) } }, _pnlStr(sumH))
+            (sumH != null || sumH2 != null)
+              ? _elHoldSumBoth(sumH, sumH2)
               : React.createElement("span", { style: { color: "#ccc" } }, "—"))
         ];
       };
@@ -3896,7 +3899,7 @@ function EntryLogView(_ref_elv) {
                   React.createElement("td", { key: "tot_2", style: { padding: "5px 6px", textAlign: "right", borderBottom: "2px solid #ccc", fontSize: 11, whiteSpace: "nowrap" } },
                     _tABAll(byMap.A.concat(byMap.B).concat(byMap.C).concat(byMap.__none__ || []), allSt.sumPlanned, allSt.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
                   React.createElement("td", { key: "tot_3", style: { padding: "5px 6px", textAlign: "right", borderBottom: "2px solid #ccc", fontSize: 11, whiteSpace: "nowrap" } },
-                    (function() { var _h = allSt.sumHold; if (_h == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })())
+                    _elHoldSumBoth(allSt.sumHold, allSt.sumHold2))
                 ),
                 
                 rows.map(function(row) {
@@ -3913,7 +3916,7 @@ function EntryLogView(_ref_elv) {
                       color: diffColor, borderBottom: "1px solid #f0ede8", width: "1%", whiteSpace: "nowrap" } },
                       (isOn ? "▶ " : "") + row.label),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontWeight: 700, fontSize: 11 } }, row.recs.length),
-                    _slashCell(row.st.sumPnl, row.st.expected, row.st.sumPlanned, row.st.expectedPlanned, row.st.sumHold)
+                    _slashCell(row.st.sumPnl, row.st.expected, row.st.sumPlanned, row.st.expectedPlanned, row.st.sumHold, row.st.sumHold2)
                   );
                 })
               )
@@ -4342,7 +4345,7 @@ function EntryLogView(_ref_elv) {
 
 
     var _pnlAllRecs = _elPnlPeriodFilter(allRecords, pnlPeriod, pnlFrom, pnlTo);
-    var _planSum = 0, _holdSum = 0, _realSumAll = 0;
+    var _planSum = 0, _holdSum = 0, _realSumAll = 0, _hold2Sum = 0, _hold2Cnt = 0;
     var _daySet = {}, _realDaySet = {};
     _pnlAllRecs.forEach(function(r) {
       var ai = _elAlphaInfo(r, data);
@@ -4350,6 +4353,7 @@ function EntryLogView(_ref_elv) {
       var hp = _elDynHold(r.signal, ai.alpha, ai.cutLine);
       if (pp != null) { _planSum += pp; _daySet[r.date] = 1; }
       if (hp != null) { _holdSum += hp; }
+      if ((r.signal.hold2Exp === "○" || r.signal.hold2Exp === "△") && _elHas2Data(r.signal)) { var hp2 = _elDynHold2(r.signal, ai.alpha, ai.cutLine); if (hp2 != null) { _hold2Sum += hp2; _hold2Cnt++; } }
       if (_elIsEntered(r.signal, r.item)) {
         var rv = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign);
         if (rv != null) { _realSumAll += rv; _realDaySet[r.date] = 1; }
@@ -4359,6 +4363,7 @@ function EntryLogView(_ref_elv) {
     var _nRealDays = Object.keys(_realDaySet).length;
     var _avgPlanDay = _nDays > 0 ? Math.round(_planSum / _nDays) : null;
     var _avgHoldDay = _nDays > 0 ? Math.round(_holdSum / _nDays) : null;
+    var _avgHold2Day = (_nDays > 0 && _hold2Cnt > 0) ? Math.round(_hold2Sum / _nDays) : null;
     var _avgRealDay = _nRealDays > 0 ? Math.round(_realSumAll / _nRealDays) : null;
     var _avgCol = function(v) { return v == null ? "#888" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _avgFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円/日"; };
@@ -4503,8 +4508,11 @@ function EntryLogView(_ref_elv) {
             React.createElement("span", { style: { color: "#888" } }, "1日平均 想定損益 "),
             React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgPlanDay) } }, _avgFmt(_avgPlanDay))),
           React.createElement("div", null,
-            React.createElement("span", { style: { color: "#888" } }, "1日平均 結果損益(H) "),
+            React.createElement("span", { style: { color: "#888" } }, "1日平均 H①結果損益 "),
             React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgHoldDay) } }, _avgFmt(_avgHoldDay))),
+          React.createElement("div", null,
+            React.createElement("span", { style: { color: "#888" } }, "1日平均 H②結果損益 "),
+            React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgHold2Day) } }, _avgHold2Day != null ? _avgFmt(_avgHold2Day) : "—")),
           React.createElement("div", null,
             React.createElement("span", { style: { color: "#888" } }, "1日平均 実現損益 "),
             React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgRealDay) } }, _avgFmt(_avgRealDay))),

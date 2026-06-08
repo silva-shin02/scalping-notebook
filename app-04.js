@@ -4200,7 +4200,7 @@ function DayView(_ref57) {
           _td(st.winPct != null ? st.winPct + "%" : "—", { color: st.winPct != null ? (st.winPct >= 60 ? "#C0392B" : st.winPct >= 40 ? "#888" : "#1E8449") : "#ccc", fontWeight: st.winPct != null ? 700 : 400 }),
           _td(_osv != null ? React.createElement("span", { style: { color: _vcol(_osv, true), fontWeight: _osv >= 10 ? 700 : 600 } }, _osv + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           _td(_wkPnlCell(_profitGradeFromPnl(st.sumPlanned, st.sumPlanned !== 0 ? st.total : 0), st.sumPlanned)),
-          _td(_wkPnlCell(_profitGradeFromPnl(st.sumHold || 0, (st.sumHold != null && st.sumHold !== 0) ? st.total : 0), st.sumHold)),
+          _td(_elHoldSumBoth(st.sumHold, st.sumHold2)),
           _td(_wkPnlCell(_profitGradeFromPnlReal(st.sumPnl, (_ent > 0 && st.sumPnl !== 0) ? _ent : 0), _ent > 0 ? st.sumPnl : null)),
           React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
             (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
@@ -4330,7 +4330,7 @@ function DayView(_ref57) {
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
                 _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")), _wkTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")), _wkTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
-                _wkTh("勝率"), _wkTh("平均OS値"), _wkTh("想定損益"), _wkTh("H結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
+                _wkTh("勝率"), _wkTh("平均OS値"), _wkTh("想定損益"), _wkTh("H結果損益①/②"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
               )
             ),
             React.createElement("tbody", null,
@@ -4479,7 +4479,8 @@ function DayView(_ref57) {
             return _pbABAll(recs, _dynSP !== null ? _dynSP : st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned", _hasAlpha ? _dynSPAB : undefined);
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
-          (function() {
+          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap", justifyContent: "center" } },
+            React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "①"), (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hTot = null, _hCapTot = null, _hCnt = 0, _hDiff = false;
             recs.forEach(function(r) {
@@ -4513,8 +4514,8 @@ function DayView(_ref57) {
                 React.createElement("span", { style: { fontSize: 10, color: "#333", fontWeight: 700 } }, _hTot.toLocaleString() + "円）")
               ) : null);
           })()),
-        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
-          (function() {
+            React.createElement("span", { style: { color: "#ddd" } }, "｜"),
+            React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _h2Tot = null, _h2Cnt = 0;
             recs.forEach(function(r) {
@@ -4530,7 +4531,8 @@ function DayView(_ref57) {
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
               _h2g ? _pbBadge(_h2g) : null,
               React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円"));
-          })()),
+          })())
+          )),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           _pbRealABAll(recs)),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
@@ -4768,7 +4770,7 @@ function DayView(_ref57) {
           )
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
-        React.createElement("td", { colSpan: 13, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+        React.createElement("td", { colSpan: 12, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
           rowKey === "__total__" ? React.createElement(React.Fragment, null,
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
               React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "α値変更:"),
@@ -5288,8 +5290,7 @@ function DayView(_ref57) {
               _pbTh("勝率", { width: 52 }),
               _pbTh(React.createElement("span", null, "平均", React.createElement("span", { style: { display: "block" } }, "OS値")), { width: 50 }),
               _pbTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
-              _pbTh(React.createElement("span", null, "H１", React.createElement("span", { style: { display: "block" } }, "結果損益")), { width: 78 }),
-              _pbTh(React.createElement("span", null, "H２", React.createElement("span", { style: { display: "block" } }, "(○/△)")), { width: 78 }),
+              _pbTh(React.createElement("span", null, "H結果損益", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "①H1/②H2")), { width: 120 }),
               _pbTh("実現損益", { width: 80 }),
               _pbTh("タグ", { width: 120, textAlign: "left" })
             )

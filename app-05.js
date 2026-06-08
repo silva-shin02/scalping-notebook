@@ -3245,7 +3245,7 @@ function _elHoldGradeBadge(g) {
 }
 // 統合Hセル: 「H高値 → H確定値 / α値比H値幅 / 勝敗・結果損益」を1つのインライン要素で返す。
 // isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、想定損益・結果はエントリー共通）。
-function _elHoldFlow(s, alpha, cutLine, isH2) {
+function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
   var hs = isH2 ? _h2sig(s) : s;
   var _sep = function(ch) { return React.createElement("span", { key: "s" + ch + Math.round(alpha == null ? 0 : 0), style: { color: "#ccc", margin: "0 2px" } }, ch); };
   var nodes = [];
@@ -3298,7 +3298,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2) {
     nodes.push(React.createElement("span", { key: "hp", style: { color: "#B45309", fontWeight: 700 } }, "ー"));
   }
   if (nodes.length === 0) return React.createElement("span", { style: { color: "#ddd" } }, "—");
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "wrap", justifyContent: "center", fontSize: 11, lineHeight: 1.5 } }, nodes);
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: noWrap ? "nowrap" : "wrap", justifyContent: "center", fontSize: 11, lineHeight: 1.5, whiteSpace: noWrap ? "nowrap" : "normal" } }, nodes);
 }
 // H2期待度セル: ○/△→記号＋統合表示、×→「ー（統合表示）」グレー控えめ、未選択→空欄
 function _elHold2Cell(s, alpha, cutLine) {
@@ -3306,15 +3306,16 @@ function _elHold2Cell(s, alpha, cutLine) {
   if (!exp) return React.createElement("span", { style: { color: "#ddd" } }, "—");
   if (exp === "×") {
     if (!_elHas2Data(s)) return React.createElement("span", { style: { color: "#bbb" } }, "ー");
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", color: "#aaa", fontSize: 11, whiteSpace: "nowrap" } },
+    // ×はH2の内容（高値→確定値/α値比値幅/勝敗損益）すべてを1つの（）で囲む。折返し不可で全体を確実に内包。
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#aaa", fontSize: 11, whiteSpace: "nowrap", opacity: 0.75 } },
       React.createElement("span", { key: "d", style: { marginRight: 1 } }, "ー（"),
-      React.createElement("span", { key: "f", style: { opacity: 0.7 } }, _elHoldFlow(s, alpha, cutLine, true)),
+      _elHoldFlow(s, alpha, cutLine, true, true),
       React.createElement("span", { key: "e" }, "）"));
   }
   var _ec = { "○": "#1E8449", "△": "#B45309" };
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, whiteSpace: "nowrap" } },
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
     React.createElement("span", { key: "sym", style: { color: _ec[exp] || "#666", fontWeight: 800, marginRight: 3 } }, exp),
-    _elHoldFlow(s, alpha, cutLine, true));
+    _elHoldFlow(s, alpha, cutLine, true, true));
 }
 // H1とH2期待度を1セル内に横並び表示（表のH列を1列に統合するため）。H2期待度が未選択ならH1のみ。
 function _elHoldBoth(s, alpha, cutLine) {
@@ -3325,6 +3326,14 @@ function _elHoldBoth(s, alpha, cutLine) {
     React.createElement("span", { key: "sep", style: { color: "#ddd", margin: "0 3px" } }, "｜"),
     React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 2 } }, "②"), _elHold2Cell(s, alpha, cutLine))
   );
+}
+// 集計表のH損益セル用: ①H1合計 ｜ ②H2合計 を1セルに横並び表示。sumH1/sumH2 は数値(円・nullなら—)。
+function _elHoldSumBoth(sumH1, sumH2) {
+  var _f = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, flexWrap: "wrap", justifyContent: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } },
+    React.createElement("span", { key: "h1", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "①"), _f(sumH1)),
+    React.createElement("span", { key: "sep", style: { color: "#ddd" } }, "｜"),
+    React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), _f(sumH2)));
 }
 function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
 function _elCapNoteAmt(amount, opts) {
@@ -5487,7 +5496,7 @@ function EntryLogCard(_ref_elc) {
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: (s.rationale || s.reflection) ? 6 : 0, paddingTop: 4, borderTop: "1px solid #f0ede6" } },
       React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "H１"),
       _elHoldFlow(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10, false),
-      s.hold2Exp ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２期待度") : null,
+      s.hold2Exp ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２") : null,
       s.hold2Exp ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10) : null
     ),
 

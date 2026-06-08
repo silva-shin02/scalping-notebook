@@ -4406,13 +4406,19 @@ function EntrySignalSection(_ref_es) {
           : React.createElement("span", { style: { color: "#ccc" } }, "—")
       ),
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-        "結果損益: ",
+        "H①結果損益: ",
         _esTotHoldCnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
               _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
               (_esTotHoldPlanStopDiff && _esTotHoldActual != null) ? React.createElement("span", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap" } }, "（" + _esTotHoldActual.toLocaleString() + "円）") : null,
               _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
             )
+          : React.createElement("span", { style: { color: "#ccc" } }, "—")
+      ),
+      React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
+        "H②結果損益: ",
+        _esTotHold2Cnt > 0
+          ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 700, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + _esTotHold2.toLocaleString() + "円"))
           : React.createElement("span", { style: { color: "#ccc" } }, "—")
       )
     ) : null,
