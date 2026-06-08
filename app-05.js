@@ -3208,6 +3208,16 @@ function _elDynHold(s, alpha, cutLine) {
   }
   return hp;
 }
+// 損切りルールを適用しないホールド損益（値幅/確定値ベースのみ）。H2で想定/H1が既に損切りの場合に使用。
+function _elDynHoldNoStop(s, alpha) {
+  if (alpha == null) return _elSignedVal(s.holdPnl, s.holdPnlSign);
+  if (s.osVal != null && alpha > Number(s.osVal)) {
+    if (!(s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= alpha)) return null;
+  }
+  if (s.holdWidth != null) { var _hwS0 = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0; return Math.round((alpha + _hwS0) * 100); }
+  if (s.holdOsConf != null) return Math.round((alpha + (alpha - Number(s.holdOsConf))) * 100);
+  return _elSignedVal(s.holdPnl, s.holdPnlSign);
+}
 
 function _elPlanIsStop(s, alpha, cutLine) {
   return alpha != null && s.osVal != null && (Number(s.osVal) - alpha) >= (cutLine != null ? cutLine : 10);
@@ -3233,7 +3243,11 @@ function _h2sig(s) {
     holdProfit: s.hold2Profit
   };
 }
-function _elDynHold2(s, alpha, cutLine) { return _elDynHold(_h2sig(s), alpha, cutLine); }
+function _elDynHold2(s, alpha, cutLine) {
+  // 想定損益またはH1で既に損切りの場合、H2には損切りルールを適用せず値幅から算出（損益変化はH1損益との純粋比較）。
+  if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) return _elDynHoldNoStop(_h2sig(s), alpha);
+  return _elDynHold(_h2sig(s), alpha, cutLine);
+}
 function _elHoldIsStop2(s, alpha, cutLine) { return _elHoldIsStop(_h2sig(s), alpha, cutLine); }
 function _elHas2Data(s) { return !!(s && (s.hold2HighVal != null || s.hold2Width != null || s.hold2OsConf != null || s.hold2Pnl != null)); }
 // Hold2期待度（○/△を集計対象・×は参考表示のみ）
@@ -3267,7 +3281,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
       ? React.createElement("span", { key: "aw", style: { color: "#888" } }, "α0")
       : React.createElement("span", { key: "aw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs));
   }
-  var holdPnl = (alpha != null) ? _elDynHold(hs, alpha, cutLine) : _elSignedVal(hs.holdPnl, hs.holdPnlSign);
+  var holdPnl = (alpha != null) ? (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine)) : _elSignedVal(hs.holdPnl, hs.holdPnlSign);
   var planPnl = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
   var res = (alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result;
   if (holdPnl != null) {
@@ -3300,15 +3314,15 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
   if (nodes.length === 0) return React.createElement("span", { style: { color: "#ddd" } }, "—");
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: noWrap ? "nowrap" : "wrap", justifyContent: "center", fontSize: 11, lineHeight: 1.5, whiteSpace: noWrap ? "nowrap" : "normal" } }, nodes);
 }
-// H2期待度セル: ○/△→記号＋統合表示、×→「ー（統合表示）」グレー控えめ、未選択→空欄
+// H2期待度セル: ○/△→記号＋統合表示、×→「×（統合表示）」グレー控えめ、未選択→空欄
 function _elHold2Cell(s, alpha, cutLine) {
   var exp = s.hold2Exp;
   if (!exp) return React.createElement("span", { style: { color: "#ddd" } }, "—");
   if (exp === "×") {
-    if (!_elHas2Data(s)) return React.createElement("span", { style: { color: "#bbb" } }, "ー");
+    if (!_elHas2Data(s)) return React.createElement("span", { style: { color: "#bbb" } }, "×");
     // ×はH2の内容（高値→確定値/α値比値幅/勝敗損益）すべてを1つの（）で囲む。折返し不可で全体を確実に内包。
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#aaa", fontSize: 11, whiteSpace: "nowrap", opacity: 0.75 } },
-      React.createElement("span", { key: "d", style: { marginRight: 1 } }, "ー（"),
+      React.createElement("span", { key: "d", style: { marginRight: 1 } }, "×（"),
       _elHoldFlow(s, alpha, cutLine, true, true),
       React.createElement("span", { key: "e" }, "）"));
   }
@@ -4411,7 +4425,11 @@ function EntryRecordForm(_ref_erf) {
         setFHold2PnlSign("+"); setFHold2PnlVal("0"); return;
       }
     }
-    if (_av != null && fHold2HighSign === "-") {
+    // 想定損益またはH1で既に損切りの場合、H2には損切りルールを適用しない（値幅から算出し、損益変化はH1損益との純粋比較で選ばせる）。それ以外はH2にも損切りルール適用。
+    var _osV2 = Number(fOsVal) || 0;
+    var _planStop2 = (_av != null && _osV2 > 0 && (_osV2 - _av) >= _cutLHold);
+    var _h1Stop2 = (_av != null && fHoldHighSign === "-" && fHoldHighVal !== "" && ((Number(fHoldHighVal) || 0) - _av) >= _cutLHold);
+    if (!_planStop2 && !_h1Stop2 && _av != null && fHold2HighSign === "-") {
       var _hhv = Number(fHold2HighVal) || 0;
       var _hhExcess = _hhv - _av;
       if (_hhExcess >= _cutLHold) { setFHold2PnlSign("-"); setFHold2PnlVal(String(Math.round(_hhExcess * 100))); return; }
@@ -4423,7 +4441,7 @@ function EntryRecordForm(_ref_erf) {
     var _result = (_av + _holdAdj) * 100;
     setFHold2PnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
     setFHold2PnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult]);
+  }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult, fOsVal, fHoldHighSign, fHoldHighVal]);
 
   useEffect(function() {
     // H2の損益変化は「H1の結果損益」との比較。

@@ -5276,8 +5276,8 @@ function DayView(_ref57) {
               _pbTh("勝率", { width: 52 }),
               _pbTh(React.createElement("span", null, "平均", React.createElement("span", { style: { display: "block" } }, "OS値")), { width: 50 }),
               _pbTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
-              _pbTh(React.createElement("span", null, "H①", React.createElement("span", { style: { display: "block" } }, "結果損益")), { width: 78 }),
-              _pbTh(React.createElement("span", null, "H②", React.createElement("span", { style: { display: "block" } }, "(○/△)")), { width: 78 }),
+              _pbTh(React.createElement("span", null, "H①損益"), { width: 78 }),
+              _pbTh(React.createElement("span", null, "H②損益"), { width: 78 }),
               _pbTh("実現損益", { width: 80 }),
               _pbTh("タグ", { width: 120, textAlign: "left" })
             )
