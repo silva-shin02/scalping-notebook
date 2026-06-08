@@ -201,9 +201,9 @@ function EntryLogView(_ref_elv) {
   var _uCResF = useState(""), _uCResFA = _slicedToArray(_uCResF, 2),
     calResFil = _uCResFA[0], setCalResFil = _uCResFA[1];
   
-  var _uSimAlpha = useState("10"), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
+  var _uSimAlpha = useState(""), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
     simAlphaStr = _uSimAlphaA[0], setSimAlphaStr = _uSimAlphaA[1];
-  var _uSimCut = useState("10"), _uSimCutA = _slicedToArray(_uSimCut, 2),
+  var _uSimCut = useState(""), _uSimCutA = _slicedToArray(_uSimCut, 2),
     simCutStr = _uSimCutA[0], setSimCutStr = _uSimCutA[1];
   var _uDiffRA = useState("10"), _uDiffRAA = _slicedToArray(_uDiffRA, 2),
     diffResAlpha = _uDiffRAA[0], setDiffResAlpha = _uDiffRAA[1];
@@ -2064,7 +2064,7 @@ function EntryLogView(_ref_elv) {
           };
           var _periodLabels = [["1w","1週間（月〜金）"], ["month","今月"], ["3m","3ヶ月"], ["all","全期間"], ["custom","カスタム"]];
           return React.createElement("div", { style: { margin: "14px 0 10px", padding: "12px 14px", background: "#FFFBF5", border: "1.5px solid #FB923C", borderRadius: 8 } },
-            React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#9A3412", marginBottom: 10 } }, "📊 一括α値シミュレーション"),
+            React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#9A3412", marginBottom: 10 } }, "📊 一括α値シミュレーション（保存しません・各記録の採用α値に上書き試算）"),
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 } },
               React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600, whiteSpace: "nowrap" } }, "α値:"),
               React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
@@ -2095,7 +2095,7 @@ function EntryLogView(_ref_elv) {
               ),
               React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
               React.createElement("button", {
-                onClick: function() { setSimAlphaStr("10"); setSimCutStr("10"); },
+                onClick: function() { setSimAlphaStr(""); setSimCutStr(""); },
                 style: { fontSize: 11, padding: "3px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }
               }, "クリア"),
               React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
@@ -3428,13 +3428,13 @@ function EntryLogView(_ref_elv) {
       var header = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 } },
         React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, opts.icon + " " + opts.title),
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginLeft: 6 } }, "一括α値"),
-        _numInput(_ovA, function(e){ var v=e.target.value; var n=v===""?null:(isNaN(Number(v))?null:Number(v)); if(n!=null){ if(n>30)n=30; if(n<0)n=0; } setSigDateAlpha(n); }, "#BAE6FD", "各日"),
+        _numInput(_ovA, function(e){ var v=e.target.value; var n=v===""?null:(isNaN(Number(v))?null:Number(v)); if(n!=null){ if(n>30)n=30; if(n<0)n=0; } setSigDateAlpha(n); }, "#BAE6FD", "各記録"),
         React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円"),
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#B91C1C", marginLeft: 6 } }, "損切り値"),
-        _numInput(_ovC, function(e){ var v=e.target.value; var n=v===""?null:(isNaN(Number(v))?null:Number(v)); if(n!=null && n<1)n=1; setSigDateCut(n); }, "#FECACA", "各日"),
+        _numInput(_ovC, function(e){ var v=e.target.value; var n=v===""?null:(isNaN(Number(v))?null:Number(v)); if(n!=null && n<1)n=1; setSigDateCut(n); }, "#FECACA", "各記録"),
         React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円"),
-        _hasOv ? React.createElement("button", { onClick: function(){ setSigDateAlpha(10); setSigDateCut(10); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット") : null,
-        _hasOv ? React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "※全エントリーに一括適用中") : null
+        _hasOv ? React.createElement("button", { onClick: function(){ setSigDateAlpha(null); setSigDateCut(null); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット") : null,
+        _hasOv ? React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "※α試算中（保存しません・各記録の採用α値に上書き）") : null
       );
       if (rows.length === 0) {
         return React.createElement("div", { style: { padding: "10px 12px", background: "#fff" } }, header,

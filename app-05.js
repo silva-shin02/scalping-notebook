@@ -3131,17 +3131,18 @@ function _tradeAlphaChip(s, extra) {
       marginRight: 3, verticalAlign: "middle", whiteSpace: "nowrap" }, extra || {}) }, "α" + s.tradeAlpha);
 }
 function _vcol(n, isRed) {
+  // 数値が大きいほど明るい色に（小さいほど濃い色）。
   var v = Math.abs(n || 0);
   if (isRed) {
-    if (v >= 20) return "#991B1B"; 
-    if (v >= 15) return "#B91C1C"; 
-    if (v >= 10) return "#DC2626"; 
-    return "#EF4444";              
+    if (v >= 20) return "#EF4444";
+    if (v >= 15) return "#DC2626";
+    if (v >= 10) return "#B91C1C";
+    return "#991B1B";
   } else {
-    if (v >= 20) return "#14532D"; 
-    if (v >= 15) return "#15803D"; 
-    if (v >= 10) return "#16A34A"; 
-    return "#22C55E";              
+    if (v >= 20) return "#22C55E";
+    if (v >= 15) return "#16A34A";
+    if (v >= 10) return "#15803D";
+    return "#14532D";
   }
 }
 function _elSignedVal(v, sign) {

@@ -3047,6 +3047,9 @@ function DayView(_ref57) {
     wkAlphaMode = _uWkAModeA[0], setWkAlphaMode = _uWkAModeA[1];
   var _uWkSimBS = useState({}), _uWkSimBSA = _slicedToArray(_uWkSimBS, 2),
     wkSimAlphaByStock = _uWkSimBSA[0], setWkSimAlphaByStock = _uWkSimBSA[1];
+  // 今週の損益データの週送り（表示中の日付が属する週からのオフセット）
+  var _uWkOff = useState(0), _uWkOffA = _slicedToArray(_uWkOff, 2),
+    wkWeekOffset = _uWkOffA[0], setWkWeekOffset = _uWkOffA[1];
   
   
   
@@ -4140,6 +4143,7 @@ function DayView(_ref57) {
 
     // ===== 今週の損益データ（表示中の日付が属する週の月〜金）=====
     var _wkMon = getMondayOf(new Date(date + "T00:00:00"));
+    _wkMon.setDate(_wkMon.getDate() + wkWeekOffset * 7);
     var _wkDates = Array.from({ length: 5 }, function(_, _wi0) {
       var _wd0 = new Date(_wkMon); _wd0.setDate(_wd0.getDate() + _wi0);
       return _wd0.getFullYear() + "-" + String(_wd0.getMonth() + 1).padStart(2, "0") + "-" + String(_wd0.getDate()).padStart(2, "0");
@@ -4176,7 +4180,6 @@ function DayView(_ref57) {
     var _wkSimResolve = function(r) { return { alpha: _wkAlphaOf(r), cutLine: _wkCutOf(r) }; };
     var _wkSimActive = (wkSimAlpha !== null) || (wkSimAlphaByStock && Object.keys(wkSimAlphaByStock).length > 0);
     var _wkMainEl = (function() {
-      if (!_wkAllRecs.length) return null;
       var _DOWJP = ["日", "月", "火", "水", "木", "金", "土"];
       var _wkBadge = function(g) {
         var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
@@ -4196,8 +4199,16 @@ function DayView(_ref57) {
         return a.length ? Math.round(a.reduce(function(x, y) { return x + y; }, 0) / a.length * 10) / 10 : null;
       };
       var _wkTags = function(rs) {
-        var seen = {}, out = [];
-        rs.forEach(function(r) { (r.signal.tags || []).forEach(function(t) { if (t && !seen[t]) { seen[t] = 1; out.push(t); } }); });
+        var seen = {}, out = [], ckSeen = {};
+        rs.forEach(function(r) {
+          var ck = r.stock + "_" + r.date;
+          if (ckSeen[ck]) return; ckSeen[ck] = 1;
+          var c = _pbCharts[ck] || {};
+          [].concat(c.chartShapeTags || [], c.stockTags || []).forEach(function(t) {
+            var st = stripCat(t);
+            if (st && !seen[st]) { seen[st] = 1; out.push(st); }
+          });
+        });
         return out.slice(0, 6);
       };
       var _wkRow = function(label, labelColor, recs, isTotal, rowKey) {
@@ -4339,10 +4350,16 @@ function DayView(_ref57) {
           )
         );
       };
+      var _wkNavBtn = function(_lbl, _onCl) { return React.createElement("button", { onClick: _onCl, style: { padding: "2px 9px", fontSize: 13, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#555", lineHeight: 1.2 } }, _lbl); };
       return React.createElement("div", { style: Card },
-        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 2, color: "#333" } }, "📅 今週の損益データ"),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" } },
+          _wkNavBtn("←", function() { setWkWeekOffset(function(o) { return o - 1; }); }),
+          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#333" } }, "📅 今週の損益データ"),
+          _wkNavBtn("→", function() { setWkWeekOffset(function(o) { return o + 1; }); }),
+          wkWeekOffset !== 0 ? React.createElement("button", { onClick: function() { setWkWeekOffset(0); }, style: { padding: "2px 8px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", border: "1px solid #FB923C", borderRadius: 6, cursor: "pointer", color: "#9A3412" } }, "今週へ") : null
+        ),
         React.createElement("div", { style: { fontSize: 10, color: _wkSimActive ? "#B45309" : "#888", marginBottom: 6, fontWeight: _wkSimActive ? 700 : 400 } }, _wkDates[0].slice(5).replace("-", "/") + "（月）〜 " + _wkDates[4].slice(5).replace("-", "/") + "（金）" + (_wkSimActive ? " ／ α試算中（保存しません）" : "")),
-        React.createElement("div", { style: { overflowX: "auto" } },
+        _wkAllRecs.length ? React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
@@ -4368,7 +4385,7 @@ function DayView(_ref57) {
               )
             )
           )
-        )
+        ) : React.createElement("div", { style: { fontSize: 12, color: "#bbb", textAlign: "center", padding: "16px 0" } }, "この週は記録がありません")
       );
     })();
     var _soukatsuEl = React.createElement("div", { style: Card }, React.createElement(MemoSection, {
