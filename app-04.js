@@ -2803,7 +2803,8 @@ function StockQuickRefTable(_props_qrt) {
               : [
                   { label: "日付", pad: "6px 8px" },
                   { label: "地合い", pad: "6px 12px" },
-                  { label: "α値別損益目安（想定 / H）", pad: "6px 10px" },
+                  { label: "想定損益", pad: "6px 10px" },
+                  { label: "H損益", pad: "6px 10px" },
                   { label: "実現損益", pad: "6px 10px" },
                   { label: "イベント・タグ", pad: "6px 12px" }
                 ]
@@ -2886,24 +2887,27 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
-              var _g5 = _elCalcChartGrades(c2.signals, 5, _cutA);
-              var _g10 = _elCalcChartGrades(c2.signals, 10, _cutA);
-              if (_g5.plan === "Z" && _g5.hold === "Z") {
-                return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
-              }
-              return React.createElement("div", { style: { display: "grid",
-                gridTemplateColumns: "auto auto minmax(156px, max-content) auto auto auto",
-                columnGap: 4, rowGap: 4, alignItems: "start", justifyItems: "start", width: "fit-content" } },
-                _qrMLab("想"), _qrALab(5), _qrPlanChip(_g5), _qrSep(), _qrALab(10), _qrPlanChip(_g10),
-                _qrMLab("H"), _qrALab(5), _qrHoldChip(_g5), _qrSep(), _qrALab(10), _qrHoldChip(_g10)
-              );
+              var _g = _elCalcChartGrades(c2.signals, null, _cutA);
+              if (_g.plan === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
+              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
+                _qrMkBadge(_g.plan), _qrAmtSpan(_g.planSum, "円"));
+            })()),
+            isNikkei ? null : React.createElement("td", {
+              style: { padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+            }, (function() {
+              if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
+              var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
+              var _g = _elCalcChartGrades(c2.signals, null, _cutA);
+              if (_g.holdPlanCap === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
+              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
+                _qrMkBadge(_g.holdPlanCap), _qrAmtSpan(_g.holdSumPlanCap, "円"));
             })()),
             isNikkei ? null : React.createElement("td", {
               style: { padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 10;
-              var _gR = _elCalcChartGrades(c2.signals, 5, _cutR);
+              var _gR = _elCalcChartGrades(c2.signals, null, _cutR);
               if (_gR.real === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
                 _qrMkBadge(_gR.real), _qrAmtSpan(_gR.realSum, "円"));

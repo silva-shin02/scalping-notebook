@@ -1090,9 +1090,9 @@ function RichMemoEditor(_propsRME) {
   var savedRange = useRef(null);
   var typingTimer = useRef(null);
   
-  var _DEF_TEXT_COLORS = ["#E53935", "#1565C0", "#2E7D32", "#F57F17", "#6A1B9A", "#000000"];
-  var _DEF_UNDERLINE_COLORS = ["#E53935", "#1565C0", "#2E7D32", "#F57F17", "#6A1B9A", "#000000"];
-  var _DEF_HILITE_COLORS = ["#FFEE58", "#A5D6A7", "#90CAF9", "#F48FB1", "#FFCCBC", "#E1BEE7"];
+  var _DEF_TEXT_COLORS = ["#E53935", "#1565C0", "#2E7D32", "#F57F17", "#6A1B9A", "#000000", "#00897B", "#AD1457"];
+  var _DEF_UNDERLINE_COLORS = ["#E53935", "#1565C0", "#2E7D32", "#F57F17", "#6A1B9A", "#000000", "#00897B", "#AD1457"];
+  var _DEF_HILITE_COLORS = ["#FFEE58", "#A5D6A7", "#90CAF9", "#F48FB1", "#FFCCBC", "#E1BEE7", "#B2EBF2", "#D7CCC8"];
   var _loadPalette = function(key, def) {
     try {
       var s = localStorage.getItem(key);

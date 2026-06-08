@@ -3420,8 +3420,8 @@ function _qMissCell(size) {
 }
 
 function _elCalcChartGrades(signals, alpha, cutLine) {
-  var _live = alpha != null;
-  var _a = alpha, _c = (cutLine != null ? cutLine : 10);
+  var _fixedA = alpha != null;  // α固定指定。null=各記録の採用α値(signal.alphaVal)で実計算
+  var _c = (cutLine != null ? cutLine : 10);
   var realSum = 0, planSum = 0, holdSum = 0;
   var realCount = 0, planCount = 0, holdCount = 0;
   var planSumAB = 0, planCountAB = 0;
@@ -3430,28 +3430,29 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   var osVals = [], confVals = [], holdConfVals = [];
   (signals || []).forEach(function(sig) {
     var s = _compatSignal(sig);
+    var _aSig = _fixedA ? alpha : (s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s.difficulty));
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     if (_elIsEntered(s, null)) {
       realCount++;
       var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
       if (rv != null) realSum += rv;
     }
-    var pv = _live ? _elDynPlanned(s, _a, _c) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+    var pv = _elDynPlanned(s, _aSig, _c);
     if (pv != null) {
       planSum += pv; planCount++;
       if (isAB) { planSumAB += pv; planCountAB++; }
-      var _pStop = _live && _elPlanIsStop(s, _a, _c);
+      var _pStop = _elPlanIsStop(s, _aSig, _c);
       if (_pStop) planHasStop = true;
       planCapSum += _pStop ? _elCapLossYen(_c) : pv;
     }
-    var hv = _live ? _elDynHold(s, _a, _c) : _elSignedVal(s.holdPnl, s.holdPnlSign);
+    var hv = _elDynHold(s, _aSig, _c);
     if (hv != null) {
       holdSum += hv; holdCount++;
-      var _hStop = _live && _elHoldIsStop(s, _a, _c);
+      var _hStop = _elHoldIsStop(s, _aSig, _c);
       if (_hStop) holdHasStop = true;
       holdCapSum += _hStop ? _elCapLossYen(_c) : hv;
       // 結果損益: 想定が損切りの行は想定額にキャップ（損切を踏まえた値）。
-      var _hCapPlan = (_live && _elPlanIsStop(s, _a, _c) && pv != null) ? pv : hv;
+      var _hCapPlan = (_elPlanIsStop(s, _aSig, _c) && pv != null) ? pv : hv;
       holdSumPlanCap += _hCapPlan;
       if (isAB) { holdSumPlanCapAB += _hCapPlan; holdCountAB++; }
     }
@@ -3479,7 +3480,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     planHasStop: planHasStop, holdHasStop: holdHasStop,
     count: realCount,
     osAvg: _avg(osVals), confAvg: _avg(confVals), holdConfAvg: _avg(holdConfVals),
-    alphaUsed: _live ? _a : null
+    alphaUsed: _fixedA ? alpha : null
   };
 }
 
@@ -4385,8 +4386,9 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
       (function() {
         var _setAV = function(val) {
-          if (val === "") { setFAlphaVal(""); return; }
-          var n = Number(val);
+          var _v = _toHankakuNum(val);
+          if (_v === "") { setFAlphaVal(""); return; }
+          var n = Number(_v);
           if (isNaN(n)) return;
           if (n > 30) n = 30; if (n < 0) n = 0;
           setFAlphaVal(String(n));
@@ -4427,7 +4429,8 @@ function EntryRecordForm(_ref_erf) {
         var _cdC = data.charts && data.charts[_ckC];
         var _cv = _cdC && _cdC.cutLine != null ? _cdC.cutLine : 10;
         var _saveCut = function(val) {
-          var n = val !== "" ? Number(val) : null;
+          var _v = _toHankakuNum(val);
+          var n = _v !== "" ? Number(_v) : null;
           if (n != null && !isNaN(n)) { if (n < 1) n = 1; if (n > 30) n = 30; }
           save(function(prev) {
             var _pCharts = prev.charts || {};
@@ -4472,7 +4475,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("input", {
               type: "number", inputMode: "numeric", step: "1", min: "0",
               value: fOsVal,
-              onChange: function(e) { setFOsVal(e.target.value); },
+              onChange: function(e) { setFOsVal(_toHankakuNum(e.target.value)); },
               placeholder: "0",
               style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", width: 80, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
             }),
@@ -4559,7 +4562,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("input", {
               type: "number", inputMode: "numeric", step: "1",
               value: fEstWidthVal,
-              onChange: function(e) { setFEstWidthVal(e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0))); },
+              onChange: function(e) { var _hk = _toHankakuNum(e.target.value); setFEstWidthVal(_hk === "" ? "" : String(Math.abs(Number(_hk) || 0))); },
               placeholder: "0",
               style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
             }),
@@ -4617,7 +4620,7 @@ function EntryRecordForm(_ref_erf) {
                 type: "number", inputMode: "numeric", step: "1",
                 value: fHoldHighVal,
                 onChange: function(e) {
-                  var _v = e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0));
+                  var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
                   setFHoldHighVal(_v);
                 },
                 placeholder: "0",
@@ -4671,7 +4674,7 @@ function EntryRecordForm(_ref_erf) {
                 type: "number", inputMode: "numeric", step: "1",
                 value: fHoldWidthVal,
                 onChange: function(e) {
-                  var _v = e.target.value === "" ? "" : String(Math.abs(Number(e.target.value) || 0));
+                  var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
                   setFHoldWidthVal(_v);
                   var _ck2 = fStock + "_" + fDate;
                   var _cd2 = data.charts && data.charts[_ck2];

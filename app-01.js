@@ -1903,14 +1903,14 @@ function ColorPicker(_ref) {
       var nq = _toConsumableArray(quickColors);
       nq[editingSlot] = c;
       onQuickColors(nq);
-    } else if (!quickColors.includes(c)) onQuickColors([c].concat(_toConsumableArray(quickColors)).slice(0, 6));
+    } else if (!quickColors.includes(c)) onQuickColors([c].concat(_toConsumableArray(quickColors)).slice(0, 8));
     closeAll();
   };
   var addCustom = function addCustom() {
     if (!presets.includes(customVal)) savePresets([].concat(_toConsumableArray(presets), [customVal]));
     onChange(customVal);
     onHistory(customVal);
-    if (!quickColors.includes(customVal)) onQuickColors([customVal].concat(_toConsumableArray(quickColors)).slice(0, 6));
+    if (!quickColors.includes(customVal)) onQuickColors([customVal].concat(_toConsumableArray(quickColors)).slice(0, 8));
     setTab("preset");
   };
   var remPreset = function remPreset(c) {
@@ -3112,7 +3112,7 @@ function ImageAnnotator(_ref7) {
     setColorHist = _useState36[1];
   var _useState37 = useState(function(){
     try { var _q=JSON.parse(localStorage.getItem("annot_quickcolors_v1")); if(_q&&_q.length) return _q; } catch(e){}
-    return ["#E53935", "#1565C0", "#000000", "#F57F17", "#1B5E20", "#ffffff"];
+    return ["#E53935", "#1565C0", "#000000", "#F57F17", "#1B5E20", "#ffffff", "#6A1B9A", "#00897B"];
   }),
     _useState38 = _slicedToArray(_useState37, 2),
     quickColors = _useState38[0],
