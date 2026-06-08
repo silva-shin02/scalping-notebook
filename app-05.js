@@ -4364,9 +4364,10 @@ function EntryRecordForm(_ref_erf) {
         style: Object.assign({}, I, { marginBottom: 6 })
       }),
       
-      React.createElement("div", { style: SH_ }, "\u2B50 \u30A8\u30F3\u30C8\u30EA\u30FC\u96E3\u6613\u5EA6"),
+      React.createElement("div", { style: SH_ }, "\u2B50 \u4E88\u60F3OS\u5EA6"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u301C / B:10\u301C19 / C:0\u301C9 \u5186\uFF09\u3002\u03B1\u5024\u306F\u81EA\u52D5: A\u219220 / B\u219210 / C\u21925"),
       React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        [["A", "簡単"], ["B", "普通"], ["C", "難しい"]].map(function(pair) {
+        [["A", "20〜円"], ["B", "10〜19円"], ["C", "0〜9円"]].map(function(pair) {
           var val = pair[0], sub = pair[1];
           var on = fDifficulty === val;
           return React.createElement("button", {
@@ -5030,7 +5031,7 @@ function EntryLogCard(_ref_elc) {
       }),
       s.isCustomTag && React.createElement("span", { style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#EEF2FF", color: "#4338CA", borderRadius: 5, border: "1px solid #C7D2FE" } }, s.customTagText || "(その他)"),
       _dispResult && _resultBadge(_dispResult),
-      s.difficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 4, border: "1px solid #FDBA74" } }, "E難易度" + s.difficulty),
+      s.difficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 4, border: "1px solid #FDBA74" } }, "予想OS度" + s.difficulty),
       s.tpDifficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#DCFCE7", color: "#14532D", borderRadius: 4, border: "1px solid #86EFAC" } }, "利確" + s.tpDifficulty),
       record.stockTags && record.stockTags.map(function(t) {
         return React.createElement("span", { key: t, style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, border: "1px solid #BFDBFE" } }, "📌 " + t);

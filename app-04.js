@@ -3971,7 +3971,7 @@ function DayView(_ref57) {
                 _trTh("時間", { textAlign: "left" }),
                 _trTh("銘柄"),
                 _trTh("シグナル"),
-                _trTh("難易度", { width: "1%" }),
+                _trTh("予想OS度", { width: "1%" }),
                 _trTh("OS値", { width: "1%" }),
                 _trTh("確定値", { width: "1%" }),
                 _trTh("α値比値幅", { width: "1%" }),
@@ -4830,7 +4830,7 @@ function DayView(_ref57) {
                   _rTh("銘柄", { width: 52 }),
                   _rTh("時間", { width: 44 }),
                   _rTh("シグナル", { width: 180 }),
-                  _rTh(React.createElement("span", null, "E", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "難易度")), { width: 44 }),
+                  _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 44 }),
                   _rTh("OS値", { width: 46 }),
                   _rTh("確定値", { width: 54 }),
                   _rTh("α値比値幅", { width: 50 }),
@@ -5450,12 +5450,12 @@ function DayView(_ref57) {
               )
         ]),
         _card([
-          _hd("難易度別成績", "🏅"),
+          _hd("予想OS度別成績", "🏅"),
           React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 600, marginBottom: 3 } }, "エントリー時"),
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
               React.createElement("tr", { style: { borderBottom: "1px solid #eee" } },
-                React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "難易度"),
+                React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "予想OS度"),
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "勝/負"),
                 React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "実現損益")
               )
@@ -5489,7 +5489,7 @@ function DayView(_ref57) {
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
               React.createElement("tr", { style: { borderBottom: "1px solid #eee" } },
-                React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "難易度"),
+                React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "予想OS度"),
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "件数"),
                 React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "想定損益")
               )

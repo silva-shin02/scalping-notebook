@@ -503,7 +503,7 @@ function EntryLogView(_ref_elv) {
     var _drPnlCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _drStepBtn = function(lbl, fn) { return React.createElement("button", { onClick: fn, style: { width: 24, height: 24, fontSize: 13, border: "1px solid #ccc", background: "#f5f4f0", borderRadius: 4, cursor: "pointer", color: "#555", lineHeight: 1 } }, lbl); };
     var resSec = React.createElement("div", null,
-      _secH("🎯 E難易度別 結果（α値で再判定）"),
+      _secH("🎯 予想OS度別 結果（α値で再判定）"),
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 6, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "α値"),
         _drStepBtn("−", function() { setDiffResAlpha(function(v) { return String(Math.max(0, (Number(v) || 0) - 1)); }); }),
@@ -512,11 +512,11 @@ function EntryLogView(_ref_elv) {
         React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円で全件の結果(○△×ー)を再判定")
       ),
       _diffResKeys.length === 0
-        ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", padding: "2px 0" } }, "難易度の記録がありません")
+        ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", padding: "2px 0" } }, "予想OS度の記録がありません")
         : React.createElement("div", { style: { overflowX: "auto" } },
             React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", minWidth: "100%", fontSize: 11 } },
               React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
-                _drTh("難易度", { textAlign: "left" }), _drTh("件"),
+                _drTh("予想OS度", { textAlign: "left" }), _drTh("件"),
                 _drTh(React.createElement("span", { style: { color: "#1E8449" } }, "○")),
                 _drTh(React.createElement("span", { style: { color: "#6B7280" } }, "△")),
                 _drTh(React.createElement("span", { style: { color: "#C0392B" } }, "×")),
@@ -526,7 +526,7 @@ function EntryLogView(_ref_elv) {
               React.createElement("tbody", null, _diffResKeys.map(function(k) {
                 var m = _diffResMap[k]; var _wd = m.ok + m.ng; var _wp = _wd > 0 ? Math.round(m.ok / _wd * 100) : null;
                 return React.createElement("tr", { key: k },
-                  React.createElement("td", { style: { padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, k === "(未設定)" ? "(未設定)" : "難易度" + k),
+                  React.createElement("td", { style: { padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, k === "(未設定)" ? "(未設定)" : "予想OS度" + k),
                   _drTd(m.cnt, "#333", { fontWeight: 600 }),
                   _drTd(m.ok || "—", m.ok ? "#1E8449" : "#ccc"),
                   _drTd(m.draw || "—", m.draw ? "#6B7280" : "#ccc"),
@@ -541,6 +541,49 @@ function EntryLogView(_ref_elv) {
           )
     );
     
+    var _OS_BANDS = { A: { min: 20, max: Infinity, label: "20〜" }, B: { min: 10, max: 19, label: "10〜19" }, C: { min: 0, max: 9, label: "0〜9" } };
+    var _osHitMap = {}; var _osHitTot = 0, _osHitOk = 0, _osHitDevSum = 0;
+    osRecs.forEach(function(r) {
+      var s = r.signal; var g = s.difficulty;
+      if (!g || !_OS_BANDS[g] || s.osVal == null) return;
+      var b = _OS_BANDS[g]; var act = Number(s.osVal);
+      var hit = act >= b.min && act <= b.max;
+      var dev = (b.max !== Infinity && act > b.max) ? (act - b.max) : (act < b.min ? act - b.min : 0);
+      if (!_osHitMap[g]) _osHitMap[g] = { cnt: 0, ok: 0, devSum: 0, osSum: 0 };
+      var m = _osHitMap[g]; m.cnt++; m.osSum += act; m.devSum += dev; if (hit) m.ok++;
+      _osHitTot++; if (hit) _osHitOk++; _osHitDevSum += dev;
+    });
+    var _osHitKeys = ["A", "B", "C"].filter(function(k) { return _osHitMap[k]; });
+    var _devCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+    var _devFmt = function(v) { return (v > 0 ? "+" : "") + (Math.round(v * 10) / 10) + "円"; };
+    var _osHitSec = _osHitTot === 0 ? null : React.createElement("div", null,
+      _secH("🎯 予想OS度の的中（予想帯 vs 実OS値）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "一致＝実OS値が予想帯に収まった割合。乖離＝帯からの外れ幅（＋上振れ／−下振れ・円、帯内は0）。"),
+      React.createElement("div", { style: { fontSize: 12, color: "#555", marginBottom: 6, fontWeight: 600 } },
+        "全体 一致率 ",
+        React.createElement("span", { style: { fontWeight: 800, color: (_osHitOk / _osHitTot >= 0.6 ? "#1E8449" : _osHitOk / _osHitTot >= 0.4 ? "#B45309" : "#C0392B") } }, Math.round(_osHitOk / _osHitTot * 100) + "%"),
+        "（" + _osHitOk + "/" + _osHitTot + "件） ／ 平均乖離 ",
+        React.createElement("span", { style: { fontWeight: 700, color: _devCol(_osHitDevSum / _osHitTot) } }, _devFmt(_osHitDevSum / _osHitTot))
+      ),
+      React.createElement("div", { style: { overflowX: "auto" } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", minWidth: "100%", fontSize: 11 } },
+          React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
+            _drTh("予想OS度", { textAlign: "left" }), _drTh("帯"), _drTh("件"), _drTh("一致率"), _drTh("平均乖離"), _drTh("平均実OS値")
+          )),
+          React.createElement("tbody", null, _osHitKeys.map(function(k) {
+            var m = _osHitMap[k]; var _hr = Math.round(m.ok / m.cnt * 100);
+            return React.createElement("tr", { key: k },
+              React.createElement("td", { style: { padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#9A3412", borderBottom: "1px solid #f0ede6", whiteSpace: "nowrap" } }, "予想OS度" + k),
+              _drTd(_OS_BANDS[k].label, "#666", { fontWeight: 600 }),
+              _drTd(m.cnt, "#333", { fontWeight: 600 }),
+              _drTd(_hr + "%", _hr >= 60 ? "#1E8449" : _hr >= 40 ? "#B45309" : "#C0392B"),
+              _drTd(_devFmt(m.devSum / m.cnt), _devCol(m.devSum / m.cnt), { fontWeight: 600 }),
+              _drTd((Math.round(m.osSum / m.cnt * 10) / 10) + "円", "#333")
+            );
+          }))
+        )
+      )
+    );
     var _osConfSigned = function(s) {
       if (s.osConfVal == null) return null;
       var v = Number(s.osConfVal);
@@ -1057,6 +1100,7 @@ function EntryLogView(_ref_elv) {
       sumSec,
       cmpKpiSec,
       resSec,
+      _osHitSec,
       reachSec,
       holdSec,
       priceFlowSec,
@@ -1822,7 +1866,7 @@ function EntryLogView(_ref_elv) {
                 React.createElement("table", { style: { width: "auto", borderCollapse: "collapse", fontSize: 11 } },
                   React.createElement("thead", null,
                     React.createElement("tr", null,
-                      _rTh("銘柄", { textAlign: "left", width: 60 }), _rTh("時間", { width: 48 }), _rTh("シグナル", { width: 190 }), _rTh(React.createElement("span", null, "E", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "難易度")), { width: 46 }), _rTh("OS値", { width: 48 }), _rTh("確定値", { width: 58 }), _rTh("α値比値幅", { width: 54 }), _rTh("E", { width: 74 }),
+                      _rTh("銘柄", { textAlign: "left", width: 60 }), _rTh("時間", { width: 48 }), _rTh("シグナル", { width: 190 }), _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 46 }), _rTh("OS値", { width: 48 }), _rTh("確定値", { width: 58 }), _rTh("α値比値幅", { width: 54 }), _rTh("E", { width: 74 }),
                       _rTh("想定損益", { width: 112 }), _rTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "高値")), { width: 46 }), _rTh(React.createElement("span", null, "H", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "確定値")), { width: 54 }), _rTh(React.createElement("span", null, "α値比", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "H値幅")), { width: 54 }), _rTh("H勝敗/結果損益", { width: 108 }), _rTh("実現損益", { width: 88 })
                     )
                   ),
@@ -1862,7 +1906,7 @@ function EntryLogView(_ref_elv) {
         })();
         var sortToggle = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
           React.createElement("span", { style: { fontSize: 10, color: "#888", fontWeight: 700 } }, "並び替え:"),
-          [["desc", "新しい順"], ["asc", "古い順"], ["difficulty", "🎯 E難易度順"]].map(function(kv) {
+          [["desc", "新しい順"], ["asc", "古い順"], ["difficulty", "🎯 予想OS度順"]].map(function(kv) {
             var on = calTblSort === kv[0];
             return React.createElement("button", { key: kv[0],
               onClick: function() { setCalTblSort(kv[0]); },
@@ -2176,13 +2220,13 @@ function EntryLogView(_ref_elv) {
             )
           ),
           React.createElement("div", { style: { marginTop: 16 } },
-            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 2 } }, "🎯 E難易度別集計"),
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 2 } }, "🎯 予想OS度別集計"),
             React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "損益は100株あたり換算 / H勝敗は ○勝・△分・ー無・×負"),
             React.createElement("div", { style: { overflowX: "auto" } },
               React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12, background: "#fff" } },
                 React.createElement("thead", null,
                   React.createElement("tr", { style: { background: "#f5f4f0" } },
-                    React.createElement("th", { style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "E難易度"),
+                    React.createElement("th", { style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "予想OS度"),
                     _tTh("件"),
                     React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
                       React.createElement("div", null, "想定損益"),
@@ -2702,7 +2746,7 @@ function EntryLogView(_ref_elv) {
     
     var sortToggle = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 10, color: "#888", fontWeight: 700 } }, "並び替え:"),
-      [["desc", "新しい順"], ["asc", "古い順"], ["difficulty", "🎯 E難易度順"]].map(function(kv) {
+      [["desc", "新しい順"], ["asc", "古い順"], ["difficulty", "🎯 予想OS度順"]].map(function(kv) {
         var on = svDateSort === kv[0];
         return React.createElement("button", { key: kv[0],
           onClick: function() { setSvDateSort(kv[0]); },
@@ -3783,7 +3827,7 @@ function EntryLogView(_ref_elv) {
     
     var renderDiffSubTab = function() {
       var DIFF_ORDER = ["A", "B", "C"];
-      var DIFF_LABEL = { A: "A（易）", B: "B（普）", C: "C（難）" };
+      var DIFF_LABEL = { A: "A（20〜）", B: "B（10〜19）", C: "C（0〜9）" };
       var _groupByField = function(field) {
         var grpMap = { A: [], B: [], C: [], "__none__": [] };
         grp.records.forEach(function(r) {
@@ -3843,7 +3887,7 @@ function EntryLogView(_ref_elv) {
             React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
               React.createElement("thead", null,
                 React.createElement("tr", { style: { background: "#f5f4f0" } },
-                  _th("難易度", "left", { paddingLeft: 8 }),
+                  _th("予想OS度", "left", { paddingLeft: 8 }),
                   _th("件"),
                   _th("損益", "right"),
                   _th("累計想定損益", "right", { paddingLeft: 12, paddingRight: 12 }),
@@ -3902,7 +3946,7 @@ function EntryLogView(_ref_elv) {
       };
 
       return React.createElement("div", null,
-        _renderDiffTable(byEntDiff, "エントリー難易度別", "diff_", "🎚"),
+        _renderDiffTable(byEntDiff, "予想OS度別", "diff_", "🎚"),
         hasTpAny && _renderDiffTable(byTpDiff, "利確難易度別", "tpdiff_", "🎯")
       );
     };
@@ -3933,14 +3977,14 @@ function EntryLogView(_ref_elv) {
       return _sigRichTable({ title: "銘柄別集計", icon: "📈", headLabel: "銘柄", rows: rows, expandPrefix: "stock_" });
     };
     renderDiffSubTab = function() {
-      var DIFF_LABEL = { A: "A（易）", B: "B（普）", C: "C（難）" };
+      var DIFF_LABEL = { A: "A（20〜）", B: "B（10〜19）", C: "C（0〜9）" };
       var DIFF_COLOR = { A: "#1E8449", B: "#9A3412", C: "#7C3AED" };
       var mk = function(field) { var m = { A: [], B: [], C: [], "__none__": [] }; grp.records.forEach(function(r) { var v = r.signal[field] || "__none__"; if (!m[v]) m[v] = []; m[v].push(r); }); return m; };
       var rowsOf = function(m) { return ["A","B","C","__none__"].filter(function(k) { return (m[k] || []).length > 0; }).map(function(k) { return { key: k, label: k === "__none__" ? "未設定" : DIFF_LABEL[k], recs: m[k], labelColor: DIFF_COLOR[k] || "#aaa" }; }); };
       var byEnt = mk("difficulty"); var byTp = mk("tpDifficulty");
       var hasTp = grp.records.some(function(r) { return r.signal.tpDifficulty; });
       return React.createElement(React.Fragment, null,
-        _sigRichTable({ title: "エントリー難易度別", icon: "🎚", headLabel: "難易度", rows: rowsOf(byEnt), expandPrefix: "diff_" }),
+        _sigRichTable({ title: "予想OS度別", icon: "🎚", headLabel: "予想OS度", rows: rowsOf(byEnt), expandPrefix: "diff_" }),
         hasTp ? React.createElement("div", { style: { borderTop: "1px solid #f0ede8" } }, _sigRichTable({ title: "利確難易度別", icon: "🎯", headLabel: "難易度", rows: rowsOf(byTp), expandPrefix: "tpdiff_" })) : null
       );
     };

@@ -4310,7 +4310,7 @@ function EntrySignalSection(_ref_es) {
       })(),
       records.length >= 2 && React.createElement("span", { style: { color: "#666", fontWeight: 600, flexShrink: 0 } }, "並び替え:"),
       records.length >= 2 && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
-        [["time", "⏱ 時間順"], ["difficulty", "🎯 E難易度順"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
+        [["time", "⏱ 時間順"], ["difficulty", "🎯 予想OS度順"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
           var val = kv[0], lbl = kv[1];
           var on = sortMode === val;
           return React.createElement("button", {
@@ -4733,7 +4733,7 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left", width: 50 }),
                   _esTh("シグナル", { width: 190 }),
-                  _esTh("難", { width: 38 }),
+                  _esTh("予想OS度", { width: 54 }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: 52 } },
                     "OS値",
                     React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + (c.alphaVal != null ? c.alphaVal + "円" : "各記録"))
