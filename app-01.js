@@ -348,6 +348,20 @@ function migrateData(d) {
     d.custom._alphaDefault5Mig = true;
   }
 
+  if (!d.custom._alphaPerRecordMig) {
+    if (d.charts && typeof d.charts === "object") {
+      Object.keys(d.charts).forEach(function(_ck) {
+        var _cc = d.charts[_ck];
+        if (!_cc || _cc.alphaVal == null) return;
+        if (Array.isArray(_cc.signals)) {
+          _cc.signals.forEach(function(s) { if (s && s.alphaVal == null) s.alphaVal = _cc.alphaVal; });
+        }
+        delete _cc.alphaVal;
+      });
+    }
+    d.custom._alphaPerRecordMig = true;
+  }
+
   
   
   

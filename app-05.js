@@ -916,7 +916,7 @@ function _hdTagKey(s) {
 
 
 
-function _hdGroupByTag(records) {
+function _hdGroupByTag(records, data) {
   var map = {};
   records.forEach(function(r) {
     _elTagEntries(r.signal).forEach(function(e) {
@@ -925,14 +925,14 @@ function _hdGroupByTag(records) {
     });
   });
   Object.keys(map).forEach(function(k) {
-    map[k].stats = _elCalcStats(map[k].records);
+    map[k].stats = _elCalcStats(map[k].records, data);
   });
   return map;
 }
 
 
-function _hdWinTop3(records) {
-  var g = _hdGroupByTag(records);
+function _hdWinTop3(records, data) {
+  var g = _hdGroupByTag(records, data);
   return Object.values(g)
     .filter(function(x) { return x.stats.total >= 3 && x.stats.winPct != null && x.stats.winPct >= 50; })
     .sort(function(a, b) {
@@ -943,8 +943,8 @@ function _hdWinTop3(records) {
 }
 
 
-function _hdLoseTop3(records) {
-  var g = _hdGroupByTag(records);
+function _hdLoseTop3(records, data) {
+  var g = _hdGroupByTag(records, data);
   return Object.values(g)
     .filter(function(x) { return x.stats.total >= 3 && x.stats.winPct != null && x.stats.winPct < 50; })
     .sort(function(a, b) {
@@ -956,9 +956,9 @@ function _hdLoseTop3(records) {
 
 
 
-function _hdConsecutiveLosses(records, minStreak) {
+function _hdConsecutiveLosses(records, minStreak, data) {
   if (minStreak == null) minStreak = 3;
-  var g = _hdGroupByTag(records);
+  var g = _hdGroupByTag(records, data);
   var alerts = [];
   Object.values(g).forEach(function(grp) {
     
@@ -997,9 +997,9 @@ function SignalDashboard(_ref_sd) {
     return _hdEnteredOnly(_hdRecentRecords(data, 30));
   }, [data]);
 
-  var winTop = useMemo(function() { return _hdWinTop3(records); }, [records]);
-  var loseTop = useMemo(function() { return _hdLoseTop3(records); }, [records]);
-  var alerts = useMemo(function() { return _hdConsecutiveLosses(records, 3); }, [records]);
+  var winTop = useMemo(function() { return _hdWinTop3(records, data); }, [records, data]);
+  var loseTop = useMemo(function() { return _hdLoseTop3(records, data); }, [records, data]);
+  var alerts = useMemo(function() { return _hdConsecutiveLosses(records, 3, data); }, [records, data]);
 
   
   if (records.length === 0) return null;
@@ -3160,9 +3160,10 @@ function _gradeAlpha(difficulty) {
 }
 function _elAlphaInfo(r, data) {
   var c = (data && data.charts) ? data.charts[r.stock + "_" + r.date] : null;
+  var s = r && r.signal;
   return {
-    // この日のα(c.alphaVal)が設定されていれば上書き、未設定なら各記録の予想OS度α
-    alpha: (c && c.alphaVal != null) ? Number(c.alphaVal) : _gradeAlpha(r && r.signal && r.signal.difficulty),
+    // 採用α値は各エントリー記録(signal.alphaVal)固有。未設定なら各記録の予想OS度α
+    alpha: (s && s.alphaVal != null) ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty),
     cutLine: (c && c.cutLine != null) ? Number(c.cutLine) : 10
   };
 }
@@ -3935,6 +3936,9 @@ function EntryRecordForm(_ref_erf) {
   var _useStateTA = useState(initSig.tradeAlpha != null ? String(initSig.tradeAlpha) : ""),
     _useStateTAA = _slicedToArray(_useStateTA, 2),
     fTradeAlpha = _useStateTAA[0], setFTradeAlpha = _useStateTAA[1];
+  var _useStateAV = useState(initSig.alphaVal != null ? String(initSig.alphaVal) : ""),
+    _useStateAVA = _slicedToArray(_useStateAV, 2),
+    fAlphaVal = _useStateAVA[0], setFAlphaVal = _useStateAVA[1];
 
   var _useStateEOSS = useState(initSig.entryOsSign || null),
     _useStateEOSSA = _slicedToArray(_useStateEOSS, 2),
@@ -3977,9 +3981,7 @@ function EntryRecordForm(_ref_erf) {
   };
 
   var _hwAfter = function(s) {
-    var _ck2 = fStock + "_" + fDate;
-    var _cd2 = data.charts && data.charts[_ck2];
-    var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : _gradeAlpha(fDifficulty);
+    var _av2 = _fAlpha;
     if (_av2 == null) return;
     setFHoldOsConf(_av2 - (-s));
   };
@@ -3987,11 +3989,7 @@ function EntryRecordForm(_ref_erf) {
 
 
   
-  var _fAlpha = (function() {
-    var _ck = fStock + "_" + fDate;
-    var _cd = data.charts && data.charts[_ck];
-    return (_cd != null && _cd.alphaVal != null) ? _cd.alphaVal : _gradeAlpha(fDifficulty);
-  })();
+  var _fAlpha = (fAlphaVal !== "" && !isNaN(Number(fAlphaVal))) ? Number(fAlphaVal) : _gradeAlpha(fDifficulty);
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
@@ -4025,7 +4023,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
-    var av = cd && cd.alphaVal != null ? cd.alphaVal : _gradeAlpha(fDifficulty);
+    var av = _fAlpha;
     var osV = Number(fOsVal) || 0;
     if (av != null && osV >= 0 && osV < av) {
       setFEstWidthSign(null); setFEstWidthVal("0");
@@ -4056,7 +4054,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
-    var av = cd && cd.alphaVal != null ? cd.alphaVal : _gradeAlpha(fDifficulty);
+    var av = _fAlpha;
     if (av == null) return;
     var osV = Number(fOsVal) || 0;
     if (osV <= 0) return;
@@ -4076,7 +4074,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
-    var av = cd && cd.alphaVal != null ? cd.alphaVal : _gradeAlpha(fDifficulty);
+    var av = _fAlpha;
     var osV = Number(fOsVal) || 0;
     if (av != null && osV > 0 && osV < av) {
       setFPlanSign(null); setFPlan("0"); return;
@@ -4099,7 +4097,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
-    var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : _gradeAlpha(fDifficulty);
+    var _av = _fAlpha;
     if (_av == null || fHoldWidthSign == null || fHoldWidthVal === "") return;
     var _hwSigned = fHoldWidthSign === "+" ? Number(fHoldWidthVal) : -Number(fHoldWidthVal);
     var _newOsConf = _av - _hwSigned;
@@ -4112,7 +4110,7 @@ function EntryRecordForm(_ref_erf) {
   useEffect(function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
-    var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : _gradeAlpha(fDifficulty);
+    var _av = _fAlpha;
     
     var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 10;
     if (fResult === "miss") {
@@ -4204,6 +4202,7 @@ function EntryRecordForm(_ref_erf) {
       exitOsVal: fEntered && fExitOsVal !== "" ? Number(fExitOsVal) : null,
       shares: fEntered && fShares !== "" ? (parseInt(fShares) || null) : null,
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
+      alphaVal: fAlphaVal !== "" && !isNaN(Number(fAlphaVal)) ? Number(fAlphaVal) : null,
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
       maxPnl: fMax !== "" ? Number(fMax) : null,
@@ -4240,7 +4239,7 @@ function EntryRecordForm(_ref_erf) {
   var _estWidthIsOsLow = (function() {
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
-    var av = cd && cd.alphaVal != null ? cd.alphaVal : _gradeAlpha(fDifficulty);
+    var av = _fAlpha;
     if (av == null) return false;
     var osV = Number(fOsVal) || 0;
     return osV >= 0 && osV < av;
@@ -4385,21 +4384,18 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
       (function() {
-        var _ck = fStock + "_" + fDate;
-        var _cd = data.charts && data.charts[_ck];
-        var _av = _cd && _cd.alphaVal != null ? _cd.alphaVal : null;
-        var _saveAlpha = function(val) {
-          var n = val !== "" ? Number(val) : null;
-          if (n != null && !isNaN(n)) { if (n > 30) n = 30; if (n < 0) n = 0; }
-          save(function(prev) {
-            var _pCharts = prev.charts || {};
-            var _nc = Object.assign({}, _pCharts);
-            var _entry = Object.assign({}, _nc[_ck] || {});
-            if (n != null && !isNaN(n)) _entry.alphaVal = n;
-            else delete _entry.alphaVal;
-            _nc[_ck] = _entry;
-            return Object.assign({}, prev, { charts: _nc });
-          });
+        var _setAV = function(val) {
+          if (val === "") { setFAlphaVal(""); return; }
+          var n = Number(val);
+          if (isNaN(n)) return;
+          if (n > 30) n = 30; if (n < 0) n = 0;
+          setFAlphaVal(String(n));
+        };
+        var _stepAV = function(delta) {
+          var base = (fAlphaVal !== "" && !isNaN(Number(fAlphaVal))) ? Number(fAlphaVal) : _gradeAlpha(fDifficulty);
+          var n = base + delta;
+          if (n > 30) n = 30; if (n < 0) n = 0;
+          setFAlphaVal(String(n));
         };
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6,
@@ -4410,16 +4406,16 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "number", inputMode: "numeric", min: "0", max: "30", step: "1",
-              value: _av != null ? String(_av) : (fDifficulty ? String(_gradeAlpha(fDifficulty)) : ""),
-              onChange: function(e) { _saveAlpha(e.target.value); },
+              value: fAlphaVal !== "" ? fAlphaVal : (fDifficulty ? String(_gradeAlpha(fDifficulty)) : ""),
+              onChange: function(e) { _setAV(e.target.value); },
               placeholder: "各記録",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E",
                        border: "none", outline: "none", background: "#fff", width: 64,
                        textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : _gradeAlpha(fDifficulty); if (_n >= 30) return prev; _ent.alphaVal = _n + 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
-              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ck] || {}); var _n = _ent.alphaVal != null ? _ent.alphaVal : _gradeAlpha(fDifficulty); if (_n <= 0) return prev; _ent.alphaVal = _n - 1; _pC[_ck] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
+              function() { _stepAV(1); },
+              function() { _stepAV(-1); }
             )
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
@@ -4637,7 +4633,7 @@ function EntryRecordForm(_ref_erf) {
               if (fHoldHighVal === "") return null;
               var _ck3 = fStock + "_" + fDate;
               var _cd3 = data.charts && data.charts[_ck3];
-              var _av3 = _cd3 && _cd3.alphaVal != null ? _cd3.alphaVal : _gradeAlpha(fDifficulty);
+              var _av3 = _fAlpha;
               if (_av3 == null) return null;
               var _shhv = fHoldHighSign === "-" ? (Number(fHoldHighVal) || 0) : fHoldHighSign === "+" ? -(Number(fHoldHighVal) || 0) : 0;
               var _diff = _shhv - _av3;
@@ -4660,7 +4656,7 @@ function EntryRecordForm(_ref_erf) {
                   setFHoldWidthSign(_newSg);
                   var _ck2 = fStock + "_" + fDate;
                   var _cd2 = data.charts && data.charts[_ck2];
-                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : _gradeAlpha(fDifficulty);
+                  var _av2 = _fAlpha;
                   if (_av2 != null && fHoldWidthVal !== "") {
                     var _ws = _newSg === "-" ? -(Number(fHoldWidthVal)||0) : (Number(fHoldWidthVal)||0);
                     setFHoldOsConf(_av2 - _ws);
@@ -4679,7 +4675,7 @@ function EntryRecordForm(_ref_erf) {
                   setFHoldWidthVal(_v);
                   var _ck2 = fStock + "_" + fDate;
                   var _cd2 = data.charts && data.charts[_ck2];
-                  var _av2 = _cd2 && _cd2.alphaVal != null ? _cd2.alphaVal : _gradeAlpha(fDifficulty);
+                  var _av2 = _fAlpha;
                   if (_av2 != null && _v !== "" && fHoldWidthSign != null) {
                     var _ws = fHoldWidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0);
                     setFHoldOsConf(_av2 - _ws);
