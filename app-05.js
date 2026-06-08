@@ -4101,6 +4101,8 @@ function EntryRecordForm(_ref_erf) {
   var _useStateH2HV = useState(initSig.hold2HighVal != null ? String(Math.abs(Number(initSig.hold2HighVal))) : ""),
     _useStateH2HVA = _slicedToArray(_useStateH2HV, 2),
     fHold2HighVal = _useStateH2HVA[0], setFHold2HighVal = _useStateH2HVA[1];
+  var _useStateHMemo = useState(initSig.holdMemo || ""), fHoldMemo = _useStateHMemo[0], setFHoldMemo = _useStateHMemo[1];
+  var _useStateH2Memo = useState(initSig.hold2Memo || ""), fHold2Memo = _useStateH2Memo[0], setFHold2Memo = _useStateH2Memo[1];
 
   var _useStateOCSign = useState(initSig.osConfSign || null),
     _useStateOCSignA = _slicedToArray(_useStateOCSign, 2),
@@ -4504,6 +4506,8 @@ function EntryRecordForm(_ref_erf) {
       hold2PnlSign: fHold2PnlSign || null,
       hold2HighVal: fHold2HighVal !== "" ? Number(fHold2HighVal) : null,
       hold2HighSign: fHold2HighSign || null,
+      holdMemo: fHoldMemo || null,
+      hold2Memo: fHold2Memo || null,
       realizedPnl: fEntered && fReal !== "" ? Number(fReal) : null,
       realizedPnlSign: fRealSign,
       profitGrade: null,
@@ -5017,6 +5021,18 @@ function EntryRecordForm(_ref_erf) {
           )
         ),
 
+        React.createElement("div", { style: { marginTop: 8 } },
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "Hold１メモ"),
+          React.createElement(FastInput, {
+            multiline: true, autoResize: true,
+            value: fHoldMemo,
+            onChange: function(v) { setFHoldMemo(v); },
+            placeholder: "",
+            rows: 2,
+            style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 48 })
+          })
+        ),
+
         React.createElement("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed #ddd" } },
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
             "Hold2期待度",
@@ -5169,6 +5185,18 @@ function EntryRecordForm(_ref_erf) {
               })
             )
           )
+        ),
+
+        React.createElement("div", { style: { marginTop: 8 } },
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "Hold２メモ"),
+          React.createElement(FastInput, {
+            multiline: true, autoResize: true,
+            value: fHold2Memo,
+            onChange: function(v) { setFHold2Memo(v); },
+            placeholder: "",
+            rows: 2,
+            style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 48 })
+          })
         )
       ),
 
@@ -5458,19 +5486,22 @@ function EntryLogCard(_ref_elc) {
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" } }, _fmtDow(record.date)),
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time),
-      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock),
+      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock)
+    ),
+
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       s.tradeType && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: s.tradeType === "空売" ? "#FCEBEB" : "#EAF3DE", color: s.tradeType === "空売" ? "#C0392B" : "#1E8449", borderRadius: 4, border: "1px solid " + (s.tradeType === "空売" ? "#F5C6CB" : "#A9DFBF") } }, s.tradeType),
       React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: entered ? "#E8F5E9" : "#f5f4f0", color: entered ? "#2E7D32" : "#888", borderRadius: 4, border: "1px solid " + (entered ? "#A9DFBF" : "#ddd") } }, entered ? "実エントリー" : "見送り"),
       (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(t) {
         return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, t);
       }),
       s.isCustomTag && React.createElement("span", { style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#EEF2FF", color: "#4338CA", borderRadius: 5, border: "1px solid #C7D2FE" } }, s.customTagText || "(その他)"),
-      _dispResult && _resultBadge(_dispResult),
       s.difficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 4, border: "1px solid #FDBA74" } }, "予想OS度" + s.difficulty),
       s.tpDifficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#DCFCE7", color: "#14532D", borderRadius: 4, border: "1px solid #86EFAC" } }, "利確" + s.tpDifficulty),
       record.stockTags && record.stockTags.map(function(t) {
         return React.createElement("span", { key: t, style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, border: "1px solid #BFDBFE" } }, "📌 " + t);
-      })
+      }),
+      _elcAi && _elcAi.alpha != null && React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", padding: "1px 6px", background: "#F0F9FF", borderRadius: 4, border: "1px solid #BAE6FD" } }, "採用α " + _elcAi.alpha + "円 / 損切り " + _elcAi.cutLine + "円")
     ),
     
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start", marginBottom: (s.rationale || s.reflection || s.priceIn || s.priceOut) ? 6 : 0 } },
@@ -5484,6 +5515,11 @@ function EntryLogCard(_ref_elc) {
           Number(s.osConfVal) === 0 ? "0円" : (s.osConfSign === "+" ? "↑" : s.osConfSign === "-" ? "↓" : "↕") + Math.abs(Number(s.osConfVal)) + "円",
           Number(s.osConfVal) === 0 ? "#888" : _vcol(s.osConfVal, s.osConfSign === "+")) : null
       ),
+
+      _dispResult ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 } },
+        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "結果"),
+        _resultBadge(_dispResult)
+      ) : null,
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
         _dispResult === "miss" ? _chip("想定損益", _qMissCell(14), "#888") :
@@ -5513,6 +5549,11 @@ function EntryLogCard(_ref_elc) {
       _elHoldFlow(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10, false),
       s.hold2Exp ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２") : null,
       s.hold2Exp ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10) : null
+    ),
+
+    (s.holdMemo || s.hold2Memo) && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, marginTop: 4 } },
+      s.holdMemo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H１メモ"), s.holdMemo) : null,
+      s.hold2Memo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H２メモ"), s.hold2Memo) : null
     ),
 
     s.rationale && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale),

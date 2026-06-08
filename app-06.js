@@ -3322,6 +3322,7 @@ function EntryLogView(_ref_elv) {
         return React.createElement("td", { style: Object.assign({ padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: isTot ? "2px solid #ccc" : "1px solid #f0ede8" }, extra || {}) }, content);
       };
       var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
+      var _hsumCell = function(v, isTot) { return _cell(v == null ? _dash : React.createElement("span", { style: { fontWeight: 600, color: _sigPnlCol(v) } }, _sigYen(v)), isTot); };
       var _mkRow = function(label, labelColor, recs, isTot, tagKey) {
         var st = _calcD(recs);
         var wp = st.winPct, os = _sigAvgOS(recs), cf = _sigAvgConf(recs);
@@ -3346,6 +3347,8 @@ function EntryLogView(_ref_elv) {
           _cell(os != null ? os + "円" : _dash, isTot, { fontVariantNumeric: "tabular-nums" }),
           _cell(cf != null ? (cf > 0 ? "+" : "") + cf + "円" : _dash, isTot, { fontVariantNumeric: "tabular-nums" }),
           _cell(st.sumPlanned !== 0 ? React.createElement("span", { style: { fontWeight: 600, color: _sigPnlCol(st.sumPlanned) } }, _sigYen(st.sumPlanned)) : _dash, isTot),
+          _hsumCell(st.sumHold, isTot),
+          _hsumCell(st.sumHold2, isTot),
           _cell(st.expectedPlanned != null ? React.createElement("span", { style: { fontWeight: 800, color: _sigPnlCol(st.expectedPlanned) } }, _sigYen(st.expectedPlanned)) : _dash, isTot)
         );
       };
@@ -3356,7 +3359,7 @@ function EntryLogView(_ref_elv) {
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
-                _hh(opts.headLabel, { textAlign: "left", paddingLeft: 8 }), _hh("件"), _hh("勝率"), _hh("E未達"), _hh("平均OS値"), _hh("平均確定値"), _hh("想定損益"), _hh("期待値")
+                _hh(opts.headLabel, { textAlign: "left", paddingLeft: 8 }), _hh("件"), _hh("勝率"), _hh("E未達"), _hh("平均OS値"), _hh("平均確定値"), _hh("想定損益"), _hh("H①損益"), _hh("H②損益"), _hh("期待値")
               )
             ),
             React.createElement("tbody", null,
