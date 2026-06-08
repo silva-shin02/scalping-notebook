@@ -4649,7 +4649,7 @@ function EntrySignalSection(_ref_es) {
               React.createElement("thead", null,
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left", width: 50 }),
-                  _esTh("シグナル", { width: 190 }),
+                  _esTh("シグナル", { width: 130 }),
                   _esTh("予想OS度", { width: 54 }),
                   _esTh("α値", { width: 36 }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: 52 } },
