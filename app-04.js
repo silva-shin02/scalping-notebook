@@ -4103,7 +4103,12 @@ function DayView(_ref57) {
         if (s.entered === true) _pbEntByStk[stk]++;
       });
     });
-    var _pbStks = Object.keys(_pbByStk).sort();
+    var _pbStkOrder = ["JX金属", "フジクラ", "SBG"];
+    var _pbStks = Object.keys(_pbByStk).sort(function(a, b) {
+      var ia = _pbStkOrder.indexOf(a), ib = _pbStkOrder.indexOf(b);
+      if (ia !== -1 || ib !== -1) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; }
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
     var _soukatsuEl = React.createElement("div", { style: Card }, React.createElement(MemoSection, {
       memo: dd.tradesSummaryMemo || (dd.summary ? { text: (dd.summary || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>"), images: [] } : { text: "", images: [] }),
       onChange: function(v) { updDay("tradesSummaryMemo", v); if (dd.summary) updDay("summary", ""); },
