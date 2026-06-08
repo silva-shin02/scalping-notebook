@@ -2811,7 +2811,7 @@ function StockQuickRefTable(_props_qrt) {
             ).map(function(h, _hi, _harr) {
               return React.createElement("th", {
                 key: h.label,
-                style: { textAlign: "left", padding: h.pad, fontWeight: 600,
+                style: { textAlign: "center", padding: h.pad, fontWeight: 600,
                   fontSize: 11, color: "#888", whiteSpace: "nowrap",
                   borderRight: _hi < _harr.length - 1 ? "1px solid #e3e0da" : "none" }
               }, h.label);
@@ -4653,7 +4653,7 @@ function DayView(_ref57) {
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             React.createElement("button", {
-              onClick: function() { setPbSimAlpha(10); setPbSimCutLine(10); },
+              onClick: function() { setPbSimAlpha(null); setPbSimCutLine(null); },
               style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
             }, "リセット"),
             React.createElement("span", { style: { color: "#ddd", fontSize: 14, margin: "0 2px" } }, "|"),
