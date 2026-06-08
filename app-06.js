@@ -1108,6 +1108,59 @@ function EntryLogView(_ref_elv) {
         )
       );
     })();
+    var hold2ExpSec = (function() {
+      var groups = { "○": [], "△": [], "×": [] };
+      filtered.forEach(function(r) {
+        var s = r.signal;
+        if (!s.hold2Exp || !groups[s.hold2Exp]) return;
+        if (!_elHas2Data(s)) return;
+        var ai = _elAlphaInfo(r, data);
+        groups[s.hold2Exp].push({ h2: _elDynHold2(s, ai.alpha, ai.cutLine), h1: _elDynHold(s, ai.alpha, ai.cutLine) });
+      });
+      if (!["○", "△", "×"].some(function(k) { return groups[k].length > 0; })) return null;
+      var _yen = function(v) { return (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "円"; };
+      var _col = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+      var rows = ["○", "△", "×"].map(function(k) {
+        var arr = groups[k];
+        var withH2 = arr.filter(function(x) { return x.h2 != null; });
+        var sumH2 = withH2.reduce(function(a, x) { return a + x.h2; }, 0);
+        var avgH2 = withH2.length ? Math.round(sumH2 / withH2.length) : null;
+        var winPct = withH2.length ? Math.round(withH2.filter(function(x) { return x.h2 > 0; }).length / withH2.length * 100) : null;
+        var diffArr = arr.filter(function(x) { return x.h2 != null && x.h1 != null; }).map(function(x) { return x.h2 - x.h1; });
+        var avgDiff = diffArr.length ? Math.round(diffArr.reduce(function(a, b) { return a + b; }, 0) / diffArr.length) : null;
+        var label = "—";
+        if (arr.length > 0 && winPct != null) {
+          if (k === "○") label = winPct >= 60 ? "期待的中◎" : winPct >= 40 ? "ばらつき" : "期待過剰▲";
+          else if (k === "△") label = winPct >= 60 ? "好判断◎" : winPct >= 34 ? "read甘い" : "期待過剰▲";
+          else label = winPct >= 50 ? "見逃し多▲" : "回避的中◎";
+        }
+        return { k: k, n: arr.length, sumH2: withH2.length ? sumH2 : null, avgH2: avgH2, winPct: winPct, avgDiff: avgDiff, label: label };
+      });
+      var _h2th = function(t) { return React.createElement("th", { style: { padding: "4px 6px", fontSize: 10, fontWeight: 700, color: "#9A3412", borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } }, t); };
+      var _h2td = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", fontSize: 11, textAlign: "center", whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" }, ex || {}) }, c); };
+      var _ec = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
+      return React.createElement("div", null,
+        _secH("🎯 Hold2期待度別 分析（期待 vs 実際）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#666", marginBottom: 6 } }, "○/△/×を選んだ後、実際にHold2がどうなったか。H2損益はα値比・100株換算。的中率＝H2損益が＋の割合、H2−H1＝ホールド延長の上乗せ。×でも＋が多ければ「見逃し」傾向。"),
+        React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+            React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
+              _h2th("期待度"), _h2th("件"), _h2th("H2損益(合計)"), _h2th("H2損益(平均)"), _h2th("的中率"), _h2th("H2−H1(平均)"), _h2th("評価"))),
+            React.createElement("tbody", null, rows.map(function(row) {
+              return React.createElement("tr", { key: row.k },
+                _h2td(React.createElement("span", { style: { color: _ec[row.k], fontWeight: 800, fontSize: 14 } }, row.k)),
+                _h2td(row.n || "—", { fontWeight: 700 }),
+                _h2td(row.sumH2 != null ? React.createElement("span", { style: { fontWeight: 700, color: _col(row.sumH2) } }, _yen(row.sumH2)) : "—"),
+                _h2td(row.avgH2 != null ? React.createElement("span", { style: { fontWeight: 700, color: _col(row.avgH2) } }, _yen(row.avgH2)) : "—"),
+                _h2td(row.winPct != null ? React.createElement("span", { style: { fontWeight: 700, color: row.winPct >= 60 ? "#C0392B" : row.winPct >= 40 ? "#888" : "#1E8449" } }, row.winPct + "%") : "—"),
+                _h2td(row.avgDiff != null ? React.createElement("span", { style: { fontWeight: 700, color: _col(row.avgDiff) } }, _yen(row.avgDiff)) : "—"),
+                _h2td(React.createElement("span", { style: { fontSize: 10, color: "#555" } }, row.label))
+              );
+            }))
+          )
+        )
+      );
+    })();
     return React.createElement("div", { style: { marginTop: 8 } },
       sumSec,
       cmpKpiSec,
@@ -1115,6 +1168,7 @@ function EntryLogView(_ref_elv) {
       _osHitSec,
       reachSec,
       holdSec,
+      hold2ExpSec,
       priceFlowSec,
       React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
         React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, osHoldTrendSec),
@@ -2213,6 +2267,7 @@ function EntryLogView(_ref_elv) {
                 React.createElement("thead", null,
                   React.createElement("tr", { style: { background: "#f5f4f0" } },
                     React.createElement("th", { style: { padding: "5px 8px", textAlign: "left", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", width: "1%" } }, "予想OS度"),
+                    _tTh("α値"),
                     _tTh("件"),
                     React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
                       React.createElement("div", null, "想定損益"),
@@ -2240,7 +2295,7 @@ function EntryLogView(_ref_elv) {
                       return ra - rb;
                     });
                     if (_dtDiffKeys.length === 0) {
-                      return React.createElement("tr", null, React.createElement("td", { colSpan: 6, style: { padding: 10, textAlign: "center", color: "#aaa", fontSize: 11 } }, "該当なし"));
+                      return React.createElement("tr", null, React.createElement("td", { colSpan: 7, style: { padding: 10, textAlign: "center", color: "#aaa", fontSize: 11 } }, "該当なし"));
                     }
                     var _bbd = "1px solid #e0ddd6";
                     var _dashD = React.createElement("span", { style: { color: "#ccc" } }, "ー");
@@ -2252,6 +2307,7 @@ function EntryLogView(_ref_elv) {
                       var gradePlan = _profitGradeFromPnl(dst.sumPlanned, dst.total);
                       return React.createElement("tr", { key: dk },
                         React.createElement("td", { style: { padding: "5px 8px", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", width: "1%", borderBottom: _bbd, borderRight: _bbd } }, dk === "(未設定)" ? "(未設定)" : dk),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd, color: "#0369A1", fontWeight: 600 } }, _gradeAlpha(dk === "(未設定)" ? null : dk) + "円"),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: _bbd, borderRight: _bbd } }, dst.total),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, _tABAll(drecs, dst.sumPlanned, dst.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, (function() { var _h = dst.sumHold; if (_h == null) return _dashD; return React.createElement("span", { style: { fontWeight: 700, whiteSpace: "nowrap", color: _h > 0 ? "#C0392B" : _h < 0 ? "#1E8449" : "#888" } }, (_h > 0 ? "+" : "") + _h.toLocaleString() + "円"); })()),

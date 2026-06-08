@@ -5574,6 +5574,7 @@ function DayView(_ref57) {
             React.createElement("thead", null,
               React.createElement("tr", { style: { borderBottom: "1px solid #eee" } },
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "予想OS度"),
+                React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#0369A1", fontSize: 10 } }, "α値"),
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "勝/負"),
                 React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "実現損益")
               )
@@ -5590,6 +5591,7 @@ function DayView(_ref57) {
                       background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
                       fontWeight: 800, fontSize: 10 } }, dif)
                   ),
+                  React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", color: "#0369A1", fontWeight: 600, fontSize: 10, whiteSpace: "nowrap" } }, _gradeAlpha(dif) + "円"),
                   React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", whiteSpace: "nowrap" } },
                     ent > 0
                       ? [React.createElement("span", { key: "o", style: { color: "#15803D" } }, m.ok), "勝",
@@ -5608,6 +5610,7 @@ function DayView(_ref57) {
             React.createElement("thead", null,
               React.createElement("tr", { style: { borderBottom: "1px solid #eee" } },
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "予想OS度"),
+                React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#0369A1", fontSize: 10 } }, "α値"),
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "件数"),
                 React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "想定損益")
               )
@@ -5623,6 +5626,7 @@ function DayView(_ref57) {
                       background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
                       fontWeight: 800, fontSize: 10 } }, dif)
                   ),
+                  React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", color: "#0369A1", fontWeight: 600, fontSize: 10, whiteSpace: "nowrap" } }, _gradeAlpha(dif) + "円"),
                   React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", color: "#666" } }, m.skip, "件"),
                   React.createElement("td", { style: { padding: "4px 4px", textAlign: "right", fontWeight: 600, color: _dtCol(m.skipPlan), whiteSpace: "nowrap" } },
                     m.skipPlan !== 0 ? _dtFmt(m.skipPlan) : "—")
