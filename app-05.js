@@ -4384,6 +4384,7 @@ function EntryRecordForm(_ref_erf) {
         })
       ),
       
+      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
       (function() {
         var _ck = fStock + "_" + fDate;
         var _cd = data.charts && data.charts[_ck];
@@ -4402,11 +4403,10 @@ function EntryRecordForm(_ref_erf) {
           });
         };
         return React.createElement("div", {
-          style: { display: "inline-flex", alignItems: "center", gap: 6, marginTop: 2, marginBottom: 6,
+          style: { display: "inline-flex", alignItems: "center", gap: 6,
             padding: "4px 10px", borderRadius: 6, background: "#F0F9FF",
             border: "1px solid #BAE6FD", fontSize: 12 }
         },
-          React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "α"),
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "採用α値（水準線比）"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
@@ -4445,12 +4445,11 @@ function EntryRecordForm(_ref_erf) {
           });
         };
         return React.createElement("div", {
-          style: { display: "inline-flex", alignItems: "center", gap: 6, marginTop: 2, marginBottom: 6, marginLeft: 8,
+          style: { display: "inline-flex", alignItems: "center", gap: 6,
             padding: "4px 10px", borderRadius: 6, background: "#FEF2F2",
             border: "1px solid #FECACA", fontSize: 12 }
         },
-          React.createElement("span", { style: { color: "#B91C1C", fontWeight: 700 } }, "損切"),
-          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "この日の損切り値"),
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "損切り値"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FECACA", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "number", inputMode: "numeric", min: "1", max: "30", step: "1",
@@ -4468,7 +4467,8 @@ function EntryRecordForm(_ref_erf) {
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
-      })(),
+      })()
+      ),
 
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 16, marginTop: 4, marginBottom: 4, flexWrap: "wrap" } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
