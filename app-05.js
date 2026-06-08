@@ -3349,14 +3349,72 @@ function _elHoldSumBoth(sumH1, sumH2) {
     React.createElement("span", { key: "sep", style: { color: "#ddd" } }, "｜"),
     React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), _f(sumH2)));
 }
-// 明細表用: 「H１」td と「H２」td の2セル(配列)を返す。各セル内は横一列(nowrap)。tr の子に配列として置けば2列になる。
-function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
-  return [
-    React.createElement("td", { key: "h1c", style: tdStyle }, _elHoldFlow(s, alpha, cutLine, false, true), capNote || null),
-    React.createElement("td", { key: "h2c", style: tdStyle }, _elHold2Cell(s, alpha, cutLine))
-  ];
+// === H1(上)/H2(下) 縦積み表示ヘルパー（H列を1列に統合する表で使用）===
+// 各部位(高値/値幅/α値比/損益)のReactノードを返す。算出ロジックは_elHoldFlowと同一。
+function _elHoldParts(s, alpha, cutLine, isH2) {
+  var hs = isH2 ? _h2sig(s) : s;
+  var high = null, width = null, acmp = null, pnl = null, miss = false;
+  if (hs.holdHighVal != null) high = React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(hs.holdHighVal, hs.holdHighSign === "-"), fontWeight: 700 } }, (hs.holdHighSign === "+" ? "↓" : hs.holdHighSign === "-" ? "↑" : "") + hs.holdHighVal);
+  if (hs.holdWidth != null) width = React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(hs.holdWidth, hs.holdWidthSign === "-"), fontWeight: 700 } }, (hs.holdWidthSign === "-" ? "↑" : hs.holdWidthSign === "+" ? "↓" : "↕") + hs.holdWidth);
+  if (alpha != null && hs.holdWidth != null) {
+    var _hcf = hs.holdWidthSign === "-" ? Number(hs.holdWidth) : hs.holdWidthSign === "+" ? -Number(hs.holdWidth) : 0;
+    var _ewH = alpha - _hcf, _ewHAbs = Math.abs(_ewH);
+    acmp = _ewH === 0 ? React.createElement("span", { style: { color: "#888" } }, "α0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs);
+  }
+  var holdPnl = (alpha != null) ? (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine)) : _elSignedVal(hs.holdPnl, hs.holdPnlSign);
+  var res = (alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result;
+  if (holdPnl != null) {
+    var hp = holdPnl;
+    var pp = isH2 ? ((alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign)) : ((alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign));
+    var dynHP = (function() {
+      if (hp == null) return hs.holdProfit;
+      if (!isH2 && (res === "miss" || res === "draw")) return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
+      if (pp == null) return isH2 ? (hp > 0 ? "yes" : hp < 0 ? "no" : "none") : hs.holdProfit;
+      if (hp === 0) return pp < 0 ? "yes" : pp > 0 ? "mid" : "none";
+      if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
+      if (pp < 0 && hp < 0) return "no";
+      if (pp > 0 && hp < 0) return "no";
+      if (pp < 0 && hp > 0) return "yes";
+      return hs.holdProfit;
+    })();
+    var symMap = { yes: ["○", "#1E8449"], mid: ["△", "#B45309"], none: ["ー", "#888"], no: ["×", "#C0392B"] };
+    var sym = symMap[dynHP];
+    pnl = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
+      sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
+      _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
+      React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"));
+  } else if (res === "miss") { miss = true; pnl = React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "ー"); }
+  return { high: high, width: width, acmp: acmp, pnl: pnl, miss: miss, hasAny: !!(high || width || acmp || pnl) };
 }
-// 集計表用: 「H１合計」td と「H２合計」td の2セル(配列)。
+// 明細表用: H1(上)/H2(下)を内部2行テーブルで縦揃え。H2行の左端にH2期待度(○/△/×、×は控えめグレー)。
+function _elHoldStackInner(s, alpha, cutLine) {
+  var p1 = _elHoldParts(s, alpha, cutLine, false);
+  var exp = s.hold2Exp;
+  var p2 = (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
+  var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#aaa" };
+  var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
+  var _c = function(k, node, ta, extra) { return React.createElement("td", { key: k, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: ta || "center" }, extra || {}) }, node != null ? node : null); };
+  var _row = function(rk, expNode, p, dim) {
+    return React.createElement("tr", { key: rk, style: dim ? { color: "#aaa", opacity: 0.7 } : null },
+      _c("e", expNode, "center", { paddingRight: 2, fontWeight: 800 }),
+      _c("hi", p && p.high, "right"),
+      _c("ar", p && p.width ? _sep("→") : null, "center"),
+      _c("wd", p && p.width, "right"),
+      _c("s1", p && p.acmp ? _sep("/") : null, "center"),
+      _c("ac", p && p.acmp, "right"),
+      _c("s2", p && p.pnl ? _sep("/") : null, "center"),
+      _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left"));
+  };
+  var rows = [ _row("h1", null, p1, false) ];
+  var h2exp = exp ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
+  rows.push(_row("h2", h2exp, p2, exp === "×"));
+  return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.4 } }, React.createElement("tbody", null, rows));
+}
+// 明細表(フロー表示)用: H列を1セルに統合(H1上/H2下)。colSpan:2で旧2列分の幅を占有し他のcolSpanは不変。
+function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
+  return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, _elHoldStackInner(s, alpha, cutLine), capNote || null) ];
+}
+// 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
 function _elHoldSumTd2(sumH1, sumH2, tdStyle) {
   var _f = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
   return [

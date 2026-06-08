@@ -4443,22 +4443,25 @@ function EntrySignalSection(_ref_es) {
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
             ),
-            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              _esTotHoldCnt > 0
-                ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } },
-                    React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
-                      _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
-                      _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
-                    ),
-                    (_esTotHoldPlanStopDiff && _esTotHoldActual != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（"), _esBadge(_profitGradeFromPnl(_esTotHoldActual, _esTotHoldCnt)), React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, _esTotHoldActual.toLocaleString() + "円）")) : null
-                  )
-                : React.createElement("span", { style: { color: "#ccc" } }, "—")
-            ),
-            React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              _esTotHold2Cnt > 0
-                ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 600, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + (_esTotHold2 || 0).toLocaleString() + "円"))
-                : React.createElement("span", { style: { color: "#ccc" } }, "—")
-            ),
+            React.createElement("td", { colSpan: 2, style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("div", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center" } },
+                React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 3 } }, "①"),
+                _esTotHoldCnt > 0
+                  ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } },
+                      React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+                        _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
+                        _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
+                      ),
+                      (_esTotHoldPlanStopDiff && _esTotHoldActual != null) ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", lineHeight: 1.2, marginTop: 1 } }, React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, "（"), _esBadge(_profitGradeFromPnl(_esTotHoldActual, _esTotHoldCnt)), React.createElement("span", { style: { fontSize: 11, color: "#333", fontWeight: 700 } }, _esTotHoldActual.toLocaleString() + "円）")) : null
+                    )
+                  : React.createElement("span", { style: { color: "#ccc" } }, "—")
+              ),
+              React.createElement("div", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", marginTop: 2, paddingTop: 2, borderTop: "1px dotted #f0d8c0" } },
+                React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 3 } }, "②"),
+                _esTotHold2Cnt > 0
+                  ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 600, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + (_esTotHold2 || 0).toLocaleString() + "円"))
+                  : React.createElement("span", { style: { color: "#ccc" } }, "—")
+              )),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esTotRealCnt > 0 ? _esRPnlDisp(_esTotReal, _esTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),
@@ -4658,7 +4661,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("確定値", { width: 58 }),
                   _esTh("α値比値幅", { width: 54 }),
                   _esTh("結果/想定損益", { width: 116 }),
-                  _esTh("H１"), _esTh("H２"),
+                  React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"),
                   _esTh("実現損益", { width: 90 }),
                   isCustomMode ? _esTh("並替", { width: 40 }) : null
                 )
