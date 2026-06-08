@@ -4113,7 +4113,7 @@ function EntrySignalSection(_ref_es) {
     var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
     var pp = (function() {
       var _stored = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-      var _avS = c.alphaVal != null ? c.alphaVal : 10;
+      var _avS = c.alphaVal != null ? c.alphaVal : _gradeAlpha(s.difficulty);
       if (s.osVal != null) {
         var _cutLSum = c.cutLine != null ? c.cutLine : 10;
         var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -4127,7 +4127,7 @@ function EntrySignalSection(_ref_es) {
     var mp = pp;
     var _enteredTot = _elIsEntered(s, rIt);
     var hp = (function() {
-      var _avH = c.alphaVal != null ? c.alphaVal : 10;
+      var _avH = c.alphaVal != null ? c.alphaVal : _gradeAlpha(s.difficulty);
       var _cutLhp = c.cutLine != null ? c.cutLine : 10;
       // 行表示と一致させる: _elDynHold が値を返す行のみ合計に算入する。
       // miss(OS値<α)かつ見送りでも H高値がα到達なら _elDynHold は実損益を返す（→算入）。H高値未到達なら null（→除外）。
@@ -4142,7 +4142,7 @@ function EntrySignalSection(_ref_es) {
     if (ppN != null) { _esTotPlan = (_esTotPlan || 0) + ppN; _esTotPlanCnt++; }
     if (mpN != null) { _esTotMax  = (_esTotMax  || 0) + mpN; _esTotMaxCnt++; }
     // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
-    var _planStopTot = _elPlanIsStop(s, c.alphaVal != null ? c.alphaVal : 10, c.cutLine != null ? c.cutLine : 10);
+    var _planStopTot = _elPlanIsStop(s, c.alphaVal != null ? c.alphaVal : _gradeAlpha(s.difficulty), c.cutLine != null ? c.cutLine : 10);
     var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
     if (hpN != null) {
       _esTotHold = (_esTotHold || 0) + _hCapN;
@@ -4332,7 +4332,7 @@ function EntrySignalSection(_ref_es) {
       React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
       React.createElement("input", {
         type: "number", inputMode: "numeric", step: "1", min: "0", max: "30",
-        value: c.alphaVal != null ? String(c.alphaVal) : "10",
+        value: c.alphaVal != null ? String(c.alphaVal) : "",
         onChange: function(e) {
           var v = e.target.value;
           var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
@@ -4372,7 +4372,7 @@ function EntrySignalSection(_ref_es) {
             return Object.assign({}, prev, { charts: pCharts });
           });
         },
-        placeholder: "0",
+        placeholder: "各記録",
         style: { width: 80, padding: "5px 4px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
       }),
       _stepBtn(
@@ -4387,23 +4387,6 @@ function EntrySignalSection(_ref_es) {
             var pCharts = Object.assign({}, (prev && prev.charts) || {});
             var _ce = Object.assign({}, pCharts[ck] || {});
             delete _ce.alphaVal;
-            if (Array.isArray(_ce.signals)) {
-              var _cutLReset = _ce.cutLine != null ? _ce.cutLine : 10;
-              _ce.signals = _ce.signals.map(function(s) {
-                if (s.osVal == null) return s;
-                var _osV = Number(s.osVal), _n = 5;
-                var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-                var _diff = _osV - _n;
-                var _pnl = null;
-                if (_diff < 0) _pnl = 0;
-                else if (_diff >= _cutLReset) _pnl = -Math.round(_diff * 100);
-                else if (_conf != null) _pnl = Math.round((_n - _conf) * 100);
-                var _updSig = s;
-                if (_pnl != null) { var _sg = _pnl >= 0 ? "+" : "-"; _updSig = Object.assign({}, s, { plannedPnl: Math.abs(_pnl), plannedPnlSign: _sg, maxPnl: Math.abs(_pnl), maxPnlSign: _sg }); }
-                if (s.holdOsConf != null) { var _hw = _n - Number(s.holdOsConf); var _hwSg = _hw >= 0 ? "+" : "-"; var _hp = Math.round((_n + _hw) * 100); _updSig = Object.assign({}, _updSig, { holdWidthSign: _hwSg, holdWidth: Math.abs(_hw), holdPnl: Math.abs(_hp), holdPnlSign: _hp >= 0 ? "+" : "-" }); }
-                return _updSig;
-              });
-            }
             pCharts[ck] = _ce;
             return Object.assign({}, prev, { charts: pCharts });
           });
@@ -4529,7 +4512,7 @@ function EntrySignalSection(_ref_es) {
             var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
             
             if (s.osVal != null) {
-              var _avDyn = c.alphaVal != null ? c.alphaVal : 10;
+              var _avDyn = c.alphaVal != null ? c.alphaVal : _gradeAlpha(s.difficulty);
               var _osVDyn = Number(s.osVal);
               var _cutLDyn = c.cutLine != null ? c.cutLine : 10;
               var _confDyn = s.osConfVal != null
@@ -4552,7 +4535,7 @@ function EntrySignalSection(_ref_es) {
             
             
             var _holdPnlDyn = _elSignedVal(s.holdPnl, s.holdPnlSign);
-            var _avH = c.alphaVal != null ? c.alphaVal : 10;
+            var _avH = c.alphaVal != null ? c.alphaVal : _gradeAlpha(s.difficulty);
             var _cutLH = c.cutLine != null ? c.cutLine : 10;
             if (_avH != null) { _holdPnlDyn = _elDynHold(s, _avH, _cutLH); }
             var _holdIsUnrecorded = s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null;
@@ -4562,7 +4545,7 @@ function EntrySignalSection(_ref_es) {
             
             var _dynResult = (function() {
               if (s.osVal == null || Number(s.osVal) < 0) return null;
-              var _av = (c.alphaVal != null ? c.alphaVal : 10), _osV = Number(s.osVal), _diff = _osV - _av;
+              var _av = (c.alphaVal != null ? c.alphaVal : _gradeAlpha(s.difficulty)), _osV = Number(s.osVal), _diff = _osV - _av;
               if (_diff < 0) return "miss";
               if (_diff >= (c.cutLine != null ? c.cutLine : 10)) return "ng";
               if (s.osConfVal == null || s.osConfVal === "") return null;
@@ -4643,7 +4626,7 @@ function EntrySignalSection(_ref_es) {
                   (function() {
                     if (s.osConfVal == null) return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
                     var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
-                    var _ew = (c.alphaVal != null ? c.alphaVal : 10) - _cf;
+                    var _ew = (c.alphaVal != null ? c.alphaVal : _gradeAlpha(s.difficulty)) - _cf;
                     if (_ew === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
                     var _ewAbs = Math.abs(_ew);
                     return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
@@ -4670,7 +4653,7 @@ function EntrySignalSection(_ref_es) {
                   (function() {
                     if (s.holdWidth == null || s.holdWidth === "") return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
                     var _hcf = s.holdWidthSign === "-" ? Number(s.holdWidth) : s.holdWidthSign === "+" ? -Number(s.holdWidth) : 0;
-                    var _ewH = (c.alphaVal != null ? c.alphaVal : 10) - _hcf;
+                    var _ewH = (c.alphaVal != null ? c.alphaVal : _gradeAlpha(s.difficulty)) - _hcf;
                     if (_ewH === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
                     var _ewHAbs = Math.abs(_ewH);
                     return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: _ewHAbs >= 10 ? 700 : 600 } }, (_ewH > 0 ? "\u2193" : "\u2191") + _ewHAbs);
@@ -4753,7 +4736,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("難", { width: 38 }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: 52 } },
                     "OS値",
-                    React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + (c.alphaVal != null ? c.alphaVal : 10) + "円")
+                    React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + (c.alphaVal != null ? c.alphaVal + "円" : "各記録"))
                   ),
                   _esTh("確定値", { width: 58 }),
                   _esTh("α値比値幅", { width: 54 }),

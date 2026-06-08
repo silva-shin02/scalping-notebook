@@ -4099,7 +4099,7 @@ function DayView(_ref57) {
       _pbAllEnt  += _pbEntByStk[sk];
     });
     var _pbAll = _elCalcStats(_pbAllRecs);
-    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0; (recs || []).forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : 10); var _cutLOkNg = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var dynR = null; if (_aR != null && s.osVal != null && Number(s.osVal) >= 0) { var _dv = Number(s.osVal) - _aR; if (_dv < 0) dynR = "miss"; else if (_dv >= _cutLOkNg) dynR = "ng"; else if (s.osConfVal != null && s.osConfVal !== "") { var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; dynR = _cf < _aR ? "ok" : _cf === _aR ? "draw" : "ng"; } } var res = dynR !== null ? dynR : s.result; if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
+    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0; (recs || []).forEach(function(r) { var s = r.signal; var _cR = _pbCharts[r.stock + "_" + date]; var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : _gradeAlpha(s.difficulty)); var _cutLOkNg = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10); var dynR = null; if (_aR != null && s.osVal != null && Number(s.osVal) >= 0) { var _dv = Number(s.osVal) - _aR; if (_dv < 0) dynR = "miss"; else if (_dv >= _cutLOkNg) dynR = "ng"; else if (s.osConfVal != null && s.osConfVal !== "") { var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; dynR = _cf < _aR ? "ok" : _cf === _aR ? "draw" : "ng"; } } var res = dynR !== null ? dynR : s.result; if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
     var _pbFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
     var _pbCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _pbTh = function(label, extra) {
@@ -4217,7 +4217,7 @@ function DayView(_ref57) {
           color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
           rowKey ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶") : null,
           label,
-          !isTotal && (function() { var _avc = _pbCharts[rowKey + "_" + date]; var _av = _avc && _avc.alphaVal != null ? _avc.alphaVal : 10; return _av != null ? React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, "α:" + _av + "円") : null; })(),
+          !isTotal && (function() { var _avc = _pbCharts[rowKey + "_" + date]; var _av = _avc && _avc.alphaVal != null ? _avc.alphaVal : null; return React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, "α:" + (_av != null ? _av + "円" : "各記録")); })(),
           isExp ? React.createElement("button", {
             onClick: function(e) { e.stopPropagation(); setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); delete n[keyRef]; return n; }); },
             style: { marginLeft: 6, fontSize: 10, padding: "1px 5px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#666", lineHeight: 1.3, verticalAlign: "middle" }
@@ -4243,7 +4243,7 @@ function DayView(_ref57) {
             var _dynSP = null, _dynSPAB = null;
             (recs || []).forEach(function(r) {
               var s = r.signal;
-              var _cD = _pbCharts[r.stock + "_" + date]; var _aD = pbSimAlpha !== null ? pbSimAlpha : (_cD && _cD.alphaVal != null ? _cD.alphaVal : 10);
+              var _cD = _pbCharts[r.stock + "_" + date]; var _aD = pbSimAlpha !== null ? pbSimAlpha : (_cD && _cD.alphaVal != null ? _cD.alphaVal : _gradeAlpha(s.difficulty));
               var _cutLpbD = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cD && _cD.cutLine != null ? _cD.cutLine : 10);
               var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
               if (_aD != null && s.osVal != null) {
@@ -4264,7 +4264,7 @@ function DayView(_ref57) {
             recs.forEach(function(r) {
               var s = r.signal;
               var _cR = _pbCharts[r.stock + "_" + date];
-              var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : 10);
+              var _aR = pbSimAlpha !== null ? pbSimAlpha : (_cR && _cR.alphaVal != null ? _cR.alphaVal : _gradeAlpha(s.difficulty));
               var _cutLR = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (_cR && _cR.cutLine != null ? _cR.cutLine : 10);
               var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign);
               if (hp == null) return;
@@ -4359,7 +4359,7 @@ function DayView(_ref57) {
         var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
         var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
         
-        var _alphaRec = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : 10; })();
+        var _alphaRec = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : _gradeAlpha(r.signal && r.signal.difficulty); })();
         var _cutLrec = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _cR2 = _pbCharts[r.stock + "_" + date]; return _cR2 && _cR2.cutLine != null ? _cR2.cutLine : 10; })();
         if (_alphaRec != null && s.osVal != null) {
           var _confR = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -4508,7 +4508,7 @@ function DayView(_ref57) {
             React.createElement("td", { colSpan: 15, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
               React.createElement(EntryLogCard, {
                 record: r,
-                alpha: (pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : 10; })()),
+                alpha: (pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : _gradeAlpha(r.signal && r.signal.difficulty); })()),
                 cutLine: ((pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.cutLine != null ? _c.cutLine : 10; })()),
                 onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); }
               })
@@ -4636,7 +4636,7 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap", flexShrink: 0 } }, "銘柄別"),
             _pbStks.map(function(sk) {
               var _skCk = sk + "_" + date;
-              var _skAlpha = (_pbCharts[_skCk] && _pbCharts[_skCk].alphaVal != null) ? _pbCharts[_skCk].alphaVal : 10;
+              var _skAlpha = (_pbCharts[_skCk] && _pbCharts[_skCk].alphaVal != null) ? _pbCharts[_skCk].alphaVal : null;
               var _saveSkAlpha = function(n) {
                 save(function(prev) {
                   var pCharts = Object.assign({}, (prev && prev.charts) || {});
@@ -4668,7 +4668,8 @@ function DayView(_ref57) {
                 React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
                   React.createElement("input", {
                     type: "number", inputMode: "numeric", step: "1",
-                    value: String(_skAlpha),
+                    value: _skAlpha != null ? String(_skAlpha) : "",
+                    placeholder: "各記録",
                     onChange: function(e) { var v = e.target.value; _saveSkAlpha(v === "" ? null : isNaN(Number(v)) ? null : Number(v)); },
                     style: { width: 52, padding: "3px 4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
                   }),
@@ -4793,7 +4794,7 @@ function DayView(_ref57) {
                 var s = r.signal;
                 var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
                 var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
-                var _aW = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : 10; })();
+                var _aW = pbSimAlpha !== null ? pbSimAlpha : (function(){ var _c = _pbCharts[r.stock + "_" + date]; return _c && _c.alphaVal != null ? _c.alphaVal : _gradeAlpha(r.signal && r.signal.difficulty); })();
                 var _cutLW = (pbSimAlpha !== null && pbSimCutLine !== null) ? pbSimCutLine : (function(){ var _cR3 = _pbCharts[r.stock + "_" + date]; return _cR3 && _cR3.cutLine != null ? _cR3.cutLine : 10; })();
                 if (_aW != null && s.osVal != null) {
                   var _cW = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -5058,9 +5059,9 @@ function DayView(_ref57) {
                   var winPct=tot>0?Math.round((d.yes+d.mid)/tot*100):null;
                   var ev=d.hpArr.length?Math.round(d.hpArr.reduce(function(a,b){return a+b;},0)/d.hpArr.length):null;
                   var hwAvg=d.hwArr.length?Math.round(d.hwArr.reduce(function(a,b){return a+b;},0)/d.hwArr.length*10)/10:null;
-                  var _cav=(function(){var _cc=_pbCharts[sk+"_"+date];return _cc&&_cc.alphaVal!=null?_cc.alphaVal:10;})();
+                  var _cav=(function(){var _cc=_pbCharts[sk+"_"+date];return _cc&&_cc.alphaVal!=null?_cc.alphaVal:null;})();
                   return React.createElement("tr",{key:sk},
-                    _tdHA(React.createElement("span",{style:{fontWeight:700,color:"#9A3412"}},sk,_cav!=null?React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#0369A1",marginLeft:4}},"α:"+_cav+"円"):null),{textAlign:"left",whiteSpace:"nowrap"}),
+                    _tdHA(React.createElement("span",{style:{fontWeight:700,color:"#9A3412"}},sk,React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#0369A1",marginLeft:4}},"α:"+(_cav!=null?_cav+"円":"各記録"))),{textAlign:"left",whiteSpace:"nowrap"}),
                     _tdHA(tot),
                     _tdHA(React.createElement("span",{style:{color:"#1E8449",fontWeight:d.yes?700:400}},d.yes||0)),
                     _tdHA(React.createElement("span",{style:{color:"#B45309",fontWeight:d.mid?700:400}},d.mid||0)),
