@@ -3386,8 +3386,9 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
   } else if (res === "miss") { miss = true; pnl = React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "ー"); }
   return { high: high, width: width, acmp: acmp, pnl: pnl, miss: miss, hasAny: !!(high || width || acmp || pnl) };
 }
-// 明細表用: H1(上)/H2(下)を内部2行テーブルで縦揃え。左端に①②でH1/H2を明示。H2行は期待度(○/△/×)→内容。
-// H2が×のときは内容(期待度除く)を（）で一括りにし、開き/閉じ括弧を専用列に置いて他行と桁を揃える。×でも色は薄くしない。
+// 明細表用: H1(上)/H2(下)を内部2行テーブルで縦揃え。列幅を固定(tableLayout:fixed)し記録間でも桁が揃う。
+// 左端に「H１」「H２」を表記。H1/H2間に区切り横線。H2行は期待度(○/△/×)→内容。
+// ×は内容(期待度除く)を（）で一括り・開き/閉じ括弧を専用列に置いて桁揃え。×でも色は薄くしない。
 function _elHoldStackInner(s, alpha, cutLine) {
   var p1 = _elHoldParts(s, alpha, cutLine, false);
   var exp = s.hold2Exp;
@@ -3395,25 +3396,26 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
   var _paren = function(ch) { return React.createElement("span", { style: { color: "#888" } }, ch); };
-  var _c = function(k, node, ta, extra) { return React.createElement("td", { key: k, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: ta || "center" }, extra || {}) }, node != null ? node : null); };
-  var _row = function(rk, lblNode, expNode, p, paren) {
+  var _c = function(k, node, ta, w, extra) { return React.createElement("td", { key: k, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: ta || "center", width: w, overflow: "visible" }, extra || {}) }, node != null ? node : null); };
+  var _row = function(rk, lblNode, expNode, p, paren, topB) {
+    var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
     return React.createElement("tr", { key: rk },
-      _c("lbl", lblNode, "center", { fontSize: 8, color: "#bbb", fontWeight: 700, paddingRight: 2 }),
-      _c("e", expNode, "center", { paddingRight: 1, fontWeight: 800 }),
-      _c("op", paren ? _paren("（") : null, "center"),
-      _c("hi", p && p.high, "right"),
-      _c("ar", p && p.width ? _sep("→") : null, "center"),
-      _c("wd", p && p.width, "right"),
-      _c("s1", p && p.acmp ? _sep("/") : null, "center"),
-      _c("ac", p && p.acmp, "right"),
-      _c("s2", p && p.pnl ? _sep("/") : null, "center"),
-      _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left"),
-      _c("cp", paren ? _paren("）") : null, "center"));
+      _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
+      _c("e", expNode, "center", 14, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
+      _c("op", paren ? _paren("（") : null, "center", 10, bt),
+      _c("hi", p && p.high, "right", 30, bt),
+      _c("ar", p && p.width ? _sep("→") : null, "center", 13, bt),
+      _c("wd", p && p.width, "right", 30, bt),
+      _c("s1", p && p.acmp ? _sep("/") : null, "center", 8, bt),
+      _c("ac", p && p.acmp, "right", 42, bt),
+      _c("s2", p && p.pnl ? _sep("/") : null, "center", 8, bt),
+      _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", 86, bt),
+      _c("cp", paren ? _paren("）") : null, "center", 10, bt));
   };
-  var rows = [ _row("h1", "①", null, p1, false) ];
+  var rows = [ _row("h1", "H１", null, p1, false, false) ];
   var h2exp = exp ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
-  rows.push(_row("h2", "②", h2exp, p2, exp === "×"));
-  return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.4 } }, React.createElement("tbody", null, rows));
+  rows.push(_row("h2", "H２", h2exp, p2, exp === "×", true));
+  return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: 273 } }, React.createElement("tbody", null, rows));
 }
 // 明細表(フロー表示)用: H列を1セルに統合(H1上/H2下)。colSpan:2で旧2列分の幅を占有し他のcolSpanは不変。
 function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
@@ -4946,20 +4948,34 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
       
-      React.createElement("div", { style: { marginBottom: 8 } },
-        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "想定損益（100株換算）"),
-        _fMiss ? _fMissEl : React.createElement("span", {
-          style: {
-            display: "inline-block", padding: "5px 14px",
-            fontSize: 15, fontWeight: 800,
-            color: fPlanSign === "+" ? "#C0392B" : fPlanSign === "-" ? "#1E8449" : "#555",
-            background: fPlanSign === "+" ? "#FCEBEB" : fPlanSign === "-" ? "#EAF3DE" : "#f5f5f5",
-            borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#F5B7B1" : fPlanSign === "-" ? "#A9DFBF" : "#ddd"),
-            minWidth: 80, textAlign: "right"
-          }
-        }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—"),
-        (!_fMiss && Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine)
-          ? _elCapNote(_fCutLine, { fontSize: 15, circle: 16, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
+      React.createElement("div", { style: { display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 8, flexWrap: "wrap" } },
+        React.createElement("div", null,
+          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "想定損益（100株換算）"),
+          _fMiss ? _fMissEl : React.createElement("span", {
+            style: {
+              display: "inline-block", padding: "5px 14px",
+              fontSize: 15, fontWeight: 800,
+              color: fPlanSign === "+" ? "#C0392B" : fPlanSign === "-" ? "#1E8449" : "#555",
+              background: fPlanSign === "+" ? "#FCEBEB" : fPlanSign === "-" ? "#EAF3DE" : "#f5f5f5",
+              borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#F5B7B1" : fPlanSign === "-" ? "#A9DFBF" : "#ddd"),
+              minWidth: 80, textAlign: "right"
+            }
+          }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—"),
+          (!_fMiss && Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine)
+            ? _elCapNote(_fCutLine, { fontSize: 15, circle: 16, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
+        ),
+        React.createElement("div", { style: { flex: 1, minWidth: 200 } },
+          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "メモ"),
+          React.createElement(FastInput, {
+            multiline: true,
+            autoResize: true,
+            value: fRationale,
+            onChange: function(v) { setFRationale(v); },
+            placeholder: "",
+            rows: 2,
+            style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56 })
+          })
+        )
       ),
 
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
@@ -5454,16 +5470,6 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
       
-      React.createElement("div", { style: SH_ }, "\u30A8\u30F3\u30C8\u30EA\u30FC\u6839\u62E0"),
-      React.createElement(FastInput, {
-        multiline: true,
-        autoResize: true,
-        value: fRationale,
-        onChange: function(v) { setFRationale(v); },
-        placeholder: "",
-        rows: 2,
-        style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56 })
-      }),
       React.createElement("div", { style: SH_ }, "\u53CD\u7701\u30FB\u30E1\u30E2"),
       React.createElement(FastInput, {
         multiline: true,
