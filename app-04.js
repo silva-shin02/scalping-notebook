@@ -4322,7 +4322,7 @@ function DayView(_ref57) {
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
                 _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")), _wkTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")), _wkTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
-                _wkTh("平均OS値"), _wkTh("想定損益"), _wkTh("H①結果損益"), _wkTh("H②結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
+                _wkTh("平均OS値"), _wkTh("想定損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
               )
             ),
             React.createElement("tbody", null,
@@ -5287,8 +5287,8 @@ function DayView(_ref57) {
               _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達"), { width: 40 }),
               _pbTh(React.createElement("span", null, "平均", React.createElement("span", { style: { display: "block" } }, "OS値")), { width: 50 }),
               _pbTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
-              _pbTh(React.createElement("span", null, "H①損益"), { width: 78 }),
-              _pbTh(React.createElement("span", null, "H②損益"), { width: 78 }),
+              _pbTh(React.createElement("span", null, "H１損益"), { width: 78 }),
+              _pbTh(React.createElement("span", null, "H２損益"), { width: 78 }),
               _pbTh("実現損益", { width: 80 }),
               _pbTh("タグ", { width: 120, textAlign: "left" })
             )

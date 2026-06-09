@@ -4406,7 +4406,7 @@ function EntrySignalSection(_ref_es) {
           : React.createElement("span", { style: { color: "#ccc" } }, "—")
       ),
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-        "H①結果損益: ",
+        "H１結果損益: ",
         _esTotHoldCnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
               _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
@@ -4416,7 +4416,7 @@ function EntrySignalSection(_ref_es) {
           : React.createElement("span", { style: { color: "#ccc" } }, "—")
       ),
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-        "H②結果損益: ",
+        "H２結果損益: ",
         _esTotHold2Cnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 700, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + _esTotHold2.toLocaleString() + "円"))
           : React.createElement("span", { style: { color: "#ccc" } }, "—")

@@ -522,7 +522,7 @@ function EntryLogView(_ref_elv) {
                 _drTh(React.createElement("span", { style: { color: "#6B7280" } }, "△")),
                 _drTh(React.createElement("span", { style: { color: "#C0392B" } }, "×")),
                 _drTh(React.createElement("span", { style: { color: "#B45309" } }, "ー")),
-                _drTh("勝率"), _drTh("想定利益"), _drTh("H①利益"), _drTh("H②利益")
+                _drTh("勝率"), _drTh("想定利益"), _drTh("H１利益"), _drTh("H２利益")
               )),
               React.createElement("tbody", null, _diffResKeys.map(function(k) {
                 var m = _diffResMap[k]; var _wd = m.ok + m.ng; var _wp = _wd > 0 ? Math.round(m.ok / _wd * 100) : null;
@@ -1954,11 +1954,11 @@ function EntryLogView(_ref_elv) {
               React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株)")
             ),
             React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%" } },
-              React.createElement("div", null, "H①損益"),
+              React.createElement("div", null, "H１損益"),
               React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(α比100株)")
             ),
             React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%" } },
-              React.createElement("div", null, "H②損益"),
+              React.createElement("div", null, "H２損益"),
               React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(○/△)")
             ),
             _tTh("実現損益"),
@@ -2160,13 +2160,13 @@ function EntryLogView(_ref_elv) {
                   ),
                   React.createElement("div", null,
                     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } },
-                      "H①結果損益合計（" + _sTotHoldCnt + "件）",
+                      "H１結果損益合計（" + _sTotHoldCnt + "件）",
                       _sHoldUnrec > 0 ? React.createElement("span", { style: { color: "#aaa", marginLeft: 4 } }, "※" + _sHoldUnrec + "件未記録") : null
                     ),
                     _pAB2(_sTotHoldCapAB, _sTotHoldCapAll)
                   ),
                   React.createElement("div", null,
-                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "H②結果損益合計（" + _sTotHold2Cnt + "件・○/△）"),
+                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "H２結果損益合計（" + _sTotHold2Cnt + "件・○/△）"),
                     _sTotHold2 != null ? React.createElement("span", { style: { fontWeight: 700, color: _sTotHold2 > 0 ? "#C0392B" : _sTotHold2 < 0 ? "#1E8449" : "#888" } }, (_sTotHold2 > 0 ? "+" : "") + _sTotHold2.toLocaleString() + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")
                   ),
                   React.createElement("div", null,
@@ -2221,11 +2221,11 @@ function EntryLogView(_ref_elv) {
                       React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
                     ),
                     React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
-                      React.createElement("div", null, "H①損益"),
+                      React.createElement("div", null, "H１損益"),
                       React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(α比100株)")
                     ),
                     React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
-                      React.createElement("div", null, "H②損益"),
+                      React.createElement("div", null, "H２損益"),
                       React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(○/△)")
                     ),
                     _tTh("実現損益")
@@ -2275,11 +2275,11 @@ function EntryLogView(_ref_elv) {
                       React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
                     ),
                     React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
-                      React.createElement("div", null, "H①損益"),
+                      React.createElement("div", null, "H１損益"),
                       React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(α比100株)")
                     ),
                     React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
-                      React.createElement("div", null, "H②損益"),
+                      React.createElement("div", null, "H２損益"),
                       React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(○/△)")
                     ),
                     _tTh("H勝敗"),
@@ -2719,11 +2719,11 @@ function EntryLogView(_ref_elv) {
           React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(100株あたり)")
         ),
         React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
-          React.createElement("div", null, "H①損益"),
+          React.createElement("div", null, "H１損益"),
           React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(α比100株)")
         ),
         React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center" } },
-          React.createElement("div", null, "H②損益"),
+          React.createElement("div", null, "H２損益"),
           React.createElement("div", { style: { fontWeight: 400, fontSize: 9, color: "#888" } }, "(○/△)")
         ),
         _svTh("実現損益"),
@@ -3349,7 +3349,7 @@ function EntryLogView(_ref_elv) {
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
-                _hh(opts.headLabel, { textAlign: "left", paddingLeft: 8 }), _hh("件"), _hh("勝率"), _hh("E未達"), _hh("平均OS値"), _hh("平均確定値"), _hh("想定損益"), _hh("H①損益"), _hh("H②損益"), _hh("期待値")
+                _hh(opts.headLabel, { textAlign: "left", paddingLeft: 8 }), _hh("件"), _hh("勝率"), _hh("E未達"), _hh("平均OS値"), _hh("平均確定値"), _hh("想定損益"), _hh("H１損益"), _hh("H２損益"), _hh("期待値")
               )
             ),
             React.createElement("tbody", null,
@@ -4496,10 +4496,10 @@ function EntryLogView(_ref_elv) {
             React.createElement("span", { style: { color: "#888" } }, "1日平均 想定損益 "),
             React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgPlanDay) } }, _avgFmt(_avgPlanDay))),
           React.createElement("div", null,
-            React.createElement("span", { style: { color: "#888" } }, "1日平均 H①結果損益 "),
+            React.createElement("span", { style: { color: "#888" } }, "1日平均 H１結果損益 "),
             React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgHoldDay) } }, _avgFmt(_avgHoldDay))),
           React.createElement("div", null,
-            React.createElement("span", { style: { color: "#888" } }, "1日平均 H②結果損益 "),
+            React.createElement("span", { style: { color: "#888" } }, "1日平均 H２結果損益 "),
             React.createElement("span", { style: { fontWeight: 800, color: _avgCol(_avgHold2Day) } }, _avgHold2Day != null ? _avgFmt(_avgHold2Day) : "—")),
           React.createElement("div", null,
             React.createElement("span", { style: { color: "#888" } }, "1日平均 実現損益 "),
