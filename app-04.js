@@ -3035,24 +3035,6 @@ function DayView(_ref57) {
     pnlSortOrder = _useStatePSOA[0],
     setPnlSortOrder = _useStatePSOA[1];
   
-  var _uPbSim = useState(null), _uPbSimA = _slicedToArray(_uPbSim, 2),
-    pbSimAlpha = _uPbSimA[0], setPbSimAlpha = _uPbSimA[1];
-  var _uPbSimCL = useState(null), _uPbSimCLA = _slicedToArray(_uPbSimCL, 2),
-    pbSimCutLine = _uPbSimCLA[0], setPbSimCutLine = _uPbSimCLA[1];
-  var _uPbAMode = useState("all"), _uPbAModeA = _slicedToArray(_uPbAMode, 2),
-    pbAlphaMode = _uPbAModeA[0], setPbAlphaMode = _uPbAModeA[1];
-  // 銘柄別の一括αシミュレーション（保存しない）。{銘柄: α}。null/未設定=各記録の採用α値
-  var _uPbSimBS = useState({}), _uPbSimBSA = _slicedToArray(_uPbSimBS, 2),
-    pbSimAlphaByStock = _uPbSimBSA[0], setPbSimAlphaByStock = _uPbSimBSA[1];
-  // 今週の損益データ用の一括αシミュレーション（日次とは独立・保存しない）
-  var _uWkSim = useState(null), _uWkSimA = _slicedToArray(_uWkSim, 2),
-    wkSimAlpha = _uWkSimA[0], setWkSimAlpha = _uWkSimA[1];
-  var _uWkSimCL = useState(null), _uWkSimCLA = _slicedToArray(_uWkSimCL, 2),
-    wkSimCutLine = _uWkSimCLA[0], setWkSimCutLine = _uWkSimCLA[1];
-  var _uWkAMode = useState("all"), _uWkAModeA = _slicedToArray(_uWkAMode, 2),
-    wkAlphaMode = _uWkAModeA[0], setWkAlphaMode = _uWkAModeA[1];
-  var _uWkSimBS = useState({}), _uWkSimBSA = _slicedToArray(_uWkSimBS, 2),
-    wkSimAlphaByStock = _uWkSimBSA[0], setWkSimAlphaByStock = _uWkSimBSA[1];
   // 今週の損益データの週送り（表示中の日付が属する週からのオフセット）
   var _uWkOff = useState(0), _uWkOffA = _slicedToArray(_uWkOff, 2),
     wkWeekOffset = _uWkOffA[0], setWkWeekOffset = _uWkOffA[1];
@@ -4059,15 +4041,12 @@ function DayView(_ref57) {
     var _pbRealByStk = {}; 
     var _pbEntByStk = {};  
     var _pbCharts = data.charts || {};
-    // α解決: pbSimAlpha(全銘柄一括試算) > pbSimAlphaByStock(銘柄別試算) > signal.alphaVal(各記録の採用α値) > 予想OS度
+    // α解決: signal.alphaVal(各記録の採用α値) > 予想OS度
     var _pbAlphaOf = function(r) {
-      if (pbSimAlpha !== null) return pbSimAlpha;
-      if (pbSimAlphaByStock && pbSimAlphaByStock[r.stock] != null) return pbSimAlphaByStock[r.stock];
       var s = r.signal;
-      return s && s.alphaVal != null ? s.alphaVal : _gradeAlpha(s && s.difficulty);
+      return s && s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty);
     };
     var _pbCutOf = function(r) {
-      if (pbSimAlpha !== null && pbSimCutLine !== null) return pbSimCutLine;
       var _c = _pbCharts[r.stock + "_" + date];
       return _c && _c.cutLine != null ? _c.cutLine : 10;
     };
@@ -4349,20 +4328,15 @@ function DayView(_ref57) {
       });
       _wkByDay[_wd] = _arr;
     });
-    // 週用α解決（日次simと独立・r.date基準）: wkSimAlpha(全銘柄) > wkSimAlphaByStock(銘柄別) > signal.alphaVal > 予想OS度
+    // 週用α解決（r.date基準）: signal.alphaVal > 予想OS度
     var _wkAlphaOf = function(r) {
-      if (wkSimAlpha !== null) return wkSimAlpha;
-      if (wkSimAlphaByStock && wkSimAlphaByStock[r.stock] != null) return wkSimAlphaByStock[r.stock];
       var s = r.signal;
-      return s && s.alphaVal != null ? s.alphaVal : _gradeAlpha(s && s.difficulty);
+      return s && s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty);
     };
     var _wkCutOf = function(r) {
-      if (wkSimAlpha !== null && wkSimCutLine !== null) return wkSimCutLine;
       var _c = _pbCharts[r.stock + "_" + r.date];
       return _c && _c.cutLine != null ? _c.cutLine : 10;
     };
-    var _wkSimResolve = function(r) { return { alpha: _wkAlphaOf(r), cutLine: _wkCutOf(r) }; };
-    var _wkSimActive = (wkSimAlpha !== null) || (wkSimAlphaByStock && Object.keys(wkSimAlphaByStock).length > 0);
     var _wkMainEl = (function() {
       var _DOWJP = ["日", "月", "火", "水", "木", "金", "土"];
       var _wkBadge = function(g) {
@@ -4396,7 +4370,7 @@ function DayView(_ref57) {
         return out.slice(0, 6);
       };
       var _wkRow = function(label, labelColor, recs, isTotal, rowKey) {
-        var st = _elCalcStats(recs, data, _wkSimResolve);
+        var st = _elCalcStats(recs, data);
         var _ent = _wkEntCnt(recs);
         var _osv = _wkAvgOs(recs);
         var _isExp = !!pnlTableExpandSet[rowKey];
@@ -4508,49 +4482,6 @@ function DayView(_ref57) {
         if (tgtA == null && maxA != null) tgtA = maxA;
         _wkIdealByStk[sk] = { minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA, minProfit: minA != null ? calcProfit(minA) : null, tgtProfit: tgtA != null ? calcProfit(tgtA) : null, maxProfit: maxA != null ? calcProfit(maxA) : null, minHold: minA != null ? calcHold(minA) : null, tgtHold: tgtA != null ? calcHold(tgtA) : null, maxHold: maxA != null ? calcHold(maxA) : null };
       });
-      var _wkAlphaPanel = React.createElement("div", { style: { border: "1px solid #FB923C", borderRadius: 8, marginBottom: 8, background: "#FFFBF5", overflow: "hidden" } },
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
-          React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555" } }, "α一括シミュレーション（保存しません）:"),
-          [["all", "全銘柄一括"], ["stock", "銘柄別"]].map(function(_m) {
-            var _on = wkAlphaMode === _m[0];
-            return React.createElement("button", { key: _m[0],
-              onClick: function() { if (_m[0] === "stock") { setWkSimAlpha(null); setWkSimCutLine(null); } else { setWkSimAlpha(function(p) { return p == null ? 10 : p; }); } setWkAlphaMode(_m[0]); },
-              style: { padding: "3px 12px", fontSize: 11, fontWeight: _on ? 700 : 400, cursor: "pointer", borderRadius: 5, border: _on ? "1.5px solid #FB923C" : "1px solid #ddd", background: _on ? "#FFEDD5" : "#fff", color: _on ? "#9A3412" : "#666" } }, _m[1]);
-          })
-        ),
-        wkAlphaMode === "all" && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", flexWrap: "wrap" } },
-          React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "全銘柄α値"),
-          React.createElement("input", { type: "number", inputMode: "numeric", step: "1", min: "0", max: "30", placeholder: "—",
-            value: wkSimAlpha !== null ? String(wkSimAlpha) : "",
-            onChange: function(e) { var v = _toHankakuNum(e.target.value); var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v)); if (n != null) { if (n > 30) n = 30; if (n < 0) n = 0; } setWkSimAlpha(n); },
-            style: { width: 64, padding: "4px", fontSize: 12, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", boxSizing: "border-box" } }),
-          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-          React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginLeft: 6 } }, "損切りライン"),
-          React.createElement("input", { type: "number", inputMode: "numeric", step: "1", placeholder: "10",
-            value: wkSimCutLine !== null ? String(wkSimCutLine) : "",
-            onChange: function(e) { var v = _toHankakuNum(e.target.value); setWkSimCutLine(v === "" ? null : (isNaN(Number(v)) ? null : Number(v))); },
-            style: { width: 52, padding: "4px", fontSize: 12, border: "1px solid #ccc", borderRadius: 5, textAlign: "right", boxSizing: "border-box" } }),
-          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-          React.createElement("button", { onClick: function() { setWkSimAlpha(null); setWkSimCutLine(null); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット"),
-          wkSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309", marginLeft: 6 } }, "※保存しない試算中")
-        ),
-        wkAlphaMode === "stock" && _wkStks.length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", flexWrap: "wrap" } },
-          React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555" } }, "銘柄別"),
-          _wkStks.map(function(sk) {
-            var _sa = (wkSimAlphaByStock && wkSimAlphaByStock[sk] != null) ? wkSimAlphaByStock[sk] : null;
-            var _setSk = function(n) { setWkSimAlphaByStock(function(prev) { var nx = Object.assign({}, prev); if (n != null) nx[sk] = n; else delete nx[sk]; return nx; }); };
-            return React.createElement("div", { key: sk, style: { display: "inline-flex", alignItems: "center", gap: 4, background: "#f9f8f6", border: "1px solid #e8e5de", borderRadius: 5, padding: "2px 6px" } },
-              React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, sk),
-              React.createElement("input", { type: "number", inputMode: "numeric", step: "1", placeholder: "各記録",
-                value: _sa != null ? String(_sa) : "",
-                onChange: function(e) { var v = _toHankakuNum(e.target.value); _setSk(v === "" ? null : (isNaN(Number(v)) ? null : Number(v))); },
-                style: { width: 52, padding: "3px 4px", fontSize: 12, border: "1px solid #ccc", borderRadius: 4, textAlign: "right", boxSizing: "border-box" } }),
-              React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
-            );
-          }),
-          React.createElement("button", { onClick: function() { setWkSimAlphaByStock({}); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット")
-        )
-      );
       var _wkFmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
       var _wkFmtP = function(v) { if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var col = v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; return React.createElement("span", { style: { fontWeight: 700, color: col } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
@@ -4581,7 +4512,6 @@ function DayView(_ref57) {
         var _isTotal = rowKey === "wk__total__";
         return React.createElement("tr", { key: rowKey + "_exp" },
           React.createElement("td", { colSpan: 12, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
-            _isTotal ? _wkAlphaPanel : null,
             _isTotal ? _wkIdealEl : null,
             recs.length ? _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time") : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
           )
@@ -4595,7 +4525,7 @@ function DayView(_ref57) {
           _wkNavBtn("→", function() { setWkWeekOffset(function(o) { return o + 1; }); }),
           wkWeekOffset !== 0 ? React.createElement("button", { onClick: function() { setWkWeekOffset(0); }, style: { padding: "2px 8px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", border: "1px solid #FB923C", borderRadius: 6, cursor: "pointer", color: "#9A3412" } }, "今週へ") : null
         ),
-        React.createElement("div", { style: { fontSize: 10, color: _wkSimActive ? "#B45309" : "#888", marginBottom: 6, fontWeight: _wkSimActive ? 700 : 400 } }, _wkDates[0].slice(5).replace("-", "/") + "（月）〜 " + _wkDates[4].slice(5).replace("-", "/") + "（金）" + (_wkSimActive ? " ／ α試算中（保存しません）" : "")),
+        React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6, fontWeight: 400 } }, _wkDates[0].slice(5).replace("-", "/") + "（月）〜 " + _wkDates[4].slice(5).replace("-", "/") + "（金）"),
         _wkAllRecs.length ? React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
             React.createElement("thead", null,
@@ -4700,7 +4630,7 @@ function DayView(_ref57) {
           color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
           rowKey ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶") : null,
           label,
-          !isTotal && (function() { var _av = (pbSimAlpha !== null) ? pbSimAlpha : ((pbSimAlphaByStock && pbSimAlphaByStock[rowKey] != null) ? pbSimAlphaByStock[rowKey] : null); return React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, "α:" + (_av != null ? _av + "円(試算)" : "各記録")); })(),
+          !isTotal && React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, "α:各記録"),
           isExp ? React.createElement("button", {
             onClick: function(e) { e.stopPropagation(); setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); delete n[keyRef]; return n; }); },
             style: { marginLeft: 6, fontSize: 10, padding: "1px 5px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#666", lineHeight: 1.3, verticalAlign: "middle" }
@@ -4734,7 +4664,7 @@ function DayView(_ref57) {
               }
               if (pp != null) { _dynSP = (_dynSP || 0) + pp; if (s.difficulty === "A" || s.difficulty === "B") _dynSPAB = (_dynSPAB || 0) + pp; }
             });
-            var _hasAlpha = (recs || []).some(function(r) { return pbSimAlpha !== null || (pbSimAlphaByStock && pbSimAlphaByStock[r.stock] != null) || (r.signal && r.signal.alphaVal != null); });
+            var _hasAlpha = (recs || []).some(function(r) { return r.signal && r.signal.alphaVal != null; });
             return _pbABAll(recs, _dynSP !== null ? _dynSP : st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned", _hasAlpha ? _dynSPAB : undefined);
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
@@ -4832,120 +4762,9 @@ function DayView(_ref57) {
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
         React.createElement("td", { colSpan: 12, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
-          rowKey === "__total__" ? React.createElement(React.Fragment, null,
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
-              React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "α値変更:"),
-              [["stock", "銘柄別"], ["all", "全銘柄一括"]].map(function(_m) {
-                var _on = pbAlphaMode === _m[0];
-                return React.createElement("button", { key: _m[0],
-                  onClick: function() { if (_m[0] === "stock") { setPbSimAlpha(null); setPbSimCutLine(null); } else { setPbSimAlpha(function(p) { return p == null ? 10 : p; }); } setPbAlphaMode(_m[0]); },
-                  style: { padding: "3px 12px", fontSize: 11, fontWeight: _on ? 700 : 400, cursor: "pointer", borderRadius: 5,
-                    border: _on ? "1.5px solid #FB923C" : "1px solid #ddd", background: _on ? "#FFEDD5" : "#fff", color: _on ? "#9A3412" : "#666" }
-                }, _m[1]);
-              }),
-              React.createElement("span", { style: { fontSize: 10, color: "#aaa", whiteSpace: "nowrap" } }, "※どちらか一方のみ有効")
-            ),
-            pbAlphaMode === "all" && React.createElement("div", {
-            style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap", background: pbSimAlpha !== null ? "#FFFBF0" : "transparent" }
-          },
-            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "全銘柄α値（水準線比）"),
-            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-              React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1", min: "0", max: "30", placeholder: "—",
-                value: pbSimAlpha !== null ? String(pbSimAlpha) : "",
-                onChange: function(e) {
-                  var v = e.target.value;
-                  var _n = v === "" ? null : isNaN(Number(v)) ? null : Number(v);
-                  if (_n != null) { if (_n > 30) _n = 30; if (_n < 0) _n = 0; }
-                  setPbSimAlpha(_n);
-                },
-                style: { width: 64, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 10; return n < 30 ? n + 1 : n; }); },
-                function() { setPbSimAlpha(function(p) { var n = p !== null ? p : 10; return n > 0 ? n - 1 : 0; }); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-            React.createElement("button", {
-              onClick: function() { setPbSimAlpha(null); setPbSimCutLine(null); },
-              style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
-            }, "リセット"),
-            React.createElement("span", { style: { color: "#ddd", fontSize: 14, margin: "0 2px" } }, "|"),
-            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "損切りライン"),
-            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-              React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1", placeholder: "10",
-                value: pbSimCutLine !== null ? String(pbSimCutLine) : "",
-                onChange: function(e) {
-                  var v = _toHankaku(e.target.value).trim();
-                  setPbSimCutLine(v === "" ? null : isNaN(Number(v)) ? null : Number(v));
-                },
-                style: { width: 52, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { setPbSimCutLine(function(p) { var n = p !== null ? p : 10; return n + 1; }); },
-                function() { setPbSimCutLine(function(p) { var n = p !== null ? p : 10; return n > 1 ? n - 1 : 1; }); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-            pbSimAlpha !== null && React.createElement("span", { style: { fontSize: 10, color: "#B45309", marginLeft: 6 } }, "※各銘柄のα値を上書きしてシミュレーション中")
-          ),
-          pbAlphaMode === "stock" && _pbStks.length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" } },
-            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap", flexShrink: 0 } }, "銘柄別"),
-            _pbStks.map(function(sk) {
-              var _skCk = sk + "_" + date;
-              var _skAlpha = (pbSimAlphaByStock && pbSimAlphaByStock[sk] != null) ? pbSimAlphaByStock[sk] : null;
-              var _saveSkAlpha = function(n) {
-                setPbSimAlphaByStock(function(prev) { var nx = Object.assign({}, prev); if (n != null) nx[sk] = n; else delete nx[sk]; return nx; });
-              };
-              return React.createElement("div", { key: sk, style: { display: "inline-flex", alignItems: "center", gap: 4, background: "#f9f8f6", border: "1px solid #e8e5de", borderRadius: 5, padding: "2px 6px" } },
-                React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, sk),
-                React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
-                  React.createElement("input", {
-                    type: "number", inputMode: "numeric", step: "1",
-                    value: _skAlpha != null ? String(_skAlpha) : "",
-                    placeholder: "各記録",
-                    onChange: function(e) { var v = e.target.value; _saveSkAlpha(v === "" ? null : isNaN(Number(v)) ? null : Number(v)); },
-                    style: { width: 52, padding: "3px 4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-                  }),
-                  _stepBtn(
-                    function() { var _b = _skAlpha != null ? _skAlpha : 10; _saveSkAlpha(_b < 30 ? _b + 1 : _b); },
-                    function() { var _b = _skAlpha != null ? _skAlpha : 10; _saveSkAlpha(_b > 0 ? _b - 1 : 0); }
-                  )
-                ),
-                React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
-              );
-            })
-          )
-        ) : React.createElement("div", {
+          rowKey === "__total__" ? null : React.createElement("div", {
             style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" }
           },
-            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "この日のα値（水準線比）"),
-            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-              React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1", min: "0", max: "30",
-                value: (pbSimAlphaByStock && pbSimAlphaByStock[rowKey] != null) ? String(pbSimAlphaByStock[rowKey]) : "",
-                onChange: function(e) {
-                  var v = e.target.value;
-                  var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
-                  if (n != null) { if (n > 30) n = 30; if (n < 0) n = 0; }
-                  setPbSimAlphaByStock(function(prev) { var nx = Object.assign({}, prev); if (n != null) nx[rowKey] = n; else delete nx[rowKey]; return nx; });
-                },
-                placeholder: "各記録",
-                style: { width: 60, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { setPbSimAlphaByStock(function(prev) { var nx = Object.assign({}, prev); var _b = nx[rowKey] != null ? nx[rowKey] : 10; if (_b < 30) nx[rowKey] = _b + 1; return nx; }); },
-                function() { setPbSimAlphaByStock(function(prev) { var nx = Object.assign({}, prev); var _b = nx[rowKey] != null ? nx[rowKey] : 10; if (_b > 0) nx[rowKey] = _b - 1; return nx; }); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-            React.createElement("button", {
-              onClick: function() { setPbSimAlphaByStock(function(prev) { var nx = Object.assign({}, prev); delete nx[rowKey]; return nx; }); },
-              style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
-            }, "リセット"),
-            React.createElement("span", { style: { color: "#ddd", fontSize: 14, margin: "0 2px" } }, "|"),
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "損切りライン"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
               React.createElement("input", {
@@ -5202,7 +5021,7 @@ function DayView(_ref57) {
       var _hwHasDataH=_haRecs.some(function(h){return h.hw!=null;});
       
       var _hAlphaEVH=[];
-      for(var _haI=0;_haI<=30;_haI++){(function(_av2){var _hpA2=_pbAllRecs.map(function(r){var s=r.signal;var _cRev=_pbCharts[r.stock+"_"+date];var _clEV=(pbSimAlpha!==null&&pbSimCutLine!==null)?pbSimCutLine:(_cRev&&_cRev.cutLine!=null?_cRev.cutLine:10);return _elDynHold(s, _av2, _clEV);}).filter(function(v){return v!=null;});if(_hpA2.length>0){_hAlphaEVH.push({alpha:_av2,ev:Math.round(_hpA2.reduce(function(a,b){return a+b;},0)/_hpA2.length),cnt:_hpA2.length});}})(_haI);}
+      for(var _haI=0;_haI<=30;_haI++){(function(_av2){var _hpA2=_pbAllRecs.map(function(r){var s=r.signal;var _cRev=_pbCharts[r.stock+"_"+date];var _clEV=(_cRev&&_cRev.cutLine!=null?_cRev.cutLine:10);return _elDynHold(s, _av2, _clEV);}).filter(function(v){return v!=null;});if(_hpA2.length>0){_hAlphaEVH.push({alpha:_av2,ev:Math.round(_hpA2.reduce(function(a,b){return a+b;},0)/_hpA2.length),cnt:_hpA2.length});}})(_haI);}
       
       var _hByStkH={};
       _haRecs.forEach(function(h){if(!_hByStkH[h.stock])_hByStkH[h.stock]={yes:0,mid:0,none:0,no:0,hpArr:[],hwArr:[]};if(_hByStkH[h.stock][h.dynHp]!=null)_hByStkH[h.stock][h.dynHp]++;if(h.hp!=null)_hByStkH[h.stock].hpArr.push(h.hp);if(h.hw!=null)_hByStkH[h.stock].hwArr.push(h.hw);});
@@ -5238,9 +5057,8 @@ function DayView(_ref57) {
                   var winPct=tot>0?Math.round((d.yes+d.mid)/tot*100):null;
                   var ev=d.hpArr.length?Math.round(d.hpArr.reduce(function(a,b){return a+b;},0)/d.hpArr.length):null;
                   var hwAvg=d.hwArr.length?Math.round(d.hwArr.reduce(function(a,b){return a+b;},0)/d.hwArr.length*10)/10:null;
-                  var _cav=(pbSimAlpha!==null)?pbSimAlpha:((pbSimAlphaByStock&&pbSimAlphaByStock[sk]!=null)?pbSimAlphaByStock[sk]:null);
                   return React.createElement("tr",{key:sk},
-                    _tdHA(React.createElement("span",{style:{fontWeight:700,color:"#9A3412"}},sk,React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#0369A1",marginLeft:4}},"α:"+(_cav!=null?_cav+"円(試算)":"各記録"))),{textAlign:"left",whiteSpace:"nowrap"}),
+                    _tdHA(React.createElement("span",{style:{fontWeight:700,color:"#9A3412"}},sk,React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#0369A1",marginLeft:4}},"α:各記録")),{textAlign:"left",whiteSpace:"nowrap"}),
                     _tdHA(tot),
                     _tdHA(React.createElement("span",{style:{color:"#1E8449",fontWeight:d.yes?700:400}},d.yes||0)),
                     _tdHA(React.createElement("span",{style:{color:"#B45309",fontWeight:d.mid?700:400}},d.mid||0)),
@@ -5322,7 +5140,7 @@ function DayView(_ref57) {
                 return _hAlphaEVH.map(function(d){
                   var barH=maxEvH>0?Math.round(Math.abs(d.ev)/maxEvH*48):4;
                   var isPos=d.ev>=0;var col=isPos?"#C0392B":"#1E8449";
-                  var isCur=(pbSimAlpha!==null&&pbSimAlpha===d.alpha)||(pbSimAlpha===null&&_pbStks.some(function(sk){return pbSimAlphaByStock&&pbSimAlphaByStock[sk]===d.alpha;}));
+                  var isCur=false;
                   return React.createElement("div",{key:d.alpha,style:{display:"flex",flexDirection:"column",alignItems:"center",gap:2,minWidth:28}},
                     React.createElement("span",{style:{fontSize:9,fontWeight:700,color:col,whiteSpace:"nowrap"}},(d.ev>0?"+":"")+d.ev+"円"),
                     React.createElement("div",{style:{width:22,height:barH||4,background:isPos?"#FEE2E2":"#D1FAE5",border:"1.5px solid "+col,borderRadius:2,boxSizing:"border-box",outline:isCur?"2px solid #0369A1":"none"}}),
@@ -5332,7 +5150,7 @@ function DayView(_ref57) {
               })()
             )
           ),
-          React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:4}},"※ 青枠＝現在のα値 / 棒＝期待値の相対比較")
+          React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:4}},"※ 棒＝期待値の相対比較")
         ):null
       );
     })();

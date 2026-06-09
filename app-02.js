@@ -3800,10 +3800,7 @@ function EntrySignalSection(_ref_es) {
       editTarget = _useStateES1A[0], setEditTarget = _useStateES1A[1];
   var _useStateES2 = useState(false), _useStateES2A = _slicedToArray(_useStateES2, 2),
       showAddForm = _useStateES2A[0], setShowAddForm = _useStateES2A[1];
-  // 一括α: その場限りのシミュレーション（保存しない）。null=各記録の採用α値(signal.alphaVal)を使用
-  var _useStateESSA0 = useState(null), _useStateESSA0A = _slicedToArray(_useStateESSA0, 2),
-      simAlpha = _useStateESSA0A[0], setSimAlpha = _useStateESSA0A[1];
-  var _esAlpha = function(s) { return simAlpha != null ? simAlpha : (s && s.alphaVal != null ? s.alphaVal : _gradeAlpha(s && s.difficulty)); };
+  var _esAlpha = function(s) { return (s && s.alphaVal != null) ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
 
   var _useStateESS = useState(function() {
     try { var v = localStorage.getItem('sn_chartentry_sortmode'); return (v === "custom" || v === "category" || v === "difficulty") ? v : "time"; }
@@ -4328,32 +4325,6 @@ function EntrySignalSection(_ref_es) {
       )
     ),
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "2px 0" } },
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "α一括シミュレーション"),
-      React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-      React.createElement("input", {
-        type: "number", inputMode: "numeric", step: "1", min: "0", max: "30",
-        value: simAlpha != null ? String(simAlpha) : "",
-        onChange: function(e) {
-          var v = e.target.value;
-          var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
-          if (n != null) { if (n > 30) n = 30; if (n < 0) n = 0; }
-          setSimAlpha(n);
-        },
-        placeholder: "各記録",
-        style: { width: 80, padding: "5px 4px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-      }),
-      _stepBtn(
-        function() { setSimAlpha(function(p) { var _n = p != null ? p : 10; return _n < 30 ? _n + 1 : _n; }); },
-        function() { setSimAlpha(function(p) { var _n = p != null ? p : 10; return _n > 0 ? _n - 1 : 0; }); }
-      )
-      ),
-      React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-      React.createElement("button", {
-        onClick: function() { setSimAlpha(null); },
-        style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
-      }, "リセット"),
-      simAlpha != null && React.createElement("span", { style: { fontSize: 10, color: "#B45309", whiteSpace: "nowrap" } }, "※保存しない試算中"),
-      React.createElement("span", { style: { color: "#ddd", fontSize: 14, margin: "0 2px" } }, "|"),
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "損切りライン"),
       React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
         React.createElement("input", {
@@ -4642,7 +4613,7 @@ function EntrySignalSection(_ref_es) {
                   _esTh("α値", { width: 36 }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: 52 } },
                     "OS値",
-                    React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:" + (simAlpha != null ? simAlpha + "円(試算)" : "各記録"))
+                    React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:各記録")
                   ),
                   _esTh("確定値", { width: 58 }),
                   _esTh("α値比値幅", { width: 54 }),

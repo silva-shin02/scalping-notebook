@@ -171,10 +171,6 @@ function EntryLogView(_ref_elv) {
     sigSubTab = _uSigSubA[0], setSigSubTab = _uSigSubA[1];
   var _uSigExp = useState(null), _uSigExpA = _slicedToArray(_uSigExp, 2),
     sigSubExpand = _uSigExpA[0], setSigSubExpand = _uSigExpA[1];
-  var _uSigDA = useState(null), _uSigDAA = _slicedToArray(_uSigDA, 2),
-    sigDateAlpha = _uSigDAA[0], setSigDateAlpha = _uSigDAA[1];
-  var _uSigDC = useState(null), _uSigDCA = _slicedToArray(_uSigDC, 2),
-    sigDateCut = _uSigDCA[0], setSigDateCut = _uSigDCA[1];
   var _uCalM = useState(""), _uCalMA = _slicedToArray(_uCalM, 2),
     calMonth = _uCalMA[0], setCalMonth = _uCalMA[1];
   var _uCalExp = useState(null), _uCalExpA = _slicedToArray(_uCalExp, 2),
@@ -188,10 +184,6 @@ function EntryLogView(_ref_elv) {
     calTblRecExp = _uCalTbl3A[0], setCalTblRecExp = _uCalTbl3A[1];
   var _uCalTbl4 = useState("time"), _uCalTbl4A = _slicedToArray(_uCalTbl4, 2),
     calTblRowSort = _uCalTbl4A[0], setCalTblRowSort = _uCalTbl4A[1];
-  var _uTExpA = useState(""), _uTExpAA = _slicedToArray(_uTExpA, 2),
-    tExpAlpha = _uTExpAA[0], setTExpAlpha = _uTExpAA[1];
-  var _uTExpC = useState(""), _uTExpCA = _slicedToArray(_uTExpC, 2),
-    tExpCut = _uTExpCA[0], setTExpCut = _uTExpCA[1];
   var _uTStkF = useState(""), _uTStkFA = _slicedToArray(_uTStkF, 2),
     timeStockFil = _uTStkFA[0], setTimeStockFil = _uTStkFA[1];
   var _uCStkF = useState(""), _uCStkFA = _slicedToArray(_uCStkF, 2),
@@ -201,18 +193,6 @@ function EntryLogView(_ref_elv) {
   var _uCResF = useState(""), _uCResFA = _slicedToArray(_uCResF, 2),
     calResFil = _uCResFA[0], setCalResFil = _uCResFA[1];
   
-  var _uSimAlpha = useState(""), _uSimAlphaA = _slicedToArray(_uSimAlpha, 2),
-    simAlphaStr = _uSimAlphaA[0], setSimAlphaStr = _uSimAlphaA[1];
-  var _uSimCut = useState(""), _uSimCutA = _slicedToArray(_uSimCut, 2),
-    simCutStr = _uSimCutA[0], setSimCutStr = _uSimCutA[1];
-  var _uDiffRA = useState(""), _uDiffRAA = _slicedToArray(_uDiffRA, 2),
-    diffResAlpha = _uDiffRAA[0], setDiffResAlpha = _uDiffRAA[1];
-  var _uSimMode = useState("month"), _uSimModeA = _slicedToArray(_uSimMode, 2),
-    simPeriodMode = _uSimModeA[0], setSimPeriodMode = _uSimModeA[1];
-  var _uSimFrom = useState(""), _uSimFromA = _slicedToArray(_uSimFrom, 2),
-    simFrom = _uSimFromA[0], setSimFrom = _uSimFromA[1];
-  var _uSimTo = useState(""), _uSimToA = _slicedToArray(_uSimTo, 2),
-    simTo = _uSimToA[0], setSimTo = _uSimToA[1];
   var _uOsSlot = useState(null), _uOsSlotA = _slicedToArray(_uOsSlot, 2),
     osSlotSel = _uOsSlotA[0], setOsSlotSel = _uOsSlotA[1];
 
@@ -484,7 +464,7 @@ function EntryLogView(_ref_elv) {
     });
     var diffAvgs = diffKeys.map(function(k) { return { k: k, avg: avgOf(byDiff[k]), cnt: byDiff[k].length }; });
     var dMaxAv = diffAvgs.length ? Math.max.apply(null, diffAvgs.map(function(x) { return x.avg; })) : 0;
-    var _dra = (diffResAlpha !== "" && !isNaN(Number(diffResAlpha))) ? Number(diffResAlpha) : null;
+    var _dra = null;
     var _diffResMap = {};
     osRecs.forEach(function(r) {
       var s = r.signal; var d = s.difficulty || "(未設定)";
@@ -502,16 +482,8 @@ function EntryLogView(_ref_elv) {
     var _drTd = function(c, col, ex) { return React.createElement("td", { style: Object.assign({ padding: "2px 5px", fontSize: 11, textAlign: "center", borderBottom: "1px solid #f0ede6", color: col || "#333", fontWeight: 700, fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
     var _drPnlFmt = function(v) { return (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
     var _drPnlCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-    var _drStepBtn = function(lbl, fn) { return React.createElement("button", { onClick: fn, style: { width: 24, height: 24, fontSize: 13, border: "1px solid #ccc", background: "#f5f4f0", borderRadius: 4, cursor: "pointer", color: "#555", lineHeight: 1 } }, lbl); };
     var resSec = React.createElement("div", null,
-      _secH("🎯 予想OS度別 結果（α値で再判定）"),
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 6, flexWrap: "wrap" } },
-        React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "α値"),
-        _drStepBtn("−", function() { setDiffResAlpha(function(v) { return String(Math.max(0, (Number(v) || 0) - 1)); }); }),
-        React.createElement("input", { type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", placeholder: "各記録", value: diffResAlpha, onChange: function(e) { var v = e.target.value; if (v === "") { setDiffResAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setDiffResAlpha(String(n)); }, style: { width: 50, padding: "3px 6px", fontSize: 12, border: "1px solid #ccc", borderRadius: 4, textAlign: "right", fontWeight: 700, boxSizing: "border-box" } }),
-        _drStepBtn("＋", function() { setDiffResAlpha(function(v) { return String(Math.min(30, (Number(v) || 0) + 1)); }); }),
-        React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円で再判定（空欄=各記録の採用α値）")
-      ),
+      _secH("🎯 予想OS度別 結果"),
       _diffResKeys.length === 0
         ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", padding: "2px 0" } }, "予想OS度の記録がありません")
         : React.createElement("div", { style: { overflowX: "auto" } },
@@ -1488,99 +1460,22 @@ function EntryLogView(_ref_elv) {
           return result2;
         };
         
-        var _simA = simAlphaStr !== "" && !isNaN(Number(simAlphaStr)) ? Number(simAlphaStr) : null;
-        
-        var _simWeekRange = (function() {
-          var _td = new Date(); var _dow = _td.getDay();
-          var _diffToMon = _dow === 0 ? -6 : 1 - _dow;
-          var _mon = new Date(_td); _mon.setDate(_td.getDate() + _diffToMon);
-          var _fri = new Date(_mon); _fri.setDate(_mon.getDate() + 4);
-          var _p = function(n) { return n < 10 ? "0" + n : "" + n; };
-          var _mStr = _mon.getFullYear() + "-" + _p(_mon.getMonth()+1) + "-" + _p(_mon.getDate());
-          var _fStr = _fri.getFullYear() + "-" + _p(_fri.getMonth()+1) + "-" + _p(_fri.getDate());
-          return { from: _mStr, to: _fStr, label: _mStr.slice(5).replace("-","/") + "〜" + _fStr.slice(5).replace("-","/") };
-        })();
-        
-        var _tSimCalc = function(recs, simAlpha) {
-          if (simAlpha == null || !recs || !recs.length) return null;
-          var _sOk = 0, _sNg = 0, _sMiss = 0, _sPlan = null, _sHold = null;
-          var _sPlanAB = null, _sHoldCap = null, _sHoldCapAB = null;
-          recs.forEach(function(r) {
-            var s = r.signal;
-            var _cRs = (data.charts || {})[r.stock + "_" + r.date];
-            var _cutLs = _cRs && _cRs.cutLine != null ? _cRs.cutLine : 10;
-            var _isAB = (s.difficulty === "A" || s.difficulty === "B");
-            if (s.osVal != null && Number(s.osVal) >= 0) {
-              var _dv = Number(s.osVal) - simAlpha;
-              var _dynR = null;
-              if (_dv < 0) _dynR = "miss";
-              else if (_dv >= _cutLs) _dynR = "ng";
-              else if (s.osConfVal != null && s.osConfVal !== "") {
-                var _cf0 = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
-                _dynR = _cf0 < simAlpha ? "ok" : _cf0 === simAlpha ? "draw" : "ng";
-              }
-              if (_dynR === "ok") _sOk++;
-              else if (_dynR === "ng") _sNg++;
-              else if (_dynR === "miss") _sMiss++;
-            }
-            var _dpVal = null;
-            if (s.osVal != null) {
-              var _cf1 = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-              var _df = Number(s.osVal) - simAlpha;
-              var _pStop = _df >= _cutLs;
-              var _dp = _df < 0 ? 0 : _pStop ? -Math.round(_df * 100) : (_cf1 != null ? Math.round((simAlpha - _cf1) * 100) : null);
-              if (_dp != null) {
-                _dpVal = _dp;
-                _sPlan = (_sPlan || 0) + _dp;
-                if (_isAB) _sPlanAB = (_sPlanAB || 0) + _dp;
-              }
-            }
-            var _hp = _elDynHold(s, simAlpha, _cutLs);
-            if (_hp != null) {
-              // 結果損益: 想定が損切りの行はホールドでも同水準で損切りされる前提で想定額にキャップ。
-              var _planStopH = _elPlanIsStop(s, simAlpha, _cutLs);
-              var _hCapV = (_planStopH && _dpVal != null) ? _dpVal : _hp;
-              _sHold = (_sHold || 0) + _hp;
-              _sHoldCap = (_sHoldCap || 0) + _hCapV;
-              if (_isAB) _sHoldCapAB = (_sHoldCapAB || 0) + _hCapV;
-            }
-          });
-          var _sTot = _sOk + _sNg;
-          return { ok: _sOk, ng: _sNg, miss: _sMiss, winPct: _sTot > 0 ? Math.round(_sOk / _sTot * 100) : null,
-            plan: _sPlan, planAB: _sPlanAB, hold: _sHold, holdCap: _sHoldCap, holdCapAB: _sHoldCapAB };
-        };
         var _tCapNote = function(hasStop, capSum) {
           return (hasStop && capSum != null) ? _elCapNoteAmt(capSum) : null;
         };
         // 全ランク(全体)のみ表示。B以上/全ランクのAB分割は廃止。
-        var _tAB2 = function(abV, allV) {
-          var _f = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
-          var _c = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-          var _v = allV != null ? allV : abV;
-          if (_v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-          var _g = _profitGradeFromPnl(_v, 1);
-          return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-            _g ? _tBadge(_g) : null,
-            React.createElement("span", { style: { fontWeight: 700, color: _c(_v) } }, _f(_v))
-          );
-        };
         var _tRow = function(date, st, gradeReal, gradePlan, gradeMax, tags, recs) {
           var isHoliday = !!_tblHolidaySet[date];
           var hasRecs = !isHoliday && st.total > 0;
           var isExp = hasRecs && calTblExpand === date;
-          var _simSt = hasRecs ? _tSimCalc(recs, _simA) : null;
-          var _simActive = _simSt != null;
-          var bg = isExp ? "#FFF7ED" : (_simActive && hasRecs ? "#FFFDF5" : "transparent");
+          var bg = isExp ? "#FFF7ED" : "transparent";
           var bb = "1px solid #e0ddd6", br = "1px solid #e0ddd6";
           var dateRef = date;
           var _dash = React.createElement("span", { style: { color: "#ccc" } }, "ー");
-          var _dOk = _simActive ? _simSt.ok : st.ok;
-          var _dNg = _simActive ? _simSt.ng : st.ng;
-          var _dMiss = _simActive ? _simSt.miss : st.miss;
-          var _dWinPct = _simActive ? _simSt.winPct : st.winPct;
-          var _dPlan = _simActive ? _simSt.plan : null;
-          var _dHold = _simActive ? _simSt.hold : st.sumHold;
-          var _simFmt = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
+          var _dOk = st.ok;
+          var _dNg = st.ng;
+          var _dMiss = st.miss;
+          var _dWinPct = st.winPct;
           return React.createElement("tr", { key: date,
             style: { background: bg, cursor: hasRecs ? "pointer" : "default" },
             onClick: hasRecs ? function() { setCalTblExpand(isExp ? null : dateRef); setCalTblRecExp({}); } : undefined
@@ -1603,8 +1498,8 @@ function EntryLogView(_ref_elv) {
               }, "閉じる") : null
             ),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, isHoliday ? _dash : st.total),
-            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br, color: _simActive ? "#C0392B" : "inherit" } }, isHoliday ? _dash : (_dOk || "0")),
-            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br, color: _simActive ? "#1E8449" : "inherit" } }, isHoliday ? _dash : (_dNg || "0")),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br, color: "inherit" } }, isHoliday ? _dash : (_dOk || "0")),
+            React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br, color: "inherit" } }, isHoliday ? _dash : (_dNg || "0")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br, color: (_dMiss ? "#7C3AED" : "#ccc") } }, isHoliday ? _dash : (_dMiss || "0")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br,
               color: _dWinPct != null ? (_dWinPct >= 60 ? "#C0392B" : _dWinPct >= 40 ? "#888" : "#1E8449") : "#ccc",
@@ -1626,9 +1521,9 @@ function EntryLogView(_ref_elv) {
               })()
             ),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : (_simActive ? _tAB2(_simSt.planAB, _simSt.plan) : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned"))),
+              isHoliday ? _dash : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : (_simActive ? _tAB2(_simSt.holdCapAB, _simSt.holdCap) : (st.sumHold == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: st.sumHold > 0 ? "#C0392B" : st.sumHold < 0 ? "#1E8449" : "#888" } }, (st.sumHold > 0 ? "+" : "") + st.sumHold.toLocaleString() + "円")))),
+              isHoliday ? _dash : (st.sumHold == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: st.sumHold > 0 ? "#C0392B" : st.sumHold < 0 ? "#1E8449" : "#888" } }, (st.sumHold > 0 ? "+" : "") + st.sumHold.toLocaleString() + "円"))),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } }, st.sumHold2 == null ? (st.hold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")) : React.createElement("span", { style: { fontWeight: 700, color: st.sumHold2 > 0 ? "#C0392B" : st.sumHold2 < 0 ? "#1E8449" : "#888" } }, (st.sumHold2 > 0 ? "+" : "") + st.sumHold2.toLocaleString() + "円"), _elHold2RefSuffix(st.sumHold2, st.sumHold2Ref, st.hold2RefCnt))),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
@@ -1661,9 +1556,9 @@ function EntryLogView(_ref_elv) {
             return (a.signal.time || "99:99").localeCompare(b.signal.time || "99:99");
           });
           if (!recs.length) return null;
-          // 空欄=各記録の採用α値(signal.alphaVal)を使用。値を入れた時のみ全記録に一括試算。
-          var _ovAraw = (tExpAlpha !== "" && !isNaN(Number(tExpAlpha))) ? Number(tExpAlpha) : null;
-          var _ovCraw = (tExpCut !== "" && !isNaN(Number(tExpCut))) ? Number(tExpCut) : null;
+          // 各記録の採用α値(signal.alphaVal)・損切り値を使用。
+          var _ovAraw = null;
+          var _ovCraw = null;
           var _rPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
           var _rPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
           var _rTh = function(label, extra) {
@@ -1853,43 +1748,9 @@ function EntryLogView(_ref_elv) {
               }, kv[1]);
             })
           );
-          var _tAlphaBar = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "2px 8px 6px", flexWrap: "wrap" } },
-            React.createElement("span", { style: { fontSize: 10, color: "#0369A1", fontWeight: 700 } }, "α値"),
-            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
-              React.createElement("input", {
-                type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", placeholder: "各記録", value: tExpAlpha,
-                onChange: function(e) { var v = e.target.value; if (v === "") { setTExpAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setTExpAlpha(String(n)); },
-                style: { width: 46, padding: "2px 4px", fontSize: 11, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { setTExpAlpha(function(v) { return String(Math.min(30, (Number(v)||0) + 1)); }); },
-                function() { setTExpAlpha(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円"),
-            React.createElement("span", { style: { fontSize: 10, color: "#555", fontWeight: 700, marginLeft: 4 } }, "損切り"),
-            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
-              React.createElement("input", {
-                type: "number", inputMode: "numeric", min: "0", step: "1", placeholder: "各記録", value: tExpCut,
-                onChange: function(e) { var v = e.target.value; if (v === "") { setTExpCut(""); return; } var n = Number(v); if (isNaN(n)) return; if (n < 0) n = 0; setTExpCut(String(n)); },
-                style: { width: 42, padding: "2px 4px", fontSize: 11, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { setTExpCut(function(v) { return String((Number(v)||0) + 1); }); },
-                function() { setTExpCut(function(v) { return String(Math.max(1, (Number(v)||0) - 1)); }); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 10, color: "#888" } }, "円"),
-            React.createElement("button", {
-              onClick: function() { setTExpAlpha(""); setTExpCut(""); },
-              style: { fontSize: 10, padding: "1px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#555", whiteSpace: "nowrap" }
-            }, "リセット"),
-            React.createElement("span", { style: { fontSize: 9, color: "#aaa", whiteSpace: "nowrap" } }, "※空欄=各記録の採用α値。値を入れると全記録に一括試算（保存しません）")
-          );
           return React.createElement("tr", { key: date + "_texp" },
             React.createElement("td", { colSpan: 13, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
               _tSortToggle,
-              _tAlphaBar,
               React.createElement("div", { style: { overflowX: "auto" } },
                 React.createElement("table", { style: { width: "auto", borderCollapse: "collapse", fontSize: 11 } },
                   React.createElement("thead", null,
@@ -1971,19 +1832,16 @@ function EntryLogView(_ref_elv) {
         var _tMonthEnt = _tMonthRecs.filter(function(r) { return _elIsEntered(r.signal, r.item); });
         var _tMonthGradeReal = _tMonthSt.total > 0 ? _profitGradeFromPnlReal(_tMonthSt.sumPnl, _tMonthEnt.length) : null;
         var _tMonthGradePlan = _tMonthSt.total > 0 ? _profitGradeFromPnl(_tMonthSt.sumPlanned, _tMonthSt.total) : null;
-        var _tMSimSt = _tSimCalc(_tMonthRecs, _simA);
-        var _tMSimActive = _tMSimSt != null;
-        var _tMdOk = _tMSimActive ? _tMSimSt.ok : _tMonthSt.ok;
-        var _tMdNg = _tMSimActive ? _tMSimSt.ng : _tMonthSt.ng;
-        var _tMdMiss = _tMSimActive ? _tMSimSt.miss : _tMonthSt.miss;
-        var _tMdWinPct = _tMSimActive ? _tMSimSt.winPct : _tMonthSt.winPct;
-        var _tMSimFmt = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
+        var _tMdOk = _tMonthSt.ok;
+        var _tMdNg = _tMonthSt.ng;
+        var _tMdMiss = _tMonthSt.miss;
+        var _tMdWinPct = _tMonthSt.winPct;
         var _bb2 = "2px solid #c0b8a8";
         var _tMonthRow = React.createElement("tr", { key: "__monthtot__", style: { background: "#F5F0E8" } },
           React.createElement("td", { style: { padding: "5px 8px", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", width: "1%", color: "#9A3412", borderBottom: _bb2, borderTop: "2px solid #c0b8a8" } }, "📊 " + curM + " 合計"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, fontSize: 11, borderBottom: _bb2, borderTop: _bb2 } }, _tMonthSt.total || 0),
-          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2, color: _tMSimActive ? "#C0392B" : "inherit" } }, _tMdOk || 0),
-          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2, color: _tMSimActive ? "#1E8449" : "inherit" } }, _tMdNg || 0),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2, color: "inherit" } }, _tMdOk || 0),
+          React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2, color: "inherit" } }, _tMdNg || 0),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2, color: (_tMdMiss ? "#7C3AED" : "#ccc") } }, _tMdMiss || 0),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: _bb2, borderTop: _bb2,
             color: _tMdWinPct != null ? (_tMdWinPct >= 60 ? "#C0392B" : _tMdWinPct >= 40 ? "#888" : "#1E8449") : "#ccc",
@@ -2005,11 +1863,11 @@ function EntryLogView(_ref_elv) {
             })()
           ),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            _tMSimActive ? _tAB2(_tMSimSt.planAB, _tMSimSt.plan) : _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned")),
+            _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            _tMSimActive ? _tAB2(_tMSimSt.holdCapAB, _tMSimSt.holdCap) : (_tMonthSt.sumHold == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _tMonthSt.sumHold > 0 ? "#C0392B" : _tMonthSt.sumHold < 0 ? "#1E8449" : "#888" } }, (_tMonthSt.sumHold > 0 ? "+" : "") + _tMonthSt.sumHold.toLocaleString() + "円"))),
+            (_tMonthSt.sumHold == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _tMonthSt.sumHold > 0 ? "#C0392B" : _tMonthSt.sumHold < 0 ? "#1E8449" : "#888" } }, (_tMonthSt.sumHold > 0 ? "+" : "") + _tMonthSt.sumHold.toLocaleString() + "円"))),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } }, _tMonthSt.sumHold2 == null ? (_tMonthSt.hold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")) : React.createElement("span", { style: { fontWeight: 700, color: _tMonthSt.sumHold2 > 0 ? "#C0392B" : _tMonthSt.sumHold2 < 0 ? "#1E8449" : "#888" } }, (_tMonthSt.sumHold2 > 0 ? "+" : "") + _tMonthSt.sumHold2.toLocaleString() + "円"), _elHold2RefSuffix(_tMonthSt.sumHold2, _tMonthSt.sumHold2Ref, _tMonthSt.hold2RefCnt)),
+            React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } }, _tMonthSt.sumHold2 == null ? (_tMonthSt.hold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")) : React.createElement("span", { style: { fontWeight: 700, color: _tMonthSt.sumHold2 > 0 ? "#C0392B" : _tMonthSt.sumHold2 < 0 ? "#1E8449" : "#888" } }, (_tMonthSt.sumHold2 > 0 ? "+" : "") + _tMonthSt.sumHold2.toLocaleString() + "円"), _elHold2RefSuffix(_tMonthSt.sumHold2, _tMonthSt.sumHold2Ref, _tMonthSt.hold2RefCnt))),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
             _tSlash(_tMonthSt.sumPnl, _tMonthSt.expected, _tMonthGradeReal)),
           React.createElement("td", { style: { borderBottom: _bb2, borderTop: _bb2 } })
@@ -2037,157 +1895,6 @@ function EntryLogView(_ref_elv) {
           if (_wd2 >= 1 && _wd2 <= 5) (byDate[dk] || []).forEach(function(r) { _dtByDow[_wd2].push(r); });
         });
         
-        var _simEl = (function() {
-          
-          var _simRecs = allRecords.slice();
-          if (simPeriodMode === "1w") {
-            _simRecs = _simRecs.filter(function(r) { return r.date >= _simWeekRange.from && r.date <= _simWeekRange.to; });
-          } else if (simPeriodMode === "month") {
-            _simRecs = _simRecs.filter(function(r) { return r.date && r.date.slice(0,7) === curM; });
-          } else if (simPeriodMode === "3m") {
-            var _now = new Date(); _now.setDate(1);
-            _now.setMonth(_now.getMonth() - 3);
-            var _3mFrom = _now.getFullYear() + "-" + (String(_now.getMonth()+1).padStart(2,"0")) + "-01";
-            _simRecs = _simRecs.filter(function(r) { return r.date >= _3mFrom; });
-          } else if (simPeriodMode === "custom") {
-            if (simFrom) _simRecs = _simRecs.filter(function(r) { return r.date >= simFrom; });
-            if (simTo)   _simRecs = _simRecs.filter(function(r) { return r.date <= simTo; });
-          }
-          
-          var _simCut = (simCutStr !== "" && !isNaN(Number(simCutStr))) ? Number(simCutStr) : 10;
-          var _capYen = -Math.round(_simCut * 100);
-          var _sTotPlan = null, _sTotHold = null;
-          var _sTotPlanAB = null, _sTotHoldCapAll = null, _sTotHoldCapAB = null, _sTotHold2 = null, _sTotHold2Cnt = 0;
-          var _sTotPlanCnt = 0, _sTotHoldCnt = 0, _sHoldUnrec = 0;
-          var _sPlanDays = {}, _sHoldDays = {};
-          // 詳細表と同じ共有ロジック(_elDynPlanned/_elDynHold/_elPlanIsStop)で集計。一律 _simCut を適用。
-          _simRecs.forEach(function(r) {
-            var s = r.signal;
-            var _isABb = (s.difficulty === "A" || s.difficulty === "B");
-            var _dpB = _elDynPlanned(s, _simA, _simCut);
-            if (_dpB != null) {
-              _sTotPlan = (_sTotPlan||0) + _dpB; _sTotPlanCnt++; _sPlanDays[r.date] = 1;
-              if (_isABb) _sTotPlanAB = (_sTotPlanAB||0) + _dpB;
-            }
-            var _hpB = _elDynHold(s, _simA, _simCut);
-            if (_hpB != null) {
-              // 想定が損切りの行は結果損益を想定額にキャップ（planCap）。
-              var _hCapVb = (_elPlanIsStop(s, _simA, _simCut) && _dpB != null) ? _dpB : _hpB;
-              _sTotHold = (_sTotHold||0) + _hCapVb; _sTotHoldCnt++; _sHoldDays[r.date] = 1;
-              _sTotHoldCapAll = (_sTotHoldCapAll||0) + _hCapVb;
-              if (_isABb) _sTotHoldCapAB = (_sTotHoldCapAB||0) + _hCapVb;
-            } else if (s.osVal != null && Number(s.osVal) >= _simA && s.holdOsConf == null && s.holdWidth == null && s.holdHighVal == null) {
-              _sHoldUnrec++;
-            }
-            var _h2tB = _elHold2TotParts(s, _simA, _simCut); if (_h2tB.main != null) { _sTotHold2 = (_sTotHold2||0) + _h2tB.main; _sTotHold2Cnt++; }
-          });
-          var _nPlanDays = Object.keys(_sPlanDays).length;
-          var _nHoldDays = Object.keys(_sHoldDays).length;
-          var _avgPlanDay = _nPlanDays > 0 ? Math.round((_sTotPlan||0) / _nPlanDays) : null;
-          var _avgPlanDayAB = _nPlanDays > 0 && _sTotPlanAB != null ? Math.round(_sTotPlanAB / _nPlanDays) : _avgPlanDay;
-          var _avgHoldDay = _nHoldDays > 0 ? Math.round((_sTotHoldCapAll||0) / _nHoldDays) : null;
-          var _avgHoldDayAB = _nHoldDays > 0 && _sTotHoldCapAB != null ? Math.round(_sTotHoldCapAB / _nHoldDays) : _avgHoldDay;
-          var _pFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
-          var _pCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-          // 全ランク(全体)のみ表示。B以上/全ランクのAB分割は廃止。
-          var _pAB2 = function(abV, allV) {
-            var _v = allV != null ? allV : abV;
-            if (_v == null) return React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#ccc" } }, "—");
-            return React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: _pCol(_v), whiteSpace: "nowrap" } }, _pFmt(_v));
-          };
-          var _periodLabels = [["1w","1週間（月〜金）"], ["month","今月"], ["3m","3ヶ月"], ["all","全期間"], ["custom","カスタム"]];
-          return React.createElement("div", { style: { margin: "14px 0 10px", padding: "12px 14px", background: "#FFFBF5", border: "1.5px solid #FB923C", borderRadius: 8 } },
-            React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#9A3412", marginBottom: 10 } }, "📊 一括α値シミュレーション（保存しません・各記録の採用α値に上書き試算）"),
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 } },
-              React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600, whiteSpace: "nowrap" } }, "α値:"),
-              React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-                React.createElement("input", {
-                  type: "number", inputMode: "numeric", step: "1", min: "0", max: "30", placeholder: "0〜30",
-                  value: simAlphaStr,
-                  onChange: function(e) { var v = e.target.value; if (v === "") { setSimAlphaStr(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setSimAlphaStr(String(n)); },
-                  style: { width: 70, padding: "5px 6px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-                }),
-                _stepBtn(
-                  function() { setSimAlphaStr(function(v) { return String(Math.min(30, (Number(v)||0) + 1)); }); },
-                  function() { setSimAlphaStr(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
-                )
-              ),
-              React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-              React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600, whiteSpace: "nowrap", marginLeft: 4 } }, "損切り値:"),
-              React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
-                React.createElement("input", {
-                  type: "number", inputMode: "numeric", step: "1", min: "0", max: "30", placeholder: "0〜30",
-                  value: simCutStr,
-                  onChange: function(e) { var v = e.target.value; if (v === "") { setSimCutStr(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setSimCutStr(String(n)); },
-                  style: { width: 70, padding: "5px 6px", fontSize: 13, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
-                }),
-                _stepBtn(
-                  function() { setSimCutStr(function(v) { return String(Math.min(30, (Number(v)||0) + 1)); }); },
-                  function() { setSimCutStr(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
-                )
-              ),
-              React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-              React.createElement("button", {
-                onClick: function() { setSimAlphaStr(""); setSimCutStr(""); },
-                style: { fontSize: 11, padding: "3px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" }
-              }, "クリア"),
-              React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
-                _periodLabels.map(function(kv) {
-                  var on = simPeriodMode === kv[0];
-                  return React.createElement("button", { key: kv[0], onClick: function() { setSimPeriodMode(kv[0]); },
-                    style: { padding: "3px 10px", fontSize: 11, fontWeight: on ? 700 : 400, borderRadius: 4, cursor: "pointer",
-                      border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
-                      background: on ? "#FFEDD5" : "#fff", color: on ? "#9A3412" : "#666" }
-                  }, kv[1]);
-                })
-              )
-            ),
-            simPeriodMode === "custom" && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" } },
-              React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "開始:"),
-              React.createElement("input", { type: "date", value: simFrom, onChange: function(e) { setSimFrom(e.target.value); },
-                style: { fontSize: 11, padding: "3px 6px", border: "1px solid #ccc", borderRadius: 4 } }),
-              React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "〜"),
-              React.createElement("input", { type: "date", value: simTo, onChange: function(e) { setSimTo(e.target.value); },
-                style: { fontSize: 11, padding: "3px 6px", border: "1px solid #ccc", borderRadius: 4 } })
-            ),
-            _simA == null
-              ? React.createElement("div", { style: { fontSize: 12, color: "#aaa" } }, "α値を入力するとシミュレーション結果が表示されます")
-              : React.createElement("div", { style: { display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" } },
-                  React.createElement("div", null,
-                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "想定損益合計（" + _sTotPlanCnt + "件）"),
-                    _pAB2(_sTotPlanAB, _sTotPlan)
-                  ),
-                  React.createElement("div", null,
-                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } },
-                      "H１結果損益合計（" + _sTotHoldCnt + "件）",
-                      _sHoldUnrec > 0 ? React.createElement("span", { style: { color: "#aaa", marginLeft: 4 } }, "※" + _sHoldUnrec + "件未記録") : null
-                    ),
-                    _pAB2(_sTotHoldCapAB, _sTotHoldCapAll)
-                  ),
-                  React.createElement("div", null,
-                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "H２結果損益合計（" + _sTotHold2Cnt + "件・○/△）"),
-                    _sTotHold2 != null ? React.createElement("span", { style: { fontWeight: 700, color: _sTotHold2 > 0 ? "#C0392B" : _sTotHold2 < 0 ? "#1E8449" : "#888" } }, (_sTotHold2 > 0 ? "+" : "") + _sTotHold2.toLocaleString() + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")
-                  ),
-                  React.createElement("div", null,
-                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "1日当たり平均想定損益（" + _nPlanDays + "日）"),
-                    _pAB2(_avgPlanDayAB, _avgPlanDay)
-                  ),
-                  React.createElement("div", null,
-                    React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 2 } }, "1日当たり平均結果損益（" + _nHoldDays + "日）"),
-                    _pAB2(_avgHoldDayAB, _avgHoldDay)
-                  ),
-                  React.createElement("div", { style: { fontSize: 10, color: "#aaa" } },
-                    "対象期間: ",
-                    simPeriodMode === "1w" ? "今週（" + _simWeekRange.label + "）" :
-                    simPeriodMode === "month" ? curM + "の全営業日" :
-                    simPeriodMode === "3m" ? "直近3ヶ月" :
-                    simPeriodMode === "all" ? "全期間" :
-                    (simFrom || "?") + " 〜 " + (simTo || "?"),
-                    " / " + _simRecs.length + "シグナル"
-                  )
-                )
-          );
-        })();
         return React.createElement(React.Fragment, null,
           React.createElement("div", { style: { marginTop: 16 } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 10 } },
@@ -2199,7 +1906,6 @@ function EntryLogView(_ref_elv) {
             ),
             _tGradeLegend,
             sortToggle,
-            _simEl,
             React.createElement("div", { style: { overflowX: "auto" } },
               React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12, background: "#fff" } },
                 thead, tbody
@@ -3373,7 +3079,7 @@ function EntryLogView(_ref_elv) {
 
     var _sigDateFlat = function(opts) {
       var rows = opts.rows.filter(function(r) { return r.recs.length > 0; });
-      var _ovA = sigDateAlpha, _ovC = sigDateCut;
+      var _ovA = null, _ovC = null;
       var _hh = function(t, extra) { return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#9A3412" }, extra || {}) }, t); };
       var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
       var _gBadge = function(g) { if (!g || g === "Z") return null; var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z; return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 2, flexShrink: 0 } }, g); };
@@ -3402,23 +3108,8 @@ function EntryLogView(_ref_elv) {
         var _ewHAbs = Math.abs(_ewH);
         return React.createElement("span", { style: { color: _vcol(_ewHAbs, _ewH < 0), fontWeight: _ewHAbs >= 10 ? 700 : 600 } }, (_ewH > 0 ? "↓" : "↑") + _ewHAbs);
       };
-      var _numInput = function(val, onCh, color, ph) {
-        return React.createElement("input", { type: "number", inputMode: "numeric", step: "1", placeholder: ph,
-          value: val != null ? String(val) : "",
-          onChange: onCh,
-          style: { width: 54, padding: "3px 6px", fontSize: 12, fontWeight: 700, border: "1px solid " + color, borderRadius: 4, textAlign: "right", boxSizing: "border-box", outline: "none" } });
-      };
-      var _hasOv = (_ovA != null || _ovC != null);
       var header = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 } },
-        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, opts.icon + " " + opts.title),
-        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginLeft: 6 } }, "一括α値"),
-        _numInput(_ovA, function(e){ var v=e.target.value; var n=v===""?null:(isNaN(Number(v))?null:Number(v)); if(n!=null){ if(n>30)n=30; if(n<0)n=0; } setSigDateAlpha(n); }, "#BAE6FD", "各記録"),
-        React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円"),
-        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#B91C1C", marginLeft: 6 } }, "損切り値"),
-        _numInput(_ovC, function(e){ var v=e.target.value; var n=v===""?null:(isNaN(Number(v))?null:Number(v)); if(n!=null && n<1)n=1; setSigDateCut(n); }, "#FECACA", "各記録"),
-        React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円"),
-        _hasOv ? React.createElement("button", { onClick: function(){ setSigDateAlpha(null); setSigDateCut(null); }, style: { fontSize: 11, padding: "2px 8px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer", color: "#555" } }, "リセット") : null,
-        _hasOv ? React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "※α試算中（保存しません・各記録の採用α値に上書き）") : null
+        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, opts.icon + " " + opts.title)
       );
       if (rows.length === 0) {
         return React.createElement("div", { style: { padding: "10px 12px", background: "#fff" } }, header,
@@ -3469,7 +3160,7 @@ function EntryLogView(_ref_elv) {
       });
       return React.createElement("div", { style: { padding: "10px 12px", background: "#fff" } },
         header,
-        React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "1行=1エントリー（日付順）／値は水準線比・損益は100株換算。空欄=各日の設定値・行タップで明細"),
+        React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "1行=1エントリー（日付順）／値は水準線比・損益は100株換算。行タップで明細"),
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
