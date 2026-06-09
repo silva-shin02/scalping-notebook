@@ -5097,18 +5097,6 @@ function EntryRecordForm(_ref_erf) {
           )
         ),
 
-        React.createElement("div", { style: { marginTop: 8 } },
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "Hold１メモ"),
-          React.createElement(FastInput, {
-            multiline: true, autoResize: true,
-            value: fHoldMemo,
-            onChange: function(v) { setFHoldMemo(v); },
-            placeholder: "",
-            rows: 2,
-            style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 48 })
-          })
-        ),
-
         React.createElement("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed #ddd" } },
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
             "Hold2期待度",
@@ -5128,6 +5116,18 @@ function EntryRecordForm(_ref_erf) {
               }, kv[0]);
             })
           )
+        ),
+
+        React.createElement("div", { style: { marginTop: 10 } },
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "Hold１メモ"),
+          React.createElement(FastInput, {
+            multiline: true, autoResize: true,
+            value: fHoldMemo,
+            onChange: function(v) { setFHoldMemo(v); },
+            placeholder: "",
+            rows: 2,
+            style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 48 })
+          })
         )
       ),
 
