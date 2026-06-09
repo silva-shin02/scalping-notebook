@@ -5608,6 +5608,12 @@ function EntryLogCard(_ref_elc) {
         ) : null
       ),
 
+      React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap", alignSelf: "center" } },
+        React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "H１"),
+        _elHoldFlow(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10, false),
+        s.hold2Exp ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２") : null,
+        s.hold2Exp ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10) : null
+      ),
       React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
       entered && realPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
         React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "実現損益"),
@@ -5618,13 +5624,6 @@ function EntryLogCard(_ref_elc) {
       ),
 
       (s.priceIn || s.priceOut) && _chip("価格", (s.priceIn ? "入" + s.priceIn : "") + (s.priceIn && s.priceOut ? "→" : "") + (s.priceOut ? "出" + s.priceOut : ""), "#555")
-    ),
-
-    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: (s.rationale || s.reflection) ? 6 : 0, paddingTop: 4, borderTop: "1px solid #f0ede6" } },
-      React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "H１"),
-      _elHoldFlow(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10, false),
-      s.hold2Exp ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２") : null,
-      s.hold2Exp ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10) : null
     ),
 
     (s.holdMemo || s.hold2Memo) && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, marginTop: 4 } },
