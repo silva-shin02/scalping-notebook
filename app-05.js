@@ -3268,6 +3268,19 @@ function _elHoldGradeBadge(g) {
   var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
   return React.createElement("span", { key: "g", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
 }
+// 想定損益が損切りの場合のH損益セル: 「想定額（H額）」を両方ランク(grade)付きで表示（左=想定損益額そのまま・括弧内=H1/H2が損切りしていなかった場合の損益）。
+function _elHoldStopPnlNode(planVal, holdPnl, key) {
+  var _amt = function(v, k) {
+    return React.createElement("span", { key: k, style: { display: "inline-flex", alignItems: "center" } },
+      _elHoldGradeBadge(_profitGradeFromPnl(v, 1)),
+      React.createElement("span", { key: "y", style: { color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, v.toLocaleString() + "円"));
+  };
+  return React.createElement("span", { key: key || "hp", style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
+    _amt(planVal, "pv"),
+    React.createElement("span", { key: "op", style: { color: "#888" } }, "（"),
+    _amt(holdPnl, "hv"),
+    React.createElement("span", { key: "cp", style: { color: "#888" } }, "）"));
+}
 // 統合Hセル: 「H高値 → H確定値 / α値比H値幅 / 勝敗・結果損益」を1つのインライン要素で返す。
 // isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、想定損益・結果はエントリー共通）。
 function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
@@ -3294,6 +3307,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
   }
   var holdPnl = (alpha != null) ? (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine)) : _elSignedVal(hs.holdPnl, hs.holdPnlSign);
   var planPnl = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+  var planStop = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
   var res = (alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result;
   if (holdPnl != null) {
     var hp = holdPnl;
@@ -3313,11 +3327,13 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
     var symMap = { yes: ["○", "#1E8449"], mid: ["△", "#B45309"], none: ["ー", "#888"], no: ["×", "#C0392B"] };
     var sym = symMap[dynHP];
     nodes.push(React.createElement("span", { key: "a3", style: { color: "#ccc", margin: "0 2px" } }, "/"));
-    nodes.push(React.createElement("span", { key: "hp", style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
-      sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
-      _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
-      React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円")
-    ));
+    nodes.push((planStop && planPnl != null)
+      ? _elHoldStopPnlNode(planPnl, holdPnl, "hp")
+      : React.createElement("span", { key: "hp", style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
+        sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
+        _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
+        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円")
+      ));
   } else if (res === "miss") {
     nodes.push(React.createElement("span", { key: "a3", style: { color: "#ccc", margin: "0 2px" } }, "/"));
     nodes.push(React.createElement("span", { key: "hp", style: { color: "#B45309", fontWeight: 700 } }, "ー"));
@@ -3332,10 +3348,12 @@ function _elHold2Cell(s, alpha, cutLine) {
   if (exp === "×") {
     if (!_elHas2Data(s)) return React.createElement("span", { style: { color: "#bbb" } }, "×");
     // ×はH2の内容（高値→確定値/α値比値幅/勝敗損益）すべてを1つの（）で囲む。折返し不可で全体を確実に内包。
+    // ただし想定が損切りの場合はpnlが「想定額（H額）」と自前で括弧表示するため、外側の（）は付けない（重複回避）。
+    var _psH2 = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#aaa", fontSize: 11, whiteSpace: "nowrap", opacity: 0.75 } },
-      React.createElement("span", { key: "d", style: { marginRight: 1 } }, "×（"),
+      React.createElement("span", { key: "d", style: { marginRight: 1 } }, _psH2 ? "×" : "×（"),
       _elHoldFlow(s, alpha, cutLine, true, true),
-      React.createElement("span", { key: "e" }, "）"));
+      _psH2 ? null : React.createElement("span", { key: "e" }, "）"));
   }
   var _ec = { "○": "#1E8449", "△": "#B45309" };
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
@@ -3374,6 +3392,8 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
   }
   var holdPnl = (alpha != null) ? (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine)) : _elSignedVal(hs.holdPnl, hs.holdPnlSign);
   var res = (alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result;
+  var planStop = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
+  var planVal = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : null;
   if (holdPnl != null) {
     var hp = holdPnl;
     var pp = isH2 ? ((alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign)) : ((alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign));
@@ -3390,10 +3410,12 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
     })();
     var symMap = { yes: ["○", "#1E8449"], mid: ["△", "#B45309"], none: ["ー", "#888"], no: ["×", "#C0392B"] };
     var sym = symMap[dynHP];
-    pnl = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
-      sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
-      _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
-      React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"));
+    pnl = (planStop && planVal != null)
+      ? _elHoldStopPnlNode(planVal, holdPnl)
+      : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
+        sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
+        _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
+        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"));
   } else if (res === "miss") { miss = true; pnl = React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "ー"); }
   return { high: high, width: width, acmp: acmp, pnl: pnl, miss: miss, hasAny: !!(high || width || acmp || pnl) };
 }
@@ -3404,6 +3426,8 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var p1 = _elHoldParts(s, alpha, cutLine, false);
   var exp = s.hold2Exp;
   var p2 = (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
+  // 想定が損切りの場合、H損益のpnl自体が「想定額（H額）」と括弧表示になるため、×の外側括弧は重複回避で付けない。
+  var planStop = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
   var _paren = function(ch) { return React.createElement("span", { style: { color: "#888" } }, ch); };
@@ -3425,7 +3449,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   };
   var rows = [ _row("h1", "H１", null, p1, false, false) ];
   var h2exp = exp ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
-  rows.push(_row("h2", "H２", h2exp, p2, exp === "×", true));
+  rows.push(_row("h2", "H２", h2exp, p2, exp === "×" && !planStop, true));
   return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: 273 } }, React.createElement("tbody", null, rows));
 }
 // 明細表(フロー表示)用: H列を1セルに統合(H1上/H2下)。colSpan:2で旧2列分の幅を占有し他のcolSpanは不変。
