@@ -3789,14 +3789,9 @@ function DayView(_ref57) {
           _trTotHoldCap = (_trTotHoldCap || 0) + _hCapTr;
           if (_isAB) { _trTotHoldCapAB = (_trTotHoldCapAB || 0) + _hCapTr; _trTotHoldABCnt++; }
           if (_pStopTr && ppN != null && hpN !== ppN) _trTotHoldPlanStopDiff = true; }
-        if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
-          var _h2pTr = _elDynHold2(s, _aiTr0.alpha, _aiTr0.cutLine);
-          if (_h2pTr != null) { _trTotHold2 = (_trTotHold2 || 0) + _h2pTr; _trTotHold2Cnt++; }
-        }
-        if (s.hold2Exp === "×" && _elHas2Data(s)) {
-          var _h2pTrR = _elDynHold2(s, _aiTr0.alpha, _aiTr0.cutLine);
-          if (_h2pTrR != null) { _trTotHold2Ref = (_trTotHold2Ref || 0) + _h2pTrR; _trTotHold2RefCnt++; }
-        }
+        var _h2ttr = _elHold2TotParts(s, _aiTr0.alpha, _aiTr0.cutLine);
+        if (_h2ttr.main != null) { _trTotHold2 = (_trTotHold2 || 0) + _h2ttr.main; _trTotHold2Cnt++; }
+        if (_h2ttr.ref != null) { _trTotHold2Ref = (_trTotHold2Ref || 0) + _h2ttr.ref; _trTotHold2RefCnt++; }
         if (ppN != null && _isAB) { _trTotPlanAB = (_trTotPlanAB || 0) + ppN; _trTotPlanABCnt++; }
         if (mpN != null && _isAB) { _trTotMaxAB  = (_trTotMaxAB  || 0) + mpN; _trTotMaxABCnt++; }
       });
@@ -4621,14 +4616,9 @@ function DayView(_ref57) {
           _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_cutLrec) : holdPnl); }
         var _isABpb = (s.difficulty === "A" || s.difficulty === "B");
         if (planPnl != null && _isABpb) { _totPlanABpb = (_totPlanABpb || 0) + planPnl; _totPlanABCntpb++; }
-        if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
-          var _h2pPb = _elDynHold2(s, _alphaRec, _cutLrec);
-          if (_h2pPb != null) { _totHold2 = (_totHold2 || 0) + _h2pPb; _totHold2Cnt++; }
-        }
-        if (s.hold2Exp === "×" && _elHas2Data(s)) {
-          var _h2pPbR = _elDynHold2(s, _alphaRec, _cutLrec);
-          if (_h2pPbR != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2pPbR; _totHold2RefCnt++; }
-        }
+        var _h2tpb = _elHold2TotParts(s, _alphaRec, _cutLrec);
+        if (_h2tpb.main != null) { _totHold2 = (_totHold2 || 0) + _h2tpb.main; _totHold2Cnt++; }
+        if (_h2tpb.ref != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2tpb.ref; _totHold2RefCnt++; }
         if (holdPnl != null) {
           // 想定が損切りの行は結果損益を想定額にキャップした合計（per-row のキャップ表示と一致）。本来額は _totHold に保持。
           var _pStopH = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));

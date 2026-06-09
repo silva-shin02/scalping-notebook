@@ -3378,6 +3378,18 @@ function _elHold2RefSuffix(refSum, refCnt) {
     React.createElement("span", { style: { color: refSum > 0 ? "#C0392B" : refSum < 0 ? "#1E8449" : "#888" } }, (refSum > 0 ? "+" : "") + refSum.toLocaleString() + "円"),
     "）");
 }
+// H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。H1のplanCapと同じ考え方:
+//  ・想定が損切り → 結果損益＝想定額（期待度に関わらず。損切りは実際に発生した損失）→ main
+//  ・非損切りで期待度○/△ → _elDynHold2 → main
+//  ・非損切りで期待度× → 参考（合計対象外）→ ref
+//  ・期待度未設定/H2データ無し → どちらもnull
+function _elHold2TotParts(s, alpha, cutLine) {
+  if (!s || !s.hold2Exp || !_elHas2Data(s)) return { main: null, ref: null };
+  if (alpha != null && _elPlanIsStop(s, alpha, cutLine)) return { main: _elDynPlanned(s, alpha, cutLine), ref: null };
+  var hv = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
+  if (s.hold2Exp === "×") return { main: null, ref: hv };
+  return { main: hv, ref: null };
+}
 function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt) {
   var _f = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, flexWrap: "wrap", justifyContent: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } },
@@ -3755,14 +3767,9 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       holdSumPlanCap += _hCapPlan;
       if (isAB) { holdSumPlanCapAB += _hCapPlan; holdCountAB++; }
     }
-    if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
-      var hv2 = _elDynHold2(s, _aSig, _c);
-      if (hv2 != null) { hold2Sum += hv2; hold2Count++; }
-    }
-    if (s.hold2Exp === "×" && _elHas2Data(s)) {  // 参考扱い（合計対象外）。合計欄でカッコ参考表示する。
-      var hv2r = _elDynHold2(s, _aSig, _c);
-      if (hv2r != null) { hold2RefSum += hv2r; hold2RefCnt++; }
-    }
+    var _h2tg = _elHold2TotParts(s, _aSig, _c);  // 想定損切り→想定額(結果損益)、非損切り○/△→_elDynHold2、非損切り×→参考
+    if (_h2tg.main != null) { hold2Sum += _h2tg.main; hold2Count++; }
+    if (_h2tg.ref != null) { hold2RefSum += _h2tg.ref; hold2RefCnt++; }
     if (s.osVal != null) osVals.push(Number(s.osVal));
     var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
     if (_cf != null) confVals.push(_cf);

@@ -4146,16 +4146,9 @@ function EntrySignalSection(_ref_es) {
       _esTotHoldCnt++;
       if (_planStopTot && ppN != null && hpN !== ppN) _esTotHoldPlanStopDiff = true;
     }
-    if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
-      var _hp2es = _elDynHold2(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
-      var _hp2esN = _hp2es != null ? _p100(_hp2es) : null;
-      if (_hp2esN != null) { _esTotHold2 = (_esTotHold2 || 0) + _hp2esN; _esTotHold2Cnt++; }
-    }
-    if (s.hold2Exp === "×" && _elHas2Data(s)) {
-      var _hp2esR = _elDynHold2(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
-      var _hp2esRN = _hp2esR != null ? _p100(_hp2esR) : null;
-      if (_hp2esRN != null) { _esTotHold2Ref = (_esTotHold2Ref || 0) + _hp2esRN; _esTotHold2RefCnt++; }
-    }
+    var _h2tes = _elHold2TotParts(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
+    if (_h2tes.main != null) { _esTotHold2 = (_esTotHold2 || 0) + _p100(_h2tes.main); _esTotHold2Cnt++; }
+    if (_h2tes.ref != null) { _esTotHold2Ref = (_esTotHold2Ref || 0) + _p100(_h2tes.ref); _esTotHold2RefCnt++; }
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
     if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; _esTotMaxABCnt++; }

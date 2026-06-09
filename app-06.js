@@ -1736,14 +1736,9 @@ function EntryLogView(_ref_elv) {
               var _pStopH = _elPlanIsStop(s, _ovA, _ovC);
               _totHoldPlanCap = (_totHoldPlanCap || 0) + ((_pStopH && planPnlN != null) ? planPnlN : holdPnl);
               if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
-            if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
-              var _h2p = _elDynHold2(s, _ovA, _ovC);
-              if (_h2p != null) { _totHold2 = (_totHold2 || 0) + _h2p; _totHold2Cnt++; }
-            }
-            if (s.hold2Exp === "×" && _elHas2Data(s)) {
-              var _h2pR = _elDynHold2(s, _ovA, _ovC);
-              if (_h2pR != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2pR; _totHold2RefCnt++; }
-            }
+            var _h2tt = _elHold2TotParts(s, _ovA, _ovC);
+            if (_h2tt.main != null) { _totHold2 = (_totHold2 || 0) + _h2tt.main; _totHold2Cnt++; }
+            if (_h2tt.ref != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2tt.ref; _totHold2RefCnt++; }
             var _isABt = (s.difficulty === "A" || s.difficulty === "B");
             if (planPnlN != null && _isABt) { _totPlanAB = (_totPlanAB || 0) + planPnlN; _totPlanABCnt++; }
             if (holdPnl != null && _isABt) {
@@ -2566,14 +2561,9 @@ function EntryLogView(_ref_elv) {
           var _pStopH = _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine);
           _totHoldPlanCap = (_totHoldPlanCap || 0) + ((_pStopH && planPnlN != null) ? planPnlN : holdPnl);
           if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
-        if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
-          var _h2p = _elDynHold2(s, _aiSv.alpha, _aiSv.cutLine);
-          if (_h2p != null) { _totHold2 = (_totHold2 || 0) + _h2p; _totHold2Cnt++; }
-        }
-        if (s.hold2Exp === "×" && _elHas2Data(s)) {
-          var _h2pR = _elDynHold2(s, _aiSv.alpha, _aiSv.cutLine);
-          if (_h2pR != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2pR; _totHold2RefCnt++; }
-        }
+        var _h2tt = _elHold2TotParts(s, _aiSv.alpha, _aiSv.cutLine);
+        if (_h2tt.main != null) { _totHold2 = (_totHold2 || 0) + _h2tt.main; _totHold2Cnt++; }
+        if (_h2tt.ref != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2tt.ref; _totHold2RefCnt++; }
         var _isABsv = (s.difficulty === "A" || s.difficulty === "B");
         if (planPnlN != null && _isABsv) { _totPlanABsv = (_totPlanABsv || 0) + planPnlN; _totPlanABCntsv++; }
         if (holdPnl != null && _isABsv) {
