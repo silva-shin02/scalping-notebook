@@ -4101,7 +4101,7 @@ function EntrySignalSection(_ref_es) {
   var _esTotPlanABCnt = 0, _esTotMaxABCnt = 0, _esTotHoldABCnt = 0;
   var _esTotHoldHasUnrecorded = false;
   var _esTotHoldActual = null, _esTotHoldPlanStopDiff = false;
-  var _esTotHold2 = null, _esTotHold2Cnt = 0;
+  var _esTotHold2 = null, _esTotHold2Cnt = 0, _esTotHold2Ref = null, _esTotHold2RefCnt = 0;
   records.forEach(function(r) {
     var s = r.signal, rIt = r.item;
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
@@ -4150,6 +4150,11 @@ function EntrySignalSection(_ref_es) {
       var _hp2es = _elDynHold2(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
       var _hp2esN = _hp2es != null ? _p100(_hp2es) : null;
       if (_hp2esN != null) { _esTotHold2 = (_esTotHold2 || 0) + _hp2esN; _esTotHold2Cnt++; }
+    }
+    if (s.hold2Exp === "×" && _elHas2Data(s)) {
+      var _hp2esR = _elDynHold2(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
+      var _hp2esRN = _hp2esR != null ? _p100(_hp2esR) : null;
+      if (_hp2esRN != null) { _esTotHold2Ref = (_esTotHold2Ref || 0) + _hp2esRN; _esTotHold2RefCnt++; }
     }
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
     if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
@@ -4417,9 +4422,9 @@ function EntrySignalSection(_ref_es) {
       ),
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
         "H２結果損益: ",
-        _esTotHold2Cnt > 0
+        React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Cnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 700, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + _esTotHold2.toLocaleString() + "円"))
-          : React.createElement("span", { style: { color: "#ccc" } }, "—")
+          : (_esTotHold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_esTotHold2Ref, _esTotHold2RefCnt))
       )
     ) : null,
     records.length === 0
@@ -4449,7 +4454,7 @@ function EntrySignalSection(_ref_es) {
                 _esTotHoldCnt > 0 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } }, _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade), _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null) : React.createElement("span", { style: { color: "#ccc" } }, "—"),
                 React.createElement("span", { style: { color: "#ccc", margin: "0 5px" } }, "／"),
                 React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H２："),
-                _esTotHold2Cnt > 0 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 600, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + (_esTotHold2 || 0).toLocaleString() + "円")) : React.createElement("span", { style: { color: "#ccc" } }, "—"))),
+                React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Cnt > 0 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 600, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + (_esTotHold2 || 0).toLocaleString() + "円")) : (_esTotHold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_esTotHold2Ref, _esTotHold2RefCnt)))),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esTotRealCnt > 0 ? _esRPnlDisp(_esTotReal, _esTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
             ),

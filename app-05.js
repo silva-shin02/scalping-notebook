@@ -3348,12 +3348,10 @@ function _elHold2Cell(s, alpha, cutLine) {
   if (exp === "×") {
     if (!_elHas2Data(s)) return React.createElement("span", { style: { color: "#bbb" } }, "×");
     // ×はH2の内容（高値→確定値/α値比値幅/勝敗損益）すべてを1つの（）で囲む。折返し不可で全体を確実に内包。
-    // ただし想定が損切りの場合はpnlが「想定額（H額）」と自前で括弧表示するため、外側の（）は付けない（重複回避）。
-    var _psH2 = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#aaa", fontSize: 11, whiteSpace: "nowrap", opacity: 0.75 } },
-      React.createElement("span", { key: "d", style: { marginRight: 1 } }, _psH2 ? "×" : "×（"),
+      React.createElement("span", { key: "d", style: { marginRight: 1 } }, "×（"),
       _elHoldFlow(s, alpha, cutLine, true, true),
-      _psH2 ? null : React.createElement("span", { key: "e" }, "）"));
+      React.createElement("span", { key: "e" }, "）"));
   }
   var _ec = { "○": "#1E8449", "△": "#B45309" };
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
@@ -3371,12 +3369,21 @@ function _elHoldBoth(s, alpha, cutLine) {
   );
 }
 // 集計表のH損益セル用: ①H1合計 ｜ ②H2合計 を1セルに横並び表示。sumH1/sumH2 は数値(円・nullなら—)。
-function _elHoldSumBoth(sumH1, sumH2) {
+// H2合計の参考表示: 期待度×（合計対象外）のH2損益合計を「（Ⓑ +1,200円）」で返す。該当なしならnull。
+function _elHold2RefSuffix(refSum, refCnt) {
+  if (refCnt == null || refCnt <= 0 || refSum == null) return null;
+  return React.createElement("span", { key: "h2ref", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF", fontWeight: 600, marginLeft: 2 } },
+    "（",
+    _elHoldGradeBadge(_profitGradeFromPnl(refSum, refCnt)),
+    React.createElement("span", { style: { color: refSum > 0 ? "#C0392B" : refSum < 0 ? "#1E8449" : "#888" } }, (refSum > 0 ? "+" : "") + refSum.toLocaleString() + "円"),
+    "）");
+}
+function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt) {
   var _f = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, flexWrap: "wrap", justifyContent: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } },
     React.createElement("span", { key: "h1", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "①"), _f(sumH1)),
     React.createElement("span", { key: "sep", style: { color: "#ddd" } }, "｜"),
-    React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), _f(sumH2)));
+    React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), _f(sumH2), _elHold2RefSuffix(refH2, refCnt)));
 }
 // === H1(上)/H2(下) 縦積み表示ヘルパー（H列を1列に統合する表で使用）===
 // 各部位(高値/値幅/α値比/損益)のReactノードを返す。算出ロジックは_elHoldFlowと同一。
@@ -3426,8 +3433,11 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var p1 = _elHoldParts(s, alpha, cutLine, false);
   var exp = s.hold2Exp;
   var p2 = (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
-  // 想定が損切りの場合、H損益のpnl自体が「想定額（H額）」と括弧表示になるため、×の外側括弧は重複回避で付けない。
+  // 想定が損切りの場合、H損益のpnlが「想定額（H額）」と横長になるため、損益列とテーブル幅を広げる（はみ出し防止）。×の外側括弧は従来どおり付ける。
   var planStop = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
+  var _pnW = planStop ? 172 : 86;
+  var _parW = planStop ? 13 : 10;
+  var _tblW = planStop ? 365 : 273;
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
   var _paren = function(ch) { return React.createElement("span", { style: { color: "#888" } }, ch); };
@@ -3437,31 +3447,31 @@ function _elHoldStackInner(s, alpha, cutLine) {
     return React.createElement("tr", { key: rk },
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
       _c("e", expNode, "center", 14, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
-      _c("op", paren ? _paren("（") : null, "center", 10, bt),
+      _c("op", paren ? _paren("（") : null, "center", _parW, bt),
       _c("hi", p && p.high, "right", 30, bt),
       _c("ar", p && p.width ? _sep("→") : null, "center", 13, bt),
       _c("wd", p && p.width, "right", 30, bt),
       _c("s1", p && p.acmp ? _sep("/") : null, "center", 8, bt),
       _c("ac", p && p.acmp, "right", 42, bt),
       _c("s2", p && p.pnl ? _sep("/") : null, "center", 8, bt),
-      _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", 86, bt),
-      _c("cp", paren ? _paren("）") : null, "center", 10, bt));
+      _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", _pnW, bt),
+      _c("cp", paren ? _paren("）") : null, "center", _parW, bt));
   };
   var rows = [ _row("h1", "H１", null, p1, false, false) ];
   var h2exp = exp ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
-  rows.push(_row("h2", "H２", h2exp, p2, exp === "×" && !planStop, true));
-  return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: 273 } }, React.createElement("tbody", null, rows));
+  rows.push(_row("h2", "H２", h2exp, p2, exp === "×", true));
+  return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: _tblW } }, React.createElement("tbody", null, rows));
 }
 // 明細表(フロー表示)用: H列を1セルに統合(H1上/H2下)。colSpan:2で旧2列分の幅を占有し他のcolSpanは不変。
 function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
   return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, _elHoldStackInner(s, alpha, cutLine), capNote || null) ];
 }
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
-function _elHoldSumTd2(sumH1, sumH2, tdStyle) {
+function _elHoldSumTd2(sumH1, sumH2, tdStyle, refH2, refCnt) {
   var _f = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
   return [
     React.createElement("td", { key: "h1s", style: tdStyle }, _f(sumH1)),
-    React.createElement("td", { key: "h2s", style: tdStyle }, _f(sumH2))
+    React.createElement("td", { key: "h2s", style: tdStyle }, _f(sumH2), _elHold2RefSuffix(refH2, refCnt))
   ];
 }
 function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
@@ -3508,6 +3518,7 @@ function _elCalcStats(records, data, simResolve) {
   var planCapSum = 0, holdCapSum = 0, planHasStop = false, holdHasStop = false;
   var hYes = 0, hMid = 0, hNone = 0, hNo = 0;
   var sumHold2 = 0, hold2HasData = false, hold2CapSum = 0, hold2HasStop = false;
+  var sumHold2Ref = 0, hold2RefCnt = 0;  // 期待度×（参考扱い・合計対象外）のH2損益合計（合計欄でカッコ参考表示）
   var h2Yes = 0, h2Mid = 0, h2None = 0, h2No = 0;
   records.forEach(function(r) {
     var s = r.signal;
@@ -3573,7 +3584,7 @@ function _elCalcStats(records, data, simResolve) {
     // H2（Hold2期待度が○/△の記録のみ集計。×は参考表示のみで集計対象外）
     if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
       var _h2 = _h2sig(s);
-      var hp2 = _liveA ? _elDynHold(_h2, _ai.alpha, _ai.cutLine) : _elSignedVal(_h2.holdPnl, _h2.holdPnlSign);
+      var hp2 = _liveA ? _elDynHold2(s, _ai.alpha, _ai.cutLine) : _elSignedVal(_h2.holdPnl, _h2.holdPnlSign);
       if (hp2 != null) {
         var hp2N = _liveA ? Math.round(hp2) : _per100(hp2);
         sumHold2 += hp2N;
@@ -3596,6 +3607,11 @@ function _elCalcStats(records, data, simResolve) {
       else if (_hc2 === "mid") h2Mid++;
       else if (_hc2 === "none") h2None++;
       else if (_hc2 === "no") h2No++;
+    }
+    // 期待度×（参考扱い・合計対象外）のH2損益も別途集計し、合計欄でカッコ参考表示する。
+    if (s.hold2Exp === "×" && _elHas2Data(s)) {
+      var hp2r = _liveA ? _elDynHold2(s, _ai.alpha, _ai.cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
+      if (hp2r != null) { sumHold2Ref += (_liveA ? Math.round(hp2r) : _per100(hp2r)); hold2RefCnt++; }
     }
   });
   var winPct = (ok + ng) > 0 ? Math.round(ok / (ok + ng) * 100) : null;
@@ -3632,6 +3648,7 @@ function _elCalcStats(records, data, simResolve) {
     hYes: hYes, hMid: hMid, hNone: hNone, hNo: hNo,
     holdResTotal: hYes + hMid + hNone + hNo,
     sumHold2: hold2HasData ? sumHold2 : null,
+    sumHold2Ref: hold2RefCnt > 0 ? sumHold2Ref : null, hold2RefCnt: hold2RefCnt,
     hold2CapSum: (hold2HasData && hold2HasStop) ? hold2CapSum : null,
     hold2HasStop: hold2HasStop,
     h2Yes: h2Yes, h2Mid: h2Mid, h2None: h2None, h2No: h2No,
@@ -3708,7 +3725,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   var planSumAB = 0, planCountAB = 0;
   var planCapSum = 0, holdCapSum = 0, planHasStop = false, holdHasStop = false;
   var holdSumPlanCap = 0, holdSumPlanCapAB = 0, holdCountAB = 0;
-  var hold2Sum = 0, hold2Count = 0;
+  var hold2Sum = 0, hold2Count = 0, hold2RefSum = 0, hold2RefCnt = 0;
   var osVals = [], confVals = [], holdConfVals = [];
   (signals || []).forEach(function(sig) {
     var s = _compatSignal(sig);
@@ -3742,6 +3759,10 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       var hv2 = _elDynHold2(s, _aSig, _c);
       if (hv2 != null) { hold2Sum += hv2; hold2Count++; }
     }
+    if (s.hold2Exp === "×" && _elHas2Data(s)) {  // 参考扱い（合計対象外）。合計欄でカッコ参考表示する。
+      var hv2r = _elDynHold2(s, _aSig, _c);
+      if (hv2r != null) { hold2RefSum += hv2r; hold2RefCnt++; }
+    }
     if (s.osVal != null) osVals.push(Number(s.osVal));
     var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
     if (_cf != null) confVals.push(_cf);
@@ -3765,6 +3786,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     holdSumPlanCapAB: holdCountAB > 0 ? holdSumPlanCapAB : null,
     hold2Grade: hold2Count > 0 ? _profitGradeFromPnl(hold2Sum, hold2Count) : null,
     hold2Sum: hold2Count > 0 ? hold2Sum : null,
+    hold2RefSum: hold2RefCnt > 0 ? hold2RefSum : null, hold2RefCnt: hold2RefCnt,
     planHasStop: planHasStop, holdHasStop: holdHasStop,
     count: realCount,
     osAvg: _avg(osVals), confAvg: _avg(confVals), holdConfAvg: _avg(holdConfVals),
