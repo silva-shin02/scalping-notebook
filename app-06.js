@@ -494,8 +494,8 @@ function EntryLogView(_ref_elv) {
       m.cnt++;
       if (_res === "ok") m.ok++; else if (_res === "draw") m.draw++; else if (_res === "ng") m.ng++; else if (_res === "miss") m.miss++;
       var _pp = _elDynPlanned(s, _draA, _cl); if (_pp != null) m.plan += _pp;
-      var _hp = _elDynHold(s, _draA, _cl); if (_hp != null) { m.hold += _hp; m.holdCnt++; }
-      if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) { var _hp2 = _elDynHold2(s, _draA, _cl); if (_hp2 != null) { m.hold2 += _hp2; m.hold2Cnt++; } }
+      var _hp = _elDynHold(s, _draA, _cl); if (_hp != null) { m.hold += (_elPlanIsStop(s, _draA, _cl) && _pp != null) ? _pp : _hp; m.holdCnt++; }
+      var _h2t = _elHold2TotParts(s, _draA, _cl); if (_h2t.main != null) { m.hold2 += _h2t.main; m.hold2Cnt++; }
     });
     var _diffResKeys = Object.keys(_diffResMap).sort(function(a, b) { var ra = _diffRank[a] != null ? _diffRank[a] : 98, rb = _diffRank[b] != null ? _diffRank[b] : 98; return ra - rb; });
     var _drTh = function(t, ex) { return React.createElement("th", { style: Object.assign({ padding: "2px 5px", fontWeight: 700, fontSize: 10, color: "#9A3412", borderBottom: "2px solid #FB923C", textAlign: "center", whiteSpace: "nowrap" }, ex || {}) }, t); };
@@ -2071,15 +2071,15 @@ function EntryLogView(_ref_elv) {
             }
             var _hpB = _elDynHold(s, _simA, _simCut);
             if (_hpB != null) {
-              // 想定が損切りの行は結果損益を想定額にキャップ。
+              // 想定が損切りの行は結果損益を想定額にキャップ（planCap）。
               var _hCapVb = (_elPlanIsStop(s, _simA, _simCut) && _dpB != null) ? _dpB : _hpB;
-              _sTotHold = (_sTotHold||0) + _hpB; _sTotHoldCnt++; _sHoldDays[r.date] = 1;
+              _sTotHold = (_sTotHold||0) + _hCapVb; _sTotHoldCnt++; _sHoldDays[r.date] = 1;
               _sTotHoldCapAll = (_sTotHoldCapAll||0) + _hCapVb;
               if (_isABb) _sTotHoldCapAB = (_sTotHoldCapAB||0) + _hCapVb;
             } else if (s.osVal != null && Number(s.osVal) >= _simA && s.holdOsConf == null && s.holdWidth == null && s.holdHighVal == null) {
               _sHoldUnrec++;
             }
-            if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) { var _hp2B = _elDynHold2(s, _simA, _simCut); if (_hp2B != null) { _sTotHold2 = (_sTotHold2||0) + _hp2B; _sTotHold2Cnt++; } }
+            var _h2tB = _elHold2TotParts(s, _simA, _simCut); if (_h2tB.main != null) { _sTotHold2 = (_sTotHold2||0) + _h2tB.main; _sTotHold2Cnt++; }
           });
           var _nPlanDays = Object.keys(_sPlanDays).length;
           var _nHoldDays = Object.keys(_sHoldDays).length;
@@ -3832,7 +3832,7 @@ function EntryLogView(_ref_elv) {
       var _pnlColor = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#ccc"; };
       var _pnlStr  = function(v) { return v !== 0 ? (v > 0 ? "+" : "") + v + "円" : "—"; };
       var _evStr   = function(v) { return v != null ? (v > 0 ? "+" : "") + v + "円" : "—"; };
-      var _slashCell = function(sum, ev, sumP, evP, sumH, sumH2) {
+      var _slashCell = function(sum, ev, sumP, evP, sumH, sumH2, sumH2Ref, h2RefCnt) {
         return [
           React.createElement("td", { key: "pnl", style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8",
             fontSize: 11, whiteSpace: "nowrap", color: _pnlColor(sum), fontWeight: sum !== 0 ? 600 : 400 } },
@@ -3843,7 +3843,7 @@ function EntryLogView(_ref_elv) {
               : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { key: "hold", style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
             (sumH != null || sumH2 != null)
-              ? _elHoldSumBoth(sumH, sumH2)
+              ? _elHoldSumBoth(sumH, sumH2, sumH2Ref != null ? sumH2Ref : null, h2RefCnt != null ? h2RefCnt : 0)
               : React.createElement("span", { style: { color: "#ccc" } }, "—"))
         ];
       };
@@ -3902,7 +3902,7 @@ function EntryLogView(_ref_elv) {
                       color: diffColor, borderBottom: "1px solid #f0ede8", width: "1%", whiteSpace: "nowrap" } },
                       (isOn ? "▶ " : "") + row.label),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontWeight: 700, fontSize: 11 } }, row.recs.length),
-                    _slashCell(row.st.sumPnl, row.st.expected, row.st.sumPlanned, row.st.expectedPlanned, row.st.sumHold, row.st.sumHold2)
+                    _slashCell(row.st.sumPnl, row.st.expected, row.st.sumPlanned, row.st.expectedPlanned, row.st.sumHold, row.st.sumHold2, row.st.sumHold2Ref, row.st.hold2RefCnt)
                   );
                 })
               )
@@ -4338,8 +4338,8 @@ function EntryLogView(_ref_elv) {
       var pp = _elDynPlanned(r.signal, ai.alpha, ai.cutLine);
       var hp = _elDynHold(r.signal, ai.alpha, ai.cutLine);
       if (pp != null) { _planSum += pp; _daySet[r.date] = 1; }
-      if (hp != null) { _holdSum += hp; }
-      if ((r.signal.hold2Exp === "○" || r.signal.hold2Exp === "△") && _elHas2Data(r.signal)) { var hp2 = _elDynHold2(r.signal, ai.alpha, ai.cutLine); if (hp2 != null) { _hold2Sum += hp2; _hold2Cnt++; } }
+      if (hp != null) { _holdSum += (_elPlanIsStop(r.signal, ai.alpha, ai.cutLine) && pp != null) ? pp : hp; }
+      var _h2tA = _elHold2TotParts(r.signal, ai.alpha, ai.cutLine); if (_h2tA.main != null) { _hold2Sum += _h2tA.main; _hold2Cnt++; }
       if (_elIsEntered(r.signal, r.item)) {
         var rv = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign);
         if (rv != null) { _realSumAll += rv; _realDaySet[r.date] = 1; }

@@ -3584,7 +3584,9 @@ function _elCalcStats(records, data, simResolve) {
     var hp = _liveA ? _elDynHold(s, _ai.alpha, _ai.cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
     if (hp != null) {
       var hpN = _liveA ? Math.round(hp) : _per100(hp);
-      sumHold += hpN;
+      // H結果損益(planCap): 想定が損切りの行は想定額(ppN)に置換し、本日/今週・明細の合計と統一。
+      var _pStopH = _liveA && _elPlanIsStop(s, _ai.alpha, _ai.cutLine);
+      sumHold += (_pStopH && ppN != null) ? ppN : hpN;
       holdHasData = true;
       var _hStop = _liveA && _elHoldIsStop(s, _ai.alpha, _ai.cutLine);
       if (_hStop) holdHasStop = true;
@@ -3606,14 +3608,16 @@ function _elCalcStats(records, data, simResolve) {
     else if (_hc === "none") hNone++;
     else if (_hc === "no") hNo++;
 
-    // H2（Hold2期待度が○/△の記録のみ集計。×は参考表示のみで集計対象外）
+    // H2合計（結果損益）: _elHold2TotParts で統一（損切り→想定額・非損切り○/△→_elDynHold2・非損切り×→参考）。本日/今週・明細・各集計表の合計を一致させる。
+    var _h2t = _elHold2TotParts(s, _liveA ? _ai.alpha : null, _liveA ? _ai.cutLine : 10);
+    if (_h2t.main != null) { sumHold2 += (_liveA ? Math.round(_h2t.main) : _per100(_h2t.main)); hold2HasData = true; }
+    if (_h2t.ref != null) { sumHold2Ref += (_liveA ? Math.round(_h2t.ref) : _per100(_h2t.ref)); hold2RefCnt++; }
+    // H2期待度の勝敗分類（○/△のみ）と損切りキャップ集計は従来どおり。
     if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
       var _h2 = _h2sig(s);
       var hp2 = _liveA ? _elDynHold2(s, _ai.alpha, _ai.cutLine) : _elSignedVal(_h2.holdPnl, _h2.holdPnlSign);
       if (hp2 != null) {
         var hp2N = _liveA ? Math.round(hp2) : _per100(hp2);
-        sumHold2 += hp2N;
-        hold2HasData = true;
         var _h2Stop = _liveA && _elHoldIsStop(_h2, _ai.alpha, _ai.cutLine);
         if (_h2Stop) hold2HasStop = true;
         hold2CapSum += _h2Stop ? _elCapLossYen(_ai.cutLine) : hp2N;
@@ -3632,11 +3636,6 @@ function _elCalcStats(records, data, simResolve) {
       else if (_hc2 === "mid") h2Mid++;
       else if (_hc2 === "none") h2None++;
       else if (_hc2 === "no") h2No++;
-    }
-    // 期待度×（参考扱い・合計対象外）のH2損益も別途集計し、合計欄でカッコ参考表示する。
-    if (s.hold2Exp === "×" && _elHas2Data(s)) {
-      var hp2r = _liveA ? _elDynHold2(s, _ai.alpha, _ai.cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
-      if (hp2r != null) { sumHold2Ref += (_liveA ? Math.round(hp2r) : _per100(hp2r)); hold2RefCnt++; }
     }
   });
   var winPct = (ok + ng) > 0 ? Math.round(ok / (ok + ng) * 100) : null;
