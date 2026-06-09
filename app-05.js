@@ -3208,15 +3208,19 @@ function _elDynHold(s, alpha, cutLine) {
   }
   return hp;
 }
+// 値幅/確定値ベースのホールド損益（損切りルール・miss判定なし）。
+function _elHoldWidthPnl(s, alpha) {
+  if (s.holdWidth != null) { var _hwS0 = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0; return Math.round((alpha + _hwS0) * 100); }
+  if (s.holdOsConf != null) return Math.round((alpha + (alpha - Number(s.holdOsConf))) * 100);
+  return _elSignedVal(s.holdPnl, s.holdPnlSign);
+}
 // 損切りルールを適用しないホールド損益（値幅/確定値ベースのみ）。H2で想定/H1が既に損切りの場合に使用。
 function _elDynHoldNoStop(s, alpha) {
   if (alpha == null) return _elSignedVal(s.holdPnl, s.holdPnlSign);
   if (s.osVal != null && alpha > Number(s.osVal)) {
     if (!(s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= alpha)) return null;
   }
-  if (s.holdWidth != null) { var _hwS0 = s.holdWidthSign === "+" ? Number(s.holdWidth) : s.holdWidthSign === "-" ? -Number(s.holdWidth) : 0; return Math.round((alpha + _hwS0) * 100); }
-  if (s.holdOsConf != null) return Math.round((alpha + (alpha - Number(s.holdOsConf))) * 100);
-  return _elSignedVal(s.holdPnl, s.holdPnlSign);
+  return _elHoldWidthPnl(s, alpha);
 }
 
 function _elPlanIsStop(s, alpha, cutLine) {
@@ -3246,7 +3250,14 @@ function _h2sig(s) {
 function _elDynHold2(s, alpha, cutLine) {
   // 想定損益またはH1で既に損切りの場合、H2には損切りルールを適用せず値幅から算出（損益変化はH1損益との純粋比較）。
   if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) return _elDynHoldNoStop(_h2sig(s), alpha);
-  return _elDynHold(_h2sig(s), alpha, cutLine);
+  var _h2s = _h2sig(s);
+  // miss(OS<α)でも、H1の高値がα到達ならH2は自身がα未達でも結果を算出（H1でエントリー成立とみなす）。
+  if (alpha != null && s.osVal != null && alpha > Number(s.osVal)
+      && !(_h2s.holdHighSign === "-" && _h2s.holdHighVal != null && Number(_h2s.holdHighVal) >= alpha)
+      && (s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= alpha)) {
+    return _elHoldWidthPnl(_h2s, alpha);
+  }
+  return _elDynHold(_h2s, alpha, cutLine);
 }
 function _elHoldIsStop2(s, alpha, cutLine) { return _elHoldIsStop(_h2sig(s), alpha, cutLine); }
 function _elHas2Data(s) { return !!(s && (s.hold2HighVal != null || s.hold2Width != null || s.hold2OsConf != null || s.hold2Pnl != null)); }
@@ -4486,7 +4497,10 @@ function EntryRecordForm(_ref_erf) {
     var _av = _fAlpha;
     var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 10;
     if (fResult === "miss") {
-      if (!(fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) || 0) >= _av)) {
+      // H1の高値がα到達（H1でエントリー成立）なら、H2は自身がα未達でもmiss扱いせず結果を算出。
+      var _h1ReachedA = (_av != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _av);
+      var _h2ReachedA = (fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) || 0) >= _av);
+      if (!_h1ReachedA && !_h2ReachedA) {
         setFHold2PnlSign("+"); setFHold2PnlVal("0"); return;
       }
     }
@@ -4948,34 +4962,32 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
       
-      React.createElement("div", { style: { display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 8, flexWrap: "wrap" } },
-        React.createElement("div", null,
-          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "想定損益（100株換算）"),
-          _fMiss ? _fMissEl : React.createElement("span", {
-            style: {
-              display: "inline-block", padding: "5px 14px",
-              fontSize: 15, fontWeight: 800,
-              color: fPlanSign === "+" ? "#C0392B" : fPlanSign === "-" ? "#1E8449" : "#555",
-              background: fPlanSign === "+" ? "#FCEBEB" : fPlanSign === "-" ? "#EAF3DE" : "#f5f5f5",
-              borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#F5B7B1" : fPlanSign === "-" ? "#A9DFBF" : "#ddd"),
-              minWidth: 80, textAlign: "right"
-            }
-          }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—"),
-          (!_fMiss && Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine)
-            ? _elCapNote(_fCutLine, { fontSize: 15, circle: 16, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
-        ),
-        React.createElement("div", { style: { flex: 1, minWidth: 200 } },
-          React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "メモ"),
-          React.createElement(FastInput, {
-            multiline: true,
-            autoResize: true,
-            value: fRationale,
-            onChange: function(v) { setFRationale(v); },
-            placeholder: "",
-            rows: 2,
-            style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56 })
-          })
-        )
+      React.createElement("div", { style: { marginBottom: 8 } },
+        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "想定損益（100株換算）"),
+        _fMiss ? _fMissEl : React.createElement("span", {
+          style: {
+            display: "inline-block", padding: "5px 14px",
+            fontSize: 15, fontWeight: 800,
+            color: fPlanSign === "+" ? "#C0392B" : fPlanSign === "-" ? "#1E8449" : "#555",
+            background: fPlanSign === "+" ? "#FCEBEB" : fPlanSign === "-" ? "#EAF3DE" : "#f5f5f5",
+            borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#F5B7B1" : fPlanSign === "-" ? "#A9DFBF" : "#ddd"),
+            minWidth: 80, textAlign: "right"
+          }
+        }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—"),
+        (!_fMiss && Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine)
+          ? _elCapNote(_fCutLine, { fontSize: 15, circle: 16, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
+      ),
+      React.createElement("div", { style: { marginBottom: 8 } },
+        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "メモ"),
+        React.createElement(FastInput, {
+          multiline: true,
+          autoResize: true,
+          value: fRationale,
+          onChange: function(v) { setFRationale(v); },
+          placeholder: "",
+          rows: 2,
+          style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56 })
+        })
       ),
 
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
@@ -5251,7 +5263,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            (_fMiss && !_fHold2HighOverA) ? _fMissEl : React.createElement("span", {
+            (_fMiss && !_fHold2HighOverA && !_fHoldHighOverA) ? _fMissEl : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
