@@ -3386,28 +3386,33 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
   } else if (res === "miss") { miss = true; pnl = React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "ー"); }
   return { high: high, width: width, acmp: acmp, pnl: pnl, miss: miss, hasAny: !!(high || width || acmp || pnl) };
 }
-// 明細表用: H1(上)/H2(下)を内部2行テーブルで縦揃え。H2行の左端にH2期待度(○/△/×、×は控えめグレー)。
+// 明細表用: H1(上)/H2(下)を内部2行テーブルで縦揃え。左端に①②でH1/H2を明示。H2行は期待度(○/△/×)→内容。
+// H2が×のときは内容(期待度除く)を（）で一括りにし、開き/閉じ括弧を専用列に置いて他行と桁を揃える。×でも色は薄くしない。
 function _elHoldStackInner(s, alpha, cutLine) {
   var p1 = _elHoldParts(s, alpha, cutLine, false);
   var exp = s.hold2Exp;
   var p2 = (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
-  var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#aaa" };
+  var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
+  var _paren = function(ch) { return React.createElement("span", { style: { color: "#888" } }, ch); };
   var _c = function(k, node, ta, extra) { return React.createElement("td", { key: k, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: ta || "center" }, extra || {}) }, node != null ? node : null); };
-  var _row = function(rk, expNode, p, dim) {
-    return React.createElement("tr", { key: rk, style: dim ? { color: "#aaa", opacity: 0.7 } : null },
-      _c("e", expNode, "center", { paddingRight: 2, fontWeight: 800 }),
+  var _row = function(rk, lblNode, expNode, p, paren) {
+    return React.createElement("tr", { key: rk },
+      _c("lbl", lblNode, "center", { fontSize: 8, color: "#bbb", fontWeight: 700, paddingRight: 2 }),
+      _c("e", expNode, "center", { paddingRight: 1, fontWeight: 800 }),
+      _c("op", paren ? _paren("（") : null, "center"),
       _c("hi", p && p.high, "right"),
       _c("ar", p && p.width ? _sep("→") : null, "center"),
       _c("wd", p && p.width, "right"),
       _c("s1", p && p.acmp ? _sep("/") : null, "center"),
       _c("ac", p && p.acmp, "right"),
       _c("s2", p && p.pnl ? _sep("/") : null, "center"),
-      _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left"));
+      _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left"),
+      _c("cp", paren ? _paren("）") : null, "center"));
   };
-  var rows = [ _row("h1", null, p1, false) ];
+  var rows = [ _row("h1", "①", null, p1, false) ];
   var h2exp = exp ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
-  rows.push(_row("h2", h2exp, p2, exp === "×"));
+  rows.push(_row("h2", "②", h2exp, p2, exp === "×"));
   return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.4 } }, React.createElement("tbody", null, rows));
 }
 // 明細表(フロー表示)用: H列を1セルに統合(H1上/H2下)。colSpan:2で旧2列分の幅を占有し他のcolSpanは不変。
