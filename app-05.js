@@ -3326,9 +3326,13 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
     })();
     var symMap = { yes: ["○", "#1E8449"], mid: ["△", "#B45309"], none: ["ー", "#888"], no: ["×", "#C0392B"] };
     var sym = symMap[dynHP];
+    // 損切り時の左側＝結果損益。H1は想定損切りのみ想定額。H2は損切り(想定orH1自身)ならH1の結果損益(想定損切り=想定額/H1損切り=_elDynHold)、括弧内はH2のNoStop値(holdPnl)。
+    var _stopLeft = isH2
+      ? ((alpha != null && _elHoldIsStop(s, alpha, cutLine)) ? (planStop ? planPnl : _elDynHold(s, alpha, cutLine)) : null)
+      : (planStop ? planPnl : null);
     nodes.push(React.createElement("span", { key: "a3", style: { color: "#ccc", margin: "0 2px" } }, "/"));
-    nodes.push((planStop && planPnl != null)
-      ? _elHoldStopPnlNode(planPnl, holdPnl, "hp")
+    nodes.push((_stopLeft != null && holdPnl != null)
+      ? _elHoldStopPnlNode(_stopLeft, holdPnl, "hp")
       : React.createElement("span", { key: "hp", style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
         sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
         _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
@@ -3369,23 +3373,27 @@ function _elHoldBoth(s, alpha, cutLine) {
   );
 }
 // 集計表のH損益セル用: ①H1合計 ｜ ②H2合計 を1セルに横並び表示。sumH1/sumH2 は数値(円・nullなら—)。
-// H2合計の参考表示: 期待度×（合計対象外）のH2損益合計を「（Ⓑ +1,200円）」で返す。該当なしならnull。
-function _elHold2RefSuffix(refSum, refCnt) {
+// H2合計の参考表示: 期待度×（本合計から除外）の記録も含めた合計を「（Ⓐ +9,900円）」で返す（= 本合計mainSum ＋ ×参考refSum）。×記録が無ければnull。
+function _elHold2RefSuffix(mainSum, refSum, refCnt) {
   if (refCnt == null || refCnt <= 0 || refSum == null) return null;
+  var _incl = (mainSum || 0) + refSum;
   return React.createElement("span", { key: "h2ref", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF", fontWeight: 600, marginLeft: 2 } },
     "（",
-    _elHoldGradeBadge(_profitGradeFromPnl(refSum, refCnt)),
-    React.createElement("span", { style: { color: refSum > 0 ? "#C0392B" : refSum < 0 ? "#1E8449" : "#888" } }, (refSum > 0 ? "+" : "") + refSum.toLocaleString() + "円"),
+    _elHoldGradeBadge(_profitGradeFromPnl(_incl, 1)),
+    React.createElement("span", { style: { color: _incl > 0 ? "#C0392B" : _incl < 0 ? "#1E8449" : "#888" } }, (_incl > 0 ? "+" : "") + _incl.toLocaleString() + "円"),
     "）");
 }
 // H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。H1のplanCapと同じ考え方:
-//  ・想定が損切り → 結果損益＝想定額（期待度に関わらず。損切りは実際に発生した損失）→ main
+//  ・損切り(想定 or H1自身) → 結果損益＝H1の結果損益（想定損切り=想定額／H1損切り=_elDynHold）。期待度に関わらずmain（損切りは実際の損失なので×でも消えない）。
 //  ・非損切りで期待度○/△ → _elDynHold2 → main
 //  ・非損切りで期待度× → 参考（合計対象外）→ ref
 //  ・期待度未設定/H2データ無し → どちらもnull
 function _elHold2TotParts(s, alpha, cutLine) {
   if (!s || !s.hold2Exp || !_elHas2Data(s)) return { main: null, ref: null };
-  if (alpha != null && _elPlanIsStop(s, alpha, cutLine)) return { main: _elDynPlanned(s, alpha, cutLine), ref: null };
+  if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
+    var _h1res = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+    return { main: _h1res, ref: null };
+  }
   var hv = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
   if (s.hold2Exp === "×") return { main: null, ref: hv };
   return { main: hv, ref: null };
@@ -3395,7 +3403,7 @@ function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt) {
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, flexWrap: "wrap", justifyContent: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } },
     React.createElement("span", { key: "h1", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "①"), _f(sumH1)),
     React.createElement("span", { key: "sep", style: { color: "#ddd" } }, "｜"),
-    React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), _f(sumH2), _elHold2RefSuffix(refH2, refCnt)));
+    React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), _f(sumH2), _elHold2RefSuffix(sumH2, refH2, refCnt)));
 }
 // === H1(上)/H2(下) 縦積み表示ヘルパー（H列を1列に統合する表で使用）===
 // 各部位(高値/値幅/α値比/損益)のReactノードを返す。算出ロジックは_elHoldFlowと同一。
@@ -3429,8 +3437,11 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
     })();
     var symMap = { yes: ["○", "#1E8449"], mid: ["△", "#B45309"], none: ["ー", "#888"], no: ["×", "#C0392B"] };
     var sym = symMap[dynHP];
-    pnl = (planStop && planVal != null)
-      ? _elHoldStopPnlNode(planVal, holdPnl)
+    var _stopLeftP = isH2
+      ? ((alpha != null && _elHoldIsStop(s, alpha, cutLine)) ? (planStop ? planVal : _elDynHold(s, alpha, cutLine)) : null)
+      : (planStop ? planVal : null);
+    pnl = (_stopLeftP != null && holdPnl != null)
+      ? _elHoldStopPnlNode(_stopLeftP, holdPnl)
       : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
         sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
         _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
@@ -3447,9 +3458,11 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var p2 = (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
   // 想定が損切りの場合、H損益のpnlが「想定額（H額）」と横長になるため、損益列とテーブル幅を広げる（はみ出し防止）。×の外側括弧は従来どおり付ける。
   var planStop = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
-  var _pnW = planStop ? 172 : 86;
-  var _parW = planStop ? 13 : 10;
-  var _tblW = planStop ? 365 : 273;
+  // H2は損切り(想定orH1自身)時に「結果損益（H2値）」と横長になる。H1のplanStop、またはH2表示かつ任意の損切りの時に幅を広げる。
+  var _wideStop = planStop || ((alpha != null) && p2 != null && _elHoldIsStop(s, alpha, cutLine));
+  var _pnW = _wideStop ? 172 : 86;
+  var _parW = _wideStop ? 13 : 10;
+  var _tblW = _wideStop ? 365 : 273;
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
   var _paren = function(ch) { return React.createElement("span", { style: { color: "#888" } }, ch); };
@@ -3483,7 +3496,7 @@ function _elHoldSumTd2(sumH1, sumH2, tdStyle, refH2, refCnt) {
   var _f = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
   return [
     React.createElement("td", { key: "h1s", style: tdStyle }, _f(sumH1)),
-    React.createElement("td", { key: "h2s", style: tdStyle }, _f(sumH2), _elHold2RefSuffix(refH2, refCnt))
+    React.createElement("td", { key: "h2s", style: tdStyle }, _f(sumH2), _elHold2RefSuffix(sumH2, refH2, refCnt))
   ];
 }
 function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
@@ -4808,7 +4821,10 @@ function EntryRecordForm(_ref_erf) {
           var on = fDifficulty === val;
           return React.createElement("button", {
             key: val,
-            onClick: function() { setFDifficulty(on ? "" : val); },
+            onClick: function() {
+              if (on) { setFDifficulty(""); setFAlphaVal(""); }
+              else { setFDifficulty(val); setFAlphaVal(String(_gradeAlpha(val))); }
+            },
             style: {
               flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: on ? 800 : 700,
               border: on ? "2px solid #1a1a1a" : "1px solid #ddd",
