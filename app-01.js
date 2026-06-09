@@ -3722,11 +3722,10 @@ function ImageAnnotator(_ref7) {
     if (!c) return false;
     var ls = logicalSizeRef.current;
     if (!ls.w || !ls.h) return false;
-    var dpr = window.devicePixelRatio || 1;
-    var zz = Math.max(z || 1, 1);
+    // 案1: 物理canvasは常に最大解像度(maxScale)でラスタライズし、ズームはwrapperのCSS transform(scale(zoom))に任せる。
+    // 以前は zoom のたびに canvas を fit*zoom*dpr で作り直して再描画していた（→ズームの瞬間に一度ガビガビ）。それを廃止し、引数zは未使用。
     var maxScale = maxScaleRef.current || 1;
-    var fit = scRef.current || 1;
-    var scale = Math.min(fit * zz * dpr, maxScale);
+    var scale = maxScale;
     if (scale < 0.05) scale = 0.05;
     var tw = Math.round(ls.w * scale), th = Math.round(ls.h * scale);
     if (c.width === tw && c.height === th) return false;
