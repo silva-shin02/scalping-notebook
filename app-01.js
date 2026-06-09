@@ -3317,8 +3317,9 @@ function ImageAnnotator(_ref7) {
   });
   var resizeRef = useRef(null); 
   var committedRef = useRef(null); 
-  var overlayCanvasRef = useRef(null); 
-  var _tHandlers = useRef({ts:null,tm:null,te:null}); 
+  var overlayCanvasRef = useRef(null);
+  var overlayScaleRef = useRef(1);
+  var _tHandlers = useRef({ts:null,tm:null,te:null});
   var _mHandlers = useRef({mv:null,up:null}); 
   var textDragRef = useRef(null); 
   var ctrlPanRef = useRef(null); 
@@ -3732,9 +3733,13 @@ function ImageAnnotator(_ref7) {
     dprRef.current = scale;
     c.width = tw;
     c.height = th;
+    // 描画中プレビュー用オーバーレイは本体(maxScale)とは別に控えめな解像度(表示倍率×DPR程度)に。
+    // 毎pointermoveで全消去するため、本体と同じ巨大サイズだとペン追従がカクつく。確定時は本体(maxScale)へ高精細で焼き込むので最終画質は維持。
+    var _oScale = Math.min(scale, Math.max(1, (scRef.current || 1) * (window.devicePixelRatio || 1)));
+    overlayScaleRef.current = _oScale;
     if (overlayCanvasRef.current) {
-      overlayCanvasRef.current.width = c.width;
-      overlayCanvasRef.current.height = c.height;
+      overlayCanvasRef.current.width = Math.round(ls.w * _oScale);
+      overlayCanvasRef.current.height = Math.round(ls.h * _oScale);
     }
     var ctx = c.getContext("2d");
     ctx.imageSmoothingEnabled = true;
@@ -4402,7 +4407,7 @@ function ImageAnnotator(_ref7) {
       var _oc = overlayCanvasRef.current;
       if (_oc && _oc.width > 0) {
         var _octx = _oc.getContext('2d');
-        var _dpr = dprRef.current;
+        var _dpr = overlayScaleRef.current || dprRef.current;
         _octx.setTransform(1, 0, 0, 1, 0, 0);
         _octx.clearRect(0, 0, _oc.width, _oc.height);
         _octx.setTransform(_dpr, 0, 0, _dpr, 0, 0);
