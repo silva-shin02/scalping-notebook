@@ -4095,7 +4095,7 @@ function VirtualAlphaCalc(_ref_vac) {
           React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "α値"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
-              type: "number", inputMode: "numeric", min: "0", max: "30", step: "1", value: aStr,
+              type: "text", inputMode: "numeric", min: "0", max: "30", step: "1", value: aStr,
               onChange: function(e) {
                 var v = _toHankaku(e.target.value);
                 if (v !== "") { var _vn = Number(v); if (!isNaN(_vn)) { if (_vn > 30) _vn = 30; if (_vn < 0) _vn = 0; v = String(_vn); } }
@@ -4859,7 +4859,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "採用α値（水準線比）"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
-              type: "number", inputMode: "numeric", min: "0", max: "30", step: "1",
+              type: "text", inputMode: "numeric", min: "0", max: "30", step: "1",
               value: fAlphaVal !== "" ? fAlphaVal : (fDifficulty ? String(_gradeAlpha(fDifficulty)) : ""),
               onChange: function(e) { _setAV(e.target.value); },
               placeholder: "各記録",
@@ -4902,7 +4902,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "損切り値"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FECACA", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
-              type: "number", inputMode: "numeric", min: "1", max: "30", step: "1",
+              type: "text", inputMode: "numeric", min: "1", max: "30", step: "1",
               value: _cv != null ? String(_cv) : "10",
               onChange: function(e) { _saveCut(e.target.value); },
               placeholder: "10",
@@ -4925,7 +4925,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, "OS値（水準線比）"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden" } },
             React.createElement("input", {
-              type: "number", inputMode: "numeric", step: "1", min: "0",
+              type: "text", inputMode: "numeric", step: "1", min: "0",
               value: fOsVal,
               onChange: function(e) { setFOsVal(_toHankakuNum(e.target.value)); },
               placeholder: "0",
@@ -4955,7 +4955,7 @@ function EntryRecordForm(_ref_erf) {
                 cursor: "pointer", minWidth: 36, flexShrink: 0 }
             }, fOsConfSign === "+" ? "↑" : fOsConfSign === "-" ? "↓" : "↕"),
             React.createElement("input", {
-              type: "number", inputMode: "numeric", step: "1",
+              type: "text", inputMode: "numeric", step: "1",
               value: fOsConfVal,
               onChange: function(e) { var v = _toHankakuNum(e.target.value); setFOsConfVal(v); if ((Number(v) || 0) === 0) setFOsConfSign(null); },
               placeholder: "0",
@@ -5012,7 +5012,7 @@ function EntryRecordForm(_ref_erf) {
                 cursor: "pointer", minWidth: 36, flexShrink: 0 }
             }, fEstWidthSign === "-" ? "↑" : fEstWidthSign === "+" ? "↓" : "↕"),
             React.createElement("input", {
-              type: "number", inputMode: "numeric", step: "1",
+              type: "text", inputMode: "numeric", step: "1",
               value: fEstWidthVal,
               onChange: function(e) { var _hk = _toHankakuNum(e.target.value); setFEstWidthVal(_hk === "" ? "" : String(Math.abs(Number(_hk) || 0))); },
               placeholder: "0",
@@ -5081,7 +5081,7 @@ function EntryRecordForm(_ref_erf) {
                   color: fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#999" }
               }, fHoldHighSign === "-" ? "↑" : fHoldHighSign === "+" ? "↓" : "↕"),
               React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1",
+                type: "text", inputMode: "numeric", step: "1",
                 value: fHoldHighVal,
                 onChange: function(e) {
                   var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
@@ -5135,7 +5135,7 @@ function EntryRecordForm(_ref_erf) {
                   color: fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#999" }
               }, fHoldWidthSign === "-" ? "↑" : fHoldWidthSign === "+" ? "↓" : "↕"),
               React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1",
+                type: "text", inputMode: "numeric", step: "1",
                 value: fHoldWidthVal,
                 onChange: function(e) {
                   var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
@@ -5253,7 +5253,7 @@ function EntryRecordForm(_ref_erf) {
                   color: fHold2HighSign === "+" ? "#1E8449" : fHold2HighSign === "-" ? "#C0392B" : "#999" }
               }, fHold2HighSign === "-" ? "↑" : fHold2HighSign === "+" ? "↓" : "↕"),
               React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1",
+                type: "text", inputMode: "numeric", step: "1",
                 value: fHold2HighVal,
                 onChange: function(e) {
                   var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
@@ -5303,7 +5303,7 @@ function EntryRecordForm(_ref_erf) {
                   color: fHold2WidthSign === "+" ? "#1E8449" : fHold2WidthSign === "-" ? "#C0392B" : "#999" }
               }, fHold2WidthSign === "-" ? "↑" : fHold2WidthSign === "+" ? "↓" : "↕"),
               React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1",
+                type: "text", inputMode: "numeric", step: "1",
                 value: fHold2WidthVal,
                 onChange: function(e) {
                   var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
@@ -5411,7 +5411,7 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 2 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden" } },
                   React.createElement("input", {
-                    type: "number", inputMode: "numeric", min: "0", step: "100",
+                    type: "text", inputMode: "numeric", min: "0", step: "100",
                     value: fShares,
                     onChange: function(e) { setFShares(_toHankakuNum(e.target.value)); },
                     onKeyDown: function(e) {
@@ -5433,7 +5433,7 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 2 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 6, overflow: "hidden" } },
                   React.createElement("input", {
-                    type: "number", inputMode: "numeric", min: "0", max: "30", step: "1",
+                    type: "text", inputMode: "numeric", min: "0", max: "30", step: "1",
                     value: fTradeAlpha,
                     onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "") { setFTradeAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setFTradeAlpha(String(n)); },
                     placeholder: "—",
@@ -5453,7 +5453,7 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("label", { style: { fontSize: 11, color: "#666", display: "flex", flexDirection: "column", flex: 1 } }, "価格（入り）",
                 React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", marginTop: 2 } },
                   React.createElement("input", {
-                    type: "number", inputMode: "decimal", step: "any",
+                    type: "text", inputMode: "decimal", step: "any",
                     value: fPriceIn, onChange: function(e) { setFPriceIn(_toHankakuDecimal(e.target.value)); },
                     placeholder: "0",
                     style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
@@ -5477,7 +5477,7 @@ function EntryRecordForm(_ref_erf) {
                         cursor: "pointer", minWidth: 36, flexShrink: 0 }
                     }, fEntryOsSign === "+" ? "↑" : fEntryOsSign === "-" ? "↓" : "↕"),
                     React.createElement("input", {
-                      type: "number", inputMode: "numeric", step: "1",
+                      type: "text", inputMode: "numeric", step: "1",
                       value: fEntryOsVal, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFEntryOsVal(v); if ((Number(v) || 0) === 0) setFEntryOsSign(null); },
                       placeholder: "0",
                       style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }
@@ -5495,7 +5495,7 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("label", { style: { fontSize: 11, color: "#666", display: "flex", flexDirection: "column", flex: 1 } }, "価格（出）",
                 React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", marginTop: 2 } },
                   React.createElement("input", {
-                    type: "number", inputMode: "decimal", step: "any",
+                    type: "text", inputMode: "decimal", step: "any",
                     value: fPriceOut, onChange: function(e) { setFPriceOut(_toHankakuDecimal(e.target.value)); },
                     placeholder: "0",
                     style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
@@ -5519,7 +5519,7 @@ function EntryRecordForm(_ref_erf) {
                         cursor: "pointer", minWidth: 36, flexShrink: 0 }
                     }, fExitOsSign === "+" ? "↑" : fExitOsSign === "-" ? "↓" : "↕"),
                     React.createElement("input", {
-                      type: "number", inputMode: "numeric", step: "1",
+                      type: "text", inputMode: "numeric", step: "1",
                       value: fExitOsVal, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFExitOsVal(v); if ((Number(v) || 0) === 0) setFExitOsSign(null); },
                       placeholder: "0",
                       style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }

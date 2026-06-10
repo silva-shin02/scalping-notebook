@@ -4118,7 +4118,7 @@ function DayView(_ref57) {
         return React.createElement("div", { onClick: stop, style: { marginTop: 3, display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 } },
           React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#0369A1" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, "α値シミュ", React.createElement("span", { style: { color: isSim ? "#0369A1" : "transparent" } }, "●")),
           React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#0369A1" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
-            React.createElement("input", { type: "number", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
+            React.createElement("input", { type: "text", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
               onChange: function(e) { setVal(_toHankakuNum(e.target.value)); },
               style: { width: 30, padding: "2px 3px", border: "none", outline: "none", background: "transparent", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#0369A1", fontVariantNumeric: "tabular-nums" } }),
             React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", alignSelf: "center", padding: "0 1px" } }, "円"),
