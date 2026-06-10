@@ -2888,6 +2888,7 @@ function StockQuickRefTable(_props_qrt) {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA);
+              if (_g.allMiss) return _qZeroCell();
               if (_g.plan === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
                 _qrMkBadge(_g.plan), _qrAmtSpan(_g.planSum, "円"));
@@ -2898,6 +2899,10 @@ function StockQuickRefTable(_props_qrt) {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA);
+              if (_g.allMiss) return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, flexWrap: "nowrap", whiteSpace: "nowrap" } },
+                React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H１："), _qZeroCell(),
+                React.createElement("span", { style: { color: "#ccc", margin: "0 4px" } }, "／"),
+                React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H２："), _qZeroCell());
               if (_g.holdPlanCap === "Z" && _g.hold2Sum == null) return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, flexWrap: "nowrap", whiteSpace: "nowrap" } },
                 React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H１："),
@@ -5052,6 +5057,7 @@ function DayView(_ref57) {
         var _aR = _pbAlphaActualOf(r);
         var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
         var _cutLHA = _pbCutOf(r);
+        if (_aR != null && _elPlanIsStop(s, _aR, _cutLHA)) return null;  // 想定段階で損切り→H1ホールド成績(勝率・分布)から完全除外
         if (_aR != null) { hp = _elDynHold(s, _aR, _cutLHA); }
         var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
         if (_aR!=null&&s.osVal!=null){var _cfH=s.osConfVal!=null?(s.osConfSign==="-"?-(Number(s.osConfVal)):Number(s.osConfVal)):null;var _dfH=Number(s.osVal)-_aR;var _pxH=_dfH<0?0:_dfH>=_cutLHA?-Math.round(_dfH*100):(_cfH!=null?Math.round((_aR-_cfH)*100):null);if(_pxH!=null)pp=_pxH;}
@@ -5061,7 +5067,7 @@ function DayView(_ref57) {
         var hw=null;
         if(_aR!=null&&s.holdOsConf!=null){hw=_aR-Number(s.holdOsConf);}else if(s.holdWidth!=null){hw=s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth);}
         return {s:s,stock:r.stock,hp:hp,pp:pp,dynHp:dynHpH,hw:hw,aR:_aR,cutL:_cutLHA};
-      }).filter(function(h){return h.dynHp!=null||h.hp!=null;});
+      }).filter(function(h){return h && (h.dynHp!=null||h.hp!=null);});
       if (!_haRecs.length) return null;
       var _hCatH={yes:[],mid:[],none:[],no:[]};
       _haRecs.forEach(function(h){if(_hCatH[h.dynHp])_hCatH[h.dynHp].push(h);});

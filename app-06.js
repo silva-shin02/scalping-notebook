@@ -818,7 +818,7 @@ function EntryLogView(_ref_elv) {
     );
 
     var _reachTot = 0, _reach = 0, _reachWin = 0, _reachSum = 0, _reachCnt = 0;
-    osRecs.forEach(function(r) { var s = r.signal; _reachTot++; var _ai = _elAlphaInfo(r, data); if (s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= _ai.alpha) { _reach++; var _hp = _elDynHold(s, _ai.alpha, _ai.cutLine); if (_hp != null) { _reachSum += _hp; _reachCnt++; if (_hp > 0) _reachWin++; } } });
+    osRecs.forEach(function(r) { var s = r.signal; var _ai = _elAlphaInfo(r, data); if (_elPlanIsStop(s, _ai.alpha, _ai.cutLine)) return; _reachTot++; if (s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= _ai.alpha) { _reach++; var _hp = _elDynHold(s, _ai.alpha, _ai.cutLine); if (_hp != null) { _reachSum += _hp; _reachCnt++; if (_hp > 0) _reachWin++; } } });
     var _reachPct = _reachTot > 0 ? Math.round(_reach / _reachTot * 100) : null;
     var _reachWp = _reachCnt > 0 ? Math.round(_reachWin / _reachCnt * 100) : null;
     var _reachAvg = _reachCnt > 0 ? Math.round(_reachSum / _reachCnt) : null;
