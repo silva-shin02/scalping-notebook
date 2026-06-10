@@ -3233,6 +3233,22 @@ function _elHoldIsStop(s, alpha, cutLine) {
   if (s.osVal != null && (Number(s.osVal) - alpha) >= _cl) return true;
   return false;
 }
+// 理想α値: 候補(5/10/15/20/25/30)のうち損切りにならず「想定損益＋H1結果損益」の合計が最大の値。
+// 該当が無ければ全候補中で合計が最大(=一番マシ)の値。同点は小さいα優先。本日/今週の損益データ表のαシミュ用。
+var _EL_IDEAL_ALPHAS = [5, 10, 15, 20, 25, 30];
+function _elIdealAlpha(s, cutLine) {
+  if (!s) return null;
+  var _cl = cutLine != null ? cutLine : 10;
+  var best = null, fallback = null;
+  _EL_IDEAL_ALPHAS.forEach(function(a) {
+    var _pl = _elDynPlanned(s, a, _cl);
+    var _hd = _elDynHold(s, a, _cl);
+    var _pf = (_pl != null ? _pl : 0) + (_hd != null ? _hd : 0);
+    if (fallback == null || _pf > fallback.p) fallback = { a: a, p: _pf };
+    if (!_elHoldIsStop(s, a, _cl) && _pf > 0 && (best == null || _pf > best.p)) best = { a: a, p: _pf };
+  });
+  return best ? best.a : (fallback ? fallback.a : null);
+}
 // === H2（Hold2）: 既存hold*ロジックを流用するための仮想signalと描画ヘルパー ===
 // hold2*フィールドをhold*の名前にマッピングした仮想signalを返す（osValは共通なので元のまま）。
 function _h2sig(s) {
