@@ -4116,7 +4116,7 @@ function DayView(_ref57) {
         var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actualA != null ? actualA : 0); };
         var setVal = function(v) { _sc.set(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
         return React.createElement("div", { onClick: stop, style: { marginTop: 3, display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 } },
-          React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#0369A1" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, isSim ? "α値シミュ●" : "α値シミュ"),
+          React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#0369A1" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, "α値シミュ", React.createElement("span", { style: { color: isSim ? "#0369A1" : "transparent" } }, "●")),
           React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#0369A1" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
             React.createElement("input", { type: "number", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
               onChange: function(e) { setVal(_toHankakuNum(e.target.value)); },
@@ -4124,8 +4124,8 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", alignSelf: "center", padding: "0 1px" } }, "円"),
             _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
           ),
-          isSim ? React.createElement("button", { onClick: function(e) { stop(e); _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
-            style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap" } }, "↺ 戻す") : null
+          React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
+            style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#0369A1", cursor: isSim ? "pointer" : "default", lineHeight: 1.4, whiteSpace: "nowrap", visibility: isSim ? "visible" : "hidden", pointerEvents: isSim ? "auto" : "none" } }, "↺ 戻す")
         );
       };
       var subRows = [];
