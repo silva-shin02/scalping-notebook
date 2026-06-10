@@ -3428,8 +3428,9 @@ function _elHold2Cell(s, alpha, cutLine) {
       React.createElement("span", { key: "e" }, "）"));
   }
   var _ec = { "○": "#1E8449", "△": "#B45309" };
+  // 「損切り済」は_elHoldIsStop時のみの表記。ここはH2成立分岐なので期待度ラベルは出さずフローのみ。
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
-    React.createElement("span", { key: "sym", style: { color: _ec[exp] || "#666", fontWeight: 800, marginRight: 3 } }, exp),
+    exp === "損切り済" ? null : React.createElement("span", { key: "sym", style: { color: _ec[exp] || "#666", fontWeight: 800, marginRight: 3 } }, exp),
     _elHoldFlow(s, alpha, cutLine, true, true));
 }
 // H1とH2期待度を1セル内に横並び表示（表のH列を1列に統合するため）。H2期待度が未選択ならH1のみ。
@@ -3581,7 +3582,8 @@ function _elHoldStackInner(s, alpha, cutLine) {
   } else if (_h2StopDone) {
     rows.push(_stopRow("h2", "H２", _h1StopDone ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine), true));
   } else {
-    var h2exp = exp ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
+    // 「損切り済」は_h2StopDone(想定orH1で損切り)時のみ意味を持つ表記。ここはH2が成立する分岐なので期待度として出さない。
+    var h2exp = (exp && exp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
     rows.push(_row("h2", "H２", h2exp, p2, exp === "×", true));
   }
   return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: _tblW } }, React.createElement("tbody", null, rows));
