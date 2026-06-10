@@ -2316,7 +2316,8 @@ function NewsTab(_ref36) {
   var addBtnFileRef = useRef(null);
   var addBtnPasteRef = useRef(null);
   var _usABD = useState(false), _usABDS = _slicedToArray(_usABD, 2), addBtnDrag = _usABDS[0], setAddBtnDrag = _usABDS[1];
-  
+  var _usSCD = useState(null), _usSCDS = _slicedToArray(_usSCD, 2), subCatDrag = _usSCDS[0], setSubCatDrag = _usSCDS[1];
+
   var _usCDM = useState(false), _usCDMS = _slicedToArray(_usCDM, 2), catDefOpen = _usCDMS[0], setCatDefOpen = _usCDMS[1];
   useModalBack(catDefOpen, function(){ setCatDefOpen(false); }, "news-cat-def");
   
@@ -2696,13 +2697,15 @@ function NewsTab(_ref36) {
   
   
   
-  var _resolveAddSubCatMeta = function() {
+  var _resolveAddSubCatMeta = function(subCatOverride) {
     var defaults = (custom.newsCatDefaults && Array.isArray(custom.newsCatDefaults[currentCat])) ? custom.newsCatDefaults[currentCat] : [];
     var subCat = null;
     var subDefaults = [];
-    if (hasSubCats && activeSubCat !== "__all__" && activeSubCat !== "__none__") {
-      subCat = activeSubCat;
-      var key = currentCat + "::" + activeSubCat;
+    var effSubCat = (subCatOverride !== undefined && subCatOverride !== null) ? subCatOverride
+      : ((hasSubCats && activeSubCat !== "__all__" && activeSubCat !== "__none__") ? activeSubCat : null);
+    if (effSubCat) {
+      subCat = effSubCat;
+      var key = currentCat + "::" + effSubCat;
       if (custom.newsSubCatDefaults && Array.isArray(custom.newsSubCatDefaults[key])) {
         subDefaults = custom.newsSubCatDefaults[key];
       }
@@ -2723,11 +2726,11 @@ function NewsTab(_ref36) {
       return [].concat(_toConsumableArray(prev || []), [item]);
     });
   };
-  var addNewsWithFile = function addNewsWithFile(f) {
+  var addNewsWithFile = function addNewsWithFile(f, subCatOverride) {
     fileToImg(f).then(function(img) {
       if (img) {
         updCatField("newsItems", function(prev) {
-          var meta = _resolveAddSubCatMeta();
+          var meta = _resolveAddSubCatMeta(subCatOverride);
           var item = { id: Date.now(), text: "", images: [img], tags: meta.tags };
           if (meta.subCat) item.subCat = meta.subCat;
           return [].concat(_toConsumableArray(prev || []), [item]);
@@ -4372,9 +4375,20 @@ function NewsTab(_ref36) {
       subCatsForCur.map(function(sc) {
         var cnt = allNewsItems.filter(function(ni) { return ni.subCat === sc; }).length;
         var on = activeSubCat === sc;
+        var dragOn = subCatDrag === sc;
         return React.createElement("div", {
           key: sc,
-          style: { display: "inline-flex", alignItems: "stretch", flexShrink: 0 }
+          onDragOver: function(e) { e.preventDefault(); e.stopPropagation(); if (subCatDrag !== sc) setSubCatDrag(sc); },
+          onDragLeave: function(e) { if (e.currentTarget.contains(e.relatedTarget)) return; setSubCatDrag(function(c){ return c === sc ? null : c; }); },
+          onDrop: function(e) {
+            e.preventDefault(); e.stopPropagation(); setSubCatDrag(null);
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) addNewsWithFile(e.dataTransfer.files[0], sc);
+          },
+          style: { display: "inline-flex", alignItems: "stretch", flexShrink: 0,
+                   borderRadius: 6,
+                   outline: dragOn ? "2px dashed #6366F1" : "none",
+                   outlineOffset: 1,
+                   background: dragOn ? "#EEF2FF" : "transparent" }
         },
           React.createElement("button", {
             onClick: function() { setActiveSubCat(sc); },
