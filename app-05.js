@@ -3261,6 +3261,18 @@ function _elDynHold2(s, alpha, cutLine) {
 }
 function _elHoldIsStop2(s, alpha, cutLine) { return _elHoldIsStop(_h2sig(s), alpha, cutLine); }
 function _elHas2Data(s) { return !!(s && (s.hold2HighVal != null || s.hold2Width != null || s.hold2OsConf != null || s.hold2Pnl != null)); }
+// 想定損益もH1もE基準未達（OS値<α かつ H1高値もα未達）→ H2は成立せず非表示扱い。
+// 表ではH2欄に黒字「ー（H１までE基準未達）」を表示し、合計には算入しない。フォームの _fH2Hidden と同条件。
+function _elH2Miss(s, alpha) {
+  if (alpha == null || s == null || s.osVal == null) return false;
+  var _os = Number(s.osVal);
+  if (isNaN(_os) || _os < 0 || _os >= alpha) return false;  // 想定がα到達なら対象外
+  var _h1ReachedA = (s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= alpha);  // H1高値がα到達=H1でエントリー成立
+  return !_h1ReachedA;
+}
+function _elH2MissNode() {
+  return React.createElement("span", { style: { color: "#000", fontWeight: 700, whiteSpace: "nowrap", fontSize: 11 } }, "ー（H１までE基準未達）");
+}
 // Hold2期待度（○/△を集計対象・×は参考表示のみ）
 function _elH2ExpCounts(s) { return s.hold2Exp; }
 function _elHoldGradeBadge(g) {
@@ -3347,6 +3359,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
 }
 // H2期待度セル: ○/△→記号＋統合表示、×→「×（統合表示）」グレー控えめ、未選択→空欄
 function _elHold2Cell(s, alpha, cutLine) {
+  if (_elH2Miss(s, alpha)) return _elH2MissNode();
   var exp = s.hold2Exp;
   if (!exp) return React.createElement("span", { style: { color: "#ddd" } }, "—");
   if (exp === "×") {
@@ -3389,7 +3402,7 @@ function _elHold2RefSuffix(mainSum, refSum, refCnt) {
 //  ・非損切りで期待度× → 参考（合計対象外）→ ref
 //  ・期待度未設定/H2データ無し → どちらもnull
 function _elHold2TotParts(s, alpha, cutLine) {
-  if (!s || !s.hold2Exp || !_elHas2Data(s)) return { main: null, ref: null };
+  if (!s || _elH2Miss(s, alpha) || !s.hold2Exp || !_elHas2Data(s)) return { main: null, ref: null };
   if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
     var _h1res = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
     return { main: _h1res, ref: null };
@@ -3455,7 +3468,8 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
 function _elHoldStackInner(s, alpha, cutLine) {
   var p1 = _elHoldParts(s, alpha, cutLine, false);
   var exp = s.hold2Exp;
-  var p2 = (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
+  var _h2miss = _elH2Miss(s, alpha);
+  var p2 = _h2miss ? null : (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
   // 想定が損切りの場合、H損益のpnlが「想定額（H額）」と横長になるため、損益列とテーブル幅を広げる（はみ出し防止）。×の外側括弧は従来どおり付ける。
   var planStop = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
   // H2は損切り(想定orH1自身)時に「結果損益（H2値）」と横長になる。H1のplanStop、またはH2表示かつ任意の損切りの時に幅を広げる。
@@ -3483,8 +3497,15 @@ function _elHoldStackInner(s, alpha, cutLine) {
       _c("cp", paren ? _paren("）") : null, "center", _parW, bt));
   };
   var rows = [ _row("h1", "H１", null, p1, false, false) ];
-  var h2exp = exp ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
-  rows.push(_row("h2", "H２", h2exp, p2, exp === "×", true));
+  if (_h2miss) {
+    rows.push(React.createElement("tr", { key: "h2" },
+      _c("lbl", "H２", "center", 22, { fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3, borderTop: "1px solid #e0d8c8" }),
+      React.createElement("td", { key: "m", colSpan: 10, style: { padding: "0 4px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", color: "#000", fontWeight: 700, borderTop: "1px solid #e0d8c8" } }, "ー（H１までE基準未達）")
+    ));
+  } else {
+    var h2exp = exp ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
+    rows.push(_row("h2", "H２", h2exp, p2, exp === "×", true));
+  }
   return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: _tblW } }, React.createElement("tbody", null, rows));
 }
 // 明細表(フロー表示)用: H列を1セルに統合(H1上/H2下)。colSpan:2で旧2列分の幅を占有し他のcolSpanは不変。
@@ -4369,6 +4390,8 @@ function EntryRecordForm(_ref_erf) {
   var _fMiss = (_fAlpha != null && Number(fOsVal) >= 0 && Number(fOsVal) < _fAlpha);
   var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
   var _fHold2HighOverA = (_fAlpha != null && fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) || 0) >= _fAlpha);
+  // 想定もH1もE基準未達 → Hold2期待度欄・Hold2欄を非表示（表側は _elH2Miss が同条件で「ー（H１までE基準未達）」表示）
+  var _fH2Hidden = (_fMiss && !_fHoldHighOverA);
   var _fMissEl = React.createElement("span", {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
       color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
@@ -5198,7 +5221,7 @@ function EntryRecordForm(_ref_erf) {
           )
         ),
 
-        React.createElement("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed #ddd" } },
+        _fH2Hidden ? null : React.createElement("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed #ddd" } },
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
             "Hold2期待度",
             React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×でHold2欄が出ます）")),
@@ -5232,8 +5255,8 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
 
-      React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) }, "Hold２"),
-      React.createElement("div", {
+      _fH2Hidden ? null : React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) }, "Hold２"),
+      _fH2Hidden ? null : React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F4F6F8", border: "1px solid " + (fHold2Exp === "×" ? "#e3c9c9" : "#cfe0d2") }
       },
 
@@ -5702,8 +5725,8 @@ function EntryLogCard(_ref_elc) {
       React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap", alignSelf: "center" } },
         React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "H１"),
         _elHoldFlow(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10, false),
-        s.hold2Exp ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２") : null,
-        s.hold2Exp ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10) : null
+        (_elH2Miss(s, _elcAi ? _elcAi.alpha : null) || s.hold2Exp) ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２") : null,
+        (_elH2Miss(s, _elcAi ? _elcAi.alpha : null) || s.hold2Exp) ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10) : null
       ),
       React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
       entered && realPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
