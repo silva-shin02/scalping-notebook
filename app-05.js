@@ -3687,7 +3687,7 @@ function _elCalcStats(records, data, simResolve) {
     if (_h2t.main != null) { sumHold2 += (_liveA ? Math.round(_h2t.main) : _per100(_h2t.main)); hold2HasData = true; }
     if (_h2t.ref != null) { sumHold2Ref += (_liveA ? Math.round(_h2t.ref) : _per100(_h2t.ref)); hold2RefCnt++; }
     // H2期待度の勝敗分類（○/△のみ）と損切りキャップ集計は従来どおり。
-    if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s)) {
+    if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s) && !_elH2Miss(s, _liveA ? _ai.alpha : null)) {
       var _h2 = _h2sig(s);
       var hp2 = _liveA ? _elDynHold2(s, _ai.alpha, _ai.cutLine) : _elSignedVal(_h2.holdPnl, _h2.holdPnlSign);
       if (hp2 != null) {
@@ -4475,6 +4475,8 @@ function EntryRecordForm(_ref_erf) {
   var _fHold2HighOverA = (_fAlpha != null && fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) || 0) >= _fAlpha);
   // H1までE基準未達でもHold2期待度欄・Hold2欄は表示して入力可能にする（表側は _elH2Miss が従来どおり「ー（H１までE基準未達）」表示）
   var _fH2Hidden = false;
+  // H1までE基準未達(想定<α かつ H1高値もα未達)→H2見出し横に「非考慮」注記を出す。条件が外れれば自動で消える（表側 _elH2Miss と同条件・分析でも除外）。
+  var _fH2NonConsider = (_fMiss && !_fHoldHighOverA);
   var _fMissEl = React.createElement("span", {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
       color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
@@ -5352,7 +5354,9 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
 
-      _fH2Hidden ? null : React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) }, "Hold２"),
+      _fH2Hidden ? null : React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) }, "Hold２",
+        _fH2NonConsider ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" } }, "※H１までE基準未達のため、非考慮") : null
+      ),
       _fH2Hidden ? null : React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F4F6F8", border: "1px solid " + (fHold2Exp === "×" ? "#e3c9c9" : "#cfe0d2") }
       },
