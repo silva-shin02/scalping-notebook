@@ -4700,6 +4700,20 @@ function EntryRecordForm(_ref_erf) {
     }
   }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign]);
 
+  // 想定損益 or H1の結果損益が損切り → H2期待度を「損切り済」に自動選択（その後ユーザーは○/△/×に変更可）。
+  // 損切り状態に入った時に1回だけ設定。損切りでなくなったら「損切り済」のままの時のみ解除。
+  var _h2StopAutoRef = useRef(false);
+  useEffect(function() {
+    var _psAuto = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
+    var _h1sAuto = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine);
+    if (_psAuto || _h1sAuto) {
+      if (!_h2StopAutoRef.current) { _h2StopAutoRef.current = true; setFHold2Exp("損切り済"); }
+    } else if (_h2StopAutoRef.current) {
+      _h2StopAutoRef.current = false;
+      setFHold2Exp(function(prev) { return prev === "損切り済" ? null : prev; });
+    }
+  }, [fOsVal, fHoldHighSign, fHoldHighVal, _fAlpha, _fCutLine]);
+
 
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
 
@@ -5286,15 +5300,15 @@ function EntryRecordForm(_ref_erf) {
         _fH2Hidden ? null : React.createElement("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed #ddd" } },
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
             "Hold2期待度",
-            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×でHold2欄が出ます）")),
-          React.createElement("div", { style: { display: "flex", gap: 5 } },
-            [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"]].map(function(kv) {
+            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×でHold2欄が出ます／想定orH1損切り時は「損切り済」自動）")),
+          React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
+            [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"], ["損切り済", "#6B7280", "#F3F4F6"]].map(function(kv) {
               var on = fHold2Exp === kv[0];
               return React.createElement("button", {
                 key: kv[0],
                 onClick: function() { setFHold2Exp(on ? null : kv[0]); },
                 style: {
-                  padding: "5px 16px", fontSize: 15, fontWeight: 800, borderRadius: 5, cursor: "pointer",
+                  padding: "5px 16px", fontSize: kv[0].length > 1 ? 12 : 15, fontWeight: 800, borderRadius: 5, cursor: "pointer",
                   border: on ? "1.5px solid " + kv[1] : "1px solid #ddd",
                   background: on ? kv[2] : "#fff",
                   color: on ? kv[1] : "#bbb"

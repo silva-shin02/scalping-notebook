@@ -566,6 +566,28 @@ function migrateData(d) {
       d._migSignalRename1 = true;
     } catch(e) { console.warn("[migrateData] sigRename error:", e); }
   }
+
+  // 想定損益 or H1の結果損益が損切りの記録は H2期待度を「損切り済」に設定（既存の○/△/×も上書き）。
+  if (!d._migHold2StopExp1) {
+    try {
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var cc = d.charts[ck];
+          if (!cc || !Array.isArray(cc.signals)) return;
+          var _cl = (cc.cutLine != null) ? Number(cc.cutLine) : 10;
+          cc.signals.forEach(function(s) {
+            if (!s || s.osVal == null) return;
+            var _a = (s.alphaVal != null) ? Number(s.alphaVal) : _gradeAlpha(s.difficulty);
+            if (_a == null) return;
+            var _planStop = (Number(s.osVal) - _a) >= _cl;
+            var _h1Stop = (s.holdHighSign === "-" && s.holdHighVal != null && (Number(s.holdHighVal) - _a) >= _cl);
+            if (_planStop || _h1Stop) s.hold2Exp = "損切り済";
+          });
+        });
+      }
+      d._migHold2StopExp1 = true;
+    } catch(e) { console.warn("[migrateData] hold2StopExp error:", e); }
+  }
   return d;
 }
 function stLoad() {
