@@ -4417,6 +4417,7 @@ function DayView(_ref57) {
         var _ent = _wkEntCnt(recs);
         var _osv = _wkAvgOs(recs);
         var _isExp = !!pnlTableExpandSet[rowKey];
+        var _allMiss = _elAllMissRow(recs, _wkAlphaOf, _wkCutOf);  // 全記録E基準未達(全miss)→想定/H1/H2に「Q 0」
         var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
         var bt = isTotal ? "2px solid #ccc" : "none";
         var br = "1px solid #e0ddd6";
@@ -4435,6 +4436,7 @@ function DayView(_ref57) {
           _td(st.miss || "0", { color: "#B45309" }),
           _td(_osv != null ? React.createElement("span", { style: { color: _vcol(_osv, true), fontWeight: _osv >= 10 ? 700 : 600 } }, _osv + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           _td((function() {
+            if (_allMiss) return _qZeroCell();
             var _dynSP = null;
             (recs || []).forEach(function(r) {
               var s = r.signal;
@@ -4472,7 +4474,7 @@ function DayView(_ref57) {
               _hTot = (_hTot || 0) + hp; _hCapTot = (_hCapTot || 0) + _cap; _hCnt++;
               if (_pStop && pp != null && hp !== pp) _hDiff = true;
             });
-            if (_hCapTot == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+            if (_hCapTot == null) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hgCap = _profitGradeFromPnl(_hCapTot, _hCnt);
             return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } },
               React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
@@ -4495,7 +4497,7 @@ function DayView(_ref57) {
               if (_h2p.main != null) { _h2Tot = (_h2Tot || 0) + _h2p.main; _h2Cnt++; }
               if (_h2p.ref != null) { _h2Ref = (_h2Ref || 0) + _h2p.ref; _h2RefCnt++; }
             });
-            if (_h2Cnt === 0 && _h2RefCnt === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+            if (_h2Cnt === 0 && _h2RefCnt === 0) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } },
               _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")),
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
@@ -4665,6 +4667,7 @@ function DayView(_ref57) {
       var isExp = !!pnlTableExpandSet[rowKey];
       var bg = isExp ? "#FFF7ED" : (isTotal ? "#F5F0E8" : "transparent");
       var keyRef = rowKey;
+      var _allMiss = _elAllMissRow(recs, _pbAlphaOf, _pbCutOf);  // 全記録E基準未達(全miss)→想定/H1/H2に「Q 0」
       return React.createElement("tr", {
         style: { background: bg, cursor: rowKey ? "pointer" : "default" },
         onClick: rowKey ? function() { setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); if (n[keyRef]) delete n[keyRef]; else n[keyRef] = true; return n; }); if (isExp) setPnlRecordExpandSet({}); } : undefined
@@ -4693,6 +4696,7 @@ function DayView(_ref57) {
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
+            if (_allMiss) return _qZeroCell();
             var _dynSP = null, _dynSPAB = null;
             (recs || []).forEach(function(r) {
               var s = r.signal;
@@ -4732,7 +4736,7 @@ function DayView(_ref57) {
               _hTot = (_hTot || 0) + hp; _hCapTot = (_hCapTot || 0) + _cap; _hCnt++;
               if (_pStop && pp != null && hp !== pp) _hDiff = true;
             });
-            if (_hCapTot == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+            if (_hCapTot == null) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hgCap = _profitGradeFromPnl(_hCapTot, _hCnt);
             return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } },
               React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
@@ -4756,7 +4760,7 @@ function DayView(_ref57) {
               if (_h2p.main != null) { _h2Tot = (_h2Tot || 0) + _h2p.main; _h2Cnt++; }
               if (_h2p.ref != null) { _h2Ref = (_h2Ref || 0) + _h2p.ref; _h2RefCnt++; }
             });
-            if (_h2Cnt === 0 && _h2RefCnt === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+            if (_h2Cnt === 0 && _h2RefCnt === 0) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
               _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _pbBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")),
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));

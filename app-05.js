@@ -3411,12 +3411,13 @@ function _elHold2TotParts(s, alpha, cutLine) {
   if (s.hold2Exp === "×") return { main: null, ref: hv };
   return { main: hv, ref: null };
 }
-function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt) {
-  var _f = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
+function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt, allMiss) {
+  // allMiss=その集計が全記録E基準未達(全miss)→H1/H2とも「Q 0」表示・参考合計は出さない。
+  var _f = function(v) { return allMiss ? _qZeroCell() : (v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円")); };
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, flexWrap: "wrap", justifyContent: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } },
     React.createElement("span", { key: "h1", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "①"), _f(sumH1)),
     React.createElement("span", { key: "sep", style: { color: "#ddd" } }, "｜"),
-    React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), _f(sumH2), _elHold2RefSuffix(sumH2, refH2, refCnt)));
+    React.createElement("span", { key: "h2", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "②"), _f(sumH2), allMiss ? null : _elHold2RefSuffix(sumH2, refH2, refCnt)));
 }
 // === H1(上)/H2(下) 縦積み表示ヘルパー（H列を1列に統合する表で使用）===
 // 各部位(高値/値幅/α値比/損益)のReactノードを返す。算出ロジックは_elHoldFlowと同一。
@@ -3513,11 +3514,12 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
   return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, _elHoldStackInner(s, alpha, cutLine), capNote || null) ];
 }
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
-function _elHoldSumTd2(sumH1, sumH2, tdStyle, refH2, refCnt) {
-  var _f = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
+function _elHoldSumTd2(sumH1, sumH2, tdStyle, refH2, refCnt, allMiss) {
+  // allMiss=その集計が全記録E基準未達(全miss)→H1/H2とも「Q 0」表示・参考合計は出さない。
+  var _f = function(v) { return allMiss ? _qZeroCell() : (v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円")); };
   return [
     React.createElement("td", { key: "h1s", style: tdStyle }, _f(sumH1)),
-    React.createElement("td", { key: "h2s", style: tdStyle }, _f(sumH2), _elHold2RefSuffix(sumH2, refH2, refCnt))
+    React.createElement("td", { key: "h2s", style: tdStyle }, _f(sumH2), allMiss ? null : _elHold2RefSuffix(sumH2, refH2, refCnt))
   ];
 }
 function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
@@ -3761,6 +3763,29 @@ function _qMissCell(size) {
     React.createElement("span", { style: { color: "#888" } }, "ー")
   );
 }
+// その集計行の全記録がE基準未達(全miss)で損益が0の場合のセル表示「Ⓠ 0」（Qをランク風に〇で囲む）。
+function _qZeroCell(size) {
+  var sz = size || 16;
+  var gs = _GRADE_STYLE.Q;
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
+    React.createElement("span", { title: "全記録がE基準未達のため損益0",
+      style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: sz, height: sz,
+        borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border,
+        fontWeight: 800, fontSize: Math.round(sz * 0.6), flexShrink: 0 } }, "Q"),
+    React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "0")
+  );
+}
+// 集計行が全miss(E基準未達)かを判定。recs各記録を行セルと同じαで _elDynResult し全て"miss"ならtrue。
+function _elAllMissRow(recs, alphaOf, cutOf) {
+  if (!recs || recs.length === 0) return false;
+  for (var _i = 0; _i < recs.length; _i++) {
+    var _r = recs[_i];
+    if (_elDynResult(_r.signal, alphaOf(_r), cutOf(_r)) !== "miss") return false;
+  }
+  return true;
+}
+// _elCalcStats の結果から全miss(E基準未達)集計かを判定（statsの想定/H1/H2合計と同じαで算出済み）。
+function _elStatAllMiss(st) { return !!st && st.total > 0 && st.miss === st.total; }
 
 function _elCalcChartGrades(signals, alpha, cutLine) {
   var _fixedA = alpha != null;  // α固定指定。null=各記録の採用α値(signal.alphaVal)で実計算

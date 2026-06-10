@@ -1592,11 +1592,11 @@ function EntryLogView(_ref_elv) {
               })()
             ),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
+              isHoliday ? _dash : (_elStatAllMiss(st) ? _qZeroCell() : _tABAll(recs, st.sumPlanned, st.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned"))),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : (st.sumHold == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: st.sumHold > 0 ? "#C0392B" : st.sumHold < 0 ? "#1E8449" : "#888" } }, (st.sumHold > 0 ? "+" : "") + st.sumHold.toLocaleString() + "円"))),
+              isHoliday ? _dash : (_elStatAllMiss(st) ? _qZeroCell() : (st.sumHold == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: st.sumHold > 0 ? "#C0392B" : st.sumHold < 0 ? "#1E8449" : "#888" } }, (st.sumHold > 0 ? "+" : "") + st.sumHold.toLocaleString() + "円")))),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-              isHoliday ? _dash : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } }, st.sumHold2 == null ? (st.hold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")) : React.createElement("span", { style: { fontWeight: 700, color: st.sumHold2 > 0 ? "#C0392B" : st.sumHold2 < 0 ? "#1E8449" : "#888" } }, (st.sumHold2 > 0 ? "+" : "") + st.sumHold2.toLocaleString() + "円"), _elHold2RefSuffix(st.sumHold2, st.sumHold2Ref, st.hold2RefCnt))),
+              isHoliday ? _dash : (_elStatAllMiss(st) ? _qZeroCell() : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } }, st.sumHold2 == null ? (st.hold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")) : React.createElement("span", { style: { fontWeight: 700, color: st.sumHold2 > 0 ? "#C0392B" : st.sumHold2 < 0 ? "#1E8449" : "#888" } }, (st.sumHold2 > 0 ? "+" : "") + st.sumHold2.toLocaleString() + "円"), _elHold2RefSuffix(st.sumHold2, st.sumHold2Ref, st.hold2RefCnt)))),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
               isHoliday ? _dash : _tSlash(st.sumPnl, st.expected, gradeReal)),
             React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, verticalAlign: "top" } },
@@ -1934,11 +1934,11 @@ function EntryLogView(_ref_elv) {
             })()
           ),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned")),
+            _elStatAllMiss(_tMonthSt) ? _qZeroCell() : _tABAll(_tMonthRecs, _tMonthSt.sumPlanned, _tMonthSt.expectedPlanned, _tMonthGradePlan, "sumPlanned", "expectedPlanned")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            (_tMonthSt.sumHold == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _tMonthSt.sumHold > 0 ? "#C0392B" : _tMonthSt.sumHold < 0 ? "#1E8449" : "#888" } }, (_tMonthSt.sumHold > 0 ? "+" : "") + _tMonthSt.sumHold.toLocaleString() + "円"))),
+            (_elStatAllMiss(_tMonthSt) ? _qZeroCell() : (_tMonthSt.sumHold == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _tMonthSt.sumHold > 0 ? "#C0392B" : _tMonthSt.sumHold < 0 ? "#1E8449" : "#888" } }, (_tMonthSt.sumHold > 0 ? "+" : "") + _tMonthSt.sumHold.toLocaleString() + "円")))),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
-            React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } }, _tMonthSt.sumHold2 == null ? (_tMonthSt.hold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")) : React.createElement("span", { style: { fontWeight: 700, color: _tMonthSt.sumHold2 > 0 ? "#C0392B" : _tMonthSt.sumHold2 < 0 ? "#1E8449" : "#888" } }, (_tMonthSt.sumHold2 > 0 ? "+" : "") + _tMonthSt.sumHold2.toLocaleString() + "円"), _elHold2RefSuffix(_tMonthSt.sumHold2, _tMonthSt.sumHold2Ref, _tMonthSt.hold2RefCnt))),
+            (_elStatAllMiss(_tMonthSt) ? _qZeroCell() : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } }, _tMonthSt.sumHold2 == null ? (_tMonthSt.hold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")) : React.createElement("span", { style: { fontWeight: 700, color: _tMonthSt.sumHold2 > 0 ? "#C0392B" : _tMonthSt.sumHold2 < 0 ? "#1E8449" : "#888" } }, (_tMonthSt.sumHold2 > 0 ? "+" : "") + _tMonthSt.sumHold2.toLocaleString() + "円"), _elHold2RefSuffix(_tMonthSt.sumHold2, _tMonthSt.sumHold2Ref, _tMonthSt.hold2RefCnt)))),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb2, borderTop: _bb2 } },
             _tSlash(_tMonthSt.sumPnl, _tMonthSt.expected, _tMonthGradeReal)),
           React.createElement("td", { style: { borderBottom: _bb2, borderTop: _bb2 } })
@@ -2026,8 +2026,8 @@ function EntryLogView(_ref_elv) {
                         color: wst.winPct != null ? (wst.winPct >= 60 ? "#C0392B" : wst.winPct >= 40 ? "#888" : "#1E8449") : "#ccc",
                         fontWeight: wst.winPct != null ? 700 : 400 } }, wrecs.length > 0 ? (wst.winPct != null ? wst.winPct + "%" : "—") : _dash),
                       React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-                        wrecs.length > 0 ? _tABAll(wrecs, wst.sumPlanned, wst.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned") : _dash),
-                      _elHoldSumTd2(wrecs.length > 0 ? wst.sumHold : null, wrecs.length > 0 ? wst.sumHold2 : null, { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb, borderRight: br }, wrecs.length > 0 ? wst.sumHold2Ref : null, wrecs.length > 0 ? wst.hold2RefCnt : 0),
+                        wrecs.length > 0 ? (_elStatAllMiss(wst) ? _qZeroCell() : _tABAll(wrecs, wst.sumPlanned, wst.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")) : _dash),
+                      _elHoldSumTd2(wrecs.length > 0 ? wst.sumHold : null, wrecs.length > 0 ? wst.sumHold2 : null, { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb, borderRight: br }, wrecs.length > 0 ? wst.sumHold2Ref : null, wrecs.length > 0 ? wst.hold2RefCnt : 0, _elStatAllMiss(wst)),
                       React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: bb } },
                         wrecs.length > 0 ? _tSlash(wst.sumPnl, wst.expected, gradeReal) : _dash)
                     );
@@ -2090,8 +2090,8 @@ function EntryLogView(_ref_elv) {
                         React.createElement("td", { style: { padding: "5px 8px", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", width: "1%", borderBottom: _bbd, borderRight: _bbd } }, dk === "(未設定)" ? "(未設定)" : dk),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd, color: "#0369A1", fontWeight: 600 } }, _gradeAlpha(dk === "(未設定)" ? null : dk) + "円"),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, borderBottom: _bbd, borderRight: _bbd } }, dst.total),
-                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, _tABAll(drecs, dst.sumPlanned, dst.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
-                        _elHoldSumTd2(dst.sumHold, dst.sumHold2, { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd }, dst.sumHold2Ref, dst.hold2RefCnt),
+                        React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd } }, _elStatAllMiss(dst) ? _qZeroCell() : _tABAll(drecs, dst.sumPlanned, dst.expectedPlanned, gradePlan, "sumPlanned", "expectedPlanned")),
+                        _elHoldSumTd2(dst.sumHold, dst.sumHold2, { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd }, dst.sumHold2Ref, dst.hold2RefCnt, _elStatAllMiss(dst)),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bbd, borderRight: _bbd, color: "#7C3AED", fontWeight: 700 } }, dst.holdResTotal > 0 ? (dst.hYes + "/" + dst.hMid + "/" + dst.hNone + "/" + dst.hNo) : _dashD),
                         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 12, whiteSpace: "nowrap", borderBottom: _bbd } }, _tSlash(dst.sumPnl, dst.expected, gradeReal))
                       );
@@ -2254,8 +2254,8 @@ function EntryLogView(_ref_elv) {
         ),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: br } }, isHoliday ? _dash : st.total),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
-          isHoliday ? _dash : _tABAll(_svDateRecs, st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned")),
-        _elHoldSumTd2(isHoliday ? null : st.sumHold, isHoliday ? null : st.sumHold2, { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br }, isHoliday ? null : st.sumHold2Ref, isHoliday ? 0 : st.hold2RefCnt),
+          isHoliday ? _dash : (_elStatAllMiss(st) ? _qZeroCell() : _tABAll(_svDateRecs, st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned"))),
+        _elHoldSumTd2(isHoliday ? null : st.sumHold, isHoliday ? null : st.sumHold2, { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br }, isHoliday ? null : st.sumHold2Ref, isHoliday ? 0 : st.hold2RefCnt, !isHoliday && _elStatAllMiss(st)),
         React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: br } },
           isHoliday ? _dash : _svSlash(st.sumPnl, st.expected, gradeReal)),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb } },
@@ -3273,10 +3273,10 @@ function EntryLogView(_ref_elv) {
             fontWeight: hasRecs && ss.stats.sumPnl !== 0 ? 600 : 400 } },
             hasRecs && ss.stats.sumPnl !== 0 ? (ss.stats.sumPnl > 0 ? "+" : "") + ss.stats.sumPnl + "円" : "—"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: slotOn ? "none" : "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-            hasRecs ? _tABAll(ss.recs, ss.stats.sumPlanned, ss.stats.expectedPlanned, null, "sumPlanned", "expectedPlanned")
+            hasRecs ? (_elStatAllMiss(ss.stats) ? _qZeroCell() : _tABAll(ss.recs, ss.stats.sumPlanned, ss.stats.expectedPlanned, null, "sumPlanned", "expectedPlanned"))
                     : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: slotOn ? "none" : "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-            hasRecs ? _elHoldSumBoth(ss.stats.sumHold, ss.stats.sumHold2, ss.stats.sumHold2Ref, ss.stats.hold2RefCnt) : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+            hasRecs ? _elHoldSumBoth(ss.stats.sumHold, ss.stats.sumHold2, ss.stats.sumHold2Ref, ss.stats.hold2RefCnt, _elStatAllMiss(ss.stats)) : React.createElement("span", { style: { color: "#ccc" } }, "—"))
         ));
         
         if (slotOn && hasRecs) {
@@ -3364,9 +3364,9 @@ function EntryLogView(_ref_elv) {
               color: at.sumPnl !== 0 ? (at.sumPnl > 0 ? "#C0392B" : "#1E8449") : "#ccc", fontWeight: at.sumPnl !== 0 ? 600 : 400 } },
               at.sumPnl !== 0 ? (at.sumPnl > 0 ? "+" : "") + at.sumPnl + "円" : "—"),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "2px solid #ccc", fontSize: 11, whiteSpace: "nowrap" } },
-              _tABAll(grp.records, at.sumPlanned, at.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
+              _elStatAllMiss(at) ? _qZeroCell() : _tABAll(grp.records, at.sumPlanned, at.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
             React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "2px solid #ccc", fontSize: 11, whiteSpace: "nowrap" } },
-              _elHoldSumBoth(at.sumHold, at.sumHold2, at.sumHold2Ref, at.hold2RefCnt))
+              _elHoldSumBoth(at.sumHold, at.sumHold2, at.sumHold2Ref, at.hold2RefCnt, _elStatAllMiss(at)))
           );
         })(),
         timeSlotRows
@@ -3429,9 +3429,9 @@ function EntryLogView(_ref_elv) {
                       fontWeight: dst.sumPnl !== 0 ? 600 : 400 } },
                       dst.sumPnl !== 0 ? (dst.sumPnl > 0 ? "+" : "") + dst.sumPnl + "円" : "—"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      _tABAll(drecs, dst.sumPlanned, dst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
+                      _elStatAllMiss(dst) ? _qZeroCell() : _tABAll(drecs, dst.sumPlanned, dst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      _elHoldSumBoth(dst.sumHold, dst.sumHold2, dst.sumHold2Ref, dst.hold2RefCnt))
+                      _elHoldSumBoth(dst.sumHold, dst.sumHold2, dst.sumHold2Ref, dst.hold2RefCnt, _elStatAllMiss(dst)))
                   );
                 })
               )
@@ -3468,11 +3468,11 @@ function EntryLogView(_ref_elv) {
                       wrecs.length > 0 ? (wst.sumPnl !== 0 ? (wst.sumPnl > 0 ? "+" : "") + wst.sumPnl + "円" : "—") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
                       wrecs.length > 0
-                        ? _tABAll(wrecs, wst.sumPlanned, wst.expectedPlanned, null, "sumPlanned", "expectedPlanned")
+                        ? (_elStatAllMiss(wst) ? _qZeroCell() : _tABAll(wrecs, wst.sumPlanned, wst.expectedPlanned, null, "sumPlanned", "expectedPlanned"))
                         : React.createElement("span", { style: { color: "#ccc" } }, "—")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
                       wrecs.length > 0
-                        ? _elHoldSumBoth(wst.sumHold, wst.sumHold2, wst.sumHold2Ref, wst.hold2RefCnt)
+                        ? _elHoldSumBoth(wst.sumHold, wst.sumHold2, wst.sumHold2Ref, wst.hold2RefCnt, _elStatAllMiss(wst))
                         : React.createElement("span", { style: { color: "#ccc" } }, "—"))
                   );
                 })
@@ -3541,9 +3541,9 @@ function EntryLogView(_ref_elv) {
                       fontWeight: sst.sumPnl !== 0 ? 600 : 400 } },
                       sst.sumPnl !== 0 ? (sst.sumPnl > 0 ? "+" : "") + sst.sumPnl + "円" : "—"),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      _tABAll(srecs, sst.sumPlanned, sst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
+                      _elStatAllMiss(sst) ? _qZeroCell() : _tABAll(srecs, sst.sumPlanned, sst.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-                      _elHoldSumBoth(sst.sumHold, sst.sumHold2, sst.sumHold2Ref, sst.hold2RefCnt))
+                      _elHoldSumBoth(sst.sumHold, sst.sumHold2, sst.sumHold2Ref, sst.hold2RefCnt, _elStatAllMiss(sst)))
                   );
                 })
               )
@@ -3594,18 +3594,20 @@ function EntryLogView(_ref_elv) {
       var _pnlColor = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#ccc"; };
       var _pnlStr  = function(v) { return v !== 0 ? (v > 0 ? "+" : "") + v + "円" : "—"; };
       var _evStr   = function(v) { return v != null ? (v > 0 ? "+" : "") + v + "円" : "—"; };
-      var _slashCell = function(sum, ev, sumP, evP, sumH, sumH2, sumH2Ref, h2RefCnt) {
+      var _slashCell = function(sum, ev, sumP, evP, sumH, sumH2, sumH2Ref, h2RefCnt, allMiss) {
         return [
           React.createElement("td", { key: "pnl", style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8",
             fontSize: 11, whiteSpace: "nowrap", color: _pnlColor(sum), fontWeight: sum !== 0 ? 600 : 400 } },
             _pnlStr(sum)),
           React.createElement("td", { key: "plan", style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-            sumP !== 0
-              ? React.createElement("span", { style: { fontWeight: 600, color: _pnlColor(sumP) } }, _pnlStr(sumP))
-              : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+            allMiss
+              ? _qZeroCell()
+              : (sumP !== 0
+                ? React.createElement("span", { style: { fontWeight: 600, color: _pnlColor(sumP) } }, _pnlStr(sumP))
+                : React.createElement("span", { style: { color: "#ccc" } }, "—"))),
           React.createElement("td", { key: "hold", style: { padding: "5px 6px", textAlign: "right", borderBottom: "1px solid #f0ede8", fontSize: 11, whiteSpace: "nowrap" } },
-            (sumH != null || sumH2 != null)
-              ? _elHoldSumBoth(sumH, sumH2, sumH2Ref != null ? sumH2Ref : null, h2RefCnt != null ? h2RefCnt : 0)
+            (allMiss || sumH != null || sumH2 != null)
+              ? _elHoldSumBoth(sumH, sumH2, sumH2Ref != null ? sumH2Ref : null, h2RefCnt != null ? h2RefCnt : 0, allMiss)
               : React.createElement("span", { style: { color: "#ccc" } }, "—"))
         ];
       };
@@ -3645,9 +3647,9 @@ function EntryLogView(_ref_elv) {
                     .slice(0, 1)
                     .map(function(c, i) { return React.cloneElement(c, { key: "tot_"+i, style: Object.assign({}, c.props.style, { borderBottom: "2px solid #ccc" }) }); }),
                   React.createElement("td", { key: "tot_2", style: { padding: "5px 6px", textAlign: "right", borderBottom: "2px solid #ccc", fontSize: 11, whiteSpace: "nowrap" } },
-                    _tABAll(byMap.A.concat(byMap.B).concat(byMap.C).concat(byMap.__none__ || []), allSt.sumPlanned, allSt.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
+                    _elStatAllMiss(allSt) ? _qZeroCell() : _tABAll(byMap.A.concat(byMap.B).concat(byMap.C).concat(byMap.__none__ || []), allSt.sumPlanned, allSt.expectedPlanned, null, "sumPlanned", "expectedPlanned")),
                   React.createElement("td", { key: "tot_3", style: { padding: "5px 6px", textAlign: "right", borderBottom: "2px solid #ccc", fontSize: 11, whiteSpace: "nowrap" } },
-                    _elHoldSumBoth(allSt.sumHold, allSt.sumHold2, allSt.sumHold2Ref, allSt.hold2RefCnt))
+                    _elHoldSumBoth(allSt.sumHold, allSt.sumHold2, allSt.sumHold2Ref, allSt.hold2RefCnt, _elStatAllMiss(allSt)))
                 ),
                 
                 rows.map(function(row) {
@@ -3664,7 +3666,7 @@ function EntryLogView(_ref_elv) {
                       color: diffColor, borderBottom: "1px solid #f0ede8", width: "1%", whiteSpace: "nowrap" } },
                       (isOn ? "▶ " : "") + row.label),
                     React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", borderBottom: "1px solid #f0ede8", fontWeight: 700, fontSize: 11 } }, row.recs.length),
-                    _slashCell(row.st.sumPnl, row.st.expected, row.st.sumPlanned, row.st.expectedPlanned, row.st.sumHold, row.st.sumHold2, row.st.sumHold2Ref, row.st.hold2RefCnt)
+                    _slashCell(row.st.sumPnl, row.st.expected, row.st.sumPlanned, row.st.expectedPlanned, row.st.sumHold, row.st.sumHold2, row.st.sumHold2Ref, row.st.hold2RefCnt, _elStatAllMiss(row.st))
                   );
                 })
               )
