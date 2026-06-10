@@ -2796,17 +2796,17 @@ function StockQuickRefTable(_props_qrt) {
           React.createElement("tr", { style: { background: "#f5f4f0" } },
             (isNikkei
               ? [
-                  { label: "日付", pad: "6px 8px" },
-                  { label: "地合い", pad: "6px 12px" },
-                  { label: "イベント・タグ", pad: "6px 12px" }
+                  { label: "日付", pad: "6px 4px" },
+                  { label: "地合い", pad: "6px 6px" },
+                  { label: "イベント・タグ", pad: "6px 6px" }
                 ]
               : [
-                  { label: "日付", pad: "6px 8px" },
-                  { label: "地合い", pad: "6px 12px" },
-                  { label: "想定損益", pad: "6px 10px" },
-                  { label: "H損益", pad: "6px 10px" },
-                  { label: "実現損益", pad: "6px 10px" },
-                  { label: "イベント・タグ", pad: "6px 12px" }
+                  { label: "日付", pad: "6px 4px" },
+                  { label: "地合い", pad: "6px 6px" },
+                  { label: "想定損益", pad: "6px 5px" },
+                  { label: "H損益", pad: "6px 5px" },
+                  { label: "実現損益", pad: "6px 5px" },
+                  { label: "イベント・タグ", pad: "6px 6px" }
                 ]
             ).map(function(h, _hi, _harr) {
               return React.createElement("th", {
@@ -2838,13 +2838,13 @@ function StockQuickRefTable(_props_qrt) {
             onClick: function(){ if (onSelectDate) onSelectDate(d); }
           },
             React.createElement("td", {
-              style: { padding: "7px 8px",
+              style: { padding: "7px 4px",
                 fontWeight: isHL ? 700 : (isHoliday ? 700 : 400),
                 whiteSpace: "nowrap",
                 color: dateColor, borderRight: "1px solid #efece7" }
             }, d.slice(5) + "（" + dow2 + "）"),
             React.createElement("td", {
-              style: { padding: "7px 12px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "7px 6px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             },
               isHoliday
                 ? React.createElement("span", {
@@ -2883,7 +2883,7 @@ function StockQuickRefTable(_props_qrt) {
                 : null
             ),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "6px 5px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2894,7 +2894,7 @@ function StockQuickRefTable(_props_qrt) {
                 _qrMkBadge(_g.plan), _qrAmtSpan(_g.planSum, "円"));
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "6px 5px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2914,7 +2914,7 @@ function StockQuickRefTable(_props_qrt) {
                 _elHold2RefSuffix(_g.hold2Sum, _g.hold2RefSum, _g.hold2RefCnt));
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "6px 5px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2925,7 +2925,7 @@ function StockQuickRefTable(_props_qrt) {
             })()),
             null,
             React.createElement("td", {
-              style: { padding: "7px 12px", width: "100%" }
+              style: { padding: "7px 6px", width: "100%" }
             }, (function() {
               var _dayEvents = ((data.trades && data.trades[d] && data.trades[d].events) || []).filter(function(e){ return e && !e._deleted; });
               var _tags = [].concat(_toConsumableArray((c2 && c2.chartShapeTags) || []),
