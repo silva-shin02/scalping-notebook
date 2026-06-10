@@ -4696,8 +4696,10 @@ function EntryRecordForm(_ref_erf) {
   }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult, fOsVal, fHoldHighSign, fHoldHighVal]);
 
   useEffect(function() {
+    // H2期待度が「損切り済」の間は損益変化も「損切り済(stop)」を自動選択。損切り済でなくなれば普段通りの自動選択へ戻す。
+    if (fHold2Exp === "損切り済") { setFHold2Profit("stop"); return; }
     // H2の損益変化は「H1の結果損益」との比較。
-    if (fHold2PnlVal === "") return;
+    if (fHold2PnlVal === "") { setFHold2Profit(function(_p){ return _p === "stop" ? null : _p; }); return; }
     var sHold = (Number(fHold2PnlVal)||0) * (fHold2PnlSign === "-" ? -1 : 1);
     var sBase = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
     if (sBase === 0) {
@@ -4721,7 +4723,7 @@ function EntryRecordForm(_ref_erf) {
     } else if (sBase < 0 && sHold > 0) {
       setFHold2Profit("yes");
     }
-  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign]);
+  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign, fHold2Exp]);
 
   // 想定損益 or H1の結果損益が損切り → H2期待度を「損切り済」に自動選択（その後ユーザーは○/△/×に変更可）。
   // 損切り状態に入った時に1回だけ設定。損切りでなくなったら「損切り済」のままの時のみ解除。
@@ -5302,14 +5304,15 @@ function EntryRecordForm(_ref_erf) {
           ),
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
-            React.createElement("div", { style: { display: "flex", gap: 5 } },
+            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
               [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
                 var on = fHoldProfit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
                   onClick: function() { setFHoldProfit(on ? null : kv[1]); },
                   style: {
-                    padding: "5px 10px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
+                    width: 96, boxSizing: "border-box", textAlign: "center", whiteSpace: "nowrap",
+                    padding: "5px 6px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
                     border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
                     background: on ? kv[3] : "#fff",
                     color: on ? kv[2] : "#aaa"
@@ -5470,14 +5473,15 @@ function EntryRecordForm(_ref_erf) {
           ),
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化", React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（H１比）")),
-            React.createElement("div", { style: { display: "flex", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"]].map(function(kv) {
+            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"]].map(function(kv) {
                 var on = fHold2Profit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
                   onClick: function() { setFHold2Profit(on ? null : kv[1]); },
                   style: {
-                    padding: "5px 10px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
+                    width: 96, boxSizing: "border-box", textAlign: "center", whiteSpace: "nowrap",
+                    padding: "5px 6px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
                     border: on ? "1.5px solid " + kv[2] : "1px solid #ddd",
                     background: on ? kv[3] : "#fff",
                     color: on ? kv[2] : "#aaa"
