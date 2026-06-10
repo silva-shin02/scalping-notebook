@@ -4302,10 +4302,12 @@ function DayView(_ref57) {
       );
       var _simActiveCnt = simCtx ? Object.keys(simCtx.val).filter(function(_k) { var _v = simCtx.val[_k]; return _v != null && _v !== ""; }).length : 0;
       return React.createElement("div", { style: { overflowX: "auto" } },
-        (simCtx && _simActiveCnt > 0) ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", flexWrap: "wrap" } },
-          React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "α値シミュ中: " + _simActiveCnt + "件"),
+        simCtx ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", whiteSpace: "nowrap" } },
+          _simActiveCnt > 0
+            ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "α値シミュ中: " + _simActiveCnt + "件")
+            : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値シミュ：行の数値を変えると再計算（非保存）"),
           React.createElement("button", { onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); simCtx.set({}); },
-            style: { fontSize: 10, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", fontWeight: 700 } }, "↺ 全シミュ解除")
+            style: { fontSize: 10, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", fontWeight: 700, visibility: _simActiveCnt > 0 ? "visible" : "hidden" } }, "↺ 全シミュ解除")
         ) : null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
           React.createElement("thead", null,
