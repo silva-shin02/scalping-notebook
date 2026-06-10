@@ -3293,10 +3293,28 @@ function _elHoldStopPnlNode(planVal, holdPnl, key) {
     _amt(holdPnl, "hv"),
     React.createElement("span", { key: "cp", style: { color: "#888" } }, "）"));
 }
+// 想定損益またはH1で損切り済みの場合のセル表示「ー（ランク 損切額）※損切り済」。amount=損切り額(=H1の結果損益・負)。
+function _elHoldStopDoneNode(amount, key) {
+  return React.createElement("span", { key: key || "sd", style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
+    React.createElement("span", { key: "d", style: { color: "#888", marginRight: 1 } }, "ー"),
+    React.createElement("span", { key: "op", style: { color: "#888" } }, "（"),
+    _elHoldGradeBadge(_profitGradeFromPnl(amount, 1)),
+    React.createElement("span", { key: "y", style: { color: amount > 0 ? "#C0392B" : amount < 0 ? "#1E8449" : "#888" } }, amount.toLocaleString() + "円"),
+    React.createElement("span", { key: "cp", style: { color: "#888" } }, "）"),
+    React.createElement("span", { key: "note", style: { color: "#9CA3AF", fontSize: 9, fontWeight: 600, marginLeft: 2 } }, "※損切り済"));
+}
 // 統合Hセル: 「H高値 → H確定値 / α値比H値幅 / 勝敗・結果損益」を1つのインライン要素で返す。
 // isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、想定損益・結果はエントリー共通）。
 function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
   var hs = isH2 ? _h2sig(s) : s;
+  // 損切り済み（H2: 想定orH1で損切り／H1: 想定損益の時点で損切り）は明細を出さず「ー（ランク 損切額）※損切り済」のみ。
+  if (alpha != null) {
+    var _psFlow = _elPlanIsStop(s, alpha, cutLine);
+    if (isH2 ? _elHoldIsStop(s, alpha, cutLine) : _psFlow) {
+      var _samtFlow = _psFlow ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+      if (_samtFlow != null) return _elHoldStopDoneNode(_samtFlow);
+    }
+  }
   var _sep = function(ch) { return React.createElement("span", { key: "s" + ch + Math.round(alpha == null ? 0 : 0), style: { color: "#ccc", margin: "0 2px" } }, ch); };
   var nodes = [];
   if (hs.holdHighVal != null) {
@@ -3360,6 +3378,11 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
 // H2期待度セル: ○/△→記号＋統合表示、×→「×（統合表示）」グレー控えめ、未選択→空欄
 function _elHold2Cell(s, alpha, cutLine) {
   if (_elH2Miss(s, alpha)) return _elH2MissNode();
+  // 想定orH1で損切り済み → 期待度・明細を出さず「ー（ランク 損切額）※損切り済」のみ。
+  if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
+    var _samtCell = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+    if (_samtCell != null) return _elHoldStopDoneNode(_samtCell);
+  }
   var exp = s.hold2Exp;
   if (!exp) return React.createElement("span", { style: { color: "#ddd" } }, "—");
   if (exp === "×") {
@@ -3402,11 +3425,13 @@ function _elHold2RefSuffix(mainSum, refSum, refCnt) {
 //  ・非損切りで期待度× → 参考（合計対象外）→ ref
 //  ・期待度未設定/H2データ無し → どちらもnull
 function _elHold2TotParts(s, alpha, cutLine) {
-  if (!s || _elH2Miss(s, alpha) || !s.hold2Exp || !_elHas2Data(s)) return { main: null, ref: null };
+  if (!s || _elH2Miss(s, alpha)) return { main: null, ref: null };
+  // 想定orH1で損切り済み → 期待度・H2データの有無に関わらずH1の結果損益(損切り額)をH2合計に算入。
   if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
     var _h1res = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
     return { main: _h1res, ref: null };
   }
+  if (!s.hold2Exp || !_elHas2Data(s)) return { main: null, ref: null };
   var hv = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
   if (s.hold2Exp === "×") return { main: null, ref: hv };
   return { main: hv, ref: null };
@@ -3423,6 +3448,14 @@ function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt, allMiss) {
 // 各部位(高値/値幅/α値比/損益)のReactノードを返す。算出ロジックは_elHoldFlowと同一。
 function _elHoldParts(s, alpha, cutLine, isH2) {
   var hs = isH2 ? _h2sig(s) : s;
+  // 損切り済み（H2: 想定orH1損切り／H1: 想定損切り）→ 明細を出さず損益列に「ー（ランク 損切額）※損切り済」のみ。
+  if (alpha != null) {
+    var _psP = _elPlanIsStop(s, alpha, cutLine);
+    if (isH2 ? _elHoldIsStop(s, alpha, cutLine) : _psP) {
+      var _samtP = _psP ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+      if (_samtP != null) return { high: null, width: null, acmp: null, pnl: _elHoldStopDoneNode(_samtP), miss: false, hasAny: true };
+    }
+  }
   var high = null, width = null, acmp = null, pnl = null, miss = false;
   if (hs.holdHighVal != null) high = React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(hs.holdHighVal, hs.holdHighSign === "-"), fontWeight: 700 } }, (hs.holdHighSign === "+" ? "↓" : hs.holdHighSign === "-" ? "↑" : "") + hs.holdHighVal);
   if (hs.holdWidth != null) width = React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(hs.holdWidth, hs.holdWidthSign === "-"), fontWeight: 700 } }, (hs.holdWidthSign === "-" ? "↑" : hs.holdWidthSign === "+" ? "↓" : "↕") + hs.holdWidth);
@@ -3470,7 +3503,8 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var p1 = _elHoldParts(s, alpha, cutLine, false);
   var exp = s.hold2Exp;
   var _h2miss = _elH2Miss(s, alpha);
-  var p2 = _h2miss ? null : (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
+  var _h2stopDone = (alpha != null) && _elHoldIsStop(s, alpha, cutLine);  // 想定orH1損切り→H2も損切り済み表示（期待度問わず）
+  var p2 = _h2miss ? null : (exp || _elHas2Data(s) || _h2stopDone) ? _elHoldParts(s, alpha, cutLine, true) : null;
   // 想定が損切りの場合、H損益のpnlが「想定額（H額）」と横長になるため、損益列とテーブル幅を広げる（はみ出し防止）。×の外側括弧は従来どおり付ける。
   var planStop = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
   // H2は損切り(想定orH1自身)時に「結果損益（H2値）」と横長になる。H1のplanStop、またはH2表示かつ任意の損切りの時に幅を広げる。
@@ -3504,8 +3538,8 @@ function _elHoldStackInner(s, alpha, cutLine) {
       React.createElement("td", { key: "m", colSpan: 10, style: { padding: "0 4px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", color: "#000", fontWeight: 700, borderTop: "1px solid #e0d8c8" } }, "ー（H１までE基準未達）")
     ));
   } else {
-    var h2exp = exp ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
-    rows.push(_row("h2", "H２", h2exp, p2, exp === "×", true));
+    var h2exp = (exp && !_h2stopDone) ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
+    rows.push(_row("h2", "H２", h2exp, p2, !_h2stopDone && exp === "×", true));
   }
   return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: _tblW } }, React.createElement("tbody", null, rows));
 }
