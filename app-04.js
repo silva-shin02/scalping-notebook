@@ -3034,6 +3034,12 @@ function DayView(_ref57) {
     _useStatePSOA = _slicedToArray(_useStatePSO, 2),
     pnlSortOrder = _useStatePSOA[0],
     setPnlSortOrder = _useStatePSOA[1];
+
+  var _useStateSAL = useState({}),
+    _useStateSALA = _slicedToArray(_useStateSAL, 2),
+    simAlpha = _useStateSALA[0],
+    setSimAlpha = _useStateSALA[1];
+  useEffect(function() { setSimAlpha({}); }, [date]);
   
   // 今週の損益データの週送り（表示中の日付が属する週からのオフセット）
   var _uWkOff = useState(0), _uWkOffA = _slicedToArray(_uWkOff, 2),
@@ -4042,9 +4048,16 @@ function DayView(_ref57) {
     var _pbEntByStk = {};  
     var _pbCharts = data.charts || {};
     // α解決: signal.alphaVal(各記録の採用α値) > 予想OS度
-    var _pbAlphaOf = function(r) {
+    var _pbRecKey = function(r) { return r.stock + "_" + (r.signal.id || r.signal.time || ""); };
+    var _pbAlphaActualOf = function(r) {
       var s = r.signal;
       return s && s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty);
+    };
+    // α値シミュ(非永続)を最優先。未設定なら実際の採用α値。本日の損益データ表(サマリー＋明細)のみで使用。
+    var _pbAlphaOf = function(r) {
+      var _ov = simAlpha[_pbRecKey(r)];
+      if (_ov != null && _ov !== "" && !isNaN(Number(_ov))) return Number(_ov);
+      return _pbAlphaActualOf(r);
     };
     var _pbCutOf = function(r) {
       var _c = _pbCharts[r.stock + "_" + date];
@@ -4063,7 +4076,7 @@ function DayView(_ref57) {
     };
     // 本日／今週の損益データ共通：1記録ごとの明細テーブル（thead＋subRows＋totRow）を返す。
     // records は呼び出し側でフィルタ済み。内部で時間昇順にソート。α/損切りは alphaOf/cutOf で解決。
-    var _pnlDetailTableEl = function(records, alphaOf, cutOf, sortMode) {
+    var _pnlDetailTableEl = function(records, alphaOf, cutOf, sortMode, simCtx) {
       var expRecs = (records || []).slice().sort(function(a, b) {
         if (sortMode === "stock") {
           if (a.stock !== b.stock) return a.stock.localeCompare(b.stock);
@@ -4091,6 +4104,29 @@ function DayView(_ref57) {
         var badge = missFlag ? _pbBadge("Q") : (grade && grade !== "Z" ? _pbBadge(grade) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
         var amt = missFlag ? React.createElement("span", { style: { color: "#888" } }, "—") : (pnl != null ? React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(pnl) } }, _rPnlFmt(pnl)) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
         return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _lane(sym, 16), _sl(), _lane(badge, 20), _sl(), _lane(amt, 72, "flex-start"));
+      };
+      var _renderSimAlphaInput = function(r, _sc) {
+        var k = _sc.keyOf(r);
+        var actualA = _sc.actualOf(r);
+        var raw = _sc.val[k];
+        var hasOv = raw != null && raw !== "";
+        var curStr = (raw != null) ? raw : (actualA != null ? String(actualA) : "");
+        var isSim = hasOv && actualA != null && Number(raw) !== actualA;
+        var stop = function(e) { if (e && e.stopPropagation) e.stopPropagation(); };
+        var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actualA != null ? actualA : 0); };
+        var setVal = function(v) { _sc.set(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
+        return React.createElement("div", { onClick: stop, style: { marginTop: 3, display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 } },
+          React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#0369A1" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, isSim ? "α値シミュ●" : "α値シミュ"),
+          React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#0369A1" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
+            React.createElement("input", { type: "number", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
+              onChange: function(e) { setVal(_toHankakuNum(e.target.value)); },
+              style: { width: 30, padding: "2px 3px", border: "none", outline: "none", background: "transparent", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#0369A1", fontVariantNumeric: "tabular-nums" } }),
+            React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", alignSelf: "center", padding: "0 1px" } }, "円"),
+            _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
+          ),
+          isSim ? React.createElement("button", { onClick: function(e) { stop(e); _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
+            style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap" } }, "↺ 戻す") : null
+        );
       };
       var subRows = [];
       var _totReal = null, _totPlan = null, _totHold = null;
@@ -4164,7 +4200,8 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "5px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, color: "#F97316", width: "1%" } },
             rExp ? "▼" : "▶"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#9A3412" } },
-            r.stock),
+            React.createElement("div", null, r.stock),
+            simCtx ? _renderSimAlphaInput(r, simCtx) : null),
           React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             s.time || "—"),
           React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 120 } },
@@ -4253,7 +4290,13 @@ function DayView(_ref57) {
             React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _totHold2Cnt > 0 ? (function() { var _g2 = _profitGradeFromPnl(_totHold2 != null ? _totHold2 : 0, _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _pbBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })() : (_totHold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_totHold2, _totHold2Ref, _totHold2RefCnt)))),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
       );
+      var _simActiveCnt = simCtx ? Object.keys(simCtx.val).filter(function(_k) { var _v = simCtx.val[_k]; return _v != null && _v !== ""; }).length : 0;
       return React.createElement("div", { style: { overflowX: "auto" } },
+        (simCtx && _simActiveCnt > 0) ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", flexWrap: "wrap" } },
+          React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "α値シミュ中: " + _simActiveCnt + "件"),
+          React.createElement("button", { onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); simCtx.set({}); },
+            style: { fontSize: 10, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", fontWeight: 700 } }, "↺ 全シミュ解除")
+        ) : null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
           React.createElement("thead", null,
             React.createElement("tr", { style: { background: "#FFF7ED" } },
@@ -4570,7 +4613,7 @@ function DayView(_ref57) {
       _pbAllReal += _pbRealByStk[sk];
       _pbAllEnt  += _pbEntByStk[sk];
     });
-    var _pbAll = _elCalcStats(_pbAllRecs, data);
+    var _pbAll = _elCalcStats(_pbAllRecs, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; });
     var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0; (recs || []).forEach(function(r) { var s = r.signal; var _aR = _pbAlphaOf(r); var _cutLOkNg = _pbCutOf(r); var dynR = null; if (_aR != null && s.osVal != null && Number(s.osVal) >= 0) { var _dv = Number(s.osVal) - _aR; if (_dv < 0) dynR = "miss"; else if (_dv >= _cutLOkNg) dynR = "ng"; else if (s.osConfVal != null && s.osConfVal !== "") { var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; dynR = _cf < _aR ? "ok" : _cf === _aR ? "draw" : "ng"; } } var res = dynR !== null ? dynR : s.result; if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
     var _pbFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
     var _pbCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
@@ -4827,7 +4870,7 @@ function DayView(_ref57) {
             })()
           ),
           sortToggle,
-          _pnlDetailTableEl(expRecs, _pbAlphaOf, _pbCutOf, pnlSortOrder),
+          _pnlDetailTableEl(expRecs, _pbAlphaOf, _pbCutOf, pnlSortOrder, { val: simAlpha, set: setSimAlpha, keyOf: _pbRecKey, actualOf: _pbAlphaActualOf }),
         )
       );
     };
@@ -5000,7 +5043,7 @@ function DayView(_ref57) {
       var _tdHA = function(c,e){ return React.createElement("td",{style:Object.assign({padding:"4px 8px",textAlign:"center",fontSize:11,borderBottom:"1px solid #f0ede6"},e||{})},c); };
       var _haRecs = _pbAllRecs.map(function(r) {
         var s = r.signal;
-        var _aR = _pbAlphaOf(r);
+        var _aR = _pbAlphaActualOf(r);
         var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
         var _cutLHA = _pbCutOf(r);
         if (_aR != null) { hp = _elDynHold(s, _aR, _cutLHA); }
@@ -5030,7 +5073,7 @@ function DayView(_ref57) {
       var _ha2Recs = _pbAllRecs.map(function(r) {
         var s = r.signal;
         if (!(_elHas2Data(s) && (s.hold2Exp === "○" || s.hold2Exp === "△"))) return null;
-        var _aR = _pbAlphaOf(r); var _cutLH2 = _pbCutOf(r);
+        var _aR = _pbAlphaActualOf(r); var _cutLH2 = _pbCutOf(r);
         var hp2 = (_aR != null) ? _elDynHold2(s, _aR, _cutLH2) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
         var hp1 = (_aR != null) ? _elDynHold(s, _aR, _cutLH2) : _elSignedVal(s.holdPnl, s.holdPnlSign);
         var dynHp2 = (function(){ if(hp2==null)return s.hold2Profit; if(hp1==null)return hp2>0?"yes":hp2<0?"no":"none"; if(hp2===0)return hp1<0?"yes":hp1>0?"mid":"none"; if(hp1>0&&hp2>0)return hp2>hp1?"yes":hp2<hp1?"mid":"none"; if(hp1<0&&hp2<0)return"no"; if(hp1>0&&hp2<0)return"no"; if(hp1<0&&hp2>0)return"yes"; return s.hold2Profit; })();
@@ -5185,7 +5228,7 @@ function DayView(_ref57) {
               !!pnlTableExpandSet["__total__"] ? _pbExpRow("__total__") : null
             ] : null,
             _pbStks.map(function(sk) {
-              var skSt = Object.assign({}, _elCalcStats(_pbByStk[sk], data), _pbDynOkNg(_pbByStk[sk]));
+              var skSt = Object.assign({}, _elCalcStats(_pbByStk[sk], data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; }), _pbDynOkNg(_pbByStk[sk]));
               return [
                 _pbRow(sk, skSt, false, null,
                   _profitGradeFromPnlReal(_pbRealByStk[sk], _pbEntByStk[sk]),
