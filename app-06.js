@@ -84,6 +84,26 @@ function EntryLogView(_ref_elv) {
       sub ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginTop: 2 } }, sub) : null
     );
   };
+  // 記録ごとの理想α/理想損切りを集計（_elAlphaInfoで採用α/損切りを解決→app-05のidealヘルパー）。osVal無しは除外。
+  var _elvIdealStats = function(recs) {
+    var rs = recs.filter(function(r) { return r.signal.osVal != null; });
+    var n = rs.length;
+    if (!n) return null;
+    var as = [], cs = [], aDiffs = [], cDiffs = [], optN = 0;
+    var distA = { 5: 0, 10: 0, 15: 0, 20: 0, 25: 0, 30: 0 }, distC = { 10: 0, 15: 0, 20: 0 };
+    rs.forEach(function(r) {
+      var ai = _elAlphaInfo(r, data);
+      var ia = _elIdealAlpha(r.signal, ai.cutLine), ic = _elIdealCut(r.signal, ai.alpha);
+      if (ia != null) { as.push(ia); if (distA[ia] != null) distA[ia]++; aDiffs.push(ia - ai.alpha); }
+      if (ic != null) { cs.push(ic); if (distC[ic] != null) distC[ic]++; cDiffs.push(ic - ai.cutLine); }
+      if (ia != null && ic != null && ia === ai.alpha && ic === ai.cutLine) optN++;
+    });
+    var avg = function(a) { return a.length ? Math.round(a.reduce(function(x, y) { return x + y; }, 0) / a.length * 10) / 10 : null; };
+    var med = function(a) { if (!a.length) return null; var s = a.slice().sort(function(x, y) { return x - y; }); var m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2 * 10) / 10; };
+    var mode = function(a) { if (!a.length) return null; var c = {}, best = null, bn = 0; a.forEach(function(v) { c[v] = (c[v] || 0) + 1; if (c[v] > bn) { bn = c[v]; best = v; } }); return { val: best, n: bn }; };
+    return { n: n, aAvg: avg(as), aMed: med(as), aMode: mode(as), cAvg: avg(cs), cMed: med(cs), cMode: mode(cs),
+      aDiffAvg: avg(aDiffs), cDiffAvg: avg(cDiffs), optRate: Math.round(optN / n * 100), distA: distA, distC: distC };
+  };
 
   var _uE1 = useState("signal"),
     _uE2 = _slicedToArray(_uE1, 2),
@@ -109,6 +129,8 @@ function EntryLogView(_ref_elv) {
   var _uE15 = useState(null), 
     _uE16 = _slicedToArray(_uE15, 2),
     expandKey = _uE16[0], setExpandKey = _uE16[1];
+  var _uOsSub = useState("basic"), _uOsSubA = _slicedToArray(_uOsSub, 2),
+    osSub = _uOsSubA[0], setOsSub = _uOsSubA[1];
   
   var _uSvSort = useState("desc"), _uSvSortA = _slicedToArray(_uSvSort, 2),
     svDateSort = _uSvSortA[0], setSvDateSort = _uSvSortA[1];
@@ -1206,29 +1228,95 @@ function EntryLogView(_ref_elv) {
         )
       );
     })();
+    var idealSec = (function() {
+      var st = _elvIdealStats(osRecs);
+      if (!st) return null;
+      var _f = function(v, u) { return v == null ? "—" : v + (u || ""); };
+      var _modeTxt = function(m) { return m ? m.val + "円(×" + m.n + ")" : "—"; };
+      var _diffNode = function(d) { if (d == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var col = d > 0 ? "#C0392B" : d < 0 ? "#1E8449" : "#888"; return React.createElement("span", { style: { color: col, fontWeight: 700 } }, (d > 0 ? "+" : "") + d + "円"); };
+      var kpis = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 } },
+        _elvKpiCard("平均理想α", _f(st.aAvg, "円"), "#0369A1", "中央" + _f(st.aMed, "円") + " / 最頻" + _modeTxt(st.aMode)),
+        _elvKpiCard("平均理想損切り", _f(st.cAvg, "円"), "#9333EA", "中央" + _f(st.cMed, "円") + " / 最頻" + _modeTxt(st.cMode)),
+        _elvKpiCard("最適一致率", st.optRate + "%", "#1E8449", "採用値=理想だった割合(" + st.n + "件)")
+      );
+      var _dAmax = Math.max.apply(null, [5, 10, 15, 20, 25, 30].map(function(k) { return st.distA[k]; })) || 1;
+      var _dCmax = Math.max.apply(null, [10, 15, 20].map(function(k) { return st.distC[k]; })) || 1;
+      var distBars = React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8 } },
+        React.createElement("div", { style: { flex: "1 1 240px", minWidth: 0 } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "理想α値の分布"),
+          [5, 10, 15, 20, 25, 30].map(function(k) { return _bar(k + "円", st.distA[k], _dAmax, "#0369A1", st.distA[k] + "件"); })
+        ),
+        React.createElement("div", { style: { flex: "1 1 240px", minWidth: 0 } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9333EA", marginBottom: 4 } }, "理想損切り値の分布"),
+          [10, 15, 20].map(function(k) { return _bar(k + "円", st.distC[k], _dCmax, "#9333EA", st.distC[k] + "件"); })
+        )
+      );
+      var diffBlock = React.createElement("div", { style: { display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8, fontSize: 12, color: "#555" } },
+        React.createElement("div", null, "採用α→理想αの平均差: ", _diffNode(st.aDiffAvg), st.aDiffAvg ? React.createElement("span", { style: { fontSize: 10, color: "#888", marginLeft: 4 } }, st.aDiffAvg > 0 ? "(もっと大きいαが最適傾向)" : "(もっと小さいαが最適傾向)") : null),
+        React.createElement("div", null, "採用→理想損切りの平均差: ", _diffNode(st.cDiffAvg), st.cDiffAvg ? React.createElement("span", { style: { fontSize: 10, color: "#888", marginLeft: 4 } }, st.cDiffAvg > 0 ? "(もっと広い損切りが最適傾向)" : "(もっと狭い損切りが最適傾向)") : null)
+      );
+      var _grpTable = function(title, groups) {
+        return React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 4 } }, title),
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+            React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
+              ["", "件", "平均理想α", "平均理想損切り"].map(function(h, i) { return React.createElement("th", { key: i, style: { padding: "3px 6px", fontWeight: 700, color: "#9A3412", fontSize: 10, borderBottom: "2px solid #ddd", textAlign: i === 0 ? "left" : "center", whiteSpace: "nowrap" } }, h); })
+            )),
+            React.createElement("tbody", null, groups.map(function(g) {
+              var gst = _elvIdealStats(g.recs);
+              return React.createElement("tr", { key: g.label, style: { borderBottom: "1px solid #f0ede6" } },
+                React.createElement("td", { style: { padding: "3px 6px", fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, g.label),
+                React.createElement("td", { style: { padding: "3px 6px", textAlign: "center" } }, gst ? gst.n : 0),
+                React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", color: "#0369A1", fontWeight: 700 } }, gst && gst.aAvg != null ? gst.aAvg + "円" : "—"),
+                React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", color: "#9333EA", fontWeight: 700 } }, gst && gst.cAvg != null ? gst.cAvg + "円" : "—"));
+            }))
+          ));
+      };
+      var _byDiff = {}, _diffOrder = ["A", "B", "C", "D", "E", "(未設定)"];
+      osRecs.forEach(function(r) { var d = r.signal.difficulty || "(未設定)"; (_byDiff[d] = _byDiff[d] || []).push(r); });
+      var _diffGroups = _diffOrder.filter(function(d) { return _byDiff[d] && _byDiff[d].length; }).map(function(d) { return { label: d === "(未設定)" ? d : "予想OS度" + d, recs: _byDiff[d] }; });
+      var _byRes = { ok: [], draw: [], ng: [], miss: [] };
+      osRecs.forEach(function(r) { var ai = _elAlphaInfo(r, data); var res = _elDynResult(r.signal, ai.alpha, ai.cutLine); if (_byRes[res]) _byRes[res].push(r); });
+      var _resLabels = { ok: "○ 成功", draw: "△ 同値", ng: "× 失敗", miss: "ー E未達" };
+      var _resGroups = ["ok", "draw", "ng", "miss"].filter(function(k) { return _byRes[k].length; }).map(function(k) { return { label: _resLabels[k], recs: _byRes[k] }; });
+      var grpTables = React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
+        _grpTable("予想OS度別", _diffGroups), _grpTable("結果別", _resGroups));
+      return React.createElement("div", null,
+        _secH("🎯 理想α値・理想損切り値 分析（記録ごとの最適値）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 8 } }, "理想α=損切りにならず想定+H1結果損益が最大／理想損切り=損切り回避できる最小値。各記録の採用α・損切りを基準に算出。"),
+        kpis, distBars, diffBlock, grpTables);
+    })();
+    var _osSubTabs = [["basic", "📊 基本・分布"], ["opt", "💰 α・損切り最適化"], ["hold", "📈 ホールド分析"]];
     return React.createElement("div", { style: { marginTop: 8 } },
-      sumSec,
-      cmpKpiSec,
-      resSec,
-      _osHitSec,
-      reachSec,
-      holdSec,
-      hold2ExpSec,
-      priceFlowSec,
-      React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
-        React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, osHoldTrendSec),
-        React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, osHoldProfitSec)
+      React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 10, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
+        _osSubTabs.map(function(kv) {
+          var on = osSub === kv[0];
+          return React.createElement("button", { key: kv[0], onClick: function() { setOsSub(kv[0]); },
+            style: { padding: "6px 10px", fontSize: 11, fontWeight: 700, background: "none", border: "none", cursor: "pointer", borderBottom: on ? "2px solid #9A3412" : "2px solid transparent", color: on ? "#9A3412" : "#888", whiteSpace: "nowrap" } }, kv[1]);
+        })
       ),
-      React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
-        React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, histSec, hrSec),
-        React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, sigSec)
+      osSub === "basic" && React.createElement("div", null,
+        sumSec, resSec, _osHitSec,
+        React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
+          React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, histSec, hrSec),
+          React.createElement("div", { style: { flex: "1 1 260px", minWidth: 0 } }, sigSec)
+        ),
+        devSec, svgSec
       ),
-      React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
-        React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, holdAlphaSec),
-        React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, cutHoldSec)
+      osSub === "opt" && React.createElement("div", null,
+        React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
+          React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, holdAlphaSec),
+          React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, cutHoldSec)
+        ),
+        idealSec
       ),
-      devSec,
-      svgSec
+      osSub === "hold" && React.createElement("div", null,
+        cmpKpiSec, reachSec, holdSec, hold2ExpSec, priceFlowSec,
+        React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
+          React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, osHoldTrendSec),
+          React.createElement("div", { style: { flex: "1 1 280px", minWidth: 0 } }, osHoldProfitSec)
+        )
+      )
     );
   };
   
@@ -2560,16 +2648,16 @@ function EntryLogView(_ref_elv) {
         var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
         var _cmpTable = React.createElement("div", { style: { padding: "10px 12px", background: "#fff", borderBottom: "1px solid #e0ddd6" } },
           React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 銘柄別 比較"),
-          React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "行をタップでその銘柄の明細へ / 損益は100株換算・期待値＝想定1件平均 / 最頻OS値＝最も多いOS値(×件数) / 平均H値幅＝H水準値比(＋利益方向) / ▲得意▼苦手は期待値(2件以上)"),
+          React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "行をタップでその銘柄の明細へ / 損益は100株換算・期待値＝想定1件平均 / 最頻OS値＝最も多いOS値(×件数) / 平均H値幅＝H水準値比(＋利益方向) / 理想α・理想損切り＝記録ごとの最適値の平均(頻=最頻値・Δ=採用値との平均差) / ▲得意▼苦手は期待値(2件以上)"),
           React.createElement("div", { style: { overflowX: "auto" } },
             React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
               React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
-                _hh("銘柄", { textAlign: "left", paddingLeft: 8 }), _hh("件"), _hh("勝率"), _hh("E未達"), _hh("平均OS値"), _hh("最頻OS値"), _hh("平均確定値"), _hh("平均H値幅"), _hh("想定損益"), _hh("期待値")
+                _hh("銘柄", { textAlign: "left", paddingLeft: 8 }), _hh("件"), _hh("勝率"), _hh("E未達"), _hh("平均OS値"), _hh("最頻OS値"), _hh("平均確定値"), _hh("平均H値幅"), _hh("理想α"), _hh("理想損切り"), _hh("想定損益"), _hh("期待値")
               )),
               React.createElement("tbody", null,
                 _rowsData.map(function(d) {
                   var st = d.st, recs = d.recs;
-                  var os = _elvAvgOS(recs), mode = _elvModeOS(recs), cf = _elvAvgConf(recs), hw = _elvAvgHoldWidth(recs);
+                  var os = _elvAvgOS(recs), mode = _elvModeOS(recs), cf = _elvAvgConf(recs), hw = _elvAvgHoldWidth(recs), ist = _elvIdealStats(recs);
                   var isBest = d.key === _best, isWorst = d.key === _worst;
                   var on = d.key === selStock, stRef = d.key;
                   var lb = isBest ? "3px solid #1E8449" : isWorst ? "3px solid #C0392B" : "3px solid transparent";
@@ -2586,6 +2674,8 @@ function EntryLogView(_ref_elv) {
                     _cell(mode != null ? React.createElement("span", null, mode.val + "円", React.createElement("span", { style: { fontSize: 9, color: "#aaa", marginLeft: 2 } }, "×" + mode.n)) : _dash),
                     _cell(cf != null ? (cf > 0 ? "+" : "") + cf + "円" : _dash, { fontVariantNumeric: "tabular-nums" }),
                     _cell(hw != null ? React.createElement("span", { style: { color: _elvPnlCol(hw), fontWeight: 600 } }, (hw > 0 ? "+" : "") + hw + "円") : _dash),
+                    _cell(ist && ist.aAvg != null ? React.createElement("span", null, React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, ist.aAvg + "円"), ist.aMode ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", marginLeft: 2 } }, "頻" + ist.aMode.val) : null, ist.aDiffAvg ? React.createElement("span", { style: { fontSize: 9, color: ist.aDiffAvg > 0 ? "#C0392B" : "#1E8449", marginLeft: 3 } }, "Δ" + (ist.aDiffAvg > 0 ? "+" : "") + ist.aDiffAvg) : null) : _dash),
+                    _cell(ist && ist.cAvg != null ? React.createElement("span", null, React.createElement("span", { style: { color: "#9333EA", fontWeight: 700 } }, ist.cAvg + "円"), ist.cMode ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", marginLeft: 2 } }, "頻" + ist.cMode.val) : null, ist.cDiffAvg ? React.createElement("span", { style: { fontSize: 9, color: ist.cDiffAvg > 0 ? "#C0392B" : "#1E8449", marginLeft: 3 } }, "Δ" + (ist.cDiffAvg > 0 ? "+" : "") + ist.cDiffAvg) : null) : _dash),
                     _cell(st.sumPlanned !== 0 ? React.createElement("span", { style: { fontWeight: 600, color: _elvPnlCol(st.sumPlanned) } }, _elvYen(st.sumPlanned)) : _dash),
                     _cell(st.expectedPlanned != null ? React.createElement("span", { style: { fontWeight: 800, color: _elvPnlCol(st.expectedPlanned) } }, _elvYen(st.expectedPlanned)) : _dash)
                   );
