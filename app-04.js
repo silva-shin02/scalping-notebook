@@ -4173,7 +4173,7 @@ function DayView(_ref57) {
             _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
           ),
           React.createElement("button", { onClick: function(e) { stop(e); var _ic = _elIdealCut(r.signal, alphaOf(r)); if (_ic == null) return; if (actualC != null && _ic === Number(actualC)) { _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); } else { setVal(String(_ic)); } },
-            title: "損切りを回避できる最小の損切り値(10/15/20)を入力。回避できなければ最小の10。",
+            title: "現在のα値（α値シミュ中ならその値）を考慮し、損切りを回避できる最小の損切り値(10/15/20)を入力。回避できなければ最小の10。",
             style: { marginTop: 2, fontSize: 8, padding: "1px 6px", border: "1px solid #9333EA", borderRadius: 3, background: "#F3E8FF", color: "#9333EA", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想損切り値"),
           React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
             style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#9333EA", cursor: isSim ? "pointer" : "default", lineHeight: 1.4, whiteSpace: "nowrap", visibility: isSim ? "visible" : "hidden", pointerEvents: isSim ? "auto" : "none" } }, "↺ 戻す")
