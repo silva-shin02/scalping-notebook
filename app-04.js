@@ -3045,13 +3045,19 @@ function DayView(_ref57) {
     simAlpha = _useStateSALA[0],
     setSimAlpha = _useStateSALA[1];
   useEffect(function() { setSimAlpha({}); }, [date]);
-  
+  var _useStateSCL = useState({}), _useStateSCLA = _slicedToArray(_useStateSCL, 2),
+    simCut = _useStateSCLA[0], setSimCut = _useStateSCLA[1];
+  useEffect(function() { setSimCut({}); }, [date]);
+
   // 今週の損益データの週送り（表示中の日付が属する週からのオフセット）
   var _uWkOff = useState(0), _uWkOffA = _slicedToArray(_uWkOff, 2),
     wkWeekOffset = _uWkOffA[0], setWkWeekOffset = _uWkOffA[1];
   var _useStateSALWk = useState({}), _useStateSALWkA = _slicedToArray(_useStateSALWk, 2),
     simAlphaWk = _useStateSALWkA[0], setSimAlphaWk = _useStateSALWkA[1];
   useEffect(function() { setSimAlphaWk({}); }, [date, wkWeekOffset]);
+  var _useStateSCLWk = useState({}), _useStateSCLWkA = _slicedToArray(_useStateSCLWk, 2),
+    simCutWk = _useStateSCLWkA[0], setSimCutWk = _useStateSCLWkA[1];
+  useEffect(function() { setSimCutWk({}); }, [date, wkWeekOffset]);
   
   
   
@@ -4068,9 +4074,15 @@ function DayView(_ref57) {
       if (_ov != null && _ov !== "" && !isNaN(Number(_ov))) return Number(_ov);
       return _pbAlphaActualOf(r);
     };
-    var _pbCutOf = function(r) {
+    var _pbCutActualOf = function(r) {
       var _c = _pbCharts[r.stock + "_" + date];
       return _c && _c.cutLine != null ? _c.cutLine : 10;
+    };
+    // 損切り値シミュ(非永続)を最優先。未設定なら実際の損切り値。本日の損益データ表(サマリー＋明細)で使用。
+    var _pbCutOf = function(r) {
+      var _ov = simCut[_pbRecKey(r)];
+      if (_ov != null && _ov !== "" && !isNaN(Number(_ov))) return Number(_ov);
+      return _pbCutActualOf(r);
     };
     // ランクバッジ（_pnlDetailTableEl が週パネル描画時にも使うため、ここで早期定義）
     var _pbBadge = function(grade) {
@@ -4085,7 +4097,7 @@ function DayView(_ref57) {
     };
     // 本日／今週の損益データ共通：1記録ごとの明細テーブル（thead＋subRows＋totRow）を返す。
     // records は呼び出し側でフィルタ済み。内部で時間昇順にソート。α/損切りは alphaOf/cutOf で解決。
-    var _pnlDetailTableEl = function(records, alphaOf, cutOf, sortMode, simCtx) {
+    var _pnlDetailTableEl = function(records, alphaOf, cutOf, sortMode, simCtx, cutCtx) {
       var expRecs = (records || []).slice().sort(function(a, b) {
         if (sortMode === "stock") {
           if (a.stock !== b.stock) return a.stock.localeCompare(b.stock);
@@ -4138,6 +4150,33 @@ function DayView(_ref57) {
             style: { marginTop: 2, fontSize: 8, padding: "1px 6px", border: "1px solid #0369A1", borderRadius: 3, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想α値"),
           React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
             style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#0369A1", cursor: isSim ? "pointer" : "default", lineHeight: 1.4, whiteSpace: "nowrap", visibility: isSim ? "visible" : "hidden", pointerEvents: isSim ? "auto" : "none" } }, "↺ 戻す")
+        );
+      };
+      // 損切り値シミュ欄（α値シミュと全く同じ形。色は紫で区別）。理想損切り値=10/15/20で損切り回避できる最小値。
+      var _renderSimCutInput = function(r, _sc) {
+        var k = _sc.keyOf(r);
+        var actualC = _sc.actualOf(r);
+        var raw = _sc.val[k];
+        var hasOv = raw != null && raw !== "";
+        var curStr = (raw != null) ? raw : (actualC != null ? String(actualC) : "");
+        var isSim = hasOv && actualC != null && Number(raw) !== actualC;
+        var stop = function(e) { if (e && e.stopPropagation) e.stopPropagation(); };
+        var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actualC != null ? actualC : 0); };
+        var setVal = function(v) { _sc.set(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
+        return React.createElement("div", { onClick: stop, style: { marginTop: 3, display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 } },
+          React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#9333EA" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, "損切り値シミュ", React.createElement("span", { style: { color: isSim ? "#9333EA" : "transparent" } }, "●")),
+          React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#9333EA" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
+            React.createElement("input", { type: "text", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
+              onChange: function(e) { setVal(_toHankakuNum(e.target.value)); },
+              style: { width: 30, padding: "2px 3px", border: "none", outline: "none", background: "transparent", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#9333EA", fontVariantNumeric: "tabular-nums" } }),
+            React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", alignSelf: "center", padding: "0 1px" } }, "円"),
+            _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
+          ),
+          React.createElement("button", { onClick: function(e) { stop(e); var _ic = _elIdealCut(r.signal, alphaOf(r)); if (_ic == null) return; if (actualC != null && _ic === Number(actualC)) { _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); } else { setVal(String(_ic)); } },
+            title: "損切りを回避できる最小の損切り値(10/15/20)を入力。回避できなければ一番ゆるい20。",
+            style: { marginTop: 2, fontSize: 8, padding: "1px 6px", border: "1px solid #9333EA", borderRadius: 3, background: "#F3E8FF", color: "#9333EA", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想損切り値"),
+          React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
+            style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#9333EA", cursor: isSim ? "pointer" : "default", lineHeight: 1.4, whiteSpace: "nowrap", visibility: isSim ? "visible" : "hidden", pointerEvents: isSim ? "auto" : "none" } }, "↺ 戻す")
         );
       };
       var subRows = [];
@@ -4213,7 +4252,8 @@ function DayView(_ref57) {
             rExp ? "▼" : "▶"),
           React.createElement("td", { style: { padding: "5px 6px", textAlign: "center", fontWeight: 700, fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#9A3412" } },
             React.createElement("div", null, r.stock),
-            simCtx ? _renderSimAlphaInput(r, simCtx) : null),
+            simCtx ? _renderSimAlphaInput(r, simCtx) : null,
+            cutCtx ? _renderSimCutInput(r, cutCtx) : null),
           React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             s.time || "—"),
           React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 120 } },
@@ -4303,13 +4343,14 @@ function DayView(_ref57) {
               React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _totHold2Cnt > 0 ? (function() { var _g2 = _profitGradeFromPnl(_totHold2 != null ? _totHold2 : 0, _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _pbBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })() : (_totHold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_totHold2, _totHold2Ref, _totHold2RefCnt))))),
         React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
       );
-      var _simActiveCnt = simCtx ? Object.keys(simCtx.val).filter(function(_k) { var _v = simCtx.val[_k]; return _v != null && _v !== ""; }).length : 0;
+      var _cntCtx = function(_ctx) { return _ctx ? Object.keys(_ctx.val).filter(function(_k) { var _v = _ctx.val[_k]; return _v != null && _v !== ""; }).length : 0; };
+      var _simAlphaCnt = _cntCtx(simCtx), _simCutCnt = _cntCtx(cutCtx), _simActiveCnt = _simAlphaCnt + _simCutCnt;
       return React.createElement("div", { style: { overflowX: "auto" } },
-        simCtx ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", whiteSpace: "nowrap" } },
+        (simCtx || cutCtx) ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", whiteSpace: "nowrap" } },
           _simActiveCnt > 0
-            ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "α値シミュ中: " + _simActiveCnt + "件")
-            : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値シミュ：行の数値を変えると再計算（非保存）"),
-          React.createElement("button", { onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); simCtx.set({}); },
+            ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件 / 損切り " + _simCutCnt + "件")
+            : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値・損切り値シミュ：行の数値を変えると再計算（非保存）"),
+          React.createElement("button", { onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); if (simCtx) simCtx.set({}); if (cutCtx) cutCtx.set({}); },
             style: { fontSize: 10, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", fontWeight: 700, visibility: _simActiveCnt > 0 ? "visible" : "hidden" } }, "↺ 全シミュ解除")
         ) : null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
@@ -4398,9 +4439,15 @@ function DayView(_ref57) {
       if (_ov != null && _ov !== "" && !isNaN(Number(_ov))) return Number(_ov);
       return _wkAlphaActualOf(r);
     };
-    var _wkCutOf = function(r) {
+    var _wkCutActualOf = function(r) {
       var _c = _pbCharts[r.stock + "_" + r.date];
       return _c && _c.cutLine != null ? _c.cutLine : 10;
+    };
+    // 損切り値シミュ(非永続・今週用)を最優先。未設定なら実際の損切り値。サマリー＋明細で使用。
+    var _wkCutOf = function(r) {
+      var _ov = simCutWk[_wkRecKey(r)];
+      if (_ov != null && _ov !== "" && !isNaN(Number(_ov))) return Number(_ov);
+      return _wkCutActualOf(r);
     };
     var _wkMainEl = (function() {
       var _DOWJP = ["日", "月", "火", "水", "木", "金", "土"];
@@ -4580,7 +4627,7 @@ function DayView(_ref57) {
         return React.createElement("tr", { key: rowKey + "_exp" },
           React.createElement("td", { colSpan: 12, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
             _isTotal ? _wkIdealEl : null,
-            recs.length ? _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time", { val: simAlphaWk, set: setSimAlphaWk, keyOf: _wkRecKey, actualOf: _wkAlphaActualOf }) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
+            recs.length ? _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time", { val: simAlphaWk, set: setSimAlphaWk, keyOf: _wkRecKey, actualOf: _wkAlphaActualOf }, { val: simCutWk, set: setSimCutWk, keyOf: _wkRecKey, actualOf: _wkCutActualOf }) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
           )
         );
       };
@@ -4896,7 +4943,7 @@ function DayView(_ref57) {
             })()
           ),
           sortToggle,
-          _pnlDetailTableEl(expRecs, _pbAlphaOf, _pbCutOf, pnlSortOrder, { val: simAlpha, set: setSimAlpha, keyOf: _pbRecKey, actualOf: _pbAlphaActualOf }),
+          _pnlDetailTableEl(expRecs, _pbAlphaOf, _pbCutOf, pnlSortOrder, { val: simAlpha, set: setSimAlpha, keyOf: _pbRecKey, actualOf: _pbAlphaActualOf }, { val: simCut, set: setSimCut, keyOf: _pbRecKey, actualOf: _pbCutActualOf }),
         )
       );
     };

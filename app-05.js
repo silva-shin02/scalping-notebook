@@ -3249,6 +3249,16 @@ function _elIdealAlpha(s, cutLine) {
   });
   return best ? best.a : (fallback ? fallback.a : null);
 }
+// 理想損切り値: 候補(10/15/20)のうち損切りを回避できる(=_elHoldIsStopがfalse)最小の値。
+// 回避できる値が無ければ一番ゆるい20。alphaは現在の採用α(シミュ含む)を渡す。本日/今週の損切り値シミュ用。
+var _EL_IDEAL_CUTS = [10, 15, 20];
+function _elIdealCut(s, alpha) {
+  if (!s) return null;
+  for (var i = 0; i < _EL_IDEAL_CUTS.length; i++) {
+    if (!_elHoldIsStop(s, alpha, _EL_IDEAL_CUTS[i])) return _EL_IDEAL_CUTS[i];
+  }
+  return _EL_IDEAL_CUTS[_EL_IDEAL_CUTS.length - 1];
+}
 // === H2（Hold2）: 既存hold*ロジックを流用するための仮想signalと描画ヘルパー ===
 // hold2*フィールドをhold*の名前にマッピングした仮想signalを返す（osValは共通なので元のまま）。
 function _h2sig(s) {
