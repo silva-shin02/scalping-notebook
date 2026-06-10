@@ -3790,6 +3790,8 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       planCapSum += _pStop ? _elCapLossYen(_c) : pv;
     }
     var hv = _elDynHold(s, _aSig, _c);
+    // 想定もH1もE基準未達(両miss=ノートレード)は想定損益が0なので、H1も0円扱いにして揃える（早見表で「—」でなく「0円」表示）。
+    if (hv == null && _elH2Miss(s, _aSig)) hv = 0;
     if (hv != null) {
       holdSum += hv; holdCount++;
       var _hStop = _elHoldIsStop(s, _aSig, _c);
@@ -3802,6 +3804,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     }
     var _h2tg = _elHold2TotParts(s, _aSig, _c);  // 想定損切り→想定額(結果損益)、非損切り○/△→_elDynHold2、非損切り×→参考
     if (_h2tg.main != null) { hold2Sum += _h2tg.main; hold2Count++; }
+    else if (_elH2Miss(s, _aSig)) { hold2Count++; }  // 両miss=ノートレードはH2も0円扱い（想定0と一致）
     if (_h2tg.ref != null) { hold2RefSum += _h2tg.ref; hold2RefCnt++; }
     if (s.osVal != null) osVals.push(Number(s.osVal));
     var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
@@ -5400,6 +5403,10 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
 
+
+      _fH2Hidden ? React.createElement("div", {
+        style: { marginBottom: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, color: "#555", background: "#F4F6F8", borderRadius: 6, border: "1px solid #e0ddd5" }
+      }, "※ H２欄：H１までE基準未達のため非表示") : null,
 
       React.createElement("div", { style: SH_ }, "実エントリー"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
