@@ -4078,7 +4078,7 @@ function EntrySignalSection(_ref_es) {
     // ランク・金額を固定幅レーンに入れて列内で縦そろえ。
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
       _esLane(badge, 22),
-      _esLane(React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(v) } }, _esRPnlFmt(v)), 72, "flex-start")
+      _esLane(React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(v) } }, _esRPnlFmt(v)), 60, "flex-start")
     );
   };
   var _esRPnlDispABAll = function(abV, allV, abGrade, allGrade) {
@@ -4610,14 +4610,14 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left", width: 50 }),
                   _esTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-                  _esTh("予想OS度", { width: 54 }),
+                  _esTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 40 }),
                   _esTh("α値", { width: 36 }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412", width: 52 } },
                     "OS値",
                     React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#666", marginTop: 1 } }, "α:各記録")
                   ),
                   _esTh("確定値", { width: 58 }),
-                  _esTh("α値比値幅", { width: 54 }),
+                  _esTh(React.createElement("span", null, "α値比", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "値幅")), { width: 40 }),
                   _esTh("結果/想定損益", { width: 116 }),
                   React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"),
                   _esTh("実現損益", { width: 90 }),
