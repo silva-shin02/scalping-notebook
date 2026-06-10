@@ -3049,6 +3049,9 @@ function DayView(_ref57) {
   // 今週の損益データの週送り（表示中の日付が属する週からのオフセット）
   var _uWkOff = useState(0), _uWkOffA = _slicedToArray(_uWkOff, 2),
     wkWeekOffset = _uWkOffA[0], setWkWeekOffset = _uWkOffA[1];
+  var _useStateSALWk = useState({}), _useStateSALWkA = _slicedToArray(_useStateSALWk, 2),
+    simAlphaWk = _useStateSALWkA[0], setSimAlphaWk = _useStateSALWkA[1];
+  useEffect(function() { setSimAlphaWk({}); }, [date, wkWeekOffset]);
   
   
   
@@ -4109,7 +4112,7 @@ function DayView(_ref57) {
         var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
         var badge = missFlag ? _pbBadge("Q") : (grade && grade !== "Z" ? _pbBadge(grade) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
         var amt = missFlag ? React.createElement("span", { style: { color: "#888" } }, "—") : (pnl != null ? React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(pnl) } }, _rPnlFmt(pnl)) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _lane(sym, 16), _sl(), _lane(badge, 20), _sl(), _lane(amt, 72, "flex-start"));
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _lane(sym, 16), _sl(), _lane(badge, 20), _sl(), _lane(amt, 56, "flex-start"));
       };
       var _renderSimAlphaInput = function(r, _sc) {
         var k = _sc.keyOf(r);
@@ -4247,7 +4250,7 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
             _pbSlashCell(isOk ? {ch:"○",col:"#1E8449"} : isNg ? {ch:"×",col:"#C0392B"} : isDraw ? {ch:"△",col:"#6B7280"} : isMiss ? {ch:"ー",col:"#B45309"} : null, gPlan, planPnl, isMiss),
             (_alphaRec != null && s.osVal != null && (Number(s.osVal) - _alphaRec) >= _cutLrec) ? _elCapNote(_cutLrec) : null),
-          _elHoldTd2(s, _alphaRec, _cutLrec, { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de" }, (holdPnl != null && _elHoldIsStop(s, _alphaRec, _cutLrec)) ? _elCapNote(_cutLrec) : null),
+          _elHoldTd2(s, _alphaRec, _cutLrec, { padding: "4px 2px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de" }, (holdPnl != null && _elHoldIsStop(s, _alphaRec, _cutLrec)) ? _elCapNote(_cutLrec) : null),
           React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
             _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnl, gReal))
         ));
@@ -4379,9 +4382,16 @@ function DayView(_ref57) {
       _wkByDay[_wd] = _arr;
     });
     // 週用α解決（r.date基準）: signal.alphaVal > 予想OS度
-    var _wkAlphaOf = function(r) {
+    var _wkRecKey = function(r) { return r.stock + "_" + r.date + "_" + (r.signal.id || r.signal.time || ""); };
+    var _wkAlphaActualOf = function(r) {
       var s = r.signal;
       return s && s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty);
+    };
+    // α値シミュ(非永続・今週用)を最優先。未設定なら実際の採用α値。サマリー＋明細の両方で使用（本日と同仕様）。
+    var _wkAlphaOf = function(r) {
+      var _ov = simAlphaWk[_wkRecKey(r)];
+      if (_ov != null && _ov !== "" && !isNaN(Number(_ov))) return Number(_ov);
+      return _wkAlphaActualOf(r);
     };
     var _wkCutOf = function(r) {
       var _c = _pbCharts[r.stock + "_" + r.date];
@@ -4565,7 +4575,7 @@ function DayView(_ref57) {
         return React.createElement("tr", { key: rowKey + "_exp" },
           React.createElement("td", { colSpan: 12, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
             _isTotal ? _wkIdealEl : null,
-            recs.length ? _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time") : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
+            recs.length ? _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time", { val: simAlphaWk, set: setSimAlphaWk, keyOf: _wkRecKey, actualOf: _wkAlphaActualOf }) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
           )
         );
       };

@@ -3514,7 +3514,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _h2StopDone = (alpha != null) && _elHoldIsStop(s, alpha, cutLine);   // 想定orH1で損切り→H2は損切り済み表示（期待度問わず）
   var p1 = _h1StopDone ? null : _elHoldParts(s, alpha, cutLine, false);
   var p2 = (_h2miss || _h2StopDone) ? null : (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
-  var _pnW = 86, _parW = 10, _tblW = 273;
+  var _pnW = 86, _parW = 10, _tblW = 259;
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
   var _paren = function(ch) { return React.createElement("span", { style: { color: "#888" } }, ch); };
@@ -3525,11 +3525,11 @@ function _elHoldStackInner(s, alpha, cutLine) {
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
       _c("e", expNode, "center", 14, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
       _c("op", paren ? _paren("（") : null, "center", _parW, bt),
-      _c("hi", p && p.high, "right", 30, bt),
+      _c("hi", p && p.high, "right", 26, bt),
       _c("ar", p && p.width ? _sep("→") : null, "center", 13, bt),
-      _c("wd", p && p.width, "right", 30, bt),
+      _c("wd", p && p.width, "right", 26, bt),
       _c("s1", p && p.acmp ? _sep("/") : null, "center", 8, bt),
-      _c("ac", p && p.acmp, "right", 42, bt),
+      _c("ac", p && p.acmp, "right", 36, bt),
       _c("s2", p && p.pnl ? _sep("/") : null, "center", 8, bt),
       _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", _pnW, bt),
       _c("cp", paren ? _paren("）") : null, "center", _parW, bt));
