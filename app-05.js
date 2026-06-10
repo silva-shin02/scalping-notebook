@@ -4473,8 +4473,8 @@ function EntryRecordForm(_ref_erf) {
   var _fMiss = (_fAlpha != null && Number(fOsVal) >= 0 && Number(fOsVal) < _fAlpha);
   var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
   var _fHold2HighOverA = (_fAlpha != null && fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) || 0) >= _fAlpha);
-  // 想定もH1もE基準未達 → Hold2期待度欄・Hold2欄を非表示（表側は _elH2Miss が同条件で「ー（H１までE基準未達）」表示）
-  var _fH2Hidden = (_fMiss && !_fHoldHighOverA);
+  // H1までE基準未達でもHold2期待度欄・Hold2欄は表示して入力可能にする（表側は _elH2Miss が従来どおり「ー（H１までE基準未達）」表示）
+  var _fH2Hidden = false;
   var _fMissEl = React.createElement("span", {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
       color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
