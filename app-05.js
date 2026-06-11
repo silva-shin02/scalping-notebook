@@ -3407,7 +3407,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
       ));
   } else if (res === "miss") {
     nodes.push(React.createElement("span", { key: "a3", style: { color: "#ccc", margin: "0 2px" } }, "/"));
-    nodes.push(React.createElement("span", { key: "hp", style: { color: "#B45309", fontWeight: 700 } }, "ー"));
+    nodes.push(React.createElement("span", { key: "hp" }, _qZeroCell()));
   }
   if (nodes.length === 0) return React.createElement("span", { style: { color: "#ddd" } }, "—");
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: noWrap ? "nowrap" : "wrap", justifyContent: "center", fontSize: 11, lineHeight: 1.5, whiteSpace: noWrap ? "nowrap" : "normal" } }, nodes);
@@ -3560,7 +3560,7 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
         sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
         _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
         React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"));
-  } else if (res === "miss") { miss = true; pnl = React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, "ー"); }
+  } else if (res === "miss") { miss = true; pnl = _qZeroCell(); }
   return { high: high, width: width, acmp: acmp, pnl: pnl, miss: miss, hasAny: !!(high || width || acmp || pnl) };
 }
 // 明細表用: H1(上)/H2(下)を内部2行テーブルで縦揃え。列幅を固定(tableLayout:fixed)し記録間でも桁が揃う。
@@ -3611,7 +3611,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   if (_h2miss) {
     rows.push(React.createElement("tr", { key: "h2" },
       _c("lbl", "H２", "center", 22, { fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3, borderTop: "1px solid #e0d8c8" }),
-      React.createElement("td", { key: "m", colSpan: 10, style: { padding: "0 4px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", color: "#000", fontWeight: 700, borderTop: "1px solid #e0d8c8" } }, "ー（H１までE基準未達）")
+      React.createElement("td", { key: "m", colSpan: 10, style: { padding: "0 4px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", borderTop: "1px solid #e0d8c8" } }, React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, _qZeroCell(), React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 400 } }, "（H１までE基準未達）")))
     ));
   } else if (_h2StopDone) {
     rows.push(_stopRow("h2", "H２", _h1StopDone ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine), true));
@@ -3892,7 +3892,7 @@ function _qZeroCell(size) {
       style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: sz, height: sz,
         borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border,
         fontWeight: 800, fontSize: Math.round(sz * 0.6), flexShrink: 0 } }, "Q"),
-    React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "0")
+    React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "0円")
   );
 }
 // 集計行が全miss(E基準未達)かを判定。recs各記録を行セルと同じαで _elDynResult し全て"miss"ならtrue。
