@@ -3484,7 +3484,7 @@ function _elHold2TotParts(s, alpha, cutLine) {
     var _h1res = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
     return { main: _h1res, ref: null };
   }
-  if (!s.hold2Exp || !_elHas2Data(s)) return { main: null, ref: null };
+  if (!s.hold2Exp || s.hold2Exp === "ー" || !_elHas2Data(s)) return { main: null, ref: null };
   var hv = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
   if (s.hold2Exp === "×") {
     // H2独自の結果(hv)は本合計に算入せず、H1で手仕舞いした損益を算入（H1期待度×/損切り済→想定額、それ以外→H1結果）。参考(ref)はhvとの差で参考合計は「H2まで保有した場合」を表す。
@@ -4818,6 +4818,18 @@ function EntryRecordForm(_ref_erf) {
     }
   }, [fOsVal, fHoldHighSign, fHoldHighVal, _fAlpha, _fCutLine]);
 
+  // 想定+H1ともに未達（H1までE基準未達）→ H2期待度を「ー」に自動選択。未達でなくなれば「ー」のみ解除。
+  var _h2MissAutoRef = useRef(false);
+  useEffect(function() {
+    var _h1ReachedA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
+    if (fResult === "miss" && !_h1ReachedA) {
+      if (!_h2MissAutoRef.current) { _h2MissAutoRef.current = true; setFHold2Exp("ー"); }
+    } else if (_h2MissAutoRef.current) {
+      _h2MissAutoRef.current = false;
+      setFHold2Exp(function(prev) { return prev === "ー" ? null : prev; });
+    }
+  }, [fResult, fHoldHighSign, fHoldHighVal, _fAlpha]);
+
   // 想定損益が損切り → H1期待度を「損切り済」に自動選択。H1自身が初めて損切りの場合は自動にせず手動（ユーザー判断）。
   var _hExpStopAutoRef = useRef(false);
   useEffect(function() {
@@ -5451,7 +5463,7 @@ function EntryRecordForm(_ref_erf) {
             "Hold2期待度",
             React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×でHold2欄が出ます／想定orH1損切り時は「損切り済」自動）")),
           React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
-            [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"], ["損切り済", "#6B7280", "#F3F4F6"]].map(function(kv) {
+            [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"], ["損切り済", "#6B7280", "#F3F4F6"], ["ー", "#B45309", "#FEF3C7"]].map(function(kv) {
               var on = fHold2Exp === kv[0];
               return React.createElement("button", {
                 key: kv[0],
