@@ -2790,7 +2790,7 @@ function StockQuickRefTable(_props_qrt) {
       style: { overflowX: "auto", width: "100%" }
     },
       React.createElement("table", {
-        style: { width: "100%", minWidth: isNikkei ? 300 : 520, fontSize: 12, borderCollapse: "collapse" }
+        style: { width: "100%", minWidth: isNikkei ? 312 : 540, fontSize: 12, borderCollapse: "collapse" }
       },
         React.createElement("thead", null,
           React.createElement("tr", { style: { background: "#f5f4f0" } },
@@ -2803,9 +2803,9 @@ function StockQuickRefTable(_props_qrt) {
               : [
                   { label: "日付", pad: "6px 4px" },
                   { label: "地合い", pad: "6px 6px" },
-                  { label: "想定損益", pad: "6px 3px" },
-                  { label: "H損益", pad: "6px 3px" },
-                  { label: "実現損益", pad: "6px 3px" },
+                  { label: "想定損益", pad: "6px 4px" },
+                  { label: "H損益", pad: "6px 4px" },
+                  { label: "実現損益", pad: "6px 4px" },
                   { label: "イベント・タグ", pad: "6px 6px" }
                 ]
             ).map(function(h, _hi, _harr) {
@@ -2883,7 +2883,7 @@ function StockQuickRefTable(_props_qrt) {
                 : null
             ),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 3px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "6px 4px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2894,7 +2894,7 @@ function StockQuickRefTable(_props_qrt) {
                 _qrMkBadge(_g.plan), _qrAmtSpan(_g.planSum, "円"));
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "2px 2px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "2px 3px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2916,7 +2916,7 @@ function StockQuickRefTable(_props_qrt) {
                   _elHold2RefSuffix(_g.hold2Sum, _g.hold2RefSum, _g.hold2RefCnt)));
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 3px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "6px 4px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 10;
