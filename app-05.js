@@ -3344,7 +3344,7 @@ function _elHoldStopAmtNode(amount, key) {
   return React.createElement("span", { key: key || "sa", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 700 } },
     _elHoldGradeBadge(_profitGradeFromPnl(amount, 1)),
     React.createElement("span", { key: "y", style: { color: amount > 0 ? "#C0392B" : amount < 0 ? "#1E8449" : "#888" } }, amount.toLocaleString() + "円"),
-    React.createElement("span", { key: "x", style: { color: "#C0392B", fontWeight: 800, marginLeft: 3 } }, "損"));
+    React.createElement("span", { key: "x", style: { color: "#333", fontWeight: 800, marginLeft: 3 } }, "損"));
 }
 // 想定損益またはH1で損切り済みのインラインセル表示「損切 （高値→確定値/α値比） / ランク 損切額 損」。
 // amount=損切り額(=H1結果損益・負)。hs/alphaを渡すと明細を薄く（）で表示（無ければ「（ー）」）。
@@ -3418,9 +3418,9 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
     nodes.push((_stopLeft != null && holdPnl != null)
       ? _elHoldStopPnlNode(_stopLeft, holdPnl, "hp")
       : React.createElement("span", { key: "hp", style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
-        sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
         _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
-        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円")
+        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"),
+        sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginLeft: 2, fontWeight: 800 } }, sym[0]) : null
       ));
   } else if (res === "miss") {
     if (nodes.length) nodes.push(React.createElement("span", { key: "a3", style: { color: "#ccc", margin: "0 2px" } }, "/"));
@@ -3584,9 +3584,9 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
     pnl = (_stopLeftP != null && holdPnl != null)
       ? _elHoldStopPnlNode(_stopLeftP, holdPnl)
       : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontVariantNumeric: "tabular-nums", fontWeight: 700, whiteSpace: "nowrap" } },
-        sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginRight: 1, fontWeight: 800 } }, sym[0]) : null,
         _elHoldGradeBadge(_profitGradeFromPnl(holdPnl, 1)),
-        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"));
+        React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円"),
+        sym ? React.createElement("span", { key: "sym", style: { color: sym[1], marginLeft: 2, fontWeight: 800 } }, sym[0]) : null);
   } else if (res === "miss") { miss = true; pnl = _qZeroCell(); }
   return { high: high, width: width, acmp: acmp, pnl: pnl, miss: miss, hasAny: !!(high || width || acmp || pnl) };
 }
