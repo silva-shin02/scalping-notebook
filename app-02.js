@@ -3856,7 +3856,6 @@ function EntrySignalSection(_ref_es) {
     var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actualA != null ? actualA : 0); };
     var setVal = function(v) { sc.set(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
     return React.createElement("div", { onClick: stop, style: { marginTop: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
-      React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#0369A1" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, "α値シミュ", React.createElement("span", { style: { color: isSim ? "#0369A1" : "transparent" } }, "●")),
       React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
         React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#0369A1" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
           React.createElement("input", { type: "text", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
@@ -3882,7 +3881,6 @@ function EntrySignalSection(_ref_es) {
     var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actualC != null ? actualC : 0); };
     var setVal = function(v) { sc.set(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
     return React.createElement("div", { onClick: stop, style: { marginTop: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
-      React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#9333EA" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, "損切り値シミュ", React.createElement("span", { style: { color: isSim ? "#9333EA" : "transparent" } }, "●")),
       React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
         React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#9333EA" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
           React.createElement("input", { type: "text", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
