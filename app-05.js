@@ -3479,11 +3479,17 @@ function _elHold1TotParts(s, alpha, cutLine) {
   return { main: hres, ref: null };
 }
 // H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。期待度ベースのフォールバック（損切り済=×と同一）:
+//  ・損切り(_elHoldIsStop=想定orH1損切り) → 損切り額のみmain・ref無し（最優先・H2の値/期待度/（）に無関係。H1合計_elHold1TotPartsと統一）。
 //  ・期待度○/△ → _elDynHold2 → main
-//  ・期待度×/損切り済 → H2独自の結果は本合計に算入せず「1段下で手仕舞いした損益」をmain（H1期待度×/損切り済→想定額・他→H1結果＝カスケード）。H2との差(hv-H1)をrefにし参考合計は「H2まで保有した場合」を表す（実際に損切りでも期待度基準でフォールバック）。
-//  ・期待度未設定 → 旧データで損切りなら損切り額を救済、それ以外null。
+//  ・期待度×/損切り済 → H2独自の結果は本合計に算入せず「1段下で手仕舞いした損益」をmain（H1期待度×/損切り済→想定額・他→H1結果＝カスケード）。H2との差(hv-H1)をrefにし参考合計は「H2まで保有した場合」を表す。
+//  ・期待度未設定 → null（損切りは上で処理済）。
 function _elHold2TotParts(s, alpha, cutLine) {
   if (!s || _elH2Miss(s, alpha)) return { main: null, ref: null };
+  // 想定orH1が損切り → H2合計への計上は損切り額のみ（H2の値・期待度・（）参考に関わらず）。
+  if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
+    var _stopAmt2 = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+    return { main: _stopAmt2, ref: null };
+  }
   if (s.hold2Exp === "×" || s.hold2Exp === "損切り済") {
     var hv = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
     var _h1c = (s.holdExp === "×" || s.holdExp === "損切り済")
