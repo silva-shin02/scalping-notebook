@@ -4689,6 +4689,7 @@ function EntryRecordForm(_ref_erf) {
 
   
   useEffect(function() {
+    if (fHoldExp === "損切り済") return;  // 損切り済の間はH1損益変化を自動計算で上書きしない（stopロックは別effectが担当）
     var sHold = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
     var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
 
@@ -4726,7 +4727,7 @@ function EntryRecordForm(_ref_erf) {
     } else if (sPlan < 0 && sHold > 0) {
       setFHoldProfit("yes");
     }
-  }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign]);
+  }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign, fHoldExp]);
 
   // === Hold2(H2) 自動計算（H1と同一ロジック） ===
   useEffect(function() {
