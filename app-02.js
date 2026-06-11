@@ -4142,7 +4142,7 @@ function EntrySignalSection(_ref_es) {
         _esTotHold = (_esTotHold || 0) + ppN;                       // ×→想定額を本合計に算入
         _esTotHoldActual = (_esTotHoldActual || 0) + ppN;
         _esTotHoldCnt++;
-        _esTotHoldRef = (_esTotHoldRef || 0) + (_hCapN - ppN); _esTotHoldRefCnt++;  // H1結果との差を参考
+        if ((_hCapN - ppN) !== 0) { _esTotHoldRef = (_esTotHoldRef || 0) + (_hCapN - ppN); _esTotHoldRefCnt++; }  // H1結果との差を参考（差0=想定損切り/ノーエントリー＝H1結果が想定額と同額は算入しない）
       } else {
       _esTotHold = (_esTotHold || 0) + _hCapN;
       _esTotHoldActual = (_esTotHoldActual || 0) + hpN;

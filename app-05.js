@@ -3474,7 +3474,7 @@ function _elHold1TotParts(s, alpha, cutLine) {
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan == null) return { main: hres, ref: null };
     var h1raw = (alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
-    return { main: plan, ref: (h1raw != null) ? (h1raw - plan) : null };
+    return { main: plan, ref: (h1raw != null && (h1raw - plan) !== 0) ? (h1raw - plan) : null };
   }
   return { main: hres, ref: null };
 }
