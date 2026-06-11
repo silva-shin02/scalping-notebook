@@ -3795,7 +3795,7 @@ function DayView(_ref57) {
           var _mvTr = (_xTr && ppN != null) ? ppN : _hCapTr;
           _trTotHoldCap = (_trTotHoldCap || 0) + _mvTr;
           if (_isAB) { _trTotHoldCapAB = (_trTotHoldCapAB || 0) + _mvTr; _trTotHoldABCnt++; }
-          if (_xTr && ppN != null) { _trTotHoldRef = (_trTotHoldRef || 0) + (_hCapTr - ppN); _trTotHoldRefCnt++; }
+          if (_xTr && ppN != null && (_hCapTr - ppN) !== 0) { _trTotHoldRef = (_trTotHoldRef || 0) + (_hCapTr - ppN); _trTotHoldRefCnt++; }
           if (_pStopTr && ppN != null && hpN !== ppN) _trTotHoldPlanStopDiff = true; }
         var _h2ttr = _elHold2TotParts(s, _aiTr0.alpha, _aiTr0.cutLine);
         if (_h2ttr.main != null) { _trTotHold2 = (_trTotHold2 || 0) + _h2ttr.main; _trTotHold2Cnt++; }
@@ -4245,7 +4245,7 @@ function DayView(_ref57) {
           var _mvPb = (_xPb && planPnl != null) ? planPnl : _hCapPb;
           _totHoldPlanCap = (_totHoldPlanCap || 0) + _mvPb;
           if (_isABpb) { _totHoldPlanCapAB = (_totHoldPlanCapAB || 0) + _mvPb; _totHoldPlanCapABCnt++; }
-          if (_xPb && planPnl != null) { _totHoldRef = (_totHoldRef || 0) + (_hCapPb - planPnl); _totHoldRefCnt++; }
+          if (_xPb && planPnl != null && (_hCapPb - planPnl) !== 0) { _totHoldRef = (_totHoldRef || 0) + (_hCapPb - planPnl); _totHoldRefCnt++; }
           if (_pStopH && planPnl != null && holdPnl !== planPnl) _totHoldPlanStopDiffPb = true;
         }
         var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
@@ -4536,7 +4536,7 @@ function DayView(_ref57) {
           })()),
           _td((function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-            var _hTot = null, _hCapTot = null, _hCnt = 0, _hDiff = false;
+            var _hMain = null, _hRef = null, _hRefCnt = 0, _hCnt = 0;
             recs.forEach(function(r) {
               var s = r.signal;
               var _aR = _wkAlphaOf(r);
@@ -4552,21 +4552,17 @@ function DayView(_ref57) {
               }
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
-              _hTot = (_hTot || 0) + hp; _hCapTot = (_hCapTot || 0) + _cap; _hCnt++;
-              if (_pStop && pp != null && hp !== pp) _hDiff = true;
+              var _x = (s.holdExp === "×" || s.holdExp === "損切り済");
+              _hMain = (_hMain || 0) + ((_x && pp != null) ? pp : _cap);   // ×→想定額(手仕舞い)・他→capped結果
+              if (_x && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // 参考(H1まで保有した結果との差・差0除外)
+              _hCnt++;
             });
-            if (_hCapTot == null) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
-            var _hgCap = _profitGradeFromPnl(_hCapTot, _hCnt);
-            return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } },
-              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-                _hgCap ? _wkBadge(_hgCap) : null,
-                React.createElement("span", { style: { fontWeight: 700, color: _hCapTot > 0 ? "#C0392B" : _hCapTot < 0 ? "#1E8449" : "#888" } }, (_hCapTot > 0 ? "+" : "") + _hCapTot.toLocaleString() + "円")
-              ),
-              _hDiff ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", lineHeight: 1.2, marginTop: 1 } },
-                React.createElement("span", { style: { fontSize: 10, color: "#333", fontWeight: 700 } }, "（"),
-                _wkBadge(_profitGradeFromPnl(_hTot, _hCnt)),
-                React.createElement("span", { style: { fontSize: 10, color: "#333", fontWeight: 700 } }, _hTot.toLocaleString() + "円）")
-              ) : null);
+            if (_hMain == null) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
+            var _hgCap = _profitGradeFromPnl(_hMain, _hCnt);
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+              _hgCap ? _wkBadge(_hgCap) : null,
+              React.createElement("span", { style: { fontWeight: 700, color: _hMain > 0 ? "#C0392B" : _hMain < 0 ? "#1E8449" : "#888" } }, (_hMain > 0 ? "+" : "") + _hMain.toLocaleString() + "円"),
+              _elHold2RefSuffix(_hMain, _hRef, _hRefCnt));
           })()),
           _td((function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -4798,7 +4794,7 @@ function DayView(_ref57) {
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-            var _hTot = null, _hCapTot = null, _hCnt = 0, _hDiff = false;
+            var _hMain = null, _hRef = null, _hRefCnt = 0, _hCnt = 0;
             recs.forEach(function(r) {
               var s = r.signal;
               var _aR = _pbAlphaOf(r);
@@ -4814,21 +4810,17 @@ function DayView(_ref57) {
               }
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
-              _hTot = (_hTot || 0) + hp; _hCapTot = (_hCapTot || 0) + _cap; _hCnt++;
-              if (_pStop && pp != null && hp !== pp) _hDiff = true;
+              var _x = (s.holdExp === "×" || s.holdExp === "損切り済");
+              _hMain = (_hMain || 0) + ((_x && pp != null) ? pp : _cap);   // ×→想定額(手仕舞い)・他→capped結果
+              if (_x && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // 参考(H1まで保有した結果との差・差0除外)
+              _hCnt++;
             });
-            if (_hCapTot == null) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
-            var _hgCap = _profitGradeFromPnl(_hCapTot, _hCnt);
-            return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } },
-              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-                _hgCap ? _pbBadge(_hgCap) : null,
-                React.createElement("span", { style: { fontWeight: 700, color: _hCapTot > 0 ? "#C0392B" : _hCapTot < 0 ? "#1E8449" : "#888" } }, (_hCapTot > 0 ? "+" : "") + _hCapTot.toLocaleString() + "円")
-              ),
-              _hDiff ? React.createElement("div", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", lineHeight: 1.2, marginTop: 1 } },
-                React.createElement("span", { style: { fontSize: 10, color: "#333", fontWeight: 700 } }, "（"),
-                _pbBadge(_profitGradeFromPnl(_hTot, _hCnt)),
-                React.createElement("span", { style: { fontSize: 10, color: "#333", fontWeight: 700 } }, _hTot.toLocaleString() + "円）")
-              ) : null);
+            if (_hMain == null) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
+            var _hgCap = _profitGradeFromPnl(_hMain, _hCnt);
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+              _hgCap ? _pbBadge(_hgCap) : null,
+              React.createElement("span", { style: { fontWeight: 700, color: _hMain > 0 ? "#C0392B" : _hMain < 0 ? "#1E8449" : "#888" } }, (_hMain > 0 ? "+" : "") + _hMain.toLocaleString() + "円"),
+              _elHold2RefSuffix(_hMain, _hRef, _hRefCnt));
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {

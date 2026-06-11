@@ -1846,7 +1846,7 @@ function EntryLogView(_ref_elv) {
               var _hpcOv = (_pStopH && planPnlN != null) ? planPnlN : holdPnl;
               var _xOv = (s.holdExp === "×" || s.holdExp === "損切り済");
               _totHoldPlanCap = (_totHoldPlanCap || 0) + ((_xOv && planPnlN != null) ? planPnlN : _hpcOv);
-              if (_xOv && planPnlN != null) { _totHoldRef = (_totHoldRef || 0) + (_hpcOv - planPnlN); _totHoldRefCnt++; }
+              if (_xOv && planPnlN != null && (_hpcOv - planPnlN) !== 0) { _totHoldRef = (_totHoldRef || 0) + (_hpcOv - planPnlN); _totHoldRefCnt++; }
               if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
             var _h2tt = _elHold2TotParts(s, _ovA, _ovC);
             if (_h2tt.main != null) { _totHold2 = (_totHold2 || 0) + _h2tt.main; _totHold2Cnt++; }
@@ -2496,7 +2496,7 @@ function EntryLogView(_ref_elv) {
           var _hpcSv = (_pStopH && planPnlN != null) ? planPnlN : holdPnl;
           var _xSv = (s.holdExp === "×" || s.holdExp === "損切り済");
           _totHoldPlanCap = (_totHoldPlanCap || 0) + ((_xSv && planPnlN != null) ? planPnlN : _hpcSv);
-          if (_xSv && planPnlN != null) { _totHoldRef = (_totHoldRef || 0) + (_hpcSv - planPnlN); _totHoldRefCnt++; }
+          if (_xSv && planPnlN != null && (_hpcSv - planPnlN) !== 0) { _totHoldRef = (_totHoldRef || 0) + (_hpcSv - planPnlN); _totHoldRefCnt++; }
           if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
         var _h2tt = _elHold2TotParts(s, _aiSv.alpha, _aiSv.cutLine);
         if (_h2tt.main != null) { _totHold2 = (_totHold2 || 0) + _h2tt.main; _totHold2Cnt++; }

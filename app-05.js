@@ -3496,7 +3496,7 @@ function _elHold2TotParts(s, alpha, cutLine) {
       ? ((alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign))
       : ((alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign));
     if (_h1c == null) return { main: null, ref: hv };
-    return { main: _h1c, ref: (hv != null) ? (hv - _h1c) : null };
+    return { main: _h1c, ref: (hv != null && (hv - _h1c) !== 0) ? (hv - _h1c) : null };
   }
   if (!s.hold2Exp) {
     // 旧データ救済: hold2Exp未設定で想定orH1損切りなら損切り額をmainに算入。
@@ -3734,7 +3734,7 @@ function _elCalcStats(records, data, simResolve) {
       var _hStop = _liveA && _elHoldIsStop(s, _ai.alpha, _ai.cutLine);
       if ((s.holdExp === "×" || s.holdExp === "損切り済") && ppN != null) {
         sumHold += ppN; holdHasData = true;           // 期待度×→想定額を本合計に算入（想定で手仕舞い）
-        sumHoldRef += (_hCapH - ppN); holdRefCnt++;   // H1結果との差を参考（H1まで保有した場合）
+        if ((_hCapH - ppN) !== 0) { sumHoldRef += (_hCapH - ppN); holdRefCnt++; }   // H1結果との差を参考（差0=損切り等は算入しない）
       } else {
         sumHold += _hCapH; holdHasData = true;        // 未設定/○/△/損切り/×(想定額無) は本合計に算入
       }
@@ -3958,7 +3958,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       if ((s.holdExp === "×" || s.holdExp === "損切り済") && pv != null) {
         holdSumPlanCap += pv;                          // 期待度×→想定額を本合計に算入
         if (isAB) { holdSumPlanCapAB += pv; holdCountAB++; }
-        holdRefSum += (_hCapPlan - pv); holdRefCnt++;  // H1結果との差を参考（H1まで保有した場合）
+        if ((_hCapPlan - pv) !== 0) { holdRefSum += (_hCapPlan - pv); holdRefCnt++; }  // H1結果との差を参考（差0=損切り等は算入しない）
       } else {
         holdSumPlanCap += _hCapPlan;
         if (isAB) { holdSumPlanCapAB += _hCapPlan; holdCountAB++; }
