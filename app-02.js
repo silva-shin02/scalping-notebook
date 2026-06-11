@@ -4387,7 +4387,7 @@ function EntrySignalSection(_ref_es) {
         _esTotHoldCnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
               _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
-              (_esTotHoldPlanStopDiff && _esTotHoldActual != null) ? React.createElement("span", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap" } }, "（" + _esTotHoldActual.toLocaleString() + "円）") : null,
+              null,
               _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
             )
           : (_esTotHoldRefCnt > 0 ? null : (_esAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_esTotHold, _esTotHoldRef, _esTotHoldRefCnt)
