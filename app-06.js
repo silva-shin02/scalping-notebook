@@ -90,7 +90,7 @@ function EntryLogView(_ref_elv) {
     var n = rs.length;
     if (!n) return null;
     var as = [], cs = [], aDiffs = [], cDiffs = [], optN = 0;
-    var distA = { 5: 0, 10: 0, 15: 0, 20: 0, 25: 0, 30: 0 }, distC = { 10: 0, 15: 0, 20: 0 };
+    var distA = { 0: 0, 5: 0, 10: 0, 15: 0, 20: 0, 25: 0, 30: 0 }, distC = { 10: 0, 15: 0, 20: 0 };
     rs.forEach(function(r) {
       var ai = _elAlphaInfo(r, data);
       var ia = _elIdealAlpha(r.signal, ai.cutLine), ic = _elIdealCut(r.signal, ai.alpha);
@@ -1291,12 +1291,12 @@ function EntryLogView(_ref_elv) {
         _elvKpiCard("平均理想損切り", _f(st.cAvg, "円"), "#9333EA", "中央" + _f(st.cMed, "円") + " / 最頻" + _modeTxt(st.cMode)),
         _elvKpiCard("最適一致率", st.optRate + "%", "#1E8449", "採用値=理想だった割合(" + st.n + "件)")
       );
-      var _dAmax = Math.max.apply(null, [5, 10, 15, 20, 25, 30].map(function(k) { return st.distA[k]; })) || 1;
+      var _dAmax = Math.max.apply(null, [0, 5, 10, 15, 20, 25, 30].map(function(k) { return st.distA[k]; })) || 1;
       var _dCmax = Math.max.apply(null, [10, 15, 20].map(function(k) { return st.distC[k]; })) || 1;
       var distBars = React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8 } },
         React.createElement("div", { style: { flex: "1 1 240px", minWidth: 0 } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "理想α値の分布"),
-          [5, 10, 15, 20, 25, 30].map(function(k) { return _bar(k + "円", st.distA[k], _dAmax, "#0369A1", st.distA[k] + "件"); })
+          [0, 5, 10, 15, 20, 25, 30].map(function(k) { return _bar(k + "円", st.distA[k], _dAmax, "#0369A1", st.distA[k] + "件"); })
         ),
         React.createElement("div", { style: { flex: "1 1 240px", minWidth: 0 } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9333EA", marginBottom: 4 } }, "理想損切り値の分布"),

@@ -4155,7 +4155,7 @@ function DayView(_ref57) {
               _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
             ),
             React.createElement("button", { onClick: function(e) { stop(e); var _ia = _elIdealAlpha(r.signal, cutOf(r)); if (_ia == null) return; if (actualA != null && _ia === Number(actualA)) { _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); } else { setVal(String(_ia)); } },
-              title: "損切りにならず『想定損益＋H1結果損益』が最大になるα(5/10/15/20/25/30)を入力。該当が無ければ一番マシな値。",
+              title: "損切りにならず『想定損益＋H1結果損益』が最大になるα(0/5/10/15/20/25/30)を入力。該当が無ければ一番マシな値。",
               style: { fontSize: 8, padding: "1px 4px", border: "1px solid #0369A1", borderRadius: 3, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想")
           ),
           React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },

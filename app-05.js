@@ -3233,9 +3233,9 @@ function _elHoldIsStop(s, alpha, cutLine) {
   if (s.osVal != null && (Number(s.osVal) - alpha) >= _cl) return true;
   return false;
 }
-// 理想α値: 候補(5/10/15/20/25/30)のうち損切りにならず「想定損益＋H1結果損益」の合計が最大の値。
+// 理想α値: 候補(0/5/10/15/20/25/30)のうち損切りにならず「想定損益＋H1結果損益」の合計が最大の値。
 // 該当が無ければ全候補中で合計が最大(=一番マシ)の値。同点は小さいα優先。本日/今週の損益データ表のαシミュ用。
-var _EL_IDEAL_ALPHAS = [5, 10, 15, 20, 25, 30];
+var _EL_IDEAL_ALPHAS = [0, 5, 10, 15, 20, 25, 30];
 function _elIdealAlpha(s, cutLine) {
   if (!s) return null;
   var _cl = cutLine != null ? cutLine : 10;
