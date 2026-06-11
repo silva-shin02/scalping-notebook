@@ -3470,7 +3470,7 @@ function _elHold1TotParts(s, alpha, cutLine) {
 // H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。H1のplanCapと同じ考え方:
 //  ・損切り(想定 or H1自身) → 結果損益＝H1の結果損益（想定損切り=想定額／H1損切り=_elDynHold）。期待度に関わらずmain（損切りは実際の損失なので×でも消えない）。
 //  ・非損切りで期待度○/△ → _elDynHold2 → main
-//  ・非損切りで期待度× → 参考（合計対象外）→ ref
+//  ・非損切りで期待度× → H2独自の結果は本合計に算入せず「H1で手仕舞いした損益」をmainに算入（H1期待度×/損切り済→想定額・他→H1結果）。H2との差(hv-H1)をrefにし参考合計は従来どおり「H2まで保有した場合」を表す。
 //  ・期待度未設定/H2データ無し → どちらもnull
 function _elHold2TotParts(s, alpha, cutLine) {
   if (!s || _elH2Miss(s, alpha)) return { main: null, ref: null };
@@ -3481,7 +3481,14 @@ function _elHold2TotParts(s, alpha, cutLine) {
   }
   if (!s.hold2Exp || !_elHas2Data(s)) return { main: null, ref: null };
   var hv = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
-  if (s.hold2Exp === "×") return { main: null, ref: hv };
+  if (s.hold2Exp === "×") {
+    // H2独自の結果(hv)は本合計に算入せず、H1で手仕舞いした損益を算入（H1期待度×/損切り済→想定額、それ以外→H1結果）。参考(ref)はhvとの差で参考合計は「H2まで保有した場合」を表す。
+    var _h1c = (s.holdExp === "×" || s.holdExp === "損切り済")
+      ? ((alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign))
+      : ((alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign));
+    if (_h1c == null) return { main: null, ref: hv };
+    return { main: _h1c, ref: (hv != null) ? (hv - _h1c) : null };
+  }
   return { main: hv, ref: null };
 }
 function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt, allMiss, refH1, refCntH1) {
