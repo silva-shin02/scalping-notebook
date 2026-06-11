@@ -3454,18 +3454,23 @@ function _elHold2RefSuffix(mainSum, refSum, refCnt) {
     React.createElement("span", { style: { color: _incl > 0 ? "#C0392B" : _incl < 0 ? "#1E8449" : "#888" } }, (_incl > 0 ? "+" : "") + _incl.toLocaleString() + "円"),
     "）");
 }
-// H1合計（結果損益）用の1記録あたりの寄与（planCap版）。期待度×のみ参考(ref)、それ以外(未設定/○/△/損切り)はmain。
-// H2と違いゲートしない＝期待度なしのH1も従来どおりmainに算入し既存合計を壊さない。
+// H1合計（結果損益）用の1記録あたりの寄与（planCap版）。H2と同じ考え方:
+//  ・H1期待度×（非損切り）→ H1独自の結果は本合計に算入せず「想定で手仕舞いした損益（想定額）」をmain、H1結果との差(hres-想定額)をrefにし参考合計は「H1まで保有した場合」を表す。
+//  ・それ以外（未設定/○/△/損切り）→ H1結果(planCap)をmain。
 function _elHold1TotParts(s, alpha, cutLine) {
   if (!s) return { main: null, ref: null };
-  var hv = (alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
+  var hres = (alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
   if (alpha != null && _elPlanIsStop(s, alpha, cutLine)) {
-    var pv = _elDynPlanned(s, alpha, cutLine);
-    if (pv != null) hv = pv;
+    var pv0 = _elDynPlanned(s, alpha, cutLine);
+    if (pv0 != null) hres = pv0;
   }
-  if (hv == null) return { main: null, ref: null };
-  if (s.holdExp === "×" && !(alpha != null && _elHoldIsStop(s, alpha, cutLine))) return { main: null, ref: hv };
-  return { main: hv, ref: null };
+  if (hres == null) return { main: null, ref: null };
+  if (s.holdExp === "×" && !(alpha != null && _elHoldIsStop(s, alpha, cutLine))) {
+    var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
+    if (plan == null) return { main: hres, ref: null };
+    return { main: plan, ref: hres - plan };
+  }
+  return { main: hres, ref: null };
 }
 // H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。H1のplanCapと同じ考え方:
 //  ・損切り(想定 or H1自身) → 結果損益＝H1の結果損益（想定損切り=想定額／H1損切り=_elDynHold）。期待度に関わらずmain（損切りは実際の損失なので×でも消えない）。
@@ -3713,10 +3718,11 @@ function _elCalcStats(records, data, simResolve) {
       var _pStopH = _liveA && _elPlanIsStop(s, _ai.alpha, _ai.cutLine);
       var _hCapH = (_pStopH && ppN != null) ? ppN : hpN;
       var _hStop = _liveA && _elHoldIsStop(s, _ai.alpha, _ai.cutLine);
-      if (s.holdExp === "×" && !_hStop) {
-        sumHoldRef += _hCapH; holdRefCnt++;          // 期待度×（参考扱い・本合計から除外）
+      if (s.holdExp === "×" && !_hStop && ppN != null) {
+        sumHold += ppN; holdHasData = true;           // 期待度×→想定額を本合計に算入（想定で手仕舞い）
+        sumHoldRef += (_hCapH - ppN); holdRefCnt++;   // H1結果との差を参考（H1まで保有した場合）
       } else {
-        sumHold += _hCapH; holdHasData = true;        // 未設定/○/△/損切り は従来どおり本合計に算入
+        sumHold += _hCapH; holdHasData = true;        // 未設定/○/△/損切り/×(想定額無) は本合計に算入
       }
       if (_hStop) holdHasStop = true;
       holdCapSum += _hStop ? _elCapLossYen(_ai.cutLine) : hpN;
@@ -3935,8 +3941,10 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       holdCapSum += _hStop ? _elCapLossYen(_c) : hv;
       // 結果損益: 想定が損切りの行は想定額にキャップ（損切を踏まえた値）。
       var _hCapPlan = (_elPlanIsStop(s, _aSig, _c) && pv != null) ? pv : hv;
-      if (s.holdExp === "×" && !_hStop) {
-        holdRefSum += _hCapPlan; holdRefCnt++;        // 期待度×（参考扱い・本合計から除外）
+      if (s.holdExp === "×" && !_hStop && pv != null) {
+        holdSumPlanCap += pv;                          // 期待度×→想定額を本合計に算入
+        if (isAB) { holdSumPlanCapAB += pv; holdCountAB++; }
+        holdRefSum += (_hCapPlan - pv); holdRefCnt++;  // H1結果との差を参考（H1まで保有した場合）
       } else {
         holdSumPlanCap += _hCapPlan;
         if (isAB) { holdSumPlanCapAB += _hCapPlan; holdCountAB++; }
@@ -3963,8 +3971,8 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     holdSum: holdCount > 0 ? holdSum : null,
     planCapSum: (planCount > 0 && planHasStop) ? planCapSum : null,
     holdCapSum: (holdCount > 0 && holdHasStop) ? holdCapSum : null,
-    holdPlanCap: _profitGradeFromPnl(holdSumPlanCap, holdCount - holdRefCnt),
-    holdSumPlanCap: (holdCount - holdRefCnt) > 0 ? holdSumPlanCap : null,
+    holdPlanCap: _profitGradeFromPnl(holdSumPlanCap, holdCount),
+    holdSumPlanCap: holdCount > 0 ? holdSumPlanCap : null,
     holdRefSum: holdRefCnt > 0 ? holdRefSum : null, holdRefCnt: holdRefCnt,
     holdPlanCapAB: holdCountAB > 0 ? _profitGradeFromPnl(holdSumPlanCapAB, holdCountAB) : null,
     holdSumPlanCapAB: holdCountAB > 0 ? holdSumPlanCapAB : null,

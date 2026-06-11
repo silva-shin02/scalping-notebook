@@ -4140,8 +4140,12 @@ function EntrySignalSection(_ref_es) {
     var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
     var _xclEs = (s.holdExp === "×" && !_elHoldIsStop(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10));
     if (hpN != null) {
-      if (_xclEs) { _esTotHoldRef = (_esTotHoldRef || 0) + _hCapN; _esTotHoldRefCnt++; }
-      else {
+      if (_xclEs && ppN != null) {
+        _esTotHold = (_esTotHold || 0) + ppN;                       // ×→想定額を本合計に算入
+        _esTotHoldActual = (_esTotHoldActual || 0) + ppN;
+        _esTotHoldCnt++;
+        _esTotHoldRef = (_esTotHoldRef || 0) + (_hCapN - ppN); _esTotHoldRefCnt++;  // H1結果との差を参考
+      } else {
       _esTotHold = (_esTotHold || 0) + _hCapN;
       _esTotHoldActual = (_esTotHoldActual || 0) + hpN;
       _esTotHoldCnt++;
@@ -4154,7 +4158,7 @@ function EntrySignalSection(_ref_es) {
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
     if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; _esTotMaxABCnt++; }
-    if (hpN != null && _isAB && !_xclEs) { _esTotHoldAB = (_esTotHoldAB || 0) + _hCapN; _esTotHoldABCnt++; }
+    if (hpN != null && _isAB) { _esTotHoldAB = (_esTotHoldAB || 0) + ((_xclEs && ppN != null) ? ppN : _hCapN); _esTotHoldABCnt++; }
   });
   var _esTotRealGrade = _esTotRealCnt > 0 ? _profitGradeFromPnlReal(_esTotReal != null ? _esTotReal : 0, _esTotRealCnt) : null;
   var _esTotPlanGrade = _esTotPlanCnt > 0 ? _profitGradeFromPnl(_esTotPlan != null ? _esTotPlan : 0, _esTotPlanCnt) : null;

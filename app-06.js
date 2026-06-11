@@ -496,7 +496,7 @@ function EntryLogView(_ref_elv) {
       m.cnt++;
       if (_res === "ok") m.ok++; else if (_res === "draw") m.draw++; else if (_res === "ng") m.ng++; else if (_res === "miss") m.miss++;
       var _pp = _elDynPlanned(s, _draA, _cl); if (_pp != null) m.plan += _pp;
-      var _hp = _elDynHold(s, _draA, _cl); if (_hp != null && !(s.holdExp === "×" && !_elHoldIsStop(s, _draA, _cl))) { m.hold += (_elPlanIsStop(s, _draA, _cl) && _pp != null) ? _pp : _hp; m.holdCnt++; }
+      var _h1d = _elHold1TotParts(s, _draA, _cl); if (_h1d.main != null) { m.hold += _h1d.main; m.holdCnt++; }
       var _h2t = _elHold2TotParts(s, _draA, _cl); if (_h2t.main != null) { m.hold2 += _h2t.main; m.hold2Cnt++; }
     });
     var _diffResKeys = Object.keys(_diffResMap).sort(function(a, b) { var ra = _diffRank[a] != null ? _diffRank[a] : 98, rb = _diffRank[b] != null ? _diffRank[b] : 98; return ra - rb; });
@@ -710,7 +710,7 @@ function EntryLogView(_ref_elv) {
     osRecs.forEach(function(r) {
       var s = r.signal; var _ai = _elAlphaInfo(r, data);
       _cmpAdd(_cmpP, _elDynPlanned(s, _ai.alpha, _ai.cutLine));
-      _cmpAdd(_cmpH, (s.holdExp === "×" && !_elHoldIsStop(s, _ai.alpha, _ai.cutLine)) ? null : _elDynHold(s, _ai.alpha, _ai.cutLine));
+      _cmpAdd(_cmpH, _elHold1TotParts(s, _ai.alpha, _ai.cutLine).main);
       _cmpAdd(_cmpH2, _elHold2TotParts(s, _ai.alpha, _ai.cutLine).main);
     });
     var _cmpMax = Math.max(Math.abs(_cmpP.sum), Math.abs(_cmpH.sum), Math.abs(_cmpH2.sum), 1);
@@ -810,7 +810,7 @@ function EntryLogView(_ref_elv) {
       var k = _osBucketKey(Number(s.osVal));
       if (!_osHoldMap[k]) _osHoldMap[k] = { sum: 0, cnt: 0, win: 0, m2: 0, m2c: 0, w2: 0, r2: 0, r2c: 0 };
       var m = _osHoldMap[k];
-      if (_hp != null && !(s.holdExp === "×" && !_elHoldIsStop(s, _ai.alpha, _ai.cutLine))) { m.sum += _hp; m.cnt++; if (_hp > 0) m.win++; }
+      var _h1o = _elHold1TotParts(s, _ai.alpha, _ai.cutLine); if (_h1o.main != null) { m.sum += _h1o.main; m.cnt++; if (_h1o.main > 0) m.win++; }
       if (_h2p.main != null) { m.m2 += _h2p.main; m.m2c++; if (_h2p.main > 0) m.w2++; }
       if (_h2p.ref != null) { m.r2 += _h2p.ref; m.r2c++; }
     });
@@ -1844,8 +1844,9 @@ function EntryLogView(_ref_elv) {
               _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_ovC) : holdPnl);
               var _pStopH = _elPlanIsStop(s, _ovA, _ovC);
               var _hpcOv = (_pStopH && planPnlN != null) ? planPnlN : holdPnl;
-              if (s.holdExp === "×" && !_hStopT) { _totHoldRef = (_totHoldRef || 0) + _hpcOv; _totHoldRefCnt++; }
-              else _totHoldPlanCap = (_totHoldPlanCap || 0) + _hpcOv;
+              var _xOv = (s.holdExp === "×" && !_hStopT);
+              _totHoldPlanCap = (_totHoldPlanCap || 0) + ((_xOv && planPnlN != null) ? planPnlN : _hpcOv);
+              if (_xOv && planPnlN != null) { _totHoldRef = (_totHoldRef || 0) + (_hpcOv - planPnlN); _totHoldRefCnt++; }
               if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
             var _h2tt = _elHold2TotParts(s, _ovA, _ovC);
             if (_h2tt.main != null) { _totHold2 = (_totHold2 || 0) + _h2tt.main; _totHold2Cnt++; }
@@ -1854,7 +1855,7 @@ function EntryLogView(_ref_elv) {
             if (planPnlN != null && _isABt) { _totPlanAB = (_totPlanAB || 0) + planPnlN; _totPlanABCnt++; }
             if (holdPnl != null && _isABt) {
               var _pStopHab = _elPlanIsStop(s, _ovA, _ovC);
-              if (!(s.holdExp === "×" && !_elHoldIsStop(s, _ovA, _ovC))) { _totHoldAB = (_totHoldAB || 0) + ((_pStopHab && planPnlN != null) ? planPnlN : holdPnl); _totHoldABCnt++; } }
+              var _xAbOv = (s.holdExp === "×" && !_elHoldIsStop(s, _ovA, _ovC)); _totHoldAB = (_totHoldAB || 0) + ((_xAbOv && planPnlN != null) ? planPnlN : ((_pStopHab && planPnlN != null) ? planPnlN : holdPnl)); _totHoldABCnt++; }
             var entLabel = entered
               ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 14 } }, "〇")
               : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
@@ -1926,7 +1927,7 @@ function EntryLogView(_ref_elv) {
           var _totPlanGrade = _totPlanCnt > 0 ? _profitGradeFromPnl(_totPlan != null ? _totPlan : 0, _totPlanCnt) : null;
           var _totPlanGradeAB = _totPlanABCnt > 0 ? _profitGradeFromPnl(_totPlanAB != null ? _totPlanAB : 0, _totPlanABCnt) : null;
           var _totHoldGrade = _totHoldCnt > 0 ? _profitGradeFromPnl(_totHold != null ? _totHold : 0, _totHoldCnt) : null;
-          var _totHoldPlanCapGrade = (_totHoldCnt - _totHoldRefCnt) > 0 ? _profitGradeFromPnl(_totHoldPlanCap != null ? _totHoldPlanCap : 0, _totHoldCnt - _totHoldRefCnt) : null;
+          var _totHoldPlanCapGrade = _totHoldCnt > 0 ? _profitGradeFromPnl(_totHoldPlanCap != null ? _totHoldPlanCap : 0, _totHoldCnt) : null;
           var _totHoldABGrade = _totHoldABCnt > 0 ? _profitGradeFromPnl(_totHoldAB != null ? _totHoldAB : 0, _totHoldABCnt) : null;
           var _rPnlDispABAll = function(abV, allV, abGrade, allGrade) {
             // 全ランク(全体)のみ表示。B以上/全ランクのAB分割は廃止。
@@ -1950,7 +1951,7 @@ function EntryLogView(_ref_elv) {
               React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
                 React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
                   React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H１："),
-                  (_totHoldCnt - _totHoldRefCnt) > 0 ? _rPnlDispABAll(_totHoldAB, _totHoldPlanCap, _totHoldABGrade, _totHoldPlanCapGrade) : (_totHoldRefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_totHoldPlanCap, _totHoldRef, _totHoldRefCnt)),
+                  _totHoldCnt > 0 ? _rPnlDispABAll(_totHoldAB, _totHoldPlanCap, _totHoldABGrade, _totHoldPlanCapGrade) : (_totHoldRefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_totHoldPlanCap, _totHoldRef, _totHoldRefCnt)),
                 React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
                   React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H２："),
                   React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _totHold2Cnt > 0 ? (function() { var _g2 = _profitGradeFromPnl(_totHold2 != null ? _totHold2 : 0, _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _tBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })() : (_totHold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_totHold2, _totHold2Ref, _totHold2RefCnt))))),
@@ -2492,8 +2493,9 @@ function EntryLogView(_ref_elv) {
           _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_aiSv.cutLine) : holdPnl);
           var _pStopH = _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine);
           var _hpcSv = (_pStopH && planPnlN != null) ? planPnlN : holdPnl;
-          if (s.holdExp === "×" && !_hStopT) { _totHoldRef = (_totHoldRef || 0) + _hpcSv; _totHoldRefCnt++; }
-          else _totHoldPlanCap = (_totHoldPlanCap || 0) + _hpcSv;
+          var _xSv = (s.holdExp === "×" && !_hStopT);
+          _totHoldPlanCap = (_totHoldPlanCap || 0) + ((_xSv && planPnlN != null) ? planPnlN : _hpcSv);
+          if (_xSv && planPnlN != null) { _totHoldRef = (_totHoldRef || 0) + (_hpcSv - planPnlN); _totHoldRefCnt++; }
           if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
         var _h2tt = _elHold2TotParts(s, _aiSv.alpha, _aiSv.cutLine);
         if (_h2tt.main != null) { _totHold2 = (_totHold2 || 0) + _h2tt.main; _totHold2Cnt++; }
@@ -2502,7 +2504,7 @@ function EntryLogView(_ref_elv) {
         if (planPnlN != null && _isABsv) { _totPlanABsv = (_totPlanABsv || 0) + planPnlN; _totPlanABCntsv++; }
         if (holdPnl != null && _isABsv) {
           var _pStopHabSv = _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine);
-          if (!(s.holdExp === "×" && !_elHoldIsStop(s, _aiSv.alpha, _aiSv.cutLine))) { _totHoldABsv = (_totHoldABsv || 0) + ((_pStopHabSv && planPnlN != null) ? planPnlN : holdPnl); _totHoldABCntsv++; } }
+          var _xAbSv = (s.holdExp === "×" && !_elHoldIsStop(s, _aiSv.alpha, _aiSv.cutLine)); _totHoldABsv = (_totHoldABsv || 0) + ((_xAbSv && planPnlN != null) ? planPnlN : ((_pStopHabSv && planPnlN != null) ? planPnlN : holdPnl)); _totHoldABCntsv++; }
         var entLabel = entered
           ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 14 } }, "〇")
           : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
@@ -2566,7 +2568,7 @@ function EntryLogView(_ref_elv) {
       var _totRealGrade = _totRealCnt > 0 ? _profitGradeFromPnlReal(_totReal != null ? _totReal : 0, _totRealCnt) : null;
       var _totPlanGrade = _totPlanCnt > 0 ? _profitGradeFromPnl(_totPlan != null ? _totPlan : 0, _totPlanCnt) : null;
       var _totPlanGradeABsv = _totPlanABCntsv > 0 ? _profitGradeFromPnl(_totPlanABsv != null ? _totPlanABsv : 0, _totPlanABCntsv) : null;
-      var _totHoldPlanCapGradeSv = (_totHoldCnt - _totHoldRefCnt) > 0 ? _profitGradeFromPnl(_totHoldPlanCap != null ? _totHoldPlanCap : 0, _totHoldCnt - _totHoldRefCnt) : null;
+      var _totHoldPlanCapGradeSv = _totHoldCnt > 0 ? _profitGradeFromPnl(_totHoldPlanCap != null ? _totHoldPlanCap : 0, _totHoldCnt) : null;
       var _totHoldABGradeSv = _totHoldABCntsv > 0 ? _profitGradeFromPnl(_totHoldABsv != null ? _totHoldABsv : 0, _totHoldABCntsv) : null;
       var _rPnlDispABAllSv = function(abV, allV, abGrade, allGrade) {
         // 全ランク(全体)のみ表示。B以上/全ランクのAB分割は廃止。
@@ -2589,7 +2591,7 @@ function EntryLogView(_ref_elv) {
           React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
             React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
               React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H１："),
-              (_totHoldCnt - _totHoldRefCnt) > 0 ? _rPnlDispABAllSv(_totHoldABsv, _totHoldPlanCap, _totHoldABGradeSv, _totHoldPlanCapGradeSv) : (_totHoldRefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_totHoldPlanCap, _totHoldRef, _totHoldRefCnt)),
+              _totHoldCnt > 0 ? _rPnlDispABAllSv(_totHoldABsv, _totHoldPlanCap, _totHoldABGradeSv, _totHoldPlanCapGradeSv) : (_totHoldRefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_totHoldPlanCap, _totHoldRef, _totHoldRefCnt)),
             React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
               React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H２："),
               React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _totHold2Cnt > 0 ? (function() { var _g2 = _profitGradeFromPnl(_totHold2 != null ? _totHold2 : 0, _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2 ? _svBadge(_g2) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })() : (_totHold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_totHold2, _totHold2Ref, _totHold2RefCnt))))),
@@ -4272,7 +4274,7 @@ function EntryLogView(_ref_elv) {
       var pp = _elDynPlanned(r.signal, ai.alpha, ai.cutLine);
       var hp = _elDynHold(r.signal, ai.alpha, ai.cutLine);
       if (pp != null) { _planSum += pp; _daySet[r.date] = 1; }
-      if (hp != null && !(r.signal.holdExp === "×" && !_elHoldIsStop(r.signal, ai.alpha, ai.cutLine))) { _holdSum += (_elPlanIsStop(r.signal, ai.alpha, ai.cutLine) && pp != null) ? pp : hp; }
+      var _h1y = _elHold1TotParts(r.signal, ai.alpha, ai.cutLine); if (_h1y.main != null) { _holdSum += _h1y.main; }
       var _h2tA = _elHold2TotParts(r.signal, ai.alpha, ai.cutLine); if (_h2tA.main != null) { _hold2Sum += _h2tA.main; _hold2Cnt++; }
       if (_elIsEntered(r.signal, r.item)) {
         var rv = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign);
