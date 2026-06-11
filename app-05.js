@@ -3725,7 +3725,7 @@ function _elCalcStats(records, data, simResolve) {
       var _pStopH = _liveA && _elPlanIsStop(s, _ai.alpha, _ai.cutLine);
       var _hCapH = (_pStopH && ppN != null) ? ppN : hpN;
       var _hStop = _liveA && _elHoldIsStop(s, _ai.alpha, _ai.cutLine);
-      if (s.holdExp === "×" && !_hStop && ppN != null) {
+      if ((s.holdExp === "×" || s.holdExp === "損切り済") && ppN != null) {
         sumHold += ppN; holdHasData = true;           // 期待度×→想定額を本合計に算入（想定で手仕舞い）
         sumHoldRef += (_hCapH - ppN); holdRefCnt++;   // H1結果との差を参考（H1まで保有した場合）
       } else {
@@ -3948,7 +3948,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       holdCapSum += _hStop ? _elCapLossYen(_c) : hv;
       // 結果損益: 想定が損切りの行は想定額にキャップ（損切を踏まえた値）。
       var _hCapPlan = (_elPlanIsStop(s, _aSig, _c) && pv != null) ? pv : hv;
-      if (s.holdExp === "×" && !_hStop && pv != null) {
+      if ((s.holdExp === "×" || s.holdExp === "損切り済") && pv != null) {
         holdSumPlanCap += pv;                          // 期待度×→想定額を本合計に算入
         if (isAB) { holdSumPlanCapAB += pv; holdCountAB++; }
         holdRefSum += (_hCapPlan - pv); holdRefCnt++;  // H1結果との差を参考（H1まで保有した場合）

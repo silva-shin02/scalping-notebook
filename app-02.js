@@ -4138,7 +4138,7 @@ function EntrySignalSection(_ref_es) {
     // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
     var _planStopTot = _elPlanIsStop(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
     var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
-    var _xclEs = (s.holdExp === "×" && !_elHoldIsStop(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10));
+    var _xclEs = (s.holdExp === "×" || s.holdExp === "損切り済");
     if (hpN != null) {
       if (_xclEs && ppN != null) {
         _esTotHold = (_esTotHold || 0) + ppN;                       // ×→想定額を本合計に算入

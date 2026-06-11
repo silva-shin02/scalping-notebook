@@ -1844,7 +1844,7 @@ function EntryLogView(_ref_elv) {
               _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_ovC) : holdPnl);
               var _pStopH = _elPlanIsStop(s, _ovA, _ovC);
               var _hpcOv = (_pStopH && planPnlN != null) ? planPnlN : holdPnl;
-              var _xOv = (s.holdExp === "×" && !_hStopT);
+              var _xOv = (s.holdExp === "×" || s.holdExp === "損切り済");
               _totHoldPlanCap = (_totHoldPlanCap || 0) + ((_xOv && planPnlN != null) ? planPnlN : _hpcOv);
               if (_xOv && planPnlN != null) { _totHoldRef = (_totHoldRef || 0) + (_hpcOv - planPnlN); _totHoldRefCnt++; }
               if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
@@ -1855,7 +1855,7 @@ function EntryLogView(_ref_elv) {
             if (planPnlN != null && _isABt) { _totPlanAB = (_totPlanAB || 0) + planPnlN; _totPlanABCnt++; }
             if (holdPnl != null && _isABt) {
               var _pStopHab = _elPlanIsStop(s, _ovA, _ovC);
-              var _xAbOv = (s.holdExp === "×" && !_elHoldIsStop(s, _ovA, _ovC)); _totHoldAB = (_totHoldAB || 0) + ((_xAbOv && planPnlN != null) ? planPnlN : ((_pStopHab && planPnlN != null) ? planPnlN : holdPnl)); _totHoldABCnt++; }
+              var _xAbOv = (s.holdExp === "×" || s.holdExp === "損切り済"); _totHoldAB = (_totHoldAB || 0) + ((_xAbOv && planPnlN != null) ? planPnlN : ((_pStopHab && planPnlN != null) ? planPnlN : holdPnl)); _totHoldABCnt++; }
             var entLabel = entered
               ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 14 } }, "〇")
               : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
@@ -2493,7 +2493,7 @@ function EntryLogView(_ref_elv) {
           _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_aiSv.cutLine) : holdPnl);
           var _pStopH = _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine);
           var _hpcSv = (_pStopH && planPnlN != null) ? planPnlN : holdPnl;
-          var _xSv = (s.holdExp === "×" && !_hStopT);
+          var _xSv = (s.holdExp === "×" || s.holdExp === "損切り済");
           _totHoldPlanCap = (_totHoldPlanCap || 0) + ((_xSv && planPnlN != null) ? planPnlN : _hpcSv);
           if (_xSv && planPnlN != null) { _totHoldRef = (_totHoldRef || 0) + (_hpcSv - planPnlN); _totHoldRefCnt++; }
           if (_pStopH && planPnlN != null && holdPnl !== planPnlN) _totHoldPlanStopDiff = true; }
@@ -2504,7 +2504,7 @@ function EntryLogView(_ref_elv) {
         if (planPnlN != null && _isABsv) { _totPlanABsv = (_totPlanABsv || 0) + planPnlN; _totPlanABCntsv++; }
         if (holdPnl != null && _isABsv) {
           var _pStopHabSv = _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine);
-          var _xAbSv = (s.holdExp === "×" && !_elHoldIsStop(s, _aiSv.alpha, _aiSv.cutLine)); _totHoldABsv = (_totHoldABsv || 0) + ((_xAbSv && planPnlN != null) ? planPnlN : ((_pStopHabSv && planPnlN != null) ? planPnlN : holdPnl)); _totHoldABCntsv++; }
+          var _xAbSv = (s.holdExp === "×" || s.holdExp === "損切り済"); _totHoldABsv = (_totHoldABsv || 0) + ((_xAbSv && planPnlN != null) ? planPnlN : ((_pStopHabSv && planPnlN != null) ? planPnlN : holdPnl)); _totHoldABCntsv++; }
         var entLabel = entered
           ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 14 } }, "〇")
           : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");

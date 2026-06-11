@@ -3789,7 +3789,7 @@ function DayView(_ref57) {
         if (hpN != null) { _trTotHold = (_trTotHold || 0) + hpN; _trTotHoldCnt++;
           var _pStopTr = _elPlanIsStop(s, _aiTr0.alpha, _aiTr0.cutLine);
           var _hCapTr = (_pStopTr && ppN != null) ? ppN : hpN;
-          var _xTr = (s.holdExp === "×" && !_elHoldIsStop(s, _aiTr0.alpha, _aiTr0.cutLine));
+          var _xTr = (s.holdExp === "×" || s.holdExp === "損切り済");
           var _mvTr = (_xTr && ppN != null) ? ppN : _hCapTr;
           _trTotHoldCap = (_trTotHoldCap || 0) + _mvTr;
           if (_isAB) { _trTotHoldCapAB = (_trTotHoldCapAB || 0) + _mvTr; _trTotHoldABCnt++; }
@@ -4238,7 +4238,7 @@ function DayView(_ref57) {
           // 想定が損切りの行は結果損益を想定額にキャップした合計（per-row のキャップ表示と一致）。本来額は _totHold に保持。
           var _pStopH = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
           var _hCapPb = (_pStopH && planPnl != null) ? planPnl : holdPnl;
-          var _xPb = (s.holdExp === "×" && !(_alphaRec != null && _elHoldIsStop(s, _alphaRec, _cutLrec)));
+          var _xPb = (s.holdExp === "×" || s.holdExp === "損切り済");
           var _mvPb = (_xPb && planPnl != null) ? planPnl : _hCapPb;
           _totHoldPlanCap = (_totHoldPlanCap || 0) + _mvPb;
           if (_isABpb) { _totHoldPlanCapAB = (_totHoldPlanCapAB || 0) + _mvPb; _totHoldPlanCapABCnt++; }
