@@ -4733,7 +4733,8 @@ function EntryRecordForm(_ref_erf) {
 
   
   useEffect(function() {
-    if (fHoldExp === "損切り済") return;  // 損切り済の間はH1損益変化を自動計算で上書きしない（stopロックは別effectが担当）
+    // 想定損益が損切りの間はH1損益変化を自動計算で上書きしない（stopロックは別effectが担当）。
+    if (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine) return;
     var sHold = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
     var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
 
@@ -4773,7 +4774,7 @@ function EntryRecordForm(_ref_erf) {
     } else if (sPlan < 0 && sHold > 0) {
       setFHoldProfit("yes");
     }
-  }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign, fHoldExp, _fAlpha, fHoldHighSign, fHoldHighVal]);
+  }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign, fOsVal, _fAlpha, _fCutLine, fHoldHighSign, fHoldHighVal]);
 
   // === Hold2(H2) 自動計算（H1と同一ロジック） ===
   useEffect(function() {
@@ -4816,8 +4817,10 @@ function EntryRecordForm(_ref_erf) {
   }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult, fOsVal, fHoldHighSign, fHoldHighVal]);
 
   useEffect(function() {
-    // H2期待度が「損切り済」の間は損益変化も「損切り済(stop)」を自動選択。損切り済でなくなれば普段通りの自動選択へ戻す。
-    if (fHold2Exp === "損切り済") { setFHold2Profit("stop"); return; }
+    // 想定損益 or H1の結果損益が損切りの間は損益変化も「損切り済(stop)」を自動選択。
+    var _h2psStop = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
+    var _h2h1Stop = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine);
+    if (_h2psStop || _h2h1Stop) { setFHold2Profit("stop"); return; }
     var _h1RA2 = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
     if (fResult === "miss" && !_h1RA2) { setFHold2Profit("miss"); return; }  // H1までE基準未達（想定+H1未達）→ 未達
     // H2の損益変化は「H1の結果損益」との比較。
@@ -4845,44 +4848,21 @@ function EntryRecordForm(_ref_erf) {
     } else if (sBase < 0 && sHold > 0) {
       setFHold2Profit("yes");
     }
-  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign, fHold2Exp, fResult, fHoldHighSign, fHoldHighVal, fHold2HighSign, fHold2HighVal, _fAlpha]);
+  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign, fOsVal, fResult, fHoldHighSign, fHoldHighVal, fHold2HighSign, fHold2HighVal, _fAlpha, _fCutLine]);
 
-  // 想定損益 or H1の結果損益が損切り → H2期待度を「損切り済」に自動選択（その後ユーザーは○/△/×に変更可）。
-  // 損切り状態に入った時に1回だけ設定。損切りでなくなったら「損切り済」のままの時のみ解除。
-  var _h2StopAutoRef = useRef(false);
-  useEffect(function() {
-    var _psAuto = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
-    var _h1sAuto = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine);
-    if (_psAuto || _h1sAuto) {
-      if (!_h2StopAutoRef.current) { _h2StopAutoRef.current = true; setFHold2Exp("損切り済"); }
-    } else if (_h2StopAutoRef.current) {
-      _h2StopAutoRef.current = false;
-      setFHold2Exp(function(prev) { return prev === "損切り済" ? null : prev; });
-    }
-  }, [fOsVal, fHoldHighSign, fHoldHighVal, _fAlpha, _fCutLine]);
+  // 期待度（H1/H2）の「損切り済」自動選択は廃止し手動選択に変更（表側の「損切」表示はライブα計算で従来どおり）。
 
-  // 想定損益が損切り → H1期待度を「損切り済」に自動選択。H1自身が初めて損切りの場合は自動にせず手動（ユーザー判断）。
-  var _hExpStopAutoRef = useRef(false);
-  useEffect(function() {
-    var _psAuto = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
-    if (_psAuto) {
-      if (!_hExpStopAutoRef.current) { _hExpStopAutoRef.current = true; setFHoldExp("損切り済"); }
-    } else if (_hExpStopAutoRef.current) {
-      _hExpStopAutoRef.current = false;
-      setFHoldExp(function(prev) { return prev === "損切り済" ? null : prev; });
-    }
-  }, [fOsVal, _fAlpha, _fCutLine]);
-
-  // H1期待度が「損切り済」の間は損益変化(fHoldProfit)も「損切り済(stop)」を自動選択（H2と同仕様）。
+  // 想定損益が損切りの間は損益変化(fHoldProfit)も「損切り済(stop)」を自動選択（その後ユーザーは変更可）。
   var _hpStopAutoRef = useRef(false);
   useEffect(function() {
-    if (fHoldExp === "損切り済") {
+    var _h1PlanStop = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
+    if (_h1PlanStop) {
       if (!_hpStopAutoRef.current) { _hpStopAutoRef.current = true; setFHoldProfit("stop"); }
     } else if (_hpStopAutoRef.current) {
       _hpStopAutoRef.current = false;
       setFHoldProfit(function(prev) { return prev === "stop" ? null : prev; });
     }
-  }, [fHoldExp]);
+  }, [fOsVal, _fAlpha, _fCutLine]);
 
 
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -5318,9 +5298,9 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { style: { marginBottom: 8 } },
         React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } },
           "Hold1期待度",
-          React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×／想定orH1損切り時は「損切り済」自動）")),
+          React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×）")),
         React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
-          [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"], ["損切り済", "#6B7280", "#F3F4F6"]].map(function(kv) {
+          [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"]].map(function(kv) {
             var on = fHoldExp === kv[0];
             return React.createElement("button", {
               key: kv[0],
@@ -5492,9 +5472,9 @@ function EntryRecordForm(_ref_erf) {
         _fH2Hidden ? null : React.createElement("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed #ddd" } },
           React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
             "Hold2期待度",
-            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×でHold2欄が出ます／想定orH1損切り時は「損切り済」自動）")),
+            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×でHold2欄が出ます）")),
           React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
-            [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"], ["損切り済", "#6B7280", "#F3F4F6"]].map(function(kv) {
+            [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"]].map(function(kv) {
               var on = fHold2Exp === kv[0];
               return React.createElement("button", {
                 key: kv[0],
