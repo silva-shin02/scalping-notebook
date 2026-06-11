@@ -4103,13 +4103,15 @@ function DayView(_ref57) {
       }, grade);
     };
     // 一括α理想値ボタン＋リセットボタン。records各記録のα値シミュに理想α値を一括入力／全クリアして採用α値に戻す（非保存）。
-    var _bulkIdealCtrl = function(records, simSet, keyOf, cutOf) {
+    var _bulkIdealCtrl = function(records, simVal, simSet, keyOf, cutOf) {
+      // 適用中=表示中の全記録のα値シミュが各記録の理想α値と一致している状態。trueならボタンに✓＋塗りつぶし表示。
+      var _applied = !!(records && records.length > 0 && records.every(function(r) { var _ia = _elIdealAlpha(r.signal, cutOf(r)); return _ia != null && simVal && simVal[keyOf(r)] === String(_ia); }));
       return React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
         React.createElement("button", {
           onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); var _m = {}; (records || []).forEach(function(r) { var _ia = _elIdealAlpha(r.signal, cutOf(r)); if (_ia != null) _m[keyOf(r)] = String(_ia); }); simSet(_m); },
-          title: "表示中の全記録のα値シミュに、各記録の理想α値を一括入力（非保存）",
-          style: { fontSize: 11, fontWeight: 700, padding: "3px 10px", border: "1px solid #0369A1", borderRadius: 5, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", whiteSpace: "nowrap" }
-        }, "一括α理想値"),
+          title: _applied ? "適用中: 表示中の全記録のα値シミュが理想α値です" : "表示中の全記録のα値シミュに、各記録の理想α値を一括入力（非保存）",
+          style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, padding: "3px 10px", border: "1px solid #0369A1", borderRadius: 5, background: _applied ? "#0369A1" : "#E0F2FE", color: _applied ? "#fff" : "#0369A1", cursor: "pointer", whiteSpace: "nowrap" }
+        }, _applied ? React.createElement("span", { key: "mk", style: { fontWeight: 800 } }, "✓") : null, "一括α理想値"),
         React.createElement("button", {
           onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); simSet({}); },
           title: "α値シミュを全て各記録の採用α値（既定）に戻す",
@@ -4381,7 +4383,7 @@ function DayView(_ref57) {
           _simActiveCnt > 0
             ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件 / 損切り " + _simCutCnt + "件")
             : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値・損切り値シミュ：行の数値を変えると再計算（非保存）"),
-          (showBulk && simCtx) ? _bulkIdealCtrl(records, simCtx.set, simCtx.keyOf, cutOf) : null,
+          (showBulk && simCtx) ? _bulkIdealCtrl(records, simCtx.val, simCtx.set, simCtx.keyOf, cutOf) : null,
           React.createElement("button", { onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); if (simCtx) simCtx.set({}); if (cutCtx) cutCtx.set({}); },
             style: { fontSize: 10, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", fontWeight: 700, visibility: _simActiveCnt > 0 ? "visible" : "hidden" } }, "↺ 全シミュ解除")
         ) : null,
@@ -5298,7 +5300,7 @@ function DayView(_ref57) {
     var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
       _pbGradeLegend,
-      _pbAllRecs.length ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, margin: "2px 0 8px", flexWrap: "wrap" } }, _bulkIdealCtrl(_pbAllRecs, setSimAlpha, _pbRecKey, _pbCutOf)) : null,
+      _pbAllRecs.length ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, margin: "2px 0 8px", flexWrap: "wrap" } }, _bulkIdealCtrl(_pbAllRecs, simAlpha, setSimAlpha, _pbRecKey, _pbCutOf)) : null,
       React.createElement("div", { style: { overflowX: "auto" } },
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
           React.createElement("thead", null,

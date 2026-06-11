@@ -4396,18 +4396,21 @@ function EntrySignalSection(_ref_es) {
         })
       )
     ),
-    records.length > 0 ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "2px 0", flexWrap: "wrap" } },
+    records.length > 0 ? (function() {
+      // 適用中=表示中の全記録のα値シミュが各記録の理想α値と一致。trueならボタンに✓＋塗りつぶし表示。
+      var _esApplied = records.every(function(r) { var _ia = _elIdealAlpha(r.signal, _esCut(r.signal)); return _ia != null && _esSimAlpha[_esRecKey(r)] === String(_ia); });
+      return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "2px 0", flexWrap: "wrap" } },
       React.createElement("button", {
         onClick: function() { var _m = {}; records.forEach(function(r) { var _ia = _elIdealAlpha(r.signal, _esCut(r.signal)); if (_ia != null) _m[_esRecKey(r)] = String(_ia); }); setEsSimAlpha(_m); },
-        title: "表示中の全記録のα値シミュに、各記録の理想α値を一括入力（非保存）",
-        style: { fontSize: 11, fontWeight: 700, padding: "3px 10px", border: "1px solid #0369A1", borderRadius: 5, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", whiteSpace: "nowrap" }
-      }, "一括α理想値"),
+        title: _esApplied ? "適用中: 表示中の全記録のα値シミュが理想α値です" : "表示中の全記録のα値シミュに、各記録の理想α値を一括入力（非保存）",
+        style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, padding: "3px 10px", border: "1px solid #0369A1", borderRadius: 5, background: _esApplied ? "#0369A1" : "#E0F2FE", color: _esApplied ? "#fff" : "#0369A1", cursor: "pointer", whiteSpace: "nowrap" }
+      }, _esApplied ? React.createElement("span", { key: "mk", style: { fontWeight: 800 } }, "✓") : null, "一括α理想値"),
       React.createElement("button", {
         onClick: function() { setEsSimAlpha({}); },
         title: "α値シミュを全て各記録の採用α値（既定）に戻す",
         style: { fontSize: 11, fontWeight: 600, padding: "3px 10px", border: "1px solid #ddd", borderRadius: 5, background: "#f5f4f0", color: "#555", cursor: "pointer", whiteSpace: "nowrap" }
       }, "リセット")
-    ) : null,
+    ); })() : null,
     records.length > 0 ? React.createElement("div", {
       style: { display: "flex", gap: 12, marginBottom: 6, padding: "4px 10px", background: "#FFF7ED", borderRadius: 6, border: "1px solid #FFE0BB", alignItems: "center", flexWrap: "wrap" }
     },
