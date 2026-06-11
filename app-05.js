@@ -4812,18 +4812,17 @@ function EntryRecordForm(_ref_erf) {
     }
   }, [fOsVal, fHoldHighSign, fHoldHighVal, _fAlpha, _fCutLine]);
 
-  // 想定 or H1が損切り → H1期待度を「損切り済」に自動選択（H2期待度と同仕様）。
+  // 想定損益が損切り → H1期待度を「損切り済」に自動選択。H1自身が初めて損切りの場合は自動にせず手動（ユーザー判断）。
   var _hExpStopAutoRef = useRef(false);
   useEffect(function() {
     var _psAuto = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
-    var _h1sAuto = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine);
-    if (_psAuto || _h1sAuto) {
+    if (_psAuto) {
       if (!_hExpStopAutoRef.current) { _hExpStopAutoRef.current = true; setFHoldExp("損切り済"); }
     } else if (_hExpStopAutoRef.current) {
       _hExpStopAutoRef.current = false;
       setFHoldExp(function(prev) { return prev === "損切り済" ? null : prev; });
     }
-  }, [fOsVal, fHoldHighSign, fHoldHighVal, _fAlpha, _fCutLine]);
+  }, [fOsVal, _fAlpha, _fCutLine]);
 
   // H1期待度が「損切り済」の間は損益変化(fHoldProfit)も「損切り済(stop)」を自動選択（H2と同仕様）。
   var _hpStopAutoRef = useRef(false);
