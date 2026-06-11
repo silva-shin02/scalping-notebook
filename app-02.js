@@ -4069,17 +4069,15 @@ function EntrySignalSection(_ref_es) {
     }, grade);
   };
   var _esLane = function(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); };
+  // バッジ22px＋値60pxの固定幅レーンで列内縦そろえ（miss/zero/未エントリーも同形にして桁を揃える）。
+  var _esLaneCell = function(badge, valNode) { return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _esLane(badge, 22), _esLane(valNode, 60, "flex-start")); };
   var _esRPnlDisp = function(v, grade, showZ) {
     var badge = (grade && (grade !== "Z" || showZ)) ? _esBadge(grade) : null;
     if (v == null) {
       if (badge == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, badge);
+      return _esLaneCell(badge, React.createElement("span", { style: { color: "#ccc" } }, "—"));
     }
-    // ランク・金額を固定幅レーンに入れて列内で縦そろえ。
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-      _esLane(badge, 22),
-      _esLane(React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(v) } }, _esRPnlFmt(v)), 60, "flex-start")
-    );
+    return _esLaneCell(badge, React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(v) } }, _esRPnlFmt(v)));
   };
   var _esRPnlDispABAll = function(abV, allV, abGrade, allGrade) {
     // 全ランク(全体)の合計のみ表示。B以上/全ランクのAB分割は廃止。
@@ -4431,7 +4429,7 @@ function EntrySignalSection(_ref_es) {
                   React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H２："),
                   React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Cnt > 0 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 600, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + (_esTotHold2 || 0).toLocaleString() + "円")) : (_esTotHold2RefCnt > 0 ? null : (_esAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_esTotHold2, _esTotHold2Ref, _esTotHold2RefCnt))))),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              _esTotRealCnt > 0 ? _esRPnlDisp(_esTotReal, _esTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
+              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esLane(null, 26), _esTotRealCnt > 0 ? _esRPnlDisp(_esTotReal, _esTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—"))
             ),
             isCustomMode ? React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }) : null
           );
@@ -4579,12 +4577,12 @@ function EntrySignalSection(_ref_es) {
                     _esLane(resultEl, 16),
                     React.createElement("span", { style: { color: "#bbb", margin: "0 2px", flexShrink: 0 } }, "/"),
                     _dispResult === "miss"
-                      ? _qMissCell()
+                      ? _esLaneCell(_esBadge("Q"), React.createElement("span", { style: { color: "#888" } }, "ー"))
                       : _esRPnlDisp(planPnlN, planGrade)
                   )
                 ),
                 _elHoldTd2(s, _avH, _cutLH, { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" }, (_holdPnlDyn != null && _elHoldIsStop(s, _avH, _cutLH)) ? _elCapNote(_cutLH) : null),
-                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esLane(_tradeAlphaChip(s), 26, "flex-end"), _esRPnlDisp(realPnlN, realGrade, !entered)),
+                React.createElement("td", { style: { padding: "2px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esLane(_tradeAlphaChip(s), 26, "flex-end"), _esRPnlDisp(entered ? realPnlN : 0, realGrade, !entered)),
                 isCustomMode ? React.createElement("td", {
                   style: { padding: "2px 4px", textAlign: "center", borderBottom: "1px solid #f0ede6" },
                   onClick: function(e) { e.stopPropagation(); }
