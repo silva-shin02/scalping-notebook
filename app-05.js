@@ -3326,17 +3326,17 @@ function _elHoldStopDetail(hs, alpha) {
   var nodes = [];
   if (hs.holdHighVal != null) nodes.push(React.createElement("span", { key: "hh", style: { fontVariantNumeric: "tabular-nums", color: _vcol(hs.holdHighVal, hs.holdHighSign === "-"), fontWeight: 700 } }, (hs.holdHighSign === "+" ? "↓" : hs.holdHighSign === "-" ? "↑" : "") + hs.holdHighVal));
   if (hs.holdWidth != null) {
-    nodes.push(React.createElement("span", { key: "a1", style: { color: "#ccc", margin: "0 2px" } }, "→"));
+    nodes.push(React.createElement("span", { key: "a1", style: { color: "#ccc", margin: "0 1px" } }, "→"));
     nodes.push(React.createElement("span", { key: "hw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(hs.holdWidth, hs.holdWidthSign === "-"), fontWeight: 700 } }, (hs.holdWidthSign === "-" ? "↑" : hs.holdWidthSign === "+" ? "↓" : "↕") + hs.holdWidth));
   }
   if (alpha != null && hs.holdWidth != null) {
     var _hcf = hs.holdWidthSign === "-" ? Number(hs.holdWidth) : hs.holdWidthSign === "+" ? -Number(hs.holdWidth) : 0;
     var _ewH = alpha - _hcf, _ewHAbs = Math.abs(_ewH);
-    nodes.push(React.createElement("span", { key: "a2", style: { color: "#ccc", margin: "0 2px" } }, "/"));
+    nodes.push(React.createElement("span", { key: "a2", style: { color: "#ccc", margin: "0 1px" } }, "/"));
     nodes.push(_ewH === 0 ? React.createElement("span", { key: "aw", style: { color: "#888" } }, "α0") : React.createElement("span", { key: "aw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs));
   }
   if (!nodes.length) return null;
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", opacity: 0.6 } },
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", opacity: 0.6, fontSize: 9 } },
     React.createElement("span", { key: "op", style: { color: "#888" } }, "（"), nodes, React.createElement("span", { key: "cp", style: { color: "#888" } }, "）"));
 }
 // 損切り額ノード「ランク 損切額 損」（損益列。amount=損切り額・負）。損益変化を表す「損」(丸囲みなし)を損益額の右に配置。
