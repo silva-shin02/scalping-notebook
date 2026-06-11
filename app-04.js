@@ -4102,9 +4102,24 @@ function DayView(_ref57) {
           fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
       }, grade);
     };
+    // 一括α理想値ボタン＋リセットボタン。records各記録のα値シミュに理想α値を一括入力／全クリアして採用α値に戻す（非保存）。
+    var _bulkIdealCtrl = function(records, simSet, keyOf, cutOf) {
+      return React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
+        React.createElement("button", {
+          onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); var _m = {}; (records || []).forEach(function(r) { var _ia = _elIdealAlpha(r.signal, cutOf(r)); if (_ia != null) _m[keyOf(r)] = String(_ia); }); simSet(_m); },
+          title: "表示中の全記録のα値シミュに、各記録の理想α値を一括入力（非保存）",
+          style: { fontSize: 11, fontWeight: 700, padding: "3px 10px", border: "1px solid #0369A1", borderRadius: 5, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", whiteSpace: "nowrap" }
+        }, "一括α理想値"),
+        React.createElement("button", {
+          onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); simSet({}); },
+          title: "α値シミュを全て各記録の採用α値（既定）に戻す",
+          style: { fontSize: 11, fontWeight: 600, padding: "3px 10px", border: "1px solid #ddd", borderRadius: 5, background: "#f5f4f0", color: "#555", cursor: "pointer", whiteSpace: "nowrap" }
+        }, "リセット")
+      );
+    };
     // 本日／今週の損益データ共通：1記録ごとの明細テーブル（thead＋subRows＋totRow）を返す。
     // records は呼び出し側でフィルタ済み。内部で時間昇順にソート。α/損切りは alphaOf/cutOf で解決。
-    var _pnlDetailTableEl = function(records, alphaOf, cutOf, sortMode, simCtx, cutCtx) {
+    var _pnlDetailTableEl = function(records, alphaOf, cutOf, sortMode, simCtx, cutCtx, showBulk) {
       var expRecs = (records || []).slice().sort(function(a, b) {
         if (sortMode === "stock") {
           if (a.stock !== b.stock) return a.stock.localeCompare(b.stock);
@@ -4362,10 +4377,11 @@ function DayView(_ref57) {
       var _cntCtx = function(_ctx) { return _ctx ? Object.keys(_ctx.val).filter(function(_k) { var _v = _ctx.val[_k]; return _v != null && _v !== ""; }).length : 0; };
       var _simAlphaCnt = _cntCtx(simCtx), _simCutCnt = _cntCtx(cutCtx), _simActiveCnt = _simAlphaCnt + _simCutCnt;
       return React.createElement("div", { style: { overflowX: "auto" } },
-        (simCtx || cutCtx) ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", whiteSpace: "nowrap" } },
+        (simCtx || cutCtx) ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", whiteSpace: "nowrap", flexWrap: "wrap" } },
           _simActiveCnt > 0
             ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件 / 損切り " + _simCutCnt + "件")
             : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値・損切り値シミュ：行の数値を変えると再計算（非保存）"),
+          (showBulk && simCtx) ? _bulkIdealCtrl(records, simCtx.set, simCtx.keyOf, cutOf) : null,
           React.createElement("button", { onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); if (simCtx) simCtx.set({}); if (cutCtx) cutCtx.set({}); },
             style: { fontSize: 10, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", fontWeight: 700, visibility: _simActiveCnt > 0 ? "visible" : "hidden" } }, "↺ 全シミュ解除")
         ) : null,
@@ -4639,7 +4655,7 @@ function DayView(_ref57) {
         return React.createElement("tr", { key: rowKey + "_exp" },
           React.createElement("td", { colSpan: 12, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
             _isTotal ? _wkIdealEl : null,
-            recs.length ? _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time", { val: simAlphaWk, set: setSimAlphaWk, keyOf: _wkRecKey, actualOf: _wkAlphaActualOf }, { val: simCutWk, set: setSimCutWk, keyOf: _wkRecKey, actualOf: _wkCutActualOf }) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
+            recs.length ? _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time", { val: simAlphaWk, set: setSimAlphaWk, keyOf: _wkRecKey, actualOf: _wkAlphaActualOf }, { val: simCutWk, set: setSimCutWk, keyOf: _wkRecKey, actualOf: _wkCutActualOf }, true) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
           )
         );
       };
@@ -5282,6 +5298,7 @@ function DayView(_ref57) {
     var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
       _pbGradeLegend,
+      _pbAllRecs.length ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, margin: "2px 0 8px", flexWrap: "wrap" } }, _bulkIdealCtrl(_pbAllRecs, setSimAlpha, _pbRecKey, _pbCutOf)) : null,
       React.createElement("div", { style: { overflowX: "auto" } },
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
           React.createElement("thead", null,
