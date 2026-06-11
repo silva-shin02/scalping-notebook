@@ -3481,34 +3481,31 @@ function _elHold1TotParts(s, alpha, cutLine) {
   }
   return { main: hres, ref: null };
 }
-// H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。期待度ベースのフォールバック（損切り済=×と同一）:
-//  ・損切り(_elHoldIsStop=想定orH1損切り) → 損切り額のみmain・ref無し（最優先・H2の値/期待度/（）に無関係。H1合計_elHold1TotPartsと統一）。
-//  ・期待度○/△ → _elDynHold2 → main
-//  ・期待度×/損切り済 → H2独自の結果は本合計に算入せず「1段下で手仕舞いした損益」をmain（H1期待度×/損切り済→想定額・他→H1結果＝カスケード）。H2との差(hv-H1)をrefにし参考合計は「H2まで保有した場合」を表す。
-//  ・期待度未設定 → null（損切りは上で処理済）。
+// H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。期待度ベースのカスケード（損切り済=×と同一）:
+//  ・期待度×/損切り済 → H2独自の結果は本合計に算入せず「1段下で手仕舞いした損益」をmain（H1期待度×/損切り済→想定額・他→H1損益＝カスケード）。損切りより優先（H1が×なら損切りでも想定額）。refは「H2まで保有(損切りなら損切り額)」との差で参考合計は「H2まで保有した場合」を表す。
+//  ・期待度○/△（×でない）で想定orH1が損切り → 損切り額のみmain・ref無し。
+//  ・期待度○/△ 非損切り → _elDynHold2 → main。
+//  ・期待度未設定（非損切り）→ null。
 function _elHold2TotParts(s, alpha, cutLine) {
   if (!s || _elH2Miss(s, alpha)) return { main: null, ref: null };
-  // 想定orH1が損切り → H2合計への計上は損切り額のみ（H2の値・期待度・（）参考に関わらず）。
-  if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
-    var _stopAmt2 = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
-    return { main: _stopAmt2, ref: null };
-  }
+  // H2期待度×/損切り済 → 期待度カスケードで本合計に算入（損切りより優先）。H1期待度×/損切り済→想定額、それ以外→H1損益。
   if (s.hold2Exp === "×" || s.hold2Exp === "損切り済") {
-    var hv = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
+    // hv = H2まで保有した場合の損益（参考用）。損切りなら強制手仕舞い=損切り額、それ以外はH2損益。
+    var hv = (alpha != null && _elHoldIsStop(s, alpha, cutLine))
+      ? (_elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine))
+      : ((alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign));
     var _h1c = (s.holdExp === "×" || s.holdExp === "損切り済")
       ? ((alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign))
       : ((alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign));
     if (_h1c == null) return { main: null, ref: hv };
     return { main: _h1c, ref: (hv != null && (hv - _h1c) !== 0) ? (hv - _h1c) : null };
   }
-  if (!s.hold2Exp) {
-    // 旧データ救済: hold2Exp未設定で想定orH1損切りなら損切り額をmainに算入。
-    if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
-      var _h1res0 = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
-      return { main: _h1res0, ref: null };
-    }
-    return { main: null, ref: null };
+  // 想定orH1が損切り（H2期待度は×でない）→ 損切り額のみmain（H2の値・（）参考に関わらず）。
+  if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
+    var _stopAmt2 = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+    return { main: _stopAmt2, ref: null };
   }
+  if (!s.hold2Exp) return { main: null, ref: null };
   if (!_elHas2Data(s)) return { main: null, ref: null };
   var hv2 = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
   return { main: hv2, ref: null };
@@ -3592,38 +3589,40 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _c = function(k, node, ta, w, extra) { return React.createElement("td", { key: k, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: ta || "center", width: w, overflow: "visible" }, extra || {}) }, node != null ? node : null); };
   var _row = function(rk, lblNode, expNode, p, paren, topB) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
+    var btf = paren ? Object.assign({ opacity: 0.6 }, bt) : bt;  // 括弧でくくった中身は少し薄く（通常の文字と区別）
     return React.createElement("tr", { key: rk },
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
       _c("e", expNode, "center", 14, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
       _c("op", paren ? _paren("（") : null, "center", _parW, bt),
-      _c("hi", p && p.high, "right", 26, bt),
-      _c("ar", p && p.width ? _sep("→") : null, "center", 13, bt),
-      _c("wd", p && p.width, "right", 26, bt),
-      _c("s1", p && p.acmp ? _sep("/") : null, "center", 8, bt),
-      _c("ac", p && p.acmp, "right", 36, bt),
-      _c("s2", p && p.pnl ? _sep("/") : null, "center", 8, bt),
-      _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", _pnW, bt),
+      _c("hi", p && p.high, "right", 26, btf),
+      _c("ar", p && p.width ? _sep("→") : null, "center", 13, btf),
+      _c("wd", p && p.width, "right", 26, btf),
+      _c("s1", p && p.acmp ? _sep("/") : null, "center", 8, btf),
+      _c("ac", p && p.acmp, "right", 36, btf),
+      _c("s2", p && p.pnl ? _sep("/") : null, "center", 8, btf),
+      _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", _pnW, btf),
       _c("cp", paren ? _paren("）") : null, "center", _parW, bt));
   };
   // 損切り済み行: 明細列(高値〜α値比)を colSpan:5 で「ー」中央寄せ、損益列に「× ランク 損切額」。H1の明細(↑→/α)と縦位置が揃う。
   // noParen=true（想定損益の時点で損切り）の行は囲み括弧（）を出さない（列は維持して桁揃え）。
   var _stopRow = function(rk, lblNode, amount, topB, noParen) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
+    var btf = !noParen ? Object.assign({ opacity: 0.6 }, bt) : bt;  // 括弧表示時は中身を少し薄く（通常の文字と区別）
     return React.createElement("tr", { key: rk },
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
       _c("e", React.createElement("span", { style: { color: "#888", fontWeight: 700, fontSize: 9 } }, "損切"), "center", 14, Object.assign({ paddingRight: 1 }, bt)),
       _c("op", noParen ? null : _paren("（"), "center", _parW, bt),
-      React.createElement("td", { key: "sd", colSpan: 5, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", overflow: "visible" }, bt || {}) }, _paren("ー")),
-      _c("s2", _sep("/"), "center", 8, bt),
-      _c("pn", _elHoldStopAmtNode(amount), "left", _pnW, bt),
+      React.createElement("td", { key: "sd", colSpan: 5, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", overflow: "visible" }, btf || {}) }, _paren("ー")),
+      _c("s2", _sep("/"), "center", 8, btf),
+      _c("pn", _elHoldStopAmtNode(amount), "left", _pnW, btf),
       _c("cp", noParen ? null : _paren("）"), "center", _parW, bt));
   };
   var hexp = s.holdExp;
   var h1exp = (hexp && hexp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[hexp] || "#666" } }, hexp) : null;
   var rows = [ _h1StopDone ? _stopRow("h1", "H１", _elDynPlanned(s, alpha, cutLine), false, true) : _row("h1", "H１", h1exp, p1, hexp === "×", false) ];
   if (_h2miss) {
-    // 想定もH1もE基準未達 → H2は「ー」期待度＋H2明細（損益はQ ー円）。H1と同じ列構成で縦揃え。H1が×で（）表示の行はH2も（）で揃える。
-    rows.push(_row("h2", "H２", React.createElement("span", { title: "H１までE基準未達", style: { color: "#888" } }, "ー"), p2, hexp === "×", true));
+    // 想定もH1もE基準未達 → H2は「ー」期待度＋H2明細（損益はQ ー円）。H1と同じ列構成で縦揃え。想定もH1もQなのでH2は常に（）で囲む（H1期待度×と同じ囲み方）。
+    rows.push(_row("h2", "H２", React.createElement("span", { title: "H１までE基準未達", style: { color: "#888" } }, "ー"), p2, true, true));
     // H2高値だけα到達（H2で初めてE基準到達）→「H１までE基準未達のため、金額非表示」の補足を1行下に表示。
     if (_h2ReachedA) {
       rows.push(React.createElement("tr", { key: "h2note" },
