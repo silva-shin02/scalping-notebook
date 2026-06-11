@@ -3333,9 +3333,12 @@ function _elHoldStopAmtNode(amount, key) {
 // 想定損益またはH1で損切り済みのインラインセル表示「ー（損切り済）/ × ランク 損切額」。amount=損切り額(=H1結果損益・負)。
 function _elHoldStopDoneNode(amount, key) {
   return React.createElement("span", { key: key || "sd", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontSize: 11 } },
-    _elStopDoneLabel("l"),
+    React.createElement("span", { key: "lbl", style: { color: "#888", fontWeight: 700, marginRight: 2 } }, "損切"),
+    React.createElement("span", { key: "op", style: { color: "#888" } }, "（"),
+    React.createElement("span", { key: "dash", style: { color: "#888" } }, "ー"),
     React.createElement("span", { key: "sep", style: { color: "#ccc", margin: "0 2px" } }, "/"),
-    _elHoldStopAmtNode(amount, "a"));
+    _elHoldStopAmtNode(amount, "a"),
+    React.createElement("span", { key: "cp", style: { color: "#888" } }, "）"));
 }
 // 統合Hセル: 「H高値 → H確定値 / α値比H値幅 / 勝敗・結果損益」を1つのインライン要素で返す。
 // isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、想定損益・結果はエントリー共通）。
@@ -3595,12 +3598,12 @@ function _elHoldStackInner(s, alpha, cutLine) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
     return React.createElement("tr", { key: rk },
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
-      _c("e", null, "center", 14, Object.assign({ paddingRight: 1 }, bt)),
-      _c("op", null, "center", _parW, bt),
-      React.createElement("td", { key: "sd", colSpan: 5, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", overflow: "visible" }, bt || {}) }, _elStopDoneLabel()),
+      _c("e", React.createElement("span", { style: { color: "#888", fontWeight: 700, fontSize: 9 } }, "損切"), "center", 14, Object.assign({ paddingRight: 1 }, bt)),
+      _c("op", _paren("（"), "center", _parW, bt),
+      React.createElement("td", { key: "sd", colSpan: 5, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", overflow: "visible" }, bt || {}) }, _paren("ー")),
       _c("s2", _sep("/"), "center", 8, bt),
       _c("pn", _elHoldStopAmtNode(amount), "left", _pnW, bt),
-      _c("cp", null, "center", _parW, bt));
+      _c("cp", _paren("）"), "center", _parW, bt));
   };
   var hexp = s.holdExp;
   var h1exp = (hexp && hexp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[hexp] || "#666" } }, hexp) : null;
