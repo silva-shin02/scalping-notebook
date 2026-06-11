@@ -2803,9 +2803,9 @@ function StockQuickRefTable(_props_qrt) {
               : [
                   { label: "日付", pad: "6px 4px" },
                   { label: "地合い", pad: "6px 6px" },
-                  { label: "想定損益", pad: "6px 4px" },
-                  { label: "H損益", pad: "6px 4px" },
-                  { label: "実現損益", pad: "6px 4px" },
+                  { label: "想定損益", pad: "6px 7px" },
+                  { label: "H損益", pad: "6px 7px" },
+                  { label: "実現損益", pad: "6px 7px" },
                   { label: "イベント・タグ", pad: "6px 6px" }
                 ]
             ).map(function(h, _hi, _harr) {
@@ -2846,44 +2846,28 @@ function StockQuickRefTable(_props_qrt) {
             React.createElement("td", {
               style: { padding: "7px 6px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             },
-              isHoliday
-                ? React.createElement("span", {
-                    style: {
-                      display: "inline-block", padding: "2px 8px", borderRadius: 5,
-                      fontSize: 10, fontWeight: 700,
-                      background: "#F3E8FF", color: _holidayPurple,
-                      border: "1px solid " + _holidayPurple
-                    }
-                  }, "祝日休場")
-              : (c2 && c2.macroLocal
-                ? React.createElement(CPill, { label: c2.macroLocal, color: getMC(c2.macroLocal), sm: true })
-                : React.createElement("span", { style: { color: "#ddd" } }, "—")),
-              !isHoliday && !isSun && !isSat && c2 &&
-                (typeof c2.dayClose === "number" || typeof c2.prevDayPct === "number" || typeof c2.prevDayChange === "number")
-                ? React.createElement("span", {
-                    style: { marginLeft: 6, fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }
-                  },
-                    typeof c2.dayClose === "number"
-                      ? React.createElement("span", { style: { color: "#333" } },
-                          activeStock === "日経平均株価" ? c2.dayClose.toLocaleString(undefined, { maximumFractionDigits: 2 }) : Math.round(c2.dayClose).toLocaleString())
-                      : null,
-                    
-                    activeStock === "日経平均株価" && typeof c2.prevDayChange === "number"
-                      ? React.createElement("span", {
-                          style: { marginLeft: typeof c2.dayClose === "number" ? 4 : 0,
-                            color: c2.prevDayChange >= 0 ? "#DC2626" : "#16A34A" }
-                        }, "(" + (c2.prevDayChange >= 0 ? "+" : "") + c2.prevDayChange.toLocaleString(undefined, { maximumFractionDigits: 2 }) + "\u5186)")
-                      : (activeStock !== "日経平均株価" && typeof c2.prevDayPct === "number"
-                        ? React.createElement("span", {
-                            style: { marginLeft: typeof c2.dayClose === "number" ? 4 : 0,
-                              color: c2.prevDayPct >= 0 ? "#DC2626" : "#16A34A" }
-                          }, "(" + (c2.prevDayPct >= 0 ? "+" : "") + c2.prevDayPct.toFixed(2) + "%)")
-                        : null)
-                  )
-                : null
+              (function() {
+                var _pill = isHoliday
+                  ? React.createElement("span", { style: { display: "inline-block", padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700, background: "#F3E8FF", color: _holidayPurple, border: "1px solid " + _holidayPurple } }, "祝日休場")
+                  : (c2 && c2.macroLocal
+                    ? React.createElement(CPill, { label: c2.macroLocal, color: getMC(c2.macroLocal), sm: true })
+                    : React.createElement("span", { style: { color: "#ddd" } }, "—"));
+                var _hasData = !isHoliday && !isSun && !isSat && c2;
+                var _numTxt = (_hasData && typeof c2.dayClose === "number")
+                  ? (activeStock === "日経平均株価" ? c2.dayClose.toLocaleString(undefined, { maximumFractionDigits: 2 }) : Math.round(c2.dayClose).toLocaleString())
+                  : null;
+                var _chg = null;
+                if (_hasData && activeStock === "日経平均株価" && typeof c2.prevDayChange === "number") _chg = React.createElement("span", { style: { color: c2.prevDayChange >= 0 ? "#DC2626" : "#16A34A" } }, "(" + (c2.prevDayChange >= 0 ? "+" : "") + c2.prevDayChange.toLocaleString(undefined, { maximumFractionDigits: 2 }) + "円)");
+                else if (_hasData && activeStock !== "日経平均株価" && typeof c2.prevDayPct === "number") _chg = React.createElement("span", { style: { color: c2.prevDayPct >= 0 ? "#DC2626" : "#16A34A" } }, "(" + (c2.prevDayPct >= 0 ? "+" : "") + c2.prevDayPct.toFixed(2) + "%)");
+                return React.createElement("div", { style: { display: "inline-flex", alignItems: "center" } },
+                  React.createElement("span", { style: { display: "inline-flex", justifyContent: "center", alignItems: "center", width: 58, flexShrink: 0 } }, _pill),
+                  React.createElement("span", { style: { display: "inline-flex", justifyContent: "flex-end", alignItems: "center", width: 50, flexShrink: 0, fontSize: 10, fontWeight: 700, color: "#333" } }, _numTxt),
+                  React.createElement("span", { style: { display: "inline-flex", justifyContent: "flex-start", alignItems: "center", width: 52, flexShrink: 0, paddingLeft: 3, fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" } }, _chg)
+                );
+              })()
             ),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 4px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "6px 7px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2894,7 +2878,7 @@ function StockQuickRefTable(_props_qrt) {
                 _qrMkBadge(_g.plan), _qrAmtSpan(_g.planSum, "円"));
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "2px 3px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "2px 6px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2916,7 +2900,7 @@ function StockQuickRefTable(_props_qrt) {
                   _elHold2RefSuffix(_g.hold2Sum, _g.hold2RefSum, _g.hold2RefCnt)));
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 4px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "6px 7px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2927,7 +2911,7 @@ function StockQuickRefTable(_props_qrt) {
             })()),
             null,
             React.createElement("td", {
-              style: { padding: "7px 6px", width: "100%" }
+              style: { padding: "7px 6px", width: "30%" }
             }, (function() {
               var _dayEvents = ((data.trades && data.trades[d] && data.trades[d].events) || []).filter(function(e){ return e && !e._deleted; });
               var _tags = [].concat(_toConsumableArray((c2 && c2.chartShapeTags) || []),
