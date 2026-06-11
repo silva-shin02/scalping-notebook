@@ -3855,7 +3855,7 @@ function EntrySignalSection(_ref_es) {
     var stop = function(e) { if (e && e.stopPropagation) e.stopPropagation(); };
     var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actualA != null ? actualA : 0); };
     var setVal = function(v) { sc.set(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
-    return React.createElement("div", { onClick: stop, style: { marginTop: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
+    return React.createElement("div", { onClick: stop, style: { marginTop: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
       React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#0369A1" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, "α値シミュ", React.createElement("span", { style: { color: isSim ? "#0369A1" : "transparent" } }, "●")),
       React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
         React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#0369A1" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
@@ -3870,7 +3870,7 @@ function EntrySignalSection(_ref_es) {
           style: { fontSize: 8, padding: "1px 4px", border: "1px solid #0369A1", borderRadius: 3, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想")
       ),
       React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
-        style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#0369A1", cursor: isSim ? "pointer" : "default", lineHeight: 1.4, whiteSpace: "nowrap", visibility: isSim ? "visible" : "hidden", pointerEvents: isSim ? "auto" : "none" } }, "↺ 戻す")
+        style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", display: isSim ? "inline-block" : "none" } }, "↺ 戻す")
     );
   };
   var _esRenderSimCut = function(r) {
@@ -3881,7 +3881,7 @@ function EntrySignalSection(_ref_es) {
     var stop = function(e) { if (e && e.stopPropagation) e.stopPropagation(); };
     var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actualC != null ? actualC : 0); };
     var setVal = function(v) { sc.set(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
-    return React.createElement("div", { onClick: stop, style: { marginTop: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
+    return React.createElement("div", { onClick: stop, style: { marginTop: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
       React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#9333EA" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, "損切り値シミュ", React.createElement("span", { style: { color: isSim ? "#9333EA" : "transparent" } }, "●")),
       React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
         React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#9333EA" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
@@ -3896,7 +3896,7 @@ function EntrySignalSection(_ref_es) {
           style: { fontSize: 8, padding: "1px 4px", border: "1px solid #9333EA", borderRadius: 3, background: "#F3E8FF", color: "#9333EA", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想")
       ),
       React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
-        style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#9333EA", cursor: isSim ? "pointer" : "default", lineHeight: 1.4, whiteSpace: "nowrap", visibility: isSim ? "visible" : "hidden", pointerEvents: isSim ? "auto" : "none" } }, "↺ 戻す")
+        style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#9333EA", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", display: isSim ? "inline-block" : "none" } }, "↺ 戻す")
     );
   };
   var _esSortByTime = function(recs) {
