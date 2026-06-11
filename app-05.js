@@ -3339,14 +3339,14 @@ function _elHoldStopDetail(hs, alpha) {
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", opacity: 0.6 } },
     React.createElement("span", { key: "op", style: { color: "#888" } }, "（"), nodes, React.createElement("span", { key: "cp", style: { color: "#888" } }, "）"));
 }
-// 損切り額ノード「損(丸囲み) ランク 損切額」（損益列。amount=損切り額・負）。損益変化記号の×を損切りを表す丸囲み「損」に変更。
+// 損切り額ノード「ランク 損切額 損」（損益列。amount=損切り額・負）。損益変化を表す「損」(丸囲みなし)を損益額の右に配置。
 function _elHoldStopAmtNode(amount, key) {
   return React.createElement("span", { key: key || "sa", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 700 } },
-    React.createElement("span", { key: "x", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 14, height: 14, borderRadius: "50%", border: "1.5px solid #C0392B", color: "#C0392B", fontWeight: 800, fontSize: 9, lineHeight: 1, marginRight: 2, flexShrink: 0 } }, "損"),
     _elHoldGradeBadge(_profitGradeFromPnl(amount, 1)),
-    React.createElement("span", { key: "y", style: { color: amount > 0 ? "#C0392B" : amount < 0 ? "#1E8449" : "#888" } }, amount.toLocaleString() + "円"));
+    React.createElement("span", { key: "y", style: { color: amount > 0 ? "#C0392B" : amount < 0 ? "#1E8449" : "#888" } }, amount.toLocaleString() + "円"),
+    React.createElement("span", { key: "x", style: { color: "#C0392B", fontWeight: 800, marginLeft: 3 } }, "損"));
 }
-// 想定損益またはH1で損切り済みのインラインセル表示「損切 （高値→確定値/α値比） / 損(丸) ランク 損切額」。
+// 想定損益またはH1で損切り済みのインラインセル表示「損切 （高値→確定値/α値比） / ランク 損切額 損」。
 // amount=損切り額(=H1結果損益・負)。hs/alphaを渡すと明細を薄く（）で表示（無ければ「（ー）」）。
 function _elHoldStopDoneNode(amount, key, hs, alpha) {
   var _detail = (hs && alpha != null) ? _elHoldStopDetail(hs, alpha) : null;
@@ -3622,7 +3622,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
       _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", _pnW, btf),
       _c("cp", paren ? _paren("）") : null, "center", _parW, bt));
   };
-  // 損切り済み行: 明細列(colSpan:5)に「（H高値→確定値/α値比）」を薄く中央表示、損益列に「損(丸) ランク 損切額」。
+  // 損切り済み行: 明細列(colSpan:5)に「（H高値→確定値/α値比）」を薄く中央表示、損益列に「ランク 損切額 損」。
   // 想定/H1損切りでも参考として高値・確定値・値幅を（）付きで表示（_elHoldStopDetail、中身無→「ー」）。isH2でH1/H2明細を切替。
   var _stopRow = function(rk, lblNode, amount, topB, isH2) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
