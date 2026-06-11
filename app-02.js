@@ -5960,20 +5960,20 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
       return hasAny ? Math.round(total) : null;
     };
     var _iaMinA = null, _iaTgtA = null, _iaMaxA = null, _iaMaxP = null;
-    for (var _aa = 0; _aa <= 30; _aa++) {
+    _EL_IDEAL_ALPHAS.forEach(function(_aa) {
       var _ap = _iaCalc(_aa);
-      if (_ap == null) continue;
+      if (_ap == null) return;
       if (_iaMinA == null && _ap >= 1) _iaMinA = _aa;
       if (_iaTgtA == null && _ap >= 2500) _iaTgtA = _aa;
       if (_iaMaxP == null || _ap > _iaMaxP) { _iaMaxP = _ap; _iaMaxA = _aa; }
-    }
+    });
     if (_iaTgtA == null && _iaMaxA != null) _iaTgtA = _iaMaxA;
     if (_iaMinA == null && _iaTgtA == null && _iaMaxA == null) return null;
     var _iaFmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
     var _iaFmtP = function(v) { if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
     var _iaTh = function(l, e) { return React.createElement("th", { style: Object.assign({ padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" }, e || {}) }, l); };
     return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜30円）"),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（5〜30円・5刻み）"),
       React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）"),
       React.createElement("div", { style: { overflowX: "auto" } },
         React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },

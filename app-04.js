@@ -4600,14 +4600,14 @@ function DayView(_ref57) {
         var calcProfit = function(alpha) { var total = 0, hasAny = false; sigData.forEach(function(d) { if (d.osVal == null) return; hasAny = true; var _cl = d.cutLine != null ? d.cutLine : 10; if (alpha > d.osVal) {} else if (d.osVal - alpha >= _cl) { total += -(d.osVal - alpha) * 100; } else { if (d.conf == null) { hasAny = false; return; } total += (alpha - d.conf) * 100; } }); return hasAny ? Math.round(total) : null; };
         var calcHold = function(alpha) { var total = 0, hasAny = false; sigData.forEach(function(d) { if (d.osVal == null) return; hasAny = true; var hp = _elDynHold(d.sig, alpha, d.cutLine != null ? d.cutLine : 10); if (hp != null) total += hp; }); return hasAny ? Math.round(total) : null; };
         var minA = null, tgtA = null, maxA = null, maxP = null;
-        for (var _a = 0; _a <= 30; _a++) { var _p = calcProfit(_a); if (_p == null) continue; if (minA == null && _p >= 1) minA = _a; if (tgtA == null && _p >= 2500) tgtA = _a; if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; } }
+        _EL_IDEAL_ALPHAS.forEach(function(_a) { var _p = calcProfit(_a); if (_p == null) return; if (minA == null && _p >= 1) minA = _a; if (tgtA == null && _p >= 2500) tgtA = _a; if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; } });
         if (tgtA == null && maxA != null) tgtA = maxA;
         _wkIdealByStk[sk] = { minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA, minProfit: minA != null ? calcProfit(minA) : null, tgtProfit: tgtA != null ? calcProfit(tgtA) : null, maxProfit: maxA != null ? calcProfit(maxA) : null, minHold: minA != null ? calcHold(minA) : null, tgtHold: tgtA != null ? calcHold(tgtA) : null, maxHold: maxA != null ? calcHold(maxA) : null };
       });
       var _wkFmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
       var _wkFmtP = function(v) { if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var col = v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; return React.createElement("span", { style: { fontWeight: 700, color: col } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜30円・週間）"),
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（5〜30円・5刻み・週間）"),
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の全記録で、α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）"),
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
@@ -5029,13 +5029,13 @@ function DayView(_ref57) {
       };
 
       var minA = null, tgtA = null, maxA = null, maxP = null;
-      for (var _a = 0; _a <= 30; _a++) {
+      _EL_IDEAL_ALPHAS.forEach(function(_a) {
         var _p = calcProfit(_a);
-        if (_p == null) continue;
+        if (_p == null) return;
         if (minA == null && _p >= 1) minA = _a;
         if (tgtA == null && _p >= 2500) tgtA = _a;
         if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; }
-      }
+      });
       
       var tgtIsFallback = false;
       if (tgtA == null && maxA != null) { tgtA = maxA; tgtIsFallback = true; }
@@ -5091,13 +5091,13 @@ function DayView(_ref57) {
         return hasAny ? Math.round(total) : null;
       };
       var minA = null, tgtA = null, maxA = null, maxP = null;
-      for (var _aa = 0; _aa <= 30; _aa++) {
+      _EL_IDEAL_ALPHAS.forEach(function(_aa) {
         var _pp = calcAll(_aa);
-        if (_pp == null) continue;
+        if (_pp == null) return;
         if (minA == null && _pp >= 1) minA = _aa;
         if (tgtA == null && _pp >= 2500) tgtA = _aa;
         if (maxP == null || _pp > maxP) { maxP = _pp; maxA = _aa; }
-      }
+      });
       if (tgtA == null && maxA != null) tgtA = maxA;
       return { minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA,
                minProfit: minA != null ? calcAll(minA) : null,
@@ -5324,7 +5324,7 @@ function DayView(_ref57) {
         )
       ),
       _pbHasAlpha && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（0〜30円）"),
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（5〜30円・5刻み）"),
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）。H＝そのα値でホールドしていた場合の結果利益"),
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
