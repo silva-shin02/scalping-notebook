@@ -3800,7 +3800,16 @@ function EntrySignalSection(_ref_es) {
       editTarget = _useStateES1A[0], setEditTarget = _useStateES1A[1];
   var _useStateES2 = useState(false), _useStateES2A = _slicedToArray(_useStateES2, 2),
       showAddForm = _useStateES2A[0], setShowAddForm = _useStateES2A[1];
-  var _esAlpha = function(s) { return (s && s.alphaVal != null) ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
+  // α値シミュ・損切り値シミュ（非永続・記録ごと）。本日の損益データと同型。未設定なら採用α値/c.cutLineで従来と完全同一。
+  var _useStateESSA1 = useState({}), _useStateESSA1A = _slicedToArray(_useStateESSA1, 2),
+      _esSimAlpha = _useStateESSA1A[0], setEsSimAlpha = _useStateESSA1A[1];
+  var _useStateESSC1 = useState({}), _useStateESSC1A = _slicedToArray(_useStateESSC1, 2),
+      _esSimCut = _useStateESSC1A[0], setEsSimCut = _useStateESSC1A[1];
+  useEffect(function() { setEsSimAlpha({}); setEsSimCut({}); }, [ck]);
+  var _esActualAlpha = function(s) { return (s && s.alphaVal != null) ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
+  var _esActualCut = function(s) { return c.cutLine != null ? c.cutLine : 10; };
+  var _esAlpha = function(s) { var _k = (s && s.id) || ""; var _sv = _esSimAlpha[_k]; return (_sv != null && _sv !== "") ? Number(_sv) : _esActualAlpha(s); };
+  var _esCut = function(s) { var _k = (s && s.id) || ""; var _cv = _esSimCut[_k]; return (_cv != null && _cv !== "") ? Number(_cv) : _esActualCut(s); };
 
   var _useStateESS = useState(function() {
     try { var v = localStorage.getItem('sn_chartentry_sortmode'); return (v === "custom" || v === "category" || v === "difficulty") ? v : "time"; }
@@ -3835,6 +3844,57 @@ function EntrySignalSection(_ref_es) {
 
   
   var _esRecKey = function(r) { return (r.signal && r.signal.id) || ""; };
+  // α値シミュ/損切り値シミュ入力（本日の損益データと同型・記録ごと。未入力なら採用α値/c.cutLineで従来と同一）。
+  var _esAlphaSimCtx = { keyOf: _esRecKey, actualOf: function(rr){ return _esActualAlpha(rr.signal); }, val: _esSimAlpha, set: setEsSimAlpha };
+  var _esCutSimCtx = { keyOf: _esRecKey, actualOf: function(rr){ return _esActualCut(rr.signal); }, val: _esSimCut, set: setEsSimCut };
+  var _esRenderSimAlpha = function(r) {
+    var sc = _esAlphaSimCtx, k = sc.keyOf(r), actualA = sc.actualOf(r), raw = sc.val[k];
+    var hasOv = raw != null && raw !== "";
+    var curStr = (raw != null) ? raw : (actualA != null ? String(actualA) : "");
+    var isSim = hasOv && actualA != null && Number(raw) !== actualA;
+    var stop = function(e) { if (e && e.stopPropagation) e.stopPropagation(); };
+    var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actualA != null ? actualA : 0); };
+    var setVal = function(v) { sc.set(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
+    return React.createElement("div", { onClick: stop, style: { marginTop: 2, display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 } },
+      React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#0369A1" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, "α値シミュ", React.createElement("span", { style: { color: isSim ? "#0369A1" : "transparent" } }, "●")),
+      React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#0369A1" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
+        React.createElement("input", { type: "text", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
+          onChange: function(e) { setVal(_toHankakuNum(e.target.value)); },
+          style: { width: 30, padding: "2px 3px", border: "none", outline: "none", background: "transparent", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#0369A1", fontVariantNumeric: "tabular-nums" } }),
+        React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", alignSelf: "center", padding: "0 1px" } }, "円"),
+        _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
+      ),
+      React.createElement("button", { onClick: function(e) { stop(e); var _ia = _elIdealAlpha(r.signal, _esCut(r.signal)); if (_ia == null) return; if (actualA != null && _ia === Number(actualA)) { sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); } else { setVal(String(_ia)); } },
+        title: "損切りにならず『想定損益＋H1結果損益』が最大になるα(5/10/15/20/25/30)を入力。該当が無ければ一番マシな値。",
+        style: { marginTop: 2, fontSize: 8, padding: "1px 6px", border: "1px solid #0369A1", borderRadius: 3, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想α値"),
+      React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
+        style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#0369A1", cursor: isSim ? "pointer" : "default", lineHeight: 1.4, whiteSpace: "nowrap", visibility: isSim ? "visible" : "hidden", pointerEvents: isSim ? "auto" : "none" } }, "↺ 戻す")
+    );
+  };
+  var _esRenderSimCut = function(r) {
+    var sc = _esCutSimCtx, k = sc.keyOf(r), actualC = sc.actualOf(r), raw = sc.val[k];
+    var hasOv = raw != null && raw !== "";
+    var curStr = (raw != null) ? raw : (actualC != null ? String(actualC) : "");
+    var isSim = hasOv && actualC != null && Number(raw) !== actualC;
+    var stop = function(e) { if (e && e.stopPropagation) e.stopPropagation(); };
+    var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actualC != null ? actualC : 0); };
+    var setVal = function(v) { sc.set(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
+    return React.createElement("div", { onClick: stop, style: { marginTop: 2, display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 } },
+      React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: isSim ? "#9333EA" : "#94A3B8", lineHeight: 1, whiteSpace: "nowrap" } }, "損切り値シミュ", React.createElement("span", { style: { color: isSim ? "#9333EA" : "transparent" } }, "●")),
+      React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? "#9333EA" : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
+        React.createElement("input", { type: "text", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
+          onChange: function(e) { setVal(_toHankakuNum(e.target.value)); },
+          style: { width: 30, padding: "2px 3px", border: "none", outline: "none", background: "transparent", textAlign: "right", fontSize: 11, fontWeight: 700, color: "#9333EA", fontVariantNumeric: "tabular-nums" } }),
+        React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", alignSelf: "center", padding: "0 1px" } }, "円"),
+        _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
+      ),
+      React.createElement("button", { onClick: function(e) { stop(e); var _ic = _elIdealCut(r.signal, _esAlpha(r.signal)); if (_ic == null) return; if (actualC != null && _ic === Number(actualC)) { sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); } else { setVal(String(_ic)); } },
+        title: "現在のα値（α値シミュ中ならその値）を考慮し、損切りを回避できる最小の損切り値(10/15/20)を入力。回避できなければ最小の10。",
+        style: { marginTop: 2, fontSize: 8, padding: "1px 6px", border: "1px solid #9333EA", borderRadius: 3, background: "#F3E8FF", color: "#9333EA", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想損切り値"),
+      React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
+        style: { marginTop: 1, fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#9333EA", cursor: isSim ? "pointer" : "default", lineHeight: 1.4, whiteSpace: "nowrap", visibility: isSim ? "visible" : "hidden", pointerEvents: isSim ? "auto" : "none" } }, "↺ 戻す")
+    );
+  };
   var _esSortByTime = function(recs) {
     return recs.slice().sort(function(a, b) {
       var ta = (a.signal && a.signal.time) || "99:99";
@@ -4107,7 +4167,7 @@ function EntrySignalSection(_ref_es) {
       var _stored = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
       var _avS = _esAlpha(s);
       if (s.osVal != null) {
-        var _cutLSum = c.cutLine != null ? c.cutLine : 10;
+        var _cutLSum = _esCut(s);
         var _conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
         var _diff = Number(s.osVal) - _avS;
         if (_avS > Number(s.osVal)) return 0;
@@ -4120,7 +4180,7 @@ function EntrySignalSection(_ref_es) {
     var _enteredTot = _elIsEntered(s, rIt);
     var hp = (function() {
       var _avH = _esAlpha(s);
-      var _cutLhp = c.cutLine != null ? c.cutLine : 10;
+      var _cutLhp = _esCut(s);
       // 行表示と一致させる: _elDynHold が値を返す行のみ合計に算入する。
       // miss(OS値<α)かつ見送りでも H高値がα到達なら _elDynHold は実損益を返す（→算入）。H高値未到達なら null（→除外）。
       return _elDynHold(s, _avH, _cutLhp);
@@ -4134,7 +4194,7 @@ function EntrySignalSection(_ref_es) {
     if (ppN != null) { _esTotPlan = (_esTotPlan || 0) + ppN; _esTotPlanCnt++; }
     if (mpN != null) { _esTotMax  = (_esTotMax  || 0) + mpN; _esTotMaxCnt++; }
     // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
-    var _planStopTot = _elPlanIsStop(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
+    var _planStopTot = _elPlanIsStop(s, _esAlpha(s), _esCut(s));
     var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
     var _xclEs = (s.holdExp === "×" || s.holdExp === "損切り済");
     if (hpN != null) {
@@ -4150,7 +4210,7 @@ function EntrySignalSection(_ref_es) {
       if (_planStopTot && ppN != null && hpN !== ppN) _esTotHoldPlanStopDiff = true;
       }
     }
-    var _h2tes = _elHold2TotParts(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
+    var _h2tes = _elHold2TotParts(s, _esAlpha(s), _esCut(s));
     if (_h2tes.main != null) { _esTotHold2 = (_esTotHold2 || 0) + _p100(_h2tes.main); _esTotHold2Cnt++; }
     if (_h2tes.ref != null) { _esTotHold2Ref = (_esTotHold2Ref || 0) + _p100(_h2tes.ref); _esTotHold2RefCnt++; }
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
@@ -4166,7 +4226,7 @@ function EntrySignalSection(_ref_es) {
   var _esTotHoldGrade   = _esTotHoldCnt   > 0 ? _profitGradeFromPnl(_esTotHold   != null ? _esTotHold   : 0, _esTotHoldCnt)   : null;
   var _esTotHoldGradeAB = _esTotHoldABCnt > 0 ? _profitGradeFromPnl(_esTotHoldAB != null ? _esTotHoldAB : 0, _esTotHoldABCnt) : null;
   var _esTotHold2Grade = _esTotHold2Cnt > 0 ? _profitGradeFromPnl(_esTotHold2 != null ? _esTotHold2 : 0, _esTotHold2Cnt) : null;
-  var _esAllMiss = _elAllMissRow(records, function(_r){ return _esAlpha(_r.signal); }, function(_r){ return c.cutLine != null ? c.cutLine : 10; });
+  var _esAllMiss = _elAllMissRow(records, function(_r){ return _esAlpha(_r.signal); }, function(_r){ return _esCut(_r.signal); });
 
   return React.createElement("div", { style: { marginTop: 12, marginBottom: 12 } },
     
@@ -4453,7 +4513,7 @@ function EntrySignalSection(_ref_es) {
             if (s.osVal != null) {
               var _avDyn = _esAlpha(s);
               var _osVDyn = Number(s.osVal);
-              var _cutLDyn = c.cutLine != null ? c.cutLine : 10;
+              var _cutLDyn = _esCut(s);
               var _confDyn = s.osConfVal != null
                 ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal))
                 : null;
@@ -4475,7 +4535,7 @@ function EntrySignalSection(_ref_es) {
             
             var _holdPnlDyn = _elSignedVal(s.holdPnl, s.holdPnlSign);
             var _avH = _esAlpha(s);
-            var _cutLH = c.cutLine != null ? c.cutLine : 10;
+            var _cutLH = _esCut(s);
             if (_avH != null) { _holdPnlDyn = _elDynHold(s, _avH, _cutLH); }
             var _holdIsUnrecorded = s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null;
             var entered = _elIsEntered(s, rIt);
@@ -4486,7 +4546,7 @@ function EntrySignalSection(_ref_es) {
               if (s.osVal == null || Number(s.osVal) < 0) return null;
               var _av = (_esAlpha(s)), _osV = Number(s.osVal), _diff = _osV - _av;
               if (_diff < 0) return "miss";
-              if (_diff >= (c.cutLine != null ? c.cutLine : 10)) return "ng";
+              if (_diff >= _esCut(s)) return "ng";
               if (s.osConfVal == null || s.osConfVal === "") return null;
               var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
               if (_cf < _av) return "ok";
@@ -4546,7 +4606,9 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   _sigParts.length > 0
                     ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return React.createElement("div", { key: _i, style: { whiteSpace: "nowrap" } }, _t); }))
-                    : "(未設定)"),
+                    : "(未設定)",
+                  _esRenderSimAlpha(r),
+                  _esRenderSimCut(r)),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%",
                   color: s.difficulty ? (s.difficulty === "A" ? "#B71C1C" : s.difficulty === "B" ? "#C62828" : "#666") : "#ccc",
                   fontWeight: s.difficulty ? 700 : 400 } }, s.difficulty || "—"),
