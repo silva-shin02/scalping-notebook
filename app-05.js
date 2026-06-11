@@ -3580,6 +3580,7 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
 function _elHoldStackInner(s, alpha, cutLine) {
   var exp = s.hold2Exp;
   var _h2miss = _elH2Miss(s, alpha);
+  var _h2ReachedA = _h2miss && s.hold2HighSign === "-" && s.hold2HighVal != null && Number(s.hold2HighVal) >= alpha;  // 想定・H1高値はα未達だがH2高値だけα到達（H2で初めてE基準到達）
   var _h1StopDone = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);   // 想定で損切り→H1も損切り済み表示
   var _h2StopDone = (alpha != null) && _elHoldIsStop(s, alpha, cutLine);   // 想定orH1で損切り→H2は損切り済み表示（期待度問わず）
   var p1 = _h1StopDone ? null : _elHoldParts(s, alpha, cutLine, false);
@@ -3620,8 +3621,13 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var h1exp = (hexp && hexp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[hexp] || "#666" } }, hexp) : null;
   var rows = [ _h1StopDone ? _stopRow("h1", "H１", _elDynPlanned(s, alpha, cutLine), false) : _row("h1", "H１", h1exp, p1, hexp === "×", false) ];
   if (_h2miss) {
-    // 想定もH1もE基準未達 → H2は「ー」期待度＋H2明細（損益はQ ー円）。H1と同じ列構成で縦揃え。
-    rows.push(_row("h2", "H２", React.createElement("span", { title: "H１までE基準未達", style: { color: "#888" } }, "ー"), p2, false, true));
+    // 想定もH1もE基準未達 → H2は「ー」期待度＋H2明細（損益はQ ー円）。H1と同じ列構成で縦揃え。H1が×で（）表示の行はH2も（）で揃える。
+    rows.push(_row("h2", "H２", React.createElement("span", { title: "H１までE基準未達", style: { color: "#888" } }, "ー"), p2, hexp === "×", true));
+    // H2高値だけα到達（H2で初めてE基準到達）→「H１までE基準未達のため、金額非表示」の補足を1行下に表示。
+    if (_h2ReachedA) {
+      rows.push(React.createElement("tr", { key: "h2note" },
+        React.createElement("td", { key: "n", colSpan: 11, style: { padding: "0 2px 1px", whiteSpace: "nowrap", textAlign: "center", fontSize: 9, color: "#B45309", lineHeight: 1.2 } }, "H１までE基準未達のため、金額非表示")));
+    }
   } else if (_h2StopDone) {
     rows.push(_stopRow("h2", "H２", _h1StopDone ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine), true));
   } else {

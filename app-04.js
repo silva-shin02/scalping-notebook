@@ -2790,7 +2790,7 @@ function StockQuickRefTable(_props_qrt) {
       style: { overflowX: "auto", width: "100%" }
     },
       React.createElement("table", {
-        style: { width: "100%", minWidth: isNikkei ? 320 : 560, fontSize: 12, borderCollapse: "collapse" }
+        style: { width: "100%", minWidth: isNikkei ? 300 : 520, fontSize: 12, borderCollapse: "collapse" }
       },
         React.createElement("thead", null,
           React.createElement("tr", { style: { background: "#f5f4f0" } },
@@ -2803,9 +2803,9 @@ function StockQuickRefTable(_props_qrt) {
               : [
                   { label: "日付", pad: "6px 4px" },
                   { label: "地合い", pad: "6px 6px" },
-                  { label: "想定損益", pad: "6px 5px" },
-                  { label: "H損益", pad: "6px 5px" },
-                  { label: "実現損益", pad: "6px 5px" },
+                  { label: "想定損益", pad: "6px 3px" },
+                  { label: "H損益", pad: "6px 3px" },
+                  { label: "実現損益", pad: "6px 3px" },
                   { label: "イベント・タグ", pad: "6px 6px" }
                 ]
             ).map(function(h, _hi, _harr) {
@@ -2883,7 +2883,7 @@ function StockQuickRefTable(_props_qrt) {
                 : null
             ),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 5px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "6px 3px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2894,7 +2894,7 @@ function StockQuickRefTable(_props_qrt) {
                 _qrMkBadge(_g.plan), _qrAmtSpan(_g.planSum, "円"));
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "2px 4px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "2px 2px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -2916,7 +2916,7 @@ function StockQuickRefTable(_props_qrt) {
                   _elHold2RefSuffix(_g.hold2Sum, _g.hold2RefSum, _g.hold2RefCnt)));
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 5px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "6px 3px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 10;
@@ -4126,12 +4126,12 @@ function DayView(_ref57) {
           _lane(React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v)), 72, "flex-start")
         );
       };
-      var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0 1px", fontWeight: 400 } }, "/"); };
+      var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0", fontWeight: 400 } }, "/"); };
       var _pbSlashCell = function(symObj, grade, pnl, missFlag) {
         var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
         var badge = missFlag ? _pbBadge("Q") : (grade && grade !== "Z" ? _pbBadge(grade) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
         var amt = missFlag ? React.createElement("span", { style: { color: "#888" } }, "—") : (pnl != null ? React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(pnl) } }, _rPnlFmt(pnl)) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _lane(sym, 16), _sl(), _lane(badge, 20), _sl(), _lane(amt, 56, "flex-start"));
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _lane(sym, 14), _sl(), _lane(badge, 18), _sl(), _lane(amt, 52, "flex-start"));
       };
       var _renderSimAlphaInput = function(r, _sc) {
         var k = _sc.keyOf(r);
@@ -4301,10 +4301,10 @@ function DayView(_ref57) {
               ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇")
               : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")
           ),
-          React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
+          React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap" } },
             _pbSlashCell(isOk ? {ch:"○",col:"#1E8449"} : isNg ? {ch:"×",col:"#C0392B"} : isDraw ? {ch:"△",col:"#6B7280"} : isMiss ? {ch:"ー",col:"#B45309"} : null, gPlan, planPnl, isMiss),
             (_alphaRec != null && s.osVal != null && (Number(s.osVal) - _alphaRec) >= _cutLrec) ? _elCapNote(_cutLrec) : null),
-          _elHoldTd2(s, _alphaRec, _cutLrec, { padding: "1px 2px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de" }, (holdPnl != null && _elHoldIsStop(s, _alphaRec, _cutLrec)) ? _elCapNote(_cutLrec) : null),
+          _elHoldTd2(s, _alphaRec, _cutLrec, { padding: "1px 0", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de" }, (holdPnl != null && _elHoldIsStop(s, _alphaRec, _cutLrec)) ? _elCapNote(_cutLrec) : null),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
             _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnl, gReal))
         ));
@@ -4343,9 +4343,9 @@ function DayView(_ref57) {
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
         React.createElement("td", { colSpan: 8, style: { borderTop: "2px solid #FB923C" } }),
-        React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("想定損益"), (_pbAllMiss ? _qZeroCell() : _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
+        React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("想定損益"), (_pbAllMiss ? _qZeroCell() : _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
           (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
-        React.createElement("td", { colSpan: 2, style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
+        React.createElement("td", { colSpan: 2, style: { padding: "1px 0", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
           React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
             React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
               React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H１："),
