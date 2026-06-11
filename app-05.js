@@ -3454,9 +3454,9 @@ function _elHold2RefSuffix(mainSum, refSum, refCnt) {
     React.createElement("span", { style: { color: _incl > 0 ? "#C0392B" : _incl < 0 ? "#1E8449" : "#888" } }, (_incl > 0 ? "+" : "") + _incl.toLocaleString() + "円"),
     "）");
 }
-// H1合計（結果損益）用の1記録あたりの寄与（planCap版）。H2と同じ考え方:
-//  ・H1期待度×（非損切り）→ H1独自の結果は本合計に算入せず「想定で手仕舞いした損益（想定額）」をmain、H1結果との差(hres-想定額)をrefにし参考合計は「H1まで保有した場合」を表す。
-//  ・それ以外（未設定/○/△/損切り）→ H1結果(planCap)をmain。
+// H1合計（結果損益）用の1記録あたりの寄与。期待度ベースのフォールバック（損切り済=×と同一）:
+//  ・H1期待度×/損切り済 → H1独自の結果は本合計に算入せず「想定で手仕舞いした損益（想定額）」をmain、H1まで保有した場合との差をrefにし参考合計は「H1まで保有した場合」を表す（実際に損切りでも期待度基準で想定へフォールバック）。
+//  ・それ以外（未設定/○/△）→ H1結果(planCap)をmain。
 function _elHold1TotParts(s, alpha, cutLine) {
   if (!s) return { main: null, ref: null };
   var hres = (alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
@@ -3465,36 +3465,40 @@ function _elHold1TotParts(s, alpha, cutLine) {
     if (pv0 != null) hres = pv0;
   }
   if (hres == null) return { main: null, ref: null };
-  if (s.holdExp === "×" && !(alpha != null && _elHoldIsStop(s, alpha, cutLine))) {
+  if (s.holdExp === "×" || s.holdExp === "損切り済") {
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan == null) return { main: hres, ref: null };
-    return { main: plan, ref: hres - plan };
+    var h1raw = (alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
+    return { main: plan, ref: (h1raw != null) ? (h1raw - plan) : null };
   }
   return { main: hres, ref: null };
 }
-// H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。H1のplanCapと同じ考え方:
-//  ・損切り(想定 or H1自身) → 結果損益＝H1の結果損益（想定損切り=想定額／H1損切り=_elDynHold）。期待度に関わらずmain（損切りは実際の損失なので×でも消えない）。
-//  ・非損切りで期待度○/△ → _elDynHold2 → main
-//  ・非損切りで期待度× → H2独自の結果は本合計に算入せず「H1で手仕舞いした損益」をmainに算入（H1期待度×/損切り済→想定額・他→H1結果）。H2との差(hv-H1)をrefにし参考合計は従来どおり「H2まで保有した場合」を表す。
-//  ・期待度未設定/H2データ無し → どちらもnull
+// H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。期待度ベースのフォールバック（損切り済=×と同一）:
+//  ・期待度○/△ → _elDynHold2 → main
+//  ・期待度×/損切り済 → H2独自の結果は本合計に算入せず「1段下で手仕舞いした損益」をmain（H1期待度×/損切り済→想定額・他→H1結果＝カスケード）。H2との差(hv-H1)をrefにし参考合計は「H2まで保有した場合」を表す（実際に損切りでも期待度基準でフォールバック）。
+//  ・期待度ー（未達）→ 除外。期待度未設定 → 旧データで損切りなら損切り額を救済、それ以外null。
 function _elHold2TotParts(s, alpha, cutLine) {
   if (!s || _elH2Miss(s, alpha)) return { main: null, ref: null };
-  // 想定orH1で損切り済み → 期待度・H2データの有無に関わらずH1の結果損益(損切り額)をH2合計に算入。
-  if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
-    var _h1res = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
-    return { main: _h1res, ref: null };
-  }
-  if (!s.hold2Exp || s.hold2Exp === "ー" || !_elHas2Data(s)) return { main: null, ref: null };
-  var hv = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
-  if (s.hold2Exp === "×") {
-    // H2独自の結果(hv)は本合計に算入せず、H1で手仕舞いした損益を算入（H1期待度×/損切り済→想定額、それ以外→H1結果）。参考(ref)はhvとの差で参考合計は「H2まで保有した場合」を表す。
+  if (s.hold2Exp === "ー") return { main: null, ref: null };
+  if (s.hold2Exp === "×" || s.hold2Exp === "損切り済") {
+    var hv = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
     var _h1c = (s.holdExp === "×" || s.holdExp === "損切り済")
       ? ((alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign))
       : ((alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign));
     if (_h1c == null) return { main: null, ref: hv };
     return { main: _h1c, ref: (hv != null) ? (hv - _h1c) : null };
   }
-  return { main: hv, ref: null };
+  if (!s.hold2Exp) {
+    // 旧データ救済: hold2Exp未設定で想定orH1損切りなら損切り額をmainに算入。
+    if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
+      var _h1res0 = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+      return { main: _h1res0, ref: null };
+    }
+    return { main: null, ref: null };
+  }
+  if (!_elHas2Data(s)) return { main: null, ref: null };
+  var hv2 = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
+  return { main: hv2, ref: null };
 }
 function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt, allMiss, refH1, refCntH1) {
   // allMiss=その集計が全記録E基準未達(全miss)→H1/H2とも「Q 0」表示・参考合計は出さない。
