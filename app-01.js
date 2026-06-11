@@ -126,6 +126,18 @@ function _hasText(t) {
   if (typeof t !== "string") return !!t;
   return stripHtml(t).replace(/\u00a0/g, " ").trim().length > 0;
 }
+
+
+// \u30b7\u30b0\u30ca\u30eb\u540d: \u672b\u5c3e"OS"\u3092\u4e0b\u6bb5\u306b\u6298\u308a\u8fd4\u3057\u3066\u4e2d\u592e\u305e\u308d\u3048\u8868\u793a\uff08\u5217\u5e45\u3092\u6291\u3048\u308b\uff09\u30021\u6bb5\u76ee=\u672c\u4f53\u30fb2\u6bb5\u76ee="OS"\u3002
+function _sigNameNode(t, key) {
+  var s = (t == null) ? "" : String(t);
+  if (s.length > 2 && s.slice(-2) === "OS") {
+    return React.createElement("div", { key: key, style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1, whiteSpace: "nowrap" } },
+      React.createElement("span", null, s.slice(0, -2)),
+      React.createElement("span", null, "OS"));
+  }
+  return React.createElement("div", { key: key, style: { whiteSpace: "nowrap" } }, s);
+}
 function calcSim(a, b) {
   if (!a || !b || !a.length || !b.length) return 0;
   var sa = {},

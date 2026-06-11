@@ -3601,7 +3601,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _h2StopDone = (alpha != null) && _elHoldIsStop(s, alpha, cutLine);   // 想定orH1で損切り→H2は損切り済み表示（期待度問わず）
   var p1 = _h1StopDone ? null : _elHoldParts(s, alpha, cutLine, false);
   var p2 = _h2StopDone ? null : (_h2miss || exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
-  var _pnW = 86, _parW = 10, _tblW = 259;
+  var _pnW = 78, _parW = 10, _tblW = 241;
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
   var _paren = function(ch) { return React.createElement("span", { style: { color: "#888" } }, ch); };
@@ -3614,11 +3614,11 @@ function _elHoldStackInner(s, alpha, cutLine) {
       _c("e", expNode, "center", 14, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
       _c("op", paren ? _paren("（") : null, "center", _parW, bt),
       _c("hi", p && p.high, "right", 26, btf),
-      _c("ar", p && p.width ? _sep("→") : null, "center", 13, btf),
+      _c("ar", p && p.width ? _sep("→") : null, "center", 10, btf),
       _c("wd", p && p.width, "right", 26, btf),
-      _c("s1", p && p.acmp ? _sep("/") : null, "center", 8, btf),
-      _c("ac", p && p.acmp, "right", 36, btf),
-      _c("s2", p && p.pnl ? _sep("/") : null, "center", 8, btf),
+      _c("s1", p && p.acmp ? _sep("/") : null, "center", 6, btf),
+      _c("ac", p && p.acmp, "right", 33, btf),
+      _c("s2", p && p.pnl ? _sep("/") : null, "center", 6, btf),
       _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", _pnW, btf),
       _c("cp", paren ? _paren("）") : null, "center", _parW, bt));
   };
@@ -3632,7 +3632,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
       _c("e", React.createElement("span", { style: { color: "#888", fontWeight: 700, fontSize: 9 } }, "損切"), "center", 14, Object.assign({ paddingRight: 1 }, bt)),
       _c("op", null, "center", _parW, bt),
       React.createElement("td", { key: "sd", colSpan: 5, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", overflow: "visible" }, bt || {}) }, _sd != null ? _sd : _paren("ー")),
-      _c("s2", _sep("/"), "center", 8, bt),
+      _c("s2", _sep("/"), "center", 6, bt),
       _c("pn", _elHoldStopAmtNode(amount), "left", _pnW, bt),
       _c("cp", null, "center", _parW, bt));
   };

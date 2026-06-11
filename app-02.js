@@ -4582,7 +4582,7 @@ function EntrySignalSection(_ref_es) {
                 ),
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   _sigParts.length > 0
-                    ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return React.createElement("div", { key: _i, style: { whiteSpace: "nowrap" } }, _t); }))
+                    ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return _sigNameNode(_t, _i); }))
                     : "(未設定)",
                   _esRenderSimAlpha(r),
                   _esRenderSimCut(r)),
