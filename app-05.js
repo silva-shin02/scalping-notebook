@@ -3605,21 +3605,22 @@ function _elHoldStackInner(s, alpha, cutLine) {
       _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", _pnW, bt),
       _c("cp", paren ? _paren("）") : null, "center", _parW, bt));
   };
-  // 損切り済み行: 明細列(高値〜α値比)を colSpan:5 で「ー（損切り済）」中央寄せ、損益列に「× ランク 損切額」。H1の明細(↑→/α)と縦位置が揃う。
-  var _stopRow = function(rk, lblNode, amount, topB) {
+  // 損切り済み行: 明細列(高値〜α値比)を colSpan:5 で「ー」中央寄せ、損益列に「× ランク 損切額」。H1の明細(↑→/α)と縦位置が揃う。
+  // noParen=true（想定損益の時点で損切り）の行は囲み括弧（）を出さない（列は維持して桁揃え）。
+  var _stopRow = function(rk, lblNode, amount, topB, noParen) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
     return React.createElement("tr", { key: rk },
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
       _c("e", React.createElement("span", { style: { color: "#888", fontWeight: 700, fontSize: 9 } }, "損切"), "center", 14, Object.assign({ paddingRight: 1 }, bt)),
-      _c("op", _paren("（"), "center", _parW, bt),
+      _c("op", noParen ? null : _paren("（"), "center", _parW, bt),
       React.createElement("td", { key: "sd", colSpan: 5, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", overflow: "visible" }, bt || {}) }, _paren("ー")),
       _c("s2", _sep("/"), "center", 8, bt),
       _c("pn", _elHoldStopAmtNode(amount), "left", _pnW, bt),
-      _c("cp", _paren("）"), "center", _parW, bt));
+      _c("cp", noParen ? null : _paren("）"), "center", _parW, bt));
   };
   var hexp = s.holdExp;
   var h1exp = (hexp && hexp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[hexp] || "#666" } }, hexp) : null;
-  var rows = [ _h1StopDone ? _stopRow("h1", "H１", _elDynPlanned(s, alpha, cutLine), false) : _row("h1", "H１", h1exp, p1, hexp === "×", false) ];
+  var rows = [ _h1StopDone ? _stopRow("h1", "H１", _elDynPlanned(s, alpha, cutLine), false, true) : _row("h1", "H１", h1exp, p1, hexp === "×", false) ];
   if (_h2miss) {
     // 想定もH1もE基準未達 → H2は「ー」期待度＋H2明細（損益はQ ー円）。H1と同じ列構成で縦揃え。H1が×で（）表示の行はH2も（）で揃える。
     rows.push(_row("h2", "H２", React.createElement("span", { title: "H１までE基準未達", style: { color: "#888" } }, "ー"), p2, hexp === "×", true));
@@ -3629,7 +3630,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
         React.createElement("td", { key: "n", colSpan: 11, style: { padding: "0 2px 1px", whiteSpace: "nowrap", textAlign: "center", fontSize: 9, color: "#B45309", lineHeight: 1.2 } }, "H１までE基準未達のため、金額非表示")));
     }
   } else if (_h2StopDone) {
-    rows.push(_stopRow("h2", "H２", _h1StopDone ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine), true));
+    rows.push(_stopRow("h2", "H２", _h1StopDone ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine), true, _h1StopDone));
   } else {
     // 「損切り済」は_h2StopDone(想定orH1で損切り)時のみ意味を持つ表記。ここはH2が成立する分岐なので期待度として出さない。
     var h2exp = (exp && exp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
