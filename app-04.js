@@ -2894,24 +2894,26 @@ function StockQuickRefTable(_props_qrt) {
                 _qrMkBadge(_g.plan), _qrAmtSpan(_g.planSum, "円"));
             })()),
             isNikkei ? null : React.createElement("td", {
-              style: { padding: "6px 5px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
+              style: { padding: "2px 4px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA);
-              if (_g.allMiss) return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, flexWrap: "nowrap", whiteSpace: "nowrap" } },
-                React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H１："), _qZeroCell(),
-                React.createElement("span", { style: { color: "#ccc", margin: "0 4px" } }, "／"),
-                React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H２："), _qZeroCell());
+              if (_g.allMiss) return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.25 } },
+                React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", borderBottom: "1px solid #e0d8c8", paddingBottom: 1 } },
+                  React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H１："), _qZeroCell()),
+                React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", paddingTop: 1 } },
+                  React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H２："), _qZeroCell()));
               if (_g.holdPlanCap === "Z" && _g.hold2Sum == null) return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
-              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, flexWrap: "nowrap", whiteSpace: "nowrap" } },
-                React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H１："),
-                _qrMkBadge(_g.holdPlanCap), _qrAmtSpan(_g.holdSumPlanCap, "円"), _elHold2RefSuffix(_g.holdSumPlanCap, _g.holdRefSum, _g.holdRefCnt),
-                (_g.hold2Sum != null || _g.hold2RefCnt > 0) ? React.createElement("span", { style: { color: "#ccc", margin: "0 4px" } }, "／") : null,
-                (_g.hold2Sum != null || _g.hold2RefCnt > 0) ? React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H２：") : null,
-                _g.hold2Sum != null ? (_g.hold2Grade ? _qrMkBadge(_g.hold2Grade) : null) : null,
-                _g.hold2Sum != null ? _qrAmtSpan(_g.hold2Sum, "円") : null,
-                _elHold2RefSuffix(_g.hold2Sum, _g.hold2RefSum, _g.hold2RefCnt));
+              return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.25 } },
+                React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", borderBottom: "1px solid #e0d8c8", paddingBottom: 1 } },
+                  React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H１："),
+                  _qrMkBadge(_g.holdPlanCap), _qrAmtSpan(_g.holdSumPlanCap, "円"), _elHold2RefSuffix(_g.holdSumPlanCap, _g.holdRefSum, _g.holdRefCnt)),
+                React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", paddingTop: 1 } },
+                  React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H２："),
+                  _g.hold2Sum != null ? (_g.hold2Grade ? _qrMkBadge(_g.hold2Grade) : null) : null,
+                  _g.hold2Sum != null ? _qrAmtSpan(_g.hold2Sum, "円") : (_g.hold2RefCnt > 0 ? null : React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—")),
+                  _elHold2RefSuffix(_g.hold2Sum, _g.hold2RefSum, _g.hold2RefCnt)));
             })()),
             isNikkei ? null : React.createElement("td", {
               style: { padding: "6px 5px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
