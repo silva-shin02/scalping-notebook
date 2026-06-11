@@ -3288,16 +3288,13 @@ function _elDynHold2(s, alpha, cutLine) {
 function _elHoldIsStop2(s, alpha, cutLine) { return _elHoldIsStop(_h2sig(s), alpha, cutLine); }
 function _elHas2Data(s) { return !!(s && (s.hold2HighVal != null || s.hold2Width != null || s.hold2OsConf != null || s.hold2Pnl != null)); }
 // 想定損益もH1もE基準未達（OS値<α かつ H1高値もα未達）→ H2は成立せず非表示扱い。
-// 表ではH2欄に黒字「ー（H１までE基準未達）」を表示し、合計には算入しない。フォームの _fH2Hidden と同条件。
+// 表ではH2期待度を「ー」・損益をQ ー円（高値/確定値/α値比はH1と同形式）で表示し、合計には算入しない。フォームの _fH2Hidden と同条件。
 function _elH2Miss(s, alpha) {
   if (alpha == null || s == null || s.osVal == null) return false;
   var _os = Number(s.osVal);
   if (isNaN(_os) || _os < 0 || _os >= alpha) return false;  // 想定がα到達なら対象外
   var _h1ReachedA = (s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= alpha);  // H1高値がα到達=H1でエントリー成立
   return !_h1ReachedA;
-}
-function _elH2MissNode() {
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _qZeroCell(), React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 400 } }, "（H１までE基準未達）"));
 }
 // Hold2期待度（○/△を集計対象・×は参考表示のみ）
 function _elH2ExpCounts(s) { return s.hold2Exp; }
@@ -3344,6 +3341,7 @@ function _elHoldStopDoneNode(amount, key) {
 // isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、想定損益・結果はエントリー共通）。
 function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
   var hs = isH2 ? _h2sig(s) : s;
+  var _h2missFlow = isH2 && _elH2Miss(s, alpha);  // 想定もH1もE基準未達 → 損益をQ ー円に固定（高値/確定値/α値比は通常表示）。
   // 損切り済み（H2: 想定orH1で損切り／H1: 想定損益の時点で損切り）は明細を出さず「ー（ランク 損切額）※損切り済」のみ。
   if (alpha != null) {
     var _psFlow = _elPlanIsStop(s, alpha, cutLine);
@@ -3372,10 +3370,10 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
       ? React.createElement("span", { key: "aw", style: { color: "#888" } }, "α0")
       : React.createElement("span", { key: "aw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs));
   }
-  var holdPnl = (alpha != null) ? (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine)) : _elSignedVal(hs.holdPnl, hs.holdPnlSign);
+  var holdPnl = _h2missFlow ? null : ((alpha != null) ? (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine)) : _elSignedVal(hs.holdPnl, hs.holdPnlSign));
   var planPnl = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
   var planStop = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
-  var res = (alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result;
+  var res = _h2missFlow ? "miss" : ((alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result);
   if (holdPnl != null) {
     var hp = holdPnl;
     // H2の損益変化はH1の結果損益との比較。H1は従来どおり想定損益との比較。
@@ -3406,7 +3404,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
         React.createElement("span", { key: "yen", style: { color: holdPnl > 0 ? "#C0392B" : holdPnl < 0 ? "#1E8449" : "#888" } }, holdPnl.toLocaleString() + "円")
       ));
   } else if (res === "miss") {
-    nodes.push(React.createElement("span", { key: "a3", style: { color: "#ccc", margin: "0 2px" } }, "/"));
+    if (nodes.length) nodes.push(React.createElement("span", { key: "a3", style: { color: "#ccc", margin: "0 2px" } }, "/"));
     nodes.push(React.createElement("span", { key: "hp" }, _qZeroCell()));
   }
   if (nodes.length === 0) return React.createElement("span", { style: { color: "#ddd" } }, "—");
@@ -3414,7 +3412,12 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
 }
 // H2期待度セル: ○/△→記号＋統合表示、×→「×（統合表示）」グレー控えめ、未選択→空欄
 function _elHold2Cell(s, alpha, cutLine) {
-  if (_elH2Miss(s, alpha)) return _elH2MissNode();
+  if (_elH2Miss(s, alpha)) {
+    // 想定もH1もE基準未達 → H2期待度は「ー」表示・損益はQ ー円（_elHoldFlowが_elH2Miss時に固定）。高値/確定値/α値比はH1と同形式。
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
+      React.createElement("span", { key: "sym", title: "H１までE基準未達", style: { color: "#888", fontWeight: 800, marginRight: 3 } }, "ー"),
+      _elHoldFlow(s, alpha, cutLine, true, true));
+  }
   // 想定orH1で損切り済み → 期待度・明細を出さず「ー（ランク 損切額）※損切り済」のみ。
   if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
     var _samtCell = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
@@ -3538,8 +3541,9 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
     var _ewH = alpha - _hcf, _ewHAbs = Math.abs(_ewH);
     acmp = _ewH === 0 ? React.createElement("span", { style: { color: "#888" } }, "α0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs);
   }
-  var holdPnl = (alpha != null) ? (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine)) : _elSignedVal(hs.holdPnl, hs.holdPnlSign);
-  var res = (alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result;
+  var _h2missP = isH2 && _elH2Miss(s, alpha);  // 想定もH1もE基準未達 → 損益をQ ー円に固定（縦積み表）。
+  var holdPnl = _h2missP ? null : ((alpha != null) ? (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine)) : _elSignedVal(hs.holdPnl, hs.holdPnlSign));
+  var res = _h2missP ? "miss" : ((alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result);
   var planStop = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);
   var planVal = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : null;
   if (holdPnl != null) {
@@ -3579,7 +3583,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _h1StopDone = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);   // 想定で損切り→H1も損切り済み表示
   var _h2StopDone = (alpha != null) && _elHoldIsStop(s, alpha, cutLine);   // 想定orH1で損切り→H2は損切り済み表示（期待度問わず）
   var p1 = _h1StopDone ? null : _elHoldParts(s, alpha, cutLine, false);
-  var p2 = (_h2miss || _h2StopDone) ? null : (exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
+  var p2 = _h2StopDone ? null : (_h2miss || exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
   var _pnW = 86, _parW = 10, _tblW = 259;
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
@@ -3616,10 +3620,8 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var h1exp = (hexp && hexp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[hexp] || "#666" } }, hexp) : null;
   var rows = [ _h1StopDone ? _stopRow("h1", "H１", _elDynPlanned(s, alpha, cutLine), false) : _row("h1", "H１", h1exp, p1, hexp === "×", false) ];
   if (_h2miss) {
-    rows.push(React.createElement("tr", { key: "h2" },
-      _c("lbl", "H２", "center", 22, { fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3, borderTop: "1px solid #e0d8c8" }),
-      React.createElement("td", { key: "m", colSpan: 10, style: { padding: "0 4px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: "center", borderTop: "1px solid #e0d8c8" } }, React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } }, _qZeroCell(), React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 400 } }, "（H１までE基準未達）")))
-    ));
+    // 想定もH1もE基準未達 → H2は「ー」期待度＋H2明細（損益はQ ー円）。H1と同じ列構成で縦揃え。
+    rows.push(_row("h2", "H２", React.createElement("span", { title: "H１までE基準未達", style: { color: "#888" } }, "ー"), p2, false, true));
   } else if (_h2StopDone) {
     rows.push(_stopRow("h2", "H２", _h1StopDone ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine), true));
   } else {
@@ -3890,16 +3892,16 @@ function _qMissCell(size) {
     React.createElement("span", { style: { color: "#888" } }, "ー")
   );
 }
-// その集計行の全記録がE基準未達(全miss)で損益が0の場合のセル表示「Ⓠ 0」（Qをランク風に〇で囲む）。
+// その集計行の全記録がE基準未達(全miss)の場合のセル表示「Ⓠ ー円」（Qをランク風に〇で囲む）。
 function _qZeroCell(size) {
   var sz = size || 16;
   var gs = _GRADE_STYLE.Q;
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
-    React.createElement("span", { title: "全記録がE基準未達のため損益0",
+    React.createElement("span", { title: "全記録がE基準未達のため損益なし",
       style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: sz, height: sz,
         borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border,
         fontWeight: 800, fontSize: Math.round(sz * 0.6), flexShrink: 0 } }, "Q"),
-    React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "0円")
+    React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー円")
   );
 }
 // 集計行が全miss(E基準未達)かを判定。recs各記録を行セルと同じαで _elDynResult し全て"miss"ならtrue。
