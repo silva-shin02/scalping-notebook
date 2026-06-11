@@ -3297,7 +3297,7 @@ function _elH2Miss(s, alpha) {
   return !_h1ReachedA;
 }
 function _elH2MissNode() {
-  return React.createElement("span", { style: { color: "#000", fontWeight: 700, whiteSpace: "nowrap", fontSize: 11 } }, "ー（H１までE基準未達）");
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } }, _qZeroCell(), React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 400 } }, "（H１までE基準未達）"));
 }
 // Hold2期待度（○/△を集計対象・×は参考表示のみ）
 function _elH2ExpCounts(s) { return s.hold2Exp; }
