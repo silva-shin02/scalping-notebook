@@ -4098,6 +4098,7 @@ function EntrySignalSection(_ref_es) {
   var _esTotPlanABCnt = 0, _esTotMaxABCnt = 0, _esTotHoldABCnt = 0;
   var _esTotHoldHasUnrecorded = false;
   var _esTotHoldActual = null, _esTotHoldPlanStopDiff = false;
+  var _esTotHoldRef = null, _esTotHoldRefCnt = 0;
   var _esTotHold2 = null, _esTotHold2Cnt = 0, _esTotHold2Ref = null, _esTotHold2RefCnt = 0;
   records.forEach(function(r) {
     var s = r.signal, rIt = r.item;
@@ -4137,11 +4138,15 @@ function EntrySignalSection(_ref_es) {
     // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
     var _planStopTot = _elPlanIsStop(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
     var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
+    var _xclEs = (s.holdExp === "×" && !_elHoldIsStop(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10));
     if (hpN != null) {
+      if (_xclEs) { _esTotHoldRef = (_esTotHoldRef || 0) + _hCapN; _esTotHoldRefCnt++; }
+      else {
       _esTotHold = (_esTotHold || 0) + _hCapN;
       _esTotHoldActual = (_esTotHoldActual || 0) + hpN;
       _esTotHoldCnt++;
       if (_planStopTot && ppN != null && hpN !== ppN) _esTotHoldPlanStopDiff = true;
+      }
     }
     var _h2tes = _elHold2TotParts(s, _esAlpha(s), c.cutLine != null ? c.cutLine : 10);
     if (_h2tes.main != null) { _esTotHold2 = (_esTotHold2 || 0) + _p100(_h2tes.main); _esTotHold2Cnt++; }
@@ -4149,7 +4154,7 @@ function EntrySignalSection(_ref_es) {
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
     if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; _esTotMaxABCnt++; }
-    if (hpN != null && _isAB) { _esTotHoldAB = (_esTotHoldAB || 0) + _hCapN; _esTotHoldABCnt++; }
+    if (hpN != null && _isAB && !_xclEs) { _esTotHoldAB = (_esTotHoldAB || 0) + _hCapN; _esTotHoldABCnt++; }
   });
   var _esTotRealGrade = _esTotRealCnt > 0 ? _profitGradeFromPnlReal(_esTotReal != null ? _esTotReal : 0, _esTotRealCnt) : null;
   var _esTotPlanGrade = _esTotPlanCnt > 0 ? _profitGradeFromPnl(_esTotPlan != null ? _esTotPlan : 0, _esTotPlanCnt) : null;
@@ -4382,7 +4387,7 @@ function EntrySignalSection(_ref_es) {
               (_esTotHoldPlanStopDiff && _esTotHoldActual != null) ? React.createElement("span", { title: "損切りせず保有し続けた場合の本来の結果損益合計（100株換算）", style: { fontSize: 11, color: "#333", fontWeight: 700, whiteSpace: "nowrap" } }, "（" + _esTotHoldActual.toLocaleString() + "円）") : null,
               _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
             )
-          : React.createElement("span", { style: { color: "#ccc" } }, "—")
+          : (_esTotHoldRefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_esTotHold, _esTotHoldRef, _esTotHoldRefCnt)
       ),
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
         "H２結果損益: ",
@@ -4416,7 +4421,7 @@ function EntrySignalSection(_ref_es) {
               React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
                 React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
                   React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H１："),
-                  _esTotHoldCnt > 0 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } }, _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade), _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+                  _esTotHoldCnt > 0 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } }, _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade), _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null) : (_esTotHoldRefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_esTotHold, _esTotHoldRef, _esTotHoldRefCnt)),
                 React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
                   React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H２："),
                   React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Cnt > 0 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 600, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + (_esTotHold2 || 0).toLocaleString() + "円")) : (_esTotHold2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")), _elHold2RefSuffix(_esTotHold2, _esTotHold2Ref, _esTotHold2RefCnt))))),
