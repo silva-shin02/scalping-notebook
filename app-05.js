@@ -3557,6 +3557,91 @@ function _epReachedAt(s, alpha) {
   if (_epIsV2(s)) { var _rr = _epResolve(s, alpha); return !!(_rr && _rr.epIdx >= 0); }
   return s.osVal != null && Number(s.osVal) >= alpha;
 }
+// === 表共通の表示・集計ヘルパー（各表に重複していたローカル実装を統合 2026-06-12）===
+// ランクバッジ18px（旧: _esBadge/_trBadge/_pbBadge）
+function _elGradeBadge18(grade) {
+  if (!grade) return null;
+  var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
+  return React.createElement("span", { title: grade,
+    style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: 18, height: 18, borderRadius: "50%",
+      background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
+      fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 } }, grade);
+}
+// 固定幅レーン（旧: _esLane/_trLane/_lane）
+function _elLane(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); }
+function _elPnlColor(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; }
+function _elPnlFmt(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; }
+// ランク+金額のレーン表示（旧: _esRPnlDisp/_trRPnlDisp/_rPnlDisp。valW=金額レーン幅・showZ=Zも表示）
+function _elRPnlDispW(v, grade, valW, showZ) {
+  var badge = (grade && (grade !== "Z" || showZ)) ? _elGradeBadge18(grade) : null;
+  if (v == null && badge == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var val = v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+    : React.createElement("span", { style: { fontWeight: 600, color: _elPnlColor(v) } }, _elPnlFmt(v));
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+    _elLane(badge, 22), _elLane(val, valW || 72, "flex-start"));
+}
+// 合計表示: 全体値のみ（無ければAB値）にランクを付けて表示（旧: _esRPnlDispABAll/_trRPnlDispABAll/_rPnlDispABAllPb/_rPnlDispABAllSv）
+function _elRPnlDispABAll(abV, allV, abGrade, allGrade) {
+  var _v = allV != null ? allV : abV;
+  var _g = allGrade || abGrade;
+  if (_v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+    _g ? _elGradeBadge18(_g) : null,
+    React.createElement("span", { style: { fontWeight: 600, color: _elPnlColor(_v) } }, _elPnlFmt(_v)));
+}
+// 損益変化(○yes/△mid/ーnone/×no)の自動導出（旧: _dynHoldProfitES/_dynHPtr等）。hp=H損益・pp=EP損益・res=EP結果。
+function _elDeriveHoldProfit(hp, pp, res, fallback) {
+  if (hp == null) return fallback;
+  if (res === "miss" || res === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
+  if (pp == null) return fallback;
+  if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
+  if (pp < 0 && hp < 0) return "no";
+  if (pp > 0 && hp < 0) return "no";
+  if (pp < 0 && hp > 0) return "yes";
+  if (hp === 0) return "none";
+  return fallback;
+}
+// 合計行の共通集計: EP損益(planCap/AB込み)・H1(_elHold1TotParts)・H2(_elHold2TotParts)・実現損益。
+// get={signal,alpha,cut,real?,norm?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。
+function _elTotAccum(items, get) {
+  var nm = get.norm || function(it, v) { return v; };
+  var t = { real: null, realCnt: 0, plan: null, planCnt: 0, planCap: null, planStop: false,
+    planAB: null, planABCnt: 0, holdPlanCap: null, holdCnt: 0, holdAB: null, holdABCnt: 0,
+    holdRef: null, holdRefCnt: 0, hold2: null, hold2Cnt: 0, hold2Ref: null, hold2RefCnt: 0,
+    holdRaw: null, holdPlanStopDiff: false };
+  (items || []).forEach(function(it) {
+    var s = get.signal(it), a = get.alpha(it), c = get.cut(it);
+    if (!s) return;
+    var isAB = s.difficulty === "A" || s.difficulty === "B";
+    if (get.real) { var rv = get.real(it); if (rv != null) { t.real = (t.real || 0) + rv; t.realCnt++; } }
+    var pp = _elDynPlanned(s, a, c); var ppN = pp != null ? nm(it, pp) : null;
+    if (ppN != null) {
+      t.plan = (t.plan || 0) + ppN; t.planCnt++;
+      var ps = _elPlanIsStop(s, a, c); if (ps) t.planStop = true;
+      t.planCap = (t.planCap || 0) + (ps ? _elCapLossYen(c) : ppN);
+      if (isAB) { t.planAB = (t.planAB || 0) + ppN; t.planABCnt++; }
+    }
+    // H1: 各表・早見表と同一基準（想定損切り→想定額キャップ・×→想定額算入・参考はキャップ後差分＝差0は算入しない）
+    var hv = _elDynHold(s, a, c);
+    if (hv != null) {
+      var hvN = nm(it, hv);
+      t.holdRaw = (t.holdRaw || 0) + hvN;
+      var ps2 = _elPlanIsStop(s, a, c);
+      var hCap = (ps2 && ppN != null) ? ppN : hvN;
+      var xH = (s.holdExp === "×" || s.holdExp === "損切り済");
+      var m1 = (xH && ppN != null) ? ppN : hCap;
+      t.holdPlanCap = (t.holdPlanCap || 0) + m1; t.holdCnt++;
+      if (isAB) { t.holdAB = (t.holdAB || 0) + m1; t.holdABCnt++; }
+      if (xH && ppN != null && (hCap - ppN) !== 0) { t.holdRef = (t.holdRef || 0) + (hCap - ppN); t.holdRefCnt++; }
+      if (ps2 && ppN != null && hvN !== ppN) t.holdPlanStopDiff = true;
+    }
+    var t2 = _elHold2TotParts(s, a, c);
+    if (t2.main != null) { t.hold2 = (t.hold2 || 0) + nm(it, t2.main); t.hold2Cnt++; }
+    if (t2.ref != null) { t.hold2Ref = (t.hold2Ref || 0) + nm(it, t2.ref); t.hold2RefCnt++; }
+  });
+  return t;
+}
 // Hold2期待度（○/△を集計対象・×は参考表示のみ）
 function _elH2ExpCounts(s) { return s.hold2Exp; }
 function _elHoldGradeBadge(g) {

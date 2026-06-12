@@ -4118,39 +4118,15 @@ function EntrySignalSection(_ref_es) {
   };
 
   
-  var _esRPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-  var _esRPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
-  var _esBadge = function(grade) {
-    if (!grade) return null;
-    var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
-    return React.createElement("span", { title: grade,
-      style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-        width: 18, height: 18, borderRadius: "50%",
-        background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
-        fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
-    }, grade);
-  };
-  var _esLane = function(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); };
+  // 共通ヘルパー(app-05)のエイリアス（旧ローカル実装を統合 2026-06-12）
+  var _esRPnlCol = _elPnlColor;
+  var _esRPnlFmt = _elPnlFmt;
+  var _esBadge = _elGradeBadge18;
+  var _esLane = _elLane;
   // バッジ22px＋値60pxの固定幅レーンで列内縦そろえ（miss/zero/未エントリーも同形にして桁を揃える）。
   var _esLaneCell = function(badge, valNode) { return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _esLane(badge, 22), _esLane(valNode, 60, "flex-start")); };
-  var _esRPnlDisp = function(v, grade, showZ) {
-    var badge = (grade && (grade !== "Z" || showZ)) ? _esBadge(grade) : null;
-    if (v == null) {
-      if (badge == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-      return _esLaneCell(badge, React.createElement("span", { style: { color: "#ccc" } }, "—"));
-    }
-    return _esLaneCell(badge, React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(v) } }, _esRPnlFmt(v)));
-  };
-  var _esRPnlDispABAll = function(abV, allV, abGrade, allGrade) {
-    // 全ランク(全体)の合計のみ表示。B以上/全ランクのAB分割は廃止。
-    var _v = allV != null ? allV : abV;
-    var _g = allGrade || abGrade;
-    if (_v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-      _g ? _esBadge(_g) : null,
-      React.createElement("span", { style: { fontWeight: 600, color: _esRPnlCol(_v) } }, _esRPnlFmt(_v))
-    );
-  };
+  var _esRPnlDisp = function(v, grade, showZ) { return _elRPnlDispW(v, grade, 60, showZ); };
+  var _esRPnlDispABAll = _elRPnlDispABAll;
   
   var _esTotReal = null, _esTotPlan = null, _esTotMax = null, _esTotHold = null;
   var _esTotRealCnt = 0, _esTotPlanCnt = 0, _esTotMaxCnt = 0, _esTotHoldCnt = 0;
@@ -4534,19 +4510,7 @@ function EntrySignalSection(_ref_es) {
             })();
             var _dispResult = _dynResult !== null ? _dynResult : s.result;
             
-            var _dynHoldProfitES = (function() {
-              var hp = _holdPnlDyn, pp = planPnlN;
-              if (hp == null) return s.holdProfit;
-              if (_dispResult === "miss") { return hp > 0 ? "yes" : hp < 0 ? "no" : "none"; }
-              if (_dispResult === "draw") { return hp > 0 ? "yes" : hp < 0 ? "no" : "none"; }
-              if (pp == null) return s.holdProfit;
-              if (pp > 0 && hp > 0) { return hp > pp ? "yes" : hp < pp ? "mid" : "none"; }
-              if (pp < 0 && hp < 0) return "no";
-              if (pp > 0 && hp < 0) return "no";
-              if (pp < 0 && hp > 0) return "yes";
-              if (hp === 0) return "none";
-              return s.holdProfit;
-            })();
+            var _dynHoldProfitES = _elDeriveHoldProfit(_holdPnlDyn, planPnlN, _dispResult, s.holdProfit);
             var holdResultEl = _dynHoldProfitES === "yes"
               ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
               : _dynHoldProfitES === "mid"

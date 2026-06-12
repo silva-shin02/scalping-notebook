@@ -3717,78 +3717,47 @@ function DayView(_ref57) {
       style: { textAlign: "center", padding: 20, color: "#ccc", fontSize: 13 }
     }, "記録なし"),
     _trEntryRecords.length > 0 && (function() {
-      var _trRPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-      var _trRPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
-      var _trBadge = function(grade) {
-        if (!grade) return null;
-        var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
-        return React.createElement("span", { title: grade,
-          style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 18, height: 18, borderRadius: "50%",
-            background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
-            fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
-        }, grade);
-      };
-      var _trLane = function(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); };
-      var _trRPnlDisp = function(v, grade) {
-        if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-          _trLane(grade && grade !== "Z" ? _trBadge(grade) : null, 22),
-          _trLane(React.createElement("span", { style: { fontWeight: 600, color: _trRPnlCol(v) } }, _trRPnlFmt(v)), 72, "flex-start")
-        );
-      };
-      var _trRPnlDispABAll = function(abV, allV, abGrade, allGrade) {
-        // 全ランク(全体)のみ表示。B以上/全ランクのAB分割は廃止。
-        var _v = allV != null ? allV : abV;
-        var _g = allGrade || abGrade;
-        if (_v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-          _g ? _trBadge(_g) : null,
-          React.createElement("span", { style: { fontWeight: 600, color: _trRPnlCol(_v) } }, _trRPnlFmt(_v))
-        );
-      };
+      // 共通ヘルパー(app-05)のエイリアス（旧ローカル実装を統合 2026-06-12）
+      var _trRPnlCol = _elPnlColor;
+      var _trRPnlFmt = _elPnlFmt;
+      var _trBadge = _elGradeBadge18;
+      var _trLane = _elLane;
+      var _trRPnlDisp = function(v, grade) { return _elRPnlDispW(v, grade, 72); };
+      var _trRPnlDispABAll = _elRPnlDispABAll;
       var _trTh = function(label, extra) {
         return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
       };
       var _trRecKey = function(r) { return r.stock + "_" + (r.signal.id || r.signal.time || ""); };
-      var _trTotReal = null, _trTotPlan = null, _trTotMax = null, _trTotHold = null;
-      var _trTotRealCnt = 0, _trTotPlanCnt = 0, _trTotMaxCnt = 0, _trTotHoldCnt = 0;
-      var _trTotPlanAB = null, _trTotMaxAB = null;
-      var _trTotPlanABCnt = 0, _trTotMaxABCnt = 0;
-      var _trTotHoldCap = null, _trTotHoldCapAB = null, _trTotHoldABCnt = 0, _trTotHoldPlanStopDiff = false;
-      var _trTotHoldRef = null, _trTotHoldRefCnt = 0;
-      var _trTotHold2 = null, _trTotHold2Cnt = 0, _trTotHold2Ref = null, _trTotHold2RefCnt = 0;
+      // 合計集計は共通アキュムレータ(_elTotAccum)へ統合（最大損益のみ取引固有のため残留ループ）
+      var _trTT = _elTotAccum(_trEntryRecords, {
+        signal: function(r) { return r.signal; },
+        alpha: function(r) { return _elAlphaInfo(r, data).alpha; },
+        cut: function(r) { return _elAlphaInfo(r, data).cutLine; },
+        real: function(r) {
+          var s0 = r.signal, it0 = r.item;
+          var v = (it0 && it0.pnl != null) ? Number(it0.pnl) : _elSignedVal(s0.realizedPnl, s0.realizedPnlSign);
+          if (v == null) return null;
+          var sh0 = Number(s0.shares) > 0 ? Number(s0.shares) : 0;
+          return sh0 > 0 ? Math.round(v / sh0 * 100) : Math.round(v);
+        }
+      });
+      var _trTotReal = _trTT.real, _trTotRealCnt = _trTT.realCnt;
+      var _trTotPlan = _trTT.plan, _trTotPlanCnt = _trTT.planCnt;
+      var _trTotPlanAB = _trTT.planAB, _trTotPlanABCnt = _trTT.planABCnt;
+      var _trTotHold = _trTT.holdRaw, _trTotHoldCnt = _trTT.holdCnt;
+      var _trTotHoldCap = _trTT.holdPlanCap, _trTotHoldCapAB = _trTT.holdAB, _trTotHoldABCnt = _trTT.holdABCnt;
+      var _trTotHoldPlanStopDiff = _trTT.holdPlanStopDiff;
+      var _trTotHoldRef = _trTT.holdRef, _trTotHoldRefCnt = _trTT.holdRefCnt;
+      var _trTotHold2 = _trTT.hold2, _trTotHold2Cnt = _trTT.hold2Cnt, _trTotHold2Ref = _trTT.hold2Ref, _trTotHold2RefCnt = _trTT.hold2RefCnt;
+      var _trTotMax = null, _trTotMaxCnt = 0, _trTotMaxAB = null, _trTotMaxABCnt = 0;
       _trEntryRecords.forEach(function(r) {
-        var s = r.signal, rIt = r.item;
-        var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
-        var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
-        var rp = (rIt && rIt.pnl != null) ? Number(rIt.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        var _aiTr0 = _elAlphaInfo(r, data);
-        var pp = _elDynPlanned(s, _aiTr0.alpha, _aiTr0.cutLine);
+        var s = r.signal;
         var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
-        var hp = _elDynHold(s, _aiTr0.alpha, _aiTr0.cutLine);
-        var rpN = rp != null ? _p100(rp) : null;
-        var ppN = pp;
-        var mpN = mp != null ? _p100(mp) : null;
-        var hpN = hp;
-        var _isAB = (s.difficulty === "A" || s.difficulty === "B");
-        if (rpN != null) { _trTotReal = (_trTotReal || 0) + rpN; _trTotRealCnt++; }
-        if (ppN != null) { _trTotPlan = (_trTotPlan || 0) + ppN; _trTotPlanCnt++; }
-        if (mpN != null) { _trTotMax  = (_trTotMax  || 0) + mpN; _trTotMaxCnt++; }
-        if (hpN != null) { _trTotHold = (_trTotHold || 0) + hpN; _trTotHoldCnt++;
-          var _pStopTr = _elPlanIsStop(s, _aiTr0.alpha, _aiTr0.cutLine);
-          var _hCapTr = (_pStopTr && ppN != null) ? ppN : hpN;
-          var _xTr = (s.holdExp === "×" || s.holdExp === "損切り済");
-          var _mvTr = (_xTr && ppN != null) ? ppN : _hCapTr;
-          _trTotHoldCap = (_trTotHoldCap || 0) + _mvTr;
-          if (_isAB) { _trTotHoldCapAB = (_trTotHoldCapAB || 0) + _mvTr; _trTotHoldABCnt++; }
-          if (_xTr && ppN != null && (_hCapTr - ppN) !== 0) { _trTotHoldRef = (_trTotHoldRef || 0) + (_hCapTr - ppN); _trTotHoldRefCnt++; }
-          if (_pStopTr && ppN != null && hpN !== ppN) _trTotHoldPlanStopDiff = true; }
-        var _h2ttr = _elHold2TotParts(s, _aiTr0.alpha, _aiTr0.cutLine);
-        if (_h2ttr.main != null) { _trTotHold2 = (_trTotHold2 || 0) + _h2ttr.main; _trTotHold2Cnt++; }
-        if (_h2ttr.ref != null) { _trTotHold2Ref = (_trTotHold2Ref || 0) + _h2ttr.ref; _trTotHold2RefCnt++; }
-        if (ppN != null && _isAB) { _trTotPlanAB = (_trTotPlanAB || 0) + ppN; _trTotPlanABCnt++; }
-        if (mpN != null && _isAB) { _trTotMaxAB  = (_trTotMaxAB  || 0) + mpN; _trTotMaxABCnt++; }
+        if (mp == null) return;
+        var sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+        var mpN = sh > 0 ? Math.round(mp / sh * 100) : Math.round(mp);
+        _trTotMax = (_trTotMax || 0) + mpN; _trTotMaxCnt++;
+        if (s.difficulty === "A" || s.difficulty === "B") { _trTotMaxAB = (_trTotMaxAB || 0) + mpN; _trTotMaxABCnt++; }
       });
       var _trTotRealGrade = _trTotRealCnt > 0 ? _profitGradeFromPnlReal(_trTotReal != null ? _trTotReal : 0, _trTotRealCnt) : null;
       var _trTotPlanGrade = _trTotPlanCnt > 0 ? _profitGradeFromPnl(_trTotPlan != null ? _trTotPlan : 0, _trTotPlanCnt) : null;
@@ -3829,18 +3798,7 @@ function DayView(_ref57) {
         var maxPnlN  = planPnlN;
         var _hpTr = _elDynHold(s, _aiTr.alpha, _aiTr.cutLine);
         var _dynResTr = _elDynResult(s, _aiTr.alpha, _aiTr.cutLine);
-        var _dynHPtr = (function() {
-          var hp = _hpTr, pp = planPnlN;
-          if (hp == null) return s.holdProfit;
-          if (_dynResTr === "miss" || _dynResTr === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
-          if (pp == null) return s.holdProfit;
-          if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
-          if (pp < 0 && hp < 0) return "no";
-          if (pp > 0 && hp < 0) return "no";
-          if (pp < 0 && hp > 0) return "yes";
-          if (hp === 0) return "none";
-          return s.holdProfit;
-        })();
+        var _dynHPtr = _elDeriveHoldProfit(_hpTr, planPnlN, _dynResTr, s.holdProfit);
         var realPnlN = realPnl != null ? _p100(realPnl) : null;
         var entered = _elIsEntered(s, rIt);
         var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
@@ -4063,14 +4021,7 @@ function DayView(_ref57) {
     };
     // ランクバッジ（_pnlDetailTableEl が週パネル描画時にも使うため、ここで早期定義）
     var _pbBadge = function(grade) {
-      var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
-      return React.createElement("span", {
-        title: grade,
-        style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
-          width: 18, height: 18, borderRadius: "50%",
-          background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border,
-          fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 }
-      }, grade);
+      return _elGradeBadge18(grade);
     };
     // 一括α理想値ボタン＋リセットボタン。records各記録のα値シミュに理想α値を一括入力／全クリアして採用α値に戻す（非保存）。
     var _bulkIdealCtrl = function(records, simVal, simSet, keyOf, cutOf) {
@@ -4100,19 +4051,13 @@ function DayView(_ref57) {
         return (a.signal.time || "99:99").localeCompare(b.signal.time || "99:99") || a.stock.localeCompare(b.stock);
       });
       if (!expRecs.length) return null;
-      var _rPnlCol = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-      var _rPnlFmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+      var _rPnlCol = _elPnlColor;
+      var _rPnlFmt = _elPnlFmt;
       var _rTh = function(label, extra) {
         return React.createElement("th", { style: Object.assign({ padding: "1px 3px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "center", fontSize: 10, lineHeight: 1.15, color: "#9A3412" }, extra || {}) }, label);
       };
-      var _lane = function(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); };
-      var _rPnlDisp = function(v, grade) {
-        if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-          _lane(grade && grade !== "Z" ? _pbBadge(grade) : null, 20),
-          _lane(React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(v) } }, _rPnlFmt(v)), 72, "flex-start")
-        );
-      };
+      var _lane = _elLane;
+      var _rPnlDisp = function(v, grade) { return _elRPnlDispW(v, grade, 72); };
       var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0", fontWeight: 400 } }, "/"); };
       var _pbSlashCell = function(symObj, grade, pnl, missFlag) {
         var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
