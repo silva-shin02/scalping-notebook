@@ -3908,7 +3908,9 @@ function ImageAnnotator(_ref7) {
       // CSS拡大表示でガビガビになるため、iOSでは上限を16M/4096に制限（デスクトップは32M/8192）。
       var _isIOSCanvas = /iPad|iPhone|iPod/.test(navigator.userAgent || "") || (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1);
       var MAX_CANVAS_AREA = _isIOSCanvas ? 16777216 : 33554432;
-      var MAX_CANVAS_DIM = _isIOSCanvas ? 4096 : 8192;
+      // 1辺制限はWebKit実限界(32767)に対し余裕を持たせ16384。縦長フルページスクショ(例:1170×9000)は
+      // 面積16M以下なら無縮小で保持（旧4096だと1辺制限で半減し文字が潰れていた）。
+      var MAX_CANVAS_DIM = 16384;
       var area = nw * nh;
       // 面積 or 1辺が上限を超える場合のみ論理サイズを縮小
       var _byArea = area > MAX_CANVAS_AREA ? Math.sqrt(MAX_CANVAS_AREA / area) : 1;

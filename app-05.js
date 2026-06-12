@@ -4610,8 +4610,8 @@ function EntryRecordForm(_ref_erf) {
   var isEdit = !!(initial && initial.signal);
 
   var initSig = isEdit ? initial.signal : {};
-  // 新規は常にEP起算方式(scheme:2)。旧記録の編集は旧基準・旧レイアウトのまま（互換方針⑦）。
-  var isV2Form = !isEdit || _epIsV2(initSig);
+  // 常にEP起算方式(scheme:2)フォーム。旧記録の編集も新レイアウトで再入力する（2026-06-12ユーザー方針変更・保存でscheme:2に更新される）。
+  var isV2Form = true;
   var _useStateE1 = useState((initial && initial.date) || todayStr()),
     _useStateE2 = _slicedToArray(_useStateE1, 2),
     fDate = _useStateE2[0], setFDate = _useStateE2[1];
@@ -4816,8 +4816,16 @@ function EntryRecordForm(_ref_erf) {
   var _h2wSignedRef = useRef(0);
   var _entryOsSignedRef = useRef(0);
   var _exitOsSignedRef = useRef(0);
+  var _os2hSignedRef = useRef(0);
+  var _os2cSignedRef = useRef(0);
+  var _os3hSignedRef = useRef(0);
+  var _os3cSignedRef = useRef(0);
   var _signedFromState = function(valStr, mul) { return (valStr === "" || valStr == null) ? null : mul * Math.abs(Number(valStr) || 0); };
   _oscSignedRef.current = _signedFromState(fOsConfVal,  fOsConfSign === "+" ? 1 : fOsConfSign === "-" ? -1 : 0);
+  _os2hSignedRef.current = _signedFromState(fOs2High, fOs2HighSign === "+" ? 1 : fOs2HighSign === "-" ? -1 : 0);
+  _os2cSignedRef.current = _signedFromState(fOs2Conf, fOs2ConfSign === "+" ? 1 : fOs2ConfSign === "-" ? -1 : 0);
+  _os3hSignedRef.current = _signedFromState(fOs3High, fOs3HighSign === "+" ? 1 : fOs3HighSign === "-" ? -1 : 0);
+  _os3cSignedRef.current = _signedFromState(fOs3Conf, fOs3ConfSign === "+" ? 1 : fOs3ConfSign === "-" ? -1 : 0);
   _ewSignedRef.current  = _signedFromState(fEstWidthVal,  fEstWidthSign === "-" ? 1 : fEstWidthSign === "+" ? -1 : 0);
   _hhSignedRef.current  = _signedFromState(fHoldHighVal,  fHoldHighSign === "-" ? 1 : fHoldHighSign === "+" ? -1 : 0);
   _hwSignedRef.current  = _signedFromState(fHoldWidthVal, fHoldWidthSign === "-" ? 1 : fHoldWidthSign === "+" ? -1 : 0);
@@ -5535,20 +5543,35 @@ function EntryRecordForm(_ref_erf) {
         var _numIn = function(val, setVal) {
           return React.createElement("input", { type: "text", inputMode: "numeric",
             value: val, onChange: function(e) { setVal(_toHankakuNum(e.target.value)); }, placeholder: "0",
-            style: { padding: "4px 6px", border: "1px solid #ccc", borderRadius: 5, outline: "none", background: "#fff", width: 52, textAlign: "right", fontSize: 13, boxSizing: "border-box" } });
+            style: { padding: "4px 4px", border: "none", outline: "none", background: "#fff", width: 40, textAlign: "right", fontSize: 13, boxSizing: "border-box" } });
         };
-        var _signB = function(sign, setSign, allowNull) {
+        var _signB = function(sign, setSign) {
+          // Hold1高値欄と同方式の3状態サイクル（OS系規約: "+"=↑正・"-"=↓負）。手入力0でも↕に強制しない。
           var lab = sign === "-" ? "↓" : sign === "+" ? "↑" : "↕";
-          var col = sign === "-" ? "#1E8449" : sign === "+" ? "#C0392B" : "#999";
+          var col = sign === "+" ? "#C0392B" : sign === "-" ? "#1E8449" : "#999";
           return React.createElement("button", {
-            onClick: function() { setSign(sign === "+" ? "-" : sign === "-" ? (allowNull ? null : "+") : "+"); },
-            style: { padding: "4px 8px", fontSize: 13, fontWeight: 700, border: "1px solid #ccc", borderRadius: 5, background: "#f5f4f0", color: col, cursor: "pointer", minWidth: 32, flexShrink: 0 }
+            onClick: function() { setSign(sign === "+" ? "-" : sign === "-" ? null : "+"); },
+            style: { padding: "4px 6px", fontSize: 13, fontWeight: sign ? 700 : 400, border: "none", borderRight: "1px solid #ccc", background: sign === "+" ? "#FCEBEB" : sign === "-" ? "#EAF3DE" : "#f5f4f0", color: col, cursor: "pointer", minWidth: 30, flexShrink: 0 }
           }, lab);
         };
-        var _row = function(lab, node) {
+        // 符号付き入力（Hold1高値方式）: [↑↓↕][数値][▲▼=_applySignedで符号跨ぎ増減]
+        var _sIn = function(val, setVal, sign, setSign, ref) {
+          return React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+            _signB(sign, setSign), _numIn(val, setVal),
+            _stepBtn(function() { _applySigned(ref, 1, "+", "-", setVal, setSign); },
+                     function() { _applySigned(ref, -1, "+", "-", setVal, setSign); }));
+        };
+        // OS1高値（常に↑・0以上）
+        var _uIn = function(val, setVal) {
+          return React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+            _numIn(val, setVal),
+            _stepBtn(function() { setVal(String((Number(val) || 0) + 1)); },
+                     function() { setVal(String(Math.max(0, (Number(val) || 0) - 1))); }));
+        };
+        var _row = function(lab, node, noUnit) {
           return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-            React.createElement("span", { style: { fontSize: 10, color: "#666", fontWeight: 600, width: 46, flexShrink: 0 } }, lab), node,
-            React.createElement("span", { style: { fontSize: 10, color: "#999" } }, "円"));
+            React.createElement("span", { style: { fontSize: 10, color: "#666", fontWeight: 600, width: 40, flexShrink: 0 } }, lab), node,
+            noUnit ? null : React.createElement("span", { style: { fontSize: 10, color: "#999" } }, "円"));
         };
         var _legCol = function(label, isEp, rows) {
           return React.createElement("div", { key: label, style: { display: "flex", flexDirection: "column", gap: 4, padding: "6px 8px", border: "1px solid " + (isEp ? "#0369A1" : "#eee"), borderRadius: 6, background: isEp ? "#F0F9FF" : "#fff" } },
@@ -5577,19 +5600,19 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 6 } }, "OS足（α値到達待ち・最大3本／値は水準線比）"),
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" } },
             _legCol("OS1", _ef.epIdx === 0, [
-              _row("高値", _numIn(fOsVal, setFOsVal)),
-              _row("確定値", React.createElement("div", { style: { display: "flex", gap: 3 } }, _signB(fOsConfSign, setFOsConfSign, true), _numIn(fOsConfVal, setFOsConfVal))),
-              (_ef.alpha != null && _ef.o1 != null && _ef.epIdx !== 0) ? _row("到達期待", _expB(fOs1Exp, setFOs1Exp)) : null
+              _row("高値", _uIn(fOsVal, setFOsVal)),
+              _row("確定値", _sIn(fOsConfVal, setFOsConfVal, fOsConfSign, setFOsConfSign, _oscSignedRef)),
+              (_ef.alpha != null && _ef.o1 != null && _ef.epIdx !== 0) ? _row("到達期待", _expB(fOs1Exp, setFOs1Exp), true) : null
             ]),
-            _ef.showOs2 ? _legCol("OS2", _ef.epIdx === 1, [
-              _row("高値", React.createElement("div", { style: { display: "flex", gap: 3 } }, _signB(fOs2HighSign, setFOs2HighSign, false), _numIn(fOs2High, setFOs2High))),
-              _row("確定値", React.createElement("div", { style: { display: "flex", gap: 3 } }, _signB(fOs2ConfSign, setFOs2ConfSign, true), _numIn(fOs2Conf, setFOs2Conf))),
-              (_ef.o2 != null && _ef.epIdx !== 1 && _ef.epIdx !== 0) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp)) : null
-            ]) : null,
-            _ef.showOs3 ? _legCol("OS3", _ef.epIdx === 2, [
-              _row("高値", React.createElement("div", { style: { display: "flex", gap: 3 } }, _signB(fOs3HighSign, setFOs3HighSign, false), _numIn(fOs3High, setFOs3High))),
-              _row("確定値", React.createElement("div", { style: { display: "flex", gap: 3 } }, _signB(fOs3ConfSign, setFOs3ConfSign, true), _numIn(fOs3Conf, setFOs3Conf)))
-            ]) : null
+            _legCol("OS2", _ef.epIdx === 1, [
+              _row("高値", _sIn(fOs2High, setFOs2High, fOs2HighSign, setFOs2HighSign, _os2hSignedRef)),
+              _row("確定値", _sIn(fOs2Conf, setFOs2Conf, fOs2ConfSign, setFOs2ConfSign, _os2cSignedRef)),
+              (_ef.o2 != null && _ef.epIdx !== 1 && _ef.epIdx !== 0) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp), true) : null
+            ]),
+            _legCol("OS3", _ef.epIdx === 2, [
+              _row("高値", _sIn(fOs3High, setFOs3High, fOs3HighSign, setFOs3HighSign, _os3hSignedRef)),
+              _row("確定値", _sIn(fOs3Conf, setFOs3Conf, fOs3ConfSign, setFOs3ConfSign, _os3cSignedRef))
+            ])
           ),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" } }, _eChip, _epPnlChip,
             _ef.judge === "miss" ? React.createElement("span", { style: { fontSize: 10, color: "#999" } }, "E未達のためH1/H2・実現損益は不要") : null)
