@@ -3477,24 +3477,37 @@ function _epSignedNode(v, key) {
   var up = v > 0, abs = Math.abs(v);
   return React.createElement("span", { key: key, style: { fontVariantNumeric: "tabular-nums", color: _vcol(abs, up), fontWeight: abs >= 10 ? 700 : 600 } }, (up ? "↑" : "↓") + abs);
 }
-// OS欄: OS足の連鎖「8(↑3)→9(↑5)→15(↓2)」。値=高値(確定値)・高値は正なら矢印なし。旧記録はOS1のみ。
-function _epOsChainCell(s) {
-  var legs;
-  if (_epIsV2(s)) legs = _epLegs(s).filter(function(o) { return o.role.charAt(0) === "o"; });
-  else legs = (s && s.osVal != null) ? [{ h: Number(s.osVal), c: s.osConfVal != null ? (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)) : null }] : [];
+// OS欄: 最初の3本（OS枠）の連鎖「8(↑3)→9(↑5)→15(↓2)」。値=高値(確定値)・高値は正なら矢印なし。
+// EP=OS1ならH1/H2の足も2・3本目として表示。alphaを渡すとEPになった足の下に小さく「↑/EP」を2行表示。
+// 旧記録はOS1のみ（osVal≥αならEPマーカー・H1成立の旧特例は対象外）。
+function _epOsChainCell(s, alpha) {
+  var legs, epIdx = -1;
+  if (_epIsV2(s)) {
+    legs = _epLegs(s).slice(0, 3);
+    if (alpha != null) { var _rc = _epResolve(s, alpha); if (_rc) epIdx = _rc.epIdx; }
+  } else {
+    legs = (s && s.osVal != null) ? [{ h: Number(s.osVal), c: s.osConfVal != null ? (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)) : null }] : [];
+    if (alpha != null && s && s.osVal != null && Number(s.osVal) >= alpha) epIdx = 0;
+  }
   if (!legs.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var nodes = [];
   legs.forEach(function(o, i) {
     if (i > 0) nodes.push(React.createElement("span", { key: "ar" + i, style: { color: "#bbb", margin: "0 1px", fontSize: "0.9em" } }, "→"));
-    nodes.push(React.createElement("span", { key: "lg" + i, style: { whiteSpace: "nowrap", display: "inline-flex", alignItems: "center" } },
+    var _val = React.createElement("span", { style: { whiteSpace: "nowrap", display: "inline-flex", alignItems: "center" } },
       o.h != null
         ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", fontWeight: 700, color: _vcol(Math.abs(o.h), o.h >= 0) } }, (o.h < 0 ? "↓" : "") + Math.abs(o.h))
         : React.createElement("span", { style: { color: "#ccc" } }, "—"),
       React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, "("),
       _epSignedNode(o.c, "c" + i),
-      React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, ")")));
+      React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, ")"));
+    nodes.push(i === epIdx
+      ? React.createElement("span", { key: "lg" + i, style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 } },
+          _val,
+          React.createElement("span", { style: { fontSize: 8, fontWeight: 800, color: "#0369A1" } }, "↑"),
+          React.createElement("span", { style: { fontSize: 8, fontWeight: 800, color: "#0369A1" } }, "EP"))
+      : React.createElement("span", { key: "lg" + i, style: { display: "inline-flex" } }, _val));
   });
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, nodes);
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", whiteSpace: "nowrap" } }, nodes);
 }
 // E欄: ○=E成立 / ×=×宣言後の到達（見送り・参考） / 未達。旧記録は「未達=_elH2Miss・他は○」。
 function _epECell(s, alpha) {
