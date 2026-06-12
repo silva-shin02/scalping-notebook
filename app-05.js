@@ -3919,6 +3919,13 @@ function _elHoldStackInner(s, alpha, cutLine) {
 }
 // 明細表(フロー表示)用: H列を1セルに統合(H1上/H2下)。colSpan:2で旧2列分の幅を占有し他のcolSpanは不変。
 function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
+  // E未達(ノートレード)はH損益欄を「ー」のみ表示（v2=judge"miss"・旧記録=_elH2Miss）。E=×は参考表示を維持。
+  var _tdMiss = false;
+  if (s && alpha != null) {
+    if (_epIsV2(s)) { var _rT = _epResolve(s, alpha); _tdMiss = !!(_rT && _rT.judge === "miss"); }
+    else _tdMiss = _elH2Miss(s, alpha);
+  }
+  if (_tdMiss) return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, React.createElement("span", { style: { color: "#ccc" } }, "ー") ) ];
   return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, _elHoldStackInner(s, alpha, cutLine), capNote || null) ];
 }
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
