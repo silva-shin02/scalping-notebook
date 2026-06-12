@@ -35,7 +35,9 @@ function _elOsStatsV2(recs) {
     mode: { val: modeVal, n: modeN }, min: sorted[0], max: sorted[sorted.length - 1], dist: dist };
 }
 // 損切り回数の集計。plan=想定(OS値−α≧損切り値)・h1=H1高値で新規・h2=H2高値で新規(H2データあり)・any=いずれか。
-// rate=any÷OS値入力件数(%)。miss=E基準未達(α>OS値)件数。αと損切り値は各記録の採用値(_elAlphaInfo)。
+// rate=any÷OS値入力件数(%)。miss=E基準未達(α>OS値)件数。αと損切り値は各記録の採用値(_elAlphaInfo)
+// ＝銘柄別記録(app-02)・取引(app-04)テーブルの損益計算と同一基準。H2は_elH2Miss(H1までE基準未達=H2非成立・
+// 表でも合計除外)をガードして数えない。
 function _elStopStatsV2(recs, data) {
   var o = { n: (recs || []).length, os: 0, plan: 0, h1: 0, h2: 0, any: 0, miss: 0, rate: null };
   (recs || []).forEach(function(r) {
@@ -45,7 +47,7 @@ function _elStopStatsV2(recs, data) {
     if (_elDynResult(s, ai.alpha, ai.cutLine) === "miss") o.miss++;
     var p = _elPlanIsStop(s, ai.alpha, ai.cutLine);
     var h1 = !p && _elHoldIsStop(s, ai.alpha, ai.cutLine);
-    var h2 = !p && !h1 && _elHas2Data(s) && _elHoldIsStop2(s, ai.alpha, ai.cutLine);
+    var h2 = !p && !h1 && _elHas2Data(s) && !_elH2Miss(s, ai.alpha) && _elHoldIsStop2(s, ai.alpha, ai.cutLine);
     if (p) o.plan++;
     if (h1) o.h1++;
     if (h2) o.h2++;
@@ -634,7 +636,7 @@ function EntryLogView(_ref_elv) {
       if (_res === "ok") m.ok++; else if (_res === "draw") m.draw++; else if (_res === "ng") m.ng++; else if (_res === "miss") m.miss++;
       var _pStD = _elPlanIsStop(s, _draA, _cl);
       var _h1StD = !_pStD && _elHoldIsStop(s, _draA, _cl);
-      var _h2StD = !_pStD && !_h1StD && _elHas2Data(s) && _elHoldIsStop2(s, _draA, _cl);
+      var _h2StD = !_pStD && !_h1StD && _elHas2Data(s) && !_elH2Miss(s, _draA) && _elHoldIsStop2(s, _draA, _cl);
       if (_pStD) m.stopP++;
       if (_h1StD) m.stopH1++;
       if (_h2StD) m.stopH2++;
@@ -815,7 +817,7 @@ function EntryLogView(_ref_elv) {
           var s = r.signal; var _clA = _cutLineOf(r);
           var _hp = _elDynHold(s, _a, _clA); if (_hp != null) { _sH1 += _hp; _cH1++; }
           if (_elDynResult(s, _a, _clA) === "miss") _msA++;
-          if (_elHoldIsStop(s, _a, _clA) || (_elHas2Data(s) && _elHoldIsStop2(s, _a, _clA))) _stpA++;
+          if (_elHoldIsStop(s, _a, _clA) || (_elHas2Data(s) && !_elH2Miss(s, _a) && _elHoldIsStop2(s, _a, _clA))) _stpA++;
         });
         var _acc2 = _h2Acc(osRecs, function(){ return _a; }, function(r){ return _cutLineOf(r); });
         holdAlphaRows.push({ a: _a, sumH: _sH1, cntH: _cH1, sumH2: _acc2.main, cntH2: _acc2.mainCnt, refH2: _acc2.ref, refCntH2: _acc2.refCnt, stop: _stpA, miss: _msA });
@@ -1039,7 +1041,7 @@ function EntryLogView(_ref_elv) {
           var _hp = _elDynHold(s, _ai.alpha, _cl); if (_hp != null) { _csum += _hp; _ccnt++; }
           var _pStC = _elPlanIsStop(s, _ai.alpha, _cl);
           var _h1StC = !_pStC && _elHoldIsStop(s, _ai.alpha, _cl);
-          var _h2StC = !_pStC && !_h1StC && _elHas2Data(s) && _elHoldIsStop2(s, _ai.alpha, _cl);
+          var _h2StC = !_pStC && !_h1StC && _elHas2Data(s) && !_elH2Miss(s, _ai.alpha) && _elHoldIsStop2(s, _ai.alpha, _cl);
           if (_pStC) _cStpP++;
           if (_h1StC) _cStpH1++;
           if (_h2StC) _cStpH2++;
@@ -3619,7 +3621,7 @@ function EntryLogView(_ref_elv) {
           var isMiss = _elDynResult(s, aAlpha, aCut) === "miss";
           var _stpP = _elPlanIsStop(s, aAlpha, aCut);
           var _stpH1 = !_stpP && _elHoldIsStop(s, aAlpha, aCut);
-          var _stpH2 = !_stpP && !_stpH1 && _elHas2Data(s) && _elHoldIsStop2(s, aAlpha, aCut);
+          var _stpH2 = !_stpP && !_stpH1 && _elHas2Data(s) && !_elH2Miss(s, aAlpha) && _elHoldIsStop2(s, aAlpha, aCut);
           var _bandI = (s.osVal != null && s.osVal !== "") ? _elOsBandIdxV2(s.osVal) : null;
           var _ek = "sigdflat::" + r.stock + "_" + r.signal.id;
           var _on = sigSubExpand === _ek;
