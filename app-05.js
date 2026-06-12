@@ -3951,14 +3951,14 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   var holdSumPlanCap = 0, holdSumPlanCapAB = 0, holdCountAB = 0;
   var holdRefSum = 0, holdRefCnt = 0;  // 期待度×（参考扱い・H1本合計から除外）
   var hold2Sum = 0, hold2Count = 0, hold2RefSum = 0, hold2RefCnt = 0;
-  var _missCnt = 0, _totCnt = 0;  // 全miss(E基準未達)判定用
+  var _missCnt = 0, _h2MissCnt = 0, _totCnt = 0;  // 全miss(E基準未達)判定用。_h2MissCnt=想定もH1も未達(_elH2Miss=ノートレード)の記録数
   var osVals = [], confVals = [], holdConfVals = [];
   (signals || []).forEach(function(sig) {
     var s = _compatSignal(sig);
     var _aSig = _fixedA ? alpha : (s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s.difficulty));
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     _totCnt++;
-    if (_elDynResult(s, _aSig, _c) === "miss") _missCnt++;
+    if (_elDynResult(s, _aSig, _c) === "miss") _missCnt++;  if (_elH2Miss(s, _aSig)) _h2MissCnt++;
     if (_elIsEntered(s, null)) {
       realCount++;
       var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
@@ -4021,7 +4021,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     hold2Sum: hold2Count > 0 ? hold2Sum : null,
     hold2RefSum: hold2RefCnt > 0 ? hold2RefSum : null, hold2RefCnt: hold2RefCnt,
     planHasStop: planHasStop, holdHasStop: holdHasStop,
-    allMiss: (_totCnt > 0 && _missCnt === _totCnt),
+    allMiss: (_totCnt > 0 && _missCnt === _totCnt), allMissH: (_totCnt > 0 && _h2MissCnt === _totCnt),
     count: realCount,
     osAvg: _avg(osVals), confAvg: _avg(confVals), holdConfAvg: _avg(holdConfVals),
     alphaUsed: _fixedA ? alpha : null

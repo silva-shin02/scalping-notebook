@@ -2886,7 +2886,7 @@ function StockQuickRefTable(_props_qrt) {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA);
-              if (_g.allMiss) return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.25 } },
+              if (_g.allMissH) return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.25 } },
                 React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", borderBottom: "1px solid #e0d8c8", paddingBottom: 1 } },
                   React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H１："), _qZeroCell()),
                 React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", paddingTop: 1 } },
