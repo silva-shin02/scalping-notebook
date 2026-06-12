@@ -3306,7 +3306,7 @@ function _elHoldIsStop(s, alpha, cutLine) {
   if (s.osVal != null && (Number(s.osVal) - alpha) >= _cl) return true;
   return false;
 }
-// 理想α値: 候補(0/5/10/15/20)のうち損切りにならず「単独損益＋H1結果損益」の合計が最大の値。
+// 理想α値: 候補(0/5/10/15/20)のうち損切りにならず「EP損益＋H1結果損益」の合計が最大の値。
 // 該当が無ければ全候補中で合計が最大(=一番マシ)の値。同点は小さいα優先。本日/今週の損益データ表のαシミュ用。
 var _EL_IDEAL_ALPHAS = [0, 5, 10, 15, 20];
 function _elIdealAlpha(s, cutLine) {
@@ -3357,7 +3357,7 @@ function _elDynHold2(s, alpha, cutLine) {
     if (_h2l.h != null && (_h2l.h - alpha) >= cutLine) return -Math.round((_h2l.h - alpha) * 100);
     return _h2l.c != null ? Math.round((alpha - _h2l.c) * 100) : null;
   }
-  // 単独損益またはH1で既に損切りの場合、H2には損切りルールを適用せず値幅から算出（損益変化はH1損益との純粋比較）。
+  // EP損益またはH1で既に損切りの場合、H2には損切りルールを適用せず値幅から算出（損益変化はH1損益との純粋比較）。
   if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) return _elDynHoldNoStop(_h2sig(s), alpha);
   var _h2s = _h2sig(s);
   // miss(OS<α)でも、H1の高値がα到達ならH2は自身がα未達でも結果を算出（H1でエントリー成立とみなす）。
@@ -3377,7 +3377,7 @@ function _elHoldIsStop2(s, alpha, cutLine) {
   return _elHoldIsStop(_h2sig(s), alpha, cutLine);
 }
 function _elHas2Data(s) { return !!(s && (s.hold2HighVal != null || s.hold2Width != null || s.hold2OsConf != null || s.hold2Pnl != null)); }
-// 単独損益もH1もE基準未達（OS値<α かつ H1高値もα未達）→ H2は成立せず非表示扱い。
+// EP損益もH1もE基準未達（OS値<α かつ H1高値もα未達）→ H2は成立せず非表示扱い。
 // 表ではH2期待度を「ー」・損益をQ ー円（高値/確定値/α値比はH1と同形式）で表示し、合計には算入しない。フォームの _fH2Hidden と同条件。
 function _elH2Miss(s, alpha) {
   if (s != null && _epIsV2(s)) {
@@ -3446,6 +3446,10 @@ function _elHoldMaxHighCell(s) {
 // 利益/損失は結果損益（H2データあり＆H2成立ならH2、無ければH1）で判定。
 function _elRealizedOutcome(s, alpha, cutLine) {
   if (!s) return null;
+  if (_epIsV2(s) && alpha != null) {
+    var _ro2 = _epResolve(s, alpha);
+    if (_ro2 && _ro2.judge === "x") return "x";  // ×宣言後の到達=見送り（参考）
+  }
   if (_elH2Miss(s, alpha)) return "miss";
   var _sp = _elPlanIsStop(s, alpha, cutLine);
   var _sh1 = !_sp && _elHoldIsStop(s, alpha, cutLine);
@@ -3457,12 +3461,101 @@ function _elRealizedOutcome(s, alpha, cutLine) {
 }
 function _elOutcomeCell(s, alpha, cutLine) {
   var o = _elRealizedOutcome(s, alpha, cutLine);
+  if (o === "x") return React.createElement("span", { style: { color: "#1E8449", fontSize: 10, fontWeight: 700 } }, "×見送り");
   if (o === "miss") return React.createElement("span", { style: { color: "#7C3AED", fontSize: 10, fontWeight: 700 } }, "E未達");
   if (o === "stop") return React.createElement("span", { style: { display: "inline-block", padding: "1px 6px", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#fff", background: "#1E8449", whiteSpace: "nowrap" } }, "損切り");
   if (o === "profit") return React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "利益");
   if (o === "loss") return React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "損失");
   if (o === "zero") return React.createElement("span", { style: { color: "#888", fontWeight: 600 } }, "±0");
   return React.createElement("span", { style: { color: "#ccc" } }, "ー");
+}
+// === EP起算方式: 表のOS/E/EP損益 列セルヘルパー（エントリー記録欄等で使用・旧記録も同形式で表示）===
+// 符号付き値ノード（↑=正・↓=負）。
+function _epSignedNode(v, key) {
+  if (v == null) return React.createElement("span", { key: key, style: { color: "#ccc" } }, "—");
+  if (v === 0) return React.createElement("span", { key: key, style: { color: "#888", fontVariantNumeric: "tabular-nums" } }, "0");
+  var up = v > 0, abs = Math.abs(v);
+  return React.createElement("span", { key: key, style: { fontVariantNumeric: "tabular-nums", color: _vcol(abs, up), fontWeight: abs >= 10 ? 700 : 600 } }, (up ? "↑" : "↓") + abs);
+}
+// OS欄: OS足の連鎖「8(↑3)→9(↑5)→15(↓2)」。値=高値(確定値)・高値は正なら矢印なし。旧記録はOS1のみ。
+function _epOsChainCell(s) {
+  var legs;
+  if (_epIsV2(s)) legs = _epLegs(s).filter(function(o) { return o.role.charAt(0) === "o"; });
+  else legs = (s && s.osVal != null) ? [{ h: Number(s.osVal), c: s.osConfVal != null ? (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)) : null }] : [];
+  if (!legs.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var nodes = [];
+  legs.forEach(function(o, i) {
+    if (i > 0) nodes.push(React.createElement("span", { key: "ar" + i, style: { color: "#bbb", margin: "0 1px", fontSize: "0.9em" } }, "→"));
+    nodes.push(React.createElement("span", { key: "lg" + i, style: { whiteSpace: "nowrap", display: "inline-flex", alignItems: "center" } },
+      o.h != null
+        ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", fontWeight: 700, color: _vcol(Math.abs(o.h), o.h >= 0) } }, (o.h < 0 ? "↓" : "") + Math.abs(o.h))
+        : React.createElement("span", { style: { color: "#ccc" } }, "—"),
+      React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, "("),
+      _epSignedNode(o.c, "c" + i),
+      React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, ")")));
+  });
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, nodes);
+}
+// E欄: ○=E成立 / ×=×宣言後の到達（見送り・参考） / 未達。旧記録は「未達=_elH2Miss・他は○」。
+function _epECell(s, alpha) {
+  if (!s || alpha == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var j;
+  if (_epIsV2(s)) { var _re = _epResolve(s, alpha); j = _re ? _re.judge : null; }
+  else j = s.osVal == null ? null : (_elH2Miss(s, alpha) ? "miss" : "ok");
+  if (j === "ok") return React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: 13 } }, "○");
+  if (j === "x") return React.createElement("span", { style: { fontWeight: 800, color: "#1E8449", fontSize: 13 } }, "×");
+  if (j === "miss") return React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7C3AED", whiteSpace: "nowrap" } }, "未達");
+  return React.createElement("span", { style: { color: "#ccc" } }, "—");
+}
+// EP損益欄: 旧「OS値・確定値・α値比値幅・結果/EP損益」を1セルに統合。「高値→確定値/α比/結果・損益」。
+// pnlDisp=損益表示ノード(各表のランク付き表示を注入・nullなら内蔵表示)。
+function _epPnlCell(s, alpha, cutLine, pnlDisp) {
+  if (!s || alpha == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var res = _elDynResult(s, alpha, cutLine);
+  var j = _epIsV2(s) ? (function() { var r = _epResolve(s, alpha); return r ? r.judge : null; })() : (s.osVal != null && _elH2Miss(s, alpha) ? "miss" : "ok");
+  if (j === "x" || j === "miss" || res === "miss") {
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
+      _qMissCell(), j === "x" ? React.createElement("span", { style: { fontSize: 9, color: "#1E8449", fontWeight: 600 } }, "（×見送り）") : null);
+  }
+  var eph = null, epc = null;
+  if (_epIsV2(s)) { var _r2 = _epResolve(s, alpha); if (_r2 && _r2.ep) { eph = _r2.ep.h; epc = _r2.ep.c; } }
+  else {
+    eph = s.osVal != null ? Number(s.osVal) : null;
+    epc = s.osConfVal != null ? (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)) : null;
+  }
+  var pnl = _elDynPlanned(s, alpha, cutLine);
+  var _resEl = res === "ok" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "○")
+    : res === "ng" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "×")
+    : res === "draw" ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700 } }, "△")
+    : React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var nodes = [];
+  nodes.push(React.createElement("span", { key: "h", style: { fontVariantNumeric: "tabular-nums", fontWeight: 700, color: eph != null ? _vcol(Math.abs(eph), eph >= 0) : "#ccc" } }, eph != null ? ((eph < 0 ? "↓" : "↑") + Math.abs(eph)) : "—"));
+  nodes.push(React.createElement("span", { key: "a1", style: { color: "#bbb", margin: "0 1px" } }, "→"));
+  nodes.push(_epSignedNode(epc, "c"));
+  if (epc != null) {
+    var _ew = alpha - epc, _ewAbs = Math.abs(_ew);
+    nodes.push(React.createElement("span", { key: "sl1", style: { color: "#ddd", margin: "0 2px" } }, "/"));
+    nodes.push(_ew === 0
+      ? React.createElement("span", { key: "ew", style: { color: "#888" } }, "α0")
+      : React.createElement("span", { key: "ew", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: 700 } }, "α" + (_ew > 0 ? "↓" : "↑") + _ewAbs));
+  }
+  nodes.push(React.createElement("span", { key: "sl2", style: { color: "#ddd", margin: "0 2px" } }, "/"));
+  nodes.push(React.createElement("span", { key: "rs" }, _resEl));
+  nodes.push(React.createElement("span", { key: "pn", style: { marginLeft: 2, display: "inline-flex", alignItems: "center" } },
+    pnlDisp != null ? pnlDisp
+      : (pnl != null
+        ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } },
+            _elHoldGradeBadge(_profitGradeFromPnl(pnl, 1)),
+            React.createElement("span", { style: { fontWeight: 700, color: pnl > 0 ? "#C0392B" : pnl < 0 ? "#1E8449" : "#888" } }, (pnl > 0 ? "+" : "") + pnl.toLocaleString() + "円"))
+        : React.createElement("span", { style: { color: "#ccc" } }, "—"))));
+  if (_elPlanIsStop(s, alpha, cutLine)) nodes.push(React.createElement("span", { key: "cap" }, _elCapNote(cutLine)));
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, nodes);
+}
+// 成立率の到達判定: v2=3本以内にα値到達、旧記録=OS値≥α。
+function _epReachedAt(s, alpha) {
+  if (s == null || alpha == null) return false;
+  if (_epIsV2(s)) { var _rr = _epResolve(s, alpha); return !!(_rr && _rr.epIdx >= 0); }
+  return s.osVal != null && Number(s.osVal) >= alpha;
 }
 // Hold2期待度（○/△を集計対象・×は参考表示のみ）
 function _elH2ExpCounts(s) { return s.hold2Exp; }
@@ -3471,7 +3564,7 @@ function _elHoldGradeBadge(g) {
   var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
   return React.createElement("span", { key: "g", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, marginRight: 1, flexShrink: 0 } }, g);
 }
-// 単独損益が損切りの場合のH損益セル: 「想定額（H額）」を両方ランク(grade)付きで表示（左=単独損益額そのまま・括弧内=H1/H2が損切りしていなかった場合の損益）。
+// EP損益が損切りの場合のH損益セル: 「想定額（H額）」を両方ランク(grade)付きで表示（左=EP損益額そのまま・括弧内=H1/H2が損切りしていなかった場合の損益）。
 function _elHoldStopPnlNode(planVal, holdPnl, key) {
   var _amt = function(v, k) {
     return React.createElement("span", { key: k, style: { display: "inline-flex", alignItems: "center" } },
@@ -3514,7 +3607,7 @@ function _elHoldStopAmtNode(amount, key) {
     React.createElement("span", { key: "y", style: { color: amount > 0 ? "#C0392B" : amount < 0 ? "#1E8449" : "#888" } }, amount.toLocaleString() + "円"),
     React.createElement("span", { key: "x", style: { color: "#333", fontWeight: 800, marginLeft: 3 } }, "損"));
 }
-// 単独損益またはH1で損切り済みのインラインセル表示「損切 （高値→確定値/α値比） / ランク 損切額 損」。
+// EP損益またはH1で損切り済みのインラインセル表示「損切 （高値→確定値/α値比） / ランク 損切額 損」。
 // amount=損切り額(=H1結果損益・負)。hs/alphaを渡すと明細を薄く（）で表示（無ければ「（ー）」）。
 function _elHoldStopDoneNode(amount, key, hs, alpha) {
   var _detail = (hs && alpha != null) ? _elHoldStopDetail(hs, alpha) : null;
@@ -3525,11 +3618,11 @@ function _elHoldStopDoneNode(amount, key, hs, alpha) {
     _elHoldStopAmtNode(amount, "a"));
 }
 // 統合Hセル: 「H高値 → H確定値 / α値比H値幅 / 勝敗・結果損益」を1つのインライン要素で返す。
-// isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、単独損益・結果はエントリー共通）。
+// isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、EP損益・結果はエントリー共通）。
 function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
   var hs = isH2 ? _h2sig(s) : s;
   var _h2missFlow = isH2 && _elH2Miss(s, alpha);  // 想定もH1もE基準未達 → 損益をQ ー円に固定（高値/確定値/α値比は通常表示）。
-  // 損切り済み（H2: 想定orH1で損切り／H1: 単独損益の時点で損切り）は明細を出さず「ー（ランク 損切額）※損切り済」のみ。
+  // 損切り済み（H2: 想定orH1で損切り／H1: EP損益の時点で損切り）は明細を出さず「ー（ランク 損切額）※損切り済」のみ。
   if (alpha != null) {
     var _psFlow = _elPlanIsStop(s, alpha, cutLine);
     if (isH2 ? _elHoldIsStop(s, alpha, cutLine) : _psFlow) {
@@ -3563,7 +3656,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
   var res = _h2missFlow ? "miss" : ((alpha != null) ? _elDynResult(s, alpha, cutLine) : s.result);
   if (holdPnl != null) {
     var hp = holdPnl;
-    // H2の損益変化はH1の結果損益との比較。H1は従来どおり単独損益との比較。
+    // H2の損益変化はH1の結果損益との比較。H1は従来どおりEP損益との比較。
     var pp = isH2 ? ((alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign)) : planPnl;
     var dynHP = (function() {
       if (hp == null) return hs.holdProfit;
@@ -4141,7 +4234,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       planCapSum += _pStop ? _elCapLossYen(_c) : pv;
     }
     var hv = _elDynHold(s, _aSig, _c);
-    // 想定もH1もE基準未達(両miss=ノートレード)は単独損益が0なので、H1も0円扱いにして揃える（早見表で「—」でなく「0円」表示）。
+    // 想定もH1もE基準未達(両miss=ノートレード)はEP損益が0なので、H1も0円扱いにして揃える（早見表で「—」でなく「0円」表示）。
     if (hv == null && _elH2Miss(s, _aSig)) hv = 0;
     if (hv != null) {
       holdSum += hv; holdCount++;
@@ -4213,7 +4306,7 @@ function _GradeBadges3(_p) {
   };
   var items = [
     { key: "real", label: "実", fullLabel: "実現損益",    abKey: null },
-    { key: "plan", label: "単", fullLabel: "単独損益",    abKey: null },
+    { key: "plan", label: "単", fullLabel: "EP損益",    abKey: null },
     { key: "hold", label: "H",  fullLabel: "結果損益(H)", abKey: null }
   ];
   return React.createElement("div", {
@@ -4787,7 +4880,12 @@ function EntryRecordForm(_ref_erf) {
     return { alpha: _av, o1: _o1, o2: _o2, o3: _o3, epIdx: epIdx, judge: judge, showOs2: showOs2, showOs3: showOs3, epHigh: epHigh, epConf: epConf };
   })();
 
-  var _fMiss = (_fAlpha != null && Number(fOsVal) >= 0 && Number(fOsVal) < _fAlpha);
+  // v2(EP起算)はE判定ベース: miss=E未達or×見送り。損切り判定はEP足高値基準。
+  var _fMiss = (isV2Form && _epFormState) ? (_epFormState.judge === "miss" || _epFormState.judge === "x")
+    : (_fAlpha != null && Number(fOsVal) >= 0 && Number(fOsVal) < _fAlpha);
+  var _fPlanStopNow = (isV2Form && _epFormState)
+    ? (_epFormState.judge === "ok" && _epFormState.epHigh != null && _fAlpha != null && (_epFormState.epHigh - _fAlpha) >= _fCutLine)
+    : (Number(fOsVal) > 0 && _fAlpha != null && (Number(fOsVal) - _fAlpha) >= _fCutLine);
   var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
   // H1までE基準未達でもHold2期待度欄・Hold2欄は表示して入力可能にする（表側は _elH2Miss が従来どおり「ー（H１までE基準未達）」表示）
   var _fH2Hidden = false;
@@ -4936,7 +5034,7 @@ function EntryRecordForm(_ref_erf) {
 
   
   useEffect(function() {
-    // 単独損益が損切りの間はH1損益変化を自動計算で上書きしない（stopロックは別effectが担当）。
+    // EP損益が損切りの間はH1損益変化を自動計算で上書きしない（stopロックは別effectが担当）。
     if (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine) return;
     var sHold = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
     var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
@@ -5001,7 +5099,7 @@ function EntryRecordForm(_ref_erf) {
         setFHold2PnlSign("+"); setFHold2PnlVal("0"); return;
       }
     }
-    // 単独損益またはH1で既に損切りの場合、H2には損切りルールを適用しない（値幅から算出し、損益変化はH1損益との純粋比較で選ばせる）。それ以外はH2にも損切りルール適用。
+    // EP損益またはH1で既に損切りの場合、H2には損切りルールを適用しない（値幅から算出し、損益変化はH1損益との純粋比較で選ばせる）。それ以外はH2にも損切りルール適用。
     var _osV2 = Number(fOsVal) || 0;
     var _planStop2 = (_av != null && _osV2 > 0 && (_osV2 - _av) >= _cutLHold);
     var _h1Stop2 = (_av != null && fHoldHighSign === "-" && fHoldHighVal !== "" && ((Number(fHoldHighVal) || 0) - _av) >= _cutLHold);
@@ -5020,7 +5118,7 @@ function EntryRecordForm(_ref_erf) {
   }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult, fOsVal, fHoldHighSign, fHoldHighVal]);
 
   useEffect(function() {
-    // 単独損益 or H1の結果損益が損切りの間は損益変化も「損切り済(stop)」を自動選択。
+    // EP損益 or H1の結果損益が損切りの間は損益変化も「損切り済(stop)」を自動選択。
     var _h2psStop = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
     var _h2h1Stop = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine);
     if (_h2psStop || _h2h1Stop) { setFHold2Profit("stop"); return; }
@@ -5055,7 +5153,7 @@ function EntryRecordForm(_ref_erf) {
 
   // 期待度（H1/H2）の「損切り済」自動選択は廃止し手動選択に変更（表側の「損切」表示はライブα計算で従来どおり）。
 
-  // 単独損益が損切りの間は損益変化(fHoldProfit)も「損切り済(stop)」を自動選択（その後ユーザーは変更可）。
+  // EP損益が損切りの間は損益変化(fHoldProfit)も「損切り済(stop)」を自動選択（その後ユーザーは変更可）。
   var _hpStopAutoRef = useRef(false);
   useEffect(function() {
     var _h1PlanStop = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
@@ -5607,18 +5705,31 @@ function EntryRecordForm(_ref_erf) {
       ),
       
       React.createElement("div", { style: { marginBottom: 8 } },
-        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "単独損益（100株換算）"),
-        _fMiss ? _fMissEl : React.createElement("span", {
-          style: {
-            display: "inline-block", padding: "5px 14px",
-            fontSize: 15, fontWeight: 800,
-            color: fPlanSign === "+" ? "#C0392B" : fPlanSign === "-" ? "#1E8449" : "#555",
-            background: fPlanSign === "+" ? "#FCEBEB" : fPlanSign === "-" ? "#EAF3DE" : "#f5f5f5",
-            borderRadius: 6, border: "1px solid " + (fPlanSign === "+" ? "#F5B7B1" : fPlanSign === "-" ? "#A9DFBF" : "#ddd"),
-            minWidth: 80, textAlign: "right"
+        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "EP損益（100株換算）"),
+        _fMiss ? _fMissEl : (function() {
+          // v2でEP=OS2/3の場合、fPlan(OS1基準の自動計算)ではなくEP足から直接計算した値を表示。
+          var _useV2P = isV2Form && _epFormState && _epFormState.epIdx > 0 && _fAlpha != null && _epFormState.epHigh != null;
+          var _pvV2 = null;
+          if (_useV2P) {
+            var _dfV2 = _epFormState.epHigh - _fAlpha;
+            _pvV2 = _dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100) : (_epFormState.epConf != null ? Math.round((_fAlpha - _epFormState.epConf) * 100) : null);
           }
-        }, fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—"),
-        (!_fMiss && Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine)
+          var _sgnP = _useV2P ? (_pvV2 == null ? null : _pvV2 > 0 ? "+" : _pvV2 < 0 ? "-" : null) : fPlanSign;
+          var _txtP = _useV2P
+            ? (_pvV2 == null ? "—" : _pvV2 === 0 ? "0円" : (_pvV2 > 0 ? "+" : "−") + Math.abs(_pvV2).toLocaleString() + "円")
+            : (fPlan === "0" ? "0円" : fPlan ? (fPlanSign === "-" ? "−" : "+") + fPlan + "円" : "—");
+          return React.createElement("span", {
+            style: {
+              display: "inline-block", padding: "5px 14px",
+              fontSize: 15, fontWeight: 800,
+              color: _sgnP === "+" ? "#C0392B" : _sgnP === "-" ? "#1E8449" : "#555",
+              background: _sgnP === "+" ? "#FCEBEB" : _sgnP === "-" ? "#EAF3DE" : "#f5f5f5",
+              borderRadius: 6, border: "1px solid " + (_sgnP === "+" ? "#F5B7B1" : _sgnP === "-" ? "#A9DFBF" : "#ddd"),
+              minWidth: 80, textAlign: "right"
+            }
+          }, _txtP);
+        })(),
+        (!_fMiss && _fPlanStopNow)
           ? _elCapNote(_fCutLine, { fontSize: 15, circle: 16, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
       ),
       React.createElement("div", { style: { marginBottom: 8 } },
@@ -5761,7 +5872,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            (_fMiss && !_fHoldHighOverA) ? _fMissEl : (Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : React.createElement("span", {
+            (_fMiss && !_fHoldHighOverA) ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -5771,7 +5882,7 @@ function EntryRecordForm(_ref_erf) {
                 minWidth: 80, textAlign: "right"
               }
             }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—"),
-            ((fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine) || (Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine))
+            ((fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine) || _fPlanStopNow)
               ? _elCapNote(_fCutLine, { fontSize: 14, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
           ),
           React.createElement("div", null,
@@ -5930,7 +6041,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            _fH2NonConsider ? _fH2MissEl : ((Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine) || (fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine)) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : React.createElement("span", {
+            _fH2NonConsider ? _fH2MissEl : (_fPlanStopNow || (fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine)) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -5940,7 +6051,7 @@ function EntryRecordForm(_ref_erf) {
                 minWidth: 80, textAlign: "right"
               }
             }, fHold2PnlVal === "0" ? "0円" : fHold2PnlVal ? (fHold2PnlSign === "-" ? "−" : "+") + Number(fHold2PnlVal).toLocaleString() + "円" : "—"),
-            ((fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) - _fAlpha) >= _fCutLine) || (Number(fOsVal) > 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine))
+            ((fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) - _fAlpha) >= _fCutLine) || _fPlanStopNow)
               ? _elCapNote(_fCutLine, { fontSize: 14, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
           ),
           React.createElement("div", null,
@@ -6293,9 +6404,9 @@ function EntryLogCard(_ref_elc) {
       ) : null,
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
-        _dispResult === "miss" ? _chip("単独損益", _qMissCell(14), "#888") :
+        _dispResult === "miss" ? _chip("EP損益", _qMissCell(14), "#888") :
         planPnl != null ? React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
-          React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "単独損益"),
+          React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "EP損益"),
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(planPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
             _gradeBadge(planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null),
             _pnlFmt(planPnl)),

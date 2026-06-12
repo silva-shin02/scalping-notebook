@@ -579,7 +579,7 @@ function migrateData(d) {
     } catch(e) { console.warn("[migrateData] sigRename error:", e); }
   }
 
-  // 単独損益 or H1の結果損益が損切りの記録は H2期待度を「損切り済」に設定（既存の○/△/×も上書き）。
+  // EP損益 or H1の結果損益が損切りの記録は H2期待度を「損切り済」に設定（既存の○/△/×も上書き）。
   if (!d._migHold2StopExp1) {
     try {
       if (d.charts && typeof d.charts === "object") {
@@ -3904,8 +3904,11 @@ function ImageAnnotator(_ref7) {
     var onImageReady = function(bImg, imgUrl) {
       if (cancelled) return; 
       var nw = bImg.naturalWidth, nh = bImg.naturalHeight;
-      var MAX_CANVAS_AREA = 33554432;  // 32M（旧16M→引き上げ：高解像度スクショを縮小せず読み込む）
-      var MAX_CANVAS_DIM = 8192;       // 1辺の上限（iPadのcanvas制限内に収めSafariの間引きを防ぐ）
+      // iOS/iPadOSのSafariはcanvas上限が約16Mピクセル・1辺4096px。超えると無音で間引かれ
+      // CSS拡大表示でガビガビになるため、iOSでは上限を16M/4096に制限（デスクトップは32M/8192）。
+      var _isIOSCanvas = /iPad|iPhone|iPod/.test(navigator.userAgent || "") || (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1);
+      var MAX_CANVAS_AREA = _isIOSCanvas ? 16777216 : 33554432;
+      var MAX_CANVAS_DIM = _isIOSCanvas ? 4096 : 8192;
       var area = nw * nh;
       // 面積 or 1辺が上限を超える場合のみ論理サイズを縮小
       var _byArea = area > MAX_CANVAS_AREA ? Math.sqrt(MAX_CANVAS_AREA / area) : 1;
