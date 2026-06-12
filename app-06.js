@@ -2153,27 +2153,12 @@ function EntryLogView(_ref_elv) {
                     _ovC != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#555", fontWeight: 600 } }, _ovC + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—"),
                     _idC != null ? React.createElement("span", { style: { fontSize: 9, color: "#9333EA", opacity: 0.9, fontWeight: 700, whiteSpace: "nowrap" } }, "理" + _idC) : null)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-                  s.osVal != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.osVal, true), fontWeight: s.osVal >= 10 ? 700 : 600 } }, s.osVal + "\u5186") : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
+                  _epOsChainCell(s)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-                  Number(s.osConfVal) === 0
-                    ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#888" } }, "0\u5186")
-                    : s.osConfSign
-                      ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.osConfVal, s.osConfSign === "+"), fontWeight: Number(s.osConfVal) >= 10 ? 700 : 600 } },
-                          (s.osConfSign === "+" ? "\u2191" : s.osConfSign === "-" ? "\u2193" : "\u2195") + (s.osConfVal != null ? Math.abs(Number(s.osConfVal)) + "\u5186" : ""))
-                      : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
-                React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-                  (function() {
-                    if (_ovA == null || s.osConfVal == null || s.osConfVal === "") return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
-                    var _cfEw = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
-                    var _ew = _ovA - _cfEw;
-                    if (_ew === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
-                    var _ewAbs = Math.abs(_ew);
-                    return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
-                  })()),
+                  _epECell(s, _ovA)),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, entLabel),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
-                  _slashCell(_dynRes === "ok" ? {ch:"○",col:"#1E8449"} : _dynRes === "ng" ? {ch:"×",col:"#C0392B"} : _dynRes === "draw" ? {ch:"△",col:"#6B7280"} : _dynRes === "miss" ? {ch:"ー",col:"#B45309"} : null, planGrade, planPnlN, _dynRes === "miss"),
-                  _elPlanIsStop(s, _ovA, _ovC) ? _elCapNote(_ovC) : null),
+                  _epPnlCell(s, _ovA, _ovC, _rPnlDisp(planPnlN, planGrade))),
                 _elHoldTd2(s, _ovA, _ovC, { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" }, (holdPnl != null && _elHoldIsStop(s, _ovA, _ovC)) ? _elCapNote(_ovC) : null),
                 React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnlN, realGrade))
               )
@@ -2181,7 +2166,7 @@ function EntryLogView(_ref_elv) {
             if (rExp) {
               subRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: 14, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: 13, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, alpha: _ovA, cutLine: _ovC, onEdit: handleEdit, onGoDate: handleGoDate })
                   )
                 )
@@ -2210,7 +2195,7 @@ function EntryLogView(_ref_elv) {
           var _ctAllMiss = _elAllMissRow(recs, function(_r){ var _a = _elAlphaInfo(_r, data); return _ovAraw != null ? _ovAraw : _a.alpha; }, function(_r){ var _a = _elAlphaInfo(_r, data); return _ovCraw != null ? _ovCraw : _a.cutLine; });
           var totRow = React.createElement("tr", { key: "__ctot__", style: { background: "#FFF7ED" } },
             React.createElement("td", { style: { textAlign: "left", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, "合計"),
-            React.createElement("td", { colSpan: 9, style: { borderTop: "2px solid #FB923C" } }),
+            React.createElement("td", { colSpan: 8, style: { borderTop: "2px solid #FB923C" } }),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblCtot("EP損益"), (_ctAllMiss ? _qZeroCell() : _rPnlDispABAll(_totPlanAB, _totPlan, _totPlanGradeAB, _totPlanGrade)),
               (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
             React.createElement("td", { colSpan: 2, style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
@@ -2245,7 +2230,7 @@ function EntryLogView(_ref_elv) {
                 React.createElement("table", { style: { width: "auto", borderCollapse: "collapse", fontSize: 11 } },
                   React.createElement("thead", null,
                     React.createElement("tr", null,
-                      _rTh("銘柄", { textAlign: "left", width: 60 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }), _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 40 }), _rTh("α値", { width: 42 }), _rTh("損切り", { width: 42 }), _rTh("OS値", { width: 44 }), _rTh("確定値", { width: 50 }), _rTh("α値比値幅", { width: 48 }), _rTh("E", { width: 1, padding: "4px 2px" }),
+                      _rTh("銘柄", { textAlign: "left", width: 60 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }), _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 40 }), _rTh("α値", { width: 42 }), _rTh("損切り", { width: 42 }), _rTh("OS", { width: 70 }), _rTh("E", { width: 24 }), _rTh("取引", { width: 1, padding: "4px 2px" }),
                       _rTh("EP損益", { width: 96 }), React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"), _rTh("実現損益", { width: 84 })
                     )
                   ),
@@ -2878,26 +2863,10 @@ function EntryLogView(_ref_elv) {
                 _aiSv.cutLine != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#555", fontWeight: 600 } }, _aiSv.cutLine + "\u5186") : React.createElement("span", { style: { color: "#ddd" } }, "\u2014"),
                 _idCsv != null ? React.createElement("span", { style: { fontSize: 9, color: "#9333EA", opacity: 0.9, fontWeight: 700, whiteSpace: "nowrap" } }, "\u7406" + _idCsv) : null)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-              s.osVal != null
-                ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.osVal, true), fontWeight: s.osVal >= 10 ? 700 : 600 } }, s.osVal + "\u5186")
-                : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
+              _epOsChainCell(s)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-              Number(s.osConfVal) === 0
-                ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#888" } }, "0\u5186")
-                : s.osConfSign
-                  ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(s.osConfVal, s.osConfSign === "+"), fontWeight: Number(s.osConfVal) >= 10 ? 700 : 600 } },
-                      (s.osConfSign === "+" ? "\u2191" : s.osConfSign === "-" ? "\u2193" : "\u2195") + (s.osConfVal != null ? Math.abs(Number(s.osConfVal)) + "\u5186" : ""))
-                  : React.createElement("span", { style: { color: "#ddd" } }, "\u2014")),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-              (function() {
-                if (_aiSv.alpha == null || s.osConfVal == null || s.osConfVal === "") return React.createElement("span", { style: { color: "#ddd" } }, "\u2014");
-                var _cfEw = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0;
-                var _ew = _aiSv.alpha - _cfEw;
-                if (_ew === 0) return React.createElement("span", { style: { color: "#888" } }, "0");
-                var _ewAbs = Math.abs(_ew);
-                return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: _ewAbs >= 10 ? 700 : 600 } }, (_ew > 0 ? "\u2193" : "\u2191") + _ewAbs);
-              })()),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _dynResSv === "miss" ? _qMissCell() : React.createElement(React.Fragment, null, _rPnlDisp(planPnlN, planGrade), _elPlanIsStop(s, _aiSv.alpha, _aiSv.cutLine) ? _elCapNote(_aiSv.cutLine) : null)),
+              _epECell(s, _aiSv.alpha)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, _epPnlCell(s, _aiSv.alpha, _aiSv.cutLine, _rPnlDisp(planPnlN, planGrade))),
             _elHoldTd2(s, _aiSv.alpha, _aiSv.cutLine, { padding: "4px 6px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" }, (holdPnl != null && _elHoldIsStop(s, _aiSv.alpha, _aiSv.cutLine)) ? _elCapNote(_aiSv.cutLine) : null),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnlN, realGrade))
           )
@@ -2905,7 +2874,7 @@ function EntryLogView(_ref_elv) {
         if (rExp) {
           subRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, data: data, onEdit: handleEdit, onGoDate: handleGoDate })
               )
             )
@@ -2932,7 +2901,7 @@ function EntryLogView(_ref_elv) {
       var _lblSvtot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
       var _ctAllMiss = _elAllMissRow(recs, function(_r){ return _elAlphaInfo(_r, data).alpha; }, function(_r){ return _elAlphaInfo(_r, data).cutLine; });
       var totRow = React.createElement("tr", { key: "__svtot__", style: { background: "#FFF7ED" } },
-        React.createElement("td", { colSpan: 8, style: { textAlign: "right", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C" } }, "合計 →"),
+        React.createElement("td", { colSpan: 7, style: { textAlign: "right", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C" } }, "合計 →"),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } }, _lblSvtot("EP損益"), (_ctAllMiss ? _qZeroCell() : _rPnlDispABAllSv(_totPlanABsv, _totPlan, _totPlanGradeABsv, _totPlanGrade)),
           (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
         React.createElement("td", { colSpan: 2, style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6" } },
@@ -2953,13 +2922,12 @@ function EntryLogView(_ref_elv) {
               React.createElement("thead", null,
                 React.createElement("tr", null,
                   _rTh("時間", { textAlign: "left" }),
-                  _rTh("E", { width: 1, padding: "4px 2px" }),
+                  _rTh("取引", { width: 1, padding: "4px 2px" }),
                   _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
                   _rTh("α値", { width: "1%" }),
                   _rTh("損切り", { width: "1%" }),
-                  _rTh("OS値", { width: "1%" }),
-                  _rTh("確定値", { width: "1%" }),
-                  _rTh("α値比値幅", { width: "1%" }),
+                  _rTh("OS", { width: "1%" }),
+                  _rTh("E", { width: "1%" }),
                   _rTh("EP損益"),
                   React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"),
                   _rTh("実現損益")
