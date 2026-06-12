@@ -136,14 +136,14 @@ function _elInsightBoxV2(items, opts) {
 function _elInsightEmV2(text, color) {
   return React.createElement("b", { style: { color: color || "#92400E" } }, text);
 }
-// 記録群からα候補(0/5/10/15/20/25/30)を総当たりし、H1/H2結果損益の合計が最大になるαを返す。
+// 記録群からα候補(0/5/10/15/20)を総当たりし、H1/H2結果損益の合計が最大になるαを返す。
 // 戻り値 {h1:{a,sum}|null, h2:{a,sum}|null, n} / OS値入力なしはnull。同点は小さいα優先。
 // 損益は取引・銘柄別記録テーブルと同一基準（H1=_elHold1TotParts・H2=_elHold2TotParts・損切り値=各記録の採用値）。
 function _elBestAlphaV2(recs, data) {
   var rs = (recs || []).filter(function(r) { var s = r.signal; return s && s.osVal != null && s.osVal !== ""; });
   if (!rs.length) return null;
   var bestH1 = null, bestH2 = null;
-  [0, 5, 10, 15, 20, 25, 30].forEach(function(a) {
+  [0, 5, 10, 15, 20].forEach(function(a) {
     var s1 = 0, c1 = 0, s2 = 0, c2 = 0;
     rs.forEach(function(r) {
       var s = r.signal;
@@ -3242,7 +3242,7 @@ function EntryLogView(_ref_elv) {
       ),
       
       (function() {
-        var ALPHAS = [0, 5, 10, 15, 20, 25, 30];
+        var ALPHAS = [0, 5, 10, 15, 20];
         var _aRecs = selRecs.filter(function(r) { return r.signal.osVal != null && r.signal.osVal !== ""; });
         if (!_aRecs.length) return null;
         var _aiRows = ALPHAS.map(function(a) {
@@ -3281,7 +3281,7 @@ function EntryLogView(_ref_elv) {
         return React.createElement("div", { style: { padding: "10px 12px", background: "#fff", borderBottom: "1px solid #e0ddd6" } },
           React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "🎯 " + selStock + " のα値別シミュレーション（α意思決定表）"),
           React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } },
-            "この銘柄の全記録（OS値入力 " + _aRecs.length + "件）をα＝0〜30円で再計算。成立率＝OS値≧α（そのαで待った場合にエントリーできた率）。損切り＝想定・H1・H2いずれか（損切り値は各記録の採用値）。損益は銘柄別記録・取引と同一基準（100株換算・H2は期待度○/△が本集計・×は括弧参考）。★＝H1/H2それぞれの利益最大α。"),
+            "この銘柄の全記録（OS値入力 " + _aRecs.length + "件）をα＝0〜20円で再計算。成立率＝OS値≧α（そのαで待った場合にエントリーできた率）。損切り＝想定・H1・H2いずれか（損切り値は各記録の採用値）。損益は銘柄別記録・取引と同一基準（100株換算・H2は期待度○/△が本集計・×は括弧参考）。★＝H1/H2それぞれの利益最大α。"),
           React.createElement("div", { style: { overflowX: "auto" } },
             React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
               React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
