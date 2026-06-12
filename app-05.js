@@ -3183,6 +3183,18 @@ function _epLegs(s) {
   if (s.os3High != null && s.os3High !== "") L.push({ h: _osn(s.os3High, s.os3HighSign), c: _osn(s.os3Conf, s.os3ConfSign), exp: null, role: "os3" });
   if (s.holdHighVal != null || s.holdWidth != null) L.push({ h: _hn(s.holdHighVal, s.holdHighSign), c: _hn(s.holdWidth, s.holdWidthSign), exp: null, role: "h1" });
   if (s.hold2HighVal != null || s.hold2Width != null) L.push({ h: _hn(s.hold2HighVal, s.hold2HighSign), c: _hn(s.hold2Width, s.hold2WidthSign), exp: null, role: "h2" });
+  // ミラー足の除去: フォームはEP位置に応じてHold欄をOS2/OS3欄と同期（同じ足の写し）して保存するため、
+  // 写し分のレグを除くと実在の足だけになる。写し構成は採用α（保存時のEP位置）で決まる:
+  // EP=OS1→h1/h2はOS2/OS3の写し・EP=OS2→h1はOS3の写し・EP=OS3/E未達→写しなし。
+  // これによりαシミュでEP位置が動いてもh1/h2のrole導出が足のダブりなく追従する（不足足はnull）。
+  var _a0 = (s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s.difficulty);
+  var _ep0 = -1;
+  for (var _i0 = 0; _i0 < Math.min(3, L.length); _i0++) { if (L[_i0].h != null && L[_i0].h >= _a0) { _ep0 = _i0; break; } }
+  if (_ep0 >= 0) {
+    var _r0 = L[_ep0].role;
+    if (_r0 === "os1") L = L.filter(function(o) { return o.role !== "h1" && o.role !== "h2"; });
+    else if (_r0 === "os2") L = L.filter(function(o) { return o.role !== "h1"; });
+  }
   return L;
 }
 // EP解決: 先頭3本以内で高値≥αとなる最初の足。{epIdx, ep, h1, h2, judge, legs}。
@@ -3478,7 +3490,7 @@ function _epSignedNode(v, key) {
   return React.createElement("span", { key: key, style: { fontVariantNumeric: "tabular-nums", color: _vcol(abs, up), fontWeight: abs >= 10 ? 700 : 600 } }, (up ? "↑" : "↓") + abs);
 }
 // OS欄: 最初の3本（OS枠）の連鎖「8(↑3)→9(↑5)→15(↓2)」。値=高値(確定値)・高値は正なら矢印なし。
-// EP=OS1ならH1/H2の足も2・3本目として表示。alphaを渡すとEPになった足の下に小さく「↑/EP」を2行表示。
+// EP=OS1ならH1/H2の足も2・3本目として表示。alphaを渡すとEPになった足の下に「↑EP」を表示（数値と同サイズ・1行）。
 // 旧記録はOS1のみ（osVal≥αならEPマーカー・H1成立の旧特例は対象外）。
 function _epOsChainCell(s, alpha) {
   var legs, epIdx = -1;
@@ -3501,10 +3513,9 @@ function _epOsChainCell(s, alpha) {
       _epSignedNode(o.c, "c" + i),
       React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, ")"));
     nodes.push(i === epIdx
-      ? React.createElement("span", { key: "lg" + i, style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 } },
+      ? React.createElement("span", { key: "lg" + i, style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } },
           _val,
-          React.createElement("span", { style: { fontSize: 8, fontWeight: 800, color: "#0369A1" } }, "↑"),
-          React.createElement("span", { style: { fontSize: 8, fontWeight: 800, color: "#0369A1" } }, "EP"))
+          React.createElement("span", { style: { fontWeight: 800, color: "#0369A1", lineHeight: 1.1, whiteSpace: "nowrap" } }, "↑EP"))
       : React.createElement("span", { key: "lg" + i, style: { display: "inline-flex" } }, _val));
   });
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", whiteSpace: "nowrap" } }, nodes);

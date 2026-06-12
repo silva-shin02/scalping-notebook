@@ -4464,7 +4464,14 @@ function EntrySignalSection(_ref_es) {
             var planPnlN = planPnl != null ? _p100(planPnl) : null;
             var maxPnlN  = maxPnl  != null ? _p100(maxPnl)  : null;
             
-            if (s.osVal != null) {
+            if (_epIsV2(s)) {
+              // EP起算v2: EP足基準の共通ヘルパーで（EP=OS2/3でも損益変化記号の比較元・損切り額が正しくなる）
+              var _dynPnlV2 = _elDynPlanned(s, _esAlpha(s), _esCut(s));
+              if (_dynPnlV2 != null) {
+                planPnl = _dynPnlV2; planPnlN = _dynPnlV2;
+                maxPnl  = _dynPnlV2; maxPnlN  = _dynPnlV2;
+              }
+            } else if (s.osVal != null) {
               var _avDyn = _esAlpha(s);
               var _osVDyn = Number(s.osVal);
               var _cutLDyn = _esCut(s);

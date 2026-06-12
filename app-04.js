@@ -4136,21 +4136,13 @@ function DayView(_ref57) {
         var item = r.item;
         var realPnl = (item && item.pnl != null) ? Number(item.pnl)
           : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
-        var planPnl = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-        var holdPnl = _elSignedVal(s.holdPnl, s.holdPnlSign);
-
         var _alphaRec = alphaOf(r);
         var _cutLrec = cutOf(r);
-        if (_alphaRec != null && s.osVal != null) {
-          var _confR = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-          var _diffR = Number(s.osVal) - _alphaRec;
-          var _dpR = _diffR < 0 ? 0 : _diffR >= _cutLrec ? -Math.round(_diffR * 100) : (_confR != null ? Math.round((_alphaRec - _confR) * 100) : null);
-          if (_dpR != null) planPnl = _dpR;
-        }
-        if (_alphaRec != null) { holdPnl = _elDynHold(s, _alphaRec, _cutLrec); }
+        // EP損益/H損益/結果は共通ヘルパーで算出（EP起算v2はEP足基準。行表示の_epPnlCell等と同一基準＝EP=OS2/3の損切り額も合計に算入される）
+        var planPnl = _elDynPlanned(s, _alphaRec, _cutLrec);
+        var holdPnl = _elDynHold(s, _alphaRec, _cutLrec);
         var entered = _elIsEntered(s, item);
-        var _dynResExp = (function() { if (_alphaRec == null || s.osVal == null || Number(s.osVal) < 0) return null; var _dv = Number(s.osVal) - _alphaRec; if (_dv < 0) return "miss"; if (_dv >= _cutLrec) return "ng"; if (s.osConfVal == null || s.osConfVal === "") return null; var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; return _cf < _alphaRec ? "ok" : _cf === _alphaRec ? "draw" : "ng"; })();
-        var _dispResExp = _dynResExp !== null ? _dynResExp : s.result;
+        var _dispResExp = _elDynResult(s, _alphaRec, _cutLrec);
         var isOk = _dispResExp === "ok";
         var isNg = _dispResExp === "ng";
         var isDraw = _dispResExp === "draw";
@@ -4442,13 +4434,7 @@ function DayView(_ref57) {
               var s = r.signal;
               var _aD = _wkAlphaOf(r);
               var _cutLwkD = _wkCutOf(r);
-              var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-              if (_aD != null && s.osVal != null) {
-                var _cfD = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-                var _dfD = Number(s.osVal) - _aD;
-                var _pD = _dfD < 0 ? 0 : _dfD >= _cutLwkD ? -Math.round(_dfD * 100) : (_cfD != null ? Math.round((_aD - _cfD) * 100) : null);
-                if (_pD != null) pp = _pD;
-              }
+              var pp = _elDynPlanned(s, _aD, _cutLwkD);  // EP起算v2対応（EP=OS2/3の損切り額も算入）
               if (pp != null) _dynSP = (_dynSP || 0) + pp;
             });
             return _wkPnlCell(_profitGradeFromPnl(_dynSP != null ? _dynSP : 0, (_dynSP != null && _dynSP !== 0) ? st.total : 0), _dynSP);
@@ -4462,13 +4448,7 @@ function DayView(_ref57) {
               var _cutLR = _wkCutOf(r);
               var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign);
               if (hp == null) return;
-              var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-              if (_aR != null && s.osVal != null) {
-                var _cfD = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-                var _dfD = Number(s.osVal) - _aR;
-                var _pD = _dfD < 0 ? 0 : _dfD >= _cutLR ? -Math.round(_dfD * 100) : (_cfD != null ? Math.round((_aR - _cfD) * 100) : null);
-                if (_pD != null) pp = _pD;
-              }
+              var pp = _elDynPlanned(s, _aR, _cutLR);  // EP起算v2対応（想定損切り時のキャップ基準もEP足の額になる）
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
               var _x = (s.holdExp === "×" || s.holdExp === "損切り済");
@@ -4516,7 +4496,7 @@ function DayView(_ref57) {
           var _cl = (function() { var _c = _pbCharts[rec.stock + "_" + rec.date]; return _c && _c.cutLine != null ? _c.cutLine : 10; })();
           return { conf: conf, osVal: osV, cutLine: _cl, sig: sig };
         });
-        var calcProfit = function(alpha) { var total = 0, hasAny = false; sigData.forEach(function(d) { if (d.osVal == null) return; hasAny = true; var _cl = d.cutLine != null ? d.cutLine : 10; if (alpha > d.osVal) {} else if (d.osVal - alpha >= _cl) { total += -(d.osVal - alpha) * 100; } else { if (d.conf == null) { hasAny = false; return; } total += (alpha - d.conf) * 100; } }); return hasAny ? Math.round(total) : null; };
+        var calcProfit = function(alpha) { var total = 0, hasAny = false; sigData.forEach(function(d) { if (_epIsV2(d.sig)) { var _pv = _elDynPlanned(d.sig, alpha, d.cutLine != null ? d.cutLine : 10); if (_pv != null) { total += _pv; hasAny = true; } return; } if (d.osVal == null) return; var _cl = d.cutLine != null ? d.cutLine : 10; if (alpha > d.osVal) { hasAny = true; } else if (d.osVal - alpha >= _cl) { total += -(d.osVal - alpha) * 100; hasAny = true; } else if (d.conf != null) { total += (alpha - d.conf) * 100; hasAny = true; } }); return hasAny ? Math.round(total) : null; };
         var calcHold = function(alpha) { var total = 0, hasAny = false; sigData.forEach(function(d) { if (d.osVal == null) return; hasAny = true; var hp = _elDynHold(d.sig, alpha, d.cutLine != null ? d.cutLine : 10); if (hp != null) total += hp; }); return hasAny ? Math.round(total) : null; };
         var minA = null, tgtA = null, maxA = null, maxP = null;
         _EL_IDEAL_ALPHAS.forEach(function(_a) { var _p = calcProfit(_a); if (_p == null) return; if (minA == null && _p >= 1) minA = _a; if (tgtA == null && _p >= 2500) tgtA = _a; if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; } });
@@ -4698,13 +4678,7 @@ function DayView(_ref57) {
               var s = r.signal;
               var _aD = _pbAlphaOf(r);
               var _cutLpbD = _pbCutOf(r);
-              var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-              if (_aD != null && s.osVal != null) {
-                var _cfD = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-                var _dfD = Number(s.osVal) - _aD;
-                var _pD = _dfD < 0 ? 0 : _dfD >= _cutLpbD ? -Math.round(_dfD * 100) : (_cfD != null ? Math.round((_aD - _cfD) * 100) : null);
-                if (_pD != null) pp = _pD;
-              }
+              var pp = _elDynPlanned(s, _aD, _cutLpbD);  // EP起算v2対応（EP=OS2/3の損切り額も算入）
               if (pp != null) { _dynSP = (_dynSP || 0) + pp; if (s.difficulty === "A" || s.difficulty === "B") _dynSPAB = (_dynSPAB || 0) + pp; }
             });
             var _hasAlpha = (recs || []).some(function(r) { return r.signal && r.signal.alphaVal != null; });
@@ -4720,13 +4694,7 @@ function DayView(_ref57) {
               var _cutLR = _pbCutOf(r);
               var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign);
               if (hp == null) return;
-              var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-              if (_aR != null && s.osVal != null) {
-                var _cfD = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-                var _dfD = Number(s.osVal) - _aR;
-                var _pD = _dfD < 0 ? 0 : _dfD >= _cutLR ? -Math.round(_dfD * 100) : (_cfD != null ? Math.round((_aR - _cfD) * 100) : null);
-                if (_pD != null) pp = _pD;
-              }
+              var pp = _elDynPlanned(s, _aR, _cutLR);  // EP起算v2対応（想定損切り時のキャップ基準もEP足の額になる）
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
               var _x = (s.holdExp === "×" || s.holdExp === "損切り済");
@@ -4836,17 +4804,10 @@ function DayView(_ref57) {
               var _totPb = null, _totPbCnt = 0, _totHPb = null, _totHPbCnt = 0;
               _recs.forEach(function(r) {
                 var s = r.signal;
-                var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-                var hp = _elSignedVal(s.holdPnl, s.holdPnlSign);
                 var _aW = _pbAlphaOf(r);
                 var _cutLW = _pbCutOf(r);
-                if (_aW != null && s.osVal != null) {
-                  var _cW = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-                  var _dW = Number(s.osVal) - _aW;
-                  var _pW = _dW < 0 ? 0 : _dW >= _cutLW ? -Math.round(_dW * 100) : (_cW != null ? Math.round((_aW - _cW) * 100) : null);
-                  if (_pW != null) pp = _pW;
-                }
-                if (_aW != null) { hp = _elDynHold(s, _aW, _cutLW); }
+                var pp = _elDynPlanned(s, _aW, _cutLW);  // EP起算v2対応
+                var hp = _elDynHold(s, _aW, _cutLW);
                 if (pp != null) { _totPb = (_totPb || 0) + pp; _totPbCnt++; }
                 if (hp != null) { _totHPb = (_totHPb || 0) + hp; _totHPbCnt++; }
               });
@@ -4916,18 +4877,22 @@ function DayView(_ref57) {
       var calcProfit = function(alpha) {
         var total = 0, hasAny = false;
         sigData.forEach(function(d) {
+          // EP起算v2はEP足基準の共通ヘルパーで（EP=OS2/3でも正しい値）
+          if (_epIsV2(d.sig)) {
+            var _pv = _elDynPlanned(d.sig, alpha, d.cutLine != null ? d.cutLine : 10);
+            if (_pv != null) { total += _pv; hasAny = true; }
+            return;
+          }
           if (d.osVal == null) return;
-          hasAny = true;
           var _cl = d.cutLine != null ? d.cutLine : 10;
           if (alpha > d.osVal) {
-            
+            hasAny = true;
           } else if (d.osVal - alpha >= _cl) {
-            
             total += -(d.osVal - alpha) * 100;
-          } else {
-            
-            if (d.conf == null) { hasAny = false; return; }
+            hasAny = true;
+          } else if (d.conf != null) {
             total += (alpha - d.conf) * 100;
+            hasAny = true;
           }
         });
         return hasAny ? Math.round(total) : null;
@@ -5044,10 +5009,8 @@ function DayView(_ref57) {
         var _cutLHA = _pbCutOf(r);
         if (_aR != null && _elPlanIsStop(s, _aR, _cutLHA)) return null;  // 想定段階で損切り→H1ホールド成績(勝率・分布)から完全除外
         if (_aR != null) { hp = _elDynHold(s, _aR, _cutLHA); }
-        var pp = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-        if (_aR!=null&&s.osVal!=null){var _cfH=s.osConfVal!=null?(s.osConfSign==="-"?-(Number(s.osConfVal)):Number(s.osConfVal)):null;var _dfH=Number(s.osVal)-_aR;var _pxH=_dfH<0?0:_dfH>=_cutLHA?-Math.round(_dfH*100):(_cfH!=null?Math.round((_aR-_cfH)*100):null);if(_pxH!=null)pp=_pxH;}
-        var _drH=(function(){if(_aR==null||s.osVal==null||Number(s.osVal)<0)return null;var _dv=Number(s.osVal)-_aR;if(_dv<0)return"miss";if(_dv>=_cutLHA)return"ng";if(s.osConfVal==null||s.osConfVal==="")return null;var _cf3=s.osConfSign==="+"?Number(s.osConfVal):s.osConfSign==="-"?-Number(s.osConfVal):0;return _cf3<_aR?"ok":_cf3===_aR?"draw":"ng";})();
-        var dispRH=_drH!==null?_drH:s.result;
+        var pp = _elDynPlanned(s, _aR, _cutLHA);  // EP起算v2対応
+        var dispRH = _elDynResult(s, _aR, _cutLHA);
         var dynHpH=(function(){if(hp==null)return s.holdProfit;if(dispRH==="draw"){return hp>0?"yes":hp<0?"no":"none";}if(pp==null)return s.holdProfit;if(pp>0&&hp>0){return hp>pp?"yes":hp<pp?"mid":"none";}if(pp<0&&hp<0)return"no";if(pp>0&&hp<0)return"no";if(pp<0&&hp>0)return"yes";if(hp===0)return"none";return s.holdProfit;})();
         var hw=null;
         if(_aR!=null&&s.holdOsConf!=null){hw=_aR-Number(s.holdOsConf);}else if(s.holdWidth!=null){hw=s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth);}
