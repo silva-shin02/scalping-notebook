@@ -2803,7 +2803,7 @@ function StockQuickRefTable(_props_qrt) {
               : [
                   { label: "日付", pad: "6px 4px" },
                   { label: "地合い", pad: "6px 6px" },
-                  { label: "想定損益", pad: "6px 7px" },
+                  { label: "単独損益", pad: "6px 7px" },
                   { label: "H損益", pad: "6px 7px" },
                   { label: "実現損益", pad: "6px 7px" },
                   { label: "イベント・タグ", pad: "6px 6px" }
@@ -3971,7 +3971,7 @@ function DayView(_ref57) {
                 _trTh("α値比値幅", { width: "1%" }),
                 _trTh("E", { width: 1, padding: "4px 2px" }),
                 _trTh("結果", { width: "1%" }),
-                _trTh("想定損益"),
+                _trTh("単独損益"),
                 React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"),
                 _trTh("実現損益")
               )
@@ -4154,7 +4154,7 @@ function DayView(_ref57) {
               _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
             ),
             React.createElement("button", { onClick: function(e) { stop(e); var _ia = _elIdealAlpha(r.signal, cutOf(r)); if (_ia == null) return; if (actualA != null && _ia === Number(actualA)) { _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); } else { setVal(String(_ia)); } },
-              title: "損切りにならず『想定損益＋H1結果損益』が最大になるα(0/5/10/15/20/25/30)を入力。該当が無ければ一番マシな値。",
+              title: "損切りにならず『単独損益＋H1結果損益』が最大になるα(0/5/10/15/20/25/30)を入力。該当が無ければ一番マシな値。",
               style: { fontSize: 8, padding: "1px 4px", border: "1px solid #0369A1", borderRadius: 3, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想"),
             React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; _sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
               style: { fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", display: isSim ? "inline-block" : "none" } }, "↺")
@@ -4346,7 +4346,7 @@ function DayView(_ref57) {
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
         React.createElement("td", { colSpan: 8, style: { borderTop: "2px solid #FB923C" } }),
-        React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("想定損益"), (_pbAllMiss ? _qZeroCell() : _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
+        React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("単独損益"), (_pbAllMiss ? _qZeroCell() : _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
           (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
         React.createElement("td", { colSpan: 2, style: { padding: "1px 0", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
           React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
@@ -4382,7 +4382,7 @@ function DayView(_ref57) {
               _rTh("確定値", { width: 54 }),
               _rTh("α値比値幅", { width: 50 }),
               _rTh("E", { width: 70 }),
-              _rTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 104 }),
+              _rTh(React.createElement("span", null, "単独損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 104 }),
               React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"),
               _rTh("実現損益", { width: 82 })
             )
@@ -4658,7 +4658,7 @@ function DayView(_ref57) {
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
                 _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")), _wkTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")), _wkTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
-                _wkTh("平均OS値"), _wkTh("想定損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
+                _wkTh("平均OS値"), _wkTh("単独損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
               )
             ),
             React.createElement("tbody", null,
@@ -4938,7 +4938,7 @@ function DayView(_ref57) {
               if (_totPbCnt === 0 && _totHPbCnt === 0) return null;
               return React.createElement("span", { style: { display: "inline-flex", gap: 10, marginLeft: 8, paddingLeft: 8, borderLeft: "1px solid #f0ede6", flexWrap: "wrap" } },
                 _totPbCnt > 0 ? React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-                  "想定損益合計: ",
+                  "単独損益合計: ",
                   React.createElement("span", { style: { fontWeight: 700, color: (_totPb||0) > 0 ? "#C0392B" : (_totPb||0) < 0 ? "#1E8449" : "#888" } },
                     ((_totPb||0) > 0 ? "+" : "") + (_totPb||0).toLocaleString() + "円")
                 ) : null,
@@ -4977,7 +4977,7 @@ function DayView(_ref57) {
       };
       return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8, fontSize: 9 } },
         mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-", Q:"E基準未達のため非表示" }),
-        mkRow("想定損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-", Q:"E基準未達のため非表示" })
+        mkRow("単独損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-", Q:"E基準未達のため非表示" })
       );
     })();
     
@@ -5212,7 +5212,7 @@ function DayView(_ref57) {
       return React.createElement("div",{style:Object.assign({},Card,{marginTop:8})},
         React.createElement("div",{style:{fontSize:13,fontWeight:700,marginBottom:10,color:"#333"}},"📐 ホールド変動分析"),
         
-        _haGradeSec(_haRecs, React.createElement("span",null,"H1 ホールド成績",React.createElement("span",{style:{fontWeight:400,fontSize:9,color:"#888",marginLeft:6}},"想定損益比（○良化/△改善幅小/ー同等/×悪化）"))),
+        _haGradeSec(_haRecs, React.createElement("span",null,"H1 ホールド成績",React.createElement("span",{style:{fontWeight:400,fontSize:9,color:"#888",marginLeft:6}},"単独損益比（○良化/△改善幅小/ー同等/×悪化）"))),
         _ha2Recs.length ? _haGradeSec(_ha2Recs, React.createElement("span",null,"H2 ホールド成績",React.createElement("span",{style:{fontWeight:400,fontSize:9,color:"#888",marginLeft:6}},"H1損益比・期待度○/△の記録（○良化/△改善幅小/ー同等/×悪化）"))) : null,
         
         (function(){
@@ -5239,7 +5239,7 @@ function DayView(_ref57) {
               React.createElement("div",{style:{fontSize:16,fontWeight:800,color:col||"#333",marginTop:2}},valTxt));
           };
           return React.createElement("div",{style:{marginBottom:14}},
-            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールドによる損益変化",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"ホールド損益−想定損益・100株換算 / 赤＝良化・緑＝悪化（転化＝想定と損益の符号が逆転）")),
+            React.createElement("div",{style:{fontSize:11,fontWeight:700,color:"#555",marginBottom:6,borderBottom:"1px solid #e0ddd6",paddingBottom:4}},"ホールドによる損益変化",React.createElement("span",{style:{fontSize:9,fontWeight:400,color:"#888",marginLeft:6}},"ホールド損益−単独損益・100株換算 / 赤＝良化・緑＝悪化（転化＝単独と損益の符号が逆転）")),
             React.createElement("div",{style:{fontSize:13,fontWeight:800,color:verdictCol,marginBottom:8}},"→ "+verdict+"（良化"+better+"件 / 悪化"+worse+"件"+(flat?" / 変動なし"+flat+"件":"")+"）"),
             React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
               _box("利益増加",profUp+"件","#C0392B"),
@@ -5294,7 +5294,7 @@ function DayView(_ref57) {
               _pbTh(React.createElement("span", { style: { color: "#C0392B" } }, "負"), { width: 30 }),
               _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達"), { width: 40 }),
               _pbTh(React.createElement("span", null, "平均", React.createElement("span", { style: { display: "block" } }, "OS値")), { width: 50 }),
-              _pbTh(React.createElement("span", null, "想定損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
+              _pbTh(React.createElement("span", null, "単独損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
               _pbTh(React.createElement("span", null, "H１損益"), { width: 78 }),
               _pbTh(React.createElement("span", null, "H２損益"), { width: 78 }),
               _pbTh("実現損益", { width: 80 }),
@@ -5623,7 +5623,7 @@ function DayView(_ref57) {
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "予想OS度"),
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#0369A1", fontSize: 10 } }, "α値"),
                 React.createElement("th", { style: { textAlign: "center", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "件数"),
-                React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "想定損益")
+                React.createElement("th", { style: { textAlign: "right", padding: "2px 4px", fontWeight: 600, color: "#888", fontSize: 10 } }, "単独損益")
               )
             ),
             React.createElement("tbody", null,

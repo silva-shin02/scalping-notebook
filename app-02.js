@@ -3865,7 +3865,7 @@ function EntrySignalSection(_ref_es) {
           _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
         ),
         React.createElement("button", { onClick: function(e) { stop(e); var _ia = _elIdealAlpha(r.signal, _esCut(r.signal)); if (_ia == null) return; if (actualA != null && _ia === Number(actualA)) { sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); } else { setVal(String(_ia)); } },
-          title: "損切りにならず『想定損益＋H1結果損益』が最大になるα(0/5/10/15/20/25/30)を入力。該当が無ければ一番マシな値。",
+          title: "損切りにならず『単独損益＋H1結果損益』が最大になるα(0/5/10/15/20/25/30)を入力。該当が無ければ一番マシな値。",
           style: { fontSize: 8, padding: "1px 4px", border: "1px solid #0369A1", borderRadius: 3, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想"),
         React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; sc.set(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); },
           style: { fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: "#0369A1", cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", display: isSim ? "inline-block" : "none" } }, "↺")
@@ -4295,12 +4295,12 @@ function EntrySignalSection(_ref_es) {
               padding: "4px 10px" }
           },
             React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start" } },
-              React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#888", whiteSpace: "nowrap" } }, "📊 想定/最大"),
+              React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#888", whiteSpace: "nowrap" } }, "📊 単独/最大"),
               React.createElement("span", { style: { fontSize: 8, color: "#bbb", whiteSpace: "nowrap" } }, "(100株あたり)")
             ),
             (function() {
               var _items = [
-                { key: "plan", label: "想定", sum: _esGrades.planSum },
+                { key: "plan", label: "単独", sum: _esGrades.planSum },
                 { key: "max",  label: "最大", sum: _esGrades.maxSum }
               ];
               return _items.map(function(item) {
@@ -4414,7 +4414,7 @@ function EntrySignalSection(_ref_es) {
     },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "合計"),
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-        "想定損益: ",
+        "単独損益: ",
         _esAllMiss ? _qZeroCell() : (_esTotPlanCnt > 0
           ? _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
           : React.createElement("span", { style: { color: "#ccc" } }, "—"))
@@ -4666,7 +4666,7 @@ function EntrySignalSection(_ref_es) {
                   ),
                   _esTh("確定値", { width: 58 }),
                   _esTh(React.createElement("span", null, "α値比", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "値幅")), { width: 40 }),
-                  _esTh("結果/想定損益", { width: 116 }),
+                  _esTh("結果/単独損益", { width: 116 }),
                   React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"),
                   _esTh("実現損益", { width: 90 }),
                   isCustomMode ? _esTh("並替", { width: 40 }) : null

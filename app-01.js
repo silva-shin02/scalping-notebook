@@ -579,7 +579,7 @@ function migrateData(d) {
     } catch(e) { console.warn("[migrateData] sigRename error:", e); }
   }
 
-  // 想定損益 or H1の結果損益が損切りの記録は H2期待度を「損切り済」に設定（既存の○/△/×も上書き）。
+  // 単独損益 or H1の結果損益が損切りの記録は H2期待度を「損切り済」に設定（既存の○/△/×も上書き）。
   if (!d._migHold2StopExp1) {
     try {
       if (d.charts && typeof d.charts === "object") {
