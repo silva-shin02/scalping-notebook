@@ -226,7 +226,194 @@ function EntryStatsSummary(_ref_ess) {
 
 
 
-function EntryLogView(_ref_elv) {
+// === エントリー記録帳（EP起算方式対応・ミニマル再構築 2026-06-12）===
+// 集計（KPI/日別集計/銘柄別比較/α意思決定表）はv2記録のみ。旧記録は一覧でのみ表示。
+// 旧実装は _entryLogViewLegacy として休眠（未参照・整理予定）。
+function EntryLogView(_ref_elv2) {
+  var data = _ref_elv2.data, save = _ref_elv2.save, onBack = _ref_elv2.onBack,
+    onSelectDate = _ref_elv2.onSelectDate, initialEdit = _ref_elv2.initialEdit;
+  var custom = data.custom || {};
+  var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
+  var _uP = useState("all"), period = _uP[0], setPeriod = _uP[1];
+  var _uS = useState(""), stockFil = _uS[0], setStockFil = _uS[1];
+  var _uE = useState(initialEdit || null), editTarget = _uE[0], setEditTarget = _uE[1];
+  var _uX = useState(null), expKey = _uX[0], setExpKey = _uX[1];
+  var _uL = useState(30), listLimit = _uL[0], setListLimit = _uL[1];
+  var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
+  var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var _secH = function(t) { return React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", margin: "14px 0 6px" } }, t); };
+  var _kpiCard = function(label, val, color, sub) {
+    return React.createElement("div", { key: label, style: { flex: "1 1 90px", minWidth: 88, background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "8px 10px", textAlign: "center" } },
+      React.createElement("div", { style: { fontSize: 10, color: "#999", fontWeight: 700, marginBottom: 3 } }, label),
+      React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: color || "#333", lineHeight: 1.1, whiteSpace: "nowrap" } }, val),
+      sub ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginTop: 2 } }, sub) : null);
+  };
+  var _yenN = function(v, cnt) {
+    if (cnt === 0 || v == null) return _dash;
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, justifyContent: "center" } },
+      _elHoldGradeBadge(_profitGradeFromPnl(v, 1)),
+      React.createElement("span", { style: { color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"));
+  };
+  // 記録収集・絞込
+  var allRecs = _elCollectAllSignals(data);
+  var filtered = _elFilterPeriod(allRecs, period).filter(function(r) { return !stockFil || r.stock === stockFil; });
+  var v2recs = filtered.filter(function(r) { return _epIsV2(r.signal); });
+  var oldCnt = filtered.length - v2recs.length;
+  var _ai = function(r) { return _elAlphaInfo(r, data); };
+  // KPI（v2のみ）
+  var kpi = (function() {
+    var n = v2recs.length, ok = 0, x = 0, miss = 0, ep = 0, epC = 0, h1 = 0, h1C = 0, h2 = 0, h2C = 0, real = 0, realC = 0;
+    v2recs.forEach(function(r) {
+      var s = r.signal, a = _ai(r);
+      var rr = _epResolve(s, a.alpha), j = rr ? rr.judge : null;
+      if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++;
+      if (j === "ok") { var pv = _elDynPlanned(s, a.alpha, a.cutLine); if (pv != null) { ep += pv; epC++; } }
+      var t1 = _elHold1TotParts(s, a.alpha, a.cutLine); if (t1.main != null) { h1 += t1.main; h1C++; }
+      var t2 = _elHold2TotParts(s, a.alpha, a.cutLine); if (t2.main != null) { h2 += t2.main; h2C++; }
+      if (_elIsEntered(s, r.item)) { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) { real += rv; realC++; } }
+    });
+    return { n: n, ok: ok, x: x, miss: miss, reach: n ? Math.round((ok + x) / n * 100) : null,
+      ep: ep, epC: epC, h1: h1, h1C: h1C, h2: h2, h2C: h2C, real: real, realC: realC, ss: _elStopStatsV2(v2recs, data) };
+  })();
+  // 日別集計（1行=1エントリー・v2のみ）
+  var _dayRows = v2recs.slice().sort(function(a, b) {
+    if (a.date !== b.date) return b.date.localeCompare(a.date);
+    return (a.signal.time || "").localeCompare(b.signal.time || "");
+  });
+  var _th = function(t, ex) { return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#9A3412" }, ex || {}) }, t); };
+  var _td = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+  var _dayTable = (function() {
+    if (!_dayRows.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "v2記録なし");
+    var body = [];
+    _dayRows.forEach(function(r) {
+      var s = r.signal, a = _ai(r);
+      var _bandI = (s.osVal != null && s.osVal !== "") ? _elOsBandIdxV2(s.osVal) : null;
+      var ek = "d_" + r.stock + "_" + s.id, on = expKey === ek;
+      var _dp = r.date.split("-");
+      var _dow = ["日", "月", "火", "水", "木", "金", "土"][new Date(+_dp[0], +_dp[1] - 1, +_dp[2]).getDay()];
+      body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: { background: on ? "#FFF7ED" : "transparent", cursor: "pointer" } },
+        _td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow + ")", { textAlign: "left", paddingLeft: 8, fontWeight: 700 }),
+        _td(s.time || _dash, { color: "#666" }),
+        _td(r.stock, { color: "#9A3412", fontWeight: 700 }),
+        _td(s.osVal != null ? React.createElement("span", { style: { color: _vcol(s.osVal, true), fontWeight: 600 } }, s.osVal + "円") : _dash),
+        _td(_elHoldMaxHighCell(s)),
+        _td(_bandI != null ? React.createElement("span", { style: { display: "inline-block", padding: "1px 6px", borderRadius: 8, fontSize: 9, fontWeight: 700, color: "#fff", background: _EL_OS_BANDS_V2[_bandI].color, whiteSpace: "nowrap" } }, _EL_OS_BANDS_V2[_bandI].label) : _dash),
+        _td(_elOutcomeCell(s, a.alpha, a.cutLine))));
+      if (on) body.push(React.createElement("tr", { key: ek + "_c" },
+        React.createElement("td", { colSpan: 7, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+          React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate }))));
+    });
+    return React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+        React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
+          _th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("OS1値"), _th("H中最高値"), _th("OS帯"), _th("実現結果"))),
+        React.createElement("tbody", null, body)));
+  })();
+  // 銘柄別比較（v2のみ）
+  var _stkTable = (function() {
+    var by = {};
+    v2recs.forEach(function(r) { (by[r.stock] = by[r.stock] || []).push(r); });
+    var keys = Object.keys(by).sort(function(a, b) { return by[b].length - by[a].length; });
+    if (!keys.length) return null;
+    var rows = keys.map(function(stk) {
+      var recs = by[stk];
+      var os = _elOsStatsV2(recs), ss = _elStopStatsV2(recs, data);
+      var reach = 0, p = 0, pc = 0, h1 = 0, h1c = 0, h2 = 0, h2c = 0;
+      recs.forEach(function(r) {
+        var s = r.signal, a = _ai(r);
+        if (_epReachedAt(s, a.alpha)) reach++;
+        var pp = _elDynPlanned(s, a.alpha, a.cutLine); if (pp != null) { p += pp; pc++; }
+        var t1 = _elHold1TotParts(s, a.alpha, a.cutLine); if (t1.main != null) { h1 += t1.main; h1c++; }
+        var t2 = _elHold2TotParts(s, a.alpha, a.cutLine); if (t2.main != null) { h2 += t2.main; h2c++; }
+      });
+      var opts = [];
+      if (pc > 0) opts.push({ k: "EP", v: p });
+      if (h1c > 0) opts.push({ k: "H1", v: h1 });
+      if (h2c > 0) opts.push({ k: "H2", v: h2 });
+      opts.sort(function(a, b) { return b.v - a.v; });
+      return React.createElement("tr", { key: stk, onClick: function() { setStockFil(stockFil === stk ? "" : stk); }, style: { cursor: "pointer", background: stockFil === stk ? "#FFF7ED" : "transparent" } },
+        _td(stk, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+        _td(recs.length, { fontWeight: 700 }),
+        _td(os ? os.avg + "円" : _dash, { fontWeight: 700, color: "#9A3412" }),
+        _td(os ? os.med + "円" : _dash),
+        _td(_elOsDistBarV2(os ? os.dist : null, 72, 11)),
+        _td(recs.length ? React.createElement("span", { style: { fontWeight: 700, color: reach / recs.length >= 0.6 ? "#1E8449" : "#B45309" } }, Math.round(reach / recs.length * 100) + "%") : _dash),
+        _td(_elStopCellV2(ss)),
+        _td(opts.length ? React.createElement("span", { style: { whiteSpace: "nowrap" } },
+          React.createElement("span", { style: { fontWeight: 800, color: "#9A3412", marginRight: 3 } }, opts[0].k),
+          React.createElement("span", { style: { fontWeight: 600, color: opts[0].v > 0 ? "#C0392B" : opts[0].v < 0 ? "#1E8449" : "#888" } }, (opts[0].v > 0 ? "+" : "") + opts[0].v.toLocaleString() + "円")) : _dash));
+    });
+    return React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+        React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
+          _th("銘柄", { textAlign: "left", paddingLeft: 8 }), _th("件"), _th("OS1平均"), _th("中央値"), _th("OS分布"), _th("E成立率"), _th("損切り"), _th("最有利"))),
+        React.createElement("tbody", null, rows)));
+  })();
+  // α意思決定表（v2のみ・α候補0〜20総当たり）
+  var _alphaTable = (function() {
+    var rs = v2recs.filter(function(r) { return r.signal.osVal != null && r.signal.osVal !== ""; });
+    if (!rs.length) return null;
+    var rows = [0, 5, 10, 15, 20].map(function(a) {
+      var ent = 0, stp = 0, sumP = 0, pc = 0, s1 = 0, c1 = 0, s2 = 0, c2 = 0;
+      rs.forEach(function(r) {
+        var s = r.signal, cut = _ai(r).cutLine;
+        if (_epReachedAt(s, a)) ent++;
+        if (_elPlanIsStop(s, a, cut) || _elHoldIsStop(s, a, cut) || _elHoldIsStop2(s, a, cut)) stp++;
+        var pp = _elDynPlanned(s, a, cut); if (pp != null) { sumP += pp; pc++; }
+        var t1 = _elHold1TotParts(s, a, cut); if (t1.main != null) { s1 += t1.main; c1++; }
+        var t2 = _elHold2TotParts(s, a, cut); if (t2.main != null) { s2 += t2.main; c2++; }
+      });
+      return { a: a, ent: ent, stp: stp, sumP: sumP, pc: pc, s1: s1, c1: c1, s2: s2, c2: c2 };
+    });
+    var b1 = Math.max.apply(null, rows.map(function(x) { return x.c1 > 0 ? x.s1 : -Infinity; }));
+    var b2 = Math.max.apply(null, rows.map(function(x) { return x.c2 > 0 ? x.s2 : -Infinity; }));
+    return React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+        React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
+          _th("α値", { textAlign: "left", paddingLeft: 8 }), _th("成立率"), _th("損切り"), _th("EP損益"), _th("H1損益"), _th("H2損益"))),
+        React.createElement("tbody", null, rows.map(function(x) {
+          var i1 = x.c1 > 0 && x.s1 === b1 && b1 > -Infinity, i2 = x.c2 > 0 && x.s2 === b2 && b2 > -Infinity;
+          var _amt = function(v, c, hot) { return c > 0 ? React.createElement("span", { style: { fontWeight: hot ? 800 : 600, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円") : _dash; };
+          return React.createElement("tr", { key: x.a, style: { background: (i1 || i2) ? "#FEF3C7" : "transparent" } },
+            _td(React.createElement("span", null, x.a + "円", i1 ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 3, fontWeight: 800 } }, "★H1") : null, i2 ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 3, fontWeight: 800 } }, "★H2") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#0369A1" }),
+            _td(Math.round(x.ent / rs.length * 100) + "%", { fontWeight: 700 }),
+            _td(x.stp > 0 ? x.stp + "回" : "0回", { color: x.stp > 0 ? "#1E8449" : "#bbb" }),
+            _td(_amt(x.sumP, x.pc, false)), _td(_amt(x.s1, x.c1, i1)), _td(_amt(x.s2, x.c2, i2)));
+        }))));
+  })();
+  // 一覧（旧記録含む全件・日付降順）
+  var _listRecs = filtered.slice().sort(function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); });
+  return React.createElement("div", { style: { padding: "12px 14px", maxWidth: 1100, margin: "0 auto" } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" } },
+      onBack ? React.createElement("button", { onClick: onBack, style: { padding: "6px 12px", fontSize: 12, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "← 戻る") : null,
+      React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#1a1a1a" } }, "📒 エントリー記録帳"),
+      React.createElement("button", { onClick: function() { setEditTarget({}); }, style: { padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", marginLeft: "auto" } }, "＋ 新規記録"),
+      React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
+        [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); })),
+      React.createElement("select", { value: stockFil, onChange: function(e) { setStockFil(e.target.value); }, style: _selSty },
+        [React.createElement("option", { key: "_a", value: "" }, "銘柄:全て")].concat(allStocks.map(function(s) { return React.createElement("option", { key: s, value: s }, s); })))),
+    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 8 } }, "集計はEP起算方式（v2）の記録のみ。旧記録" + (oldCnt > 0 ? "（" + oldCnt + "件）" : "") + "は一覧でのみ表示。"),
+    React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+      _kpiCard("件数", kpi.n + "件", "#333", oldCnt > 0 ? "ほか旧記録" + oldCnt + "件" : null),
+      _kpiCard("E成立率", kpi.reach != null ? kpi.reach + "%" : "—", "#0369A1", "○" + kpi.ok + "・×" + kpi.x + "・未達" + kpi.miss),
+      _kpiCard("EP損益", _yenN(kpi.ep, kpi.epC), null, kpi.epC + "件"),
+      _kpiCard("H1損益", _yenN(kpi.h1, kpi.h1C), null, kpi.h1C + "件"),
+      _kpiCard("H2損益", _yenN(kpi.h2, kpi.h2C), null, kpi.h2C + "件"),
+      _kpiCard("損切り", (kpi.ss && kpi.ss.any || 0) + "回", kpi.ss && kpi.ss.any > 0 ? "#1E8449" : "#bbb", kpi.ss && kpi.ss.rate != null ? "率" + kpi.ss.rate + "%（想" + kpi.ss.plan + "・H1 " + kpi.ss.h1 + "・H2 " + kpi.ss.h2 + "）" : null),
+      _kpiCard("×見送り", kpi.x + "件", kpi.x > 0 ? "#1E8449" : "#bbb", "×宣言後の到達"),
+      _kpiCard("実現損益", _yenN(kpi.real, kpi.realC), null, kpi.realC + "件")),
+    _secH("📅 日別集計（1行=1エントリー・行タップで明細）"), _dayTable,
+    _stkTable ? React.createElement(React.Fragment, null, _secH("📈 銘柄別比較（行タップで絞込）"), _stkTable) : null,
+    _alphaTable ? React.createElement(React.Fragment, null, _secH("🎯 α意思決定表（α=0〜20円で再計算・損切り値は各記録の採用値）"), _alphaTable) : null,
+    _secH("🗂 一覧（旧記録含む全件・" + _listRecs.length + "件）"),
+    _listRecs.slice(0, listLimit).map(function(r) {
+      return React.createElement(EntryLogCard, { key: r.stock + "_" + r.signal.id, record: r, data: data, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate });
+    }),
+    _listRecs.length > listLimit ? React.createElement("button", { onClick: function() { setListLimit(listLimit + 50); }, style: { width: "100%", padding: "8px", fontSize: 12, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", marginTop: 6 } }, "さらに表示（残り" + (_listRecs.length - listLimit) + "件）") : null,
+    editTarget ? React.createElement(EntryRecordForm, { data: data, save: save, initial: (editTarget && editTarget.signal) ? editTarget : null, onClose: function() { setEditTarget(null); } }) : null
+  );
+}
+function _entryLogViewLegacy(_ref_elv) {
   var data = _ref_elv.data,
     save = _ref_elv.save,
     onBack = _ref_elv.onBack,
