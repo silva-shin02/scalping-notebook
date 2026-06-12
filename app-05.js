@@ -5044,6 +5044,28 @@ function EntryRecordForm(_ref_erf) {
 
   
   useEffect(function() {
+    // v2(EP起算): EP足の高値・確定値からEP損益/想定値幅を算出（EP=OS2/3でも正しい値・損益変化の自動選択の比較元にもなる）
+    if (isV2Form && _epFormState) {
+      var _efp = _epFormState;
+      if (_efp.judge !== "ok" || _efp.alpha == null || _efp.epHigh == null) {
+        var _z = (_efp.judge === "miss" || _efp.judge === "x") ? "0" : "";
+        setFEstWidthSign(null); setFEstWidthVal(_z);
+        setFPlanSign(null); setFPlan(_z); return;
+      }
+      var _dfe = _efp.epHigh - _efp.alpha;
+      if (_dfe >= _fCutLine) {
+        setFEstWidthSign("-"); setFEstWidthVal(String(_dfe));
+        setFPlanSign("-"); setFPlan(String(Math.round(_dfe * 100))); return;
+      }
+      if (_efp.epConf == null) { setFEstWidthSign(null); setFEstWidthVal(""); return; }
+      var _we = _efp.alpha - _efp.epConf;
+      var _ws = _we === 0 ? null : (_we > 0 ? "+" : "-");
+      setFEstWidthSign(_ws); setFEstWidthVal(String(Math.abs(_we)));
+      if (_ws == null) { setFPlanSign(null); setFPlan("0"); return; }
+      var _pa = Math.round(Math.abs(_we) * 100);
+      setFPlanSign(_pa === 0 ? null : _ws); setFPlan(String(_pa));
+      return;
+    }
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
     var av = _fAlpha;
@@ -5065,7 +5087,7 @@ function EntryRecordForm(_ref_erf) {
     if (wSign == null) { setFPlanSign(null); setFPlan("0"); return; }
     var planAmt = Math.round(Math.abs(width) * 100);
     setFPlanSign(planAmt === 0 ? null : wSign); setFPlan(String(planAmt));
-  }, [fStock, fDate, data, _fAlpha, _fCutLine, fOsConfSign, fOsConfVal, fOsVal]);
+  }, [fStock, fDate, data, _fAlpha, _fCutLine, fOsConfSign, fOsConfVal, fOsVal, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign]);
 
   
   
@@ -5075,6 +5097,18 @@ function EntryRecordForm(_ref_erf) {
   
   
   useEffect(function() {
+    // v2(EP起算): 内部stateのfResultもEP足基準で更新（損益変化の自動選択effectが参照。保存時はresult=null）
+    if (isV2Form && _epFormState) {
+      var _efr = _epFormState;
+      if (_efr.judge === "miss" || _efr.judge === "x") { setFResult("miss"); return; }
+      if (_efr.judge === "ok" && _efr.alpha != null && _efr.epHigh != null) {
+        var _dfr = _efr.epHigh - _efr.alpha;
+        if (_dfr >= _fCutLine) { setFResult("ng"); return; }
+        if (_efr.epConf == null) return;
+        setFResult(_efr.epConf < _efr.alpha ? "ok" : _efr.epConf === _efr.alpha ? "draw" : "ng");
+      }
+      return;
+    }
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
     var av = _fAlpha;
@@ -5085,13 +5119,13 @@ function EntryRecordForm(_ref_erf) {
     var diff = osV - av;
     if (diff < 0) { setFResult("miss"); return; }
     if (diff >= cutL2) { setFResult("ng"); return; }
-    
+
     if (fOsConfVal === "") return;
     var confSigned = fOsConfSign === "+" ? (Number(fOsConfVal) || 0) : fOsConfSign === "-" ? -(Number(fOsConfVal) || 0) : (Number(fOsConfVal) || 0);
     if (confSigned < av) { setFResult("ok"); return; }
     if (confSigned === av) { setFResult("draw"); return; }
     setFResult("ng");
-  }, [fStock, fDate, data, _fAlpha, _fCutLine, fOsVal, fOsConfSign, fOsConfVal]);
+  }, [fStock, fDate, data, _fAlpha, _fCutLine, fOsVal, fOsConfSign, fOsConfVal, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign]);
 
   
   useEffect(function() {
@@ -5731,19 +5765,21 @@ function EntryRecordForm(_ref_erf) {
             _legCol("OS1", _ef.epIdx === 0, [
               _row("高値", _uIn(fOsVal, setFOsVal)),
               _row("確定値", _sIn(fOsConfVal, setFOsConfVal, fOsConfSign, setFOsConfSign, _oscSignedRef)),
-              (_ef.alpha != null && _ef.o1 != null && _ef.epIdx !== 0) ? _row("到達期待", _expB(fOs1Exp, setFOs1Exp), true) : null
+              _ef.epIdx === 0 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
+                : (_ef.alpha != null && _ef.o1 != null) ? _row("到達期待", _expB(fOs1Exp, setFOs1Exp), true) : null
             ]),
             _legCol("OS2", _ef.epIdx === 1, [
               _row("高値", _sIn(fOs2High, _wrapVal(setFOs2High, _os2HoldIdx, "hv"), fOs2HighSign, _wrapSign(setFOs2HighSign, _os2HoldIdx, "hs"), _os2hSignedRef)),
               _row("確定値", _sIn(fOs2Conf, _wrapVal(setFOs2Conf, _os2HoldIdx, "cv"), fOs2ConfSign, _wrapSign(setFOs2ConfSign, _os2HoldIdx, "cs"), _os2cSignedRef)),
-              _ef.epIdx === 0 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
-                : (_ef.o2 != null && _ef.epIdx !== 1) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp), true) : null
+              _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true)
+                : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
+                : (_ef.o2 != null) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp), true) : null
             ]),
             _legCol("OS3", _ef.epIdx === 2, [
               _row("高値", _sIn(fOs3High, _wrapVal(setFOs3High, _os3HoldIdx, "hv"), fOs3HighSign, _wrapSign(setFOs3HighSign, _os3HoldIdx, "hs"), _os3hSignedRef)),
               _row("確定値", _sIn(fOs3Conf, _wrapVal(setFOs3Conf, _os3HoldIdx, "cv"), fOs3ConfSign, _wrapSign(setFOs3ConfSign, _os3HoldIdx, "cs"), _os3cSignedRef)),
-              _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true)
-                : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true) : null
+              _ef.epIdx === 1 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true)
+                : _ef.epIdx === 2 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true) : null
             ])
           ),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" } }, _eChip, _epPnlChip,
