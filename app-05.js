@@ -5353,7 +5353,7 @@ function EntryRecordForm(_ref_erf) {
     style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }
   },
     React.createElement("div", {
-      style: { background: "#fff", borderRadius: 12, padding: 20, maxWidth: 560, width: "100%", maxHeight: "90vh", overflowY: "auto" }
+      style: { background: "#fff", borderRadius: 12, padding: 20, maxWidth: 780, width: "100%", maxHeight: "90vh", overflowY: "auto" }
     },
       React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
         React.createElement("div", { style: { fontSize: 16, fontWeight: 700 } }, isEdit ? "📝 エントリー記録 編集" : "📝 新規エントリー記録"),
@@ -5642,7 +5642,7 @@ function EntryRecordForm(_ref_erf) {
         })();
         return React.createElement("div", { style: { marginTop: 4, marginBottom: 8, padding: "8px 10px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFBF5" } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 6 } }, "OS足（α値到達待ち・最大3本／値は水準線比）"),
-          React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" } },
+          React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto" } },
             _legCol("OS1", _ef.epIdx === 0, [
               _row("高値", _uIn(fOsVal, setFOsVal)),
               _row("確定値", _sIn(fOsConfVal, setFOsConfVal, fOsConfSign, setFOsConfSign, _oscSignedRef)),
@@ -5802,7 +5802,7 @@ function EntryRecordForm(_ref_erf) {
         (!_fMiss && _fPlanStopNow)
           ? _elCapNote(_fCutLine, { fontSize: 15, circle: 16, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
       ),
-      React.createElement("div", { style: { marginBottom: 8 } },
+      _fHideHold ? null : React.createElement("div", { style: { marginBottom: 8 } },
         React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } },
           "Hold1期待度",
           React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×）")),
@@ -6158,10 +6158,6 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
 
-
-      _fH2Hidden ? React.createElement("div", {
-        style: { marginBottom: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, color: "#555", background: "#F4F6F8", borderRadius: 6, border: "1px solid #e0ddd5" }
-      }, "※ H２欄：H１までE基準未達のため非表示") : null,
 
       React.createElement("div", { style: SH_ }, "実エントリー"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
