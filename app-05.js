@@ -4894,6 +4894,29 @@ function EntryRecordForm(_ref_erf) {
   var _fPlanStopNow = (isV2Form && _epFormState)
     ? (_epFormState.judge === "ok" && _epFormState.epHigh != null && _fAlpha != null && (_epFormState.epHigh - _fAlpha) >= _fCutLine)
     : (Number(fOsVal) > 0 && _fAlpha != null && (Number(fOsVal) - _fAlpha) >= _fCutLine);
+  // Hold→OS の同期: EP=OS1ならH1⇔OS2・H2⇔OS3、EP=OS2ならH1⇔OS3は同一の足。
+  // Hold欄への入力（既存記録の入力済みデータ含む＝マウント時に自動反映）をOS欄へ写す。
+  // OS→Hold方向はOS欄の入力ラッパで同期済み。値が異なる時だけ書き込むためループしない。
+  // 符号変換: hold系"-"=↑ → OS系"+"=↑。
+  useEffect(function() {
+    if (!isV2Form || !_epFormState) return;
+    var idx = _epFormState.epIdx;
+    var _toOs = function(hv, hs, ov, osg, setV, setS) {
+      var v = (hv == null) ? "" : String(hv);
+      var sg = hs === "-" ? "+" : hs === "+" ? "-" : null;
+      if (v !== ov) setV(v);
+      if (v !== "" && sg !== osg) setS(sg);
+    };
+    if (idx === 0) {
+      _toOs(fHoldHighVal, fHoldHighSign, fOs2High, fOs2HighSign, setFOs2High, setFOs2HighSign);
+      _toOs(fHoldWidthVal, fHoldWidthSign, fOs2Conf, fOs2ConfSign, setFOs2Conf, setFOs2ConfSign);
+      _toOs(fHold2HighVal, fHold2HighSign, fOs3High, fOs3HighSign, setFOs3High, setFOs3HighSign);
+      _toOs(fHold2WidthVal, fHold2WidthSign, fOs3Conf, fOs3ConfSign, setFOs3Conf, setFOs3ConfSign);
+    } else if (idx === 1) {
+      _toOs(fHoldHighVal, fHoldHighSign, fOs3High, fOs3HighSign, setFOs3High, setFOs3HighSign);
+      _toOs(fHoldWidthVal, fHoldWidthSign, fOs3Conf, fOs3ConfSign, setFOs3Conf, setFOs3ConfSign);
+    }
+  });
   var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
   // H1までE基準未達でもHold2期待度欄・Hold2欄は表示して入力可能にする（表側は _elH2Miss が従来どおり「ー（H１までE基準未達）」表示）
   var _fH2Hidden = false;
@@ -5043,7 +5066,7 @@ function EntryRecordForm(_ref_erf) {
   
   useEffect(function() {
     // EP損益が損切りの間はH1損益変化を自動計算で上書きしない（stopロックは別effectが担当）。
-    if (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine) return;
+    if (_fPlanStopNow) return;
     var sHold = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
     var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
 
@@ -5127,7 +5150,7 @@ function EntryRecordForm(_ref_erf) {
 
   useEffect(function() {
     // EP損益 or H1の結果損益が損切りの間は損益変化も「損切り済(stop)」を自動選択。
-    var _h2psStop = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
+    var _h2psStop = _fPlanStopNow;  // EP足基準の損切り判定（EP=OS2/3でも正しく判定）
     var _h2h1Stop = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine);
     if (_h2psStop || _h2h1Stop) { setFHold2Profit("stop"); return; }
     var _h1RA2 = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
@@ -5157,21 +5180,21 @@ function EntryRecordForm(_ref_erf) {
     } else if (sBase < 0 && sHold > 0) {
       setFHold2Profit("yes");
     }
-  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign, fOsVal, fResult, fHoldHighSign, fHoldHighVal, fHold2HighSign, fHold2HighVal, _fAlpha, _fCutLine]);
+  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign, fOsVal, fResult, fHoldHighSign, fHoldHighVal, fHold2HighSign, fHold2HighVal, _fAlpha, _fCutLine, _fPlanStopNow]);
 
   // 期待度（H1/H2）の「損切り済」自動選択は廃止し手動選択に変更（表側の「損切」表示はライブα計算で従来どおり）。
 
   // EP損益が損切りの間は損益変化(fHoldProfit)も「損切り済(stop)」を自動選択（その後ユーザーは変更可）。
   var _hpStopAutoRef = useRef(false);
   useEffect(function() {
-    var _h1PlanStop = (_fAlpha != null && Number(fOsVal) >= 0 && (Number(fOsVal) - _fAlpha) >= _fCutLine);
+    var _h1PlanStop = _fPlanStopNow;  // EP足基準の損切り判定
     if (_h1PlanStop) {
       if (!_hpStopAutoRef.current) { _hpStopAutoRef.current = true; setFHoldProfit("stop"); }
     } else if (_hpStopAutoRef.current) {
       _hpStopAutoRef.current = false;
       setFHoldProfit(function(prev) { return prev === "stop" ? null : prev; });
     }
-  }, [fOsVal, _fAlpha, _fCutLine]);
+  }, [fOsVal, _fAlpha, _fCutLine, _fPlanStopNow]);
 
 
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -5530,6 +5553,17 @@ function EntryRecordForm(_ref_erf) {
 
       isV2Form ? (function() {
         var _ef = _epFormState || {};
+        // EP=OS1ならOS2=H1・OS3=H2、EP=OS2ならOS3=H1と同一の足。OS側の入力（数値・符号↕含む）を
+        // Hold欄へ同時反映する。符号は規約変換（OS系"+"=↑ ⇔ hold系"-"=↑）。片方向（OS→Hold）のみ。
+        var _hSignConv = function(sg) { return sg === "+" ? "-" : sg === "-" ? "+" : null; };
+        var _os2HoldIdx = _ef.epIdx === 0 ? 1 : null;
+        var _os3HoldIdx = _ef.epIdx === 0 ? 2 : _ef.epIdx === 1 ? 1 : null;
+        var _holdSet = {
+          1: { hv: setFHoldHighVal, hs: setFHoldHighSign, cv: setFHoldWidthVal, cs: setFHoldWidthSign },
+          2: { hv: setFHold2HighVal, hs: setFHold2HighSign, cv: setFHold2WidthVal, cs: setFHold2WidthSign }
+        };
+        var _wrapVal = function(setOs, holdIdx, key) { return function(v) { setOs(v); if (holdIdx) _holdSet[holdIdx][key](v); }; };
+        var _wrapSign = function(setOs, holdIdx, key) { return function(sg) { setOs(sg); if (holdIdx) _holdSet[holdIdx][key](_hSignConv(sg)); }; };
         var _expB = function(cur, setFn) {
           return React.createElement("div", { style: { display: "flex", gap: 3 } },
             [["○", "#C0392B", "#FCEBEB"], ["△", "#B45309", "#FEF3C7"], ["×", "#1E8449", "#EAF3DE"]].map(function(kv) {
@@ -5605,13 +5639,16 @@ function EntryRecordForm(_ref_erf) {
               (_ef.alpha != null && _ef.o1 != null && _ef.epIdx !== 0) ? _row("到達期待", _expB(fOs1Exp, setFOs1Exp), true) : null
             ]),
             _legCol("OS2", _ef.epIdx === 1, [
-              _row("高値", _sIn(fOs2High, setFOs2High, fOs2HighSign, setFOs2HighSign, _os2hSignedRef)),
-              _row("確定値", _sIn(fOs2Conf, setFOs2Conf, fOs2ConfSign, setFOs2ConfSign, _os2cSignedRef)),
-              (_ef.o2 != null && _ef.epIdx !== 1 && _ef.epIdx !== 0) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp), true) : null
+              _row("高値", _sIn(fOs2High, _wrapVal(setFOs2High, _os2HoldIdx, "hv"), fOs2HighSign, _wrapSign(setFOs2HighSign, _os2HoldIdx, "hs"), _os2hSignedRef)),
+              _row("確定値", _sIn(fOs2Conf, _wrapVal(setFOs2Conf, _os2HoldIdx, "cv"), fOs2ConfSign, _wrapSign(setFOs2ConfSign, _os2HoldIdx, "cs"), _os2cSignedRef)),
+              _ef.epIdx === 0 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
+                : (_ef.o2 != null && _ef.epIdx !== 1) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp), true) : null
             ]),
             _legCol("OS3", _ef.epIdx === 2, [
-              _row("高値", _sIn(fOs3High, setFOs3High, fOs3HighSign, setFOs3HighSign, _os3hSignedRef)),
-              _row("確定値", _sIn(fOs3Conf, setFOs3Conf, fOs3ConfSign, setFOs3ConfSign, _os3cSignedRef))
+              _row("高値", _sIn(fOs3High, _wrapVal(setFOs3High, _os3HoldIdx, "hv"), fOs3HighSign, _wrapSign(setFOs3HighSign, _os3HoldIdx, "hs"), _os3hSignedRef)),
+              _row("確定値", _sIn(fOs3Conf, _wrapVal(setFOs3Conf, _os3HoldIdx, "cv"), fOs3ConfSign, _wrapSign(setFOs3ConfSign, _os3HoldIdx, "cs"), _os3cSignedRef)),
+              _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true)
+                : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true) : null
             ])
           ),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" } }, _eChip, _epPnlChip,
@@ -5911,7 +5948,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#B45309", "#FEF3C7"]].map(function(kv) {
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"]].map(function(kv) {
                 var on = fHoldProfit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
@@ -6080,7 +6117,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化", React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（H１比）")),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#B45309", "#FEF3C7"]].map(function(kv) {
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"]].map(function(kv) {
                 var on = fHold2Profit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],

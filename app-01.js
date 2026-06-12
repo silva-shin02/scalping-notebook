@@ -3907,7 +3907,9 @@ function ImageAnnotator(_ref7) {
       // iOS/iPadOSのSafariはcanvas上限が約16Mピクセル・1辺4096px。超えると無音で間引かれ
       // CSS拡大表示でガビガビになるため、iOSでは上限を16M/4096に制限（デスクトップは32M/8192）。
       var _isIOSCanvas = /iPad|iPhone|iPod/.test(navigator.userAgent || "") || (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1);
-      var MAX_CANVAS_AREA = _isIOSCanvas ? 16777216 : 33554432;
+      // iOSの実上限は16,777,216px(4096²)。maxScale算出が上限ちょうどを狙うと丸めで超過し
+      // 無音失敗→ガビガビになるため、6%のマージンを取り15.7Mに抑える（中型画像も上限まで拡大される設計のため全サイズに効く）。
+      var MAX_CANVAS_AREA = _isIOSCanvas ? 15728640 : 33554432;
       // 1辺制限はWebKit実限界(32767)に対し余裕を持たせ16384。縦長フルページスクショ(例:1170×9000)は
       // 面積16M以下なら無縮小で保持（旧4096だと1辺制限で半減し文字が潰れていた）。
       var MAX_CANVAS_DIM = 16384;
