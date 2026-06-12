@@ -136,6 +136,45 @@ function _elInsightBoxV2(items, opts) {
 function _elInsightEmV2(text, color) {
   return React.createElement("b", { style: { color: color || "#92400E" } }, text);
 }
+// 記録群からα候補(0/5/10/15/20/25/30)を総当たりし、H1/H2結果損益の合計が最大になるαを返す。
+// 戻り値 {h1:{a,sum}|null, h2:{a,sum}|null, n} / OS値入力なしはnull。同点は小さいα優先。
+// 損益は取引・銘柄別記録テーブルと同一基準（H1=_elHold1TotParts・H2=_elHold2TotParts・損切り値=各記録の採用値）。
+function _elBestAlphaV2(recs, data) {
+  var rs = (recs || []).filter(function(r) { var s = r.signal; return s && s.osVal != null && s.osVal !== ""; });
+  if (!rs.length) return null;
+  var bestH1 = null, bestH2 = null;
+  [0, 5, 10, 15, 20, 25, 30].forEach(function(a) {
+    var s1 = 0, c1 = 0, s2 = 0, c2 = 0;
+    rs.forEach(function(r) {
+      var s = r.signal;
+      var cut = _elAlphaInfo(r, data).cutLine;
+      var t1 = _elHold1TotParts(s, a, cut); if (t1.main != null) { s1 += t1.main; c1++; }
+      var t2 = _elHold2TotParts(s, a, cut); if (t2.main != null) { s2 += t2.main; c2++; }
+    });
+    if (c1 > 0 && (bestH1 == null || s1 > bestH1.sum)) bestH1 = { a: a, sum: s1 };
+    if (c2 > 0 && (bestH2 == null || s2 > bestH2.sum)) bestH2 = { a: a, sum: s2 };
+  });
+  if (!bestH1 && !bestH2) return null;
+  return { h1: bestH1, h2: bestH2, n: rs.length };
+}
+// 早見表見出し用「現時点の最良α値」バッジ。銘柄の全エントリー記録からライブ算出（記録が増減すれば自動で変わる）。
+// H1とH2の最良αが同じなら1つ・違えば両方表示。記録なしはnull。
+function _elBestAlphaBadgeV2(data, stock) {
+  var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === stock; });
+  var b = _elBestAlphaV2(recs, data);
+  if (!b) return null;
+  var txt;
+  if (b.h1 && b.h2 && b.h1.a === b.h2.a) txt = b.h1.a + "円";
+  else txt = (b.h1 ? "H1 " + b.h1.a + "円" : "") + (b.h1 && b.h2 ? "・" : "") + (b.h2 ? "H2 " + b.h2.a + "円" : "");
+  var _fy = function(v) { return (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+  var tip = "全エントリー記録" + b.n + "件（OS値入力分）をα=0/5/10/15/20/25/30で再計算し、H1/H2結果損益の合計が最大になるα。損切り値は各記録の採用値・損益基準は取引/銘柄別記録と同一。" +
+    (b.h1 ? "　H1最良: α" + b.h1.a + "円（" + _fy(b.h1.sum) + "）" : "") +
+    (b.h2 ? "　H2最良: α" + b.h2.a + "円（" + _fy(b.h2.sum) + "）" : "");
+  return React.createElement("span", { title: tip, style: { display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 8px", borderRadius: 10,
+    background: "#E0F2FE", border: "1px solid #7DD3FC", fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", verticalAlign: "middle" } },
+    "現時点の最良α値：" + txt,
+    React.createElement("span", { style: { fontWeight: 400, fontSize: 9, color: "#0284C7" } }, "(" + b.n + "件)"));
+}
 
 function EntryStatsSummary(_ref_ess) {
   var records = _ref_ess.records;
