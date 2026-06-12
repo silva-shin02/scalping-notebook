@@ -4164,7 +4164,10 @@ function EntrySignalSection(_ref_es) {
       // miss(OS値<α)かつ見送りでも H高値がα到達なら _elDynHold は実損益を返す（→算入）。H高値未到達なら null（→除外）。
       return _elDynHold(s, _avH, _cutLhp);
     })();
-    if (s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null) _esTotHoldHasUnrecorded = true;
+    // H1未記録の注記: v2/v3はαで解決した役割の足（EPの次）の有無で判定（E成立時のみ）。旧記録はhold欄の有無。
+    var _rUnrec = _epIsV2(s) ? _epResolve(s, _esAlpha(s)) : null;
+    if (_rUnrec ? (_rUnrec.judge === "ok" && !(_rUnrec.h1 && (_rUnrec.h1.h != null || _rUnrec.h1.c != null)))
+                : (!_epIsV2(s) && s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null)) _esTotHoldHasUnrecorded = true;
     var rpN = rp != null ? _p100(rp) : null;
     var ppN = pp != null ? _p100(pp) : null;
     var mpN = mp != null ? _p100(mp) : null;

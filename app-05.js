@@ -3171,7 +3171,11 @@ function _elAlphaInfo(r, data) {
 // === EP起算方式(scheme:2)のリゾルバ ===
 // 新方式: OS1〜OS3の3本以内にα値到達した足=EP(エントリーポイント)。EPの次の足からH1/H2。
 // 旧方式レコード(schemeなし)は各ヘルパーの従来ロジックで処理（互換レイヤー）。
-function _epIsV2(s) { return !!(s && s.scheme === 2); }
+function _epIsV2(s) { return !!(s && (s.scheme === 2 || s.scheme === 3)); }
+// scheme:3 = OS1〜5固定欄方式（hold*/hold2*フィールド=常に4・5本目。ミラー同期なし）。scheme:2=旧ミラー同期方式。
+function _epIsV3(s) { return !!(s && s.scheme === 3); }
+// 記録固有の採用α（未設定は予想OS度のα）。
+function _epOwnAlpha(s) { return (s && s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); }
 // 足配列: [{h:高値(符号付き・↑=正), c:確定値(符号付き・↑=正), exp:α値到達期待度, role:"os1"〜"h2"}]
 // 符号規約: OS系フィールドはsign"-"=↓負（osConfSign互換・無印/"+"=↑正）。hold系はsign"+"=↓負（holdHighSign互換・無印/"-"=↑正）。
 function _epLegs(s) {
@@ -3183,17 +3187,26 @@ function _epLegs(s) {
   if (s.os3High != null && s.os3High !== "") L.push({ h: _osn(s.os3High, s.os3HighSign), c: _osn(s.os3Conf, s.os3ConfSign), exp: null, role: "os3" });
   if (s.holdHighVal != null || s.holdWidth != null) L.push({ h: _hn(s.holdHighVal, s.holdHighSign), c: _hn(s.holdWidth, s.holdWidthSign), exp: null, role: "h1" });
   if (s.hold2HighVal != null || s.hold2Width != null) L.push({ h: _hn(s.hold2HighVal, s.hold2HighSign), c: _hn(s.hold2Width, s.hold2WidthSign), exp: null, role: "h2" });
-  // ミラー足の除去: フォームはEP位置に応じてHold欄をOS2/OS3欄と同期（同じ足の写し）して保存するため、
-  // 写し分のレグを除くと実在の足だけになる。写し構成は採用α（保存時のEP位置）で決まる:
+  // ミラー足の除去（scheme:2のみ）: 旧フォームはEP位置に応じてHold欄をOS2/OS3欄と同期（同じ足の写し）して
+  // 保存していたため、写し分のレグを除くと実在の足だけになる。写し構成は採用α（保存時のEP位置）で決まる:
   // EP=OS1→h1/h2はOS2/OS3の写し・EP=OS2→h1はOS3の写し・EP=OS3/E未達→写しなし。
-  // これによりαシミュでEP位置が動いてもh1/h2のrole導出が足のダブりなく追従する（不足足はnull）。
-  var _a0 = (s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s.difficulty);
-  var _ep0 = -1;
-  for (var _i0 = 0; _i0 < Math.min(3, L.length); _i0++) { if (L[_i0].h != null && L[_i0].h >= _a0) { _ep0 = _i0; break; } }
-  if (_ep0 >= 0) {
-    var _r0 = L[_ep0].role;
-    if (_r0 === "os1") L = L.filter(function(o) { return o.role !== "h1" && o.role !== "h2"; });
-    else if (_r0 === "os2") L = L.filter(function(o) { return o.role !== "h1"; });
+  // 同期導入前のscheme:2記録はOS2/OS3欄が空のままhold欄に実データを持つため、
+  // 「OS側のレグが存在し高値・確定値が完全一致する」写しだけを除去する（実データは残す）。
+  // scheme:3はhold*/hold2*=常に4・5本目の固定欄（写しなし）なので除去不要。
+  if (s.scheme === 2) {
+    var _a0 = _epOwnAlpha(s);
+    var _ep0 = -1;
+    for (var _i0 = 0; _i0 < Math.min(3, L.length); _i0++) { if (L[_i0].h != null && L[_i0].h >= _a0) { _ep0 = _i0; break; } }
+    var _legOf = function(role) { for (var _j0 = 0; _j0 < L.length; _j0++) { if (L[_j0].role === role) return L[_j0]; } return null; };
+    var _dropIfDup = function(hRole, osRole) {
+      var _hl = _legOf(hRole), _ol = _legOf(osRole);
+      if (_hl && _ol && _hl.h === _ol.h && _hl.c === _ol.c) L = L.filter(function(o) { return o.role !== hRole; });
+    };
+    if (_ep0 >= 0) {
+      var _r0 = L[_ep0].role;
+      if (_r0 === "os1") { _dropIfDup("h1", "os2"); _dropIfDup("h2", "os3"); }
+      else if (_r0 === "os2") { _dropIfDup("h1", "os3"); }
+    }
   }
   return L;
 }
@@ -3358,6 +3371,22 @@ function _h2sig(s) {
     holdProfit: s.hold2Profit
   };
 }
+// 表示用の仮想hold-signal: v2/v3記録はαで解決したH1/H2レグ（EPの次・その次の足）の値を
+// hold*フィールド名（符号規約: "+"=↓負・"-"=↑正）に詰めて返す＝H明細表示が役割に追従する。
+// 判断データ（holdExp/holdProfit等）は役割に紐付くのでそのままコピー。旧記録は従来どおりs/_h2sig(s)。
+function _epHoldView(s, alpha, isH2) {
+  var base = isH2 ? _h2sig(s) : s;
+  if (!_epIsV2(s)) return base;
+  var _r = _epResolve(s, alpha != null ? alpha : _epOwnAlpha(s));
+  var leg = _r ? (isH2 ? _r.h2 : _r.h1) : null;
+  var v = Object.assign({}, base);
+  v.holdHighVal = (leg && leg.h != null) ? Math.abs(leg.h) : null;
+  v.holdHighSign = (leg && leg.h != null) ? (leg.h < 0 ? "+" : leg.h > 0 ? "-" : null) : null;
+  v.holdWidth = (leg && leg.c != null) ? Math.abs(leg.c) : null;
+  v.holdWidthSign = (leg && leg.c != null) ? (leg.c < 0 ? "+" : leg.c > 0 ? "-" : null) : null;
+  v.holdOsConf = null;
+  return v;
+}
 function _elDynHold2(s, alpha, cutLine) {
   if (_epIsV2(s) && alpha != null) {
     var _r22 = _epResolve(s, alpha);
@@ -3388,7 +3417,15 @@ function _elHoldIsStop2(s, alpha, cutLine) {
   }
   return _elHoldIsStop(_h2sig(s), alpha, cutLine);
 }
-function _elHas2Data(s) { return !!(s && (s.hold2HighVal != null || s.hold2Width != null || s.hold2OsConf != null || s.hold2Pnl != null)); }
+function _elHas2Data(s, alpha) {
+  if (!s) return false;
+  // v2/v3はH2=αで解決したレグ（EPの2本後）の有無で判定（alpha省略時は採用α）。
+  if (_epIsV2(s)) {
+    var _r = _epResolve(s, alpha != null ? alpha : _epOwnAlpha(s));
+    return !!(_r && _r.h2 && (_r.h2.h != null || _r.h2.c != null));
+  }
+  return !!(s.hold2HighVal != null || s.hold2Width != null || s.hold2OsConf != null || s.hold2Pnl != null);
+}
 // EP損益もH1もE基準未達（OS値<α かつ H1高値もα未達）→ H2は成立せず非表示扱い。
 // 表ではH2期待度を「ー」・損益をQ ー円（高値/確定値/α値比はH1と同形式）で表示し、合計には算入しない。フォームの _fH2Hidden と同条件。
 function _elH2Miss(s, alpha) {
@@ -3465,9 +3502,9 @@ function _elRealizedOutcome(s, alpha, cutLine) {
   if (_elH2Miss(s, alpha)) return "miss";
   var _sp = _elPlanIsStop(s, alpha, cutLine);
   var _sh1 = !_sp && _elHoldIsStop(s, alpha, cutLine);
-  var _sh2 = !_sp && !_sh1 && _elHas2Data(s) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cutLine);
+  var _sh2 = !_sp && !_sh1 && _elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cutLine);
   if (_sp || _sh1 || _sh2) return "stop";
-  var res = (_elHas2Data(s) && !_elH2Miss(s, alpha)) ? _elDynHold2(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+  var res = (_elHas2Data(s, alpha) && !_elH2Miss(s, alpha)) ? _elDynHold2(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
   if (res == null) return null;
   return res > 0 ? "profit" : res < 0 ? "loss" : "zero";
 }
@@ -3729,7 +3766,7 @@ function _elHoldStopDoneNode(amount, key, hs, alpha) {
 // 統合Hセル: 「H高値 → H確定値 / α値比H値幅 / 勝敗・結果損益」を1つのインライン要素で返す。
 // isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、EP損益・結果はエントリー共通）。
 function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
-  var hs = isH2 ? _h2sig(s) : s;
+  var hs = _epHoldView(s, alpha, isH2);
   var _h2missFlow = isH2 && _elH2Miss(s, alpha);  // 想定もH1もE基準未達 → 損益をQ ー円に固定（高値/確定値/α値比は通常表示）。
   // 損切り済み（H2: 想定orH1で損切り／H1: EP損益の時点で損切り）は明細を出さず「ー（ランク 損切額）※損切り済」のみ。
   if (alpha != null) {
@@ -3810,14 +3847,14 @@ function _elHold2Cell(s, alpha, cutLine) {
   // 想定orH1で損切り済み → 期待度・明細を出さず「ー（ランク 損切額）※損切り済」のみ。
   if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
     var _samtCell = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
-    if (_samtCell != null) return _elHoldStopDoneNode(_samtCell, null, _h2sig(s), alpha);
+    if (_samtCell != null) return _elHoldStopDoneNode(_samtCell, null, _epHoldView(s, alpha, true), alpha);
   }
   var exp = s.hold2Exp;
   if (!exp) return React.createElement("span", { style: { color: "#ddd" } }, "—");
   // H2期待度が×、または H1期待度(holdExp)が×/損切り済（=H1で手仕舞い済みでH2は参考）なら、H2損益を（）の参考表示に。
   var _h1Exited = (s.holdExp === "×" || s.holdExp === "損切り済");
   if (exp === "×" || _h1Exited) {
-    if (!_elHas2Data(s)) return React.createElement("span", { style: { color: "#bbb" } }, exp);
+    if (!_elHas2Data(s, alpha)) return React.createElement("span", { style: { color: "#bbb" } }, exp);
     // H2の内容（高値→確定値/α値比値幅/勝敗損益）すべてを1つの（）で囲む。折返し不可で全体を確実に内包。
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#aaa", fontSize: 11, whiteSpace: "nowrap", opacity: 0.75 } },
       React.createElement("span", { key: "d", style: { marginRight: 1 } }, exp + "（"),
@@ -3895,7 +3932,7 @@ function _elHold2TotParts(s, alpha, cutLine) {
     return { main: _stopAmt2, ref: null };
   }
   if (!s.hold2Exp) return { main: null, ref: null };
-  if (!_elHas2Data(s)) return { main: null, ref: null };
+  if (!_elHas2Data(s, alpha)) return { main: null, ref: null };
   var hv2 = (alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign);
   return { main: hv2, ref: null };
 }
@@ -3910,7 +3947,7 @@ function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt, allMiss, refH1, refCntH1) {
 // === H1(上)/H2(下) 縦積み表示ヘルパー（H列を1列に統合する表で使用）===
 // 各部位(高値/値幅/α値比/損益)のReactノードを返す。算出ロジックは_elHoldFlowと同一。
 function _elHoldParts(s, alpha, cutLine, isH2) {
-  var hs = isH2 ? _h2sig(s) : s;
+  var hs = _epHoldView(s, alpha, isH2);
   // 損切り済み（H2: 想定orH1損切り／H1: 想定損切り）→ 明細を出さず損益列に「ー（ランク 損切額）※損切り済」のみ。
   if (alpha != null) {
     var _psP = _elPlanIsStop(s, alpha, cutLine);
@@ -3970,7 +4007,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _h1StopDone = (alpha != null) && _elPlanIsStop(s, alpha, cutLine);   // 想定で損切り→H1も損切り済み表示
   var _h2StopDone = (alpha != null) && _elHoldIsStop(s, alpha, cutLine);   // 想定orH1で損切り→H2は損切り済み表示（期待度問わず）
   var p1 = _h1StopDone ? null : _elHoldParts(s, alpha, cutLine, false);
-  var p2 = _h2StopDone ? null : (_h2miss || exp || _elHas2Data(s)) ? _elHoldParts(s, alpha, cutLine, true) : null;
+  var p2 = _h2StopDone ? null : (_h2miss || exp || _elHas2Data(s, alpha)) ? _elHoldParts(s, alpha, cutLine, true) : null;
   var _pnW = 78, _parW = 10, _tblW = 241;
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
@@ -3996,7 +4033,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   // 想定/H1損切りでも参考として高値・確定値・値幅を（）付きで表示（_elHoldStopDetail、中身無→「ー」）。isH2でH1/H2明細を切替。
   var _stopRow = function(rk, lblNode, amount, topB, isH2) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
-    var _sd = _elHoldStopDetail(isH2 ? _h2sig(s) : s, alpha);  // （高値→確定値/α値比）を薄く。中身が無ければ「ー」
+    var _sd = _elHoldStopDetail(_epHoldView(s, alpha, isH2), alpha);  // （高値→確定値/α値比）を薄く。中身が無ければ「ー」
     return React.createElement("tr", { key: rk },
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
       _c("e", React.createElement("span", { style: { color: "#888", fontWeight: 700, fontSize: 9 } }, "損切"), "center", 14, Object.assign({ paddingRight: 1 }, bt)),
@@ -4166,12 +4203,12 @@ function _elCalcStats(records, data, simResolve) {
     if (_h2t.main != null) { sumHold2 += (_liveA ? Math.round(_h2t.main) : _per100(_h2t.main)); hold2HasData = true; }
     if (_h2t.ref != null) { sumHold2Ref += (_liveA ? Math.round(_h2t.ref) : _per100(_h2t.ref)); hold2RefCnt++; }
     // H2期待度の勝敗分類（○/△のみ）と損切りキャップ集計は従来どおり。
-    if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s) && !_elH2Miss(s, _liveA ? _ai.alpha : null)) {
+    if ((s.hold2Exp === "○" || s.hold2Exp === "△") && _elHas2Data(s, _liveA ? _ai.alpha : null) && !_elH2Miss(s, _liveA ? _ai.alpha : null)) {
       var _h2 = _h2sig(s);
       var hp2 = _liveA ? _elDynHold2(s, _ai.alpha, _ai.cutLine) : _elSignedVal(_h2.holdPnl, _h2.holdPnlSign);
       if (hp2 != null) {
         var hp2N = _liveA ? Math.round(hp2) : _per100(hp2);
-        var _h2Stop = _liveA && _elHoldIsStop(_h2, _ai.alpha, _ai.cutLine);
+        var _h2Stop = _liveA && _elHoldIsStop2(s, _ai.alpha, _ai.cutLine);
         if (_h2Stop) hold2HasStop = true;
         hold2CapSum += _h2Stop ? _elCapLossYen(_ai.cutLine) : hp2N;
       }
@@ -4726,8 +4763,31 @@ function EntryRecordForm(_ref_erf) {
   var isEdit = !!(initial && initial.signal);
 
   var initSig = isEdit ? initial.signal : {};
-  // 常にEP起算方式(scheme:2)フォーム。旧記録の編集も新レイアウトで再入力する（2026-06-12ユーザー方針変更・保存でscheme:2に更新される）。
+  // 常にEP起算方式フォーム（OS1〜5固定欄・scheme:3で保存）。旧記録の編集も新レイアウトで再入力する。
   var isV2Form = true;
+  // scheme:2（旧ミラー同期方式）の記録取り込み: _epLegs（写し除去済みの実在足の並び）を位置でOS2〜OS5欄へ展開し直す。
+  // 同期導入前の記録（OS2/OS3欄が空でhold欄に実データ）はhold欄の足がOS2/OS3欄へ入る。scheme:3・旧記録はそのまま。
+  var _initHold = (function() {
+    var o = {
+      os2High: initSig.os2High, os2HighSign: initSig.os2HighSign || "+", os2Conf: initSig.os2Conf, os2ConfSign: initSig.os2ConfSign || null,
+      os3High: initSig.os3High, os3HighSign: initSig.os3HighSign || "+", os3Conf: initSig.os3Conf, os3ConfSign: initSig.os3ConfSign || null,
+      hHigh: initSig.holdHighVal, hHighS: initSig.holdHighSign, hW: initSig.holdWidth, hWS: initSig.holdWidthSign, hOC: initSig.holdOsConf,
+      h2High: initSig.hold2HighVal, h2HighS: initSig.hold2HighSign, h2W: initSig.hold2Width, h2WS: initSig.hold2WidthSign, h2OC: initSig.hold2OsConf
+    };
+    if (initSig.scheme !== 2) return o;
+    var _Li = _epLegs(initSig);
+    if (!_Li.length || _Li[0].role !== "os1") return o;
+    var _osS = function(v) { return v == null ? null : v < 0 ? "-" : "+"; };
+    var _hS = function(v) { return v == null ? null : v < 0 ? "+" : "-"; };
+    var _bi = function(i) { return _Li[i] || { h: null, c: null }; };
+    var _b1 = _bi(1), _b2 = _bi(2), _b3 = _bi(3), _b4 = _bi(4);
+    return {
+      os2High: _b1.h != null ? Math.abs(_b1.h) : null, os2HighSign: _b1.h != null ? _osS(_b1.h) : "+", os2Conf: _b1.c != null ? Math.abs(_b1.c) : null, os2ConfSign: _osS(_b1.c),
+      os3High: _b2.h != null ? Math.abs(_b2.h) : null, os3HighSign: _b2.h != null ? _osS(_b2.h) : "+", os3Conf: _b2.c != null ? Math.abs(_b2.c) : null, os3ConfSign: _osS(_b2.c),
+      hHigh: _b3.h != null ? Math.abs(_b3.h) : null, hHighS: _hS(_b3.h), hW: _b3.c != null ? Math.abs(_b3.c) : null, hWS: _hS(_b3.c), hOC: null,
+      h2High: _b4.h != null ? Math.abs(_b4.h) : null, h2HighS: _hS(_b4.h), h2W: _b4.c != null ? Math.abs(_b4.c) : null, h2WS: _hS(_b4.c), h2OC: null
+    };
+  })();
   var _useStateE1 = useState((initial && initial.date) || todayStr()),
     _useStateE2 = _slicedToArray(_useStateE1, 2),
     fDate = _useStateE2[0], setFDate = _useStateE2[1];
@@ -4805,20 +4865,20 @@ function EntryRecordForm(_ref_erf) {
     _useStateHPVA = _slicedToArray(_useStateHPV, 2),
     fHoldPnlVal = _useStateHPVA[0], setFHoldPnlVal = _useStateHPVA[1];
   
-  var _useStateHOC = useState(initSig.holdOsConf != null ? Number(initSig.holdOsConf) : null),
+  var _useStateHOC = useState(_initHold.hOC != null ? Number(_initHold.hOC) : null),
     _useStateHOCA = _slicedToArray(_useStateHOC, 2),
     fHoldOsConf = _useStateHOCA[0], setFHoldOsConf = _useStateHOCA[1];
-  
-  var _useStateHWS = useState(initSig.holdWidthSign || null),
+
+  var _useStateHWS = useState(_initHold.hWS || null),
     _useStateHWSA = _slicedToArray(_useStateHWS, 2),
     fHoldWidthSign = _useStateHWSA[0], setFHoldWidthSign = _useStateHWSA[1];
-  var _useStateHWV = useState(initSig.holdWidth != null ? String(Math.abs(Number(initSig.holdWidth))) : ""),
+  var _useStateHWV = useState(_initHold.hW != null ? String(Math.abs(Number(_initHold.hW))) : ""),
     _useStateHWVA = _slicedToArray(_useStateHWV, 2),
     fHoldWidthVal = _useStateHWVA[0], setFHoldWidthVal = _useStateHWVA[1];
-  var _useStateHHS = useState(initSig.holdHighSign || null),
+  var _useStateHHS = useState(_initHold.hHighS || null),
     _useStateHHSA = _slicedToArray(_useStateHHS, 2),
     fHoldHighSign = _useStateHHSA[0], setFHoldHighSign = _useStateHHSA[1];
-  var _useStateHHV = useState(initSig.holdHighVal != null ? String(Math.abs(Number(initSig.holdHighVal))) : ""),
+  var _useStateHHV = useState(_initHold.hHigh != null ? String(Math.abs(Number(_initHold.hHigh))) : ""),
     _useStateHHVA = _slicedToArray(_useStateHHV, 2),
     fHoldHighVal = _useStateHHVA[0], setFHoldHighVal = _useStateHHVA[1];
   var _useStateHExp = useState(initSig.holdExp || null),
@@ -4838,19 +4898,19 @@ function EntryRecordForm(_ref_erf) {
   var _useStateH2PV = useState(initSig.hold2Pnl != null ? String(Math.abs(Number(initSig.hold2Pnl))) : ""),
     _useStateH2PVA = _slicedToArray(_useStateH2PV, 2),
     fHold2PnlVal = _useStateH2PVA[0], setFHold2PnlVal = _useStateH2PVA[1];
-  var _useStateH2OC = useState(initSig.hold2OsConf != null ? Number(initSig.hold2OsConf) : null),
+  var _useStateH2OC = useState(_initHold.h2OC != null ? Number(_initHold.h2OC) : null),
     _useStateH2OCA = _slicedToArray(_useStateH2OC, 2),
     fHold2OsConf = _useStateH2OCA[0], setFHold2OsConf = _useStateH2OCA[1];
-  var _useStateH2WS = useState(initSig.hold2WidthSign || null),
+  var _useStateH2WS = useState(_initHold.h2WS || null),
     _useStateH2WSA = _slicedToArray(_useStateH2WS, 2),
     fHold2WidthSign = _useStateH2WSA[0], setFHold2WidthSign = _useStateH2WSA[1];
-  var _useStateH2WV = useState(initSig.hold2Width != null ? String(Math.abs(Number(initSig.hold2Width))) : ""),
+  var _useStateH2WV = useState(_initHold.h2W != null ? String(Math.abs(Number(_initHold.h2W))) : ""),
     _useStateH2WVA = _slicedToArray(_useStateH2WV, 2),
     fHold2WidthVal = _useStateH2WVA[0], setFHold2WidthVal = _useStateH2WVA[1];
-  var _useStateH2HS = useState(initSig.hold2HighSign || null),
+  var _useStateH2HS = useState(_initHold.h2HighS || null),
     _useStateH2HSA = _slicedToArray(_useStateH2HS, 2),
     fHold2HighSign = _useStateH2HSA[0], setFHold2HighSign = _useStateH2HSA[1];
-  var _useStateH2HV = useState(initSig.hold2HighVal != null ? String(Math.abs(Number(initSig.hold2HighVal))) : ""),
+  var _useStateH2HV = useState(_initHold.h2High != null ? String(Math.abs(Number(_initHold.h2High))) : ""),
     _useStateH2HVA = _slicedToArray(_useStateH2HV, 2),
     fHold2HighVal = _useStateH2HVA[0], setFHold2HighVal = _useStateH2HVA[1];
   var _useStateHMemo = useState(initSig.holdMemo || ""), fHoldMemo = _useStateHMemo[0], setFHoldMemo = _useStateHMemo[1];
@@ -4862,17 +4922,17 @@ function EntryRecordForm(_ref_erf) {
   var _useStateOCVal = useState(initSig.osConfVal != null ? String(initSig.osConfVal) : ""),
     _useStateOCValA = _slicedToArray(_useStateOCVal, 2),
     fOsConfVal = _useStateOCValA[0], setFOsConfVal = _useStateOCValA[1];
-  // === EP起算方式(scheme2): OS足 state（OS1=既存osVal/osConf流用・OS2/3は新規）===
+  // === EP起算方式: OS足 state（OS1=既存osVal/osConf流用・OS2/3はscheme:2取り込み変換(_initHold)経由）===
   var _useStateO1E = useState(initSig.os1Exp || null), fOs1Exp = _useStateO1E[0], setFOs1Exp = _useStateO1E[1];
-  var _useStateO2H = useState(initSig.os2High != null ? String(initSig.os2High) : ""), fOs2High = _useStateO2H[0], setFOs2High = _useStateO2H[1];
-  var _useStateO2HS = useState(initSig.os2HighSign || "+"), fOs2HighSign = _useStateO2HS[0], setFOs2HighSign = _useStateO2HS[1];
-  var _useStateO2C = useState(initSig.os2Conf != null ? String(initSig.os2Conf) : ""), fOs2Conf = _useStateO2C[0], setFOs2Conf = _useStateO2C[1];
-  var _useStateO2CS = useState(initSig.os2ConfSign || null), fOs2ConfSign = _useStateO2CS[0], setFOs2ConfSign = _useStateO2CS[1];
+  var _useStateO2H = useState(_initHold.os2High != null ? String(_initHold.os2High) : ""), fOs2High = _useStateO2H[0], setFOs2High = _useStateO2H[1];
+  var _useStateO2HS = useState(_initHold.os2HighSign || "+"), fOs2HighSign = _useStateO2HS[0], setFOs2HighSign = _useStateO2HS[1];
+  var _useStateO2C = useState(_initHold.os2Conf != null ? String(_initHold.os2Conf) : ""), fOs2Conf = _useStateO2C[0], setFOs2Conf = _useStateO2C[1];
+  var _useStateO2CS = useState(_initHold.os2ConfSign || null), fOs2ConfSign = _useStateO2CS[0], setFOs2ConfSign = _useStateO2CS[1];
   var _useStateO2E = useState(initSig.os2Exp || null), fOs2Exp = _useStateO2E[0], setFOs2Exp = _useStateO2E[1];
-  var _useStateO3H = useState(initSig.os3High != null ? String(initSig.os3High) : ""), fOs3High = _useStateO3H[0], setFOs3High = _useStateO3H[1];
-  var _useStateO3HS = useState(initSig.os3HighSign || "+"), fOs3HighSign = _useStateO3HS[0], setFOs3HighSign = _useStateO3HS[1];
-  var _useStateO3C = useState(initSig.os3Conf != null ? String(initSig.os3Conf) : ""), fOs3Conf = _useStateO3C[0], setFOs3Conf = _useStateO3C[1];
-  var _useStateO3CS = useState(initSig.os3ConfSign || null), fOs3ConfSign = _useStateO3CS[0], setFOs3ConfSign = _useStateO3CS[1];
+  var _useStateO3H = useState(_initHold.os3High != null ? String(_initHold.os3High) : ""), fOs3High = _useStateO3H[0], setFOs3High = _useStateO3H[1];
+  var _useStateO3HS = useState(_initHold.os3HighSign || "+"), fOs3HighSign = _useStateO3HS[0], setFOs3HighSign = _useStateO3HS[1];
+  var _useStateO3C = useState(_initHold.os3Conf != null ? String(_initHold.os3Conf) : ""), fOs3Conf = _useStateO3C[0], setFOs3Conf = _useStateO3C[1];
+  var _useStateO3CS = useState(_initHold.os3ConfSign || null), fOs3ConfSign = _useStateO3CS[0], setFOs3ConfSign = _useStateO3CS[1];
   
   var _useStateEWSign = useState(null),
     _useStateEWSignA = _slicedToArray(_useStateEWSign, 2),
@@ -5010,29 +5070,32 @@ function EntryRecordForm(_ref_erf) {
   var _fPlanStopNow = (isV2Form && _epFormState)
     ? (_epFormState.judge === "ok" && _epFormState.epHigh != null && _fAlpha != null && (_epFormState.epHigh - _fAlpha) >= _fCutLine)
     : (Number(fOsVal) > 0 && _fAlpha != null && (Number(fOsVal) - _fAlpha) >= _fCutLine);
-  // Hold→OS の同期: EP=OS1ならH1⇔OS2・H2⇔OS3、EP=OS2ならH1⇔OS3は同一の足。
-  // Hold欄への入力（既存記録の入力済みデータ含む＝マウント時に自動反映）をOS欄へ写す。
-  // OS→Hold方向はOS欄の入力ラッパで同期済み。値が異なる時だけ書き込むためループしない。
-  // 符号変換: hold系"-"=↑ → OS系"+"=↑。
-  useEffect(function() {
-    if (!isV2Form || !_epFormState) return;
-    var idx = _epFormState.epIdx;
-    var _toOs = function(hv, hs, ov, osg, setV, setS) {
-      var v = (hv == null) ? "" : String(hv);
-      var sg = hs === "-" ? "+" : hs === "+" ? "-" : null;
-      if (v !== ov) setV(v);
-      if (v !== "" && sg !== osg) setS(sg);
-    };
-    if (idx === 0) {
-      _toOs(fHoldHighVal, fHoldHighSign, fOs2High, fOs2HighSign, setFOs2High, setFOs2HighSign);
-      _toOs(fHoldWidthVal, fHoldWidthSign, fOs2Conf, fOs2ConfSign, setFOs2Conf, setFOs2ConfSign);
-      _toOs(fHold2HighVal, fHold2HighSign, fOs3High, fOs3HighSign, setFOs3High, setFOs3HighSign);
-      _toOs(fHold2WidthVal, fHold2WidthSign, fOs3Conf, fOs3ConfSign, setFOs3Conf, setFOs3ConfSign);
-    } else if (idx === 1) {
-      _toOs(fHoldHighVal, fHoldHighSign, fOs3High, fOs3HighSign, setFOs3High, setFOs3HighSign);
-      _toOs(fHoldWidthVal, fHoldWidthSign, fOs3Conf, fOs3ConfSign, setFOs3Conf, setFOs3ConfSign);
-    }
-  });
+  // OS1〜5固定欄（scheme:3）: ミラー同期は廃止。hold*/hold2*欄=常に4・5本目の実データ。
+  // フォーム状態を仮想signal化し、H1/H2のプレビュー損益・損切り判定は共通ヘルパー（表と同一基準）で算出する。
+  var _fVSig = {
+    scheme: 3, alphaVal: _fAlpha, difficulty: fDifficulty || null,
+    osVal: (fOsVal !== "" && !isNaN(Number(fOsVal))) ? Number(fOsVal) : null,
+    osConfVal: (fOsConfVal !== "" && !isNaN(Number(fOsConfVal))) ? Number(fOsConfVal) : null, osConfSign: fOsConfSign || null,
+    os2High: (fOs2High !== "" && !isNaN(Number(fOs2High))) ? Number(fOs2High) : null, os2HighSign: fOs2HighSign || null,
+    os2Conf: (fOs2Conf !== "" && !isNaN(Number(fOs2Conf))) ? Number(fOs2Conf) : null, os2ConfSign: fOs2ConfSign || null,
+    os3High: (fOs3High !== "" && !isNaN(Number(fOs3High))) ? Number(fOs3High) : null, os3HighSign: fOs3HighSign || null,
+    os3Conf: (fOs3Conf !== "" && !isNaN(Number(fOs3Conf))) ? Number(fOs3Conf) : null, os3ConfSign: fOs3ConfSign || null,
+    holdHighVal: fHoldHighVal !== "" ? Number(fHoldHighVal) : null, holdHighSign: fHoldHighSign || null,
+    holdWidth: fHoldWidthVal !== "" ? Number(fHoldWidthVal) : null, holdWidthSign: fHoldWidthSign || null,
+    hold2HighVal: fHold2HighVal !== "" ? Number(fHold2HighVal) : null, hold2HighSign: fHold2HighSign || null,
+    hold2Width: fHold2WidthVal !== "" ? Number(fHold2WidthVal) : null, hold2WidthSign: fHold2WidthSign || null,
+    os1Exp: fOs1Exp || null, os2Exp: fOs2Exp || null,
+    holdExp: fHoldExp || null, hold2Exp: fHold2Exp || null
+  };
+  var _fEpRes = (_fAlpha != null) ? _epResolve(_fVSig, _fAlpha) : null;
+  // 足i（0〜4）の現在の役割（EP/H1/H2/null）。EP枠はOS1〜3のまま・H1/H2はEPの次・その次の足。
+  var _fRoleOf = function(i) {
+    var e = _epFormState ? _epFormState.epIdx : -1;
+    if (e < 0) return null;
+    return i === e ? "EP" : i === e + 1 ? "H1" : i === e + 2 ? "H2" : null;
+  };
+  var _fH1StopNow = !!(_fEpRes && _fEpRes.judge === "ok" && _fEpRes.h1 && _fEpRes.h1.h != null && _fAlpha != null && (_fEpRes.h1.h - _fAlpha) >= _fCutLine);
+  var _fH2StopNow = !!(_fEpRes && _fEpRes.judge === "ok" && _fEpRes.h2 && _fEpRes.h2.h != null && _fAlpha != null && (_fEpRes.h2.h - _fAlpha) >= _fCutLine);
   var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
   // H1までE基準未達でもHold2期待度欄・Hold2欄は表示して入力可能にする（表側は _elH2Miss が従来どおり「ー（H１までE基準未達）」表示）
   // E未達(OS1〜3でα未到達)が確定したらHold1/2欄ごと非表示（ノートレード=H足は存在しない・保存も不要）。
@@ -5189,10 +5252,18 @@ function EntryRecordForm(_ref_erf) {
   
   
   useEffect(function() {
+    // v3(OS1〜5固定欄): H1結果損益はαで解決した役割の足（EPの次）から共通ヘルパーで算出（表と同一基準）。
+    if (isV2Form) {
+      var _hpV = _elDynHold(_fVSig, _fAlpha, _fCutLine);
+      if (_hpV == null) { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
+      setFHoldPnlSign(_hpV === 0 ? null : _hpV > 0 ? "+" : "-");
+      setFHoldPnlVal(String(Math.abs(Math.round(_hpV))));
+      return;
+    }
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
     var _av = _fAlpha;
-    
+
     var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 10;
     if (fResult === "miss") {
 
@@ -5205,16 +5276,18 @@ function EntryRecordForm(_ref_erf) {
       var _hhExcess = _hhv - _av;
       if (_hhExcess >= _cutLHold) { setFHoldPnlSign("-"); setFHoldPnlVal(String(Math.round(_hhExcess * 100))); return; }
     }
-    
+
     if (_av == null || fHoldWidthVal === "") { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
     var _hw = Number(fHoldWidthVal) || 0;
-    
+
     if (!fHoldWidthSign && _hw !== 0) { setFHoldPnlSign(null); setFHoldPnlVal(""); return; }
     var _holdAdj = fHoldWidthSign === "+" ? _hw : fHoldWidthSign === "-" ? -_hw : 0;
     var _result = (_av + _holdAdj) * 100;
     setFHoldPnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, _fAlpha, _fCutLine, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal, fResult]);
+  }, [fStock, fDate, data, _fAlpha, _fCutLine, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal, fResult,
+      fOsVal, fOsConfVal, fOsConfSign, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign,
+      fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal]);
 
   
   useEffect(function() {
@@ -5271,6 +5344,14 @@ function EntryRecordForm(_ref_erf) {
   }, [fStock, fDate, data, _fAlpha, fHold2WidthSign, fHold2WidthVal]);
 
   useEffect(function() {
+    // v3(OS1〜5固定欄): H2結果損益はαで解決した役割の足（EPの2本後）から共通ヘルパーで算出（損切りルール非適用条件等も表と同一）。
+    if (isV2Form) {
+      var _hp2V = _elDynHold2(_fVSig, _fAlpha, _fCutLine);
+      if (_hp2V == null) { setFHold2PnlSign(null); setFHold2PnlVal(""); return; }
+      setFHold2PnlSign(_hp2V === 0 ? null : _hp2V > 0 ? "+" : "-");
+      setFHold2PnlVal(String(Math.abs(Math.round(_hp2V))));
+      return;
+    }
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
     var _av = _fAlpha;
@@ -5299,12 +5380,13 @@ function EntryRecordForm(_ref_erf) {
     var _result = (_av + _holdAdj) * 100;
     setFHold2PnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
     setFHold2PnlVal(String(Math.abs(Math.round(_result))));
-  }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult, fOsVal, fHoldHighSign, fHoldHighVal]);
+  }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult, fOsVal, fHoldHighSign, fHoldHighVal,
+      fOsConfVal, fOsConfSign, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign, fHoldWidthSign, fHoldWidthVal]);
 
   useEffect(function() {
     // EP損益 or H1の結果損益が損切りの間は損益変化も「損切り済(stop)」を自動選択。
     var _h2psStop = _fPlanStopNow;  // EP足基準の損切り判定（EP=OS2/3でも正しく判定）
-    var _h2h1Stop = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine);
+    var _h2h1Stop = _fH1StopNow;    // H1=役割の足（EPの次）基準
     if (_h2psStop || _h2h1Stop) { setFHold2Profit("stop"); return; }
     var _h1RA2 = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
     if (fResult === "miss" && !_h1RA2) { setFHold2Profit("miss"); return; }  // H1までE基準未達（想定+H1未達）→ 未達
@@ -5375,17 +5457,30 @@ function EntryRecordForm(_ref_erf) {
           if (fOs3Conf === "") _vm.push("OS3確定値");
         }
       }
-      // H欄: 部分入力は従来どおり必須エラー。全欄未入力は確認のうえ未入力のまま保存可
+      // H1/H2はEPの次・その次の足（EP=OS1→OS2/OS3・EP=OS2→OS3/OS4・EP=OS3→OS4/OS5）。
+      // 部分入力は必須エラー。該当2本が全欄未入力（期待度含む）は確認のうえ未入力のまま保存可
       // （採用α変更でE未達→成立に変わった既存記録の救済。表ではH損益ー表示・集計から除外され破綻しない。
       //   原則は「αの検証はαシミュ（非保存）で行い、採用αは当時の値を保持する」運用）。
-      var _hEmpty = fHoldHighVal === "" && fHoldWidthVal === "" && fHoldOsConf == null && !fHoldExp
-        && fHold2HighVal === "" && fHold2WidthVal === "" && fHold2OsConf == null && !fHold2Exp;
+      var _fBarsV = [
+        { h: fOsVal, c: fOsConfVal, name: "OS1" },
+        { h: fOs2High, c: fOs2Conf, name: "OS2" },
+        { h: fOs3High, c: fOs3Conf, name: "OS3" },
+        { h: fHoldHighVal, c: fHoldWidthVal, name: "OS4" },
+        { h: fHold2HighVal, c: fHold2WidthVal, name: "OS5" }
+      ];
+      var _hb1 = _ef.epIdx >= 0 ? (_fBarsV[_ef.epIdx + 1] || null) : null;
+      var _hb2 = _ef.epIdx >= 0 ? (_fBarsV[_ef.epIdx + 2] || null) : null;
+      var _hEmpty = (!_hb1 || (_hb1.h === "" && _hb1.c === "")) && (!_hb2 || (_hb2.h === "" && _hb2.c === "")) && !fHoldExp && !fHold2Exp;
       if (_ef.epIdx >= 0 && !_hEmpty) {
-        if (fHoldHighVal === "") _vm.push("H1高値");
-        if (fHoldWidthVal === "" && fHoldOsConf == null) _vm.push("H1確定値");
+        if (_hb1) {
+          if (_hb1.h === "") _vm.push("H1高値（" + _hb1.name + "）");
+          if (_hb1.c === "") _vm.push("H1確定値（" + _hb1.name + "）");
+        }
         if (!fHoldExp) _vm.push("H1期待度");
-        if (fHold2HighVal === "") _vm.push("H2高値");
-        if (fHold2WidthVal === "" && fHold2OsConf == null) _vm.push("H2確定値");
+        if (_hb2) {
+          if (_hb2.h === "") _vm.push("H2高値（" + _hb2.name + "）");
+          if (_hb2.c === "") _vm.push("H2確定値（" + _hb2.name + "）");
+        }
         if (!fHold2Exp) _vm.push("H2期待度");
       }
       if (fEntered && fReal === "") _vm.push("実現損益");
@@ -5450,22 +5545,23 @@ function EntryRecordForm(_ref_erf) {
       reflection: fReflection
     };
     if (isV2Form) {
-      // EP起算方式の追加フィールド。EP=OS1ならOS2/3は存在しない（α変更で隠れた残留入力は保存しない）。
+      // OS1〜5固定欄（scheme:3）: OS2/OS3は常に2・3本目として保存（4・5本目=hold*/hold2*は共通部で保存済み）。
+      // 到達期待はEP前の待ち足の判断のみ保存（EP=OS1→os1Exp不要・EP=OS1/2→os2Exp不要）。
       var _efS = _epFormState || { epIdx: -1 };
       var _useOs2 = _efS.epIdx !== 0;
       var _useOs3 = _useOs2 && _efS.epIdx !== 1;
-      sig.scheme = 2;
+      sig.scheme = 3;
       sig.result = null;  // 結果はEP足から自動導出
       sig.os1Exp = _useOs2 ? (fOs1Exp || null) : null;
-      sig.os2High = _useOs2 && fOs2High !== "" ? Number(fOs2High) : null;
-      sig.os2HighSign = _useOs2 && fOs2High !== "" ? (fOs2HighSign || "+") : null;
-      sig.os2Conf = _useOs2 && fOs2Conf !== "" ? Number(fOs2Conf) : null;
-      sig.os2ConfSign = _useOs2 && fOs2Conf !== "" ? (fOs2ConfSign || null) : null;
+      sig.os2High = fOs2High !== "" ? Number(fOs2High) : null;
+      sig.os2HighSign = fOs2High !== "" ? (fOs2HighSign || "+") : null;
+      sig.os2Conf = fOs2Conf !== "" ? Number(fOs2Conf) : null;
+      sig.os2ConfSign = fOs2Conf !== "" ? (fOs2ConfSign || null) : null;
       sig.os2Exp = _useOs3 ? (fOs2Exp || null) : null;
-      sig.os3High = _useOs3 && fOs3High !== "" ? Number(fOs3High) : null;
-      sig.os3HighSign = _useOs3 && fOs3High !== "" ? (fOs3HighSign || "+") : null;
-      sig.os3Conf = _useOs3 && fOs3Conf !== "" ? Number(fOs3Conf) : null;
-      sig.os3ConfSign = _useOs3 && fOs3Conf !== "" ? (fOs3ConfSign || null) : null;
+      sig.os3High = fOs3High !== "" ? Number(fOs3High) : null;
+      sig.os3HighSign = fOs3High !== "" ? (fOs3HighSign || "+") : null;
+      sig.os3Conf = fOs3Conf !== "" ? Number(fOs3Conf) : null;
+      sig.os3ConfSign = fOs3Conf !== "" ? (fOs3ConfSign || null) : null;
     }
 
     if (isEdit && (initial.stock !== fStock || initial.date !== fDate)) {
@@ -5714,17 +5810,6 @@ function EntryRecordForm(_ref_erf) {
 
       isV2Form ? (function() {
         var _ef = _epFormState || {};
-        // EP=OS1ならOS2=H1・OS3=H2、EP=OS2ならOS3=H1と同一の足。OS側の入力（数値・符号↕含む）を
-        // Hold欄へ同時反映する。符号は規約変換（OS系"+"=↑ ⇔ hold系"-"=↑）。片方向（OS→Hold）のみ。
-        var _hSignConv = function(sg) { return sg === "+" ? "-" : sg === "-" ? "+" : null; };
-        var _os2HoldIdx = _ef.epIdx === 0 ? 1 : null;
-        var _os3HoldIdx = _ef.epIdx === 0 ? 2 : _ef.epIdx === 1 ? 1 : null;
-        var _holdSet = {
-          1: { hv: setFHoldHighVal, hs: setFHoldHighSign, cv: setFHoldWidthVal, cs: setFHoldWidthSign },
-          2: { hv: setFHold2HighVal, hs: setFHold2HighSign, cv: setFHold2WidthVal, cs: setFHold2WidthSign }
-        };
-        var _wrapVal = function(setOs, holdIdx, key) { return function(v) { setOs(v); if (holdIdx) _holdSet[holdIdx][key](v); }; };
-        var _wrapSign = function(setOs, holdIdx, key) { return function(sg) { setOs(sg); if (holdIdx) _holdSet[holdIdx][key](_hSignConv(sg)); }; };
         var _expB = function(cur, setFn) {
           return React.createElement("div", { style: { display: "flex", gap: 3 } },
             [["○", "#C0392B", "#FCEBEB"], ["△", "#B45309", "#FEF3C7"], ["×", "#1E8449", "#EAF3DE"]].map(function(kv) {
@@ -5756,6 +5841,21 @@ function EntryRecordForm(_ref_erf) {
             _stepBtn(function() { _applySigned(ref, 1, "+", "-", setVal, setSign); },
                      function() { _applySigned(ref, -1, "+", "-", setVal, setSign); }));
         };
+        // OS4/OS5（hold*/hold2*フィールド）用: hold系符号規約（"-"=↑正・"+"=↓負）の符号ボタン＋符号付き入力
+        var _signBH = function(sign, setSign) {
+          var lab = sign === "-" ? "↑" : sign === "+" ? "↓" : "↕";
+          var col = sign === "-" ? "#C0392B" : sign === "+" ? "#1E8449" : "#999";
+          return React.createElement("button", {
+            onClick: function() { setSign(sign === "-" ? "+" : sign === "+" ? null : "-"); },
+            style: { padding: "4px 6px", fontSize: 13, fontWeight: sign ? 700 : 400, border: "none", borderRight: "1px solid #ccc", background: sign === "-" ? "#FCEBEB" : sign === "+" ? "#EAF3DE" : "#f5f4f0", color: col, cursor: "pointer", minWidth: 30, flexShrink: 0 }
+          }, lab);
+        };
+        var _sInH = function(val, setVal, sign, setSign, ref, after) {
+          return React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
+            _signBH(sign, setSign), _numIn(val, setVal),
+            _stepBtn(function() { _applySigned(ref, 1, "-", "+", setVal, setSign, after); },
+                     function() { _applySigned(ref, -1, "-", "+", setVal, setSign, after); }));
+        };
         // OS1高値（常に↑・0以上）
         var _uIn = function(val, setVal) {
           return React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
@@ -5768,11 +5868,13 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("span", { style: { fontSize: 10, color: "#666", fontWeight: 600, width: 40, flexShrink: 0 } }, lab), node,
             noUnit ? null : React.createElement("span", { style: { fontSize: 10, color: "#999" } }, "円"));
         };
-        var _legCol = function(label, isEp, rows) {
+        // role: "EP"(青枠)/"H1"/"H2"(グレーチップ)/null。役割は現在の採用αからライブ導出（_fRoleOf）。
+        var _legCol = function(label, role, rows) {
+          var isEp = role === "EP";
           return React.createElement("div", { key: label, style: { display: "flex", flexDirection: "column", gap: 4, padding: "6px 8px", border: "1px solid " + (isEp ? "#0369A1" : "#eee"), borderRadius: 6, background: isEp ? "#F0F9FF" : "#fff" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
               React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#9A3412" } }, label),
-              isEp ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#fff", background: "#0369A1", padding: "1px 5px", borderRadius: 4 } }, "EP") : null),
+              role ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#fff", background: isEp ? "#0369A1" : "#64748B", padding: "1px 5px", borderRadius: 4 } }, role) : null),
             rows);
         };
         var _eChip = (function() {
@@ -5792,27 +5894,40 @@ function EntryRecordForm(_ref_erf) {
             "EP損益 " + (_pnl > 0 ? "+" : "") + _pnl.toLocaleString() + "円" + (_df >= _cl ? "（損切り）" : ""));
         })();
         return React.createElement("div", { style: { marginTop: 4, marginBottom: 8, padding: "8px 10px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFBF5" } },
-          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 6 } }, "OS足（α値到達待ち・最大3本／値は水準線比）"),
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 6 } }, "足の記録 OS1〜5（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）"),
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto" } },
-            _legCol("OS1", _ef.epIdx === 0, [
+            _legCol("OS1", _fRoleOf(0), [
               _row("高値", _uIn(fOsVal, setFOsVal)),
               _row("確定値", _sIn(fOsConfVal, setFOsConfVal, fOsConfSign, setFOsConfSign, _oscSignedRef)),
               _ef.epIdx === 0 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
                 : (_ef.alpha != null && _ef.o1 != null) ? _row("到達期待", _expB(fOs1Exp, setFOs1Exp), true) : null
             ]),
-            _legCol("OS2", _ef.epIdx === 1, [
-              _row("高値", _sIn(fOs2High, _wrapVal(setFOs2High, _os2HoldIdx, "hv"), fOs2HighSign, _wrapSign(setFOs2HighSign, _os2HoldIdx, "hs"), _os2hSignedRef)),
-              _row("確定値", _sIn(fOs2Conf, _wrapVal(setFOs2Conf, _os2HoldIdx, "cv"), fOs2ConfSign, _wrapSign(setFOs2ConfSign, _os2HoldIdx, "cs"), _os2cSignedRef)),
+            _legCol("OS2", _fRoleOf(1), [
+              _row("高値", _sIn(fOs2High, setFOs2High, fOs2HighSign, setFOs2HighSign, _os2hSignedRef)),
+              _row("確定値", _sIn(fOs2Conf, setFOs2Conf, fOs2ConfSign, setFOs2ConfSign, _os2cSignedRef)),
               _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true)
                 : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
                 : (_ef.o2 != null) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp), true) : null
             ]),
-            _legCol("OS3", _ef.epIdx === 2, [
-              _row("高値", _sIn(fOs3High, _wrapVal(setFOs3High, _os3HoldIdx, "hv"), fOs3HighSign, _wrapSign(setFOs3HighSign, _os3HoldIdx, "hs"), _os3hSignedRef)),
-              _row("確定値", _sIn(fOs3Conf, _wrapVal(setFOs3Conf, _os3HoldIdx, "cv"), fOs3ConfSign, _wrapSign(setFOs3ConfSign, _os3HoldIdx, "cs"), _os3cSignedRef)),
+            _legCol("OS3", _fRoleOf(2), [
+              _row("高値", _sIn(fOs3High, setFOs3High, fOs3HighSign, setFOs3HighSign, _os3hSignedRef)),
+              _row("確定値", _sIn(fOs3Conf, setFOs3Conf, fOs3ConfSign, setFOs3ConfSign, _os3cSignedRef)),
               _ef.epIdx === 1 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true)
                 : _ef.epIdx === 2 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true) : null
             ])
+          ),
+          React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto", marginTop: 6 } },
+            _legCol("OS4", _fRoleOf(3), [
+              _row("高値", _sInH(fHoldHighVal, setFHoldHighVal, fHoldHighSign, setFHoldHighSign, _hhSignedRef)),
+              _row("確定値", _sInH(fHoldWidthVal, setFHoldWidthVal, fHoldWidthSign, setFHoldWidthSign, _hwSignedRef, _hwAfter)),
+              _ef.epIdx === 2 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true) : null
+            ]),
+            _legCol("OS5", _fRoleOf(4), [
+              _row("高値", _sInH(fHold2HighVal, setFHold2HighVal, fHold2HighSign, setFHold2HighSign, _h2hSignedRef)),
+              _row("確定値", _sInH(fHold2WidthVal, setFHold2WidthVal, fHold2WidthSign, setFHold2WidthSign, _h2wSignedRef, _h2wAfter))
+            ]),
+            React.createElement("div", { key: "note", style: { display: "flex", alignItems: "center", fontSize: 9, color: "#aaa", maxWidth: 200 } },
+              "OS4・OS5は4・5本目。EPがOS2/3のときH1/H2に使われる（役割外でも記録可＝αシミュで活用）")
           ),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" } }, _eChip, _epPnlChip,
             _ef.judge === "miss" ? React.createElement("span", { style: { fontSize: 10, color: "#999" } }, "E未達のためH1/H2・実現損益は不要") : null)
@@ -5887,7 +6002,11 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
       
-      React.createElement("div", { style: { marginTop: 6, marginBottom: 2 } },
+      React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
+        "EP（エントリーポイント" + (_epFormState && _epFormState.epIdx >= 0 ? "＝OS" + (_epFormState.epIdx + 1) : "") + "）"
+      ),
+      React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" } },
+      React.createElement("div", { style: { marginTop: 0, marginBottom: 2 } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
           React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } },
             "想定値幅",
@@ -5955,27 +6074,7 @@ function EntryRecordForm(_ref_erf) {
         (!_fMiss && _fPlanStopNow)
           ? _elCapNote(_fCutLine, { fontSize: 15, circle: 16, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
       ),
-      _fHideHold ? null : React.createElement("div", { style: { marginBottom: 8 } },
-        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } },
-          "Hold1期待度",
-          React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×）")),
-        React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
-          [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"]].map(function(kv) {
-            var on = fHoldExp === kv[0];
-            return React.createElement("button", {
-              key: kv[0],
-              onClick: function() { setFHoldExp(on ? null : kv[0]); },
-              style: {
-                padding: "5px 16px", fontSize: kv[0].length > 1 ? 12 : 15, fontWeight: 800, borderRadius: 5, cursor: "pointer",
-                border: on ? "1.5px solid " + kv[1] : "1px solid #ddd",
-                background: on ? kv[2] : "#fff",
-                color: on ? kv[1] : "#bbb"
-              }
-            }, kv[0]);
-          })
-        )
-      ),
-      React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement("div", { style: { marginBottom: 0 } },
         React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "メモ"),
         React.createElement(FastInput, {
           multiline: true,
@@ -5986,110 +6085,17 @@ function EntryRecordForm(_ref_erf) {
           rows: 2,
           style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56 })
         })
+      )
       ),
 
       _fHideHold ? null : React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
-        "Hold１"
+        "H１（EPの次の足" + (_epFormState && _epFormState.epIdx >= 0 ? "＝OS" + (_epFormState.epIdx + 2) : "") + "）",
+        React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "高値・確定値は上の足ブロックで入力／期待度はEPの足のスロットで選択")
       ),
       _fHideHold ? null : React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
       },
 
-        React.createElement("div", { style: { marginBottom: 8 } },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" } },
-            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（水準線比）"),
-            React.createElement("div", {
-              style: { display: "flex", alignItems: "center", border: "1px solid " + (fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
-            },
-              React.createElement("button", {
-                onClick: function() {
-                  setFHoldHighSign(fHoldHighSign === "-" ? "+" : fHoldHighSign === "+" ? null : "-");
-                },
-                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldHighSign ? 700 : 400, cursor: "pointer", minWidth: 36, flexShrink: 0,
-                  border: "none", borderRight: "1px solid " + (fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#ccc"),
-                  background: fHoldHighSign === "+" ? "#EAF3DE" : fHoldHighSign === "-" ? "#FCEBEB" : "#f5f4f0",
-                  color: fHoldHighSign === "+" ? "#1E8449" : fHoldHighSign === "-" ? "#C0392B" : "#999" }
-              }, fHoldHighSign === "-" ? "↑" : fHoldHighSign === "+" ? "↓" : "↕"),
-              React.createElement("input", {
-                type: "text", inputMode: "numeric", step: "1",
-                value: fHoldHighVal,
-                onChange: function(e) {
-                  var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
-                  setFHoldHighVal(_v);
-                },
-                placeholder: "0",
-                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { _applySigned(_hhSignedRef, 1, "-", "+", setFHoldHighVal, setFHoldHighSign); },
-                function() { _applySigned(_hhSignedRef, -1, "-", "+", setFHoldHighVal, setFHoldHighSign); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-            (function() {
-              if (fHoldHighVal === "") return null;
-              var _ck3 = fStock + "_" + fDate;
-              var _cd3 = data.charts && data.charts[_ck3];
-              var _av3 = _fAlpha;
-              if (_av3 == null) return null;
-              var _shhv = fHoldHighSign === "-" ? (Number(fHoldHighVal) || 0) : fHoldHighSign === "+" ? -(Number(fHoldHighVal) || 0) : 0;
-              var _diff = _shhv - _av3;
-              var _isUp = _diff > 0, _isDn = _diff < 0;
-              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, marginLeft: 4 } },
-                React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "α値比"),
-                React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: _isUp ? "#C0392B" : _isDn ? "#1E8449" : "#999" } },
-                  (_isUp ? "↑" : _isDn ? "↓" : "↕") + Math.abs(_diff) + "円")
-              );
-            })()
-          ),
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
-            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "ホールド足確定値(水準線比)"),
-            React.createElement("div", {
-              style: { display: "flex", alignItems: "center", border: "1px solid " + (fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
-            },
-              React.createElement("button", {
-                onClick: function() {
-                  var _newSg = fHoldWidthSign === "-" ? "+" : fHoldWidthSign === "+" ? null : "-";
-                  setFHoldWidthSign(_newSg);
-                  var _ck2 = fStock + "_" + fDate;
-                  var _cd2 = data.charts && data.charts[_ck2];
-                  var _av2 = _fAlpha;
-                  if (_av2 != null && fHoldWidthVal !== "") {
-                    var _ws = _newSg === "-" ? -(Number(fHoldWidthVal)||0) : (Number(fHoldWidthVal)||0);
-                    setFHoldOsConf(_av2 - _ws);
-                  }
-                },
-                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHoldWidthSign ? 700 : 400, cursor: "pointer", minWidth: 36, flexShrink: 0,
-                  border: "none", borderRight: "1px solid " + (fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#ccc"),
-                  background: fHoldWidthSign === "+" ? "#EAF3DE" : fHoldWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
-                  color: fHoldWidthSign === "+" ? "#1E8449" : fHoldWidthSign === "-" ? "#C0392B" : "#999" }
-              }, fHoldWidthSign === "-" ? "↑" : fHoldWidthSign === "+" ? "↓" : "↕"),
-              React.createElement("input", {
-                type: "text", inputMode: "numeric", step: "1",
-                value: fHoldWidthVal,
-                onChange: function(e) {
-                  var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
-                  setFHoldWidthVal(_v);
-                  var _ck2 = fStock + "_" + fDate;
-                  var _cd2 = data.charts && data.charts[_ck2];
-                  var _av2 = _fAlpha;
-                  if (_av2 != null && _v !== "" && fHoldWidthSign != null) {
-                    var _ws = fHoldWidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0);
-                    setFHoldOsConf(_av2 - _ws);
-                  }
-                },
-                placeholder: "0",
-                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { _applySigned(_hwSignedRef, 1, "-", "+", setFHoldWidthVal, setFHoldWidthSign, _hwAfter); },
-                function() { _applySigned(_hwSignedRef, -1, "-", "+", setFHoldWidthVal, setFHoldWidthSign, _hwAfter); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
-          ),
-        ),
-        
         React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
@@ -6105,7 +6111,7 @@ function EntryRecordForm(_ref_erf) {
                 minWidth: 80, textAlign: "right"
               }
             }, fHoldPnlVal === "0" ? "0円" : fHoldPnlVal ? (fHoldPnlSign === "-" ? "−" : "+") + Number(fHoldPnlVal).toLocaleString() + "円" : "—"),
-            ((fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine) || _fPlanStopNow)
+            (_fH1StopNow || _fPlanStopNow)
               ? _elCapNote(_fCutLine, { fontSize: 14, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
           ),
           React.createElement("div", null,
@@ -6129,29 +6135,8 @@ function EntryRecordForm(_ref_erf) {
           )
         ),
 
-        _fH2Hidden ? null : React.createElement("div", { style: { marginTop: 10, paddingTop: 8, borderTop: "1px dashed #ddd" } },
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
-            "Hold2期待度",
-            React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（○か△か×でHold2欄が出ます）")),
-          React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
-            [["○", "#1E8449", "#EAF3DE"], ["△", "#B45309", "#FEF3C7"], ["×", "#C0392B", "#FCEBEB"]].map(function(kv) {
-              var on = fHold2Exp === kv[0];
-              return React.createElement("button", {
-                key: kv[0],
-                onClick: function() { setFHold2Exp(on ? null : kv[0]); },
-                style: {
-                  padding: "5px 16px", fontSize: kv[0].length > 1 ? 12 : 15, fontWeight: 800, borderRadius: 5, cursor: "pointer",
-                  border: on ? "1.5px solid " + kv[1] : "1px solid #ddd",
-                  background: on ? kv[2] : "#fff",
-                  color: on ? kv[1] : "#bbb"
-                }
-              }, kv[0]);
-            })
-          )
-        ),
-
         React.createElement("div", { style: { marginTop: 10 } },
-          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "Hold１メモ"),
+          React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "H１メモ"),
           React.createElement(FastInput, {
             multiline: true, autoResize: true,
             value: fHoldMemo,
@@ -6163,108 +6148,20 @@ function EntryRecordForm(_ref_erf) {
         )
       ),
 
-      _fH2Hidden ? null : React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) }, "Hold２",
+      _fH2Hidden ? null : React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) },
+        "H２（EPの2本後の足" + (_epFormState && _epFormState.epIdx >= 0 ? "＝OS" + (_epFormState.epIdx + 3) : "") + "）",
         _fH2NonConsider ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 5, padding: "2px 8px", whiteSpace: "nowrap" } }, "※H１までE基準未達のため、非考慮") : null
       ),
       _fH2Hidden ? null : React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F4F6F8", border: "1px solid " + (fHold2Exp === "×" ? "#e3c9c9" : "#cfe0d2") }
       },
 
-        React.createElement("div", { style: { marginBottom: 8 } },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" } },
-            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600, whiteSpace: "nowrap" } }, "ホールド足高値（水準線比）"),
-            React.createElement("div", {
-              style: { display: "flex", alignItems: "center", border: "1px solid " + (fHold2HighSign === "+" ? "#1E8449" : fHold2HighSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
-            },
-              React.createElement("button", {
-                onClick: function() {
-                  setFHold2HighSign(fHold2HighSign === "-" ? "+" : fHold2HighSign === "+" ? null : "-");
-                },
-                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHold2HighSign ? 700 : 400, cursor: "pointer", minWidth: 36, flexShrink: 0,
-                  border: "none", borderRight: "1px solid " + (fHold2HighSign === "+" ? "#1E8449" : fHold2HighSign === "-" ? "#C0392B" : "#ccc"),
-                  background: fHold2HighSign === "+" ? "#EAF3DE" : fHold2HighSign === "-" ? "#FCEBEB" : "#f5f4f0",
-                  color: fHold2HighSign === "+" ? "#1E8449" : fHold2HighSign === "-" ? "#C0392B" : "#999" }
-              }, fHold2HighSign === "-" ? "↑" : fHold2HighSign === "+" ? "↓" : "↕"),
-              React.createElement("input", {
-                type: "text", inputMode: "numeric", step: "1",
-                value: fHold2HighVal,
-                onChange: function(e) {
-                  var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
-                  setFHold2HighVal(_v);
-                },
-                placeholder: "0",
-                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { _applySigned(_h2hSignedRef, 1, "-", "+", setFHold2HighVal, setFHold2HighSign); },
-                function() { _applySigned(_h2hSignedRef, -1, "-", "+", setFHold2HighVal, setFHold2HighSign); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-            (function() {
-              if (fHold2HighVal === "") return null;
-              var _av3 = _fAlpha;
-              if (_av3 == null) return null;
-              var _shhv = fHold2HighSign === "-" ? (Number(fHold2HighVal) || 0) : fHold2HighSign === "+" ? -(Number(fHold2HighVal) || 0) : 0;
-              var _diff = _shhv - _av3;
-              var _isUp = _diff > 0, _isDn = _diff < 0;
-              return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, marginLeft: 4 } },
-                React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "α値比"),
-                React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: _isUp ? "#C0392B" : _isDn ? "#1E8449" : "#999" } },
-                  (_isUp ? "↑" : _isDn ? "↓" : "↕") + Math.abs(_diff) + "円")
-              );
-            })()
-          ),
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 } },
-            React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 600 } }, "ホールド足確定値(水準線比)"),
-            React.createElement("div", {
-              style: { display: "flex", alignItems: "center", border: "1px solid " + (fHold2WidthSign === "+" ? "#1E8449" : fHold2WidthSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
-            },
-              React.createElement("button", {
-                onClick: function() {
-                  var _newSg = fHold2WidthSign === "-" ? "+" : fHold2WidthSign === "+" ? null : "-";
-                  setFHold2WidthSign(_newSg);
-                  var _av2 = _fAlpha;
-                  if (_av2 != null && fHold2WidthVal !== "") {
-                    var _ws = _newSg === "-" ? -(Number(fHold2WidthVal)||0) : (Number(fHold2WidthVal)||0);
-                    setFHold2OsConf(_av2 - _ws);
-                  }
-                },
-                style: { padding: "5px 10px", fontSize: 13, fontWeight: fHold2WidthSign ? 700 : 400, cursor: "pointer", minWidth: 36, flexShrink: 0,
-                  border: "none", borderRight: "1px solid " + (fHold2WidthSign === "+" ? "#1E8449" : fHold2WidthSign === "-" ? "#C0392B" : "#ccc"),
-                  background: fHold2WidthSign === "+" ? "#EAF3DE" : fHold2WidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
-                  color: fHold2WidthSign === "+" ? "#1E8449" : fHold2WidthSign === "-" ? "#C0392B" : "#999" }
-              }, fHold2WidthSign === "-" ? "↑" : fHold2WidthSign === "+" ? "↓" : "↕"),
-              React.createElement("input", {
-                type: "text", inputMode: "numeric", step: "1",
-                value: fHold2WidthVal,
-                onChange: function(e) {
-                  var _hk = _toHankakuNum(e.target.value); var _v = _hk === "" ? "" : String(Math.abs(Number(_hk) || 0));
-                  setFHold2WidthVal(_v);
-                  var _av2 = _fAlpha;
-                  if (_av2 != null && _v !== "" && fHold2WidthSign != null) {
-                    var _ws = fHold2WidthSign === "-" ? -(Number(_v)||0) : (Number(_v)||0);
-                    setFHold2OsConf(_av2 - _ws);
-                  }
-                },
-                placeholder: "0",
-                style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(
-                function() { _applySigned(_h2wSignedRef, 1, "-", "+", setFHold2WidthVal, setFHold2WidthSign, _h2wAfter); },
-                function() { _applySigned(_h2wSignedRef, -1, "-", "+", setFHold2WidthVal, setFHold2WidthSign, _h2wAfter); }
-              )
-            ),
-            React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円")
-          )
-        ),
-
         React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" } },
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            _fH2NonConsider ? _fH2MissEl : (_fPlanStopNow || (fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) - _fAlpha) >= _fCutLine)) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : React.createElement("span", {
+            _fH2NonConsider ? _fH2MissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -6274,7 +6171,7 @@ function EntryRecordForm(_ref_erf) {
                 minWidth: 80, textAlign: "right"
               }
             }, fHold2PnlVal === "0" ? "0円" : fHold2PnlVal ? (fHold2PnlSign === "-" ? "−" : "+") + Number(fHold2PnlVal).toLocaleString() + "円" : "—"),
-            ((fHold2HighSign === "-" && fHold2HighVal !== "" && (Number(fHold2HighVal) - _fAlpha) >= _fCutLine) || _fPlanStopNow)
+            (_fH2StopNow || _fPlanStopNow)
               ? _elCapNote(_fCutLine, { fontSize: 14, circle: 15, style: { justifyContent: "flex-start", marginTop: 3 } }) : null
           ),
           React.createElement("div", null,

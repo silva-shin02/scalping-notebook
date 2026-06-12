@@ -226,8 +226,192 @@ function EntryStatsSummary(_ref_ess) {
 
 
 
+// === EP位置・累積損益・αカーブ分析（記録帳・集計タブ 2026-06-13）===
+// EP位置別の集計: ep0/ep1/ep2(=EP=OS1/2/3・E成立) / miss(E未達) / x(×見送り)。aiOf(r)={alpha,cutLine}。
+function _elEpPosStatsV2(recs, aiOf) {
+  var _mk = function() { return { cnt: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, h2: 0, h2Cnt: 0, stop: 0 }; };
+  var c = { ep0: _mk(), ep1: _mk(), ep2: _mk(), miss: _mk(), x: _mk() }, n = 0;
+  (recs || []).forEach(function(r) {
+    var s = r.signal, ai = aiOf(r);
+    var rr = _epResolve(s, ai.alpha);
+    if (!rr) return;
+    var key = rr.judge === "miss" ? "miss" : rr.judge === "x" ? "x" : "ep" + rr.epIdx;
+    var o = c[key];
+    if (!o) return;
+    o.cnt++; n++;
+    if (rr.judge !== "ok") return;
+    var pv = _elDynPlanned(s, ai.alpha, ai.cutLine);
+    if (pv != null) { o.plan += pv; o.planCnt++; }
+    var h1p = _elHold1TotParts(s, ai.alpha, ai.cutLine);
+    if (h1p.main != null) { o.h1 += h1p.main; o.h1Cnt++; }
+    var h2p = _elHold2TotParts(s, ai.alpha, ai.cutLine);
+    if (h2p.main != null) { o.h2 += h2p.main; o.h2Cnt++; }
+    if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) o.stop++;
+  });
+  c.n = n;
+  return c;
+}
+var _EL_EPPOS_DEFS = [
+  { k: "ep0", label: "EP=OS1（即到達）", color: "#0369A1" },
+  { k: "ep1", label: "EP=OS2（1本待ち）", color: "#0EA5E9" },
+  { k: "ep2", label: "EP=OS3（2本待ち）", color: "#7DD3FC" },
+  { k: "x", label: "×見送り", color: "#86EFAC" },
+  { k: "miss", label: "E未達", color: "#C4B5FD" }
+];
+// EP位置の積み上げバー＋EP位置別成績表＋読み取り。
+function _elEpPosSectionV2(recs, aiOf) {
+  if (!recs || !recs.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "v2記録なし");
+  var st = _elEpPosStatsV2(recs, aiOf);
+  if (!st.n) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "記録なし");
+  var _pct = function(v) { return Math.round(v / st.n * 100); };
+  var bar = React.createElement("div", { style: { display: "flex", width: "100%", height: 22, borderRadius: 6, overflow: "hidden", border: "1px solid #e5e0d6" } },
+    _EL_EPPOS_DEFS.map(function(d) {
+      var o = st[d.k];
+      if (!o.cnt) return null;
+      return React.createElement("div", { key: d.k, title: d.label + " " + o.cnt + "件", style: { width: (o.cnt / st.n * 100) + "%", background: d.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff", whiteSpace: "nowrap", overflow: "hidden" } }, o.cnt + "件");
+    }));
+  var legend = React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 } },
+    _EL_EPPOS_DEFS.map(function(d) {
+      var o = st[d.k];
+      return React.createElement("span", { key: d.k, style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, color: "#666" } },
+        React.createElement("span", { style: { width: 10, height: 10, borderRadius: 2, background: d.color, display: "inline-block" } }),
+        d.label + "：" + o.cnt + "件" + (o.cnt ? "（" + _pct(o.cnt) + "%）" : ""));
+    }));
+  var _thE = function(t) { return React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
+  var _tdE = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
+  var _amtE = function(v, cnt) { if (!cnt) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+  var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 8 } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
+        _thE("EP位置"), _thE("件数"), _thE("EP損益合計"), _thE("H1合計"), _thE("H2合計"), _thE("損切り"))),
+      React.createElement("tbody", null, ["ep0", "ep1", "ep2"].map(function(k, i) {
+        var d = _EL_EPPOS_DEFS[i], o = st[k];
+        return React.createElement("tr", { key: k },
+          _tdE(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
+            React.createElement("span", { style: { width: 9, height: 9, borderRadius: 2, background: d.color, display: "inline-block" } }), d.label), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+          _tdE(o.cnt ? o.cnt + "件（" + _pct(o.cnt) + "%）" : "0件", { fontWeight: 700 }),
+          _tdE(_amtE(o.plan, o.planCnt)), _tdE(_amtE(o.h1, o.h1Cnt)), _tdE(_amtE(o.h2, o.h2Cnt)),
+          _tdE(o.stop ? o.stop + "回" : "0回", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }));
+      }))));
+  var ok = st.ep0.cnt + st.ep1.cnt + st.ep2.cnt;
+  var items = [];
+  if (ok) {
+    items.push(React.createElement("span", null, "E成立", _elInsightEmV2(ok + "件"), "のうち、OS1即到達が", _elInsightEmV2(Math.round(st.ep0.cnt / ok * 100) + "%"), "・2本目以降の到達（待ってから成立）が", _elInsightEmV2(Math.round((st.ep1.cnt + st.ep2.cnt) / ok * 100) + "%"), "。"));
+    var wCnt = st.ep1.cnt + st.ep2.cnt, wStop = st.ep1.stop + st.ep2.stop;
+    if (wCnt && st.ep0.cnt) {
+      var r0 = Math.round(st.ep0.stop / st.ep0.cnt * 100), rw = Math.round(wStop / wCnt * 100);
+      items.push(React.createElement("span", null, "損切り率は OS1成立=", _elInsightEmV2(r0 + "%"), "・OS2/3成立=", _elInsightEmV2(rw + "%"), rw > r0 ? "。遅い到達ほど損切りになりやすい傾向。" : "。待ってからの成立でも損切りは増えていない。"));
+    }
+    var hbest = null;
+    ["ep0", "ep1", "ep2"].forEach(function(k, i) { var o = st[k]; if (o.h1Cnt && (hbest == null || o.h1 / o.h1Cnt > hbest.v)) hbest = { v: o.h1 / o.h1Cnt, i: i }; });
+    if (hbest) items.push(React.createElement("span", null, "1件あたりのH1損益が最も良いのは", _elInsightEmV2(["EP=OS1", "EP=OS2", "EP=OS3"][hbest.i]), "（平均", _elInsightEmV2(Math.round(hbest.v).toLocaleString() + "円"), "）。"));
+  }
+  if (st.miss.cnt) items.push(React.createElement("span", null, "E未達は", _elInsightEmV2(st.miss.cnt + "件（" + _pct(st.miss.cnt) + "%）"), "＝ノートレードで損失ゼロ。"));
+  if (st.x.cnt) items.push(React.createElement("span", null, "×見送り（宣言後の到達）は", _elInsightEmV2(st.x.cnt + "件"), "＝参考扱い・集計上ノートレード。"));
+  return React.createElement("div", null, bar, legend, tbl, items.length ? _elInsightBoxV2(items) : null);
+}
+// 汎用SVG折れ線チャート。series=[{label,color,pts:[number]}]（全系列同じ点数）。opts={height,xTicks:[{i,label}]}。
+function _elLineChartV2(series, opts) {
+  opts = opts || {};
+  var sers = (series || []).filter(function(sr) { return sr && sr.pts && sr.pts.length; });
+  if (!sers.length) return null;
+  var n = 0;
+  sers.forEach(function(sr) { if (sr.pts.length > n) n = sr.pts.length; });
+  if (n < 2) return null;
+  var W = 680, H = opts.height || 190, padL = 56, padR = 14, padT = 10, padB = 20;
+  var yMin = 0, yMax = 0;
+  sers.forEach(function(sr) { sr.pts.forEach(function(v) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }); });
+  if (yMin === yMax) yMax = yMin + 100;
+  var _sp = yMax - yMin; yMin -= _sp * 0.06; yMax += _sp * 0.06;
+  var xAt = function(i) { return padL + (W - padL - padR) * i / (n - 1); };
+  var yAt = function(v) { return padT + (H - padT - padB) * (1 - (v - yMin) / (yMax - yMin)); };
+  var kids = [];
+  for (var t = 0; t <= 4; t++) {
+    var gv = yMin + (yMax - yMin) * t / 4, gy = yAt(gv);
+    kids.push(React.createElement("line", { key: "g" + t, x1: padL, y1: gy, x2: W - padR, y2: gy, stroke: "#eee9e0", strokeWidth: 1 }));
+    kids.push(React.createElement("text", { key: "gl" + t, x: padL - 4, y: gy + 3, textAnchor: "end", fontSize: 9, fill: "#999" }, Math.round(gv).toLocaleString()));
+  }
+  if (yMin < 0 && yMax > 0) kids.push(React.createElement("line", { key: "zero", x1: padL, y1: yAt(0), x2: W - padR, y2: yAt(0), stroke: "#cbb89a", strokeWidth: 1.2 }));
+  (opts.xTicks || []).forEach(function(tk, ti) {
+    kids.push(React.createElement("line", { key: "xtl" + ti, x1: xAt(tk.i), y1: padT, x2: xAt(tk.i), y2: H - padB, stroke: "#f3efe7", strokeWidth: 1 }));
+    kids.push(React.createElement("text", { key: "xt" + ti, x: xAt(tk.i), y: H - 6, textAnchor: "middle", fontSize: 9, fill: "#999" }, tk.label));
+  });
+  sers.forEach(function(sr, si) {
+    var ptsStr = sr.pts.map(function(v, i) { return xAt(i) + "," + yAt(v); }).join(" ");
+    kids.push(React.createElement("polyline", { key: "pl" + si, points: ptsStr, fill: "none", stroke: sr.color, strokeWidth: 2, strokeLinejoin: "round" }));
+    kids.push(React.createElement("circle", { key: "lc" + si, cx: xAt(sr.pts.length - 1), cy: yAt(sr.pts[sr.pts.length - 1]), r: 3, fill: sr.color }));
+  });
+  var legend = React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginTop: 2 } },
+    sers.map(function(sr, si) {
+      var lv = sr.pts[sr.pts.length - 1];
+      return React.createElement("span", { key: si, style: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "#666" } },
+        React.createElement("span", { style: { width: 14, height: 3, background: sr.color, display: "inline-block", borderRadius: 2 } }),
+        sr.label + "：",
+        React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(lv) } }, _elPnlFmt(lv)));
+    }));
+  return React.createElement("div", null,
+    React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", minWidth: 480, height: "auto", display: "block" } }, kids)),
+    legend);
+}
+// 累積損益（記録順）: EP損益/H1/H2/実現の累積線。寄与は合計行と同一基準（H1=_elHold1TotParts.main・H2=_elHold2TotParts.main）。
+function _elCumPnlSectionV2(recs, aiOf) {
+  if (!recs || recs.length < 2) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "記録が2件以上で表示されます");
+  var sorted = recs.slice().sort(function(a, b) { return ((a.date || "") + (a.signal.time || "")).localeCompare((b.date || "") + (b.signal.time || "")); });
+  var cp = 0, c1 = 0, c2 = 0, cr = 0;
+  var pPlan = [], pH1 = [], pH2 = [], pReal = [], xTicks = [], lastDate = null;
+  sorted.forEach(function(r, i) {
+    var s = r.signal, ai = aiOf(r);
+    var pv = _elDynPlanned(s, ai.alpha, ai.cutLine);
+    if (pv != null) cp += pv;
+    var h1p = _elHold1TotParts(s, ai.alpha, ai.cutLine);
+    if (h1p.main != null) c1 += h1p.main;
+    var h2p = _elHold2TotParts(s, ai.alpha, ai.cutLine);
+    if (h2p.main != null) c2 += h2p.main;
+    var rv = _elIsEntered(s, r.item) ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null;
+    if (rv != null) cr += rv;
+    pPlan.push(cp); pH1.push(c1); pH2.push(c2); pReal.push(cr);
+    if (r.date !== lastDate) { xTicks.push({ i: i, label: (r.date || "").slice(5) }); lastDate = r.date; }
+  });
+  var _stp = Math.max(1, Math.ceil(xTicks.length / 6));
+  xTicks = xTicks.filter(function(_x, ti) { return ti % _stp === 0; });
+  return _elLineChartV2([
+    { label: "EP損益", color: "#0369A1", pts: pPlan },
+    { label: "H1", color: "#DC2626", pts: pH1 },
+    { label: "H2", color: "#D97706", pts: pH2 },
+    { label: "実現損益", color: "#7C3AED", pts: pReal }
+  ], { xTicks: xTicks });
+}
+// α感応度カーブ: α=0〜20円の各値で全記録を再計算した合計（EP損益・H1=想定額キャップ後・H2）。読み取りにH1/H2最大α。
+function _elAlphaCurveSectionV2(recs, aiOf) {
+  if (!recs || !recs.length) return null;
+  var pPlan = [], pH1 = [], pH2 = [], xTicks = [];
+  for (var a = 0; a <= 20; a++) {
+    var t = _elTotAccum(recs, {
+      signal: function(r) { return r.signal; },
+      alpha: (function(_a) { return function() { return _a; }; })(a),
+      cut: function(r) { return aiOf(r).cutLine; }
+    });
+    pPlan.push(t.plan || 0); pH1.push(t.holdPlanCap || 0); pH2.push(t.hold2 || 0);
+    if (a % 5 === 0) xTicks.push({ i: a, label: "α" + a + "円" });
+  }
+  var b1 = 0, b2 = 0;
+  pH1.forEach(function(v, i) { if (v > pH1[b1]) b1 = i; });
+  pH2.forEach(function(v, i) { if (v > pH2[b2]) b2 = i; });
+  var chart = _elLineChartV2([
+    { label: "EP損益", color: "#0369A1", pts: pPlan },
+    { label: "H1", color: "#DC2626", pts: pH1 },
+    { label: "H2", color: "#D97706", pts: pH2 }
+  ], { xTicks: xTicks, height: 200 });
+  return React.createElement("div", null, chart,
+    _elInsightBoxV2([
+      React.createElement("span", null, "H1合計が最大になるのは", _elInsightEmV2("α=" + b1 + "円"), "（", _elInsightEmV2(_elPnlFmt(pH1[b1])), "）。"),
+      React.createElement("span", null, "H2合計が最大になるのは", _elInsightEmV2("α=" + b2 + "円"), "（", _elInsightEmV2(_elPnlFmt(pH2[b2])), "）。")
+    ], { note: "損切り値は各記録の採用値・H1は想定損切り時キャップ後の合計" }));
+}
+
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
-// タブ: 集計(KPI+α意思決定表)/日別/シグナル別/銘柄別/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
+// タブ: 集計(KPI+EP位置分析+累積損益+α意思決定表+αカーブ)/日別/シグナル別/銘柄別/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
 // 一覧・展開明細は1行=1記録のテーブル（行タップでEntryLogCard展開）でスクロール量を削減。
 // 旧実装は _entryLogViewLegacy として休眠（未参照・整理予定）。
 function EntryLogView(_ref_elv2) {
@@ -463,8 +647,14 @@ function EntryLogView(_ref_elv2) {
   if (view === "sum") {
     _tabBody = React.createElement(React.Fragment, null,
       _kpiBlock,
+      v2recs.length ? React.createElement(React.Fragment, null,
+        _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）とEP位置別の成績"), _elEpPosSectionV2(v2recs, _ai)) : null,
+      v2recs.length >= 2 ? React.createElement(React.Fragment, null,
+        _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), _elCumPnlSectionV2(v2recs, _ai)) : null,
       _alphaTable ? React.createElement(React.Fragment, null,
-        _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null);
+        _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null,
+      v2recs.length ? React.createElement(React.Fragment, null,
+        _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)) : null);
   } else if (view === "date") {
     _tabBody = React.createElement(React.Fragment, null,
       _secH("📅 日別（1行=1エントリー・行タップで明細）", "OS=最初の3本（EPの足に↑EP）／実現結果=E未達・×見送り・利益・損失・損切り"),
