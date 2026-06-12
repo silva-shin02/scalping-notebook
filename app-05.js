@@ -5364,7 +5364,12 @@ function EntryRecordForm(_ref_erf) {
           if (fOs3Conf === "") _vm.push("OS3確定値");
         }
       }
-      if (_ef.epIdx >= 0) {
+      // H欄: 部分入力は従来どおり必須エラー。全欄未入力は確認のうえ未入力のまま保存可
+      // （採用α変更でE未達→成立に変わった既存記録の救済。表ではH損益ー表示・集計から除外され破綻しない。
+      //   原則は「αの検証はαシミュ（非保存）で行い、採用αは当時の値を保持する」運用）。
+      var _hEmpty = fHoldHighVal === "" && fHoldWidthVal === "" && fHoldOsConf == null && !fHoldExp
+        && fHold2HighVal === "" && fHold2WidthVal === "" && fHold2OsConf == null && !fHold2Exp;
+      if (_ef.epIdx >= 0 && !_hEmpty) {
         if (fHoldHighVal === "") _vm.push("H1高値");
         if (fHoldWidthVal === "" && fHoldOsConf == null) _vm.push("H1確定値");
         if (!fHoldExp) _vm.push("H1期待度");
@@ -5374,6 +5379,9 @@ function EntryRecordForm(_ref_erf) {
       }
       if (fEntered && fReal === "") _vm.push("実現損益");
       if (_vm.length) { window.alert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
+      if (_ef.epIdx >= 0 && _hEmpty) {
+        if (!window.confirm("H1/H2が未入力のままです。このまま保存しますか？\n（表ではー表示・H損益は集計から除外されます）")) return;
+      }
     }
     var sig = {
       id: isEdit ? initSig.id : _sigId(),
