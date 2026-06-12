@@ -274,7 +274,7 @@ function EntryLogView(_ref_elv) {
     var n = rs.length;
     if (!n) return null;
     var as = [], cs = [], aDiffs = [], cDiffs = [], optN = 0;
-    var distA = { 0: 0, 5: 0, 10: 0, 15: 0, 20: 0, 25: 0, 30: 0 }, distC = { 10: 0, 15: 0, 20: 0 };
+    var distA = { 0: 0, 5: 0, 10: 0, 15: 0, 20: 0 }, distC = { 10: 0, 15: 0, 20: 0 };
     rs.forEach(function(r) {
       var ai = _elAlphaInfo(r, data);
       var ia = _elIdealAlpha(r.signal, ai.cutLine), ic = _elIdealCut(r.signal, ai.alpha);
@@ -1554,12 +1554,12 @@ function EntryLogView(_ref_elv) {
         _elvKpiCard("平均理想損切り", _f(st.cAvg, "円"), "#9333EA", "中央" + _f(st.cMed, "円") + " / 最頻" + _modeTxt(st.cMode)),
         _elvKpiCard("最適一致率", st.optRate + "%", "#1E8449", "採用値=理想だった割合(" + st.n + "件)")
       );
-      var _dAmax = Math.max.apply(null, [0, 5, 10, 15, 20, 25, 30].map(function(k) { return st.distA[k]; })) || 1;
+      var _dAmax = Math.max.apply(null, [0, 5, 10, 15, 20].map(function(k) { return st.distA[k]; })) || 1;
       var _dCmax = Math.max.apply(null, [10, 15, 20].map(function(k) { return st.distC[k]; })) || 1;
       var distBars = React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8 } },
         React.createElement("div", { style: { flex: "1 1 240px", minWidth: 0 } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "理想α値の分布"),
-          [0, 5, 10, 15, 20, 25, 30].map(function(k) { return _bar(k + "円", st.distA[k], _dAmax, "#0369A1", st.distA[k] + "件"); })
+          [0, 5, 10, 15, 20].map(function(k) { return _bar(k + "円", st.distA[k], _dAmax, "#0369A1", st.distA[k] + "件"); })
         ),
         React.createElement("div", { style: { flex: "1 1 240px", minWidth: 0 } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9333EA", marginBottom: 4 } }, "理想損切り値の分布"),
@@ -3930,20 +3930,15 @@ function EntryLogView(_ref_elv) {
             _td(s.time || _dash, { color: "#666" }),
             _td(r.stock, { color: "#9A3412", fontWeight: 700 }),
             _td(_osCell(s)),
-            _td(_confCell(s)),
-            _td(_ewCell(s, aAlpha)),
+            _td(_elHoldMaxHighCell(s)),
             _td(_bandI != null
               ? React.createElement("span", { style: { display: "inline-block", padding: "1px 6px", borderRadius: 8, fontSize: 9, fontWeight: 700, color: "#fff", background: _EL_OS_BANDS_V2[_bandI].color, whiteSpace: "nowrap" } }, _EL_OS_BANDS_V2[_bandI].label)
               : _dash),
-            _td(_stpP || _stpH1 || _stpH2
-              ? React.createElement("span", { style: { fontWeight: 700, color: "#1E8449", whiteSpace: "nowrap" } }, "損切 " + (_stpP ? "想定" : _stpH1 ? "H1" : "H2"))
-              : isMiss
-                ? React.createElement("span", { style: { color: "#7C3AED", fontSize: 10, fontWeight: 600 } }, "E未達")
-                : React.createElement("span", { style: { color: "#ccc" } }, "ー"))
+            _td(_elOutcomeCell(s, aAlpha, aCut))
           ));
           if (_on) {
             bodyRows.push(React.createElement("tr", { key: _ek + "_card" },
-              React.createElement("td", { colSpan: 8, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+              React.createElement("td", { colSpan: 7, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
                 React.createElement(EntryLogCard, { record: r, alpha: aAlpha, cutLine: aCut, data: data, onEdit: handleEdit, onGoDate: handleGoDate })
               )
             ));
@@ -3952,12 +3947,12 @@ function EntryLogView(_ref_elv) {
       });
       return React.createElement("div", { style: { padding: "10px 12px", background: "#fff" } },
         header,
-        React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "1行=1エントリー（日付順）／値は水準線比。OS帯＝OS値の帯（A20円〜…E0〜4円の色分け）。損切り＝どの段階で損切りライン到達か（想定/H1/H2）。行タップで明細"),
+        React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "1行=1エントリー（日付順）／値は水準線比。OS帯＝OS値の帯（A20円〜…E0〜4円の色分け）。H中最高値＝OS〜H2で出た最高値（×除く・括弧内は×含む最高値）。実現結果＝E未達/利益/損失/損切り。行タップで明細"),
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
-                _hh("日付", { textAlign: "left", paddingLeft: 8 }), _hh("時間"), _hh("銘柄"), _hh("OS値"), _hh("確定値"), _hh("α値比値幅"), _hh("OS帯"), _hh("損切り")
+                _hh("日付", { textAlign: "left", paddingLeft: 8 }), _hh("時間"), _hh("銘柄"), _hh("OS値"), _hh("H中最高値"), _hh("OS帯"), _hh("実現結果")
               )
             ),
             React.createElement("tbody", null, bodyRows)

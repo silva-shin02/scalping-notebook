@@ -3233,9 +3233,9 @@ function _elHoldIsStop(s, alpha, cutLine) {
   if (s.osVal != null && (Number(s.osVal) - alpha) >= _cl) return true;
   return false;
 }
-// 理想α値: 候補(0/5/10/15/20/25/30)のうち損切りにならず「単独損益＋H1結果損益」の合計が最大の値。
+// 理想α値: 候補(0/5/10/15/20)のうち損切りにならず「単独損益＋H1結果損益」の合計が最大の値。
 // 該当が無ければ全候補中で合計が最大(=一番マシ)の値。同点は小さいα優先。本日/今週の損益データ表のαシミュ用。
-var _EL_IDEAL_ALPHAS = [0, 5, 10, 15, 20, 25, 30];
+var _EL_IDEAL_ALPHAS = [0, 5, 10, 15, 20];
 function _elIdealAlpha(s, cutLine) {
   if (!s) return null;
   var _cl = cutLine != null ? cutLine : 10;
@@ -3295,6 +3295,62 @@ function _elH2Miss(s, alpha) {
   if (isNaN(_os) || _os < 0 || _os >= alpha) return false;  // 想定がα到達なら対象外
   var _h1ReachedA = (s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= alpha);  // H1高値がα到達=H1でエントリー成立
   return !_h1ReachedA;
+}
+// === 日別集計の「実現結果」「H中最高値」用ヘルパー（採用α基準・取引/銘柄別記録テーブルと同基準）===
+// H中最高値（×除く）: OS(H0)〜H2の3記録で出た最高値（水準線比・↑=正/↓=負）。
+//  OS値は常に↑(正)。H1/H2高値はholdHighSign/hold2HighSign("+"=↓負・"-"/無=↑正)。
+//  ex=期待度×を除いた最高値（H1×ならOSのみ＝H2もその時点で対象外、H1非×でH2×ならOS/H1）、all=×含む3記録の最高値。
+function _elHoldMaxHigh(s) {
+  if (!s) return { ex: null, all: null };
+  var vals = [];
+  if (s.osVal != null && s.osVal !== "") vals.push({ v: Number(s.osVal), exOk: true });  // OS=常に↑(正)
+  var _h1x = (s.holdExp === "×");
+  if (s.holdHighVal != null && s.holdHighVal !== "") vals.push({ v: s.holdHighSign === "+" ? -Number(s.holdHighVal) : Number(s.holdHighVal), exOk: !_h1x });
+  var _h2x = _h1x || (s.hold2Exp === "×");  // H1×ならH2はその時点で対象外
+  if (s.hold2HighVal != null && s.hold2HighVal !== "") vals.push({ v: s.hold2HighSign === "+" ? -Number(s.hold2HighVal) : Number(s.hold2HighVal), exOk: !_h2x });
+  if (!vals.length) return { ex: null, all: null };
+  var allMax = null, exMax = null;
+  vals.forEach(function(o) { if (allMax == null || o.v > allMax) allMax = o.v; if (o.exOk && (exMax == null || o.v > exMax)) exMax = o.v; });
+  return { ex: exMax, all: allMax };
+}
+function _elHighNode(v, key) {
+  if (v == null) return null;
+  if (v === 0) return React.createElement("span", { key: key, style: { color: "#888", fontVariantNumeric: "tabular-nums" } }, "0");
+  var up = v > 0, abs = Math.abs(v);
+  return React.createElement("span", { key: key, style: { fontVariantNumeric: "tabular-nums", color: _vcol(abs, up), fontWeight: abs >= 10 ? 700 : 600 } }, (up ? "↑" : "↓") + abs);
+}
+// H中最高値セル: 「↑18（↑42）」。括弧内=×含む最高値（exと異なる時のみ併記）。
+function _elHoldMaxHighCell(s) {
+  var m = _elHoldMaxHigh(s);
+  if (m.ex == null && m.all == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  if (m.all != null && m.all !== m.ex) {
+    return React.createElement("span", { style: { whiteSpace: "nowrap", display: "inline-flex", alignItems: "center" } },
+      _elHighNode(m.ex, "ex"),
+      React.createElement("span", { style: { color: "#9CA3AF", marginLeft: 1 } }, "（"), _elHighNode(m.all, "all"), React.createElement("span", { style: { color: "#9CA3AF" } }, "）"));
+  }
+  return _elHighNode(m.ex != null ? m.ex : m.all, "ex");
+}
+// 実現結果: "miss"(E未達=OS・H1ともα未達でノートレード) / "stop"(想定orH1orH2で損切り) / "profit" / "loss" / "zero" / null。
+// 利益/損失は結果損益（H2データあり＆H2成立ならH2、無ければH1）で判定。
+function _elRealizedOutcome(s, alpha, cutLine) {
+  if (!s) return null;
+  if (_elH2Miss(s, alpha)) return "miss";
+  var _sp = _elPlanIsStop(s, alpha, cutLine);
+  var _sh1 = !_sp && _elHoldIsStop(s, alpha, cutLine);
+  var _sh2 = !_sp && !_sh1 && _elHas2Data(s) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cutLine);
+  if (_sp || _sh1 || _sh2) return "stop";
+  var res = (_elHas2Data(s) && !_elH2Miss(s, alpha)) ? _elDynHold2(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+  if (res == null) return null;
+  return res > 0 ? "profit" : res < 0 ? "loss" : "zero";
+}
+function _elOutcomeCell(s, alpha, cutLine) {
+  var o = _elRealizedOutcome(s, alpha, cutLine);
+  if (o === "miss") return React.createElement("span", { style: { color: "#7C3AED", fontSize: 10, fontWeight: 700 } }, "E未達");
+  if (o === "stop") return React.createElement("span", { style: { display: "inline-block", padding: "1px 6px", borderRadius: 5, fontSize: 10, fontWeight: 700, color: "#fff", background: "#1E8449", whiteSpace: "nowrap" } }, "損切り");
+  if (o === "profit") return React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "利益");
+  if (o === "loss") return React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "損失");
+  if (o === "zero") return React.createElement("span", { style: { color: "#888", fontWeight: 600 } }, "±0");
+  return React.createElement("span", { style: { color: "#ccc" } }, "ー");
 }
 // Hold2期待度（○/△を集計対象・×は参考表示のみ）
 function _elH2ExpCounts(s) { return s.hold2Exp; }

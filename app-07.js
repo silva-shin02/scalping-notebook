@@ -5054,15 +5054,15 @@ function StockHistoryView(_ref_shv) {
         React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap" } }, "α 理想α値（目標）"),
         React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 5, overflow: "hidden" } },
           React.createElement("input", {
-            type: "number", inputMode: "numeric", min: "0", max: "30", step: "1",
+            type: "number", inputMode: "numeric", min: "0", max: "20", step: "1",
             value: _stkAlpha != null ? String(_stkAlpha) : "",
             onChange: function(e) { _saveAlpha(e.target.value); },
-            placeholder: "0〜30",
+            placeholder: "0〜20",
             style: { padding: "4px 8px", fontSize: 13, border: "none", outline: "none", background: "#fff",
                      width: 72, textAlign: "right", boxSizing: "border-box" }
           }),
           _stepBtn(
-            function() { save(function(prev) { var _pc = prev.custom || {}; var _nm = Object.assign({}, _pc.stockDefaultAlpha || {}); var _n = _nm[selStock] != null ? _nm[selStock] : 0; if (_n >= 30) return prev; _nm[selStock] = _n + 1; return Object.assign({}, prev, { custom: Object.assign({}, _pc, { stockDefaultAlpha: _nm }) }); }); },
+            function() { save(function(prev) { var _pc = prev.custom || {}; var _nm = Object.assign({}, _pc.stockDefaultAlpha || {}); var _n = _nm[selStock] != null ? _nm[selStock] : 0; if (_n >= 20) return prev; _nm[selStock] = _n + 1; return Object.assign({}, prev, { custom: Object.assign({}, _pc, { stockDefaultAlpha: _nm }) }); }); },
             function() { save(function(prev) { var _pc = prev.custom || {}; var _nm = Object.assign({}, _pc.stockDefaultAlpha || {}); var _n = _nm[selStock] != null ? _nm[selStock] : 0; if (_n <= 0) return prev; _nm[selStock] = _n - 1; return Object.assign({}, prev, { custom: Object.assign({}, _pc, { stockDefaultAlpha: _nm }) }); }); }
           )
         ),
