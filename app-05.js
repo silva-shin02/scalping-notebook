@@ -3544,11 +3544,14 @@ function _epOsChainCell(s, alpha) {
     if (alpha != null && s && s.osVal != null && Number(s.osVal) >= alpha) epIdx = 0;
   }
   if (!legs.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-  // 期待度シンボル: 到達期待(EP前)=○赤/△琥珀/×緑、H期待(EP後)=○緑/△琥珀/×赤（フォームと同配色）。
+  // 期待度シンボル: 接頭辞で種別表示（EP前=α到達期待「α○」/EP後=H期待「H○」）。
+  // 配色は到達期待=○赤/△琥珀/×緑、H期待=○緑/△琥珀/×赤（フォームと同配色）。
   var _expSym = function(sym, isHold) {
     if (sym !== "○" && sym !== "△" && sym !== "×") return null;
     var col = sym === "△" ? "#B45309" : isHold ? (sym === "○" ? "#1E8449" : "#C0392B") : (sym === "○" ? "#C0392B" : "#1E8449");
-    return React.createElement("span", { style: { fontWeight: 800, color: col, lineHeight: 1.1, fontSize: "0.9em" } }, sym);
+    return React.createElement("span", { style: { lineHeight: 1.1, fontSize: "0.9em", whiteSpace: "nowrap" } },
+      React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, isHold ? "H" : "α"),
+      React.createElement("span", { style: { fontWeight: 800, color: col } }, sym));
   };
   var nodes = [];
   legs.forEach(function(o, i) {
