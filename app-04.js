@@ -4511,48 +4511,11 @@ function DayView(_ref57) {
       var _wkByStk = {};
       _wkAllRecs.forEach(function(r) { if (!_wkByStk[r.stock]) _wkByStk[r.stock] = []; _wkByStk[r.stock].push(r); });
       var _wkStks = Object.keys(_wkByStk).sort(function(a, b) { var ia = _pbStkOrder.indexOf(a), ib = _pbStkOrder.indexOf(b); if (ia !== -1 || ib !== -1) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; } return a < b ? -1 : a > b ? 1 : 0; });
-      var _wkIdealByStk = {};
-      _wkStks.forEach(function(sk) {
-        var sigData = (_wkByStk[sk] || []).map(function(rec) {
-          var sig = rec.signal;
-          var conf = sig.osConfVal != null ? (sig.osConfSign === "-" ? -(Number(sig.osConfVal)) : Number(sig.osConfVal)) : null;
-          var osV = sig.osVal != null ? Number(sig.osVal) : null;
-          var _cl = (function() { var _c = _pbCharts[rec.stock + "_" + rec.date]; return _c && _c.cutLine != null ? _c.cutLine : 10; })();
-          return { conf: conf, osVal: osV, cutLine: _cl, sig: sig };
-        });
-        var calcProfit = function(alpha) { var total = 0, hasAny = false; sigData.forEach(function(d) { if (_epIsV2(d.sig)) { var _pv = _elDynPlanned(d.sig, alpha, d.cutLine != null ? d.cutLine : 10); if (_pv != null) { total += _pv; hasAny = true; } return; } if (d.osVal == null) return; var _cl = d.cutLine != null ? d.cutLine : 10; if (alpha > d.osVal) { hasAny = true; } else if (d.osVal - alpha >= _cl) { total += -(d.osVal - alpha) * 100; hasAny = true; } else if (d.conf != null) { total += (alpha - d.conf) * 100; hasAny = true; } }); return hasAny ? Math.round(total) : null; };
-        var calcHold = function(alpha) { var total = 0, hasAny = false; sigData.forEach(function(d) { if (d.osVal == null) return; hasAny = true; var hp = _elDynHold(d.sig, alpha, d.cutLine != null ? d.cutLine : 10); if (hp != null) total += hp; }); return hasAny ? Math.round(total) : null; };
-        var minA = null, tgtA = null, maxA = null, maxP = null;
-        _EL_IDEAL_ALPHAS.forEach(function(_a) { var _p = calcProfit(_a); if (_p == null) return; if (minA == null && _p >= 1) minA = _a; if (tgtA == null && _p >= 2500) tgtA = _a; if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; } });
-        if (tgtA == null && maxA != null) tgtA = maxA;
-        _wkIdealByStk[sk] = { minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA, minProfit: minA != null ? calcProfit(minA) : null, tgtProfit: tgtA != null ? calcProfit(tgtA) : null, maxProfit: maxA != null ? calcProfit(maxA) : null, minHold: minA != null ? calcHold(minA) : null, tgtHold: tgtA != null ? calcHold(tgtA) : null, maxHold: maxA != null ? calcHold(maxA) : null };
-      });
-      var _wkFmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
-      var _wkFmtP = function(v) { if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var col = v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; return React.createElement("span", { style: { fontWeight: 700, color: col } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
+      var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk] }; });
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（5〜20円・5刻み・週間）"),
-        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の全記録で、α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）"),
-        React.createElement("div", { style: { overflowX: "auto" } },
-          React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
-            React.createElement("thead", null, React.createElement("tr", null,
-              ["銘柄", "最低利益α値", "想定利益", "目標利益α値", "想定利益", "最大利益α値", "想定利益"].map(function(h, i) { return React.createElement("th", { key: i, style: { padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: i === 0 ? "left" : "center", borderLeft: (i > 1 && i % 2 === 1) ? "1px solid #dbeafe" : "none" } }, h); })
-            )),
-            React.createElement("tbody", null,
-              _wkStks.map(function(sk) { var d = _wkIdealByStk[sk];
-                return React.createElement("tr", { key: sk, style: { borderBottom: "1px solid #dbeafe" } },
-                  React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11 } }, sk),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, _wkFmtA(d.minAlpha)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center" } }, _wkFmtP(d.minProfit)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, _wkFmtA(d.tgtAlpha)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center" } }, _wkFmtP(d.tgtProfit)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, _wkFmtA(d.maxAlpha)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center" } }, _wkFmtP(d.maxProfit))
-                );
-              })
-            )
-          )
-        )
-      );
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円5刻み・週間）"),
+        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の全記録でα値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大になるα・目標=2,500円以上になる最小α。100株換算・合計行と同基準。"),
+        _elIdealAlphaTableV2(_wkGroups, _wkCutOf));
       var _wkExpRow = function(recs, rowKey) {
         var _isTotal = rowKey === "wk__total__";
         return React.createElement("tr", { key: rowKey + "_exp" },
@@ -4887,141 +4850,8 @@ function DayView(_ref57) {
     
     
     
-    var _pbAlphaByStk = {};
-    _pbStks.forEach(function(sk) {
-      var recs = _pbByStk[sk] || [];
-      var confSum = 0, confCnt = 0, osSum = 0, osCnt = 0;
-      var sigData = [];
-      recs.forEach(function(rec) {
-        var sig = rec.signal;
-        var conf = sig.osConfVal != null ? (sig.osConfSign === "-" ? -(Number(sig.osConfVal)) : Number(sig.osConfVal)) : null;
-        var osV = sig.osVal != null ? Number(sig.osVal) : null;
-        if (conf != null) { confSum += conf; confCnt++; }
-        if (osV != null) { osSum += osV; osCnt++; }
-        var _skCutL = (_pbCharts[sk + "_" + date] && _pbCharts[sk + "_" + date].cutLine != null) ? _pbCharts[sk + "_" + date].cutLine : 10;
-        sigData.push({ conf: conf, osVal: osV, cutLine: _skCutL, sig: sig });
-      });
-      var calcProfit = function(alpha) {
-        var total = 0, hasAny = false;
-        sigData.forEach(function(d) {
-          // EP起算v2はEP足基準の共通ヘルパーで（EP=OS2/3でも正しい値）
-          if (_epIsV2(d.sig)) {
-            var _pv = _elDynPlanned(d.sig, alpha, d.cutLine != null ? d.cutLine : 10);
-            if (_pv != null) { total += _pv; hasAny = true; }
-            return;
-          }
-          if (d.osVal == null) return;
-          var _cl = d.cutLine != null ? d.cutLine : 10;
-          if (alpha > d.osVal) {
-            hasAny = true;
-          } else if (d.osVal - alpha >= _cl) {
-            total += -(d.osVal - alpha) * 100;
-            hasAny = true;
-          } else if (d.conf != null) {
-            total += (alpha - d.conf) * 100;
-            hasAny = true;
-          }
-        });
-        return hasAny ? Math.round(total) : null;
-      };
-      var calcHold = function(alpha) {
-        var total = 0, hasAny = false;
-        sigData.forEach(function(d) {
-          if (d.osVal == null) return;
-          hasAny = true;
-          var hp = _elDynHold(d.sig, alpha, d.cutLine != null ? d.cutLine : 10);
-          if (hp != null) total += hp;
-        });
-        return hasAny ? Math.round(total) : null;
-      };
-
-      var minA = null, tgtA = null, maxA = null, maxP = null;
-      _EL_IDEAL_ALPHAS.forEach(function(_a) {
-        var _p = calcProfit(_a);
-        if (_p == null) return;
-        if (minA == null && _p >= 1) minA = _a;
-        if (tgtA == null && _p >= 2500) tgtA = _a;
-        if (maxP == null || _p > maxP) { maxP = _p; maxA = _a; }
-      });
-      
-      var tgtIsFallback = false;
-      if (tgtA == null && maxA != null) { tgtA = maxA; tgtIsFallback = true; }
-      _pbAlphaByStk[sk] = {
-        minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA,
-        minProfit: minA != null ? calcProfit(minA) : null,
-        tgtProfit: tgtA != null ? calcProfit(tgtA) : null,
-        maxProfit: maxA != null ? calcProfit(maxA) : null,
-        minHold: minA != null ? calcHold(minA) : null,
-        tgtHold: tgtA != null ? calcHold(tgtA) : null,
-        maxHold: maxA != null ? calcHold(maxA) : null,
-        tgtIsFallback: tgtIsFallback,
-        sigData: sigData
-      };
-    });
-    var _pbTotMinProfit = null, _pbTotTgtProfit = null, _pbTotMaxProfit = null;
-    var _pbTotMinHold = null, _pbTotTgtHold = null, _pbTotMaxHold = null;
-    _pbStks.forEach(function(sk) {
-      var d = _pbAlphaByStk[sk];
-      if (d.minProfit != null) _pbTotMinProfit = (_pbTotMinProfit || 0) + d.minProfit;
-      if (d.tgtProfit != null) _pbTotTgtProfit = (_pbTotTgtProfit || 0) + d.tgtProfit;
-      if (d.maxProfit != null) _pbTotMaxProfit = (_pbTotMaxProfit || 0) + d.maxProfit;
-      if (d.minHold != null) _pbTotMinHold = (_pbTotMinHold || 0) + d.minHold;
-      if (d.tgtHold != null) _pbTotTgtHold = (_pbTotTgtHold || 0) + d.tgtHold;
-      if (d.maxHold != null) _pbTotMaxHold = (_pbTotMaxHold || 0) + d.maxHold;
-    });
-    
-    var _pbAllAlphaResult = (function() {
-      if (_pbStks.length <= 1) return null;
-      var allSigData = [];
-      _pbStks.forEach(function(sk) { allSigData = allSigData.concat(_pbAlphaByStk[sk].sigData); });
-      if (!allSigData.length) return null;
-      var calcAll = function(alpha) {
-        var total = 0, hasAny = false;
-        allSigData.forEach(function(d) {
-          if (d.osVal == null) return;
-          hasAny = true;
-          var _cl2 = d.cutLine != null ? d.cutLine : 10;
-          if (alpha > d.osVal) {  }
-          else if (d.osVal - alpha >= _cl2) { total += -(d.osVal - alpha) * 100; }
-          else { if (d.conf == null) { hasAny = false; return; } total += (alpha - d.conf) * 100; }
-        });
-        return hasAny ? Math.round(total) : null;
-      };
-      var calcHoldAll = function(alpha) {
-        var total = 0, hasAny = false;
-        allSigData.forEach(function(d) {
-          if (d.osVal == null) return;
-          hasAny = true;
-          var hp = _elDynHold(d.sig, alpha, d.cutLine != null ? d.cutLine : 10);
-          if (hp != null) total += hp;
-        });
-        return hasAny ? Math.round(total) : null;
-      };
-      var minA = null, tgtA = null, maxA = null, maxP = null;
-      _EL_IDEAL_ALPHAS.forEach(function(_aa) {
-        var _pp = calcAll(_aa);
-        if (_pp == null) return;
-        if (minA == null && _pp >= 1) minA = _aa;
-        if (tgtA == null && _pp >= 2500) tgtA = _aa;
-        if (maxP == null || _pp > maxP) { maxP = _pp; maxA = _aa; }
-      });
-      if (tgtA == null && maxA != null) tgtA = maxA;
-      return { minAlpha: minA, tgtAlpha: tgtA, maxAlpha: maxA,
-               minProfit: minA != null ? calcAll(minA) : null,
-               tgtProfit: tgtA != null ? calcAll(tgtA) : null,
-               maxProfit: maxA != null ? calcAll(maxA) : null,
-               minHold: minA != null ? calcHoldAll(minA) : null,
-               tgtHold: tgtA != null ? calcHoldAll(tgtA) : null,
-               maxHold: maxA != null ? calcHoldAll(maxA) : null };
-    })();
-    var _pbHasAlpha = _pbStks.some(function(sk) {
-      var d = _pbAlphaByStk[sk];
-      return d.minAlpha != null || d.tgtAlpha != null || d.maxAlpha != null;
-    });
-    var _idealHoldSub = function(v) {
-      if (v == null) return null;
-      return React.createElement("div", { style: { fontSize: 9, fontWeight: 700, marginTop: 1, whiteSpace: "nowrap", color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, "H " + (v > 0 ? "+" : "") + v.toLocaleString() + "円");
-    };
+    var _pbHasAlpha = _pbAllRecs.some(function(r) { return _epIsV2(r.signal); });
+    var _pbIdealGroups = _pbStks.map(function(sk) { return { label: sk, recs: _pbByStk[sk] }; });
 
     var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
@@ -5069,80 +4899,9 @@ function DayView(_ref57) {
         )
       ),
       _pbHasAlpha && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（5〜20円・5刻み）"),
-        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）。H＝そのα値でホールドしていた場合の結果利益"),
-        React.createElement("div", { style: { overflowX: "auto" } },
-          React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
-            React.createElement("thead", null,
-              React.createElement("tr", null,
-                React.createElement("th", { style: { padding: "2px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "left" } }, "銘柄"),
-                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, "最低利益α値"),
-                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" } }, "想定利益"),
-                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, "目標利益α値"),
-                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" } }, "想定利益"),
-                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, "最大利益α値"),
-                React.createElement("th", { style: { padding: "2px 6px", fontWeight: 600, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" } }, "想定利益")
-              )
-            ),
-            React.createElement("tbody", null,
-              _pbStks.map(function(sk) {
-                var d = _pbAlphaByStk[sk];
-                var fmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
-                var fmtP = function(v) {
-                  if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-                  var col = v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888";
-                  return React.createElement("span", { style: { fontWeight: 700, color: col } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円");
-                };
-                var fmtH = function(v) {
-                  if (v == null) return null;
-                  return React.createElement("div", { style: { fontSize: 9, fontWeight: 700, marginTop: 1, whiteSpace: "nowrap", color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, "H " + (v > 0 ? "+" : "") + v.toLocaleString() + "円");
-                };
-                var fmtPH = function(p, h) { return React.createElement("div", null, fmtP(p), fmtH(h)); };
-                return React.createElement("tr", { key: sk, style: { borderBottom: "1px solid #dbeafe" } },
-                  React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11 } }, sk),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, fmtA(d.minAlpha)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, fmtPH(d.minProfit, d.minHold)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, fmtA(d.tgtAlpha)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, fmtPH(d.tgtProfit, d.tgtHold)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, fmtA(d.maxAlpha)),
-                  React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, fmtPH(d.maxProfit, d.maxHold))
-                );
-              }).concat(
-                _pbStks.length > 1 && (_pbTotMinProfit != null || _pbTotTgtProfit != null || _pbTotMaxProfit != null)
-                  ? [React.createElement("tr", { key: "__total__", style: { borderTop: "2px solid #BAE6FD", background: "#EFF6FF" } },
-                      React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#555", fontSize: 10 } }, "合計"),
-                      React.createElement("td", { style: { borderLeft: "1px solid #dbeafe" } }),
-                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: _pbTotMinProfit > 0 ? "#C0392B" : _pbTotMinProfit < 0 ? "#1E8449" : "#888" } },
-                        React.createElement("div", null, _pbTotMinProfit != null ? (_pbTotMinProfit > 0 ? "+" : "") + _pbTotMinProfit.toLocaleString() + "円" : "—", _idealHoldSub(_pbTotMinHold))),
-                      React.createElement("td", { style: { borderLeft: "1px solid #dbeafe" } }),
-                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: _pbTotTgtProfit > 0 ? "#C0392B" : _pbTotTgtProfit < 0 ? "#1E8449" : "#888" } },
-                        React.createElement("div", null, _pbTotTgtProfit != null ? (_pbTotTgtProfit > 0 ? "+" : "") + _pbTotTgtProfit.toLocaleString() + "円" : "—", _idealHoldSub(_pbTotTgtHold))),
-                      React.createElement("td", { style: { borderLeft: "1px solid #dbeafe" } }),
-                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: _pbTotMaxProfit > 0 ? "#C0392B" : _pbTotMaxProfit < 0 ? "#1E8449" : "#888" } },
-                        React.createElement("div", null, _pbTotMaxProfit != null ? (_pbTotMaxProfit > 0 ? "+" : "") + _pbTotMaxProfit.toLocaleString() + "円" : "—", _idealHoldSub(_pbTotMaxHold)))
-                    ),
-                    _pbAllAlphaResult ? React.createElement("tr", { key: "__allalpha__", style: { borderTop: "1px solid #BAE6FD", background: "#DBEAFE" } },
-                      React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, whiteSpace: "nowrap" } }, "全銘柄",
-                        React.createElement("div", { style: { fontSize: 8, fontWeight: 400, color: "#64748B", marginTop: 1 } }, "統合最適α")),
-                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #93C5FD" } },
-                        _pbAllAlphaResult.minAlpha != null ? React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, _pbAllAlphaResult.minAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
-                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: (_pbAllAlphaResult.minProfit||0) > 0 ? "#C0392B" : (_pbAllAlphaResult.minProfit||0) < 0 ? "#1E8449" : "#888" } },
-                        React.createElement("div", null, _pbAllAlphaResult.minProfit != null ? (_pbAllAlphaResult.minProfit > 0 ? "+" : "") + _pbAllAlphaResult.minProfit.toLocaleString() + "円" : "—", _idealHoldSub(_pbAllAlphaResult.minHold))),
-                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #93C5FD" } },
-                        _pbAllAlphaResult.tgtAlpha != null ? React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, _pbAllAlphaResult.tgtAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
-                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: (_pbAllAlphaResult.tgtProfit||0) > 0 ? "#C0392B" : (_pbAllAlphaResult.tgtProfit||0) < 0 ? "#1E8449" : "#888" } },
-                        React.createElement("div", null, _pbAllAlphaResult.tgtProfit != null ? (_pbAllAlphaResult.tgtProfit > 0 ? "+" : "") + _pbAllAlphaResult.tgtProfit.toLocaleString() + "円" : "—", _idealHoldSub(_pbAllAlphaResult.tgtHold))),
-                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #93C5FD" } },
-                        _pbAllAlphaResult.maxAlpha != null ? React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, _pbAllAlphaResult.maxAlpha + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
-                      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, fontWeight: 800, color: (_pbAllAlphaResult.maxProfit||0) > 0 ? "#C0392B" : (_pbAllAlphaResult.maxProfit||0) < 0 ? "#1E8449" : "#888" } },
-                        React.createElement("div", null, _pbAllAlphaResult.maxProfit != null ? (_pbAllAlphaResult.maxProfit > 0 ? "+" : "") + _pbAllAlphaResult.maxProfit.toLocaleString() + "円" : "—", _idealHoldSub(_pbAllAlphaResult.maxHold)))
-                    ) : null]
-                  : []
-              )
-            )
-          )
-        )
-      )
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円制限・5円刻み）"),
+        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大のα・目標=2,500円以上の最小α。100株換算・合計行と同基準。"),
+        _elIdealAlphaTableV2(_pbIdealGroups, _pbCutOf))
     );
     return React.createElement(React.Fragment, null, _pbMainEl, _wkMainEl, _soukatsuEl);
   })(),

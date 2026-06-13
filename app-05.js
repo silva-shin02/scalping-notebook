@@ -3780,6 +3780,52 @@ function _elTotAccum(items, get) {
   });
   return t;
 }
+// 理想α値（EP起算v2/v3対応・完全刷新 2026-06-13）: EP/H1/H2の各指標について、α候補(0〜20円5刻み)を
+// 総当たりし合計が最大になるαを返す。各候補で _elTotAccum を回す＝合計行(EP損益/H1/H2)と完全一致。
+// records=[{signal,...}]・cutFn(r)→損切り値。返り値 {ep,h1,h2,n}・各={maxA,maxSum,tgtA,tgtSum}。
+//   maxA=その指標の合計が最大のα・tgtA=合計が目標額(既定2500円)以上になる最小のα(無ければmaxへフォールバック)。
+function _elIdealAlphaV2(records, cutFn, target) {
+  var tgt = target != null ? target : 2500;
+  var _mk = function() { return { maxA: null, maxSum: null, tgtA: null, tgtSum: null }; };
+  var R = { ep: _mk(), h1: _mk(), h2: _mk(), n: (records || []).length };
+  var _cf = cutFn || function() { return 10; };
+  _EL_IDEAL_ALPHAS.forEach(function(a) {
+    var t = _elTotAccum(records, { signal: function(r) { return r.signal; }, alpha: function() { return a; }, cut: _cf });
+    var vals = { ep: (t.planCnt > 0 ? t.plan : null), h1: (t.holdCnt > 0 ? t.holdPlanCap : null), h2: (t.hold2Cnt > 0 ? t.hold2 : null) };
+    ["ep", "h1", "h2"].forEach(function(k) {
+      var v = vals[k]; if (v == null) return;
+      var p = R[k];
+      if (p.maxSum == null || v > p.maxSum) { p.maxSum = v; p.maxA = a; }
+      if (p.tgtA == null && v >= tgt) { p.tgtA = a; p.tgtSum = v; }
+    });
+  });
+  ["ep", "h1", "h2"].forEach(function(k) { var p = R[k]; if (p.tgtA == null && p.maxA != null) { p.tgtA = p.maxA; p.tgtSum = p.maxSum; } });
+  return R;
+}
+// 理想α表（銘柄別など）: groups=[{label,recs}]・cutFn(r)→損切り値。EP/H1/H2列×各「最大α/目標α＋損益」を表示。
+function _elIdealAlphaTableV2(groups, cutFn, target) {
+  var _fa = function(a) { return a == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, a + "円"); };
+  var _fp = function(v) { return v == null ? React.createElement("span", { style: { color: "#bbb", fontSize: 9 } }, "—") : React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+  var _cell = function(o) {
+    return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.35, whiteSpace: "nowrap" } },
+      React.createElement("div", null, React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginRight: 2, fontWeight: 700 } }, "最大"), _fa(o.maxA), React.createElement("span", { style: { marginLeft: 3 } }, _fp(o.maxSum))),
+      React.createElement("div", null, React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginRight: 2, fontWeight: 700 } }, "目標"), _fa(o.tgtA), React.createElement("span", { style: { marginLeft: 3 } }, _fp(o.tgtSum))));
+  };
+  var _th = function(t) { return React.createElement("th", { style: { padding: "3px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center", whiteSpace: "nowrap" } }, t); };
+  var rows = (groups || []).filter(function(g) { return g.recs && g.recs.length; }).map(function(g, gi) {
+    var R = _elIdealAlphaV2(g.recs, cutFn, target);
+    return React.createElement("tr", { key: gi, style: { borderBottom: "1px solid #dbeafe" } },
+      React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11, whiteSpace: "nowrap" } }, g.label),
+      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, _cell(R.ep)),
+      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, _cell(R.h1)),
+      React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, _cell(R.h2)));
+  });
+  if (!rows.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "対象記録なし");
+  return React.createElement("div", { style: { overflowX: "auto" } },
+    React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
+      React.createElement("thead", null, React.createElement("tr", null, _th("銘柄"), _th("EP理想α"), _th("H1理想α"), _th("H2理想α"))),
+      React.createElement("tbody", null, rows)));
+}
 // Hold2期待度（○/△を集計対象・×は参考表示のみ）
 function _elH2ExpCounts(s) { return s.hold2Exp; }
 function _elHoldGradeBadge(g) {
