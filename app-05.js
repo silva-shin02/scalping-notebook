@@ -6364,7 +6364,7 @@ function EntryRecordForm(_ref_erf) {
           }, label);
         })
       ),
-      fEntered && React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" } },
+      fEntered && React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#FEF2F2", border: "1px solid #FECACA" } },
 
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 } },
