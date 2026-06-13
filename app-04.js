@@ -2881,9 +2881,9 @@ function StockQuickRefTable(_props_qrt) {
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA);
               if (_g.allMiss) return _qZeroCell();
-              if (_g.plan === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
+              if (_g.plan === "Z" && _g.planRefCnt <= 0) return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
-                _qrMkBadge(_g.plan), _qrAmtSpan(_g.planSum, "円"));
+                _g.plan === "Z" ? null : _qrMkBadge(_g.plan), _g.plan === "Z" ? null : _qrAmtSpan(_g.planSum, "円"), _elHold2RefSuffix(_g.planSum, _g.planRefSum, _g.planRefCnt));
             })()),
             isNikkei ? null : React.createElement("td", {
               style: { padding: "2px 6px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }

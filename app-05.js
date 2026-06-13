@@ -3607,7 +3607,7 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
   if (j === "x") {
     // ×見送り: 取引していた場合のEP損益を「×見送り（…）」で参考表示（本合計は0・合計の（）に算入）。
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF" } },
-      React.createElement("span", { key: "xm", style: { fontSize: 9, color: "#1E8449", fontWeight: 700, marginRight: 2 } }, "×見送り"),
+      React.createElement("span", { key: "xm", style: { fontSize: 12, color: "#1E8449", fontWeight: 800, marginRight: 2 } }, "×"),
       React.createElement("span", { key: "op", style: { color: "#9CA3AF" } }, "（"),
       _epPnlCell(_epAsTraded(s), alpha, cutLine, null),
       React.createElement("span", { key: "cp", style: { color: "#9CA3AF" } }, "）"));
@@ -4129,7 +4129,7 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
     // ×見送り: 取引していた場合のH1/H2を「×見送り」付き・薄く参考表示（本合計は0・合計の（）に算入）。
     return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle },
       React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", opacity: 0.7 } },
-        React.createElement("span", { style: { fontSize: 9, color: "#1E8449", fontWeight: 700 } }, "×見送り"),
+        React.createElement("span", { style: { fontSize: 12, color: "#1E8449", fontWeight: 800 } }, "×"),
         _elHoldStackInner(_epAsTraded(s), alpha, cutLine)), capNote || null) ];
   }
   return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, _elHoldStackInner(s, alpha, cutLine), capNote || null) ];
@@ -4424,8 +4424,9 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   var planSumAB = 0, planCountAB = 0;
   var planCapSum = 0, holdCapSum = 0, planHasStop = false, holdHasStop = false;
   var holdSumPlanCap = 0, holdSumPlanCapAB = 0, holdCountAB = 0;
-  var holdRefSum = 0, holdRefCnt = 0;  // 期待度×（参考扱い・H1本合計から除外）
+  var holdRefSum = 0, holdRefCnt = 0;  // 期待度×・E×（参考扱い・H1本合計から除外）
   var hold2Sum = 0, hold2Count = 0, hold2RefSum = 0, hold2RefCnt = 0;
+  var planRefSum = 0, planRefCnt = 0;  // E×（×見送り・EP本合計から除外）の参考EP損益
   var _missCnt = 0, _h2MissCnt = 0, _totCnt = 0;  // 全miss(E基準未達)判定用。_h2MissCnt=想定もH1も未達(_elH2Miss=ノートレード)の記録数
   var osVals = [], confVals = [], holdConfVals = [];
   (signals || []).forEach(function(sig) {
@@ -4433,12 +4434,20 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     var _aSig = _fixedA ? alpha : (s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s.difficulty));
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     _totCnt++;
-    if (_elDynResult(s, _aSig, _c) === "miss") _missCnt++;  if (_elH2Miss(s, _aSig)) _h2MissCnt++;
+    var _isX = _epIsXSkip(s, _aSig);  // E×（×見送り）→本合計に算入せず参考(ref)へ。allMiss判定からも除外。
+    if (!_isX && _elDynResult(s, _aSig, _c) === "miss") _missCnt++;
+    if (!_isX && _elH2Miss(s, _aSig)) _h2MissCnt++;
     if (_elIsEntered(s, null)) {
       realCount++;
       var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
       if (rv != null) realSum += rv;
     }
+    if (_isX) {
+      var _xs = _epAsTraded(s);
+      var _xpp = _elDynPlanned(_xs, _aSig, _c); if (_xpp != null) { planRefSum += _xpp; planRefCnt++; }
+      var _xh1 = _elDynHold(_xs, _aSig, _c); if (_xh1 != null) { holdRefSum += _xh1; holdRefCnt++; }
+      var _xh2t = _elHold2TotParts(s, _aSig, _c); if (_xh2t.ref != null) { hold2RefSum += _xh2t.ref; hold2RefCnt++; }
+    } else {
     var pv = _elDynPlanned(s, _aSig, _c);
     if (pv != null) {
       planSum += pv; planCount++;
@@ -4470,6 +4479,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     if (_h2tg.main != null) { hold2Sum += _h2tg.main; hold2Count++; }
     else if (_elH2Miss(s, _aSig)) { hold2Count++; }  // 両miss=ノートレードはH2も0円扱い（想定0と一致）
     if (_h2tg.ref != null) { hold2RefSum += _h2tg.ref; hold2RefCnt++; }
+    }
     if (s.osVal != null) osVals.push(Number(s.osVal));
     var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
     if (_cf != null) confVals.push(_cf);
@@ -4484,6 +4494,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     planSumAB: planCountAB > 0 ? planSumAB : null,
     realSum: realCount > 0 ? realSum : null,
     planSum: planCount > 0 ? planSum : null,
+    planRefSum: planRefCnt > 0 ? planRefSum : null, planRefCnt: planRefCnt,
     holdSum: holdCount > 0 ? holdSum : null,
     planCapSum: (planCount > 0 && planHasStop) ? planCapSum : null,
     holdCapSum: (holdCount > 0 && holdHasStop) ? holdCapSum : null,
