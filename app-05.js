@@ -3229,6 +3229,18 @@ function _epResolve(s, alpha) {
   for (var j = 0; j < epIdx; j++) { if (legs[j].exp === "×") xBefore = true; }
   return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: xBefore ? "x" : "ok", legs: legs };
 }
+// ×宣言後の到達（judge="x"＝見送り・参考扱い）か。EP足はα到達済みだが手前のOSで×宣言したため集計上ノートレード。
+function _epIsXSkip(s, alpha) {
+  if (!_epIsV2(s) || alpha == null) return false;
+  var r = _epResolve(s, alpha);
+  return !!(r && r.judge === "x");
+}
+// ×宣言を無視した「見送らず取引していたら」の仮想signal（OS到達期待×を除去→judge=ok化。EP/H1/H2足は高値≥αで不変）。
+// EP損益/H損益ヘルパーを当てると、見送り記録の参考損益（取引していた場合の値）が得られる。合計の（）参考に算入する。
+function _epAsTraded(s) {
+  if (!_epIsV2(s)) return s;
+  return Object.assign({}, s, { os1Exp: null, os2Exp: null });
+}
 function _elDynResult(s, alpha, cutLine) {
   if (_epIsV2(s) && alpha != null) {
     var _rv2 = _epResolve(s, alpha);
@@ -3592,9 +3604,16 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
   if (!s || alpha == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var res = _elDynResult(s, alpha, cutLine);
   var j = _epIsV2(s) ? (function() { var r = _epResolve(s, alpha); return r ? r.judge : null; })() : (s.osVal != null && _elH2Miss(s, alpha) ? "miss" : "ok");
-  if (j === "x" || j === "miss" || res === "miss") {
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
-      _qMissCell(), j === "x" ? React.createElement("span", { style: { fontSize: 9, color: "#1E8449", fontWeight: 600 } }, "（×見送り）") : null);
+  if (j === "x") {
+    // ×見送り: 取引していた場合のEP損益を「×見送り（…）」で参考表示（本合計は0・合計の（）に算入）。
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF" } },
+      React.createElement("span", { key: "xm", style: { fontSize: 9, color: "#1E8449", fontWeight: 700, marginRight: 2 } }, "×見送り"),
+      React.createElement("span", { key: "op", style: { color: "#9CA3AF" } }, "（"),
+      _epPnlCell(_epAsTraded(s), alpha, cutLine, null),
+      React.createElement("span", { key: "cp", style: { color: "#9CA3AF" } }, "）"));
+  }
+  if (j === "miss" || res === "miss") {
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } }, _qMissCell());
   }
   var eph = null, epc = null;
   if (_epIsV2(s)) { var _r2 = _epResolve(s, alpha); if (_r2 && _r2.ep) { eph = _r2.ep.h; epc = _r2.ep.c; } }
@@ -3686,7 +3705,7 @@ function _elDeriveHoldProfit(hp, pp, res, fallback) {
 function _elTotAccum(items, get) {
   var nm = get.norm || function(it, v) { return v; };
   var t = { real: null, realCnt: 0, plan: null, planCnt: 0, planCap: null, planStop: false,
-    planAB: null, planABCnt: 0, holdPlanCap: null, holdCnt: 0, holdAB: null, holdABCnt: 0,
+    planAB: null, planABCnt: 0, planRef: null, planRefCnt: 0, holdPlanCap: null, holdCnt: 0, holdAB: null, holdABCnt: 0,
     holdRef: null, holdRefCnt: 0, hold2: null, hold2Cnt: 0, hold2Ref: null, hold2RefCnt: 0,
     holdRaw: null, holdPlanStopDiff: false };
   (items || []).forEach(function(it) {
@@ -3694,6 +3713,15 @@ function _elTotAccum(items, get) {
     if (!s) return;
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     if (get.real) { var rv = get.real(it); if (rv != null) { t.real = (t.real || 0) + rv; t.realCnt++; } }
+    // E×（×見送り）→ EP/H1/H2とも本合計に算入せず、取引していた場合の値を参考(ref)に算入。
+    if (_epIsXSkip(s, a)) {
+      var _xs = _epAsTraded(s);
+      var _xpp = _elDynPlanned(_xs, a, c); if (_xpp != null) { t.planRef = (t.planRef || 0) + nm(it, _xpp); t.planRefCnt++; }
+      var _xh1 = _elDynHold(_xs, a, c); if (_xh1 != null) { t.holdRef = (t.holdRef || 0) + nm(it, _xh1); t.holdRefCnt++; }
+      var _t2x = _elHold2TotParts(s, a, c);
+      if (_t2x.ref != null) { t.hold2Ref = (t.hold2Ref || 0) + nm(it, _t2x.ref); t.hold2RefCnt++; }
+      return;
+    }
     var pp = _elDynPlanned(s, a, c); var ppN = pp != null ? nm(it, pp) : null;
     if (ppN != null) {
       t.plan = (t.plan || 0) + ppN; t.planCnt++;
@@ -3784,6 +3812,7 @@ function _elHoldStopDoneNode(amount, key, hs, alpha) {
 // 統合Hセル: 「H高値 → H確定値 / α値比H値幅 / 勝敗・結果損益」を1つのインライン要素で返す。
 // isH2=true なら hold2* を使う（高値/確定値/α値比/損益はH2、EP損益・結果はエントリー共通）。
 function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
+  if (_epIsXSkip(s, alpha)) s = _epAsTraded(s);  // ×見送り→取引していた場合の値を参考表示（Q—にしない）
   var hs = _epHoldView(s, alpha, isH2);
   var _h2missFlow = isH2 && _elH2Miss(s, alpha);  // 想定もH1もE基準未達 → 損益をQ ー円に固定（高値/確定値/α値比は通常表示）。
   // 損切り済み（H2: 想定orH1で損切り／H1: EP損益の時点で損切り）は明細を出さず「ー（ランク 損切額）※損切り済」のみ。
@@ -3856,6 +3885,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
 }
 // H2期待度セル: ○/△→記号＋統合表示、×→「×（統合表示）」グレー控えめ、未選択→空欄
 function _elHold2Cell(s, alpha, cutLine) {
+  if (_epIsXSkip(s, alpha)) s = _epAsTraded(s);  // ×見送り→取引していた場合の値を参考表示（Q—にしない）
   if (_elH2Miss(s, alpha)) {
     // 想定もH1もE基準未達 → H2期待度は「ー」表示・損益はQ ー円（_elHoldFlowが_elH2Miss時に固定）。高値/確定値/α値比はH1と同形式。
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
@@ -3911,6 +3941,8 @@ function _elHold2RefSuffix(mainSum, refSum, refCnt) {
 //  ・それ以外（未設定/○/△）→ H1結果(planCap)をmain。
 function _elHold1TotParts(s, alpha, cutLine) {
   if (!s) return { main: null, ref: null };
+  // E×（×見送り）→ 本合計に算入せず、取引していた場合のH1損益を参考(ref)に。
+  if (_epIsXSkip(s, alpha)) return { main: null, ref: _elDynHold(_epAsTraded(s), alpha, cutLine) };
   var hres = (alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
   if (alpha != null && _elPlanIsStop(s, alpha, cutLine)) {
     var pv0 = _elDynPlanned(s, alpha, cutLine);
@@ -3931,7 +3963,10 @@ function _elHold1TotParts(s, alpha, cutLine) {
 //  ・期待度○/△ 非損切り → _elDynHold2 → main。
 //  ・期待度未設定（非損切り）→ null。
 function _elHold2TotParts(s, alpha, cutLine) {
-  if (!s || _elH2Miss(s, alpha)) return { main: null, ref: null };
+  if (!s) return { main: null, ref: null };
+  // E×（×見送り）→ 本合計に算入せず、取引していた場合のH2損益を参考(ref)に。_elH2Missより先に判定。
+  if (_epIsXSkip(s, alpha)) return { main: null, ref: _elDynHold2(_epAsTraded(s), alpha, cutLine) };
+  if (_elH2Miss(s, alpha)) return { main: null, ref: null };
   // H2期待度×/損切り済 → 「1段下で手仕舞いした損益」=H1合計と同一の寄与(_elHold1TotParts.main)を本合計に算入。
   // ルール: H2×→H1の損益・H1×→EP損益（カスケード）・想定損切り→想定額キャップ。
   // ※生の_elDynHoldを使うと想定損切り時にキャップ前のH1超過損失を算入してしまう（修正済 2026-06-13）。
@@ -4090,6 +4125,13 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
     else _tdMiss = _elH2Miss(s, alpha);
   }
   if (_tdMiss) return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, React.createElement("span", { style: { color: "#ccc" } }, "ー") ) ];
+  if (_epIsXSkip(s, alpha)) {
+    // ×見送り: 取引していた場合のH1/H2を「×見送り」付き・薄く参考表示（本合計は0・合計の（）に算入）。
+    return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle },
+      React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", opacity: 0.7 } },
+        React.createElement("span", { style: { fontSize: 9, color: "#1E8449", fontWeight: 700 } }, "×見送り"),
+        _elHoldStackInner(_epAsTraded(s), alpha, cutLine)), capNote || null) ];
+  }
   return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, _elHoldStackInner(s, alpha, cutLine), capNote || null) ];
 }
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
@@ -4366,6 +4408,7 @@ function _elAllMissRow(recs, alphaOf, cutOf) {
   if (!recs || recs.length === 0) return false;
   for (var _i = 0; _i < recs.length; _i++) {
     var _r = recs[_i];
+    if (_epIsXSkip(_r.signal, alphaOf(_r))) return false;  // ×見送りは参考値を持つ→「全miss(Q0)」扱いにしない
     if (_elDynResult(_r.signal, alphaOf(_r), cutOf(_r)) !== "miss") return false;
   }
   return true;

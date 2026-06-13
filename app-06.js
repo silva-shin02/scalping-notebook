@@ -544,7 +544,7 @@ function EntryLogView(_ref_elv2) {
       cells = cells.concat([
         _td(recs.length ? React.createElement("span", { style: { fontWeight: 700, color: reach / recs.length >= 0.6 ? "#1E8449" : "#B45309" } }, Math.round(reach / recs.length * 100) + "%") : _dash),
         _td(_elStopCellV2(ss)),
-        _td(_yenN(t.plan, t.planCnt)),
+        _td(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _yenN(t.plan, t.planCnt), _elHold2RefSuffix(t.plan, t.planRef, t.planRefCnt))),
         _td(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _yenN(t.holdPlanCap, t.holdCnt), _elHold2RefSuffix(t.holdPlanCap, t.holdRef, t.holdRefCnt))),
         _td(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _yenN(t.hold2, t.hold2Cnt), _elHold2RefSuffix(t.hold2, t.hold2Ref, t.hold2RefCnt))),
         _td(_yenN(t.real, t.realCnt))

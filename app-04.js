@@ -3750,6 +3750,7 @@ function DayView(_ref57) {
       });
       var _trTotReal = _trTT.real, _trTotRealCnt = _trTT.realCnt;
       var _trTotPlan = _trTT.plan, _trTotPlanCnt = _trTT.planCnt;
+      var _trTotPlanRef = _trTT.planRef, _trTotPlanRefCnt = _trTT.planRefCnt;
       var _trTotPlanAB = _trTT.planAB, _trTotPlanABCnt = _trTT.planABCnt;
       var _trTotHold = _trTT.holdRaw, _trTotHoldCnt = _trTT.holdCnt;
       var _trTotHoldCap = _trTT.holdPlanCap, _trTotHoldCapAB = _trTT.holdAB, _trTotHoldABCnt = _trTT.holdABCnt;
@@ -3778,7 +3779,7 @@ function DayView(_ref57) {
       var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 8, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-          _trAllMiss ? _qZeroCell() : _trRPnlDispABAll(_trTotPlanAB, _trTotPlan, _trTotPlanGradeAB, _trTotPlanGrade)
+          _trAllMiss ? _qZeroCell() : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _trRPnlDispABAll(_trTotPlanAB, _trTotPlan, _trTotPlanGradeAB, _trTotPlanGrade), _elHold2RefSuffix(_trTotPlan, _trTotPlanRef, _trTotPlanRefCnt))
         ),
         React.createElement("td", { colSpan: 2, style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
           React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
@@ -4138,6 +4139,7 @@ function DayView(_ref57) {
       var _totHoldPlanCap = null, _totHoldPlanCapAB = null, _totHoldPlanCapABCnt = 0, _totHoldPlanStopDiffPb = false;
       var _totHoldRef = null, _totHoldRefCnt = 0;
       var _totHold2 = null, _totHold2Cnt = 0, _totHold2Ref = null, _totHold2RefCnt = 0;
+      var _totPlanRef = null, _totPlanRefCnt = 0;
       expRecs.forEach(function(r) {
         var rKey = r.stock + "_" + (r.signal.id || r.signal.time || "");
         var rExp = !!pnlRecordExpandSet[rKey];
@@ -4157,8 +4159,16 @@ function DayView(_ref57) {
         var isDraw = _dispResExp === "draw";
         var isMiss = _dispResExp === "miss";
         var bb = "1px solid #e8e5de";
+        var _isXskipPb = _epIsXSkip(s, _alphaRec);  // E×（×見送り）→ 本合計に算入せず参考(ref)へ
         if (entered) _totRealCnt++;
         if (realPnl != null) { _totReal = (_totReal || 0) + realPnl; }
+        var _h2tpb = _elHold2TotParts(s, _alphaRec, _cutLrec);
+        if (_isXskipPb) {
+          var _xsPb = _epAsTraded(s);
+          var _xppPb = _elDynPlanned(_xsPb, _alphaRec, _cutLrec); if (_xppPb != null) { _totPlanRef = (_totPlanRef || 0) + _xppPb; _totPlanRefCnt++; }
+          var _xh1Pb = _elDynHold(_xsPb, _alphaRec, _cutLrec); if (_xh1Pb != null) { _totHoldRef = (_totHoldRef || 0) + _xh1Pb; _totHoldRefCnt++; }
+          if (_h2tpb.ref != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2tpb.ref; _totHold2RefCnt++; }
+        } else {
         if (planPnl != null) { _totPlan = (_totPlan || 0) + planPnl; _totPlanCnt++;
           var _pStopT = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
           if (_pStopT) _totPlanStop = true;
@@ -4169,7 +4179,6 @@ function DayView(_ref57) {
           _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_cutLrec) : holdPnl); }
         var _isABpb = (s.difficulty === "A" || s.difficulty === "B");
         if (planPnl != null && _isABpb) { _totPlanABpb = (_totPlanABpb || 0) + planPnl; _totPlanABCntpb++; }
-        var _h2tpb = _elHold2TotParts(s, _alphaRec, _cutLrec);
         if (_h2tpb.main != null) { _totHold2 = (_totHold2 || 0) + _h2tpb.main; _totHold2Cnt++; }
         if (_h2tpb.ref != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2tpb.ref; _totHold2RefCnt++; }
         if (holdPnl != null) {
@@ -4182,6 +4191,7 @@ function DayView(_ref57) {
           if (_isABpb) { _totHoldPlanCapAB = (_totHoldPlanCapAB || 0) + _mvPb; _totHoldPlanCapABCnt++; }
           if (_xPb && planPnl != null && (_hCapPb - planPnl) !== 0) { _totHoldRef = (_totHoldRef || 0) + (_hCapPb - planPnl); _totHoldRefCnt++; }
           if (_pStopH && planPnl != null && holdPnl !== planPnl) _totHoldPlanStopDiffPb = true;
+        }
         }
         var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
         var gPlan = planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null;
@@ -4263,7 +4273,7 @@ function DayView(_ref57) {
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
         React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
-        React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("EP損益"), (_pbAllMiss ? _qZeroCell() : _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade)),
+        React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("EP損益"), (_pbAllMiss ? _qZeroCell() : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade), _elHold2RefSuffix(_totPlan, _totPlanRef, _totPlanRefCnt))),
           (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
         React.createElement("td", { colSpan: 2, style: { padding: "1px 0", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
           React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
@@ -4438,15 +4448,16 @@ function DayView(_ref57) {
           _td(_osv != null ? React.createElement("span", { style: { color: _vcol(_osv, true), fontWeight: _osv >= 10 ? 700 : 600 } }, _osv + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           _td((function() {
             if (_allMiss) return _qZeroCell();
-            var _dynSP = null;
+            var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;
             (recs || []).forEach(function(r) {
               var s = r.signal;
               var _aD = _wkAlphaOf(r);
               var _cutLwkD = _wkCutOf(r);
+              if (_epIsXSkip(s, _aD)) { var _xp = _elDynPlanned(_epAsTraded(s), _aD, _cutLwkD); if (_xp != null) { _dynSPRef = (_dynSPRef || 0) + _xp; _dynSPRefCnt++; } return; }  // E×→参考のみ
               var pp = _elDynPlanned(s, _aD, _cutLwkD);  // EP起算v2対応（EP=OS2/3の損切り額も算入）
               if (pp != null) _dynSP = (_dynSP || 0) + pp;
             });
-            return _wkPnlCell(_profitGradeFromPnl(_dynSP != null ? _dynSP : 0, (_dynSP != null && _dynSP !== 0) ? st.total : 0), _dynSP);
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkPnlCell(_profitGradeFromPnl(_dynSP != null ? _dynSP : 0, (_dynSP != null && _dynSP !== 0) ? st.total : 0), _dynSP), _elHold2RefSuffix(_dynSP, _dynSPRef, _dynSPRefCnt));
           })()),
           _td((function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -4455,6 +4466,7 @@ function DayView(_ref57) {
               var s = r.signal;
               var _aR = _wkAlphaOf(r);
               var _cutLR = _wkCutOf(r);
+              if (_epIsXSkip(s, _aR)) { var _xh = _elDynHold(_epAsTraded(s), _aR, _cutLR); if (_xh != null) { _hRef = (_hRef || 0) + _xh; _hRefCnt++; } return; }  // E×→参考のみ
               var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign);
               if (hp == null) return;
               var pp = _elDynPlanned(s, _aR, _cutLR);  // EP起算v2対応（想定損切り時のキャップ基準もEP足の額になる）
@@ -4465,7 +4477,7 @@ function DayView(_ref57) {
               if (_x && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // 参考(H1まで保有した結果との差・差0除外)
               _hCnt++;
             });
-            if (_hMain == null) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
+            if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
             var _hgCap = _profitGradeFromPnl(_hMain, _hCnt);
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
               _hgCap ? _wkBadge(_hgCap) : null,
@@ -4484,7 +4496,7 @@ function DayView(_ref57) {
             });
             if (_h2Cnt === 0 && _h2RefCnt === 0) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } },
-              _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? null : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+              _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
           })()),
           _td(_wkPnlCell(_profitGradeFromPnlReal(st.sumPnl, (_ent > 0 && st.sumPnl !== 0) ? _ent : 0), _ent > 0 ? st.sumPnl : null)),
@@ -4683,16 +4695,17 @@ function DayView(_ref57) {
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
             if (_allMiss) return _qZeroCell();
-            var _dynSP = null, _dynSPAB = null;
+            var _dynSP = null, _dynSPAB = null, _dynSPRef = null, _dynSPRefCnt = 0;
             (recs || []).forEach(function(r) {
               var s = r.signal;
               var _aD = _pbAlphaOf(r);
               var _cutLpbD = _pbCutOf(r);
+              if (_epIsXSkip(s, _aD)) { var _xp = _elDynPlanned(_epAsTraded(s), _aD, _cutLpbD); if (_xp != null) { _dynSPRef = (_dynSPRef || 0) + _xp; _dynSPRefCnt++; } return; }  // E×→参考のみ
               var pp = _elDynPlanned(s, _aD, _cutLpbD);  // EP起算v2対応（EP=OS2/3の損切り額も算入）
               if (pp != null) { _dynSP = (_dynSP || 0) + pp; if (s.difficulty === "A" || s.difficulty === "B") _dynSPAB = (_dynSPAB || 0) + pp; }
             });
             var _hasAlpha = (recs || []).some(function(r) { return r.signal && r.signal.alphaVal != null; });
-            return _pbABAll(recs, _dynSP !== null ? _dynSP : st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned", _hasAlpha ? _dynSPAB : undefined);
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _pbABAll(recs, _dynSP !== null ? _dynSP : st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned", _hasAlpha ? _dynSPAB : undefined), _elHold2RefSuffix(_dynSP, _dynSPRef, _dynSPRefCnt));
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
@@ -4702,6 +4715,7 @@ function DayView(_ref57) {
               var s = r.signal;
               var _aR = _pbAlphaOf(r);
               var _cutLR = _pbCutOf(r);
+              if (_epIsXSkip(s, _aR)) { var _xh = _elDynHold(_epAsTraded(s), _aR, _cutLR); if (_xh != null) { _hRef = (_hRef || 0) + _xh; _hRefCnt++; } return; }  // E×→参考のみ
               var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign);
               if (hp == null) return;
               var pp = _elDynPlanned(s, _aR, _cutLR);  // EP起算v2対応（想定損切り時のキャップ基準もEP足の額になる）
@@ -4712,7 +4726,7 @@ function DayView(_ref57) {
               if (_x && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // 参考(H1まで保有した結果との差・差0除外)
               _hCnt++;
             });
-            if (_hMain == null) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
+            if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
             var _hgCap = _profitGradeFromPnl(_hMain, _hCnt);
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
               _hgCap ? _pbBadge(_hgCap) : null,

@@ -4141,6 +4141,7 @@ function EntrySignalSection(_ref_es) {
   var _esTotHoldActual = null, _esTotHoldPlanStopDiff = false;
   var _esTotHoldRef = null, _esTotHoldRefCnt = 0;
   var _esTotHold2 = null, _esTotHold2Cnt = 0, _esTotHold2Ref = null, _esTotHold2RefCnt = 0;
+  var _esTotPlanRef = null, _esTotPlanRefCnt = 0;
   records.forEach(function(r) {
     var s = r.signal, rIt = r.item;
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
@@ -4173,11 +4174,17 @@ function EntrySignalSection(_ref_es) {
     var _rUnrec = _epIsV2(s) ? _epResolve(s, _esAlpha(s)) : null;
     if (_rUnrec ? (_rUnrec.judge === "ok" && !(_rUnrec.h1 && (_rUnrec.h1.h != null || _rUnrec.h1.c != null)))
                 : (!_epIsV2(s) && s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null)) _esTotHoldHasUnrecorded = true;
+    var _isXes = _epIsXSkip(s, _esAlpha(s));  // E×（×見送り）→本合計に算入せず参考(ref)へ
     var rpN = rp != null ? _p100(rp) : null;
-    var ppN = pp != null ? _p100(pp) : null;
-    var mpN = mp != null ? _p100(mp) : null;
+    var ppN = (pp != null && !_isXes) ? _p100(pp) : null;
+    var mpN = (mp != null && !_isXes) ? _p100(mp) : null;
     var hpN = hp != null ? _p100(hp) : null;
     if (rpN != null) { _esTotReal = (_esTotReal || 0) + rpN; _esTotRealCnt++; }
+    if (_isXes) {
+      var _xsEs = _epAsTraded(s);
+      var _xppEs = _elDynPlanned(_xsEs, _esAlpha(s), _esCut(s)); if (_xppEs != null) { _esTotPlanRef = (_esTotPlanRef || 0) + _p100(_xppEs); _esTotPlanRefCnt++; }
+      var _xh1Es = _elDynHold(_xsEs, _esAlpha(s), _esCut(s)); if (_xh1Es != null) { _esTotHoldRef = (_esTotHoldRef || 0) + _p100(_xh1Es); _esTotHoldRefCnt++; }
+    }
     if (ppN != null) { _esTotPlan = (_esTotPlan || 0) + ppN; _esTotPlanCnt++; }
     if (mpN != null) { _esTotMax  = (_esTotMax  || 0) + mpN; _esTotMaxCnt++; }
     // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
@@ -4401,8 +4408,8 @@ function EntrySignalSection(_ref_es) {
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
         "EP損益: ",
         _esAllMiss ? _qZeroCell() : (_esTotPlanCnt > 0
-          ? _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
-          : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+          ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade), _elHold2RefSuffix(_esTotPlan, _esTotPlanRef, _esTotPlanRefCnt))
+          : (_esTotPlanRefCnt > 0 ? _elHold2RefSuffix(0, _esTotPlanRef, _esTotPlanRefCnt) : React.createElement("span", { style: { color: "#ccc" } }, "—")))
       ),
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
         "H１結果損益: ",
@@ -4440,7 +4447,7 @@ function EntrySignalSection(_ref_es) {
           var totRow = React.createElement("tr", { key: "__estot__", style: { background: "#FFF7ED" } },
             React.createElement("td", { colSpan: 6, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
             React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-              _esAllMiss ? _qZeroCell() : _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade)
+              _esAllMiss ? _qZeroCell() : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade), _elHold2RefSuffix(_esTotPlan, _esTotPlanRef, _esTotPlanRefCnt))
             ),
             React.createElement("td", { colSpan: 2, style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
