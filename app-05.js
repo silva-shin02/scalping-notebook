@@ -5469,16 +5469,16 @@ function EntryRecordForm(_ref_erf) {
       return;
     }
     if (fResult === "draw") {
-      if (fHoldPnlVal === "") return;
+      if (fHoldPnlVal === "") { setFHoldProfit(null); return; }
       if (sHold > 0) setFHoldProfit("yes");
       else if (sHold < 0) setFHoldProfit("no");
       else setFHoldProfit("none");
       return;
     }
-    if (sPlan === 0) return;
-    
+    if (sPlan === 0) { setFHoldProfit(fHoldPnlVal === "" ? null : sHold > 0 ? "yes" : sHold < 0 ? "no" : "none"); return; }
+
     if (sHold === 0) {
-      if (fHoldPnlVal === "") return; 
+      if (fHoldPnlVal === "") { setFHoldProfit(null); return; }
       if (sPlan < 0) setFHoldProfit("yes");
       else if (sPlan > 0) setFHoldProfit("mid");
       else setFHoldProfit("none");
@@ -5558,7 +5558,7 @@ function EntryRecordForm(_ref_erf) {
     var _h1RA2 = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
     if (fResult === "miss" && !_h1RA2) { setFHold2Profit("miss"); return; }  // H1までE基準未達（想定+H1未達）→ 未達
     // H2の損益変化は「H1の結果損益」との比較。
-    if (fHold2PnlVal === "") { setFHold2Profit(function(_p){ return _p === "stop" ? null : _p; }); return; }
+    if (fHold2PnlVal === "") { setFHold2Profit(null); return; }
     var sHold = (Number(fHold2PnlVal)||0) * (fHold2PnlSign === "-" ? -1 : 1);
     var sBase = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
     if (sBase === 0) {
