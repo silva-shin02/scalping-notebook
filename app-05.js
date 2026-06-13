@@ -5263,6 +5263,11 @@ function EntryRecordForm(_ref_erf) {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
       color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
   }, "H１までE基準未達のため非表示");
+  // H期待度×（撤退）→ 結果損益欄は「期待度×のため非表示」。
+  var _fHoldXEl = React.createElement("span", {
+    style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
+      color: "#1E8449", background: "#EAF3DE", borderRadius: 6, border: "1px solid #A9DFBF" }
+  }, "期待度×のため非表示");
 
   
   useEffect(function() {
@@ -5446,6 +5451,8 @@ function EntryRecordForm(_ref_erf) {
     if (_fPlanStopNow) return;
     // v2/v3でE未達・×見送り（judge≠ok）→ H1は参考扱い・ノートレードのため損益変化=未達。
     if (isV2Form && fResult === "miss") { setFHoldProfit("miss"); return; }
+    // H1期待度×（撤退）→ 損益変化=撤退（結果損益欄は「期待度×のため非表示」）。
+    if (fHoldExp === "×") { setFHoldProfit("withdraw"); return; }
     var sHold = fHoldPnlVal !== "" ? (Number(fHoldPnlVal)||0) * (fHoldPnlSign === "-" ? -1 : 1) : 0;
     var sPlan = fPlan !== "" ? (Number(fPlan)||0) * (fPlanSign === "-" ? -1 : 1) : 0;
 
@@ -5485,7 +5492,7 @@ function EntryRecordForm(_ref_erf) {
     } else if (sPlan < 0 && sHold > 0) {
       setFHoldProfit("yes");
     }
-  }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign, fOsVal, _fAlpha, _fCutLine, fHoldHighSign, fHoldHighVal]);
+  }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign, fOsVal, _fAlpha, _fCutLine, fHoldHighSign, fHoldHighVal, fHoldExp]);
 
   // === Hold2(H2) 自動計算（H1と同一ロジック） ===
   useEffect(function() {
@@ -5543,6 +5550,8 @@ function EntryRecordForm(_ref_erf) {
     if (_h2psStop || _h2h1Stop) { setFHold2Profit("stop"); return; }
     // v2/v3でE未達・×見送り（judge≠ok）→ H2も参考扱い・ノートレードのため損益変化=未達。
     if (isV2Form && fResult === "miss") { setFHold2Profit("miss"); return; }
+    // H2期待度×（撤退）→ 損益変化=撤退（結果損益欄は「期待度×のため非表示」）。
+    if (fHold2Exp === "×") { setFHold2Profit("withdraw"); return; }
     var _h1RA2 = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
     if (fResult === "miss" && !_h1RA2) { setFHold2Profit("miss"); return; }  // H1までE基準未達（想定+H1未達）→ 未達
     // H2の損益変化は「H1の結果損益」との比較。
@@ -5570,7 +5579,7 @@ function EntryRecordForm(_ref_erf) {
     } else if (sBase < 0 && sHold > 0) {
       setFHold2Profit("yes");
     }
-  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign, fOsVal, fResult, fHoldHighSign, fHoldHighVal, fHold2HighSign, fHold2HighVal, _fAlpha, _fCutLine, _fPlanStopNow]);
+  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign, fOsVal, fResult, fHoldHighSign, fHoldHighVal, fHold2HighSign, fHold2HighVal, _fAlpha, _fCutLine, _fPlanStopNow, fHold2Exp]);
 
   // 期待度（H1/H2）の「損切り済」自動選択は廃止し手動選択に変更（表側の「損切」表示はライブα計算で従来どおり）。
 
@@ -6218,7 +6227,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : React.createElement("span", {
+            _fMiss ? _fMissEl : _fPlanStopNow ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHoldExp === "×" ? _fHoldXEl : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -6234,7 +6243,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"]].map(function(kv) {
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#0369A1", "#E0F2FE"]].map(function(kv) {
                 var on = fHoldProfit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
@@ -6278,7 +6287,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } },
               "結果損益",
               React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "100株換算")),
-            _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : React.createElement("span", {
+            _fMiss ? _fMissEl : (_fPlanStopNow || _fH1StopNow) ? React.createElement("span", { style: { display: "inline-block", padding: "5px 14px", fontSize: 14, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", borderRadius: 6, border: "1px solid #ddd", minWidth: 80, textAlign: "center" } }, "損切り済") : fHold2Exp === "×" ? _fHoldXEl : React.createElement("span", {
               style: {
                 display: "inline-block", padding: "5px 14px",
                 fontSize: 14, fontWeight: 800,
@@ -6294,7 +6303,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化", React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（H１比）")),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"]].map(function(kv) {
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#0369A1", "#E0F2FE"]].map(function(kv) {
                 var on = fHold2Profit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
