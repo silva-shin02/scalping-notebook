@@ -3241,6 +3241,27 @@ function _epAsTraded(s) {
   if (!_epIsV2(s)) return s;
   return Object.assign({}, s, { os1Exp: null, os2Exp: null });
 }
+// EP→以降の足を順にホールドした場合の損益ラダー（OS1〜5対応）。各足で「ここで手仕舞いした損益」と損切り発生を返す。
+// 損切り: EP以降で高値−α≧cutに達した最初の足。以降は損切り額で固定。未達の足は確定値で手仕舞い損益(α−確定値)*100。
+// 返り値 {epIdx, items:[{idx,depth,role,leg,pnl,isStop,afterStop}], stopDepth(-1=損切りなし), maxPnl, maxDepth, finalPnl}。
+// E成立(judge"ok")のv2記録のみ。×見送り/未達/旧記録はnull。
+function _epHoldLadder(s, alpha, cutLine) {
+  if (!_epIsV2(s) || alpha == null) return null;
+  var r = _epResolve(s, alpha);
+  if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
+  var legs = _epLegs(s), cut = cutLine != null ? cutLine : 10;
+  var items = [], stopDepth = -1, stopHigh = null, maxPnl = null, maxDepth = 0, finalPnl = null;
+  for (var i = r.epIdx; i < legs.length; i++) {
+    var lg = legs[i], depth = i - r.epIdx;
+    if (stopDepth < 0 && lg.h != null && (lg.h - alpha) >= cut) { stopDepth = depth; stopHigh = lg.h; }
+    var pnl;
+    if (stopDepth >= 0) pnl = -Math.round((stopHigh - alpha) * 100);
+    else pnl = (lg.c != null) ? Math.round((alpha - lg.c) * 100) : null;
+    items.push({ idx: i, depth: depth, role: depth === 0 ? "EP" : ("H" + depth), leg: lg, pnl: pnl, isStop: stopDepth === depth, afterStop: stopDepth >= 0 && stopDepth < depth });
+    if (pnl != null) { finalPnl = pnl; if (maxPnl == null || pnl > maxPnl) { maxPnl = pnl; maxDepth = depth; } }
+  }
+  return { epIdx: r.epIdx, items: items, stopDepth: stopDepth, maxPnl: maxPnl, maxDepth: maxDepth, finalPnl: finalPnl };
+}
 function _elDynResult(s, alpha, cutLine) {
   if (_epIsV2(s) && alpha != null) {
     var _rv2 = _epResolve(s, alpha);
