@@ -3597,13 +3597,20 @@ function _epOsChainCell(s, alpha) {
       _epSignedNode(o.c, "c" + i),
       React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, ")"));
     // 数値下のサブ行: EP足=↑EP（×宣言後の到達なら↑EP（×））。それ以外=期待度（EP前=到達期待 o.exp / EP後=H期待）。
+    // 実エントリーした足（s.entryOsNo=1〜3）には「実E」を表示。EP足と被れば「↑EP/実E」。
+    var _isE = (s && s.entryOsNo != null && (Number(s.entryOsNo) - 1) === i);
     var sub;
     if (i === epIdx) {
-      sub = React.createElement("span", { style: { fontWeight: 800, color: "#0369A1", lineHeight: 1.1, whiteSpace: "nowrap" } }, "↑EP" + (judge === "x" ? "（×）" : ""));
+      sub = React.createElement("span", { style: { fontWeight: 800, lineHeight: 1.1, whiteSpace: "nowrap" } },
+        React.createElement("span", { style: { color: "#0369A1" } }, "↑EP" + (judge === "x" ? "（×）" : "")),
+        _isE ? React.createElement("span", { style: { color: "#C0392B" } }, "/実E") : null);
     } else if (_epIsV2(s)) {
       var _ex = (epIdx >= 0 && i === epIdx + 1) ? s.holdExp : (epIdx >= 0 && i === epIdx + 2) ? s.hold2Exp : o.exp;
-      sub = _expSym(_ex, epIdx >= 0 && i > epIdx);
-    } else sub = null;
+      var _expNode = _expSym(_ex, epIdx >= 0 && i > epIdx);
+      sub = _isE
+        ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } }, _expNode, React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: "0.85em" } }, "実E"))
+        : _expNode;
+    } else sub = (_isE ? React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: "0.85em" } }, "実E") : null);
     nodes.push(React.createElement("span", { key: "lg" + i, style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } }, _val, sub));
   });
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", whiteSpace: "nowrap" } }, nodes);
@@ -5120,6 +5127,9 @@ function EntryRecordForm(_ref_erf) {
     _useStateAVA = _slicedToArray(_useStateAV, 2),
     fAlphaVal = _useStateAVA[0], setFAlphaVal = _useStateAVA[1];
 
+  var _useStateEONO = useState(initSig.entryOsNo != null ? Number(initSig.entryOsNo) : null),
+    _useStateEONOA = _slicedToArray(_useStateEONO, 2),
+    fEntryOsNo = _useStateEONOA[0], setFEntryOsNo = _useStateEONOA[1];  // 実エントリーしたOS（1〜3）
   var _useStateEOSS = useState(initSig.entryOsSign || null),
     _useStateEOSSA = _slicedToArray(_useStateEOSS, 2),
     fEntryOsSign = _useStateEOSSA[0], setFEntryOsSign = _useStateEOSSA[1];
@@ -5667,6 +5677,7 @@ function EntryRecordForm(_ref_erf) {
       tradeType: fTradeType,
       priceIn: fEntered && fPriceIn !== "" ? fPriceIn : null,
       priceOut: fEntered && fPriceOut !== "" ? fPriceOut : null,
+      entryOsNo: fEntered && fEntryOsNo != null ? fEntryOsNo : null,
       entryOsSign: fEntered ? (fEntryOsSign || null) : null,
       entryOsVal: fEntered && fEntryOsVal !== "" ? Number(fEntryOsVal) : null,
       exitOsSign: fEntered ? (fExitOsSign || null) : null,
@@ -5927,6 +5938,21 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })(),
+
+      // 実エントリーあり時: どのOSでエントリーしたか（E-OS）を選択。α値欄の右に表示。
+      fEntered ? React.createElement("div", {
+        style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#FFF7ED", border: "1px solid #FDBA74", fontSize: 12 }
+      },
+        React.createElement("span", { style: { color: "#9A3412", fontWeight: 700 } }, "E-OS"),
+        React.createElement("div", { style: { display: "flex", gap: 3 } },
+          [1, 2, 3].map(function(_no) {
+            var on = fEntryOsNo === _no;
+            return React.createElement("button", { key: _no,
+              onClick: function() { setFEntryOsNo(on ? null : _no); },
+              style: { padding: "3px 10px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
+                border: "1.5px solid " + (on ? "#C0392B" : "#ddd"), background: on ? "#FCEBEB" : "#fff", color: on ? "#C0392B" : "#999" } }, _no);
+          }))
+      ) : null,
 
       (function() {
         var _ckC = fStock + "_" + fDate;
