@@ -5900,8 +5900,12 @@ function EntryRecordForm(_ref_erf) {
           return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: _pnl > 0 ? "#C0392B" : _pnl < 0 ? "#1E8449" : "#888" } },
             "EP損益 " + (_pnl > 0 ? "+" : "") + _pnl.toLocaleString() + "円" + (_df >= _cl ? "（損切り）" : ""));
         })();
-        return React.createElement("div", { style: { marginTop: 4, marginBottom: 8, padding: "8px 10px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFBF5" } },
-          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 6 } }, "足の記録 OS1〜5（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）"),
+        return React.createElement(React.Fragment, null,
+          React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) },
+            "OS",
+            React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）")
+          ),
+          React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFBF5" } },
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto" } },
             _legCol("OS1", _fRoleOf(0), [
               _row("高値", _uIn(fOsVal, setFOsVal)),
@@ -5932,12 +5936,11 @@ function EntryRecordForm(_ref_erf) {
             _legCol("OS5", _fRoleOf(4), [
               _row("高値", _sInH(fHold2HighVal, setFHold2HighVal, fHold2HighSign, setFHold2HighSign, _h2hSignedRef)),
               _row("確定値", _sInH(fHold2WidthVal, setFHold2WidthVal, fHold2WidthSign, setFHold2WidthSign, _h2wSignedRef, _h2wAfter))
-            ]),
-            React.createElement("div", { key: "note", style: { display: "flex", alignItems: "center", fontSize: 9, color: "#aaa", maxWidth: 200 } },
-              "OS4・OS5は4・5本目。EPがOS2/3のときH1/H2に使われる（役割外でも記録可＝αシミュで活用）")
+            ])
           ),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" } }, _eChip, _epPnlChip,
             _ef.judge === "miss" ? React.createElement("span", { style: { fontSize: 10, color: "#999" } }, "E未達のためH1/H2・実現損益は不要") : null)
+          )
         );
       })() : React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 16, marginTop: 4, marginBottom: 4, flexWrap: "wrap" } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
@@ -6010,7 +6013,7 @@ function EntryRecordForm(_ref_erf) {
       ),
       
       React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
-        "EP（エントリーポイント" + (_epFormState && _epFormState.epIdx >= 0 ? "＝OS" + (_epFormState.epIdx + 1) : "") + "）"
+        "EP" + (_epFormState && _epFormState.epIdx >= 0 ? "（＝OS" + (_epFormState.epIdx + 1) + "）" : "")
       ),
       React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" } },
       React.createElement("div", { style: { marginBottom: 8 } },
@@ -6056,8 +6059,7 @@ function EntryRecordForm(_ref_erf) {
       ),
 
       _fHideHold ? null : React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
-        "H１" + (_epFormState && _epFormState.epIdx >= 0 ? "（＝OS" + (_epFormState.epIdx + 2) + "）" : ""),
-        React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "高値・確定値は上の足ブロックで入力／期待度はEPの足のスロットで選択")
+        "H１" + (_epFormState && _epFormState.epIdx >= 0 ? "（＝OS" + (_epFormState.epIdx + 2) + "）" : "")
       ),
       _fHideHold ? null : React.createElement("div", {
         style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" }
