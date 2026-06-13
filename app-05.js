@@ -3531,17 +3531,25 @@ function _epSignedNode(v, key) {
 }
 // OS欄: 最初の3本（OS枠）の連鎖「8(↑3)→9(↑5)→15(↓2)」。値=高値(確定値)・高値は正なら矢印なし。
 // EP=OS1ならH1/H2の足も2・3本目として表示。alphaを渡すとEPになった足の下に「↑EP」を表示（数値と同サイズ・1行）。
-// 旧記録はOS1のみ（osVal≥αならEPマーカー・H1成立の旧特例は対象外）。
+// 各足の数値下に期待度（EP前=α到達期待 os1Exp/os2Exp・EP後=H期待 holdExp/hold2Exp）を○△×で表示。
+// ×宣言後の到達（judge="x"＝EP足より前のOSで到達期待×）の場合、EP足は「↑EP（×）」と表示。
+// 旧記録はOS1のみ（osVal≥αならEPマーカー・期待度は非表示）。
 function _epOsChainCell(s, alpha) {
-  var legs, epIdx = -1;
+  var legs, epIdx = -1, judge = null;
   if (_epIsV2(s)) {
     legs = _epLegs(s).slice(0, 3);
-    if (alpha != null) { var _rc = _epResolve(s, alpha); if (_rc) epIdx = _rc.epIdx; }
+    if (alpha != null) { var _rc = _epResolve(s, alpha); if (_rc) { epIdx = _rc.epIdx; judge = _rc.judge; } }
   } else {
     legs = (s && s.osVal != null) ? [{ h: Number(s.osVal), c: s.osConfVal != null ? (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)) : null }] : [];
     if (alpha != null && s && s.osVal != null && Number(s.osVal) >= alpha) epIdx = 0;
   }
   if (!legs.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  // 期待度シンボル: 到達期待(EP前)=○赤/△琥珀/×緑、H期待(EP後)=○緑/△琥珀/×赤（フォームと同配色）。
+  var _expSym = function(sym, isHold) {
+    if (sym !== "○" && sym !== "△" && sym !== "×") return null;
+    var col = sym === "△" ? "#B45309" : isHold ? (sym === "○" ? "#1E8449" : "#C0392B") : (sym === "○" ? "#C0392B" : "#1E8449");
+    return React.createElement("span", { style: { fontWeight: 800, color: col, lineHeight: 1.1, fontSize: "0.9em" } }, sym);
+  };
   var nodes = [];
   legs.forEach(function(o, i) {
     if (i > 0) nodes.push(React.createElement("span", { key: "ar" + i, style: { color: "#bbb", margin: "0 1px", fontSize: "0.9em" } }, "→"));
@@ -3552,11 +3560,15 @@ function _epOsChainCell(s, alpha) {
       React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, "("),
       _epSignedNode(o.c, "c" + i),
       React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, ")"));
-    nodes.push(i === epIdx
-      ? React.createElement("span", { key: "lg" + i, style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } },
-          _val,
-          React.createElement("span", { style: { fontWeight: 800, color: "#0369A1", lineHeight: 1.1, whiteSpace: "nowrap" } }, "↑EP"))
-      : React.createElement("span", { key: "lg" + i, style: { display: "inline-flex" } }, _val));
+    // 数値下のサブ行: EP足=↑EP（×宣言後の到達なら↑EP（×））。それ以外=期待度（EP前=到達期待 o.exp / EP後=H期待）。
+    var sub;
+    if (i === epIdx) {
+      sub = React.createElement("span", { style: { fontWeight: 800, color: "#0369A1", lineHeight: 1.1, whiteSpace: "nowrap" } }, "↑EP" + (judge === "x" ? "（×）" : ""));
+    } else if (_epIsV2(s)) {
+      var _ex = (epIdx >= 0 && i === epIdx + 1) ? s.holdExp : (epIdx >= 0 && i === epIdx + 2) ? s.hold2Exp : o.exp;
+      sub = _expSym(_ex, epIdx >= 0 && i > epIdx);
+    } else sub = null;
+    nodes.push(React.createElement("span", { key: "lg" + i, style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } }, _val, sub));
   });
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", whiteSpace: "nowrap" } }, nodes);
 }
