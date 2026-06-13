@@ -5604,6 +5604,12 @@ function EntryRecordForm(_ref_erf) {
     if (fHoldExp === "×" && fHold2Exp !== "×") setFHold2Exp("×");
   }, [fHoldExp, fHold2Exp]);
 
+  // OS1の到達期待×（OS1で見送り宣言）→ OS2の到達期待も自動的に×に。OS1で見送った以上OS2でも追わないため。
+  // 判定側は_epResolveがEP手前の×を伝播(xBefore)済みなので、これで入力と判定が一致する。
+  useEffect(function() {
+    if (fOs1Exp === "×" && fOs2Exp !== "×") setFOs2Exp("×");
+  }, [fOs1Exp, fOs2Exp]);
+
 
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
 
@@ -5991,7 +5997,7 @@ function EntryRecordForm(_ref_erf) {
               return React.createElement("button", { key: kv[0],
                 onClick: disabled ? null : function() { setFn(on ? null : kv[0]); },
                 disabled: !!disabled,
-                title: disabled ? "H1で撤退（×）のため、H2も自動的に×（H1まで保有）" : null,
+                title: disabled ? "前段で×（撤退・見送り）のため、ここも自動的に×になります" : null,
                 style: { padding: "2px 9px", fontSize: 12, fontWeight: 700, borderRadius: 5, cursor: disabled ? "not-allowed" : "pointer",
                   border: "1.5px solid " + (on ? kv[1] : "#ddd"), background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999", opacity: (disabled && !on) ? 0.35 : 1 } }, kv[0]);
             }));
@@ -6087,7 +6093,7 @@ function EntryRecordForm(_ref_erf) {
               _row("確定値", _sIn(fOs2Conf, setFOs2Conf, fOs2ConfSign, setFOs2ConfSign, _os2cSignedRef)),
               _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×"), true)
                 : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
-                : (_ef.o2 != null) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp), true) : null
+                : (_ef.o2 != null) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp, fOs1Exp === "×"), true) : null
             ]),
             _legCol("OS3", _fRoleOf(2), [
               _row("高値", _sIn(fOs3High, setFOs3High, fOs3HighSign, setFOs3HighSign, _os3hSignedRef)),
