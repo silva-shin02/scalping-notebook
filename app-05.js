@@ -4051,10 +4051,10 @@ function _elHold2TotParts(s, alpha, cutLine) {
   // E×（×見送り）→ 本合計に算入せず、取引していた場合のH2損益を参考(ref)に。_elH2Missより先に判定。
   if (_epIsXSkip(s, alpha)) return { main: null, ref: _elDynHold2(_epAsTraded(s), alpha, cutLine) };
   if (_elH2Miss(s, alpha)) return { main: null, ref: null };
-  // H2期待度×/損切り済 → 「1段下で手仕舞いした損益」=H1合計と同一の寄与(_elHold1TotParts.main)を本合計に算入。
-  // ルール: H2×→H1の損益・H1×→EP損益（カスケード）・想定損切り→想定額キャップ。
+  // H2期待度×/損切り済、またはH1期待度×/損切り済（H1で撤退＝H2まで保有しない）→ 「1段下で手仕舞いした損益」=H1合計と同一の寄与(_elHold1TotParts.main)を本合計に算入。
+  // ルール: H2×→H1の損益・H1×→EP損益（カスケード）・想定損切り→想定額キャップ。H1が×ならH2期待度(○/△)に関わらずEP損益を算入（2026-06-13）。
   // ※生の_elDynHoldを使うと想定損切り時にキャップ前のH1超過損失を算入してしまう（修正済 2026-06-13）。
-  if (s.hold2Exp === "×" || s.hold2Exp === "損切り済") {
+  if (s.hold2Exp === "×" || s.hold2Exp === "損切り済" || s.holdExp === "×" || s.holdExp === "損切り済") {
     // hv = H2まで保有した場合の損益（参考用）。損切りなら強制手仕舞い=損切り額、それ以外はH2損益。
     var hv = (alpha != null && _elHoldIsStop(s, alpha, cutLine))
       ? (_elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine))
@@ -5598,6 +5598,12 @@ function EntryRecordForm(_ref_erf) {
     }
   }, [fOsVal, _fAlpha, _fCutLine, _fPlanStopNow]);
 
+  // H1期待度×（H1で撤退）→ H2期待度も自動的に×に。H1で手仕舞いした以上H2まで保有しないため。
+  // 合計側は_elHold2TotPartsがH1×でEP損益にカスケードするので、これで入力と計算が一致する。
+  useEffect(function() {
+    if (fHoldExp === "×" && fHold2Exp !== "×") setFHold2Exp("×");
+  }, [fHoldExp, fHold2Exp]);
+
 
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
 
@@ -5978,14 +5984,16 @@ function EntryRecordForm(_ref_erf) {
 
       isV2Form ? (function() {
         var _ef = _epFormState || {};
-        var _expB = function(cur, setFn) {
+        var _expB = function(cur, setFn, disabled) {
           return React.createElement("div", { style: { display: "flex", gap: 3 } },
             [["○", "#C0392B", "#FCEBEB"], ["△", "#B45309", "#FEF3C7"], ["×", "#1E8449", "#EAF3DE"]].map(function(kv) {
               var on = cur === kv[0];
               return React.createElement("button", { key: kv[0],
-                onClick: function() { setFn(on ? null : kv[0]); },
-                style: { padding: "2px 9px", fontSize: 12, fontWeight: 700, borderRadius: 5, cursor: "pointer",
-                  border: "1.5px solid " + (on ? kv[1] : "#ddd"), background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999" } }, kv[0]);
+                onClick: disabled ? null : function() { setFn(on ? null : kv[0]); },
+                disabled: !!disabled,
+                title: disabled ? "H1で撤退（×）のため、H2も自動的に×（H1まで保有）" : null,
+                style: { padding: "2px 9px", fontSize: 12, fontWeight: 700, borderRadius: 5, cursor: disabled ? "not-allowed" : "pointer",
+                  border: "1.5px solid " + (on ? kv[1] : "#ddd"), background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999", opacity: (disabled && !on) ? 0.35 : 1 } }, kv[0]);
             }));
         };
         var _numIn = function(val, setVal) {
@@ -6077,14 +6085,14 @@ function EntryRecordForm(_ref_erf) {
             _legCol("OS2", _fRoleOf(1), [
               _row("高値", _sIn(fOs2High, setFOs2High, fOs2HighSign, setFOs2HighSign, _os2hSignedRef)),
               _row("確定値", _sIn(fOs2Conf, setFOs2Conf, fOs2ConfSign, setFOs2ConfSign, _os2cSignedRef)),
-              _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true)
+              _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×"), true)
                 : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
                 : (_ef.o2 != null) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp), true) : null
             ]),
             _legCol("OS3", _fRoleOf(2), [
               _row("高値", _sIn(fOs3High, setFOs3High, fOs3HighSign, setFOs3HighSign, _os3hSignedRef)),
               _row("確定値", _sIn(fOs3Conf, setFOs3Conf, fOs3ConfSign, setFOs3ConfSign, _os3cSignedRef)),
-              _ef.epIdx === 1 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true)
+              _ef.epIdx === 1 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×"), true)
                 : _ef.epIdx === 2 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true) : null
             ])
           ),
@@ -6092,7 +6100,7 @@ function EntryRecordForm(_ref_erf) {
             _legCol("OS4", _fRoleOf(3), [
               _row("高値", _sInH(fHoldHighVal, setFHoldHighVal, fHoldHighSign, setFHoldHighSign, _hhSignedRef)),
               _row("確定値", _sInH(fHoldWidthVal, setFHoldWidthVal, fHoldWidthSign, setFHoldWidthSign, _hwSignedRef, _hwAfter)),
-              _ef.epIdx === 2 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp), true) : null
+              _ef.epIdx === 2 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×"), true) : null
             ]),
             _legCol("OS5", _fRoleOf(4), [
               _row("高値", _sInH(fHold2HighVal, setFHold2HighVal, fHold2HighSign, setFHold2HighSign, _h2hSignedRef)),
