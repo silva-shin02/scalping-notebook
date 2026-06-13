@@ -3677,10 +3677,13 @@ function _sigStats(tag, allData, period) {
       var dp = k.split("_").pop();
       if (dp < cutoff.toISOString().slice(0,10).replace(/-/g,"/")) return;
     }
+    var _clSg = c.cutLine != null ? Number(c.cutLine) : 10;
     (c.signals || []).forEach(function(s) {
       if (s.tag !== tag) return;
-      if (s.result === "ok") ok++;
-      else if (s.result === "ng") ng++;
+      // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出）
+      var _resSg = _elDynResult(s, _epOwnAlpha(s), _clSg);
+      if (_resSg === "ok") ok++;
+      else if (_resSg === "ng") ng++;
     });
   });
   var total = ok + ng;
@@ -3693,10 +3696,12 @@ function _sigStockHistory(tag, allData, currentStock, currentDate) {
     var idx = k.lastIndexOf("_");
     if (idx < 0) return;
     var st = k.slice(0, idx), dt = k.slice(idx + 1);
+    var _clSh = c.cutLine != null ? Number(c.cutLine) : 10;
     (c.signals || []).forEach(function(s) {
       if (s.tag !== tag) return;
       if (!map[st]) map[st] = [];
-      map[st].push({ date: dt, chartImg: c.chartImg, result: s.result });
+      // 結果はライブα基準（v2/v3はresult=null保存のためEP足から導出）
+      map[st].push({ date: dt, chartImg: c.chartImg, result: _elDynResult(s, _epOwnAlpha(s), _clSh) });
     });
   });
   

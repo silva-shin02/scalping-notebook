@@ -968,9 +968,12 @@ function _hdConsecutiveLosses(records, minStreak, data) {
     });
     var streak = 0;
     for (var i = 0; i < sorted.length; i++) {
-      if (sorted[i].signal.result === "ng") streak++;
-      else if (sorted[i].signal.result === "ok") break;
-      
+      // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出）
+      var _aiCl = _elAlphaInfo(sorted[i], data);
+      var _resCl = _elDynResult(sorted[i].signal, _aiCl.alpha, _aiCl.cutLine);
+      if (_resCl === "ng") streak++;
+      else if (_resCl === "ok") break;
+
     }
     if (streak >= minStreak) {
       alerts.push({

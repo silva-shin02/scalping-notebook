@@ -1820,16 +1820,21 @@ function SearchView(_ref45) {
     });
     
     var enteredSigs = chartKeys.flatMap(function(k) {
-      return (data.charts[k] && data.charts[k].signals || []).filter(function(sig) { return _elIsEntered(sig, null); });
+      var _cSV = data.charts[k] || {};
+      var _cutSV = _cSV.cutLine != null ? Number(_cSV.cutLine) : 10;
+      return (_cSV.signals || []).filter(function(sig) { return _elIsEntered(sig, null); })
+        .map(function(sig) { return { sig: sig, cut: _cutSV }; });
     });
-    var pnl = enteredSigs.reduce(function(acc, sig) {
-      var v = _elSignedVal(sig.realizedPnl, sig.realizedPnlSign);
+    var pnl = enteredSigs.reduce(function(acc, e) {
+      var v = _elSignedVal(e.sig.realizedPnl, e.sig.realizedPnlSign);
       return acc + (v != null ? v : 0);
     }, 0);
-    var w = enteredSigs.filter(function(sig) { return sig.result === "ok"; }).length;
-    var l = enteredSigs.filter(function(sig) { return sig.result === "ng"; }).length;
-    
-    var entryTagLabels = enteredSigs.map(function(sig) { return _elTagLabel(sig); }).filter(Boolean);
+    // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出）
+    var _resSV = function(e) { return _elDynResult(e.sig, _epOwnAlpha(e.sig), e.cut); };
+    var w = enteredSigs.filter(function(e) { return _resSV(e) === "ok"; }).length;
+    var l = enteredSigs.filter(function(e) { return _resSV(e) === "ng"; }).length;
+
+    var entryTagLabels = enteredSigs.map(function(e) { return _elTagLabel(e.sig); }).filter(Boolean);
     var allCatsData = getAllNewsCatsData(dd);
     var allMTags = _toConsumableArray(new Set(Object.values(allCatsData).flatMap(function (c) {
       return c.marketTags || [];
@@ -3303,8 +3308,10 @@ function DayView(_ref57) {
         records.push({ date: date, stock: _trStock, signal: s, item: item });
         var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
         if (v != null) realSum += v;
-        if (s.result === "ok") ok++;
-        else if (s.result === "ng") ng++;
+        // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出・旧記録も全表ライブα計算方針に統一）
+        var _resTr = _elDynResult(s, _epOwnAlpha(s), _trC.cutLine != null ? Number(_trC.cutLine) : 10);
+        if (_resTr === "ok") ok++;
+        else if (_resTr === "ng") ng++;
       });
     });
     records.sort(function(a, b) {
@@ -3930,7 +3937,9 @@ function DayView(_ref57) {
             var s = r.signal;
             if (!_trVirtByStk[r.stock]) _trVirtByStk[r.stock] = [];
             var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-            _trVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf, holdOsConf: s.holdOsConf != null ? Number(s.holdOsConf) : null, holdHighVal: s.holdHighVal != null ? Number(s.holdHighVal) : null, holdHighSign: s.holdHighSign || null });
+            // v2/v3のH1は採用αで解決した役割の足（EPの次）の値を渡す（旧記録はそのまま）
+            var _hvV = _epHoldView(s, _elAlphaInfo(r, data).alpha, false);
+            _trVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf, holdOsConf: _hvV.holdOsConf != null ? Number(_hvV.holdOsConf) : null, holdHighVal: _hvV.holdHighVal != null ? Number(_hvV.holdHighVal) : null, holdHighSign: _hvV.holdHighSign || null });
             var _cTr = (data.charts || {})[r.stock + "_" + date];
             _trCutLineByStk[r.stock] = _cTr && _cTr.cutLine != null ? _cTr.cutLine : 10;
           });
@@ -4592,7 +4601,8 @@ function DayView(_ref57) {
       _pbAllEnt  += _pbEntByStk[sk];
     });
     var _pbAll = _elCalcStats(_pbAllRecs, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; });
-    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0; (recs || []).forEach(function(r) { var s = r.signal; var _aR = _pbAlphaOf(r); var _cutLOkNg = _pbCutOf(r); var dynR = null; if (_aR != null && s.osVal != null && Number(s.osVal) >= 0) { var _dv = Number(s.osVal) - _aR; if (_dv < 0) dynR = "miss"; else if (_dv >= _cutLOkNg) dynR = "ng"; else if (s.osConfVal != null && s.osConfVal !== "") { var _cf = s.osConfSign === "+" ? Number(s.osConfVal) : s.osConfSign === "-" ? -Number(s.osConfVal) : 0; dynR = _cf < _aR ? "ok" : _cf === _aR ? "draw" : "ng"; } } var res = dynR !== null ? dynR : s.result; if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
+    // 勝敗カウント（αシミュ対応）: EP起算v2/v3もEP足基準で判定（_elDynResult。旧式はEP=OS2/3成立を未達に誤算入していた）
+    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0; (recs || []).forEach(function(r) { var s = r.signal; var res = _elDynResult(s, _pbAlphaOf(r), _pbCutOf(r)); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
     var _pbFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
     var _pbCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _pbTh = function(label, extra) {
@@ -5013,7 +5023,8 @@ function DayView(_ref57) {
         var dispRH = _elDynResult(s, _aR, _cutLHA);
         var dynHpH=(function(){if(hp==null)return s.holdProfit;if(dispRH==="draw"){return hp>0?"yes":hp<0?"no":"none";}if(pp==null)return s.holdProfit;if(pp>0&&hp>0){return hp>pp?"yes":hp<pp?"mid":"none";}if(pp<0&&hp<0)return"no";if(pp>0&&hp<0)return"no";if(pp<0&&hp>0)return"yes";if(hp===0)return"none";return s.holdProfit;})();
         var hw=null;
-        if(_aR!=null&&s.holdOsConf!=null){hw=_aR-Number(s.holdOsConf);}else if(s.holdWidth!=null){hw=s.holdWidthSign==="+"?Number(s.holdWidth):-Number(s.holdWidth);}
+        var _hvw=_epHoldView(s,_aR,false);  // v2/v3はαで解決した役割の足（EPの次）の値幅
+        if(_aR!=null&&_hvw.holdOsConf!=null){hw=_aR-Number(_hvw.holdOsConf);}else if(_hvw.holdWidth!=null){hw=_hvw.holdWidthSign==="+"?Number(_hvw.holdWidth):-Number(_hvw.holdWidth);}
         return {s:s,stock:r.stock,hp:hp,pp:pp,dynHp:dynHpH,hw:hw,aR:_aR,cutL:_cutLHA};
       }).filter(function(h){return h && (h.dynHp!=null||h.hp!=null);});
       if (!_haRecs.length) return null;
@@ -5038,7 +5049,8 @@ function DayView(_ref57) {
         var hp1 = (_aR != null) ? _elDynHold(s, _aR, _cutLH2) : _elSignedVal(s.holdPnl, s.holdPnlSign);
         var dynHp2 = (function(){ if(hp2==null)return s.hold2Profit; if(hp1==null)return hp2>0?"yes":hp2<0?"no":"none"; if(hp2===0)return hp1<0?"yes":hp1>0?"mid":"none"; if(hp1>0&&hp2>0)return hp2>hp1?"yes":hp2<hp1?"mid":"none"; if(hp1<0&&hp2<0)return"no"; if(hp1>0&&hp2<0)return"no"; if(hp1<0&&hp2>0)return"yes"; return s.hold2Profit; })();
         var hw2=null;
-        if(_aR!=null&&s.hold2OsConf!=null){hw2=_aR-Number(s.hold2OsConf);}else if(s.hold2Width!=null){hw2=s.hold2WidthSign==="+"?Number(s.hold2Width):-Number(s.hold2Width);}
+        var _hvw2=_epHoldView(s,_aR,true);  // v2/v3はαで解決した役割の足（EPの2本後）の値幅
+        if(_aR!=null&&_hvw2.holdOsConf!=null){hw2=_aR-Number(_hvw2.holdOsConf);}else if(_hvw2.holdWidth!=null){hw2=_hvw2.holdWidthSign==="+"?Number(_hvw2.holdWidth):-Number(_hvw2.holdWidth);}
         return {s:s,stock:r.stock,hp:hp2,pp:hp1,dynHp:dynHp2,hw:hw2,aR:_aR,cutL:_cutLH2};
       }).filter(function(h){return h&&(h.dynHp!=null||h.hp!=null);});
       // ホールド成績テーブル（H1/H2共通描画）。recsArr=_haRecs(H1) or _ha2Recs(H2)
@@ -5315,9 +5327,10 @@ function DayView(_ref57) {
       var realRaw = (item && item.pnl != null) ? Number(item.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
       var planRaw = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
       var maxRaw  = _elSignedVal(s.maxPnl, s.maxPnlSign);
+      var _aiDt = _elAlphaInfo(r, data);  // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出）
       return {
         stock: r.stock, time: s.time || "99:99", entered: entered,
-        result: s.result, difficulty: s.difficulty,
+        result: _elDynResult(s, _aiDt.alpha, _aiDt.cutLine), difficulty: s.difficulty,
         realN: realRaw != null ? per100(realRaw) : null,
         planN: planRaw != null ? per100(planRaw) : null,
         maxN:  maxRaw  != null ? per100(maxRaw)  : null
