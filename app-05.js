@@ -4465,15 +4465,8 @@ var _GRADE_DESC_REAL = {
 
 
 function _qMissCell(size) {
-  var sz = size || 16;
-  var gs = _GRADE_STYLE.Q;
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
-    React.createElement("span", { title: "E基準未達のため非表示",
-      style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: sz, height: sz,
-        borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border,
-        fontWeight: 800, fontSize: Math.round(sz * 0.6), flexShrink: 0 } }, "Q"),
-    React.createElement("span", { style: { color: "#888" } }, "ー")
-  );
+  // E基準未達のEP損益欄は「ー」のみ表示（Qバッジは廃止 2026-06-13）。
+  return React.createElement("span", { title: "E基準未達のため非表示", style: { color: "#888" } }, "ー");
 }
 // その集計行の全記録がE基準未達(全miss)の場合のセル表示「Ⓠ ー円」（Qをランク風に〇で囲む）。
 function _qZeroCell(size) {
@@ -5276,7 +5269,7 @@ function EntryRecordForm(_ref_erf) {
   // H期待度×（撤退）→ 結果損益欄は「期待度×のため非表示」。
   var _fHoldXEl = React.createElement("span", {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
-      color: "#1E8449", background: "#EAF3DE", borderRadius: 6, border: "1px solid #A9DFBF" }
+      color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
   }, "期待度×のため非表示");
 
   
@@ -6254,7 +6247,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#0369A1", "#E0F2FE"]].map(function(kv) {
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#B45309", "#FEF3C7"]].map(function(kv) {
                 var on = fHoldProfit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
@@ -6314,7 +6307,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化", React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（H１比）")),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#0369A1", "#E0F2FE"]].map(function(kv) {
+              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#B45309", "#FEF3C7"]].map(function(kv) {
                 var on = fHold2Profit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
