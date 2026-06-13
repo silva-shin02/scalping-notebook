@@ -3905,8 +3905,8 @@ function _elHold1TotParts(s, alpha, cutLine) {
   if (s.holdExp === "×" || s.holdExp === "損切り済") {
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan == null) return { main: hres, ref: null };
-    var h1raw = (alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
-    return { main: plan, ref: (h1raw != null && (h1raw - plan) !== 0) ? (h1raw - plan) : null };
+    // 参考=「H1まで保有した場合」との差。保有時の値は想定損切り時キャップ後（hres）＝行表示の損切り額と一致させる。
+    return { main: plan, ref: ((hres - plan) !== 0) ? (hres - plan) : null };
   }
   return { main: hres, ref: null };
 }
@@ -3917,15 +3917,15 @@ function _elHold1TotParts(s, alpha, cutLine) {
 //  ・期待度未設定（非損切り）→ null。
 function _elHold2TotParts(s, alpha, cutLine) {
   if (!s || _elH2Miss(s, alpha)) return { main: null, ref: null };
-  // H2期待度×/損切り済 → 期待度カスケードで本合計に算入（損切りより優先）。H1期待度×/損切り済→想定額、それ以外→H1損益。
+  // H2期待度×/損切り済 → 「1段下で手仕舞いした損益」=H1合計と同一の寄与(_elHold1TotParts.main)を本合計に算入。
+  // ルール: H2×→H1の損益・H1×→EP損益（カスケード）・想定損切り→想定額キャップ。
+  // ※生の_elDynHoldを使うと想定損切り時にキャップ前のH1超過損失を算入してしまう（修正済 2026-06-13）。
   if (s.hold2Exp === "×" || s.hold2Exp === "損切り済") {
     // hv = H2まで保有した場合の損益（参考用）。損切りなら強制手仕舞い=損切り額、それ以外はH2損益。
     var hv = (alpha != null && _elHoldIsStop(s, alpha, cutLine))
       ? (_elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine))
       : ((alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign));
-    var _h1c = (s.holdExp === "×" || s.holdExp === "損切り済")
-      ? ((alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign))
-      : ((alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign));
+    var _h1c = _elHold1TotParts(s, alpha, cutLine).main;
     if (_h1c == null) return { main: null, ref: hv };
     return { main: _h1c, ref: (hv != null && (hv - _h1c) !== 0) ? (hv - _h1c) : null };
   }
@@ -6009,46 +6009,6 @@ function EntryRecordForm(_ref_erf) {
         "EP（エントリーポイント" + (_epFormState && _epFormState.epIdx >= 0 ? "＝OS" + (_epFormState.epIdx + 1) : "") + "）"
       ),
       React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" } },
-      React.createElement("div", { style: { marginTop: 0, marginBottom: 2 } },
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
-          React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } },
-            "想定値幅",
-            React.createElement("span", { style: { fontSize: 12, color: "#aaa", fontWeight: 400 } }, "（α値ー確定値）")
-          ),
-          _estWidthIsOsLow
-            ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 80, padding: "5px 10px", fontSize: 14, fontWeight: 700, color: "#aaa", border: "1px solid #e5e5e5", borderRadius: 6, background: "#fafafa" } }, "ー")
-            : React.createElement("div", {
-            style: { display: "flex", alignItems: "center", border: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#ccc"), borderRadius: 6, overflow: "hidden" }
-          },
-            React.createElement("button", {
-              onClick: function() {
-                setFEstWidthSign(fEstWidthSign === "-" ? "+" : fEstWidthSign === "+" ? null : "-");
-              },
-              style: { padding: "5px 10px", fontSize: 13, fontWeight: fEstWidthSign ? 700 : 400,
-                border: "none", borderRight: "1px solid " + (fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#ccc"),
-                background: fEstWidthSign === "+" ? "#EAF3DE" : fEstWidthSign === "-" ? "#FCEBEB" : "#f5f4f0",
-                color: fEstWidthSign === "+" ? "#1E8449" : fEstWidthSign === "-" ? "#C0392B" : "#999",
-                cursor: "pointer", minWidth: 36, flexShrink: 0 }
-            }, fEstWidthSign === "-" ? "↑" : fEstWidthSign === "+" ? "↓" : "↕"),
-            React.createElement("input", {
-              type: "text", inputMode: "numeric", step: "1",
-              value: fEstWidthVal,
-              onChange: function(e) { var _hk = _toHankakuNum(e.target.value); setFEstWidthVal(_hk === "" ? "" : String(Math.abs(Number(_hk) || 0))); },
-              placeholder: "0",
-              style: { border: "none", outline: "none", padding: "5px 8px", fontSize: 13, background: "#fff", width: 80, textAlign: "right", boxSizing: "border-box" }
-            }),
-            _stepBtn(
-              function() { _applySigned(_ewSignedRef, 1, "-", "+", setFEstWidthVal, setFEstWidthSign); },
-              function() { _applySigned(_ewSignedRef, -1, "-", "+", setFEstWidthVal, setFEstWidthSign); }
-            )
-          ),
-          React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
-          _estWidthIsOsLow
-            ? React.createElement("span", { style: { fontSize: 11, color: "#b07050", marginLeft: 4 } }, "∵OS値がα未満のため")
-            : null
-        )
-      ),
-      
       React.createElement("div", { style: { marginBottom: 8 } },
         React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "EP損益（100株換算）"),
         _fMiss ? _fMissEl : (function() {
