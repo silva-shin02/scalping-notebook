@@ -5023,7 +5023,8 @@ function DayView(_ref57) {
       (!_ladderTable && !_osTable) ? React.createElement("div",{style:{color:"#aaa",fontSize:12}},"分析できるEP起算記録がありません") : null,
       React.createElement("div",{style:_aCard}, _hdr("📍 EP位置別の損益傾向","OS1/OS2/OS3のどれがEPになったか別の勝率・平均損益・損切り率（本日）"), _elEpPosSectionV2(_dayRecs, function(r){ return { alpha: r.alpha, cutLine: r.cut }; })),
       _ladderTable ? React.createElement("div",{style:_aCard}, _hdr("📈 EP→OS5 ホールド検証","EPからその後の足を持ち続けた場合の損益推移（損切りが先か・利益を伸ばせたか）"), _ladderTable, _ladderInsight) : null,
-      _osTable ? React.createElement("div",{style:_aCard}, _hdr("📊 銘柄別 OS1値 分析","本日・今週・全期間の比較（OS1＝寄り付き足の高値）"), _osTable, _osInsight) : null
+      _osTable ? React.createElement("div",{style:_aCard}, _hdr("📊 銘柄別 OS1値 分析","本日・今週・全期間の比較（OS1＝寄り付き足の高値）"), _osTable, _osInsight) : null,
+      React.createElement("div",{style:_aCard}, _hdr("🔗 OS連鎖分析","OS1→OS2→OS3…の数値帯ごとの次OS分布・遷移と成績（本日）"), React.createElement(_elOsChainSection, { recs: _dayRecs, data: data, aiOf: function(r){ return { alpha: r.alpha, cutLine: r.cut }; }, dense: true }))
     );
   })(),
 

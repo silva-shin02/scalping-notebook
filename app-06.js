@@ -15,6 +15,193 @@ function _elOsBandIdxV2(v) {
   }
   return _EL_OS_BANDS_V2.length - 1;
 }
+// ===== OS連鎖分析（OS1→OS2→OS3…の数値帯ごとの次OS分布・遷移＋成績）2026-06-14 =====
+// OS帯。OS2以降は基準線割れ＝マイナスもあるため「下落」帯を先頭に追加（正帯は予想OS度と同区切り）。
+var _EL_OSC_BANDS = [
+  { key: "neg", label: "下落", color: "#6B7280" },
+  { key: "E", label: "0〜4円", color: "#BE185D" },
+  { key: "D", label: "5〜9円", color: "#0E7490" },
+  { key: "C", label: "10〜14円", color: "#7C3AED" },
+  { key: "B", label: "15〜19円", color: "#9A3412" },
+  { key: "A", label: "20円〜", color: "#1E8449" }
+];
+// OS高値→帯index（0=下落 … 5=20円〜）。非数はnull。
+function _elOscBandIdx(v) {
+  if (v == null || v === "") return null;
+  var n = Number(v); if (isNaN(n)) return null;
+  if (n < 0) return 0;
+  if (n <= 4) return 1;
+  if (n <= 9) return 2;
+  if (n <= 14) return 3;
+  if (n <= 19) return 4;
+  return 5;
+}
+// signalのOS1〜OS5高値を配列[0..4]で返す（_epLegsのrole→位置にマップ・未入力はnull）。OS4=H1/OS5=H2足。
+function _elOscHighs(s) {
+  var out = [null, null, null, null, null];
+  var map = { os1: 0, os2: 1, os3: 2, h1: 3, h2: 4 };
+  _epLegs(s).forEach(function(l) { var i = map[l.role]; if (i != null) out[i] = l.h; });
+  return out;
+}
+// 指定OS足(legIdx=0..4)についてrecsを帯別集計。次OS(legIdx+1)平均・遷移行列・成績(採用α基準・E成立分のみ)。
+function _elOscAgg(recs, legIdx, aiOf) {
+  var NB = _EL_OSC_BANDS.length;
+  var mk = function() { return { cnt: 0, eOk: 0, nextSum: 0, nextCnt: 0, ok: 0, ng: 0, planSum: 0, planCnt: 0, h1Sum: 0, h1Cnt: 0, stop: 0 }; };
+  var bands = {}, matrix = {}, rowP = {}, colP = {}, total = 0, maxCell = 0;
+  recs.forEach(function(r) {
+    var s = r.signal, hs = _elOscHighs(s), bi = _elOscBandIdx(hs[legIdx]);
+    if (bi == null) return;
+    if (!bands[bi]) bands[bi] = mk();
+    var b = bands[bi]; b.cnt++; total++; rowP[bi] = true;
+    var nv = (legIdx + 1 <= 4) ? hs[legIdx + 1] : null;
+    if (nv != null) {
+      b.nextSum += nv; b.nextCnt++;
+      var nbi = _elOscBandIdx(nv);
+      if (nbi != null) {
+        colP[nbi] = true;
+        if (!matrix[bi]) matrix[bi] = {};
+        matrix[bi][nbi] = (matrix[bi][nbi] || 0) + 1;
+        if (matrix[bi][nbi] > maxCell) maxCell = matrix[bi][nbi];
+      }
+    }
+    var ai = aiOf(r), rr = _epResolve(s, ai.alpha);
+    if (rr && rr.judge === "ok") {
+      b.eOk++;
+      var res = _elDynResult(s, ai.alpha, ai.cutLine);
+      if (res === "ok") b.ok++; else if (res === "ng") b.ng++;
+      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine);
+      if (pv != null) { b.planSum += pv; b.planCnt++; }
+      var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine);
+      if (h1 && h1.main != null) { b.h1Sum += h1.main; b.h1Cnt++; }
+      if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) b.stop++;
+    }
+  });
+  var rows = [], cols = [];
+  for (var i = 0; i < NB; i++) { if (rowP[i]) rows.push(i); }
+  for (var j = 0; j < NB; j++) { if (colP[j]) cols.push(j); }
+  return { bands: bands, matrix: matrix, rows: rows, cols: cols, total: total, maxCell: maxCell };
+}
+// OS連鎖の帯チップ。
+function _elOscChip(bi, big) {
+  var d = _EL_OSC_BANDS[bi];
+  return React.createElement("span", { style: { display: "inline-block", padding: big ? "2px 8px" : "1px 6px", borderRadius: 8, fontSize: big ? 11 : 9, fontWeight: 700, color: "#fff", background: d.color, whiteSpace: "nowrap" } }, d.label);
+}
+// OS連鎖分析コンポーネント（記録帳タブ＋DayViewで共用）。props: recs/data/aiOf?/dense?。
+// 状態: path=選んだ帯index配列（OS1→OS2…と絞り込み）。深さdepthでOS(depth+1)の分布を分析。
+function _elOsChainSection(_ref_osc) {
+  var recs = _ref_osc.recs || [];
+  var data = _ref_osc.data;
+  var aiOf = _ref_osc.aiOf || function(r) { return _elAlphaInfo(r, data); };
+  var dense = !!_ref_osc.dense;
+  var _uP = useState([]), path = _uP[0], setPath = _uP[1];
+  var _uS = useState(""), sigFil = _uS[0], setSigFil = _uS[1];
+  var _hc = "#9A3412";
+  var base = recs.filter(function(r) { return r && r.signal && _epIsV2(r.signal); });
+  var _tagsOf = function(s) {
+    var tags = (s.tags && s.tags.length ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+    return tags.length ? tags : ["(未設定)"];
+  };
+  var sigCnt = {};
+  base.forEach(function(r) { _tagsOf(r.signal).forEach(function(t) { sigCnt[t] = (sigCnt[t] || 0) + 1; }); });
+  var sigOpts = Object.keys(sigCnt).sort(function(a, b) { return sigCnt[b] - sigCnt[a]; });
+  var pool = sigFil ? base.filter(function(r) { return _tagsOf(r.signal).indexOf(sigFil) >= 0; }) : base;
+  var scope = pool.filter(function(r) {
+    var hs = _elOscHighs(r.signal);
+    for (var i = 0; i < path.length; i++) { var bi = _elOscBandIdx(hs[i]); if (bi == null || bi !== path[i]) return false; }
+    return true;
+  });
+  var depth = path.length, legIdx = depth, curNo = depth + 1, hasNext = curNo < 5;
+  if (!base.length) return React.createElement("div", { style: { color: "#aaa", fontSize: 12, padding: "8px 0" } }, "EP起算（v2）記録がありません");
+
+  var sigSel = sigOpts.length > 1 ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" } },
+    React.createElement("span", { style: { fontSize: 10, color: "#888", fontWeight: 700 } }, "シグナル"),
+    React.createElement("select", { value: sigFil, onChange: function(e) { setSigFil(e.target.value); setPath([]); }, style: { padding: "4px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" } },
+      [React.createElement("option", { key: "_a", value: "" }, "全シグナル")].concat(sigOpts.map(function(t) { return React.createElement("option", { key: t, value: t }, stripCat(t) + "（" + sigCnt[t] + "）"); })))) : null;
+
+  var crumbs = [React.createElement("span", { key: "_root", onClick: function() { setPath([]); }, style: { cursor: "pointer", color: path.length ? "#0369A1" : "#333", fontWeight: 700, textDecoration: path.length ? "underline" : "none" } }, "全体（" + pool.length + "件）")];
+  path.forEach(function(bi, i) {
+    crumbs.push(React.createElement("span", { key: "_s" + i, style: { color: "#bbb", margin: "0 5px" } }, "›"));
+    crumbs.push(React.createElement("span", { key: "_c" + i, onClick: function() { setPath(path.slice(0, i)); }, style: { cursor: "pointer", color: "#0369A1", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 3 } }, "OS" + (i + 1) + ":", _elOscChip(bi)));
+  });
+  var crumbBar = React.createElement("div", { style: { fontSize: 11, marginBottom: 8, display: "flex", alignItems: "center", flexWrap: "wrap", rowGap: 4 } }, crumbs);
+
+  if (!scope.length) {
+    return React.createElement("div", null, sigSel, crumbBar,
+      React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "12px 0", textAlign: "center", border: "1px dashed #e0ddd6", borderRadius: 8 } }, "この条件の記録がありません"),
+      React.createElement("button", { onClick: function() { setPath(path.slice(0, -1)); }, style: { marginTop: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "← 1つ戻る"));
+  }
+
+  var agg = _elOscAgg(scope, legIdx, aiOf);
+  var drill = function(bi) { if (hasNext) setPath(path.concat([bi])); };
+
+  var head = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: _hc, marginBottom: 6 } },
+    "▶ OS" + curNo + " の数値分布" + (hasNext ? "（行タップでOS" + (curNo + 1) + "へ絞り込み）" : "（最終足）"));
+
+  var heat = null;
+  if (hasNext && agg.rows.length && agg.cols.length) {
+    var corner = React.createElement("td", { key: "_corner", style: { fontSize: 9, color: "#aaa", padding: "2px 6px", whiteSpace: "nowrap" } }, "OS" + curNo + " ＼ OS" + (curNo + 1));
+    var hHead = React.createElement("tr", { key: "_hh" }, [corner].concat(agg.cols.map(function(cj) { return React.createElement("td", { key: "h" + cj, style: { padding: "2px 3px", textAlign: "center" } }, _elOscChip(cj)); })));
+    var hRows = agg.rows.map(function(ri) {
+      var cells = [React.createElement("td", { key: "r" + ri, onClick: function() { drill(ri); }, style: { padding: "2px 6px", cursor: hasNext ? "pointer" : "default", whiteSpace: "nowrap" } }, _elOscChip(ri))];
+      agg.cols.forEach(function(cj) {
+        var c = (agg.matrix[ri] && agg.matrix[ri][cj]) || 0;
+        var a = c ? (0.1 + 0.55 * (c / (agg.maxCell || 1))) : 0;
+        cells.push(React.createElement("td", { key: "c" + ri + "_" + cj, onClick: function() { drill(ri); }, style: { padding: "3px 5px", textAlign: "center", fontSize: 10, fontWeight: 700, background: c ? "rgba(29,158,117," + a.toFixed(2) + ")" : "#fafafa", color: a >= 0.4 ? "#fff" : "#0F6E56", border: "1px solid #fff", cursor: hasNext ? "pointer" : "default", minWidth: 30 } }, c || ""));
+      });
+      return React.createElement("tr", { key: "row" + ri }, cells);
+    });
+    heat = React.createElement("div", { style: { overflowX: "auto", marginBottom: 10 } },
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 3 } }, "遷移ヒートマップ（セル＝件数・濃いほど多い）"),
+      React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 10 } },
+        React.createElement("tbody", null, [hHead].concat(hRows))));
+  }
+
+  var _pnl = function(sum, cnt) { if (!cnt) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var a = Math.round(sum / cnt); return React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(a) } }, _elPnlFmt(a)); };
+  var _pctN = function(num, den) { if (!den) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var p = Math.round(num / den * 100); return React.createElement("span", { style: { fontWeight: 700, color: p >= 50 ? "#1E8449" : "#B45309" } }, p + "%"); };
+  var headLabels = ["OS" + curNo + "帯", "件数", "E成立率"].concat(hasNext ? ["OS" + (curNo + 1) + "平均"] : []).concat(["勝率", "EP損益", "H1損益", "損切り率"]);
+  var thead = React.createElement("tr", { style: { background: "#f5f4f0" } }, headLabels.map(function(t, i) { return React.createElement("th", { key: i, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: _hc } }, t); }));
+  var _tdx = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+  var rowsTbl = agg.rows.map(function(ri) {
+    var b = agg.bands[ri];
+    var nextAvg = b.nextCnt ? Math.round(b.nextSum / b.nextCnt * 10) / 10 : null;
+    var cells = [
+      _tdx(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, hasNext ? React.createElement("span", { style: { color: "#F97316", fontSize: 9 } }, "▶") : null, _elOscChip(ri, true)), { textAlign: "left", paddingLeft: 6 }),
+      _tdx(b.cnt + "件", { fontWeight: 700 }),
+      _tdx(_pctN(b.eOk, b.cnt))
+    ];
+    if (hasNext) cells.push(_tdx(nextAvg != null ? React.createElement("span", { style: { fontWeight: 700, color: _vcol(nextAvg, true) } }, nextAvg + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")));
+    cells.push(_tdx(_pctN(b.ok, b.ok + b.ng)));
+    cells.push(_tdx(_pnl(b.planSum, b.planCnt)));
+    cells.push(_tdx(_pnl(b.h1Sum, b.h1Cnt)));
+    cells.push(_tdx(b.eOk ? React.createElement("span", { style: { color: b.stop ? "#1E8449" : "#bbb", fontWeight: b.stop ? 700 : 400 } }, Math.round(b.stop / b.eOk * 100) + "%") : React.createElement("span", { style: { color: "#ccc" } }, "—")));
+    return React.createElement.apply(null, ["tr", { key: "t" + ri, onClick: hasNext ? function() { drill(ri); } : null, style: { cursor: hasNext ? "pointer" : "default" } }].concat(cells));
+  });
+  var table = React.createElement("div", { style: { overflowX: "auto" } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, thead),
+      React.createElement("tbody", null, rowsTbl)));
+
+  var insight = null;
+  if (agg.rows.length >= 2) {
+    var items = [];
+    var topB = agg.rows.slice().sort(function(a, b) { return agg.bands[b].cnt - agg.bands[a].cnt; })[0];
+    items.push(React.createElement("span", null, "OS" + curNo + "は", _elInsightEmV2(_EL_OSC_BANDS[topB].label + "帯", _EL_OSC_BANDS[topB].color), "が最も多い（" + agg.bands[topB].cnt + "/" + agg.total + "件）。"));
+    if (hasNext) {
+      var bestNext = null;
+      agg.rows.forEach(function(ri) { var b = agg.bands[ri]; if (b.nextCnt && (bestNext == null || b.nextSum / b.nextCnt > bestNext.v)) bestNext = { v: b.nextSum / b.nextCnt, ri: ri }; });
+      if (bestNext) items.push(React.createElement("span", null, "OS" + curNo + "が", _elInsightEmV2(_EL_OSC_BANDS[bestNext.ri].label + "帯", _EL_OSC_BANDS[bestNext.ri].color), "のとき次のOS" + (curNo + 1) + "が平均", _elInsightEmV2(Math.round(bestNext.v * 10) / 10 + "円"), "と最も伸びる。"));
+    }
+    var bestWin = null;
+    agg.rows.forEach(function(ri) { var b = agg.bands[ri], t = b.ok + b.ng; if (t && (bestWin == null || b.ok / t > bestWin.v)) bestWin = { v: b.ok / t, ri: ri }; });
+    if (bestWin) items.push(React.createElement("span", null, "勝率が最も高いのはOS" + curNo + "＝", _elInsightEmV2(_EL_OSC_BANDS[bestWin.ri].label + "帯", _EL_OSC_BANDS[bestWin.ri].color), "（", _elInsightEmV2(Math.round(bestWin.v * 100) + "%"), "）。"));
+    insight = _elInsightBoxV2(items, { note: "OS" + curNo + "＝" + (curNo <= 3 ? curNo + "本目" : curNo === 4 ? "EP後H1" : "EP後H2") + "の高値（水準線比）。E成立率＝α到達して取引できた割合。勝率/EP損益/H1/損切り率は取引（E成立）分のみ。" });
+  }
+
+  var intro = dense ? null : React.createElement("div", { style: { fontSize: 11, color: "#888", marginBottom: 8, lineHeight: 1.5 } }, "OS1の数値帯から始めて、行（またはヒートマップの行）をタップするごとに「その帯のときの次のOS」へ絞り込みます。各帯の件数・次OSの平均/分布・成績（E成立率・勝率・損益・損切り）を同時に確認できます。");
+
+  return React.createElement("div", null, intro, sigSel, crumbBar, head, heat, table, insight);
+}
+
 // records配列のOS値統計（平均/中央値/最頻値/最小/最大/帯別分布dist[5]）。OS値入力なしならnull。
 function _elOsStatsV2(recs) {
   var vals = [];
@@ -947,6 +1134,8 @@ function EntryLogView(_ref_elv2) {
       _subTabBar(_stkGroups, _selStkKey, setSelStk),
       _selStkGrp ? _groupPanel(_selStkGrp.recs) : null)
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし");
+  } else if (view === "oschain") {
+    _tabBody = React.createElement(_elOsChainSection, { recs: v2recs, data: data });
   } else if (view === "period") {
     _tabBody = (function() {
       var _granBtns = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
@@ -1048,7 +1237,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("select", { value: stockFil, onChange: function(e) { setStockFil(e.target.value); }, style: _selSty },
         [React.createElement("option", { key: "_a", value: "" }, "銘柄:全て")].concat(allStocks.map(function(s) { return React.createElement("option", { key: s, value: s }, s); })))),
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
-      [["sum", "📊 集計"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["stock", "📈 銘柄別"], ["list", "🗂 一覧"]].map(function(kv) {
+      [["sum", "📊 集計"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["stock", "📈 銘柄別"], ["oschain", "🔗 OS連鎖"], ["list", "🗂 一覧"]].map(function(kv) {
         var on = view === kv[0];
         var cnt = kv[0] === "list" ? filtered.length : (kv[0] === "date" ? v2recs.length : null);
         return React.createElement("button", { key: kv[0],
