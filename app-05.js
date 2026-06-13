@@ -6247,7 +6247,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化"),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#B45309", "#FEF3C7"], ["撤退", "withdraw", "#B45309", "#FEF3C7"]].map(function(kv) {
+              [["○ 利益+", "yes", "#922B21", "#F7C1C1"], ["△ 利益-", "mid", "#C0392B", "#FCEBEB"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#6B7280", "#F3F4F6"]].map(function(kv) {
                 var on = fHoldProfit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
@@ -6307,7 +6307,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", null,
             React.createElement("div", { style: { fontSize: 11, color: "#666", fontWeight: 600, marginBottom: 4 } }, "損益変化", React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 4, fontWeight: 400 } }, "（H１比）")),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
-              [["○ 利益+", "yes", "#C0392B", "#FCEBEB"], ["△ 利益-", "mid", "#B45309", "#FEF3C7"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#B45309", "#FEF3C7"], ["撤退", "withdraw", "#B45309", "#FEF3C7"]].map(function(kv) {
+              [["○ 利益+", "yes", "#922B21", "#F7C1C1"], ["△ 利益-", "mid", "#C0392B", "#FCEBEB"], ["ー 変化なし", "none", "#6B7280", "#F3F4F6"], ["× 損失", "no", "#1E8449", "#EAF3DE"], ["損切り済", "stop", "#6B7280", "#F3F4F6"], ["未達", "miss", "#7C3AED", "#F5F3FF"], ["撤退", "withdraw", "#6B7280", "#F3F4F6"]].map(function(kv) {
                 var on = fHold2Profit === kv[1];
                 return React.createElement("button", {
                   key: kv[1],
