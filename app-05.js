@@ -5939,21 +5939,6 @@ function EntryRecordForm(_ref_erf) {
         );
       })(),
 
-      // 実エントリーあり時: どのOSでエントリーしたか（E-OS）を選択。α値欄の右に表示。
-      fEntered ? React.createElement("div", {
-        style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#FFF7ED", border: "1px solid #FDBA74", fontSize: 12 }
-      },
-        React.createElement("span", { style: { color: "#9A3412", fontWeight: 700 } }, "E-OS"),
-        React.createElement("div", { style: { display: "flex", gap: 3 } },
-          [1, 2, 3].map(function(_no) {
-            var on = fEntryOsNo === _no;
-            return React.createElement("button", { key: _no,
-              onClick: function() { setFEntryOsNo(on ? null : _no); },
-              style: { padding: "3px 10px", fontSize: 13, fontWeight: 700, borderRadius: 5, cursor: "pointer",
-                border: "1.5px solid " + (on ? "#C0392B" : "#ddd"), background: on ? "#FCEBEB" : "#fff", color: on ? "#C0392B" : "#999" } }, _no);
-          }))
-      ) : null,
-
       (function() {
         var _ckC = fStock + "_" + fDate;
         var _cdC = data.charts && data.charts[_ckC];
@@ -6379,8 +6364,8 @@ function EntryRecordForm(_ref_erf) {
           }, label);
         })
       ),
-      fEntered && React.createElement("div", null,
-        
+      fEntered && React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#F8F9FA", border: "1px solid #e5e5e5" } },
+
         React.createElement("div", { style: { marginBottom: 8 } },
           React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 } },
             "実現損益",
@@ -6429,6 +6414,16 @@ function EntryRecordForm(_ref_erf) {
                 ),
                 React.createElement("span", { style: { fontSize: 12, color: "#666" } }, "円")
               )
+            ),
+            React.createElement("label", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "E-OS",
+              React.createElement("div", { style: { display: "flex", gap: 3, marginTop: 2 } },
+                [1, 2, 3].map(function(_no) {
+                  var on = fEntryOsNo === _no;
+                  return React.createElement("button", { key: _no, type: "button",
+                    onClick: function() { setFEntryOsNo(on ? null : _no); },
+                    style: { padding: "8px 12px", fontSize: 13, fontWeight: 700, borderRadius: 6, cursor: "pointer",
+                      border: "1.5px solid " + (on ? "#C0392B" : "#ddd"), background: on ? "#FCEBEB" : "#fff", color: on ? "#C0392B" : "#999" } }, _no);
+                }))
             )
           ),
           React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 } },
