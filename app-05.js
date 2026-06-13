@@ -3606,7 +3606,19 @@ function _epOsChainCell(s, alpha) {
     } else sub = null;
     nodes.push(React.createElement("span", { key: "lg" + i, style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } }, _val, sub));
   });
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", whiteSpace: "nowrap" } }, nodes);
+  var _chainRow = React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", whiteSpace: "nowrap" } }, nodes);
+  // OS4・OS5（4・5本目=hold*/hold2*）が未入力の記録に印（αシミュで足が足りない＝深いホールド検証不可）。
+  if (_epIsV2(s)) {
+    var _noOS4 = !(s.holdHighVal != null && s.holdHighVal !== "");
+    var _noOS5 = !(s.hold2HighVal != null && s.hold2HighVal !== "");
+    if (_noOS4 || _noOS5) {
+      var _lbl = "OS" + [_noOS4 ? "4" : null, _noOS5 ? "5" : null].filter(Boolean).join("・") + "未入力";
+      return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
+        _chainRow,
+        React.createElement("span", { title: _lbl + "（αシミュで足が足りません）", style: { fontSize: 8, fontWeight: 700, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", whiteSpace: "nowrap", lineHeight: 1.4 } }, _lbl));
+    }
+  }
+  return _chainRow;
 }
 // E欄: ○=E成立 / ×=×宣言後の到達（見送り・参考） / 未達。旧記録は「未達=_elH2Miss・他は○」。
 function _epECell(s, alpha) {
