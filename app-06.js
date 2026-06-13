@@ -340,6 +340,96 @@ function _elEpPosSectionV2(recs, aiOf) {
   if (st.x.cnt) items.push(React.createElement("span", null, "×見送り（宣言後の到達）は", _elInsightEmV2(st.x.cnt + "件"), "＝参考扱い・集計上ノートレード。"));
   return React.createElement("div", null, bar, legend, tbl, items.length ? _elInsightBoxV2(items) : null);
 }
+// 時間帯別の成績（寄り付き重視）: 寄り足OSが出た時刻で分類し、件数/平均OS値/E成立率/勝率/損切り率/平均EP・H1損益を集計。
+// 「9:15まで/9:30までに出た寄り足OSがどの程度OSし、成功/損切りしているか」を読む。採用α基準・aiOf(r)→{alpha,cutLine}。
+function _elTimeOfDaySectionV2(recs, aiOf) {
+  if (!recs || !recs.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "v2記録なし");
+  var _toMin = function(t) { if (!t) return null; var m = String(t).match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; };
+  var DEFS = [
+    { k: "b1", label: "寄り〜9:15", color: "#1D9E75", lo: -1, hi: 555 },
+    { k: "b2", label: "9:16〜9:30", color: "#378ADD", lo: 555, hi: 570 },
+    { k: "b3", label: "9:31〜10:00", color: "#EF9F27", lo: 570, hi: 600 },
+    { k: "b4", label: "10:01〜", color: "#D85A30", lo: 600, hi: 9999 }
+  ];
+  var mk = function() { return { cnt: 0, osSum: 0, osCnt: 0, reach: 0, ok: 0, ng: 0, stop: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, miss: 0, x: 0 }; };
+  var st = {}; DEFS.forEach(function(d) { st[d.k] = mk(); });
+  var noTime = mk(), total = mk(), _hasNoTime = false;
+  var _acc = function(o, s, a, c) {
+    o.cnt++;
+    if (s.osVal != null && s.osVal !== "") { o.osSum += Number(s.osVal); o.osCnt++; }
+    if (_epReachedAt(s, a)) o.reach++;
+    if (_epIsXSkip(s, a)) { o.x++; return; }
+    var res = _elDynResult(s, a, c);
+    if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++;
+    if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) o.stop++;
+    var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; }
+    var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; }
+  };
+  recs.forEach(function(r) {
+    var s = r.signal, ai = aiOf(r), a = ai.alpha, c = ai.cutLine;
+    var min = _toMin(s.time), bucket = null;
+    if (min == null) { bucket = noTime; _hasNoTime = true; }
+    else { for (var i = 0; i < DEFS.length; i++) { if (min > DEFS[i].lo && min <= DEFS[i].hi) { bucket = st[DEFS[i].k]; break; } } }
+    if (!bucket) bucket = noTime;
+    _acc(bucket, s, a, c); _acc(total, s, a, c);
+  });
+  var _pct = function(n, d) { return d ? Math.round(n / d * 100) : 0; };
+  var _rateCell = function(n, d) { if (!d) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var p = Math.round(n / d * 100); return React.createElement("span", { style: { fontWeight: 700, color: p >= 50 ? "#1E8449" : "#B45309" } }, p + "%"); };
+  var _avg = function(sum, cnt) {
+    if (!cnt) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+    var a = Math.round(sum / cnt);
+    return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
+      React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(a) } }, _elPnlFmt(a)),
+      React.createElement("span", { style: { fontSize: 8, color: "#bbb" } }, "計" + (sum > 0 ? "+" : "") + Math.round(sum).toLocaleString()));
+  };
+  var _osCell = function(o) { return o.osCnt ? React.createElement("span", { style: { fontWeight: 700, color: _vcol(Math.round(o.osSum / o.osCnt * 10) / 10, true) } }, (Math.round(o.osSum / o.osCnt * 10) / 10) + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—"); };
+  var _winCell = function(o) { var t = o.ok + o.ng; if (!t) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var w = Math.round(o.ok / t * 100); return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } }, React.createElement("span", { style: { fontWeight: 700, color: w >= 50 ? "#1E8449" : "#B45309" } }, w + "%"), React.createElement("span", { style: { fontSize: 8, color: "#bbb" } }, o.ok + "勝" + o.ng + "敗")); };
+  var bar = React.createElement("div", { style: { display: "flex", width: "100%", height: 22, borderRadius: 6, overflow: "hidden", border: "1px solid #e5e0d6" } },
+    DEFS.map(function(d) { var o = st[d.k]; if (!o.cnt) return null; return React.createElement("div", { key: d.k, title: d.label + " " + o.cnt + "件", style: { width: (o.cnt / (total.cnt || 1) * 100) + "%", background: d.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff", whiteSpace: "nowrap", overflow: "hidden" } }, o.cnt + "件"); }));
+  var _thT = function(t) { return React.createElement("th", { style: { padding: "4px 5px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
+  var _tdT = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
+  var _mkRow = function(label, color, o, bold) {
+    return React.createElement("tr", { key: label, style: bold ? { background: "#FBF7EF" } : null },
+      _tdT(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, color ? React.createElement("span", { style: { width: 9, height: 9, borderRadius: 2, background: color, display: "inline-block" } }) : null, label), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+      _tdT(o.cnt ? o.cnt + "件（" + _pct(o.cnt, total.cnt) + "%）" : "0件", { fontWeight: 700 }),
+      _tdT(_osCell(o)),
+      _tdT(_rateCell(o.reach, o.cnt)),
+      _tdT(_winCell(o)),
+      _tdT(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
+      _tdT(_avg(o.plan, o.planCnt)),
+      _tdT(_avg(o.h1, o.h1Cnt)));
+  };
+  var bodyRows = DEFS.map(function(d) { return _mkRow(d.label, d.color, st[d.k], false); });
+  if (_hasNoTime) bodyRows.push(_mkRow("時刻未記録", "#bbb", noTime, false));
+  bodyRows.push(_mkRow("全体", null, total, true));
+  var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 8 } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
+        _thT("時間帯"), _thT("件数"), _thT("平均OS値"), _thT("E成立率"), _thT("勝率"), _thT("損切り率"), _thT("平均EP損益"), _thT("平均H1"))),
+      React.createElement("tbody", null, bodyRows)));
+  var _cum = function(keys) { var o = mk(); keys.forEach(function(k) { var b = st[k]; for (var p in b) { if (b.hasOwnProperty(p) && typeof b[p] === "number") o[p] += b[p]; } }); return o; };
+  var c915 = st.b1, c930 = _cum(["b1", "b2"]), late = _cum(["b3", "b4"]);
+  var _line = function(label, o) {
+    if (!o.cnt) return null;
+    var avgOs = o.osCnt ? Math.round(o.osSum / o.osCnt * 10) / 10 : null;
+    var t = o.ok + o.ng, win = t ? Math.round(o.ok / t * 100) : null;
+    return React.createElement("span", null, label, "は ", _elInsightEmV2(o.cnt + "件"),
+      avgOs != null ? React.createElement("span", null, "・平均OS ", _elInsightEmV2(avgOs + "円")) : null,
+      "・E成立率 ", _elInsightEmV2(Math.round(o.reach / o.cnt * 100) + "%"),
+      "・損切り率 ", _elInsightEmV2(Math.round(o.stop / o.cnt * 100) + "%"),
+      win != null ? "（勝率 " + win + "%）" : null, "。");
+  };
+  var items = [];
+  var l1 = _line("寄り〜9:15に出た寄り足OS", c915); if (l1) items.push(l1);
+  var l2 = _line("寄り〜9:30（累計）", c930); if (l2) items.push(l2);
+  if (c930.cnt && late.cnt) {
+    var s930 = Math.round(c930.stop / c930.cnt * 100), sLate = Math.round(late.stop / late.cnt * 100);
+    items.push(React.createElement("span", null, "寄り〜9:30と9:31以降では、損切り率が ", _elInsightEmV2(s930 + "%"), " vs ", _elInsightEmV2(sLate + "%"), s930 < sLate ? "＝早い寄り足OSの方が損切りになりにくい傾向。" : s930 > sLate ? "＝早い寄り足OSの方が損切りになりやすい傾向。" : "＝差は小さい。"));
+    var o930 = c930.osCnt ? c930.osSum / c930.osCnt : null, oLate = late.osCnt ? late.osSum / late.osCnt : null;
+    if (o930 != null && oLate != null) items.push(React.createElement("span", null, "平均OS値は 〜9:30=", _elInsightEmV2(Math.round(o930 * 10) / 10 + "円"), "・9:31以降=", _elInsightEmV2(Math.round(oLate * 10) / 10 + "円"), o930 > oLate ? "＝早い時間ほどOSが深い（強い初動）。" : "。"));
+  }
+  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "OS値=寄り足の高値（水準線比）／E成立率=3本以内にα到達（×見送り含む）／勝率=EP損益が利益の割合／損切り率=想定orH1orH2で損切り発生。採用α基準。" }) : null);
+}
 // 汎用SVG折れ線チャート。series=[{label,color,pts:[number]}]（全系列同じ点数）。opts={height,xTicks:[{i,label}]}。
 function _elLineChartV2(series, opts) {
   opts = opts || {};
@@ -722,6 +812,7 @@ function EntryLogView(_ref_elv2) {
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(recs, _ai),
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), _elCumPnlSectionV2(recs, _ai)) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
+      _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
       _secH("🗂 記録一覧（行タップで明細）"), _recTable(recs.slice().sort(_byDateDesc), "full", "gp_"));
   };
 
@@ -737,7 +828,9 @@ function EntryLogView(_ref_elv2) {
       _alphaTable ? React.createElement(React.Fragment, null,
         _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null,
       v2recs.length ? React.createElement(React.Fragment, null,
-        _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)) : null);
+        _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)) : null,
+      v2recs.length ? React.createElement(React.Fragment, null,
+        _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか"), _elTimeOfDaySectionV2(v2recs, _ai)) : null);
   } else if (view === "date") {
     _tabBody = (function() {
       var byDate = {}; v2recs.forEach(function(r) { (byDate[r.date] = byDate[r.date] || []).push(r); });
