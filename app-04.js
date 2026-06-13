@@ -4941,7 +4941,7 @@ function DayView(_ref57) {
       var _depthCols = []; for (var _di=0; _di<=_maxDepth; _di++) _depthCols.push(_di);
       var _ladRows = _ladders.map(function(x, ri){
         var lad = x.lad, r = x.r;
-        var cells = [ _td2(r.stock, {textAlign:"left",fontWeight:700,color:"#9A3412"}), _td2(r.time||"—",{color:"#666"}) ];
+        var cells = [ _td2(r.stock, {textAlign:"left",fontWeight:700,color:"#9A3412"}), _td2(React.createElement("span", null, React.createElement("div", null, r.time||"—"), _epIncompleteMark(r.signal)), {color:"#666"}) ];
         _depthCols.forEach(function(d){
           var it = null; lad.items.forEach(function(_it){ if(_it.depth===d) it=_it; });
           if (!it) { cells.push(_td2("",{})); return; }
