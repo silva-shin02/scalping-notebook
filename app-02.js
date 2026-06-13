@@ -4824,6 +4824,157 @@ function _NikkeiManualInput(_p) {
   );
 }
 
+// 単一銘柄の「今週の損益データ」パネル（取引タブの今週欄と同システム＝同じ計算/セルヘルパー・明細表・α/損切りシミュ・週送り・理想α）。
+// ChartSection末尾の📝メモ下に表示。hideSignals(日経)では非表示・外国市場はChartSection自体が描画されないため対象外。合計は_elTotAccumで取引タブと一致。
+function WeeklyPnlPanel(_wpp) {
+  var data = _wpp.data, stock = _wpp.stock, date = _wpp.date;
+  var _wo = useState(0), weekOffset = _wo[0], setWeekOffset = _wo[1];
+  var _wsa = useState({}), simAlpha = _wsa[0], setSimAlpha = _wsa[1];
+  var _wsc = useState({}), simCut = _wsc[0], setSimCut = _wsc[1];
+  var _wre = useState({}), recExp = _wre[0], setRecExp = _wre[1];
+  useEffect(function() { setSimAlpha({}); setSimCut({}); }, [date, weekOffset, stock]);
+  var _pad = function(n) { return ("0" + n).slice(-2); };
+  var _d0 = new Date(date + "T00:00:00");
+  var _mon = new Date(_d0); _mon.setDate(_d0.getDate() - ((_d0.getDay() + 6) % 7) + weekOffset * 7);
+  var _wkDates = [];
+  for (var _wi = 0; _wi < 5; _wi++) { var _wd = new Date(_mon); _wd.setDate(_mon.getDate() + _wi); _wkDates.push(_wd.getFullYear() + "-" + _pad(_wd.getMonth() + 1) + "-" + _pad(_wd.getDate())); }
+  var _charts = data.charts || {}, _trades = data.trades || {};
+  var _recs = [];
+  _wkDates.forEach(function(wd) {
+    var _c = _charts[stock + "_" + wd]; var _sigs = (_c && Array.isArray(_c.signals)) ? _c.signals : [];
+    var _items = (_trades[wd] && _trades[wd].items) || [];
+    _sigs.forEach(function(sig) {
+      var s = _compatSignal(sig); var it = null;
+      if (s.itemId != null) { for (var _j = 0; _j < _items.length; _j++) { if (String(_items[_j].id) === String(s.itemId)) { it = _items[_j]; break; } } }
+      _recs.push({ date: wd, stock: stock, signal: s, item: it });
+    });
+  });
+  var _key = function(r) { return r.stock + "_" + r.date + "_" + (r.signal.id || r.signal.time || ""); };
+  var _alphaActual = function(r) { var s = r.signal; return s && s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
+  var _cutActual = function(r) { var c = _charts[r.stock + "_" + r.date]; return c && c.cutLine != null ? c.cutLine : 10; };
+  var _alphaOf = function(r) { var o = simAlpha[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _alphaActual(r); };
+  var _cutOf = function(r) { var o = simCut[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _cutActual(r); };
+  var _navBtn = function(lbl, fn) { return React.createElement("button", { onClick: fn, style: { padding: "2px 9px", fontSize: 13, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#555", lineHeight: 1.2 } }, lbl); };
+  var _simInput = function(r, isAlpha) {
+    var k = _key(r);
+    var actual = isAlpha ? _alphaActual(r) : _cutActual(r);
+    var sv = isAlpha ? simAlpha : simCut, setSv = isAlpha ? setSimAlpha : setSimCut;
+    var raw = sv[k];
+    var hasOv = raw != null && raw !== "";
+    var curStr = (raw != null) ? raw : (actual != null ? String(actual) : "");
+    var isSim = hasOv && actual != null && Number(raw) !== actual;
+    var col = isAlpha ? "#0369A1" : "#9333EA";
+    var stop = function(e) { if (e && e.stopPropagation) e.stopPropagation(); };
+    var baseNum = function() { return (raw != null && raw !== "") ? Number(raw) : (actual != null ? actual : 0); };
+    var setVal = function(v) { setSv(function(p) { var n = Object.assign({}, p); n[k] = v; return n; }); };
+    var clearVal = function() { setSv(function(p) { var n = Object.assign({}, p); delete n[k]; return n; }); };
+    return React.createElement("div", { onClick: stop, style: { marginTop: 1, display: "flex", justifyContent: "center" } },
+      React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+        React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + (isSim ? col : "#cbd5e1"), borderRadius: 5, overflow: "hidden", background: "#fff" } },
+          React.createElement("input", { type: "text", inputMode: "numeric", step: "1", min: "0", value: curStr, onClick: stop,
+            onChange: function(e) { setVal(_toHankakuNum(e.target.value)); },
+            style: { width: 20, padding: "2px 3px", border: "none", outline: "none", background: "transparent", textAlign: "right", fontSize: 11, fontWeight: 700, color: col, fontVariantNumeric: "tabular-nums" } }),
+          React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", alignSelf: "center", padding: "0 1px" } }, "円"),
+          _stepBtn(function() { setVal(String(baseNum() + 1)); }, function() { setVal(String(Math.max(0, baseNum() - 1))); })
+        ),
+        React.createElement("button", { onClick: function(e) { stop(e); var ideal = isAlpha ? _elIdealAlpha(r.signal, _cutOf(r)) : _elIdealCut(r.signal, _alphaOf(r)); if (ideal == null) return; if (actual != null && ideal === Number(actual)) clearVal(); else setVal(String(ideal)); },
+          title: isAlpha ? "損切りにならず『EP損益＋H1結果損益』が最大になるα" : "損切りを回避できる最小の損切り値",
+          style: { fontSize: 8, padding: "1px 4px", border: "1px solid " + col, borderRadius: 3, background: isAlpha ? "#E0F2FE" : "#F3E8FF", color: col, cursor: "pointer", lineHeight: 1.4, whiteSpace: "nowrap", fontWeight: 700 } }, "理想"),
+        React.createElement("button", { onClick: function(e) { stop(e); if (!isSim) return; clearVal(); },
+          style: { fontSize: 8, padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: 3, background: "#F1F5F9", color: col, cursor: "pointer", lineHeight: 1.4, display: isSim ? "inline-block" : "none" } }, "↺")
+      )
+    );
+  };
+  var _bb = "1px solid #e8e5de";
+  var _rTh = function(label, extra) { return React.createElement("th", { style: Object.assign({ padding: "1px 3px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "center", fontSize: 10, lineHeight: 1.15, color: "#9A3412" }, extra || {}) }, label); };
+  var _sorted = _recs.slice().sort(function(a, b) { return (a.date + (a.signal.time || "99:99")).localeCompare(b.date + (b.signal.time || "99:99")); });
+  var _rows = _sorted.map(function(r) {
+    var rKey = r.stock + "_" + r.date + "_" + (r.signal.id || r.signal.time || "");
+    var rExp = !!recExp[rKey];
+    var s = r.signal, item = r.item;
+    var a = _alphaOf(r), c = _cutOf(r);
+    var realPnl = (item && item.pnl != null) ? Number(item.pnl) : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
+    var entered = _elIsEntered(s, item);
+    var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
+    var _row = React.createElement("tr", { key: rKey + "_row", style: { background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" },
+      onClick: function() { setRecExp(function(p) { var n = Object.assign({}, p); if (n[rKey]) delete n[rKey]; else n[rKey] = true; return n; }); } },
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, color: "#F97316", width: "1%" } }, rExp ? "▼" : "▶"),
+      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#9A3412" } },
+        React.createElement("div", null, (r.date || "").slice(5)), _simInput(r, true), _simInput(r, false)),
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } },
+        React.createElement("div", null, s.time || "—"), _epIncompleteMark(s)),
+      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
+        (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, borderRight: _bb, width: "1%" } },
+        s.difficulty ? _elGradeBadge18(s.difficulty) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } },
+        a != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, a + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
+      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } }, _epOsChainCell(s, a)),
+      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } }, _epECell(s, a)),
+      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", width: "1%" } },
+        entered ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇") : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
+      React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap" } }, _epPnlCell(s, a, c)),
+      _elHoldTd2(s, a, c, { padding: "1px 0", textAlign: "center", fontSize: 11, borderBottom: _bb, borderRight: _bb }, (_elDynHold(s, a, c) != null && _elHoldIsStop(s, a, c)) ? _elCapNote(c) : null),
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, whiteSpace: "nowrap" } },
+        _elLane(_tradeAlphaChip(s), 26, "flex-end"), _elRPnlDispW(realPnl, gReal, 72))
+    );
+    if (!rExp) return _row;
+    return React.createElement(React.Fragment, { key: rKey + "_f" }, _row,
+      React.createElement("tr", { key: rKey + "_d" }, React.createElement("td", { colSpan: 13, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+        React.createElement(EntryLogCard, { record: r, alpha: a, cutLine: c }))));
+  });
+  var _t = _elTotAccum(_recs, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } });
+  var _allMiss = _elAllMissRow(_recs, _alphaOf, _cutOf);
+  var _amtCell = function(v, cnt, ref, refCnt, isReal) {
+    refCnt = refCnt || 0;
+    if (cnt === 0) return (refCnt > 0) ? _elHold2RefSuffix(0, ref, refCnt) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
+    var g = isReal ? _profitGradeFromPnlReal(v || 0, cnt) : _profitGradeFromPnl(v || 0, cnt);
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, g ? _elGradeBadge18(g) : null, React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)), refCnt > 0 ? _elHold2RefSuffix(v, ref, refCnt) : null);
+  };
+  var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
+  var _totRow = React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
+    React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
+    React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
+    React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("EP損益"), _amtCell(_t.plan, _t.planCnt, _t.planRef, _t.planRefCnt, false)),
+    React.createElement("td", { colSpan: 2, style: { padding: "1px 0", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
+      React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
+        React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H１："), _amtCell(_t.holdPlanCap, _t.holdCnt, _t.holdRef, _t.holdRefCnt, false)),
+        React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H２："), _amtCell(_t.hold2, _t.hold2Cnt, _t.hold2Ref, _t.hold2RefCnt, false)))),
+    React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _amtCell(_t.real, _t.realCnt, null, 0, true))
+  );
+  var _idealEl = _recs.length ? React.createElement("div", { style: { marginTop: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円5刻み・週間）"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)のこの銘柄の全記録でα値を固定していたら最適だったα。100株換算・合計行と同基準。"),
+    _elIdealAlphaTableV2([{ label: stock, recs: _recs }], _cutOf)) : null;
+  var _simAlphaCnt = Object.keys(simAlpha).filter(function(k) { return simAlpha[k] != null && simAlpha[k] !== ""; }).length;
+  var _simCutCnt = Object.keys(simCut).filter(function(k) { return simCut[k] != null && simCut[k] !== ""; }).length;
+  var _simActive = _simAlphaCnt + _simCutCnt;
+  return React.createElement("div", { style: { marginTop: 12, background: "#fff", border: "1px solid #e8e5df", borderRadius: 8, padding: "10px 12px" } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } },
+      _navBtn("←", function() { setWeekOffset(function(o) { return o - 1; }); }),
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#333" } }, "📅 今週の損益データ（" + stock + "）"),
+      _navBtn("→", function() { setWeekOffset(function(o) { return o + 1; }); }),
+      weekOffset !== 0 ? React.createElement("button", { onClick: function() { setWeekOffset(0); }, style: { padding: "2px 8px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", border: "1px solid #FB923C", borderRadius: 6, cursor: "pointer", color: "#9A3412" } }, "今週へ") : null,
+      React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, _wkDates[0].slice(5) + "〜" + _wkDates[4].slice(5))),
+    _recs.length === 0 ? React.createElement("div", { style: { color: "#aaa", fontSize: 12, padding: "8px 0" } }, "今週この銘柄の記録はありません") :
+    React.createElement(React.Fragment, null,
+      _idealEl,
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 6px", flexWrap: "wrap" } },
+        _simActive > 0 ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件 / 損切り " + _simCutCnt + "件") : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値・損切り値シミュ：行の数値を変えると再計算（非保存）"),
+        React.createElement("button", { onClick: function() { var m = {}; _recs.forEach(function(r) { var ia = _elIdealAlpha(r.signal, _cutOf(r)); if (ia != null) m[_key(r)] = String(ia); }); setSimAlpha(m); }, style: { fontSize: 10, fontWeight: 700, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", whiteSpace: "nowrap" } }, "一括α理想値"),
+        _simActive > 0 ? React.createElement("button", { onClick: function() { setSimAlpha({}); setSimCut({}); }, style: { fontSize: 10, padding: "2px 8px", border: "1px solid #ddd", borderRadius: 4, background: "#f5f4f0", color: "#555", cursor: "pointer", fontWeight: 600 } }, "↺ 全解除") : null),
+      React.createElement("div", { style: { overflowX: "auto" } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
+          React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
+            _rTh("", { width: 20 }), _rTh("日付", { width: 52 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
+            _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 44 }),
+            _rTh("α値", { width: 32 }), _rTh("OS", { width: 80 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
+            _rTh(React.createElement("span", null, "EP損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 104 }),
+            React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"),
+            _rTh("実現損益", { width: 82 }))),
+          React.createElement("tbody", null, _rows),
+          React.createElement("tfoot", null, _totRow)))));
+}
 var ChartSection = React.memo(function ChartSection(_ref32) {
   var stock = _ref32.stock,
     date = _ref32.date,
@@ -5976,7 +6127,8 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
       autoEdit: false,
       guardOwner: "chartMemo_" + stock + "_" + date
     })
-  ));
+  ),
+  !hideSignals ? React.createElement(WeeklyPnlPanel, { data: data, stock: stock, date: date, save: save }) : null);
 });
 
 
