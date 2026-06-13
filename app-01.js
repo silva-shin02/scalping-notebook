@@ -601,6 +601,38 @@ function migrateData(d) {
       d._migHold2StopExp1 = true;
     } catch(e) { console.warn("[migrateData] hold2StopExp error:", e); }
   }
+
+  // OS1〜5概念(scheme:3)導入前の旧記録をscheme:3へ変換（2026-06-13）。
+  // 旧記録はosVal=OS1・旧H1=holdHighVal・旧H2=hold2HighValに入っており、新フォームではOS4/OS5欄に表示されてしまう。
+  // フォームの _initHold と同じ _epLegs ベース変換で、旧H1→OS2・旧H2→OS3へ移し、hold欄(=OS4/OS5)は空に。
+  // 対象=schemeなし(OS欄1足表示)の旧記録のみ。scheme:2(既に正表示)・scheme:3は対象外。
+  if (!d._migEpScheme3 && typeof _epLegs === "function") {
+    try {
+      var _osS3 = function(v) { return v == null ? null : v < 0 ? "-" : "+"; };  // OS系符号: 負=↓"-"
+      var _hS3 = function(v) { return v == null ? null : v < 0 ? "+" : "-"; };   // hold系符号: 負=↓"+"
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var cc = d.charts[ck];
+          if (!cc || !Array.isArray(cc.signals)) return;
+          cc.signals = cc.signals.map(function(s) {
+            if (!s || s.scheme === 2 || s.scheme === 3) return s;  // EP起算(v2/v3)は対象外
+            if (s.osVal == null || s.osVal === "") return s;       // OS記録でないものは触らない
+            var L = _epLegs(s);  // schemeなし→[os1, (旧H1), (旧H2)]（os2/os3欄は無いため）
+            if (!L.length || L[0].role !== "os1") return s;
+            var b1 = L[1] || { h: null, c: null }, b2 = L[2] || { h: null, c: null }, b3 = L[3] || { h: null, c: null }, b4 = L[4] || { h: null, c: null };
+            return Object.assign({}, s, {
+              scheme: 3, result: null,  // 結果はEP足から自動導出
+              os2High: b1.h != null ? Math.abs(b1.h) : null, os2HighSign: b1.h != null ? _osS3(b1.h) : null, os2Conf: b1.c != null ? Math.abs(b1.c) : null, os2ConfSign: _osS3(b1.c),
+              os3High: b2.h != null ? Math.abs(b2.h) : null, os3HighSign: b2.h != null ? _osS3(b2.h) : null, os3Conf: b2.c != null ? Math.abs(b2.c) : null, os3ConfSign: _osS3(b2.c),
+              holdHighVal: b3.h != null ? Math.abs(b3.h) : null, holdHighSign: _hS3(b3.h), holdWidth: b3.c != null ? Math.abs(b3.c) : null, holdWidthSign: _hS3(b3.c), holdOsConf: null,
+              hold2HighVal: b4.h != null ? Math.abs(b4.h) : null, hold2HighSign: _hS3(b4.h), hold2Width: b4.c != null ? Math.abs(b4.c) : null, hold2WidthSign: _hS3(b4.c), hold2OsConf: null
+            });
+          });
+        });
+      }
+      d._migEpScheme3 = true;
+    } catch(e) { console.warn("[migrateData] epScheme3 error:", e); }
+  }
   return d;
 }
 function stLoad() {

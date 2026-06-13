@@ -4867,7 +4867,9 @@ function EntryRecordForm(_ref_erf) {
       hHigh: initSig.holdHighVal, hHighS: initSig.holdHighSign, hW: initSig.holdWidth, hWS: initSig.holdWidthSign, hOC: initSig.holdOsConf,
       h2High: initSig.hold2HighVal, h2HighS: initSig.hold2HighSign, h2W: initSig.hold2Width, h2WS: initSig.hold2WidthSign, h2OC: initSig.hold2OsConf
     };
-    if (initSig.scheme !== 2) return o;
+    // scheme:3は既にOS2〜OS5が正しい位置→素通し。scheme:2＝旧ミラー同期方式・schemeなし＝OS1〜5概念導入前の
+    // 旧記録（H1=holdHighVal・H2=hold2HighVal）はともに_epLegs順で実在足をOS2〜OS5へ展開＝旧H1→OS2・旧H2→OS3。
+    if (initSig.scheme === 3) return o;
     var _Li = _epLegs(initSig);
     if (!_Li.length || _Li[0].role !== "os1") return o;
     var _osS = function(v) { return v == null ? null : v < 0 ? "-" : "+"; };
