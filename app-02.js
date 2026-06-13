@@ -5954,57 +5954,11 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     var _iaSigs = Array.isArray(cd.signals) ? cd.signals : [];
     if (!_iaSigs.length) return null;
     var _iaCutLine = cd.cutLine != null ? cd.cutLine : 10;
-    var _iaSigData = _iaSigs.map(function(sig) {
-      var s = _compatSignal(sig);
-      var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-      return { osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf };
-    });
-    var _iaCalc = function(alpha) {
-      var total = 0, hasAny = false;
-      _iaSigData.forEach(function(d) {
-        if (d.osVal == null) return;
-        hasAny = true;
-        if (alpha > d.osVal) {  }
-        else if (d.osVal - alpha >= _iaCutLine) { total += -(d.osVal - alpha) * 100; }
-        else { if (d.conf == null) { hasAny = false; return; } total += (alpha - d.conf) * 100; }
-      });
-      return hasAny ? Math.round(total) : null;
-    };
-    var _iaMinA = null, _iaTgtA = null, _iaMaxA = null, _iaMaxP = null;
-    _EL_IDEAL_ALPHAS.forEach(function(_aa) {
-      var _ap = _iaCalc(_aa);
-      if (_ap == null) return;
-      if (_iaMinA == null && _ap >= 1) _iaMinA = _aa;
-      if (_iaTgtA == null && _ap >= 2500) _iaTgtA = _aa;
-      if (_iaMaxP == null || _ap > _iaMaxP) { _iaMaxP = _ap; _iaMaxA = _aa; }
-    });
-    if (_iaTgtA == null && _iaMaxA != null) _iaTgtA = _iaMaxA;
-    if (_iaMinA == null && _iaTgtA == null && _iaMaxA == null) return null;
-    var _iaFmtA = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
-    var _iaFmtP = function(v) { if (v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—"); return React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円"); };
-    var _iaTh = function(l, e) { return React.createElement("th", { style: Object.assign({ padding: "2px 6px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center" }, e || {}) }, l); };
+    var _iaRecs = _iaSigs.map(function(sig) { return { date: date, stock: stock, signal: _compatSignal(sig) }; });
     return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（5〜20円・5刻み）"),
-      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を何円に固定していたら最適だったか（確定値の平均ベース・100株換算）"),
-      React.createElement("div", { style: { overflowX: "auto" } },
-        React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
-          React.createElement("thead", null, React.createElement("tr", null,
-            _iaTh("銘柄", { textAlign: "left" }),
-            _iaTh("最低利益α値", { borderLeft: "1px solid #dbeafe" }), _iaTh("想定利益", { fontWeight: 600 }),
-            _iaTh("目標利益α値", { borderLeft: "1px solid #dbeafe" }), _iaTh("想定利益", { fontWeight: 600 }),
-            _iaTh("最大利益α値", { borderLeft: "1px solid #dbeafe" }), _iaTh("想定利益", { fontWeight: 600 })
-          )),
-          React.createElement("tbody", null, React.createElement("tr", { style: { borderBottom: "1px solid #dbeafe" } },
-            React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11 } }, stock),
-            React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, _iaFmtA(_iaMinA)),
-            React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, _iaFmtP(_iaMinA != null ? _iaCalc(_iaMinA) : null)),
-            React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, _iaFmtA(_iaTgtA)),
-            React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, _iaFmtP(_iaTgtA != null ? _iaCalc(_iaTgtA) : null)),
-            React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 12, borderLeft: "1px solid #dbeafe" } }, _iaFmtA(_iaMaxA)),
-            React.createElement("td", { style: { padding: "3px 6px", textAlign: "center", fontSize: 11 } }, _iaFmtP(_iaMaxA != null ? _iaCalc(_iaMaxA) : null))
-          ))
-        )
-      )
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円5刻み）"),
+      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大のα・目標=2,500円以上の最小α。100株換算・合計行と同基準。"),
+      _elIdealAlphaTableV2([{ label: stock, recs: _iaRecs }], function() { return _iaCutLine; })
     );
   })(),
   
