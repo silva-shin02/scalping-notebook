@@ -1204,8 +1204,81 @@ function _elStreakDDSectionV2(recs, aiOf) {
   return React.createElement("div", null, cards, items.length ? _elInsightBoxV2(items, { note: "連勝連敗・最大DD(実現)は実エントリーの実現損益（記録順）。最大DD(EP損益)は全E成立記録のEP損益累積の山→谷の最大下落（採用α基準）。" }) : null);
 }
 
+// 曜日別の成績（記録帳・集計タブ／2026-06-14b）: 月〜金（+土日）別に件数/平均OS値/E成立率/勝率/損切り率/平均EP・H1損益を集計。
+// 「どの曜日が成功しやすい／損切りしやすいか」を読む。時間帯別(_elTimeOfDaySectionV2)の曜日版。採用α基準・aiOf(r)→{alpha,cutLine}。
+function _elDowSectionV2(recs, aiOf) {
+  if (!recs || !recs.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "v2記録なし");
+  var _dowIdx = function(ds) { if (!ds) return null; var p = String(ds).split("-"); if (p.length < 3) return null; var d = new Date(+p[0], +p[1] - 1, +p[2]); return isNaN(d.getTime()) ? null : d.getDay(); };
+  var DEFS = [
+    { k: "d1", label: "月", color: "#1D9E75", dow: 1 },
+    { k: "d2", label: "火", color: "#378ADD", dow: 2 },
+    { k: "d3", label: "水", color: "#7C3AED", dow: 3 },
+    { k: "d4", label: "木", color: "#EF9F27", dow: 4 },
+    { k: "d5", label: "金", color: "#D85A30", dow: 5 }
+  ];
+  var mk = function() { return { cnt: 0, osSum: 0, osCnt: 0, reach: 0, ok: 0, ng: 0, stop: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, miss: 0, x: 0 }; };
+  var st = {}; DEFS.forEach(function(d) { st[d.k] = mk(); });
+  var wknd = mk(), total = mk(), _hasWknd = false;
+  var _acc = function(o, s, a, c) {
+    o.cnt++;
+    if (s.osVal != null && s.osVal !== "") { o.osSum += Number(s.osVal); o.osCnt++; }
+    if (_epReachedAt(s, a)) o.reach++;
+    if (_epIsXSkip(s, a)) { o.x++; return; }
+    var res = _elDynResult(s, a, c);
+    if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++;
+    if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) o.stop++;
+    var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; }
+    var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; }
+  };
+  recs.forEach(function(r) {
+    var s = r.signal, ai = aiOf(r), a = ai.alpha, c = ai.cutLine;
+    var di = _dowIdx(r.date), bucket = null;
+    if (di === 0 || di === 6) { bucket = wknd; _hasWknd = true; }
+    else if (di != null) { for (var i = 0; i < DEFS.length; i++) { if (DEFS[i].dow === di) { bucket = st[DEFS[i].k]; break; } } }
+    if (bucket) _acc(bucket, s, a, c);
+    _acc(total, s, a, c);
+  });
+  var _osCell = function(o) { return o.osCnt ? React.createElement("span", { style: { fontWeight: 700, color: _vcol(Math.round(o.osSum / o.osCnt * 10) / 10, true) } }, (Math.round(o.osSum / o.osCnt * 10) / 10) + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—"); };
+  var _winCell = function(o) { var t = o.ok + o.ng; if (!t) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var w = Math.round(o.ok / t * 100); return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } }, React.createElement("span", { style: { fontWeight: 700, color: w >= 50 ? "#1E8449" : "#B45309" } }, w + "%"), React.createElement("span", { style: { fontSize: 8, color: "#bbb" } }, o.ok + "勝" + o.ng + "敗")); };
+  var _pctc = function(n, d) { return d ? Math.round(n / d * 100) : 0; };
+  var bar = React.createElement("div", { style: { display: "flex", width: "100%", height: 22, borderRadius: 6, overflow: "hidden", border: "1px solid #e5e0d6" } },
+    DEFS.map(function(d) { var o = st[d.k]; if (!o.cnt) return null; return React.createElement("div", { key: d.k, title: d.label + " " + o.cnt + "件", style: { width: (o.cnt / (total.cnt || 1) * 100) + "%", background: d.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff", whiteSpace: "nowrap", overflow: "hidden" } }, o.cnt + "件"); }));
+  var _mkRow = function(label, color, o, bold) {
+    return React.createElement("tr", { key: label, style: bold ? { background: "#FBF7EF" } : null },
+      _elv2Td(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, color ? React.createElement("span", { style: { width: 9, height: 9, borderRadius: 2, background: color, display: "inline-block" } }) : null, label), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+      _elv2Td(o.cnt ? o.cnt + "件（" + _pctc(o.cnt, total.cnt) + "%）" : "0件", { fontWeight: 700 }),
+      _elv2Td(_osCell(o)),
+      _elv2Td(_elv2Rate(o.reach, o.cnt)),
+      _elv2Td(_winCell(o)),
+      _elv2Td(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
+      _elv2Td(_elv2Avg(o.plan, o.planCnt)),
+      _elv2Td(_elv2Avg(o.h1, o.h1Cnt)));
+  };
+  var bodyRows = DEFS.map(function(d) { return _mkRow(d.label, d.color, st[d.k], false); });
+  if (_hasWknd) bodyRows.push(_mkRow("土日", "#bbb", wknd, false));
+  bodyRows.push(_mkRow("全体", null, total, true));
+  var tbl = _elv2Table(["曜日", "件数", "平均OS値", "E成立率", "勝率", "損切り率", "平均EP損益", "平均H1"], bodyRows);
+  // 読み取り
+  var items = [];
+  var avail = DEFS.map(function(d) { return { d: d, o: st[d.k] }; }).filter(function(x) { return x.o.cnt > 0; });
+  if (avail.length) {
+    var mostN = avail.slice().sort(function(a, b) { return b.o.cnt - a.o.cnt; })[0];
+    items.push(React.createElement("span", null, "記録が最も多い曜日は", _elInsightEmV2(mostN.d.label + "曜"), "（" + mostN.o.cnt + "件）。"));
+    var byWin = avail.filter(function(x) { return (x.o.ok + x.o.ng) > 0; }).sort(function(a, b) { return (b.o.ok / (b.o.ok + b.o.ng)) - (a.o.ok / (a.o.ok + a.o.ng)); });
+    if (byWin.length) {
+      var bw = byWin[0], ww = byWin[byWin.length - 1];
+      items.push(React.createElement("span", null, "勝率が最も高いのは", _elInsightEmV2(bw.d.label + "曜"), "（", _elInsightEmV2(Math.round(bw.o.ok / (bw.o.ok + bw.o.ng) * 100) + "%"), "）", (ww !== bw) ? React.createElement("span", null, "・最も低いのは", _elInsightEmV2(ww.d.label + "曜"), "（" + Math.round(ww.o.ok / (ww.o.ok + ww.o.ng) * 100) + "%）") : null, "。"));
+    }
+    var byEp = avail.filter(function(x) { return x.o.planCnt > 0; }).sort(function(a, b) { return (b.o.plan / b.o.planCnt) - (a.o.plan / a.o.planCnt); });
+    if (byEp.length) items.push(React.createElement("span", null, "1件あたり平均EP損益が最良の曜日は", _elInsightEmV2(byEp[0].d.label + "曜"), "（", _elInsightEmV2(_elPnlFmt(Math.round(byEp[0].o.plan / byEp[0].o.planCnt))), "）。"));
+    var byStop = avail.filter(function(x) { return x.o.cnt >= 2; }).sort(function(a, b) { return (b.o.stop / b.o.cnt) - (a.o.stop / a.o.cnt); });
+    if (byStop.length && byStop[0].o.stop > 0) items.push(React.createElement("span", null, "損切り率が最も高いのは", _elInsightEmV2(byStop[0].d.label + "曜"), "（" + Math.round(byStop[0].o.stop / byStop[0].o.cnt * 100) + "%）＝この曜日は慎重に。"));
+  }
+  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。平均OS値=寄り足の高値（水準線比）／E成立率=3本以内にα到達（×見送り含む）／勝率=EP損益が利益の割合／損切り率=想定orH1orH2で損切り発生。採用α基準・E成立分のみ。" }) : null);
+}
+
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
-// タブ: 集計(KPI+OS値の分析+EP位置+累積損益+連勝連敗最大DD+α意思決定表+αカーブ+時間帯+×見送り)/期間/カレンダー/シグナル別/銘柄別/OS連鎖/深掘り(最適ホールド本数+期待度キャリブレーション+執行乖離+メモ×成績)/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
+// タブ: 集計(KPI+OS値の分析+EP位置+累積損益+連勝連敗最大DD+α意思決定表+αカーブ+時間帯+曜日別+×見送り)/期間/カレンダー/シグナル別/銘柄別/OS連鎖/深掘り(最適ホールド本数+期待度キャリブレーション+執行乖離+メモ×成績)/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
 // 一覧・展開明細は1行=1記録のテーブル（行タップでEntryLogCard展開）でスクロール量を削減。
 // 旧実装は _entryLogViewLegacy として休眠（未参照・整理予定）。
 function EntryLogView(_ref_elv2) {
@@ -1507,6 +1580,7 @@ function EntryLogView(_ref_elv2) {
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), _elCumPnlSectionV2(recs, _ai)) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
+      _secH("📅 曜日別の成績", "月〜金別の件数・平均OS値・勝率・損切り率・平均EP/H1損益"), _elDowSectionV2(recs, _ai),
       _secH("🚫 期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(recs, _ai),
       _secH("🗂 記録一覧（行タップで明細）"), _recTable(recs.slice().sort(_byDateDesc), "full", "gp_"));
   };
@@ -1530,6 +1604,8 @@ function EntryLogView(_ref_elv2) {
         _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)) : null,
       v2recs.length ? React.createElement(React.Fragment, null,
         _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか"), _elTimeOfDaySectionV2(v2recs, _ai)) : null,
+      v2recs.length ? React.createElement(React.Fragment, null,
+        _secH("📅 曜日別の成績", "月〜金別の件数・平均OS値・勝率・損切り率・平均EP/H1損益（どの曜日が成功しやすいか）"), _elDowSectionV2(v2recs, _ai)) : null,
       v2recs.length ? React.createElement(React.Fragment, null,
         _secH("🚫 期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(v2recs, _ai)) : null);
   } else if (view === "date") {
