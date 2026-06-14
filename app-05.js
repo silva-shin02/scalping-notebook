@@ -5873,6 +5873,43 @@ function EntryRecordForm(_ref_erf) {
           }, "＋ その他");
         })()
       ),
+      (function() {
+        var _oc = {};
+        _elCollectAllSignals(data).forEach(function(r) {
+          var s = r && r.signal; if (!s) return;
+          var ts = (s.tags && s.tags.length) ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []);
+          ts.forEach(function(t) { if (t && signalTags.indexOf(t) < 0) _oc[t] = (_oc[t] || 0) + 1; });
+        });
+        var _ot = Object.keys(_oc);
+        if (!_ot.length) return null;
+        var _tot = 0; _ot.forEach(function(t) { _tot += _oc[t]; });
+        return React.createElement("button", {
+          onClick: function() {
+            if (!window.confirm("プールに無い『削除済みシグナル』を全記録から除去します：\n\n" + _ot.map(function(t) { return "・" + t + "（" + _oc[t] + "件）"; }).join("\n") + "\n\n戻せません。実行しますか？")) return;
+            var _set = {}; _ot.forEach(function(t) { _set[t] = 1; });
+            save(function(prev) {
+              var charts = Object.assign({}, prev.charts || {});
+              Object.keys(charts).forEach(function(ck) {
+                var cc = charts[ck]; if (!cc || !Array.isArray(cc.signals)) return;
+                var ch = false;
+                var sigs = cc.signals.map(function(s) {
+                  if (!s) return s;
+                  var up = Object.assign({}, s), c2 = false;
+                  if (Array.isArray(s.tags)) { var nt = s.tags.filter(function(x) { return _set[x] !== 1; }); if (nt.length !== s.tags.length) { up.tags = nt; c2 = true; } }
+                  if (s.tag && _set[s.tag] === 1) { up.tag = (up.tags && up.tags.length) ? up.tags[0] : ""; c2 = true; }
+                  if (c2) ch = true;
+                  return up;
+                });
+                if (ch) charts[ck] = Object.assign({}, cc, { signals: sigs });
+              });
+              return Object.assign({}, prev, { charts: charts });
+            });
+            setFTags(function(prev) { return prev.filter(function(x) { return _set[x] !== 1; }); });
+            window.alert("削除済みシグナルを全記録から除去しました。");
+          },
+          style: { marginBottom: 8, padding: "7px 11px", fontSize: 11, fontWeight: 700, color: "#B91C1C", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 6, cursor: "pointer", width: "100%", textAlign: "left" }
+        }, "🧹 プール外の削除済みシグナル（" + _ot.length + "種・計" + _tot + "件）を全記録から一括除去");
+      })(),
       fIsCustom && React.createElement(FastInput, {
         type: "text",
         value: fCustomText,
