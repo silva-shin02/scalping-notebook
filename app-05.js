@@ -6075,12 +6075,12 @@ function EntryRecordForm(_ref_erf) {
             _stepBtn(function() { _applySigned(ref, 1, "-", "+", setVal, setSign, after); },
                      function() { _applySigned(ref, -1, "-", "+", setVal, setSign, after); }));
         };
-        // OS1高値（常に↑・0以上）
+        // OS1高値（常に↑・0以上）。長押し連続増減のため最新値は関数アップデータで読む（OS2高値の_applySigned同様）。
         var _uIn = function(val, setVal) {
           return React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
             _numIn(val, setVal),
-            _stepBtn(function() { setVal(String((Number(val) || 0) + 1)); },
-                     function() { setVal(String(Math.max(0, (Number(val) || 0) - 1))); }));
+            _stepBtn(function() { setVal(function(v) { return String((Number(v) || 0) + 1); }); },
+                     function() { setVal(function(v) { return String(Math.max(0, (Number(v) || 0) - 1)); }); }));
         };
         var _row = function(lab, node, noUnit) {
           return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
