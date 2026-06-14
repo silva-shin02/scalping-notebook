@@ -671,6 +671,78 @@ function _elSignalSuccessTableV2(recs, aiOf) {
   if (pbest) items.push(React.createElement("span", null, "1件あたり平均EP損益が最良は", _elInsightEmV2(pbest.l), "（", _elInsightEmV2(_elPnlFmt(Math.round(pbest.v))), "）。"));
   return React.createElement("div", null, tbl, items.length ? _elInsightBoxV2(items, { note: "損失なし率=損切りもEP損益マイナスも出なかった割合（未達/×見送り=取引なし=損失なし）／勝率=EP損益が利益の割合／E成立率=3本以内α到達。採用α基準。" }) : null);
 }
+// 期待度×（×見送り）の分析: ×宣言後にα到達したが取引を見送った記録について、もし取引していたらのEP/H1損益と、
+// 見送り判断の精度（取引EPがマイナス=損失回避=正解／プラス=機会損失=逃した利益）をシグナル別に集計。
+// aiOf=記録→{alpha,cutLine}。『取引していたら』は_epAsTradedの仮想エントリー＝各表の（）参考値と同基準。
+function _elXSkipSectionV2(recs, aiOf) {
+  var all = recs || [];
+  var xs = all.filter(function(r) { return _epIsXSkip(r.signal, aiOf(r).alpha); });
+  if (!xs.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "10px 0" } }, "×見送り（期待度×・宣言後にα到達）の記録はありません");
+  var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var rows = xs.map(function(r) {
+    var s = r.signal, ai = aiOf(r), tr = _epAsTraded(s);
+    return { r: r, s: s, ep: _elDynPlanned(tr, ai.alpha, ai.cutLine), h1: _elDynHold(tr, ai.alpha, ai.cutLine) };
+  });
+  var sumEp = 0, epCnt = 0, sumH1 = 0, h1Cnt = 0, missCnt = 0, missSum = 0, avoidCnt = 0, avoidSum = 0;
+  rows.forEach(function(o) {
+    if (o.ep != null) { sumEp += o.ep; epCnt++; if (o.ep > 0) { missCnt++; missSum += o.ep; } else if (o.ep < 0) { avoidCnt++; avoidSum += o.ep; } }
+    if (o.h1 != null) { sumH1 += o.h1; h1Cnt++; }
+  });
+  var decided = missCnt + avoidCnt;
+  var accuracy = decided ? Math.round(avoidCnt / decided * 100) : null;
+  var ratio = all.length ? Math.round(xs.length / all.length * 100) : 0;
+  var _pnl = function(v) { return React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: 800 } }, _elPnlFmt(v)); };
+  var _card = function(label, valNode, color, sub) {
+    return React.createElement("div", { style: { flex: "1 1 116px", minWidth: 110, background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "8px 10px", textAlign: "center" } },
+      React.createElement("div", { style: { fontSize: 10, color: "#999", fontWeight: 700, marginBottom: 3 } }, label),
+      React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: color || "#333", lineHeight: 1.15, whiteSpace: "nowrap" } }, valNode),
+      sub ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginTop: 2 } }, sub) : null);
+  };
+  var cards = React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
+    _card("×見送り", xs.length + "件", "#9A3412", "全" + all.length + "件中 " + ratio + "%"),
+    _card("取引していたらEP", _pnl(sumEp), null, epCnt + "件" + (h1Cnt ? "・H1なら " + _elPnlFmt(sumH1) : "")),
+    _card("機会損失（逃した利益）", missCnt + "件", missCnt ? "#C0392B" : "#bbb", missSum ? "+" + missSum.toLocaleString() + "円" : "—"),
+    _card("損失回避（避けた損失）", avoidCnt + "件", avoidCnt ? "#1E8449" : "#bbb", avoidSum ? avoidSum.toLocaleString() + "円" : "—"),
+    _card("見送り正解率", accuracy != null ? accuracy + "%" : "—", accuracy != null ? (accuracy >= 50 ? "#1E8449" : "#B45309") : "#bbb", "損失回避 / " + decided + "件中"));
+  var by = {};
+  rows.forEach(function(o) {
+    var s = o.s;
+    var tags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+    if (!tags.length) tags = ["(未設定)"];
+    tags.forEach(function(tg) { var k = stripCat(tg); (by[k] = by[k] || []).push(o); });
+  });
+  var bk = Object.keys(by).map(function(k) {
+    var arr = by[k], se = 0, ec = 0, mc = 0, ac = 0;
+    arr.forEach(function(o) { if (o.ep != null) { se += o.ep; ec++; if (o.ep > 0) mc++; else if (o.ep < 0) ac++; } });
+    return { label: k, cnt: arr.length, sumEp: se, epCnt: ec, miss: mc, avoid: ac };
+  });
+  bk.sort(function(a, b) { return b.miss - a.miss || a.sumEp - b.sumEp; });
+  var _thX = function(t) { return React.createElement("th", { style: { padding: "4px 5px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
+  var _tdX = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
+  var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 2 } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
+        _thX("シグナル"), _thX("×件数"), _thX("取引EP合計"), _thX("機会損失"), _thX("損失回避"), _thX("正解率"))),
+      React.createElement("tbody", null, bk.map(function(o, i) {
+        var acc = (o.miss + o.avoid) ? Math.round(o.avoid / (o.miss + o.avoid) * 100) : null;
+        return React.createElement("tr", { key: i },
+          _tdX(o.label, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412", whiteSpace: "normal" }),
+          _tdX(o.cnt + "件", { fontWeight: 700 }),
+          _tdX(o.epCnt ? _pnl(o.sumEp) : _dash),
+          _tdX(o.miss ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, o.miss + "件") : React.createElement("span", { style: { color: "#bbb" } }, "0")),
+          _tdX(o.avoid ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, o.avoid + "件") : React.createElement("span", { style: { color: "#bbb" } }, "0")),
+          _tdX(acc != null ? React.createElement("span", { style: { fontWeight: 700, color: acc >= 50 ? "#1E8449" : "#B45309" } }, acc + "%") : _dash));
+      }))));
+  var items = [];
+  items.push(React.createElement("span", null, "×見送りは", _elInsightEmV2(xs.length + "件"), "（全" + all.length + "件中 " + ratio + "%）＝", _elInsightEmV2("損失回避 " + avoidCnt + "件"), "・", _elInsightEmV2("機会損失 " + missCnt + "件"), "。"));
+  if (sumEp > 0) items.push(React.createElement("span", null, "見送った記録を全て取引していたらEP損益は", _elInsightEmV2(_elPnlFmt(sumEp), "#C0392B"), "＝トータルでは", _elInsightEmV2("取引した方が得だった"), "（機会損失が損失回避を上回る）。"));
+  else if (sumEp < 0) items.push(React.createElement("span", null, "見送りにより合計", _elInsightEmV2(_elPnlFmt(sumEp), "#1E8449"), "の損失を回避できている（見送り判断はトータルでプラスに機能）。"));
+  else items.push(React.createElement("span", null, "見送り分のEP損益合計は±0。"));
+  if (accuracy != null) items.push(React.createElement("span", null, "見送り正解率（取引していたら損失だった＝回避できた割合）は", _elInsightEmV2(accuracy + "%"), "。", accuracy >= 60 ? "見送り判断の精度は高め。" : accuracy < 40 ? "利益を逃すケースが多め＝見送り基準の見直し余地あり。" : "おおむね半々。"));
+  var wsig = bk.filter(function(o) { return o.miss > o.avoid && o.miss >= 2; })[0];
+  if (wsig) items.push(React.createElement("span", null, _elInsightEmV2(wsig.label), "は機会損失", _elInsightEmV2(wsig.miss + "件"), "＞損失回避" + wsig.avoid + "件＝", _elInsightEmV2("見送らず取引した方が良い"), "傾向。"));
+  return React.createElement("div", null, cards, tbl, _elInsightBoxV2(items, { note: "×見送り＝×宣言後にαへ到達した記録（取引せず）。『取引していたら』は×を無視した仮想エントリーのEP/H1損益（_epAsTradedベース・100株換算・採用α基準＝各表の（）参考値と同基準）。機会損失＝取引EPがプラス（取引すべきだった）／損失回避＝取引EPがマイナス（見送って正解）。" }));
+}
 // 汎用SVG折れ線チャート。series=[{label,color,pts:[number]}]（全系列同じ点数）。opts={height,xTicks:[{i,label}]}。
 function _elLineChartV2(series, opts) {
   opts = opts || {};
@@ -820,6 +892,15 @@ function EntryLogView(_ref_elv2) {
       _elHoldGradeBadge(_profitGradeFromPnl(v, 1)),
       React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)));
   };
+  // 金額＋×込み参考値（）。EP/H1/H2の合計表示で「期待度×（見送り）も取引していたら」の合計を（Ⓐ+9,900円）で併記。
+  // ref/refCnt は _elTotAccum の planRef/holdRef/hold2Ref 系。×記録が無ければ通常表示。実現損益には付けない。
+  var _yenNR = function(v, cnt, ref, refCnt) {
+    var suf = _elHold2RefSuffix(v, ref, refCnt);
+    if (!suf) return _yenN(v, cnt);
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 2, whiteSpace: "nowrap" } },
+      _yenN(v, cnt),
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 600, lineHeight: 1.2 } }, suf));
+  };
   var _th = function(t, ex) { return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#9A3412" }, ex || {}) }, t); };
   var _td = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
 
@@ -950,9 +1031,9 @@ function EntryLogView(_ref_elv2) {
   var _kpiBlock = React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 } },
     _kpiCard("件数", _kpi.n + "件", "#333", "v2記録のみ"),
     _kpiCard("E成立率", _kpi.reach != null ? _kpi.reach + "%" : "—", "#0369A1", "○" + _kpi.ok + "・×" + _kpi.x + "・未達" + _kpi.miss),
-    _kpiCard("EP損益", _yenN(_kpi.t.plan, _kpi.t.planCnt), null, _kpi.t.planCnt + "件"),
-    _kpiCard("H1損益", _yenN(_kpi.t.holdPlanCap, _kpi.t.holdCnt), null, _kpi.t.holdCnt + "件"),
-    _kpiCard("H2損益", _yenN(_kpi.t.hold2, _kpi.t.hold2Cnt), null, _kpi.t.hold2Cnt + "件"),
+    _kpiCard("EP損益", _yenNR(_kpi.t.plan, _kpi.t.planCnt, _kpi.t.planRef, _kpi.t.planRefCnt), null, _kpi.t.planCnt + "件"),
+    _kpiCard("H1損益", _yenNR(_kpi.t.holdPlanCap, _kpi.t.holdCnt, _kpi.t.holdRef, _kpi.t.holdRefCnt), null, _kpi.t.holdCnt + "件"),
+    _kpiCard("H2損益", _yenNR(_kpi.t.hold2, _kpi.t.hold2Cnt, _kpi.t.hold2Ref, _kpi.t.hold2RefCnt), null, _kpi.t.hold2Cnt + "件"),
     _kpiCard("損切り", (_kpi.ss && _kpi.ss.any || 0) + "回", _kpi.ss && _kpi.ss.any > 0 ? "#1E8449" : "#bbb", _kpi.ss && _kpi.ss.rate != null ? "率" + _kpi.ss.rate + "%（想" + _kpi.ss.plan + "・H1 " + _kpi.ss.h1 + "・H2 " + _kpi.ss.h2 + "）" : null),
     _kpiCard("×見送り", _kpi.x + "件", _kpi.x > 0 ? "#1E8449" : "#bbb", "×宣言後の到達"),
     _kpiCard("実現損益", _yenN(_kpi.t.real, _kpi.t.realCnt), null, _kpi.t.realCnt + "件"));
@@ -981,14 +1062,20 @@ function EntryLogView(_ref_elv2) {
           _th("α値", { textAlign: "left", paddingLeft: 8 }), _th("成立率"), _th("損切り"), _th("EP損益"), _th("H1損益"), _th("H2損益"))),
         React.createElement("tbody", null, rows.map(function(x) {
           var i1 = x.t.holdCnt > 0 && x.t.holdPlanCap === b1 && b1 > -Infinity, i2 = x.t.hold2Cnt > 0 && x.t.hold2 === b2 && b2 > -Infinity;
-          var _amt = function(v, c, hot) { return c > 0 ? React.createElement("span", { style: { fontWeight: hot ? 800 : 600, color: _elPnlColor(v) } }, _elPnlFmt(v)) : _dash; };
+          var _amt = function(v, c, hot, ref, refCnt) {
+            if (c <= 0) return _dash;
+            var node = React.createElement("span", { style: { fontWeight: hot ? 800 : 600, color: _elPnlColor(v) } }, _elPnlFmt(v));
+            var suf = _elHold2RefSuffix(v, ref, refCnt);
+            if (!suf) return node;
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 2 } }, node, React.createElement("span", { style: { fontSize: 10, fontWeight: 600 } }, suf));
+          };
           return React.createElement("tr", { key: x.a, style: { background: (i1 || i2) ? "#FEF3C7" : "transparent" } },
             _td(React.createElement("span", null, x.a + "円",
               i1 ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 3, fontWeight: 800 } }, "★H1") : null,
               i2 ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 3, fontWeight: 800 } }, "★H2") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#0369A1" }),
             _td(Math.round(x.ent / rs.length * 100) + "%", { fontWeight: 700 }),
             _td(x.stp > 0 ? x.stp + "回" : "0回", { color: x.stp > 0 ? "#1E8449" : "#bbb" }),
-            _td(_amt(x.t.plan, x.t.planCnt, false)), _td(_amt(x.t.holdPlanCap, x.t.holdCnt, i1)), _td(_amt(x.t.hold2, x.t.hold2Cnt, i2)));
+            _td(_amt(x.t.plan, x.t.planCnt, false, x.t.planRef, x.t.planRefCnt)), _td(_amt(x.t.holdPlanCap, x.t.holdCnt, i1, x.t.holdRef, x.t.holdRefCnt)), _td(_amt(x.t.hold2, x.t.hold2Cnt, i2, x.t.hold2Ref, x.t.hold2RefCnt)));
         }))));
   })();
 
@@ -1038,9 +1125,9 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
         _kpiCard("件数", recs.length + "件", "#333"),
         _kpiCard("E成立率", recs.length ? Math.round((ok + x) / recs.length * 100) + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
-        _kpiCard("EP損益", _yenN(t.plan, t.planCnt), null, t.planCnt + "件"),
-        _kpiCard("H1損益", _yenN(t.holdPlanCap, t.holdCnt), null, t.holdCnt + "件"),
-        _kpiCard("H2損益", _yenN(t.hold2, t.hold2Cnt), null, t.hold2Cnt + "件"),
+        _kpiCard("EP損益", _yenNR(t.plan, t.planCnt, t.planRef, t.planRefCnt), null, t.planCnt + "件"),
+        _kpiCard("H1損益", _yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt), null, t.holdCnt + "件"),
+        _kpiCard("H2損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
         _kpiCard("実現損益", _yenN(t.real, t.realCnt), null, t.realCnt + "件"),
         _kpiCard("損切り", (ss.any || 0) + "回", ss.any > 0 ? "#1E8449" : "#bbb", ss.rate != null ? "率" + ss.rate + "%" : null),
         _kpiCard("最良α", _baTxt, "#0369A1")),
@@ -1058,6 +1145,7 @@ function EntryLogView(_ref_elv2) {
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), _elCumPnlSectionV2(recs, _ai)) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
+      _secH("🚫 期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(recs, _ai),
       _secH("🗂 記録一覧（行タップで明細）"), _recTable(recs.slice().sort(_byDateDesc), "full", "gp_"));
   };
 
@@ -1075,7 +1163,9 @@ function EntryLogView(_ref_elv2) {
       v2recs.length ? React.createElement(React.Fragment, null,
         _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)) : null,
       v2recs.length ? React.createElement(React.Fragment, null,
-        _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか"), _elTimeOfDaySectionV2(v2recs, _ai)) : null);
+        _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか"), _elTimeOfDaySectionV2(v2recs, _ai)) : null,
+      v2recs.length ? React.createElement(React.Fragment, null,
+        _secH("🚫 期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(v2recs, _ai)) : null);
   } else if (view === "date") {
     _tabBody = (function() {
       var byDate = {}; v2recs.forEach(function(r) { (byDate[r.date] = byDate[r.date] || []).push(r); });
@@ -1155,9 +1245,9 @@ function EntryLogView(_ref_elv2) {
         return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
           _kpiCard("件数", rs.length + "件", "#333"),
           _kpiCard("実現損益", _yenN(t.real, t.realCnt), null, t.realCnt + "件"),
-          _kpiCard("EP損益", _yenN(t.plan, t.planCnt), null, t.planCnt + "件"),
-          _kpiCard("H1損益", _yenN(t.holdPlanCap, t.holdCnt), null, t.holdCnt + "件"),
-          _kpiCard("H2損益", _yenN(t.hold2, t.hold2Cnt), null, t.hold2Cnt + "件"),
+          _kpiCard("EP損益", _yenNR(t.plan, t.planCnt, t.planRef, t.planRefCnt), null, t.planCnt + "件"),
+          _kpiCard("H1損益", _yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt), null, t.holdCnt + "件"),
+          _kpiCard("H2損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
           _kpiCard("勝率", rr.win != null ? rr.win + "%" : "—", "#0369A1"),
           _kpiCard("損切り率", rr.stop + "%", rr.stop > 0 ? "#1E8449" : "#bbb"));
       };
@@ -1165,7 +1255,8 @@ function EntryLogView(_ref_elv2) {
         return React.createElement(React.Fragment, null,
           _secH("🎯 シグナル別 成功度", "損失なし率・勝率で並べ替え＝どのシグナルが成功しやすいか（損失が出なかったか）"), _elSignalSuccessTableV2(rs, _ai),
           _secH("🕘 時間帯別の成績（寄り付き重視）"), _elTimeOfDaySectionV2(rs, _ai),
-          _secH("📍 EP位置の分析"), _elEpPosSectionV2(rs, _ai));
+          _secH("📍 EP位置の分析"), _elEpPosSectionV2(rs, _ai),
+          _secH("🚫 期待度×（見送り）の分析"), _elXSkipSectionV2(rs, _ai));
       };
       if (gran === "custom") {
         var _crecs = v2recs.filter(function(r) { return (!cFrom || r.date >= cFrom) && (!cTo || r.date <= cTo); });
@@ -1203,9 +1294,9 @@ function EntryLogView(_ref_elv2) {
         _rows.push(React.createElement("tr", { key: k, onClick: function() { setPerExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
           _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k)), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           _tdP(rs.length + "件", { fontWeight: 700 }),
-          _tdP(_yenN(t.plan, t.planCnt)),
-          _tdP(_yenN(t.holdPlanCap, t.holdCnt)),
-          _tdP(_yenN(t.hold2, t.hold2Cnt)),
+          _tdP(_yenNR(t.plan, t.planCnt, t.planRef, t.planRefCnt)),
+          _tdP(_yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt)),
+          _tdP(_yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt)),
           _tdP(_yenN(t.real, t.realCnt)),
           _tdP(rr.win != null ? rr.win + "%" : "—", { fontWeight: 700, color: rr.win != null ? (rr.win >= 50 ? "#1E8449" : "#B45309") : "#ccc" }),
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 })));
