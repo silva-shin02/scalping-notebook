@@ -5844,7 +5844,7 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: SH_ }, "🎯 エントリーシグナル"),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } },
-        signalTags.map(function(t) {
+        signalTags.concat(fTags.filter(function(_o) { return signalTags.indexOf(_o) < 0; })).map(function(t) {
           var on = fTags.includes(t);
           return React.createElement("button", {
             key: t,
@@ -5856,7 +5856,7 @@ function EntryRecordForm(_ref_erf) {
               color: on ? "#9A3412" : "#555",
               borderRadius: 6, cursor: "pointer"
             }
-          }, t);
+          }, signalTags.indexOf(t) < 0 ? React.createElement("span", null, t, React.createElement("span", { style: { color: "#B91C1C", fontWeight: 800, marginLeft: 4 } }, "✕削除")) : t);
         }),
         (function() {
           var on = fIsCustom;
