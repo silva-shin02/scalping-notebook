@@ -43,20 +43,21 @@ function _elOscHighs(s) {
   _epLegs(s).forEach(function(l) { var i = map[l.role]; if (i != null) out[i] = l.h; });
   return out;
 }
-// 指定OS足(legIdx=0..4)についてrecsを帯別集計。次OS(legIdx+1)中央値・遷移行列・成績(採用α基準・E成立分のみ)。
-function _elOscAgg(recs, legIdx, aiOf) {
-  var NB = _EL_OSC_BANDS.length;
+// 指定OS足(legIdx=0..4)についてrecsを粒度別集計。gran="band"(帯)|"each"(1円刻み)。次OS(legIdx+1)中央値・遷移行列・成績(採用α基準・E成立分のみ)。
+// bands/matrixのキーは数値バケットキー（band=帯index・each=整数値）。rows/colsは出現バケットキーの昇順。
+function _elOscAgg(recs, legIdx, aiOf, gran) {
+  gran = gran || "band";
   var mk = function() { return { cnt: 0, eOk: 0, nextVals: [], ok: 0, ng: 0, miss: 0, planSum: 0, planCnt: 0, h1Sum: 0, h1Cnt: 0, stop: 0 }; };
   var bands = {}, matrix = {}, rowP = {}, colP = {}, total = 0, maxCell = 0;
   recs.forEach(function(r) {
-    var s = r.signal, hs = _elOscHighs(s), bi = _elOscBandIdx(hs[legIdx]);
+    var s = r.signal, hs = _elOscHighs(s), bi = _elOscBucket(hs[legIdx], gran);
     if (bi == null) return;
     if (!bands[bi]) bands[bi] = mk();
     var b = bands[bi]; b.cnt++; total++; rowP[bi] = true;
     var nv = (legIdx + 1 <= 4) ? hs[legIdx + 1] : null;
     if (nv != null) {
       b.nextVals.push(nv);
-      var nbi = _elOscBandIdx(nv);
+      var nbi = _elOscBucket(nv, gran);
       if (nbi != null) {
         colP[nbi] = true;
         if (!matrix[bi]) matrix[bi] = {};
@@ -76,15 +77,40 @@ function _elOscAgg(recs, legIdx, aiOf) {
       if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) b.stop++;
     } else if (rr && rr.judge === "miss") b.miss++;
   });
-  var rows = [], cols = [];
-  for (var i = 0; i < NB; i++) { if (rowP[i]) rows.push(i); }
-  for (var j = 0; j < NB; j++) { if (colP[j]) cols.push(j); }
+  var rows = Object.keys(rowP).map(function(k) { return Number(k); }).sort(function(a, b) { return a - b; });
+  var cols = Object.keys(colP).map(function(k) { return Number(k); }).sort(function(a, b) { return a - b; });
   return { bands: bands, matrix: matrix, rows: rows, cols: cols, total: total, maxCell: maxCell };
 }
 // OS連鎖の帯チップ。
 function _elOscChip(bi, big) {
   var d = _EL_OSC_BANDS[bi];
   return React.createElement("span", { style: { display: "inline-block", padding: big ? "2px 8px" : "1px 6px", borderRadius: 8, fontSize: big ? 11 : 9, fontWeight: 700, color: "#fff", background: d.color, whiteSpace: "nowrap" } }, d.label);
+}
+// ===== OS値分析の粒度（帯⇄1円刻み）共通 2026-06-15 =====
+// 帯/1円刻みの切替トグル。gran="band"|"each"・setGranで切替。
+function _elGranToggle(gran, setGran) {
+  var opt = function(v, lab) {
+    var on = gran === v;
+    return React.createElement("button", { type: "button", key: v, onClick: function() { setGran(v); },
+      style: { padding: "2px 9px", fontSize: 10, fontWeight: 700, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#999", borderRadius: 5 } }, lab);
+  };
+  return React.createElement("div", { style: { display: "inline-flex", gap: 4, alignItems: "center", flexShrink: 0 } },
+    React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginRight: 1 } }, "粒度"),
+    opt("band", "帯"), opt("each", "1円刻み"));
+}
+// OS高値→粒度別バケットキー（数値）。band=帯index(0..5)・each=整数値そのもの（負値=下落含む）。非数はnull。
+function _elOscBucket(v, gran) {
+  if (gran === "each") { if (v == null || v === "") return null; var n = Number(v); if (isNaN(n)) return null; return Math.round(n); }
+  return _elOscBandIdx(v);
+}
+// 粒度別バケットキー→ラベル。
+function _elOscBucketLabel(key, gran) { return gran === "each" ? (key + "円") : _EL_OSC_BANDS[key].label; }
+// 粒度別バケットキー→色（each時は値が属する帯色を継承）。
+function _elOscBucketColor(key, gran) { var bi = gran === "each" ? _elOscBandIdx(key) : key; return (bi != null && _EL_OSC_BANDS[bi]) ? _EL_OSC_BANDS[bi].color : "#6B7280"; }
+// 粒度別バケットチップ。
+function _elOscChipG(key, gran, big) {
+  if (gran !== "each") return _elOscChip(key, big);
+  return React.createElement("span", { style: { display: "inline-block", padding: big ? "2px 8px" : "1px 6px", borderRadius: 8, fontSize: big ? 11 : 9, fontWeight: 700, color: "#fff", background: _elOscBucketColor(key, gran), whiteSpace: "nowrap" } }, key + "円");
 }
 // OS連鎖分析コンポーネント（記録帳タブ＋DayViewで共用）。props: recs/data/aiOf?/dense?。
 // 状態: path=選んだ帯index配列（OS1→OS2…と絞り込み）。深さdepthでOS(depth+1)の分布を分析。
@@ -95,6 +121,11 @@ function _elOsChainSection(_ref_osc) {
   var dense = !!_ref_osc.dense;
   var _uP = useState([]), path = _uP[0], setPath = _uP[1];
   var _uS = useState(""), sigFil = _uS[0], setSigFil = _uS[1];
+  var _uG = useState("band"), gran = _uG[0], setGran = _uG[1];
+  var _setGran = function(v) { setGran(v); setPath([]); };
+  var bLab = function(k) { return _elOscBucketLabel(k, gran) + (gran === "band" ? "帯" : ""); };
+  var bCol = function(k) { return _elOscBucketColor(k, gran); };
+  var granBar = React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 6 } }, _elGranToggle(gran, _setGran));
   var _hc = "#9A3412";
   var base = recs.filter(function(r) { return r && r.signal && _epIsV2(r.signal); });
   var _tagsOf = function(s) {
@@ -107,7 +138,7 @@ function _elOsChainSection(_ref_osc) {
   var pool = sigFil ? base.filter(function(r) { return _tagsOf(r.signal).indexOf(sigFil) >= 0; }) : base;
   var scope = pool.filter(function(r) {
     var hs = _elOscHighs(r.signal);
-    for (var i = 0; i < path.length; i++) { var bi = _elOscBandIdx(hs[i]); if (bi == null || bi !== path[i]) return false; }
+    for (var i = 0; i < path.length; i++) { var bi = _elOscBucket(hs[i], gran); if (bi == null || bi !== path[i]) return false; }
     return true;
   });
   var depth = path.length, legIdx = depth, curNo = depth + 1, hasNext = curNo < 5;
@@ -121,17 +152,17 @@ function _elOsChainSection(_ref_osc) {
   var crumbs = [React.createElement("span", { key: "_root", onClick: function() { setPath([]); }, style: { cursor: "pointer", color: path.length ? "#0369A1" : "#333", fontWeight: 700, textDecoration: path.length ? "underline" : "none" } }, "全体（" + pool.length + "件）")];
   path.forEach(function(bi, i) {
     crumbs.push(React.createElement("span", { key: "_s" + i, style: { color: "#bbb", margin: "0 5px" } }, "›"));
-    crumbs.push(React.createElement("span", { key: "_c" + i, onClick: function() { setPath(path.slice(0, i)); }, style: { cursor: "pointer", color: "#0369A1", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 3 } }, "OS" + (i + 1) + ":", _elOscChip(bi)));
+    crumbs.push(React.createElement("span", { key: "_c" + i, onClick: function() { setPath(path.slice(0, i)); }, style: { cursor: "pointer", color: "#0369A1", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 3 } }, "OS" + (i + 1) + ":", _elOscChipG(bi, gran)));
   });
   var crumbBar = React.createElement("div", { style: { fontSize: 11, marginBottom: 8, display: "flex", alignItems: "center", flexWrap: "wrap", rowGap: 4 } }, crumbs);
 
   if (!scope.length) {
-    return React.createElement("div", null, sigSel, crumbBar,
+    return React.createElement("div", null, sigSel, granBar, crumbBar,
       React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "12px 0", textAlign: "center", border: "1px dashed #e0ddd6", borderRadius: 8 } }, "この条件の記録がありません"),
       React.createElement("button", { onClick: function() { setPath(path.slice(0, -1)); }, style: { marginTop: 8, padding: "5px 12px", fontSize: 11, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "← 1つ戻る"));
   }
 
-  var agg = _elOscAgg(scope, legIdx, aiOf);
+  var agg = _elOscAgg(scope, legIdx, aiOf, gran);
   var drill = function(bi) { if (hasNext) setPath(path.concat([bi])); };
 
   var head = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: _hc, marginBottom: 6 } },
@@ -140,9 +171,9 @@ function _elOsChainSection(_ref_osc) {
   var heat = null;
   if (hasNext && agg.rows.length && agg.cols.length) {
     var corner = React.createElement("td", { key: "_corner", style: { fontSize: 9, color: "#aaa", padding: "2px 6px", whiteSpace: "nowrap" } }, "OS" + curNo + " ＼ OS" + (curNo + 1));
-    var hHead = React.createElement("tr", { key: "_hh" }, [corner].concat(agg.cols.map(function(cj) { return React.createElement("td", { key: "h" + cj, style: { padding: "2px 3px", textAlign: "center" } }, _elOscChip(cj)); })));
+    var hHead = React.createElement("tr", { key: "_hh" }, [corner].concat(agg.cols.map(function(cj) { return React.createElement("td", { key: "h" + cj, style: { padding: "2px 3px", textAlign: "center" } }, _elOscChipG(cj, gran)); })));
     var hRows = agg.rows.map(function(ri) {
-      var cells = [React.createElement("td", { key: "r" + ri, onClick: function() { drill(ri); }, style: { padding: "2px 6px", cursor: hasNext ? "pointer" : "default", whiteSpace: "nowrap" } }, _elOscChip(ri))];
+      var cells = [React.createElement("td", { key: "r" + ri, onClick: function() { drill(ri); }, style: { padding: "2px 6px", cursor: hasNext ? "pointer" : "default", whiteSpace: "nowrap" } }, _elOscChipG(ri, gran))];
       agg.cols.forEach(function(cj) {
         var c = (agg.matrix[ri] && agg.matrix[ri][cj]) || 0;
         var a = c ? (0.1 + 0.55 * (c / (agg.maxCell || 1))) : 0;
@@ -158,14 +189,14 @@ function _elOsChainSection(_ref_osc) {
 
   var _pnl = function(sum, cnt) { if (!cnt) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var a = Math.round(sum / cnt); return React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(a) } }, _elPnlFmt(a)); };
   var _pctN = function(num, den) { if (!den) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var p = Math.round(num / den * 100); return React.createElement("span", { style: { fontWeight: 700, color: p >= 50 ? "#1E8449" : "#B45309" } }, p + "%"); };
-  var headLabels = ["OS" + curNo + "帯", "件数", "E到達率"].concat(hasNext ? ["OS" + (curNo + 1) + "中央"] : []).concat(["E後の勝率", "EP損益", "H1損益", "損切り率"]);
+  var headLabels = [(gran === "each" ? "OS" + curNo + "値" : "OS" + curNo + "帯"), "件数", "E到達率"].concat(hasNext ? ["OS" + (curNo + 1) + "中央"] : []).concat(["E後の勝率", "EP損益", "H1損益", "損切り率"]);
   var thead = React.createElement("tr", { style: { background: "#f5f4f0" } }, headLabels.map(function(t, i) { return React.createElement("th", { key: i, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: _hc } }, t); }));
   var _tdx = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
   var rowsTbl = agg.rows.map(function(ri) {
     var b = agg.bands[ri];
     var nextAvg = _elMedian(b.nextVals);
     var cells = [
-      _tdx(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, hasNext ? React.createElement("span", { style: { color: "#F97316", fontSize: 9 } }, "▶") : null, _elOscChip(ri, true)), { textAlign: "left", paddingLeft: 6 }),
+      _tdx(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, hasNext ? React.createElement("span", { style: { color: "#F97316", fontSize: 9 } }, "▶") : null, _elOscChipG(ri, gran, true)), { textAlign: "left", paddingLeft: 6 }),
       _tdx(b.cnt + "件", { fontWeight: 700 }),
       _tdx(_pctN(b.eOk, b.cnt))
     ];
@@ -185,27 +216,30 @@ function _elOsChainSection(_ref_osc) {
   if (agg.rows.length >= 2) {
     var items = [];
     var topB = agg.rows.slice().sort(function(a, b) { return agg.bands[b].cnt - agg.bands[a].cnt; })[0];
-    items.push(React.createElement("span", null, "OS" + curNo + "は", _elInsightEmV2(_EL_OSC_BANDS[topB].label + "帯", _EL_OSC_BANDS[topB].color), "が最も多い（" + agg.bands[topB].cnt + "/" + agg.total + "件）。"));
+    items.push(React.createElement("span", null, "OS" + curNo + "は", _elInsightEmV2(bLab(topB), bCol(topB)), "が最も多い（" + agg.bands[topB].cnt + "/" + agg.total + "件）。"));
     if (hasNext) {
       var bestNext = null;
       agg.rows.forEach(function(ri) { var b = agg.bands[ri]; if (b.nextVals.length) { var mv = _elMedian(b.nextVals); if (bestNext == null || mv > bestNext.v) bestNext = { v: mv, ri: ri }; } });
-      if (bestNext) items.push(React.createElement("span", null, "OS" + curNo + "が", _elInsightEmV2(_EL_OSC_BANDS[bestNext.ri].label + "帯", _EL_OSC_BANDS[bestNext.ri].color), "のとき次のOS" + (curNo + 1) + "が中央", _elInsightEmV2(bestNext.v + "円"), "と最も伸びる。"));
+      if (bestNext) items.push(React.createElement("span", null, "OS" + curNo + "が", _elInsightEmV2(bLab(bestNext.ri), bCol(bestNext.ri)), "のとき次のOS" + (curNo + 1) + "が中央", _elInsightEmV2(bestNext.v + "円"), "と最も伸びる。"));
     }
     var bestWin = null;
     agg.rows.forEach(function(ri) { var b = agg.bands[ri], t = b.ok + b.ng; if (t && (bestWin == null || b.ok / t > bestWin.v)) bestWin = { v: b.ok / t, ri: ri }; });
-    if (bestWin) items.push(React.createElement("span", null, "勝率が最も高いのはOS" + curNo + "＝", _elInsightEmV2(_EL_OSC_BANDS[bestWin.ri].label + "帯", _EL_OSC_BANDS[bestWin.ri].color), "（", _elInsightEmV2(Math.round(bestWin.v * 100) + "%"), "）。"));
+    if (bestWin) items.push(React.createElement("span", null, "勝率が最も高いのはOS" + curNo + "＝", _elInsightEmV2(bLab(bestWin.ri), bCol(bestWin.ri)), "（", _elInsightEmV2(Math.round(bestWin.v * 100) + "%"), "）。"));
     insight = _elInsightBoxV2(items, { note: "OS" + curNo + "＝" + (curNo <= 3 ? curNo + "本目" : curNo === 4 ? "EP後H1" : "EP後H2") + "の高値（水準線比）。E到達率＝α到達して取引できた割合。E後の勝率＝取引（E成立）後にEP損益が利益だった割合。EP損益/H1/損切り率は取引（E成立）分のみ。" });
   }
 
-  var intro = dense ? null : React.createElement("div", { style: { fontSize: 11, color: "#888", marginBottom: 8, lineHeight: 1.5 } }, "OS1の数値帯から始めて、行（またはヒートマップの行）をタップするごとに「その帯のときの次のOS」へ絞り込みます。各帯の件数・次OSの中央値/分布・成績（E到達率・E後の勝率・損益・損切り）を同時に確認できます。");
+  var _bw = gran === "each" ? "値" : "帯";
+  var intro = dense ? null : React.createElement("div", { style: { fontSize: 11, color: "#888", marginBottom: 8, lineHeight: 1.5 } }, "OS1の数値" + (gran === "each" ? "" : "帯") + "から始めて、行（またはヒートマップの行）をタップするごとに「その" + _bw + "のときの次のOS」へ絞り込みます。各" + _bw + "の件数・次OSの中央値/分布・成績（E到達率・E後の勝率・損益・損切り）を同時に確認できます。");
 
-  return React.createElement("div", null, intro, sigSel, crumbBar, head, heat, table, insight);
+  return React.createElement("div", null, intro, sigSel, granBar, crumbBar, head, heat, table, insight);
 }
 
 // 各足のOS値プロファイル（OS連鎖タブ／2026-06-14b）: OS1〜OS5(=固定の足位置・OS4=H1足/OS5=H2足)の高値(水準線比)の
 // 中央値・平均・下落率(高値が基準線割れ=負の割合)・6帯分布。OS1専用の「OS値の分析」(_elOsSectionV2)を全足に拡張。
 // OS2以降は基準線割れ(下落)があるため下落帯を含む_EL_OSC_BANDS/_elOscBandIdxで集計。役割は採用αで動くがここは固定足位置で集計。
-function _elOsLegsSectionV2(recs) {
+function _elOsLegsSectionV2(_ref) {
+  var recs = _ref.recs;
+  var _uG = useState("band"), gran = _uG[0], setGran = _uG[1];
   var base = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal); });
   if (!base.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "EP起算（v2）記録がありません");
   var LEGS = [{ i: 0, label: "OS1" }, { i: 1, label: "OS2" }, { i: 2, label: "OS3" }, { i: 3, label: "OS4(H1)" }, { i: 4, label: "OS5(H2)" }];
@@ -215,7 +249,7 @@ function _elOsLegsSectionV2(recs) {
     var neg = 0, dist = [0, 0, 0, 0, 0, 0];
     vals.forEach(function(v) { if (v < 0) neg++; var bi = _elOscBandIdx(v); if (bi != null) dist[bi]++; });
     var mean = vals.length ? Math.round(vals.reduce(function(a, b) { return a + b; }, 0) / vals.length * 10) / 10 : null;
-    return { label: L.label, n: vals.length, med: _elMedian(vals), mean: mean, neg: neg, dist: dist };
+    return { label: L.label, n: vals.length, med: _elMedian(vals), mean: mean, neg: neg, dist: dist, vals: vals };
   });
   var _bar6 = function(dist) {
     var tot = 0; dist.forEach(function(c) { tot += c; });
@@ -223,6 +257,22 @@ function _elOsLegsSectionV2(recs) {
     var tip = _EL_OSC_BANDS.map(function(b, i) { return b.label + ": " + dist[i] + "件"; }).join(" / ");
     return React.createElement("span", { title: tip, style: { display: "inline-flex", width: 96, height: 11, borderRadius: 3, overflow: "hidden", background: "#f0ede6", verticalAlign: "middle" } },
       _EL_OSC_BANDS.map(function(b, i) { var c = dist[i]; if (!c) return null; return React.createElement("span", { key: i, style: { width: (c / tot * 100) + "%", background: b.color, height: "100%" } }); }));
+  };
+  // 1円刻みヒストグラム（整数値ごとの件数を棒で・色は属する帯。負値=下落も表示）。各棒hoverで「N円: M件」。
+  var _bar1 = function(vals) {
+    if (!vals.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+    var cnt = {}, mn = Infinity, mx = -Infinity;
+    vals.forEach(function(v) { var k = Math.round(v); cnt[k] = (cnt[k] || 0) + 1; if (k < mn) mn = k; if (k > mx) mx = k; });
+    var maxC = 0, kk; for (kk in cnt) { if (cnt[kk] > maxC) maxC = cnt[kk]; }
+    var bars = [];
+    for (var x = mn; x <= mx; x++) {
+      var c = cnt[x] || 0;
+      var bi = _elOscBandIdx(x);
+      var col = (bi != null && _EL_OSC_BANDS[bi]) ? _EL_OSC_BANDS[bi].color : "#ccc";
+      bars.push(React.createElement("span", { key: x, title: x + "円: " + c + "件", style: { flex: "1 0 0", display: "flex", flexDirection: "column", justifyContent: "flex-end", minWidth: 2 } },
+        React.createElement("span", { style: { height: (c ? Math.max(2, Math.round(c / maxC * 22)) : 0) + "px", background: c ? col : "transparent", borderRadius: 1 } })));
+    }
+    return React.createElement("span", { title: mn + "〜" + mx + "円（1円刻み）", style: { display: "inline-flex", alignItems: "flex-end", gap: 1, width: 150, height: 24, verticalAlign: "middle" } }, bars);
   };
   var _medNode = function(m) { return m == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("b", { style: { color: m >= 0 ? "#9A3412" : "#1E8449" } }, m + "円"); };
   var body = rows.map(function(o) {
@@ -232,7 +282,7 @@ function _elOsLegsSectionV2(recs) {
       _elv2Td(_medNode(o.med)),
       _elv2Td(o.mean != null ? React.createElement("span", { style: { color: "#888" } }, o.mean + "円") : "—"),
       _elv2Td(o.n ? React.createElement("span", { style: { fontWeight: 700, color: o.neg ? "#1E8449" : "#bbb" } }, Math.round(o.neg / o.n * 100) + "%") : "—"),
-      _elv2Td(_bar6(o.dist)));
+      _elv2Td(gran === "each" ? _bar1(o.vals) : _bar6(o.dist)));
   });
   var legend = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "2px 8px", margin: "5px 0 0" } },
     _EL_OSC_BANDS.map(function(b, i) { return React.createElement("span", { key: i, style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 9, color: "#666" } }, React.createElement("span", { style: { width: 9, height: 9, borderRadius: 2, background: b.color, display: "inline-block" } }), b.label); }));
@@ -243,9 +293,10 @@ function _elOsLegsSectionV2(recs) {
   if (negLeg) items.push(React.createElement("span", null, _elInsightEmV2(negLeg.label), "は下落率", _elInsightEmV2(Math.round(negLeg.neg / negLeg.n * 100) + "%"), "＝高値が基準線割れになりやすい足（深追い注意）。"));
   if (h1.med != null) items.push(React.createElement("span", null, "EP後はH1(OS4)中央", _elInsightEmV2(h1.med + "円"), h2.med != null ? React.createElement("span", null, "・H2(OS5)中央", _elInsightEmV2(h2.med + "円")) : null, "＝保有中の典型的な高値。最適な手仕舞いは深掘りタブの「最適ホールド本数」を参照。"));
   return React.createElement("div", null,
-    _elv2Table(["足", "入力", "中央値", "平均", "下落率", "帯分布（6帯）"], body),
+    React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 4 } }, _elGranToggle(gran, setGran)),
+    _elv2Table(["足", "入力", "中央値", "平均", "下落率", gran === "each" ? "1円刻み分布" : "帯分布（6帯）"], body),
     legend,
-    _elInsightBoxV2(items, { note: "各足の高値（水準線比・↑正/↓負）。OS1=寄り足／OS2・OS3=待ち足／OS4=EP後H1足・OS5=H2足の固定位置。OS2以降は基準線割れ（高値が負＝下落）あり＝下落帯を含む。中央値=右偏のため典型値（平均は外れ値に上振れ）。下落率=高値が0未満の割合。" }));
+    _elInsightBoxV2(items, { note: (gran === "each" ? "各足の高値（水準線比・↑正/↓負）を1円刻みで分布表示（棒の色＝属する帯・hoverで件数）。" : "各足の高値（水準線比・↑正/↓負）。") + "OS1=寄り足／OS2・OS3=待ち足／OS4=EP後H1足・OS5=H2足の固定位置。OS2以降は基準線割れ（高値が負＝下落）あり＝下落帯を含む。中央値=右偏のため典型値（平均は外れ値に上振れ）。下落率=高値が0未満の割合。" }));
 }
 
 // records配列のOS値統計（平均/中央値/最頻値/最小/最大/帯別分布dist[5]）。OS値入力なしならnull。
@@ -957,6 +1008,54 @@ function _elOsPctlV2(recs) {
     bandMode: { i: bmi, cnt: dist[bmi], pct: Math.round(dist[bmi] / n * 100) } };
 }
 
+// OS値帯別の成績テーブル（帯⇄1円刻み切替・2026-06-15）。集計タブ「OS値の分析」内。aiOf(r)→{alpha,cutLine}。
+// 集計は_elOsSectionV2の帯別集計と共通ルール（採用α・E成立分のみ）で値一致。each=OS1値を1円刻みで分割（OS1高値は0以上）。
+function _elOsBandPerfV2(_ref) {
+  var recs = _ref.recs || [];
+  var aiOf = _ref.aiOf;
+  var _uG = useState("band"), gran = _uG[0], setGran = _uG[1];
+  var mk = function() { return { cnt: 0, reach: 0, ok: 0, ng: 0, miss: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, stop: 0 }; };
+  var buckets = {};
+  recs.forEach(function(r) {
+    var s = r.signal; if (!s || s.osVal == null || s.osVal === "") return;
+    var key;
+    if (gran === "each") { var nv = Number(s.osVal); if (isNaN(nv) || nv < 0) return; key = Math.round(nv); }
+    else { key = _elOsBandIdxV2(s.osVal); if (key == null) return; }
+    var ai = aiOf(r); var o = buckets[key] || (buckets[key] = mk()); o.cnt++;
+    if (_epReachedAt(s, ai.alpha)) o.reach++;
+    var rr = _epResolve(s, ai.alpha);
+    if (rr && rr.judge === "ok") {
+      var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") o.ok++; else if (res === "ng") o.ng++;
+      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { o.plan += pv; o.planCnt++; }
+      var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { o.h1 += h1.main; o.h1Cnt++; }
+      if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) o.stop++;
+    } else if (rr && rr.judge === "miss") o.miss++;
+  });
+  var keys = Object.keys(buckets).map(function(k) { return Number(k); }).sort(function(a, b) { return a - b; });
+  var chip = function(key) {
+    var col, lab;
+    if (gran === "each") { var bi = _elOsBandIdxV2(key); col = (bi != null && _EL_OS_BANDS_V2[bi]) ? _EL_OS_BANDS_V2[bi].color : "#888"; lab = key + "円"; }
+    else { col = _EL_OS_BANDS_V2[key].color; lab = _EL_OS_BANDS_V2[key].label; }
+    return React.createElement("span", { style: { display: "inline-block", fontSize: 10, fontWeight: 700, color: "#fff", background: col, borderRadius: 8, padding: "1px 7px" } }, lab);
+  };
+  var bRows = keys.map(function(key) {
+    var ob = buckets[key];
+    return React.createElement("tr", { key: key },
+      _elv2Td(chip(key), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(ob.cnt + "件", { fontWeight: 700 }),
+      _elv2Td(_elv2Rate(ob.reach, ob.cnt)),
+      _elv2Td(_elEwinCell(ob.ok, ob.ng)),
+      _elv2Td(_elv2Avg(ob.plan, ob.planCnt)),
+      _elv2Td(_elv2Avg(ob.h1, ob.h1Cnt)),
+      _elv2Td(ob.cnt ? Math.round(ob.stop / ob.cnt * 100) + "%" : "—", { color: ob.stop ? "#1E8449" : "#bbb", fontWeight: ob.stop ? 700 : 400 }));
+  });
+  return React.createElement("div", null,
+    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "8px 0 0", flexWrap: "wrap" } },
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, gran === "each" ? "OS値（1円刻み）別の成績" : "OS値帯（初動の強さ）別の成績"),
+      _elGranToggle(gran, setGran)),
+    bRows.length ? _elv2Table([gran === "each" ? "OS1値" : "OS1帯", "件数", "E到達率", "E後の勝率", "平均EP損益", "平均H1", "損切り率"], bRows)
+      : React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "OS値の記録がありません"));
+}
 // OS値の総合分析（記録帳・集計タブ／2026-06-14）: 中央値主軸の統計＋右偏バッジ＋成立率→α分位表＋OS値帯別の成績。
 // 「重視すべきは平均でなく中央値（α到達確率と直結）」という方針をUIに落とし込む。aiOf(r)→{alpha,cutLine}。
 function _elOsSectionV2(recs, aiOf) {
@@ -993,21 +1092,8 @@ function _elOsSectionV2(recs, aiOf) {
       if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) o.stop++;
     } else if (rr && rr.judge === "miss") o.miss++;
   });
-  var bRows = [];
-  for (var bx = 0; bx < 5; bx++) {
-    var ob = bands[bx]; if (!ob) continue;
-    bRows.push(React.createElement("tr", { key: bx },
-      _elv2Td(React.createElement("span", { style: { display: "inline-block", fontSize: 10, fontWeight: 700, color: "#fff", background: _EL_OS_BANDS_V2[bx].color, borderRadius: 8, padding: "1px 7px" } }, _EL_OS_BANDS_V2[bx].label), { textAlign: "left", paddingLeft: 8 }),
-      _elv2Td(ob.cnt + "件", { fontWeight: 700 }),
-      _elv2Td(_elv2Rate(ob.reach, ob.cnt)),
-      _elv2Td(_elEwinCell(ob.ok, ob.ng)),
-      _elv2Td(_elv2Avg(ob.plan, ob.planCnt)),
-      _elv2Td(_elv2Avg(ob.h1, ob.h1Cnt)),
-      _elv2Td(ob.cnt ? Math.round(ob.stop / ob.cnt * 100) + "%" : "—", { color: ob.stop ? "#1E8449" : "#bbb", fontWeight: ob.stop ? 700 : 400 })));
-  }
-  var bTable = bRows.length ? React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "OS値帯（初動の強さ）別の成績"),
-    _elv2Table(["OS1帯", "件数", "E到達率", "E後の勝率", "平均EP損益", "平均H1", "損切り率"], bRows)) : null;
+  // 帯別成績テーブルは帯⇄1円刻みトグル付きの子コンポーネントへ（集計ロジックは上のbandsと共通ルール）。
+  var bTable = React.createElement(_elOsBandPerfV2, { recs: recs, aiOf: aiOf });
   var items = [];
   items.push(React.createElement("span", null, "OS値（初動）は", _elInsightEmV2(_EL_OS_BANDS_V2[pc.bandMode.i].label + "帯", _EL_OS_BANDS_V2[pc.bandMode.i].color), "が最多（" + pc.bandMode.pct + "%）。典型値＝", _elInsightEmV2("中央値 " + os.med + "円"), pc.skewRight ? React.createElement("span", null, "（平均 " + os.avg + "円は一部の大きいOSに上振れ＝", _elInsightEmV2("中央値で読むのが安全", "#B45309"), "）") : null, "。"));
   items.push(React.createElement("span", null, "α設定の目安：", _elInsightEmV2("α" + pc.a50 + "円", "#0369A1"), "で約半数、", _elInsightEmV2("α" + pc.a70 + "円", "#0369A1"), "で約7割、", _elInsightEmV2("α" + pc.a80 + "円", "#0369A1"), "で約8割の場面でα到達。深いαほど取れた時は大きいが見送りも増える。"));
@@ -1727,8 +1813,8 @@ function EntryLogView(_ref_elv2) {
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし");
   } else if (view === "oschain") {
     _tabBody = React.createElement(React.Fragment, null,
-      _secH("📊 各足のOS値プロファイル（OS1〜OS5）", "各足の高値（水準線比）の中央値・下落率・分布。OS2以降は基準線割れ（下落）あり＝下落帯を含む"),
-      _elOsLegsSectionV2(v2recs),
+      _secH("📊 各足のOS値プロファイル（OS1〜OS5）", "各足の高値（水準線比）の中央値・下落率・分布（帯⇄1円刻み切替可）。OS2以降は基準線割れ（下落）あり＝下落帯を含む"),
+      React.createElement(_elOsLegsSectionV2, { recs: v2recs }),
       _secH("🔗 OS連鎖（数値帯の遷移）", "OS1の帯から行タップでOS2→OS3…へ絞り込み。各帯の次OS中央値・遷移・成績"),
       React.createElement(_elOsChainSection, { recs: v2recs, data: data }));
   } else if (view === "period") {
