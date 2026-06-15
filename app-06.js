@@ -1102,6 +1102,124 @@ function _elOsSectionV2(recs, aiOf) {
   return React.createElement("div", null, statLine, pieRow, aTable, bTable, _elInsightBoxV2(items, { note: "中央値=ちょうど半数がそれ以上のOSになる値（α到達確率と直結＝α設定はこちらが目安）。平均は合計・期待値の計算向き。最頻帯=最も多く出る5円帯。E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）。成績は採用α基準・E成立分のみ。" }));
 }
 
+// 指定recs（{stock,signal,date}配列）の記録系フル指標を集計（採用α基準・E成立分のEP/H1/損切り・OS=中央値）。OS値入力0件ならnull。
+// aiOf(r)→{alpha,cutLine}。_elOsSectionV2の帯別集計と同一ルール＝銘柄別記録/取引テーブルの損益計算基準に一致。2026-06-15。
+function _elPeriodStatsV2(recs, aiOf) {
+  var osv = [], cnt = 0, reach = 0, ok = 0, ng = 0, planSum = 0, planCnt = 0, h1Sum = 0, h1Cnt = 0, stop = 0;
+  (recs || []).forEach(function(r) {
+    var s = r && r.signal; if (!s || s.osVal == null || s.osVal === "") return;
+    var nv = Number(s.osVal); if (!isNaN(nv)) osv.push(nv);
+    cnt++;
+    var ai = aiOf(r);
+    if (_epReachedAt(s, ai.alpha)) reach++;
+    var rr = _epResolve(s, ai.alpha);
+    if (rr && rr.judge === "ok") {
+      var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") ok++; else if (res === "ng") ng++;
+      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { planSum += pv; planCnt++; }
+      var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1 && h1.main != null) { h1Sum += h1.main; h1Cnt++; }
+      if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) stop++;
+    }
+  });
+  if (!cnt) return null;
+  return { n: cnt, osMed: _elMedian(osv), reach: reach, cnt: cnt, ok: ok, ng: ng,
+    planAvg: planCnt ? Math.round(planSum / planCnt) : null, planCnt: planCnt,
+    h1Avg: h1Cnt ? Math.round(h1Sum / h1Cnt) : null, h1Cnt: h1Cnt, stop: stop };
+}
+// 日別ページ用：指定銘柄の「この日／今週／全期間」を data.charts から集めて記録系フル指標を比較表示（採用α基準）。
+// 全期間（その銘柄）を基準に、この日の傾向を判定（↑高い/↓低い/≈同等）＋💡読み取り。全期間にv2記録なし or この日に記録なしなら非表示。2026-06-15。
+function _elDayStockBenchV2(_ref) {
+  var data = _ref.data, date = _ref.date, stock = _ref.stock;
+  var charts = (data && data.charts) || {};
+  var _pad = function(n) { return ("0" + n).slice(-2); };
+  var _ymd = function(d) { return d.getFullYear() + "-" + _pad(d.getMonth() + 1) + "-" + _pad(d.getDate()); };
+  var _d0 = new Date(date + "T00:00:00");
+  var _dow = _d0.getDay();
+  var _mon = new Date(_d0.getTime()); _mon.setDate(_d0.getDate() - ((_dow + 6) % 7));
+  var _fri = new Date(_mon.getTime()); _fri.setDate(_mon.getDate() + 4);
+  var wkS = _ymd(_mon), wkE = _ymd(_fri);
+  var collect = function(pred) {
+    var out = [];
+    Object.keys(charts).forEach(function(k) {
+      var idx = k.lastIndexOf("_"); if (idx < 0) return;
+      var stk = k.slice(0, idx), dt = k.slice(idx + 1);
+      if (stk !== stock || !pred(dt)) return;
+      var c = charts[k];
+      (Array.isArray(c.signals) ? c.signals : []).forEach(function(sig) {
+        var s = _compatSignal(sig); if (!_epIsV2(s)) return;
+        out.push({ stock: stk, date: dt, signal: s });
+      });
+    });
+    return out;
+  };
+  var aiOf = function(r) { return _elAlphaInfo(r, data); };
+  var stAll = _elPeriodStatsV2(collect(function() { return true; }), aiOf);
+  var stDay = _elPeriodStatsV2(collect(function(dt) { return dt === date; }), aiOf);
+  if (!stAll || !stDay) return null;
+  var stWk = _elPeriodStatsV2(collect(function(dt) { return dt >= wkS && dt <= wkE; }), aiOf);
+
+  var dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var pctNode = function(num, den) { return den ? (Math.round(num / den * 100) + "%") : dash; };
+  var yenNode = function(v) { return v == null ? dash : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+  var cellOf = {
+    os: function(st) { return (st && st.osMed != null) ? React.createElement("span", { style: { fontWeight: 700, color: _vcol(st.osMed, true) } }, st.osMed + "円") : dash; },
+    reach: function(st) { return st ? pctNode(st.reach, st.cnt) : dash; },
+    win: function(st) { return st ? pctNode(st.ok, st.ok + st.ng) : dash; },
+    ep: function(st) { return st ? yenNode(st.planAvg) : dash; },
+    h1: function(st) { return st ? yenNode(st.h1Avg) : dash; },
+    stop: function(st) { return st ? pctNode(st.stop, st.cnt) : dash; }
+  };
+  var numOf = {
+    os: function(st) { return st ? st.osMed : null; },
+    reach: function(st) { return (st && st.cnt) ? st.reach / st.cnt : null; },
+    win: function(st) { return (st && (st.ok + st.ng)) ? st.ok / (st.ok + st.ng) : null; },
+    ep: function(st) { return st ? st.planAvg : null; },
+    h1: function(st) { return st ? st.h1Avg : null; },
+    stop: function(st) { return (st && st.cnt) ? st.stop / st.cnt : null; }
+  };
+  var EPS = { os: 0.5, reach: 0.03, win: 0.03, ep: 50, h1: 50, stop: 0.03 };
+  var METRICS = [
+    { key: "os", label: "平均OS値(中央値)", good: "up" },
+    { key: "reach", label: "E到達率", good: "up" },
+    { key: "win", label: "E後の勝率", good: "up" },
+    { key: "ep", label: "平均EP損益", good: "up" },
+    { key: "h1", label: "平均H1損益", good: "up" },
+    { key: "stop", label: "損切り率", good: "down" }
+  ];
+  var judgeNode = function(m) {
+    var dv = numOf[m.key](stDay), av = numOf[m.key](stAll);
+    if (dv == null || av == null) return dash;
+    var diff = dv - av;
+    if (Math.abs(diff) <= EPS[m.key]) return React.createElement("span", { style: { color: "#888", fontSize: 10 } }, "≈同等");
+    var up = diff > 0, fav = (m.good === "up") ? up : !up;
+    return React.createElement("span", { style: { color: fav ? "#C0392B" : "#1E8449", fontWeight: 700, fontSize: 10 } }, up ? "↑高い" : "↓低い");
+  };
+  var rows = METRICS.map(function(m) {
+    return React.createElement("tr", { key: m.key },
+      _elv2Td(m.label, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#555" }),
+      _elv2Td(cellOf[m.key](stDay)),
+      _elv2Td(cellOf[m.key](stWk)),
+      _elv2Td(cellOf[m.key](stAll)),
+      _elv2Td(judgeNode(m)));
+  });
+  var table = _elv2Table(["指標", "この日", "今週", "全期間", "この日vs全期間"], rows);
+  var items = [];
+  if (stDay.osMed != null && stAll.osMed != null) {
+    items.push(React.createElement("span", null, "この日のOS中央値は", _elInsightEmV2(stDay.osMed + "円"), "（全期間", _elInsightEmV2(stAll.osMed + "円"), "）＝", _elInsightEmV2(stDay.osMed > stAll.osMed ? "全体より初動が強め" : stDay.osMed < stAll.osMed ? "全体より初動が弱め" : "全体と同程度", stDay.osMed > stAll.osMed ? "#C0392B" : stDay.osMed < stAll.osMed ? "#1E8449" : "#888"), "。"));
+  }
+  if ((stDay.ok + stDay.ng) && (stAll.ok + stAll.ng)) {
+    items.push(React.createElement("span", null, "E後の勝率は", _elInsightEmV2(Math.round(stDay.ok / (stDay.ok + stDay.ng) * 100) + "%"), "（全期間", _elInsightEmV2(Math.round(stAll.ok / (stAll.ok + stAll.ng) * 100) + "%"), "）。"));
+  }
+  if (stDay.cnt && stAll.cnt) {
+    var dStop = Math.round(stDay.stop / stDay.cnt * 100), aStop = Math.round(stAll.stop / stAll.cnt * 100);
+    items.push(React.createElement("span", null, "損切り率は", _elInsightEmV2(dStop + "%"), "（全期間", _elInsightEmV2(aStop + "%"), "）＝", _elInsightEmV2(dStop < aStop ? "この日は損切りが少なめ" : dStop > aStop ? "この日は損切りが多め" : "全体と同程度", dStop < aStop ? "#C0392B" : dStop > aStop ? "#1E8449" : "#888"), "。"));
+  }
+  var insight = items.length ? _elInsightBoxV2(items, { note: "全期間（この銘柄）を基準に、この日の傾向を比較。OS=中央値・採用α基準・EP損益/H1/損切りはE成立分のみ。件数 この日" + stDay.n + "／今週" + (stWk ? stWk.n : 0) + "／全期間" + stAll.n + "件。" }) : null;
+  return React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e5de", borderRadius: 8, padding: "10px 12px", marginTop: 10 } },
+    React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 " + stock + "：この日 vs 全期間"),
+    React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 6 } }, "全期間（この銘柄）の分析を基準に、この日のデータがどうだったか（記録系フル指標）"),
+    table, insight);
+}
+
 // 最適ホールド本数（記録帳・深掘りタブ／2026-06-14）: EPから+0/+1/+2本…と持ち続けた場合の深さ別の平均損益・損切り率・EP比改善率を集計し、
 // 全期間で最も期待値の高い手仕舞い本数を示す。_epHoldLadder（E成立分のみ・採用α/損切り基準）を深さ別に転置集計。aiOf(r)→{alpha,cutLine}。
 function _elHoldDepthSectionV2(recs, aiOf) {

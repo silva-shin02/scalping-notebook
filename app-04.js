@@ -3699,7 +3699,7 @@ function DayView(_ref57) {
       }
       _safeSetTab("news");
     }
-  })))), tab === "trades" && React.createElement("div", null,
+  })), React.createElement(_elDayStockBenchV2, { data: data, date: date, stock: activeStock })), tab === "trades" && React.createElement("div", null,
   React.createElement("div", { style: Card },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
       React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "エントリー記録"),
@@ -4903,7 +4903,11 @@ function DayView(_ref57) {
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大のα・目標=2,500円以上の最小α。100株換算・合計行と同基準。"),
         _elIdealAlphaTableV2(_pbIdealGroups, _pbCutOf))
     );
-    return React.createElement(React.Fragment, null, _pbMainEl, _wkMainEl, _soukatsuEl);
+    var _benchEl = (_pbStks && _pbStks.length) ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 全期間との比較（この日 vs 全期間・銘柄別）"),
+      React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄の全期間データを基準に、この日のデータがどうだったか（記録系フル指標）"),
+      _pbStks.map(function(_sk) { return React.createElement(_elDayStockBenchV2, { key: _sk, data: data, date: date, stock: _sk }); })) : null;
+    return React.createElement(React.Fragment, null, _pbMainEl, _benchEl, _wkMainEl, _soukatsuEl);
   })(),
 
   (function() {
