@@ -3881,9 +3881,9 @@ function ImageAnnotator(_ref7) {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (baseImgRef.current) {
-      try { ctx.drawImage(baseImgRef.current, 0, 0, logicalSizeRef.current.w, logicalSizeRef.current.h); } catch(e) {}
-    }
+    // ②方式(2026-06-15): ベース画像はcanvasに焼かず背面の<img>で表示（iPadのcanvas上限と無関係に常時高精細）。
+    // canvasは手書きストローク専用＝透明のまま。消しゴムはストローク削除→rebuildで透明に戻り背面imgが透ける。
+    // 保存(_pngWork)はbaseImgRefを使い別canvasで合成するので画質・容量は不変。
     return true;
   }
 
@@ -4039,19 +4039,15 @@ function ImageAnnotator(_ref7) {
     var onImageReady = function(bImg, imgUrl) {
       if (cancelled) return; 
       var nw = bImg.naturalWidth, nh = bImg.naturalHeight;
-      // iOS/iPadOSのSafariはcanvas上限が約16Mピクセル・1辺4096px。超えると無音で間引かれ
-      // CSS拡大表示でガビガビになるため、iOSでは上限を16M/4096に制限（デスクトップは32M/8192）。
+      // ②方式(2026-06-15): ベース画像は背面の<img>で表示するので、「論理サイズ(=保存PNGの合成サイズ・座標空間)」と
+      // 「手書きストロークcanvasの物理サイズ」を別々に制限する。iOS/iPadOSのcanvasは約16Mpx・1辺の上限があり超えると無音で間引かれる。
       var _isIOSCanvas = /iPad|iPhone|iPod/.test(navigator.userAgent || "") || (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1);
-      // iOSの実上限は16,777,216px(4096²)。maxScale算出が上限ちょうどを狙うと丸めで超過し
-      // 無音失敗→ガビガビになるため、6%のマージンを取り15.7Mに抑える（中型画像も上限まで拡大される設計のため全サイズに効く）。
-      var MAX_CANVAS_AREA = _isIOSCanvas ? 15728640 : 33554432;
-      // 1辺制限はWebKit実限界(32767)に対し余裕を持たせ16384。縦長フルページスクショ(例:1170×9000)は
-      // 面積16M以下なら無縮小で保持（旧4096だと1辺制限で半減し文字が潰れていた）。
-      var MAX_CANVAS_DIM = 16384;
+      // 論理サイズの上限＝保存PNGのサイズ。保存画質を変えないため従来どおり(面積15.7M/1辺16384・iOSは面積のみ15.7M)。
+      var LOGICAL_MAX_AREA = _isIOSCanvas ? 15728640 : 33554432;
+      var LOGICAL_MAX_DIM = 16384;
       var area = nw * nh;
-      // 面積 or 1辺が上限を超える場合のみ論理サイズを縮小
-      var _byArea = area > MAX_CANVAS_AREA ? Math.sqrt(MAX_CANVAS_AREA / area) : 1;
-      var _byDim = Math.max(nw, nh) > MAX_CANVAS_DIM ? MAX_CANVAS_DIM / Math.max(nw, nh) : 1;
+      var _byArea = area > LOGICAL_MAX_AREA ? Math.sqrt(LOGICAL_MAX_AREA / area) : 1;
+      var _byDim = Math.max(nw, nh) > LOGICAL_MAX_DIM ? LOGICAL_MAX_DIM / Math.max(nw, nh) : 1;
       var scale = Math.min(_byArea, _byDim);
       if (scale < 1) {
         nw = Math.floor(nw * scale);
@@ -4062,8 +4058,11 @@ function ImageAnnotator(_ref7) {
       baseImgRef.current = bImg;
       logicalSizeRef.current = { w: nw, h: nh };
       scRef.current = Math.min((window.innerWidth * 0.96) / nw, ((window.innerHeight - 130) * 0.96) / nh, 1);
-      // 物理canvasが面積・1辺の上限を超えないよう maxScale を算出
-      maxScaleRef.current = Math.min(Math.sqrt(MAX_CANVAS_AREA / (nw * nh)), MAX_CANVAS_DIM / Math.max(nw, nh));
+      // ストロークcanvasの物理上限はiOS実上限(1辺4096)に収める＝手書き線がガビガビ/消失しない。
+      // ベース画質は背面imgが担当するのでcanvas解像度を上げる必要なし。デスクトップは従来どおり大きめ。
+      var CANVAS_MAX_AREA = _isIOSCanvas ? 15728640 : 33554432;
+      var CANVAS_MAX_DIM = _isIOSCanvas ? 4096 : 16384;
+      maxScaleRef.current = Math.min(Math.sqrt(CANVAS_MAX_AREA / (nw * nh)), CANVAS_MAX_DIM / Math.max(nw, nh));
       _applyRenderScale(1);
       console.log("[Annotator] renderScale=" + dprRef.current.toFixed(3) + " logical=" + nw + "×" + nh + " physical=" + c.width + "×" + c.height + " maxScale=" + maxScaleRef.current.toFixed(3) + " devicePixelRatio=" + window.devicePixelRatio);
 
