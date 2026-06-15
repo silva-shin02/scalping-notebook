@@ -4540,7 +4540,7 @@ function DayView(_ref57) {
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
                 _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")), _wkTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")), _wkTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
-                _wkTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中/平"))), _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
+                _wkTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中央/平均"))), _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
               )
             ),
             React.createElement("tbody", null,
@@ -4865,7 +4865,7 @@ function DayView(_ref57) {
               _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "引"), { width: 30 }),
               _pbTh(React.createElement("span", { style: { color: "#C0392B" } }, "負"), { width: 30 }),
               _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達"), { width: 40 }),
-              _pbTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中/平")), { width: 54 }),
+              _pbTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中央/平均")), { width: 54 }),
               _pbTh(React.createElement("span", null, "EP損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
               _pbTh(React.createElement("span", null, "H１損益"), { width: 78 }),
               _pbTh(React.createElement("span", null, "H２損益"), { width: 78 }),
@@ -4902,8 +4902,8 @@ function DayView(_ref57) {
         _elIdealAlphaTableV2(_pbIdealGroups, _pbCutOf))
     );
     var _benchEl = (_pbStks && _pbStks.length) ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 全期間との比較（この日 vs 全期間・銘柄別）"),
-      React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄の全期間データを基準に、この日のデータがどうだったか（記録系フル指標）"),
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 全期間との比較（本日 vs 全期間・銘柄別）"),
+      React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄の全期間データを基準に、本日のデータがどうだったか（記録系フル指標）"),
       _pbStks.map(function(_sk) { return React.createElement(_elDayStockBenchV2, { key: _sk, data: data, date: date, stock: _sk }); })) : null;
     return React.createElement(React.Fragment, null, _pbMainEl, _benchEl, _wkMainEl, _soukatsuEl);
   })(),

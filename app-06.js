@@ -972,8 +972,8 @@ function _elOsMMCell(arr) {
   if (!arr || !arr.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var md = _elMedian(arr), mn = _elMean(arr);
   return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
-    React.createElement("span", { style: { fontWeight: 700, color: _vcol(md, true) } }, "中" + md + "円"),
-    React.createElement("span", { style: { fontSize: 9, color: "#888" } }, "平" + mn + "円"));
+    React.createElement("span", { style: { fontWeight: 700, color: _vcol(md, true) } }, "中央" + md + "円"),
+    React.createElement("span", { style: { fontSize: 9, color: "#888" } }, "平均" + mn + "円"));
 }
 // 損益セル: 平均（主・色付き）＋中央値（副）＋合計（計）を1セルに併記（2026-06-15）。arr=損益配列（円）。
 function _elPnlMMCell(arr) {
@@ -981,15 +981,15 @@ function _elPnlMMCell(arr) {
   var sum = 0; for (var i = 0; i < arr.length; i++) sum += Number(arr[i]);
   var mn = Math.round(sum / arr.length), md = Math.round(_elMedian(arr));
   return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
-    React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(mn) } }, "平" + _elPnlFmt(mn)),
-    React.createElement("span", { style: { fontSize: 9, color: "#777" } }, "中" + _elPnlFmt(md)),
+    React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(mn) } }, "平均" + _elPnlFmt(mn)),
+    React.createElement("span", { style: { fontSize: 9, color: "#777" } }, "中央" + _elPnlFmt(md)),
     React.createElement("span", { style: { fontSize: 8, color: "#bbb" } }, "計" + (sum > 0 ? "+" : "") + Math.round(sum).toLocaleString()));
 }
-// KPIカード等の文字列用: "平X / 中Y"（円などのunitは引数で付与）。空配列は「—」。
+// KPIカード等の文字列用: "平均X / 中央Y"（円などのunitは引数で付与）。空配列は「—」。
 function _elMMText(arr, unit) {
   if (!arr || !arr.length) return "—";
   var u = unit || "";
-  return "平" + _elMean(arr) + u + " / 中" + _elMedian(arr) + u;
+  return "平均" + _elMean(arr) + u + " / 中央" + _elMedian(arr) + u;
 }
 // E後の勝率セル（2026-06-14b）: エントリー(E成立)後に利益が出た割合＝ok/(ok+ng)。取引(ok+ng)が0なら「—」。下に母数(E成立件数)。
 // 敗率・未達率は出さない（未達率はE到達率の裏返し）。色は勝率≥50%で緑・未満で橙。
@@ -1185,8 +1185,8 @@ function _elDayStockBenchV2(_ref) {
   var dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var pctNode = function(num, den) { return den ? (Math.round(num / den * 100) + "%") : dash; };
   var yenNode = function(v) { return v == null ? dash : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
-  var yenNode2 = function(avg, med) { if (avg == null) return dash; return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(avg) } }, "平" + _elPnlFmt(avg)), med != null ? React.createElement("span", { style: { fontSize: 9, color: "#777" } }, "中" + _elPnlFmt(med)) : null); };
-  var osNode2 = function(med, mean) { if (med == null) return dash; return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: _vcol(med, true) } }, "中" + med + "円"), mean != null ? React.createElement("span", { style: { fontSize: 9, color: "#888" } }, "平" + mean + "円") : null); };
+  var yenNode2 = function(avg, med) { if (avg == null) return dash; return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(avg) } }, "平均" + _elPnlFmt(avg)), med != null ? React.createElement("span", { style: { fontSize: 9, color: "#777" } }, "中央" + _elPnlFmt(med)) : null); };
+  var osNode2 = function(med, mean) { if (med == null) return dash; return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: _vcol(med, true) } }, "中央" + med + "円"), mean != null ? React.createElement("span", { style: { fontSize: 9, color: "#888" } }, "平均" + mean + "円") : null); };
   var cellOf = {
     os: function(st) { return st ? osNode2(st.osMed, st.osMean) : dash; },
     reach: function(st) { return st ? pctNode(st.reach, st.cnt) : dash; },
@@ -1205,11 +1205,11 @@ function _elDayStockBenchV2(_ref) {
   };
   var EPS = { os: 0.5, reach: 0.03, win: 0.03, ep: 50, h1: 50, stop: 0.03 };
   var METRICS = [
-    { key: "os", label: "OS値(中/平)", good: "up" },
+    { key: "os", label: "OS値(中央/平均)", good: "up" },
     { key: "reach", label: "E到達率", good: "up" },
     { key: "win", label: "E後の勝率", good: "up" },
-    { key: "ep", label: "EP損益(平/中)", good: "up" },
-    { key: "h1", label: "H1損益(平/中)", good: "up" },
+    { key: "ep", label: "EP損益(平均/中央)", good: "up" },
+    { key: "h1", label: "H1損益(平均/中央)", good: "up" },
     { key: "stop", label: "損切り率", good: "down" }
   ];
   var judgeNode = function(m) {
@@ -1228,22 +1228,22 @@ function _elDayStockBenchV2(_ref) {
       _elv2Td(cellOf[m.key](stAll)),
       _elv2Td(judgeNode(m)));
   });
-  var table = _elv2Table(["指標", "この日", "今週", "全期間", "この日vs全期間"], rows);
+  var table = _elv2Table(["指標", "本日", "今週", "全期間", "本日vs全期間"], rows);
   var items = [];
   if (stDay.osMed != null && stAll.osMed != null) {
-    items.push(React.createElement("span", null, "この日のOS中央値は", _elInsightEmV2(stDay.osMed + "円"), "（全期間", _elInsightEmV2(stAll.osMed + "円"), "）＝", _elInsightEmV2(stDay.osMed > stAll.osMed ? "全体より初動が強め" : stDay.osMed < stAll.osMed ? "全体より初動が弱め" : "全体と同程度", stDay.osMed > stAll.osMed ? "#C0392B" : stDay.osMed < stAll.osMed ? "#1E8449" : "#888"), "。"));
+    items.push(React.createElement("span", null, "本日のOS中央値は", _elInsightEmV2(stDay.osMed + "円"), "（全期間", _elInsightEmV2(stAll.osMed + "円"), "）＝", _elInsightEmV2(stDay.osMed > stAll.osMed ? "全体より初動が強め" : stDay.osMed < stAll.osMed ? "全体より初動が弱め" : "全体と同程度", stDay.osMed > stAll.osMed ? "#C0392B" : stDay.osMed < stAll.osMed ? "#1E8449" : "#888"), "。"));
   }
   if ((stDay.ok + stDay.ng) && (stAll.ok + stAll.ng)) {
     items.push(React.createElement("span", null, "E後の勝率は", _elInsightEmV2(Math.round(stDay.ok / (stDay.ok + stDay.ng) * 100) + "%"), "（全期間", _elInsightEmV2(Math.round(stAll.ok / (stAll.ok + stAll.ng) * 100) + "%"), "）。"));
   }
   if (stDay.cnt && stAll.cnt) {
     var dStop = Math.round(stDay.stop / stDay.cnt * 100), aStop = Math.round(stAll.stop / stAll.cnt * 100);
-    items.push(React.createElement("span", null, "損切り率は", _elInsightEmV2(dStop + "%"), "（全期間", _elInsightEmV2(aStop + "%"), "）＝", _elInsightEmV2(dStop < aStop ? "この日は損切りが少なめ" : dStop > aStop ? "この日は損切りが多め" : "全体と同程度", dStop < aStop ? "#C0392B" : dStop > aStop ? "#1E8449" : "#888"), "。"));
+    items.push(React.createElement("span", null, "損切り率は", _elInsightEmV2(dStop + "%"), "（全期間", _elInsightEmV2(aStop + "%"), "）＝", _elInsightEmV2(dStop < aStop ? "本日は損切りが少なめ" : dStop > aStop ? "本日は損切りが多め" : "全体と同程度", dStop < aStop ? "#C0392B" : dStop > aStop ? "#1E8449" : "#888"), "。"));
   }
-  var insight = items.length ? _elInsightBoxV2(items, { note: "全期間（この銘柄）を基準に、この日の傾向を比較。OS=中央値（平均併記）・損益=平均（中央値併記）・採用α基準・EP損益/H1/損切りはE成立分のみ。件数 この日" + stDay.n + "／今週" + (stWk ? stWk.n : 0) + "／全期間" + stAll.n + "件。" }) : null;
+  var insight = items.length ? _elInsightBoxV2(items, { note: "全期間（この銘柄）を基準に、本日の傾向を比較。OS=中央値（平均併記）・損益=平均（中央値併記）・採用α基準・EP損益/H1/損切りはE成立分のみ。件数 本日" + stDay.n + "／今週" + (stWk ? stWk.n : 0) + "／全期間" + stAll.n + "件。" }) : null;
   return React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e5de", borderRadius: 8, padding: "10px 12px", marginTop: 10 } },
-    React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 " + stock + "：この日 vs 全期間"),
-    React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 6 } }, "全期間（この銘柄）の分析を基準に、この日のデータがどうだったか（記録系フル指標）"),
+    React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 " + stock + "：本日 vs 全期間"),
+    React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 6 } }, "全期間（この銘柄）の分析を基準に、本日のデータがどうだったか（記録系フル指標）"),
     table, insight);
 }
 
@@ -1273,7 +1273,7 @@ function _elHoldDepthSectionV2(recs, aiOf) {
     return React.createElement("tr", { key: o.d, style: star ? { background: "#FEF3C7" } : null },
       _elv2Td(React.createElement("span", null, _dl(o.d), star ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 4, fontWeight: 800 } }, "★平均最大") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
       _elv2Td(o.cnt + "件", { fontWeight: 700 }),
-      _elv2Td(o.pnlArr && o.pnlArr.length ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("b", { style: { color: _elPnlColor(o.avg) } }, "平" + _elPnlFmt(o.avg)), React.createElement("span", { style: { fontSize: 9, color: "#777" } }, "中" + _elPnlFmt(Math.round(_elMedian(o.pnlArr))))) : "—"),
+      _elv2Td(o.pnlArr && o.pnlArr.length ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("b", { style: { color: _elPnlColor(o.avg) } }, "平均" + _elPnlFmt(o.avg)), React.createElement("span", { style: { fontSize: 9, color: "#777" } }, "中央" + _elPnlFmt(Math.round(_elMedian(o.pnlArr))))) : "—"),
       _elv2Td(o.pnlCnt ? React.createElement("span", { style: { fontSize: 10, color: _elPnlColor(o.sum) } }, _elPnlFmt(o.sum)) : "—"),
       _elv2Td(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
       _elv2Td(o.d === 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : (o.impBase ? _elv2Rate(o.imp, o.impBase) : "—")));
@@ -1284,7 +1284,7 @@ function _elHoldDepthSectionV2(recs, aiOf) {
   var h1r = rows[1];
   if (h1r && h1r.impBase) items.push(React.createElement("span", null, "EPからH1まで持って損益が改善した割合は", _elInsightEmV2(Math.round(h1r.imp / h1r.impBase * 100) + "%"), "。"));
   return React.createElement("div", null,
-    _elv2Table(["手仕舞い位置", "件数(到達)", "損益(平/中)", "合計", "損切り率(累積)", "EP比改善率"], body),
+    _elv2Table(["手仕舞い位置", "件数(到達)", "損益(平均/中央)", "合計", "損切り率(累積)", "EP比改善率"], body),
     _elInsightBoxV2(items, { note: "各記録をEPからその本数だけ持って手仕舞いした場合の損益（_epHoldLadder・採用α/損切り基準・100株換算）。深い本数はそこまで足がある記録のみの平均＝母数が減る点に注意（合計列も参考に）。損切り率(累積)=その本数までに損切りラインへ到達した割合。EP比改善率=EP即手仕舞いより損益が良くなった割合。★=平均損益が最大の本数。" }));
 }
 
@@ -1378,9 +1378,9 @@ function _elExecGapSectionV2(recs, aiOf) {
   var r1 = function(x) { return Math.round(x * 10) / 10; };
   var cards = _elv2CardRow([
     _elv2Card("実エントリー", ent.length + "件", "#9A3412", "取引ありの記録"),
-    _elv2Card("計画αで取引", aBase ? Math.round(aSame / aBase * 100) + "%" : "—", aBase && aSame / aBase >= 0.7 ? "#1E8449" : "#B45309", aBase ? "規律遵守 " + aSame + "/" + aBase + "件" + (aDiff ? "・ズレ平" + r1(aDiffSum / aDiff) + "/中" + _elMedian(aDiffArr) + "円" : "") : "tradeAlpha未記録"),
-    _elv2Card("建玉ズレ(実−計画EP)", gCnt ? ("平" + (gSum / gCnt >= 0 ? "+" : "") + r1(gSum / gCnt) + " / 中" + (function() { var _m = _elMedian(gapRows.map(function(x) { return x.gap; })); return (_m >= 0 ? "+" : "") + _m; })() + "円") : "—", gCnt ? (Math.abs(gSum / gCnt) <= 2 ? "#1E8449" : "#B45309") : "#bbb", gCnt ? gCnt + "件で比較" : "Entry-OS未記録"),
-    _elv2Card("実Exit-OS", exitCnt ? ("平" + r1(exitSum / exitCnt) + " / 中" + _elMedian(exitArr) + "円") : "—", "#555", exitCnt ? exitCnt + "件" : "Exit-OS未記録")
+    _elv2Card("計画αで取引", aBase ? Math.round(aSame / aBase * 100) + "%" : "—", aBase && aSame / aBase >= 0.7 ? "#1E8449" : "#B45309", aBase ? "規律遵守 " + aSame + "/" + aBase + "件" + (aDiff ? "・ズレ平均" + r1(aDiffSum / aDiff) + "/中央" + _elMedian(aDiffArr) + "円" : "") : "tradeAlpha未記録"),
+    _elv2Card("建玉ズレ(実−計画EP)", gCnt ? ("平均" + (gSum / gCnt >= 0 ? "+" : "") + r1(gSum / gCnt) + " / 中央" + (function() { var _m = _elMedian(gapRows.map(function(x) { return x.gap; })); return (_m >= 0 ? "+" : "") + _m; })() + "円") : "—", gCnt ? (Math.abs(gSum / gCnt) <= 2 ? "#1E8449" : "#B45309") : "#bbb", gCnt ? gCnt + "件で比較" : "Entry-OS未記録"),
+    _elv2Card("実Exit-OS", exitCnt ? ("平均" + r1(exitSum / exitCnt) + " / 中央" + _elMedian(exitArr) + "円") : "—", "#555", exitCnt ? exitCnt + "件" : "Exit-OS未記録")
   ]);
   gapRows.sort(function(a, b) { return Math.abs(b.gap) - Math.abs(a.gap); });
   var top = gapRows.slice(0, 6);

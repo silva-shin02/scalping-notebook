@@ -5109,7 +5109,7 @@ function WeeklyPnlPanel(_wpp) {
           React.createElement("tr", { style: { background: "#f5f4f0" } },
             _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
             _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")), _wkTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")), _wkTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
-            _wkTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中/平"))), _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" }))),
+            _wkTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中央/平均"))), _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" }))),
         React.createElement("tbody", null,
           [
             _sumRow("週合計", "#555", _recs, true, "wk__total__"),
