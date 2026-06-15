@@ -1100,6 +1100,14 @@ function _fbPut() {
           
           var _lightMeta = _buildMeta(fbData);
           _lightMeta._v = _fbLocalV;
+          // 差分同期用: トップレベルセクションごとの署名(_sv)を書き込む。読み手はこれを見て変更分だけDLする。2026-06-15
+          try {
+            var _svMap = {};
+            for (var _svk in _lightMeta) {
+              if (_lightMeta.hasOwnProperty(_svk) && _svk !== "_v" && _svk !== "_sv") _svMap[_svk] = _secSig(_lightMeta[_svk]);
+            }
+            _lightMeta._sv = _svMap;
+          } catch(_esv) {}
           var _metaBody = JSON.stringify(_lightMeta);
           
           
@@ -1191,6 +1199,87 @@ function _fbPollV() {
 
 
 
+
+
+// ===== 差分同期（meta.jsonを丸ごとでなく、変わったトップレベルセクションだけ取得）2026-06-15 =====
+// キー順に依存しない正準JSON（キーをソート）。ローカルとリモートで同内容なら必ず同一署名になるように。
+function _canonStr(o) {
+  if (o === null || typeof o !== "object") return JSON.stringify(o);
+  if (Array.isArray(o)) { var a = []; for (var i = 0; i < o.length; i++) a.push(_canonStr(o[i])); return "[" + a.join(",") + "]"; }
+  var keys = Object.keys(o).sort();
+  var parts = [];
+  for (var j = 0; j < keys.length; j++) parts.push(JSON.stringify(keys[j]) + ":" + _canonStr(o[keys[j]]));
+  return "{" + parts.join(",") + "}";
+}
+// セクション署名（画像base64は__ref__に剥がしてから＝metaと同条件で比較）。「長さ:ハッシュ」で衝突を実質排除。
+function _secSig(section) {
+  var s = _canonStr(_stripHeavy(section));
+  return s.length + ":" + _fbHashStr(s);
+}
+// 差分取得: remoteの _sv（セクション署名マップ）を見て、ローカルと違うセクションだけDLし、
+// 「ローカルの未変更セクション＋取得した変更セクション」で“完全なremote相当”を再構成して返す。
+// →マージ(_mergeRemoteMeta)は従来どおり全件を受け取るので欠落セクション削除のリスクが無い（安全設計）。
+// _svが無い(旧DB)・ローカル無し・取得失敗など不確実時はすべて {status:"full"} を返し、呼び出し側が全件取得にフォールバック。
+function fbGetDiff(cfg, localData, remoteV) {
+  var base = _fbBase(cfg), auth = _fbAuth(cfg);
+  if (!base || !localData || typeof localData !== "object" || !(localData.trades || localData.charts)) {
+    return Promise.resolve({ status: "full" });
+  }
+  return fetch(base + "/meta/_sv.json" + auth)
+    .then(function(r) { if (!r.ok) return null; return r.text(); })
+    .then(function(txt) {
+      var remoteSv = null;
+      try { remoteSv = txt ? JSON.parse(txt) : null; } catch(e) { remoteSv = null; }
+      try { _fbTrack("db_dl", txt ? txt.length : 0); } catch(e) {}
+      if (!remoteSv || typeof remoteSv !== "object") return { status: "full" }; // 旧DB(_svなし)→全件
+      // 変更セクション = ローカル署名 != リモート署名 のキー（両側のキー和集合）
+      var keyset = {}, k;
+      for (k in remoteSv) { if (remoteSv.hasOwnProperty(k)) keyset[k] = 1; }
+      for (k in localData) { if (localData.hasOwnProperty(k) && k !== "_v" && k !== "_sv") keyset[k] = 1; }
+      var changed = [];
+      for (k in keyset) {
+        if (!keyset.hasOwnProperty(k)) continue;
+        var lSig = localData.hasOwnProperty(k) ? _secSig(localData[k]) : null;
+        var rSig = remoteSv.hasOwnProperty(k) ? remoteSv[k] : null;
+        if (lSig !== rSig) changed.push(k);
+      }
+      if (!changed.length) return { status: "nochange" }; // 全セクション内容一致→DL不要
+      var fetches = changed.filter(function(ck) { return remoteSv.hasOwnProperty(ck); }).map(function(ck) {
+        return fetch(base + "/meta/" + encodeURIComponent(ck) + ".json" + auth)
+          .then(function(r2) { if (!r2.ok) throw new Error("sec " + ck + " HTTP " + r2.status); return r2.text(); })
+          .then(function(t2) { try { _fbTrack("db_dl", t2 ? t2.length : 0); } catch(e) {} return { k: ck, v: t2 ? JSON.parse(t2) : null }; });
+      });
+      return Promise.all(fetches).then(function(parts) {
+        // 変更ありと判定したのに本体がnullで返った=不整合(部分書き込み/競合など) → 安全のため全件取得にフォールバック
+        for (var pi = 0; pi < parts.length; pi++) { if (parts[pi].v == null) return { status: "full" }; }
+        var recon = {}, lk;
+        for (lk in localData) { if (localData.hasOwnProperty(lk)) recon[lk] = localData[lk]; }
+        parts.forEach(function(p) { recon[p.k] = p.v; });
+        // トップレベルセクションの「消滅」は伝播させない（旧スキーマ/古い版の端末がwriterになった時に
+        // custom(タグ/銘柄/シグナル定義など設定)を全端末から消す事故を防ぐ。差分は全件マージより安全側に倒す）。
+        recon._v = (typeof remoteV === "number") ? remoteV : (localData._v || Date.now());
+        delete recon._sv;  // ローカルは_svを読まない(毎回_secSigで再計算)ので保存データに残さない
+        if (!(recon.trades || recon.charts)) return { status: "full" }; // 健全性チェック
+        return { status: "diff", data: recon, changed: changed };
+      })["catch"](function() { return { status: "full" }; });
+    })["catch"](function() { return { status: "full" }; });
+}
+// ポーリングで版数が変わった時に呼ぶ取得。差分が使えれば変更分だけ、ダメなら全件にフォールバック。
+// 戻り値 {ok:true,data:再構成済みfullメタ}=マージ対象 / {ok:true,data:null,nochange:true}=内容一致(版数だけ進める)
+//        / {ok:false}=取得失敗(版数を進めず次ポーリングで再試行)
+function _fbPollFetch(cfg, localData, remoteV) {
+  function _full() {
+    return fbGet(cfg).then(function(d) {
+      if (d && d !== "EMPTY" && typeof d === "object" && (d.trades || d.charts)) return { ok: true, data: d };
+      return { ok: false };
+    })["catch"](function() { return { ok: false }; });
+  }
+  return fbGetDiff(cfg, localData, remoteV).then(function(res) {
+    if (res.status === "diff") return { ok: true, data: res.data };
+    if (res.status === "nochange") return { ok: true, data: null, nochange: true };
+    return _full();
+  })["catch"](function() { return _full(); });
+}
 
 
 function fbInitialLoad(cfg, localData) {
@@ -1291,6 +1380,16 @@ function snCachePut(url, blob) {
     })["catch"](function() {});
   } catch(e) {}
 }
+
+// Service Workerが「実際にネットワーク取得した」Storage画像のバイト数だけを受け取りst_dlに計上する。2026-06-15
+// キャッシュHIT(課金されないDL)は数えない＝旧来JS側fetchで一律計上していた過大計上＆誤オートポーズを解消。
+try {
+  if (typeof navigator !== "undefined" && navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener("message", function(ev) {
+      if (ev && ev.data && ev.data.type === "sn_st_dl") { try { _fbTrack("st_dl", ev.data.bytes || 0); } catch(e) {} }
+    });
+  }
+} catch(e) {}
 
 
 function _stSaveImagesToIdb(data) {
@@ -1462,11 +1561,14 @@ function CaThumbImg(_p_cti) {
         setCachedSrc("data:" + mt + ";base64," + cached.base64);
         return;
       }
-      
+      // IDB未キャッシュ時のみ1回だけStorageから取得し、その場で表示にも使う。
+      // 旧実装は初期srcにurlを入れていたため、IDBにあっても<img>が即DL＋裏でfetch＝二重DLになっていた。2026-06-15
+      // st_dlの計上はSW(ネットワーク取得時のみ)へ移したのでここでは数えない（キャッシュHITの過大計上を防ぐ）。
       fetch(url).then(function(r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.blob();
       }).then(function(blob) {
+        if (!blob || !blob.size) throw new Error("empty blob");  // 空応答をIDBに焼いて壊れ画像を固定しない
         var mt2 = blob.type || "image/png";
         return new Promise(function(resolve, reject) {
           var reader = new FileReader();
@@ -1476,12 +1578,14 @@ function CaThumbImg(_p_cti) {
         });
       }).then(function(o) {
         if (cancelled) return;
+        if (!o.b64) throw new Error("empty b64");
         try { snIdbSet(idbKey, { base64: o.b64, mt: o.mt }); } catch(_){}
-      }).catch(function(){});
-    }).catch(function(){});
+        setCachedSrc("data:" + o.mt + ";base64," + o.b64);
+      }).catch(function(){ if (!cancelled) setCachedSrc(url); });
+    }).catch(function(){ if (!cancelled) setCachedSrc(url); });
     return function() { cancelled = true; };
   }, [url]);
-  return React.createElement("img", Object.assign({}, rest, { src: cachedSrc || url || "" }));
+  return React.createElement("img", Object.assign({}, rest, { src: cachedSrc || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" }));
 }
 
 
@@ -1502,9 +1606,8 @@ function preloadImages(dataRef, setData, stSaveFn, activeDate) {
       if (obj.imageUrl && (!obj.base64 || obj.base64 === "__ref__" || obj.base64 === null)) {
         targets.push({ obj: obj, key: "base64", url: obj.imageUrl, mt: obj.mt });
       }
-      if (obj.origImageUrl && (!obj.orig_base64 || obj.orig_base64 === "__ref__" || obj.orig_base64 === null)) {
-        targets.push({ obj: obj, key: "orig_base64", url: obj.origImageUrl, mt: obj.orig_mt || obj.mt });
-      }
+      // 原画像(orig_base64)は注釈/拡大を開いた時しか使わない。先読みするとStorageダウンロードが
+      // 約2倍になるため、ここでは先読みせずorigImgSrc経由で表示時に遅延DL（SWがキャッシュ）。2026-06-15
     }
     for (var k in obj) {
       if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") {
@@ -1577,8 +1680,7 @@ function preloadImages(dataRef, setData, stSaveFn, activeDate) {
           if (!r.ok) throw new Error(r.status);
           return r.blob();
         }).then(function(blob) {
-          _fbTrack("st_dl", blob.size);
-          snCachePut(t.url, blob); 
+          snCachePut(t.url, blob);  // st_dlの計上はSW(ネットワーク取得時のみ)へ集約。ここでは数えない。
           return new Promise(function(resolve, reject) {
             var reader = new FileReader();
             reader.onload = function() { resolve(reader.result.split(",")[1]); };

@@ -295,11 +295,10 @@ function App() {
   var startPolling = function startPolling(c) {
     if (pollRef.current) clearInterval(pollRef.current);
     if (!c || !c.fbUrl || c.fbPaused !== false) return;
-    var _metaUrl = _fbBase(c) + "/meta.json" + _fbAuth(c);
     
     
     pollRef.current = setInterval(_asyncToGenerator(_regenerator().m(function _callee3() {
-      var remoteV, metaR, remoteMeta, merged;
+      var remoteV, remoteMeta, merged;
       return _regenerator().w(function (_context3) {
         while (1) switch (_context3.p = _context3.n) {
           case 0:
@@ -327,28 +326,29 @@ function App() {
               break;
             }
             _context3.n = 3;
-            return fetch(_metaUrl).then(function(r){return r.ok?r.text():null;}).then(function(txt){
-              if(!txt)return null;_fbTrack("db_dl",txt.length);try{return JSON.parse(txt);}catch(e){return null;}
-            })["catch"](function(){return null;});
+            // 差分同期: 変わったセクションだけ取得（_fbPollFetchが内部で全件フォールバック）。2026-06-15
+            return _fbPollFetch(c, dataRef.current, remoteV);
           case 3:
-            remoteMeta = _context3.v;
-            if (remoteMeta && typeof remoteMeta === "object" && (remoteMeta.trades || remoteMeta.charts)) {
-              _fbLocalV = remoteV;
-              
-              var _pLv = (dataRef.current && typeof dataRef.current._v === "number") ? dataRef.current._v : 0;
-              var _pRv = (remoteMeta && typeof remoteMeta._v === "number") ? remoteMeta._v : 0;
-              if (_pLv > _pRv) {
-                console.log("[FB] poll: local is newer (lv=" + _pLv + " > rv=" + _pRv + "), skipping merge and pushing local");
-                if (cfgRef.current && cfgRef.current.fbUrl && cfgRef.current.fbPaused === false) {
-                  fbPut(cfgRef.current, dataRef.current)["catch"](function(e){ console.warn("fbPut(poll local-wins) failed:", e); });
+            var _pf = _context3.v;
+            if (_pf && _pf.ok) {
+              _fbLocalV = remoteV; // 同期成功 or 内容一致 → 版数を進める（取得失敗時は進めず次ポーリングで再試行）
+              remoteMeta = _pf.data; // nochange時はnull＝マージ不要
+              if (remoteMeta && typeof remoteMeta === "object" && (remoteMeta.trades || remoteMeta.charts)) {
+                var _pLv = (dataRef.current && typeof dataRef.current._v === "number") ? dataRef.current._v : 0;
+                var _pRv = (remoteMeta && typeof remoteMeta._v === "number") ? remoteMeta._v : 0;
+                if (_pLv > _pRv) {
+                  console.log("[FB] poll: local is newer (lv=" + _pLv + " > rv=" + _pRv + "), skipping merge and pushing local");
+                  if (cfgRef.current && cfgRef.current.fbUrl && cfgRef.current.fbPaused === false) {
+                    fbPut(cfgRef.current, dataRef.current)["catch"](function(e){ console.warn("fbPut(poll local-wins) failed:", e); });
+                  }
+                } else {
+                  merged = _mergeRemoteMeta(dataRef.current, remoteMeta);
+                  merged = migrateData(merged);
+                  setData(merged);
+                  stSave(merged);
+                  dataRef.current = merged;
+                  preloadImages(dataRef, setData, stSave, selRef.current);
                 }
-              } else {
-                merged = _mergeRemoteMeta(dataRef.current, remoteMeta);
-                merged = migrateData(merged);
-                setData(merged);
-                stSave(merged);
-                dataRef.current = merged;
-                preloadImages(dataRef, setData, stSave, selRef.current);
               }
             }
           case 4: 
@@ -437,6 +437,39 @@ function App() {
     var pz = function(e) { if (e.ctrlKey || e.metaKey) e.preventDefault(); };
     document.addEventListener("wheel", pz, {passive: false});
     return function() { document.removeEventListener("wheel", pz, {passive: false}); };
+  }, []);
+  // iOS/Safari対策: localStorage/IndexedDBはITP(7日未使用・容量逼迫)で消される。消えると起動のたびに
+  // meta.json全件＋画像をStorageから再DLし、Firebaseのダウンロード枠を圧迫する（超過の主因）。
+  // 永続化はユーザー操作後（特にホーム画面追加=PWA時）に要求するとiOSでも許可されやすいので、
+  // 読み込み時(IDB open)に加えて最初の操作後にも要求する。2026-06-15
+  useEffect(function () {
+    if (!(navigator.storage && navigator.storage.persist)) return undefined;
+    var done = false;
+    var cleanup = function() {
+      document.removeEventListener("pointerdown", ask, true);
+      document.removeEventListener("touchend", ask, true);
+      document.removeEventListener("keydown", ask, true);
+    };
+    function ask() {
+      if (done) return; done = true;
+      try {
+        var _doPersist = function() {
+          navigator.storage.persist().then(function(granted) {
+            console.log("[Storage] persist after gesture:", granted ? "granted" : "denied");
+          })["catch"](function(){});
+        };
+        var p = navigator.storage.persisted ? navigator.storage.persisted() : Promise.resolve(false);
+        p.then(function(already) {
+          if (already) { console.log("[Storage] already persistent"); return; }
+          _doPersist();
+        })["catch"](function(){ _doPersist(); });
+      } catch(e) {}
+      cleanup();
+    }
+    document.addEventListener("pointerdown", ask, true);
+    document.addEventListener("touchend", ask, true);
+    document.addEventListener("keydown", ask, true);
+    return cleanup;
   }, []);
   useEffect(function () {
     try {

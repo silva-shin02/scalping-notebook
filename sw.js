@@ -51,7 +51,17 @@ self.addEventListener("fetch", function(event) {
         return cache.match(url).then(function(cached) {
           if (cached) return cached;
           return fetch(new Request(url, { mode: "cors" })).then(function(res) {
-            if (res && res.ok) cache.put(url, res.clone());
+            if (res && res.ok) {
+              cache.put(url, res.clone());
+              // 実DL(ネットワーク取得)のバイト数だけをページへ通知してst_dl計上。キャッシュHITはこの分岐に来ない=数えない。2026-06-15
+              try {
+                res.clone().blob().then(function(b) {
+                  self.clients.matchAll().then(function(cs) {
+                    cs.forEach(function(cl) { cl.postMessage({ type: "sn_st_dl", bytes: (b && b.size) || 0 }); });
+                  });
+                })["catch"](function() {});
+              } catch(e) {}
+            }
             return res;
           })["catch"](function() { return fetch(req); });
         });
