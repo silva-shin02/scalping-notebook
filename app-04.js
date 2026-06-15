@@ -3699,7 +3699,7 @@ function DayView(_ref57) {
       }
       _safeSetTab("news");
     }
-  })), React.createElement(_elDayStockBenchV2, { data: data, date: date, stock: activeStock })), tab === "trades" && React.createElement("div", null,
+  })), React.createElement(_elDayStockBenchV2, { data: data, date: date, stock: activeStock }))), tab === "trades" && React.createElement("div", null,
   React.createElement("div", { style: Card },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
       React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "エントリー記録"),
