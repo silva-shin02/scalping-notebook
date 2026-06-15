@@ -5017,7 +5017,7 @@ function WeeklyPnlPanel(_wpp) {
       _td(st.draw || "0", { color: "#6B7280" }),
       _td(st.ng || "0", { color: "#C0392B", fontWeight: st.ng ? 700 : 400 }),
       _td(st.miss || "0", { color: "#B45309" }),
-      _td(_osv != null ? React.createElement("span", { style: { color: _vcol(_osv, true), fontWeight: _osv >= 10 ? 700 : 600 } }, _osv + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+      _td(_elOsMMCell((recs || []).map(function(_r){ return _r.signal.osVal; }).filter(function(_v){ return _v != null && _v !== ""; }).map(Number))),
       _td((function() {
         if (_allMiss) return _qZeroCell();
         var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;
@@ -5109,7 +5109,7 @@ function WeeklyPnlPanel(_wpp) {
           React.createElement("tr", { style: { background: "#f5f4f0" } },
             _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
             _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")), _wkTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")), _wkTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
-            _wkTh("平均OS値"), _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" }))),
+            _wkTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中/平"))), _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" }))),
         React.createElement("tbody", null,
           [
             _sumRow("週合計", "#555", _recs, true, "wk__total__"),

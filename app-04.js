@@ -4448,7 +4448,7 @@ function DayView(_ref57) {
           _td(st.draw || "0", { color: "#6B7280" }),
           _td(st.ng || "0", { color: "#C0392B", fontWeight: st.ng ? 700 : 400 }),
           _td(st.miss || "0", { color: "#B45309" }),
-          _td(_osv != null ? React.createElement("span", { style: { color: _vcol(_osv, true), fontWeight: _osv >= 10 ? 700 : 600 } }, _osv + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+          _td(_elOsMMCell((recs || []).map(function(_r){ return _r.signal.osVal; }).filter(function(_v){ return _v != null && _v !== ""; }).map(Number))),
           _td((function() {
             if (_allMiss) return _qZeroCell();
             var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;
@@ -4540,7 +4540,7 @@ function DayView(_ref57) {
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
                 _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")), _wkTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")), _wkTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
-                _wkTh("平均OS値"), _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
+                _wkTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中/平"))), _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
               )
             ),
             React.createElement("tbody", null,
@@ -4654,9 +4654,7 @@ function DayView(_ref57) {
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
             var _osArr = (recs || []).map(function(_r){ return _r.signal.osVal; }).filter(function(_v){ return _v != null && _v !== ""; }).map(Number);
-            if (!_osArr.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-            var _avgOs = Math.round(_osArr.reduce(function(_a, _b){ return _a + _b; }, 0) / _osArr.length * 10) / 10;
-            return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_avgOs, true), fontWeight: _avgOs >= 10 ? 700 : 600 } }, _avgOs + "円");
+            return _elOsMMCell(_osArr);
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
@@ -4867,7 +4865,7 @@ function DayView(_ref57) {
               _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "引"), { width: 30 }),
               _pbTh(React.createElement("span", { style: { color: "#C0392B" } }, "負"), { width: 30 }),
               _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達"), { width: 40 }),
-              _pbTh(React.createElement("span", null, "平均", React.createElement("span", { style: { display: "block" } }, "OS値")), { width: 50 }),
+              _pbTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中/平")), { width: 54 }),
               _pbTh(React.createElement("span", null, "EP損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
               _pbTh(React.createElement("span", null, "H１損益"), { width: 78 }),
               _pbTh(React.createElement("span", null, "H２損益"), { width: 78 }),
@@ -5004,7 +5002,7 @@ function DayView(_ref57) {
     if (_dayStocks.length) {
       var _osRows = _dayStocks.map(function(stk, ri){
         var sd=_elOsStatsV2(_osDay[stk]), sw=_elOsStatsV2(_osWk[stk]), sa=_elOsStatsV2(_osAll[stk]);
-        var _avgNode = function(st){ return st ? React.createElement("span",{style:{fontWeight:700,color:_vcol(st.avg,true)}}, st.avg+"円") : React.createElement("span",{style:{color:"#ccc"}},"—"); };
+        var _avgNode = function(st){ return st ? React.createElement("span",{style:{display:"inline-flex",flexDirection:"column",alignItems:"center",lineHeight:1.15}}, React.createElement("span",{style:{fontWeight:700,color:_vcol(st.med,true)}}, "中"+st.med+"円"), React.createElement("span",{style:{fontSize:9,color:"#888"}}, "平"+st.avg+"円")) : React.createElement("span",{style:{color:"#ccc"}},"—"); };
         var _cmp = (sd&&sa) ? (sd.avg>sa.avg?React.createElement("span",{style:{color:"#C0392B",fontWeight:700}},"↑高い"):sd.avg<sa.avg?React.createElement("span",{style:{color:"#1E8449",fontWeight:700}},"↓低い"):React.createElement("span",{style:{color:"#888"}},"≈同等")) : React.createElement("span",{style:{color:"#ccc"}},"—");
         return React.createElement("tr",{key:ri},
           _td2(stk,{textAlign:"left",fontWeight:700,color:"#9A3412"}),
@@ -5014,7 +5012,7 @@ function DayView(_ref57) {
           _td2(sa?_elOsDistBarV2(sa.dist,72,11):React.createElement("span",{style:{color:"#ccc"}},"—")),
           _td2(_cmp));
       });
-      _osTable = React.createElement("div",{style:{overflowX:"auto"}}, React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",fontSize:11}}, React.createElement("thead",null,React.createElement("tr",{style:{background:"#f5f4f0"}}, _th2("銘柄",{textAlign:"left"}), _th2("本日OS1平均"), _th2("今週"), _th2("全期間"), _th2("全期間分布"), _th2("本日vs全期間"))), React.createElement("tbody",null,_osRows)));
+      _osTable = React.createElement("div",{style:{overflowX:"auto"}}, React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",fontSize:11}}, React.createElement("thead",null,React.createElement("tr",{style:{background:"#f5f4f0"}}, _th2("銘柄",{textAlign:"left"}), _th2("本日OS1値"), _th2("今週"), _th2("全期間"), _th2("全期間分布"), _th2("本日vs全期間"))), React.createElement("tbody",null,_osRows)));
       var _flat = function(by){ var out=[]; Object.keys(by).forEach(function(k){ out=out.concat(by[k]); }); return out; };
       var _allDay=_elOsStatsV2(_flat(_osDay)), _allAll=_elOsStatsV2(_flat(_osAll));
       if (_allDay && _allAll) {

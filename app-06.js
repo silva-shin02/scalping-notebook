@@ -47,7 +47,7 @@ function _elOscHighs(s) {
 // bands/matrixのキーは数値バケットキー（band=帯index・each=整数値）。rows/colsは出現バケットキーの昇順。
 function _elOscAgg(recs, legIdx, aiOf, gran) {
   gran = gran || "band";
-  var mk = function() { return { cnt: 0, eOk: 0, nextVals: [], ok: 0, ng: 0, miss: 0, planSum: 0, planCnt: 0, h1Sum: 0, h1Cnt: 0, stop: 0 }; };
+  var mk = function() { return { cnt: 0, eOk: 0, nextVals: [], ok: 0, ng: 0, miss: 0, planSum: 0, planCnt: 0, planVals: [], h1Sum: 0, h1Cnt: 0, h1Vals: [], stop: 0 }; };
   var bands = {}, matrix = {}, rowP = {}, colP = {}, total = 0, maxCell = 0;
   recs.forEach(function(r) {
     var s = r.signal, hs = _elOscHighs(s), bi = _elOscBucket(hs[legIdx], gran);
@@ -71,9 +71,9 @@ function _elOscAgg(recs, legIdx, aiOf, gran) {
       var res = _elDynResult(s, ai.alpha, ai.cutLine);
       if (res === "ok") b.ok++; else if (res === "ng") b.ng++;
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine);
-      if (pv != null) { b.planSum += pv; b.planCnt++; }
+      if (pv != null) { b.planSum += pv; b.planCnt++; b.planVals.push(pv); }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine);
-      if (h1 && h1.main != null) { b.h1Sum += h1.main; b.h1Cnt++; }
+      if (h1 && h1.main != null) { b.h1Sum += h1.main; b.h1Cnt++; b.h1Vals.push(h1.main); }
       if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) b.stop++;
     } else if (rr && rr.judge === "miss") b.miss++;
   });
@@ -189,21 +189,20 @@ function _elOsChainSection(_ref_osc) {
 
   var _pnl = function(sum, cnt) { if (!cnt) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var a = Math.round(sum / cnt); return React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(a) } }, _elPnlFmt(a)); };
   var _pctN = function(num, den) { if (!den) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var p = Math.round(num / den * 100); return React.createElement("span", { style: { fontWeight: 700, color: p >= 50 ? "#1E8449" : "#B45309" } }, p + "%"); };
-  var headLabels = [(gran === "each" ? "OS" + curNo + "値" : "OS" + curNo + "帯"), "件数", "E到達率"].concat(hasNext ? ["OS" + (curNo + 1) + "中央"] : []).concat(["E後の勝率", "EP損益", "H1損益", "損切り率"]);
+  var headLabels = [(gran === "each" ? "OS" + curNo + "値" : "OS" + curNo + "帯"), "件数", "E到達率"].concat(hasNext ? ["OS" + (curNo + 1) + "値"] : []).concat(["E後の勝率", "EP損益", "H1損益", "損切り率"]);
   var thead = React.createElement("tr", { style: { background: "#f5f4f0" } }, headLabels.map(function(t, i) { return React.createElement("th", { key: i, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: _hc } }, t); }));
   var _tdx = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
   var rowsTbl = agg.rows.map(function(ri) {
     var b = agg.bands[ri];
-    var nextAvg = _elMedian(b.nextVals);
     var cells = [
       _tdx(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, hasNext ? React.createElement("span", { style: { color: "#F97316", fontSize: 9 } }, "▶") : null, _elOscChipG(ri, gran, true)), { textAlign: "left", paddingLeft: 6 }),
       _tdx(b.cnt + "件", { fontWeight: 700 }),
       _tdx(_pctN(b.eOk, b.cnt))
     ];
-    if (hasNext) cells.push(_tdx(nextAvg != null ? React.createElement("span", { style: { fontWeight: 700, color: _vcol(nextAvg, true) } }, nextAvg + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")));
+    if (hasNext) cells.push(_tdx(_elOsMMCell(b.nextVals)));
     cells.push(_tdx(_elEwinCell(b.ok, b.ng)));
-    cells.push(_tdx(_pnl(b.planSum, b.planCnt)));
-    cells.push(_tdx(_pnl(b.h1Sum, b.h1Cnt)));
+    cells.push(_tdx(_elPnlMMCell(b.planVals)));
+    cells.push(_tdx(_elPnlMMCell(b.h1Vals)));
     cells.push(_tdx(b.eOk ? React.createElement("span", { style: { color: b.stop ? "#1E8449" : "#bbb", fontWeight: b.stop ? 700 : 400 } }, Math.round(b.stop / b.eOk * 100) + "%") : React.createElement("span", { style: { color: "#ccc" } }, "—")));
     return React.createElement.apply(null, ["tr", { key: "t" + ri, onClick: hasNext ? function() { drill(ri); } : null, style: { cursor: hasNext ? "pointer" : "default" } }].concat(cells));
   });
@@ -513,7 +512,7 @@ function EntryStatsSummary(_ref_ess) {
 // === EP位置・累積損益・αカーブ分析（記録帳・集計タブ 2026-06-13）===
 // EP位置別の集計: ep0/ep1/ep2(=EP=OS1/2/3・E成立) / miss(E未達) / x(×見送り)。aiOf(r)={alpha,cutLine}。
 function _elEpPosStatsV2(recs, aiOf) {
-  var _mk = function() { return { cnt: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, h2: 0, h2Cnt: 0, stop: 0, ok: 0, ng: 0, osv: [] }; };
+  var _mk = function() { return { cnt: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], h2: 0, h2Cnt: 0, h2Arr: [], stop: 0, ok: 0, ng: 0, osv: [] }; };
   var c = { ep0: _mk(), ep1: _mk(), ep2: _mk(), miss: _mk(), x: _mk() }, n = 0;
   (recs || []).forEach(function(r) {
     var s = r.signal, ai = aiOf(r);
@@ -528,11 +527,11 @@ function _elEpPosStatsV2(recs, aiOf) {
     var res = _elDynResult(s, ai.alpha, ai.cutLine);  // 勝敗（EP損益の結果）
     if (res === "ok") o.ok++; else if (res === "ng") o.ng++;
     var pv = _elDynPlanned(s, ai.alpha, ai.cutLine);
-    if (pv != null) { o.plan += pv; o.planCnt++; }
+    if (pv != null) { o.plan += pv; o.planCnt++; o.planArr.push(pv); }
     var h1p = _elHold1TotParts(s, ai.alpha, ai.cutLine);
-    if (h1p.main != null) { o.h1 += h1p.main; o.h1Cnt++; }
+    if (h1p.main != null) { o.h1 += h1p.main; o.h1Cnt++; o.h1Arr.push(h1p.main); }
     var h2p = _elHold2TotParts(s, ai.alpha, ai.cutLine);
-    if (h2p.main != null) { o.h2 += h2p.main; o.h2Cnt++; }
+    if (h2p.main != null) { o.h2 += h2p.main; o.h2Cnt++; o.h2Arr.push(h2p.main); }
     if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) o.stop++;
   });
   c.n = n;
@@ -586,15 +585,15 @@ function _elEpPosSectionV2(recs, aiOf) {
   var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 8 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
-        _thE("EP位置"), _thE("件数"), _thE("OS中央値"), _thE("E後の勝率"), _thE("平均EP損益"), _thE("平均H1"), _thE("平均H2"), _thE("損切り率"))),
+        _thE("EP位置"), _thE("件数"), _thE("OS値"), _thE("E後の勝率"), _thE("EP損益"), _thE("H1損益"), _thE("H2損益"), _thE("損切り率"))),
       React.createElement("tbody", null, ["ep0", "ep1", "ep2"].map(function(k, i) {
         var d = _EL_EPPOS_DEFS[i], o = st[k];
         return React.createElement("tr", { key: k },
           _tdE(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
             React.createElement("span", { style: { width: 9, height: 9, borderRadius: 2, background: d.color, display: "inline-block" } }), d.label), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           _tdE(o.cnt ? o.cnt + "件（" + _pct(o.cnt) + "%）" : "0件", { fontWeight: 700 }),
-          _tdE(_osE(o)), _tdE(_elEwinCell(o.ok, o.ng)),
-          _tdE(_avgE(o.plan, o.planCnt)), _tdE(_avgE(o.h1, o.h1Cnt)), _tdE(_avgE(o.h2, o.h2Cnt)),
+          _tdE(_elOsMMCell(o.osv)), _tdE(_elEwinCell(o.ok, o.ng)),
+          _tdE(_elPnlMMCell(o.planArr)), _tdE(_elPnlMMCell(o.h1Arr)), _tdE(_elPnlMMCell(o.h2Arr)),
           _tdE(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }));
       }))));
   var ok = st.ep0.cnt + st.ep1.cnt + st.ep2.cnt;
@@ -635,7 +634,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     { k: "b3", label: "9:31〜10:00", color: "#EF9F27", lo: 570, hi: 600 },
     { k: "b4", label: "10:01〜", color: "#D85A30", lo: 600, hi: 9999 }
   ];
-  var mk = function() { return { cnt: 0, osv: [], reach: 0, ok: 0, ng: 0, stop: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, miss: 0, x: 0 }; };
+  var mk = function() { return { cnt: 0, osv: [], reach: 0, ok: 0, ng: 0, stop: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], miss: 0, x: 0 }; };
   var st = {}; DEFS.forEach(function(d) { st[d.k] = mk(); });
   var noTime = mk(), total = mk(), _hasNoTime = false;
   var _acc = function(o, s, a, c) {
@@ -646,8 +645,8 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     var res = _elDynResult(s, a, c);
     if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++;
     if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) o.stop++;
-    var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; }
-    var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; }
+    var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; o.planArr.push(plan); }
+    var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; o.h1Arr.push(h1t.main); }
   };
   recs.forEach(function(r) {
     var s = r.signal, ai = aiOf(r), a = ai.alpha, c = ai.cutLine;
@@ -676,12 +675,12 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     return React.createElement("tr", { key: label, style: bold ? { background: "#FBF7EF" } : null },
       _tdT(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, color ? React.createElement("span", { style: { width: 9, height: 9, borderRadius: 2, background: color, display: "inline-block" } }) : null, label), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
       _tdT(o.cnt ? o.cnt + "件（" + _pct(o.cnt, total.cnt) + "%）" : "0件", { fontWeight: 700 }),
-      _tdT(_osCell(o)),
+      _tdT(_elOsMMCell(o.osv)),
       _tdT(_rateCell(o.reach, o.cnt)),
       _tdT(_elEwinCell(o.ok, o.ng)),
       _tdT(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
-      _tdT(_avg(o.plan, o.planCnt)),
-      _tdT(_avg(o.h1, o.h1Cnt)));
+      _tdT(_elPnlMMCell(o.planArr)),
+      _tdT(_elPnlMMCell(o.h1Arr)));
   };
   var bodyRows = DEFS.map(function(d) { return _mkRow(d.label, d.color, st[d.k], false); });
   if (_hasNoTime) bodyRows.push(_mkRow("時刻未記録", "#bbb", noTime, false));
@@ -689,7 +688,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
   var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 8 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
-        _thT("時間帯"), _thT("件数"), _thT("OS中央値"), _thT("E到達率"), _thT("E後の勝率"), _thT("損切り率"), _thT("平均EP損益"), _thT("平均H1"))),
+        _thT("時間帯"), _thT("件数"), _thT("OS値"), _thT("E到達率"), _thT("E後の勝率"), _thT("損切り率"), _thT("EP損益"), _thT("H1損益"))),
       React.createElement("tbody", null, bodyRows)));
   var _cum = function(keys) { var o = mk(); keys.forEach(function(k) { var b = st[k]; for (var p in b) { if (b.hasOwnProperty(p)) { if (typeof b[p] === "number") o[p] += b[p]; else if (Array.isArray(b[p])) o[p] = o[p].concat(b[p]); } } }); return o; };
   var c915 = st.b1, c930 = _cum(["b1", "b2"]), late = _cum(["b3", "b4"]);
@@ -712,7 +711,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     var o930 = _elMedian(c930.osv), oLate = _elMedian(late.osv);
     if (o930 != null && oLate != null) items.push(React.createElement("span", null, "OS中央値は 〜9:30=", _elInsightEmV2(o930 + "円"), "・9:31以降=", _elInsightEmV2(oLate + "円"), o930 > oLate ? "＝早い時間ほどOSが深い（強い初動）。" : "。"));
   }
-  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "OS中央値=寄り足の高値（水準線比）の中央値（右偏なので平均でなく中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切り発生。EP/H1損益は期待値なので平均。採用α基準。" }) : null);
+  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切り発生。EP/H1損益は平均（主）・中央値・合計を併記。採用α基準。" }) : null);
 }
 // シグナル別の成功度ランキング: 「損失が出なかった割合(損失なし率)」と勝率で並べ替え＝どのシグナルが成功しやすいか。
 // 複数タグの記録は各タグに算入。損失=損切り or EP損益<0（未達/×見送りは取引なし=損失なし扱い）。採用α基準・aiOf(r)→{alpha,cutLine}。
@@ -727,7 +726,7 @@ function _elSignalSuccessTableV2(recs, aiOf) {
   });
   var rows = Object.keys(by).map(function(k) {
     var rs = by[k];
-    var o = { label: stripCat(k), cnt: rs.length, noLoss: 0, win: 0, decided: 0, reach: 0, miss: 0, stop: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0 };
+    var o = { label: stripCat(k), cnt: rs.length, noLoss: 0, win: 0, decided: 0, reach: 0, miss: 0, stop: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [] };
     rs.forEach(function(r) {
       var s = r.signal, ai = aiOf(r), a = ai.alpha, c = ai.cutLine;
       if (_epReachedAt(s, a)) o.reach++; else o.miss++;
@@ -737,8 +736,8 @@ function _elSignalSuccessTableV2(recs, aiOf) {
       var pp = xskip ? null : _elDynPlanned(s, a, c);
       var isLoss = !xskip && (isStop || (pp != null && pp < 0));
       if (!isLoss) o.noLoss++;
-      if (!xskip && pp != null) { o.plan += pp; o.planCnt++; if (pp > 0) { o.win++; o.decided++; } else if (pp < 0) o.decided++; }
-      var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; }
+      if (!xskip && pp != null) { o.plan += pp; o.planCnt++; o.planArr.push(pp); if (pp > 0) { o.win++; o.decided++; } else if (pp < 0) o.decided++; }
+      var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; o.h1Arr.push(h1t.main); }
     });
     return o;
   });
@@ -750,7 +749,7 @@ function _elSignalSuccessTableV2(recs, aiOf) {
   var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 4 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
-        _thS("シグナル"), _thS("件数"), _thS("損失なし率"), _thS("E後の勝率"), _thS("E到達率"), _thS("損切り率"), _thS("平均EP損益"), _thS("平均H1"))),
+        _thS("シグナル"), _thS("件数"), _thS("損失なし率"), _thS("E後の勝率"), _thS("E到達率"), _thS("損切り率"), _thS("EP損益"), _thS("H1損益"))),
       React.createElement("tbody", null, rows.map(function(o, i) {
         return React.createElement("tr", { key: i, style: (i === 0 && o.cnt >= 2) ? { background: "#F1F8E9" } : null },
           _tdS(o.label, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412", whiteSpace: "normal" }),
@@ -759,7 +758,7 @@ function _elSignalSuccessTableV2(recs, aiOf) {
           _tdS(_elEwinCell(o.win, o.decided - o.win)),
           _tdS(_rate(o.reach, o.cnt)),
           _tdS(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
-          _tdS(_avg(o.plan, o.planCnt)), _tdS(_avg(o.h1, o.h1Cnt)));
+          _tdS(_elPnlMMCell(o.planArr)), _tdS(_elPnlMMCell(o.h1Arr)));
       }))));
   var items = [], best = rows[0], worst = rows[rows.length - 1];
   if (best && best.cnt >= 2) items.push(React.createElement("span", null, "損失が出にくい（成功しやすい）のは", _elInsightEmV2(best.label), "（損失なし率 ", _elInsightEmV2(Math.round(best.noLoss / best.cnt * 100) + "%"), "・" + best.cnt + "件）。"));
@@ -966,6 +965,32 @@ function _elv2Avg(sum, cnt) {
 function _elv2Rate(n, d, hi) { if (!d) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var p = Math.round(n / d * 100); return React.createElement("span", { style: { fontWeight: 700, color: p >= (hi || 50) ? "#1E8449" : "#B45309" } }, p + "%"); }
 // 数値配列の中央値（小数1位四捨五入・偶数件は中央2値平均）。右偏なOS値はグループ比較も平均でなく中央値で扱う（2026-06-14b）。
 function _elMedian(arr) { if (!arr || !arr.length) return null; var s = arr.slice().sort(function(a, b) { return a - b; }); var m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2 * 10) / 10; }
+// 平均（小数1位四捨五入）。空配列はnull。中央値(_elMedian)と対で使う（2026-06-15 平均・中央値の併記）。
+function _elMean(arr) { if (!arr || !arr.length) return null; var s = 0; for (var i = 0; i < arr.length; i++) s += Number(arr[i]); return Math.round(s / arr.length * 10) / 10; }
+// OS値など右偏指標のセル: 中央値（主・色付き）＋平均（副）を1セルに併記（2026-06-15）。arr=値配列。
+function _elOsMMCell(arr) {
+  if (!arr || !arr.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var md = _elMedian(arr), mn = _elMean(arr);
+  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+    React.createElement("span", { style: { fontWeight: 700, color: _vcol(md, true) } }, "中" + md + "円"),
+    React.createElement("span", { style: { fontSize: 9, color: "#888" } }, "平" + mn + "円"));
+}
+// 損益セル: 平均（主・色付き）＋中央値（副）＋合計（計）を1セルに併記（2026-06-15）。arr=損益配列（円）。
+function _elPnlMMCell(arr) {
+  if (!arr || !arr.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var sum = 0; for (var i = 0; i < arr.length; i++) sum += Number(arr[i]);
+  var mn = Math.round(sum / arr.length), md = Math.round(_elMedian(arr));
+  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+    React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(mn) } }, "平" + _elPnlFmt(mn)),
+    React.createElement("span", { style: { fontSize: 9, color: "#777" } }, "中" + _elPnlFmt(md)),
+    React.createElement("span", { style: { fontSize: 8, color: "#bbb" } }, "計" + (sum > 0 ? "+" : "") + Math.round(sum).toLocaleString()));
+}
+// KPIカード等の文字列用: "平X / 中Y"（円などのunitは引数で付与）。空配列は「—」。
+function _elMMText(arr, unit) {
+  if (!arr || !arr.length) return "—";
+  var u = unit || "";
+  return "平" + _elMean(arr) + u + " / 中" + _elMedian(arr) + u;
+}
 // E後の勝率セル（2026-06-14b）: エントリー(E成立)後に利益が出た割合＝ok/(ok+ng)。取引(ok+ng)が0なら「—」。下に母数(E成立件数)。
 // 敗率・未達率は出さない（未達率はE到達率の裏返し）。色は勝率≥50%で緑・未満で橙。
 function _elEwinCell(ok, ng) {
@@ -1014,7 +1039,7 @@ function _elOsBandPerfV2(_ref) {
   var recs = _ref.recs || [];
   var aiOf = _ref.aiOf;
   var _uG = useState("band"), gran = _uG[0], setGran = _uG[1];
-  var mk = function() { return { cnt: 0, reach: 0, ok: 0, ng: 0, miss: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, stop: 0 }; };
+  var mk = function() { return { cnt: 0, reach: 0, ok: 0, ng: 0, miss: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], stop: 0 }; };
   var buckets = {};
   recs.forEach(function(r) {
     var s = r.signal; if (!s || s.osVal == null || s.osVal === "") return;
@@ -1026,8 +1051,8 @@ function _elOsBandPerfV2(_ref) {
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {
       var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") o.ok++; else if (res === "ng") o.ng++;
-      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { o.plan += pv; o.planCnt++; }
-      var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { o.h1 += h1.main; o.h1Cnt++; }
+      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { o.plan += pv; o.planCnt++; o.planArr.push(pv); }
+      var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { o.h1 += h1.main; o.h1Cnt++; o.h1Arr.push(h1.main); }
       if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) o.stop++;
     } else if (rr && rr.judge === "miss") o.miss++;
   });
@@ -1045,15 +1070,15 @@ function _elOsBandPerfV2(_ref) {
       _elv2Td(ob.cnt + "件", { fontWeight: 700 }),
       _elv2Td(_elv2Rate(ob.reach, ob.cnt)),
       _elv2Td(_elEwinCell(ob.ok, ob.ng)),
-      _elv2Td(_elv2Avg(ob.plan, ob.planCnt)),
-      _elv2Td(_elv2Avg(ob.h1, ob.h1Cnt)),
+      _elv2Td(_elPnlMMCell(ob.planArr)),
+      _elv2Td(_elPnlMMCell(ob.h1Arr)),
       _elv2Td(ob.cnt ? Math.round(ob.stop / ob.cnt * 100) + "%" : "—", { color: ob.stop ? "#1E8449" : "#bbb", fontWeight: ob.stop ? 700 : 400 }));
   });
   return React.createElement("div", null,
     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "8px 0 0", flexWrap: "wrap" } },
       React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, gran === "each" ? "OS値（1円刻み）別の成績" : "OS値帯（初動の強さ）別の成績"),
       _elGranToggle(gran, setGran)),
-    bRows.length ? _elv2Table([gran === "each" ? "OS1値" : "OS1帯", "件数", "E到達率", "E後の勝率", "平均EP損益", "平均H1", "損切り率"], bRows)
+    bRows.length ? _elv2Table([gran === "each" ? "OS1値" : "OS1帯", "件数", "E到達率", "E後の勝率", "EP損益", "H1損益", "損切り率"], bRows)
       : React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "OS値の記録がありません"));
 }
 // OS値の総合分析（記録帳・集計タブ／2026-06-14）: 中央値主軸の統計＋右偏バッジ＋成立率→α分位表＋OS値帯別の成績。
@@ -1105,7 +1130,7 @@ function _elOsSectionV2(recs, aiOf) {
 // 指定recs（{stock,signal,date}配列）の記録系フル指標を集計（採用α基準・E成立分のEP/H1/損切り・OS=中央値）。OS値入力0件ならnull。
 // aiOf(r)→{alpha,cutLine}。_elOsSectionV2の帯別集計と同一ルール＝銘柄別記録/取引テーブルの損益計算基準に一致。2026-06-15。
 function _elPeriodStatsV2(recs, aiOf) {
-  var osv = [], cnt = 0, reach = 0, ok = 0, ng = 0, planSum = 0, planCnt = 0, h1Sum = 0, h1Cnt = 0, stop = 0;
+  var osv = [], cnt = 0, reach = 0, ok = 0, ng = 0, planSum = 0, planCnt = 0, planArr = [], h1Sum = 0, h1Cnt = 0, h1Arr = [], stop = 0;
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s || s.osVal == null || s.osVal === "") return;
     var nv = Number(s.osVal); if (!isNaN(nv)) osv.push(nv);
@@ -1115,15 +1140,15 @@ function _elPeriodStatsV2(recs, aiOf) {
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {
       var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") ok++; else if (res === "ng") ng++;
-      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { planSum += pv; planCnt++; }
-      var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1 && h1.main != null) { h1Sum += h1.main; h1Cnt++; }
+      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { planSum += pv; planCnt++; planArr.push(pv); }
+      var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1 && h1.main != null) { h1Sum += h1.main; h1Cnt++; h1Arr.push(h1.main); }
       if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) stop++;
     }
   });
   if (!cnt) return null;
-  return { n: cnt, osMed: _elMedian(osv), reach: reach, cnt: cnt, ok: ok, ng: ng,
-    planAvg: planCnt ? Math.round(planSum / planCnt) : null, planCnt: planCnt,
-    h1Avg: h1Cnt ? Math.round(h1Sum / h1Cnt) : null, h1Cnt: h1Cnt, stop: stop };
+  return { n: cnt, osMed: _elMedian(osv), osMean: _elMean(osv), reach: reach, cnt: cnt, ok: ok, ng: ng,
+    planAvg: planCnt ? Math.round(planSum / planCnt) : null, planMed: planArr.length ? Math.round(_elMedian(planArr)) : null, planCnt: planCnt,
+    h1Avg: h1Cnt ? Math.round(h1Sum / h1Cnt) : null, h1Med: h1Arr.length ? Math.round(_elMedian(h1Arr)) : null, h1Cnt: h1Cnt, stop: stop };
 }
 // 日別ページ用：指定銘柄の「この日／今週／全期間」を data.charts から集めて記録系フル指標を比較表示（採用α基準）。
 // 全期間（その銘柄）を基準に、この日の傾向を判定（↑高い/↓低い/≈同等）＋💡読み取り。全期間にv2記録なし or この日に記録なしなら非表示。2026-06-15。
@@ -1160,12 +1185,14 @@ function _elDayStockBenchV2(_ref) {
   var dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var pctNode = function(num, den) { return den ? (Math.round(num / den * 100) + "%") : dash; };
   var yenNode = function(v) { return v == null ? dash : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+  var yenNode2 = function(avg, med) { if (avg == null) return dash; return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(avg) } }, "平" + _elPnlFmt(avg)), med != null ? React.createElement("span", { style: { fontSize: 9, color: "#777" } }, "中" + _elPnlFmt(med)) : null); };
+  var osNode2 = function(med, mean) { if (med == null) return dash; return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: _vcol(med, true) } }, "中" + med + "円"), mean != null ? React.createElement("span", { style: { fontSize: 9, color: "#888" } }, "平" + mean + "円") : null); };
   var cellOf = {
-    os: function(st) { return (st && st.osMed != null) ? React.createElement("span", { style: { fontWeight: 700, color: _vcol(st.osMed, true) } }, st.osMed + "円") : dash; },
+    os: function(st) { return st ? osNode2(st.osMed, st.osMean) : dash; },
     reach: function(st) { return st ? pctNode(st.reach, st.cnt) : dash; },
     win: function(st) { return st ? pctNode(st.ok, st.ok + st.ng) : dash; },
-    ep: function(st) { return st ? yenNode(st.planAvg) : dash; },
-    h1: function(st) { return st ? yenNode(st.h1Avg) : dash; },
+    ep: function(st) { return st ? yenNode2(st.planAvg, st.planMed) : dash; },
+    h1: function(st) { return st ? yenNode2(st.h1Avg, st.h1Med) : dash; },
     stop: function(st) { return st ? pctNode(st.stop, st.cnt) : dash; }
   };
   var numOf = {
@@ -1178,11 +1205,11 @@ function _elDayStockBenchV2(_ref) {
   };
   var EPS = { os: 0.5, reach: 0.03, win: 0.03, ep: 50, h1: 50, stop: 0.03 };
   var METRICS = [
-    { key: "os", label: "平均OS値(中央値)", good: "up" },
+    { key: "os", label: "OS値(中/平)", good: "up" },
     { key: "reach", label: "E到達率", good: "up" },
     { key: "win", label: "E後の勝率", good: "up" },
-    { key: "ep", label: "平均EP損益", good: "up" },
-    { key: "h1", label: "平均H1損益", good: "up" },
+    { key: "ep", label: "EP損益(平/中)", good: "up" },
+    { key: "h1", label: "H1損益(平/中)", good: "up" },
     { key: "stop", label: "損切り率", good: "down" }
   ];
   var judgeNode = function(m) {
@@ -1213,7 +1240,7 @@ function _elDayStockBenchV2(_ref) {
     var dStop = Math.round(stDay.stop / stDay.cnt * 100), aStop = Math.round(stAll.stop / stAll.cnt * 100);
     items.push(React.createElement("span", null, "損切り率は", _elInsightEmV2(dStop + "%"), "（全期間", _elInsightEmV2(aStop + "%"), "）＝", _elInsightEmV2(dStop < aStop ? "この日は損切りが少なめ" : dStop > aStop ? "この日は損切りが多め" : "全体と同程度", dStop < aStop ? "#C0392B" : dStop > aStop ? "#1E8449" : "#888"), "。"));
   }
-  var insight = items.length ? _elInsightBoxV2(items, { note: "全期間（この銘柄）を基準に、この日の傾向を比較。OS=中央値・採用α基準・EP損益/H1/損切りはE成立分のみ。件数 この日" + stDay.n + "／今週" + (stWk ? stWk.n : 0) + "／全期間" + stAll.n + "件。" }) : null;
+  var insight = items.length ? _elInsightBoxV2(items, { note: "全期間（この銘柄）を基準に、この日の傾向を比較。OS=中央値（平均併記）・損益=平均（中央値併記）・採用α基準・EP損益/H1/損切りはE成立分のみ。件数 この日" + stDay.n + "／今週" + (stWk ? stWk.n : 0) + "／全期間" + stAll.n + "件。" }) : null;
   return React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e5de", borderRadius: 8, padding: "10px 12px", marginTop: 10 } },
     React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 " + stock + "：この日 vs 全期間"),
     React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 6 } }, "全期間（この銘柄）の分析を基準に、この日のデータがどうだったか（記録系フル指標）"),
@@ -1229,15 +1256,15 @@ function _elHoldDepthSectionV2(recs, aiOf) {
   var maxD = 0; ladders.forEach(function(L) { L.items.forEach(function(it) { if (it.depth > maxD) maxD = it.depth; }); });
   var rows = [];
   for (var d = 0; d <= maxD; d++) {
-    var cnt = 0, sum = 0, pnlCnt = 0, stop = 0, imp = 0, impBase = 0;
+    var cnt = 0, sum = 0, pnlCnt = 0, pnlArr = [], stop = 0, imp = 0, impBase = 0;
     ladders.forEach(function(L) {
       var it = null; for (var i = 0; i < L.items.length; i++) { if (L.items[i].depth === d) { it = L.items[i]; break; } }
       if (!it) return; cnt++;
-      if (it.pnl != null) { sum += it.pnl; pnlCnt++; }
+      if (it.pnl != null) { sum += it.pnl; pnlCnt++; pnlArr.push(it.pnl); }
       if (L.stopDepth >= 0 && L.stopDepth <= d) stop++;
       if (d >= 1) { var ep = L.items[0]; if (ep && ep.pnl != null && it.pnl != null) { impBase++; if (it.pnl > ep.pnl) imp++; } }
     });
-    rows.push({ d: d, cnt: cnt, sum: sum, pnlCnt: pnlCnt, avg: pnlCnt ? Math.round(sum / pnlCnt) : null, stop: stop, imp: imp, impBase: impBase });
+    rows.push({ d: d, cnt: cnt, sum: sum, pnlCnt: pnlCnt, pnlArr: pnlArr, avg: pnlCnt ? Math.round(sum / pnlCnt) : null, stop: stop, imp: imp, impBase: impBase });
   }
   var best = -1, bestV = -Infinity; rows.forEach(function(o) { if (o.pnlCnt > 0 && o.avg != null && o.avg > bestV) { bestV = o.avg; best = o.d; } });
   var _dl = function(d) { return d === 0 ? "EP（即手仕舞い）" : d === 1 ? "＋1本（H1）" : d === 2 ? "＋2本（H2）" : "＋" + d + "本"; };
@@ -1246,7 +1273,7 @@ function _elHoldDepthSectionV2(recs, aiOf) {
     return React.createElement("tr", { key: o.d, style: star ? { background: "#FEF3C7" } : null },
       _elv2Td(React.createElement("span", null, _dl(o.d), star ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", marginLeft: 4, fontWeight: 800 } }, "★平均最大") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
       _elv2Td(o.cnt + "件", { fontWeight: 700 }),
-      _elv2Td(o.avg != null ? React.createElement("b", { style: { color: _elPnlColor(o.avg) } }, _elPnlFmt(o.avg)) : "—"),
+      _elv2Td(o.pnlArr && o.pnlArr.length ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("b", { style: { color: _elPnlColor(o.avg) } }, "平" + _elPnlFmt(o.avg)), React.createElement("span", { style: { fontSize: 9, color: "#777" } }, "中" + _elPnlFmt(Math.round(_elMedian(o.pnlArr))))) : "—"),
       _elv2Td(o.pnlCnt ? React.createElement("span", { style: { fontSize: 10, color: _elPnlColor(o.sum) } }, _elPnlFmt(o.sum)) : "—"),
       _elv2Td(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
       _elv2Td(o.d === 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : (o.impBase ? _elv2Rate(o.imp, o.impBase) : "—")));
@@ -1257,7 +1284,7 @@ function _elHoldDepthSectionV2(recs, aiOf) {
   var h1r = rows[1];
   if (h1r && h1r.impBase) items.push(React.createElement("span", null, "EPからH1まで持って損益が改善した割合は", _elInsightEmV2(Math.round(h1r.imp / h1r.impBase * 100) + "%"), "。"));
   return React.createElement("div", null,
-    _elv2Table(["手仕舞い位置", "件数(到達)", "平均損益", "合計", "損切り率(累積)", "EP比改善率"], body),
+    _elv2Table(["手仕舞い位置", "件数(到達)", "損益(平/中)", "合計", "損切り率(累積)", "EP比改善率"], body),
     _elInsightBoxV2(items, { note: "各記録をEPからその本数だけ持って手仕舞いした場合の損益（_epHoldLadder・採用α/損切り基準・100株換算）。深い本数はそこまで足がある記録のみの平均＝母数が減る点に注意（合計列も参考に）。損切り率(累積)=その本数までに損切りラインへ到達した割合。EP比改善率=EP即手仕舞いより損益が良くなった割合。★=平均損益が最大の本数。" }));
 }
 
@@ -1282,7 +1309,7 @@ function _elExpCalibSectionV2(recs, aiOf) {
     return React.createElement("tr", { key: g },
       _elv2Td(React.createElement("b", null, g + "（" + _EL_OS_BANDS_V2[EXP[g]].label + "予想）"), { textAlign: "left", paddingLeft: 8, color: "#9A3412" }),
       _elv2Td(o.cnt + "件", { fontWeight: 700 }),
-      _elv2Td((function() { var m = _elMedian(o.osv); return m != null ? React.createElement("span", { style: { fontWeight: 700, color: _vcol(m, true) } }, m + "円") : "—"; })()),
+      _elv2Td(_elOsMMCell(o.osv)),
       _elv2Td(_elv2Rate(o.hit, o.cnt, 50)),
       _elv2Td(o.over ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, o.over + "件") : React.createElement("span", { style: { color: "#bbb" } }, "0")),
       _elv2Td(o.under ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, o.under + "件") : React.createElement("span", { style: { color: "#bbb" } }, "0")));
@@ -1290,16 +1317,16 @@ function _elExpCalibSectionV2(recs, aiOf) {
   var dTotHit = 0, dTotN = 0; ["A", "B", "C", "D", "E"].forEach(function(g) { if (dByG[g]) { dTotHit += dByG[g].hit; dTotN += dByG[g].cnt; } });
   var dTable = dRows.length ? React.createElement("div", null,
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "4px 0 0" } }, "予想OS度（A〜E）の的中"),
-    _elv2Table(["予想OS度", "件数", "実OS中央値", "的中率", "予想超え", "予想未満"], dRows)) : null;
+    _elv2Table(["予想OS度", "件数", "実OS値", "的中率", "予想超え", "予想未満"], dRows)) : null;
   // (B) H期待 ○△× の的中
   var _calc = function(expKey, ptsFn) {
     var g = { "○": _mk(), "△": _mk(), "×": _mk() };
-    function _mk() { return { cnt: 0, sum: 0, sumCnt: 0, win: 0, dec: 0, stop: 0, hit: 0, hitBase: 0 }; }
+    function _mk() { return { cnt: 0, sum: 0, sumCnt: 0, arr: [], win: 0, dec: 0, stop: 0, hit: 0, hitBase: 0 }; }
     v2.forEach(function(r) {
       var s = r.signal, e = s[expKey]; if (e !== "○" && e !== "△" && e !== "×") return;
       var ai = aiOf(r), rr = _epResolve(s, ai.alpha); if (!rr || rr.judge !== "ok") return;
       var pr = ptsFn(s, ai); if (!pr) return; var pts = pr.pnl; if (pts == null) return;
-      var o = g[e]; o.cnt++; o.sum += pts; o.sumCnt++;
+      var o = g[e]; o.cnt++; o.sum += pts; o.sumCnt++; o.arr.push(pts);
       if (pts > 0) { o.win++; o.dec++; } else if (pts < 0) o.dec++;
       if (pr.stop) o.stop++;
       if (e === "○") { o.hitBase++; if (pts > 0) o.hit++; } else if (e === "×") { o.hitBase++; if (pts <= 0) o.hit++; }
@@ -1314,14 +1341,14 @@ function _elExpCalibSectionV2(recs, aiOf) {
       return React.createElement("tr", { key: e },
         _elv2Td(React.createElement("b", { style: { fontSize: 13, color: e === "○" ? "#C0392B" : e === "×" ? "#1E8449" : "#B45309" } }, e), { textAlign: "left", paddingLeft: 8 }),
         _elv2Td(o.cnt + "件", { fontWeight: 700 }),
-        _elv2Td(o.sumCnt ? _elv2Avg(o.sum, o.sumCnt) : "—"),
+        _elv2Td(o.sumCnt ? _elPnlMMCell(o.arr) : "—"),
         _elv2Td(o.dec ? _elv2Rate(o.win, o.dec) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
         _elv2Td(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
         _elv2Td(o.hitBase ? _elv2Rate(o.hit, o.hitBase) : React.createElement("span", { style: { color: "#ccc" } }, "—")));
     });
   };
   var h1Rows = _expRows(h1g), h2Rows = _expRows(h2g);
-  var hHead = ["H期待", "件数", "実損益平均", "実勝率", "損切り率", "予想的中率"];
+  var hHead = ["H期待", "件数", "実損益", "実勝率", "損切り率", "予想的中率"];
   var h1Table = h1Rows.length ? React.createElement("div", null, React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "H1期待（保有の予想）の的中"), _elv2Table(hHead, h1Rows)) : null;
   var h2Table = h2Rows.length ? React.createElement("div", null, React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "H2期待（さらに保有）の的中"), _elv2Table(hHead, h2Rows)) : null;
   var items = [];
@@ -1337,23 +1364,23 @@ function _elExpCalibSectionV2(recs, aiOf) {
 function _elExecGapSectionV2(recs, aiOf) {
   var ent = (recs || []).filter(function(r) { return _epIsV2(r.signal) && _elIsEntered(r.signal, r.item); });
   if (!ent.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "実エントリー（取引あり）の記録がありません");
-  var aSame = 0, aDiff = 0, aDiffSum = 0, aBase = 0;
-  ent.forEach(function(r) { var s = r.signal; if (s.tradeAlpha != null && s.tradeAlpha !== "") { var av = aiOf(r).alpha, ta = Number(s.tradeAlpha); if (av != null && !isNaN(ta)) { aBase++; if (ta === av) aSame++; else { aDiff++; aDiffSum += Math.abs(ta - av); } } } });
-  var gapRows = [], gSum = 0, gCnt = 0, exitSum = 0, exitCnt = 0;
+  var aSame = 0, aDiff = 0, aDiffSum = 0, aDiffArr = [], aBase = 0;
+  ent.forEach(function(r) { var s = r.signal; if (s.tradeAlpha != null && s.tradeAlpha !== "") { var av = aiOf(r).alpha, ta = Number(s.tradeAlpha); if (av != null && !isNaN(ta)) { aBase++; if (ta === av) aSame++; else { aDiff++; var _ad = Math.abs(ta - av); aDiffSum += _ad; aDiffArr.push(_ad); } } } });
+  var gapRows = [], gSum = 0, gCnt = 0, exitSum = 0, exitCnt = 0, exitArr = [];
   ent.forEach(function(r) {
     var s = r.signal, ai = aiOf(r), rr = _epResolve(s, ai.alpha);
     var planEP = (rr && rr.judge === "ok" && rr.ep) ? rr.ep.h : null;
     var eo = (s.entryOsVal != null && s.entryOsVal !== "") ? _elSignedVal(s.entryOsVal, s.entryOsSign) : null;
     var xo = (s.exitOsVal != null && s.exitOsVal !== "") ? _elSignedVal(s.exitOsVal, s.exitOsSign) : null;
-    if (xo != null) { exitSum += xo; exitCnt++; }
+    if (xo != null) { exitSum += xo; exitCnt++; exitArr.push(xo); }
     if (planEP != null && eo != null) { var gap = eo - planEP; gSum += gap; gCnt++; gapRows.push({ r: r, s: s, planEP: planEP, eo: eo, gap: gap }); }
   });
   var r1 = function(x) { return Math.round(x * 10) / 10; };
   var cards = _elv2CardRow([
     _elv2Card("実エントリー", ent.length + "件", "#9A3412", "取引ありの記録"),
-    _elv2Card("計画αで取引", aBase ? Math.round(aSame / aBase * 100) + "%" : "—", aBase && aSame / aBase >= 0.7 ? "#1E8449" : "#B45309", aBase ? "規律遵守 " + aSame + "/" + aBase + "件" + (aDiff ? "・平均ズレ" + r1(aDiffSum / aDiff) + "円" : "") : "tradeAlpha未記録"),
-    _elv2Card("建玉ズレ(実−計画EP)", gCnt ? (gSum / gCnt >= 0 ? "+" : "") + r1(gSum / gCnt) + "円" : "—", gCnt ? (Math.abs(gSum / gCnt) <= 2 ? "#1E8449" : "#B45309") : "#bbb", gCnt ? gCnt + "件で比較" : "Entry-OS未記録"),
-    _elv2Card("実Exit-OS平均", exitCnt ? r1(exitSum / exitCnt) + "円" : "—", "#555", exitCnt ? exitCnt + "件" : "Exit-OS未記録")
+    _elv2Card("計画αで取引", aBase ? Math.round(aSame / aBase * 100) + "%" : "—", aBase && aSame / aBase >= 0.7 ? "#1E8449" : "#B45309", aBase ? "規律遵守 " + aSame + "/" + aBase + "件" + (aDiff ? "・ズレ平" + r1(aDiffSum / aDiff) + "/中" + _elMedian(aDiffArr) + "円" : "") : "tradeAlpha未記録"),
+    _elv2Card("建玉ズレ(実−計画EP)", gCnt ? ("平" + (gSum / gCnt >= 0 ? "+" : "") + r1(gSum / gCnt) + " / 中" + (function() { var _m = _elMedian(gapRows.map(function(x) { return x.gap; })); return (_m >= 0 ? "+" : "") + _m; })() + "円") : "—", gCnt ? (Math.abs(gSum / gCnt) <= 2 ? "#1E8449" : "#B45309") : "#bbb", gCnt ? gCnt + "件で比較" : "Entry-OS未記録"),
+    _elv2Card("実Exit-OS", exitCnt ? ("平" + r1(exitSum / exitCnt) + " / 中" + _elMedian(exitArr) + "円") : "—", "#555", exitCnt ? exitCnt + "件" : "Exit-OS未記録")
   ]);
   gapRows.sort(function(a, b) { return Math.abs(b.gap) - Math.abs(a.gap); });
   var top = gapRows.slice(0, 6);
@@ -1385,14 +1412,14 @@ function _elMemoPerfSectionV2(recs, aiOf) {
   if (!v2.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "v2記録なし");
   var _memoText = function(s) { return [s.rationale, s.reflection, s.holdMemo, s.hold2Memo].map(function(t) { return stripHtml(t || ""); }).join(" "); };
   var _has = function(s) { return _hasText(s.rationale) || _hasText(s.reflection) || _hasText(s.holdMemo) || _hasText(s.hold2Memo); };
-  var mk = function() { return { cnt: 0, plan: 0, planCnt: 0, win: 0, dec: 0, h1: 0, h1Cnt: 0, stop: 0, realWin: 0, realDec: 0, chars: 0 }; };
+  var mk = function() { return { cnt: 0, plan: 0, planCnt: 0, planArr: [], win: 0, dec: 0, h1: 0, h1Cnt: 0, h1Arr: [], stop: 0, realWin: 0, realDec: 0, chars: 0 }; };
   var grp = { yes: mk(), no: mk() };
   v2.forEach(function(r) {
     var s = r.signal, ai = aiOf(r), g = _has(s) ? grp.yes : grp.no; g.cnt++; g.chars += _memoText(s).replace(/\s/g, "").length;
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {
-      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { g.plan += pv; g.planCnt++; if (pv > 0) { g.win++; g.dec++; } else if (pv < 0) g.dec++; }
-      var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { g.h1 += h1.main; g.h1Cnt++; }
+      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { g.plan += pv; g.planCnt++; g.planArr.push(pv); if (pv > 0) { g.win++; g.dec++; } else if (pv < 0) g.dec++; }
+      var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { g.h1 += h1.main; g.h1Cnt++; g.h1Arr.push(h1.main); }
       if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine)) g.stop++;
     }
     if (_elIsEntered(s, r.item)) { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) { if (rv > 0) { g.realWin++; g.realDec++; } else if (rv < 0) g.realDec++; } }
@@ -1402,13 +1429,13 @@ function _elMemoPerfSectionV2(recs, aiOf) {
       _elv2Td(label, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
       _elv2Td(g.cnt + "件", { fontWeight: 700 }),
       _elv2Td(g.dec ? _elv2Rate(g.win, g.dec) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
-      _elv2Td(_elv2Avg(g.plan, g.planCnt)),
-      _elv2Td(_elv2Avg(g.h1, g.h1Cnt)),
+      _elv2Td(_elPnlMMCell(g.planArr)),
+      _elv2Td(_elPnlMMCell(g.h1Arr)),
       _elv2Td(g.cnt ? Math.round(g.stop / g.cnt * 100) + "%" : "—", { color: g.stop ? "#1E8449" : "#bbb", fontWeight: g.stop ? 700 : 400 }),
       _elv2Td(g.realDec ? _elv2Rate(g.realWin, g.realDec) : React.createElement("span", { style: { color: "#ccc" } }, "—")));
   };
   var tot = grp.yes.cnt + grp.no.cnt;
-  var memoTable = _elv2Table(["メモ", "件数", "勝率(EP)", "平均EP損益", "平均H1", "損切り率", "実現勝率"], [_row("メモ有", grp.yes), _row("メモ無", grp.no)]);
+  var memoTable = _elv2Table(["メモ", "件数", "勝率(EP)", "EP損益", "H1損益", "損切り率", "実現勝率"], [_row("メモ有", grp.yes), _row("メモ無", grp.no)]);
   // 敗因キーワード
   var kwCnt = {}, lossN = 0;
   v2.forEach(function(r) {
@@ -1479,7 +1506,7 @@ function _elDowSectionV2(recs, aiOf) {
     { k: "d4", label: "木", color: "#EF9F27", dow: 4 },
     { k: "d5", label: "金", color: "#D85A30", dow: 5 }
   ];
-  var mk = function() { return { cnt: 0, osv: [], reach: 0, ok: 0, ng: 0, stop: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, miss: 0, x: 0 }; };
+  var mk = function() { return { cnt: 0, osv: [], reach: 0, ok: 0, ng: 0, stop: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], miss: 0, x: 0 }; };
   var st = {}; DEFS.forEach(function(d) { st[d.k] = mk(); });
   var wknd = mk(), total = mk(), _hasWknd = false;
   var _acc = function(o, s, a, c) {
@@ -1490,8 +1517,8 @@ function _elDowSectionV2(recs, aiOf) {
     var res = _elDynResult(s, a, c);
     if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++;
     if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) o.stop++;
-    var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; }
-    var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; }
+    var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; o.planArr.push(plan); }
+    var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; o.h1Arr.push(h1t.main); }
   };
   recs.forEach(function(r) {
     var s = r.signal, ai = aiOf(r), a = ai.alpha, c = ai.cutLine;
@@ -1510,17 +1537,17 @@ function _elDowSectionV2(recs, aiOf) {
     return React.createElement("tr", { key: label, style: bold ? { background: "#FBF7EF" } : null },
       _elv2Td(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, color ? React.createElement("span", { style: { width: 9, height: 9, borderRadius: 2, background: color, display: "inline-block" } }) : null, label), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
       _elv2Td(o.cnt ? o.cnt + "件（" + _pctc(o.cnt, total.cnt) + "%）" : "0件", { fontWeight: 700 }),
-      _elv2Td(_osCell(o)),
+      _elv2Td(_elOsMMCell(o.osv)),
       _elv2Td(_elv2Rate(o.reach, o.cnt)),
       _elv2Td(_elEwinCell(o.ok, o.ng)),
       _elv2Td(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
-      _elv2Td(_elv2Avg(o.plan, o.planCnt)),
-      _elv2Td(_elv2Avg(o.h1, o.h1Cnt)));
+      _elv2Td(_elPnlMMCell(o.planArr)),
+      _elv2Td(_elPnlMMCell(o.h1Arr)));
   };
   var bodyRows = DEFS.map(function(d) { return _mkRow(d.label, d.color, st[d.k], false); });
   if (_hasWknd) bodyRows.push(_mkRow("土日", "#bbb", wknd, false));
   bodyRows.push(_mkRow("全体", null, total, true));
-  var tbl = _elv2Table(["曜日", "件数", "OS中央値", "E到達率", "E後の勝率", "損切り率", "平均EP損益", "平均H1"], bodyRows);
+  var tbl = _elv2Table(["曜日", "件数", "OS値", "E到達率", "E後の勝率", "損切り率", "EP損益", "H1損益"], bodyRows);
   // 読み取り
   var items = [];
   var avail = DEFS.map(function(d) { return { d: d, o: st[d.k] }; }).filter(function(x) { return x.o.cnt > 0; });
@@ -1537,7 +1564,7 @@ function _elDowSectionV2(recs, aiOf) {
     var byStop = avail.filter(function(x) { return x.o.cnt >= 2; }).sort(function(a, b) { return (b.o.stop / b.o.cnt) - (a.o.stop / a.o.cnt); });
     if (byStop.length && byStop[0].o.stop > 0) items.push(React.createElement("span", null, "損切り率が最も高いのは", _elInsightEmV2(byStop[0].d.label + "曜"), "（" + Math.round(byStop[0].o.stop / byStop[0].o.cnt * 100) + "%）＝この曜日は慎重に。"));
   }
-  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。OS中央値=寄り足の高値（水準線比）の中央値＝右偏なので平均でなく中央値で典型値を表示／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切り発生。EP/H1損益は期待値なので平均（合計＝平均×件数）。採用α基準。" }) : null);
+  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切り発生。EP/H1損益は平均（主）・中央値・合計を併記。採用α基準。" }) : null);
 }
 
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
