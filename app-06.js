@@ -274,13 +274,35 @@ function _elOsLegsSectionV2(_ref) {
     return React.createElement("span", { title: mn + "〜" + mx + "円（1円刻み）", style: { display: "inline-flex", alignItems: "flex-end", gap: 1, width: 150, height: 24, verticalAlign: "middle" } }, bars);
   };
   var _medNode = function(m) { return m == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("b", { style: { color: m >= 0 ? "#9A3412" : "#1E8449" } }, m + "円"); };
-  var body = rows.map(function(o) {
+  // 前足比 伸長率: 記録ごとに「この足の高値 > 前の足の高値」だった割合（母数=両足とも高値入力ありの記録）＋伸びた時/縮んだ時の平均差。
+  // オーバーシュート伸長が意味を持つOS1→OS2・OS2→OS3のみ算出（OS4/OS5=EP後の足は符号系が異なり「最適ホールド本数」が担当）。
+  var ext = [null];
+  for (var li = 1; li <= 2; li++) {
+    (function(li) {
+      var pairN = 0, upN = 0, upSum = 0, dnN = 0, dnSum = 0;
+      base.forEach(function(r) {
+        var hs = _elOscHighs(r.signal), cur = hs[li], prev = hs[li - 1];
+        if (cur == null || prev == null) return;
+        pairN++; var d = cur - prev;
+        if (d > 0) { upN++; upSum += d; } else { dnN++; dnSum += d; }
+      });
+      ext.push(pairN ? { pairN: pairN, upN: upN, rate: Math.round(upN / pairN * 100), upAvg: upN ? Math.round(upSum / upN * 10) / 10 : null, dnAvg: dnN ? Math.round(dnSum / dnN * 10) / 10 : null } : null);
+    })(li);
+  }
+  var _extNode = function(e) {
+    if (!e) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+    return React.createElement("span", { title: e.pairN + "件中 " + e.upN + "件で前足の高値を上回り", style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+      React.createElement("b", { style: { color: e.rate >= 50 ? "#C0392B" : "#1E8449" } }, e.rate + "%"),
+      React.createElement("span", { style: { fontSize: 9, color: "#888" } }, (e.upAvg != null ? "+" + e.upAvg : "—") + " / " + (e.dnAvg != null ? e.dnAvg : "—")));
+  };
+  var body = rows.map(function(o, ri) {
     return React.createElement("tr", { key: o.label },
       _elv2Td(React.createElement("b", null, o.label), { textAlign: "left", paddingLeft: 8, color: "#9A3412" }),
       _elv2Td(o.n + "件", { fontWeight: 700 }),
       _elv2Td(_medNode(o.med)),
       _elv2Td(o.mean != null ? React.createElement("span", { style: { color: "#888" } }, o.mean + "円") : "—"),
       _elv2Td(o.n ? React.createElement("span", { style: { fontWeight: 700, color: o.neg ? "#1E8449" : "#bbb" } }, Math.round(o.neg / o.n * 100) + "%") : "—"),
+      _elv2Td(_extNode(ext[ri])),
       _elv2Td(gran === "each" ? _bar1(o.vals) : _bar6(o.dist)));
   });
   var legend = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "2px 8px", margin: "5px 0 0" } },
@@ -288,14 +310,15 @@ function _elOsLegsSectionV2(_ref) {
   var items = [];
   var os1 = rows[0], os2 = rows[1], os3 = rows[2], h1 = rows[3], h2 = rows[4];
   if (os1.med != null && os2.med != null) items.push(React.createElement("span", null, "高値の中央値はOS1=", _elInsightEmV2(os1.med + "円"), "→OS2=", _elInsightEmV2(os2.med + "円"), os3.med != null ? React.createElement("span", null, "→OS3=", _elInsightEmV2(os3.med + "円")) : null, "＝", (os2.med > os1.med ? "2本目も伸びやすい。" : "2本目で伸びは鈍る傾向。")));
+  if (ext[1]) items.push(React.createElement("span", null, "記録ごとに見ると、OS2がOS1の高値を", _elInsightEmV2("上回ったのは" + ext[1].rate + "%"), "（" + ext[1].pairN + "件中" + ext[1].upN + "件）", ext[1].upAvg != null ? React.createElement("span", null, "・上回った時は平均", _elInsightEmV2("+" + ext[1].upAvg + "円"), "深い") : null, "＝", (ext[1].rate >= 50 ? "2本目も深押ししやすい。" : "2本目で止まりやすい（OS1で伸び切ることが多い）。")));
   var negLeg = rows.filter(function(o) { return o.n >= 3 && o.neg > 0; }).sort(function(a, b) { return (b.neg / b.n) - (a.neg / a.n); })[0];
   if (negLeg) items.push(React.createElement("span", null, _elInsightEmV2(negLeg.label), "は下落率", _elInsightEmV2(Math.round(negLeg.neg / negLeg.n * 100) + "%"), "＝高値が基準線割れになりやすい足（深追い注意）。"));
   if (h1.med != null) items.push(React.createElement("span", null, "EP後はH1(OS4)中央", _elInsightEmV2(h1.med + "円"), h2.med != null ? React.createElement("span", null, "・H2(OS5)中央", _elInsightEmV2(h2.med + "円")) : null, "＝保有中の典型的な高値。最適な手仕舞いは深掘りタブの「最適ホールド本数」を参照。"));
   return React.createElement("div", null,
     React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 4 } }, _elGranToggle(gran, setGran)),
-    _elv2Table(["足", "入力", "中央値", "平均", "下落率", gran === "each" ? "1円刻み分布" : "帯分布（6帯）"], body),
+    _elv2Table(["足", "入力", "中央値", "平均", "下落率", "前足比", gran === "each" ? "1円刻み分布" : "帯分布（6帯）"], body),
     legend,
-    _elInsightBoxV2(items, { note: (gran === "each" ? "各足の高値（水準線比・↑正/↓負）を1円刻みで分布表示（棒の色＝属する帯・hoverで件数）。" : "各足の高値（水準線比・↑正/↓負）。") + "OS1=寄り足／OS2・OS3=待ち足／OS4=EP後H1足・OS5=H2足の固定位置。OS2以降は基準線割れ（高値が負＝下落）あり＝下落帯を含む。中央値=右偏のため典型値（平均は外れ値に上振れ）。下落率=高値が0未満の割合。" }));
+    _elInsightBoxV2(items, { note: (gran === "each" ? "各足の高値（水準線比・↑正/↓負）を1円刻みで分布表示（棒の色＝属する帯・hoverで件数）。" : "各足の高値（水準線比・↑正/↓負）。") + "OS1=寄り足／OS2・OS3=待ち足／OS4=EP後H1足・OS5=H2足の固定位置。OS2以降は基準線割れ（高値が負＝下落）あり＝下落帯を含む。中央値=右偏のため典型値（平均は外れ値に上振れ）。下落率=高値が0未満の割合。前足比＝記録ごとに『この足の高値＞前の足の高値』だった割合（伸長率・母数=両足とも高値入力ありの記録）。下段＝上回った時の平均伸び幅／下回った時の平均（前足比・円）。OS1→OS2・OS2→OS3のオーバーシュート伸長のみ（EP後のH1/H2の伸びは深掘りタブ『最適ホールド本数』を参照）。" }));
 }
 
 // records配列のOS値統計（平均/中央値/最頻値/最小/最大/帯別分布dist[5]）。OS値入力なしならnull。
