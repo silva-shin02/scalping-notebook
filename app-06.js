@@ -912,14 +912,28 @@ function _elLineChartV2(series, opts) {
   var yMin = 0, yMax = 0;
   sers.forEach(function(sr) { sr.pts.forEach(function(v) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }); });
   if (yMin === yMax) yMax = yMin + 100;
-  var _sp = yMax - yMin; yMin -= _sp * 0.06; yMax += _sp * 0.06;
+  // Y軸を「切りのいい数字」に揃える: 生のspanからniceなstep(1/2/2.5/5×10^k)を選び、yMin↓/yMax↑をstep倍数へ丸める。
+  // ドメイン(yMin/yMax)・グリッド・ラベルが同じstep基準を共有するので目盛りが 0/20,000/40,000… の丸い値になる（2026-06-17）。
+  var _niceStep = function(raw) {
+    if (!(raw > 0)) return 1;
+    var pw = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+    var f = raw / pw;
+    var nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10;
+    return nf * pw;
+  };
+  var _step = _niceStep((yMax - yMin) / 5);
+  if (!(_step > 0)) _step = 1;
+  yMin = Math.floor(yMin / _step) * _step;
+  yMax = Math.ceil(yMax / _step) * _step;
+  if (yMax <= yMin) yMax = yMin + _step;
   var xAt = function(i) { return padL + (W - padL - padR) * i / (n - 1); };
   var yAt = function(v) { return padT + (H - padT - padB) * (1 - (v - yMin) / (yMax - yMin)); };
   var kids = [];
-  for (var t = 0; t <= 4; t++) {
-    var gv = yMin + (yMax - yMin) * t / 4, gy = yAt(gv);
-    kids.push(React.createElement("line", { key: "g" + t, x1: padL, y1: gy, x2: W - padR, y2: gy, stroke: "#eee9e0", strokeWidth: 1 }));
-    kids.push(React.createElement("text", { key: "gl" + t, x: padL - 4, y: gy + 3, textAnchor: "end", fontSize: 9, fill: "#999" }, Math.round(gv).toLocaleString()));
+  var _gi = 0;
+  for (var gv = yMin; gv <= yMax + _step * 1e-6 && _gi < 100; gv += _step, _gi++) {
+    var gy = yAt(gv);
+    kids.push(React.createElement("line", { key: "g" + _gi, x1: padL, y1: gy, x2: W - padR, y2: gy, stroke: "#eee9e0", strokeWidth: 1 }));
+    kids.push(React.createElement("text", { key: "gl" + _gi, x: padL - 4, y: gy + 3, textAnchor: "end", fontSize: 9, fill: "#999" }, Math.round(gv).toLocaleString()));
   }
   if (yMin < 0 && yMax > 0) kids.push(React.createElement("line", { key: "zero", x1: padL, y1: yAt(0), x2: W - padR, y2: yAt(0), stroke: "#cbb89a", strokeWidth: 1.2 }));
   (opts.xTicks || []).forEach(function(tk, ti) {
@@ -2078,9 +2092,9 @@ function EntryLogView(_ref_elv2) {
       var _keys = Object.keys(_byP).sort().reverse();
       if (!_keys.length) return React.createElement(React.Fragment, null, _secH("📆 期間集計"), _granBtns, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし"));
       var _chartKeys = _keys.slice().reverse();
-      var _realPts = [], _planPts = [], _xt = [], _step = Math.max(1, Math.ceil(_chartKeys.length / 6));
-      _chartKeys.forEach(function(k, i) { var t = _periodTot(_byP[k]); _realPts.push(t.real || 0); _planPts.push(t.plan || 0); if (i % _step === 0 || i === _chartKeys.length - 1) _xt.push({ i: i, label: _labelOf(k) }); });
-      var _chart = _chartKeys.length >= 2 ? _elLineChartV2([{ label: "実現損益", color: "#2E7D32", pts: _realPts }, { label: "EP損益", color: "#0369A1", pts: _planPts }], { xTicks: _xt }) : null;
+      var _realPts = [], _planPts = [], _h1Pts = [], _h2Pts = [], _h2rPts = [], _xt = [], _step = Math.max(1, Math.ceil(_chartKeys.length / 6));
+      _chartKeys.forEach(function(k, i) { var t = _periodTot(_byP[k]); _realPts.push(t.real || 0); _planPts.push(t.plan || 0); _h1Pts.push(t.holdPlanCap || 0); _h2Pts.push(t.hold2 || 0); _h2rPts.push((t.hold2 || 0) + (t.hold2Ref || 0)); if (i % _step === 0 || i === _chartKeys.length - 1) _xt.push({ i: i, label: _labelOf(k) }); });
+      var _chart = _chartKeys.length >= 2 ? _elLineChartV2([{ label: "実現損益", color: "#2E7D32", pts: _realPts }, { label: "EP損益", color: "#0369A1", pts: _planPts }, { label: "H1損益", color: "#DC2626", pts: _h1Pts }, { label: "H2損益", color: "#D97706", pts: _h2Pts }, { label: "H2損益（）", color: "#DB2777", pts: _h2rPts }], { xTicks: _xt }) : null;
       var _thP = function(t) { return React.createElement("th", { style: { padding: "5px 5px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
       var _tdP = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
       var _rows = [];
