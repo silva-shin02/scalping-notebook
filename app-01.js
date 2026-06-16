@@ -1741,7 +1741,7 @@ function _collectAndUploadHtmlDataUrls(data, uploadsArr) {
         
         
         var pid = "html_" + _fbHashStr(b642);
-        var ext = mt2 === "image/png" ? ".png" : (mt2 === "image/gif" ? ".gif" : ".jpg");
+        var ext = mt2 === "image/png" ? ".png" : (mt2 === "image/webp" ? ".webp" : (mt2 === "image/gif" ? ".gif" : ".jpg"));
         uploadsArr.push(
           _uploadToStorage("notebook-images/" + pid + ext, b642, mt2)
             .then(function(url) {
@@ -1864,7 +1864,7 @@ function _uploadAllImages(data) {
         var _id = "img_" + _fbHashStr(_hashInput);
         (function(target, id, b64, mt) {
           uploads.push(
-            _uploadToStorage("notebook-images/" + id + (mt === "image/png" ? ".png" : ".jpg"), b64, mt)
+            _uploadToStorage("notebook-images/" + id + (mt === "image/png" ? ".png" : mt === "image/webp" ? ".webp" : ".jpg"), b64, mt)
               .then(function(url) {
                 if (url) { target.imageUrl = url; }
                 else { console.warn("[Storage] Upload returned null for " + id + ", will retry on next save"); }
@@ -1881,7 +1881,7 @@ function _uploadAllImages(data) {
         var _oid = "orig_" + _fbHashStr(_ob64.length + "_" + _ob64.substring(0, 2000) + _ob64.substring(_ob64.length - 1000));
         (function(target, id, b64, mt) {
           uploads.push(
-            _uploadToStorage("notebook-images/" + id + (mt === "image/png" ? ".png" : ".jpg"), b64, mt)
+            _uploadToStorage("notebook-images/" + id + (mt === "image/png" ? ".png" : mt === "image/webp" ? ".webp" : ".jpg"), b64, mt)
               .then(function(url) {
                 if (url) { target.origImageUrl = url; }
                 else { console.warn("[Storage] Upload returned null for " + id + ", will retry on next save"); }
@@ -5130,12 +5130,12 @@ function ImageAnnotator(_ref7) {
     var _capBaseImg = baseImgRef.current;
     var _capStrokes = _curStrokes;
     
-    var _finishPng = function(base64) {
-      
+    var _finishPng = function(base64, mime) {
+
       clearTimeout(_reflectFallback);
       if (base64) {
-        
-        var _savedFull = Object.assign({}, _savedNow, { base64: base64, mt: "image/png" });
+
+        var _savedFull = Object.assign({}, _savedNow, { base64: base64, mt: mime || "image/png" });
         
         
         
@@ -5184,22 +5184,27 @@ function ImageAnnotator(_ref7) {
       
       
       try {
+        // 容量削減(2026-06-15): WebP(q0.88)で保存。非対応端末(古いSafari等)はブラウザが自動でPNGへフォールバックするので、
+        // 実際のmime(blob.type / data URLのヘッダ)を読んでmtに反映する＝表示(imgSrc)・Storage拡張子が常に正しくなる。
         if (_expC.toBlob) {
           _expC.toBlob(function(blob) {
             if (!blob) { _finishPng(null); return; }
+            var _mt = blob.type || "image/png";
             var _fr = new FileReader();
             _fr.onload = function() {
               var _b64 = String(_fr.result || "").split(",")[1] || null;
-              _finishPng(_b64);
+              _finishPng(_b64, _mt);
             };
             _fr.onerror = function() { _finishPng(null); };
             _fr.readAsDataURL(blob);
-          }, "image/png");
+          }, "image/webp", 0.88);
           return;
         }
-        _finishPng(_expC.toDataURL("image/png").split(",")[1]);
+        var _du = _expC.toDataURL("image/webp", 0.88);
+        var _duMt = (String(_du).match(/^data:([^;]+)/) || [])[1] || "image/png";
+        _finishPng(_du.split(",")[1], _duMt);
       } catch(e) {
-        console.warn("[Annotator] async PNG encode failed:", e);
+        console.warn("[Annotator] async image encode failed:", e);
         _finishPng(null);
       }
     };
