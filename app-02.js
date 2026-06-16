@@ -4181,7 +4181,8 @@ function EntrySignalSection(_ref_es) {
     var hpN = hp != null ? _p100(hp) : null;
     if (rpN != null) { _esTotReal = (_esTotReal || 0) + rpN; _esTotRealCnt++; }
     // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
-    if (ppN != null) { _esTotPlan = (_esTotPlan || 0) + ppN; _esTotPlanCnt++; }
+    var _epTriEs = _epIsTriEntry(s, _esAlpha(s));  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内のみ・（）外は0
+    if (ppN != null) { if (_epTriEs) { _esTotPlanRef = (_esTotPlanRef || 0) + ppN; _esTotPlanRefCnt++; } else { _esTotPlan = (_esTotPlan || 0) + ppN; _esTotPlanCnt++; } }
     if (mpN != null) { _esTotMax  = (_esTotMax  || 0) + mpN; _esTotMaxCnt++; }
     // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
     var _planStopTot = _elPlanIsStop(s, _esAlpha(s), _esCut(s));
@@ -4204,7 +4205,7 @@ function EntrySignalSection(_ref_es) {
     if (_h2tes.main != null) { _esTotHold2 = (_esTotHold2 || 0) + _p100(_h2tes.main); _esTotHold2Cnt++; }
     if (_h2tes.ref != null) { _esTotHold2Ref = (_esTotHold2Ref || 0) + _p100(_h2tes.ref); _esTotHold2RefCnt++; }
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
-    if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
+    if (ppN != null && _isAB && !_epTriEs) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; _esTotMaxABCnt++; }
     if (hpN != null && _isAB) { _esTotHoldAB = (_esTotHoldAB || 0) + ((_fbEs && ppN != null) ? ppN : _hCapN); _esTotHoldABCnt++; }
   });
@@ -5023,7 +5024,10 @@ function WeeklyPnlPanel(_wpp) {
           var _cutLwkD = _cutOf(r);
           if (_epIsXSkip(s, _aD)) return;  // EP×（×見送り）→ 完全に算入無し
           var pp = _elDynPlanned(s, _aD, _cutLwkD);
-          if (pp != null) _dynSP = (_dynSP || 0) + pp;
+          if (pp != null) {
+            if (_epIsTriEntry(s, _aD)) { _dynSPRef = (_dynSPRef || 0) + pp; _dynSPRefCnt++; }  // EP-OS△→（）内のみ・（）外は0
+            else _dynSP = (_dynSP || 0) + pp;
+          }
         });
         return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkPnlCell(_profitGradeFromPnl(_dynSP != null ? _dynSP : 0, (_dynSP != null && _dynSP !== 0) ? st.total : 0), _dynSP), _elHold2RefSuffix(_dynSP, _dynSPRef, _dynSPRefCnt));
       })()),

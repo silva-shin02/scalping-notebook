@@ -4149,16 +4149,20 @@ function DayView(_ref57) {
         if (_isXskipPb) {
           // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
         } else {
-        if (planPnl != null) { _totPlan = (_totPlan || 0) + planPnl; _totPlanCnt++;
-          var _pStopT = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
-          if (_pStopT) _totPlanStop = true;
-          _totPlanCap = (_totPlanCap || 0) + (_pStopT ? _elCapLossYen(_cutLrec) : planPnl); }
+        var _epTriPb = _epIsTriEntry(s, _alphaRec);  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内のみ・（）外は0
+        if (planPnl != null) {
+          if (_epTriPb) { _totPlanRef = (_totPlanRef || 0) + planPnl; _totPlanRefCnt++; }
+          else { _totPlan = (_totPlan || 0) + planPnl; _totPlanCnt++;
+            var _pStopT = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
+            if (_pStopT) _totPlanStop = true;
+            _totPlanCap = (_totPlanCap || 0) + (_pStopT ? _elCapLossYen(_cutLrec) : planPnl); }
+        }
         if (holdPnl != null) { _totHold = (_totHold || 0) + holdPnl; _totHoldCnt++;
           var _hStopT = (_alphaRec != null && _elHoldIsStop(s, _alphaRec, _cutLrec));
           if (_hStopT) _totHoldStop = true;
           _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_cutLrec) : holdPnl); }
         var _isABpb = (s.difficulty === "A" || s.difficulty === "B");
-        if (planPnl != null && _isABpb) { _totPlanABpb = (_totPlanABpb || 0) + planPnl; _totPlanABCntpb++; }
+        if (planPnl != null && _isABpb && !_epTriPb) { _totPlanABpb = (_totPlanABpb || 0) + planPnl; _totPlanABCntpb++; }
         if (_h2tpb.main != null) { _totHold2 = (_totHold2 || 0) + _h2tpb.main; _totHold2Cnt++; }
         if (_h2tpb.ref != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2tpb.ref; _totHold2RefCnt++; }
         if (holdPnl != null) {
@@ -4436,7 +4440,10 @@ function DayView(_ref57) {
               var _cutLwkD = _wkCutOf(r);
               if (_epIsXSkip(s, _aD)) return;  // EP×（×見送り）→ 完全に算入無し
               var pp = _elDynPlanned(s, _aD, _cutLwkD);  // EP起算v2対応（EP=OS2/3の損切り額も算入）
-              if (pp != null) _dynSP = (_dynSP || 0) + pp;
+              if (pp != null) {
+                if (_epIsTriEntry(s, _aD)) { _dynSPRef = (_dynSPRef || 0) + pp; _dynSPRefCnt++; }  // EP-OS△→（）内のみ・（）外は0
+                else _dynSP = (_dynSP || 0) + pp;
+              }
             });
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkPnlCell(_profitGradeFromPnl(_dynSP != null ? _dynSP : 0, (_dynSP != null && _dynSP !== 0) ? st.total : 0), _dynSP), _elHold2RefSuffix(_dynSP, _dynSPRef, _dynSPRefCnt));
           })()),
@@ -4644,7 +4651,10 @@ function DayView(_ref57) {
               var _cutLpbD = _pbCutOf(r);
               if (_epIsXSkip(s, _aD)) return;  // EP×（×見送り）→ 完全に算入無し
               var pp = _elDynPlanned(s, _aD, _cutLpbD);  // EP起算v2対応（EP=OS2/3の損切り額も算入）
-              if (pp != null) { _dynSP = (_dynSP || 0) + pp; if (s.difficulty === "A" || s.difficulty === "B") _dynSPAB = (_dynSPAB || 0) + pp; }
+              if (pp != null) {
+                if (_epIsTriEntry(s, _aD)) { _dynSPRef = (_dynSPRef || 0) + pp; _dynSPRefCnt++; }  // EP-OS△→（）内のみ・（）外は0
+                else { _dynSP = (_dynSP || 0) + pp; if (s.difficulty === "A" || s.difficulty === "B") _dynSPAB = (_dynSPAB || 0) + pp; }
+              }
             });
             var _hasAlpha = (recs || []).some(function(r) { return r.signal && r.signal.alphaVal != null; });
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _pbABAll(recs, _dynSP !== null ? _dynSP : st.sumPlanned, st.expectedPlanned, gradePlanned, "sumPlanned", "expectedPlanned", _hasAlpha ? _dynSPAB : undefined), _elHold2RefSuffix(_dynSP, _dynSPRef, _dynSPRefCnt));

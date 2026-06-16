@@ -3240,6 +3240,13 @@ function _epIsXSkip(s, alpha) {
   var r = _epResolve(s, alpha);
   return !!(r && r.judge === "x");
 }
+// EP足（=エントリーした足）の到達期待度が△か（=△の確信度でエントリー）。【2026-06-16】H1/H2の△と同様、EP損益を
+// （）内（参考）のみに算入し本合計（）外には入れない（1段下が無いので（）外＝0）。旧記録(非v2)・×見送り・未設定はfalse＝○扱い。
+function _epIsTriEntry(s, alpha) {
+  if (!_epIsV2(s) || alpha == null) return false;
+  var r = _epResolve(s, alpha);
+  return !!(r && r.judge === "ok" && r.ep && r.ep.exp === "△");
+}
 // ×宣言を無視した「見送らず取引していたら」の仮想signal（OS到達期待×を除去→judge=ok化。EP/H1/H2足は高値≥αで不変）。
 // EP損益/H損益ヘルパーを当てると、見送り記録の参考損益（取引していた場合の値）が得られる。表示・×見送り分析専用＝合計には一切算入しない（2026-06-16: ×は（）参考からも除外）。
 function _epAsTraded(s) {
@@ -3690,7 +3697,15 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
             React.createElement("span", { style: { fontWeight: 700, color: pnl > 0 ? "#C0392B" : pnl < 0 ? "#1E8449" : "#888" } }, (pnl > 0 ? "+" : "") + pnl.toLocaleString() + "円"))
         : React.createElement("span", { style: { color: "#ccc" } }, "—"))));
   if (_elPlanIsStop(s, alpha, cutLine)) nodes.push(React.createElement("span", { key: "cap" }, _elCapNote(cutLine)));
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, nodes);
+  var _epInner = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, nodes);
+  if (_epIsTriEntry(s, alpha)) {
+    // EP-OS△（△の確信度でエントリー）→ （）でくくる（参考＝合計の（）内・（）外は0）。文字の薄さは○と同じ（薄くしない）。
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+      React.createElement("span", { key: "td", style: { color: "#B45309", fontWeight: 800, marginRight: 1 } }, "△（"),
+      _epInner,
+      React.createElement("span", { key: "tc", style: { color: "#888" } }, "）"));
+  }
+  return _epInner;
 }
 // 成立率の到達判定: v2=3本以内にα値到達、旧記録=OS値≥α。
 function _epReachedAt(s, alpha) {
@@ -3760,10 +3775,15 @@ function _elTotAccum(items, get) {
     if (_epIsXSkip(s, a)) return;
     var pp = _elDynPlanned(s, a, c); var ppN = pp != null ? nm(it, pp) : null;
     if (ppN != null) {
-      t.plan = (t.plan || 0) + ppN; t.planCnt++;
-      var ps = _elPlanIsStop(s, a, c); if (ps) t.planStop = true;
-      t.planCap = (t.planCap || 0) + (ps ? _elCapLossYen(c) : ppN);
-      if (isAB) { t.planAB = (t.planAB || 0) + ppN; t.planABCnt++; }
+      if (_epIsTriEntry(s, a)) {
+        // EP-OS△（△の確信度でエントリー）→ EP損益は（）内（参考）のみ・（）外は0（H1/H2の△と同様）。
+        t.planRef = (t.planRef || 0) + ppN; t.planRefCnt++;
+      } else {
+        t.plan = (t.plan || 0) + ppN; t.planCnt++;
+        var ps = _elPlanIsStop(s, a, c); if (ps) t.planStop = true;
+        t.planCap = (t.planCap || 0) + (ps ? _elCapLossYen(c) : ppN);
+        if (isAB) { t.planAB = (t.planAB || 0) + ppN; t.planABCnt++; }
+      }
     }
     // H1: 各表・早見表と同一基準（想定損切り→想定額キャップ・×/△/損切り済→想定額フォールバック・参考はキャップ後差分＝差0は算入しない。×は参考にも入れない）
     var hv = _elDynHold(s, a, c);
@@ -4293,6 +4313,7 @@ function _elCalcStats(records, data, simResolve) {
   var total = records.length;
   var ok = 0, ng = 0, draw = 0, miss = 0;
   var sumPnl = 0, sumPlanned = 0, sumMax = 0, sumHold = 0;
+  var sumPlannedRef = 0, plannedRefCnt = 0;  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内（参考）のみ・（）外は0（2026-06-16）
   var wins = [], losses = [];
   var plannedWins = [], plannedLosses = [];
   var maxWins = [], maxLosses = [];
@@ -4325,12 +4346,16 @@ function _elCalcStats(records, data, simResolve) {
     var pp = _liveA ? _elDynPlanned(s, _ai.alpha, _ai.cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (pp != null) {
       var ppN = _liveA ? Math.round(pp) : _per100(pp);
-      sumPlanned += ppN;
-      if (ppN > 0) plannedWins.push(ppN);
-      else if (ppN < 0) plannedLosses.push(ppN);
-      var _pStop = _liveA && _elPlanIsStop(s, _ai.alpha, _ai.cutLine);
-      if (_pStop) planHasStop = true;
-      planCapSum += _pStop ? _elCapLossYen(_ai.cutLine) : ppN;
+      if (_liveA && _epIsTriEntry(s, _ai.alpha)) {
+        sumPlannedRef += ppN; plannedRefCnt++;  // EP-OS△ → （）外には入れず参考(ref)へ・（）外は0（H1/H2の△と同様）
+      } else {
+        sumPlanned += ppN;
+        if (ppN > 0) plannedWins.push(ppN);
+        else if (ppN < 0) plannedLosses.push(ppN);
+        var _pStop = _liveA && _elPlanIsStop(s, _ai.alpha, _ai.cutLine);
+        if (_pStop) planHasStop = true;
+        planCapSum += _pStop ? _elCapLossYen(_ai.cutLine) : ppN;
+      }
     }
     var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
     if (mp != null) {
@@ -4428,6 +4453,7 @@ function _elCalcStats(records, data, simResolve) {
     total: total, ok: ok, ng: ng, draw: draw, miss: miss, winPct: winPct,
     avgWin: avgWin, avgLoss: avgLoss, expected: expected,
     sumPnl: sumPnl, sumPlanned: sumPlanned, sumMax: sumMax,
+    sumPlannedRef: plannedRefCnt > 0 ? sumPlannedRef : null, plannedRefCnt: plannedRefCnt,
     expectedPlanned: expectedPlanned, expectedMax: expectedMax,
     sumHold: holdHasData ? sumHold : null,
     sumHoldRef: holdRefCnt > 0 ? sumHoldRef : null, holdRefCnt: holdRefCnt,
@@ -4554,11 +4580,15 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     } else {
     var pv = _elDynPlanned(s, _aSig, _c);
     if (pv != null) {
-      planSum += pv; planCount++;
-      if (isAB) { planSumAB += pv; planCountAB++; }
-      var _pStop = _elPlanIsStop(s, _aSig, _c);
-      if (_pStop) planHasStop = true;
-      planCapSum += _pStop ? _elCapLossYen(_c) : pv;
+      if (_epIsTriEntry(s, _aSig)) {
+        planRefSum += pv; planRefCnt++;  // EP-OS△ → （）外には入れず参考(ref)へ・（）外は0（H1/H2の△と同様）
+      } else {
+        planSum += pv; planCount++;
+        if (isAB) { planSumAB += pv; planCountAB++; }
+        var _pStop = _elPlanIsStop(s, _aSig, _c);
+        if (_pStop) planHasStop = true;
+        planCapSum += _pStop ? _elCapLossYen(_c) : pv;
+      }
     }
     var hv = _elDynHold(s, _aSig, _c);
     // 想定もH1もE基準未達(両miss=ノートレード)はEP損益が0なので、H1も0円扱いにして揃える（早見表で「—」でなく「0円」表示）。
