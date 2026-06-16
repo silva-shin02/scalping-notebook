@@ -3219,6 +3219,7 @@ function _epLegs(s) {
 }
 // EP解決: 先頭3本以内で高値≥αとなる最初の足。{epIdx, ep, h1, h2, judge, legs}。
 // judge: "ok"=E成立 / "x"=×宣言後の到達(見送り・参考扱い=集計上ノートレード) / "miss"=E未達。
+//   ×宣言＝EPより手前のOSが×（xBefore）、またはEP足自身の到達期待度が×（EP-OS自身で見送り宣言＝EP含めそれ以降を算入しない）。
 // 役割はαから導出: αシミュでEP位置が動いてもh1/h2は配列位置で追従（不足足はnull）。
 function _epResolve(s, alpha) {
   if (!_epIsV2(s) || alpha == null) return null;
@@ -3231,7 +3232,8 @@ function _epResolve(s, alpha) {
   if (epIdx < 0) return { epIdx: -1, ep: null, h1: null, h2: null, judge: "miss", legs: legs };
   var xBefore = false;
   for (var j = 0; j < epIdx; j++) { if (legs[j].exp === "×") xBefore = true; }
-  return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: xBefore ? "x" : "ok", legs: legs };
+  var epX = (legs[epIdx].exp === "×");  // EP足自身の到達期待度×（OS1で見送り宣言しOS1で到達等）も見送り扱い
+  return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: (xBefore || epX) ? "x" : "ok", legs: legs };
 }
 // ×宣言後の到達（judge="x"＝見送り・参考扱い）か。EP足はα到達済みだが手前のOSで×宣言したため集計上ノートレード。
 function _epIsXSkip(s, alpha) {
@@ -3771,11 +3773,11 @@ function _elTotAccum(items, get) {
       t.holdRaw = (t.holdRaw || 0) + hvN;
       var ps2 = _elPlanIsStop(s, a, c);
       var hCap = (ps2 && ppN != null) ? ppN : hvN;
-      var _fbH = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
+      var _fbH = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）は想定額へフォールバック。未設定=×扱い
       var m1 = (_fbH && ppN != null) ? ppN : hCap;
       t.holdPlanCap = (t.holdPlanCap || 0) + m1; t.holdCnt++;
       if (isAB) { t.holdAB = (t.holdAB || 0) + m1; t.holdABCnt++; }
-      if (_fbH && s.holdExp !== "×" && ppN != null && (hCap - ppN) !== 0) { t.holdRef = (t.holdRef || 0) + (hCap - ppN); t.holdRefCnt++; }
+      if ((s.holdExp === "△" || s.holdExp === "損切り済") && ppN != null && (hCap - ppN) !== 0) { t.holdRef = (t.holdRef || 0) + (hCap - ppN); t.holdRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
       if (ps2 && ppN != null && hvN !== ppN) t.holdPlanStopDiff = true;
     }
     var t2 = _elHold2TotParts(s, a, c);
@@ -4022,7 +4024,7 @@ function _elHold2RefSuffix(mainSum, refSum, refCnt) {
 //  ・H1期待度× → 本合計（（）外）も（）内もEP損益（想定額）へフォールバック・参考(ref)無し（「EP損益のみ算入」）。
 //  ・H1期待度△ → 本合計（（）外）はEP損益（想定額）・H1まで保有した場合との差を参考(ref=（）内)へ＝（）内は○△（=H1損益）を表す。※旧×の挙動を△が継承。
 //  ・H1期待度 損切り済 → 従来どおり想定額main＋参考ref（損切りの件は従来どおり）。
-//  ・○/未設定 → H1結果(planCap)をmain。
+//  ・H1期待度 未設定 → ×と同じ扱い（想定額main・参考無し）。○ → H1結果(planCap)をmain。
 function _elHold1TotParts(s, alpha, cutLine) {
   if (!s) return { main: null, ref: null };
   if (_epIsXSkip(s, alpha)) return { main: null, ref: null };  // EP×（×見送り）→ 完全に算入無し
@@ -4032,18 +4034,18 @@ function _elHold1TotParts(s, alpha, cutLine) {
     if (pv0 != null) hres = pv0;
   }
   if (hres == null) return { main: null, ref: null };
-  if (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済") {
+  if (s.holdExp !== "○") {  // ○以外（×/△/損切り済/未設定）は想定額（EP損益）へフォールバック。未設定=×扱い
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan == null) return { main: hres, ref: null };
-    // 参考=「H1まで保有した場合」との差（想定損切り時キャップ後hresと一致）。×は参考(（）内)にも算入しない。△/損切り済のみ参考へ。
-    var _noRef1 = (s.holdExp === "×");
-    return { main: plan, ref: (!_noRef1 && (hres - plan) !== 0) ? (hres - plan) : null };
+    // 参考=「H1まで保有した場合」との差（想定損切り時キャップ後hresと一致）。△/損切り済のみ参考(（）内)へ。×/未設定は参考無し。
+    var _withRef1 = (s.holdExp === "△" || s.holdExp === "損切り済");
+    return { main: plan, ref: (_withRef1 && (hres - plan) !== 0) ? (hres - plan) : null };
   }
-  return { main: hres, ref: null };
+  return { main: hres, ref: null };  // ○
 }
 // H2合計のカスケード基準「1段下（H1まで保有）で手仕舞いした損益」。
-//  H1期待度×/損切り済 → EP損益(想定額)、それ以外(○/△/未設定) → H1損益(想定損切りキャップ後)。
-//  ※H1=△でも実際にはH1まで保有しているのでH1損益を返す（（）外のH1列フォールバックとは別物）。
+//  H1期待度×/損切り済/未設定（=H1撤退） → EP損益(想定額)、○/△（=H1保有） → H1損益(想定損切りキャップ後)。
+//  ※H1=△でも実際にはH1まで保有しているのでH1損益を返す（（）外のH1列フォールバックとは別物）。未設定=×扱い。
 function _elH1HeldBase(s, alpha, cutLine) {
   if (!s) return null;
   var hres = (alpha != null) ? _elDynHold(s, alpha, cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
@@ -4051,7 +4053,7 @@ function _elH1HeldBase(s, alpha, cutLine) {
     var pv0 = _elDynPlanned(s, alpha, cutLine);
     if (pv0 != null) hres = pv0;
   }
-  if (s.holdExp === "×" || s.holdExp === "損切り済") {
+  if (s.holdExp === "×" || s.holdExp === "損切り済" || !s.holdExp) {
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan != null) return plan;
   }
@@ -4059,12 +4061,12 @@ function _elH1HeldBase(s, alpha, cutLine) {
 }
 // H2合計（結果損益）用の1記録あたりの寄与（raw値・100株換算）。【合計損益システム 2026-06-16改】（）外＝○のみ／（）内＝○△／×は一切算入しない:
 //  ・EP×（×見送り）→ 完全に算入無し。
-//  ・H1期待度×/損切り済（H1で撤退＝H2まで保有しない）→ 本合計は1段下(_elH1HeldBase=EP損益)。H1×は参考も無し（損切り済は従来どおり参考）。
-//  ・H2期待度× → 本合計はH1損益(1段下)へフォールバック・参考も無し（「H1損益を算入」）。
+//  ・H1期待度×/損切り済/未設定（H1で撤退＝H2まで保有しない）→ 本合計は1段下(_elH1HeldBase=EP損益)。×/未設定は参考も無し（損切り済は従来どおり参考）。
+//  ・H2期待度×/未設定 → 本合計はH1損益(1段下)へフォールバック・参考も無し（未設定=×扱い・「H1損益を算入」）。
 //  ・H2期待度△ → 本合計（（）外）はH1損益(1段下)・H2まで保有した場合との差を参考(（）内)へ＝（）内は○△(=H2損益)。※旧×の挙動を△が継承。
 //  ・H2期待度 損切り済 → 従来どおり1段下main＋参考。
-//  ・○/△で想定orH1が損切り（×でない）→ 損切り額のみmain。
-//  ・H2期待度○ 非損切り → _elDynHold2 → main。未設定（非損切り）→ null。
+//  ・想定orH1が損切り（H2＝○）→ 損切り額のみmain。
+//  ・H2期待度○ 非損切り → _elDynHold2 → main。
 function _elHold2TotParts(s, alpha, cutLine) {
   if (!s) return { main: null, ref: null };
   if (_epIsXSkip(s, alpha)) return { main: null, ref: null };  // EP×（×見送り）→ 完全に算入無し
@@ -4074,24 +4076,23 @@ function _elHold2TotParts(s, alpha, cutLine) {
     ? (_elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine))
     : ((alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign));
   var _base = _elH1HeldBase(s, alpha, cutLine);  // 1段下（H1まで保有）の損益
-  // H1期待度×/損切り済 → H1で撤退＝H2まで保有しない。本合計は1段下(_base)。H1×は参考も無し。
-  if (s.holdExp === "×" || s.holdExp === "損切り済") {
-    if (_base == null) return { main: null, ref: (s.holdExp === "×") ? null : hv };
-    var _noRefA = (s.holdExp === "×");
-    return { main: _base, ref: (!_noRefA && hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
+  // H1期待度×/損切り済/未設定（=H1撤退＝H2まで保有しない）→ 本合計は1段下(_base)。×/未設定は参考も無し。
+  if (s.holdExp === "×" || s.holdExp === "損切り済" || !s.holdExp) {
+    var _withRefA = (s.holdExp === "損切り済");  // 損切り済のみ参考。×/未設定は参考無し
+    if (_base == null) return { main: null, ref: _withRefA ? hv : null };
+    return { main: _base, ref: (_withRefA && hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
   }
-  // ここでH1は保有済(○/△/未設定)・_base=H1損益。H2期待度 ×/△/損切り済 → 本合計は1段下(_base)へフォールバック。
-  if (s.hold2Exp === "×" || s.hold2Exp === "△" || s.hold2Exp === "損切り済") {
-    if (_base == null) return { main: null, ref: (s.hold2Exp === "×") ? null : hv };
-    var _noRefB = (s.hold2Exp === "×");  // ×は参考も無し。△/損切り済はH2保有時との差を参考へ。
-    return { main: _base, ref: (!_noRefB && hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
+  // ここでH1は保有済(○/△)・_base=H1損益。H2期待度が○以外（×/△/損切り済/未設定）→ 本合計は1段下(_base)へフォールバック。未設定=×扱い。
+  if (s.hold2Exp !== "○") {
+    var _withRefB = (s.hold2Exp === "△" || s.hold2Exp === "損切り済");  // △/損切り済のみ参考。×/未設定は参考無し
+    if (_base == null) return { main: null, ref: _withRefB ? hv : null };
+    return { main: _base, ref: (_withRefB && hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
   }
-  // 想定orH1が損切り（H2期待度×/△でない）→ 損切り額のみmain。
+  // ここからH2期待度＝○。想定orH1が損切り → 損切り額のみmain。
   if (alpha != null && _elHoldIsStop(s, alpha, cutLine)) {
     var _stopAmt2 = _elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
     return { main: _stopAmt2, ref: null };
   }
-  if (!s.hold2Exp) return { main: null, ref: null };
   if (!_elHas2Data(s, alpha)) return { main: null, ref: null };
   return { main: hv, ref: null };  // H2期待度○（非損切り）→ H2損益をmain
 }
@@ -4339,12 +4340,12 @@ function _elCalcStats(records, data, simResolve) {
       var _pStopH = _liveA && _elPlanIsStop(s, _ai.alpha, _ai.cutLine);
       var _hCapH = (_pStopH && ppN != null) ? ppN : hpN;
       var _hStop = _liveA && _elHoldIsStop(s, _ai.alpha, _ai.cutLine);
-      var _fbHcs = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
+      var _fbHcs = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
       if (_fbHcs && ppN != null) {
-        sumHold += ppN; holdHasData = true;           // ×/△/損切り済→想定額(EP損益)へフォールバック
-        if (s.holdExp !== "×" && (_hCapH - ppN) !== 0) { sumHoldRef += (_hCapH - ppN); holdRefCnt++; }   // △/損切り済のみH1保有時との差を参考（×は参考も無し・差0除外）
+        sumHold += ppN; holdHasData = true;
+        if ((s.holdExp === "△" || s.holdExp === "損切り済") && (_hCapH - ppN) !== 0) { sumHoldRef += (_hCapH - ppN); holdRefCnt++; }   // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
       } else {
-        sumHold += _hCapH; holdHasData = true;        // 未設定/○ は本合計に算入
+        sumHold += _hCapH; holdHasData = true;        // ○ は本合計に算入
       }
       if (_hStop) holdHasStop = true;
       holdCapSum += _hStop ? _elCapLossYen(_ai.cutLine) : hpN;
@@ -4563,11 +4564,11 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
       holdCapSum += _hStop ? _elCapLossYen(_c) : hv;
       // 結果損益: 想定が損切りの行は想定額にキャップ（損切を踏まえた値）。
       var _hCapPlan = (_elPlanIsStop(s, _aSig, _c) && pv != null) ? pv : hv;
-      var _fbHcg = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
+      var _fbHcg = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
       if (_fbHcg && pv != null) {
-        holdSumPlanCap += pv;                          // ×/△/損切り済→想定額(EP損益)へフォールバック
+        holdSumPlanCap += pv;
         if (isAB) { holdSumPlanCapAB += pv; holdCountAB++; }
-        if (s.holdExp !== "×" && (_hCapPlan - pv) !== 0) { holdRefSum += (_hCapPlan - pv); holdRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×は参考も無し・差0除外）
+        if ((s.holdExp === "△" || s.holdExp === "損切り済") && (_hCapPlan - pv) !== 0) { holdRefSum += (_hCapPlan - pv); holdRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
       } else {
         holdSumPlanCap += _hCapPlan;
         if (isAB) { holdSumPlanCapAB += _hCapPlan; holdCountAB++; }

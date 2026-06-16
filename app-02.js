@@ -4186,13 +4186,13 @@ function EntrySignalSection(_ref_es) {
     // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
     var _planStopTot = _elPlanIsStop(s, _esAlpha(s), _esCut(s));
     var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
-    var _fbEs = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
+    var _fbEs = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
     if (hpN != null) {
       if (_fbEs && ppN != null) {
-        _esTotHold = (_esTotHold || 0) + ppN;                       // ×/△/損切り済→想定額(EP損益)へフォールバック
+        _esTotHold = (_esTotHold || 0) + ppN;
         _esTotHoldActual = (_esTotHoldActual || 0) + ppN;
         _esTotHoldCnt++;
-        if (s.holdExp !== "×" && (_hCapN - ppN) !== 0) { _esTotHoldRef = (_esTotHoldRef || 0) + (_hCapN - ppN); _esTotHoldRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×は参考無し・差0除外）
+        if ((s.holdExp === "△" || s.holdExp === "損切り済") && (_hCapN - ppN) !== 0) { _esTotHoldRef = (_esTotHoldRef || 0) + (_hCapN - ppN); _esTotHoldRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
       } else {
       _esTotHold = (_esTotHold || 0) + _hCapN;
       _esTotHoldActual = (_esTotHoldActual || 0) + hpN;
@@ -5040,9 +5040,9 @@ function WeeklyPnlPanel(_wpp) {
           var pp = _elDynPlanned(s, _aR, _cutLR);
           var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
           var _cap = (_pStop && pp != null) ? pp : hp;
-          var _fbW = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
+          var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額へフォールバック。未設定=×扱い
           _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
-          if (_fbW && s.holdExp !== "×" && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }
+          if ((s.holdExp === "△" || s.holdExp === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
           _hCnt++;
         });
         if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
