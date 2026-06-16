@@ -3284,6 +3284,26 @@ function ZoomLightbox(_ref6) {
 }
 
 
+// 端末が実際に描けるcanvasの最大1辺をプローブ（細い帯の遠端ピクセルが描けるか）。一度だけ実測してキャッシュ。
+// iOSの1辺上限は4096(旧)〜16384(M1等)と端末依存なので、対応端末はより高精細に・非対応は自動で小さく降格。2026-06-15
+var _snMaxCanvasDimCache = null;
+function _snMaxCanvasDim(cap) {
+  if (_snMaxCanvasDimCache == null) {
+    var tries = [16384, 8192, 4096], ok = 4096;
+    for (var i = 0; i < tries.length; i++) {
+      var d = tries[i];
+      try {
+        var c = document.createElement("canvas"); c.width = d; c.height = 4;
+        var x = c.getContext("2d"); if (!x) continue;
+        x.fillStyle = "#ff0000"; x.fillRect(d - 3, 0, 3, 4);
+        var px = x.getImageData(d - 2, 1, 1, 1).data;
+        if (px[0] > 200 && px[3] > 200) { ok = d; break; }  // 遠端が描けた＝その1辺は使える
+      } catch (e) {}
+    }
+    _snMaxCanvasDimCache = ok;
+  }
+  return Math.min(cap || _snMaxCanvasDimCache, _snMaxCanvasDimCache);
+}
 function ImageAnnotator(_ref7) {
   var img = _ref7.img,
     onSave = _ref7.onSave,
@@ -4096,10 +4116,10 @@ function ImageAnnotator(_ref7) {
       baseImgRef.current = bImg;
       logicalSizeRef.current = { w: nw, h: nh };
       scRef.current = Math.min((window.innerWidth * 0.96) / nw, ((window.innerHeight - 130) * 0.96) / nh, 1);
-      // ストロークcanvasの物理上限はiOS実上限(1辺4096)に収める＝手書き線がガビガビ/消失しない。
-      // ベース画質は背面imgが担当するのでcanvas解像度を上げる必要なし。デスクトップは従来どおり大きめ。
+      // ストロークcanvasの物理上限。ベース画像は背面imgが担当するのでcanvasは手書き線専用。
+      // iOSの1辺上限は端末依存(4096〜)。実機を一度プローブして最大8192まで使う＝対応端末(M1等)は線がより精細・非対応は4096へ自動降格。2026-06-15
       var CANVAS_MAX_AREA = _isIOSCanvas ? 15728640 : 33554432;
-      var CANVAS_MAX_DIM = _isIOSCanvas ? 4096 : 16384;
+      var CANVAS_MAX_DIM = _isIOSCanvas ? _snMaxCanvasDim(8192) : 16384;
       maxScaleRef.current = Math.min(Math.sqrt(CANVAS_MAX_AREA / (nw * nh)), CANVAS_MAX_DIM / Math.max(nw, nh));
       _applyRenderScale(1);
       console.log("[Annotator] renderScale=" + dprRef.current.toFixed(3) + " logical=" + nw + "×" + nh + " physical=" + c.width + "×" + c.height + " maxScale=" + maxScaleRef.current.toFixed(3) + " devicePixelRatio=" + window.devicePixelRatio);
