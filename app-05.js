@@ -3656,7 +3656,8 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
   var j = _epIsV2(s) ? (function() { var r = _epResolve(s, alpha); return r ? r.judge : null; })() : (s.osVal != null && _elH2Miss(s, alpha) ? "miss" : "ok");
   if (j === "x") {
     // ×見送り: 取引していた場合のEP損益を「×見送り（…）」で参考表示（本合計・（）参考とも算入無し＝表示と×見送り分析専用）。
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF" } },
+    // H損益の×（_elHoldStackInner level2）と同じくらい薄く＝全体 opacity 0.6（中身の取引していたら値も淡くする）。
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF", opacity: 0.6 } },
       React.createElement("span", { key: "xm", style: { fontSize: 12, color: "#1E8449", fontWeight: 800, marginRight: 2 } }, "×"),
       React.createElement("span", { key: "op", style: { color: "#9CA3AF" } }, "（"),
       _epPnlCell(_epAsTraded(s), alpha, cutLine, null),
