@@ -3965,7 +3965,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
   if (nodes.length === 0) return React.createElement("span", { style: { color: "#ddd" } }, "—");
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: noWrap ? "nowrap" : "wrap", justifyContent: "center", fontSize: 11, lineHeight: 1.5, whiteSpace: noWrap ? "nowrap" : "normal" } }, nodes);
 }
-// H2期待度セル【2026-06-16】: ○→記号＋統合表示（本算入）、△/損切り済→「△（統合表示）」（）参考（薄）、×・H1撤退/未設定→最薄（）（非算入）、未選択→空欄
+// H2期待度セル【2026-06-16】: ○→記号＋統合表示（本算入）、△/損切り済→「△（統合表示）」（）でくくる（文字は薄くしない）、×・H1撤退/未設定→（）＋薄く（除外）、未選択→空欄
 function _elHold2Cell(s, alpha, cutLine) {
   if (_epIsXSkip(s, alpha)) s = _epAsTraded(s);  // ×見送り→取引していた場合の値を参考表示（Q—にしない）
   if (_elH2Miss(s, alpha)) {
@@ -3984,20 +3984,20 @@ function _elHold2Cell(s, alpha, cutLine) {
   // 【2026-06-16 参考役は△へ移管】H1期待度(holdExp)が×/損切り済/未設定（=H1撤退）→H2は最薄（非算入）。
   var _h1Exited = (s.holdExp === "×" || s.holdExp === "損切り済" || !s.holdExp);
   if (exp === "×" || _h1Exited) {
-    // ×・H1撤退・未設定: 本合計にも（）参考にも算入しない → 最薄表示（淡く・記号＋フロー）。
-    if (!_elHas2Data(s, alpha)) return React.createElement("span", { style: { color: "#ccc" } }, exp);
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#bbb", fontSize: 11, whiteSpace: "nowrap", opacity: 0.45 } },
+    // ×・H1撤退・未設定: （）でくくり、文字も薄く（これまで通り＝本合計にも（）参考にも算入しない・除外）。
+    if (!_elHas2Data(s, alpha)) return React.createElement("span", { style: { color: "#bbb" } }, exp);
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#aaa", fontSize: 11, whiteSpace: "nowrap", opacity: 0.75 } },
       React.createElement("span", { key: "d", style: { marginRight: 1 } }, exp + "（"),
       _elHoldFlow(s, alpha, cutLine, true, true),
       React.createElement("span", { key: "e" }, "）"));
   }
   if (exp === "△" || exp === "損切り済") {
-    // △/損切り済: （）参考表示（薄く括弧）＝集計の（）内（参考）に対応。
+    // △/損切り済: （）でくくる（参考＝集計の（）内に対応）が、文字の薄さは○と同じ（薄くしない）。
     if (!_elHas2Data(s, alpha)) return React.createElement("span", { style: { color: "#bbb" } }, exp);
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#999", fontSize: 11, whiteSpace: "nowrap", opacity: 0.85 } },
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
       React.createElement("span", { key: "d", style: { color: "#B45309", marginRight: 1, fontWeight: 800 } }, exp + "（"),
       _elHoldFlow(s, alpha, cutLine, true, true),
-      React.createElement("span", { key: "e" }, "）"));
+      React.createElement("span", { key: "e", style: { color: "#888" } }, "）"));
   }
   // ○: 通常表示（本合計（）外算入）。
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
@@ -4165,7 +4165,7 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
 }
 // 明細表用: H1(上)/H2(下)を内部2行テーブルで縦揃え。列幅を固定(tableLayout:fixed)し記録間でも桁が揃う。
 // 左端に「H１」「H２」を表記。H1/H2間に区切り横線。H2行は期待度(○/△/×)→内容。
-// 【2026-06-16 参考役は△へ移管】△/損切り済(=参考)は内容を（）で薄く括る(level1)・×/H1撤退(=最薄/除外)はさらに薄く(level2)・○は通常。開き/閉じ括弧を専用列に置いて桁揃え。
+// 【2026-06-16 参考役は△へ移管】△/損切り済(=参考)は内容を（）で括る(level1・文字は薄くしない)・×/H1撤退(=除外)は（）＋薄く(level2)・○は通常。開き/閉じ括弧を専用列に置いて桁揃え。
 function _elHoldStackInner(s, alpha, cutLine) {
   var exp = s.hold2Exp;
   var _h2miss = _elH2Miss(s, alpha);
@@ -4181,7 +4181,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _c = function(k, node, ta, w, extra) { return React.createElement("td", { key: k, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: ta || "center", width: w, overflow: "visible" }, extra || {}) }, node != null ? node : null); };
   var _row = function(rk, lblNode, expNode, p, paren, topB) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
-    var btf = paren ? Object.assign({ opacity: paren >= 2 ? 0.4 : 0.65 }, bt) : bt;  // 括弧の中身を薄く: △/損切り済(参考)=0.65 / ×・H1撤退(最薄)=0.4
+    var btf = (paren >= 2) ? Object.assign({ opacity: 0.6 }, bt) : bt;  // 括弧の中身: △/損切り済(参考=level1)は薄くしない／×・H1撤退(除外=level2)は薄く(0.6)
     return React.createElement("tr", { key: rk },
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
       _c("e", expNode, "center", 14, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
