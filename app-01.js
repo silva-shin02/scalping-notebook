@@ -157,6 +157,43 @@ function calcSim(a, b) {
   });
   return u ? i / u * .8 + (1 - Math.abs(a.length - b.length) / Math.max(a.length, b.length, 1)) * .2 : 0;
 }
+// 取り込み画像をWebP(q0.88)へ再エンコードして容量削減（2026-06-15）。安全策:
+//  - gif/svg/既にwebp は対象外（アニメ/ベクターを壊さない）
+//  - 巨大画像でcanvasがiOS上限により空に間引かれていないか、24x24縮小で原画と比較して検証（崩れたら元のまま）
+//  - WebPエンコード非対応端末は元のまま / 8%以上小さくならない場合も元のまま
+// 失敗時はすべて元データ(keep)を返す＝壊さない。
+function _imgToWebpMaybe(dataUrl, base64, mt) {
+  return new Promise(function(resolve) {
+    var keep = { base64: base64, mt: mt };
+    try {
+      if (!mt || mt === "image/webp" || mt === "image/gif" || mt.indexOf("svg") >= 0) return resolve(keep);
+      var im = new Image();
+      im.onload = function() {
+        try {
+          var W = im.naturalWidth, H = im.naturalHeight;
+          if (!W || !H) return resolve(keep);
+          var c = document.createElement("canvas"); c.width = W; c.height = H;
+          var cx = c.getContext("2d"); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = "high";
+          cx.drawImage(im, 0, 0);
+          // 描画検証: 大きすぎてiOSがcanvasを間引くと中身が空になる。24x24に縮小して原画と比較。
+          var sa = document.createElement("canvas"); sa.width = 24; sa.height = 24; sa.getContext("2d").drawImage(c, 0, 0, 24, 24);
+          var sb = document.createElement("canvas"); sb.width = 24; sb.height = 24; sb.getContext("2d").drawImage(im, 0, 0, 24, 24);
+          var da = sa.getContext("2d").getImageData(0, 0, 24, 24).data, db = sb.getContext("2d").getImageData(0, 0, 24, 24).data;
+          var diff = 0; for (var i = 0; i < da.length; i += 4) { diff += Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]); }
+          diff = diff / (da.length / 4 * 3);
+          if (diff > 12) return resolve(keep); // canvasが正しく描けていない（サイズ上限等）→元のまま
+          var du = c.toDataURL("image/webp", 0.88);
+          if (String(du).indexOf("data:image/webp") !== 0) return resolve(keep); // WebPエンコード非対応
+          var wb = du.split(",")[1];
+          if (wb && wb.length < base64.length * 0.92) return resolve({ base64: wb, mt: "image/webp" });
+          return resolve(keep);
+        } catch (e) { return resolve(keep); }
+      };
+      im.onerror = function() { resolve(keep); };
+      im.src = dataUrl;
+    } catch (e) { resolve(keep); }
+  });
+}
 function fileToImg(_x) {
   return _fileToImg.apply(this, arguments);
 }
@@ -178,7 +215,8 @@ function _fileToImg() {
                 if (!base64) return res(null);
                 var headerMatch = result.substring(0, commaIdx).match(/^data:([^;]+)/);
                 var mt = headerMatch ? headerMatch[1] : (file.type || "image/png");
-                return res({ base64: base64, mt: mt, id: Date.now() });
+                // 取り込み時にWebP化を試みる（非対応/gif/svg/巨大/縮小不可は元のまま）。容量削減 2026-06-15
+                return _imgToWebpMaybe(result, base64, mt).then(function(o) { res({ base64: o.base64, mt: o.mt, id: Date.now() }); });
               } catch (_e) { return res(null); }
             };
             r.onerror = function () { return res(null); };
