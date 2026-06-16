@@ -3219,7 +3219,7 @@ function _epLegs(s) {
 }
 // EP解決: 先頭3本以内で高値≥αとなる最初の足。{epIdx, ep, h1, h2, judge, legs}。
 // judge: "ok"=E成立 / "x"=×宣言後の到達(見送り・参考扱い=集計上ノートレード) / "miss"=E未達。
-//   ×宣言＝EPより手前のOSが×（xBefore）、またはEP足自身の到達期待度が×（EP-OS自身で見送り宣言＝EP含めそれ以降を算入しない）。
+//   ×宣言＝EPより手前のOSが×（xBefore）。EP足＝エントリーした足なのでEP-OS自身の×はありえない＝EP（OS1含む）は無条件算入。
 // 役割はαから導出: αシミュでEP位置が動いてもh1/h2は配列位置で追従（不足足はnull）。
 function _epResolve(s, alpha) {
   if (!_epIsV2(s) || alpha == null) return null;
@@ -3232,8 +3232,7 @@ function _epResolve(s, alpha) {
   if (epIdx < 0) return { epIdx: -1, ep: null, h1: null, h2: null, judge: "miss", legs: legs };
   var xBefore = false;
   for (var j = 0; j < epIdx; j++) { if (legs[j].exp === "×") xBefore = true; }
-  var epX = (legs[epIdx].exp === "×");  // EP足自身の到達期待度×（OS1で見送り宣言しOS1で到達等）も見送り扱い
-  return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: (xBefore || epX) ? "x" : "ok", legs: legs };
+  return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: xBefore ? "x" : "ok", legs: legs };
 }
 // ×宣言後の到達（judge="x"＝見送り・参考扱い）か。EP足はα到達済みだが手前のOSで×宣言したため集計上ノートレード。
 function _epIsXSkip(s, alpha) {
@@ -3242,7 +3241,7 @@ function _epIsXSkip(s, alpha) {
   return !!(r && r.judge === "x");
 }
 // ×宣言を無視した「見送らず取引していたら」の仮想signal（OS到達期待×を除去→judge=ok化。EP/H1/H2足は高値≥αで不変）。
-// EP損益/H損益ヘルパーを当てると、見送り記録の参考損益（取引していた場合の値）が得られる。合計の（）参考に算入する。
+// EP損益/H損益ヘルパーを当てると、見送り記録の参考損益（取引していた場合の値）が得られる。表示・×見送り分析専用＝合計には一切算入しない（2026-06-16: ×は（）参考からも除外）。
 function _epAsTraded(s) {
   if (!_epIsV2(s)) return s;
   return Object.assign({}, s, { os1Exp: null, os2Exp: null });
@@ -3649,7 +3648,7 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
   var res = _elDynResult(s, alpha, cutLine);
   var j = _epIsV2(s) ? (function() { var r = _epResolve(s, alpha); return r ? r.judge : null; })() : (s.osVal != null && _elH2Miss(s, alpha) ? "miss" : "ok");
   if (j === "x") {
-    // ×見送り: 取引していた場合のEP損益を「×見送り（…）」で参考表示（本合計は0・合計の（）に算入）。
+    // ×見送り: 取引していた場合のEP損益を「×見送り（…）」で参考表示（本合計・（）参考とも算入無し＝表示と×見送り分析専用）。
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF" } },
       React.createElement("span", { key: "xm", style: { fontSize: 12, color: "#1E8449", fontWeight: 800, marginRight: 2 } }, "×"),
       React.createElement("span", { key: "op", style: { color: "#9CA3AF" } }, "（"),
@@ -3832,7 +3831,7 @@ function _elIdealAlphaTableV2(groups, cutFn, target) {
       React.createElement("thead", null, React.createElement("tr", null, _th("銘柄"), _th("EP理想α"), _th("H1理想α"), _th("H2理想α"))),
       React.createElement("tbody", null, rows)));
 }
-// Hold2期待度（○/△を集計対象・×は参考表示のみ）
+// Hold2期待度（○のみ本合計（）外・△は（）参考・×と未設定は除外。2026-06-16: 参考役は△へ移管）
 function _elH2ExpCounts(s) { return s.hold2Exp; }
 function _elHoldGradeBadge(g) {
   if (!g || g === "Z") return null;
@@ -3966,7 +3965,7 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
   if (nodes.length === 0) return React.createElement("span", { style: { color: "#ddd" } }, "—");
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: noWrap ? "nowrap" : "wrap", justifyContent: "center", fontSize: 11, lineHeight: 1.5, whiteSpace: noWrap ? "nowrap" : "normal" } }, nodes);
 }
-// H2期待度セル: ○/△→記号＋統合表示、×→「×（統合表示）」グレー控えめ、未選択→空欄
+// H2期待度セル【2026-06-16】: ○→記号＋統合表示（本算入）、△/損切り済→「△（統合表示）」（）参考（薄）、×・H1撤退/未設定→最薄（）（非算入）、未選択→空欄
 function _elHold2Cell(s, alpha, cutLine) {
   if (_epIsXSkip(s, alpha)) s = _epAsTraded(s);  // ×見送り→取引していた場合の値を参考表示（Q—にしない）
   if (_elH2Miss(s, alpha)) {
@@ -3982,20 +3981,27 @@ function _elHold2Cell(s, alpha, cutLine) {
   }
   var exp = s.hold2Exp;
   if (!exp) return React.createElement("span", { style: { color: "#ddd" } }, "—");
-  // H2期待度が×、または H1期待度(holdExp)が×/損切り済（=H1で手仕舞い済みでH2は参考）なら、H2損益を（）の参考表示に。
-  var _h1Exited = (s.holdExp === "×" || s.holdExp === "損切り済");
+  // 【2026-06-16 参考役は△へ移管】H1期待度(holdExp)が×/損切り済/未設定（=H1撤退）→H2は最薄（非算入）。
+  var _h1Exited = (s.holdExp === "×" || s.holdExp === "損切り済" || !s.holdExp);
   if (exp === "×" || _h1Exited) {
-    if (!_elHas2Data(s, alpha)) return React.createElement("span", { style: { color: "#bbb" } }, exp);
-    // H2の内容（高値→確定値/α値比値幅/勝敗損益）すべてを1つの（）で囲む。折返し不可で全体を確実に内包。
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#aaa", fontSize: 11, whiteSpace: "nowrap", opacity: 0.75 } },
+    // ×・H1撤退・未設定: 本合計にも（）参考にも算入しない → 最薄表示（淡く・記号＋フロー）。
+    if (!_elHas2Data(s, alpha)) return React.createElement("span", { style: { color: "#ccc" } }, exp);
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#bbb", fontSize: 11, whiteSpace: "nowrap", opacity: 0.45 } },
       React.createElement("span", { key: "d", style: { marginRight: 1 } }, exp + "（"),
       _elHoldFlow(s, alpha, cutLine, true, true),
       React.createElement("span", { key: "e" }, "）"));
   }
-  var _ec = { "○": "#1E8449", "△": "#B45309" };
-  // 「損切り済」は_elHoldIsStop時のみの表記。ここはH2成立分岐なので期待度ラベルは出さずフローのみ。
+  if (exp === "△" || exp === "損切り済") {
+    // △/損切り済: （）参考表示（薄く括弧）＝集計の（）内（参考）に対応。
+    if (!_elHas2Data(s, alpha)) return React.createElement("span", { style: { color: "#bbb" } }, exp);
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", color: "#999", fontSize: 11, whiteSpace: "nowrap", opacity: 0.85 } },
+      React.createElement("span", { key: "d", style: { color: "#B45309", marginRight: 1, fontWeight: 800 } }, exp + "（"),
+      _elHoldFlow(s, alpha, cutLine, true, true),
+      React.createElement("span", { key: "e" }, "）"));
+  }
+  // ○: 通常表示（本合計（）外算入）。
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
-    exp === "損切り済" ? null : React.createElement("span", { key: "sym", style: { color: _ec[exp] || "#666", fontWeight: 800, marginRight: 3 } }, exp),
+    React.createElement("span", { key: "sym", style: { color: "#1E8449", fontWeight: 800, marginRight: 3 } }, exp),
     _elHoldFlow(s, alpha, cutLine, true, true));
 }
 // H1とH2期待度を1セル内に横並び表示（表のH列を1列に統合するため）。H2期待度が未選択ならH1のみ。
@@ -4159,7 +4165,7 @@ function _elHoldParts(s, alpha, cutLine, isH2) {
 }
 // 明細表用: H1(上)/H2(下)を内部2行テーブルで縦揃え。列幅を固定(tableLayout:fixed)し記録間でも桁が揃う。
 // 左端に「H１」「H２」を表記。H1/H2間に区切り横線。H2行は期待度(○/△/×)→内容。
-// ×は内容(期待度除く)を（）で一括り・開き/閉じ括弧を専用列に置いて桁揃え。×でも色は薄くしない。
+// 【2026-06-16 参考役は△へ移管】△/損切り済(=参考)は内容を（）で薄く括る(level1)・×/H1撤退(=最薄/除外)はさらに薄く(level2)・○は通常。開き/閉じ括弧を専用列に置いて桁揃え。
 function _elHoldStackInner(s, alpha, cutLine) {
   var exp = s.hold2Exp;
   var _h2miss = _elH2Miss(s, alpha);
@@ -4175,7 +4181,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _c = function(k, node, ta, w, extra) { return React.createElement("td", { key: k, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: ta || "center", width: w, overflow: "visible" }, extra || {}) }, node != null ? node : null); };
   var _row = function(rk, lblNode, expNode, p, paren, topB) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
-    var btf = paren ? Object.assign({ opacity: 0.6 }, bt) : bt;  // 括弧でくくった中身は少し薄く（通常の文字と区別）
+    var btf = paren ? Object.assign({ opacity: paren >= 2 ? 0.4 : 0.65 }, bt) : bt;  // 括弧の中身を薄く: △/損切り済(参考)=0.65 / ×・H1撤退(最薄)=0.4
     return React.createElement("tr", { key: rk },
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
       _c("e", expNode, "center", 14, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
@@ -4205,7 +4211,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   };
   var hexp = s.holdExp;
   var h1exp = (hexp && hexp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[hexp] || "#666" } }, hexp) : null;
-  var rows = [ _h1StopDone ? _stopRow("h1", "H１", _elDynPlanned(s, alpha, cutLine), false, false) : _row("h1", "H１", h1exp, p1, hexp === "×", false) ];
+  var rows = [ _h1StopDone ? _stopRow("h1", "H１", _elDynPlanned(s, alpha, cutLine), false, false) : _row("h1", "H１", h1exp, p1, (hexp === "△" || hexp === "損切り済") ? 1 : (hexp === "×" ? 2 : 0), false) ];
   if (_h2miss) {
     // 想定もH1もE基準未達 → H2は「ー」期待度＋H2明細（損益はQ ー円）。H1と同じ列構成で縦揃え。想定もH1もQなのでH2は常に（）で囲む（H1期待度×と同じ囲み方）。
     rows.push(_row("h2", "H２", React.createElement("span", { title: "H１までE基準未達", style: { color: "#888" } }, "ー"), p2, true, true));
@@ -4219,7 +4225,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   } else {
     // 「損切り済」は_h2StopDone(想定orH1で損切り)時のみ意味を持つ表記。ここはH2が成立する分岐なので期待度として出さない。
     var h2exp = (exp && exp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
-    rows.push(_row("h2", "H２", h2exp, p2, (exp === "×" || hexp === "×" || hexp === "損切り済"), true));
+    rows.push(_row("h2", "H２", h2exp, p2, (hexp === "×" || hexp === "損切り済" || exp === "×") ? 2 : ((exp === "△" || exp === "損切り済") ? 1 : 0), true));
   }
   return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: _tblW } }, React.createElement("tbody", null, rows));
 }
@@ -4233,7 +4239,7 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
   }
   if (_tdMiss) return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, React.createElement("span", { style: { color: "#ccc" } }, "ー") ) ];
   if (_epIsXSkip(s, alpha)) {
-    // ×見送り: 取引していた場合のH1/H2を「×見送り」付き・薄く参考表示（本合計は0・合計の（）に算入）。
+    // ×見送り: 取引していた場合のH1/H2を「×見送り」付き・薄く参考表示（本合計・（）参考とも算入無し＝表示と×見送り分析専用）。
     return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle },
       React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", opacity: 0.7 } },
         React.createElement("span", { style: { fontSize: 12, color: "#1E8449", fontWeight: 800 } }, "×"),
