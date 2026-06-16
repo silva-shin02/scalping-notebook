@@ -5119,6 +5119,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateAV = useState(initSig.alphaVal != null ? String(initSig.alphaVal) : ""),
     _useStateAVA = _slicedToArray(_useStateAV, 2),
     fAlphaVal = _useStateAVA[0], setFAlphaVal = _useStateAVA[1];
+  // 水準線価格（新規エントリー記録画面のみで使用・表には出さない）2026-06-15。記録固有=signal.levelPriceに保存。
+  var _useStateLP = useState(initSig.levelPrice != null ? String(initSig.levelPrice) : ""),
+    _useStateLPA = _slicedToArray(_useStateLP, 2),
+    fLevelPrice = _useStateLPA[0], setFLevelPrice = _useStateLPA[1];
 
   var _useStateEONO = useState(initSig.entryOsNo != null ? Number(initSig.entryOsNo) : null),
     _useStateEONOA = _slicedToArray(_useStateEONO, 2),
@@ -5690,6 +5694,7 @@ function EntryRecordForm(_ref_erf) {
       shares: fEntered && fShares !== "" ? (parseInt(fShares) || null) : null,
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       alphaVal: fAlphaVal !== "" && !isNaN(Number(fAlphaVal)) ? Number(fAlphaVal) : null,
+      levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
       maxPnl: fMax !== "" ? Number(fMax) : null,
@@ -5941,6 +5946,47 @@ function EntryRecordForm(_ref_erf) {
       ),
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
+      (function() {
+        // 水準線価格（採用α値の左・新規エントリー記録画面のみ・表には出さない）2026-06-15。入力系は採用α値と同一(_toHankakuNum+_stepBtn)。
+        var _setLP = function(val) {
+          var _v = _toHankakuNum(val);
+          if (_v === "") { setFLevelPrice(""); return; }
+          var n = Number(_v);
+          if (isNaN(n)) return;
+          if (n < 0) n = 0;
+          setFLevelPrice(String(n));
+        };
+        var _stepLP = function(delta) {
+          var base = (fLevelPrice !== "" && !isNaN(Number(fLevelPrice))) ? Number(fLevelPrice) : 0;
+          var n = base + delta;
+          if (n < 0) n = 0;
+          setFLevelPrice(String(n));
+        };
+        return React.createElement("div", {
+          style: { display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "4px 10px", borderRadius: 6, background: "#F5F3FF",
+            border: "1px solid #DDD6FE", fontSize: 12 }
+        },
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "水準線価格"),
+          React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #DDD6FE", borderRadius: 4, overflow: "hidden" } },
+            React.createElement("input", {
+              type: "text", inputMode: "numeric", min: "0", step: "1",
+              value: fLevelPrice,
+              onChange: function(e) { _setLP(e.target.value); },
+              placeholder: "—",
+              style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#5B21B6",
+                       border: "none", outline: "none", background: "#fff", width: 64,
+                       textAlign: "right", boxSizing: "border-box" }
+            }),
+            _stepBtn(
+              function() { _stepLP(1); },
+              function() { _stepLP(-1); }
+            )
+          ),
+          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
+        );
+      })(),
+
       (function() {
         var _setAV = function(val) {
           var _v = _toHankakuNum(val);
