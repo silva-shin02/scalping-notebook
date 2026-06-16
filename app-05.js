@@ -3701,9 +3701,10 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
   if (_epIsTriEntry(s, alpha)) {
     // EP-OS△（△の確信度でエントリー）→ （）でくくる（参考＝合計の（）内・（）外は0）。文字の薄さは○と同じ（薄くしない）。
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-      React.createElement("span", { key: "td", style: { color: "#B45309", fontWeight: 800, marginRight: 1 } }, "△（"),
+      React.createElement("span", { key: "ts", style: { color: "#B45309", fontWeight: 800, marginRight: 1 } }, "△"),
+      React.createElement("span", { key: "td", style: { color: "#6B3A0F", fontWeight: 900 } }, "（"),
       _epInner,
-      React.createElement("span", { key: "tc", style: { color: "#888" } }, "）"));
+      React.createElement("span", { key: "tc", style: { color: "#6B3A0F", fontWeight: 900 } }, "）"));
   }
   return _epInner;
 }
@@ -4015,9 +4016,10 @@ function _elHold2Cell(s, alpha, cutLine) {
     // △/損切り済: （）でくくる（参考＝集計の（）内に対応）が、文字の薄さは○と同じ（薄くしない）。
     if (!_elHas2Data(s, alpha)) return React.createElement("span", { style: { color: "#bbb" } }, exp);
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
-      React.createElement("span", { key: "d", style: { color: "#B45309", marginRight: 1, fontWeight: 800 } }, exp + "（"),
+      React.createElement("span", { key: "sym", style: { color: "#B45309", marginRight: 1, fontWeight: 800 } }, exp),
+      React.createElement("span", { key: "op", style: { color: "#6B3A0F", fontWeight: 900 } }, "（"),
       _elHoldFlow(s, alpha, cutLine, true, true),
-      React.createElement("span", { key: "e", style: { color: "#888" } }, "）"));
+      React.createElement("span", { key: "cp", style: { color: "#6B3A0F", fontWeight: 900 } }, "）"));
   }
   // ○: 通常表示（本合計（）外算入）。
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", fontSize: 11, whiteSpace: "nowrap" } },
@@ -4197,7 +4199,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _pnW = 78, _parW = 10, _tblW = 241;
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
-  var _paren = function(ch) { return React.createElement("span", { style: { color: "#888" } }, ch); };
+  var _paren = function(ch, lvl) { return React.createElement("span", { style: (lvl === 1) ? { color: "#6B3A0F", fontWeight: 900 } : { color: "#888" } }, ch); };  // △(level1)=濃く太く／×・撤退(level2)=薄め
   var _c = function(k, node, ta, w, extra) { return React.createElement("td", { key: k, style: Object.assign({ padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: ta || "center", width: w, overflow: "visible" }, extra || {}) }, node != null ? node : null); };
   var _row = function(rk, lblNode, expNode, p, paren, topB) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
@@ -4205,7 +4207,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
     return React.createElement("tr", { key: rk },
       _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
       _c("e", expNode, "center", 14, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
-      _c("op", paren ? _paren("（") : null, "center", _parW, bt),
+      _c("op", paren ? _paren("（", paren) : null, "center", _parW, bt),
       _c("hi", p && p.high, "right", 26, btf),
       _c("ar", p && p.width ? _sep("→") : null, "center", 10, btf),
       _c("wd", p && p.width, "right", 26, btf),
@@ -4213,7 +4215,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
       _c("ac", p && p.acmp, "right", 33, btf),
       _c("s2", p && p.pnl ? _sep("/") : null, "center", 6, btf),
       _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", _pnW, btf),
-      _c("cp", paren ? _paren("）") : null, "center", _parW, bt));
+      _c("cp", paren ? _paren("）", paren) : null, "center", _parW, bt));
   };
   // 損切り済み行: 明細列(colSpan:5)に「（H高値→確定値/α値比）」を薄く中央表示、損益列に「ランク 損切額 損」。
   // 想定/H1損切りでも参考として高値・確定値・値幅を（）付きで表示（_elHoldStopDetail、中身無→「ー」）。isH2でH1/H2明細を切替。
