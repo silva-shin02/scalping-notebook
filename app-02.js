@@ -4180,23 +4180,19 @@ function EntrySignalSection(_ref_es) {
     var mpN = (mp != null && !_isXes) ? _p100(mp) : null;
     var hpN = hp != null ? _p100(hp) : null;
     if (rpN != null) { _esTotReal = (_esTotReal || 0) + rpN; _esTotRealCnt++; }
-    if (_isXes) {
-      var _xsEs = _epAsTraded(s);
-      var _xppEs = _elDynPlanned(_xsEs, _esAlpha(s), _esCut(s)); if (_xppEs != null) { _esTotPlanRef = (_esTotPlanRef || 0) + _p100(_xppEs); _esTotPlanRefCnt++; }
-      var _xh1Es = _elDynHold(_xsEs, _esAlpha(s), _esCut(s)); if (_xh1Es != null) { _esTotHoldRef = (_esTotHoldRef || 0) + _p100(_xh1Es); _esTotHoldRefCnt++; }
-    }
+    // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
     if (ppN != null) { _esTotPlan = (_esTotPlan || 0) + ppN; _esTotPlanCnt++; }
     if (mpN != null) { _esTotMax  = (_esTotMax  || 0) + mpN; _esTotMaxCnt++; }
     // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
     var _planStopTot = _elPlanIsStop(s, _esAlpha(s), _esCut(s));
     var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
-    var _xclEs = (s.holdExp === "×" || s.holdExp === "損切り済");
+    var _fbEs = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
     if (hpN != null) {
-      if (_xclEs && ppN != null) {
-        _esTotHold = (_esTotHold || 0) + ppN;                       // ×→想定額を本合計に算入
+      if (_fbEs && ppN != null) {
+        _esTotHold = (_esTotHold || 0) + ppN;                       // ×/△/損切り済→想定額(EP損益)へフォールバック
         _esTotHoldActual = (_esTotHoldActual || 0) + ppN;
         _esTotHoldCnt++;
-        if ((_hCapN - ppN) !== 0) { _esTotHoldRef = (_esTotHoldRef || 0) + (_hCapN - ppN); _esTotHoldRefCnt++; }  // H1結果との差を参考（差0=想定損切り/ノーエントリー＝H1結果が想定額と同額は算入しない）
+        if (s.holdExp !== "×" && (_hCapN - ppN) !== 0) { _esTotHoldRef = (_esTotHoldRef || 0) + (_hCapN - ppN); _esTotHoldRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×は参考無し・差0除外）
       } else {
       _esTotHold = (_esTotHold || 0) + _hCapN;
       _esTotHoldActual = (_esTotHoldActual || 0) + hpN;
@@ -4210,7 +4206,7 @@ function EntrySignalSection(_ref_es) {
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
     if (ppN != null && _isAB) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; _esTotMaxABCnt++; }
-    if (hpN != null && _isAB) { _esTotHoldAB = (_esTotHoldAB || 0) + ((_xclEs && ppN != null) ? ppN : _hCapN); _esTotHoldABCnt++; }
+    if (hpN != null && _isAB) { _esTotHoldAB = (_esTotHoldAB || 0) + ((_fbEs && ppN != null) ? ppN : _hCapN); _esTotHoldABCnt++; }
   });
   var _esTotRealGrade = _esTotRealCnt > 0 ? _profitGradeFromPnlReal(_esTotReal != null ? _esTotReal : 0, _esTotRealCnt) : null;
   var _esTotPlanGrade = _esTotPlanCnt > 0 ? _profitGradeFromPnl(_esTotPlan != null ? _esTotPlan : 0, _esTotPlanCnt) : null;
@@ -5025,7 +5021,7 @@ function WeeklyPnlPanel(_wpp) {
           var s = r.signal;
           var _aD = _alphaOf(r);
           var _cutLwkD = _cutOf(r);
-          if (_epIsXSkip(s, _aD)) { var _xp = _elDynPlanned(_epAsTraded(s), _aD, _cutLwkD); if (_xp != null) { _dynSPRef = (_dynSPRef || 0) + _xp; _dynSPRefCnt++; } return; }
+          if (_epIsXSkip(s, _aD)) return;  // EP×（×見送り）→ 完全に算入無し
           var pp = _elDynPlanned(s, _aD, _cutLwkD);
           if (pp != null) _dynSP = (_dynSP || 0) + pp;
         });
@@ -5038,15 +5034,15 @@ function WeeklyPnlPanel(_wpp) {
           var s = r.signal;
           var _aR = _alphaOf(r);
           var _cutLR = _cutOf(r);
-          if (_epIsXSkip(s, _aR)) { var _xh = _elDynHold(_epAsTraded(s), _aR, _cutLR); if (_xh != null) { _hRef = (_hRef || 0) + _xh; _hRefCnt++; } return; }
+          if (_epIsXSkip(s, _aR)) return;  // EP×（×見送り）→ 完全に算入無し
           var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign);
           if (hp == null) return;
           var pp = _elDynPlanned(s, _aR, _cutLR);
           var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
           var _cap = (_pStop && pp != null) ? pp : hp;
-          var _x = (s.holdExp === "×" || s.holdExp === "損切り済");
-          _hMain = (_hMain || 0) + ((_x && pp != null) ? pp : _cap);
-          if (_x && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }
+          var _fbW = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
+          _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
+          if (_fbW && s.holdExp !== "×" && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }
           _hCnt++;
         });
         if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));

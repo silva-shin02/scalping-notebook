@@ -4147,10 +4147,7 @@ function DayView(_ref57) {
         if (realPnl != null) { _totReal = (_totReal || 0) + realPnl; }
         var _h2tpb = _elHold2TotParts(s, _alphaRec, _cutLrec);
         if (_isXskipPb) {
-          var _xsPb = _epAsTraded(s);
-          var _xppPb = _elDynPlanned(_xsPb, _alphaRec, _cutLrec); if (_xppPb != null) { _totPlanRef = (_totPlanRef || 0) + _xppPb; _totPlanRefCnt++; }
-          var _xh1Pb = _elDynHold(_xsPb, _alphaRec, _cutLrec); if (_xh1Pb != null) { _totHoldRef = (_totHoldRef || 0) + _xh1Pb; _totHoldRefCnt++; }
-          if (_h2tpb.ref != null) { _totHold2Ref = (_totHold2Ref || 0) + _h2tpb.ref; _totHold2RefCnt++; }
+          // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
         } else {
         if (planPnl != null) { _totPlan = (_totPlan || 0) + planPnl; _totPlanCnt++;
           var _pStopT = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
@@ -4168,11 +4165,11 @@ function DayView(_ref57) {
           // 想定が損切りの行は結果損益を想定額にキャップした合計（per-row のキャップ表示と一致）。本来額は _totHold に保持。
           var _pStopH = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
           var _hCapPb = (_pStopH && planPnl != null) ? planPnl : holdPnl;
-          var _xPb = (s.holdExp === "×" || s.holdExp === "損切り済");
-          var _mvPb = (_xPb && planPnl != null) ? planPnl : _hCapPb;
+          var _fbPb = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
+          var _mvPb = (_fbPb && planPnl != null) ? planPnl : _hCapPb;
           _totHoldPlanCap = (_totHoldPlanCap || 0) + _mvPb;
           if (_isABpb) { _totHoldPlanCapAB = (_totHoldPlanCapAB || 0) + _mvPb; _totHoldPlanCapABCnt++; }
-          if (_xPb && planPnl != null && (_hCapPb - planPnl) !== 0) { _totHoldRef = (_totHoldRef || 0) + (_hCapPb - planPnl); _totHoldRefCnt++; }
+          if (_fbPb && s.holdExp !== "×" && planPnl != null && (_hCapPb - planPnl) !== 0) { _totHoldRef = (_totHoldRef || 0) + (_hCapPb - planPnl); _totHoldRefCnt++; }
           if (_pStopH && planPnl != null && holdPnl !== planPnl) _totHoldPlanStopDiffPb = true;
         }
         }
@@ -4437,7 +4434,7 @@ function DayView(_ref57) {
               var s = r.signal;
               var _aD = _wkAlphaOf(r);
               var _cutLwkD = _wkCutOf(r);
-              if (_epIsXSkip(s, _aD)) { var _xp = _elDynPlanned(_epAsTraded(s), _aD, _cutLwkD); if (_xp != null) { _dynSPRef = (_dynSPRef || 0) + _xp; _dynSPRefCnt++; } return; }  // E×→参考のみ
+              if (_epIsXSkip(s, _aD)) return;  // EP×（×見送り）→ 完全に算入無し
               var pp = _elDynPlanned(s, _aD, _cutLwkD);  // EP起算v2対応（EP=OS2/3の損切り額も算入）
               if (pp != null) _dynSP = (_dynSP || 0) + pp;
             });
@@ -4450,15 +4447,15 @@ function DayView(_ref57) {
               var s = r.signal;
               var _aR = _wkAlphaOf(r);
               var _cutLR = _wkCutOf(r);
-              if (_epIsXSkip(s, _aR)) { var _xh = _elDynHold(_epAsTraded(s), _aR, _cutLR); if (_xh != null) { _hRef = (_hRef || 0) + _xh; _hRefCnt++; } return; }  // E×→参考のみ
+              if (_epIsXSkip(s, _aR)) return;  // EP×（×見送り）→ 完全に算入無し
               var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign);
               if (hp == null) return;
               var pp = _elDynPlanned(s, _aR, _cutLR);  // EP起算v2対応（想定損切り時のキャップ基準もEP足の額になる）
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
-              var _x = (s.holdExp === "×" || s.holdExp === "損切り済");
-              _hMain = (_hMain || 0) + ((_x && pp != null) ? pp : _cap);   // ×→想定額(手仕舞い)・他→capped結果
-              if (_x && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // 参考(H1まで保有した結果との差・差0除外)
+              var _fbW = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
+              _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);   // ×/△/損切り済→想定額(手仕舞い)・他→capped結果
+              if (_fbW && s.holdExp !== "×" && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×は参考無し・差0除外）
               _hCnt++;
             });
             if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
@@ -4645,7 +4642,7 @@ function DayView(_ref57) {
               var s = r.signal;
               var _aD = _pbAlphaOf(r);
               var _cutLpbD = _pbCutOf(r);
-              if (_epIsXSkip(s, _aD)) { var _xp = _elDynPlanned(_epAsTraded(s), _aD, _cutLpbD); if (_xp != null) { _dynSPRef = (_dynSPRef || 0) + _xp; _dynSPRefCnt++; } return; }  // E×→参考のみ
+              if (_epIsXSkip(s, _aD)) return;  // EP×（×見送り）→ 完全に算入無し
               var pp = _elDynPlanned(s, _aD, _cutLpbD);  // EP起算v2対応（EP=OS2/3の損切り額も算入）
               if (pp != null) { _dynSP = (_dynSP || 0) + pp; if (s.difficulty === "A" || s.difficulty === "B") _dynSPAB = (_dynSPAB || 0) + pp; }
             });
@@ -4660,15 +4657,15 @@ function DayView(_ref57) {
               var s = r.signal;
               var _aR = _pbAlphaOf(r);
               var _cutLR = _pbCutOf(r);
-              if (_epIsXSkip(s, _aR)) { var _xh = _elDynHold(_epAsTraded(s), _aR, _cutLR); if (_xh != null) { _hRef = (_hRef || 0) + _xh; _hRefCnt++; } return; }  // E×→参考のみ
+              if (_epIsXSkip(s, _aR)) return;  // EP×（×見送り）→ 完全に算入無し
               var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign);
               if (hp == null) return;
               var pp = _elDynPlanned(s, _aR, _cutLR);  // EP起算v2対応（想定損切り時のキャップ基準もEP足の額になる）
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
-              var _x = (s.holdExp === "×" || s.holdExp === "損切り済");
-              _hMain = (_hMain || 0) + ((_x && pp != null) ? pp : _cap);   // ×→想定額(手仕舞い)・他→capped結果
-              if (_x && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // 参考(H1まで保有した結果との差・差0除外)
+              var _fbW = (s.holdExp === "×" || s.holdExp === "△" || s.holdExp === "損切り済");
+              _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);   // ×/△/損切り済→想定額(手仕舞い)・他→capped結果
+              if (_fbW && s.holdExp !== "×" && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×は参考無し・差0除外）
               _hCnt++;
             });
             if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
