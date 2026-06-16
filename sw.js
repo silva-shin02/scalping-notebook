@@ -2,7 +2,7 @@
 // 1) アプリ本体(index.html / vendor.js / app-01〜08.js / アイコン)をプリキャッシュし、
 //    2回目以降はオフラインでも起動できるようにする。
 // 2) Firebase Storage の画像も従来どおりキャッシュして課金を削減する。
-var APP_CACHE = "sn-app-v1";
+var APP_CACHE = "sn-app-v2";
 var IMG_CACHE = "sn-images-v1";
 var FB_STORAGE_HOST = "firebasestorage.googleapis.com";
 var GSTATIC_HOST = "gstatic.com";
@@ -21,7 +21,11 @@ self.addEventListener("install", function(event) {
   event.waitUntil(
     caches.open(APP_CACHE).then(function(cache) {
       return Promise.all(APP_SHELL.map(function(u) {
-        return cache.add(u)["catch"](function() {});
+        // cache:"reload" でブラウザのHTTPキャッシュを無視し、必ずネットワークから最新を取得する。
+        // （これをしないと古い app-*.js がHTTPキャッシュ経由でそのままキャッシュされ、更新が端末に届かない）
+        return cache.add(new Request(u, { cache: "reload" }))["catch"](function() {
+          return cache.add(u)["catch"](function() {});
+        });
       }));
     }).then(function() { return self.skipWaiting(); })
   );

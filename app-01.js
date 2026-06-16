@@ -740,6 +740,23 @@ function _stStrip(data) {
     return val;
   });
 }
+function _snEvictExpendableCaches() {
+  // 日足チャートのCSVキャッシュ(sn_dc_csv_v1_*)はFirebaseから再取得できる「捨ててよい」データ。
+  // localStorageが一杯のとき、消えると困るユーザーの記録(ST_KEY)を守るため先にこれを捨てて領域を空ける。
+  var removed = 0;
+  try {
+    var keys = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf("sn_dc_csv_v1_") === 0) keys.push(k);
+    }
+    for (var j = 0; j < keys.length; j++) {
+      try { localStorage.removeItem(keys[j]); removed++; } catch(e){}
+    }
+  } catch(e){}
+  if (removed > 0) console.warn("[stSave] freed localStorage by evicting " + removed + " daily-CSV cache(s)");
+  return removed;
+}
 function _stWriteToStorage(data) {
   try {
     var s = _stStrip(data);
@@ -748,10 +765,22 @@ function _stWriteToStorage(data) {
     try {
       localStorage.setItem(ST_KEY, s);
     } catch(quotaErr) {
-      console.warn("[stSave] localStorage quota exceeded — syncing images to IDB");
+      // 容量超過: ①画像をIDBへ退避 ②再取得可能な日足CSVキャッシュを捨てる → その上で記録を再保存。
+      // これでユーザーの記録(memo/trade)が「黙って保存失敗→消失」する事故を防ぐ。
+      console.warn("[stSave] localStorage quota exceeded — freeing space then retrying");
       _stSaveImagesToIdb(data);
-      try { localStorage.setItem(ST_KEY, _stStrip(data)); } catch(e2) {
-        console.warn("[stSave] Even stripped save failed:", e2);
+      _snEvictExpendableCaches();
+      try {
+        localStorage.setItem(ST_KEY, _stStrip(data));
+      } catch(e2) {
+        console.warn("[stSave] Even after freeing space, save failed:", e2);
+        // それでも保存できない場合は黙って消さず、ユーザーに知らせる(1回だけ)。
+        try {
+          if (typeof window !== "undefined" && !window._snQuotaAlerted) {
+            window._snQuotaAlerted = true;
+            alert("⚠️ 端末の保存領域が一杯で、記録を保存できませんでした。\n設定→エクスポートでバックアップを取り、不要な銘柄を整理してください。");
+          }
+        } catch(e3){}
       }
     }
   } catch (_unused3) {}

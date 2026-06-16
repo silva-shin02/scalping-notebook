@@ -2126,28 +2126,9 @@ function SettingsModal(_ref54) {
   React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } },
     s.fbPaused !== false ? "\u26A0\uFE0F \u540C\u671F\u4E00\u6642\u505C\u6B62\u4E2D\uFF08localStorage\u306E\u307F\uFF09" : "\u2705 Firebase\u540C\u671F\u6709\u52B9"
   )),
-  ), React.createElement("div", {
-    style: {
-      marginBottom: 22
-    }
-  }, React.createElement("div", {
-    style: {
-      fontSize: 14,
-      fontWeight: 700,
-      color: "#444",
-      marginBottom: 8
-    }
-  }, "\uD83E\uDD16 Claude API Key\uFF08\u30C1\u30E3\u30FC\u30C8AI\u81EA\u52D5\u89E3\u6790\uFF09"), React.createElement("input", {
-    value: s.claudeKey || "",
-    onChange: function onChange(e) {
-      return u("claudeKey", e.target.value);
-    },
-    placeholder: "sk-ant-...",
-    type: "password",
-    style: I
-  })),
-  
-  React.createElement("div", {
+  ), null,
+
+  false && React.createElement("div", {
     style: { marginBottom: 20, padding: "12px 14px", background: "#f5f4f0", borderRadius: 10, border: "1px solid #e8e5df" }
   },
   React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 10 } },
