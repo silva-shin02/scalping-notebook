@@ -496,19 +496,8 @@ function App() {
     }
   }, [sel]);
   
-  useEffect(function() {
-    _fbSetAutoPauseCb(function() {
-      console.warn("[FB AUTO-PAUSE] Usage limit reached, pausing sync on all devices");
-      var c = _objectSpread(_objectSpread({}, cfgRef.current), {}, { fbPaused: true });
-      setCfg(c);
-      cfSave(c);
-      cfgRef.current = c;
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-      skipRef.current = false;
-      setFbStatus("paused");
-    });
-    return function() { _fbSetAutoPauseCb(null); };
-  }, []);
+  // 自動停止機能は廃止（2026-06-16）。使用量90%でも同期は止めない（黙って止めるとバックアップ無しになりデータ消失の恐れがあるため）。
+  // 旧: _fbSetAutoPauseCb で fbPaused:true に切り替えていた処理を削除。同期の停止/再開は設定の手動トグルのみ。
   
   
   
@@ -1319,6 +1308,7 @@ function App() {
       minHeight: IS_TOUCH ? 44 : 36
     }
   }, "⚙️"), fbBadge)), showSearch ? React.createElement(SearchView, {
+    data: data,
     save: save,
     onSelectDate: function onSelectDate(d, tab) {
       setSel(d);

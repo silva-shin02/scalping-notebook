@@ -888,11 +888,10 @@ function _fbCheckLimits(u) {
     
     if (pct >= 90 && !_fbWarnShown[c.key + "_90"]) {
       _fbWarnShown[c.key + "_90"] = true;
-      var msg = "\u26D4 Firebase\u7121\u6599\u679A\u306E90%\u5230\u9054: " + c.label + " (" + Math.round(pct) + "%)\n\u8AB2\u91D1\u9632\u6B62\u306E\u305F\u3081\u540C\u671F\u3092\u81EA\u52D5\u505C\u6B62\u3057\u307E\u3059\u3002";
+      // \u81EA\u52D5\u505C\u6B62\u306F\u5EC3\u6B62\uFF082026-06-16\uFF09\u3002\u9ED9\u3063\u3066\u540C\u671F\u3092\u6B62\u3081\u308B\u3068\u30D0\u30C3\u30AF\u30A2\u30C3\u30D7\u7121\u3057\u306B\u306A\u308A\u30C7\u30FC\u30BF\u6D88\u5931\u306E\u4E00\u56E0\u306B\u306A\u3063\u305F\u305F\u3081\u3001\u8B66\u544A\u306E\u307F\u3002
+      var msg = "\u26A0\uFE0F Firebase\u7121\u6599\u67A0\u306E90%\u5230\u9054: " + c.label + " (" + Math.round(pct) + "%)\uFF08\u540C\u671F\u306F\u7D99\u7D9A\u3057\u307E\u3059\uFF09";
       console.warn("[FB LIMIT] " + msg);
-      _fbShowBanner(msg, "#D32F2F");
-      
-      if (_fbAutoPauseCb) _fbAutoPauseCb();
+      _fbShowBanner(msg, "#E65100");
     }
     
     else if (pct >= 80 && !_fbWarnShown[c.key + "_80"]) {
