@@ -166,15 +166,20 @@ function _imgToWebpMaybe(dataUrl, base64, mt) {
   return new Promise(function(resolve) {
     var keep = { base64: base64, mt: mt };
     try {
-      if (!mt || mt === "image/webp" || mt === "image/gif" || mt.indexOf("svg") >= 0) return resolve(keep);
+      if (!mt || mt === "image/gif" || mt.indexOf("svg") >= 0) return resolve(keep);
       var im = new Image();
       im.onload = function() {
         try {
           var W = im.naturalWidth, H = im.naturalHeight;
           if (!W || !H) return resolve(keep);
-          var c = document.createElement("canvas"); c.width = W; c.height = H;
+          // 取り込み時に長辺をMAXEDGEまで縮小してから再エンコード＝1枚あたり容量を桁で削減（2026-06-17）。
+          // 縮小でcanvasが小さくなるためiOSのcanvas上限による空き化リスクも下がる。
+          var MAXEDGE = 1600;
+          var _sc = Math.max(W, H) > MAXEDGE ? MAXEDGE / Math.max(W, H) : 1;
+          var TW = Math.max(1, Math.round(W * _sc)), TH = Math.max(1, Math.round(H * _sc));
+          var c = document.createElement("canvas"); c.width = TW; c.height = TH;
           var cx = c.getContext("2d"); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = "high";
-          cx.drawImage(im, 0, 0);
+          cx.drawImage(im, 0, 0, TW, TH);
           // 描画検証: 大きすぎてiOSがcanvasを間引くと中身が空になる。24x24に縮小して原画と比較。
           var sa = document.createElement("canvas"); sa.width = 24; sa.height = 24; sa.getContext("2d").drawImage(c, 0, 0, 24, 24);
           var sb = document.createElement("canvas"); sb.width = 24; sb.height = 24; sb.getContext("2d").drawImage(im, 0, 0, 24, 24);
@@ -182,10 +187,15 @@ function _imgToWebpMaybe(dataUrl, base64, mt) {
           var diff = 0; for (var i = 0; i < da.length; i += 4) { diff += Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]); }
           diff = diff / (da.length / 4 * 3);
           if (diff > 12) return resolve(keep); // canvasが正しく描けていない（サイズ上限等）→元のまま
-          var du = c.toDataURL("image/webp", 0.88);
-          if (String(du).indexOf("data:image/webp") !== 0) return resolve(keep); // WebPエンコード非対応
+          // WebP優先。非対応端末は安全な形式へ: JPEGはJPEG/それ以外(PNG等)はPNGで再エンコード（透過保持）。
+          var outMt, du = c.toDataURL("image/webp", 0.88);
+          if (String(du).indexOf("data:image/webp") === 0) { outMt = "image/webp"; }
+          else if (mt === "image/jpeg" || mt === "image/jpg") { du = c.toDataURL("image/jpeg", 0.82); outMt = "image/jpeg"; }
+          else { du = c.toDataURL("image/png"); outMt = "image/png"; }
+          if (String(du).indexOf("data:") !== 0) return resolve(keep);
           var wb = du.split(",")[1];
-          if (wb && wb.length < base64.length * 0.92) return resolve({ base64: wb, mt: "image/webp" });
+          // 縮小した(scale<1)なら多少でも縮めば採用、等倍は従来どおり8%以上縮む時のみ採用。
+          if (wb && wb.length < base64.length * (_sc < 1 ? 1 : 0.92)) return resolve({ base64: wb, mt: outMt });
           return resolve(keep);
         } catch (e) { return resolve(keep); }
       };
@@ -1885,6 +1895,47 @@ function _applyHtmlUrlMapToData(obj, map) {
 }
 
 
+function _applyImgUrlMapToData(obj, map) {
+  // 構造化された画像オブジェクト(images[]の{base64,mt,id})にアップロード済みStorage URLを書き戻す。
+  // _applyHtmlUrlMapToDataのimages[]構造体版（HTML文字列ではなく画像オブジェクトが対象）。
+  // base64は表示用にライブstateへ残す＝_stStripがlocalStorage保存時にimageUrl有りを見てbase64を剥離する。
+  if (!map || Object.keys(map).length === 0) return obj;
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    var _changed = false;
+    var _arr = obj.map(function(item) {
+      var r = _applyImgUrlMapToData(item, map);
+      if (r !== item) _changed = true;
+      return r;
+    });
+    return _changed ? _arr : obj;
+  }
+  if (typeof obj !== "object") return obj;
+  var _chg = false;
+  var _out = {};
+  for (var _k in obj) {
+    if (!obj.hasOwnProperty(_k)) continue;
+    var _v = obj[_k];
+    if (_v && typeof _v === "object") {
+      var _rv = _applyImgUrlMapToData(_v, map);
+      _out[_k] = _rv;
+      if (_rv !== _v) _chg = true;
+    } else {
+      _out[_k] = _v;
+    }
+  }
+  if (typeof _out.base64 === "string" && _out.base64.length > 100 && typeof _out.mt === "string" && !_out.imageUrl && map[_out.base64]) {
+    _out.imageUrl = map[_out.base64];
+    _chg = true;
+  }
+  if (typeof _out.orig_base64 === "string" && _out.orig_base64.length > 100 && !_out.origImageUrl && map[_out.orig_base64]) {
+    _out.origImageUrl = map[_out.orig_base64];
+    _chg = true;
+  }
+  return _chg ? _out : obj;
+}
+
+
 function _uploadAllImages(data) {
   
   if (!_fbStorageRef) {
@@ -1911,7 +1962,9 @@ function _uploadAllImages(data) {
   
   
   var htmlUrlMap = _collectAndUploadHtmlDataUrls(data, uploads);
-  
+  // 構造化画像(images[])のアップロード成功URLを base64文字列キーで集める→ライブstateへ書き戻す（_snImgUploadCb）。
+  var imgUrlMap = {};
+
   function walk(obj, path) {
     if (obj === null || obj === undefined) return obj;
     if (Array.isArray(obj)) return obj.map(function(item, i) { return walk(item, path + "_" + i); });
@@ -1932,7 +1985,7 @@ function _uploadAllImages(data) {
           uploads.push(
             _uploadToStorage("notebook-images/" + id + (mt === "image/png" ? ".png" : mt === "image/webp" ? ".webp" : ".jpg"), b64, mt)
               .then(function(url) {
-                if (url) { target.imageUrl = url; }
+                if (url) { target.imageUrl = url; imgUrlMap[b64] = url; }
                 else { console.warn("[Storage] Upload returned null for " + id + ", will retry on next save"); }
               })
           );
@@ -1949,7 +2002,7 @@ function _uploadAllImages(data) {
           uploads.push(
             _uploadToStorage("notebook-images/" + id + (mt === "image/png" ? ".png" : mt === "image/webp" ? ".webp" : ".jpg"), b64, mt)
               .then(function(url) {
-                if (url) { target.origImageUrl = url; }
+                if (url) { target.origImageUrl = url; imgUrlMap[b64] = url; }
                 else { console.warn("[Storage] Upload returned null for " + id + ", will retry on next save"); }
               })
           );
@@ -1995,6 +2048,11 @@ function _uploadAllImages(data) {
       var _cb = window._snHtmlUploadCb;
       window._snHtmlUploadCb = null;
       _cb(htmlUrlMap);
+    }
+    if (Object.keys(imgUrlMap).length > 0 && typeof window._snImgUploadCb === "function") {
+      var _icb = window._snImgUploadCb;
+      window._snImgUploadCb = null;
+      _icb(imgUrlMap);
     }
     return prepared;
   });

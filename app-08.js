@@ -715,6 +715,16 @@ function App() {
           stSave(_upd, false);
         }
       };
+      // 構造化画像(ニュース等のimages[])のアップロード済みURLをライブstateへ書き戻す＝base64がlocalStorageから剥離される。
+      window._snImgUploadCb = function(map) {
+        var _upd2 = _applyImgUrlMapToData(dataRef.current, map);
+        if (_upd2 !== dataRef.current) {
+          console.log("[imgUpload] state updated: wrote back " + Object.keys(map).length + " Storage URL(s) to image object(s)");
+          dataRef.current = _upd2;
+          setData(_upd2);
+          stSave(_upd2, false);
+        }
+      };
       if (immediate) {
         
         if (fbSyncTimerRef.current) clearTimeout(fbSyncTimerRef.current);
@@ -730,6 +740,7 @@ function App() {
           fbStatusRef.current = "err";
           skipRef.current = false;
           window._snHtmlUploadCb = null;
+          window._snImgUploadCb = null;
         });
       } else {
         
@@ -747,6 +758,7 @@ function App() {
             fbStatusRef.current = "err";
             skipRef.current = false;
             window._snHtmlUploadCb = null;
+            window._snImgUploadCb = null;
           });
         }, 3000);
       }
