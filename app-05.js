@@ -1185,6 +1185,10 @@ function _caBuildUrl(code, date, draftId) {
 
 
 function _caOpen(code, date, draftId) {
+  // CAは別タブ/別画面へ遷移する。iOSは背面タブをメモリ不足で破棄しがちで、書きかけの保存が間に合わず
+  // 記録が消える事故があった。開く直前に保存を強制（localStorageは同期書き込み・Firebaseは即時push）。2026-06-16
+  try { if (typeof _stFlush === "function") _stFlush(false); } catch(e){}
+  try { if (typeof window._snFbFlushNow === "function") window._snFbFlushNow(); } catch(e){}
   var url = _caBuildUrl(code, date, draftId);
   try { console.log("[CA] open url:", url); } catch(_){}
   try {
