@@ -1636,6 +1636,196 @@ function _snStorageDeleteOrphans(orphans, graceDays, nowMs) {
   });
 }
 
+// 過去のニュース画像をWebP/縮小で再圧縮してFirebase Storageの容量を削減する（2026-06-17）。
+// 新規取り込みは_imgToWebpMaybeで既に圧縮済みだが、それ以前にフル解像度PNG/JPEGでアップ済みの画像はStorageに大きいまま残る。
+// 仕組み: data.trades[*].newsCats 配下のニュース画像だけを対象に、
+//   ①現バイトを ライブbase64→IDB→Cache→ネットワーク の順で取得（egress最小化）
+//   ②_imgToWebpMaybe で WebP/長辺1600px へ再エンコード（小さくなる時のみ採用＝壊さない・既最適化済みはスキップ）
+//   ③小さくなった分だけ新パス(notebook-images/img_<hash>)へアップロードし、新URLへ参照を張り替える（_snApplyNewsImgMaps）
+// 旧オブジェクトは「どこからも参照されない孤児」になるので、同期後に既存の孤児GC(_snStorageDeleteOrphans)で安全に回収する。
+//   ＝この関数自体は削除をしない（多端末/同期途中の巻き込みを避ける。30日grace/remoteOk判定は既存GC側が担保）。
+function _snImgUsableB64(b64) {
+  return typeof b64 === "string" && b64 !== "__ref__" && b64.length > 100;
+}
+function _snImgB64Sig(b64) {
+  var mid = Math.floor(b64.length / 2);
+  return _fbHashStr(b64.length + "_" + b64.substring(0, 2000) + b64.substring(mid, mid + 2000) + b64.substring(b64.length - 1000));
+}
+function _snB64Bytes(s) { return Math.floor(((s && s.length) || 0) * 3 / 4); }
+function _snForEachNewsImg(data, fn) {
+  var trades = data && data.trades;
+  if (!trades || typeof trades !== "object") return;
+  Object.keys(trades).forEach(function(date) {
+    var dd = trades[date];
+    if (!dd || typeof dd !== "object") return;
+    var cats = dd.newsCats;
+    if (!cats || typeof cats !== "object") return;
+    Object.keys(cats).forEach(function(cat) {
+      var cd = cats[cat];
+      if (!cd || typeof cd !== "object") return;
+      var lists = [];
+      if (Array.isArray(cd.newsItems)) cd.newsItems.forEach(function(ni) { if (ni && Array.isArray(ni.images)) lists.push(ni.images); });
+      if (cd.newsMemo && Array.isArray(cd.newsMemo.images)) lists.push(cd.newsMemo.images);
+      if (cd.subCatMemos && typeof cd.subCatMemos === "object") Object.keys(cd.subCatMemos).forEach(function(sk) { var sm = cd.subCatMemos[sk]; if (sm && Array.isArray(sm.images)) lists.push(sm.images); });
+      lists.forEach(function(arr) { arr.forEach(function(img) { if (img && typeof img === "object") fn(img); }); });
+    });
+  });
+}
+function _snRemapNewsImg(img, urlMap, localMap) {
+  if (!img || typeof img !== "object") return img;
+  var out = img, copied = false;
+  function ensure() { if (!copied) { out = Object.assign({}, img); copied = true; } }
+  // 表示画像
+  if (img.imageUrl && urlMap[img.imageUrl]) {
+    var r = urlMap[img.imageUrl]; ensure();
+    out.imageUrl = r.newUrl; out.base64 = r.base64; out.mt = r.mt;
+  } else if (!img.imageUrl && _snImgUsableB64(img.base64)) {
+    var l = localMap["b:" + _snImgB64Sig(img.base64)];
+    if (l) { ensure(); out.base64 = l.base64; out.mt = l.mt; }
+  }
+  // 原画像（注釈の元画像。ニュースでは稀だが、ある場合はそれが最大なので併せて張り替える）
+  if (img.origImageUrl && urlMap[img.origImageUrl]) {
+    var ro = urlMap[img.origImageUrl]; ensure();
+    out.origImageUrl = ro.newUrl; out.orig_base64 = ro.base64; out.orig_mt = ro.mt;
+  } else if (!img.origImageUrl && _snImgUsableB64(img.orig_base64)) {
+    var lo = localMap["b:" + _snImgB64Sig(img.orig_base64)];
+    if (lo) { ensure(); out.orig_base64 = lo.base64; out.orig_mt = lo.mt; }
+  }
+  return out;
+}
+function _snApplyNewsImgMaps(data, urlMap, localMap) {
+  urlMap = urlMap || {}; localMap = localMap || {};
+  if (!data || !data.trades || (Object.keys(urlMap).length === 0 && Object.keys(localMap).length === 0)) return data;
+  function remapImgs(arr) {
+    var changed = false;
+    var out = arr.map(function(im) { var rr = _snRemapNewsImg(im, urlMap, localMap); if (rr !== im) changed = true; return rr; });
+    return changed ? out : arr;
+  }
+  var trades = data.trades, newTrades = {}, anyChange = false;
+  Object.keys(trades).forEach(function(date) {
+    var dd = trades[date];
+    if (!dd || typeof dd !== "object" || !dd.newsCats || typeof dd.newsCats !== "object") { newTrades[date] = dd; return; }
+    var cats = dd.newsCats, newCats = {}, ddChanged = false;
+    Object.keys(cats).forEach(function(cat) {
+      var cd = cats[cat];
+      if (!cd || typeof cd !== "object") { newCats[cat] = cd; return; }
+      var newCd = cd, cdChanged = false;
+      if (Array.isArray(cd.newsItems)) {
+        var niChanged = false;
+        var newNi = cd.newsItems.map(function(ni) {
+          if (!ni || !Array.isArray(ni.images)) return ni;
+          var ri = remapImgs(ni.images);
+          if (ri === ni.images) return ni;
+          niChanged = true; return Object.assign({}, ni, { images: ri });
+        });
+        if (niChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsItems = newNi; cdChanged = true; }
+      }
+      if (cd.newsMemo && Array.isArray(cd.newsMemo.images)) {
+        var rm = remapImgs(cd.newsMemo.images);
+        if (rm !== cd.newsMemo.images) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsMemo = Object.assign({}, cd.newsMemo, { images: rm }); cdChanged = true; }
+      }
+      if (cd.subCatMemos && typeof cd.subCatMemos === "object") {
+        var scChanged = false, newSc = {};
+        Object.keys(cd.subCatMemos).forEach(function(sk) {
+          var sm = cd.subCatMemos[sk];
+          if (sm && Array.isArray(sm.images)) {
+            var rs = remapImgs(sm.images);
+            if (rs !== sm.images) { scChanged = true; newSc[sk] = Object.assign({}, sm, { images: rs }); return; }
+          }
+          newSc[sk] = sm;
+        });
+        if (scChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.subCatMemos = newSc; cdChanged = true; }
+      }
+      newCats[cat] = newCd;
+      if (cdChanged) ddChanged = true;
+    });
+    if (ddChanged) { anyChange = true; newTrades[date] = Object.assign({}, dd, { newsCats: newCats }); }
+    else newTrades[date] = dd;
+  });
+  if (!anyChange) return data;
+  return Object.assign({}, data, { trades: newTrades });
+}
+function _snRecompressGetBytes(url, mt, liveB64) {
+  if (_snImgUsableB64(liveB64)) return Promise.resolve({ b64: liveB64, mt: mt });
+  return snIdbGet("img_" + url).then(function(c) {
+    if (c && _snImgUsableB64(c.base64)) return { b64: c.base64, mt: c.mt || mt };
+    return snCacheGet(url).then(function(blob) {
+      if (blob && blob.size) {
+        return new Promise(function(resolve, reject) {
+          var rd = new FileReader();
+          rd.onload = function() { resolve({ b64: rd.result.split(",")[1], mt: blob.type || mt }); };
+          rd.onerror = reject; rd.readAsDataURL(blob);
+        });
+      }
+      return urlToBase64(url).then(function(b) { return { b64: b, mt: mt }; });
+    });
+  })["catch"](function() {
+    return urlToBase64(url).then(function(b) { return { b64: b, mt: mt }; })["catch"](function() { return null; });
+  });
+}
+function _snRecompressNewsImages(data, onProgress) {
+  if (!_fbStorageRef) return Promise.resolve({ ok: false, reason: "no-storage" });
+  // 対象URL/ローカル画像を重複排除して収集（同一URL/同一内容は1回だけ処理）。
+  var urlMt = {}, urlLive = {}, localTargets = {};
+  _snForEachNewsImg(data, function(img) {
+    if (img.imageUrl) {
+      if (!urlMt[img.imageUrl]) urlMt[img.imageUrl] = img.mt || "image/png";
+      if (_snImgUsableB64(img.base64) && !urlLive[img.imageUrl]) urlLive[img.imageUrl] = img.base64;
+    } else if (_snImgUsableB64(img.base64)) {
+      var k = "b:" + _snImgB64Sig(img.base64);
+      if (!localTargets[k]) localTargets[k] = { b64: img.base64, mt: img.mt || "image/png" };
+    }
+    if (img.origImageUrl) {
+      if (!urlMt[img.origImageUrl]) urlMt[img.origImageUrl] = img.orig_mt || img.mt || "image/png";
+      if (_snImgUsableB64(img.orig_base64) && !urlLive[img.origImageUrl]) urlLive[img.origImageUrl] = img.orig_base64;
+    } else if (_snImgUsableB64(img.orig_base64)) {
+      var ko = "b:" + _snImgB64Sig(img.orig_base64);
+      if (!localTargets[ko]) localTargets[ko] = { b64: img.orig_base64, mt: img.orig_mt || img.mt || "image/png" };
+    }
+  });
+  var urlList = Object.keys(urlMt), localList = Object.keys(localTargets);
+  var total = urlList.length + localList.length;
+  var st = { ok: true, total: total, done: 0, compressed: 0, errs: 0, beforeBytes: 0, afterBytes: 0, savedBytes: 0, urlMap: {}, localMap: {} };
+  function report() { st.done++; if (typeof onProgress === "function") { try { onProgress({ done: st.done, total: total, compressed: st.compressed }); } catch (e) {} } }
+  function recode(b64, mt) { return _imgToWebpMaybe("data:" + (mt || "image/png") + ";base64," + b64, b64, mt || "image/png"); }
+  function uploadNew(o) {
+    var ext = o.mt === "image/png" ? ".png" : o.mt === "image/webp" ? ".webp" : ".jpg";
+    var id = "img_" + _snImgB64Sig(o.base64);
+    return _uploadToStorage("notebook-images/" + id + ext, o.base64, o.mt);
+  }
+  var chain = Promise.resolve();
+  urlList.forEach(function(url) {
+    chain = chain.then(function() {
+      var mt = urlMt[url];
+      return _snRecompressGetBytes(url, mt, urlLive[url]).then(function(src) {
+        if (!src || !_snImgUsableB64(src.b64)) { st.errs++; return; }
+        var oldB = _snB64Bytes(src.b64); st.beforeBytes += oldB;
+        return recode(src.b64, src.mt).then(function(o) {
+          if (!o || !o.base64 || o.base64 === src.b64 || o.base64.length >= src.b64.length) { st.afterBytes += oldB; return; }
+          return uploadNew(o).then(function(newUrl) {
+            if (!newUrl) { st.errs++; st.afterBytes += oldB; return; }
+            var nb = _snB64Bytes(o.base64); st.afterBytes += nb; st.savedBytes += (oldB - nb); st.compressed++;
+            st.urlMap[url] = { newUrl: newUrl, base64: o.base64, mt: o.mt };
+            try { snIdbSet("img_" + newUrl, { base64: o.base64, mt: o.mt }); } catch (e) {}
+          });
+        });
+      })["catch"](function() { st.errs++; }).then(function() { report(); });
+    });
+  });
+  localList.forEach(function(key) {
+    chain = chain.then(function() {
+      var t = localTargets[key];
+      var oldB = _snB64Bytes(t.b64); st.beforeBytes += oldB;
+      return recode(t.b64, t.mt).then(function(o) {
+        if (!o || !o.base64 || o.base64 === t.b64 || o.base64.length >= t.b64.length) { st.afterBytes += oldB; return; }
+        var nb = _snB64Bytes(o.base64); st.afterBytes += nb; st.savedBytes += (oldB - nb); st.compressed++;
+        st.localMap[key] = { base64: o.base64, mt: o.mt };
+      })["catch"](function() { st.errs++; }).then(function() { report(); });
+    });
+  });
+  return chain.then(function() { return st; });
+}
+
 function urlToBase64(url) {
   return fetch(url)
     .then(function(r) { return r.blob(); })
