@@ -2018,6 +2018,8 @@ function SettingsModal(_ref54) {
   var _saRcP = useState(null), _stRcP = _saRcP[0], _setStRcP = _saRcP[1];
   var _saBd = useState(null), _stBd = _saBd[0], _setStBd = _saBd[1];
   var _saBdP = useState(null), _stBdP = _saBdP[0], _setStBdP = _saBdP[1];
+  var _saCat = useState(null), _stCat = _saCat[0], _setStCat = _saCat[1];
+  var _saCatP = useState(null), _stCatP = _saCatP[0], _setStCatP = _saCatP[1];
   var _stFmtMB = function(b) { return (b >= 1048576) ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB"; };
   var _runStAudit = function() {
     if (_stBusy) return;
@@ -2087,6 +2089,17 @@ function SettingsModal(_ref54) {
       if (!r || !r.ok) { window.alert("内訳の測定に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
       _setStBd(r);
     })["catch"](function(e) { _setStBusy(""); _setStBdP(null); window.alert("内訳の測定中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
+  };
+  var _runCatAudit = function() {
+    if (_stBusy) return;
+    if (!_fbStorageRef) { window.alert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
+    if (!data || (!data.charts && !data.trades)) { window.alert("記録データが読み込めていないため中止しました。"); return; }
+    _setStBusy("cat"); _setStCat(null); _setStCatP({ done: 0, total: 0 });
+    _snStorageCategoryAudit(data, cfg, function(p) { _setStCatP(p); }).then(function(r) {
+      _setStBusy(""); _setStCatP(null);
+      if (!r || !r.ok) { window.alert("種類別の分析に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
+      _setStCat(r);
+    })["catch"](function(e) { _setStBusy(""); _setStCatP(null); window.alert("種類別の分析中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
   };
   var I = {
     padding: "9px 10px",
@@ -2438,6 +2451,22 @@ function SettingsModal(_ref54) {
           return React.createElement("div", { key: "lg_" + i, style: { fontSize: 10, color: "#777", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, _stFmtMB(it.size) + "  " + it.path);
         }),
         React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6, lineHeight: 1.6 } }, "※ chart-images / chart-thumbs はチャート分析ツール(別アプリ)の画像です。削除はそのツール側で。notebook-images はこのアプリの画像で、下の「画像を圧縮」「孤児を削除」で削減できます。")
+      ) : null,
+      React.createElement("button", {
+        onClick: _runCatAudit,
+        disabled: _stBusy === "cat",
+        style: { display: "block", marginTop: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, background: _stBusy === "cat" ? "#eee" : "#EAF3FB", color: "#1A5276", border: "1px solid #A9CCE3", borderRadius: 7, cursor: _stBusy === "cat" ? "default" : "pointer" }
+      }, _stBusy === "cat" ? ((_stCatP && _stCatP.total) ? ("分析中… " + _stCatP.done + "/" + _stCatP.total) : "一覧取得中…") : "📋 notebook-images を種類別に分析"),
+      (_stCat && _stCat.ok) ? React.createElement("div", { style: { marginTop: 10, fontSize: 12, color: "#555", lineHeight: 1.8, background: "#f8f7f4", borderRadius: 8, padding: "8px 12px" } },
+        React.createElement("div", { style: { fontWeight: 600, marginBottom: 4 } }, "種類別（notebook-images 合計 " + _stFmtMB(_stCat.totalBytes) + " / " + _stCat.total + "件）"),
+        Object.keys(_stCat.cats).sort(function(a, b) { return _stCat.cats[b].bytes - _stCat.cats[a].bytes; }).map(function(name) {
+          var c = _stCat.cats[name];
+          return React.createElement("div", { key: "cat_" + name, style: { display: "flex", justifyContent: "space-between" } },
+            React.createElement("span", null, name),
+            React.createElement("span", { style: { fontWeight: 600 } }, _stFmtMB(c.bytes) + "（" + c.count + "件）"));
+        }),
+        (_stCat.origCnt > 0) ? React.createElement("div", { style: { fontSize: 11, color: "#888", marginTop: 4 } }, "うち注釈の原画像(orig): " + _stFmtMB(_stCat.origBytes) + "（" + _stCat.origCnt + "件・各種類に内数）") : null,
+        (_stCat.remoteOk === false) ? React.createElement("div", { style: { fontSize: 11, color: "#C0392B", marginTop: 4 } }, "⚠ リモート取得失敗。他端末だけが参照する画像が「未参照(孤児)」に混じる可能性（同期・通信を確認し再実行）。") : null
       ) : null
     ),
     React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #eee" } },

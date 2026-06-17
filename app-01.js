@@ -1848,6 +1848,72 @@ function _snStorageBreakdown(onProgress) {
     });
   })["catch"](function(e) { return { ok: false, reason: "list-failed", err: String(e) }; });
 }
+// notebook-images をデータ内の参照場所から「種類別」に逆引き集計する（2026-06-17）。
+// ハッシュ命名(img_/orig_)のオブジェクトはファイル名から用途が分からないので、data(ローカル＋リモート)の
+// 全文字列から /o/<path> を拾い、出現したキー経路の目印(newsCats/chartImg/chartMemo/tradesMemo/summary/stockInfo…)で分類する。
+// どの参照にも出てこないオブジェクトは「未参照(孤児)」。読み取り専用(fbGet＋getMetadataのみ)。
+function _snCatOfKey(k, cur) {
+  if (k === "newsCats") return "ニュース";
+  if (k === "chartMemo" || k === "chartMemoHtml") return "チャートメモ";
+  if (k === "chartImg" || k === "chartImgs") return "チャート画像";
+  if (k === "tradesMemo") return "取引メモ";
+  if (k === "summaryHtml" || k === "summaryMemo" || k === "tradesSummaryMemo") return "総括メモ";
+  if (k === "stockInfo" || k === "stockInfoTabs") return "銘柄情報タブ";
+  if (k === "signals") return "エントリー記録";
+  if (k === "events") return "予定/イベント";
+  if (k === "charts") return "チャート(その他)";
+  if (k === "trades") return (cur === "その他" ? "取引(その他)" : cur);
+  return cur;
+}
+function _snStorageCategoryAudit(data, cfg, onProgress) {
+  if (!_fbStorageRef) return Promise.resolve({ ok: false, reason: "no-storage" });
+  var pathCat = {};
+  function walkCat(obj, cat) {
+    if (obj === null || obj === undefined) return;
+    if (typeof obj === "string") {
+      if (obj.indexOf("/o/") < 0) return;
+      var re = /\/o\/([^?#"\\]+)/g, m;
+      while ((m = re.exec(obj))) {
+        var p; try { p = decodeURIComponent(m[1]); } catch (e) { p = m[1]; }
+        if (p && !pathCat[p]) pathCat[p] = cat;
+      }
+      return;
+    }
+    if (typeof obj !== "object") return;
+    if (Array.isArray(obj)) { for (var i = 0; i < obj.length; i++) walkCat(obj[i], cat); return; }
+    for (var k in obj) { if (obj.hasOwnProperty(k)) walkCat(obj[k], _snCatOfKey(k, cat)); }
+  }
+  var remoteOk = true;
+  var pre = Promise.resolve();
+  if (cfg && cfg.fbUrl) {
+    // 他端末だけが参照する画像も正しく分類できるようリモートも走査（取得失敗時はremoteOk=falseで注意表示）。
+    pre = fbGet(cfg).then(function(rem) { if (rem === null) remoteOk = false; else if (rem && typeof rem === "object") walkCat(rem, "その他"); })["catch"](function() { remoteOk = false; });
+  }
+  return pre.then(function() {
+    walkCat(data, "その他");
+    return _fbStorageRef.ref("notebook-images").listAll().then(function(res) {
+      var items = (res && res.items) || [];
+      var total = items.length, done = 0, cats = {}, origBytes = 0, origCnt = 0;
+      function note() { done++; if (typeof onProgress === "function" && (done % 25 === 0 || done === total)) { try { onProgress({ done: done, total: total }); } catch (e) {} } }
+      function bump(cat, sz) { var c = cats[cat] || (cats[cat] = { bytes: 0, count: 0 }); c.bytes += sz; c.count++; }
+      var idx = 0;
+      function worker() {
+        if (idx >= items.length) return Promise.resolve();
+        var it = items[idx++];
+        return it.getMetadata().then(function(md) {
+          var sz = (md && md.size) || 0, name = it.name || "";
+          bump(pathCat[it.fullPath] || "未参照(孤児)", sz);
+          if (name.indexOf("orig_") === 0) { origBytes += sz; origCnt++; }
+        })["catch"](function() { bump("(取得失敗)", 0); }).then(function() { note(); return worker(); });
+      }
+      var ws = []; for (var w = 0; w < 12; w++) ws.push(worker());
+      return Promise.all(ws).then(function() {
+        var totalBytes = 0; for (var k in cats) { if (cats.hasOwnProperty(k)) totalBytes += cats[k].bytes; }
+        return { ok: true, total: total, totalBytes: totalBytes, cats: cats, origBytes: origBytes, origCnt: origCnt, remoteOk: remoteOk };
+      });
+    });
+  })["catch"](function(e) { return { ok: false, reason: "failed", err: String(e) }; });
+}
 
 function urlToBase64(url) {
   return fetch(url)
