@@ -2341,7 +2341,24 @@ function SettingsModal(_ref54) {
       },
       style: { padding: "9px 14px", fontSize: 13, fontWeight: 600, background: "#FFF1F0", color: "#C0392B", border: "1px solid #F5A6A0", borderRadius: 7, cursor: "pointer" }
     }, "予想OS度をすべて解除"),
-    React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "予想OS度の意味が変わったため、過去記録の選択をリセットしたい時に。")
+    React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "予想OS度の意味が変わったため、過去記録の選択をリセットしたい時に。"),
+    React.createElement("button", {
+      onClick: function() {
+        var keys = [], bytes = 0;
+        try {
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (k && (k.indexOf("sn_dc_csv_v1_") === 0 || k.indexOf("sn_dcc_ca_bar_v1_") === 0)) { keys.push(k); bytes += (localStorage.getItem(k) || "").length; }
+          }
+        } catch(e){}
+        if (!keys.length) { window.alert("削除できる不要キャッシュはありませんでした。"); return; }
+        if (!window.confirm("チャートのキャッシュ " + keys.length + "件（約" + Math.round(bytes / 1024) + "KB）を削除します。\n記録・設定・画像は消えません。次にチャートを見るとき再取得されます。\n実行しますか？")) return;
+        var removed = _snEvictExpendableCaches();
+        window.alert("不要キャッシュを削除しました（" + removed + "件 / 約" + Math.round(bytes / 1024) + "KB）。");
+      },
+      style: { display: "block", marginTop: 14, padding: "9px 14px", fontSize: 13, fontWeight: 600, background: "#EAF3FB", color: "#1A5276", border: "1px solid #A9CCE3", borderRadius: 7, cursor: "pointer" }
+    }, "🧽 不要キャッシュを削除（記録は残す）"),
+    React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6, lineHeight: 1.6 } }, "日足チャート/CAのキャッシュ(sn_dc_csv_v1_*・sn_dcc_ca_bar_v1_*)を削除して端末の保存領域を空けます。記録・設定・画像本体(Firebase)は消えません。容量警告が出た時に。")
   ),
   React.createElement("div", {
     style: {

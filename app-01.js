@@ -751,20 +751,20 @@ function _stStrip(data) {
   });
 }
 function _snEvictExpendableCaches() {
-  // 日足チャートのCSVキャッシュ(sn_dc_csv_v1_*)はFirebaseから再取得できる「捨ててよい」データ。
-  // localStorageが一杯のとき、消えると困るユーザーの記録(ST_KEY)を守るため先にこれを捨てて領域を空ける。
+  // 日足CSV(sn_dc_csv_v1_*)とCAバー(sn_dcc_ca_bar_v1_*)のキャッシュはFirebaseから再取得できる「捨ててよい」データ。
+  // localStorageが一杯のとき、消えると困るユーザーの記録(ST_KEY)を守るため先にこれらを捨てて領域を空ける（2026-06-17: CAバーも対象に追加＝退避の穴を塞ぐ）。
   var removed = 0;
   try {
     var keys = [];
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      if (k && k.indexOf("sn_dc_csv_v1_") === 0) keys.push(k);
+      if (k && (k.indexOf("sn_dc_csv_v1_") === 0 || k.indexOf("sn_dcc_ca_bar_v1_") === 0)) keys.push(k);
     }
     for (var j = 0; j < keys.length; j++) {
       try { localStorage.removeItem(keys[j]); removed++; } catch(e){}
     }
   } catch(e){}
-  if (removed > 0) console.warn("[stSave] freed localStorage by evicting " + removed + " daily-CSV cache(s)");
+  if (removed > 0) console.warn("[stSave] freed localStorage by evicting " + removed + " expendable cache(s)");
   return removed;
 }
 function _stWriteToStorage(data) {
