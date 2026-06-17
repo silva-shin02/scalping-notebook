@@ -2012,6 +2012,44 @@ function SettingsModal(_ref54) {
       return _objectSpread(_objectSpread({}, p), {}, _defineProperty({}, k, v));
     });
   };
+  var _saSt = useState(null), _stAudit = _saSt[0], _setStAudit = _saSt[1];
+  var _saBz = useState(""), _stBusy = _saBz[0], _setStBusy = _saBz[1];
+  var _stFmtMB = function(b) { return (b >= 1048576) ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB"; };
+  var _runStAudit = function() {
+    if (_stBusy) return;
+    if (!_fbStorageRef) { window.alert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
+    _setStBusy("audit"); _setStAudit(null);
+    _snStorageAudit(data, cfg).then(function(r) {
+      _setStBusy("");
+      if (!r || !r.ok) { window.alert("Storageの診断に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
+      _setStAudit(r);
+    });
+  };
+  var _runStDelete = function() {
+    if (_stBusy) return;
+    // 安全ガード: dataが読めていない可能性がある時は中止（全消し事故防止）。
+    if (!data || (!data.charts && !data.trades)) { window.alert("記録データが読み込めていないため中止しました。"); return; }
+    _setStBusy("delete");
+    // 削除直前に最新を取り直す（多端末リモート＋CA参照を含む完全な参照集合で判定）。
+    _snStorageAudit(data, cfg).then(function(r) {
+      if (!r || !r.ok) { _setStBusy(""); window.alert("再診断に失敗しました。通信状態を確認してください。"); return; }
+      _setStAudit(r);
+      // 多端末: notebookリモートを取得できなかった＝他端末だけが参照する画像を巻き込む恐れ→中止。
+      if (cfg && cfg.fbUrl && (r.remoteOk === false || r.caOk === false)) { _setStBusy(""); window.alert("⚠️ 最新データ（または分析ツールの参照情報）を取得できなかったため中止しました。\n全端末で同期し、通信が安定した状態で再実行してください。"); return; }
+      // 参照が1件も拾えない＝データ未読込/取得失敗の疑い→安全側で中止。
+      if (r.refSetSize === 0 && r.total > 0) { _setStBusy(""); window.alert("⚠️ 参照中の画像が見つかりませんでした。データ未読込の可能性があるため中止しました。"); return; }
+      var graceDays = 30, cutoff = Date.now() - graceDays * 86400000;
+      var delable = r.orphans.filter(function(o) { return o.created && o.created < cutoff; });
+      if (!delable.length) { _setStBusy(""); window.alert("削除できる孤児（" + graceDays + "日以上前・未参照）はありませんでした。"); return; }
+      var bytes = delable.reduce(function(s2, o) { return s2 + o.size; }, 0);
+      if (!window.confirm("未参照の孤児画像 " + delable.length + "件（約" + _stFmtMB(bytes) + "）をFirebase Storageから削除します。\n※このアプリが作成し(img_/orig_/html_)、記録・CAのどこからも参照されず、" + graceDays + "日以上前のものだけが対象です。表示中の画像・記録には影響しません。\n実行しますか？")) { _setStBusy(""); return; }
+      _snStorageDeleteOrphans(delable, graceDays, Date.now()).then(function(res) {
+        _setStBusy("");
+        window.alert("孤児画像を削除しました（" + res.deleted + "件 / 約" + _stFmtMB(res.freed) + "解放" + (res.errs ? " / 失敗" + res.errs + "件" : "") + "）。");
+        _runStAudit();
+      });
+    });
+  };
   var I = {
     padding: "9px 10px",
     border: "1px solid #ccc",
@@ -2358,7 +2396,36 @@ function SettingsModal(_ref54) {
       },
       style: { display: "block", marginTop: 14, padding: "9px 14px", fontSize: 13, fontWeight: 600, background: "#EAF3FB", color: "#1A5276", border: "1px solid #A9CCE3", borderRadius: 7, cursor: "pointer" }
     }, "🧽 不要キャッシュを削除（記録は残す）"),
-    React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6, lineHeight: 1.6 } }, "日足チャート/CAのキャッシュ(sn_dc_csv_v1_*・sn_dcc_ca_bar_v1_*)を削除して端末の保存領域を空けます。記録・設定・画像本体(Firebase)は消えません。容量警告が出た時に。")
+    React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6, lineHeight: 1.6 } }, "日足チャート/CAのキャッシュ(sn_dc_csv_v1_*・sn_dcc_ca_bar_v1_*)を削除して端末の保存領域を空けます。記録・設定・画像本体(Firebase)は消えません。容量警告が出た時に。"),
+    (function() {
+      var a = _stAudit;
+      var deletable = 0, deletableBytes = 0;
+      if (a && a.ok) {
+        var _ct = Date.now() - 30 * 86400000;
+        a.orphans.forEach(function(o) { if (o.created && o.created < _ct) { deletable++; deletableBytes += o.size; } });
+      }
+      return React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #eee" } },
+        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#444", marginBottom: 4 } }, "🗂 クラウド画像の整理（Firebase Storage）"),
+        React.createElement("div", { style: { fontSize: 10, color: "#999", lineHeight: 1.6, marginBottom: 8 } }, "削除済みの記録などで参照されなくなった「孤児画像」がStorageに残り容量を圧迫します。診断し、どこからも参照されず30日以上前の孤児だけを安全に削除します（表示中の画像・記録には影響しません）。対象はこのアプリがアップロードした画像のみ。診断は最新データの取得など通信を多少消費します。"),
+        React.createElement("button", {
+          onClick: _runStAudit,
+          disabled: _stBusy === "audit",
+          style: { padding: "8px 14px", fontSize: 13, fontWeight: 600, background: _stBusy === "audit" ? "#eee" : "#EAF3FB", color: "#1A5276", border: "1px solid #A9CCE3", borderRadius: 7, cursor: _stBusy === "audit" ? "default" : "pointer" }
+        }, _stBusy === "audit" ? "診断中…" : "使用量を診断"),
+        (a && a.ok) ? React.createElement("div", { style: { marginTop: 10, fontSize: 12, color: "#555", lineHeight: 1.9, background: "#f8f7f4", borderRadius: 8, padding: "8px 12px" } },
+          React.createElement("div", null, "総オブジェクト: " + a.total + "件 / " + _stFmtMB(a.totalBytes)),
+          React.createElement("div", null, "参照中: " + a.refCnt + "件 / " + _stFmtMB(a.refBytes)),
+          React.createElement("div", { style: { color: a.orphans.length ? "#B45309" : "#1E8449", fontWeight: 600 } }, "孤児(未参照): " + a.orphans.length + "件 / " + _stFmtMB(a.orphanBytes)),
+          React.createElement("div", { style: { fontSize: 11, color: "#888" } }, "うち削除可能(30日以上前): " + deletable + "件 / " + _stFmtMB(deletableBytes)),
+          (a.remoteOk === false || a.caOk === false) ? React.createElement("div", { style: { fontSize: 11, color: "#C0392B", marginTop: 4 } }, "⚠ 最新データ（または分析ツール参照）を取得できず。削除は安全のため中止されます（同期・通信を確認して再診断）。") : null,
+          deletable > 0 ? React.createElement("button", {
+            onClick: _runStDelete,
+            disabled: _stBusy === "delete",
+            style: { marginTop: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, background: _stBusy === "delete" ? "#eee" : "#FFF1F0", color: "#C0392B", border: "1px solid #F5A6A0", borderRadius: 7, cursor: _stBusy === "delete" ? "default" : "pointer" }
+          }, _stBusy === "delete" ? "削除中…" : ("孤児を削除（" + deletable + "件・約" + _stFmtMB(deletableBytes) + "）")) : null
+        ) : null
+      );
+    }())
   ),
   React.createElement("div", {
     style: {

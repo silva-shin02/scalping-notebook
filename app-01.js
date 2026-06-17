@@ -1551,6 +1551,91 @@ function _uploadToStorage(path, b64, mime) {
 }
 
 
+// Firebase Storage の容量GC（2026-06-17）。孤児(=どの記録からも参照されない)画像を安全に棚卸し/削除する。
+// 安全策: ①現dataの全参照URL(構造化imageUrl/origImageUrl＋HTML内<img src>)を走査し、参照中は絶対に消さない
+//        ②content hash共有(複数記録が同一オブジェクトを参照)も①の全走査で自然に保護される
+//        ③timeCreatedがgrace日以内の新しいオブジェクトは消さない(アップロード直後/多端末同期途中の巻き込み防止)
+function _snStoragePathFromUrl(url) {
+  if (typeof url !== "string") return null;
+  var m = url.match(/\/o\/([^?#"\\]+)/);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+}
+function _snCollectReferencedStoragePaths(data) {
+  // dataをJSON文字列化して /o/<encoded-path> を全て拾う＝構造化画像もHTML内<img src>も一括で参照集合に入れる。
+  var set = {};
+  try {
+    var s = JSON.stringify(data || {});
+    var re = /\/o\/([^?#"\\]+)/g, m;
+    while ((m = re.exec(s))) {
+      var p; try { p = decodeURIComponent(m[1]); } catch (e) { p = m[1]; }
+      if (p) set[p] = true;
+    }
+  } catch (e) {}
+  return set;
+}
+function _snStorageAudit(data, cfg) {
+  if (!_fbStorageRef) return Promise.resolve({ ok: false, reason: "no-storage" });
+  var refSet = _snCollectReferencedStoragePaths(data);
+  function _union(obj) {
+    if (!obj || typeof obj !== "object") return;
+    var s = _snCollectReferencedStoragePaths(obj);
+    for (var k in s) { if (s.hasOwnProperty(k)) refSet[k] = true; }
+  }
+  // 参照漏れ対策(2026-06-17・GC安全検証で判明): ローカルdataだけでは多端末分やCA(分析ツール)のサムネ参照が漏れる。
+  //  ①notebookリモート全データ(fbGet)を参照集合へ＝他端末だけが参照する画像を保護。取得失敗時はremoteOk=falseで呼出側が削除中止。
+  //  ②CAドラフト(chart-annotator-drafts)のthumbUrl等はnotebook dataに保存されないので別途参照集合へ(best-effort)。
+  var remoteOk = true, caOk = true;
+  var tasks = [];
+  if (cfg && cfg.fbUrl) {
+    tasks.push(fbGet(cfg).then(function(rem) {
+      if (rem === null) remoteOk = false;
+      else if (rem && typeof rem === "object") _union(rem);
+    })["catch"](function() { remoteOk = false; }));
+    var caBase = cfg.fbUrl.replace(/\/$/, "");
+    var auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
+    // CA参照取得は失敗を caOk=false に反映（404=CA未使用は正常扱い）。呼出側はcaOk===falseでも削除中止。
+    tasks.push(fetch(caBase + "/chart-annotator-drafts.json" + auth)
+      .then(function(r) { if (!r.ok) { if (r.status !== 404) caOk = false; return null; } return r.text(); })
+      .then(function(txt) { if (txt != null) { try { _union(JSON.parse(txt)); } catch (e) {} } })
+      ["catch"](function() { caOk = false; }));
+  }
+  return Promise.all(tasks).then(function() {
+    return _fbStorageRef.ref("notebook-images").listAll().then(function(res) {
+      // このアプリが作成した画像(img_/orig_/html_)のみ対象＝同バケットを共有する他アプリ(CA等)の別名オブジェクトは絶対に触らない。
+      var items = ((res && res.items) || []).filter(function(it) { return /^(img_|orig_|html_)/.test(it.name || ""); });
+      var metas = items.map(function(it) {
+        return it.getMetadata().then(function(md) {
+          return { ref: it, path: it.fullPath, size: (md && md.size) || 0, created: (md && md.timeCreated) ? Date.parse(md.timeCreated) : 0 };
+        })["catch"](function() { return { ref: it, path: it.fullPath, size: 0, created: 0 }; });
+      });
+      return Promise.all(metas).then(function(arr) {
+        var total = 0, totalBytes = 0, refCnt = 0, refBytes = 0, orphans = [], orphanBytes = 0;
+        arr.forEach(function(o) {
+          total++; totalBytes += o.size;
+          if (refSet[o.path]) { refCnt++; refBytes += o.size; }
+          else { orphans.push(o); orphanBytes += o.size; }
+        });
+        return { ok: true, total: total, totalBytes: totalBytes, refCnt: refCnt, refBytes: refBytes, orphans: orphans, orphanBytes: orphanBytes, refSetSize: Object.keys(refSet).length, remoteOk: remoteOk, caOk: caOk };
+      });
+    });
+  })["catch"](function(e) { return { ok: false, reason: "list-failed", err: String(e) }; });
+}
+function _snStorageDeleteOrphans(orphans, graceDays, nowMs) {
+  var graceMs = (graceDays == null ? 30 : graceDays) * 86400000;
+  var cutoff = (nowMs || Date.now()) - graceMs;
+  // grace日以内の新しいオブジェクトは消さない（アップロード直後/多端末同期途中の巻き込み防止）。created不明(0)も安全側で残す。
+  var toDel = (orphans || []).filter(function(o) { return o.created && o.created < cutoff; });
+  var deleted = 0, freed = 0, errs = 0;
+  return toDel.reduce(function(p, o) {
+    return p.then(function() {
+      return o.ref["delete"]().then(function() { deleted++; freed += o.size; })["catch"](function() { errs++; });
+    });
+  }, Promise.resolve()).then(function() {
+    return { deleted: deleted, freed: freed, errs: errs, skippedRecent: (orphans || []).length - toDel.length };
+  });
+}
+
 function urlToBase64(url) {
   return fetch(url)
     .then(function(r) { return r.blob(); })
