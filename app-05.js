@@ -4231,9 +4231,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
       var _ewH = alpha - _hcf, _ewHAbs = Math.abs(_ewH);
       _ac = _ewH === 0 ? React.createElement("span", { style: { color: "#888" } }, "α0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs);
     }
-    var _xLoss = React.createElement("span", { style: { whiteSpace: "nowrap" } },
-      React.createElement("span", { style: { color: "#C0392B", fontWeight: 800 } }, "×"),
-      React.createElement("span", { style: { color: "#888", fontWeight: 700, fontSize: 8 } }, "（損）"));
+    var _xLoss = React.createElement("span", { style: { color: "#C0392B", fontWeight: 800 } }, "×");
     return _row(rk, lblNode, _xLoss, { high: _hi, width: _wd, acmp: _ac, pnl: _elHoldStopAmtNode(amount) }, 2, topB);
   };
   var hexp = s.holdExp;
