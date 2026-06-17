@@ -2016,6 +2016,8 @@ function SettingsModal(_ref54) {
   var _saBz = useState(""), _stBusy = _saBz[0], _setStBusy = _saBz[1];
   var _saRc = useState(null), _stRc = _saRc[0], _setStRc = _saRc[1];
   var _saRcP = useState(null), _stRcP = _saRcP[0], _setStRcP = _saRcP[1];
+  var _saBd = useState(null), _stBd = _saBd[0], _setStBd = _saBd[1];
+  var _saBdP = useState(null), _stBdP = _saBdP[0], _setStBdP = _saBdP[1];
   var _stFmtMB = function(b) { return (b >= 1048576) ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB"; };
   var _runStAudit = function() {
     if (_stBusy) return;
@@ -2055,21 +2057,31 @@ function SettingsModal(_ref54) {
   var _runRecompress = function() {
     if (_stBusy) return;
     if (!_fbStorageRef) { window.alert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
-    if (!data || !data.trades) { window.alert("記録データが読み込めていないため中止しました。"); return; }
-    if (!window.confirm("過去のニュース画像をWebP形式・長辺1600pxに再圧縮して、Firebase Storageの容量を削減します。\n\n・画質はほぼ保ったまま1枚あたりの容量を大きく削減します（すでに最適化済みの画像はそのまま）。\n・現在の画像をクラウドから読み込むため、通信量を少し消費します（端末にキャッシュ済みの分は消費しません）。\n・圧縮後、古い画像はクラウドにしばらく残ります。同期完了後に下の「🗂 クラウド画像の整理 → 使用量を診断 → 孤児を削除」を実行すると実際に容量が解放されます。\n\n実行しますか？")) return;
+    if (!data || (!data.charts && !data.trades)) { window.alert("記録データが読み込めていないため中止しました。"); return; }
+    if (!window.confirm("過去の画像（ニュース・チャート・メモなど）をWebP形式・長辺1600pxに再圧縮して、Firebase Storageの容量を削減します。\n\n・画質はほぼ保ったまま1枚あたりの容量を大きく削減します（すでに最適化済みの画像はそのまま）。\n・同じ内容の「表示用」と「原画像(orig)」の重複は1つに集約されます。注釈付き画像の原画像は再編集用に温存します。\n・現在の画像をクラウドから読み込むため、通信量を少し消費します（端末にキャッシュ済みの分は消費しません）。\n・圧縮後、古い画像はクラウドにしばらく残ります。同期完了後に下の「🗂 クラウド画像の整理 → 使用量を診断 → 孤児を削除」を実行すると実際に容量が解放されます。\n\n実行しますか？")) return;
     _setStBusy("recompress"); _setStRc(null); _setStRcP({ done: 0, total: 0 });
-    _snRecompressNewsImages(data, function(p) { _setStRcP(p); }).then(function(r) {
+    _snRecompressImages(data, function(p) { _setStRcP(p); }).then(function(r) {
       if (!r || !r.ok) { _setStBusy(""); _setStRcP(null); window.alert("画像の圧縮に失敗しました（" + ((r && r.reason) || "error") + "）。Firebase設定・通信状態を確認してください。"); return; }
       if (r.compressed === 0) {
         _setStBusy(""); _setStRcP(null); _setStRc(r);
-        window.alert("圧縮できるニュース画像はありませんでした。\n（対象 " + r.total + "件はすべて最適化済み" + (r.errs ? " / 取得失敗 " + r.errs + "件" : "") + "）");
+        window.alert("圧縮できる画像はありませんでした。\n（対象 " + r.total + "件はすべて最適化済み" + (r.errs ? " / 取得失敗 " + r.errs + "件" : "") + "）");
         return;
       }
       // 参照を新URL（圧縮済みの小さい画像）へ張り替えて保存＝旧オブジェクトは孤児になり、既存GCで回収可能になる。
-      save(function(prev) { return _snApplyNewsImgMaps(prev, r.urlMap, r.localMap); });
+      save(function(prev) { return _snApplyImgMaps(prev, r.urlMap, r.localMap); });
       _setStBusy(""); _setStRcP(null); _setStRc(r);
-      window.alert("ニュース画像 " + r.compressed + "件を圧縮しました（約" + _stFmtMB(r.savedBytes) + "削減見込み" + (r.errs ? " / 取得失敗 " + r.errs + "件" : "") + "）。\n\n古い画像はまだクラウドに残っています。数十秒待って同期の完了を確認してから、下の「🗂 クラウド画像の整理 → 使用量を診断 → 孤児を削除」を実行すると、実際に容量が解放されます。");
+      window.alert("画像 " + r.compressed + "件を圧縮しました（約" + _stFmtMB(r.savedBytes) + "削減見込み" + (r.errs ? " / 取得失敗 " + r.errs + "件" : "") + "）。\n\n古い画像はまだクラウドに残っています。数十秒待って同期の完了を確認してから、下の「🗂 クラウド画像の整理 → 使用量を診断 → 孤児を削除」を実行すると、実際に容量が解放されます。");
     })["catch"](function(e) { _setStBusy(""); _setStRcP(null); window.alert("画像の圧縮中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
+  };
+  var _runBreakdown = function() {
+    if (_stBusy) return;
+    if (!_fbStorageRef) { window.alert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
+    _setStBusy("breakdown"); _setStBd(null); _setStBdP({ done: 0, total: 0 });
+    _snStorageBreakdown(function(p) { _setStBdP(p); }).then(function(r) {
+      _setStBusy(""); _setStBdP(null);
+      if (!r || !r.ok) { window.alert("内訳の測定に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
+      _setStBd(r);
+    })["catch"](function(e) { _setStBusy(""); _setStBdP(null); window.alert("内訳の測定中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
   };
   var I = {
     padding: "9px 10px",
@@ -2419,13 +2431,36 @@ function SettingsModal(_ref54) {
     }, "🧽 不要キャッシュを削除（記録は残す）"),
     React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6, lineHeight: 1.6 } }, "日足チャート/CAのキャッシュ(sn_dc_csv_v1_*・sn_dcc_ca_bar_v1_*)を削除して端末の保存領域を空けます。記録・設定・画像本体(Firebase)は消えません。容量警告が出た時に。"),
     React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #eee" } },
-      React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#444", marginBottom: 4 } }, "📉 ニュース画像を圧縮（容量削減）"),
-      React.createElement("div", { style: { fontSize: 10, color: "#999", lineHeight: 1.6, marginBottom: 8 } }, "過去のニュース画像をWebP形式・長辺1600pxに再圧縮し、クラウド容量を大きく削減します。画質はほぼ保たれ、すでに最適化済みの画像はそのまま。圧縮後、古い画像は下の「クラウド画像の整理」で孤児として削除できます。実行時に画像の読み込みで通信を少し消費します。"),
+      React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#444", marginBottom: 4 } }, "📊 Storage全体の内訳を測定"),
+      React.createElement("div", { style: { fontSize: 10, color: "#999", lineHeight: 1.6, marginBottom: 8 } }, "バケット全フォルダ（notebook-images=このアプリ / chart-images・chart-thumbs=チャート分析ツール 等）を走査し、どこが容量を食っているかを件数・合計サイズ・大きいファイル上位で表示します。読み取りのみ（削除しません）。ファイル数が多いと数十秒かかります。"),
+      React.createElement("button", {
+        onClick: _runBreakdown,
+        disabled: _stBusy === "breakdown",
+        style: { padding: "8px 14px", fontSize: 13, fontWeight: 600, background: _stBusy === "breakdown" ? "#eee" : "#EAF3FB", color: "#1A5276", border: "1px solid #A9CCE3", borderRadius: 7, cursor: _stBusy === "breakdown" ? "default" : "pointer" }
+      }, _stBusy === "breakdown" ? ((_stBdP && _stBdP.total) ? ("測定中… " + _stBdP.done + "/" + _stBdP.total) : "一覧取得中…") : "全フォルダの内訳を測定"),
+      (_stBd && _stBd.ok) ? React.createElement("div", { style: { marginTop: 10, fontSize: 12, color: "#555", lineHeight: 1.8, background: "#f8f7f4", borderRadius: 8, padding: "8px 12px" } },
+        React.createElement("div", { style: { fontWeight: 600, marginBottom: 4 } }, "合計 " + _stBd.total + "件 / " + _stFmtMB(_stBd.totalBytes)),
+        Object.keys(_stBd.folders).sort(function(a, b) { return _stBd.folders[b].bytes - _stBd.folders[a].bytes; }).map(function(name) {
+          var f = _stBd.folders[name];
+          return React.createElement("div", { key: "fld_" + name, style: { display: "flex", justifyContent: "space-between" } },
+            React.createElement("span", null, name + "/"),
+            React.createElement("span", { style: { fontWeight: 600 } }, _stFmtMB(f.bytes) + "（" + f.count + "件）"));
+        }),
+        React.createElement("div", { style: { fontSize: 11, color: "#888", marginTop: 6, marginBottom: 2 } }, "大きいファイル上位:"),
+        (_stBd.largest || []).slice(0, 8).map(function(it, i) {
+          return React.createElement("div", { key: "lg_" + i, style: { fontSize: 10, color: "#777", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, _stFmtMB(it.size) + "  " + it.path);
+        }),
+        React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6, lineHeight: 1.6 } }, "※ chart-images / chart-thumbs はチャート分析ツール(別アプリ)の画像です。削除はそのツール側で。notebook-images はこのアプリの画像で、下の「画像を圧縮」「孤児を削除」で削減できます。")
+      ) : null
+    ),
+    React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #eee" } },
+      React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#444", marginBottom: 4 } }, "📉 画像を圧縮（ニュース＋チャート・容量削減）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#999", lineHeight: 1.6, marginBottom: 8 } }, "notebook-imagesの過去画像（ニュース・チャート・メモ）をWebP・長辺1600pxに再圧縮し、表示用とorigの同一内容の重複を1つに集約します。画質はほぼ保たれ最適化済みは対象外。注釈付き画像の原画像は再編集用に温存。圧縮後、古い画像は下の「孤児を削除」で回収できます。実行時に画像の読み込みで通信を少し消費します。"),
       React.createElement("button", {
         onClick: _runRecompress,
         disabled: _stBusy === "recompress",
         style: { padding: "8px 14px", fontSize: 13, fontWeight: 600, background: _stBusy === "recompress" ? "#eee" : "#FFF7E6", color: "#B45309", border: "1px solid #F0C27B", borderRadius: 7, cursor: _stBusy === "recompress" ? "default" : "pointer" }
-      }, _stBusy === "recompress" ? ((_stRcP && _stRcP.total) ? ("圧縮中… " + _stRcP.done + "/" + _stRcP.total) : "準備中…") : "ニュース画像を圧縮して容量削減"),
+      }, _stBusy === "recompress" ? ((_stRcP && _stRcP.total) ? ("圧縮中… " + _stRcP.done + "/" + _stRcP.total) : "準備中…") : "画像を圧縮して容量削減"),
       (_stRc && _stRc.ok && _stRc.compressed > 0) ? React.createElement("div", { style: { marginTop: 10, fontSize: 12, color: "#555", lineHeight: 1.9, background: "#f8f7f4", borderRadius: 8, padding: "8px 12px" } },
         React.createElement("div", { style: { color: "#1E8449", fontWeight: 600 } }, "✓ " + _stRc.compressed + "件を圧縮（約" + _stFmtMB(_stRc.savedBytes) + "削減見込み）"),
         React.createElement("div", { style: { fontSize: 11, color: "#888" } }, "古い画像はクラウドに残存中。同期後に下の「孤児を削除」で解放されます。")

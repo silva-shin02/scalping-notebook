@@ -1602,8 +1602,9 @@ function _snStorageAudit(data, cfg) {
   }
   return Promise.all(tasks).then(function() {
     return _fbStorageRef.ref("notebook-images").listAll().then(function(res) {
-      // このアプリが作成した画像(img_/orig_/html_)のみ対象＝同バケットを共有する他アプリ(CA等)の別名オブジェクトは絶対に触らない。
-      var items = ((res && res.items) || []).filter(function(it) { return /^(img_|orig_|html_)/.test(it.name || ""); });
+      // このアプリが作成した画像のみ対象。現命名(img_/orig_/html_)に加え、旧バージョンのパス由来命名(d_charts_*/d_trades_* 等)も対象＝再圧縮で旧名の孤児も回収可能に(2026-06-17)。
+      // notebook-imagesフォルダ自体がオーナーシップ境界＝CA等の別アプリは chart-images/chart-thumbs に書くのでここには来ない。それでも明示allowlistで安全側に。
+      var items = ((res && res.items) || []).filter(function(it) { return /^(img_|orig_|html_|d_)/.test(it.name || ""); });
       var metas = items.map(function(it) {
         return it.getMetadata().then(function(md) {
           return { ref: it, path: it.fullPath, size: (md && md.size) || 0, created: (md && md.timeCreated) ? Date.parse(md.timeCreated) : 0 };
@@ -1636,12 +1637,13 @@ function _snStorageDeleteOrphans(orphans, graceDays, nowMs) {
   });
 }
 
-// 過去のニュース画像をWebP/縮小で再圧縮してFirebase Storageの容量を削減する（2026-06-17）。
+// 過去画像をWebP/縮小で再圧縮してFirebase Storageの容量を削減する（2026-06-17。当初ニュース限定→全画像に一般化）。
 // 新規取り込みは_imgToWebpMaybeで既に圧縮済みだが、それ以前にフル解像度PNG/JPEGでアップ済みの画像はStorageに大きいまま残る。
-// 仕組み: data.trades[*].newsCats 配下のニュース画像だけを対象に、
+// 仕組み: data全体の画像オブジェクト(ニュース/チャート/メモ等)を対象に、
 //   ①現バイトを ライブbase64→IDB→Cache→ネットワーク の順で取得（egress最小化）
 //   ②_imgToWebpMaybe で WebP/長辺1600px へ再エンコード（小さくなる時のみ採用＝壊さない・既最適化済みはスキップ）
-//   ③小さくなった分だけ新パス(notebook-images/img_<hash>)へアップロードし、新URLへ参照を張り替える（_snApplyNewsImgMaps）
+//   ③小さくなった分だけ新パス(notebook-images/img_<hash>)へアップロードし、新URLへ参照を張り替える（_snApplyImgMaps）
+//      ＝_img と _orig が同一内容なら同じhash→同じオブジェクトに集約（重複保存を解消）。注釈付き(strokes有)のorigは再編集用に温存。
 // 旧オブジェクトは「どこからも参照されない孤児」になるので、同期後に既存の孤児GC(_snStorageDeleteOrphans)で安全に回収する。
 //   ＝この関数自体は削除をしない（多端末/同期途中の巻き込みを避ける。30日grace/remoteOk判定は既存GC側が担保）。
 function _snImgUsableB64(b64) {
@@ -1652,26 +1654,23 @@ function _snImgB64Sig(b64) {
   return _fbHashStr(b64.length + "_" + b64.substring(0, 2000) + b64.substring(mid, mid + 2000) + b64.substring(b64.length - 1000));
 }
 function _snB64Bytes(s) { return Math.floor(((s && s.length) || 0) * 3 / 4); }
-function _snForEachNewsImg(data, fn) {
-  var trades = data && data.trades;
-  if (!trades || typeof trades !== "object") return;
-  Object.keys(trades).forEach(function(date) {
-    var dd = trades[date];
-    if (!dd || typeof dd !== "object") return;
-    var cats = dd.newsCats;
-    if (!cats || typeof cats !== "object") return;
-    Object.keys(cats).forEach(function(cat) {
-      var cd = cats[cat];
-      if (!cd || typeof cd !== "object") return;
-      var lists = [];
-      if (Array.isArray(cd.newsItems)) cd.newsItems.forEach(function(ni) { if (ni && Array.isArray(ni.images)) lists.push(ni.images); });
-      if (cd.newsMemo && Array.isArray(cd.newsMemo.images)) lists.push(cd.newsMemo.images);
-      if (cd.subCatMemos && typeof cd.subCatMemos === "object") Object.keys(cd.subCatMemos).forEach(function(sk) { var sm = cd.subCatMemos[sk]; if (sm && Array.isArray(sm.images)) lists.push(sm.images); });
-      lists.forEach(function(arr) { arr.forEach(function(img) { if (img && typeof img === "object") fn(img); }); });
-    });
-  });
+function _snImgIsImageObj(obj) {
+  return obj && typeof obj === "object" && typeof obj.mt === "string" &&
+    (obj.imageUrl || obj.origImageUrl || _snImgUsableB64(obj.base64) || _snImgUsableB64(obj.orig_base64));
 }
-function _snRemapNewsImg(img, urlMap, localMap) {
+function _snForEachImg(data, fn) {
+  // data全体を走査し、画像オブジェクト(mt+url/base64を持つ)をfnに渡す。base64/orig_base64/strokesの中へは降りない。
+  function walk(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { for (var i = 0; i < obj.length; i++) walk(obj[i]); return; }
+    if (_snImgIsImageObj(obj)) fn(obj);
+    for (var k in obj) {
+      if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64" && k !== "strokes") walk(obj[k]);
+    }
+  }
+  walk(data);
+}
+function _snRemapImg(img, urlMap, localMap) {
   if (!img || typeof img !== "object") return img;
   var out = img, copied = false;
   function ensure() { if (!copied) { out = Object.assign({}, img); copied = true; } }
@@ -1683,7 +1682,7 @@ function _snRemapNewsImg(img, urlMap, localMap) {
     var l = localMap["b:" + _snImgB64Sig(img.base64)];
     if (l) { ensure(); out.base64 = l.base64; out.mt = l.mt; }
   }
-  // 原画像（注釈の元画像。ニュースでは稀だが、ある場合はそれが最大なので併せて張り替える）
+  // 原画像（フル解像度なので最大の削減余地。注釈付き=strokes有はそもそもurlMap/localMapに入れていないので張り替わらない）
   if (img.origImageUrl && urlMap[img.origImageUrl]) {
     var ro = urlMap[img.origImageUrl]; ensure();
     out.origImageUrl = ro.newUrl; out.orig_base64 = ro.base64; out.orig_mt = ro.mt;
@@ -1693,57 +1692,30 @@ function _snRemapNewsImg(img, urlMap, localMap) {
   }
   return out;
 }
-function _snApplyNewsImgMaps(data, urlMap, localMap) {
+function _snApplyImgMaps(obj, urlMap, localMap) {
+  // data全体を非破壊・不変に深く走査し、画像オブジェクトの参照を張り替える。変更が無い枝は元の参照を保つ（Reactの再描画を最小化）。
   urlMap = urlMap || {}; localMap = localMap || {};
-  if (!data || !data.trades || (Object.keys(urlMap).length === 0 && Object.keys(localMap).length === 0)) return data;
-  function remapImgs(arr) {
-    var changed = false;
-    var out = arr.map(function(im) { var rr = _snRemapNewsImg(im, urlMap, localMap); if (rr !== im) changed = true; return rr; });
-    return changed ? out : arr;
+  if (Object.keys(urlMap).length === 0 && Object.keys(localMap).length === 0) return obj;
+  function rec(o) {
+    if (!o || typeof o !== "object") return o;
+    if (Array.isArray(o)) {
+      var achg = false, arr = [];
+      for (var i = 0; i < o.length; i++) { var r = rec(o[i]); arr.push(r); if (r !== o[i]) achg = true; }
+      return achg ? arr : o;
+    }
+    var cur = o, copied = false;
+    for (var k in o) {
+      if (!o.hasOwnProperty(k)) continue;
+      var v = o[k];
+      if (v && typeof v === "object" && k !== "base64" && k !== "orig_base64" && k !== "strokes") {
+        var rv = rec(v);
+        if (rv !== v) { if (!copied) { cur = Object.assign({}, o); copied = true; } cur[k] = rv; }
+      }
+    }
+    // この階層が画像オブジェクトなら参照を張り替える（_snRemapImgは変更が無ければcurをそのまま返す＝参照維持）。
+    return _snRemapImg(cur, urlMap, localMap);
   }
-  var trades = data.trades, newTrades = {}, anyChange = false;
-  Object.keys(trades).forEach(function(date) {
-    var dd = trades[date];
-    if (!dd || typeof dd !== "object" || !dd.newsCats || typeof dd.newsCats !== "object") { newTrades[date] = dd; return; }
-    var cats = dd.newsCats, newCats = {}, ddChanged = false;
-    Object.keys(cats).forEach(function(cat) {
-      var cd = cats[cat];
-      if (!cd || typeof cd !== "object") { newCats[cat] = cd; return; }
-      var newCd = cd, cdChanged = false;
-      if (Array.isArray(cd.newsItems)) {
-        var niChanged = false;
-        var newNi = cd.newsItems.map(function(ni) {
-          if (!ni || !Array.isArray(ni.images)) return ni;
-          var ri = remapImgs(ni.images);
-          if (ri === ni.images) return ni;
-          niChanged = true; return Object.assign({}, ni, { images: ri });
-        });
-        if (niChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsItems = newNi; cdChanged = true; }
-      }
-      if (cd.newsMemo && Array.isArray(cd.newsMemo.images)) {
-        var rm = remapImgs(cd.newsMemo.images);
-        if (rm !== cd.newsMemo.images) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsMemo = Object.assign({}, cd.newsMemo, { images: rm }); cdChanged = true; }
-      }
-      if (cd.subCatMemos && typeof cd.subCatMemos === "object") {
-        var scChanged = false, newSc = {};
-        Object.keys(cd.subCatMemos).forEach(function(sk) {
-          var sm = cd.subCatMemos[sk];
-          if (sm && Array.isArray(sm.images)) {
-            var rs = remapImgs(sm.images);
-            if (rs !== sm.images) { scChanged = true; newSc[sk] = Object.assign({}, sm, { images: rs }); return; }
-          }
-          newSc[sk] = sm;
-        });
-        if (scChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.subCatMemos = newSc; cdChanged = true; }
-      }
-      newCats[cat] = newCd;
-      if (cdChanged) ddChanged = true;
-    });
-    if (ddChanged) { anyChange = true; newTrades[date] = Object.assign({}, dd, { newsCats: newCats }); }
-    else newTrades[date] = dd;
-  });
-  if (!anyChange) return data;
-  return Object.assign({}, data, { trades: newTrades });
+  return rec(obj);
 }
 function _snRecompressGetBytes(url, mt, liveB64) {
   if (_snImgUsableB64(liveB64)) return Promise.resolve({ b64: liveB64, mt: mt });
@@ -1763,24 +1735,28 @@ function _snRecompressGetBytes(url, mt, liveB64) {
     return urlToBase64(url).then(function(b) { return { b64: b, mt: mt }; })["catch"](function() { return null; });
   });
 }
-function _snRecompressNewsImages(data, onProgress) {
+function _snRecompressImages(data, onProgress) {
   if (!_fbStorageRef) return Promise.resolve({ ok: false, reason: "no-storage" });
-  // 対象URL/ローカル画像を重複排除して収集（同一URL/同一内容は1回だけ処理）。
+  // 対象URL/ローカル画像を重複排除して収集（同一URL/同一内容は1回だけ処理）。data全体の画像を走査。
   var urlMt = {}, urlLive = {}, localTargets = {};
-  _snForEachNewsImg(data, function(img) {
+  function addLocal(b64, mt) { var lk = "b:" + _snImgB64Sig(b64); if (!localTargets[lk]) localTargets[lk] = { b64: b64, mt: mt || "image/png" }; }
+  _snForEachImg(data, function(img) {
+    // 表示画像は常に対象。
     if (img.imageUrl) {
       if (!urlMt[img.imageUrl]) urlMt[img.imageUrl] = img.mt || "image/png";
       if (_snImgUsableB64(img.base64) && !urlLive[img.imageUrl]) urlLive[img.imageUrl] = img.base64;
     } else if (_snImgUsableB64(img.base64)) {
-      var k = "b:" + _snImgB64Sig(img.base64);
-      if (!localTargets[k]) localTargets[k] = { b64: img.base64, mt: img.mt || "image/png" };
+      addLocal(img.base64, img.mt);
     }
-    if (img.origImageUrl) {
-      if (!urlMt[img.origImageUrl]) urlMt[img.origImageUrl] = img.orig_mt || img.mt || "image/png";
-      if (_snImgUsableB64(img.orig_base64) && !urlLive[img.origImageUrl]) urlLive[img.origImageUrl] = img.orig_base64;
-    } else if (_snImgUsableB64(img.orig_base64)) {
-      var ko = "b:" + _snImgB64Sig(img.orig_base64);
-      if (!localTargets[ko]) localTargets[ko] = { b64: img.orig_base64, mt: img.orig_mt || img.mt || "image/png" };
+    // 原画像は「注釈なし(strokes無し)」の時だけ対象＝注釈付きはフル解像度の再編集元を温存(strokesが原画素座標基準のため縮小すると位置ズレの恐れ)。
+    var annotated = img.strokes && ((Array.isArray(img.strokes) && img.strokes.length) || img.strokes === "__ref__" || (typeof img.strokes === "object" && !Array.isArray(img.strokes) && Object.keys(img.strokes).length));
+    if (!annotated) {
+      if (img.origImageUrl) {
+        if (!urlMt[img.origImageUrl]) urlMt[img.origImageUrl] = img.orig_mt || img.mt || "image/png";
+        if (_snImgUsableB64(img.orig_base64) && !urlLive[img.origImageUrl]) urlLive[img.origImageUrl] = img.orig_base64;
+      } else if (_snImgUsableB64(img.orig_base64)) {
+        addLocal(img.orig_base64, img.orig_mt || img.mt);
+      }
     }
   });
   var urlList = Object.keys(urlMt), localList = Object.keys(localTargets);
@@ -1824,6 +1800,53 @@ function _snRecompressNewsImages(data, onProgress) {
     });
   });
   return chain.then(function() { return st; });
+}
+// Firebase Storage 全フォルダの正確な容量内訳を測定する診断（2026-06-17）。
+// listAllでルート配下を再帰的に列挙し、トップレベルフォルダ別に件数/合計バイトと大きいファイル上位を返す。
+// 既存の_snStorageAuditはnotebook-imagesのみ＝CA(chart-images/chart-thumbs)等を見ないので真の内訳が分からなかった穴を埋める。読み取り専用(getMetadataのみ)。
+function _snStorageBreakdown(onProgress) {
+  if (!_fbStorageRef) return Promise.resolve({ ok: false, reason: "no-storage" });
+  var all = []; // {ref, top}
+  function listInto(ref, top, depth) {
+    return ref.listAll().then(function(res) {
+      ((res && res.items) || []).forEach(function(it) { all.push({ ref: it, top: top }); });
+      var subs = (res && res.prefixes) || [];
+      if (depth <= 0) return null;
+      return subs.reduce(function(p, sub) {
+        return p.then(function() { return listInto(sub, top, depth - 1); });
+      }, Promise.resolve());
+    });
+  }
+  var root = _fbStorageRef.ref();
+  return root.listAll().then(function(res) {
+    ((res && res.items) || []).forEach(function(it) { all.push({ ref: it, top: "(root)" }); });
+    var subs = (res && res.prefixes) || [];
+    return subs.reduce(function(p, sub) {
+      return p.then(function() { return listInto(sub, sub.name, 3); });
+    }, Promise.resolve());
+  }).then(function() {
+    var total = all.length, done = 0, folders = {}, largest = [];
+    function note() { done++; if (typeof onProgress === "function" && (done % 25 === 0 || done === total)) { try { onProgress({ done: done, total: total }); } catch (e) {} } }
+    function bump(top, sz, ok) { var f = folders[top] || (folders[top] = { count: 0, bytes: 0 }); f.count++; if (ok) f.bytes += sz; }
+    // getMetadataは同時実行数を絞って実行（全件並列はスロットル/接続上限の恐れ）。
+    var idx = 0;
+    function worker() {
+      if (idx >= all.length) return Promise.resolve();
+      var my = all[idx++];
+      return my.ref.getMetadata().then(function(md) {
+        var sz = (md && md.size) || 0;
+        bump(my.top, sz, true);
+        largest.push({ path: my.ref.fullPath, size: sz });
+      })["catch"](function() { bump(my.top, 0, false); }).then(function() { note(); return worker(); });
+    }
+    var ws = [];
+    for (var w = 0; w < 12; w++) ws.push(worker());
+    return Promise.all(ws).then(function() {
+      largest.sort(function(a, b) { return b.size - a.size; });
+      var totalBytes = 0; for (var k in folders) { if (folders.hasOwnProperty(k)) totalBytes += folders[k].bytes; }
+      return { ok: true, total: total, totalBytes: totalBytes, folders: folders, largest: largest.slice(0, 20) };
+    });
+  })["catch"](function(e) { return { ok: false, reason: "list-failed", err: String(e) }; });
 }
 
 function urlToBase64(url) {
