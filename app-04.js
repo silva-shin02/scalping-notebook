@@ -2020,6 +2020,9 @@ function SettingsModal(_ref54) {
   var _saBdP = useState(null), _stBdP = _saBdP[0], _setStBdP = _saBdP[1];
   var _saCat = useState(null), _stCat = _saCat[0], _setStCat = _saCat[1];
   var _saCatP = useState(null), _stCatP = _saCatP[0], _setStCatP = _saCatP[1];
+  var _defNewsCut = (function() { var d = new Date(); d.setMonth(d.getMonth() - 3); var mm = ("0" + (d.getMonth() + 1)).slice(-2), dd2 = ("0" + d.getDate()).slice(-2); return d.getFullYear() + "-" + mm + "-" + dd2; })();
+  var _saNc = useState(_defNewsCut), _stNewsCut = _saNc[0], _setStNewsCut = _saNc[1];
+  var _saNp = useState(null), _stNewsPrev = _saNp[0], _setStNewsPrev = _saNp[1];
   var _stFmtMB = function(b) { return (b >= 1048576) ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB"; };
   var _runStAudit = function() {
     if (_stBusy) return;
@@ -2100,6 +2103,22 @@ function SettingsModal(_ref54) {
       if (!r || !r.ok) { window.alert("種類別の分析に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
       _setStCat(r);
     })["catch"](function(e) { _setStBusy(""); _setStCatP(null); window.alert("種類別の分析中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
+  };
+  var _runNewsPreview = function() {
+    if (!data || !data.trades) { window.alert("記録データが読み込めていません。"); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(_stNewsCut || "")) { window.alert("日付を YYYY-MM-DD 形式で指定してください。"); return; }
+    var r = _snStripOldNewsImages(data, _stNewsCut);
+    _setStNewsPrev({ count: r.count, cutoff: _stNewsCut });
+  };
+  var _runNewsStrip = function() {
+    if (!data || !data.trades) { window.alert("記録データが読み込めていません。"); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(_stNewsCut || "")) { window.alert("日付を YYYY-MM-DD 形式で指定してください。"); return; }
+    var r = _snStripOldNewsImages(data, _stNewsCut);
+    if (!r.count) { window.alert(_stNewsCut + " より前のニュース画像はありませんでした。"); _setStNewsPrev({ count: 0, cutoff: _stNewsCut }); return; }
+    if (!window.confirm(_stNewsCut + " より前のニュース画像 " + r.count + "枚を記録から外します。\n※テキスト・タグ・記録は残ります（画像だけ削除）。元に戻せません。\n外した画像は、このあと「🗂 使用量を診断 → 新しい孤児も含めて全部削除」を実行するとクラウドから消えて容量が解放されます。\n実行しますか？")) return;
+    save(function(prev) { return _snStripOldNewsImages(prev, _stNewsCut).data; });
+    _setStNewsPrev({ count: 0, cutoff: _stNewsCut, doneCount: r.count });
+    window.alert("ニュース画像 " + r.count + "枚を記録から外しました。\n続けて下の「🗂 使用量を診断 → 新しい孤児も含めて全部削除」を実行すると、クラウドの容量が解放されます。");
   };
   var I = {
     padding: "9px 10px",
@@ -2480,6 +2499,20 @@ function SettingsModal(_ref54) {
       (_stRc && _stRc.ok && _stRc.compressed > 0) ? React.createElement("div", { style: { marginTop: 10, fontSize: 12, color: "#555", lineHeight: 1.9, background: "#f8f7f4", borderRadius: 8, padding: "8px 12px" } },
         React.createElement("div", { style: { color: "#1E8449", fontWeight: 600 } }, "✓ " + _stRc.compressed + "件を圧縮（約" + _stFmtMB(_stRc.savedBytes) + "削減見込み）"),
         React.createElement("div", { style: { fontSize: 11, color: "#888" } }, "古い画像はクラウドに残存中。同期後に下の「孤児を削除」で解放されます。")
+      ) : null
+    ),
+    React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #eee" } },
+      React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#444", marginBottom: 4 } }, "🗞 古いニュース画像を削除（テキストは残す）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#999", lineHeight: 1.6, marginBottom: 8 } }, "指定した日付より前のニュース記録から「画像だけ」を外します（テキスト・タグ・記録は残ります）。容量の大半はニュース画像なので古い分の整理が一番効きます。外した画像は下の「全部削除」でクラウドから解放。元に戻せません。"),
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontSize: 12, color: "#555" } }, "この日付より前:"),
+        React.createElement("input", { type: "date", value: _stNewsCut, onChange: function(e) { _setStNewsCut(e.target.value); _setStNewsPrev(null); }, style: { padding: "6px 8px", border: "1px solid #ccc", borderRadius: 6, fontSize: 13 } }),
+        React.createElement("button", { onClick: _runNewsPreview, style: { padding: "7px 12px", fontSize: 12, fontWeight: 600, background: "#EAF3FB", color: "#1A5276", border: "1px solid #A9CCE3", borderRadius: 7, cursor: "pointer" } }, "対象を確認")
+      ),
+      (_stNewsPrev) ? React.createElement("div", { style: { marginTop: 8, fontSize: 12, color: "#555" } },
+        React.createElement("div", null, _stNewsPrev.cutoff + " より前のニュース画像: " + _stNewsPrev.count + "枚"),
+        (_stNewsPrev.count > 0) ? React.createElement("button", { onClick: _runNewsStrip, style: { marginTop: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, background: "#FFF1F0", color: "#C0392B", border: "1px solid #F5A6A0", borderRadius: 7, cursor: "pointer" } }, "この " + _stNewsPrev.count + "枚を削除（テキストは残す）") : null,
+        (_stNewsPrev.doneCount) ? React.createElement("div", { style: { color: "#1E8449", fontWeight: 600, marginTop: 4 } }, "✓ " + _stNewsPrev.doneCount + "枚を外しました。続けて下の「使用量を診断 → 全部削除」で容量解放を。") : null
       ) : null
     ),
     (function() {

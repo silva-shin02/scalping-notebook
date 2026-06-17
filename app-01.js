@@ -1914,6 +1914,53 @@ function _snStorageCategoryAudit(data, cfg, onProgress) {
     });
   })["catch"](function(e) { return { ok: false, reason: "failed", err: String(e) }; });
 }
+// 古いニュース画像を整理（2026-06-18）。trades日付が cutoff(YYYY-MM-DD)より前のニュース画像(newsItems/newsMemo/subCatMemosのimages[])
+// を「画像だけ」外す＝テキスト/タグ/記録は残す。非破壊・不変に新dataを構築し外した枚数countを返す。
+// 外したStorageオブジェクトは孤児になるので、保存後に既存の「全部削除(grace=0)」で実際に容量回収する。元に戻せない。
+function _snStripOldNewsImages(data, cutoff) {
+  if (!data || !data.trades || !cutoff) return { data: data, count: 0 };
+  var count = 0;
+  var trades = data.trades, newTrades = {}, anyChange = false;
+  Object.keys(trades).forEach(function(date) {
+    var dd = trades[date];
+    var isDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
+    if (!isDate || !(date < cutoff) || !dd || typeof dd !== "object" || !dd.newsCats || typeof dd.newsCats !== "object") { newTrades[date] = dd; return; }
+    var cats = dd.newsCats, newCats = {}, ddChanged = false;
+    Object.keys(cats).forEach(function(cat) {
+      var cd = cats[cat];
+      if (!cd || typeof cd !== "object") { newCats[cat] = cd; return; }
+      var newCd = cd, cdChanged = false;
+      if (Array.isArray(cd.newsItems)) {
+        var niChanged = false;
+        var newNi = cd.newsItems.map(function(ni) {
+          if (ni && Array.isArray(ni.images) && ni.images.length) { niChanged = true; count += ni.images.length; return Object.assign({}, ni, { images: [] }); }
+          return ni;
+        });
+        if (niChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsItems = newNi; cdChanged = true; }
+      }
+      if (cd.newsMemo && Array.isArray(cd.newsMemo.images) && cd.newsMemo.images.length) {
+        count += cd.newsMemo.images.length;
+        if (newCd === cd) newCd = Object.assign({}, cd);
+        newCd.newsMemo = Object.assign({}, cd.newsMemo, { images: [] });
+        cdChanged = true;
+      }
+      if (cd.subCatMemos && typeof cd.subCatMemos === "object") {
+        var scChanged = false, newSc = {};
+        Object.keys(cd.subCatMemos).forEach(function(sk) {
+          var sm = cd.subCatMemos[sk];
+          if (sm && Array.isArray(sm.images) && sm.images.length) { scChanged = true; count += sm.images.length; newSc[sk] = Object.assign({}, sm, { images: [] }); }
+          else newSc[sk] = sm;
+        });
+        if (scChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.subCatMemos = newSc; cdChanged = true; }
+      }
+      newCats[cat] = newCd;
+      if (cdChanged) ddChanged = true;
+    });
+    if (ddChanged) { anyChange = true; newTrades[date] = Object.assign({}, dd, { newsCats: newCats }); }
+    else newTrades[date] = dd;
+  });
+  return { data: anyChange ? Object.assign({}, data, { trades: newTrades }) : data, count: count };
+}
 
 function urlToBase64(url) {
   return fetch(url)
