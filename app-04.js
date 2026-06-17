@@ -2029,8 +2029,9 @@ function SettingsModal(_ref54) {
       _setStAudit(r);
     });
   };
-  var _runStDelete = function() {
+  var _runStDelete = function(graceDays) {
     if (_stBusy) return;
+    graceDays = (graceDays == null ? 30 : graceDays);
     // 安全ガード: dataが読めていない可能性がある時は中止（全消し事故防止）。
     if (!data || (!data.charts && !data.trades)) { window.alert("記録データが読み込めていないため中止しました。"); return; }
     _setStBusy("delete");
@@ -2042,11 +2043,15 @@ function SettingsModal(_ref54) {
       if (cfg && cfg.fbUrl && (r.remoteOk === false || r.caOk === false)) { _setStBusy(""); window.alert("⚠️ 最新データ（または分析ツールの参照情報）を取得できなかったため中止しました。\n全端末で同期し、通信が安定した状態で再実行してください。"); return; }
       // 参照が1件も拾えない＝データ未読込/取得失敗の疑い→安全側で中止。
       if (r.refSetSize === 0 && r.total > 0) { _setStBusy(""); window.alert("⚠️ 参照中の画像が見つかりませんでした。データ未読込の可能性があるため中止しました。"); return; }
-      var graceDays = 30, cutoff = Date.now() - graceDays * 86400000;
+      var cutoff = Date.now() - graceDays * 86400000;
+      // created不明(0)は安全側で常に残す。grace=0なら「作成日が判明している未参照孤児すべて」が対象。
       var delable = r.orphans.filter(function(o) { return o.created && o.created < cutoff; });
-      if (!delable.length) { _setStBusy(""); window.alert("削除できる孤児（" + graceDays + "日以上前・未参照）はありませんでした。"); return; }
+      if (!delable.length) { _setStBusy(""); window.alert("削除できる孤児（" + (graceDays > 0 ? (graceDays + "日以上前・") : "") + "未参照）はありませんでした。"); return; }
       var bytes = delable.reduce(function(s2, o) { return s2 + o.size; }, 0);
-      if (!window.confirm("未参照の孤児画像 " + delable.length + "件（約" + _stFmtMB(bytes) + "）をFirebase Storageから削除します。\n※このアプリが作成し(img_/orig_/html_)、記録・CAのどこからも参照されず、" + graceDays + "日以上前のものだけが対象です。表示中の画像・記録には影響しません。\n実行しますか？")) { _setStBusy(""); return; }
+      var msg = (graceDays > 0)
+        ? ("未参照の孤児画像 " + delable.length + "件（約" + _stFmtMB(bytes) + "）をFirebase Storageから削除します。\n※このアプリが作成し、記録・CAのどこからも参照されず、" + graceDays + "日以上前のものだけが対象です。表示中の画像・記録には影響しません。\n実行しますか？")
+        : ("⚠️ 新しいものも含め、未参照の孤児画像を「すべて」削除します（" + delable.length + "件・約" + _stFmtMB(bytes) + "）。\n※記録・リモート・CAのどこからも参照されていない画像だけが対象です（圧縮で置き換えた古い画像など。表示中の画像は保護されます）。\n※他の端末で同期前の画像を巻き込まないよう、全端末を同期してから実行してください。\n実行しますか？");
+      if (!window.confirm(msg)) { _setStBusy(""); return; }
       _snStorageDeleteOrphans(delable, graceDays, Date.now()).then(function(res) {
         _setStBusy("");
         window.alert("孤児画像を削除しました（" + res.deleted + "件 / 約" + _stFmtMB(res.freed) + "解放" + (res.errs ? " / 失敗" + res.errs + "件" : "") + "）。");
@@ -2469,11 +2474,19 @@ function SettingsModal(_ref54) {
           React.createElement("div", { style: { color: a.orphans.length ? "#B45309" : "#1E8449", fontWeight: 600 } }, "孤児(未参照): " + a.orphans.length + "件 / " + _stFmtMB(a.orphanBytes)),
           React.createElement("div", { style: { fontSize: 11, color: "#888" } }, "うち削除可能(30日以上前): " + deletable + "件 / " + _stFmtMB(deletableBytes)),
           (a.remoteOk === false || a.caOk === false) ? React.createElement("div", { style: { fontSize: 11, color: "#C0392B", marginTop: 4 } }, "⚠ 最新データ（または分析ツール参照）を取得できず。削除は安全のため中止されます（同期・通信を確認して再診断）。") : null,
-          deletable > 0 ? React.createElement("button", {
-            onClick: _runStDelete,
-            disabled: _stBusy === "delete",
-            style: { marginTop: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, background: _stBusy === "delete" ? "#eee" : "#FFF1F0", color: "#C0392B", border: "1px solid #F5A6A0", borderRadius: 7, cursor: _stBusy === "delete" ? "default" : "pointer" }
-          }, _stBusy === "delete" ? "削除中…" : ("孤児を削除（" + deletable + "件・約" + _stFmtMB(deletableBytes) + "）")) : null
+          React.createElement("div", { style: { marginTop: 8 } },
+            deletable > 0 ? React.createElement("button", {
+              onClick: function() { _runStDelete(30); },
+              disabled: _stBusy === "delete",
+              style: { padding: "8px 14px", fontSize: 13, fontWeight: 700, background: _stBusy === "delete" ? "#eee" : "#FFF1F0", color: "#C0392B", border: "1px solid #F5A6A0", borderRadius: 7, cursor: _stBusy === "delete" ? "default" : "pointer" }
+            }, _stBusy === "delete" ? "削除中…" : ("孤児を削除（30日以上前・" + deletable + "件・約" + _stFmtMB(deletableBytes) + "）")) : null,
+            (a.orphans.length > 0) ? React.createElement("button", {
+              onClick: function() { _runStDelete(0); },
+              disabled: _stBusy === "delete",
+              style: { display: "block", marginTop: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, background: _stBusy === "delete" ? "#eee" : "#C0392B", color: "#fff", border: "1px solid #C0392B", borderRadius: 7, cursor: _stBusy === "delete" ? "default" : "pointer" }
+            }, _stBusy === "delete" ? "削除中…" : ("新しい孤児も含めて全部削除（" + a.orphans.length + "件・約" + _stFmtMB(a.orphanBytes) + "）")) : null,
+            (a.orphans.length > 0) ? React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6, lineHeight: 1.6 } }, "「全部削除」は圧縮で置き換えた直後（30日以内）の古い画像も対象にします。記録・リモート・CAで参照中の画像は保護。全端末を同期してから実行してください。") : null
+          )
         ) : null
       );
     }())
