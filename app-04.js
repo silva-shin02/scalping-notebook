@@ -2397,24 +2397,6 @@ function SettingsModal(_ref54) {
     React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "🧹 メンテナンス"),
     React.createElement("button", {
       onClick: function() {
-        if (!window.confirm("全エントリー記録の「予想OS度（A/B/C/D/E）」の選択をすべて解除します。\n（損益データは消えません／元に戻せません）\n実行しますか？")) return;
-        save(function(prev) {
-          var _ch = Object.assign({}, (prev && prev.charts) || {});
-          Object.keys(_ch).forEach(function(k) {
-            var _c = _ch[k]; if (!_c || !Array.isArray(_c.signals)) return;
-            var _changed = false;
-            var _sigs = _c.signals.map(function(sg) { if (sg && sg.difficulty != null) { _changed = true; var _n = Object.assign({}, sg); delete _n.difficulty; return _n; } return sg; });
-            if (_changed) _ch[k] = Object.assign({}, _c, { signals: _sigs });
-          });
-          return Object.assign({}, prev, { charts: _ch });
-        });
-        window.alert("予想OS度の選択をすべて解除しました。");
-      },
-      style: { padding: "9px 14px", fontSize: 13, fontWeight: 600, background: "#FFF1F0", color: "#C0392B", border: "1px solid #F5A6A0", borderRadius: 7, cursor: "pointer" }
-    }, "予想OS度をすべて解除"),
-    React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "予想OS度の意味が変わったため、過去記録の選択をリセットしたい時に。"),
-    React.createElement("button", {
-      onClick: function() {
         var keys = [], bytes = 0;
         try {
           for (var i = 0; i < localStorage.length; i++) {
