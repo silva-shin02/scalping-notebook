@@ -3563,9 +3563,14 @@ function DayView(_ref57) {
     var c = data.charts[s + "_" + date];
     return !!(c && (c.chartImg || c.macroLocal || c.flowCodes && c.flowCodes.length || (c.stockTags && c.stockTags.length || c.chartShapeTags && c.chartShapeTags.length) || c.signals && c.signals.length || (c.chartMemoHtml && c.chartMemoHtml.length > 0) || c.chartMemo && (_hasText(c.chartMemo.text) || c.chartMemo.images && c.chartMemo.images.length)));
   };
-  var hasFmData = !!(data.foreignMarkets && data.foreignMarkets[date] &&
-    ((data.foreignMarkets[date].indicators || []).length > 0 ||
-     (data.foreignMarkets[date].stocks || []).length > 0));
+  // 外国市場は開くだけで value:null の既定テーブルが自動生成されるため、length>0 では「未入力でも点が付く」。
+  // 実際に値かメモが入っている時だけ「データあり」とする（他の銘柄タブと同様の挙動）。2026-06-18
+  var hasFmData = (function() {
+    var fm = data.foreignMarkets && data.foreignMarkets[date];
+    if (!fm) return false;
+    var _any = function(arr) { return (arr || []).some(function(it) { return it && ((it.value != null && it.value !== "") || (it.memo != null && String(it.memo).trim() !== "")); }); };
+    return _any(fm.indicators) || _any(fm.stocks);
+  })();
   var hasChartData = allStocks.some(stockHasData) || hasFmData;
   var RedDot = function RedDot() {
     return React.createElement("span", {
@@ -4635,6 +4640,7 @@ function DayView(_ref57) {
       };
       var _wkRow = function(label, labelColor, recs, isTotal, rowKey) {
         // 合計額算入: 除外記録(includeInTotal===false)はサマリ集計から外す。明細展開(_wkExpRow)は全件のまま。2026-06-18
+        var _exclN = (recs || []).filter(function(r) { return _elIsExcluded(r.signal); }).length;  // この日に不算入があれば青点を出す
         recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
         var st = _elCalcStats(recs, data);
         var _ent = _wkEntCnt(recs);
@@ -4651,7 +4657,8 @@ function DayView(_ref57) {
           onClick: function() { setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); if (n[rowKey]) delete n[rowKey]; else n[rowKey] = true; return n; }); }
         },
           React.createElement("td", { style: { padding: "3px 5px", textAlign: "left", fontWeight: isTotal ? 700 : 600, fontSize: 11, whiteSpace: "nowrap", color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
-            React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, _isExp ? "▼" : "▶"), label),
+            React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, _isExp ? "▼" : "▶"), label,
+            (!isTotal && _exclN > 0) ? _elExclDot(_exclN, { marginLeft: 5, verticalAlign: "middle" }) : null),
           _td(st.total, { fontWeight: isTotal ? 700 : 400 }),
           _td(st.ok || "0", { color: "#1E8449", fontWeight: st.ok ? 700 : 400 }),
           _td(st.draw || "0", { color: "#6B7280" }),
@@ -4839,7 +4846,7 @@ function DayView(_ref57) {
         React.createElement("span", { style: { fontWeight: 600, color: _pbCol(allSt.sumPnl) } }, _pbFmt(allSt.sumPnl))
       );
     };
-    var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey, tags, recs) {
+    var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey, tags, recs, exclN) {
       var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
       var bt = isTotal ? "2px solid #ccc" : "none";
       var br = "1px solid #e0ddd6";
@@ -4855,6 +4862,7 @@ function DayView(_ref57) {
           color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
           rowKey ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶") : null,
           label,
+          (exclN > 0) ? _elExclDot(exclN, { marginLeft: 5, verticalAlign: "middle" }) : null,
           !isTotal && React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, "α:各記録"),
           isExp ? React.createElement("button", {
             onClick: function(e) { e.stopPropagation(); setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); delete n[keyRef]; return n; }); },
@@ -5098,7 +5106,7 @@ function DayView(_ref57) {
                 _profitGradeFromPnlReal(_pbAllReal, _pbAllEnt),
                 _profitGradeFromPnl(_pbAll.sumPlanned, _pbAll.sumPlanned !== 0 ? _pbAll.total : 0),
                 _profitGradeFromPnl(_pbAll.sumMax, _pbAll.sumMax !== 0 ? _pbAll.total : 0),
-                _pbAllEnt > 0, "__total__", null, _pbAllRecsT),
+                _pbAllEnt > 0, "__total__", null, _pbAllRecsT, 0),
               !!pnlTableExpandSet["__total__"] ? _pbExpRow("__total__") : null
             ] : null,
             _pbStks.map(function(sk) {
@@ -5109,7 +5117,7 @@ function DayView(_ref57) {
                   _profitGradeFromPnlReal(_pbRealByStk[sk], _pbEntByStk[sk]),
                   _profitGradeFromPnl(skSt.sumPlanned, skSt.sumPlanned !== 0 ? skSt.total : 0),
                   _profitGradeFromPnl(skSt.sumMax, skSt.sumMax !== 0 ? skSt.total : 0),
-                  _pbEntByStk[sk] > 0, sk, _pbStockTags(sk), _skT),
+                  _pbEntByStk[sk] > 0, sk, _pbStockTags(sk), _skT, _elExclCountRecs(_pbByStk[sk])),
                 !!pnlTableExpandSet[sk] ? _pbExpRow(sk) : null
               ];
             })

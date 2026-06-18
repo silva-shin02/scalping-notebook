@@ -1221,7 +1221,7 @@ function StockTabs(_ref34) {
   },
     hasFmData && React.createElement("span", {
       style: { position: "absolute", top: 4, left: 5, width: 7, height: 7,
-        borderRadius: "50%", background: "#0369A1", pointerEvents: "none" }
+        borderRadius: "50%", background: "#E53935", pointerEvents: "none" }
     }),
     "🌏 外国市場"
   ),
@@ -1282,7 +1282,7 @@ function StockTabs(_ref34) {
         background: "#E53935",
         pointerEvents: "none"
       }
-    }), (exclCount && exclCount(s) > 0) ? _elExclDot(exclCount(s), { position: "absolute", bottom: 4, left: 5, pointerEvents: "none" }) : null, s, (onRename && s !== "日経平均株価") && React.createElement("span", {
+    }), (exclCount && exclCount(s) > 0) ? _elExclDot(exclCount(s), { position: "absolute", top: 4, left: 15, pointerEvents: "none" }) : null, s, (onRename && s !== "日経平均株価") && React.createElement("span", {
       onClick: function onClickRn(e) {
         e.stopPropagation();
         try {

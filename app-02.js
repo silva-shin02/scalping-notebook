@@ -5063,6 +5063,7 @@ function WeeklyPnlPanel(_wpp) {
   };
   var _sumRow = function(label, labelColor, recs, isTotal, rowKey) {
     // 合計額算入: 除外記録(includeInTotal===false)はサマリ集計から外す。明細展開(_expRowFor→_detailTableFor)は全件のまま。2026-06-18
+    var _exclN = (recs || []).filter(function(r) { return _elIsExcluded(r.signal); }).length;
     recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
     var st = _elCalcStats(recs, data);
     var _ent = _wkEntCnt(recs);
@@ -5079,7 +5080,8 @@ function WeeklyPnlPanel(_wpp) {
       onClick: function() { setDayExp(function(prev) { var n = Object.assign({}, prev); if (n[rowKey]) delete n[rowKey]; else n[rowKey] = true; return n; }); }
     },
       React.createElement("td", { style: { padding: "3px 5px", textAlign: "left", fontWeight: isTotal ? 700 : 600, fontSize: 11, whiteSpace: "nowrap", color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
-        React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, _isExp ? "▼" : "▶"), label),
+        React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, _isExp ? "▼" : "▶"), label,
+        (!isTotal && _exclN > 0) ? _elExclDot(_exclN, { marginLeft: 5, verticalAlign: "middle" }) : null),
       _td(st.total, { fontWeight: isTotal ? 700 : 400 }),
       _td(st.ok || "0", { color: "#1E8449", fontWeight: st.ok ? 700 : 400 }),
       _td(st.draw || "0", { color: "#6B7280" }),
