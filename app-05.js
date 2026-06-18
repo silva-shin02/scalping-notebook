@@ -5187,7 +5187,7 @@ function EntryRecordForm(_ref_erf) {
     _useStateLPA = _slicedToArray(_useStateLP, 2),
     fLevelPrice = _useStateLPA[0], setFLevelPrice = _useStateLPA[1];
   // 分足（新規エントリー記録画面のみ・1分足/5分足の選択。記録固有=signal.minBarに保存）2026-06-18。
-  var _useStateMB = useState((initSig.minBar === 1 || initSig.minBar === 5) ? String(initSig.minBar) : ""),
+  var _useStateMB = useState((initSig.minBar === 1 || initSig.minBar === 5) ? String(initSig.minBar) : "1"),
     _useStateMBA = _slicedToArray(_useStateMB, 2),
     fMinBar = _useStateMBA[0], setFMinBar = _useStateMBA[1];
 
@@ -6067,7 +6067,6 @@ function EntryRecordForm(_ref_erf) {
           style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#166534",
                    border: "1px solid #BBF7D0", borderRadius: 4, background: "#fff", outline: "none" }
         },
-          React.createElement("option", { value: "" }, "—"),
           React.createElement("option", { value: "1" }, "1"),
           React.createElement("option", { value: "5" }, "5")
         ),

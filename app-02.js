@@ -4442,7 +4442,7 @@ function EntrySignalSection(_ref_es) {
           };
           var isCustomMode = sortMode === "custom";
           var totRow = React.createElement("tr", { key: "__estot__", style: { background: "#FFF7ED" } },
-            React.createElement("td", { colSpan: 6, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
+            React.createElement("td", { colSpan: 7, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
             React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esAllMiss ? _qZeroCell() : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade), _elHold2RefSuffix(_esTotPlan, _esTotPlanRef, _esTotPlanRefCnt))
             ),
@@ -4567,6 +4567,7 @@ function EntrySignalSection(_ref_es) {
                     s.time || "—"),
                   _epIncompleteMark(s)
                 ),
+                React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", color: "#666" } }, s.minBar === 5 ? "5" : "1"),
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   _sigParts.length > 0
                     ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return _sigNameNode(_t, _i); }))
@@ -4612,7 +4613,7 @@ function EntrySignalSection(_ref_es) {
             if (rExp) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: isCustomMode ? 11 : 10, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 12 : 11, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
@@ -4625,6 +4626,7 @@ function EntrySignalSection(_ref_es) {
               React.createElement("thead", null,
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left", width: 50 }),
+                  _esTh("分足", { width: 28 }),
                   _esTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
                   _esTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 40 }),
                   _esTh("α値", { width: 36 }),
@@ -4903,6 +4905,7 @@ function WeeklyPnlPanel(_wpp) {
         React.createElement("div", null, (r.date || "").slice(5)), _simInput(r, true), _simInput(r, false)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } },
         React.createElement("div", null, s.time || "—"), _epIncompleteMark(s)),
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, fontWeight: 700, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", width: "1%", color: "#666" } }, s.minBar === 5 ? "5" : "1"),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, borderRight: _bb, width: "1%" } },
@@ -4920,7 +4923,7 @@ function WeeklyPnlPanel(_wpp) {
     );
     if (!rExp) return _row;
     return React.createElement(React.Fragment, { key: rKey + "_f" }, _row,
-      React.createElement("tr", { key: rKey + "_d" }, React.createElement("td", { colSpan: 13, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+      React.createElement("tr", { key: rKey + "_d" }, React.createElement("td", { colSpan: 14, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
         React.createElement(EntryLogCard, { record: r, alpha: a, cutLine: c }))));
   });
   };
@@ -4937,7 +4940,7 @@ function WeeklyPnlPanel(_wpp) {
     var _allMiss = _elAllMissRow(_list, _alphaOf, _cutOf);
     return React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
       React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
-      React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
+      React.createElement("td", { colSpan: 8, style: { borderTop: "2px solid #FB923C" } }),
       React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("EP損益"), _amtCell(_t.plan, _t.planCnt, _t.planRef, _t.planRefCnt, false, _allMiss)),
       React.createElement("td", { colSpan: 2, style: { padding: "1px 0", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
         React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
@@ -4951,7 +4954,7 @@ function WeeklyPnlPanel(_wpp) {
     return React.createElement("div", { style: { overflowX: "auto" } },
       React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
-          _rTh("", { width: 20 }), _rTh("日付", { width: 52 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
+          _rTh("", { width: 20 }), _rTh("日付", { width: 52 }), _rTh("時間", { width: 44 }), _rTh("分足", { width: 28 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
           _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 44 }),
           _rTh("α値", { width: 32 }), _rTh("OS", { width: 80 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
           _rTh(React.createElement("span", null, "EP損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 104 }),

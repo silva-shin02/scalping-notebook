@@ -3968,7 +3968,7 @@ function DayView(_ref57) {
       var allTrExp = _trEntryRecords.every(function(r) { return !!trTableRecExp[_trRecKey(r)]; });
       var _trAllMiss = _elAllMissRow(_trEntryRecords, function(_r){ return _elAlphaInfo(_r, data).alpha; }, function(_r){ return _elAlphaInfo(_r, data).cutLine; });
       var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
-        React.createElement("td", { colSpan: 8, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
+        React.createElement("td", { colSpan: 9, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
           _trAllMiss ? _qZeroCell() : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _trRPnlDispABAll(_trTotPlanAB, _trTotPlan, _trTotPlanGradeAB, _trTotPlanGrade), _elHold2RefSuffix(_trTotPlan, _trTotPlanRef, _trTotPlanRefCnt))
         ),
@@ -4034,6 +4034,7 @@ function DayView(_ref57) {
               _epIncompleteMark(s)
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#666" } }, s.minBar === 5 ? "5" : "1"),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, sigLabel),
             React.createElement("td", { style: { padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%",
               color: s.difficulty ? (s.difficulty === "A" ? "#B71C1C" : s.difficulty === "B" ? "#C62828" : "#666") : "#ccc",
@@ -4087,7 +4088,7 @@ function DayView(_ref57) {
         if (rExp) {
           dataRows.push(
             React.createElement("tr", { key: rKey + "_card" },
-              React.createElement("td", { colSpan: 12, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+              React.createElement("td", { colSpan: 13, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                 React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setTradeEditTarget(rec); setShowForm(true); } })
               )
             )
@@ -4110,6 +4111,7 @@ function DayView(_ref57) {
               React.createElement("tr", null,
                 _trTh("時間", { textAlign: "left" }),
                 _trTh("銘柄"),
+                _trTh("分足", { width: "1%" }),
                 _trTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
                 _trTh("予想OS度", { width: "1%" }),
                 _trTh("α値", { width: "1%" }),
@@ -4407,6 +4409,7 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             React.createElement("div", null, s.time || "—"),
             _epIncompleteMark(s)),
+          React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666", fontWeight: 700 } }, s.minBar === 5 ? "5" : "1"),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
             (function() {
               var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : []));
@@ -4435,7 +4438,7 @@ function DayView(_ref57) {
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
-            React.createElement("td", { colSpan: 13, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+            React.createElement("td", { colSpan: 14, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
               React.createElement(EntryLogCard, {
                 record: r,
                 alpha: alphaOf(r),
@@ -4467,7 +4470,7 @@ function DayView(_ref57) {
       var _pbAllMiss = _elAllMissRow(expRecs, alphaOf, cutOf);
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
-        React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
+        React.createElement("td", { colSpan: 8, style: { borderTop: "2px solid #FB923C" } }),
         React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("EP損益"), (_pbAllMiss ? _qZeroCell() : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _rPnlDispABAllPb(_totPlanABpb, _totPlan, _totPlanGradeABpb, _totPlanGrade), _elHold2RefSuffix(_totPlan, _totPlanRef, _totPlanRefCnt))),
           (_totPlanStop && _totPlanCap != null) ? _elCapNoteAmt(_totPlanCap) : null),
         React.createElement("td", { colSpan: 2, style: { padding: "1px 0", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
@@ -4497,6 +4500,7 @@ function DayView(_ref57) {
               _rTh("", { width: 20 }),
               _rTh("銘柄", { width: 52 }),
               _rTh("時間", { width: 44 }),
+              _rTh("分足", { width: 28 }),
               _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
               _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 44 }),
               _rTh("α値", { width: 32 }),

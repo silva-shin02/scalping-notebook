@@ -1852,7 +1852,7 @@ function EntryLogView(_ref_elv2) {
   var _recTable = function(recs, mode, keyPfx, limit) {
     if (!recs.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし");
     var shown = (limit && recs.length > limit) ? recs.slice(0, limit) : recs;
-    var colN = mode === "day" ? 8 : 12;
+    var colN = mode === "day" ? 8 : 13;
     var body = [];
     shown.forEach(function(r) {
       var s = r.signal, a = _ai(r);
@@ -1877,6 +1877,7 @@ function EntryLogView(_ref_elv2) {
         var realN = entered ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null;
         var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         cells = cells.concat([
+          _td(s.minBar === 5 ? "5" : "1", { color: "#666", fontWeight: 700 }),
           _td(_sigParts.length ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return _sigNameNode(_t, _i); })) : "(未設定)", { textAlign: "left" }),
           _td(s.difficulty || _dash, { fontWeight: 700, color: s.difficulty ? "#666" : "#ccc" }),
           _td(a.alpha != null ? a.alpha + "円" : _dash, { color: "#0369A1", fontWeight: 600 }),
@@ -1896,7 +1897,7 @@ function EntryLogView(_ref_elv2) {
     });
     var head = mode === "day"
       ? [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("OS"), _th("E"), _th("OS帯"), _th("H中最高値"), _th("実現結果")]
-      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("OS度"), _th("α値"), _th("OS"), _th("E"), _th("取引"),
+      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("分足"), _th("シグナル", { textAlign: "left" }), _th("OS度"), _th("α値"), _th("OS"), _th("E"), _th("取引"),
          _th("EP損益"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"), _th("実現損益")];
     return React.createElement(React.Fragment, null,
       React.createElement("div", { style: { overflowX: "auto" } },
