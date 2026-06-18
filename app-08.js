@@ -901,6 +901,7 @@ function App() {
       if (!c || !Array.isArray(c.signals)) return;
       c.signals.forEach(function(sig) {
         var s = _compatSignal(sig);
+        if (!_elInclTotal(s)) return;
         if (!_elIsEntered(s, null)) return;
         var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
         var p = v != null ? v : 0;

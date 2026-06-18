@@ -5005,8 +5005,9 @@ function ImageAnnotator(_ref7) {
       } else {
         var _cw = logicalSizeRef.current.w || canvasRef.current.width;
         var _defW = Math.min(Math.round(_cw * 0.65), Math.max(200, _cw - pos.x - 20));
+        // 文字サイズも線の太さと同様に画像サイズで正規化（_lineWScale）＝どの画像でもスライダー値=同じ見かけサイズ。新規テキストのみ・再編集/+−は実寸調整。2026-06-18
         setTextInputState({x:pos.x, y:pos.y, idx:-1, text:"",
-          fontSize:fontSize, fontBold:fontBold, color:color, opacity:opacity, wrapW:_defW});
+          fontSize:Math.max(8, Math.round(fontSize * _lineWScale())), fontBold:fontBold, color:color, opacity:opacity, wrapW:_defW});
       }
       return;
     }

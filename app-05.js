@@ -108,6 +108,7 @@ function Calendar(_ref60) {
       if (!c || !Array.isArray(c.signals)) return;
       c.signals.forEach(function(sig) {
         var s = _compatSignal(sig);
+        if (!_elInclTotal(s)) return;
         if (!_elIsEntered(s, null)) return;
         if (!m[dt]) m[dt] = { sum: 0, count: 0 };
         var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
@@ -901,7 +902,7 @@ function _hdRecentRecords(data, days) {
   var cutoff = new Date(now);
   cutoff.setDate(cutoff.getDate() - days);
   var cutStr = cutoff.toISOString().slice(0, 10);
-  return all.filter(function(r) { return r.date >= cutStr; });
+  return all.filter(function(r) { return r.date >= cutStr && _elInclTotal(r.signal); });
 }
 
 
@@ -3106,6 +3107,14 @@ function _elIsEntered(s, item) {
 }
 
 
+// 合計額算入フラグ: signal.includeInTotal===false の記録だけを「合計額・データ分析」から除外する。
+// undefined/null/未設定(旧記録)は算入=true として扱う（後方互換・既定は算入）。
+// _elIsEntered(=実際にエントリーしたかE成立)とは別概念。一覧/カレンダー/検索の表示には影響させない。2026-06-18
+function _elInclTotal(s) { return !s || s.includeInTotal !== false; }
+// recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
+function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
+
+
 
 
 
@@ -4567,7 +4576,8 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   var planRefSum = 0, planRefCnt = 0;  // E×（×見送り・EP本合計から除外）の参考EP損益
   var _missCnt = 0, _h2MissCnt = 0, _totCnt = 0;  // 全miss(E基準未達)判定用。_h2MissCnt=想定もH1も未達(_elH2Miss=ノートレード)の記録数
   var osVals = [], confVals = [], holdConfVals = [];
-  (signals || []).forEach(function(sig) {
+  // 合計額算入: includeInTotal===false の記録は合計/グレード/件数から除外（早見表の3セル等が使用）。2026-06-18
+  (signals || []).filter(function(sig) { return _elInclTotal(sig); }).forEach(function(sig) {
     var s = _compatSignal(sig);
     var _aSig = _fixedA ? alpha : (s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s.difficulty));
     var isAB = s.difficulty === "A" || s.difficulty === "B";
@@ -5190,6 +5200,11 @@ function EntryRecordForm(_ref_erf) {
   var _useStateMB = useState((initSig.minBar === 1 || initSig.minBar === 5) ? String(initSig.minBar) : "1"),
     _useStateMBA = _slicedToArray(_useStateMB, 2),
     fMinBar = _useStateMBA[0], setFMinBar = _useStateMBA[1];
+  // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
+  // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
+  var _useStateINC = useState(initSig.includeInTotal !== false),
+    _useStateINCA = _slicedToArray(_useStateINC, 2),
+    fIncl = _useStateINCA[0], setFIncl = _useStateINCA[1];
 
   var _useStateEONO = useState(initSig.entryOsNo != null ? Number(initSig.entryOsNo) : null),
     _useStateEONOA = _slicedToArray(_useStateEONO, 2),
@@ -5763,6 +5778,7 @@ function EntryRecordForm(_ref_erf) {
       alphaVal: fAlphaVal !== "" && !isNaN(Number(fAlphaVal)) ? Number(fAlphaVal) : null,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
       minBar: (fMinBar === "1" || fMinBar === "5") ? Number(fMinBar) : null,
+      includeInTotal: fIncl,
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
       maxPnl: fMax !== "" ? Number(fMax) : null,
@@ -6714,7 +6730,29 @@ function EntryRecordForm(_ref_erf) {
         rows: 2,
         style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56 })
       }),
-      
+
+
+      React.createElement("div", {
+        onClick: function() { setFIncl(function(v) { return !v; }); },
+        style: { display: "flex", alignItems: "center", gap: 10, marginTop: 16, padding: "11px 13px",
+          borderRadius: 8, cursor: "pointer", userSelect: "none",
+          border: "1px solid " + (fIncl ? "#A9DFBF" : "#e0e0e0"),
+          background: fIncl ? "#EAF3DE" : "#f5f5f5" }
+      },
+        React.createElement("span", {
+          style: { width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 15, fontWeight: 900, color: "#fff",
+            border: "2px solid " + (fIncl ? "#1E8449" : "#bbb"),
+            background: fIncl ? "#1E8449" : "#fff" }
+        }, fIncl ? "✓" : ""),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1 } },
+          React.createElement("span", { style: { fontSize: 13.5, fontWeight: 800, color: "#1a1a1a" } }, "合計額算入"),
+          React.createElement("span", { style: { fontSize: 11, color: fIncl ? "#1E8449" : "#999", fontWeight: 600 } },
+            fIncl ? "この記録を合計額・データ分析に算入します" : "この記録は合計額・データ分析から除外されます")
+        )
+      ),
+
       React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 16 } },
         React.createElement("button", {
           onClick: onClose,

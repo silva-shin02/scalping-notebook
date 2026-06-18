@@ -3680,6 +3680,7 @@ function _sigStats(tag, allData, period) {
     var _clSg = c.cutLine != null ? Number(c.cutLine) : 10;
     (c.signals || []).forEach(function(s) {
       if (s.tag !== tag) return;
+      if (!_elInclTotal(s)) return;
       // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出）
       var _resSg = _elDynResult(s, _epOwnAlpha(s), _clSg);
       if (_resSg === "ok") ok++;
@@ -3846,8 +3847,10 @@ function EntrySignalSection(_ref_es) {
       return { date: date, stock: stock, signal: s, item: item };
     });
   }, [signals, trades, date, stock]);
+  // 合計額算入: 集計/合計用は除外記録(includeInTotal===false)を抜いた版。表示(tblItems/sortedRecs)は records の全件のまま。2026-06-18
+  var _recsForTot = records.filter(function(r) { return _elInclTotal(r.signal); });
 
-  
+
   var _esRecKey = function(r) { return (r.signal && r.signal.id) || ""; };
   // α値シミュ/損切り値シミュ入力（本日の損益データと同型・記録ごと。未入力なら採用α値/c.cutLineで従来と同一）。
   var _esAlphaSimCtx = { keyOf: _esRecKey, actualOf: function(rr){ return _esActualAlpha(rr.signal); }, val: _esSimAlpha, set: setEsSimAlpha };
@@ -4072,9 +4075,9 @@ function EntrySignalSection(_ref_es) {
   var _esRealSum = 0, _esPlanSum = 0, _esMaxSum = 0;
   var _esHasReal = false, _esHasPlan = false, _esHasMax = false;
   var _esEnteredCount = 0, _esPlanCount = 0, _esMaxCount = 0;
-  records.forEach(function(r) {
+  _recsForTot.forEach(function(r) {
     var s = r.signal;
-    
+
     if (_elIsEntered(s, r.item)) {
       _esEnteredCount++;
       var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
@@ -4142,7 +4145,7 @@ function EntrySignalSection(_ref_es) {
   var _esTotHoldRef = null, _esTotHoldRefCnt = 0;
   var _esTotHold2 = null, _esTotHold2Cnt = 0, _esTotHold2Ref = null, _esTotHold2RefCnt = 0;
   var _esTotPlanRef = null, _esTotPlanRefCnt = 0;
-  records.forEach(function(r) {
+  _recsForTot.forEach(function(r) {
     var s = r.signal, rIt = r.item;
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
     var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
@@ -4217,7 +4220,7 @@ function EntrySignalSection(_ref_es) {
   var _esTotHoldGrade   = _esTotHoldCnt   > 0 ? _profitGradeFromPnl(_esTotHold   != null ? _esTotHold   : 0, _esTotHoldCnt)   : null;
   var _esTotHoldGradeAB = _esTotHoldABCnt > 0 ? _profitGradeFromPnl(_esTotHoldAB != null ? _esTotHoldAB : 0, _esTotHoldABCnt) : null;
   var _esTotHold2Grade = _esTotHold2Cnt > 0 ? _profitGradeFromPnl(_esTotHold2 != null ? _esTotHold2 : 0, _esTotHold2Cnt) : null;
-  var _esAllMiss = _elAllMissRow(records, function(_r){ return _esAlpha(_r.signal); }, function(_r){ return _esCut(_r.signal); });
+  var _esAllMiss = _elAllMissRow(_recsForTot, function(_r){ return _esAlpha(_r.signal); }, function(_r){ return _esCut(_r.signal); });
 
   return React.createElement("div", { style: { marginTop: 12, marginBottom: 12 } },
     
@@ -4936,6 +4939,8 @@ function WeeklyPnlPanel(_wpp) {
   var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
   // 明細テーブルのフッター合計行（list 単位）
   var _detailTotRowFor = function(_list) {
+    // 合計額算入: フッター合計は除外記録を抜く（明細行 _detailRowsFor は全件のまま表示）2026-06-18
+    _list = (_list || []).filter(function(r) { return _elInclTotal(r.signal); });
     var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } });
     var _allMiss = _elAllMissRow(_list, _alphaOf, _cutOf);
     return React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
@@ -4996,6 +5001,8 @@ function WeeklyPnlPanel(_wpp) {
     return out.slice(0, 6);
   };
   var _sumRow = function(label, labelColor, recs, isTotal, rowKey) {
+    // 合計額算入: 除外記録(includeInTotal===false)はサマリ集計から外す。明細展開(_expRowFor→_detailTableFor)は全件のまま。2026-06-18
+    recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
     var st = _elCalcStats(recs, data);
     var _ent = _wkEntCnt(recs);
     var _osv = _wkAvgOs(recs);
@@ -5082,7 +5089,7 @@ function WeeklyPnlPanel(_wpp) {
   var _idealEl = _recs.length ? React.createElement("div", { style: { marginTop: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円5刻み・週間）"),
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)のこの銘柄の全記録でα値を固定していたら最適だったα。100株換算・合計行と同基準。"),
-    _elIdealAlphaTableV2([{ label: stock, recs: _recs }], _cutOf)) : null;
+    _elIdealAlphaTableV2([{ label: stock, recs: _recs.filter(function(r) { return _elInclTotal(r.signal); }) }], _cutOf)) : null;
   var _simAlphaCnt = Object.keys(simAlpha).filter(function(k) { return simAlpha[k] != null && simAlpha[k] !== ""; }).length;
   var _simCutCnt = Object.keys(simCut).filter(function(k) { return simCut[k] != null && simCut[k] !== ""; }).length;
   var _simActive = _simAlphaCnt + _simCutCnt;
@@ -6263,7 +6270,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     var _iaSigs = Array.isArray(cd.signals) ? cd.signals : [];
     if (!_iaSigs.length) return null;
     var _iaCutLine = cd.cutLine != null ? cd.cutLine : 10;
-    var _iaRecs = _iaSigs.map(function(sig) { return { date: date, stock: stock, signal: _compatSignal(sig) }; });
+    var _iaRecs = _iaSigs.map(function(sig) { return { date: date, stock: stock, signal: _compatSignal(sig) }; }).filter(function(r) { return _elInclTotal(r.signal); });
     return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
       React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円5刻み）"),
       React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大のα・目標=2,500円以上の最小α。100株換算・合計行と同基準。"),

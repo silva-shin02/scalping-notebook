@@ -466,7 +466,7 @@ function _elBestAlphaV2(recs, data) {
 // 早見表見出し用「現時点の最良α値」バッジ。銘柄の全エントリー記録からライブ算出（記録が増減すれば自動で変わる）。
 // H1とH2の最良αが同じなら1つ・違えば両方表示。記録なしはnull。
 function _elBestAlphaBadgeV2(data, stock) {
-  var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === stock; });
+  var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === stock && _elInclTotal(r.signal); });
   var b = _elBestAlphaV2(recs, data);
   if (!b) return null;
   var txt;
@@ -1296,7 +1296,7 @@ function _elDayStockBenchV2(_ref) {
       if (stk !== stock || !pred(dt)) return;
       var c = charts[k];
       (Array.isArray(c.signals) ? c.signals : []).forEach(function(sig) {
-        var s = _compatSignal(sig); if (!_epIsV2(s)) return;
+        var s = _compatSignal(sig); if (!_epIsV2(s) || !_elInclTotal(s)) return;
         out.push({ stock: stk, date: dt, signal: s });
       });
     });
@@ -1815,8 +1815,10 @@ function EntryLogView(_ref_elv2) {
   var _ai = function(r) { return _elAlphaInfo(r, data); };
   var allRecs = _elCollectAllSignals(data);
   var filtered = _elFilterPeriod(allRecs, period).filter(function(r) { return !stockFil || r.stock === stockFil; });
-  var v2recs = filtered.filter(function(r) { return _epIsV2(r.signal); });
-  var oldCnt = filtered.length - v2recs.length;
+  // 合計額算入: includeInTotal===false の記録は集計/分析の母集団 v2recs から除外（一覧 filtered は全件のまま）。2026-06-18
+  var v2recs = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  // 旧記録件数は算入フラグと独立に数える（除外した新形式記録を「旧記録」に混ぜない）。2026-06-18
+  var oldCnt = filtered.filter(function(r) { return !_epIsV2(r.signal); }).length;
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub) {

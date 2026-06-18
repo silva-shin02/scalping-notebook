@@ -1825,14 +1825,16 @@ function SearchView(_ref45) {
       return (_cSV.signals || []).filter(function(sig) { return _elIsEntered(sig, null); })
         .map(function(sig) { return { sig: sig, cut: _cutSV }; });
     });
-    var pnl = enteredSigs.reduce(function(acc, e) {
+    // 合計額算入: 検索日カードの損益/勝敗は除外記録(includeInTotal===false)を抜く。タグ表示(entryTagLabels)は全件のまま。2026-06-18
+    var _enteredSigsT = enteredSigs.filter(function(e) { return _elInclTotal(e.sig); });
+    var pnl = _enteredSigsT.reduce(function(acc, e) {
       var v = _elSignedVal(e.sig.realizedPnl, e.sig.realizedPnlSign);
       return acc + (v != null ? v : 0);
     }, 0);
     // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出）
     var _resSV = function(e) { return _elDynResult(e.sig, _epOwnAlpha(e.sig), e.cut); };
-    var w = enteredSigs.filter(function(e) { return _resSV(e) === "ok"; }).length;
-    var l = enteredSigs.filter(function(e) { return _resSV(e) === "ng"; }).length;
+    var w = _enteredSigsT.filter(function(e) { return _resSV(e) === "ok"; }).length;
+    var l = _enteredSigsT.filter(function(e) { return _resSV(e) === "ng"; }).length;
 
     var entryTagLabels = enteredSigs.map(function(e) { return _elTagLabel(e.sig); }).filter(Boolean);
     var allCatsData = getAllNewsCatsData(dd);
@@ -3497,12 +3499,14 @@ function DayView(_ref57) {
           }
         }
         records.push({ date: date, stock: _trStock, signal: s, item: item });
+        if (_elInclTotal(s)) {  // 合計額算入: 除外記録は合計/成功失敗カウントに入れない（行は表示する）2026-06-18
         var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
         if (v != null) realSum += v;
         // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出・旧記録も全表ライブα計算方針に統一）
         var _resTr = _elDynResult(s, _epOwnAlpha(s), _trC.cutLine != null ? Number(_trC.cutLine) : 10);
         if (_resTr === "ok") ok++;
         else if (_resTr === "ng") ng++;
+        }
       });
     });
     records.sort(function(a, b) {
@@ -3510,9 +3514,10 @@ function DayView(_ref57) {
       var tb = (b.signal && b.signal.time) || "99:99";
       return ta.localeCompare(tb);
     });
-    return { records: records, realSum: realSum, ok: ok, ng: ng };
+    return { records: records, totRecords: records.filter(function(r) { return _elInclTotal(r.signal); }), realSum: realSum, ok: ok, ng: ng };
   }, [data.charts, dd.items, allStocks, date]);
   var _trEntryRecords = _trEntryAgg.records;
+  var _trTotRecs = _trEntryAgg.totRecords;  // 合計額算入: 集計専用（除外記録を抜いた版）2026-06-18
   var _trRealSum = _trEntryAgg.realSum;
   var _trSuccessCount = _trEntryAgg.ok;
   var _trFailCount = _trEntryAgg.ng;
@@ -3927,7 +3932,7 @@ function DayView(_ref57) {
       };
       var _trRecKey = function(r) { return r.stock + "_" + (r.signal.id || r.signal.time || ""); };
       // 合計集計は共通アキュムレータ(_elTotAccum)へ統合（最大損益のみ取引固有のため残留ループ）
-      var _trTT = _elTotAccum(_trEntryRecords, {
+      var _trTT = _elTotAccum(_trTotRecs, {
         signal: function(r) { return r.signal; },
         alpha: function(r) { return _elAlphaInfo(r, data).alpha; },
         cut: function(r) { return _elAlphaInfo(r, data).cutLine; },
@@ -3949,7 +3954,7 @@ function DayView(_ref57) {
       var _trTotHoldRef = _trTT.holdRef, _trTotHoldRefCnt = _trTT.holdRefCnt;
       var _trTotHold2 = _trTT.hold2, _trTotHold2Cnt = _trTT.hold2Cnt, _trTotHold2Ref = _trTT.hold2Ref, _trTotHold2RefCnt = _trTT.hold2RefCnt;
       var _trTotMax = null, _trTotMaxCnt = 0, _trTotMaxAB = null, _trTotMaxABCnt = 0;
-      _trEntryRecords.forEach(function(r) {
+      _trTotRecs.forEach(function(r) {
         var s = r.signal;
         var mp = _elSignedVal(s.maxPnl, s.maxPnlSign);
         if (mp == null) return;
@@ -3966,7 +3971,7 @@ function DayView(_ref57) {
       var _trTotHoldCapGrade = _trTotHoldCnt > 0 ? _profitGradeFromPnl(_trTotHoldCap != null ? _trTotHoldCap : 0, _trTotHoldCnt) : null;
       var _trTotHoldCapGradeAB = _trTotHoldABCnt > 0 ? _profitGradeFromPnl(_trTotHoldCapAB != null ? _trTotHoldCapAB : 0, _trTotHoldABCnt) : null;
       var allTrExp = _trEntryRecords.every(function(r) { return !!trTableRecExp[_trRecKey(r)]; });
-      var _trAllMiss = _elAllMissRow(_trEntryRecords, function(_r){ return _elAlphaInfo(_r, data).alpha; }, function(_r){ return _elAlphaInfo(_r, data).cutLine; });
+      var _trAllMiss = _elAllMissRow(_trTotRecs, function(_r){ return _elAlphaInfo(_r, data).alpha; }, function(_r){ return _elAlphaInfo(_r, data).cutLine; });
       var totRow = React.createElement("tr", { key: "__trtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 9, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
@@ -4149,7 +4154,7 @@ function DayView(_ref57) {
       style: { display: "flex", gap: 20, marginTop: 12, paddingTop: 10, borderTop: "1px solid #e0ddd6", fontSize: 14, alignItems: "center", flexWrap: "wrap" }
     },
       (function() {
-        var _trCount = _trEntryRecords.filter(function(r){ return _elIsEntered(r.signal, r.item); }).length;
+        var _trCount = _trTotRecs.filter(function(r){ return _elIsEntered(r.signal, r.item); }).length;
         var _tg = _profitGradeFromPnlReal(_trRealSum, _trCount);
         var _ts = _GRADE_STYLE[_tg] || _GRADE_STYLE.Z;
         var _trLegendPairs = [["A","25001円~"],["B","10001~25000円"],["C","1~10000円"],["D","0円"],["E","-1~-10000円"],["F","-10001~-25000円"],["G","-25001円~"],["Z","取引なし"],["Q","E基準未達のため非表示"]];
@@ -4355,10 +4360,11 @@ function DayView(_ref57) {
         var isMiss = _dispResExp === "miss";
         var bb = "1px solid #e8e5de";
         var _isXskipPb = _epIsXSkip(s, _alphaRec);  // E×（×見送り）→ 本合計に算入せず参考(ref)へ
-        if (entered) _totRealCnt++;
-        if (realPnl != null) { _totReal = (_totReal || 0) + realPnl; }
+        var _inclTpb = _elInclTotal(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18
+        if (entered && _inclTpb) _totRealCnt++;
+        if (realPnl != null && _inclTpb) { _totReal = (_totReal || 0) + realPnl; }
         var _h2tpb = _elHold2TotParts(s, _alphaRec, _cutLrec);
-        if (_isXskipPb) {
+        if (_isXskipPb || !_inclTpb) {
           // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
         } else {
         var _epTriPb = _epIsTriEntry(s, _alphaRec);  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内のみ・（）外は0
@@ -4467,7 +4473,7 @@ function DayView(_ref57) {
         );
       };
       var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
-      var _pbAllMiss = _elAllMissRow(expRecs, alphaOf, cutOf);
+      var _pbAllMiss = _elAllMissRow(expRecs.filter(function(r) { return _elInclTotal(r.signal); }), alphaOf, cutOf);
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
         React.createElement("td", { colSpan: 8, style: { borderTop: "2px solid #FB923C" } }),
@@ -4532,9 +4538,11 @@ function DayView(_ref57) {
         }
         if (!_pbByStk[stk]) { _pbByStk[stk] = []; _pbRealByStk[stk] = 0; _pbEntByStk[stk] = 0; }
         _pbByStk[stk].push({ date: date, stock: stk, signal: s, item: item });
-        var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        if (rv != null) _pbRealByStk[stk] += rv;
-        if (s.entered === true) _pbEntByStk[stk]++;
+        if (_elInclTotal(s)) {  // 合計額算入: 除外記録は実現損益/エントリー数スカラーに加えない（行表示は全件）2026-06-18
+          var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+          if (rv != null) _pbRealByStk[stk] += rv;
+          if (s.entered === true) _pbEntByStk[stk]++;
+        }
       });
     });
     var _pbStkOrder = ["JX金属", "フジクラ", "SBG"];
@@ -4623,6 +4631,8 @@ function DayView(_ref57) {
         return out.slice(0, 6);
       };
       var _wkRow = function(label, labelColor, recs, isTotal, rowKey) {
+        // 合計額算入: 除外記録(includeInTotal===false)はサマリ集計から外す。明細展開(_wkExpRow)は全件のまま。2026-06-18
+        recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
         var st = _elCalcStats(recs, data);
         var _ent = _wkEntCnt(recs);
         var _osv = _wkAvgOs(recs);
@@ -4710,7 +4720,7 @@ function DayView(_ref57) {
       var _wkByStk = {};
       _wkAllRecs.forEach(function(r) { if (!_wkByStk[r.stock]) _wkByStk[r.stock] = []; _wkByStk[r.stock].push(r); });
       var _wkStks = Object.keys(_wkByStk).sort(function(a, b) { var ia = _pbStkOrder.indexOf(a), ib = _pbStkOrder.indexOf(b); if (ia !== -1 || ib !== -1) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; } return a < b ? -1 : a > b ? 1 : 0; });
-      var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk] }; });
+      var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk].filter(function(r) { return _elInclTotal(r.signal); }) }; });
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円5刻み・週間）"),
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の全記録でα値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大になるα・目標=2,500円以上になる最小α。100株換算・合計行と同基準。"),
@@ -4777,7 +4787,9 @@ function DayView(_ref57) {
       _pbAllReal += _pbRealByStk[sk];
       _pbAllEnt  += _pbEntByStk[sk];
     });
-    var _pbAll = _elCalcStats(_pbAllRecs, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; });
+    // 合計額算入: 統計/合計は除外記録を抜いた _pbAllRecsT で計算（明細・行表示は _pbAllRecs/_pbByStk の全件のまま）2026-06-18
+    var _pbAllRecsT = _pbAllRecs.filter(function(r) { return _elInclTotal(r.signal); });
+    var _pbAll = _elCalcStats(_pbAllRecsT, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; });
     // 勝敗カウント（αシミュ対応）: EP起算v2/v3もEP足基準で判定（_elDynResult。旧式はEP=OS2/3成立を未達に誤算入していた）
     var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0; (recs || []).forEach(function(r) { var s = r.signal; var res = _elDynResult(s, _pbAlphaOf(r), _pbCutOf(r)); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
     var _pbFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
@@ -5051,7 +5063,7 @@ function DayView(_ref57) {
     
     
     var _pbHasAlpha = _pbAllRecs.some(function(r) { return _epIsV2(r.signal); });
-    var _pbIdealGroups = _pbStks.map(function(sk) { return { label: sk, recs: _pbByStk[sk] }; });
+    var _pbIdealGroups = _pbStks.map(function(sk) { return { label: sk, recs: _pbByStk[sk].filter(function(r) { return _elInclTotal(r.signal); }) }; });
 
     var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📊 本日の損益データ"),
@@ -5077,21 +5089,22 @@ function DayView(_ref57) {
           ),
           React.createElement("tbody", null,
             _pbStks.length > 1 ? [
-              _pbRow("合計", Object.assign({}, _pbAll, _pbDynOkNg(_pbAllRecs)), true, "#555",
+              _pbRow("合計", Object.assign({}, _pbAll, _pbDynOkNg(_pbAllRecsT)), true, "#555",
                 _profitGradeFromPnlReal(_pbAllReal, _pbAllEnt),
                 _profitGradeFromPnl(_pbAll.sumPlanned, _pbAll.sumPlanned !== 0 ? _pbAll.total : 0),
                 _profitGradeFromPnl(_pbAll.sumMax, _pbAll.sumMax !== 0 ? _pbAll.total : 0),
-                _pbAllEnt > 0, "__total__", null, _pbAllRecs),
+                _pbAllEnt > 0, "__total__", null, _pbAllRecsT),
               !!pnlTableExpandSet["__total__"] ? _pbExpRow("__total__") : null
             ] : null,
             _pbStks.map(function(sk) {
-              var skSt = Object.assign({}, _elCalcStats(_pbByStk[sk], data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; }), _pbDynOkNg(_pbByStk[sk]));
+              var _skT = _pbByStk[sk].filter(function(r) { return _elInclTotal(r.signal); });  // 合計額算入: 統計用（明細展開_pbExpRowは全件）2026-06-18
+              var skSt = Object.assign({}, _elCalcStats(_skT, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; }), _pbDynOkNg(_skT));
               return [
                 _pbRow(sk, skSt, false, null,
                   _profitGradeFromPnlReal(_pbRealByStk[sk], _pbEntByStk[sk]),
                   _profitGradeFromPnl(skSt.sumPlanned, skSt.sumPlanned !== 0 ? skSt.total : 0),
                   _profitGradeFromPnl(skSt.sumMax, skSt.sumMax !== 0 ? skSt.total : 0),
-                  _pbEntByStk[sk] > 0, sk, _pbStockTags(sk), _pbByStk[sk]),
+                  _pbEntByStk[sk] > 0, sk, _pbStockTags(sk), _skT),
                 !!pnlTableExpandSet[sk] ? _pbExpRow(sk) : null
               ];
             })
@@ -5120,7 +5133,7 @@ function DayView(_ref57) {
       var cut = c.cutLine != null ? Number(c.cutLine) : 10;
       (Array.isArray(c.signals) ? c.signals : []).forEach(function(sig) {
         var s = _compatSignal(sig);
-        if (!_epIsV2(s)) return;
+        if (!_epIsV2(s) || !_elInclTotal(s)) return;
         var a = (s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s.difficulty);
         _dayRecs.push({ stock: stk, signal: s, alpha: a, cut: cut, time: s.time || "" });
       });
@@ -5190,7 +5203,7 @@ function DayView(_ref57) {
         if(!pred(dt))return;
         var c=_aCharts[k];
         (Array.isArray(c.signals)?c.signals:[]).forEach(function(sig){
-          var s=_compatSignal(sig); if(!_epIsV2(s)||s.osVal==null||s.osVal==="")return;
+          var s=_compatSignal(sig); if(!_epIsV2(s)||!_elInclTotal(s)||s.osVal==null||s.osVal==="")return;
           (by[stk]=by[stk]||[]).push({signal:s});
         });
       });
