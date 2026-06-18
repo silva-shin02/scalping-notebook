@@ -86,6 +86,7 @@ var EMPTY = {
     flowOpenTags: [],
     flowMoveTags: [],
     signalTags: [],
+    technicals: [],
     newsCategories: [].concat(DEF_NEWS_CATS),
     newsCatDefaults: {},
     newsSubCats: {},
@@ -390,6 +391,7 @@ function migrateData(d) {
   if (!d.custom.flowOpenTags) d.custom.flowOpenTags = [];
   if (!d.custom.flowMoveTags) d.custom.flowMoveTags = [];
   if (!d.custom.signalTags) d.custom.signalTags = d.custom.techTags || [];
+  if (!Array.isArray(d.custom.technicals)) d.custom.technicals = [];
   delete d.custom.techTags;
   if (!d.custom.newsCategories) d.custom.newsCategories = [].concat(DEF_NEWS_CATS);
   if (!d.custom.newsCatDefaults || typeof d.custom.newsCatDefaults !== "object") d.custom.newsCatDefaults = {};

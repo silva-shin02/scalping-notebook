@@ -3665,6 +3665,65 @@ function makeTagPoolHandlers(data, save, custom) {
 }
 
 function _sigId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// ===== 出現シグナル・テクニカル 2026-06-18 =====
+// 自動行(src:"auto")=その日の取引記録(signals[])のシグナル。読み取り（編集はエントリー記録側）。
+// 手動行(src:"manual")=テクニカル/未取引シグナル（charts[ck].appearancesに保存・編集/削除可）。
+function _apByTime(a, b) { var ta = a.time || "99:99", tb = b.time || "99:99"; return ta < tb ? -1 : ta > tb ? 1 : 0; }
+function _apSigNames(sig) {
+  if (sig.tags && sig.tags.length) return sig.tags;
+  if (sig.tag && sig.tag !== "__custom__") return [sig.tag];
+  if (sig.isCustomTag && sig.customTagText) return [sig.customTagText];
+  return [];
+}
+function _apRowsForDay(data, stock, date) {
+  var ck = stock + "_" + date;
+  var c = (data && data.charts && data.charts[ck]) || {};
+  var rows = [];
+  (Array.isArray(c.signals) ? c.signals : []).forEach(function(sig, si) {
+    _apSigNames(sig).forEach(function(nm, ni) {
+      rows.push({ kind: "signal", name: stripCat(nm), time: sig.time || "", memo: sig.rationale || "", src: "auto", sigId: sig.id, id: "auto_" + (sig.id || sig.time || "x") + "_" + si + "_" + ni });
+    });
+  });
+  (Array.isArray(c.appearances) ? c.appearances : []).forEach(function(ap) {
+    rows.push({ kind: ap.kind === "signal" ? "signal" : "tech", name: ap.name || "", time: ap.time || "", memo: ap.memo || "", src: "manual", id: ap.id });
+  });
+  rows.sort(_apByTime);
+  return rows;
+}
+function _apCollectAll(data) {
+  var out = [], charts = (data && data.charts) || {};
+  Object.keys(charts).forEach(function(ck) {
+    var idx = ck.lastIndexOf("_"); if (idx < 0) return;
+    var stock = ck.slice(0, idx), date = ck.slice(idx + 1);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    _apRowsForDay(data, stock, date).forEach(function(r) { out.push(Object.assign({ stock: stock, date: date }, r)); });
+  });
+  return out;
+}
+function _apSave(save, stock, date, ap) {
+  save(function(prev) {
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date;
+    var c = charts[ck] || {};
+    var arr = Array.isArray(c.appearances) ? c.appearances.slice() : [];
+    var i = ap.id ? arr.findIndex(function(x) { return x.id === ap.id; }) : -1;
+    if (i >= 0) arr[i] = ap; else arr.push(ap);
+    charts[ck] = Object.assign({}, c, { appearances: arr });
+    return Object.assign({}, prev, { charts: charts });
+  });
+}
+function _apDelete(save, stock, date, id) {
+  save(function(prev) {
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date;
+    var c = charts[ck]; if (!c) return prev;
+    var arr = (Array.isArray(c.appearances) ? c.appearances : []).filter(function(x) { return x.id !== id; });
+    charts[ck] = Object.assign({}, c, { appearances: arr });
+    return Object.assign({}, prev, { charts: charts });
+  });
+}
+
 function _sigStats(tag, allData, period) {
   var now = new Date();
   var cutoff = null;
@@ -5142,6 +5201,121 @@ function WeeklyPnlPanel(_wpp) {
     )
   );
 }
+
+// テクニカル名マスター管理（追加・削除・改名・並び替え）。custom.technicals を編集。2026-06-18
+function TechnicalManageModal(_ref_tm) {
+  var technicals = _ref_tm.technicals, onChange = _ref_tm.onChange, onClose = _ref_tm.onClose;
+  var _uNew = useState(""), newName = _uNew[0], setNewName = _uNew[1];
+  var _add = function() {
+    var nm = (newName || "").trim(); if (!nm) return;
+    if (technicals.some(function(t) { return t.name === nm; })) { alert("同じ名前があります"); return; }
+    onChange(technicals.concat([{ id: _sigId(), name: nm }])); setNewName("");
+  };
+  var _rename = function(id, nm) {
+    var v = (nm || "").trim(); if (!v) return;
+    onChange(technicals.map(function(t) { return t.id === id ? Object.assign({}, t, { name: v }) : t; }));
+  };
+  var _del = function(id) { if (window.confirm("このテクニカルを削除しますか？（過去に記録した名前はそのまま残ります）")) onChange(technicals.filter(function(t) { return t.id !== id; })); };
+  var _move = function(i, dir) { var j = i + dir; if (j < 0 || j >= technicals.length) return; var a = technicals.slice(); var t = a[i]; a[i] = a[j]; a[j] = t; onChange(a); };
+  return React.createElement("div", { style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }, onClick: onClose },
+    React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 12, padding: 18, maxWidth: 460, width: "100%", maxHeight: "85vh", overflowY: "auto" } },
+      React.createElement("div", { style: { fontSize: 15, fontWeight: 800, marginBottom: 10 } }, "テクニカル管理"),
+      React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 12 } },
+        React.createElement("input", { type: "text", value: newName, onChange: function(e) { setNewName(e.target.value); }, placeholder: "テクニカル名を追加", style: { flex: 1, padding: "7px 9px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 } }),
+        React.createElement("button", { onClick: _add, style: { padding: "7px 16px", fontSize: 13, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" } }, "追加")),
+      technicals.length ? technicals.map(function(t, i) {
+        return React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: "1px solid #f0ede6" } },
+          React.createElement("span", { onClick: function() { _move(i, -1); }, style: { cursor: "pointer", color: i === 0 ? "#ddd" : "#888", fontSize: 14, width: 18, textAlign: "center" } }, "▲"),
+          React.createElement("span", { onClick: function() { _move(i, 1); }, style: { cursor: "pointer", color: i === technicals.length - 1 ? "#ddd" : "#888", fontSize: 14, width: 18, textAlign: "center" } }, "▼"),
+          React.createElement("input", { type: "text", defaultValue: t.name, onBlur: function(e) { _rename(t.id, e.target.value); }, style: { flex: 1, padding: "5px 8px", fontSize: 13, border: "1px solid #e0ddd6", borderRadius: 6 } }),
+          React.createElement("span", { onClick: function() { _del(t.id); }, style: { cursor: "pointer", color: "#C0392B", fontSize: 14, padding: "0 6px" } }, "🗑"));
+      }) : React.createElement("div", { style: { fontSize: 12, color: "#bbb", padding: "8px 0" } }, "まだテクニカルがありません。"),
+      React.createElement("button", { onClick: onClose, style: { marginTop: 14, padding: "8px 18px", fontSize: 13, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" } }, "閉じる")));
+}
+
+// 銘柄×日付の「出現シグナル・テクニカル」欄。取引記録のシグナル(自動)＋手動(テクニカル/未取引シグナル)。2026-06-18
+function AppearanceSection(_ref_ap) {
+  var data = _ref_ap.data, save = _ref_ap.save, stock = _ref_ap.stock, date = _ref_ap.date;
+  var custom = data.custom || {};
+  var technicals = custom.technicals || [];
+  var signalPool = custom.signalTags || [];
+  var rows = _apRowsForDay(data, stock, date);
+  var _uOpen = useState(false), addOpen = _uOpen[0], setAddOpen = _uOpen[1];
+  var _uKind = useState("tech"), aKind = _uKind[0], setAKind = _uKind[1];
+  var _uName = useState(""), aName = _uName[0], setAName = _uName[1];
+  var _uTime = useState(""), aTime = _uTime[0], setATime = _uTime[1];
+  var _uMemo = useState(""), aMemo = _uMemo[0], setAMemo = _uMemo[1];
+  var _uEdit = useState(null), editId = _uEdit[0], setEditId = _uEdit[1];
+  var _uMan = useState(false), manageOpen = _uMan[0], setManageOpen = _uMan[1];
+  var _reset = function() { setAddOpen(false); setEditId(null); setAName(""); setATime(""); setAMemo(""); setAKind("tech"); };
+  var _openAdd = function() { setEditId(null); setAName(""); setATime(""); setAMemo(""); setAKind(technicals.length ? "tech" : "signal"); setAddOpen(true); };
+  var _openEdit = function(r) { setEditId(r.id); setAKind(r.kind === "signal" ? "signal" : "tech"); setAName(r.name); setATime(r.time || ""); setAMemo(r.memo || ""); setAddOpen(true); };
+  var _submit = function() {
+    var nm = (aName || "").trim();
+    if (!nm) { alert("シグナル・テクニカル名を選んでください"); return; }
+    _apSave(save, stock, date, { id: editId || _sigId(), kind: aKind === "signal" ? "signal" : "tech", name: nm, time: (aTime || "").trim(), memo: (aMemo || "").trim() });
+    _reset();
+  };
+  var _del = function(r) { if (window.confirm("この出現記録を削除しますか？")) _apDelete(save, stock, date, r.id); };
+  var _setTechnicals = function(arr) { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { technicals: arr }) }); }); };
+  var _kindChip = function(kind) {
+    var isSig = kind === "signal";
+    return React.createElement("span", { style: { display: "inline-block", fontSize: 9, fontWeight: 700, padding: "0 5px", borderRadius: 3, whiteSpace: "nowrap", color: isSig ? "#9A3412" : "#0369A1", background: isSig ? "#FFEDD5" : "#E0F2FE", border: "1px solid " + (isSig ? "#FB923C" : "#7DD3FC") } }, isSig ? "シグナル" : "テクニカル");
+  };
+  var _th = function(label, extra) { return React.createElement("th", { style: Object.assign({ padding: "3px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "left", fontSize: 10, color: "#9A3412", whiteSpace: "nowrap" }, extra || {}) }, label); };
+  var _tdS = { padding: "3px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", verticalAlign: "top" };
+  var _table = rows.length ? React.createElement("div", { style: { overflowX: "auto" } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
+        _th("時間", { width: 64 }), _th("シグナル・テクニカル"), _th("メモ"), _th("", { width: 56, textAlign: "center" }))),
+      React.createElement("tbody", null, rows.map(function(r) {
+        return React.createElement("tr", { key: r.id, style: { background: r.src === "auto" ? "#FBFBF9" : "#fff" } },
+          React.createElement("td", { style: Object.assign({}, _tdS, { whiteSpace: "nowrap", color: "#666", fontVariantNumeric: "tabular-nums" }) }, r.time || "—"),
+          React.createElement("td", { style: _tdS },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" } },
+              _kindChip(r.kind),
+              React.createElement("span", { style: { fontWeight: 700, color: "#333" } }, r.name || "—"),
+              r.src === "auto" ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "(取引記録)") : null)),
+          React.createElement("td", { style: Object.assign({}, _tdS, { color: "#555", whiteSpace: "pre-wrap", wordBreak: "break-all" }) }, r.memo ? stripHtml(r.memo) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+          React.createElement("td", { style: Object.assign({}, _tdS, { textAlign: "center", whiteSpace: "nowrap" }) },
+            r.src === "manual"
+              ? React.createElement("span", null,
+                  React.createElement("span", { onClick: function() { _openEdit(r); }, style: { cursor: "pointer", color: "#0369A1", fontSize: 12, marginRight: 8 } }, "✎"),
+                  React.createElement("span", { onClick: function() { _del(r); }, style: { cursor: "pointer", color: "#C0392B", fontSize: 12 } }, "🗑"))
+              : React.createElement("span", { style: { color: "#ccc", fontSize: 10 } }, "自動")));
+      })))
+  ) : React.createElement("div", { style: { fontSize: 11, color: "#bbb", padding: "6px 2px" } }, "まだ記録がありません。「＋追加」から記録できます。");
+  // シグナルは取引記録の自動行と名寄せするため stripCat（カテゴリ接頭辞除去）で統一・重複排除。テクニカルはそのまま。2026-06-18
+  var _nameOptions = (function() {
+    if (aKind !== "signal") return technicals.map(function(t) { return t.name; });
+    var seen = {}, out = [];
+    signalPool.forEach(function(t) { var n = stripCat(t); if (n && !seen[n]) { seen[n] = 1; out.push(n); } });
+    return out;
+  })();
+  var _form = addOpen ? React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F8FAFC", border: "1px solid #CBD5E1" } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
+      ["tech", "signal"].map(function(k) {
+        var on = aKind === k;
+        return React.createElement("span", { key: k, onClick: function() { setAKind(k); setAName(""); }, style: { cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, border: "1px solid " + (on ? "#1a1a1a" : "#ddd"), background: on ? "#1a1a1a" : "#fff", color: on ? "#fff" : "#666" } }, k === "tech" ? "テクニカル" : "シグナル");
+      }),
+      aKind === "tech" ? React.createElement("span", { onClick: function() { setManageOpen(true); }, style: { cursor: "pointer", fontSize: 11, color: "#0369A1", fontWeight: 700, marginLeft: "auto" } }, "⚙ テクニカル管理") : null),
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+      React.createElement("select", { value: aName, onChange: function(e) { setAName(e.target.value); }, style: { padding: "5px 7px", fontSize: 12, border: "1px solid #ccc", borderRadius: 6, minWidth: 150 } },
+        React.createElement("option", { value: "" }, _nameOptions.length ? "選択…" : (aKind === "tech" ? "テクニカル未登録（⚙で追加）" : "シグナル未登録")),
+        _nameOptions.map(function(nm) { return React.createElement("option", { key: nm, value: nm }, nm); })),
+      React.createElement("input", { type: "text", inputMode: "numeric", value: aTime, onChange: function(e) { setATime(e.target.value); }, placeholder: "9:35", style: { width: 64, padding: "5px 7px", fontSize: 12, border: "1px solid #ccc", borderRadius: 6 } }),
+      React.createElement("input", { type: "text", value: aMemo, onChange: function(e) { setAMemo(e.target.value); }, placeholder: "メモ", style: { flex: 1, minWidth: 120, padding: "5px 7px", fontSize: 12, border: "1px solid #ccc", borderRadius: 6 } })),
+    React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
+      React.createElement("button", { onClick: _submit, style: { padding: "6px 16px", fontSize: 12, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" } }, editId ? "更新" : "追加"),
+      React.createElement("button", { onClick: _reset, style: { padding: "6px 14px", fontSize: 12, fontWeight: 600, background: "#f5f4f0", color: "#555", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "キャンセル"))
+  ) : null;
+  var _manageModal = manageOpen ? React.createElement(TechnicalManageModal, { technicals: technicals, onChange: _setTechnicals, onClose: function() { setManageOpen(false); } }) : null;
+  return React.createElement("div", { style: { marginTop: 12 } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
+      React.createElement("div", { style: { fontSize: 13, color: "#888", fontWeight: 600 } }, "📡 出現シグナル・テクニカル"),
+      React.createElement("button", { onClick: _openAdd, style: { padding: "3px 12px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" } }, "＋追加")),
+    _table, _form, _manageModal);
+}
 var ChartSection = React.memo(function ChartSection(_ref32) {
   var stock = _ref32.stock,
     date = _ref32.date,
@@ -6295,6 +6469,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
       guardOwner: "chartMemo_" + stock + "_" + date
     })
   ),
+  React.createElement(AppearanceSection, { data: data, save: save, stock: stock, date: date }),
   !hideSignals ? React.createElement(WeeklyPnlPanel, { data: data, stock: stock, date: date, save: save }) : null);
 });
 

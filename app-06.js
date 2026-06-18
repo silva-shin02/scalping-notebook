@@ -1803,6 +1803,8 @@ function EntryLogView(_ref_elv2) {
   var _uX = useState(null), expKey = _uX[0], setExpKey = _uX[1];
   var _uL = useState(50), listLimit = _uL[0], setListLimit = _uL[1];
   var _uLX = useState(false), listExclOnly = _uLX[0], setListExclOnly = _uLX[1];  // 一覧「不算入のみ」絞り込み 2026-06-18
+  var _uAK = useState("all"), apKindFil = _uAK[0], setApKindFil = _uAK[1];  // 出現タブ 種別絞り込み 2026-06-18
+  var _uAN = useState(""), apNameFil = _uAN[0], setApNameFil = _uAN[1];      // 出現タブ 名前絞り込み
   var _uD = useState(null), selDate = _uD[0], setSelDate = _uD[1];
   var _uCM = useState(null), calYM = _uCM[0], setCalYM = _uCM[1];
   var _uSG = useState(null), selSig = _uSG[0], setSelSig = _uSG[1];
@@ -2284,6 +2286,44 @@ function EntryLogView(_ref_elv2) {
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）"), _elExecGapSectionV2(v2recs, _ai),
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）"), _elMemoPerfSectionV2(v2recs, _ai)
     ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
+  } else if (view === "appear") {
+    _tabBody = (function() {
+      // 出現シグナル・テクニカルの横断一覧。期間/銘柄は上の絞り込みに連動、種別/名前はタブ内で絞る。
+      var _apAll = _elFilterPeriod(_apCollectAll(data), period).filter(function(r) { return !stockFil || r.stock === stockFil; });
+      var _apByKind = apKindFil === "all" ? _apAll : _apAll.filter(function(r) { return r.kind === apKindFil; });
+      var _apNames = [], _apSeen = {};
+      _apByKind.forEach(function(r) { if (r.name && !_apSeen[r.name]) { _apSeen[r.name] = 1; _apNames.push(r.name); } });
+      _apNames.sort();
+      var _apShown = (apNameFil ? _apByKind.filter(function(r) { return r.name === apNameFil; }) : _apByKind).slice()
+        .sort(function(a, b) { var k = b.date.localeCompare(a.date); return k !== 0 ? k : (a.time || "99:99").localeCompare(b.time || "99:99"); });
+      var _kc = function(kind) { var isSig = kind === "signal"; return React.createElement("span", { style: { display: "inline-block", fontSize: 9, fontWeight: 700, padding: "0 5px", borderRadius: 3, whiteSpace: "nowrap", color: isSig ? "#9A3412" : "#0369A1", background: isSig ? "#FFEDD5" : "#E0F2FE", border: "1px solid " + (isSig ? "#FB923C" : "#7DD3FC") } }, isSig ? "シグナル" : "テクニカル"); };
+      var _aTh = function(label, extra) { return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "left", fontSize: 10, color: "#9A3412", whiteSpace: "nowrap" }, extra || {}) }, label); };
+      var _aTdS = { padding: "3px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", verticalAlign: "top" };
+      return React.createElement(React.Fragment, null,
+        _secH("📡 出現シグナル・テクニカル（" + _apShown.length + "件）", "取引記録のシグナル(自動)＋手動の出現を横断表示。期間・銘柄は上の絞り込みに連動"),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" } },
+          React.createElement("div", { style: { display: "flex", gap: 2 } },
+            [["all", "全て"], ["signal", "シグナル"], ["tech", "テクニカル"]].map(function(kv) {
+              var on = apKindFil === kv[0];
+              return React.createElement("span", { key: kv[0], onClick: function() { setApKindFil(kv[0]); setApNameFil(""); }, style: { cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, border: "1px solid " + (on ? "#1a1a1a" : "#ddd"), background: on ? "#1a1a1a" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
+            })),
+          React.createElement("select", { value: apNameFil, onChange: function(e) { setApNameFil(e.target.value); }, style: _selSty },
+            [React.createElement("option", { key: "_a", value: "" }, "名前:全て")].concat(_apNames.map(function(nm) { return React.createElement("option", { key: nm, value: nm }, nm); })))),
+        _apShown.length ? React.createElement("div", { style: { overflowX: "auto" } },
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+            React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
+              _aTh("年月日", { width: 96 }), _aTh("銘柄", { width: 90 }), _aTh("時間", { width: 56 }), _aTh("種別", { width: 84 }), _aTh("シグナル・テクニカル"), _aTh("メモ"))),
+            React.createElement("tbody", null, _apShown.map(function(r) {
+              return React.createElement("tr", { key: r.stock + "_" + r.date + "_" + r.id, style: { background: r.src === "auto" ? "#FBFBF9" : "#fff" } },
+                React.createElement("td", { style: Object.assign({}, _aTdS, { whiteSpace: "nowrap", color: "#555" }) }, r.date + "（" + _dow(r.date) + "）"),
+                React.createElement("td", { style: Object.assign({}, _aTdS, { whiteSpace: "nowrap", fontWeight: 700, color: "#9A3412" }) }, r.stock),
+                React.createElement("td", { style: Object.assign({}, _aTdS, { whiteSpace: "nowrap", color: "#666", fontVariantNumeric: "tabular-nums" }) }, r.time || "—"),
+                React.createElement("td", { style: _aTdS }, _kc(r.kind)),
+                React.createElement("td", { style: Object.assign({}, _aTdS, { fontWeight: 700, color: "#333" }) }, r.name || "—"),
+                React.createElement("td", { style: Object.assign({}, _aTdS, { color: "#555", whiteSpace: "pre-wrap", wordBreak: "break-all" }) }, r.memo ? stripHtml(r.memo) : React.createElement("span", { style: { color: "#ccc" } }, "—")));
+            })))
+        ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "出現記録がありません"));
+    })();
   } else {
     var _listAll = filtered.slice().sort(_byDateDesc);
     var _listExclN = _elExclCountRecs(_listAll);
@@ -2310,7 +2350,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("select", { value: stockFil, onChange: function(e) { setStockFil(e.target.value); }, style: _selSty },
         [React.createElement("option", { key: "_a", value: "" }, "銘柄:全て")].concat(allStocks.map(function(s) { return React.createElement("option", { key: s, value: s }, s); })))),
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
-      [["sum", "📊 集計"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["stock", "📈 銘柄別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["list", "🗂 一覧"]].map(function(kv) {
+      [["sum", "📊 集計"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["stock", "📈 銘柄別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["appear", "📡 出現"], ["list", "🗂 一覧"]].map(function(kv) {
         var on = view === kv[0];
         var cnt = kv[0] === "list" ? filtered.length : (kv[0] === "date" ? v2recs.length : null);
         return React.createElement("button", { key: kv[0],
