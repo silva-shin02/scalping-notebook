@@ -5186,6 +5186,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateLP = useState(initSig.levelPrice != null ? String(initSig.levelPrice) : ""),
     _useStateLPA = _slicedToArray(_useStateLP, 2),
     fLevelPrice = _useStateLPA[0], setFLevelPrice = _useStateLPA[1];
+  // 分足（新規エントリー記録画面のみ・1分足/5分足の選択。記録固有=signal.minBarに保存）2026-06-18。
+  var _useStateMB = useState((initSig.minBar === 1 || initSig.minBar === 5) ? String(initSig.minBar) : ""),
+    _useStateMBA = _slicedToArray(_useStateMB, 2),
+    fMinBar = _useStateMBA[0], setFMinBar = _useStateMBA[1];
 
   var _useStateEONO = useState(initSig.entryOsNo != null ? Number(initSig.entryOsNo) : null),
     _useStateEONOA = _slicedToArray(_useStateEONO, 2),
@@ -5758,6 +5762,7 @@ function EntryRecordForm(_ref_erf) {
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       alphaVal: fAlphaVal !== "" && !isNaN(Number(fAlphaVal)) ? Number(fAlphaVal) : null,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
+      minBar: (fMinBar === "1" || fMinBar === "5") ? Number(fMinBar) : null,
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
       maxPnl: fMax !== "" ? Number(fMax) : null,
@@ -6030,7 +6035,7 @@ function EntryRecordForm(_ref_erf) {
             padding: "4px 10px", borderRadius: 6, background: "#F5F3FF",
             border: "1px solid #DDD6FE", fontSize: 12 }
         },
-          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "水準線価格"),
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "水準線"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #DDD6FE", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", step: "1",
@@ -6049,6 +6054,25 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })(),
+
+      React.createElement("div", {
+        style: { display: "inline-flex", alignItems: "center", gap: 6,
+          padding: "4px 10px", borderRadius: 6, background: "#F0FDF4",
+          border: "1px solid #BBF7D0", fontSize: 12 }
+      },
+        React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "分足"),
+        React.createElement("select", {
+          value: fMinBar,
+          onChange: function(e) { setFMinBar(e.target.value); },
+          style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#166534",
+                   border: "1px solid #BBF7D0", borderRadius: 4, background: "#fff", outline: "none" }
+        },
+          React.createElement("option", { value: "" }, "—"),
+          React.createElement("option", { value: "1" }, "1"),
+          React.createElement("option", { value: "5" }, "5")
+        ),
+        React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "分")
+      ),
 
       (function() {
         var _setAV = function(val) {
