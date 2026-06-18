@@ -3680,9 +3680,12 @@ function _apRowsForDay(data, stock, date) {
   var ck = stock + "_" + date;
   var c = (data && data.charts && data.charts[ck]) || {};
   var rows = [];
+  var _apM = c.apMemos || {};  // 出現欄固有メモ（取引記録のrationaleとは別物）。auto行はキーで参照。
   (Array.isArray(c.signals) ? c.signals : []).forEach(function(sig, si) {
     _apSigNames(sig).forEach(function(nm, ni) {
-      rows.push({ kind: "signal", name: stripCat(nm), time: sig.time || "", memo: sig.rationale || "", src: "auto", sigId: sig.id, id: "auto_" + (sig.id || sig.time || "x") + "_" + si + "_" + ni });
+      var _snm = stripCat(nm);
+      var _mk = "s|" + (sig.id || sig.time || "x") + "|" + _snm;
+      rows.push({ kind: "signal", name: _snm, time: sig.time || "", memo: _apM[_mk] || "", memoKey: _mk, src: "auto", sigId: sig.id, id: "auto_" + (sig.id || sig.time || "x") + "_" + si + "_" + ni });
     });
   });
   (Array.isArray(c.appearances) ? c.appearances : []).forEach(function(ap) {
@@ -3720,6 +3723,18 @@ function _apDelete(save, stock, date, id) {
     var c = charts[ck]; if (!c) return prev;
     var arr = (Array.isArray(c.appearances) ? c.appearances : []).filter(function(x) { return x.id !== id; });
     charts[ck] = Object.assign({}, c, { appearances: arr });
+    return Object.assign({}, prev, { charts: charts });
+  });
+}
+// auto行(取引記録由来シグナル)の「出現欄固有メモ」を charts[ck].apMemos[key] に保存/削除。取引記録のrationaleとは別物。2026-06-18
+function _apSetAutoMemo(save, stock, date, key, memo) {
+  save(function(prev) {
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date;
+    var c = charts[ck] || {};
+    var m = Object.assign({}, c.apMemos || {});
+    if (memo) m[key] = memo; else delete m[key];
+    charts[ck] = Object.assign({}, c, { apMemos: m });
     return Object.assign({}, prev, { charts: charts });
   });
 }
@@ -5249,6 +5264,8 @@ function AppearanceSection(_ref_ap) {
   var _uMemo = useState(""), aMemo = _uMemo[0], setAMemo = _uMemo[1];
   var _uEdit = useState(null), editId = _uEdit[0], setEditId = _uEdit[1];
   var _uMan = useState(false), manageOpen = _uMan[0], setManageOpen = _uMan[1];
+  var _uMek = useState(null), memoEditKey = _uMek[0], setMemoEditKey = _uMek[1];  // auto行(取引記録シグナル)の出現欄固有メモ インライン編集
+  var _uMev = useState(""), memoEditVal = _uMev[0], setMemoEditVal = _uMev[1];
   var _reset = function() { setAddOpen(false); setEditId(null); setAName(""); setATime(""); setAMemo(""); setAKind("tech"); };
   var _openAdd = function() { setEditId(null); setAName(""); setATime(""); setAMemo(""); setAKind(technicals.length ? "tech" : "signal"); setAddOpen(true); };
   var _openEdit = function(r) { setEditId(r.id); setAKind(r.kind === "signal" ? "signal" : "tech"); setAName(r.name); setATime(r.time || ""); setAMemo(r.memo || ""); setAddOpen(true); };
@@ -5276,15 +5293,21 @@ function AppearanceSection(_ref_ap) {
           React.createElement("td", { style: _tdS },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" } },
               _kindChip(r.kind),
-              React.createElement("span", { style: { fontWeight: 700, color: "#333" } }, r.name || "—"),
-              r.src === "auto" ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "(取引記録)") : null)),
-          React.createElement("td", { style: Object.assign({}, _tdS, { color: "#555", whiteSpace: "pre-wrap", wordBreak: "break-all" }) }, r.memo ? stripHtml(r.memo) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+              React.createElement("span", { style: { fontWeight: 700, color: "#333" } }, r.name || "—"))),
+          React.createElement("td", { style: Object.assign({}, _tdS, { color: "#555", whiteSpace: "pre-wrap", wordBreak: "break-all" }) },
+            (r.src === "auto" && memoEditKey === r.memoKey)
+              ? React.createElement("input", { type: "text", autoFocus: true, value: memoEditVal,
+                  onChange: function(e) { setMemoEditVal(e.target.value); },
+                  onBlur: function() { _apSetAutoMemo(save, stock, date, r.memoKey, (memoEditVal || "").trim()); setMemoEditKey(null); },
+                  onKeyDown: function(e) { if (e.key === "Enter") e.target.blur(); },
+                  style: { width: "100%", padding: "3px 6px", fontSize: 11, border: "1px solid #7DD3FC", borderRadius: 4, boxSizing: "border-box" } })
+              : (r.memo ? stripHtml(r.memo) : React.createElement("span", { style: { color: "#ccc" } }, "—"))),
           React.createElement("td", { style: Object.assign({}, _tdS, { textAlign: "center", whiteSpace: "nowrap" }) },
             r.src === "manual"
               ? React.createElement("span", null,
                   React.createElement("span", { onClick: function() { _openEdit(r); }, style: { cursor: "pointer", color: "#0369A1", fontSize: 12, marginRight: 8 } }, "✎"),
                   React.createElement("span", { onClick: function() { _del(r); }, style: { cursor: "pointer", color: "#C0392B", fontSize: 12 } }, "🗑"))
-              : React.createElement("span", { style: { color: "#ccc", fontSize: 10 } }, "自動")));
+              : React.createElement("span", { onClick: function() { setMemoEditKey(r.memoKey); setMemoEditVal(r.memo || ""); }, style: { cursor: "pointer", color: "#0369A1", fontSize: 12 }, title: "メモを編集" }, "✎")));
       })))
   ) : React.createElement("div", { style: { fontSize: 11, color: "#bbb", padding: "6px 2px" } }, "まだ記録がありません。「＋追加」から記録できます。");
   // シグナルは取引記録の自動行と名寄せするため stripCat（カテゴリ接頭辞除去）で統一・重複排除。テクニカルはそのまま。2026-06-18
