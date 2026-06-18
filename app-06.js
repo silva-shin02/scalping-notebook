@@ -1372,6 +1372,100 @@ function _elDayStockBenchV2(_ref) {
     table, insight);
 }
 
+// 損切りの上振れ・損切り値シミュ（記録帳・深掘りタブ／2026-06-18）: 損切りになった記録について、
+// 損切りライン(α＋損切り値)から最高値がさらに何円上か（超過幅）を1円ブロックで集計し、「損切りせず保有し続けた着地」
+// 「最良手仕舞い」だったら何円だったかを併記。損切りが早すぎないかを検証する。aiOf(r)→{alpha,cutLine}。
+//   超過幅 = _elHoldMaxHigh(s).all − α − cutLine（損切りラインを超えて伸びた円・水準線比）。
+//   損切り損失 = _epHoldLadder(s,α,cut).finalPnl（損切りラインで止めた損益・深掘り「最適ホールド本数」と同基準）。
+//   保有なら = _epHoldLadder(s,α,BIG).finalPnl（損切り無効で最後の足まで保有）、ベスト = .maxPnl（損切り後の最良手仕舞い）。
+function _elStopOvershootSectionV2(recs, aiOf) {
+  var BIG = 99999;
+  var rows = [];
+  (recs || []).forEach(function(r) {
+    var s = r && r.signal; if (!s || !_epIsV2(s)) return;
+    var ai = aiOf(r), a = ai.alpha, cut = (ai.cutLine != null ? ai.cutLine : 10);
+    if (a == null) return;
+    if (_elRealizedOutcome(s, a, cut) !== "stop") return;
+    var mh = _elHoldMaxHigh(s).all;
+    if (mh == null) return;
+    var Lc = _epHoldLadder(s, a, cut), Lb = _epHoldLadder(s, a, BIG);
+    if (!Lc || !Lb) return;
+    var over = Math.round((mh - a - cut) * 10) / 10; if (over < 0) over = 0;
+    var idc = _elIdealCut(s, a);
+    rows.push({
+      r: r, s: s, a: a, cut: cut, over: over,
+      actual: Lc.finalPnl, held: Lb.finalPnl, best: Lb.maxPnl,
+      avoidCut: (!_elHoldIsStop(s, a, idc) ? idc : null)
+    });
+  });
+  if (!rows.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "損切りになった記録（EP起算v2）がありません");
+
+  var overArr = rows.map(function(o) { return o.over; });
+  var actualArr = rows.map(function(o) { return o.actual; }).filter(function(v) { return v != null; });
+  var heldBase = rows.filter(function(o) { return o.held != null; });
+  var profitable = heldBase.filter(function(o) { return o.held > 0; }).length;
+  var cards = _elv2CardRow([
+    _elv2Card("損切り記録", rows.length + "件", "#9A3412", "実現結果=損切り"),
+    _elv2Card("損切り値からの超過幅", "平均" + _elMean(overArr) + " / 中央" + _elMedian(overArr) + "円", "#555", "ラインを超えて伸びた幅"),
+    _elv2Card("損切り損失(平均)", _elPnlFmt(actualArr.length ? Math.round(_elMean(actualArr)) : null), _elPnlColor(actualArr.length ? _elMean(actualArr) : null), rows.length + "件"),
+    _elv2Card("保有なら利益化", heldBase.length ? Math.round(profitable / heldBase.length * 100) + "%" : "—", heldBase.length && profitable / heldBase.length >= 0.5 ? "#B45309" : "#1E8449", heldBase.length ? profitable + "/" + heldBase.length + "件が保有で利益" : "—")
+  ]);
+
+  // 超過幅分布（1円ブロック: 0/1/2/3/4/5円以上）
+  var BK = ["0", "1", "2", "3", "4", "5+"];
+  var byB = {}; BK.forEach(function(k) { byB[k] = { cnt: 0, aArr: [], hArr: [], bArr: [], iArr: [] }; });
+  rows.forEach(function(o) {
+    var fk = Math.floor(o.over); var k = fk >= 5 ? "5+" : String(fk);
+    var b = byB[k]; b.cnt++;
+    if (o.actual != null) b.aArr.push(o.actual);
+    if (o.held != null) b.hArr.push(o.held);
+    if (o.best != null) b.bArr.push(o.best);
+    if (o.held != null && o.actual != null) b.iArr.push(o.held - o.actual);
+  });
+  var _mc = function(arr) { return arr.length ? React.createElement("span", { style: { color: _elPnlColor(_elMean(arr)) } }, _elPnlFmt(Math.round(_elMean(arr)))) : React.createElement("span", { style: { color: "#ccc" } }, "—"); };
+  var bRows = BK.filter(function(k) { return byB[k].cnt; }).map(function(k) {
+    var b = byB[k];
+    return React.createElement("tr", { key: k },
+      _elv2Td(React.createElement("b", null, k === "5+" ? "5円以上" : (k + "円超")), { textAlign: "left", paddingLeft: 8, color: "#9A3412" }),
+      _elv2Td(b.cnt + "件", { fontWeight: 700 }),
+      _elv2Td(_mc(b.aArr)),
+      _elv2Td(_mc(b.hArr)),
+      _elv2Td(_mc(b.bArr)),
+      _elv2Td(b.iArr.length ? React.createElement("b", { style: { color: _elPnlColor(_elMean(b.iArr)) } }, _elPnlFmt(Math.round(_elMean(b.iArr)))) : React.createElement("span", { style: { color: "#ccc" } }, "—")));
+  });
+  var distTable = React.createElement("div", null,
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "6px 0 0" } }, "損切り値からの超過幅 × 損益（1円ブロック）"),
+    _elv2Table(["損切り値から", "件数", "損切り損失", "保有なら", "ベスト手仕舞い", "改善額"], bRows));
+
+  // 個別一覧（超過幅の小さい順＝損切りが早すぎた疑い順）
+  var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
+  var listed = rows.slice().sort(function(a, b) { return (a.over - b.over) || (a.r.date < b.r.date ? 1 : -1); });
+  var listTable = React.createElement("div", null,
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "損切り記録の一覧（超過幅の小さい順＝損切りが早すぎた疑い順・" + rows.length + "件）"),
+    _elv2Table(["日付", "銘柄/シグナル", "α/損切値", "超過", "損切損失", "保有なら", "ベスト"], listed.map(function(o, i) {
+      return React.createElement("tr", { key: i },
+        _elv2Td(o.r.date.slice(5) + "(" + _dow(o.r.date) + ")", { textAlign: "left", paddingLeft: 8, whiteSpace: "nowrap" }),
+        _elv2Td(React.createElement("span", null, React.createElement("b", { style: { color: "#9A3412" } }, o.r.stock), React.createElement("span", { style: { color: "#999", fontSize: 9, marginLeft: 4 } }, _elTagLabel(o.s))), { textAlign: "left" }),
+        _elv2Td(o.a + "/" + o.cut + "円", { fontSize: 10, color: "#666" }),
+        _elv2Td(React.createElement("b", { style: { color: o.over <= 1 ? "#C0392B" : "#555" } }, "+" + o.over + "円")),
+        _elv2Td(React.createElement("span", { style: { color: _elPnlColor(o.actual) } }, _elPnlFmt(o.actual))),
+        _elv2Td(React.createElement("b", { style: { color: _elPnlColor(o.held) } }, _elPnlFmt(o.held))),
+        _elv2Td(React.createElement("span", { style: { color: _elPnlColor(o.best) } }, _elPnlFmt(o.best))));
+    })));
+
+  // 読み取り
+  var small = rows.filter(function(o) { return o.over <= 1; });
+  var smallHeld = small.filter(function(o) { return o.held != null; });
+  var smallProfit = smallHeld.filter(function(o) { return o.held > 0; }).length;
+  var avoidN = rows.filter(function(o) { return o.avoidCut != null; }).length;
+  var items = [];
+  items.push(React.createElement("span", null, "損切り", _elInsightEmV2(rows.length + "件"), "の損切り値からの超過幅は平均", _elInsightEmV2(_elMean(overArr) + "円"), "・中央", _elInsightEmV2(_elMedian(overArr) + "円"), "＝損切りライン到達後にさらにこれだけ伸びてから反転/継続している。"));
+  if (small.length) items.push(React.createElement("span", null, "超過1円以下（損切りラインをほんの少し超えただけ）が", _elInsightEmV2(small.length + "件"), smallHeld.length ? React.createElement("span", null, "。うち保有していれば利益化したのは", _elInsightEmV2(smallProfit + "/" + smallHeld.length + "件"), "＝", (smallHeld.length && smallProfit / smallHeld.length >= 0.5 ? _elInsightEmV2("損切りが早すぎた可能性大", "#B45309") : "損切りは概ね妥当"), "。") : "。"));
+  if (heldBase.length) items.push(React.createElement("span", null, "損切りした記録を全て損切りせず最後まで保有していたら、利益化したのは", _elInsightEmV2(profitable + "/" + heldBase.length + "件", profitable / heldBase.length >= 0.5 ? "#B45309" : "#1E8449"), "＝", (profitable / heldBase.length >= 0.5 ? "損切りを我慢する方が良かった場面が多い" : "損切りは機能している（保有しても損が増える方が多い）"), "。"));
+  if (avoidN) items.push(React.createElement("span", null, "損切り値を", _elInsightEmV2("15〜20円"), "に上げていれば損切りを回避できたのは", _elInsightEmV2(avoidN + "件"), "。"));
+  return React.createElement("div", null, cards, distTable, listTable, _elInsightBoxV2(items, { note: "対象＝実現結果が「損切り」のEP起算(v2)記録。超過幅＝最高値(水準線比)−(α＋損切り値)。損切り損失＝損切りラインで止めた損益(_epHoldLadder・採用α基準・100株換算)。保有なら＝損切りせず最後の足まで保有した損益(finalPnl)、ベスト＝損切り後の各足で最も良い手仕舞い(maxPnl)。改善額＝保有なら−損切り損失。損益色は赤=利益/緑=損失。" }));
+}
+
 // 最適ホールド本数（記録帳・深掘りタブ／2026-06-14）: EPから+0/+1/+2本…と持ち続けた場合の深さ別の平均損益・損切り率・EP比改善率を集計し、
 // 全期間で最も期待値の高い手仕舞い本数を示す。_epHoldLadder（E成立分のみ・採用α/損切り基準）を深さ別に転置集計。aiOf(r)→{alpha,cutLine}。
 function _elHoldDepthSectionV2(recs, aiOf) {
@@ -2179,6 +2273,7 @@ function EntryLogView(_ref_elv2) {
     })();
   } else if (view === "deep") {
     _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
+      _secH("🛑 損切りの上振れ・損切り値シミュ", "損切りになった記録が損切りラインを何円超えて伸びたか＋損切りせず保有/最良手仕舞いなら何円だったか"), _elStopOvershootSectionV2(v2recs, _ai),
       _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・損切り率・EP比改善率）"), _elHoldDepthSectionV2(v2recs, _ai),
       _secH("🎯 期待度キャリブレーション", "事前の予想OS度・H期待が実結果とどれだけ一致したか（予想は当たっているか過信か）"), _elExpCalibSectionV2(v2recs, _ai),
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）"), _elExecGapSectionV2(v2recs, _ai),
