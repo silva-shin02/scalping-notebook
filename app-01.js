@@ -4756,6 +4756,17 @@ function ImageAnnotator(_ref7) {
       y: drawRef.current.sy
     }) : pos;
   };
+  // 線の太さ(lineW)は論理座標=画像のnaturalサイズ基準の絶対値なので、画像が大きいほど相対的に細く・小さいほど太く見える。
+  // 画像の長辺を基準長(1200px)で正規化した係数を掛け、どの画像でもスライダー値=同じ見かけの太さになるようにする。2026-06-18
+  // 係数は0.5〜4にクランプ(極端な小/大画像でのヒゲ/ベタ潰れ防止)。保存済みストロークの値は不変=過去の注釈は変わらない。
+  var _lineWScale = function _lineWScale() {
+    var ls = logicalSizeRef.current;
+    var longest = Math.max((ls && ls.w) || 0, (ls && ls.h) || 0);
+    if (!longest) return 1;
+    var f = longest / 1200;
+    return f < 0.5 ? 0.5 : (f > 4 ? 4 : f);
+  };
+  var _geomLineW = function _geomLineW() { return lineW * _lineWScale(); };
 
   
   function deleteSelected() {
@@ -5010,7 +5021,7 @@ function ImageAnnotator(_ref7) {
       var ctx = canvasRef.current.getContext("2d");
       ctx.globalAlpha = opacity;
       ctx.strokeStyle = color;
-      ctx.lineWidth = lineW;
+      ctx.lineWidth = _geomLineW();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.setLineDash([]);
@@ -5112,7 +5123,7 @@ function ImageAnnotator(_ref7) {
       if (!lp || Math.hypot(rawPos.x - lp.x, rawPos.y - lp.y) > 2) {
         ctx.globalAlpha = opacity;
         ctx.strokeStyle = color;
-        ctx.lineWidth = lineW;
+        ctx.lineWidth = _geomLineW();
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.setLineDash([]);
@@ -5124,7 +5135,7 @@ function ImageAnnotator(_ref7) {
         freehandPts.current.push(rawPos);
       }
     } else if (tool === "eraser") {
-      var er = lineW * 5;
+      var er = _geomLineW() * 5;
       var after = strokesRef.current.filter(function (s) {
         return !strokeHits(s, rawPos.x, rawPos.y, er);
       });
@@ -5254,7 +5265,7 @@ function ImageAnnotator(_ref7) {
           type: "freehand",
           pts: _toConsumableArray(freehandPts.current),
           color: color,
-          lineW: lineW,
+          lineW: _geomLineW(),
           opacity: opacity
         };
         var _ns = [].concat(_toConsumableArray(strokesRef.current), [s]);
@@ -5282,7 +5293,7 @@ function ImageAnnotator(_ref7) {
   function buildStroke(x1, y1, x2, y2) {
     var b = {
       color: color,
-      lineW: lineW,
+      lineW: _geomLineW(),
       opacity: opacity
     };
     switch (tool) {
@@ -5612,7 +5623,7 @@ function ImageAnnotator(_ref7) {
     
     if (drawRef.current.on && tool === "freehand" && freehandPts.current.length > 1) {
       var _fsD = {type:"freehand",pts:freehandPts.current.slice(),
-        color:color,lineW:lineW,opacity:opacity};
+        color:color,lineW:_geomLineW(),opacity:opacity};
       _curStrokes = _curStrokes.concat([_fsD]);
       freehandPts.current = [];
       drawRef.current.on = false;
