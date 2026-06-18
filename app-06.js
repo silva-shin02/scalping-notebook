@@ -1802,6 +1802,7 @@ function EntryLogView(_ref_elv2) {
   var _uE = useState(initialEdit || null), editTarget = _uE[0], setEditTarget = _uE[1];
   var _uX = useState(null), expKey = _uX[0], setExpKey = _uX[1];
   var _uL = useState(50), listLimit = _uL[0], setListLimit = _uL[1];
+  var _uLX = useState(false), listExclOnly = _uLX[0], setListExclOnly = _uLX[1];  // 一覧「不算入のみ」絞り込み 2026-06-18
   var _uD = useState(null), selDate = _uD[0], setSelDate = _uD[1];
   var _uCM = useState(null), calYM = _uCM[0], setCalYM = _uCM[1];
   var _uSG = useState(null), selSig = _uSG[0], setSelSig = _uSG[1];
@@ -1862,7 +1863,7 @@ function EntryLogView(_ref_elv2) {
       var on = expKey === ek;
       var cells = [
         _td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8, fontWeight: 700 }),
-        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash), _epIncompleteMark(s)), { color: "#666" }),
+        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash), _epIncompleteMark(s), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null), { color: "#666" }),
         _td(r.stock, { color: "#9A3412", fontWeight: 700 })
       ];
       if (mode === "day") {
@@ -1892,7 +1893,7 @@ function EntryLogView(_ref_elv2) {
         ]).concat(_elHoldTd2(s, a.alpha, a.cutLine, { padding: "4px 6px", textAlign: "center", fontSize: 11, borderTop: "1px solid #f0ede8" }))
           .concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60) : _dash)]);
       }
-      body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: { background: on ? "#FFF7ED" : "transparent", cursor: "pointer" } }, cells));
+      body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elNotInclRowStyle(s)) }, cells));
       if (on) body.push(React.createElement("tr", { key: ek + "_c" },
         React.createElement("td", { colSpan: colN, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
           React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate }))));
@@ -2153,7 +2154,8 @@ function EntryLogView(_ref_elv2) {
           drecs.forEach(function(r) { var v = _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; if (v != null) { realSum += v; hasReal = true; } });
           return React.createElement("div", { key: "d" + i, onClick: cnt ? function() { setSelDate(ds); } : null,
             style: { minHeight: 48, border: "1px solid " + (on ? "#9A3412" : "#eee"), borderRadius: 6, padding: "2px 3px", cursor: cnt ? "pointer" : "default", background: on ? "#FFF7ED" : (cnt ? "#fff" : "#fafafa"), display: "flex", flexDirection: "column" } },
-            React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: cnt ? "#555" : "#bbb" } }, d),
+            React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: cnt ? "#555" : "#bbb", display: "flex", alignItems: "center", gap: 2 } }, d,
+              (function() { var _xc = filtered.filter(function(r) { return r.date === ds && _elIsExcluded(r.signal); }).length; return _xc > 0 ? _elExclDot(_xc) : null; })()),
             cnt ? React.createElement("div", { style: { marginTop: "auto", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
               React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#fff", background: "#F97316", borderRadius: 8, padding: "0 5px" } }, cnt + "件"),
               hasReal ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _elPnlColor(realSum) } }, _elPnlFmt(realSum)) : null) : null);
@@ -2283,9 +2285,18 @@ function EntryLogView(_ref_elv2) {
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）"), _elMemoPerfSectionV2(v2recs, _ai)
     ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
   } else {
-    var _listRecs = filtered.slice().sort(_byDateDesc);
+    var _listAll = filtered.slice().sort(_byDateDesc);
+    var _listExclN = _elExclCountRecs(_listAll);
+    var _listRecs = listExclOnly ? _listAll.filter(function(r) { return _elIsExcluded(r.signal); }) : _listAll;
     _tabBody = React.createElement(React.Fragment, null,
-      _secH("🗂 一覧（旧記録含む全件・" + _listRecs.length + "件）", "行タップで明細カード。編集は明細カードの編集ボタンから"),
+      _secH("🗂 一覧（旧記録含む全件・" + _listAll.length + "件）", "行タップで明細カード。編集は明細カードの編集ボタンから"),
+      _listExclN > 0 ? React.createElement("div", { style: { marginBottom: 6 } },
+        React.createElement("button", {
+          onClick: function() { setListExclOnly(!listExclOnly); },
+          style: { fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: "pointer",
+            border: "1px solid " + (listExclOnly ? "#0284C7" : "#7DD3FC"),
+            background: listExclOnly ? "#0284C7" : "#E0F2FE", color: listExclOnly ? "#fff" : "#0284C7" } },
+          (listExclOnly ? "✓ " : "") + "不算入のみ " + _listExclN + "件")) : null,
       _recTable(_listRecs, "full", "l_", listLimit));
   }
 

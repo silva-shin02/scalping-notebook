@@ -255,7 +255,8 @@ function Calendar(_ref60) {
               }, "Z");
             }
             return null;
-          })()
+          })(),
+          (function() { var _xc = _elDayExclCount(data, key); return _xc > 0 ? _elExclDot(_xc, { width: 8, height: 8 }) : null; })()
         ),
         React.createElement("button", {
           onClick: function(e) {
@@ -3113,6 +3114,49 @@ function _elIsEntered(s, item) {
 function _elInclTotal(s) { return !s || s.includeInTotal !== false; }
 // recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
+
+// ===== 不算入(計算・データ算入オフ=includeInTotal===false)の可視化ヘルパー 2026-06-18 =====
+function _elIsExcluded(s) { return !!(s && s.includeInTotal === false); }
+// 「不算入」水色バッジ（行/カードに付ける）。
+function _elNotInclBadge(extra) {
+  return React.createElement("span", { title: "計算・データに算入しない記録",
+    style: Object.assign({ display: "inline-block", fontSize: 9, fontWeight: 800, color: "#0284C7",
+      background: "#E0F2FE", border: "1px solid #7DD3FC", borderRadius: 3, padding: "0 4px",
+      whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" }, extra || {}) }, "不算入");
+}
+// 不算入行に重ねるstyle（淡色＋水色の左ライン＋淡い水色背景）。既存rowスタイルへ Object.assign で合成。
+function _elNotInclRowStyle(s) {
+  return _elIsExcluded(s) ? { opacity: 0.62, background: "#EFF8FF", borderLeft: "3px solid #38BDF8" } : null;
+}
+// 水色ドット（銘柄タブ/カレンダー用）。countを渡すとタイトルに件数。
+function _elExclDot(count, extra) {
+  return React.createElement("span", { title: (count ? "不算入 " + count + "件" : "不算入の記録あり"),
+    style: Object.assign({ display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+      background: "#38BDF8", boxShadow: "0 0 0 1px #fff", flexShrink: 0 }, extra || {}) });
+}
+// signals配列の不算入件数。
+function _elExclCountSigs(signals) {
+  if (!Array.isArray(signals)) return 0;
+  var n = 0; for (var i = 0; i < signals.length; i++) { if (signals[i] && signals[i].includeInTotal === false) n++; }
+  return n;
+}
+// recs配列([{signal}])の不算入件数。
+function _elExclCountRecs(recs) {
+  if (!Array.isArray(recs)) return 0;
+  var n = 0; for (var i = 0; i < recs.length; i++) { if (recs[i] && _elIsExcluded(recs[i].signal)) n++; }
+  return n;
+}
+// その日その銘柄(charts[stock_date])に不算入があるか/件数。
+function _elDayStockExclCount(data, stock, date) {
+  var c = data && data.charts && data.charts[stock + "_" + date];
+  return c ? _elExclCountSigs(c.signals) : 0;
+}
+// その日(全銘柄)の不算入件数。
+function _elDayExclCount(data, date) {
+  var charts = (data && data.charts) || {}, n = 0, suf = "_" + date;
+  for (var k in charts) { if (charts.hasOwnProperty(k) && k.length > suf.length && k.slice(-suf.length) === suf) n += _elExclCountSigs(charts[k].signals); }
+  return n;
+}
 
 
 
@@ -6747,9 +6791,9 @@ function EntryRecordForm(_ref_erf) {
             background: fIncl ? "#1E8449" : "#fff" }
         }, fIncl ? "✓" : ""),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1 } },
-          React.createElement("span", { style: { fontSize: 13.5, fontWeight: 800, color: "#1a1a1a" } }, "合計額算入"),
+          React.createElement("span", { style: { fontSize: 13.5, fontWeight: 800, color: "#1a1a1a" } }, "計算・データ算入"),
           React.createElement("span", { style: { fontSize: 11, color: fIncl ? "#1E8449" : "#999", fontWeight: 600 } },
-            fIncl ? "この記録を合計額・データ分析に算入します" : "この記録は合計額・データ分析から除外されます")
+            fIncl ? "この記録を計算・データに算入します" : "この記録は計算・データから除外されます")
         )
       ),
 
@@ -6844,6 +6888,7 @@ function EntryLogCard(_ref_elc) {
     
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" } }, _fmtDow(record.date)),
+      _elIsExcluded(s) ? _elNotInclBadge() : null,
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock)
     ),

@@ -4561,14 +4561,15 @@ function EntrySignalSection(_ref_es) {
             var totalRecs = isCustomMode ? (sortedRecs || []).length : 0;
             dataRows.push(
               React.createElement("tr", { key: rKey,
-                style: { cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" },
+                style: Object.assign({ cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" }, _elNotInclRowStyle(s)),
                 onClick: function() { setTableRecExp(function(prev) { var n = Object.assign({}, prev); if (n[rKeyRef]) delete n[rKeyRef]; else n[rKeyRef] = true; return n; }); }
               },
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   React.createElement("div", null,
                     React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                     s.time || "—"),
-                  _epIncompleteMark(s)
+                  _epIncompleteMark(s),
+                  _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null
                 ),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", color: "#666" } }, s.minBar === 5 ? "5" : "1"),
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
@@ -4901,13 +4902,14 @@ function WeeklyPnlPanel(_wpp) {
     var realPnl = (item && item.pnl != null) ? Number(item.pnl) : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
     var entered = _elIsEntered(s, item);
     var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
-    var _row = React.createElement("tr", { key: rKey + "_row", style: { background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" },
+    var _row = React.createElement("tr", { key: rKey + "_row", style: Object.assign({ background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elNotInclRowStyle(s)),
       onClick: function() { setRecExp(function(p) { var n = Object.assign({}, p); if (n[rKey]) delete n[rKey]; else n[rKey] = true; return n; }); } },
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, color: "#F97316", width: "1%" } }, rExp ? "▼" : "▶"),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#9A3412" } },
         React.createElement("div", null, (r.date || "").slice(5)), _simInput(r, true), _simInput(r, false)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } },
-        React.createElement("div", null, s.time || "—"), _epIncompleteMark(s)),
+        React.createElement("div", null, s.time || "—"), _epIncompleteMark(s),
+        _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, fontWeight: 700, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", width: "1%", color: "#666" } }, s.minBar === 5 ? "5" : "1"),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),

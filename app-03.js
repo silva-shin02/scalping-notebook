@@ -1104,6 +1104,7 @@ function StockTabs(_ref34) {
     onPurge = _ref34.onPurge,
     hiddenStocks = _ref34.hiddenStocks,
     hasData = _ref34.hasData,
+    exclCount = _ref34.exclCount,
     fmActive = _ref34.fmActive,
     onFmSelect = _ref34.onFmSelect,
     hasFmData = _ref34.hasFmData;
@@ -1281,7 +1282,7 @@ function StockTabs(_ref34) {
         background: "#E53935",
         pointerEvents: "none"
       }
-    }), s, (onRename && s !== "日経平均株価") && React.createElement("span", {
+    }), (exclCount && exclCount(s) > 0) ? _elExclDot(exclCount(s), { position: "absolute", bottom: 4, left: 5, pointerEvents: "none" }) : null, s, (onRename && s !== "日経平均株価") && React.createElement("span", {
       onClick: function onClickRn(e) {
         e.stopPropagation();
         try {
