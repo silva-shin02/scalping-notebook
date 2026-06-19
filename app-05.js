@@ -4885,7 +4885,11 @@ function _elDeleteSignal(save, stock, date, signalId) {
     var c = charts[ck];
     if (!c || !Array.isArray(c.signals)) return prev;
     var signals = c.signals.filter(function(s) { return s.id !== signalId; });
-    charts[ck] = Object.assign({}, c, { signals: signals });
+    // 削除トムストーン: 物理削除に加え削除idを_delSigに記録＝多端末同期で復活させない（[[project-scalping-signal-delete-resurrection]]）。2026-06-19
+    var dels = Array.isArray(c._delSig) ? c._delSig.slice() : [];
+    var _sid = String(signalId);
+    if (dels.indexOf(_sid) < 0) dels.push(_sid);
+    charts[ck] = Object.assign({}, c, { signals: signals, _delSig: dels });
     return Object.assign({}, prev, { charts: charts });
   });
 }

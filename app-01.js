@@ -1031,6 +1031,27 @@ function _buildMeta(data) {
 
 
 
+// 削除トムストーン(削除id集合)方式のユーティリティ。複数配列のid(文字列化)をユニオン。2026-06-19
+function _unionIds(a, b) {
+  var seen = {}, res = [];
+  function add(arr) { if (Array.isArray(arr)) { for (var i = 0; i < arr.length; i++) { var id = (arr[i] == null) ? "" : String(arr[i]); if (id && seen[id] !== 1) { seen[id] = 1; res.push(id); } } } }
+  add(a); add(b);
+  return res;
+}
+// signals/items は物理削除だが、削除idを _delSig/_delItem に記録しておき、マージ後に local/remote の
+// ユニオンで対象配列から再除去する＝相手端末のセクションが新しくても削除済みレコードが復活しない。
+// _delSig/_delItem キーが無い既存データには一切作用しない（gate された no-op）。2026-06-19
+function _applyDelTombstones(out, local, remote, delKey, arrKey) {
+  var lDel = local && local[delKey], rDel = remote && remote[delKey];
+  if (!(out[delKey] || (lDel && lDel.length) || (rDel && rDel.length))) return;
+  var dels = _unionIds(lDel, rDel);
+  if (!dels.length) return;
+  out[delKey] = dels;
+  if (Array.isArray(out[arrKey])) {
+    var set = {}; for (var i = 0; i < dels.length; i++) set[dels[i]] = 1;
+    out[arrKey] = out[arrKey].filter(function(x) { return !x || set[String(x.id)] !== 1; });
+  }
+}
 function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
   if (remote === null || remote === undefined) return local;
   if (remote === "__ref__") return local; 
@@ -1131,6 +1152,9 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
       out.orig_base64 = null;
     }
   }
+  // 削除トムストーン適用: 削除済み signals/items を相手端末由来で復活させない。2026-06-19
+  _applyDelTombstones(out, local, remote, "_delSig", "signals");
+  _applyDelTombstones(out, local, remote, "_delItem", "items");
   return out;
 }
 
@@ -1198,7 +1222,10 @@ function _fbPut() {
           return _uploadAllImages(data);
         case 2:
           fbData = _context6.v;
-          _fbLocalV = fbData._v || Date.now();
+          // _v 単調増加クランプ: 端末の時計が遅れていても、直近に同期したremote版数(_fbLocalV)より必ず大きい
+          // 版数を書く。さもないと「遅れた時計→小さい_v」で他端末がこちらの正当な編集を古いとみなし上書き/無視
+          // してしまう（クロックスキューによる無言のデータ消失）。2026-06-19
+          _fbLocalV = Math.max(fbData._v || Date.now(), (_fbLocalV || 0) + 1);
           _context6.n = 3;
           
           
