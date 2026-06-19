@@ -1126,7 +1126,7 @@ function RichMemoEditor(_propsRME) {
     try {
       var s = localStorage.getItem(key);
       var p = s ? JSON.parse(s) : null;
-      if (Array.isArray(p) && p.length === 6) return p;
+      if (Array.isArray(p) && p.length >= 1) return p.slice(0, 8);
     } catch(e){}
     return def.slice();
   };

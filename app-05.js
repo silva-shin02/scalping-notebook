@@ -1794,8 +1794,8 @@ function _simEnsureFeature(cfg, meta, allMetaById) {
         var prevAnalysis = prevDd && prevDd.analysisData;
         var features = _simComputeFeatures(dd.analysisData, prevAnalysis);
         if (!features) return null;
-        var obj = { f: features, savedAt: savedAt };
-        _simSaveFeature(cfg, draftId, obj); 
+        var obj = Object.assign({}, cached || { savedAt: savedAt }, { f: features, savedAt: savedAt });
+        _simSaveFeature(cfg, draftId, obj);
         return features;
       });
     });
@@ -6885,7 +6885,7 @@ function EntryLogCard(_ref_elc) {
 
   return React.createElement("div", {
     style: { background: "#fff", border: "1px solid #e0ddd6", borderRadius: 8, padding: "8px 10px", marginBottom: 6, cursor: "pointer" },
-    onClick: function() { onEdit(record); },
+    onClick: function() { if (onEdit) onEdit(record); },
     onMouseEnter: function(e) { e.currentTarget.style.borderColor = "#F97316"; },
     onMouseLeave: function(e) { e.currentTarget.style.borderColor = "#e0ddd6"; }
   },

@@ -1052,9 +1052,6 @@ function App() {
     },
     onSelectDate: function onSelectDate(d, stock, tab) {
       setSel(d);
-      if (stock) setCs(stock);
-      
-      
       if (tab) setSelTab(tab);
     },
     cfg: cfg,

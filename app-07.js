@@ -2604,14 +2604,6 @@ function SummaryHistoryView(_ref_shv) {
             border: "1px solid " + (pinnedOnly ? "#F59E0B" : "#ddd"),
             borderRadius: 5, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
         }, "★ ピンのみ"),
-        React.createElement("button", {
-          onClick: function(){ setStarredOnly(!starredOnly); },
-          style: { padding: "5px 10px", fontSize: 12, fontWeight: 700,
-            background: starredOnly ? "#E53935" : "#fff",
-            color: starredOnly ? "#fff" : "#555",
-            border: "1px solid " + (starredOnly ? "#E53935" : "#ddd"),
-            borderRadius: 5, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
-        }, "★ 星のみ" + (starredCount > 0 ? " (" + starredCount + ")" : "")),
         hasAnyFilter && React.createElement("button", {
           onClick: clearAllFilter,
           style: { padding: "5px 10px", fontSize: 11, fontWeight: 600,
