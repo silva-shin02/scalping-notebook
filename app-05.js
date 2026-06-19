@@ -4990,17 +4990,17 @@ function VirtualAlphaCalc(_ref_vac) {
           React.createElement("span", { style: { fontSize: 11, color: "#666" } }, "α値"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
-              type: "text", inputMode: "numeric", min: "0", max: "30", step: "1", value: aStr,
+              type: "text", inputMode: "numeric", min: "0", max: "50", step: "1", value: aStr,
               onChange: function(e) {
                 var v = _toHankaku(e.target.value);
-                if (v !== "") { var _vn = Number(v); if (!isNaN(_vn)) { if (_vn > 30) _vn = 30; if (_vn < 0) _vn = 0; v = String(_vn); } }
+                if (v !== "") { var _vn = Number(v); if (!isNaN(_vn)) { if (_vn > 50) _vn = 50; if (_vn < 0) _vn = 0; v = String(_vn); } }
                 setAlphaByStock(function(prev) { var n = Object.assign({}, prev); n[stock] = v; return n; });
               },
-              placeholder: "0〜30",
+              placeholder: "0〜50",
               style: { width: 64, fontSize: 12, border: "none", outline: "none", background: "#fff", padding: "3px 6px", textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { setAlphaByStock(function(prev) { var n = Object.assign({}, prev); n[stock] = String(Math.min(30, (parseFloat(prev[stock]||"5")||0) + 1)); return n; }); },
+              function() { setAlphaByStock(function(prev) { var n = Object.assign({}, prev); n[stock] = String(Math.min(50, (parseFloat(prev[stock]||"5")||0) + 1)); return n; }); },
               function() { setAlphaByStock(function(prev) { var n = Object.assign({}, prev); n[stock] = String(Math.max(0, (parseFloat(prev[stock]||"5")||0) - 1)); return n; }); }
             )
           ),
@@ -6139,13 +6139,13 @@ function EntryRecordForm(_ref_erf) {
           if (_v === "") { setFAlphaVal(""); return; }
           var n = Number(_v);
           if (isNaN(n)) return;
-          if (n > 30) n = 30; if (n < 0) n = 0;
+          if (n > 50) n = 50; if (n < 0) n = 0;
           setFAlphaVal(String(n));
         };
         var _stepAV = function(delta) {
           var base = (fAlphaVal !== "" && !isNaN(Number(fAlphaVal))) ? Number(fAlphaVal) : _gradeAlpha(fDifficulty);
           var n = base + delta;
-          if (n > 30) n = 30; if (n < 0) n = 0;
+          if (n > 50) n = 50; if (n < 0) n = 0;
           setFAlphaVal(String(n));
         };
         return React.createElement("div", {
@@ -6156,7 +6156,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "採用α値（水準線比）"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
-              type: "text", inputMode: "numeric", min: "0", max: "30", step: "1",
+              type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
               value: fAlphaVal !== "" ? fAlphaVal : (fDifficulty ? String(_gradeAlpha(fDifficulty)) : ""),
               onChange: function(e) { _setAV(e.target.value); },
               placeholder: "各記録",
@@ -6637,14 +6637,14 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 2 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 6, overflow: "hidden" } },
                   React.createElement("input", {
-                    type: "text", inputMode: "numeric", min: "0", max: "30", step: "1",
+                    type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
                     value: fTradeAlpha,
-                    onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "") { setFTradeAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 30) n = 30; if (n < 0) n = 0; setFTradeAlpha(String(n)); },
+                    onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "") { setFTradeAlpha(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFTradeAlpha(String(n)); },
                     placeholder: "—",
                     style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", width: 70, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
                   }),
                   _stepBtn(
-                    function() { setFTradeAlpha(function(v) { return String(Math.min(30, (Number(v)||0) + 1)); }); },
+                    function() { setFTradeAlpha(function(v) { return String(Math.min(50, (Number(v)||0) + 1)); }); },
                     function() { setFTradeAlpha(function(v) { return String(Math.max(0, (Number(v)||0) - 1)); }); }
                   )
                 ),
