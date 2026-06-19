@@ -1664,6 +1664,25 @@ function _snStorageDeleteOrphans(orphans, graceDays, nowMs) {
     return { deleted: deleted, freed: freed, errs: errs, skippedRecent: (orphans || []).length - toDel.length };
   });
 }
+// 自動削除(_snAutoPruneNewsImages)で参照が消えた画像のStorage実体を安全に回収する（2026-06-19）。
+// beforeData→afterDataで「全参照を失ったパス(lost)」を求め、push完了後にafterData＋リモート全データ＋CAで再診断し、
+// lost かつ どこからも未参照(孤児) のものだけ削除＝pruned範囲に限定するので他端末の新規画像を巻き込まない。
+// remoteOk/caOk が取れない時は中止＝安全側。リモートがpush未反映ならlostが孤児にならず削除0→次回回収。
+function _snReclaimPrunedStorage(beforeData, afterData, cfg) {
+  if (!_fbStorageRef || !cfg || !cfg.fbUrl) return Promise.resolve({ deleted: 0, freed: 0, aborted: "no-storage" });
+  var before = _snCollectReferencedStoragePaths(beforeData);
+  var after = _snCollectReferencedStoragePaths(afterData);
+  var lost = {}, hasLost = false;
+  for (var p in before) { if (before.hasOwnProperty(p) && !after[p]) { lost[p] = true; hasLost = true; } }
+  if (!hasLost) return Promise.resolve({ deleted: 0, freed: 0 });
+  return _snStorageAudit(afterData, cfg).then(function(r) {
+    if (!r || !r.ok) return { deleted: 0, freed: 0, aborted: "audit-failed" };
+    if (r.remoteOk === false || r.caOk === false) return { deleted: 0, freed: 0, aborted: "remote-unconfirmed" };
+    var targets = (r.orphans || []).filter(function(o) { return lost[o.path]; });
+    if (!targets.length) return { deleted: 0, freed: 0 };
+    return _snStorageDeleteOrphans(targets, 0, Date.now());
+  })["catch"](function() { return { deleted: 0, freed: 0, aborted: "error" }; });
+}
 
 // 過去画像をWebP/縮小で再圧縮してFirebase Storageの容量を削減する（2026-06-17。当初ニュース限定→全画像に一般化）。
 // 新規取り込みは_imgToWebpMaybeで既に圧縮済みだが、それ以前にフル解像度PNG/JPEGでアップ済みの画像はStorageに大きいまま残る。

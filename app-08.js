@@ -866,7 +866,17 @@ function App() {
       }
       save(r.data);
       localStorage.setItem("sn_news_autoprune_day_v1", today);
-      console.log("[autoprune] removed news images:", r.count);
+      console.log("[autoprune] removed news image refs:", r.count);
+      try {
+        var _cfgNow = cfgRef.current;
+        var _after = dataRef.current;
+        Promise.resolve(fbPut(_cfgNow, _after)).then(function() {
+          return _snReclaimPrunedStorage(d, _after, _cfgNow);
+        }).then(function(res) {
+          if (res && res.deleted) console.log("[autoprune] reclaimed storage:", res.deleted, "objs /", res.freed, "bytes");
+          else if (res && res.aborted) console.log("[autoprune] storage reclaim skipped (will retry next open):", res.aborted);
+        })["catch"](function(e2) { console.warn("[autoprune] reclaim error:", e2); });
+      } catch(e3) { console.warn("[autoprune] reclaim setup error:", e3); }
     } catch(e) { console.warn("[autoprune] error:", e); }
   }, [fbStatus]);
 
