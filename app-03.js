@@ -4552,7 +4552,8 @@ function NewsTab(_ref36) {
           onUpdate: function(i2, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images||[]); a[i2] = ed; return { images: a }; }); }
         });
       },
-      onUpdateImg: function(i, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images||[]); a[i] = ed; return { images: a }; }); }
+      onUpdateImg: function(i, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images||[]); a[i] = ed; return { images: a }; }); },
+      onToggleStar: function(i) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images||[]); a[i] = Object.assign({}, a[i], { star: !(a[i] && a[i].star) }); return { images: a }; }); }
     }),
     React.createElement("div", {
       style: { padding: "6px 8px" }

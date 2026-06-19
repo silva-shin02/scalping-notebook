@@ -2025,6 +2025,10 @@ function SettingsModal(_ref54) {
   var _defNewsCut = (function() { var d = new Date(); d.setMonth(d.getMonth() - 3); var mm = ("0" + (d.getMonth() + 1)).slice(-2), dd2 = ("0" + d.getDate()).slice(-2); return d.getFullYear() + "-" + mm + "-" + dd2; })();
   var _saNc = useState(_defNewsCut), _stNewsCut = _saNc[0], _setStNewsCut = _saNc[1];
   var _saNp = useState(null), _stNewsPrev = _saNp[0], _setStNewsPrev = _saNp[1];
+  var _nadInitDays = (function(){ var x = data && data.custom && data.custom.newsImgAutoDelete; return (x && typeof x.periodDays === "number" && x.periodDays > 0) ? x.periodDays : 7; })();
+  var _saNdU = useState(_nadInitDays % 7 === 0 ? "week" : "day"), _stNdU = _saNdU[0], _setStNdU = _saNdU[1];
+  var _saNdV = useState(_nadInitDays % 7 === 0 ? String(_nadInitDays / 7) : String(_nadInitDays)), _stNdV = _saNdV[0], _setStNdV = _saNdV[1];
+  var _saTab = useState("sync"), _stTab = _saTab[0], _setStTab = _saTab[1];
   var _stFmtMB = function(b) { return (b >= 1048576) ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB"; };
   var _runStAudit = function() {
     if (_stBusy) return;
@@ -2122,6 +2126,11 @@ function SettingsModal(_ref54) {
     _setStNewsPrev({ count: 0, cutoff: _stNewsCut, doneCount: r.count });
     window.alert("ニュース画像 " + r.count + "枚を記録から外しました。\n続けて下の「🗂 使用量を診断 → 新しい孤児も含めて全部削除」を実行すると、クラウドの容量が解放されます。");
   };
+  var _ndCalcDays = function(v, u) { var n = Number(typeof _toHankakuNum === "function" ? _toHankakuNum(v) : v); if (!(n > 0)) return 0; return u === "week" ? Math.round(n * 7) : Math.round(n); };
+  var _ndSaveEnabled = function(en) { if (!save) return; save(function(prev) { var pc = prev.custom || {}; var pn = pc.newsImgAutoDelete || {}; return Object.assign({}, prev, { custom: Object.assign({}, pc, { newsImgAutoDelete: Object.assign({}, pn, { enabled: !!en }) }) }); }); };
+  var _ndSaveDaysVal = function(v, u) { var days = _ndCalcDays(v, u); if (!(days > 0) || !save) return; save(function(prev) { var pc = prev.custom || {}; var pn = pc.newsImgAutoDelete || {}; return Object.assign({}, prev, { custom: Object.assign({}, pc, { newsImgAutoDelete: Object.assign({}, pn, { periodDays: days }) }) }); }); };
+  var _nadEnabled = !!(data && data.custom && data.custom.newsImgAutoDelete && data.custom.newsImgAutoDelete.enabled === true);
+  var _ndPreview = (function() { if (!data || !data.trades) return null; var days = _ndCalcDays(_stNdV, _stNdU); if (!(days > 0)) return null; try { return _snAutoPruneNewsImages(data, Date.now() - days * 86400000).count; } catch(e) { return null; } })();
   var I = {
     padding: "9px 10px",
     border: "1px solid #ccc",
@@ -2158,7 +2167,19 @@ function SettingsModal(_ref54) {
       fontWeight: 700,
       marginBottom: 20
     }
-  }, "\u2699\uFE0F \u8A2D\u5B9A"), React.createElement("div", {
+  }, "\u2699\uFE0F \u8A2D\u5B9A"),
+  React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 18, borderBottom: "1px solid #eee", paddingBottom: 10 } },
+    [["sync", "\uD83D\uDD04 \u540C\u671F"], ["data", "\uD83D\uDCCA \u30C7\u30FC\u30BF\u30FB\u9298\u67C4"], ["maint", "\uD83D\uDDBC \u753B\u50CF\u30FB\u30E1\u30F3\u30C6"]].map(function(t) {
+      var on = _stTab === t[0];
+      return React.createElement("button", {
+        key: t[0], onClick: function() { _setStTab(t[0]); },
+        style: { padding: "6px 11px", fontSize: 12, fontWeight: 600, borderRadius: 7, cursor: "pointer", flex: 1,
+          border: on ? "1px solid #BAE6FD" : "1px solid #e0ddd6",
+          background: on ? "#E0F2FE" : "#fff", color: on ? "#0C4A6E" : "#888" }
+      }, t[1]);
+    })
+  ),
+  _stTab === "sync" && React.createElement("div", {
     style: {
       marginBottom: 20
     }
@@ -2283,7 +2304,7 @@ function SettingsModal(_ref54) {
     );
   }()),
   
-  data && save ? (function() {
+  _stTab === "data" && data && save ? (function() {
     var stocksArr = (data.custom && data.custom.stocks && data.custom.stocks.length > 0)
       ? data.custom.stocks : _DEF_STOCKS_FROZEN;
     var chartsObj = data.charts || {};
@@ -2367,7 +2388,7 @@ function SettingsModal(_ref54) {
     );
   }()) : null,
   
-  data && save ? (function() {
+  _stTab === "data" && data && save ? (function() {
     var stocks = (data.custom && data.custom.stocks && data.custom.stocks.length > 0)
       ? data.custom.stocks : _DEF_STOCKS_FROZEN;
     var codes = (data.custom && data.custom.stockCodes) || {};
@@ -2432,8 +2453,36 @@ function SettingsModal(_ref54) {
       )
     );
   })() : null,
-  React.createElement("div", { style: { marginTop: 18, paddingTop: 14, borderTop: "1px solid #eee" } },
+  _stTab === "maint" && React.createElement("div", { style: { marginTop: 18, paddingTop: 14, borderTop: "1px solid #eee" } },
     React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "🧹 メンテナンス"),
+    React.createElement("div", { style: { marginTop: 4, marginBottom: 14, padding: "12px 14px", background: "#F0F9FF", border: "2px solid #BAE6FD", borderRadius: 10 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 } },
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#0C4A6E" } }, "🗞 ニュース画像の自動削除"),
+        React.createElement("button", {
+          onClick: function() { _ndSaveEnabled(!_nadEnabled); },
+          title: _nadEnabled ? "オン" : "オフ",
+          style: { width: 46, height: 25, borderRadius: 13, border: "none", cursor: "pointer", position: "relative", padding: 0, flexShrink: 0, background: _nadEnabled ? "#0EA5E9" : "#cbd5e1" }
+        }, React.createElement("span", { style: { position: "absolute", top: 3, left: _nadEnabled ? 24 : 3, width: 19, height: 19, borderRadius: "50%", background: "#fff" } }))
+      ),
+      React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.7, marginBottom: 10 } }, "追加してから一定期間がたったニュース画像を、起動時に自動で削除します（テキスト・タグ・記録は残ります）。各画像の★を押すと保護され、期限を過ぎても削除されません。"),
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, opacity: _nadEnabled ? 1 : 0.5 } },
+        React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600 } }, "削除する期間"),
+        React.createElement("input", { type: "text", inputMode: "numeric", value: _stNdV, disabled: !_nadEnabled,
+          onChange: function(e) { _setStNdV(e.target.value); },
+          onBlur: function() { _ndSaveDaysVal(_stNdV, _stNdU); },
+          style: { width: 52, textAlign: "center", padding: "6px 8px", border: "1px solid #BAE6FD", borderRadius: 6, fontSize: 13, fontWeight: 700, color: "#0C4A6E", background: "#fff", outline: "none" } }),
+        React.createElement("select", { value: _stNdU, disabled: !_nadEnabled,
+          onChange: function(e) { var uu = e.target.value; _setStNdU(uu); _ndSaveDaysVal(_stNdV, uu); },
+          style: { padding: "6px 8px", border: "1px solid #BAE6FD", borderRadius: 6, fontSize: 13, background: "#fff", outline: "none" } },
+          React.createElement("option", { value: "week" }, "週間"),
+          React.createElement("option", { value: "day" }, "日")
+        ),
+        React.createElement("span", { style: { fontSize: 11, color: "#94a3b8" } }, "＝" + (_ndCalcDays(_stNdV, _stNdU) || "?") + "日")
+      ),
+      (_nadEnabled && _ndPreview != null) ? React.createElement("div", { style: { marginTop: 8, fontSize: 11, fontWeight: 600, background: "#fff", borderRadius: 6, padding: "6px 10px", color: _ndPreview > 0 ? "#B45309" : "#15803D" } },
+        _ndPreview > 0 ? ("現在この設定だと ★なしのニュース画像 " + _ndPreview + "枚 が削除対象です（次回起動時にまとめて確認します）") : "現在、削除対象の画像はありません"
+      ) : null
+    ),
     React.createElement("button", {
       onClick: function() {
         var keys = [], bytes = 0;

@@ -842,6 +842,34 @@ function App() {
       localStorage.setItem("sn_nikkei_chart_cleaned_v1", "1");
     } catch(e) { console.warn("[cleanup] nikkei chart cleanup error:", e); }
   }, []);
+
+  useEffect(function() {
+    try {
+      var d = dataRef.current;
+      if (!d || !d.custom) return;
+      var na = d.custom.newsImgAutoDelete || {};
+      if (na.enabled !== true) return;
+      if (fbStatus !== "ok") return;
+      if (!d.trades || !Object.keys(d.trades).length) return;
+      var today = todayStr();
+      if (localStorage.getItem("sn_news_autoprune_day_v1") === today) return;
+      var period = (typeof na.periodDays === "number" && na.periodDays > 0) ? na.periodDays : 7;
+      var cutoffMs = Date.now() - period * 86400000;
+      var r = _snAutoPruneNewsImages(d, cutoffMs);
+      if (!r.count || r.data === d) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
+      var label = (period % 7 === 0) ? (period / 7 + "週間") : (period + "日");
+      var firstRun = localStorage.getItem("sn_news_autoprune_ack_v1") !== "1";
+      if (firstRun) {
+        var ok = window.confirm("ニュース画像の自動削除がオンになっています。\n\n追加から" + label + "を過ぎたニュース画像 " + r.count + "枚 を削除します。\n★を付けた画像は残ります。テキスト・タグ・記録は消えません。\n\n削除しますか？（設定でオフ／期間変更できます）");
+        if (!ok) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
+        localStorage.setItem("sn_news_autoprune_ack_v1", "1");
+      }
+      save(r.data);
+      localStorage.setItem("sn_news_autoprune_day_v1", today);
+      console.log("[autoprune] removed news images:", r.count);
+    } catch(e) { console.warn("[autoprune] error:", e); }
+  }, [fbStatus]);
+
     var exportData = function exportData() {
     var b = new Blob([JSON.stringify(dataRef.current, null, 2)], {
       type: "application/json"

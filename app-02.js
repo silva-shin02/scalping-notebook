@@ -1007,7 +1007,17 @@ function ImgThumb(_ref_it) {
             "反映中…"
           )
         : "✓"
-    ) : null
+    ) : null,
+    img && img.star ? React.createElement("div", {
+      style: {
+        position: "absolute", top: 3, left: 3,
+        minWidth: 18, height: 18, borderRadius: 9,
+        background: "rgba(0,0,0,0.6)", color: "#FFD54A",
+        fontSize: 12, lineHeight: "18px", textAlign: "center",
+        padding: "0 2px", pointerEvents: "none"
+      },
+      title: "保護中（自動削除されません）"
+    }, "★") : null
   );
 }
 function ImgGrid(_ref15) {
@@ -1015,7 +1025,8 @@ function ImgGrid(_ref15) {
     onRemove = _ref15.onRemove,
     onAnnotate = _ref15.onAnnotate,
     onEnlarge = _ref15.onEnlarge,
-    onUpdateImg = _ref15.onUpdateImg;
+    onUpdateImg = _ref15.onUpdateImg,
+    onToggleStar = _ref15.onToggleStar;
   if (!images || !images.length) return null;
   return React.createElement("div", {
     style: {
@@ -1056,7 +1067,25 @@ function ImgGrid(_ref15) {
         display: "flex",
         gap: 3
       }
-    }, onRemove && React.createElement("button", {
+    }, onToggleStar && React.createElement("button", {
+      onClick: function onClick() {
+        return onToggleStar(i);
+      },
+      title: img && img.star ? "\u4fdd\u8b77\u3092\u89e3\u9664" : "\u2605\u3067\u4fdd\u8b77\uff08\u81ea\u52d5\u524a\u9664\u3057\u306a\u3044\uff09",
+      style: {
+        width: 24,
+        height: 24,
+        borderRadius: "50%",
+        background: img && img.star ? "#F59E0B" : "#fff",
+        color: img && img.star ? "#fff" : "#bbb",
+        border: "1px solid " + (img && img.star ? "#F59E0B" : "#ccc"),
+        fontSize: 13,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }
+    }, "\u2605"), onRemove && React.createElement("button", {
       onClick: function onClick() {
         return onRemove(i);
       },
@@ -2125,6 +2154,13 @@ function MemoSection(_ref16) {
     onUpdateImg: function onUpdateImg(i, ed) {
       var ni = _toConsumableArray(imgs);
       ni[i] = ed;
+      _onChange(_objectSpread(_objectSpread({}, m), {}, {
+        images: ni
+      }));
+    },
+    onToggleStar: function onToggleStar(i) {
+      var ni = _toConsumableArray(imgs);
+      ni[i] = Object.assign({}, ni[i], { star: !(ni[i] && ni[i].star) });
       _onChange(_objectSpread(_objectSpread({}, m), {}, {
         images: ni
       }));

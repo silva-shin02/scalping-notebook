@@ -1887,7 +1887,8 @@ function NewsHistoryView(_ref_nhv) {
             onUpdate: function(i2, ed) { updImgInNi(date, ni.id, i2, ed); }
           });
         },
-        onUpdateImg: function(i, ed) { updImgInNi(date, ni.id, i, ed); }
+        onUpdateImg: function(i, ed) { updImgInNi(date, ni.id, i, ed); },
+        onToggleStar: function(i) { updImgInNi(date, ni.id, i, Object.assign({}, imgs[i], { star: !(imgs[i] && imgs[i].star) })); }
       }),
       
       React.createElement("div", { style: { padding: "6px 8px" } },

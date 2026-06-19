@@ -227,7 +227,7 @@ function _fileToImg() {
                 var headerMatch = result.substring(0, commaIdx).match(/^data:([^;]+)/);
                 var mt = headerMatch ? headerMatch[1] : (file.type || "image/png");
                 // 取り込み時にWebP化を試みる（非対応/gif/svg/巨大/縮小不可は元のまま）。容量削減 2026-06-15
-                return _imgToWebpMaybe(result, base64, mt).then(function(o) { res({ base64: o.base64, mt: o.mt, id: Date.now() }); });
+                return _imgToWebpMaybe(result, base64, mt).then(function(o) { var _nowTs = Date.now(); res({ base64: o.base64, mt: o.mt, id: _nowTs, addedAt: _nowTs, star: false }); });
               } catch (_e) { return res(null); }
             };
             r.onerror = function () { return res(null); };
@@ -399,6 +399,9 @@ function migrateData(d) {
   if (!d.custom.newsSubCatDefaults || typeof d.custom.newsSubCatDefaults !== "object") d.custom.newsSubCatDefaults = {};
   if (!d.custom.stockSubCatRefs || typeof d.custom.stockSubCatRefs !== "object") d.custom.stockSubCatRefs = {};
   if (!d.custom.stockInfoTabs || typeof d.custom.stockInfoTabs !== "object") d.custom.stockInfoTabs = {};
+  if (!d.custom.newsImgAutoDelete || typeof d.custom.newsImgAutoDelete !== "object") d.custom.newsImgAutoDelete = { enabled: true, periodDays: 7 };
+  if (typeof d.custom.newsImgAutoDelete.enabled !== "boolean") d.custom.newsImgAutoDelete.enabled = true;
+  if (typeof d.custom.newsImgAutoDelete.periodDays !== "number" || !(d.custom.newsImgAutoDelete.periodDays > 0)) d.custom.newsImgAutoDelete.periodDays = 7;
 
   if (!d.custom._alphaDefault5Mig) {
     if (d.charts && typeof d.charts === "object") {
@@ -424,9 +427,32 @@ function migrateData(d) {
     d.custom._alphaPerRecordMig = true;
   }
 
-  
-  
-  
+  if (!d.custom._newsImgAddedAtMig) {
+    if (d.trades && typeof d.trades === "object") {
+      var _bfNowTs = Date.now();
+      var _bfImg = function(im) {
+        if (!im || typeof im !== "object") return;
+        if (typeof im.addedAt !== "number" || !(im.addedAt > 0)) im.addedAt = (typeof im.id === "number" && im.id > 1e12) ? im.id : _bfNowTs;
+        if (im.star !== true) im.star = false;
+      };
+      Object.keys(d.trades).forEach(function(_dt) {
+        var _dd = d.trades[_dt];
+        if (!_dd || !_dd.newsCats || typeof _dd.newsCats !== "object") return;
+        Object.keys(_dd.newsCats).forEach(function(_cat) {
+          var _cd = _dd.newsCats[_cat];
+          if (!_cd || typeof _cd !== "object") return;
+          if (Array.isArray(_cd.newsItems)) _cd.newsItems.forEach(function(_ni) { if (_ni && Array.isArray(_ni.images)) _ni.images.forEach(_bfImg); });
+          if (_cd.newsMemo && Array.isArray(_cd.newsMemo.images)) _cd.newsMemo.images.forEach(_bfImg);
+          if (_cd.subCatMemos && typeof _cd.subCatMemos === "object") Object.keys(_cd.subCatMemos).forEach(function(_sk) { var _sm = _cd.subCatMemos[_sk]; if (_sm && Array.isArray(_sm.images)) _sm.images.forEach(_bfImg); });
+        });
+      });
+    }
+    d.custom._newsImgAddedAtMig = true;
+  }
+
+
+
+
   if (!d.custom.shvExtraTags || typeof d.custom.shvExtraTags !== "object" || Array.isArray(d.custom.shvExtraTags)) {
     var _migShvT = {};
     try {
@@ -1919,14 +1945,23 @@ function _snStorageCategoryAudit(data, cfg, onProgress) {
 // 古いニュース画像を整理（2026-06-18）。trades日付が cutoff(YYYY-MM-DD)より前のニュース画像(newsItems/newsMemo/subCatMemosのimages[])
 // を「画像だけ」外す＝テキスト/タグ/記録は残す。非破壊・不変に新dataを構築し外した枚数countを返す。
 // 外したStorageオブジェクトは孤児になるので、保存後に既存の「全部削除(grace=0)」で実際に容量回収する。元に戻せない。
-function _snStripOldNewsImages(data, cutoff) {
-  if (!data || !data.trades || !cutoff) return { data: data, count: 0 };
+function _snImgAddedAt(im) {
+  if (!im || typeof im !== "object") return 0;
+  if (typeof im.addedAt === "number" && im.addedAt > 0) return im.addedAt;
+  if (typeof im.id === "number" && im.id > 1e12) return im.id;
+  return 0;
+}
+function _snPruneNewsImagesCore(data, dateOk, keepImg) {
+  if (!data || !data.trades) return { data: data, count: 0 };
   var count = 0;
   var trades = data.trades, newTrades = {}, anyChange = false;
+  var _filt = function(imgs) {
+    var kept = imgs.filter(function(im) { return keepImg(im); });
+    return kept.length === imgs.length ? null : kept;
+  };
   Object.keys(trades).forEach(function(date) {
     var dd = trades[date];
-    var isDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
-    if (!isDate || !(date < cutoff) || !dd || typeof dd !== "object" || !dd.newsCats || typeof dd.newsCats !== "object") { newTrades[date] = dd; return; }
+    if (!dateOk(date) || !dd || typeof dd !== "object" || !dd.newsCats || typeof dd.newsCats !== "object") { newTrades[date] = dd; return; }
     var cats = dd.newsCats, newCats = {}, ddChanged = false;
     Object.keys(cats).forEach(function(cat) {
       var cd = cats[cat];
@@ -1935,23 +1970,27 @@ function _snStripOldNewsImages(data, cutoff) {
       if (Array.isArray(cd.newsItems)) {
         var niChanged = false;
         var newNi = cd.newsItems.map(function(ni) {
-          if (ni && Array.isArray(ni.images) && ni.images.length) { niChanged = true; count += ni.images.length; return Object.assign({}, ni, { images: [] }); }
+          if (ni && Array.isArray(ni.images) && ni.images.length) {
+            var kept = _filt(ni.images);
+            if (kept) { niChanged = true; count += (ni.images.length - kept.length); return Object.assign({}, ni, { images: kept }); }
+          }
           return ni;
         });
         if (niChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsItems = newNi; cdChanged = true; }
       }
       if (cd.newsMemo && Array.isArray(cd.newsMemo.images) && cd.newsMemo.images.length) {
-        count += cd.newsMemo.images.length;
-        if (newCd === cd) newCd = Object.assign({}, cd);
-        newCd.newsMemo = Object.assign({}, cd.newsMemo, { images: [] });
-        cdChanged = true;
+        var keptM = _filt(cd.newsMemo.images);
+        if (keptM) { count += (cd.newsMemo.images.length - keptM.length); if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsMemo = Object.assign({}, cd.newsMemo, { images: keptM }); cdChanged = true; }
       }
       if (cd.subCatMemos && typeof cd.subCatMemos === "object") {
         var scChanged = false, newSc = {};
         Object.keys(cd.subCatMemos).forEach(function(sk) {
           var sm = cd.subCatMemos[sk];
-          if (sm && Array.isArray(sm.images) && sm.images.length) { scChanged = true; count += sm.images.length; newSc[sk] = Object.assign({}, sm, { images: [] }); }
-          else newSc[sk] = sm;
+          if (sm && Array.isArray(sm.images) && sm.images.length) {
+            var keptS = _filt(sm.images);
+            if (keptS) { scChanged = true; count += (sm.images.length - keptS.length); newSc[sk] = Object.assign({}, sm, { images: keptS }); return; }
+          }
+          newSc[sk] = sm;
         });
         if (scChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.subCatMemos = newSc; cdChanged = true; }
       }
@@ -1962,6 +2001,24 @@ function _snStripOldNewsImages(data, cutoff) {
     else newTrades[date] = dd;
   });
   return { data: anyChange ? Object.assign({}, data, { trades: newTrades }) : data, count: count };
+}
+function _snStripOldNewsImages(data, cutoff) {
+  if (!data || !data.trades || !cutoff) return { data: data, count: 0 };
+  return _snPruneNewsImagesCore(data, function(date) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) && date < cutoff;
+  }, function(im) {
+    return !!(im && im.star === true);
+  });
+}
+function _snAutoPruneNewsImages(data, cutoffMs) {
+  if (!data || !data.trades || !(cutoffMs > 0)) return { data: data, count: 0 };
+  return _snPruneNewsImagesCore(data, function() { return true; }, function(im) {
+    if (!im || typeof im !== "object") return true;
+    if (im.star === true) return true;
+    var t = _snImgAddedAt(im);
+    if (!t) return true;
+    return t >= cutoffMs;
+  });
 }
 
 function urlToBase64(url) {
@@ -5641,7 +5698,9 @@ function ImageAnnotator(_ref7) {
       id: Date.now(),
       orig_base64: (img.orig_base64 && img.orig_base64 !== "__ref__") ? img.orig_base64 : ((img.base64 && img.base64 !== "__ref__") ? img.base64 : null),
       orig_mt: img.orig_mt || img.mt,
-      strokes: _curStrokes
+      strokes: _curStrokes,
+      addedAt: (typeof img.addedAt === "number" ? img.addedAt : (typeof img.id === "number" ? img.id : Date.now())),
+      star: img.star === true
     };
     if (img.origImageUrl) _savedNow.origImageUrl = img.origImageUrl;
     else if (img.imageUrl) _savedNow.origImageUrl = img.imageUrl;
