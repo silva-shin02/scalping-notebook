@@ -1204,13 +1204,27 @@ function _fbPut() {
           
           var _lightMeta = _buildMeta(fbData);
           _lightMeta._v = _fbLocalV;
-          // 差分同期用: トップレベルセクションごとの署名(_sv)を書き込む。読み手はこれを見て変更分だけDLする。2026-06-15
+          // 差分同期用の署名を書き込む。読み手はこれを見て変更分だけDLする。
+          //  _sv  = トップレベルセクションごとの署名（セクション粒度。旧版端末リーダー互換）2026-06-15
+          //  _svc = シャード対象セクション(charts/trades)はサブキー(ck/日付)ごとの署名マップ、
+          //         それ以外は文字列署名（サブキー粒度。新版リーダーが使用＝1チャート変更で全chartsを再DLしない）2026-06-19
           try {
             var _svMap = {};
+            var _svcMap = {};
             for (var _svk in _lightMeta) {
-              if (_lightMeta.hasOwnProperty(_svk) && _svk !== "_v" && _svk !== "_sv") _svMap[_svk] = _secSig(_lightMeta[_svk]);
+              if (!_lightMeta.hasOwnProperty(_svk) || _svk === "_v" || _svk === "_sv" || _svk === "_svc") continue;
+              var _sec = _lightMeta[_svk];
+              _svMap[_svk] = _secSig(_sec);
+              if (_SHARD_SECTIONS[_svk] && _sec && typeof _sec === "object" && !Array.isArray(_sec)) {
+                var _subMap = {};
+                for (var _sub in _sec) { if (_sec.hasOwnProperty(_sub)) _subMap[_sub] = _secSig(_sec[_sub]); }
+                _svcMap[_svk] = _subMap;
+              } else {
+                _svcMap[_svk] = _svMap[_svk];
+              }
             }
             _lightMeta._sv = _svMap;
+            _lightMeta._svc = _svcMap;
           } catch(_esv) {}
           var _metaBody = JSON.stringify(_lightMeta);
           
@@ -1315,58 +1329,138 @@ function _canonStr(o) {
   for (var j = 0; j < keys.length; j++) parts.push(JSON.stringify(keys[j]) + ":" + _canonStr(o[keys[j]]));
   return "{" + parts.join(",") + "}";
 }
-// セクション署名（画像base64は__ref__に剥がしてから＝metaと同条件で比較）。「長さ:ハッシュ」で衝突を実質排除。
+// RTDBは「空オブジェクト{} / 空配列[] / null」をキーごと保存しない＝読み戻すと存在しない。
+// 署名はRTDBが実際に保存する形に正規化してから計算する。さもないと「書き手のJS値(例 signals:[])」と
+// 「読み手がRTDBから読み戻した値(signalsキー自体が消える)」で署名が永久に食い違い、当該サブキーを毎ポーリング
+// 無駄に再DLし続ける（差分同期の節約が消える）。2026-06-19
+function _rtdbNorm(o) {
+  if (o === null || typeof o !== "object") return o;
+  if (Array.isArray(o)) { var a = []; for (var i = 0; i < o.length; i++) a.push(_rtdbNorm(o[i])); return a; }
+  var out = {};
+  for (var k in o) {
+    if (!o.hasOwnProperty(k)) continue;
+    var v = _rtdbNorm(o[k]);
+    if (v === null || v === undefined) continue;                 // nullキーは保存されない
+    if (Array.isArray(v)) { if (v.length === 0) continue; }       // 空配列は保存されない
+    else if (typeof v === "object") { var _empty = true; for (var _k2 in v) { if (v.hasOwnProperty(_k2)) { _empty = false; break; } } if (_empty) continue; } // 空オブジェクトは保存されない
+    out[k] = v;
+  }
+  return out;
+}
+// セクション署名（画像base64は__ref__に剥がし、RTDB保存形に正規化してから＝metaと同条件で比較）。「長さ:ハッシュ」で衝突を実質排除。
 function _secSig(section) {
-  var s = _canonStr(_stripHeavy(section));
+  var s = _canonStr(_rtdbNorm(_stripHeavy(section)));
   return s.length + ":" + _fbHashStr(s);
 }
-// 差分取得: remoteの _sv（セクション署名マップ）を見て、ローカルと違うセクションだけDLし、
-// 「ローカルの未変更セクション＋取得した変更セクション」で“完全なremote相当”を再構成して返す。
-// →マージ(_mergeRemoteMeta)は従来どおり全件を受け取るので欠落セクション削除のリスクが無い（安全設計）。
-// _svが無い(旧DB)・ローカル無し・取得失敗など不確実時はすべて {status:"full"} を返し、呼び出し側が全件取得にフォールバック。
+// 「中身が空でRTDB上は存在しない（読むとnull）」サブキー/セクションの署名値。差分取得時にnull本体が
+// 正常な空なのか競合なのかを判別するのに使う。
+var _SIG_EMPTY_OBJ = _secSig({});
+var _SIG_EMPTY_ARR = _secSig([]);
+// 差分取得の粒度設定: 指定セクションは「サブキー単位」(charts=銘柄_日付 / trades=日付)で署名し、
+// 変更サブキーだけDLする。巨大な charts を1チャート編集ごとに丸ごと再DLするのを防ぐ。2026-06-19
+var _SHARD_SECTIONS = { charts: 1, trades: 1 };
+// 1セクション内の変更サブキーが多い時は、丸ごと1回DLの方が安いので切替える閾値（件数 or 半数以上）。
+var _SHARD_FULL_THRESHOLD = 30;
+// 差分取得: リモートの署名マップ（新:_svc=サブキー粒度 / 旧:_sv=セクション粒度）を見て、変わった分だけDLし、
+// 「ローカルの未変更分＋取得した変更分」で“完全なremote相当”を再構成して返す。
+// →マージ(_mergeRemoteMeta)は従来どおり全件を受け取るので欠落削除のリスクが無い（安全設計）。
+// 署名が無い(旧DB)・ローカル無し・取得失敗など不確実時はすべて {status:"full"} を返し、呼び出し側が全件取得にフォールバック。
 function fbGetDiff(cfg, localData, remoteV) {
   var base = _fbBase(cfg), auth = _fbAuth(cfg);
   if (!base || !localData || typeof localData !== "object" || !(localData.trades || localData.charts)) {
     return Promise.resolve({ status: "full" });
   }
-  return fetch(base + "/meta/_sv.json" + auth)
-    .then(function(r) { if (!r.ok) return null; return r.text(); })
-    .then(function(txt) {
-      var remoteSv = null;
-      try { remoteSv = txt ? JSON.parse(txt) : null; } catch(e) { remoteSv = null; }
-      try { _fbTrack("db_dl", txt ? txt.length : 0); } catch(e) {}
-      if (!remoteSv || typeof remoteSv !== "object") return { status: "full" }; // 旧DB(_svなし)→全件
-      // 変更セクション = ローカル署名 != リモート署名 のキー（両側のキー和集合）
-      var keyset = {}, k;
-      for (k in remoteSv) { if (remoteSv.hasOwnProperty(k)) keyset[k] = 1; }
-      for (k in localData) { if (localData.hasOwnProperty(k) && k !== "_v" && k !== "_sv") keyset[k] = 1; }
-      var changed = [];
-      for (k in keyset) {
-        if (!keyset.hasOwnProperty(k)) continue;
+  function _getJson(path) {
+    return fetch(base + path + auth)
+      .then(function(r) { if (!r.ok) return null; return r.text(); })
+      .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0); } catch(e) {} var o = null; try { o = t ? JSON.parse(t) : null; } catch(e) { o = null; } return o; });
+  }
+  // 署名マップ取得: 新形式 _svc(サブキー粒度)を優先、無ければ旧 _sv(セクション粒度)。
+  function _fetchSig() {
+    return _getJson("/meta/_svc.json").then(function(svc) {
+      if (svc && typeof svc === "object") return svc;
+      return _getJson("/meta/_sv.json").then(function(sv) { return (sv && typeof sv === "object") ? sv : null; });
+    });
+  }
+  return _fetchSig().then(function(remoteSig) {
+    if (!remoteSig) return { status: "full" }; // 署名無し（旧DB等）→ 全件
+    var keyset = {}, k, s;
+    for (k in remoteSig) { if (remoteSig.hasOwnProperty(k) && k !== "_v" && k !== "_sv" && k !== "_svc") keyset[k] = 1; }
+    for (k in localData) { if (localData.hasOwnProperty(k) && k !== "_v" && k !== "_sv" && k !== "_svc") keyset[k] = 1; }
+
+    var recon = {}, lk;
+    for (lk in localData) { if (localData.hasOwnProperty(lk)) recon[lk] = localData[lk]; } // ローカル全体を土台に
+    var fetches = []; // {url, apply(parsed)}
+    var changed = [];
+
+    for (k in keyset) {
+      if (!keyset.hasOwnProperty(k)) continue;
+      var rEntry = remoteSig.hasOwnProperty(k) ? remoteSig[k] : undefined;
+      if (rEntry === undefined) continue; // リモート署名に無い=ローカル保持（セクション消滅は伝播させない=既存仕様）
+      var lSec = (localData[k] && typeof localData[k] === "object" && !Array.isArray(localData[k])) ? localData[k] : null;
+
+      if (rEntry && typeof rEntry === "object" && !Array.isArray(rEntry)) {
+        // ── サブキー粒度（charts/trades） ──
+        var subset = {};
+        for (s in rEntry) { if (rEntry.hasOwnProperty(s)) subset[s] = 1; }
+        if (lSec) { for (s in lSec) { if (lSec.hasOwnProperty(s)) subset[s] = 1; } }
+        var changedSubs = [], totalSubs = 0;
+        for (s in subset) {
+          if (!subset.hasOwnProperty(s)) continue;
+          totalSubs++;
+          var rSub = rEntry.hasOwnProperty(s) ? rEntry[s] : undefined;
+          if (rSub === undefined) continue; // リモートに無いサブキー=ローカル保持
+          var lSub = (lSec && lSec.hasOwnProperty(s)) ? _secSig(lSec[s]) : null;
+          if (rSub !== lSub) changedSubs.push(s);
+        }
+        if (!changedSubs.length) continue; // このセクションは変更なし→ローカル保持
+        changed.push(k);
+        if (changedSubs.length >= _SHARD_FULL_THRESHOLD || changedSubs.length * 2 >= totalSubs) {
+          // 変更が多い→セクション丸ごと1回DL（多数の小リクエストで逆に増えるのを防ぐ）。
+          // ただしローカル限定サブキー(未pushのck等)が脱落しないよう、ローカルを土台にfetch結果を重ねる。
+          (function(kk, lloc) { fetches.push({ sig: " nonempty", url: "/meta/" + encodeURIComponent(kk) + ".json", apply: function(v) { recon[kk] = Object.assign({}, lloc || {}, v || {}); } }); })(k, lSec);
+        } else {
+          // 土台をローカルのシャローコピーにして、変更サブキーだけ差し替える（ローカルstateは非破壊）
+          var base2 = {};
+          if (lSec) { for (s in lSec) { if (lSec.hasOwnProperty(s)) base2[s] = lSec[s]; } }
+          recon[k] = base2;
+          changedSubs.forEach(function(sub) {
+            (function(kk, ss, ssig) { fetches.push({ sig: ssig, url: "/meta/" + encodeURIComponent(kk) + "/" + encodeURIComponent(ss) + ".json", apply: function(v) { recon[kk][ss] = v; } }); })(k, sub, rEntry[sub]);
+          });
+        }
+      } else {
+        // ── セクション粒度（custom 等 / 旧 _sv） ──
         var lSig = localData.hasOwnProperty(k) ? _secSig(localData[k]) : null;
-        var rSig = remoteSv.hasOwnProperty(k) ? remoteSv[k] : null;
-        if (lSig !== rSig) changed.push(k);
+        if (rEntry !== lSig) {
+          changed.push(k);
+          (function(kk, ssig) { fetches.push({ sig: ssig, url: "/meta/" + encodeURIComponent(kk) + ".json", apply: function(v) { recon[kk] = v; } }); })(k, rEntry);
+        }
       }
-      if (!changed.length) return { status: "nochange" }; // 全セクション内容一致→DL不要
-      var fetches = changed.filter(function(ck) { return remoteSv.hasOwnProperty(ck); }).map(function(ck) {
-        return fetch(base + "/meta/" + encodeURIComponent(ck) + ".json" + auth)
-          .then(function(r2) { if (!r2.ok) throw new Error("sec " + ck + " HTTP " + r2.status); return r2.text(); })
-          .then(function(t2) { try { _fbTrack("db_dl", t2 ? t2.length : 0); } catch(e) {} return { k: ck, v: t2 ? JSON.parse(t2) : null }; });
-      });
-      return Promise.all(fetches).then(function(parts) {
-        // 変更ありと判定したのに本体がnullで返った=不整合(部分書き込み/競合など) → 安全のため全件取得にフォールバック
-        for (var pi = 0; pi < parts.length; pi++) { if (parts[pi].v == null) return { status: "full" }; }
-        var recon = {}, lk;
-        for (lk in localData) { if (localData.hasOwnProperty(lk)) recon[lk] = localData[lk]; }
-        parts.forEach(function(p) { recon[p.k] = p.v; });
-        // トップレベルセクションの「消滅」は伝播させない（旧スキーマ/古い版の端末がwriterになった時に
-        // custom(タグ/銘柄/シグナル定義など設定)を全端末から消す事故を防ぐ。差分は全件マージより安全側に倒す）。
-        recon._v = (typeof remoteV === "number") ? remoteV : (localData._v || Date.now());
-        delete recon._sv;  // ローカルは_svを読まない(毎回_secSigで再計算)ので保存データに残さない
-        if (!(recon.trades || recon.charts)) return { status: "full" }; // 健全性チェック
-        return { status: "diff", data: recon, changed: changed };
-      })["catch"](function() { return { status: "full" }; });
+    }
+
+    if (!fetches.length) return { status: "nochange" }; // 全て内容一致→DL不要
+
+    return Promise.all(fetches.map(function(f) {
+      return fetch(base + f.url + auth)
+        .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status + " " + f.url); return r.text(); })
+        .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0); } catch(e) {} return { f: f, v: t ? JSON.parse(t) : null }; });
+    })).then(function(parts) {
+      for (var pi = 0; pi < parts.length; pi++) {
+        var pp = parts[pi];
+        if (pp.v == null) {
+          // RTDBは空コンテナ/削除をnullで返す。署名が空相当なら「正常に空」なので局保持(applyせず=ローカル土台のまま)、
+          // 署名は非空なのにnull=部分書込/競合の不整合 → 安全のため全件フォールバック。
+          if (pp.f.sig === _SIG_EMPTY_OBJ || pp.f.sig === _SIG_EMPTY_ARR) continue;
+          return { status: "full" };
+        }
+        pp.f.apply(pp.v);
+      }
+      recon._v = (typeof remoteV === "number") ? remoteV : (localData._v || Date.now());
+      delete recon._sv; delete recon._svc;
+      if (!(recon.trades || recon.charts)) return { status: "full" }; // 健全性チェック
+      return { status: "diff", data: recon, changed: changed };
     })["catch"](function() { return { status: "full" }; });
+  })["catch"](function() { return { status: "full" }; });
 }
 // ポーリングで版数が変わった時に呼ぶ取得。差分が使えれば変更分だけ、ダメなら全件にフォールバック。
 // 戻り値 {ok:true,data:再構成済みfullメタ}=マージ対象 / {ok:true,data:null,nochange:true}=内容一致(版数だけ進める)
