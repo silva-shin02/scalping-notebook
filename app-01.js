@@ -5,6 +5,21 @@ var _React = React,
   useCallback = _React.useCallback,
   useMemo = _React.useMemo;
 var IS_TOUCH = 'ontouchstart' in window;
+// ダークモード（テーマ）: 端末ローカル保存。html.sn-dark へのフィルタ反転で全体を暗転（index.html の <style>）。
+var _SN_THEME_KEY = "sn_theme_v1";
+function _snGetTheme() {
+  try { var m = localStorage.getItem(_SN_THEME_KEY); return (m === "dark" || m === "auto" || m === "light") ? m : "light"; } catch (e) { return "light"; }
+}
+function _snThemeIsDark(m) {
+  try { return m === "dark" || (m === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches); } catch (e) { return m === "dark"; }
+}
+function _snApplyTheme(m) {
+  try { localStorage.setItem(_SN_THEME_KEY, m); } catch (e) {}
+  try {
+    var de = document.documentElement;
+    if (de) { if (_snThemeIsDark(m)) de.classList.add("sn-dark"); else de.classList.remove("sn-dark"); }
+  } catch (e) {}
+}
 function debounce(fn, ms) {
   var t;
   return function() {

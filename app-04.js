@@ -2029,6 +2029,7 @@ function SettingsModal(_ref54) {
   var _saNdU = useState(_nadInitDays % 7 === 0 ? "week" : "day"), _stNdU = _saNdU[0], _setStNdU = _saNdU[1];
   var _saNdV = useState(_nadInitDays % 7 === 0 ? String(_nadInitDays / 7) : String(_nadInitDays)), _stNdV = _saNdV[0], _setStNdV = _saNdV[1];
   var _saTab = useState("sync"), _stTab = _saTab[0], _setStTab = _saTab[1];
+  var _saTh = useState(_snGetTheme()), _thMode = _saTh[0], _setThMode = _saTh[1];
   var _stFmtMB = function(b) { return (b >= 1048576) ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB"; };
   var _runStAudit = function() {
     if (_stBusy) return;
@@ -2169,7 +2170,7 @@ function SettingsModal(_ref54) {
     }
   }, "\u2699\uFE0F \u8A2D\u5B9A"),
   React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 18, borderBottom: "1px solid #eee", paddingBottom: 10 } },
-    [["sync", "\uD83D\uDD04 \u540C\u671F"], ["data", "\uD83D\uDCCA \u30C7\u30FC\u30BF\u30FB\u9298\u67C4"], ["maint", "\uD83D\uDDBC \u753B\u50CF\u30FB\u30E1\u30F3\u30C6"]].map(function(t) {
+    [["sync", "\uD83D\uDD04 \u540C\u671F"], ["data", "\uD83D\uDCCA \u30C7\u30FC\u30BF\u30FB\u9298\u67C4"], ["maint", "\uD83D\uDDBC \u753B\u50CF\u30FB\u30E1\u30F3\u30C6"], ["display", "\uD83C\uDFA8 \u8868\u793A"]].map(function(t) {
       var on = _stTab === t[0];
       return React.createElement("button", {
         key: t[0], onClick: function() { _setStTab(t[0]); },
@@ -2178,6 +2179,31 @@ function SettingsModal(_ref54) {
           background: on ? "#E0F2FE" : "#fff", color: on ? "#0C4A6E" : "#888" }
       }, t[1]);
     })
+  ),
+  _stTab === "display" && React.createElement("div", {
+    style: { marginBottom: 20 }
+  },
+    React.createElement("div", {
+      style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 4 }
+    }, "🎨 テーマ（ダークモード）"),
+    React.createElement("div", {
+      style: { fontSize: 12, color: "#777", lineHeight: 1.8, marginBottom: 12 }
+    }, "画面全体の色を切り替えます。チャート・画像はそのまま、損益の赤／緑などの色も保たれます。文字が見えにくくならないよう、明るさだけを反転します。"),
+    React.createElement("div", { style: { display: "flex", gap: 8 } },
+      [["light", "☀️ ライト"], ["dark", "🌙 ダーク"], ["auto", "🖥️ 自動"]].map(function(t) {
+        var on = _thMode === t[0];
+        return React.createElement("button", {
+          key: t[0],
+          onClick: function() { _snApplyTheme(t[0]); _setThMode(t[0]); },
+          style: { flex: 1, padding: "12px 8px", fontSize: 13, fontWeight: 700, borderRadius: 9, cursor: "pointer",
+            border: on ? "2px solid #38BDF8" : "1px solid #e0ddd6",
+            background: on ? "#E0F2FE" : "#fff", color: on ? "#0C4A6E" : "#666" }
+        }, t[1]);
+      })
+    ),
+    React.createElement("div", {
+      style: { fontSize: 11, color: "#999", marginTop: 10, lineHeight: 1.7 }
+    }, "「自動」は端末（OS）の設定に追従します。設定はこの端末に保存されます（他の端末とは同期しません）。")
   ),
   _stTab === "sync" && React.createElement("div", {
     style: {

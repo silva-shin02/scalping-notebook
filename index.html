@@ -41,7 +41,25 @@ canvas{image-rendering:high-quality;-webkit-image-rendering:high-quality}
 /* text-decoration-color:inherit で、選択中も各spanの下線色(緑等)を維持(既定だと文字色で描かれる) */
 .sn-rme-editable::selection,.sn-rme-editable *::selection{background:rgba(100,150,255,0.30);-webkit-text-decoration-color:inherit;text-decoration-color:inherit}
 .sn-rme-editable::-moz-selection,.sn-rme-editable *::-moz-selection{background:rgba(100,150,255,0.30);text-decoration-color:inherit}
+/* ダークモード: 画面全体を「スマート反転」（明度だけ反転・色相は保持＝損益の赤/緑等の意味色は維持）。
+   画像・canvas（チャート）は逆フィルタで打ち消して元の見た目を復元＝劣化なし。
+   SVGの折れ線/円グラフ等は反転のままにして暗背景で明るい線にする。 */
+html.sn-dark{filter:invert(1) hue-rotate(180deg);background:#fff}
+html.sn-dark img,html.sn-dark canvas,html.sn-dark video,html.sn-dark [data-sn-noinvert]{filter:invert(1) hue-rotate(180deg)}
 </style>
+<script>
+/* ダークモード初期適用: body 描画前に html へ sn-dark を付与してチラつきを防ぐ。
+   「自動」はOSの配色設定に追従（システム変更時もライブで切替）。 */
+(function(){try{
+  var KEY='sn_theme_v1';
+  function isDark(){ var m; try{ m=localStorage.getItem(KEY); }catch(e){ m=null; }
+    return m==='dark' || (m==='auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+  function apply(){ try{ document.documentElement.classList.toggle('sn-dark', isDark()); }catch(e){} }
+  apply();
+  if(window.matchMedia){ var mq=window.matchMedia('(prefers-color-scheme: dark)');
+    try{ mq.addEventListener('change', apply); }catch(e){ try{ mq.addListener(apply); }catch(e2){} } }
+}catch(e){}})();
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 </head>
