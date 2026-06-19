@@ -1398,7 +1398,7 @@ function fbInitialLoad(cfg, localData) {
       return { status: "skip" };
     }
     
-    return fbGet(cfg).then(function(fullData) {
+    function _full() { return fbGet(cfg).then(function(fullData) {
       if (rv) _fbLocalV = rv;
       if (fullData === "EMPTY") {
         
@@ -1411,7 +1411,18 @@ function fbInitialLoad(cfg, localData) {
         return { status: "ok", data: fullData };
       }
       return { status: "err" };
-    });
+    }); }
+    // 差分同期: ローカルに既存データがあり、リモートに版数(rv)がある場合は、変わったトップレベル
+    // セクションだけDLして起動時の全件DLを回避（RTDBダウンロード帯域の主因を削減）。2026-06-19
+    // _sv(署名)が無い旧DB・取得失敗など不確実時はfbGetDiffが{status:"full"}を返し _full() で全件フォールバック。
+    if (rv && localData && typeof localData === "object" && (localData.trades || localData.charts)) {
+      return fbGetDiff(cfg, localData, rv).then(function(res) {
+        if (res && res.status === "diff") { _fbLocalV = rv; try { console.log("[FB] initial load: diff DL (" + (res.changed ? res.changed.length : "?") + " sec)"); } catch(e){} return { status: "ok", data: res.data }; }
+        if (res && res.status === "nochange") { _fbLocalV = rv; try { console.log("[FB] initial load: nochange (skip DL, rv=" + rv + ")"); } catch(e){} return { status: "skip" }; }
+        return _full();
+      })["catch"](function() { return _full(); });
+    }
+    return _full();
   })["catch"](function(e) {
     console.warn("[FB] initial load error:", e);
     return { status: "err" };
