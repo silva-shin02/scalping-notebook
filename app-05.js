@@ -5746,9 +5746,11 @@ function EntryRecordForm(_ref_erf) {
   }, [fOsVal, _fAlpha, _fCutLine, _fPlanStopNow]);
 
   // H1期待度×（H1で撤退）→ H2期待度も自動的に×に。H1で手仕舞いした以上H2まで保有しないため。
-  // 合計側は_elHold2TotPartsがH1×でEP損益にカスケードするので、これで入力と計算が一致する。
+  // H1期待度△（H1までしか確定しない）→ H2期待度○はありえない（合計でも_elHold2TotPartsがEP基準へカスケードし○/△は同値）ので、○なら自動で△に。×は許容（H1利確後に下落）。
+  // 合計側は_elHold2TotPartsがH1×/△でカスケードするので、これで入力と計算が一致する。
   useEffect(function() {
     if (fHoldExp === "×" && fHold2Exp !== "×") setFHold2Exp("×");
+    else if (fHoldExp === "△" && fHold2Exp === "○") setFHold2Exp("△");
   }, [fHoldExp, fHold2Exp]);
 
   // OS1の到達期待×（OS1で見送り宣言）→ OS2の到達期待も自動的に×に。OS1で見送った以上OS2でも追わないため。
@@ -6238,16 +6240,17 @@ function EntryRecordForm(_ref_erf) {
 
       isV2Form ? (function() {
         var _ef = _epFormState || {};
-        var _expB = function(cur, setFn, disabled) {
+        var _expB = function(cur, setFn, disabled, disabledOpts) {
           return React.createElement("div", { style: { display: "flex", gap: 3 } },
             [["○", "#C0392B", "#FCEBEB"], ["△", "#B45309", "#FEF3C7"], ["×", "#1E8449", "#EAF3DE"]].map(function(kv) {
               var on = cur === kv[0];
+              var bd = !!disabled || (disabledOpts && disabledOpts.indexOf(kv[0]) >= 0);  // 全無効(前段×) or 選択肢別無効(H1=△→H2の○のみ不可)
               return React.createElement("button", { key: kv[0],
-                onClick: disabled ? null : function() { setFn(on ? null : kv[0]); },
-                disabled: !!disabled,
-                title: disabled ? "前段で×（撤退・見送り）のため、ここも自動的に×になります" : null,
-                style: { padding: "2px 9px", fontSize: 12, fontWeight: 700, borderRadius: 5, cursor: disabled ? "not-allowed" : "pointer",
-                  border: "1.5px solid " + (on ? kv[1] : "#ddd"), background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999", opacity: (disabled && !on) ? 0.35 : 1 } }, kv[0]);
+                onClick: bd ? null : function() { setFn(on ? null : kv[0]); },
+                disabled: !!bd,
+                title: bd ? (disabled ? "前段で×（撤退・見送り）のため、ここも自動的に×になります" : "H1が△のため、H2は○にできません（自動的に△になります）") : null,
+                style: { padding: "2px 9px", fontSize: 12, fontWeight: 700, borderRadius: 5, cursor: bd ? "not-allowed" : "pointer",
+                  border: "1.5px solid " + (on ? kv[1] : "#ddd"), background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999", opacity: (bd && !on) ? 0.35 : 1 } }, kv[0]);
             }));
         };
         var _numIn = function(val, setVal) {
@@ -6339,14 +6342,14 @@ function EntryRecordForm(_ref_erf) {
             _legCol("OS2", _fRoleOf(1), [
               _row("高値", _sIn(fOs2High, setFOs2High, fOs2HighSign, setFOs2HighSign, _os2hSignedRef)),
               _row("確定値", _sIn(fOs2Conf, setFOs2Conf, fOs2ConfSign, setFOs2ConfSign, _os2cSignedRef)),
-              _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×"), true)
+              _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×", fHoldExp === "△" ? ["○"] : null), true)
                 : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
                 : (_ef.o2 != null) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp, fOs1Exp === "×"), true) : null
             ]),
             _legCol("OS3", _fRoleOf(2), [
               _row("高値", _sIn(fOs3High, setFOs3High, fOs3HighSign, setFOs3HighSign, _os3hSignedRef)),
               _row("確定値", _sIn(fOs3Conf, setFOs3Conf, fOs3ConfSign, setFOs3ConfSign, _os3cSignedRef)),
-              _ef.epIdx === 1 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×"), true)
+              _ef.epIdx === 1 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×", fHoldExp === "△" ? ["○"] : null), true)
                 : _ef.epIdx === 2 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true) : null
             ])
           ),
@@ -6354,7 +6357,7 @@ function EntryRecordForm(_ref_erf) {
             _legCol("OS4", _fRoleOf(3), [
               _row("高値", _sInH(fHoldHighVal, setFHoldHighVal, fHoldHighSign, setFHoldHighSign, _hhSignedRef)),
               _row("確定値", _sInH(fHoldWidthVal, setFHoldWidthVal, fHoldWidthSign, setFHoldWidthSign, _hwSignedRef, _hwAfter)),
-              _ef.epIdx === 2 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×"), true) : null
+              _ef.epIdx === 2 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×", fHoldExp === "△" ? ["○"] : null), true) : null
             ]),
             _legCol("OS5", _fRoleOf(4), [
               _row("高値", _sInH(fHold2HighVal, setFHold2HighVal, fHold2HighSign, setFHold2HighSign, _h2hSignedRef)),
