@@ -3297,12 +3297,18 @@ function _epIsXSkip(s, alpha) {
   var r = _epResolve(s, alpha);
   return !!(r && r.judge === "x");
 }
-// EP足（=エントリーした足）の到達期待度が△か（=△の確信度でエントリー）。【2026-06-16】H1/H2の△と同様、EP損益を
-// （）内（参考）のみに算入し本合計（）外には入れない（1段下が無いので（）外＝0）。旧記録(非v2)・×見送り・未設定はfalse＝○扱い。
+// △確信度エントリーか（=EP損益を（）内（参考）のみに算入し本合計（）外＝0にする）。【2026-06-20訂正】
+// 判定は「EP足より“前”の足に△の到達期待があるか」。例: OS1△→OS2/OS3がEP、OS2△→OS3がEP。
+// OS1がEP（epIdx=0・前足なし）は無条件○。EP足自身の期待度は見ない（OS3足はexp無し）。
+// 旧記録(非v2)・α未設定・×見送り(judge≠ok)・前足が全て○/未設定はfalse＝○扱い。
 function _epIsTriEntry(s, alpha) {
   if (!_epIsV2(s) || alpha == null) return false;
   var r = _epResolve(s, alpha);
-  return !!(r && r.judge === "ok" && r.ep && r.ep.exp === "△");
+  if (!r || r.judge !== "ok" || r.epIdx < 0) return false;
+  for (var i = 0; i < r.epIdx; i++) {
+    if (r.legs[i] && r.legs[i].exp === "△") return true;
+  }
+  return false;
 }
 // ×宣言を無視した「見送らず取引していたら」の仮想signal（OS到達期待×を除去→judge=ok化。EP/H1/H2足は高値≥αで不変）。
 // EP損益/H損益ヘルパーを当てると、見送り記録の参考損益（取引していた場合の値）が得られる。表示・×見送り分析専用＝合計には一切算入しない（2026-06-16: ×は（）参考からも除外）。
@@ -5777,10 +5783,11 @@ function EntryRecordForm(_ref_erf) {
     if (fOs1Exp === "×" && fOs2Exp !== "×") setFOs2Exp("×");
   }, [fOs1Exp, fOs2Exp]);
 
-  // EP△（EP足=エントリー足の到達期待が△＝△確信度エントリー）→ H1期待度○はありえない（EP自体が（）外0・参考）。○なら自動で△に。
-  // EP=OS1→fOs1Exp△ / EP=OS2→fOs2Exp△ が対象（OS3足にはexp無し）。H1=△になれば上のH1→H2効果でH2も△へ連鎖する。
+  // △確信度エントリー（EP足より“前”の足に△の到達期待）→ H1期待度○はありえない（EP自体が（）外0・参考）。○なら自動で△に。
+  // EP=OS2(epIdx1)→OS1△ / EP=OS3(epIdx2)→OS1△orOS2△ が対象。OS1がEP(epIdx0)は無条件○。H1=△になれば上のH1→H2効果でH2も△へ連鎖する。
   useEffect(function() {
-    var _epTri = !!(_epFormState && ((_epFormState.epIdx === 0 && fOs1Exp === "△") || (_epFormState.epIdx === 1 && fOs2Exp === "△")));
+    var _ei = _epFormState ? _epFormState.epIdx : -1;
+    var _epTri = (_ei === 1 && fOs1Exp === "△") || (_ei === 2 && (fOs1Exp === "△" || fOs2Exp === "△"));
     if (_epTri && fHoldExp === "○") setFHoldExp("△");
   }, [_epFormState ? _epFormState.epIdx : -1, fOs1Exp, fOs2Exp, fHoldExp]);
 
@@ -6265,8 +6272,9 @@ function EntryRecordForm(_ref_erf) {
 
       isV2Form ? (function() {
         var _ef = _epFormState || {};
-        // EP△（EP足=エントリー足の到達期待が△＝△確信度エントリー）→ H1期待度○は不可（EP自体が（）外0・参考）。OS3足にはexp無し＝EP=OS1/OS2のみ対象。
-        var _epTriForm = (_ef.epIdx === 0 && fOs1Exp === "△") || (_ef.epIdx === 1 && fOs2Exp === "△");
+        // △確信度エントリー（EP足より“前”の足に△の到達期待）→ H1期待度○は不可（EP自体が（）外0・参考）。
+        // EP=OS2(epIdx1)→OS1△ / EP=OS3(epIdx2)→OS1△orOS2△。OS1がEP(epIdx0)は無条件○。
+        var _epTriForm = (_ef.epIdx === 1 && fOs1Exp === "△") || (_ef.epIdx === 2 && (fOs1Exp === "△" || fOs2Exp === "△"));
         var _expB = function(cur, setFn, disabled, disabledOpts) {
           return React.createElement("div", { style: { display: "flex", gap: 3 } },
             [["○", "#C0392B", "#FCEBEB"], ["△", "#B45309", "#FEF3C7"], ["×", "#1E8449", "#EAF3DE"]].map(function(kv) {
