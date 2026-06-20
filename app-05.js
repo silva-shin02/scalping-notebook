@@ -4149,10 +4149,10 @@ function _elH1HeldBase(s, alpha, cutLine) {
 //  ・EP×（×見送り）→ 完全に算入無し。
 //  ・H1期待度×/損切り済/未設定（H1で撤退＝H2まで保有しない）→ 本合計は1段下(_elH1HeldBase=EP損益)。×/未設定は参考も無し（損切り済は従来どおり参考）。
 //  ・H2期待度×/未設定 → 本合計はH1損益(1段下)へフォールバック・参考も無し（未設定=×扱い・「H1損益を算入」）。
-//  ・H2期待度△ → 本合計（（）外）はH1損益(1段下)・H2まで保有した場合との差を参考(（）内)へ＝（）内は○△(=H2損益)。※旧×の挙動を△が継承。
+//  ・H2期待度△ → 本合計（（）外）は1段下=H1合計のmain（H1△ならEP想定額）・H2まで保有した場合との差を参考(（）内)へ＝（）内は○△(=H2損益)。※旧×の挙動を△が継承。
 //  ・H2期待度 損切り済 → 従来どおり1段下main＋参考。
 //  ・想定orH1が損切り（H2＝○）→ 損切り額のみmain。
-//  ・H2期待度○ 非損切り → _elDynHold2 → main。
+//  ・H2期待度○ 非損切り → 「EP正常＋H1○」の完全○チェーンのみ_elDynHold2をmain（（）なし）。H1=△ or EP△（_epIsTriEntry）でチェーンが切れる時は（）内計算＝（）外は1段下(H1のmain)・（）内はH2まで保有。
 function _elHold2TotParts(s, alpha, cutLine) {
   if (!s) return { main: null, ref: null };
   if (_epIsXSkip(s, alpha)) return { main: null, ref: null };  // EP×（×見送り）→ 完全に算入無し
@@ -4161,7 +4161,7 @@ function _elHold2TotParts(s, alpha, cutLine) {
   var hv = (alpha != null && _elHoldIsStop(s, alpha, cutLine))
     ? (_elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine))
     : ((alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign));
-  var _base = _elH1HeldBase(s, alpha, cutLine);  // 1段下（H1まで保有）の損益
+  var _base = _elHold1TotParts(s, alpha, cutLine).main;  // 1段下＝H1合計の（）外main（H1×/△/未設定→EP想定額・H1○→H1損益）。H2の（）外をH1のmainと一致させ、H1=△ならH2もEP基準へカスケード。
   // H1期待度×/損切り済/未設定（=H1撤退＝H2まで保有しない）→ 本合計は1段下(_base)。×/未設定は参考も無し。
   if (s.holdExp === "×" || s.holdExp === "損切り済" || !s.holdExp) {
     var _withRefA = (s.holdExp === "損切り済");  // 損切り済のみ参考。×/未設定は参考無し
@@ -4174,14 +4174,19 @@ function _elHold2TotParts(s, alpha, cutLine) {
   if ((alpha != null && _elHoldIsStop(s, alpha, cutLine)) || s.hold2Exp === "×" || s.hold2Exp === "損切り済" || !s.hold2Exp) {
     return _elHold1TotParts(s, alpha, cutLine);
   }
-  // H2期待度△（H2まで実保有・非損切り）→ 自分の△寄与。（）外=H1損益(1段下)・（）内=H2まで保有との差。
+  // H2期待度△（H2まで実保有・非損切り）→ 自分の△寄与。（）外=1段下(H1合計のmain・H1△ならEP想定額)・（）内=H2まで保有との差。
   if (s.hold2Exp === "△") {
     if (_base == null) return { main: null, ref: hv };
     return { main: _base, ref: (hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
   }
-  // H2期待度○（非損切り）→ H2損益をmain。
+  // H2期待度○（非損切り）。
   if (!_elHas2Data(s, alpha)) return { main: null, ref: null };
-  return { main: hv, ref: null };
+  // 「EP正常エントリー＋H1○」の完全な○チェーンのみH2損益を（）外main。
+  // H1=△ または EPが△（_epIsTriEntry＝△確信度エントリー）でチェーンが切れていれば、H2○でも（）内計算＝
+  //   （）外は1段下(_base＝H1合計のmain・H1△ならEP想定額)・（）内はH2まで保有(hv)。
+  if (s.holdExp === "○" && !_epIsTriEntry(s, alpha)) return { main: hv, ref: null };
+  if (_base == null) return { main: null, ref: hv };
+  return { main: _base, ref: (hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
 }
 function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt, allMiss, refH1, refCntH1) {
   // allMiss=その集計が全記録E基準未達(全miss)→H1/H2とも「Q 0」表示・参考合計は出さない。
@@ -4307,7 +4312,9 @@ function _elHoldStackInner(s, alpha, cutLine) {
   } else {
     // 「損切り済」は_h2StopDone(想定orH1で損切り)時のみ意味を持つ表記。ここはH2が成立する分岐なので期待度として出さない。
     var h2exp = (exp && exp !== "損切り済") ? React.createElement("span", { style: { color: _expCol[exp] || "#666" } }, exp) : null;
-    rows.push(_row("h2", "H２", h2exp, p2, (hexp === "×" || hexp === "損切り済" || exp === "×") ? 2 : ((exp === "△" || exp === "損切り済") ? 1 : 0), true));
+    var _epTriH2 = _epIsTriEntry(s, alpha);  // EPが△（△確信度エントリー）→ H2○でも（）内（参考）で囲む
+    // H2○でもH1=△ or EP△でチェーンが切れていれば参考(level1)で（）囲み。合計(_elHold2TotParts)の（）内計算と一致。
+    rows.push(_row("h2", "H２", h2exp, p2, (hexp === "×" || hexp === "損切り済" || exp === "×") ? 2 : ((exp === "△" || exp === "損切り済" || hexp === "△" || _epTriH2) ? 1 : 0), true));
   }
   return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: _tblW } }, React.createElement("tbody", null, rows));
 }
