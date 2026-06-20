@@ -241,8 +241,9 @@ function _fileToImg() {
                 if (!base64) return res(null);
                 var headerMatch = result.substring(0, commaIdx).match(/^data:([^;]+)/);
                 var mt = headerMatch ? headerMatch[1] : (file.type || "image/png");
-                // 取り込み時にWebP化を試みる（非対応/gif/svg/巨大/縮小不可は元のまま）。容量削減 2026-06-15
-                return _imgToWebpMaybe(result, base64, mt).then(function(o) { var _nowTs = Date.now(); res({ base64: o.base64, mt: o.mt, id: _nowTs, addedAt: _nowTs, star: false }); });
+                // 取り込み画像は再エンコード/縮小せず原寸・原画質で保存＝書き込み画面を最高画質に。
+                // 容量はニュース画像の自動削除(_snAutoPruneNewsImages)で管理。手動圧縮は設定の「📉画像を圧縮」で随時可能。2026-06-20
+                var _nowTs = Date.now(); res({ base64: base64, mt: mt, id: _nowTs, addedAt: _nowTs, star: false });
               } catch (_e) { return res(null); }
             };
             r.onerror = function () { return res(null); };
@@ -1483,7 +1484,7 @@ function fbGetDiff(cfg, localData, remoteV) {
         if (changedSubs.length >= _SHARD_FULL_THRESHOLD || changedSubs.length * 2 >= totalSubs) {
           // 変更が多い→セクション丸ごと1回DL（多数の小リクエストで逆に増えるのを防ぐ）。
           // ただしローカル限定サブキー(未pushのck等)が脱落しないよう、ローカルを土台にfetch結果を重ねる。
-          (function(kk, lloc) { fetches.push({ sig: " nonempty", url: "/meta/" + encodeURIComponent(kk) + ".json", apply: function(v) { recon[kk] = Object.assign({}, lloc || {}, v || {}); } }); })(k, lSec);
+          (function(kk, lloc) { fetches.push({ sig: "nonempty", url: "/meta/" + encodeURIComponent(kk) + ".json", apply: function(v) { recon[kk] = Object.assign({}, lloc || {}, v || {}); } }); })(k, lSec);
         } else {
           // 土台をローカルのシャローコピーにして、変更サブキーだけ差し替える（ローカルstateは非破壊）
           var base2 = {};
@@ -6001,7 +6002,7 @@ function ImageAnnotator(_ref7) {
       
       
       try {
-        // 容量削減(2026-06-15): WebP(q0.88)で保存。非対応端末(古いSafari等)はブラウザが自動でPNGへフォールバックするので、
+        // 注釈は可逆PNGで保存＝最高画質（2026-06-20に容量削減WebP q0.88から復帰・容量はニュース画像の自動削除で管理）。
         // 実際のmime(blob.type / data URLのヘッダ)を読んでmtに反映する＝表示(imgSrc)・Storage拡張子が常に正しくなる。
         if (_expC.toBlob) {
           _expC.toBlob(function(blob) {
@@ -6014,10 +6015,10 @@ function ImageAnnotator(_ref7) {
             };
             _fr.onerror = function() { _finishPng(null); };
             _fr.readAsDataURL(blob);
-          }, "image/webp", 0.88);
+          }, "image/png");
           return;
         }
-        var _du = _expC.toDataURL("image/webp", 0.88);
+        var _du = _expC.toDataURL("image/png");
         var _duMt = (String(_du).match(/^data:([^;]+)/) || [])[1] || "image/png";
         _finishPng(_du.split(",")[1], _duMt);
       } catch(e) {
