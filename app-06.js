@@ -621,8 +621,8 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     if (_epIsXSkip(s, a)) { o.x++; return; }
     var res = _elDynResult(s, a, c);
     if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++;
-    if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) o.stop++;
-    if (res !== "miss") {  // 損益平均はE成立（エントリーできた）分のみを母数に＝未達は除外
+    if (res !== "miss") {  // 損切り率・損益平均はE成立（エントリーできた）分のみを母数に＝未達・×見送りは除外 2026-06-20
+      if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) o.stop++;
       var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; o.planArr.push(plan); }
       var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; o.h1Arr.push(h1t.main); }
     }
@@ -657,7 +657,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
       _tdT(_elOsMMCell(o.osv)),
       _tdT(_rateCell(o.reach, o.cnt)),
       _tdT(_elEwinCell(o.ok, o.ng)),
-      _tdT(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
+      _tdT((o.ok + o.ng) ? Math.round(o.stop / (o.ok + o.ng) * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
       _tdT(_elPnlMMCell(o.planArr)),
       _tdT(_elPnlMMCell(o.h1Arr)));
   };
@@ -678,14 +678,14 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     return React.createElement("span", null, label, "は ", _elInsightEmV2(o.cnt + "件"),
       avgOs != null ? React.createElement("span", null, "・中央OS ", _elInsightEmV2(avgOs + "円")) : null,
       "・E到達率 ", _elInsightEmV2(Math.round(o.reach / o.cnt * 100) + "%"),
-      "・損切り率 ", _elInsightEmV2(Math.round(o.stop / o.cnt * 100) + "%"),
+      "・損切り率 ", _elInsightEmV2(((o.ok + o.ng) ? Math.round(o.stop / (o.ok + o.ng) * 100) : 0) + "%"),
       win != null ? "（勝率 " + win + "%）" : null, "。");
   };
   var items = [];
   var l1 = _line("寄り〜9:15に出た寄り足OS", c915); if (l1) items.push(l1);
   var l2 = _line("寄り〜9:30（累計）", c930); if (l2) items.push(l2);
   if (c930.cnt && late.cnt) {
-    var s930 = Math.round(c930.stop / c930.cnt * 100), sLate = Math.round(late.stop / late.cnt * 100);
+    var s930 = (c930.ok + c930.ng) ? Math.round(c930.stop / (c930.ok + c930.ng) * 100) : 0, sLate = (late.ok + late.ng) ? Math.round(late.stop / (late.ok + late.ng) * 100) : 0;
     items.push(React.createElement("span", null, "寄り〜9:30と9:31以降では、損切り率が ", _elInsightEmV2(s930 + "%"), " vs ", _elInsightEmV2(sLate + "%"), s930 < sLate ? "＝早い寄り足OSの方が損切りになりにくい傾向。" : s930 > sLate ? "＝早い寄り足OSの方が損切りになりやすい傾向。" : "＝差は小さい。"));
     var o930 = _elMedian(c930.osv), oLate = _elMedian(late.osv);
     if (o930 != null && oLate != null) items.push(React.createElement("span", null, "OS中央値は 〜9:30=", _elInsightEmV2(o930 + "円"), "・9:31以降=", _elInsightEmV2(oLate + "円"), o930 > oLate ? "＝早い時間ほどOSが深い（強い初動）。" : "。"));
@@ -1021,7 +1021,8 @@ function _elCumPnlSectionV2(props) {
   var pPlan = [], pH1 = [], pH2 = [], pReal = [], xTicks = [], xLabels = [], lastDate = null;
   _filtered.forEach(function(r, i) {
     var s = r.signal, ai = aiOf(r);
-    var pv = _elDynPlanned(s, ai.alpha, ai.cutLine);
+    // EP-OS△（△の確信度でエントリー）はEP損益（）外に算入しない＝期間別合計表/KPIのEP合計と一致させる。2026-06-20
+    var pv = _epIsTriEntry(s, ai.alpha) ? null : _elDynPlanned(s, ai.alpha, ai.cutLine);
     if (pv != null) cp += pv;
     var h1p = _elHold1TotParts(s, ai.alpha, ai.cutLine);
     if (h1p.main != null) c1 += h1p.main;
@@ -1735,8 +1736,8 @@ function _elDowSectionV2(recs, aiOf) {
     if (_epIsXSkip(s, a)) { o.x++; return; }
     var res = _elDynResult(s, a, c);
     if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++;
-    if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) o.stop++;
-    if (res !== "miss") {  // 損益平均はE成立（エントリーできた）分のみを母数に＝未達は除外
+    if (res !== "miss") {  // 損切り率・損益平均はE成立（エントリーできた）分のみを母数に＝未達・×見送りは除外 2026-06-20
+      if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) o.stop++;
       var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; o.planArr.push(plan); }
       var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; o.h1Arr.push(h1t.main); }
     }
@@ -1761,7 +1762,7 @@ function _elDowSectionV2(recs, aiOf) {
       _elv2Td(_elOsMMCell(o.osv)),
       _elv2Td(_elv2Rate(o.reach, o.cnt)),
       _elv2Td(_elEwinCell(o.ok, o.ng)),
-      _elv2Td(o.cnt ? Math.round(o.stop / o.cnt * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
+      _elv2Td((o.ok + o.ng) ? Math.round(o.stop / (o.ok + o.ng) * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
       _elv2Td(_elPnlMMCell(o.planArr)),
       _elv2Td(_elPnlMMCell(o.h1Arr)));
   };
@@ -1782,8 +1783,8 @@ function _elDowSectionV2(recs, aiOf) {
     }
     var byEp = avail.filter(function(x) { return x.o.planCnt > 0; }).sort(function(a, b) { return (b.o.plan / b.o.planCnt) - (a.o.plan / a.o.planCnt); });
     if (byEp.length) items.push(React.createElement("span", null, "1件あたり平均EP損益が最良の曜日は", _elInsightEmV2(byEp[0].d.label + "曜"), "（", _elInsightEmV2(_elPnlFmt(Math.round(byEp[0].o.plan / byEp[0].o.planCnt))), "）。"));
-    var byStop = avail.filter(function(x) { return x.o.cnt >= 2; }).sort(function(a, b) { return (b.o.stop / b.o.cnt) - (a.o.stop / a.o.cnt); });
-    if (byStop.length && byStop[0].o.stop > 0) items.push(React.createElement("span", null, "損切り率が最も高いのは", _elInsightEmV2(byStop[0].d.label + "曜"), "（" + Math.round(byStop[0].o.stop / byStop[0].o.cnt * 100) + "%）＝この曜日は慎重に。"));
+    var byStop = avail.filter(function(x) { return x.o.cnt >= 2; }).sort(function(a, b) { return (b.o.stop / ((b.o.ok + b.o.ng) || 1)) - (a.o.stop / ((a.o.ok + a.o.ng) || 1)); });
+    if (byStop.length && byStop[0].o.stop > 0) items.push(React.createElement("span", null, "損切り率が最も高いのは", _elInsightEmV2(byStop[0].d.label + "曜"), "（" + Math.round(byStop[0].o.stop / ((byStop[0].o.ok + byStop[0].o.ng) || 1) * 100) + "%）＝この曜日は慎重に。"));
   }
   return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切り発生。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
 }

@@ -3785,7 +3785,7 @@ function _sigStats(tag, allData, period) {
     var k = e[0], c = e[1];
     if (cutoff) {
       var dp = k.split("_").pop();
-      if (dp < cutoff.toISOString().slice(0,10).replace(/-/g,"/")) return;
+      if (dp < cutoff.toISOString().slice(0,10)) return;
     }
     var _clSg = c.cutLine != null ? Number(c.cutLine) : 10;
     (c.signals || []).forEach(function(s) {
@@ -4187,17 +4187,20 @@ function EntrySignalSection(_ref_es) {
   var _esEnteredCount = 0, _esPlanCount = 0, _esMaxCount = 0;
   _recsForTot.forEach(function(r) {
     var s = r.signal;
+    var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
+    var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
 
     if (_elIsEntered(s, r.item)) {
       _esEnteredCount++;
       var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-      if (rv != null) { _esRealSum += rv; _esHasReal = true; }
+      if (rv != null) { _esRealSum += rv; _esHasReal = true; }   // realized は「合計(実額)」バッジ＝_profitGradeFromPnlReal で実額判定するため非換算のまま
     }
-    
+
+    // 単独/最大は「100株あたり」バッジ＝保存の実株数額を per-100 換算（_elCalcStats と同基準）。2026-06-20
     var pv = _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-    if (pv != null) { _esPlanSum += pv; _esPlanCount++; _esHasPlan = true; }
+    if (pv != null) { _esPlanSum += _p100(pv); _esPlanCount++; _esHasPlan = true; }
     var mv = _elSignedVal(s.maxPnl, s.maxPnlSign);
-    if (mv != null) { _esMaxSum += mv; _esMaxCount++; _esHasMax = true; }
+    if (mv != null) { _esMaxSum += _p100(mv); _esMaxCount++; _esHasMax = true; }
   });
   
   var _esGrades = {
@@ -4289,9 +4292,11 @@ function EntrySignalSection(_ref_es) {
                 : (!_epIsV2(s) && s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null)) _esTotHoldHasUnrecorded = true;
     var _isXes = _epIsXSkip(s, _esAlpha(s));  // E×（×見送り）→本合計に算入せず参考(ref)へ
     var rpN = rp != null ? _p100(rp) : null;
-    var ppN = (pp != null && !_isXes) ? _p100(pp) : null;
-    var mpN = (mp != null && !_isXes) ? _p100(mp) : null;
-    var hpN = hp != null ? _p100(hp) : null;
+    // pp/mp/hp/_h2tes は _elDynPlanned/_elDynHold/_elHold2TotParts の動的値＝既に100株換算済み。
+    // _elCalcStats と同様、動的値は Math.round のみ（_p100 で株数を二重に割らない）。rp は保存実額なので _p100 を維持。2026-06-20
+    var ppN = (pp != null && !_isXes) ? Math.round(pp) : null;
+    var mpN = (mp != null && !_isXes) ? Math.round(mp) : null;
+    var hpN = hp != null ? Math.round(hp) : null;
     if (rpN != null) { _esTotReal = (_esTotReal || 0) + rpN; _esTotRealCnt++; }
     // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
     var _epTriEs = _epIsTriEntry(s, _esAlpha(s));  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内のみ・（）外は0
@@ -4315,8 +4320,8 @@ function EntrySignalSection(_ref_es) {
       }
     }
     var _h2tes = _elHold2TotParts(s, _esAlpha(s), _esCut(s));
-    if (_h2tes.main != null) { _esTotHold2 = (_esTotHold2 || 0) + _p100(_h2tes.main); _esTotHold2Cnt++; }
-    if (_h2tes.ref != null) { _esTotHold2Ref = (_esTotHold2Ref || 0) + _p100(_h2tes.ref); _esTotHold2RefCnt++; }
+    if (_h2tes.main != null) { _esTotHold2 = (_esTotHold2 || 0) + Math.round(_h2tes.main); _esTotHold2Cnt++; }
+    if (_h2tes.ref != null) { _esTotHold2Ref = (_esTotHold2Ref || 0) + Math.round(_h2tes.ref); _esTotHold2RefCnt++; }
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
     if (ppN != null && _isAB && !_epTriEs) { _esTotPlanAB = (_esTotPlanAB || 0) + ppN; _esTotPlanABCnt++; }
     if (mpN != null && _isAB) { _esTotMaxAB  = (_esTotMaxAB  || 0) + mpN; _esTotMaxABCnt++; }
@@ -5053,7 +5058,7 @@ function WeeklyPnlPanel(_wpp) {
   var _detailTotRowFor = function(_list) {
     // 合計額算入: フッター合計は除外記録を抜く（明細行 _detailRowsFor は全件のまま表示）2026-06-18
     _list = (_list || []).filter(function(r) { return _elInclTotal(r.signal); });
-    var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } });
+    var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, real: function(r) { if (!_elIsEntered(r.signal, r.item)) return null; var it = r.item; return (it && it.pnl != null) ? Number(it.pnl) : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); } });
     var _allMiss = _elAllMissRow(_list, _alphaOf, _cutOf);
     return React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
       React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),

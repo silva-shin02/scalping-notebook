@@ -1153,38 +1153,41 @@ function SearchView(_ref45) {
   var custom = data.custom || EMPTY.custom;
   var pool = makeTagPoolHandlers(data, save, custom);
   var deleteExtraTag = function deleteExtraTag(tag) {
-    var ch = _objectSpread({}, data.charts),
-      tr = _objectSpread({}, data.trades);
-    Object.keys(ch).forEach(function (k) {
-      if (ch[k].stockTags) ch[k] = _objectSpread(_objectSpread({}, ch[k]), {}, {
-        stockTags: ch[k].stockTags.filter(function (t) {
-          return t !== tag;
-        })
+    // 関数アップデータで最新stateにマージ＝古いdataスナップショットでcharts/tradesを上書きしない。2026-06-20
+    save(function (prev) {
+      var ch = _objectSpread({}, prev.charts),
+        tr = _objectSpread({}, prev.trades);
+      Object.keys(ch).forEach(function (k) {
+        if (ch[k].stockTags) ch[k] = _objectSpread(_objectSpread({}, ch[k]), {}, {
+          stockTags: ch[k].stockTags.filter(function (t) {
+            return t !== tag;
+          })
+        });
       });
-    });
-    Object.keys(tr).forEach(function (k) {
-      var dd = tr[k];
-      if (dd.newsCats) {
-        var nc = {};
-        Object.entries(dd.newsCats).forEach(function (_ref46) {
-          var _ref47 = _slicedToArray(_ref46, 2),
-            cat = _ref47[0],
-            cd = _ref47[1];
-          nc[cat] = _objectSpread(_objectSpread({}, cd), {}, {
-            marketTags: (cd.marketTags || []).filter(function (t) {
-              return t !== tag;
-            })
+      Object.keys(tr).forEach(function (k) {
+        var dd = tr[k];
+        if (dd.newsCats) {
+          var nc = {};
+          Object.entries(dd.newsCats).forEach(function (_ref46) {
+            var _ref47 = _slicedToArray(_ref46, 2),
+              cat = _ref47[0],
+              cd = _ref47[1];
+            nc[cat] = _objectSpread(_objectSpread({}, cd), {}, {
+              marketTags: (cd.marketTags || []).filter(function (t) {
+                return t !== tag;
+              })
+            });
           });
-        });
-        tr[k] = _objectSpread(_objectSpread({}, dd), {}, {
-          newsCats: nc
-        });
-      }
-    });
-    save(_objectSpread(_objectSpread({}, data), {}, {
-      charts: ch,
-      trades: tr
-    }), { immediate: true });
+          tr[k] = _objectSpread(_objectSpread({}, dd), {}, {
+            newsCats: nc
+          });
+        }
+      });
+      return _objectSpread(_objectSpread({}, prev), {}, {
+        charts: ch,
+        trades: tr
+      });
+    }, { immediate: true });
   };
   var _useState129 = useState(""),
     _useState130 = _slicedToArray(_useState129, 2),
@@ -3418,12 +3421,14 @@ function DayView(_ref57) {
     var ns = allStocks.filter(function (s) {
       return s !== stock;
     });
-    
-    save(_objectSpread(_objectSpread({}, data), {}, {
-      custom: _objectSpread(_objectSpread({}, custom), {}, {
-        stocks: ns
-      })
-    }));
+    // 関数アップデータで最新stateにマージ＝削除直前に他経路(同期受信/自動保存)で入った
+    // custom配下の変更を古いdataスナップショットで巻き戻さない。2026-06-20
+    save(function(prev) {
+      var pc = prev.custom || {};
+      var ps = (pc.stocks && pc.stocks.length > 0) ? pc.stocks.slice() : [].concat(DEF_STOCKS);
+      var pns = ps.filter(function(s) { return s !== stock; });
+      return Object.assign({}, prev, { custom: Object.assign({}, pc, { stocks: pns }) });
+    });
     if (activeStock === stock) setCs(ns[0] || "");
   };
   
@@ -3575,8 +3580,10 @@ function DayView(_ref57) {
         }
         records.push({ date: date, stock: _trStock, signal: s, item: item });
         if (_elInclTotal(s)) {  // 合計額算入: 除外記録は合計/成功失敗カウントに入れない（行は表示する）2026-06-18
-        var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        if (v != null) realSum += v;
+        // 表の合計行(_elTotAccum)と一致させる: item.pnl優先＋per-100換算。2026-06-20
+        var _it0 = item;
+        var _v0 = (_it0 && _it0.pnl != null) ? Number(_it0.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+        if (_v0 != null) { var _sh0 = Number(s.shares) > 0 ? Number(s.shares) : 0; realSum += _sh0 > 0 ? Math.round(_v0 / _sh0 * 100) : Math.round(_v0); }
         // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出・旧記録も全表ライブα計算方針に統一）
         var _resTr = _elDynResult(s, _epOwnAlpha(s), _trC.cutLine != null ? Number(_trC.cutLine) : 10);
         if (_resTr === "ok") ok++;
@@ -4915,7 +4922,8 @@ function DayView(_ref57) {
       var _entCnt = function(rs) { return rs.filter(function(r) { return _elIsEntered(r.signal, r.item); }).length; };
       var allRaw = _rawPnl(recs), allEnt = _entCnt(recs);
       if (allSt.sumPnl === 0 && allEnt === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-      var allGrade = allEnt > 0 ? _profitGradeFromPnlReal(allRaw, allEnt) : "D";
+      // ランクは表示額(per-100換算の allSt.sumPnl)で判定＝凡例・表示額・兄弟の_wkRowと一致。2026-06-20
+      var allGrade = allEnt > 0 ? _profitGradeFromPnlReal(allSt.sumPnl, allEnt) : "D";
       return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
         _pbBadge(allGrade),
         React.createElement("span", { style: { fontWeight: 600, color: _pbCol(allSt.sumPnl) } }, _pbFmt(allSt.sumPnl))

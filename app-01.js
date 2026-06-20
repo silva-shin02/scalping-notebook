@@ -1067,6 +1067,22 @@ function _applyDelTombstones(out, local, remote, delKey, arrKey) {
     out[arrKey] = out[arrKey].filter(function(x) { return !x || set[String(x.id)] !== 1; });
   }
 }
+// 未伝播のローカル追加を保護: マージ結果(remote主導)に無く、削除トムストーンにも無いローカル項目は
+// 「まだremoteへ伝播していない新規追加」とみなして再投入する＝相手端末が新しい(_v大)というだけで
+// 新規記録が消えるのを防ぐ。トムストーン済み(削除)idは復活させない・_deleted印も除外。signals/items専用。2026-06-20
+function _reAddLocalAdditions(out, local, remote, delKey, arrKey) {
+  if (!Array.isArray(out[arrKey]) || !local || !Array.isArray(local[arrKey])) return;
+  var dels = _unionIds(local[delKey], remote && remote[delKey]);
+  var delSet = {}; for (var i = 0; i < dels.length; i++) delSet[dels[i]] = 1;
+  var present = {};
+  out[arrKey].forEach(function(x) { if (x && x.id !== undefined) present[String(x.id)] = 1; });
+  local[arrKey].forEach(function(lItem) {
+    if (lItem && lItem.id !== undefined && !lItem._deleted
+        && present[String(lItem.id)] !== 1 && delSet[String(lItem.id)] !== 1) {
+      out[arrKey].push(lItem);
+    }
+  });
+}
 function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
   if (remote === null || remote === undefined) return local;
   if (remote === "__ref__") return local; 
@@ -1170,6 +1186,9 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
   // 削除トムストーン適用: 削除済み signals/items を相手端末由来で復活させない。2026-06-19
   _applyDelTombstones(out, local, remote, "_delSig", "signals");
   _applyDelTombstones(out, local, remote, "_delItem", "items");
+  // 未伝播のローカル追加(signals/items)を保護＝相手が新しいだけで新規記録を取りこぼさない。2026-06-20
+  _reAddLocalAdditions(out, local, remote, "_delSig", "signals");
+  _reAddLocalAdditions(out, local, remote, "_delItem", "items");
   return out;
 }
 
@@ -1240,6 +1259,7 @@ function _fbPut() {
           // _v 単調増加クランプ: 端末の時計が遅れていても、直近に同期したremote版数(_fbLocalV)より必ず大きい
           // 版数を書く。さもないと「遅れた時計→小さい_v」で他端末がこちらの正当な編集を古いとみなし上書き/無視
           // してしまう（クロックスキューによる無言のデータ消失）。2026-06-19
+          var _prevLocalV = _fbLocalV;
           _fbLocalV = Math.max(fbData._v || Date.now(), (_fbLocalV || 0) + 1);
           _context6.n = 3;
           
@@ -1283,6 +1303,9 @@ function _fbPut() {
             }
           } catch(_e) {  }
           if (_shouldSkip) {
+            // 内容無変更でPUTを省く時は版数も進めない＝_fbLocalVがremoteより先行して
+            // 次回ポーリングで無駄な再DL(remoteV !== _fbLocalV)が起きるのを防ぐ。2026-06-20
+            _fbLocalV = _prevLocalV;
             console.log("[fbPut] skipped (no content change, _v=" + _fbLocalV + ")");
             return _context6.a(2);
           }

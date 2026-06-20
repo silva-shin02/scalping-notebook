@@ -118,7 +118,7 @@ function Calendar(_ref60) {
     });
     var result = {};
     Object.keys(m).forEach(function(dt) {
-      result[dt] = { grade: _profitGradeFromPnl(m[dt].sum, m[dt].count), sum: m[dt].sum };
+      result[dt] = { grade: _profitGradeFromPnlReal(m[dt].sum, m[dt].count), sum: m[dt].sum };
     });
     return result;
   }, [data && data.charts]);
@@ -223,7 +223,7 @@ function Calendar(_ref60) {
                 : _s.toLocaleString());
               return React.createElement(React.Fragment, null,
                 React.createElement("span", {
-                  title: "損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n合計: " + (_s > 0 ? "+" : "") + _s.toLocaleString() + "円",
+                  title: "損益グレード: " + _gd.grade + " (" + (_GRADE_DESC_REAL[_gd.grade] || "") + ")\n合計: " + (_s > 0 ? "+" : "") + _s.toLocaleString() + "円",
                   style: {
                     display: "inline-flex", alignItems: "center", justifyContent: "center",
                     width: 16, height: 16, borderRadius: "50%",
@@ -1734,8 +1734,12 @@ function _simSaveFeature(cfg, draftId, featObj) {
   if (!cfg || !cfg.fbUrl) return Promise.resolve(false);
   var base = cfg.fbUrl.replace(/\/$/, "") + "/chart-annotator-drafts-features";
   var auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
+  // 同一draftの cafeat_ レコードは f / events / patterns を3関数(_sim/_evt/_pat Ensure)が共有する。
+  // 古いスナップショットから書き戻すと並行writerが入れた相手フィールドを消すため、
+  // 直近memcacheにマージしてから保存して取りこぼしを防ぐ。2026-06-20
+  featObj = Object.assign({}, _simFeatureMemCache[draftId] || {}, featObj);
   _simFeatureMemCache[draftId] = featObj;
-  
+
   try { snIdbSet("cafeat_" + draftId, { data: featObj, at: Date.now() }); } catch(_){}
   return fetch(base + "/" + encodeURIComponent(draftId) + ".json" + auth, {
     method: "PUT",
@@ -3224,7 +3228,7 @@ function _elAlphaInfo(r, data) {
   var s = r && r.signal;
   return {
     // 採用α値は各エントリー記録(signal.alphaVal)固有。未設定なら各記録の予想OS度α
-    alpha: (s && s.alphaVal != null) ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty),
+    alpha: (s && s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty),
     cutLine: (c && c.cutLine != null) ? Number(c.cutLine) : 10
   };
 }
@@ -5031,6 +5035,8 @@ function EntryRecordForm(_ref_erf) {
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
   var signalTags = custom.signalTags || [];
   var isEdit = !!(initial && initial.signal);
+  // 二重送信ガード: 新規記録の保存中に保存ボタンを連打しても重複作成しない。2026-06-20
+  var _savingRef = useRef(false);
 
   var initSig = isEdit ? initial.signal : {};
   // 常にEP起算方式フォーム（OS1〜5固定欄・scheme:3で保存）。旧記録の編集も新レイアウトで再入力する。
@@ -5802,6 +5808,8 @@ function EntryRecordForm(_ref_erf) {
         if (!window.confirm("H1/H2が未入力のままです。このまま保存しますか？\n（表ではー表示・H損益は集計から除外されます）")) return;
       }
     }
+    if (_savingRef.current) return;
+    _savingRef.current = true;
     var sig = {
       id: isEdit ? initSig.id : _sigId(),
       tag: fTags.length > 0 ? fTags[0] : (fIsCustom ? "__custom__" : ""),

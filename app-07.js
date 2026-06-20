@@ -601,16 +601,8 @@ function _calcEMA(bars, period) {
   if (!bars || bars.length === 0) return [];
   var alpha = 2 / (period + 1);
   var emas = new Array(bars.length).fill(null);
-  if (bars.length < period) {
-    
-    var sum = 0;
-    for (var i = 0; i < bars.length; i++) {
-      sum += bars[i].close;
-      emas[i] = sum / (i + 1);
-    }
-    return emas;
-  }
-  
+  if (bars.length < period) return emas;
+
   var initSum = 0;
   for (var i = 0; i < period; i++) initSum += bars[i].close;
   emas[period - 1] = initSum / period;
