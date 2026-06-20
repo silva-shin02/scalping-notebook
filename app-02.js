@@ -4308,8 +4308,8 @@ function EntrySignalSection(_ref_es) {
     var _fbEs = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
     if (hpN != null) {
       if (_epTriEs) {
-        // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
-        _esTotHoldRef = (_esTotHoldRef || 0) + _hCapN; _esTotHoldRefCnt++;
+        // EP△→H1も（）外0。○/△/損切り済は（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
+        if (s.holdExp && s.holdExp !== "×") { _esTotHoldRef = (_esTotHoldRef || 0) + _hCapN; _esTotHoldRefCnt++; }
       } else if (_fbEs && ppN != null) {
         _esTotHold = (_esTotHold || 0) + ppN;
         _esTotHoldActual = (_esTotHoldActual || 0) + ppN;
@@ -5177,8 +5177,8 @@ function WeeklyPnlPanel(_wpp) {
           var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
           var _cap = (_pStop && pp != null) ? pp : hp;
           if (_epIsTriEntry(s, _aR)) {
-            // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
-            _hRef = (_hRef || 0) + _cap; _hRefCnt++;
+            // EP△→H1も（）外0。○/△/損切り済は（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
+            if (s.holdExp && s.holdExp !== "×") { _hRef = (_hRef || 0) + _cap; _hRefCnt++; }
           } else {
             var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額へフォールバック。未設定=×扱い
             _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);

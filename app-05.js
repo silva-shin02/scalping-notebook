@@ -3858,8 +3858,8 @@ function _elTotAccum(items, get) {
       var ps2 = _elPlanIsStop(s, a, c);
       var hCap = (ps2 && ppN != null) ? ppN : hvN;
       if (_epIsTriEntry(s, a)) {
-        // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
-        t.holdRef = (t.holdRef || 0) + hCap; t.holdRefCnt++;
+        // EP△（△確信度エントリー）→ H1も（）外0。○/△/損切り済は保有額を（）内（参考）へ。×/未設定は完全除外（1段下0を継承＝参考にも入れない）。
+        if (s.holdExp && s.holdExp !== "×") { t.holdRef = (t.holdRef || 0) + hCap; t.holdRefCnt++; }
       } else {
         var _fbH = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）は想定額へフォールバック。未設定=×扱い
         var m1 = (_fbH && ppN != null) ? ppN : hCap;
@@ -4131,9 +4131,10 @@ function _elHold1TotParts(s, alpha, cutLine) {
     if (pv0 != null) hres = pv0;
   }
   if (hres == null) return { main: null, ref: null };
-  // EP△（_epIsTriEntry＝△確信度エントリー）→ EP自体が（）外0・参考なので、H1も（）外0・H1まで保有額を全額（）内（参考）へ。
-  // ※H2のカスケード基準(_base)もこのmain=nullを受けて（）内計算になる＝EP△は全段（）外0で一貫。
-  if (_epIsTriEntry(s, alpha)) return { main: null, ref: hres };
+  // EP△（_epIsTriEntry＝△確信度エントリー）→ EP自体が（）外0・参考なので、H1も（）外0（main:null）。
+  // H1=○/△/損切り済は保有額を（）内（参考）へ。H1=×/未設定は完全除外（参考にも入れない＝1段下0を継承）。
+  // ※H2のカスケード基準(_base)もmain=nullを受けて（）外0になる。
+  if (_epIsTriEntry(s, alpha)) return { main: null, ref: (s.holdExp && s.holdExp !== "×") ? hres : null };
   if (s.holdExp !== "○") {  // ○以外（×/△/損切り済/未設定）は想定額（EP損益）へフォールバック。未設定=×扱い
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan == null) return { main: hres, ref: null };
@@ -4455,8 +4456,8 @@ function _elCalcStats(records, data, simResolve) {
       var _hCapH = (_pStopH && ppN != null) ? ppN : hpN;
       var _hStop = _liveA && _elHoldIsStop(s, _ai.alpha, _ai.cutLine);
       if (_liveA && _epIsTriEntry(s, _ai.alpha)) {
-        // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
-        sumHoldRef += _hCapH; holdRefCnt++;
+        // EP△→H1も（）外0。○/△/損切り済は保有額を（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
+        if (s.holdExp && s.holdExp !== "×") { sumHoldRef += _hCapH; holdRefCnt++; }
       } else {
         var _fbHcs = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
         if (_fbHcs && ppN != null) {
@@ -4685,8 +4686,8 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     if (hv != null) {
       var _hCapPlan = (_elPlanIsStop(s, _aSig, _c) && pv != null) ? pv : hv;
       if (_epIsTriEntry(s, _aSig)) {
-        // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
-        holdRefSum += _hCapPlan; holdRefCnt++;
+        // EP△→H1も（）外0。○/△/損切り済は保有額を（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
+        if (s.holdExp && s.holdExp !== "×") { holdRefSum += _hCapPlan; holdRefCnt++; }
       } else {
         holdSum += hv; holdCount++;
         var _hStop = _elHoldIsStop(s, _aSig, _c);

@@ -4477,8 +4477,8 @@ function DayView(_ref57) {
           var _pStopH = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
           var _hCapPb = (_pStopH && planPnl != null) ? planPnl : holdPnl;
           if (_epTriPb) {
-            // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
-            _totHoldRef = (_totHoldRef || 0) + _hCapPb; _totHoldRefCnt++;
+            // EP△→H1も（）外0。○/△/損切り済は（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
+            if (s.holdExp && s.holdExp !== "×") { _totHoldRef = (_totHoldRef || 0) + _hCapPb; _totHoldRefCnt++; }
           } else {
             var _fbPb = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）は想定額へフォールバック。未設定=×扱い
             var _mvPb = (_fbPb && planPnl != null) ? planPnl : _hCapPb;
@@ -4782,8 +4782,8 @@ function DayView(_ref57) {
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
               if (_epIsTriEntry(s, _aR)) {
-                // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
-                _hRef = (_hRef || 0) + _cap; _hRefCnt++;
+                // EP△→H1も（）外0。○/△/損切り済は（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
+                if (s.holdExp && s.holdExp !== "×") { _hRef = (_hRef || 0) + _cap; _hRefCnt++; }
               } else {
                 var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(手仕舞い)へフォールバック。未設定=×扱い
                 _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
@@ -5005,8 +5005,8 @@ function DayView(_ref57) {
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
               if (_epIsTriEntry(s, _aR)) {
-                // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
-                _hRef = (_hRef || 0) + _cap; _hRefCnt++;
+                // EP△→H1も（）外0。○/△/損切り済は（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
+                if (s.holdExp && s.holdExp !== "×") { _hRef = (_hRef || 0) + _cap; _hRefCnt++; }
               } else {
                 var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(手仕舞い)へフォールバック。未設定=×扱い
                 _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
