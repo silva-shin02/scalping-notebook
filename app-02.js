@@ -4307,7 +4307,10 @@ function EntrySignalSection(_ref_es) {
     var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
     var _fbEs = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
     if (hpN != null) {
-      if (_fbEs && ppN != null) {
+      if (_epTriEs) {
+        // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
+        _esTotHoldRef = (_esTotHoldRef || 0) + _hCapN; _esTotHoldRefCnt++;
+      } else if (_fbEs && ppN != null) {
         _esTotHold = (_esTotHold || 0) + ppN;
         _esTotHoldActual = (_esTotHoldActual || 0) + ppN;
         _esTotHoldCnt++;
@@ -5173,10 +5176,15 @@ function WeeklyPnlPanel(_wpp) {
           var pp = _elDynPlanned(s, _aR, _cutLR);
           var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
           var _cap = (_pStop && pp != null) ? pp : hp;
-          var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額へフォールバック。未設定=×扱い
-          _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
-          if ((s.holdExp === "△" || s.holdExp === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
-          _hCnt++;
+          if (_epIsTriEntry(s, _aR)) {
+            // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
+            _hRef = (_hRef || 0) + _cap; _hRefCnt++;
+          } else {
+            var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額へフォールバック。未設定=×扱い
+            _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
+            if ((s.holdExp === "△" || s.holdExp === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
+            _hCnt++;
+          }
         });
         if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
         var _hgCap = _profitGradeFromPnl(_hMain, _hCnt);

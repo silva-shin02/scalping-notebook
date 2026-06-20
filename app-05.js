@@ -3851,12 +3851,17 @@ function _elTotAccum(items, get) {
       t.holdRaw = (t.holdRaw || 0) + hvN;
       var ps2 = _elPlanIsStop(s, a, c);
       var hCap = (ps2 && ppN != null) ? ppN : hvN;
-      var _fbH = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）は想定額へフォールバック。未設定=×扱い
-      var m1 = (_fbH && ppN != null) ? ppN : hCap;
-      t.holdPlanCap = (t.holdPlanCap || 0) + m1; t.holdCnt++;
-      if (isAB) { t.holdAB = (t.holdAB || 0) + m1; t.holdABCnt++; }
-      if ((s.holdExp === "△" || s.holdExp === "損切り済") && ppN != null && (hCap - ppN) !== 0) { t.holdRef = (t.holdRef || 0) + (hCap - ppN); t.holdRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
-      if (ps2 && ppN != null && hvN !== ppN) t.holdPlanStopDiff = true;
+      if (_epIsTriEntry(s, a)) {
+        // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
+        t.holdRef = (t.holdRef || 0) + hCap; t.holdRefCnt++;
+      } else {
+        var _fbH = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）は想定額へフォールバック。未設定=×扱い
+        var m1 = (_fbH && ppN != null) ? ppN : hCap;
+        t.holdPlanCap = (t.holdPlanCap || 0) + m1; t.holdCnt++;
+        if (isAB) { t.holdAB = (t.holdAB || 0) + m1; t.holdABCnt++; }
+        if ((s.holdExp === "△" || s.holdExp === "損切り済") && ppN != null && (hCap - ppN) !== 0) { t.holdRef = (t.holdRef || 0) + (hCap - ppN); t.holdRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
+        if (ps2 && ppN != null && hvN !== ppN) t.holdPlanStopDiff = true;
+      }
     }
     var t2 = _elHold2TotParts(s, a, c);
     if (t2.main != null) { t.hold2 = (t.hold2 || 0) + nm(it, t2.main); t.hold2Cnt++; }
@@ -4120,6 +4125,9 @@ function _elHold1TotParts(s, alpha, cutLine) {
     if (pv0 != null) hres = pv0;
   }
   if (hres == null) return { main: null, ref: null };
+  // EP△（_epIsTriEntry＝△確信度エントリー）→ EP自体が（）外0・参考なので、H1も（）外0・H1まで保有額を全額（）内（参考）へ。
+  // ※H2のカスケード基準(_base)もこのmain=nullを受けて（）内計算になる＝EP△は全段（）外0で一貫。
+  if (_epIsTriEntry(s, alpha)) return { main: null, ref: hres };
   if (s.holdExp !== "○") {  // ○以外（×/△/損切り済/未設定）は想定額（EP損益）へフォールバック。未設定=×扱い
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan == null) return { main: hres, ref: null };
@@ -4440,12 +4448,17 @@ function _elCalcStats(records, data, simResolve) {
       var _pStopH = _liveA && _elPlanIsStop(s, _ai.alpha, _ai.cutLine);
       var _hCapH = (_pStopH && ppN != null) ? ppN : hpN;
       var _hStop = _liveA && _elHoldIsStop(s, _ai.alpha, _ai.cutLine);
-      var _fbHcs = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
-      if (_fbHcs && ppN != null) {
-        sumHold += ppN; holdHasData = true;
-        if ((s.holdExp === "△" || s.holdExp === "損切り済") && (_hCapH - ppN) !== 0) { sumHoldRef += (_hCapH - ppN); holdRefCnt++; }   // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
+      if (_liveA && _epIsTriEntry(s, _ai.alpha)) {
+        // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
+        sumHoldRef += _hCapH; holdRefCnt++;
       } else {
-        sumHold += _hCapH; holdHasData = true;        // ○ は本合計に算入
+        var _fbHcs = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
+        if (_fbHcs && ppN != null) {
+          sumHold += ppN; holdHasData = true;
+          if ((s.holdExp === "△" || s.holdExp === "損切り済") && (_hCapH - ppN) !== 0) { sumHoldRef += (_hCapH - ppN); holdRefCnt++; }   // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
+        } else {
+          sumHold += _hCapH; holdHasData = true;        // ○ は本合計に算入
+        }
       }
       if (_hStop) holdHasStop = true;
       holdCapSum += _hStop ? _elCapLossYen(_ai.cutLine) : hpN;
@@ -4664,20 +4677,25 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     // 想定もH1もE基準未達(両miss=ノートレード)はEP損益が0なので、H1も0円扱いにして揃える（早見表で「—」でなく「0円」表示）。
     if (hv == null && _elH2Miss(s, _aSig)) hv = 0;
     if (hv != null) {
-      holdSum += hv; holdCount++;
-      var _hStop = _elHoldIsStop(s, _aSig, _c);
-      if (_hStop) holdHasStop = true;
-      holdCapSum += _hStop ? _elCapLossYen(_c) : hv;
-      // 結果損益: 想定が損切りの行は想定額にキャップ（損切を踏まえた値）。
       var _hCapPlan = (_elPlanIsStop(s, _aSig, _c) && pv != null) ? pv : hv;
-      var _fbHcg = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
-      if (_fbHcg && pv != null) {
-        holdSumPlanCap += pv;
-        if (isAB) { holdSumPlanCapAB += pv; holdCountAB++; }
-        if ((s.holdExp === "△" || s.holdExp === "損切り済") && (_hCapPlan - pv) !== 0) { holdRefSum += (_hCapPlan - pv); holdRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
+      if (_epIsTriEntry(s, _aSig)) {
+        // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
+        holdRefSum += _hCapPlan; holdRefCnt++;
       } else {
-        holdSumPlanCap += _hCapPlan;
-        if (isAB) { holdSumPlanCapAB += _hCapPlan; holdCountAB++; }
+        holdSum += hv; holdCount++;
+        var _hStop = _elHoldIsStop(s, _aSig, _c);
+        if (_hStop) holdHasStop = true;
+        holdCapSum += _hStop ? _elCapLossYen(_c) : hv;
+        // 結果損益: 想定が損切りの行は想定額にキャップ（損切を踏まえた値）。
+        var _fbHcg = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
+        if (_fbHcg && pv != null) {
+          holdSumPlanCap += pv;
+          if (isAB) { holdSumPlanCapAB += pv; holdCountAB++; }
+          if ((s.holdExp === "△" || s.holdExp === "損切り済") && (_hCapPlan - pv) !== 0) { holdRefSum += (_hCapPlan - pv); holdRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
+        } else {
+          holdSumPlanCap += _hCapPlan;
+          if (isAB) { holdSumPlanCapAB += _hCapPlan; holdCountAB++; }
+        }
       }
     }
     var _h2tg = _elHold2TotParts(s, _aSig, _c);  // 想定損切り→想定額(結果損益)、非損切り○/△→_elDynHold2、非損切り×→参考
@@ -5759,6 +5777,13 @@ function EntryRecordForm(_ref_erf) {
     if (fOs1Exp === "×" && fOs2Exp !== "×") setFOs2Exp("×");
   }, [fOs1Exp, fOs2Exp]);
 
+  // EP△（EP足=エントリー足の到達期待が△＝△確信度エントリー）→ H1期待度○はありえない（EP自体が（）外0・参考）。○なら自動で△に。
+  // EP=OS1→fOs1Exp△ / EP=OS2→fOs2Exp△ が対象（OS3足にはexp無し）。H1=△になれば上のH1→H2効果でH2も△へ連鎖する。
+  useEffect(function() {
+    var _epTri = !!(_epFormState && ((_epFormState.epIdx === 0 && fOs1Exp === "△") || (_epFormState.epIdx === 1 && fOs2Exp === "△")));
+    if (_epTri && fHoldExp === "○") setFHoldExp("△");
+  }, [_epFormState ? _epFormState.epIdx : -1, fOs1Exp, fOs2Exp, fHoldExp]);
+
 
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
 
@@ -6240,6 +6265,8 @@ function EntryRecordForm(_ref_erf) {
 
       isV2Form ? (function() {
         var _ef = _epFormState || {};
+        // EP△（EP足=エントリー足の到達期待が△＝△確信度エントリー）→ H1期待度○は不可（EP自体が（）外0・参考）。OS3足にはexp無し＝EP=OS1/OS2のみ対象。
+        var _epTriForm = (_ef.epIdx === 0 && fOs1Exp === "△") || (_ef.epIdx === 1 && fOs2Exp === "△");
         var _expB = function(cur, setFn, disabled, disabledOpts) {
           return React.createElement("div", { style: { display: "flex", gap: 3 } },
             [["○", "#C0392B", "#FCEBEB"], ["△", "#B45309", "#FEF3C7"], ["×", "#1E8449", "#EAF3DE"]].map(function(kv) {
@@ -6248,7 +6275,7 @@ function EntryRecordForm(_ref_erf) {
               return React.createElement("button", { key: kv[0],
                 onClick: bd ? null : function() { setFn(on ? null : kv[0]); },
                 disabled: !!bd,
-                title: bd ? (disabled ? "前段で×（撤退・見送り）のため、ここも自動的に×になります" : "H1が△のため、H2は○にできません（自動的に△になります）") : null,
+                title: bd ? (disabled ? "前段で×（撤退・見送り）のため、ここも自動的に×になります" : "上位段が△のため○は選べません（自動的に△になります）") : null,
                 style: { padding: "2px 9px", fontSize: 12, fontWeight: 700, borderRadius: 5, cursor: bd ? "not-allowed" : "pointer",
                   border: "1.5px solid " + (on ? kv[1] : "#ddd"), background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999", opacity: (bd && !on) ? 0.35 : 1 } }, kv[0]);
             }));
@@ -6336,21 +6363,21 @@ function EntryRecordForm(_ref_erf) {
             _legCol("OS1", _fRoleOf(0), [
               _row("高値", _uIn(fOsVal, setFOsVal)),
               _row("確定値", _sIn(fOsConfVal, setFOsConfVal, fOsConfSign, setFOsConfSign, _oscSignedRef)),
-              _ef.epIdx === 0 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
+              _ef.epIdx === 0 ? _row("H1期待", _expB(fHoldExp, setFHoldExp, false, _epTriForm ? ["○"] : null), true)
                 : (_ef.alpha != null && _ef.o1 != null) ? _row("到達期待", _expB(fOs1Exp, setFOs1Exp), true) : null
             ]),
             _legCol("OS2", _fRoleOf(1), [
               _row("高値", _sIn(fOs2High, setFOs2High, fOs2HighSign, setFOs2HighSign, _os2hSignedRef)),
               _row("確定値", _sIn(fOs2Conf, setFOs2Conf, fOs2ConfSign, setFOs2ConfSign, _os2cSignedRef)),
               _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×", fHoldExp === "△" ? ["○"] : null), true)
-                : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true)
+                : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp, false, _epTriForm ? ["○"] : null), true)
                 : (_ef.o2 != null) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp, fOs1Exp === "×"), true) : null
             ]),
             _legCol("OS3", _fRoleOf(2), [
               _row("高値", _sIn(fOs3High, setFOs3High, fOs3HighSign, setFOs3HighSign, _os3hSignedRef)),
               _row("確定値", _sIn(fOs3Conf, setFOs3Conf, fOs3ConfSign, setFOs3ConfSign, _os3cSignedRef)),
               _ef.epIdx === 1 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×", fHoldExp === "△" ? ["○"] : null), true)
-                : _ef.epIdx === 2 ? _row("H1期待", _expB(fHoldExp, setFHoldExp), true) : null
+                : _ef.epIdx === 2 ? _row("H1期待", _expB(fHoldExp, setFHoldExp, false, _epTriForm ? ["○"] : null), true) : null
             ])
           ),
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto", marginTop: 6 } },

@@ -4464,7 +4464,7 @@ function DayView(_ref57) {
             if (_pStopT) _totPlanStop = true;
             _totPlanCap = (_totPlanCap || 0) + (_pStopT ? _elCapLossYen(_cutLrec) : planPnl); }
         }
-        if (holdPnl != null) { _totHold = (_totHold || 0) + holdPnl; _totHoldCnt++;
+        if (holdPnl != null && !_epTriPb) { _totHold = (_totHold || 0) + holdPnl; _totHoldCnt++;  // EP△はH1も（）外0＝主計数に入れない（下で参考へ）
           var _hStopT = (_alphaRec != null && _elHoldIsStop(s, _alphaRec, _cutLrec));
           if (_hStopT) _totHoldStop = true;
           _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_cutLrec) : holdPnl); }
@@ -4476,12 +4476,17 @@ function DayView(_ref57) {
           // 想定が損切りの行は結果損益を想定額にキャップした合計（per-row のキャップ表示と一致）。本来額は _totHold に保持。
           var _pStopH = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
           var _hCapPb = (_pStopH && planPnl != null) ? planPnl : holdPnl;
-          var _fbPb = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）は想定額へフォールバック。未設定=×扱い
-          var _mvPb = (_fbPb && planPnl != null) ? planPnl : _hCapPb;
-          _totHoldPlanCap = (_totHoldPlanCap || 0) + _mvPb;
-          if (_isABpb) { _totHoldPlanCapAB = (_totHoldPlanCapAB || 0) + _mvPb; _totHoldPlanCapABCnt++; }
-          if ((s.holdExp === "△" || s.holdExp === "損切り済") && planPnl != null && (_hCapPb - planPnl) !== 0) { _totHoldRef = (_totHoldRef || 0) + (_hCapPb - planPnl); _totHoldRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
-          if (_pStopH && planPnl != null && holdPnl !== planPnl) _totHoldPlanStopDiffPb = true;
+          if (_epTriPb) {
+            // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
+            _totHoldRef = (_totHoldRef || 0) + _hCapPb; _totHoldRefCnt++;
+          } else {
+            var _fbPb = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）は想定額へフォールバック。未設定=×扱い
+            var _mvPb = (_fbPb && planPnl != null) ? planPnl : _hCapPb;
+            _totHoldPlanCap = (_totHoldPlanCap || 0) + _mvPb;
+            if (_isABpb) { _totHoldPlanCapAB = (_totHoldPlanCapAB || 0) + _mvPb; _totHoldPlanCapABCnt++; }
+            if ((s.holdExp === "△" || s.holdExp === "損切り済") && planPnl != null && (_hCapPb - planPnl) !== 0) { _totHoldRef = (_totHoldRef || 0) + (_hCapPb - planPnl); _totHoldRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
+            if (_pStopH && planPnl != null && holdPnl !== planPnl) _totHoldPlanStopDiffPb = true;
+          }
         }
         }
         var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
@@ -4776,10 +4781,15 @@ function DayView(_ref57) {
               var pp = _elDynPlanned(s, _aR, _cutLR);  // EP起算v2対応（想定損切り時のキャップ基準もEP足の額になる）
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
-              var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(手仕舞い)へフォールバック。未設定=×扱い
-              _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
-              if ((s.holdExp === "△" || s.holdExp === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
-              _hCnt++;
+              if (_epIsTriEntry(s, _aR)) {
+                // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
+                _hRef = (_hRef || 0) + _cap; _hRefCnt++;
+              } else {
+                var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(手仕舞い)へフォールバック。未設定=×扱い
+                _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
+                if ((s.holdExp === "△" || s.holdExp === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
+                _hCnt++;
+              }
             });
             if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
             var _hgCap = _profitGradeFromPnl(_hMain, _hCnt);
@@ -4994,10 +5004,15 @@ function DayView(_ref57) {
               var pp = _elDynPlanned(s, _aR, _cutLR);  // EP起算v2対応（想定損切り時のキャップ基準もEP足の額になる）
               var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
               var _cap = (_pStop && pp != null) ? pp : hp;
-              var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(手仕舞い)へフォールバック。未設定=×扱い
-              _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
-              if ((s.holdExp === "△" || s.holdExp === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
-              _hCnt++;
+              if (_epIsTriEntry(s, _aR)) {
+                // EP△（△確信度エントリー）→ H1も（）外0・H1まで保有額を（）内（参考）へ（EP損益/_elHold1TotPartsと一貫）。
+                _hRef = (_hRef || 0) + _cap; _hRefCnt++;
+              } else {
+                var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(手仕舞い)へフォールバック。未設定=×扱い
+                _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
+                if ((s.holdExp === "△" || s.holdExp === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
+                _hCnt++;
+              }
             });
             if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
             var _hgCap = _profitGradeFromPnl(_hMain, _hCnt);
