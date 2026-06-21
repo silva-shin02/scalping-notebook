@@ -2205,7 +2205,7 @@ function EntryLogView(_ref_elv2) {
       var _ratesOf = function(rs) {
         var ok = 0, ng = 0, miss = 0, stop = 0;
         rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); if (res === "ok") ok++; else if (res === "ng") ng++; if (!_epReachedAt(s, a)) miss++; if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) stop++; });
-        return { ok: ok, ng: ng, miss: miss, n: rs.length, win: (ok + ng) ? Math.round(ok / (ok + ng) * 100) : null, stop: rs.length ? Math.round(stop / rs.length * 100) : 0 };
+        return { ok: ok, ng: ng, miss: miss, n: rs.length, win: (ok + ng) ? Math.round(ok / (ok + ng) * 100) : null, stop: (ok + ng) ? Math.round(stop / (ok + ng) * 100) : 0 };
       };
       var _periodKpi = function(rs) {
         var t = _periodTot(rs), rr = _ratesOf(rs);
