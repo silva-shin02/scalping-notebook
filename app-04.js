@@ -3050,8 +3050,7 @@ function StockQuickRefTable(_props_qrt) {
         React.createElement("div", {
           style: { fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6 }
         },
-          React.createElement("span", null, activeStock + " 早見表"),
-          isNikkei ? null : _elBestAlphaBadgeV2(data, activeStock)
+          React.createElement("span", null, activeStock + " 早見表")
         ),
         React.createElement("div", {
           style: { fontSize: 11, color: "#888" }
