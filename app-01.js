@@ -4050,6 +4050,30 @@ function _snMaxCanvasDim(cap) {
   }
   return Math.min(cap || _snMaxCanvasDimCache, _snMaxCanvasDimCache);
 }
+var _snMaxCanvasAreaCache = null;
+// canvasの総画素(面積)上限を実測。iOSは端末/メモリ依存で、従来は安全側に15.7M固定だった＝大きい画像でストローク用canvasがここで頭打ち→背面の原寸ベース画像より低解像度になりボヤけていた。
+// _snMaxCanvasDim(1辺)とは別軸の面積上限を、候補を大きい順に試して「遠端ピクセルが実際に描けた(=無音間引きされない)最大」を採用して実測する。失敗時は従来の15.7Mへ自動フォールバック＝退行なし。1回測ってキャッシュ。テスト用canvasは判定後すぐ1pxへ縮めて backing store を即解放。
+function _snMaxCanvasArea(cap) {
+  if (_snMaxCanvasAreaCache == null) {
+    var tries = [33554432, 25165824, 16777216], ok = 15728640;
+    for (var i = 0; i < tries.length; i++) {
+      var a = tries[i], side = Math.floor(Math.sqrt(a));
+      try {
+        var c = document.createElement("canvas"); c.width = side; c.height = side;
+        var x = c.getContext("2d");
+        if (x) {
+          x.fillStyle = "#ff0000"; x.fillRect(side - 3, side - 3, 3, 3);
+          var px = x.getImageData(side - 2, side - 2, 1, 1).data;
+          var good = (px[0] > 200 && px[3] > 200);
+          c.width = c.height = 1;
+          if (good) { ok = a; break; }
+        } else { c.width = c.height = 1; }
+      } catch (e) {}
+    }
+    _snMaxCanvasAreaCache = ok;
+  }
+  return Math.min(cap || _snMaxCanvasAreaCache, _snMaxCanvasAreaCache);
+}
 function ImageAnnotator(_ref7) {
   var img = _ref7.img,
     onSave = _ref7.onSave,
@@ -4863,8 +4887,9 @@ function ImageAnnotator(_ref7) {
       logicalSizeRef.current = { w: nw, h: nh };
       scRef.current = Math.min((window.innerWidth * 0.96) / nw, ((window.innerHeight - 130) * 0.96) / nh, 1);
       // ストロークcanvasの物理上限。ベース画像は背面imgが担当するのでcanvasは手書き線専用。
-      // iOSの1辺上限は端末依存(4096〜)。実機をプローブしてデバイスの実上限(最大16384)まで使う＝手書きストロークを論理(保存)解像度と同じ精細さで描く。8192固定だと大きい画像でストロークだけ低解像度=ボヤけていた。非対応端末は実上限へ自動降格。2026-06-21(旧8192→実上限)
-      var CANVAS_MAX_AREA = _isIOSCanvas ? 15728640 : 33554432;
+      // iOSのcanvas上限(1辺・総画素)は端末依存。1辺=_snMaxCanvasDim・面積=_snMaxCanvasArea で実機プローブし、デバイスの実上限まで使う＝手書きストロークを論理(保存)解像度より高精細に焼ける(大きい画像でストロークだけボヤける現象の対策／拡大して描くほど効く)。
+      // 保存(論理)サイズ=容量は LOGICAL_MAX 据え置きで不変＝ライブ描画の精細さだけ上げる。プローブ失敗時は従来の安全値(面積15.7M/1辺は実上限)へ自動降格＝退行なし。2026-06-21
+      var CANVAS_MAX_AREA = _isIOSCanvas ? _snMaxCanvasArea(33554432) : 33554432;
       var CANVAS_MAX_DIM = _isIOSCanvas ? _snMaxCanvasDim(16384) : 16384;
       maxScaleRef.current = Math.min(Math.sqrt(CANVAS_MAX_AREA / (nw * nh)), CANVAS_MAX_DIM / Math.max(nw, nh));
       _applyRenderScale(1);
