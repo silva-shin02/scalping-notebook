@@ -3442,9 +3442,10 @@ function _elHoldIsStop(s, alpha, cutLine) {
   if (s.osVal != null && (Number(s.osVal) - alpha) >= _cl) return true;
   return false;
 }
-// 理想α値: 候補(0/5/10/15/20)のうち損切りにならず「EP損益＋H1結果損益」の合計が最大の値。
+// 理想α値: 候補(0〜50円・1円刻み)のうち損切りにならず「EP損益＋H1結果損益」の合計が最大の値。
 // 該当が無ければ全候補中で合計が最大(=一番マシ)の値。同点は小さいα優先。本日/今週の損益データ表のαシミュ用。
-var _EL_IDEAL_ALPHAS = [0, 5, 10, 15, 20];
+// 2026-06-21: 5円刻み(0/5/10/15/20)→1円刻み(0〜50)へ精密化＝理想α表/一括α理想値/記録帳の理想α分析が1円単位に。
+var _EL_IDEAL_ALPHAS = (function() { var _a = []; for (var _i = 0; _i <= 50; _i++) _a.push(_i); return _a; })();
 function _elIdealAlpha(s, cutLine) {
   if (!s) return null;
   var _cl = cutLine != null ? cutLine : 10;
@@ -3875,7 +3876,7 @@ function _elTotAccum(items, get) {
   });
   return t;
 }
-// 理想α値（EP起算v2/v3対応・完全刷新 2026-06-13）: EP/H1/H2の各指標について、α候補(0〜20円5刻み)を
+// 理想α値（EP起算v2/v3対応・完全刷新 2026-06-13）: EP/H1/H2の各指標について、α候補(0〜50円1刻み)を
 // 総当たりし合計が最大になるαを返す。各候補で _elTotAccum を回す＝合計行(EP損益/H1/H2)と完全一致。
 // records=[{signal,...}]・cutFn(r)→損切り値。返り値 {ep,h1,h2,n}・各={maxA,maxSum,tgtA,tgtSum}。
 //   maxA=その指標の合計が最大のα・tgtA=合計が目標額(既定2500円)以上になる最小のα(無ければmaxへフォールバック)。

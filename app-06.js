@@ -1079,6 +1079,130 @@ function _elAlphaCurveSectionV2(recs, aiOf) {
     ], { note: "損切り値は各記録の採用値・H1は想定損切り時キャップ後の合計" }));
 }
 
+// ===== 各銘柄の理想α分析（2026-06-21）: 実際に建てる「整合した単一理想α」を主役に、EP/H1/H2個別の理想αも併記 =====
+// 各記録の理想α（1円刻み・候補_EL_IDEAL_ALPHAS=0〜50）。uni=整合した単一α＝EPが未達でない(_epReachedAt)かつ
+// H1が損切りでない(!_elHoldIsStop)範囲でH2(無ければH1)が最大の単一α＝実際に建てる1つのα。同点は小さいα優先。
+// ep/h1/h2=各指標を個別に最大化するα（1つのαでは同時達成できないことがあるため参考併記）。
+function _elRecIdealAlphas(s, cutLine) {
+  if (!s) return null;
+  var cl = cutLine != null ? cutLine : 10;
+  var hasH2 = _elHas2Data(s);
+  var epB = null, h1B = null, h2B = null, uniB = null;
+  _EL_IDEAL_ALPHAS.forEach(function(a) {
+    var pl = _elDynPlanned(s, a, cl);
+    var hd = _elDynHold(s, a, cl);
+    var t2 = _elHold2TotParts(s, a, cl);
+    var h2v = t2 ? t2.main : null;
+    if (pl != null && (epB == null || pl > epB.v)) epB = { a: a, v: pl };
+    if (hd != null && (h1B == null || hd > h1B.v)) h1B = { a: a, v: hd };
+    if (h2v != null && (h2B == null || h2v > h2B.v)) h2B = { a: a, v: h2v };
+    var obj = (hasH2 && h2v != null) ? h2v : hd;
+    if (obj != null && _epReachedAt(s, a) && !_elHoldIsStop(s, a, cl)) {
+      if (uniB == null || obj > uniB.v) uniB = { a: a, v: obj };
+    }
+  });
+  return { ep: epB ? epB.a : null, h1: h1B ? h1B.a : null, h2: h2B ? h2B.a : null,
+    hasH2: hasH2, uni: uniB ? uniB.a : null, feasible: uniB != null };
+}
+// 数値配列の最頻値（同数は最小優先）。{ val, cnt, total }。
+function _elModeOf(arr) {
+  if (!arr || !arr.length) return null;
+  var by = {};
+  arr.forEach(function(v) { by[v] = (by[v] || 0) + 1; });
+  var bv = null, bc = -1;
+  Object.keys(by).map(Number).sort(function(a, b) { return a - b; }).forEach(function(v) { if (by[v] > bc) { bc = by[v]; bv = v; } });
+  return { val: bv, cnt: bc, total: arr.length };
+}
+// α値配列の分布バー（5円帯・横棒）。
+function _elAlphaDistBarV2(vals) {
+  if (!vals || !vals.length) return null;
+  var bins = [];
+  for (var lo = 0; lo <= 50; lo += 5) bins.push({ lo: lo, hi: lo + 4, n: 0 });
+  vals.forEach(function(v) { var idx = Math.max(0, Math.min(bins.length - 1, Math.floor(v / 5))); bins[idx].n++; });
+  var mx = bins.reduce(function(m, b) { return Math.max(m, b.n); }, 0) || 1;
+  return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, marginTop: 4 } },
+    bins.filter(function(b) { return b.n > 0; }).map(function(b) {
+      return React.createElement("div", { key: b.lo, style: { display: "flex", alignItems: "center", gap: 6, fontSize: 10 } },
+        React.createElement("span", { style: { width: 56, textAlign: "right", color: "#666", whiteSpace: "nowrap" } }, b.lo + "〜" + b.hi + "円"),
+        React.createElement("div", { style: { flex: 1, background: "#f0ede8", borderRadius: 3, height: 12 } },
+          React.createElement("div", { style: { width: Math.round(b.n / mx * 100) + "%", minWidth: 2, height: "100%", background: "#0EA5E9", borderRadius: 3 } })),
+        React.createElement("span", { style: { width: 32, color: "#888", whiteSpace: "nowrap" } }, b.n + "件"));
+    }));
+}
+// 🎯 理想α分析（何円が多かったか）: 整合した単一理想αの分布を主役に、EP/H1/H2個別の理想αも併記。
+function _elIdealAlphaWhatV2(recs, aiOf) {
+  if (!recs || !recs.length) return null;
+  var uni = [], ep = [], h1 = [], h2 = [], noFeas = 0;
+  recs.forEach(function(r) {
+    var ia = _elRecIdealAlphas(r.signal, aiOf(r).cutLine);
+    if (!ia) return;
+    if (ia.uni != null) uni.push(ia.uni); else noFeas++;
+    if (ia.ep != null) ep.push(ia.ep);
+    if (ia.h1 != null) h1.push(ia.h1);
+    if (ia.h2 != null) h2.push(ia.h2);
+  });
+  if (!uni.length && !ep.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "算出対象なし");
+  var mU = _elModeOf(uni);
+  var _aOr = function(v) { return v == null ? "—" : v + "円"; };
+  var cards = _elv2CardRow([
+    _elv2Card("整合理想α 最頻", mU ? React.createElement("span", { style: { color: "#0369A1" } }, mU.val + "円") : "—", "#0369A1", mU ? (mU.total + "件中" + mU.cnt + "件") : null),
+    _elv2Card("中央値", _aOr(_elMedian(uni)), "#333"),
+    _elv2Card("平均", _aOr(_elMean(uni)), "#333"),
+    _elv2Card("整合αなし", noFeas + "件", noFeas > 0 ? "#B45309" : "#bbb", "全候補で未達/H1損切り")
+  ]);
+  var _mode2 = function(a) { var m = _elModeOf(a); return m ? (m.val + "円") : "—"; };
+  var refRows = [["EP", ep], ["H1", h1], ["H2", h2]].map(function(row, i) {
+    return React.createElement("tr", { key: i },
+      _elv2Td(row[0], { fontWeight: 700, color: "#9A3412" }),
+      _elv2Td(_mode2(row[1])),
+      _elv2Td(row[1].length ? (_elMedian(row[1]) + "円") : "—"),
+      _elv2Td(row[1].length + "件"));
+  });
+  return React.createElement("div", null, cards,
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "6px 0 2px" } }, "整合理想αの分布（5円帯）"),
+    _elAlphaDistBarV2(uni),
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "参考：指標別の理想α（個別最適・1つのαでは同時達成できない場合あり）"),
+    _elv2Table(["指標", "最頻α", "中央α", "件数"], refRows),
+    mU ? _elInsightBoxV2([
+      React.createElement("span", null, "実際に建てる単一αとしては", _elInsightEmV2("α=" + mU.val + "円"), "が最も多い（", _elInsightEmV2(mU.cnt + "/" + mU.total + "件"), "）。")
+    ], { note: "整合α＝EPが未達にならず・H1が損切りにならない範囲でH2(無ければH1)が最大の単一α・1円刻み" }) : null);
+}
+// 📐 この日の基本(最低)α: 日ごとに整合した単一理想αの最小値(1円刻み)＝その日のベースとして最低限とるべきだったα。
+function _elDailyBaseAlphaV2(recs, aiOf) {
+  if (!recs || !recs.length) return null;
+  var byDate = {};
+  recs.forEach(function(r) { if (!r.date) return; (byDate[r.date] = byDate[r.date] || []).push(r); });
+  var days = [];
+  Object.keys(byDate).sort().forEach(function(d) {
+    var mn = null;
+    byDate[d].forEach(function(r) { var ia = _elRecIdealAlphas(r.signal, aiOf(r).cutLine); if (ia && ia.uni != null && (mn == null || ia.uni < mn)) mn = ia.uni; });
+    if (mn != null) days.push({ date: d, base: mn, n: byDate[d].length });
+  });
+  if (!days.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "算出対象なし（整合αのある日がありません）");
+  var baseVals = days.map(function(x) { return x.base; });
+  var m = _elModeOf(baseVals);
+  var cards = _elv2CardRow([
+    _elv2Card("推奨ベースα", React.createElement("span", { style: { color: "#0369A1" } }, m.val + "円"), "#0369A1", "最も多い日次の最低ライン"),
+    _elv2Card("最頻", m.cnt + "/" + m.total + "日", "#333"),
+    _elv2Card("中央値", _elMedian(baseVals) + "円", "#333"),
+    _elv2Card("範囲", Math.min.apply(null, baseVals) + "〜" + Math.max.apply(null, baseVals) + "円", "#333")
+  ]);
+  var rows = days.slice().reverse().map(function(x) {
+    return React.createElement("tr", { key: x.date },
+      _elv2Td(x.date.slice(5), { fontWeight: 700, color: "#9A3412" }),
+      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, x.base + "円")),
+      _elv2Td(x.n + "件"));
+  });
+  return React.createElement("div", null, cards,
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "6px 0 2px" } }, "日次ベースαの分布（5円帯）"),
+    _elAlphaDistBarV2(baseVals),
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "日別の基本(最低)α"),
+    _elv2Table(["日付", "基本α", "件数"], rows),
+    _elInsightBoxV2([
+      React.createElement("span", null, "この銘柄の1日のベースαは", _elInsightEmV2("α=" + m.val + "円"), "にしておくのが最も無難（", _elInsightEmV2(m.cnt + "/" + m.total + "日"), "でその日の最低ラインがこの値）。")
+    ], { note: "各日の整合した単一理想αの最小値＝その日に最低限とるべきだったα。1円刻み" }));
+}
+
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====
 function _elv2Th(t) { return React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); }
 function _elv2Td(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); }
@@ -2077,7 +2201,7 @@ function EntryLogView(_ref_elv2) {
           g.label + " (" + g.recs.length + ")");
       }));
   };
-  var _groupPanel = function(recs) {
+  var _groupPanel = function(recs, stkKey) {
     if (!recs || !recs.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "記録なし");
     var t = _elTotAccum(recs, {
       signal: function(r) { return r.signal; },
@@ -2113,6 +2237,11 @@ function EntryLogView(_ref_elv2) {
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(recs, _ai),
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: recs, aiOf: _ai })) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
+      stkKey ? React.createElement(React.Fragment, null,
+        _secH("🎯 理想α分析（何円が多かったか）", "実際に建てる単一の理想α（H1が損切りにならず・EPが未達にならない中でH2(無ければH1)が最大・1円刻み）の分布"),
+        _elIdealAlphaWhatV2(recs, _ai),
+        _secH("📐 この日の基本(最低)αは何円にすべきだったか", "日ごとに整合した単一理想αの最小値（1円刻み）＝その日のベースとして最低限とるべきだったα"),
+        _elDailyBaseAlphaV2(recs, _ai)) : null,
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
       _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益"), _elDowSectionV2(recs, _ai),
       _secH("🚫 期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(recs, _ai),
@@ -2202,7 +2331,7 @@ function EntryLogView(_ref_elv2) {
     _tabBody = _stkGroups.length ? React.createElement(React.Fragment, null,
       _secH("📈 銘柄別（タブ切替）"),
       _subTabBar(_stkGroups, _selStkKey, setSelStk),
-      _selStkGrp ? _groupPanel(_selStkGrp.recs) : null)
+      _selStkGrp ? _groupPanel(_selStkGrp.recs, _selStkKey) : null)
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし");
   } else if (view === "oschain") {
     _tabBody = React.createElement(React.Fragment, null,
