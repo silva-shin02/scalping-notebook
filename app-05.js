@@ -3444,7 +3444,7 @@ function _elHoldIsStop(s, alpha, cutLine) {
 }
 // 理想α値: 候補(0〜50円・1円刻み)のうち損切りにならず「EP損益＋H1結果損益」の合計が最大の値。
 // 該当が無ければ全候補中で合計が最大(=一番マシ)の値。同点は小さいα優先。本日/今週の損益データ表のαシミュ用。
-// 2026-06-21: 5円刻み(0/5/10/15/20)→1円刻み(0〜50)へ精密化＝理想α表(_elIdealAlphaTableV2)/一括ボタンが1円単位に。※記録帳の「推奨基本α」分析は別系統＝_EL_BASE_ALPHAS(0〜20)。
+// 2026-06-21: 5円刻み(0/5/10/15/20)→1円刻み(0〜50)へ精密化＝理想α表(_elIdealAlphaTableV2)/一括ボタンが1円単位に。※記録帳の「推奨基本α」分析は別系統＝_EL_BASE_ALPHAS(5〜20)。
 var _EL_IDEAL_ALPHAS = (function() { var _a = []; for (var _i = 0; _i <= 50; _i++) _a.push(_i); return _a; })();
 function _elIdealAlpha(s, cutLine) {
   if (!s) return null;

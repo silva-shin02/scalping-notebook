@@ -4328,7 +4328,7 @@ function DayView(_ref57) {
       return React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
         React.createElement("button", {
           onClick: function(e) { if (e && e.stopPropagation) e.stopPropagation(); if (_bav == null) return; var _m = {}; (records || []).forEach(function(r) { _m[keyOf(r)] = _bav; }); simSet(_m); },
-          title: _applied ? "適用中: 表示中の全記録のα値シミュが推奨基本α値です" : "表示中の全記録のα値シミュに、推奨基本α値（この期間の0〜20）を一括入力（非保存）",
+          title: _applied ? "適用中: 表示中の全記録のα値シミュが推奨基本α値です" : "表示中の全記録のα値シミュに、推奨基本α値（この期間の5〜20）を一括入力（非保存）",
           style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, padding: "3px 10px", border: "1px solid #0369A1", borderRadius: 5, background: _applied ? "#0369A1" : "#E0F2FE", color: _applied ? "#fff" : "#0369A1", cursor: "pointer", whiteSpace: "nowrap" }
         }, _applied ? React.createElement("span", { key: "mk", style: { fontWeight: 800 } }, "✓") : null, "一括 推奨基本α"),
         React.createElement("button", {
@@ -4815,13 +4815,13 @@ function DayView(_ref57) {
             (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
         );
       };
-      // 週: 銘柄別グルーピング + 推奨基本α値（0〜50円・1円刻み）計算
+      // 週: 銘柄別グルーピング + 推奨基本α値（5〜20円・1円刻み）計算
       var _wkByStk = {};
       _wkAllRecs.forEach(function(r) { if (!_wkByStk[r.stock]) _wkByStk[r.stock] = []; _wkByStk[r.stock].push(r); });
       var _wkStks = Object.keys(_wkByStk).sort(function(a, b) { var ia = _pbStkOrder.indexOf(a), ib = _pbStkOrder.indexOf(b); if (ia !== -1 || ib !== -1) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; } return a < b ? -1 : a > b ? 1 : 0; });
       var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk].filter(function(r) { return _elInclTotal(r.signal); }) }; });
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（0〜20円・週間）"),
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円・週間）"),
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、E到達70%以上・損切りにならず（無理なら最少）・EP損益とH1損益がともに+ になる最小のα。下にE到達/損切り/H1合計。"),
         _elBaseAlphaTableV2(_wkGroups, _wkCutOf));
       var _wkExpRow = function(recs, rowKey) {
@@ -5220,7 +5220,7 @@ function DayView(_ref57) {
         )
       ),
       _pbHasAlpha && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（0〜20円）"),
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円）"),
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "各銘柄の全記録に同じαを当てて、E到達70%以上・損切りにならず（無理なら最少）・EP損益とH1損益がともに+ になる最小のα。下にE到達/損切り/H1合計。"),
         _elBaseAlphaTableV2(_pbIdealGroups, _pbCutOf))
     );
