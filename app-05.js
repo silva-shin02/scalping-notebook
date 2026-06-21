@@ -3240,6 +3240,14 @@ function _epIsV2(s) { return !!(s && (s.scheme === 2 || s.scheme === 3)); }
 function _epIsV3(s) { return !!(s && s.scheme === 3); }
 // 記録固有の採用α（未設定は予想OS度のα）。
 function _epOwnAlpha(s) { return (s && s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); }
+// α到達予想（reachPred ◎○△×）の表示＝各記録表の「到達見立」列セル＋2行見出し。予想OS度の表示を置換 2026-06-21。
+var _RP_CELL_COLORS = { "◎": "#B71C1C", "○": "#C0392B", "△": "#B45309", "×": "#1E8449" };
+var _RP_CELL_TITLE = { "◎": "基本αでは不十分・追加αが必要", "○": "基本αで十分", "△": "基本αまでも微妙", "×": "届かない" };
+function _reachPredBadge(rp) {
+  if (rp == null || _RP_CELL_COLORS[rp] == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  return React.createElement("span", { title: _RP_CELL_TITLE[rp], style: { fontWeight: 800, fontSize: 14, color: _RP_CELL_COLORS[rp] } }, rp);
+}
+function _reachPredHead() { return React.createElement("span", null, "到達", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "見立")); }
 // 足配列: [{h:高値(符号付き・↑=正), c:確定値(符号付き・↑=正), exp:α値到達期待度, role:"os1"〜"h2"}]
 // 符号規約: OS系フィールドはsign"-"=↓負（osConfSign互換・無印/"+"=↑正）。hold系はsign"+"=↓負（holdHighSign互換・無印/"-"=↑正）。
 function _epLegs(s) {
@@ -6990,7 +6998,7 @@ function EntryLogCard(_ref_elc) {
         return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, t);
       }),
       s.isCustomTag && React.createElement("span", { style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#EEF2FF", color: "#4338CA", borderRadius: 5, border: "1px solid #C7D2FE" } }, s.customTagText || "(その他)"),
-      s.difficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 4, border: "1px solid #FDBA74" } }, "予想OS度" + s.difficulty),
+      s.reachPred && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 4, border: "1px solid #FDBA74" } }, "到達見立 " + s.reachPred),
       s.tpDifficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#DCFCE7", color: "#14532D", borderRadius: 4, border: "1px solid #86EFAC" } }, "利確" + s.tpDifficulty),
       record.stockTags && record.stockTags.map(function(t) {
         return React.createElement("span", { key: t, style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, border: "1px solid #BFDBFE" } }, "📌 " + t);

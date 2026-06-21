@@ -4056,11 +4056,11 @@ function EntrySignalSection(_ref_es) {
     });
   };
 
-  var _DIFF_RANK = { A: 0, B: 1, C: 2, D: 3, E: 4 };
+  var _DIFF_RANK = { "◎": 0, "○": 1, "△": 2, "×": 3 };
   var _esSortByDifficulty = function(recs) {
     return recs.slice().sort(function(a, b) {
-      var da = (a.signal && a.signal.difficulty) || "";
-      var db = (b.signal && b.signal.difficulty) || "";
+      var da = (a.signal && a.signal.reachPred) || "";
+      var db = (b.signal && b.signal.reachPred) || "";
       var ra = _DIFF_RANK[da] != null ? _DIFF_RANK[da] : 99;
       var rb = _DIFF_RANK[db] != null ? _DIFF_RANK[db] : 99;
       if (ra !== rb) return ra - rb;
@@ -4487,7 +4487,7 @@ function EntrySignalSection(_ref_es) {
       })(),
       records.length >= 2 && React.createElement("span", { style: { color: "#666", fontWeight: 600, flexShrink: 0 } }, "並び替え:"),
       records.length >= 2 && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
-        [["time", "⏱ 時間順"], ["difficulty", "🎯 予想OS度順"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
+        [["time", "⏱ 時間順"], ["difficulty", "🎯 到達見立順"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
           var val = kv[0], lbl = kv[1];
           var on = sortMode === val;
           return React.createElement("button", {
@@ -4696,9 +4696,7 @@ function EntrySignalSection(_ref_es) {
                     : "(未設定)",
                   _esRenderSimAlpha(r),
                   _esRenderSimCut(r)),
-                React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%",
-                  color: s.difficulty ? (s.difficulty === "A" ? "#B71C1C" : s.difficulty === "B" ? "#C62828" : "#666") : "#ccc",
-                  fontWeight: s.difficulty ? 700 : 400 } }, s.difficulty || "—"),
+                React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, _reachPredBadge(s.reachPred)),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   _avH != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _avH + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
                 React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
@@ -4749,7 +4747,7 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left", width: 50 }),
                   _esTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-                  _esTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 40 }),
+                  _esTh(_reachPredHead(), { width: 40 }),
                   _esTh("α値", { width: 36 }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } },
                     "OS",
@@ -5030,7 +5028,7 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, borderRight: _bb, width: "1%" } },
-        s.difficulty ? _elGradeBadge18(s.difficulty) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+        _reachPredBadge(s.reachPred)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } },
         a != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, a + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } }, _epOsChainCell(s, a)),
@@ -5078,7 +5076,7 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
           _rTh("", { width: 20 }), _rTh("日付", { width: 52 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-          _rTh(React.createElement("span", null, "予想", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "OS度")), { width: 44 }),
+          _rTh(_reachPredHead(), { width: 44 }),
           _rTh("α値", { width: 32 }), _rTh("OS", { width: 80 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
           _rTh(React.createElement("span", null, "EP損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 104 }),
           React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"),
