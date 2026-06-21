@@ -5288,26 +5288,29 @@ function EntryRecordForm(_ref_erf) {
   var _useStateALM = useState(initSig.alphaMemo || ""),
     _useStateALMA = _slicedToArray(_useStateALM, 2),
     fAlphaMemo = _useStateALMA[0], setFAlphaMemo = _useStateALMA[1];
-  // α値見出しの右に出す「推奨基本α（今週／全期間）」の参考値。保存済み記録(この銘柄・v2・算入分)から算出＝記録の参考用 2026-06-21。
+  // α値見出しの右に出す「推奨基本α（直近1週/1か月/3か月/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分)から算出＝記録の参考用。
+  // 期間はカレンダーの今週/今月でなく fDate を起点にした直近の移動窓＝週初/月初の標本不足を避け「最近の傾向」を安定して映す 2026-06-21。
   var _refBaseAlpha = useMemo(function() {
     if (!fStock) return null;
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
     if (!recs.length) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
-    var baAll = _elBaseAlphaPick(recs, aiOf);
-    var wkAlpha = null;
+    var pickOf = function(rs) { if (!rs || !rs.length) return null; var ba = _elBaseAlphaPick(rs, aiOf); return (ba && ba.alpha != null) ? ba.alpha : null; };
+    var out = { w1: null, m1: null, m3: null, all: pickOf(recs) };
     if (fDate) {
       var _p = fDate.split("-");
-      var _d = new Date(Number(_p[0]), Number(_p[1]) - 1, Number(_p[2]));
-      var _mon = new Date(_d.getTime()); _mon.setDate(_d.getDate() - ((_d.getDay() + 6) % 7));
-      var _fri = new Date(_mon.getTime()); _fri.setDate(_mon.getDate() + 4);
       var _pad = function(n) { return ("0" + n).slice(-2); };
       var _ymd = function(dd) { return dd.getFullYear() + "-" + _pad(dd.getMonth() + 1) + "-" + _pad(dd.getDate()); };
-      var wkS = _ymd(_mon), wkE = _ymd(_fri);
-      var wkRecs = recs.filter(function(r) { return r.date >= wkS && r.date <= wkE; });
-      if (wkRecs.length) { var baWk = _elBaseAlphaPick(wkRecs, aiOf); if (baWk && baWk.alpha != null) wkAlpha = baWk.alpha; }
+      var _cut = function(mut) { var d = new Date(Number(_p[0]), Number(_p[1]) - 1, Number(_p[2])); mut(d); return _ymd(d); };
+      var c1 = _cut(function(d) { d.setDate(d.getDate() - 7); });
+      var c2 = _cut(function(d) { d.setMonth(d.getMonth() - 1); });
+      var c3 = _cut(function(d) { d.setMonth(d.getMonth() - 3); });
+      var _win = function(lo) { return recs.filter(function(r) { return r.date >= lo && r.date <= fDate; }); };
+      out.w1 = pickOf(_win(c1));
+      out.m1 = pickOf(_win(c2));
+      out.m3 = pickOf(_win(c3));
     }
-    return { wk: wkAlpha, all: (baAll && baAll.alpha != null) ? baAll.alpha : null };
+    return out;
   }, [data, fStock, fDate]);
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
@@ -6156,11 +6159,14 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 14, marginBottom: 6 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値"),
-        _refBaseAlpha ? React.createElement("span", { title: "保存済み記録から算出した推奨基本α（記録の参考用）", style: { fontSize: 11, fontWeight: 600, color: "#64748B" } },
-          "推奨基本α：",
-          React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "今週 " + (_refBaseAlpha.wk != null ? _refBaseAlpha.wk + "円" : "—")),
-          React.createElement("span", { style: { color: "#cbd5e1", margin: "0 5px" } }, "/"),
-          React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "全期間 " + (_refBaseAlpha.all != null ? _refBaseAlpha.all + "円" : "—"))) : null),
+        _refBaseAlpha ? React.createElement("span", { title: "保存済み記録から算出した推奨基本α（記録日を起点にした直近・記録の参考用）", style: { fontSize: 11, fontWeight: 600, color: "#64748B" } },
+          React.createElement("span", { style: { color: "#94A3B8" } }, "推奨基本α："),
+          [["直近1週", _refBaseAlpha.w1], ["1か月", _refBaseAlpha.m1], ["3か月", _refBaseAlpha.m3], ["全期間", _refBaseAlpha.all]].map(function(kv, i) {
+            return React.createElement("span", { key: i },
+              i ? React.createElement("span", { style: { color: "#cbd5e1", margin: "0 4px" } }, "・") : null,
+              kv[0] + " ",
+              React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1] != null ? kv[1] + "円" : "—"));
+          })) : null),
       React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。基本αは予想OS度から自動（A20/B15/C10/D5/E0）"),
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
       (function() {
