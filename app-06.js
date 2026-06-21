@@ -1102,38 +1102,48 @@ function _elBucketLabel(key, gran) {
   }
   return "全期間";
 }
-// 指定αを全recに一律適用した { a, pnl(整合基準: H2あればH2・無ければH1の合計), stopN(損切り件数), n, hasObj }。
+// E到達率の閾値（推奨基本αは「この割合以上ちゃんと入れる」αから選ぶ）。後で調整可。
+var _EL_BASE_ERATE = 0.70;
+// 指定αを全recに一律適用した { a, pnl(ΣH1損益・撤退floorなし), stopN(損切り件数), n, entered(E到達件数), eRate, hasPnl }。
 function _elBaseAlphaEval(recs, aiOf, a) {
-  var pnl = 0, stopN = 0, n = 0, hasObj = false;
+  var pnl = 0, epPnl = 0, stopN = 0, n = 0, entered = 0, hasPnl = false, hasEp = false;
   (recs || []).forEach(function(r) {
     var s = r.signal; if (!s) return;
     var c = aiOf(r).cutLine;
-    var hasH2 = _elHas2Data(s);
-    var hd = _elDynHold(s, a, c);
-    var t2 = _elHold2TotParts(s, a, c);
-    var h2v = t2 ? t2.main : null;
-    var obj = (hasH2 && h2v != null) ? h2v : hd;
     n++;
-    if (obj != null) { pnl += obj; hasObj = true; }
+    if (_epReachedAt(s, a)) entered++;
+    var pl = _elDynPlanned(s, a, c);   // EP損益
+    if (pl != null) { epPnl += pl; hasEp = true; }
+    var hd = _elDynHold(s, a, c);   // H1損益（撤退floorなし）
+    if (hd != null) { pnl += hd; hasPnl = true; }
+    var hasH2 = _elHas2Data(s);
     var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (hasH2 && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c));
     if (isStop) stopN++;
   });
-  return { a: a, pnl: hasObj ? pnl : null, stopN: stopN, n: n, hasObj: hasObj };
+  return { a: a, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp };
 }
-// 推奨基本α(0〜20)を選定。損切り0を最優先（無理なら損切り最少）、その中で合計損益>0、なるべく小さいα。
-// 返り値 { alpha, pnl, stopN, minStop, status('ok'|'no_profit'|'min_stop'|'none'), sweep:[{a,pnl,stopN,hasObj}] }。
-function _elBaseAlphaPick(recs, aiOf) {
+// 推奨基本α(0〜20)を選定。①E到達率>=閾値 のαに絞り → ②損切り0(無理なら最少) → ③EP損益・H1損益とも>0 → ④なるべく小さいα。
+// 返り値 { alpha, pnl, stopN, eRate, minStop, status('ok'|'no_profit'|'min_stop'|'low_entry'|'none'), sweep, thr }。
+function _elBaseAlphaPick(recs, aiOf, minERate) {
   if (!recs || !recs.length) return null;
+  var thr = minERate != null ? minERate : _EL_BASE_ERATE;
   var sweep = _EL_BASE_ALPHAS.map(function(a) { return _elBaseAlphaEval(recs, aiOf, a); });
-  var withObj = sweep.filter(function(e) { return e.hasObj; });
-  if (!withObj.length) return { alpha: null, pnl: null, stopN: null, minStop: null, status: "none", sweep: sweep };
-  var minStop = withObj.reduce(function(m, e) { return Math.min(m, e.stopN); }, Infinity);
-  var pool = withObj.filter(function(e) { return e.stopN === minStop; });   // αは昇順なので pool[0] が最小α
-  var profitable = pool.filter(function(e) { return e.pnl != null && e.pnl > 0; });
-  var picked, status;
-  if (profitable.length) { picked = profitable[0]; status = (minStop === 0) ? "ok" : "min_stop"; }
-  else { picked = pool[0]; status = (minStop === 0) ? "no_profit" : "min_stop"; }
-  return { alpha: picked.a, pnl: picked.pnl, stopN: picked.stopN, minStop: minStop, status: status, sweep: sweep };
+  var withPnl = sweep.filter(function(e) { return e.hasPnl; });
+  if (!withPnl.length) return { alpha: null, pnl: null, stopN: null, eRate: null, minStop: null, status: "none", sweep: sweep, thr: thr };
+  var pool = withPnl.filter(function(e) { return e.eRate >= thr; });
+  var lowEntry = false;
+  if (!pool.length) { pool = withPnl; lowEntry = true; }   // E到達率が閾値以上のαが無い→全体から（フラグ）
+  var minStop = pool.reduce(function(m, e) { return Math.min(m, e.stopN); }, Infinity);
+  var cand = pool.filter(function(e) { return e.stopN === minStop; });   // αは昇順なので cand[0]=最小α
+  var profitable = cand.filter(function(e) { return e.pnl != null && e.pnl > 0 && e.epPnl != null && e.epPnl > 0; });   // EP・H1とも利益
+  var picked = profitable.length ? profitable[0] : cand[0];
+  var status = lowEntry ? "low_entry" : (minStop > 0 ? "min_stop" : (profitable.length ? "ok" : "no_profit"));
+  return { alpha: picked.a, pnl: picked.pnl, epPnl: picked.epPnl, stopN: picked.stopN, eRate: picked.eRate, minStop: minStop, status: status, sweep: sweep, thr: thr };
+}
+// 割合(0〜1)→%セル（70%以上=緑/50%以上=橙/未満=赤）。
+function _elPctCell(rate) {
+  var p = Math.round((rate || 0) * 100);
+  return React.createElement("span", { style: { fontWeight: 700, color: p >= 70 ? "#1E8449" : p >= 50 ? "#B45309" : "#C0392B" } }, p + "%");
 }
 // 推奨基本αの期間別トレンド本体（gran=month/week）。期間ごとに推奨基本αを出し、折れ線＋表＋最初vs直近の読み取り。
 function _elBaseAlphaTrendBody(recs, aiOf, gran) {
@@ -1152,7 +1162,9 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
     return React.createElement("tr", { key: i },
       _elv2Td(b.label, { fontWeight: 700, color: "#9A3412" }),
       _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, p.alpha + "円")),
+      _elv2Td(_elPctCell(p.eRate)),
       _elv2Td((p.stopN || 0) + "件", { color: p.stopN > 0 ? "#1E8449" : "#bbb", fontWeight: p.stopN > 0 ? 700 : 400 }),
+      _elv2Td(p.epPnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(p.epPnl), fontWeight: 700 } }, _elPnlFmt(p.epPnl))),
       _elv2Td(p.pnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(p.pnl), fontWeight: 700 } }, _elPnlFmt(p.pnl))),
       _elv2Td(b.n + "件"));
   });
@@ -1160,32 +1172,39 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
   var insight = (buckets.length >= 2) ? _elInsightBoxV2([
     React.createElement("span", null, "〜", _elInsightEmV2(first.label), "の推奨基本αは", _elInsightEmV2(first.pick.alpha + "円"), "、直近の", _elInsightEmV2(last.label), "は", _elInsightEmV2(last.pick.alpha + "円"), "。"),
     (last.pick.alpha !== first.pick.alpha) ? React.createElement("span", null, "最近は", _elInsightEmV2((last.pick.alpha > first.pick.alpha ? "高め" : "低め") + "（" + (last.pick.alpha > first.pick.alpha ? "+" : "") + (last.pick.alpha - first.pick.alpha) + "円）"), "の傾向。") : null
-  ].filter(Boolean), { note: "各期間で「損切り0（無理なら最少）かつ合計損益>0」を満たす最小α（0〜20円）。件数が少ない期間は振れやすい・損益は整合基準(H2あればH2/無ければH1)" }) : null;
-  return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "損切り", "合計損益", "件数"], rows), insight);
+  ].filter(Boolean), { note: "各期間で「E到達率70%以上 ＆ 損切り0（無理なら最少）＆ EP損益・H1損益とも>0」を満たす最小α（0〜20円）。EP=EP損益・H1=H1損益の合計。件数が少ない期間は振れやすい" }) : null;
+  return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "E到達", "損切り", "EP損益", "H1損益", "件数"], rows), insight);
 }
-// 推奨基本αの「期間まとめ」: 1つの推奨値＋α別の損切り件数/合計損益の早見表（★=推奨）＋読み取り。
+// 推奨基本αの「期間まとめ」: 1つの推奨値＋α別の E到達率/損切り件数/合計損益の早見表（★=推奨）＋読み取り。
 function _elBaseAlphaSummary(recs, aiOf) {
   var pick = _elBaseAlphaPick(recs, aiOf);
   if (!pick || pick.status === "none") return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "算出対象なし");
-  var note = pick.status === "ok" ? "損切り0かつ合計プラスを満たす最小α"
-    : pick.status === "no_profit" ? "損切り0は取れるが合計はプラスにならない（損切り0の最小α）"
-    : "0〜20で損切り0にできず、損切り最少（" + pick.minStop + "件）の中での最小α";
+  var thrP = Math.round((pick.thr || 0.7) * 100);
+  var note = pick.status === "ok" ? ("E到達" + thrP + "%以上・損切り0・EP/H1とも+を満たす最小α")
+    : pick.status === "no_profit" ? ("E到達" + thrP + "%以上・損切り0は取れるがEP/H1とも+にはならない（その最小α）")
+    : pick.status === "low_entry" ? ("E到達" + thrP + "%以上のαが無く、全α中で損切り最少（" + pick.minStop + "件）の最小α")
+    : ("E到達" + thrP + "%以上で損切り0にできず、損切り最少（" + pick.minStop + "件）の中での最小α");
   var cards = _elv2CardRow([
     _elv2Card("推奨基本α", React.createElement("span", { style: { color: "#0369A1" } }, pick.alpha + "円"), "#0369A1", "0〜20円で選定"),
+    _elv2Card("E到達率", _elPctCell(pick.eRate), null),
     _elv2Card("損切り件数", (pick.stopN || 0) + "件", pick.stopN > 0 ? "#1E8449" : "#bbb"),
-    _elv2Card("合計損益", pick.pnl == null ? "—" : _elPnlFmt(pick.pnl), pick.pnl != null ? _elPnlColor(pick.pnl) : "#333")
+    _elv2Card("EP損益", pick.epPnl == null ? "—" : _elPnlFmt(pick.epPnl), pick.epPnl != null ? _elPnlColor(pick.epPnl) : "#333"),
+    _elv2Card("H1損益", pick.pnl == null ? "—" : _elPnlFmt(pick.pnl), pick.pnl != null ? _elPnlColor(pick.pnl) : "#333")
   ]);
-  var sweepRows = pick.sweep.filter(function(e) { return e.hasObj; }).map(function(e) {
+  var sweepRows = pick.sweep.filter(function(e) { return e.hasPnl; }).map(function(e) {
     var on = e.a === pick.alpha;
+    var okE = e.eRate >= (pick.thr || 0.7);
     return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent" } },
       _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(_elPctCell(e.eRate), { opacity: okE ? 1 : 0.45 }),
       _elv2Td((e.stopN || 0) + "件", { color: e.stopN > 0 ? "#1E8449" : "#bbb", fontWeight: e.stopN > 0 ? 700 : 400 }),
+      _elv2Td(e.epPnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(e.epPnl), fontWeight: 700 } }, _elPnlFmt(e.epPnl))),
       _elv2Td(e.pnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(e.pnl), fontWeight: 700 } }, _elPnlFmt(e.pnl))));
   });
   return React.createElement("div", null, cards,
-    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "α別の損切り件数・合計損益（★＝推奨基本α）"),
-    _elv2Table(["基本α", "損切り", "合計損益"], sweepRows),
-    _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（", note, "）。")], { note: "利益が出やすい中でなるべく小さく・損切りにならずに済んだ値。0〜20円・1円刻み・損益は整合基準(H2あればH2/無ければH1)" }));
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "α別の E到達率・損切り件数・EP損益・H1損益（★＝推奨基本α・E到達" + thrP + "%未満は淡色）"),
+    _elv2Table(["基本α", "E到達", "損切り", "EP損益", "H1損益"], sweepRows),
+    _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（", note, "）。")], { note: "利益が出やすい中でなるべく小さく・損切りにならず・ちゃんと入れる(E到達" + thrP + "%以上)・EP損益とH1損益がともに+の値。0〜20円・1円刻み・撤退floorなし" }));
 }
 // 🎯 推奨基本α値: 月別/週別/期間まとめを切替（ステートフル）。
 function _elBaseAlphaTrendV2(props) {
@@ -2235,9 +2254,8 @@ function EntryLogView(_ref_elv2) {
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(recs, _ai),
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: recs, aiOf: _ai })) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
-      stkKey ? React.createElement(React.Fragment, null,
-        _secH("🎯 推奨基本α値（期間ごとの傾向）", "その期間の全トレードに同じαを当てたとき、損切りにならず（無理なら最少）・合計損益がプラスになる最小のα（0〜20円）。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる"),
-        React.createElement(_elBaseAlphaTrendV2, { recs: recs, aiOf: _ai })) : null,
+      _secH("🎯 推奨基本α値（期間ごとの傾向）", "その期間の全トレードに同じαを当てたとき、E到達率70%以上・損切りにならず（無理なら最少）・合計損益(ΣH1)がプラスになる最小のα（0〜20円）。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる"),
+      React.createElement(_elBaseAlphaTrendV2, { recs: recs, aiOf: _ai }),
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
       _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益"), _elDowSectionV2(recs, _ai),
       _secH("🚫 期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(recs, _ai),
