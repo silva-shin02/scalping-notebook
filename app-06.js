@@ -1202,6 +1202,73 @@ function _elDailyBaseAlphaV2(recs, aiOf) {
       React.createElement("span", null, "この銘柄の1日のベースαは", _elInsightEmV2("α=" + m.val + "円"), "にしておくのが最も無難（", _elInsightEmV2(m.cnt + "/" + m.total + "日"), "でその日の最低ラインがこの値）。")
     ], { note: "各日の整合した単一理想αの最小値＝その日に最低限とるべきだったα。1円刻み" }));
 }
+// 日付→期間バケットキー（month=YYYY-MM / week=その週の月曜YYYY-MM-DD / 他=all）。週ロジックは期間タブと共通。
+function _elBucketKey(date, gran) {
+  if (gran === "month") return date.slice(0, 7);
+  if (gran === "week") {
+    var d = new Date(date + "T00:00:00");
+    var mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return mon.getFullYear() + "-" + ("0" + (mon.getMonth() + 1)).slice(-2) + "-" + ("0" + mon.getDate()).slice(-2);
+  }
+  return "all";
+}
+// 期間バケットキー→表示ラベル。
+function _elBucketLabel(key, gran) {
+  if (gran === "month") return key.replace("-", "/");
+  if (gran === "week") {
+    var mon = new Date(key + "T00:00:00");
+    var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+    return (mon.getMonth() + 1) + "/" + mon.getDate() + "〜" + (fri.getMonth() + 1) + "/" + fri.getDate();
+  }
+  return "全期間";
+}
+// 整合単一理想αの期間別トレンド本体（gran=month/week）。バケットごとに最頻/中央/平均/件数＋中央値の折れ線＋最初vs直近の読み取り。
+function _elIdealAlphaTrendBody(recs, aiOf, gran) {
+  var items = [];
+  (recs || []).forEach(function(r) {
+    if (!r || !r.date) return;
+    var ia = _elRecIdealAlphas(r.signal, aiOf(r).cutLine);
+    if (ia && ia.uni != null) items.push({ date: r.date, uni: ia.uni });
+  });
+  if (!items.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "算出対象なし（整合αのある記録がありません）");
+  var by = {};
+  items.forEach(function(it) { var k = _elBucketKey(it.date, gran); (by[k] = by[k] || []).push(it.uni); });
+  var buckets = Object.keys(by).sort().map(function(k) {
+    var vals = by[k];
+    return { key: k, label: _elBucketLabel(k, gran), mode: _elModeOf(vals), med: _elMedian(vals), mean: _elMean(vals), n: vals.length };
+  });
+  var pts = buckets.map(function(b) { return b.med; });
+  var xTicks = [], step = Math.max(1, Math.ceil(buckets.length / 6));
+  buckets.forEach(function(b, i) { if (i % step === 0 || i === buckets.length - 1) xTicks.push({ i: i, label: b.label }); });
+  var chart = buckets.length >= 2 ? _elLineChartV2([{ label: "整合理想α 中央値", color: "#0369A1", pts: pts }], { xTicks: xTicks, height: 170, targetTicks: 6 }) : null;
+  var rows = buckets.map(function(b, i) {
+    return React.createElement("tr", { key: i },
+      _elv2Td(b.label, { fontWeight: 700, color: "#9A3412" }),
+      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, (b.mode ? b.mode.val : "—") + "円")),
+      _elv2Td(b.med + "円"),
+      _elv2Td(b.mean + "円"),
+      _elv2Td(b.n + "件"));
+  });
+  var first = buckets[0], last = buckets[buckets.length - 1];
+  var insight = (buckets.length >= 2) ? _elInsightBoxV2([
+    React.createElement("span", null, "〜", _elInsightEmV2(first.label), "は整合理想αが中央", _elInsightEmV2(first.med + "円"), "（最頻" + (first.mode ? first.mode.val : "—") + "円）中心、直近の", _elInsightEmV2(last.label), "は中央", _elInsightEmV2(last.med + "円"), "（最頻" + (last.mode ? last.mode.val : "—") + "円）中心。"),
+    (first.med != null && last.med != null && last.med !== first.med) ? React.createElement("span", null, "傾向は", _elInsightEmV2((last.med > first.med ? "高い方" : "低い方") + "へ" + (Math.round(Math.abs(last.med - first.med) * 10) / 10) + "円シフト"), "。") : null
+  ].filter(Boolean), { note: "各期間の整合した単一理想α（実際に建てる1つのα・1円刻み）の中央値を折れ線に。表は最頻/中央/平均/件数。件数が少ない期間は振れやすい" }) : null;
+  return React.createElement("div", null, chart, _elv2Table(["期間", "最頻α", "中央α", "平均α", "件数"], rows), insight);
+}
+// 🎯 理想α分析（期間ごとの傾向）: 月別/週別/期間まとめを切替。整合した単一理想αの推移を表示（ステートフル）。
+function _elIdealAlphaTrendV2(props) {
+  var recs = props.recs, aiOf = props.aiOf;
+  var _g = useState("month"), gran = _g[0], setGran = _g[1];
+  var _tg = function(val, lbl) {
+    var on = gran === val;
+    return React.createElement("button", { key: val, onClick: function() { setGran(val); },
+      style: { padding: "3px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid " + (on ? "#0369A1" : "#ddd"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#666" } }, lbl);
+  };
+  var toggle = React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } }, _tg("month", "月別"), _tg("week", "週別"), _tg("period", "期間まとめ"));
+  var body = gran === "period" ? _elIdealAlphaWhatV2(recs, aiOf) : _elIdealAlphaTrendBody(recs, aiOf, gran);
+  return React.createElement("div", null, toggle, body);
+}
 
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====
 function _elv2Th(t) { return React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); }
@@ -2238,8 +2305,8 @@ function EntryLogView(_ref_elv2) {
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: recs, aiOf: _ai })) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
       stkKey ? React.createElement(React.Fragment, null,
-        _secH("🎯 理想α分析（何円が多かったか）", "実際に建てる単一の理想α（H1が損切りにならず・EPが未達にならない中でH2(無ければH1)が最大・1円刻み）の分布"),
-        _elIdealAlphaWhatV2(recs, _ai),
+        _secH("🎯 理想α分析（期間ごとの傾向）", "実際に建てる単一の理想α（H1が損切りにならず・EPが未達にならない中でH2(無ければH1)が最大・1円刻み）の月別/週別トレンド。「期間まとめ」で全体の分布も確認可"),
+        React.createElement(_elIdealAlphaTrendV2, { recs: recs, aiOf: _ai }),
         _secH("📐 この日の基本(最低)αは何円にすべきだったか", "日ごとに整合した単一理想αの最小値（1円刻み）＝その日のベースとして最低限とるべきだったα"),
         _elDailyBaseAlphaV2(recs, _ai)) : null,
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),

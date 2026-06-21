@@ -4818,13 +4818,13 @@ function DayView(_ref57) {
             (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
         );
       };
-      // 週: 銘柄別グルーピング + 理想α値（0〜20円）計算
+      // 週: 銘柄別グルーピング + 理想α値（0〜50円・1円刻み）計算
       var _wkByStk = {};
       _wkAllRecs.forEach(function(r) { if (!_wkByStk[r.stock]) _wkByStk[r.stock] = []; _wkByStk[r.stock].push(r); });
       var _wkStks = Object.keys(_wkByStk).sort(function(a, b) { var ia = _pbStkOrder.indexOf(a), ib = _pbStkOrder.indexOf(b); if (ia !== -1 || ib !== -1) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; } return a < b ? -1 : a > b ? 1 : 0; });
       var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk].filter(function(r) { return _elInclTotal(r.signal); }) }; });
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円5刻み・週間）"),
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜50円1円刻み・週間）"),
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の全記録でα値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大になるα・目標=2,500円以上になる最小α。100株換算・合計行と同基準。"),
         _elIdealAlphaTableV2(_wkGroups, _wkCutOf));
       var _wkExpRow = function(recs, rowKey) {
@@ -5223,7 +5223,7 @@ function DayView(_ref57) {
         )
       ),
       _pbHasAlpha && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円制限・5円刻み）"),
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜50円・1円刻み）"),
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大のα・目標=2,500円以上の最小α。100株換算・合計行と同基準。"),
         _elIdealAlphaTableV2(_pbIdealGroups, _pbCutOf))
     );

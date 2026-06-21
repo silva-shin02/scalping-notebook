@@ -5214,7 +5214,7 @@ function WeeklyPnlPanel(_wpp) {
     );
   };
   var _idealEl = _recs.length ? React.createElement("div", { style: { marginTop: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円5刻み・週間）"),
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜50円1円刻み・週間）"),
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)のこの銘柄の全記録でα値を固定していたら最適だったα。100株換算・合計行と同基準。"),
     _elIdealAlphaTableV2([{ label: stock, recs: _recs.filter(function(r) { return _elInclTotal(r.signal); }) }], _cutOf)) : null;
   var _simAlphaCnt = Object.keys(simAlpha).filter(function(k) { return simAlpha[k] != null && simAlpha[k] !== ""; }).length;
@@ -6085,7 +6085,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     var _iaCutLine = cd.cutLine != null ? cd.cutLine : 10;
     var _iaRecs = _iaSigs.map(function(sig) { return { date: date, stock: stock, signal: _compatSignal(sig) }; }).filter(function(r) { return _elInclTotal(r.signal); });
     return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜20円5刻み）"),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 理想α値（EP / H1 / H2・0〜50円・1円刻み）"),
       React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大のα・目標=2,500円以上の最小α。100株換算・合計行と同基準。"),
       _elIdealAlphaTableV2([{ label: stock, recs: _iaRecs }], function() { return _iaCutLine; })
     );
