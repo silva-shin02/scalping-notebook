@@ -1169,30 +1169,31 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
   var byB = {};
   (recs || []).forEach(function(r) { if (!r || !r.date) return; var k = _elBucketKey(r.date, gran); (byB[k] = byB[k] || []).push(r); });
   var buckets = Object.keys(byB).sort().map(function(k) {
-    return { key: k, label: _elBucketLabel(k, gran), pick: _elBaseAlphaPick(byB[k], aiOf), n: byB[k].length };
-  }).filter(function(b) { return b.pick && b.pick.alpha != null; });
+    var rs = byB[k];
+    return { key: k, label: _elBucketLabel(k, gran), p70: _elBaseAlphaReach(rs, aiOf, 0.70), p80: _elBaseAlphaReach(rs, aiOf, 0.80), n: rs.length };
+  }).filter(function(b) { return b.p70 && b.p70.alpha != null; });
   if (!buckets.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
-  var pts = buckets.map(function(b) { return b.pick.alpha; });
+  var pts70 = buckets.map(function(b) { return b.p70.alpha; });
+  var pts80 = buckets.map(function(b) { return (b.p80 && b.p80.alpha != null) ? b.p80.alpha : b.p70.alpha; });
   var xTicks = [], step = Math.max(1, Math.ceil(buckets.length / 6));
   buckets.forEach(function(b, i) { if (i % step === 0 || i === buckets.length - 1) xTicks.push({ i: i, label: b.label }); });
-  var chart = buckets.length >= 2 ? _elLineChartV2([{ label: "推奨基本α", color: "#0369A1", pts: pts }], { xTicks: xTicks, height: 170, targetTicks: 6 }) : null;
+  var chart = buckets.length >= 2 ? _elLineChartV2([{ label: "到達70%α", color: "#0369A1", pts: pts70 }, { label: "到達80%α", color: "#D97706", pts: pts80 }], { xTicks: xTicks, height: 170, targetTicks: 6 }) : null;
   var rows = buckets.map(function(b, i) {
-    var p = b.pick;
+    var p = b.p70;
     return React.createElement("tr", { key: i },
       _elv2Td(b.label, { fontWeight: 700, color: "#9A3412" }),
       _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, p.alpha + "円")),
+      _elv2Td((b.p80 && b.p80.alpha != null) ? React.createElement("span", { style: { fontWeight: 700, color: "#B45309" } }, b.p80.alpha + "円") : "—"),
       _elv2Td(_elPctCell(p.eRate)),
       _elv2Td((p.stopN || 0) + "件", { color: p.stopN > 0 ? "#1E8449" : "#bbb", fontWeight: p.stopN > 0 ? 700 : 400 }),
-      _elv2Td(p.epPnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(p.epPnl), fontWeight: 700 } }, _elPnlFmt(p.epPnl))),
-      _elv2Td(p.pnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(p.pnl), fontWeight: 700 } }, _elPnlFmt(p.pnl))),
       _elv2Td(b.n + "件"));
   });
   var first = buckets[0], last = buckets[buckets.length - 1];
   var insight = (buckets.length >= 2) ? _elInsightBoxV2([
-    React.createElement("span", null, "〜", _elInsightEmV2(first.label), "の推奨基本αは", _elInsightEmV2(first.pick.alpha + "円"), "、直近の", _elInsightEmV2(last.label), "は", _elInsightEmV2(last.pick.alpha + "円"), "。"),
-    (last.pick.alpha !== first.pick.alpha) ? React.createElement("span", null, "最近は", _elInsightEmV2((last.pick.alpha > first.pick.alpha ? "高め" : "低め") + "（" + (last.pick.alpha > first.pick.alpha ? "+" : "") + (last.pick.alpha - first.pick.alpha) + "円）"), "の傾向。") : null
-  ].filter(Boolean), { note: "各期間で「到達率70%を満たす最大のα（損切り最少）」＝確実に入れる土台。利益ゲート無し（利益は追加α＋ホールドで取る）。5〜20円。件数が少ない期間は振れやすい" }) : null;
-  return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "E到達", "損切り", "EP損益", "H1損益", "件数"], rows), insight);
+    React.createElement("span", null, "〜", _elInsightEmV2(first.label), "の到達70%αは", _elInsightEmV2(first.p70.alpha + "円"), "、直近の", _elInsightEmV2(last.label), "は", _elInsightEmV2(last.p70.alpha + "円"), "。"),
+    (last.p70.alpha !== first.p70.alpha) ? React.createElement("span", null, "最近は", _elInsightEmV2((last.p70.alpha > first.p70.alpha ? "高め" : "低め") + "（" + (last.p70.alpha > first.p70.alpha ? "+" : "") + (last.p70.alpha - first.p70.alpha) + "円）"), "の傾向。") : null
+  ].filter(Boolean), { note: "各期間で「到達率70%／80%を満たす最大のα（損切り最少）」＝確実に入れる土台。青=70%・橙=80%。利益ゲート無し（利益は追加α＋ホールドで取る）。5〜20円。件数が少ない期間は振れやすい" }) : null;
+  return React.createElement("div", null, chart, _elv2Table(["期間", "到達70%α", "到達80%α", "E到達", "損切り", "件数"], rows), insight);
 }
 // 推奨基本αの「期間まとめ」: 1つの推奨値＋α別の E到達率/損切り件数/合計損益の早見表（★=推奨）＋読み取り。
 function _elBaseAlphaSummary(recs, aiOf) {
@@ -1202,8 +1203,12 @@ function _elBaseAlphaSummary(recs, aiOf) {
   var note = pick.status === "ok" ? ("到達率" + thrP + "%を満たす最大α・損切り0")
     : pick.status === "low_entry" ? ("到達率" + thrP + "%を満たすαが無く、到達率が最も高い最小α")
     : ("到達率" + thrP + "%は満たすが損切り0は無理→損切り最少（" + pick.minStop + "件）の中で最大α");
+  var pick80 = _elBaseAlphaReach(recs, aiOf, 0.80);
+  var addR = _elAddAlphaReco(recs, pick.alpha);
   var cards = _elv2CardRow([
-    _elv2Card("推奨基本α", React.createElement("span", { style: { color: "#0369A1" } }, pick.alpha + "円"), "#0369A1", "5〜20円で選定"),
+    _elv2Card("推奨基本α(到達70%)", React.createElement("span", { style: { color: "#0369A1" } }, pick.alpha + "円"), "#0369A1", "到達率ベース"),
+    _elv2Card("推奨基本α(到達80%)", React.createElement("span", { style: { color: "#0369A1" } }, (pick80 && pick80.alpha != null) ? pick80.alpha + "円" : "—"), "#0369A1", "より確実"),
+    _elv2Card("◎追加α目安", addR ? "+" + addR.add + "円" : "—", addR ? "#9A3412" : "#bbb", addR ? addR.n + "件" : null),
     _elv2Card("E到達率", _elPctCell(pick.eRate), null),
     _elv2Card("損切り件数", (pick.stopN || 0) + "件", pick.stopN > 0 ? "#1E8449" : "#bbb"),
     _elv2Card("EP損益", pick.epPnl == null ? "—" : _elPnlFmt(pick.epPnl), pick.epPnl != null ? _elPnlColor(pick.epPnl) : "#333"),
@@ -1243,11 +1248,11 @@ function _elBaseAlphaTableV2(groups, cutFn) {
   var _cf = cutFn || function() { return 10; };
   var aiOf = function(r) { return { cutLine: _cf(r) }; };
   var _th = function(t) { return React.createElement("th", { style: { padding: "3px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center", whiteSpace: "nowrap" } }, t); };
-  var _aLine = function(lbl, pk) {
+  var _aLine = function(lbl, pk, col) {
     if (!pk || pk.alpha == null) return React.createElement("div", { style: { fontSize: 10, color: "#aaa", whiteSpace: "nowrap" } }, lbl + " —");
     return React.createElement("div", { style: { whiteSpace: "nowrap", lineHeight: 1.3 } },
       React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, lbl + " "),
-      React.createElement("span", { style: { fontWeight: 800, color: "#0369A1", fontSize: 13 } }, pk.alpha + "円"),
+      React.createElement("span", { style: { fontWeight: 800, color: col || "#0369A1", fontSize: 13 } }, pk.alpha + "円"),
       React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 3 } }, "到達" + Math.round((pk.eRate || 0) * 100) + "%・損切" + (pk.stopN || 0)));
   };
   var rows = (groups || []).filter(function(g) { return g.recs && g.recs.length; }).map(function(g, gi) {
@@ -1255,7 +1260,7 @@ function _elBaseAlphaTableV2(groups, cutFn) {
     var cell;
     if (!A) cell = React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "データ無し");
     else cell = React.createElement("div", null,
-      _aLine("到達70%", A.a70), _aLine("到達80%", A.a80),
+      _aLine("到達70%", A.a70, "#0369A1"), _aLine("到達80%", A.a80, "#B45309"),
       A.add ? React.createElement("div", { style: { fontSize: 9, color: "#9A3412", whiteSpace: "nowrap", marginTop: 1 } }, "◎時 追加α目安 +" + A.add.add + "円(" + A.add.n + "件)") : null);
     return React.createElement("tr", { key: gi, style: { borderBottom: "1px solid #dbeafe" } },
       React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11, whiteSpace: "nowrap", verticalAlign: "top" } }, g.label),
@@ -1515,8 +1520,10 @@ function _elDayStockBenchV2(_ref) {
   var mk = function(recs) {
     var st = _elPeriodStatsV2(recs, aiOf);
     if (!st) return null;
-    var ba = _elBaseAlphaPick(recs, aiOf);
+    var ba = _elBaseAlphaPick(recs, aiOf);            // 到達70%
     st.baseAlpha = (ba && ba.alpha != null) ? ba.alpha : null;
+    var ba80 = _elBaseAlphaReach(recs, aiOf, 0.80);   // 到達80%
+    st.baseA80 = (ba80 && ba80.alpha != null) ? ba80.alpha : null;
     return st;
   };
   var P = { day: mk(recsDay), wk: mk(collect(function(dt) { return dt >= wkS && dt <= wkE; })), mo: mk(collect(function(dt) { return dt.slice(0, 7) === ym; })), all: mk(recsAll) };
@@ -1534,7 +1541,8 @@ function _elDayStockBenchV2(_ref) {
   var METRICS = [
     { key: "n", label: "件数", cell: function(st) { return st.n + "件"; }, dir: null, num: null },
     { key: "os", label: "OS値(中央)", cell: function(st) { return osNode2(st.osMed, st.osMean); }, dir: "up", num: function(st) { return st.osMed; } },
-    { key: "base", label: "推奨基本α", cell: function(st) { return st.baseAlpha == null ? React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "データ無し") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, st.baseAlpha + "円"); }, dir: null, num: function(st) { return st.baseAlpha; } },
+    { key: "base", label: "推奨基本α(到達70%)", cell: function(st) { return st.baseAlpha == null ? React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, st.baseAlpha + "円"); }, dir: null, num: function(st) { return st.baseAlpha; } },
+    { key: "base80", label: "推奨基本α(到達80%)", cell: function(st) { return st.baseA80 == null ? React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#B45309" } }, st.baseA80 + "円"); }, dir: null, num: function(st) { return st.baseA80; } },
     { key: "reach", label: "E到達率", cell: function(st) { return pct(st.reach, st.cnt); }, dir: "up", num: function(st) { return st.cnt ? st.reach / st.cnt : null; } },
     { key: "stop", label: "損切り率", cell: function(st) { return pct(st.stop, st.ok + st.ng + st.draw); }, dir: "down", num: function(st) { var d = st.ok + st.ng + st.draw; return d ? st.stop / d : null; } },
     { key: "win", label: "E後の勝率", cell: function(st) { return pct(st.ok, st.ok + st.ng + st.draw); }, dir: "up", num: function(st) { var d = st.ok + st.ng + st.draw; return d ? st.ok / d : null; } },

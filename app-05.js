@@ -5307,7 +5307,7 @@ function EntryRecordForm(_ref_erf) {
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
     if (!recs.length) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
-    var pickOf = function(rs) { if (!rs || !rs.length) return null; var ba = _elBaseAlphaPick(rs, aiOf); return (ba && ba.alpha != null) ? ba.alpha : null; };
+    var pickOf = function(rs) { if (!rs || !rs.length) return null; var a70 = _elBaseAlphaPick(rs, aiOf); var a80 = _elBaseAlphaReach(rs, aiOf, 0.80); return { a70: (a70 && a70.alpha != null) ? a70.alpha : null, a80: (a80 && a80.alpha != null) ? a80.alpha : null }; };
     var out = { w1: null, m1: null, m3: null, all: pickOf(recs) };
     if (fDate) {
       var _p = fDate.split("-");
@@ -5325,7 +5325,8 @@ function EntryRecordForm(_ref_erf) {
     return out;
   }, [data, fStock, fDate]);
   // 基本αの既定値＝直近1週間の推奨基本α（無ければ1か月→3か月→全期間でフォールバック）。予想OS度とは連動しない 2026-06-21。
-  var _defBaseA = _refBaseAlpha ? (_refBaseAlpha.w1 != null ? _refBaseAlpha.w1 : (_refBaseAlpha.m1 != null ? _refBaseAlpha.m1 : (_refBaseAlpha.m3 != null ? _refBaseAlpha.m3 : _refBaseAlpha.all))) : null;
+  var _baW70 = function(w) { return (w && w.a70 != null) ? w.a70 : null; };
+  var _defBaseA = _refBaseAlpha ? (_baW70(_refBaseAlpha.w1) != null ? _baW70(_refBaseAlpha.w1) : (_baW70(_refBaseAlpha.m1) != null ? _baW70(_refBaseAlpha.m1) : (_baW70(_refBaseAlpha.m3) != null ? _baW70(_refBaseAlpha.m3) : _baW70(_refBaseAlpha.all)))) : null;
   // 新規記録では基本αに直近1週間の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21。
   var _baTouchedRef = useRef(false);
   var _baAutoRef = useRef("");
@@ -6172,7 +6173,7 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: SH_ }, "\u03B1\u5230\u9054\u306E\u898B\u7ACB\u3066"),
       _refAlphaAux ? React.createElement("div", { style: { fontSize: 10, color: "#64748B", marginBottom: 4, display: "flex", flexWrap: "wrap", gap: "2px 12px" } },
-        React.createElement("span", null, "\u63A8\u5968\u57FA\u672C\u03B1(\u76F4\u8FD11\u9031) ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, (_refBaseAlpha && _refBaseAlpha.w1 != null ? _refBaseAlpha.w1 + "\u5186" : "\u2014"))),
+        React.createElement("span", null, "\u63A8\u5968\u57FA\u672C\u03B1(\u76F4\u8FD11\u9031) ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, (_refBaseAlpha && _refBaseAlpha.w1 && _refBaseAlpha.w1.a70 != null ? ("\u5230\u905470%" + _refBaseAlpha.w1.a70 + " / 80%" + (_refBaseAlpha.w1.a80 != null ? _refBaseAlpha.w1.a80 : "\u2014") + "\u5186") : "\u2014"))),
         React.createElement("span", null, "\u7406\u60F3\u03B1 ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "EP" + (_refAlphaAux.idealEp != null ? _refAlphaAux.idealEp : "\u2014") + "/H1 " + (_refAlphaAux.idealH1 != null ? _refAlphaAux.idealH1 : "\u2014") + "/H2 " + (_refAlphaAux.idealH2 != null ? _refAlphaAux.idealH2 : "\u2014"))),
         React.createElement("span", null, "\u5230\u9054\u7387\u5225\u03B1 ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "a70 " + (_refAlphaAux.a70 != null ? _refAlphaAux.a70 : "\u2014") + " / a80 " + (_refAlphaAux.a80 != null ? _refAlphaAux.a80 : "\u2014")))
       ) : null,
@@ -6204,7 +6205,7 @@ function EntryRecordForm(_ref_erf) {
             return React.createElement("span", { key: i },
               i ? React.createElement("span", { style: { color: "#cbd5e1", margin: "0 4px" } }, "・") : null,
               kv[0] + " ",
-              kv[1] != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1] + "円") : React.createElement("span", { style: { color: "#aaa" } }, "データ無し"));
+              kv[1] && kv[1].a70 != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "70%" + kv[1].a70 + "/80%" + (kv[1].a80 != null ? kv[1].a80 : "—")) : React.createElement("span", { style: { color: "#aaa" } }, "データ無し"));
           }))
           : (fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨基本α：データ無し") : null)),
       React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。基本αの初期値＝直近1週間の推奨基本α（予想OS度とは連動しない・手動で変更可）"),
