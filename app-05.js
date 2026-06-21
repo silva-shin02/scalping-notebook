@@ -6133,7 +6133,7 @@ function EntryRecordForm(_ref_erf) {
         })
       ),
       
-      React.createElement("div", { style: SH_ }, "α値"),
+      React.createElement("div", { style: Object.assign({}, SH_, { textTransform: "none" }) }, "α値"),
       React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。基本αは予想OS度から自動（A20/B15/C10/D5/E0）"),
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
       (function() {
@@ -6182,18 +6182,13 @@ function EntryRecordForm(_ref_erf) {
         var _ba = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : _gradeAlpha(fDifficulty);
         var _aa = (fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
         return React.createElement("div", {
-          style: { display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 14px", borderRadius: 6, background: "#0369A1", border: "1px solid #0369A1", fontSize: 12 }
+          style: { display: "inline-flex", alignItems: "baseline", gap: 5, padding: "4px 10px", borderRadius: 6, background: "#F8FAFC", border: "1px solid #E2E8F0", fontSize: 12 }
         },
-          React.createElement("span", { style: { color: "#E0F2FE", fontWeight: 700 } }, "合計α値"),
-          React.createElement("span", { style: { fontSize: 17, fontWeight: 800, color: "#fff", lineHeight: 1 } }, (_ba + _aa) + "円")
+          React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600 } }, "合計α"),
+          React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: "#0369A1", lineHeight: 1 } }, (_ba + _aa)),
+          React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円")
         );
-      })()
-      ),
-      React.createElement("div", { style: { marginBottom: 8 } },
-        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "αメモ"),
-        React.createElement(FastInput, { multiline: true, autoResize: true, value: fAlphaMemo, onChange: function(v) { setFAlphaMemo(v); }, placeholder: "", rows: 2, style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 44 }) })
-      ),
-      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 6 } },
+      })(),
 
       (function() {
         var _ckC = fStock + "_" + fDate;
@@ -6237,6 +6232,10 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })()
+      ),
+      React.createElement("div", { style: { marginBottom: 8 } },
+        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "αメモ"),
+        React.createElement(FastInput, { multiline: true, autoResize: true, value: fAlphaMemo, onChange: function(v) { setFAlphaMemo(v); }, placeholder: "", rows: 2, style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 44 }) })
       ),
 
       isV2Form ? (function() {
