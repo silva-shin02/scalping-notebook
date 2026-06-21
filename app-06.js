@@ -1488,7 +1488,7 @@ function _elDayStockBenchV2(_ref) {
   var aiOf = function(r) { return _elAlphaInfo(r, data); };
   var recsAll = collect(function() { return true; });
   var recsDay = collect(function(dt) { return dt === date; });
-  if (!recsAll.length || !recsDay.length) return null;
+  if (!recsAll.length) return null;   // その日に記録が無くても、過去データがあれば表示（本日列は「—」）2026-06-21
   var mk = function(recs) {
     var st = _elPeriodStatsV2(recs, aiOf);
     if (!st) return null;
@@ -1497,7 +1497,7 @@ function _elDayStockBenchV2(_ref) {
     return st;
   };
   var P = { day: mk(recsDay), wk: mk(collect(function(dt) { return dt >= wkS && dt <= wkE; })), mo: mk(collect(function(dt) { return dt.slice(0, 7) === ym; })), all: mk(recsAll) };
-  if (!P.all || !P.day) return null;
+  if (!P.all) return null;   // P.day（本日分）は無くてもよい＝本日列は空表示 2026-06-21
 
   var dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var pct = function(num, den) { return den ? (Math.round(num / den * 100) + "%") : dash; };
@@ -1523,7 +1523,7 @@ function _elDayStockBenchV2(_ref) {
   var EPS = { os: 0.5, base: 0.5, reach: 0.03, stop: 0.03, win: 0.03, ep: 50, h1: 50, h2: 50, real: 50 };
   var dayMark = function(m) {
     if (!m.num) return null;
-    var dv = m.num(P.day), av = m.num(P.all);
+    var dv = P.day ? m.num(P.day) : null, av = m.num(P.all);
     if (dv == null || av == null) return null;
     var diff = dv - av;
     if (Math.abs(diff) <= (EPS[m.key] || 0)) return null;
@@ -1543,18 +1543,18 @@ function _elDayStockBenchV2(_ref) {
   });
   var table = _elv2Table(["指標", "本日", "今週", "今月", "全期間"], rows);
   var items = [];
-  if (P.day.osMed != null && P.all.osMed != null) {
+  if (P.day && P.day.osMed != null && P.all.osMed != null) {
     items.push(React.createElement("span", null, "本日のOS中央値は", _elInsightEmV2(P.day.osMed + "円"), "（全期間", _elInsightEmV2(P.all.osMed + "円"), "）＝", _elInsightEmV2(P.day.osMed > P.all.osMed ? "初動が強め" : P.day.osMed < P.all.osMed ? "初動が弱め" : "同程度", P.day.osMed > P.all.osMed ? "#C0392B" : P.day.osMed < P.all.osMed ? "#1E8449" : "#888"), "。"));
   }
-  if (P.day.baseAlpha != null && P.all.baseAlpha != null) {
+  if (P.day && P.day.baseAlpha != null && P.all.baseAlpha != null) {
     items.push(React.createElement("span", null, "推奨基本αは 本日", _elInsightEmV2(P.day.baseAlpha + "円"), (P.mo && P.mo.baseAlpha != null ? React.createElement("span", null, "／今月", _elInsightEmV2(P.mo.baseAlpha + "円")) : null), "／全期間", _elInsightEmV2(P.all.baseAlpha + "円"), "。"));
   }
-  if (P.day.ok + P.day.ng + P.day.draw) {
+  if (P.day && (P.day.ok + P.day.ng + P.day.draw)) {
     var dDen = P.day.ok + P.day.ng + P.day.draw, aDen = P.all.ok + P.all.ng + P.all.draw;
     var dStop = Math.round(P.day.stop / dDen * 100), aStop = aDen ? Math.round(P.all.stop / aDen * 100) : 0;
     items.push(React.createElement("span", null, "損切り率は 本日", _elInsightEmV2(dStop + "%"), "（全期間", _elInsightEmV2(aStop + "%"), "）＝", _elInsightEmV2(dStop < aStop ? "本日は少なめ" : dStop > aStop ? "本日は多め" : "同程度", dStop < aStop ? "#C0392B" : dStop > aStop ? "#1E8449" : "#888"), "。"));
   }
-  var insight = items.length ? _elInsightBoxV2(items, { note: "本日列の↑↓は全期間比（↑赤=良い方向／↓緑=悪い方向・推奨基本αは▲▼で高低のみ）。OS=中央値・損益=平均（計＝合計・E成立分）・採用α基準。件数 本日" + P.day.n + "／今週" + (P.wk ? P.wk.n : 0) + "／今月" + (P.mo ? P.mo.n : 0) + "／全期間" + P.all.n + "件。" }) : null;
+  var insight = items.length ? _elInsightBoxV2(items, { note: "本日列の↑↓は全期間比（↑赤=良い方向／↓緑=悪い方向・推奨基本αは▲▼で高低のみ）。OS=中央値・損益=平均（計＝合計・E成立分）・採用α基準。件数 本日" + (P.day ? P.day.n : 0) + "／今週" + (P.wk ? P.wk.n : 0) + "／今月" + (P.mo ? P.mo.n : 0) + "／全期間" + P.all.n + "件。" }) : null;
   var idealB = _elIdealAlphaV2(recsAll, function(r) { return aiOf(r).cutLine; });
   var pctlB = _elOsPctlV2(recsAll);
   var _aPill = function(v) { return v == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
