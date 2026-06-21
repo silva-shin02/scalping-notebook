@@ -5312,6 +5312,19 @@ function EntryRecordForm(_ref_erf) {
     }
     return out;
   }, [data, fStock, fDate]);
+  // 基本αの既定値＝直近1週間の推奨基本α（無ければ1か月→3か月→全期間でフォールバック）。予想OS度とは連動しない 2026-06-21。
+  var _defBaseA = _refBaseAlpha ? (_refBaseAlpha.w1 != null ? _refBaseAlpha.w1 : (_refBaseAlpha.m1 != null ? _refBaseAlpha.m1 : (_refBaseAlpha.m3 != null ? _refBaseAlpha.m3 : _refBaseAlpha.all))) : null;
+  // 新規記録では基本αに直近1週間の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21。
+  var _baTouchedRef = useRef(false);
+  var _baAutoRef = useRef("");
+  useEffect(function() {
+    if (isEdit || _baTouchedRef.current) return;
+    if (_defBaseA == null) return;
+    if (fBaseAlpha !== "" && fBaseAlpha !== _baAutoRef.current) return;
+    var _nv = String(_defBaseA);
+    _baAutoRef.current = _nv;
+    if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
+  }, [_defBaseA, fBaseAlpha, isEdit]);
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
   var _useStateINC = useState(initSig.includeInTotal !== false),
@@ -5387,8 +5400,8 @@ function EntryRecordForm(_ref_erf) {
 
 
   
-  // 合計α値 = 基本α値（未入力なら予想OS度から）＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
-  var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : _gradeAlpha(fDifficulty);
+  // 合計α値 = 基本α値（未入力なら直近1週間の推奨基本α・無ければ0。予想OS度とは連動しない 2026-06-21）＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
+  var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_defBaseA != null ? _defBaseA : 0);
   var _fAddA = (fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
   var _fAlpha = _fBaseA + _fAddA;
   var _fCutLine = (function() {
@@ -6136,15 +6149,15 @@ function EntryRecordForm(_ref_erf) {
       }),
       
       React.createElement("div", { style: SH_ }, "\u4E88\u60F3OS\u5EA6"),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u5186\u301C / B:15\u301C19\u5186 / C:10\u301C14\u5186 / D:5\u301C9\u5186 / E:0\u301C4\u5186\uFF09\u3002\u03B1\u5024\u306F\u81EA\u52D5: A\u219220 / B\u219215 / C\u219210 / D\u21925 / E\u21920"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u5186\u301C / B:15\u301C19\u5186 / C:10\u301C14\u5186 / D:5\u301C9\u5186 / E:0\u301C4\u5186\uFF09\u3002\u57FA\u672C\u03B1\u3068\u306F\u9023\u52D5\u3057\u307E\u305B\u3093"),
       React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
         ["A", "B", "C", "D", "E"].map(function(val) {
           var on = fDifficulty === val;
           return React.createElement("button", {
             key: val,
             onClick: function() {
-              if (on) { setFDifficulty(""); setFBaseAlpha(""); }
-              else { setFDifficulty(val); setFBaseAlpha(String(_gradeAlpha(val))); }
+              if (on) { setFDifficulty(""); }
+              else { setFDifficulty(val); }
             },
             style: {
               flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: on ? 800 : 700,
@@ -6168,11 +6181,11 @@ function EntryRecordForm(_ref_erf) {
               kv[1] != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1] + "円") : React.createElement("span", { style: { color: "#aaa" } }, "データ無し"));
           }))
           : (fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨基本α：データ無し") : null)),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。基本αは予想OS度から自動（A20/B15/C10/D5/E0）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。基本αの初期値＝直近1週間の推奨基本α（予想OS度とは連動しない・手動で変更可）"),
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
       (function() {
-        var _setBA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFBaseAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
-        var _stepBA = function(delta) { var base = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : _gradeAlpha(fDifficulty); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
+        var _setBA = function(val) { _baTouchedRef.current = true; var _v = _toHankakuNum(val); if (_v === "") { setFBaseAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
+        var _stepBA = function(delta) { _baTouchedRef.current = true; setFBaseAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_defBaseA != null ? _defBaseA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F0F9FF", border: "1px solid #BAE6FD", fontSize: 12 }
         },
@@ -6180,9 +6193,9 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
-              value: fBaseAlpha !== "" ? fBaseAlpha : (fDifficulty ? String(_gradeAlpha(fDifficulty)) : ""),
+              value: fBaseAlpha !== "" ? fBaseAlpha : (_defBaseA != null ? String(_defBaseA) : ""),
               onChange: function(e) { _setBA(e.target.value); },
-              placeholder: "予想OS度",
+              placeholder: "推奨基本α",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(function() { _stepBA(1); }, function() { _stepBA(-1); })
@@ -6193,7 +6206,7 @@ function EntryRecordForm(_ref_erf) {
 
       (function() {
         var _setAA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFAddAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFAddAlpha(String(n)); };
-        var _stepAA = function(delta) { var base = (fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0; var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; setFAddAlpha(String(n)); };
+        var _stepAA = function(delta) { setFAddAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#FFFBEB", border: "1px solid #FDE68A", fontSize: 12 }
         },
@@ -6213,7 +6226,7 @@ function EntryRecordForm(_ref_erf) {
       })(),
 
       (function() {
-        var _ba = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : _gradeAlpha(fDifficulty);
+        var _ba = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_defBaseA != null ? _defBaseA : 0);
         var _aa = (fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "baseline", gap: 5, padding: "4px 10px", borderRadius: 6, background: "#F8FAFC", border: "1px solid #E2E8F0", fontSize: 12 }
