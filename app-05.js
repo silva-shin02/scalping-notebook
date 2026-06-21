@@ -3444,7 +3444,7 @@ function _elHoldIsStop(s, alpha, cutLine) {
 }
 // 理想α値: 候補(0〜50円・1円刻み)のうち損切りにならず「EP損益＋H1結果損益」の合計が最大の値。
 // 該当が無ければ全候補中で合計が最大(=一番マシ)の値。同点は小さいα優先。本日/今週の損益データ表のαシミュ用。
-// 2026-06-21: 5円刻み(0/5/10/15/20)→1円刻み(0〜50)へ精密化＝理想α表/一括α理想値/記録帳の理想α分析が1円単位に。
+// 2026-06-21: 5円刻み(0/5/10/15/20)→1円刻み(0〜50)へ精密化＝理想α表(_elIdealAlphaTableV2)/一括ボタンが1円単位に。※記録帳の「推奨基本α」分析は別系統＝_EL_BASE_ALPHAS(0〜20)。
 var _EL_IDEAL_ALPHAS = (function() { var _a = []; for (var _i = 0; _i <= 50; _i++) _a.push(_i); return _a; })();
 function _elIdealAlpha(s, cutLine) {
   if (!s) return null;
@@ -6165,8 +6165,9 @@ function EntryRecordForm(_ref_erf) {
             return React.createElement("span", { key: i },
               i ? React.createElement("span", { style: { color: "#cbd5e1", margin: "0 4px" } }, "・") : null,
               kv[0] + " ",
-              React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1] != null ? kv[1] + "円" : "—"));
-          })) : null),
+              kv[1] != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1] + "円") : React.createElement("span", { style: { color: "#aaa" } }, "データ無し"));
+          }))
+          : (fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨基本α：データ無し") : null)),
       React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。基本αは予想OS度から自動（A20/B15/C10/D5/E0）"),
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
       (function() {
@@ -7017,6 +7018,7 @@ function EntryLogCard(_ref_elc) {
       s.hold2Memo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H２メモ"), s.hold2Memo) : null
     ),
 
+    s.alphaMemo && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "αメモ"), s.alphaMemo),
     s.rationale && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale),
     s.reflection && React.createElement("div", { style: { fontSize: 11, color: "#777", marginTop: 4, lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection),
     onGoDate && React.createElement("div", { style: { textAlign: "right", marginTop: 4 } },

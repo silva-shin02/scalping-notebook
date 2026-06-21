@@ -1152,7 +1152,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
   var buckets = Object.keys(byB).sort().map(function(k) {
     return { key: k, label: _elBucketLabel(k, gran), pick: _elBaseAlphaPick(byB[k], aiOf), n: byB[k].length };
   }).filter(function(b) { return b.pick && b.pick.alpha != null; });
-  if (!buckets.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "算出対象なし");
+  if (!buckets.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var pts = buckets.map(function(b) { return b.pick.alpha; });
   var xTicks = [], step = Math.max(1, Math.ceil(buckets.length / 6));
   buckets.forEach(function(b, i) { if (i % step === 0 || i === buckets.length - 1) xTicks.push({ i: i, label: b.label }); });
@@ -1178,7 +1178,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
 // 推奨基本αの「期間まとめ」: 1つの推奨値＋α別の E到達率/損切り件数/合計損益の早見表（★=推奨）＋読み取り。
 function _elBaseAlphaSummary(recs, aiOf) {
   var pick = _elBaseAlphaPick(recs, aiOf);
-  if (!pick || pick.status === "none") return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "算出対象なし");
+  if (!pick || pick.status === "none") return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var thrP = Math.round((pick.thr || 0.7) * 100);
   var note = pick.status === "ok" ? ("E到達" + thrP + "%以上・損切り0・EP/H1とも+を満たす最小α")
     : pick.status === "no_profit" ? ("E到達" + thrP + "%以上・損切り0は取れるがEP/H1とも+にはならない（その最小α）")
@@ -1484,7 +1484,7 @@ function _elDayStockBenchV2(_ref) {
   var METRICS = [
     { key: "n", label: "件数", cell: function(st) { return st.n + "件"; }, dir: null, num: null },
     { key: "os", label: "OS値(中央)", cell: function(st) { return osNode2(st.osMed, st.osMean); }, dir: "up", num: function(st) { return st.osMed; } },
-    { key: "base", label: "推奨基本α", cell: function(st) { return st.baseAlpha == null ? dash : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, st.baseAlpha + "円"); }, dir: null, num: function(st) { return st.baseAlpha; } },
+    { key: "base", label: "推奨基本α", cell: function(st) { return st.baseAlpha == null ? React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "データ無し") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, st.baseAlpha + "円"); }, dir: null, num: function(st) { return st.baseAlpha; } },
     { key: "reach", label: "E到達率", cell: function(st) { return pct(st.reach, st.cnt); }, dir: "up", num: function(st) { return st.cnt ? st.reach / st.cnt : null; } },
     { key: "stop", label: "損切り率", cell: function(st) { return pct(st.stop, st.ok + st.ng + st.draw); }, dir: "down", num: function(st) { var d = st.ok + st.ng + st.draw; return d ? st.stop / d : null; } },
     { key: "win", label: "E後の勝率", cell: function(st) { return pct(st.ok, st.ok + st.ng + st.draw); }, dir: "up", num: function(st) { var d = st.ok + st.ng + st.draw; return d ? st.ok / d : null; } },

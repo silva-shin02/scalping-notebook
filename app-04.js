@@ -5228,8 +5228,8 @@ function DayView(_ref57) {
         _elIdealAlphaTableV2(_pbIdealGroups, _pbCutOf))
     );
     var _benchEl = (_pbStks && _pbStks.length) ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 全期間との比較（本日 vs 全期間・銘柄別）"),
-      React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄の全期間データを基準に、本日のデータがどうだったか（記録系フル指標）"),
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 比較データ（本日／今週／今月／全期間・銘柄別）"),
+      React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄の本日／今週／今月／全期間を比較（本日列は全期間比で↑↓・記録系フル指標）"),
       _pbStks.map(function(_sk) { return React.createElement(_elDayStockBenchV2, { key: _sk, data: data, date: date, stock: _sk }); })) : null;
     return React.createElement(React.Fragment, null, _pbMainEl, _soukatsuEl, _wkMainEl, _benchEl);
   })(),
