@@ -5211,7 +5211,7 @@ function WeeklyPnlPanel(_wpp) {
   };
   var _idealEl = _recs.length ? React.createElement("div", { style: { marginTop: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円・週間）"),
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)の全記録に同じαを当てて、E到達70%以上・損切りにならず（無理なら最少）・EP損益とH1損益がともに+ になる最小のα。下にE到達/損切り/H1合計。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)の全記録に同じαを当てて、到達率70%／80%を満たす最大のα＝確実に入れる土台（損切り最少・利益ゲート無し＝利益は追加α＋ホールドで取る）。◎時の追加α目安も表示。"),
     _elBaseAlphaTableV2([{ label: stock, recs: _recs.filter(function(r) { return _elInclTotal(r.signal); }) }], _cutOf)) : null;
   var _simAlphaCnt = Object.keys(simAlpha).filter(function(k) { return simAlpha[k] != null && simAlpha[k] !== ""; }).length;
   var _simCutCnt = Object.keys(simCut).filter(function(k) { return simCut[k] != null && simCut[k] !== ""; }).length;
@@ -6082,7 +6082,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     var _iaRecs = _iaSigs.map(function(sig) { return { date: date, stock: stock, signal: _compatSignal(sig) }; }).filter(function(r) { return _elInclTotal(r.signal); });
     return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
       React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円）"),
-      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "全記録に同じαを当てて、E到達70%以上・損切りにならず（無理なら最少）・EP損益とH1損益がともに+ になる最小のα。下にE到達/損切り/H1合計。"),
+      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "全記録に同じαを当てて、到達率70%／80%を満たす最大のα＝確実に入れる土台（損切り最少・利益ゲート無し＝利益は追加α＋ホールドで取る）。◎時の追加α目安も表示。"),
       _elBaseAlphaTableV2([{ label: stock, recs: _iaRecs }], function() { return _iaCutLine; })
     );
   })(),
