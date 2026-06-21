@@ -5225,8 +5225,8 @@ function DayView(_ref57) {
         _elBaseAlphaTableV2(_pbIdealGroups, _pbCutOf))
     );
     var _benchEl = (_pbStks && _pbStks.length) ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 比較データ（本日／今週／今月／全期間・銘柄別）"),
-      React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄の本日／今週／今月／全期間を比較（本日列は全期間比で↑↓・記録系フル指標）"),
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 α比較・深掘り（本日／今週／今月／全期間・銘柄別）"),
+      React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄のα関連データを集約（推奨基本α・理想α・到達率別α・E到達／損切り・EP／H1／H2損益・推奨基本αの期間推移）"),
       _pbStks.map(function(_sk) { return React.createElement(_elDayStockBenchV2, { key: _sk, data: data, date: date, stock: _sk }); })) : null;
     return React.createElement(React.Fragment, null, _pbMainEl, _soukatsuEl, _wkMainEl, _benchEl);
   })(),

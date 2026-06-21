@@ -1432,7 +1432,7 @@ function _elOsSectionV2(recs, aiOf) {
 // 指定recs（{stock,signal,date}配列）の記録系フル指標を集計（採用α基準・E成立分のEP/H1/損切り・OS=中央値）。OS値入力0件ならnull。
 // aiOf(r)→{alpha,cutLine}。_elOsSectionV2の帯別集計と同一ルール＝銘柄別記録/取引テーブルの損益計算基準に一致。2026-06-15。
 function _elPeriodStatsV2(recs, aiOf) {
-  var osv = [], cnt = 0, reach = 0, ok = 0, ng = 0, planSum = 0, planCnt = 0, h1Sum = 0, h1Cnt = 0, stop = 0, soft = 0, draw = 0, realSum = 0, realCnt = 0;
+  var osv = [], cnt = 0, reach = 0, ok = 0, ng = 0, planSum = 0, planCnt = 0, h1Sum = 0, h1Cnt = 0, h2Sum = 0, h2Cnt = 0, stop = 0, soft = 0, draw = 0, realSum = 0, realCnt = 0;
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s || s.osVal == null || s.osVal === "") return;
     var nv = Number(s.osVal); if (!isNaN(nv)) osv.push(nv);
@@ -1445,6 +1445,7 @@ function _elPeriodStatsV2(recs, aiOf) {
       var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++;
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { planSum += pv; planCnt++; }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1 && h1.main != null) { h1Sum += h1.main; h1Cnt++; }
+      var h2 = _elHold2TotParts(s, ai.alpha, ai.cutLine); if (h2 && h2.main != null) { h2Sum += h2.main; h2Cnt++; }
       var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine);
       if (isStop) stop++; else if (res === "ng") soft++;
     }
@@ -1453,6 +1454,7 @@ function _elPeriodStatsV2(recs, aiOf) {
   return { n: cnt, osMed: _elMedian(osv), osMean: _elMean(osv), reach: reach, cnt: cnt, ok: ok, ng: ng,
     planAvg: planCnt ? Math.round(planSum / planCnt) : null, planSum: planSum, planCnt: planCnt,
     h1Avg: h1Cnt ? Math.round(h1Sum / h1Cnt) : null, h1Sum: h1Sum, h1Cnt: h1Cnt,
+    h2Avg: h2Cnt ? Math.round(h2Sum / h2Cnt) : null, h2Sum: h2Sum, h2Cnt: h2Cnt,
     realAvg: realCnt ? Math.round(realSum / realCnt) : null, realSum: realSum, realCnt: realCnt,
     stop: stop, soft: soft, draw: draw };
 }
@@ -1515,9 +1517,10 @@ function _elDayStockBenchV2(_ref) {
     { key: "win", label: "E後の勝率", cell: function(st) { return pct(st.ok, st.ok + st.ng + st.draw); }, dir: "up", num: function(st) { var d = st.ok + st.ng + st.draw; return d ? st.ok / d : null; } },
     { key: "ep", label: "EP損益", cell: function(st) { return pnlMT(st.planAvg, st.planSum, st.planCnt); }, dir: "up", num: function(st) { return st.planAvg; } },
     { key: "h1", label: "H1損益", cell: function(st) { return pnlMT(st.h1Avg, st.h1Sum, st.h1Cnt); }, dir: "up", num: function(st) { return st.h1Avg; } },
+    { key: "h2", label: "H2損益", cell: function(st) { return pnlMT(st.h2Avg, st.h2Sum, st.h2Cnt); }, dir: "up", num: function(st) { return st.h2Avg; } },
     { key: "real", label: "実現損益", cell: function(st) { return pnlMT(st.realAvg, st.realSum, st.realCnt); }, dir: "up", num: function(st) { return st.realAvg; } }
   ];
-  var EPS = { os: 0.5, base: 0.5, reach: 0.03, stop: 0.03, win: 0.03, ep: 50, h1: 50, real: 50 };
+  var EPS = { os: 0.5, base: 0.5, reach: 0.03, stop: 0.03, win: 0.03, ep: 50, h1: 50, h2: 50, real: 50 };
   var dayMark = function(m) {
     if (!m.num) return null;
     var dv = m.num(P.day), av = m.num(P.all);
@@ -1552,10 +1555,22 @@ function _elDayStockBenchV2(_ref) {
     items.push(React.createElement("span", null, "損切り率は 本日", _elInsightEmV2(dStop + "%"), "（全期間", _elInsightEmV2(aStop + "%"), "）＝", _elInsightEmV2(dStop < aStop ? "本日は少なめ" : dStop > aStop ? "本日は多め" : "同程度", dStop < aStop ? "#C0392B" : dStop > aStop ? "#1E8449" : "#888"), "。"));
   }
   var insight = items.length ? _elInsightBoxV2(items, { note: "本日列の↑↓は全期間比（↑赤=良い方向／↓緑=悪い方向・推奨基本αは▲▼で高低のみ）。OS=中央値・損益=平均（計＝合計・E成立分）・採用α基準。件数 本日" + P.day.n + "／今週" + (P.wk ? P.wk.n : 0) + "／今月" + (P.mo ? P.mo.n : 0) + "／全期間" + P.all.n + "件。" }) : null;
+  var idealB = _elIdealAlphaV2(recsAll, function(r) { return aiOf(r).cutLine; });
+  var pctlB = _elOsPctlV2(recsAll);
+  var _aPill = function(v) { return v == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
+  var deepBlock = React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid #eee" } },
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "理想α・到達率別α（全期間）"),
+    React.createElement("div", { style: { fontSize: 11, color: "#555", display: "flex", flexWrap: "wrap", gap: "2px 14px" } },
+      React.createElement("span", null, "理想α（0〜50で最大化） EP ", _aPill(idealB.ep.maxA), " ／ H1 ", _aPill(idealB.h1.maxA), " ／ H2 ", _aPill(idealB.h2.maxA)),
+      React.createElement("span", null, "到達率別α 70%→", _aPill(pctlB ? pctlB.a70 : null), " ／ 80%→", _aPill(pctlB ? pctlB.a80 : null))),
+    React.createElement("div", { style: { fontSize: 8, color: "#aaa", marginTop: 2 } }, "理想α＝EP/H1/H2損益の合計が最大になるα（行ごとの個別αボタンと同基準）。到達率別α＝OS値分位からの目安（a70＝7割の足で到達）。"));
+  var trendBlock = React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid #eee" } },
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "📈 推奨基本α 期間推移"),
+    React.createElement(_elBaseAlphaTrendV2, { recs: recsAll, aiOf: aiOf }));
   return React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e5de", borderRadius: 8, padding: "10px 12px", marginTop: 10 } },
-    React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 " + stock + "：比較データ"),
-    React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 6 } }, "本日 / 今週 / 今月 / 全期間 を比較（この銘柄・v2記録・採用α基準）"),
-    table, insight);
+    React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 " + stock + "：α比較・深掘り"),
+    React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 6 } }, "本日 / 今週 / 今月 / 全期間 ＋ 理想α・到達率別α・推奨基本αの期間推移（この銘柄・v2記録・採用α基準）"),
+    table, insight, deepBlock, trendBlock);
 }
 
 // 損切りの上振れ・損切り値シミュ（記録帳・深掘りタブ／2026-06-18）: 損切りになった記録について、
