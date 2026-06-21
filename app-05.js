@@ -5276,17 +5276,18 @@ function EntryRecordForm(_ref_erf) {
   var _useStateTA = useState(initSig.tradeAlpha != null ? String(initSig.tradeAlpha) : ""),
     _useStateTAA = _slicedToArray(_useStateTA, 2),
     fTradeAlpha = _useStateTAA[0], setFTradeAlpha = _useStateTAA[1];
-  var _useStateAV = useState(initSig.alphaVal != null ? String(initSig.alphaVal) : ""),
-    _useStateAVA = _slicedToArray(_useStateAV, 2),
-    fAlphaVal = _useStateAVA[0], setFAlphaVal = _useStateAVA[1];
-  // 水準線価格（新規エントリー記録画面のみで使用・表には出さない）2026-06-15。記録固有=signal.levelPriceに保存。
-  var _useStateLP = useState(initSig.levelPrice != null ? String(initSig.levelPrice) : ""),
-    _useStateLPA = _slicedToArray(_useStateLP, 2),
-    fLevelPrice = _useStateLPA[0], setFLevelPrice = _useStateLPA[1];
-  // 分足（新規エントリー記録画面のみ・1分足/5分足の選択。記録固有=signal.minBarに保存）2026-06-18。
-  var _useStateMB = useState((initSig.minBar === 1 || initSig.minBar === 5) ? String(initSig.minBar) : "1"),
-    _useStateMBA = _slicedToArray(_useStateMB, 2),
-    fMinBar = _useStateMBA[0], setFMinBar = _useStateMBA[1];
+  // α値: 基本α値＋追加α値＝合計α値（合計＝採用α＝signal.alphaVal）2026-06-21。基本/追加は記録固有でbaseAlphaVal/addAlphaValに保存。
+  // 既存記録は基本α=旧採用α(alphaVal)・追加α=0で初期化（合計＝従来値で不変）。旧 水準線(levelPrice)/分足(minBar) 欄は廃止。
+  var _useStateBA = useState(initSig.baseAlphaVal != null ? String(initSig.baseAlphaVal) : (initSig.alphaVal != null ? String(initSig.alphaVal) : "")),
+    _useStateBAA = _slicedToArray(_useStateBA, 2),
+    fBaseAlpha = _useStateBAA[0], setFBaseAlpha = _useStateBAA[1];
+  var _useStateADA = useState(initSig.addAlphaVal != null ? String(initSig.addAlphaVal) : ""),
+    _useStateADAA = _slicedToArray(_useStateADA, 2),
+    fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
+  // α値セクションのメモ（記録固有=signal.alphaMemo）2026-06-21。
+  var _useStateALM = useState(initSig.alphaMemo || ""),
+    _useStateALMA = _slicedToArray(_useStateALM, 2),
+    fAlphaMemo = _useStateALMA[0], setFAlphaMemo = _useStateALMA[1];
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
   var _useStateINC = useState(initSig.includeInTotal !== false),
@@ -5362,7 +5363,10 @@ function EntryRecordForm(_ref_erf) {
 
 
   
-  var _fAlpha = (fAlphaVal !== "" && !isNaN(Number(fAlphaVal))) ? Number(fAlphaVal) : _gradeAlpha(fDifficulty);
+  // 合計α値 = 基本α値（未入力なら予想OS度から）＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
+  var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : _gradeAlpha(fDifficulty);
+  var _fAddA = (fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
+  var _fAlpha = _fBaseA + _fAddA;
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
@@ -5805,7 +5809,7 @@ function EntryRecordForm(_ref_erf) {
       var _ef = _epFormState;
       if (fTags.length === 0 && !fIsCustom) _vm.push("シグナル");
       if (!fDifficulty) _vm.push("予想OS度");
-      if (_ef.alpha == null || isNaN(_ef.alpha)) _vm.push("採用α値");
+      if (_ef.alpha == null || isNaN(_ef.alpha)) _vm.push("合計α値");
       if (!fTime) _vm.push("時間");
       if (_ef.o1 == null) _vm.push("OS1高値");
       if (fOsConfVal === "") _vm.push("OS1確定値");
@@ -5874,9 +5878,10 @@ function EntryRecordForm(_ref_erf) {
       exitOsVal: fEntered && fExitOsVal !== "" ? Number(fExitOsVal) : null,
       shares: fEntered && fShares !== "" ? (parseInt(fShares) || null) : null,
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
-      alphaVal: fAlphaVal !== "" && !isNaN(Number(fAlphaVal)) ? Number(fAlphaVal) : null,
-      levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
-      minBar: (fMinBar === "1" || fMinBar === "5") ? Number(fMinBar) : null,
+      baseAlphaVal: fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null,
+      addAlphaVal: fAddAlpha !== "" && !isNaN(Number(fAddAlpha)) ? Number(fAddAlpha) : null,
+      alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
+      alphaMemo: fAlphaMemo || null,
       includeInTotal: fIncl,
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
@@ -6114,8 +6119,8 @@ function EntryRecordForm(_ref_erf) {
           return React.createElement("button", {
             key: val,
             onClick: function() {
-              if (on) { setFDifficulty(""); setFAlphaVal(""); }
-              else { setFDifficulty(val); setFAlphaVal(String(_gradeAlpha(val))); }
+              if (on) { setFDifficulty(""); setFBaseAlpha(""); }
+              else { setFDifficulty(val); setFBaseAlpha(String(_gradeAlpha(val))); }
             },
             style: {
               flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: on ? 800 : 700,
@@ -6128,105 +6133,67 @@ function EntryRecordForm(_ref_erf) {
         })
       ),
       
+      React.createElement("div", { style: SH_ }, "α値"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。基本αは予想OS度から自動（A20/B15/C10/D5/E0）"),
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
       (function() {
-        // 水準線価格（採用α値の左・新規エントリー記録画面のみ・表には出さない）2026-06-15。入力系は採用α値と同一(_toHankakuNum+_stepBtn)。
-        var _setLP = function(val) {
-          var _v = _toHankakuNum(val);
-          if (_v === "") { setFLevelPrice(""); return; }
-          var n = Number(_v);
-          if (isNaN(n)) return;
-          if (n < 0) n = 0;
-          setFLevelPrice(String(n));
-        };
-        var _stepLP = function(delta) {
-          var base = (fLevelPrice !== "" && !isNaN(Number(fLevelPrice))) ? Number(fLevelPrice) : 0;
-          var n = base + delta;
-          if (n < 0) n = 0;
-          setFLevelPrice(String(n));
-        };
+        var _setBA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFBaseAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
+        var _stepBA = function(delta) { var base = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : _gradeAlpha(fDifficulty); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
         return React.createElement("div", {
-          style: { display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "4px 10px", borderRadius: 6, background: "#F5F3FF",
-            border: "1px solid #DDD6FE", fontSize: 12 }
+          style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F0F9FF", border: "1px solid #BAE6FD", fontSize: 12 }
         },
-          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "水準線"),
-          React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #DDD6FE", borderRadius: 4, overflow: "hidden" } },
-            React.createElement("input", {
-              type: "text", inputMode: "numeric", min: "0", step: "1",
-              value: fLevelPrice,
-              onChange: function(e) { _setLP(e.target.value); },
-              placeholder: "—",
-              style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#5B21B6",
-                       border: "none", outline: "none", background: "#fff", width: 64,
-                       textAlign: "right", boxSizing: "border-box" }
-            }),
-            _stepBtn(
-              function() { _stepLP(1); },
-              function() { _stepLP(-1); }
-            )
-          ),
-          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
-        );
-      })(),
-
-      React.createElement("div", {
-        style: { display: "inline-flex", alignItems: "center", gap: 6,
-          padding: "4px 10px", borderRadius: 6, background: "#F0FDF4",
-          border: "1px solid #BBF7D0", fontSize: 12 }
-      },
-        React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "分足"),
-        React.createElement("select", {
-          value: fMinBar,
-          onChange: function(e) { setFMinBar(e.target.value); },
-          style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#166534",
-                   border: "1px solid #BBF7D0", borderRadius: 4, background: "#fff", outline: "none" }
-        },
-          React.createElement("option", { value: "1" }, "1"),
-          React.createElement("option", { value: "5" }, "5")
-        ),
-        React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "分")
-      ),
-
-      (function() {
-        var _setAV = function(val) {
-          var _v = _toHankakuNum(val);
-          if (_v === "") { setFAlphaVal(""); return; }
-          var n = Number(_v);
-          if (isNaN(n)) return;
-          if (n > 50) n = 50; if (n < 0) n = 0;
-          setFAlphaVal(String(n));
-        };
-        var _stepAV = function(delta) {
-          var base = (fAlphaVal !== "" && !isNaN(Number(fAlphaVal))) ? Number(fAlphaVal) : _gradeAlpha(fDifficulty);
-          var n = base + delta;
-          if (n > 50) n = 50; if (n < 0) n = 0;
-          setFAlphaVal(String(n));
-        };
-        return React.createElement("div", {
-          style: { display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "4px 10px", borderRadius: 6, background: "#F0F9FF",
-            border: "1px solid #BAE6FD", fontSize: 12 }
-        },
-          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "採用α値（水準線比）"),
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "基本α値"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
-              value: fAlphaVal !== "" ? fAlphaVal : (fDifficulty ? String(_gradeAlpha(fDifficulty)) : ""),
-              onChange: function(e) { _setAV(e.target.value); },
-              placeholder: "各記録",
-              style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E",
-                       border: "none", outline: "none", background: "#fff", width: 64,
-                       textAlign: "right", boxSizing: "border-box" }
+              value: fBaseAlpha !== "" ? fBaseAlpha : (fDifficulty ? String(_gradeAlpha(fDifficulty)) : ""),
+              onChange: function(e) { _setBA(e.target.value); },
+              placeholder: "予想OS度",
+              style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
             }),
-            _stepBtn(
-              function() { _stepAV(1); },
-              function() { _stepAV(-1); }
-            )
+            _stepBtn(function() { _stepBA(1); }, function() { _stepBA(-1); })
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })(),
+
+      (function() {
+        var _setAA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFAddAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFAddAlpha(String(n)); };
+        var _stepAA = function(delta) { var base = (fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0; var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; setFAddAlpha(String(n)); };
+        return React.createElement("div", {
+          style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#FFFBEB", border: "1px solid #FDE68A", fontSize: 12 }
+        },
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "追加α値"),
+          React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FDE68A", borderRadius: 4, overflow: "hidden" } },
+            React.createElement("input", {
+              type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
+              value: fAddAlpha,
+              onChange: function(e) { _setAA(e.target.value); },
+              placeholder: "0",
+              style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#92400E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
+            }),
+            _stepBtn(function() { _stepAA(1); }, function() { _stepAA(-1); })
+          ),
+          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
+        );
+      })(),
+
+      (function() {
+        var _ba = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : _gradeAlpha(fDifficulty);
+        var _aa = (fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
+        return React.createElement("div", {
+          style: { display: "inline-flex", alignItems: "center", gap: 8, padding: "4px 14px", borderRadius: 6, background: "#0369A1", border: "1px solid #0369A1", fontSize: 12 }
+        },
+          React.createElement("span", { style: { color: "#E0F2FE", fontWeight: 700 } }, "合計α値"),
+          React.createElement("span", { style: { fontSize: 17, fontWeight: 800, color: "#fff", lineHeight: 1 } }, (_ba + _aa) + "円")
+        );
+      })()
+      ),
+      React.createElement("div", { style: { marginBottom: 8 } },
+        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "αメモ"),
+        React.createElement(FastInput, { multiline: true, autoResize: true, value: fAlphaMemo, onChange: function(v) { setFAlphaMemo(v); }, placeholder: "", rows: 2, style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 44 }) })
+      ),
+      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 6 } },
 
       (function() {
         var _ckC = fStock + "_" + fDate;
