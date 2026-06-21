@@ -1219,6 +1219,31 @@ function _elBaseAlphaTrendV2(props) {
   var body = gran === "period" ? _elBaseAlphaSummary(recs, aiOf) : _elBaseAlphaTrendBody(recs, aiOf, gran);
   return React.createElement("div", null, toggle, body);
 }
+// 推奨基本α表（銘柄/期間グループ別）: groups=[{label,recs}]・cutFn(r)→損切り値。各グループの推奨基本α(_elBaseAlphaPick・0〜20・
+// E到達70%/損切り0(無理なら最少)/EP・H1とも+ の最小α)を1値表示＋E到達/損切り/H1合計の小書き。旧 _elIdealAlphaTableV2(EP/H1/H2別・0〜50)を置換 2026-06-21。
+function _elBaseAlphaTableV2(groups, cutFn) {
+  var _cf = cutFn || function() { return 10; };
+  var aiOf = function(r) { return { cutLine: _cf(r) }; };
+  var _th = function(t) { return React.createElement("th", { style: { padding: "3px 8px", fontWeight: 700, color: "#0369A1", fontSize: 10, borderBottom: "2px solid #BAE6FD", textAlign: "center", whiteSpace: "nowrap" } }, t); };
+  var rows = (groups || []).filter(function(g) { return g.recs && g.recs.length; }).map(function(g, gi) {
+    var pick = _elBaseAlphaPick(g.recs, aiOf);
+    var aCell, sub;
+    if (!pick || pick.alpha == null) { aCell = React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "データ無し"); sub = null; }
+    else {
+      aCell = React.createElement("span", { style: { fontWeight: 800, color: "#0369A1", fontSize: 14 } }, pick.alpha + "円");
+      sub = React.createElement("div", { style: { fontSize: 8, color: "#94A3B8", whiteSpace: "nowrap", marginTop: 1 } },
+        "E到達" + Math.round((pick.eRate || 0) * 100) + "%・損切" + (pick.stopN || 0) + "件・H1" + (pick.pnl != null ? _elPnlFmt(pick.pnl) : "—"));
+    }
+    return React.createElement("tr", { key: gi, style: { borderBottom: "1px solid #dbeafe" } },
+      React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11, whiteSpace: "nowrap" } }, g.label),
+      React.createElement("td", { style: { padding: "3px 8px", textAlign: "center", borderLeft: "1px solid #dbeafe" } }, aCell, sub));
+  });
+  if (!rows.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
+  return React.createElement("div", { style: { overflowX: "auto" } },
+    React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
+      React.createElement("thead", null, React.createElement("tr", null, _th("銘柄"), _th("推奨基本α"))),
+      React.createElement("tbody", null, rows)));
+}
 
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====
 function _elv2Th(t) { return React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); }

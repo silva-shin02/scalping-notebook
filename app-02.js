@@ -4506,11 +4506,12 @@ function EntrySignalSection(_ref_es) {
     ),
     records.length > 0 ? (function() {
       // 適用中=表示中の全記録のα値シミュが各記録の推奨基本α値と一致。trueならボタンに✓＋塗りつぶし表示。
-      var _esApplied = records.every(function(r) { var _ia = _elIdealAlpha(r.signal, _esCut(r.signal)); return _ia != null && _esSimAlpha[_esRecKey(r)] === String(_ia); });
+      var _esBAV = (function() { var _ba = _elBaseAlphaPick(records, function(r) { return { cutLine: _esCut(r.signal) }; }); return (_ba && _ba.alpha != null) ? String(_ba.alpha) : null; })();
+      var _esApplied = _esBAV != null && records.length > 0 && records.every(function(r) { return _esSimAlpha[_esRecKey(r)] === _esBAV; });
       return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "2px 0", flexWrap: "wrap" } },
       React.createElement("button", {
-        onClick: function() { var _m = {}; records.forEach(function(r) { var _ia = _elIdealAlpha(r.signal, _esCut(r.signal)); if (_ia != null) _m[_esRecKey(r)] = String(_ia); }); setEsSimAlpha(_m); },
-        title: _esApplied ? "適用中: 表示中の全記録のα値シミュが推奨基本α値です" : "表示中の全記録のα値シミュに、各記録の推奨基本α値を一括入力（非保存）",
+        onClick: function() { if (_esBAV == null) return; var _m = {}; records.forEach(function(r) { _m[_esRecKey(r)] = _esBAV; }); setEsSimAlpha(_m); },
+        title: _esApplied ? "適用中: 表示中の全記録のα値シミュが推奨基本α値です" : "表示中の全記録のα値シミュに、推奨基本α値（この期間の0〜20）を一括入力（非保存）",
         style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, padding: "3px 10px", border: "1px solid #0369A1", borderRadius: 5, background: _esApplied ? "#0369A1" : "#E0F2FE", color: _esApplied ? "#fff" : "#0369A1", cursor: "pointer", whiteSpace: "nowrap" }
       }, _esApplied ? React.createElement("span", { key: "mk", style: { fontWeight: 800 } }, "✓") : null, "一括 推奨基本α"),
       React.createElement("button", {
@@ -5214,15 +5215,15 @@ function WeeklyPnlPanel(_wpp) {
     );
   };
   var _idealEl = _recs.length ? React.createElement("div", { style: { marginTop: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（EP / H1 / H2・0〜50円1円刻み・週間）"),
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)のこの銘柄の全記録でα値を固定していたら最適だったα。100株換算・合計行と同基準。"),
-    _elIdealAlphaTableV2([{ label: stock, recs: _recs.filter(function(r) { return _elInclTotal(r.signal); }) }], _cutOf)) : null;
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（0〜20円・週間）"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)の全記録に同じαを当てて、E到達70%以上・損切りにならず（無理なら最少）・EP損益とH1損益がともに+ になる最小のα。下にE到達/損切り/H1合計。"),
+    _elBaseAlphaTableV2([{ label: stock, recs: _recs.filter(function(r) { return _elInclTotal(r.signal); }) }], _cutOf)) : null;
   var _simAlphaCnt = Object.keys(simAlpha).filter(function(k) { return simAlpha[k] != null && simAlpha[k] !== ""; }).length;
   var _simCutCnt = Object.keys(simCut).filter(function(k) { return simCut[k] != null && simCut[k] !== ""; }).length;
   var _simActive = _simAlphaCnt + _simCutCnt;
   var _simControlsBar = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 6px", flexWrap: "wrap" } },
     _simActive > 0 ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件 / 損切り " + _simCutCnt + "件") : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値・損切り値シミュ：行の数値を変えると再計算（非保存）"),
-    React.createElement("button", { onClick: function() { var m = {}; _recs.forEach(function(r) { var ia = _elIdealAlpha(r.signal, _cutOf(r)); if (ia != null) m[_key(r)] = String(ia); }); setSimAlpha(m); }, style: { fontSize: 10, fontWeight: 700, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", whiteSpace: "nowrap" } }, "一括 推奨基本α"),
+    React.createElement("button", { onClick: function() { var ba = _elBaseAlphaPick(_recs, function(r) { return { cutLine: _cutOf(r) }; }); if (!ba || ba.alpha == null) return; var v = String(ba.alpha); var m = {}; _recs.forEach(function(r) { m[_key(r)] = v; }); setSimAlpha(m); }, style: { fontSize: 10, fontWeight: 700, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", whiteSpace: "nowrap" } }, "一括 推奨基本α"),
     _simActive > 0 ? React.createElement("button", { onClick: function() { setSimAlpha({}); setSimCut({}); }, style: { fontSize: 10, padding: "2px 8px", border: "1px solid #ddd", borderRadius: 4, background: "#f5f4f0", color: "#555", cursor: "pointer", fontWeight: 600 } }, "↺ 全解除") : null);
   // サマリー行を展開したときに出る明細（週合計は理想α＋シミュ操作＋週全体の明細、日別はその日の明細）
   var _expRowFor = function(recs, rowKey, isTotal) {
@@ -6085,9 +6086,9 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     var _iaCutLine = cd.cutLine != null ? cd.cutLine : 10;
     var _iaRecs = _iaSigs.map(function(sig) { return { date: date, stock: stock, signal: _compatSignal(sig) }; }).filter(function(r) { return _elInclTotal(r.signal); });
     return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（EP / H1 / H2・0〜50円・1円刻み）"),
-      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "α値を固定していたら最適だったα。EP=手仕舞い／H1=1段／H2=2段ホールドの各合計で、最大=合計が最大のα・目標=2,500円以上の最小α。100株換算・合計行と同基準。"),
-      _elIdealAlphaTableV2([{ label: stock, recs: _iaRecs }], function() { return _iaCutLine; })
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（0〜20円）"),
+      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "全記録に同じαを当てて、E到達70%以上・損切りにならず（無理なら最少）・EP損益とH1損益がともに+ になる最小のα。下にE到達/損切り/H1合計。"),
+      _elBaseAlphaTableV2([{ label: stock, recs: _iaRecs }], function() { return _iaCutLine; })
     );
   })(),
   
