@@ -4863,9 +4863,9 @@ function ImageAnnotator(_ref7) {
       logicalSizeRef.current = { w: nw, h: nh };
       scRef.current = Math.min((window.innerWidth * 0.96) / nw, ((window.innerHeight - 130) * 0.96) / nh, 1);
       // ストロークcanvasの物理上限。ベース画像は背面imgが担当するのでcanvasは手書き線専用。
-      // iOSの1辺上限は端末依存(4096〜)。実機を一度プローブして最大8192まで使う＝対応端末(M1等)は線がより精細・非対応は4096へ自動降格。2026-06-15
+      // iOSの1辺上限は端末依存(4096〜)。実機をプローブしてデバイスの実上限(最大16384)まで使う＝手書きストロークを論理(保存)解像度と同じ精細さで描く。8192固定だと大きい画像でストロークだけ低解像度=ボヤけていた。非対応端末は実上限へ自動降格。2026-06-21(旧8192→実上限)
       var CANVAS_MAX_AREA = _isIOSCanvas ? 15728640 : 33554432;
-      var CANVAS_MAX_DIM = _isIOSCanvas ? _snMaxCanvasDim(8192) : 16384;
+      var CANVAS_MAX_DIM = _isIOSCanvas ? _snMaxCanvasDim(16384) : 16384;
       maxScaleRef.current = Math.min(Math.sqrt(CANVAS_MAX_AREA / (nw * nh)), CANVAS_MAX_DIM / Math.max(nw, nh));
       _applyRenderScale(1);
       console.log("[Annotator] renderScale=" + dprRef.current.toFixed(3) + " logical=" + nw + "×" + nh + " physical=" + c.width + "×" + c.height + " maxScale=" + maxScaleRef.current.toFixed(3) + " devicePixelRatio=" + window.devicePixelRatio);
@@ -5006,14 +5006,12 @@ function ImageAnnotator(_ref7) {
     }) : pos;
   };
   // 線の太さ(lineW)は論理座標=画像のnaturalサイズ基準の絶対値なので、画像が大きいほど相対的に細く・小さいほど太く見える。
-  // 画像の長辺を基準長(1200px)で正規化した係数を掛け、どの画像でもスライダー値=同じ見かけの太さになるようにする。2026-06-18
-  // 係数は0.5〜4にクランプ(極端な小/大画像でのヒゲ/ベタ潰れ防止)。保存済みストロークの値は不変=過去の注釈は変わらない。
+  // 表示倍率(scRef=画面にフィットさせる縮小率)の逆数を掛けることで、画面上の見かけの太さ(=スライダー値ピクセル)を画像サイズ/縦横比に依らず一定にする。2026-06-21
+  // 旧実装は「長辺/1200を0.5〜4にクランプ」。だが画像が画面に収まる(scRef=1にクランプ)サイズでは縮小率と長辺が比例せず、小さめ画像ほど細く見えるズレが残った。scRef基準なら寸法に依らずスライダー値=同じ画面ピクセル幅。
+  // 保存済みストロークの値(s.lineW=確定時の_geomLineW)は不変=過去の注釈は変わらない。
   var _lineWScale = function _lineWScale() {
-    var ls = logicalSizeRef.current;
-    var longest = Math.max((ls && ls.w) || 0, (ls && ls.h) || 0);
-    if (!longest) return 1;
-    var f = longest / 1200;
-    return f < 0.5 ? 0.5 : (f > 4 ? 4 : f);
+    var s = scRef.current || 0;
+    return s > 0 ? 1 / s : 1;
   };
   var _geomLineW = function _geomLineW() { return lineW * _lineWScale(); };
 
