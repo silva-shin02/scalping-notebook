@@ -1709,35 +1709,44 @@ function _elHoldDepthSectionV2(recs, aiOf) {
 }
 
 // 期待度キャリブレーション（記録帳・深掘りタブ／2026-06-14）: 事前予想 vs 実結果の的中検証。
-// (A)予想OS度A〜E：予想した帯と実OS1帯の一致率・予想超え/未満。(B)H期待○△×：保有の予想と実H1/H2損益の一致。
+// (A)α到達予想◎○△×：予想と実OS1（基本α比のOS強度）の一致率・予想超え/未満。(B)H期待○△×：保有の予想と実H1/H2損益の一致。
 // 「自分の予想は当たっているか過信か」を測る。aiOf(r)→{alpha,cutLine}。
 function _elExpCalibSectionV2(recs, aiOf) {
   var v2 = (recs || []).filter(function(r) { return _epIsV2(r.signal); });
   if (!v2.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "v2記録なし");
-  // (A) 予想OS度の的中
-  var EXP = { A: 4, B: 3, C: 2, D: 1, E: 0 };
+  // (A) α到達予想（◎○△×）の的中＝予想と実OS1（基本α比のオーバーシュート強度）の一致 2026-06-21（予想OS度を置換）
+  // ◎=基本α不十分(追加α要・基本α超え) / ○=基本αで十分(基本α前後) / △=基本αまでも微妙(基本α未満) / ×=届かない(OS無し)
+  var _EL_REACH_GAP = 5;  // ◎(基本α超え)と○(基本α前後)を分ける円幅。後で調整可。
+  var _RP_ORD = { "◎": 3, "○": 2, "△": 1, "×": 0 };
+  var _RP_LBL = { "◎": "◎ 追加α要", "○": "○ 基本αで十分", "△": "△ 基本α微妙", "×": "× 届かない" };
+  var _rpActual = function(o, b) {
+    if (o == null || b == null) return null;
+    if (o <= 0) return 0; if (o < b) return 1; if (o < b + _EL_REACH_GAP) return 2; return 3;
+  };
   var dByG = {};
   v2.forEach(function(r) {
-    var s = r.signal, dg = s.difficulty; if (!dg || EXP[dg] == null) return; if (s.osVal == null || s.osVal === "") return;
-    var ab = _elOsBandIdxV2(s.osVal); if (ab == null) return;
-    var o = dByG[dg] || (dByG[dg] = { cnt: 0, hit: 0, osv: [], over: 0, under: 0 });
+    var s = r.signal, p = s.reachPred; if (_RP_ORD[p] == null) return;
+    var b = (s.baseAlphaVal != null && s.baseAlphaVal !== "") ? Number(s.baseAlphaVal) : null;
+    if (b == null || s.osVal == null || s.osVal === "") return;
+    var ao = _rpActual(Number(s.osVal), b); if (ao == null) return;
+    var o = dByG[p] || (dByG[p] = { cnt: 0, hit: 0, osv: [], over: 0, under: 0 });
     o.cnt++; o.osv.push(Number(s.osVal));
-    var pb = EXP[dg]; if (ab === pb) o.hit++; else if (ab > pb) o.over++; else o.under++;
+    var pb = _RP_ORD[p]; if (ao === pb) o.hit++; else if (pb > ao) o.over++; else o.under++;
   });
-  var dRows = ["A", "B", "C", "D", "E"].filter(function(g) { return dByG[g]; }).map(function(g) {
+  var dRows = ["◎", "○", "△", "×"].filter(function(g) { return dByG[g]; }).map(function(g) {
     var o = dByG[g];
     return React.createElement("tr", { key: g },
-      _elv2Td(React.createElement("b", null, g + "（" + _EL_OS_BANDS_V2[EXP[g]].label + "予想）"), { textAlign: "left", paddingLeft: 8, color: "#9A3412" }),
+      _elv2Td(React.createElement("b", null, _RP_LBL[g]), { textAlign: "left", paddingLeft: 8, color: "#9A3412" }),
       _elv2Td(o.cnt + "件", { fontWeight: 700 }),
       _elv2Td(_elOsMMCell(o.osv)),
       _elv2Td(_elv2Rate(o.hit, o.cnt, 50)),
       _elv2Td(o.over ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, o.over + "件") : React.createElement("span", { style: { color: "#bbb" } }, "0")),
       _elv2Td(o.under ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, o.under + "件") : React.createElement("span", { style: { color: "#bbb" } }, "0")));
   });
-  var dTotHit = 0, dTotN = 0; ["A", "B", "C", "D", "E"].forEach(function(g) { if (dByG[g]) { dTotHit += dByG[g].hit; dTotN += dByG[g].cnt; } });
+  var dTotHit = 0, dTotN = 0; ["◎", "○", "△", "×"].forEach(function(g) { if (dByG[g]) { dTotHit += dByG[g].hit; dTotN += dByG[g].cnt; } });
   var dTable = dRows.length ? React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "4px 0 0" } }, "予想OS度（A〜E）の的中"),
-    _elv2Table(["予想OS度", "件数", "実OS値", "的中率", "予想超え", "予想未満"], dRows)) : null;
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "4px 0 0" } }, "α到達予想（◎○△×）の的中"),
+    _elv2Table(["到達予想", "件数", "実OS値", "的中率", "予想超え", "予想未満"], dRows)) : null;
   // (B) H期待 ○△× の的中
   var _calc = function(expKey, ptsFn) {
     var g = { "○": _mk(), "△": _mk(), "×": _mk() };
@@ -1772,11 +1781,11 @@ function _elExpCalibSectionV2(recs, aiOf) {
   var h1Table = h1Rows.length ? React.createElement("div", null, React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "H1期待（保有の予想）の的中"), _elv2Table(hHead, h1Rows)) : null;
   var h2Table = h2Rows.length ? React.createElement("div", null, React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "H2期待（さらに保有）の的中"), _elv2Table(hHead, h2Rows)) : null;
   var items = [];
-  if (dTotN) items.push(React.createElement("span", null, "予想OS度の的中率は全体で", _elInsightEmV2(Math.round(dTotHit / dTotN * 100) + "%"), "（" + dTotHit + "/" + dTotN + "件が予想帯どおり）。"));
+  if (dTotN) items.push(React.createElement("span", null, "α到達予想の的中率は全体で", _elInsightEmV2(Math.round(dTotHit / dTotN * 100) + "%"), "（" + dTotHit + "/" + dTotN + "件が予想どおり）。"));
   var o1 = h1g["○"], x1 = h1g["×"];
   if (o1 && o1.hitBase) items.push(React.createElement("span", null, "H1で○（利益を予想）したうちの実勝率は", _elInsightEmV2(Math.round(o1.hit / o1.hitBase * 100) + "%"), Math.round(o1.hit / o1.hitBase * 100) >= 60 ? "＝予想は概ね妥当。" : "＝", _elInsightEmV2("やや過信ぎみ", "#B45309"), "（○予想でも外す場面が多い）。"));
   if (x1 && x1.hitBase) items.push(React.createElement("span", null, "×（損失を予想）の的中は", _elInsightEmV2(Math.round(x1.hit / x1.hitBase * 100) + "%"), "（予想どおり利益が出なかった割合）。"));
-  return React.createElement("div", null, dTable, h1Table, h2Table, _elInsightBoxV2(items, { note: "予想OS度の的中=記録時に選んだA〜Eの帯と、実際のOS1値の帯が一致した割合（超え=予想より強い／未満=弱い）。H期待の的中=○なら実H1/H2損益>0、×なら≦0。実損益・損切りは採用α基準・E成立分のみ。" }));
+  return React.createElement("div", null, dTable, h1Table, h2Table, _elInsightBoxV2(items, { note: "α到達予想の的中=記録時の◎○△×（基本αに対するOS強度の予想）と実OS1値が一致した割合（◎=基本α＋" + _EL_REACH_GAP + "円超／○=基本α前後／△=基本α未満／×=OS無し。超え=予想より強い／未満=弱い）。H期待の的中=○なら実H1/H2損益>0、×なら≦0。実損益・損切りは採用α基準・E成立分のみ。" }));
 }
 
 // 計画EP vs 実エントリーの乖離（記録帳・深掘りタブ／2026-06-14）: 実エントリー記録について、計画EP高値と実際の建玉OS水準のズレ、
@@ -2490,7 +2499,7 @@ function EntryLogView(_ref_elv2) {
     _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
       _secH("🛑 損切りの上振れ・損切り値シミュ", "損切りになった記録が損切りラインを何円超えて伸びたか＋損切りせず保有/最良手仕舞いなら何円だったか"), _elStopOvershootSectionV2(v2recs, _ai),
       _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・損切り率・EP比改善率）"), _elHoldDepthSectionV2(v2recs, _ai),
-      _secH("🎯 期待度キャリブレーション", "事前の予想OS度・H期待が実結果とどれだけ一致したか（予想は当たっているか過信か）"), _elExpCalibSectionV2(v2recs, _ai),
+      _secH("🎯 期待度キャリブレーション", "事前のα到達予想・H期待が実結果とどれだけ一致したか（予想は当たっているか過信か）"), _elExpCalibSectionV2(v2recs, _ai),
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）"), _elExecGapSectionV2(v2recs, _ai),
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）"), _elMemoPerfSectionV2(v2recs, _ai)
     ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");

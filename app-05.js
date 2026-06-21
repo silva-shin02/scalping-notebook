@@ -5148,6 +5148,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateDif = useState(initSig.difficulty || ""),
     _useStateDifA = _slicedToArray(_useStateDif, 2),
     fDifficulty = _useStateDifA[0], setFDifficulty = _useStateDifA[1];
+  // α到達予想（◎○△×・基本α比のオーバーシュート強度予想／2026-06-21・予想OS度を置換）。損益計算には不使用＝的中検証用。
+  var _useStateRP = useState(initSig.reachPred || ""),
+    _useStateRPA = _slicedToArray(_useStateRP, 2),
+    fReachPred = _useStateRPA[0], setFReachPred = _useStateRPA[1];
   
   var _useStateTPD = useState(initSig.tpDifficulty || ""),
     _useStateTPDA = _slicedToArray(_useStateTPD, 2),
@@ -5325,6 +5329,15 @@ function EntryRecordForm(_ref_erf) {
     _baAutoRef.current = _nv;
     if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
   }, [_defBaseA, fBaseAlpha, isEdit]);
+  // α到達の見立て用の参考α（理想α・到達率別α＝この銘柄の全記録から）2026-06-21。
+  var _refAlphaAux = useMemo(function() {
+    if (!fStock) return null;
+    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+    if (!recs.length) return null;
+    var ideal = _elIdealAlphaV2(recs, function(r) { return _elAlphaInfo(r, data).cutLine; });
+    var pctl = _elOsPctlV2(recs);
+    return { idealEp: ideal.ep.maxA, idealH1: ideal.h1.maxA, idealH2: ideal.h2.maxA, a70: pctl ? pctl.a70 : null, a80: pctl ? pctl.a80 : null };
+  }, [data, fStock]);
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
   var _useStateINC = useState(initSig.includeInTotal !== false),
@@ -5845,7 +5858,7 @@ function EntryRecordForm(_ref_erf) {
       var _vm = [];
       var _ef = _epFormState;
       if (fTags.length === 0 && !fIsCustom) _vm.push("シグナル");
-      if (!fDifficulty) _vm.push("予想OS度");
+      if (!fReachPred) _vm.push("α到達予想");
       if (_ef.alpha == null || isNaN(_ef.alpha)) _vm.push("合計α値");
       if (!fTime) _vm.push("時間");
       if (_ef.o1 == null) _vm.push("OS1高値");
@@ -5925,6 +5938,7 @@ function EntryRecordForm(_ref_erf) {
       maxPnl: fMax !== "" ? Number(fMax) : null,
       maxPnlSign: fMaxSign,
       difficulty: fDifficulty || null,
+      reachPred: fReachPred || null,
       tpDifficulty: fTpDifficulty || null,
       osVal: fOsVal !== "" ? (isNaN(Number(_toHankaku(fOsVal))) ? null : Number(_toHankaku(fOsVal))) : null,
       osConfSign: fOsConfSign || null,
@@ -6148,25 +6162,29 @@ function EntryRecordForm(_ref_erf) {
         style: Object.assign({}, I, { marginBottom: 6 })
       }),
       
-      React.createElement("div", { style: SH_ }, "\u4E88\u60F3OS\u5EA6"),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u4E88\u60F3OS\u5024\u306E\u5E2F\uFF08A:20\u5186\u301C / B:15\u301C19\u5186 / C:10\u301C14\u5186 / D:5\u301C9\u5186 / E:0\u301C4\u5186\uFF09\u3002\u57FA\u672C\u03B1\u3068\u306F\u9023\u52D5\u3057\u307E\u305B\u3093"),
+      React.createElement("div", { style: SH_ }, "\u03B1\u5230\u9054\u306E\u898B\u7ACB\u3066"),
+      _refAlphaAux ? React.createElement("div", { style: { fontSize: 10, color: "#64748B", marginBottom: 4, display: "flex", flexWrap: "wrap", gap: "2px 12px" } },
+        React.createElement("span", null, "\u63A8\u5968\u57FA\u672C\u03B1(\u76F4\u8FD11\u9031) ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, (_refBaseAlpha && _refBaseAlpha.w1 != null ? _refBaseAlpha.w1 + "\u5186" : "\u2014"))),
+        React.createElement("span", null, "\u7406\u60F3\u03B1 ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "EP" + (_refAlphaAux.idealEp != null ? _refAlphaAux.idealEp : "\u2014") + "/H1 " + (_refAlphaAux.idealH1 != null ? _refAlphaAux.idealH1 : "\u2014") + "/H2 " + (_refAlphaAux.idealH2 != null ? _refAlphaAux.idealH2 : "\u2014"))),
+        React.createElement("span", null, "\u5230\u9054\u7387\u5225\u03B1 ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "a70 " + (_refAlphaAux.a70 != null ? _refAlphaAux.a70 : "\u2014") + " / a80 " + (_refAlphaAux.a80 != null ? _refAlphaAux.a80 : "\u2014")))
+      ) : null,
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u30AA\u30FC\u30D0\u30FC\u30B7\u30E5\u30FC\u30C8\u304C\u57FA\u672C\u03B1\u306B\u5BFE\u3057\u3066\u3069\u3053\u307E\u3067\u4F38\u3073\u308B\u304B\u306E\u4E88\u60F3\uFF08\u640D\u76CA\u8A08\u7B97\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\u30FB\u5F8C\u3067\u5B9FOS\u3068\u7167\u5408\u3057\u3066\u7684\u4E2D\u7387\u3092\u8868\u793A\uFF09"),
       React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        ["A", "B", "C", "D", "E"].map(function(val) {
-          var on = fDifficulty === val;
+        [["◎", "追加α要", "基本αでは不十分・追加αが必要", "#B71C1C", "#FCEBEB"], ["○", "基本αで十分", "基本αで十分", "#C0392B", "#FCEBEB"], ["△", "基本α微妙", "基本αまでも微妙", "#B45309", "#FEF3C7"], ["×", "届かない", "届かない（見送り）", "#1E8449", "#EAF3DE"]].map(function(kv) {
+          var on = fReachPred === kv[0];
           return React.createElement("button", {
-            key: val,
-            onClick: function() {
-              if (on) { setFDifficulty(""); }
-              else { setFDifficulty(val); }
-            },
+            key: kv[0],
+            onClick: function() { setFReachPred(on ? "" : kv[0]); },
+            title: kv[2],
             style: {
-              flex: 1, padding: "10px 12px", fontSize: 14, fontWeight: on ? 800 : 700,
-              border: on ? "2px solid #1a1a1a" : "1px solid #ddd",
-              background: on ? "#f3f4f6" : "#fff",
-              color: "#1a1a1a",
-              borderRadius: 6, cursor: "pointer", textAlign: "center"
+              flex: 1, padding: "8px 6px", fontWeight: on ? 800 : 700,
+              border: on ? ("2px solid " + kv[3]) : "1px solid #ddd",
+              background: on ? kv[4] : "#fff",
+              color: kv[3],
+              borderRadius: 6, cursor: "pointer", textAlign: "center",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 2
             }
-          }, val);
+          }, React.createElement("span", { style: { fontSize: 16 } }, kv[0]), React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: on ? kv[3] : "#94A3B8" } }, kv[1]));
         })
       ),
       
