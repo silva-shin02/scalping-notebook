@@ -2203,9 +2203,9 @@ function EntryLogView(_ref_elv2) {
         }));
       var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
       var _ratesOf = function(rs) {
-        var ok = 0, ng = 0, miss = 0, stop = 0;
-        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); if (res === "ok") ok++; else if (res === "ng") ng++; if (!_epReachedAt(s, a)) miss++; if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) stop++; });
-        return { ok: ok, ng: ng, miss: miss, n: rs.length, win: (ok + ng) ? Math.round(ok / (ok + ng) * 100) : null, stop: (ok + ng) ? Math.round(stop / (ok + ng) * 100) : 0 };
+        var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0;
+        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); if (res === "ok") ok++; else if (res === "ng") ng++; if (!_epReachedAt(s, a)) miss++; var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c)); if (isStop) stop++; else if (res === "ng") soft++; });
+        return { ok: ok, ng: ng, miss: miss, n: rs.length, win: (ok + ng) ? Math.round(ok / (ok + ng) * 100) : null, soft: (ok + ng) ? Math.round(soft / (ok + ng) * 100) : 0, stop: (ok + ng) ? Math.round(stop / (ok + ng) * 100) : 0 };
       };
       var _periodKpi = function(rs) {
         var t = _periodTot(rs), rr = _ratesOf(rs);
@@ -2216,6 +2216,7 @@ function EntryLogView(_ref_elv2) {
           _kpiCard("H1損益", _yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt), null, t.holdCnt + "件"),
           _kpiCard("H2損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
           _kpiCard("E後の勝率", rr.win != null ? rr.win + "%" : "—", rr.win != null ? (rr.win >= 50 ? "#1E8449" : "#B45309") : "#0369A1", (rr.ok + rr.ng) + "件（E成立）"),
+          _kpiCard("見切り率", rr.soft + "%", rr.soft > 0 ? "#B45309" : "#bbb"),
           _kpiCard("損切り率", rr.stop + "%", rr.stop > 0 ? "#1E8449" : "#bbb"));
       };
       var _detailOf = function(rs) {
@@ -2267,8 +2268,9 @@ function EntryLogView(_ref_elv2) {
           _tdP(_yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt)),
           _tdP(_yenN(t.real, t.realCnt)),
           _tdP(_elEwinCell(rr.ok, rr.ng)),
+          _tdP(rr.soft + "%", { color: rr.soft > 0 ? "#B45309" : "#bbb", fontWeight: rr.soft > 0 ? 700 : 400 }),
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 })));
-        if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 8, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
+        if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
       });
       return React.createElement(React.Fragment, null,
         _secH("📆 期間集計（" + (gran === "day" ? "日別" : gran === "week" ? "週別" : "月別") + "・新しい順）", "行タップでその期間の詳細分析（シグナル成功度・時間帯傾向・EP位置）"), _granBtns,
@@ -2276,7 +2278,7 @@ function EntryLogView(_ref_elv2) {
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
-              _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("件数"), _thP("EP損益"), _thP("H1損益"), _thP("H2損益"), _thP("実現損益"), _thP("E後の勝率"), _thP("損切り率"))),
+              _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("件数"), _thP("EP損益"), _thP("H1損益"), _thP("H2損益"), _thP("実現損益"), _thP("E後の勝率"), _thP("見切り率"), _thP("損切り率"))),
             React.createElement("tbody", null, _rows))));
     })();
   } else if (view === "deep") {
