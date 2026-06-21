@@ -47,7 +47,7 @@ function _elOscHighs(s) {
 // bands/matrixのキーは数値バケットキー（band=帯index・each=整数値）。rows/colsは出現バケットキーの昇順。
 function _elOscAgg(recs, legIdx, aiOf, gran) {
   gran = gran || "band";
-  var mk = function() { return { cnt: 0, eOk: 0, nextVals: [], ok: 0, ng: 0, miss: 0, planSum: 0, planCnt: 0, planVals: [], h1Sum: 0, h1Cnt: 0, h1Vals: [], stop: 0, soft: 0 }; };
+  var mk = function() { return { cnt: 0, eOk: 0, nextVals: [], ok: 0, ng: 0, draw: 0, miss: 0, planSum: 0, planCnt: 0, planVals: [], h1Sum: 0, h1Cnt: 0, h1Vals: [], stop: 0, soft: 0 }; };
   var bands = {}, matrix = {}, rowP = {}, colP = {}, total = 0, maxCell = 0;
   recs.forEach(function(r) {
     var s = r.signal, hs = _elOscHighs(s), bi = _elOscBucket(hs[legIdx], gran);
@@ -69,7 +69,7 @@ function _elOscAgg(recs, legIdx, aiOf, gran) {
     if (rr && rr.judge === "ok") {
       b.eOk++;
       var res = _elDynResult(s, ai.alpha, ai.cutLine);
-      if (res === "ok") b.ok++; else if (res === "ng") b.ng++;
+      if (res === "ok") b.ok++; else if (res === "ng") b.ng++; else if (res === "draw") b.draw++;
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine);
       if (pv != null) { b.planSum += pv; b.planCnt++; b.planVals.push(pv); }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine);
@@ -201,11 +201,11 @@ function _elOsChainSection(_ref_osc) {
       _tdx(_pctN(b.eOk, b.cnt))
     ];
     if (hasNext) cells.push(_tdx(_elOsMMCell(b.nextVals)));
-    cells.push(_tdx(_elEwinCell(b.ok, b.ng)));
+    cells.push(_tdx(_elEwinCell(b.ok, b.ng, b.draw)));
     cells.push(_tdx(_elPnlMMCell(b.planVals)));
     cells.push(_tdx(_elPnlMMCell(b.h1Vals)));
-    cells.push(_tdx((b.ok + b.ng) ? React.createElement("span", { style: { color: b.soft ? "#B45309" : "#bbb", fontWeight: b.soft ? 700 : 400 } }, Math.round(b.soft / (b.ok + b.ng) * 100) + "%") : React.createElement("span", { style: { color: "#ccc" } }, "—")));
-    cells.push(_tdx((b.ok + b.ng) ? React.createElement("span", { style: { color: b.stop ? "#1E8449" : "#bbb", fontWeight: b.stop ? 700 : 400 } }, Math.round(b.stop / (b.ok + b.ng) * 100) + "%") : React.createElement("span", { style: { color: "#ccc" } }, "—")));
+    cells.push(_tdx((b.ok + b.ng + b.draw) ? React.createElement("span", { style: { color: b.soft ? "#B45309" : "#bbb", fontWeight: b.soft ? 700 : 400 } }, Math.round(b.soft / (b.ok + b.ng + b.draw) * 100) + "%") : React.createElement("span", { style: { color: "#ccc" } }, "—")));
+    cells.push(_tdx((b.ok + b.ng + b.draw) ? React.createElement("span", { style: { color: b.stop ? "#1E8449" : "#bbb", fontWeight: b.stop ? 700 : 400 } }, Math.round(b.stop / (b.ok + b.ng + b.draw) * 100) + "%") : React.createElement("span", { style: { color: "#ccc" } }, "—")));
     return React.createElement.apply(null, ["tr", { key: "t" + ri, onClick: hasNext ? function() { drill(ri); } : null, style: { cursor: hasNext ? "pointer" : "default" } }].concat(cells));
   });
   var table = React.createElement("div", { style: { overflowX: "auto" } },
@@ -491,7 +491,7 @@ function _elBestAlphaBadgeV2(data, stock) {
 // === EP位置・累積損益・αカーブ分析（記録帳・集計タブ 2026-06-13）===
 // EP位置別の集計: ep0/ep1/ep2(=EP=OS1/2/3・E成立) / miss(E未達) / x(×見送り)。aiOf(r)={alpha,cutLine}。
 function _elEpPosStatsV2(recs, aiOf) {
-  var _mk = function() { return { cnt: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], h2: 0, h2Cnt: 0, h2Arr: [], stop: 0, soft: 0, ok: 0, ng: 0, osv: [] }; };
+  var _mk = function() { return { cnt: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], h2: 0, h2Cnt: 0, h2Arr: [], stop: 0, soft: 0, draw: 0, ok: 0, ng: 0, osv: [] }; };
   var c = { ep0: _mk(), ep1: _mk(), ep2: _mk(), miss: _mk(), x: _mk() }, n = 0;
   (recs || []).forEach(function(r) {
     var s = r.signal, ai = aiOf(r);
@@ -504,7 +504,7 @@ function _elEpPosStatsV2(recs, aiOf) {
     if (rr.judge !== "ok") return;
     if (rr.ep && rr.ep.h != null) o.osv.push(rr.ep.h);  // EP足の高値（OS中央値で集計）
     var res = _elDynResult(s, ai.alpha, ai.cutLine);  // 勝敗（EP損益の結果）
-    if (res === "ok") o.ok++; else if (res === "ng") o.ng++;
+    if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "draw") o.draw++;
     var pv = _elDynPlanned(s, ai.alpha, ai.cutLine);
     if (pv != null) { o.plan += pv; o.planCnt++; o.planArr.push(pv); }
     var h1p = _elHold1TotParts(s, ai.alpha, ai.cutLine);
@@ -572,10 +572,10 @@ function _elEpPosSectionV2(recs, aiOf) {
           _tdE(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
             React.createElement("span", { style: { width: 9, height: 9, borderRadius: 2, background: d.color, display: "inline-block" } }), d.label), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           _tdE(o.cnt ? o.cnt + "件（" + _pct(o.cnt) + "%）" : "0件", { fontWeight: 700 }),
-          _tdE(_elOsMMCell(o.osv)), _tdE(_elEwinCell(o.ok, o.ng)),
+          _tdE(_elOsMMCell(o.osv)), _tdE(_elEwinCell(o.ok, o.ng, o.draw)),
           _tdE(_elPnlMMCell(o.planArr)), _tdE(_elPnlMMCell(o.h1Arr)), _tdE(_elPnlMMCell(o.h2Arr)),
-          _tdE((o.ok + o.ng) ? Math.round(o.soft / (o.ok + o.ng) * 100) + "%" : "—", { color: o.soft ? "#B45309" : "#bbb", fontWeight: o.soft ? 700 : 400 }),
-          _tdE((o.ok + o.ng) ? Math.round(o.stop / (o.ok + o.ng) * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }));
+          _tdE((o.ok + o.ng + o.draw) ? Math.round(o.soft / (o.ok + o.ng + o.draw) * 100) + "%" : "—", { color: o.soft ? "#B45309" : "#bbb", fontWeight: o.soft ? 700 : 400 }),
+          _tdE((o.ok + o.ng + o.draw) ? Math.round(o.stop / (o.ok + o.ng + o.draw) * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }));
       }))));
   var ok = st.ep0.cnt + st.ep1.cnt + st.ep2.cnt;
   var items = [];
@@ -615,7 +615,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     { k: "b3", label: "9:31〜10:00", color: "#EF9F27", lo: 570, hi: 600 },
     { k: "b4", label: "10:01〜", color: "#D85A30", lo: 600, hi: 9999 }
   ];
-  var mk = function() { return { cnt: 0, osv: [], reach: 0, ok: 0, ng: 0, stop: 0, soft: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], miss: 0, x: 0 }; };
+  var mk = function() { return { cnt: 0, osv: [], reach: 0, ok: 0, ng: 0, draw: 0, stop: 0, soft: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], miss: 0, x: 0 }; };
   var st = {}; DEFS.forEach(function(d) { st[d.k] = mk(); });
   var noTime = mk(), total = mk(), _hasNoTime = false;
   var _acc = function(o, s, a, c) {
@@ -624,7 +624,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     if (_epReachedAt(s, a)) o.reach++;
     if (_epIsXSkip(s, a)) { o.x++; return; }
     var res = _elDynResult(s, a, c);
-    if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++;
+    if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++; else if (res === "draw") o.draw++;
     if (res !== "miss") {  // 損切り率・見切り率・損益平均はE成立（エントリーできた）分のみを母数に＝未達・×見送りは除外 2026-06-20
       var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c));
       if (isStop) o.stop++; else if (res === "ng") o.soft++;
@@ -661,9 +661,9 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
       _tdT(o.cnt ? o.cnt + "件（" + _pct(o.cnt, total.cnt) + "%）" : "0件", { fontWeight: 700 }),
       _tdT(_elOsMMCell(o.osv)),
       _tdT(_rateCell(o.reach, o.cnt)),
-      _tdT(_elEwinCell(o.ok, o.ng)),
-      _tdT((o.ok + o.ng) ? Math.round(o.soft / (o.ok + o.ng) * 100) + "%" : "—", { color: o.soft ? "#B45309" : "#bbb", fontWeight: o.soft ? 700 : 400 }),
-      _tdT((o.ok + o.ng) ? Math.round(o.stop / (o.ok + o.ng) * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
+      _tdT(_elEwinCell(o.ok, o.ng, o.draw)),
+      _tdT((o.ok + o.ng + o.draw) ? Math.round(o.soft / (o.ok + o.ng + o.draw) * 100) + "%" : "—", { color: o.soft ? "#B45309" : "#bbb", fontWeight: o.soft ? 700 : 400 }),
+      _tdT((o.ok + o.ng + o.draw) ? Math.round(o.stop / (o.ok + o.ng + o.draw) * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
       _tdT(_elPnlMMCell(o.planArr)),
       _tdT(_elPnlMMCell(o.h1Arr)));
   };
@@ -711,7 +711,7 @@ function _elSignalSuccessTableV2(recs, aiOf) {
   });
   var rows = Object.keys(by).map(function(k) {
     var rs = by[k];
-    var o = { label: stripCat(k), cnt: rs.length, noLoss: 0, win: 0, decided: 0, reach: 0, miss: 0, stop: 0, soft: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [] };
+    var o = { label: stripCat(k), cnt: rs.length, noLoss: 0, win: 0, decided: 0, reach: 0, miss: 0, stop: 0, soft: 0, draw: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [] };
     rs.forEach(function(r) {
       var s = r.signal, ai = aiOf(r), a = ai.alpha, c = ai.cutLine;
       if (_epReachedAt(s, a)) o.reach++; else o.miss++;
@@ -723,7 +723,7 @@ function _elSignalSuccessTableV2(recs, aiOf) {
       var pp = entered ? _elDynPlanned(s, a, c) : null;
       var isLoss = !xskip && (isStop || (pp != null && pp < 0));
       if (!isLoss) o.noLoss++;
-      if (pp != null) { o.plan += pp; o.planCnt++; o.planArr.push(pp); if (pp > 0) { o.win++; o.decided++; } else if (pp < 0) { o.decided++; if (!isStop) o.soft++; } }
+      if (pp != null) { o.plan += pp; o.planCnt++; o.planArr.push(pp); if (pp > 0) { o.win++; o.decided++; } else if (pp < 0) { o.decided++; if (!isStop) o.soft++; } else { o.draw++; } }
       if (entered) { var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; o.h1Arr.push(h1t.main); } }
     });
     return o;
@@ -742,10 +742,10 @@ function _elSignalSuccessTableV2(recs, aiOf) {
           _tdS(o.label, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412", whiteSpace: "normal" }),
           _tdS(o.cnt + "件", { fontWeight: 700 }),
           _tdS(_rate(o.noLoss, o.cnt, 70)),
-          _tdS(_elEwinCell(o.win, o.decided - o.win)),
+          _tdS(_elEwinCell(o.win, o.decided - o.win, o.draw)),
           _tdS(_rate(o.reach, o.cnt)),
-          _tdS(o.decided ? Math.round(o.soft / o.decided * 100) + "%" : "—", { color: o.soft ? "#B45309" : "#bbb", fontWeight: o.soft ? 700 : 400 }),
-          _tdS(o.decided ? Math.round(o.stop / o.decided * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
+          _tdS((o.decided + o.draw) ? Math.round(o.soft / (o.decided + o.draw) * 100) + "%" : "—", { color: o.soft ? "#B45309" : "#bbb", fontWeight: o.soft ? 700 : 400 }),
+          _tdS((o.decided + o.draw) ? Math.round(o.stop / (o.decided + o.draw) * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
           _tdS(_elPnlMMCell(o.planArr)), _tdS(_elPnlMMCell(o.h1Arr)));
       }))));
   var items = [], best = rows[0], worst = rows[rows.length - 1];
@@ -1127,14 +1127,14 @@ function _elPnlMMCell(arr) {
 }
 // E後の勝率セル（2026-06-14b）: エントリー(E成立)後に利益が出た割合＝ok/(ok+ng)。取引(ok+ng)が0なら「—」。下に母数(E成立件数)。
 // 敗率・未達率は出さない（未達率はE到達率の裏返し）。色は勝率≥50%で緑・未満で橙。
-function _elEwinCell(ok, ng) {
-  ok = ok || 0; ng = ng || 0;
-  var d = ok + ng;
+function _elEwinCell(ok, ng, draw) {
+  ok = ok || 0; ng = ng || 0; draw = draw || 0;
+  var d = ok + ng + draw;
   if (!d) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var w = Math.round(ok / d * 100);
   return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
     React.createElement("b", { style: { fontSize: 12, color: w >= 50 ? "#1E8449" : "#B45309" } }, w + "%"),
-    React.createElement("span", { style: { fontSize: 8, color: "#bbb" } }, d + "件"));
+    React.createElement("span", { style: { fontSize: 8, color: "#bbb" } }, ok + "勝" + (draw ? " " + draw + "引" : "") + " " + ng + "敗"));
 }
 
 // OS値の分位点・歪み・到達率別α（右偏分布対応 2026-06-14）。
@@ -1173,7 +1173,7 @@ function _elOsBandPerfV2(_ref) {
   var recs = _ref.recs || [];
   var aiOf = _ref.aiOf;
   var _uG = useState("band"), gran = _uG[0], setGran = _uG[1];
-  var mk = function() { return { cnt: 0, reach: 0, ok: 0, ng: 0, miss: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], stop: 0, soft: 0 }; };
+  var mk = function() { return { cnt: 0, reach: 0, ok: 0, ng: 0, draw: 0, miss: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], stop: 0, soft: 0 }; };
   var buckets = {};
   recs.forEach(function(r) {
     var s = r.signal; if (!s || s.osVal == null || s.osVal === "") return;
@@ -1184,7 +1184,7 @@ function _elOsBandPerfV2(_ref) {
     if (_epReachedAt(s, ai.alpha)) o.reach++;
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {
-      var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") o.ok++; else if (res === "ng") o.ng++;
+      var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "draw") o.draw++;
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { o.plan += pv; o.planCnt++; o.planArr.push(pv); }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { o.h1 += h1.main; o.h1Cnt++; o.h1Arr.push(h1.main); }
       var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine);
@@ -1204,11 +1204,11 @@ function _elOsBandPerfV2(_ref) {
       _elv2Td(chip(key), { textAlign: "left", paddingLeft: 8 }),
       _elv2Td(ob.cnt + "件", { fontWeight: 700 }),
       _elv2Td(_elv2Rate(ob.reach, ob.cnt)),
-      _elv2Td(_elEwinCell(ob.ok, ob.ng)),
+      _elv2Td(_elEwinCell(ob.ok, ob.ng, ob.draw)),
       _elv2Td(_elPnlMMCell(ob.planArr)),
       _elv2Td(_elPnlMMCell(ob.h1Arr)),
-      _elv2Td((ob.ok + ob.ng) ? Math.round(ob.soft / (ob.ok + ob.ng) * 100) + "%" : "—", { color: ob.soft ? "#B45309" : "#bbb", fontWeight: ob.soft ? 700 : 400 }),
-      _elv2Td((ob.ok + ob.ng) ? Math.round(ob.stop / (ob.ok + ob.ng) * 100) + "%" : "—", { color: ob.stop ? "#1E8449" : "#bbb", fontWeight: ob.stop ? 700 : 400 }));
+      _elv2Td((ob.ok + ob.ng + ob.draw) ? Math.round(ob.soft / (ob.ok + ob.ng + ob.draw) * 100) + "%" : "—", { color: ob.soft ? "#B45309" : "#bbb", fontWeight: ob.soft ? 700 : 400 }),
+      _elv2Td((ob.ok + ob.ng + ob.draw) ? Math.round(ob.stop / (ob.ok + ob.ng + ob.draw) * 100) + "%" : "—", { color: ob.stop ? "#1E8449" : "#bbb", fontWeight: ob.stop ? 700 : 400 }));
   });
   return React.createElement("div", null,
     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "8px 0 0", flexWrap: "wrap" } },
@@ -1266,7 +1266,7 @@ function _elOsSectionV2(recs, aiOf) {
 // 指定recs（{stock,signal,date}配列）の記録系フル指標を集計（採用α基準・E成立分のEP/H1/損切り・OS=中央値）。OS値入力0件ならnull。
 // aiOf(r)→{alpha,cutLine}。_elOsSectionV2の帯別集計と同一ルール＝銘柄別記録/取引テーブルの損益計算基準に一致。2026-06-15。
 function _elPeriodStatsV2(recs, aiOf) {
-  var osv = [], cnt = 0, reach = 0, ok = 0, ng = 0, planSum = 0, planCnt = 0, h1Sum = 0, h1Cnt = 0, stop = 0, soft = 0;
+  var osv = [], cnt = 0, reach = 0, ok = 0, ng = 0, planSum = 0, planCnt = 0, h1Sum = 0, h1Cnt = 0, stop = 0, soft = 0, draw = 0;
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s || s.osVal == null || s.osVal === "") return;
     var nv = Number(s.osVal); if (!isNaN(nv)) osv.push(nv);
@@ -1275,7 +1275,7 @@ function _elPeriodStatsV2(recs, aiOf) {
     if (_epReachedAt(s, ai.alpha)) reach++;
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {
-      var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") ok++; else if (res === "ng") ng++;
+      var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++;
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { planSum += pv; planCnt++; }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1 && h1.main != null) { h1Sum += h1.main; h1Cnt++; }
       var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine);
@@ -1285,7 +1285,7 @@ function _elPeriodStatsV2(recs, aiOf) {
   if (!cnt) return null;
   return { n: cnt, osMed: _elMedian(osv), osMean: _elMean(osv), reach: reach, cnt: cnt, ok: ok, ng: ng,
     planAvg: planCnt ? Math.round(planSum / planCnt) : null, planCnt: planCnt,
-    h1Avg: h1Cnt ? Math.round(h1Sum / h1Cnt) : null, h1Cnt: h1Cnt, stop: stop, soft: soft };
+    h1Avg: h1Cnt ? Math.round(h1Sum / h1Cnt) : null, h1Cnt: h1Cnt, stop: stop, soft: soft, draw: draw };
 }
 // 日別ページ用：指定銘柄の「この日／今週／全期間」を data.charts から集めて記録系フル指標を比較表示（採用α基準）。
 // 全期間（その銘柄）を基準に、この日の傾向を判定（↑高い/↓低い/≈同等）＋💡読み取り。全期間にv2記録なし or この日に記録なしなら非表示。2026-06-15。
@@ -1326,20 +1326,20 @@ function _elDayStockBenchV2(_ref) {
   var cellOf = {
     os: function(st) { return st ? osNode2(st.osMed, st.osMean) : dash; },
     reach: function(st) { return st ? pctNode(st.reach, st.cnt) : dash; },
-    win: function(st) { return st ? pctNode(st.ok, st.ok + st.ng) : dash; },
+    win: function(st) { return st ? pctNode(st.ok, st.ok + st.ng + st.draw) : dash; },
     ep: function(st) { return st ? yenNode(st.planAvg) : dash; },
     h1: function(st) { return st ? yenNode(st.h1Avg) : dash; },
-    soft: function(st) { return st ? pctNode(st.soft, st.ok + st.ng) : dash; },
-    stop: function(st) { return st ? pctNode(st.stop, st.ok + st.ng) : dash; }
+    soft: function(st) { return st ? pctNode(st.soft, st.ok + st.ng + st.draw) : dash; },
+    stop: function(st) { return st ? pctNode(st.stop, st.ok + st.ng + st.draw) : dash; }
   };
   var numOf = {
     os: function(st) { return st ? st.osMed : null; },
     reach: function(st) { return (st && st.cnt) ? st.reach / st.cnt : null; },
-    win: function(st) { return (st && (st.ok + st.ng)) ? st.ok / (st.ok + st.ng) : null; },
+    win: function(st) { return (st && (st.ok + st.ng + st.draw)) ? st.ok / (st.ok + st.ng + st.draw) : null; },
     ep: function(st) { return st ? st.planAvg : null; },
     h1: function(st) { return st ? st.h1Avg : null; },
-    soft: function(st) { return (st && (st.ok + st.ng)) ? st.soft / (st.ok + st.ng) : null; },
-    stop: function(st) { return (st && (st.ok + st.ng)) ? st.stop / (st.ok + st.ng) : null; }
+    soft: function(st) { return (st && (st.ok + st.ng + st.draw)) ? st.soft / (st.ok + st.ng + st.draw) : null; },
+    stop: function(st) { return (st && (st.ok + st.ng + st.draw)) ? st.stop / (st.ok + st.ng + st.draw) : null; }
   };
   var EPS = { os: 0.5, reach: 0.03, win: 0.03, ep: 50, h1: 50, soft: 0.03, stop: 0.03 };
   var METRICS = [
@@ -1372,8 +1372,8 @@ function _elDayStockBenchV2(_ref) {
   if (stDay.osMed != null && stAll.osMed != null) {
     items.push(React.createElement("span", null, "本日のOS中央値は", _elInsightEmV2(stDay.osMed + "円"), "（全期間", _elInsightEmV2(stAll.osMed + "円"), "）＝", _elInsightEmV2(stDay.osMed > stAll.osMed ? "全体より初動が強め" : stDay.osMed < stAll.osMed ? "全体より初動が弱め" : "全体と同程度", stDay.osMed > stAll.osMed ? "#C0392B" : stDay.osMed < stAll.osMed ? "#1E8449" : "#888"), "。"));
   }
-  if ((stDay.ok + stDay.ng) && (stAll.ok + stAll.ng)) {
-    items.push(React.createElement("span", null, "E後の勝率は", _elInsightEmV2(Math.round(stDay.ok / (stDay.ok + stDay.ng) * 100) + "%"), "（全期間", _elInsightEmV2(Math.round(stAll.ok / (stAll.ok + stAll.ng) * 100) + "%"), "）。"));
+  if ((stDay.ok + stDay.ng + stDay.draw) && (stAll.ok + stAll.ng + stAll.draw)) {
+    items.push(React.createElement("span", null, "E後の勝率は", _elInsightEmV2(Math.round(stDay.ok / (stDay.ok + stDay.ng + stDay.draw) * 100) + "%"), "（全期間", _elInsightEmV2(Math.round(stAll.ok / (stAll.ok + stAll.ng + stAll.draw) * 100) + "%"), "）。"));
   }
   if (stDay.cnt && stAll.cnt) {
     var dStop = (stDay.ok + stDay.ng) ? Math.round(stDay.stop / (stDay.ok + stDay.ng) * 100) : 0, aStop = (stAll.ok + stAll.ng) ? Math.round(stAll.stop / (stAll.ok + stAll.ng) * 100) : 0;
@@ -1645,14 +1645,14 @@ function _elMemoPerfSectionV2(recs, aiOf) {
   if (!v2.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "v2記録なし");
   var _memoText = function(s) { return [s.rationale, s.reflection, s.holdMemo, s.hold2Memo].map(function(t) { return stripHtml(t || ""); }).join(" "); };
   var _has = function(s) { return _hasText(s.rationale) || _hasText(s.reflection) || _hasText(s.holdMemo) || _hasText(s.hold2Memo); };
-  var mk = function() { return { cnt: 0, plan: 0, planCnt: 0, planArr: [], win: 0, dec: 0, h1: 0, h1Cnt: 0, h1Arr: [], stop: 0, soft: 0, realWin: 0, realDec: 0, chars: 0 }; };
+  var mk = function() { return { cnt: 0, plan: 0, planCnt: 0, planArr: [], win: 0, dec: 0, h1: 0, h1Cnt: 0, h1Arr: [], stop: 0, soft: 0, draw: 0, realWin: 0, realDec: 0, chars: 0 }; };
   var grp = { yes: mk(), no: mk() };
   v2.forEach(function(r) {
     var s = r.signal, ai = aiOf(r), g = _has(s) ? grp.yes : grp.no; g.cnt++; g.chars += _memoText(s).replace(/\s/g, "").length;
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {
       var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine);
-      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { g.plan += pv; g.planCnt++; g.planArr.push(pv); if (pv > 0) { g.win++; g.dec++; } else if (pv < 0) { g.dec++; if (!isStop) g.soft++; } }
+      var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { g.plan += pv; g.planCnt++; g.planArr.push(pv); if (pv > 0) { g.win++; g.dec++; } else if (pv < 0) { g.dec++; if (!isStop) g.soft++; } else { g.draw++; } }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { g.h1 += h1.main; g.h1Cnt++; g.h1Arr.push(h1.main); }
       if (isStop) g.stop++;
     }
@@ -1662,11 +1662,11 @@ function _elMemoPerfSectionV2(recs, aiOf) {
     return React.createElement("tr", { key: label },
       _elv2Td(label, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
       _elv2Td(g.cnt + "件", { fontWeight: 700 }),
-      _elv2Td(g.dec ? _elv2Rate(g.win, g.dec) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+      _elv2Td(_elEwinCell(g.win, g.dec - g.win, g.draw)),
       _elv2Td(_elPnlMMCell(g.planArr)),
       _elv2Td(_elPnlMMCell(g.h1Arr)),
-      _elv2Td(g.dec ? Math.round(g.soft / g.dec * 100) + "%" : "—", { color: g.soft ? "#B45309" : "#bbb", fontWeight: g.soft ? 700 : 400 }),
-      _elv2Td(g.dec ? Math.round(g.stop / g.dec * 100) + "%" : "—", { color: g.stop ? "#1E8449" : "#bbb", fontWeight: g.stop ? 700 : 400 }),
+      _elv2Td((g.dec + g.draw) ? Math.round(g.soft / (g.dec + g.draw) * 100) + "%" : "—", { color: g.soft ? "#B45309" : "#bbb", fontWeight: g.soft ? 700 : 400 }),
+      _elv2Td((g.dec + g.draw) ? Math.round(g.stop / (g.dec + g.draw) * 100) + "%" : "—", { color: g.stop ? "#1E8449" : "#bbb", fontWeight: g.stop ? 700 : 400 }),
       _elv2Td(g.realDec ? _elv2Rate(g.realWin, g.realDec) : React.createElement("span", { style: { color: "#ccc" } }, "—")));
   };
   var tot = grp.yes.cnt + grp.no.cnt;
@@ -1741,7 +1741,7 @@ function _elDowSectionV2(recs, aiOf) {
     { k: "d4", label: "木", color: "#EF9F27", dow: 4 },
     { k: "d5", label: "金", color: "#D85A30", dow: 5 }
   ];
-  var mk = function() { return { cnt: 0, osv: [], reach: 0, ok: 0, ng: 0, stop: 0, soft: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], miss: 0, x: 0 }; };
+  var mk = function() { return { cnt: 0, osv: [], reach: 0, ok: 0, ng: 0, draw: 0, stop: 0, soft: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], miss: 0, x: 0 }; };
   var st = {}; DEFS.forEach(function(d) { st[d.k] = mk(); });
   var wknd = mk(), total = mk(), _hasWknd = false;
   var _acc = function(o, s, a, c) {
@@ -1750,7 +1750,7 @@ function _elDowSectionV2(recs, aiOf) {
     if (_epReachedAt(s, a)) o.reach++;
     if (_epIsXSkip(s, a)) { o.x++; return; }
     var res = _elDynResult(s, a, c);
-    if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++;
+    if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++; else if (res === "draw") o.draw++;
     if (res !== "miss") {  // 損切り率・見切り率・損益平均はE成立（エントリーできた）分のみを母数に＝未達・×見送りは除外 2026-06-20
       var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c));
       if (isStop) o.stop++; else if (res === "ng") o.soft++;
@@ -1777,9 +1777,9 @@ function _elDowSectionV2(recs, aiOf) {
       _elv2Td(o.cnt ? o.cnt + "件（" + _pctc(o.cnt, total.cnt) + "%）" : "0件", { fontWeight: 700 }),
       _elv2Td(_elOsMMCell(o.osv)),
       _elv2Td(_elv2Rate(o.reach, o.cnt)),
-      _elv2Td(_elEwinCell(o.ok, o.ng)),
-      _elv2Td((o.ok + o.ng) ? Math.round(o.soft / (o.ok + o.ng) * 100) + "%" : "—", { color: o.soft ? "#B45309" : "#bbb", fontWeight: o.soft ? 700 : 400 }),
-      _elv2Td((o.ok + o.ng) ? Math.round(o.stop / (o.ok + o.ng) * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
+      _elv2Td(_elEwinCell(o.ok, o.ng, o.draw)),
+      _elv2Td((o.ok + o.ng + o.draw) ? Math.round(o.soft / (o.ok + o.ng + o.draw) * 100) + "%" : "—", { color: o.soft ? "#B45309" : "#bbb", fontWeight: o.soft ? 700 : 400 }),
+      _elv2Td((o.ok + o.ng + o.draw) ? Math.round(o.stop / (o.ok + o.ng + o.draw) * 100) + "%" : "—", { color: o.stop ? "#1E8449" : "#bbb", fontWeight: o.stop ? 700 : 400 }),
       _elv2Td(_elPnlMMCell(o.planArr)),
       _elv2Td(_elPnlMMCell(o.h1Arr)));
   };
@@ -2220,9 +2220,9 @@ function EntryLogView(_ref_elv2) {
         }));
       var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
       var _ratesOf = function(rs) {
-        var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0;
-        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); if (res === "ok") ok++; else if (res === "ng") ng++; if (!_epReachedAt(s, a)) miss++; var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c)); if (isStop) stop++; else if (res === "ng") soft++; });
-        return { ok: ok, ng: ng, miss: miss, n: rs.length, win: (ok + ng) ? Math.round(ok / (ok + ng) * 100) : null, soft: (ok + ng) ? Math.round(soft / (ok + ng) * 100) : 0, stop: (ok + ng) ? Math.round(stop / (ok + ng) * 100) : 0 };
+        var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0, draw = 0;
+        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; if (!_epReachedAt(s, a)) miss++; var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c)); if (isStop) stop++; else if (res === "ng") soft++; });
+        return { ok: ok, ng: ng, miss: miss, draw: draw, n: rs.length, win: (ok + ng + draw) ? Math.round(ok / (ok + ng + draw) * 100) : null, soft: (ok + ng + draw) ? Math.round(soft / (ok + ng + draw) * 100) : 0, stop: (ok + ng + draw) ? Math.round(stop / (ok + ng + draw) * 100) : 0 };
       };
       var _periodKpi = function(rs) {
         var t = _periodTot(rs), rr = _ratesOf(rs);
@@ -2232,7 +2232,7 @@ function EntryLogView(_ref_elv2) {
           _kpiCard("EP損益", _yenNR(t.plan, t.planCnt, t.planRef, t.planRefCnt), null, t.planCnt + "件"),
           _kpiCard("H1損益", _yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt), null, t.holdCnt + "件"),
           _kpiCard("H2損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
-          _kpiCard("E後の勝率", rr.win != null ? rr.win + "%" : "—", rr.win != null ? (rr.win >= 50 ? "#1E8449" : "#B45309") : "#0369A1", (rr.ok + rr.ng) + "件（E成立）"),
+          _kpiCard("E後の勝率", rr.win != null ? rr.win + "%" : "—", rr.win != null ? (rr.win >= 50 ? "#1E8449" : "#B45309") : "#0369A1", (rr.ok + rr.ng + rr.draw) + "件（E成立）"),
           _kpiCard("見切り率", rr.soft + "%", rr.soft > 0 ? "#B45309" : "#bbb"),
           _kpiCard("損切り率", rr.stop + "%", rr.stop > 0 ? "#1E8449" : "#bbb"));
       };
@@ -2284,7 +2284,7 @@ function EntryLogView(_ref_elv2) {
           _tdP(_yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt)),
           _tdP(_yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt)),
           _tdP(_yenN(t.real, t.realCnt)),
-          _tdP(_elEwinCell(rr.ok, rr.ng)),
+          _tdP(_elEwinCell(rr.ok, rr.ng, rr.draw)),
           _tdP(rr.soft + "%", { color: rr.soft > 0 ? "#B45309" : "#bbb", fontWeight: rr.soft > 0 ? 700 : 400 }),
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 })));
         if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
