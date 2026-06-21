@@ -2053,7 +2053,6 @@ function EntryLogView(_ref_elv2) {
   var _uD = useState(null), selDate = _uD[0], setSelDate = _uD[1];
   var _uCM = useState(null), calYM = _uCM[0], setCalYM = _uCM[1];
   var _uSG = useState(null), selSig = _uSG[0], setSelSig = _uSG[1];
-  var _uST = useState(null), selStk = _uST[0], setSelStk = _uST[1];
   var _uGr = useState("week"), gran = _uGr[0], setGran = _uGr[1];
   var _uCF = useState(""), cFrom = _uCF[0], setCFrom = _uCF[1];
   var _uCT = useState(""), cTo = _uCT[0], setCTo = _uCT[1];
@@ -2062,7 +2061,22 @@ function EntryLogView(_ref_elv2) {
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
   var allRecs = _elCollectAllSignals(data);
-  var filtered = _elFilterPeriod(allRecs, period).filter(function(r) { return !stockFil || r.stock === stockFil; });
+  var _apAllRows = _apCollectAll(data);  // 出現シグナル・テクニカルの全行（銘柄タブの顔ぶれ＋出現タブで再利用）
+  // 銘柄タブ（主ナビ）: 記録のある銘柄をマスター登録順で固定（顔ぶれは期間に依存しない）。記録帳は全項目を銘柄別に分析する。2026-06-22
+  // 「記録のある銘柄」＝エントリー記録 or 出現記録のある銘柄。出現のみの銘柄も到達できるよう _apAllRows の銘柄も顔ぶれに含める。
+  var _tickerList = (function() {
+    var seen = {};
+    allRecs.forEach(function(r) { if (r.stock) seen[r.stock] = 1; });
+    _apAllRows.forEach(function(r) { if (r.stock) seen[r.stock] = 1; });
+    var inMaster = allStocks.filter(function(s) { return seen[s]; });
+    var extras = Object.keys(seen).filter(function(s) { return allStocks.indexOf(s) < 0; }).sort();
+    return inMaster.concat(extras);
+  })();
+  var _selStock = (stockFil && _tickerList.indexOf(stockFil) >= 0) ? stockFil : (_tickerList[0] || "");
+  var _periodRecs = _elFilterPeriod(allRecs, period);
+  // 銘柄タブのバッジ件数: 選択期間内・銘柄未限定の記録数（顔ぶれは固定、件数だけ期間連動）
+  var _cntByStock = (function() { var m = {}; _periodRecs.forEach(function(r) { if (r.stock) m[r.stock] = (m[r.stock] || 0) + 1; }); return m; })();
+  var filtered = _periodRecs.filter(function(r) { return r.stock === _selStock; });
   // 合計額算入: includeInTotal===false の記録は集計/分析の母集団 v2recs から除外（一覧 filtered は全件のまま）。2026-06-18
   var v2recs = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal); });
   // 旧記録件数は算入フラグと独立に数える（除外した新形式記録を「旧記録」に混ぜない）。2026-06-18
@@ -2285,14 +2299,7 @@ function EntryLogView(_ref_elv2) {
     return Object.keys(by).sort(function(a, b) { return by[b].length - by[a].length; })
       .map(function(k) { return { key: k, label: stripCat(k), recs: by[k] }; });
   })();
-  var _stkGroups = (function() {
-    var by = {};
-    v2recs.forEach(function(r) { (by[r.stock] = by[r.stock] || []).push(r); });
-    return Object.keys(by).sort(function(a, b) { return by[b].length - by[a].length; })
-      .map(function(k) { return { key: k, label: k, recs: by[k] }; });
-  })();
-
-  // ===== シグナル/銘柄タブ用：サブタブバー＋リッチ分析パネル =====
+  // ===== シグナル別タブ用：サブタブバー＋リッチ分析パネル =====
   var _subTabBar = function(groups, sel, setSel) {
     return React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 4 } },
       groups.map(function(g) {
@@ -2424,14 +2431,6 @@ function EntryLogView(_ref_elv2) {
       _subTabBar(_sigGroups, _selSigKey, setSelSig),
       _selSigGrp ? _groupPanel(_selSigGrp.recs) : null)
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし");
-  } else if (view === "stock") {
-    var _selStkKey = (selStk != null && _stkGroups.some(function(g) { return g.key === selStk; })) ? selStk : (_stkGroups[0] ? _stkGroups[0].key : null);
-    var _selStkGrp = _stkGroups.filter(function(g) { return g.key === _selStkKey; })[0];
-    _tabBody = _stkGroups.length ? React.createElement(React.Fragment, null,
-      _secH("📈 銘柄別（タブ切替）"),
-      _subTabBar(_stkGroups, _selStkKey, setSelStk),
-      _selStkGrp ? _groupPanel(_selStkGrp.recs, _selStkKey) : null)
-      : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし");
   } else if (view === "oschain") {
     _tabBody = React.createElement(React.Fragment, null,
       _secH("📊 各足のOS値プロファイル（OS1〜OS5）", "各足の高値（水準線比）の中央値・下落率・分布（帯⇄1円刻み切替可）。OS2以降は基準線割れ（下落）あり＝下落帯を含む"),
@@ -2537,7 +2536,7 @@ function EntryLogView(_ref_elv2) {
   } else if (view === "appear") {
     _tabBody = (function() {
       // 出現シグナル・テクニカルの横断一覧。期間/銘柄は上の絞り込みに連動、種別/名前はタブ内で絞る。
-      var _apAll = _elFilterPeriod(_apCollectAll(data), period).filter(function(r) { return !stockFil || r.stock === stockFil; });
+      var _apAll = _elFilterPeriod(_apAllRows, period).filter(function(r) { return r.stock === _selStock; });
       var _apByKind = apKindFil === "all" ? _apAll : _apAll.filter(function(r) { return r.kind === apKindFil; });
       var _apNames = [], _apSeen = {};
       _apByKind.forEach(function(r) { if (r.name && !_apSeen[r.name]) { _apSeen[r.name] = 1; _apNames.push(r.name); } });
@@ -2594,11 +2593,17 @@ function EntryLogView(_ref_elv2) {
       React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#1a1a1a" } }, "📒 エントリー記録帳"),
       React.createElement("button", { onClick: function() { setEditTarget({}); }, style: { padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", marginLeft: "auto" } }, "＋ 新規記録"),
       React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
-        [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); })),
-      React.createElement("select", { value: stockFil, onChange: function(e) { setStockFil(e.target.value); }, style: _selSty },
-        [React.createElement("option", { key: "_a", value: "" }, "銘柄:全て")].concat(allStocks.map(function(s) { return React.createElement("option", { key: s, value: s }, s); })))),
+        [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
+    React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
+      _tickerList.length ? _tickerList.map(function(s) {
+        var on = _selStock === s;
+        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setPerExp(null); },
+          style: { flexShrink: 0, padding: "7px 14px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
+            border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
+          s + " (" + (_cntByStock[s] || 0) + ")");
+      }) : React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "6px 0" } }, "記録のある銘柄がありません")),
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
-      [["sum", "📊 集計"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["stock", "📈 銘柄別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["appear", "📡 出現"], ["list", "🗂 一覧"]].map(function(kv) {
+      [["sum", "📊 集計"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["appear", "📡 出現"], ["list", "🗂 一覧"]].map(function(kv) {
         var on = view === kv[0];
         var cnt = kv[0] === "list" ? filtered.length : (kv[0] === "date" ? v2recs.length : null);
         return React.createElement("button", { key: kv[0],
@@ -2607,7 +2612,7 @@ function EntryLogView(_ref_elv2) {
             borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "集計（KPI・α表・シグナル別・銘柄別・日別）はEP起算方式（v2）の記録のみ。旧記録" + (oldCnt > 0 ? "（" + oldCnt + "件）" : "") + "は一覧タブでのみ表示。"),
+    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで選んだ銘柄に絞って分析します。集計・分析タブはEP起算方式（v2）の記録のみ。旧記録" + (oldCnt > 0 ? "（" + oldCnt + "件）" : "") + "は一覧タブでのみ表示。"),
     _tabBody,
     editTarget ? React.createElement(EntryRecordForm, { data: data, save: save, initial: (editTarget && editTarget.signal) ? editTarget : null, onClose: function() { setEditTarget(null); } }) : null
   );
