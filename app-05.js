@@ -6472,9 +6472,8 @@ function EntryRecordForm(_ref_erf) {
         return React.createElement(React.Fragment, null,
           React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) },
             "OS",
-            React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）"),
             React.createElement("div", {
-              style: { display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", padding: "2px 7px", borderRadius: 6, background: "#F1F5F9", border: "1px solid #CBD5E1", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
+              style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#F1F5F9", border: "1px solid #CBD5E1", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
             },
               React.createElement("span", { style: { color: "#64748B", fontWeight: 700 } }, "水準線値"),
               React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #CBD5E1", borderRadius: 4, overflow: "hidden" } },
@@ -6491,7 +6490,8 @@ function EntryRecordForm(_ref_erf) {
                 )
               ),
               React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円")
-            )
+            ),
+            React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）")
           ),
           React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFBF5" } },
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto" } },
