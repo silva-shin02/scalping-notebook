@@ -5344,10 +5344,10 @@ function EntryRecordForm(_ref_erf) {
     }
     return out;
   }, [data, fStock, fDate]);
-  // 基本αの既定値＝直近1週間の推奨基本α（無ければ1か月→3か月→全期間でフォールバック）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
+  // 基本αの既定値＝直近1か月の推奨基本α（無ければ3か月→全期間でフォールバック）。1週間は標本が薄くブレやすいので自動入力には使わず表示のみ（ユーザー方針 2026-06-22c）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
   var _baAlpha = function(w) { return (w && w.ok && w.alpha != null) ? w.alpha : null; };
-  var _defBaseA = _refBaseAlpha ? (_baAlpha(_refBaseAlpha.w1) != null ? _baAlpha(_refBaseAlpha.w1) : (_baAlpha(_refBaseAlpha.m1) != null ? _baAlpha(_refBaseAlpha.m1) : (_baAlpha(_refBaseAlpha.m3) != null ? _baAlpha(_refBaseAlpha.m3) : _baAlpha(_refBaseAlpha.all)))) : null;
-  // 新規記録では基本αに直近1週間の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21。
+  var _defBaseA = _refBaseAlpha ? (_baAlpha(_refBaseAlpha.m1) != null ? _baAlpha(_refBaseAlpha.m1) : (_baAlpha(_refBaseAlpha.m3) != null ? _baAlpha(_refBaseAlpha.m3) : _baAlpha(_refBaseAlpha.all))) : null;
+  // 新規記録では基本αに直近1か月の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21→2026-06-22c。
   var _baTouchedRef = useRef(false);
   var _baAutoRef = useRef("");
   useEffect(function() {
