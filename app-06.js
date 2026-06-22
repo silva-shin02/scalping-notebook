@@ -1104,9 +1104,10 @@ function _elBucketLabel(key, gran) {
 }
 // E到達率の閾値（推奨基本αは「この割合以上ちゃんと入れる」αから選ぶ）。後で調整可。
 var _EL_BASE_ERATE = 0.70;
-// 指定αを全recに一律適用した { a, pnl(ΣH1損益・撤退floorなし), stopN(損切り件数), n, entered(E到達件数), eRate, hasPnl }。
+// 指定αを全recに一律適用した集計。pnl(ΣH1・撤退floorなし)/epPnl(ΣEP)/stopN(全損切り)/epStopN(EP足での損切り件数)/
+// entered(E到達)/eRate/ E後勝率の母数=実トレード wOk(勝)/wNg(負)/wDr(引)/decided/ewin(=wOk/decided)。
 function _elBaseAlphaEval(recs, aiOf, a) {
-  var pnl = 0, epPnl = 0, stopN = 0, n = 0, entered = 0, hasPnl = false, hasEp = false;
+  var pnl = 0, epPnl = 0, stopN = 0, epStopN = 0, n = 0, entered = 0, hasPnl = false, hasEp = false, wOk = 0, wNg = 0, wDr = 0;
   (recs || []).forEach(function(r) {
     var s = r.signal; if (!s) return;
     var c = aiOf(r).cutLine;
@@ -1116,31 +1117,34 @@ function _elBaseAlphaEval(recs, aiOf, a) {
     if (pl != null) { epPnl += pl; hasEp = true; }
     var hd = _elDynHold(s, a, c);   // H1損益（撤退floorなし）
     if (hd != null) { pnl += hd; hasPnl = true; }
+    if (_elPlanIsStop(s, a, c)) epStopN++;   // EP足での損切り＝「入りの足で損切り」
+    var res = _elDynResult(s, a, c);          // E後勝率の母数=実トレード（ok/ng/draw・miss/×見送りは除外）
+    if (res === "ok") wOk++; else if (res === "ng") wNg++; else if (res === "draw") wDr++;
     var hasH2 = _elHas2Data(s);
     var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (hasH2 && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c));
     if (isStop) stopN++;
   });
-  return { a: a, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp };
+  var decided = wOk + wNg + wDr;
+  return { a: a, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0 };
 }
-// 推奨基本α(5〜20)を選定【方式A・到達率ベース 2026-06-21】: ①E到達率>=閾値(thr) を満たすαに絞り → ②その中で損切り最少 → ③同点なら"最大"のα（＝確実に届く土台をなるべく高く）。
-// 利益ゲート(EP/H1>0)は撤廃＝利益は追加α＋ホールドで取る前提。閾値を満たすαが無ければ到達率が最も高い=最小αを土台に(low_entry)。
-// 返り値 { alpha, pnl, epPnl, stopN, eRate, minStop, status('ok'|'min_stop'|'low_entry'|'none'), sweep, thr }（pnl/epPnlは参考表示用）。
+// 推奨基本α(5〜20)を選定【条件見直し 2026-06-22】: 必須条件＝①E到達率>=閾値(thr) ②ΣH1損益>0 ③EP損切り0件（入りの足で損切りにならない）。
+// その中で第1目的＝E後勝率(EP基準・引分は分母算入)が最大、同点は"最大"のα（深い方）。条件を満たすα無し→status="na"（該当なし）。
+// 利益はホールドで取る前提（EP損益は一時マイナス可・ただしEP足で損切りはNG）。
+// 返り値 { alpha, pnl, epPnl, stopN, epStopN, eRate, ewin, status('ok'|'na'|'none'), sweep, thr }。
 function _elBaseAlphaPick(recs, aiOf, minERate) {
   if (!recs || !recs.length) return null;
   var thr = minERate != null ? minERate : _EL_BASE_ERATE;
   var sweep = _EL_BASE_ALPHAS.map(function(a) { return _elBaseAlphaEval(recs, aiOf, a); });
-  if (!sweep.some(function(e) { return e.entered > 0; })) return { alpha: null, pnl: null, epPnl: null, stopN: null, eRate: null, minStop: null, status: "none", sweep: sweep, thr: thr };
-  var ok = sweep.filter(function(e) { return e.eRate >= thr; });   // 到達率を満たすα（αは昇順なので低α側に固まる）
-  var picked, status, minStop;
-  if (ok.length) {
-    minStop = ok.reduce(function(m, e) { return Math.min(m, e.stopN); }, Infinity);
-    var cand = ok.filter(function(e) { return e.stopN === minStop; });
-    picked = cand[cand.length - 1];   // 損切り最少の中で"最大"のα＝確実に届く土台を高く取る
-    status = minStop > 0 ? "min_stop" : "ok";
-  } else {
-    picked = sweep[0]; minStop = picked.stopN; status = "low_entry";   // 閾値を満たすα無し→到達率最大=最小α
-  }
-  return { alpha: picked.a, pnl: picked.pnl, epPnl: picked.epPnl, stopN: picked.stopN, eRate: picked.eRate, minStop: minStop, status: status, sweep: sweep, thr: thr };
+  var _none = { alpha: null, pnl: null, epPnl: null, stopN: null, epStopN: null, eRate: null, ewin: null, sweep: sweep, thr: thr };
+  if (!sweep.some(function(e) { return e.entered > 0; })) return Object.assign({}, _none, { status: "none" });
+  // 必須条件: E到達率>=thr かつ ΣH1>0 かつ EP損切り0件。
+  var ok = sweep.filter(function(e) { return e.eRate >= thr && e.pnl != null && e.pnl > 0 && e.epStopN === 0; });
+  if (!ok.length) return Object.assign({}, _none, { status: "na" });
+  // 第1目的=E後勝率最大 → 同点は最大α（αは昇順なので末尾が最大）。
+  var maxWin = ok.reduce(function(m, e) { return Math.max(m, e.ewin); }, -Infinity);
+  var cand = ok.filter(function(e) { return e.ewin === maxWin; });
+  var picked = cand[cand.length - 1];
+  return { alpha: picked.a, pnl: picked.pnl, epPnl: picked.epPnl, stopN: picked.stopN, epStopN: picked.epStopN, eRate: picked.eRate, ewin: picked.ewin, status: "ok", sweep: sweep, thr: thr };
 }
 // 到達率targetで基本αを選定（thr指定エイリアス）。a70/a80など到達率別の土台を出す。方式A 2026-06-21。
 function _elBaseAlphaReach(recs, aiOf, target) { return _elBaseAlphaPick(recs, aiOf, target); }
@@ -1185,49 +1189,57 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
       _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, p.alpha + "円")),
       _elv2Td((b.p80 && b.p80.alpha != null) ? React.createElement("span", { style: { fontWeight: 700, color: "#B45309" } }, b.p80.alpha + "円") : "—"),
       _elv2Td(_elPctCell(p.eRate)),
-      _elv2Td((p.stopN || 0) + "件", { color: p.stopN > 0 ? "#1E8449" : "#bbb", fontWeight: p.stopN > 0 ? 700 : 400 }),
+      _elv2Td(_elPctCell(p.ewin)),
       _elv2Td(b.n + "件"));
   });
   var first = buckets[0], last = buckets[buckets.length - 1];
   var insight = (buckets.length >= 2) ? _elInsightBoxV2([
     React.createElement("span", null, "〜", _elInsightEmV2(first.label), "の到達70%αは", _elInsightEmV2(first.p70.alpha + "円"), "、直近の", _elInsightEmV2(last.label), "は", _elInsightEmV2(last.p70.alpha + "円"), "。"),
     (last.p70.alpha !== first.p70.alpha) ? React.createElement("span", null, "最近は", _elInsightEmV2((last.p70.alpha > first.p70.alpha ? "高め" : "低め") + "（" + (last.p70.alpha > first.p70.alpha ? "+" : "") + (last.p70.alpha - first.p70.alpha) + "円）"), "の傾向。") : null
-  ].filter(Boolean), { note: "各期間で「到達率70%／80%を満たす最大のα（損切り最少）」＝確実に入れる土台。青=70%・橙=80%。利益ゲート無し（利益は追加α＋ホールドで取る）。5〜20円。件数が少ない期間は振れやすい" }) : null;
-  return React.createElement("div", null, chart, _elv2Table(["期間", "到達70%α", "到達80%α", "E到達", "損切り", "件数"], rows), insight);
+  ].filter(Boolean), { note: "各期間で「到達率70%／80%＋H1黒字＋EP損切り0件を満たす中でE後勝率が最大のα（同点は最大α）」＝確実に入れて勝ちやすい土台。青=70%・橙=80%。利益はホールドで取る。5〜20円。件数が少ない期間は振れやすい" }) : null;
+  return React.createElement("div", null, chart, _elv2Table(["期間", "到達70%α", "到達80%α", "E到達", "E後勝率", "件数"], rows), insight);
 }
 // 推奨基本αの「期間まとめ」: 1つの推奨値＋α別の E到達率/損切り件数/合計損益の早見表（★=推奨）＋読み取り。
 function _elBaseAlphaSummary(recs, aiOf) {
   var pick = _elBaseAlphaPick(recs, aiOf);
   if (!pick || pick.status === "none") return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var thrP = Math.round((pick.thr || 0.7) * 100);
-  var note = pick.status === "ok" ? ("到達率" + thrP + "%を満たす最大α・損切り0")
-    : pick.status === "low_entry" ? ("到達率" + thrP + "%を満たすαが無く、到達率が最も高い最小α")
-    : ("到達率" + thrP + "%は満たすが損切り0は無理→損切り最少（" + pick.minStop + "件）の中で最大α");
+  var noteSub = "必須条件＝到達率" + thrP + "%以上・H1損益プラス・EP損切り0件。その中でE後勝率が最大のα（同点は最大α）。利益はホールドで取る前提・5〜20円1円刻み・撤退floorなし";
+  var _gate = function(e) { return e.eRate >= (pick.thr || 0.7) && e.pnl != null && e.pnl > 0 && e.epStopN === 0; };
+  var sweepRows = pick.sweep.filter(function(e) { return e.hasPnl || e.entered > 0; }).map(function(e) {
+    var on = pick.alpha != null && e.a === pick.alpha;
+    var pass = _gate(e);
+    return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.45 } },
+      _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(_elPctCell(e.eRate)),
+      _elv2Td(_elEwinCell(e.wOk, e.wNg, e.wDr)),
+      _elv2Td((e.epStopN || 0) + "件", { color: e.epStopN > 0 ? "#C0392B" : "#bbb", fontWeight: e.epStopN > 0 ? 700 : 400 }),
+      _elv2Td(e.pnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(e.pnl), fontWeight: 700 } }, _elPnlFmt(e.pnl))),
+      _elv2Td(e.epPnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(e.epPnl), fontWeight: 700 } }, _elPnlFmt(e.epPnl))));
+  });
+  var _sweepHead = ["基本α", "E到達", "E後勝率", "EP損切", "H1損益", "EP損益"];
+  if (pick.status === "na") {
+    return React.createElement("div", null,
+      React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#B45309", padding: "4px 0 6px" } }, "該当なし（条件を満たす基本αがありません）"),
+      React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "4px 0 2px" } }, "α別の E到達率・E後勝率・EP損切り・H1損益・EP損益（淡色＝条件外）"),
+      _elv2Table(_sweepHead, sweepRows),
+      _elInsightBoxV2([React.createElement("span", null, "この条件（", _elInsightEmV2("到達" + thrP + "%＋H1黒字＋EP損切り0"), "）を満たすαがありません＝", _elInsightEmV2("見送り推奨"), "の局面。")], { note: noteSub }));
+  }
   var pick80 = _elBaseAlphaReach(recs, aiOf, 0.80);
   var addR = _elAddAlphaReco(recs, pick.alpha);
   var cards = _elv2CardRow([
-    _elv2Card("推奨基本α(到達70%)", React.createElement("span", { style: { color: "#0369A1" } }, pick.alpha + "円"), "#0369A1", "到達率ベース"),
+    _elv2Card("推奨基本α(到達70%)", React.createElement("span", { style: { color: "#0369A1" } }, pick.alpha + "円"), "#0369A1", "条件ベース"),
     _elv2Card("推奨基本α(到達80%)", React.createElement("span", { style: { color: "#0369A1" } }, (pick80 && pick80.alpha != null) ? pick80.alpha + "円" : "—"), "#0369A1", "より確実"),
+    _elv2Card("E後勝率", pick.ewin != null ? Math.round(pick.ewin * 100) + "%" : "—", (pick.ewin != null && pick.ewin >= 0.5) ? "#1E8449" : "#B45309", "推奨αでの勝率"),
     _elv2Card("◎追加α目安", addR ? "+" + addR.add + "円" : "—", addR ? "#9A3412" : "#bbb", addR ? addR.n + "件" : null),
     _elv2Card("E到達率", _elPctCell(pick.eRate), null),
-    _elv2Card("損切り件数", (pick.stopN || 0) + "件", pick.stopN > 0 ? "#1E8449" : "#bbb"),
     _elv2Card("EP損益", pick.epPnl == null ? "—" : _elPnlFmt(pick.epPnl), pick.epPnl != null ? _elPnlColor(pick.epPnl) : "#333"),
     _elv2Card("H1損益", pick.pnl == null ? "—" : _elPnlFmt(pick.pnl), pick.pnl != null ? _elPnlColor(pick.pnl) : "#333")
   ]);
-  var sweepRows = pick.sweep.filter(function(e) { return e.hasPnl; }).map(function(e) {
-    var on = e.a === pick.alpha;
-    var okE = e.eRate >= (pick.thr || 0.7);
-    return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent" } },
-      _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
-      _elv2Td(_elPctCell(e.eRate), { opacity: okE ? 1 : 0.45 }),
-      _elv2Td((e.stopN || 0) + "件", { color: e.stopN > 0 ? "#1E8449" : "#bbb", fontWeight: e.stopN > 0 ? 700 : 400 }),
-      _elv2Td(e.epPnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(e.epPnl), fontWeight: 700 } }, _elPnlFmt(e.epPnl))),
-      _elv2Td(e.pnl == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(e.pnl), fontWeight: 700 } }, _elPnlFmt(e.pnl))));
-  });
   return React.createElement("div", null, cards,
-    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "α別の E到達率・損切り件数・EP損益・H1損益（★＝推奨基本α・E到達" + thrP + "%未満は淡色）"),
-    _elv2Table(["基本α", "E到達", "損切り", "EP損益", "H1損益"], sweepRows),
-    _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（", note, "）。")], { note: "到達率(" + thrP + "%)を満たす最大のα＝確実に入れる土台。損切り最少・利益ゲート無し（利益は追加α＋ホールドで取る）。5〜20円・1円刻み・撤退floorなし" }));
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "α別の E到達率・E後勝率・EP損切り・H1損益・EP損益（★＝推奨基本α・淡色＝条件外）"),
+    _elv2Table(_sweepHead, sweepRows),
+    _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（E後勝率", _elInsightEmV2(pick.ewin != null ? Math.round(pick.ewin * 100) + "%" : "—"), "・条件を満たす中で勝率最大、同点は最大α）。")], { note: noteSub }));
 }
 // 🎯 推奨基本α値: 月別/週別/期間まとめを切替（ステートフル）。
 function _elBaseAlphaTrendV2(props) {
@@ -1243,7 +1255,7 @@ function _elBaseAlphaTrendV2(props) {
   return React.createElement("div", null, toggle, body);
 }
 // 推奨基本α表（銘柄/期間グループ別）: groups=[{label,recs}]・cutFn(r)→損切り値。各グループの推奨基本α(_elBaseAlphaPick・5〜20・
-// E到達70%/損切り0(無理なら最少)/EP・H1とも+ の最小α)を1値表示＋E到達/損切り/H1合計の小書き。旧 _elIdealAlphaTableV2(EP/H1/H2別・0〜50)を置換 2026-06-21。
+// E到達70%＋H1黒字＋EP損切り0件を満たす中でE後勝率最大・同点は最大α)を1値表示＋到達率/E後勝率の小書き。旧 _elIdealAlphaTableV2(EP/H1/H2別・0〜50)を置換 2026-06-21→条件見直し 2026-06-22。
 function _elBaseAlphaTableV2(groups, cutFn) {
   var _cf = cutFn || function() { return 10; };
   var aiOf = function(r) { return { cutLine: _cf(r) }; };
@@ -1253,7 +1265,7 @@ function _elBaseAlphaTableV2(groups, cutFn) {
     return React.createElement("div", { style: { whiteSpace: "nowrap", lineHeight: 1.3 } },
       React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, lbl + " "),
       React.createElement("span", { style: { fontWeight: 800, color: col || "#0369A1", fontSize: 13 } }, pk.alpha + "円"),
-      React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 3 } }, "到達" + Math.round((pk.eRate || 0) * 100) + "%・損切" + (pk.stopN || 0)));
+      React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 3 } }, "到達" + Math.round((pk.eRate || 0) * 100) + "%・勝" + Math.round((pk.ewin || 0) * 100) + "%"));
   };
   var rows = (groups || []).filter(function(g) { return g.recs && g.recs.length; }).map(function(g, gi) {
     var A = _elBaseAlphaA(g.recs, aiOf);
@@ -2346,7 +2358,7 @@ function EntryLogView(_ref_elv2) {
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(recs, _ai),
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: recs, aiOf: _ai })) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
-      _secH("🎯 推奨基本α値（期間ごとの傾向）", "到達率70%を満たす最大のα＝確実に入れる土台（損切り最少・利益ゲート無し）。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。利益は追加α＋ホールドで取る"),
+      _secH("🎯 推奨基本α値（期間ごとの傾向）", "到達率70%＋H1黒字＋EP損切り0件を満たす中でE後勝率が最大のα（同点は最大α）＝確実に入れて勝ちやすい土台。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。利益はホールドで取る"),
       React.createElement(_elBaseAlphaTrendV2, { recs: recs, aiOf: _ai }),
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
       _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益"), _elDowSectionV2(recs, _ai),
