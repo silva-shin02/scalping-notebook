@@ -2172,7 +2172,7 @@ function _elDowSectionV2(recs, aiOf) {
 }
 
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
-// タブ: 集計(KPI+OS値の分析+EP位置+累積損益+連勝連敗最大DD+α意思決定表+αカーブ+時間帯+曜日別+×見送り)/期間/カレンダー/シグナル別/銘柄別/OS連鎖/深掘り(最適ホールド本数+期待度キャリブレーション+執行乖離+メモ×成績)/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
+// タブ: 集計(KPI+OS値の分析+EP位置+累積損益+連勝連敗最大DD+時間帯+曜日別+×見送り+△ホールド)/α値(推奨基本α詳細_elBaseAlphaDetailV2+期間推移_elBaseAlphaTrendV2+α意思決定表+α感応度カーブ・2026-06-22)/期間/カレンダー/シグナル別/OS連鎖/深掘り(最適ホールド本数+期待度キャリブレーション+執行乖離+メモ×成績)/出現/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
 // 一覧・展開明細は1行=1記録のテーブル（行タップでEntryLogCard展開）でスクロール量を削減。
 function EntryLogView(_ref_elv2) {
   var data = _ref_elv2.data, save = _ref_elv2.save, onBack = _ref_elv2.onBack,
@@ -2359,7 +2359,7 @@ function EntryLogView(_ref_elv2) {
         React.createElement("tbody", null, rows)));
   };
 
-  // ===== 集計タブ: KPI + α意思決定表 =====
+  // ===== 集計/α値タブ共用: KPI + α意思決定表(_alphaTable) =====
   var _kpi = (function() {
     var n = v2recs.length, ok = 0, x = 0, miss = 0;
     v2recs.forEach(function(r) {
@@ -2508,10 +2508,6 @@ function EntryLogView(_ref_elv2) {
         _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: v2recs, aiOf: _ai })) : null,
       v2recs.length >= 2 ? React.createElement(React.Fragment, null,
         _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理）"), _elStreakDDSectionV2(v2recs, _ai)) : null,
-      _alphaTable ? React.createElement(React.Fragment, null,
-        _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null,
-      v2recs.length ? React.createElement(React.Fragment, null,
-        _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)) : null,
       v2recs.length ? React.createElement(React.Fragment, null,
         _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか"), _elTimeOfDaySectionV2(v2recs, _ai)) : null,
       v2recs.length ? React.createElement(React.Fragment, null,
@@ -2520,6 +2516,17 @@ function EntryLogView(_ref_elv2) {
         _secH("🚫 期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(v2recs, _ai)) : null,
       v2recs.length ? React.createElement(React.Fragment, null,
         _secH("🔺 期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）"), _elTriangleHoldSectionV2(v2recs, _ai)) : null);
+  } else if (view === "alpha") {
+    _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
+      React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 6 } }, "この銘柄（" + _selStock + "）の推奨基本α値と、その数値が出た根拠データ。EP起算（v2）の" + v2recs.length + "件で算出。"),
+      _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝①α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）＋②採用αでの全記録の内訳（どの記録が母数で損切り/H1勝ち/対象外か）"),
+      _elBaseAlphaDetailV2(v2recs, _ai),
+      _secH("🎯 推奨基本α 期間推移", "件数3件以上のαから損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
+      React.createElement(_elBaseAlphaTrendV2, { recs: v2recs, aiOf: _ai }),
+      _alphaTable ? React.createElement(React.Fragment, null,
+        _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null,
+      _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)
+    ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
   } else if (view === "date") {
     _tabBody = (function() {
       var byDate = {}; v2recs.forEach(function(r) { (byDate[r.date] = byDate[r.date] || []).push(r); });
@@ -2743,7 +2750,7 @@ function EntryLogView(_ref_elv2) {
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "6px 0" } }, "記録のある銘柄がありません")),
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
-      [["sum", "📊 集計"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["appear", "📡 出現"], ["list", "🗂 一覧"]].map(function(kv) {
+      [["sum", "📊 集計"], ["alpha", "📐 α値"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["appear", "📡 出現"], ["list", "🗂 一覧"]].map(function(kv) {
         var on = view === kv[0];
         var cnt = kv[0] === "list" ? filtered.length : (kv[0] === "date" ? v2recs.length : null);
         return React.createElement("button", { key: kv[0],
