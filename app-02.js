@@ -3928,7 +3928,7 @@ function EntrySignalSection(_ref_es) {
   var _esCut = function(s) { var _k = (s && s.id) || ""; var _cv = _esSimCut[_k]; return (_cv != null && _cv !== "") ? Number(_cv) : _esActualCut(s); };
 
   var _useStateESS = useState(function() {
-    try { var v = localStorage.getItem('sn_chartentry_sortmode'); return (v === "custom" || v === "category" || v === "difficulty") ? v : "time"; }
+    try { var v = localStorage.getItem('sn_chartentry_sortmode'); return (v === "custom" || v === "category") ? v : "time"; }
     catch(e) { return "time"; }
   }), _useStateESSA = _slicedToArray(_useStateESS, 2),
       sortMode = _useStateESSA[0], setSortMode = _useStateESSA[1];
@@ -4056,26 +4056,11 @@ function EntrySignalSection(_ref_es) {
     });
   };
 
-  var _DIFF_RANK = { "◎": 0, "○": 1, "△": 2, "×": 3 };
-  var _esSortByDifficulty = function(recs) {
-    return recs.slice().sort(function(a, b) {
-      var da = (a.signal && a.signal.reachPred) || "";
-      var db = (b.signal && b.signal.reachPred) || "";
-      var ra = _DIFF_RANK[da] != null ? _DIFF_RANK[da] : 99;
-      var rb = _DIFF_RANK[db] != null ? _DIFF_RANK[db] : 99;
-      if (ra !== rb) return ra - rb;
-      var ta = (a.signal && a.signal.time) || "99:99";
-      var tb = (b.signal && b.signal.time) || "99:99";
-      if (ta !== tb) return ta.localeCompare(tb);
-      return ((a.signal && a.signal.id) || "").localeCompare((b.signal && b.signal.id) || "");
-    });
-  };
   var _sortResult = useMemo(function() {
     var sr = records, gr = null;
     if (sortMode === "time") sr = _esSortByTime(records);
     else if (sortMode === "custom") sr = _esSortByOrder(records, c.signalsOrder || []);
     else if (sortMode === "category") gr = _esGroupByCategory(records);
-    else if (sortMode === "difficulty") sr = _esSortByDifficulty(records);
     return [sr, gr];
   }, [records, sortMode, c.signalsOrder, signalTagsMaster]); 
   var sortedRecs = _sortResult[0];
@@ -4487,7 +4472,7 @@ function EntrySignalSection(_ref_es) {
       })(),
       records.length >= 2 && React.createElement("span", { style: { color: "#666", fontWeight: 600, flexShrink: 0 } }, "並び替え:"),
       records.length >= 2 && React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } },
-        [["time", "⏱ 時間順"], ["difficulty", "🎯 到達見立順"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
+        [["time", "⏱ 時間順"], ["category", "🏷 カテゴリ別"]].map(function(kv) {
           var val = kv[0], lbl = kv[1];
           var on = sortMode === val;
           return React.createElement("button", {
@@ -4564,7 +4549,7 @@ function EntrySignalSection(_ref_es) {
           };
           var isCustomMode = sortMode === "custom";
           var totRow = React.createElement("tr", { key: "__estot__", style: { background: "#FFF7ED" } },
-            React.createElement("td", { colSpan: 6, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
+            React.createElement("td", { colSpan: 5, style: { textAlign: "center", padding: "4px 8px", fontWeight: 700, fontSize: 11, color: "#555", borderTop: "2px solid #FB923C", borderBottom: "1px solid #f0ede6" } }, "合計"),
             React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
               _esAllMiss ? _qZeroCell() : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade), _elHold2RefSuffix(_esTotPlan, _esTotPlanRef, _esTotPlanRefCnt))
             ),
@@ -4696,7 +4681,6 @@ function EntrySignalSection(_ref_es) {
                     : "(未設定)",
                   _esRenderSimAlpha(r),
                   _esRenderSimCut(r)),
-                React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } }, _reachPredBadge(s.reachPred)),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
                   _avH != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _avH + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
                 React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
@@ -4733,7 +4717,7 @@ function EntrySignalSection(_ref_es) {
             if (rExp) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
-                  React.createElement("td", { colSpan: isCustomMode ? 11 : 10, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
+                  React.createElement("td", { colSpan: isCustomMode ? 10 : 9, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
                     React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
@@ -4747,7 +4731,6 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left", width: 50 }),
                   _esTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-                  _esTh(_reachPredHead(), { width: 40 }),
                   _esTh("α値", { width: 36 }),
                   React.createElement("th", { style: { padding: "2px 4px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } },
                     "OS",
@@ -5027,8 +5010,6 @@ function WeeklyPnlPanel(_wpp) {
         _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),
-      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, borderRight: _bb, width: "1%" } },
-        _reachPredBadge(s.reachPred)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } },
         a != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, a + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } }, _epOsChainCell(s, a)),
@@ -5042,7 +5023,7 @@ function WeeklyPnlPanel(_wpp) {
     );
     if (!rExp) return _row;
     return React.createElement(React.Fragment, { key: rKey + "_f" }, _row,
-      React.createElement("tr", { key: rKey + "_d" }, React.createElement("td", { colSpan: 13, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+      React.createElement("tr", { key: rKey + "_d" }, React.createElement("td", { colSpan: 12, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
         React.createElement(EntryLogCard, { record: r, alpha: a, cutLine: c }))));
   });
   };
@@ -5061,7 +5042,7 @@ function WeeklyPnlPanel(_wpp) {
     var _allMiss = _elAllMissRow(_list, _alphaOf, _cutOf);
     return React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
       React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
-      React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
+      React.createElement("td", { colSpan: 6, style: { borderTop: "2px solid #FB923C" } }),
       React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("EP損益"), _amtCell(_t.plan, _t.planCnt, _t.planRef, _t.planRefCnt, false, _allMiss)),
       React.createElement("td", { colSpan: 2, style: { padding: "1px 0", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } },
         React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
@@ -5076,7 +5057,6 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
           _rTh("", { width: 20 }), _rTh("日付", { width: 52 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-          _rTh(_reachPredHead(), { width: 44 }),
           _rTh("α値", { width: 32 }), _rTh("OS", { width: 80 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
           _rTh(React.createElement("span", null, "EP損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "勝敗/ランク/額")), { width: 104 }),
           React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"),

@@ -3118,6 +3118,14 @@ function _elIsEntered(s, item) {
 function _elInclTotal(s) { return !s || s.includeInTotal !== false; }
 // recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
+// 追加α値が「必要だった（〇）」記録か。signal.addAlphaUsed(true/false)を優先・未設定の旧記録は addAlphaVal>0 を〇とみなす（後方互換）。
+// 推奨基本αの母数からはこの〇記録を除外（追っかけ等の変則局面で基本αの評価が歪むため）／推奨追加αはこの〇記録だけを母数にする 2026-06-22。
+function _elAddAlphaUsed(s) {
+  if (!s) return false;
+  if (s.addAlphaUsed === true) return true;
+  if (s.addAlphaUsed === false) return false;
+  return s.addAlphaVal != null && s.addAlphaVal !== "" && Number(s.addAlphaVal) > 0;
+}
 
 // ===== 不算入(計算・データ算入オフ=includeInTotal===false)の可視化ヘルパー 2026-06-18 =====
 function _elIsExcluded(s) { return !!(s && s.includeInTotal === false); }
@@ -3240,14 +3248,6 @@ function _epIsV2(s) { return !!(s && (s.scheme === 2 || s.scheme === 3)); }
 function _epIsV3(s) { return !!(s && s.scheme === 3); }
 // 記録固有の採用α（未設定は予想OS度のα）。
 function _epOwnAlpha(s) { return (s && s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); }
-// α到達予想（reachPred ◎○△×）の表示＝各記録表の「到達見立」列セル＋2行見出し。予想OS度の表示を置換 2026-06-21。
-var _RP_CELL_COLORS = { "◎": "#B71C1C", "○": "#C0392B", "△": "#B45309", "×": "#1E8449" };
-var _RP_CELL_TITLE = { "◎": "基本αでは不十分・追加αが必要", "○": "基本αで十分", "△": "基本αまでも微妙", "×": "届かない" };
-function _reachPredBadge(rp) {
-  if (rp == null || _RP_CELL_COLORS[rp] == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-  return React.createElement("span", { title: _RP_CELL_TITLE[rp], style: { fontWeight: 800, fontSize: 14, color: _RP_CELL_COLORS[rp] } }, rp);
-}
-function _reachPredHead() { return React.createElement("span", null, "到達", React.createElement("span", { style: { display: "block", whiteSpace: "nowrap" } }, "見立")); }
 // 足配列: [{h:高値(符号付き・↑=正), c:確定値(符号付き・↑=正), exp:α値到達期待度, role:"os1"〜"h2"}]
 // 符号規約: OS系フィールドはsign"-"=↓負（osConfSign互換・無印/"+"=↑正）。hold系はsign"+"=↓負（holdHighSign互換・無印/"-"=↑正）。
 function _epLegs(s) {
@@ -5156,11 +5156,6 @@ function EntryRecordForm(_ref_erf) {
   var _useStateDif = useState(initSig.difficulty || ""),
     _useStateDifA = _slicedToArray(_useStateDif, 2),
     fDifficulty = _useStateDifA[0], setFDifficulty = _useStateDifA[1];
-  // α到達予想（◎○△×・基本α比のオーバーシュート強度予想／2026-06-21・予想OS度を置換）。損益計算には不使用＝的中検証用。
-  var _useStateRP = useState(initSig.reachPred || ""),
-    _useStateRPA = _slicedToArray(_useStateRP, 2),
-    fReachPred = _useStateRPA[0], setFReachPred = _useStateRPA[1];
-  
   var _useStateTPD = useState(initSig.tpDifficulty || ""),
     _useStateTPDA = _slicedToArray(_useStateTPD, 2),
     fTpDifficulty = _useStateTPDA[0], setFTpDifficulty = _useStateTPDA[1];
@@ -5300,6 +5295,12 @@ function EntryRecordForm(_ref_erf) {
   var _useStateADA = useState(initSig.addAlphaVal != null ? String(initSig.addAlphaVal) : ""),
     _useStateADAA = _slicedToArray(_useStateADA, 2),
     fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
+  // 追加α 使用フラグ（〇=必要だった→数値入力／×=不要＝基本αのみ）2026-06-22。signal.addAlphaUsedに保存。
+  // 旧記録は addAlphaVal>0 を〇・それ以外を×として初期化（新規は×＝既定）。推奨基本αの母数除外/推奨追加αの母数に使う。
+  var _initAddUsed = (initSig.addAlphaUsed === true) ? "○" : (initSig.addAlphaUsed === false) ? "×" : ((initSig.addAlphaVal != null && initSig.addAlphaVal !== "" && Number(initSig.addAlphaVal) > 0) ? "○" : "×");
+  var _useStateAAU = useState(_initAddUsed),
+    _useStateAAUA = _slicedToArray(_useStateAAU, 2),
+    fAddAlphaUsed = _useStateAAUA[0], setFAddAlphaUsed = _useStateAAUA[1];
   // α値セクションのメモ（記録固有=signal.alphaMemo）2026-06-21。
   var _useStateALM = useState(initSig.alphaMemo || ""),
     _useStateALMA = _slicedToArray(_useStateALM, 2),
@@ -5342,14 +5343,21 @@ function EntryRecordForm(_ref_erf) {
     _baAutoRef.current = _nv;
     if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
   }, [_defBaseA, fBaseAlpha, isEdit]);
-  // α到達の見立て用の参考α（理想α・追加α目安＝この銘柄の全記録から）2026-06-21→2026-06-22再設計（到達率別α[OS分位]の表示は撤去）。
-  var _refAlphaAux = useMemo(function() {
+  // 推奨追加α（追加α〇の記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」を算出＝_elBaseAlphaA内の二プール）2026-06-22。
+  var _refAddAlpha = useMemo(function() {
     if (!fStock) return null;
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
     if (!recs.length) return null;
-    var ideal = _elIdealAlphaV2(recs, function(r) { return _elAlphaInfo(r, data).cutLine; });
     var A = _elBaseAlphaA(recs, function(r) { return _elAlphaInfo(r, data); });
-    return { idealEp: ideal.ep.maxA, idealH1: ideal.h1.maxA, idealH2: ideal.h2.maxA, add: (A && A.add && A.add.improved) ? A.add : null };
+    return (A && A.add && A.add.improved) ? A.add : null;
+  }, [data, fStock]);
+  // 推奨損切り値（合成スコア＝実現H1損益が最大になる損切り値・この銘柄の算入v2記録から。損切り回避率/H1勝率は根拠として併記）2026-06-22。
+  var _refCutPick = useMemo(function() {
+    if (!fStock) return null;
+    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+    if (!recs.length) return null;
+    var p = _elCutPick(recs, function(r) { return _elAlphaInfo(r, data); });
+    return (p && p.cut != null && p.status !== "none") ? p : null;
   }, [data, fStock]);
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
@@ -5428,7 +5436,8 @@ function EntryRecordForm(_ref_erf) {
   
   // 合計α値 = 基本α値（未入力なら直近1週間の推奨基本α・無ければ0。予想OS度とは連動しない 2026-06-21）＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
   var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_defBaseA != null ? _defBaseA : 0);
-  var _fAddA = (fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
+  // 追加αは「〇（必要）」を選んだ時だけ合計に算入。×なら0＝基本αのみ。
+  var _fAddA = (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
   var _fAlpha = _fBaseA + _fAddA;
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
@@ -5871,7 +5880,6 @@ function EntryRecordForm(_ref_erf) {
       var _vm = [];
       var _ef = _epFormState;
       if (fTags.length === 0 && !fIsCustom) _vm.push("シグナル");
-      if (!fReachPred) _vm.push("α到達予想");
       if (_ef.alpha == null || isNaN(_ef.alpha)) _vm.push("合計α値");
       if (!fTime) _vm.push("時間");
       if (_ef.o1 == null) _vm.push("OS1高値");
@@ -5943,7 +5951,8 @@ function EntryRecordForm(_ref_erf) {
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       baseAlphaVal: fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
-      addAlphaVal: fAddAlpha !== "" && !isNaN(Number(fAddAlpha)) ? Number(fAddAlpha) : null,
+      addAlphaVal: (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : null,
+      addAlphaUsed: fAddAlphaUsed === "○" ? true : (fAddAlphaUsed === "×" ? false : null),
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
       includeInTotal: fIncl,
@@ -5952,7 +5961,6 @@ function EntryRecordForm(_ref_erf) {
       maxPnl: fMax !== "" ? Number(fMax) : null,
       maxPnlSign: fMaxSign,
       difficulty: fDifficulty || null,
-      reachPred: fReachPred || null,
       tpDifficulty: fTpDifficulty || null,
       osVal: fOsVal !== "" ? (isNaN(Number(_toHankaku(fOsVal))) ? null : Number(_toHankaku(fOsVal))) : null,
       osConfSign: fOsConfSign || null,
@@ -6176,45 +6184,11 @@ function EntryRecordForm(_ref_erf) {
         style: Object.assign({}, I, { marginBottom: 6 })
       }),
       
-      React.createElement("div", { style: Object.assign({}, SH_, { textTransform: "none" }) }, "\u03B1\u5230\u9054\u306E\u898B\u7ACB\u3066"),
-      _refAlphaAux ? React.createElement("div", { style: { fontSize: 10, color: "#64748B", marginBottom: 4, display: "flex", flexWrap: "wrap", gap: "2px 12px" } },
-        React.createElement("span", null, "\u63A8\u5968\u57FA\u672C\u03B1(\u76F4\u8FD11\u9031) ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, (_refBaseAlpha && _refBaseAlpha.w1 && _refBaseAlpha.w1.alpha != null ? (_refBaseAlpha.w1.alpha + "\u5186" + (_refBaseAlpha.w1.ok ? "" : "?")) : "\u2014"))),
-        React.createElement("span", null, "\u7406\u60F3\u03B1 ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "EP" + (_refAlphaAux.idealEp != null ? _refAlphaAux.idealEp : "\u2014") + "/H1 " + (_refAlphaAux.idealH1 != null ? _refAlphaAux.idealH1 : "\u2014") + "/H2 " + (_refAlphaAux.idealH2 != null ? _refAlphaAux.idealH2 : "\u2014"))),
-        React.createElement("span", null, "\u8FFD\u52A0\u03B1\u76EE\u5B89 ", React.createElement("span", { style: { color: "#9A3412", fontWeight: 700 } }, _refAlphaAux.add ? ("+" + _refAlphaAux.add.add + "\u5186\uFF08\u5408\u8A08" + _refAlphaAux.add.total + "\u5186\uFF09") : "\u2014"))
-      ) : null,
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "\u30AA\u30FC\u30D0\u30FC\u30B7\u30E5\u30FC\u30C8\u304C\u57FA\u672C\u03B1\u306B\u5BFE\u3057\u3066\u3069\u3053\u307E\u3067\u4F38\u3073\u308B\u304B\u306E\u4E88\u60F3\uFF08\u640D\u76CA\u8A08\u7B97\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\u30FB\u5F8C\u3067\u5B9FOS\u3068\u7167\u5408\u3057\u3066\u7684\u4E2D\u7387\u3092\u8868\u793A\uFF09"),
-      React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
-        [["◎", "追加α要", "基本αでは不十分・追加αが必要", "#B71C1C", "#FCEBEB"], ["○", "基本αで十分", "基本αで十分", "#C0392B", "#FCEBEB"], ["△", "基本α微妙", "基本αまでも微妙", "#B45309", "#FEF3C7"], ["×", "届かない", "届かない（見送り）", "#1E8449", "#EAF3DE"]].map(function(kv) {
-          var on = fReachPred === kv[0];
-          return React.createElement("button", {
-            key: kv[0],
-            onClick: function() { setFReachPred(on ? "" : kv[0]); },
-            title: kv[2],
-            style: {
-              flex: 1, padding: "8px 6px", fontWeight: on ? 800 : 700,
-              border: on ? ("2px solid " + kv[3]) : "1px solid #ddd",
-              background: on ? kv[4] : "#fff",
-              color: kv[3],
-              borderRadius: 6, cursor: "pointer", textAlign: "center",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 2
-            }
-          }, React.createElement("span", { style: { fontSize: 16 } }, kv[0]), React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: on ? kv[3] : "#94A3B8" } }, kv[1]));
-        })
-      ),
-      
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 14, marginBottom: 6 } },
-        React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値"),
-        _refBaseAlpha ? React.createElement("span", { title: "保存済み記録から算出した推奨基本α（記録日を起点にした直近・記録の参考用）", style: { fontSize: 11, fontWeight: 600, color: "#64748B" } },
-          React.createElement("span", { style: { color: "#94A3B8" } }, "推奨基本α："),
-          [["直近1週", _refBaseAlpha.w1], ["1か月", _refBaseAlpha.m1], ["3か月", _refBaseAlpha.m3], ["全期間", _refBaseAlpha.all]].map(function(kv, i) {
-            return React.createElement("span", { key: i },
-              i ? React.createElement("span", { style: { color: "#cbd5e1", margin: "0 4px" } }, "・") : null,
-              kv[0] + " ",
-              kv[1] && kv[1].alpha != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1].alpha + "円" + (kv[1].ok ? "" : "?")) : React.createElement("span", { style: { color: "#aaa" } }, "データ無し"));
-          }))
-          : (fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨基本α：データ無し") : null)),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。基本αの初期値＝直近1週間の推奨基本α（予想OS度とは連動しない・手動で変更可）"),
-      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2, marginBottom: 6 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
+        React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。追加αは〇を選んだ時だけ入力。基本αの初期値＝直近1週間の推奨基本α"),
+      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setBA = function(val) { _baTouchedRef.current = true; var _v = _toHankakuNum(val); if (_v === "") { setFBaseAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
         var _stepBA = function(delta) { _baTouchedRef.current = true; setFBaseAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_defBaseA != null ? _defBaseA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
@@ -6235,15 +6209,37 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })(),
-
+        (function() {
+          if (!_refBaseAlpha) return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨基本α：データ無し") : null;
+          return React.createElement("span", { title: "保存済み記録から算出した推奨基本α（記録日起点の直近・参考用。追加α〇の記録は母数から除外）", style: { fontSize: 11, fontWeight: 600, color: "#64748B", whiteSpace: "nowrap" } },
+            React.createElement("span", { style: { color: "#94A3B8" } }, "推奨基本α："),
+            [["1週", _refBaseAlpha.w1], ["1月", _refBaseAlpha.m1], ["3月", _refBaseAlpha.m3], ["全", _refBaseAlpha.all]].map(function(kv, i) {
+              return React.createElement("span", { key: i },
+                i ? React.createElement("span", { style: { color: "#cbd5e1", margin: "0 3px" } }, "・") : null,
+                kv[0] + " ",
+                kv[1] && kv[1].alpha != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1].alpha + "円" + (kv[1].ok ? "" : "?")) : React.createElement("span", { style: { color: "#aaa" } }, "—"));
+            }));
+        })()),
+      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setAA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFAddAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFAddAlpha(String(n)); };
         var _stepAA = function(delta) { setFAddAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
+        var _addOn = fAddAlphaUsed === "○";
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#FFFBEB", border: "1px solid #FDE68A", fontSize: 12 }
         },
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "追加α値"),
-          React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FDE68A", borderRadius: 4, overflow: "hidden" } },
+          React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
+            [["○", "要", "#C0392B", "#FCEBEB"], ["×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
+              var on = fAddAlphaUsed === kv[0];
+              return React.createElement("button", { key: kv[0], type: "button",
+                onClick: function() { setFAddAlphaUsed(kv[0]); },
+                title: kv[0] === "○" ? "追加αが必要だった（数値を入力）" : "追加αは不要＝基本αのみ",
+                style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[2]) : "1px solid #ddd", background: on ? kv[3] : "#fff", color: on ? kv[2] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
+                kv[0], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[1]));
+            })
+          ),
+          _addOn ? React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FDE68A", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
               value: fAddAlpha,
@@ -6252,14 +6248,18 @@ function EntryRecordForm(_ref_erf) {
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#92400E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(function() { _stepAA(1); }, function() { _stepAA(-1); })
-          ),
-          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
+          ) : null,
+          _addOn ? React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円") : null
         );
       })(),
-
+        (function() {
+          if (fAddAlphaUsed !== "○") return null;
+          if (_refAddAlpha) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlpha.add + "円"), React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3 } }, "（合計" + _refAddAlpha.total + "円）"));
+          return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨追加α：データ無し") : null;
+        })()),
       (function() {
         var _ba = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_defBaseA != null ? _defBaseA : 0);
-        var _aa = (fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
+        var _aa = (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "baseline", gap: 5, padding: "4px 10px", borderRadius: 6, background: "#F8FAFC", border: "1px solid #E2E8F0", fontSize: 12 }
         },
@@ -6268,7 +6268,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円")
         );
       })(),
-
+      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _ckC = fStock + "_" + fDate;
         var _cdC = data.charts && data.charts[_ckC];
@@ -6310,7 +6310,16 @@ function EntryRecordForm(_ref_erf) {
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
-      })()
+      })(),
+        (function() {
+          if (!_refCutPick) return null;
+          var p = _refCutPick;
+          return React.createElement("span", { title: "実現H1損益が最大になる損切り値（この銘柄の算入記録から）", style: { fontSize: 11, fontWeight: 600, color: "#7F1D1D", whiteSpace: "nowrap" } },
+            "推奨損切り：", React.createElement("span", { style: { fontWeight: 800 } }, p.cut + "円"),
+            p.status === "na"
+              ? React.createElement("span", { style: { color: "#B45309", marginLeft: 3, fontSize: 10 } }, "（参考）")
+              : React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3, fontSize: 10 } }, "（H1平均" + (p.mean != null ? (p.mean >= 0 ? "+" : "") + Math.round(p.mean) : "—") + "円・損切" + (p.stopRate != null ? Math.round(p.stopRate * 100) : "—") + "%・" + (p.n || 0) + "件）"));
+        })())
       ),
       React.createElement("div", { style: { marginBottom: 8 } },
         React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "αメモ"),
@@ -7023,7 +7032,6 @@ function EntryLogCard(_ref_elc) {
         return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, t);
       }),
       s.isCustomTag && React.createElement("span", { style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#EEF2FF", color: "#4338CA", borderRadius: 5, border: "1px solid #C7D2FE" } }, s.customTagText || "(その他)"),
-      s.reachPred && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 4, border: "1px solid #FDBA74" } }, "到達見立 " + s.reachPred),
       s.tpDifficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#DCFCE7", color: "#14532D", borderRadius: 4, border: "1px solid #86EFAC" } }, "利確" + s.tpDifficulty),
       record.stockTags && record.stockTags.map(function(t) {
         return React.createElement("span", { key: t, style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, border: "1px solid #BFDBFE" } }, "📌 " + t);
