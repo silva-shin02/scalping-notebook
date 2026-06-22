@@ -1298,6 +1298,91 @@ function _elBaseAlphaTrendV2(props) {
   var body = gran === "period" ? _elBaseAlphaSummary(recs, aiOf) : _elBaseAlphaTrendBody(recs, aiOf, gran);
   return React.createElement("div", null, toggle, body);
 }
+// 推奨基本α 詳細データ（この銘柄/グループ）2026-06-22: 推奨値が出た根拠を全部開示＝結論バー＋①α別の総当たり(スコア内訳付き)＋②採用αでの全記録の内訳(どの記録が母数で損切り/H1勝ち/対象外か)＋読み取り。
+function _elBaseAlphaDetailV2(recs, aiOf) {
+  var pick = _elBaseAlphaPick(recs, aiOf);
+  if (!pick || pick.status === "none" || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
+  var a = pick.alpha, na = pick.status === "na", minN = pick.minN || _EL_BASE_MIN_N;
+  var add = na ? null : _elAddAlphaReco(recs, aiOf, pick.alpha, pick.score);
+  var stopP = pick.stopRate != null ? Math.round(pick.stopRate * 100) : null;
+  var winP = pick.h1win != null ? Math.round(pick.h1win * 100) : null;
+  var _lbl = function(t) { return React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "10px 0 2px" } }, t); };
+  var concl = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 10px", background: na ? "#FEF3C7" : "#F0F9FF", border: "1px solid " + (na ? "#FCD34D" : "#BAE6FD"), borderRadius: 8, padding: "8px 12px" } },
+    React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, "推奨基本α"),
+    React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: na ? "#B45309" : "#0369A1" } }, a + "円"),
+    na
+      ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B45309" } }, "データ不足 " + (pick.scN != null ? pick.scN : 0) + "件/最低" + minN + "件・参考値")
+      : React.createElement("span", { style: { fontSize: 11, color: "#555" } },
+          "スコア ", React.createElement("b", { style: { color: "#0369A1" } }, pick.score != null ? Math.round(pick.score * 100) : "—"),
+          "／損切り率 ", React.createElement("b", null, stopP != null ? stopP + "%" : "—"),
+          "／H1勝率 ", React.createElement("b", null, winP != null ? winP + "%" : "—"),
+          "／母数 ", React.createElement("b", null, (pick.scN || 0) + "件"),
+          "／到達率 ", React.createElement("b", null, Math.round((pick.eRate || 0) * 100) + "%")),
+    (add && add.improved)
+      ? React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加α +" + add.add + "円（合計" + add.total + "円・スコア" + Math.round(add.score * 100) + "）")
+      : (add ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "追加α＝基本αで十分(+0)") : null));
+  var sweepRows = pick.sweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
+    var on = e.a === a, pass = e.scN >= minN && e.score != null;
+    return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.4 } },
+      _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(_elPctCell(e.eRate)),
+      _elv2Td(e.scN + "件"),
+      _elv2Td(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
+      _elv2Td(e.h1win == null ? "—" : _elPctCell(e.h1win)),
+      _elv2Td(e.score == null ? "—" : React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "0.7×" + Math.round((1 - e.stopRate) * 100) + "+0.3×" + Math.round(e.h1win * 100))),
+      _elv2Td(_elScoreCell(e.score)));
+  });
+  var recsSorted = recs.slice().sort(function(x, y) { var dx = x.date || "", dy = y.date || ""; return dx < dy ? 1 : dx > dy ? -1 : 0; });
+  var scN = 0, stopN = 0, winN = 0, otherN = 0, offN = 0;
+  var _pnlCell = function(v) { return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: 700 } }, _elPnlFmt(v)); };
+  var recRows = recsSorted.map(function(r, i) {
+    var s = r.signal; if (!s) return null;
+    var c = aiOf(r).cutLine;
+    var rr = _epResolve(s, a);
+    var epIdx = rr ? rr.epIdx : -1;
+    var within2 = epIdx >= 0 && epIdx <= 1;
+    var dateStr = (r.date || "").slice(5).replace("-", "/");
+    var legLabel = epIdx === 0 ? "OS1" : epIdx === 1 ? "OS2" : epIdx === 2 ? "OS3" : "未到達";
+    if (!within2) {
+      offN++;
+      return React.createElement("tr", { key: i, style: { opacity: 0.45 } },
+        _elv2Td(dateStr, { textAlign: "left", paddingLeft: 8 }),
+        _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, r.stock || "")),
+        _elv2Td(legLabel + "（対象外）"),
+        _elv2Td("—"), _elv2Td("—"),
+        _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 700 } }, "対象外")));
+    }
+    var epStop = _elPlanIsStop(s, a, c), h1Stop = _elHoldIsStop(s, a, c);
+    var hd = _elDynHold(s, a, c), pl = _elDynPlanned(s, a, c);
+    var determinable = epStop || h1Stop || hd != null;
+    var verdict, vcol;
+    if (!determinable) { verdict = "判定不可"; vcol = "#94A3B8"; }
+    else {
+      scN++;
+      if (epStop || h1Stop) { stopN++; verdict = "損切り"; vcol = "#1E8449"; }
+      else if (hd != null && hd > 0) { winN++; verdict = "H1勝ち"; vcol = "#C0392B"; }
+      else { otherN++; verdict = "H1負/±0"; vcol = "#1E8449"; }
+    }
+    return React.createElement("tr", { key: i, style: { background: (epStop || h1Stop) ? "#F0FDF4" : "transparent" } },
+      _elv2Td(dateStr, { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, r.stock || "")),
+      _elv2Td(legLabel),
+      _elv2Td(_pnlCell(pl)),
+      _elv2Td(_pnlCell(hd)),
+      _elv2Td(React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: vcol } }, verdict)));
+  }).filter(Boolean);
+  var insight = _elInsightBoxV2([
+    React.createElement("span", null, "採用α", _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS2までにEP到達しH1判定可能）。うち損切り", _elInsightEmV2(stopN + "件"), "・H1勝ち", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（OS3のみ／未到達）。"),
+    React.createElement("span", null, "スコア＝0.7×(1−損切り率", _elInsightEmV2((stopP != null ? stopP : "—") + "%"), ")＋0.3×H1勝率", _elInsightEmV2((winP != null ? winP : "—") + "%"), "＝", _elInsightEmV2((pick.score != null ? Math.round(pick.score * 100) : "—") + "点"), "。")
+  ], { note: "この銘柄のv2・算入記録に各αを当ててシミュレーション。母数＝採用αでOS1〜2にEP到達しH1結果が判定できる記録。損切り率・H1勝率はこの母数で算出＝下表の各記録がそのまま推奨αの根拠。" + (na ? " ※データ不足（母数<" + minN + "件）のため参考値。" : "") });
+  return React.createElement("div", null,
+    concl,
+    _lbl("① α別の総当たり（5〜20円・★＝採用・件数フロア" + minN + "件未満は淡色）"),
+    _elv2Table(["基本α", "到達率", "件数", "損切り率", "H1勝率", "スコア内訳", "スコア"], sweepRows),
+    _lbl("② 採用α " + a + "円 での全記録の内訳（母数＝この数値の根拠・損切りは薄緑）"),
+    _elv2Table(["日付", "銘柄", "EP到達", "EP損益", "H1損益", "判定"], recRows),
+    insight);
+}
 // 推奨基本α表（銘柄/期間グループ別）: groups=[{label,recs}]・cutFn(r)→損切り値。各グループの推奨基本α(_elBaseAlphaPick・5〜20・
 // 件数フロア＋合成スコア最大・該当なしは件数最大)を1値表示＋損切り率/H1勝率の小書き＋追加α目安。旧 _elIdealAlphaTableV2(EP/H1/H2別・0〜50)を置換 2026-06-21→条件再設計 2026-06-22。
 function _elBaseAlphaTableV2(groups, cutFn) {
@@ -2401,6 +2486,8 @@ function EntryLogView(_ref_elv2) {
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
       _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数3件以上のαから損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα（僅差は件数の多い方・データ不足時は件数最大を参考）。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる"),
       React.createElement(_elBaseAlphaTrendV2, { recs: recs, aiOf: _ai }),
+      _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝①α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）＋②採用αでの全記録の内訳（どの記録が母数で損切り/H1勝ち/対象外か）"),
+      _elBaseAlphaDetailV2(recs, _ai),
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
       _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益"), _elDowSectionV2(recs, _ai),
       _secH("🚫 期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(recs, _ai),
