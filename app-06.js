@@ -2310,6 +2310,149 @@ function _elDowSectionV2(recs, aiOf) {
   return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切り発生。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
 }
 
+// ===== 未達記録の分析（記録帳・銘柄別タブ「未達」／2026-06-22）=====
+// αに3本以内（OS1〜OS3）で届かずエントリーできなかった記録（_epResolve judge==="miss"・×見送りは除く）の詳細分析。
+// ①OS1〜3最高値の分布＋一覧 ②α不足額（α−最高値）の分布 ③α下げシミュ（何円下げれば救えたか） ④シグナル別の未達率。
+// recs=対象v2記録（銘柄スコープ）・aiOf=α情報(_elAlphaInfo)。
+function _elMissSectionV2(recs, aiOf) {
+  aiOf = aiOf || function(r) { return _elAlphaInfo(r, null); };
+  var _h = function(t, sub) {
+    return React.createElement("div", { style: { margin: "14px 0 6px" } },
+      React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, t),
+      sub ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginTop: 2 } }, sub) : null);
+  };
+  var _msg = function(m, ok) { return React.createElement("div", { style: { color: ok ? "#065F46" : "#bbb", textAlign: "center", padding: "16px 12px", fontSize: 12.5, fontWeight: ok ? 700 : 400, background: ok ? "#ECFDF5" : "transparent", border: ok ? "1px solid #A7F3D0" : "none", borderRadius: 8 } }, m); };
+  var _sigOf = function(s) {
+    var tags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+    return tags.length ? tags : ["(未設定)"];
+  };
+  var _osv = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { color: v < 0 ? "#6B7280" : "#555" } }, v + "円"); };
+  var _bar = function(w, col, full) { return React.createElement("div", { style: { background: "#eee", borderRadius: 3, height: 8, width: full } }, React.createElement("div", { style: { background: col, height: 8, borderRadius: 3, width: Math.round(w) + "px" } })); };
+  // 収集
+  var base = [], missAll = 0, miss = [];
+  (recs || []).forEach(function(r) {
+    var s = r.signal, a = aiOf(r).alpha;
+    if (a == null || a === "") return;
+    var rr = _epResolve(s, a);
+    if (!rr) return;
+    base.push(r);
+    if (rr.judge !== "miss") return;
+    missAll++;
+    var hs = _elOscHighs(s), o3 = [hs[0], hs[1], hs[2]].filter(function(v) { return v != null; });
+    if (!o3.length) return;
+    var mx = Math.max.apply(null, o3);
+    miss.push({ date: r.date, alpha: a, os1: hs[0], os2: hs[1], os3: hs[2], mx: mx, short: Math.round((a - mx) * 10) / 10, tags: _sigOf(s) });
+  });
+  if (!base.length) return _msg("EP起算（v2）の記録がありません");
+  if (!missAll) return _msg("🎉 未達はありません（このスコープの" + base.length + "件はすべてαに到達）", true);
+  if (!miss.length) return _msg("未達は" + missAll + "件ありますが、OS値が未入力のため詳細分析できません");
+  var n = base.length, anal = miss.length;
+  var mxVals = miss.map(function(m) { return m.mx; }), shVals = miss.map(function(m) { return m.short; });
+  var mxMed = _elMedian(mxVals), mxMean = _elMean(mxVals), shMed = _elMedian(shVals), shMean = _elMean(shVals);
+  var negN = miss.filter(function(m) { return m.mx < 0; }).length;
+  var missRate = missAll / n;
+
+  var _cards = _elv2CardRow([
+    _elv2Card("未達件数", missAll + "件", "#C0392B", "全" + n + "件中"),
+    _elv2Card("未達率", Math.round(missRate * 100) + "%", missRate >= 0.4 ? "#C0392B" : missRate >= 0.2 ? "#B45309" : "#1E8449"),
+    _elv2Card("OS1〜3最高値 中央", (mxMed != null ? mxMed : "—") + "円", "#9A3412", "平均 " + (mxMean != null ? mxMean : "—") + "円"),
+    _elv2Card("α不足額 中央", (shMed != null ? shMed : "—") + "円", "#0369A1", "平均 " + (shMean != null ? shMean : "—") + "円")
+  ]);
+
+  // ① 最高値の帯別分布
+  var bandCnt = [0, 0, 0, 0, 0, 0];
+  miss.forEach(function(m) { var bi = _elOscBandIdx(m.mx); if (bi != null) bandCnt[bi]++; });
+  var bandMax = Math.max.apply(null, bandCnt.concat([1]));
+  var _distTbl = _elv2Table(["最高値帯", "件数", "割合", "分布"], _EL_OSC_BANDS.map(function(b, i) {
+    return React.createElement("tr", { key: b.key },
+      _elv2Td(React.createElement("span", { style: { display: "inline-block", padding: "1px 7px", borderRadius: 8, fontSize: 10, fontWeight: 700, color: "#fff", background: b.color } }, b.label), { textAlign: "left" }),
+      _elv2Td(bandCnt[i] + "件"),
+      _elv2Td(Math.round(bandCnt[i] / anal * 100) + "%"),
+      _elv2Td(_bar(bandCnt[i] / bandMax * 90, b.color, 90), { textAlign: "left", width: 100 }));
+  }));
+
+  // ② α不足額の分布
+  var shDefs = [{ lim: 1, label: "1円以下" }, { lim: 2, label: "1〜2円" }, { lim: 3, label: "2〜3円" }, { lim: 4, label: "3〜4円" }, { lim: 5, label: "4〜5円" }, { lim: Infinity, label: "5円超" }];
+  var shCnt = shDefs.map(function() { return 0; });
+  miss.forEach(function(m) { for (var i = 0; i < shDefs.length; i++) { if (m.short <= shDefs[i].lim) { shCnt[i]++; break; } } });
+  var shMaxC = Math.max.apply(null, shCnt.concat([1]));
+  var _shTbl = _elv2Table(["α不足額", "件数", "割合", "分布"], shDefs.map(function(b, i) {
+    return React.createElement("tr", { key: i },
+      _elv2Td(b.label, { textAlign: "left", fontWeight: 700 }),
+      _elv2Td(shCnt[i] + "件"),
+      _elv2Td(Math.round(shCnt[i] / anal * 100) + "%"),
+      _elv2Td(_bar(shCnt[i] / shMaxC * 90, "#0369A1", 90), { textAlign: "left", width: 100 }));
+  }));
+
+  // 一覧（惜しい順＝α不足額の小さい順）
+  var _listTbl = _elv2Table(["日付", "シグナル", "α", "OS1", "OS2", "OS3", "最高値", "不足"], miss.slice().sort(function(a, b) { return a.short - b.short; }).map(function(m, i) {
+    return React.createElement("tr", { key: i },
+      _elv2Td(m.date.slice(5), { textAlign: "left", whiteSpace: "nowrap", color: "#888" }),
+      _elv2Td(stripCat(m.tags[0]) + (m.tags.length > 1 ? " 他" : ""), { textAlign: "left" }),
+      _elv2Td(m.alpha + "円", { color: "#0369A1", fontWeight: 700 }),
+      _elv2Td(_osv(m.os1)), _elv2Td(_osv(m.os2)), _elv2Td(_osv(m.os3)),
+      _elv2Td(React.createElement("b", { style: { color: m.mx < 0 ? "#6B7280" : "#9A3412" } }, m.mx + "円")),
+      _elv2Td(React.createElement("b", { style: { color: "#0369A1" } }, m.short + "円")));
+  }));
+
+  // ③ α下げシミュ
+  var _simTbl = _elv2Table(["α下げ幅", "救える件数", "累積%", "（未達中）"], [1, 2, 3, 4, 5].map(function(d) {
+    var saved = miss.filter(function(m) { return m.short <= d; }).length;
+    return React.createElement("tr", { key: d },
+      _elv2Td("−" + d + "円", { fontWeight: 700, color: "#0369A1" }),
+      _elv2Td(saved + "件"),
+      _elv2Td(Math.round(saved / anal * 100) + "%", { fontWeight: 700, color: "#1E8449" }),
+      _elv2Td(_bar(saved / anal * 110, "#1E8449", 110), { textAlign: "left", width: 120 }));
+  }));
+
+  // ④ シグナル別 未達率
+  var sigMap = {};
+  base.forEach(function(r) {
+    var s = r.signal, a = aiOf(r).alpha, rr = _epResolve(s, a), isMiss = !!(rr && rr.judge === "miss");
+    var sh = null;
+    if (isMiss) { var hs = _elOscHighs(s), o3 = [hs[0], hs[1], hs[2]].filter(function(v) { return v != null; }); if (o3.length) sh = a - Math.max.apply(null, o3); }
+    _sigOf(s).forEach(function(tg) {
+      if (!sigMap[tg]) sigMap[tg] = { tot: 0, miss: 0, sh: [] };
+      sigMap[tg].tot++;
+      if (isMiss) { sigMap[tg].miss++; if (sh != null) sigMap[tg].sh.push(sh); }
+    });
+  });
+  var sigArr = Object.keys(sigMap).map(function(k) { var v = sigMap[k]; return { tag: k, tot: v.tot, miss: v.miss, rate: v.miss / v.tot, shMed: _elMedian(v.sh) }; }).sort(function(a, b) { return b.rate - a.rate || b.miss - a.miss; });
+  var _sigTbl = _elv2Table(["シグナル", "件数", "未達", "未達率", "不足中央"], sigArr.map(function(x, i) {
+    return React.createElement("tr", { key: i },
+      _elv2Td(stripCat(x.tag), { textAlign: "left" }),
+      _elv2Td(x.tot + "件"),
+      _elv2Td(x.miss + "件", { color: x.miss > 0 ? "#C0392B" : "#bbb" }),
+      _elv2Td(_elStopRateCell(x.rate)),
+      _elv2Td(x.shMed != null ? (Math.round(x.shMed * 10) / 10) + "円" : "—", { color: "#0369A1" }));
+  }));
+
+  // 読み取り
+  var le1 = miss.filter(function(m) { return m.short <= 1; }).length;
+  var le2 = miss.filter(function(m) { return m.short <= 2; }).length;
+  var worst = sigArr.filter(function(x) { return x.tot >= 2 && x.miss > 0; })[0];
+  var _insight = _elInsightBoxV2([
+    React.createElement("span", null, "未達 ", _elInsightEmV2(missAll + "件"), "／全" + n + "件（未達率 ", _elInsightEmV2(Math.round(missRate * 100) + "%"), "）。OS1〜3最高値の中央値は ", _elInsightEmV2((mxMed != null ? mxMed : "—") + "円"), "、α不足額の中央値は ", _elInsightEmV2((shMed != null ? shMed : "—") + "円"), "。"),
+    React.createElement("span", null, "α不足 ", _elInsightEmV2("1円以下 " + Math.round(le1 / anal * 100) + "%"), "・", _elInsightEmV2("2円以下 " + Math.round(le2 / anal * 100) + "%"), "＝その分αを下げていれば届いた水準（下げ過ぎは到達後の損切り増とのトレードオフに注意）。"),
+    negN ? React.createElement("span", null, "最高値がマイナス（基準線割れ＝ほぼOSせず）が ", _elInsightEmV2(negN + "件（" + Math.round(negN / anal * 100) + "%）"), "＝α調整では救えない見立て外れ。") : null,
+    worst ? React.createElement("span", null, "未達率が高いシグナルは ", _elInsightEmV2("「" + stripCat(worst.tag) + "」（" + Math.round(worst.rate * 100) + "%・" + worst.miss + "/" + worst.tot + "件）"), "＝だまし傾向かα過大の可能性。") : null
+  ], { note: "未達＝OS1〜3の3本以内に高値がαへ一度も届かずエントリーできなかった記録（×見送りは除く・採用α基準）。詳細分析の母数は" + anal + "件（OS値入力あり）。最高値・OS値は水準線比（マイナス＝基準線割れ＝下落）。" });
+
+  return React.createElement(React.Fragment, null,
+    _cards,
+    _h("📈 OS1〜3 最高値の分布", "未達記録が「どこまでオーバーシュートしたか」＝最高値の帯別件数"),
+    _distTbl,
+    _h("📉 α不足額の分布（あと何円で届かなかったか）", "α − OS1〜3最高値。1〜2円が多いほど“あと少し”＝αが僅かに高い"),
+    _shTbl,
+    _h("📋 未達記録の一覧（惜しい順）", "α不足額の小さい順。OS1〜3の各高値・最高値・不足額"),
+    _listTbl,
+    _h("🔻 α下げシミュ（何円下げれば救えたか）", "αを各幅だけ下げていた場合、未達のうち何件がEP成立（最高値≥下げ後α）になったか（累積）"),
+    _simTbl,
+    _h("🎯 シグナル別 未達率", "このスコープのシグナル別。未達率が高い順（だまし／α過大の発見）。複数タグは各タグに算入"),
+    _sigTbl,
+    _insight);
+}
+
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
 // タブ: 集計(KPI+OS値の分析+EP位置+累積損益+連勝連敗最大DD+時間帯+曜日別+×見送り+△ホールド)/α値(推奨基本α詳細_elBaseAlphaDetailV2+期間推移_elBaseAlphaTrendV2+α意思決定表+α感応度カーブ・2026-06-22)/期間/カレンダー/シグナル別/OS連鎖/深掘り(最適ホールド本数+期待度キャリブレーション+執行乖離+メモ×成績)/出現/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
 // 一覧・展開明細は1行=1記録のテーブル（行タップでEntryLogCard展開）でスクロール量を削減。
@@ -2363,6 +2506,8 @@ function EntryLogView(_ref_elv2) {
   var v2recs = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal); });
   // 旧記録件数は算入フラグと独立に数える（除外した新形式記録を「旧記録」に混ぜない）。2026-06-18
   var oldCnt = filtered.filter(function(r) { return !_epIsV2(r.signal); }).length;
+  // 未達タブのバッジ件数（銘柄スコープのv2記録のうち judge==="miss"＝3本以内にα未到達）。全銘柄合算では未達タブ非表示。2026-06-22
+  var _missCnt = _isAllStock ? 0 : v2recs.filter(function(r) { var a = _ai(r).alpha; if (a == null || a === "") return false; var rr = _epResolve(r.signal, a); return !!(rr && rr.judge === "miss"); }).length;
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub) {
@@ -2970,6 +3115,14 @@ function EntryLogView(_ref_elv2) {
             })))
         ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "出現記録がありません"));
     })();
+  } else if (view === "miss") {
+    _tabBody = _isAllStock
+      ? React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "上の銘柄タブで銘柄を選ぶと、その銘柄の未達分析を表示します")
+      : (v2recs.length
+          ? React.createElement(React.Fragment, null,
+              _secH("❌ 未達記録の分析", "αに3本以内（OS1〜3）で届かずエントリーできなかった記録の詳細（×見送りは除く）。最高値の分布・α不足額・α下げシミュ・シグナル別未達率"),
+              _elMissSectionV2(v2recs, _ai))
+          : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません"));
   } else {
     var _listAll = filtered.slice().sort(_byDateDesc);
     var _listExclN = _elExclCountRecs(_listAll);
@@ -2994,7 +3147,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
         [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setPerExp(null); },
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setPerExp(null); if (view === "miss") setView("sum"); },
         style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1a1a1a" : "#ddd"), background: _isAllStock ? "#1a1a1a" : "#fff", color: _isAllStock ? "#fff" : "#666" } },
         "💰 損益 (" + _periodRecs.length + ")"),
@@ -3006,9 +3159,9 @@ function EntryLogView(_ref_elv2) {
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
-      [["sum", "📊 集計"], ["period", "📆 期間"]].map(function(kv) {
+      [["sum", "📊 集計"], ["period", "📆 期間"]].concat(_isAllStock ? [] : [["miss", "❌ 未達"]]).map(function(kv) {
         var on = view === kv[0];
-        var cnt = kv[0] === "list" ? filtered.length : (kv[0] === "date" ? v2recs.length : null);
+        var cnt = kv[0] === "list" ? filtered.length : (kv[0] === "date" ? v2recs.length : (kv[0] === "miss" ? _missCnt : null));
         return React.createElement("button", { key: kv[0],
           onClick: function() { setView(kv[0]); setExpKey(null); },
           style: { padding: "8px 12px", fontSize: 12, fontWeight: 700, background: "none", border: "none", cursor: "pointer",
