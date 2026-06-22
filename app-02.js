@@ -6060,8 +6060,8 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     if (!_iaSigs.length) return null;
     var _iaAll = _elCollectAllSignals(data).filter(function(r) { return r.stock === stock; });
     return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（" + stock + "・この日までの期間別）"),
-      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の" + date + "までの記録を期間別（直近1週/1か月/3か月/全期間）に集計。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考）。追加αは追加α〇の記録だけが母数。"),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（" + stock + "・前日までの期間別）"),
+      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の" + date + "の前日までの記録を期間別（直近1週/1か月/3か月/全期間）に集計（当日は含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考）。追加αは追加α〇の記録だけが母数。"),
       _elBaseAlphaPeriodTableV2(_iaAll, function(r) { return _elAlphaInfo(r, data); }, date)
     );
   })(),

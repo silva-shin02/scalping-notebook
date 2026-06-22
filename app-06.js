@@ -1465,10 +1465,10 @@ function _elBaseAlphaTableV2(groups, cutFn) {
       React.createElement("thead", null, React.createElement("tr", null, _th("銘柄"), _th("推奨基本α（＋追加α）"))),
       React.createElement("tbody", null, rows)));
 }
-// 期間別の推奨基本α（その日まで・移動窓）: recsをrefDate以前に絞り、直近1週/1か月/3か月/全期間で推奨基本α(_elBaseAlphaA)を出す表。銘柄別記録の「その日まで」分析用 2026-06-22c。
+// 期間別の推奨基本α（前日まで・移動窓）: recsをrefDate未満(=その日の前日まで・当日を含めない)に絞り、直近1週/1か月/3か月/全期間で推奨基本α(_elBaseAlphaA)を出す表。銘柄別記録の「前日まで」分析用 2026-06-22c。
 // aiOf(r)→{cutLine}（採用は各記録のcutLine）。期間窓はrefDate起点の移動窓（週初/月初の標本不足を避ける）。
 function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate) {
-  var all = (recs || []).filter(function(r) { return r && r.date && r.date <= refDate && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  var all = (recs || []).filter(function(r) { return r && r.date && r.date < refDate && _epIsV2(r.signal) && _elInclTotal(r.signal); });
   if (!all.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var _p = String(refDate).split("-");
   var _pad = function(nn) { return ("0" + nn).slice(-2); };
