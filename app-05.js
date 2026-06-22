@@ -5320,15 +5320,15 @@ function EntryRecordForm(_ref_erf) {
   var _useStateALM = useState(initSig.alphaMemo || ""),
     _useStateALMA = _slicedToArray(_useStateALM, 2),
     fAlphaMemo = _useStateALMA[0], setFAlphaMemo = _useStateALMA[1];
-  // α値見出しの右に出す「推奨基本α（直近1週/1か月/3か月/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分)から算出＝記録の参考用。
-  // 期間はカレンダーの今週/今月でなく fDate を起点にした直近の移動窓＝週初/月初の標本不足を避け「最近の傾向」を安定して映す 2026-06-21。
+  // α値見出しの右に出す「推奨基本α（直近1週/1か月/3か月/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分・追加α〇は_elBaseAlphaPick内で除外＝×記録のみ)から算出＝記録の参考用。
+  // 期間はカレンダーの今週/今月でなく fDate を起点にした直近の移動窓＝週初/月初の標本不足を避け「最近の傾向」を安定して映す 2026-06-21。全期間も含め母数は fDate(その日)以前の記録のみ＝過去記録の編集時に未来データを使わない(look-ahead回避)2026-06-22c。
   var _refBaseAlpha = useMemo(function() {
     if (!fStock) return null;
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
     if (!recs.length) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var pickOf = function(rs) { if (!rs || !rs.length) return null; var p = _elBaseAlphaPick(rs, aiOf); if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok" }; };
-    var out = { w1: null, m1: null, m3: null, all: pickOf(recs) };
+    var out = { w1: null, m1: null, m3: null, all: pickOf(fDate ? recs.filter(function(r) { return r.date <= fDate; }) : recs) };
     if (fDate) {
       var _p = fDate.split("-");
       var _pad = function(n) { return ("0" + n).slice(-2); };
@@ -5361,19 +5361,19 @@ function EntryRecordForm(_ref_erf) {
   // 推奨追加α（追加α〇の記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」を算出＝_elBaseAlphaA内の二プール）2026-06-22。
   var _refAddAlpha = useMemo(function() {
     if (!fStock) return null;
-    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date <= fDate); });
     if (!recs.length) return null;
     var A = _elBaseAlphaA(recs, function(r) { return _elAlphaInfo(r, data); });
     return (A && A.add && A.add.improved) ? A.add : null;
-  }, [data, fStock]);
+  }, [data, fStock, fDate]);
   // 推奨損切り値（合成スコア＝実現H1損益が最大になる損切り値・この銘柄の算入v2記録から。損切り回避率/H1勝率は根拠として併記）2026-06-22。
   var _refCutPick = useMemo(function() {
     if (!fStock) return null;
-    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date <= fDate); });
     if (!recs.length) return null;
     var p = _elCutPick(recs, function(r) { return _elAlphaInfo(r, data); });
     return (p && p.cut != null && p.status !== "none") ? p : null;
-  }, [data, fStock]);
+  }, [data, fStock, fDate]);
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
   var _useStateINC = useState(initSig.includeInTotal !== false),
