@@ -2261,6 +2261,7 @@ function EntryLogView(_ref_elv2) {
   var _uCF = useState(""), cFrom = _uCF[0], setCFrom = _uCF[1];
   var _uCT = useState(""), cTo = _uCT[0], setCTo = _uCT[1];
   var _uPE = useState(null), perExp = _uPE[0], setPerExp = _uPE[1];
+  var _uOvE = useState(null), ovExp = _uOvE[0], setOvExp = _uOvE[1];   // 損益タブ「損益（期間別）」表の期間行展開（取引記録）2026-06-22d
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
@@ -2316,7 +2317,7 @@ function EntryLogView(_ref_elv2) {
       _yenN(v, cnt),
       React.createElement("span", { style: { fontSize: 11, fontWeight: 600, lineHeight: 1.2 } }, suf));
   };
-  // 全体損益（期間別）テーブル＝全銘柄合算をday/week/monthで集計＋合計行。「全体」タブの集計ビュー頭に表示 2026-06-22d。損益基準は_elTotAccum（取引/銘柄別記録と同一）。
+  // 損益（期間別）テーブル＝全銘柄合算をday/week/monthで集計。各損益セルに合計＋平均を併記・損切り(件数/平均額/率)列・行タップでその期間の取引記録を展開。「損益」タブの集計ビュー頭 2026-06-22d。損益基準は_elTotAccum（取引/銘柄別記録と同一）。
   var _ovPnlTbl = function(rs, g) {
     var keyOf = function(ds) {
       if (g === "day") return ds;
@@ -2332,36 +2333,57 @@ function EntryLogView(_ref_elv2) {
     };
     var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
     var winOf = function(x) { var ok = 0, dec = 0; x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine, res = _elDynResult(s, a, c); if (res === "ok") { ok++; dec++; } else if (res === "ng" || res === "draw") dec++; }); return dec ? Math.round(ok / dec * 100) : null; };
+    // 損切り: OS1〜2でEP到達した記録のうち EP足orH1足で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(到達分母)。
+    var stopsOf = function(x) {
+      var sn = 0, sl = 0, wn = 0;
+      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var rr = _epResolve(s, a); if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 1)) return; wn++; if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c)) { sn++; sl += _elCapLossYen(c); } });
+      return { n: sn, avg: sn ? Math.round(sl / sn) : null, rate: wn ? Math.round(sn / wn * 100) : null };
+    };
     var byP = {}; rs.forEach(function(r) { var k = keyOf(r.date); (byP[k] = byP[k] || []).push(r); });
     var keys = Object.keys(byP).sort().reverse();
     if (!keys.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "v2記録なし");
     var oth = function(t) { return React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
     var otd = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
     var winCell = function(w, ex) { return otd(w != null ? w + "%" : "—", Object.assign({ color: w != null ? (w >= 50 ? "#1E8449" : "#B45309") : "#bbb", fontWeight: 700 }, ex || {})); };
-    var rows = keys.map(function(k) {
-      var x = byP[k], t = totOf(x);
-      return React.createElement("tr", { key: k },
-        otd(labelOf(k), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+    var avgLine = function(v, cnt) { if (!cnt || v == null) return null; var a = Math.round(v / cnt); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "平均" + (a >= 0 ? "+" : "") + a.toLocaleString()); };
+    var pnlCell = function(v, cnt, ref, refCnt, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt), avgLine(v, cnt)), ex); };
+    var realCell = function(v, cnt, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt), avgLine(v, cnt)), ex); };
+    var stopCell = function(st, ex) {
+      if (!st || st.n === 0) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
+      return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+        React.createElement("span", { style: { fontWeight: 700, color: "#1E8449" } }, st.n + "件・" + (st.rate != null ? st.rate + "%" : "—")),
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "平均" + (st.avg != null ? st.avg.toLocaleString() : "—") + "円")), ex);
+    };
+    var rows = [];
+    keys.forEach(function(k) {
+      var x = byP[k], t = totOf(x), st = stopsOf(x), on = ovExp === k;
+      rows.push(React.createElement("tr", { key: k, onClick: function() { setOvExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
+        otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k)), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
         otd(x.length + "件", { fontWeight: 700 }),
         winCell(winOf(x)),
-        otd(_yenNR(t.plan, t.planCnt, t.planRef, t.planRefCnt)),
-        otd(_yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt)),
-        otd(_yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt)),
-        otd(_yenN(t.real, t.realCnt)));
+        pnlCell(t.plan, t.planCnt, t.planRef, t.planRefCnt),
+        pnlCell(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt),
+        pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt),
+        realCell(t.real, t.realCnt),
+        stopCell(st)));
+      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 8, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+        React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件）"),
+        _recTable(x, "full", "ovp_" + k + "_", null))));
     });
     var tt = totOf(rs), bt = { borderTop: "2px solid #FB923C" };
     var totRow = React.createElement("tr", { key: "__ovtot__", style: { background: "#FFF7ED" } },
       otd("合計", Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
       otd(rs.length + "件", Object.assign({ fontWeight: 800 }, bt)),
       winCell(winOf(rs), Object.assign({ fontWeight: 800 }, bt)),
-      otd(_yenNR(tt.plan, tt.planCnt, tt.planRef, tt.planRefCnt), bt),
-      otd(_yenNR(tt.holdPlanCap, tt.holdCnt, tt.holdRef, tt.holdRefCnt), bt),
-      otd(_yenNR(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt), bt),
-      otd(_yenN(tt.real, tt.realCnt), bt));
+      pnlCell(tt.plan, tt.planCnt, tt.planRef, tt.planRefCnt, bt),
+      pnlCell(tt.holdPlanCap, tt.holdCnt, tt.holdRef, tt.holdRefCnt, bt),
+      pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, bt),
+      realCell(tt.real, tt.realCnt, bt),
+      stopCell(stopsOf(rs), bt));
     return React.createElement("div", { style: { overflowX: "auto" } },
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
-          oth(g === "day" ? "日" : g === "week" ? "週" : "月"), oth("件数"), oth("勝率"), oth("EP損益"), oth("H1損益"), oth("H2損益"), oth("実現損益"))),
+          oth(g === "day" ? "日" : g === "week" ? "週" : "月"), oth("件数"), oth("勝率"), oth("EP損益"), oth("H1損益"), oth("H2損益"), oth("実現損益"), oth("損切り"))),
         React.createElement("tbody", null, rows),
         React.createElement("tfoot", null, totRow)));
   };
