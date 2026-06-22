@@ -6176,7 +6176,7 @@ function EntryRecordForm(_ref_erf) {
         style: Object.assign({}, I, { marginBottom: 6 })
       }),
       
-      React.createElement("div", { style: SH_ }, "\u03B1\u5230\u9054\u306E\u898B\u7ACB\u3066"),
+      React.createElement("div", { style: Object.assign({}, SH_, { textTransform: "none" }) }, "\u03B1\u5230\u9054\u306E\u898B\u7ACB\u3066"),
       _refAlphaAux ? React.createElement("div", { style: { fontSize: 10, color: "#64748B", marginBottom: 4, display: "flex", flexWrap: "wrap", gap: "2px 12px" } },
         React.createElement("span", null, "\u63A8\u5968\u57FA\u672C\u03B1(\u76F4\u8FD11\u9031) ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, (_refBaseAlpha && _refBaseAlpha.w1 && _refBaseAlpha.w1.alpha != null ? (_refBaseAlpha.w1.alpha + "\u5186" + (_refBaseAlpha.w1.ok ? "" : "?")) : "\u2014"))),
         React.createElement("span", null, "\u7406\u60F3\u03B1 ", React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "EP" + (_refAlphaAux.idealEp != null ? _refAlphaAux.idealEp : "\u2014") + "/H1 " + (_refAlphaAux.idealH1 != null ? _refAlphaAux.idealH1 : "\u2014") + "/H2 " + (_refAlphaAux.idealH2 != null ? _refAlphaAux.idealH2 : "\u2014"))),
