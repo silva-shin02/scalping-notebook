@@ -5191,7 +5191,7 @@ function WeeklyPnlPanel(_wpp) {
   };
   var _idealEl = _recs.length ? React.createElement("div", { style: { marginTop: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円・週間）"),
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)の全記録に同じαを当てて、件数3件以上のαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（僅差は件数の多い方・同点は最大α・データ不足時は件数最大を参考表示）。追加α目安＝基本αに何円足せば損切りしにくくH1利益が出たか。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)の全記録に同じαを当てて、件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考表示）。追加α目安＝基本αに何円足せば損切りしにくくH1利益が出たか。"),
     _elBaseAlphaTableV2([{ label: stock, recs: _recs.filter(function(r) { return _elInclTotal(r.signal); }) }], _cutOf)) : null;
   var _simAlphaCnt = Object.keys(simAlpha).filter(function(k) { return simAlpha[k] != null && simAlpha[k] !== ""; }).length;
   var _simCutCnt = Object.keys(simCut).filter(function(k) { return simCut[k] != null && simCut[k] !== ""; }).length;
@@ -6058,12 +6058,11 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
   !hideSignals && (function() {
     var _iaSigs = Array.isArray(cd.signals) ? cd.signals : [];
     if (!_iaSigs.length) return null;
-    var _iaCutLine = cd.cutLine != null ? cd.cutLine : 10;
-    var _iaRecs = _iaSigs.map(function(sig) { return { date: date, stock: stock, signal: _compatSignal(sig) }; }).filter(function(r) { return _elInclTotal(r.signal); });
+    var _iaAll = _elCollectAllSignals(data).filter(function(r) { return r.stock === stock; });
     return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円）"),
-      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "全記録に同じαを当てて、件数3件以上のαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（僅差は件数の多い方・同点は最大α・データ不足時は件数最大を参考表示）。追加α目安＝基本αに何円足せば損切りしにくくH1利益が出たか。"),
-      _elBaseAlphaTableV2([{ label: stock, recs: _iaRecs }], function() { return _iaCutLine; })
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（" + stock + "・この日までの期間別）"),
+      React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の" + date + "までの記録を期間別（直近1週/1か月/3か月/全期間）に集計。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考）。追加αは追加α〇の記録だけが母数。"),
+      _elBaseAlphaPeriodTableV2(_iaAll, function(r) { return _elAlphaInfo(r, data); }, date)
     );
   })(),
   

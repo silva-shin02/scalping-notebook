@@ -1081,8 +1081,8 @@ function _elAlphaCurveSectionV2(recs, aiOf) {
 
 // ===== 推奨基本α値【条件再設計 2026-06-22／ユーザー方針】=====
 // 銘柄ごと、その期間の全トレードに同じα(5〜20円)を当ててシミュレーションしたとき、①損切りにならない ②H1で利益が出ている を重視して選ぶ。
-// 選定【2026-06-22b改】: 件数フロア＝最も件数(scN)の多いαの_EL_BASE_MIN_FRAC以上(最低_EL_BASE_MIN_N件)を満たすαの中で、合成スコア = _EL_BASE_W_STOP×(1−損切り率) + _EL_BASE_W_H1×H1勝率 が最大。
-//       高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアス)」になりスコアが上振れるため、件数フロアで薄い高αを除外する。同点は件数の多い方→低α。フロアを満たすα皆無なら件数最大のαを参考(status="na")。
+// 選定【2026-06-22c】: 件数フロア（最大scN×_EL_BASE_MIN_FRAC・最低_EL_BASE_MIN_N件）かつ 到達率≥_EL_BASE_MIN_ERATE のαの中で、合成スコア = _EL_BASE_W_STOP×(1−損切り率) + _EL_BASE_W_H1×H1勝率 が最大。
+//       高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアス)」でスコアが上振れるため、件数＋到達率フロアで除外する。同点は件数の多い方→低α。フロア皆無なら件数最大のαを参考(status="na")。
 // 損切り率=EP〜H1で損切りした割合(H2は含めない)・H1勝率=H1損益>0の割合。いずれも「OS1〜2でEP到達し、H1結果が判定できる記録」だけが母数。
 // 追加α(_elAddAlphaReco)は基本αへの上乗せを実データ総当たりで評価＝補助。詳細は各関数のコメント。[[project_scalping_analysis_design]]
 // 推奨基本αの探索範囲（5〜20円・1円刻み）。0〜4円は推奨しない（ユーザー方針 2026-06-21）。内部の理想α計算(_EL_IDEAL_ALPHAS=0〜50)とは別＝基本αは現実的に5〜20で設定する前提。
@@ -1110,6 +1110,7 @@ function _elBucketLabel(key, gran) {
 // 推奨基本αの選定パラメータ【再設計 2026-06-22】。後で調整可。
 var _EL_BASE_MIN_N = 3;          // 最低エントリー件数（H1結果が判定できる記録数 scN）の絶対下限。未満のαは推奨対象外＝薄い標本の偶然採用を防ぐ。
 var _EL_BASE_MIN_FRAC = 0.5;     // 件数フロア（実データ連動）: 最も件数(scN)の多いαの何割以上を要求するか。高αの薄い標本(選抜バイアスでスコア上振れ)を除外 2026-06-22b。後で調整可。
+var _EL_BASE_MIN_ERATE = 0.5;    // 到達率フロア: EP到達率(OS2まで)がこの値未満のαは推奨対象外＝約定しにくい高αを除外（ユーザー方針 2026-06-22c）。後で調整可。
 var _EL_BASE_W_STOP = 0.7;       // 合成スコアの重み: 損切り回避 (1−損切り率)。
 var _EL_BASE_W_H1 = 0.3;         // 合成スコアの重み: H1勝率。
 var _EL_BASE_SCORE_EPS = 0.03;   // スコアの僅差判定。最大スコアからこの幅以内は同点扱い→件数(到達率)の多い方を優先。
@@ -1155,8 +1156,8 @@ function _elBaseAlphaEval(recs, aiOf, a) {
   var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
   return { a: a, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
 }
-// 推奨基本α(5〜20)を選定【2026-06-22b改＝件数フロアを実データ連動に】: 件数フロア＝最大件数(scN)×_EL_BASE_MIN_FRAC（最低_EL_BASE_MIN_N件）以上のαから、合成スコア(0.7×(1−損切り率)+0.3×H1勝率)が最大。
-// 高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアスでスコア上振れ)」になるため、件数フロアで薄い高αを除外＝厚い標本の中で最良のαを選ぶ。同点は件数最大→低α。フロアを満たすα皆無なら件数(scN)最大のαを参考(status="na")・entered皆無は"none"。
+// 推奨基本α(5〜20)を選定【2026-06-22c】: 件数フロア＝最大件数(scN)×_EL_BASE_MIN_FRAC（最低_EL_BASE_MIN_N件）かつ 到達率≥_EL_BASE_MIN_ERATE のαから、合成スコア(0.7×(1−損切り率)+0.3×H1勝率)が最大。
+// 高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアスでスコア上振れ)」になるため、件数フロア＋到達率フロアで薄い高α・約定しにくい高αを除外＝厚く約定しやすい標本の中で最良のαを選ぶ。同点は件数最大→低α。フロア皆無なら件数(scN)最大のαを参考(status="na")・entered皆無は"none"。
 // 返り値 { alpha, score, stopRate, h1win, eRate, entered, scN, pnl, epPnl, stopN, ewin, status('ok'|'na'|'none'), sweep, minN(=採用した件数フロア) }。
 function _elBaseAlphaPick(recs, aiOf) {
   if (!recs || !recs.length) return null;
@@ -1168,8 +1169,8 @@ function _elBaseAlphaPick(recs, aiOf) {
   var maxScN = sweep.reduce(function(m, e) { return Math.max(m, e.scN || 0); }, 0);
   var floorN = Math.max(_EL_BASE_MIN_N, Math.round(maxScN * _EL_BASE_MIN_FRAC));
   var _ret = function(p, status) { return { alpha: p.a, score: p.score, stopRate: p.stopRate, h1win: p.h1win, eRate: p.eRate, entered: p.entered, scN: p.scN, pnl: p.pnl, epPnl: p.epPnl, stopN: p.stopN, ewin: p.ewin, status: status, sweep: sweep, minN: floorN }; };
-  // 件数フロアを満たすαの中で合成スコア最大（薄い高αは母数から外れる）。同点は件数の多い＝信頼できる方→低α。
-  var cand = sweep.filter(function(e) { return e.scN >= floorN && e.score != null; });
+  // 件数フロア＋到達率フロア(_EL_BASE_MIN_ERATE)を満たすαの中で合成スコア最大（薄い高α・約定しにくい高αを母数から外す）。同点は件数の多い＝信頼できる方→低α。
+  var cand = sweep.filter(function(e) { return e.scN >= floorN && e.eRate != null && e.eRate >= _EL_BASE_MIN_ERATE && e.score != null; });
   if (cand.length) {
     cand.sort(function(x, y) { return (x.score - y.score) || (x.scN - y.scN) || (y.a - x.a); });   // 昇順→末尾が最良（スコア最大・同点は件数最大→低α）
     return _ret(cand[cand.length - 1], "ok");
@@ -1463,6 +1464,49 @@ function _elBaseAlphaTableV2(groups, cutFn) {
     React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
       React.createElement("thead", null, React.createElement("tr", null, _th("銘柄"), _th("推奨基本α（＋追加α）"))),
       React.createElement("tbody", null, rows)));
+}
+// 期間別の推奨基本α（その日まで・移動窓）: recsをrefDate以前に絞り、直近1週/1か月/3か月/全期間で推奨基本α(_elBaseAlphaA)を出す表。銘柄別記録の「その日まで」分析用 2026-06-22c。
+// aiOf(r)→{cutLine}（採用は各記録のcutLine）。期間窓はrefDate起点の移動窓（週初/月初の標本不足を避ける）。
+function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate) {
+  var all = (recs || []).filter(function(r) { return r && r.date && r.date <= refDate && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  if (!all.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
+  var _p = String(refDate).split("-");
+  var _pad = function(nn) { return ("0" + nn).slice(-2); };
+  var _ymd = function(dd) { return dd.getFullYear() + "-" + _pad(dd.getMonth() + 1) + "-" + _pad(dd.getDate()); };
+  var _cut = function(mut) { var d = new Date(Number(_p[0]), Number(_p[1]) - 1, Number(_p[2])); mut(d); return _ymd(d); };
+  var c1 = _cut(function(d) { d.setDate(d.getDate() - 7); });
+  var c2 = _cut(function(d) { d.setMonth(d.getMonth() - 1); });
+  var c3 = _cut(function(d) { d.setMonth(d.getMonth() - 3); });
+  var _win = function(lo) { return all.filter(function(r) { return r.date >= lo; }); };
+  var periods = [
+    { label: "直近1週間", recs: _win(c1) },
+    { label: "直近1か月", recs: _win(c2) },
+    { label: "直近3か月", recs: _win(c3) },
+    { label: "全期間", recs: all }
+  ];
+  var dash = React.createElement("span", { style: { color: "#bbb" } }, "—");
+  var rows = periods.map(function(pd, i) {
+    var A = _elBaseAlphaA(pd.recs, aiOf);
+    var pk = A ? A.pick : null;
+    var add = A ? A.add : null;
+    var alphaCell;
+    if (!pk || pk.alpha == null) alphaCell = dash;
+    else {
+      var na = pk.status === "na";
+      alphaCell = React.createElement("span", { style: { whiteSpace: "nowrap" } },
+        React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: na ? "#B45309" : "#0369A1" } }, pk.alpha + "円"),
+        na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 2, fontWeight: 700 } }, "参考") : null,
+        (add && add.improved) ? React.createElement("span", { style: { fontSize: 9, color: "#9A3412", marginLeft: 3 } }, "+追加" + add.add + "(計" + add.total + ")") : null);
+    }
+    return React.createElement("tr", { key: i },
+      _elv2Td(pd.label, { fontWeight: 700, color: "#9A3412", textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(alphaCell),
+      _elv2Td(pk && pk.stopRate != null ? _elStopRateCell(pk.stopRate) : dash),
+      _elv2Td(pk && pk.h1win != null ? _elPctCell(pk.h1win) : dash),
+      _elv2Td(pk && pk.eRate != null ? _elPctCell(pk.eRate) : dash),
+      _elv2Td((pk && pk.scN != null ? pk.scN : 0) + "件"));
+  });
+  return _elv2Table(["期間", "推奨基本α", "損切り率", "H1勝率", "到達率", "件数"], rows);
 }
 
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====

@@ -4814,7 +4814,7 @@ function DayView(_ref57) {
       var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk].filter(function(r) { return _elInclTotal(r.signal); }) }; });
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円・週間）"),
-        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、件数3件以上のαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（僅差は件数の多い方・同点は最大α・データ不足時は件数最大を参考表示）。追加α目安＝基本αに何円足せば損切りしにくくH1利益が出たか。"),
+        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考表示）。追加α目安＝基本αに何円足せば損切りしにくくH1利益が出たか。"),
         _elBaseAlphaTableV2(_wkGroups, _wkCutOf));
       var _wkExpRow = function(recs, rowKey) {
         var _isTotal = rowKey === "wk__total__";
@@ -5213,7 +5213,7 @@ function DayView(_ref57) {
       ),
       _pbHasAlpha && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円）"),
-        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "各銘柄の全記録に同じαを当てて、件数3件以上のαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（僅差は件数の多い方・同点は最大α・データ不足時は件数最大を参考表示）。追加α目安＝基本αに何円足せば損切りしにくくH1利益が出たか。"),
+        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "各銘柄の全記録に同じαを当てて、件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考表示）。追加α目安＝基本αに何円足せば損切りしにくくH1利益が出たか。"),
         _elBaseAlphaTableV2(_pbIdealGroups, _pbCutOf))
     );
     var _benchEl = (_pbStks && _pbStks.length) ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
