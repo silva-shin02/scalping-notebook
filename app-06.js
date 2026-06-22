@@ -1218,7 +1218,7 @@ function _elBaseAlphaA(recs, aiOf) {
 // 平均最大化だけだと「1回の損失額(リスク)」を見ず大きい損切りに張り付く（回復する玉が多いと平均は損切りが大きいほど上がる・たまの大損が平均で薄まる）。
 // そこで「実現H1損益（損切りルール適用後）の平均が最大値から tol(_EL_CUT_TOL_*)以内」に収まる中で【一番小さい】損切り値を選ぶ＝儲けをほぼ落とさず一番タイトに。
 // 損切り回避率・H1勝率はその損切り値での根拠として併記。母数=「OS1〜2でEP到達しH1損益が判定できる記録」。各記録の採用α(aiOf(r).alpha)を使い損切り値だけを振る。
-var _EL_CUT_CANDS = (function() { var _c = []; for (var _ci = 5; _ci <= 30; _ci++) _c.push(_ci); return _c; })();
+var _EL_CUT_CANDS = (function() { var _c = []; for (var _ci = 10; _ci <= 30; _ci++) _c.push(_ci); return _c; })();   // 推奨損切りの候補は10〜30円＝最低10円（ユーザー方針 2026-06-22d）。
 // タイト優先の許容幅: 平均実現H1損益が「最大値−tol」以上の損切り値の中で最小を採用。tol=max(_EL_CUT_TOL_MIN円, |最大平均|×_EL_CUT_TOL_FRAC)。大きいほど小さい(タイトな)損切りになる。後で調整可 2026-06-22d。
 var _EL_CUT_TOL_FRAC = 0.2;
 var _EL_CUT_TOL_MIN = 200;
