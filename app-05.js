@@ -5366,7 +5366,7 @@ function EntryRecordForm(_ref_erf) {
     var A = _elBaseAlphaA(recs, function(r) { return _elAlphaInfo(r, data); });
     return (A && A.add && A.add.improved) ? A.add : null;
   }, [data, fStock, fDate]);
-  // 推奨損切り値（合成スコア＝実現H1損益が最大になる損切り値・この銘柄の算入v2記録から。損切り回避率/H1勝率は根拠として併記）2026-06-22。
+  // 推奨損切り値（実現H1損益をほぼ維持できる範囲で最小=タイトな損切り値・この銘柄の前日までの算入v2記録から。損切り回避率/H1勝率は根拠として併記）2026-06-22→22dタイト優先。
   var _refCutPick = useMemo(function() {
     if (!fStock) return null;
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate); });
@@ -6366,7 +6366,7 @@ function EntryRecordForm(_ref_erf) {
         (function() {
           if (!_refCutPick) return null;
           var p = _refCutPick;
-          return React.createElement("span", { title: "実現H1損益が最大になる損切り値（この銘柄の算入記録から）", style: { fontSize: 11, fontWeight: 600, color: "#7F1D1D", whiteSpace: "nowrap" } },
+          return React.createElement("span", { title: "実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（この銘柄の前日までの算入記録から）", style: { fontSize: 11, fontWeight: 600, color: "#7F1D1D", whiteSpace: "nowrap" } },
             "推奨損切り：", React.createElement("span", { style: { fontWeight: 800 } }, p.cut + "円"),
             p.status === "na"
               ? React.createElement("span", { style: { color: "#B45309", marginLeft: 3, fontSize: 10 } }, "（参考）")

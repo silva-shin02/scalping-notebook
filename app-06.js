@@ -1214,11 +1214,14 @@ function _elBaseAlphaA(recs, aiOf) {
   }
   return { pick: pick, add: add };
 }
-// ===== 推奨損切り値【合成スコア＝実現H1損益が最大の損切り値 2026-06-22／ユーザー方針】=====
-// 損切り値を大きくするほど「損切り回避率」は単調に上がる（退化）ため、回避率＋勝率の単純合成は最大損切りに張り付く。
-// そこで「実現H1損益（損切りルール適用後）の平均が最大」になる損切り値を主軸に選ぶ＝内部に最適点がある（小さすぎ＝勝ち玉を切る／大きすぎ＝損失拡大）。
+// ===== 推奨損切り値【実現H1損益をほぼ維持できる最小の損切り 2026-06-22d／ユーザー方針＝タイト優先】=====
+// 平均最大化だけだと「1回の損失額(リスク)」を見ず大きい損切りに張り付く（回復する玉が多いと平均は損切りが大きいほど上がる・たまの大損が平均で薄まる）。
+// そこで「実現H1損益（損切りルール適用後）の平均が最大値から tol(_EL_CUT_TOL_*)以内」に収まる中で【一番小さい】損切り値を選ぶ＝儲けをほぼ落とさず一番タイトに。
 // 損切り回避率・H1勝率はその損切り値での根拠として併記。母数=「OS1〜2でEP到達しH1損益が判定できる記録」。各記録の採用α(aiOf(r).alpha)を使い損切り値だけを振る。
 var _EL_CUT_CANDS = (function() { var _c = []; for (var _ci = 5; _ci <= 30; _ci++) _c.push(_ci); return _c; })();
+// タイト優先の許容幅: 平均実現H1損益が「最大値−tol」以上の損切り値の中で最小を採用。tol=max(_EL_CUT_TOL_MIN円, |最大平均|×_EL_CUT_TOL_FRAC)。大きいほど小さい(タイトな)損切りになる。後で調整可 2026-06-22d。
+var _EL_CUT_TOL_FRAC = 0.2;
+var _EL_CUT_TOL_MIN = 200;
 function _elCutEval(recs, aiOf, cut) {
   var sum = 0, nn = 0, stopN = 0, winN = 0;
   (recs || []).forEach(function(r) {
@@ -1233,7 +1236,7 @@ function _elCutEval(recs, aiOf, cut) {
   });
   return { cut: cut, n: nn, sum: nn ? sum : null, mean: nn ? sum / nn : null, stopRate: nn ? stopN / nn : null, h1win: nn ? winN / nn : null };
 }
-// 推奨損切り値を選定: 件数フロア(_EL_BASE_MIN_N)を満たす損切り値から実現H1損益の平均が最大。僅差(±max(20円,2%))は小さい損切り（リスク小）を優先。
+// 推奨損切り値を選定: 件数フロア(_EL_BASE_MIN_N)を満たす損切り値のうち、実現H1損益の平均が最大値から tol 以内に収まる中で【最小】の損切り値を採用（P&Lをほぼ維持できる範囲で一番タイト＝リスク小）。tol=max(_EL_CUT_TOL_MIN, |最大平均|×_EL_CUT_TOL_FRAC) 2026-06-22d。
 // フロアを満たす損切り値が皆無なら件数最大の損切り値を参考(status="na")。返り値 { cut, mean, sum, stopRate, h1win, n, status, sweep }。
 function _elCutPick(recs, aiOf) {
   if (!recs || !recs.length) return null;
@@ -1242,9 +1245,10 @@ function _elCutPick(recs, aiOf) {
   var cand = sweep.filter(function(e) { return e.n >= _EL_BASE_MIN_N && e.mean != null; });
   if (cand.length) {
     var maxMean = cand.reduce(function(m, e) { return Math.max(m, e.mean); }, -Infinity);
-    var eps = Math.max(20, Math.abs(maxMean) * 0.02);
-    var near = cand.filter(function(e) { return e.mean >= maxMean - eps; });
-    near.sort(function(x, y) { return x.cut - y.cut; });   // 僅差は小さい損切り優先
+    // P&Lをほぼ維持できる最小の損切り: 平均が「最大値−tol」以上の中で一番小さい損切り値を採用＝1回の損失額(リスク)を抑えるためタイト優先。
+    var tol = Math.max(_EL_CUT_TOL_MIN, Math.abs(maxMean) * _EL_CUT_TOL_FRAC);
+    var near = cand.filter(function(e) { return e.mean >= maxMean - tol; });
+    near.sort(function(x, y) { return x.cut - y.cut; });
     return ret(near[0], "ok");
   }
   var anyN = sweep.filter(function(e) { return e.n > 0; });
