@@ -1080,9 +1080,9 @@ function _elAlphaCurveSectionV2(recs, aiOf) {
 }
 
 // ===== 推奨基本α値【条件再設計 2026-06-22／ユーザー方針】=====
-// 銘柄ごと、その期間の全トレードに同じα(5〜20円)を当ててシミュレーションしたとき、①損切りにならない ②H1で利益が出ている を重視（到達率は降格）して選ぶ。
-// 選定: 件数フロア(_EL_BASE_MIN_N)を満たすαの中で、合成スコア = _EL_BASE_W_STOP×(1−損切り率) + _EL_BASE_W_H1×H1勝率 が最大。
-//       僅差(±_EL_BASE_SCORE_EPS)は同点扱い→到達率(=件数)が多い方→なお同点は最大α。フロアを満たすα皆無なら件数最大のαを参考(status="na")。
+// 銘柄ごと、その期間の全トレードに同じα(5〜20円)を当ててシミュレーションしたとき、①損切りにならない ②H1で利益が出ている を重視して選ぶ。
+// 選定【2026-06-22b改】: 件数フロア＝最も件数(scN)の多いαの_EL_BASE_MIN_FRAC以上(最低_EL_BASE_MIN_N件)を満たすαの中で、合成スコア = _EL_BASE_W_STOP×(1−損切り率) + _EL_BASE_W_H1×H1勝率 が最大。
+//       高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアス)」になりスコアが上振れるため、件数フロアで薄い高αを除外する。同点は件数の多い方→低α。フロアを満たすα皆無なら件数最大のαを参考(status="na")。
 // 損切り率=EP〜H1で損切りした割合(H2は含めない)・H1勝率=H1損益>0の割合。いずれも「OS1〜2でEP到達し、H1結果が判定できる記録」だけが母数。
 // 追加α(_elAddAlphaReco)は基本αへの上乗せを実データ総当たりで評価＝補助。詳細は各関数のコメント。[[project_scalping_analysis_design]]
 // 推奨基本αの探索範囲（5〜20円・1円刻み）。0〜4円は推奨しない（ユーザー方針 2026-06-21）。内部の理想α計算(_EL_IDEAL_ALPHAS=0〜50)とは別＝基本αは現実的に5〜20で設定する前提。
@@ -1108,7 +1108,8 @@ function _elBucketLabel(key, gran) {
   return "全期間";
 }
 // 推奨基本αの選定パラメータ【再設計 2026-06-22】。後で調整可。
-var _EL_BASE_MIN_N = 3;          // 最低エントリー件数（H1結果が判定できる記録数 scN）。未満のαは推奨対象外＝薄い標本の偶然採用を防ぐ。
+var _EL_BASE_MIN_N = 3;          // 最低エントリー件数（H1結果が判定できる記録数 scN）の絶対下限。未満のαは推奨対象外＝薄い標本の偶然採用を防ぐ。
+var _EL_BASE_MIN_FRAC = 0.5;     // 件数フロア（実データ連動）: 最も件数(scN)の多いαの何割以上を要求するか。高αの薄い標本(選抜バイアスでスコア上振れ)を除外 2026-06-22b。後で調整可。
 var _EL_BASE_W_STOP = 0.7;       // 合成スコアの重み: 損切り回避 (1−損切り率)。
 var _EL_BASE_W_H1 = 0.3;         // 合成スコアの重み: H1勝率。
 var _EL_BASE_SCORE_EPS = 0.03;   // スコアの僅差判定。最大スコアからこの幅以内は同点扱い→件数(到達率)の多い方を優先。
@@ -1154,30 +1155,29 @@ function _elBaseAlphaEval(recs, aiOf, a) {
   var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
   return { a: a, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
 }
-// 推奨基本α(5〜20)を選定【条件再設計 2026-06-22】: 件数フロア(_EL_BASE_MIN_N=scN≥3)を満たすαから、合成スコア(0.7×(1−損切り率)+0.3×H1勝率)が最大。
-// 僅差(±_EL_BASE_SCORE_EPS)は同点扱い→到達率(=件数)が多い方→なお同点は最大α（深い方）。フロアを満たすα皆無なら件数(entered)最大のαを参考(status="na")・entered皆無は"none"。
-// 返り値 { alpha, score, stopRate, h1win, eRate, entered, scN, pnl, epPnl, stopN, ewin, status('ok'|'na'|'none'), sweep, minN }。
+// 推奨基本α(5〜20)を選定【2026-06-22b改＝件数フロアを実データ連動に】: 件数フロア＝最大件数(scN)×_EL_BASE_MIN_FRAC（最低_EL_BASE_MIN_N件）以上のαから、合成スコア(0.7×(1−損切り率)+0.3×H1勝率)が最大。
+// 高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアスでスコア上振れ)」になるため、件数フロアで薄い高αを除外＝厚い標本の中で最良のαを選ぶ。同点は件数最大→低α。フロアを満たすα皆無なら件数(scN)最大のαを参考(status="na")・entered皆無は"none"。
+// 返り値 { alpha, score, stopRate, h1win, eRate, entered, scN, pnl, epPnl, stopN, ewin, status('ok'|'na'|'none'), sweep, minN(=採用した件数フロア) }。
 function _elBaseAlphaPick(recs, aiOf) {
   if (!recs || !recs.length) return null;
   // 推奨基本αの母数: 追加α(〇)記録を除外（追っかけ等の変則局面で基本αの評価が歪むため）2026-06-22。
   recs = recs.filter(function(r) { return r && !_elAddAlphaUsed(r.signal); });
   if (!recs.length) return null;
-  var minN = _EL_BASE_MIN_N;
   var sweep = _EL_BASE_ALPHAS.map(function(a) { return _elBaseAlphaEval(recs, aiOf, a); });
-  var _ret = function(p, status) { return { alpha: p.a, score: p.score, stopRate: p.stopRate, h1win: p.h1win, eRate: p.eRate, entered: p.entered, scN: p.scN, pnl: p.pnl, epPnl: p.epPnl, stopN: p.stopN, ewin: p.ewin, status: status, sweep: sweep, minN: minN }; };
-  // フロアを満たし、スコアが算出できるα
-  var cand = sweep.filter(function(e) { return e.scN >= minN && e.score != null; });
+  // 件数フロア(実データ連動): 最も件数(scN)の多いαの_EL_BASE_MIN_FRAC以上を要求＝高αの薄い標本(選抜バイアス)を除外。最低でも_EL_BASE_MIN_N件 2026-06-22b。
+  var maxScN = sweep.reduce(function(m, e) { return Math.max(m, e.scN || 0); }, 0);
+  var floorN = Math.max(_EL_BASE_MIN_N, Math.round(maxScN * _EL_BASE_MIN_FRAC));
+  var _ret = function(p, status) { return { alpha: p.a, score: p.score, stopRate: p.stopRate, h1win: p.h1win, eRate: p.eRate, entered: p.entered, scN: p.scN, pnl: p.pnl, epPnl: p.epPnl, stopN: p.stopN, ewin: p.ewin, status: status, sweep: sweep, minN: floorN }; };
+  // 件数フロアを満たすαの中で合成スコア最大（薄い高αは母数から外れる）。同点は件数の多い＝信頼できる方→低α。
+  var cand = sweep.filter(function(e) { return e.scN >= floorN && e.score != null; });
   if (cand.length) {
-    var maxScore = cand.reduce(function(m, e) { return Math.max(m, e.score); }, -Infinity);
-    // 僅差(±EPS)は同点扱い→その中で到達率(=件数)が多い方、なお同点は最大α
-    var near = cand.filter(function(e) { return e.score >= maxScore - _EL_BASE_SCORE_EPS; });
-    near.sort(function(x, y) { return (x.eRate - y.eRate) || (x.a - y.a); });   // 昇順→末尾が最良（到達率最大・同点はα最大）
-    return _ret(near[near.length - 1], "ok");
+    cand.sort(function(x, y) { return (x.score - y.score) || (x.scN - y.scN) || (y.a - x.a); });   // 昇順→末尾が最良（スコア最大・同点は件数最大→低α）
+    return _ret(cand[cand.length - 1], "ok");
   }
-  // フロア未満: 推奨できる土台が無い→件数(entered)最大のα（同点は最大α）を参考返し（status="na"・信頼度低）
+  // フロアを満たすα皆無（標本が全体に薄い）: 件数(scN)最大のαを参考返し（status="na"・信頼度低）
   var withEntry = sweep.filter(function(e) { return e.entered > 0; });
-  if (!withEntry.length) return { alpha: null, score: null, stopRate: null, h1win: null, eRate: null, entered: 0, scN: 0, pnl: null, epPnl: null, stopN: null, ewin: null, status: "none", sweep: sweep, minN: minN };
-  withEntry.sort(function(x, y) { return (x.entered - y.entered) || (x.a - y.a); });
+  if (!withEntry.length) return { alpha: null, score: null, stopRate: null, h1win: null, eRate: null, entered: 0, scN: 0, pnl: null, epPnl: null, stopN: null, ewin: null, status: "none", sweep: sweep, minN: floorN };
+  withEntry.sort(function(x, y) { return (x.scN - y.scN) || (x.a - y.a); });
   return _ret(withEntry[withEntry.length - 1], "na");
 }
 // 追加α推奨（実データ総当たり 2026-06-22再設計）: 基本αに +1〜+_EL_BASE_ADD_MAX(合計≤50)を上乗せした合計αを、基本αと同じ合成スコアで総当たり評価。
@@ -1305,7 +1305,7 @@ function _elBaseAlphaSummary(recs, aiOf) {
   var na = pick.status === "na";
   var minN = pick.minN || _EL_BASE_MIN_N;
   var add = _A ? _A.add : null;
-  var noteSub = "件数フロア" + minN + "件以上のαから、合成スコア＝損切り回避" + Math.round(_EL_BASE_W_STOP * 100) + "%＋H1勝率" + Math.round(_EL_BASE_W_H1 * 100) + "%が最大のα（僅差±" + Math.round(_EL_BASE_SCORE_EPS * 100) + "点は件数の多い方・なお同点は最大α）。該当なし時は件数最大のαを参考表示。5〜20円1円刻み";
+  var noteSub = "件数フロア" + minN + "件以上（最も件数の多いαの" + Math.round(_EL_BASE_MIN_FRAC * 100) + "%以上）のαから、合成スコア＝損切り回避" + Math.round(_EL_BASE_W_STOP * 100) + "%＋H1勝率" + Math.round(_EL_BASE_W_H1 * 100) + "%が最大のα。高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアス)」でスコアが上振れるため件数フロアで除外。同点は件数の多い方。該当なし時は件数最大のαを参考表示。5〜20円1円刻み";
   var sweepRows = pick.sweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var on = e.a === pick.alpha;
     var pass = e.scN >= minN && e.score != null;
@@ -2501,7 +2501,7 @@ function EntryLogView(_ref_elv2) {
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(recs, _ai),
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: recs, aiOf: _ai })) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
-      _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数3件以上のαから損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα（僅差は件数の多い方・データ不足時は件数最大を参考）。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる"),
+      _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数フロア（最も件数の多いαの半分以上）を満たすαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。高αの薄い標本(選抜バイアス)は除外。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる"),
       React.createElement(_elBaseAlphaTrendV2, { recs: recs, aiOf: _ai }),
       _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝①α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）＋②採用αでの全記録の内訳（どの記録が母数で損切り/H1勝ち/対象外か）"),
       _elBaseAlphaDetailV2(recs, _ai),
