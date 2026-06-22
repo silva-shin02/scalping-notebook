@@ -5289,10 +5289,14 @@ function EntryRecordForm(_ref_erf) {
     _useStateTAA = _slicedToArray(_useStateTA, 2),
     fTradeAlpha = _useStateTAA[0], setFTradeAlpha = _useStateTAA[1];
   // α値: 基本α値＋追加α値＝合計α値（合計＝採用α＝signal.alphaVal）2026-06-21。基本/追加は記録固有でbaseAlphaVal/addAlphaValに保存。
-  // 既存記録は基本α=旧採用α(alphaVal)・追加α=0で初期化（合計＝従来値で不変）。旧 水準線(levelPrice)/分足(minBar) 欄は廃止。
+  // 既存記録は基本α=旧採用α(alphaVal)・追加α=0で初期化（合計＝従来値で不変）。旧 分足(minBar) 欄は廃止（水準線levelPriceは2026-06-22にOS見出しの右へ再導入＝下記fLevelPrice）。
   var _useStateBA = useState(initSig.baseAlphaVal != null ? String(initSig.baseAlphaVal) : (initSig.alphaVal != null ? String(initSig.alphaVal) : "")),
     _useStateBAA = _slicedToArray(_useStateBA, 2),
     fBaseAlpha = _useStateBAA[0], setFBaseAlpha = _useStateBAA[1];
+  // 水準線値（OS見出しの右・記録用の参考値＝OS値は水準線比なので基準の実価格を残す。損益計算には不使用。旧levelPrice欄を再導入 2026-06-22）。
+  var _useStateLP = useState(initSig.levelPrice != null ? String(initSig.levelPrice) : ""),
+    _useStateLPA = _slicedToArray(_useStateLP, 2),
+    fLevelPrice = _useStateLPA[0], setFLevelPrice = _useStateLPA[1];
   var _useStateADA = useState(initSig.addAlphaVal != null ? String(initSig.addAlphaVal) : ""),
     _useStateADAA = _slicedToArray(_useStateADA, 2),
     fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
@@ -5938,6 +5942,7 @@ function EntryRecordForm(_ref_erf) {
       shares: fEntered && fShares !== "" ? (parseInt(fShares) || null) : null,
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       baseAlphaVal: fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null,
+      levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
       addAlphaVal: fAddAlpha !== "" && !isNaN(Number(fAddAlpha)) ? Number(fAddAlpha) : null,
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
@@ -6406,7 +6411,26 @@ function EntryRecordForm(_ref_erf) {
         return React.createElement(React.Fragment, null,
           React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) },
             "OS",
-            React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）")
+            React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）"),
+            React.createElement("div", {
+              style: { display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", padding: "2px 7px", borderRadius: 6, background: "#F1F5F9", border: "1px solid #CBD5E1", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
+            },
+              React.createElement("span", { style: { color: "#64748B", fontWeight: 700 } }, "水準線値"),
+              React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #CBD5E1", borderRadius: 4, overflow: "hidden" } },
+                React.createElement("input", {
+                  type: "text", inputMode: "decimal", step: "1", min: "0",
+                  value: fLevelPrice,
+                  onChange: function(e) { setFLevelPrice(_toHankakuDecimal(e.target.value)); },
+                  placeholder: "—",
+                  style: { padding: "2px 5px", fontSize: 12, fontWeight: 700, color: "#334155", border: "none", outline: "none", background: "#fff", width: 70, textAlign: "right", boxSizing: "border-box" }
+                }),
+                _stepBtn(
+                  function() { setFLevelPrice(function(v) { return String((parseFloat(v) || 0) + 1); }); },
+                  function() { setFLevelPrice(function(v) { return String(Math.max(0, (parseFloat(v) || 0) - 1)); }); }
+                )
+              ),
+              React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円")
+            )
           ),
           React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFBF5" } },
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto" } },
