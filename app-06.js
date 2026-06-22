@@ -2084,6 +2084,65 @@ function _elStopTabSectionV2(recs, aiOf, data) {
       _elv2Td(x.lossAvg != null ? React.createElement("span", { style: { color: _elPnlColor(x.lossAvg) } }, _elPnlFmt(Math.round(x.lossAvg))) : React.createElement("span", { style: { color: "#ccc" } }, "—")));
   }));
 
+  // ⑤ 理想損切り値（あと何円広げれば回避できたか）: 損切りした記録ごとに、損切り値を最小いくつまで広げれば損切りを回避できたか＋その時の保有損益。
+  var avRows = [];
+  entered.forEach(function(r) {
+    var s = r.signal, a = aiOf(r).alpha, c = aiOf(r).cutLine;
+    if (!_isStop(s, a, c)) return;
+    var Lc = _epHoldLadder(s, a, c), loss = (Lc ? Lc.finalPnl : null), avoid = null;
+    for (var C = c + 1; C <= 40; C++) { if (!_isStop(s, a, C)) { avoid = C; break; } }
+    var avPnl = null;
+    if (avoid != null) { var La = _epHoldLadder(s, a, avoid); avPnl = (La ? La.finalPnl : null); }
+    avRows.push({ cut: c, avoid: avoid, inc: (avoid != null ? avoid - c : null), loss: loss, avPnl: avPnl });
+  });
+  var avDefs = [{ lim: 2, label: "+1〜2円" }, { lim: 5, label: "+3〜5円" }, { lim: 10, label: "+6〜10円" }, { lim: Infinity, label: "+11円〜" }];
+  var avBk = avDefs.map(function(d) { return { label: d.label, lim: d.lim, cnt: 0, loss: 0, av: 0 }; });
+  var avUn = { cnt: 0, loss: 0 };
+  avRows.forEach(function(o) {
+    if (o.inc == null) { avUn.cnt++; if (o.loss != null) avUn.loss += o.loss; return; }
+    for (var i = 0; i < avBk.length; i++) { if (o.inc <= avBk[i].lim) { avBk[i].cnt++; if (o.loss != null) avBk[i].loss += o.loss; if (o.avPnl != null) avBk[i].av += o.avPnl; break; } }
+  });
+  var _avp = function(v) { return React.createElement("span", { style: { color: _elPnlColor(v) } }, _elPnlFmt(Math.round(v))); };
+  var avTblRows = avBk.filter(function(b) { return b.cnt; }).map(function(b, i) {
+    return React.createElement("tr", { key: i },
+      _elv2Td(b.label, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+      _elv2Td(b.cnt + "件", { fontWeight: 700 }),
+      _elv2Td(_avp(b.loss)),
+      _elv2Td(React.createElement("b", null, _avp(b.av))),
+      _elv2Td(React.createElement("b", { style: { color: _elPnlColor(b.av - b.loss) } }, (b.av - b.loss > 0 ? "+" : "") + Math.round(b.av - b.loss).toLocaleString() + "円")));
+  });
+  if (avUn.cnt) avTblRows.push(React.createElement("tr", { key: "un", style: { background: "#FBFBF9" } },
+    _elv2Td("回避不能（+40円超）", { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#6B7280" }),
+    _elv2Td(avUn.cnt + "件", { fontWeight: 700 }),
+    _elv2Td(_avp(avUn.loss)),
+    _elv2Td(React.createElement("span", { style: { color: "#ccc" } }, "—")),
+    _elv2Td(React.createElement("span", { style: { color: "#ccc" } }, "—"))));
+  var avTbl = avRows.length
+    ? _elv2Table(["必要な引き上げ", "件数", "実損失(計)", "広げて保有なら(計)", "改善(計)"], avTblRows)
+    : React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "損切りになった記録がありません");
+  var avAvoidable = avRows.filter(function(o) { return o.avoid != null; });
+  var avIncMean = avAvoidable.length ? _elMean(avAvoidable.map(function(o) { return o.inc; })) : null;
+  var avImpTotal = 0; avBk.forEach(function(b) { avImpTotal += (b.av - b.loss); });
+
+  // ⑥ 損切り vs ×見送り 比較: 入って損切りした記録 vs 事前に×宣言して見送った（α到達）記録の精度。×を_epAsTradedで「取引していたら」のEP損益化。
+  var xRecs = rs.filter(function(r) { return _epIsXSkip(r.signal, aiOf(r).alpha); });
+  var xMissCnt = 0, xMissSum = 0, xAvoidCnt = 0, xAvoidSum = 0;
+  xRecs.forEach(function(r) {
+    var s = r.signal, ai = aiOf(r), tr = _epAsTraded(s), ep = _elDynPlanned(tr, ai.alpha, ai.cutLine);
+    if (ep == null) return;
+    if (ep > 0) { xMissCnt++; xMissSum += ep; } else if (ep < 0) { xAvoidCnt++; xAvoidSum += ep; }
+  });
+  var xDecided = xMissCnt + xAvoidCnt, xAcc = xDecided ? Math.round(xAvoidCnt / xDecided * 100) : null;
+  var xCompare = React.createElement(React.Fragment, null,
+    _elv2CardRow([
+      _elv2Card("入って損切り", enteredStopN + "件", "#9A3412", "損失計 " + _elPnlFmt(Math.round(lossTotal))),
+      _elv2Card("×で見送り", xRecs.length + "件", "#9A3412", "×宣言後にα到達"),
+      _elv2Card("×=損失回避", xAvoidCnt + "件", xAvoidCnt ? "#1E8449" : "#bbb", xAvoidSum ? "避けた損失 " + Math.round(xAvoidSum).toLocaleString() + "円" : "—"),
+      _elv2Card("×=機会損失", xMissCnt + "件", xMissCnt ? "#C0392B" : "#bbb", xMissSum ? "逃した利益 +" + Math.round(xMissSum).toLocaleString() + "円" : "—"),
+      _elv2Card("×見送り正解率", xAcc != null ? xAcc + "%" : "—", xAcc != null ? (xAcc >= 50 ? "#1E8449" : "#B45309") : "#bbb", "損失回避/" + xDecided + "件")
+    ]),
+    xRecs.length ? null : React.createElement("div", { style: { color: "#bbb", fontSize: 11, padding: "4px 0" } }, "※ ×見送り（期待度×を宣言した後にα到達）の記録がまだありません。"));
+
   // 読み取り
   var best = sim[bestI], savedTotal = savedArr.reduce(function(a, b) { return a + b; }, 0);
   var worstSig = sigArr.filter(function(x) { return x.tot >= 2 && x.stop > 0; })[0];
@@ -2091,8 +2150,10 @@ function _elStopTabSectionV2(recs, aiOf, data) {
     React.createElement("span", null, "E成立 ", _elInsightEmV2(entered.length + "件"), " のうち損切り ", _elInsightEmV2(enteredStopN + "件（" + stopRate + "%）"), "・損失合計 ", _elInsightEmV2(_elPnlFmt(Math.round(lossTotal))), "。"),
     React.createElement("span", null, "損切り値を ", _elInsightEmV2(best.cut + "円"), " にするとH1損益が最大（", _elInsightEmV2(_elPnlFmt(Math.round(best.h1))), "・損切り率 ", _elInsightEmV2(Math.round(best.rate * 100) + "%"), "）。狭め＝損切り増・浅い損失／広め＝損切り減・大きい損失のトレードオフ。"),
     savedArr.length ? React.createElement("span", null, "損切りした記録を損切りせず保有していたら合計 ", _elInsightEmV2(_elPnlFmt(Math.round(savedTotal)), savedTotal > 0 ? "#B45309" : "#1E8449"), " の差（プラス＝我慢した方が良かった／マイナス＝損切りが正解）。詳細は下の「上振れ」分析。") : null,
-    worstSig ? React.createElement("span", null, "損切り率が高いシグナルは ", _elInsightEmV2("「" + stripCat(worstSig.tag) + "」（" + Math.round(worstSig.rate * 100) + "%・" + worstSig.stop + "/" + worstSig.tot + "件）"), "。") : null
-  ], { note: "対象＝E成立（エントリーできた）v2記録 " + entered.length + "件。損切り＝想定/H1/H2いずれかで損切りライン（高値−α≥損切り値）到達。損切り値別シミュは全記録に同じ損切り値を当てた場合の合計（採用α基準・100株換算・損益色は赤=利益/緑=損失）。" });
+    worstSig ? React.createElement("span", null, "損切り率が高いシグナルは ", _elInsightEmV2("「" + stripCat(worstSig.tag) + "」（" + Math.round(worstSig.rate * 100) + "%・" + worstSig.stop + "/" + worstSig.tot + "件）"), "。") : null,
+    avAvoidable.length ? React.createElement("span", null, "損切り ", _elInsightEmV2(avRows.length + "件"), " のうち損切り値を平均 ", _elInsightEmV2((avIncMean != null ? avIncMean : "—") + "円"), " 広げれば回避できたのは ", _elInsightEmV2(avAvoidable.length + "件"), "（広げて保有なら改善計 ", _elInsightEmV2((avImpTotal > 0 ? "+" : "") + Math.round(avImpTotal).toLocaleString() + "円", avImpTotal > 0 ? "#B45309" : "#1E8449"), "）。ただし全記録一律で広げると別記録の損失が増える（上の損切り値別シミュ参照）。") : null,
+    xDecided ? React.createElement("span", null, "事前の×見送りは ", _elInsightEmV2(xRecs.length + "件"), "・正解率 ", _elInsightEmV2(xAcc + "%"), "（損失回避 ", _elInsightEmV2(xAvoidCnt + "件"), "／機会損失 ", _elInsightEmV2(xMissCnt + "件"), "）＝", _elInsightEmV2(xAcc >= 50 ? "損切りを避ける×判断は機能している" : "×判断はやや保守的（利益も逃している）"), "。") : null
+  ], { note: "対象＝E成立（エントリーできた）v2記録 " + entered.length + "件。損切り＝想定/H1/H2いずれかで損切りライン（高値−α≥損切り値）到達。損切り値別シミュは全記録に同じ損切り値を当てた場合の合計（採用α基準・100株換算・損益色は赤=利益/緑=損失）。理想損切り値の「広げて保有なら」＝損切りせず最後の足まで保有した損益。×見送り＝事前に期待度×を宣言した後にα到達した記録を「取引していたら」のEP損益で評価。" });
 
   return React.createElement(React.Fragment, null,
     cards,
@@ -2102,6 +2163,10 @@ function _elStopTabSectionV2(recs, aiOf, data) {
     _elStopOvershootSectionV2(rs, aiOf),
     _h("🎯 シグナル別 損切り率", "どのシグナルが損切りになりやすいか（損切り率の高い順・平均損切り額）。複数タグは各タグに算入"),
     sigTbl,
+    _h("🔧 理想損切り値（あと何円広げれば回避できたか）", "損切りした記録ごとに、損切り値を最小いくつ広げれば損切りを回避できたか＋広げて保有した場合の損益。回避不能＝それ以上広げても伸び続けた（損切りが妥当）"),
+    avTbl,
+    _h("🆚 損切り vs ×見送り（事前判断の精度）", "入って損切りした記録と、事前に期待度×で見送った（α到達）記録の比較。×が損失回避なら事前判断が機能・機会損失が多ければ保守的すぎ"),
+    xCompare,
     insight);
 }
 
