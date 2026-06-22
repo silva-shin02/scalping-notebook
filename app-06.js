@@ -1309,7 +1309,7 @@ function _elBaseAlphaTableV2(groups, cutFn) {
     var na = pk.status === "na";
     return React.createElement("div", { style: { whiteSpace: "nowrap", lineHeight: 1.3 } },
       React.createElement("span", { style: { fontWeight: 800, color: na ? "#B45309" : "#0369A1", fontSize: 14 } }, pk.alpha + "円"),
-      na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 3, fontWeight: 700 } }, "該当なし") : React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 3 } }, "損切" + Math.round((pk.stopRate || 0) * 100) + "%・H1勝" + Math.round((pk.h1win || 0) * 100) + "%・" + (pk.scN || 0) + "件"));
+      na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 3, fontWeight: 700 } }, "データ不足 " + (pk.scN != null ? pk.scN : 0) + "件/最低" + (pk.minN || 3) + "件・参考") : React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 3 } }, "損切" + Math.round((pk.stopRate || 0) * 100) + "%・H1勝" + Math.round((pk.h1win || 0) * 100) + "%・" + (pk.scN || 0) + "件"));
   };
   var rows = (groups || []).filter(function(g) { return g.recs && g.recs.length; }).map(function(g, gi) {
     var A = _elBaseAlphaA(g.recs, aiOf);
@@ -2399,7 +2399,7 @@ function EntryLogView(_ref_elv2) {
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(recs, _ai),
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: recs, aiOf: _ai })) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
-      _secH("🎯 推奨基本α値（期間ごとの傾向）", "到達率70%＋H1黒字＋EP損切り0件を満たす中でE後勝率が最大のα（同点は最大α）＝確実に入れて勝ちやすい土台。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。利益はホールドで取る"),
+      _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数3件以上のαから損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα（僅差は件数の多い方・データ不足時は件数最大を参考）。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる"),
       React.createElement(_elBaseAlphaTrendV2, { recs: recs, aiOf: _ai }),
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
       _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益"), _elDowSectionV2(recs, _ai),
