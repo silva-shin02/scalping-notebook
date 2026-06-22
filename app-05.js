@@ -5303,14 +5303,19 @@ function EntryRecordForm(_ref_erf) {
   var _useStateAAU = useState(_initAddUsed),
     _useStateAAUA = _slicedToArray(_useStateAAU, 2),
     fAddAlphaUsed = _useStateAAUA[0], setFAddAlphaUsed = _useStateAAUA[1];
-  // 追加α〇の「根拠」（選択制＝指標線支え/底抜け前足浮き/その他＋ユーザー追加。signal.addAlphaReasonに保存）2026-06-22。
-  // 初期化: 保存値がマスター内ならそのプリセット選択／マスター外の非空なら「その他」＋テキスト。
+  // 追加α〇の「根拠」（複数選択可＝指標線支え/底抜け前足浮き/その他＋ユーザー追加。signal.addAlphaReasons[]に保存・旧addAlphaReason(文字列)も読む）2026-06-22→22d複数選択化。
+  // 初期化: 保存配列をマスター内(プリセット選択)とマスター外(その他テキスト)に分ける。
   var _reasonMasterInit = (data && data.custom && Array.isArray(data.custom.addAlphaReasons)) ? data.custom.addAlphaReasons : _DEF_ADD_REASONS;
-  var _initReasonSel = (initSig.addAlphaReason == null || initSig.addAlphaReason === "") ? "" : (_reasonMasterInit.indexOf(initSig.addAlphaReason) >= 0 ? initSig.addAlphaReason : "__other__");
-  var _useStateARS = useState(_initReasonSel),
+  var _savedReasons = Array.isArray(initSig.addAlphaReasons) ? initSig.addAlphaReasons.filter(function(x) { return x; }) : ((typeof initSig.addAlphaReason === "string" && initSig.addAlphaReason) ? [initSig.addAlphaReason] : []);
+  var _initPresets = _savedReasons.filter(function(x) { return _reasonMasterInit.indexOf(x) >= 0; });
+  var _initOthers = _savedReasons.filter(function(x) { return _reasonMasterInit.indexOf(x) < 0; });
+  var _useStateARS = useState(_initPresets),
     _useStateARSA = _slicedToArray(_useStateARS, 2),
-    fAddReason = _useStateARSA[0], setFAddReason = _useStateARSA[1];
-  var _useStateARO = useState(_initReasonSel === "__other__" ? initSig.addAlphaReason : ""),
+    fAddReasons = _useStateARSA[0], setFAddReasons = _useStateARSA[1];
+  var _useStateAOO = useState(_initOthers.length > 0),
+    _useStateAOOA = _slicedToArray(_useStateAOO, 2),
+    fOtherOn = _useStateAOOA[0], setFOtherOn = _useStateAOOA[1];
+  var _useStateARO = useState(_initOthers.join(" / ")),
     _useStateAROA = _slicedToArray(_useStateARO, 2),
     fAddReasonOther = _useStateAROA[0], setFAddReasonOther = _useStateAROA[1];
   var _useStateRMG = useState(false),
@@ -5968,7 +5973,7 @@ function EntryRecordForm(_ref_erf) {
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
       addAlphaVal: (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : null,
       addAlphaUsed: fAddAlphaUsed === "○" ? true : (fAddAlphaUsed === "×" ? false : null),
-      addAlphaReason: (fAddAlphaUsed === "○") ? ((fAddReason === "__other__") ? ((fAddReasonOther || "").trim() || null) : (fAddReason || null)) : null,
+      addAlphaReasons: (fAddAlphaUsed === "○") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
       includeInTotal: fIncl,
@@ -6287,26 +6292,26 @@ function EntryRecordForm(_ref_erf) {
             var cur = (prev.custom && Array.isArray(prev.custom.addAlphaReasons)) ? prev.custom.addAlphaReasons : _DEF_ADD_REASONS.slice();
             return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: cur.filter(function(x) { return x !== nm; }) }) });
           });
-          if (fAddReason === nm) setFAddReason("");
+          if (fAddReasons.indexOf(nm) >= 0) setFAddReasons(fAddReasons.filter(function(x) { return x !== nm; }));
         };
         var _optBtn = function(label, sel, onClick, color) {
           return React.createElement("button", { type: "button", onClick: onClick,
             style: { padding: "3px 9px", fontSize: 11, fontWeight: sel ? 800 : 600, border: sel ? ("2px solid " + color) : "1px solid #ddd", background: sel ? "#FFF7ED" : "#fff", color: sel ? color : "#666", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } }, label);
         };
         return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, padding: "2px 0 0 2px" } },
-          React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 600 } }, "根拠（追加αが必要だった理由・1つ選択）"),
+          React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 600 } }, "根拠（追加αが必要だった理由・複数選択可）"),
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 } },
             _reasons.map(function(rsn) {
-              var on = fAddReason === rsn;
+              var on = fAddReasons.indexOf(rsn) >= 0;
               return React.createElement("span", { key: rsn, style: { display: "inline-flex", alignItems: "center", gap: 1 } },
-                _optBtn(rsn, on, function() { setFAddReason(on ? "" : rsn); }, "#9A3412"),
+                _optBtn(rsn, on, function() { setFAddReasons(on ? fAddReasons.filter(function(x) { return x !== rsn; }) : fAddReasons.concat([rsn])); }, "#9A3412"),
                 fReasonMgr ? React.createElement("button", { type: "button", title: "この選択肢を削除", onClick: function() { _delR(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×") : null);
             }),
-            _optBtn("その他", fAddReason === "__other__", function() { setFAddReason(fAddReason === "__other__" ? "" : "__other__"); }, "#0369A1"),
+            _optBtn("その他", fOtherOn, function() { setFOtherOn(!fOtherOn); }, "#0369A1"),
             React.createElement("button", { type: "button", title: "根拠の選択肢を追加（その場で入力）", onClick: function() { var nm = window.prompt("新しい根拠の選択肢を入力してください"); if (nm != null) _addR(nm); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid #ddd", background: "#fff", color: "#0369A1", borderRadius: 5, cursor: "pointer" } }, "＋ 追加"),
             React.createElement("button", { type: "button", title: "選択肢の削除モード", onClick: function() { setFReasonMgr(!fReasonMgr); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid " + (fReasonMgr ? "#B91C1C" : "#ddd"), background: fReasonMgr ? "#FEF2F2" : "#fff", color: fReasonMgr ? "#B91C1C" : "#888", borderRadius: 5, cursor: "pointer" } }, fReasonMgr ? "完了" : "✎ 編集")
           ),
-          (fAddReason === "__other__") ? React.createElement(FastInput, { value: fAddReasonOther, onChange: function(v) { setFAddReasonOther(v); }, placeholder: "理由を入力", style: { padding: "4px 8px", fontSize: 12, border: "1px solid #cbd5e1", borderRadius: 5, outline: "none", width: "100%", maxWidth: 280, boxSizing: "border-box" } }) : null
+          fOtherOn ? React.createElement(FastInput, { value: fAddReasonOther, onChange: function(v) { setFAddReasonOther(v); }, placeholder: "その他の理由を入力（複数は / で区切り）", style: { padding: "4px 8px", fontSize: 12, border: "1px solid #cbd5e1", borderRadius: 5, outline: "none", width: "100%", maxWidth: 280, boxSizing: "border-box" } }) : null
         );
       })() : null,
       (function() {
