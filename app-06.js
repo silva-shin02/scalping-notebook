@@ -2868,11 +2868,24 @@ function EntryLogView(_ref_elv2) {
         _elHeatGridV2(_per, {}));
       var _thP = function(t) { return React.createElement("th", { style: { padding: "5px 5px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
       var _tdP = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
+      // 日数: その期間に市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える・当日までで頭打ち）。祝日＝ユーザーが記録した祝日/休場イベント(_buildHolidayDateSet)。2026-06-22d
+      var _holiSet = _buildHolidayDateSet(data.trades, custom.eventCategories);
+      var _today2 = todayStr();
+      var _p2 = function(nn) { return ("0" + nn).slice(-2); };
+      var _bizDaysIn = function(k) {
+        var days = [];
+        if (gran === "day") { days = [k]; }
+        else if (gran === "month") { var y = +k.slice(0, 4), m = +k.slice(5, 7), last = new Date(y, m, 0).getDate(); for (var dd = 1; dd <= last; dd++) days.push(k + "-" + _p2(dd)); }
+        else { var mon = new Date(k + "T00:00:00"); for (var i = 0; i < 5; i++) { var d = new Date(mon.getTime() + i * 86400000); days.push(d.getFullYear() + "-" + _p2(d.getMonth() + 1) + "-" + _p2(d.getDate())); } }
+        var c = 0; days.forEach(function(d) { if (d <= _today2 && _fmIsBizDay(d, _holiSet)) c++; });
+        return c;
+      };
       var _rows = [];
       _keys.forEach(function(k) {
         var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), on = perExp === k;
         _rows.push(React.createElement("tr", { key: k, onClick: function() { setPerExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
           _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k)), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+          _tdP(_bizDaysIn(k) + "日", { fontWeight: 600, color: "#555" }),
           _tdP(rs.length + "件", { fontWeight: 700 }),
           _tdP(_yenNR(t.plan, t.planCnt, t.planRef, t.planRefCnt)),
           _tdP(_yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt)),
@@ -2881,7 +2894,7 @@ function EntryLogView(_ref_elv2) {
           _tdP(_elEwinCell(rr.ok, rr.ng, rr.draw)),
           _tdP(rr.soft + "%", { color: rr.soft > 0 ? "#B45309" : "#bbb", fontWeight: rr.soft > 0 ? 700 : 400 }),
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 })));
-        if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
+        if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
       });
       return React.createElement(React.Fragment, null,
         _secH("📆 期間集計（" + (gran === "day" ? "日別" : gran === "week" ? "週別" : "月別") + "・新しい順）", "行タップでその期間の詳細分析（シグナル成功度・時間帯傾向・EP位置）"), _granBtns,
@@ -2889,7 +2902,7 @@ function EntryLogView(_ref_elv2) {
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
-              _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("件数"), _thP("EP損益"), _thP("H1損益"), _thP("H2損益"), _thP("実現損益"), _thP("E後の勝率"), _thP("見切り率"), _thP("損切り率"))),
+              _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("日数"), _thP("件数"), _thP("EP損益"), _thP("H1損益"), _thP("H2損益"), _thP("実現損益"), _thP("E後の勝率"), _thP("見切り率"), _thP("損切り率"))),
             React.createElement("tbody", null, _rows))));
     })();
   } else if (view === "deep") {
