@@ -1008,6 +1008,62 @@ function _elLineChartV2(series, opts) {
       React.createElement("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", minWidth: 480, height: "auto", display: "block" } }, kids)),
     legend);
 }
+// 期間別の損益バー＋勝率（複合）。periods=[{label,value,win(0〜100)}]（古い→新しい）。バー=赤(利益)/緑(損失)・勝率=破線(右軸0〜100%)。2026-06-22d。
+function _elBarChartV2(periods, opts) {
+  opts = opts || {};
+  var ps = periods || [];
+  if (!ps.length) return null;
+  var W = 680, H = opts.height || 200, padL = 56, padR = 40, padT = 10, padB = 22;
+  var yMin = 0, yMax = 0;
+  ps.forEach(function(p) { var v = p.value || 0; if (v < yMin) yMin = v; if (v > yMax) yMax = v; });
+  if (yMin === yMax) yMax = yMin + 100;
+  var _niceStep = function(raw) { if (!(raw > 0)) return 1; var pw = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)); var f = raw / pw; var nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10; return nf * pw; };
+  var _step = _niceStep((yMax - yMin) / 5); if (!(_step > 0)) _step = 1;
+  yMin = Math.floor(yMin / _step) * _step; yMax = Math.ceil(yMax / _step) * _step; if (yMax <= yMin) yMax = yMin + _step;
+  var n = ps.length, plotW = W - padL - padR, plotH = H - padT - padB;
+  var xC = function(i) { return padL + plotW * (i + 0.5) / n; };
+  var yAt = function(v) { return padT + plotH * (1 - (v - yMin) / (yMax - yMin)); };
+  var wy = function(w) { return padT + plotH * (1 - (w == null ? 0 : w) / 100); };
+  var bw = Math.max(3, Math.min(40, plotW / n * 0.6));
+  var kids = [];
+  for (var gv = yMin, gi = 0; gv <= yMax + _step * 1e-6 && gi < 100; gv += _step, gi++) {
+    var gy = yAt(gv);
+    kids.push(React.createElement("line", { key: "g" + gi, x1: padL, y1: gy, x2: W - padR, y2: gy, stroke: "#eee9e0", strokeWidth: 1 }));
+    kids.push(React.createElement("text", { key: "gl" + gi, x: padL - 4, y: gy + 3, textAnchor: "end", fontSize: 9, fill: "#999" }, Math.round(gv).toLocaleString()));
+  }
+  [0, 50, 100].forEach(function(w) { kids.push(React.createElement("text", { key: "wl" + w, x: W - padR + 4, y: wy(w) + 3, textAnchor: "start", fontSize: 8, fill: "#B45309" }, w + "%")); });
+  var y0 = yAt(0);
+  ps.forEach(function(p, i) { var v = p.value || 0, yv = yAt(v); kids.push(React.createElement("rect", { key: "b" + i, x: xC(i) - bw / 2, y: Math.min(yv, y0), width: bw, height: Math.max(0.5, Math.abs(yv - y0)), rx: 2, fill: v >= 0 ? "#C0392B" : "#1E8449", opacity: 0.88 })); });
+  kids.push(React.createElement("line", { key: "zero", x1: padL, y1: y0, x2: W - padR, y2: y0, stroke: "#cbb89a", strokeWidth: 1.2 }));
+  var wpts = ps.map(function(p, i) { return p.win != null ? (xC(i) + "," + wy(p.win)) : null; }).filter(Boolean);
+  if (wpts.length >= 2) kids.push(React.createElement("polyline", { key: "winl", points: wpts.join(" "), fill: "none", stroke: "#B45309", strokeWidth: 1.6, strokeDasharray: "4 3" }));
+  ps.forEach(function(p, i) { if (p.win == null) return; kids.push(React.createElement("circle", { key: "wc" + i, cx: xC(i), cy: wy(p.win), r: 2.5, fill: "#fff", stroke: "#B45309", strokeWidth: 1.4 })); });
+  var step = Math.max(1, Math.ceil(n / 8));
+  ps.forEach(function(p, i) { if (i % step !== 0 && i !== n - 1) return; kids.push(React.createElement("text", { key: "xt" + i, x: xC(i), y: H - 6, textAnchor: "middle", fontSize: 8, fill: "#999" }, p.label)); });
+  var legend = React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginTop: 2, fontSize: 10, color: "#666" } },
+    React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, React.createElement("span", { style: { width: 10, height: 10, background: "#C0392B", borderRadius: 2, display: "inline-block" } }), "利益"),
+    React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, React.createElement("span", { style: { width: 10, height: 10, background: "#1E8449", borderRadius: 2, display: "inline-block" } }), "損失"),
+    React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, React.createElement("span", { style: { width: 14, height: 0, borderTop: "2px dashed #B45309", display: "inline-block" } }), "勝率(右軸)"));
+  return React.createElement("div", null,
+    React.createElement("div", { style: { overflowX: "auto" } }, React.createElement("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", minWidth: 480, height: "auto", display: "block" } }, kids)),
+    legend);
+}
+// 期間別の損益ヒートマップ。periods=[{label,value}]。色の濃淡で損益（赤=利益/緑=損失・濃さは|値|/最大）。月別なら一年が一目。2026-06-22d。
+function _elHeatGridV2(periods, opts) {
+  var ps = periods || [];
+  if (!ps.length) return null;
+  var maxAbs = 1; ps.forEach(function(p) { var a = Math.abs(p.value || 0); if (a > maxAbs) maxAbs = a; });
+  var cells = ps.map(function(p, i) {
+    var v = p.value || 0, inten = Math.min(1, Math.abs(v) / maxAbs);
+    var bg = v === 0 ? "#f1efe8" : (v > 0 ? "rgba(192,57,43," : "rgba(30,132,73,") + (0.16 + inten * 0.74).toFixed(2) + ")";
+    var txt = (inten > 0.4 && v !== 0) ? "#fff" : (v > 0 ? "#7F1D1D" : v < 0 ? "#13502D" : "#999");
+    return React.createElement("div", { key: i, title: p.label + " " + (v >= 0 ? "+" : "") + Math.round(v).toLocaleString() + "円",
+      style: { borderRadius: 6, padding: "8px 3px", textAlign: "center", background: bg, color: txt, fontSize: 10, lineHeight: 1.3, minWidth: 0 } },
+      React.createElement("div", { style: { fontWeight: 700 } }, p.label),
+      React.createElement("div", null, (v >= 0 ? "+" : "") + Math.round(v).toLocaleString()));
+  });
+  return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(58px, 1fr))", gap: 5 } }, cells);
+}
 // 累積損益（記録順）: EP損益/H1/H2/実現の累積線。寄与は合計行と同一基準（H1=_elHold1TotParts.main・H2=_elHold2TotParts.main）。
 function _elCumPnlSectionV2(props) {
   var recs = props.recs, aiOf = props.aiOf;
@@ -2262,6 +2318,7 @@ function EntryLogView(_ref_elv2) {
   var _uCT = useState(""), cTo = _uCT[0], setCTo = _uCT[1];
   var _uPE = useState(null), perExp = _uPE[0], setPerExp = _uPE[1];
   var _uOvE = useState(null), ovExp = _uOvE[0], setOvExp = _uOvE[1];   // 損益タブ「損益（期間別）」表の期間行展開（取引記録）2026-06-22d
+  var _uChM = useState("h1"), chartMet = _uChM[0], setChartMet = _uChM[1];   // 期間ビューのグラフ指標（実現/EP/H1/H2）2026-06-22d
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
@@ -2791,9 +2848,24 @@ function EntryLogView(_ref_elv2) {
       var _keys = Object.keys(_byP).sort().reverse();
       if (!_keys.length) return React.createElement(React.Fragment, null, _secH("📆 期間集計"), _granBtns, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし"));
       var _chartKeys = _keys.slice().reverse();
-      var _realPts = [], _planPts = [], _h1Pts = [], _h2Pts = [], _h2rPts = [], _xt = [], _step = Math.max(1, Math.ceil(_chartKeys.length / 6));
-      _chartKeys.forEach(function(k, i) { var t = _periodTot(_byP[k]); _realPts.push(t.real || 0); _planPts.push(t.plan || 0); _h1Pts.push(t.holdPlanCap || 0); _h2Pts.push(t.hold2 || 0); _h2rPts.push((t.hold2 || 0) + (t.hold2Ref || 0)); if (i % _step === 0 || i === _chartKeys.length - 1) _xt.push({ i: i, label: _labelOf(k) }); });
-      var _chart = _chartKeys.length >= 2 ? _elLineChartV2([{ label: "実現損益", color: "#2E7D32", pts: _realPts }, { label: "EP損益", color: "#0369A1", pts: _planPts }, { label: "H1損益", color: "#DC2626", pts: _h1Pts }, { label: "H2損益", color: "#D97706", pts: _h2Pts }, { label: "H2損益（）", color: "#DB2777", pts: _h2rPts }], { xTicks: _xt }) : null;
+      var _metInfo = { real: { label: "実現損益", get: function(t) { return t.real || 0; } }, plan: { label: "EP損益", get: function(t) { return t.plan || 0; } }, h1: { label: "H1損益", get: function(t) { return t.holdPlanCap || 0; } }, h2: { label: "H2損益", get: function(t) { return t.hold2 || 0; } } };
+      var _mi = _metInfo[chartMet] || _metInfo.h1;
+      var _xt = [], _step = Math.max(1, Math.ceil(_chartKeys.length / 6));
+      var _per = _chartKeys.map(function(k, i) { var t = _periodTot(_byP[k]), rr = _ratesOf(_byP[k]); if (i % _step === 0 || i === _chartKeys.length - 1) _xt.push({ i: i, label: _labelOf(k) }); return { label: _labelOf(k), value: _mi.get(t), win: rr.win }; });
+      var _cum = [], _cs = 0; _per.forEach(function(p) { _cs += p.value; _cum.push(_cs); });
+      var _metBtns = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 } },
+        [["real", "実現損益"], ["plan", "EP損益"], ["h1", "H1損益"], ["h2", "H2損益"]].map(function(m) {
+          var on = chartMet === m[0];
+          return React.createElement("button", { key: m[0], onClick: function() { setChartMet(m[0]); }, style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, m[1]);
+        }));
+      var _cumChart = _chartKeys.length >= 2 ? _elLineChartV2([{ label: "累積" + _mi.label, color: "#C0392B", pts: _cum }], { xTicks: _xt }) : null;
+      var _charts = React.createElement(React.Fragment, null,
+        _metBtns,
+        _secH("📊 損益バー＋勝率（" + _mi.label + "）", "各期間の損益を上下バー（赤=利益/緑=損失）＋勝率を破線(右軸)で重ねる"),
+        _elBarChartV2(_per, {}),
+        _cumChart ? React.createElement(React.Fragment, null, _secH("📈 累積損益カーブ（" + _mi.label + "）", "右肩上がりなら勝ち越し（資産曲線）"), _cumChart) : null,
+        _secH("🟥 ヒートマップ（" + _mi.label + "）", "色の濃淡で損益。濃い赤=大きい利益／濃い緑=大きい損失"),
+        _elHeatGridV2(_per, {}));
       var _thP = function(t) { return React.createElement("th", { style: { padding: "5px 5px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
       var _tdP = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
       var _rows = [];
@@ -2813,7 +2885,7 @@ function EntryLogView(_ref_elv2) {
       });
       return React.createElement(React.Fragment, null,
         _secH("📆 期間集計（" + (gran === "day" ? "日別" : gran === "week" ? "週別" : "月別") + "・新しい順）", "行タップでその期間の詳細分析（シグナル成功度・時間帯傾向・EP位置）"), _granBtns,
-        _chart ? React.createElement("div", { style: { marginBottom: 8 } }, _chart) : null,
+        React.createElement("div", { style: { marginBottom: 8 } }, _charts),
         React.createElement("div", { style: { overflowX: "auto" } },
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
