@@ -6248,7 +6248,7 @@ function EntryRecordForm(_ref_erf) {
             [["○", "要", "#C0392B", "#FCEBEB"], ["×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
               var on = fAddAlphaUsed === kv[0];
               return React.createElement("button", { key: kv[0], type: "button",
-                onClick: function() { setFAddAlphaUsed(kv[0]); },
+                onClick: function() { setFAddAlphaUsed(kv[0]); if (kv[0] === "○" && fAddAlpha === "") setFAddAlpha("5"); },
                 title: kv[0] === "○" ? "追加αが必要だった（数値を入力）" : "追加αは不要＝基本αのみ",
                 style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[2]) : "1px solid #ddd", background: on ? kv[3] : "#fff", color: on ? kv[2] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
                 kv[0], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[1]));
