@@ -1048,21 +1048,38 @@ function _elBarChartV2(periods, opts) {
     React.createElement("div", { style: { overflowX: "auto" } }, React.createElement("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", minWidth: 480, height: "auto", display: "block" } }, kids)),
     legend);
 }
-// 期間別の損益ヒートマップ。periods=[{label,value}]。色の濃淡で損益（赤=利益/緑=損失・濃さは|値|/最大）。月別なら一年が一目。2026-06-22d。
-function _elHeatGridV2(periods, opts) {
-  var ps = periods || [];
-  if (!ps.length) return null;
-  var maxAbs = 1; ps.forEach(function(p) { var a = Math.abs(p.value || 0); if (a > maxAbs) maxAbs = a; });
-  var cells = ps.map(function(p, i) {
-    var v = p.value || 0, inten = Math.min(1, Math.abs(v) / maxAbs);
-    var bg = v === 0 ? "#f1efe8" : (v > 0 ? "rgba(192,57,43," : "rgba(30,132,73,") + (0.16 + inten * 0.74).toFixed(2) + ")";
-    var txt = (inten > 0.4 && v !== 0) ? "#fff" : (v > 0 ? "#7F1D1D" : v < 0 ? "#13502D" : "#999");
-    return React.createElement("div", { key: i, title: p.label + " " + (v >= 0 ? "+" : "") + Math.round(v).toLocaleString() + "円",
-      style: { borderRadius: 6, padding: "8px 3px", textAlign: "center", background: bg, color: txt, fontSize: 10, lineHeight: 1.3, minWidth: 0 } },
-      React.createElement("div", { style: { fontWeight: 700 } }, p.label),
-      React.createElement("div", null, (v >= 0 ? "+" : "") + Math.round(v).toLocaleString()));
+// 曜日揃えヒートマップ（カレンダー型）。days=[{date:"YYYY-MM-DD",value}]（日別）。列=月〜金・行=週(上が最新)。曜日ごとの傾向を縦で見る。記録の無い営業日枠は薄い空セル。2026-06-22d。
+function _elWeekdayHeatV2(days, opts) {
+  opts = opts || {};
+  var ds = (days || []).filter(function(d) { return d && d.date; });
+  if (!ds.length) return null;
+  var map = {}, maxAbs = 1;
+  ds.forEach(function(d) { map[d.date] = d.value; var a = Math.abs(d.value || 0); if (a > maxAbs) maxAbs = a; });
+  var dates = ds.map(function(d) { return d.date; }).sort();
+  var fmt = function(dd) { return dd.getFullYear() + "-" + ("0" + (dd.getMonth() + 1)).slice(-2) + "-" + ("0" + dd.getDate()).slice(-2); };
+  var mondayOf = function(s) { var dd = new Date(s + "T00:00:00"); dd.setDate(dd.getDate() - ((dd.getDay() + 6) % 7)); return dd; };
+  var m0 = mondayOf(dates[0]), mE = mondayOf(dates[dates.length - 1]);
+  var weeks = []; for (var w = new Date(m0); w <= mE && weeks.length < 80; w = new Date(w.getTime() + 7 * 86400000)) weeks.push(new Date(w));
+  if (weeks.length > 53) weeks = weeks.slice(weeks.length - 53);
+  weeks.reverse();
+  var dows = ["月", "火", "水", "木", "金"];
+  var kids = [React.createElement("div", { key: "h0" }, "")];
+  dows.forEach(function(dn, i) { kids.push(React.createElement("div", { key: "h" + i, style: { fontSize: 10, color: "#9A3412", fontWeight: 700, textAlign: "center", paddingBottom: 2 } }, dn)); });
+  weeks.forEach(function(mon, wi) {
+    kids.push(React.createElement("div", { key: "wl" + wi, style: { fontSize: 9, color: "#888", fontWeight: 600, textAlign: "right", paddingRight: 4, alignSelf: "center", whiteSpace: "nowrap" } }, (mon.getMonth() + 1) + "/" + mon.getDate()));
+    for (var i = 0; i < 5; i++) {
+      var dd = new Date(mon.getTime() + i * 86400000), dkey = fmt(dd);
+      if (!Object.prototype.hasOwnProperty.call(map, dkey)) { kids.push(React.createElement("div", { key: "c" + wi + "_" + i, style: { borderRadius: 5, minHeight: 28, background: "#faf9f5", border: "1px dashed #eee9e0" } })); continue; }
+      var v = map[dkey] || 0, inten = Math.min(1, Math.abs(v) / maxAbs);
+      var bg = v === 0 ? "#f1efe8" : (v > 0 ? "rgba(192,57,43," : "rgba(30,132,73,") + (0.16 + inten * 0.74).toFixed(2) + ")";
+      var txt = (inten > 0.4 && v !== 0) ? "#fff" : (v > 0 ? "#7F1D1D" : v < 0 ? "#13502D" : "#999");
+      kids.push(React.createElement("div", { key: "c" + wi + "_" + i, title: dkey + " " + (v >= 0 ? "+" : "") + Math.round(v).toLocaleString() + "円",
+        style: { borderRadius: 5, padding: "5px 2px", textAlign: "center", background: bg, color: txt, fontSize: 9, lineHeight: 1.2, minWidth: 0 } },
+        React.createElement("div", { style: { fontWeight: 700 } }, dd.getDate()),
+        React.createElement("div", null, (v >= 0 ? "+" : "") + (Math.round(v / 100) / 10) + "k")));
+    }
   });
-  return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(58px, 1fr))", gap: 5 } }, cells);
+  return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "auto repeat(5, 1fr)", gap: 4 } }, kids);
 }
 // 累積損益（記録順）: EP損益/H1/H2/実現の累積線。寄与は合計行と同一基準（H1=_elHold1TotParts.main・H2=_elHold2TotParts.main）。
 function _elCumPnlSectionV2(props) {
@@ -2853,6 +2870,8 @@ function EntryLogView(_ref_elv2) {
       var _xt = [], _step = Math.max(1, Math.ceil(_chartKeys.length / 6));
       var _per = _chartKeys.map(function(k, i) { var t = _periodTot(_byP[k]), rr = _ratesOf(_byP[k]); if (i % _step === 0 || i === _chartKeys.length - 1) _xt.push({ i: i, label: _labelOf(k) }); return { label: _labelOf(k), value: _mi.get(t), win: rr.win }; });
       var _cum = [], _cs = 0; _per.forEach(function(p) { _cs += p.value; _cum.push(_cs); });
+      var _dayBy = {}; v2recs.forEach(function(r) { (_dayBy[r.date] = _dayBy[r.date] || []).push(r); });
+      var _dayPer = Object.keys(_dayBy).map(function(dk) { var t = _periodTot(_dayBy[dk]); return { date: dk, value: _mi.get(t) }; });
       var _metBtns = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 } },
         [["real", "実現損益"], ["plan", "EP損益"], ["h1", "H1損益"], ["h2", "H2損益"]].map(function(m) {
           var on = chartMet === m[0];
@@ -2864,8 +2883,8 @@ function EntryLogView(_ref_elv2) {
         _secH("📊 損益バー＋勝率（" + _mi.label + "）", "各期間の損益を上下バー（赤=利益/緑=損失）＋勝率を破線(右軸)で重ねる"),
         _elBarChartV2(_per, {}),
         _cumChart ? React.createElement(React.Fragment, null, _secH("📈 累積損益カーブ（" + _mi.label + "）", "右肩上がりなら勝ち越し（資産曲線）"), _cumChart) : null,
-        _secH("🟥 ヒートマップ（" + _mi.label + "）", "色の濃淡で損益。濃い赤=大きい利益／濃い緑=大きい損失"),
-        _elHeatGridV2(_per, {}));
+        _secH("🟥 ヒートマップ（曜日揃え・日別・" + _mi.label + "）", "列＝曜日(月〜金)で縦に揃え、曜日ごとの傾向を見る。色の濃淡で損益（赤=利益/緑=損失）・上が最新週・記録の無い営業日枠は薄い空セル"),
+        _elWeekdayHeatV2(_dayPer, {}));
       var _thP = function(t) { return React.createElement("th", { style: { padding: "5px 5px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
       var _tdP = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
       // 日数: その期間に市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える・当日までで頭打ち）。祝日＝ユーザーが記録した祝日/休場イベント(_buildHolidayDateSet)。2026-06-22d
