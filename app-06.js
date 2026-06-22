@@ -2626,21 +2626,21 @@ function EntryLogView(_ref_elv2) {
               style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, g[1]);
           })),
         _ovPnlTbl(v2recs, gran === "custom" ? "week" : gran)) : null,
-      v2recs.length ? React.createElement(React.Fragment, null,
+      (!_isAllStock && v2recs.length) ? React.createElement(React.Fragment, null,
         _secH("📊 OS値の分析", "初動の強さ＝OS値の中央値・帯別成績とα設定の目安（重視すべきは平均でなく中央値＝α到達確率と直結）"), _elOsSectionV2(v2recs, _ai)) : null,
-      v2recs.length ? React.createElement(React.Fragment, null,
+      (!_isAllStock && v2recs.length) ? React.createElement(React.Fragment, null,
         _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）とEP位置別の成績"), _elEpPosSectionV2(v2recs, _ai)) : null,
       v2recs.length >= 2 ? React.createElement(React.Fragment, null,
         _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: v2recs, aiOf: _ai })) : null,
       v2recs.length >= 2 ? React.createElement(React.Fragment, null,
         _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理）"), _elStreakDDSectionV2(v2recs, _ai)) : null,
-      v2recs.length ? React.createElement(React.Fragment, null,
+      (!_isAllStock && v2recs.length) ? React.createElement(React.Fragment, null,
         _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか"), _elTimeOfDaySectionV2(v2recs, _ai)) : null,
-      v2recs.length ? React.createElement(React.Fragment, null,
+      (!_isAllStock && v2recs.length) ? React.createElement(React.Fragment, null,
         _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益（どの曜日が成功しやすいか）"), _elDowSectionV2(v2recs, _ai)) : null,
-      v2recs.length ? React.createElement(React.Fragment, null,
+      (!_isAllStock && v2recs.length) ? React.createElement(React.Fragment, null,
         _secH("🚫 期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(v2recs, _ai)) : null,
-      v2recs.length ? React.createElement(React.Fragment, null,
+      (!_isAllStock && v2recs.length) ? React.createElement(React.Fragment, null,
         _secH("🔺 期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）"), _elTriangleHoldSectionV2(v2recs, _ai)) : null);
   } else if (view === "alpha") {
     _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
@@ -2871,7 +2871,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setPerExp(null); },
         style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1a1a1a" : "#ddd"), background: _isAllStock ? "#1a1a1a" : "#fff", color: _isAllStock ? "#fff" : "#666" } },
-        "📊 全体 (" + _periodRecs.length + ")"),
+        "💰 損益 (" + _periodRecs.length + ")"),
       _tickerList.length ? _tickerList.map(function(s) {
         var on = _selStock === s;
         return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setPerExp(null); },
@@ -2889,7 +2889,7 @@ function EntryLogView(_ref_elv2) {
             borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り、「全体」で全銘柄を合算します。集計・分析タブはEP起算方式（v2）の記録のみ。旧記録" + (oldCnt > 0 ? "（" + oldCnt + "件）" : "") + "は一覧タブでのみ表示。"),
+    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り、「損益」で全銘柄合算の損益を表示します。集計・分析タブはEP起算方式（v2）の記録のみ。旧記録" + (oldCnt > 0 ? "（" + oldCnt + "件）" : "") + "は一覧タブでのみ表示。"),
     _tabBody,
     editTarget ? React.createElement(EntryRecordForm, { data: data, save: save, initial: (editTarget && editTarget.signal) ? editTarget : null, onClose: function() { setEditTarget(null); } }) : null
   );
