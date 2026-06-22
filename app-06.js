@@ -2008,6 +2008,103 @@ function _elStopOvershootSectionV2(recs, aiOf) {
   return React.createElement("div", null, cards, distTable, listTable, _elInsightBoxV2(items, { note: "対象＝実現結果が「損切り」のEP起算(v2)記録。超過幅＝最高値(水準線比)−(α＋損切り値)。損切り損失＝損切りラインで止めた損益(_epHoldLadder・採用α基準・100株換算)。保有なら＝損切りせず最後の足まで保有した損益(finalPnl)、ベスト＝損切り後の各足で最も良い手仕舞い(maxPnl)。改善額＝保有なら−損切り損失。損益色は赤=利益/緑=損失。" }));
 }
 
+// ===== 損切りの分析（記録帳・銘柄別タブ「🛑損切り」／2026-06-22）=====
+// エントリー成立(E成立=judge"ok")記録の損切りを多角的に分析。recs=対象v2記録・aiOf=α情報・data。
+// ①損切りサマリー ②損切り値(cutLine)別シミュ＝全記録に同じ損切り値を当てた損切り回数/率・EP/H1/H2損益（★=H1損益最大の損切り値＝意思決定表） ③損切りの上振れ・早すぎ検証(_elStopOvershootSectionV2を移設) ④シグナル別の損切り率。
+function _elStopTabSectionV2(recs, aiOf, data) {
+  aiOf = aiOf || function(r) { return _elAlphaInfo(r, data); };
+  var BIG = 99999;
+  var _h = function(t, sub) {
+    return React.createElement("div", { style: { margin: "14px 0 6px" } },
+      React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, t),
+      sub ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginTop: 2 } }, sub) : null);
+  };
+  var _sigOf = function(s) {
+    var tags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+    return tags.length ? tags : ["(未設定)"];
+  };
+  var _isStop = function(s, a, c) { return _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || _elHoldIsStop2(s, a, c); };
+  var rs = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal); });
+  var entered = rs.filter(function(r) { var a = aiOf(r).alpha; if (a == null) return false; var rr = _epResolve(r.signal, a); return !!(rr && rr.judge === "ok"); });
+  if (!entered.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "18px 0", fontSize: 12 } }, "エントリー成立（E成立）のv2記録がありません。損切り分析はエントリーできた記録が対象です。");
+
+  // ① サマリー
+  var ss = _elStopStatsV2(rs, data);
+  var enteredStopN = 0, lossArr = [], savedArr = [];
+  entered.forEach(function(r) {
+    var s = r.signal, a = aiOf(r).alpha, c = aiOf(r).cutLine;
+    if (!_isStop(s, a, c)) return;
+    enteredStopN++;
+    var Lc = _epHoldLadder(s, a, c), Lb = _epHoldLadder(s, a, BIG);
+    if (Lc && Lc.finalPnl != null) { lossArr.push(Lc.finalPnl); if (Lb && Lb.finalPnl != null) savedArr.push(Lb.finalPnl - Lc.finalPnl); }
+  });
+  var stopRate = entered.length ? Math.round(enteredStopN / entered.length * 100) : 0;
+  var lossTotal = lossArr.reduce(function(a, b) { return a + b; }, 0);
+  var stopBreak = [ss.plan ? ("想" + ss.plan) : null, ss.h1 ? ("H1 " + ss.h1) : null, ss.h2 ? ("H2 " + ss.h2) : null].filter(Boolean).join("・") || "内訳なし";
+  var cards = _elv2CardRow([
+    _elv2Card("損切り回数", enteredStopN + "回", enteredStopN > 0 ? "#1E8449" : "#bbb", stopBreak),
+    _elv2Card("損切り率", stopRate + "%", stopRate >= 30 ? "#C0392B" : stopRate >= 15 ? "#B45309" : "#1E8449", "E成立" + entered.length + "件中"),
+    _elv2Card("損切り損失 合計", _elPnlFmt(lossArr.length ? Math.round(lossTotal) : null), _elPnlColor(lossArr.length ? lossTotal : null), lossArr.length + "件"),
+    _elv2Card("平均損切り額", _elPnlFmt(lossArr.length ? Math.round(_elMean(lossArr)) : null), _elPnlColor(lossArr.length ? _elMean(lossArr) : null), "1件あたり")
+  ]);
+
+  // ② 損切り値別シミュ
+  var cuts = [5, 8, 10, 12, 15, 20];
+  var sim = cuts.map(function(C) {
+    var sN = 0;
+    entered.forEach(function(r) { if (_isStop(r.signal, aiOf(r).alpha, C)) sN++; });
+    var t = _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return aiOf(r).alpha; }, cut: function() { return C; }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } });
+    return { cut: C, sN: sN, rate: entered.length ? sN / entered.length : 0, ep: t.plan, h1: t.holdPlanCap, h2: t.hold2 };
+  });
+  var bestI = 0; sim.forEach(function(x, i) { if (x.h1 > sim[bestI].h1) bestI = i; });
+  var simTbl = _elv2Table(["損切り値", "損切り回数", "損切り率", "EP損益", "H1損益", "H2損益"], sim.map(function(x, i) {
+    return React.createElement("tr", { key: x.cut, style: i === bestI ? { background: "#FEF3C7" } : null },
+      _elv2Td(React.createElement("span", null, x.cut + "円", i === bestI ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 800, marginLeft: 4 } }, "★H1最大") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+      _elv2Td(x.sN + "回"),
+      _elv2Td(_elStopRateCell(x.rate)),
+      _elv2Td(React.createElement("span", { style: { color: _elPnlColor(x.ep) } }, _elPnlFmt(Math.round(x.ep)))),
+      _elv2Td(React.createElement("b", { style: { color: _elPnlColor(x.h1) } }, _elPnlFmt(Math.round(x.h1)))),
+      _elv2Td(React.createElement("span", { style: { color: _elPnlColor(x.h2) } }, _elPnlFmt(Math.round(x.h2)))));
+  }));
+
+  // ④ シグナル別 損切り率
+  var sigMap = {};
+  entered.forEach(function(r) {
+    var s = r.signal, a = aiOf(r).alpha, c = aiOf(r).cutLine, stopped = _isStop(s, a, c), loss = null;
+    if (stopped) { var L = _epHoldLadder(s, a, c); if (L && L.finalPnl != null) loss = L.finalPnl; }
+    _sigOf(s).forEach(function(tg) { if (!sigMap[tg]) sigMap[tg] = { tot: 0, stop: 0, loss: [] }; sigMap[tg].tot++; if (stopped) { sigMap[tg].stop++; if (loss != null) sigMap[tg].loss.push(loss); } });
+  });
+  var sigArr = Object.keys(sigMap).map(function(k) { var v = sigMap[k]; return { tag: k, tot: v.tot, stop: v.stop, rate: v.stop / v.tot, lossAvg: _elMean(v.loss) }; }).sort(function(a, b) { return b.rate - a.rate || b.stop - a.stop; });
+  var sigTbl = _elv2Table(["シグナル", "E成立", "損切り", "損切り率", "平均損切り額"], sigArr.map(function(x, i) {
+    return React.createElement("tr", { key: i },
+      _elv2Td(stripCat(x.tag), { textAlign: "left" }),
+      _elv2Td(x.tot + "件"),
+      _elv2Td(x.stop + "件", { color: x.stop > 0 ? "#1E8449" : "#bbb" }),
+      _elv2Td(_elStopRateCell(x.rate)),
+      _elv2Td(x.lossAvg != null ? React.createElement("span", { style: { color: _elPnlColor(x.lossAvg) } }, _elPnlFmt(Math.round(x.lossAvg))) : React.createElement("span", { style: { color: "#ccc" } }, "—")));
+  }));
+
+  // 読み取り
+  var best = sim[bestI], savedTotal = savedArr.reduce(function(a, b) { return a + b; }, 0);
+  var worstSig = sigArr.filter(function(x) { return x.tot >= 2 && x.stop > 0; })[0];
+  var insight = _elInsightBoxV2([
+    React.createElement("span", null, "E成立 ", _elInsightEmV2(entered.length + "件"), " のうち損切り ", _elInsightEmV2(enteredStopN + "件（" + stopRate + "%）"), "・損失合計 ", _elInsightEmV2(_elPnlFmt(Math.round(lossTotal))), "。"),
+    React.createElement("span", null, "損切り値を ", _elInsightEmV2(best.cut + "円"), " にするとH1損益が最大（", _elInsightEmV2(_elPnlFmt(Math.round(best.h1))), "・損切り率 ", _elInsightEmV2(Math.round(best.rate * 100) + "%"), "）。狭め＝損切り増・浅い損失／広め＝損切り減・大きい損失のトレードオフ。"),
+    savedArr.length ? React.createElement("span", null, "損切りした記録を損切りせず保有していたら合計 ", _elInsightEmV2(_elPnlFmt(Math.round(savedTotal)), savedTotal > 0 ? "#B45309" : "#1E8449"), " の差（プラス＝我慢した方が良かった／マイナス＝損切りが正解）。詳細は下の「上振れ」分析。") : null,
+    worstSig ? React.createElement("span", null, "損切り率が高いシグナルは ", _elInsightEmV2("「" + stripCat(worstSig.tag) + "」（" + Math.round(worstSig.rate * 100) + "%・" + worstSig.stop + "/" + worstSig.tot + "件）"), "。") : null
+  ], { note: "対象＝E成立（エントリーできた）v2記録 " + entered.length + "件。損切り＝想定/H1/H2いずれかで損切りライン（高値−α≥損切り値）到達。損切り値別シミュは全記録に同じ損切り値を当てた場合の合計（採用α基準・100株換算・損益色は赤=利益/緑=損失）。" });
+
+  return React.createElement(React.Fragment, null,
+    cards,
+    _h("🎚 損切り値の最適化（損切り値別シミュ）", "全記録に同じ損切り値を当てたときの損切り回数・EP/H1/H2損益。★=H1損益が最大の損切り値。狭いほど損切り増・損失浅／広いほど損切り減・損失大"),
+    simTbl,
+    _h("📐 損切りの上振れ・早すぎ検証", "損切りラインを何円超えて伸びたか＋損切りせず保有/最良手仕舞いなら何円だったか＝損切りが早すぎないかの検証"),
+    _elStopOvershootSectionV2(rs, aiOf),
+    _h("🎯 シグナル別 損切り率", "どのシグナルが損切りになりやすいか（損切り率の高い順・平均損切り額）。複数タグは各タグに算入"),
+    sigTbl,
+    insight);
+}
+
 // 最適ホールド本数（記録帳・深掘りタブ／2026-06-14）: EPから+0/+1/+2本…と持ち続けた場合の深さ別の平均損益・損切り率・EP比改善率を集計し、
 // 全期間で最も期待値の高い手仕舞い本数を示す。_epHoldLadder（E成立分のみ・採用α/損切り基準）を深さ別に転置集計。aiOf(r)→{alpha,cutLine}。
 function _elHoldDepthSectionV2(recs, aiOf) {
@@ -2479,7 +2576,7 @@ function EntryLogView(_ref_elv2) {
   var _uPE = useState(null), perExp = _uPE[0], setPerExp = _uPE[1];
   var _uOvE = useState(null), ovExp = _uOvE[0], setOvExp = _uOvE[1];   // 損益タブ「損益（期間別）」表の期間行展開（取引記録）2026-06-22d
   var _uChM = useState("h1"), chartMet = _uChM[0], setChartMet = _uChM[1];   // 期間ビューのグラフ指標（実現/EP/H1/H2）2026-06-22d
-  var _uSM = useState("all"), sumMode = _uSM[0], setSumMode = _uSM[1];   // 銘柄別 集計タブの今月/全期間トグル（既定=全期間）2026-06-22
+  var _uSM = useState("month"), sumMode = _uSM[0], setSumMode = _uSM[1];   // 銘柄別 集計タブの今月/全期間トグル（既定=今月）2026-06-22
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -2513,7 +2610,7 @@ function EntryLogView(_ref_elv2) {
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"]]
-    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["miss", "❌ 未達"], ["appear", "📡 出現"], ["list", "🗂 一覧"]];
+    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["miss", "❌ 未達"], ["appear", "📡 出現"], ["list", "🗂 一覧"]];
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub) {
@@ -2934,6 +3031,11 @@ function EntryLogView(_ref_elv2) {
         _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)
     ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
+  } else if (view === "stop") {
+    _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
+      _secH("🛑 損切りの分析", "エントリーできた記録の損切りを多角的に分析。損切り値の最適化（損切り値別シミュ）・上振れ（早すぎ検証）・シグナル別の損切り率"),
+      _elStopTabSectionV2(v2recs, _ai, data))
+      : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
   } else if (view === "date") {
     _tabBody = (function() {
       var byDate = {}; v2recs.forEach(function(r) { (byDate[r.date] = byDate[r.date] || []).push(r); });
@@ -3111,7 +3213,6 @@ function EntryLogView(_ref_elv2) {
     })();
   } else if (view === "deep") {
     _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
-      _secH("🛑 損切りの上振れ・損切り値シミュ", "損切りになった記録が損切りラインを何円超えて伸びたか＋損切りせず保有/最良手仕舞いなら何円だったか"), _elStopOvershootSectionV2(v2recs, _ai),
       _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・損切り率・EP比改善率）"), _elHoldDepthSectionV2(v2recs, _ai),
       _secH("🎯 期待度キャリブレーション", "事前のH期待が実結果とどれだけ一致したか（予想は当たっているか過信か）"), _elExpCalibSectionV2(v2recs, _ai),
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）"), _elExecGapSectionV2(v2recs, _ai),
