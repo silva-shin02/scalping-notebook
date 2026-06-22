@@ -3006,7 +3006,7 @@ function EntryLogView(_ref_elv2) {
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
-      [["sum", "📊 集計"], ["alpha", "📐 α値"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["appear", "📡 出現"], ["list", "🗂 一覧"]].map(function(kv) {
+      [["sum", "📊 集計"], ["period", "📆 期間"]].map(function(kv) {
         var on = view === kv[0];
         var cnt = kv[0] === "list" ? filtered.length : (kv[0] === "date" ? v2recs.length : null);
         return React.createElement("button", { key: kv[0],
@@ -3015,7 +3015,7 @@ function EntryLogView(_ref_elv2) {
             borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り、「損益」で全銘柄合算の損益を表示します。集計・分析タブはEP起算方式（v2）の記録のみ。旧記録" + (oldCnt > 0 ? "（" + oldCnt + "件）" : "") + "は一覧タブでのみ表示。"),
+    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り、「損益」で全銘柄合算の損益を表示します。集計・期間タブはEP起算方式（v2）の記録のみ。"),
     _tabBody,
     editTarget ? React.createElement(EntryRecordForm, { data: data, save: save, initial: (editTarget && editTarget.signal) ? editTarget : null, onClose: function() { setEditTarget(null); } }) : null
   );
