@@ -2508,6 +2508,10 @@ function EntryLogView(_ref_elv2) {
   var oldCnt = filtered.filter(function(r) { return !_epIsV2(r.signal); }).length;
   // 未達タブのバッジ件数（銘柄スコープのv2記録のうち judge==="miss"＝3本以内にα未到達）。全銘柄合算では未達タブ非表示。2026-06-22
   var _missCnt = _isAllStock ? 0 : v2recs.filter(function(r) { var a = _ai(r).alpha; if (a == null || a === "") return false; var rr = _epResolve(r.signal, a); return !!(rr && rr.judge === "miss"); }).length;
+  // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
+  var _tabs = _isAllStock
+    ? [["sum", "📊 集計"], ["period", "📆 期間"]]
+    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["miss", "❌ 未達"], ["appear", "📡 出現"], ["list", "🗂 一覧"]];
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub) {
@@ -3147,7 +3151,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
         [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setPerExp(null); if (view === "miss") setView("sum"); },
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setPerExp(null); if (view !== "sum" && view !== "period") setView("sum"); },
         style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1a1a1a" : "#ddd"), background: _isAllStock ? "#1a1a1a" : "#fff", color: _isAllStock ? "#fff" : "#666" } },
         "💰 損益 (" + _periodRecs.length + ")"),
@@ -3159,7 +3163,7 @@ function EntryLogView(_ref_elv2) {
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
-      [["sum", "📊 集計"], ["period", "📆 期間"]].concat(_isAllStock ? [] : [["miss", "❌ 未達"]]).map(function(kv) {
+      _tabs.map(function(kv) {
         var on = view === kv[0];
         var cnt = kv[0] === "list" ? filtered.length : (kv[0] === "date" ? v2recs.length : (kv[0] === "miss" ? _missCnt : null));
         return React.createElement("button", { key: kv[0],
@@ -3168,7 +3172,7 @@ function EntryLogView(_ref_elv2) {
             borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り、「損益」で全銘柄合算の損益を表示します。集計・期間タブはEP起算方式（v2）の記録のみ。"),
+    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り（全分析タブを表示）、「損益」では全銘柄合算の損益（集計・期間のみ）を表示します。集計・分析タブはEP起算方式（v2）の記録のみ。旧記録" + (oldCnt > 0 ? "（" + oldCnt + "件）" : "") + "は銘柄選択時の一覧タブで表示。"),
     _tabBody,
     editTarget ? React.createElement(EntryRecordForm, { data: data, save: save, initial: (editTarget && editTarget.signal) ? editTarget : null, onClose: function() { setEditTarget(null); } }) : null
   );
