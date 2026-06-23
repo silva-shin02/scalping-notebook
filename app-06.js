@@ -622,7 +622,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
   var noTime = mk(), total = mk(), _hasNoTime = false;
   var _acc = function(o, s, a, c) {
     o.cnt++;
-    if (s.osVal != null && s.osVal !== "") o.osv.push(Number(s.osVal));
+    var _ov = _elOsMaxAll(s); if (_ov != null) o.osv.push(_ov);
     if (_epReachedAt(s, a)) o.reach++;
     if (_epIsXSkip(s, a)) { o.x++; return; }
     var res = _elDynResult(s, a, c);
@@ -2416,7 +2416,7 @@ function _elDowSectionV2(recs, aiOf) {
   var wknd = mk(), total = mk(), _hasWknd = false;
   var _acc = function(o, s, a, c) {
     o.cnt++;
-    if (s.osVal != null && s.osVal !== "") o.osv.push(Number(s.osVal));
+    var _ov = _elOsMaxAll(s); if (_ov != null) o.osv.push(_ov);
     if (_epReachedAt(s, a)) o.reach++;
     if (_epIsXSkip(s, a)) { o.x++; return; }
     var res = _elDynResult(s, a, c);
@@ -3020,7 +3020,7 @@ function EntryLogView(_ref_elv2) {
       cut: function(r) { return _ai(r).cutLine; },
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
-    var os = _elOsStatsV2(recs), ss = _elStopStatsV2(recs, data), best = _elBestAlphaV2(recs, data), pcg = _elOsPctlV2(recs);
+    var os = _elOsStatsV2(recs, _elOsMaxAll), ss = _elStopStatsV2(recs, data), best = _elBestAlphaV2(recs, data), pcg = _elOsPctlV2(recs, _elOsMaxAll);
     var ok = 0, x = 0, miss = 0;
     recs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
     var _baTxt = best ? [best.h1 ? ("H1 " + best.h1.a + "円") : null, best.h2 ? ("H2 " + best.h2.a + "円") : null].filter(Boolean).join(" / ") : "—";
@@ -3037,7 +3037,7 @@ function EntryLogView(_ref_elv2) {
       os ? React.createElement("div", { style: { display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "10px 12px", marginBottom: 4 } },
         _elOsPieV2(os.dist, 100),
         React.createElement("div", { style: { flex: "1 1 220px" } },
-          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 5 } }, "OS値分布"),
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 5 } }, "OS値分布（OS1〜3最高）"),
           React.createElement("div", { style: { display: "flex", gap: "4px 16px", flexWrap: "wrap", fontSize: 12, color: "#555", marginBottom: 7, alignItems: "baseline" } },
             React.createElement("span", null, "中央 ", React.createElement("b", { style: { color: "#9A3412", fontSize: 15 } }, os.med + "円"), (pcg && pcg.skewRight) ? React.createElement("span", { title: "平均が大きいOS値に上振れ。典型値は中央値で読むのが安全。", style: { display: "inline-block", fontSize: 8, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 3, padding: "0 4px", marginLeft: 4 } }, "右偏") : null),
             React.createElement("span", null, "平均 ", React.createElement("b", null, os.avg + "円")),
