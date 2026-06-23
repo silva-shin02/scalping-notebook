@@ -324,11 +324,13 @@ function _elOsLegsSectionV2(_ref) {
 }
 
 // records配列のOS値統計（平均/中央値/最頻値/最小/最大/帯別分布dist[5]）。OS値入力なしならnull。
-function _elOsStatsV2(recs) {
+// osOf(s)=各記録のOS値の取り方（既定=OS1単独 s.osVal）。OS総合分析は_elOsMaxAll（OS1〜3最高値）を渡して統一。
+function _elOsStatsV2(recs, osOf) {
+  var _os = osOf || function(s) { return (s && s.osVal != null && s.osVal !== "") ? Number(s.osVal) : null; };
   var vals = [];
   (recs || []).forEach(function(r) {
     var s = r && r.signal ? r.signal : r;
-    if (s && s.osVal != null && s.osVal !== "") { var n = Number(s.osVal); if (!isNaN(n)) vals.push(n); }
+    var n = _os(s); if (n != null && !isNaN(n)) vals.push(n);
   });
   if (!vals.length) return null;
   var sorted = vals.slice().sort(function(a, b) { return a - b; });
@@ -1647,11 +1649,12 @@ function _elEwinCell(ok, ng, draw) {
 // OS値の分位点・歪み・到達率別α（右偏分布対応 2026-06-14）。
 // p25/p50(中央値)/p75=昇順分位（線形補間）。aFor(p)=約p割が到達するα＝上側p割の下限=(1-p)分位を整数円に切り捨て。
 // skewRight=平均-中央値が中央値の15%（最低1円）超で右偏。bandMode=最頻の帯。OS値入力なしならnull。
-function _elOsPctlV2(recs) {
+function _elOsPctlV2(recs, osOf) {
+  var _os = osOf || function(s) { return (s && s.osVal != null && s.osVal !== "") ? Number(s.osVal) : null; };
   var vals = [];
   (recs || []).forEach(function(r) {
     var s = r && r.signal ? r.signal : r;
-    if (s && s.osVal != null && s.osVal !== "") { var n = Number(s.osVal); if (!isNaN(n)) vals.push(n); }
+    var n = _os(s); if (n != null && !isNaN(n)) vals.push(n);
   });
   if (!vals.length) return null;
   vals.sort(function(a, b) { return a - b; });
@@ -1675,7 +1678,7 @@ function _elOsPctlV2(recs) {
 }
 
 // OS値帯別の成績テーブル（帯⇄1円刻み切替・2026-06-15）。集計タブ「OS値の分析」内。aiOf(r)→{alpha,cutLine}。
-// 集計は_elOsSectionV2の帯別集計と共通ルール（採用α・E成立分のみ）で値一致。each=OS1値を1円刻みで分割（OS1高値は0以上）。
+// 集計は_elOsSectionV2の帯別集計と共通ルール（採用α・E成立分のみ）で値一致。each=OS値(OS1〜3最高値)を1円刻みで分割（0以上）。
 function _elOsBandPerfV2(_ref) {
   var recs = _ref.recs || [];
   var aiOf = _ref.aiOf;
@@ -1683,10 +1686,10 @@ function _elOsBandPerfV2(_ref) {
   var mk = function() { return { cnt: 0, reach: 0, ok: 0, ng: 0, draw: 0, miss: 0, plan: 0, planCnt: 0, planArr: [], h1: 0, h1Cnt: 0, h1Arr: [], stop: 0, soft: 0 }; };
   var buckets = {};
   recs.forEach(function(r) {
-    var s = r.signal; if (!s || s.osVal == null || s.osVal === "") return;
+    var s = r.signal; if (!s) return; var _ov = _elOsMaxAll(s); if (_ov == null) return;
     var key;
-    if (gran === "each") { var nv = Number(s.osVal); if (isNaN(nv) || nv < 0) return; key = Math.round(nv); }
-    else { key = _elOsBandIdxV2(s.osVal); if (key == null) return; }
+    if (gran === "each") { var nv = Number(_ov); if (isNaN(nv) || nv < 0) return; key = Math.round(nv); }
+    else { key = _elOsBandIdxV2(_ov); if (key == null) return; }
     var ai = aiOf(r); var o = buckets[key] || (buckets[key] = mk()); o.cnt++;
     if (_epReachedAt(s, ai.alpha)) o.reach++;
     var rr = _epResolve(s, ai.alpha);
@@ -1719,15 +1722,16 @@ function _elOsBandPerfV2(_ref) {
   });
   return React.createElement("div", null,
     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, margin: "8px 0 0", flexWrap: "wrap" } },
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, gran === "each" ? "OS値（1円刻み）別の成績" : "OS値帯（初動の強さ）別の成績"),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, gran === "each" ? "OS値（1円刻み）別の成績" : "OS値帯（OS1〜3最高到達）別の成績"),
       _elGranToggle(gran, setGran)),
-    bRows.length ? _elv2Table([gran === "each" ? "OS1値" : "OS1帯", "件数", "E到達率", "E後の勝率", "EP損益", "H1損益", "見切り率", "損切り率"], bRows)
+    bRows.length ? _elv2Table([gran === "each" ? "OS値" : "OS帯", "件数", "E到達率", "E後の勝率", "EP損益", "H1損益", "見切り率", "損切り率"], bRows)
       : React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "OS値の記録がありません"));
 }
 // OS値の総合分析（記録帳・集計タブ／2026-06-14）: 中央値主軸の統計＋右偏バッジ＋成立率→α分位表＋OS値帯別の成績。
+// 2026-06-23: OS値=OS1〜3最高値(_elOsMaxAll)基準へ統一＝α目安(到達確率)の整合性向上・選択バイアス回避。DayViewの銘柄別OS1値分析(寄り付き専用)はOS1のまま。
 // 「重視すべきは平均でなく中央値（α到達確率と直結）」という方針をUIに落とし込む。aiOf(r)→{alpha,cutLine}。
 function _elOsSectionV2(recs, aiOf) {
-  var os = _elOsStatsV2(recs), pc = _elOsPctlV2(recs);
+  var os = _elOsStatsV2(recs, _elOsMaxAll), pc = _elOsPctlV2(recs, _elOsMaxAll);
   if (!os || !pc) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "OS値の記録がありません");
   var skewBadge = pc.skewRight ? React.createElement("span", { title: "平均が一部の大きいOS値に引っ張られています。典型値は中央値で読むのが安全です。", style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 4, padding: "1px 6px", marginLeft: 6 } }, "右偏") : null;
   var statLine = React.createElement("div", { style: { display: "flex", gap: "6px 18px", flexWrap: "wrap", alignItems: "baseline", marginBottom: 6 } },
@@ -1749,7 +1753,7 @@ function _elOsSectionV2(recs, aiOf) {
   var mk = function() { return { cnt: 0, reach: 0, ok: 0, ng: 0, miss: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, stop: 0 }; };
   var bands = {};
   (recs || []).forEach(function(r) {
-    var s = r.signal; if (s.osVal == null || s.osVal === "") return; var bi = _elOsBandIdxV2(s.osVal); if (bi == null) return;
+    var s = r.signal; var _ov = _elOsMaxAll(s); if (_ov == null) return; var bi = _elOsBandIdxV2(_ov); if (bi == null) return;
     var ai = aiOf(r); var o = bands[bi] || (bands[bi] = mk()); o.cnt++;
     if (_epReachedAt(s, ai.alpha)) o.reach++;
     var rr = _epResolve(s, ai.alpha);
@@ -1763,10 +1767,10 @@ function _elOsSectionV2(recs, aiOf) {
   // 帯別成績テーブルは帯⇄1円刻みトグル付きの子コンポーネントへ（集計ロジックは上のbandsと共通ルール）。
   var bTable = React.createElement(_elOsBandPerfV2, { recs: recs, aiOf: aiOf });
   var items = [];
-  items.push(React.createElement("span", null, "OS値（初動）は", _elInsightEmV2(_EL_OS_BANDS_V2[pc.bandMode.i].label + "帯", _EL_OS_BANDS_V2[pc.bandMode.i].color), "が最多（" + pc.bandMode.pct + "%）。典型値＝", _elInsightEmV2("中央値 " + os.med + "円"), pc.skewRight ? React.createElement("span", null, "（平均 " + os.avg + "円は一部の大きいOSに上振れ＝", _elInsightEmV2("中央値で読むのが安全", "#B45309"), "）") : null, "。"));
+  items.push(React.createElement("span", null, "OS値（OS1〜3最高）は", _elInsightEmV2(_EL_OS_BANDS_V2[pc.bandMode.i].label + "帯", _EL_OS_BANDS_V2[pc.bandMode.i].color), "が最多（" + pc.bandMode.pct + "%）。典型値＝", _elInsightEmV2("中央値 " + os.med + "円"), pc.skewRight ? React.createElement("span", null, "（平均 " + os.avg + "円は一部の大きいOSに上振れ＝", _elInsightEmV2("中央値で読むのが安全", "#B45309"), "）") : null, "。"));
   items.push(React.createElement("span", null, "α設定の目安：", _elInsightEmV2("α" + pc.a50 + "円", "#0369A1"), "で約半数、", _elInsightEmV2("α" + pc.a70 + "円", "#0369A1"), "で約7割、", _elInsightEmV2("α" + pc.a80 + "円", "#0369A1"), "で約8割の場面でα到達。深いαほど取れた時は大きいが見送りも増える。"));
   var bw = null; for (var k = 0; k < 5; k++) { var o2 = bands[k]; if (o2 && (o2.ok + o2.ng) && (bw == null || o2.ok / (o2.ok + o2.ng) > bw.v)) bw = { v: o2.ok / (o2.ok + o2.ng), k: k }; }
-  if (bw) items.push(React.createElement("span", null, "勝率が最も高い初動帯は", _elInsightEmV2(_EL_OS_BANDS_V2[bw.k].label + "帯", _EL_OS_BANDS_V2[bw.k].color), "（", _elInsightEmV2(Math.round(bw.v * 100) + "%"), "）。"));
+  if (bw) items.push(React.createElement("span", null, "勝率が最も高いOS帯は", _elInsightEmV2(_EL_OS_BANDS_V2[bw.k].label + "帯", _EL_OS_BANDS_V2[bw.k].color), "（", _elInsightEmV2(Math.round(bw.v * 100) + "%"), "）。"));
   return React.createElement("div", null, statLine, pieRow, aTable, bTable, _elInsightBoxV2(items, { note: "中央値=ちょうど半数がそれ以上のOSになる値（α到達確率と直結＝α設定はこちらが目安）。平均は合計・期待値の計算向き。最頻帯=最も多く出る5円帯。E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）。成績は採用α基準・E成立分のみ。" }));
 }
 
@@ -1885,7 +1889,7 @@ function _elDayStockBenchV2(_ref) {
   var table = _elv2Table(["指標", "本日", "今週", "今月", "全期間"], rows);
   var items = [];
   if (P.day && P.day.osMed != null && P.all.osMed != null) {
-    items.push(React.createElement("span", null, "本日のOS中央値は", _elInsightEmV2(P.day.osMed + "円"), "（全期間", _elInsightEmV2(P.all.osMed + "円"), "）＝", _elInsightEmV2(P.day.osMed > P.all.osMed ? "初動が強め" : P.day.osMed < P.all.osMed ? "初動が弱め" : "同程度", P.day.osMed > P.all.osMed ? "#C0392B" : P.day.osMed < P.all.osMed ? "#1E8449" : "#888"), "。"));
+    items.push(React.createElement("span", null, "本日のOS中央値は", _elInsightEmV2(P.day.osMed + "円"), "（全期間", _elInsightEmV2(P.all.osMed + "円"), "）＝", _elInsightEmV2(P.day.osMed > P.all.osMed ? "OS最高到達が高め" : P.day.osMed < P.all.osMed ? "OS最高到達が低め" : "同程度", P.day.osMed > P.all.osMed ? "#C0392B" : P.day.osMed < P.all.osMed ? "#1E8449" : "#888"), "。"));
   }
   if (P.day && P.day.baseAlpha != null && P.all.baseAlpha != null) {
     items.push(React.createElement("span", null, "推奨基本αは 本日", _elInsightEmV2(P.day.baseAlpha + "円"), (P.mo && P.mo.baseAlpha != null ? React.createElement("span", null, "／今月", _elInsightEmV2(P.mo.baseAlpha + "円")) : null), "／全期間", _elInsightEmV2(P.all.baseAlpha + "円"), "。"));
@@ -1897,7 +1901,7 @@ function _elDayStockBenchV2(_ref) {
   }
   var insight = items.length ? _elInsightBoxV2(items, { note: "本日列の↑↓は全期間比（↑赤=良い方向／↓緑=悪い方向・推奨基本αは▲▼で高低のみ）。OS=中央値・損益=平均（計＝合計・E成立分）・採用α基準。件数 本日" + (P.day ? P.day.n : 0) + "／今週" + (P.wk ? P.wk.n : 0) + "／今月" + (P.mo ? P.mo.n : 0) + "／全期間" + P.all.n + "件。" }) : null;
   var idealB = _elIdealAlphaV2(recsAll, function(r) { return aiOf(r).cutLine; });
-  var pctlB = _elOsPctlV2(recsAll);
+  var pctlB = _elOsPctlV2(recsAll, _elOsMaxAll);
   var _aPill = function(v) { return v == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, v + "円"); };
   var deepBlock = React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid #eee" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "理想α・到達率別α（全期間）"),
