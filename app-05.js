@@ -3126,7 +3126,7 @@ function _elAddAlphaUsed(s) {
   if (s.addAlphaUsed === false) return false;
   return s.addAlphaVal != null && s.addAlphaVal !== "" && Number(s.addAlphaVal) > 0;
 }
-// 追加α〇の「根拠（理由）」選択肢の既定。data.custom.addAlphaReasons でユーザーが追加/削除可（未設定時はこの既定を表示）2026-06-22。
+// 追加α〇の「根拠（理由）」選択肢の既定。data.custom.addAlphaReasons でユーザーが追加/削除/改名可（改名は過去記録の根拠名も追従・未設定時はこの既定を表示）2026-06-22→改名2026-06-23。
 var _DEF_ADD_REASONS = ["指標線支え", "底抜け前足浮き"];
 
 // ===== 不算入(計算・データ算入オフ=includeInTotal===false)の可視化ヘルパー 2026-06-18 =====
@@ -6318,6 +6318,38 @@ function EntryRecordForm(_ref_erf) {
           });
           if (fAddReasons.indexOf(nm) >= 0) setFAddReasons(fAddReasons.filter(function(x) { return x !== nm; }));
         };
+        // 根拠選択肢の改名: マスター(addAlphaReasons)の名前を変更し、過去記録(全charts.signalsのaddAlphaReasons[]・旧addAlphaReason文字列)も一括追従。2026-06-23。
+        var _renameR = function(oldNm, newNm) {
+          newNm = (newNm || "").trim();
+          if (!newNm || newNm === oldNm) return;
+          save(function(prev) {
+            var cur = (prev.custom && Array.isArray(prev.custom.addAlphaReasons)) ? prev.custom.addAlphaReasons : _DEF_ADD_REASONS.slice();
+            if (cur.indexOf(newNm) >= 0) return prev;  // 同名が既にある場合は何もしない
+            var newMaster = cur.map(function(x) { return x === oldNm ? newNm : x; });
+            var charts = prev.charts || {}, newCharts = {};
+            Object.keys(charts).forEach(function(ck) {
+              var c = charts[ck];
+              if (!c || !Array.isArray(c.signals)) { newCharts[ck] = c; return; }
+              var changed = false;
+              var sigs = c.signals.map(function(s) {
+                if (!s) return s;
+                var ns = s, hit = false;
+                if (Array.isArray(s.addAlphaReasons) && s.addAlphaReasons.indexOf(oldNm) >= 0) {
+                  ns = Object.assign({}, ns, { addAlphaReasons: s.addAlphaReasons.map(function(x) { return x === oldNm ? newNm : x; }) }); hit = true;
+                }
+                if (s.addAlphaReason === oldNm) { ns = Object.assign({}, ns, { addAlphaReason: newNm }); hit = true; }
+                if (hit) changed = true;
+                return ns;
+              });
+              newCharts[ck] = changed ? Object.assign({}, c, { signals: sigs }) : c;
+            });
+            return Object.assign({}, prev, {
+              custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: newMaster }),
+              charts: newCharts
+            });
+          });
+          if (fAddReasons.indexOf(oldNm) >= 0) setFAddReasons(fAddReasons.map(function(x) { return x === oldNm ? newNm : x; }));
+        };
         var _optBtn = function(label, sel, onClick, color) {
           return React.createElement("button", { type: "button", onClick: onClick,
             style: { padding: "3px 9px", fontSize: 11, fontWeight: sel ? 800 : 600, border: sel ? ("2px solid " + color) : "1px solid #ddd", background: sel ? "#FFF7ED" : "#fff", color: sel ? color : "#666", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } }, label);
@@ -6329,11 +6361,14 @@ function EntryRecordForm(_ref_erf) {
               var on = fAddReasons.indexOf(rsn) >= 0;
               return React.createElement("span", { key: rsn, style: { display: "inline-flex", alignItems: "center", gap: 1 } },
                 _optBtn(rsn, on, function() { setFAddReasons(on ? fAddReasons.filter(function(x) { return x !== rsn; }) : fAddReasons.concat([rsn])); }, "#9A3412"),
-                fReasonMgr ? React.createElement("button", { type: "button", title: "この選択肢を削除", onClick: function() { _delR(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×") : null);
+                fReasonMgr ? React.createElement(React.Fragment, null,
+                  React.createElement("button", { type: "button", title: "この選択肢の名前を変更", onClick: function() { var nm = window.prompt("選択肢の新しい名前を入力してください", rsn); if (nm != null) _renameR(rsn, nm); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "✎"),
+                  React.createElement("button", { type: "button", title: "この選択肢を削除", onClick: function() { _delR(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×")
+                ) : null);
             }),
             _optBtn("その他", fOtherOn, function() { setFOtherOn(!fOtherOn); }, "#0369A1"),
             React.createElement("button", { type: "button", title: "根拠の選択肢を追加（その場で入力）", onClick: function() { var nm = window.prompt("新しい根拠の選択肢を入力してください"); if (nm != null) _addR(nm); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid #ddd", background: "#fff", color: "#0369A1", borderRadius: 5, cursor: "pointer" } }, "＋ 追加"),
-            React.createElement("button", { type: "button", title: "選択肢の削除モード", onClick: function() { setFReasonMgr(!fReasonMgr); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid " + (fReasonMgr ? "#B91C1C" : "#ddd"), background: fReasonMgr ? "#FEF2F2" : "#fff", color: fReasonMgr ? "#B91C1C" : "#888", borderRadius: 5, cursor: "pointer" } }, fReasonMgr ? "完了" : "✎ 編集")
+            React.createElement("button", { type: "button", title: "選択肢の名前変更・削除モード（✎で改名・×で削除）", onClick: function() { setFReasonMgr(!fReasonMgr); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid " + (fReasonMgr ? "#B91C1C" : "#ddd"), background: fReasonMgr ? "#FEF2F2" : "#fff", color: fReasonMgr ? "#B91C1C" : "#888", borderRadius: 5, cursor: "pointer" } }, fReasonMgr ? "完了" : "✎ 編集")
           ),
           fOtherOn ? React.createElement(FastInput, { value: fAddReasonOther, onChange: function(v) { setFAddReasonOther(v); }, placeholder: "その他の理由を入力（複数は / で区切り）", style: { padding: "4px 8px", fontSize: 12, border: "1px solid #cbd5e1", borderRadius: 5, outline: "none", width: "100%", maxWidth: 280, boxSizing: "border-box" } }) : null
         );
