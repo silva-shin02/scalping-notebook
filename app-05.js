@@ -3118,13 +3118,15 @@ function _elIsEntered(s, item) {
 function _elInclTotal(s) { return !s || s.includeInTotal !== false; }
 // recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
-// 追加α値が「必要だった（〇）」記録か。signal.addAlphaUsed(true/false)を優先・未設定の旧記録は addAlphaVal>0 を〇とみなす（後方互換）。
-// 推奨基本αの母数からはこの〇記録を除外（追っかけ等の変則局面で基本αの評価が歪むため）／推奨追加αはこの〇記録だけを母数にする 2026-06-22。
-function _elAddAlphaUsed(s) {
-  if (!s) return false;
-  if (s.addAlphaUsed === true) return true;
-  if (s.addAlphaUsed === false) return false;
-  return s.addAlphaVal != null && s.addAlphaVal !== "" && Number(s.addAlphaVal) > 0;
+// 追加α値の3状態判定（2026-06-24）: 〇=必要と明示(addAlphaUsed===true)／×=不要と明示(===false)／未選択=未判断(それ以外=null)。
+// 推奨基本αの母数=「×明示」のみ・推奨追加αの母数=「〇明示」のみ・未選択(旧記録の暗黙値も含む)は両方の母数から除外＝確信を持って判断した記録だけが推奨値を動かす。
+function _elAddAlphaYes(s) { return !!s && s.addAlphaUsed === true; }
+function _elAddAlphaNo(s) { return !!s && s.addAlphaUsed === false; }
+function _elAddAlphaUnset(s) { return !s || (s.addAlphaUsed !== true && s.addAlphaUsed !== false); }
+// 追加α値が未選択の記録に付ける小バッジ（基本α・追加αの推奨母数から外れていることを明示）2026-06-24。
+function _addAlphaUnsetBadge(s) {
+  if (!_elAddAlphaUnset(s)) return null;
+  return React.createElement("span", { title: "追加α値が未選択（〇要/×不要を未判断）＝基本α・追加αの推奨母数から除外。記録を開いて〇/×を選ぶと母数に入ります。", style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: "#F1F5F9", color: "#64748B", borderRadius: 4, border: "1px dashed #CBD5E1", whiteSpace: "nowrap" } }, "追加α未選択");
 }
 // 追加α〇の「根拠（理由）」選択肢の既定。data.custom.addAlphaReasons でユーザーが追加/削除/改名可（改名は過去記録の根拠名も追従・未設定時はこの既定を表示）2026-06-22→改名2026-06-23。
 var _DEF_ADD_REASONS = ["指標線支え", "底抜け前足浮き"];
@@ -5336,9 +5338,9 @@ function EntryRecordForm(_ref_erf) {
   var _useStateADA = useState(initSig.addAlphaVal != null ? String(initSig.addAlphaVal) : ""),
     _useStateADAA = _slicedToArray(_useStateADA, 2),
     fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
-  // 追加α 使用フラグ（〇=必要だった→数値入力／×=不要＝基本αのみ）2026-06-22。signal.addAlphaUsedに保存。
-  // 旧記録は addAlphaVal>0 を〇・それ以外を×として初期化（新規は×＝既定）。推奨基本αの母数除外/推奨追加αの母数に使う。
-  var _initAddUsed = (initSig.addAlphaUsed === true) ? "○" : (initSig.addAlphaUsed === false) ? "×" : ((initSig.addAlphaVal != null && initSig.addAlphaVal !== "" && Number(initSig.addAlphaVal) > 0) ? "○" : "×");
+  // 追加α 使用フラグ（3状態 2026-06-24）: 〇=必要だった→数値入力／×=不要＝基本αのみ／未選択=未判断。signal.addAlphaUsed(true/false/null)に保存。
+  // 初期化: addAlphaUsed===true→〇・===false→×・それ以外(新規/旧記録)→未選択（既定）。推奨基本αの母数=×のみ・推奨追加αの母数=〇のみ・未選択は両方から除外。
+  var _initAddUsed = (initSig.addAlphaUsed === true) ? "○" : (initSig.addAlphaUsed === false) ? "×" : "未選択";
   var _useStateAAU = useState(_initAddUsed),
     _useStateAAUA = _slicedToArray(_useStateAAU, 2),
     fAddAlphaUsed = _useStateAAUA[0], setFAddAlphaUsed = _useStateAAUA[1];
@@ -6289,13 +6291,13 @@ function EntryRecordForm(_ref_erf) {
         },
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "追加α値"),
           React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
-            [["○", "要", "#C0392B", "#FCEBEB"], ["×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
+            [["○", "○", "要", "#C0392B", "#FCEBEB"], ["×", "×", "不要", "#1E8449", "#EAF3DE"], ["未選択", "未", "未定", "#64748B", "#F1F5F9"]].map(function(kv) {
               var on = fAddAlphaUsed === kv[0];
               return React.createElement("button", { key: kv[0], type: "button",
                 onClick: function() { setFAddAlphaUsed(kv[0]); if (kv[0] === "○" && fAddAlpha === "") setFAddAlpha("5"); },
-                title: kv[0] === "○" ? "追加αが必要だった（数値を入力）" : "追加αは不要＝基本αのみ",
-                style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[2]) : "1px solid #ddd", background: on ? kv[3] : "#fff", color: on ? kv[2] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
-                kv[0], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[1]));
+                title: kv[0] === "○" ? "追加αが必要だった（数値を入力）" : kv[0] === "×" ? "追加αは不要＝基本αのみ（基本αの推奨母数に算入）" : "未判断＝基本α・追加αの推奨母数から除外",
+                style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
+                kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
             })
           ),
           _addOn ? React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FDE68A", borderRadius: 4, overflow: "hidden" } },
@@ -7152,6 +7154,7 @@ function EntryLogCard(_ref_elc) {
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" } }, _fmtDow(record.date)),
       _elIsExcluded(s) ? _elNotInclBadge() : null,
+      _addAlphaUnsetBadge(s),
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock)
     ),

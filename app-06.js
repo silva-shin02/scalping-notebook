@@ -1236,8 +1236,8 @@ function _elBaseAlphaEval(recs, aiOf, a) {
 // 返り値 { alpha, score, stopRate, h1win, eRate, entered, scN, pnl, epPnl, stopN, ewin, status('ok'|'na'|'none'), sweep, minN(=採用した件数フロア) }。
 function _elBaseAlphaPick(recs, aiOf) {
   if (!recs || !recs.length) return null;
-  // 推奨基本αの母数: 追加α(〇)記録を除外（追っかけ等の変則局面で基本αの評価が歪むため）2026-06-22。
-  recs = recs.filter(function(r) { return r && !_elAddAlphaUsed(r.signal); });
+  // 推奨基本αの母数: 追加α=×(不要)を明示した記録だけ（〇=変則局面・未選択=未判断は除外）2026-06-24。
+  recs = recs.filter(function(r) { return r && _elAddAlphaNo(r.signal); });
   if (!recs.length) return null;
   var sweep = _EL_BASE_ALPHAS.map(function(a) { return _elBaseAlphaEval(recs, aiOf, a); });
   // 件数フロア(実データ連動): 最も件数(scN)の多いαの_EL_BASE_MIN_FRAC以上を要求＝高αの薄い標本(選抜バイアス)を除外。最低でも_EL_BASE_MIN_N件 2026-06-22b。
@@ -1281,7 +1281,7 @@ function _elBaseAlphaA(recs, aiOf) {
   // 推奨追加α: 追加α(〇)記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」を算出。
   var add = null;
   if (pick.status === "ok") {
-    var addPool = (recs || []).filter(function(r) { return r && _elAddAlphaUsed(r.signal); });
+    var addPool = (recs || []).filter(function(r) { return r && _elAddAlphaYes(r.signal); });
     if (addPool.length) {
       var baseEval = _elBaseAlphaEval(addPool, aiOf, pick.alpha);   // 基本αを追っかけ母数に当てた時のスコア（比較基準）
       add = _elAddAlphaReco(addPool, aiOf, pick.alpha, baseEval.score);
