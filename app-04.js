@@ -5316,7 +5316,7 @@ function DayView(_ref57) {
     var _osTable = null, _osInsight = null;
     if (_dayStocks.length) {
       var _osRows = _dayStocks.map(function(stk, ri){
-        var sd=_elOsStatsV2(_osDay[stk]), sw=_elOsStatsV2(_osWk[stk]), sa=_elOsStatsV2(_osAll[stk]);
+        var sd=_elOsStatsV2(_osDay[stk], _elOsMaxAll), sw=_elOsStatsV2(_osWk[stk], _elOsMaxAll), sa=_elOsStatsV2(_osAll[stk], _elOsMaxAll);
         var _avgNode = function(st){ return st ? React.createElement("span",{style:{display:"inline-flex",flexDirection:"column",alignItems:"center",lineHeight:1.15}}, React.createElement("span",{style:{fontWeight:700,color:_vcol(st.med,true)}}, "中"+st.med+"円"), React.createElement("span",{style:{fontSize:9,color:"#888"}}, "平"+st.avg+"円")) : React.createElement("span",{style:{color:"#ccc"}},"—"); };
         var _cmp = (sd&&sa) ? (sd.avg>sa.avg?React.createElement("span",{style:{color:"#C0392B",fontWeight:700}},"↑高い"):sd.avg<sa.avg?React.createElement("span",{style:{color:"#1E8449",fontWeight:700}},"↓低い"):React.createElement("span",{style:{color:"#888"}},"≈同等")) : React.createElement("span",{style:{color:"#ccc"}},"—");
         return React.createElement("tr",{key:ri},
@@ -5327,11 +5327,11 @@ function DayView(_ref57) {
           _td2(sa?_elOsDistBarV2(sa.dist,72,11):React.createElement("span",{style:{color:"#ccc"}},"—")),
           _td2(_cmp));
       });
-      _osTable = React.createElement("div",{style:{overflowX:"auto"}}, React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",fontSize:11}}, React.createElement("thead",null,React.createElement("tr",{style:{background:"#f5f4f0"}}, _th2("銘柄",{textAlign:"left"}), _th2("本日OS1値"), _th2("今週"), _th2("全期間"), _th2("全期間分布"), _th2("本日vs全期間"))), React.createElement("tbody",null,_osRows)));
+      _osTable = React.createElement("div",{style:{overflowX:"auto"}}, React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",fontSize:11}}, React.createElement("thead",null,React.createElement("tr",{style:{background:"#f5f4f0"}}, _th2("銘柄",{textAlign:"left"}), _th2("本日OS値"), _th2("今週"), _th2("全期間"), _th2("全期間分布"), _th2("本日vs全期間"))), React.createElement("tbody",null,_osRows)));
       var _flat = function(by){ var out=[]; Object.keys(by).forEach(function(k){ out=out.concat(by[k]); }); return out; };
-      var _allDay=_elOsStatsV2(_flat(_osDay)), _allAll=_elOsStatsV2(_flat(_osAll));
+      var _allDay=_elOsStatsV2(_flat(_osDay), _elOsMaxAll), _allAll=_elOsStatsV2(_flat(_osAll), _elOsMaxAll);
       if (_allDay && _allAll) {
-        _osInsight = _elInsightBoxV2([ React.createElement("span",null,"本日のOS1平均は",_elInsightEmV2(_allDay.avg+"円"),"（全期間平均",_elInsightEmV2(_allAll.avg+"円"),"）＝",_elInsightEmV2(_allDay.avg>_allAll.avg?"全体より高め（初動が強い傾向）":_allDay.avg<_allAll.avg?"全体より低め（初動が弱い傾向）":"全体と同程度"),"。") ], { title:"OS1平均", note:"OS1＝寄り付き足の高値（水準線比）。深いほど初動が強い。" });
+        _osInsight = _elInsightBoxV2([ React.createElement("span",null,"本日のOS値平均は",_elInsightEmV2(_allDay.avg+"円"),"（全期間平均",_elInsightEmV2(_allAll.avg+"円"),"）＝",_elInsightEmV2(_allDay.avg>_allAll.avg?"全体より大きめ（オーバーシュートが深い傾向）":_allDay.avg<_allAll.avg?"全体より小さめ（オーバーシュートが浅い傾向）":"全体と同程度"),"。") ], { title:"OS値平均", note:"OS値＝OS1〜3の最高値（水準線比）。大きいほどオーバーシュートが深い。" });
       }
     }
 
@@ -5340,7 +5340,7 @@ function DayView(_ref57) {
       (!_ladderTable && !_osTable) ? React.createElement("div",{style:{color:"#aaa",fontSize:12}},"分析できるEP起算記録がありません") : null,
       React.createElement("div",{style:_aCard}, _hdr("📍 EP位置別の損益傾向","OS1/OS2/OS3のどれがEPになったか別の勝率・平均損益・損切り率（本日）"), _elEpPosSectionV2(_dayRecs, function(r){ return { alpha: r.alpha, cutLine: r.cut }; })),
       _ladderTable ? React.createElement("div",{style:_aCard}, _hdr("📈 EP→OS5 ホールド検証","EPからその後の足を持ち続けた場合の損益推移（損切りが先か・利益を伸ばせたか）"), _ladderTable, _ladderInsight) : null,
-      _osTable ? React.createElement("div",{style:_aCard}, _hdr("📊 銘柄別 OS1値 分析","本日・今週・全期間の比較（OS1＝寄り付き足の高値）"), _osTable, _osInsight) : null,
+      _osTable ? React.createElement("div",{style:_aCard}, _hdr("📊 銘柄別 OS値分析","本日・今週・全期間の比較（OS値＝OS1〜3の最高値）"), _osTable, _osInsight) : null,
       React.createElement("div",{style:_aCard}, _hdr("🔗 OS連鎖分析","OS1→OS2→OS3…の数値帯ごとの次OS分布・遷移と成績（本日）"), React.createElement(_elOsChainSection, { recs: _dayRecs, data: data, aiOf: function(r){ return { alpha: r.alpha, cutLine: r.cut }; }, dense: true }))
     );
   })(),
