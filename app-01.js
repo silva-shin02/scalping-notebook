@@ -243,7 +243,17 @@ function _fileToImg() {
                 var mt = headerMatch ? headerMatch[1] : (file.type || "image/png");
                 // 取り込み画像は再エンコード/縮小せず原寸・原画質で保存＝書き込み画面を最高画質に。
                 // 容量はニュース画像の自動削除(_snAutoPruneNewsImages)で管理。手動圧縮は設定の「📉画像を圧縮」で随時可能。2026-06-20
-                var _nowTs = Date.now(); res({ base64: base64, mt: mt, id: _nowTs, addedAt: _nowTs, star: false });
+                var _nowTs = Date.now();
+                var _img = { base64: base64, mt: mt, id: _nowTs, addedAt: _nowTs, star: false };
+                // 原寸base64を即IndexedDBへ退避してからlk(ローカルIDBキー)を付与＝localStorageには載せない。
+                // Firebase Storageアップロード完了前(imageUrl未設定)の原寸画像でlocalStorage(約5MB)が溢れ
+                // 「端末の保存領域が一杯」アラートが出るのを防ぐ。表示は_stStrip剥離後も再読込時にpreloadImagesがIDBから復元。
+                // アップロード完了時に_applyImgUrlMapToDataがlkとIDB退避を掃除する。IDB未準備時はlk無し＝従来動作で安全。2026-06-23
+                var _lk = "imgloc_" + _nowTs + "_" + Math.random().toString(36).slice(2, 9);
+                snIdbSetAwait(_lk, { base64: base64, mt: mt }).then(function(_ok) {
+                  if (_ok) _img.lk = _lk;
+                  res(_img);
+                });
               } catch (_e) { return res(null); }
             };
             r.onerror = function () { return res(null); };
@@ -787,7 +797,9 @@ function _stStrip(data) {
   return JSON.stringify(data, function(key, val) {
     if ((key === "base64" || key === "orig_base64") && typeof val === "string" && val.length > 100) {
       var parent = this;
-      if ((key === "base64" && parent.imageUrl) || (key === "orig_base64" && parent.origImageUrl)) {
+      // base64は (a) Storageアップロード済み(imageUrl) または (b) ローカルIDBに退避済み(lk) のとき
+      // localStorageから剥離する。(b)により未アップロードの原寸画像でlocalStorageが溢れない。2026-06-23
+      if ((key === "base64" && (parent.imageUrl || parent.lk)) || (key === "orig_base64" && parent.origImageUrl)) {
         return null;
       }
     }
@@ -1628,6 +1640,20 @@ function snIdbSet(key, val) {
     tx.objectStore("imgs").put(val, key);
   } catch(e) {}
 }
+function snIdbSetAwait(key, val) {
+  // snIdbSetの「書き込み完了待ち」版。トランザクション完了でtrue、失敗/未準備でfalseを返す。
+  // 取り込み画像のbase64をlocalStorageから剥離(lk付与)する前に「IDBに確実に在る」ことを保証するために使う。2026-06-23
+  return new Promise(function(resolve) {
+    if (!_snIdbReady) return resolve(false);
+    try {
+      var tx = _snIdb.transaction("imgs", "readwrite");
+      tx.objectStore("imgs").put(val, key);
+      tx.oncomplete = function() { resolve(true); };
+      tx.onerror = function() { resolve(false); };
+      tx.onabort = function() { resolve(false); };
+    } catch(e) { resolve(false); }
+  });
+}
 function snIdbDel(key) {
   if (!_snIdbReady) return;
   try {
@@ -2345,6 +2371,11 @@ function preloadImages(dataRef, setData, stSaveFn, activeDate) {
       // 原画像(orig_base64)は注釈/拡大を開いた時しか使わない。先読みするとStorageダウンロードが
       // 約2倍になるため、ここでは先読みせずorigImgSrc経由で表示時に遅延DL（SWがキャッシュ）。2026-06-15
     }
+    // 未アップロード(imageUrl無)だが原寸base64をローカルIDBに退避済み(lk)の画像を、
+    // _stStrip剥離後の再読込時にメモリへ復元する。IDBローカル読み=ネットワーク取得なし(egress不要)なのでactive日に限定しない。2026-06-23
+    if (typeof obj.mt === "string" && obj.lk && !obj.imageUrl && (!obj.base64 || obj.base64 === "__ref__" || obj.base64 === null)) {
+      targets.push({ obj: obj, key: "base64", lkey: obj.lk, mt: obj.mt, local: true });
+    }
     for (var k in obj) {
       if (obj.hasOwnProperty(k) && typeof obj[k] === "object" && k !== "base64" && k !== "orig_base64") {
         var childActive = inActive || (!!activeDate && k.indexOf(activeDate) >= 0);
@@ -2388,7 +2419,17 @@ function preloadImages(dataRef, setData, stSaveFn, activeDate) {
       })(dataRef.current); } catch(e) { stillAlive = true; }
       if (stillAlive) { t.obj[t.key] = b64; dirty = true; }
     }
-    
+
+    if (t.local) {
+      // ローカルIDB退避(lk)からの復元はネットワーク取得なし＝Storageへフォールバックしない。
+      snIdbGet(t.lkey).then(function(cached) {
+        if (cached && cached.base64) { applyB64(cached.base64); done++; }
+        else { failed++; }
+        next();
+      });
+      return;
+    }
+
     snIdbGet(idbKey).then(function(cached) {
       if (cached && cached.base64) {
         
@@ -2587,6 +2628,8 @@ function _applyImgUrlMapToData(obj, map) {
   if (typeof _out.base64 === "string" && _out.base64.length > 100 && typeof _out.mt === "string" && !_out.imageUrl && map[_out.base64]) {
     _out.imageUrl = map[_out.base64];
     _chg = true;
+    // Storage URLが付いた＝ローカルIDB退避(lk)はもう不要。掃除してIDB肥大を防ぐ(以降は_stStripがimageUrlで剥離)。2026-06-23
+    if (_out.lk) { try { snIdbDel(_out.lk); } catch(e) {} _out.lk = null; }
   }
   if (typeof _out.orig_base64 === "string" && _out.orig_base64.length > 100 && !_out.origImageUrl && map[_out.orig_base64]) {
     _out.origImageUrl = map[_out.orig_base64];
