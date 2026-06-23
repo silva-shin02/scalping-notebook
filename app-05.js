@@ -3350,6 +3350,21 @@ function _elOsMaxFiltered(s, alpha) {
   }
   return max;
 }
+// 分析用の各記録のOS値（2026-06-23）: OS1〜3の最高値を結果に依らず素直に取る（×/損切り足も含む＝アウトカム盲目）。
+//   _elOsMaxFiltered（損益サマリーの「OS値列」＝×/損切りで打ち切り＝実現分のOS）と対の版。○△に絞らず全足を母数に入れることで、
+//   α目安（到達確率）や帯別の選択バイアス／アウトカム漏れを避ける＝OS値の分布・中央値分析はこちらを使う。旧記録(非v2)はOS1(osVal)。
+function _elOsMaxAll(s) {
+  if (!s) return null;
+  if (!_epIsV2(s)) return (s.osVal != null && s.osVal !== "") ? Number(s.osVal) : null;
+  var legs = _epLegs(s).slice(0, 3);
+  if (!legs.length) return null;
+  var max = null;
+  for (var i = 0; i < legs.length; i++) {
+    var h = legs[i].h;
+    if (h != null && (max == null || h > max)) max = h;
+  }
+  return max;
+}
 // EP→以降の足を順にホールドした場合の損益ラダー（OS1〜5対応）。各足で「ここで手仕舞いした損益」と損切り発生を返す。
 // 損切り: EP以降で高値−α≧cutに達した最初の足。以降は損切り額で固定。未達の足は確定値で手仕舞い損益(α−確定値)*100。
 // 返り値 {epIdx, items:[{idx,depth,role,leg,pnl,isStop,afterStop}], stopDepth(-1=損切りなし), maxPnl, maxDepth, finalPnl}。

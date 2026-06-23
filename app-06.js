@@ -1777,7 +1777,7 @@ function _elPeriodStatsV2(recs, aiOf) {
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s || s.osVal == null || s.osVal === "") return;
     var ai = aiOf(r);
-    var nv = _elOsMaxFiltered(s, ai.alpha); if (nv != null) osv.push(nv);  // OS値列＝OS1〜3の算入足の最高値（×/損切り済で打ち切り）2026-06-23
+    var nv = _elOsMaxAll(s); if (nv != null) osv.push(nv);  // 分析用OS値＝OS1〜3の最高値（結果に依らず全足・アウトカム盲目）2026-06-23
     cnt++;
     if (s.realizedPnl != null && s.realizedPnl !== "") { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) { realSum += rv; realCnt++; } }
     if (_epReachedAt(s, ai.alpha)) reach++;
