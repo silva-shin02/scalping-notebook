@@ -1776,10 +1776,10 @@ function _elPeriodStatsV2(recs, aiOf) {
   var osv = [], cnt = 0, reach = 0, ok = 0, ng = 0, planSum = 0, planCnt = 0, h1Sum = 0, h1Cnt = 0, h2Sum = 0, h2Cnt = 0, stop = 0, soft = 0, draw = 0, realSum = 0, realCnt = 0;
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s || s.osVal == null || s.osVal === "") return;
-    var nv = Number(s.osVal); if (!isNaN(nv)) osv.push(nv);
+    var ai = aiOf(r);
+    var nv = _elOsMaxFiltered(s, ai.alpha); if (nv != null) osv.push(nv);  // OS値列＝OS1〜3の算入足の最高値（×/損切り済で打ち切り）2026-06-23
     cnt++;
     if (s.realizedPnl != null && s.realizedPnl !== "") { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) { realSum += rv; realCnt++; } }
-    var ai = aiOf(r);
     if (_epReachedAt(s, ai.alpha)) reach++;
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {

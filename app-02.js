@@ -5122,7 +5122,7 @@ function WeeklyPnlPanel(_wpp) {
       _td(st.draw || "0", { color: "#6B7280" }),
       _td(st.ng || "0", { color: "#C0392B", fontWeight: st.ng ? 700 : 400 }),
       _td(st.miss || "0", { color: "#B45309" }),
-      _td(_elOsMMCell((recs || []).map(function(_r){ return _r.signal.osVal; }).filter(function(_v){ return _v != null && _v !== ""; }).map(Number))),
+      _td(_elOsMMCell((recs || []).map(function(_r){ return _elOsMaxFiltered(_r.signal); }).filter(function(_v){ return _v != null; }))),
       _td((function() {
         if (_allMiss) return _qZeroCell();
         var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;

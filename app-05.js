@@ -3326,6 +3326,30 @@ function _epAsTraded(s) {
   if (!_epIsV2(s)) return s;
   return Object.assign({}, s, { os1Exp: null, os2Exp: null });
 }
+// 損益サマリー表の「OS値列」用の各記録のOS値（2026-06-23）: OS1→OS3を左から見て「算入足の最高値」を返す。
+//   EP足（α到達してエントリーした足）は常に算入。それ以外の足は期待度が×/損切り済ならその足以降を打ち切り（除外）、
+//   ○/△/未設定は算入。期待度＝EP前の待ち足はα到達期待(os1Exp/os2Exp)・EP後の保有足はH期待(holdExp/hold2Exp)・
+//   OS3で待ち足扱い(未達等)は欄なし＝未設定→算入。算入足が無ければnull。旧記録(非v2)はOS1(osVal)をそのまま。
+//   alpha未指定時は記録固有の採用α(_epOwnAlpha)でEP位置を決める。OS値の中央/平均はこの値を記録ぶん集めて算出。
+function _elOsMaxFiltered(s, alpha) {
+  if (!s) return null;
+  if (!_epIsV2(s)) return (s.osVal != null && s.osVal !== "") ? Number(s.osVal) : null;
+  var a = (alpha != null) ? alpha : _epOwnAlpha(s);
+  var legs = _epLegs(s).slice(0, 3);
+  if (!legs.length) return null;
+  var epIdx = -1;
+  if (a != null) { var r = _epResolve(s, a); if (r) epIdx = r.epIdx; }
+  var _cut = function(e) { return e === "×" || e === "損切り済"; };
+  var max = null;
+  for (var i = 0; i < legs.length; i++) {
+    var o = legs[i];
+    if (i === epIdx) { if (o.h != null && (max == null || o.h > max)) max = o.h; continue; }
+    var exp = (epIdx >= 0 && i === epIdx + 1) ? s.holdExp : (epIdx >= 0 && i === epIdx + 2) ? s.hold2Exp : o.exp;
+    if (_cut(exp)) break;  // ×/損切り済 → この足以降を除外（打ち切り）
+    if (o.h != null && (max == null || o.h > max)) max = o.h;
+  }
+  return max;
+}
 // EP→以降の足を順にホールドした場合の損益ラダー（OS1〜5対応）。各足で「ここで手仕舞いした損益」と損切り発生を返す。
 // 損切り: EP以降で高値−α≧cutに達した最初の足。以降は損切り額で固定。未達の足は確定値で手仕舞い損益(α−確定値)*100。
 // 返り値 {epIdx, items:[{idx,depth,role,leg,pnl,isStop,afterStop}], stopDepth(-1=損切りなし), maxPnl, maxDepth, finalPnl}。
@@ -4721,7 +4745,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
     else if (_elH2Miss(s, _aSig)) { hold2Count++; }  // 両miss=ノートレードはH2も0円扱い（想定0と一致）
     if (_h2tg.ref != null) { hold2RefSum += _h2tg.ref; hold2RefCnt++; }
     }
-    if (s.osVal != null) osVals.push(Number(s.osVal));
+    var _ovf = _elOsMaxFiltered(s, _aSig); if (_ovf != null) osVals.push(_ovf);  // OS値列＝OS1〜3の算入足の最高値（×/損切り済で打ち切り）2026-06-23
     var _cf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
     if (_cf != null) confVals.push(_cf);
     if (s.holdOsConf != null) holdConfVals.push(Number(s.holdOsConf));

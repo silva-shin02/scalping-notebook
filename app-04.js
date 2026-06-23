@@ -4740,7 +4740,7 @@ function DayView(_ref57) {
           _td(st.draw || "0", { color: "#6B7280" }),
           _td(st.ng || "0", { color: "#C0392B", fontWeight: st.ng ? 700 : 400 }),
           _td(st.miss || "0", { color: "#B45309" }),
-          _td(_elOsMMCell((recs || []).map(function(_r){ return _r.signal.osVal; }).filter(function(_v){ return _v != null && _v !== ""; }).map(Number))),
+          _td(_elOsMMCell((recs || []).map(function(_r){ return _elOsMaxFiltered(_r.signal); }).filter(function(_v){ return _v != null; }))),
           _td((function() {
             if (_allMiss) return _qZeroCell();
             var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;
@@ -4958,7 +4958,7 @@ function DayView(_ref57) {
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#B45309", fontWeight: (st.miss || 0) > 0 ? 700 : 400 } }, st.miss || "0"),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
-            var _osArr = (recs || []).map(function(_r){ return _r.signal.osVal; }).filter(function(_v){ return _v != null && _v !== ""; }).map(Number);
+            var _osArr = (recs || []).map(function(_r){ return _elOsMaxFiltered(_r.signal); }).filter(function(_v){ return _v != null; });
             return _elOsMMCell(_osArr);
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
