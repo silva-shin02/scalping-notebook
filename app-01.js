@@ -735,6 +735,22 @@ function migrateData(d) {
       d._migEpScheme3 = true;
     } catch(e) { console.warn("[migrateData] epScheme3 error:", e); }
   }
+
+  // 分足(minBar)未設定の既存記録を既定[1]（1分足）に補完（2026-06-24）。minBar欄は再導入が新しく過去記録は未設定のため、
+  // 有効な分足(1/5)を持たない記録を全て[1]に。既設定（[1]/[5]/[1,5]・旧single number）は不変。冪等（_migMinBarDefault1）。
+  if (!d._migMinBarDefault1) {
+    try {
+      var _mbHas = function(mb) { var arr = Array.isArray(mb) ? mb : (mb != null ? [mb] : []); for (var _mi = 0; _mi < arr.length; _mi++) { var _mn = Number(arr[_mi]); if (_mn === 1 || _mn === 5) return true; } return false; };
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var cc = d.charts[ck];
+          if (!cc || !Array.isArray(cc.signals)) return;
+          cc.signals = cc.signals.map(function(s) { return (s && !_mbHas(s.minBar)) ? Object.assign({}, s, { minBar: [1] }) : s; });
+        });
+      }
+      d._migMinBarDefault1 = true;
+    } catch(e) { console.warn("[migrateData] minBarDefault1 error:", e); }
+  }
   return d;
 }
 function stLoad() {
