@@ -2963,6 +2963,7 @@ function EntryLogView(_ref_elv2) {
   var _uChM = useState("h1"), chartMet = _uChM[0], setChartMet = _uChM[1];   // 期間ビューのグラフ指標（実現/EP/H1/H2）2026-06-22d
   var _uSM = useState("month"), sumMode = _uSM[0], setSumMode = _uSM[1];   // 銘柄別 集計タブの今月/全期間トグル（既定=今月）2026-06-22
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
+  var _uAA = useState("all"), addAlphaFil = _uAA[0], setAddAlphaFil = _uAA[1];   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
@@ -2986,8 +2987,11 @@ function EntryLogView(_ref_elv2) {
   // 銘柄タブのバッジ件数: 選択期間内・銘柄未限定の記録数（顔ぶれは固定、件数だけ期間連動）
   var _cntByStock = (function() { var m = {}; _periodRecs.forEach(function(r) { if (r.stock) m[r.stock] = (m[r.stock] || 0) + 1; }); return m; })();
   var filtered = _isAllStock ? _periodRecs : _periodRecs.filter(function(r) { return r.stock === _selStock; });
-  // 合計額算入: includeInTotal===false の記録は集計/分析の母集団 v2recs から除外（一覧 filtered は全件のまま）。2026-06-18
-  var v2recs = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  // 合計額算入: includeInTotal===false の記録は集計/分析の母集団から除外（一覧 filtered は全件のまま）。2026-06-18
+  // _v2recsAll=銘柄/期間で絞ったv2算入記録（追加α〇/×/未選択は混在）＝推奨基本α/追加αタブはこれを使い全体トグルと独立。
+  var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  // v2recs=全体トグル（追加α 全部/〇/×/未選択）で絞った分析母数。集計・損益・OS値・損切り・シグナル別等の分析タブが従う 2026-06-24。
+  var v2recs = (addAlphaFil === "all") ? _v2recsAll : _v2recsAll.filter(function(r) { return addAlphaFil === "yes" ? _elAddAlphaYes(r.signal) : addAlphaFil === "no" ? _elAddAlphaNo(r.signal) : _elAddAlphaUnset(r.signal); });
   // 旧記録件数は算入フラグと独立に数える（除外した新形式記録を「旧記録」に混ぜない）。2026-06-18
   var oldCnt = filtered.filter(function(r) { return !_epIsV2(r.signal); }).length;
   // 未達タブのバッジ件数（銘柄スコープのv2記録のうち judge==="miss"＝3本以内にα未到達）。全銘柄合算では未達タブ非表示。2026-06-22
@@ -3248,7 +3252,7 @@ function EntryLogView(_ref_elv2) {
         _secH("🔺 期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）"), _elTriangleHoldSectionV2(rs, _ai)) : null);
   };
   // 集計「今月」: 銘柄スコープの全期間v2記録（top期間ドロップダウンに依存しない）からその月のみ抽出。月は←→で移動・既定は当月。
-  var _stockAllV2 = _isAllStock ? [] : allRecs.filter(function(r) { return r.stock === _selStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  var _stockAllV2 = _isAllStock ? [] : allRecs.filter(function(r) { return r.stock === _selStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (addAlphaFil === "all" || (addAlphaFil === "yes" ? _elAddAlphaYes(r.signal) : addAlphaFil === "no" ? _elAddAlphaNo(r.signal) : _elAddAlphaUnset(r.signal))); });
   var _curSumYM = sumYM || (function() { var d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
   var _sumMonthRecs = _stockAllV2.filter(function(r) { var p = (r.date || "").split("-"); return (+p[0]) === _curSumYM.y && (+p[1]) === _curSumYM.m; });
   var _shiftSumM = function(delta) { var m = _curSumYM.m + delta, y = _curSumYM.y; while (m < 1) { m += 12; y--; } while (m > 12) { m -= 12; y++; } setSumYM({ y: y, m: m }); setExpKey(null); };
@@ -3264,7 +3268,7 @@ function EntryLogView(_ref_elv2) {
         style: { padding: "6px 16px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, g[1]);
     }));
   var _alphaTable = (function() {
-    var rs = v2recs.filter(function(r) { return r.signal.osVal != null && r.signal.osVal !== ""; });
+    var rs = _v2recsAll.filter(function(r) { return r.signal.osVal != null && r.signal.osVal !== ""; });
     if (!rs.length) return null;
     var rows = [0, 5, 10, 15, 20].map(function(a) {
       var ent = 0, stp = 0;
@@ -3406,19 +3410,19 @@ function EntryLogView(_ref_elv2) {
           : _sumStockContent(v2recs));
     }
   } else if (view === "alpha") {
-    _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
-      React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 6 } }, (_isAllStock ? "全銘柄合算" : "この銘柄（" + _selStock + "）") + "の推奨基本α値と、その数値が出た根拠データ。EP起算（v2）の" + v2recs.length + "件で算出。" + (_isAllStock ? "（銘柄をまたいだα傾向の参考。銘柄ごとは各銘柄タブで）" : "")),
+    _tabBody = _v2recsAll.length ? React.createElement(React.Fragment, null,
+      React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 6 } }, (_isAllStock ? "全銘柄合算" : "この銘柄（" + _selStock + "）") + "の推奨基本α値と、その数値が出た根拠データ。EP起算（v2）の" + _v2recsAll.length + "件で算出。" + (_isAllStock ? "（銘柄をまたいだα傾向の参考。銘柄ごとは各銘柄タブで）" : "") + "　※このタブは追加α分析トグルの影響を受けず常に全件（推奨基本α＝×・未選択／推奨追加α＝〇 の母数固定）。"),
       _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝①α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）＋②採用αでの全記録の内訳（どの記録が母数で損切り/H1勝ち/対象外か）"),
-      _elBaseAlphaDetailV2(v2recs, _ai),
+      _elBaseAlphaDetailV2(_v2recsAll, _ai),
       _secH("🎯 推奨基本α 期間推移", "件数3件以上のαから損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
-      React.createElement(_elBaseAlphaTrendV2, { recs: v2recs, aiOf: _ai }),
+      React.createElement(_elBaseAlphaTrendV2, { recs: _v2recsAll, aiOf: _ai }),
       _secH("🎯 推奨追加α値（期間別）", "追加α〇の記録だけを母数に、各期間（直近1週/1か月/3か月/全期間・" + todayStr() + "の前日まで）で基本α＋推奨追加αを当てた 損切り率/H1勝率/到達率/想定損益。〇記録の無い期間は—"),
-      _elAddAlphaPeriodTableV2(v2recs, _ai, todayStr(), false),
+      _elAddAlphaPeriodTableV2(_v2recsAll, _ai, todayStr(), false),
       _secH("📐 追加α値の分析", "追加α〇（要）を明示した記録だけが母数。足した判断が当たっていたか（基本αだけの場合とのH1反実仮想比較）・最適な上乗せ幅・根拠別の成績。〇は少なめなので全銘柄合算が見やすい"),
-      _elAddAlphaSectionV2(v2recs, _ai, data),
+      _elAddAlphaSectionV2(_v2recsAll, _ai, data),
       _alphaTable ? React.createElement(React.Fragment, null,
         _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null,
-      _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)
+      _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(_v2recsAll, _ai)
     ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
   } else if (view === "stop") {
     _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
@@ -3688,6 +3692,14 @@ function EntryLogView(_ref_elv2) {
             border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
+    React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" } },
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "追加α分析:"),
+      [["all", "全部"], ["yes", "〇 要"], ["no", "× 不要"], ["unset", "未選択"]].map(function(kv) {
+        var on = addAlphaFil === kv[0];
+        return React.createElement("button", { key: kv[0], onClick: function() { setAddAlphaFil(kv[0]); setExpKey(null); },
+          style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
+      }),
+      addAlphaFil !== "all" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（集計・損益・OS値・損切り等を絞り込み中。推奨基本α/追加αタブは母数固定で常に全件）") : null),
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
       _tabs.map(function(kv) {
         var on = view === kv[0];
