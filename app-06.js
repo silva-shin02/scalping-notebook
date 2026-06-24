@@ -1578,7 +1578,7 @@ function _elPeriodWindows(recs, refDate, includeToday) {
   var c3 = _cut(function(d) { d.setMonth(d.getMonth() - 3); });
   var _win = function(lo) { return all.filter(function(r) { return r.date >= lo; }); };
   var periods = [];
-  if (includeToday) periods.push({ label: "本日", recs: today });
+  if (includeToday) periods.push({ label: "本日（" + Number(_p[1]) + "/" + Number(_p[2]) + "）", recs: today });   // 「本日」＝開いているページの日付なのでM/Dを併記 2026-06-24i
   periods.push({ label: "直近1週間", recs: _win(c1) });
   periods.push({ label: "直近1か月", recs: _win(c2) });
   periods.push({ label: "直近3か月", recs: _win(c3) });
