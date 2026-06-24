@@ -1723,12 +1723,13 @@ function _elBaseAlphaPeriodBlockV2(data, stock, refDate) {
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+1〜30円足して損切り回避×H1利益が有意に改善する加算（改善が無ければ+0＝基本αで十分）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
     _elAddAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
-// DayView「チャート」タブで早見表の下に出す「前日までの推奨基本α」ブロック（2026-06-24）。
-// 見出し＝直近1か月（データ不足なら3か月→全期間にフォールバック）の推奨基本α＋追加α、その下に期間別表(_elBaseAlphaPeriodTableV2)。
+// DayView「チャート」タブで早見表の下に出す推奨基本αブロック（2026-06-24）。取引テーブルの_elBaseAlphaPeriodBlockV2と同等に充実＝説明文＋本日行付き期間表(_elBaseAlphaPeriodTableV2)＋「α＋ 推奨追加α値」の独立テーブル(_elAddAlphaPeriodTableV2)。さらに「今日の推奨◯円」の大見出し(headNode)を併載＝いいとこ取り 2026-06-24c。
+// 見出し＝直近1か月（データ不足なら3か月→全期間にフォールバック）の推奨基本α＋追加α。本日のみ記録の銘柄でも本日行を出すためガードは「前日まで or 本日」のどちらかにデータがあれば表示。
 // recs=銘柄の全記録(_elCollectAllSignals→stock絞り)・aiOf(r)→{alpha,cutLine}・refDate=基準日(当日除外=r.date<refDate)。履歴ゼロはnull。
 function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
   var all = (recs || []).filter(function(r) { return r && r.date && r.date < refDate && _epIsV2(r.signal) && _elInclTotal(r.signal); });
-  if (!all.length) return null;
+  var _todayN = (recs || []).filter(function(r) { return r && r.date === refDate && _epIsV2(r.signal) && _elInclTotal(r.signal); }).length;
+  if (!all.length && !_todayN) return null;   // 前日まで・本日のどちらにもデータが無ければ非表示
   var _p = String(refDate).split("-");
   var _pad = function(nn) { return ("0" + nn).slice(-2); };
   var _ymd = function(dd) { return dd.getFullYear() + "-" + _pad(dd.getMonth() + 1) + "-" + _pad(dd.getDate()); };
@@ -1756,9 +1757,13 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
       React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, head.label + "ベース・損切" + _pct(pk.stopRate) + " H1勝" + _pct(pk.h1win) + " " + (pk.scN || 0) + "件"));
   }
   return React.createElement("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-    React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", marginBottom: 6 } }, "🎯 推奨基本α値（" + refDate + " 前日まで）"),
+    React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", marginBottom: 6 } }, "🎯 推奨基本α値（" + refDate + "）"),
     headNode,
-    React.createElement("div", { style: { marginTop: 6 } }, _elBaseAlphaPeriodTableV2(recs, aiOf, refDate)));
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 8, marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近1週/1か月/3か月/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考）。基本αは追加α〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。"),
+    _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true),
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginTop: 12, marginBottom: 4 } }, "α＋ 推奨追加α値（期間別）"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+1〜30円足して損切り回避×H1利益が有意に改善する加算（改善が無ければ+0＝基本αで十分）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
+    _elAddAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 
 // 各記録の理想の追加α（基本αに何円足すべきだったか）2026-06-24。base=基本α・cut=損切り値。add=0〜_EL_BASE_ADD_MAX(30)を総当たり：
