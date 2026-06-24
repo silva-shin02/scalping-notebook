@@ -3249,7 +3249,7 @@ function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var _bn = fu
 // 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
 function _minBarList(s) { if (!s || s.minBar == null) return []; var arr = Array.isArray(s.minBar) ? s.minBar : [s.minBar]; var out = []; for (var i = 0; i < arr.length; i++) { var n = Number(arr[i]); if ((n === 1 || n === 5) && out.indexOf(n) < 0) out.push(n); } out.sort(function(a, b) { return a - b; }); return out; }
 // 各記録の分足を表の時間欄の下に出す小バッジ（「1分」「5分」、両方選択時は「1分/5分」）。未設定はnull。2026-06-24に新規エントリー記録フォームへ再導入＝旧minBar欄。
-function _minBarBadge(s) { var list = _minBarList(s); if (!list.length) return null; return React.createElement("div", { style: { marginTop: 1, fontSize: 9, fontWeight: 700, color: "#166534", lineHeight: 1.1, whiteSpace: "nowrap" } }, list.map(function(_n) { return _n + "分"; }).join("/")); }
+function _minBarBadge(s) { var list = _minBarList(s); if (!list.length) return null; return React.createElement("div", { style: { display: "flex", justifyContent: "center", marginTop: 2 } }, React.createElement("span", { style: { display: "inline-block", padding: "1px 7px", fontSize: 11, fontWeight: 800, color: "#166534", background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 4, lineHeight: 1.5, whiteSpace: "nowrap", textAlign: "center" } }, list.map(function(_n) { return _n + "分"; }).join("/"))); }
 // === EP起算方式(scheme:2)のリゾルバ ===
 // 新方式: OS1〜OS3の3本以内にα値到達した足=EP(エントリーポイント)。EPの次の足からH1/H2。
 // 旧方式レコード(schemeなし)は各ヘルパーの従来ロジックで処理（互換レイヤー）。
@@ -3759,15 +3759,30 @@ function _epIncompleteMark(s) {
     style: { display: "inline-block", fontSize: 8, fontWeight: 700, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", whiteSpace: "nowrap", lineHeight: 1.4, marginTop: 1 } }, "【未記録】");
 }
 // E欄: ○=E成立 / ×=×宣言後の到達（見送り・参考） / 未達。旧記録は「未達=_elH2Miss・他は○」。
+// E欄の「EPとの差」（2026-06-24・ユーザー選択=OS1〜3の最高高値基準）。
+// 差 = OS1〜3の最高高値(_elOsMaxAll・アウトカム盲目) − α（ともに水準線比）。
+//   〇/×（EP成立）＝＋（ピークがαを何円超えたか）・未達＝−（あと何円でα到達か）。0は±0。色は↑赤/↓緑（水準線比の慣習）。OSデータ無＝null。
+function _epEpDiffNode(s, alpha) {
+  if (!s || alpha == null) return null;
+  var hi = _elOsMaxAll(s);
+  if (hi == null) return null;
+  var d = hi - alpha;
+  var sign = d > 0 ? "+" : d < 0 ? "−" : "±";
+  var col = d > 0 ? "#C0392B" : d < 0 ? "#1E8449" : "#888";
+  return React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, "（" + sign + Math.abs(d) + "）");
+}
 function _epECell(s, alpha) {
   if (!s || alpha == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var j;
   if (_epIsV2(s)) { var _re = _epResolve(s, alpha); j = _re ? _re.judge : null; }
   else j = s.osVal == null ? null : (_elH2Miss(s, alpha) ? "miss" : "ok");
-  if (j === "ok") return React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: 13 } }, "○");
-  if (j === "x") return React.createElement("span", { style: { fontWeight: 800, color: "#1E8449", fontSize: 13 } }, "×");
-  if (j === "miss") return React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7C3AED", whiteSpace: "nowrap" } }, "未達");
-  return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var _jn = j === "ok" ? React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: 13 } }, "○")
+    : j === "x" ? React.createElement("span", { style: { fontWeight: 800, color: "#1E8449", fontSize: 13 } }, "×")
+    : j === "miss" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7C3AED", whiteSpace: "nowrap" } }, "未達")
+    : React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var _diff = (j === "ok" || j === "x" || j === "miss") ? _epEpDiffNode(s, alpha) : null;
+  if (!_diff) return _jn;
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 } }, _jn, _diff);
 }
 // EP損益欄: 旧「OS値・確定値・α値比値幅・結果/EP損益」を1セルに統合。「高値→確定値/α比/結果・損益」。
 // pnlDisp=損益表示ノード(各表のランク付き表示を注入・nullなら内蔵表示)。
