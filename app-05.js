@@ -6467,11 +6467,15 @@ function EntryRecordForm(_ref_erf) {
               var on = fAddReasons.indexOf(rsn) >= 0;
               return React.createElement("span", { key: rsn, style: { display: "inline-flex", alignItems: "center", gap: 1 } },
                 _optBtn(rsn, on, function() { setFAddReasons(on ? fAddReasons.filter(function(x) { return x !== rsn; }) : fAddReasons.concat([rsn])); }, "#9A3412"),
-                (rsn === _numReason && on) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #FDE68A", borderRadius: 4, overflow: "hidden", marginLeft: 1, background: "#fff" }, title: "「" + rsn + "」の値（円・追加α欄と同じ入力）" },
-                  React.createElement("input", { type: "text", inputMode: "numeric", value: fReasonVal,
-                    onChange: function(e) { var _v = _toHankakuNum(e.target.value); if (_v === "") { setFReasonVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n < 0) n = 0; if (n > 999) n = 999; setFReasonVal(String(n)); },
-                    placeholder: "円", style: { padding: "1px 3px", fontSize: 11, fontWeight: 800, color: "#92400E", border: "none", outline: "none", background: "#fff", width: 32, textAlign: "right", boxSizing: "border-box" } }),
-                  React.createElement("span", { style: { fontSize: 9, color: "#92400E", padding: "0 3px", alignSelf: "center", whiteSpace: "nowrap" } }, "円")) : null,
+                (rsn === _numReason && on) ? (function() {
+                  var _stepRV = function(delta) { setFReasonVal(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = b + delta; if (n < 0) n = 0; if (n > 999) n = 999; return String(n); }); };
+                  return React.createElement("span", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #FDE68A", borderRadius: 4, overflow: "hidden", marginLeft: 1, background: "#fff" }, title: "「" + rsn + "」の値（円・追加α欄と同じ入力）" },
+                    React.createElement("input", { type: "text", inputMode: "numeric", value: fReasonVal,
+                      onChange: function(e) { var _v = _toHankakuNum(e.target.value); if (_v === "") { setFReasonVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n < 0) n = 0; if (n > 999) n = 999; setFReasonVal(String(n)); },
+                      placeholder: "円", style: { padding: "1px 3px", fontSize: 11, fontWeight: 800, color: "#92400E", border: "none", outline: "none", background: "#fff", width: 32, textAlign: "right", boxSizing: "border-box" } }),
+                    _stepBtn(function() { _stepRV(1); }, function() { _stepRV(-1); }),
+                    React.createElement("span", { style: { fontSize: 9, color: "#92400E", padding: "0 3px", alignSelf: "center", whiteSpace: "nowrap" } }, "円"));
+                })() : null,
                 fReasonMgr ? React.createElement(React.Fragment, null,
                   React.createElement("button", { type: "button", title: "この選択肢の名前を変更", onClick: function() { var nm = window.prompt("選択肢の新しい名前を入力してください", rsn); if (nm != null) _renameR(rsn, nm); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "✎"),
                   React.createElement("button", { type: "button", title: "この選択肢を削除", onClick: function() { _delR(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×")
