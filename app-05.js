@@ -3244,6 +3244,8 @@ function _elAlphaInfo(r, data) {
     cutLine: (c && c.cutLine != null) ? Number(c.cutLine) : 10
   };
 }
+// 各記録の採用α(signal.alphaVal)の内訳「（基本α+追加α）」をα値欄の数値の下に出す小ノード（2026-06-24）。baseAlphaVal/addAlphaValから算出（片方欠損は合計から逆算）。基本αが無い旧記録、または表示中αが内訳の合計と異なる（α値シミュ中）場合はnull＝内訳を出さない。
+function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var _bn = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; }; var base = _bn(s.baseAlphaVal), add = _bn(s.addAlphaVal), total = _bn(s.alphaVal); if (base == null) { if (total != null && add != null) base = total - add; else return null; } if (add == null) add = (total != null) ? (total - base) : 0; if (base < 0 || add < 0) return null; if (dispAlpha != null && Number(dispAlpha) !== base + add) return null; return React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" } }, "（" + base + "+" + add + "）"); }
 // === EP起算方式(scheme:2)のリゾルバ ===
 // 新方式: OS1〜OS3の3本以内にα値到達した足=EP(エントリーポイント)。EPの次の足からH1/H2。
 // 旧方式レコード(schemeなし)は各ヘルパーの従来ロジックで処理（互換レイヤー）。

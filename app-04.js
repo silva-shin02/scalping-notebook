@@ -4130,7 +4130,7 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, sigLabel),
             React.createElement("td", { style: { padding: "4px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-              _aiTr.alpha != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _aiTr.alpha + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
+              _aiTr.alpha != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _aiTr.alpha + "円"), _elAlphaBreakdownNode(s, _aiTr.alpha)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", {
               style: { padding: "1px 2px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", minWidth: 52 },
               onClick: function(e) { e.stopPropagation(); }
@@ -4513,7 +4513,7 @@ function DayView(_ref57) {
                 _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); }));
             })()),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
-            _alphaRec != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _alphaRec + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
+            _alphaRec != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _alphaRec + "円"), _elAlphaBreakdownNode(s, _alphaRec)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             _epOsChainCell(s, _alphaRec)),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },

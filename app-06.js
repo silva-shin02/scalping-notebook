@@ -2956,7 +2956,7 @@ function EntryLogView(_ref_elv2) {
         var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         cells = cells.concat([
           _td(_sigParts.length ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return _sigNameNode(_t, _i); })) : "(未設定)", { textAlign: "left" }),
-          _td(a.alpha != null ? a.alpha + "円" : _dash, { color: "#0369A1", fontWeight: 600 }),
+          _td(a.alpha != null ? React.createElement("div", null, React.createElement("span", null, a.alpha + "円"), _elAlphaBreakdownNode(s, a.alpha)) : _dash, { color: "#0369A1", fontWeight: 600 }),
           _td(_epOsChainCell(s, a.alpha)),
           _td(_epECell(s, a.alpha)),
           _td(entered
