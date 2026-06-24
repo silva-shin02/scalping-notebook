@@ -1587,10 +1587,11 @@ function _elSimPnlByDay(recs, aiOf, alpha) {
 function _elSimPnlCell(sim) {
   if (!sim || sim.sum == null || sim.days <= 0) return React.createElement("span", { style: { color: "#bbb" } }, "—");
   var avg = Math.round(sim.avg), sum = Math.round(sim.sum);
-  return React.createElement("span", { style: { whiteSpace: "nowrap", lineHeight: 1.25, display: "inline-block" } },
+  return React.createElement("span", { style: { whiteSpace: "nowrap", lineHeight: 1.3, display: "inline-block" } },
     React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: _elPnlColor(avg) } }, _elPnlFmt(avg) + "/日"),
     React.createElement("br", null),
-    React.createElement("span", { style: { fontSize: 8, color: "#94A3B8" } }, "計" + _elPnlFmt(sum) + "・" + sim.days + "日"));
+    React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: _elPnlColor(sum) } }, "計" + _elPnlFmt(sum)),
+    React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 2 } }, "・" + sim.days + "日"));
 }
 // 期間別の推奨基本α（前日まで・移動窓）: recsをrefDate未満(=その日の前日まで・当日を含めない)に絞り、直近1週/1か月/3か月/全期間で推奨基本α(_elBaseAlphaA)を出す表。銘柄別記録の「前日まで」分析用 2026-06-22c。
 // aiOf(r)→{cutLine}（採用は各記録のcutLine）。期間窓はrefDate起点の移動窓（週初/月初の標本不足を避ける）。
@@ -3411,6 +3412,8 @@ function EntryLogView(_ref_elv2) {
       _elBaseAlphaDetailV2(v2recs, _ai),
       _secH("🎯 推奨基本α 期間推移", "件数3件以上のαから損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
       React.createElement(_elBaseAlphaTrendV2, { recs: v2recs, aiOf: _ai }),
+      _secH("🎯 推奨追加α値（期間別）", "追加α〇の記録だけを母数に、各期間（直近1週/1か月/3か月/全期間・" + todayStr() + "の前日まで）で基本α＋推奨追加αを当てた 損切り率/H1勝率/到達率/想定損益。〇記録の無い期間は—"),
+      _elAddAlphaPeriodTableV2(v2recs, _ai, todayStr(), false),
       _secH("📐 追加α値の分析", "追加α〇（要）を明示した記録だけが母数。足した判断が当たっていたか（基本αだけの場合とのH1反実仮想比較）・最適な上乗せ幅・根拠別の成績。〇は少なめなので全銘柄合算が見やすい"),
       _elAddAlphaSectionV2(v2recs, _ai, data),
       _alphaTable ? React.createElement(React.Fragment, null,
