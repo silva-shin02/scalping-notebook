@@ -1420,7 +1420,7 @@ function _elBaseAlphaSummary(recs, aiOf) {
   var winP = pick.h1win != null ? Math.round(pick.h1win * 100) : null;
   var cards = _elv2CardRow([
     _elv2Card("推奨基本α", React.createElement(React.Fragment, null, React.createElement("span", { style: { color: na ? "#B45309" : "#0369A1" } }, pick.alpha + "円"), _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 15, na ? "#B45309" : "#0369A1")), na ? "#B45309" : "#0369A1", na ? "該当なし→件数最大" : "スコア最大"),
-    _elv2Card("追加α目安", (add && add.improved) ? React.createElement(React.Fragment, null, React.createElement("span", null, "+" + add.add + "円"), _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 15, "#9A3412")) : (add ? "+0円" : "—"), (add && add.improved) ? "#9A3412" : "#bbb", (add && add.improved) ? ("合計" + add.total + "円") : (add ? "基本αで十分" : null)),
+    _elv2Card("追加α目安", (add && add.improved) ? React.createElement(React.Fragment, null, React.createElement("span", null, "+" + add.add + "円"), _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 15, "#9A3412")) : (add ? "推奨無し" : "—"), (add && add.improved) ? "#9A3412" : "#bbb", (add && add.improved) ? ("合計" + add.total + "円") : null),
     _elv2Card("損切り率(H1)", stopP != null ? stopP + "%" : "—", stopP != null ? (stopP <= 20 ? "#1E8449" : stopP <= 40 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
     _elv2Card("H1勝率", winP != null ? winP + "%" : "—", winP != null ? (winP >= 70 ? "#1E8449" : winP >= 50 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
     _elv2Card("スコア", _elScoreCell(pick.score), null, "0〜100"),
@@ -1473,7 +1473,7 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
       ? React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
           React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加α +" + add.add + "円（合計" + add.total + "円・スコア" + Math.round(add.score * 100) + "）"),
           _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 11, "#9A3412"))
-      : (add ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "追加α＝基本αで十分(+0)") : null));
+      : (add ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "追加α＝推奨無し") : null));
   var sweepRows = pick.sweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var on = e.a === a, pass = e.scN >= minN && e.score != null;
     return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.4 } },
@@ -1674,9 +1674,7 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
         React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: "#9A3412" } }, "+" + add.add + "円"),
         React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "(計" + add.total + "円)")),
       _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 13, "#9A3412"));
-    else addCell = React.createElement("span", { style: { whiteSpace: "nowrap" } },
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8" } }, "+0円"),
-      React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 2 } }, "基本αで十分"));
+    else addCell = React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8", whiteSpace: "nowrap" } }, "推奨無し");
     return React.createElement("tr", { key: i },
       _elv2Td(pd.label, { fontWeight: 700, color: "#9A3412", textAlign: "left", paddingLeft: 8 }),
       _elv2Td(addCell),
