@@ -5331,7 +5331,7 @@ function EntryRecordForm(_ref_erf) {
     _useStateTAA = _slicedToArray(_useStateTA, 2),
     fTradeAlpha = _useStateTAA[0], setFTradeAlpha = _useStateTAA[1];
   // α値: 基本α値＋追加α値＝合計α値（合計＝採用α＝signal.alphaVal）2026-06-21。基本/追加は記録固有でbaseAlphaVal/addAlphaValに保存。
-  // 既存記録は基本α=旧採用α(alphaVal)・追加α=0で初期化（合計＝従来値で不変）。分足(minBar) 欄は一旦廃止後2026-06-24に再導入（下記fMinBar・水準線値の右）。水準線levelPriceは2026-06-22にOS見出しの右へ再導入＝下記fLevelPrice。
+  // 既存記録は基本α=旧採用α(alphaVal)・追加α=0で初期化（合計＝従来値で不変）。分足(minBar) 欄は一旦廃止後2026-06-24に再導入（下記fMinBar・エントリーシグナルの上にボタン選択1/5）。水準線levelPriceは2026-06-22にOS見出しの右へ再導入＝下記fLevelPrice。
   var _useStateBA = useState(initSig.baseAlphaVal != null ? String(initSig.baseAlphaVal) : (initSig.alphaVal != null ? String(initSig.alphaVal) : "")),
     _useStateBAA = _slicedToArray(_useStateBA, 2),
     fBaseAlpha = _useStateBAA[0], setFBaseAlpha = _useStateBAA[1];
@@ -6179,6 +6179,25 @@ function EntryRecordForm(_ref_erf) {
         })
       ),
       
+      React.createElement("div", { style: SH_ }, "分足"),
+      React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8, alignItems: "center" } },
+        ["1", "5"].map(function(_mb) {
+          var on = fMinBar === _mb;
+          return React.createElement("button", {
+            key: _mb,
+            onClick: function() { setFMinBar(on ? "" : _mb); },
+            style: {
+              minWidth: 64, padding: "10px 16px", fontSize: 15, fontWeight: 800,
+              border: on ? "1.5px solid #166534" : "1px solid #ddd",
+              background: on ? "#EAF7EE" : "#fff",
+              color: on ? "#166534" : "#888",
+              borderRadius: 6, cursor: "pointer", textAlign: "center"
+            }
+          }, _mb);
+        }),
+        React.createElement("span", { style: { fontSize: 12, color: "#94A3B8", fontWeight: 600 } }, "分足")
+      ),
+
       React.createElement("div", { style: SH_ }, "🎯 エントリーシグナル"),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } },
         signalTags.concat(fTags.filter(function(_o) { return signalTags.indexOf(_o) < 0; })).map(function(t) {
@@ -6590,21 +6609,6 @@ function EntryRecordForm(_ref_erf) {
               ),
               React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),
               React.createElement("span", { style: { fontSize: 9, color: "#93C5FD", fontWeight: 700 } }, "自動")
-            ),
-            React.createElement("div", {
-              style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 7px", borderRadius: 6, background: "#F0FDF4", border: "1px solid #BBF7D0", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
-            },
-              React.createElement("span", { style: { color: "#166534", fontWeight: 700 } }, "分足"),
-              React.createElement("select", {
-                value: fMinBar,
-                onChange: function(e) { setFMinBar(e.target.value); },
-                style: { padding: "2px 6px", fontSize: 12, fontWeight: 800, color: "#166534", border: "1px solid #BBF7D0", borderRadius: 4, background: "#fff", outline: "none" }
-              },
-                React.createElement("option", { value: "" }, "—"),
-                React.createElement("option", { value: "1" }, "1"),
-                React.createElement("option", { value: "5" }, "5")
-              ),
-              React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "分")
             ),
             React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）")
           ),
