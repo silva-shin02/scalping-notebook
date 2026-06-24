@@ -3373,6 +3373,26 @@ function _elOsMaxAll(s) {
   }
   return max;
 }
+// OS1〜3の最高値（×打ち切り版・ユーザー仕様 2026-06-24）: 各足を「算入してから」、到達期待度×/H期待度×/損切り済の足でそこまで含めて打ち切る（その足以降は除外）。EP足は打ち切り対象外。
+// _elOsMaxFiltered（×足は算入せず除外）と違い、×になった足自身の高値は含める＝「×になった所までの最高値」。OS欄の最高値表示で（）外に出す値。
+function _elOsMaxCapped(s, alpha) {
+  if (!s) return null;
+  if (!_epIsV2(s)) return (s.osVal != null && s.osVal !== "") ? Number(s.osVal) : null;
+  var a = (alpha != null) ? alpha : _epOwnAlpha(s);
+  var legs = _epLegs(s).slice(0, 3);
+  if (!legs.length) return null;
+  var epIdx = -1; var _r = _epResolve(s, a); if (_r) epIdx = _r.epIdx;
+  var _cut = function(e) { return e === "×" || e === "損切り済"; };
+  var max = null;
+  for (var i = 0; i < legs.length; i++) {
+    var o = legs[i];
+    if (o.h != null && (max == null || o.h > max)) max = o.h;
+    if (i === epIdx) continue;
+    var exp = (epIdx >= 0 && i === epIdx + 1) ? s.holdExp : (epIdx >= 0 && i === epIdx + 2) ? s.hold2Exp : o.exp;
+    if (_cut(exp)) break;
+  }
+  return max;
+}
 // EP→以降の足を順にホールドした場合の損益ラダー（OS1〜5対応）。各足で「ここで手仕舞いした損益」と損切り発生を返す。
 // 損切り: EP以降で高値−α≧cutに達した最初の足。以降は損切り額で固定。未達の足は確定値で手仕舞い損益(α−確定値)*100。
 // 返り値 {epIdx, items:[{idx,depth,role,leg,pnl,isStop,afterStop}], stopDepth(-1=損切りなし), maxPnl, maxDepth, finalPnl}。
@@ -3700,6 +3720,20 @@ function _epSignedNode(v, key) {
 // 各足の数値下に期待度（EP前=α到達期待 os1Exp/os2Exp・EP後=H期待 holdExp/hold2Exp）を○△×で表示。
 // ×宣言後の到達（judge="x"＝EP足より前のOSで到達期待×）の場合、EP足は「↑EP（×）」と表示。
 // 旧記録はOS1のみ（osVal≥αならEPマーカー・期待度は非表示）。
+// OS欄の最下部中央に出す「OS1〜3の最高値」ノード（ユーザー仕様 2026-06-24）。
+// 通常は最高値を1つ表示。到達期待度×/H期待度×/損切り済の足より後ろに更に高い足がある場合だけ「打ち切り最高値（全体最高値）」＝例 12（21）。値は水準線比(↑/↓)。
+function _epOsMaxChainNode(s, alpha) {
+  var raw = _elOsMaxAll(s);
+  if (raw == null) return null;
+  var capped = _elOsMaxCapped(s, alpha);
+  if (capped == null) capped = raw;
+  var _fmt = function(v) { return React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", fontWeight: 800, color: _vcol(Math.abs(v), v >= 0) } }, (v < 0 ? "↓" : "") + Math.abs(v)); };
+  var inner = (raw > capped)
+    ? React.createElement(React.Fragment, null, _fmt(capped), React.createElement("span", { style: { color: "#9CA3AF" } }, "（"), _fmt(raw), React.createElement("span", { style: { color: "#9CA3AF" } }, "）"))
+    : _fmt(raw);
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, marginTop: 1, fontSize: "0.92em", whiteSpace: "nowrap" } },
+    React.createElement("span", { style: { fontSize: "0.8em", color: "#94A3B8", fontWeight: 700 } }, "最高"), inner);
+}
 function _epOsChainCell(s, alpha) {
   var legs, epIdx = -1, judge = null;
   if (_epIsV2(s)) {
@@ -3746,7 +3780,10 @@ function _epOsChainCell(s, alpha) {
     } else sub = (_isE ? React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: "0.85em" } }, "実E") : null);
     nodes.push(React.createElement("span", { key: "lg" + i, style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } }, _val, sub));
   });
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", whiteSpace: "nowrap" } }, nodes);
+  var _chain = React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", whiteSpace: "nowrap" } }, nodes);
+  var _mx = _epOsMaxChainNode(s, alpha);
+  if (!_mx) return _chain;
+  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } }, _chain, _mx);
 }
 // OS4・OS5（4・5本目=hold*/hold2*）が未入力の記録の【未記録】マーク（時間欄の下などに表示）。完備ならnull。
 // αシミュでEPが後ろにずれた際に足が足りず深いホールド検証ができない記録を識別する。
