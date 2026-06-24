@@ -1625,6 +1625,114 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
     React.createElement("div", { style: { marginTop: 6 } }, _elBaseAlphaPeriodTableV2(recs, aiOf, refDate)));
 }
 
+// 📐 追加α値の分析（記録帳のα値タブ・2026-06-24）。母数＝追加α〇明示の記録(_elAddAlphaYes)。
+// ①概況KPI ②効果検証(採用α=基本+追加 vs 基本αだけ のH1反実仮想＝足して正解だったか) ③上乗せ幅別の効果＋推奨追加α ④根拠別成績。
+// recs=スコープのv2記録(×/〇/未選択混在)・aiOf(r)→{alpha(採用=基本+追加),cutLine}・data。
+function _elAddAlphaSectionV2(recs, aiOf, data) {
+  var totalV2 = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  var pool = totalV2.filter(function(r) { return _elAddAlphaYes(r.signal); });
+  if (!pool.length) return React.createElement("div", { style: { fontSize: 12, color: "#94A3B8", padding: "10px 0" } }, "追加α〇（要）を明示した記録がありません（このスコープ）。記録を開いて追加α欄で〇を選ぶと、ここに分析が出ます。");
+  var _num = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
+  var _baseOf = function(s) { var b = _num(s.baseAlphaVal); if (b == null) { var a = _num(s.alphaVal), ad = _num(s.addAlphaVal); b = (a != null && ad != null) ? (a - ad) : a; } return b; };
+  var _addOf = function(s) { var v = _num(s.addAlphaVal); if (v == null) { var a = _num(s.alphaVal), b = _num(s.baseAlphaVal); v = (a != null && b != null) ? (a - b) : null; } return v; };
+  var _enteredAt = function(s, a) { var rr = _epResolve(s, a); return !!(rr && rr.judge === "ok"); };
+  var _h1At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var h = _elDynHold(s, a, cut); return h == null ? 0 : h; };
+  var _stopAt = function(s, a, cut) { return _enteredAt(s, a) && (_elPlanIsStop(s, a, cut) || _elHoldIsStop(s, a, cut)); };
+
+  // 効果計算（採用α=基本+追加 vs 基本αだけ）
+  var eff = [];
+  pool.forEach(function(r) {
+    var s = r.signal, ai = aiOf(r), adopted = ai.alpha, cut = ai.cutLine, base = _baseOf(s);
+    if (adopted == null || base == null || adopted <= base) return;
+    var h1A = _h1At(s, adopted, cut), h1B = _h1At(s, base, cut);
+    eff.push({ s: s, cut: cut, base: base, adopted: adopted, add: adopted - base, h1A: h1A, h1B: h1B, delta: h1A - h1B,
+      stopBase: _stopAt(s, base, cut), stopAd: _stopAt(s, adopted, cut),
+      reasons: (Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.filter(Boolean) : (s.addAlphaReason ? [s.addAlphaReason] : [])) });
+  });
+
+  // ① 概況KPI
+  var addVals = pool.map(function(r) { return _addOf(r.signal); }).filter(function(v) { return v != null; });
+  var poolOk = 0, poolNg = 0;
+  pool.forEach(function(r) { var res = _elDynResult(r.signal, aiOf(r).alpha, aiOf(r).cutLine); if (res === "ok") poolOk++; else if (res === "ng") poolNg++; });
+  var ss = _elStopStatsV2(pool, data);
+  var ratio = totalV2.length ? Math.round(pool.length / totalV2.length * 100) : 0;
+  var kpi = _elv2CardRow([
+    _elv2Card("追加α〇 件数", pool.length + "件", "#9A3412", "全記録の" + ratio + "%"),
+    _elv2Card("上乗せ幅", (addVals.length ? _elMedian(addVals) : "—") + "円", "#0369A1", "平均 " + (addVals.length ? _elMean(addVals) : "—") + "円"),
+    _elv2Card("〇局面のE後勝率", (poolOk + poolNg) ? Math.round(poolOk / (poolOk + poolNg) * 100) + "%" : "—", null, poolOk + "勝" + poolNg + "敗"),
+    _elv2Card("〇局面の損切り率", (ss && ss.rate != null) ? ss.rate + "%" : "—", (ss && ss.any > 0) ? "#1E8449" : "#bbb", (ss ? ss.any : 0) + "回")
+  ]);
+
+  // ② 効果検証（反実仮想）
+  var effNode;
+  if (!eff.length) effNode = React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "6px 0" } }, "基本α・採用αが揃った記録がありません（基本α値の保存が必要）。");
+  else {
+    var win = 0, lose = 0, sumDelta = 0, savedStop = 0;
+    eff.forEach(function(e) { if (e.delta > 0) win++; else if (e.delta < 0) lose++; sumDelta += e.delta; if (e.stopBase && !e.stopAd) savedStop++; });
+    var same = eff.length - win - lose;
+    var avgDelta = Math.round(sumDelta / eff.length);
+    var winPct = Math.round(win / eff.length * 100);
+    effNode = React.createElement(React.Fragment, null,
+      _elv2CardRow([
+        _elv2Card("追加αが活きた率", winPct + "%", win >= lose ? "#1E8449" : "#B45309", win + "/" + eff.length + "件 改善"),
+        _elv2Card("平均H1改善額", (avgDelta > 0 ? "+" : "") + avgDelta + "円", _elPnlColor(avgDelta), "計" + (sumDelta > 0 ? "+" : "") + Math.round(sumDelta).toLocaleString() + "円"),
+        _elv2Card("内訳（活/同/裏）", win + "・" + same + "・" + lose, "#555", "活きた・同じ・裏目"),
+        _elv2Card("損切り回避", savedStop + "件", savedStop > 0 ? "#1E8449" : "#bbb", "基本αなら損切り→回避")
+      ]),
+      _elInsightBoxV2([
+        React.createElement("span", null, "追加αを足した記録のうち ", _elInsightEmV2(winPct + "%"), "（", _elInsightEmV2(win + "/" + eff.length + "件"), "）で実際にH1が改善し、平均 ", _elInsightEmV2((avgDelta > 0 ? "+" : "") + avgDelta + "円"), "（合計 ", _elInsightEmV2((sumDelta > 0 ? "+" : "") + Math.round(sumDelta).toLocaleString() + "円"), "）の効果。",
+          same > 0 ? React.createElement("span", null, " ", _elInsightEmV2(same + "件"), "は足さなくても同じ。") : null,
+          lose > 0 ? React.createElement("span", null, " ", _elInsightEmV2(lose + "件"), "は裏目（足さない方が良かった）。") : null,
+          savedStop > 0 ? React.createElement("span", null, " うち ", _elInsightEmV2(savedStop + "件"), "は基本αなら損切りだったのを回避。") : null)
+      ], { note: "各追加α〇記録で『実際の採用α（基本＋追加）のH1損益』と『基本αだけだった場合のH1損益』を、同じ値動き・同じ損切り値で比較（未達＝取引なし＝0円）。差の合計＝追加αの判断が生んだ損益。" })
+    );
+  }
+
+  // ③ 上乗せ幅別の効果＋推奨追加α
+  var _A = _elBaseAlphaA(recs, aiOf);
+  var recoAdd = (_A && _A.add && _A.add.improved) ? _A.add : null;
+  var recoNode = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: recoAdd ? "#0369A1" : "#94A3B8" } },
+    recoAdd ? React.createElement("span", null, "推奨追加α ＝ ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, "＋" + recoAdd.add + "円"), "（基本α" + (_A.pick ? _A.pick.alpha : "—") + "＋追加＝計" + recoAdd.total + "円）")
+      : "推奨追加α：実データで有意な上乗せ改善は出ていません（基本αで十分の傾向）");
+  var byAdd = {};
+  eff.forEach(function(e) { (byAdd[e.add] = byAdd[e.add] || []).push(e); });
+  var addKeys = Object.keys(byAdd).map(Number).sort(function(a, b) { return a - b; });
+  var addRows = addKeys.map(function(k) {
+    var es = byAdd[k], w = 0, sd = 0; es.forEach(function(e) { if (e.delta > 0) w++; sd += e.delta; });
+    return React.createElement("tr", { key: k },
+      _elv2Td("＋" + k + "円", { fontWeight: 700, color: "#9A3412", textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(es.length + "件"),
+      _elv2Td(_elPctCell(w / es.length)),
+      _elv2Td(_elv2Avg(sd, es.length)));
+  });
+  var optNode = React.createElement(React.Fragment, null, recoNode,
+    addRows.length ? _elv2Table(["上乗せ幅", "件数", "活きた率", "平均H1改善"], addRows) : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "上乗せ幅データなし"));
+
+  // ④ 根拠別
+  var byR = {};
+  eff.forEach(function(e) { (e.reasons.length ? e.reasons : ["（根拠なし）"]).forEach(function(rs) { (byR[rs] = byR[rs] || []).push(e); }); });
+  var rKeys = Object.keys(byR).sort(function(a, b) { var wa = byR[a].filter(function(e) { return e.delta > 0; }).length / byR[a].length, wb = byR[b].filter(function(e) { return e.delta > 0; }).length / byR[b].length; return wb - wa; });
+  var rRows = rKeys.map(function(rs) {
+    var es = byR[rs], w = 0, ok = 0, ng = 0, stop = 0, ad = [];
+    es.forEach(function(e) { if (e.delta > 0) w++; if (e.stopAd) stop++; ad.push(e.add); var res = _elDynResult(e.s, e.adopted, e.cut); if (res === "ok") ok++; else if (res === "ng") ng++; });
+    return React.createElement("tr", { key: rs },
+      _elv2Td(rs, { fontWeight: 700, color: "#9A3412", textAlign: "left", paddingLeft: 8, whiteSpace: "normal" }),
+      _elv2Td(es.length + "件"),
+      _elv2Td((ad.length ? _elMedian(ad) : "—") + "円"),
+      _elv2Td((ok + ng) ? Math.round(ok / (ok + ng) * 100) + "%" : "—"),
+      _elv2Td(_elPctCell(w / es.length)),
+      _elv2Td(es.length ? _elStopRateCell(stop / es.length) : React.createElement("span", { style: { color: "#bbb" } }, "—")));
+  });
+
+  var _miniH = function(t) { return React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "12px 0 2px" } }, t); };
+  return React.createElement(React.Fragment, null,
+    kpi,
+    _miniH("🎯 足して正解だったか（効果検証）"), effNode,
+    _miniH("📊 いくら足すのが最適か（上乗せ幅別の効果）"), optNode,
+    _miniH("🏷 根拠別の成績（活きた率の高い順）"),
+    rRows.length ? _elv2Table(["根拠", "件数", "上乗せ中央", "E後勝率", "活きた率", "損切り率"], rRows) : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "根拠データなし"));
+}
+
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====
 function _elv2Th(t) { return React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); }
 function _elv2Td(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); }
@@ -3133,6 +3241,8 @@ function EntryLogView(_ref_elv2) {
       _elBaseAlphaDetailV2(v2recs, _ai),
       _secH("🎯 推奨基本α 期間推移", "件数3件以上のαから損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
       React.createElement(_elBaseAlphaTrendV2, { recs: v2recs, aiOf: _ai }),
+      _secH("📐 追加α値の分析", "追加α〇（要）を明示した記録だけが母数。足した判断が当たっていたか（基本αだけの場合とのH1反実仮想比較）・最適な上乗せ幅・根拠別の成績。〇は少なめなので全銘柄合算が見やすい"),
+      _elAddAlphaSectionV2(v2recs, _ai, data),
       _alphaTable ? React.createElement(React.Fragment, null,
         _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"), _elAlphaCurveSectionV2(v2recs, _ai)
