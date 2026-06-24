@@ -1236,8 +1236,8 @@ function _elBaseAlphaEval(recs, aiOf, a) {
 // 返り値 { alpha, score, stopRate, h1win, eRate, entered, scN, pnl, epPnl, stopN, ewin, status('ok'|'na'|'none'), sweep, minN(=採用した件数フロア) }。
 function _elBaseAlphaPick(recs, aiOf) {
   if (!recs || !recs.length) return null;
-  // 推奨基本αの母数: 追加α=×(不要)を明示した記録だけ（〇=変則局面・未選択=未判断は除外）2026-06-24。
-  recs = recs.filter(function(r) { return r && _elAddAlphaNo(r.signal); });
+  // 推奨基本αの母数: 追加α=〇(上乗せあり)以外＝×(不要)＋未選択(未判断)の記録。未選択はaddAlphaVal無し＝基本αのみの記録なので母数に算入する（〇だけ除外）2026-06-24。
+  recs = recs.filter(function(r) { return r && !_elAddAlphaYes(r.signal); });
   if (!recs.length) return null;
   var sweep = _EL_BASE_ALPHAS.map(function(a) { return _elBaseAlphaEval(recs, aiOf, a); });
   // 件数フロア(実データ連動): 最も件数(scN)の多いαの_EL_BASE_MIN_FRAC以上を要求＝高αの薄い標本(選抜バイアス)を除外。最低でも_EL_BASE_MIN_N件 2026-06-22b。
@@ -1546,9 +1546,11 @@ function _elBaseAlphaTableV2(groups, cutFn) {
 }
 // 期間別の推奨基本α（前日まで・移動窓）: recsをrefDate未満(=その日の前日まで・当日を含めない)に絞り、直近1週/1か月/3か月/全期間で推奨基本α(_elBaseAlphaA)を出す表。銘柄別記録の「前日まで」分析用 2026-06-22c。
 // aiOf(r)→{cutLine}（採用は各記録のcutLine）。期間窓はrefDate起点の移動窓（週初/月初の標本不足を避ける）。
-function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate) {
-  var all = (recs || []).filter(function(r) { return r && r.date && r.date < refDate && _epIsV2(r.signal) && _elInclTotal(r.signal); });
-  if (!all.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
+function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
+  var _okR = function(r) { return r && r.date && _epIsV2(r.signal) && _elInclTotal(r.signal); };
+  var all = (recs || []).filter(function(r) { return _okR(r) && r.date < refDate; });
+  var today = includeToday ? (recs || []).filter(function(r) { return _okR(r) && r.date === refDate; }) : [];
+  if (!all.length && !today.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var _p = String(refDate).split("-");
   var _pad = function(nn) { return ("0" + nn).slice(-2); };
   var _ymd = function(dd) { return dd.getFullYear() + "-" + _pad(dd.getMonth() + 1) + "-" + _pad(dd.getDate()); };
@@ -1557,12 +1559,12 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate) {
   var c2 = _cut(function(d) { d.setMonth(d.getMonth() - 1); });
   var c3 = _cut(function(d) { d.setMonth(d.getMonth() - 3); });
   var _win = function(lo) { return all.filter(function(r) { return r.date >= lo; }); };
-  var periods = [
-    { label: "直近1週間", recs: _win(c1) },
-    { label: "直近1か月", recs: _win(c2) },
-    { label: "直近3か月", recs: _win(c3) },
-    { label: "全期間", recs: all }
-  ];
+  var periods = [];
+  if (includeToday) periods.push({ label: "本日", recs: today });
+  periods.push({ label: "直近1週間", recs: _win(c1) });
+  periods.push({ label: "直近1か月", recs: _win(c2) });
+  periods.push({ label: "直近3か月", recs: _win(c3) });
+  periods.push({ label: "全期間", recs: all });
   var dash = React.createElement("span", { style: { color: "#bbb" } }, "—");
   var rows = periods.map(function(pd, i) {
     var A = _elBaseAlphaA(pd.recs, aiOf);

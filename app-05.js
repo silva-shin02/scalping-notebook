@@ -6204,7 +6204,7 @@ function EntryRecordForm(_ref_erf) {
             key: _mb,
             onClick: function() { setFMinBars(function(_prev) { return (_prev.indexOf(_mb) >= 0) ? _prev.filter(function(_x) { return _x !== _mb; }) : _prev.concat([_mb]); }); },
             style: {
-              minWidth: 64, padding: "10px 16px", fontSize: 15, fontWeight: 800,
+              minWidth: 38, padding: "5px 12px", fontSize: 13, fontWeight: 800,
               border: on ? "1.5px solid #166534" : "1px solid #ddd",
               background: on ? "#EAF7EE" : "#fff",
               color: on ? "#166534" : "#888",
@@ -6626,9 +6626,9 @@ function EntryRecordForm(_ref_erf) {
               ),
               React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),
               React.createElement("span", { style: { fontSize: 9, color: "#93C5FD", fontWeight: 700 } }, "自動")
-            ),
-            React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）")
+            )
           ),
+          React.createElement("div", { style: { fontSize: 10, color: "#64748B", fontWeight: 600, margin: "0 0 6px 2px", lineHeight: 1.4 } }, "※5分足の場合、EPまでは5分足基準、EPからは1分足基準"),
           React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFBF5" } },
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto" } },
             _legCol("OS1", _fRoleOf(0), [
