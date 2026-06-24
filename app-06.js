@@ -1710,6 +1710,35 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
     React.createElement("div", { style: { marginTop: 6 } }, _elBaseAlphaPeriodTableV2(recs, aiOf, refDate)));
 }
 
+// 各記録の理想の追加α（基本αに何円足すべきだったか）2026-06-24。base=基本α・cut=損切り値。add=0〜_EL_BASE_ADD_MAX(30)を総当たり：
+//   winMin=損切り回避かつH1損益>0を満たす最小の追加α（無ければnull＝足しても勝てなかった／0＝足さず勝ち）。
+//   fillMax=OS1〜3でEP到達を保てる最大の追加α（約定上限・base自体で未到達ならnull）。αを増やすほど高値≥αが難化＝EP到達は退化方向なので「約定の観点」は上限で表す。
+function _elIdealAddForRec(s, base, cut) {
+  if (base == null) return { winMin: null, fillMax: null };
+  var winMin = null, fillMax = null;
+  for (var add = 0; add <= _EL_BASE_ADD_MAX; add++) {
+    var a = base + add;
+    if (a > 50) break;
+    var rr = _epResolve(s, a);
+    var reached = !!(rr && rr.epIdx >= 0);
+    if (reached) fillMax = add;
+    if (reached && winMin == null) {
+      var hd = _elDynHold(s, a, cut);
+      var stop = _elPlanIsStop(s, a, cut) || _elHoldIsStop(s, a, cut);
+      if (!stop && hd != null && hd > 0) winMin = add;
+    }
+  }
+  return { winMin: winMin, fillMax: fillMax };
+}
+// ピアソン相関係数（pairs=[[x,y],...]）。n<2 or 分散0はnull。2026-06-24。
+function _elCorr(pairs) {
+  var n = pairs.length; if (n < 2) return null;
+  var sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+  for (var i = 0; i < n; i++) { var x = pairs[i][0], y = pairs[i][1]; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; }
+  var cov = sxy - sx * sy / n, vx = sxx - sx * sx / n, vy = syy - sy * sy / n;
+  if (vx <= 0 || vy <= 0) return null;
+  return cov / Math.sqrt(vx * vy);
+}
 // 📐 追加α値の分析（記録帳のα値タブ・2026-06-24）。母数＝追加α〇明示の記録(_elAddAlphaYes)。
 // ①概況KPI ②効果検証(採用α=基本+追加 vs 基本αだけ のH1反実仮想＝足して正解だったか) ③上乗せ幅別の効果＋推奨追加α ④根拠別成績。
 // recs=スコープのv2記録(×/〇/未選択混在)・aiOf(r)→{alpha(採用=基本+追加),cutLine}・data。
@@ -1810,12 +1839,68 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   });
 
   var _miniH = function(t) { return React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "12px 0 2px" } }, t); };
+
+  // ⑤ 根拠別の追加α明細（実際の追加α vs 理想・推奨追加α・根拠の数値「底抜け前足浮き」）2026-06-24
+  var _numReason = (data && data.custom && data.custom.addAlphaNumericReason) || "底抜け前足浮き";
+  var baseAlphaAll = (_A && _A.pick && _A.pick.alpha != null) ? _A.pick.alpha : null;
+  var _reasonsOf = function(s) { var a = (Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.filter(Boolean) : (s.addAlphaReason ? [s.addAlphaReason] : [])); return a.length ? a : ["（根拠なし）"]; };
+  var _addFmt = function(v, suf) { return v == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#9A3412" : "#94A3B8" } }, "+" + v + "円" + (suf || "")); };
+  var detByR = {};
+  pool.forEach(function(r) {
+    var s = r.signal, ai = aiOf(r), cut = ai.cutLine, base = _baseOf(s), actAdd = _addOf(s);
+    var ideal = (base != null) ? _elIdealAddForRec(s, base, cut) : { winMin: null, fillMax: null };
+    var floatV = (_reasonsOf(s).indexOf(_numReason) >= 0) ? _num(s.addAlphaReasonVal) : null;
+    var h1 = (base != null && actAdd != null) ? _h1At(s, base + actAdd, cut) : null;
+    var rec = { date: r.date || "", base: base, actAdd: actAdd, winMin: ideal.winMin, fillMax: ideal.fillMax, floatV: floatV, h1: h1 };
+    _reasonsOf(s).forEach(function(rs) { (detByR[rs] = detByR[rs] || []).push(rec); });
+  });
+  var detKeys = Object.keys(detByR).sort(function(a, b) { return detByR[b].length - detByR[a].length; });
+  var detSections = detKeys.map(function(rs, di) {
+    var es = detByR[rs], isNum = (rs === _numReason);
+    var reasonRecs = pool.filter(function(r) { return _reasonsOf(r.signal).indexOf(rs) >= 0; });
+    var radd = null;
+    if (baseAlphaAll != null && reasonRecs.length) { var be = _elBaseAlphaEval(reasonRecs, aiOf, baseAlphaAll); radd = _elAddAlphaReco(reasonRecs, aiOf, baseAlphaAll, be.score); }
+    var floats = es.map(function(e) { return e.floatV; }).filter(function(v) { return v != null; });
+    var head = isNum ? ["日付", "実際", "理想①勝つ最小", "約定上限", rs + "(円)", "H1損益"] : ["日付", "実際", "理想①勝つ最小", "約定上限", "H1損益"];
+    var recRows = es.slice().sort(function(x, y) { return (x.date < y.date) ? 1 : (x.date > y.date) ? -1 : 0; }).map(function(e, i) {
+      var cells = [
+        _elv2Td((e.date || "").slice(5).replace("-", "/"), { textAlign: "left", paddingLeft: 8 }),
+        _elv2Td(_addFmt(e.actAdd)),
+        _elv2Td(e.winMin == null ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#C0392B" } }, "勝てず") : _addFmt(e.winMin)),
+        _elv2Td(e.fillMax == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : _addFmt(e.fillMax, "まで"))
+      ];
+      if (isNum) cells.push(_elv2Td(e.floatV == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : (e.floatV + "円")));
+      cells.push(_elv2Td(e.h1 == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(e.h1) } }, _elPnlFmt(Math.round(e.h1)))));
+      return React.createElement("tr", { key: i }, cells);
+    });
+    var corrNode = null;
+    if (isNum) {
+      var pairs = es.filter(function(e) { return e.floatV != null && e.winMin != null; }).map(function(e) { return [e.floatV, e.winMin]; });
+      if (pairs.length >= 3) {
+        var rc = _elCorr(pairs);
+        var dir = rc == null ? "—" : (rc >= 0.3 ? "大きいほど理想の追加αも大きい傾向" : rc <= -0.3 ? "大きいほど理想の追加αは小さい傾向" : "はっきりした関係は薄い");
+        corrNode = React.createElement("div", { style: { fontSize: 10, color: "#64748B", marginTop: 2 } }, "📈 相関：" + rs + "が" + dir + (rc != null ? "（r=" + rc.toFixed(2) + "・" + pairs.length + "件）" : ""));
+      }
+    }
+    return React.createElement("div", { key: di, style: { marginTop: 8 } },
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", display: "flex", flexWrap: "wrap", gap: "2px 10px", alignItems: "baseline" } },
+        React.createElement("span", null, "🏷 " + rs),
+        React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, es.length + "件"),
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (radd && radd.improved) ? "#0369A1" : "#94A3B8" } }, "推奨追加α " + ((radd && radd.improved) ? "+" + radd.add + "円" : "+0")),
+        (isNum && floats.length) ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, rs + "中央 " + _elMedian(floats) + "円") : null),
+      _elv2Table(head, recRows),
+      corrNode);
+  });
+
   return React.createElement(React.Fragment, null,
     kpi,
     _miniH("🎯 足して正解だったか（効果検証）"), effNode,
     _miniH("📊 いくら足すのが最適か（上乗せ幅別の効果）"), optNode,
     _miniH("🏷 根拠別の成績（活きた率の高い順）"),
-    rRows.length ? _elv2Table(["根拠", "件数", "上乗せ中央", "E後勝率", "活きた率", "損切り率"], rRows) : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "根拠データなし"));
+    rRows.length ? _elv2Table(["根拠", "件数", "上乗せ中央", "E後勝率", "活きた率", "損切り率"], rRows) : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "根拠データなし"),
+    _miniH("🧾 根拠別の追加α明細（実際 vs 理想・推奨追加α）"),
+    React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "0 0 2px" } }, "実際＝記録の追加α値。理想①勝つ最小＝損切り回避＆H1黒字にできた最小の上乗せ（「勝てず」＝足しても勝てなかった）。約定上限＝これ以上足すと未約定になる上限（αを増やすほどEP到達は難化するため約定の観点は上限で表示）。推奨追加α＝その根拠の〇記録から算出（基本α" + (baseAlphaAll != null ? baseAlphaAll + "円" : "—") + "基準）。"),
+    detSections.length ? React.createElement("div", null, detSections) : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "明細データなし"));
 }
 
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====

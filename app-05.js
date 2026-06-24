@@ -5424,6 +5424,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateRMG = useState(false),
     _useStateRMGA = _slicedToArray(_useStateRMG, 2),
     fReasonMgr = _useStateRMGA[0], setFReasonMgr = _useStateRMGA[1];
+  // 根拠「底抜け前足浮き」等の数値（円）。記録固有=signal.addAlphaReasonVal。数値欄を出す根拠名=data.custom.addAlphaNumericReason(既定「底抜け前足浮き」)。2026-06-24。
+  var _useStateRV = useState(initSig.addAlphaReasonVal != null ? String(initSig.addAlphaReasonVal) : ""),
+    _useStateRVA = _slicedToArray(_useStateRV, 2),
+    fReasonVal = _useStateRVA[0], setFReasonVal = _useStateRVA[1];
   // α値セクションのメモ（記録固有=signal.alphaMemo）2026-06-21。
   var _useStateALM = useState(initSig.alphaMemo || ""),
     _useStateALMA = _slicedToArray(_useStateALM, 2),
@@ -6078,6 +6082,7 @@ function EntryRecordForm(_ref_erf) {
       addAlphaVal: (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : null,
       addAlphaUsed: fAddAlphaUsed === "○" ? true : (fAddAlphaUsed === "×" ? false : null),
       addAlphaReasons: (fAddAlphaUsed === "○") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
+      addAlphaReasonVal: (function() { var _nr = (data && data.custom && data.custom.addAlphaNumericReason) || "底抜け前足浮き"; return (fAddAlphaUsed === "○" && (fAddReasons || []).indexOf(_nr) >= 0 && fReasonVal !== "" && !isNaN(Number(fReasonVal))) ? Number(fReasonVal) : null; })(),
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
       includeInTotal: fIncl,
@@ -6402,6 +6407,7 @@ function EntryRecordForm(_ref_erf) {
         })()),
       (fAddAlphaUsed === "○") ? (function() {
         var _reasons = (data && data.custom && Array.isArray(data.custom.addAlphaReasons)) ? data.custom.addAlphaReasons : _DEF_ADD_REASONS;
+        var _numReason = (data && data.custom && data.custom.addAlphaNumericReason) || "底抜け前足浮き";
         var _addR = function(nm) {
           nm = (nm || "").trim(); if (!nm) return;
           save(function(prev) {
@@ -6442,8 +6448,9 @@ function EntryRecordForm(_ref_erf) {
               });
               newCharts[ck] = changed ? Object.assign({}, c, { signals: sigs }) : c;
             });
+            var _curNR = (prev.custom && prev.custom.addAlphaNumericReason) || "底抜け前足浮き";
             return Object.assign({}, prev, {
-              custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: newMaster }),
+              custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: newMaster, addAlphaNumericReason: (_curNR === oldNm ? newNm : _curNR) }),
               charts: newCharts
             });
           });
@@ -6460,6 +6467,11 @@ function EntryRecordForm(_ref_erf) {
               var on = fAddReasons.indexOf(rsn) >= 0;
               return React.createElement("span", { key: rsn, style: { display: "inline-flex", alignItems: "center", gap: 1 } },
                 _optBtn(rsn, on, function() { setFAddReasons(on ? fAddReasons.filter(function(x) { return x !== rsn; }) : fAddReasons.concat([rsn])); }, "#9A3412"),
+                (rsn === _numReason && on) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #FDE68A", borderRadius: 4, overflow: "hidden", marginLeft: 1, background: "#fff" }, title: "「" + rsn + "」の値（円・追加α欄と同じ入力）" },
+                  React.createElement("input", { type: "text", inputMode: "numeric", value: fReasonVal,
+                    onChange: function(e) { var _v = _toHankakuNum(e.target.value); if (_v === "") { setFReasonVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n < 0) n = 0; if (n > 999) n = 999; setFReasonVal(String(n)); },
+                    placeholder: "円", style: { padding: "1px 3px", fontSize: 11, fontWeight: 800, color: "#92400E", border: "none", outline: "none", background: "#fff", width: 32, textAlign: "right", boxSizing: "border-box" } }),
+                  React.createElement("span", { style: { fontSize: 9, color: "#92400E", padding: "0 3px", alignSelf: "center", whiteSpace: "nowrap" } }, "円")) : null,
                 fReasonMgr ? React.createElement(React.Fragment, null,
                   React.createElement("button", { type: "button", title: "この選択肢の名前を変更", onClick: function() { var nm = window.prompt("選択肢の新しい名前を入力してください", rsn); if (nm != null) _renameR(rsn, nm); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "✎"),
                   React.createElement("button", { type: "button", title: "この選択肢を削除", onClick: function() { _delR(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×")
