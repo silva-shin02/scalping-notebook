@@ -5212,10 +5212,9 @@ function DayView(_ref57) {
           )
         )
       ),
-      _pbHasAlpha && React.createElement("div", { style: { marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円）"),
-        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "各銘柄の全記録に同じαを当てて、件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考表示）。追加α目安＝基本αに何円足せば損切りしにくくH1利益が出たか。"),
-        _elBaseAlphaTableV2(_pbIdealGroups, _pbCutOf))
+      _pbHasAlpha && React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", marginTop: 10 } }, "🎯 推奨基本α値（銘柄別・期間別）"),
+        _pbStks.map(function(_sk) { return React.createElement(React.Fragment, { key: _sk }, _elBaseAlphaPeriodBlockV2(data, _sk, date)); }))
     );
     var _benchEl = (_pbStks && _pbStks.length) ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 α比較・深掘り（本日／今週／今月／全期間・銘柄別）"),
