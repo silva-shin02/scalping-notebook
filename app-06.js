@@ -1231,10 +1231,10 @@ function _elBaseAlphaEval(recs, aiOf, a) {
   var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
   return { a: a, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
 }
-// 次点（2番目の推奨α）を1番目の真下に（）で小書き（1番目と同サイズ・同色＝「サイズなど一緒」ユーザー方針 2026-06-24）。text例 "9円"/"+5円(計12)"。null/空はnull。
+// 次点（2番目の推奨α）を1番目の真下に「（次点：〇円）」で小書き（1番目と同サイズ・同色）。次点が無ければ「（次点なし）」を淡色で表示。ユーザー方針 2026-06-24。text例 "9円"/"+5円"。
 function _elReco2Node(text, fontSize, color) {
-  if (text == null || text === "") return null;
-  return React.createElement("div", { style: { fontSize: fontSize, fontWeight: 700, color: color, lineHeight: 1.1, whiteSpace: "nowrap" } }, "（" + text + "）");
+  var _has = (text != null && text !== "");
+  return React.createElement("div", { style: { fontSize: fontSize, fontWeight: 700, color: _has ? color : "#94A3B8", lineHeight: 1.1, whiteSpace: "nowrap" } }, _has ? ("（次点：" + text + "）") : "（次点なし）");
 }
 // 推奨基本α(5〜20)を選定【2026-06-22c】: 件数フロア＝最大件数(scN)×_EL_BASE_MIN_FRAC（最低_EL_BASE_MIN_N件）かつ 到達率≥_EL_BASE_MIN_ERATE のαから、合成スコア(0.7×(1−損切り率)+0.3×H1勝率)が最大。
 // 高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアスでスコア上振れ)」になるため、件数フロア＋到達率フロアで薄い高α・約定しにくい高αを除外＝厚く約定しやすい標本の中で最良のαを選ぶ。同点は件数最大→低α。フロア皆無なら件数(scN)最大のαを参考(status="na")・entered皆無は"none"。
@@ -1726,9 +1726,8 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
     var pk = head.A.pick, add = head.A.add, na = pk.status === "na";
     headNode = React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" } },
       React.createElement("span", { style: { fontSize: 12, color: "#0369A1", fontWeight: 700 } }, "今日の推奨"),
-      React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
-        React.createElement("div", { style: { fontSize: 22, fontWeight: 800, color: na ? "#B45309" : "#0369A1", lineHeight: 1 } }, pk.alpha + "円"),
-        _elReco2Node(pk.alpha2 != null ? (pk.alpha2 + "円") : null, 22, na ? "#B45309" : "#0369A1")),
+      React.createElement("span", { style: { fontSize: 22, fontWeight: 800, color: na ? "#B45309" : "#0369A1", lineHeight: 1 } }, pk.alpha + "円"),
+      React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: na ? "#B45309" : "#0369A1" } }, pk.alpha2 != null ? "（次点：" + pk.alpha2 + "円）" : "（次点なし）"),
       na ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "参考") : null,
       (add && add.improved) ? React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } }, React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加" + add.add + "（計" + add.total + "円）"), _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 11, "#9A3412")) : null,
       React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, head.label + "ベース・損切" + _pct(pk.stopRate) + " H1勝" + _pct(pk.h1win) + " " + (pk.scN || 0) + "件"));
@@ -1915,7 +1914,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
       React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", display: "flex", flexWrap: "wrap", gap: "2px 10px", alignItems: "baseline" } },
         React.createElement("span", null, "🏷 " + rs),
         React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, es.length + "件"),
-        React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (radd && radd.improved) ? "#0369A1" : "#94A3B8" } }, "推奨追加α " + ((radd && radd.improved) ? ("+" + radd.add + "円" + (radd.add2 != null ? "（次点+" + radd.add2 + "円）" : "")) : "+0")),
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (radd && radd.improved) ? "#0369A1" : "#94A3B8" } }, "推奨追加α " + ((radd && radd.improved) ? ("+" + radd.add + "円" + (radd.add2 != null ? "（次点：+" + radd.add2 + "円）" : "")) : "推奨無し")),
         (isNum && floats.length) ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, rs + "中央 " + _elMedian(floats) + "円") : null),
       _elv2Table(head, recRows),
       corrNode);
