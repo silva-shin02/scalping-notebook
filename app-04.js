@@ -3944,6 +3944,7 @@ function DayView(_ref57) {
     weekOffset: weekOffset,
     setWeekOffset: setWeekOffset
   }),
+  _elBaseAlphaDayBlockV2(_elCollectAllSignals(data).filter(function(r) { return r.stock === activeStock; }), function(r) { return _elAlphaInfo(r, data); }, date),
   React.createElement("div", null,
     React.createElement(ChartSectionDailyCandle, {
       stock: activeStock, data: data, custom: custom, cfg: cfg, highlightDate: date

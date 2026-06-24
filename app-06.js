@@ -1588,6 +1588,43 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate) {
   return _elv2Table(["期間", "推奨基本α", "損切り率", "H1勝率", "到達率", "件数"], rows);
 }
 
+// DayView「チャート」タブで早見表の下に出す「前日までの推奨基本α」ブロック（2026-06-24）。
+// 見出し＝直近1か月（データ不足なら3か月→全期間にフォールバック）の推奨基本α＋追加α、その下に期間別表(_elBaseAlphaPeriodTableV2)。
+// recs=銘柄の全記録(_elCollectAllSignals→stock絞り)・aiOf(r)→{alpha,cutLine}・refDate=基準日(当日除外=r.date<refDate)。履歴ゼロはnull。
+function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
+  var all = (recs || []).filter(function(r) { return r && r.date && r.date < refDate && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  if (!all.length) return null;
+  var _p = String(refDate).split("-");
+  var _pad = function(nn) { return ("0" + nn).slice(-2); };
+  var _ymd = function(dd) { return dd.getFullYear() + "-" + _pad(dd.getMonth() + 1) + "-" + _pad(dd.getDate()); };
+  var _cut = function(mut) { var d = new Date(Number(_p[0]), Number(_p[1]) - 1, Number(_p[2])); mut(d); return _ymd(d); };
+  var c1m = _cut(function(d) { d.setMonth(d.getMonth() - 1); });
+  var c3m = _cut(function(d) { d.setMonth(d.getMonth() - 3); });
+  var cand = [
+    { label: "直近1か月", recs: all.filter(function(r) { return r.date >= c1m; }) },
+    { label: "直近3か月", recs: all.filter(function(r) { return r.date >= c3m; }) },
+    { label: "全期間", recs: all }
+  ];
+  var head = null;
+  for (var i = 0; i < cand.length; i++) { var A = _elBaseAlphaA(cand[i].recs, aiOf); if (A && A.pick && A.pick.alpha != null) { head = { A: A, label: cand[i].label }; break; } }
+  var _pct = function(v) { return v != null ? Math.round(v * 100) + "%" : "—"; };
+  var headNode;
+  if (!head) headNode = React.createElement("div", { style: { fontSize: 12, color: "#94A3B8", fontWeight: 600 } }, "推奨基本α：データ不足");
+  else {
+    var pk = head.A.pick, add = head.A.add, na = pk.status === "na";
+    headNode = React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" } },
+      React.createElement("span", { style: { fontSize: 12, color: "#0369A1", fontWeight: 700 } }, "今日の推奨"),
+      React.createElement("span", { style: { fontSize: 22, fontWeight: 800, color: na ? "#B45309" : "#0369A1", lineHeight: 1 } }, pk.alpha + "円"),
+      na ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "参考") : null,
+      (add && add.improved) ? React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加" + add.add + "（計" + add.total + "円）") : null,
+      React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, head.label + "ベース・損切" + _pct(pk.stopRate) + " H1勝" + _pct(pk.h1win) + " " + (pk.scN || 0) + "件"));
+  }
+  return React.createElement("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
+    React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", marginBottom: 6 } }, "🎯 推奨基本α値（" + refDate + " 前日まで）"),
+    headNode,
+    React.createElement("div", { style: { marginTop: 6 } }, _elBaseAlphaPeriodTableV2(recs, aiOf, refDate)));
+}
+
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====
 function _elv2Th(t) { return React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); }
 function _elv2Td(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); }
