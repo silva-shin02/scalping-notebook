@@ -6047,20 +6047,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
   }, pool, {
     label: "\u30C1\u30E3\u30FC\u30C8\u5F62\u72B6\u30BF\u30B0",
     hideAddRoot: true
-  })), !hideSignals && React.createElement(EntrySignalSection, {
-    allData: data,
-    save: save,
-    stock: stock,
-    date: date,
-    onOpenEntryLog: onOpenEntryLog
-  }),
-  
-  !hideSignals && (function() {
-    var _iaSigs = Array.isArray(cd.signals) ? cd.signals : [];
-    if (!_iaSigs.length) return null;
-    return _elBaseAlphaPeriodBlockV2(data, stock, date);
-  })(),
-  
+  })),
   React.createElement("div", {
     style: { marginTop: 8 }
   },
@@ -6076,8 +6063,20 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
       guardOwner: "chartMemo_" + stock + "_" + date
     })
   ),
-  React.createElement(AppearanceSection, { data: data, save: save, stock: stock, date: date }),
-  !hideSignals ? React.createElement(WeeklyPnlPanel, { data: data, stock: stock, date: date, save: save }) : null);
+  !hideSignals && React.createElement(EntrySignalSection, {
+    allData: data,
+    save: save,
+    stock: stock,
+    date: date,
+    onOpenEntryLog: onOpenEntryLog
+  }),
+  !hideSignals ? React.createElement(WeeklyPnlPanel, { data: data, stock: stock, date: date, save: save }) : null,
+  !hideSignals && (function() {
+    var _iaSigs = Array.isArray(cd.signals) ? cd.signals : [];
+    if (!_iaSigs.length) return null;
+    return _elBaseAlphaPeriodBlockV2(data, stock, date);
+  })(),
+  React.createElement(AppearanceSection, { data: data, save: save, stock: stock, date: date }));
 });
 
 
