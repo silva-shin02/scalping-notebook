@@ -3246,8 +3246,10 @@ function _elAlphaInfo(r, data) {
 }
 // 各記録の採用α(signal.alphaVal)の内訳「（基本α+追加α）」をα値欄の数値の下に出す小ノード（2026-06-24）。baseAlphaVal/addAlphaValから算出（片方欠損は合計から逆算）。基本αが無い旧記録、または表示中αが内訳の合計と異なる（α値シミュ中）場合はnull＝内訳を出さない。
 function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var _bn = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; }; var base = _bn(s.baseAlphaVal), add = _bn(s.addAlphaVal), total = _bn(s.alphaVal); if (base == null) { if (total != null && add != null) base = total - add; else return null; } if (add == null) add = (total != null) ? (total - base) : 0; if (base < 0 || add < 0) return null; if (dispAlpha != null && Number(dispAlpha) !== base + add) return null; return React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" } }, "（" + base + "+" + add + "）"); }
-// 各記録の分足(signal.minBar=1/5)を表の時間欄の下に出す小バッジ（2026-06-24に新規エントリー記録フォームへ再導入＝旧minBar欄）。未設定はnull。
-function _minBarBadge(s) { if (!s || (s.minBar !== 1 && s.minBar !== 5)) return null; return React.createElement("div", { style: { marginTop: 1, fontSize: 9, fontWeight: 700, color: "#166534", lineHeight: 1.1, whiteSpace: "nowrap" } }, s.minBar + "分"); }
+// 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
+function _minBarList(s) { if (!s || s.minBar == null) return []; var arr = Array.isArray(s.minBar) ? s.minBar : [s.minBar]; var out = []; for (var i = 0; i < arr.length; i++) { var n = Number(arr[i]); if ((n === 1 || n === 5) && out.indexOf(n) < 0) out.push(n); } out.sort(function(a, b) { return a - b; }); return out; }
+// 各記録の分足を表の時間欄の下に出す小バッジ（「1分」「5分」、両方選択時は「1分/5分」）。未設定はnull。2026-06-24に新規エントリー記録フォームへ再導入＝旧minBar欄。
+function _minBarBadge(s) { var list = _minBarList(s); if (!list.length) return null; return React.createElement("div", { style: { marginTop: 1, fontSize: 9, fontWeight: 700, color: "#166534", lineHeight: 1.1, whiteSpace: "nowrap" } }, list.map(function(_n) { return _n + "分"; }).join("/")); }
 // === EP起算方式(scheme:2)のリゾルバ ===
 // 新方式: OS1〜OS3の3本以内にα値到達した足=EP(エントリーポイント)。EPの次の足からH1/H2。
 // 旧方式レコード(schemeなし)は各ヘルパーの従来ロジックで処理（互換レイヤー）。
@@ -5339,10 +5341,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateLP = useState(initSig.levelPrice != null ? String(initSig.levelPrice) : ""),
     _useStateLPA = _slicedToArray(_useStateLP, 2),
     fLevelPrice = _useStateLPA[0], setFLevelPrice = _useStateLPA[1];
-  // 分足（1分足/5分足の選択。記録固有=signal.minBar。2026-06-18実装→α節改修で一旦廃止→2026-06-24再導入）。
-  var _useStateMB = useState((initSig.minBar === 1 || initSig.minBar === 5) ? String(initSig.minBar) : ""),
+  // 分足（1分足/5分足を複数選択可。記録固有=signal.minBar=number配列[1]/[5]/[1,5]。旧形式の単一numberも読む。2026-06-18実装→α節改修で一旦廃止→2026-06-24再導入→24複数選択化）。
+  var _useStateMB = useState(function() { var mb = initSig.minBar; var arr = Array.isArray(mb) ? mb : (mb != null ? [mb] : []); var out = []; for (var i = 0; i < arr.length; i++) { var v = String(arr[i]); if ((v === "1" || v === "5") && out.indexOf(v) < 0) out.push(v); } return out; }),
     _useStateMBA = _slicedToArray(_useStateMB, 2),
-    fMinBar = _useStateMBA[0], setFMinBar = _useStateMBA[1];
+    fMinBars = _useStateMBA[0], setFMinBars = _useStateMBA[1];
   var _useStateADA = useState(initSig.addAlphaVal != null ? String(initSig.addAlphaVal) : ""),
     _useStateADAA = _slicedToArray(_useStateADA, 2),
     fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
@@ -6020,7 +6022,7 @@ function EntryRecordForm(_ref_erf) {
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       baseAlphaVal: fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
-      minBar: (fMinBar === "1" || fMinBar === "5") ? Number(fMinBar) : null,
+      minBar: (fMinBars && fMinBars.length) ? fMinBars.map(Number).sort(function(_a, _b) { return _a - _b; }) : null,
       addAlphaVal: (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : null,
       addAlphaUsed: fAddAlphaUsed === "○" ? true : (fAddAlphaUsed === "×" ? false : null),
       addAlphaReasons: (fAddAlphaUsed === "○") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
@@ -6182,10 +6184,10 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { style: SH_ }, "分足"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8, alignItems: "center" } },
         ["1", "5"].map(function(_mb) {
-          var on = fMinBar === _mb;
+          var on = fMinBars.indexOf(_mb) >= 0;
           return React.createElement("button", {
             key: _mb,
-            onClick: function() { setFMinBar(on ? "" : _mb); },
+            onClick: function() { setFMinBars(function(_prev) { return (_prev.indexOf(_mb) >= 0) ? _prev.filter(function(_x) { return _x !== _mb; }) : _prev.concat([_mb]); }); },
             style: {
               minWidth: 64, padding: "10px 16px", fontSize: 15, fontWeight: 800,
               border: on ? "1.5px solid #166534" : "1px solid #ddd",
