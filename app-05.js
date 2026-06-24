@@ -5439,7 +5439,7 @@ function EntryRecordForm(_ref_erf) {
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
     if (!recs.length) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
-    var pickOf = function(rs) { if (!rs || !rs.length) return null; var p = _elBaseAlphaPick(rs, aiOf); if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok" }; };
+    var pickOf = function(rs) { if (!rs || !rs.length) return null; var p = _elBaseAlphaPick(rs, aiOf); if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok", alpha2: p.alpha2 }; };
     var out = { w1: null, m1: null, m3: null, all: pickOf(fDate ? recs.filter(function(r) { return r.date < fDate; }) : recs) };
     if (fDate) {
       var _p = fDate.split("-");
@@ -6365,7 +6365,8 @@ function EntryRecordForm(_ref_erf) {
             [["1週間", _refBaseAlpha.w1], ["1カ月", _refBaseAlpha.m1], ["3カ月", _refBaseAlpha.m3], ["全期間", _refBaseAlpha.all]].map(function(kv, i) {
               return React.createElement("span", { key: i },
                 "　" + kv[0] + "：",
-                kv[1] && kv[1].alpha != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1].alpha + "円" + (kv[1].ok ? "" : "?")) : React.createElement("span", { style: { color: "#aaa" } }, "—"));
+                kv[1] && kv[1].alpha != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1].alpha + "円" + (kv[1].ok ? "" : "?")) : React.createElement("span", { style: { color: "#aaa" } }, "—"),
+                (kv[1] && kv[1].alpha2 != null) ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "（" + kv[1].alpha2 + "円）") : null);
             }));
         })()),
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
@@ -6402,7 +6403,7 @@ function EntryRecordForm(_ref_erf) {
       })(),
         (function() {
           if (fAddAlphaUsed !== "○") return null;
-          if (_refAddAlpha) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlpha.add + "円"), React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3 } }, "（合計" + _refAddAlpha.total + "円）"));
+          if (_refAddAlpha) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlpha.add + "円"), React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3 } }, "（合計" + _refAddAlpha.total + "円）"), (_refAddAlpha.add2 != null ? React.createElement("span", { style: { fontWeight: 800, marginLeft: 4 } }, "（次点+" + _refAddAlpha.add2 + "円）") : null));
           return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨追加α：データ無し") : null;
         })()),
       (fAddAlphaUsed === "○") ? (function() {

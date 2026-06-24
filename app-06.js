@@ -1231,6 +1231,11 @@ function _elBaseAlphaEval(recs, aiOf, a) {
   var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
   return { a: a, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
 }
+// 次点（2番目の推奨α）を1番目の真下に（）で小書き（1番目と同サイズ・同色＝「サイズなど一緒」ユーザー方針 2026-06-24）。text例 "9円"/"+5円(計12)"。null/空はnull。
+function _elReco2Node(text, fontSize, color) {
+  if (text == null || text === "") return null;
+  return React.createElement("div", { style: { fontSize: fontSize, fontWeight: 700, color: color, lineHeight: 1.1, whiteSpace: "nowrap" } }, "（" + text + "）");
+}
 // 推奨基本α(5〜20)を選定【2026-06-22c】: 件数フロア＝最大件数(scN)×_EL_BASE_MIN_FRAC（最低_EL_BASE_MIN_N件）かつ 到達率≥_EL_BASE_MIN_ERATE のαから、合成スコア(0.7×(1−損切り率)+0.3×H1勝率)が最大。
 // 高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアスでスコア上振れ)」になるため、件数フロア＋到達率フロアで薄い高α・約定しにくい高αを除外＝厚く約定しやすい標本の中で最良のαを選ぶ。同点は件数最大→低α。フロア皆無なら件数(scN)最大のαを参考(status="na")・entered皆無は"none"。
 // 返り値 { alpha, score, stopRate, h1win, eRate, entered, scN, pnl, epPnl, stopN, ewin, status('ok'|'na'|'none'), sweep, minN(=採用した件数フロア) }。
@@ -1243,16 +1248,23 @@ function _elBaseAlphaPick(recs, aiOf) {
   // 件数フロア(実データ連動): 最も件数(scN)の多いαの_EL_BASE_MIN_FRAC以上を要求＝高αの薄い標本(選抜バイアス)を除外。最低でも_EL_BASE_MIN_N件 2026-06-22b。
   var maxScN = sweep.reduce(function(m, e) { return Math.max(m, e.scN || 0); }, 0);
   var floorN = Math.max(_EL_BASE_MIN_N, Math.round(maxScN * _EL_BASE_MIN_FRAC));
-  var _ret = function(p, status) { return { alpha: p.a, score: p.score, stopRate: p.stopRate, h1win: p.h1win, eRate: p.eRate, entered: p.entered, scN: p.scN, pnl: p.pnl, epPnl: p.epPnl, stopN: p.stopN, ewin: p.ewin, status: status, sweep: sweep, minN: floorN }; };
+  var _ret = function(p, status) { return { alpha: p.a, score: p.score, stopRate: p.stopRate, h1win: p.h1win, eRate: p.eRate, entered: p.entered, scN: p.scN, pnl: p.pnl, epPnl: p.epPnl, stopN: p.stopN, ewin: p.ewin, status: status, sweep: sweep, minN: floorN, alpha2: null, score2: null, stopRate2: null, h1win2: null }; };
   // 件数フロア＋到達率フロア(_EL_BASE_MIN_ERATE)を満たすαの中で合成スコア最大（薄い高α・約定しにくい高αを母数から外す）。同点は件数の多い＝信頼できる方→低α。
   var cand = sweep.filter(function(e) { return e.scN >= floorN && e.eRate != null && e.eRate >= _EL_BASE_MIN_ERATE && e.score != null; });
   if (cand.length) {
     cand.sort(function(x, y) { return (x.score - y.score) || (x.scN - y.scN) || (y.a - x.a); });   // 昇順→末尾が最良（スコア最大・同点は件数最大→低α）
-    return _ret(cand[cand.length - 1], "ok");
+    var _picked = cand[cand.length - 1];
+    // 次点（2番目の推奨基本α）= 同フロア候補のうち1番目より大きいαでスコア最大。ユーザー方針＝2番目は1番目より大きい値に限る 2026-06-24。
+    var _larger = cand.filter(function(e) { return e.a > _picked.a; });
+    _larger.sort(function(x, y) { return (x.score - y.score) || (x.scN - y.scN) || (y.a - x.a); });
+    var _p2 = _larger.length ? _larger[_larger.length - 1] : null;
+    var _rk = _ret(_picked, "ok");
+    if (_p2) { _rk.alpha2 = _p2.a; _rk.score2 = _p2.score; _rk.stopRate2 = _p2.stopRate; _rk.h1win2 = _p2.h1win; }
+    return _rk;
   }
   // フロアを満たすα皆無（標本が全体に薄い）: 件数(scN)最大のαを参考返し（status="na"・信頼度低）
   var withEntry = sweep.filter(function(e) { return e.entered > 0; });
-  if (!withEntry.length) return { alpha: null, score: null, stopRate: null, h1win: null, eRate: null, entered: 0, scN: 0, pnl: null, epPnl: null, stopN: null, ewin: null, status: "none", sweep: sweep, minN: floorN };
+  if (!withEntry.length) return { alpha: null, score: null, stopRate: null, h1win: null, eRate: null, entered: 0, scN: 0, pnl: null, epPnl: null, stopN: null, ewin: null, status: "none", sweep: sweep, minN: floorN, alpha2: null, score2: null, stopRate2: null, h1win2: null };
   withEntry.sort(function(x, y) { return (x.scN - y.scN) || (x.a - y.a); });
   return _ret(withEntry[withEntry.length - 1], "na");
 }
@@ -1262,17 +1274,23 @@ function _elBaseAlphaPick(recs, aiOf) {
 // 返り値 { add, total, score, baseScore, stopRate, h1win, scN, improved } or null（baseScore不明/データ無し）。
 function _elAddAlphaReco(recs, aiOf, baseAlpha, baseScore) {
   if (!recs || baseAlpha == null || baseScore == null) return null;
-  var best = null;
+  var cands = [];
   for (var add = 1; add <= _EL_BASE_ADD_MAX; add++) {
     var tot = baseAlpha + add;
     if (tot > 50) break;   // 合計αの上限（理想α候補と同レンジ）
     var e = _elBaseAlphaEval(recs, aiOf, tot);
     if (e.scN < _EL_BASE_MIN_N || e.score == null) continue;
     if (e.score <= baseScore + _EL_BASE_SCORE_EPS) continue;   // 有意な改善のみ
-    if (!best || e.score > best.e.score) best = { add: add, e: e };   // 最大スコア（addは昇順なので同点は最小加算を維持）
+    cands.push({ add: add, e: e });
   }
-  if (!best) return { add: 0, total: baseAlpha, score: baseScore, baseScore: baseScore, stopRate: null, h1win: null, scN: null, improved: false };
-  return { add: best.add, total: baseAlpha + best.add, score: best.e.score, baseScore: baseScore, stopRate: best.e.stopRate, h1win: best.e.h1win, scN: best.e.scN, improved: true };
+  if (!cands.length) return { add: 0, total: baseAlpha, score: baseScore, baseScore: baseScore, stopRate: null, h1win: null, scN: null, improved: false, add2: null, total2: null };
+  cands.sort(function(x, y) { return (y.e.score - x.e.score) || (x.add - y.add); });   // スコア降順・同点は最小加算
+  var _b = cands[0];
+  // 次点（2番目の推奨追加α）= 1番目より大きい加算でスコア最大。ユーザー方針＝2番目は1番目より大きい値に限る 2026-06-24。
+  var _l2 = cands.filter(function(c) { return c.add > _b.add; });
+  _l2.sort(function(x, y) { return (y.e.score - x.e.score) || (x.add - y.add); });
+  var _s2 = _l2.length ? _l2[0] : null;
+  return { add: _b.add, total: baseAlpha + _b.add, score: _b.e.score, baseScore: baseScore, stopRate: _b.e.stopRate, h1win: _b.e.h1win, scN: _b.e.scN, improved: true, add2: _s2 ? _s2.add : null, total2: _s2 ? (baseAlpha + _s2.add) : null };
 }
 // 一括: { pick(推奨基本α本体・追加α無し母数), add(推奨追加α・追加α〇の記録だけを母数に算出) }。二プール設計 2026-06-22。
 function _elBaseAlphaA(recs, aiOf) {
@@ -1364,7 +1382,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
     var p = b.pick;
     return React.createElement("tr", { key: i },
       _elv2Td(b.label, { fontWeight: 700, color: "#9A3412" }),
-      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, p.alpha + "円")),
+      _elv2Td(React.createElement("div", { style: { lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, p.alpha + "円"), _elReco2Node(p.alpha2 != null ? (p.alpha2 + "円") : null, 11, "#0369A1"))),
       _elv2Td(p.stopRate == null ? "—" : _elStopRateCell(p.stopRate)),
       _elv2Td(p.h1win == null ? "—" : _elPctCell(p.h1win)),
       _elv2Td(_elScoreCell(p.score)),
@@ -1401,8 +1419,8 @@ function _elBaseAlphaSummary(recs, aiOf) {
   var stopP = pick.stopRate != null ? Math.round(pick.stopRate * 100) : null;
   var winP = pick.h1win != null ? Math.round(pick.h1win * 100) : null;
   var cards = _elv2CardRow([
-    _elv2Card("推奨基本α", React.createElement("span", { style: { color: na ? "#B45309" : "#0369A1" } }, pick.alpha + "円"), na ? "#B45309" : "#0369A1", na ? "該当なし→件数最大" : "スコア最大"),
-    _elv2Card("追加α目安", (add && add.improved) ? ("+" + add.add + "円") : (add ? "+0円" : "—"), (add && add.improved) ? "#9A3412" : "#bbb", (add && add.improved) ? ("合計" + add.total + "円") : (add ? "基本αで十分" : null)),
+    _elv2Card("推奨基本α", React.createElement(React.Fragment, null, React.createElement("span", { style: { color: na ? "#B45309" : "#0369A1" } }, pick.alpha + "円"), _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 15, na ? "#B45309" : "#0369A1")), na ? "#B45309" : "#0369A1", na ? "該当なし→件数最大" : "スコア最大"),
+    _elv2Card("追加α目安", (add && add.improved) ? React.createElement(React.Fragment, null, React.createElement("span", null, "+" + add.add + "円"), _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 15, "#9A3412")) : (add ? "+0円" : "—"), (add && add.improved) ? "#9A3412" : "#bbb", (add && add.improved) ? ("合計" + add.total + "円") : (add ? "基本αで十分" : null)),
     _elv2Card("損切り率(H1)", stopP != null ? stopP + "%" : "—", stopP != null ? (stopP <= 20 ? "#1E8449" : stopP <= 40 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
     _elv2Card("H1勝率", winP != null ? winP + "%" : "—", winP != null ? (winP >= 70 ? "#1E8449" : winP >= 50 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
     _elv2Card("スコア", _elScoreCell(pick.score), null, "0〜100"),
@@ -1440,7 +1458,9 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
   var _lbl = function(t) { return React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "10px 0 2px" } }, t); };
   var concl = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 10px", background: na ? "#FEF3C7" : "#F0F9FF", border: "1px solid " + (na ? "#FCD34D" : "#BAE6FD"), borderRadius: 8, padding: "8px 12px" } },
     React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, "推奨基本α"),
-    React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: na ? "#B45309" : "#0369A1" } }, a + "円"),
+    React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
+      React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: na ? "#B45309" : "#0369A1" } }, a + "円"),
+      _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 20, na ? "#B45309" : "#0369A1")),
     na
       ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B45309" } }, "データ不足 " + (pick.scN != null ? pick.scN : 0) + "件/最低" + minN + "件・参考値")
       : React.createElement("span", { style: { fontSize: 11, color: "#555" } },
@@ -1450,7 +1470,9 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
           "／母数 ", React.createElement("b", null, (pick.scN || 0) + "件"),
           "／到達率 ", React.createElement("b", null, Math.round((pick.eRate || 0) * 100) + "%")),
     (add && add.improved)
-      ? React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加α +" + add.add + "円（合計" + add.total + "円・スコア" + Math.round(add.score * 100) + "）")
+      ? React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
+          React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加α +" + add.add + "円（合計" + add.total + "円・スコア" + Math.round(add.score * 100) + "）"),
+          _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 11, "#9A3412"))
       : (add ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "追加α＝基本αで十分(+0)") : null));
   var sweepRows = pick.sweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var on = e.a === a, pass = e.scN >= minN && e.score != null;
@@ -1524,8 +1546,10 @@ function _elBaseAlphaTableV2(groups, cutFn) {
     if (!pk || pk.alpha == null) return React.createElement("div", { style: { fontSize: 10, color: "#aaa", whiteSpace: "nowrap" } }, "—");
     var na = pk.status === "na";
     return React.createElement("div", { style: { whiteSpace: "nowrap", lineHeight: 1.3 } },
-      React.createElement("span", { style: { fontWeight: 800, color: na ? "#B45309" : "#0369A1", fontSize: 14 } }, pk.alpha + "円"),
-      na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 3, fontWeight: 700 } }, "データ不足 " + (pk.scN != null ? pk.scN : 0) + "件/最低" + (pk.minN || 3) + "件・参考") : React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 3 } }, "損切" + Math.round((pk.stopRate || 0) * 100) + "%・H1勝" + Math.round((pk.h1win || 0) * 100) + "%・" + (pk.scN || 0) + "件"));
+      React.createElement("div", null,
+        React.createElement("span", { style: { fontWeight: 800, color: na ? "#B45309" : "#0369A1", fontSize: 14 } }, pk.alpha + "円"),
+        na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 3, fontWeight: 700 } }, "データ不足 " + (pk.scN != null ? pk.scN : 0) + "件/最低" + (pk.minN || 3) + "件・参考") : React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 3 } }, "損切" + Math.round((pk.stopRate || 0) * 100) + "%・H1勝" + Math.round((pk.h1win || 0) * 100) + "%・" + (pk.scN || 0) + "件")),
+      _elReco2Node(pk.alpha2 != null ? (pk.alpha2 + "円") : null, 14, na ? "#B45309" : "#0369A1"));
   };
   var rows = (groups || []).filter(function(g) { return g.recs && g.recs.length; }).map(function(g, gi) {
     var A = _elBaseAlphaA(g.recs, aiOf);
@@ -1533,7 +1557,7 @@ function _elBaseAlphaTableV2(groups, cutFn) {
     if (!A) cell = React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "データ無し");
     else cell = React.createElement("div", null,
       _aLine(A.pick),
-      (A.add && A.add.improved) ? React.createElement("div", { style: { fontSize: 9, color: "#9A3412", whiteSpace: "nowrap", marginTop: 1 } }, "追加α +" + A.add.add + "円（合計" + A.add.total + "円）") : null);
+      (A.add && A.add.improved) ? React.createElement("div", { style: { whiteSpace: "nowrap", marginTop: 1, lineHeight: 1.2 } }, React.createElement("div", { style: { fontSize: 9, color: "#9A3412" } }, "追加α +" + A.add.add + "円（合計" + A.add.total + "円）"), _elReco2Node(A.add.add2 != null ? ("+" + A.add.add2 + "円") : null, 9, "#9A3412")) : null);
     return React.createElement("tr", { key: gi, style: { borderBottom: "1px solid #dbeafe" } },
       React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11, whiteSpace: "nowrap", verticalAlign: "top" } }, g.label),
       React.createElement("td", { style: { padding: "3px 8px", textAlign: "left", borderLeft: "1px solid #dbeafe" } }, cell));
@@ -1607,10 +1631,12 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
     if (!pk || pk.alpha == null) alphaCell = dash;
     else {
       var na = pk.status === "na";
-      alphaCell = React.createElement("span", { style: { whiteSpace: "nowrap" } },
-        React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: na ? "#B45309" : "#0369A1" } }, pk.alpha + "円"),
-        na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 2, fontWeight: 700 } }, "参考") : null,
-        (add && add.improved) ? React.createElement("span", { style: { fontSize: 9, color: "#9A3412", marginLeft: 3 } }, "+追加" + add.add + "(計" + add.total + ")") : null);
+      alphaCell = React.createElement("div", { style: { whiteSpace: "nowrap", lineHeight: 1.15 } },
+        React.createElement("span", null,
+          React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: na ? "#B45309" : "#0369A1" } }, pk.alpha + "円"),
+          na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 2, fontWeight: 700 } }, "参考") : null,
+          (add && add.improved) ? React.createElement("span", { style: { fontSize: 9, color: "#9A3412", marginLeft: 3 } }, "+追加" + add.add + "(計" + add.total + ")") : null),
+        _elReco2Node(pk.alpha2 != null ? (pk.alpha2 + "円") : null, 13, na ? "#B45309" : "#0369A1"));
     }
     // 想定損益: 推奨基本αを「基本αの母数(追加α〇以外=×・未選択)」に当てたH1損益。営業日あたり平均＋累計。
     var simBase = (pk && pk.alpha != null) ? _elSimPnlByDay(pd.recs.filter(function(r) { return r && !_elAddAlphaYes(r.signal); }), aiOf, pk.alpha) : null;
@@ -1643,9 +1669,11 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
     var sim = (!noPool && total != null) ? _elSimPnlByDay(addPool, aiOf, total) : null;
     var addCell;
     if (noPool) addCell = React.createElement("span", { style: { fontSize: 9, color: "#bbb" } }, "〇記録なし");
-    else if (improved) addCell = React.createElement("span", { style: { whiteSpace: "nowrap" } },
-      React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: "#9A3412" } }, "+" + add.add + "円"),
-      React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "(計" + add.total + "円)"));
+    else if (improved) addCell = React.createElement("div", { style: { whiteSpace: "nowrap", lineHeight: 1.15 } },
+      React.createElement("span", null,
+        React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: "#9A3412" } }, "+" + add.add + "円"),
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "(計" + add.total + "円)")),
+      _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 13, "#9A3412"));
     else addCell = React.createElement("span", { style: { whiteSpace: "nowrap" } },
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8" } }, "+0円"),
       React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 2 } }, "基本αで十分"));
@@ -1700,9 +1728,11 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
     var pk = head.A.pick, add = head.A.add, na = pk.status === "na";
     headNode = React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" } },
       React.createElement("span", { style: { fontSize: 12, color: "#0369A1", fontWeight: 700 } }, "今日の推奨"),
-      React.createElement("span", { style: { fontSize: 22, fontWeight: 800, color: na ? "#B45309" : "#0369A1", lineHeight: 1 } }, pk.alpha + "円"),
+      React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
+        React.createElement("div", { style: { fontSize: 22, fontWeight: 800, color: na ? "#B45309" : "#0369A1", lineHeight: 1 } }, pk.alpha + "円"),
+        _elReco2Node(pk.alpha2 != null ? (pk.alpha2 + "円") : null, 22, na ? "#B45309" : "#0369A1")),
       na ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "参考") : null,
-      (add && add.improved) ? React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加" + add.add + "（計" + add.total + "円）") : null,
+      (add && add.improved) ? React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } }, React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加" + add.add + "（計" + add.total + "円）"), _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 11, "#9A3412")) : null,
       React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, head.label + "ベース・損切" + _pct(pk.stopRate) + " H1勝" + _pct(pk.h1win) + " " + (pk.scN || 0) + "件"));
   }
   return React.createElement("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
@@ -1807,7 +1837,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   var _A = _elBaseAlphaA(recs, aiOf);
   var recoAdd = (_A && _A.add && _A.add.improved) ? _A.add : null;
   var recoNode = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: recoAdd ? "#0369A1" : "#94A3B8" } },
-    recoAdd ? React.createElement("span", null, "推奨追加α ＝ ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, "＋" + recoAdd.add + "円"), "（基本α" + (_A.pick ? _A.pick.alpha : "—") + "＋追加＝計" + recoAdd.total + "円）")
+    recoAdd ? React.createElement(React.Fragment, null, React.createElement("span", null, "推奨追加α ＝ ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, "＋" + recoAdd.add + "円"), "（基本α" + (_A.pick ? _A.pick.alpha : "—") + "＋追加＝計" + recoAdd.total + "円）"), _elReco2Node(recoAdd.add2 != null ? ("＋" + recoAdd.add2 + "円") : null, 16, "#0369A1"))
       : "推奨追加α：実データで有意な上乗せ改善は出ていません（基本αで十分の傾向）");
   var byAdd = {};
   eff.forEach(function(e) { (byAdd[e.add] = byAdd[e.add] || []).push(e); });
@@ -1887,7 +1917,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
       React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", display: "flex", flexWrap: "wrap", gap: "2px 10px", alignItems: "baseline" } },
         React.createElement("span", null, "🏷 " + rs),
         React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, es.length + "件"),
-        React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (radd && radd.improved) ? "#0369A1" : "#94A3B8" } }, "推奨追加α " + ((radd && radd.improved) ? "+" + radd.add + "円" : "+0")),
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: (radd && radd.improved) ? "#0369A1" : "#94A3B8" } }, "推奨追加α " + ((radd && radd.improved) ? ("+" + radd.add + "円" + (radd.add2 != null ? "（次点+" + radd.add2 + "円）" : "")) : "+0")),
         (isNum && floats.length) ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, rs + "中央 " + _elMedian(floats) + "円") : null),
       _elv2Table(head, recRows),
       corrNode);
