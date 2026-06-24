@@ -1293,13 +1293,21 @@ function _elAddAlphaReco(recs, aiOf, baseAlpha) {
   return { add: p.add, total: p.total, improved: true, stopRate: f.stopRate, h1win: f.h1win, eRate: f.eRate, scN: f.scN, pnl: f.pnl, sim: f.sim,
     add2: p2 ? p2.add : null, total2: p2 ? p2.total : null, stopRate2: g ? g.stopRate : null, h1win2: g ? g.h1win : null, eRate2: g ? g.eRate : null, scN2: g ? g.scN : null, pnl2: g ? g.pnl : null, sim2: g ? g.sim : null };
 }
+// 数値根拠（底抜け前足浮き＝data.custom.addAlphaNumericReason）を根拠に含む記録の判定。推奨追加α値の母数から除外する＝固定の＋X円推奨に馴染まない数値根拠を外す（記録帳の根拠別分析④/⑤・floatNodeと同基準）2026-06-24i。
+// _EL_NUM_REASONはリネーム可なのでApp(app-08)のレンダリングでdata.custom.addAlphaNumericReasonから実値に更新（App描画は子コンポーネントより先＝各α関数の母数算出時に最新）。既定「底抜け前足浮き」。
+var _EL_NUM_REASON = "底抜け前足浮き";
+function _elHasNumReason(s) {
+  if (!s || !_EL_NUM_REASON) return false;
+  var a = Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons : (s.addAlphaReason ? [s.addAlphaReason] : []);
+  return a.indexOf(_EL_NUM_REASON) >= 0;
+}
 // 一括: { pick(推奨基本α本体・追加α無し母数), add(推奨追加α・追加α〇の記録だけを母数に算出) }。二プール設計 2026-06-22→2026-06-24g: pick.statusがna(件数不足)でも追加αを算出（ユーザー方針＝1件でも参考表示）。
 function _elBaseAlphaA(recs, aiOf) {
   var pick = _elBaseAlphaPick(recs, aiOf);   // 内部で追加α(〇)記録を除外＝基本αの母数は「追加α無し」
   if (!pick || pick.alpha == null) return null;
-  // 推奨追加α: 追加α(〇)記録だけを母数に「基本αに何円足せば損切りを避けてH1黒字になるか」の最小加算を算出。pick.statusに関わらず算出。
+  // 推奨追加α: 追加α(〇)記録だけを母数に「基本αに何円足せば損切りを避けてH1黒字になるか」の最小加算を算出。pick.statusに関わらず算出。数値根拠(底抜け前足浮き)は母数から除外 2026-06-24i。
   var add = null;
-  var addPool = (recs || []).filter(function(r) { return r && _elAddAlphaYes(r.signal); });
+  var addPool = (recs || []).filter(function(r) { return r && _elAddAlphaYes(r.signal) && !_elHasNumReason(r.signal); });
   if (addPool.length) add = _elAddAlphaReco(addPool, aiOf, pick.alpha);
   return { pick: pick, add: add };
 }
@@ -1669,7 +1677,7 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
   var dash = React.createElement("span", { style: { color: "#bbb" } }, "—");
   var rows = [];
   W.periods.forEach(function(pd, i) {
-    var addPool = (pd.recs || []).filter(function(r) { return r && _elAddAlphaYes(r.signal); });
+    var addPool = (pd.recs || []).filter(function(r) { return r && _elAddAlphaYes(r.signal) && !_elHasNumReason(r.signal); });   // 数値根拠(底抜け前足浮き)を母数から除外 2026-06-24i
     var A = _elBaseAlphaA(pd.recs, aiOf);
     var pk = A ? A.pick : null;
     var add = A ? A.add : null;
