@@ -4671,7 +4671,7 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   React.createElement("div", null,
                     React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
-                    s.time || "—"),
+                    s.time || "—", _minBarBadge(s)),
                   _epIncompleteMark(s),
                   _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null
                 ),
@@ -5006,7 +5006,7 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#9A3412" } },
         React.createElement("div", null, (r.date || "").slice(5)), _simInput(r, true), _simInput(r, false)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } },
-        React.createElement("div", null, s.time || "—"), _epIncompleteMark(s),
+        React.createElement("div", null, s.time || "—", _minBarBadge(s)), _epIncompleteMark(s),
         _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),

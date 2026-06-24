@@ -2938,7 +2938,7 @@ function EntryLogView(_ref_elv2) {
       var on = expKey === ek;
       var cells = [
         _td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8, fontWeight: 700 }),
-        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash), _epIncompleteMark(s), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null), { color: "#666" }),
+        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null), { color: "#666" }),
         _td(r.stock, { color: "#9A3412", fontWeight: 700 })
       ];
       if (mode === "day") {

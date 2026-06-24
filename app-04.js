@@ -4123,7 +4123,7 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
               React.createElement("div", null,
                 React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
-                s.time || "—"),
+                s.time || "—", _minBarBadge(s)),
               _epIncompleteMark(s),
               _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null
             ),
@@ -4502,7 +4502,7 @@ function DayView(_ref57) {
             simCtx ? _renderSimAlphaInput(r, simCtx) : null,
             cutCtx ? _renderSimCutInput(r, cutCtx) : null),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
-            React.createElement("div", null, s.time || "—"),
+            React.createElement("div", null, s.time || "—", _minBarBadge(s)),
             _epIncompleteMark(s),
             _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },

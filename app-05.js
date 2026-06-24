@@ -3246,6 +3246,8 @@ function _elAlphaInfo(r, data) {
 }
 // 各記録の採用α(signal.alphaVal)の内訳「（基本α+追加α）」をα値欄の数値の下に出す小ノード（2026-06-24）。baseAlphaVal/addAlphaValから算出（片方欠損は合計から逆算）。基本αが無い旧記録、または表示中αが内訳の合計と異なる（α値シミュ中）場合はnull＝内訳を出さない。
 function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var _bn = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; }; var base = _bn(s.baseAlphaVal), add = _bn(s.addAlphaVal), total = _bn(s.alphaVal); if (base == null) { if (total != null && add != null) base = total - add; else return null; } if (add == null) add = (total != null) ? (total - base) : 0; if (base < 0 || add < 0) return null; if (dispAlpha != null && Number(dispAlpha) !== base + add) return null; return React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" } }, "（" + base + "+" + add + "）"); }
+// 各記録の分足(signal.minBar=1/5)を表の時間欄の下に出す小バッジ（2026-06-24に新規エントリー記録フォームへ再導入＝旧minBar欄）。未設定はnull。
+function _minBarBadge(s) { if (!s || (s.minBar !== 1 && s.minBar !== 5)) return null; return React.createElement("div", { style: { marginTop: 1, fontSize: 9, fontWeight: 700, color: "#166534", lineHeight: 1.1, whiteSpace: "nowrap" } }, s.minBar + "分"); }
 // === EP起算方式(scheme:2)のリゾルバ ===
 // 新方式: OS1〜OS3の3本以内にα値到達した足=EP(エントリーポイント)。EPの次の足からH1/H2。
 // 旧方式レコード(schemeなし)は各ヘルパーの従来ロジックで処理（互換レイヤー）。
@@ -5329,7 +5331,7 @@ function EntryRecordForm(_ref_erf) {
     _useStateTAA = _slicedToArray(_useStateTA, 2),
     fTradeAlpha = _useStateTAA[0], setFTradeAlpha = _useStateTAA[1];
   // α値: 基本α値＋追加α値＝合計α値（合計＝採用α＝signal.alphaVal）2026-06-21。基本/追加は記録固有でbaseAlphaVal/addAlphaValに保存。
-  // 既存記録は基本α=旧採用α(alphaVal)・追加α=0で初期化（合計＝従来値で不変）。旧 分足(minBar) 欄は廃止（水準線levelPriceは2026-06-22にOS見出しの右へ再導入＝下記fLevelPrice）。
+  // 既存記録は基本α=旧採用α(alphaVal)・追加α=0で初期化（合計＝従来値で不変）。分足(minBar) 欄は一旦廃止後2026-06-24に再導入（下記fMinBar・水準線値の右）。水準線levelPriceは2026-06-22にOS見出しの右へ再導入＝下記fLevelPrice。
   var _useStateBA = useState(initSig.baseAlphaVal != null ? String(initSig.baseAlphaVal) : (initSig.alphaVal != null ? String(initSig.alphaVal) : "")),
     _useStateBAA = _slicedToArray(_useStateBA, 2),
     fBaseAlpha = _useStateBAA[0], setFBaseAlpha = _useStateBAA[1];
@@ -5337,6 +5339,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateLP = useState(initSig.levelPrice != null ? String(initSig.levelPrice) : ""),
     _useStateLPA = _slicedToArray(_useStateLP, 2),
     fLevelPrice = _useStateLPA[0], setFLevelPrice = _useStateLPA[1];
+  // 分足（1分足/5分足の選択。記録固有=signal.minBar。2026-06-18実装→α節改修で一旦廃止→2026-06-24再導入）。
+  var _useStateMB = useState((initSig.minBar === 1 || initSig.minBar === 5) ? String(initSig.minBar) : ""),
+    _useStateMBA = _slicedToArray(_useStateMB, 2),
+    fMinBar = _useStateMBA[0], setFMinBar = _useStateMBA[1];
   var _useStateADA = useState(initSig.addAlphaVal != null ? String(initSig.addAlphaVal) : ""),
     _useStateADAA = _slicedToArray(_useStateADA, 2),
     fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
@@ -6014,6 +6020,7 @@ function EntryRecordForm(_ref_erf) {
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       baseAlphaVal: fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
+      minBar: (fMinBar === "1" || fMinBar === "5") ? Number(fMinBar) : null,
       addAlphaVal: (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : null,
       addAlphaUsed: fAddAlphaUsed === "○" ? true : (fAddAlphaUsed === "×" ? false : null),
       addAlphaReasons: (fAddAlphaUsed === "○") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
@@ -6573,6 +6580,31 @@ function EntryRecordForm(_ref_erf) {
                 )
               ),
               React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円")
+            ),
+            React.createElement("div", {
+              style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
+            },
+              React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, "予定EP"),
+              React.createElement("span", { title: "水準線値＋合計α値（基本α＋追加α）＝自動計算。エントリー予定価格の目安。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right" } },
+                (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; var _ep = _lv + (isNaN(_fAlpha) ? 0 : _fAlpha); return String(Math.round(_ep * 100) / 100); })()
+              ),
+              React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),
+              React.createElement("span", { style: { fontSize: 9, color: "#93C5FD", fontWeight: 700 } }, "自動")
+            ),
+            React.createElement("div", {
+              style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 7px", borderRadius: 6, background: "#F0FDF4", border: "1px solid #BBF7D0", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
+            },
+              React.createElement("span", { style: { color: "#166534", fontWeight: 700 } }, "分足"),
+              React.createElement("select", {
+                value: fMinBar,
+                onChange: function(e) { setFMinBar(e.target.value); },
+                style: { padding: "2px 6px", fontSize: 12, fontWeight: 800, color: "#166534", border: "1px solid #BBF7D0", borderRadius: 4, background: "#fff", outline: "none" }
+              },
+                React.createElement("option", { value: "" }, "—"),
+                React.createElement("option", { value: "1" }, "1"),
+                React.createElement("option", { value: "5" }, "5")
+              ),
+              React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "分")
             ),
             React.createElement("span", { style: { fontSize: 9, color: "#bbb", fontWeight: 400, textTransform: "none", letterSpacing: 0 } }, "（EPは3本以内・H1/H2はEPの次の足から自動／値は水準線比）")
           ),
