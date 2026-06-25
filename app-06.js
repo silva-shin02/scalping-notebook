@@ -1366,7 +1366,7 @@ function _elBaseAlphaPick(recs, aiOf) {
 function _elAddAlphaReco(recs, aiOf, baseAlpha) {
   if (!recs || baseAlpha == null) return null;
   var evals = [];
-  for (var add = 5; add <= _EL_BASE_ADD_MAX; add += 5) {   // 追加αは5円刻み(5/10/15…)＝ユーザー方針 2026-06-24g
+  for (var add = 1; add <= _EL_BASE_ADD_MAX; add += 1) {   // 追加αは1円刻み(1/2/3…)＝ユーザー方針 2026-06-25
     var tot = baseAlpha + add;
     if (tot > 50) break;   // 合計αの上限（理想α候補と同レンジ）
     var e = _elBaseAlphaEval(recs, aiOf, tot);
@@ -1820,7 +1820,7 @@ function _elBaseAlphaPeriodBlockV2(data, stock, refDate) {
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近1週/1か月/3か月/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考）。基本αは追加α〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。"),
     _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true),
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginTop: 12, marginBottom: 4 } }, "α＋ 推奨追加α値（" + stock + "・期間別）"),
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+5〜30円（5円刻み）足して損切り率0かつ想定損益が黒字になる最小の加算（黒字化する加算が無ければ「推奨無し」）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+1〜30円（1円刻み）足して損切り率0かつ想定損益が黒字になる最小の加算（黒字化する加算が無ければ「推奨無し」）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
     _elAddAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 // DayView「チャート」タブで早見表の下に出す推奨基本αブロック（2026-06-24）。取引テーブルの_elBaseAlphaPeriodBlockV2と同等に充実＝説明文＋本日行付き期間表(_elBaseAlphaPeriodTableV2)＋「α＋ 推奨追加α値」の独立テーブル(_elAddAlphaPeriodTableV2)。さらに「今日の推奨◯円」の大見出し(headNode)を併載＝いいとこ取り 2026-06-24c。
@@ -1862,7 +1862,7 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 8, marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近1週/1か月/3か月/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考）。基本αは追加α〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。"),
     _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true),
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginTop: 12, marginBottom: 4 } }, "α＋ 推奨追加α値（期間別）"),
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+5〜30円（5円刻み）足して損切り率0かつ想定損益が黒字になる最小の加算（黒字化する加算が無ければ「推奨無し」）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+1〜30円（1円刻み）足して損切り率0かつ想定損益が黒字になる最小の加算（黒字化する加算が無ければ「推奨無し」）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
     _elAddAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 
@@ -1908,6 +1908,14 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
       React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", marginLeft: 4 } }, "（計" + add.total + "円）"),
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: add.add2 != null ? "#9A3412" : "#94A3B8", marginLeft: 5 } }, add.add2 != null ? ("（次点 +" + add.add2 + "円）") : "（次点なし）"));
   };
+  // 本日の記録との乖離用 2026-06-25: 採用基本α(_baseOf)・乖離ノード(_devNode=実際−推奨α・+赤=深い/−緑=浅い/0グレー)。
+  var _num = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
+  var _baseOf = function(s) { var b = _num(s.baseAlphaVal); if (b == null) { var a = _num(s.alphaVal), ad = _num(s.addAlphaVal); b = (a != null && ad != null) ? (a - ad) : a; } return b; };
+  var _devNode = function(actual, ref) {
+    if (actual == null || ref == null) return React.createElement("span", { style: { color: "#cbd5e1" } }, "—");
+    var d = actual - ref, col = d > 0 ? "#C0392B" : d < 0 ? "#1E8449" : "#94A3B8";
+    return React.createElement("span", { style: { fontWeight: 700, color: col } }, (d > 0 ? "+" : "") + d);
+  };
   var cards = (stocks || []).map(function(stock, si) {
     var recs = allSig.filter(function(r) { return r.stock === stock; });
     var W = _elPeriodWindows(recs, refDate, false);   // [直近1週,直近1か月,直近3か月,全期間]・前日まで（当日除外）
@@ -1931,16 +1939,38 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
         React.createElement("span", { style: { color: "#94A3B8" } }, "基"), _baseNode(A ? A.pick : null, false),
         React.createElement("span", { style: { color: "#94A3B8", marginLeft: 4 } }, "追"), _addNode(A ? A.add : null, false));
     });
+    // 本日の記録との乖離（記録1件ごと・採用基本α/到達最高OSと、推奨基本α=メイン1か月を優先・無ければ3か月→全期間→1週へ）との差 2026-06-25。
+    var refA = (function() { var order = [1, 2, 3, 0]; for (var oi = 0; oi < order.length; oi++) { var A = As[order[oi]]; if (A && A.pick && A.pick.alpha != null) return A.pick.alpha; } return null; })();
+    var dayRecs = recs.filter(function(r) { return r && r.date === refDate && r.signal && _epIsV2(r.signal); });
+    dayRecs.sort(function(a, b) { var ta = a.signal.time || "", tb = b.signal.time || ""; return ta < tb ? -1 : ta > tb ? 1 : 0; });
+    var _dvTh = function(t) { return React.createElement("th", { style: { fontSize: 9, fontWeight: 700, color: "#64748B", padding: "2px 4px", whiteSpace: "nowrap", textAlign: "center" } }, t); };
+    var _dvTd = function(c, ex) { return React.createElement("td", { style: Object.assign({ fontSize: 10, padding: "2px 4px", textAlign: "center", whiteSpace: "nowrap", borderTop: "1px solid #E0F2FE", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+    var devRows = dayRecs.map(function(r, ri) {
+      var s = r.signal, base = _baseOf(s), osMax = _elOsMaxAll(s);
+      return React.createElement("tr", { key: ri },
+        _dvTd(s.time || "—", { color: "#64748B", fontWeight: 700 }),
+        _dvTd(base != null ? base + "円" : "—"),
+        _dvTd(osMax != null ? osMax + "円" : "—"),
+        _dvTd(_devNode(base, refA)),
+        _dvTd(_devNode(osMax, refA)));
+    });
+    var devBlock = dayRecs.length ? React.createElement("div", { style: { marginTop: 6, paddingTop: 5, borderTop: "1px dashed #93C5FD" } },
+      React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（実際−推奨α " + (refA != null ? refA + "円" : "—") + "・採用＝設定した基本α／到達＝最高OS）"),
+      React.createElement("div", { style: { overflowX: "auto" } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("採用基本α"), _dvTh("到達最高OS"), _dvTh("乖離(採用)"), _dvTh("乖離(到達)"))),
+          React.createElement("tbody", null, devRows)))) : null;
     return React.createElement("div", { key: si, style: { background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 10px", marginBottom: 8 } },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0F172A", marginBottom: 5, paddingBottom: 4, borderBottom: "1px solid #BAE6FD" } }, stock,
         React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0369A1", marginLeft: 6 } }, "メイン＝直近1か月")),
       mainBlock,
       React.createElement("div", { style: { marginTop: 6, paddingTop: 5, borderTop: "1px dashed #93C5FD" } },
         React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#94A3B8", marginBottom: 1 } }, "他期間（サブ）"),
-        subRows));
+        subRows),
+      devBlock);
   });
   return React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録を移動窓で集計（当日は含めない）。直近1か月をメインに、1週/3か月/全期間はサブ。各値は再推奨（次点）。基本α＝追加α〇以外（×・未選択）が母数、追加α＝〇記録だけが母数。損切り率・勝率・想定損益などの詳細は銘柄別・期間別の詳細表を参照。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録を移動窓で集計（当日は含めない）。直近1か月をメインに、1週/3か月/全期間はサブ。各値は再推奨（次点）。基本α＝追加α〇以外（×・未選択）が母数、追加α＝〇記録だけが母数。「📊本日の記録との乖離」は当日の記録1件ごとに、採用した基本α・到達した最高OSが推奨基本α（メイン）からどれだけ離れたか（実際−推奨）。損切り率・勝率・想定損益などの詳細は銘柄別・期間別の詳細表を参照。"),
     cards);
 }
 
