@@ -5318,7 +5318,7 @@ function DayView(_ref57) {
       var _osRows = _dayStocks.map(function(stk, ri){
         var sd=_elOsStatsV2(_osDay[stk], _elOsMaxAll), sw=_elOsStatsV2(_osWk[stk], _elOsMaxAll), sa=_elOsStatsV2(_osAll[stk], _elOsMaxAll);
         var _avgNode = function(st){ return st ? React.createElement("span",{style:{display:"inline-flex",flexDirection:"column",alignItems:"center",lineHeight:1.15}}, React.createElement("span",{style:{fontWeight:700,color:_vcol(st.med,true)}}, "中"+st.med+"円"), React.createElement("span",{style:{fontSize:9,color:"#888"}}, "平"+st.avg+"円")) : React.createElement("span",{style:{color:"#ccc"}},"—"); };
-        var _cmp = (sd&&sa) ? (sd.avg>sa.avg?React.createElement("span",{style:{color:"#C0392B",fontWeight:700}},"↑高い"):sd.avg<sa.avg?React.createElement("span",{style:{color:"#1E8449",fontWeight:700}},"↓低い"):React.createElement("span",{style:{color:"#888"}},"≈同等")) : React.createElement("span",{style:{color:"#ccc"}},"—");
+        var _cmp = (sd&&sa) ? (sd.med>sa.med?React.createElement("span",{style:{color:"#C0392B",fontWeight:700}},"↑高い"):sd.med<sa.med?React.createElement("span",{style:{color:"#1E8449",fontWeight:700}},"↓低い"):React.createElement("span",{style:{color:"#888"}},"≈同等")) : React.createElement("span",{style:{color:"#ccc"}},"—");   // セル主表示(中央値)に矢印基準を統一＝確立ルール(OS比較は中央値) 2026-06-24i
         return React.createElement("tr",{key:ri},
           _td2(stk,{textAlign:"left",fontWeight:700,color:"#9A3412"}),
           _td2(React.createElement("span",null,_avgNode(sd), sd?React.createElement("span",{style:{fontSize:9,color:"#bbb",marginLeft:2}},"("+sd.n+")"):null)),

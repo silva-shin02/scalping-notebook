@@ -3119,14 +3119,14 @@ function _elInclTotal(s) { return !s || s.includeInTotal !== false; }
 // recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
 // 追加α値の3状態判定（2026-06-24）: 〇=必要と明示(addAlphaUsed===true)／×=不要と明示(===false)／未選択=未判断(それ以外=null)。
-// 推奨基本αの母数=「×明示」のみ・推奨追加αの母数=「〇明示」のみ・未選択(旧記録の暗黙値も含む)は両方の母数から除外＝確信を持って判断した記録だけが推奨値を動かす。
+// 推奨基本αの母数=×＋未選択(=〇以外・!_elAddAlphaYes)・推奨追加αの母数=「〇明示」のみ。〇だけが基本α母数から外れ、未選択は基本αのみの記録として基本α母数に算入(2026-06-24b拡大・推奨追加αの母数からのみ除外)。
 function _elAddAlphaYes(s) { return !!s && s.addAlphaUsed === true; }
 function _elAddAlphaNo(s) { return !!s && s.addAlphaUsed === false; }
 function _elAddAlphaUnset(s) { return !s || (s.addAlphaUsed !== true && s.addAlphaUsed !== false); }
 // 追加α値が未選択の記録に付ける小バッジ（基本α・追加αの推奨母数から外れていることを明示）2026-06-24。
 function _addAlphaUnsetBadge(s) {
   if (!_elAddAlphaUnset(s)) return null;
-  return React.createElement("span", { title: "追加α値が未選択（〇要/×不要を未判断）＝基本α・追加αの推奨母数から除外。記録を開いて〇/×を選ぶと母数に入ります。", style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: "#F1F5F9", color: "#64748B", borderRadius: 4, border: "1px dashed #CBD5E1", whiteSpace: "nowrap" } }, "追加α未選択");
+  return React.createElement("span", { title: "追加α値が未選択（〇要/×不要を未判断）＝基本αのみの記録として推奨基本αの母数には算入されます（推奨追加αの母数は〇のみ＝未選択は除外）。記録を開いて〇を選ぶと追加αの母数に入ります。", style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: "#F1F5F9", color: "#64748B", borderRadius: 4, border: "1px dashed #CBD5E1", whiteSpace: "nowrap" } }, "追加α未選択");
 }
 // 追加α〇の「根拠（理由）」選択肢の既定。data.custom.addAlphaReasons でユーザーが追加/削除/改名可（改名は過去記録の根拠名も追従・未設定時はこの既定を表示）2026-06-22→改名2026-06-23。
 var _DEF_ADD_REASONS = ["指標線支え", "底抜け前足浮き"];
@@ -5401,7 +5401,7 @@ function EntryRecordForm(_ref_erf) {
     _useStateADAA = _slicedToArray(_useStateADA, 2),
     fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
   // 追加α 使用フラグ（3状態 2026-06-24）: 〇=必要だった→数値入力／×=不要＝基本αのみ／未選択=未判断。signal.addAlphaUsed(true/false/null)に保存。
-  // 初期化: addAlphaUsed===true→〇・===false→×・それ以外(新規/旧記録)→未選択（既定）。推奨基本αの母数=×のみ・推奨追加αの母数=〇のみ・未選択は両方から除外。
+  // 初期化: addAlphaUsed===true→〇・===false→×・それ以外(新規/旧記録)→未選択（既定）。推奨基本αの母数=×＋未選択(=〇以外)・推奨追加αの母数=〇のみ・未選択は推奨追加αの母数からのみ除外(基本αには基本αのみの記録として算入)。
   var _initAddUsed = (initSig.addAlphaUsed === true) ? "○" : (initSig.addAlphaUsed === false) ? "×" : "未選択";
   var _useStateAAU = useState(_initAddUsed),
     _useStateAAUA = _slicedToArray(_useStateAAU, 2),
@@ -5432,7 +5432,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateALM = useState(initSig.alphaMemo || ""),
     _useStateALMA = _slicedToArray(_useStateALM, 2),
     fAlphaMemo = _useStateALMA[0], setFAlphaMemo = _useStateALMA[1];
-  // α値見出しの右に出す「推奨基本α（直近1週/1か月/3か月/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分・追加α〇は_elBaseAlphaPick内で除外＝×記録のみ)から算出＝記録の参考用。
+  // α値見出しの右に出す「推奨基本α（直近1週/1か月/3か月/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分・追加α〇は_elBaseAlphaPick内で除外＝×＋未選択の記録)から算出＝記録の参考用。
   // 期間はカレンダーの今週/今月でなく fDate を起点にした直近の移動窓＝週初/月初の標本不足を避け「最近の傾向」を安定して映す 2026-06-21。全期間も含め母数は fDate(その日)の前日までの記録のみ＝当日(同日)を含めず、過去記録の編集時に未来・当日データを使わない(look-ahead回避)2026-06-22c。
   var _refBaseAlpha = useMemo(function() {
     if (!fStock) return null;
@@ -6383,7 +6383,7 @@ function EntryRecordForm(_ref_erf) {
               var on = fAddAlphaUsed === kv[0];
               return React.createElement("button", { key: kv[0], type: "button",
                 onClick: function() { setFAddAlphaUsed(kv[0]); if (kv[0] === "○" && fAddAlpha === "") setFAddAlpha("5"); },
-                title: kv[0] === "○" ? "追加αが必要だった（数値を入力）" : kv[0] === "×" ? "追加αは不要＝基本αのみ（基本αの推奨母数に算入）" : "未判断＝基本α・追加αの推奨母数から除外",
+                title: kv[0] === "○" ? "追加αが必要だった（数値を入力）" : kv[0] === "×" ? "追加αは不要＝基本αのみ（基本αの推奨母数に算入）" : "未判断＝基本αのみとして基本αの推奨母数には算入（推奨追加αの母数からのみ除外）",
                 style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
                 kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
             })

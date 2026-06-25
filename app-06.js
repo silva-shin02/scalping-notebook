@@ -345,16 +345,17 @@ function _elOsStatsV2(recs, osOf) {
     mode: { val: modeVal, n: modeN }, min: sorted[0], max: sorted[sorted.length - 1], dist: dist };
 }
 // 損切り回数の集計。plan=想定(OS値−α≧損切り値)・h1=H1高値で新規・h2=H2高値で新規(H2データあり)・any=いずれか。
-// rate=any÷OS値入力件数(%)。miss=E基準未達(α>OS値)件数。αと損切り値は各記録の採用値(_elAlphaInfo)
+// rate=any÷E成立件数(_elDynResult=ok/ng/draw・%)＝他セクション(時間帯別/損切りタブ等)と母数統一 2026-06-24i。miss=E基準未達(α>OS値)件数。αと損切り値は各記録の採用値(_elAlphaInfo)
 // ＝銘柄別記録(app-02)・取引(app-04)テーブルの損益計算と同一基準。H2は_elH2Miss(H1までE基準未達=H2非成立・
 // 表でも合計除外)をガードして数えない。
 function _elStopStatsV2(recs, data) {
-  var o = { n: (recs || []).length, os: 0, plan: 0, h1: 0, h2: 0, any: 0, miss: 0, rate: null };
+  var o = { n: (recs || []).length, os: 0, entered: 0, plan: 0, h1: 0, h2: 0, any: 0, miss: 0, rate: null };
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s) return;
     var ai = _elAlphaInfo(r, data);
     if (s.osVal != null && s.osVal !== "") o.os++;
-    if (_elDynResult(s, ai.alpha, ai.cutLine) === "miss") o.miss++;
+    var _dr = _elDynResult(s, ai.alpha, ai.cutLine);
+    if (_dr === "miss") o.miss++; else if (_dr === "ok" || _dr === "ng" || _dr === "draw") o.entered++;   // E成立=損切り率の母数 2026-06-24i
     var p = _elPlanIsStop(s, ai.alpha, ai.cutLine);
     var h1 = !p && _elHoldIsStop(s, ai.alpha, ai.cutLine);
     var h2 = !p && !h1 && _elHas2Data(s) && !_elH2Miss(s, ai.alpha) && _elHoldIsStop2(s, ai.alpha, ai.cutLine);
@@ -363,7 +364,7 @@ function _elStopStatsV2(recs, data) {
     if (h2) o.h2++;
     if (p || h1 || h2) o.any++;
   });
-  if (o.os > 0) o.rate = Math.round(o.any / o.os * 100);
+  if (o.entered > 0) o.rate = Math.round(o.any / o.entered * 100);   // 分母をE成立件数に(未達missは除外)＝他の損切り率と統一 2026-06-24i
   return o;
 }
 // 損切り回数セルの標準表示「n回 (率%)」＋内訳「想a・H1 b・H2 c」。0回はグレー・回数ありは緑（損失方向）。
@@ -1390,7 +1391,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
       _elv2Td(p.stopRate == null ? "—" : _elStopRateCell(p.stopRate)),
       _elv2Td(p.h1win == null ? "—" : _elPctCell(p.h1win)),
       _elv2Td(_elScoreCell(p.score)),
-      _elv2Td(b.n + "件"));
+      _elv2Td((p.scN != null ? p.scN : 0) + "件"));   // 件数も推奨基本αの母数(×+未選択かつH1判定可能)に統一＝同行のα/損切り率/勝率/スコアと一致 2026-06-24i
   });
   var first = buckets[0], last = buckets[buckets.length - 1];
   var insight = (buckets.length >= 2) ? _elInsightBoxV2([
@@ -1730,7 +1731,7 @@ function _elBaseAlphaPeriodBlockV2(data, stock, refDate) {
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近1週/1か月/3か月/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考）。基本αは追加α〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。"),
     _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true),
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginTop: 12, marginBottom: 4 } }, "α＋ 推奨追加α値（" + stock + "・期間別）"),
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+1〜30円足して損切り回避×H1利益が有意に改善する加算（改善が無ければ+0＝基本αで十分）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+5〜30円（5円刻み）足して損切り率0かつ想定損益が黒字になる最小の加算（黒字化する加算が無ければ「推奨無し」）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
     _elAddAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 // DayView「チャート」タブで早見表の下に出す推奨基本αブロック（2026-06-24）。取引テーブルの_elBaseAlphaPeriodBlockV2と同等に充実＝説明文＋本日行付き期間表(_elBaseAlphaPeriodTableV2)＋「α＋ 推奨追加α値」の独立テーブル(_elAddAlphaPeriodTableV2)。さらに「今日の推奨◯円」の大見出し(headNode)を併載＝いいとこ取り 2026-06-24c。
@@ -1772,7 +1773,7 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 8, marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近1週/1か月/3か月/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上のαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高αは除外・データ不足時は件数最大を参考）。基本αは追加α〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。"),
     _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true),
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginTop: 12, marginBottom: 4 } }, "α＋ 推奨追加α値（期間別）"),
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+1〜30円足して損切り回避×H1利益が有意に改善する加算（改善が無ければ+0＝基本αで十分）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+5〜30円（5円刻み）足して損切り率0かつ想定損益が黒字になる最小の加算（黒字化する加算が無ければ「推奨無し」）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
     _elAddAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 
@@ -1874,8 +1875,9 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   var recoNode = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: recoAdd ? "#0369A1" : "#94A3B8" } },
     recoAdd ? React.createElement(React.Fragment, null, React.createElement("span", null, "推奨追加α ＝ ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, "＋" + recoAdd.add + "円"), "（基本α" + (_A.pick ? _A.pick.alpha : "—") + "＋追加＝計" + recoAdd.total + "円）"), _elReco2Node(recoAdd.add2 != null ? ("＋" + recoAdd.add2 + "円") : null, 16, "#0369A1"))
       : "推奨追加α：実データで有意な上乗せ改善は出ていません（基本αで十分の傾向）");
+  var effNoNum = eff.filter(function(e) { return !_elHasNumReason(e.s); });   // 数値根拠(底抜け前足浮き)は上乗せ幅別/根拠別から除外＝floatNode専用・推奨追加α(_A.add)と母数一致 2026-06-24i
   var byAdd = {};
-  eff.forEach(function(e) { (byAdd[e.add] = byAdd[e.add] || []).push(e); });
+  effNoNum.forEach(function(e) { (byAdd[e.add] = byAdd[e.add] || []).push(e); });
   var addKeys = Object.keys(byAdd).map(Number).sort(function(a, b) { return a - b; });
   var addRows = addKeys.map(function(k) {
     var es = byAdd[k], w = 0, sd = 0; es.forEach(function(e) { if (e.delta > 0) w++; sd += e.delta; });
@@ -1891,7 +1893,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   // ④ 根拠別（底抜け前足浮き＝数値根拠は分析から除外＝ユーザー方針 2026-06-24g・別途「さらに必要だった追加α」を下に表示）
   var _numReason = (data && data.custom && data.custom.addAlphaNumericReason) || "底抜け前足浮き";
   var byR = {};
-  eff.forEach(function(e) { (e.reasons.length ? e.reasons : ["（根拠なし）"]).forEach(function(rs) { (byR[rs] = byR[rs] || []).push(e); }); });
+  effNoNum.forEach(function(e) { (e.reasons.length ? e.reasons : ["（根拠なし）"]).forEach(function(rs) { (byR[rs] = byR[rs] || []).push(e); }); });   // 数値根拠記録は根拠別から除外(floatNode専用) 2026-06-24i
   var rKeys = Object.keys(byR).filter(function(k) { return k !== _numReason; }).sort(function(a, b) { var wa = byR[a].filter(function(e) { return e.delta > 0; }).length / byR[a].length, wb = byR[b].filter(function(e) { return e.delta > 0; }).length / byR[b].length; return wb - wa; });
   var rRows = rKeys.map(function(rs) {
     var es = byR[rs], w = 0, ok = 0, ng = 0, stop = 0, ad = [];
@@ -1912,7 +1914,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   var _reasonsOf = function(s) { var a = (Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.filter(Boolean) : (s.addAlphaReason ? [s.addAlphaReason] : [])); return a.length ? a : ["（根拠なし）"]; };
   var _addFmt = function(v, suf) { return v == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#9A3412" : "#94A3B8" } }, "+" + v + "円" + (suf || "")); };
   var detByR = {};
-  pool.forEach(function(r) {
+  pool.filter(function(r) { return !_elHasNumReason(r.signal); }).forEach(function(r) {   // 数値根拠記録は根拠別明細から除外(floatNode専用)＝推奨追加α(radd)と母数一致 2026-06-24i
     var s = r.signal, ai = aiOf(r), cut = ai.cutLine, base = _baseOf(s), actAdd = _addOf(s);
     var ideal = (base != null) ? _elIdealAddForRec(s, base, cut) : { winMin: null, fillMax: null };
     var floatV = (_reasonsOf(s).indexOf(_numReason) >= 0) ? _num(s.addAlphaReasonVal) : null;
@@ -1923,7 +1925,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   var detKeys = Object.keys(detByR).filter(function(k) { return k !== _numReason; }).sort(function(a, b) { return detByR[b].length - detByR[a].length; });
   var detSections = detKeys.map(function(rs, di) {
     var es = detByR[rs], isNum = (rs === _numReason);
-    var reasonRecs = pool.filter(function(r) { return _reasonsOf(r.signal).indexOf(rs) >= 0; });
+    var reasonRecs = pool.filter(function(r) { return _reasonsOf(r.signal).indexOf(rs) >= 0 && !_elHasNumReason(r.signal); });   // 数値根拠併持記録を除外＝グローバル③推奨追加αと母数一致 2026-06-24i
     var radd = null;
     if (baseAlphaAll != null && reasonRecs.length) { radd = _elAddAlphaReco(reasonRecs, aiOf, baseAlphaAll); }
     var floats = es.map(function(e) { return e.floatV; }).filter(function(v) { return v != null; });
@@ -2241,7 +2243,7 @@ function _elPeriodStatsV2(recs, aiOf) {
     var ai = aiOf(r);
     var nv = _elOsMaxAll(s); if (nv != null) osv.push(nv);  // 分析用OS値＝OS1〜3の最高値（結果に依らず全足・アウトカム盲目）2026-06-23
     cnt++;
-    if (s.realizedPnl != null && s.realizedPnl !== "") { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) { realSum += rv; realCnt++; } }
+    if (_elIsEntered(s, r.item) && s.realizedPnl != null && s.realizedPnl !== "") { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) { realSum += rv; realCnt++; } }   // 実現損益はE成立(エントリー)分のみ＝他の全実現損益集計と統一 2026-06-24i
     if (_epReachedAt(s, ai.alpha)) reach++;
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {
@@ -3452,9 +3454,9 @@ function EntryLogView(_ref_elv2) {
   })();
 
   // ===== グループ構築 =====
-  var _sigGroups = (function() {
+  var _buildSigGroups = function(arr) {
     var by = {};
-    v2recs.forEach(function(r) {
+    (arr || []).forEach(function(r) {
       var s = r.signal;
       var tags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
       if (!tags.length) tags = ["(未設定)"];
@@ -3462,7 +3464,9 @@ function EntryLogView(_ref_elv2) {
     });
     return Object.keys(by).sort(function(a, b) { return by[b].length - by[a].length; })
       .map(function(k) { return { key: k, label: stripCat(k), recs: by[k] }; });
-  })();
+  };
+  var _sigGroups = _buildSigGroups(v2recs);
+  var _sigGroupsAll = _buildSigGroups(_v2recsAll);   // トグル非適用＝推奨基本αパネルの母数固定用 2026-06-24i
   // ===== シグナル別タブ用：サブタブバー＋リッチ分析パネル =====
   var _subTabBar = function(groups, sel, setSel) {
     return React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 4 } },
@@ -3474,8 +3478,9 @@ function EntryLogView(_ref_elv2) {
           g.label + " (" + g.recs.length + ")");
       }));
   };
-  var _groupPanel = function(recs, stkKey) {
+  var _groupPanel = function(recs, stkKey, fixedRecs) {
     if (!recs || !recs.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "記録なし");
+    var _baRecs = (fixedRecs && fixedRecs.length) ? fixedRecs : recs;   // 推奨基本αパネルはトグル非適用の母数固定(×+未選択)で算出＝α値タブと一致 2026-06-24i
     var t = _elTotAccum(recs, {
       signal: function(r) { return r.signal; },
       alpha: function(r) { return _ai(r).alpha; },
@@ -3510,10 +3515,10 @@ function EntryLogView(_ref_elv2) {
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(recs, _ai),
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: recs, aiOf: _ai })) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
-      _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数フロア（最も件数の多いαの半分以上）を満たすαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。高αの薄い標本(選抜バイアス)は除外。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる"),
-      React.createElement(_elBaseAlphaTrendV2, { recs: recs, aiOf: _ai }),
+      _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数フロア（最も件数の多いαの半分以上）を満たすαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。高αの薄い標本(選抜バイアス)は除外。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。※推奨基本αは追加α分析トグルの影響を受けず常に×・未選択母数で算出"),
+      React.createElement(_elBaseAlphaTrendV2, { recs: _baRecs, aiOf: _ai }),
       _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝①α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）＋②採用αでの全記録の内訳（どの記録が母数で損切り/H1勝ち/対象外か）"),
-      _elBaseAlphaDetailV2(recs, _ai),
+      _elBaseAlphaDetailV2(_baRecs, _ai),
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
       _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益"), _elDowSectionV2(recs, _ai),
       _secH("🚫 期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(recs, _ai),
@@ -3556,7 +3561,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 6 } }, (_isAllStock ? "全銘柄合算" : "この銘柄（" + _selStock + "）") + "の推奨基本α値と、その数値が出た根拠データ。EP起算（v2）の" + _v2recsAll.length + "件で算出。" + (_isAllStock ? "（銘柄をまたいだα傾向の参考。銘柄ごとは各銘柄タブで）" : "") + "　※このタブは追加α分析トグルの影響を受けず常に全件（推奨基本α＝×・未選択／推奨追加α＝〇 の母数固定）。"),
       _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝①α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）＋②採用αでの全記録の内訳（どの記録が母数で損切り/H1勝ち/対象外か）"),
       _elBaseAlphaDetailV2(_v2recsAll, _ai),
-      _secH("🎯 推奨基本α 期間推移", "件数3件以上のαから損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
+      _secH("🎯 推奨基本α 期間推移", "件数フロア（最も件数の多いαの半分以上・最低3件）かつ到達率(OS2まで)50%以上のαから、損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
       React.createElement(_elBaseAlphaTrendV2, { recs: _v2recsAll, aiOf: _ai }),
       _secH("🎯 推奨追加α値（期間別）", "追加α〇の記録だけを母数に、各期間（直近1週/1か月/3か月/全期間・" + todayStr() + "の前日まで）で基本α＋推奨追加αを当てた 損切り率/H1勝率/到達率/想定損益。〇記録の無い期間は—"),
       _elAddAlphaPeriodTableV2(_v2recsAll, _ai, todayStr(), false),
@@ -3620,7 +3625,7 @@ function EntryLogView(_ref_elv2) {
     _tabBody = _sigGroups.length ? React.createElement(React.Fragment, null,
       _secH("🎯 シグナル別（タブ切替・複数タグは各タグに算入）"),
       _subTabBar(_sigGroups, _selSigKey, setSelSig),
-      _selSigGrp ? _groupPanel(_selSigGrp.recs) : null)
+      _selSigGrp ? _groupPanel(_selSigGrp.recs, null, (_sigGroupsAll.filter(function(g) { return g.key === _selSigKey; })[0] || {}).recs) : null)
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし");
   } else if (view === "oschain") {
     _tabBody = React.createElement(React.Fragment, null,
