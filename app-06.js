@@ -1489,7 +1489,8 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
       _elv2Td(e.score == null ? "—" : React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "0.7×" + Math.round((1 - e.stopRate) * 100) + "+0.3×" + Math.round(e.h1win * 100))),
       _elv2Td(_elScoreCell(e.score)));
   });
-  var recsSorted = recs.slice().sort(function(x, y) { var dx = x.date || "", dy = y.date || ""; return dx < dy ? 1 : dx > dy ? -1 : 0; });
+  var _exYesN = (recs || []).filter(function(r) { return r && _elAddAlphaYes(r.signal); }).length;   // 追加α〇は基本αの母数外（_elBaseAlphaPickが除外）なので②表からも除外＝結論バーのpick.scNと母数を一致させる。除外件数だけ表記 2026-06-24i
+  var recsSorted = recs.filter(function(r) { return r && !_elAddAlphaYes(r.signal); }).sort(function(x, y) { var dx = x.date || "", dy = y.date || ""; return dx < dy ? 1 : dx > dy ? -1 : 0; });
   var scN = 0, stopN = 0, winN = 0, otherN = 0, offN = 0;
   var _pnlCell = function(v) { return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: 700 } }, _elPnlFmt(v)); };
   var recRows = recsSorted.map(function(r, i) {
@@ -1536,7 +1537,8 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
     concl,
     _lbl("① α別の総当たり（5〜20円・★＝採用・件数フロア" + minN + "件未満は淡色）"),
     _elv2Table(["基本α", "到達率", "件数", "損切り率", "H1勝率", "スコア内訳", "スコア"], sweepRows),
-    _lbl("② 採用α " + a + "円 での全記録の内訳（母数＝この数値の根拠・損切りは薄緑）"),
+    _lbl("② 採用α " + a + "円 での母数記録の内訳（追加α〇を除く ×・未選択のみ＝この数値の根拠・損切りは薄緑）"),
+    React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "0 0 2px" } }, "推奨基本αの母数は『追加αを使っていない記録』＝×（不要）・未選択（基本αのみ）だけ。追加α〇（上乗せした記録）は母数外なので除外して表示しています" + (_exYesN > 0 ? "（追加α〇 " + _exYesN + "件を除外）" : "") + "。"),
     _elv2Table(["日付", "銘柄", "EP到達", "EP損益", "H1損益", "判定"], recRows),
     insight);
 }
