@@ -5333,7 +5333,7 @@ function DayView(_ref57) {
           _td2(React.createElement("span",null,_avgNode(sd), sd?React.createElement("span",{style:{fontSize:9,color:"#bbb",marginLeft:2}},"("+sd.n+")"):null)),
           _td2(React.createElement("span",null,_avgNode(sw), sw?React.createElement("span",{style:{fontSize:9,color:"#bbb",marginLeft:2}},"("+sw.n+")"):null)),
           _td2(React.createElement("span",null,_avgNode(sa), sa?React.createElement("span",{style:{fontSize:9,color:"#bbb",marginLeft:2}},"("+sa.n+")"):null)),
-          _td2(sa?_elOsDistBarV2(sa.dist,72,11):React.createElement("span",{style:{color:"#ccc"}},"—")),
+          _td2(sa?_elOsDistBarV2(sa.vals,72,11):React.createElement("span",{style:{color:"#ccc"}},"—")),
           _td2(_cmp));
       });
       _osTable = React.createElement("div",{style:{overflowX:"auto"}}, React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",fontSize:11}}, React.createElement("thead",null,React.createElement("tr",{style:{background:"#f5f4f0"}}, _th2("銘柄",{textAlign:"left"}), _th2("本日OS値"), _th2("今週"), _th2("全期間"), _th2("全期間分布"), _th2("本日vs全期間"))), React.createElement("tbody",null,_osRows)));
