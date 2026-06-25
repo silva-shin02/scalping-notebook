@@ -1777,6 +1777,22 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
     _elAddAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 
+// 前日まで(refDate未満)にv2かつ算入のエントリー記録がある銘柄の一覧。orderHint(主要銘柄の優先順)→件数多い順→名前順でソート 2026-06-25。
+// 簡略版「本日の推奨基本α値」ボードで、本日エントリーが無い時のフォールバック銘柄（＝よく取引する＝前日までに記録のある銘柄）を出すために使う。
+function _elStocksWithV2Before(data, refDate, orderHint) {
+  var seen = {};
+  _elCollectAllSignals(data).forEach(function(r) {
+    if (r && r.stock && r.date && r.date < refDate && _epIsV2(r.signal) && _elInclTotal(r.signal)) seen[r.stock] = (seen[r.stock] || 0) + 1;
+  });
+  var list = []; for (var k in seen) { if (seen.hasOwnProperty(k)) list.push(k); }
+  var ord = orderHint || [];
+  list.sort(function(a, b) {
+    var ia = ord.indexOf(a), ib = ord.indexOf(b);
+    if (ia !== -1 || ib !== -1) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; }
+    return (seen[b] - seen[a]) || (a < b ? -1 : a > b ? 1 : 0);
+  });
+  return list;
+}
 // 簡略版「本日の推奨基本α値」ボード（取引タブ・本日の総括の直前）2026-06-25。各銘柄の前日までの移動窓（直近1週/1か月/3か月/全期間）で
 // 推奨基本α・推奨追加α（いずれも再推奨＋次点）を出す。1か月をメイン（大きく）、1週/3か月/全期間はサブ行（小さく・次点併記）。
 // 指標（損切り率/勝率/想定損益）は出さずα値だけのシンプル表示＝詳細は本日の損益データ内の銘柄別・期間別表(_elBaseAlphaPeriodBlockV2)で。
@@ -1835,7 +1851,7 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
         subRows));
   });
   return React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録を移動窓で集計（当日は含めない）。直近1か月をメインに、1週/3か月/全期間はサブ。各値は再推奨（次点）。基本α＝追加α〇以外（×・未選択）が母数、追加α＝〇記録だけが母数。損切り率・勝率・想定損益などの詳細は下の「📊本日の損益データ」内の銘柄別・期間別の表を参照。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録を移動窓で集計（当日は含めない）。直近1か月をメインに、1週/3か月/全期間はサブ。各値は再推奨（次点）。基本α＝追加α〇以外（×・未選択）が母数、追加α＝〇記録だけが母数。損切り率・勝率・想定損益などの詳細は銘柄別・期間別の詳細表を参照。"),
     cards);
 }
 

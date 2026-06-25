@@ -4871,7 +4871,16 @@ function DayView(_ref57) {
       title: "📝 本日の総括",
       guardKey: "tradesSummary_" + date
     }));
-    if (!_pbStks.length) return React.createElement(React.Fragment, null, _soukatsuEl, _wkMainEl);
+    // 簡略版「本日の推奨基本α値」: 本日の取引記録が無くても表示する（前日までの記録から推奨）2026-06-25。
+    // 本日エントリーした銘柄(_pbStks)があればそれを、無ければ前日までにv2記録のある銘柄（_pbStkOrder優先→件数順）を母数にする。
+    var _alphaBoardNoTrade = !_pbStks.length;
+    var _alphaBoardStks = _pbStks.length ? _pbStks : _elStocksWithV2Before(data, date, _pbStkOrder);
+    var _simpleAlphaEl = _alphaBoardStks.length ? React.createElement("div", { style: Card },
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#0369A1", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } }, "🎯 本日の推奨基本α値（簡略・銘柄別）",
+        React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "再推奨＋次点／1か月メイン")),
+      _alphaBoardNoTrade ? React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 6, padding: "4px 8px", marginBottom: 8, fontWeight: 700 } }, "本日の取引記録はまだありません。前日までの記録から、よく取引する銘柄の推奨を表示しています。") : null,
+      _elBaseAlphaSimpleBoardV2(data, _alphaBoardStks, date)) : null;
+    if (!_pbStks.length) return React.createElement(React.Fragment, null, _simpleAlphaEl, _soukatsuEl, _wkMainEl);
     
     var _pbAllRecs = [];
     var _pbAllReal = 0, _pbAllEnt = 0;
@@ -5220,11 +5229,6 @@ function DayView(_ref57) {
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 α比較・深掘り（本日／今週／今月／全期間・銘柄別）"),
       React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄のα関連データを集約（推奨基本α・理想α・到達率別α・E到達／損切り・EP／H1／H2損益・推奨基本αの期間推移）"),
       _pbStks.map(function(_sk) { return React.createElement(_elDayStockBenchV2, { key: _sk, data: data, date: date, stock: _sk }); })) : null;
-    // 簡略版「本日の推奨基本α値」（銘柄ごとのコンパクトカード・1か月メイン＋他期間サブ・再推奨＋次点）を本日の総括の直前に配置 2026-06-25
-    var _simpleAlphaEl = (_pbHasAlpha && _pbStks.length) ? React.createElement("div", { style: Card },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#0369A1", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } }, "🎯 本日の推奨基本α値（簡略・銘柄別）",
-        React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "再推奨＋次点／1か月メイン")),
-      _elBaseAlphaSimpleBoardV2(data, _pbStks, date)) : null;
     return React.createElement(React.Fragment, null, _pbMainEl, _simpleAlphaEl, _soukatsuEl, _wkMainEl, _benchEl);
   })(),
 
