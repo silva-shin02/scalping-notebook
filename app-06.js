@@ -1777,6 +1777,68 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
     _elAddAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 
+// 簡略版「本日の推奨基本α値」ボード（取引タブ・本日の総括の直前）2026-06-25。各銘柄の前日までの移動窓（直近1週/1か月/3か月/全期間）で
+// 推奨基本α・推奨追加α（いずれも再推奨＋次点）を出す。1か月をメイン（大きく）、1週/3か月/全期間はサブ行（小さく・次点併記）。
+// 指標（損切り率/勝率/想定損益）は出さずα値だけのシンプル表示＝詳細は本日の損益データ内の銘柄別・期間別表(_elBaseAlphaPeriodBlockV2)で。
+// data・stocks(本日エントリーした銘柄=_pbStks)・refDate(基準日=本日。各窓は当日を含めない前日まで=_elPeriodWindows(...,false))。
+function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
+  var aiOf = function(r) { return _elAlphaInfo(r, data); };
+  var allSig = _elCollectAllSignals(data);
+  // 推奨基本αノード（big=メイン1か月／小=サブ）。再推奨＋次点。na(件数不足)は橙＋「参考」。
+  var _baseNode = function(pk, big) {
+    if (!pk || pk.alpha == null) return React.createElement("span", { style: { color: "#94A3B8", fontSize: big ? 13 : 10, fontWeight: 700 } }, "データ不足");
+    var na = pk.status === "na", col = na ? "#B45309" : "#0369A1";
+    return React.createElement("span", { style: { whiteSpace: "nowrap" } },
+      React.createElement("span", { style: { fontWeight: 800, fontSize: big ? 21 : 12, color: col } }, pk.alpha + "円"),
+      React.createElement("span", { style: { fontSize: big ? 12 : 9, fontWeight: 700, color: pk.alpha2 != null ? col : "#94A3B8", marginLeft: big ? 5 : 3 } }, pk.alpha2 != null ? (big ? ("（次点 " + pk.alpha2 + "円）") : ("(次" + pk.alpha2 + ")")) : (big ? "（次点なし）" : "(次点なし)")),
+      na ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 700, marginLeft: 3 } }, "参考") : null);
+  };
+  // 推奨追加αノード（big=メイン／小=サブ）。改善なしは「推奨無し」、母数なし/不明は「—」。メインは計＋次点まで、サブは加算のみ簡潔。
+  var _addNode = function(add, big) {
+    if (!add) return React.createElement("span", { style: { color: "#94A3B8", fontSize: big ? 13 : 10 } }, "—");
+    if (!add.improved) return React.createElement("span", { style: { color: "#94A3B8", fontSize: big ? 13 : 10, fontWeight: 700 } }, "推奨無し");
+    if (!big) return React.createElement("span", { style: { whiteSpace: "nowrap" } }, React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: "#9A3412" } }, "+" + add.add + "円"), React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 2 } }, "(計" + add.total + ")"));
+    return React.createElement("span", { style: { whiteSpace: "nowrap" } },
+      React.createElement("span", { style: { fontWeight: 800, fontSize: 17, color: "#9A3412" } }, "+" + add.add + "円"),
+      React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", marginLeft: 4 } }, "（計" + add.total + "円）"),
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: add.add2 != null ? "#9A3412" : "#94A3B8", marginLeft: 5 } }, add.add2 != null ? ("（次点 +" + add.add2 + "円）") : "（次点なし）"));
+  };
+  var cards = (stocks || []).map(function(stock, si) {
+    var recs = allSig.filter(function(r) { return r.stock === stock; });
+    var W = _elPeriodWindows(recs, refDate, false);   // [直近1週,直近1か月,直近3か月,全期間]・前日まで（当日除外）
+    var As = W.periods.map(function(pd) { return _elBaseAlphaA(pd.recs, aiOf); });
+    var mainA = As[1];   // 直近1か月＝メイン
+    var hasAny = As.some(function(A) { return A && A.pick && A.pick.alpha != null; });
+    var _lbl = function(t, col) { return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: col, display: "inline-block", minWidth: 70 } }, t); };
+    var mainBlock;
+    if (mainA && mainA.pick && mainA.pick.alpha != null) {
+      mainBlock = React.createElement("div", null,
+        React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", marginBottom: 2 } }, _lbl("推奨基本α", "#0369A1"), _baseNode(mainA.pick, true)),
+        React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" } }, _lbl("推奨追加α", "#9A3412"), _addNode(mainA.add, true)));
+    } else {
+      mainBlock = React.createElement("div", { style: { fontSize: 12, color: "#94A3B8", fontWeight: 700, padding: "2px 0" } }, hasAny ? "直近1か月：データ不足（下のサブ参照）" : "推奨基本αのデータがまだありません");
+    }
+    var subDefs = [{ i: 0, label: "1週間" }, { i: 2, label: "3か月" }, { i: 3, label: "全期間" }];
+    var subRows = subDefs.map(function(sd, k) {
+      var A = As[sd.i];
+      return React.createElement("div", { key: k, style: { display: "flex", alignItems: "baseline", gap: 5, fontSize: 10, lineHeight: 1.6, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontWeight: 700, color: "#64748B", minWidth: 40 } }, sd.label),
+        React.createElement("span", { style: { color: "#94A3B8" } }, "基"), _baseNode(A ? A.pick : null, false),
+        React.createElement("span", { style: { color: "#94A3B8", marginLeft: 4 } }, "追"), _addNode(A ? A.add : null, false));
+    });
+    return React.createElement("div", { key: si, style: { background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 10px", marginBottom: 8 } },
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0F172A", marginBottom: 5, paddingBottom: 4, borderBottom: "1px solid #BAE6FD" } }, stock,
+        React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0369A1", marginLeft: 6 } }, "メイン＝直近1か月")),
+      mainBlock,
+      React.createElement("div", { style: { marginTop: 6, paddingTop: 5, borderTop: "1px dashed #93C5FD" } },
+        React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#94A3B8", marginBottom: 1 } }, "他期間（サブ）"),
+        subRows));
+  });
+  return React.createElement("div", null,
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録を移動窓で集計（当日は含めない）。直近1か月をメインに、1週/3か月/全期間はサブ。各値は再推奨（次点）。基本α＝追加α〇以外（×・未選択）が母数、追加α＝〇記録だけが母数。損切り率・勝率・想定損益などの詳細は下の「📊本日の損益データ」内の銘柄別・期間別の表を参照。"),
+    cards);
+}
+
 // 各記録の理想の追加α（基本αに何円足すべきだったか）2026-06-24。base=基本α・cut=損切り値。add=0〜_EL_BASE_ADD_MAX(30)を総当たり：
 //   winMin=損切り回避かつH1損益>0を満たす最小の追加α（無ければnull＝足しても勝てなかった／0＝足さず勝ち）。
 //   fillMax=OS1〜3でEP到達を保てる最大の追加α（約定上限・base自体で未到達ならnull）。αを増やすほど高値≥αが難化＝EP到達は退化方向なので「約定の観点」は上限で表す。

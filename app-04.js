@@ -5220,7 +5220,12 @@ function DayView(_ref57) {
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 α比較・深掘り（本日／今週／今月／全期間・銘柄別）"),
       React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄のα関連データを集約（推奨基本α・理想α・到達率別α・E到達／損切り・EP／H1／H2損益・推奨基本αの期間推移）"),
       _pbStks.map(function(_sk) { return React.createElement(_elDayStockBenchV2, { key: _sk, data: data, date: date, stock: _sk }); })) : null;
-    return React.createElement(React.Fragment, null, _pbMainEl, _soukatsuEl, _wkMainEl, _benchEl);
+    // 簡略版「本日の推奨基本α値」（銘柄ごとのコンパクトカード・1か月メイン＋他期間サブ・再推奨＋次点）を本日の総括の直前に配置 2026-06-25
+    var _simpleAlphaEl = (_pbHasAlpha && _pbStks.length) ? React.createElement("div", { style: Card },
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#0369A1", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } }, "🎯 本日の推奨基本α値（簡略・銘柄別）",
+        React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "再推奨＋次点／1か月メイン")),
+      _elBaseAlphaSimpleBoardV2(data, _pbStks, date)) : null;
+    return React.createElement(React.Fragment, null, _pbMainEl, _simpleAlphaEl, _soukatsuEl, _wkMainEl, _benchEl);
   })(),
 
   (function() {
