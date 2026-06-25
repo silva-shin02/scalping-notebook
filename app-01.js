@@ -4951,6 +4951,12 @@ function ImageAnnotator(_ref7) {
       var CANVAS_MAX_AREA = _isIOSCanvas ? _snMaxCanvasArea(33554432) : 33554432;
       var CANVAS_MAX_DIM = _isIOSCanvas ? _snMaxCanvasDim(16384) : 16384;
       maxScaleRef.current = Math.min(Math.sqrt(CANVAS_MAX_AREA / (nw * nh)), CANVAS_MAX_DIM / Math.max(nw, nh));
+      // iPad(iOS)はストロークcanvasを実機プローブ上限(~16.8〜33.5MP/67〜134MB)まで膨らませると、開いた瞬間の確保＋全面getImageDataでカクつき、巨大レイヤ(長辺4730〜6030px)をiOSコンポジタが間引き→初回描画で再描画され「画質が落ちて直る」現象になる。
+      // 対策(2026-06-25): 表示解像度(scRef)×DPR×2倍の拡大ヘッドルームで物理canvasを頭打ちにして実用サイズへ縮小(例 1170x2532=67MB→約30MB)＝カクつき/間引き解消。プローブ上限は天井として維持・最低でも論理(原寸)解像度は確保(Math.max(1,…))。拡大は約2倍(網膜)〜4倍まで鮮明で以降わずかに甘くなる(背景imgは別要素で常時鮮明)。保存(_pngWork)は論理サイズの別canvasなので画質・容量は不変。デスクトップ(非iOS)は従来どおり巨大ラスタライズのまま。
+      if (_isIOSCanvas) {
+        var _needScale = (scRef.current || 1) * (window.devicePixelRatio || 1) * 2;
+        maxScaleRef.current = Math.max(1, Math.min(maxScaleRef.current, _needScale));
+      }
       _applyRenderScale(1);
       console.log("[Annotator] renderScale=" + dprRef.current.toFixed(3) + " logical=" + nw + "×" + nh + " physical=" + c.width + "×" + c.height + " maxScale=" + maxScaleRef.current.toFixed(3) + " devicePixelRatio=" + window.devicePixelRatio);
 
