@@ -5434,34 +5434,30 @@ function EntryRecordForm(_ref_erf) {
   var _useStateALM = useState(initSig.alphaMemo || ""),
     _useStateALMA = _slicedToArray(_useStateALM, 2),
     fAlphaMemo = _useStateALMA[0], setFAlphaMemo = _useStateALMA[1];
-  // α値見出しの右に出す「推奨基本α（直近1週/1か月/3か月/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分・追加α〇は_elBaseAlphaPick内で除外＝×＋未選択の記録)から算出＝記録の参考用。
-  // 期間はカレンダーの今週/今月でなく fDate を起点にした直近の移動窓＝週初/月初の標本不足を避け「最近の傾向」を安定して映す 2026-06-21。全期間も含め母数は fDate(その日)の前日までの記録のみ＝当日(同日)を含めず、過去記録の編集時に未来・当日データを使わない(look-ahead回避)2026-06-22c。
+  // α値見出しの右に出す「推奨基本α（直近25件/50件/100件/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分・追加α〇は_elBaseAlphaPick内で除外＝×＋未選択の記録)から算出＝記録の参考用。
+  // 窓はカレンダーでなく fDate を起点にした直近N件の件数窓＝銘柄別でカレンダー窓が痩せるのを避け「最近の傾向」を安定して映す 2026-06-21→件数ベース2026-06-26。全期間も含め母数は fDate(その日)の前日までの記録のみ＝当日(同日)を含めず、過去記録の編集時に未来・当日データを使わない(look-ahead回避)2026-06-22c。
   var _refBaseAlpha = useMemo(function() {
     if (!fStock) return null;
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
     if (!recs.length) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var pickOf = function(rs) { if (!rs || !rs.length) return null; var p = _elBaseAlphaPick(rs, aiOf); if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok", alpha2: p.alpha2 }; };
-    var out = { w1: null, m1: null, m3: null, all: pickOf(fDate ? recs.filter(function(r) { return r.date < fDate; }) : recs) };
-    if (fDate) {
-      var _p = fDate.split("-");
-      var _pad = function(n) { return ("0" + n).slice(-2); };
-      var _ymd = function(dd) { return dd.getFullYear() + "-" + _pad(dd.getMonth() + 1) + "-" + _pad(dd.getDate()); };
-      var _cut = function(mut) { var d = new Date(Number(_p[0]), Number(_p[1]) - 1, Number(_p[2])); mut(d); return _ymd(d); };
-      var c1 = _cut(function(d) { d.setDate(d.getDate() - 7); });
-      var c2 = _cut(function(d) { d.setMonth(d.getMonth() - 1); });
-      var c3 = _cut(function(d) { d.setMonth(d.getMonth() - 3); });
-      var _win = function(lo) { return recs.filter(function(r) { return r.date >= lo && r.date < fDate; }); };
-      out.w1 = pickOf(_win(c1));
-      out.m1 = pickOf(_win(c2));
-      out.m3 = pickOf(_win(c3));
-    }
+    // 件数ベースの窓【2026-06-26】: fDate前日までを日付順に並べ末尾から直近25/50/100件。キーw1/m1/m3は直近25/50/100件の意味（旧カレンダー1週/1月/3月から変更）。_defBaseAはm1=直近50件を既定に使う。
+    var _base = fDate ? recs.filter(function(r) { return r.date < fDate; }) : recs;
+    var _sorted = _base.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    var _lastN = function(n) { return _sorted.length > n ? _sorted.slice(_sorted.length - n) : _sorted.slice(); };
+    var out = {
+      w1: pickOf(_lastN(_EL_PERIOD_COUNTS[0])),
+      m1: pickOf(_lastN(_EL_PERIOD_COUNTS[1])),
+      m3: pickOf(_lastN(_EL_PERIOD_COUNTS[2])),
+      all: pickOf(_base)
+    };
     return out;
   }, [data, fStock, fDate]);
-  // 基本αの既定値＝直近1か月の推奨基本α（無ければ3か月→全期間でフォールバック）。1週間は標本が薄くブレやすいので自動入力には使わず表示のみ（ユーザー方針 2026-06-22c）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
+  // 基本αの既定値＝直近50件の推奨基本α（無ければ100件→全期間でフォールバック）。直近25件は標本が薄くブレやすいので自動入力には使わず表示のみ（ユーザー方針 2026-06-22c→件数ベース2026-06-26）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
   var _baAlpha = function(w) { return (w && w.ok && w.alpha != null) ? w.alpha : null; };
   var _defBaseA = _refBaseAlpha ? (_baAlpha(_refBaseAlpha.m1) != null ? _baAlpha(_refBaseAlpha.m1) : (_baAlpha(_refBaseAlpha.m3) != null ? _baAlpha(_refBaseAlpha.m3) : _baAlpha(_refBaseAlpha.all))) : null;
-  // 新規記録では基本αに直近1か月の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21→2026-06-22c。
+  // 新規記録では基本αに直近50件の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21→2026-06-22c→件数ベース2026-06-26。
   var _baTouchedRef = useRef(false);
   var _baAutoRef = useRef("");
   useEffect(function() {
@@ -5563,7 +5559,7 @@ function EntryRecordForm(_ref_erf) {
 
 
   
-  // 合計α値 = 基本α値（未入力なら直近1週間の推奨基本α・無ければ0。予想OS度とは連動しない 2026-06-21）＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
+  // 合計α値 = 基本α値（未入力なら直近50件の推奨基本α・無ければ0。予想OS度とは連動しない 2026-06-21）＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
   var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_defBaseA != null ? _defBaseA : 0);
   // 追加αは「〇（必要）」を選んだ時だけ合計に算入。×なら0＝基本αのみ。
   var _fAddA = (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
@@ -6337,7 +6333,7 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。追加αは〇を選んだ時だけ入力。基本αの初期値＝直近1週間の推奨基本α"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。追加αは〇を選んだ時だけ入力。基本αの初期値＝直近50件の推奨基本α"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
@@ -6364,7 +6360,7 @@ function EntryRecordForm(_ref_erf) {
           if (!_refBaseAlpha) return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨基本α値：データ無し") : null;
           return React.createElement("span", { title: "保存済み記録から算出した推奨基本α（記録日起点の直近・参考用。追加α〇の記録は母数から除外）", style: { fontSize: 11, fontWeight: 600, color: "#64748B" } },
             React.createElement("span", { style: { color: "#94A3B8" } }, "推奨基本α値"),
-            [["1週間", _refBaseAlpha.w1], ["1カ月", _refBaseAlpha.m1], ["3カ月", _refBaseAlpha.m3], ["全期間", _refBaseAlpha.all]].map(function(kv, i) {
+            [["直近25件", _refBaseAlpha.w1], ["直近50件", _refBaseAlpha.m1], ["直近100件", _refBaseAlpha.m3], ["全期間", _refBaseAlpha.all]].map(function(kv, i) {
               return React.createElement("span", { key: i },
                 "　" + kv[0] + "：",
                 kv[1] && kv[1].alpha != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1].alpha + "円", kv[1].ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）")) : React.createElement("span", { style: { color: "#aaa" } }, "—"),
