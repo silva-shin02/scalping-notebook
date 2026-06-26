@@ -2516,7 +2516,8 @@ function _elOsSectionV2(recs, aiOf) {
 
 // 1日の目標利益（100株換算・円）。既存の理想α目標(_elIdealAlphaV2 tgtA=2500)と一致。
 var _EL_DAY_TARGET_YEN = 2500;
-// 週間サマリー（記録帳・期間タブ先頭／全銘柄合算・銘柄別の両方）2026-06-26: 「1週間あたり平均損益」と「週あたり平均で目標(2500円/100株換算)以上の日が何日あるか」を実現損益(100株換算)/EP/H1/H2の4基準で表示。
+// 週間サマリー（記録帳・期間タブ先頭／全銘柄合算・銘柄別の両方）2026-06-26: 「1取引日あたり平均損益(＋5営業日換算/週)」と「目標(2500円/100株換算)達成率(＋5日換算の達成日数/週)」を実現損益(100株換算)/EP/H1/H2の4基準で表示。
+// 2026-06-26b: 週合計の単純平均は休場で短い週があると下振れるバイアスがあるため、日ベース(1取引日あたり=Σ損益÷取引日／達成率=達成日÷取引日)へ変更。週イメージは×5営業日の換算で目安表示。週別内訳表は各週の実額のまま。
 // 日別損益は本日の損益データの合計と同基準＝_elTotAccum（EP=plan / H1=holdPlanCap / H2=hold2・（）外＝○のみ・採用α基準・EP/H1/H2は値幅×100で既に100株換算）。週=月〜金(_elBucketKey)。平均の分母=取引のあった週だけ。recs=現スコープのv2算入記録・aiOf(r)→{alpha,cutLine}。
 function _elWeeklyTargetSummaryV2(recs, aiOf) {
   var TARGET = _EL_DAY_TARGET_YEN;
@@ -2553,18 +2554,22 @@ function _elWeeklyTargetSummaryV2(recs, aiOf) {
   var _th = function(label, ex) { return React.createElement("th", { style: Object.assign({ padding: "4px 8px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "center", fontSize: 11, color: "#9A3412", whiteSpace: "nowrap" }, ex || {}) }, label); };
   var _td = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 8px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
   var bases = [{ key: "re", label: "実現損益(100株)" }, { key: "ep", label: "EP損益" }, { key: "h1", label: "H1損益" }, { key: "h2", label: "H2損益" }];
+  var _pnlLite = function(v) { return React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: 600, fontSize: 10 } }, "≈" + _elPnlFmt(Math.round(v))); };
   var sumRows = bases.map(function(b) {
-    var wkPnl = S[b.key] / W, achDays = S[b.key + "D"] / W, rate = S.days > 0 ? Math.round(S[b.key + "D"] / S.days * 100) : null;
+    var perDay = S.days > 0 ? S[b.key] / S.days : 0;
+    var rate = S.days > 0 ? Math.round(S[b.key + "D"] / S.days * 100) : null;
+    var ach5 = S.days > 0 ? (S[b.key + "D"] / S.days * 5) : 0;
     return React.createElement("tr", { key: b.key },
       _td(b.label, { textAlign: "left", paddingLeft: 10, fontWeight: 700, color: "#0369A1" }),
-      _td(_pnl(wkPnl)),
-      _td(React.createElement("b", { style: { color: "#9A3412", fontSize: 13 } }, achDays.toFixed(1) + " 日")),
-      _td(rate == null ? "—" : (rate + "%"), { color: rate != null && rate >= 50 ? "#1E8449" : "#555", fontWeight: 700 }));
+      _td(_pnl(perDay)),
+      _td(_pnlLite(perDay * 5)),
+      _td(rate == null ? "—" : React.createElement("b", { style: { color: rate >= 50 ? "#1E8449" : "#9A3412", fontSize: 13 } }, rate + "%")),
+      _td(React.createElement("span", { style: { color: "#888", fontSize: 10, fontWeight: 600 } }, "≈" + ach5.toFixed(1) + " 日")));
   });
   var summaryTable = React.createElement("div", { style: { overflowX: "auto", marginBottom: 10 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FBEEDA" } },
-        _th("基準", { textAlign: "left", paddingLeft: 10 }), _th("週平均損益"), _th("平均達成日数 / 週"), _th("達成率（達成日/取引日）"))),
+        _th("基準", { textAlign: "left", paddingLeft: 10 }), _th("1取引日あたり平均"), _th("5営業日換算 / 週"), _th("達成率（達成日/取引日）"), _th("達成日数/週（5日換算）"))),
       React.createElement("tbody", null, sumRows)));
   var _cellWP = function(v, dn) { return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _pnl(v), React.createElement("span", { style: { fontSize: 9, color: dn > 0 ? "#B45309" : "#bbb", fontWeight: dn > 0 ? 700 : 400 } }, "達成 " + dn + "日")); };
   var wkRows = keys.slice().reverse().map(function(k) {
@@ -2584,7 +2589,7 @@ function _elWeeklyTargetSummaryV2(recs, aiOf) {
       React.createElement("tbody", null, wkRows)));
   return React.createElement("div", { style: { marginBottom: 14, padding: "10px 12px", border: "1px solid #FB923C", borderRadius: 8, background: "#FFFCF8" } },
     React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📅 週間サマリー（目標 1日 " + TARGET.toLocaleString() + "円／100株換算）"),
-    React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginBottom: 8 } }, "対象 " + W + "週・全 " + S.days + "取引日（取引のあった週だけで平均）。週=月〜金。実現損益＝実際に確定した損益を100株換算（損益÷株数×100・株数未入力はそのまま・E成立分のみ）。EP/H1/H2＝（）外＝○のみ・採用α基準・値幅×100で既に100株換算。上の期間フィルタに連動。"),
+    React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginBottom: 8 } }, "全 " + S.days + "取引日 / " + W + "週。平均は1取引日あたり（Σ損益÷取引日）＝休場・祝日に依存しない。5営業日換算/週＝1日平均×5の目安。達成率＝1日の損益が2,500円以上だった割合（達成日÷取引日）。達成日数/週＝達成率×5の換算。実現損益＝確定損益を100株換算（損益÷株数×100・E成立分）／EP/H1/H2＝（）外＝○のみ・採用α基準・既に100株換算。週別表は各週の実額。上の期間フィルタに連動。"),
     summaryTable,
     weekTable);
 }
