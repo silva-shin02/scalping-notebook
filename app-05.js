@@ -6367,7 +6367,7 @@ function EntryRecordForm(_ref_erf) {
             [["1週間", _refBaseAlpha.w1], ["1カ月", _refBaseAlpha.m1], ["3カ月", _refBaseAlpha.m3], ["全期間", _refBaseAlpha.all]].map(function(kv, i) {
               return React.createElement("span", { key: i },
                 "　" + kv[0] + "：",
-                kv[1] && kv[1].alpha != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1].alpha + "円" + (kv[1].ok ? "" : "?")) : React.createElement("span", { style: { color: "#aaa" } }, "—"),
+                kv[1] && kv[1].alpha != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1].alpha + "円", kv[1].ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）")) : React.createElement("span", { style: { color: "#aaa" } }, "—"),
                 (kv[1] && kv[1].alpha2 != null) ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "（次点：" + kv[1].alpha2 + "円）") : null);
             }));
         })()),
