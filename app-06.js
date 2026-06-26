@@ -3914,26 +3914,24 @@ function EntryLogView(_ref_elv2) {
   var _tabBody;
   if (view === "sum") {
     if (_isAllStock) {
-      // 全銘柄合算の集計タブは「常に今月」＝〇年〇月データ早見（←→で月移動）。全期間の全体ビューは期間タブで（ユーザー決定 2026-06-26）。
-      var _asM = _sumMonthRecs;
+      // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。
       _tabBody = React.createElement(React.Fragment, null,
         _sumMonthNav,
-        _asM.length ? React.createElement(React.Fragment, null,
-          _kpiBlockOf(_asM),
-          React.createElement(React.Fragment, null,
-            _secH("💰 全体損益（期間別）", "全銘柄合算・この月内を日別/週別/月別で切替（損益基準は取引・銘柄別記録と同一・v2記録のみ）"),
-            React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 } },
-              [["day", "日別"], ["week", "週別"], ["month", "月別"]].map(function(g) {
-                var on = (gran === "custom" ? "week" : gran) === g[0];
-                return React.createElement("button", { key: g[0], onClick: function() { setGran(g[0]); },
-                  style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, g[1]);
-              })),
-            _ovPnlTbl(_asM, gran === "custom" ? "week" : gran)),
-          _asM.length >= 2 ? React.createElement(React.Fragment, null,
-            _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: _asM, aiOf: _ai })) : null,
-          _asM.length >= 2 ? React.createElement(React.Fragment, null,
-            _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理）"), _elStreakDDSectionV2(_asM, _ai)) : null)
-        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"));
+        _sumMonthRecs.length ? _kpiBlockOf(_sumMonthRecs)
+          : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
+        React.createElement(React.Fragment, null,
+          _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替（損益基準は取引・銘柄別記録と同一・v2記録のみ）"),
+          React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 } },
+            [["day", "日別"], ["week", "週別"], ["month", "月別"]].map(function(g) {
+              var on = (gran === "custom" ? "week" : gran) === g[0];
+              return React.createElement("button", { key: g[0], onClick: function() { setGran(g[0]); },
+                style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, g[1]);
+            })),
+          _ovPnlTbl(v2recs, gran === "custom" ? "week" : gran)),
+        v2recs.length >= 2 ? React.createElement(React.Fragment, null,
+          _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: v2recs, aiOf: _ai })) : null,
+        v2recs.length >= 2 ? React.createElement(React.Fragment, null,
+          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理）"), _elStreakDDSectionV2(v2recs, _ai)) : null);
     } else {
       // 銘柄別: 今月/全期間トグル。今月＝当月（←→で移動・top期間ドロップダウンに依存しない）／全期間＝top期間絞り込み後。構成は同一。
       _tabBody = React.createElement(React.Fragment, null,
