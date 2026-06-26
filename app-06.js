@@ -1845,7 +1845,7 @@ function _elBaseAlphaPeriodBlockV2(data, stock, refDate) {
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "追加α〇（要）を明示した記録だけが母数（基本α表とは別プール）。各期間で『基本α＋推奨追加α』を当てた 損切り率/H1勝率/到達率/想定損益。推奨追加α＝基本αに+1〜30円（1円刻み）足して損切り率0かつ想定損益が黒字になる最小の加算（標本3件以上・黒字化する加算が無ければ「推奨無し」）。想定損益も同じく1営業日あたり平均／期間累計。〇記録の無い期間は—。"),
     _elAddAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
-// DayView「チャート」タブで早見表の下に出す推奨基本αブロック（2026-06-24）。取引テーブルの_elBaseAlphaPeriodBlockV2と同等に充実＝説明文＋本日行付き期間表(_elBaseAlphaPeriodTableV2)＋「α＋ 推奨追加α値」の独立テーブル(_elAddAlphaPeriodTableV2)。さらに「今日の推奨◯円」の大見出し(headNode)を併載＝いいとこ取り 2026-06-24c。
+// DayView「チャート」タブで早見表の下に出す推奨基本αブロック（2026-06-24）。各銘柄テーブル(ChartSection)の_elBaseAlphaPeriodBlockV2と同等に充実＝説明文＋本日行付き期間表(_elBaseAlphaPeriodTableV2)＋「α＋ 推奨追加α値」の独立テーブル(_elAddAlphaPeriodTableV2)。さらに「今日の推奨◯円」の大見出し(headNode)を併載＝いいとこ取り 2026-06-24c。
 // 見出し＝直近50件（データ不足なら100件→全期間にフォールバック）の推奨基本α＋追加α。本日のみ記録の銘柄でも本日行を出すためガードは「前日まで or 本日」のどちらかにデータがあれば表示。
 // recs=銘柄の全記録(_elCollectAllSignals→stock絞り)・aiOf(r)→{alpha,cutLine}・refDate=基準日(当日除外=r.date<refDate)。履歴ゼロはnull。
 function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
@@ -1903,7 +1903,7 @@ function _elStocksWithV2Before(data, refDate, orderHint) {
 }
 // 簡略版「本日の推奨基本α値」ボード（取引タブ・本日の総括の直前）2026-06-25。各銘柄の前日までの移動窓（直近25件/50件/100件/全期間）で
 // 推奨基本α・推奨追加α（いずれも再推奨＋次点）を出す。直近50件をメイン（大きく）、直近25件/100件/全期間はサブ行（小さく・次点併記）。
-// 指標（損切り率/勝率/想定損益）は出さずα値だけのシンプル表示＝詳細は本日の損益データ内の銘柄別・期間別表(_elBaseAlphaPeriodBlockV2)で。
+// 指標（損切り率/勝率/想定損益）は出さずα値だけのシンプル表示＝詳細は各銘柄テーブル(ChartSection)の期間別表(_elBaseAlphaPeriodBlockV2)で（取引タブの重複フル版は2026-06-26削除）。
 // data・stocks(本日エントリーした銘柄=_pbStks)・refDate(基準日=本日。各窓は当日を含めない前日まで=_elPeriodWindows(...,false))。
 function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
   var aiOf = function(r) { return _elAlphaInfo(r, data); };
