@@ -1277,6 +1277,7 @@ function _elAlphaCurveSectionV2(recs, aiOf) {
 var _EL_BASE_ALPHAS = (function() { var _a = []; for (var _i = 5; _i <= 20; _i++) _a.push(_i); return _a; })();
 // 日付→期間バケットキー（month=YYYY-MM / week=その週の月曜YYYY-MM-DD / 他=all）。週ロジックは期間タブと共通。
 function _elBucketKey(date, gran) {
+  if (gran === "day") return date;
   if (gran === "month") return date.slice(0, 7);
   if (gran === "week") {
     var d = new Date(date + "T00:00:00");
@@ -1287,6 +1288,7 @@ function _elBucketKey(date, gran) {
 }
 // 期間バケットキー→表示ラベル。
 function _elBucketLabel(key, gran) {
+  if (gran === "day") return key.slice(5).replace("-", "/");
   if (gran === "month") return key.replace("-", "/");
   if (gran === "week") {
     var mon = new Date(key + "T00:00:00");
@@ -1491,7 +1493,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
   var buckets = Object.keys(byB).sort().map(function(k) {
     var rs = byB[k];
     return { key: k, label: _elBucketLabel(k, gran), pick: _elBaseAlphaPick(rs, aiOf), n: rs.length };
-  }).filter(function(b) { return b.pick && b.pick.alpha != null && b.pick.status === "ok"; });
+  }).filter(function(b) { return b.pick && b.pick.alpha != null && (gran === "day" ? b.pick.status !== "none" : b.pick.status === "ok"); });   // 日別は件数が少ないので参考(na)の日も表示・月別/週別は確定(ok)のみ 2026-06-26
   if (!buckets.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var pts = buckets.map(function(b) { return b.pick.alpha; });
   var xTicks = [], step = Math.max(1, Math.ceil(buckets.length / 6));
@@ -1501,7 +1503,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
     var p = b.pick;
     return React.createElement("tr", { key: i },
       _elv2Td(b.label, { fontWeight: 700, color: "#9A3412" }),
-      _elv2Td(React.createElement("div", { style: { lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, p.alpha + "円"), _elReco2Node(p.alpha2 != null ? (p.alpha2 + "円") : null, 11, "#0369A1"))),
+      _elv2Td(React.createElement("div", { style: { lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: p.status === "na" ? "#B45309" : "#0369A1" } }, p.alpha + "円", p.status === "na" ? React.createElement("span", { style: { fontSize: 8, fontWeight: 700, marginLeft: 2 } }, "参考") : null), _elReco2Node(p.alpha2 != null ? (p.alpha2 + "円") : null, 11, p.status === "na" ? "#B45309" : "#0369A1"))),
       _elv2Td(p.stopRate == null ? "—" : _elStopRateCell(p.stopRate)),
       _elv2Td(p.h1win == null ? "—" : _elPctCell(p.h1win)),
       _elv2Td(_elScoreCell(p.score)),
@@ -1511,7 +1513,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
   var insight = (buckets.length >= 2) ? _elInsightBoxV2([
     React.createElement("span", null, "〜", _elInsightEmV2(first.label), "の推奨基本αは", _elInsightEmV2(first.pick.alpha + "円"), "、直近の", _elInsightEmV2(last.label), "は", _elInsightEmV2(last.pick.alpha + "円"), "。"),
     (last.pick.alpha !== first.pick.alpha) ? React.createElement("span", null, "最近は", _elInsightEmV2((last.pick.alpha > first.pick.alpha ? "高め" : "低め") + "（" + (last.pick.alpha > first.pick.alpha ? "+" : "") + (last.pick.alpha - first.pick.alpha) + "円）"), "の傾向。") : null
-  ].filter(Boolean), { note: "各期間で「件数フロアを満たす中で合成スコア(損切り回避70%＋H1勝率30%)が最大のα」＝損切りしにくくH1で利益が出やすい土台。スコアは0〜100点。該当なしの期間は非表示。5〜20円。件数が少ない期間は振れやすい" }) : null;
+  ].filter(Boolean), { note: "各期間で「件数フロアを満たす中で合成スコア(損切り回避70%＋H1勝率30%)が最大のα」＝損切りしにくくH1で利益が出やすい土台。スコアは0〜100点。" + (gran === "day" ? "日別は件数が少ない日も参考(橙「参考」)で表示。" : "該当なしの期間は非表示。") + "5〜20円。件数が少ない期間は振れやすい" }) : null;
   return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "損切り率", "H1勝率", "スコア", "件数"], rows), insight);
 }
 // 推奨基本αの「期間まとめ」: 1つの推奨値＋追加α＋α別の 損切り率(H1)/H1勝率/スコア 早見表（★=推奨）＋読み取り。2026-06-22再設計。
@@ -1552,16 +1554,16 @@ function _elBaseAlphaSummary(recs, aiOf) {
     _elv2Table(_sweepHead, sweepRows),
     _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（", (na ? "該当なし→件数最大" : ("損切り率" + (stopP != null ? stopP + "%" : "—") + "・H1勝率" + (winP != null ? winP + "%" : "—") + "・スコア" + (pick.score != null ? Math.round(pick.score * 100) : "—") + "点")), "）。", (add && add.improved) ? React.createElement("span", null, "さらに", _elInsightEmV2("+" + add.add + "円（合計" + add.total + "円）"), "足すと損切り回避とH1利益が改善。") : null)], { note: noteSub }));
 }
-// 🎯 推奨基本α値: 月別/週別/期間まとめを切替（ステートフル）。
+// 🎯 推奨基本α値: 日別/月別/週別/期間まとめを切替（ステートフル・既定=日別）。日別のみ参考(na)の日も表示。
 function _elBaseAlphaTrendV2(props) {
   var recs = props.recs, aiOf = props.aiOf;
-  var _g = useState("month"), gran = _g[0], setGran = _g[1];
+  var _g = useState("day"), gran = _g[0], setGran = _g[1];   // 既定=日別 2026-06-26
   var _tg = function(val, lbl) {
     var on = gran === val;
     return React.createElement("button", { key: val, onClick: function() { setGran(val); },
       style: { padding: "3px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid " + (on ? "#0369A1" : "#ddd"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#666" } }, lbl);
   };
-  var toggle = React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } }, _tg("month", "月別"), _tg("week", "週別"), _tg("period", "期間まとめ"));
+  var toggle = React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } }, _tg("day", "日別"), _tg("month", "月別"), _tg("week", "週別"), _tg("period", "期間まとめ"));
   var body = gran === "period" ? _elBaseAlphaSummary(recs, aiOf) : _elBaseAlphaTrendBody(recs, aiOf, gran);
   return React.createElement("div", null, toggle, body);
 }
@@ -3870,7 +3872,7 @@ function EntryLogView(_ref_elv2) {
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(recs, _ai),
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: recs, aiOf: _ai })) : null,
       _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(recs, _ai),
-      _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数フロア（最も件数の多いαの半分以上）を満たし想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。高αの薄い標本(選抜バイアス)は除外。月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。※推奨基本αは追加α分析トグルの影響を受けず常に×・未選択母数で算出"),
+      _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数フロア（最も件数の多いαの半分以上）を満たし想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。高αの薄い標本(選抜バイアス)は除外。日別/月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。※推奨基本αは追加α分析トグルの影響を受けず常に×・未選択母数で算出"),
       React.createElement(_elBaseAlphaTrendV2, { recs: _baRecs, aiOf: _ai }),
       _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
       _elBaseAlphaDetailV2(_baRecs, _ai),
@@ -3919,7 +3921,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 6 } }, (_isAllStock ? "全銘柄合算" : "この銘柄（" + _selStock + "）") + "の推奨基本α値と、その数値が出た根拠データ。EP起算（v2）の" + _v2recsAll.length + "件で算出。" + (_isAllStock ? "（銘柄をまたいだα傾向の参考。銘柄ごとは各銘柄タブで）" : "") + "　※このタブは追加α分析トグルの影響を受けず常に全件（推奨基本α＝×・未選択／推奨追加α＝〇 の母数固定）。"),
       _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
       _elBaseAlphaDetailV2(_v2recsAll, _ai),
-      _secH("🎯 推奨基本α 期間推移", "件数フロア（最も件数の多いαの半分以上・最低3件）かつ到達率(OS2まで)50%以上かつ想定損益がプラスのαから、損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
+      _secH("🎯 推奨基本α 期間推移", "件数フロア（最も件数の多いαの半分以上・最低3件）かつ到達率(OS2まで)50%以上かつ想定損益がプラスのαから、損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。日別/月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
       React.createElement(_elBaseAlphaTrendV2, { recs: _v2recsAll, aiOf: _ai }),
       _secH("🎯 推奨追加α値（期間別）", "追加α〇の記録だけを母数に、各期間（直近25件/50件/100件/全期間・" + todayStr() + "の前日まで）で基本α＋推奨追加αを当てた 損切り率/H1勝率/到達率/想定損益。〇記録の無い期間は—"),
       _elAddAlphaPeriodTableV2(_v2recsAll, _ai, todayStr(), false),
