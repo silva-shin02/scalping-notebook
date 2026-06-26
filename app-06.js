@@ -239,7 +239,7 @@ function _elOsChainSection(_ref_osc) {
       });
       return React.createElement("tr", { key: "row" + ri }, cells);
     });
-    heat = React.createElement("div", { style: { overflowX: "auto", marginBottom: 10 } },
+    heat = React.createElement(_HScrollBox, { style: { marginBottom: 10 } },
       React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 3 } }, "遷移ヒートマップ（セル＝件数・濃いほど多い）"),
       React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 10 } },
         React.createElement("tbody", null, [hHead].concat(hRows))));
@@ -265,7 +265,7 @@ function _elOsChainSection(_ref_osc) {
     cells.push(_tdx((b.ok + b.ng + b.draw) ? React.createElement("span", { style: { color: b.stop ? "#1E8449" : "#bbb", fontWeight: b.stop ? 700 : 400 } }, Math.round(b.stop / (b.ok + b.ng + b.draw) * 100) + "%") : React.createElement("span", { style: { color: "#ccc" } }, "—")));
     return React.createElement.apply(null, ["tr", { key: "t" + ri, onClick: hasNext ? function() { drill(ri); } : null, style: { cursor: hasNext ? "pointer" : "default" } }].concat(cells));
   });
-  var table = React.createElement("div", { style: { overflowX: "auto" } },
+  var table = React.createElement(_HScrollBox, null,
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, thead),
       React.createElement("tbody", null, rowsTbl)));
@@ -677,7 +677,7 @@ function _elEpPosSectionV2(recs, aiOf) {
       React.createElement("span", { style: { fontSize: 8, color: "#bbb" } }, o.ok + "勝" + o.ng + "敗"));
   };
   var _osE = function(o) { var m = _elMedian(o.osv); return m != null ? React.createElement("span", { style: { fontWeight: 700, color: _vcol(m, true) } }, m + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—"); };
-  var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 8 } },
+  var tbl = React.createElement(_HScrollBox, { style: { marginTop: 8 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
         _thE("EP位置"), _thE("件数"), _thE("OS値"), _thE("E後の勝率"), _thE("EP損益"), _thE("H1損益"), _thE("H2損益"), _thE("見切り率"), _thE("損切り率"))),
@@ -785,7 +785,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
   var bodyRows = DEFS.map(function(d) { return _mkRow(d.label, d.color, st[d.k], false); });
   if (_hasNoTime) bodyRows.push(_mkRow("時刻未記録", "#bbb", noTime, false));
   bodyRows.push(_mkRow("全体", null, total, true));
-  var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 8 } },
+  var tbl = React.createElement(_HScrollBox, { style: { marginTop: 8 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
         _thT("時間帯"), _thT("件数"), _thT("OS値"), _thT("E到達率"), _thT("E後の勝率"), _thT("見切り率"), _thT("損切り率"), _thT("EP損益"), _thT("H1損益"))),
@@ -848,7 +848,7 @@ function _elSignalSuccessTableV2(recs, aiOf) {
   var _tdS = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
   var _rate = function(n, d, hi) { if (!d) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var p = Math.round(n / d * 100); return React.createElement("span", { style: { fontWeight: 700, color: p >= (hi || 50) ? "#1E8449" : "#B45309" } }, p + "%"); };
   var _avg = function(sum, cnt) { if (!cnt) return React.createElement("span", { style: { color: "#ccc" } }, "—"); var a = Math.round(sum / cnt); return React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(a) } }, _elPnlFmt(a)); };
-  var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 4 } },
+  var tbl = React.createElement(_HScrollBox, { style: { marginTop: 4 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
         _thS("シグナル"), _thS("件数"), _thS("損失なし率"), _thS("E後の勝率"), _thS("E到達率"), _thS("見切り率"), _thS("損切り率"), _thS("EP損益"), _thS("H1損益"))),
@@ -918,7 +918,7 @@ function _elXSkipSectionV2(recs, aiOf) {
   bk.sort(function(a, b) { return b.miss - a.miss || a.sumEp - b.sumEp; });
   var _thX = function(t) { return React.createElement("th", { style: { padding: "4px 5px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
   var _tdX = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
-  var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 2 } },
+  var tbl = React.createElement(_HScrollBox, { style: { marginTop: 2 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
         _thX("シグナル"), _thX("×件数"), _thX("取引EP合計"), _thX("機会損失"), _thX("損失回避"), _thX("正解率"))),
@@ -1000,7 +1000,7 @@ function _elTriangleHoldSectionV2(recs, aiOf) {
   bk.sort(function(a, b) { return b.cnt - a.cnt || b.sumDelta - a.sumDelta; });
   var _thX = function(t) { return React.createElement("th", { style: { padding: "4px 5px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
   var _tdX = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
-  var tbl = React.createElement("div", { style: { overflowX: "auto", marginTop: 2 } },
+  var tbl = React.createElement(_HScrollBox, { style: { marginTop: 2 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
         _thX("シグナル"), _thX("△件数"), _thX("本算入寄与"), _thX("活きた"), _thX("裏目"), _thX("正解率"))),
@@ -1119,7 +1119,7 @@ function _elLineChartV2(series, opts) {
         React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(lv) } }, _elPnlFmt(lv)));
     }));
   return React.createElement("div", null,
-    React.createElement("div", { style: { overflowX: "auto" } },
+    React.createElement(_HScrollBox, null,
       React.createElement("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", minWidth: 480, height: "auto", display: "block" } }, kids)),
     legend);
 }
@@ -1160,7 +1160,7 @@ function _elBarChartV2(periods, opts) {
     React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, React.createElement("span", { style: { width: 10, height: 10, background: "#1E8449", borderRadius: 2, display: "inline-block" } }), "損失"),
     React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, React.createElement("span", { style: { width: 14, height: 0, borderTop: "2px dashed #B45309", display: "inline-block" } }), "勝率(右軸)"));
   return React.createElement("div", null,
-    React.createElement("div", { style: { overflowX: "auto" } }, React.createElement("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", minWidth: 480, height: "auto", display: "block" } }, kids)),
+    React.createElement(_HScrollBox, null, React.createElement("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", minWidth: 480, height: "auto", display: "block" } }, kids)),
     legend);
 }
 // 曜日揃えヒートマップ（カレンダー型）。days=[{date:"YYYY-MM-DD",value}]（日別）。列=月〜金・行=週(上が古い→下が最新)。曜日ごとの傾向を縦で見る。記録の無い営業日枠は薄い空セル。セルは「M/D ＋ 損益円」をフル表記。2026-06-22d（並び順・表記を2026-06-22に変更）。
@@ -1683,7 +1683,7 @@ function _elBaseAlphaTableV2(groups, cutFn) {
       React.createElement("td", { style: { padding: "3px 8px", textAlign: "left", borderLeft: "1px solid #dbeafe" } }, cell));
   });
   if (!rows.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
-  return React.createElement("div", { style: { overflowX: "auto" } },
+  return React.createElement(_HScrollBox, null,
     React.createElement("table", { style: { borderCollapse: "collapse", fontSize: 11, width: "100%" } },
       React.createElement("thead", null, React.createElement("tr", null, _th("銘柄"), _th("推奨基本α（＋追加α）"))),
       React.createElement("tbody", null, rows)));
@@ -1980,7 +1980,7 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
     });
     var devBlock = dayRecs.length ? React.createElement("div", { style: { marginTop: 6, paddingTop: 5, borderTop: "1px dashed #93C5FD" } },
       React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（実際−推奨α " + (refA != null ? refA + "円" : "—") + "・採用＝設定した基本α／到達＝最高OS）"),
-      React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
           React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("採用基本α"), _dvTh("到達最高OS"), _dvTh("乖離(採用)"), _dvTh("乖離(到達)"))),
           React.createElement("tbody", null, devRows)))) : null;
@@ -2273,7 +2273,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
 function _elv2Th(t) { return React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); }
 function _elv2Td(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); }
 function _elv2Table(head, bodyRows) {
-  return React.createElement("div", { style: { overflowX: "auto", marginTop: 6 } },
+  return React.createElement(_HScrollBox, { style: { marginTop: 6 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } }, head.map(function(h) { return React.isValidElement(h) ? h : _elv2Th(h); }))),
       React.createElement("tbody", null, bodyRows)));
@@ -2388,7 +2388,7 @@ function _elOsTradeMini(recs, aiOf) {
         _elLane(_tradeAlphaChip(s), 26, "flex-end"), _elRPnlDispW(realPnl, gReal, 72))
     );
   });
-  return React.createElement("div", { style: { overflowX: "auto", marginTop: 4 } },
+  return React.createElement(_HScrollBox, { style: { marginTop: 4 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
         _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("α値", { width: 34 }), _th("OS", { width: 78 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("EP損益", { width: 96 }),
@@ -2516,6 +2516,36 @@ function _elOsSectionV2(recs, aiOf) {
 
 // 1日の目標利益（100株換算・円）。既存の理想α目標(_elIdealAlphaV2 tgtA=2500)と一致。
 var _EL_DAY_TARGET_YEN = 2500;
+// 横長テーブル用ラッパー（記録帳）2026-06-26: 内容が枠からはみ出す時だけ「タップして初めて横スクロール」。普段は固定でページの縦スクロールを妨げない＋右端フェードと「タップで横スクロール →」ピルで明示。タップで枠が光り横スクロール可、外をタップで解除。はみ出さない表は素通り（ピルもロックも出さない）。props.styleは外枠(余白)へ。
+function _HScrollBox(props) {
+  var _uA = useState(false), active = _uA[0], setActive = _uA[1];
+  var _uO = useState(false), overflow = _uO[0], setOverflow = _uO[1];
+  var wrapRef = useRef(null), innerRef = useRef(null);
+  useEffect(function() {
+    var measure = function() { var el = innerRef.current; if (el) setOverflow((el.scrollWidth - el.clientWidth) > 4); };
+    measure();
+    var t1 = setTimeout(measure, 250), t2 = setTimeout(measure, 1000);
+    window.addEventListener("resize", measure);
+    return function() { clearTimeout(t1); clearTimeout(t2); window.removeEventListener("resize", measure); };
+  }, []);
+  useEffect(function() {
+    if (!active) return;
+    var onDoc = function(e) { if (wrapRef.current && !wrapRef.current.contains(e.target)) setActive(false); };
+    document.addEventListener("mousedown", onDoc, true);
+    document.addEventListener("touchstart", onDoc, true);
+    return function() { document.removeEventListener("mousedown", onDoc, true); document.removeEventListener("touchstart", onDoc, true); };
+  }, [active]);
+  var locked = overflow && !active;
+  return React.createElement("div", { ref: wrapRef, style: Object.assign({ position: "relative" }, props.style || {}) },
+    React.createElement("div", { ref: innerRef,
+      onClickCapture: locked ? function(e) { e.preventDefault(); e.stopPropagation(); setActive(true); } : null,
+      style: { overflowX: locked ? "hidden" : "auto", WebkitOverflowScrolling: "touch", borderRadius: 6, boxShadow: active ? "0 0 0 2px #FB923C" : "none", cursor: locked ? "pointer" : "auto" } },
+      props.children),
+    locked ? React.createElement(React.Fragment, null,
+      React.createElement("div", { style: { position: "absolute", right: 0, top: 0, bottom: 0, width: 44, pointerEvents: "none", borderRadius: "0 6px 6px 0", background: "linear-gradient(to right, rgba(255,255,255,0), rgba(255,250,244,0.95))" } }),
+      React.createElement("div", { onClick: function() { setActive(true); }, style: { position: "absolute", right: 6, top: 6, zIndex: 3, fontSize: 10, fontWeight: 700, color: "#9A3412", background: "rgba(255,247,237,0.97)", border: "1px solid #FB923C", borderRadius: 12, padding: "2px 10px", cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" } }, "👆 タップで横スクロール →")
+    ) : (active ? React.createElement("div", { style: { position: "absolute", right: 6, top: 6, zIndex: 3, fontSize: 9, fontWeight: 700, color: "#166534", background: "rgba(240,253,244,0.97)", border: "1px solid #86EFAC", borderRadius: 12, padding: "2px 10px", whiteSpace: "nowrap", pointerEvents: "none" } }, "↔ 横スクロール中・外をタップで解除") : null));
+}
 // 週間サマリー（記録帳・期間タブ先頭／全銘柄合算・銘柄別の両方）2026-06-26: 「1取引日あたり平均損益(＋5営業日換算/週)」と「目標(2500円/100株換算)達成率(＋5日換算の達成日数/週)」を実現損益(100株換算)/EP/H1/H2の4基準で表示。
 // 2026-06-26b: 週合計の単純平均は休場で短い週があると下振れるバイアスがあるため、日ベース(1取引日あたり=Σ損益÷取引日／達成率=達成日÷取引日)へ変更。週イメージは×5営業日の換算で目安表示。週別内訳表は各週の実額のまま。
 // 日別損益は本日の損益データの合計と同基準＝_elTotAccum（EP=plan / H1=holdPlanCap / H2=hold2・（）外＝○のみ・採用α基準・EP/H1/H2は値幅×100で既に100株換算）。週=月〜金(_elBucketKey)。平均の分母=取引のあった週だけ。recs=現スコープのv2算入記録・aiOf(r)→{alpha,cutLine}。
@@ -2566,7 +2596,7 @@ function _elWeeklyTargetSummaryV2(recs, aiOf) {
       _td(rate == null ? "—" : React.createElement("b", { style: { color: rate >= 50 ? "#1E8449" : "#9A3412", fontSize: 13 } }, rate + "%")),
       _td(React.createElement("span", { style: { color: "#888", fontSize: 10, fontWeight: 600 } }, "≈" + ach5.toFixed(1) + " 日")));
   });
-  var summaryTable = React.createElement("div", { style: { overflowX: "auto", marginBottom: 10 } },
+  var summaryTable = React.createElement(_HScrollBox, { style: { marginBottom: 10 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FBEEDA" } },
         _th("基準", { textAlign: "left", paddingLeft: 10 }), _th("1取引日あたり平均"), _th("5営業日換算 / 週"), _th("達成率（達成日/取引日）"), _th("達成日数/週（5日換算）"))),
@@ -2582,7 +2612,7 @@ function _elWeeklyTargetSummaryV2(recs, aiOf) {
       _td(_cellWP(o.h1, o.h1D)),
       _td(_cellWP(o.h2, o.h2D)));
   });
-  var weekTable = React.createElement("div", { style: { overflowX: "auto" } },
+  var weekTable = React.createElement(_HScrollBox, null,
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
         _th("週（月〜金）", { textAlign: "left", paddingLeft: 10, color: "#555", borderBottomColor: "#ddd" }), _th("取引日", { color: "#555", borderBottomColor: "#ddd" }), _th("実現損益", { color: "#555", borderBottomColor: "#ddd" }), _th("EP損益", { color: "#555", borderBottomColor: "#ddd" }), _th("H1損益", { color: "#555", borderBottomColor: "#ddd" }), _th("H2損益", { color: "#555", borderBottomColor: "#ddd" }))),
@@ -3587,7 +3617,7 @@ function EntryLogView(_ref_elv2) {
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, bt),
       realCell(tt.real, tt.realCnt, bt),
       stopCell(stopsOf(rs), bt));
-    return React.createElement("div", { style: { overflowX: "auto" } },
+    return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
           oth(g === "day" ? "日" : g === "week" ? "週" : "月"), oth("件数"), oth("勝率"), oth("EP損益"), oth("H1損益"), oth("H2損益"), oth("実現損益"), oth("損切り"))),
@@ -3647,7 +3677,7 @@ function EntryLogView(_ref_elv2) {
       : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("α値"), _th("OS"), _th("E"), _th("取引"),
          _th("EP損益"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "H損益"), _th("実現損益")];
     return React.createElement(React.Fragment, null,
-      React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
           React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } }, head)),
           React.createElement("tbody", null, body))),
@@ -3699,7 +3729,7 @@ function EntryLogView(_ref_elv2) {
     var head = [_th(headLabel, { textAlign: "left", paddingLeft: 8 }), _th("件")];
     if (withOsStats) head = head.concat([_th("OS1平均"), _th("OS分布")]);
     head = head.concat([_th("E成立率"), _th("損切り"), _th("EP損益"), _th("H1損益"), _th("H2損益"), _th("実現損益")]);
-    return React.createElement("div", { style: { overflowX: "auto" } },
+    return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } }, head)),
         React.createElement("tbody", null, rows)));
@@ -3782,7 +3812,7 @@ function EntryLogView(_ref_elv2) {
     });
     var b1 = Math.max.apply(null, rows.map(function(x) { return x.t.holdCnt > 0 ? x.t.holdPlanCap : -Infinity; }));
     var b2 = Math.max.apply(null, rows.map(function(x) { return x.t.hold2Cnt > 0 ? x.t.hold2 : -Infinity; }));
-    return React.createElement("div", { style: { overflowX: "auto" } },
+    return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
           _th("α値", { textAlign: "left", paddingLeft: 8 }), _th("成立率"), _th("損切り"), _th("EP損益"), _th("H1損益"), _th("H2損益"))),
@@ -4096,7 +4126,7 @@ function EntryLogView(_ref_elv2) {
       return React.createElement(React.Fragment, null,
         _secH("📆 期間集計（" + (gran === "day" ? "日別" : gran === "week" ? "週別" : "月別") + "・新しい順）", "行タップでその期間の詳細分析（シグナル成功度・時間帯傾向・EP位置）"), _granBtns,
         React.createElement("div", { style: { marginBottom: 8 } }, _charts),
-        React.createElement("div", { style: { overflowX: "auto" } },
+        React.createElement(_HScrollBox, null,
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
               _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("日数"), _thP("件数"), _thP("EP損益"), _thP("H1損益"), _thP("H2損益"), _thP("実現損益"), _thP("E後の勝率"), _thP("見切り率"), _thP("損切り率"))),
@@ -4132,7 +4162,7 @@ function EntryLogView(_ref_elv2) {
             })),
           React.createElement("select", { value: apNameFil, onChange: function(e) { setApNameFil(e.target.value); }, style: _selSty },
             [React.createElement("option", { key: "_a", value: "" }, "名前:全て")].concat(_apNames.map(function(nm) { return React.createElement("option", { key: nm, value: nm }, nm); })))),
-        _apShown.length ? React.createElement("div", { style: { overflowX: "auto" } },
+        _apShown.length ? React.createElement(_HScrollBox, null,
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
               _aTh("年月日", { width: 96 }), _aTh("銘柄", { width: 90 }), _aTh("時間", { width: 56 }), _aTh("種別", { width: 84 }), _aTh("シグナル・テクニカル"), _aTh("メモ"))),
