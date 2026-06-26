@@ -2514,6 +2514,71 @@ function _elOsSectionV2(recs, aiOf) {
   return React.createElement("div", null, statLine, pieRow, aTable, bTable, _elInsightBoxV2(items, { note: "中央値=ちょうど半数がそれ以上のOSになる値（α到達確率と直結＝α設定はこちらが目安）。平均は合計・期待値の計算向き。最頻=最も多く出るOS値（0〜4円と25円〜は帯）。E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）。成績は採用α基準・E成立分のみ。" }));
 }
 
+// 1日の目標利益（100株換算・円）。既存の理想α目標(_elIdealAlphaV2 tgtA=2500)と一致。
+var _EL_DAY_TARGET_YEN = 2500;
+// 週間サマリー（記録帳・期間タブ先頭／全銘柄合算・銘柄別の両方）2026-06-26: 「1週間あたり平均損益」と「週あたり平均で目標(2500円/100株換算)以上の日が何日あるか」をEP/H1/H2の3基準で表示。
+// 日別損益は本日の損益データの合計と同基準＝_elTotAccum（EP=plan / H1=holdPlanCap / H2=hold2・（）外＝○のみ・採用α基準・EP/H1/H2は値幅×100で既に100株換算）。週=月〜金(_elBucketKey)。平均の分母=取引のあった週だけ。recs=現スコープのv2算入記録・aiOf(r)→{alpha,cutLine}。
+function _elWeeklyTargetSummaryV2(recs, aiOf) {
+  var TARGET = _EL_DAY_TARGET_YEN;
+  var list = (recs || []).filter(function(r) { return r && r.signal && r.date; });
+  if (!list.length) return null;
+  var _get = { signal: function(r) { return r.signal; }, alpha: function(r) { return aiOf(r).alpha; }, cut: function(r) { return aiOf(r).cutLine; }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } };
+  var byDate = {};
+  list.forEach(function(r) { (byDate[r.date] = byDate[r.date] || []).push(r); });
+  var wk = {};
+  Object.keys(byDate).forEach(function(d) {
+    var t = _elTotAccum(byDate[d], _get);
+    var ep = t.plan || 0, h1 = t.holdPlanCap || 0, h2 = t.hold2 || 0;
+    var k = _elBucketKey(d, "week");
+    var o = wk[k] || (wk[k] = { ep: 0, h1: 0, h2: 0, days: 0, epD: 0, h1D: 0, h2D: 0 });
+    o.ep += ep; o.h1 += h1; o.h2 += h2; o.days++;
+    if (ep >= TARGET) o.epD++;
+    if (h1 >= TARGET) o.h1D++;
+    if (h2 >= TARGET) o.h2D++;
+  });
+  var keys = Object.keys(wk).sort();
+  var W = keys.length;
+  if (!W) return null;
+  var S = { ep: 0, h1: 0, h2: 0, epD: 0, h1D: 0, h2D: 0, days: 0 };
+  keys.forEach(function(k) { var o = wk[k]; S.ep += o.ep; S.h1 += o.h1; S.h2 += o.h2; S.epD += o.epD; S.h1D += o.h1D; S.h2D += o.h2D; S.days += o.days; });
+  var _pnl = function(v) { return React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: 800 } }, _elPnlFmt(Math.round(v))); };
+  var _th = function(label, ex) { return React.createElement("th", { style: Object.assign({ padding: "4px 8px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "center", fontSize: 11, color: "#9A3412", whiteSpace: "nowrap" }, ex || {}) }, label); };
+  var _td = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 8px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
+  var bases = [{ key: "ep", label: "EP損益" }, { key: "h1", label: "H1損益" }, { key: "h2", label: "H2損益" }];
+  var sumRows = bases.map(function(b) {
+    var wkPnl = S[b.key] / W, achDays = S[b.key + "D"] / W, rate = S.days > 0 ? Math.round(S[b.key + "D"] / S.days * 100) : null;
+    return React.createElement("tr", { key: b.key },
+      _td(b.label, { textAlign: "left", paddingLeft: 10, fontWeight: 700, color: "#0369A1" }),
+      _td(_pnl(wkPnl)),
+      _td(React.createElement("b", { style: { color: "#9A3412", fontSize: 13 } }, achDays.toFixed(1) + " 日")),
+      _td(rate == null ? "—" : (rate + "%"), { color: rate != null && rate >= 50 ? "#1E8449" : "#555", fontWeight: 700 }));
+  });
+  var summaryTable = React.createElement("div", { style: { overflowX: "auto", marginBottom: 10 } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, React.createElement("tr", { style: { background: "#FBEEDA" } },
+        _th("基準", { textAlign: "left", paddingLeft: 10 }), _th("週平均損益"), _th("平均達成日数 / 週"), _th("達成率（達成日/取引日）"))),
+      React.createElement("tbody", null, sumRows)));
+  var _cellWP = function(v, dn) { return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _pnl(v), React.createElement("span", { style: { fontSize: 9, color: dn > 0 ? "#B45309" : "#bbb", fontWeight: dn > 0 ? 700 : 400 } }, "達成 " + dn + "日")); };
+  var wkRows = keys.slice().reverse().map(function(k) {
+    var o = wk[k];
+    return React.createElement("tr", { key: k },
+      _td(_elBucketLabel(k, "week"), { textAlign: "left", paddingLeft: 10, fontWeight: 700, color: "#9A3412" }),
+      _td(o.days + " 日", { color: "#555" }),
+      _td(_cellWP(o.ep, o.epD)),
+      _td(_cellWP(o.h1, o.h1D)),
+      _td(_cellWP(o.h2, o.h2D)));
+  });
+  var weekTable = React.createElement("div", { style: { overflowX: "auto" } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
+        _th("週（月〜金）", { textAlign: "left", paddingLeft: 10, color: "#555", borderBottomColor: "#ddd" }), _th("取引日", { color: "#555", borderBottomColor: "#ddd" }), _th("EP損益", { color: "#555", borderBottomColor: "#ddd" }), _th("H1損益", { color: "#555", borderBottomColor: "#ddd" }), _th("H2損益", { color: "#555", borderBottomColor: "#ddd" }))),
+      React.createElement("tbody", null, wkRows)));
+  return React.createElement("div", { style: { marginBottom: 14, padding: "10px 12px", border: "1px solid #FB923C", borderRadius: 8, background: "#FFFCF8" } },
+    React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📅 週間サマリー（目標 1日 " + TARGET.toLocaleString() + "円／100株換算）"),
+    React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginBottom: 8 } }, "対象 " + W + "週・全 " + S.days + "取引日（取引のあった週だけで平均）。週=月〜金。損益はEP/H1/H2の（）外＝○のみ・採用α基準・100株換算。上の期間フィルタに連動。"),
+    summaryTable,
+    weekTable);
+}
 // 指定recs（{stock,signal,date}配列）の記録系フル指標を集計（採用α基準・E成立分のEP/H1/損切り・OS=中央値）。OS値入力0件ならnull。
 // aiOf(r)→{alpha,cutLine}。_elOsSectionV2の帯別集計と同一ルール＝銘柄別記録/取引テーブルの損益計算基準に一致。2026-06-15。
 function _elPeriodStatsV2(recs, aiOf) {
@@ -3906,7 +3971,7 @@ function EntryLogView(_ref_elv2) {
       _secH("🔗 OS連鎖（数値帯の遷移）", "OS1の帯から行タップでOS2→OS3…へ絞り込み。各帯の次OS中央値・遷移・成績"),
       React.createElement(_elOsChainSection, { recs: v2recs, data: data }));
   } else if (view === "period") {
-    _tabBody = (function() {
+    _tabBody = React.createElement(React.Fragment, null, _elWeeklyTargetSummaryV2(v2recs, _ai), (function() {
       var _granBtns = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
         [["day", "日別"], ["week", "週別"], ["month", "月別"], ["custom", "指定期間"]].map(function(g) {
           var on = gran === g[0];
@@ -4022,7 +4087,7 @@ function EntryLogView(_ref_elv2) {
             React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
               _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("日数"), _thP("件数"), _thP("EP損益"), _thP("H1損益"), _thP("H2損益"), _thP("実現損益"), _thP("E後の勝率"), _thP("見切り率"), _thP("損切り率"))),
             React.createElement("tbody", null, _rows))));
-    })();
+    })());
   } else if (view === "deep") {
     _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
       _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・損切り率・EP比改善率）"), _elHoldDepthSectionV2(v2recs, _ai),
