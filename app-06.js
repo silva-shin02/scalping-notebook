@@ -1676,9 +1676,17 @@ function _elPeriodWindows(recs, refDate, includeToday) {
   var _p = String(refDate).split("-");
   var periods = [];
   if (includeToday) periods.push({ label: "本日（" + Number(_p[1]) + "/" + Number(_p[2]) + "）", recs: today });   // 「本日」＝開いているページの日付なのでM/Dを併記 2026-06-24i
-  _EL_PERIOD_COUNTS.forEach(function(n) { periods.push({ label: "直近" + n + "件", recs: _lastN(n) }); });
+  _EL_PERIOD_COUNTS.forEach(function(n) { periods.push({ label: "直近" + n + "件", recs: _lastN(n), main: (n === _EL_PERIOD_COUNTS[1]) }); });   // main=直近50件＝推奨基本/追加αのおすすめ主期間（★ハイライト用）2026-06-27
   periods.push({ label: "全期間", recs: all });
   return { periods: periods, hasAny: (all.length > 0 || today.length > 0) };
+}
+// 期間ラベルのノード: おすすめ窓（pd.main=直近50件＝推奨基本/追加αの主期間）は★＋「おすすめ」バッジ付き 2026-06-27。
+function _elPeriodLabelNode(pd) {
+  if (!pd || !pd.main) return pd ? pd.label : "";
+  return React.createElement("span", { style: { whiteSpace: "nowrap" } },
+    React.createElement("span", { style: { color: "#F59E0B", marginRight: 2 } }, "★"),
+    pd.label,
+    React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: "#0369A1", background: "#fff", border: "1px solid #93C5FD", borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "おすすめ"));
 }
 // 指定αを母数recに一律適用したH1想定損益（_elBaseAlphaEvalのpnlと同基準＝OS1〜2でEP到達しH1損益が判定できる記録のΣ_elDynHold）と、その記録の異なる営業日数。
 // 「1営業日あたり」＝Σ想定損益÷エントリー成立日数（記録の無い日・ノーシグナル日は母数に入らず自然に除外）。返り値 { sum, n, days, avg } 2026-06-24。
@@ -1698,15 +1706,16 @@ function _elSimPnlByDay(recs, aiOf, alpha) {
   var days = 0; for (var k in dmap) { if (dmap.hasOwnProperty(k)) days++; }
   return { sum: has ? sum : null, n: n, days: days, avg: (has && days > 0) ? sum / days : null };
 }
-// 想定損益セル: 上段「+X円/日」（1営業日あたり平均）＋下段「計 +Y円・N日」（期間累計・営業日数）。データ無しは—。利益=赤/損=緑（当アプリ慣習）2026-06-24。
+// 想定損益セル: 上段「+X円/日」（1営業日あたり平均）＋下段「1件 +Z円」（1件あたり期待損益＝想定損益÷件数・件数/頻度に左右されず窓間で比較しやすい）2026-06-27（旧: 下段は期間累計）。データ無しは—。利益=赤/損=緑（当アプリ慣習）。
 function _elSimPnlCell(sim) {
   if (!sim || sim.sum == null || sim.days <= 0) return React.createElement("span", { style: { color: "#bbb" } }, "—");
-  var avg = Math.round(sim.avg), sum = Math.round(sim.sum);
+  var avg = Math.round(sim.avg);
+  var per = (sim.n > 0) ? Math.round(sim.sum / sim.n) : null;   // 1件あたり期待損益（想定損益÷件数）2026-06-27
   return React.createElement("span", { style: { whiteSpace: "nowrap", lineHeight: 1.3, display: "inline-block" } },
     React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: _elPnlColor(avg) } }, _elPnlFmt(avg) + "/日"),
     React.createElement("br", null),
-    React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: _elPnlColor(sum) } }, "計" + _elPnlFmt(sum)),
-    React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 2 } }, "・" + sim.days + "日"));
+    (per != null) ? React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: _elPnlColor(per) } }, "1件" + _elPnlFmt(per)) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
+    (per != null) ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 2 } }, "・" + sim.n + "件") : null);
 }
 // 期間別の推奨基本α（前日まで・移動窓）: recsをrefDate未満(=その日の前日まで・当日を含めない)に絞り、直近25件/50件/100件/全期間で推奨基本α(_elBaseAlphaA)を出す表。銘柄別記録の「前日まで」分析用 2026-06-22c。
 // aiOf(r)→{cutLine}（採用は各記録のcutLine）。期間窓はrefDate起点の件数窓（銘柄別でカレンダー窓が痩せるのを避ける）。
@@ -1732,14 +1741,16 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
       simBase = _elSimPnlByDay(basePool, aiOf, pk.alpha);
     }
     var _pdiv = (i > 0) ? { borderTop: "2px solid #7DD3FC" } : null;   // 期間どうしの明確な区切り線（先頭期間以外の主行の上）2026-06-24g
+    var _mainBg = pd.main ? { background: "#EFF6FF" } : null;   // おすすめ窓（直近50件）の行ハイライト 2026-06-27
+    var _cEx = (_pdiv || _mainBg) ? Object.assign({}, _pdiv || {}, _mainBg || {}) : null;
     rows.push(React.createElement("tr", { key: "m" + i },
-      _elv2Td(pd.label, Object.assign({ fontWeight: 700, color: "#9A3412", textAlign: "left", paddingLeft: 8 }, _pdiv || {})),
-      _elv2Td(alphaCell, _pdiv),
-      _elv2Td(pk && pk.stopRate != null ? _elStopRateCell(pk.stopRate) : dash, _pdiv),
-      _elv2Td(pk && pk.h1win != null ? _elPctCell(pk.h1win) : dash, _pdiv),
-      _elv2Td(pk && pk.eRate != null ? _elPctCell(pk.eRate) : dash, _pdiv),
-      _elv2Td((pk && pk.scN != null ? pk.scN : 0) + "件", _pdiv),
-      _elv2Td(_elSimPnlCell(simBase), _pdiv)));
+      _elv2Td(_elPeriodLabelNode(pd), Object.assign({ fontWeight: 700, color: "#9A3412", textAlign: "left", paddingLeft: 8 }, _pdiv || {}, _mainBg || {})),
+      _elv2Td(alphaCell, _cEx),
+      _elv2Td(pk && pk.stopRate != null ? _elStopRateCell(pk.stopRate) : dash, _cEx),
+      _elv2Td(pk && pk.h1win != null ? _elPctCell(pk.h1win) : dash, _cEx),
+      _elv2Td(pk && pk.eRate != null ? _elPctCell(pk.eRate) : dash, _cEx),
+      _elv2Td((pk && pk.scN != null ? pk.scN : 0) + "件", _cEx),
+      _elv2Td(_elSimPnlCell(simBase), _cEx)));
     // 次点（2番目の推奨基本α・1番目より大きいα）を点線区切りで1行追加。損切り率〜想定損益も次点αで再計算。
     if (pk && pk.alpha2 != null) {
       var _ds = { borderTop: "1px dashed #93C5FD" };
@@ -1754,7 +1765,7 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
         _elv2Td(_elSimPnlCell(sim2), _ds)));
     }
   });
-  return _elv2Table(["期間", "推奨基本α", "損切り率", "H1勝率", "到達率", "件数", "想定損益(1日/累計)"], rows);
+  return _elv2Table(["期間", "推奨基本α", "損切り率", "H1勝率", "到達率", "件数", "想定損益(1日/1件)"], rows);
 }
 // 推奨追加α値の期間別表（母数＝追加α〇の記録だけ＝基本α表とは別プール）2026-06-24→24g。各期間で「基本α＋推奨追加α」を〇記録に当てた 損切り率/H1勝率/到達率/件数/想定損益。
 // 推奨追加α＝_elBaseAlphaA().add（基本αに足して損切りを避けH1黒字にできる最小加算＝想定損益はプラス・改善無しは「推奨無し」）。次点は点線区切りで1行追加。〇記録の無い期間は—。
@@ -1785,14 +1796,16 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
           React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "（下段は基本α" + pk.alpha + "円のみ）"))
       : React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8", whiteSpace: "nowrap" } }, "推奨無し");
     var _pdiv = (i > 0) ? { borderTop: "2px solid #7DD3FC" } : null;   // 期間どうしの明確な区切り線 2026-06-24g
+    var _mainBg = pd.main ? { background: "#EFF6FF" } : null;   // おすすめ窓（直近50件）の行ハイライト 2026-06-27
+    var _cEx = (_pdiv || _mainBg) ? Object.assign({}, _pdiv || {}, _mainBg || {}) : null;
     rows.push(React.createElement("tr", { key: "m" + i },
-      _elv2Td(pd.label, Object.assign({ fontWeight: 700, color: "#9A3412", textAlign: "left", paddingLeft: 8 }, _pdiv || {})),
-      _elv2Td(addCell, _pdiv),
-      _elv2Td(ev && ev.stopRate != null ? _elStopRateCell(ev.stopRate) : dash, _pdiv),
-      _elv2Td(ev && ev.h1win != null ? _elPctCell(ev.h1win) : dash, _pdiv),
-      _elv2Td(ev && ev.eRate != null ? _elPctCell(ev.eRate) : dash, _pdiv),
-      _elv2Td(noPool ? dash : ((ev && ev.scN != null ? ev.scN : 0) + "件"), _pdiv),
-      _elv2Td(_elSimPnlCell(sim), _pdiv)));
+      _elv2Td(_elPeriodLabelNode(pd), Object.assign({ fontWeight: 700, color: "#9A3412", textAlign: "left", paddingLeft: 8 }, _pdiv || {}, _mainBg || {})),
+      _elv2Td(addCell, _cEx),
+      _elv2Td(ev && ev.stopRate != null ? _elStopRateCell(ev.stopRate) : dash, _cEx),
+      _elv2Td(ev && ev.h1win != null ? _elPctCell(ev.h1win) : dash, _cEx),
+      _elv2Td(ev && ev.eRate != null ? _elPctCell(ev.eRate) : dash, _cEx),
+      _elv2Td(noPool ? dash : ((ev && ev.scN != null ? ev.scN : 0) + "件"), _cEx),
+      _elv2Td(_elSimPnlCell(sim), _cEx)));
     // 次点（2番目の推奨追加α・1番目より大きい加算）を点線区切りで追加。各統計は_elAddAlphaRecoが同梱。
     if (improved && add.add2 != null) {
       var _ds = { borderTop: "1px dashed #FDE68A" };
@@ -1806,7 +1819,7 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
         _elv2Td(_elSimPnlCell(add.sim2), _ds)));
     }
   });
-  return _elv2Table(["期間", "推奨追加α", "損切り率", "H1勝率", "到達率", "件数", "想定損益(1日/累計)"], rows);
+  return _elv2Table(["期間", "推奨追加α", "損切り率", "H1勝率", "到達率", "件数", "想定損益(1日/1件)"], rows);
 }
 
 // 銘柄ごとの「α 推奨基本α値（{stock}・期間別）」ブロック（見出し＋説明＋期間別表_elBaseAlphaPeriodTableV2）。ChartSection(app-02)と取引テーブルの本日損益データ(app-04)で共用＝同じ見た目に統一 2026-06-24。
