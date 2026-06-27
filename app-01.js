@@ -692,7 +692,7 @@ function migrateData(d) {
           cc.signals.forEach(function(s) {
             if (!s || s.osVal == null) return;
             if (s.scheme === 2 || s.scheme === 3) return;  // EP起算記録は対象外（旧式判定が合わない・表側はライブ判定）
-            var _a = (s.alphaVal != null) ? Number(s.alphaVal) : _gradeAlpha(s.difficulty);
+            var _a = (s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s.difficulty);
             if (_a == null) return;
             var _planStop = (Number(s.osVal) - _a) >= _cl;
             var _h1Stop = (s.holdHighSign === "-" && s.holdHighVal != null && (Number(s.holdHighVal) - _a) >= _cl);

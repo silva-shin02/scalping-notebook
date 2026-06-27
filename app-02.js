@@ -3922,7 +3922,7 @@ function EntrySignalSection(_ref_es) {
   var _useStateESSC1 = useState({}), _useStateESSC1A = _slicedToArray(_useStateESSC1, 2),
       _esSimCut = _useStateESSC1A[0], setEsSimCut = _useStateESSC1A[1];
   useEffect(function() { setEsSimAlpha({}); setEsSimCut({}); }, [ck]);
-  var _esActualAlpha = function(s) { return (s && s.alphaVal != null) ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
+  var _esActualAlpha = function(s) { return (s && s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
   var _esActualCut = function(s) { return c.cutLine != null ? c.cutLine : 10; };
   var _esAlpha = function(s) { var _k = (s && s.id) || ""; var _sv = _esSimAlpha[_k]; return (_sv != null && _sv !== "") ? Number(_sv) : _esActualAlpha(s); };
   var _esCut = function(s) { var _k = (s && s.id) || ""; var _cv = _esSimCut[_k]; return (_cv != null && _cv !== "") ? Number(_cv) : _esActualCut(s); };
@@ -4952,7 +4952,7 @@ function WeeklyPnlPanel(_wpp) {
     });
   });
   var _key = function(r) { return r.stock + "_" + r.date + "_" + (r.signal.id || r.signal.time || ""); };
-  var _alphaActual = function(r) { var s = r.signal; return s && s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
+  var _alphaActual = function(r) { var s = r.signal; return s && s.alphaVal != null && s.alphaVal !== "" ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
   var _cutActual = function(r) { var c = _charts[r.stock + "_" + r.date]; return c && c.cutLine != null ? c.cutLine : 10; };
   var _alphaOf = function(r) { var o = simAlpha[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _alphaActual(r); };
   var _cutOf = function(r) { var o = simCut[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _cutActual(r); };

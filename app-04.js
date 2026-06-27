@@ -4294,7 +4294,7 @@ function DayView(_ref57) {
     var _pbRecKey = function(r) { return r.stock + "_" + (r.signal.id || r.signal.time || ""); };
     var _pbAlphaActualOf = function(r) {
       var s = r.signal;
-      return s && s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty);
+      return s && s.alphaVal != null && s.alphaVal !== "" ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty);
     };
     // α値シミュ(非永続)を最優先。未設定なら実際の採用α値。本日の損益データ表(サマリー＋明細)のみで使用。
     var _pbAlphaOf = function(r) {
@@ -4665,7 +4665,7 @@ function DayView(_ref57) {
     var _wkRecKey = function(r) { return r.stock + "_" + r.date + "_" + (r.signal.id || r.signal.time || ""); };
     var _wkAlphaActualOf = function(r) {
       var s = r.signal;
-      return s && s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty);
+      return s && s.alphaVal != null && s.alphaVal !== "" ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty);
     };
     // α値シミュ(非永続・今週用)を最優先。未設定なら実際の採用α値。サマリー＋明細の両方で使用（本日と同仕様）。
     var _wkAlphaOf = function(r) {

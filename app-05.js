@@ -4766,7 +4766,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   // 合計額算入: includeInTotal===false の記録は合計/グレード/件数から除外（早見表の3セル等が使用）。2026-06-18
   (signals || []).filter(function(sig) { return _elInclTotal(sig); }).forEach(function(sig) {
     var s = _compatSignal(sig);
-    var _aSig = _fixedA ? alpha : (s.alphaVal != null ? Number(s.alphaVal) : _gradeAlpha(s.difficulty));
+    var _aSig = _fixedA ? alpha : (s.alphaVal != null && s.alphaVal !== "" ? Number(s.alphaVal) : _gradeAlpha(s.difficulty));
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     _totCnt++;
     var _isX = _epIsXSkip(s, _aSig);  // E×（×見送り）→本合計に算入せず参考(ref)へ。allMiss判定からも除外。
@@ -5441,7 +5441,7 @@ function EntryRecordForm(_ref_erf) {
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
     if (!recs.length) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
-    var pickOf = function(rs) { if (!rs || !rs.length) return null; var p = _elBaseAlphaPick(rs, aiOf); if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok", alpha2: p.alpha2 }; };
+    var pickOf = function(rs) { if (!rs || !rs.length) return null; var A = _elBaseAlphaA(rs, aiOf); if (!A) return null; var p = A.pick; if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok", alpha2: p.alpha2, add: (A.add && A.add.improved) ? A.add : null }; };   // 2026-06-27: 同じ窓から推奨追加α(add)も一緒に取得＝フォームの基本α/追加αの窓・起点を揃える
     // 件数ベースの窓【2026-06-26】: fDate前日までを日付順に並べ末尾から直近25/50/100件。キーw1/m1/m3は直近25/50/100件の意味（旧カレンダー1週/1月/3月から変更）。_defBaseAはm1=直近50件を既定に使う。
     var _base = fDate ? recs.filter(function(r) { return r.date < fDate; }) : recs;
     var _sorted = _base.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
@@ -5456,7 +5456,9 @@ function EntryRecordForm(_ref_erf) {
   }, [data, fStock, fDate]);
   // 基本αの既定値＝直近50件の推奨基本α（無ければ100件→全期間でフォールバック）。直近25件は標本が薄くブレやすいので自動入力には使わず表示のみ（ユーザー方針 2026-06-22c→件数ベース2026-06-26）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
   var _baAlpha = function(w) { return (w && w.ok && w.alpha != null) ? w.alpha : null; };
-  var _defBaseA = _refBaseAlpha ? (_baAlpha(_refBaseAlpha.m1) != null ? _baAlpha(_refBaseAlpha.m1) : (_baAlpha(_refBaseAlpha.m3) != null ? _baAlpha(_refBaseAlpha.m3) : _baAlpha(_refBaseAlpha.all))) : null;
+  // 基本αに使う窓オブジェクトを確定（m1=直近50件→m3=100件→all=全期間）＝この同じ窓から推奨追加αも取る 2026-06-27。
+  var _defBaseWin = _refBaseAlpha ? (_baAlpha(_refBaseAlpha.m1) != null ? _refBaseAlpha.m1 : (_baAlpha(_refBaseAlpha.m3) != null ? _refBaseAlpha.m3 : (_baAlpha(_refBaseAlpha.all) != null ? _refBaseAlpha.all : null))) : null;
+  var _defBaseA = _defBaseWin ? _baAlpha(_defBaseWin) : null;
   // 新規記録では基本αに直近50件の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21→2026-06-22c→件数ベース2026-06-26。
   var _baTouchedRef = useRef(false);
   var _baAutoRef = useRef("");
@@ -5468,14 +5470,8 @@ function EntryRecordForm(_ref_erf) {
     _baAutoRef.current = _nv;
     if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
   }, [_defBaseA, fBaseAlpha, isEdit]);
-  // 推奨追加α（追加α〇の記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」を算出＝_elBaseAlphaA内の二プール）2026-06-22。
-  var _refAddAlpha = useMemo(function() {
-    if (!fStock) return null;
-    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate); });
-    if (!recs.length) return null;
-    var A = _elBaseAlphaA(recs, function(r) { return _elAlphaInfo(r, data); });
-    return (A && A.add && A.add.improved) ? A.add : null;
-  }, [data, fStock, fDate]);
+  // 推奨追加α（追加α〇の記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」）2026-06-22→2026-06-27: 表示・自動入力している推奨基本αと同じ件数窓(_defBaseWin)から取る＝「合計」＝画面の基本α＋推奨追加α が一致（旧: 全期間窓固定で、表示する基本α(直近50件)と窓・起点が食い違っていた）。
+  var _refAddAlpha = (_defBaseWin && _defBaseWin.add) ? _defBaseWin.add : null;
   // 推奨損切り値（実現H1損益をほぼ維持できる範囲で最小=タイトな損切り値・この銘柄の前日までの算入v2記録から。損切り回避率/H1勝率は根拠として併記）2026-06-22→22dタイト優先。
   var _refCutPick = useMemo(function() {
     if (!fStock) return null;

@@ -123,8 +123,8 @@ function _elOscAgg(recs, legIdx, aiOf, gran) {
       }
     }
     var ai = aiOf(r), rr = _epResolve(s, ai.alpha);
+    if (rr && rr.epIdx >= 0) b.eOk++;   // E到達率＝3本以内にα到達（×見送り含む）＝他表(_epReachedAt)と母数統一 2026-06-27
     if (rr && rr.judge === "ok") {
-      b.eOk++;
       var res = _elDynResult(s, ai.alpha, ai.cutLine);
       if (res === "ok") b.ok++; else if (res === "ng") b.ng++; else if (res === "draw") b.draw++;
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine);
@@ -283,7 +283,7 @@ function _elOsChainSection(_ref_osc) {
     var bestWin = null;
     agg.rows.forEach(function(ri) { var b = agg.bands[ri], t = b.ok + b.ng; if (t && (bestWin == null || b.ok / t > bestWin.v)) bestWin = { v: b.ok / t, ri: ri }; });
     if (bestWin) items.push(React.createElement("span", null, "勝率が最も高いのはOS" + curNo + "＝", _elInsightEmV2(bLab(bestWin.ri), bCol(bestWin.ri)), "（", _elInsightEmV2(Math.round(bestWin.v * 100) + "%"), "）。"));
-    insight = _elInsightBoxV2(items, { note: "OS" + curNo + "＝" + (curNo <= 3 ? curNo + "本目" : curNo === 4 ? "EP後H1" : "EP後H2") + "の高値（水準線比）。E到達率＝α到達して取引できた割合。E後の勝率＝取引（E成立）後にEP損益が利益だった割合。EP損益/H1/見切り率/損切り率は取引（E成立）分のみ。" });
+    insight = _elInsightBoxV2(items, { note: "OS" + curNo + "＝" + (curNo <= 3 ? curNo + "本目" : curNo === 4 ? "EP後H1" : "EP後H2") + "の高値（水準線比）。E到達率＝3本以内にα到達（×見送り含む）。E後の勝率＝取引（E成立）後にEP損益が利益だった割合。EP損益/H1/見切り率/損切り率は取引（E成立）分のみ。" });
   }
 
   var _bw = gran === "each" ? "値" : "帯";
@@ -795,18 +795,18 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
   var _line = function(label, o) {
     if (!o.cnt) return null;
     var avgOs = _elMedian(o.osv);
-    var t = o.ok + o.ng, win = t ? Math.round(o.ok / t * 100) : null;
+    var t = o.ok + o.ng + o.draw, win = t ? Math.round(o.ok / t * 100) : null;
     return React.createElement("span", null, label, "は ", _elInsightEmV2(o.cnt + "件"),
       avgOs != null ? React.createElement("span", null, "・中央OS ", _elInsightEmV2(avgOs + "円")) : null,
       "・E到達率 ", _elInsightEmV2(Math.round(o.reach / o.cnt * 100) + "%"),
-      "・損切り率 ", _elInsightEmV2(((o.ok + o.ng) ? Math.round(o.stop / (o.ok + o.ng) * 100) : 0) + "%"),
+      "・損切り率 ", _elInsightEmV2(((o.ok + o.ng + o.draw) ? Math.round(o.stop / (o.ok + o.ng + o.draw) * 100) : 0) + "%"),
       win != null ? "（勝率 " + win + "%）" : null, "。");
   };
   var items = [];
   var l1 = _line("寄り〜9:15に出た寄り足OS", c915); if (l1) items.push(l1);
   var l2 = _line("寄り〜9:30（累計）", c930); if (l2) items.push(l2);
   if (c930.cnt && late.cnt) {
-    var s930 = (c930.ok + c930.ng) ? Math.round(c930.stop / (c930.ok + c930.ng) * 100) : 0, sLate = (late.ok + late.ng) ? Math.round(late.stop / (late.ok + late.ng) * 100) : 0;
+    var s930 = (c930.ok + c930.ng + c930.draw) ? Math.round(c930.stop / (c930.ok + c930.ng + c930.draw) * 100) : 0, sLate = (late.ok + late.ng + late.draw) ? Math.round(late.stop / (late.ok + late.ng + late.draw) * 100) : 0;
     items.push(React.createElement("span", null, "寄り〜9:30と9:31以降では、損切り率が ", _elInsightEmV2(s930 + "%"), " vs ", _elInsightEmV2(sLate + "%"), s930 < sLate ? "＝早い寄り足OSの方が損切りになりにくい傾向。" : s930 > sLate ? "＝早い寄り足OSの方が損切りになりやすい傾向。" : "＝差は小さい。"));
     var o930 = _elMedian(c930.osv), oLate = _elMedian(late.osv);
     if (o930 != null && oLate != null) items.push(React.createElement("span", null, "OS中央値は 〜9:30=", _elInsightEmV2(o930 + "円"), "・9:31以降=", _elInsightEmV2(oLate + "円"), o930 > oLate ? "＝早い時間ほどOSが深い（強い初動）。" : "。"));
@@ -1779,7 +1779,11 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
       React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: "#9A3412" } }, "+" + add.add + "円"),
       React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "(計" + add.total + "円)"),
       (add.add2 == null) ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 4 } }, "（次点なし）") : null);
-    else addCell = React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8", whiteSpace: "nowrap" } }, "推奨無し");
+    else addCell = (pk && pk.alpha != null)
+      ? React.createElement("span", { style: { whiteSpace: "nowrap", lineHeight: 1.15 } },
+          React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8" } }, "推奨無し"),
+          React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "（下段は基本α" + pk.alpha + "円のみ）"))
+      : React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8", whiteSpace: "nowrap" } }, "推奨無し");
     var _pdiv = (i > 0) ? { borderTop: "2px solid #7DD3FC" } : null;   // 期間どうしの明確な区切り線 2026-06-24g
     rows.push(React.createElement("tr", { key: "m" + i },
       _elv2Td(pd.label, Object.assign({ fontWeight: 700, color: "#9A3412", textAlign: "left", paddingLeft: 8 }, _pdiv || {})),
@@ -1944,10 +1948,12 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
     var devRows = dayRecs.map(function(r, ri) {
       var s = r.signal, base = _baseOf(s), osMax = _elOsMaxAll(s);
       var yes = _elAddAlphaYes(s), refReach = yes ? refTotal : refBase;   // 〇=推奨合計α・×/未選択=推奨基本α
+      var addv = yes ? _num(s.addAlphaVal) : null;   // 採用追加α（〇のみ表示）
       return React.createElement("tr", { key: ri },
         _dvTd(s.time || "—", { color: "#64748B", fontWeight: 700 }),
         _dvTd(_regBadge(yes)),
         _dvTd(base != null ? base + "円" : "—"),
+        _dvTd(yes ? (addv != null ? ("+" + addv + "円") : "—") : "—", { color: yes ? "#9A3412" : "#cbd5e1" }),
         _dvTd(osMax != null ? osMax + "円" : "—"),
         _dvTd(refReach != null ? refReach + "円" : "—", { color: "#64748B" }),
         _dvTd(_devNode(osMax, refReach)));
@@ -1956,7 +1962,7 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
       React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（到達OS−基準α・基本のみ＝推奨基本α " + (refBase != null ? refBase + "円" : "—") + "／追加α〇＝推奨基本α+推奨追加α " + (refTotal != null ? refTotal + "円" : "—") + "）"),
       React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("種別"), _dvTh("採用基本α"), _dvTh("到達最高OS"), _dvTh("基準α"), _dvTh("乖離(到達)"))),
+          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("種別"), _dvTh("採用基本α"), _dvTh("採用追加α"), _dvTh("到達最高OS"), _dvTh("基準α"), _dvTh("乖離(到達)"))),
           React.createElement("tbody", null, devRows)))) : null;
     return React.createElement("div", { key: si, style: { background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 10px", marginBottom: 8 } },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0F172A", marginBottom: 5, paddingBottom: 4, borderBottom: "1px solid #BAE6FD" } }, stock,
@@ -3286,15 +3292,15 @@ function _elDowSectionV2(recs, aiOf) {
   if (avail.length) {
     var mostN = avail.slice().sort(function(a, b) { return b.o.cnt - a.o.cnt; })[0];
     items.push(React.createElement("span", null, "記録が最も多い曜日は", _elInsightEmV2(mostN.d.label + "曜"), "（" + mostN.o.cnt + "件）。"));
-    var byWin = avail.filter(function(x) { return (x.o.ok + x.o.ng) > 0; }).sort(function(a, b) { return (b.o.ok / (b.o.ok + b.o.ng)) - (a.o.ok / (a.o.ok + a.o.ng)); });
+    var byWin = avail.filter(function(x) { return (x.o.ok + x.o.ng + x.o.draw) > 0; }).sort(function(a, b) { return (b.o.ok / (b.o.ok + b.o.ng + b.o.draw)) - (a.o.ok / (a.o.ok + a.o.ng + a.o.draw)); });
     if (byWin.length) {
       var bw = byWin[0], ww = byWin[byWin.length - 1];
-      items.push(React.createElement("span", null, "勝率が最も高いのは", _elInsightEmV2(bw.d.label + "曜"), "（", _elInsightEmV2(Math.round(bw.o.ok / (bw.o.ok + bw.o.ng) * 100) + "%"), "）", (ww !== bw) ? React.createElement("span", null, "・最も低いのは", _elInsightEmV2(ww.d.label + "曜"), "（" + Math.round(ww.o.ok / (ww.o.ok + ww.o.ng) * 100) + "%）") : null, "。"));
+      items.push(React.createElement("span", null, "勝率が最も高いのは", _elInsightEmV2(bw.d.label + "曜"), "（", _elInsightEmV2(Math.round(bw.o.ok / (bw.o.ok + bw.o.ng + bw.o.draw) * 100) + "%"), "）", (ww !== bw) ? React.createElement("span", null, "・最も低いのは", _elInsightEmV2(ww.d.label + "曜"), "（" + Math.round(ww.o.ok / (ww.o.ok + ww.o.ng + ww.o.draw) * 100) + "%）") : null, "。"));
     }
     var byEp = avail.filter(function(x) { return x.o.planCnt > 0; }).sort(function(a, b) { return (b.o.plan / b.o.planCnt) - (a.o.plan / a.o.planCnt); });
     if (byEp.length) items.push(React.createElement("span", null, "1件あたり平均EP損益が最良の曜日は", _elInsightEmV2(byEp[0].d.label + "曜"), "（", _elInsightEmV2(_elPnlFmt(Math.round(byEp[0].o.plan / byEp[0].o.planCnt))), "）。"));
-    var byStop = avail.filter(function(x) { return x.o.cnt >= 2; }).sort(function(a, b) { return (b.o.stop / ((b.o.ok + b.o.ng) || 1)) - (a.o.stop / ((a.o.ok + a.o.ng) || 1)); });
-    if (byStop.length && byStop[0].o.stop > 0) items.push(React.createElement("span", null, "損切り率が最も高いのは", _elInsightEmV2(byStop[0].d.label + "曜"), "（" + Math.round(byStop[0].o.stop / ((byStop[0].o.ok + byStop[0].o.ng) || 1) * 100) + "%）＝この曜日は慎重に。"));
+    var byStop = avail.filter(function(x) { return x.o.cnt >= 2; }).sort(function(a, b) { return (b.o.stop / ((b.o.ok + b.o.ng + b.o.draw) || 1)) - (a.o.stop / ((a.o.ok + a.o.ng + a.o.draw) || 1)); });
+    if (byStop.length && byStop[0].o.stop > 0) items.push(React.createElement("span", null, "損切り率が最も高いのは", _elInsightEmV2(byStop[0].d.label + "曜"), "（" + Math.round(byStop[0].o.stop / ((byStop[0].o.ok + byStop[0].o.ng + byStop[0].o.draw) || 1) * 100) + "%）＝この曜日は慎重に。"));
   }
   return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切り発生。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
 }
@@ -3544,10 +3550,10 @@ function EntryLogView(_ref_elv2) {
     };
     var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
     var winOf = function(x) { var ok = 0, dec = 0; x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine, res = _elDynResult(s, a, c); if (res === "ok") { ok++; dec++; } else if (res === "ng" || res === "draw") dec++; }); return dec ? Math.round(ok / dec * 100) : null; };
-    // 損切り: OS1〜2でEP到達した記録のうち EP足orH1足で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(到達分母)。
+    // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
     var stopsOf = function(x) {
       var sn = 0, sl = 0, wn = 0;
-      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var rr = _epResolve(s, a); if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 1)) return; wn++; if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c)) { sn++; sl += _elCapLossYen(c); } });
+      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) { sn++; sl += _elCapLossYen(c); } });
       return { n: sn, avg: sn ? Math.round(sl / sn) : null, rate: wn ? Math.round(sn / wn * 100) : null };
     };
     var byP = {}; rs.forEach(function(r) { var k = keyOf(r.date); (byP[k] = byP[k] || []).push(r); });
@@ -3617,7 +3623,7 @@ function EntryLogView(_ref_elv2) {
         _td(r.stock, { color: "#9A3412", fontWeight: 700 })
       ];
       if (mode === "day") {
-        var _bkey = (s.osVal != null && s.osVal !== "") ? _elOsBucketKey(s.osVal, false) : null;
+        var _ovd = _elOsMaxAll(s); var _bkey = (_ovd != null) ? _elOsBucketKey(_ovd, false) : null;
         cells = cells.concat([
           _td(_epOsChainCell(s, a.alpha)),
           _td(_epECell(s, a.alpha)),
