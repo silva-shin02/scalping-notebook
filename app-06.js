@@ -3561,6 +3561,18 @@ function EntryLogView(_ref_elv2) {
       var mon = new Date(k + "T00:00:00"); var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
       return (mon.getMonth() + 1) + "/" + mon.getDate() + "〜" + (fri.getMonth() + 1) + "/" + fri.getDate();
     };
+    // 日数: その期間に市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える・当日までで頭打ち）。祝日＝記録した祝日/休場イベント(_buildHolidayDateSet)。期間集計タブの日数列と同基準 2026-06-27。
+    var _holiSet = _buildHolidayDateSet(data.trades, custom.eventCategories);
+    var _today2 = todayStr();
+    var _p2 = function(nn) { return ("0" + nn).slice(-2); };
+    var _bizDaysIn = function(k) {
+      var days = [];
+      if (g === "day") { days = [k]; }
+      else if (g === "month") { var y = +k.slice(0, 4), m = +k.slice(5, 7), last = new Date(y, m, 0).getDate(); for (var dd = 1; dd <= last; dd++) days.push(k + "-" + _p2(dd)); }
+      else { var mon = new Date(k + "T00:00:00"); for (var i = 0; i < 5; i++) { var d = new Date(mon.getTime() + i * 86400000); days.push(d.getFullYear() + "-" + _p2(d.getMonth() + 1) + "-" + _p2(d.getDate())); } }
+      var c = 0; days.forEach(function(d) { if (d <= _today2 && _fmIsBizDay(d, _holiSet)) c++; });
+      return c;
+    };
     var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
     var winOf = function(x) { var ok = 0, dec = 0; x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine, res = _elDynResult(s, a, c); if (res === "ok") { ok++; dec++; } else if (res === "ng" || res === "draw") dec++; }); return dec ? Math.round(ok / dec * 100) : null; };
     // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
@@ -3589,6 +3601,7 @@ function EntryLogView(_ref_elv2) {
       var x = byP[k], t = totOf(x), st = stopsOf(x), on = ovExp === k;
       rows.push(React.createElement("tr", { key: k, onClick: function() { setOvExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
         otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k)), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+        otd(_bizDaysIn(k) + "日", { fontWeight: 600, color: "#555" }),
         otd(x.length + "件", { fontWeight: 700 }),
         winCell(winOf(x)),
         pnlCell(t.plan, t.planCnt, t.planRef, t.planRefCnt),
@@ -3596,13 +3609,15 @@ function EntryLogView(_ref_elv2) {
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt),
         realCell(t.real, t.realCnt),
         stopCell(st)));
-      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 8, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
         React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件）"),
         _recTable(x, "full", "ovp_" + k + "_", null))));
     });
     var tt = totOf(rs), bt = { borderTop: "2px solid #FB923C" };
+    var _ovTotDays = keys.reduce(function(s, k) { return s + _bizDaysIn(k); }, 0);
     var totRow = React.createElement("tr", { key: "__ovtot__", style: { background: "#FFF7ED" } },
       otd("合計", Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
+      otd(_ovTotDays + "日", Object.assign({ fontWeight: 700, color: "#555" }, bt)),
       otd(rs.length + "件", Object.assign({ fontWeight: 800 }, bt)),
       winCell(winOf(rs), Object.assign({ fontWeight: 800 }, bt)),
       pnlCell(tt.plan, tt.planCnt, tt.planRef, tt.planRefCnt, bt),
@@ -3613,7 +3628,7 @@ function EntryLogView(_ref_elv2) {
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
-          oth(g === "day" ? "日" : g === "week" ? "週" : "月"), oth("件数"), oth("勝率"), oth("EP損益"), oth("H1損益"), oth("H2損益"), oth("実現損益"), oth("損切り"))),
+          oth(g === "day" ? "日" : g === "week" ? "週" : "月"), oth("日数"), oth("件数"), oth("勝率"), oth("EP損益"), oth("H1損益"), oth("H2損益"), oth("実現損益"), oth("損切り"))),
         React.createElement("tbody", null, rows),
         React.createElement("tfoot", null, totRow)));
   };
