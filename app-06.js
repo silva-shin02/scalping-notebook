@@ -1959,10 +1959,10 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
         _dvTd(_devNode(osMax, refReach)));
     });
     var devBlock = dayRecs.length ? React.createElement("div", { style: { marginTop: 6, paddingTop: 5, borderTop: "1px dashed #93C5FD" } },
-      React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（到達OS−基準α・基本のみ＝推奨基本α " + (refBase != null ? refBase + "円" : "—") + "／追加α〇＝推奨基本α+推奨追加α " + (refTotal != null ? refTotal + "円" : "—") + "）"),
+      React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（到達OS−合計α・基本のみ＝推奨基本α " + (refBase != null ? refBase + "円" : "—") + "／追加α〇＝推奨基本α+推奨追加α " + (refTotal != null ? refTotal + "円" : "—") + "）"),
       React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("種別"), _dvTh("採用基本α"), _dvTh("採用追加α"), _dvTh("基準α"), _dvTh("到達最高OS"), _dvTh("乖離(到達)"))),
+          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("種別"), _dvTh("採用基本α"), _dvTh("採用追加α"), _dvTh("合計α"), _dvTh("到達最高OS"), _dvTh("乖離(到達)"))),
           React.createElement("tbody", null, devRows)))) : null;
     return React.createElement("div", { key: si, style: { background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 10px", marginBottom: 8 } },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0F172A", marginBottom: 5, paddingBottom: 4, borderBottom: "1px solid #BAE6FD" } }, stock,
@@ -1974,7 +1974,7 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
       devBlock);
   });
   return React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録を件数窓で集計（当日は含めない）。直近50件をメインに、直近25件/100件/全期間はサブ。各値は再推奨（次点）。基本α＝追加α〇以外（×・未選択）が母数、追加α＝〇記録だけが母数。「📊本日の記録との乖離」は当日の記録1件ごとに、到達した最高OSが基準α（基本のみの記録＝推奨基本α／追加α〇の記録＝推奨基本α＋推奨追加α）からどれだけ離れたか（到達−基準）。追加α〇は基本αだけでなく追加α分まで伸ばす前提なので、推奨基本αだけと比べず推奨合計αと比べる。損切り率・勝率・想定損益などの詳細は銘柄別・期間別の詳細表を参照。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録を件数窓で集計（当日は含めない）。直近50件をメインに、直近25件/100件/全期間はサブ。各値は再推奨（次点）。基本α＝追加α〇以外（×・未選択）が母数、追加α＝〇記録だけが母数。「📊本日の記録との乖離」は当日の記録1件ごとに、到達した最高OSが合計α（基本のみの記録＝推奨基本α／追加α〇の記録＝推奨基本α＋推奨追加α）からどれだけ離れたか（到達−合計α）。追加α〇は基本αだけでなく追加α分まで伸ばす前提なので、推奨基本αだけと比べず推奨合計αと比べる。損切り率・勝率・想定損益などの詳細は銘柄別・期間別の詳細表を参照。"),
     cards);
 }
 
