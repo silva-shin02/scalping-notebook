@@ -1954,15 +1954,15 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
         _dvTd(_regBadge(yes)),
         _dvTd(base != null ? base + "円" : "—"),
         _dvTd(yes ? (addv != null ? ("+" + addv + "円") : "—") : "—", { color: yes ? "#9A3412" : "#cbd5e1" }),
-        _dvTd(osMax != null ? osMax + "円" : "—"),
         _dvTd(refReach != null ? refReach + "円" : "—", { color: "#64748B" }),
+        _dvTd(osMax != null ? osMax + "円" : "—"),
         _dvTd(_devNode(osMax, refReach)));
     });
     var devBlock = dayRecs.length ? React.createElement("div", { style: { marginTop: 6, paddingTop: 5, borderTop: "1px dashed #93C5FD" } },
       React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（到達OS−基準α・基本のみ＝推奨基本α " + (refBase != null ? refBase + "円" : "—") + "／追加α〇＝推奨基本α+推奨追加α " + (refTotal != null ? refTotal + "円" : "—") + "）"),
       React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("種別"), _dvTh("採用基本α"), _dvTh("採用追加α"), _dvTh("到達最高OS"), _dvTh("基準α"), _dvTh("乖離(到達)"))),
+          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("種別"), _dvTh("採用基本α"), _dvTh("採用追加α"), _dvTh("基準α"), _dvTh("到達最高OS"), _dvTh("乖離(到達)"))),
           React.createElement("tbody", null, devRows)))) : null;
     return React.createElement("div", { key: si, style: { background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 10px", marginBottom: 8 } },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0F172A", marginBottom: 5, paddingBottom: 4, borderBottom: "1px solid #BAE6FD" } }, stock,
