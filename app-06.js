@@ -1931,26 +1931,32 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
         React.createElement("span", { style: { color: "#94A3B8" } }, "基"), _baseNode(A ? A.pick : null, false),
         React.createElement("span", { style: { color: "#94A3B8", marginLeft: 4 } }, "追"), _addNode(A ? A.add : null, false));
     });
-    // 本日の記録との乖離（記録1件ごと・採用基本α/到達最高OSと、推奨基本α=メイン直近50件を優先・無ければ100件→全期間→25件へ）との差 2026-06-25。
-    var refA = (function() { var order = [1, 2, 3, 0]; for (var oi = 0; oi < order.length; oi++) { var A = As[order[oi]]; if (A && A.pick && A.pick.alpha != null) return A.pick.alpha; } return null; })();
+    // 本日の記録との乖離（記録1件ごと・追加α〇/×で到達の基準を切替 2026-06-27）。推奨基本α=メイン直近50件を優先・無ければ100件→全期間→25件。追加α〇は基本α+追加α分まで伸ばす前提なので到達OSを「推奨基本α+推奨追加α」と比較（×・未選択は推奨基本α）＝母数で〇を除外している推奨基本αとの整合をとる。推奨基本αと推奨追加αは同じ件数窓から取る。
+    var refAObj = (function() { var order = [1, 2, 3, 0]; for (var oi = 0; oi < order.length; oi++) { var A = As[order[oi]]; if (A && A.pick && A.pick.alpha != null) return A; } return null; })();
+    var refBase = refAObj ? refAObj.pick.alpha : null;   // 推奨基本α（×・未選択の到達基準）
+    var refAdd = (refAObj && refAObj.add && refAObj.add.improved && refAObj.add.add != null) ? refAObj.add.add : 0;   // 推奨追加α（無ければ0＝合計は基本αに縮退）
+    var refTotal = (refBase != null) ? (refBase + refAdd) : null;   // 推奨合計α（追加α〇の到達基準）
     var dayRecs = recs.filter(function(r) { return r && r.date === refDate && r.signal && _epIsV2(r.signal); });
     dayRecs.sort(function(a, b) { var ta = a.signal.time || "", tb = b.signal.time || ""; return ta < tb ? -1 : ta > tb ? 1 : 0; });
     var _dvTh = function(t) { return React.createElement("th", { style: { fontSize: 9, fontWeight: 700, color: "#64748B", padding: "2px 4px", whiteSpace: "nowrap", textAlign: "center" } }, t); };
     var _dvTd = function(c, ex) { return React.createElement("td", { style: Object.assign({ fontSize: 10, padding: "2px 4px", textAlign: "center", whiteSpace: "nowrap", borderTop: "1px solid #E0F2FE", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+    var _regBadge = function(yes) { return React.createElement("span", { style: { padding: "1px 5px", fontSize: 9, fontWeight: 700, borderRadius: 4, whiteSpace: "nowrap", background: yes ? "#FEF3C7" : "#F1F5F9", color: yes ? "#9A3412" : "#64748B" } }, yes ? "追加α〇" : "基本のみ"); };
     var devRows = dayRecs.map(function(r, ri) {
       var s = r.signal, base = _baseOf(s), osMax = _elOsMaxAll(s);
+      var yes = _elAddAlphaYes(s), refReach = yes ? refTotal : refBase;   // 〇=推奨合計α・×/未選択=推奨基本α
       return React.createElement("tr", { key: ri },
         _dvTd(s.time || "—", { color: "#64748B", fontWeight: 700 }),
+        _dvTd(_regBadge(yes)),
         _dvTd(base != null ? base + "円" : "—"),
         _dvTd(osMax != null ? osMax + "円" : "—"),
-        _dvTd(_devNode(base, refA)),
-        _dvTd(_devNode(osMax, refA)));
+        _dvTd(refReach != null ? refReach + "円" : "—", { color: "#64748B" }),
+        _dvTd(_devNode(osMax, refReach)));
     });
     var devBlock = dayRecs.length ? React.createElement("div", { style: { marginTop: 6, paddingTop: 5, borderTop: "1px dashed #93C5FD" } },
-      React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（実際−推奨α " + (refA != null ? refA + "円" : "—") + "・採用＝設定した基本α／到達＝最高OS）"),
+      React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（到達OS−基準α・基本のみ＝推奨基本α " + (refBase != null ? refBase + "円" : "—") + "／追加α〇＝推奨基本α+推奨追加α " + (refTotal != null ? refTotal + "円" : "—") + "）"),
       React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("採用基本α"), _dvTh("到達最高OS"), _dvTh("乖離(採用)"), _dvTh("乖離(到達)"))),
+          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("種別"), _dvTh("採用基本α"), _dvTh("到達最高OS"), _dvTh("基準α"), _dvTh("乖離(到達)"))),
           React.createElement("tbody", null, devRows)))) : null;
     return React.createElement("div", { key: si, style: { background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 10px", marginBottom: 8 } },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0F172A", marginBottom: 5, paddingBottom: 4, borderBottom: "1px solid #BAE6FD" } }, stock,
@@ -1962,7 +1968,7 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
       devBlock);
   });
   return React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録を件数窓で集計（当日は含めない）。直近50件をメインに、直近25件/100件/全期間はサブ。各値は再推奨（次点）。基本α＝追加α〇以外（×・未選択）が母数、追加α＝〇記録だけが母数。「📊本日の記録との乖離」は当日の記録1件ごとに、採用した基本α・到達した最高OSが推奨基本α（メイン）からどれだけ離れたか（実際−推奨）。損切り率・勝率・想定損益などの詳細は銘柄別・期間別の詳細表を参照。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録を件数窓で集計（当日は含めない）。直近50件をメインに、直近25件/100件/全期間はサブ。各値は再推奨（次点）。基本α＝追加α〇以外（×・未選択）が母数、追加α＝〇記録だけが母数。「📊本日の記録との乖離」は当日の記録1件ごとに、到達した最高OSが基準α（基本のみの記録＝推奨基本α／追加α〇の記録＝推奨基本α＋推奨追加α）からどれだけ離れたか（到達−基準）。追加α〇は基本αだけでなく追加α分まで伸ばす前提なので、推奨基本αだけと比べず推奨合計αと比べる。損切り率・勝率・想定損益などの詳細は銘柄別・期間別の詳細表を参照。"),
     cards);
 }
 
