@@ -27,6 +27,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-06-28d 追加α分析トグルをサブタブバー直下へ移動
+- **app-06.js**: 記録帳の「追加α分析」母数トグル(`addAlphaFil`・全部/〇/×/未選択)を、銘柄タブとサブタブバーの「間」から「サブタブバーの直下（内容の真上）」へ移動＝母数フィルタを絞り込み対象の内容に隣接させ、α値タブ切替時のレイアウトシフトも軽減。効くタブ(`view!=="alpha"`で表示)は現状維持。esprima構文OK。
+
 ### 2026-06-28c 記録帳タブ内容の配置整理（期待度×/△・EP位置→深掘り／時間帯別・曜日別→期間／OS値のα目安→α値）
 - **app-06.js**: 配置監査で判明した「集計タブの肥大」を是正＝集計(銘柄別 `_sumStockContent`)から以下を移設。①🚫期待度×(`_elXSkipSectionV2`)・🔺期待度△(`_elTriangleHoldSectionV2`)→🔬**深掘り**(期待度キャリブレーションの隣＝"期待度の精度"3兄弟を集約)。②📍EP位置(`_elEpPosSectionV2`)→🔬**深掘り**(計画EP vs 実エントリーの執行乖離の隣＝執行ペア)。③🕘時間帯別(`_elTimeOfDaySectionV2`)・📅曜日別(`_elDowSectionV2`)→📆**期間**(期間IIFEの後にスコープ全体 `v2recs` で append)。④OS値の分析(`_elOsSectionV2`)内「成立率の目安(OS→α分位)」を新関数 `_elOsAlphaPctlTableV2(recs)` に切り出し📐**α値**タブへ(集計のOS分析からは `aTable`＋"α設定の目安"insight行を削除・OS本体/分布/帯別成績は集計に残置)。シグナル別 `_groupPanel` と期間行展開 `_detailOf` の各セクションは設計上の重複として不変。集計タブの残り＝KPI/OS値の分析/累積損益/連勝連敗DD。esprima構文OK。
 

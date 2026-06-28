@@ -4171,14 +4171,6 @@ function EntryLogView(_ref_elv2) {
             border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
-    (view !== "alpha") ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" } },   // トグルが効かないα値タブ(母数固定)では非表示＝ややこしさ回避 2026-06-24i（出現/一覧タブは2026-06-28に撤去）
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "追加α分析:"),
-      [["all", "全部"], ["yes", "〇 要"], ["no", "× 不要"], ["unset", "未選択"]].map(function(kv) {
-        var on = addAlphaFil === kv[0];
-        return React.createElement("button", { key: kv[0], onClick: function() { setAddAlphaFil(kv[0]); setExpKey(null); },
-          style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
-      }),
-      addAlphaFil !== "all" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（追加α〇/×/未選択で分析の母数を絞り込み中。α値タブは対象外）") : null) : null,
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
       _tabs.map(function(kv) {
         var on = view === kv[0];
@@ -4189,6 +4181,14 @@ function EntryLogView(_ref_elv2) {
             borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
+    (view !== "alpha") ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" } },   // 追加α分析トグル＝サブタブバー直下へ移動 2026-06-28（母数フィルタを内容の真上に。α値タブは母数固定なので非表示）
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "追加α分析:"),
+      [["all", "全部"], ["yes", "〇 要"], ["no", "× 不要"], ["unset", "未選択"]].map(function(kv) {
+        var on = addAlphaFil === kv[0];
+        return React.createElement("button", { key: kv[0], onClick: function() { setAddAlphaFil(kv[0]); setExpKey(null); },
+          style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
+      }),
+      addAlphaFil !== "all" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（追加α〇/×/未選択で分析の母数を絞り込み中。α値タブは対象外）") : null) : null,
     React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り（全分析タブを表示）、「損益」では全銘柄合算の損益（集計・期間のみ）を表示します。集計・分析タブはEP起算方式（v2）の記録のみ。"),
     _tabBody,
     editTarget ? React.createElement(EntryRecordForm, { data: data, save: save, initial: (editTarget && editTarget.signal) ? editTarget : null, onClose: function() { setEditTarget(null); } }) : null
