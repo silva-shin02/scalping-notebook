@@ -292,91 +292,7 @@ function _elOsChainSection(_ref_osc) {
   return React.createElement("div", null, intro, sigSel, granBar, crumbBar, head, heat, table, insight);
 }
 
-// 各足のOS値プロファイル（OS連鎖タブ／2026-06-14b）: OS1〜OS5(=固定の足位置・OS4=H1足/OS5=H2足)の高値(水準線比)の
-// 中央値・平均・下落率(高値が基準線割れ=負の割合)・6帯分布。OS1専用の「OS値の分析」(_elOsSectionV2)を全足に拡張。
-// OS2以降は基準線割れ(下落)があるため下落帯を含む_EL_OSC_BANDS/_elOscBandIdxで集計。役割は採用αで動くがここは固定足位置で集計。
-function _elOsLegsSectionV2(_ref) {
-  var recs = _ref.recs;
-  var _uG = useState("band"), gran = _uG[0], setGran = _uG[1];
-  var base = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal); });
-  if (!base.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "EP起算（v2）記録がありません");
-  var LEGS = [{ i: 0, label: "OS1" }, { i: 1, label: "OS2" }, { i: 2, label: "OS3" }, { i: 3, label: "OS4(H1)" }, { i: 4, label: "OS5(H2)" }];
-  var rows = LEGS.map(function(L) {
-    var vals = [];
-    base.forEach(function(r) { var hs = _elOscHighs(r.signal); var v = hs[L.i]; if (v != null) vals.push(v); });
-    var neg = 0, dist = [0, 0, 0, 0, 0, 0];
-    vals.forEach(function(v) { if (v < 0) neg++; var bi = _elOscBandIdx(v); if (bi != null) dist[bi]++; });
-    var mean = vals.length ? Math.round(vals.reduce(function(a, b) { return a + b; }, 0) / vals.length * 10) / 10 : null;
-    return { label: L.label, n: vals.length, med: _elMedian(vals), mean: mean, neg: neg, dist: dist, vals: vals };
-  });
-  var _bar6 = function(dist) {
-    var tot = 0; dist.forEach(function(c) { tot += c; });
-    if (!tot) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-    var tip = _EL_OSC_BANDS.map(function(b, i) { return b.label + ": " + dist[i] + "件"; }).join(" / ");
-    return React.createElement("span", { title: tip, style: { display: "inline-flex", width: 96, height: 11, borderRadius: 3, overflow: "hidden", background: "#f0ede6", verticalAlign: "middle" } },
-      _EL_OSC_BANDS.map(function(b, i) { var c = dist[i]; if (!c) return null; return React.createElement("span", { key: i, style: { width: (c / tot * 100) + "%", background: b.color, height: "100%" } }); }));
-  };
-  // 1円刻みヒストグラム（整数値ごとの件数を棒で・色は属する帯。負値=下落も表示）。各棒hoverで「N円: M件」。
-  var _bar1 = function(vals) {
-    if (!vals.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-    var cnt = {}, mn = Infinity, mx = -Infinity;
-    vals.forEach(function(v) { var k = Math.round(v); cnt[k] = (cnt[k] || 0) + 1; if (k < mn) mn = k; if (k > mx) mx = k; });
-    var maxC = 0, kk; for (kk in cnt) { if (cnt[kk] > maxC) maxC = cnt[kk]; }
-    var bars = [];
-    for (var x = mn; x <= mx; x++) {
-      var c = cnt[x] || 0;
-      var bi = _elOscBandIdx(x);
-      var col = (bi != null && _EL_OSC_BANDS[bi]) ? _EL_OSC_BANDS[bi].color : "#ccc";
-      bars.push(React.createElement("span", { key: x, title: x + "円: " + c + "件", style: { flex: "1 0 0", display: "flex", flexDirection: "column", justifyContent: "flex-end", minWidth: 2 } },
-        React.createElement("span", { style: { height: (c ? Math.max(2, Math.round(c / maxC * 22)) : 0) + "px", background: c ? col : "transparent", borderRadius: 1 } })));
-    }
-    return React.createElement("span", { title: mn + "〜" + mx + "円（1円刻み）", style: { display: "inline-flex", alignItems: "flex-end", gap: 1, width: 150, height: 24, verticalAlign: "middle" } }, bars);
-  };
-  var _medNode = function(m) { return m == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("b", { style: { color: m >= 0 ? "#9A3412" : "#1E8449" } }, m + "円"); };
-  // 前足比 伸長率: 記録ごとに「この足の高値 > 前の足の高値」だった割合（母数=両足とも高値入力ありの記録）＋伸びた時/縮んだ時の平均差。
-  // オーバーシュート伸長が意味を持つOS1→OS2・OS2→OS3のみ算出（OS4/OS5=EP後の足は符号系が異なり「最適ホールド本数」が担当）。
-  var ext = [null];
-  for (var li = 1; li <= 2; li++) {
-    (function(li) {
-      var pairN = 0, upN = 0, upSum = 0, dnN = 0, dnSum = 0;
-      base.forEach(function(r) {
-        var hs = _elOscHighs(r.signal), cur = hs[li], prev = hs[li - 1];
-        if (cur == null || prev == null) return;
-        pairN++; var d = cur - prev;
-        if (d > 0) { upN++; upSum += d; } else { dnN++; dnSum += d; }
-      });
-      ext.push(pairN ? { pairN: pairN, upN: upN, rate: Math.round(upN / pairN * 100), upAvg: upN ? Math.round(upSum / upN * 10) / 10 : null, dnAvg: dnN ? Math.round(dnSum / dnN * 10) / 10 : null } : null);
-    })(li);
-  }
-  var _extNode = function(e) {
-    if (!e) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-    return React.createElement("span", { title: e.pairN + "件中 " + e.upN + "件で前足の高値を上回り", style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
-      React.createElement("b", { style: { color: e.rate >= 50 ? "#C0392B" : "#1E8449" } }, e.rate + "%"),
-      React.createElement("span", { style: { fontSize: 9, color: "#888" } }, (e.upAvg != null ? "+" + e.upAvg : "—") + " / " + (e.dnAvg != null ? e.dnAvg : "—")));
-  };
-  var body = rows.map(function(o, ri) {
-    return React.createElement("tr", { key: o.label },
-      _elv2Td(React.createElement("b", null, o.label), { textAlign: "left", paddingLeft: 8, color: "#9A3412" }),
-      _elv2Td(o.n + "件", { fontWeight: 700 }),
-      _elv2Td(_medNode(o.med)),
-      _elv2Td(o.mean != null ? React.createElement("span", { style: { color: "#888" } }, o.mean + "円") : "—"),
-      _elv2Td(o.n ? React.createElement("span", { style: { fontWeight: 700, color: o.neg ? "#1E8449" : "#bbb" } }, Math.round(o.neg / o.n * 100) + "%") : "—"),
-      _elv2Td(_extNode(ext[ri])),
-      _elv2Td(_elOsDistBarV2(o.vals, 130, 11, true)));
-  });
-  var legend = React.createElement("div", { style: { margin: "5px 0 0" } }, _elOsGradLegend());
-  var items = [];
-  var os1 = rows[0], os2 = rows[1], os3 = rows[2], h1 = rows[3], h2 = rows[4];
-  if (os1.med != null && os2.med != null) items.push(React.createElement("span", null, "高値の中央値はOS1=", _elInsightEmV2(os1.med + "円"), "→OS2=", _elInsightEmV2(os2.med + "円"), os3.med != null ? React.createElement("span", null, "→OS3=", _elInsightEmV2(os3.med + "円")) : null, "＝", (os2.med > os1.med ? "2本目も伸びやすい。" : "2本目で伸びは鈍る傾向。")));
-  if (ext[1]) items.push(React.createElement("span", null, "記録ごとに見ると、OS2がOS1の高値を", _elInsightEmV2("上回ったのは" + ext[1].rate + "%"), "（" + ext[1].pairN + "件中" + ext[1].upN + "件）", ext[1].upAvg != null ? React.createElement("span", null, "・上回った時は平均", _elInsightEmV2("+" + ext[1].upAvg + "円"), "深い") : null, "＝", (ext[1].rate >= 50 ? "2本目も深押ししやすい。" : "2本目で止まりやすい（OS1で伸び切ることが多い）。")));
-  var negLeg = rows.filter(function(o) { return o.n >= 3 && o.neg > 0; }).sort(function(a, b) { return (b.neg / b.n) - (a.neg / a.n); })[0];
-  if (negLeg) items.push(React.createElement("span", null, _elInsightEmV2(negLeg.label), "は下落率", _elInsightEmV2(Math.round(negLeg.neg / negLeg.n * 100) + "%"), "＝高値が基準線割れになりやすい足（深追い注意）。"));
-  if (h1.med != null) items.push(React.createElement("span", null, "EP後はH1(OS4)中央", _elInsightEmV2(h1.med + "円"), h2.med != null ? React.createElement("span", null, "・H2(OS5)中央", _elInsightEmV2(h2.med + "円")) : null, "＝保有中の典型的な高値。最適な手仕舞いは深掘りタブの「最適ホールド本数」を参照。"));
-  return React.createElement("div", null,
-    _elv2Table(["足", "入力", "中央値", "平均", "下落率", "前足比", "OS値分布（1円刻み）"], body),
-    legend,
-    _elInsightBoxV2(items, { note: "各足の高値（水準線比・↑正/↓負）を1円刻みで分布表示（0〜4円と25円〜は帯・下落=グレー・hoverで件数）。OS1=寄り足／OS2・OS3=待ち足／OS4=EP後H1足・OS5=H2足の固定位置。OS2以降は基準線割れ（高値が負＝下落）あり。中央値=右偏のため典型値（平均は外れ値に上振れ）。下落率=高値が0未満の割合。前足比＝記録ごとに『この足の高値＞前の足の高値』だった割合（伸長率・母数=両足とも高値入力ありの記録）。下段＝上回った時の平均伸び幅／下回った時の平均（前足比・円）。OS1→OS2・OS2→OS3のオーバーシュート伸長のみ（EP後のH1/H2の伸びは深掘りタブ『最適ホールド本数』を参照）。" }));
-}
+// （_elOsLegsSectionV2＝各足のOS値プロファイルは記録帳の旧「OS連鎖」タブ専用だったため、タブ撤去に伴い2026-06-28に削除。OS連鎖の遷移分析_elOsChainSectionはDayView(app-04)で使用継続。）
 
 // records配列のOS値統計（平均/中央値/最頻値/最小/最大/帯別分布dist[5]）。OS値入力なしならnull。
 // osOf(s)=各記録のOS値の取り方（既定=OS1単独 s.osVal）。OS総合分析は_elOsMaxAll（OS1〜3最高値）を渡して統一。
@@ -3502,11 +3418,7 @@ function EntryLogView(_ref_elv2) {
   var _uE = useState(initialEdit || null), editTarget = _uE[0], setEditTarget = _uE[1];
   var _uX = useState(null), expKey = _uX[0], setExpKey = _uX[1];
   var _uL = useState(50), listLimit = _uL[0], setListLimit = _uL[1];
-  var _uLX = useState(false), listExclOnly = _uLX[0], setListExclOnly = _uLX[1];  // 一覧「不算入のみ」絞り込み 2026-06-18
-  var _uAK = useState("all"), apKindFil = _uAK[0], setApKindFil = _uAK[1];  // 出現タブ 種別絞り込み 2026-06-18
-  var _uAN = useState(""), apNameFil = _uAN[0], setApNameFil = _uAN[1];      // 出現タブ 名前絞り込み
-  var _uD = useState(null), selDate = _uD[0], setSelDate = _uD[1];
-  var _uCM = useState(null), calYM = _uCM[0], setCalYM = _uCM[1];
+  var _uD = useState(null), selDate = _uD[0], setSelDate = _uD[1];   // setSelDateは銘柄/損益ボタンのリセットで使用（selDate値は未使用＝旧カレンダー名残）
   var _uSG = useState(null), selSig = _uSG[0], setSelSig = _uSG[1];
   var _uGr = useState("week"), gran = _uGr[0], setGran = _uGr[1];
   var _uCF = useState(""), cFrom = _uCF[0], setCFrom = _uCF[1];
@@ -4013,6 +3925,7 @@ function EntryLogView(_ref_elv2) {
       _selSigGrp ? _groupPanel(_selSigGrp.recs, null, (_sigGroupsAll.filter(function(g) { return g.key === _selSigKey; })[0] || {}).recs) : null)
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし");
   } else if (view === "period") {
+    var _timeScope = (gran === "custom") ? v2recs.filter(function(r) { return (!cFrom || r.date >= cFrom) && (!cTo || r.date <= cTo); }) : v2recs;   // 時間帯別/曜日別は指定期間モードのときその範囲(_crecs相当)に追従 2026-06-28
     _tabBody = React.createElement(React.Fragment, null, _elWeeklyTargetSummaryV2(v2recs, _ai), (function() {
       var _granBtns = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
         [["day", "日別"], ["week", "週別"], ["month", "月別"], ["custom", "指定期間"]].map(function(g) {
@@ -4130,8 +4043,8 @@ function EntryLogView(_ref_elv2) {
               _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("日数"), _thP("件数"), _thP("EP損益"), _thP("H1損益"), _thP("H2損益"), _thP("実現損益"), _thP("E後の勝率"), _thP("見切り率"), _thP("損切り率"))),
             React.createElement("tbody", null, _rows))));
     })(),
-    _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか。集計タブから移設（このスコープ全体）"), _elTimeOfDaySectionV2(v2recs, _ai),
-    _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益（どの曜日が成功しやすいか）。集計タブから移設（このスコープ全体）"), _elDowSectionV2(v2recs, _ai));
+    _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか。集計タブから移設（指定期間のときはその範囲に追従）"), _elTimeOfDaySectionV2(_timeScope, _ai),
+    _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益（どの曜日が成功しやすいか）。集計タブから移設（指定期間のときはその範囲に追従）"), _elDowSectionV2(_timeScope, _ai));
   } else if (view === "deep") {
     _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
       _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・損切り率・EP比改善率）"), _elHoldDepthSectionV2(v2recs, _ai),
@@ -4160,7 +4073,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
         [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setPerExp(null); if (view !== "sum" && view !== "period") setView("sum"); },
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setPerExp(null); setAddAlphaFil("all"); if (view !== "sum" && view !== "period") setView("sum"); },
         style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1a1a1a" : "#ddd"), background: _isAllStock ? "#1a1a1a" : "#fff", color: _isAllStock ? "#fff" : "#666" } },
         "💰 損益 (" + _periodRecs.length + ")"),
@@ -4181,14 +4094,14 @@ function EntryLogView(_ref_elv2) {
             borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    (view !== "alpha") ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" } },   // 追加α分析トグル＝サブタブバー直下へ移動 2026-06-28（母数フィルタを内容の真上に。α値タブは母数固定なので非表示）
+    (view !== "alpha" && !_isAllStock) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", padding: addAlphaFil !== "all" ? "5px 9px" : "0", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "transparent", border: addAlphaFil !== "all" ? "1px solid #FB923C" : "none" } },   // 追加α分析トグル＝サブタブバー直下（α値=母数固定／損益(全銘柄合算)=全体額が部分に紛れるため非表示）。絞り込み中は枠を強調 2026-06-28
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "追加α分析:"),
       [["all", "全部"], ["yes", "〇 要"], ["no", "× 不要"], ["unset", "未選択"]].map(function(kv) {
         var on = addAlphaFil === kv[0];
         return React.createElement("button", { key: kv[0], onClick: function() { setAddAlphaFil(kv[0]); setExpKey(null); },
           style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
       }),
-      addAlphaFil !== "all" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（追加α〇/×/未選択で分析の母数を絞り込み中。α値タブは対象外）") : null) : null,
+      addAlphaFil !== "all" ? React.createElement("span", { style: { fontSize: 10, color: "#C2410C", fontWeight: 700 } }, "🔍 " + (addAlphaFil === "yes" ? "〇要" : addAlphaFil === "no" ? "×不要" : "未選択") + " のみで母数を絞り込み中（「全部」で解除）") : null) : null,
     React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り（全分析タブを表示）、「損益」では全銘柄合算の損益（集計・期間のみ）を表示します。集計・分析タブはEP起算方式（v2）の記録のみ。"),
     _tabBody,
     editTarget ? React.createElement(EntryRecordForm, { data: data, save: save, initial: (editTarget && editTarget.signal) ? editTarget : null, onClose: function() { setEditTarget(null); } }) : null
