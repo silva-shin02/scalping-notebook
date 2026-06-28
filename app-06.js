@@ -3547,7 +3547,7 @@ function EntryLogView(_ref_elv2) {
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"]]
-    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["period", "📆 期間"], ["signal", "🎯 シグナル別"], ["deep", "🔬 深掘り"], ["miss", "❌ 未達"], ["appear", "📡 出現"], ["list", "🗂 一覧"]];
+    : [["sum", "📊 集計"], ["period", "📆 期間"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["signal", "🎯 シグナル別"], ["deep", "🔬 深掘り"]];
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub) {
@@ -4140,44 +4140,6 @@ function EntryLogView(_ref_elv2) {
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）"), _elExecGapSectionV2(v2recs, _ai),
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）"), _elMemoPerfSectionV2(v2recs, _ai)
     ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
-  } else if (view === "appear") {
-    _tabBody = (function() {
-      // 出現シグナル・テクニカルの横断一覧。期間/銘柄は上の絞り込みに連動、種別/名前はタブ内で絞る。
-      var _apAll = _isAllStock ? _elFilterPeriod(_apAllRows, period) : _elFilterPeriod(_apAllRows, period).filter(function(r) { return r.stock === _selStock; });
-      var _apByKind = apKindFil === "all" ? _apAll : _apAll.filter(function(r) { return r.kind === apKindFil; });
-      var _apNames = [], _apSeen = {};
-      _apByKind.forEach(function(r) { if (r.name && !_apSeen[r.name]) { _apSeen[r.name] = 1; _apNames.push(r.name); } });
-      _apNames.sort();
-      var _apShown = (apNameFil ? _apByKind.filter(function(r) { return r.name === apNameFil; }) : _apByKind).slice()
-        .sort(function(a, b) { var k = b.date.localeCompare(a.date); return k !== 0 ? k : (a.time || "99:99").localeCompare(b.time || "99:99"); });
-      var _kc = function(kind) { var isSig = kind === "signal"; return React.createElement("span", { style: { display: "inline-block", fontSize: 9, fontWeight: 700, padding: "0 5px", borderRadius: 3, whiteSpace: "nowrap", color: isSig ? "#9A3412" : "#0369A1", background: isSig ? "#FFEDD5" : "#E0F2FE", border: "1px solid " + (isSig ? "#FB923C" : "#7DD3FC") } }, isSig ? "シグナル" : "テクニカル"); };
-      var _aTh = function(label, extra) { return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "left", fontSize: 10, color: "#9A3412", whiteSpace: "nowrap" }, extra || {}) }, label); };
-      var _aTdS = { padding: "3px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", verticalAlign: "top" };
-      return React.createElement(React.Fragment, null,
-        _secH("📡 出現シグナル・テクニカル（" + _apShown.length + "件）", "取引記録のシグナル(自動)＋手動の出現を横断表示。期間・銘柄は上の絞り込みに連動"),
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" } },
-          React.createElement("div", { style: { display: "flex", gap: 2 } },
-            [["all", "全て"], ["signal", "シグナル"], ["tech", "テクニカル"]].map(function(kv) {
-              var on = apKindFil === kv[0];
-              return React.createElement("span", { key: kv[0], onClick: function() { setApKindFil(kv[0]); setApNameFil(""); }, style: { cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, border: "1px solid " + (on ? "#1a1a1a" : "#ddd"), background: on ? "#1a1a1a" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
-            })),
-          React.createElement("select", { value: apNameFil, onChange: function(e) { setApNameFil(e.target.value); }, style: _selSty },
-            [React.createElement("option", { key: "_a", value: "" }, "名前:全て")].concat(_apNames.map(function(nm) { return React.createElement("option", { key: nm, value: nm }, nm); })))),
-        _apShown.length ? React.createElement(_HScrollBox, null,
-          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
-            React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
-              _aTh("年月日", { width: 96 }), _aTh("銘柄", { width: 90 }), _aTh("時間", { width: 56 }), _aTh("種別", { width: 84 }), _aTh("シグナル・テクニカル"), _aTh("メモ"))),
-            React.createElement("tbody", null, _apShown.map(function(r) {
-              return React.createElement("tr", { key: r.stock + "_" + r.date + "_" + r.id, style: { background: r.src === "auto" ? "#FBFBF9" : "#fff" } },
-                React.createElement("td", { style: Object.assign({}, _aTdS, { whiteSpace: "nowrap", color: "#555" }) }, r.date + "（" + _dow(r.date) + "）"),
-                React.createElement("td", { style: Object.assign({}, _aTdS, { whiteSpace: "nowrap", fontWeight: 700, color: "#9A3412" }) }, r.stock),
-                React.createElement("td", { style: Object.assign({}, _aTdS, { whiteSpace: "nowrap", color: "#666", fontVariantNumeric: "tabular-nums" }) }, r.time || "—"),
-                React.createElement("td", { style: _aTdS }, _kc(r.kind)),
-                React.createElement("td", { style: Object.assign({}, _aTdS, { fontWeight: 700, color: "#333" }) }, r.name || "—"),
-                React.createElement("td", { style: Object.assign({}, _aTdS, { color: "#555", whiteSpace: "pre-wrap", wordBreak: "break-all" }) }, r.memo ? stripHtml(r.memo) : React.createElement("span", { style: { color: "#ccc" } }, "—")));
-            })))
-        ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "出現記録がありません"));
-    })();
   } else if (view === "miss") {
     _tabBody = _isAllStock
       ? React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "上の銘柄タブで銘柄を選ぶと、その銘柄の未達分析を表示します")
@@ -4186,20 +4148,6 @@ function EntryLogView(_ref_elv2) {
               _secH("❌ 未達記録の分析", "αに3本以内（OS1〜3）で届かずエントリーできなかった記録の詳細（×見送りは除く）。最高値の分布・α不足額・α下げシミュ・シグナル別未達率"),
               _elMissSectionV2(v2recs, _ai))
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません"));
-  } else {
-    var _listAll = filtered.slice().sort(_byDateDesc);
-    var _listExclN = _elExclCountRecs(_listAll);
-    var _listRecs = listExclOnly ? _listAll.filter(function(r) { return _elIsExcluded(r.signal); }) : _listAll;
-    _tabBody = React.createElement(React.Fragment, null,
-      _secH("🗂 一覧（旧記録含む全件・" + _listAll.length + "件）", "行タップで明細カード。編集は明細カードの編集ボタンから"),
-      _listExclN > 0 ? React.createElement("div", { style: { marginBottom: 6 } },
-        React.createElement("button", {
-          onClick: function() { setListExclOnly(!listExclOnly); },
-          style: { fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: "pointer",
-            border: "1px solid " + (listExclOnly ? "#0284C7" : "#7DD3FC"),
-            background: listExclOnly ? "#0284C7" : "#E0F2FE", color: listExclOnly ? "#fff" : "#0284C7" } },
-          (listExclOnly ? "✓ " : "") + "不算入のみ " + _listExclN + "件")) : null,
-      _recTable(_listRecs, "full", "l_", listLimit));
   }
 
   return React.createElement("div", { style: { padding: "12px 14px", maxWidth: 1100, margin: "0 auto" } },
@@ -4221,25 +4169,25 @@ function EntryLogView(_ref_elv2) {
             border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
-    (view !== "alpha" && view !== "appear" && view !== "list") ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" } },   // トグルが効かないタブ(α値=母数固定/出現=v2無関係/一覧=全件)では非表示＝ややこしさ回避 2026-06-24i
+    (view !== "alpha") ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" } },   // トグルが効かないα値タブ(母数固定)では非表示＝ややこしさ回避 2026-06-24i（出現/一覧タブは2026-06-28に撤去）
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "追加α分析:"),
       [["all", "全部"], ["yes", "〇 要"], ["no", "× 不要"], ["unset", "未選択"]].map(function(kv) {
         var on = addAlphaFil === kv[0];
         return React.createElement("button", { key: kv[0], onClick: function() { setAddAlphaFil(kv[0]); setExpKey(null); },
           style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
       }),
-      addAlphaFil !== "all" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（追加α〇/×/未選択で分析の母数を絞り込み中。α値・出現・一覧タブは対象外）") : null) : null,
+      addAlphaFil !== "all" ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（追加α〇/×/未選択で分析の母数を絞り込み中。α値タブは対象外）") : null) : null,
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
       _tabs.map(function(kv) {
         var on = view === kv[0];
-        var cnt = kv[0] === "list" ? filtered.length : (kv[0] === "date" ? v2recs.length : (kv[0] === "miss" ? _missCnt : null));
+        var cnt = kv[0] === "miss" ? _missCnt : null;
         return React.createElement("button", { key: kv[0],
           onClick: function() { setView(kv[0]); setExpKey(null); },
           style: { padding: "8px 12px", fontSize: 12, fontWeight: 700, background: "none", border: "none", cursor: "pointer",
             borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り（全分析タブを表示）、「損益」では全銘柄合算の損益（集計・期間のみ）を表示します。集計・分析タブはEP起算方式（v2）の記録のみ。旧記録" + (oldCnt > 0 ? "（" + oldCnt + "件）" : "") + "は銘柄選択時の一覧タブで表示。"),
+    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り（全分析タブを表示）、「損益」では全銘柄合算の損益（集計・期間のみ）を表示します。集計・分析タブはEP起算方式（v2）の記録のみ。"),
     _tabBody,
     editTarget ? React.createElement(EntryRecordForm, { data: data, save: save, initial: (editTarget && editTarget.signal) ? editTarget : null, onClose: function() { setEditTarget(null); } }) : null
   );

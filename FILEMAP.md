@@ -27,6 +27,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-06-28b 記録帳タブ整理（出現・一覧テーブル削除／未達を損切りの右・期間を集計の右へ並べ替え）
+- **app-06.js**: EntryLogViewのサブタブ`_tabs`(非_isAllStock)を `集計→期間→α値→損切り→未達→シグナル別→深掘り` に再構成＝「📡出現(appear)」「🗂一覧(list)」を削除し、未達(miss)を損切り(stop)の右、期間(period)を集計(sum)の右へ移動。`view==="appear"`本体分岐とデフォルト`else`(=一覧listの本体)を削除（miss分岐を閉じる`}`は保持）。タブバッジ`cnt`を`miss=_missCnt`のみへ簡素化（list/dateの死分岐を除去）、追加α分析トグルの表示条件を`view!=="alpha"`へ簡素化＋注記から「出現・一覧」削除。⚠️旧記録(非v2)は一覧タブだけで表示していたため記録帳から非表示に（旧記録oldCnt案内文も撤去・oldCnt計算は据え置き）。`_elMissSectionV2`等の本体関数は不変。esprima構文OK。
+
 ### 2026-06-28 底抜け前足浮き分析をシグナル別へ移設／OS連鎖・カレンダータブ削除／OS値分布に推奨基本αマーク
 - **app-06.js**: (A) `_elAddAlphaSectionV2`（α値タブ）の「🔻底抜け前足浮き（数値根拠）」専用ブロック(旧floatNode)を新トップレベル関数 `_elFloatReasonSectionV2(recs,aiOf,data,secH)` に切り出し、シグナル別パネル `_groupPanel`（推奨基本α詳細の直後）へ移設＝そのシグナル(底抜け水準線OS)の記録だけが母数（`_baRecs`＝追加α分析トグル非依存）。floatRecs(追加α〇かつ数値根拠を含む記録)が無ければnull＝該当シグナルのタブにだけ出る。α値タブの④/⑤根拠別除外(`_elHasNumReason`/`!== _numReason`)は不変。(B) 記録帳サブタブの `_tabs` から `["date","📅 カレンダー"]` と `["oschain","🔗 OS連鎖"]` を削除＋`view==="date"`/`view==="oschain"` の本体分岐も削除（else-ifチェーンは sum→alpha→stop→signal→period→deep→appear→miss で連結。`_elOsLegsSectionV2`/`_elOsChainSection`/カレンダーstate(calYM等)は未使用化＝据え置き）。(C) `_elOsHistV2` に `markVal` propを追加＝現在の推奨基本α(`_elBaseAlphaPick(...).alpha`)に当たるOS値帯を青字+▲マーカー+青枠で強調（注記「▲青字＝現在の推奨基本α（N円）」）。配線は描画2箇所＝`_groupPanel`のOS値分布(markVal=`_baPickAlpha`・`_baRecs`基準)と`_elOsSectionV2`(集計タブ・recs基準)。未達タブの`_elOsHistV2`はmarkVal無し。esprimaで構文検証OK。
 
