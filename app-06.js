@@ -506,19 +506,30 @@ function _elOsHistV2(_ref) {
     bars.push({ key: "25+", x: "25〜", full: "25円〜", cnt: topTot, color: _elOsBucketColor("25+"), band: true, expand: topKeys.length > 0 });
   }
   var maxC = 1; bars.forEach(function(b) { if (b.cnt > maxC) maxC = b.cnt; });
+  // 現在の推奨基本α(markVal)に当たるOS値帯を青字＋▲＋青枠で強調（2026-06-28）。バケットキーは 0-4 / "5".."24" / 25+ / 展開時 "t"+値 に対応。
+  var markVal = (_ref.markVal != null && !isNaN(Number(_ref.markVal))) ? Math.round(Number(_ref.markVal)) : null;
+  var markKey = null;
+  if (markVal != null) {
+    if (markVal <= 4) markKey = "0-4";
+    else if (markVal >= _EL_OS_TOP) markKey = exp ? ("t" + markVal) : "25+";
+    else markKey = String(markVal);
+  }
   var colNodes = bars.map(function(b) {
     var pct = Math.round(b.cnt / cm.tot * 100);
     var _isSel = _histClickable && _selKey === b.key;
+    var _isMark = markKey != null && b.key === markKey;
     var click = _histClickable
       ? function() { _setSelKey(_selKey === b.key ? null : b.key); }
       : (b.expand ? function() { setExp(true); } : (b.collapse ? function() { setExp(false); } : null));
-    return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
+    return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
         style: { flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", cursor: click ? "pointer" : "default" } },
       React.createElement("div", { style: { fontSize: 10, color: _isSel ? "#9A3412" : (b.cnt ? "#555" : "#ccc"), fontWeight: _isSel ? 700 : 400, marginBottom: 2, lineHeight: 1 } }, b.cnt),
-      React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? b.color : "#eee", borderRadius: "2px 2px 0 0", outline: _isSel ? "2px solid #9A3412" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none"), outlineOffset: 1 } }));
+      React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? b.color : "#eee", borderRadius: "2px 2px 0 0", outline: _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none")), outlineOffset: 1 } }));
   });
   var xNodes = bars.map(function(b) {
-    return React.createElement("div", { key: b.key, style: { flex: "1 1 0", minWidth: 0, textAlign: "center", fontSize: 9, color: b.band ? "#9A3412" : "#999", fontWeight: b.band ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, b.x);
+    var _isMark = markKey != null && b.key === markKey;
+    return React.createElement("div", { key: b.key, style: { flex: "1 1 0", minWidth: 0, textAlign: "center", fontSize: 9, color: _isMark ? "#0369A1" : (b.band ? "#9A3412" : "#999"), fontWeight: (_isMark || b.band) ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+      _isMark ? React.createElement("div", { style: { fontSize: 8, color: "#0369A1", lineHeight: 1 } }, "▲") : null, b.x);
   });
   var toggle = topKeys.length ? React.createElement("div", { style: { fontSize: 10, color: "#9A3412", marginTop: 4, cursor: "pointer", fontWeight: 700 }, onClick: function() { setExp(!exp); } }, exp ? "▲ 25円〜をまとめる" : "▼ 25円〜の内訳を見る（" + topKeys.length + "種・" + topTot + "件）") : null;
   var _selEl = null;
@@ -538,10 +549,13 @@ function _elOsHistV2(_ref) {
         React.createElement("span", { onClick: function() { _setSelKey(null); }, style: { cursor: "pointer", color: "#bbb", fontWeight: 400 } }, "×閉じる")),
       React.createElement("div", { style: { padding: "0 6px 6px" } }, _elOsTradeMini(_selRecs, _histAiOf)));
   }
+  var markCap = (markVal != null && markKey != null && bars.some(function(b) { return b.key === markKey; }))
+    ? React.createElement("div", { style: { fontSize: 9, color: "#0369A1", fontWeight: 700, marginTop: 4 } }, "▲ 青字＝現在の推奨基本α（" + markVal + "円）")
+    : null;
   return React.createElement("div", { style: { width: _ref.w || "100%", minWidth: 0 } },
     React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 2, height: (barH + 14) + "px" } }, colNodes),
     React.createElement("div", { style: { display: "flex", gap: 2, borderTop: "1.5px solid #e0ddd6", paddingTop: 3 } }, xNodes),
-    toggle, _selEl);
+    toggle, markCap, _selEl);
 }
 // 「💡 読み取り」欄。items=文字列/ノードの配列（null/falseは除外）。空ならnull。
 // opts.title=見出しに添える分析名・opts.note=末尾の薄字注記。
@@ -2174,81 +2188,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
       corrNode);
   });
 
-  // 底抜け前足浮き（数値根拠）専用: 根拠別分析からは除外。数値（前足浮き値）を別途入力しているので、固定の＋X円ではなく「前足浮き値の何%を追加αにすべきだったか」で分析（理想追加α winMin÷前足浮き値＝理想%）＋%別シミュで最適%を推奨。2026-06-24g→24i。
-  var floatRecs = pool.filter(function(r) { return _reasonsOf(r.signal).indexOf(_numReason) >= 0; });
-  var floatNode = null;
-  if (floatRecs.length) {
-    var _dash2 = React.createElement("span", { style: { color: "#bbb" } }, "—");
-    var _pctTxt = function(v) { return v == null ? _dash2 : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, Math.round(v) + "%"); };
-    var idealPcts = [];   // 各記録の理想%（winMin÷前足浮き×100）＝中央値・シミュ上限に使用
-    var fRows = floatRecs.slice().sort(function(x, y) { var dx = x.date || "", dy = y.date || ""; return dx < dy ? 1 : dx > dy ? -1 : 0; }).map(function(r, i) {
-      var s = r.signal, ai = aiOf(r), cut = ai.cutLine, base = _baseOf(s), actAdd = _addOf(s);
-      var actualTot = (base != null && actAdd != null) ? (base + actAdd) : (ai.alpha != null ? ai.alpha : null);
-      var floatV = _num(s.addAlphaReasonVal);
-      var idealRaw = (base != null) ? _elIdealAddForRec(s, base, cut).winMin : undefined;   // 損切り回避＆H1黒字の最小追加α（円・baseからの上乗せ。null=勝てず／0=足さず勝ち）
-      var actPct = (floatV != null && floatV > 0 && actAdd != null) ? (actAdd / floatV * 100) : null;
-      var idealPct = (floatV != null && floatV > 0 && typeof idealRaw === "number") ? (idealRaw / floatV * 100) : null;
-      if (idealPct != null) idealPcts.push(idealPct);
-      var h1 = (actualTot != null) ? _h1At(s, actualTot, cut) : null;
-      return React.createElement("tr", { key: i },
-        _elv2Td((r.date || "").slice(5).replace("-", "/"), { textAlign: "left", paddingLeft: 8 }),
-        _elv2Td(floatV == null ? _dash2 : (floatV + "円")),
-        _elv2Td(React.createElement("span", null, _addFmt(actAdd), actPct != null ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "(" + Math.round(actPct) + "%)") : null)),
-        _elv2Td(idealRaw === undefined ? _dash2 : idealRaw === null ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#C0392B" } }, "勝てず") : idealRaw === 0 ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#1E8449" } }, "不要(0)") : React.createElement("span", { style: { fontWeight: 800, color: "#9A3412" } }, "+" + idealRaw + "円")),
-        _elv2Td(_pctTxt(idealPct)),
-        _elv2Td(h1 == null ? _dash2 : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(h1) } }, _elPnlFmt(Math.round(h1)))));
-    });
-    var idealPctMed = idealPcts.length ? _elMedian(idealPcts.map(function(v) { return Math.round(v); })) : null;
-    // %別シミュ: 前足浮き値のP%を追加αにして（addAmt=round(F×P/100)）基本αに足し、到達率/損切り率/H1勝率/想定損益(計=ΣH1)を評価→最適%（想定損益最大）を推奨。母数=前足浮き値と基本αが揃う底抜け記録。Pの上限は理想%の最大に追従（10刻み・最大200%）。
-    var simRecs = floatRecs.filter(function(r) { var b = _baseOf(r.signal); var f = _num(r.signal.addAlphaReasonVal); return b != null && f != null && f > 0; });
-    var simNode = null;
-    if (simRecs.length) {
-      var _maxIdeal = idealPcts.length ? Math.max.apply(null, idealPcts) : 100;
-      var _maxP = Math.min(200, Math.max(100, Math.ceil(_maxIdeal / 10) * 10));
-      var _cands = []; for (var _pp = 0; _pp <= _maxP; _pp += 10) _cands.push(_pp);
-      var _evalP = function(P) {
-        var scN = 0, stopN = 0, winN = 0, sum = 0, ent = 0;
-        simRecs.forEach(function(r) {
-          var s = r.signal, cut = aiOf(r).cutLine, b = _baseOf(s), f = _num(s.addAlphaReasonVal);
-          var tot = b + Math.round(f * P / 100);
-          var rr = _epResolve(s, tot);
-          if (!(rr && rr.epIdx >= 0)) return;   // EP未到達
-          ent++;
-          var hd = _elDynHold(s, tot, cut);
-          if (hd == null) return;
-          scN++;
-          if (_elPlanIsStop(s, tot, cut) || _elHoldIsStop(s, tot, cut)) stopN++;
-          if (hd > 0) winN++;
-          sum += hd;
-        });
-        return { P: P, scN: scN, stopRate: scN ? stopN / scN : null, h1win: scN ? winN / scN : null, eRate: simRecs.length ? ent / simRecs.length : null, sum: scN ? sum : null };
-      };
-      var _rowsP = _cands.map(_evalP);
-      var _withPnl = _rowsP.filter(function(x) { return x.sum != null && x.sum > 0; });
-      var _best = _withPnl.length ? _withPnl.reduce(function(a, b) { return b.sum > a.sum ? b : a; }) : null;
-      var _recoNode = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 4, color: _best ? "#0369A1" : "#94A3B8" } },
-        _best ? React.createElement("span", null, "推奨 ＝ 前足浮きの ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, _best.P + "%"), " を追加αに（損切り" + Math.round((_best.stopRate || 0) * 100) + "%・H1勝" + Math.round((_best.h1win || 0) * 100) + "%・想定損益計" + _elPnlFmt(Math.round(_best.sum)) + "・" + _best.scN + "件）")
-          : "推奨：前足浮き比でも想定損益がプラスになる%は出ていません（データ不足／基本α＋実際の追加αで十分）");
-      var _pRows = _rowsP.map(function(x) {
-        var on = _best && x.P === _best.P;
-        return React.createElement("tr", { key: x.P, style: on ? { background: "#FEF3C7" } : null },
-          _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: on ? "#B45309" : "#9A3412" } }, x.P + "%" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
-          _elv2Td(x.eRate != null ? _elPctCell(x.eRate) : _dash2),
-          _elv2Td((x.scN || 0) + "件"),
-          _elv2Td(x.stopRate != null ? _elStopRateCell(x.stopRate) : _dash2),
-          _elv2Td(x.h1win != null ? _elPctCell(x.h1win) : _dash2),
-          _elv2Td(x.sum == null ? _dash2 : React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(Math.round(x.sum)) } }, _elPnlFmt(Math.round(x.sum)))));
-      });
-      simNode = React.createElement("div", { style: { marginTop: 8 } },
-        React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "0 0 2px" } }, "📐 前足浮きの何%を追加αにすると最適か（%別シミュ・★＝想定損益最大）"),
-        _recoNode,
-        _elv2Table(["前足浮き%", "到達率", "件数", "損切り率", "H1勝率", "想定損益(計)"], _pRows));
-    }
-    floatNode = React.createElement("div", null,
-      React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "0 0 4px" } }, "「" + _numReason + "」は数値（前足浮き値）を別途入力しているので、固定の＋X円ではなく『前足浮き値の何%を追加αにすべきだったか』で分析。理想の追加α＝損切りを避けてH1が黒字になる最小の上乗せ（「勝てず」＝最大まで足しても黒字化せず／「不要(0)」＝足さず勝ち）。理想%＝理想の追加α÷前足浮き値。実際の追加α欄の(%)＝実際に足した額÷前足浮き値。" + (idealPctMed != null ? "　🎯 理想%の中央値＝" + idealPctMed + "%。" : "")),
-      _elv2Table(["日付", _numReason + "(円)", "実際の追加α(%)", "理想の追加α", "理想%", "H1損益"], fRows),
-      simNode);
-  }
+  // 底抜け前足浮き（数値根拠）専用の分析は _elFloatReasonSectionV2 に切り出し、シグナル別パネル(_groupPanel)へ移設（2026-06-28）。根拠別分析(④/⑤)からは引き続き除外。
 
   return React.createElement(React.Fragment, null,
     kpi,
@@ -2258,8 +2198,96 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
     rRows.length ? _elv2Table(["根拠", "件数", "上乗せ中央", "E後勝率", "活きた率", "損切り率"], rRows) : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "根拠データなし"),
     _miniH("🧾 根拠別の追加α明細（実際 vs 理想・推奨追加α）"),
     React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "0 0 2px" } }, "実際＝記録の追加α値。理想①勝つ最小＝損切り回避＆H1黒字にできた最小の上乗せ（「勝てず」＝足しても勝てなかった）。約定上限＝これ以上足すと未約定になる上限（αを増やすほどEP到達は難化するため約定の観点は上限で表示）。推奨追加α＝その根拠の〇記録から算出（基本α" + (baseAlphaAll != null ? baseAlphaAll + "円" : "—") + "基準）。"),
-    detSections.length ? React.createElement("div", null, detSections) : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "明細データなし"),
-    floatNode ? React.createElement(React.Fragment, null, _miniH("🔻 " + _numReason + "（前足浮きの何%を追加αにすべきだったか）"), floatNode) : null);
+    detSections.length ? React.createElement("div", null, detSections) : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "明細データなし"));
+}
+
+// 底抜け前足浮き（数値根拠＝data.custom.addAlphaNumericReason）の追加α分析。2026-06-28にα値タブ(_elAddAlphaSectionV2)からシグナル別パネル(_groupPanel)へ移設。
+// recs=そのシグナル(底抜け水準線OS)スコープのv2記録 / aiOf(r)→{alpha,cutLine} / data / secH=見出しヘルパー。数値（前足浮き値）入力前提なので固定の＋X円ではなく「前足浮き値の何%を追加αにすべきだったか」で分析（理想追加α winMin÷前足浮き値＝理想%）＋%別シミュで最適%を推奨。
+// 追加α〇かつ数値根拠を含む記録が無ければ null（＝底抜け記録の無いシグナルのタブには何も出ない）。
+function _elFloatReasonSectionV2(recs, aiOf, data, secH) {
+  var totalV2 = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  var pool = totalV2.filter(function(r) { return _elAddAlphaYes(r.signal); });
+  var _numReason = (data && data.custom && data.custom.addAlphaNumericReason) || "底抜け前足浮き";
+  var _num = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
+  var _baseOf = function(s) { var b = _num(s.baseAlphaVal); if (b == null) { var a = _num(s.alphaVal), ad = _num(s.addAlphaVal); b = (a != null && ad != null) ? (a - ad) : a; } return b; };
+  var _addOf = function(s) { var v = _num(s.addAlphaVal); if (v == null) { var a = _num(s.alphaVal), b = _num(s.baseAlphaVal); v = (a != null && b != null) ? (a - b) : null; } return v; };
+  var _enteredAt = function(s, a) { var rr = _epResolve(s, a); return !!(rr && rr.judge === "ok"); };
+  var _h1At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var h = _elDynHold(s, a, cut); return h == null ? 0 : h; };
+  var _reasonsOf = function(s) { var a = (Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.filter(Boolean) : (s.addAlphaReason ? [s.addAlphaReason] : [])); return a.length ? a : ["（根拠なし）"]; };
+  var _addFmt = function(v, suf) { return v == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#9A3412" : "#94A3B8" } }, "+" + v + "円" + (suf || "")); };
+  var floatRecs = pool.filter(function(r) { return _reasonsOf(r.signal).indexOf(_numReason) >= 0; });
+  if (!floatRecs.length) return null;
+  var _dash2 = React.createElement("span", { style: { color: "#bbb" } }, "—");
+  var _pctTxt = function(v) { return v == null ? _dash2 : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, Math.round(v) + "%"); };
+  var idealPcts = [];   // 各記録の理想%（winMin÷前足浮き×100）＝中央値・シミュ上限に使用
+  var fRows = floatRecs.slice().sort(function(x, y) { var dx = x.date || "", dy = y.date || ""; return dx < dy ? 1 : dx > dy ? -1 : 0; }).map(function(r, i) {
+    var s = r.signal, ai = aiOf(r), cut = ai.cutLine, base = _baseOf(s), actAdd = _addOf(s);
+    var actualTot = (base != null && actAdd != null) ? (base + actAdd) : (ai.alpha != null ? ai.alpha : null);
+    var floatV = _num(s.addAlphaReasonVal);
+    var idealRaw = (base != null) ? _elIdealAddForRec(s, base, cut).winMin : undefined;   // 損切り回避＆H1黒字の最小追加α（円・baseからの上乗せ。null=勝てず／0=足さず勝ち）
+    var actPct = (floatV != null && floatV > 0 && actAdd != null) ? (actAdd / floatV * 100) : null;
+    var idealPct = (floatV != null && floatV > 0 && typeof idealRaw === "number") ? (idealRaw / floatV * 100) : null;
+    if (idealPct != null) idealPcts.push(idealPct);
+    var h1 = (actualTot != null) ? _h1At(s, actualTot, cut) : null;
+    return React.createElement("tr", { key: i },
+      _elv2Td((r.date || "").slice(5).replace("-", "/"), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(floatV == null ? _dash2 : (floatV + "円")),
+      _elv2Td(React.createElement("span", null, _addFmt(actAdd), actPct != null ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "(" + Math.round(actPct) + "%)") : null)),
+      _elv2Td(idealRaw === undefined ? _dash2 : idealRaw === null ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#C0392B" } }, "勝てず") : idealRaw === 0 ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#1E8449" } }, "不要(0)") : React.createElement("span", { style: { fontWeight: 800, color: "#9A3412" } }, "+" + idealRaw + "円")),
+      _elv2Td(_pctTxt(idealPct)),
+      _elv2Td(h1 == null ? _dash2 : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(h1) } }, _elPnlFmt(Math.round(h1)))));
+  });
+  var idealPctMed = idealPcts.length ? _elMedian(idealPcts.map(function(v) { return Math.round(v); })) : null;
+  // %別シミュ: 前足浮き値のP%を追加αにして（addAmt=round(F×P/100)）基本αに足し、到達率/損切り率/H1勝率/想定損益(計=ΣH1)を評価→最適%（想定損益最大）を推奨。母数=前足浮き値と基本αが揃う底抜け記録。Pの上限は理想%の最大に追従（10刻み・最大200%）。
+  var simRecs = floatRecs.filter(function(r) { var b = _baseOf(r.signal); var f = _num(r.signal.addAlphaReasonVal); return b != null && f != null && f > 0; });
+  var simNode = null;
+  if (simRecs.length) {
+    var _maxIdeal = idealPcts.length ? Math.max.apply(null, idealPcts) : 100;
+    var _maxP = Math.min(200, Math.max(100, Math.ceil(_maxIdeal / 10) * 10));
+    var _cands = []; for (var _pp = 0; _pp <= _maxP; _pp += 10) _cands.push(_pp);
+    var _evalP = function(P) {
+      var scN = 0, stopN = 0, winN = 0, sum = 0, ent = 0;
+      simRecs.forEach(function(r) {
+        var s = r.signal, cut = aiOf(r).cutLine, b = _baseOf(s), f = _num(s.addAlphaReasonVal);
+        var tot = b + Math.round(f * P / 100);
+        var rr = _epResolve(s, tot);
+        if (!(rr && rr.epIdx >= 0)) return;   // EP未到達
+        ent++;
+        var hd = _elDynHold(s, tot, cut);
+        if (hd == null) return;
+        scN++;
+        if (_elPlanIsStop(s, tot, cut) || _elHoldIsStop(s, tot, cut)) stopN++;
+        if (hd > 0) winN++;
+        sum += hd;
+      });
+      return { P: P, scN: scN, stopRate: scN ? stopN / scN : null, h1win: scN ? winN / scN : null, eRate: simRecs.length ? ent / simRecs.length : null, sum: scN ? sum : null };
+    };
+    var _rowsP = _cands.map(_evalP);
+    var _withPnl = _rowsP.filter(function(x) { return x.sum != null && x.sum > 0; });
+    var _best = _withPnl.length ? _withPnl.reduce(function(a, b) { return b.sum > a.sum ? b : a; }) : null;
+    var _recoNode = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 4, color: _best ? "#0369A1" : "#94A3B8" } },
+      _best ? React.createElement("span", null, "推奨 ＝ 前足浮きの ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, _best.P + "%"), " を追加αに（損切り" + Math.round((_best.stopRate || 0) * 100) + "%・H1勝" + Math.round((_best.h1win || 0) * 100) + "%・想定損益計" + _elPnlFmt(Math.round(_best.sum)) + "・" + _best.scN + "件）")
+        : "推奨：前足浮き比でも想定損益がプラスになる%は出ていません（データ不足／基本α＋実際の追加αで十分）");
+    var _pRows = _rowsP.map(function(x) {
+      var on = _best && x.P === _best.P;
+      return React.createElement("tr", { key: x.P, style: on ? { background: "#FEF3C7" } : null },
+        _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: on ? "#B45309" : "#9A3412" } }, x.P + "%" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
+        _elv2Td(x.eRate != null ? _elPctCell(x.eRate) : _dash2),
+        _elv2Td((x.scN || 0) + "件"),
+        _elv2Td(x.stopRate != null ? _elStopRateCell(x.stopRate) : _dash2),
+        _elv2Td(x.h1win != null ? _elPctCell(x.h1win) : _dash2),
+        _elv2Td(x.sum == null ? _dash2 : React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(Math.round(x.sum)) } }, _elPnlFmt(Math.round(x.sum)))));
+    });
+    simNode = React.createElement("div", { style: { marginTop: 8 } },
+      React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "0 0 2px" } }, "📐 前足浮きの何%を追加αにすると最適か（%別シミュ・★＝想定損益最大）"),
+      _recoNode,
+      _elv2Table(["前足浮き%", "到達率", "件数", "損切り率", "H1勝率", "想定損益(計)"], _pRows));
+  }
+  return React.createElement(React.Fragment, null,
+    secH("🔻 " + _numReason + "（前足浮きの何%を追加αにすべきだったか）"),
+    React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "0 0 4px" } }, "「" + _numReason + "」は数値（前足浮き値）を別途入力しているので、固定の＋X円ではなく『前足浮き値の何%を追加αにすべきだったか』で分析。理想の追加α＝損切りを避けてH1が黒字になる最小の上乗せ（「勝てず」＝最大まで足しても黒字化せず／「不要(0)」＝足さず勝ち）。理想%＝理想の追加α÷前足浮き値。実際の追加α欄の(%)＝実際に足した額÷前足浮き値。" + (idealPctMed != null ? "　🎯 理想%の中央値＝" + idealPctMed + "%。" : "")),
+    _elv2Table(["日付", _numReason + "(円)", "実際の追加α(%)", "理想の追加α", "理想%", "H1損益"], fRows),
+    simNode);
 }
 
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====
@@ -2465,6 +2493,7 @@ function _elOsBandPerfV2(_ref) {
 function _elOsSectionV2(recs, aiOf) {
   var os = _elOsStatsV2(recs, _elOsMaxAll), pc = _elOsPctlV2(recs, _elOsMaxAll);
   if (!os || !pc) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "OS値の記録がありません");
+  var _baPickAlpha = (function() { var _p = _elBaseAlphaPick(recs, aiOf); return (_p && _p.alpha != null) ? _p.alpha : null; })();   // OS値分布に現在の推奨基本αを青字マーク 2026-06-28
   var skewBadge = pc.skewRight ? React.createElement("span", { title: "平均が一部の大きいOS値に引っ張られています。典型値は中央値で読むのが安全です。", style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 4, padding: "1px 6px", marginLeft: 6 } }, "右偏") : null;
   var statLine = React.createElement("div", { style: { display: "flex", gap: "6px 18px", flexWrap: "wrap", alignItems: "baseline", marginBottom: 6 } },
     React.createElement("span", null, React.createElement("span", { style: { fontSize: 10, color: "#888", fontWeight: 700, marginRight: 3 } }, "中央値"), React.createElement("b", { style: { fontSize: 18, color: "#9A3412" } }, os.med + "円"), skewBadge),
@@ -2475,7 +2504,7 @@ function _elOsSectionV2(recs, aiOf) {
     React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "OS入力 " + os.n + "件"));
   var pieRow = React.createElement("div", { style: { marginBottom: 8 } },
     React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 700, marginBottom: 4 } }, "OS値の分布（1円刻み・各棒に件数）"),
-    React.createElement(_elOsHistV2, { vals: os.vals, recs: recs, aiOf: aiOf }),
+    React.createElement(_elOsHistV2, { vals: os.vals, recs: recs, aiOf: aiOf, markVal: _baPickAlpha }),
     React.createElement("div", { style: { marginTop: 6 } }, _elOsBandLegendV2()));
   var aRows = [["50%（中央値）", pc.a50], ["70%", pc.a70], ["80%", pc.a80], ["90%", pc.a90]].map(function(kv) {
     return React.createElement("tr", { key: kv[0] }, _elv2Td(kv[0], { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#0369A1" }), _elv2Td(React.createElement("b", { style: { color: "#9A3412" } }, "α" + kv[1] + "円")));
@@ -3518,7 +3547,7 @@ function EntryLogView(_ref_elv2) {
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"]]
-    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["period", "📆 期間"], ["date", "📅 カレンダー"], ["signal", "🎯 シグナル別"], ["oschain", "🔗 OS連鎖"], ["deep", "🔬 深掘り"], ["miss", "❌ 未達"], ["appear", "📡 出現"], ["list", "🗂 一覧"]];
+    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["period", "📆 期間"], ["signal", "🎯 シグナル別"], ["deep", "🔬 深掘り"], ["miss", "❌ 未達"], ["appear", "📡 出現"], ["list", "🗂 一覧"]];
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub) {
@@ -3886,6 +3915,7 @@ function EntryLogView(_ref_elv2) {
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
     var os = _elOsStatsV2(recs, _elOsMaxAll), ss = _elStopStatsV2(recs, data), best = _elBestAlphaV2(recs, data), pcg = _elOsPctlV2(recs, _elOsMaxAll);
+    var _baPickAlpha = (function() { var _p = _elBaseAlphaPick(_baRecs, _ai); return (_p && _p.alpha != null) ? _p.alpha : null; })();   // OS値分布に現在の推奨基本αを青字マーク（母数はトグル非依存の_baRecs＝推奨基本α表示と一致）2026-06-28
     var ok = 0, x = 0, miss = 0;
     recs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
     var _baTxt = best ? [best.h1 ? ("H1 " + best.h1.a + "円") : null, best.h2 ? ("H2 " + best.h2.a + "円") : null].filter(Boolean).join(" / ") : "—";
@@ -3907,7 +3937,7 @@ function EntryLogView(_ref_elv2) {
             React.createElement("span", null, "最頻 ", React.createElement("b", null, pcg ? _elOsBucketLabel(pcg.bucketMode.key) : os.mode.val + "円")),
             React.createElement("span", null, "範囲 ", React.createElement("b", null, os.min + "〜" + os.max + "円")),
             pcg ? React.createElement("span", null, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + pcg.a70 + "円")) : null),
-          React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals })),
+          React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, markVal: _baPickAlpha })),
           _elOsBandLegendV2()) : null,
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(recs, _ai),
       recs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: recs, aiOf: _ai })) : null,
@@ -3916,6 +3946,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement(_elBaseAlphaTrendV2, { recs: _baRecs, aiOf: _ai }),
       _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
       _elBaseAlphaDetailV2(_baRecs, _ai),
+      _elFloatReasonSectionV2(_baRecs, _ai, data, _secH),
       _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(recs, _ai),
       _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益"), _elDowSectionV2(recs, _ai),
       _secH("🚫 期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(recs, _ai),
@@ -3976,49 +4007,6 @@ function EntryLogView(_ref_elv2) {
       _secH("🛑 損切りの分析", "エントリーできた記録の損切りを多角的に分析。損切り値の最適化（損切り値別シミュ）・上振れ（早すぎ検証）・シグナル別の損切り率"),
       _elStopTabSectionV2(v2recs, _ai, data))
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
-  } else if (view === "date") {
-    _tabBody = (function() {
-      var byDate = {}; v2recs.forEach(function(r) { (byDate[r.date] = byDate[r.date] || []).push(r); });
-      var allDates = Object.keys(byDate).sort();
-      var _curYM = calYM || (allDates.length ? { y: +allDates[allDates.length - 1].slice(0, 4), m: +allDates[allDates.length - 1].slice(5, 7) } : (function() { var d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })());
-      var _pad = function(n) { return ("0" + n).slice(-2); };
-      var _dstr = function(d) { return _curYM.y + "-" + _pad(_curYM.m) + "-" + _pad(d); };
-      var _startDow = new Date(_curYM.y, _curYM.m - 1, 1).getDay();
-      var _dim = new Date(_curYM.y, _curYM.m, 0).getDate();
-      var _cells = [];
-      for (var _p = 0; _p < _startDow; _p++) _cells.push(null);
-      for (var _dd = 1; _dd <= _dim; _dd++) _cells.push(_dd);
-      while (_cells.length % 7 !== 0) _cells.push(null);
-      var _shiftM = function(delta) { var m = _curYM.m + delta, y = _curYM.y; while (m < 1) { m += 12; y--; } while (m > 12) { m -= 12; y++; } setCalYM({ y: y, m: m }); setSelDate(null); };
-      var _wkC = ["#C0392B", "#666", "#666", "#666", "#666", "#666", "#0369A1"];
-      var _navBtn = function(lbl, fn) { return React.createElement("button", { onClick: fn, style: { padding: "3px 12px", fontSize: 15, fontWeight: 800, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#9A3412" } }, lbl); };
-      var _header = React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 8 } },
-        _navBtn("‹", function() { _shiftM(-1); }),
-        React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: "#9A3412", minWidth: 110, textAlign: "center" } }, _curYM.y + "年 " + _curYM.m + "月"),
-        _navBtn("›", function() { _shiftM(1); }));
-      var _grid = React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 } },
-        ["日", "月", "火", "水", "木", "金", "土"].map(function(w, i) { return React.createElement("div", { key: "w" + i, style: { textAlign: "center", fontSize: 10, fontWeight: 700, color: _wkC[i], padding: "2px 0" } }, w); }),
-        _cells.map(function(d, i) {
-          if (d == null) return React.createElement("div", { key: "e" + i });
-          var ds = _dstr(d), drecs = byDate[ds] || [], cnt = drecs.length, on = selDate === ds;
-          var realSum = 0, hasReal = false;
-          drecs.forEach(function(r) { var v = _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; if (v != null) { realSum += v; hasReal = true; } });
-          return React.createElement("div", { key: "d" + i, onClick: cnt ? function() { setSelDate(ds); } : null,
-            style: { minHeight: 48, border: "1px solid " + (on ? "#9A3412" : "#eee"), borderRadius: 6, padding: "2px 3px", cursor: cnt ? "pointer" : "default", background: on ? "#FFF7ED" : (cnt ? "#fff" : "#fafafa"), display: "flex", flexDirection: "column" } },
-            React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: cnt ? "#555" : "#bbb", display: "flex", alignItems: "center", gap: 2 } }, d,
-              (function() { var _xc = filtered.filter(function(r) { return r.date === ds && _elIsExcluded(r.signal); }).length; return _xc > 0 ? _elExclDot(_xc) : null; })()),
-            cnt ? React.createElement("div", { style: { marginTop: "auto", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } },
-              React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#fff", background: "#F97316", borderRadius: 8, padding: "0 5px" } }, cnt + "件"),
-              hasReal ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _elPnlColor(realSum) } }, _elPnlFmt(realSum)) : null) : null);
-        }));
-      var _detail = selDate ? React.createElement("div", { style: { marginTop: 12 } },
-        _secH("📋 " + selDate + "（" + _dow(selDate) + "）の記録 " + (byDate[selDate] ? byDate[selDate].length : 0) + "件", "行タップで明細"),
-        _recTable((byDate[selDate] || []).slice().sort(function(a, b) { return (a.signal.time || "99:99").localeCompare(b.signal.time || "99:99"); }), "day", "cal_"))
-        : React.createElement("div", { style: { marginTop: 12, color: "#aaa", fontSize: 12, textAlign: "center", padding: "14px 0", border: "1px dashed #e0ddd6", borderRadius: 8 } }, "日付（件数バッジのある日）をタップすると、その日の記録一覧が表示されます");
-      return React.createElement(React.Fragment, null,
-        _secH("📅 カレンダー", "日付タップでその日の記録一覧／オレンジ＝件数・下段＝実現損益合計"),
-        _header, _grid, _detail);
-    })();
   } else if (view === "signal") {
     var _selSigKey = (selSig != null && _sigGroups.some(function(g) { return g.key === selSig; })) ? selSig : (_sigGroups[0] ? _sigGroups[0].key : null);
     var _selSigGrp = _sigGroups.filter(function(g) { return g.key === _selSigKey; })[0];
@@ -4027,12 +4015,6 @@ function EntryLogView(_ref_elv2) {
       _subTabBar(_sigGroups, _selSigKey, setSelSig),
       _selSigGrp ? _groupPanel(_selSigGrp.recs, null, (_sigGroupsAll.filter(function(g) { return g.key === _selSigKey; })[0] || {}).recs) : null)
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし");
-  } else if (view === "oschain") {
-    _tabBody = React.createElement(React.Fragment, null,
-      _secH("📊 各足のOS値プロファイル（OS1〜OS5）", "各足の高値（水準線比）の中央値・下落率・分布（帯⇄1円刻み切替可）。OS2以降は基準線割れ（下落）あり＝下落帯を含む"),
-      React.createElement(_elOsLegsSectionV2, { recs: v2recs }),
-      _secH("🔗 OS連鎖（数値帯の遷移）", "OS1の帯から行タップでOS2→OS3…へ絞り込み。各帯の次OS中央値・遷移・成績"),
-      React.createElement(_elOsChainSection, { recs: v2recs, data: data }));
   } else if (view === "period") {
     _tabBody = React.createElement(React.Fragment, null, _elWeeklyTargetSummaryV2(v2recs, _ai), (function() {
       var _granBtns = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
