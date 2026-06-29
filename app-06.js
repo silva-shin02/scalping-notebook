@@ -3516,8 +3516,13 @@ function EntryLogView(_ref_elv2) {
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub) {
+    // 追加α分析トグルが効いている時だけ、各セクション見出しに現在の絞り込みをバッジで明示（スクロールで見出しが目に入っても「今どの母数か」が分かる）。
+    // α値タブは母数固定（トグル非適用）なので付けない・損益(全銘柄合算)はトグル非表示なので付けない 2026-06-29e。
+    var _fb = (addAlphaFil !== "all" && view !== "alpha" && !_isAllStock)
+      ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 9, fontWeight: 700, color: "#C2410C", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 4, padding: "1px 6px", marginLeft: 6, verticalAlign: "middle", whiteSpace: "nowrap" } }, "🔍 " + (addAlphaFil === "yes" ? "〇要" : addAlphaFil === "no" ? "×不要" : "未選択") + "のみ")
+      : null;
     return React.createElement("div", { style: { margin: "14px 0 6px" } },
-      React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, t),
+      React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, t, _fb),
       sub ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginTop: 2 } }, sub) : null);
   };
   var _kpiCard = function(label, val, color, sub) {
@@ -4191,7 +4196,7 @@ function EntryLogView(_ref_elv2) {
             borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    (view !== "alpha" && !_isAllStock) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", padding: addAlphaFil !== "all" ? "5px 9px" : "0", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "transparent", border: addAlphaFil !== "all" ? "1px solid #FB923C" : "none" } },   // 追加α分析トグル＝サブタブバー直下（α値=母数固定／損益(全銘柄合算)=全体額が部分に紛れるため非表示）。絞り込み中は枠を強調 2026-06-28
+    (view !== "alpha" && !_isAllStock) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝サブタブバー直下＋スクロール追従(sticky top0)で常に見える化（α値=母数固定／損益(全銘柄合算)=非表示）。絞り込み中は橙で強調 2026-06-28→sticky化 2026-06-29e
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "追加α分析:"),
       [["all", "全部"], ["yes", "〇 要"], ["no", "× 不要"], ["unset", "未選択"]].map(function(kv) {
         var on = addAlphaFil === kv[0];
