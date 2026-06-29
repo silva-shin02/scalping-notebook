@@ -1013,11 +1013,12 @@ function ImgThumb(_ref_it) {
         position: "absolute", top: 3, left: 3,
         minWidth: 18, height: 18, borderRadius: 9,
         background: "rgba(0,0,0,0.6)", color: "#FFD54A",
-        fontSize: 12, lineHeight: "18px", textAlign: "center",
-        padding: "0 2px", pointerEvents: "none"
+        fontSize: 11, lineHeight: "18px", textAlign: "center",
+        padding: "0 5px", pointerEvents: "none",
+        display: "flex", alignItems: "center", gap: 3, whiteSpace: "nowrap"
       },
-      title: "保護中（自動削除されません）"
-    }, "★") : null
+      title: "保存済み（自動削除されません）"
+    }, React.createElement("svg", { width: 11, height: 11, viewBox: "0 0 24 24", fill: "currentColor", style: { flexShrink: 0 }, "aria-hidden": "true" }, React.createElement("path", { d: "M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" })), "保存済み") : null
   );
 }
 function ImgGrid(_ref15) {
@@ -1071,7 +1072,7 @@ function ImgGrid(_ref15) {
       onClick: function onClick() {
         return onToggleStar(i);
       },
-      title: img && img.star ? "\u4fdd\u8b77\u3092\u89e3\u9664" : "\u2605\u3067\u4fdd\u8b77\uff08\u81ea\u52d5\u524a\u9664\u3057\u306a\u3044\uff09",
+      title: img && img.star ? "\u4fdd\u5b58\u6e08\u307f\uff08\u30bf\u30c3\u30d7\u3067\u89e3\u9664\uff09" : "\u30bf\u30c3\u30d7\u3067\u4fdd\u5b58\uff08\u81ea\u52d5\u524a\u9664\u3057\u306a\u3044\uff09",
       style: {
         width: 24,
         height: 24,
@@ -1085,7 +1086,7 @@ function ImgGrid(_ref15) {
         alignItems: "center",
         justifyContent: "center"
       }
-    }, "\u2605"), onRemove && React.createElement("button", {
+    }, React.createElement("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "currentColor", "aria-hidden": "true" }, React.createElement("path", { d: (img && img.star) ? "M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" : "M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z" }))), onRemove && React.createElement("button", {
       onClick: function onClick() {
         return onRemove(i);
       },

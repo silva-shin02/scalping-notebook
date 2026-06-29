@@ -2507,7 +2507,7 @@ function SettingsModal(_ref54) {
           style: { width: 46, height: 25, borderRadius: 13, border: "none", cursor: "pointer", position: "relative", padding: 0, flexShrink: 0, background: _nadEnabled ? "#0EA5E9" : "#cbd5e1" }
         }, React.createElement("span", { style: { position: "absolute", top: 3, left: _nadEnabled ? 24 : 3, width: 19, height: 19, borderRadius: "50%", background: "#fff" } }))
       ),
-      React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.7, marginBottom: 10 } }, "追加してから一定期間がたったニュース画像を、起動時に自動で削除します（テキスト・タグ・記録は残ります）。各画像の★を押すと保護され、期限を過ぎても削除されません。"),
+      React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.7, marginBottom: 10 } }, "追加してから一定期間がたったニュース画像を、起動時に自動で削除します（テキスト・タグ・記録は残ります）。各画像の鍵マーク🔒を押すと「保存済み」になり、期限を過ぎても削除されません。"),
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, opacity: _nadEnabled ? 1 : 0.5 } },
         React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600 } }, "削除する期間"),
         React.createElement("input", { type: "text", inputMode: "numeric", value: _stNdV, disabled: !_nadEnabled,
@@ -2523,7 +2523,7 @@ function SettingsModal(_ref54) {
         React.createElement("span", { style: { fontSize: 11, color: "#94a3b8" } }, "＝" + (_ndCalcDays(_stNdV, _stNdU) || "?") + "日")
       ),
       (_nadEnabled && _ndPreview != null) ? React.createElement("div", { style: { marginTop: 8, fontSize: 11, fontWeight: 600, background: "#fff", borderRadius: 6, padding: "6px 10px", color: _ndPreview > 0 ? "#B45309" : "#15803D" } },
-        _ndPreview > 0 ? ("現在この設定だと ★なしのニュース画像 " + _ndPreview + "枚 が削除対象です（次回起動時にまとめて確認します）") : "現在、削除対象の画像はありません"
+        _ndPreview > 0 ? ("現在この設定だと 保存していないニュース画像 " + _ndPreview + "枚 が削除対象です（次回起動時にまとめて確認します）") : "現在、削除対象の画像はありません"
       ) : null
     ),
     React.createElement("button", {

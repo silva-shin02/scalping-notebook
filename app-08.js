@@ -871,7 +871,7 @@ function App() {
       var label = (period % 7 === 0) ? (period / 7 + "週間") : (period + "日");
       var firstRun = localStorage.getItem("sn_news_autoprune_ack_v1") !== "1";
       if (firstRun) {
-        var ok = window.confirm("ニュース画像の自動削除がオンになっています。\n\n追加から" + label + "を過ぎたニュース画像 " + r.count + "枚 を削除します。\n★を付けた画像は残ります。テキスト・タグ・記録は消えません。\n\n削除しますか？（設定でオフ／期間変更できます）");
+        var ok = window.confirm("ニュース画像の自動削除がオンになっています。\n\n追加から" + label + "を過ぎたニュース画像 " + r.count + "枚 を削除します。\n「保存済み」にした画像は残ります。テキスト・タグ・記録は消えません。\n\n削除しますか？（設定でオフ／期間変更できます）");
         if (!ok) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
         localStorage.setItem("sn_news_autoprune_ack_v1", "1");
       }
