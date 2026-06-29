@@ -256,7 +256,16 @@ function App() {
     _useState170 = _slicedToArray(_useState169, 2),
     fbStatus = _useState170[0],
     setFbStatus = _useState170[1];
-  
+  // 同期ステータス強化（オンライン/オフライン・最終同期時刻）2026-06-29
+  var _uOnline = useState(typeof navigator !== "undefined" ? navigator.onLine : true), _snOnline = _uOnline[0], _setSnOnline = _uOnline[1];
+  var _uLastSync = useState(null), _snLastSync = _uLastSync[0], _setSnLastSync = _uLastSync[1];
+  useEffect(function() {
+    var _on = function() { _setSnOnline(true); }, _off = function() { _setSnOnline(false); };
+    window.addEventListener("online", _on); window.addEventListener("offline", _off);
+    return function() { window.removeEventListener("online", _on); window.removeEventListener("offline", _off); };
+  }, []);
+  useEffect(function() { if (fbStatus === "ok") { try { _setSnLastSync(new Date()); } catch (e) {} } }, [fbStatus]);
+
   var _useStateHEF = useState(false),
     _useStateHEFA = _slicedToArray(_useStateHEF, 2),
     showHomeEventForm = _useStateHEFA[0],
@@ -964,18 +973,20 @@ function App() {
   }, "\u8AAD\u307F\u8FBC\u307F\u4E2D...");
   var mp = cY + "-" + String(cM + 1).padStart(2, "0");
   var mPnl = _mAgg.mPnl, mCnt = _mAgg.mCnt, mW = _mAgg.mW;
+  var _snSyncTxt = _snLastSync ? ("最終同期 " + _snLastSync.getHours() + ":" + String(_snLastSync.getMinutes()).padStart(2, "0")) : (cfg.fbUrl ? "未同期" : "");
   var fbBadge = cfg.fbUrl ? React.createElement("span", {
+    title: (_snOnline ? "" : "オフライン中（接続が戻ると自動同期）。") + _snSyncTxt,
     style: {
       fontSize: 11,
       fontWeight: 600,
       padding: "6px 10px",
       borderRadius: 6,
       border: "1px solid",
-      color: fbStatus === "ok" ? "#166534" : fbStatus === "syncing" ? "#92400E" : "#991B1B",
-      background: fbStatus === "ok" ? "#F0FDF4" : fbStatus === "syncing" ? "#FFFBEB" : "#FEF2F2",
-      borderColor: fbStatus === "ok" ? "#A7F3D0" : fbStatus === "syncing" ? "#FDE68A" : "#FECACA"
+      color: !_snOnline ? "#6B7280" : fbStatus === "ok" ? "#166534" : fbStatus === "syncing" ? "#92400E" : "#991B1B",
+      background: !_snOnline ? "#F3F4F6" : fbStatus === "ok" ? "#F0FDF4" : fbStatus === "syncing" ? "#FFFBEB" : "#FEF2F2",
+      borderColor: !_snOnline ? "#D1D5DB" : fbStatus === "ok" ? "#A7F3D0" : fbStatus === "syncing" ? "#FDE68A" : "#FECACA"
     }
-  }, fbStatus === "ok" ? "🔥 同期済" : fbStatus === "syncing" ? "⏳ 同期中" : "⚠️ 接続エラー") : React.createElement("div", {
+  }, !_snOnline ? "📴 オフライン" : fbStatus === "ok" ? "🔥 同期済" : fbStatus === "syncing" ? "⏳ 同期中" : "⚠️ 接続エラー") : React.createElement("div", {
     style: {
       display: "flex",
       gap: 4
@@ -1396,8 +1407,26 @@ function App() {
   })));
 }
 
+// React エラーバウンダリ（2026-06-29）: どこか1コンポーネントが描画中にthrowしてもアプリ全体を白画面にせず、エラー表示＋再読み込みに切り替える。過去に構文ミスで本番が白画面になった事故の安全網。ES5プロトタイプ方式（このコードはJSXもclass構文も使わないため）。labelを渡すと場所名を表示（個別ビュー用）。
+function _SNErrorBoundary(props) { React.Component.call(this, props); this.state = { err: null }; }
+_SNErrorBoundary.prototype = Object.create(React.Component.prototype);
+_SNErrorBoundary.prototype.constructor = _SNErrorBoundary;
+_SNErrorBoundary.getDerivedStateFromError = function(err) { return { err: err }; };
+_SNErrorBoundary.prototype.componentDidCatch = function(err, info) { try { console.error("[SN] 画面クラッシュ:", err, info && info.componentStack); } catch (e) {} };
+_SNErrorBoundary.prototype.render = function() {
+  if (this.state && this.state.err) {
+    var _m = (this.state.err && (this.state.err.message || String(this.state.err))) || "不明なエラー";
+    return React.createElement("div", { style: { margin: "24px auto", maxWidth: 560, padding: "20px 22px", background: "#FFF7ED", border: "1px solid #FB923C", borderRadius: 12, lineHeight: 1.7 } },
+      React.createElement("div", { style: { fontSize: 16, fontWeight: 800, marginBottom: 8, color: "#7C2D12" } }, "⚠ 画面の描画でエラーが発生しました" + (this.props.label ? "（" + this.props.label + "）" : "")),
+      React.createElement("div", { style: { fontSize: 12, color: "#9A3412", marginBottom: 6 } }, "データは保存されています（描画だけが失敗しました）。再読み込みで復帰することがあります。"),
+      React.createElement("pre", { style: { fontSize: 11, color: "#92400E", whiteSpace: "pre-wrap", wordBreak: "break-all", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "8px 10px", margin: "8px 0" } }, _m),
+      React.createElement("button", { onClick: function() { try { location.reload(); } catch (e) {} }, style: { padding: "8px 16px", fontSize: 13, fontWeight: 700, color: "#fff", background: "#9A3412", border: "none", borderRadius: 8, cursor: "pointer" } }, "🔄 再読み込み"));
+  }
+  return this.props.children;
+};
+
 try { var _ob = document.getElementById("fb-usage-banner"); if (_ob) _ob.remove(); } catch(e){}
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(_SNErrorBoundary, null, React.createElement(App, null)));
 
 (function(){
   var _diagOn = false, _diagHL = null;

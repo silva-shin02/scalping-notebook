@@ -2484,6 +2484,20 @@ function SettingsModal(_ref54) {
   })() : null,
   _stTab === "maint" && React.createElement("div", { style: { marginTop: 18, paddingTop: 14, borderTop: "1px solid #eee" } },
     React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "🧹 メンテナンス"),
+    (function() {   // 端末localStorage使用量メーター（事前見える化）2026-06-29。満杯になると記録の保存に失敗するので、満杯前に整理を促す。タブを開いた時だけ計測。
+      var used = 0; try { for (var i = 0; i < localStorage.length; i++) { var _k = localStorage.key(i); var _v = localStorage.getItem(_k) || ""; used += ((_k ? _k.length : 0) + _v.length) * 2; } } catch (e) {}
+      var cap = 5 * 1048576;   // 端末差(5〜10MB)はあるが安全側の目安5MB
+      var pct = Math.min(100, Math.round(used / cap * 100));
+      var col = pct >= 85 ? "#DC2626" : pct >= 65 ? "#D97706" : "#0EA5E9";
+      return React.createElement("div", { style: { marginTop: 4, marginBottom: 14, padding: "12px 14px", background: pct >= 85 ? "#FEF2F2" : "#FFFBEB", border: "1px solid " + (pct >= 85 ? "#FCA5A5" : "#FDE68A"), borderRadius: 10 } },
+        React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6, gap: 8, flexWrap: "wrap" } },
+          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#92400E" } }, "💾 端末の保存容量（localStorage）"),
+          React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: col } }, _stFmtMB(used) + " / 目安 5 MB（" + pct + "%）")),
+        React.createElement("div", { style: { height: 10, borderRadius: 5, background: "#F3F4F6", overflow: "hidden" } },
+          React.createElement("div", { style: { width: pct + "%", height: "100%", background: col } })),
+        React.createElement("div", { style: { fontSize: 10, color: pct >= 85 ? "#DC2626" : "#999", marginTop: 6, lineHeight: 1.6 } },
+          pct >= 85 ? "⚠ 残りわずかです。下の「不要キャッシュを削除」や「画像の整理」で空けてください（満杯になると記録の保存に失敗します）。" : "記録・設定・日足キャッシュ等の合計。満杯前に下のメンテナンスで整理できます。端末により上限は5〜10MBと差があり、5MBは安全側の目安です。"));
+    })(),
     React.createElement("div", { style: { marginTop: 4, marginBottom: 14, padding: "12px 14px", background: "#F0F9FF", border: "2px solid #BAE6FD", borderRadius: 10 } },
       React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 } },
         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#0C4A6E" } }, "🗞 ニュース画像の自動削除"),

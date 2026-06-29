@@ -27,6 +27,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-06-29 アプリ全体の安全網（エラーバウンダリ・容量メーター・同期ステータス強化・Firebaseルール手順）
+- **app-08.js**: ①Reactエラーバウンダリ`_SNErrorBoundary`（ES5プロトタイプ方式・class構文/JSXを使わないため）を新設し `ReactDOM.createRoot().render` で `App` を包囲＝どこかのコンポーネントが描画中にthrowしても白画面にせず「⚠エラー表示＋🔄再読み込み」に切替（過去の白画面事故の安全網。labelで場所名表示も可）。②同期バッジ(fbBadge)を強化＝オンライン/オフライン(`navigator.onLine`＋online/offlineリスナーの`_snOnline`)で「📴オフライン」表示、最終同期時刻(`_snLastSync`・`fbStatus`→okのuseEffectで更新)をtitleツールチップに。
+- **app-04.js**: SettingsModalのメンテナンスタブ先頭に💾localStorage使用量メーター（全キー走査でbytes算出÷目安5MB・65%/85%で色変化＋満杯前の警告文。タブを開いた時だけ計測）。事後の保存失敗アラートだけだったのを事前見える化。
+- **FIREBASE_RULES.md（新規）**: RTDBは`?auth=<fbSecret>`(Database secret)でルールをバイパスするため、ルールを`.read/.write:false`に締めてもアプリは動き第三者だけ締め出せる、という確認・推奨手順書。Storageを締めるには匿名認証が要る点も明記。コードからは現ルールを確認できないためユーザーがConsoleで要確認。
+
 ### 2026-06-28f シグナル別パネルのスリム化（2段構成＝汎用分析を折りたたみ・提案#5）
 - **app-06.js**: `_groupPanel`（シグナル別タブのパネル）を2段構成に＝コア（KPI/OS値分布/推奨基本α傾向+詳細/🔻底抜け前足浮き/🗂記録一覧）は常時表示、汎用7ブロック（📍EP位置/📈累積損益/📉α感応度/🕘時間帯別/📅曜日別/🚫期待度×/🔺期待度△＝各専用タブにも全体スコープ版あり）をネイティブ`<details><summary>`「詳細分析（…）」に既定折りたたみ（React状態管理不要・閉時もDOMには存在）。並びはコア→詳細分析→記録一覧に整理。esprima構文OK。
 
