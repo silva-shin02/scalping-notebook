@@ -1459,7 +1459,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
     React.createElement("span", null, "〜", _elInsightEmV2(first.label), "の推奨基本αは", _elInsightEmV2(first.pick.alpha + "円"), "、直近の", _elInsightEmV2(last.label), "は", _elInsightEmV2(last.pick.alpha + "円"), "。"),
     (last.pick.alpha !== first.pick.alpha) ? React.createElement("span", null, "最近は", _elInsightEmV2((last.pick.alpha > first.pick.alpha ? "高め" : "低め") + "（" + (last.pick.alpha > first.pick.alpha ? "+" : "") + (last.pick.alpha - first.pick.alpha) + "円）"), "の傾向。") : null
   ].filter(Boolean), { note: "各期間で「件数フロアを満たす中で合成スコア(損切り回避70%＋H1勝率30%)が最大のα」＝損切りしにくくH1で利益が出やすい土台。スコアは0〜100点。" + (gran === "day" ? "日別は件数が少ない日も参考(橙「参考」)で表示。" : "該当なしの期間は非表示。") + "5〜20円。件数が少ない期間は振れやすい" }) : null;
-  return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "損切り率", "H1勝率", "スコア", "件数"], rows), insight);
+  return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "損切り率", "H1勝率", "スコア", "有効件数"], rows), insight);
 }
 // 推奨基本αの「期間まとめ」: 1つの推奨値＋追加α＋α別の 損切り率(H1)/H1勝率/スコア 早見表（★=推奨）＋読み取り。2026-06-22再設計。
 function _elBaseAlphaSummary(recs, aiOf) {
@@ -1480,7 +1480,7 @@ function _elBaseAlphaSummary(recs, aiOf) {
       _elv2Td(e.scN + "件"),
       _elv2Td(_elScoreCell(e.score)));
   });
-  var _sweepHead = ["基本α", "EP到達(OS2)", "損切り率(H1)", "H1勝率", "件数", "スコア"];
+  var _sweepHead = ["基本α", "EP到達(OS2)", "損切り率(H1)", "H1勝率", "有効件数", "スコア"];
   var stopP = pick.stopRate != null ? Math.round(pick.stopRate * 100) : null;
   var winP = pick.h1win != null ? Math.round(pick.h1win * 100) : null;
   var cards = _elv2CardRow([
@@ -1489,7 +1489,7 @@ function _elBaseAlphaSummary(recs, aiOf) {
     _elv2Card("H1勝率", winP != null ? winP + "%" : "—", winP != null ? (winP >= 70 ? "#1E8449" : winP >= 50 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
     _elv2Card("スコア", _elScoreCell(pick.score), null, "0〜100"),
     _elv2Card("EP到達率(OS2)", _elPctCell(pick.eRate), null),
-    _elv2Card("件数", (pick.scN != null ? pick.scN : 0) + "件", null, "判定可能なE")
+    _elv2Card("有効件数", (pick.scN != null ? pick.scN : 0) + "件", null, "判定可能なE")
   ]);
   var banner = na ? React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 6, padding: "5px 8px", marginBottom: 6 } }, "⚠ 該当なし：件数フロア" + minN + "件以上のαがありません → 件数最大のα " + pick.alpha + "円 を参考表示（信頼度低）") : null;
   return React.createElement("div", null, banner, cards,
@@ -1571,7 +1571,7 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
   return React.createElement("div", null,
     concl,
     _lbl("α別の総当たり（5〜20円・★＝採用・件数フロア" + minN + "件未満は淡色／平均H1損益＝ΣH1損益÷件数）"),
-    _elv2Table(["基本α", "到達率", "件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], sweepRows),
+    _elv2Table(["基本α", "到達率", "有効件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], sweepRows),
     insight);
 }
 // 推奨基本α表（銘柄/期間グループ別）: groups=[{label,recs}]・cutFn(r)→損切り値。各グループの推奨基本α(_elBaseAlphaPick・5〜20・
@@ -1710,7 +1710,7 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
         _elv2Td(_elSimPnlCell(sim2), _ds)));
     }
   });
-  return _elv2Table(["期間", "推奨基本α", "推奨損切り", "損切り率", "H1勝率", "到達率", "件数", "想定損益(1日/1件)"], rows);
+  return _elv2Table(["期間", "推奨基本α", "推奨損切り", "損切り率", "H1勝率", "到達率", "有効件数", "想定損益(1日/1件)"], rows);
 }
 // 推奨追加α値の期間別表（母数＝追加α〇の記録だけ＝基本α表とは別プール）2026-06-24→24g。各期間で「基本α＋推奨追加α」を〇記録に当てた 損切り率/H1勝率/到達率/件数/想定損益。
 // 推奨追加α＝_elBaseAlphaA().add（基本αに足して損切りを避けH1黒字にできる最小加算＝想定損益はプラス・改善無しは「推奨無し」）。次点は点線区切りで1行追加。〇記録の無い期間は—。
@@ -1764,7 +1764,7 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
         _elv2Td(_elSimPnlCell(add.sim2), _ds)));
     }
   });
-  return _elv2Table(["期間", "推奨追加α", "損切り率", "H1勝率", "到達率", "件数", "想定損益(1日/1件)"], rows);
+  return _elv2Table(["期間", "推奨追加α", "損切り率", "H1勝率", "到達率", "有効件数", "想定損益(1日/1件)"], rows);
 }
 
 // 銘柄ごとの「α 推奨基本α値（{stock}・期間別）」ブロック（見出し＋説明＋期間別表_elBaseAlphaPeriodTableV2）。ChartSection(app-02)と取引テーブルの本日損益データ(app-04)で共用＝同じ見た目に統一 2026-06-24。
