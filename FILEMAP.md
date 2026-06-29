@@ -47,6 +47,10 @@ HomeEventFormModal, App
 ### 2026-06-28c 記録帳タブ内容の配置整理（期待度×/△・EP位置→深掘り／時間帯別・曜日別→期間／OS値のα目安→α値）
 - **app-06.js**: 配置監査で判明した「集計タブの肥大」を是正＝集計(銘柄別 `_sumStockContent`)から以下を移設。①🚫期待度×(`_elXSkipSectionV2`)・🔺期待度△(`_elTriangleHoldSectionV2`)→🔬**深掘り**(期待度キャリブレーションの隣＝"期待度の精度"3兄弟を集約)。②📍EP位置(`_elEpPosSectionV2`)→🔬**深掘り**(計画EP vs 実エントリーの執行乖離の隣＝執行ペア)。③🕘時間帯別(`_elTimeOfDaySectionV2`)・📅曜日別(`_elDowSectionV2`)→📆**期間**(期間IIFEの後にスコープ全体 `v2recs` で append)。④OS値の分析(`_elOsSectionV2`)内「成立率の目安(OS→α分位)」を新関数 `_elOsAlphaPctlTableV2(recs)` に切り出し📐**α値**タブへ(集計のOS分析からは `aTable`＋"α設定の目安"insight行を削除・OS本体/分布/帯別成績は集計に残置)。シグナル別 `_groupPanel` と期間行展開 `_detailOf` の各セクションは設計上の重複として不変。集計タブの残り＝KPI/OS値の分析/累積損益/連勝連敗DD。esprima構文OK。
 
+### 2026-06-29b 本日αボードのメインを3列横並び化／推奨α欄をマスター全銘柄に拡張
+- **app-06.js**: `_elBaseAlphaSimpleBoardV2` のメインブロックを縦3行→3列グリッド(`repeat(3,1fr)`)に変更（ユーザー選択=案A）。`_baseNode`/`_addNode`/`_cutNode` の `big` 表示を「値(20px)＋補足(11px)の縦積み」に再構成（基本α=次点／追加α=計X・次点+Y／損切り=参考のみ）。`_lbl` をインライン(minWidth70)→ブロックの上ラベルへ。サブ行(`big=false`)のインライン表示は不変。
+- **app-04.js**: 本日αボードの対象銘柄 `_alphaBoardStks` を「本日エントリー銘柄のみ／無ければフォールバック」→**マスター登録の全銘柄**(`data.custom.stocks`||`_DEF_STOCKS_FROZEN`)に拡張（ユーザー選択）。本日エントリー銘柄(_pbStks)を先頭、その後にマスター順の残り（本日取引なし）。日経平均株価＝指数(エントリーα対象外)は除外。本日取引なし時のバナー文言も更新。`_elStocksWithV2Before`(app-06)は不使用化（定義は温存）。検証＝app-06は全体JScript構文OK・app-04はES3誤検出で全体不可のため追加分を単体構文OK＋HEAD比較で同一エラー（＝編集起因でない）を確認。
+
 ### 2026-06-29 取引テーブルの推奨基本α値欄に推奨損切り値を併記（期間別表に列追加＋ボード/🎯ブロック）
 - **app-06.js**: 推奨基本α(`_elBaseAlphaA`/`_elBaseAlphaPick`)を表示する各所に推奨損切り値(`_elCutPick`の`cut`＝実現H1損益をほぼ維持できる最小タイト損切り・10〜30円)を併記（ユーザー要望「値のみ簡潔に」）。新ヘルパー `_elCutPickCell(recs,aiOf)`（期間別表セル用・値のみ・na=参考・データ無し—・赤系で基本α青と区別）。(A) `_elBaseAlphaPeriodTableV2` に「推奨損切り」列を推奨基本αの右へ追加（主行=`_elCutPickCell(pd.recs,aiOf)`・次点行はαの2番手なのでdash・ヘッダ8列化）＝ChartSection(app-02)/DayViewチャートタブ/取引テーブルの共用表すべてに反映。(B) `_elBaseAlphaSimpleBoardV2`（取引タブ・本日のαボード）にローカル`_cutNode(p,big)`を新設しメインブロックに「推奨損切り」行・サブ行に「切」を追加（窓は`W.periods[1|sd.i].recs`＝基本αと同窓）。(C) `_elBaseAlphaDayBlockV2`（🎯ブロック）はheadに`recs`を保持し見出しに「推奨損切りN円」を併記。母数＝`_elPeriodWindows`が`_epIsV2&&_elInclTotal`で絞り済みのpd.recs（追加α〇も含む全記録＝フォームの推奨損切りと同母数。基本αだけ〇を除外する点は既存設計どおり）。説明文にも「推奨損切り＝…」を追記。JScript `new Function` 構文OK。
 

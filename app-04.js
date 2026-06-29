@@ -4888,11 +4888,13 @@ function DayView(_ref57) {
     // 簡略版「本日の推奨基本α値」: 本日の取引記録が無くても表示する（前日までの記録から推奨）2026-06-25。
     // 本日エントリーした銘柄(_pbStks)があればそれを、無ければ前日までにv2記録のある銘柄（_pbStkOrder優先→件数順）を母数にする。
     var _alphaBoardNoTrade = !_pbStks.length;
-    var _alphaBoardStks = _pbStks.length ? _pbStks : _elStocksWithV2Before(data, date, _pbStkOrder);
+    // 推奨α欄はマスター登録の全銘柄を対象に（本日取引が無い銘柄も表示）2026-06-29。日経平均株価＝指数(エントリーα対象外)は除外。本日エントリー銘柄(_pbStks)を先頭、その後にマスター順の残り（本日取引なし）。
+    var _alphaMaster = (data.custom && data.custom.stocks && data.custom.stocks.length > 0) ? data.custom.stocks : _DEF_STOCKS_FROZEN;
+    var _alphaBoardStks = _pbStks.concat(_alphaMaster.filter(function(s) { return s !== "日経平均株価" && _pbStks.indexOf(s) < 0; }));
     var _simpleAlphaEl = _alphaBoardStks.length ? React.createElement("div", { style: Card },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#0369A1", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } }, "🎯 本日の推奨基本α値（簡略・銘柄別）",
         React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "再推奨＋次点／直近50件メイン")),
-      _alphaBoardNoTrade ? React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 6, padding: "4px 8px", marginBottom: 8, fontWeight: 700 } }, "本日の取引記録はまだありません。前日までの記録から、よく取引する銘柄の推奨を表示しています。") : null,
+      _alphaBoardNoTrade ? React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 6, padding: "4px 8px", marginBottom: 8, fontWeight: 700 } }, "本日の取引記録はまだありません。マスター登録の全銘柄について、前日までの記録から推奨を表示しています。") : null,
       _elBaseAlphaSimpleBoardV2(data, _alphaBoardStks, date)) : null;
     if (!_pbStks.length) return React.createElement(React.Fragment, null, _simpleAlphaEl, _soukatsuEl, _wkMainEl);
     

@@ -1845,9 +1845,14 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
   var _baseNode = function(pk, big) {
     if (!pk || pk.alpha == null) return React.createElement("span", { style: { color: "#94A3B8", fontSize: big ? 13 : 10, fontWeight: 700 } }, "データ不足");
     var na = pk.status === "na", col = na ? "#B45309" : "#0369A1";
+    if (big) return React.createElement("div", { style: { lineHeight: 1.12 } },
+      React.createElement("div", { style: { whiteSpace: "nowrap" } },
+        React.createElement("span", { style: { fontWeight: 800, fontSize: 20, color: col } }, pk.alpha + "円"),
+        na ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 700, marginLeft: 3 } }, "参考") : null),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: pk.alpha2 != null ? col : "#94A3B8", marginTop: 2 } }, pk.alpha2 != null ? ("次点 " + pk.alpha2 + "円") : "次点なし"));
     return React.createElement("span", { style: { whiteSpace: "nowrap" } },
-      React.createElement("span", { style: { fontWeight: 800, fontSize: big ? 21 : 12, color: col } }, pk.alpha + "円"),
-      React.createElement("span", { style: { fontSize: big ? 12 : 9, fontWeight: 700, color: pk.alpha2 != null ? col : "#94A3B8", marginLeft: big ? 5 : 3 } }, pk.alpha2 != null ? (big ? ("（次点 " + pk.alpha2 + "円）") : ("(次" + pk.alpha2 + ")")) : (big ? "（次点なし）" : "(次点なし)")),
+      React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: col } }, pk.alpha + "円"),
+      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: pk.alpha2 != null ? col : "#94A3B8", marginLeft: 3 } }, pk.alpha2 != null ? ("(次" + pk.alpha2 + ")") : "(次点なし)"),
       na ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 700, marginLeft: 3 } }, "参考") : null);
   };
   // 推奨追加αノード（big=メイン／小=サブ）。改善なしは「推奨無し」、母数なし/不明は「—」。メインは計＋次点まで、サブは加算のみ簡潔。
@@ -1855,17 +1860,21 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
     if (!add) return React.createElement("span", { style: { color: "#94A3B8", fontSize: big ? 13 : 10 } }, "—");
     if (!add.improved) return React.createElement("span", { style: { color: "#94A3B8", fontSize: big ? 13 : 10, fontWeight: 700 } }, "推奨無し");
     if (!big) return React.createElement("span", { style: { whiteSpace: "nowrap" } }, React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: "#9A3412" } }, "+" + add.add + "円"), React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 2 } }, "(計" + add.total + ")"));
-    return React.createElement("span", { style: { whiteSpace: "nowrap" } },
-      React.createElement("span", { style: { fontWeight: 800, fontSize: 17, color: "#9A3412" } }, "+" + add.add + "円"),
-      React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", marginLeft: 4 } }, "（計" + add.total + "円）"),
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: add.add2 != null ? "#9A3412" : "#94A3B8", marginLeft: 5 } }, add.add2 != null ? ("（次点 +" + add.add2 + "円）") : "（次点なし）"));
+    return React.createElement("div", { style: { lineHeight: 1.12 } },
+      React.createElement("div", { style: { whiteSpace: "nowrap" } },
+        React.createElement("span", { style: { fontWeight: 800, fontSize: 20, color: "#9A3412" } }, "+" + add.add + "円")),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8", marginTop: 2 } }, "計" + add.total + "円" + (add.add2 != null ? ("・次点+" + add.add2) : "")));
   };
   // 推奨損切りノード（big=メイン直近50件／小=サブ）。値のみ簡潔・na(件数フロア未満)は橙＋参考。損切り＝赤系で基本α(青)と区別 2026-06-29。
   var _cutNode = function(p, big) {
     if (!p || p.cut == null || p.status === "none") return React.createElement("span", { style: { color: "#94A3B8", fontSize: big ? 13 : 10, fontWeight: 700 } }, "—");
     var na = p.status === "na";
+    if (big) return React.createElement("div", { style: { lineHeight: 1.12 } },
+      React.createElement("div", { style: { whiteSpace: "nowrap" } },
+        React.createElement("span", { style: { fontWeight: 800, fontSize: 20, color: na ? "#B45309" : "#C0392B" } }, p.cut + "円")),
+      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#B45309", marginTop: 2 } }, na ? "参考" : " "));
     return React.createElement("span", { style: { whiteSpace: "nowrap" } },
-      React.createElement("span", { style: { fontWeight: 800, fontSize: big ? 21 : 12, color: na ? "#B45309" : "#C0392B" } }, p.cut + "円"),
+      React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: na ? "#B45309" : "#C0392B" } }, p.cut + "円"),
       na ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 700, marginLeft: 3 } }, "参考") : null);
   };
   // 本日の記録との乖離用 2026-06-25: 採用基本α(_baseOf)・乖離ノード(_devNode=実際−推奨α・+赤=深い/−緑=浅い/0グレー)。
@@ -1882,13 +1891,13 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
     var As = W.periods.map(function(pd) { return _elBaseAlphaA(pd.recs, aiOf); });
     var mainA = As[1];   // 直近50件＝メイン
     var hasAny = As.some(function(A) { return A && A.pick && A.pick.alpha != null; });
-    var _lbl = function(t, col) { return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: col, display: "inline-block", minWidth: 70 } }, t); };
+    var _lbl = function(t, col) { return React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: col, marginBottom: 2 } }, t); };
     var mainBlock;
     if (mainA && mainA.pick && mainA.pick.alpha != null) {
-      mainBlock = React.createElement("div", null,
-        React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", marginBottom: 2 } }, _lbl("推奨基本α", "#0369A1"), _baseNode(mainA.pick, true)),
-        React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", marginBottom: 2 } }, _lbl("推奨追加α", "#9A3412"), _addNode(mainA.add, true)),
-        React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" } }, _lbl("推奨損切り", "#C0392B"), _cutNode(_elCutPick(W.periods[1].recs, aiOf), true)));
+      mainBlock = React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
+        React.createElement("div", { style: { minWidth: 0 } }, _lbl("推奨基本α", "#0369A1"), _baseNode(mainA.pick, true)),
+        React.createElement("div", { style: { minWidth: 0 } }, _lbl("推奨追加α", "#9A3412"), _addNode(mainA.add, true)),
+        React.createElement("div", { style: { minWidth: 0 } }, _lbl("推奨損切り", "#C0392B"), _cutNode(_elCutPick(W.periods[1].recs, aiOf), true)));
     } else {
       mainBlock = React.createElement("div", { style: { fontSize: 12, color: "#94A3B8", fontWeight: 700, padding: "2px 0" } }, hasAny ? "直近50件：データ不足（下のサブ参照）" : "推奨基本αのデータがまだありません");
     }
