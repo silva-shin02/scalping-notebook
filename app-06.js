@@ -1235,6 +1235,7 @@ var _EL_BASE_W_STOP = 0.7;       // 合成スコアの重み: 損切り回避 (1
 var _EL_BASE_W_H1 = 0.3;         // 合成スコアの重み: H1勝率。
 var _EL_BASE_SCORE_EPS = 0.03;   // スコアの僅差判定。最大スコアからこの幅以内は同点扱い→件数(到達率)の多い方を優先。
 var _EL_BASE_ADD_MAX = 30;       // 追加αの探索上限（基本α+1〜+30円・合計は最大50円）。
+var _EL_ADD_STOPRATE_2 = 0.30;   // 推奨追加α 第2段の損切り率しきい値（30%以下）。第1段は0%（完全回避）・第2段は≤これ・どちらも無ければ損切り率が最も低いものを選ぶ。後で調整可（2026-06-29d）。
 // 指定αを全recに一律適用したシミュレーション集計。
 // 対象=「OS1またはOS2でEP到達した記録」だけ（OS3でしか到達しない記録は基本α上は未到達扱い）。entered=対象件数・eRate=entered/n=OS2までのEP到達率。
 // 【新スコア用 2026-06-22】scN=対象のうちH1までの結果が判定できる記録数（=母数）。stopH1N=EP足orH1足で損切り。h1WinN=損切りでなくH1損益>0。
@@ -1314,10 +1315,10 @@ function _elBaseAlphaPick(recs, aiOf) {
   withEntry.sort(function(x, y) { return (x.scN - y.scN) || (x.a - y.a); });
   return _ret(withEntry[withEntry.length - 1], "na");
 }
-// 推奨追加α【再設計 2026-06-24g／ユーザー方針＝損切り回避の最小加算】: 基本αに +1〜+_EL_BASE_ADD_MAX(合計≤50)を上乗せした合計αを〇プールに当て、
-// 「損切り率0 かつ 想定損益(ΣH1)>0」になる【最小の加算】を返す＝損切りを避けてH1黒字にできる最小の上乗せ（＝想定損益はプラス）。
-// 完全に損切り0にできる加算が無ければ、想定損益>0 になる最小加算（ベストエフォート）。それも無ければ improved:false（推奨無し＝足しても黒字化しない）。
-// 想定損益はその合計αの_elSimPnlByDay(ΣH1)。次点＝同条件で2番目に小さい加算(1番目より大きい)。各統計(損切り率/H1勝率/到達率/件数/想定損益)を同梱。
+// 推奨追加α【再設計 2026-06-29d／ユーザー方針＝損切り回避・段階フォールバック】: 基本αに +1〜+_EL_BASE_ADD_MAX(合計≤50)を上乗せした合計αを〇プールに当て、
+// まず「黒字(想定損益ΣH1>0) かつ scN≥_EL_BASE_MIN_N」の加算に絞り（黒字は全段共通の必須条件＝赤字の上乗せは推奨しない）、損切り回避の優先順で選ぶ:
+//   第1: 損切り率0%（完全回避）の中で【最小加算】／第2: 損切り率≤_EL_ADD_STOPRATE_2(30%) の中で【最小加算】／第3(それも無し): 黒字の中で【損切り率が最も低い】加算（同率は最小加算）。
+// 黒字の加算が皆無なら improved:false（推奨無し＝足しても黒字化しない）。想定損益は_elSimPnlByDay(ΣH1)。次点＝選抜プール内で1番目より大きい最小の加算。各統計(損切り率/H1勝率/到達率/件数/想定損益)を同梱。
 // 返り値 { add, total, improved, stopRate, h1win, eRate, scN, pnl, sim, add2, total2, stopRate2, h1win2, eRate2, scN2, pnl2, sim2 } or null。
 function _elAddAlphaReco(recs, aiOf, baseAlpha) {
   if (!recs || baseAlpha == null) return null;
@@ -1329,12 +1330,17 @@ function _elAddAlphaReco(recs, aiOf, baseAlpha) {
     var sim = _elSimPnlByDay(recs, aiOf, tot);
     evals.push({ add: add, total: tot, e: e, sim: sim, pnl: (sim && sim.sum != null) ? sim.sum : null });
   }
-  // 【2026-06-26 B】標本フロア scN≥_EL_BASE_MIN_N を要求＝1〜2件の偶然で過大な追加αが出るのを防ぐ（基本αと同じ件数基準）。
-  var clean = evals.filter(function(x) { return x.e.scN >= _EL_BASE_MIN_N && x.e.stopRate === 0 && x.pnl != null && x.pnl > 0; });   // 損切り0かつ黒字（標本3件以上）
-  var pool2 = clean.length ? clean : evals.filter(function(x) { return x.e.scN >= _EL_BASE_MIN_N && x.pnl != null && x.pnl > 0; });   // 無ければ黒字のみ（同フロア）
-  if (!pool2.length) return { add: 0, total: baseAlpha, improved: false, stopRate: null, h1win: null, eRate: null, scN: null, pnl: null, sim: null, add2: null, total2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null, pnl2: null, sim2: null };
-  var p = pool2[0];   // evalsはadd昇順＝先頭が最小加算
-  var p2 = (function() { for (var i = 0; i < pool2.length; i++) { if (pool2[i].add > p.add) return pool2[i]; } return null; })();   // 次点＝1番目より大きい最小
+  // 黒字(想定損益>0)かつ標本フロア scN≥_EL_BASE_MIN_N を満たす加算（黒字は全段共通の必須条件＝赤字の上乗せは推奨しない・1〜2件の偶然も除外）。evalsはadd昇順なのでこの並びも昇順。
+  var black = evals.filter(function(x) { return x.e.scN >= _EL_BASE_MIN_N && x.pnl != null && x.pnl > 0; });
+  // 損切り回避の優先順で段階選抜（ユーザー方針 2026-06-29d）: 第1=損切り0%→最小加算／第2=損切り≤_EL_ADD_STOPRATE_2(30%)→最小加算／第3=それも無ければ黒字の中で損切り率が最も低いもの（同率は最小加算）。
+  var pool, p;
+  var t1 = black.filter(function(x) { return x.e.stopRate === 0; });                                                   // 第1: 損切り0%
+  var t2 = black.filter(function(x) { return x.e.stopRate != null && x.e.stopRate <= _EL_ADD_STOPRATE_2; });            // 第2: 損切り≤30%（0%も含むが第1優先）
+  if (t1.length) { pool = t1; p = t1[0]; }
+  else if (t2.length) { pool = t2; p = t2[0]; }
+  else if (black.length) { pool = black; p = black.slice().sort(function(a, b) { return ((a.e.stopRate == null ? 1 : a.e.stopRate) - (b.e.stopRate == null ? 1 : b.e.stopRate)) || (a.add - b.add); })[0]; }   // 第3: 損切り率が最も低い（同率は最小加算）
+  else return { add: 0, total: baseAlpha, improved: false, stopRate: null, h1win: null, eRate: null, scN: null, pnl: null, sim: null, add2: null, total2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null, pnl2: null, sim2: null };
+  var p2 = (function() { for (var i = 0; i < pool.length; i++) { if (pool[i].add > p.add) return pool[i]; } return null; })();   // 次点＝選抜プール内で1番目より大きい最小の加算（poolはadd昇順）
   var _w = function(x) { return x ? { stopRate: x.e.stopRate, h1win: x.e.h1win, eRate: x.e.eRate, scN: x.e.scN, pnl: x.pnl, sim: x.sim } : null; };
   var f = _w(p), g = _w(p2);
   return { add: p.add, total: p.total, improved: true, stopRate: f.stopRate, h1win: f.h1win, eRate: f.eRate, scN: f.scN, pnl: f.pnl, sim: f.sim,
