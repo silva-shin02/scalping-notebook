@@ -3437,6 +3437,46 @@ function _elDynResult(s, alpha, cutLine) {
   }
   return s.result;
 }
+// 〇△×の「×の前まで乗る」で各記録の勝敗内訳を返す。返り値: "miss"|"stop"|"loss"|"even"|"win"|"tri"(△が絡む勝ち)。
+// ×/損切り済の足の手前まで乗り(○/△/未設定は乗る)、到達点の確定値損益と△有無で振り分ける。EP前の到達△も「△が絡む」に含める。
+function _elWinBucket(s, alpha, cutLine) {
+  var base = _elDynResult(s, alpha, cutLine);
+  if (base === "miss") return "miss";
+  var cut = cutLine != null ? cutLine : 10;
+  if (!_epIsV2(s) || alpha == null) {
+    if (base === "draw") return "even";
+    if (base === "ng") return "loss";
+    return "win";
+  }
+  var r = _epResolve(s, alpha);
+  if (!r || r.judge !== "ok" || r.epIdx < 0) {
+    if (base === "draw") return "even";
+    if (base === "ng") return _elPlanIsStop(s, alpha, cut) ? "stop" : "loss";
+    return "win";
+  }
+  var legs = _epLegs(s);
+  var epIdx = r.epIdx;
+  var _cut = function(e) { return e === "×" || e === "損切り済"; };
+  var hasTri = false, i;
+  for (i = 0; i < epIdx; i++) { if (legs[i] && legs[i].exp === "△") hasTri = true; }
+  var exitC = null, stopped = false;
+  for (i = epIdx; i < legs.length; i++) {
+    var o = legs[i];
+    if (i !== epIdx) {
+      var exp = (i === epIdx + 1) ? s.holdExp : (i === epIdx + 2) ? s.hold2Exp : o.exp;
+      if (_cut(exp)) break;
+      if (exp === "△") hasTri = true;
+    }
+    if (o.h != null && (o.h - alpha) >= cut) { stopped = true; break; }
+    if (o.c != null) exitC = o.c;
+  }
+  if (stopped) return "stop";
+  if (exitC == null) { if (base === "draw") return "even"; if (base === "ng") return "loss"; return hasTri ? "tri" : "win"; }
+  var pnl = Math.round((alpha - exitC) * 100);
+  if (pnl < 0) return "loss";
+  if (pnl === 0) return "even";
+  return hasTri ? "tri" : "win";
+}
 function _elDynPlanned(s, alpha, cutLine) {
   if (_epIsV2(s) && alpha != null) {
     var _rp2 = _epResolve(s, alpha);
@@ -4508,6 +4548,7 @@ function _elCalcStats(records, data, simResolve) {
   var _liveA = !!(data && data.charts);
   var total = records.length;
   var ok = 0, ng = 0, draw = 0, miss = 0;
+  var win = 0, tri = 0, even = 0, loss = 0, stop = 0;
   var sumPnl = 0, sumPlanned = 0, sumMax = 0, sumHold = 0;
   var sumPlannedRef = 0, plannedRefCnt = 0;  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内（参考）のみ・（）外は0（2026-06-16）
   var wins = [], losses = [];
@@ -4528,6 +4569,8 @@ function _elCalcStats(records, data, simResolve) {
     else if (_res === "ng") ng++;
     else if (_res === "draw") draw++;
     else if (_res === "miss") miss++;
+    var _wb = _elWinBucket(s, _liveA ? _ai.alpha : null, _liveA ? _ai.cutLine : null);
+    if (_wb === "win") win++; else if (_wb === "tri") tri++; else if (_wb === "even") even++; else if (_wb === "loss") loss++; else if (_wb === "stop") stop++;
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
     var _per100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
     var pn = (r.item && r.item.pnl != null)
@@ -4652,6 +4695,7 @@ function _elCalcStats(records, data, simResolve) {
   }
   return {
     total: total, ok: ok, ng: ng, draw: draw, miss: miss, winPct: winPct,
+    reach: win + tri + even + loss + stop, win: win, tri: tri, even: even, loss: loss, stop: stop,
     avgWin: avgWin, avgLoss: avgLoss, expected: expected,
     sumPnl: sumPnl, sumPlanned: sumPlanned, sumMax: sumMax,
     sumPlannedRef: plannedRefCnt > 0 ? sumPlannedRef : null, plannedRefCnt: plannedRefCnt,

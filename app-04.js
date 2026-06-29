@@ -4751,10 +4751,13 @@ function DayView(_ref57) {
             React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, _isExp ? "▼" : "▶"), label,
             (!isTotal && _exclN > 0) ? _elExclDot(_exclN, { marginLeft: 5, verticalAlign: "middle" }) : null),
           _td(st.total, { fontWeight: isTotal ? 700 : 400 }),
-          _td(st.ok || "0", { color: "#1E8449", fontWeight: st.ok ? 700 : 400 }),
-          _td(st.draw || "0", { color: "#6B7280" }),
-          _td(st.ng || "0", { color: "#C0392B", fontWeight: st.ng ? 700 : 400 }),
-          _td(st.miss || "0", { color: "#B45309" }),
+          _td(st.reach || "0", { color: "#374151", fontWeight: isTotal ? 700 : ((st.reach || 0) > 0 ? 700 : 400) }),
+          _td(st.win || "0", { color: "#1E8449", fontWeight: st.win ? 700 : 400 }),
+          _td(st.tri || "0", { color: "#D97706", fontWeight: (st.tri || 0) > 0 ? 700 : 400 }),
+          _td(st.even || "0", { color: "#9CA3AF" }),
+          _td(st.loss || "0", { color: "#DC2626", fontWeight: st.loss ? 700 : 400 }),
+          _td(st.stop || "0", { color: "#7F1D1D", fontWeight: st.stop ? 700 : 400 }),
+          _td(st.miss || "0", { color: "#6B7280" }),
           _td(_elOsMMCell((recs || []).map(function(_r){ return _elOsMaxFiltered(_r.signal); }).filter(function(_v){ return _v != null; }))),
           _td((function() {
             if (_allMiss) return _qZeroCell();
@@ -4855,7 +4858,7 @@ function DayView(_ref57) {
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
-                _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "引")), _wkTh(React.createElement("span", { style: { color: "#C0392B" } }, "負")), _wkTh(React.createElement("span", { style: { color: "#B45309" } }, "未達")),
+                _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" } }, "△")), _wkTh(React.createElement("span", { style: { color: "#9CA3AF" } }, "建値")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")),
                 _wkTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中央/平均"))), _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
               )
             ),
@@ -4909,7 +4912,7 @@ function DayView(_ref57) {
     var _pbAllRecsT = _pbAllRecs.filter(function(r) { return _elInclTotal(r.signal); });
     var _pbAll = _elCalcStats(_pbAllRecsT, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; });
     // 勝敗カウント（αシミュ対応）: EP起算v2/v3もEP足基準で判定（_elDynResult。旧式はEP=OS2/3成立を未達に誤算入していた）
-    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0; (recs || []).forEach(function(r) { var s = r.signal; var res = _elDynResult(s, _pbAlphaOf(r), _pbCutOf(r)); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
+    var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0, win = 0, tri = 0, even = 0, loss = 0, stop = 0; (recs || []).forEach(function(r) { var s = r.signal; var _a = _pbAlphaOf(r), _c = _pbCutOf(r); var res = _elDynResult(s, _a, _c); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; var wb = _elWinBucket(s, _a, _c); if (wb === "win") win++; else if (wb === "tri") tri++; else if (wb === "even") even++; else if (wb === "loss") loss++; else if (wb === "stop") stop++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, reach: win + tri + even + loss + stop, win: win, tri: tri, even: even, loss: loss, stop: stop, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
     var _pbFmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
     var _pbCol = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
     var _pbTh = function(label, extra) {
@@ -4978,10 +4981,13 @@ function DayView(_ref57) {
           }, "閉じる") : null
         ),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, fontWeight: isTotal ? 700 : 400 } }, st.total),
-        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#1E8449", fontWeight: st.ok ? 700 : 400 } }, st.ok || "0"),
-        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#6B7280", fontWeight: (st.draw || 0) > 0 ? 700 : 400 } }, st.draw || "0"),
-        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#C0392B", fontWeight: st.ng ? 700 : 400 } }, st.ng || "0"),
-        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#B45309", fontWeight: (st.miss || 0) > 0 ? 700 : 400 } }, st.miss || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#374151", fontWeight: isTotal ? 700 : ((st.reach || 0) > 0 ? 700 : 400) } }, st.reach || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#1E8449", fontWeight: st.win ? 700 : 400 } }, st.win || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#D97706", fontWeight: (st.tri || 0) > 0 ? 700 : 400 } }, st.tri || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#9CA3AF", fontWeight: (st.even || 0) > 0 ? 700 : 400 } }, st.even || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#DC2626", fontWeight: st.loss ? 700 : 400 } }, st.loss || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#7F1D1D", fontWeight: st.stop ? 700 : 400 } }, st.stop || "0"),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, color: "#6B7280", fontWeight: (st.miss || 0) > 0 ? 700 : 400 } }, st.miss || "0"),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
             var _osArr = (recs || []).map(function(_r){ return _elOsMaxFiltered(_r.signal); }).filter(function(_v){ return _v != null; });
@@ -5198,10 +5204,13 @@ function DayView(_ref57) {
             React.createElement("tr", { style: { background: "#f5f4f0" } },
               _pbTh("銘柄", { width: 120, textAlign: "left" }),
               _pbTh("件", { width: 34 }),
-              _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "勝"), { width: 30 }),
-              _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "引"), { width: 30 }),
-              _pbTh(React.createElement("span", { style: { color: "#C0392B" } }, "負"), { width: 30 }),
-              _pbTh(React.createElement("span", { style: { color: "#B45309" } }, "未達"), { width: 40 }),
+              _pbTh(React.createElement("span", { style: { color: "#374151" } }, "到達"), { width: 36 }),
+              _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確"), { width: 36 }),
+              _pbTh(React.createElement("span", { style: { color: "#D97706" } }, "△"), { width: 28 }),
+              _pbTh(React.createElement("span", { style: { color: "#9CA3AF" } }, "建値"), { width: 34 }),
+              _pbTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損"), { width: 42 }),
+              _pbTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り"), { width: 42 }),
+              _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達"), { width: 40 }),
               _pbTh(React.createElement("span", null, "OS値", React.createElement("span", { style: { display: "block", fontWeight: 400, fontSize: 8, color: "#999" } }, "中央/平均")), { width: 54 }),
               _pbTh(React.createElement("span", null, "EP損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "(100株)")), { width: 128 }),
               _pbTh(React.createElement("span", null, "H１損益"), { width: 78 }),
