@@ -27,6 +27,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-06-29b DayViewのα比較窓を件数ベースへ＋シグナル別パネルの遅延描画（体感速度）
+- **app-06.js**: ①`_elDayStockBenchV2`（DayViewの「📊α比較・深掘り」表）の今週/今月列を件数ベース（直近50件/100件・前日まで・当日除外）へ＝他の分析表(`_EL_PERIOD_COUNTS`=25/50/100)と統一（カレンダー窓の取り残しを解消・前回保留分をユーザー判断で確定）。表ヘッダー/読み取り欄/説明文のラベルも更新。変数名wk/moは据え置き（描画差分最小化）。②シグナル別パネルの「詳細分析」を、#5のネイティブ`<details>`(閉でも子をDOM生成して計算)から新コンポーネント`_SNCollapse`の**遅延描画**(`render`関数を開いた時だけ呼ぶ＝閉じている間は7セクションを計算しない)へ＝stale無しで体感速度を改善。③`_apAllRows`(`_apCollectAll(data)`・全chart走査の純粋計算)を`useMemo([data])`でメモ化。
+
 ### 2026-06-29 アプリ全体の安全網（エラーバウンダリ・容量メーター・同期ステータス強化・Firebaseルール手順）
 - **app-08.js**: ①Reactエラーバウンダリ`_SNErrorBoundary`（ES5プロトタイプ方式・class構文/JSXを使わないため）を新設し `ReactDOM.createRoot().render` で `App` を包囲＝どこかのコンポーネントが描画中にthrowしても白画面にせず「⚠エラー表示＋🔄再読み込み」に切替（過去の白画面事故の安全網。labelで場所名表示も可）。②同期バッジ(fbBadge)を強化＝オンライン/オフライン(`navigator.onLine`＋online/offlineリスナーの`_snOnline`)で「📴オフライン」表示、最終同期時刻(`_snLastSync`・`fbStatus`→okのuseEffectで更新)をtitleツールチップに。
 - **app-04.js**: SettingsModalのメンテナンスタブ先頭に💾localStorage使用量メーター（全キー走査でbytes算出÷目安5MB・65%/85%で色変化＋満杯前の警告文。タブを開いた時だけ計測）。事後の保存失敗アラートだけだったのを事前見える化。
