@@ -4737,6 +4737,7 @@ function DayView(_ref57) {
         var _ent = _wkEntCnt(recs);
         var _osv = _wkAvgOs(recs);
         var _isExp = !!pnlTableExpandSet[rowKey];
+        var _allExcl = recs.length === 0 && _exclN > 0;  // 取引はあるが全部不算入
         var _allMiss = _elAllMissRow(recs, _wkAlphaOf, _wkCutOf);  // 全記録E基準未達(全miss)→想定/H1/H2に「Q 0」
         var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
         var bt = isTotal ? "2px solid #ccc" : "none";
@@ -4744,7 +4745,7 @@ function DayView(_ref57) {
         var _td = function(child, extra) { return React.createElement("td", { style: Object.assign({ padding: "3px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, whiteSpace: "nowrap" }, extra || {}) }, child); };
         return React.createElement("tr", {
           key: rowKey,
-          style: { background: _isExp ? "#FFF7ED" : (isTotal ? "#F5F0E8" : "transparent"), cursor: "pointer" },
+          style: Object.assign({ background: _isExp ? "#FFF7ED" : (isTotal ? "#F5F0E8" : "transparent"), cursor: "pointer" }, _allExcl ? { background: "#EFF8FF", borderLeft: "3px solid #38BDF8", opacity: 0.72 } : null),
           onClick: function() { setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); if (n[rowKey]) delete n[rowKey]; else n[rowKey] = true; return n; }); }
         },
           React.createElement("td", { style: { padding: "3px 5px", textAlign: "left", fontWeight: isTotal ? 700 : 600, fontSize: 11, whiteSpace: "nowrap", color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
@@ -4760,6 +4761,7 @@ function DayView(_ref57) {
           _td(st.miss || "0", { color: "#6B7280" }),
           _td(_elOsMMCell((recs || []).map(function(_r){ return _elOsMaxFiltered(_r.signal); }).filter(function(_v){ return _v != null; }))),
           _td((function() {
+            if (_allExcl) return _elNotInclBadge();
             if (_allMiss) return _qZeroCell();
             var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;
             (recs || []).forEach(function(r) {
@@ -4820,7 +4822,7 @@ function DayView(_ref57) {
               _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
           })()),
-          _td(_wkPnlCell(_profitGradeFromPnlReal(st.sumPnl, (_ent > 0 && st.sumPnl !== 0) ? _ent : 0), _ent > 0 ? st.sumPnl : null)),
+          _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(st.sumPnl, (_ent > 0 && st.sumPnl !== 0) ? _ent : 0), _ent > 0 ? st.sumPnl : null)),
           React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
             (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
         );
@@ -4964,9 +4966,10 @@ function DayView(_ref57) {
       var isExp = !!pnlTableExpandSet[rowKey];
       var bg = isExp ? "#FFF7ED" : (isTotal ? "#F5F0E8" : "transparent");
       var keyRef = rowKey;
+      var _allExcl = (!recs || recs.length === 0) && (exclN || 0) > 0;  // 取引はあるが全部不算入(算入0件)
       var _allMiss = _elAllMissRow(recs, _pbAlphaOf, _pbCutOf);  // 全記録E基準未達(全miss)→想定/H1/H2に「Q 0」
       return React.createElement("tr", {
-        style: { background: bg, cursor: rowKey ? "pointer" : "default" },
+        style: Object.assign({ background: bg, cursor: rowKey ? "pointer" : "default" }, _allExcl ? { background: "#EFF8FF", borderLeft: "3px solid #38BDF8", opacity: 0.72 } : null),
         onClick: rowKey ? function() { setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); if (n[keyRef]) delete n[keyRef]; else n[keyRef] = true; return n; }); if (isExp) setPnlRecordExpandSet({}); } : undefined
       },
         React.createElement("td", { style: { padding: "3px 5px", textAlign: "left", fontWeight: isTotal ? 700 : 600, fontSize: 11, whiteSpace: "nowrap", width: "auto",
@@ -4995,6 +4998,7 @@ function DayView(_ref57) {
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           (function() {
+            if (_allExcl) return _elNotInclBadge();
             if (_allMiss) return _qZeroCell();
             var _dynSP = null, _dynSPAB = null, _dynSPRef = null, _dynSPRefCnt = 0;
             (recs || []).forEach(function(r) {
@@ -5059,7 +5063,7 @@ function DayView(_ref57) {
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
-          _pbRealABAll(recs)),
+          _allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _pbRealABAll(recs)),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
           tags && tags.length > 0
             ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },
@@ -5225,7 +5229,7 @@ function DayView(_ref57) {
                 _profitGradeFromPnlReal(_pbAllReal, _pbAllEnt),
                 _profitGradeFromPnl(_pbAll.sumPlanned, _pbAll.sumPlanned !== 0 ? _pbAll.total : 0),
                 _profitGradeFromPnl(_pbAll.sumMax, _pbAll.sumMax !== 0 ? _pbAll.total : 0),
-                _pbAllEnt > 0, "__total__", null, _pbAllRecsT, 0),
+                _pbAllEnt > 0, "__total__", null, _pbAllRecsT, _elExclCountRecs(_pbAllRecs)),
               !!pnlTableExpandSet["__total__"] ? _pbExpRow("__total__") : null
             ] : null,
             _pbStks.map(function(sk) {

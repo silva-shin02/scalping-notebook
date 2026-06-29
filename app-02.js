@@ -5106,13 +5106,14 @@ function WeeklyPnlPanel(_wpp) {
     var _osv = _wkAvgOs(recs);
     var _isExp = !!dayExp[rowKey];
     var _allMiss = _elAllMissRow(recs, _alphaOf, _cutOf);
+    var _allExcl = recs.length === 0 && _exclN > 0;  // 取引はあるが全部不算入
     var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
     var bt = isTotal ? "2px solid #ccc" : "none";
     var br = "1px solid #e0ddd6";
     var _td = function(child, extra) { return React.createElement("td", { style: Object.assign({ padding: "3px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderTop: bt, borderRight: br, whiteSpace: "nowrap" }, extra || {}) }, child); };
     return React.createElement("tr", {
       key: rowKey,
-      style: { background: _isExp ? "#FFF7ED" : (isTotal ? "#F5F0E8" : "transparent"), cursor: "pointer" },
+      style: Object.assign({ background: _isExp ? "#FFF7ED" : (isTotal ? "#F5F0E8" : "transparent"), cursor: "pointer" }, _allExcl ? { background: "#EFF8FF", borderLeft: "3px solid #38BDF8", opacity: 0.72 } : null),
       onClick: function() { setDayExp(function(prev) { var n = Object.assign({}, prev); if (n[rowKey]) delete n[rowKey]; else n[rowKey] = true; return n; }); }
     },
       React.createElement("td", { style: { padding: "3px 5px", textAlign: "left", fontWeight: isTotal ? 700 : 600, fontSize: 11, whiteSpace: "nowrap", color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
@@ -5128,6 +5129,7 @@ function WeeklyPnlPanel(_wpp) {
       _td(st.miss || "0", { color: "#6B7280" }),
       _td(_elOsMMCell((recs || []).map(function(_r){ return _elOsMaxFiltered(_r.signal); }).filter(function(_v){ return _v != null; }))),
       _td((function() {
+        if (_allExcl) return _elNotInclBadge();
         if (_allMiss) return _qZeroCell();
         var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;
         (recs || []).forEach(function(r) {
@@ -5188,7 +5190,7 @@ function WeeklyPnlPanel(_wpp) {
           _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
           _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
       })()),
-      _td(_wkPnlCell(_profitGradeFromPnlReal(st.sumPnl, (_ent > 0 && st.sumPnl !== 0) ? _ent : 0), _ent > 0 ? st.sumPnl : null)),
+      _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(st.sumPnl, (_ent > 0 && st.sumPnl !== 0) ? _ent : 0), _ent > 0 ? st.sumPnl : null)),
       React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
         (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
     );
