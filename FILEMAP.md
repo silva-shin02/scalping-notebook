@@ -38,6 +38,9 @@ HomeEventFormModal, App
 ### 2026-06-28f シグナル別パネルのスリム化（2段構成＝汎用分析を折りたたみ・提案#5）
 - **app-06.js**: `_groupPanel`（シグナル別タブのパネル）を2段構成に＝コア（KPI/OS値分布/推奨基本α傾向+詳細/🔻底抜け前足浮き/🗂記録一覧）は常時表示、汎用7ブロック（📍EP位置/📈累積損益/📉α感応度/🕘時間帯別/📅曜日別/🚫期待度×/🔺期待度△＝各専用タブにも全体スコープ版あり）をネイティブ`<details><summary>`「詳細分析（…）」に既定折りたたみ（React状態管理不要・閉時もDOMには存在）。並びはコア→詳細分析→記録一覧に整理。esprima構文OK。
 
+### 2026-06-29c α値タブをタブ内サブタブ式に再設計（基本α/追加α/共通ツールを分離）
+- **app-06.js**: 記録帳📐α値タブで推奨基本αと推奨追加αが「ごっちゃ」な問題を解消（ユーザー選択=案C「タブ内サブタブ」。6案を分離性/情報階層/実装適合の3観点で審査し採用）。`view==="alpha"`分岐を、ピル型サブタブ`[① 基本α(青#0369A1)｜② 追加α(茶橙#9A3412)｜③ α早見・ツール(グレー#64748B)]`で別画面に分離する形へ再構成（新state `alphaSub`=base/add/tools・`_uAlS`、アクティブピルはゾーン色で塗る）。各サブタブ冒頭にゾーン見出し帯＋推奨値サマリー（基本=`_alBaseSum`／追加=`_alAddSum`。いずれも`_elBaseAlphaA(_v2recsAll,_ai)`由来＝B1結論バー/A群と同値で二重表示のズレ無し）。割り当て＝基本α:成立率の目安(`_elOsAlphaPctlTableV2`)+詳細(`_elBaseAlphaDetailV2`)+期間推移(`_elBaseAlphaTrendV2`)／追加α:期間別(`_elAddAlphaPeriodTableV2`)+分析(`_elAddAlphaSectionV2`)／ツール:意思決定表(`_alphaTable`)+感応度カーブ(`_elAlphaCurveSectionV2`)。混在の発生源だった`_elBaseAlphaSummary`(基本α期間まとめ)の「追加α目安」カードを撤去＋insightの追加α文を「（追加αは「② 追加α」タブで）」へ差し替え（L2749/L3893のシグナル別・深掘りパネルにも一律反映）＋未使用化した`var add`を削除。計算ロジックは不変（表示の再配置のみ）。検証＝CORSサーバ+preview `new Function`構文OK＋全バンドル(vendor+app01〜07)ロード→EntryLogViewにv2フィクスチャをmountし 基本/追加/ツール 3サブタブをクリック巡回でランタイムエラー0を確認。
+
 ### 2026-06-28e 記録帳タブの仕上げ（時間帯/曜日を指定期間追従・死コード整理・トグル強調&損益で非表示）
 - **app-06.js**: ①期間タブの🕘時間帯別/📅曜日別を、指定期間(custom)モードのときその日付範囲(`_timeScope`=cFrom/cToで絞る)に追従（従来は全体`v2recs`固定のほころびを修正）。②死コード整理＝旧「OS連鎖」タブ専用で孤児化した`_elOsLegsSectionV2`(85行)を削除＋未使用state(`listExclOnly`/`apKindFil`/`apNameFil`/`calYM`)を削除（`_elOsChainSection`はDayView(app-04 L5347)で使用継続のため残置・`setSelDate`は銘柄/損益ボタンのリセットで使用のため`selDate`は残置）。③追加α分析トグル＝絞り込み中(`addAlphaFil!=="all"`)は橙背景＋枠線で強調し注記を「🔍〇要のみで母数を絞り込み中（「全部」で解除）」と明示。④「損益(全銘柄合算)」(`_isAllStock`)ではトグル非表示＋損益ボタン押下で`addAlphaFil`を"all"へリセット（全体額が部分額に紛れるのを防止）。⑤シグナル別パネルのスリム化は保留（後日）。esprima構文OK(346,590 bytes・約7KB減)。
 
