@@ -1886,8 +1886,8 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
   var _baseOf = function(s) { var b = _num(s.baseAlphaVal); if (b == null) { var a = _num(s.alphaVal), ad = _num(s.addAlphaVal); b = (a != null && ad != null) ? (a - ad) : a; } return b; };
   var _devNode = function(actual, ref) {
     if (actual == null || ref == null) return React.createElement("span", { style: { color: "#cbd5e1" } }, "—");
-    var d = actual - ref, col = d > 0 ? "#C0392B" : d < 0 ? "#1E8449" : "#94A3B8";
-    return React.createElement("span", { style: { fontWeight: 700, color: col } }, (d > 0 ? "+" : "") + d);
+    var d = actual - ref, col = d > 0 ? "#C0392B" : d < 0 ? "#1E8449" : "#94A3B8", lbl = d < 0 ? "未達" : "到達";
+    return React.createElement("span", { style: { fontWeight: 700, color: col } }, (d > 0 ? "+" : "") + d + " " + lbl);
   };
   var cards = (stocks || []).map(function(stock, si) {
     var recs = allSig.filter(function(r) { return r.stock === stock; });
@@ -1924,24 +1924,37 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
     var _dvTh = function(t) { return React.createElement("th", { style: { fontSize: 9, fontWeight: 700, color: "#64748B", padding: "2px 4px", whiteSpace: "nowrap", textAlign: "center" } }, t); };
     var _dvTd = function(c, ex) { return React.createElement("td", { style: Object.assign({ fontSize: 10, padding: "2px 4px", textAlign: "center", whiteSpace: "nowrap", borderTop: "1px solid #E0F2FE", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
     var _regBadge = function(yes) { return React.createElement("span", { style: { padding: "1px 5px", fontSize: 9, fontWeight: 700, borderRadius: 4, whiteSpace: "nowrap", background: yes ? "#FEF3C7" : "#F1F5F9", color: yes ? "#9A3412" : "#64748B" } }, yes ? "追加α〇" : "基本のみ"); };
-    var devRows = dayRecs.map(function(r, ri) {
+    var _dvTdSpan = function(c, ex) { return React.createElement("td", { rowSpan: 2, style: Object.assign({ fontSize: 10, padding: "2px 4px", textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle", borderTop: "1px solid #E0F2FE", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+    var devRows = [];
+    dayRecs.forEach(function(r, ri) {
       var s = r.signal, base = _baseOf(s), osMax = _elOsMaxAll(s);
-      var yes = _elAddAlphaYes(s), refReach = yes ? refTotal : refBase;   // 〇=推奨合計α・×/未選択=推奨基本α
-      var addv = yes ? _num(s.addAlphaVal) : null;   // 採用追加α（〇のみ表示）
-      return React.createElement("tr", { key: ri },
-        _dvTd(s.time || "—", { color: "#64748B", fontWeight: 700 }),
-        _dvTd(_regBadge(yes)),
-        _dvTd(base != null ? base + "円" : "—"),
-        _dvTd(yes ? (addv != null ? ("+" + addv + "円") : "—") : "—", { color: yes ? "#9A3412" : "#cbd5e1" }),
-        _dvTd(refReach != null ? refReach + "円" : "—", { color: "#64748B" }),
-        _dvTd(osMax != null ? osMax + "円" : "—"),
-        _dvTd(_devNode(osMax, refReach)));
+      var yes = _elAddAlphaYes(s);
+      var addv = yes ? _num(s.addAlphaVal) : null;
+      var adoptTot = (base != null) ? ((yes && addv != null) ? (base + addv) : base) : null;
+      var recoTot = yes ? refTotal : refBase;
+      var _top = ri > 0 ? { borderTop: "2px solid #7DD3FC" } : null;
+      var _dash = { borderTop: "1px dashed #BAE6FD" };
+      devRows.push(React.createElement("tr", { key: ri + "r" },
+        _dvTdSpan(s.time || "—", Object.assign({ color: "#64748B", fontWeight: 700 }, _top || {})),
+        _dvTdSpan(_regBadge(yes), _top || {}),
+        _dvTd("現実", Object.assign({ color: "#64748B", fontWeight: 700 }, _top || {})),
+        _dvTd(base != null ? (base + "円") : "—", _top || {}),
+        _dvTd(yes ? (addv != null ? ("+" + addv + "円") : "—") : "—", Object.assign({ color: yes ? "#9A3412" : "#cbd5e1" }, _top || {})),
+        _dvTd(adoptTot != null ? (adoptTot + "円") : "—", Object.assign({ fontWeight: 700 }, _top || {})),
+        _dvTdSpan(osMax != null ? (osMax + "円") : "—", Object.assign({ fontWeight: 700 }, _top || {})),
+        _dvTd(_devNode(osMax, adoptTot), _top || {})));
+      devRows.push(React.createElement("tr", { key: ri + "p" },
+        _dvTd("推奨", Object.assign({ color: "#0369A1", fontWeight: 700 }, _dash)),
+        _dvTd(refBase != null ? (refBase + "円") : "—", Object.assign({ color: "#0369A1" }, _dash)),
+        _dvTd(yes ? (refAdd ? ("+" + refAdd + "円") : "—") : "—", Object.assign({ color: yes ? "#0369A1" : "#cbd5e1" }, _dash)),
+        _dvTd(recoTot != null ? (recoTot + "円") : "—", Object.assign({ fontWeight: 700, color: "#0369A1" }, _dash)),
+        _dvTd(_devNode(osMax, recoTot), _dash)));
     });
     var devBlock = dayRecs.length ? React.createElement("div", { style: { marginTop: 6, paddingTop: 5, borderTop: "1px dashed #93C5FD" } },
-      React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（到達OS−合計α・基本のみ＝推奨基本α " + (refBase != null ? refBase + "円" : "—") + "／追加α〇＝推奨基本α+推奨追加α " + (refTotal != null ? refTotal + "円" : "—") + "）"),
+      React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 本日の記録との乖離（現実＝採用したα／推奨＝推奨どおりのα。乖離＝到達最高OSと合計αの差・プラス＝到達／マイナス＝未達。推奨基本α " + (refBase != null ? refBase + "円" : "—") + "／追加α〇は＋推奨追加α " + (refAdd ? (refAdd + "円") : "0円") + "）"),
       React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("種別"), _dvTh("採用基本α"), _dvTh("採用追加α"), _dvTh("合計α"), _dvTh("到達最高OS"), _dvTh("乖離(到達)"))),
+          React.createElement("thead", null, React.createElement("tr", null, _dvTh("時刻"), _dvTh("種別"), _dvTh(""), _dvTh("基本α"), _dvTh("追加α"), _dvTh("合計α"), _dvTh("到達最高OS"), _dvTh("乖離"))),
           React.createElement("tbody", null, devRows)))) : null;
     return React.createElement("div", { key: si, style: { background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 10px", marginBottom: 8 } },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0F172A", marginBottom: 5, paddingBottom: 4, borderBottom: "1px solid #BAE6FD" } }, stock,
