@@ -5212,7 +5212,7 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("td", { colSpan: 12, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
         isTotal ? _idealEl : null,
         isTotal ? _simControlsBar : null,
-        recs.length ? _detailTableFor(recs) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")));
+        recs.length ? React.createElement("div", { style: { margin: "2px 4px 8px 18px", border: "1px solid #FDBA74", borderRadius: 8, background: "#fff", padding: "6px 8px", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, _detailTableFor(recs)) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")));
   };
   return React.createElement("div", { style: { marginTop: 12, background: "#fff", border: "1px solid #e8e5df", borderRadius: 8, padding: "10px 12px" } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } },
