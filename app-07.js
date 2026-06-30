@@ -167,7 +167,8 @@ function ChartSectionDailyCandle(_p_csdc) {
       caStatus = _us_csdc4A[0], setCaStatus = _us_csdc4A[1]; 
   var _us_csdc5 = useState(""), _us_csdc5A = _slicedToArray(_us_csdc5, 2),
       caErr = _us_csdc5A[0], setCaErr = _us_csdc5A[1];
-  
+  var _dcUpRef = useRef(null);
+
   useEffect(function() {
     setBars([]); setStatus("");
     if (!stock) return;
@@ -394,53 +395,86 @@ function ChartSectionDailyCandle(_p_csdc) {
     return !!(info && (info.caTicker || info.code));
   })();
   if (status === "no-code") return null;
+  var _dcInfoR = _caGetStockInfo(stock, custom);
+  var _dcCodeR = (_dcInfoR && _dcInfoR.code) || "";
+  // 手動で日足CSVを補充する（📥日足データを取得＝Hyper SBI 2のTimeChart形式CSVをエクスプローラーから選択）2026-06-30。
+  // CSVは丸ごと置き換え（全期間の書き出し前提）。CA当日分(caExtraBars)はdisplayBarsで別途マージされるので維持される。
+  var _dcUploadCsv = function(file) {
+    if (!file) return;
+    if (!_dcCodeR) { alert("この銘柄に証券コードが設定されていません。設定 → 銘柄管理から登録してください。"); return; }
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var text = ev.target.result;
+      var parsed = _parseDailyCsv(text);
+      if (!parsed.length) { alert("CSV を解析できませんでした。Hyper SBI 2 の TimeChart 形式（日付,始値,高値,安値,終値,…）であることを確認してください。"); return; }
+      var now = Date.now();
+      setBars(parsed); setStatus("loaded");
+      _dcCacheSave(_dcCodeR, text, now);
+      if (cfg && cfg.fbUrl) {
+        _dcSaveCsvToFb(cfg, _dcCodeR, text).then(function(ok) { if (ok) console.log("[DCC] CSV synced to Firebase: " + _dcCodeR); });
+      }
+    };
+    reader.onerror = function() { alert("ファイル読み込み失敗"); };
+    reader.readAsText(file, "UTF-8");
+  };
+  var _dcUploadBar = (canCaFetch || _dcCodeR) ? React.createElement("div", {
+    style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: 11, color: "#888", flexWrap: "wrap" }
+  },
+    _dcCodeR && React.createElement("input", {
+      key: "dcup", ref: _dcUpRef, type: "file", accept: ".csv,text/csv", style: { display: "none" },
+      onChange: function(e) { var f = e.target.files && e.target.files[0]; if (f) _dcUploadCsv(f); e.target.value = ""; }
+    }),
+    _dcCodeR && React.createElement("button", {
+      key: "dcupbtn",
+      onClick: function() { if (_dcUpRef.current) _dcUpRef.current.click(); },
+      title: "Hyper SBI 2 でエクスポートした日足CSV（TimeChart形式）を選んで補充。既存の日足は置き換わります（CA当日分は維持）。",
+      style: {
+        padding: "3px 9px", fontSize: 11, fontWeight: 600,
+        background: "#EEF2FF", color: "#4F46E5", border: "1px solid #C7D2FE",
+        borderRadius: 5, cursor: "pointer", minHeight: IS_TOUCH ? 34 : 0
+      }
+    }, "📥 日足データを取得"),
+    canCaFetch && React.createElement("button", {
+      onClick: function() { _runCaFetch(true); },
+      disabled: caStatus === "loading",
+      title: "chart-annotator から最新日足を取得して末尾に追加",
+      style: {
+        padding: "3px 9px", fontSize: 11, fontWeight: 600,
+        background: caStatus === "loading" ? "#f5f4f0" : "#FFF7ED",
+        color: caStatus === "loading" ? "#bbb" : "#C2410C",
+        border: "1px solid " + (caStatus === "loading" ? "#ddd" : "#FDBA74"),
+        borderRadius: 5,
+        cursor: caStatus === "loading" ? "wait" : "pointer"
+      }
+    }, caStatus === "loading" ? "取得中..." : "🔄 CA分を再取得"),
+    caExtraBars.length > 0 && React.createElement("span", {
+      style: { color: "#16A34A", fontWeight: 700 },
+      title: caExtraBars.map(function(b) {
+        return b.date + ": O" + b.open + " H" + b.high + " L" + b.low + " C" + b.close;
+      }).join("\n")
+    }, caExtraBars.length === 1
+      ? "✓ " + caExtraBars[0].date + " 自動追加"
+      : "✓ CA " + caExtraBars.length + "日分追加 (" + caExtraBars[0].date + " 〜 " + caExtraBars[caExtraBars.length - 1].date + ")"),
+    caStatus === "error" && React.createElement("span", {
+      style: { color: "#C0392B" }
+    }, "エラー: " + caErr),
+    caStatus === "none" && caErr && React.createElement("span", {
+      style: { color: "#999" }
+    }, caErr)
+  ) : null;
   if (!displayBars.length) {
-    
-    if (!canCaFetch) return null;
-    if (caStatus === "loading" || caStatus === "error" || (caStatus === "none" && caErr)) {
-      return React.createElement("div", { style: { marginTop: 8, fontSize: 11, color: "#888" } },
+    if (!_dcUploadBar) return null;
+    return React.createElement("div", { style: { marginTop: 8 } },
+      _dcUploadBar,
+      React.createElement("div", { style: { fontSize: 11, color: "#888", marginTop: 2 } },
         caStatus === "loading" ? "📊 当日分のチャートを取得中..." :
         caStatus === "error" ? ("📊 取得エラー: " + caErr) :
-        ("📊 " + caErr)
-      );
-    }
-    return null;
+        _dcCodeR ? "📊 日足データ未登録 — 「📥 日足データを取得」から Hyper SBI 2 の CSV を読み込めます" :
+        ("📊 " + (caErr || "日足データなし")))
+    );
   }
   return React.createElement("div", { style: { marginTop: 8 } },
-    canCaFetch && React.createElement("div", {
-      style: {
-        display: "flex", alignItems: "center", gap: 8, marginBottom: 6,
-        fontSize: 11, color: "#888", flexWrap: "wrap"
-      }
-    },
-      React.createElement("button", {
-        onClick: function() { _runCaFetch(true); },
-        disabled: caStatus === "loading",
-        title: "chart-annotator から最新日足を取得して末尾に追加",
-        style: {
-          padding: "3px 9px", fontSize: 11, fontWeight: 600,
-          background: caStatus === "loading" ? "#f5f4f0" : "#EEF2FF",
-          color: caStatus === "loading" ? "#bbb" : "#4F46E5",
-          border: "1px solid " + (caStatus === "loading" ? "#ddd" : "#C7D2FE"),
-          borderRadius: 5,
-          cursor: caStatus === "loading" ? "wait" : "pointer"
-        }
-      }, caStatus === "loading" ? "取得中..." : "🔄 CA分を再取得"),
-      caExtraBars.length > 0 && React.createElement("span", {
-        style: { color: "#16A34A", fontWeight: 700 },
-        title: caExtraBars.map(function(b) {
-          return b.date + ": O" + b.open + " H" + b.high + " L" + b.low + " C" + b.close;
-        }).join("\n")
-      }, caExtraBars.length === 1
-        ? "✓ " + caExtraBars[0].date + " 自動追加"
-        : "✓ CA " + caExtraBars.length + "日分追加 (" + caExtraBars[0].date + " 〜 " + caExtraBars[caExtraBars.length - 1].date + ")"),
-      caStatus === "error" && React.createElement("span", {
-        style: { color: "#C0392B" }
-      }, "エラー: " + caErr),
-      caStatus === "none" && caErr && React.createElement("span", {
-        style: { color: "#999" }
-      }, caErr)
-    ),
+    _dcUploadBar,
     React.createElement(DailyCandleChart, {
       bars: displayBars,
       recordedDates: recordedDates,
