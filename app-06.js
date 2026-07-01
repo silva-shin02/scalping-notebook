@@ -1681,7 +1681,7 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
       alphaCell = React.createElement("div", { style: { whiteSpace: "nowrap", lineHeight: 1.15 } },
         React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: na ? "#B45309" : "#0369A1" } }, pk.alpha + "円"),
         na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 2, fontWeight: 700 } }, "参考") : null,
-        (pk.alpha2 == null) ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 4 } }, "（次点なし）") : null);
+        (pk.alpha2 != null) ? React.createElement("span", { style: { fontSize: 11, color: "#64748B", marginLeft: 4 } }, "（次点：" + pk.alpha2 + "円）") : React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 4 } }, "（次点なし）"));
       simBase = _elSimPnlByDay(basePool, aiOf, pk.alpha);
     }
     var _pdiv = (i > 0) ? { borderTop: "2px solid #7DD3FC" } : null;   // 期間どうしの明確な区切り線（先頭期間以外の主行の上）2026-06-24g
@@ -1703,7 +1703,7 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
         _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700 } }, "└ +追加α"), Object.assign({ textAlign: "left", paddingLeft: 14 }, _dadd)),
         _elv2Td(React.createElement("span", { style: { whiteSpace: "nowrap" } },
           React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: "#9A3412" } }, "+" + add.add + "円"),
-          React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "（計" + add.total + "円）")), _dadd),
+          (add.add2 != null) ? React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", marginLeft: 4 } }, "（次点：+" + add.add2 + "円）") : null), _dadd),
         _elv2Td(dash, _dadd),
         _elv2Td(add.stopRate != null ? _elStopRateCell(add.stopRate) : dash, _dadd),
         _elv2Td(add.h1win != null ? _elPctCell(add.h1win) : dash, _dadd),
@@ -1711,35 +1711,7 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
         _elv2Td((add.scN != null ? add.scN : 0) + "件", _dadd),
         _elv2Td(_elSimPnlCell(add.sim), _dadd)));
     }
-    // 推奨追加αの次点（2番目の候補・1番目より大きい加算）も└サブ行で追加 2026-07-01。add同梱の*2フィールドをそのまま使う（再計算不要）。add2が無ければ出さない。
-    if (add && add.improved && add.add2 != null) {
-      var _dadd2 = { borderTop: "1px dashed #FDE68A" };
-      rows.push(React.createElement("tr", { key: "a2" + i },
-        _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700 } }, "└ +追加α 次点"), Object.assign({ textAlign: "left", paddingLeft: 18 }, _dadd2)),
-        _elv2Td(React.createElement("span", { style: { whiteSpace: "nowrap" } },
-          React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: "#9A3412" } }, "+" + add.add2 + "円"),
-          React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "（計" + add.total2 + "円）")), _dadd2),
-        _elv2Td(dash, _dadd2),
-        _elv2Td(add.stopRate2 != null ? _elStopRateCell(add.stopRate2) : dash, _dadd2),
-        _elv2Td(add.h1win2 != null ? _elPctCell(add.h1win2) : dash, _dadd2),
-        _elv2Td(add.eRate2 != null ? _elPctCell(add.eRate2) : dash, _dadd2),
-        _elv2Td((add.scN2 != null ? add.scN2 : 0) + "件", _dadd2),
-        _elv2Td(_elSimPnlCell(add.sim2), _dadd2)));
-    }
-    // 次点（2番目の推奨基本α・1番目より大きいα）を点線区切りで1行追加。損切り率〜想定損益も次点αで再計算。
-    if (pk && pk.alpha2 != null) {
-      var _ds = { borderTop: "1px dashed #93C5FD" };
-      var sim2 = _elSimPnlByDay(basePool, aiOf, pk.alpha2);
-      rows.push(React.createElement("tr", { key: "s" + i },
-        _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "└ 次点"), Object.assign({ textAlign: "left", paddingLeft: 14 }, _ds)),
-        _elv2Td(React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: "#0369A1" } }, pk.alpha2 + "円"), _ds),
-        _elv2Td(dash, _ds),
-        _elv2Td(pk.stopRate2 != null ? _elStopRateCell(pk.stopRate2) : dash, _ds),
-        _elv2Td(pk.h1win2 != null ? _elPctCell(pk.h1win2) : dash, _ds),
-        _elv2Td(pk.eRate2 != null ? _elPctCell(pk.eRate2) : dash, _ds),
-        _elv2Td((pk.scN2 != null ? pk.scN2 : 0) + "件", _ds),
-        _elv2Td(_elSimPnlCell(sim2), _ds)));
-    }
+    // 次点（基本α・追加αとも）は主行にインライン「（次点：X円）」で併記＝専用の└次点行は廃止 2026-07-01。次点の個別成績列は非表示（主のαの成績のみ）。
   });
   return _elv2Table(["期間", "推奨基本α", "推奨損切り", "損切り率", "H1勝率", "到達率", "有効件数", "想定損益(1日/1件)"], rows);
 }
@@ -1764,8 +1736,7 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
     if (noPool) addCell = React.createElement("span", { style: { fontSize: 9, color: "#bbb" } }, "〇記録なし");
     else if (improved) addCell = React.createElement("div", { style: { whiteSpace: "nowrap", lineHeight: 1.15 } },
       React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: "#9A3412" } }, "+" + add.add + "円"),
-      React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "(計" + add.total + "円)"),
-      (add.add2 == null) ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 4 } }, "（次点なし）") : null);
+      (add.add2 != null) ? React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", marginLeft: 4 } }, "（次点：+" + add.add2 + "円）") : React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 4 } }, "（次点なし）"));
     else addCell = (pk && pk.alpha != null)
       ? React.createElement("span", { style: { whiteSpace: "nowrap", lineHeight: 1.15 } },
           React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8" } }, "推奨無し"),
@@ -1782,18 +1753,7 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
       _elv2Td(ev && ev.eRate != null ? _elPctCell(ev.eRate) : dash, _cEx),
       _elv2Td(noPool ? dash : ((ev && ev.scN != null ? ev.scN : 0) + "件"), _cEx),
       _elv2Td(_elSimPnlCell(sim), _cEx)));
-    // 次点（2番目の推奨追加α・1番目より大きい加算）を点線区切りで追加。各統計は_elAddAlphaRecoが同梱。
-    if (improved && add.add2 != null) {
-      var _ds = { borderTop: "1px dashed #FDE68A" };
-      rows.push(React.createElement("tr", { key: "s" + i },
-        _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "└ 次点"), Object.assign({ textAlign: "left", paddingLeft: 14 }, _ds)),
-        _elv2Td(React.createElement("span", null, React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color: "#9A3412" } }, "+" + add.add2 + "円"), React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "(計" + add.total2 + "円)")), _ds),
-        _elv2Td(add.stopRate2 != null ? _elStopRateCell(add.stopRate2) : dash, _ds),
-        _elv2Td(add.h1win2 != null ? _elPctCell(add.h1win2) : dash, _ds),
-        _elv2Td(add.eRate2 != null ? _elPctCell(add.eRate2) : dash, _ds),
-        _elv2Td((add.scN2 != null ? add.scN2 : 0) + "件", _ds),
-        _elv2Td(_elSimPnlCell(add.sim2), _ds)));
-    }
+    // 次点は主行にインライン「（次点：+X円）」で併記＝専用の└次点行は廃止 2026-07-01。次点の個別成績列は非表示。
   });
   return _elv2Table(["期間", "推奨追加α", "損切り率", "H1勝率", "到達率", "有効件数", "想定損益(1日/1件)"], rows);
 }
@@ -1805,7 +1765,7 @@ function _elBaseAlphaPeriodBlockV2(data, stock, refDate) {
   var aiOf = function(r) { return _elAlphaInfo(r, data); };
   return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨α値（" + stock + "・期間別）"),
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上かつ想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高α・赤字αは除外・データ不足時は件数最大を参考）。基本αは追加α〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・追加α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。表の「└ +追加α」「└ +追加α 次点」＝追加α〇記録だけを母数に、基本αへ足すと損切りを避けてH1黒字になる推奨加算とその次点（黒字・3件以上・到達率40%以上等の基準）。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上かつ想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高α・赤字αは除外・データ不足時は件数最大を参考）。基本αは追加α〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・追加α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。表の「└ +追加α」＝追加α〇記録だけを母数に、基本αへ足すと損切りを避けてH1黒字になる推奨加算（黒字・3件以上・到達率40%以上等の基準）。次点（2番目の候補）は基本α・追加αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
     _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 // DayView「チャート」タブで早見表の下に出す推奨αブロック（2026-06-24）。各銘柄テーブル(ChartSection)の_elBaseAlphaPeriodBlockV2と同等に充実＝説明文＋本日行付き期間表(_elBaseAlphaPeriodTableV2＝基本αに追加αの└サブ行も内包)。さらに「今日の推奨◯円」の大見出し(headNode)を併載＝いいとこ取り 2026-06-24c（2026-07-01 追加α独立テーブル(_elAddAlphaPeriodTableV2)を廃し基本α表へ統合・最上位見出しを🎯推奨α値に改称）。
@@ -1843,7 +1803,7 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
   return React.createElement("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", marginBottom: 6 } }, "🎯 推奨α値（" + refDate + "）"),
     headNode,
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 8, marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上かつ想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高α・赤字αは除外・データ不足時は件数最大を参考）。基本αは追加α〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・追加α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。表の「└ +追加α」「└ +追加α 次点」＝追加α〇記録だけを母数に、基本αへ足すと損切りを避けてH1黒字になる推奨加算とその次点（黒字・3件以上・到達率40%以上等の基準）。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 8, marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上かつ想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高α・赤字αは除外・データ不足時は件数最大を参考）。基本αは追加α〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・追加α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。表の「└ +追加α」＝追加α〇記録だけを母数に、基本αへ足すと損切りを避けてH1黒字になる推奨加算（黒字・3件以上・到達率40%以上等の基準）。次点（2番目の候補）は基本α・追加αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
     _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 
