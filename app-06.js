@@ -2280,19 +2280,7 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
     var osMax = _elOsMaxFiltered(s, actualTot != null ? actualTot : ai.alpha);   // OS1〜3の到達最高値（×で打ち切り＝実現分）
     var recoAdd = (bestP != null && floatV != null && floatV > 0) ? Math.round(floatV * bestP / 100) : ((bestP == null && simRan) ? 0 : null);   // 推奨追加α＝前足浮き値×推奨%。%が黒字化せず→0（不要）／算出不能→null
     var recoTot = (recoBase != null && recoAdd != null) ? (recoBase + recoAdd) : null;
-    var idealRaw = (base != null) ? _elIdealAddForRec(s, base, cut).winMin : undefined;   // 損切り回避＆H1黒字の最小追加α（0=不要／null=勝てず）
-    var idealNode;
-    if (idealRaw === undefined) idealNode = _dash2;
-    else if (idealRaw === null) idealNode = React.createElement("span", { style: { fontWeight: 700, color: "#C0392B" } }, "勝てず");
-    else if (idealRaw === 0) idealNode = React.createElement("span", null, React.createElement("span", { style: { fontWeight: 700, color: "#1E8449" } }, "不要(0)"), (actAdd != null && actAdd > 0) ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", marginLeft: 3 } }, "採用+" + actAdd + "円は過剰") : null);
-    else {
-      var diff = (actAdd != null) ? (actAdd - idealRaw) : null;
-      var sub = diff == null ? null : diff > 0 ? ("採用+" + diff + "円多い") : diff < 0 ? ("採用" + diff + "円不足") : "採用が適正";
-      idealNode = React.createElement("span", null, React.createElement("span", { style: { fontWeight: 800, color: "#9A3412" } }, "+" + idealRaw + "円必要"), sub ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", marginLeft: 3 } }, sub) : null);
-    }
-    var devCell = React.createElement("div", { style: { lineHeight: 1.5 } },
-      React.createElement("div", null, React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", marginRight: 3 } }, "理想"), idealNode),
-      React.createElement("div", { style: { marginTop: 2 } }, React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", marginRight: 3 } }, "到達"), _devNode(osMax, actualTot)));
+    // 乖離度＝到達最高OSと各段のαの差を2段それぞれに出す（現実行=OS−採用合計α／推奨行=OS−推奨合計α）。理想の追加α（不要/勝てず/+X円必要）は撤去 2026-07-01b。
     var dstr = (r.date || "").slice(5).replace("-", "/");
     var ek = "float_" + r.stock + "_" + (s.id || s.time || i);
     var on = !!(recCtx && recCtx.expKey === ek);
@@ -2311,13 +2299,14 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
       _fTd(addRealNode, topB || {}),
       _fTd(actualTot != null ? (actualTot + "円") : "—", Object.assign({ fontWeight: 700 }, topB || {})),
       _fTdSpan(osMax != null ? (osMax + "円") : "—", Object.assign({ fontWeight: 700 }, topB || {})),
-      _fTdSpan(devCell, Object.assign({ textAlign: "left" }, topB || {}))));
+      _fTd(_devNode(osMax, actualTot), topB || {})));
     var recoAddNode = (recoBase == null) ? React.createElement("span", { style: { color: "#cbd5e1" } }, "—") : (recoAdd == null) ? React.createElement("span", { style: { color: "#cbd5e1" } }, "—") : recoAdd === 0 ? React.createElement("span", { style: { color: "#0369A1" } }, "+0円") : React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "+" + recoAdd + "円");
     devRows.push(React.createElement("tr", { key: ek + "_p" },
       _fTd("推奨", Object.assign({ color: "#0369A1", fontWeight: 700 }, dashB)),
       _fTd(recoBase != null ? (recoBase + "円") : "—", Object.assign({ color: "#0369A1" }, dashB)),
       _fTd(recoAddNode, dashB),
-      _fTd(recoTot != null ? (recoTot + "円") : "—", Object.assign({ fontWeight: 700, color: "#0369A1" }, dashB))));
+      _fTd(recoTot != null ? (recoTot + "円") : "—", Object.assign({ fontWeight: 700, color: "#0369A1" }, dashB)),
+      _fTd(_devNode(osMax, recoTot), dashB)));
     if (on && recCtx) devRows.push(React.createElement("tr", { key: ek + "_c" },
       React.createElement("td", { colSpan: 7, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
         React.createElement(EntryLogCard, { record: r, data: data, onEdit: recCtx.onEdit, onGoDate: recCtx.onGoDate }))));
@@ -2328,7 +2317,7 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
       React.createElement("tbody", null, devRows)));
   return React.createElement(React.Fragment, null,
     secH("🔻 " + _numReason + "（採用α・推奨α・OS・乖離の一覧）"),
-    React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "0 0 4px", lineHeight: 1.5 } }, "「" + _numReason + "」の追加α〇記録を1件ずつ、現実（採用したα）と推奨（推奨どおりのα）で上下2段に対比。OS＝OS1〜3の到達最高値（×で打ち切り）。乖離度は上＝理想の追加α（損切り回避しH1黒字化の最小＝不要(0)／勝てず）と採用の過不足、下＝到達最高OSと採用合計αの差（＋到達／−未達）。推奨追加α＝前足浮き値×推奨%（下の📐%シミュ）" + (recoBase != null ? ("・推奨基本α " + recoBase + "円") : "") + "。日付の「記録」でその日の記録を開閉。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "0 0 4px", lineHeight: 1.5 } }, "「" + _numReason + "」の追加α〇記録を1件ずつ、現実（採用したα）と推奨（推奨どおりのα）で上下2段に対比。OS＝OS1〜3の到達最高値（×で打ち切り）。乖離度＝到達最高OSと各段αの差（現実＝OS−採用合計α／推奨＝OS−推奨合計α・＋到達／−未達）。推奨追加α＝前足浮き値×推奨%（下の📐%シミュ）" + (recoBase != null ? ("・推奨基本α " + recoBase + "円") : "") + "。日付の「記録」でその日の記録を開閉。"),
     _floatTable,
     simNode);
 }

@@ -28,6 +28,10 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-01c 🔻底抜け表の乖離度を「理想の追加α」廃止→現実/推奨それぞれのOS差に
+- **app-06.js**: `_elFloatReasonSectionV2` の乖離度列を刷新＝理想の追加α（`_elIdealAddForRec` winMin＝不要(0)/勝てず/+X円必要）の表示を撤去し、rowSpanをやめて2段それぞれに「到達最高OS−その段のα」を表示（現実行=`_devNode(osMax, 採用合計α)`／推奨行=`_devNode(osMax, 推奨合計α)`・＋到達/−未達）。ユーザー指摘「勝てず表現／理想が不要」への対応で論点ごと解消。idealPcts収集(下の📐%シミュ上限用)は不変。
+- 検証: `new Function`構文OK＋実マウントで各行にOS差が出る・「勝てず/理想」非表示を確認。
+
 ### 2026-07-01b 推奨α・損切り・想定損益のEP到達判定を「OS2まで」→「OS3まで」に拡大
 - **app-06.js**: EP到達の母数判定 `epIdx <= 1`（OS1/OS2）→ `epIdx <= 2`（OS1〜OS3）を4関数で統一＝`_elBaseAlphaEval`(推奨基本α/追加αの損切り率・H1勝率・到達率・合成スコアの母数)・`_elCutEval`(推奨損切り値)・`_elBaseAlphaDetailV2`の②母数集計・`_elSimPnlByDay`(想定損益ΣH1)。OS3でしか到達しない記録も「到達・分析対象」に含める。関連ラベル/コメントの「OS2まで/OS1〜2/OS1またはOS2」表記も「OS3まで/OS1〜3」へ統一(到達率フロア注記_EL_BASE_MIN_ERATE/_EL_ADD_MIN_ERATE・詳細データのインサイト文・推奨基本α期間推移の説明)。ユーザー承認で推奨損切り(_elCutEval)も一緒にOS3化。
 - 期待度×(judge=x・見送り)の扱いは不変＝到達率(entered)の分子には入るが損切り率/H1勝率/想定損益/合成スコア(scN)には入らない(_elDynHold等がjudge≠okでnull)。実測 recX=entered1/scN0。
