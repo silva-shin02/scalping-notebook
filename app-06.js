@@ -1238,7 +1238,7 @@ function _elAlphaCurveSectionV2(recs, aiOf) {
 // 銘柄ごと、その期間の全トレードに同じα(5〜20円)を当ててシミュレーションしたとき、①損切りにならない ②H1で利益が出ている を重視して選ぶ。
 // 選定【2026-06-22c】: 件数フロア（最大scN×_EL_BASE_MIN_FRAC・最低_EL_BASE_MIN_N件）かつ 到達率≥_EL_BASE_MIN_ERATE のαの中で、合成スコア = _EL_BASE_W_STOP×(1−損切り率) + _EL_BASE_W_H1×H1勝率 が最大。
 //       高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアス)」でスコアが上振れるため、件数＋到達率フロアで除外する。同点は件数の多い方→低α。フロア皆無なら件数最大のαを参考(status="na")。
-// 損切り率=EP〜H1で損切りした割合(H2は含めない)・H1勝率=H1損益>0の割合。いずれも「OS1〜2でEP到達し、H1結果が判定できる記録」だけが母数。
+// 損切り率=EP〜H1で損切りした割合(H2は含めない)・H1勝率=H1損益>0の割合。いずれも「OS1〜3でEP到達し、H1結果が判定できる記録」だけが母数。
 // 追加α(_elAddAlphaReco)は基本αへの上乗せを実データ総当たりで評価＝補助。詳細は各関数のコメント。[[project_scalping_analysis_design]]
 // 推奨基本αの探索範囲（5〜20円・1円刻み）。0〜4円は推奨しない（ユーザー方針 2026-06-21）。内部の理想α計算(_EL_IDEAL_ALPHAS=0〜50)とは別＝基本αは現実的に5〜20で設定する前提。
 var _EL_BASE_ALPHAS = (function() { var _a = []; for (var _i = 5; _i <= 20; _i++) _a.push(_i); return _a; })();
@@ -1267,15 +1267,15 @@ function _elBucketLabel(key, gran) {
 // 推奨基本αの選定パラメータ【再設計 2026-06-22】。後で調整可。
 var _EL_BASE_MIN_N = 3;          // 最低エントリー件数（H1結果が判定できる記録数 scN）の絶対下限。未満のαは推奨対象外＝薄い標本の偶然採用を防ぐ。
 var _EL_BASE_MIN_FRAC = 0.5;     // 件数フロア（実データ連動）: 最も件数(scN)の多いαの何割以上を要求するか。高αの薄い標本(選抜バイアスでスコア上振れ)を除外 2026-06-22b。後で調整可。
-var _EL_BASE_MIN_ERATE = 0.5;    // 到達率フロア: EP到達率(OS2まで)がこの値未満のαは推奨対象外＝約定しにくい高αを除外（ユーザー方針 2026-06-22c）。後で調整可。
+var _EL_BASE_MIN_ERATE = 0.5;    // 到達率フロア: EP到達率(OS3まで)がこの値未満のαは推奨対象外＝約定しにくい高αを除外（ユーザー方針 2026-06-22c）。後で調整可。
 var _EL_BASE_W_STOP = 0.7;       // 合成スコアの重み: 損切り回避 (1−損切り率)。
 var _EL_BASE_W_H1 = 0.3;         // 合成スコアの重み: H1勝率。
 var _EL_BASE_SCORE_EPS = 0.03;   // スコアの僅差判定。最大スコアからこの幅以内は同点扱い→件数(到達率)の多い方を優先。
 var _EL_BASE_ADD_MAX = 30;       // 追加αの探索上限（基本α+1〜+30円・合計は最大50円）。
 var _EL_ADD_STOPRATE_2 = 0.30;   // 推奨追加α 第2段の損切り率しきい値（30%以下）。第1段は0%（完全回避）・第2段は≤これ・どちらも無ければ損切り率が最も低いものを選ぶ。後で調整可（2026-06-29d）。
-var _EL_ADD_MIN_ERATE = 0.4;     // 推奨追加α 到達率フロア: EP到達率(OS2まで)がこの値未満の加算は第1・第2段では推奨しない＝届かない高αを除外（基本αの_EL_BASE_MIN_ERATEと同思想・独立つまみ）。第3段(最後の砦)には課さない。後で調整可（2026-06-30）。
+var _EL_ADD_MIN_ERATE = 0.4;     // 推奨追加α 到達率フロア: EP到達率(OS3まで)がこの値未満の加算は第1・第2段では推奨しない＝届かない高αを除外（基本αの_EL_BASE_MIN_ERATEと同思想・独立つまみ）。第3段(最後の砦)には課さない。後で調整可（2026-06-30）。
 // 指定αを全recに一律適用したシミュレーション集計。
-// 対象=「OS1またはOS2でEP到達した記録」だけ（OS3でしか到達しない記録は基本α上は未到達扱い）。entered=対象件数・eRate=entered/n=OS2までのEP到達率。
+// 対象=「OS1〜OS3でEP到達した記録」だけ（3本以内にEP到達しない記録は未到達扱い）。entered=対象件数・eRate=entered/n=OS3までのEP到達率。
 // 【新スコア用 2026-06-22】scN=対象のうちH1までの結果が判定できる記録数（=母数）。stopH1N=EP足orH1足で損切り。h1WinN=損切りでなくH1損益>0。
 //   stopRate=stopH1N/scN（損切り率・H1まで）・h1win=h1WinN/scN（H1勝率）・score=_EL_BASE_W_STOP×(1−stopRate)+_EL_BASE_W_H1×h1win。
 // 参考: pnl(ΣH1保有損益)/epPnl(ΣEP)/stopN(H2まで含む損切り件数)/epStopN/E後勝率(wOk/decided=ewin)。
@@ -1287,8 +1287,8 @@ function _elBaseAlphaEval(recs, aiOf, a) {
     var c = aiOf(r).cutLine;
     n++;
     var rr = _epResolve(s, a);
-    var within2 = !!(rr && rr.epIdx >= 0 && rr.epIdx <= 1);   // OS1またはOS2でEP到達（=「OS2まで」）
-    if (!within2) return;   // OS2までにEP未到達は集計対象外（基本α上は未到達扱い）
+    var within2 = !!(rr && rr.epIdx >= 0 && rr.epIdx <= 2);   // OS1〜OS3でEP到達（=「OS3まで」）2026-07-01: 到達判定をOS2→OS3へ拡大
+    if (!within2) return;   // OS3までにEP未到達は集計対象外（基本α上は未到達扱い）
     entered++;
     var epStop = _elPlanIsStop(s, a, c);   // 入りの足（EP足）での損切り
     var h1Stop = _elHoldIsStop(s, a, c);   // H1足での損切り
@@ -1372,7 +1372,7 @@ function _elAddAlphaReco(recs, aiOf, baseAlpha) {
   var black = evals.filter(function(x) { return x.e.scN >= _EL_BASE_MIN_N && x.pnl != null && x.pnl > 0; });
   // 損切り回避の優先順で段階選抜（ユーザー方針 2026-06-29d／到達率フロア追加 2026-06-30）: 第1=損切り0%かつ到達率≥_EL_ADD_MIN_ERATE→最小加算／第2=損切り≤_EL_ADD_STOPRATE_2(30%)かつ到達率≥_EL_ADD_MIN_ERATE→最小加算／第3(最後の砦)=それも無ければ黒字の中で損切り率が最も低いもの（同率は最小加算・到達率フロアは課さない）。
   var pool, p;
-  var _reachOk = function(x) { return x.e.eRate != null && x.e.eRate >= _EL_ADD_MIN_ERATE; };   // EP到達率(OS2まで)が40%(既定)以上か。第1・第2段のみに課す＝届かない高αを除外（基本αと同思想）。第3段は安全網なので非課。
+  var _reachOk = function(x) { return x.e.eRate != null && x.e.eRate >= _EL_ADD_MIN_ERATE; };   // EP到達率(OS3まで)が40%(既定)以上か。第1・第2段のみに課す＝届かない高αを除外（基本αと同思想）。第3段は安全網なので非課。
   var t1 = black.filter(function(x) { return x.e.stopRate === 0 && _reachOk(x); });                                                  // 第1: 損切り0% かつ 到達率≥フロア
   var t2 = black.filter(function(x) { return x.e.stopRate != null && x.e.stopRate <= _EL_ADD_STOPRATE_2 && _reachOk(x); });           // 第2: 損切り≤30% かつ 到達率≥フロア（0%も含むが第1優先）
   if (t1.length) { pool = t1; p = t1[0]; }
@@ -1406,7 +1406,7 @@ function _elBaseAlphaA(recs, aiOf) {
 // ===== 推奨損切り値【実現H1損益をほぼ維持できる最小の損切り 2026-06-22d／ユーザー方針＝タイト優先】=====
 // 平均最大化だけだと「1回の損失額(リスク)」を見ず大きい損切りに張り付く（回復する玉が多いと平均は損切りが大きいほど上がる・たまの大損が平均で薄まる）。
 // そこで「実現H1損益（損切りルール適用後）の平均が最大値から tol(_EL_CUT_TOL_*)以内」に収まる中で【一番小さい】損切り値を選ぶ＝儲けをほぼ落とさず一番タイトに。
-// 損切り回避率・H1勝率はその損切り値での根拠として併記。母数=「OS1〜2でEP到達しH1損益が判定できる記録」。各記録の採用α(aiOf(r).alpha)を使い損切り値だけを振る。
+// 損切り回避率・H1勝率はその損切り値での根拠として併記。母数=「OS1〜3でEP到達しH1損益が判定できる記録」。各記録の採用α(aiOf(r).alpha)を使い損切り値だけを振る。
 var _EL_CUT_CANDS = (function() { var _c = []; for (var _ci = 10; _ci <= 30; _ci++) _c.push(_ci); return _c; })();   // 推奨損切りの候補は10〜30円＝最低10円（ユーザー方針 2026-06-22d）。
 // タイト優先の許容幅: 平均実現H1損益が「最大値−tol」以上の損切り値の中で最小を採用。tol=max(_EL_CUT_TOL_MIN円, |最大平均|×_EL_CUT_TOL_FRAC)。大きいほど小さい(タイトな)損切りになる。後で調整可 2026-06-22d。
 var _EL_CUT_TOL_FRAC = 0.2;
@@ -1417,7 +1417,7 @@ function _elCutEval(recs, aiOf, cut) {
     var s = r.signal; if (!s) return;
     var ai = aiOf(r), alpha = ai.alpha; if (alpha == null) return;
     var rr = _epResolve(s, alpha);
-    if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 1)) return;   // OS1〜2でEP到達のみ
+    if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return;   // OS1〜3でEP到達のみ
     var hd = _elDynHold(s, alpha, cut); if (hd == null) return;   // H1損益が判定できる記録のみ
     nn++; sum += hd;
     if (_elPlanIsStop(s, alpha, cut) || _elHoldIsStop(s, alpha, cut)) stopN++;
@@ -1595,7 +1595,7 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
   _mRecs.forEach(function(r) {
     var s = r.signal; if (!s) return;
     var c = aiOf(r).cutLine, rr = _epResolve(s, a), epIdx = rr ? rr.epIdx : -1;
-    if (!(epIdx >= 0 && epIdx <= 1)) { offN++; return; }   // OS1〜2以外（OS3のみ/未到達）は対象外
+    if (!(epIdx >= 0 && epIdx <= 2)) { offN++; return; }   // OS1〜3以外（未到達）は対象外
     var epStop = _elPlanIsStop(s, a, c), h1Stop = _elHoldIsStop(s, a, c), hd = _elDynHold(s, a, c);
     if (!(epStop || h1Stop || hd != null)) return;   // 判定不可は母数外
     scN++;
@@ -1604,9 +1604,9 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
     else otherN++;
   });
   var insight = _elInsightBoxV2([
-    React.createElement("span", null, "採用α", _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS2までにEP到達しH1判定可能）。うち損切り", _elInsightEmV2(stopN + "件"), "・H1勝ち", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（OS3のみ／未到達）。"),
+    React.createElement("span", null, "採用α", _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS3までにEP到達しH1判定可能）。うち損切り", _elInsightEmV2(stopN + "件"), "・H1勝ち", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（未到達）。"),
     React.createElement("span", null, "スコア＝0.7×(1−損切り率", _elInsightEmV2((stopP != null ? stopP : "—") + "%"), ")＋0.3×H1勝率", _elInsightEmV2((winP != null ? winP : "—") + "%"), "＝", _elInsightEmV2((pick.score != null ? Math.round(pick.score * 100) : "—") + "点"), "。")
-  ], { note: "この銘柄のv2・算入記録に各αを当ててシミュレーション。母数＝採用αでOS1〜2にEP到達しH1結果が判定できる記録。損切り率・H1勝率はこの母数で算出。" + (na ? " ※データ不足（母数<" + minN + "件）のため参考値。" : "") });
+  ], { note: "この銘柄のv2・算入記録に各αを当ててシミュレーション。母数＝採用αでOS1〜3にEP到達しH1結果が判定できる記録。損切り率・H1勝率はこの母数で算出。" + (na ? " ※データ不足（母数<" + minN + "件）のため参考値。" : "") });
   return React.createElement("div", null,
     concl,
     _lbl("α別の総当たり（5〜20円・★＝採用・件数フロア" + minN + "件未満は淡色／平均H1損益＝ΣH1損益÷件数）"),
@@ -1670,7 +1670,7 @@ function _elPeriodLabelNode(pd) {
     pd.label,
     React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: "#0369A1", background: "#fff", border: "1px solid #93C5FD", borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "おすすめ"));
 }
-// 指定αを母数recに一律適用したH1想定損益（_elBaseAlphaEvalのpnlと同基準＝OS1〜2でEP到達しH1損益が判定できる記録のΣ_elDynHold）と、その記録の異なる営業日数。
+// 指定αを母数recに一律適用したH1想定損益（_elBaseAlphaEvalのpnlと同基準＝OS1〜3でEP到達しH1損益が判定できる記録のΣ_elDynHold）と、その記録の異なる営業日数。
 // 「1営業日あたり」＝Σ想定損益÷エントリー成立日数（記録の無い日・ノーシグナル日は母数に入らず自然に除外）。返り値 { sum, n, days, avg } 2026-06-24。
 function _elSimPnlByDay(recs, aiOf, alpha) {
   if (alpha == null) return { sum: null, n: 0, days: 0, avg: null };
@@ -1679,7 +1679,7 @@ function _elSimPnlByDay(recs, aiOf, alpha) {
     var s = r.signal; if (!s) return;
     var c = aiOf(r).cutLine;
     var rr = _epResolve(s, alpha);
-    if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 1)) return;   // OS1〜2でEP到達のみ
+    if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return;   // OS1〜3でEP到達のみ
     var hd = _elDynHold(s, alpha, c);
     if (hd == null) return;                                  // H1損益が判定できる記録のみ
     sum += hd; has = true; n++;
@@ -4127,7 +4127,7 @@ function EntryLogView(_ref_elv2) {
           _elOsAlphaPctlTableV2(_selSigRecs),
           _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
           _elBaseAlphaDetailV2(_selSigRecs, _ai),
-          _secH("🎯 推奨基本α 期間推移", "件数フロア（最も件数の多いαの半分以上・最低3件）かつ到達率(OS2まで)50%以上かつ想定損益がプラスのαから、損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。日別/月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
+          _secH("🎯 推奨基本α 期間推移", "件数フロア（最も件数の多いαの半分以上・最低3件）かつ到達率(OS3まで)50%以上かつ想定損益がプラスのαから、損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。日別/月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
           React.createElement(_elBaseAlphaTrendV2, { recs: _selSigRecs, aiOf: _ai }));
       } else if (_alSel === "add") {
         _alBody = React.createElement(React.Fragment, null,

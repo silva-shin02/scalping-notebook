@@ -28,6 +28,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-01b 推奨α・損切り・想定損益のEP到達判定を「OS2まで」→「OS3まで」に拡大
+- **app-06.js**: EP到達の母数判定 `epIdx <= 1`（OS1/OS2）→ `epIdx <= 2`（OS1〜OS3）を4関数で統一＝`_elBaseAlphaEval`(推奨基本α/追加αの損切り率・H1勝率・到達率・合成スコアの母数)・`_elCutEval`(推奨損切り値)・`_elBaseAlphaDetailV2`の②母数集計・`_elSimPnlByDay`(想定損益ΣH1)。OS3でしか到達しない記録も「到達・分析対象」に含める。関連ラベル/コメントの「OS2まで/OS1〜2/OS1またはOS2」表記も「OS3まで/OS1〜3」へ統一(到達率フロア注記_EL_BASE_MIN_ERATE/_EL_ADD_MIN_ERATE・詳細データのインサイト文・推奨基本α期間推移の説明)。ユーザー承認で推奨損切り(_elCutEval)も一緒にOS3化。
+- 期待度×(judge=x・見送り)の扱いは不変＝到達率(entered)の分子には入るが損切り率/H1勝率/想定損益/合成スコア(scN)には入らない(_elDynHold等がjudge≠okでnull)。実測 recX=entered1/scN0。
+- デメリット(承知の上): 遅い(OS3)到達が母数に入り損切り率↑/H1勝率↓/想定損益悪化に振れうる・黒字ゲート(pnl>0)を割り推奨がna化しうる・到達率が甘くなり高αが候補に残りやすい・過去数値と不連続・推奨追加α/損切りも連動して変化。
+- 検証: `new Function`構文OK＋OS3のみ到達の合成記録が entered1/scN1 で母数入り確認(旧は0)。
+
 ### 2026-07-01 🔻底抜け前足浮き表を現実/推奨2段へ刷新＋シグナル別パネルの母数トグルを全セクション追従
 - **app-06.js**: `_elFloatReasonSectionV2`（🔻底抜け前足浮き）の上表を「%別・理想%分析」から**現実/推奨2段テーブル**へ全面刷新＝列＝日付(＋「記録」ボタンで`EntryLogCard`行内展開・`recCtx.expKey`で開閉)/種別/基本α/追加α(下に前足浮き値)/合計α/OS(=`_elOsMaxFiltered`＝OS1〜3・×で打ち切り)/乖離度(上＝`_elIdealAddForRec`の理想追加α〔不要(0)／勝てず／+X円必要〕と採用の過不足・下＝到達最高OS−採用合計αの`_devNode`)。推奨基本α=呼び出し元`_baPick`(`_elBaseAlphaPick`)を第5引数で受領／推奨追加α=前足浮き値×推奨%(下の📐%シミュ`_best.P`)。下の📐%別シミュ表は不変。呼び出し(3988)に`basePick`/`recCtx{expKey,setExpKey,onEdit,onGoDate}`を追加。
 - **app-06.js**: `_groupPanel`の追加α母数トグル(`osDistFil`/`_addFilOf`→`_osFilRecs`)を全セクション追従へ拡大＝従来はKPI/OS分布のみ→詳細分析7ブロック(EP位置/累積損益/α感応度/時間帯/曜日/×見送り/△保有)と記録一覧も`_osFilRecs`に切替(パネル全体を1母数に統一＝従来KPIだけ〇除外・詳細は〇込みの不整合を解消)。`_addFilBar()`を詳細分析ブロック先頭と記録一覧直上にも再掲。推奨基本α(設計上つねに固定母数`_baRecs`)と🔻底抜け表(〇記録専用で常時表示)は追従対象外。
