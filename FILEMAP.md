@@ -28,6 +28,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-01d 本日/今週の損益データ表からOS値（中央/平均）列を削除
+- **app-02.js**: WeeklyPnlPanel（今週の損益データ・単一銘柄）のサマリー表からOS値列（`_wkTh`ヘッダー＋`_sumRow`の`_td(_elOsMMCell(...))`セル）を削除。
+- **app-04.js**: DayView/取引タブの「今週の損益データ」(`_wkRow`)と「本日の損益データ」(`_pbRow`)のサマリー表からOS値列（ヘッダー`_wkTh`/`_pbTh`＋各行のOSセル）を削除。展開行の`colSpan:12`は元々列数未満のクランプ運用のため変更不要。
+- ユーザー指示。同パターンの本日/今週表に一括適用（[[feedback_apply_all_instances]]）。`_elOsMMCell`は記録帳(app-06)の分析表で継続使用のため定義は残置。明細(per-record)のOSチェーン列は対象外（サマリーの中央/平均列のみ）。
+- 検証: `new Function`構文OK（app-02/app-04）＋「中央/平均」「_elOsMMCell」消滅を確認。
+
 ### 2026-07-01c 🔻底抜け表の乖離度を「理想の追加α」廃止→現実/推奨それぞれのOS差に
 - **app-06.js**: `_elFloatReasonSectionV2` の乖離度列を刷新＝理想の追加α（`_elIdealAddForRec` winMin＝不要(0)/勝てず/+X円必要）の表示を撤去し、rowSpanをやめて2段それぞれに「到達最高OS−その段のα」を表示（現実行=`_devNode(osMax, 採用合計α)`／推奨行=`_devNode(osMax, 推奨合計α)`・＋到達/−未達）。ユーザー指摘「勝てず表現／理想が不要」への対応で論点ごと解消。idealPcts収集(下の📐%シミュ上限用)は不変。
 - 検証: `new Function`構文OK＋実マウントで各行にOS差が出る・「勝てず/理想」非表示を確認。
