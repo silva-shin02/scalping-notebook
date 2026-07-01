@@ -28,6 +28,10 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-01e シグナル別パネルのOS値分布ヒストの棒クリックで取引一覧を展開
+- **app-06.js**: `_groupPanel` のOS値分布ヒスト（`_elOsHistV2` 呼び出し）に `recs: _osFilRecs, aiOf: _ai` を追加＝各棒クリックでその帯（OS1〜3最高値＝`_elOsMaxAll`基準）の取引ミニ表（`_elOsTradeMini`）を直下に展開（`_elOsHistV2` 内蔵の `_histClickable` を有効化）。母数はvals（`_elOsStatsV2(_osFilRecs, _elOsMaxAll)`）と同じ `_osFilRecs`＝棒と展開内容が一致。25円〜の内訳展開は従来どおりトグルリンクで可能。
+- 検証: `new Function`構文OK＋実マウントで6円バーをクリック→「OS 6円 の取引（2件）」ミニ表が展開することを確認（全22本クリック可能）。
+
 ### 2026-07-01d 本日/今週の損益データ表からOS値（中央/平均）列を削除
 - **app-02.js**: WeeklyPnlPanel（今週の損益データ・単一銘柄）のサマリー表からOS値列（`_wkTh`ヘッダー＋`_sumRow`の`_td(_elOsMMCell(...))`セル）を削除。
 - **app-04.js**: DayView/取引タブの「今週の損益データ」(`_wkRow`)と「本日の損益データ」(`_pbRow`)のサマリー表からOS値列（ヘッダー`_wkTh`/`_pbTh`＋各行のOSセル）を削除。展開行の`colSpan:12`は元々列数未満のクランプ運用のため変更不要。

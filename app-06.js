@@ -4021,7 +4021,7 @@ function EntryLogView(_ref_elv2) {
               React.createElement("span", null, "範囲 ", React.createElement("b", null, os.min + "〜" + os.max + "円")),
               pcg ? React.createElement("span", null, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + pcg.a70 + "円")) : null,
               React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "（" + _osFilRecs.length + "件）")),
-            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, xVals: _osXVals, markVal: _baPickAlpha,
+            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, recs: _osFilRecs, aiOf: _ai, xVals: _osXVals, markVal: _baPickAlpha,
               markVal2: (osDistFil === "yes" && _baPickAlpha != null && _baAdd && _baAdd.improved && _baAdd.add != null) ? (_baPickAlpha + _baAdd.add) : null,
               markVal3: _osRedMark, mark3Label: _osRedLabel })),
             _elOsBandLegendV2())
