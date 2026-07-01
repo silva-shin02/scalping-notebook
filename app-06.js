@@ -409,6 +409,10 @@ function _elOsHistV2(_ref) {
   var _uE = useState(false), exp = _uE[0], setExp = _uE[1];
   var _uSel = useState(null), _selKey = _uSel[0], _setSelKey = _uSel[1];
   if (!cm.tot) return React.createElement("div", { style: { color: "#ccc", fontSize: 11, padding: "6px 0" } }, "—");
+  // マーカー数値（推奨基本α/＋追加α/＋損切り）を先に取得＝25円以上の展開時、データの無いマーカー値にもゼロ枠を用意して▲を載せるため。keyは_EL_OS_TOP/expに依存するので後段で算出 2026-07-01。
+  var markVal = (_ref.markVal != null && !isNaN(Number(_ref.markVal))) ? Math.round(Number(_ref.markVal)) : null;
+  var markVal2 = (_ref.markVal2 != null && !isNaN(Number(_ref.markVal2))) ? Math.round(Number(_ref.markVal2)) : null;
+  var markVal3 = (_ref.markVal3 != null && !isNaN(Number(_ref.markVal3))) ? Math.round(Number(_ref.markVal3)) : null;
   var _xc04 = 0; for (var _xi = 0; _xi <= 4; _xi++) _xc04 += (xcm.vc[_xi] || 0);
   var _xTopTot = 0; for (var _xtk in xcm.vc) { if (xcm.vc.hasOwnProperty(_xtk) && Number(_xtk) >= _EL_OS_TOP) _xTopTot += xcm.vc[_xtk]; }
   var bars = [];
@@ -420,30 +424,27 @@ function _elOsHistV2(_ref) {
   topKeys.sort(function(a, b) { return a - b; });
   var topTot = 0; topKeys.forEach(function(k) { topTot += cm.vc[k]; });
   if (exp && topKeys.length) {
-    topKeys.forEach(function(k) { bars.push({ key: "t" + k, x: String(k), full: k + "円", cnt: cm.vc[k], xcnt: xcm.vc[k] || 0, color: _elOsShade(_EL_OS_TOP), collapse: true }); });
+    var _topSet = {}; topKeys.forEach(function(k) { _topSet[k] = 1; });
+    [markVal, markVal2, markVal3].forEach(function(mv) { if (mv != null && mv >= _EL_OS_TOP) _topSet[mv] = 1; });   // マーカー値(≥25)はデータが無くてもゼロ本数の枠を用意して▲を載せる 2026-07-01
+    Object.keys(_topSet).map(Number).sort(function(a, b) { return a - b; }).forEach(function(k) { bars.push({ key: "t" + k, x: String(k), full: k + "円", cnt: cm.vc[k] || 0, xcnt: xcm.vc[k] || 0, color: _elOsShade(_EL_OS_TOP), collapse: true }); });
   } else {
     bars.push({ key: "25+", x: "25〜", full: "25円〜", cnt: topTot, xcnt: _xTopTot, color: _elOsBucketColor("25+"), band: true, expand: topKeys.length > 0 });
   }
   var maxC = 1; bars.forEach(function(b) { if (b.cnt > maxC) maxC = b.cnt; });
   var _xTot = (_ref.xVals || []).length;   // 期待度×(見送り)の総件数（凡例用）
-  // 現在の推奨基本α(markVal)に当たるOS値帯を青字＋▲＋青枠で強調（2026-06-28）。バケットキーは 0-4 / "5".."24" / 25+ / 展開時 "t"+値 に対応。
-  var markVal = (_ref.markVal != null && !isNaN(Number(_ref.markVal))) ? Math.round(Number(_ref.markVal)) : null;
+  // マーカーのbucketキー算出（数値markVal/2/3は上部で取得済。keyは_EL_OS_TOP/expに依存＝ここで算出）。0-4 / "5".."24" / 25+ / 展開時"t"+値。
   var markKey = null;
   if (markVal != null) {
     if (markVal <= 4) markKey = "0-4";
     else if (markVal >= _EL_OS_TOP) markKey = exp ? ("t" + markVal) : "25+";
     else markKey = String(markVal);
   }
-  // 第2マーク(markVal2)＝推奨基本α＋追加α。オレンジ字＋枠＋▲で強調（〇のみ表示時など）2026-07-01。
-  var markVal2 = (_ref.markVal2 != null && !isNaN(Number(_ref.markVal2))) ? Math.round(Number(_ref.markVal2)) : null;
   var markKey2 = null;
   if (markVal2 != null) {
     if (markVal2 <= 4) markKey2 = "0-4";
     else if (markVal2 >= _EL_OS_TOP) markKey2 = exp ? ("t" + markVal2) : "25+";
     else markKey2 = String(markVal2);
   }
-  // 第3マーク(markVal3)＝推奨基本α＋追加α＋損切り値（損切りライン）。赤字＋赤枠＋赤▲で強調（〇のみ表示時など）2026-07-01。
-  var markVal3 = (_ref.markVal3 != null && !isNaN(Number(_ref.markVal3))) ? Math.round(Number(_ref.markVal3)) : null;
   var markKey3 = null;
   if (markVal3 != null) {
     if (markVal3 <= 4) markKey3 = "0-4";
