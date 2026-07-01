@@ -3886,7 +3886,6 @@ function EntryLogView(_ref_elv2) {
     recs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
     // KPIカード（2026-07-01 再構成・ユーザー指定6項目）: 件数／E到達数（到達率）／1取引あたり平均利益（H1基準・円）／損切り件数（損切り率）／推奨基本α（次点も）／推奨追加α（次点も）。
     var _reach = ok + x, _reachRate = recs.length ? Math.round(_reach / recs.length * 100) : 0;
-    var _perTradeH1 = (t.holdCnt > 0 && t.holdPlanCap != null) ? Math.round(t.holdPlanCap / t.holdCnt) : null;
     var _kpiBase = (function() {
       if (!_baPick || _baPick.alpha == null) return _kpiCard("推奨基本α値", "—", "#94A3B8", "データ不足");
       var na = _baPick.status === "na";
@@ -3902,7 +3901,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
         _kpiCard("件数", recs.length + "件", "#333"),
         _kpiCard("E到達数（到達率）", _reach + "件（" + _reachRate + "%）", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
-        _kpiCard("1取引あたりの利益", _perTradeH1 != null ? _elPnlFmt(_perTradeH1) : "—", _perTradeH1 != null ? _elPnlColor(_perTradeH1) : "#bbb", "H1基準・" + t.holdCnt + "件"),
+        _kpiCard("一番引っ張った損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, "○で最深（○△）・" + t.hold2Cnt + "件"),
         _kpiCard("損切り件数（損切り率）", (ss.any || 0) + "回（" + (ss.rate != null ? ss.rate : 0) + "%）", ss.any > 0 ? "#1E8449" : "#bbb", "E成立が分母"),
         _kpiBase,
         _kpiAdd),
