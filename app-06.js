@@ -405,23 +405,27 @@ function _elOsHistV2(_ref) {
   var _histRecs = _ref.recs, _histAiOf = _ref.aiOf;
   var _histClickable = !!(_histRecs && _histAiOf);
   var cm = _elOsCountMap(vals);
+  var xcm = _elOsCountMap(_ref.xVals || []);   // 期待度×(見送り)記録のOS最高値分布＝棒の中で「×見送り」割合を斜線で示す用 2026-07-01
   var _uE = useState(false), exp = _uE[0], setExp = _uE[1];
   var _uSel = useState(null), _selKey = _uSel[0], _setSelKey = _uSel[1];
   if (!cm.tot) return React.createElement("div", { style: { color: "#ccc", fontSize: 11, padding: "6px 0" } }, "—");
+  var _xc04 = 0; for (var _xi = 0; _xi <= 4; _xi++) _xc04 += (xcm.vc[_xi] || 0);
+  var _xTopTot = 0; for (var _xtk in xcm.vc) { if (xcm.vc.hasOwnProperty(_xtk) && Number(_xtk) >= _EL_OS_TOP) _xTopTot += xcm.vc[_xtk]; }
   var bars = [];
-  if (includeNeg && cm.neg) bars.push({ key: "neg", x: "下落", full: "下落", cnt: cm.neg, color: "#6B7280", band: true });
+  if (includeNeg && cm.neg) bars.push({ key: "neg", x: "下落", full: "下落", cnt: cm.neg, xcnt: xcm.neg || 0, color: "#6B7280", band: true });
   var c04 = 0; for (var i = 0; i <= 4; i++) c04 += (cm.vc[i] || 0);
-  bars.push({ key: "0-4", x: "0〜4", full: "0〜4円", cnt: c04, color: _elOsBucketColor("0-4"), band: true });
-  for (var v = 5; v < _EL_OS_TOP; v++) bars.push({ key: String(v), x: String(v), full: v + "円", cnt: cm.vc[v] || 0, color: _elOsShade(v) });
+  bars.push({ key: "0-4", x: "0〜4", full: "0〜4円", cnt: c04, xcnt: _xc04, color: _elOsBucketColor("0-4"), band: true });
+  for (var v = 5; v < _EL_OS_TOP; v++) bars.push({ key: String(v), x: String(v), full: v + "円", cnt: cm.vc[v] || 0, xcnt: xcm.vc[v] || 0, color: _elOsShade(v) });
   var topKeys = []; for (var tk in cm.vc) { if (cm.vc.hasOwnProperty(tk) && Number(tk) >= _EL_OS_TOP) topKeys.push(Number(tk)); }
   topKeys.sort(function(a, b) { return a - b; });
   var topTot = 0; topKeys.forEach(function(k) { topTot += cm.vc[k]; });
   if (exp && topKeys.length) {
-    topKeys.forEach(function(k) { bars.push({ key: "t" + k, x: String(k), full: k + "円", cnt: cm.vc[k], color: _elOsShade(_EL_OS_TOP), collapse: true }); });
+    topKeys.forEach(function(k) { bars.push({ key: "t" + k, x: String(k), full: k + "円", cnt: cm.vc[k], xcnt: xcm.vc[k] || 0, color: _elOsShade(_EL_OS_TOP), collapse: true }); });
   } else {
-    bars.push({ key: "25+", x: "25〜", full: "25円〜", cnt: topTot, color: _elOsBucketColor("25+"), band: true, expand: topKeys.length > 0 });
+    bars.push({ key: "25+", x: "25〜", full: "25円〜", cnt: topTot, xcnt: _xTopTot, color: _elOsBucketColor("25+"), band: true, expand: topKeys.length > 0 });
   }
   var maxC = 1; bars.forEach(function(b) { if (b.cnt > maxC) maxC = b.cnt; });
+  var _xTot = (_ref.xVals || []).length;   // 期待度×(見送り)の総件数（凡例用）
   // 現在の推奨基本α(markVal)に当たるOS値帯を青字＋▲＋青枠で強調（2026-06-28）。バケットキーは 0-4 / "5".."24" / 25+ / 展開時 "t"+値 に対応。
   var markVal = (_ref.markVal != null && !isNaN(Number(_ref.markVal))) ? Math.round(Number(_ref.markVal)) : null;
   var markKey = null;
@@ -456,10 +460,11 @@ function _elOsHistV2(_ref) {
     var click = _histClickable
       ? function() { _setSelKey(_selKey === b.key ? null : b.key); }
       : (b.expand ? function() { setExp(true); } : (b.collapse ? function() { setExp(false); } : null));
-    return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_isMark2 ? "（推奨基本α＋追加α " + markVal2 + "円）" : "") + (_isMark3 ? "（" + mark3Label + " " + markVal3 + "円）" : "") + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
+    return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (b.xcnt ? "・うち期待度×(見送り)" + b.xcnt + "件" : "") + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_isMark2 ? "（推奨基本α＋追加α " + markVal2 + "円）" : "") + (_isMark3 ? "（" + mark3Label + " " + markVal3 + "円）" : "") + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
         style: { flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", cursor: click ? "pointer" : "default" } },
       React.createElement("div", { style: { fontSize: 10, color: _isSel ? "#9A3412" : (b.cnt ? "#555" : "#ccc"), fontWeight: _isSel ? 700 : 400, marginBottom: 2, lineHeight: 1 } }, b.cnt),
-      React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? b.color : "#eee", borderRadius: "2px 2px 0 0", outline: _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (_isMark2 ? "2px solid #EA580C" : (_isMark3 ? "2px solid #C0392B" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none")))), outlineOffset: 1 } }));
+      React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? b.color : "#eee", borderRadius: "2px 2px 0 0", overflow: "hidden", outline: _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (_isMark2 ? "2px solid #EA580C" : (_isMark3 ? "2px solid #C0392B" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none")))), outlineOffset: 1 } },
+        (b.cnt && b.xcnt) ? React.createElement("div", { title: "期待度×（見送り）" + b.xcnt + "件", style: { width: "100%", height: Math.min(100, Math.round(b.xcnt / b.cnt * 100)) + "%", backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.72) 0, rgba(255,255,255,0.72) 1.6px, transparent 1.6px, transparent 3.6px)" } }) : null));
   });
   var xNodes = bars.map(function(b) {
     var _isMark = markKey != null && b.key === markKey;
@@ -496,10 +501,13 @@ function _elOsHistV2(_ref) {
     ? React.createElement("div", { style: { fontSize: 9, color: "#C0392B", fontWeight: 700, marginTop: 2 } }, "▲ 赤字＝" + mark3Label + "（" + markVal3 + "円）")
     : null;
   var markCap = (_markCapBase || _markCap2 || _markCap3) ? React.createElement(React.Fragment, null, _markCapBase, _markCap2, _markCap3) : null;
+  var _xCap = _xTot > 0 ? React.createElement("div", { style: { fontSize: 9, color: "#6B7280", fontWeight: 700, marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4 } },
+    React.createElement("span", { style: { display: "inline-block", width: 12, height: 8, borderRadius: 2, backgroundColor: "#9A3412", backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,0.72) 0, rgba(255,255,255,0.72) 1.6px, transparent 1.6px, transparent 3.6px)" } }),
+    "斜線＝期待度×（見送り） " + _xTot + "件（この母数のうち・棒内の割合で表示）") : null;
   return React.createElement("div", { style: { width: _ref.w || "100%", minWidth: 0 } },
     React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 2, height: (barH + 14) + "px" } }, colNodes),
     React.createElement("div", { style: { display: "flex", gap: 2, borderTop: "1.5px solid #e0ddd6", paddingTop: 3 } }, xNodes),
-    toggle, markCap, _selEl);
+    toggle, markCap, _xCap, _selEl);
 }
 // 「💡 読み取り」欄。items=文字列/ノードの配列（null/falseは除外）。空ならnull。
 // opts.title=見出しに添える分析名・opts.note=末尾の薄字注記。
@@ -3932,8 +3940,8 @@ function EntryLogView(_ref_elv2) {
       if (osDistFil === "yes" && _baAdd && _baAdd.improved && _baAdd.add != null) { _osRedMark = _baPickAlpha + _baAdd.add + _baCutVal; _osRedLabel = "推奨基本α＋追加α＋損切り値"; }
       else if (osDistFil === "no") { _osRedMark = _baPickAlpha + _baCutVal; _osRedLabel = "推奨基本α＋損切り値"; }
     }
-    var ok = 0, x = 0, miss = 0;
-    _osFilRecs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
+    var ok = 0, x = 0, miss = 0, _osXVals = [];
+    _osFilRecs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") { x++; var _xv = _elOsMaxAll(r.signal); if (_xv != null && !isNaN(_xv)) _osXVals.push(_xv); } else if (j === "miss") miss++; });
     // KPIカード（ユーザー指定6項目・件数/E到達/一番引っ張った損益/損切り件数は追加α母数トグルに連動 2026-07-01）: 件数／E到達数（到達率）／一番引っ張った損益／損切り件数（損切り率）／推奨基本α（次点も）／推奨追加α（次点も）。
     var _reach = ok + x, _reachRate = _osFilRecs.length ? Math.round(_reach / _osFilRecs.length * 100) : 0;
     var _kpiBase = (function() {
@@ -3967,7 +3975,7 @@ function EntryLogView(_ref_elv2) {
               React.createElement("span", null, "範囲 ", React.createElement("b", null, os.min + "〜" + os.max + "円")),
               pcg ? React.createElement("span", null, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + pcg.a70 + "円")) : null,
               React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "（" + _osFilRecs.length + "件）")),
-            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, markVal: _baPickAlpha,
+            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, xVals: _osXVals, markVal: _baPickAlpha,
               markVal2: (osDistFil === "yes" && _baPickAlpha != null && _baAdd && _baAdd.improved && _baAdd.add != null) ? (_baPickAlpha + _baAdd.add) : null,
               markVal3: _osRedMark, mark3Label: _osRedLabel })),
             _elOsBandLegendV2())
