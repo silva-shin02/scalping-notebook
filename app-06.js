@@ -2826,13 +2826,10 @@ function _elDayStockBenchV2(_ref) {
     React.createElement("div", { style: { fontSize: 11, color: "#555", display: "flex", flexWrap: "wrap", gap: "2px 14px" } },
       React.createElement("span", null, "到達率別α 70%→", _aPill(pctlB ? pctlB.a70 : null), " ／ 80%→", _aPill(pctlB ? pctlB.a80 : null))),
     React.createElement("div", { style: { fontSize: 8, color: "#aaa", marginTop: 2 } }, "到達率別α＝OS値分位からの目安（a70＝7割の足で到達）。"));
-  var trendBlock = React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px solid #eee" } },
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "📈 推奨基本α 期間推移"),
-    React.createElement(_elBaseAlphaTrendV2, { recs: recsAll, aiOf: aiOf }));
   return React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e5de", borderRadius: 8, padding: "10px 12px", marginTop: 10 } },
     React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📊 " + stock + "：α比較・深掘り"),
-    React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 6 } }, "本日 / 直近" + _EL_PERIOD_COUNTS[1] + "件 / 直近" + _EL_PERIOD_COUNTS[2] + "件 / 全期間（直近件数窓は前日まで・件数ベース）＋ 到達率別α・推奨基本αの期間推移（この銘柄・v2記録・採用α基準）"),
-    table, insight, deepBlock, trendBlock);
+    React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 6 } }, "本日 / 直近" + _EL_PERIOD_COUNTS[1] + "件 / 直近" + _EL_PERIOD_COUNTS[2] + "件 / 全期間（直近件数窓は前日まで・件数ベース）＋ 到達率別α（この銘柄・v2記録・採用α基準）"),
+    table, insight, deepBlock);
 }
 
 // 損切りの上振れ・損切り値シミュ（記録帳・深掘りタブ／2026-06-18）: 損切りになった記録について、
@@ -3527,7 +3524,7 @@ function _elMissSectionV2(recs, aiOf, hideSig) {
 }
 
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
-// タブ: 集計(KPI+OS値の分析+EP位置+累積損益+連勝連敗最大DD+時間帯+曜日別+×見送り+△ホールド)/α値(推奨基本α詳細_elBaseAlphaDetailV2+期間推移_elBaseAlphaTrendV2+α意思決定表+α感応度カーブ・2026-06-22)/期間/カレンダー/シグナル別/OS連鎖/深掘り(最適ホールド本数+期待度キャリブレーション+執行乖離+メモ×成績)/出現/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
+// タブ: 集計(KPI+OS値の分析+EP位置+累積損益+連勝連敗最大DD+時間帯+曜日別+×見送り+△ホールド)/α値(推奨基本α詳細_elBaseAlphaDetailV2+α意思決定表+α感応度カーブ・2026-06-22)/期間/カレンダー/シグナル別/OS連鎖/深掘り(最適ホールド本数+期待度キャリブレーション+執行乖離+メモ×成績)/出現/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
 // 一覧・展開明細は1行=1記録のテーブル（行タップでEntryLogCard展開）でスクロール量を削減。
 function EntryLogView(_ref_elv2) {
   var data = _ref_elv2.data, save = _ref_elv2.save, onBack = _ref_elv2.onBack,
@@ -4026,8 +4023,6 @@ function EntryLogView(_ref_elv2) {
               markVal3: _osRedMark, mark3Label: _osRedLabel })),
             _elOsBandLegendV2())
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 11 } }, "この母数に該当する記録がありません")) : null,
-      _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数フロア（最も件数の多いαの半分以上）を満たし想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。高αの薄い標本(選抜バイアス)は除外。日別/月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。※推奨基本αは追加α分析トグルの影響を受けず常に×・未選択母数で算出"),
-      React.createElement(_elBaseAlphaTrendV2, { recs: _baRecs, aiOf: _ai }),
       _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
       _elBaseAlphaDetailV2(_baRecs, _ai),
       _elFloatReasonSectionV2(_baRecs, _ai, data, _secH, _baPick, { expKey: expKey, setExpKey: setExpKey, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate }),
@@ -4115,9 +4110,7 @@ function EntryLogView(_ref_elv2) {
           _secH("🎯 成立率の目安（OS値→α分位）", "OS値（OS1〜3最高）の分位から、各成立率に対応するαの目安。基本αを決める前の“α候補レンジ”"),
           _elOsAlphaPctlTableV2(_selSigRecs),
           _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
-          _elBaseAlphaDetailV2(_selSigRecs, _ai),
-          _secH("🎯 推奨基本α 期間推移", "件数フロア（最も件数の多いαの半分以上・最低3件）かつ到達率(OS3まで)50%以上かつ想定損益がプラスのαから、損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。日別/月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
-          React.createElement(_elBaseAlphaTrendV2, { recs: _selSigRecs, aiOf: _ai }));
+          _elBaseAlphaDetailV2(_selSigRecs, _ai));
       } else if (_alSel === "add") {
         _alBody = React.createElement(React.Fragment, null,
           _alZoneHead("#9A3412", "#FFF7ED", "#FED7AA", "追加αゾーン ― 局面で基本αへ上乗せする加算分", React.createElement(React.Fragment, null, _alAddSum, React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginTop: 3 } }, "母数は追加α〇（要）を明示した記録のみ（基本αとは別プール）。期間別は下の表で。"))),

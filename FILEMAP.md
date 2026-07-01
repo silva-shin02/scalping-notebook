@@ -28,6 +28,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-01f 推奨基本α「期間推移」セクションを全3か所から削除
+- **app-06.js**: 推移グラフ`_elBaseAlphaTrendV2`の描画を全廃＝①集計タブ`_groupPanel`「🎯推奨基本α値（期間ごとの傾向）」②α値タブ基本αサブタブ「🎯推奨基本α 期間推移」③DayView`_elDayStockBenchV2`「📈推奨基本α 期間推移」(trendBlock)。各`_secH`＋グラフを除去（末尾要素はFragment/returnの閉じを調整）＋`_elDayStockBenchV2`の説明文とタブ概要コメントから期間推移の記述を削除。ユーザー指示（3か所すべて）。
+- `_elBaseAlphaTrendV2`定義(1540)は呼び出し無しのデッドコードとして残置。推奨基本α詳細(`_elBaseAlphaDetailV2`)は各所に残す。
+- 検証: `new Function`構文OK＋`_elBaseAlphaTrendV2`の描画箇所0件（定義とコメントのみ）。
+
 ### 2026-07-01e シグナル別パネルのOS値分布ヒストの棒クリックで取引一覧を展開
 - **app-06.js**: `_groupPanel` のOS値分布ヒスト（`_elOsHistV2` 呼び出し）に `recs: _osFilRecs, aiOf: _ai` を追加＝各棒クリックでその帯（OS1〜3最高値＝`_elOsMaxAll`基準）の取引ミニ表（`_elOsTradeMini`）を直下に展開（`_elOsHistV2` 内蔵の `_histClickable` を有効化）。母数はvals（`_elOsStatsV2(_osFilRecs, _elOsMaxAll)`）と同じ `_osFilRecs`＝棒と展開内容が一致。25円〜の内訳展開は従来どおりトグルリンクで可能。
 - 検証: `new Function`構文OK＋実マウントで6円バーをクリック→「OS 6円 の取引（2件）」ミニ表が展開することを確認（全22本クリック可能）。
