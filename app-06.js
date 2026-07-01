@@ -2850,7 +2850,7 @@ function _elStopOvershootSectionV2(recs, aiOf) {
 // ===== 損切りの分析（記録帳・銘柄別タブ「🛑損切り」／2026-06-22）=====
 // エントリー成立(E成立=judge"ok")記録の損切りを多角的に分析。recs=対象v2記録・aiOf=α情報・data。
 // ①損切りサマリー ②損切り値(cutLine)別シミュ＝全記録に同じ損切り値を当てた損切り回数/率・EP/H1/H2損益（★=H1損益最大の損切り値＝意思決定表） ③損切りの上振れ・早すぎ検証(_elStopOvershootSectionV2を移設) ④シグナル別の損切り率。
-function _elStopTabSectionV2(recs, aiOf, data) {
+function _elStopTabSectionV2(recs, aiOf, data, hideSig) {
   aiOf = aiOf || function(r) { return _elAlphaInfo(r, data); };
   var BIG = 99999;
   var _h = function(t, sub) {
@@ -2999,8 +2999,8 @@ function _elStopTabSectionV2(recs, aiOf, data) {
     simTbl,
     _h("📐 損切りの上振れ・早すぎ検証", "損切りラインを何円超えて伸びたか＋損切りせず保有/最良手仕舞いなら何円だったか＝損切りが早すぎないかの検証"),
     _elStopOvershootSectionV2(rs, aiOf),
-    _h("🎯 シグナル別 損切り率", "どのシグナルが損切りになりやすいか（損切り率の高い順・平均損切り額）。複数タグは各タグに算入"),
-    sigTbl,
+    hideSig ? null : _h("🎯 シグナル別 損切り率", "どのシグナルが損切りになりやすいか（損切り率の高い順・平均損切り額）。複数タグは各タグに算入"),
+    hideSig ? null : sigTbl,
     _h("🆚 損切り vs ×見送り（事前判断の精度）", "入って損切りした記録と、事前に期待度×で見送った（α到達）記録の比較。×が損失回避なら事前判断が機能・機会損失が多ければ保守的すぎ"),
     xCompare,
     insight);
@@ -3312,7 +3312,7 @@ function _elDowSectionV2(recs, aiOf) {
 // αに3本以内（OS1〜OS3）で届かずエントリーできなかった記録（_epResolve judge==="miss"・×見送りは除く）の詳細分析。
 // ①OS1〜3最高値の分布＋一覧 ②α不足額（α−最高値）の分布 ③α下げシミュ（何円下げれば救えたか） ④シグナル別の未達率。
 // recs=対象v2記録（銘柄スコープ）・aiOf=α情報(_elAlphaInfo)。
-function _elMissSectionV2(recs, aiOf) {
+function _elMissSectionV2(recs, aiOf, hideSig) {
   aiOf = aiOf || function(r) { return _elAlphaInfo(r, null); };
   var _h = function(t, sub) {
     return React.createElement("div", { style: { margin: "14px 0 6px" } },
@@ -3439,8 +3439,8 @@ function _elMissSectionV2(recs, aiOf) {
     _listTbl,
     _h("🔻 α下げシミュ（何円下げれば救えたか）", "αを各幅だけ下げていた場合、未達のうち何件がEP成立（最高値≥下げ後α）になったか（累積）"),
     _simTbl,
-    _h("🎯 シグナル別 未達率", "このスコープのシグナル別。未達率が高い順（だまし／α過大の発見）。複数タグは各タグに算入"),
-    _sigTbl,
+    hideSig ? null : _h("🎯 シグナル別 未達率", "このスコープのシグナル別。未達率が高い順（だまし／α過大の発見）。複数タグは各タグに算入"),
+    hideSig ? null : _sigTbl,
     _insight);
 }
 
@@ -3500,18 +3500,17 @@ function EntryLogView(_ref_elv2) {
   var v2recs = (addAlphaFil === "all") ? _v2recsAll : _v2recsAll.filter(function(r) { return addAlphaFil === "yes" ? _elAddAlphaYes(r.signal) : addAlphaFil === "no" ? _elAddAlphaNo(r.signal) : _elAddAlphaUnset(r.signal); });
   // 旧記録件数は算入フラグと独立に数える（除外した新形式記録を「旧記録」に混ぜない）。2026-06-18
   var oldCnt = filtered.filter(function(r) { return !_epIsV2(r.signal); }).length;
-  // 未達タブのバッジ件数（銘柄スコープのv2記録のうち judge==="miss"＝3本以内にα未到達）。全銘柄合算では未達タブ非表示。2026-06-22
-  var _missCnt = _isAllStock ? 0 : v2recs.filter(function(r) { var a = _ai(r).alpha; if (a == null || a === "") return false; var rr = _epResolve(r.signal, a); return !!(rr && rr.judge === "miss"); }).length;
+  // 未達タブのバッジ件数は、選択中シグナルの母数で数える（シグナル軸の下で _missCnt を定義 2026-07-01）。
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"]]
-    : [["sum", "📊 集計"], ["period", "📆 期間"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["signal", "🎯 シグナル別"], ["deep", "🔬 深掘り"]];
+    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"]];
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub) {
     // 追加α分析トグルが効いている時だけ、各セクション見出しに現在の絞り込みをバッジで明示（スクロールで見出しが目に入っても「今どの母数か」が分かる）。
-    // α値タブは母数固定（トグル非適用）なので付けない・損益(全銘柄合算)はトグル非表示なので付けない 2026-06-29e。
-    var _fb = (addAlphaFil !== "all" && view !== "alpha" && !_isAllStock)
+    // トグルは期間タブ限定に変更（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数）なので、バッジも期間タブでのみ表示 2026-07-01。
+    var _fb = (addAlphaFil !== "all" && view === "period" && !_isAllStock)
       ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 9, fontWeight: 700, color: "#C2410C", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 4, padding: "1px 6px", marginLeft: 6, verticalAlign: "middle", whiteSpace: "nowrap" } }, "🔍 " + (addAlphaFil === "yes" ? "〇要" : addAlphaFil === "no" ? "×不要" : "未選択") + "のみ")
       : null;
     return React.createElement("div", { style: { margin: "14px 0 6px" } },
@@ -3791,8 +3790,8 @@ function EntryLogView(_ref_elv2) {
       return React.createElement("button", { key: g[0], onClick: function() { setSumMode(g[0]); setExpKey(null); },
         style: { padding: "6px 16px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, g[1]);
     }));
-  var _alphaTable = (function() {
-    var rs = _v2recsAll.filter(function(r) { return r.signal.osVal != null && r.signal.osVal !== ""; });
+  var _alphaTableFn = function(_atRecs) {
+    var rs = (_atRecs || []).filter(function(r) { return r.signal.osVal != null && r.signal.osVal !== ""; });
     if (!rs.length) return null;
     var rows = [0, 5, 10, 15, 20].map(function(a) {
       var ent = 0, stp = 0;
@@ -3831,7 +3830,7 @@ function EntryLogView(_ref_elv2) {
             _td(x.stp > 0 ? x.stp + "回" : "0回", { color: x.stp > 0 ? "#1E8449" : "#bbb" }),
             _td(_amt(x.t.plan, x.t.planCnt, false, x.t.planRef, x.t.planRefCnt)), _td(_amt(x.t.holdPlanCap, x.t.holdCnt, i1, x.t.holdRef, x.t.holdRefCnt)), _td(_amt(x.t.hold2, x.t.hold2Cnt, i2, x.t.hold2Ref, x.t.hold2RefCnt)));
         }))));
-  })();
+  };
 
   // ===== グループ構築 =====
   var _buildSigGroups = function(arr) {
@@ -3847,6 +3846,12 @@ function EntryLogView(_ref_elv2) {
   };
   var _sigGroups = _buildSigGroups(v2recs);
   var _sigGroupsAll = _buildSigGroups(_v2recsAll);   // トグル非適用＝推奨基本αパネルの母数固定用 2026-06-24i
+  // シグナル軸（第2階層に昇格 2026-07-01）: 銘柄の下でシグナルを常設ピルで選ぶ。母数はトグル非依存の固定母数（_sigGroupsAll）で統一。全シグナル合算は持たず、選んだ1シグナルで 集計/α値/損切り/未達/深掘り を分析（期間は全シグナルのまま）。既定＝件数最多のシグナル。
+  var _sigAxisGroups = _sigGroupsAll;
+  var _selSigKey = (selSig != null && _sigAxisGroups.some(function(g) { return g.key === selSig; })) ? selSig : (_sigAxisGroups[0] ? _sigAxisGroups[0].key : null);
+  var _selSigGrp = _sigAxisGroups.filter(function(g) { return g.key === _selSigKey; })[0];
+  var _selSigRecs = (_selSigGrp && _selSigGrp.recs) ? _selSigGrp.recs : [];
+  var _missCnt = _selSigRecs.filter(function(r) { var a = _ai(r).alpha; if (a == null || a === "") return false; var rr = _epResolve(r.signal, a); return !!(rr && rr.judge === "miss"); }).length;
   // ===== シグナル別タブ用：サブタブバー＋リッチ分析パネル =====
   var _subTabBar = function(groups, sel, setSel) {
     return React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 4 } },
@@ -3933,23 +3938,19 @@ function EntryLogView(_ref_elv2) {
         v2recs.length >= 2 ? React.createElement(React.Fragment, null,
           _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理）"), _elStreakDDSectionV2(v2recs, _ai)) : null);
     } else {
-      // 銘柄別: 今月/全期間トグル。今月＝当月（←→で移動・top期間ドロップダウンに依存しない）／全期間＝top期間絞り込み後。構成は同一。
-      _tabBody = React.createElement(React.Fragment, null,
-        _sumModeBar,
-        sumMode === "month"
-          ? React.createElement(React.Fragment, null,
-              _sumMonthNav,
-              _sumMonthRecs.length ? _sumStockContent(_sumMonthRecs)
-                : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"))
-          : _sumStockContent(v2recs));
+      // 銘柄別の集計＝選択中シグナルの総合パネル（旧🎯シグナル別タブを昇格・上のシグナル軸で切替）。母数はトグル非依存の固定母数（_selSigRecs）。2026-07-01
+      _tabBody = _sigAxisGroups.length
+        ? (_selSigRecs.length ? _groupPanel(_selSigRecs, null, _selSigRecs)
+            : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "このシグナルのv2記録がありません"))
+        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この銘柄に集計できるシグナルがありません（EP起算v2の記録なし）");
     }
   } else if (view === "alpha") {
-    if (!_v2recsAll.length) {
-      _tabBody = React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
+    if (!_selSigRecs.length) {
+      _tabBody = React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sigAxisGroups.length ? "このシグナルのEP起算（v2）記録がありません" : "EP起算（v2）の記録がありません");
     } else {
-      // α値タブ＝タブ内サブタブ式（2026-06-29）: 基本α(青)/追加α(茶橙)/共通ツール(グレー)を別画面に分離し「ごっちゃ」を解消。
-      // 各サブタブ冒頭にゾーン見出し＋推奨値サマリー。サマリーはB1/A群と同じ _elBaseAlphaA(_v2recsAll) 由来＝値が一致（二重表示のズレを回避）。
-      var _alA = _elBaseAlphaA(_v2recsAll, _ai);
+      // α値タブ＝タブ内サブタブ式（2026-06-29）: 基本α(青)/追加α(茶橙)/共通ツール(グレー)を別画面に分離し「ごっちゃ」を解消。母数は選択中シグナルの固定母数（_selSigRecs・トグル非依存）2026-07-01。
+      var _alA = _elBaseAlphaA(_selSigRecs, _ai);
+      var _alphaTable = _alphaTableFn(_selSigRecs);
       var _alPick = _alA ? _alA.pick : null;
       var _alAdd = _alA ? _alA.add : null;
       var _alphaSubs = [["base", "① 基本α", "#0369A1"], ["add", "② 追加α", "#9A3412"], ["tools", "③ α早見・ツール", "#64748B"]];
@@ -3980,48 +3981,40 @@ function EntryLogView(_ref_elv2) {
       var _alBody;
       if (_alSel === "base") {
         _alBody = React.createElement(React.Fragment, null,
-          _alZoneHead("#0369A1", "#F0F9FF", "#BAE6FD", "基本αゾーン ― まず取る土台（最低限とる利幅）", React.createElement(React.Fragment, null, _alBaseSum, React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginTop: 3 } }, "このスコープ全体（" + _v2recsAll.length + "件）の推奨。期間別の推移は下の「期間推移」で。"))),
+          _alZoneHead("#0369A1", "#F0F9FF", "#BAE6FD", "基本αゾーン ― まず取る土台（最低限とる利幅）", React.createElement(React.Fragment, null, _alBaseSum, React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginTop: 3 } }, "このシグナル（" + _selSigRecs.length + "件）の推奨。期間別の推移は下の「期間推移」で。"))),
           _secH("🎯 成立率の目安（OS値→α分位）", "OS値（OS1〜3最高）の分位から、各成立率に対応するαの目安。基本αを決める前の“α候補レンジ”"),
-          _elOsAlphaPctlTableV2(_v2recsAll),
+          _elOsAlphaPctlTableV2(_selSigRecs),
           _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
-          _elBaseAlphaDetailV2(_v2recsAll, _ai),
+          _elBaseAlphaDetailV2(_selSigRecs, _ai),
           _secH("🎯 推奨基本α 期間推移", "件数フロア（最も件数の多いαの半分以上・最低3件）かつ到達率(OS2まで)50%以上かつ想定損益がプラスのαから、損切り率の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。日別/月別/週別/期間まとめで「この時期はX円→最近はY円」が分かる"),
-          React.createElement(_elBaseAlphaTrendV2, { recs: _v2recsAll, aiOf: _ai }));
+          React.createElement(_elBaseAlphaTrendV2, { recs: _selSigRecs, aiOf: _ai }));
       } else if (_alSel === "add") {
         _alBody = React.createElement(React.Fragment, null,
           _alZoneHead("#9A3412", "#FFF7ED", "#FED7AA", "追加αゾーン ― 局面で基本αへ上乗せする加算分", React.createElement(React.Fragment, null, _alAddSum, React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginTop: 3 } }, "母数は追加α〇（要）を明示した記録のみ（基本αとは別プール）。期間別は下の表で。"))),
-          _secH("🎯 推奨追加α値（期間別）", "追加α〇の記録だけを母数に、各期間（直近25件/50件/100件/全期間・" + todayStr() + "の前日まで）で基本α＋推奨追加αを当てた 損切り率/H1勝率/到達率/想定損益。〇記録の無い期間は—"),
-          _elAddAlphaPeriodTableV2(_v2recsAll, _ai, todayStr(), false),
-          _secH("📐 追加α値の分析", "追加α〇（要）を明示した記録だけが母数。足した判断が当たっていたか（基本αだけの場合とのH1反実仮想比較）・最適な上乗せ幅・根拠別の成績。〇は少なめなので全銘柄合算が見やすい"),
-          _elAddAlphaSectionV2(_v2recsAll, _ai, data));
+          _secH("🎯 推奨追加α値（期間別）", "このシグナルの追加α〇の記録だけを母数に、各期間（直近25件/50件/100件/全期間・" + todayStr() + "の前日まで）で基本α＋推奨追加αを当てた 損切り率/H1勝率/到達率/想定損益。〇記録の無い期間は—"),
+          _elAddAlphaPeriodTableV2(_selSigRecs, _ai, todayStr(), false),
+          _secH("📐 追加α値の分析", "このシグナルで追加α〇（要）を明示した記録だけが母数。足した判断が当たっていたか（基本αだけの場合とのH1反実仮想比較）・最適な上乗せ幅・根拠別の成績。〇はもともと少なめ＝件数が薄いと「参考」表示になります"),
+          _elAddAlphaSectionV2(_selSigRecs, _ai, data));
       } else {
         _alBody = React.createElement(React.Fragment, null,
-          _alZoneHead("#64748B", "#F8FAFC", "#E2E8F0", "共通ツール ― 基本/追加に依らないα全体の検証", React.createElement("div", { style: { fontSize: 10, color: "#64748B" } }, "α=0〜20円で全記録を再計算し、利益が最大になるα（★）を確認して最終微調整。")),
+          _alZoneHead("#64748B", "#F8FAFC", "#E2E8F0", "共通ツール ― 基本/追加に依らないα全体の検証", React.createElement("div", { style: { fontSize: 10, color: "#64748B" } }, "このシグナルの記録をα=0〜20円で再計算し、利益が最大になるα（★）を確認して最終微調整。")),
           _alphaTable ? React.createElement(React.Fragment, null, _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null,
-          _secH("📉 α感応度カーブ", "α=0〜20円で全記録を再計算した合計の推移（意思決定表のグラフ版）"),
-          _elAlphaCurveSectionV2(_v2recsAll, _ai));
+          _secH("📉 α感応度カーブ", "このシグナルの記録をα=0〜20円で再計算した合計の推移（意思決定表のグラフ版）"),
+          _elAlphaCurveSectionV2(_selSigRecs, _ai));
       }
       _tabBody = React.createElement(React.Fragment, null,
-        React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 6 } }, (_isAllStock ? "全銘柄合算" : "この銘柄（" + _selStock + "）") + "のα分析。EP起算（v2）の" + _v2recsAll.length + "件で算出。下のタブで 基本α／追加α／共通ツール を切替（追加α分析トグルの影響を受けず常に全件）。" + (_isAllStock ? "（銘柄をまたいだα傾向の参考。銘柄ごとは各銘柄タブで）" : "")),
+        React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 6 } }, "「" + stripCat(_selSigKey) + "」シグナル（" + _selStock + "）のα分析。EP起算（v2）の" + _selSigRecs.length + "件で算出。下のタブで 基本α／追加α／共通ツール を切替（母数はトグル非依存の固定母数）。上のシグナル軸で他シグナルへ切替できます。"),
         _alphaPills,
         _alBody);
     }
   } else if (view === "stop") {
-    _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
-      _secH("🛑 損切りの分析", "エントリーできた記録の損切りを多角的に分析。損切り値の最適化（損切り値別シミュ）・上振れ（早すぎ検証）・シグナル別の損切り率"),
-      _elStopTabSectionV2(v2recs, _ai, data))
-      : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
-  } else if (view === "signal") {
-    var _selSigKey = (selSig != null && _sigGroups.some(function(g) { return g.key === selSig; })) ? selSig : (_sigGroups[0] ? _sigGroups[0].key : null);
-    var _selSigGrp = _sigGroups.filter(function(g) { return g.key === _selSigKey; })[0];
-    _tabBody = _sigGroups.length ? React.createElement(React.Fragment, null,
-      _secH("🎯 シグナル別（タブ切替・複数タグは各タグに算入）"),
-      _subTabBar(_sigGroups, _selSigKey, setSelSig),
-      _selSigGrp ? _groupPanel(_selSigGrp.recs, null, (_sigGroupsAll.filter(function(g) { return g.key === _selSigKey; })[0] || {}).recs) : null)
-      : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし");
+    _tabBody = _selSigRecs.length ? React.createElement(React.Fragment, null,
+      _secH("🛑 損切りの分析（このシグナル）", "選択中シグナルのエントリーできた記録の損切りを多角的に分析。損切り値の最適化（損切り値別シミュ）・上振れ（早すぎ検証）"),
+      _elStopTabSectionV2(_selSigRecs, _ai, data, true))
+      : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "このシグナルのEP起算（v2）記録がありません");
   } else if (view === "period") {
     var _timeScope = (gran === "custom") ? v2recs.filter(function(r) { return (!cFrom || r.date >= cFrom) && (!cTo || r.date <= cTo); }) : v2recs;   // 時間帯別/曜日別は指定期間モードのときその範囲(_crecs相当)に追従 2026-06-28
-    _tabBody = React.createElement(React.Fragment, null, _elWeeklyTargetSummaryV2(v2recs, _ai), (function() {
+    _tabBody = React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 6, padding: "5px 9px", marginBottom: 8 } }, "🎯 期間タブはこの銘柄の全シグナル合算（時系列の俯瞰）。上のシグナル軸の選択では絞り込まれません。"), _elWeeklyTargetSummaryV2(v2recs, _ai), (function() {
       var _granBtns = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
         [["day", "日別"], ["week", "週別"], ["month", "月別"], ["custom", "指定期間"]].map(function(g) {
           var on = gran === g[0];
@@ -4141,23 +4134,23 @@ function EntryLogView(_ref_elv2) {
     _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか。集計タブから移設（指定期間のときはその範囲に追従）"), _elTimeOfDaySectionV2(_timeScope, _ai),
     _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益（どの曜日が成功しやすいか）。集計タブから移設（指定期間のときはその範囲に追従）"), _elDowSectionV2(_timeScope, _ai));
   } else if (view === "deep") {
-    _tabBody = v2recs.length ? React.createElement(React.Fragment, null,
-      _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・損切り率・EP比改善率）"), _elHoldDepthSectionV2(v2recs, _ai),
-      _secH("🎯 期待度キャリブレーション", "事前のH期待が実結果とどれだけ一致したか（予想は当たっているか過信か）"), _elExpCalibSectionV2(v2recs, _ai),
-      _secH("🚫 期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）。集計タブから移設"), _elXSkipSectionV2(v2recs, _ai),
-      _secH("🔺 期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）。集計タブから移設"), _elTriangleHoldSectionV2(v2recs, _ai),
-      _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）とEP位置別の成績。集計タブから移設"), _elEpPosSectionV2(v2recs, _ai),
-      _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）"), _elExecGapSectionV2(v2recs, _ai),
-      _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）"), _elMemoPerfSectionV2(v2recs, _ai)
-    ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
+    _tabBody = _selSigRecs.length ? React.createElement(React.Fragment, null,
+      _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・損切り率・EP比改善率）"), _elHoldDepthSectionV2(_selSigRecs, _ai),
+      _secH("🎯 期待度キャリブレーション", "事前のH期待が実結果とどれだけ一致したか（予想は当たっているか過信か）"), _elExpCalibSectionV2(_selSigRecs, _ai),
+      _secH("🚫 期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）。集計タブから移設"), _elXSkipSectionV2(_selSigRecs, _ai),
+      _secH("🔺 期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）。集計タブから移設"), _elTriangleHoldSectionV2(_selSigRecs, _ai),
+      _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）とEP位置別の成績。集計タブから移設"), _elEpPosSectionV2(_selSigRecs, _ai),
+      _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）"), _elExecGapSectionV2(_selSigRecs, _ai),
+      _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）"), _elMemoPerfSectionV2(_selSigRecs, _ai)
+    ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "このシグナルのEP起算（v2）記録がありません");
   } else if (view === "miss") {
     _tabBody = _isAllStock
       ? React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "上の銘柄タブで銘柄を選ぶと、その銘柄の未達分析を表示します")
-      : (v2recs.length
+      : (_selSigRecs.length
           ? React.createElement(React.Fragment, null,
-              _secH("❌ 未達記録の分析", "αに3本以内（OS1〜3）で届かずエントリーできなかった記録の詳細（×見送りは除く）。最高値の分布・α不足額・α下げシミュ・シグナル別未達率"),
-              _elMissSectionV2(v2recs, _ai))
-          : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません"));
+              _secH("❌ 未達記録の分析（このシグナル）", "選択中シグナルで、αに3本以内（OS1〜3）で届かずエントリーできなかった記録の詳細（×見送りは除く）。最高値の分布・α不足額・α下げシミュ"),
+              _elMissSectionV2(_selSigRecs, _ai, true))
+          : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "このシグナルのEP起算（v2）記録がありません"));
   }
 
   return React.createElement("div", { style: { padding: "12px 14px", maxWidth: 1100, margin: "0 auto" } },
@@ -4179,6 +4172,18 @@ function EntryLogView(_ref_elv2) {
             border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
+    (!_isAllStock && _sigAxisGroups.length) ? React.createElement("div", { style: { marginBottom: 6 } },
+      React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", alignItems: "center" } },
+        React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "🎯 シグナル"),
+        _sigAxisGroups.map(function(g) {
+          var on = _selSigKey === g.key;
+          var lowN = g.recs.length < _EL_BASE_MIN_N;
+          return React.createElement("button", { key: g.key, onClick: function() { setSelSig(g.key); setExpKey(null); },
+            style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
+              border: "1px solid " + (on ? "#9A3412" : "#e0d8cf"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : (lowN ? "#c0b6ab" : "#666") } },
+            g.label + " (" + g.recs.length + ")" + (lowN ? " 参考" : ""));
+        })),
+      React.createElement("div", { style: { fontSize: 9.5, color: "#aaa" } }, "銘柄の下でシグナルを選択＝集計/α値/損切り/未達/深掘りをそのシグナルで分析（母数はトグル非依存の固定母数）。「参考」＝件数" + _EL_BASE_MIN_N + "件未満で推奨がノイズになりやすい。複数タグは各タグに算入。期間は全シグナル合算。")) : null,
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
       _tabs.map(function(kv) {
         var on = view === kv[0];
@@ -4189,7 +4194,7 @@ function EntryLogView(_ref_elv2) {
             borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    (view !== "alpha" && !_isAllStock) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝サブタブバー直下＋スクロール追従(sticky top0)で常に見える化（α値=母数固定／損益(全銘柄合算)=非表示）。絞り込み中は橙で強調 2026-06-28→sticky化 2026-06-29e
+    (view === "period" && !_isAllStock) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝期間タブ限定（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数でトグル非適用・全銘柄合算=非表示）。絞り込み中は橙で強調 2026-07-01
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "追加α分析:"),
       [["all", "全部"], ["yes", "〇 要"], ["no", "× 不要"], ["unset", "未選択"]].map(function(kv) {
         var on = addAlphaFil === kv[0];
@@ -4197,7 +4202,7 @@ function EntryLogView(_ref_elv2) {
           style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
       }),
       addAlphaFil !== "all" ? React.createElement("span", { style: { fontSize: 10, color: "#C2410C", fontWeight: 700 } }, "🔍 " + (addAlphaFil === "yes" ? "〇要" : addAlphaFil === "no" ? "×不要" : "未選択") + " のみで母数を絞り込み中（「全部」で解除）") : null) : null,
-    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "上の銘柄タブで銘柄を選ぶとその銘柄に絞り（全分析タブを表示）、「損益」では全銘柄合算の損益（集計・期間のみ）を表示します。集計・分析タブはEP起算方式（v2）の記録のみ。"),
+    React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginBottom: 6 } }, "銘柄→シグナルの順に選択。集計/α値/損切り/未達/深掘りは選んだシグナルで分析（期間は全シグナル合算）。「損益」は全銘柄合算（集計・期間のみ）。分析タブはEP起算方式（v2）の記録のみ。"),
     _tabBody,
     editTarget ? React.createElement(EntryRecordForm, { data: data, save: save, initial: (editTarget && editTarget.signal) ? editTarget : null, onClose: function() { setEditTarget(null); } }) : null
   );
