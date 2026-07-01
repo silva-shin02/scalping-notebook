@@ -3470,6 +3470,7 @@ function EntryLogView(_ref_elv2) {
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
   var _uAA = useState("all"), addAlphaFil = _uAA[0], setAddAlphaFil = _uAA[1];   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
+  var _uOsF = useState("all"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 集計パネルのOS値分布の母数トグル: 全記録(all)/基本α母数=×+未選択(no)/追加α〇のみ(yes) 2026-07-01
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
@@ -3872,7 +3873,12 @@ function EntryLogView(_ref_elv2) {
       cut: function(r) { return _ai(r).cutLine; },
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
-    var os = _elOsStatsV2(recs, _elOsMaxAll), ss = _elStopStatsV2(recs, data), best = _elBestAlphaV2(recs, data), pcg = _elOsPctlV2(recs, _elOsMaxAll);
+    // OS値分布の母数トグル: 全記録/基本α母数(×+未選択)/追加α〇のみ。棒・中央/平均/α目安が切替＝▲推奨基本α(×+未選択固定)と母数を揃えて読める 2026-07-01。
+    var _osFilRecs = osDistFil === "no" ? recs.filter(function(r) { return r && !_elAddAlphaYes(r.signal); })
+      : osDistFil === "yes" ? recs.filter(function(r) { return r && _elAddAlphaYes(r.signal); })
+      : recs;
+    var _osAll = _elOsStatsV2(recs, _elOsMaxAll);
+    var os = _elOsStatsV2(_osFilRecs, _elOsMaxAll), ss = _elStopStatsV2(recs, data), best = _elBestAlphaV2(recs, data), pcg = _elOsPctlV2(_osFilRecs, _elOsMaxAll);
     var _baPickAlpha = (function() { var _p = _elBaseAlphaPick(_baRecs, _ai); return (_p && _p.alpha != null) ? _p.alpha : null; })();   // OS値分布に現在の推奨基本αを青字マーク（母数はトグル非依存の_baRecs＝推奨基本α表示と一致）2026-06-28
     var ok = 0, x = 0, miss = 0;
     recs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
@@ -3887,16 +3893,27 @@ function EntryLogView(_ref_elv2) {
         _kpiCard("実現損益", _yenN(t.real, t.realCnt), null, t.realCnt + "件"),
         _kpiCard("損切り", (ss.any || 0) + "回", ss.any > 0 ? "#1E8449" : "#bbb", ss.rate != null ? "率" + ss.rate + "%" : null),
         _kpiCard("最良α", _baTxt, "#0369A1")),
-      os ? React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "10px 12px", marginBottom: 4 } },
-          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 5 } }, "OS値分布（OS1〜3最高・1円刻み）"),
-          React.createElement("div", { style: { display: "flex", gap: "4px 16px", flexWrap: "wrap", fontSize: 12, color: "#555", marginBottom: 7, alignItems: "baseline" } },
-            React.createElement("span", null, "中央 ", React.createElement("b", { style: { color: "#9A3412", fontSize: 15 } }, os.med + "円"), (pcg && pcg.skewRight) ? React.createElement("span", { title: "平均が大きいOS値に上振れ。典型値は中央値で読むのが安全。", style: { display: "inline-block", fontSize: 8, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 3, padding: "0 4px", marginLeft: 4 } }, "右偏") : null),
-            React.createElement("span", null, "平均 ", React.createElement("b", null, os.avg + "円")),
-            React.createElement("span", null, "最頻 ", React.createElement("b", null, pcg ? _elOsBucketLabel(pcg.bucketMode.key) : os.mode.val + "円")),
-            React.createElement("span", null, "範囲 ", React.createElement("b", null, os.min + "〜" + os.max + "円")),
-            pcg ? React.createElement("span", null, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + pcg.a70 + "円")) : null),
-          React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, markVal: _baPickAlpha })),
-          _elOsBandLegendV2()) : null,
+      _osAll ? React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "10px 12px", marginBottom: 4 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: 4 } },
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "OS値分布（OS1〜3最高・1円刻み）"),
+            React.createElement("div", { style: { display: "flex", gap: 4 } },
+              [["all", "全記録"], ["no", "×+未選択"], ["yes", "〇のみ"]].map(function(kv) {
+                var on = osDistFil === kv[0];
+                return React.createElement("button", { key: kv[0], onClick: function() { setOsDistFil(kv[0]); },
+                  style: { padding: "3px 9px", fontSize: 10, fontWeight: 700, borderRadius: 12, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#888" } }, kv[1]);
+              }))),
+          React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 6 } }, osDistFil === "no" ? "母数＝×+未選択（▲推奨基本αと同じ母数）" : osDistFil === "yes" ? "母数＝追加α〇のみ（上乗せ判断した設定の伸び方）" : "母数＝全記録（追加α〇+×+未選択）"),
+          os ? React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { display: "flex", gap: "4px 16px", flexWrap: "wrap", fontSize: 12, color: "#555", marginBottom: 7, alignItems: "baseline" } },
+              React.createElement("span", null, "中央 ", React.createElement("b", { style: { color: "#9A3412", fontSize: 15 } }, os.med + "円"), (pcg && pcg.skewRight) ? React.createElement("span", { title: "平均が大きいOS値に上振れ。典型値は中央値で読むのが安全。", style: { display: "inline-block", fontSize: 8, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 3, padding: "0 4px", marginLeft: 4 } }, "右偏") : null),
+              React.createElement("span", null, "平均 ", React.createElement("b", null, os.avg + "円")),
+              React.createElement("span", null, "最頻 ", React.createElement("b", null, pcg ? _elOsBucketLabel(pcg.bucketMode.key) : os.mode.val + "円")),
+              React.createElement("span", null, "範囲 ", React.createElement("b", null, os.min + "〜" + os.max + "円")),
+              pcg ? React.createElement("span", null, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + pcg.a70 + "円")) : null,
+              React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "（" + _osFilRecs.length + "件）")),
+            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, markVal: _baPickAlpha })),
+            _elOsBandLegendV2())
+          : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 11 } }, "この母数に該当する記録がありません")) : null,
       _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数フロア（最も件数の多いαの半分以上）を満たし想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。高αの薄い標本(選抜バイアス)は除外。日別/月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。※推奨基本αは追加α分析トグルの影響を受けず常に×・未選択母数で算出"),
       React.createElement(_elBaseAlphaTrendV2, { recs: _baRecs, aiOf: _ai }),
       _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
