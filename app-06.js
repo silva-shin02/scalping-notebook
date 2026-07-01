@@ -446,6 +446,7 @@ function _elOsHistV2(_ref) {
     else if (markVal3 >= _EL_OS_TOP) markKey3 = exp ? ("t" + markVal3) : "25+";
     else markKey3 = String(markVal3);
   }
+  var mark3Label = _ref.mark3Label || "推奨基本α＋追加α＋損切り値";   // 赤マークの意味ラベル（〇のみ＝基本α＋追加α＋損切り／×+未選択＝基本α＋損切り）2026-07-01
   var colNodes = bars.map(function(b) {
     var pct = Math.round(b.cnt / cm.tot * 100);
     var _isSel = _histClickable && _selKey === b.key;
@@ -455,7 +456,7 @@ function _elOsHistV2(_ref) {
     var click = _histClickable
       ? function() { _setSelKey(_selKey === b.key ? null : b.key); }
       : (b.expand ? function() { setExp(true); } : (b.collapse ? function() { setExp(false); } : null));
-    return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_isMark2 ? "（推奨基本α＋追加α " + markVal2 + "円）" : "") + (_isMark3 ? "（推奨基本α＋追加α＋損切り " + markVal3 + "円）" : "") + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
+    return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_isMark2 ? "（推奨基本α＋追加α " + markVal2 + "円）" : "") + (_isMark3 ? "（" + mark3Label + " " + markVal3 + "円）" : "") + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
         style: { flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", cursor: click ? "pointer" : "default" } },
       React.createElement("div", { style: { fontSize: 10, color: _isSel ? "#9A3412" : (b.cnt ? "#555" : "#ccc"), fontWeight: _isSel ? 700 : 400, marginBottom: 2, lineHeight: 1 } }, b.cnt),
       React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? b.color : "#eee", borderRadius: "2px 2px 0 0", outline: _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (_isMark2 ? "2px solid #EA580C" : (_isMark3 ? "2px solid #C0392B" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none")))), outlineOffset: 1 } }));
@@ -492,7 +493,7 @@ function _elOsHistV2(_ref) {
     ? React.createElement("div", { style: { fontSize: 9, color: "#EA580C", fontWeight: 700, marginTop: 2 } }, "▲ オレンジ字＝推奨基本α＋追加α（" + markVal2 + "円）")
     : null;
   var _markCap3 = (markVal3 != null && markKey3 != null && bars.some(function(b) { return b.key === markKey3; }))
-    ? React.createElement("div", { style: { fontSize: 9, color: "#C0392B", fontWeight: 700, marginTop: 2 } }, "▲ 赤字＝推奨基本α＋追加α＋損切り値（" + markVal3 + "円）")
+    ? React.createElement("div", { style: { fontSize: 9, color: "#C0392B", fontWeight: 700, marginTop: 2 } }, "▲ 赤字＝" + mark3Label + "（" + markVal3 + "円）")
     : null;
   var markCap = (_markCapBase || _markCap2 || _markCap3) ? React.createElement(React.Fragment, null, _markCapBase, _markCap2, _markCap3) : null;
   return React.createElement("div", { style: { width: _ref.w || "100%", minWidth: 0 } },
@@ -3911,6 +3912,12 @@ function EntryLogView(_ref_elv2) {
     var _baPickAlpha = (_baPick && _baPick.alpha != null) ? _baPick.alpha : null;   // OS値分布に推奨基本αを青字マーク（母数はトグル非依存の_baRecs＝推奨基本α表示と一致）
     var _baCutPick = _elCutPick(_baRecs, _ai);   // 推奨損切り値（母数は_baRecs＝基本αと同じ・_elOsHistV2の赤マーク markVal3 用）2026-07-01
     var _baCutVal = (_baCutPick && _baCutPick.cut != null && _baCutPick.status !== "none") ? _baCutPick.cut : null;
+    // OS分布の赤マーク(損切りライン位置): 〇のみ＝基本α＋追加α＋損切り／×+未選択＝基本α＋損切り（全記録は出さない）2026-07-01
+    var _osRedMark = null, _osRedLabel = null;
+    if (_baPickAlpha != null && _baCutVal != null) {
+      if (osDistFil === "yes" && _baAdd && _baAdd.improved && _baAdd.add != null) { _osRedMark = _baPickAlpha + _baAdd.add + _baCutVal; _osRedLabel = "推奨基本α＋追加α＋損切り値"; }
+      else if (osDistFil === "no") { _osRedMark = _baPickAlpha + _baCutVal; _osRedLabel = "推奨基本α＋損切り値"; }
+    }
     var ok = 0, x = 0, miss = 0;
     recs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
     // KPIカード（2026-07-01 再構成・ユーザー指定6項目）: 件数／E到達数（到達率）／1取引あたり平均利益（H1基準・円）／損切り件数（損切り率）／推奨基本α（次点も）／推奨追加α（次点も）。
@@ -3954,7 +3961,7 @@ function EntryLogView(_ref_elv2) {
               React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "（" + _osFilRecs.length + "件）")),
             React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, markVal: _baPickAlpha,
               markVal2: (osDistFil === "yes" && _baPickAlpha != null && _baAdd && _baAdd.improved && _baAdd.add != null) ? (_baPickAlpha + _baAdd.add) : null,
-              markVal3: (osDistFil === "yes" && _baPickAlpha != null && _baAdd && _baAdd.improved && _baAdd.add != null && _baCutVal != null) ? (_baPickAlpha + _baAdd.add + _baCutVal) : null })),
+              markVal3: _osRedMark, mark3Label: _osRedLabel })),
             _elOsBandLegendV2())
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 11 } }, "この母数に該当する記録がありません")) : null,
       _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数フロア（最も件数の多いαの半分以上）を満たし想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。高αの薄い標本(選抜バイアス)は除外。日別/月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。※推奨基本αは追加α分析トグルの影響を受けず常に×・未選択母数で算出"),
