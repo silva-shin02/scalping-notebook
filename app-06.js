@@ -3879,20 +3879,33 @@ function EntryLogView(_ref_elv2) {
       : recs;
     var _osAll = _elOsStatsV2(recs, _elOsMaxAll);
     var os = _elOsStatsV2(_osFilRecs, _elOsMaxAll), ss = _elStopStatsV2(recs, data), best = _elBestAlphaV2(recs, data), pcg = _elOsPctlV2(_osFilRecs, _elOsMaxAll);
-    var _baPickAlpha = (function() { var _p = _elBaseAlphaPick(_baRecs, _ai); return (_p && _p.alpha != null) ? _p.alpha : null; })();   // OS値分布に現在の推奨基本αを青字マーク（母数はトグル非依存の_baRecs＝推奨基本α表示と一致）2026-06-28
+    var _baA = _elBaseAlphaA(_baRecs, _ai);   // {pick, add}＝推奨基本α(母数×+未選択)＋推奨追加α(母数〇のみ)。KPIカードとOS分布▲マークで共用 2026-07-01
+    var _baPick = _baA ? _baA.pick : null, _baAdd = _baA ? _baA.add : null;
+    var _baPickAlpha = (_baPick && _baPick.alpha != null) ? _baPick.alpha : null;   // OS値分布に推奨基本αを青字マーク（母数はトグル非依存の_baRecs＝推奨基本α表示と一致）
     var ok = 0, x = 0, miss = 0;
     recs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
-    var _baTxt = best ? [best.h1 ? ("H1 " + best.h1.a + "円") : null, best.h2 ? ("H2 " + best.h2.a + "円") : null].filter(Boolean).join(" / ") : "—";
+    // KPIカード（2026-07-01 再構成・ユーザー指定6項目）: 件数／E到達数（到達率）／1取引あたり平均利益（H1基準・円）／損切り件数（損切り率）／推奨基本α（次点も）／推奨追加α（次点も）。
+    var _reach = ok + x, _reachRate = recs.length ? Math.round(_reach / recs.length * 100) : 0;
+    var _perTradeH1 = (t.holdCnt > 0 && t.holdPlanCap != null) ? Math.round(t.holdPlanCap / t.holdCnt) : null;
+    var _kpiBase = (function() {
+      if (!_baPick || _baPick.alpha == null) return _kpiCard("推奨基本α値", "—", "#94A3B8", "データ不足");
+      var na = _baPick.status === "na";
+      var sub = (_baPick.alpha2 != null) ? ("次点 " + _baPick.alpha2 + "円") : (na ? "件数不足で参考値" : "次点なし");
+      return _kpiCard("推奨基本α値", _baPick.alpha + "円" + (na ? "（参考）" : ""), na ? "#B45309" : "#0369A1", sub);
+    })();
+    var _kpiAdd = (function() {
+      if (!_baAdd || !_baAdd.improved) return _kpiCard("推奨追加α値", "—", "#94A3B8", _baAdd ? "推奨無し（基本αで十分）" : "追加α〇の記録なし");
+      var sub = (_baAdd.add2 != null) ? ("次点 +" + _baAdd.add2 + "円") : "次点なし";
+      return _kpiCard("推奨追加α値", "+" + _baAdd.add + "円", "#9A3412", sub);
+    })();
     return React.createElement(React.Fragment, null,
-      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
+      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
         _kpiCard("件数", recs.length + "件", "#333"),
-        _kpiCard("E到達率", recs.length ? Math.round((ok + x) / recs.length * 100) + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
-        _kpiCard("EP損益", _yenNR(t.plan, t.planCnt, t.planRef, t.planRefCnt), null, t.planCnt + "件"),
-        _kpiCard("H1損益", _yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt), null, t.holdCnt + "件"),
-        _kpiCard("H2損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
-        _kpiCard("実現損益", _yenN(t.real, t.realCnt), null, t.realCnt + "件"),
-        _kpiCard("損切り", (ss.any || 0) + "回", ss.any > 0 ? "#1E8449" : "#bbb", ss.rate != null ? "率" + ss.rate + "%" : null),
-        _kpiCard("最良α", _baTxt, "#0369A1")),
+        _kpiCard("E到達数（到達率）", _reach + "件（" + _reachRate + "%）", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
+        _kpiCard("1取引あたりの利益", _perTradeH1 != null ? _elPnlFmt(_perTradeH1) : "—", _perTradeH1 != null ? _elPnlColor(_perTradeH1) : "#bbb", "H1基準・" + t.holdCnt + "件"),
+        _kpiCard("損切り件数（損切り率）", (ss.any || 0) + "回（" + (ss.rate != null ? ss.rate : 0) + "%）", ss.any > 0 ? "#1E8449" : "#bbb", "E成立が分母"),
+        _kpiBase,
+        _kpiAdd),
       _osAll ? React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "10px 12px", marginBottom: 4 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: 4 } },
             React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "OS値分布（OS1〜3最高・1円刻み）"),
