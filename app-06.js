@@ -1537,7 +1537,7 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
           "／到達率 ", React.createElement("b", null, Math.round((pick.eRate || 0) * 100) + "%")),
     (add && add.improved)
       ? React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
-          React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加α +" + add.add + "円（合計" + add.total + "円" + (add.pnl != null ? "・想定" + (add.pnl > 0 ? "+" : "") + Math.round(add.pnl).toLocaleString() + "円" : "") + "）"),
+          React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加α +" + add.add + "円" + (add.pnl != null ? "（想定" + (add.pnl > 0 ? "+" : "") + Math.round(add.pnl).toLocaleString() + "円）" : "")),
           _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 11, "#9A3412"))
       : (add ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "追加α＝推奨無し") : null));
   var sweepRows = pick.sweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
@@ -1597,7 +1597,7 @@ function _elBaseAlphaTableV2(groups, cutFn) {
     if (!A) cell = React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "データ無し");
     else cell = React.createElement("div", null,
       _aLine(A.pick),
-      (A.add && A.add.improved) ? React.createElement("div", { style: { whiteSpace: "nowrap", marginTop: 1, lineHeight: 1.2 } }, React.createElement("div", { style: { fontSize: 9, color: "#9A3412" } }, "追加α +" + A.add.add + "円（合計" + A.add.total + "円）"), _elReco2Node(A.add.add2 != null ? ("+" + A.add.add2 + "円") : null, 9, "#9A3412")) : null);
+      (A.add && A.add.improved) ? React.createElement("div", { style: { whiteSpace: "nowrap", marginTop: 1, lineHeight: 1.2 } }, React.createElement("div", { style: { fontSize: 9, color: "#9A3412" } }, "追加α +" + A.add.add + "円"), _elReco2Node(A.add.add2 != null ? ("+" + A.add.add2 + "円") : null, 9, "#9A3412")) : null);
     return React.createElement("tr", { key: gi, style: { borderBottom: "1px solid #dbeafe" } },
       React.createElement("td", { style: { padding: "3px 8px", fontWeight: 700, color: "#9A3412", fontSize: 11, whiteSpace: "nowrap", verticalAlign: "top" } }, g.label),
       React.createElement("td", { style: { padding: "3px 8px", textAlign: "left", borderLeft: "1px solid #dbeafe" } }, cell));
@@ -1796,7 +1796,7 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
       React.createElement("span", { style: { fontSize: 22, fontWeight: 800, color: na ? "#B45309" : "#0369A1", lineHeight: 1 } }, pk.alpha + "円"),
       React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: na ? "#B45309" : "#0369A1" } }, pk.alpha2 != null ? "（次点：" + pk.alpha2 + "円）" : "（次点なし）"),
       na ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "参考") : null,
-      (add && add.improved) ? React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } }, React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加" + add.add + "（計" + add.total + "円）"), _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 11, "#9A3412")) : null,
+      (add && add.improved) ? React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } }, React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加" + add.add + "円"), _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 11, "#9A3412")) : null,
       (hCut && hCut.cut != null && hCut.status !== "none") ? React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: hCut.status === "na" ? "#B45309" : "#C0392B" } }, "推奨損切り" + hCut.cut + "円" + (hCut.status === "na" ? "(参考)" : "")) : null,
       React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, head.label + "ベース・損切" + _pct(pk.stopRate) + " H1勝" + _pct(pk.h1win) + " " + (pk.scN || 0) + "件"));
   }
@@ -1844,15 +1844,15 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate) {
       React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: pk.alpha2 != null ? col : "#94A3B8", marginLeft: 3 } }, pk.alpha2 != null ? ("(次" + pk.alpha2 + ")") : "(次点なし)"),
       na ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 700, marginLeft: 3 } }, "参考") : null);
   };
-  // 推奨追加αノード（big=メイン／小=サブ）。改善なしは「推奨無し」、母数なし/不明は「—」。メインは計＋次点まで、サブは加算のみ簡潔。
+  // 推奨追加αノード（big=メイン／小=サブ）。改善なしは「推奨無し」、母数なし/不明は「—」。メインは加算＋次点（次点は（次点：+X円）でインライン）、サブは加算のみ簡潔。合計（計）表記は廃止 2026-07-01。
   var _addNode = function(add, big) {
     if (!add) return React.createElement("span", { style: { color: "#94A3B8", fontSize: big ? 13 : 10 } }, "—");
     if (!add.improved) return React.createElement("span", { style: { color: "#94A3B8", fontSize: big ? 13 : 10, fontWeight: 700 } }, "推奨無し");
-    if (!big) return React.createElement("span", { style: { whiteSpace: "nowrap" } }, React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: "#9A3412" } }, "+" + add.add + "円"), React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 2 } }, "(計" + add.total + ")"));
+    if (!big) return React.createElement("span", { style: { whiteSpace: "nowrap" } }, React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: "#9A3412" } }, "+" + add.add + "円"));
     return React.createElement("div", { style: { lineHeight: 1.12 } },
       React.createElement("div", { style: { whiteSpace: "nowrap" } },
         React.createElement("span", { style: { fontWeight: 800, fontSize: 20, color: "#9A3412" } }, "+" + add.add + "円")),
-      React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8", marginTop: 2 } }, "計" + add.total + "円" + (add.add2 != null ? ("・次点+" + add.add2) : "")));
+      (add.add2 != null) ? React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#94A3B8", marginTop: 2 } }, "（次点：+" + add.add2 + "円）") : null);
   };
   // 推奨損切りノード（big=メイン直近50件／小=サブ）。値のみ簡潔・na(件数フロア未満)は橙＋参考。損切り＝赤系で基本α(青)と区別 2026-06-29。
   var _cutNode = function(p, big) {
@@ -2051,7 +2051,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   var _A = _elBaseAlphaA(recs, aiOf);
   var recoAdd = (_A && _A.add && _A.add.improved) ? _A.add : null;
   var recoNode = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: recoAdd ? "#0369A1" : "#94A3B8" } },
-    recoAdd ? React.createElement(React.Fragment, null, React.createElement("span", null, "推奨追加α ＝ ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, "＋" + recoAdd.add + "円"), "（基本α" + (_A.pick ? _A.pick.alpha : "—") + "＋追加＝計" + recoAdd.total + "円）"), _elReco2Node(recoAdd.add2 != null ? ("＋" + recoAdd.add2 + "円") : null, 16, "#0369A1"))
+    recoAdd ? React.createElement(React.Fragment, null, React.createElement("span", null, "推奨追加α ＝ ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, "＋" + recoAdd.add + "円")), _elReco2Node(recoAdd.add2 != null ? ("＋" + recoAdd.add2 + "円") : null, 16, "#0369A1"))
       : "推奨追加α：実データで有意な上乗せ改善は出ていません（基本αで十分の傾向）");
   var effNoNum = eff.filter(function(e) { return !_elHasNumReason(e.s); });   // 数値根拠(底抜け前足浮き)は上乗せ幅別/根拠別から除外＝floatNode専用・推奨追加α(_A.add)と母数一致 2026-06-24i
   var byAdd = {};
@@ -3973,7 +3973,7 @@ function EntryLogView(_ref_elv2) {
       }
       var _alAddSum;
       if (_alAdd && _alAdd.improved) {
-        _alAddSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#9A3412" } }, "推奨追加α +" + _alAdd.add + "円", React.createElement("span", { style: { fontSize: 11, fontWeight: 700, marginLeft: 6, color: "#94A3B8" } }, "（基本＋追加＝計" + _alAdd.total + "円）"), _alAdd.add2 != null ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, marginLeft: 4, color: "#9A3412" } }, "次点 +" + _alAdd.add2 + "円") : null);
+        _alAddSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#9A3412" } }, "推奨追加α +" + _alAdd.add + "円", _alAdd.add2 != null ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, marginLeft: 6, color: "#94A3B8" } }, "（次点：+" + _alAdd.add2 + "円）") : null);
       } else {
         _alAddSum = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#94A3B8" } }, _alAdd ? "推奨追加α：推奨無し（基本αで十分の傾向）" : "推奨追加α：追加α〇の記録なし");
       }

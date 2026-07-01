@@ -6441,7 +6441,7 @@ function EntryRecordForm(_ref_erf) {
       })(),
         (function() {
           if (fAddAlphaUsed !== "○") return null;
-          if (_refAddAlpha) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlpha.add + "円"), React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3 } }, "（合計" + _refAddAlpha.total + "円）"), (_refAddAlpha.add2 != null ? React.createElement("span", { style: { fontWeight: 800, marginLeft: 4 } }, "（次点：+" + _refAddAlpha.add2 + "円）") : null));
+          if (_refAddAlpha) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlpha.add + "円"), (_refAddAlpha.add2 != null ? React.createElement("span", { style: { fontWeight: 800, marginLeft: 4 } }, "（次点：+" + _refAddAlpha.add2 + "円）") : null));
           return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨追加α：データ無し") : null;
         })()),
       (fAddAlphaUsed === "○") ? (function() {
