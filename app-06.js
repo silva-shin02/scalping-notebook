@@ -430,22 +430,32 @@ function _elOsHistV2(_ref) {
     else if (markVal >= _EL_OS_TOP) markKey = exp ? ("t" + markVal) : "25+";
     else markKey = String(markVal);
   }
+  // 第2マーク(markVal2)＝推奨基本α＋追加α。赤字＋赤枠＋赤▲で強調（〇のみ表示時など）2026-07-01。
+  var markVal2 = (_ref.markVal2 != null && !isNaN(Number(_ref.markVal2))) ? Math.round(Number(_ref.markVal2)) : null;
+  var markKey2 = null;
+  if (markVal2 != null) {
+    if (markVal2 <= 4) markKey2 = "0-4";
+    else if (markVal2 >= _EL_OS_TOP) markKey2 = exp ? ("t" + markVal2) : "25+";
+    else markKey2 = String(markVal2);
+  }
   var colNodes = bars.map(function(b) {
     var pct = Math.round(b.cnt / cm.tot * 100);
     var _isSel = _histClickable && _selKey === b.key;
     var _isMark = markKey != null && b.key === markKey;
+    var _isMark2 = markKey2 != null && b.key === markKey2;
     var click = _histClickable
       ? function() { _setSelKey(_selKey === b.key ? null : b.key); }
       : (b.expand ? function() { setExp(true); } : (b.collapse ? function() { setExp(false); } : null));
-    return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
+    return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_isMark2 ? "（推奨基本α＋追加α " + markVal2 + "円）" : "") + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
         style: { flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", cursor: click ? "pointer" : "default" } },
       React.createElement("div", { style: { fontSize: 10, color: _isSel ? "#9A3412" : (b.cnt ? "#555" : "#ccc"), fontWeight: _isSel ? 700 : 400, marginBottom: 2, lineHeight: 1 } }, b.cnt),
-      React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? b.color : "#eee", borderRadius: "2px 2px 0 0", outline: _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none")), outlineOffset: 1 } }));
+      React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? b.color : "#eee", borderRadius: "2px 2px 0 0", outline: _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (_isMark2 ? "2px solid #C0392B" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none"))), outlineOffset: 1 } }));
   });
   var xNodes = bars.map(function(b) {
     var _isMark = markKey != null && b.key === markKey;
-    return React.createElement("div", { key: b.key, style: { flex: "1 1 0", minWidth: 0, textAlign: "center", fontSize: 9, color: _isMark ? "#0369A1" : (b.band ? "#9A3412" : "#999"), fontWeight: (_isMark || b.band) ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
-      _isMark ? React.createElement("div", { style: { fontSize: 8, color: "#0369A1", lineHeight: 1 } }, "▲") : null, b.x);
+    var _isMark2 = markKey2 != null && b.key === markKey2;
+    return React.createElement("div", { key: b.key, style: { flex: "1 1 0", minWidth: 0, textAlign: "center", fontSize: 9, color: _isMark ? "#0369A1" : (_isMark2 ? "#C0392B" : (b.band ? "#9A3412" : "#999")), fontWeight: (_isMark || _isMark2 || b.band) ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+      _isMark ? React.createElement("div", { style: { fontSize: 8, color: "#0369A1", lineHeight: 1 } }, "▲") : (_isMark2 ? React.createElement("div", { style: { fontSize: 8, color: "#C0392B", lineHeight: 1 } }, "▲") : null), b.x);
   });
   var toggle = topKeys.length ? React.createElement("div", { style: { fontSize: 10, color: "#9A3412", marginTop: 4, cursor: "pointer", fontWeight: 700 }, onClick: function() { setExp(!exp); } }, exp ? "▲ 25円〜をまとめる" : "▼ 25円〜の内訳を見る（" + topKeys.length + "種・" + topTot + "件）") : null;
   var _selEl = null;
@@ -465,9 +475,13 @@ function _elOsHistV2(_ref) {
         React.createElement("span", { onClick: function() { _setSelKey(null); }, style: { cursor: "pointer", color: "#bbb", fontWeight: 400 } }, "×閉じる")),
       React.createElement("div", { style: { padding: "0 6px 6px" } }, _elOsTradeMini(_selRecs, _histAiOf)));
   }
-  var markCap = (markVal != null && markKey != null && bars.some(function(b) { return b.key === markKey; }))
+  var _markCapBase = (markVal != null && markKey != null && bars.some(function(b) { return b.key === markKey; }))
     ? React.createElement("div", { style: { fontSize: 9, color: "#0369A1", fontWeight: 700, marginTop: 4 } }, "▲ 青字＝現在の推奨基本α（" + markVal + "円）")
     : null;
+  var _markCap2 = (markVal2 != null && markKey2 != null && bars.some(function(b) { return b.key === markKey2; }))
+    ? React.createElement("div", { style: { fontSize: 9, color: "#C0392B", fontWeight: 700, marginTop: 2 } }, "▲ 赤字＝推奨基本α＋追加α（" + markVal2 + "円）")
+    : null;
+  var markCap = (_markCapBase || _markCap2) ? React.createElement(React.Fragment, null, _markCapBase, _markCap2) : null;
   return React.createElement("div", { style: { width: _ref.w || "100%", minWidth: 0 } },
     React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 2, height: (barH + 14) + "px" } }, colNodes),
     React.createElement("div", { style: { display: "flex", gap: 2, borderTop: "1.5px solid #e0ddd6", paddingTop: 3 } }, xNodes),
@@ -3906,7 +3920,7 @@ function EntryLogView(_ref_elv2) {
         _kpiBase,
         _kpiAdd),
       _osAll ? React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "10px 12px", marginBottom: 4 } },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: 4 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap", gap: 10, marginBottom: 4 } },
             React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "OS値分布（OS1〜3最高・1円刻み）"),
             React.createElement("div", { style: { display: "flex", gap: 4 } },
               [["all", "全記録"], ["no", "×+未選択"], ["yes", "〇のみ"]].map(function(kv) {
@@ -3923,7 +3937,7 @@ function EntryLogView(_ref_elv2) {
               React.createElement("span", null, "範囲 ", React.createElement("b", null, os.min + "〜" + os.max + "円")),
               pcg ? React.createElement("span", null, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + pcg.a70 + "円")) : null,
               React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "（" + _osFilRecs.length + "件）")),
-            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, markVal: _baPickAlpha })),
+            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, markVal: _baPickAlpha, markVal2: (osDistFil === "yes" && _baPickAlpha != null && _baAdd && _baAdd.improved && _baAdd.add != null) ? (_baPickAlpha + _baAdd.add) : null })),
             _elOsBandLegendV2())
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 11 } }, "この母数に該当する記録がありません")) : null,
       _secH("🎯 推奨基本α値（期間ごとの傾向）", "件数フロア（最も件数の多いαの半分以上）を満たし想定損益がプラスのαから、損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3の合成スコアが最大のα。高αの薄い標本(選抜バイアス)は除外。日別/月別/週別の推移と「期間まとめ」の早見表で「この時期はX円→最近はY円」が分かる。※推奨基本αは追加α分析トグルの影響を受けず常に×・未選択母数で算出"),
