@@ -1468,7 +1468,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
   var buckets = Object.keys(byB).sort().map(function(k) {
     var rs = byB[k];
     return { key: k, label: _elBucketLabel(k, gran), pick: _elBaseAlphaPick(rs, aiOf), n: rs.length };
-  }).filter(function(b) { return b.pick && b.pick.alpha != null && (gran === "day" ? b.pick.status !== "none" : b.pick.status === "ok"); });   // 日別は件数が少ないので参考(na)の日も表示・月別/週別は確定(ok)のみ 2026-06-26
+  }).filter(function(b) { return b.pick && b.pick.alpha != null && b.pick.status !== "none"; });   // 週別/月別も件数が少ない期間を参考(na)で表示＝1シグナルだと確定(ok)に届く期間が少なく行が出ないため（日別廃止に伴い）2026-07-01
   if (!buckets.length) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var pts = buckets.map(function(b) { return b.pick.alpha; });
   var xTicks = [], step = Math.max(1, Math.ceil(buckets.length / 6));
@@ -1488,7 +1488,7 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
   var insight = (buckets.length >= 2) ? _elInsightBoxV2([
     React.createElement("span", null, "〜", _elInsightEmV2(first.label), "の推奨基本αは", _elInsightEmV2(first.pick.alpha + "円"), "、直近の", _elInsightEmV2(last.label), "は", _elInsightEmV2(last.pick.alpha + "円"), "。"),
     (last.pick.alpha !== first.pick.alpha) ? React.createElement("span", null, "最近は", _elInsightEmV2((last.pick.alpha > first.pick.alpha ? "高め" : "低め") + "（" + (last.pick.alpha > first.pick.alpha ? "+" : "") + (last.pick.alpha - first.pick.alpha) + "円）"), "の傾向。") : null
-  ].filter(Boolean), { note: "各期間で「件数フロアを満たす中で合成スコア(損切り回避70%＋H1勝率30%)が最大のα」＝損切りしにくくH1で利益が出やすい土台。スコアは0〜100点。" + (gran === "day" ? "日別は件数が少ない日も参考(橙「参考」)で表示。" : "該当なしの期間は非表示。") + "5〜20円。件数が少ない期間は振れやすい" }) : null;
+  ].filter(Boolean), { note: "各期間で「件数フロアを満たす中で合成スコア(損切り回避70%＋H1勝率30%)が最大のα」＝損切りしにくくH1で利益が出やすい土台。スコアは0〜100点。件数が少ない期間も参考(橙「参考」)で表示。5〜20円。件数が少ない期間は振れやすい" }) : null;
   return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "損切り率", "H1勝率", "スコア", "有効件数"], rows), insight);
 }
 // 推奨基本αの「期間まとめ」: 1つの推奨値＋追加α＋α別の 損切り率(H1)/H1勝率/スコア 早見表（★=推奨）＋読み取り。2026-06-22再設計。
@@ -1527,16 +1527,16 @@ function _elBaseAlphaSummary(recs, aiOf) {
     _elv2Table(_sweepHead, sweepRows),
     _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（", (na ? "該当なし→件数最大" : ("損切り率" + (stopP != null ? stopP + "%" : "—") + "・H1勝率" + (winP != null ? winP + "%" : "—") + "・スコア" + (pick.score != null ? Math.round(pick.score * 100) : "—") + "点")), "）。", "（追加αは「② 追加α」タブで）")], { note: noteSub }));
 }
-// 🎯 推奨基本α値: 日別/月別/週別/期間まとめを切替（ステートフル・既定=日別）。日別のみ参考(na)の日も表示。
+// 🎯 推奨基本α値: 週別/月別/期間まとめを切替（ステートフル・既定=週別）。日別は廃止（1シグナルだと1件/日で参考だらけ）。件数が少ない期間も参考(na)で表示。2026-07-01
 function _elBaseAlphaTrendV2(props) {
   var recs = props.recs, aiOf = props.aiOf;
-  var _g = useState("day"), gran = _g[0], setGran = _g[1];   // 既定=日別 2026-06-26
+  var _g = useState("week"), gran = _g[0], setGran = _g[1];   // 既定=週別（日別廃止）2026-07-01
   var _tg = function(val, lbl) {
     var on = gran === val;
     return React.createElement("button", { key: val, onClick: function() { setGran(val); },
       style: { padding: "3px 12px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid " + (on ? "#0369A1" : "#ddd"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#666" } }, lbl);
   };
-  var toggle = React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } }, _tg("day", "日別"), _tg("month", "月別"), _tg("week", "週別"), _tg("period", "期間まとめ"));
+  var toggle = React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } }, _tg("week", "週別"), _tg("month", "月別"), _tg("period", "期間まとめ"));
   var body = gran === "period" ? _elBaseAlphaSummary(recs, aiOf) : _elBaseAlphaTrendBody(recs, aiOf, gran);
   return React.createElement("div", null, toggle, body);
 }
