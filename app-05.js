@@ -5447,8 +5447,8 @@ function EntryRecordForm(_ref_erf) {
     _useStateADAA = _slicedToArray(_useStateADA, 2),
     fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
   // 追加α 使用フラグ（3状態 2026-06-24）: 〇=必要だった→数値入力／×=不要＝基本αのみ／未選択=未判断。signal.addAlphaUsed(true/false/null)に保存。
-  // 初期化: addAlphaUsed===true→〇・===false→×・それ以外(新規/旧記録)→未選択（既定）。推奨基本αの母数=×＋未選択(=〇以外)・推奨追加αの母数=〇のみ・未選択は推奨追加αの母数からのみ除外(基本αには基本αのみの記録として算入)。
-  var _initAddUsed = (initSig.addAlphaUsed === true) ? "○" : (initSig.addAlphaUsed === false) ? "×" : "未選択";
+  // 初期化: addAlphaUsed===true→〇・===false→×・新規記録→×（既定 2026-07-01。従来は未選択→ユーザー要望で×へ＝新規だけ）／編集時の未設定(旧記録)→未選択（据え置き＝開いて保存しても勝手に×へ変えない）。推奨基本αの母数=×＋未選択(=〇以外)・推奨追加αの母数=〇のみ・未選択は推奨追加αの母数からのみ除外(基本αには基本αのみの記録として算入)。
+  var _initAddUsed = (initSig.addAlphaUsed === true) ? "○" : (initSig.addAlphaUsed === false) ? "×" : (isEdit ? "未選択" : "×");
   var _useStateAAU = useState(_initAddUsed),
     _useStateAAUA = _slicedToArray(_useStateAAU, 2),
     fAddAlphaUsed = _useStateAAUA[0], setFAddAlphaUsed = _useStateAAUA[1];
