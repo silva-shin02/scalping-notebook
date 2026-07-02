@@ -4337,7 +4337,7 @@ function EntryLogView(_ref_elv2) {
   );
 }
 
-// ===== αシミュレーター（独立モーダル・2026-07-02）: 対象を絞る→仮の基本α/追加α/損切りを置く→現実とシミュを対比。α別早見＋記録明細。非永続。 =====
+// αシミュレーター本体（分割エントリー版 2026-07-02f2）: 期間タブ→銘柄タブ→絞り込み→記録ごとにOS1〜3を大きく表示＋建て値α×株数の分割エントリー（横ならび）で「実際→シミュ」を対比。手仕舞いは記録の損益計算どおり（○△×）で変更不可。非永続。
 // window.__openAlphaSim(initial) で App がマウント。initial={period,date,stock,signal,addAlphaFil} は起動元(本日/今週/記録帳)からの既定。
 function AlphaSimBody(_ref_asim) {
   var data = _ref_asim.data, initial = _ref_asim.initial || {}, save = _ref_asim.save;
@@ -4346,15 +4346,9 @@ function AlphaSimBody(_ref_asim) {
   var _uStk = useState(initial.stock || "__all__"), stockFil = _uStk[0], setStockFil = _uStk[1];
   var _uSig = useState(initial.signal || "__all__"), sigFil = _uSig[0], setSigFil = _uSig[1];
   var _uAf = useState(initial.addAlphaFil || "all"), addFil = _uAf[0], setAddFil = _uAf[1];
-  var _uBa = useState(""), simBase = _uBa[0], setSimBase = _uBa[1];
-  var _uAa = useState(""), simAdd = _uAa[0], setSimAdd = _uAa[1];
-  var _uCu = useState(""), simCutS = _uCu[0], setSimCut = _uCu[1];
-  var _uDe = useState(false), showDetail = _uDe[0], setShowDetail = _uDe[1];
-  var _uMode = useState("single"), simMode = _uMode[0], setSimMode = _uMode[1];   // 単一α / 段階エントリー(株数配分) 2026-07-02
-  var _uTiers = useState([{ offset: "", shares: "100" }]), tiers = _uTiers[0], setTiers = _uTiers[1];   // 段配列 {水準線から+円offset, 株数shares}
-  var _uOv = useState({}), recOv = _uOv[0], setRecOv = _uOv[1];         // 記録ごとモードの上書き {key:{b,a,c,lv,sh,dep}}・空=実記録値が既定 2026-07-02
-  var _uOpn = useState({}), recOpen = _uOpn[0], setRecOpen = _uOpn[1];  // カード開閉（未指定は件数≤5で自動展開）
-  var _uEd = useState(null), simEdit = _uEd[0], setSimEdit = _uEd[1];   // ✎編集ターゲット（EntryRecordFormモーダル）
+  var _uT = useState({}), recTiers = _uT[0], setRecTiers = _uT[1];   // 記録ごとの分割エントリー {key:[{a:建て値α, sh:株数}]}・未設定=実α+100株が既定
+  var _uOpn = useState({}), recOpen = _uOpn[0], setRecOpen = _uOpn[1]; // カード開閉（未指定は件数≤5で自動展開）
+  var _uEd = useState(null), simEdit = _uEd[0], setSimEdit = _uEd[1];  // ✎編集ターゲット（EntryRecordFormモーダル）
   var simDate = initial.date || null;
   var _ai = function(r) { return _elAlphaInfo(r, data); };
 
@@ -4370,434 +4364,173 @@ function AlphaSimBody(_ref_asim) {
 
   var _stockOpts = (function() { var seen = {}, out = []; _byPeriod.forEach(function(r) { if (r.stock && !seen[r.stock]) { seen[r.stock] = 1; out.push(r.stock); } }); return out.sort(); })();
   var _sigOpts = (function() { var seen = {}, out = []; _byStock.forEach(function(r) { (r.signal.tags || []).forEach(function(t) { var k = stripCat(t); if (k && !seen[k]) { seen[k] = 1; out.push(k); } }); }); return out.sort(); })();
-
   var _recBase = _elBaseAlphaPick(recs, _ai);
   var _recBaseA = (_recBase && _recBase.alpha != null && _recBase.status !== "none") ? _recBase.alpha : null;
-  var baseA = (_num(simBase) != null) ? _num(simBase) : (_recBaseA != null ? _recBaseA : 10);
-  var addA = (_num(simAdd) != null) ? _num(simAdd) : 0;
-  var _addPool = recs.filter(function(r) { return _elAddAlphaYes(r.signal); });
-  var _recAdd = (_addPool.length) ? _elAddAlphaReco(_addPool, _ai, baseA) : null;
-  var _recAddA = (_recAdd && _recAdd.improved && _recAdd.add != null) ? _recAdd.add : null;
-  var _recCut = _elCutPick(recs, _ai);
-  var _recCutV = (_recCut && _recCut.cut != null && _recCut.status !== "none") ? _recCut.cut : null;
-  var cutV = (_num(simCutS) != null) ? _num(simCutS) : (_recCutV != null ? _recCutV : 10);
-  var totalA = baseA + addA;
-  var _aiSim = function() { return { cutLine: cutV }; };
-  var _medianOf = function(arr) { if (!arr.length) return null; var s = arr.slice().sort(function(a, b) { return a - b; }); var m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2); };
-  var _idealBaseA = _medianOf(recs.map(function(r) { return _elIdealAlpha(r.signal, cutV); }).filter(function(v) { return v != null; }));
-  var _idealCutV = _medianOf(recs.map(function(r) { return _elIdealCut(r.signal, totalA); }).filter(function(v) { return v != null; }));
-
-  var _agg = function(recsX, alphaOf, cutOf) {
-    var n = 0, ent = 0, scN = 0, stopN = 0, winN = 0, sum = 0, has = false, dmap = {};
-    (recsX || []).forEach(function(r) {
-      var s = r.signal; if (!s) return; n++;
-      var a = alphaOf(r), c = cutOf(r); if (a == null) return;
-      var rr = _epResolve(s, a); if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return; ent++;
-      var epStop = _elPlanIsStop(s, a, c), h1Stop = _elHoldIsStop(s, a, c), hd = _elDynHold(s, a, c);
-      if (!(epStop || h1Stop || hd != null)) return; scN++;
-      if (epStop || h1Stop) stopN++; else if (hd != null && hd > 0) winN++;
-      if (hd != null) { sum += hd; has = true; if (r.date) dmap[r.date] = 1; }
-    });
-    return { n: n, ent: ent, eRate: n ? ent / n : 0, scN: scN, stopRate: scN ? stopN / scN : null, h1win: scN ? winN / scN : null, sum: has ? sum : null, days: Object.keys(dmap).length };
-  };
-  var realAgg = _agg(recs, function(r) { return _ai(r).alpha; }, function(r) { return _ai(r).cutLine; });
-  var simAgg = _agg(recs, function() { return totalA; }, function() { return cutV; });
-
-  var sweep = []; for (var _sa = 5; _sa <= 20; _sa++) { var _tot = _sa + addA; var _ev = _elBaseAlphaEval(recs, _aiSim, _tot); var _sp = _elSimPnlByDay(recs, _aiSim, _tot); sweep.push({ base: _sa, eRate: _ev.eRate, stopRate: _ev.stopRate, h1win: _ev.h1win, scN: _ev.scN, sum: (_sp && _sp.sum != null) ? _sp.sum : null }); }
-  var _best = null; sweep.forEach(function(x) { if (x.sum != null && (_best == null || x.sum > _best.sum)) _best = x; });
-
-  // ===== 段階エントリー（株数配分）の計算 2026-07-02 =====
-  var _freqAdd = (function() { var m = {}, best = null; recs.forEach(function(r) { if (!_elAddAlphaYes(r.signal)) return; var v = _num(r.signal.addAlphaVal); if (v == null || v <= 0) return; m[v] = (m[v] || 0) + 1; if (best == null || m[v] > m[best]) best = v; }); return best != null ? Number(best) : null; })();
-  var _tierOff = function(t) { var v = _num(t.offset); return v != null ? v : (_recBaseA != null ? _recBaseA : 10); };
-  var _tierSh = function(t) { var v = _num(t.shares); return (v != null && v > 0) ? v : 100; };
-  var _ladderRec = function(r) {
-    var s = r.signal;
-    var rows = tiers.map(function(t) {
-      var off = _tierOff(t), sh = _tierSh(t);
-      var rr = _epResolve(s, off), reached = !!(rr && rr.epIdx >= 0 && rr.epIdx <= 2);
-      var per100 = reached ? _elDynHold(s, off, cutV) : null;
-      var stop = reached && (_elPlanIsStop(s, off, cutV) || _elHoldIsStop(s, off, cutV));
-      var pnl = (per100 != null) ? Math.round(per100 * sh / 100) : null;
-      return { off: off, sh: sh, reached: reached, stop: stop, pnl: pnl };
-    });
-    var tot = 0, has = false; rows.forEach(function(x) { if (x.pnl != null) { tot += x.pnl; has = true; } });
-    return { rows: rows, tot: has ? tot : null };
-  };
-  var _ladderResults = recs.map(function(r) { return { r: r, res: _ladderRec(r) }; });
-  var _ladderTotal = 0, _ladderHas = false; _ladderResults.forEach(function(x) { if (x.res.tot != null) { _ladderTotal += x.res.tot; _ladderHas = true; } });
-  var _totShares = 0; _ladderResults.forEach(function(x) { x.res.rows.forEach(function(rw) { if (rw.pnl != null) _totShares += rw.sh; }); });
-  var _realRealized = 0, _realHas = false; recs.forEach(function(r) { var s = r.signal; if (_elIsEntered(s, r.item)) { var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (v != null) { _realRealized += v; _realHas = true; } } });
 
   // ===== UI helpers =====
-  var _pct = function(v) { return v == null ? "—" : Math.round(v * 100) + "%"; };
-  var _pnl = function(v) { return v == null ? "—" : _elPnlFmt(Math.round(v)); };
   var _pill = function(lbl, on, oc) { return React.createElement("button", { key: lbl, onClick: oc, style: { padding: "2px 9px", fontSize: 10.5, fontWeight: 600, borderRadius: 11, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#888", whiteSpace: "nowrap" } }, lbl); };
-  var _quick = function(lbl, val, setter, col) { if (val == null) return null; return React.createElement("button", { key: lbl, onClick: function() { setter(String(val)); }, style: { padding: "1px 7px", fontSize: 9.5, borderRadius: 9, cursor: "pointer", border: "1px solid " + col, background: "#fff", color: col, whiteSpace: "nowrap", fontWeight: 600 } }, lbl); };
   var _sel = function(val, opts, setter, allLbl) {
     return React.createElement("select", { value: val, onChange: function(e) { setter(e.target.value); }, style: { fontSize: 11, padding: "2px 4px", border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#555", maxWidth: 130 } },
       [React.createElement("option", { key: "__all__", value: "__all__" }, allLbl)].concat(opts.map(function(o) { return React.createElement("option", { key: o, value: o }, o); })));
   };
-  var _paramRow = function(name, col, val, setter, isAdd, quicks) {
-    return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 9, flexWrap: "wrap" } },
-      React.createElement("span", { style: { fontSize: 11, color: col, fontWeight: 600, width: 46 } }, name),
-      React.createElement("button", { onClick: function() { setter(String(val - 1)); }, style: { width: 24, height: 24, borderRadius: 6, border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 15, color: "#666", lineHeight: 1 } }, "−"),
-      React.createElement("span", { style: { fontSize: 15, fontWeight: 700, color: col, minWidth: 52, textAlign: "center" } }, (isAdd && val >= 0 ? "+" : "") + val + "円"),
-      React.createElement("button", { onClick: function() { setter(String(val + 1)); }, style: { width: 24, height: 24, borderRadius: 6, border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 15, color: "#666", lineHeight: 1 } }, "+"),
-      React.createElement("span", { style: { display: "inline-flex", gap: 4, flexWrap: "wrap" } }, quicks));
-  };
-  var _delCol = function(rv, sv, betterDown) { if (rv == null || sv == null) return "#0369A1"; var d = sv - rv; if (d === 0) return "#94A3B8"; var good = betterDown ? d < 0 : d > 0; return good ? "#1E8449" : "#DC2626"; };
-  var _metricCard = function(lbl, realStr, simStr, simCol) {
-    return React.createElement("div", { key: lbl, style: { background: "#F8FAFC", borderRadius: 8, padding: "7px 5px", textAlign: "center" } },
-      React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", fontWeight: 600 } }, lbl),
-      React.createElement("div", { style: { fontSize: 12, marginTop: 1, lineHeight: 1.25 } },
-        React.createElement("span", { style: { color: "#94A3B8" } }, realStr),
-        React.createElement("span", { style: { color: simCol, fontWeight: 700, marginLeft: 3 } }, "→" + simStr)));
-  };
+  var _stepSt = { width: 22, height: 22, borderRadius: 6, border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 14, color: "#666", lineHeight: 1, flexShrink: 0 };
+  var _circ = function(i) { return ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"][i] || ("(" + (i + 1) + ")"); };
+  var _expColor = function(sym, isHold) { return sym === "△" ? "#B45309" : isHold ? (sym === "○" ? "#1E8449" : "#C0392B") : (sym === "○" ? "#C0392B" : "#1E8449"); };
 
-  // 銘柄タブ（①の上・銘柄ごとにシミュを切替 2026-07-02）。全体＋各銘柄ピル。切替でsim手入力(基本/追加/損切り)をリセット→その銘柄の推奨が自動入力される。
+  // ===== 期間タブ（最上部）＝まず期間で絞る =====
+  var _periodDefs = (simDate ? [["day", "この日"]] : []).concat([["week", "今週"], ["recent", "直近50件"], ["all", "全期間"]]);
+  var _periodTabs = React.createElement("div", { style: { display: "flex", gap: 2, borderBottom: "2px solid #e8e3d8", marginBottom: 8, overflowX: "auto" } },
+    _periodDefs.map(function(pd) { var on = period === pd[0]; return React.createElement("button", { key: pd[0], onClick: function() { setPeriod(pd[0]); }, style: { flexShrink: 0, padding: "7px 15px", fontSize: 12.5, fontWeight: on ? 800 : 700, border: "none", background: "none", color: on ? "#1a1a1a" : "#94a3b8", borderBottom: "3px solid " + (on ? "#9A3412" : "transparent"), marginBottom: -2, cursor: "pointer", whiteSpace: "nowrap" } }, pd[1]); }));
+
+  // ===== 銘柄タブ（期間の下）=====
   var _stkCnt = function(s) { return _byPeriod.filter(function(r) { return r.stock === s; }).length; };
   var _stkList = _stockOpts.slice();
   if (stockFil !== "__all__" && _stkList.indexOf(stockFil) < 0) _stkList.unshift(stockFil);
-  var _pickStock = function(s) { setStockFil(s); setSimBase(""); setSimAdd(""); setSimCut(""); };
-  var _stkTabBtn = function(key, label, on, activeCol) { return React.createElement("button", { key: key, onClick: function() { _pickStock(key); }, style: { flexShrink: 0, padding: "7px 15px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? activeCol : "#ddd"), background: on ? activeCol : "#fff", color: on ? "#fff" : "#666" } }, label); };
-  var _stockTabs = React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
+  var _stkTabBtn = function(key, label, on, activeCol) { return React.createElement("button", { key: key, onClick: function() { setStockFil(key); }, style: { flexShrink: 0, padding: "7px 15px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? activeCol : "#ddd"), background: on ? activeCol : "#fff", color: on ? "#fff" : "#666" } }, label); };
+  var _stockTabs = React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 8, borderBottom: "2px solid #f0ede8" } },
     [_stkTabBtn("__all__", "全体 (" + _byPeriod.length + ")", stockFil === "__all__", "#1a1a1a")].concat(
       _stkList.map(function(s) { return _stkTabBtn(s, s + " (" + _stkCnt(s) + ")", stockFil === s, "#9A3412"); })));
 
-  var _filterBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 10, padding: "9px 11px", marginBottom: 9 } },
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 7 } }, "① 対象（母数）を絞る", React.createElement("span", { style: { fontWeight: 400, color: "#94A3B8", marginLeft: 6 } }, "選択中：" + (stockFil === "__all__" ? "全体" : stockFil))),
-    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px 12px", alignItems: "center", fontSize: 11, marginBottom: 7 } },
-      React.createElement("span", { style: { color: "#64748b" } }, "期間"),
-      React.createElement("span", { style: { display: "inline-flex", gap: 4, flexWrap: "wrap" } },
-        (simDate ? [_pill("この日", period === "day", function() { setPeriod("day"); })] : []).concat([
-          _pill("今週", period === "week", function() { setPeriod("week"); }),
-          _pill("直近50件", period === "recent", function() { setPeriod("recent"); }),
-          _pill("全期間", period === "all", function() { setPeriod("all"); })
-        ]))),
-    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px 12px", alignItems: "center", fontSize: 11, marginBottom: 7 } },
-      React.createElement("span", { style: { color: "#64748b" } }, "シグナル"), _sel(sigFil, _sigOpts, setSigFil, "全部")),
-    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px 8px", alignItems: "center", fontSize: 11 } },
-      React.createElement("span", { style: { color: "#64748b" } }, "追加α状態"),
+  // ===== 追加の絞り込み（シグナル・追加α状態）=====
+  var _filterBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 10, padding: "8px 11px", marginBottom: 9 } },
+    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px 12px", alignItems: "center", fontSize: 11, marginBottom: 6 } },
+      React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "絞り込み"),
+      React.createElement("span", { style: { color: "#64748b" } }, "シグナル"), _sel(sigFil, _sigOpts, setSigFil, "全部"),
+      React.createElement("span", { style: { color: "#64748b" } }, "追加α"),
       _pill("全部", addFil === "all", function() { setAddFil("all"); }),
       _pill("〇", addFil === "yes", function() { setAddFil("yes"); }),
-      _pill("×のみ", addFil === "no", function() { setAddFil("no"); }),
-      _pill("未選択", addFil === "unset", function() { setAddFil("unset"); })),
-    React.createElement("div", { style: { fontSize: 10.5, color: "#0369A1", fontWeight: 600, marginTop: 8 } }, "→ 対象 " + recs.length + "件"),
-    recs.length ? React.createElement("div", { style: { marginTop: 6, maxHeight: 260, overflow: "auto", border: "1px solid #eee", borderRadius: 6 } }, _elOsTradeMini(recs, _ai)) : null);
+      _pill("×", addFil === "no", function() { setAddFil("no"); }),
+      _pill("未", addFil === "unset", function() { setAddFil("unset"); })),
+    React.createElement("div", { style: { fontSize: 10.5, color: "#0369A1", fontWeight: 700 } }, "→ 対象 " + recs.length + "件　（" + (stockFil === "__all__" ? "全体" : stockFil) + "）"));
 
-  // ===== 段階エントリーモードのUI =====
-  var _stepSt = { width: 22, height: 22, borderRadius: 6, border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 14, color: "#666", lineHeight: 1 };
-  var _step = function(val, setter, col, unit, w) {
-    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
-      React.createElement("button", { onClick: function() { setter(String(val - 1)); }, style: _stepSt }, "−"),
-      React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: col, minWidth: w || 40, textAlign: "center" } }, val + unit),
-      React.createElement("button", { onClick: function() { setter(String(val + 1)); }, style: _stepSt }, "+"));
-  };
-  var _modeToggle = React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 9, flexWrap: "wrap" } },
-    _pill("単一α", simMode === "single", function() { setSimMode("single"); }),
-    _pill("記録ごと", simMode === "cards", function() { setSimMode("cards"); }),
-    _pill("段階エントリー（株数）", simMode === "ladder", function() { setSimMode("ladder"); }));
-  var _tierRow = function(t, i) {
-    var off = _tierOff(t), sh = _tierSh(t);
-    var setOff = function(v) { var nt = tiers.slice(); nt[i] = { offset: v, shares: nt[i].shares }; setTiers(nt); };
-    var setSh = function(v) { var nt = tiers.slice(); nt[i] = { offset: nt[i].offset, shares: v }; setTiers(nt); };
-    var baseAdd = (_recBaseA != null && _recAddA != null) ? (_recBaseA + _recAddA) : null;
-    var freqAdd = (_recBaseA != null && _freqAdd != null) ? (_recBaseA + _freqAdd) : null;
-    return React.createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 7, flexWrap: "wrap" } },
-      React.createElement("span", { style: { fontSize: 10, color: "#64748b" } }, "水準線+"),
-      _step(off, setOff, "#0369A1", "円", 40),
-      React.createElement("span", { style: { fontSize: 10, color: "#64748b" } }, "に"),
-      _step(sh, setSh, "#333", "株", 48),
-      React.createElement("span", { style: { display: "inline-flex", gap: 3, flexWrap: "wrap" } },
-        _quick("推奨基本" + (_recBaseA != null ? _recBaseA : ""), _recBaseA, setOff, "#0369A1"),
-        _quick("＋推奨追加" + (baseAdd != null ? baseAdd : ""), baseAdd, setOff, "#9A3412"),
-        _quick("＋よく使う" + (freqAdd != null ? freqAdd : ""), freqAdd, setOff, "#9A3412")),
-      tiers.length > 1 ? React.createElement("button", { onClick: function() { setTiers(tiers.filter(function(_x, j) { return j !== i; })); }, style: { fontSize: 12, color: "#cbd5e1", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null);
-  };
-  var _ladderBar = React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 11, color: "#7F1D1D", fontWeight: 600, marginBottom: 9, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } }, "損切り（全段共通）", _step(cutV, setSimCut, "#7F1D1D", "円", 40), _quick("推奨" + (_recCutV != null ? _recCutV : ""), _recCutV, setSimCut, "#7F1D1D")),
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 7 } }, "段（水準線から何円上に何株）"),
-    tiers.map(function(t, i) { return _tierRow(t, i); }),
-    React.createElement("button", { onClick: function() { setTiers(tiers.concat([{ offset: "", shares: "100" }])); }, style: { marginTop: 3, padding: "3px 11px", fontSize: 10, fontWeight: 600, borderRadius: 9, border: "1px dashed #C2410C", background: "#fff", color: "#C2410C", cursor: "pointer" } }, "＋ 段を追加"));
-  var _ldTh = function(t) { return React.createElement("th", { style: { padding: "3px 5px", fontSize: 9, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, t); };
-  var _ldTd = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "3px 5px", fontSize: 10, textAlign: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
-  var _ladderResult = React.createElement("div", null,
-    React.createElement("div", { style: { display: "flex", gap: 14, flexWrap: "wrap", alignItems: "baseline", marginBottom: 9 } },
-      React.createElement("span", { style: { fontSize: 11, color: "#64748b" } }, "合計損益（" + recs.length + "件）"),
-      React.createElement("span", { style: { fontSize: 12, color: "#94A3B8" } }, "現実 " + (_realHas ? _elPnlFmt(Math.round(_realRealized)) : "—")),
-      React.createElement("span", { style: { fontSize: 19, fontWeight: 700, color: _ladderHas ? _elPnlColor(Math.round(_ladderTotal)) : "#94A3B8" } }, "→ " + (_ladderHas ? _elPnlFmt(Math.round(_ladderTotal)) : "—")),
-      React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "延べ " + _totShares.toLocaleString() + "株")),
-    React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginBottom: 4 } }, "記録ごとの内訳（各段の到達・段別損益）"),
-    React.createElement(_HScrollBox, null,
-      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-        React.createElement("thead", null, React.createElement("tr", { style: { background: "#f2f0ea" } },
-          [_ldTh("日付")].concat(tiers.map(function(t, i) { return _ldTh("+" + _tierOff(t) + "円/" + _tierSh(t) + "株"); })).concat([_ldTh("計")]))),
-        React.createElement("tbody", null, _ladderResults.map(function(x, ri) {
-          var cells = [_ldTd(((x.r.date || "").slice(5).replace("-", "/")) + " " + x.r.stock, { textAlign: "left" })];
-          x.res.rows.forEach(function(rw) { cells.push(_ldTd(!rw.reached ? React.createElement("span", { style: { color: "#94A3B8" } }, "未達") : rw.pnl == null ? React.createElement("span", { style: { color: "#94A3B8" } }, "—") : React.createElement("span", { style: { color: _elPnlColor(rw.pnl), fontWeight: rw.stop ? 700 : 400 } }, (rw.stop ? "損切 " : "到達 ") + _elPnlFmt(rw.pnl)))); });
-          cells.push(_ldTd(x.res.tot == null ? "—" : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(x.res.tot) } }, _elPnlFmt(x.res.tot))));
-          return React.createElement("tr", { key: ri, style: { borderTop: "0.5px solid #eee" } }, cells);
-        })))));
-
-  // ===== 記録ごと（個別シミュ）モード 2026-07-02: 各記録の実値（基本α/追加α/損切り/水準線/株数）を既定にカード単位で上書き。水準線の変更は線シフトΔとして有効α=基本+追加+Δで再計算（OS記録値は元の線基準のため）。 =====
+  // ===== 分割エントリー計算 =====
   var _rcKey = function(r) { var s = r.signal; return (s && s.id != null) ? ("s" + s.id) : (r.date + "_" + ((s && s.time) || "") + "_" + (r.stock || "")); };
-  var _rcDef = function(r) {
-    var s = r.signal, ai = _ai(r);
-    var add = (_elAddAlphaYes(s) && s.addAlphaVal != null && s.addAlphaVal !== "" && !isNaN(Number(s.addAlphaVal))) ? Number(s.addAlphaVal) : 0;
-    var tot = (ai && ai.alpha != null) ? Number(ai.alpha) : null;
-    var base = (s.baseAlphaVal != null && s.baseAlphaVal !== "" && !isNaN(Number(s.baseAlphaVal))) ? Number(s.baseAlphaVal) : (tot != null ? tot - add : 10);
-    var cut = (ai && ai.cutLine != null) ? Number(ai.cutLine) : 10;
-    var lvl = (s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
-    return { base: base, add: add, cut: cut, lvl: lvl };
+  var _defTiers = function(r) { var ai = _ai(r); var a = (ai && ai.alpha != null) ? ai.alpha : (_recBaseA != null ? _recBaseA : 10); return [{ a: String(a), sh: "100" }]; };
+  var _tiersOf = function(r) { var k = _rcKey(r); return recTiers[k] || _defTiers(r); };
+  var _setTiers = function(k, arr) { var n = Object.assign({}, recTiers); n[k] = arr; setRecTiers(n); };
+  var _resetTiers = function(k) { var n = Object.assign({}, recTiers); delete n[k]; setRecTiers(n); };
+  // 各エントリーの損益＝記録の損益計算どおり（_elDynHold＝手仕舞いは記録のH1・損切りは記録のcut）×株数/100。○△×は結果。
+  var _entryCalc = function(r, tier) {
+    var s = r.signal, ai = _ai(r), cut = (ai && ai.cutLine != null) ? Number(ai.cutLine) : 10;
+    var a = _num(tier.a), sh = (_num(tier.sh) != null && _num(tier.sh) > 0) ? _num(tier.sh) : 100;
+    if (a == null) return { reached: false, pnl: null, sh: sh, res: null, a: null };
+    var rr = _epResolve(s, a), reached = !!(rr && rr.epIdx >= 0 && rr.epIdx <= 2);
+    if (!reached) return { reached: false, pnl: null, sh: sh, res: "miss", a: a };
+    var per100 = _elDynHold(s, a, cut);
+    var stop = _elPlanIsStop(s, a, cut) || _elHoldIsStop(s, a, cut);
+    var res = stop ? "stop" : _elDynResult(s, a, cut);
+    var pnl = (per100 != null) ? Math.round(per100 * sh / 100) : null;
+    return { reached: true, pnl: pnl, per100: per100, sh: sh, res: res, stop: stop, a: a, cut: cut };
   };
-  var _rcSim = function(r) {
-    var key = _rcKey(r), d = _rcDef(r), o = recOv[key] || {};
-    var b = _num(o.b) != null ? _num(o.b) : d.base;
-    var a = _num(o.a) != null ? _num(o.a) : d.add;
-    var c = _num(o.c) != null ? _num(o.c) : d.cut;
-    var lv = (d.lvl != null && _num(o.lv) != null) ? _num(o.lv) : d.lvl;
-    var sh = (_num(o.sh) != null && _num(o.sh) > 0) ? _num(o.sh) : 100;
-    var dep = o.dep || "h1";
-    var shift = (d.lvl != null && lv != null) ? (lv - d.lvl) : 0;
-    return { key: key, d: d, b: b, a: a, c: c, lv: lv, sh: sh, dep: dep, shift: shift, eff: b + a + shift, aEff: d.base + d.add, o: o };
+  var _cardCalc = function(r) {
+    var tiers = _tiersOf(r);
+    var rows = tiers.map(function(t) { return _entryCalc(r, t); });
+    var tot = 0, has = false, shares = 0;
+    rows.forEach(function(x) { if (x.pnl != null) { tot += x.pnl; has = true; shares += x.sh; } });
+    var s = r.signal;
+    var realized = _elIsEntered(s, r.item) ? ((r.item && r.item.pnl != null) ? Number(r.item.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign)) : null;
+    return { tiers: tiers, rows: rows, tot: has ? tot : null, shares: shares, realized: realized };
   };
-  var _rcSet = function(key, patch) { var n = Object.assign({}, recOv); n[key] = Object.assign({}, n[key] || {}, patch); setRecOv(n); };
-  var _rcReset = function(key) { var n = Object.assign({}, recOv); delete n[key]; setRecOv(n); };
-  var _rcBulk = function(patchOf) { var n = Object.assign({}, recOv); recs.forEach(function(r) { var q = _rcSim(r); n[q.key] = Object.assign({}, n[q.key] || {}, patchOf(q, r)); }); setRecOv(n); };
-  var _depPnl = function(s, alpha, cut, dep) { if (alpha == null) return null; if (dep === "ep") return _elDynPlanned(s, alpha, cut); if (dep === "h2") return _elDynHold2(s, alpha, cut); return _elDynHold(s, alpha, cut); };
-  var _rcBulkChip = function(lbl, col, oc) { return React.createElement("button", { key: lbl, onClick: oc, style: { padding: "2px 9px", fontSize: 10.5, fontWeight: 600, borderRadius: 9, cursor: "pointer", border: "1px solid " + col, background: "#fff", color: col, whiteSpace: "nowrap" } }, lbl); };
-  var _cardsBar = React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginBottom: 7 } }, "各カードの既定＝実記録と同値。ここは全カードへの一括操作（個別はカード内で調整）。"),
-    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" } },
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#0369A1" } }, "基本α"),
-      _recBaseA != null ? _rcBulkChip("推奨" + _recBaseA + "を全カードへ", "#0369A1", function() { _rcBulk(function() { return { b: String(_recBaseA) }; }); }) : null,
-      _rcBulkChip("全+1", "#0369A1", function() { _rcBulk(function(q) { return { b: String(q.b + 1) }; }); }),
-      _rcBulkChip("全−1", "#0369A1", function() { _rcBulk(function(q) { return { b: String(q.b - 1) }; }); }),
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginLeft: 6 } }, "追加α"),
-      _rcBulkChip("なし", "#9A3412", function() { _rcBulk(function() { return { a: "0" }; }); }),
-      _recAddA != null ? _rcBulkChip("推奨+" + _recAddA, "#9A3412", function() { _rcBulk(function() { return { a: String(_recAddA) }; }); }) : null,
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#7F1D1D", marginLeft: 6 } }, "損切り"),
-      _recCutV != null ? _rcBulkChip("推奨" + _recCutV, "#7F1D1D", function() { _rcBulk(function() { return { c: String(_recCutV) }; }); }) : null,
-      _rcBulkChip("↺ 全部実際値に戻す", "#888", function() { setRecOv({}); })));
 
-  var _condBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 10, padding: "9px 11px", marginBottom: 9 } },
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 9 } }, "② 仮の条件を置く ", React.createElement("span", { style: { fontWeight: 400, color: "#94A3B8" } }, "（推奨/理想でワンタップ）")),
-    _modeToggle,
-    simMode === "ladder" ? _ladderBar : simMode === "cards" ? _cardsBar : React.createElement(React.Fragment, null,
-      _paramRow("基本α", "#0369A1", baseA, setSimBase, false, [_quick("推奨" + (_recBaseA != null ? _recBaseA : ""), _recBaseA, setSimBase, "#0369A1"), _quick("理想" + (_idealBaseA != null ? _idealBaseA : ""), _idealBaseA, setSimBase, "#0369A1")]),
-      _paramRow("追加α", "#9A3412", addA, setSimAdd, true, [_quick("推奨+" + (_recAddA != null ? _recAddA : ""), _recAddA, setSimAdd, "#9A3412"), _quick("なし", 0, setSimAdd, "#9A3412")]),
-      _paramRow("損切り", "#7F1D1D", cutV, setSimCut, false, [_quick("推奨" + (_recCutV != null ? _recCutV : ""), _recCutV, setSimCut, "#7F1D1D"), _quick("理想" + (_idealCutV != null ? _idealCutV : ""), _idealCutV, setSimCut, "#7F1D1D")]),
-      React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "right" } }, "合計α ", React.createElement("b", { style: { color: "#333" } }, totalA + "円"), "（基本" + baseA + " ＋ 追加" + addA + "）")));
-
-  var _sumBar = React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7, marginBottom: 11 } },
-    _metricCard("到達率", _pct(realAgg.eRate), _pct(simAgg.eRate), _delCol(realAgg.eRate, simAgg.eRate, false)),
-    _metricCard("損切り率", _pct(realAgg.stopRate), _pct(simAgg.stopRate), _delCol(realAgg.stopRate, simAgg.stopRate, true)),
-    _metricCard("H1勝率", _pct(realAgg.h1win), _pct(simAgg.h1win), _delCol(realAgg.h1win, simAgg.h1win, false)),
-    _metricCard("想定損益", _pnl(realAgg.sum), _pnl(simAgg.sum), _delCol(realAgg.sum, simAgg.sum, false)));
-
-  var _swTh = function(t) { return React.createElement("th", { style: { padding: "3px 6px", fontSize: 9.5, fontWeight: 600, color: "#9A3412", textAlign: "center", whiteSpace: "nowrap" } }, t); };
-  var _swTd = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "3px 6px", fontSize: 10.5, textAlign: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
-  var _sweepTable = React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#9A3412", margin: "0 0 3px" } }, "α別早見（基本αを振ると？ ★＝想定損益最大・追加α+" + addA + "/損切り" + cutV + "円で固定）"),
-    React.createElement(_HScrollBox, null,
-      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-        React.createElement("thead", null, React.createElement("tr", { style: { background: "#f2f0ea" } }, _swTh("基本α"), _swTh("到達率"), _swTh("損切り率"), _swTh("H1勝率"), _swTh("件数"), _swTh("想定損益"))),
-        React.createElement("tbody", null, sweep.map(function(x) {
-          var on = _best && x.base === _best.base;
-          return React.createElement("tr", { key: x.base, style: on ? { background: "#FEF3C7" } : null, onClick: function() { setSimBase(String(x.base)); }, title: "クリックで基本αに反映" },
-            _swTd(React.createElement("span", { style: { fontWeight: 700, color: on ? "#B45309" : "#0369A1", cursor: "pointer" } }, x.base + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8, borderTop: "0.5px solid #eee" }),
-            _swTd(_pct(x.eRate), { borderTop: "0.5px solid #eee" }),
-            _swTd(x.stopRate == null ? "—" : React.createElement("span", { style: { color: x.stopRate <= 0.2 ? "#1E8449" : x.stopRate >= 0.5 ? "#DC2626" : "#B45309" } }, _pct(x.stopRate)), { borderTop: "0.5px solid #eee" }),
-            _swTd(_pct(x.h1win), { borderTop: "0.5px solid #eee" }),
-            _swTd((x.scN || 0) + "件", { borderTop: "0.5px solid #eee", color: "#94A3B8" }),
-            _swTd(x.sum == null ? "—" : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(Math.round(x.sum)) } }, _pnl(x.sum)), { borderTop: "0.5px solid #eee" }));
-        })))));
-
-  var _judgeMark = function(s, a, c) {
-    var rr = _epResolve(s, a); if (!rr || rr.epIdx < 0) return React.createElement("span", { style: { color: "#94A3B8" } }, "未達");
-    if (rr.judge === "x") return React.createElement("span", { style: { color: "#B45309" } }, "×見送り");
-    if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c)) return React.createElement("span", { style: { color: "#DC2626", fontWeight: 700 } }, "損切り");
-    return React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "到達");
+  // 大きめOS1〜3表示（記録の実αでEP位置を確定＝その取引の実構造）
+  var _osBig = function(r) {
+    var s = r.signal, legs = _epLegs(s).slice(0, 3), ai = _ai(r);
+    var rr = (ai && ai.alpha != null) ? _epResolve(s, ai.alpha) : null, epIdx = rr ? rr.epIdx : -1, judge = rr ? rr.judge : null;
+    if (!legs.length) return React.createElement("div", { style: { fontSize: 11, color: "#cbd5e1", margin: "4px 0 10px" } }, "OS記録なし");
+    return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + legs.length + ", 1fr)", gap: 8, margin: "4px 0 12px" } },
+      legs.map(function(o, i) {
+        var sub;
+        if (i === epIdx) { sub = React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#0369A1" } }, "↑EP" + (judge === "x" ? "（×）" : "")); }
+        else {
+          var isHold = (epIdx >= 0 && i > epIdx);
+          var ex = (epIdx >= 0 && i === epIdx + 1) ? s.holdExp : (epIdx >= 0 && i === epIdx + 2) ? s.hold2Exp : o.exp;
+          sub = (ex === "○" || ex === "△" || ex === "×")
+            ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800 } }, React.createElement("span", { style: { color: "#9CA3AF" } }, isHold ? "H" : "α"), React.createElement("span", { style: { color: _expColor(ex, isHold) } }, ex))
+            : React.createElement("span", { style: { fontSize: 11, color: "#cbd5e1" } }, "—");
+        }
+        return React.createElement("div", { key: i, style: { background: "#F8FAFC", borderRadius: 10, padding: "7px 3px", textAlign: "center" } },
+          React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 700 } }, "OS" + (i + 1)),
+          React.createElement("div", { style: { fontSize: 21, fontWeight: 800, lineHeight: 1.15, color: o.h != null ? _vcol(Math.abs(o.h), o.h >= 0) : "#cbd5e1" } },
+            o.h != null ? ((o.h < 0 ? "↓" : "") + Math.abs(o.h)) : "—",
+            o.c != null ? React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", fontWeight: 600 } }, "(" + (o.c < 0 ? "↓" : "↑") + Math.abs(o.c) + ")") : null),
+          React.createElement("div", { style: { marginTop: 1 } }, sub));
+      }));
   };
-  var _dTh = function(t) { return React.createElement("th", { style: { padding: "3px 5px", fontSize: 9, fontWeight: 600, color: "#9A3412", textAlign: "center", whiteSpace: "nowrap" } }, t); };
-  var _dTd = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "3px 5px", fontSize: 10, textAlign: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
-  var _detailRows = [];
-  recs.slice().sort(function(a, b) { return (a.date < b.date ? 1 : a.date > b.date ? -1 : 0); }).forEach(function(r, i) {
-    var s = r.signal, ai = _ai(r), ra = ai.alpha, rc = ai.cutLine;
-    var _top = i > 0 ? { borderTop: "2px solid #F5D0B5" } : null;
-    _detailRows.push(React.createElement("tr", { key: i + "_r" },
-      React.createElement("td", { rowSpan: 2, style: Object.assign({ padding: "3px 5px", fontSize: 9.5, textAlign: "left", verticalAlign: "middle", whiteSpace: "nowrap" }, _top || {}) }, (r.date || "").slice(5).replace("-", "/"), React.createElement("div", { style: { color: "#aaa", fontSize: 8.5 } }, r.stock)),
-      _dTd("現実", Object.assign({ color: "#64748B", fontWeight: 700 }, _top || {})),
-      _dTd(ra != null ? (ra + "円") : "—", _top || {}),
-      _dTd((function() { var v = _elDynPlanned(s, ra, rc); return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v) } }, _pnl(v)); })(), _top || {}),
-      _dTd((function() { var v = _elDynHold(s, ra, rc); return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v) } }, _pnl(v)); })(), _top || {}),
-      _dTd(_judgeMark(s, ra, rc), _top || {})));
-    _detailRows.push(React.createElement("tr", { key: i + "_s" },
-      _dTd("シミュ", { color: "#0369A1", fontWeight: 700, borderTop: "1px dashed #F5D0B5" }),
-      _dTd(React.createElement("span", { style: { color: "#0369A1" } }, totalA + "円"), { borderTop: "1px dashed #F5D0B5" }),
-      _dTd((function() { var v = _elDynPlanned(s, totalA, cutV); return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v) } }, _pnl(v)); })(), { borderTop: "1px dashed #F5D0B5" }),
-      _dTd((function() { var v = _elDynHold(s, totalA, cutV); return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v) } }, _pnl(v)); })(), { borderTop: "1px dashed #F5D0B5" }),
-      _dTd(_judgeMark(s, totalA, cutV), { borderTop: "1px dashed #F5D0B5" })));
-  });
-  var _detailTable = React.createElement("div", { style: { marginTop: 8 } },
-    React.createElement("div", { onClick: function() { setShowDetail(!showDetail); }, style: { fontSize: 10.5, fontWeight: 700, color: "#9A3412", cursor: "pointer", marginBottom: 4 } }, (showDetail ? "▲ " : "▼ ") + "記録ごとの明細（現実 vs シミュ・" + recs.length + "件）"),
-    showDetail ? React.createElement(_HScrollBox, null,
-      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-        React.createElement("thead", null, React.createElement("tr", { style: { background: "#f2f0ea" } }, _dTh("日付"), _dTh("種別"), _dTh("α"), _dTh("EP損益"), _dTh("H1損益"), _dTh("判定"))),
-        React.createElement("tbody", null, _detailRows))) : null);
 
-  // ===== 記録ごとモードの③本体: A+B自動レイアウト（≤5件は全展開・6件以上は折りたたみ既定・カードごと開閉可） =====
-  var _rcSorted = recs.slice().sort(function(a, b) { return (a.date + (a.signal.time || "99:99")).localeCompare(b.date + (b.signal.time || "99:99")); });
-  var _rcDefaultOpen = _rcSorted.length <= 5;
-  var _rcTotReal = 0, _rcTotSim = 0, _rcHasR = false, _rcHasS = false;
-  var _rcCalc = _rcSorted.map(function(r) {
-    var s = r.signal, q = _rcSim(r);
-    var rv = _depPnl(s, q.aEff, q.d.cut, q.dep);
-    var sv = _depPnl(s, q.eff, q.c, q.dep);
-    if (rv != null) { _rcTotReal += Math.round(rv * q.sh / 100); _rcHasR = true; }
-    if (sv != null) { _rcTotSim += Math.round(sv * q.sh / 100); _rcHasS = true; }
-    return { r: r, q: q, rv: rv, sv: sv };
-  });
-  var _rcDelta = (_rcHasR && _rcHasS) ? (_rcTotSim - _rcTotReal) : null;
-  var simAggC = _agg(recs, function(r) { return _rcSim(r).eff; }, function(r) { return _rcSim(r).c; });
-  var _sumBarCards = React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7, marginBottom: 9 } },
-    _metricCard("到達率", _pct(realAgg.eRate), _pct(simAggC.eRate), _delCol(realAgg.eRate, simAggC.eRate, false)),
-    _metricCard("損切り率", _pct(realAgg.stopRate), _pct(simAggC.stopRate), _delCol(realAgg.stopRate, simAggC.stopRate, true)),
-    _metricCard("H1勝率", _pct(realAgg.h1win), _pct(simAggC.h1win), _delCol(realAgg.h1win, simAggC.h1win, false)),
-    _metricCard("想定損益(H1)", _pnl(realAgg.sum), _pnl(simAggC.sum), _delCol(realAgg.sum, simAggC.sum, false)));
-  var _rcTotBar = function(sticky) {
-    return React.createElement("div", { key: sticky ? "t_top" : "t_btm", style: Object.assign({ background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 10, padding: "7px 11px", marginBottom: 8, display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap" }, sticky ? { position: "sticky", top: 0, zIndex: 6, boxShadow: "0 2px 6px -2px rgba(0,0,0,0.18)" } : { marginTop: 2 }) },
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "合計（" + _rcSorted.length + "件・株数/手仕舞い反映）"),
-      React.createElement("span", { style: { fontSize: 12, color: "#94A3B8" } }, "実際 " + (_rcHasR ? _elPnlFmt(_rcTotReal) : "—")),
-      React.createElement("span", { style: { fontSize: 17, fontWeight: 700, color: _rcHasS ? _elPnlColor(_rcTotSim) : "#94A3B8" } }, "→ シミュ " + (_rcHasS ? _elPnlFmt(_rcTotSim) : "—")),
-      _rcDelta != null && _rcDelta !== 0 ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: _elPnlColor(_rcDelta) } }, "（" + (_rcDelta > 0 ? "+" : "−") + Math.abs(_rcDelta).toLocaleString() + "円）") : null);
+  // 分割エントリー列（各列＝縦に入力欄／列は横ならび）
+  var _miniStep = function(val, setter, step, col) {
+    return React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 2 } },
+      React.createElement("button", { onClick: function() { setter(String((_num(val) || 0) - step)); }, style: _stepSt }, "−"),
+      React.createElement("input", { type: "text", inputMode: "numeric", value: (val == null ? "" : String(val)), onChange: function(e) { setter(_toHankakuNum(e.target.value)); }, style: { width: 42, textAlign: "center", fontSize: 13, fontWeight: 700, color: col, border: "1px solid #ddd", borderRadius: 5, padding: "2px 1px", fontVariantNumeric: "tabular-nums" } }),
+      React.createElement("button", { onClick: function() { setter(String((_num(val) || 0) + step)); }, style: _stepSt }, "＋"));
   };
-  var _rcSmBtnSt = { fontSize: 11, padding: "1px 8px", borderRadius: 8, border: "1px solid #ddd", background: "#fff", color: "#888", cursor: "pointer", whiteSpace: "nowrap" };
-  var _rcInRow = function(key, label, col, actualStr, cur, def, field, opts) {
-    opts = opts || {};
-    var o = recOv[key] || {};
-    var changed = cur !== def;
-    var stepv = opts.step || 1;
-    var setV = function(v) { var p = {}; p[field] = String(opts.min != null ? Math.max(opts.min, v) : v); _rcSet(key, p); };
-    var shown = (o[field] !== undefined) ? String(o[field]) : String(def);
-    return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 5, flexWrap: "wrap" } },
-      React.createElement("span", { style: { fontSize: 11, color: col, fontWeight: 600, width: 52, flexShrink: 0 } }, label),
-      React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", width: 64, flexShrink: 0, fontVariantNumeric: "tabular-nums" } }, actualStr),
-      React.createElement("button", { onClick: function() { setV(cur - stepv); }, style: _stepSt }, "−"),
-      React.createElement("input", { type: "text", inputMode: opts.decimal ? "decimal" : "numeric", value: shown,
-        onChange: function(e) { var t = opts.decimal ? _toHankakuDecimal(e.target.value) : _toHankakuNum(e.target.value); var p = {}; p[field] = t; _rcSet(key, p); },
-        style: { width: 56, textAlign: "center", fontSize: 13, fontWeight: 700, color: col, border: "1px solid " + (changed ? col : "#ddd"), borderRadius: 6, padding: "2px 3px", background: changed ? "#FFFBEB" : "#fff", fontVariantNumeric: "tabular-nums" } }),
-      React.createElement("button", { onClick: function() { setV(cur + stepv); }, style: _stepSt }, "＋"),
-      React.createElement("span", { style: { display: "inline-flex", gap: 4, flexWrap: "wrap" } }, opts.quicks || null),
-      opts.note || null);
+  var _entryCols = function(r, cc) {
+    var k = _rcKey(r), tiers = cc.tiers;
+    var cols = tiers.map(function(t, i) {
+      var c = cc.rows[i];
+      var setA = function(v) { var n = tiers.slice(); n[i] = { a: v, sh: n[i].sh }; _setTiers(k, n); };
+      var setSh = function(v) { var n = tiers.slice(); n[i] = { a: n[i].a, sh: v }; _setTiers(k, n); };
+      var mark = !c.reached ? { t: "未達", col: "#94A3B8" } : c.res === "stop" ? { t: "損切×", col: "#C0392B" } : c.res === "draw" ? { t: "△", col: "#B45309" } : c.res === "ng" ? { t: "×", col: "#C0392B" } : { t: "○", col: "#1E8449" };
+      return React.createElement("div", { key: i, style: { flex: "0 0 auto", width: 116, border: "1px solid #FDBA74", borderRadius: 9, padding: "6px 6px 7px", background: "#fff" } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", minHeight: 16 } },
+          React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#9A3412" } }, _circ(i)),
+          tiers.length > 1 ? React.createElement("button", { title: "この段を削除", onClick: function() { _setTiers(k, tiers.filter(function(_x, j) { return j !== i; })); }, style: { fontSize: 11, color: "#cbd5e1", background: "none", border: "none", cursor: "pointer", padding: 0 } }, "🗑") : null),
+        React.createElement("div", { style: { fontSize: 9.5, color: "#0369A1", fontWeight: 700, marginTop: 2, textAlign: "center" } }, "建て値α"),
+        _miniStep(tiers[i].a, setA, 1, "#0369A1"),
+        React.createElement("div", { style: { fontSize: 9.5, color: "#64748b", fontWeight: 700, marginTop: 5, textAlign: "center" } }, "株数"),
+        _miniStep(tiers[i].sh, setSh, 100, "#333"),
+        React.createElement("div", { style: { marginTop: 6, textAlign: "center", fontSize: 13, fontWeight: 800, color: c.pnl != null ? _elPnlColor(c.pnl) : "#94A3B8" } }, c.pnl != null ? _elPnlFmt(c.pnl) : "—"),
+        React.createElement("div", { style: { textAlign: "center", fontSize: 11, fontWeight: 800, color: mark.col } }, mark.t));
+    });
+    var addBtn = React.createElement("div", { key: "__add", style: { flex: "0 0 auto", display: "flex", alignItems: "center" } },
+      React.createElement("button", { title: "分割エントリーを追加", onClick: function() { var last = tiers[tiers.length - 1] || { a: "", sh: "100" }; _setTiers(k, tiers.concat([{ a: last.a, sh: "100" }])); }, style: { width: 34, height: 34, borderRadius: 9, border: "1px dashed #C2410C", background: "#fff", color: "#C2410C", fontSize: 18, cursor: "pointer" } }, "＋"));
+    return React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 } }, cols.concat([addBtn]));
   };
-  var _rcCard = function(cr) {
-    var r = cr.r, s = r.signal, q = cr.q, d = q.d, key = q.key;
-    var open = (recOpen[key] !== undefined) ? recOpen[key] : _rcDefaultOpen;
-    var entered = _elIsEntered(s, r.item);
-    var realPnl = (r.item && r.item.pnl != null) ? Number(r.item.pnl) : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
+
+  var _defaultOpen = recs.length <= 5;
+  var _sortedRecs = recs.slice().sort(function(a, b) { return (a.date + (a.signal.time || "99:99")).localeCompare(b.date + (b.signal.time || "99:99")); });
+  var _gReal = 0, _gRealHas = false, _gSim = 0, _gSimHas = false, _gShares = 0;
+  var _cardEls = _sortedRecs.map(function(r) {
+    var k = _rcKey(r), s = r.signal, cc = _cardCalc(r);
+    if (cc.realized != null) { _gReal += cc.realized; _gRealHas = true; }
+    if (cc.tot != null) { _gSim += cc.tot; _gSimHas = true; _gShares += cc.shares; }
+    var open = (recOpen[k] !== undefined) ? recOpen[k] : _defaultOpen;
+    var changed = !!recTiers[k];
     var sigTxt = ((s.tags && s.tags.length ? s.tags : (s.categories || [])).map(function(t) { return stripCat(t); }).join("・")) || "—";
-    var chg = (q.b !== d.base || q.a !== d.add || q.c !== d.cut || q.shift !== 0 || q.sh !== 100 || q.dep !== "h1");
-    var _qs = function(field, defv) { return function(v) { var p = {}; p[field] = v; _rcSet(key, p); }; };
-    var head = React.createElement("div", { onClick: function() { var n = Object.assign({}, recOpen); n[key] = !open; setRecOpen(n); }, style: { display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", cursor: "pointer" } },
-      React.createElement("span", { style: { color: "#F97316", fontSize: 10 } }, open ? "▼" : "▶"),
-      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, (r.date || "").slice(5).replace("-", "/") + " " + (s.time || "")),
-      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#333", whiteSpace: "nowrap" } }, r.stock || ""),
-      React.createElement("span", { style: { fontSize: 11, color: "#555", flex: 1, minWidth: 50 } }, sigTxt),
-      React.createElement("span", { style: { fontSize: 11, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-        React.createElement("span", { style: { color: "#0369A1", fontWeight: 600 } }, "α" + q.aEff + (q.eff !== q.aEff ? "→" + q.eff : "")),
-        React.createElement("span", { style: { color: "#94A3B8", marginLeft: 6 } }, cr.rv != null ? _elPnlFmt(Math.round(cr.rv * q.sh / 100)) : "—"),
-        React.createElement("span", { style: { fontWeight: 700, color: cr.sv != null ? _elPnlColor(Math.round(cr.sv * q.sh / 100)) : "#94A3B8" } }, " → " + (cr.sv != null ? _elPnlFmt(Math.round(cr.sv * q.sh / 100)) : "—"))),
-      React.createElement("span", { style: { display: "inline-flex", gap: 4 } },
-        entered && realPnl != null ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", alignSelf: "center", whiteSpace: "nowrap" } }, "実現 ", React.createElement("b", { style: { color: _elPnlColor(Math.round(realPnl)) } }, _elPnlFmt(Math.round(realPnl)))) : null,
-        chg ? React.createElement("button", { title: "実際値に戻す", onClick: function(e) { e.stopPropagation(); _rcReset(key); }, style: _rcSmBtnSt }, "↺") : null,
-        save ? React.createElement("button", { title: "この記録を編集", onClick: function(e) { e.stopPropagation(); setSimEdit(r); }, style: _rcSmBtnSt }, "✎") : null));
-    if (!open) return React.createElement("div", { key: key, style: { background: "#fff", border: "1px solid " + (chg ? "#FDBA74" : "#e8e3d8"), borderRadius: 10, padding: "7px 11px", marginBottom: 6 } }, head);
-    var lvlRow = (d.lvl == null)
-      ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 5 } },
-          React.createElement("span", { style: { fontSize: 11, color: "#64748b", fontWeight: 600, width: 52 } }, "水準線値"),
-          React.createElement("span", { style: { fontSize: 11, color: "#cbd5e1" } }, "—（記録なし・シフト不可）"))
-      : _rcInRow(key, "水準線値", "#64748b", d.lvl + "円", q.lv, d.lvl, "lv", { decimal: true,
-          note: q.shift !== 0 ? React.createElement("span", { style: { fontSize: 10, color: "#B45309", background: "#FEF3C7", borderRadius: 6, padding: "1px 6px", whiteSpace: "nowrap" } }, "線" + (q.shift > 0 ? "+" : "") + q.shift + "円シフト＝EP/損益を新しい線で判定") : null });
-    var baseRow = _rcInRow(key, "基本α", "#0369A1", d.base + "円", q.b, d.base, "b", { quicks: [
-      _recBaseA != null ? _quick("推奨" + _recBaseA, _recBaseA, _qs("b"), "#0369A1") : null,
-      _quick("実際" + d.base, d.base, _qs("b"), "#94A3B8")] });
-    var addRow = _rcInRow(key, "追加α", "#9A3412", "+" + d.add + "円", q.a, d.add, "a", { quicks: [
-      _quick("なし", 0, _qs("a"), "#9A3412"),
-      _recAddA != null ? _quick("推奨+" + _recAddA, _recAddA, _qs("a"), "#9A3412") : null,
-      _quick("実際+" + d.add, d.add, _qs("a"), "#94A3B8")] });
-    var cutRow = _rcInRow(key, "損切り", "#7F1D1D", d.cut + "円", q.c, d.cut, "c", { quicks: [
-      _recCutV != null ? _quick("推奨" + _recCutV, _recCutV, _qs("c"), "#7F1D1D") : null,
-      _quick("実際" + d.cut, d.cut, _qs("c"), "#94A3B8")] });
-    var osBox = React.createElement("div", { style: { margin: "6px 0", padding: "5px 8px", background: "#F8FAFC", borderRadius: 8, display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" } },
-      React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 700, marginTop: 3 } }, "OS"),
-      React.createElement("span", { style: { fontSize: 11 } }, _epOsChainCell(s, q.eff)),
-      q.shift !== 0 ? React.createElement("span", { style: { fontSize: 10, color: "#B45309", marginTop: 3 } }, "※OS数値は元の線基準") : null);
-    var depRow = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 } },
-      React.createElement("span", { style: { fontSize: 11, color: "#64748b", fontWeight: 600 } }, "手仕舞い"),
-      [["ep", "EP"], ["h1", "H1"], ["h2", "H2"]].map(function(kv) {
-        var on = q.dep === kv[0];
-        return React.createElement("button", { key: kv[0], onClick: function() { _rcSet(key, { dep: kv[0] }); }, style: { padding: "2px 10px", fontSize: 10.5, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (on ? "#0369A1" : "#ddd"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#888" } }, kv[1]);
-      }),
-      React.createElement("span", { style: { fontSize: 11, color: "#64748b", fontWeight: 600, marginLeft: 8 } }, "株数"),
-      React.createElement("button", { onClick: function() { _rcSet(key, { sh: String(Math.max(100, q.sh - 100)) }); }, style: _stepSt }, "−"),
-      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: q.sh !== 100 ? "#B45309" : "#333", minWidth: 48, textAlign: "center", fontVariantNumeric: "tabular-nums" } }, q.sh + "株"),
-      React.createElement("button", { onClick: function() { _rcSet(key, { sh: String(q.sh + 100) }); }, style: _stepSt }, "＋"));
-    var _cellPnl = function(lbl, depKey) {
-      var rvx = _depPnl(s, q.aEff, d.cut, depKey), svx = _depPnl(s, q.eff, q.c, depKey);
-      return _metricCard(lbl + (q.dep === depKey ? " ★" : ""), rvx != null ? _elPnlFmt(Math.round(rvx)) : "—", svx != null ? _elPnlFmt(Math.round(svx)) : "—", (rvx == null && svx == null) ? "#94A3B8" : _delCol(rvx, svx, false));
-    };
-    var foot = React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 7 } },
-      _cellPnl("EP損益", "ep"), _cellPnl("H1損益", "h1"), _cellPnl("H2損益", "h2"),
-      React.createElement("div", { key: "jdg", style: { background: "#F8FAFC", borderRadius: 8, padding: "7px 5px", textAlign: "center" } },
-        React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", fontWeight: 600 } }, "判定"),
-        React.createElement("div", { style: { fontSize: 11, marginTop: 1, lineHeight: 1.25 } },
-          React.createElement("span", { style: { opacity: 0.55 } }, _judgeMark(s, q.aEff, d.cut)),
-          React.createElement("span", { style: { color: "#94A3B8", margin: "0 3px" } }, "→"),
-          _judgeMark(s, q.eff, q.c))));
-    return React.createElement("div", { key: key, style: { background: "#fff", border: "1px solid " + (chg ? "#FDBA74" : "#e8e3d8"), borderRadius: 10, padding: "8px 11px", marginBottom: 7 } },
+    var _toggle = function() { var n = Object.assign({}, recOpen); n[k] = !open; setRecOpen(n); };
+    var head = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" } },
+      React.createElement("span", { onClick: _toggle, style: { cursor: "pointer", color: "#F97316", fontSize: 10 } }, open ? "▼" : "▶"),
+      React.createElement("span", { onClick: _toggle, style: { cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, (r.date || "").slice(5).replace("-", "/") + " " + (s.time || "")),
+      React.createElement("span", { style: { fontSize: 12.5, fontWeight: 700, color: "#333" } }, r.stock || ""),
+      React.createElement("span", { style: { fontSize: 11, color: "#555", flex: 1, minWidth: 40 } }, sigTxt),
+      React.createElement("span", { style: { fontSize: 11, whiteSpace: "nowrap" } }, "実際 ", React.createElement("b", { style: { color: cc.realized != null ? _elPnlColor(Math.round(cc.realized)) : "#94A3B8" } }, cc.realized != null ? _elPnlFmt(Math.round(cc.realized)) : "—"), React.createElement("b", { style: { color: cc.tot != null ? _elPnlColor(cc.tot) : "#94A3B8", marginLeft: 5 } }, "→ " + (cc.tot != null ? _elPnlFmt(cc.tot) : "—"))),
+      changed ? React.createElement("button", { title: "実際値（1エントリー）に戻す", onClick: function() { _resetTiers(k); }, style: { fontSize: 11, padding: "1px 8px", borderRadius: 8, border: "1px solid #ddd", background: "#fff", color: "#888", cursor: "pointer" } }, "↺") : null,
+      save ? React.createElement("button", { title: "この記録を編集", onClick: function() { setSimEdit(r); }, style: { fontSize: 11, padding: "1px 8px", borderRadius: 8, border: "1px solid #ddd", background: "#fff", color: "#888", cursor: "pointer" } }, "✎") : null);
+    if (!open) return React.createElement("div", { key: k, style: { background: "#fff", border: "1px solid " + (changed ? "#FDBA74" : "#e8e3d8"), borderRadius: 10, padding: "7px 11px", marginBottom: 7 } }, head);
+    return React.createElement("div", { key: k, style: { background: "#fff", border: "1px solid " + (changed ? "#FDBA74" : "#e8e3d8"), borderRadius: 10, padding: "9px 11px", marginBottom: 7 } },
       head,
-      React.createElement("div", { style: { marginTop: 7, borderTop: "1px solid #f0ede8", paddingTop: 7 } },
-        React.createElement("div", { style: { display: "flex", gap: 6, fontSize: 9.5, color: "#94A3B8", marginBottom: 3 } },
-          React.createElement("span", { style: { width: 52 } }, ""),
-          React.createElement("span", { style: { width: 64 } }, "実際"),
-          React.createElement("span", null, "シミュ（既定＝実際と同値）")),
-        lvlRow, baseRow, addRow, cutRow, osBox, depRow, foot));
+      React.createElement("div", { style: { borderTop: "1px solid #f0ede8", marginTop: 7, paddingTop: 7 } },
+        _osBig(r),
+        React.createElement("div", { style: { fontSize: 10.5, color: "#64748b", fontWeight: 700, marginBottom: 5 } }, "分割エントリー（建て値α×株数・手仕舞いは記録どおり＝変更なし）"),
+        _entryCols(r, cc),
+        React.createElement("div", { style: { marginTop: 8, textAlign: "right", fontSize: 11, color: "#94A3B8" } }, "この記録 合計 ", React.createElement("b", { style: { fontSize: 14, color: cc.tot != null ? _elPnlColor(cc.tot) : "#94A3B8" } }, cc.tot != null ? _elPnlFmt(cc.tot) : "—"), cc.shares ? React.createElement("span", null, "（延べ" + cc.shares.toLocaleString() + "株）") : null)));
+  });
+
+  var _grandBarEl = function(sticky) {
+    return React.createElement("div", { key: sticky ? "gt" : "gb", style: Object.assign({ background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 10, padding: "8px 11px", display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap" }, sticky ? { position: "sticky", top: 0, zIndex: 6, marginBottom: 9, boxShadow: "0 2px 6px -2px rgba(0,0,0,0.18)" } : { marginTop: 4 }) },
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "全記録 合計（" + recs.length + "件）"),
+      React.createElement("span", { style: { fontSize: 12, color: "#94A3B8" } }, "実際 " + (_gRealHas ? _elPnlFmt(Math.round(_gReal)) : "—")),
+      React.createElement("span", { style: { fontSize: 18, fontWeight: 700, color: _gSimHas ? _elPnlColor(_gSim) : "#94A3B8" } }, "→ シミュ " + (_gSimHas ? _elPnlFmt(_gSim) : "—")),
+      (_gRealHas && _gSimHas && (_gSim - _gReal) !== 0) ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: _elPnlColor(_gSim - _gReal) } }, "（" + ((_gSim - _gReal) > 0 ? "+" : "−") + Math.abs(_gSim - _gReal).toLocaleString() + "円）") : null,
+      _gShares ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "延べ" + _gShares.toLocaleString() + "株") : null);
   };
-  var _sweepC = [];
-  for (var _sc = 5; _sc <= 20; _sc++) (function(sa) {
-    var ev = _agg(recs, function(r) { var q = _rcSim(r); return sa + q.a + q.shift; }, function(r) { return _rcSim(r).c; });
-    _sweepC.push({ base: sa, eRate: ev.eRate, stopRate: ev.stopRate, h1win: ev.h1win, scN: ev.scN, sum: ev.sum });
-  })(_sc);
-  var _bestC = null; _sweepC.forEach(function(x) { if (x.sum != null && (_bestC == null || x.sum > _bestC.sum)) _bestC = x; });
-  var _sweepTableC = React.createElement("div", { style: { marginTop: 10 } },
-    React.createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#9A3412", margin: "0 0 3px" } }, "α別早見（基本αを全カードに振ると？ ★＝想定損益H1最大・追加α/損切り/線シフトは各カードの値で固定・行クリックで全カードへ一括適用）"),
-    React.createElement(_HScrollBox, null,
-      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
-        React.createElement("thead", null, React.createElement("tr", { style: { background: "#f2f0ea" } }, _swTh("基本α"), _swTh("到達率"), _swTh("損切り率"), _swTh("H1勝率"), _swTh("件数"), _swTh("想定損益"))),
-        React.createElement("tbody", null, _sweepC.map(function(x) {
-          var on = _bestC && x.base === _bestC.base;
-          return React.createElement("tr", { key: x.base, style: on ? { background: "#FEF3C7" } : null, onClick: function() { _rcBulk(function() { return { b: String(x.base) }; }); }, title: "クリックで全カードの基本αに一括適用" },
-            _swTd(React.createElement("span", { style: { fontWeight: 700, color: on ? "#B45309" : "#0369A1", cursor: "pointer" } }, x.base + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8, borderTop: "0.5px solid #eee" }),
-            _swTd(_pct(x.eRate), { borderTop: "0.5px solid #eee" }),
-            _swTd(x.stopRate == null ? "—" : React.createElement("span", { style: { color: x.stopRate <= 0.2 ? "#1E8449" : x.stopRate >= 0.5 ? "#DC2626" : "#B45309" } }, _pct(x.stopRate)), { borderTop: "0.5px solid #eee" }),
-            _swTd(_pct(x.h1win), { borderTop: "0.5px solid #eee" }),
-            _swTd((x.scN || 0) + "件", { borderTop: "0.5px solid #eee", color: "#94A3B8" }),
-            _swTd(x.sum == null ? "—" : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(Math.round(x.sum)) } }, _pnl(x.sum)), { borderTop: "0.5px solid #eee" }));
-        })))));
-  var _cardsResult = React.createElement(React.Fragment, null,
-    _sumBarCards,
-    _rcTotBar(true),
-    React.createElement("div", null, _rcCalc.map(_rcCard)),
-    _rcTotBar(false),
-    _sweepTableC);
 
   var _resultCard = React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 10, padding: "9px 11px" } },
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 9 } }, simMode === "ladder" ? "③ 結果（段階エントリーの合計損益）" : simMode === "cards" ? "③ 結果（記録ごと 実際 → シミュ）" : "③ 結果（現実 → シミュ）"),
-    recs.length ? (simMode === "ladder" ? _ladderResult : simMode === "cards" ? _cardsResult : React.createElement(React.Fragment, null, _sumBar, _sweepTable, _detailTable))
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 9 } }, "分割エントリーをシミュレーション ", React.createElement("span", { style: { fontWeight: 400, color: "#94A3B8" } }, "（記録ごとに建て値α×株数・実際 → シミュ）")),
+    recs.length ? React.createElement(React.Fragment, null, _grandBarEl(true), React.createElement("div", null, _cardEls), _grandBarEl(false))
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "この条件に該当する記録がありません"));
 
-  return React.createElement(React.Fragment, null, _stockTabs, _filterBar, _condBar, _resultCard,
+  return React.createElement(React.Fragment, null, _periodTabs, _stockTabs, _filterBar, _resultCard,
     (simEdit && save) ? React.createElement(EntryRecordForm, { data: data, save: save, initial: simEdit, onClose: function() { setSimEdit(null); } }) : null);
 }
 
