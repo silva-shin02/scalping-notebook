@@ -28,6 +28,13 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-02 αシミュレーター（独立モーダル）を新設
+- **app-06.js**: `AlphaSimulatorModal({data, onClose, initial})`＝シナリオ型αシミュレーター（末尾に追加）。①母数フィルタ（期間 この日/今週/直近50/全期間・銘柄・シグナル(tag)・追加α状態 全部/〇/×のみ/未選択）②仮条件（基本α/追加α/損切りを±ステッパー＋推奨/理想ワンタップ＝推奨は`_elBaseAlphaPick`/`_elAddAlphaReco`/`_elCutPick`・理想は`_elIdealAlpha`/`_elIdealCut`の母数中央値）③結果（現実vsシミュのサマリー[到達率/損切り率/H1勝率/想定損益]＋α別早見[基本α5〜20を振り到達率/損切り率/H1勝率/件数/想定損益・★最大・行クリックで基本αに反映]＋記録明細[現実/シミュ2段で各記録のEP/H1/判定]）。母数＝`_elCollectAllSignals`→`_elFilterPeriod`等。集計は内部`_agg`（EP到達OS3まで・`_elDynPlanned`/`_elDynHold`/`_elPlanIsStop`/`_elHoldIsStop`）＋`_elBaseAlphaEval`/`_elSimPnlByDay`。非永続。`_alphaSimBtn(initial, label)`＝起動ボタン（`window.__openAlphaSim`経由）。
+- **app-08.js**: App に`simInit` state＋useEffectで`window.__openAlphaSim(init)`を公開＋SettingsModalの後にモーダルを条件描画（`initial={period,date,stock,signal,addAlphaFil}`）。
+- **起動ボタン配置**: app-02 WeeklyPnlPanel「📅今週の損益データ(銘柄)」見出し／app-04 DayView「📊本日の損益データ」「📅今週の損益データ」見出し／app-06 記録帳ヘッダー（📒エントリー記録帳の右）。各`_alphaSimBtn`でstock/date/periodを既定として渡す。
+- 旧`VirtualAlphaCalc`（本日表内・単一α・旧計算式）は据え置き（別物）。
+- 検証: `new Function`構文OK（app-02/04/06/08）＋合成データでモーダル全3セクション描画＋起動ボタン→`window.__openAlphaSim(init)`呼び出しを実マウントで確認。
+
 ### 2026-07-01f 推奨基本α「期間推移」セクションを全3か所から削除
 - **app-06.js**: 推移グラフ`_elBaseAlphaTrendV2`の描画を全廃＝①集計タブ`_groupPanel`「🎯推奨基本α値（期間ごとの傾向）」②α値タブ基本αサブタブ「🎯推奨基本α 期間推移」③DayView`_elDayStockBenchV2`「📈推奨基本α 期間推移」(trendBlock)。各`_secH`＋グラフを除去（末尾要素はFragment/returnの閉じを調整）＋`_elDayStockBenchV2`の説明文とタブ概要コメントから期間推移の記述を削除。ユーザー指示（3か所すべて）。
 - `_elBaseAlphaTrendV2`定義(1540)は呼び出し無しのデッドコードとして残置。推奨基本α詳細(`_elBaseAlphaDetailV2`)は各所に残す。

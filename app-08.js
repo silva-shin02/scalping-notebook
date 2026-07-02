@@ -222,6 +222,8 @@ function App() {
     _useState156 = _slicedToArray(_useState155, 2),
     loading = _useState156[0],
     setLoading = _useState156[1];
+  var _uSim = useState(null), simInit = _uSim[0], setSimInit = _uSim[1];   // αシミュレーター（独立モーダル）2026-07-02: window.__openAlphaSimで本日/今週/記録帳から起動
+  useEffect(function() { window.__openAlphaSim = function(init) { setSimInit(init || {}); }; return function() { try { delete window.__openAlphaSim; } catch (e) {} }; }, []);
   // 推奨追加αの母数から外す数値根拠名(底抜け前足浮き・リネーム可)をモジュール変数_EL_NUM_REASON(app-06)へ反映＝App描画は子より先なので各α関数の母数算出時に最新 2026-06-24i。
   _EL_NUM_REASON = (data && data.custom && data.custom.addAlphaNumericReason) || "底抜け前足浮き";
   var _useState157 = useState(function(){
@@ -1042,6 +1044,10 @@ function App() {
     onClose: function onClose() {
       return setShowSettings(false);
     }
+  }), simInit && React.createElement(AlphaSimulatorModal, {
+    data: data,
+    initial: simInit,
+    onClose: function() { return setSimInit(null); }
   }), sel ? React.createElement(DayView, {
     date: sel,
     data: data,
