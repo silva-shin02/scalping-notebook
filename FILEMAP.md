@@ -28,6 +28,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-02f αシミュに「記録ごと」モード新設＝各記録の実値を既定にカード単位でシミュ
+- **app-06.js**: `AlphaSimBody` に第3モード「記録ごと」（`simMode:"cards"`・トグルは単一α/記録ごと/段階エントリーの3並存）。③＝記録カード縦積み（レイアウトA+B自動＝件数≤5は全展開・6件以上は折りたたみ既定`_rcDefaultOpen`・ヘッダタップで開閉`recOpen`）。各カード＝ヘッダ（日付時刻/銘柄/シグナル/α実→シミュ/損益実→シミュ/実現損益/↺個別リセット/✎編集）＋縦フォーム行（水準線値・基本α・追加α・損切り＝「実際値表示→ステッパ±/直接入力(type=text+inputMode・`_toHankakuNum`/`_toHankakuDecimal`)/推奨・実際クイック」`_rcInRow`・**既定＝実記録と同値**（`_rcDef`＝baseAlphaVal/addAlphaVal(〇のみ)/cutLine/levelPrice・旧記録は合計αから逆算）・変更欄は枠色+黄背景）＋OS連鎖ライブ（`_epOsChainCell(s,有効α)`＝EP位置が入力に追従）＋手仕舞い深さピルEP/H1/H2（`_depPnl`＝`_elDynPlanned`/`_elDynHold`/`_elDynHold2`・既定H1）＋株数±100（既定100）＋足元4セル（EP/H1/H2損益 実→シミュ・選択深さに★・判定 実→シミュ`_judgeMark`）。**水準線値の変更＝線シフトΔ**（有効α=基本+追加+Δで再計算・OS記録値は元の線基準のため・シフト中は注記バッジ）。上書きは`recOv`マップ（key=`_rcKey`＝signal.id優先）・`_rcSim`が解決。②＝一括バー`_cardsBar`（推奨基本α/全±1/追加αなし・推奨/損切り推奨を全カードへ・↺全部実際値に戻す＝`_rcBulk`/`setRecOv({})`）。合計バー（実際→シミュ・株数/手仕舞い反映・差分円）を**カード群の上(sticky top0)と下**に配置`_rcTotBar`＋メトリクス4カード（到達率/損切り率/H1勝率/想定損益H1＝`_agg`をカードごとシミュ値で）＋α別早見`_sweepTableC`（基本α5〜20総当たり・追加α/損切り/線シフトは各カード値固定・**行クリック=全カードへ一括適用**）。✎編集＝`simEdit`stateで`EntryRecordForm`モーダル（`save`プロップ必須・無ければ非表示）。
+- **app-06.js**: `AlphaSimulatorModal`が`save`を受けて`AlphaSimBody`へパススルー。
+- **app-08.js**: App→`AlphaSimulatorModal`に`save: save`追加。**app-04.js**: DayView🧪タブ→`AlphaSimBody`に`save: save`追加。
+- 検証: `new Function`構文OK（app-04/06/08）＋実アプリ(3457)で合成3記録マウント＝カード描画/ステッパ(α7→8)/手仕舞い★移動/↺個別・一括/全+1/線シフト(1200→1198でα7→5+注記)/折りたたみ/早見行クリック一括/✎フォーム開閉/単一α・段階回帰、全passコンソールエラー0。
+
 ### 2026-07-02e αシミュを銘柄タブ式に＋①ライブ一覧のα値内訳を本日損益データ表と統一
 - **app-06.js**: `AlphaSimBody` の①の上に銘柄ピルタブ（`_stockTabs`＝全体`__all__`＋各銘柄・案A＝記録帳の銘柄タブと同形）を追加。母数`_stockOpts`（選択中期間の銘柄）＋選択中銘柄は常に表示（`_stkList`）・件数は`_byPeriod`基準（`_stkCnt`）。既存の①内「銘柄」ドロップダウンは役割重複のため削除（`stockFil`/`setStockFil`はタブが操作）。タブ切替`_pickStock`で②の手入力（`simBase`/`simAdd`/`simCut`）を空にリセット＝その銘柄の推奨（`_recBaseA`/`_recAddA`/`_recCutV`）が②へ自動入力。①見出しに「選択中：〇〇」を併記。既定は全体（`initial.stock||"__all__"`は不変＝呼び出し側が銘柄指定時のみその銘柄開始）。
 - **app-06.js**: `_elOsTradeMini`（αシミュ①ライブ一覧／OS値別成績の展開／履歴ポップアップで共用）のα値セルを「本日の損益データ」表と統一＝`_elAlphaBreakdownNode(s, a)` の（基本+追加）内訳を追加＋追加α〇（`_elAddAlphaYes`）行は背景`#FEF3C7`ハイライト。OSの「最高」（`_epOsChainCell`→`_epOsMaxChainNode`）は元から表示済で不変。3呼び出し先すべてに反映。

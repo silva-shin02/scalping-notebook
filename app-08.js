@@ -1046,6 +1046,7 @@ function App() {
     }
   }), simInit && React.createElement(AlphaSimulatorModal, {
     data: data,
+    save: save,
     initial: simInit,
     onClose: function() { return setSimInit(null); }
   }), sel ? React.createElement(DayView, {
