@@ -4405,22 +4405,37 @@ function AlphaSimBody(_ref_asim) {
 
   // ===== 分割エントリー計算 =====
   var _rcKey = function(r) { var s = r.signal; return (s && s.id != null) ? ("s" + s.id) : (r.date + "_" + ((s && s.time) || "") + "_" + (r.stock || "")); };
-  var _defTiers = function(r) { var ai = _ai(r); var a = (ai && ai.alpha != null) ? ai.alpha : (_recBaseA != null ? _recBaseA : 10); return [{ a: String(a), sh: "100" }]; };
+  // 1エントリーの既定＝実際の記録と同値（基本α/追加α/損切り/水準値）＋100株。
+  var _tierDef = function(r) {
+    var s = r.signal, ai = _ai(r);
+    var add = (_elAddAlphaYes(s) && s.addAlphaVal != null && s.addAlphaVal !== "" && !isNaN(Number(s.addAlphaVal))) ? Number(s.addAlphaVal) : 0;
+    var tot = (ai && ai.alpha != null) ? Number(ai.alpha) : null;
+    var base = (s.baseAlphaVal != null && s.baseAlphaVal !== "" && !isNaN(Number(s.baseAlphaVal))) ? Number(s.baseAlphaVal) : (tot != null ? tot - add : (_recBaseA != null ? _recBaseA : 10));
+    var cut = (ai && ai.cutLine != null) ? Number(ai.cutLine) : 10;
+    var lvl = (s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
+    return { base: base, add: add, cut: cut, lvl: lvl };
+  };
+  var _defTiers = function(r) { var d = _tierDef(r); return [{ b: String(d.base), a: String(d.add), c: String(d.cut), lv: (d.lvl != null ? String(d.lvl) : ""), sh: "100" }]; };
   var _tiersOf = function(r) { var k = _rcKey(r); return recTiers[k] || _defTiers(r); };
   var _setTiers = function(k, arr) { var n = Object.assign({}, recTiers); n[k] = arr; setRecTiers(n); };
   var _resetTiers = function(k) { var n = Object.assign({}, recTiers); delete n[k]; setRecTiers(n); };
-  // 各エントリーの損益＝記録の損益計算どおり（_elDynHold＝手仕舞いは記録のH1・損切りは記録のcut）×株数/100。○△×は結果。
+  // 各エントリーの損益＝記録の損益計算どおり（_elDynHold＝手仕舞いは記録のH1）×株数/100。有効α=基本α+追加α+水準線シフト(sim水準値−実水準値)。損切りはエントリーごとの値。○△×は結果。
   var _entryCalc = function(r, tier) {
-    var s = r.signal, ai = _ai(r), cut = (ai && ai.cutLine != null) ? Number(ai.cutLine) : 10;
-    var a = _num(tier.a), sh = (_num(tier.sh) != null && _num(tier.sh) > 0) ? _num(tier.sh) : 100;
-    if (a == null) return { reached: false, pnl: null, sh: sh, res: null, a: null };
-    var rr = _epResolve(s, a), reached = !!(rr && rr.epIdx >= 0 && rr.epIdx <= 2);
-    if (!reached) return { reached: false, pnl: null, sh: sh, res: "miss", a: a };
-    var per100 = _elDynHold(s, a, cut);
-    var stop = _elPlanIsStop(s, a, cut) || _elHoldIsStop(s, a, cut);
-    var res = stop ? "stop" : _elDynResult(s, a, cut);
+    var s = r.signal, d = _tierDef(r);
+    var b = (_num(tier.b) != null) ? _num(tier.b) : d.base;
+    var ad = (_num(tier.a) != null) ? _num(tier.a) : d.add;
+    var c = (_num(tier.c) != null) ? _num(tier.c) : d.cut;
+    var lv = _num(tier.lv);
+    var sh = (_num(tier.sh) != null && _num(tier.sh) > 0) ? _num(tier.sh) : 100;
+    var shift = (d.lvl != null && lv != null) ? (lv - d.lvl) : 0;
+    var eff = b + ad + shift;
+    var rr = _epResolve(s, eff), reached = !!(rr && rr.epIdx >= 0 && rr.epIdx <= 2);
+    if (!reached) return { reached: false, pnl: null, sh: sh, res: "miss", eff: eff, shift: shift, cut: c };
+    var per100 = _elDynHold(s, eff, c);
+    var stop = _elPlanIsStop(s, eff, c) || _elHoldIsStop(s, eff, c);
+    var res = stop ? "stop" : _elDynResult(s, eff, c);
     var pnl = (per100 != null) ? Math.round(per100 * sh / 100) : null;
-    return { reached: true, pnl: pnl, per100: per100, sh: sh, res: res, stop: stop, a: a, cut: cut };
+    return { reached: true, pnl: pnl, per100: per100, sh: sh, res: res, stop: stop, eff: eff, shift: shift, cut: c };
   };
   var _cardCalc = function(r) {
     var tiers = _tiersOf(r);
@@ -4457,34 +4472,36 @@ function AlphaSimBody(_ref_asim) {
       }));
   };
 
-  // 分割エントリー列（各列＝縦に入力欄／列は横ならび）
-  var _miniStep = function(val, setter, step, col) {
-    return React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 2 } },
+  // 分割エントリー列（各列＝縦に入力欄／列は横ならび）。上から 株数→水準値→基本α値→追加α値→損切り値。
+  var _miniStep = function(val, setter, step, col, decimal) {
+    return React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginTop: 1 } },
       React.createElement("button", { onClick: function() { setter(String((_num(val) || 0) - step)); }, style: _stepSt }, "−"),
-      React.createElement("input", { type: "text", inputMode: "numeric", value: (val == null ? "" : String(val)), onChange: function(e) { setter(_toHankakuNum(e.target.value)); }, style: { width: 42, textAlign: "center", fontSize: 13, fontWeight: 700, color: col, border: "1px solid #ddd", borderRadius: 5, padding: "2px 1px", fontVariantNumeric: "tabular-nums" } }),
+      React.createElement("input", { type: "text", inputMode: decimal ? "decimal" : "numeric", value: (val == null ? "" : String(val)), onChange: function(e) { setter(decimal ? _toHankakuDecimal(e.target.value) : _toHankakuNum(e.target.value)); }, style: { width: 46, textAlign: "center", fontSize: 13, fontWeight: 700, color: col, border: "1px solid #ddd", borderRadius: 5, padding: "2px 1px", fontVariantNumeric: "tabular-nums" } }),
       React.createElement("button", { onClick: function() { setter(String((_num(val) || 0) + step)); }, style: _stepSt }, "＋"));
   };
+  var _fieldLbl = function(txt, col, first) { return React.createElement("div", { style: { fontSize: 9.5, color: col, fontWeight: 700, marginTop: first ? 3 : 5, textAlign: "center" } }, txt); };
   var _entryCols = function(r, cc) {
     var k = _rcKey(r), tiers = cc.tiers;
     var cols = tiers.map(function(t, i) {
       var c = cc.rows[i];
-      var setA = function(v) { var n = tiers.slice(); n[i] = { a: v, sh: n[i].sh }; _setTiers(k, n); };
-      var setSh = function(v) { var n = tiers.slice(); n[i] = { a: n[i].a, sh: v }; _setTiers(k, n); };
+      var setF = function(field) { return function(v) { var n = tiers.slice(); var o = { b: n[i].b, a: n[i].a, c: n[i].c, lv: n[i].lv, sh: n[i].sh }; o[field] = v; n[i] = o; _setTiers(k, n); }; };
       var mark = !c.reached ? { t: "未達", col: "#94A3B8" } : c.res === "stop" ? { t: "損切×", col: "#C0392B" } : c.res === "draw" ? { t: "△", col: "#B45309" } : c.res === "ng" ? { t: "×", col: "#C0392B" } : { t: "○", col: "#1E8449" };
-      return React.createElement("div", { key: i, style: { flex: "0 0 auto", width: 116, border: "1px solid #FDBA74", borderRadius: 9, padding: "6px 6px 7px", background: "#fff" } },
+      return React.createElement("div", { key: i, style: { flex: "0 0 auto", width: 120, border: "1px solid #FDBA74", borderRadius: 9, padding: "6px 6px 7px", background: "#fff" } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", minHeight: 16 } },
           React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#9A3412" } }, _circ(i)),
           tiers.length > 1 ? React.createElement("button", { title: "この段を削除", onClick: function() { _setTiers(k, tiers.filter(function(_x, j) { return j !== i; })); }, style: { fontSize: 11, color: "#cbd5e1", background: "none", border: "none", cursor: "pointer", padding: 0 } }, "🗑") : null),
-        React.createElement("div", { style: { fontSize: 9.5, color: "#0369A1", fontWeight: 700, marginTop: 2, textAlign: "center" } }, "建て値α"),
-        _miniStep(tiers[i].a, setA, 1, "#0369A1"),
-        React.createElement("div", { style: { fontSize: 9.5, color: "#64748b", fontWeight: 700, marginTop: 5, textAlign: "center" } }, "株数"),
-        _miniStep(tiers[i].sh, setSh, 100, "#333"),
-        React.createElement("div", { style: { marginTop: 6, textAlign: "center", fontSize: 13, fontWeight: 800, color: c.pnl != null ? _elPnlColor(c.pnl) : "#94A3B8" } }, c.pnl != null ? _elPnlFmt(c.pnl) : "—"),
+        _fieldLbl("株数", "#334155", true), _miniStep(t.sh, setF("sh"), 100, "#334155"),
+        _fieldLbl("水準値", "#64748b"), _miniStep(t.lv, setF("lv"), 1, "#64748b", true),
+        _fieldLbl("基本α値", "#0369A1"), _miniStep(t.b, setF("b"), 1, "#0369A1"),
+        _fieldLbl("追加α値", "#9A3412"), _miniStep(t.a, setF("a"), 1, "#9A3412"),
+        _fieldLbl("損切り値", "#7F1D1D"), _miniStep(t.c, setF("c"), 1, "#7F1D1D"),
+        c.shift ? React.createElement("div", { style: { fontSize: 8.5, color: "#B45309", textAlign: "center", marginTop: 3 } }, "線" + (c.shift > 0 ? "+" : "") + c.shift + "円シフト") : null,
+        React.createElement("div", { style: { marginTop: 6, textAlign: "center", fontSize: 14, fontWeight: 800, color: c.pnl != null ? _elPnlColor(c.pnl) : "#94A3B8" } }, c.pnl != null ? _elPnlFmt(c.pnl) : "—"),
         React.createElement("div", { style: { textAlign: "center", fontSize: 11, fontWeight: 800, color: mark.col } }, mark.t));
     });
     var addBtn = React.createElement("div", { key: "__add", style: { flex: "0 0 auto", display: "flex", alignItems: "center" } },
-      React.createElement("button", { title: "分割エントリーを追加", onClick: function() { var last = tiers[tiers.length - 1] || { a: "", sh: "100" }; _setTiers(k, tiers.concat([{ a: last.a, sh: "100" }])); }, style: { width: 34, height: 34, borderRadius: 9, border: "1px dashed #C2410C", background: "#fff", color: "#C2410C", fontSize: 18, cursor: "pointer" } }, "＋"));
-    return React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 } }, cols.concat([addBtn]));
+      React.createElement("button", { title: "分割エントリーを追加", onClick: function() { var last = tiers[tiers.length - 1] || _defTiers(r)[0]; _setTiers(k, tiers.concat([{ b: last.b, a: last.a, c: last.c, lv: last.lv, sh: "100" }])); }, style: { width: 34, height: 34, borderRadius: 9, border: "1px dashed #C2410C", background: "#fff", color: "#C2410C", fontSize: 18, cursor: "pointer" } }, "＋"));
+    return React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, alignItems: "flex-start" } }, cols.concat([addBtn]));
   };
 
   var _defaultOpen = recs.length <= 5;
