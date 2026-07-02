@@ -28,6 +28,10 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-02c αシミュ①に該当取引記録のライブ一覧を追加
+- **app-06.js**: `AlphaSimBody` の①母数フィルタ内「→ 対象 N件」の直下に、選択中の母数`recs`を`_elOsTradeMini(recs, _ai)`（読み取り専用ミニ取引表）でライブ表示（marginTop6・maxHeight260のスクロール枠・recs空はnull）。期間/銘柄/シグナル/追加α状態を変えると`recs`が変わり即時更新。
+- 検証: `new Function`構文OK＋合成データで①内に該当2件の取引行（時刻/シグナル/α/OS/損益）が描画されることを確認。
+
 ### 2026-07-02b αシミュレーターを日別ページの「🧪 シミュレーション」タブとして常設（本体を殻から分離）
 - **app-06.js**: `AlphaSimulatorModal` を本体`AlphaSimBody`（①母数フィルタ/②条件/③結果の3セクションのFragmentを返す・殻なし）＋薄いモーダル殻`AlphaSimulatorModal`（`AlphaSimBody`をオーバーレイ＋×閉じるで包む）に分離。ロジック・計算は不変。
 - **app-04.js**: DayViewのタブ配列(app-04:3773)に`["sim", "🧪 シミュレーション", true]`を「📋 取引」の右へ追加＋`tab==="sim" && React.createElement(AlphaSimBody, {data, initial:{date, period:"day"}})`をインライン描画（この日/今週/直近50/全期間を節内で切替＝「その週のシミュ」も可）。日別ページの本日/今週見出しに2026-07-02で付けた`_alphaSimBtn`（モーダル起動）はタブと重複するため撤去。

@@ -4446,7 +4446,8 @@ function AlphaSimBody(_ref_asim) {
       _pill("〇", addFil === "yes", function() { setAddFil("yes"); }),
       _pill("×のみ", addFil === "no", function() { setAddFil("no"); }),
       _pill("未選択", addFil === "unset", function() { setAddFil("unset"); })),
-    React.createElement("div", { style: { fontSize: 10.5, color: "#0369A1", fontWeight: 600, marginTop: 8 } }, "→ 対象 " + recs.length + "件"));
+    React.createElement("div", { style: { fontSize: 10.5, color: "#0369A1", fontWeight: 600, marginTop: 8 } }, "→ 対象 " + recs.length + "件"),
+    recs.length ? React.createElement("div", { style: { marginTop: 6, maxHeight: 260, overflow: "auto", border: "1px solid #eee", borderRadius: 6 } }, _elOsTradeMini(recs, _ai)) : null);
 
   var _condBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 10, padding: "9px 11px", marginBottom: 9 } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 9 } }, "② 仮の条件を置く ", React.createElement("span", { style: { fontWeight: 400, color: "#94A3B8" } }, "（推奨/理想でワンタップ）")),
