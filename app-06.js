@@ -2429,8 +2429,8 @@ function _elOsTradeMini(recs, aiOf) {
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } }, s.time || "—"),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),
-      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } },
-        a != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, a + "円") : React.createElement("span", { style: { color: "#ddd" } }, "—")),
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, background: _elAddAlphaYes(s) ? "#FEF3C7" : null } },
+        a != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, a + "円"), _elAlphaBreakdownNode(s, a)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _epOsChainCell(s, a)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _epECell(s, a)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap" } },
@@ -4451,8 +4451,18 @@ function AlphaSimBody(_ref_asim) {
         React.createElement("span", { style: { color: simCol, fontWeight: 700, marginLeft: 3 } }, "→" + simStr)));
   };
 
+  // 銘柄タブ（①の上・銘柄ごとにシミュを切替 2026-07-02）。全体＋各銘柄ピル。切替でsim手入力(基本/追加/損切り)をリセット→その銘柄の推奨が自動入力される。
+  var _stkCnt = function(s) { return _byPeriod.filter(function(r) { return r.stock === s; }).length; };
+  var _stkList = _stockOpts.slice();
+  if (stockFil !== "__all__" && _stkList.indexOf(stockFil) < 0) _stkList.unshift(stockFil);
+  var _pickStock = function(s) { setStockFil(s); setSimBase(""); setSimAdd(""); setSimCut(""); };
+  var _stkTabBtn = function(key, label, on, activeCol) { return React.createElement("button", { key: key, onClick: function() { _pickStock(key); }, style: { flexShrink: 0, padding: "7px 15px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? activeCol : "#ddd"), background: on ? activeCol : "#fff", color: on ? "#fff" : "#666" } }, label); };
+  var _stockTabs = React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
+    [_stkTabBtn("__all__", "全体 (" + _byPeriod.length + ")", stockFil === "__all__", "#1a1a1a")].concat(
+      _stkList.map(function(s) { return _stkTabBtn(s, s + " (" + _stkCnt(s) + ")", stockFil === s, "#9A3412"); })));
+
   var _filterBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 10, padding: "9px 11px", marginBottom: 9 } },
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 7 } }, "① 対象（母数）を絞る"),
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 7 } }, "① 対象（母数）を絞る", React.createElement("span", { style: { fontWeight: 400, color: "#94A3B8", marginLeft: 6 } }, "選択中：" + (stockFil === "__all__" ? "全体" : stockFil))),
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px 12px", alignItems: "center", fontSize: 11, marginBottom: 7 } },
       React.createElement("span", { style: { color: "#64748b" } }, "期間"),
       React.createElement("span", { style: { display: "inline-flex", gap: 4, flexWrap: "wrap" } },
@@ -4462,7 +4472,6 @@ function AlphaSimBody(_ref_asim) {
           _pill("全期間", period === "all", function() { setPeriod("all"); })
         ]))),
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px 12px", alignItems: "center", fontSize: 11, marginBottom: 7 } },
-      React.createElement("span", { style: { color: "#64748b" } }, "銘柄"), _sel(stockFil, _stockOpts, setStockFil, "全体"),
       React.createElement("span", { style: { color: "#64748b" } }, "シグナル"), _sel(sigFil, _sigOpts, setSigFil, "全部")),
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px 8px", alignItems: "center", fontSize: 11 } },
       React.createElement("span", { style: { color: "#64748b" } }, "追加α状態"),
@@ -4597,7 +4606,7 @@ function AlphaSimBody(_ref_asim) {
     recs.length ? (simMode === "ladder" ? _ladderResult : React.createElement(React.Fragment, null, _sumBar, _sweepTable, _detailTable))
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "この条件に該当する記録がありません"));
 
-  return React.createElement(React.Fragment, null, _filterBar, _condBar, _resultCard);
+  return React.createElement(React.Fragment, null, _stockTabs, _filterBar, _condBar, _resultCard);
 }
 
 // αシミュレーターのモーダル殻（本体AlphaSimBodyを不透明オーバーレイで包む・×閉じる）。日別ページの🧪シミュタブは殻なしでAlphaSimBodyを直接描画。2026-07-02。

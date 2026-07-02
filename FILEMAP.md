@@ -28,6 +28,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-02e αシミュを銘柄タブ式に＋①ライブ一覧のα値内訳を本日損益データ表と統一
+- **app-06.js**: `AlphaSimBody` の①の上に銘柄ピルタブ（`_stockTabs`＝全体`__all__`＋各銘柄・案A＝記録帳の銘柄タブと同形）を追加。母数`_stockOpts`（選択中期間の銘柄）＋選択中銘柄は常に表示（`_stkList`）・件数は`_byPeriod`基準（`_stkCnt`）。既存の①内「銘柄」ドロップダウンは役割重複のため削除（`stockFil`/`setStockFil`はタブが操作）。タブ切替`_pickStock`で②の手入力（`simBase`/`simAdd`/`simCut`）を空にリセット＝その銘柄の推奨（`_recBaseA`/`_recAddA`/`_recCutV`）が②へ自動入力。①見出しに「選択中：〇〇」を併記。既定は全体（`initial.stock||"__all__"`は不変＝呼び出し側が銘柄指定時のみその銘柄開始）。
+- **app-06.js**: `_elOsTradeMini`（αシミュ①ライブ一覧／OS値別成績の展開／履歴ポップアップで共用）のα値セルを「本日の損益データ」表と統一＝`_elAlphaBreakdownNode(s, a)` の（基本+追加）内訳を追加＋追加α〇（`_elAddAlphaYes`）行は背景`#FEF3C7`ハイライト。OSの「最高」（`_epOsChainCell`→`_epOsMaxChainNode`）は元から表示済で不変。3呼び出し先すべてに反映。
+- 検証: `new Function`構文OK（全app-*.js）。表示確認はユーザーが実機で。
+
 ### 2026-07-02d αシミュに段階エントリー（株数配分）モードを追加
 - **app-06.js**: `AlphaSimBody` の②に「単一α／段階エントリー（株数）」モード切替（`simMode`）を追加。段階モード＝可変N段テーブル（`tiers`＝各段 {offset:水準線から+円, shares:株数}・±ステッパー`_step`・「＋段を追加」・2段以上は🗑削除）＋全段共通の損切り。各段のクイック入力＝推奨基本α（`_recBaseA`）/＋推奨追加（基本+`_recAddA`）/＋よく使う（基本+最頻addAlphaVal `_freqAdd`）。③は段構成を母数の各取引に当て `_ladderRec`＝段別損益（`_elDynHold`(off) per100 × 株数/100・到達/損切り/未達）＋記録ごとの計＋合計損益（現実の実現損益`_elSignedVal(realizedPnl)` vs シミュ合計・延べ株数）を表示。水準線`levelPrice`は損益未使用でα＝水準線からの円なのでoffsetをαとして再計算。非永続。単一αモードは従来どおり（現実vsシミュ/α別早見/記録明細）。
 - 検証: `new Function`構文OK＋合成データで単一αモード（回帰）＋段階モード（トグルクリック→段テーブル/＋段追加/合計損益/記録別内訳）の描画を確認。
