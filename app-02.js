@@ -5216,7 +5216,7 @@ function WeeklyPnlPanel(_wpp) {
   return React.createElement("div", { style: { marginTop: 12, background: "#fff", border: "1px solid #e8e5df", borderRadius: 8, padding: "10px 12px" } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } },
       _navBtn("←", function() { setWeekOffset(function(o) { return o - 1; }); }),
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#333", display: "flex", alignItems: "center", flexWrap: "wrap" } }, "📅 今週の損益データ（" + stock + "）", _alphaSimBtn({ stock: stock, period: "week" })),
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#333", display: "flex", alignItems: "center", flexWrap: "wrap" } }, "📅 今週の損益データ（" + stock + "）"),
       _navBtn("→", function() { setWeekOffset(function(o) { return o + 1; }); }),
       weekOffset !== 0 ? React.createElement("button", { onClick: function() { setWeekOffset(0); }, style: { padding: "2px 8px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", border: "1px solid #FB923C", borderRadius: 6, cursor: "pointer", color: "#9A3412" } }, "今週へ") : null,
       React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, _wkDates[0].slice(5) + "〜" + _wkDates[4].slice(5))),
