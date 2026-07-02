@@ -28,6 +28,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-02b αシミュレーターを日別ページの「🧪 シミュレーション」タブとして常設（本体を殻から分離）
+- **app-06.js**: `AlphaSimulatorModal` を本体`AlphaSimBody`（①母数フィルタ/②条件/③結果の3セクションのFragmentを返す・殻なし）＋薄いモーダル殻`AlphaSimulatorModal`（`AlphaSimBody`をオーバーレイ＋×閉じるで包む）に分離。ロジック・計算は不変。
+- **app-04.js**: DayViewのタブ配列(app-04:3773)に`["sim", "🧪 シミュレーション", true]`を「📋 取引」の右へ追加＋`tab==="sim" && React.createElement(AlphaSimBody, {data, initial:{date, period:"day"}})`をインライン描画（この日/今週/直近50/全期間を節内で切替＝「その週のシミュ」も可）。日別ページの本日/今週見出しに2026-07-02で付けた`_alphaSimBtn`（モーダル起動）はタブと重複するため撤去。
+- 残す: モーダル(App/app-08 `window.__openAlphaSim`)＋`_alphaSimBtn`は app-02 WeeklyPnlPanel（ChartSection銘柄別）と app-06 記録帳ヘッダーで継続使用。
+- 検証: `new Function`構文OK(app-04/06/08)＋合成データで`AlphaSimBody`インライン描画（①対象/③結果/α別早見・対象2件）＋モーダル殻描画を確認。
+
 ### 2026-07-02 αシミュレーター（独立モーダル）を新設
 - **app-06.js**: `AlphaSimulatorModal({data, onClose, initial})`＝シナリオ型αシミュレーター（末尾に追加）。①母数フィルタ（期間 この日/今週/直近50/全期間・銘柄・シグナル(tag)・追加α状態 全部/〇/×のみ/未選択）②仮条件（基本α/追加α/損切りを±ステッパー＋推奨/理想ワンタップ＝推奨は`_elBaseAlphaPick`/`_elAddAlphaReco`/`_elCutPick`・理想は`_elIdealAlpha`/`_elIdealCut`の母数中央値）③結果（現実vsシミュのサマリー[到達率/損切り率/H1勝率/想定損益]＋α別早見[基本α5〜20を振り到達率/損切り率/H1勝率/件数/想定損益・★最大・行クリックで基本αに反映]＋記録明細[現実/シミュ2段で各記録のEP/H1/判定]）。母数＝`_elCollectAllSignals`→`_elFilterPeriod`等。集計は内部`_agg`（EP到達OS3まで・`_elDynPlanned`/`_elDynHold`/`_elPlanIsStop`/`_elHoldIsStop`）＋`_elBaseAlphaEval`/`_elSimPnlByDay`。非永続。`_alphaSimBtn(initial, label)`＝起動ボタン（`window.__openAlphaSim`経由）。
 - **app-08.js**: App に`simInit` state＋useEffectで`window.__openAlphaSim(init)`を公開＋SettingsModalの後にモーダルを条件描画（`initial={period,date,stock,signal,addAlphaFil}`）。

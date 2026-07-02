@@ -3770,7 +3770,7 @@ function DayView(_ref57) {
       borderBottom: "2px solid #1a1a1a",
       overflowX: "auto"
     }
-  }, [["events", "\uD83D\uDCC5 \u4ECA\u65E5\u306E\u4E88\u5B9A\u30FB\u30E1\u30E2", hasEventsData || hasSummaryData], ["news", "📰 ニュース", hasNewsData], ["indicators", "📊 指標", hasFmData], ["charts", "銘柄別記録", hasChartData], ["trades", "📋 取引", hasTradeData]].map(function (_ref58) {
+  }, [["events", "\uD83D\uDCC5 \u4ECA\u65E5\u306E\u4E88\u5B9A\u30FB\u30E1\u30E2", hasEventsData || hasSummaryData], ["news", "📰 ニュース", hasNewsData], ["indicators", "📊 指標", hasFmData], ["charts", "銘柄別記録", hasChartData], ["trades", "📋 取引", hasTradeData], ["sim", "🧪 シミュレーション", true]].map(function (_ref58) {
     var _ref59 = _slicedToArray(_ref58, 3),
       k = _ref59[0],
       la = _ref59[1],
@@ -3997,7 +3997,7 @@ function DayView(_ref57) {
       }
       _safeSetTab("news");
     }
-  })), React.createElement(_elDayStockBenchV2, { data: data, date: date, stock: activeStock }))), tab === "trades" && React.createElement("div", null,
+  })), React.createElement(_elDayStockBenchV2, { data: data, date: date, stock: activeStock }))), tab === "sim" && React.createElement("div", { style: { padding: "2px 0" } }, React.createElement("div", { style: { fontSize: 10, color: "#8a8a80", marginBottom: 8 } }, "この日/今週などで対象を絞り、仮の基本α/追加α/損切りを置いて現実と比べます（保存しません）"), React.createElement(AlphaSimBody, { data: data, initial: { date: date, period: "day" } })), tab === "trades" && React.createElement("div", null,
   React.createElement("div", { style: Card },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
       React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "エントリー記録"),
@@ -4848,7 +4848,7 @@ function DayView(_ref57) {
       return React.createElement("div", { style: Card },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" } },
           _wkNavBtn("←", function() { setWkWeekOffset(function(o) { return o - 1; }); }),
-          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#333", display: "flex", alignItems: "center", flexWrap: "wrap" } }, "📅 今週の損益データ", _alphaSimBtn({ period: "week" })),
+          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#333" } }, "📅 今週の損益データ"),
           _wkNavBtn("→", function() { setWkWeekOffset(function(o) { return o + 1; }); }),
           wkWeekOffset !== 0 ? React.createElement("button", { onClick: function() { setWkWeekOffset(0); }, style: { padding: "2px 8px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", border: "1px solid #FB923C", borderRadius: 6, cursor: "pointer", color: "#9A3412" } }, "今週へ") : null,
           (function(){ var _xc = _elExclCountRecs(_wkAllRecs); return _xc > 0 ? React.createElement("span", { title: "計算・データに算入しない記録の件数", style: { fontSize: 10, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #7DD3FC", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "不算入 " + _xc + "件") : null; })()
@@ -5192,7 +5192,7 @@ function DayView(_ref57) {
     
     
     var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "📊 本日の損益データ", _alphaSimBtn({ date: date, period: "day" }),
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "📊 本日の損益データ",
         (function(){ var _xc = _elExclCountRecs(_pbAllRecs); return _xc > 0 ? React.createElement("span", { title: "計算・データに算入しない記録の件数", style: { fontSize: 10, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #7DD3FC", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "不算入 " + _xc + "件") : null; })()),
       _pbGradeLegend,
       _pbAllRecs.length ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, margin: "2px 0 8px", flexWrap: "wrap" } }, _bulkIdealCtrl(_pbAllRecs, simAlpha, setSimAlpha, _pbRecKey, _pbCutOf)) : null,

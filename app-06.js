@@ -4339,8 +4339,8 @@ function EntryLogView(_ref_elv2) {
 
 // ===== αシミュレーター（独立モーダル・2026-07-02）: 対象を絞る→仮の基本α/追加α/損切りを置く→現実とシミュを対比。α別早見＋記録明細。非永続。 =====
 // window.__openAlphaSim(initial) で App がマウント。initial={period,date,stock,signal,addAlphaFil} は起動元(本日/今週/記録帳)からの既定。
-function AlphaSimulatorModal(_ref_asim) {
-  var data = _ref_asim.data, onClose = _ref_asim.onClose, initial = _ref_asim.initial || {};
+function AlphaSimBody(_ref_asim) {
+  var data = _ref_asim.data, initial = _ref_asim.initial || {};
   var _num = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
   var _uP = useState(initial.period || (initial.date ? "day" : "recent")), period = _uP[0], setPeriod = _uP[1];
   var _uStk = useState(initial.stock || "__all__"), stockFil = _uStk[0], setStockFil = _uStk[1];
@@ -4517,13 +4517,19 @@ function AlphaSimulatorModal(_ref_asim) {
     recs.length ? React.createElement(React.Fragment, null, _sumBar, _sweepTable, _detailTable)
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "この条件に該当する記録がありません"));
 
+  return React.createElement(React.Fragment, null, _filterBar, _condBar, _resultCard);
+}
+
+// αシミュレーターのモーダル殻（本体AlphaSimBodyを不透明オーバーレイで包む・×閉じる）。日別ページの🧪シミュタブは殻なしでAlphaSimBodyを直接描画。2026-07-02。
+function AlphaSimulatorModal(_ref_asm) {
+  var data = _ref_asm.data, onClose = _ref_asm.onClose, initial = _ref_asm.initial;
   return React.createElement("div", { style: { position: "fixed", left: 0, top: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.42)", zIndex: 4000, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", padding: "18px 8px", WebkitOverflowScrolling: "touch" }, onClick: onClose },
     React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#faf9f6", borderRadius: 12, maxWidth: 680, width: "100%", padding: "13px 13px", boxShadow: "0 12px 44px rgba(0,0,0,0.28)" } },
       React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 } },
         React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "#9A3412" } }, "🧪 αシミュレーター"),
         React.createElement("button", { onClick: onClose, style: { fontSize: 12, color: "#888", background: "none", border: "none", cursor: "pointer" } }, "×閉じる")),
       React.createElement("div", { style: { fontSize: 10, color: "#8a8a80", marginBottom: 10 } }, "対象を絞る → 仮のα/損切りを置く → 現実とシミュを対比（保存はしません）"),
-      _filterBar, _condBar, _resultCard));
+      React.createElement(AlphaSimBody, { data: data, initial: initial })));
 }
 
 // αシミュレーターの起動ボタン（本日/今週/記録帳の見出しに置く・window.__openAlphaSimでモーダルを開く）2026-07-02。
