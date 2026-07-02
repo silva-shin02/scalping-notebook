@@ -4523,9 +4523,11 @@ function AlphaSimBody(_ref_asim) {
       React.createElement("span", { style: { fontSize: 11, whiteSpace: "nowrap" } }, "実際 ", React.createElement("b", { style: { color: cc.realized != null ? _elPnlColor(Math.round(cc.realized)) : "#94A3B8" } }, cc.realized != null ? _elPnlFmt(Math.round(cc.realized)) : "—"), React.createElement("b", { style: { color: cc.tot != null ? _elPnlColor(cc.tot) : "#94A3B8", marginLeft: 5 } }, "→ " + (cc.tot != null ? _elPnlFmt(cc.tot) : "—"))),
       changed ? React.createElement("button", { title: "実際値（1エントリー）に戻す", onClick: function() { _resetTiers(k); }, style: { fontSize: 11, padding: "1px 8px", borderRadius: 8, border: "1px solid #ddd", background: "#fff", color: "#888", cursor: "pointer" } }, "↺") : null,
       save ? React.createElement("button", { title: "この記録を編集", onClick: function() { setSimEdit(r); }, style: { fontSize: 11, padding: "1px 8px", borderRadius: 8, border: "1px solid #ddd", background: "#fff", color: "#888", cursor: "pointer" } }, "✎") : null);
-    if (!open) return React.createElement("div", { key: k, style: { background: "#fff", border: "1px solid " + (changed ? "#FDBA74" : "#e8e3d8"), borderRadius: 10, padding: "7px 11px", marginBottom: 7 } }, head);
+    var detail = React.createElement("div", { style: { marginTop: 6 } }, _elOsTradeMini([r], _ai));   // 本日の損益データ欄と同じ詳細行（α内訳・OS最高・EP/H損益・実現損益）を常時表示
+    if (!open) return React.createElement("div", { key: k, style: { background: "#fff", border: "1px solid " + (changed ? "#FDBA74" : "#e8e3d8"), borderRadius: 10, padding: "7px 11px", marginBottom: 7 } }, head, detail);
     return React.createElement("div", { key: k, style: { background: "#fff", border: "1px solid " + (changed ? "#FDBA74" : "#e8e3d8"), borderRadius: 10, padding: "9px 11px", marginBottom: 7 } },
       head,
+      detail,
       React.createElement("div", { style: { borderTop: "1px solid #f0ede8", marginTop: 7, paddingTop: 7 } },
         _osBig(r),
         React.createElement("div", { style: { fontSize: 10.5, color: "#64748b", fontWeight: 700, marginBottom: 5 } }, "分割エントリー（建て値α×株数・手仕舞いは記録どおり＝変更なし）"),
