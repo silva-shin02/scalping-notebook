@@ -4350,6 +4350,8 @@ function AlphaSimBody(_ref_asim) {
   var _uAa = useState(""), simAdd = _uAa[0], setSimAdd = _uAa[1];
   var _uCu = useState(""), simCutS = _uCu[0], setSimCut = _uCu[1];
   var _uDe = useState(false), showDetail = _uDe[0], setShowDetail = _uDe[1];
+  var _uMode = useState("single"), simMode = _uMode[0], setSimMode = _uMode[1];   // 単一α / 段階エントリー(株数配分) 2026-07-02
+  var _uTiers = useState([{ offset: "", shares: "100" }]), tiers = _uTiers[0], setTiers = _uTiers[1];   // 段配列 {水準線から+円offset, 株数shares}
   var simDate = initial.date || null;
   var _ai = function(r) { return _elAlphaInfo(r, data); };
 
@@ -4401,6 +4403,28 @@ function AlphaSimBody(_ref_asim) {
   var sweep = []; for (var _sa = 5; _sa <= 20; _sa++) { var _tot = _sa + addA; var _ev = _elBaseAlphaEval(recs, _aiSim, _tot); var _sp = _elSimPnlByDay(recs, _aiSim, _tot); sweep.push({ base: _sa, eRate: _ev.eRate, stopRate: _ev.stopRate, h1win: _ev.h1win, scN: _ev.scN, sum: (_sp && _sp.sum != null) ? _sp.sum : null }); }
   var _best = null; sweep.forEach(function(x) { if (x.sum != null && (_best == null || x.sum > _best.sum)) _best = x; });
 
+  // ===== 段階エントリー（株数配分）の計算 2026-07-02 =====
+  var _freqAdd = (function() { var m = {}, best = null; recs.forEach(function(r) { if (!_elAddAlphaYes(r.signal)) return; var v = _num(r.signal.addAlphaVal); if (v == null || v <= 0) return; m[v] = (m[v] || 0) + 1; if (best == null || m[v] > m[best]) best = v; }); return best != null ? Number(best) : null; })();
+  var _tierOff = function(t) { var v = _num(t.offset); return v != null ? v : (_recBaseA != null ? _recBaseA : 10); };
+  var _tierSh = function(t) { var v = _num(t.shares); return (v != null && v > 0) ? v : 100; };
+  var _ladderRec = function(r) {
+    var s = r.signal;
+    var rows = tiers.map(function(t) {
+      var off = _tierOff(t), sh = _tierSh(t);
+      var rr = _epResolve(s, off), reached = !!(rr && rr.epIdx >= 0 && rr.epIdx <= 2);
+      var per100 = reached ? _elDynHold(s, off, cutV) : null;
+      var stop = reached && (_elPlanIsStop(s, off, cutV) || _elHoldIsStop(s, off, cutV));
+      var pnl = (per100 != null) ? Math.round(per100 * sh / 100) : null;
+      return { off: off, sh: sh, reached: reached, stop: stop, pnl: pnl };
+    });
+    var tot = 0, has = false; rows.forEach(function(x) { if (x.pnl != null) { tot += x.pnl; has = true; } });
+    return { rows: rows, tot: has ? tot : null };
+  };
+  var _ladderResults = recs.map(function(r) { return { r: r, res: _ladderRec(r) }; });
+  var _ladderTotal = 0, _ladderHas = false; _ladderResults.forEach(function(x) { if (x.res.tot != null) { _ladderTotal += x.res.tot; _ladderHas = true; } });
+  var _totShares = 0; _ladderResults.forEach(function(x) { x.res.rows.forEach(function(rw) { if (rw.pnl != null) _totShares += rw.sh; }); });
+  var _realRealized = 0, _realHas = false; recs.forEach(function(r) { var s = r.signal; if (_elIsEntered(s, r.item)) { var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (v != null) { _realRealized += v; _realHas = true; } } });
+
   // ===== UI helpers =====
   var _pct = function(v) { return v == null ? "—" : Math.round(v * 100) + "%"; };
   var _pnl = function(v) { return v == null ? "—" : _elPnlFmt(Math.round(v)); };
@@ -4449,12 +4473,67 @@ function AlphaSimBody(_ref_asim) {
     React.createElement("div", { style: { fontSize: 10.5, color: "#0369A1", fontWeight: 600, marginTop: 8 } }, "→ 対象 " + recs.length + "件"),
     recs.length ? React.createElement("div", { style: { marginTop: 6, maxHeight: 260, overflow: "auto", border: "1px solid #eee", borderRadius: 6 } }, _elOsTradeMini(recs, _ai)) : null);
 
+  // ===== 段階エントリーモードのUI =====
+  var _stepSt = { width: 22, height: 22, borderRadius: 6, border: "1px solid #ddd", background: "#fff", cursor: "pointer", fontSize: 14, color: "#666", lineHeight: 1 };
+  var _step = function(val, setter, col, unit, w) {
+    return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+      React.createElement("button", { onClick: function() { setter(String(val - 1)); }, style: _stepSt }, "−"),
+      React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: col, minWidth: w || 40, textAlign: "center" } }, val + unit),
+      React.createElement("button", { onClick: function() { setter(String(val + 1)); }, style: _stepSt }, "+"));
+  };
+  var _modeToggle = React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 9, flexWrap: "wrap" } },
+    _pill("単一α", simMode === "single", function() { setSimMode("single"); }),
+    _pill("段階エントリー（株数）", simMode === "ladder", function() { setSimMode("ladder"); }));
+  var _tierRow = function(t, i) {
+    var off = _tierOff(t), sh = _tierSh(t);
+    var setOff = function(v) { var nt = tiers.slice(); nt[i] = { offset: v, shares: nt[i].shares }; setTiers(nt); };
+    var setSh = function(v) { var nt = tiers.slice(); nt[i] = { offset: nt[i].offset, shares: v }; setTiers(nt); };
+    var baseAdd = (_recBaseA != null && _recAddA != null) ? (_recBaseA + _recAddA) : null;
+    var freqAdd = (_recBaseA != null && _freqAdd != null) ? (_recBaseA + _freqAdd) : null;
+    return React.createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 7, flexWrap: "wrap" } },
+      React.createElement("span", { style: { fontSize: 10, color: "#64748b" } }, "水準線+"),
+      _step(off, setOff, "#0369A1", "円", 40),
+      React.createElement("span", { style: { fontSize: 10, color: "#64748b" } }, "に"),
+      _step(sh, setSh, "#333", "株", 48),
+      React.createElement("span", { style: { display: "inline-flex", gap: 3, flexWrap: "wrap" } },
+        _quick("推奨基本" + (_recBaseA != null ? _recBaseA : ""), _recBaseA, setOff, "#0369A1"),
+        _quick("＋推奨追加" + (baseAdd != null ? baseAdd : ""), baseAdd, setOff, "#9A3412"),
+        _quick("＋よく使う" + (freqAdd != null ? freqAdd : ""), freqAdd, setOff, "#9A3412")),
+      tiers.length > 1 ? React.createElement("button", { onClick: function() { setTiers(tiers.filter(function(_x, j) { return j !== i; })); }, style: { fontSize: 12, color: "#cbd5e1", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null);
+  };
+  var _ladderBar = React.createElement("div", null,
+    React.createElement("div", { style: { fontSize: 11, color: "#7F1D1D", fontWeight: 600, marginBottom: 9, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } }, "損切り（全段共通）", _step(cutV, setSimCut, "#7F1D1D", "円", 40), _quick("推奨" + (_recCutV != null ? _recCutV : ""), _recCutV, setSimCut, "#7F1D1D")),
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 7 } }, "段（水準線から何円上に何株）"),
+    tiers.map(function(t, i) { return _tierRow(t, i); }),
+    React.createElement("button", { onClick: function() { setTiers(tiers.concat([{ offset: "", shares: "100" }])); }, style: { marginTop: 3, padding: "3px 11px", fontSize: 10, fontWeight: 600, borderRadius: 9, border: "1px dashed #C2410C", background: "#fff", color: "#C2410C", cursor: "pointer" } }, "＋ 段を追加"));
+  var _ldTh = function(t) { return React.createElement("th", { style: { padding: "3px 5px", fontSize: 9, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, t); };
+  var _ldTd = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "3px 5px", fontSize: 10, textAlign: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+  var _ladderResult = React.createElement("div", null,
+    React.createElement("div", { style: { display: "flex", gap: 14, flexWrap: "wrap", alignItems: "baseline", marginBottom: 9 } },
+      React.createElement("span", { style: { fontSize: 11, color: "#64748b" } }, "合計損益（" + recs.length + "件）"),
+      React.createElement("span", { style: { fontSize: 12, color: "#94A3B8" } }, "現実 " + (_realHas ? _elPnlFmt(Math.round(_realRealized)) : "—")),
+      React.createElement("span", { style: { fontSize: 19, fontWeight: 700, color: _ladderHas ? _elPnlColor(Math.round(_ladderTotal)) : "#94A3B8" } }, "→ " + (_ladderHas ? _elPnlFmt(Math.round(_ladderTotal)) : "—")),
+      React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "延べ " + _totShares.toLocaleString() + "株")),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginBottom: 4 } }, "記録ごとの内訳（各段の到達・段別損益）"),
+    React.createElement(_HScrollBox, null,
+      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+        React.createElement("thead", null, React.createElement("tr", { style: { background: "#f2f0ea" } },
+          [_ldTh("日付")].concat(tiers.map(function(t, i) { return _ldTh("+" + _tierOff(t) + "円/" + _tierSh(t) + "株"); })).concat([_ldTh("計")]))),
+        React.createElement("tbody", null, _ladderResults.map(function(x, ri) {
+          var cells = [_ldTd(((x.r.date || "").slice(5).replace("-", "/")) + " " + x.r.stock, { textAlign: "left" })];
+          x.res.rows.forEach(function(rw) { cells.push(_ldTd(!rw.reached ? React.createElement("span", { style: { color: "#94A3B8" } }, "未達") : rw.pnl == null ? React.createElement("span", { style: { color: "#94A3B8" } }, "—") : React.createElement("span", { style: { color: _elPnlColor(rw.pnl), fontWeight: rw.stop ? 700 : 400 } }, (rw.stop ? "損切 " : "到達 ") + _elPnlFmt(rw.pnl)))); });
+          cells.push(_ldTd(x.res.tot == null ? "—" : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(x.res.tot) } }, _elPnlFmt(x.res.tot))));
+          return React.createElement("tr", { key: ri, style: { borderTop: "0.5px solid #eee" } }, cells);
+        })))));
+
   var _condBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 10, padding: "9px 11px", marginBottom: 9 } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 9 } }, "② 仮の条件を置く ", React.createElement("span", { style: { fontWeight: 400, color: "#94A3B8" } }, "（推奨/理想でワンタップ）")),
-    _paramRow("基本α", "#0369A1", baseA, setSimBase, false, [_quick("推奨" + (_recBaseA != null ? _recBaseA : ""), _recBaseA, setSimBase, "#0369A1"), _quick("理想" + (_idealBaseA != null ? _idealBaseA : ""), _idealBaseA, setSimBase, "#0369A1")]),
-    _paramRow("追加α", "#9A3412", addA, setSimAdd, true, [_quick("推奨+" + (_recAddA != null ? _recAddA : ""), _recAddA, setSimAdd, "#9A3412"), _quick("なし", 0, setSimAdd, "#9A3412")]),
-    _paramRow("損切り", "#7F1D1D", cutV, setSimCut, false, [_quick("推奨" + (_recCutV != null ? _recCutV : ""), _recCutV, setSimCut, "#7F1D1D"), _quick("理想" + (_idealCutV != null ? _idealCutV : ""), _idealCutV, setSimCut, "#7F1D1D")]),
-    React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "right" } }, "合計α ", React.createElement("b", { style: { color: "#333" } }, totalA + "円"), "（基本" + baseA + " ＋ 追加" + addA + "）"));
+    _modeToggle,
+    simMode === "ladder" ? _ladderBar : React.createElement(React.Fragment, null,
+      _paramRow("基本α", "#0369A1", baseA, setSimBase, false, [_quick("推奨" + (_recBaseA != null ? _recBaseA : ""), _recBaseA, setSimBase, "#0369A1"), _quick("理想" + (_idealBaseA != null ? _idealBaseA : ""), _idealBaseA, setSimBase, "#0369A1")]),
+      _paramRow("追加α", "#9A3412", addA, setSimAdd, true, [_quick("推奨+" + (_recAddA != null ? _recAddA : ""), _recAddA, setSimAdd, "#9A3412"), _quick("なし", 0, setSimAdd, "#9A3412")]),
+      _paramRow("損切り", "#7F1D1D", cutV, setSimCut, false, [_quick("推奨" + (_recCutV != null ? _recCutV : ""), _recCutV, setSimCut, "#7F1D1D"), _quick("理想" + (_idealCutV != null ? _idealCutV : ""), _idealCutV, setSimCut, "#7F1D1D")]),
+      React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "right" } }, "合計α ", React.createElement("b", { style: { color: "#333" } }, totalA + "円"), "（基本" + baseA + " ＋ 追加" + addA + "）")));
 
   var _sumBar = React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7, marginBottom: 11 } },
     _metricCard("到達率", _pct(realAgg.eRate), _pct(simAgg.eRate), _delCol(realAgg.eRate, simAgg.eRate, false)),
@@ -4514,8 +4593,8 @@ function AlphaSimBody(_ref_asim) {
         React.createElement("tbody", null, _detailRows))) : null);
 
   var _resultCard = React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 10, padding: "9px 11px" } },
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 9 } }, "③ 結果（現実 → シミュ）"),
-    recs.length ? React.createElement(React.Fragment, null, _sumBar, _sweepTable, _detailTable)
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "#9A3412", marginBottom: 9 } }, simMode === "ladder" ? "③ 結果（段階エントリーの合計損益）" : "③ 結果（現実 → シミュ）"),
+    recs.length ? (simMode === "ladder" ? _ladderResult : React.createElement(React.Fragment, null, _sumBar, _sweepTable, _detailTable))
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 12 } }, "この条件に該当する記録がありません"));
 
   return React.createElement(React.Fragment, null, _filterBar, _condBar, _resultCard);
