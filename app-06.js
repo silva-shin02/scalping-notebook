@@ -1577,7 +1577,11 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
           React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加α +" + add.add + "円" + (add.pnl != null ? "（想定" + (add.pnl > 0 ? "+" : "") + Math.round(add.pnl).toLocaleString() + "円）" : "")),
           _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 11, "#9A3412"))
       : (add ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "追加α＝推奨無し") : null));
-  var sweepRows = pick.sweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
+  // α別総当たりの表示は1円から（推奨対象範囲_EL_BASE_ALPHAS=5〜20・★選定は不変／1〜4円は参考行として追加表示のみ）2026-07-02。母数は推奨基本αと同じ×+未選択（_elBaseAlphaPickが内部で〇を除外するのに揃える）。
+  var _baseRecs = (recs || []).filter(function(r) { return r && !_elAddAlphaYes(r.signal); });
+  var _lowSweep = [1, 2, 3, 4].map(function(la) { return _elBaseAlphaEval(_baseRecs, aiOf, la); });
+  var _dispSweep = _lowSweep.concat(pick.sweep);   // [1..4]（表示のみ）＋[5..20]（推奨対象）＝昇順
+  var sweepRows = _dispSweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var on = e.a === a, pass = e.scN >= minN && e.score != null;
     return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.4 } },
       _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
@@ -1589,8 +1593,8 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
       _elv2Td(e.score == null ? "—" : React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "0.7×" + Math.round((1 - e.stopRate) * 100) + "+0.3×" + Math.round(e.h1win * 100))),
       _elv2Td(_elScoreCell(e.score)));
   });
-  // ②の母数記録テーブルは2026-06-26にユーザー要望で削除。母数集計（scN/損切り/勝ち/その他/対象外）だけ残し読み取りに使用。母数＝追加α〇を除く（×・未選択のみ）。
-  var _mRecs = recs.filter(function(r) { return r && !_elAddAlphaYes(r.signal); });
+  // ②の母数記録テーブルは2026-06-26にユーザー要望で削除。母数集計（scN/損切り/勝ち/その他/対象外）だけ残し読み取りに使用。母数＝追加α〇を除く（×・未選択のみ）＝_baseRecs。
+  var _mRecs = _baseRecs;
   var scN = 0, stopN = 0, winN = 0, otherN = 0, offN = 0;
   _mRecs.forEach(function(r) {
     var s = r.signal; if (!s) return;
@@ -1609,7 +1613,7 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
   ], { note: "この銘柄のv2・算入記録に各αを当ててシミュレーション。母数＝採用αでOS1〜3にEP到達しH1結果が判定できる記録。損切り率・H1勝率はこの母数で算出。" + (na ? " ※データ不足（母数<" + minN + "件）のため参考値。" : "") });
   return React.createElement("div", null,
     concl,
-    _lbl("α別の総当たり（5〜20円・★＝採用・件数フロア" + minN + "件未満は淡色／平均H1損益＝ΣH1損益÷件数）"),
+    _lbl("α別の総当たり（1〜20円・★＝採用[推奨対象は5〜20円]・件数フロア" + minN + "件未満は淡色／平均H1損益＝ΣH1損益÷件数）"),
     _elv2Table(["基本α", "到達率", "有効件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], sweepRows),
     insight);
 }
