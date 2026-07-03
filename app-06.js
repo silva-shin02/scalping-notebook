@@ -3954,7 +3954,7 @@ function EntryLogView(_ref_elv2) {
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"]]
-    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"]];
+    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub) {
@@ -4464,7 +4464,7 @@ function EntryLogView(_ref_elv2) {
       var _alphaTable = _alphaTableFn(_selSigRecsScoped);   // α意思決定表はサブタブ母数（前足浮き/その他）で再計算 2026-07-02
       var _alPick = _alA ? _alA.pick : null;
       var _alAdd = _alA ? _alA.add : null;
-      var _alphaSubs = [["base", "① 基本α", "#0369A1"], ["add", "② 追加α", "#9A3412"], ["tools", "③ α早見・ツール", "#64748B"], ["kabu", "④ 株数シミュ", "#0F766E"]];
+      var _alphaSubs = [["base", "① 基本α", "#0369A1"], ["add", "② 追加α", "#9A3412"], ["tools", "③ α早見・ツール", "#64748B"]];   // ④株数シミュは独立タブ「🧮 シミュ」へ昇格（旧alphaSub="kabu"は_alSelがbaseへフォールバック）2026-07-03
       var _alSel = _alphaSubs.some(function(p) { return p[0] === alphaSub; }) ? alphaSub : "base";
       var _alphaPills = React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2 } },
         _alphaSubs.map(function(p) {
@@ -4510,11 +4510,6 @@ function EntryLogView(_ref_elv2) {
               _elAddAlphaPeriodTableV2(_selSigRecsScoped, _ai, todayStr(), false),
               _secH("📐 追加α値の分析", "このシグナルで追加α〇（要）を明示した記録だけが母数（底抜け前足浮き＝数値根拠は前足浮きタブへ分離）。足した判断が当たっていたか（基本αだけの場合とのH1反実仮想比較）・最適な上乗せ幅・根拠別の成績。〇はもともと少なめ＝件数が薄いと「参考」表示になります"),
               _elAddAlphaSectionV2(_selSigRecsScoped, _ai, data));
-      } else if (_alSel === "kabu") {
-        // ④ 株数シミュ 2026-07-03: 建て株数ラダーの空売りバックテスト（手動ラダー＋自動配分）。シミュ母数＝内訳スコープ（前足浮き/その他）・推奨αの算出だけシグナル全体（基本α推奨と同じ一貫母数）。
-        _alBody = React.createElement(React.Fragment, null,
-          _alZoneHead("#0F766E", "#F0FDFA", "#99F6E4", "株数シミュ ― 建て株数ラダーの空売りバックテスト", null),
-          React.createElement(_elKabuLadderSimV2, { recs: _selSigRecsScoped, baseRecs: _selSigRecs, aiOf: _ai, floatMode: _floatMode }));
       } else {
         _alBody = React.createElement(React.Fragment, null,
           _alZoneHead("#64748B", "#F8FAFC", "#E2E8F0", "共通ツール ― 基本/追加に依らないα全体の検証", null),
@@ -4665,6 +4660,13 @@ function EntryLogView(_ref_elv2) {
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）"), _elExecGapSectionV2(_selSigRecsScoped, _ai),
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）"), _elMemoPerfSectionV2(_selSigRecsScoped, _ai)
     ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに底抜け前足浮きの記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「底抜け前足浮き」タブへ）");
+  } else if (view === "sim") {
+    // 🧮 シミュタブ 2026-07-03: 株数シミュ（建て株数ラダーの空売りバックテスト）をα値タブ④から独立タブへ昇格（ユーザー決定＝案A・深掘りの右）。シミュ母数＝内訳スコープ（前足浮き/その他）・推奨αの算出だけシグナル全体（baseRecs=_selSigRecs＝基本α推奨と同じ一貫母数）。
+    _tabBody = _selSigRecs.length ? React.createElement(React.Fragment, null,
+      React.createElement("div", { style: { background: "#F0FDFA", border: "1px solid #99F6E4", borderLeft: "4px solid #0F766E", borderRadius: 8, padding: "8px 12px", marginBottom: 6 } },
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#0F766E" } }, "株数シミュ ― 建て株数ラダーの空売りバックテスト")),
+      React.createElement(_elKabuLadderSimV2, { recs: _selSigRecsScoped, baseRecs: _selSigRecs, aiOf: _ai, floatMode: _floatMode }))
+      : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sigAxisGroups.length ? "このシグナルのEP起算（v2）記録がありません" : "EP起算（v2）の記録がありません");
   } else if (view === "miss") {
     var _msRecs = _addFilOf(_selSigRecsScoped);
     _tabBody = _isAllStock

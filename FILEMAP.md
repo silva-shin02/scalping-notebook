@@ -31,6 +31,10 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03g 株数シミュをα値タブ④から独立タブ「🧮 シミュ」へ昇格（深掘りの右）
+- **app-06.js**: `EntryLogView`の`_tabs`（銘柄選択時）末尾に`["sim", "🧮 シミュ"]`を追加＝深掘りの右。`view === "sim"`分岐を新設（ゾーン見出し＋`_elKabuLadderSimV2`・空ガードはα値タブと同形＝`_selSigRecs`）。α値タブの`_alphaSubs`から④株数シミュを除去（①〜③に純化）・`_alSel === "kabu"`分岐を削除（旧保存alphaSub="kabu"は`_alSel`がbaseへフォールバック＝無害）。母数は不変＝recs=`_selSigRecsScoped`（内訳スコープ）/baseRecs=`_selSigRecs`（シグナル全体）。
+- ユーザー相談（場所で悩み）→AskUserQuestion（案A独立タブ推奨・タブ名「🧮 シミュ」）＋show_widgetモック2案で確定。検証: `new Function`構文OK・"kabu"残存はコメントのみ。
+
 ### 2026-07-03f 株数シミュ④ 自動配分の監査＋「元の損益」比較カードを追加（自動/手動両モード）
 - 監査結果: 自動配分ロジックは**内部整合・損益バグ無し**（総当たりの合計損益＝展開「内訳」の合計／1段損益は`_elKabuTierEval`→`_elDynHold`で手動・全分析と同一／母数は`_v2recsAll`＝`_elInclTotal`適用済で他分析と一致／組合せ重複排除・推奨α不明の扱いも一致）。設計上の注記（バグでない）＝①第2取引αは記録ごとの日付時点推奨（列見出しは「推奨α」一語）②第1取引α上限は単一の推奨基本α−1なので日付時点推奨<の記録で「第1>第2」の深さ逆転あり（独立ポジション計算で損益は正）③「最適」は通算損益最大のみ＝構造的に低α・全展開へ寄る（リスクは損切り列のみ）④手動＝累積／自動＝配分(加算)でαが非単調の端でのみ差。
 - **app-06.js**: `_elKabuLadderSimV2`に比較カード`_compareCard(simSum, simLabel, nShares)`＋セル`_cmpCell`＋同株数基準`_baselineAt(n)`（各記録を実際の採用α`aiOf(r).alpha`でn株・単建て＝`_elKabuLadderCalc`流用）＋`_origPnl`（母数のsigned realizedPnl合計・`_elIsEntered`/`_elSignedVal`＝実際の実現損益）を新設。自動＝`autoRes.best.sum`(nShares=totalN)／手動＝`manCalc.sum`(nShares=最大累積`_manTot`)で「実際のα単独／シミュ配分/上乗せ(シミュ−実際のα)」＋元の損益（実際・参考）を表示。スケール差（シミュ=総株数／実現損益=実際株数）を明示し誤解回避。
