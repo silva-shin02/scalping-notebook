@@ -5243,7 +5243,6 @@ function DayView(_ref57) {
     );
     var _benchEl = (_pbStks && _pbStks.length) ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 α比較・深掘り（本日／今週／今月／全期間・銘柄別）"),
-      React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginBottom: 2 } }, "各銘柄のα関連データを集約（推奨基本α・理想α・到達率別α・E到達／損切り・EP／H1／H2損益・推奨基本αの期間推移）"),
       _pbStks.map(function(_sk) { return React.createElement(_elDayStockBenchV2, { key: _sk, data: data, date: date, stock: _sk }); })) : null;
     return React.createElement(React.Fragment, null, _pbMainEl, _simpleAlphaEl, _soukatsuEl, _wkMainEl, _benchEl);
   })(),
@@ -5265,7 +5264,7 @@ function DayView(_ref57) {
     });
     _dayRecs.sort(function(a,b){ return (a.time||"99:99").localeCompare(b.time||"99:99"); });
     var _aCard = { background:"#fff", border:"1px solid #e8e5de", borderRadius:8, padding:"10px 12px", marginBottom:10 };
-    var _hdr = function(t, sub) { return React.createElement("div",{style:{marginBottom:6}}, React.createElement("div",{style:{fontSize:12,fontWeight:700,color:"#9A3412"}},t), sub?React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:1}},sub):null); };
+    var _hdr = function(t, sub) { return React.createElement("div",{style:{marginBottom:6}}, React.createElement("div",{style:{fontSize:12,fontWeight:700,color:"#9A3412"}},t), (sub && typeof sub === "string" && sub.indexOf("※") === 0)?React.createElement("div",{style:{fontSize:9,color:"#aaa",marginTop:1}},sub):null); };   // 見出し下の定型説明は非表示・※注記のみ残す 2026-07-03
     if (!_dayRecs.length) {
       return React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
         React.createElement("div",{style:{fontSize:13,fontWeight:700,marginBottom:8,color:"#333"}},"📊 本日のデータ分析"),
