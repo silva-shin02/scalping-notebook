@@ -3268,7 +3268,7 @@ function _epLegs(s) {
   var _hn = function(v, sign) { if (v == null || v === "") return null; var n = Number(v); return isNaN(n) ? null : (sign === "+" ? -n : n); };
   if (s.osVal != null && s.osVal !== "") L.push({ h: Number(s.osVal), c: _osn(s.osConfVal, s.osConfSign), exp: s.os1Exp || null, role: "os1" });
   if (s.os2High != null && s.os2High !== "") L.push({ h: _osn(s.os2High, s.os2HighSign), c: _osn(s.os2Conf, s.os2ConfSign), exp: s.os2Exp || null, role: "os2" });
-  if (s.os3High != null && s.os3High !== "") L.push({ h: _osn(s.os3High, s.os3HighSign), c: _osn(s.os3Conf, s.os3ConfSign), exp: null, role: "os3" });
+  if (s.os3High != null && s.os3High !== "") L.push({ h: _osn(s.os3High, s.os3HighSign), c: _osn(s.os3Conf, s.os3ConfSign), exp: s.os3Exp || null, role: "os3" });   // os3Exp=OS3到達期待度（補強・EP=OS3記録の欠測を埋める）2026-07-03
   if (s.holdHighVal != null || s.holdWidth != null) L.push({ h: _hn(s.holdHighVal, s.holdHighSign), c: _hn(s.holdWidth, s.holdWidthSign), exp: null, role: "h1" });
   if (s.hold2HighVal != null || s.hold2Width != null) L.push({ h: _hn(s.hold2HighVal, s.hold2HighSign), c: _hn(s.hold2Width, s.hold2WidthSign), exp: null, role: "h2" });
   // ミラー足の除去（scheme:2のみ）: 旧フォームはEP位置に応じてHold欄をOS2/OS3欄と同期（同じ足の写し）して
@@ -3310,6 +3310,15 @@ function _epResolve(s, alpha) {
   var xBefore = false;
   for (var j = 0; j < epIdx; j++) { if (legs[j].exp === "×") xBefore = true; }
   return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: xBefore ? "x" : "ok", legs: legs };
+}
+// 各物理足iの期待度を「記録時のEP位置(採用α=_epOwnAlpha)」で固定割当＝シミュでαを変えEPが動いても、その足に元々紐づく期待度を保つ 2026-07-03。
+// OS1/2(＋補強後OS3)=α到達期待度(os*Exp=leg.exp)／記録時EP直後1本目=holdExp・2本目=hold2Exp／それ以外(EP前OS足・記録H2より深い足)=leg.exp(無ければnull)。
+function _epExpAt(s, i) {
+  var legs = _epLegs(s), a0 = _epOwnAlpha(s), recEp = -1;
+  if (a0 != null) { for (var k = 0; k < Math.min(3, legs.length); k++) { if (legs[k].h != null && legs[k].h >= a0) { recEp = k; break; } } }
+  if (recEp >= 0 && i === recEp + 1) return s.holdExp || null;
+  if (recEp >= 0 && i === recEp + 2) return s.hold2Exp || null;
+  return (legs[i] && legs[i].exp) || null;
 }
 // ×宣言後の到達（judge="x"＝見送り・参考扱い）か。EP足はα到達済みだが手前のOSで×宣言したため集計上ノートレード。
 function _epIsXSkip(s, alpha) {
@@ -3814,7 +3823,7 @@ function _epOsChainCell(s, alpha) {
         React.createElement("span", { style: { color: "#0369A1" } }, "↑EP" + (judge === "x" ? "（×）" : "")),
         _isE ? React.createElement("span", { style: { color: "#C0392B" } }, "/実E") : null);
     } else if (_epIsV2(s)) {
-      var _ex = (epIdx >= 0 && i === epIdx + 1) ? s.holdExp : (epIdx >= 0 && i === epIdx + 2) ? s.hold2Exp : o.exp;
+      var _ex = _epExpAt(s, i);   // 記録時EP基準で足に固定した期待度（シミュでEPが動いても保持）2026-07-03
       var _expNode = _expSym(_ex, epIdx >= 0 && i > epIdx);
       sub = _isE
         ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } }, _expNode, React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: "0.85em" } }, "実E"))

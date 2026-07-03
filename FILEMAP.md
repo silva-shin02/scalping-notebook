@@ -31,6 +31,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03i シミュでEP移動時の期待度を「記録時EP基準」で足に固定（案A・表示修正）
+- **app-05.js**: 共有ヘルパー `_epExpAt(s, i)` を新設＝物理足iの期待度を記録時EP位置(`_epOwnAlpha`のαでEP判定)で固定割当（OS1/2＝α到達期待度os*Exp／記録時EP直後1本目=holdExp・2本目=hold2Exp／それ以外=leg.exp・無ければnull）。`_epOsChainCell`(旧3817)の期待度選択を`(i===epIdx+1?holdExp:...)`→`_epExpAt(s,i)`に変更＝シミュでαを下げEPが手前にずれても、新たにEP後ホールド化した元OS足に「記録時の別足用holdExp」でなく、その足自身の期待度を表示。`_epLegs`のOS3 legに`s.os3Exp`を配線（補強os3Exp用・現状フォーム未対応で不活性）。
+- 据え置き＝OS値打ち切り側(`_elOsMaxFiltered`/`_elOsMaxCapped`/3466)の同型パターンは変更せず（採用αでは`_epExpAt`と同値で無変化・シミュ表示のOS連鎖には出ない・OS値集計を動かさない）。期待度はP&L計算(`_elDynHold`等・株数シミュ)に不使用＝損益不変。
+- 前提訂正（調査Workflow）＝α到達期待度はOS1/2のみ(os1Exp/os2Exp)・OS3にはos3Expが元々無い・OS3以降の足の期待度はholdExp/hold2Expが「記録時EPからの相対」で担う。ユーザー選択=案A+補強。**残＝補強（新規エントリーフォームにOS3到達期待os3Exp入力欄を追加：EP=OS3記録でOS3がシミュで手前ホールド化した時の欠測を埋める）は別タスク（app-05フォーム＋2保存経路＝JScript非検証のため集中セッションで）**。検証: app-05はJScript非対応(既存・HEADでも同エラー)のため編集3件を目視でカッコ均衡確認。
+
 ### 2026-07-03h 株数シミュ「🧮 シミュ」タブを案A=マスター表レイアウトに刷新（記録詳細＋シミュ3列＋上下合計）
 - **app-06.js**: `_elKabuLadderSimV2`に`_kbMasterTable(cfgCalc, cfgLabel, nShares)`＋補助`_mtBar`/`_mtTh`/`_mtTd`/`_mtPnlNode`/`_mtTierNodes`＋state`mtExp`を新設。1枚の表＝本日の損益データ欄準拠の列（日付/OS連鎖(期待度)`_epOsChainCell`/E`_epECell`/採用α`_elAlphaBreakdownNode`/実現`_elSignedVal`）＋シミュ3列（実α単独=採用α単建ての`_elKabuLadderCalc`recPnl／この配分=cfgCalc.recPnl／差）。行タップで取引内訳を展開（`mtExp`・元index基準の安定キー`oi`）。合計は上下の`_mtBar`（#0F766E）＋表内ヘッダ/フッタ合計行の計4か所。手動＝`_kbMasterTable(manCalc,…)`で旧`_compareCard`＋`_kbDetail`折りたたみを置換。自動＝`_selCb`（autoExp選択 or best）の配分をマスター表表示・ランキング行はインライン展開廃止しautoExpで選択（ラベル「▷ 表示/● 表示中」）。mtExp（マスター表展開）とautoExp（ランキング選択）は別state。
 - 損益色＝当アプリ慣習（利益赤/損緑・`_elPnlColor`）。列多いためモバイルは`overflow-x`＋`minWidth620`。
