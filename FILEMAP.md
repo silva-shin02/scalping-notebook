@@ -31,6 +31,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03u 株数シミュのKPIはみ出し修正＋マスター表の列整理（実現削除・改名・差額を必ず数値化・合計は下部のみ）
+- **KPIカード（`_card`）**: 文字はみ出し修正＝幅拡大（flex `1 1 110px`→`1 1 148px`・minWidth 105→138・padding広め）＋値を折返し可（whiteSpace normal・`wordBreak:keep-all`で数字は途中改行しない）。通算損益の（）内も同サイズ17pxのまま折返し可に（外span normal・内span nowrap+inline-block＝(）外/（）内の境界でだけ改行）。KPIが2行に回り込んでOK（ユーザー了承）。差額カードの副文言「シミュ−実α単独」→「シミュ−従来」。
+- **マスター表（`_kbMasterTable`）**: ①**実現列を削除**（ユーザー要望＝不要）。②列名変更「実α単独」→**従来**／「シミュ」→**シミュレーション**／「差」→**差額**（`_mtBar`の「実際のα単独」→「従来」も）。③**差額を必ず数値化**＝旧`(cfg!=null&&base!=null)?差:null`を「両方—なら—・片側だけ数値ならその値・両方あればシミュ−従来」に（ユーザー例: 従来+100/シミュ— → 差額+100）。④**合計は下部だけ**＝先頭の`_sumRow("h")`（thead内合計行）と先頭の緑バー`_mtBar(...,false)`を削除、tfootの`_sumRow("f")`＋下部の`_mtBar(...,true)`のみ残す（`_mtBar`ラベルは「合計（再掲）」→「合計」に）。列削減に伴い合計行colSpan 7→6・展開明細colSpan 11→10・テーブル枠は上角丸め+下枠なし。手動の`cfgLabel`「シミュ・N株」→「シミュレーション・N株」。
+- **sw.js**: `APP_CACHE` v20→v21。検証: `new Function`構文OK＋実レンダーでマスター表ヘッダ＝日付/OS連鎖/E/推奨α/採用α/シミュα/**従来/シミュレーション/差額**（実現なし・10列=本体10セル一致）・thead合計行なし（tfootのみ）・下部バー「合計」「従来」・差額が片側—でも数値（両方あればシミュ−従来＝例 −6,000−(−4,400)=−1,600）を確認。**デプロイ確認はユーザー指示時のみに変更（[[feedback_github_pages_check]]更新）**。
+
 ### 2026-07-03t 株数シミュの推奨αを日別ページ・記録フォームと一致（母数をシグナル別→銘柄全体へ）＝ユーザー指摘の値ズレ修正
 - **不具合**: シミュの「推奨α」列（記録日ごと・`recoOf`）が日別ページの「今日の推奨」／記録フォームの推奨基本αと値が違う。原因＝**母数の範囲**: 日別ページ`_elBaseAlphaDayBlockV2`・記録フォーム`_refBaseAlpha`(app-05:5509)は**銘柄全体（全シグナル・`r.stock===銘柄`）**で算出するのに対し、シミュ`_elKabuRecoBaseFn`は`baseRecs=_selSigRecs`＝**そのシグナルだけ**。加えて窓の選び方も違った（日別=直近50→100→全期間で最初に非null／シミュ=okを優先）。ユーザーが実際に記録時に見て使う推奨α（記録フォーム＝銘柄全体）が正準＝AskUserQuestionで「銘柄全体に合わせる」を採用。
 - **修正（app-06.js）**: ①`_elKabuRecoBaseFn`を`_elBaseAlphaDayBlockV2`の見出しロジックと**完全一致**に書き換え＝`baseRecs`を前日まで(look-ahead回避)で日付順に並べ、直近50(`_EL_PERIOD_COUNTS[1]`)→100→全期間の順で最初に`_elBaseAlphaA().pick.alpha!=null`の窓を採用（`_elPeriodWindows`＋ok優先を廃止）。②シミュ呼び出し(`EntryLogView`)の`baseRecs`を`_selSigRecs`→**`_isAllStock ? _selSigRecs : allRecs.filter(r=>r.stock===_selStock)`**（銘柄全体）へ。`baseRecs`はシミュ内で推奨α算出（`recoOf`/`_recoBasePick`/`recoSig`）にしか使わないので影響は「推奨α」列・手動「推奨基本α値」方式・自動配分の第2取引/推奨基本α表示のみ（シミュ母数`recs`は従来どおりシグナル別）。コメント2箇所更新。
