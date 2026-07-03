@@ -31,6 +31,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03h 株数シミュ「🧮 シミュ」タブを案A=マスター表レイアウトに刷新（記録詳細＋シミュ3列＋上下合計）
+- **app-06.js**: `_elKabuLadderSimV2`に`_kbMasterTable(cfgCalc, cfgLabel, nShares)`＋補助`_mtBar`/`_mtTh`/`_mtTd`/`_mtPnlNode`/`_mtTierNodes`＋state`mtExp`を新設。1枚の表＝本日の損益データ欄準拠の列（日付/OS連鎖(期待度)`_epOsChainCell`/E`_epECell`/採用α`_elAlphaBreakdownNode`/実現`_elSignedVal`）＋シミュ3列（実α単独=採用α単建ての`_elKabuLadderCalc`recPnl／この配分=cfgCalc.recPnl／差）。行タップで取引内訳を展開（`mtExp`・元index基準の安定キー`oi`）。合計は上下の`_mtBar`（#0F766E）＋表内ヘッダ/フッタ合計行の計4か所。手動＝`_kbMasterTable(manCalc,…)`で旧`_compareCard`＋`_kbDetail`折りたたみを置換。自動＝`_selCb`（autoExp選択 or best）の配分をマスター表表示・ランキング行はインライン展開廃止しautoExpで選択（ラベル「▷ 表示/● 表示中」）。mtExp（マスター表展開）とautoExp（ランキング選択）は別state。
+- 損益色＝当アプリ慣習（利益赤/損緑・`_elPnlColor`）。列多いためモバイルは`overflow-x`＋`minWidth620`。
+- 決め方＝Workflow（調査3並列→設計4案→統合3案）＋show_widgetモック3案提示→**ユーザー選択=案A**。実装後にWorkflow敵対的レビュー3観点＝実バグ無し（「ソート後キー不安定」はstable sortで誤検出と判定・保険で元index基準キーに堅牢化）。残=デッドコード`_compareCard`/`_cmpCell`/`_baselineAt`/`_kbDetail`（別タスクで整理予定・害なし）。検証: `new Function`構文OK。
+
 ### 2026-07-03g 株数シミュをα値タブ④から独立タブ「🧮 シミュ」へ昇格（深掘りの右）
 - **app-06.js**: `EntryLogView`の`_tabs`（銘柄選択時）末尾に`["sim", "🧮 シミュ"]`を追加＝深掘りの右。`view === "sim"`分岐を新設（ゾーン見出し＋`_elKabuLadderSimV2`・空ガードはα値タブと同形＝`_selSigRecs`）。α値タブの`_alphaSubs`から④株数シミュを除去（①〜③に純化）・`_alSel === "kabu"`分岐を削除（旧保存alphaSub="kabu"は`_alSel`がbaseへフォールバック＝無害）。母数は不変＝recs=`_selSigRecsScoped`（内訳スコープ）/baseRecs=`_selSigRecs`（シグナル全体）。
 - ユーザー相談（場所で悩み）→AskUserQuestion（案A独立タブ推奨・タブ名「🧮 シミュ」）＋show_widgetモック2案で確定。検証: `new Function`構文OK・"kabu"残存はコメントのみ。

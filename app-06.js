@@ -3651,6 +3651,7 @@ function _elKabuLadderSimV2(props) {
   var _METHODS = [{ key: "abs", label: "絶対値（0円基準）でα○円", short: "絶対値" }, { key: "reco", label: "推奨α±X（記録日時点）", short: "推奨α±X" }, { key: "recobase", label: "推奨基本α値で（株数だけ）", short: "推奨基本α値" }];   // 手動ラダーの入力方式マスター
   var _uTt = useState("500"), total = _uTt[0], setTotal = _uTt[1];
   var _uAX = useState(null), autoExp = _uAX[0], setAutoExp = _uAX[1];
+  var _uMt = useState(null), mtExp = _uMt[0], setMtExp = _uMt[1];   // 案Aマスター表の行展開キー 2026-07-03
   var _kbSan = function(v) { return String(v == null ? "" : v).replace(/[０-９]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }).replace(/[ー−―‐]/g, "-").replace(/[^0-9\-]/g, ""); };
   var _kbInt = function(v) { var t = _kbSan(v); if (t === "" || t === "-") return null; var n = parseInt(t, 10); return isNaN(n) ? null : n; };
   var pool = floatMode ? recs : (addFil === "no" ? recs.filter(function(r) { return r && !_elAddAlphaYes(r.signal); }) : addFil === "yes" ? recs.filter(function(r) { return r && _elAddAlphaYes(r.signal); }) : recs);
@@ -3737,6 +3738,68 @@ function _elKabuLadderSimV2(props) {
       _origPnl != null ? React.createElement("div", { style: { background: "#fff", borderRadius: 8, padding: "7px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 } },
         React.createElement("span", null, React.createElement("span", { style: { fontSize: 11.5, color: "#333" } }, "元の損益（実際）"), React.createElement("span", { style: { fontSize: 9, color: "#aaa", marginLeft: 6 } }, "実際に建てた株数での実現損益・参考")),
         React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: _elPnlColor(_origPnl) } }, _elPnlFmt(_origPnl))) : null);
+  };
+  // ===== 案A マスター表（記録詳細＝本日の損益データ欄準拠＋シミュ3列＋上下合計バー）2026-07-03 =====
+  var _mtBar = function(cfgSum, cfgLabel, baseSum, upl, reshow) {
+    return React.createElement("div", { style: { background: "#0F766E", color: "#fff", padding: "8px 12px", display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", borderRadius: reshow ? "0 0 10px 10px" : "10px 10px 0 0" } },
+      React.createElement("span", { style: { fontSize: 9.5, opacity: 0.85 } }, reshow ? "合計（再掲）" : "合計"),
+      React.createElement("span", { style: { fontSize: 11 } }, "実際のα単独 ", React.createElement("b", { style: { fontSize: 15 } }, baseSum == null ? "—" : _elPnlFmt(baseSum))),
+      React.createElement("span", { style: { fontSize: 11, background: "#fff", color: "#0F766E", borderRadius: 6, padding: "1px 8px" } }, cfgLabel + " ", React.createElement("b", { style: { fontSize: 15 } }, _elPnlFmt(cfgSum))),
+      React.createElement("span", { style: { fontSize: 11 } }, "上乗せ ", React.createElement("b", { style: { fontSize: 15 } }, upl == null ? "—" : _elPnlFmt(upl))),
+      (!reshow && _origPnl != null) ? React.createElement("span", { style: { marginLeft: "auto", fontSize: 9.5, opacity: 0.9 } }, "元の損益(実際) " + _elPnlFmt(_origPnl)) : null);
+  };
+  var _mtTh = function(label, align, hi) { return React.createElement("td", { style: { padding: "5px 6px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", textAlign: align || "left", background: hi ? "#FEF3C7" : undefined } }, label); };
+  var _mtTd = function(node, align, hi) { return React.createElement("td", { style: { padding: "5px 6px", fontSize: 10.5, borderTop: "0.5px solid #eee", verticalAlign: "middle", textAlign: align || "left", whiteSpace: "nowrap", background: hi ? "#FEF7E0" : undefined } }, node); };
+  var _mtPnlNode = function(v) { return v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("b", { style: { color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+  var _mtTierNodes = function(cells) {
+    var out = [];
+    (cells || []).forEach(function(c, j) {
+      if (!(c.t.add > 0)) return;
+      var ev = c.ev, txt;
+      if (ev.skip === "noalpha") txt = React.createElement("span", { style: { color: "#bbb" } }, "推奨α不明（取引対象外）");
+      else if (ev.skip === "unreached") txt = React.createElement("span", { style: { color: "#94A3B8" } }, "α" + ev.a + "円 未到達");
+      else if (ev.skip === "x") txt = React.createElement("span", { style: { color: "#0369A1" } }, "α" + ev.a + "円 ×見送り");
+      else if (ev.indet) txt = React.createElement("span", { style: { color: "#B45309" } }, "α" + ev.a + "円×" + c.t.add + "株 判定不可");
+      else { var amt = Math.round(ev.pnl100 * c.t.add / 100); txt = React.createElement("span", null, "α" + ev.a + "円×" + c.t.add + "株 ", React.createElement("b", { style: { color: _elPnlColor(amt) } }, _elPnlFmt(amt)), ev.stop ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: "#1E8449", marginLeft: 3 } }, "損切") : null); }
+      out.push(React.createElement("span", { key: j, style: { marginRight: 12, whiteSpace: "nowrap" } }, txt));
+    });
+    return out.length ? out : React.createElement("span", { style: { color: "#ccc" } }, "—");
+  };
+  var _kbMasterTable = function(cfgCalc, cfgLabel, nShares) {
+    if (!cfgCalc || !(nShares > 0)) return null;
+    var baseCalc = _elKabuLadderCalc(pool, aiOf, function(r) { return [{ a: aiOf(r).alpha, add: nShares }]; });
+    var cfgSum = cfgCalc.sum, baseSum = baseCalc.sum, upl = (baseSum != null && cfgSum != null) ? (cfgSum - baseSum) : null;
+    var mrecs = [];
+    cfgCalc.rows.forEach(function(row, i) {
+      var r = row.r, s = r && r.signal; if (!s) return;
+      var _rv = _elIsEntered(s, r.item) ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null;
+      mrecs.push({ oi: i, r: r, s: s, a: aiOf(r).alpha, real: (_rv != null ? Math.round(_rv) : null), cfgPnl: row.recPnl, basePnl: (baseCalc.rows[i] ? baseCalc.rows[i].recPnl : null), cells: row.cells, anyStop: row.anyStop });
+    });
+    mrecs.sort(function(x, y) { var dx = (x.r.date || "") + (x.s.time || ""), dy = (y.r.date || "") + (y.s.time || ""); return dx < dy ? 1 : dx > dy ? -1 : 0; });
+    var _sumRow = function(k) { return React.createElement("tr", { key: k, style: { background: "#E1F5EE" } },
+      React.createElement("td", { colSpan: 5, style: { padding: "4px 6px", fontSize: 10, fontWeight: 700, color: "#0F766E", whiteSpace: "nowrap" } }, "合計（" + mrecs.length + "件）"),
+      _mtTd(_mtPnlNode(baseSum), "right"), _mtTd(_mtPnlNode(cfgSum), "right", true), _mtTd(_mtPnlNode(upl), "right"), React.createElement("td", null)); };
+    var brows = [];
+    mrecs.forEach(function(m, i) {
+      var s = m.s, a = m.a, diff = (m.cfgPnl != null && m.basePnl != null) ? (m.cfgPnl - m.basePnl) : null;
+      var key = "mt" + m.oi, open = mtExp === key;   // 元インデックス基準の安定キー（ソート非依存）2026-07-03
+      var dstr = (m.r.date || "").slice(5).replace("-", "/") + (s.time ? " " + s.time : "");
+      var alphaNode = React.createElement("div", { style: { lineHeight: 1.1 } }, (a != null ? (a + "円") : "—"), _elAlphaBreakdownNode(s, a));
+      brows.push(React.createElement("tr", { key: key, onClick: function() { setMtExp(open ? null : key); }, style: { cursor: "pointer", background: open ? "#F0FDFA" : (m.anyStop ? "#F4FBF5" : "transparent") } },
+        _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(alphaNode), _mtTd(_mtPnlNode(m.real), "right"), _mtTd(_mtPnlNode(m.basePnl), "right"), _mtTd(_mtPnlNode(m.cfgPnl), "right", true), _mtTd(_mtPnlNode(diff), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
+      if (open) brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "6px 10px", background: "#FBFEFD", borderBottom: "1px solid #eee", fontSize: 9.5, color: "#9A3412" } }, React.createElement("span", { style: { fontWeight: 700 } }, "取引内訳: "), _mtTierNodes(m.cells))));
+    });
+    return React.createElement("div", { style: { marginTop: 8 } },
+      _mtBar(cfgSum, cfgLabel, baseSum, upl, false),
+      React.createElement("div", { style: { overflowX: "auto", border: "0.5px solid #e8e3d8", borderTop: "none" } },
+        React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 620 } },
+          React.createElement("thead", null,
+            React.createElement("tr", { style: { background: "#F0FDFA", color: "#0F766E" } },
+              _mtTh("日付"), _mtTh("OS連鎖（期待度）"), _mtTh("E", "center"), _mtTh("採用α"), _mtTh("実現", "right"), _mtTh("実α単独", "right"), _mtTh("この配分", "right", true), _mtTh("差", "right"), _mtTh("")),
+            _sumRow("h")),
+          React.createElement("tbody", null, brows),
+          React.createElement("tfoot", null, _sumRow("f")))),
+      _mtBar(cfgSum, cfgLabel, baseSum, upl, true));
   };
   var _card = function(label, node, sub) {
     return React.createElement("div", { key: label, style: { flex: "1 1 110px", minWidth: 105, background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "7px 10px", textAlign: "center" } },
@@ -3841,10 +3904,8 @@ function _elKabuLadderSimV2(props) {
           _card("1記録あたり", manCalc.builtRecN ? _pnlNode(Math.round(manCalc.sum / manCalc.builtRecN)) : "—", "建玉ありの平均"),
           _card("建玉あり", manCalc.builtRecN + "件", "全取引未到達・×見送り除く"),
           _card("損切り取引あり", manCalc.stopRecN + "件", "建玉あり中")),
-        _compareCard(manCalc.sum, "この配分・" + _manTot + "株", _manTot),
-        _notesLine(manCalc),
-        React.createElement("div", { style: { marginTop: 6 } },
-          React.createElement(_SNCollapse, { title: "🗂 記録ごとの内訳（" + manCalc.n + "件・この取引では何円）", render: function() { return _kbDetail(manCalc); } }))) : null);
+        _kbMasterTable(manCalc, "この配分・" + _manTot + "株", _manTot),
+        _notesLine(manCalc)) : null);
   } else {
     var _rankRows = [];
     if (autoRes) {
@@ -3859,12 +3920,7 @@ function _elKabuLadderSimV2(props) {
           _elv2Td(cb.builtN + "件"),
           _elv2Td(cb.stopN + "件"),
           _elv2Td(React.createElement("b", { style: { color: _elPnlColor(cb.sum) } }, _elPnlFmt(cb.sum))),
-          _elv2Td(React.createElement("span", { style: { fontSize: 9, color: "#0F766E" } }, on ? "▲ 閉じる" : "▼ 内訳"))));
-        if (on) {
-          _rankRows.push(React.createElement("tr", { key: key + "_d" },
-            React.createElement("td", { colSpan: 8, style: { padding: "6px 8px", background: "#FBFEFD", borderBottom: "1px solid #eee" } },
-              _kbDetail(_elKabuLadderCalc(pool, aiOf, _autoTiersOfFor(cb))))));
-        }
+          _elv2Td(React.createElement("span", { style: { fontSize: 9, color: "#0F766E" } }, on ? "● 表示中" : "▷ 表示"))));
       });
     }
     var _bestTxt = null;
@@ -3876,6 +3932,8 @@ function _elKabuLadderSimV2(props) {
           _b.s1 > 0 ? ("第1取引 α" + _b.a1 + "円で" + _b.s1 + "株") : "", (_b.s1 > 0 && _b.s2 > 0) ? " ＋ " : "", _b.s2 > 0 ? ("第2取引 推奨αで" + _b.s2 + "株") : "", " → ", _pnlNode(_b.sum, true)),
         React.createElement("div", { style: { fontSize: 9.5, color: "#888", marginTop: 2 } }, "建玉あり" + _b.builtN + "件・損切り" + _b.stopN + "件（" + pool.length + "記録・全" + autoRes.comboN + "通りの総当たり）"));
     }
+    var _selCb = null;
+    if (autoRes) { if (autoExp && autoRes.combos) { for (var _ci = 0; _ci < autoRes.combos.length; _ci++) { if ((autoRes.combos[_ci].a1 + "_" + autoRes.combos[_ci].s1) === autoExp) { _selCb = autoRes.combos[_ci]; break; } } } if (!_selCb) _selCb = autoRes.best; }
     body = React.createElement(React.Fragment, null,
       React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700 } }, "合計"),
@@ -3884,7 +3942,7 @@ function _elKabuLadderSimV2(props) {
       React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: "#0F766E", marginBottom: 6 } }, "推奨基本α値＝", _recoBaseAlpha != null ? React.createElement("b", null, _recoBaseAlpha + "円") : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足"), (_recoBaseAlpha != null && _recoBasePick && _recoBasePick.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "（参考・件数不足）") : null),
       React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 8 } }, "第1取引＝" + (_recoBaseAlpha != null ? ("0〜" + _s1AlphaMax + "円（推奨基本α" + _recoBaseAlpha + "円の未満）") : "0〜20円") + "（1円刻み）× 配分（100株刻み）を総当たり。第2取引＝その記録の日付時点の推奨基本α。" + (autoRes && autoRes.noRecoN ? " ※推奨α不明" + autoRes.noRecoN + "件は第2取引を建てない扱い。" : "")),
       _bestTxt,
-      (autoRes && autoRes.best) ? _compareCard(autoRes.best.sum, "★ 最適配分・" + totalN + "株", totalN) : null,
+      _selCb ? _kbMasterTable(_elKabuLadderCalc(pool, aiOf, _autoTiersOfFor(_selCb)), (_selCb === (autoRes && autoRes.best) ? "★最適配分・" : "選択配分・") + totalN + "株", totalN) : null,
       _rankRows.length ? _elv2Table(["順位", "第1取引α値", "第1取引株", "第2取引株(推奨α)", "建玉あり", "損切り", "通算損益", ""], _rankRows)
         : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 11 } }, "合計株数を入力してください"));
   }
