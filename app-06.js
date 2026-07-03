@@ -396,8 +396,8 @@ function _elOsPieV2(dist, size) {
 }
 // OS値の凡例（赤系グラデ＋下落グレー）。旧の5円帯チップ凡例を置換 2026-06-25。
 function _elOsBandLegendV2() { return _elOsGradLegend(); }
-// OS値の1円刻みヒストグラム【2026-06-25】。props: vals(値配列) / includeNeg? / w? / barH?。
-// 0〜4=帯／5〜24=1円／25〜=帯(棒タップで1円内訳に展開)。色は赤系グラデ(高いほど濃い)・下落はグレー。各棒の上に件数。hoverで「ラベル: N件 (P%)」。
+// OS値の1円刻みヒストグラム【2026-06-25／0〜24を1円刻みに変更 2026-07-03】。props: vals(値配列) / includeNeg? / w? / barH?。
+// 0〜24=1円／25〜=帯(棒タップで1円内訳に展開)。色は赤系グラデ(高いほど濃い)・下落はグレー。各棒の上に件数。hoverで「ラベル: N件 (P%)」。
 function _elOsHistV2(_ref) {
   var vals = _ref.vals || [];
   var includeNeg = !!_ref.includeNeg;
@@ -413,13 +413,10 @@ function _elOsHistV2(_ref) {
   var markVal = (_ref.markVal != null && !isNaN(Number(_ref.markVal))) ? Math.round(Number(_ref.markVal)) : null;
   var markVal2 = (_ref.markVal2 != null && !isNaN(Number(_ref.markVal2))) ? Math.round(Number(_ref.markVal2)) : null;
   var markVal3 = (_ref.markVal3 != null && !isNaN(Number(_ref.markVal3))) ? Math.round(Number(_ref.markVal3)) : null;
-  var _xc04 = 0; for (var _xi = 0; _xi <= 4; _xi++) _xc04 += (xcm.vc[_xi] || 0);
   var _xTopTot = 0; for (var _xtk in xcm.vc) { if (xcm.vc.hasOwnProperty(_xtk) && Number(_xtk) >= _EL_OS_TOP) _xTopTot += xcm.vc[_xtk]; }
   var bars = [];
   if (includeNeg && cm.neg) bars.push({ key: "neg", x: "下落", full: "下落", cnt: cm.neg, xcnt: xcm.neg || 0, color: "#6B7280", band: true });
-  var c04 = 0; for (var i = 0; i <= 4; i++) c04 += (cm.vc[i] || 0);
-  bars.push({ key: "0-4", x: "0〜4", full: "0〜4円", cnt: c04, xcnt: _xc04, color: _elOsBucketColor("0-4"), band: true });
-  for (var v = 5; v < _EL_OS_TOP; v++) bars.push({ key: String(v), x: String(v), full: v + "円", cnt: cm.vc[v] || 0, xcnt: xcm.vc[v] || 0, color: _elOsShade(v) });
+  for (var v = 0; v < _EL_OS_TOP; v++) bars.push({ key: String(v), x: String(v), full: v + "円", cnt: cm.vc[v] || 0, xcnt: xcm.vc[v] || 0, color: _elOsShade(v) });   // 0〜24を1円刻みの個別バーに（旧: 0〜4は帯）2026-07-03
   var topKeys = []; for (var tk in cm.vc) { if (cm.vc.hasOwnProperty(tk) && Number(tk) >= _EL_OS_TOP) topKeys.push(Number(tk)); }
   topKeys.sort(function(a, b) { return a - b; });
   var topTot = 0; topKeys.forEach(function(k) { topTot += cm.vc[k]; });
@@ -432,24 +429,21 @@ function _elOsHistV2(_ref) {
   }
   var maxC = 1; bars.forEach(function(b) { if (b.cnt > maxC) maxC = b.cnt; });
   var _xTot = (_ref.xVals || []).length;   // 期待度×(見送り)の総件数（凡例用）
-  // マーカーのbucketキー算出（数値markVal/2/3は上部で取得済。keyは_EL_OS_TOP/expに依存＝ここで算出）。0-4 / "5".."24" / 25+ / 展開時"t"+値。
+  // マーカーのbucketキー算出（数値markVal/2/3は上部で取得済。keyは_EL_OS_TOP/expに依存＝ここで算出）。"0".."24" / 25+ / 展開時"t"+値。
   var markKey = null;
   if (markVal != null) {
-    if (markVal <= 4) markKey = "0-4";
-    else if (markVal >= _EL_OS_TOP) markKey = exp ? ("t" + markVal) : "25+";
-    else markKey = String(markVal);
+    if (markVal >= _EL_OS_TOP) markKey = exp ? ("t" + markVal) : "25+";
+    else markKey = String(markVal);   // 0〜24は個別バー 2026-07-03
   }
   var markKey2 = null;
   if (markVal2 != null) {
-    if (markVal2 <= 4) markKey2 = "0-4";
-    else if (markVal2 >= _EL_OS_TOP) markKey2 = exp ? ("t" + markVal2) : "25+";
-    else markKey2 = String(markVal2);
+    if (markVal2 >= _EL_OS_TOP) markKey2 = exp ? ("t" + markVal2) : "25+";
+    else markKey2 = String(markVal2);   // 0〜24は個別バー 2026-07-03
   }
   var markKey3 = null;
   if (markVal3 != null) {
-    if (markVal3 <= 4) markKey3 = "0-4";
-    else if (markVal3 >= _EL_OS_TOP) markKey3 = exp ? ("t" + markVal3) : "25+";
-    else markKey3 = String(markVal3);
+    if (markVal3 >= _EL_OS_TOP) markKey3 = exp ? ("t" + markVal3) : "25+";
+    else markKey3 = String(markVal3);   // 0〜24は個別バー 2026-07-03
   }
   var mark3Label = _ref.mark3Label || "推奨基本α＋追加α＋損切り値";   // 赤マークの意味ラベル（〇のみ＝基本α＋追加α＋損切り／×+未選択＝基本α＋損切り）2026-07-01
   var colNodes = bars.map(function(b) {
@@ -1577,10 +1571,10 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
           React.createElement("span", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "＋追加α +" + add.add + "円" + (add.pnl != null ? "（想定" + (add.pnl > 0 ? "+" : "") + Math.round(add.pnl).toLocaleString() + "円）" : "")),
           _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 11, "#9A3412"))
       : (add ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "追加α＝推奨無し") : null));
-  // α別総当たりの表示は1円から（推奨対象範囲_EL_BASE_ALPHAS=5〜20・★選定は不変／1〜4円は参考行として追加表示のみ）2026-07-02。母数は推奨基本αと同じ×+未選択（_elBaseAlphaPickが内部で〇を除外するのに揃える）。
+  // α別総当たりの表示は0円から（推奨対象範囲_EL_BASE_ALPHAS=5〜20・★選定は不変／0〜4円は参考行として追加表示のみ）2026-07-02→0円を追加 2026-07-03。母数は推奨基本αと同じ×+未選択（_elBaseAlphaPickが内部で〇を除外するのに揃える）。
   var _baseRecs = (recs || []).filter(function(r) { return r && !_elAddAlphaYes(r.signal); });
-  var _lowSweep = [1, 2, 3, 4].map(function(la) { return _elBaseAlphaEval(_baseRecs, aiOf, la); });
-  var _dispSweep = _lowSweep.concat(pick.sweep);   // [1..4]（表示のみ）＋[5..20]（推奨対象）＝昇順
+  var _lowSweep = [0, 1, 2, 3, 4].map(function(la) { return _elBaseAlphaEval(_baseRecs, aiOf, la); });
+  var _dispSweep = _lowSweep.concat(pick.sweep);   // [0..4]（表示のみ）＋[5..20]（推奨対象）＝昇順
   var sweepRows = _dispSweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var on = e.a === a, pass = e.scN >= minN && e.score != null;
     return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.4 } },
@@ -1613,7 +1607,7 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
   ], { note: "この銘柄のv2・算入記録に各αを当ててシミュレーション。母数＝採用αでOS1〜3にEP到達しH1結果が判定できる記録。損切り率・H1勝率はこの母数で算出。" + (na ? " ※データ不足（母数<" + minN + "件）のため参考値。" : "") });
   return React.createElement("div", null,
     concl,
-    _lbl("α別の総当たり（1〜20円・★＝採用[推奨対象は5〜20円]・件数フロア" + minN + "件未満は淡色／平均H1損益＝ΣH1損益÷件数）"),
+    _lbl("α別の総当たり（0〜20円・★＝採用[推奨対象は5〜20円]・件数フロア" + minN + "件未満は淡色／平均H1損益＝ΣH1損益÷件数）"),
     _elv2Table(["基本α", "到達率", "有効件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], sweepRows),
     insight);
 }
