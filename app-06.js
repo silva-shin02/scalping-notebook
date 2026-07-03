@@ -3776,7 +3776,7 @@ function _elKabuLadderSimV2(props) {
       var dstr = (m.r.date || "").slice(5).replace("-", "/") + (s.time ? " " + s.time : "");
       var alphaNode = React.createElement("div", { style: { lineHeight: 1.1 } }, (a != null ? (a + "円") : "—"), _elAlphaBreakdownNode(s, a));
       brows.push(React.createElement("tr", { key: key, onClick: function() { setMtExp(open ? null : key); }, style: { cursor: "pointer", background: open ? "#F0FDFA" : (m.anyStop ? "#F4FBF5" : "transparent") } },
-        _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.simA.length ? m.simA.map(function(v) { return v + "円"; }).join("/") : "—")), _mtTd(alphaNode), _mtTd(_mtPnlNode(m.real), "right"), _mtTd(_mtPnlNode2(m.basePnl, m.baseRef), "right"), _mtTd(_mtPnlNode2(m.cfgPnl, m.cfgRef), "right", true), _mtTd(_mtPnlNode(diff), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
+        _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(alphaNode), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.simA.length ? m.simA.map(function(v) { return v + "円"; }).join("/") : "—")), _mtTd(_mtPnlNode(m.real), "right"), _mtTd(_mtPnlNode2(m.basePnl, m.baseRef), "right"), _mtTd(_mtPnlNode2(m.cfgPnl, m.cfgRef), "right", true), _mtTd(_mtPnlNode(diff), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
       if (open) brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "6px 10px", background: "#FBFEFD", borderBottom: "1px solid #eee", fontSize: 9.5, color: "#9A3412" } }, React.createElement("span", { style: { fontWeight: 700 } }, "取引内訳: "), _mtTierNodes(m.cells))));
     });
     return React.createElement("div", { style: { marginTop: 8 } },
@@ -3785,7 +3785,7 @@ function _elKabuLadderSimV2(props) {
         React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 620 } },
           React.createElement("thead", null,
             React.createElement("tr", { style: { background: "#F0FDFA", color: "#0F766E" } },
-              _mtTh("日付"), _mtTh("OS連鎖（期待度）"), _mtTh("E", "center"), _mtTh("シミュα"), _mtTh("採用α"), _mtTh("実現", "right"), _mtTh("実α単独", "right"), _mtTh("シミュ", "right", true), _mtTh("差", "right"), _mtTh("")),
+              _mtTh("日付"), _mtTh("OS連鎖（期待度）"), _mtTh("E", "center"), _mtTh("採用α"), _mtTh("推奨α"), _mtTh("実現", "right"), _mtTh("実α単独", "right"), _mtTh("シミュ", "right", true), _mtTh("差", "right"), _mtTh("")),
             _sumRow("h")),
           React.createElement("tbody", null, brows),
           React.createElement("tfoot", null, _sumRow("f")))),

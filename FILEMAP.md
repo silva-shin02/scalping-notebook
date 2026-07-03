@@ -31,6 +31,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03p 株数シミュ マスター表「シミュα」列を「推奨α」に改名＋採用α列の右へ移動
+- **app-06.js**: `_kbMasterTable`（🧮 シミュタブのマスター表・手動/自動 両モード共用）のヘッダとボディで列名「シミュα」→「推奨α」に改名し、列順を「E→**採用α→推奨α**→実現…」に変更（従来は E→推奨α→採用α）。ヘッダ(`_mtTh`)とボディ(`_mtTd(alphaNode)`＝採用α と simA セル＝推奨α)を入れ替え。合計行は colSpan:6 領域内の入れ替えのため無改修。表示のみ・計算ロジック不変。
+- 補足（この列の中身＝ユーザー確認済）: 「推奨α」列(`m.simA`)はその配分が各記録で使ったα。手動/自動とも第2取引が「推奨基本α値」方式のとき `recoOf(記録日)` ＝**その記録日時点の推奨基本α**（`_elKabuRecoBaseFn`→`_elPeriodWindows(baseRecs, 記録日, false)`＝前日まで・直近50→100→全期間の順で `_elBaseAlphaPick`）。**母数はシグナル別**（`baseRecs=_selSigRecs`＝銘柄×シグナル）で、日別ページの銘柄別記録テーブル/取引テーブル（`_elBaseAlphaPeriodBlockV2`＝銘柄のみ・全シグナル合算・表示日1点）とは**計算エンジンは同一だが母数と基準日が異なる**。
+- **sw.js**: `APP_CACHE` v15→v16。検証: `new Function`構文OK・「シミュα」残0・ヘッダ順 採用α→推奨α を確認。
+
 ### 2026-07-03o 浮き足加算α値を第3のα要素に昇格（基本α＋浮き足加算＋追加α）＝旧・追加α根拠「底抜け前足浮き（数値根拠）」の置き換え
 - **app-05.js**: 新規トップレベル `_elUkiYes`/`_elUkiVal`/`_elUkiAdd`（signal.ukiUsed=〇×/ukiVal=前足浮き値の生値・実効加算=floor(浮き値/2)＝半額切捨て。合計採用α alphaVal に畳み込み済み＝下流の損益/EP計算は無改修）。`_DEF_ADD_REASONS`から「底抜け前足浮き」削除。`_elAlphaBreakdownNode`を3要素化（例（10+浮8+5）・整合チェック=base+uki+add）。EntryRecordForm: `fUkiUsed`/`fUkiVal` state＋浮き足行（**基本α行と追加α行の間**・エントリーシグナルに「底抜け水準線OS」（`data.custom.ukiSignalName`で変更可・既定固定文字列）選択時のみ表示・〇×→〇で浮き値入力→「→＋N円を加算（半額・小数切捨て）」表示）・合計α値バーを3要素内訳に拡張（案B）・`_fAlpha=_fBaseA+_fUkiAdd+_fAddA`・保存 ukiUsed/ukiVal・旧数値根拠欄（fReasonVal入力・addAlphaReasonVal保存・addAlphaNumericReason改名追従）を撤去。
 - **app-01.js**: `migrateData`末尾に浮き足移行`_migUkiAlpha`相当（**フラグ無し条件ベース・冪等**）: 追加α〇＋根拠に底抜け前足浮き＋数値>0 → ukiUsed=true/ukiVal=数値・根拠から当該名除去・単独根拠→追加α×(addAlphaVal=null)／複合→addAlphaVal=旧値−半額(下限0)・**alphaVal=基本α＋半額＋新追加αに再計算**（基本α導出不能なら合計据え置き）・custom.addAlphaReasonsマスターから削除・custom.addAlphaNumericReason廃止。数値未入力の底抜け根拠は変換対象外（手動調整）。
