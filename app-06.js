@@ -3579,21 +3579,21 @@ function _elMissSectionV2(recs, aiOf, hideSig) {
 // 「基本αを〇円で〇株、×円で×株から空売りしていたら、このシグナルで通算何円だったか」を記録ごとの内訳つきで試算。
 // 確定仕様: 積み増しスケールイン（段={α,累積株数}・届いた段だけ約定・増し株数=累積差分）／手仕舞い=実際のH1（_elDynHold＝推奨基本α・追加α・%シミュと同一基準・損切りルール適用後）／
 // 損切り=段ごと独立（各段は自分のαで建てた独立ショートとして記録の損切り値で評価）／×見送り(judge x)・H1判定不可の段は建てない=既存シミュの母数ルールと同じ。
-// 「推奨α」基準＝その記録の日付時点の推奨基本α（_elPeriodWindows前日まで窓・直近50件→100件→全期間のok推奨を優先・無ければ参考値na）。
+// 「推奨α」基準＝その記録日時点の推奨基本α。日別ページ「今日の推奨」(_elBaseAlphaDayBlockV2の見出し)・記録フォームの推奨基本αと完全一致させる 2026-07-03t（ユーザー指摘＝シミュとの値ズレ修正）:
+//   ①母数は呼び出し側で銘柄全体（全シグナル）を渡す＝記録フォーム/日別ページと同じ（旧: そのシグナルだけ=_selSigRecs）。
+//   ②前日まで（look-ahead回避）を日付順に並べ、直近50→100→全期間の順で「最初に値が出た窓」(_elBaseAlphaA.pick.alpha!=null)を採用＝okを優先しない（日別ページと同じ「参考値でも直近50を先に採る」）。
 function _elKabuRecoBaseFn(baseRecs, aiOf) {
   var cache = {};
   return function(dateStr) {
     if (!dateStr) return null;
     if (cache.hasOwnProperty(dateStr)) return cache[dateStr];
-    var W = _elPeriodWindows(baseRecs, dateStr, false);
-    var order = [];
-    (W.periods || []).forEach(function(pd) { if (pd.main) order.push(pd); });
-    (W.periods || []).forEach(function(pd) { if (!pd.main && pd.label.indexOf("直近100") === 0) order.push(pd); });
-    (W.periods || []).forEach(function(pd) { if (pd.label === "全期間") order.push(pd); });
-    var picks = order.map(function(pd) { return _elBaseAlphaPick(pd.recs, aiOf); });
-    var val = null, i;
-    for (i = 0; i < picks.length && val == null; i++) { if (picks[i] && picks[i].alpha != null && picks[i].status === "ok") val = picks[i].alpha; }
-    for (i = 0; i < picks.length && val == null; i++) { if (picks[i] && picks[i].alpha != null) val = picks[i].alpha; }
+    var all = (baseRecs || []).filter(function(r) { return r && r.date && r.date < dateStr && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+    if (!all.length) { cache[dateStr] = null; return null; }
+    var _byDate = all.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    var _lastN = function(n) { return _byDate.length > n ? _byDate.slice(_byDate.length - n) : _byDate.slice(); };
+    var cand = [_lastN(_EL_PERIOD_COUNTS[1]), _lastN(_EL_PERIOD_COUNTS[2]), all];   // 直近50件→100件→全期間（_elBaseAlphaDayBlockV2と同一）
+    var val = null;
+    for (var i = 0; i < cand.length && val == null; i++) { var A = _elBaseAlphaA(cand[i], aiOf); if (A && A.pick && A.pick.alpha != null) val = A.pick.alpha; }
     cache[dateStr] = val;
     return val;
   };
@@ -3644,7 +3644,7 @@ function _elKabuLadderCalc(recs, aiOf, tiersOf) {
   });
   return { rows: rows, sum: Math.round(sum), sumRef: Math.round(sumRef), builtRecN: builtRecN, stopRecN: stopRecN, indetRecN: indetRecN, xRecN: xRecN, noBaseRecN: noBaseRecN, n: rows.length };
 }
-// UI本体（α値タブ④）。props: recs=シミュ母数（シグナル×内訳サブタブのスコープ）/ baseRecs=推奨α算出用（シグナル全体＝基本α推奨と同じ一貫母数）/ aiOf / floatMode。
+// UI本体（α値タブ④）。props: recs=シミュ母数（シグナル×内訳サブタブのスコープ）/ baseRecs=推奨α算出用（銘柄全体・全シグナル＝日別ページ/記録フォームと同じ母数 2026-07-03t。旧: シグナル全体_selSigRecs）/ aiOf / floatMode。
 // 手動ラダー（取引ごとに入力方式=絶対値/推奨α±X/推奨基本α値を選択・各取引{method,off,累積株数}・実効αを記録ごとに算出しα昇順で積み増し）と自動配分（合計株数→第1取引α0〜推奨基本α未満×100株刻み配分を総当たり・第2取引=記録日時点の推奨α・★最適+上位ランキング）の2モード。
 function _elKabuLadderSimV2(props) {
   var recs = props.recs || [], baseRecs = props.baseRecs || recs, aiOf = props.aiOf, floatMode = !!props.floatMode;
@@ -4725,11 +4725,11 @@ function EntryLogView(_ref_elv2) {
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）"), _elMemoPerfSectionV2(_selSigRecsScoped, _ai)
     ) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）");
   } else if (view === "sim") {
-    // 🧮 シミュタブ 2026-07-03: 株数シミュ（建て株数ラダーの空売りバックテスト）をα値タブ④から独立タブへ昇格（ユーザー決定＝案A・深掘りの右）。シミュ母数＝内訳スコープ（前足浮き/その他）・推奨αの算出だけシグナル全体（baseRecs=_selSigRecs＝基本α推奨と同じ一貫母数）。
+    // 🧮 シミュタブ 2026-07-03: 株数シミュ（建て株数ラダーの空売りバックテスト）をα値タブ④から独立タブへ昇格（ユーザー決定＝案A・深掘りの右）。シミュ母数＝内訳スコープ（前足浮き/その他）・推奨αの算出は銘柄全体（全シグナル）＝日別ページ/記録フォームと一致 2026-07-03t（旧: baseRecs=_selSigRecsでシグナル別→値ズレのため銘柄全体へ）。
     _tabBody = _selSigRecs.length ? React.createElement(React.Fragment, null,
       React.createElement("div", { style: { background: "#F0FDFA", border: "1px solid #99F6E4", borderLeft: "4px solid #0F766E", borderRadius: 8, padding: "8px 12px", marginBottom: 6 } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#0F766E" } }, "株数シミュ ― 建て株数ラダーの空売りバックテスト")),
-      React.createElement(_elKabuLadderSimV2, { recs: _selSigRecsScoped, baseRecs: _selSigRecs, aiOf: _ai, floatMode: _floatMode }))
+      React.createElement(_elKabuLadderSimV2, { recs: _selSigRecsScoped, baseRecs: (_isAllStock ? _selSigRecs : allRecs.filter(function(r) { return r && r.stock === _selStock; })), aiOf: _ai, floatMode: _floatMode }))
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sigAxisGroups.length ? "このシグナルのEP起算（v2）記録がありません" : "EP起算（v2）の記録がありません");
   } else if (view === "miss") {
     var _msRecs = _addFilOf(_selSigRecsScoped);

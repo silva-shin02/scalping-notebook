@@ -31,6 +31,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03t 株数シミュの推奨αを日別ページ・記録フォームと一致（母数をシグナル別→銘柄全体へ）＝ユーザー指摘の値ズレ修正
+- **不具合**: シミュの「推奨α」列（記録日ごと・`recoOf`）が日別ページの「今日の推奨」／記録フォームの推奨基本αと値が違う。原因＝**母数の範囲**: 日別ページ`_elBaseAlphaDayBlockV2`・記録フォーム`_refBaseAlpha`(app-05:5509)は**銘柄全体（全シグナル・`r.stock===銘柄`）**で算出するのに対し、シミュ`_elKabuRecoBaseFn`は`baseRecs=_selSigRecs`＝**そのシグナルだけ**。加えて窓の選び方も違った（日別=直近50→100→全期間で最初に非null／シミュ=okを優先）。ユーザーが実際に記録時に見て使う推奨α（記録フォーム＝銘柄全体）が正準＝AskUserQuestionで「銘柄全体に合わせる」を採用。
+- **修正（app-06.js）**: ①`_elKabuRecoBaseFn`を`_elBaseAlphaDayBlockV2`の見出しロジックと**完全一致**に書き換え＝`baseRecs`を前日まで(look-ahead回避)で日付順に並べ、直近50(`_EL_PERIOD_COUNTS[1]`)→100→全期間の順で最初に`_elBaseAlphaA().pick.alpha!=null`の窓を採用（`_elPeriodWindows`＋ok優先を廃止）。②シミュ呼び出し(`EntryLogView`)の`baseRecs`を`_selSigRecs`→**`_isAllStock ? _selSigRecs : allRecs.filter(r=>r.stock===_selStock)`**（銘柄全体）へ。`baseRecs`はシミュ内で推奨α算出（`recoOf`/`_recoBasePick`/`recoSig`）にしか使わないので影響は「推奨α」列・手動「推奨基本α値」方式・自動配分の第2取引/推奨基本α表示のみ（シミュ母数`recs`は従来どおりシグナル別）。コメント2箇所更新。
+- **sw.js**: `APP_CACHE` v19→v20。検証: `new Function`構文OK＋実レンダーで`_elKabuRecoBaseFn(銘柄全体)(記録日)`＝日別ページ見出しロジックの独立再現と**完全一致**（2データセットで`match:true`）を確認。
+
 ### 2026-07-03s 株数シミュ手動ラダー: α値欄に▲▼(±1)＋横スクロールヒント削除＋KPI拡充（差額/勝率/損切り率%/1株あたり損益）
 - **app-06.js `_elKabuLadderSimV2`（手動ラダー）**: ①**α値入力欄（`off`）に▲▼ステッパ**を追加＝`_stepOff`（**±1**・`_stepBtn`流用・絶対値は0未満不可/推奨α±Xはマイナス可・functional setState）。株数欄の±100(`_stepCum`)と対で、新規記録画面と同じ縦▲▼。
 - **横スクロールヒント削除**: `_HScrollBox`に`plain`プロップ追加（trueで早期return＝ロック無し・「👆タップで横スクロール」ピル無しの素の`overflowX:auto`）。`_elOsTradeMini(recs,aiOf,opts)`に第3引数`opts`追加し`opts.plain`を`_HScrollBox`へ伝播。**対象取引リスト**の呼び出しを`_elOsTradeMini(pool,aiOf,{plain:true})`に＝ヒント表記を消去（他の`_elOsTradeMini`呼び出しは従来どおりヒントあり）。
