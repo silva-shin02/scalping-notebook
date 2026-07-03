@@ -1611,6 +1611,61 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
     _elv2Table(["基本α", "到達率", "有効件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], sweepRows),
     insight);
 }
+// 推奨追加α 詳細データ（この銘柄/グループ）2026-07-03: 推奨基本α詳細データ(_elBaseAlphaDetailV2)の追加α版＝結論バー＋加算値別の総当たり（基本α＋加算ごとの到達率/件数/損切り率/H1勝率/想定損益・★＝推奨）＋読み取り。母数＝追加α〇（数値根拠＝底抜け前足浮きは除外・_elAddAlphaRecoと同一）。集計タブ銘柄別パネルで追加α母数トグル〇のとき、畳んだ基本α詳細の下に表示。想定損益＝ΣH1損益（_elBaseAlphaEval.pnl＝_elSimPnlByDay.sumと同値）。
+function _elAddAlphaDetailV2(recs, aiOf) {
+  var _A = _elBaseAlphaA(recs, aiOf);
+  var pick = _A ? _A.pick : null;
+  if (!pick || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "基本αが未確定のため追加αを算出できません");
+  var add = _A ? _A.add : null;
+  var addPool = (recs || []).filter(function(r) { return r && _elAddAlphaYes(r.signal) && !_elHasNumReason(r.signal); });
+  if (!addPool.length) return React.createElement("div", { style: { fontSize: 11, color: "#94A3B8", padding: "4px 0" } }, "追加α〇（要）を明示した記録がありません（このスコープ）");
+  var base = pick.alpha, minN = _EL_BASE_MIN_N, _addImproved = !!(add && add.improved);
+  var _lbl = function(t) { return React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "10px 0 2px" } }, t); };
+  var _pctS = function(v) { return v != null ? Math.round(v * 100) + "%" : "—"; };
+  var concl = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 10px", background: _addImproved ? "#FFF7ED" : "#F8FAFC", border: "1px solid " + (_addImproved ? "#FED7AA" : "#E2E8F0"), borderRadius: 8, padding: "8px 12px" } },
+    React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, "推奨追加α"),
+    _addImproved
+      ? React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
+          React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: "#9A3412" } }, "+" + add.add + "円"),
+          _elReco2Node(add.add2 != null ? ("+" + add.add2 + "円") : null, 20, "#9A3412"))
+      : React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: "#94A3B8" } }, "推奨無し（基本αで十分の傾向）"),
+    _addImproved
+      ? React.createElement("span", { style: { fontSize: 11, color: "#555" } },
+          "合計α ", React.createElement("b", { style: { color: "#0369A1" } }, add.total + "円"),
+          "／損切り率 ", React.createElement("b", null, _pctS(add.stopRate)),
+          "／H1勝率 ", React.createElement("b", null, _pctS(add.h1win)),
+          "／母数 ", React.createElement("b", null, (add.scN || 0) + "件"),
+          "／到達率 ", React.createElement("b", null, _pctS(add.eRate)),
+          "／想定損益 ", React.createElement("b", { style: { color: _elPnlColor(add.pnl != null ? Math.round(add.pnl) : 0) } }, add.pnl != null ? _elPnlFmt(Math.round(add.pnl)) : "—"))
+      : null);
+  var sweep = [];
+  for (var ad = 1; ad <= _EL_BASE_ADD_MAX; ad += 1) {
+    var tot = base + ad; if (tot > 50) break;
+    sweep.push({ ad: ad, tot: tot, e: _elBaseAlphaEval(addPool, aiOf, tot) });
+  }
+  var pickedAdd = _addImproved ? add.add : null;
+  var addRows = sweep.filter(function(x) { return x.e.entered > 0; }).map(function(x) {
+    var on = pickedAdd != null && x.ad === pickedAdd, pass = x.e.scN >= minN;
+    return React.createElement("tr", { key: x.ad, style: { background: on ? "#FFF7ED" : "transparent", opacity: pass ? 1 : 0.4 } },
+      _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: "#9A3412" } }, "+" + x.ad + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, x.tot + "円")),
+      _elv2Td(_elPctCell(x.e.eRate)),
+      _elv2Td(x.e.scN + "件"),
+      _elv2Td(x.e.stopRate == null ? "—" : _elStopRateCell(x.e.stopRate)),
+      _elv2Td(x.e.h1win == null ? "—" : _elPctCell(x.e.h1win)),
+      _elv2Td((function() { var _p = x.e.pnl; return _p == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(Math.round(_p)), fontWeight: 700 } }, _elPnlFmt(Math.round(_p))); })()));
+  });
+  var insight = _elInsightBoxV2([
+    _addImproved
+      ? React.createElement("span", null, "基本α", _elInsightEmV2(base + "円"), "に", _elInsightEmV2("+" + add.add + "円"), "足した合計", _elInsightEmV2(add.total + "円"), "が推奨。母数", _elInsightEmV2((add.scN || 0) + "件"), "・損切り率", _elInsightEmV2(_pctS(add.stopRate)), "・想定損益", _elInsightEmV2(add.pnl != null ? _elPnlFmt(Math.round(add.pnl)) : "—"), "。")
+      : React.createElement("span", null, "この母数では基本α", _elInsightEmV2(base + "円"), "に上乗せしても想定損益が黒字化する加算が無く", _elInsightEmV2("推奨無し"), "（基本αで十分の傾向）。")
+  ], { note: "母数＝追加α〇（要）を明示した記録（数値根拠＝底抜け前足浮きは除外）。各加算で『基本α＋加算』の合計αを当ててシミュレーション（想定損益＝ΣH1損益）。推奨＝想定損益プラスかつ母数" + minN + "件以上の中で、損切り率0%→≤30%→最小の順に最小加算（_elAddAlphaRecoと同基準）。" });
+  return React.createElement("div", null,
+    concl,
+    _lbl("加算値別の総当たり（基本α" + base + "円＋1〜" + _EL_BASE_ADD_MAX + "円・★＝推奨・件数フロア" + minN + "件未満は淡色／想定損益＝ΣH1損益）"),
+    _elv2Table(["追加α", "合計α", "到達率", "有効件数", "損切り率", "H1勝率", "想定損益"], addRows),
+    insight);
+}
 // 推奨基本α表（銘柄/期間グループ別）: groups=[{label,recs}]・cutFn(r)→損切り値。各グループの推奨基本α(_elBaseAlphaPick・5〜20・
 // 件数フロア＋合成スコア最大・該当なしは件数最大)を1値表示＋損切り率/H1勝率の小書き＋追加α目安。旧 _elIdealAlphaTableV2(EP/H1/H2別・0〜50)を置換 2026-06-21→条件再設計 2026-06-22。
 function _elBaseAlphaTableV2(groups, cutFn) {
@@ -4303,8 +4358,15 @@ function EntryLogView(_ref_elv2) {
               markVal3: _osRedMark, mark3Label: _osRedLabel })),
             _elOsBandLegendV2())
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 11 } }, "この母数に該当する記録がありません")) : null,
-      _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
-      _elBaseAlphaDetailV2(_baRecs, _ai),
+      // 追加α母数トグル〇のとき: 推奨基本α詳細は畳んで（要約はKPIカードに常時表示）、代わりに推奨追加α詳細（加算値別の総当たり）をフル表示。×/全記録・前足浮きタブは従来どおり基本α詳細をフル表示。2026-07-03
+      (!_floatMode && osDistFil === "yes")
+        ? React.createElement(React.Fragment, null,
+            React.createElement(_SNCollapse, { title: "🔬 推奨基本α 詳細データ（推奨値の根拠・タップで展開）", render: function() { return _elBaseAlphaDetailV2(_baRecs, _ai); } }),
+            _secH("🔬 推奨追加α 詳細データ", "推奨追加αの根拠＝加算値別の総当たり（各加算の到達率/件数/損切り率/H1勝率/想定損益）。母数＝追加α〇（数値根拠除く）"),
+            _elAddAlphaDetailV2(_baRecs, _ai))
+        : React.createElement(React.Fragment, null,
+            _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
+            _elBaseAlphaDetailV2(_baRecs, _ai)),
       React.createElement(_SNCollapse, { title: "詳細分析（EP位置・累積損益・α感応度・時間帯別・曜日別・期待度×/△）", render: function() {   // 遅延描画 2026-06-29: 閉じている間は重い7セクションを計算しない＝シグナル別パネルの体感速度（汎用分析は各専用タブにも全体版あり）
         return React.createElement(React.Fragment, null,
           _addFilBar(),
