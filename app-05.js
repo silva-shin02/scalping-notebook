@@ -4302,15 +4302,17 @@ function _elHold1TotParts(s, alpha, cutLine) {
     if (pv0 != null) hres = pv0;
   }
   if (hres == null) return { main: null, ref: null };
+  // 【2026-07-03v 修正】H1期待度は「足ごとに固定した期待度(_epExpAt)」で見る＝αを変えEPが前進しても、元々×だった足は×扱い（旧: 記録時s.holdExpを直接参照＝シミュでEPが動くと別の物理足に誤って○を適用しH2×の足まで保有算入していた）。採用α（EP不動）では_epExpAt=s.holdExpで完全に不変。v2以外/α無しはs.holdExp。
+  var _r1 = (_epIsV2(s) && alpha != null) ? _epResolve(s, alpha) : null;
+  var _hExp = (_r1 && _r1.epIdx >= 0) ? _epExpAt(s, _r1.epIdx + 1) : s.holdExp;
   // EP△（_epIsTriEntry＝△確信度エントリー）→ EP自体が（）外0・参考なので、H1も（）外0（main:null）。
   // H1=○/△/損切り済は保有額を（）内（参考）へ。H1=×/未設定は完全除外（参考にも入れない＝1段下0を継承）。
-  // ※H2のカスケード基準(_base)もmain=nullを受けて（）外0になる。
-  if (_epIsTriEntry(s, alpha)) return { main: null, ref: (s.holdExp && s.holdExp !== "×") ? hres : null };
-  if (s.holdExp !== "○") {  // ○以外（×/△/損切り済/未設定）は想定額（EP損益）へフォールバック。未設定=×扱い
+  if (_epIsTriEntry(s, alpha)) return { main: null, ref: (_hExp && _hExp !== "×") ? hres : null };
+  if (_hExp !== "○") {  // ○以外（×/△/損切り済/未設定）は想定額（EP損益）へフォールバック。未設定=×扱い
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan == null) return { main: hres, ref: null };
     // 参考=「H1まで保有した場合」との差（想定損切り時キャップ後hresと一致）。△/損切り済のみ参考(（）内)へ。×/未設定は参考無し。
-    var _withRef1 = (s.holdExp === "△" || s.holdExp === "損切り済");
+    var _withRef1 = (_hExp === "△" || _hExp === "損切り済");
     return { main: plan, ref: (_withRef1 && (hres - plan) !== 0) ? (hres - plan) : null };
   }
   return { main: hres, ref: null };  // ○
@@ -4325,7 +4327,10 @@ function _elH1HeldBase(s, alpha, cutLine) {
     var pv0 = _elDynPlanned(s, alpha, cutLine);
     if (pv0 != null) hres = pv0;
   }
-  if (s.holdExp === "×" || s.holdExp === "損切り済" || !s.holdExp) {
+  // H1期待度は足固定(_epExpAt)で見る＝シミュでEPが前進しても元々の足の期待度を保つ 2026-07-03v（採用αでは不変）。
+  var _rB = (_epIsV2(s) && alpha != null) ? _epResolve(s, alpha) : null;
+  var _hExpB = (_rB && _rB.epIdx >= 0) ? _epExpAt(s, _rB.epIdx + 1) : s.holdExp;
+  if (_hExpB === "×" || _hExpB === "損切り済" || !_hExpB) {
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan != null) return plan;
   }
@@ -4343,25 +4348,29 @@ function _elHold2TotParts(s, alpha, cutLine) {
   if (!s) return { main: null, ref: null };
   if (_epIsXSkip(s, alpha)) return { main: null, ref: null };  // EP×（×見送り）→ 完全に算入無し
   if (_elH2Miss(s, alpha)) return { main: null, ref: null };
+  // 【2026-07-03v 修正】H1/H2期待度は「足ごとに固定した期待度(_epExpAt)」で見る＝αを変えEPが前進しても元々の足の期待度を保つ（採用αでは_epExpAt=s.holdExp/s.hold2Expで完全に不変）。v2以外/α無しは生の記録値。
+  var _r2 = (_epIsV2(s) && alpha != null) ? _epResolve(s, alpha) : null;
+  var _h1e = (_r2 && _r2.epIdx >= 0) ? _epExpAt(s, _r2.epIdx + 1) : s.holdExp;
+  var _h2e = (_r2 && _r2.epIdx >= 0) ? _epExpAt(s, _r2.epIdx + 2) : s.hold2Exp;
   // hv = H2まで保有した場合の損益（参考/自分の結果用）。損切りなら強制手仕舞い=損切り額、それ以外はH2損益。
   var hv = (alpha != null && _elHoldIsStop(s, alpha, cutLine))
     ? (_elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine))
     : ((alpha != null) ? _elDynHold2(s, alpha, cutLine) : _elSignedVal(s.hold2Pnl, s.hold2PnlSign));
   var _base = _elHold1TotParts(s, alpha, cutLine).main;  // 1段下＝H1合計の（）外main（H1×/△/未設定→EP想定額・H1○→H1損益）。H2の（）外をH1のmainと一致させ、H1=△ならH2もEP基準へカスケード。
   // H1期待度×/損切り済/未設定（=H1撤退＝H2まで保有しない）→ 本合計は1段下(_base)。×/未設定は参考も無し。
-  if (s.holdExp === "×" || s.holdExp === "損切り済" || !s.holdExp) {
-    var _withRefA = (s.holdExp === "損切り済");  // 損切り済のみ参考。×/未設定は参考無し
+  if (_h1e === "×" || _h1e === "損切り済" || !_h1e) {
+    var _withRefA = (_h1e === "損切り済");  // 損切り済のみ参考。×/未設定は参考無し
     if (_base == null) return { main: null, ref: _withRefA ? hv : null };
     return { main: _base, ref: (_withRefA && hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
   }
   // ここでH1は保有済(○/△)。
   // 【損切り＝×統一 2026-06-17 project_scalping_total_pnl_system】H2がH1足で損切り(_elHoldIsStop)＝×と同一視。
   //  H2期待度×/未設定も同じく、自分の損益を出さずH1の合計(_elHold1TotParts)を丸ごと引き継ぐ（例: H1=△なら200(-1100)）。
-  if ((alpha != null && _elHoldIsStop(s, alpha, cutLine)) || s.hold2Exp === "×" || s.hold2Exp === "損切り済" || !s.hold2Exp) {
+  if ((alpha != null && _elHoldIsStop(s, alpha, cutLine)) || _h2e === "×" || _h2e === "損切り済" || !_h2e) {
     return _elHold1TotParts(s, alpha, cutLine);
   }
   // H2期待度△（H2まで実保有・非損切り）→ 自分の△寄与。（）外=1段下(H1合計のmain・H1△ならEP想定額)・（）内=H2まで保有との差。
-  if (s.hold2Exp === "△") {
+  if (_h2e === "△") {
     if (_base == null) return { main: null, ref: hv };
     return { main: _base, ref: (hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
   }
@@ -4370,7 +4379,7 @@ function _elHold2TotParts(s, alpha, cutLine) {
   // 「EP正常エントリー＋H1○」の完全な○チェーンのみH2損益を（）外main。
   // H1=△ または EPが△（_epIsTriEntry＝△確信度エントリー）でチェーンが切れていれば、H2○でも（）内計算＝
   //   （）外は1段下(_base＝H1合計のmain・H1△ならEP想定額)・（）内はH2まで保有(hv)。
-  if (s.holdExp === "○" && !_epIsTriEntry(s, alpha)) return { main: hv, ref: null };
+  if (_h1e === "○" && !_epIsTriEntry(s, alpha)) return { main: hv, ref: null };
   if (_base == null) return { main: null, ref: hv };
   return { main: _base, ref: (hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
 }
