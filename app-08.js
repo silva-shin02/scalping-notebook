@@ -222,8 +222,7 @@ function App() {
     _useState156 = _slicedToArray(_useState155, 2),
     loading = _useState156[0],
     setLoading = _useState156[1];
-  // 推奨追加αの母数から外す数値根拠名(底抜け前足浮き・リネーム可)をモジュール変数_EL_NUM_REASON(app-06)へ反映＝App描画は子より先なので各α関数の母数算出時に最新 2026-06-24i。
-  _EL_NUM_REASON = (data && data.custom && data.custom.addAlphaNumericReason) || "底抜け前足浮き";
+  // 旧: 数値根拠名の_EL_NUM_REASON同期（2026-06-24i）は浮き足フィールド化（signal.ukiUsed 2026-07-03）で廃止＝_elHasNumReason(app-06)はsignal.ukiUsedを直接判定。
   var _useState157 = useState(function(){
       try { var _v=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}"); return _v.sel||null; } catch(e){ return null; }
     }),

@@ -751,6 +751,51 @@ function migrateData(d) {
       d._migMinBarDefault1 = true;
     } catch(e) { console.warn("[migrateData] minBarDefault1 error:", e); }
   }
+
+  // 浮き足加算α値への移行（_migUkiAlpha 2026-07-03）: 旧「追加α〇＋根拠=底抜け前足浮き＋数値(addAlphaReasonVal)」を独立要素 ukiUsed/ukiVal へ変換。
+  // 変換: ukiUsed=true・ukiVal=旧数値（生値）・実効加算=floor(値/2)（半額切捨て）。根拠からは当該名を除去し、
+  //   根拠がそれだけ→追加α×(addAlphaVal=null)／他根拠と複合→追加α〇のまま addAlphaVal=旧値−半額（下限0）。
+  // 合計α(alphaVal)=基本α＋半額＋新追加α に再計算（基本α不明で導出も不能なら合計は据え置き）。マスター(custom.addAlphaReasons)からも当該名を削除・custom.addAlphaNumericReasonは廃止。
+  // フラグ無しの条件ベース＝冪等（変換後は根拠に当該名が無くなるので再実行しても no-op・未更新端末が後から作った旧形式記録も次回起動で回収）。
+  try {
+    var _ukNR = (d.custom && d.custom.addAlphaNumericReason) || "底抜け前足浮き";
+    var _ukNum = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
+    if (d.charts && typeof d.charts === "object") {
+      Object.keys(d.charts).forEach(function(ck) {
+        var cc = d.charts[ck];
+        if (!cc || !Array.isArray(cc.signals)) return;
+        cc.signals = cc.signals.map(function(s) {
+          if (!s || s.addAlphaUsed !== true) return s;
+          var _rs = Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.filter(function(x) { return x; }) : (s.addAlphaReason ? [s.addAlphaReason] : []);
+          if (_rs.indexOf(_ukNR) < 0) return s;
+          var _fv = _ukNum(s.addAlphaReasonVal);
+          if (_fv == null || _fv <= 0) return s;   // 数値未入力の底抜け根拠は変換対象外（半額の算出元が無い＝手動調整）
+          var _half = Math.floor(_fv / 2);
+          var _rest = _rs.filter(function(x) { return x !== _ukNR; });
+          var _oldAdd = _ukNum(s.addAlphaVal) != null ? _ukNum(s.addAlphaVal) : 0;
+          var _oldTotal = _ukNum(s.alphaVal);
+          var _base = _ukNum(s.baseAlphaVal) != null ? _ukNum(s.baseAlphaVal) : (_oldTotal != null ? _oldTotal - _oldAdd : null);
+          var _newAdd = _rest.length ? Math.max(0, _oldAdd - _half) : null;
+          var _up = {
+            ukiUsed: true, ukiVal: _fv,
+            addAlphaReasonVal: null,
+            addAlphaUsed: _rest.length ? true : false,
+            addAlphaReasons: _rest.length ? _rest : null,
+            addAlphaVal: _newAdd
+          };
+          if (s.addAlphaReason === _ukNR) _up.addAlphaReason = null;
+          if (_base != null && _base >= 0) { _up.baseAlphaVal = _base; _up.alphaVal = _base + _half + (_newAdd != null ? _newAdd : 0); }
+          return Object.assign({}, s, _up);
+        });
+      });
+    }
+    if (d.custom) {
+      if (Array.isArray(d.custom.addAlphaReasons) && d.custom.addAlphaReasons.indexOf(_ukNR) >= 0) {
+        d.custom.addAlphaReasons = d.custom.addAlphaReasons.filter(function(x) { return x !== _ukNR; });
+      }
+      if (d.custom.addAlphaNumericReason != null) delete d.custom.addAlphaNumericReason;
+    }
+  } catch(e) { console.warn("[migrateData] ukiAlpha error:", e); }
   return d;
 }
 function stLoad() {

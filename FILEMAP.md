@@ -31,6 +31,14 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03o 浮き足加算α値を第3のα要素に昇格（基本α＋浮き足加算＋追加α）＝旧・追加α根拠「底抜け前足浮き（数値根拠）」の置き換え
+- **app-05.js**: 新規トップレベル `_elUkiYes`/`_elUkiVal`/`_elUkiAdd`（signal.ukiUsed=〇×/ukiVal=前足浮き値の生値・実効加算=floor(浮き値/2)＝半額切捨て。合計採用α alphaVal に畳み込み済み＝下流の損益/EP計算は無改修）。`_DEF_ADD_REASONS`から「底抜け前足浮き」削除。`_elAlphaBreakdownNode`を3要素化（例（10+浮8+5）・整合チェック=base+uki+add）。EntryRecordForm: `fUkiUsed`/`fUkiVal` state＋浮き足行（**基本α行と追加α行の間**・エントリーシグナルに「底抜け水準線OS」（`data.custom.ukiSignalName`で変更可・既定固定文字列）選択時のみ表示・〇×→〇で浮き値入力→「→＋N円を加算（半額・小数切捨て）」表示）・合計α値バーを3要素内訳に拡張（案B）・`_fAlpha=_fBaseA+_fUkiAdd+_fAddA`・保存 ukiUsed/ukiVal・旧数値根拠欄（fReasonVal入力・addAlphaReasonVal保存・addAlphaNumericReason改名追従）を撤去。
+- **app-01.js**: `migrateData`末尾に浮き足移行`_migUkiAlpha`相当（**フラグ無し条件ベース・冪等**）: 追加α〇＋根拠に底抜け前足浮き＋数値>0 → ukiUsed=true/ukiVal=数値・根拠から当該名除去・単独根拠→追加α×(addAlphaVal=null)／複合→addAlphaVal=旧値−半額(下限0)・**alphaVal=基本α＋半額＋新追加αに再計算**（基本α導出不能なら合計据え置き）・custom.addAlphaReasonsマスターから削除・custom.addAlphaNumericReason廃止。数値未入力の底抜け根拠は変換対象外（手動調整）。
+- **app-06.js**: `_elHasNumReason`を signal.ukiUsed 判定へ載せ替え（`_EL_NUM_REASON`廃止・関数名は互換で据え置き）＝シグナル内サブタブ（表記「浮き足/その他」に改名）・推奨追加α母数除外・上乗せ幅/根拠別除外がそのまま新判定で機能。`_elBaseAlphaPick`の母数から**浮き足〇も除外**（旧・追加α〇として除外されていた挙動を維持）。乖離表`_elBaseAlphaSimpleBoardV2`: 種別バッジ3種（浮き足〇=緑/浮＋追α〇）・現実/推奨行とも＋浮き足加算（「浮N」小書き）。浮き足専用分析`_elFloatReasonSectionV2`: 母数=浮き足〇（旧: 追加α〇＋数値根拠）・浮き値=ukiVal・%別シミュを`Math.floor`（現行50%ルールと整合）・_baseOf/_addOfは浮き足加算込みで導出・見出し/注記を浮き足表記へ。期間別表などの説明文「基本αは追加α〇・浮き足〇以外が母数」に更新。
+- **app-08.js**: `_EL_NUM_REASON`同期を削除。**sw.js**: `APP_CACHE` v14→v15。
+- 帰結（ユーザー決定）: 過去の底抜け記録の採用α（alphaVal）は「基本α＋浮き値の半額」ベースに変わる＝EP判定・シミュ・乖離も新ルールで再計算。実現損益(item.pnl等)の保存事実は不変。記録帳の扱いは「現行分析の載せ替え」（推奨基本α母数組込みは将来案）。
+- 検証: `new Function`構文OK（vendor+app01〜08+sw.js）。実関数テスト＝移行6ケース（単独/複合/他根拠のみ/×/数値なし/旧addAlphaReason文字列）・冪等・マスター掃除・`_elUkiAdd(17)`=8・内訳（10+浮8+1）/（未選択）優先・`_elBaseAlphaPick`の浮き足/追加α除外・浮き足専用分析＆乖離表のレンダリング すべてpass（途中`_numReason`残存参照を検出→修正済）。実機確認はユーザー。
+
 ### 2026-07-03n 株数シミュの損益を本日の損益データ欄と同じ（）外/（）内方式に統一（案C・両方式併記）
 - **app-06.js**: シミュの損益計算が期待度ブラインド（全記録H1保有＝△/×も満額算入で過大）だった問題を、本日の損益データ欄と同一基準へ統一。中核＝`_elKabuTierEval`のP&L行を`_elDynHold`→**`_elHold1TotParts(s,α,cut)`**（app-05・{main:（）外, ref:（）内差分}）に差し替え。返り値に`main100`（（）外＝○のみH1本算入・△/×/損切りはEP想定額）/`ref100`（（）内差分＝△・損切り済のみH1保有額との差）を追加（`pnl100`はmain100の別名で既存互換）。集計`_elKabuLadderCalc`に`recRef`/`sumRef`、自動配分オプティマイザ（インライン）に`_refSum`/combo`sumRef`を追加。表示＝マスター表の「シミュ」「実α単独」列・上下合計バー(`_mtBar`)・合計行(`_sumRow`)・取引内訳(`_mtTierNodes`)・手動「通算損益」カード・自動★最適/ランキングで**「（）外（（）内）」併記**（`_mtPnlNode2`/`_pnlNode2`新設・（）内は△/損切り済がある時だけ括弧表示）。「差」「上乗せ」は（）外基準。脚注も期待度ブラインド→（）外/（）内方式の説明に差し替え。AskUserQuestionで案C採用。検証: `new Function`構文OK。
 
