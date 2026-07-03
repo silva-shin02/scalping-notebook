@@ -3750,11 +3750,12 @@ function _elKabuLadderSimV2(props) {
     cfgCalc.rows.forEach(function(row, i) {
       var r = row.r, s = r && r.signal; if (!s) return;
       var _rv = _elIsEntered(s, r.item) ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null;
-      mrecs.push({ oi: i, r: r, s: s, a: aiOf(r).alpha, real: (_rv != null ? Math.round(_rv) : null), cfgPnl: row.recPnl, basePnl: (baseCalc.rows[i] ? baseCalc.rows[i].recPnl : null), cells: row.cells, anyStop: row.anyStop });
+      var _sa = []; (row.cells || []).forEach(function(c) { if (c.t.add > 0 && c.t.a != null && !isNaN(c.t.a)) { var av = Math.round(c.t.a); if (_sa.indexOf(av) < 0) _sa.push(av); } }); _sa.sort(function(p, q) { return p - q; });   // この配分(シミュ)が各記録で使ったα＝推奨基本α値なら recoOf(日付)。採用αとの差の理由を可視化 2026-07-03
+      mrecs.push({ oi: i, r: r, s: s, a: aiOf(r).alpha, simA: _sa, real: (_rv != null ? Math.round(_rv) : null), cfgPnl: row.recPnl, basePnl: (baseCalc.rows[i] ? baseCalc.rows[i].recPnl : null), cells: row.cells, anyStop: row.anyStop });
     });
     mrecs.sort(function(x, y) { var dx = (x.r.date || "") + (x.s.time || ""), dy = (y.r.date || "") + (y.s.time || ""); return dx < dy ? 1 : dx > dy ? -1 : 0; });
     var _sumRow = function(k) { return React.createElement("tr", { key: k, style: { background: "#E1F5EE" } },
-      React.createElement("td", { colSpan: 5, style: { padding: "4px 6px", fontSize: 10, fontWeight: 700, color: "#0F766E", whiteSpace: "nowrap" } }, "合計（" + mrecs.length + "件）"),
+      React.createElement("td", { colSpan: 6, style: { padding: "4px 6px", fontSize: 10, fontWeight: 700, color: "#0F766E", whiteSpace: "nowrap" } }, "合計（" + mrecs.length + "件）"),
       _mtTd(_mtPnlNode(baseSum), "right"), _mtTd(_mtPnlNode(cfgSum), "right", true), _mtTd(_mtPnlNode(upl), "right"), React.createElement("td", null)); };
     var brows = [];
     mrecs.forEach(function(m, i) {
@@ -3763,8 +3764,8 @@ function _elKabuLadderSimV2(props) {
       var dstr = (m.r.date || "").slice(5).replace("-", "/") + (s.time ? " " + s.time : "");
       var alphaNode = React.createElement("div", { style: { lineHeight: 1.1 } }, (a != null ? (a + "円") : "—"), _elAlphaBreakdownNode(s, a));
       brows.push(React.createElement("tr", { key: key, onClick: function() { setMtExp(open ? null : key); }, style: { cursor: "pointer", background: open ? "#F0FDFA" : (m.anyStop ? "#F4FBF5" : "transparent") } },
-        _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(alphaNode), _mtTd(_mtPnlNode(m.real), "right"), _mtTd(_mtPnlNode(m.basePnl), "right"), _mtTd(_mtPnlNode(m.cfgPnl), "right", true), _mtTd(_mtPnlNode(diff), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
-      if (open) brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "6px 10px", background: "#FBFEFD", borderBottom: "1px solid #eee", fontSize: 9.5, color: "#9A3412" } }, React.createElement("span", { style: { fontWeight: 700 } }, "取引内訳: "), _mtTierNodes(m.cells))));
+        _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.simA.length ? m.simA.map(function(v) { return v + "円"; }).join("/") : "—")), _mtTd(alphaNode), _mtTd(_mtPnlNode(m.real), "right"), _mtTd(_mtPnlNode(m.basePnl), "right"), _mtTd(_mtPnlNode(m.cfgPnl), "right", true), _mtTd(_mtPnlNode(diff), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
+      if (open) brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "6px 10px", background: "#FBFEFD", borderBottom: "1px solid #eee", fontSize: 9.5, color: "#9A3412" } }, React.createElement("span", { style: { fontWeight: 700 } }, "取引内訳: "), _mtTierNodes(m.cells))));
     });
     return React.createElement("div", { style: { marginTop: 8 } },
       _mtBar(cfgSum, cfgLabel, baseSum, upl, false),
@@ -3772,7 +3773,7 @@ function _elKabuLadderSimV2(props) {
         React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 620 } },
           React.createElement("thead", null,
             React.createElement("tr", { style: { background: "#F0FDFA", color: "#0F766E" } },
-              _mtTh("日付"), _mtTh("OS連鎖（期待度）"), _mtTh("E", "center"), _mtTh("採用α"), _mtTh("実現", "right"), _mtTh("実α単独", "right"), _mtTh("この配分", "right", true), _mtTh("差", "right"), _mtTh("")),
+              _mtTh("日付"), _mtTh("OS連鎖（期待度）"), _mtTh("E", "center"), _mtTh("シミュα"), _mtTh("採用α"), _mtTh("実現", "right"), _mtTh("実α単独", "right"), _mtTh("シミュ", "right", true), _mtTh("差", "right"), _mtTh("")),
             _sumRow("h")),
           React.createElement("tbody", null, brows),
           React.createElement("tfoot", null, _sumRow("f")))),
@@ -3852,7 +3853,7 @@ function _elKabuLadderSimV2(props) {
           _card("1記録あたり", manCalc.builtRecN ? _pnlNode(Math.round(manCalc.sum / manCalc.builtRecN)) : "—", "建玉ありの平均"),
           _card("建玉あり", manCalc.builtRecN + "件", "全取引未到達・×見送り除く"),
           _card("損切り取引あり", manCalc.stopRecN + "件", "建玉あり中")),
-        _kbMasterTable(manCalc, "この配分・" + _manTot + "株", _manTot),
+        _kbMasterTable(manCalc, "シミュ・" + _manTot + "株", _manTot),
         _notesLine(manCalc)) : null);
   } else {
     var _rankRows = [];

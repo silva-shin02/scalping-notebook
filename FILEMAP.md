@@ -31,6 +31,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03m 株数シミュ マスター表に「シミュα」列追加＋「この配分」→「シミュ」改名
+- **app-06.js**: `_kbMasterTable`に、その配分（シミュ）が各記録で実際に使ったα値 `simA`（tierの`c.t.a`＝「推奨基本α値」方式なら`recoOf(日付)`・複数tierは「/」連結・無ければ「—」）を算出し、**採用αの左に「シミュα」列**を追加＝この配分の損益が実α単独（採用α）と違う理由（日々再計算した推奨基本α≠保存済み採用α・初期記録はrecoOf=null→建たず「—」）を可視化。列見出し「この配分」→「**シミュ**」・手動バーのラベル「この配分・N株」→「シミュ・N株」に改名。合計行colSpan5→6・展開行colSpan9→10。ユーザー要望。検証: `new Function`構文OK。
+
 ### 2026-07-03k 補強: 新規エントリーフォームにOS3到達期待度（os3Exp）入力欄を追加（2026-07-03iの残タスク完遂）
 - **app-05.js**: `EntryRecordForm`に os3Exp を入力・保存できるよう3点追加＝①state `fOs3Exp`（`useState(initSig.os3Exp||null)`・os2Exp stateの直後）②OS3列（`_legCol("OS3",…)`）に**EP=OS3の時だけ**「到達期待」ボタン行（`_ef.epIdx===2 ? _row("到達期待", _expB(fOs3Exp, setFOs3Exp, fOs2Exp==="×"), true) : null`＝OS1/OS2到達期待と同形・前段OS2が×なら自動×のdisabled）を高値/確定値の後・H1/H2期待の前へ挿入③保存に `sig.os3Exp = (_efS.epIdx===2) ? (fOs3Exp||null) : null`（EP=OS3の到達足のときだけ保存。EP≠OS3ではOS3はホールドでholdExp/hold2Expが担うのでnull）。編集時はstate初期値でinitSigから復元。これで2026-07-03iで配線済みの`_epLegs`(OS3 leg exp=s.os3Exp)/`_epExpAt`が実データで機能＝株数シミュでαを下げEPが手前化した時、元OS3足がその到達期待度をH期待度として表示。
 - 検証: app-05はJScript非対応（既存・HEADでも同エラー）のため、CORSサーバ＋ブラウザ`new Function`で全文パースOK（構文エラー0）＋3編集が各1件で存在を確認。表示・保存の最終確認はユーザーが実機で。
