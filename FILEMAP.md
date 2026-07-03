@@ -31,6 +31,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03s 株数シミュ手動ラダー: α値欄に▲▼(±1)＋横スクロールヒント削除＋KPI拡充（差額/勝率/損切り率%/1株あたり損益）
+- **app-06.js `_elKabuLadderSimV2`（手動ラダー）**: ①**α値入力欄（`off`）に▲▼ステッパ**を追加＝`_stepOff`（**±1**・`_stepBtn`流用・絶対値は0未満不可/推奨α±Xはマイナス可・functional setState）。株数欄の±100(`_stepCum`)と対で、新規記録画面と同じ縦▲▼。
+- **横スクロールヒント削除**: `_HScrollBox`に`plain`プロップ追加（trueで早期return＝ロック無し・「👆タップで横スクロール」ピル無しの素の`overflowX:auto`）。`_elOsTradeMini(recs,aiOf,opts)`に第3引数`opts`追加し`opts.plain`を`_HScrollBox`へ伝播。**対象取引リスト**の呼び出しを`_elOsTradeMini(pool,aiOf,{plain:true})`に＝ヒント表記を消去（他の`_elOsTradeMini`呼び出しは従来どおりヒントあり）。
+- **KPI拡充**（手動カード）: `_pnlNode2`の代わりに**通算損益の（）内損益を（）外と同じサイズ(17px)・同色(`_elPnlColor(main)`)**でインライン描画（従来は9〜11px灰）。**「上乗せ」→「差額」に改名**（`_mtBar`）。新規KPIカード＝**差額**（`_uplMan`=シミュ−実α単独＝`_baseManCalc`で総株数を採用α単建てした基準との差・`_mtBar`の差額と一致）／**勝率**（建玉あり中`recPnl>0`の割合%・≥50%緑）／**損切り率**（`stopRecN÷builtRecN`%＋件数を副に併記＝旧「損切り取引あり」カードを置換）／**1株あたり損益**（`sum÷_manTot`・小数1位）。追加KPIはAskUserQuestionで勝率/損切り率%/1株あたり損益を採用（最大DDは見送り）。
+- **sw.js**: `APP_CACHE` v18→v19。検証: `new Function`構文OK＋実レンダー（合成6記録・abs方式選択）＝α欄▲▼出現・対象取引リストにヒント無し・KPI（差額/勝率/損切り率/1株あたり損益）表示・_mtBar「差額」/「上乗せ」消滅を確認。
+
 ### 2026-07-03r 株数シミュに対象取引の期間絞り込み（本日〜全期間）＋対象取引リストを先頭表示
 - **app-06.js `_elKabuLadderSimV2`**: 対象取引記録を**期間で絞り込み**（`period` state・既定"all"）。選択肢＝**本日/1週間/1か月/3か月/6か月/1年/全期間**。位置＝手動ラダー/自動配分トグルの**上**（`head`の先頭に「対象期間:」ピル行を追加・`_pill`流用・teal）。絞り込みは記録日基準（`_periodRecs`＝本日は`r.date===todayStr()`／相対は`todayStr()`から`setDate/setMonth/setFullYear`で遡ったcutoff以降／全期間は無制限）→`pool`は`_periodRecs`に追加α母数トグルを適用。**推奨α（`baseRecs`/`recoOf`）は各記録日の履歴で別途算出するため期間絞り込みの対象外**（look-ahead整合を維持）。
 - **対象取引を先頭表示**: 期間選択後、`head`の直後・結果（手仕舞い注記/ラダー）の前に「対象取引（N件）」＋`_elOsTradeMini(pool, aiOf)`（本日の損益データ欄と同じ詳細表）を`maxHeight:300`スクロールで表示＝ユーザー要望「選択したら対象取引がまず表示される」。

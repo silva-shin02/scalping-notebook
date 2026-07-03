@@ -2464,7 +2464,7 @@ function _elOsPctlV2(recs, osOf) {
 }
 
 // OS値の分析の数値（ヒストの棒／OS値別の成績の行）クリックで開く、読み取り専用の取引明細。本日の損益データ欄と同じ列構成（α/損切りは採用値・行ごとのシミュ入力は無し）。recs={stock,signal,date,item?}・aiOf(r)→{alpha,cutLine}。2026-06-25
-function _elOsTradeMini(recs, aiOf) {
+function _elOsTradeMini(recs, aiOf, opts) {
   var list = (recs || []).filter(function(r) { return r && r.signal; });
   if (!list.length) return React.createElement("div", { style: { color: "#aaa", fontSize: 11, padding: "6px 4px" } }, "記録なし");
   var sorted = list.slice().sort(function(a, b) { return (a.date + (a.signal.time || "99:99")).localeCompare(b.date + (b.signal.time || "99:99")); });
@@ -2493,7 +2493,7 @@ function _elOsTradeMini(recs, aiOf) {
         _elLane(_tradeAlphaChip(s), 26, "flex-end"), _elRPnlDispW(realPnl, gReal, 72))
     );
   });
-  return React.createElement(_HScrollBox, { style: { marginTop: 4 } },
+  return React.createElement(_HScrollBox, { style: { marginTop: 4 }, plain: !!(opts && opts.plain) },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
         _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("α値", { width: 34 }), _th("OS", { width: 78 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("EP損益", { width: 96 }),
@@ -2628,6 +2628,7 @@ function _elOsAlphaPctlTableV2(recs) {
 var _EL_DAY_TARGET_YEN = 2500;
 // 横長テーブル用ラッパー（記録帳）2026-06-26: 内容が枠からはみ出す時だけ「タップして初めて横スクロール」。普段は固定でページの縦スクロールを妨げない＋右端フェードと「タップで横スクロール →」ピルで明示。タップで枠が光り横スクロール可、外をタップで解除。はみ出さない表は素通り（ピルもロックも出さない）。props.styleは外枠(余白)へ。
 function _HScrollBox(props) {
+  if (props.plain) return React.createElement("div", { style: Object.assign({ overflowX: "auto", WebkitOverflowScrolling: "touch" }, props.style || {}) }, props.children);   // ヒント/ロックなしの素の横スクロール（対象取引リスト等）2026-07-03r
   var _uA = useState(false), active = _uA[0], setActive = _uA[1];
   var _uO = useState(false), overflow = _uO[0], setOverflow = _uO[1];
   var wrapRef = useRef(null), innerRef = useRef(null);
@@ -3742,7 +3743,7 @@ function _elKabuLadderSimV2(props) {
       React.createElement("span", { style: { fontSize: 9.5, opacity: 0.85 } }, reshow ? "合計（再掲）" : "合計"),
       React.createElement("span", { style: { fontSize: 11 } }, "実際のα単独 ", React.createElement("b", { style: { fontSize: 15 } }, baseSum == null ? "—" : _elPnlFmt(baseSum)), _in(baseSum, baseRef)),
       React.createElement("span", { style: { fontSize: 11, background: "#fff", color: "#0F766E", borderRadius: 6, padding: "1px 8px" } }, cfgLabel + " ", React.createElement("b", { style: { fontSize: 15 } }, _elPnlFmt(cfgSum)), _in(cfgSum, cfgRef, "#0F766E")),
-      React.createElement("span", { style: { fontSize: 11 } }, "上乗せ ", React.createElement("b", { style: { fontSize: 15 } }, upl == null ? "—" : _elPnlFmt(upl))),
+      React.createElement("span", { style: { fontSize: 11 } }, "差額 ", React.createElement("b", { style: { fontSize: 15 } }, upl == null ? "—" : _elPnlFmt(upl))),
       (!reshow && _origPnl != null) ? React.createElement("span", { style: { marginLeft: "auto", fontSize: 9.5, opacity: 0.9 } }, "元の損益(実際) " + _elPnlFmt(_origPnl)) : null);
   };
   var _mtTh = function(label, align, hi) { return React.createElement("td", { style: { padding: "5px 6px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", textAlign: align || "left", background: hi ? "#FEF3C7" : undefined } }, label); };
@@ -3857,15 +3858,24 @@ function _elKabuLadderSimV2(props) {
     };
     var _upd = function(i, patch) { setRows(rows.map(function(x, j) { return j === i ? Object.assign({}, x, patch) : x; })); };
     var _stepCum = function(i, delta) { setRows(function(prev) { return prev.map(function(x, j) { if (j !== i) return x; var c = _kbInt(x.cum); c = (c == null ? 0 : c) + delta; if (c < 0) c = 0; return Object.assign({}, x, { cum: String(c) }); }); }); };   // 株数を±100（新規記録画面の_stepBtnと同じ縦▲▼・長押しリピート）2026-07-03p
+    var _stepOff = function(i, delta) { setRows(function(prev) { return prev.map(function(x, j) { if (j !== i) return x; var c = _kbInt(x.off); c = (c == null ? 0 : c) + delta; if (x.method === "abs" && c < 0) c = 0; return Object.assign({}, x, { off: String(c) }); }); }); };   // α値を±1（絶対値は0未満不可・推奨α±Xはマイナス可）2026-07-03r
     var _rowInputs = function(rw, i) {
       var _cumIn = React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff", verticalAlign: "middle" } },
         React.createElement("input", { type: "text", inputMode: "numeric", value: rw.cum, onChange: function(e) { _upd(i, { cum: e.target.value }); }, style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
         _stepBtn(function() { _stepCum(i, 100); }, function() { _stepCum(i, -100); }));
       if (rw.method === "recobase") return React.createElement(React.Fragment, null, React.createElement("span", { style: { fontSize: 10.5 } }, "推奨基本α値で 累積"), _cumIn, React.createElement("span", { style: { fontSize: 10.5 } }, "株"), React.createElement("span", { style: { fontSize: 9.5, color: "#0F766E" } }, "（α入力なし）"));
-      var _offIn = React.createElement("input", { type: "text", inputMode: "numeric", value: rw.off, onChange: function(e) { _upd(i, { off: e.target.value }); }, style: _inpSty });
+      var _offIn = React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff", verticalAlign: "middle" } },
+        React.createElement("input", { type: "text", inputMode: "numeric", value: rw.off, onChange: function(e) { _upd(i, { off: e.target.value }); }, style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
+        _stepBtn(function() { _stepOff(i, 1); }, function() { _stepOff(i, -1); }));
       return React.createElement(React.Fragment, null, React.createElement("span", { style: { fontSize: 10.5 } }, rw.method === "abs" ? "α" : "推奨α"), _offIn, React.createElement("span", { style: { fontSize: 10.5 } }, "円で 累積"), _cumIn, React.createElement("span", { style: { fontSize: 10.5 } }, "株"));
     };
     var _manTot = 0; rows.forEach(function(x) { if (x.method !== "abs" && x.method !== "reco" && x.method !== "recobase") return; var c = _kbInt(x.cum); if (c != null) _manTot = Math.max(_manTot, c); });   // 手動ラダーの総株数（最大累積）＝比較基準の株数 2026-07-03。未選択行は数えない 2026-07-03p
+    var _baseManCalc = _manTot > 0 ? _elKabuLadderCalc(pool, aiOf, function(_r) { return [{ a: aiOf(_r).alpha, add: _manTot }]; }) : null;   // 実α単独（採用αで総株数を単建て）＝差額の基準（_mtBarのbaseCalcと同一計算）2026-07-03r
+    var _uplMan = (_baseManCalc && manCalc) ? (manCalc.sum - _baseManCalc.sum) : null;   // 差額＝シミュ−実α単独（＝_mtBarの上乗せ改め差額と一致）
+    var _winN = 0; if (manCalc) manCalc.rows.forEach(function(_r) { if (_r.recPnl != null && _r.recPnl > 0) _winN++; });   // 勝ち＝建玉ありでシミュ損益プラス 2026-07-03r
+    var _winRate = (manCalc && manCalc.builtRecN) ? _winN / manCalc.builtRecN : null;
+    var _stopRate = (manCalc && manCalc.builtRecN) ? manCalc.stopRecN / manCalc.builtRecN : null;
+    var _perShare = (manCalc && _manTot > 0) ? Math.round(manCalc.sum / _manTot * 10) / 10 : null;   // 1株あたり損益＝通算÷総株数
     body = React.createElement(React.Fragment, null,
       React.createElement("div", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 700, marginBottom: 6 } }, "取引ごとに入力方式を選べます（絶対値／推奨α±X／各取引日の推奨基本α値でN株）"),
       React.createElement("div", { style: { marginBottom: 6 } },
@@ -3887,10 +3897,13 @@ function _elKabuLadderSimV2(props) {
       React.createElement("div", { style: { fontSize: 9.5, color: "#666", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 8px", marginBottom: 8 } }, "積み増し（α昇順・累積）: " + _ladderPrev + " ※推奨系（推奨α±X・推奨基本α値）の実効αと積み増し順は記録ごと（日付時点）に変わります"),
       manCalc ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
-          _card("通算損益", _pnlNode2(manCalc.sum, manCalc.sumRef, true), manCalc.n + "記録中 建玉あり" + manCalc.builtRecN + "件"),
+          _card("通算損益", (function() { var _m = manCalc.sum, _rf = manCalc.sumRef; return React.createElement("span", { style: { whiteSpace: "nowrap" } }, React.createElement("span", { style: { color: _elPnlColor(_m), fontSize: 17 } }, _elPnlFmt(_m)), (_rf ? React.createElement("span", { style: { color: _elPnlColor(_m), fontSize: 17, marginLeft: 2 } }, "（" + _elPnlFmt(_m + _rf) + "）") : null)); })(), manCalc.n + "記録中 建玉あり" + manCalc.builtRecN + "件"),
+          _card("差額", _uplMan == null ? "—" : _pnlNode(_uplMan), "シミュ−実α単独"),
           _card("1記録あたり", manCalc.builtRecN ? _pnlNode(Math.round(manCalc.sum / manCalc.builtRecN)) : "—", "建玉ありの平均"),
           _card("建玉あり", manCalc.builtRecN + "件", "全取引未到達・×見送り除く"),
-          _card("損切り取引あり", manCalc.stopRecN + "件", "建玉あり中")),
+          _card("勝率", _winRate == null ? "—" : React.createElement("b", { style: { color: _winRate >= 0.5 ? "#1E8449" : "#B45309" } }, Math.round(_winRate * 100) + "%"), "建玉あり中プラス"),
+          _card("損切り率", _stopRate == null ? "—" : React.createElement("b", { style: { color: _stopRate <= 0.3 ? "#1E8449" : _stopRate <= 0.5 ? "#B45309" : "#C0392B" } }, Math.round(_stopRate * 100) + "%"), manCalc.stopRecN + "件／建玉あり"),
+          _card("1株あたり損益", _perShare == null ? "—" : React.createElement("b", { style: { color: _elPnlColor(_perShare) } }, (_perShare >= 0 ? "+" : "") + _perShare + "円"), "通算÷" + _manTot + "株")),
         _kbMasterTable(manCalc, "シミュ・" + _manTot + "株", _manTot),
         _notesLine(manCalc)) : null);
   } else {
@@ -3937,7 +3950,7 @@ function _elKabuLadderSimV2(props) {
   var _targetList = React.createElement("div", { style: { marginBottom: 10 } },   // 期間で絞った対象取引をまず表示（＝シミュの母数）2026-07-03q
     React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#0F766E", marginBottom: 4 } }, "対象取引（" + pool.length + "件）",
       React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, _periodLbl + "・シミュの母数")),
-    React.createElement("div", { style: { maxHeight: 300, overflowY: "auto", border: "1px solid #E2E8F0", borderRadius: 8, padding: "2px 4px" } }, _elOsTradeMini(pool, aiOf)));
+    React.createElement("div", { style: { maxHeight: 300, overflowY: "auto", border: "1px solid #E2E8F0", borderRadius: 8, padding: "2px 4px" } }, _elOsTradeMini(pool, aiOf, { plain: true })));
   return React.createElement("div", null, head,
     _targetList,
     React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝実際のH1（推奨基本α・追加α・%シミュと同一基準・損切りルール適用後）／損切り＝各記録の損切り値で取引ごと独立／×見送り・H1判定不可の取引は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※損益は本日の損益データ欄と同じ（）外/（）内方式（○のみH1本算入＝（）外／△・損切り済はEP想定額を（）外にしH1まで保有した場合との差を（）内へ／×・未設定・EP×はEP想定額のみで（）内なし）。金額の（括弧内）＝（）内合計（○△を含む参考額）。"),
