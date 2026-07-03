@@ -31,6 +31,10 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03k 補強: 新規エントリーフォームにOS3到達期待度（os3Exp）入力欄を追加（2026-07-03iの残タスク完遂）
+- **app-05.js**: `EntryRecordForm`に os3Exp を入力・保存できるよう3点追加＝①state `fOs3Exp`（`useState(initSig.os3Exp||null)`・os2Exp stateの直後）②OS3列（`_legCol("OS3",…)`）に**EP=OS3の時だけ**「到達期待」ボタン行（`_ef.epIdx===2 ? _row("到達期待", _expB(fOs3Exp, setFOs3Exp, fOs2Exp==="×"), true) : null`＝OS1/OS2到達期待と同形・前段OS2が×なら自動×のdisabled）を高値/確定値の後・H1/H2期待の前へ挿入③保存に `sig.os3Exp = (_efS.epIdx===2) ? (fOs3Exp||null) : null`（EP=OS3の到達足のときだけ保存。EP≠OS3ではOS3はホールドでholdExp/hold2Expが担うのでnull）。編集時はstate初期値でinitSigから復元。これで2026-07-03iで配線済みの`_epLegs`(OS3 leg exp=s.os3Exp)/`_epExpAt`が実データで機能＝株数シミュでαを下げEPが手前化した時、元OS3足がその到達期待度をH期待度として表示。
+- 検証: app-05はJScript非対応（既存・HEADでも同エラー）のため、CORSサーバ＋ブラウザ`new Function`で全文パースOK（構文エラー0）＋3編集が各1件で存在を確認。表示・保存の最終確認はユーザーが実機で。
+
 ### 2026-07-03j 株数シミュのデッドコード整理（案A=マスター表刷新で未使用化した4関数を削除）
 - **app-06.js**: `_elKabuLadderSimV2`内の定義のみ・呼び出し0件の4関数を削除＝旧比較カード`_compareCard`＋専用セル`_cmpCell`＋同株数基準`_baselineAt`（→`_mtBar`が内部で`baseCalc`直接計算に置換）／旧「記録ごとの内訳」テーブル`_kbDetail`（→マスター表の展開行`_mtTierNodes`に置換）。いずれも2026-07-03h（案A刷新）で置換済み。`_origPnl`/`_mtBar`/`_mtTierNodes`/`_elKabuLadderCalc`/`_elKabuTierEval`/`_notesLine`は生存＝残す。表示・ロジックとも変化なし（純粋なデッドコード除去）。検証: Grepで4関数の呼び出し0件を再確認＋`new Function`構文OK。
 

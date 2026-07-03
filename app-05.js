@@ -5403,6 +5403,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateO2C = useState(_initHold.os2Conf != null ? String(_initHold.os2Conf) : ""), fOs2Conf = _useStateO2C[0], setFOs2Conf = _useStateO2C[1];
   var _useStateO2CS = useState(_initHold.os2ConfSign || null), fOs2ConfSign = _useStateO2CS[0], setFOs2ConfSign = _useStateO2CS[1];
   var _useStateO2E = useState(initSig.os2Exp || null), fOs2Exp = _useStateO2E[0], setFOs2Exp = _useStateO2E[1];
+  var _useStateO3E = useState(initSig.os3Exp || null), fOs3Exp = _useStateO3E[0], setFOs3Exp = _useStateO3E[1];
   var _useStateO3H = useState(_initHold.os3High != null ? String(_initHold.os3High) : ""), fOs3High = _useStateO3H[0], setFOs3High = _useStateO3H[1];
   var _useStateO3HS = useState(_initHold.os3HighSign || "+"), fOs3HighSign = _useStateO3HS[0], setFOs3HighSign = _useStateO3HS[1];
   var _useStateO3C = useState(_initHold.os3Conf != null ? String(_initHold.os3Conf) : ""), fOs3Conf = _useStateO3C[0], setFOs3Conf = _useStateO3C[1];
@@ -6185,6 +6186,7 @@ function EntryRecordForm(_ref_erf) {
       sig.os3HighSign = fOs3High !== "" ? (fOs3HighSign || "+") : null;
       sig.os3Conf = fOs3Conf !== "" ? Number(fOs3Conf) : null;
       sig.os3ConfSign = fOs3Conf !== "" ? (fOs3ConfSign || null) : null;
+      sig.os3Exp = (_efS.epIdx === 2) ? (fOs3Exp || null) : null;  // EP=OS3（到達した足）の時だけ保存。EP≠OS3ではOS3はホールドでholdExp/hold2Exp側が担う 2026-07-03
     }
 
     if (isEdit && (initial.stock !== fStock || initial.date !== fDate)) {
@@ -6748,6 +6750,7 @@ function EntryRecordForm(_ref_erf) {
             _legCol("OS3", _fRoleOf(2), [
               _row("高値", _sIn(fOs3High, setFOs3High, fOs3HighSign, setFOs3HighSign, _os3hSignedRef)),
               _row("確定値", _sIn(fOs3Conf, setFOs3Conf, fOs3ConfSign, setFOs3ConfSign, _os3cSignedRef)),
+              _ef.epIdx === 2 ? _row("到達期待", _expB(fOs3Exp, setFOs3Exp, fOs2Exp === "×"), true) : null,
               _ef.epIdx === 1 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×", fHoldExp === "△" ? ["○"] : null), true)
                 : _ef.epIdx === 2 ? _row("H1期待", _expB(fHoldExp, setFHoldExp, false, _epTriForm ? ["○"] : null), true) : null
             ])
