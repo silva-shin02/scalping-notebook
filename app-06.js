@@ -3737,13 +3737,13 @@ function _elKabuLadderSimV2(props) {
   };
   var _inpSty = { width: 56, padding: "3px 6px", fontSize: 11.5, border: "1px solid #ddd", borderRadius: 5, textAlign: "right" };
   // ===== 案A マスター表（記録詳細＝本日の損益データ欄準拠＋シミュ3列＋上下合計バー）2026-07-03 =====
-  var _mtBar = function(cfgSum, cfgRef, cfgLabel, baseSum, baseRef, upl, reshow) {
+  var _mtBar = function(cfgSum, cfgRef, cfgLabel, baseSum, baseRef, upl, uplRef, reshow) {
     var _in = function(m, r, col) { return (m != null && r) ? React.createElement("span", { style: { fontSize: 10, opacity: 0.8, marginLeft: 1, color: col } }, "（" + _elPnlFmt(m + r) + "）") : null; };
     return React.createElement("div", { style: { background: "#0F766E", color: "#fff", padding: "8px 12px", display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", borderRadius: reshow ? "0 0 10px 10px" : "10px 10px 0 0" } },
       React.createElement("span", { style: { fontSize: 9.5, opacity: 0.85 } }, "合計"),
       React.createElement("span", { style: { fontSize: 11 } }, "従来 ", React.createElement("b", { style: { fontSize: 15 } }, baseSum == null ? "—" : _elPnlFmt(baseSum)), _in(baseSum, baseRef)),
       React.createElement("span", { style: { fontSize: 11, background: "#fff", color: "#0F766E", borderRadius: 6, padding: "1px 8px" } }, cfgLabel + " ", React.createElement("b", { style: { fontSize: 15 } }, _elPnlFmt(cfgSum)), _in(cfgSum, cfgRef, "#0F766E")),
-      React.createElement("span", { style: { fontSize: 11 } }, "差額 ", React.createElement("b", { style: { fontSize: 15 } }, upl == null ? "—" : _elPnlFmt(upl))),
+      React.createElement("span", { style: { fontSize: 11 } }, "差額 ", React.createElement("b", { style: { fontSize: 15 } }, upl == null ? "—" : _elPnlFmt(upl)), _in(upl, uplRef)),
       (_origPnl != null) ? React.createElement("span", { style: { marginLeft: "auto", fontSize: 9.5, opacity: 0.9 } }, "元の損益(実際) " + _elPnlFmt(_origPnl)) : null);   // 2026-07-03uで上部バー削除後、!reshow条件で常に非表示になっていたのを下部バーに表示 2026-07-04
   };
   var _mtTh = function(label, align, hi) { return React.createElement("td", { style: { padding: "5px 6px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", textAlign: align || "left", background: hi ? "#FEF3C7" : undefined } }, label); };
@@ -3798,6 +3798,7 @@ function _elKabuLadderSimV2(props) {
     var _bAgg = _kbConvSums(nShares);
     var cfgSum = cfgCalc.sum, baseSum = _bAgg.sum, upl = (cfgSum != null && baseSum != null) ? (cfgSum - baseSum) : null;
     var cfgRef = cfgCalc.sumRef, baseRef = _bAgg.sumRef;   // （）内差分の合計 2026-07-03
+    var uplRef = cfgRef - baseRef;   // 差額の（）内側＝（）内合計（main+ref）同士の差と（）外差額の差分。0なら（）外差額と同じ＝括弧非表示 2026-07-04
     var mrecs = [];
     cfgCalc.rows.forEach(function(row, i) {
       var r = row.r, s = r && r.signal; if (!s) return;
@@ -3808,15 +3809,15 @@ function _elKabuLadderSimV2(props) {
     mrecs.sort(function(x, y) { var dx = (x.r.date || "") + (x.s.time || ""), dy = (y.r.date || "") + (y.s.time || ""); return dx < dy ? 1 : dx > dy ? -1 : 0; });
     var _sumRow = function(k) { return React.createElement("tr", { key: k, style: { background: "#E1F5EE" } },
       React.createElement("td", { colSpan: 6, style: { padding: "4px 6px", fontSize: 10, fontWeight: 700, color: "#0F766E", whiteSpace: "nowrap" } }, "合計（" + mrecs.length + "件）"),
-      _mtTd(_mtPnlNode2(baseSum, baseRef), "right"), _mtTd(_mtPnlNode2(cfgSum, cfgRef), "center", true), _mtTd(_mtPnlNode(upl), "right"), React.createElement("td", null)); };
+      _mtTd(_mtPnlNode2(baseSum, baseRef), "right"), _mtTd(_mtPnlNode2(cfgSum, cfgRef), "center", true), _mtTd(_mtPnlNode2(upl, uplRef), "right"), React.createElement("td", null)); };
     var brows = [];
     mrecs.forEach(function(m, i) {
-      var s = m.s, a = m.a, diff = (m.basePnl == null && m.cfgPnl == null) ? null : ((m.cfgPnl || 0) - (m.basePnl || 0));   // 両方—なら—・片側—は0円扱いで常にシミュ−従来（従来のみ数値の時に符号が＋になるバグ修正 2026-07-04）
+      var s = m.s, a = m.a, diff = (m.basePnl == null && m.cfgPnl == null) ? null : ((m.cfgPnl || 0) - (m.basePnl || 0)), diffRef = (m.cfgRef || 0) - (m.baseRef || 0);   // 両方—なら—・片側—は0円扱いで常にシミュ−従来（従来のみ数値の時に符号が＋になるバグ修正 2026-07-04）。diffRef=（）内側の差額差分 2026-07-04b
       var key = "mt" + m.oi, open = mtExp === key;   // 元インデックス基準の安定キー（ソート非依存）2026-07-03
       var dstr = (m.r.date || "").slice(5).replace("-", "/") + (s.time ? " " + s.time : "");
       var alphaNode = React.createElement("div", { style: { lineHeight: 1.1 } }, (a != null ? (a + "円") : "—"), _elAlphaBreakdownNode(s, a));
       brows.push(React.createElement("tr", { key: key, onClick: function() { setMtExp(open ? null : key); }, style: { cursor: "pointer", background: open ? "#F0FDFA" : (m.anyStop ? "#F4FBF5" : "transparent") } },
-        _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(React.createElement("span", { style: { color: "#0369A1", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.recoA != null ? (m.recoA + "円") : "—")), _mtTd(alphaNode), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.simA.length ? m.simA.map(function(v) { return v + "円"; }).join("/") : "—")), _mtTd(_mtPnlNode2(m.basePnl, m.baseRef), "right"), _mtTd(React.createElement("div", { style: { lineHeight: 1.3 } }, _mtPnlNode2(m.cfgPnl, m.cfgRef), _mtSimBreakdown(m.cells)), "center", true), _mtTd(_mtPnlNode(diff), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
+        _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(React.createElement("span", { style: { color: "#0369A1", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.recoA != null ? (m.recoA + "円") : "—")), _mtTd(alphaNode), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.simA.length ? m.simA.map(function(v) { return v + "円"; }).join("/") : "—")), _mtTd(_mtPnlNode2(m.basePnl, m.baseRef), "right"), _mtTd(React.createElement("div", { style: { lineHeight: 1.3 } }, _mtPnlNode2(m.cfgPnl, m.cfgRef), _mtSimBreakdown(m.cells)), "center", true), _mtTd(_mtPnlNode2(diff, diffRef), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
       if (open) brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "6px 10px", background: "#FBFEFD", borderBottom: "1px solid #eee", fontSize: 9.5, color: "#9A3412" } }, React.createElement("span", { style: { fontWeight: 700 } }, "取引内訳: "), _mtTierNodes(m.cells))));
     });
     return React.createElement("div", { style: { marginTop: 8 } },
@@ -3827,7 +3828,7 @@ function _elKabuLadderSimV2(props) {
               _mtTh("日付"), _mtTh("OS連鎖（期待度）"), _mtTh("E", "center"), _mtTh("推奨α"), _mtTh("採用α"), _mtTh("シミュα"), _mtTh("従来", "right"), _mtTh("シミュレーション", "center", true), _mtTh("差額", "right"), _mtTh(""))),
           React.createElement("tbody", null, brows),
           React.createElement("tfoot", null, _sumRow("f")))),
-      _mtBar(cfgSum, cfgRef, cfgLabel, baseSum, baseRef, upl, true));
+      _mtBar(cfgSum, cfgRef, cfgLabel, baseSum, baseRef, upl, uplRef, true));
   };
   var _card = function(label, node, sub) {
     return React.createElement("div", { key: label, style: { flex: "1 1 148px", minWidth: 138, background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "8px 12px", textAlign: "center" } },
@@ -3893,6 +3894,7 @@ function _elKabuLadderSimV2(props) {
     var _manTot = 0; rows.forEach(function(x) { if (x.method !== "abs" && x.method !== "reco" && x.method !== "recobase") return; var c = _kbInt(x.cum); if (c != null) _manTot = Math.max(_manTot, c); });   // 手動ラダーの総株数（最大累積）＝比較基準の株数 2026-07-03。未選択行は数えない 2026-07-03p
     var _convMan = _manTot > 0 ? _kbConvSums(_manTot) : null;   // 従来（損益データ欄と同じ理論値×総株数按分）＝差額の基準（_kbMasterTableのbaseSumと同一計算）2026-07-04
     var _uplMan = (_convMan && manCalc) ? (manCalc.sum - _convMan.sum) : null;   // 差額＝シミュ−従来（＝マスター表の合計差額と一致）
+    var _uplManRef = (_convMan && manCalc) ? (manCalc.sumRef - _convMan.sumRef) : null;   // 差額の（）内側差分（0なら（）非表示）2026-07-04b
     var _winN = 0; if (manCalc) manCalc.rows.forEach(function(_r) { if (_r.recPnl != null && _r.recPnl > 0) _winN++; });   // 勝ち＝建玉ありでシミュ損益プラス 2026-07-03r
     var _winRate = (manCalc && manCalc.builtRecN) ? _winN / manCalc.builtRecN : null;
     var _stopRate = (manCalc && manCalc.builtRecN) ? manCalc.stopRecN / manCalc.builtRecN : null;
@@ -3919,7 +3921,7 @@ function _elKabuLadderSimV2(props) {
       manCalc ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
           _card("通算損益", (function() { var _m = manCalc.sum, _rf = manCalc.sumRef; return React.createElement("span", { style: { whiteSpace: "normal" } }, React.createElement("span", { style: { color: _elPnlColor(_m), fontSize: 17, whiteSpace: "nowrap" } }, _elPnlFmt(_m)), (_rf ? React.createElement("span", { style: { color: _elPnlColor(_m), fontSize: 17, marginLeft: 2, whiteSpace: "nowrap", display: "inline-block" } }, "（" + _elPnlFmt(_m + _rf) + "）") : null)); })(), manCalc.n + "記録中 建玉あり" + manCalc.builtRecN + "件"),
-          _card("差額", _uplMan == null ? "—" : _pnlNode(_uplMan), "シミュ−従来"),
+          _card("差額", _uplMan == null ? "—" : (function() { return React.createElement("span", { style: { whiteSpace: "normal" } }, React.createElement("span", { style: { color: _elPnlColor(_uplMan), fontSize: 17, whiteSpace: "nowrap" } }, _elPnlFmt(_uplMan)), (_uplManRef ? React.createElement("span", { style: { color: _elPnlColor(_uplMan), fontSize: 17, marginLeft: 2, whiteSpace: "nowrap", display: "inline-block" } }, "（" + _elPnlFmt(_uplMan + _uplManRef) + "）") : null)); })(), "シミュ−従来"),
           _card("1記録あたり", manCalc.builtRecN ? _pnlNode(Math.round(manCalc.sum / manCalc.builtRecN)) : "—", "建玉ありの平均"),
           _card("建玉あり", manCalc.builtRecN + "件", "全取引未到達・×見送り除く"),
           _card("勝率", _winRate == null ? "—" : React.createElement("b", { style: { color: _winRate >= 0.5 ? "#1E8449" : "#B45309" } }, Math.round(_winRate * 100) + "%"), "建玉あり中プラス"),
