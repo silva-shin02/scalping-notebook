@@ -3666,8 +3666,6 @@ function _elKabuLadderSimV2(props) {
   var _s1AlphaMax = (_recoBaseAlpha != null && _recoBaseAlpha >= 1) ? (_recoBaseAlpha - 1) : 20;   // 第1取引αの探索上限＝推奨基本α未満（推奨不明時は従来どおり0〜20）
   // 元の損益（実際の実現損益・参考）＝母数の全記録の signed realizedPnl 合計。シミュは総株数・これは実際に建てた株数なのでスケールは別（参考）。2026-07-03
   var _origPnl = (function() { var s = 0, has = false; pool.forEach(function(r) { var sg = r && r.signal; if (sg && _elIsEntered(sg, r.item)) { var v = _elSignedVal(sg.realizedPnl, sg.realizedPnlSign); if (v != null) { s += v; has = true; } } }); return has ? Math.round(s) : null; })();
-  // 同株数の比較基準＝各記録を「実際に採用したα」でn株・単建て（H1・損切り同一基準）。ラダーの上乗せを同株数で測る用（採用α未設定の記録は建たない）。
-  var _baselineAt = function(n) { if (!(n > 0)) return null; return _elKabuLadderCalc(pool, aiOf, function(r) { return [{ a: aiOf(r).alpha, add: n }]; }).sum; };
   // ===== 手動ラダー: 取引ごとに入力方式（絶対値/推奨α±X/推奨基本α値）→実効αを記録ごとに算出しα昇順で積み増し（累積差分）2026-07-03 =====
   // 各取引の実効α: abs=off(絶対値・0未満は0) / reco=推奨α(日付時点)+off / recobase=推奨α(日付時点)。推奨不明(reco系)はこの記録では建てない(a=null)。α順は記録ごとに変わりうる。
   var _manTiersOf = function(r) {
@@ -3718,27 +3716,6 @@ function _elKabuLadderSimV2(props) {
       style: { flexShrink: 0, padding: "5px 13px", fontSize: 11.5, fontWeight: 700, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? color : "#ddd"), background: on ? color : "#fff", color: on ? "#fff" : "#666" } }, label);
   };
   var _inpSty = { width: 56, padding: "3px 6px", fontSize: 11.5, border: "1px solid #ddd", borderRadius: 5, textAlign: "right" };
-  var _cmpCell = function(label, val, sub, hi) {
-    return React.createElement("div", { style: { background: "#fff", border: hi ? "2px solid #F59E0B" : "0.5px solid #FDE68A", borderRadius: 8, padding: "7px 8px", textAlign: "center", minWidth: 0 } },
-      React.createElement("div", { style: { fontSize: 9.5, color: hi ? "#92400E" : "#999", fontWeight: 700, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label),
-      (val == null) ? React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#bbb" } }, "—") : React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: _elPnlColor(val), lineHeight: 1.1, whiteSpace: "nowrap" } }, _elPnlFmt(val)),
-      sub ? React.createElement("div", { style: { fontSize: 8.5, color: "#aaa", marginTop: 1 } }, sub) : null);
-  };
-  // 比較カード（自動=最適配分／手動=この配分）: 同じ総株数(nShares)で「実際のα単独／シミュ配分／上乗せ」＋元の損益（実際・参考）。2026-07-03
-  var _compareCard = function(simSum, simLabel, nShares) {
-    if (!(nShares > 0) || simSum == null) return null;
-    var base = _baselineAt(nShares);
-    var upl = (base != null) ? (simSum - base) : null;
-    return React.createElement("div", { style: { background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 10, padding: "10px 12px", marginBottom: 10 } },
-      React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#92400E", marginBottom: 7 } }, "同じ総株数（" + nShares + "株）での比較 ― H1・損切り同一基準"),
-      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8, marginBottom: _origPnl != null ? 8 : 0 } },
-        _cmpCell("実際のα単独・" + nShares + "株", base, "ラダー無し・採用α"),
-        _cmpCell(simLabel, simSum, "シミュ配分", true),
-        _cmpCell("ラダーの上乗せ", upl, "シミュ − 実際のα")),
-      _origPnl != null ? React.createElement("div", { style: { background: "#fff", borderRadius: 8, padding: "7px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 } },
-        React.createElement("span", null, React.createElement("span", { style: { fontSize: 11.5, color: "#333" } }, "元の損益（実際）"), React.createElement("span", { style: { fontSize: 9, color: "#aaa", marginLeft: 6 } }, "実際に建てた株数での実現損益・参考")),
-        React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: _elPnlColor(_origPnl) } }, _elPnlFmt(_origPnl))) : null);
-  };
   // ===== 案A マスター表（記録詳細＝本日の損益データ欄準拠＋シミュ3列＋上下合計バー）2026-07-03 =====
   var _mtBar = function(cfgSum, cfgLabel, baseSum, upl, reshow) {
     return React.createElement("div", { style: { background: "#0F766E", color: "#fff", padding: "8px 12px", display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap", borderRadius: reshow ? "0 0 10px 10px" : "10px 10px 0 0" } },
@@ -3808,35 +3785,6 @@ function _elKabuLadderSimV2(props) {
       sub ? React.createElement("div", { style: { fontSize: 8.5, color: "#aaa", marginTop: 2 } }, sub) : null);
   };
   var _pnlNode = function(v, big) { return React.createElement("span", { style: { color: _elPnlColor(v), fontSize: big ? 17 : undefined } }, _elPnlFmt(v)); };
-  // 記録ごとの内訳テーブル（手動/自動の展開で共用）＝「この取引では何円」
-  var _kbDetail = function(calc) {
-    var trs = calc.rows.slice().sort(function(x, y) { var dx = x.r.date || "", dy = y.r.date || ""; return dx < dy ? 1 : dx > dy ? -1 : 0; }).map(function(row, i) {
-      var s = row.r.signal;
-      var osMax = _elOsMaxAll(s);
-      var tierNodes = [];
-      row.cells.forEach(function(c, j) {
-        if (!(c.t.add > 0)) return;
-        var ev = c.ev, txt;
-        if (ev.skip === "noalpha") txt = React.createElement("span", { style: { color: "#bbb" } }, "推奨α不明（取引対象外）");
-        else if (ev.skip === "unreached") txt = React.createElement("span", { style: { color: "#94A3B8" } }, "α" + ev.a + "円 未到達");
-        else if (ev.skip === "x") txt = React.createElement("span", { style: { color: "#0369A1" } }, "α" + ev.a + "円 ×見送り");
-        else if (ev.indet) txt = React.createElement("span", { style: { color: "#B45309" } }, "α" + ev.a + "円×" + c.t.add + "株 判定不可");
-        else {
-          var amt = Math.round(ev.pnl100 * c.t.add / 100);
-          txt = React.createElement("span", null, "α" + ev.a + "円×" + c.t.add + "株 ",
-            React.createElement("b", { style: { color: _elPnlColor(amt) } }, _elPnlFmt(amt)),
-            ev.stop ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: "#1E8449", marginLeft: 3 } }, "損切") : null);
-        }
-        tierNodes.push(React.createElement("div", { key: j, style: { whiteSpace: "nowrap", lineHeight: 1.5 } }, txt));
-      });
-      return React.createElement("tr", { key: i, style: row.anyStop ? { background: "#F4FBF5" } : null },
-        _elv2Td((row.r.date || "").slice(5).replace("-", "/") + (s.time ? " " + s.time : ""), { textAlign: "left", paddingLeft: 8, whiteSpace: "nowrap" }),
-        _elv2Td(osMax != null ? (osMax + "円") : "—"),
-        _elv2Td(tierNodes.length ? React.createElement("div", null, tierNodes) : React.createElement("span", { style: { color: "#ccc" } }, "—"), { textAlign: "left" }),
-        _elv2Td(row.recPnl == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("b", { style: { color: _elPnlColor(row.recPnl) } }, _elPnlFmt(row.recPnl))));
-    });
-    return _elv2Table(["日付", "最高OS", "取引別内訳（α×株数＝損益）", "記録損益"], trs);
-  };
   var _notesLine = function(calc) {
     var parts = [];
     if (calc.xRecN) parts.push("×見送りのみ" + calc.xRecN + "件（建てない）");

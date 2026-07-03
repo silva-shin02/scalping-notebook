@@ -31,6 +31,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-03j 株数シミュのデッドコード整理（案A=マスター表刷新で未使用化した4関数を削除）
+- **app-06.js**: `_elKabuLadderSimV2`内の定義のみ・呼び出し0件の4関数を削除＝旧比較カード`_compareCard`＋専用セル`_cmpCell`＋同株数基準`_baselineAt`（→`_mtBar`が内部で`baseCalc`直接計算に置換）／旧「記録ごとの内訳」テーブル`_kbDetail`（→マスター表の展開行`_mtTierNodes`に置換）。いずれも2026-07-03h（案A刷新）で置換済み。`_origPnl`/`_mtBar`/`_mtTierNodes`/`_elKabuLadderCalc`/`_elKabuTierEval`/`_notesLine`は生存＝残す。表示・ロジックとも変化なし（純粋なデッドコード除去）。検証: Grepで4関数の呼び出し0件を再確認＋`new Function`構文OK。
+
 ### 2026-07-03i シミュでEP移動時の期待度を「記録時EP基準」で足に固定（案A・表示修正）
 - **app-05.js**: 共有ヘルパー `_epExpAt(s, i)` を新設＝物理足iの期待度を記録時EP位置(`_epOwnAlpha`のαでEP判定)で固定割当（OS1/2＝α到達期待度os*Exp／記録時EP直後1本目=holdExp・2本目=hold2Exp／それ以外=leg.exp・無ければnull）。`_epOsChainCell`(旧3817)の期待度選択を`(i===epIdx+1?holdExp:...)`→`_epExpAt(s,i)`に変更＝シミュでαを下げEPが手前にずれても、新たにEP後ホールド化した元OS足に「記録時の別足用holdExp」でなく、その足自身の期待度を表示。`_epLegs`のOS3 legに`s.os3Exp`を配線（補強os3Exp用・現状フォーム未対応で不活性）。
 - 据え置き＝OS値打ち切り側(`_elOsMaxFiltered`/`_elOsMaxCapped`/3466)の同型パターンは変更せず（採用αでは`_epExpAt`と同値で無変化・シミュ表示のOS連鎖には出ない・OS値集計を動かさない）。期待度はP&L計算(`_elDynHold`等・株数シミュ)に不使用＝損益不変。
