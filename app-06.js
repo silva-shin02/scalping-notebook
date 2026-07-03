@@ -3649,6 +3649,7 @@ function _elKabuLadderSimV2(props) {
   var recs = props.recs || [], baseRecs = props.baseRecs || recs, aiOf = props.aiOf, floatMode = !!props.floatMode;
   var _uM = useState("manual"), mode = _uM[0], setMode = _uM[1];
   var _uF = useState("no"), addFil = _uF[0], setAddFil = _uF[1];
+  var _uPd = useState("all"), period = _uPd[0], setPeriod = _uPd[1];   // 対象取引の期間絞り込み（本日/1週/1月/3月/6月/1年/全期間）既定=全期間 2026-07-03q
   var _uRw = useState([{ method: "", off: "", cum: "" }, { method: "", off: "", cum: "" }]), rows = _uRw[0], setRows = _uRw[1];   // 取引ごとに入力方式(method)を持つ 2026-07-03。初期は何も選択していない状態（未選択2行）2026-07-03p
   var _uAP = useState(false), addPicker = _uAP[0], setAddPicker = _uAP[1];   // 取引追加時の入力方式ピッカー表示 2026-07-03
   var _METHODS = [{ key: "abs", label: "絶対値（0円基準）でα○円", short: "絶対値" }, { key: "reco", label: "推奨α±X（記録日時点）", short: "推奨α±X" }, { key: "recobase", label: "推奨基本α値で（株数だけ）", short: "推奨基本α値" }];   // 手動ラダーの入力方式マスター
@@ -3657,7 +3658,21 @@ function _elKabuLadderSimV2(props) {
   var _uMt = useState(null), mtExp = _uMt[0], setMtExp = _uMt[1];   // 案Aマスター表の行展開キー 2026-07-03
   var _kbSan = function(v) { return String(v == null ? "" : v).replace(/[０-９]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }).replace(/[ー−―‐]/g, "-").replace(/[^0-9\-]/g, ""); };
   var _kbInt = function(v) { var t = _kbSan(v); if (t === "" || t === "-") return null; var n = parseInt(t, 10); return isNaN(n) ? null : n; };
-  var pool = floatMode ? recs : (addFil === "no" ? recs.filter(function(r) { return r && !_elAddAlphaYes(r.signal); }) : addFil === "yes" ? recs.filter(function(r) { return r && _elAddAlphaYes(r.signal); }) : recs);
+  // 対象取引を期間で絞り込み（記録日基準・本日=当日/相対=今日からN遡り以降/全期間=無制限）2026-07-03q。推奨α(baseRecs/recoOf)は各記録日の履歴で別途算出＝ここでは絞らない。
+  var _periodRecs = (function() {
+    if (period === "all") return recs;
+    var _t = todayStr();
+    if (period === "today") return recs.filter(function(r) { return r && r.date === _t; });
+    var _cd = new Date(_t + "T00:00:00");
+    if (period === "1w") _cd.setDate(_cd.getDate() - 7);
+    else if (period === "1m") _cd.setMonth(_cd.getMonth() - 1);
+    else if (period === "3m") _cd.setMonth(_cd.getMonth() - 3);
+    else if (period === "6m") _cd.setMonth(_cd.getMonth() - 6);
+    else if (period === "1y") _cd.setFullYear(_cd.getFullYear() - 1);
+    var _cut = _cd.getFullYear() + "-" + String(_cd.getMonth() + 1).padStart(2, "0") + "-" + String(_cd.getDate()).padStart(2, "0");
+    return recs.filter(function(r) { return r && r.date && r.date >= _cut; });
+  })();
+  var pool = floatMode ? _periodRecs : (addFil === "no" ? _periodRecs.filter(function(r) { return r && !_elAddAlphaYes(r.signal); }) : addFil === "yes" ? _periodRecs.filter(function(r) { return r && _elAddAlphaYes(r.signal); }) : _periodRecs);
   // 日付時点推奨α（重い計算）はrefキャッシュ＝スコープ/データが実際に変わった時だけ再構築（EntryLogViewは毎レンダーで配列を作り直すため参照同一性では判定できない→内容署名で判定）。
   var recoRef = useRef(null);
   var recoSig = baseRecs.length + "|" + baseRecs.map(function(r) { var s = r && r.signal; return (r.date || "") + "." + (s ? (s.alphaVal != null ? s.alphaVal : "") + "." + (s.addAlphaUsed === true ? "y" : s.addAlphaUsed === false ? "n" : "u") : "") + "." + (aiOf(r).cutLine != null ? aiOf(r).cutLine : ""); }).join(";");
@@ -3809,6 +3824,10 @@ function _elKabuLadderSimV2(props) {
   };
   // ===== 本体 =====
   var head = React.createElement(React.Fragment, null,
+    React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "対象期間:"),
+      [["today", "本日"], ["1w", "1週間"], ["1m", "1か月"], ["3m", "3か月"], ["6m", "6か月"], ["1y", "1年"], ["all", "全期間"]].map(function(kv) { return _pill(period === kv[0], kv[1], function() { setPeriod(kv[0]); setAutoExp(null); setMtExp(null); }, "#0F766E"); }),
+      React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（" + _periodRecs.length + "件）")),
     React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 6 } },
       _pill(mode === "manual", "✍ 手動ラダー", function() { setMode("manual"); }, "#0F766E"),
       _pill(mode === "auto", "🤖 自動配分", function() { setMode("auto"); setAutoExp(null); }, "#0F766E")),
@@ -3914,7 +3933,13 @@ function _elKabuLadderSimV2(props) {
       _rankRows.length ? _elv2Table(["順位", "第1取引α値", "第1取引株", "第2取引株(推奨α)", "建玉あり", "損切り", "通算損益", ""], _rankRows)
         : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 11 } }, "合計株数を入力してください"));
   }
+  var _periodLbl = ({ today: "本日", "1w": "1週間", "1m": "1か月", "3m": "3か月", "6m": "6か月", "1y": "1年", all: "全期間" })[period] || "全期間";
+  var _targetList = React.createElement("div", { style: { marginBottom: 10 } },   // 期間で絞った対象取引をまず表示（＝シミュの母数）2026-07-03q
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#0F766E", marginBottom: 4 } }, "対象取引（" + pool.length + "件）",
+      React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, _periodLbl + "・シミュの母数")),
+    React.createElement("div", { style: { maxHeight: 300, overflowY: "auto", border: "1px solid #E2E8F0", borderRadius: 8, padding: "2px 4px" } }, _elOsTradeMini(pool, aiOf)));
   return React.createElement("div", null, head,
+    _targetList,
     React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝実際のH1（推奨基本α・追加α・%シミュと同一基準・損切りルール適用後）／損切り＝各記録の損切り値で取引ごと独立／×見送り・H1判定不可の取引は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※損益は本日の損益データ欄と同じ（）外/（）内方式（○のみH1本算入＝（）外／△・損切り済はEP想定額を（）外にしH1まで保有した場合との差を（）内へ／×・未設定・EP×はEP想定額のみで（）内なし）。金額の（括弧内）＝（）内合計（○△を含む参考額）。"),
     body);
 }
