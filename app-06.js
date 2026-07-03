@@ -3795,7 +3795,7 @@ function _elKabuLadderSimV2(props) {
         : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 11 } }, "合計株数を入力してください"));
   }
   return React.createElement("div", null, head,
-    React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝実際のH1（推奨基本α・追加α・%シミュと同一基準・損切りルール適用後）／損切り＝各記録の損切り値で段ごと独立／×見送り・H1判定不可の段は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝実際のH1（推奨基本α・追加α・%シミュと同一基準・損切りルール適用後）／損切り＝各記録の損切り値で段ごと独立／×見送り・H1判定不可の段は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※H1の期待度（○×△）は参照せず全記録をH1まで保有した想定＝損益データ表・α意思決定表の（）外合計（期待度どおり・○のみ本算入・EP額フォールバック）とは基準が異なります。"),
     body);
 }
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
