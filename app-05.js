@@ -3323,14 +3323,30 @@ function _epResolve(s, alpha) {
 }
 // 各物理足iの期待度を「記録時のEP位置(採用α=_epOwnAlpha)」で固定割当＝シミュでαを変えEPが動いても、その足に元々紐づく期待度を保つ 2026-07-03。
 // OS1/2(＋補強後OS3)=α到達期待度(os*Exp=leg.exp)／記録時EP直後1本目=holdExp・2本目=hold2Exp／それ以外(EP前OS足・記録H2より深い足)=leg.exp(無ければnull)。
-// 【2026-07-06】記録時EP足(i===recEp)はα到達済み(h≥α)なので、α到達期待が未入力でも○とみなす＝シミュでαを下げEPが前進し「元EP足」が新H1/H2になった時、そのα到達期待をH期待として使う（EP足は入力UIがEP表示になりos*Expが空になりがち。ユーザー指摘: OS2でα到達を期待していたはず=○）。明示の×/△/○はそのまま尊重。採用α(EP不動)ではi=recEpは損益に使わない(H1=recEp+1から)ので不変。
+// 【2026-07-06 表示専用に降格】損益のガバナンス（足iを保有するか）は「足i-1の引けの次足期待度」＝_epNextExpAt(s, i-1)へ移行（off-by-one解消）。この関数は表のOS連鎖セル等の表示用に従来契約のまま残す。
 function _epExpAt(s, i) {
   var legs = _epLegs(s), a0 = _epOwnAlpha(s), recEp = -1;
   if (a0 != null) { for (var k = 0; k < Math.min(3, legs.length); k++) { if (legs[k].h != null && legs[k].h >= a0) { recEp = k; break; } } }
   if (recEp >= 0 && i === recEp + 1) return s.holdExp || null;
   if (recEp >= 0 && i === recEp + 2) return s.hold2Exp || null;
-  if (recEp >= 0 && i === recEp) return (legs[i] && legs[i].exp) || "○";
   return (legs[i] && legs[i].exp) || null;
+}
+// 次足期待度（2026-07-06 統一・正本）: 足x(0=OS1〜3=OS4)の「引け」で下した“次の足へ継続するか”の判断（○=継続/△=中間/×=この足で降りる=見送り・手仕舞い/損切り済=旧データ値）。
+// 旧・α値到達期待度(os1/2/3Exp)とH1/H2期待度(holdExp/hold2Exp)を1概念に統一＝足iを保有/継続するかのガバナンスは常に _epNextExpAt(s, i-1)。
+// 読み順: ①新フィールド s.nextExp(x+1)（新フォーム保存の正本） ②レガシー導出＝記録時EP位置(採用α)で x<recEp→os(x+1)Exp（待ち足の判断）/ x===recEp→holdExp（EP引けのH1保有判断）/ x===recEp+1→hold2Exp / x>recEp+1→null（既存記録の保有域外＝未記録・×扱い）。
+// OS5(x=4)に次足は無い＝xは0〜3のみ。非v2はnull（呼び出し側が生holdExp等へフォールバック）。
+function _epNextExpAt(s, x) {
+  if (!s || !_epIsV2(s) || x == null || x < 0 || x > 3) return null;
+  var nv = s["nextExp" + (x + 1)];
+  if (nv != null && nv !== "") return nv;
+  var legs = _epLegs(s), a0 = _epOwnAlpha(s), recEp = -1;
+  if (a0 != null) { for (var k = 0; k < Math.min(3, legs.length); k++) { if (legs[k].h != null && legs[k].h >= a0) { recEp = k; break; } } }
+  if (recEp >= 0) {
+    if (x === recEp) return s.holdExp || null;
+    if (x === recEp + 1) return s.hold2Exp || null;
+    if (x > recEp + 1) return null;
+  }
+  return (legs[x] && legs[x].exp) || null;
 }
 // ×宣言後の到達（judge="x"＝見送り・参考扱い）か。EP足はα到達済みだが手前のOSで×宣言したため集計上ノートレード。
 function _epIsXSkip(s, alpha) {
@@ -3347,7 +3363,7 @@ function _epIsTriEntry(s, alpha) {
   var r = _epResolve(s, alpha);
   if (!r || r.judge !== "ok" || r.epIdx < 0) return false;
   for (var i = 0; i < r.epIdx; i++) {
-    if (r.legs[i] && r.legs[i].exp === "△") return true;
+    if (_epNextExpAt(s, i) === "△") return true;   // 次足期待度で判定（採用αでは=legs[i].exp・シミュでEPが後退した時も元EP足のholdExp△を拾える）2026-07-06
   }
   return false;
 }
@@ -4304,9 +4320,9 @@ function _elHold1TotParts(s, alpha, cutLine) {
     if (pv0 != null) hres = pv0;
   }
   if (hres == null) return { main: null, ref: null };
-  // 【2026-07-03v 修正】H1期待度は「足ごとに固定した期待度(_epExpAt)」で見る＝αを変えEPが前進しても、元々×だった足は×扱い（旧: 記録時s.holdExpを直接参照＝シミュでEPが動くと別の物理足に誤って○を適用しH2×の足まで保有算入していた）。採用α（EP不動）では_epExpAt=s.holdExpで完全に不変。v2以外/α無しはs.holdExp。
+  // 【2026-07-06 次足期待度に統一】H1(EPの次の足)を保有するかは「EP足の引けの次足期待度」＝_epNextExpAt(s, epIdx)。採用α（EP不動）では=s.holdExpで完全に不変。シミュでEPが動いた時も“その足の引けに実際に下した判断”（待ち足なら到達期待）が使われる＝off-by-one解消（旧2026-07-03v/07-06○補完を置換）。v2以外/α無しはs.holdExp。
   var _r1 = (_epIsV2(s) && alpha != null) ? _epResolve(s, alpha) : null;
-  var _hExp = (_r1 && _r1.epIdx >= 0) ? _epExpAt(s, _r1.epIdx + 1) : s.holdExp;
+  var _hExp = (_r1 && _r1.epIdx >= 0) ? _epNextExpAt(s, _r1.epIdx) : s.holdExp;
   // EP△（_epIsTriEntry＝△確信度エントリー）→ EP自体が（）外0・参考なので、H1も（）外0（main:null）。
   // H1=○/△/損切り済は保有額を（）内（参考）へ。H1=×/未設定は完全除外（参考にも入れない＝1段下0を継承）。
   if (_epIsTriEntry(s, alpha)) return { main: null, ref: (_hExp && _hExp !== "×") ? hres : null };
@@ -4329,9 +4345,9 @@ function _elH1HeldBase(s, alpha, cutLine) {
     var pv0 = _elDynPlanned(s, alpha, cutLine);
     if (pv0 != null) hres = pv0;
   }
-  // H1期待度は足固定(_epExpAt)で見る＝シミュでEPが前進しても元々の足の期待度を保つ 2026-07-03v（採用αでは不変）。
+  // H1保有の判断＝EP足の引けの次足期待度 _epNextExpAt(s, epIdx) 2026-07-06（採用αでは=s.holdExpで不変）。
   var _rB = (_epIsV2(s) && alpha != null) ? _epResolve(s, alpha) : null;
-  var _hExpB = (_rB && _rB.epIdx >= 0) ? _epExpAt(s, _rB.epIdx + 1) : s.holdExp;
+  var _hExpB = (_rB && _rB.epIdx >= 0) ? _epNextExpAt(s, _rB.epIdx) : s.holdExp;
   if (_hExpB === "×" || _hExpB === "損切り済" || !_hExpB) {
     var plan = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     if (plan != null) return plan;
@@ -4350,10 +4366,10 @@ function _elHold2TotParts(s, alpha, cutLine) {
   if (!s) return { main: null, ref: null };
   if (_epIsXSkip(s, alpha)) return { main: null, ref: null };  // EP×（×見送り）→ 完全に算入無し
   if (_elH2Miss(s, alpha)) return { main: null, ref: null };
-  // 【2026-07-03v 修正】H1/H2期待度は「足ごとに固定した期待度(_epExpAt)」で見る＝αを変えEPが前進しても元々の足の期待度を保つ（採用αでは_epExpAt=s.holdExp/s.hold2Expで完全に不変）。v2以外/α無しは生の記録値。
+  // 【2026-07-06 次足期待度に統一】H1保有=EP足の引けの判断 _epNextExpAt(s, epIdx)／H2保有=H1足の引けの判断 _epNextExpAt(s, epIdx+1)（採用αでは=s.holdExp/s.hold2Expで完全に不変）。v2以外/α無しは生の記録値。
   var _r2 = (_epIsV2(s) && alpha != null) ? _epResolve(s, alpha) : null;
-  var _h1e = (_r2 && _r2.epIdx >= 0) ? _epExpAt(s, _r2.epIdx + 1) : s.holdExp;
-  var _h2e = (_r2 && _r2.epIdx >= 0) ? _epExpAt(s, _r2.epIdx + 2) : s.hold2Exp;
+  var _h1e = (_r2 && _r2.epIdx >= 0) ? _epNextExpAt(s, _r2.epIdx) : s.holdExp;
+  var _h2e = (_r2 && _r2.epIdx >= 0) ? _epNextExpAt(s, _r2.epIdx + 1) : s.hold2Exp;
   // hv = H2まで保有した場合の損益（参考/自分の結果用）。損切りなら強制手仕舞い=損切り額、それ以外はH2損益。
   var hv = (alpha != null && _elHoldIsStop(s, alpha, cutLine))
     ? (_elPlanIsStop(s, alpha, cutLine) ? _elDynPlanned(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine))
@@ -5376,14 +5392,9 @@ function EntryRecordForm(_ref_erf) {
   var _useStateHHV = useState(_initHold.hHigh != null ? String(Math.abs(Number(_initHold.hHigh))) : ""),
     _useStateHHVA = _slicedToArray(_useStateHHV, 2),
     fHoldHighVal = _useStateHHVA[0], setFHoldHighVal = _useStateHHVA[1];
-  var _useStateHExp = useState(initSig.holdExp || null),
-    _useStateHExpA = _slicedToArray(_useStateHExp, 2),
-    fHoldExp = _useStateHExpA[0], setFHoldExp = _useStateHExpA[1];
+  // H1/H2期待度state（holdExp/hold2Exp）は廃止 2026-07-06＝次足期待度fNxs（足固定・OS state群の直後）に統一。表示・保存用のfHoldExp/fHold2Expは_epFormState直後に現在EP位置から導出。
 
-  // === Hold2（H2）state — Hold1と同一構成 + 期待度(hold2Exp) ===
-  var _useStateH2Exp = useState(initSig.hold2Exp || null),
-    _useStateH2ExpA = _slicedToArray(_useStateH2Exp, 2),
-    fHold2Exp = _useStateH2ExpA[0], setFHold2Exp = _useStateH2ExpA[1];
+  // === Hold2（H2）state — Hold1と同一構成 ===
   var _useStateH2HP = useState(initSig.hold2Profit || null),
     _useStateH2HPA = _slicedToArray(_useStateH2HP, 2),
     fHold2Profit = _useStateH2HPA[0], setFHold2Profit = _useStateH2HPA[1];
@@ -5418,13 +5429,15 @@ function EntryRecordForm(_ref_erf) {
     _useStateOCValA = _slicedToArray(_useStateOCVal, 2),
     fOsConfVal = _useStateOCValA[0], setFOsConfVal = _useStateOCValA[1];
   // === EP起算方式: OS足 state（OS1=既存osVal/osConf流用・OS2/3はscheme:2取り込み変換(_initHold)経由）===
-  var _useStateO1E = useState(initSig.os1Exp || null), fOs1Exp = _useStateO1E[0], setFOs1Exp = _useStateO1E[1];
+  // 次足期待度（足固定・index0..3=OS1..OS4）2026-07-06: 旧 到達期待(os1/2/3Exp)・H1期待(holdExp)・H2期待(hold2Exp)を「その足の引けの判断」1本に統一。
+  // 編集ロードは_epNextExpAt（新フィールドnextExp1〜4優先→レガシー導出）＝EP（α）が変わっても入力値は足に残る。OS5は次足が無いのでスロット無し。
+  var _useStateNxs = useState(function() { return [_epNextExpAt(initSig, 0), _epNextExpAt(initSig, 1), _epNextExpAt(initSig, 2), _epNextExpAt(initSig, 3)]; }),
+    fNxs = _useStateNxs[0], setFNxs = _useStateNxs[1];
+  var _setNx = function(i, v) { setFNxs(function(prev) { var n = prev.slice(); n[i] = v; return n; }); };
   var _useStateO2H = useState(_initHold.os2High != null ? String(_initHold.os2High) : ""), fOs2High = _useStateO2H[0], setFOs2High = _useStateO2H[1];
   var _useStateO2HS = useState(_initHold.os2HighSign || "+"), fOs2HighSign = _useStateO2HS[0], setFOs2HighSign = _useStateO2HS[1];
   var _useStateO2C = useState(_initHold.os2Conf != null ? String(_initHold.os2Conf) : ""), fOs2Conf = _useStateO2C[0], setFOs2Conf = _useStateO2C[1];
   var _useStateO2CS = useState(_initHold.os2ConfSign || null), fOs2ConfSign = _useStateO2CS[0], setFOs2ConfSign = _useStateO2CS[1];
-  var _useStateO2E = useState(initSig.os2Exp || null), fOs2Exp = _useStateO2E[0], setFOs2Exp = _useStateO2E[1];
-  var _useStateO3E = useState(initSig.os3Exp || null), fOs3Exp = _useStateO3E[0], setFOs3Exp = _useStateO3E[1];
   var _useStateO3H = useState(_initHold.os3High != null ? String(_initHold.os3High) : ""), fOs3High = _useStateO3H[0], setFOs3High = _useStateO3H[1];
   var _useStateO3HS = useState(_initHold.os3HighSign || "+"), fOs3HighSign = _useStateO3HS[0], setFOs3HighSign = _useStateO3HS[1];
   var _useStateO3C = useState(_initHold.os3Conf != null ? String(_initHold.os3Conf) : ""), fOs3Conf = _useStateO3C[0], setFOs3Conf = _useStateO3C[1];
@@ -5662,14 +5675,20 @@ function EntryRecordForm(_ref_erf) {
     var showOs2 = _av != null && _o1 != null && !_o1R;
     var showOs3 = showOs2 && _o2 != null && !_o2R;
     var judge = epIdx === 0 ? "ok"
-      : epIdx === 1 ? (fOs1Exp === "×" ? "x" : "ok")
-      : epIdx === 2 ? ((fOs1Exp === "×" || fOs2Exp === "×") ? "x" : "ok")
+      : epIdx === 1 ? (fNxs[0] === "×" ? "x" : "ok")
+      : epIdx === 2 ? ((fNxs[0] === "×" || fNxs[1] === "×") ? "x" : "ok")
       : (_o3 != null ? "miss" : null);
     var epHigh = epIdx === 0 ? _o1 : epIdx === 1 ? _o2 : epIdx === 2 ? _o3 : null;
     var _ecr = epIdx === 0 ? [fOsConfVal, fOsConfSign] : epIdx === 1 ? [fOs2Conf, fOs2ConfSign] : epIdx === 2 ? [fOs3Conf, fOs3ConfSign] : null;
     var epConf = (_ecr && _ecr[0] !== "" && !isNaN(Number(_ecr[0]))) ? (_ecr[1] === "-" ? -Number(_ecr[0]) : Number(_ecr[0])) : null;
     return { alpha: _av, o1: _o1, o2: _o2, o3: _o3, epIdx: epIdx, judge: judge, showOs2: showOs2, showOs3: showOs3, epHigh: epHigh, epConf: epConf };
   })();
+  // 旧名互換の導出値（次足期待度fNxsを現在のEP位置で解決）2026-07-06: fOs1Exp/fOs2Exp=OS1/OS2スロットの生値（保存はEP位置でゲート）・fHoldExp/fHold2Exp=EP足/EP+1足の引けの判断（=旧H1期待/H2期待）。
+  // state直読みだった既存コード（プレビュー_fVSig・保存・損益変化効果・非表示バッジ・バリデーション）はこの導出値で無改修に動く。
+  var fOs1Exp = fNxs[0] || null, fOs2Exp = fNxs[1] || null;
+  var _fEpIdxLive = _epFormState ? _epFormState.epIdx : -1;
+  var fHoldExp = _fEpIdxLive >= 0 ? (fNxs[_fEpIdxLive] || null) : null;
+  var fHold2Exp = _fEpIdxLive >= 0 ? (fNxs[_fEpIdxLive + 1] || null) : null;
 
   // v2(EP起算)はE判定ベース: miss=E未達or×見送り。損切り判定はEP足高値基準。
   var _fMiss = (isV2Form && _epFormState) ? (_epFormState.judge === "miss" || _epFormState.judge === "x")
@@ -5692,7 +5711,8 @@ function EntryRecordForm(_ref_erf) {
     hold2HighVal: fHold2HighVal !== "" ? Number(fHold2HighVal) : null, hold2HighSign: fHold2HighSign || null,
     hold2Width: fHold2WidthVal !== "" ? Number(fHold2WidthVal) : null, hold2WidthSign: fHold2WidthSign || null,
     os1Exp: fOs1Exp || null, os2Exp: fOs2Exp || null,
-    holdExp: fHoldExp || null, hold2Exp: fHold2Exp || null
+    holdExp: fHoldExp || null, hold2Exp: fHold2Exp || null,
+    nextExp1: fNxs[0] || null, nextExp2: fNxs[1] || null, nextExp3: fNxs[2] || null, nextExp4: fNxs[3] || null
   };
   var _fEpRes = (_fAlpha != null) ? _epResolve(_fVSig, _fAlpha) : null;
   // 足i（0〜4）の現在の役割（EP/H1/H2/null）。EP枠はOS1〜3のまま・H1/H2はEPの次・その次の足。
@@ -6051,27 +6071,29 @@ function EntryRecordForm(_ref_erf) {
     }
   }, [fOsVal, _fAlpha, _fCutLine, _fPlanStopNow]);
 
-  // H1期待度×（H1で撤退）→ H2期待度も自動的に×に。H1で手仕舞いした以上H2まで保有しないため。
-  // H1期待度△（H1までしか確定しない）→ H2期待度○はありえない（合計でも_elHold2TotPartsがEP基準へカスケードし○/△は同値）ので、○なら自動で△に。×は許容（H1利確後に下落）。
-  // 合計側は_elHold2TotPartsがH1×/△でカスケードするので、これで入力と計算が一致する。
-  useEffect(function() {
-    if (fHoldExp === "×" && fHold2Exp !== "×") setFHold2Exp("×");
-    else if (fHoldExp === "△" && fHold2Exp === "○") setFHold2Exp("△");
-  }, [fHoldExp, fHold2Exp]);
-
-  // OS1の到達期待×（OS1で見送り宣言）→ OS2の到達期待も自動的に×に。OS1で見送った以上OS2でも追わないため。
-  // 判定側は_epResolveがEP手前の×を伝播(xBefore)済みなので、これで入力と判定が一致する。
-  useEffect(function() {
-    if (fOs1Exp === "×" && fOs2Exp !== "×") setFOs2Exp("×");
-  }, [fOs1Exp, fOs2Exp]);
-
-  // △確信度エントリー（EP足より“前”の足に△の到達期待）→ H1期待度○はありえない（EP自体が（）外0・参考）。○なら自動で△に。
-  // EP=OS2(epIdx1)→OS1△ / EP=OS3(epIdx2)→OS1△orOS2△ が対象。OS1がEP(epIdx0)は無条件○。H1=△になれば上のH1→H2効果でH2も△へ連鎖する。
+  // 次足期待度の自動整合 2026-07-06（旧: os1×→os2×・H1×→H2×・H1△→H2○不可・△確信度→H1○不可 を足固定に一般化・変更なしなら同一参照を返して再レンダー無し）:
+  //  ①×連鎖: 足iが×（降りる）なら次スロットも×。ただしEP境界（待ち足×→EP足スロット）は跨がない＝×見送り(E×)でもH判断は参考記録として残せる（_epAsTraded分析用）。
+  //  ②△継承（EP以降）: 前の足が△なら次スロットの○は△へ＝合計の（）内カスケードと一致。
+  //  ③△確信度エントリー: EPより前に△があればEP足スロットの○は△へ。
+  //  ④損切り済（旧データ由来の値・新UIにボタンは無い）が待ち足側に来たら×へ正規化（保有文脈専用の値のため）。
   useEffect(function() {
     var _ei = _epFormState ? _epFormState.epIdx : -1;
-    var _epTri = (_ei === 1 && fOs1Exp === "△") || (_ei === 2 && (fOs1Exp === "△" || fOs2Exp === "△"));
-    if (_epTri && fHoldExp === "○") setFHoldExp("△");
-  }, [_epFormState ? _epFormState.epIdx : -1, fOs1Exp, fOs2Exp, fHoldExp]);
+    setFNxs(function(prev) {
+      var n = prev.slice(), ch = false;
+      for (var w = 0; w < 3; w++) { if (_ei >= 0 && w < _ei && n[w] === "損切り済") { n[w] = "×"; ch = true; } }   // _ei<0（α未入力/未達）では触らない＝旧データの損切り済を温存
+      for (var i = 0; i < 3; i++) {
+        var crossEp = (_ei >= 0 && (i + 1) === _ei);
+        if (n[i] === "×" && !crossEp && n[i + 1] !== "×") { n[i + 1] = "×"; ch = true; }
+        if (_ei >= 0 && i >= _ei && n[i] === "△" && n[i + 1] === "○") { n[i + 1] = "△"; ch = true; }
+      }
+      if (_ei >= 0) {
+        var tri = false;
+        for (var j = 0; j < _ei; j++) { if (n[j] === "△") tri = true; }
+        if (tri && n[_ei] === "○") { n[_ei] = "△"; ch = true; }
+      }
+      return ch ? n : prev;
+    });
+  }, [fNxs, _epFormState ? _epFormState.epIdx : -1]);
 
 
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
@@ -6089,11 +6111,11 @@ function EntryRecordForm(_ref_erf) {
       if (_ef.o1 == null) _vm.push("OS1高値");
       if (fOsConfVal === "") _vm.push("OS1確定値");
       if (_ef.epIdx !== 0 && _ef.o1 != null && _ef.alpha != null) {
-        if (!fOs1Exp) _vm.push("OS1のα値到達期待度");
+        if (!fNxs[0]) _vm.push("OS1の次足期待度");
         if (_ef.o2 == null) _vm.push("OS2高値");
         if (fOs2Conf === "") _vm.push("OS2確定値");
         if (_ef.epIdx !== 1 && _ef.o2 != null) {
-          if (!fOs2Exp) _vm.push("OS2のα値到達期待度");
+          if (!fNxs[1]) _vm.push("OS2の次足期待度");
           if (_ef.o3 == null) _vm.push("OS3高値");
           if (fOs3Conf === "") _vm.push("OS3確定値");
         }
@@ -6117,12 +6139,12 @@ function EntryRecordForm(_ref_erf) {
           if (_hb1.h === "") _vm.push("H1高値（" + _hb1.name + "）");
           if (_hb1.c === "") _vm.push("H1確定値（" + _hb1.name + "）");
         }
-        if (!fHoldExp) _vm.push("H1期待度");
+        if (!fHoldExp) _vm.push("次足期待度（" + (_fBarsV[_ef.epIdx] ? _fBarsV[_ef.epIdx].name : "EP足") + "・H1保有）");
         if (_hb2) {
           if (_hb2.h === "") _vm.push("H2高値（" + _hb2.name + "）");
           if (_hb2.c === "") _vm.push("H2確定値（" + _hb2.name + "）");
         }
-        if (!fHold2Exp) _vm.push("H2期待度");
+        if (!fHold2Exp) _vm.push("次足期待度（" + (_fBarsV[_ef.epIdx + 1] ? _fBarsV[_ef.epIdx + 1].name : "H1足") + "・H2保有）");
       }
       if (fEntered && fReal === "") _vm.push("実現損益");
       if (_vm.length) { window.alert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
@@ -6216,7 +6238,12 @@ function EntryRecordForm(_ref_erf) {
       sig.os3HighSign = fOs3High !== "" ? (fOs3HighSign || "+") : null;
       sig.os3Conf = fOs3Conf !== "" ? Number(fOs3Conf) : null;
       sig.os3ConfSign = fOs3Conf !== "" ? (fOs3ConfSign || null) : null;
-      sig.os3Exp = (_efS.epIdx === 2) ? (fOs3Exp || null) : null;  // EP=OS3（到達した足）の時だけ保存。EP≠OS3ではOS3はホールドでholdExp/hold2Exp側が担う 2026-07-03
+      sig.os3Exp = null;  // 廃止 2026-07-06: 次足期待度への統一でEP=OS3のOS3スロット=保有判断（holdExpへ導出済み）。旧記録のos3Expは残っていても読み取りで使われないだけ（無害）。
+      // 次足期待度（正本・足固定 index0..3=OS1..OS4）2026-07-06: レガシー（os1/2Exp・holdExp/hold2Exp）は上で現在EP位置から導出済み＝下流・旧版と互換。OS5に次足は無い。
+      sig.nextExp1 = fNxs[0] || null;
+      sig.nextExp2 = fNxs[1] || null;
+      sig.nextExp3 = fNxs[2] || null;
+      sig.nextExp4 = fNxs[3] || null;
     }
 
     if (isEdit && (initial.stock !== fStock || initial.date !== fDate)) {
@@ -6683,6 +6710,14 @@ function EntryRecordForm(_ref_erf) {
                   border: "1.5px solid " + (on ? kv[1] : "#ddd"), background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999", opacity: (bd && !on) ? 0.35 : 1 } }, kv[0]);
             }));
         };
+        // 次足期待度スロット（足固定 i=0..3=OS1..OS4・常時表示・ラベル統一）2026-07-06: その足の引けで「次の足へ継続するか」（待ち足=α待ち続行/EP以降=保有継続）。
+        // lock=前段×（EP境界は跨がない＝×見送りでもH判断を参考記録できる）・○不可=EP足スロットで△確信度/EP以降で前段△。値は足に固定＝EP（α）が動いても残る。
+        var _nxRow = function(i) {
+          var _ei = _ef.epIdx;
+          var lock = i > 0 && i !== _ei && fNxs[i - 1] === "×";
+          var noMaru = (_ei >= 0 && i === _ei && _epTriForm) || (_ei >= 0 && i > _ei && fNxs[i - 1] === "△");
+          return _row("次足期待度", _expB(fNxs[i], function(v) { _setNx(i, v); }, lock, noMaru ? ["○"] : null), true);
+        };
         var _numIn = function(val, setVal) {
           return React.createElement("input", { type: "text", inputMode: "numeric",
             value: val, onChange: function(e) { setVal(_toHankakuNum(e.target.value)); }, placeholder: "0",
@@ -6795,29 +6830,24 @@ function EntryRecordForm(_ref_erf) {
             _legCol("OS1", _fRoleOf(0), [
               _row("高値", _uIn(fOsVal, setFOsVal)),
               _row("確定値", _sIn(fOsConfVal, setFOsConfVal, fOsConfSign, setFOsConfSign, _oscSignedRef)),
-              _ef.epIdx === 0 ? _row("H1期待", _expB(fHoldExp, setFHoldExp, false, _epTriForm ? ["○"] : null), true)
-                : (_ef.alpha != null && _ef.o1 != null) ? _row("到達期待", _expB(fOs1Exp, setFOs1Exp), true) : null
+              _nxRow(0)
             ]),
             _legCol("OS2", _fRoleOf(1), [
               _row("高値", _sIn(fOs2High, setFOs2High, fOs2HighSign, setFOs2HighSign, _os2hSignedRef)),
               _row("確定値", _sIn(fOs2Conf, setFOs2Conf, fOs2ConfSign, setFOs2ConfSign, _os2cSignedRef)),
-              _ef.epIdx === 0 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×", fHoldExp === "△" ? ["○"] : null), true)
-                : _ef.epIdx === 1 ? _row("H1期待", _expB(fHoldExp, setFHoldExp, false, _epTriForm ? ["○"] : null), true)
-                : (_ef.o2 != null) ? _row("到達期待", _expB(fOs2Exp, setFOs2Exp, fOs1Exp === "×"), true) : null
+              _nxRow(1)
             ]),
             _legCol("OS3", _fRoleOf(2), [
               _row("高値", _sIn(fOs3High, setFOs3High, fOs3HighSign, setFOs3HighSign, _os3hSignedRef)),
               _row("確定値", _sIn(fOs3Conf, setFOs3Conf, fOs3ConfSign, setFOs3ConfSign, _os3cSignedRef)),
-              _ef.epIdx === 2 ? _row("到達期待", _expB(fOs3Exp, setFOs3Exp, fOs2Exp === "×"), true) : null,
-              _ef.epIdx === 1 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×", fHoldExp === "△" ? ["○"] : null), true)
-                : _ef.epIdx === 2 ? _row("H1期待", _expB(fHoldExp, setFHoldExp, false, _epTriForm ? ["○"] : null), true) : null
+              _nxRow(2)
             ])
           ),
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto", marginTop: 6 } },
             _legCol("OS4", _fRoleOf(3), [
               _row("高値", _sInH(fHoldHighVal, setFHoldHighVal, fHoldHighSign, setFHoldHighSign, _hhSignedRef)),
               _row("確定値", _sInH(fHoldWidthVal, setFHoldWidthVal, fHoldWidthSign, setFHoldWidthSign, _hwSignedRef, _hwAfter)),
-              _ef.epIdx === 2 ? _row("H2期待", _expB(fHold2Exp, setFHold2Exp, fHoldExp === "×", fHoldExp === "△" ? ["○"] : null), true) : null
+              _nxRow(3)
             ]),
             _legCol("OS5", _fRoleOf(4), [
               _row("高値", _sInH(fHold2HighVal, setFHold2HighVal, fHold2HighSign, setFHold2HighSign, _h2hSignedRef)),
