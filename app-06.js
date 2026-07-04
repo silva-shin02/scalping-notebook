@@ -3874,9 +3874,6 @@ function _elKabuLadderSimV2(props) {
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "対象期間:"),
       [["today", "本日"], ["1w", "1週間"], ["1m", "1か月"], ["3m", "3か月"], ["6m", "6か月"], ["1y", "1年"], ["all", "全期間"]].map(function(kv) { return _pill(period === kv[0], kv[1], function() { setPeriod(kv[0]); setAutoExp(null); setMtExp(null); }, "#0F766E"); }),
       React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（" + _periodRecs.length + "件）")),
-    React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 6 } },
-      _pill(mode === "manual", "✍ 手動ラダー", function() { setMode("manual"); }, "#0F766E"),
-      _pill(mode === "auto", "🤖 自動配分", function() { setMode("auto"); setAutoExp(null); }, "#0F766E")),
     floatMode
       ? React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 6 } }, "母数＝浮き足の記録（" + pool.length + "件）")
       : React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
@@ -4003,8 +4000,12 @@ function _elKabuLadderSimV2(props) {
     React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#0F766E", marginBottom: 4 } }, "対象取引（" + pool.length + "件）",
       React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, _periodLbl + "・シミュの母数")),
     React.createElement("div", { style: { maxHeight: 300, overflowY: "auto", border: "1px solid #E2E8F0", borderRadius: 8, padding: "2px 4px" } }, _elOsTradeMini(pool, aiOf, { plain: true })));
+  var _modeToggle = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },   // 手動/自動トグルは対象取引の下へ移動（母数を確認してから方式を選ぶ）2026-07-04d
+    _pill(mode === "manual", "✍ 手動ラダー", function() { setMode("manual"); }, "#0F766E"),
+    _pill(mode === "auto", "🤖 自動配分", function() { setMode("auto"); setAutoExp(null); }, "#0F766E"));
   return React.createElement("div", null, head,
     _targetList,
+    _modeToggle,
     React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝実際のH1（推奨基本α・追加α・%シミュと同一基準・損切りルール適用後）／損切り＝各記録の損切り値で取引ごと独立／×見送り・H1判定不可の取引は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※損益は本日の損益データ欄と同じ（）外/（）内方式（○のみH1本算入＝（）外／△・損切り済はEP想定額を（）外にしH1まで保有した場合との差を（）内へ／×・未設定・EP×はEP想定額のみで（）内なし）。金額の（括弧内）＝（）内合計（○△を含む参考額）。従来列＝損益データ欄と同じ（）外/（）内理論値（採用α・100株当たり）を総株数に単純按分した値（シミュの取引構成・第1/第2取引とは無関係）。シミュ列の下段＝取引ごとの内訳（（）外・建たなかった取引は—）。"),
     body);
 }
