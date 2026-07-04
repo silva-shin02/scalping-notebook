@@ -3824,14 +3824,29 @@ function _epOsChainCell(s, alpha) {
   }
   if (!legs.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   // 期待度シンボル「次○」＝その足の引けの次足期待度（○=次足へ継続/△=中間/×=この足で降りる）2026-07-06f 案A。
-  // 配色はフォーム_expBと同一の1本（○赤/△琥珀/×緑）＝旧「H期待は○緑/×赤」の文脈反転を廃止。
-  var _expSym = function(sym) {
+  // 配色はフォーム_expBと同一の1本（○赤/△琥珀/×緑）＝旧「H期待は○緑/×赤」の文脈反転を廃止。muted=未記録由来の自動×（グレー）。
+  var _expSym = function(sym, muted) {
     if (sym !== "○" && sym !== "△" && sym !== "×") return null;
-    var col = sym === "△" ? "#B45309" : sym === "○" ? "#C0392B" : "#1E8449";
+    var col = muted ? "#9CA3AF" : sym === "△" ? "#B45309" : sym === "○" ? "#C0392B" : "#1E8449";
     return React.createElement("span", { style: { lineHeight: 1.1, fontSize: "0.9em", whiteSpace: "nowrap" } },
       React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, "次"),
       React.createElement("span", { style: { fontWeight: 800, color: col } }, sym));
   };
+  // 未記録スロットの自動×解決（表示用）2026-07-06g: 旧記録で判断が記録されていない足も、計算上×扱いになるものは「次×」をグレーで明示（ユーザー要望「OS3まで表示」）。
+  //  ①記録時EPの保有域外（x>recEp+1＝H2手仕舞い後）②前の足が×/損切り済（×連鎖）。どちらでもない未記録（例: 未達記録の後続待ち足）は従来どおり空。
+  var _dispEx = [], _autoEx = [];
+  if (_epIsV2(s)) {
+    var _a0c = _epOwnAlpha(s), _recEpC = -1;
+    if (_a0c != null) { for (var kk = 0; kk < Math.min(3, legs.length); kk++) { if (legs[kk].h != null && legs[kk].h >= _a0c) { _recEpC = kk; break; } } }
+    legs.forEach(function(o, i) {
+      var ex = _epNextExpAt(s, i), auto = false;
+      if (ex == null) {
+        var prev = i > 0 ? _dispEx[i - 1] : null;
+        if ((_recEpC >= 0 && i > _recEpC + 1) || prev === "×" || prev === "損切り済") { ex = "×"; auto = true; }
+      }
+      _dispEx.push(ex); _autoEx.push(auto);
+    });
+  }
   var nodes = [];
   legs.forEach(function(o, i) {
     if (i > 0) nodes.push(React.createElement("span", { key: "ar" + i, style: { color: "#bbb", margin: "0 1px", fontSize: "0.9em" } }, "→"));
@@ -3850,12 +3865,12 @@ function _epOsChainCell(s, alpha) {
       var _epMark = React.createElement("span", { style: { fontWeight: 800, lineHeight: 1.1, whiteSpace: "nowrap" } },
         React.createElement("span", { style: { color: "#0369A1" } }, "↑EP" + (judge === "x" ? "（×）" : "")),
         _isE ? React.createElement("span", { style: { color: "#C0392B" } }, "/実E") : null);
-      var _exEp = _epIsV2(s) ? _expSym(_epNextExpAt(s, i)) : null;
+      var _exEp = _epIsV2(s) ? _expSym(_dispEx[i], _autoEx[i]) : null;
       sub = _exEp
         ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } }, _epMark, _exEp)
         : _epMark;
     } else if (_epIsV2(s)) {
-      var _expNode = _expSym(_epNextExpAt(s, i));
+      var _expNode = _expSym(_dispEx[i], _autoEx[i]);
       sub = _isE
         ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } }, _expNode, React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: "0.85em" } }, "実E"))
         : _expNode;
