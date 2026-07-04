@@ -3783,17 +3783,21 @@ function _elKabuLadderSimV2(props) {
     });
     return out.length ? out : React.createElement("span", { style: { color: "#ccc" } }, "—");
   };
-  // シミュ列セルの取引内訳（複数取引時のみ・合計の下段に表示）。取引ごとに（）外main・（）内(main+ref)を持ち、
-  // （）内が（）外と異なる取引が1つでもあれば「点線を挟んで上段＝（）外／下段＝（）内」の2段表示（ユーザー要望 2026-07-05）。ref皆無なら（）外の1段のみ。
-  // 並びはα昇順＝シミュα列（昇順・重複除去）と1:1対応（自動配分で第1α＞その日の推奨αに逆転しても列とズレない）・同一αの取引は金額を合算して1つに・α不明（推奨α不明）は末尾—。2026-07-04c
-  var _mtSimBreakdown = function(cells) {
+  // シミュ列セルの全体（2026-07-05 ユーザー要望で再設計）: 上段＝（）外の取引内訳＋「=合計」／下段＝（（）内の取引内訳＋「＝合計」）を括弧で囲む。
+  //   例: 上段「+300円/+3,200円=+3,500円」・下段「（0円/+2,000円＝+2,000円）」。合計（=の右）は少し大きく表示。
+  //   合計は行の正準値 m.cfgPnl（（）外）/ m.cfgPnl+m.cfgRef（（）内）を使う（内訳の和と一致・株数が100の倍数なので端数なし）。
+  //   取引が1件だけ（内訳なし）は「=」を出さず合計だけ。ref皆無（△・損切り済なし）は（）外の1段のみ。全取引未成立は「—」。
+  //   並びはα昇順＝シミュα列と1:1対応・同一αは合算・α不明は末尾—。
+  var _SIM_SUM_FS = 13;   // 合計の文字サイズ（セル既定10.5より少し大きい）
+  var _mtSimCell = function(m) {
+    if (m.cfgPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");   // （）外が無い記録（全未成立・EP△のみ等）
     var items = [];
-    (cells || []).forEach(function(c) {
+    (m.cells || []).forEach(function(c) {
       if (!(c.t.add > 0)) return;
       var built = c.ev.built && !c.ev.indet;
-      var m = (built && c.ev.main100 != null) ? Math.round(c.ev.main100 * c.t.add / 100) : null;
+      var mn = (built && c.ev.main100 != null) ? Math.round(c.ev.main100 * c.t.add / 100) : null;
       var rf = (built && c.ev.ref100 != null) ? Math.round(c.ev.ref100 * c.t.add / 100) : 0;
-      items.push({ a: (c.ev && c.ev.a != null) ? c.ev.a : null, m: m, r: rf });
+      items.push({ a: (c.ev && c.ev.a != null) ? c.ev.a : null, m: mn, r: rf });
     });
     var merged = [];
     items.forEach(function(it) {
@@ -3802,24 +3806,24 @@ function _elKabuLadderSimV2(props) {
       if (f) { f.m = (f.m == null && it.m == null) ? null : ((f.m || 0) + (it.m || 0)); f.r = (f.r || 0) + (it.r || 0); }
       else merged.push({ a: it.a, m: it.m, r: it.r });
     });
-    if (merged.length < 2) return null;
-    if (!merged.some(function(it) { return it.m != null; })) return null;   // 全取引が建たない記録は内訳を出さない（合計—の下に—/—を並べない）2026-07-04c
     merged.sort(function(x, y) { return ((x.a == null ? Infinity : x.a) - (y.a == null ? Infinity : y.a)); });
-    var _row = function(getNode) {
-      var out = [];
-      merged.forEach(function(it, i) {
-        if (i) out.push(React.createElement("span", { key: "s" + i, style: { color: "#d1d5db", margin: "0 1px" } }, "/"));
-        out.push(getNode(it, i));
-      });
-      return out;
-    };
-    var topRow = _row(function(it, i) { return it.m == null ? React.createElement("span", { key: i, style: { color: "#bbb" } }, "—") : React.createElement("b", { key: i, style: { color: _elPnlColor(it.m) } }, _elPnlFmt(it.m)); });
-    // ref皆無（△・損切り済が1件も無い）＝（）内と（）外が全取引で同値なので（）外の1段だけ（本日の損益データ欄と同じ「refがある時だけ括弧」規約）。
-    if (!merged.some(function(it) { return it.r; })) return React.createElement("div", { style: { whiteSpace: "nowrap" } }, topRow);
-    var botRow = _row(function(it, i) { var incl = (it.m == null && !it.r) ? null : ((it.m || 0) + (it.r || 0)); return incl == null ? React.createElement("span", { key: i, style: { color: "#ccc" } }, "—") : React.createElement("span", { key: i, style: { color: "#999", fontWeight: 700 } }, _elPnlFmt(incl)); });
-    return React.createElement("div", { style: { whiteSpace: "nowrap", display: "inline-block" } },
-      React.createElement("div", null, topRow),
-      React.createElement("div", { style: { borderTop: "1px dotted #cbd5e1", marginTop: 1, paddingTop: 1 }, title: "下段＝（）内（○△を含む＝H1まで保有した場合の参考額）" }, botRow));
+    var multi = merged.length >= 2;
+    var sumMain = m.cfgPnl, sumIncl = (m.cfgPnl || 0) + (m.cfgRef || 0);
+    var _parts = function(getVal, sep) { var out = []; merged.forEach(function(it, i) { if (i) out.push(React.createElement("span", { key: "s" + i, style: { color: "#d8d8d8", margin: "0 1px" } }, "/")); out.push(getVal(it, i)); }); return out; };
+    // 上段（）外: 内訳 = 合計（合計は少し大きく・符号色）
+    var topKids = [];
+    if (multi) { topKids = topKids.concat(_parts(function(it, i) { return it.m == null ? React.createElement("span", { key: i, style: { color: "#bbb" } }, "—") : React.createElement("span", { key: i, style: { color: _elPnlColor(it.m) } }, _elPnlFmt(it.m)); })); topKids.push(React.createElement("span", { key: "eq", style: { color: "#94a3b8", margin: "0 3px" } }, "=")); }
+    topKids.push(React.createElement("b", { key: "sum", style: { color: _elPnlColor(sumMain), fontSize: _SIM_SUM_FS } }, _elPnlFmt(sumMain)));
+    var topRow = React.createElement("div", { style: { whiteSpace: "nowrap" } }, topKids);
+    // ref皆無なら（）内は（）外と同値＝出さない
+    if (!merged.some(function(it) { return it.r; })) return React.createElement("div", { style: { lineHeight: 1.35, display: "inline-block" } }, topRow);
+    // 下段（）内: （内訳 ＝ 合計）を丸括弧で囲む・グレー
+    var botKids = [React.createElement("span", { key: "lp", style: { color: "#999" } }, "（")];
+    if (multi) { botKids = botKids.concat(_parts(function(it, i) { var incl = (it.m == null && !it.r) ? null : ((it.m || 0) + (it.r || 0)); return incl == null ? React.createElement("span", { key: i, style: { color: "#ccc" } }, "—") : React.createElement("span", { key: i, style: { color: "#999" } }, _elPnlFmt(incl)); })); botKids.push(React.createElement("span", { key: "beq", style: { color: "#bbb", margin: "0 3px" } }, "＝")); }
+    botKids.push(React.createElement("b", { key: "bsum", style: { color: "#777", fontSize: _SIM_SUM_FS } }, _elPnlFmt(sumIncl)));
+    botKids.push(React.createElement("span", { key: "rp", style: { color: "#999" } }, "）"));
+    var botRow = React.createElement("div", { style: { whiteSpace: "nowrap", borderTop: "1px dotted #cbd5e1", marginTop: 1, paddingTop: 1 }, title: "（）内＝○△を含む＝H1まで保有した場合の参考額" }, botKids);
+    return React.createElement("div", { style: { lineHeight: 1.35, display: "inline-block" } }, topRow, botRow);
   };
   // 従来＝損益データ欄と同一の理論値（採用α・_elHold1TotParts＝（）外/（）内）を100株→総株数へ単純按分。シミュエンジン（取引ラダー・第1/第2取引）は一切通さない（ユーザー仕様 2026-07-04）。
   var _kbConvParts = function(r, nSh) {
@@ -3853,7 +3857,7 @@ function _elKabuLadderSimV2(props) {
       var dstr = (m.r.date || "").slice(5).replace("-", "/") + (s.time ? " " + s.time : "");
       var alphaNode = React.createElement("div", { style: { lineHeight: 1.1 } }, (a != null ? (a + "円") : "—"), _elAlphaBreakdownNode(s, a));
       brows.push(React.createElement("tr", { key: key, onClick: function() { setMtExp(open ? null : key); }, style: { cursor: "pointer", background: open ? "#F0FDFA" : (m.anyStop ? "#F4FBF5" : "transparent") } },
-        _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(React.createElement("span", { style: { color: "#0369A1", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.recoA != null ? (m.recoA + "円") : "—")), _mtTd(alphaNode), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.simA.length ? m.simA.map(function(v) { return v + "円"; }).join("/") : "—")), _mtTd(_mtPnlNode2(m.basePnl, m.baseRef), "right"), _mtTd(React.createElement("div", { style: { lineHeight: 1.3 } }, _mtPnlNode2(m.cfgPnl, m.cfgRef), _mtSimBreakdown(m.cells)), "center", true), _mtTd(_mtPnlNode2(diff, diffRef), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
+        _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(React.createElement("span", { style: { color: "#0369A1", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.recoA != null ? (m.recoA + "円") : "—")), _mtTd(alphaNode), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.simA.length ? m.simA.map(function(v) { return v + "円"; }).join("/") : "—")), _mtTd(_mtPnlNode2(m.basePnl, m.baseRef), "right"), _mtTd(_mtSimCell(m), "center", true), _mtTd(_mtPnlNode2(diff, diffRef), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
       if (open) brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "6px 10px", background: "#FBFEFD", borderBottom: "1px solid #eee", fontSize: 9.5, color: "#9A3412" } }, React.createElement("span", { style: { fontWeight: 700 } }, "取引内訳: "), _mtTierNodes(m.cells))));
     });
     return React.createElement("div", { style: { marginTop: 8 } },
