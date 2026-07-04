@@ -31,6 +31,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-06f 表のOS連鎖セルも次足期待度表記に統一（案A=位置も統一・`_epOsChainCell` app-05・ユーザー選択）
+- **表記**: 接頭辞「α○/H○」→「次○」に統一・配色はフォーム_expBと同一の1本（○赤/△琥珀/×緑）＝旧「H期待は○緑/×赤」の文脈反転を廃止。
+- **位置（案A）**: 各足の下に「その足の引けの次足期待度」（_epNextExpAt(s,i)＝entered-at・フォームのスロット配置と1:1）。**EP足は「↑EP」＋その下に次足期待度（=旧H1期待）の縦2段**・旧H2期待はH1足の下へ＝記号が1つ左に移る。保有域外（旧記録の未記録）は空・新記録はnextExp1〜3が各足に表示（OS4=nextExp4はこのセルの表示範囲外=OS1〜3チェーン）。×見送りの「↑EP（×）」・「実E」併記は維持。
+- **_epExpAt削除**: 最後の利用者（このセル）が_epNextExpAtへ移行し全消費者の統一が完了＝旧・役割固定の期待度取得関数を削除（死コード掃除）。
+- **検証**: 実マウント4ケース＝EP=OS1（↑EP＋次○/次○/空）・未達（次×が同位置）・×見送り（次×/↑EP（×）＋次○/次×）・新記録（nextExp1〜3表示）・React警告0・esprima構文OK。sw.js v37→v38。
+
 ### 2026-07-06e 次足期待度統一のアプリ全体反映＝期待度参照の全数監査と37箇所置換（ユーザー依頼「徹底的にチェックして反映」）
 - **全数棚卸し**: app-01〜08の`os1/2/3Exp`・`holdExp/hold2Exp`直読み61箇所＋`_epExpAt/_epAsTraded/_epHoldView/_elWinBucket/_elOsMaxFiltered/_elOsMaxCapped`呼び出しを分類。**行αシミュ（simAlpha per-record上書き・一括α）が集計ループへ流れることを確認**＝生`s.holdExp`読みはシミュα時に役割ズレする経路だった（2026-07-03vでもTotParts×3しか直っていなかった）。
 - **共有ヘルパー新設（app-05）**: `_elH1ExpAt(s,alpha)`/`_elH2ExpAt(s,alpha)`＝H1/H2保有ガバナンス期待度（=_epNextExpAt(s,epIdx)/(s,epIdx+1)・TotPartsと同一規約・採用αでは生holdExp/hold2Expと同値）。

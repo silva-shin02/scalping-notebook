@@ -3321,16 +3321,7 @@ function _epResolve(s, alpha) {
   for (var j = 0; j < epIdx; j++) { if (legs[j].exp === "×") xBefore = true; }
   return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: xBefore ? "x" : "ok", legs: legs };
 }
-// 各物理足iの期待度を「記録時のEP位置(採用α=_epOwnAlpha)」で固定割当＝シミュでαを変えEPが動いても、その足に元々紐づく期待度を保つ 2026-07-03。
-// OS1/2(＋補強後OS3)=α到達期待度(os*Exp=leg.exp)／記録時EP直後1本目=holdExp・2本目=hold2Exp／それ以外(EP前OS足・記録H2より深い足)=leg.exp(無ければnull)。
-// 【2026-07-06 表示専用に降格】損益のガバナンス（足iを保有するか）は「足i-1の引けの次足期待度」＝_epNextExpAt(s, i-1)へ移行（off-by-one解消）。この関数は表のOS連鎖セル等の表示用に従来契約のまま残す。
-function _epExpAt(s, i) {
-  var legs = _epLegs(s), a0 = _epOwnAlpha(s), recEp = -1;
-  if (a0 != null) { for (var k = 0; k < Math.min(3, legs.length); k++) { if (legs[k].h != null && legs[k].h >= a0) { recEp = k; break; } } }
-  if (recEp >= 0 && i === recEp + 1) return s.holdExp || null;
-  if (recEp >= 0 && i === recEp + 2) return s.hold2Exp || null;
-  return (legs[i] && legs[i].exp) || null;
-}
+// （旧 _epExpAt＝役割固定の期待度取得は2026-07-06fに削除＝最後の利用者だったOS連鎖セルも_epNextExpAtへ統一・全消費者が次足期待度に移行完了）
 // 次足期待度（2026-07-06 統一・正本）: 足x(0=OS1〜3=OS4)の「引け」で下した“次の足へ継続するか”の判断（○=継続/△=中間/×=この足で降りる=見送り・手仕舞い/損切り済=旧データ値）。
 // 旧・α値到達期待度(os1/2/3Exp)とH1/H2期待度(holdExp/hold2Exp)を1概念に統一＝足iを保有/継続するかのガバナンスは常に _epNextExpAt(s, i-1)。
 // 読み順: ①新フィールド s.nextExp(x+1)（新フォーム保存の正本） ②レガシー導出＝記録時EP位置(採用α)で x<recEp→os(x+1)Exp（待ち足の判断）/ x===recEp→holdExp（EP引けのH1保有判断）/ x===recEp+1→hold2Exp / x>recEp+1→null（既存記録の保有域外＝未記録・×扱い）。
@@ -3832,13 +3823,13 @@ function _epOsChainCell(s, alpha) {
     if (alpha != null && s && s.osVal != null && Number(s.osVal) >= alpha) epIdx = 0;
   }
   if (!legs.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-  // 期待度シンボル: 接頭辞で種別表示（EP前=α到達期待「α○」/EP後=H期待「H○」）。
-  // 配色は到達期待=○赤/△琥珀/×緑、H期待=○緑/△琥珀/×赤（フォームと同配色）。
-  var _expSym = function(sym, isHold) {
+  // 期待度シンボル「次○」＝その足の引けの次足期待度（○=次足へ継続/△=中間/×=この足で降りる）2026-07-06f 案A。
+  // 配色はフォーム_expBと同一の1本（○赤/△琥珀/×緑）＝旧「H期待は○緑/×赤」の文脈反転を廃止。
+  var _expSym = function(sym) {
     if (sym !== "○" && sym !== "△" && sym !== "×") return null;
-    var col = sym === "△" ? "#B45309" : isHold ? (sym === "○" ? "#1E8449" : "#C0392B") : (sym === "○" ? "#C0392B" : "#1E8449");
+    var col = sym === "△" ? "#B45309" : sym === "○" ? "#C0392B" : "#1E8449";
     return React.createElement("span", { style: { lineHeight: 1.1, fontSize: "0.9em", whiteSpace: "nowrap" } },
-      React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, isHold ? "H" : "α"),
+      React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, "次"),
       React.createElement("span", { style: { fontWeight: 800, color: col } }, sym));
   };
   var nodes = [];
@@ -3851,17 +3842,20 @@ function _epOsChainCell(s, alpha) {
       React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, "("),
       _epSignedNode(o.c, "c" + i),
       React.createElement("span", { style: { color: "#9CA3AF", fontSize: "0.85em" } }, ")"));
-    // 数値下のサブ行: EP足=↑EP（×宣言後の到達なら↑EP（×））。それ以外=期待度（EP前=到達期待 o.exp / EP後=H期待）。
-    // 実エントリーした足（s.entryOsNo=1〜3）には「実E」を表示。EP足と被れば「↑EP/実E」。
+    // 数値下のサブ行 2026-07-06f 案A（位置も統一）: 各足の下に「その足の引けの次足期待度」＝フォームのスロット配置と1:1（_epNextExpAt＝新記録のnextExpN対応・シミュでEPが動いても足に固定）。
+    // EP足=「↑EP（×宣言後の到達なら（×））」＋その下に次足期待度（=旧H1期待の縦2段）。実エントリーした足（s.entryOsNo=1〜3）には「実E」を併記。
     var _isE = (s && s.entryOsNo != null && (Number(s.entryOsNo) - 1) === i);
     var sub;
     if (i === epIdx) {
-      sub = React.createElement("span", { style: { fontWeight: 800, lineHeight: 1.1, whiteSpace: "nowrap" } },
+      var _epMark = React.createElement("span", { style: { fontWeight: 800, lineHeight: 1.1, whiteSpace: "nowrap" } },
         React.createElement("span", { style: { color: "#0369A1" } }, "↑EP" + (judge === "x" ? "（×）" : "")),
         _isE ? React.createElement("span", { style: { color: "#C0392B" } }, "/実E") : null);
+      var _exEp = _epIsV2(s) ? _expSym(_epNextExpAt(s, i)) : null;
+      sub = _exEp
+        ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } }, _epMark, _exEp)
+        : _epMark;
     } else if (_epIsV2(s)) {
-      var _ex = _epExpAt(s, i);   // 記録時EP基準で足に固定した期待度（シミュでEPが動いても保持）2026-07-03
-      var _expNode = _expSym(_ex, epIdx >= 0 && i > epIdx);
+      var _expNode = _expSym(_epNextExpAt(s, i));
       sub = _isE
         ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } }, _expNode, React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: "0.85em" } }, "実E"))
         : _expNode;
