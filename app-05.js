@@ -3323,11 +3323,13 @@ function _epResolve(s, alpha) {
 }
 // 各物理足iの期待度を「記録時のEP位置(採用α=_epOwnAlpha)」で固定割当＝シミュでαを変えEPが動いても、その足に元々紐づく期待度を保つ 2026-07-03。
 // OS1/2(＋補強後OS3)=α到達期待度(os*Exp=leg.exp)／記録時EP直後1本目=holdExp・2本目=hold2Exp／それ以外(EP前OS足・記録H2より深い足)=leg.exp(無ければnull)。
+// 【2026-07-06】記録時EP足(i===recEp)はα到達済み(h≥α)なので、α到達期待が未入力でも○とみなす＝シミュでαを下げEPが前進し「元EP足」が新H1/H2になった時、そのα到達期待をH期待として使う（EP足は入力UIがEP表示になりos*Expが空になりがち。ユーザー指摘: OS2でα到達を期待していたはず=○）。明示の×/△/○はそのまま尊重。採用α(EP不動)ではi=recEpは損益に使わない(H1=recEp+1から)ので不変。
 function _epExpAt(s, i) {
   var legs = _epLegs(s), a0 = _epOwnAlpha(s), recEp = -1;
   if (a0 != null) { for (var k = 0; k < Math.min(3, legs.length); k++) { if (legs[k].h != null && legs[k].h >= a0) { recEp = k; break; } } }
   if (recEp >= 0 && i === recEp + 1) return s.holdExp || null;
   if (recEp >= 0 && i === recEp + 2) return s.hold2Exp || null;
+  if (recEp >= 0 && i === recEp) return (legs[i] && legs[i].exp) || "○";
   return (legs[i] && legs[i].exp) || null;
 }
 // ×宣言後の到達（judge="x"＝見送り・参考扱い）か。EP足はα到達済みだが手前のOSで×宣言したため集計上ノートレード。
