@@ -4017,6 +4017,7 @@ function _elKabuLadderSimV2(props) {
         _kbMasterTable(manCalc, "シミュレーション・" + _manTot + "株", _manTot, _simCutInfo),
         _notesLine(manCalc)) : null);
   } else {
+    var _stepTotal = function(delta) { setTotal(function(prev) { var c = _kbInt(prev); c = (c == null ? 0 : c) + delta; if (c < 0) c = 0; return String(c); }); setAutoExp(null); };   // 合計株数を±100（手動の株数欄_stepCumと対の縦▲▼）2026-07-06
     var _rankRows = [];
     if (autoRes) {
       autoRes.combos.slice(0, 10).forEach(function(cb, i) {
@@ -4047,7 +4048,9 @@ function _elKabuLadderSimV2(props) {
     body = React.createElement(React.Fragment, null,
       React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700 } }, "合計"),
-        React.createElement("input", { type: "text", inputMode: "numeric", value: total, onChange: function(e) { setTotal(e.target.value); setAutoExp(null); }, style: _inpSty }),
+        React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff", verticalAlign: "middle" } },
+          React.createElement("input", { type: "text", inputMode: "numeric", value: total, onChange: function(e) { setTotal(e.target.value); setAutoExp(null); }, style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
+          _stepBtn(function() { _stepTotal(100); }, function() { _stepTotal(-100); })),
         React.createElement("span", { style: { fontSize: 11 } }, "株（100株刻み" + (totalN ? "・実効" + totalN + "株" : "") + "）")),
       React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: "#0F766E", marginBottom: 6 } }, "推奨基本α値＝", _recoBaseAlpha != null ? React.createElement("b", null, _recoBaseAlpha + "円") : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足"), (_recoBaseAlpha != null && _recoBasePick && _recoBasePick.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "（参考・件数不足）") : null),
       React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 8 } }, "第1取引＝" + (_recoBaseAlpha != null ? ("0〜" + _s1AlphaMax + "円（推奨基本α" + _recoBaseAlpha + "円の未満）") : "0〜20円") + "（1円刻み）× 配分（100株刻み）を総当たり。第2取引＝その記録の日付時点の推奨基本α。探索・表示のα＝基本α部分＝浮き足〇/追加α〇の記録は浮き足加算・上乗せセレクタ分を加えた実効αで評価。" + (autoRes && autoRes.noRecoN ? " ※推奨α不明" + autoRes.noRecoN + "件は第2取引を建てない扱い。" : "")),
