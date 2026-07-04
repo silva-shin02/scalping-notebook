@@ -3768,7 +3768,21 @@ function _elKabuLadderSimV2(props) {
       React.createElement("b", { style: { color: _elPnlColor(main) } }, _elPnlFmt(main)),
       (ref ? React.createElement("span", { style: { color: "#999", fontSize: 9, marginLeft: 1 } }, "（" + _elPnlFmt(main + ref) + "）") : null));
   };
-  // （旧 _mtTierNodes は展開行のフル計算式 _mtFormula に置換・2026-07-05）
+  // 展開行の取引内訳（各取引のα×株数と（）外損益・（）内は△/損切り済がある時だけ括弧）。手動は各取引の株数そのまま 2026-07-05。
+  var _mtTierNodes = function(cells) {
+    var out = [];
+    (cells || []).forEach(function(c, j) {
+      if (!(c.t.add > 0)) return;
+      var ev = c.ev, txt;
+      if (ev.skip === "noalpha") txt = React.createElement("span", { style: { color: "#bbb" } }, "推奨α不明（取引対象外）");
+      else if (ev.skip === "unreached") txt = React.createElement("span", { style: { color: "#94A3B8" } }, "α" + ev.a + "円×" + c.t.add + "株 未到達");
+      else if (ev.skip === "x") txt = React.createElement("span", { style: { color: "#0369A1" } }, "α" + ev.a + "円×" + c.t.add + "株 ×見送り");
+      else if (ev.indet) txt = React.createElement("span", { style: { color: "#B45309" } }, "α" + ev.a + "円×" + c.t.add + "株 判定不可");
+      else { var amtM = ev.main100 != null ? Math.round(ev.main100 * c.t.add / 100) : 0; var amtR = ev.ref100 != null ? Math.round(ev.ref100 * c.t.add / 100) : 0; txt = React.createElement("span", null, "α" + ev.a + "円×" + c.t.add + "株 ", React.createElement("b", { style: { color: _elPnlColor(amtM) } }, _elPnlFmt(amtM)), (amtR ? React.createElement("span", { style: { color: "#999", fontSize: 8.5, marginLeft: 1 } }, "（" + _elPnlFmt(amtM + amtR) + "）") : null), ev.stop ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: "#1E8449", marginLeft: 3 } }, "損切") : null); }
+      out.push(React.createElement("span", { key: j, style: { marginRight: 12, whiteSpace: "nowrap" } }, txt));
+    });
+    return out.length ? out : React.createElement("span", { style: { color: "#ccc" } }, "—");
+  };
   // シミュ列セルの取引内訳（複数取引時のみ・合計の下段に表示）。取引ごとに（）外main・（）内(main+ref)を持ち、
   // （）内が（）外と異なる取引が1つでもあれば「点線を挟んで上段＝（）外／下段＝（）内」の2段表示（ユーザー要望 2026-07-05）。ref皆無なら（）外の1段のみ。
   // 並びはα昇順＝シミュα列（昇順・重複除去）と1:1対応（自動配分で第1α＞その日の推奨αに逆転しても列とズレない）・同一αの取引は金額を合算して1つに・α不明（推奨α不明）は末尾—。2026-07-04c
@@ -3815,53 +3829,6 @@ function _elKabuLadderSimV2(props) {
     return { main: p.main != null ? Math.round(p.main * nSh / 100) : null, ref: p.ref != null ? Math.round(p.ref * nSh / 100) : null };
   };
   var _kbConvSums = function(nSh) { var m = 0, rf = 0; pool.forEach(function(r) { var p = _kbConvParts(r, nSh); if (p.main != null) m += p.main; if (p.ref != null) rf += p.ref; }); return { sum: Math.round(m), sumRef: Math.round(rf) }; };
-  // ===== 展開行のフル計算式（案A・2026-07-05）: 各数値の出どころ（100株あたりの値・根拠・株数按分）を式で表示 =====
-  var _fmtSigned = function(v) { return (v == null) ? "?" : ((v > 0 ? "+" : "") + v); };
-  // 100株あたりの（）外損益がEP想定額かH1保有か損切りかを短文で説明（_elHold1TotPartsのmainロジックをUI用に再現・表示専用。ロジック変更時は要追従）。
-  var _per100Explain = function(s, alpha, cut) {
-    var r = _epResolve(s, alpha);
-    if (!r || r.epIdx < 0 || r.epIdx > 2) return "α" + alpha + "円は3本以内に未到達＝建たない";
-    if (r.judge !== "ok") return "EP前に×＝見送り（建てない）";
-    if (_epIsTriEntry(s, alpha)) return "EPが△のため（）外は0円（（）内のみ）";
-    if (_elPlanIsStop(s, alpha, cut) || _elHoldIsStop(s, alpha, cut)) return "損切り" + cut + "円到達＝−(高値−α" + alpha + ")×100";
-    var hExp = _epExpAt(s, r.epIdx + 1);
-    if (hExp === "○") { var h1 = r.h1; return "H1(○)まで保有＝(α" + alpha + " − H1確定" + _fmtSigned(h1 && h1.c != null ? h1.c : null) + ")×100"; }
-    var epc = r.ep && r.ep.c != null ? r.ep.c : null;
-    return "H1が" + (hExp || "未設定") + "→EP想定額＝(α" + alpha + " − EP確定" + _fmtSigned(epc) + ")×100";
-  };
-  var _mtFormula = function(m, nShares) {
-    var s = m.s, a = m.a, cut = aiOf(m.r).cutLine;
-    var _mono = { fontFamily: "monospace", fontSize: 10.5, color: "#334155" };
-    var _amtB = function(v) { return React.createElement("b", { style: { color: _elPnlColor(v) } }, _elPnlFmt(v)); };
-    var p = _elHold1TotParts(s, a, cut);   // 従来の100株あたり（採用α・損益データ欄と同一）
-    var bMain = m.basePnl, bRef = m.baseRef || 0;
-    var lines = [];
-    lines.push(React.createElement("div", { key: "convH", style: { marginBottom: 1 } },
-      React.createElement("span", { style: { fontWeight: 700, color: "#9A3412", marginRight: 4 } }, "従来"),
-      (bMain == null)
-        ? React.createElement("span", { style: _mono }, "採用α" + a + "円では（）外の損益なし（—）" + (bRef ? "　（）内 " + _elPnlFmt(bRef) : ""))
-        : React.createElement("span", { style: _mono }, "採用α" + a + "円 × " + nShares + "株　" + _elPnlFmt(p.main == null ? 0 : p.main) + "/100株 × " + nShares + "÷100 = ", _amtB(bMain), (bRef ? React.createElement("span", { style: { color: "#999" } }, "　（）内 " + _elPnlFmt(bMain + bRef)) : null))));
-    lines.push(React.createElement("div", { key: "convW", style: { color: "#94a3b8", fontSize: 9.5, paddingLeft: 30, marginBottom: 4 } }, "└ 100株あたり" + _elPnlFmt(p.main == null ? 0 : p.main) + "の根拠: " + _per100Explain(s, a, cut)));
-    lines.push(React.createElement("div", { key: "simH" }, React.createElement("span", { style: { fontWeight: 700, color: "#0F766E", marginRight: 4 } }, "シミュ"), React.createElement("span", { style: { color: "#666", fontSize: 9.5 } }, "各取引の株数をそのまま空売り（合計" + nShares + "株）")));
-    var idx = 0;
-    (m.cells || []).forEach(function(c) {
-      if (!(c.t.add > 0)) return;
-      idx++;
-      var ev = c.ev, node;
-      if (ev.skip === "noalpha") node = React.createElement("span", { style: { color: "#bbb" } }, c.t.add + "株　推奨α不明＝建てない");
-      else if (ev.skip === "unreached") node = React.createElement("span", { style: { color: "#94A3B8" } }, "α" + ev.a + "円 × " + c.t.add + "株　未到達＝建たない");
-      else if (ev.skip === "x") node = React.createElement("span", { style: { color: "#0369A1" } }, "α" + ev.a + "円 × " + c.t.add + "株　×見送り＝建てない");
-      else if (ev.indet) node = React.createElement("span", { style: { color: "#B45309" } }, "α" + ev.a + "円 × " + c.t.add + "株　判定不可＝不算入");
-      else { var amt = ev.main100 != null ? Math.round(ev.main100 * c.t.add / 100) : 0; var amtR = ev.ref100 != null ? Math.round(ev.ref100 * c.t.add / 100) : 0; node = React.createElement("span", { style: _mono }, "α" + ev.a + "円 × " + c.t.add + "株　" + _elPnlFmt(ev.main100 == null ? 0 : ev.main100) + "/100株 × " + c.t.add + "÷100 = ", _amtB(amt), (amtR ? React.createElement("span", { style: { color: "#999" } }, "（（）内 " + _elPnlFmt(amt + amtR) + "）") : null), ev.stop ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 800, marginLeft: 3 } }, "損切") : null); }
-      lines.push(React.createElement("div", { key: "sim" + idx, style: { paddingLeft: 30 } }, React.createElement("span", { style: { color: "#666", marginRight: 4, fontSize: 9.5 } }, "第" + idx + "取引"), node));
-    });
-    var diff = (m.basePnl == null && m.cfgPnl == null) ? null : ((m.cfgPnl || 0) - (m.basePnl || 0));
-    lines.push(React.createElement("div", { key: "tot", style: Object.assign({}, _mono, { marginTop: 4, paddingLeft: 30 }) },
-      "合計 = ", _amtB(m.cfgPnl == null ? 0 : m.cfgPnl), (m.cfgRef ? React.createElement("span", { style: { color: "#999" } }, "（（）内 " + _elPnlFmt((m.cfgPnl || 0) + m.cfgRef) + "）") : null),
-      React.createElement("span", { style: { margin: "0 6px", color: "#ccc" } }, "／"),
-      "差額 = シミュ" + _elPnlFmt(m.cfgPnl == null ? 0 : m.cfgPnl) + " − 従来" + _elPnlFmt(bMain == null ? 0 : bMain) + " = ", diff == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _amtB(diff)));
-    return React.createElement("div", { style: { lineHeight: 1.7 } }, lines);
-  };
   var _kbMasterTable = function(cfgCalc, cfgLabel, nShares) {
     if (!cfgCalc || !(nShares > 0)) return null;
     var _bAgg = _kbConvSums(nShares);
@@ -3887,7 +3854,7 @@ function _elKabuLadderSimV2(props) {
       var alphaNode = React.createElement("div", { style: { lineHeight: 1.1 } }, (a != null ? (a + "円") : "—"), _elAlphaBreakdownNode(s, a));
       brows.push(React.createElement("tr", { key: key, onClick: function() { setMtExp(open ? null : key); }, style: { cursor: "pointer", background: open ? "#F0FDFA" : (m.anyStop ? "#F4FBF5" : "transparent") } },
         _mtTd(dstr), _mtTd(_epOsChainCell(s, a)), _mtTd(_epECell(s, a), "center"), _mtTd(React.createElement("span", { style: { color: "#0369A1", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.recoA != null ? (m.recoA + "円") : "—")), _mtTd(alphaNode), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, m.simA.length ? m.simA.map(function(v) { return v + "円"; }).join("/") : "—")), _mtTd(_mtPnlNode2(m.basePnl, m.baseRef), "right"), _mtTd(React.createElement("div", { style: { lineHeight: 1.3 } }, _mtPnlNode2(m.cfgPnl, m.cfgRef), _mtSimBreakdown(m.cells)), "center", true), _mtTd(_mtPnlNode2(diff, diffRef), "right"), _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
-      if (open) brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "8px 12px", background: "#FBFEFD", borderBottom: "1px solid #eee" } }, _mtFormula(m, nShares))));
+      if (open) brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "6px 10px", background: "#FBFEFD", borderBottom: "1px solid #eee", fontSize: 9.5, color: "#9A3412" } }, React.createElement("span", { style: { fontWeight: 700 } }, "取引内訳: "), _mtTierNodes(m.cells))));
     });
     return React.createElement("div", { style: { marginTop: 8 } },
       React.createElement("div", { style: { overflowX: "auto", border: "0.5px solid #e8e3d8", borderBottom: "none", borderRadius: "10px 10px 0 0" } },
