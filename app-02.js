@@ -4291,16 +4291,17 @@ function EntrySignalSection(_ref_es) {
     // 想定が損切りの行は結果損益を想定額(ppN)にキャップして合計（本来額は _esTotHoldActual に保持し下にカッコ併記）。
     var _planStopTot = _elPlanIsStop(s, _esAlpha(s), _esCut(s));
     var _hCapN = (_planStopTot && ppN != null) ? ppN : hpN;
-    var _fbEs = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
+    var _hxEs = _elH1ExpAt(s, _esAlpha(s));   // H1保有ガバナンス＝次足期待度（採用αでは=s.holdExp）2026-07-06e
+    var _fbEs = (_hxEs !== "○");  // ○以外（×/△/損切り済/未設定）→想定額(EP損益)へフォールバック。未設定=×扱い
     if (hpN != null) {
       if (_epTriEs) {
         // EP△→H1も（）外0。○/△/損切り済は（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
-        if (s.holdExp && s.holdExp !== "×") { _esTotHoldRef = (_esTotHoldRef || 0) + _hCapN; _esTotHoldRefCnt++; }
+        if (_hxEs && _hxEs !== "×") { _esTotHoldRef = (_esTotHoldRef || 0) + _hCapN; _esTotHoldRefCnt++; }
       } else if (_fbEs && ppN != null) {
         _esTotHold = (_esTotHold || 0) + ppN;
         _esTotHoldActual = (_esTotHoldActual || 0) + ppN;
         _esTotHoldCnt++;
-        if ((s.holdExp === "△" || s.holdExp === "損切り済") && (_hCapN - ppN) !== 0) { _esTotHoldRef = (_esTotHoldRef || 0) + (_hCapN - ppN); _esTotHoldRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
+        if ((_hxEs === "△" || _hxEs === "損切り済") && (_hCapN - ppN) !== 0) { _esTotHoldRef = (_esTotHoldRef || 0) + (_hCapN - ppN); _esTotHoldRefCnt++; }  // △/損切り済のみH1保有時との差を参考（×/未設定は無し・差0除外）
       } else {
       _esTotHold = (_esTotHold || 0) + _hCapN;
       _esTotHoldActual = (_esTotHoldActual || 0) + hpN;
@@ -5157,13 +5158,14 @@ function WeeklyPnlPanel(_wpp) {
           var pp = _elDynPlanned(s, _aR, _cutLR);
           var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
           var _cap = (_pStop && pp != null) ? pp : hp;
+          var _hxW = _elH1ExpAt(s, _aR);   // 2026-07-06e
           if (_epIsTriEntry(s, _aR)) {
             // EP△→H1も（）外0。○/△/損切り済は（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
-            if (s.holdExp && s.holdExp !== "×") { _hRef = (_hRef || 0) + _cap; _hRefCnt++; }
+            if (_hxW && _hxW !== "×") { _hRef = (_hRef || 0) + _cap; _hRefCnt++; }
           } else {
-            var _fbW = (s.holdExp !== "○");  // ○以外（×/△/損切り済/未設定）→想定額へフォールバック。未設定=×扱い
+            var _fbW = (_hxW !== "○");  // ○以外（×/△/損切り済/未設定）→想定額へフォールバック。未設定=×扱い
             _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
-            if ((s.holdExp === "△" || s.holdExp === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
+            if ((_hxW === "△" || _hxW === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
             _hCnt++;
           }
         });

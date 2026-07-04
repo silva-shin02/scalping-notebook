@@ -31,6 +31,14 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-06e 次足期待度統一のアプリ全体反映＝期待度参照の全数監査と37箇所置換（ユーザー依頼「徹底的にチェックして反映」）
+- **全数棚卸し**: app-01〜08の`os1/2/3Exp`・`holdExp/hold2Exp`直読み61箇所＋`_epExpAt/_epAsTraded/_epHoldView/_elWinBucket/_elOsMaxFiltered/_elOsMaxCapped`呼び出しを分類。**行αシミュ（simAlpha per-record上書き・一括α）が集計ループへ流れることを確認**＝生`s.holdExp`読みはシミュα時に役割ズレする経路だった（2026-07-03vでもTotParts×3しか直っていなかった）。
+- **共有ヘルパー新設（app-05）**: `_elH1ExpAt(s,alpha)`/`_elH2ExpAt(s,alpha)`＝H1/H2保有ガバナンス期待度（=_epNextExpAt(s,epIdx)/(s,epIdx+1)・TotPartsと同一規約・採用αでは生holdExp/hold2Expと同値）。
+- **置換37箇所**: ①集計ループ＝_elTotAccum(app-05)・_elCalcStats H1/H2(app-05)・早見表アグリゲータ(app-05 _aSig)・銘柄別記録合計(app-02 _esAlpha)・週間/本日/今週のH列合計(app-02×1・app-04×3 _aR/_alphaRec) ②表示セル＝_elHold2Cell・_elHoldStackInner・_elHoldBoth(exp/hexp/_h1Exited→_elH1/H2ExpAt) ③`_elWinBucket`＝tri判定と出口ウォークを_epNextExpAt化（足iの保有=足i-1の引け） ④`_elOsMaxFiltered`/`_elOsMaxCapped`＝役割インライン割当→「保有側=足i-1の引け/待ち側=足iの引け」の足固定解決（新記録のnextExpN対応） ⑤`_epAsTraded`＝待ち足のnextExpNもnull化（EP足以降の保有判断は温存＝×見送り「取引していたら」分析が新記録でも正しい）。
+- **対象外（意図的）**: `_elHoldMaxHigh`（α非依存・記録時表示）・`_elH2ExpCounts`等の記録済み判断カウンタ・app-06 _elTriangleHoldSectionV2等の採用α限定セレクタ・app-01 migrateData:699（scheme2/3除外ガード済み）・_epOsChainCellの表示（従来契約）。
+- **検証**: **恒等性証明＝71バッテリー記録全件で`_elH1ExpAt(s,採用α)===s.holdExp`/`_elH2ExpAt===s.hold2Exp`フェイル0**→全機械置換は採用αで数値不変。WinBucket/OsMaxFiltered/OsMaxCapped独自バッテリー＝**採用α diff0件**・シミュα差分42件は全て役割ズレ解消カテゴリ（例: EP前進時に旧はholdExpを誤った物理足に割当てOS値を過小評価）。×見送り→_epAsTraded＝nextExp1剥がし・nextExp2温存・H2フォールバック正。EntryLogView実マウントで集計/α値/損切り/深掘り/シミュ全タブ巡回エラー0・React警告0・esprima構文OK。
+- **sw.js**: `APP_CACHE` v36→v37。
+
 ### 2026-07-06d 期待度を「次足期待度」に統一（データモデル＋フォーム＋読み取り層・ユーザー設計決定）＝いつでもEPが変わってよい記録へ
 - **概念統一**: 旧・α値到達期待度(os1/2/3Exp)・H1期待度(holdExp)・H2期待度(hold2Exp)を「**次足期待度**＝各足の引けで下す“次の足へ継続するか”の判断（○=継続/△=中間/×=この足で降りる=見送り・手仕舞い）」1本に統一。待ち足の×=見送り宣言・EP以降の×=手仕舞い＝同じ概念の両面（ユーザー確認済）。
 - **データモデル（app-05）**: 新フィールド `signal.nextExp1〜4`（足固定 OS1..OS4・正本）。保存時にレガシー（os1Exp/os2Exp=EP位置でゲート・holdExp=EP足スロット・hold2Exp=EP+1足スロット・os3Exp=null廃止）を現在EP位置から自動導出＝**下流・旧版アプリと完全互換**。既存記録の一括migrateはしない（Firebase帯域保護）＝読み取り層フォールバックで対応。
