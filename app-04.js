@@ -2135,6 +2135,11 @@ function SettingsModal(_ref54) {
   var _ndSaveDaysVal = function(v, u) { var days = _ndCalcDays(v, u); if (!(days > 0) || !save) return; save(function(prev) { var pc = prev.custom || {}; var pn = pc.newsImgAutoDelete || {}; return Object.assign({}, prev, { custom: Object.assign({}, pc, { newsImgAutoDelete: Object.assign({}, pn, { periodDays: days }) }) }); }); };
   var _nadEnabled = !!(data && data.custom && data.custom.newsImgAutoDelete && data.custom.newsImgAutoDelete.enabled === true);
   var _ndPreview = (function() { if (!data || !data.trades) return null; var days = _ndCalcDays(_stNdV, _stNdU); if (!(days > 0)) return null; try { return _snAutoPruneNewsImages(data, Date.now() - days * 86400000).count; } catch(e) { return null; } })();
+  // 未参照(孤児)画像の自動削除トグル（2026-07-05）。実処理はapp-08の起動時useEffect。ここは有効/無効の切替のみ（graceDays/intervalDaysは既定7・表示のみ）。
+  var _oadSaveEnabled = function(en) { if (!save) return; save(function(prev) { var pc = prev.custom || {}; var po = pc.orphanAutoDelete || {}; return Object.assign({}, prev, { custom: Object.assign({}, pc, { orphanAutoDelete: Object.assign({}, po, { enabled: !!en }) }) }); }); };
+  var _oadEnabled = !!(data && data.custom && data.custom.orphanAutoDelete && data.custom.orphanAutoDelete.enabled === true);
+  var _oadGrace = (function(){ var x = data && data.custom && data.custom.orphanAutoDelete; return (x && typeof x.graceDays === "number" && x.graceDays >= 0) ? x.graceDays : 7; })();
+  var _oadInterval = (function(){ var x = data && data.custom && data.custom.orphanAutoDelete; return (x && typeof x.intervalDays === "number" && x.intervalDays > 0) ? x.intervalDays : 7; })();
   var I = {
     padding: "9px 10px",
     border: "1px solid #ccc",
@@ -2525,6 +2530,17 @@ function SettingsModal(_ref54) {
       (_nadEnabled && _ndPreview != null) ? React.createElement("div", { style: { marginTop: 8, fontSize: 11, fontWeight: 600, background: "#fff", borderRadius: 6, padding: "6px 10px", color: _ndPreview > 0 ? "#B45309" : "#15803D" } },
         _ndPreview > 0 ? ("現在この設定だと 保存していないニュース画像 " + _ndPreview + "枚 が削除対象です（次回起動時にまとめて確認します）") : "現在、削除対象の画像はありません"
       ) : null
+    ),
+    React.createElement("div", { style: { marginTop: 4, marginBottom: 14, padding: "12px 14px", background: "#FEF2F2", border: "2px solid #FECACA", borderRadius: 10 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 } },
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#7F1D1D" } }, "🗑 未参照（孤児）画像の自動削除"),
+        React.createElement("button", {
+          onClick: function() { _oadSaveEnabled(!_oadEnabled); },
+          title: _oadEnabled ? "オン" : "オフ",
+          style: { width: 46, height: 25, borderRadius: 13, border: "none", cursor: "pointer", position: "relative", padding: 0, flexShrink: 0, background: _oadEnabled ? "#EF4444" : "#cbd5e1" }
+        }, React.createElement("span", { style: { position: "absolute", top: 3, left: _oadEnabled ? 24 : 3, width: 19, height: 19, borderRadius: "50%", background: "#fff" } }))
+      ),
+      React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.7 } }, "どの記録・分析ツールからも参照されていない画像（圧縮で置き換えた古い画像・削除済みチャートの残骸など）を、起動時に自動でFirebase Storageから削除します。約" + _oadInterval + "日ごとにチェックし、作成から" + _oadGrace + "日以上前・未参照のものだけが対象。表示中の画像・記録には影響しません。最新データ／分析ツールの参照が取得できないときは安全のため実行しません。")
     ),
     React.createElement("button", {
       onClick: function() {

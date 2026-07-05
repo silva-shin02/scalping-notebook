@@ -890,6 +890,51 @@ function App() {
     } catch(e) { console.warn("[autoprune] error:", e); }
   }, [fbStatus]);
 
+  // 未参照(孤児)画像の自動削除（2026-07-05）: 起動時に約intervalDays日ごと、どの記録/リモート/CAからも参照されないnotebook-images画像をFirebase Storageから削除。
+  // dataは変更しない（既に参照が無い実体を消すだけ）ので save/push は不要。安全ガードは手動整理(_runStDelete)と同一＝remoteOk/caOk falseなら中止・参照0件疑いなら中止・作成日不明は残す。初回のみ確認。
+  useEffect(function() {
+    try {
+      if (window.__snOrphanGcAttempted) return;                       // 同一セッションでは1回だけ着手
+      var d = dataRef.current;
+      if (!d || !d.custom) return;
+      var oad = d.custom.orphanAutoDelete || {};
+      if (oad.enabled !== true) return;                               // 設定オフ
+      if (fbStatus !== "ok") return;                                  // 同期が整うまで待つ
+      if (!_fbStorageRef) return;                                     // Storage未設定
+      if (!d.charts && !d.trades) return;                             // データ未読込＝安全側で中止
+      var interval = (typeof oad.intervalDays === "number" && oad.intervalDays > 0) ? oad.intervalDays : 7;
+      var lastAt = Number(localStorage.getItem("sn_orphan_autogc_at_v1") || 0);
+      if (lastAt && (Date.now() - lastAt) < interval * 86400000) return;   // 頻度: 前回からinterval日未満はスキップ
+      window.__snOrphanGcAttempted = true;
+      var grace = (typeof oad.graceDays === "number" && oad.graceDays >= 0) ? oad.graceDays : 7;
+      var _cfg = cfgRef.current;
+      if (!_cfg || !_cfg.fbUrl) return;                               // リモート参照を確認できない構成では自動削除しない（安全側・手動より厳しめ）
+      var _stamp = function() { try { localStorage.setItem("sn_orphan_autogc_at_v1", String(Date.now())); } catch(e) {} };
+      _snStorageAudit(d, _cfg).then(function(r) {
+        try {
+          if (!r || !r.ok) { console.warn("[orphan-gc] audit failed:", r && r.reason); return; }   // 失敗はstampせず次回起動で再試行
+          if (_cfg && _cfg.fbUrl && (r.remoteOk === false || r.caOk === false)) { console.log("[orphan-gc] skipped: remote/CA unconfirmed"); return; }
+          if (r.refSetSize === 0 && r.total > 0) { console.log("[orphan-gc] skipped: no refs resolved"); return; }
+          var cutoff = Date.now() - grace * 86400000;
+          var delable = (r.orphans || []).filter(function(o) { return o.created && o.created < cutoff; });
+          if (!delable.length) { _stamp(); return; }                  // 対象なし＝正常完了
+          var bytes = delable.reduce(function(s, o) { return s + (o.size || 0); }, 0);
+          var _mb = (bytes >= 1048576) ? (bytes / 1048576).toFixed(2) + " MB" : Math.round(bytes / 1024) + " KB";
+          var firstRun = localStorage.getItem("sn_orphan_autogc_ack_v1") !== "1";
+          if (firstRun) {
+            var ok = window.confirm("未参照（孤児）画像の自動削除がオンになっています。\n\nどの記録・分析ツールからも参照されていない画像 " + delable.length + "枚（約" + _mb + "）をFirebase Storageから削除します。\n表示中の画像・記録には影響しません。作成から" + grace + "日以上前のものだけが対象です。\n\n削除しますか？（設定でオフにできます）");
+            if (!ok) { _stamp(); return; }                            // 断られたら今回はスキップ（次回interval後に再確認）
+            localStorage.setItem("sn_orphan_autogc_ack_v1", "1");
+          }
+          _snStorageDeleteOrphans(delable, grace, Date.now()).then(function(res) {
+            _stamp();
+            console.log("[orphan-gc] deleted:", res.deleted, "/", res.freed, "bytes", res.errs ? ("errs " + res.errs) : "");
+          })["catch"](function(e2) { console.warn("[orphan-gc] delete error:", e2); });
+        } catch(e1) { console.warn("[orphan-gc] handler error:", e1); }
+      })["catch"](function(e0) { console.warn("[orphan-gc] audit error:", e0); });
+    } catch(e) { console.warn("[orphan-gc] error:", e); }
+  }, [fbStatus]);
+
     var exportData = function exportData() {
     var b = new Blob([JSON.stringify(dataRef.current, null, 2)], {
       type: "application/json"

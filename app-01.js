@@ -428,6 +428,11 @@ function migrateData(d) {
   if (!d.custom.newsImgAutoDelete || typeof d.custom.newsImgAutoDelete !== "object") d.custom.newsImgAutoDelete = { enabled: true, periodDays: 7 };
   if (typeof d.custom.newsImgAutoDelete.enabled !== "boolean") d.custom.newsImgAutoDelete.enabled = true;
   if (typeof d.custom.newsImgAutoDelete.periodDays !== "number" || !(d.custom.newsImgAutoDelete.periodDays > 0)) d.custom.newsImgAutoDelete.periodDays = 7;
+  // 未参照(孤児)画像の自動削除設定（2026-07-05）: 起動時に約intervalDays日ごと、作成からgraceDays日以上前・未参照のnotebook-images画像を自動でStorage削除。既定オン・初回のみ確認。app-08のuseEffectで実行(_snStorageAudit/_snStorageDeleteOrphans・remoteOk/caOkガードで多端末巻き込み防止)。
+  if (!d.custom.orphanAutoDelete || typeof d.custom.orphanAutoDelete !== "object") d.custom.orphanAutoDelete = { enabled: true, graceDays: 7, intervalDays: 7 };
+  if (typeof d.custom.orphanAutoDelete.enabled !== "boolean") d.custom.orphanAutoDelete.enabled = true;
+  if (typeof d.custom.orphanAutoDelete.graceDays !== "number" || !(d.custom.orphanAutoDelete.graceDays >= 0)) d.custom.orphanAutoDelete.graceDays = 7;
+  if (typeof d.custom.orphanAutoDelete.intervalDays !== "number" || !(d.custom.orphanAutoDelete.intervalDays > 0)) d.custom.orphanAutoDelete.intervalDays = 7;
 
   if (!d.custom._alphaDefault5Mig) {
     if (d.charts && typeof d.charts === "object") {
