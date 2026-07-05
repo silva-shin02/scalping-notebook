@@ -458,8 +458,9 @@ function _elOsHistV2(_ref) {
     return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (b.xcnt ? "・うち期待度×(見送り)" + b.xcnt + "件" : "") + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_isMark2 ? "（推奨基本α＋追加α " + markVal2 + "円）" : "") + (_isMark3 ? "（" + mark3Label + " " + markVal3 + "円）" : "") + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
         style: { flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", cursor: click ? "pointer" : "default" } },
       React.createElement("div", { style: { fontSize: 10, color: _isSel ? "#9A3412" : (b.cnt ? "#555" : "#ccc"), fontWeight: _isSel ? 700 : 400, marginBottom: 2, lineHeight: 1 } }, b.cnt),
-      React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? b.color : "#eee", borderRadius: "2px 2px 0 0", overflow: "hidden", outline: _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (_isMark2 ? "2px solid #EA580C" : (_isMark3 ? "2px solid #C0392B" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none")))), outlineOffset: 1 } },
-        (b.cnt && b.xcnt) ? React.createElement("div", { title: "期待度×（見送り）" + b.xcnt + "件", style: { width: "100%", height: Math.min(100, Math.round(b.xcnt / b.cnt * 100)) + "%", boxSizing: "border-box", border: "1.5px dotted rgba(255,255,255,0.95)", borderRadius: "2px 2px 0 0" } }) : null));
+      React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? "transparent" : "#eee", borderRadius: "2px 2px 0 0", overflow: "hidden", outline: _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (_isMark2 ? "2px solid #EA580C" : (_isMark3 ? "2px solid #C0392B" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none")))), outlineOffset: 1 } },
+        (b.cnt && b.xcnt) ? React.createElement("div", { title: "期待度×（見送り）" + b.xcnt + "件", style: { width: "100%", height: Math.min(100, Math.round(b.xcnt / b.cnt * 100)) + "%", boxSizing: "border-box", border: "1.5px dotted #9A3412", borderRadius: "2px 2px 0 0", background: "transparent" } }) : null,
+        b.cnt ? React.createElement("div", { style: { width: "100%", height: (100 - (b.xcnt ? Math.min(100, Math.round(b.xcnt / b.cnt * 100)) : 0)) + "%", background: b.color } }) : null));
   });
   var xNodes = bars.map(function(b) {
     var _isMark = markKey != null && b.key === markKey;
@@ -497,7 +498,7 @@ function _elOsHistV2(_ref) {
     : null;
   var markCap = (_markCapBase || _markCap2 || _markCap3) ? React.createElement(React.Fragment, null, _markCapBase, _markCap2, _markCap3) : null;
   var _xCap = _xTot > 0 ? React.createElement("div", { style: { fontSize: 9, color: "#6B7280", fontWeight: 700, marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4 } },
-    React.createElement("span", { style: { display: "inline-block", width: 14, height: 9, borderRadius: 2, boxSizing: "border-box", backgroundColor: "#9A3412", border: "1.5px dotted rgba(255,255,255,0.95)" } }),
+    React.createElement("span", { style: { display: "inline-block", width: 14, height: 9, borderRadius: 2, boxSizing: "border-box", backgroundColor: "transparent", border: "1.5px dotted #9A3412" } }),
     "点線枠＝期待度×（見送り） " + _xTot + "件・枠外 " + (cm.tot - _xTot) + "件（この母数のうち・棒内の割合で表示）") : null;
   return React.createElement("div", { style: { width: _ref.w || "100%", minWidth: 0 } },
     React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 2, height: (barH + 14) + "px" } }, colNodes),
