@@ -2241,7 +2241,7 @@ function SettingsModal(_ref54) {
     style: {
       color: "#6366F1"
     }
-  }, "Firebase Console"), " \u3067\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u4F5C\u6210", React.createElement("br", null), "2. Realtime Database \u2192\u300C\u30C6\u30B9\u30C8\u30E2\u30FC\u30C9\u3067\u958B\u59CB\u300D", React.createElement("br", null), "3. Database URL \u3092\u5165\u529B"), [["fbUrl", "Database URL", "text"], ["fbSecret", "Database Secret（テストモードは不要）", "password"], ["apiKey", "API Key（Storage用）", "text"]].map(function (_ref55) {
+  }, "Firebase Console"), " \u3067\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u4F5C\u6210", React.createElement("br", null), "2. Realtime Database \u3092\u4F5C\u6210", React.createElement("br", null), "3. Database URL \u3068\u4E0B\u306E Database Secret \u3092\u5165\u529B", React.createElement("br", null), "4. \u540C\u671F\u3067\u304D\u305F\u3089\u30EB\u30FC\u30EB\u3067 .read/.write \u3092 false \u306B\u3057\u3066\u5916\u90E8\u906E\u65AD\uFF08Secret\u3067\u672C\u30A2\u30D7\u30EA\u306F\u52D5\u4F5C\uFF09"), [["fbUrl", "Database URL", "text"], ["fbSecret", "Database Secret（ルールを閉じるなら必須）", "password"], ["apiKey", "API Key（Storage用）", "text"]].map(function (_ref55) {
     var _ref56 = _slicedToArray(_ref55, 3),
       k = _ref56[0],
       lb = _ref56[1],
