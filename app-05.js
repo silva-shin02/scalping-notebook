@@ -5381,6 +5381,15 @@ function EntryRecordForm(_ref_erf) {
     fDetOrder = _useStateSGOA[0], setFDetOrder = _useStateSGOA[1];
   var _detDragRef = useRef(null);
   var _detMovedRef = useRef(false);
+  // ＋追加をインライン入力欄に変更（2026-07-06d）: iPadのホーム画面起動(standalone)ではwindow.prompt/confirmが無反応（即null）になるため、詳細まわりのネイティブダイアログを廃止。
+  // 追加=fDetAdd={tag,val}でその場に入力欄＋追加ボタン（値の正本は_detAddValRef・確定時に_fiFlushAll）／削除確認=「もう一度タップで削除」の2タップ（fDetDelPend）。
+  var _useStateSGA = useState(null),
+    _useStateSGAA = _slicedToArray(_useStateSGA, 2),
+    fDetAdd = _useStateSGAA[0], setFDetAdd = _useStateSGAA[1];
+  var _detAddValRef = useRef("");
+  var _useStateSGP = useState(null),
+    _useStateSGPA = _slicedToArray(_useStateSGP, 2),
+    fDetDelPend = _useStateSGPA[0], setFDetDelPend = _useStateSGPA[1];
   var _useStateE19 = useState(initSig.result || ""),
     _useStateE20 = _slicedToArray(_useStateE19, 2),
     fResult = _useStateE20[0], setFResult = _useStateE20[1];
@@ -6481,6 +6490,7 @@ function EntryRecordForm(_ref_erf) {
                 var _isOrphan = _cands.indexOf(_dn) < 0;
                 var _dragSt = _detDragRef.current;
                 var _dragging = !!(_dragSt && _dragSt.started && _dragSt.tag === _dt && _dragSt.name === _dn);
+                var _delPend = !!(fDetEdit && fDetDelPend && fDetDelPend.tag === _dt && fDetDelPend.name === _dn);
                 return React.createElement("button", { key: _dn,
                   "data-dettag": _dt, "data-detname": _dn,
                   onPointerDown: _isOrphan ? null : function(e) {
@@ -6520,11 +6530,12 @@ function EntryRecordForm(_ref_erf) {
                     }
                     setFDetOrder(null);
                   },
-                  onPointerCancel: function() { _detDragRef.current = null; setFDetOrder(null); },
+                  onPointerCancel: function() { _detDragRef.current = null; _detMovedRef.current = false; setFDetOrder(null); },
                   onClick: function() {
                     if (_detMovedRef.current) { _detMovedRef.current = false; return; }
                     if (fDetEdit) {
-                      if (!window.confirm("詳細『" + _dn + "』を候補から削除しますか？\n（過去の記録に付いた詳細はそのまま残ります）")) return;
+                      if (!_delPend) { setFDetDelPend({ tag: _dt, name: _dn }); return; }
+                      setFDetDelPend(null);
                       save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); _sd[_dt] = (_sd[_dt] || []).filter(function(x) { return x !== _dn; }); _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
                       setFSigDetail(function(prev) { if (prev[_dt] !== _dn) return prev; var _o = Object.assign({}, prev); delete _o[_dt]; return _o; });
                       return;
@@ -6532,31 +6543,53 @@ function EntryRecordForm(_ref_erf) {
                     setFSigDetail(function(prev) { var _o = Object.assign({}, prev); if (_o[_dt] === _dn) delete _o[_dt]; else _o[_dt] = _dn; return _o; });
                   },
                   style: { padding: "4px 9px", fontSize: 11, fontWeight: 600,
-                    border: _on ? "1.5px solid #D97706" : "1px solid " + (fDetEdit ? "#FCA5A5" : "#ddd"),
-                    background: _on ? "#FEF3C7" : "#fff", color: fDetEdit ? "#B91C1C" : (_on ? "#92400E" : "#777"),
+                    border: _delPend ? "1.5px solid #DC2626" : (_on ? "1.5px solid #D97706" : "1px solid " + (fDetEdit ? "#FCA5A5" : "#ddd")),
+                    background: _delPend ? "#FEE2E2" : (_on ? "#FEF3C7" : "#fff"), color: fDetEdit ? "#B91C1C" : (_on ? "#92400E" : "#777"),
                     borderRadius: 6, cursor: "pointer", touchAction: "none",
                     boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null,
                     transform: _dragging ? "scale(1.06)" : null,
                     opacity: _dragging ? 0.9 : null }
-                }, fDetEdit ? _dn + " ✕" : _dn);
+                }, fDetEdit ? (_delPend ? _dn + "：もう一度タップで削除" : _dn + " ✕") : _dn);
               }),
-              React.createElement("button", {
-                onClick: function() {
-                  var _nm = window.prompt("『" + _dt + "』の詳細名を追加（例: 押し目前）");
-                  if (!_nm) return;
-                  _nm = _nm.trim();
-                  if (!_nm) return;
-                  if (_cands.indexOf(_nm) < 0) save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); var _ar = (_sd[_dt] || []).slice(); if (_ar.indexOf(_nm) < 0) _ar.push(_nm); _sd[_dt] = _ar; _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
-                  setFSigDetail(function(prev) { var _o = Object.assign({}, prev); _o[_dt] = _nm; return _o; });
-                },
-                style: { padding: "4px 9px", fontSize: 11, fontWeight: 600, border: "1px dashed #bbb", background: "#fff", color: "#888", borderRadius: 6, cursor: "pointer" }
-              }, "＋追加"),
+              (function() {
+                var _addOpen = !!(fDetAdd && fDetAdd.tag === _dt);
+                return React.createElement("button", {
+                  onClick: function() {
+                    setFDetDelPend(null);
+                    if (_addOpen) { setFDetAdd(null); return; }
+                    _detAddValRef.current = "";
+                    setFDetAdd({ tag: _dt, val: "" });
+                  },
+                  style: { padding: "4px 9px", fontSize: 11, fontWeight: 600, border: _addOpen ? "1px solid #0369A1" : "1px dashed #bbb", background: _addOpen ? "#EFF6FF" : "#fff", color: _addOpen ? "#0369A1" : "#888", borderRadius: 6, cursor: "pointer" }
+                }, _addOpen ? "✕ 閉じる" : "＋追加");
+              })(),
               _cands.length ? React.createElement("button", {
-                onClick: function() { setFDetEdit(!fDetEdit); },
+                onClick: function() { setFDetEdit(!fDetEdit); setFDetDelPend(null); },
                 title: "詳細候補の削除モード",
                 style: { padding: "4px 8px", fontSize: 10, fontWeight: 700, border: "1px solid " + (fDetEdit ? "#B91C1C" : "#ddd"), background: fDetEdit ? "#FEF2F2" : "#fff", color: fDetEdit ? "#B91C1C" : "#999", borderRadius: 6, cursor: "pointer" }
               }, fDetEdit ? "完了" : "編集") : null
-            )
+            ),
+            (fDetAdd && fDetAdd.tag === _dt) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center" } },
+              React.createElement(FastInput, {
+                type: "text",
+                value: fDetAdd.val || "",
+                onChange: function(v) { _detAddValRef.current = v; setFDetAdd(function(p) { return (p && p.tag === _dt) ? { tag: _dt, val: v } : p; }); },
+                placeholder: "詳細名（例: 押し目前）",
+                style: { flex: 1, minWidth: 120, padding: "6px 9px", fontSize: 12, border: "1px solid #93C5FD", borderRadius: 6, background: "#fff", boxSizing: "border-box" }
+              }),
+              React.createElement("button", {
+                onClick: function() {
+                  _fiFlushAll();
+                  var _nm = (_detAddValRef.current || "").trim();
+                  if (!_nm) return;
+                  if (_cands0.indexOf(_nm) < 0) save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); var _ar = (_sd[_dt] || []).slice(); if (_ar.indexOf(_nm) < 0) _ar.push(_nm); _sd[_dt] = _ar; _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
+                  setFSigDetail(function(prev) { var _o = Object.assign({}, prev); _o[_dt] = _nm; return _o; });
+                  _detAddValRef.current = "";
+                  setFDetAdd(null);
+                },
+                style: { padding: "6px 14px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }
+              }, "追加")
+            ) : null
           );
         })
       ) : null,
