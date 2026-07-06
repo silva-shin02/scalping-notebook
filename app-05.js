@@ -3115,7 +3115,7 @@ function _elIsEntered(s, item) {
 // 合計額算入フラグ: signal.includeInTotal===false の記録だけを「合計額・データ分析」から除外する。
 // undefined/null/未設定(旧記録)は算入=true として扱う（後方互換・既定は算入）。
 // _elIsEntered(=実際にエントリーしたかE成立)とは別概念。一覧/カレンダー/検索の表示には影響させない。2026-06-18
-function _elInclTotal(s) { return !s || s.includeInTotal !== false; }
+function _elInclTotal(s) { return !s || (s.includeInTotal !== false && s.passThrough !== true); }   // スルー(passThrough=true)は算入チェックに関わらず常に不算入 2026-07-06
 // recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
 // 追加α値の3状態判定（2026-06-24）: 〇=必要と明示(addAlphaUsed===true)／×=不要と明示(===false)／未選択=未判断(それ以外=null)。
@@ -3141,16 +3141,20 @@ function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); retur
 var _DEF_ADD_REASONS = ["指標線支え"];
 
 // ===== 不算入(計算・データ算入オフ=includeInTotal===false)の可視化ヘルパー 2026-06-18 =====
-function _elIsExcluded(s) { return !!(s && s.includeInTotal === false); }
+function _elIsExcluded(s) { return !!(s && (s.includeInTotal === false || s.passThrough === true)); }
+// スルー判定（実エントリー3択の第3状態 2026-07-06）: シグナルは出たが判断の土俵に乗せなかった記録＝計算は不算入と同経路・見た目は灰色（不算入の水色と区別）。
+function _elIsThru(s) { return !!(s && s.passThrough === true); }
 // 「不算入」水色バッジ（行/カードに付ける）。
-function _elNotInclBadge(extra) {
-  return React.createElement("span", { title: "計算・データに算入しない記録",
-    style: Object.assign({ display: "inline-block", fontSize: 9, fontWeight: 800, color: "#0284C7",
-      background: "#E0F2FE", border: "1px solid #7DD3FC", borderRadius: 3, padding: "0 4px",
-      whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" }, extra || {}) }, "不算入");
+function _elNotInclBadge(extra, s) {
+  var _thru = _elIsThru(s);
+  return React.createElement("span", { title: _thru ? "スルー（合計・データ分析に算入しない記録）" : "計算・データに算入しない記録",
+    style: Object.assign({ display: "inline-block", fontSize: 9, fontWeight: 800, color: _thru ? "#4B5563" : "#0284C7",
+      background: _thru ? "#E5E7EB" : "#E0F2FE", border: "1px solid " + (_thru ? "#9CA3AF" : "#7DD3FC"), borderRadius: 3, padding: "0 4px",
+      whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" }, extra || {}) }, _thru ? "スルー" : "不算入");
 }
 // 不算入行に重ねるstyle（淡色＋水色の左ライン＋淡い水色背景）。既存rowスタイルへ Object.assign で合成。
 function _elNotInclRowStyle(s) {
+  if (_elIsThru(s)) return { opacity: 0.6, background: "#F5F5F4", borderLeft: "3px solid #9CA3AF" };
   return _elIsExcluded(s) ? { opacity: 0.62, background: "#EFF8FF", borderLeft: "3px solid #38BDF8" } : null;
 }
 // 水色ドット（銘柄タブ/カレンダー用）。countを渡すとタイトルに件数。
@@ -3162,7 +3166,7 @@ function _elExclDot(count, extra) {
 // signals配列の不算入件数。
 function _elExclCountSigs(signals) {
   if (!Array.isArray(signals)) return 0;
-  var n = 0; for (var i = 0; i < signals.length; i++) { if (signals[i] && signals[i].includeInTotal === false) n++; }
+  var n = 0; for (var i = 0; i < signals.length; i++) { if (signals[i] && _elIsExcluded(signals[i])) n++; }
   return n;
 }
 // recs配列([{signal}])の不算入件数。
@@ -5085,6 +5089,11 @@ function _elTagLabel(s) {
   return "(未設定)";
 }
 
+// シグナル詳細（案A階層型 2026-07-06）: signal.sigDetail={シグナル名:詳細名}（任意・タグごとに1つ）・候補マスターはcustom.sigDetails={シグナル名:[詳細名]}。
+// 表示用「タグ（詳細）」文字列。分析のグループ化(_elTagEntries)は素のタグ名のまま＝シグナル全体の集計・名寄せは不変。
+function _elSigDetailOf(s, t) { return (s && s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[t]) || null; }
+function _elTagDisp(s, t) { var _d = _elSigDetailOf(s, t); return _d ? t + "（" + _d + "）" : t; }
+
 function _elTagEntries(s) {
   var entries = [];
   var stdTags = s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []);
@@ -5349,6 +5358,17 @@ function EntryRecordForm(_ref_erf) {
   var _useStateE17 = useState(initSig.itemId || null),
     _useStateE18 = _slicedToArray(_useStateE17, 2),
     fItemId = _useStateE18[0], setFItemId = _useStateE18[1];
+  // スルー（実エントリー3択の第3状態 2026-07-06）: entered=false＋passThrough=true で保存。_elInclTotalが常に不算入扱い・一覧は灰色表示。
+  var _useStateTHR = useState(initSig.passThrough === true),
+    _useStateTHRA = _slicedToArray(_useStateTHR, 2),
+    fThru = _useStateTHRA[0], setFThru = _useStateTHRA[1];
+  // シグナル詳細（案A階層型 2026-07-06）: 選択タグごとに1つ・任意。signal.sigDetail={タグ名:詳細名}・候補はcustom.sigDetails={タグ名:[詳細名]}。
+  var _useStateSGD = useState(initSig.sigDetail && typeof initSig.sigDetail === "object" ? Object.assign({}, initSig.sigDetail) : {}),
+    _useStateSGDA = _slicedToArray(_useStateSGD, 2),
+    fSigDetail = _useStateSGDA[0], setFSigDetail = _useStateSGDA[1];
+  var _useStateSGE = useState(false),
+    _useStateSGEA = _slicedToArray(_useStateSGE, 2),
+    fDetEdit = _useStateSGEA[0], setFDetEdit = _useStateSGEA[1];
   var _useStateE19 = useState(initSig.result || ""),
     _useStateE20 = _slicedToArray(_useStateE19, 2),
     fResult = _useStateE20[0], setFResult = _useStateE20[1];
@@ -5594,6 +5614,20 @@ function EntryRecordForm(_ref_erf) {
     var p = _elCutPick(recs, function(r) { return _elAlphaInfo(r, data); });
     return (p && p.cut != null && p.status !== "none") ? p : null;
   }, [data, fStock, fDate]);
+  // シグナル/詳細別の推奨基本α参考（2026-07-06）: 選択中シグナル（先頭タグ）と選択詳細で絞った_elBaseAlphaPick＝表示のみ。
+  // 自動入力は従来どおり銘柄全体（_defBaseA）のまま＝日別ページ/シミュとの値の統一性を維持。母数はこの銘柄・v2・算入分・fDate前日まで（look-ahead回避）・全期間。
+  var _refSigAlpha = useMemo(function() {
+    if (!fStock || !fTags.length) return null;
+    var _t = fTags[0];
+    var _tagsOf = function(s) { return (s.tags && s.tags.length) ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []); };
+    var recs = _elCollectAllSignals(data).filter(function(r) {
+      return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate) && _tagsOf(r.signal).indexOf(_t) >= 0;
+    });
+    var aiOf = function(r) { return _elAlphaInfo(r, data); };
+    var _pickOf = function(rs) { if (!rs.length) return { alpha: null, n: 0 }; var p = _elBaseAlphaPick(rs, aiOf); return (p && p.alpha != null && p.status !== "none") ? { alpha: p.alpha, ok: p.status === "ok", n: rs.length } : { alpha: null, n: rs.length }; };
+    var _det = (fSigDetail && fSigDetail[_t]) || null;
+    return { tag: _t, det: _det, sig: _pickOf(recs), detP: _det ? _pickOf(recs.filter(function(r) { return r.signal && r.signal.sigDetail && r.signal.sigDetail[_t] === _det; })) : null };
+  }, [data, fStock, fDate, fTags, fSigDetail]);
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
   var _useStateINC = useState(initSig.includeInTotal !== false),
@@ -6180,6 +6214,8 @@ function EntryRecordForm(_ref_erf) {
       id: isEdit ? initSig.id : _sigId(),
       tag: fTags.length > 0 ? fTags[0] : (fIsCustom ? "__custom__" : ""),
       tags: fTags,
+      sigDetail: (function() { var _o = {}, _any = false; fTags.forEach(function(_t) { if (fSigDetail && fSigDetail[_t]) { _o[_t] = fSigDetail[_t]; _any = true; } }); return _any ? _o : null; })(),
+      passThrough: fThru === true ? true : null,
       result: fResult,
       memo: initSig.memo || "", 
       time: fTime || "",
@@ -6416,6 +6452,53 @@ function EntryRecordForm(_ref_erf) {
           }, "＋ その他");
         })()
       ),
+      fTags.length ? React.createElement("div", { style: { marginBottom: 6 } },
+        // シグナル詳細（案A階層型 2026-07-06）: 選択中の各シグナルの直下に、そのシグナル専用の詳細候補（custom.sigDetails[タグ]）をチップで表示。1つ選択・再タップ解除・任意（未選択=分析では「未分類」）。
+        fTags.map(function(_dt) {
+          var _cands = ((custom.sigDetails || {})[_dt] || []);
+          var _cur = (fSigDetail && fSigDetail[_dt]) || null;
+          var _list = (_cur && _cands.indexOf(_cur) < 0) ? _cands.concat([_cur]) : _cands;
+          return React.createElement("div", { key: "det_" + _dt, style: { margin: "0 0 6px 12px", padding: "7px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
+            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（任意・1つ）"),
+            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" } },
+              _list.map(function(_dn) {
+                var _on = _cur === _dn;
+                return React.createElement("button", { key: _dn,
+                  onClick: function() {
+                    if (fDetEdit) {
+                      if (!window.confirm("詳細『" + _dn + "』を候補から削除しますか？\n（過去の記録に付いた詳細はそのまま残ります）")) return;
+                      save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); _sd[_dt] = (_sd[_dt] || []).filter(function(x) { return x !== _dn; }); _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
+                      setFSigDetail(function(prev) { if (prev[_dt] !== _dn) return prev; var _o = Object.assign({}, prev); delete _o[_dt]; return _o; });
+                      return;
+                    }
+                    setFSigDetail(function(prev) { var _o = Object.assign({}, prev); if (_o[_dt] === _dn) delete _o[_dt]; else _o[_dt] = _dn; return _o; });
+                  },
+                  style: { padding: "4px 9px", fontSize: 11, fontWeight: 600,
+                    border: _on ? "1.5px solid #D97706" : "1px solid " + (fDetEdit ? "#FCA5A5" : "#ddd"),
+                    background: _on ? "#FEF3C7" : "#fff", color: fDetEdit ? "#B91C1C" : (_on ? "#92400E" : "#777"),
+                    borderRadius: 6, cursor: "pointer" }
+                }, fDetEdit ? _dn + " ✕" : _dn);
+              }),
+              React.createElement("button", {
+                onClick: function() {
+                  var _nm = window.prompt("『" + _dt + "』の詳細名を追加（例: 押し目前）");
+                  if (!_nm) return;
+                  _nm = _nm.trim();
+                  if (!_nm) return;
+                  if (_cands.indexOf(_nm) < 0) save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); var _ar = (_sd[_dt] || []).slice(); if (_ar.indexOf(_nm) < 0) _ar.push(_nm); _sd[_dt] = _ar; _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
+                  setFSigDetail(function(prev) { var _o = Object.assign({}, prev); _o[_dt] = _nm; return _o; });
+                },
+                style: { padding: "4px 9px", fontSize: 11, fontWeight: 600, border: "1px dashed #bbb", background: "#fff", color: "#888", borderRadius: 6, cursor: "pointer" }
+              }, "＋追加"),
+              _cands.length ? React.createElement("button", {
+                onClick: function() { setFDetEdit(!fDetEdit); },
+                title: "詳細候補の削除モード",
+                style: { padding: "4px 8px", fontSize: 10, fontWeight: 700, border: "1px solid " + (fDetEdit ? "#B91C1C" : "#ddd"), background: fDetEdit ? "#FEF2F2" : "#fff", color: fDetEdit ? "#B91C1C" : "#999", borderRadius: 6, cursor: "pointer" }
+              }, fDetEdit ? "完了" : "編集") : null
+            )
+          );
+        })
+      ) : null,
       (function() {
         var _oc = {};
         _elCollectAllSignals(data).forEach(function(r) {
@@ -6497,6 +6580,23 @@ function EntryRecordForm(_ref_erf) {
                 (kv[1] && kv[1].alpha2 != null) ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "（次点：" + kv[1].alpha2 + "円）") : null);
             }));
         })()),
+      _refSigAlpha ? React.createElement("div", {
+        // シグナル/詳細別の推奨基本α参考（2026-07-06）: 表示のみ。自動入力は銘柄全体のまま＝値の統一性維持。
+        title: "選択中シグナル（先頭タグ）/詳細で絞った推奨基本α（全期間・記録日前日まで・追加α〇除外）。自動入力は従来どおり銘柄全体の値のまま＝参考表示のみ",
+        style: { fontSize: 11, fontWeight: 600, color: "#64748B", margin: "0 0 6px" } },
+        React.createElement("span", { style: { color: "#94A3B8" } }, "シグナル別参考"),
+        "　" + _refSigAlpha.tag + "：",
+        _refSigAlpha.sig.alpha != null
+          ? React.createElement("span", { style: { color: "#9A3412", fontWeight: 700 } }, _refSigAlpha.sig.alpha + "円", _refSigAlpha.sig.ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）"))
+          : React.createElement("span", { style: { color: "#aaa" } }, "—"),
+        React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _refSigAlpha.sig.n + "）"),
+        _refSigAlpha.det ? React.createElement("span", null,
+          "　" + _refSigAlpha.det + "：",
+          _refSigAlpha.detP.alpha != null
+            ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, _refSigAlpha.detP.alpha + "円", _refSigAlpha.detP.ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）"))
+            : React.createElement("span", { style: { color: "#aaa" } }, "—"),
+          React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _refSigAlpha.detP.n + "）")) : null
+      ) : null,
       _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         // 浮き足加算α値の行（底抜け水準線OS選択時のみ・基本α行と追加α行の間）2026-07-03。〇×→〇で前足浮き値（生値）を入力し半額（切捨て）をαに加算。
@@ -7118,22 +7218,30 @@ function EntryRecordForm(_ref_erf) {
 
       React.createElement("div", { style: SH_ }, "実エントリー"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
-        [["あり", true], ["見送り", false]].map(function(kv) {
-          var label = kv[0], val = kv[1];
-          var on = fEntered === val;
+        // 3択（2026-07-06）: あり/見送り/スルー。スルー=entered:false＋passThrough:true＝常に不算入（灰色）。
+        [["あり", "y"], ["見送り", "n"], ["スルー", "t"]].map(function(kv) {
+          var label = kv[0], mode = kv[1];
+          var on = mode === "y" ? (fEntered && !fThru) : (mode === "n" ? (!fEntered && !fThru) : fThru === true);
+          var thruSel = mode === "t" && on;
           return React.createElement("button", {
             key: label,
-            onClick: function() { setFEntered(val); if (!val) setFItemId(null); },
+            onClick: function() {
+              if (mode === "y") { setFEntered(true); setFThru(false); }
+              else { setFEntered(false); setFThru(mode === "t"); setFItemId(null); }
+            },
+            title: mode === "t" ? "シグナルは出たが判断の土俵に乗せなかった記録＝合計・データ分析に算入しない（一覧では灰色表示）" : null,
             style: {
               padding: "8px 14px", fontSize: 13, fontWeight: 600,
-              border: on ? "1.5px solid #1a1a1a" : "1px solid #ddd",
-              background: on ? "#1a1a1a" : "#fff",
+              border: on ? (thruSel ? "1.5px solid #475569" : "1.5px solid #1a1a1a") : "1px solid #ddd",
+              background: on ? (thruSel ? "#64748B" : "#1a1a1a") : "#fff",
               color: on ? "#fff" : "#555",
               borderRadius: 6, cursor: "pointer", flex: 1
             }
           }, label);
         })
       ),
+      fThru ? React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#6B7280", background: "#F5F5F4", border: "1px solid #D6D3D1", borderRadius: 6, padding: "6px 9px" } },
+        "スルー＝この記録は合計額・データ分析に算入されません（下の算入チェックに関わらず）。一覧では灰色表示になります。") : null,
       fEntered && React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#FBF2D5", border: "1px solid #E5C76B" } },
 
         React.createElement("div", { style: { marginBottom: 8 } },
@@ -7422,7 +7530,7 @@ function EntryLogCard(_ref_elc) {
     
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" } }, _fmtDow(record.date)),
-      _elIsExcluded(s) ? _elNotInclBadge() : null,
+      (_elIsExcluded(s) && !_elIsThru(s)) ? _elNotInclBadge() : null,   // スルーは下の実エントリー状態チップで表示＝二重バッジ回避 2026-07-06
       _addAlphaUnsetBadge(s),
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock)
@@ -7430,9 +7538,9 @@ function EntryLogCard(_ref_elc) {
 
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       s.tradeType && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: s.tradeType === "空売" ? "#FCEBEB" : "#EAF3DE", color: s.tradeType === "空売" ? "#C0392B" : "#1E8449", borderRadius: 4, border: "1px solid " + (s.tradeType === "空売" ? "#F5C6CB" : "#A9DFBF") } }, s.tradeType),
-      React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: entered ? "#E8F5E9" : "#f5f4f0", color: entered ? "#2E7D32" : "#888", borderRadius: 4, border: "1px solid " + (entered ? "#A9DFBF" : "#ddd") } }, entered ? "実エントリー" : "見送り"),
+      React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: entered ? "#E8F5E9" : (_elIsThru(s) ? "#E5E7EB" : "#f5f4f0"), color: entered ? "#2E7D32" : (_elIsThru(s) ? "#4B5563" : "#888"), borderRadius: 4, border: "1px solid " + (entered ? "#A9DFBF" : (_elIsThru(s) ? "#9CA3AF" : "#ddd")) } }, entered ? "実エントリー" : (_elIsThru(s) ? "スルー" : "見送り")),
       (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(t) {
-        return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, t);
+        return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, _elTagDisp(s, t));
       }),
       s.isCustomTag && React.createElement("span", { style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#EEF2FF", color: "#4338CA", borderRadius: 5, border: "1px solid #C7D2FE" } }, s.customTagText || "(その他)"),
       s.tpDifficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#DCFCE7", color: "#14532D", borderRadius: 4, border: "1px solid #86EFAC" } }, "利確" + s.tpDifficulty),

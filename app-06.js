@@ -4108,6 +4108,7 @@ function EntryLogView(_ref_elv2) {
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
   var _uFS = useState("other"), floatSub = _uFS[0], setFloatSub = _uFS[1];   // シグナル内サブタブ: 底抜け前足浮き(float)/その他(other・既定)。選択中シグナルの記録を数値根拠(底抜け前足浮き＝_elHasNumReason)で二分し、集計/α値/損切り/未達/深掘りの母数を分ける（OS値分布ほか）。既定=その他 2026-07-02
+  var _uDS = useState("all"), detSub = _uDS[0], setDetSub = _uDS[1];   // シグナル詳細サブタブ（案A階層型 2026-07-06）: 全体(all)/各詳細名/未分類(__none__)。選択中シグナルの記録を signal.sigDetail[シグナル名] でさらに絞る第3の軸（浮きサブタブに重ねて適用）。候補が無いシグナルではバー非表示＝従来と同一母数。
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
@@ -4276,7 +4277,7 @@ function EntryLogView(_ref_elv2) {
       var on = expKey === ek;
       var cells = [
         _td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8, fontWeight: 700 }),
-        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge()) : null), { color: "#666" }),
+        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null), { color: "#666" }),
         _td(r.stock, { color: "#9A3412", fontWeight: 700 })
       ];
       if (mode === "day") {
@@ -4291,7 +4292,7 @@ function EntryLogView(_ref_elv2) {
       } else {
         var entered = _elIsEntered(s, r.item);
         var realN = entered ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null;
-        var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
+        var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(_t) { return _elTagDisp(s, _t); }).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         cells = cells.concat([
           _td(_sigParts.length ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return _sigNameNode(_t, _i); })) : "(未設定)", { textAlign: "left" }),
           _td(a.alpha != null ? React.createElement("div", null, React.createElement("span", null, a.alpha + "円"), _elAlphaBreakdownNode(s, a.alpha)) : _dash, { color: "#0369A1", fontWeight: 600, background: _elAddAlphaYes(s) ? "#FEF3C7" : null }),
@@ -4299,7 +4300,9 @@ function EntryLogView(_ref_elv2) {
           _td(_epECell(s, a.alpha)),
           _td(entered
             ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "〇")
-            : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 13 } }, "×")),
+            : _elIsThru(s)
+              ? React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス")
+              : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 13 } }, "×")),
           _td(_epPnlCell(s, a.alpha, a.cutLine))
         ]).concat(_elHoldTd2(s, a.alpha, a.cutLine, { padding: "4px 6px", textAlign: "center", fontSize: 11, borderTop: "1px solid #f0ede8" }))
           .concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60) : _dash)]);
@@ -4493,7 +4496,21 @@ function EntryLogView(_ref_elv2) {
   var _selSigFloat = _selSigRecs.filter(function(r) { return _elHasNumReason(r.signal); });
   var _selSigOther = _selSigRecs.filter(function(r) { return !_elHasNumReason(r.signal); });
   var _floatMode = (floatSub === "float");
-  var _selSigRecsScoped = _floatMode ? _selSigFloat : _selSigOther;
+  // シグナル詳細スコープ（2026-07-06）: 候補=マスター(custom.sigDetails[選択シグナル])∪記録に実在する詳細名（マスターから削除済みの過去詳細も拾う）。
+  var _detNames = (function() {
+    var m = {}, ord = [];
+    (((custom || {}).sigDetails || {})[_selSigKey] || []).forEach(function(d) { if (d && !m[d]) { m[d] = 1; ord.push(d); } });
+    _selSigRecs.forEach(function(r) { var d = r.signal && r.signal.sigDetail && r.signal.sigDetail[_selSigKey]; if (d && !m[d]) { m[d] = 1; ord.push(d); } });
+    return ord;
+  })();
+  var _detOf = function(r) { return (r.signal && r.signal.sigDetail && r.signal.sigDetail[_selSigKey]) || null; };
+  var _detSel = (_detNames.length && (detSub === "__none__" || _detNames.indexOf(detSub) >= 0)) ? detSub : "all";   // 別シグナルへ切替時など候補に無い選択は自動で全体へフォールバック
+  var _detFilter = function(rs) {
+    if (_detSel === "all") return (rs || []);
+    if (_detSel === "__none__") return (rs || []).filter(function(r) { return !_detOf(r); });
+    return (rs || []).filter(function(r) { return _detOf(r) === _detSel; });
+  };
+  var _selSigRecsScoped = _detFilter(_floatMode ? _selSigFloat : _selSigOther);   // 全分析セクションが詳細スコープに自動追従（全体選択時は従来どおり）
   // 追加α母数トグル（osDistFil）を集計KPI/OS分布・損切り・未達で共有。全記録/×+未選択(既定)/〇のみ。〇=高α(基本+追加)は損切り/未達に寄るため、既定×+未選択で基本α運用の素の姿を出す 2026-07-01。
   var _addFilOf = function(rs) {
     if (_floatMode) return (rs || []);   // 前足浮きタブは全件（前足浮き記録は数値根拠の追加α〇なので×+未選択トグルは無効）2026-07-02
@@ -4875,13 +4892,13 @@ function EntryLogView(_ref_elv2) {
       React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
         [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setPerExp(null); setAddAlphaFil("all"); if (view !== "sum" && view !== "period") setView("sum"); },
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetSub("all"); setPerExp(null); setAddAlphaFil("all"); if (view !== "sum" && view !== "period") setView("sum"); },
         style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1a1a1a" : "#ddd"), background: _isAllStock ? "#1a1a1a" : "#fff", color: _isAllStock ? "#fff" : "#666" } },
         "💰 損益 (" + _periodRecs.length + ")"),
       _tickerList.length ? _tickerList.map(function(s) {
         var on = _selStock === s;
-        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setPerExp(null); },
+        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetSub("all"); setPerExp(null); },
           style: { flexShrink: 0, padding: "7px 14px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
             border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
@@ -4892,7 +4909,7 @@ function EntryLogView(_ref_elv2) {
         _sigAxisGroups.map(function(g) {
           var on = _selSigKey === g.key;
           var lowN = g.recs.length < _EL_BASE_MIN_N;
-          return React.createElement("button", { key: g.key, onClick: function() { setSelSig(g.key); setExpKey(null); setFloatSub("other"); },
+          return React.createElement("button", { key: g.key, onClick: function() { setSelSig(g.key); setExpKey(null); setFloatSub("other"); setDetSub("all"); },
             style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
               border: "1px solid " + (on ? "#9A3412" : "#e0d8cf"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : (lowN ? "#c0b6ab" : "#666") } },
             g.label + " (" + g.recs.length + ")" + (lowN ? " 参考" : ""));
@@ -4907,6 +4924,30 @@ function EntryLogView(_ref_elv2) {
               border: "1px solid " + (on ? "#9A3412" : "#e0d8cf"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
             kv[1] + " (" + kv[2] + ")");
         }))) : null,
+    (!_isAllStock && _sigAxisGroups.length && _detNames.length) ? React.createElement("div", { style: { marginBottom: 6 } },   // シグナル詳細サブタブ（案A階層型 2026-07-06）: 選択中シグナルの記録を詳細（signal.sigDetail）で絞る。候補が無いシグナルでは非表示。
+      React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 4px", alignItems: "center", flexWrap: "wrap" } },
+        React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "詳細"),
+        (function() {
+          var _dBase = _floatMode ? _selSigFloat : _selSigOther;
+          var _opts = [["all", "全体", _dBase.length]]
+            .concat(_detNames.map(function(d) { return [d, d, _dBase.filter(function(r) { return _detOf(r) === d; }).length]; }))
+            .concat([["__none__", "未分類", _dBase.filter(function(r) { return !_detOf(r); }).length]]);
+          return _opts.map(function(kv) {
+            var on = _detSel === kv[0];
+            return React.createElement("button", { key: kv[0], onClick: function() { setDetSub(kv[0]); setExpKey(null); },
+              style: { flexShrink: 0, padding: "5px 13px", fontSize: 11.5, fontWeight: 700, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap",
+                border: "1px solid " + (on ? "#B45309" : "#e0d8cf"), background: on ? "#B45309" : "#fff", color: on ? "#fff" : "#666" } },
+              kv[1] + " (" + kv[2] + ")");
+          });
+        })(),
+        _detSel !== "all" ? (function() {   // 詳細別の推奨基本α参考＝シグナル全体×詳細（浮きサブタブ非依存）。KPIカード（シグナル全体）の詳細版参考値。
+          var _drs = _detSel === "__none__" ? _selSigRecs.filter(function(r) { return !_detOf(r); }) : _selSigRecs.filter(function(r) { return _detOf(r) === _detSel; });
+          var _dp = _drs.length ? _elBaseAlphaPick(_drs, _ai) : null;
+          var _txt = (_dp && _dp.alpha != null && _dp.status !== "none")
+            ? ("この詳細の推奨基本α " + _dp.alpha + "円" + (_dp.status === "na" ? "（参考）" : "") + (_dp.alpha2 != null ? "・次点" + _dp.alpha2 + "円" : "") + "（n=" + _drs.length + "）")
+            : ("この詳細の推奨基本α —（n=" + _drs.length + "）");
+          return React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 700, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 10, padding: "3px 9px" } }, _txt);
+        })() : null)) : null,
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
       _tabs.map(function(kv) {
         var on = view === kv[0];
