@@ -6515,8 +6515,8 @@ function EntryRecordForm(_ref_erf) {
                 return React.createElement("span", { key: _dn,
                   "data-dettag": _dt, "data-detname": _dn,
                   onPointerDown: _isOrphan ? null : function(e) {
+                    // setPointerCaptureはドラッグ開始時（下のpointermove）まで呼ばない＝タップ時にclickがキャプチャ先へretargetされ内側buttonのonClick（選択）が発火しない不具合の回避 2026-07-06g。
                     _detDragRef.current = { tag: _dt, name: _dn, sx: e.clientX, sy: e.clientY, started: false, list: null };
-                    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
                   },
                   onPointerMove: function(e) {
                     var d = _detDragRef.current;
@@ -6524,6 +6524,7 @@ function EntryRecordForm(_ref_erf) {
                     if (!d.started) {
                       if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
                       d.started = true;
+                      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
                       d.list = (((custom.sigDetails || {})[_dt]) || []).slice();
                       _detMovedRef.current = true;
                       setFDetOrder({ tag: _dt, list: d.list.slice() });
@@ -6903,8 +6904,8 @@ function EntryRecordForm(_ref_erf) {
               var _rDragging = !!(_rDragSt && _rDragSt.started && _rDragSt.name === rsn);
               return React.createElement("span", { key: rsn, "data-rsn": rsn,
                 onPointerDown: function(e) {
+                  // setPointerCaptureはドラッグ開始時（下のpointermove）まで呼ばない＝タップ時にclickがretargetされ内側buttonのonClick（選択）が発火しない不具合の回避 2026-07-06g。
                   _rsnDragRef.current = { name: rsn, sx: e.clientX, sy: e.clientY, started: false, list: null };
-                  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
                 },
                 onPointerMove: function(e) {
                   var d = _rsnDragRef.current;
@@ -6912,6 +6913,7 @@ function EntryRecordForm(_ref_erf) {
                   if (!d.started) {
                     if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
                     d.started = true;
+                    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
                     d.list = _reasonsM.slice();
                     _rsnMovedRef.current = true;
                     setFRsnOrder({ list: d.list.slice() });
