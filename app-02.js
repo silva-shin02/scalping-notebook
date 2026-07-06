@@ -5122,14 +5122,14 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("td", { style: { padding: "3px 5px", textAlign: "left", fontWeight: isTotal ? 700 : 600, fontSize: 11, whiteSpace: "nowrap", color: labelColor || "#9A3412", borderBottom: bb, borderTop: bt, borderRight: br } },
         React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, _isExp ? "▼" : "▶"), label,
         (!isTotal && _exclN > 0) ? _elExclDot(_exclN, { marginLeft: 5, verticalAlign: "middle" }) : null),
-      _td(st.total, { fontWeight: isTotal ? 700 : 400 }),
+      _td(st.total + (_exclN || 0), { fontWeight: isTotal ? 700 : 400 }),
       _td(st.reach || "0", { color: "#374151", fontWeight: isTotal ? 700 : ((st.reach || 0) > 0 ? 700 : 400) }),
-      _td(st.win || "0", { color: "#1E8449", fontWeight: st.win ? 700 : 400 }),
-      _td(st.tri || "0", { color: "#D97706", fontWeight: (st.tri || 0) > 0 ? 700 : 400 }),
-      _td(st.even || "0", { color: "#9CA3AF" }),
+      _td(((st.win || 0) + (st.tri || 0)) || "0", { color: "#1E8449", fontWeight: ((st.win || 0) + (st.tri || 0)) ? 700 : 400 }),
+      _td(st.even || "0", { color: "#D97706", fontWeight: (st.even || 0) > 0 ? 700 : 400 }),
       _td(st.loss || "0", { color: "#DC2626", fontWeight: st.loss ? 700 : 400 }),
       _td(st.stop || "0", { color: "#7F1D1D", fontWeight: st.stop ? 700 : 400 }),
       _td(st.miss || "0", { color: "#6B7280" }),
+      _td(_exclN || "0", { color: "#0284C7", fontWeight: (_exclN || 0) > 0 ? 700 : 400 }),
       _td((function() {
         if (_allExcl) return _elNotInclBadge();
         if (_allMiss) return _qZeroCell();
@@ -5230,7 +5230,7 @@ function WeeklyPnlPanel(_wpp) {
         React.createElement("thead", null,
           React.createElement("tr", { style: { background: "#f5f4f0" } },
             _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
-            _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" } }, "△")), _wkTh(React.createElement("span", { style: { color: "#9CA3AF" } }, "建値")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")),
+            _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "手じまい損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
             _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" }))),
         React.createElement("tbody", null,
           [
