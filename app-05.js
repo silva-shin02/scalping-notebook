@@ -5369,6 +5369,14 @@ function EntryRecordForm(_ref_erf) {
   var _useStateSGE = useState(false),
     _useStateSGEA = _slicedToArray(_useStateSGE, 2),
     fDetEdit = _useStateSGEA[0], setFDetEdit = _useStateSGEA[1];
+  // シグナル詳細のドラッグ並び替え（2026-07-06b）: Pointer Eventsでチップを掴んで移動（iPadタッチ対応・touchAction:none）。
+  // ドラッグ中はfDetOrder={tag,list}で並びをプレビューし、指を離した時にcustom.sigDetails[tag]へ保存。
+  // タップ（選択/削除）とは移動量7pxのしきい値で区別・ドラッグ直後のclickは_detMovedRefで1回だけ抑止。
+  var _useStateSGO = useState(null),
+    _useStateSGOA = _slicedToArray(_useStateSGO, 2),
+    fDetOrder = _useStateSGOA[0], setFDetOrder = _useStateSGOA[1];
+  var _detDragRef = useRef(null);
+  var _detMovedRef = useRef(false);
   var _useStateE19 = useState(initSig.result || ""),
     _useStateE20 = _slicedToArray(_useStateE19, 2),
     fResult = _useStateE20[0], setFResult = _useStateE20[1];
@@ -6455,16 +6463,61 @@ function EntryRecordForm(_ref_erf) {
       fTags.length ? React.createElement("div", { style: { marginBottom: 6 } },
         // シグナル詳細（案A階層型 2026-07-06）: 選択中の各シグナルの直下に、そのシグナル専用の詳細候補（custom.sigDetails[タグ]）をチップで表示。1つ選択・再タップ解除・任意（未選択=分析では「未分類」）。
         fTags.map(function(_dt) {
-          var _cands = ((custom.sigDetails || {})[_dt] || []);
+          var _cands0 = ((custom.sigDetails || {})[_dt] || []);
+          var _cands = (fDetOrder && fDetOrder.tag === _dt) ? fDetOrder.list : _cands0;
           var _cur = (fSigDetail && fSigDetail[_dt]) || null;
           var _list = (_cur && _cands.indexOf(_cur) < 0) ? _cands.concat([_cur]) : _cands;
           return React.createElement("div", { key: "det_" + _dt, style: { margin: "0 0 6px 12px", padding: "7px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
-            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（任意・1つ）"),
+            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（任意・1つ）",
+              _cands0.length >= 2 ? React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え") : null),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" } },
               _list.map(function(_dn) {
                 var _on = _cur === _dn;
+                var _isOrphan = _cands.indexOf(_dn) < 0;
+                var _dragSt = _detDragRef.current;
+                var _dragging = !!(_dragSt && _dragSt.started && _dragSt.tag === _dt && _dragSt.name === _dn);
                 return React.createElement("button", { key: _dn,
+                  "data-dettag": _dt, "data-detname": _dn,
+                  onPointerDown: _isOrphan ? null : function(e) {
+                    _detDragRef.current = { tag: _dt, name: _dn, sx: e.clientX, sy: e.clientY, started: false, list: null };
+                    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
+                  },
+                  onPointerMove: function(e) {
+                    var d = _detDragRef.current;
+                    if (!d || d.tag !== _dt || d.name !== _dn) return;
+                    if (!d.started) {
+                      if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
+                      d.started = true;
+                      d.list = (((custom.sigDetails || {})[_dt]) || []).slice();
+                      _detMovedRef.current = true;
+                      setFDetOrder({ tag: _dt, list: d.list.slice() });
+                      return;
+                    }
+                    var el = document.elementFromPoint(e.clientX, e.clientY);
+                    var chip = (el && el.closest) ? el.closest("[data-dettag]") : null;
+                    if (!chip || chip.getAttribute("data-dettag") !== _dt) return;
+                    var over = chip.getAttribute("data-detname");
+                    if (!over || over === d.name) return;
+                    var lst = d.list.slice();
+                    var fi = lst.indexOf(d.name), ti = lst.indexOf(over);
+                    if (fi < 0 || ti < 0 || fi === ti) return;
+                    lst.splice(fi, 1); lst.splice(ti, 0, d.name);
+                    d.list = lst;
+                    setFDetOrder({ tag: _dt, list: lst.slice() });
+                  },
+                  onPointerUp: function() {
+                    var d = _detDragRef.current;
+                    _detDragRef.current = null;
+                    if (d && d.started && d.list) {
+                      var _fin = d.list.slice(), _ftag = d.tag;
+                      save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); _sd[_ftag] = _fin; _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
+                      setTimeout(function() { _detMovedRef.current = false; }, 0);
+                    }
+                    setFDetOrder(null);
+                  },
+                  onPointerCancel: function() { _detDragRef.current = null; setFDetOrder(null); },
                   onClick: function() {
+                    if (_detMovedRef.current) { _detMovedRef.current = false; return; }
                     if (fDetEdit) {
                       if (!window.confirm("詳細『" + _dn + "』を候補から削除しますか？\n（過去の記録に付いた詳細はそのまま残ります）")) return;
                       save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); _sd[_dt] = (_sd[_dt] || []).filter(function(x) { return x !== _dn; }); _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
@@ -6476,7 +6529,10 @@ function EntryRecordForm(_ref_erf) {
                   style: { padding: "4px 9px", fontSize: 11, fontWeight: 600,
                     border: _on ? "1.5px solid #D97706" : "1px solid " + (fDetEdit ? "#FCA5A5" : "#ddd"),
                     background: _on ? "#FEF3C7" : "#fff", color: fDetEdit ? "#B91C1C" : (_on ? "#92400E" : "#777"),
-                    borderRadius: 6, cursor: "pointer" }
+                    borderRadius: 6, cursor: "pointer", touchAction: "none",
+                    boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null,
+                    transform: _dragging ? "scale(1.06)" : null,
+                    opacity: _dragging ? 0.9 : null }
                 }, fDetEdit ? _dn + " ✕" : _dn);
               }),
               React.createElement("button", {
