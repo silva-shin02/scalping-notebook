@@ -5362,6 +5362,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateTHR = useState(initSig.passThrough === true),
     _useStateTHRA = _slicedToArray(_useStateTHR, 2),
     fThru = _useStateTHRA[0], setFThru = _useStateTHRA[1];
+  // スルーの根拠メモ（2026-07-06c）: スルー選択時のみ表示・signal.thruMemoに保存（反省・メモ欄と同システム=FastInput multiline+autoResize）。
+  var _useStateTHM = useState(initSig.thruMemo || ""),
+    _useStateTHMA = _slicedToArray(_useStateTHM, 2),
+    fThruMemo = _useStateTHMA[0], setFThruMemo = _useStateTHMA[1];
   // シグナル詳細（案A階層型 2026-07-06）: 選択タグごとに1つ・任意。signal.sigDetail={タグ名:詳細名}・候補はcustom.sigDetails={タグ名:[詳細名]}。
   var _useStateSGD = useState(initSig.sigDetail && typeof initSig.sigDetail === "object" ? Object.assign({}, initSig.sigDetail) : {}),
     _useStateSGDA = _slicedToArray(_useStateSGD, 2),
@@ -6224,6 +6228,7 @@ function EntryRecordForm(_ref_erf) {
       tags: fTags,
       sigDetail: (function() { var _o = {}, _any = false; fTags.forEach(function(_t) { if (fSigDetail && fSigDetail[_t]) { _o[_t] = fSigDetail[_t]; _any = true; } }); return _any ? _o : null; })(),
       passThrough: fThru === true ? true : null,
+      thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,
       result: fResult,
       memo: initSig.memo || "", 
       time: fTime || "",
@@ -7296,8 +7301,20 @@ function EntryRecordForm(_ref_erf) {
           }, label);
         })
       ),
-      fThru ? React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#6B7280", background: "#F5F5F4", border: "1px solid #D6D3D1", borderRadius: 6, padding: "6px 9px" } },
-        "スルー＝この記録は合計額・データ分析に算入されません（下の算入チェックに関わらず）。一覧では灰色表示になります。") : null,
+      fThru ? React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#6B7280", background: "#F5F5F4", border: "1px solid #D6D3D1", borderRadius: 6, padding: "6px 9px" } },
+          "スルー＝この記録は合計額・データ分析に算入されません（下の算入チェックに関わらず）。一覧では灰色表示になります。"),
+        React.createElement("div", { style: SH_ }, "スルーの根拠メモ"),
+        React.createElement(FastInput, {
+          multiline: true,
+          autoResize: true,
+          value: fThruMemo,
+          onChange: function(v) { setFThruMemo(v); },
+          placeholder: "",
+          rows: 2,
+          style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56, marginBottom: 8 })
+        })
+      ) : null,
       fEntered && React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#FBF2D5", border: "1px solid #E5C76B" } },
 
         React.createElement("div", { style: { marginBottom: 8 } },
@@ -7606,7 +7623,7 @@ function EntryLogCard(_ref_elc) {
       _elcAi && _elcAi.alpha != null && React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", padding: "1px 6px", background: "#F0F9FF", borderRadius: 4, border: "1px solid #BAE6FD" } }, "採用α " + _elcAi.alpha + "円 / 損切り " + _elcAi.cutLine + "円")
     ),
     
-    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start", marginBottom: (s.rationale || s.reflection || s.priceIn || s.priceOut) ? 6 : 0 } },
+    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start", marginBottom: (s.rationale || s.reflection || s.thruMemo || s.priceIn || s.priceOut) ? 6 : 0 } },
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
         s.osVal != null ? _chip("OS値", s.osVal + "円", _vcol(s.osVal, true)) : null
@@ -7658,6 +7675,7 @@ function EntryLogCard(_ref_elc) {
     ),
 
     s.alphaMemo && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "αメモ"), s.alphaMemo),
+    s.thruMemo && React.createElement("div", { style: { fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, marginRight: 3 } }, "スルー根拠"), s.thruMemo),
     s.rationale && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale),
     s.reflection && React.createElement("div", { style: { fontSize: 11, color: "#777", marginTop: 4, lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection),
     onGoDate && React.createElement("div", { style: { textAlign: "right", marginTop: 4 } },
