@@ -1310,6 +1310,43 @@ function _elBaseAlphaEval(recs, aiOf, a) {
   var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
   return { a: a, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
 }
+// _elBaseAlphaEval の一般化（記録ごとにαを変えられる版）2026-07-07: alphaOf(r)→そのレコードのα（null=このαが算出できない記録＝母数から除外＝nに数えない）。返り値shapeは_elBaseAlphaEvalと同一（a=null）。各記録日の推奨基本α＋追加αの総当たり（_elAddAlphaDetailV2の日付別表）用。固定α版と挙動一致（alphaOfが常に同一値を返せば_elBaseAlphaEvalと同一）。
+function _elAlphaEvalByFn(recs, aiOf, alphaOf) {
+  var pnl = 0, epPnl = 0, stopN = 0, epStopN = 0, n = 0, entered = 0, hasPnl = false, hasEp = false, wOk = 0, wNg = 0, wDr = 0;
+  var scN = 0, stopH1N = 0, h1WinN = 0;
+  (recs || []).forEach(function(r) {
+    var s = r.signal; if (!s) return;
+    var _a = alphaOf(r); if (_a == null) return;   // このαが算出できない記録（推奨基本α履歴不足など）は母数外＝nに数えない
+    var c = aiOf(r).cutLine;
+    n++;
+    var rr = _epResolve(s, _a);
+    var within2 = !!(rr && rr.epIdx >= 0 && rr.epIdx <= 2);
+    if (!within2) return;
+    entered++;
+    var epStop = _elPlanIsStop(s, _a, c);
+    var h1Stop = _elHoldIsStop(s, _a, c);
+    var hd = _elDynHold(s, _a, c);
+    var pl = _elDynPlanned(s, _a, c);
+    if (pl != null) { epPnl += pl; hasEp = true; }
+    if (hd != null) { pnl += hd; hasPnl = true; }
+    if (epStop) epStopN++;
+    var res = _elDynResult(s, _a, c);
+    if (res === "ok") wOk++; else if (res === "ng") wNg++; else if (res === "draw") wDr++;
+    var hasH2 = _elHas2Data(s);
+    if (epStop || h1Stop || (hasH2 && !_elH2Miss(s, _a) && _elHoldIsStop2(s, _a, c))) stopN++;
+    var determinable = epStop || h1Stop || hd != null;
+    if (determinable) {
+      scN++;
+      if (epStop || h1Stop) stopH1N++;
+      else if (hd != null && hd > 0) h1WinN++;
+    }
+  });
+  var decided = wOk + wNg + wDr;
+  var stopRate = scN > 0 ? stopH1N / scN : null;
+  var h1win = scN > 0 ? h1WinN / scN : null;
+  var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
+  return { a: null, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
+}
 // 次点（2番目の推奨α）を1番目の真下に「（次点：〇円）」で小書き（1番目と同サイズ・同色）。次点が無ければ「（次点なし）」を淡色で表示。ユーザー方針 2026-06-24。text例 "9円"/"+5円"。
 function _elReco2Node(text, fontSize, color) {
   var _has = (text != null && text !== "");
@@ -1657,10 +1694,31 @@ function _elAddAlphaDetailV2(recs, aiOf) {
       ? React.createElement("span", null, "基本α", _elInsightEmV2(base + "円"), "に", _elInsightEmV2("+" + add.add + "円"), "足した合計", _elInsightEmV2(add.total + "円"), "が推奨。母数", _elInsightEmV2((add.scN || 0) + "件"), "・損切り率", _elInsightEmV2(_pctS(add.stopRate)), "・想定損益", _elInsightEmV2(add.pnl != null ? _elPnlFmt(Math.round(add.pnl)) : "—"), "。")
       : React.createElement("span", null, "この母数では基本α", _elInsightEmV2(base + "円"), "に上乗せしても想定損益が黒字化する加算が無く", _elInsightEmV2("推奨無し"), "（基本αで十分の傾向）。")
   ], { note: "母数＝追加α〇（要）を明示した記録（浮き足〇は除外）。各加算で『基本α＋加算』の合計αを当ててシミュレーション（想定損益＝ΣH1損益）。推奨＝想定損益プラスかつ母数" + minN + "件以上の中で、損切り率0%→≤30%→最小の順に最小加算（_elAddAlphaRecoと同基準）。" });
+  // 各記録日の推奨基本α＋追加α（0〜10円）別の総当たり（2026-07-07・基本α詳細表を模倣・ユーザー要望）: 実効α＝recoOf(記録日)＋追加α（記録ごとに推奨基本αが変わる反実仮想）・母数＝addPool（追加α〇）・推奨基本αが算出不能な記録（履歴不足）は母数外。★＝件数フロアを満たす中でスコア最大。
+  var _recoOf = _elKabuRecoBaseFn(recs, aiOf);
+  var _dateSweep = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function(X) {
+    return { X: X, e: _elAlphaEvalByFn(addPool, aiOf, function(r) { var b = _recoOf(r.date); return b == null ? null : b + X; }) };
+  });
+  var _dsBestX = null, _dsBest = -Infinity;
+  _dateSweep.forEach(function(row) { var e = row.e; if (e.entered > 0 && e.scN >= minN && e.score != null && e.score > _dsBest) { _dsBest = e.score; _dsBestX = row.X; } });
+  var _dateRows = _dateSweep.filter(function(row) { return row.e.entered > 0; }).map(function(row) {
+    var e = row.e, on = row.X === _dsBestX, pass = e.scN >= minN && e.score != null;
+    return React.createElement("tr", { key: row.X, style: { background: on ? "#FFF7ED" : "transparent", opacity: pass ? 1 : 0.4 } },
+      _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: "#9A3412" } }, "+" + row.X + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(_elPctCell(e.eRate)),
+      _elv2Td(e.scN + "件"),
+      _elv2Td(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
+      _elv2Td(e.h1win == null ? "—" : _elPctCell(e.h1win)),
+      _elv2Td((function() { var _av = (e.pnl != null && e.scN > 0) ? Math.round(e.pnl / e.scN) : null; return _av == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(_av), fontWeight: 700 } }, _elPnlFmt(_av)); })()),
+      _elv2Td(e.score == null ? "—" : React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "0.7×" + Math.round((1 - e.stopRate) * 100) + "+0.3×" + Math.round(e.h1win * 100))),
+      _elv2Td(_elScoreCell(e.score)));
+  });
   return React.createElement("div", null,
     concl,
     _lbl("加算値別の総当たり（基本α" + base + "円＋1〜" + _EL_BASE_ADD_MAX + "円・★＝推奨・件数フロア" + minN + "件未満は淡色／想定損益＝ΣH1損益）"),
     _elv2Table(["追加α", "合計α", "到達率", "有効件数", "損切り率", "H1勝率", "想定損益"], addRows),
+    _lbl("各記録日の推奨基本α＋追加α（0〜10円）別（★＝スコア最大・件数フロア" + minN + "件未満は淡色／実効α＝記録ごとの推奨基本α＋追加α・平均H1損益＝ΣH1損益÷件数）"),
+    _dateRows.length ? _elv2Table(["追加α", "到達率", "有効件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], _dateRows) : React.createElement("div", { style: { fontSize: 10.5, color: "#bbb", padding: "4px 0" } }, "推奨基本αが算出できる記録がありません（履歴不足）"),
     insight);
 }
 // 推奨基本α表（銘柄/期間グループ別）: groups=[{label,recs}]・cutFn(r)→損切り値。各グループの推奨基本α(_elBaseAlphaPick・5〜20・
@@ -4673,7 +4731,7 @@ function EntryLogView(_ref_elv2) {
       (!_floatMode && osDistFil === "yes")
         ? React.createElement(React.Fragment, null,
             React.createElement(_SNCollapse, { title: "🔬 推奨基本α 詳細データ（推奨値の根拠・タップで展開）", render: function() { return _elBaseAlphaDetailV2(_baRecs, _ai); } }),
-            _secH("🔬 推奨追加α 詳細データ", "推奨追加αの根拠＝加算値別の総当たり（各加算の到達率/件数/損切り率/H1勝率/想定損益）。母数＝追加α〇（数値根拠除く）"),
+            _secH("🔬 推奨追加α 詳細データ", "推奨追加αの根拠＝加算値別の総当たり（各加算の到達率/件数/損切り率/H1勝率/想定損益）＋各記録日の推奨基本α＋追加α（0〜10円）別のスコア表。母数＝追加α〇（数値根拠除く）"),
             _elAddAlphaDetailV2(_baRecs, _ai))
         : React.createElement(React.Fragment, null,
             _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
