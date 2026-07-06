@@ -4496,19 +4496,20 @@ function EntryLogView(_ref_elv2) {
   var _selSigFloat = _selSigRecs.filter(function(r) { return _elHasNumReason(r.signal); });
   var _selSigOther = _selSigRecs.filter(function(r) { return !_elHasNumReason(r.signal); });
   var _floatMode = (floatSub === "float");
-  // シグナル詳細スコープ（2026-07-06）: 候補=マスター(custom.sigDetails[選択シグナル])∪記録に実在する詳細名（マスターから削除済みの過去詳細も拾う）。
+  // シグナル詳細スコープ（2026-07-06・複数選択化 2026-07-06f）: 候補=マスター(custom.sigDetails[選択シグナル])∪記録に実在する詳細名（マスターから削除済みの過去詳細も拾う）。1記録に複数詳細が付く＝各詳細バケットに算入（件数は重複しうる）。
   var _detNames = (function() {
     var m = {}, ord = [];
     (((custom || {}).sigDetails || {})[_selSigKey] || []).forEach(function(d) { if (d && !m[d]) { m[d] = 1; ord.push(d); } });
-    _selSigRecs.forEach(function(r) { var d = r.signal && r.signal.sigDetail && r.signal.sigDetail[_selSigKey]; if (d && !m[d]) { m[d] = 1; ord.push(d); } });
+    _selSigRecs.forEach(function(r) { _elSigDetailList(r.signal, _selSigKey).forEach(function(d) { if (d && !m[d]) { m[d] = 1; ord.push(d); } }); });
     return ord;
   })();
-  var _detOf = function(r) { return (r.signal && r.signal.sigDetail && r.signal.sigDetail[_selSigKey]) || null; };
+  var _detHas = function(r, name) { return _elSigDetailList(r.signal, _selSigKey).indexOf(name) >= 0; };
+  var _detEmpty = function(r) { return _elSigDetailList(r.signal, _selSigKey).length === 0; };
   var _detSel = (_detNames.length && (detSub === "__none__" || _detNames.indexOf(detSub) >= 0)) ? detSub : "all";   // 別シグナルへ切替時など候補に無い選択は自動で全体へフォールバック
   var _detFilter = function(rs) {
     if (_detSel === "all") return (rs || []);
-    if (_detSel === "__none__") return (rs || []).filter(function(r) { return !_detOf(r); });
-    return (rs || []).filter(function(r) { return _detOf(r) === _detSel; });
+    if (_detSel === "__none__") return (rs || []).filter(function(r) { return _detEmpty(r); });
+    return (rs || []).filter(function(r) { return _detHas(r, _detSel); });
   };
   var _selSigRecsScoped = _detFilter(_floatMode ? _selSigFloat : _selSigOther);   // 全分析セクションが詳細スコープに自動追従（全体選択時は従来どおり）
   // 追加α母数トグル（osDistFil）を集計KPI/OS分布・損切り・未達で共有。全記録/×+未選択(既定)/〇のみ。〇=高α(基本+追加)は損切り/未達に寄るため、既定×+未選択で基本α運用の素の姿を出す 2026-07-01。
@@ -4926,12 +4927,12 @@ function EntryLogView(_ref_elv2) {
         }))) : null,
     (!_isAllStock && _sigAxisGroups.length && _detNames.length) ? React.createElement("div", { style: { marginBottom: 6 } },   // シグナル詳細サブタブ（案A階層型 2026-07-06）: 選択中シグナルの記録を詳細（signal.sigDetail）で絞る。候補が無いシグナルでは非表示。
       React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 4px", alignItems: "center", flexWrap: "wrap" } },
-        React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "詳細"),
+        React.createElement("span", { title: "1記録に複数の詳細が付く場合は各詳細に算入＝件数は重複しうる（全体＝実件数）", style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "詳細"),
         (function() {
           var _dBase = _floatMode ? _selSigFloat : _selSigOther;
           var _opts = [["all", "全体", _dBase.length]]
-            .concat(_detNames.map(function(d) { return [d, d, _dBase.filter(function(r) { return _detOf(r) === d; }).length]; }))
-            .concat([["__none__", "未分類", _dBase.filter(function(r) { return !_detOf(r); }).length]]);
+            .concat(_detNames.map(function(d) { return [d, d, _dBase.filter(function(r) { return _detHas(r, d); }).length]; }))
+            .concat([["__none__", "未分類", _dBase.filter(function(r) { return _detEmpty(r); }).length]]);
           return _opts.map(function(kv) {
             var on = _detSel === kv[0];
             return React.createElement("button", { key: kv[0], onClick: function() { setDetSub(kv[0]); setExpKey(null); },
@@ -4941,7 +4942,7 @@ function EntryLogView(_ref_elv2) {
           });
         })(),
         _detSel !== "all" ? (function() {   // 詳細別の推奨基本α参考＝シグナル全体×詳細（浮きサブタブ非依存）。KPIカード（シグナル全体）の詳細版参考値。
-          var _drs = _detSel === "__none__" ? _selSigRecs.filter(function(r) { return !_detOf(r); }) : _selSigRecs.filter(function(r) { return _detOf(r) === _detSel; });
+          var _drs = _detSel === "__none__" ? _selSigRecs.filter(function(r) { return _detEmpty(r); }) : _selSigRecs.filter(function(r) { return _detHas(r, _detSel); });
           var _dp = _drs.length ? _elBaseAlphaPick(_drs, _ai) : null;
           var _txt = (_dp && _dp.alpha != null && _dp.status !== "none")
             ? ("この詳細の推奨基本α " + _dp.alpha + "円" + (_dp.status === "na" ? "（参考）" : "") + (_dp.alpha2 != null ? "・次点" + _dp.alpha2 + "円" : "") + "（n=" + _drs.length + "）")

@@ -5089,10 +5089,17 @@ function _elTagLabel(s) {
   return "(未設定)";
 }
 
-// シグナル詳細（案A階層型 2026-07-06）: signal.sigDetail={シグナル名:詳細名}（任意・タグごとに1つ）・候補マスターはcustom.sigDetails={シグナル名:[詳細名]}。
-// 表示用「タグ（詳細）」文字列。分析のグループ化(_elTagEntries)は素のタグ名のまま＝シグナル全体の集計・名寄せは不変。
-function _elSigDetailOf(s, t) { return (s && s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[t]) || null; }
-function _elTagDisp(s, t) { var _d = _elSigDetailOf(s, t); return _d ? t + "（" + _d + "）" : t; }
+// シグナル詳細（案A階層型 2026-07-06・複数選択化 2026-07-06f）: signal.sigDetail={シグナル名:[詳細名...]}（任意・タグごと複数可）・候補マスターはcustom.sigDetails={シグナル名:[詳細名]}。
+// 後方互換: 旧記録は sigDetail[t]=文字列（単一）。_elSigDetailList が文字列/配列の両方を配列へ正規化＝全読み取りはこれ経由。
+// 表示用「タグ（詳細・詳細）」文字列。分析のグループ化(_elTagEntries)は素のタグ名のまま＝シグナル全体の集計・名寄せは不変。
+function _elSigDetailList(s, t) {
+  var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
+  if (_v == null) return [];
+  if (Array.isArray(_v)) return _v.filter(function(x) { return x; });
+  return _v ? [_v] : [];
+}
+function _elSigDetailOf(s, t) { var _l = _elSigDetailList(s, t); return _l.length ? _l[0] : null; }   // 後方互換の単一値（先頭）
+function _elTagDisp(s, t) { var _l = _elSigDetailList(s, t); return _l.length ? t + "（" + _l.join("・") + "）" : t; }
 
 function _elTagEntries(s) {
   var entries = [];
@@ -5366,8 +5373,14 @@ function EntryRecordForm(_ref_erf) {
   var _useStateTHM = useState(initSig.thruMemo || ""),
     _useStateTHMA = _slicedToArray(_useStateTHM, 2),
     fThruMemo = _useStateTHMA[0], setFThruMemo = _useStateTHMA[1];
-  // シグナル詳細（案A階層型 2026-07-06）: 選択タグごとに1つ・任意。signal.sigDetail={タグ名:詳細名}・候補はcustom.sigDetails={タグ名:[詳細名]}。
-  var _useStateSGD = useState(initSig.sigDetail && typeof initSig.sigDetail === "object" ? Object.assign({}, initSig.sigDetail) : {}),
+  // シグナル詳細（案A階層型 2026-07-06・複数選択化 2026-07-06f）: 選択タグごと複数可・任意。signal.sigDetail={タグ名:[詳細名...]}・候補はcustom.sigDetails={タグ名:[詳細名]}。
+  // 旧記録(sigDetail[t]=文字列)は配列へ正規化して読み込む。
+  var _useStateSGD = useState((function() {
+    var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
+    var _o = {};
+    Object.keys(_src).forEach(function(_k) { var _l = _elSigDetailList(initSig, _k); if (_l.length) _o[_k] = _l; });
+    return _o;
+  })()),
     _useStateSGDA = _slicedToArray(_useStateSGD, 2),
     fSigDetail = _useStateSGDA[0], setFSigDetail = _useStateSGDA[1];
   var _useStateSGE = useState(false),
@@ -5654,8 +5667,9 @@ function EntryRecordForm(_ref_erf) {
     });
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var _pickOf = function(rs) { if (!rs.length) return { alpha: null, n: 0 }; var p = _elBaseAlphaPick(rs, aiOf); return (p && p.alpha != null && p.status !== "none") ? { alpha: p.alpha, ok: p.status === "ok", n: rs.length } : { alpha: null, n: rs.length }; };
-    var _det = (fSigDetail && fSigDetail[_t]) || null;
-    return { tag: _t, det: _det, sig: _pickOf(recs), detP: _det ? _pickOf(recs.filter(function(r) { return r.signal && r.signal.sigDetail && r.signal.sigDetail[_t] === _det; })) : null };
+    var _dets = (fSigDetail && fSigDetail[_t]) || [];   // 選択中の詳細（複数可）＝各詳細で母数を絞った参考αを1つずつ出す
+    var _detPicks = _dets.map(function(_dn) { return { name: _dn, pick: _pickOf(recs.filter(function(r) { return _elSigDetailList(r.signal, _t).indexOf(_dn) >= 0; })) }; });
+    return { tag: _t, sig: _pickOf(recs), detPicks: _detPicks };
   }, [data, fStock, fDate, fTags, fSigDetail]);
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
@@ -6243,7 +6257,7 @@ function EntryRecordForm(_ref_erf) {
       id: isEdit ? initSig.id : _sigId(),
       tag: fTags.length > 0 ? fTags[0] : (fIsCustom ? "__custom__" : ""),
       tags: fTags,
-      sigDetail: (function() { var _o = {}, _any = false; fTags.forEach(function(_t) { if (fSigDetail && fSigDetail[_t]) { _o[_t] = fSigDetail[_t]; _any = true; } }); return _any ? _o : null; })(),
+      sigDetail: (function() { var _o = {}, _any = false; fTags.forEach(function(_t) { var _l = (fSigDetail && fSigDetail[_t]) || []; if (_l.length) { _o[_t] = _l.slice(); _any = true; } }); return _any ? _o : null; })(),
       passThrough: fThru === true ? true : null,
       thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,
       result: fResult,
@@ -6483,18 +6497,18 @@ function EntryRecordForm(_ref_erf) {
         })()
       ),
       fTags.length ? React.createElement("div", { style: { marginBottom: 6 } },
-        // シグナル詳細（案A階層型 2026-07-06）: 選択中の各シグナルの直下に、そのシグナル専用の詳細候補（custom.sigDetails[タグ]）をチップで表示。1つ選択・再タップ解除・任意（未選択=分析では「未分類」）。
+        // シグナル詳細（案A階層型 2026-07-06・複数選択化 2026-07-06f）: 選択中の各シグナルの直下に、そのシグナル専用の詳細候補（custom.sigDetails[タグ]）をチップで表示。複数選択可・再タップ解除・任意（未選択=分析では「未分類」）。
         fTags.map(function(_dt) {
           var _cands0 = ((custom.sigDetails || {})[_dt] || []);
           var _cands = (fDetOrder && fDetOrder.tag === _dt) ? fDetOrder.list : _cands0;
-          var _cur = (fSigDetail && fSigDetail[_dt]) || null;
-          var _list = (_cur && _cands.indexOf(_cur) < 0) ? _cands.concat([_cur]) : _cands;
+          var _cur = (fSigDetail && fSigDetail[_dt]) || [];   // 選択中の詳細（配列）
+          var _list = _cands.concat(_cur.filter(function(_x) { return _cands.indexOf(_x) < 0; }));   // 選択済みのマスター外(孤児)も末尾に表示
           return React.createElement("div", { key: "det_" + _dt, style: { margin: "0 0 6px 12px", padding: "7px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
-            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（任意・1つ）",
+            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（任意・複数可）",
               _cands0.length >= 2 ? React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え") : null),
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" } },
               _list.map(function(_dn) {
-                var _on = _cur === _dn;
+                var _on = _cur.indexOf(_dn) >= 0;
                 var _isOrphan = _cands.indexOf(_dn) < 0;
                 var _dragSt = _detDragRef.current;
                 var _dragging = !!(_dragSt && _dragSt.started && _dragSt.tag === _dt && _dragSt.name === _dn);
@@ -6545,7 +6559,14 @@ function EntryRecordForm(_ref_erf) {
                   React.createElement("button", {
                     onClick: function() {
                       if (_detMovedRef.current) { _detMovedRef.current = false; return; }
-                      setFSigDetail(function(prev) { var _o = Object.assign({}, prev); if (_o[_dt] === _dn) delete _o[_dt]; else _o[_dt] = _dn; return _o; });
+                      setFSigDetail(function(prev) {
+                        var _o = Object.assign({}, prev);
+                        var _arr = (_o[_dt] || []).slice();
+                        var _i = _arr.indexOf(_dn);
+                        if (_i >= 0) _arr.splice(_i, 1); else _arr.push(_dn);
+                        if (_arr.length) _o[_dt] = _arr; else delete _o[_dt];
+                        return _o;
+                      });
                     },
                     style: { padding: "4px 9px", fontSize: 11, fontWeight: 600,
                       border: _on ? "1.5px solid #D97706" : "1px solid #ddd",
@@ -6564,7 +6585,7 @@ function EntryRecordForm(_ref_erf) {
                         if (_detMovedRef.current) { _detMovedRef.current = false; return; }
                         setFDetAdd(null);
                         save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); _sd[_dt] = (_sd[_dt] || []).filter(function(x) { return x !== _dn; }); _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
-                        setFSigDetail(function(prev) { if (prev[_dt] !== _dn) return prev; var _o = Object.assign({}, prev); delete _o[_dt]; return _o; });
+                        setFSigDetail(function(prev) { var _ca = prev[_dt] || []; if (_ca.indexOf(_dn) < 0) return prev; var _o = Object.assign({}, prev); var _na = _ca.filter(function(x) { return x !== _dn; }); if (_na.length) _o[_dt] = _na; else delete _o[_dt]; return _o; });
                       },
                       style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" }
                     }, "×")
@@ -6617,20 +6638,22 @@ function EntryRecordForm(_ref_erf) {
                           if (!cc || !Array.isArray(cc.signals)) { _nCharts[ck] = cc; return; }
                           var _ch = false;
                           var sigs = cc.signals.map(function(s) {
-                            if (!s || !s.sigDetail || s.sigDetail[_dt] !== _old) return s;
+                            var _sl = _elSigDetailList(s, _dt);
+                            if (!_sl.length || _sl.indexOf(_old) < 0) return s;
                             _ch = true;
-                            var _nsd = Object.assign({}, s.sigDetail); _nsd[_dt] = _nm;
+                            var _nl = []; _sl.forEach(function(x) { var _y = (x === _old) ? _nm : x; if (_nl.indexOf(_y) < 0) _nl.push(_y); });
+                            var _nsd = Object.assign({}, s.sigDetail); _nsd[_dt] = _nl;
                             return Object.assign({}, s, { sigDetail: _nsd });
                           });
                           _nCharts[ck] = _ch ? Object.assign({}, cc, { signals: sigs }) : cc;
                         });
                         return Object.assign({}, prev, { custom: _c, charts: _nCharts });
                       });
-                      setFSigDetail(function(prev) { if (prev[_dt] !== _old) return prev; var _o = Object.assign({}, prev); _o[_dt] = _nm; return _o; });
+                      setFSigDetail(function(prev) { var _ca = prev[_dt] || []; if (_ca.indexOf(_old) < 0) return prev; var _o = Object.assign({}, prev); var _na = []; _ca.forEach(function(x) { var _y = x === _old ? _nm : x; if (_na.indexOf(_y) < 0) _na.push(_y); }); _o[_dt] = _na; return _o; });
                     }
                   } else {
                     if (_cands0.indexOf(_nm) < 0) save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); var _ar = (_sd[_dt] || []).slice(); if (_ar.indexOf(_nm) < 0) _ar.push(_nm); _sd[_dt] = _ar; _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
-                    setFSigDetail(function(prev) { var _o = Object.assign({}, prev); _o[_dt] = _nm; return _o; });
+                    setFSigDetail(function(prev) { var _o = Object.assign({}, prev); var _arr = (_o[_dt] || []).slice(); if (_arr.indexOf(_nm) < 0) _arr.push(_nm); _o[_dt] = _arr; return _o; });
                   }
                   _detAddValRef.current = "";
                   setFDetAdd(null);
@@ -6736,12 +6759,14 @@ function EntryRecordForm(_ref_erf) {
           ? React.createElement("span", { style: { color: "#9A3412", fontWeight: 700 } }, _refSigAlpha.sig.alpha + "円", _refSigAlpha.sig.ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）"))
           : React.createElement("span", { style: { color: "#aaa" } }, "—"),
         React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _refSigAlpha.sig.n + "）"),
-        _refSigAlpha.det ? React.createElement("span", null,
-          "　" + _refSigAlpha.det + "：",
-          _refSigAlpha.detP.alpha != null
-            ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, _refSigAlpha.detP.alpha + "円", _refSigAlpha.detP.ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）"))
-            : React.createElement("span", { style: { color: "#aaa" } }, "—"),
-          React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _refSigAlpha.detP.n + "）")) : null
+        _refSigAlpha.detPicks.map(function(_dp, _di) {
+          return React.createElement("span", { key: _di },
+            "　" + _dp.name + "：",
+            _dp.pick.alpha != null
+              ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, _dp.pick.alpha + "円", _dp.pick.ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）"))
+              : React.createElement("span", { style: { color: "#aaa" } }, "—"),
+            React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _dp.pick.n + "）"));
+        })
       ) : null,
       _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
