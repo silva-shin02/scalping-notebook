@@ -5382,14 +5382,11 @@ function EntryRecordForm(_ref_erf) {
   var _detDragRef = useRef(null);
   var _detMovedRef = useRef(false);
   // ＋追加をインライン入力欄に変更（2026-07-06d）: iPadのホーム画面起動(standalone)ではwindow.prompt/confirmが無反応（即null）になるため、詳細まわりのネイティブダイアログを廃止。
-  // 追加=fDetAdd={tag,val}でその場に入力欄＋追加ボタン（値の正本は_detAddValRef・確定時に_fiFlushAll）／削除確認=「もう一度タップで削除」の2タップ（fDetDelPend）。
+  // fDetAdd={tag,val}=追加/{tag,val,old}=改名（値の正本は_detAddValRef・確定時に_fiFlushAll）。編集モード=チップ横に✎(改名・過去記録も一括追従)/×(削除)ミニボタン＝根拠選択肢と同型（2026-07-06e・2タップ削除は廃止）。
   var _useStateSGA = useState(null),
     _useStateSGAA = _slicedToArray(_useStateSGA, 2),
     fDetAdd = _useStateSGAA[0], setFDetAdd = _useStateSGAA[1];
   var _detAddValRef = useRef("");
-  var _useStateSGP = useState(null),
-    _useStateSGPA = _slicedToArray(_useStateSGP, 2),
-    fDetDelPend = _useStateSGPA[0], setFDetDelPend = _useStateSGPA[1];
   var _useStateE19 = useState(initSig.result || ""),
     _useStateE20 = _slicedToArray(_useStateE19, 2),
     fResult = _useStateE20[0], setFResult = _useStateE20[1];
@@ -5577,6 +5574,17 @@ function EntryRecordForm(_ref_erf) {
   var _useStateRMG = useState(false),
     _useStateRMGA = _slicedToArray(_useStateRMG, 2),
     fReasonMgr = _useStateRMGA[0], setFReasonMgr = _useStateRMGA[1];
+  // 根拠選択肢のドラッグ並び替え＋インライン追加/改名（2026-07-06e）: window.promptはiPad(standalone)で無反応のため廃止し、シグナル詳細チップと同方式へ統一。
+  // 並び=custom.addAlphaReasonsの配列順（未設定時は既定配列を実体化して保存）・fRsnInput={val}=追加/{old,val}=改名・値の正本は_rsnValRef（確定時_fiFlushAll）。
+  var _useStateRSO = useState(null),
+    _useStateRSOA = _slicedToArray(_useStateRSO, 2),
+    fRsnOrder = _useStateRSOA[0], setFRsnOrder = _useStateRSOA[1];
+  var _rsnDragRef = useRef(null);
+  var _rsnMovedRef = useRef(false);
+  var _useStateRSI = useState(null),
+    _useStateRSIA = _slicedToArray(_useStateRSI, 2),
+    fRsnInput = _useStateRSIA[0], setFRsnInput = _useStateRSIA[1];
+  var _rsnValRef = useRef("");
   // 浮き足加算α値（底抜け水準線OS選択時のみ表示）: 〇×＋前足浮き値（円・生値）。signal.ukiUsed/ukiValに保存・実効加算=floor(値/2)。旧数値根拠欄(addAlphaReasonVal)の後継 2026-07-03。
   // 初期化: ukiUsed===true→〇・それ以外(false/未設定/旧記録)→×。
   var _useStateUKU = useState(initSig.ukiUsed === true ? "○" : "×"),
@@ -6490,8 +6498,7 @@ function EntryRecordForm(_ref_erf) {
                 var _isOrphan = _cands.indexOf(_dn) < 0;
                 var _dragSt = _detDragRef.current;
                 var _dragging = !!(_dragSt && _dragSt.started && _dragSt.tag === _dt && _dragSt.name === _dn);
-                var _delPend = !!(fDetEdit && fDetDelPend && fDetDelPend.tag === _dt && fDetDelPend.name === _dn);
-                return React.createElement("button", { key: _dn,
+                return React.createElement("span", { key: _dn,
                   "data-dettag": _dt, "data-detname": _dn,
                   onPointerDown: _isOrphan ? null : function(e) {
                     _detDragRef.current = { tag: _dt, name: _dn, sx: e.clientX, sy: e.clientY, started: false, list: null };
@@ -6531,31 +6538,42 @@ function EntryRecordForm(_ref_erf) {
                     setFDetOrder(null);
                   },
                   onPointerCancel: function() { _detDragRef.current = null; _detMovedRef.current = false; setFDetOrder(null); },
-                  onClick: function() {
-                    if (_detMovedRef.current) { _detMovedRef.current = false; return; }
-                    if (fDetEdit) {
-                      if (!_delPend) { setFDetDelPend({ tag: _dt, name: _dn }); return; }
-                      setFDetDelPend(null);
-                      save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); _sd[_dt] = (_sd[_dt] || []).filter(function(x) { return x !== _dn; }); _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
-                      setFSigDetail(function(prev) { if (prev[_dt] !== _dn) return prev; var _o = Object.assign({}, prev); delete _o[_dt]; return _o; });
-                      return;
-                    }
-                    setFSigDetail(function(prev) { var _o = Object.assign({}, prev); if (_o[_dt] === _dn) delete _o[_dt]; else _o[_dt] = _dn; return _o; });
-                  },
-                  style: { padding: "4px 9px", fontSize: 11, fontWeight: 600,
-                    border: _delPend ? "1.5px solid #DC2626" : (_on ? "1.5px solid #D97706" : "1px solid " + (fDetEdit ? "#FCA5A5" : "#ddd")),
-                    background: _delPend ? "#FEE2E2" : (_on ? "#FEF3C7" : "#fff"), color: fDetEdit ? "#B91C1C" : (_on ? "#92400E" : "#777"),
-                    borderRadius: 6, cursor: "pointer", touchAction: "none",
+                  style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none",
                     boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null,
                     transform: _dragging ? "scale(1.06)" : null,
-                    opacity: _dragging ? 0.9 : null }
-                }, fDetEdit ? (_delPend ? _dn + "：もう一度タップで削除" : _dn + " ✕") : _dn);
+                    opacity: _dragging ? 0.9 : null } },
+                  React.createElement("button", {
+                    onClick: function() {
+                      if (_detMovedRef.current) { _detMovedRef.current = false; return; }
+                      setFSigDetail(function(prev) { var _o = Object.assign({}, prev); if (_o[_dt] === _dn) delete _o[_dt]; else _o[_dt] = _dn; return _o; });
+                    },
+                    style: { padding: "4px 9px", fontSize: 11, fontWeight: 600,
+                      border: _on ? "1.5px solid #D97706" : "1px solid #ddd",
+                      background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#777",
+                      borderRadius: 6, cursor: "pointer" }
+                  }, _dn),
+                  (fDetEdit && !_isOrphan) ? React.createElement(React.Fragment, null,
+                    React.createElement("button", {
+                      title: "この詳細の名前を変更（過去の記録の詳細も一括変更）",
+                      onClick: function() { if (_detMovedRef.current) { _detMovedRef.current = false; return; } _detAddValRef.current = _dn; setFDetAdd({ tag: _dt, val: _dn, old: _dn }); },
+                      style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" }
+                    }, "✎"),
+                    React.createElement("button", {
+                      title: "この詳細を候補から削除（過去の記録に付いた詳細はそのまま残ります）",
+                      onClick: function() {
+                        if (_detMovedRef.current) { _detMovedRef.current = false; return; }
+                        setFDetAdd(null);
+                        save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); _sd[_dt] = (_sd[_dt] || []).filter(function(x) { return x !== _dn; }); _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
+                        setFSigDetail(function(prev) { if (prev[_dt] !== _dn) return prev; var _o = Object.assign({}, prev); delete _o[_dt]; return _o; });
+                      },
+                      style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" }
+                    }, "×")
+                  ) : null);
               }),
               (function() {
                 var _addOpen = !!(fDetAdd && fDetAdd.tag === _dt);
                 return React.createElement("button", {
                   onClick: function() {
-                    setFDetDelPend(null);
                     if (_addOpen) { setFDetAdd(null); return; }
                     _detAddValRef.current = "";
                     setFDetAdd({ tag: _dt, val: "" });
@@ -6564,17 +6582,18 @@ function EntryRecordForm(_ref_erf) {
                 }, _addOpen ? "✕ 閉じる" : "＋追加");
               })(),
               _cands.length ? React.createElement("button", {
-                onClick: function() { setFDetEdit(!fDetEdit); setFDetDelPend(null); },
-                title: "詳細候補の削除モード",
+                onClick: function() { setFDetEdit(!fDetEdit); setFDetAdd(null); },
+                title: "詳細候補の名前変更・削除モード（✎で改名・×で削除）",
                 style: { padding: "4px 8px", fontSize: 10, fontWeight: 700, border: "1px solid " + (fDetEdit ? "#B91C1C" : "#ddd"), background: fDetEdit ? "#FEF2F2" : "#fff", color: fDetEdit ? "#B91C1C" : "#999", borderRadius: 6, cursor: "pointer" }
               }, fDetEdit ? "完了" : "編集") : null
             ),
-            (fDetAdd && fDetAdd.tag === _dt) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center" } },
+            (fDetAdd && fDetAdd.tag === _dt) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center", flexWrap: "wrap" } },
+              fDetAdd.old != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "『" + fDetAdd.old + "』を改名:") : null,
               React.createElement(FastInput, {
                 type: "text",
                 value: fDetAdd.val || "",
-                onChange: function(v) { _detAddValRef.current = v; setFDetAdd(function(p) { return (p && p.tag === _dt) ? { tag: _dt, val: v } : p; }); },
-                placeholder: "詳細名（例: 押し目前）",
+                onChange: function(v) { _detAddValRef.current = v; setFDetAdd(function(p) { return (p && p.tag === _dt) ? Object.assign({}, p, { val: v }) : p; }); },
+                placeholder: fDetAdd.old != null ? "新しい名前" : "詳細名（例: 押し目前）",
                 style: { flex: 1, minWidth: 120, padding: "6px 9px", fontSize: 12, border: "1px solid #93C5FD", borderRadius: 6, background: "#fff", boxSizing: "border-box" }
               }),
               React.createElement("button", {
@@ -6582,13 +6601,46 @@ function EntryRecordForm(_ref_erf) {
                   _fiFlushAll();
                   var _nm = (_detAddValRef.current || "").trim();
                   if (!_nm) return;
-                  if (_cands0.indexOf(_nm) < 0) save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); var _ar = (_sd[_dt] || []).slice(); if (_ar.indexOf(_nm) < 0) _ar.push(_nm); _sd[_dt] = _ar; _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
-                  setFSigDetail(function(prev) { var _o = Object.assign({}, prev); _o[_dt] = _nm; return _o; });
+                  if (fDetAdd.old != null) {
+                    // 改名: マスター＋過去記録(signal.sigDetail[このタグ])を一括変更＝分析のグループが割れない（根拠選択肢の_renameRと同型）。同名が既にあれば何もしない。
+                    var _old = fDetAdd.old;
+                    if (_nm !== _old) {
+                      save(function(prev) {
+                        var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {});
+                        var _ar = (_sd[_dt] || []).slice();
+                        if (_ar.indexOf(_nm) >= 0) return prev;
+                        _sd[_dt] = _ar.map(function(x) { return x === _old ? _nm : x; });
+                        _c.sigDetails = _sd;
+                        var _pCharts = prev.charts || {}, _nCharts = {};
+                        Object.keys(_pCharts).forEach(function(ck) {
+                          var cc = _pCharts[ck];
+                          if (!cc || !Array.isArray(cc.signals)) { _nCharts[ck] = cc; return; }
+                          var _ch = false;
+                          var sigs = cc.signals.map(function(s) {
+                            if (!s || !s.sigDetail || s.sigDetail[_dt] !== _old) return s;
+                            _ch = true;
+                            var _nsd = Object.assign({}, s.sigDetail); _nsd[_dt] = _nm;
+                            return Object.assign({}, s, { sigDetail: _nsd });
+                          });
+                          _nCharts[ck] = _ch ? Object.assign({}, cc, { signals: sigs }) : cc;
+                        });
+                        return Object.assign({}, prev, { custom: _c, charts: _nCharts });
+                      });
+                      setFSigDetail(function(prev) { if (prev[_dt] !== _old) return prev; var _o = Object.assign({}, prev); _o[_dt] = _nm; return _o; });
+                    }
+                  } else {
+                    if (_cands0.indexOf(_nm) < 0) save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); var _ar = (_sd[_dt] || []).slice(); if (_ar.indexOf(_nm) < 0) _ar.push(_nm); _sd[_dt] = _ar; _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
+                    setFSigDetail(function(prev) { var _o = Object.assign({}, prev); _o[_dt] = _nm; return _o; });
+                  }
                   _detAddValRef.current = "";
                   setFDetAdd(null);
                 },
                 style: { padding: "6px 14px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }
-              }, "追加")
+              }, fDetAdd.old != null ? "変更" : "追加"),
+              React.createElement("button", {
+                onClick: function() { _detAddValRef.current = ""; setFDetAdd(null); },
+                style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" }
+              }, "✕")
             ) : null
           );
         })
@@ -6764,7 +6816,8 @@ function EntryRecordForm(_ref_erf) {
           return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨追加α：データ無し") : null;
         })()),
       (fAddAlphaUsed === "○") ? (function() {
-        var _reasons = (data && data.custom && Array.isArray(data.custom.addAlphaReasons)) ? data.custom.addAlphaReasons : _DEF_ADD_REASONS;
+        var _reasonsM = (data && data.custom && Array.isArray(data.custom.addAlphaReasons)) ? data.custom.addAlphaReasons : _DEF_ADD_REASONS;
+        var _reasons = (fRsnOrder && fRsnOrder.list) ? fRsnOrder.list : _reasonsM;   // ドラッグ中は並びプレビュー（2026-07-06e）
         var _addR = function(nm) {
           nm = (nm || "").trim(); if (!nm) return;
           save(function(prev) {
@@ -6821,17 +6874,88 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 } },
             _reasons.map(function(rsn) {
               var on = fAddReasons.indexOf(rsn) >= 0;
-              return React.createElement("span", { key: rsn, style: { display: "inline-flex", alignItems: "center", gap: 1 } },
-                _optBtn(rsn, on, function() { setFAddReasons(on ? fAddReasons.filter(function(x) { return x !== rsn; }) : fAddReasons.concat([rsn])); }, "#9A3412"),
+              var _rDragSt = _rsnDragRef.current;
+              var _rDragging = !!(_rDragSt && _rDragSt.started && _rDragSt.name === rsn);
+              return React.createElement("span", { key: rsn, "data-rsn": rsn,
+                onPointerDown: function(e) {
+                  _rsnDragRef.current = { name: rsn, sx: e.clientX, sy: e.clientY, started: false, list: null };
+                  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
+                },
+                onPointerMove: function(e) {
+                  var d = _rsnDragRef.current;
+                  if (!d || d.name !== rsn) return;
+                  if (!d.started) {
+                    if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
+                    d.started = true;
+                    d.list = _reasonsM.slice();
+                    _rsnMovedRef.current = true;
+                    setFRsnOrder({ list: d.list.slice() });
+                    return;
+                  }
+                  var el = document.elementFromPoint(e.clientX, e.clientY);
+                  var chip = (el && el.closest) ? el.closest("[data-rsn]") : null;
+                  if (!chip) return;
+                  var over = chip.getAttribute("data-rsn");
+                  if (!over || over === d.name) return;
+                  var lst = d.list.slice();
+                  var fi = lst.indexOf(d.name), ti = lst.indexOf(over);
+                  if (fi < 0 || ti < 0 || fi === ti) return;
+                  lst.splice(fi, 1); lst.splice(ti, 0, d.name);
+                  d.list = lst;
+                  setFRsnOrder({ list: lst.slice() });
+                },
+                onPointerUp: function() {
+                  var d = _rsnDragRef.current;
+                  _rsnDragRef.current = null;
+                  if (d && d.started && d.list) {
+                    var _fin = d.list.slice();
+                    save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: _fin }) }); });
+                    setTimeout(function() { _rsnMovedRef.current = false; }, 0);
+                  }
+                  setFRsnOrder(null);
+                },
+                onPointerCancel: function() { _rsnDragRef.current = null; _rsnMovedRef.current = false; setFRsnOrder(null); },
+                style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none",
+                  boxShadow: _rDragging ? "0 2px 8px rgba(0,0,0,0.3)" : null,
+                  transform: _rDragging ? "scale(1.06)" : null,
+                  opacity: _rDragging ? 0.9 : null } },
+                _optBtn(rsn, on, function() { if (_rsnMovedRef.current) { _rsnMovedRef.current = false; return; } setFAddReasons(on ? fAddReasons.filter(function(x) { return x !== rsn; }) : fAddReasons.concat([rsn])); }, "#9A3412"),
                 fReasonMgr ? React.createElement(React.Fragment, null,
-                  React.createElement("button", { type: "button", title: "この選択肢の名前を変更", onClick: function() { var nm = window.prompt("選択肢の新しい名前を入力してください", rsn); if (nm != null) _renameR(rsn, nm); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "✎"),
-                  React.createElement("button", { type: "button", title: "この選択肢を削除", onClick: function() { _delR(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×")
+                  React.createElement("button", { type: "button", title: "この選択肢の名前を変更（過去の記録の根拠名も一括変更）", onClick: function() { if (_rsnMovedRef.current) { _rsnMovedRef.current = false; return; } _rsnValRef.current = rsn; setFRsnInput({ old: rsn, val: rsn }); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "✎"),
+                  React.createElement("button", { type: "button", title: "この選択肢を削除", onClick: function() { if (_rsnMovedRef.current) { _rsnMovedRef.current = false; return; } setFRsnInput(null); _delR(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×")
                 ) : null);
             }),
             _optBtn("その他", fOtherOn, function() { setFOtherOn(!fOtherOn); }, "#0369A1"),
-            React.createElement("button", { type: "button", title: "根拠の選択肢を追加（その場で入力）", onClick: function() { var nm = window.prompt("新しい根拠の選択肢を入力してください"); if (nm != null) _addR(nm); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid #ddd", background: "#fff", color: "#0369A1", borderRadius: 5, cursor: "pointer" } }, "＋ 追加"),
-            React.createElement("button", { type: "button", title: "選択肢の名前変更・削除モード（✎で改名・×で削除）", onClick: function() { setFReasonMgr(!fReasonMgr); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid " + (fReasonMgr ? "#B91C1C" : "#ddd"), background: fReasonMgr ? "#FEF2F2" : "#fff", color: fReasonMgr ? "#B91C1C" : "#888", borderRadius: 5, cursor: "pointer" } }, fReasonMgr ? "完了" : "✎ 編集")
+            (function() {
+              var _rAddOpen = !!(fRsnInput && fRsnInput.old == null);
+              return React.createElement("button", { type: "button", title: "根拠の選択肢を追加（その場で入力）", onClick: function() {
+                if (_rAddOpen) { setFRsnInput(null); return; }
+                _rsnValRef.current = "";
+                setFRsnInput({ val: "" });
+              }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: _rAddOpen ? "1px solid #0369A1" : "1px solid #ddd", background: _rAddOpen ? "#EFF6FF" : "#fff", color: "#0369A1", borderRadius: 5, cursor: "pointer" } }, _rAddOpen ? "✕ 閉じる" : "＋ 追加");
+            })(),
+            React.createElement("button", { type: "button", title: "選択肢の名前変更・削除モード（✎で改名・×で削除）", onClick: function() { setFReasonMgr(!fReasonMgr); setFRsnInput(null); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid " + (fReasonMgr ? "#B91C1C" : "#ddd"), background: fReasonMgr ? "#FEF2F2" : "#fff", color: fReasonMgr ? "#B91C1C" : "#888", borderRadius: 5, cursor: "pointer" } }, fReasonMgr ? "完了" : "✎ 編集")
           ),
+          fRsnInput ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 2, alignItems: "center", flexWrap: "wrap" } },
+            // 根拠のインライン追加/改名（2026-07-06e）: window.prompt廃止＝iPad standalone対応。改名は_renameRで過去記録の根拠名も一括追従（従来どおり）。
+            fRsnInput.old != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "『" + fRsnInput.old + "』を改名:") : null,
+            React.createElement(FastInput, {
+              type: "text",
+              value: fRsnInput.val || "",
+              onChange: function(v) { _rsnValRef.current = v; setFRsnInput(function(p) { return p ? Object.assign({}, p, { val: v }) : p; }); },
+              placeholder: fRsnInput.old != null ? "新しい名前" : "新しい根拠の選択肢",
+              style: { flex: 1, minWidth: 120, padding: "6px 9px", fontSize: 12, border: "1px solid #93C5FD", borderRadius: 6, background: "#fff", boxSizing: "border-box" }
+            }),
+            React.createElement("button", { type: "button", onClick: function() {
+              _fiFlushAll();
+              var _nm = (_rsnValRef.current || "").trim();
+              if (!_nm) return;
+              if (fRsnInput.old != null) _renameR(fRsnInput.old, _nm); else _addR(_nm);
+              _rsnValRef.current = "";
+              setFRsnInput(null);
+            }, style: { padding: "6px 14px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" } }, fRsnInput.old != null ? "変更" : "追加"),
+            React.createElement("button", { type: "button", onClick: function() { _rsnValRef.current = ""; setFRsnInput(null); }, style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "✕")
+          ) : null,
           fOtherOn ? React.createElement(FastInput, { value: fAddReasonOther, onChange: function(v) { setFAddReasonOther(v); }, placeholder: "その他の理由を入力（複数は / で区切り）", style: { padding: "4px 8px", fontSize: 12, border: "1px solid #cbd5e1", borderRadius: 5, outline: "none", width: "100%", maxWidth: 280, boxSizing: "border-box" } }) : null
         );
       })() : null,
