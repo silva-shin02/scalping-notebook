@@ -4109,6 +4109,7 @@ function EntryLogView(_ref_elv2) {
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
   var _uFS = useState("other"), floatSub = _uFS[0], setFloatSub = _uFS[1];   // シグナル内サブタブ: 底抜け前足浮き(float)/その他(other・既定)。選択中シグナルの記録を数値根拠(底抜け前足浮き＝_elHasNumReason)で二分し、集計/α値/損切り/未達/深掘りの母数を分ける（OS値分布ほか）。既定=その他 2026-07-02
   var _uDS = useState("all"), detSub = _uDS[0], setDetSub = _uDS[1];   // シグナル詳細サブタブ（案A階層型 2026-07-06）: 全体(all)/各詳細名/未分類(__none__)。選択中シグナルの記録を signal.sigDetail[シグナル名] でさらに絞る第3の軸（浮きサブタブに重ねて適用）。候補が無いシグナルではバー非表示＝従来と同一母数。
+  var _uAR = useState("all"), alphaReasonFil = _uAR[0], setAlphaReasonFil = _uAR[1];   // α値タブ 根拠セレクタ（2026-07-06）: 全体(all)/各根拠/根拠なし(__none__)で基本α・共通ツールの母数を絞る第4の軸。追加αタブは④⑤根拠別を内蔵するため対象外。全体選択時は従来と完全同一。
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
@@ -4667,8 +4668,24 @@ function EntryLogView(_ref_elv2) {
     } else {
       // α値タブ＝タブ内サブタブ式（2026-06-29）: 基本α(青)/追加α(茶橙)/共通ツール(グレー)を別画面に分離し「ごっちゃ」を解消。母数は選択中シグナルの固定母数（_selSigRecs・トグル非依存）2026-07-01。
       var _alA = _elBaseAlphaA(_selSigRecs, _ai);   // 基本α/追加αの推奨はシグナル全体で算出（前足浮きは追加α〇のため基本α母数に入らず、サブタブ間で一貫させる）2026-07-02
-      var _alphaTable = _alphaTableFn(_selSigRecsScoped);   // α意思決定表はサブタブ母数（前足浮き/その他）で再計算 2026-07-02
-      var _alPick = _alA ? _alA.pick : null;
+      // 根拠セレクタ（2026-07-06）: 基本α・共通ツールの母数を「全体／各根拠／根拠なし」で絞る第4の軸。候補・件数は現在の内訳スコープ（前足浮き/その他＋詳細）の記録から。基本α詳細はシグナル全体母数(_alReasonRecsFull)に、OS分位/α感応度/意思決定表は内訳スコープ母数(_alReasonRecsScoped)に、同じ根拠フィルタを適用。追加αタブは対象外（④⑤根拠別を内蔵）。全体選択時は従来と完全同一。
+      var _reasonsOfSig = function(s) { return (Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.filter(Boolean) : (s.addAlphaReason ? [s.addAlphaReason] : [])); };
+      var _reasonCount = {}, _reasonOrder = [], _reasonNoneCount = 0;
+      _selSigRecsScoped.forEach(function(r) { var rs = _reasonsOfSig(r.signal); if (!rs.length) { _reasonNoneCount++; return; } rs.forEach(function(rn) { if (_reasonCount[rn] == null) { _reasonCount[rn] = 0; _reasonOrder.push(rn); } _reasonCount[rn]++; }); });
+      var _alReasonNames = _reasonOrder.sort(function(a, b) { return _reasonCount[b] - _reasonCount[a]; });
+      var _alReasonHasNone = _reasonNoneCount > 0;
+      var _reasonSel = ((_alReasonNames.indexOf(alphaReasonFil) >= 0) || (alphaReasonFil === "__none__" && _alReasonHasNone)) ? alphaReasonFil : "all";
+      var _reasonFilter = function(rs) {
+        if (_reasonSel === "all") return (rs || []);
+        if (_reasonSel === "__none__") return (rs || []).filter(function(r) { return _reasonsOfSig(r.signal).length === 0; });
+        return (rs || []).filter(function(r) { return _reasonsOfSig(r.signal).indexOf(_reasonSel) >= 0; });
+      };
+      var _reasonLabel = (_reasonSel === "__none__") ? "根拠なし" : _reasonSel;
+      var _alReasonRecsFull = _reasonFilter(_selSigRecs);        // 基本α詳細用（シグナル全体母数に根拠フィルタ）
+      var _alReasonRecsScoped = _reasonFilter(_selSigRecsScoped); // OS分位/α感応度/意思決定表用（内訳スコープ母数に根拠フィルタ）
+      var _alABase = (_reasonSel === "all") ? _alA : _elBaseAlphaA(_alReasonRecsFull, _ai);   // 基本αゾーンヘッドの推奨＝選択根拠の母数（追加αゾーンヘッドは_alAのまま＝全体）
+      var _alphaTable = _alphaTableFn(_alReasonRecsScoped);   // α意思決定表はサブタブ母数（前足浮き/その他）＋根拠フィルタで再計算 2026-07-02→2026-07-06
+      var _alPick = _alABase ? _alABase.pick : null;
       var _alAdd = _alA ? _alA.add : null;
       var _alphaSubs = [["base", "① 基本α", "#0369A1"], ["add", "② 追加α", "#9A3412"], ["tools", "③ α早見・ツール", "#64748B"]];   // ④株数シミュは独立タブ「🧮 シミュ」へ昇格（旧alphaSub="kabu"は_alSelがbaseへフォールバック）2026-07-03
       var _alSel = _alphaSubs.some(function(p) { return p[0] === alphaSub; }) ? alphaSub : "base";
@@ -4678,6 +4695,21 @@ function EntryLogView(_ref_elv2) {
           return React.createElement("button", { key: p[0], onClick: function() { setAlphaSub(p[0]); setExpKey(null); },
             style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? p[2] : "#ddd"), background: on ? p[2] : "#fff", color: on ? "#fff" : "#666" } }, p[1]);
         }));
+      // 根拠セレクタバー（基本α・共通ツールのみ表示。追加αタブは②の④⑤根拠別が担当）。候補が1つも無いシグナル（追加α根拠の記録なし）ではバー非表示＝従来と同一。
+      var _alReasonBar = null;
+      if ((_alSel === "base" || _alSel === "tools") && _alReasonNames.length > 0) {
+        var _rOpts = [{ k: "all", label: "全体", n: _selSigRecsScoped.length }];
+        _alReasonNames.forEach(function(rn) { _rOpts.push({ k: rn, label: rn, n: _reasonCount[rn] }); });
+        if (_alReasonHasNone) _rOpts.push({ k: "__none__", label: "根拠なし", n: _reasonNoneCount });
+        _alReasonBar = React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
+          React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1" } }, "根拠:"),
+          _rOpts.map(function(o) {
+            var on = _reasonSel === o.k;
+            return React.createElement("button", { key: o.k, onClick: function() { setAlphaReasonFil(o.k); setExpKey(null); },
+              style: { padding: "3px 11px", fontSize: 10.5, fontWeight: 700, borderRadius: 12, cursor: "pointer", border: "1px solid " + (on ? "#0369A1" : "#ddd"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#888" } }, o.label + "（" + o.n + "）");
+          }),
+          React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "基本α・共通ツールの母数を根拠で絞込（追加αは②タブに根拠別あり）"));
+      }
       var _alZoneHead = function(color, bg, brd, label, sub) {
         return React.createElement("div", { style: { background: bg, border: "1px solid " + brd, borderLeft: "4px solid " + color, borderRadius: 8, padding: "8px 12px", marginBottom: 6 } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: color, marginBottom: sub ? 3 : 0 } }, label), sub);
@@ -4699,10 +4731,10 @@ function EntryLogView(_ref_elv2) {
       if (_alSel === "base") {
         _alBody = React.createElement(React.Fragment, null,
           _alZoneHead("#0369A1", "#F0F9FF", "#BAE6FD", "基本αゾーン ― まず取る土台（最低限とる利幅）", _alBaseSum),
-          _secH("🎯 成立率の目安（OS値→α分位）", "OS値（OS1〜3最高）の分位から、各成立率に対応するαの目安。基本αを決める前の“α候補レンジ”。分位は" + (_floatMode ? "浮き足" : "その他") + "の母数（" + _selSigRecsScoped.length + "件）"),
-          _elOsAlphaPctlTableV2(_selSigRecsScoped),
-          _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）。基本αはシグナル共通母数で算出"),
-          _elBaseAlphaDetailV2(_selSigRecs, _ai));
+          _secH("🎯 成立率の目安（OS値→α分位）", "OS値（OS1〜3最高）の分位から、各成立率に対応するαの目安。基本αを決める前の“α候補レンジ”。分位は" + (_floatMode ? "浮き足" : "その他") + "の母数（" + _alReasonRecsScoped.length + "件" + (_reasonSel !== "all" ? "・根拠「" + _reasonLabel + "」" : "") + "）"),
+          _elOsAlphaPctlTableV2(_alReasonRecsScoped),
+          _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）。基本αはシグナル共通母数で算出" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」で絞込）" : "")),
+          _elBaseAlphaDetailV2(_alReasonRecsFull, _ai));
       } else if (_alSel === "add") {
         // 前足浮きタブ＝底抜け前足浮き（数値根拠）専用の追加α分析（前足浮き値の何%を追加αにすべきか）。その他タブ＝固定の＋X円で足す通常の追加α分析（数値根拠＝前足浮きは内部で除外）。2026-07-02
         _alBody = _floatMode
@@ -4718,13 +4750,14 @@ function EntryLogView(_ref_elv2) {
               _elAddAlphaSectionV2(_selSigRecsScoped, _ai, data));
       } else {
         _alBody = React.createElement(React.Fragment, null,
-          _alZoneHead("#64748B", "#F8FAFC", "#E2E8F0", "共通ツール ― 基本/追加に依らないα全体の検証", null),
+          _alZoneHead("#64748B", "#F8FAFC", "#E2E8F0", "共通ツール ― 基本/追加に依らないα全体の検証" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」）" : ""), null),
           _alphaTable ? React.createElement(React.Fragment, null, _secH("🎯 α意思決定表", "α=0〜20円で再計算・損切り値は各記録の採用値・★=H1/H2の利益最大α"), _alphaTable) : null,
           _secH("📉 α感応度カーブ", "この母数（" + (_floatMode ? "浮き足" : "その他") + "）の記録をα=0〜20円で再計算した合計の推移（意思決定表のグラフ版）"),
-          _elAlphaCurveSectionV2(_selSigRecsScoped, _ai));
+          _elAlphaCurveSectionV2(_alReasonRecsScoped, _ai));
       }
       _tabBody = React.createElement(React.Fragment, null,
         _alphaPills,
+        _alReasonBar,
         _alBody);
     }
   } else if (view === "stop") {
