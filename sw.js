@@ -2,7 +2,7 @@
 // 1) アプリ本体(index.html / vendor.js / app-01〜08.js / アイコン)をプリキャッシュし、
 //    2回目以降はオフラインでも起動できるようにする。
 // 2) Firebase Storage の画像も従来どおりキャッシュして課金を削減する。
-var APP_CACHE = "sn-app-v46";
+var APP_CACHE = "sn-app-v47";
 var IMG_CACHE = "sn-images-v1";
 var FB_STORAGE_HOST = "firebasestorage.googleapis.com";
 var GSTATIC_HOST = "gstatic.com";
