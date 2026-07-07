@@ -6882,7 +6882,7 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋浮き足加算α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。浮き足は「" + _ukiSigName + "」選択時のみ＝入力値（前足浮き値）の半額・小数切捨てを加算。追加αは〇を選んだ時だけ入力。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋浮き足加算α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。浮き足は「" + _ukiSigNames.join("／") + "」選択時のみ＝入力値（前足浮き値）の半額・小数切捨てを加算。追加αは〇を選んだ時だけ入力。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
