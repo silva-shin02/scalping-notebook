@@ -3128,7 +3128,7 @@ function _addAlphaUnsetBadge(s) {
   if (!_elAddAlphaUnset(s)) return null;
   return React.createElement("span", { title: "追加α値が未選択（〇要/×不要を未判断）＝基本αのみの記録として推奨基本αの母数には算入されます（推奨追加αの母数は〇のみ＝未選択は除外）。記録を開いて〇を選ぶと追加αの母数に入ります。", style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: "#F1F5F9", color: "#64748B", borderRadius: 4, border: "1px dashed #CBD5E1", whiteSpace: "nowrap" } }, "追加α未選択");
 }
-// ===== 浮き足加算α値（底抜け水準線OS専用の第3のα要素 2026-07-03）=====
+// ===== 浮き足加算α値（第3のα要素 2026-07-03。対象シグナル＝既定で底抜け水準線OS／底抜けラインOS・_elUkiSignalNames 2026-07-07）=====
 // signal.ukiUsed(true=〇/false=×/null・undefined=対象外)・signal.ukiVal(前足浮き値の生値・円)。実効加算＝floor(ukiVal/2)＝半額・小数切捨て。
 // 合計採用α(signal.alphaVal)＝基本α＋浮き足加算＋追加α（保存時に畳み込み済み＝下流の損益/EP計算は無改修で正）。
 // 旧方式「追加α〇＋根拠=底抜け前足浮き＋数値(addAlphaReasonVal)」はmigrateData(_migUkiAlpha・app-01)で本フィールドへ自動移行済み。
@@ -3136,6 +3136,14 @@ function _addAlphaUnsetBadge(s) {
 function _elUkiYes(s) { return !!s && s.ukiUsed === true; }
 function _elUkiVal(s) { if (!s || s.ukiVal == null || s.ukiVal === "" || isNaN(Number(s.ukiVal))) return null; return Number(s.ukiVal); }
 function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); return (v != null && v > 0) ? Math.floor(v / 2) : 0; }
+// 浮き足加算の欄を表示・算入する対象シグナル名の集合 2026-07-07（ユーザー決定＝両方に付ける）。既定＝底抜け水準線OS＋底抜けラインOS。
+// 後方互換: custom.ukiSignalNames(配列)があれば優先／旧custom.ukiSignalName(単一)も常に対象へ含める。下流(_elUkiYes/_elUkiAdd/記録帳の浮き足分析)はsignal.ukiUsed駆動でシグナル名非依存＝この集合はフォーム(app-05)/EPナビ(app-04)の「欄を出すか」ゲート専用。
+var _UKI_DEFAULT_SIGNALS = ["底抜け水準線OS", "底抜けラインOS"];
+function _elUkiSignalNames(custom) {
+  var out = (custom && Array.isArray(custom.ukiSignalNames) && custom.ukiSignalNames.length) ? custom.ukiSignalNames.slice() : _UKI_DEFAULT_SIGNALS.slice();
+  if (custom && custom.ukiSignalName && out.indexOf(custom.ukiSignalName) < 0) out.push(custom.ukiSignalName);
+  return out;
+}
 // 追加α〇の「根拠（理由）」選択肢の既定。data.custom.addAlphaReasons でユーザーが追加/削除/改名可（改名は過去記録の根拠名も追従・未設定時はこの既定を表示）2026-06-22→改名2026-06-23。
 // 「底抜け前足浮き」は2026-07-03に独立要素「浮き足加算α値」へ昇格＝既定から削除（過去記録・マスターはmigrateDataで移行/掃除）。
 var _DEF_ADD_REASONS = ["指標線支え"];
@@ -5858,9 +5866,9 @@ function EntryRecordForm(_ref_erf) {
   
   // 合計α値 = 基本α値（未入力なら直近50件の推奨基本α・無ければ0。予想OS度とは連動しない 2026-06-21）＋ 浮き足加算α値 ＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
   var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_autoBaseA != null ? _autoBaseA : 0);
-  // 浮き足加算α値（2026-07-03）: エントリーシグナルに「底抜け水準線OS」(data.custom.ukiSignalNameで変更可)を選択中のみ欄を表示・算入。〇のとき入力値(前足浮き値)の半額（小数切捨て）を加算。
-  var _ukiSigName = (data && data.custom && data.custom.ukiSignalName) || "底抜け水準線OS";
-  var _showUki = fTags.indexOf(_ukiSigName) >= 0;
+  // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 対象シグナル（既定＝底抜け水準線OS／底抜けラインOS・_elUkiSignalNames）のいずれかを選択中のみ欄を表示・算入。〇のとき入力値(前足浮き値)の半額（小数切捨て）を加算。
+  var _ukiSigNames = _elUkiSignalNames(data && data.custom);
+  var _showUki = fTags.some(function(_t) { return _ukiSigNames.indexOf(_t) >= 0; });
   var _fUkiAdd = (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Math.floor(Number(fUkiVal) / 2) : 0;
   // 追加αは「〇（必要）」を選んだ時だけ合計に算入。×なら0＝基本αのみ。
   var _fAddA = (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
@@ -6946,7 +6954,7 @@ function EntryRecordForm(_ref_erf) {
       ) : null,
       _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
-        // 浮き足加算α値の行（底抜け水準線OS選択時のみ・基本α行と追加α行の間）2026-07-03。〇×→〇で前足浮き値（生値）を入力し半額（切捨て）をαに加算。
+        // 浮き足加算α値の行（対象シグナル選択時のみ＝底抜け水準線OS／底抜けラインOS・基本α行と追加α行の間）2026-07-03→07-07。〇×→〇で前足浮き値（生値）を入力し半額（切捨て）をαに加算。
         var _setUV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setFUkiVal(String(n)); };
         var _stepUV = function(delta) { setFUkiVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
         var _ukiOn = fUkiUsed === "○";

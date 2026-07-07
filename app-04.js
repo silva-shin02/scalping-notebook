@@ -3489,8 +3489,8 @@ function EpNaviPanel(_refEPN) {
     if (stk && stk.alpha != null) return { a: stk.alpha, key: "stk", src: "銘柄全体（仮）", ok: false };
     return { a: null, key: null, src: null, ok: false };
   })();
-  var _ukiSig = (custom && custom.ukiSignalName) || "底抜け水準線OS";
-  var showUki = nTag === _ukiSig;
+  var _ukiSigNames = _elUkiSignalNames(custom);
+  var showUki = _ukiSigNames.indexOf(nTag) >= 0;
   var baseV = (nBase !== "" && !isNaN(Number(nBase))) ? Number(nBase) : (autoPick.a != null ? autoPick.a : null);
   // 推奨追加αは採用した基本α段の記録から算出（追加α〇・浮き足除外）。根拠を選ぶとその根拠を持つ記録に絞る＝根拠別の推奨追加α。
   var baseLevelRecs = casc ? (autoPick.key === "det" ? casc.detRecs : (autoPick.key === "sig" ? casc.sigRecs : casc.all)) : null;
