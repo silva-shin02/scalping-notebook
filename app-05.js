@@ -5089,17 +5089,61 @@ function _elTagLabel(s) {
   return "(未設定)";
 }
 
-// シグナル詳細（案A階層型 2026-07-06・複数選択化 2026-07-06f）: signal.sigDetail={シグナル名:[詳細名...]}（任意・タグごと複数可）・候補マスターはcustom.sigDetails={シグナル名:[詳細名]}。
-// 後方互換: 旧記録は sigDetail[t]=文字列（単一）。_elSigDetailList が文字列/配列の両方を配列へ正規化＝全読み取りはこれ経由。
-// 表示用「タグ（詳細・詳細）」文字列。分析のグループ化(_elTagEntries)は素のタグ名のまま＝シグナル全体の集計・名寄せは不変。
-function _elSigDetailList(s, t) {
+// シグナル詳細（案A階層型 2026-07-06→3セクション化 2026-07-07c）: signal.sigDetail={シグナル名:{b:底抜け(単一),k:起点(単一),f:[その他特徴...](複数)}}（任意）。
+// 候補マスターはcustom.sigDetails2={シグナル名:{b:[],k:[],f:[]}}（セクション別・migrateDataで旧custom.sigDetailsから複製シード・旧キーは旧端末互換のため凍結＝新コードは編集しない）。
+// 後方互換: 旧記録は sigDetail[t]=文字列（単一）/フラット配列（複数）＝③その他特徴(f)として読む（ユーザー決定 2026-07-07）。
+// _elSigDetailSec がセクション読み取りの正本・_elSigDetailList は全セクションをフラット配列へ正規化（詳細サブタブ等の従来読者用＝名前ベースの集計は不変）。
+// 表示(_elTagDisp)は「タグ（底:X・起:Y・特徴名...）」。分析のグループ化(_elTagEntries)は素のタグ名のまま＝シグナル全体の集計・名寄せは不変。
+var _EL_SIG_SECS = [{ key: "b", label: "① 底抜け", multi: false }, { key: "k", label: "② 起点", multi: false }, { key: "f", label: "③ その他特徴", multi: true }];
+function _elSigDetailSec(s, t) {
   var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
+  if (_v == null) return { b: null, k: null, f: [] };
+  if (typeof _v === "object" && !Array.isArray(_v)) {
+    var _f = Array.isArray(_v.f) ? _v.f.filter(function(x) { return x; }) : (_v.f ? [_v.f] : []);
+    return { b: _v.b || null, k: _v.k || null, f: _f };
+  }
+  if (Array.isArray(_v)) return { b: null, k: null, f: _v.filter(function(x) { return x; }) };
+  return { b: null, k: null, f: [_v] };
+}
+function _elSigDetailList(s, t) {
+  var _sec = _elSigDetailSec(s, t);
+  var _out = [];
+  [_sec.b, _sec.k].concat(_sec.f).forEach(function(x) { if (x && _out.indexOf(x) < 0) _out.push(x); });
+  return _out;
+}
+function _elSigDetailOf(s, t) { var _l = _elSigDetailList(s, t); return _l.length ? _l[0] : null; }   // 後方互換の単一値（先頭）
+// セクション内の詳細名の改名を1記録へ適用（マスター改名の一括追従用）。secKey="f"は旧形式（文字列/フラット配列）も③として改名対象・対象外の記録は同一参照のまま返す。
+function _elSigDetailRenameSig(s, t, secKey, oldN, newN) {
+  var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
+  if (_v == null) return s;
+  var _isObj = (typeof _v === "object" && !Array.isArray(_v));
+  var _set = function(nv) { var _nsd = Object.assign({}, s.sigDetail); _nsd[t] = nv; return Object.assign({}, s, { sigDetail: _nsd }); };
+  if (secKey === "f") {
+    var _l = _isObj ? (Array.isArray(_v.f) ? _v.f : (_v.f ? [_v.f] : [])) : (Array.isArray(_v) ? _v : [_v]);
+    if (_l.indexOf(oldN) < 0) return s;
+    var _nl = []; _l.forEach(function(x) { var _y = (x === oldN) ? newN : x; if (_y && _nl.indexOf(_y) < 0) _nl.push(_y); });
+    return _set(_isObj ? Object.assign({}, _v, { f: _nl }) : _nl);
+  }
+  if (!_isObj || _v[secKey] !== oldN) return s;
+  var _nv = Object.assign({}, _v); _nv[secKey] = newN;
+  return _set(_nv);
+}
+function _elTagDisp(s, t) {
+  var _sec = _elSigDetailSec(s, t);
+  var _ps = [];
+  if (_sec.b) _ps.push("底:" + _sec.b);
+  if (_sec.k) _ps.push("起:" + _sec.k);
+  _sec.f.forEach(function(x) { _ps.push(x); });
+  return _ps.length ? t + "（" + _ps.join("・") + "）" : t;
+}
+// 追加α根拠の詳細（2026-07-07d・ユーザー選択=複数可）: signal.addReasonDetail={根拠名:[詳細名...]}（任意・根拠ごと複数可）・候補マスターはcustom.addReasonDetails={根拠名:[詳細名]}。
+// 例:「指標線支え」→50EMA。分析への組み込みはのちに（今回は記録のみ）。読み取りはこれ経由（文字列/配列を正規化）。
+function _elAddReasonDetailList(s, rsn) {
+  var _v = (s && s.addReasonDetail && typeof s.addReasonDetail === "object") ? s.addReasonDetail[rsn] : null;
   if (_v == null) return [];
   if (Array.isArray(_v)) return _v.filter(function(x) { return x; });
   return _v ? [_v] : [];
 }
-function _elSigDetailOf(s, t) { var _l = _elSigDetailList(s, t); return _l.length ? _l[0] : null; }   // 後方互換の単一値（先頭）
-function _elTagDisp(s, t) { var _l = _elSigDetailList(s, t); return _l.length ? t + "（" + _l.join("・") + "）" : t; }
 
 function _elTagEntries(s) {
   var entries = [];
@@ -5373,12 +5417,13 @@ function EntryRecordForm(_ref_erf) {
   var _useStateTHM = useState(initSig.thruMemo || ""),
     _useStateTHMA = _slicedToArray(_useStateTHM, 2),
     fThruMemo = _useStateTHMA[0], setFThruMemo = _useStateTHMA[1];
-  // シグナル詳細（案A階層型 2026-07-06・複数選択化 2026-07-06f）: 選択タグごと複数可・任意。signal.sigDetail={タグ名:[詳細名...]}・候補はcustom.sigDetails={タグ名:[詳細名]}。
-  // 旧記録(sigDetail[t]=文字列)は配列へ正規化して読み込む。
+  // シグナル詳細（3セクション化 2026-07-07c）: 選択タグごとに {b:①底抜け(単一), k:②起点(単一), f:[③その他特徴...](複数)}・任意。signal.sigDetail={タグ名:{b,k,f}}。
+  // 候補はcustom.sigDetails2={タグ名:{b,k,f}}（タグに無ければ旧custom.sigDetails[タグ]を各セクションへ複製表示）。
+  // 旧記録(sigDetail[t]=文字列/フラット配列)は③その他特徴(f)として読み込む（_elSigDetailSec・ユーザー決定 2026-07-07）＝保存すると新形式{f:[...]}に置き換わる。
   var _useStateSGD = useState((function() {
     var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
     var _o = {};
-    Object.keys(_src).forEach(function(_k) { var _l = _elSigDetailList(initSig, _k); if (_l.length) _o[_k] = _l; });
+    Object.keys(_src).forEach(function(_k) { var _s = _elSigDetailSec(initSig, _k); if (_s.b || _s.k || _s.f.length) _o[_k] = { b: _s.b, k: _s.k, f: _s.f.slice() }; });
     return _o;
   })()),
     _useStateSGDA = _slicedToArray(_useStateSGD, 2),
@@ -5386,8 +5431,8 @@ function EntryRecordForm(_ref_erf) {
   var _useStateSGE = useState(false),
     _useStateSGEA = _slicedToArray(_useStateSGE, 2),
     fDetEdit = _useStateSGEA[0], setFDetEdit = _useStateSGEA[1];
-  // シグナル詳細のドラッグ並び替え（2026-07-06b）: Pointer Eventsでチップを掴んで移動（iPadタッチ対応・touchAction:none）。
-  // ドラッグ中はfDetOrder={tag,list}で並びをプレビューし、指を離した時にcustom.sigDetails[tag]へ保存。
+  // シグナル詳細のドラッグ並び替え（2026-07-06b→セクション対応 2026-07-07c）: Pointer Eventsでチップを掴んで移動（iPadタッチ対応・touchAction:none）。
+  // ドラッグ中はfDetOrder={tag,sec,list}で並びをプレビューし、指を離した時にcustom.sigDetails2[tag][sec]へ保存（同一セクション内のみ移動可）。
   // タップ（選択/削除）とは移動量7pxのしきい値で区別・ドラッグ直後のclickは_detMovedRefで1回だけ抑止。
   var _useStateSGO = useState(null),
     _useStateSGOA = _slicedToArray(_useStateSGO, 2),
@@ -5395,7 +5440,7 @@ function EntryRecordForm(_ref_erf) {
   var _detDragRef = useRef(null);
   var _detMovedRef = useRef(false);
   // ＋追加をインライン入力欄に変更（2026-07-06d）: iPadのホーム画面起動(standalone)ではwindow.prompt/confirmが無反応（即null）になるため、詳細まわりのネイティブダイアログを廃止。
-  // fDetAdd={tag,val}=追加/{tag,val,old}=改名（値の正本は_detAddValRef・確定時に_fiFlushAll）。編集モード=チップ横に✎(改名・過去記録も一括追従)/×(削除)ミニボタン＝根拠選択肢と同型（2026-07-06e・2タップ削除は廃止）。
+  // fDetAdd={tag,sec,val}=追加/{tag,sec,val,old}=改名（セクション対応 2026-07-07c・値の正本は_detAddValRef・確定時に_fiFlushAll）。編集モード=チップ横に✎(改名・過去記録も一括追従)/×(削除)ミニボタン＝根拠選択肢と同型（2026-07-06e・2タップ削除は廃止）。
   var _useStateSGA = useState(null),
     _useStateSGAA = _slicedToArray(_useStateSGA, 2),
     fDetAdd = _useStateSGAA[0], setFDetAdd = _useStateSGAA[1];
@@ -5598,6 +5643,28 @@ function EntryRecordForm(_ref_erf) {
     _useStateRSIA = _slicedToArray(_useStateRSI, 2),
     fRsnInput = _useStateRSIA[0], setFRsnInput = _useStateRSIA[1];
   var _rsnValRef = useRef("");
+  // 根拠の詳細（2026-07-07d・複数可）: 選択中の各根拠の直下に詳細チップ（例:指標線支え→50EMA）。signal.addReasonDetail={根拠名:[詳細名...]}・候補はcustom.addReasonDetails={根拠名:[詳細名]}。
+  // UIはシグナル詳細チップと同方式（fRsnDetOrder={rsn,list}ドラッグ・fRsnDetAdd={rsn,val(,old)}インライン追加/改名・fRsnDetEdit=✎×モード）。
+  var _useStateRDT = useState((function() {
+    var _src = (initSig.addReasonDetail && typeof initSig.addReasonDetail === "object") ? initSig.addReasonDetail : {};
+    var _o = {};
+    Object.keys(_src).forEach(function(_k) { var _l = _elAddReasonDetailList(initSig, _k); if (_l.length) _o[_k] = _l; });
+    return _o;
+  })()),
+    _useStateRDTA = _slicedToArray(_useStateRDT, 2),
+    fRsnDetail = _useStateRDTA[0], setFRsnDetail = _useStateRDTA[1];
+  var _useStateRDO = useState(null),
+    _useStateRDOA = _slicedToArray(_useStateRDO, 2),
+    fRsnDetOrder = _useStateRDOA[0], setFRsnDetOrder = _useStateRDOA[1];
+  var _rsnDetDragRef = useRef(null);
+  var _rsnDetMovedRef = useRef(false);
+  var _useStateRDE = useState(false),
+    _useStateRDEA = _slicedToArray(_useStateRDE, 2),
+    fRsnDetEdit = _useStateRDEA[0], setFRsnDetEdit = _useStateRDEA[1];
+  var _useStateRDA = useState(null),
+    _useStateRDAA = _slicedToArray(_useStateRDA, 2),
+    fRsnDetAdd = _useStateRDAA[0], setFRsnDetAdd = _useStateRDAA[1];
+  var _rsnDetValRef = useRef("");
   // 浮き足加算α値（底抜け水準線OS選択時のみ表示）: 〇×＋前足浮き値（円・生値）。signal.ukiUsed/ukiValに保存・実効加算=floor(値/2)。旧数値根拠欄(addAlphaReasonVal)の後継 2026-07-03。
   // 初期化: ukiUsed===true→〇・それ以外(false/未設定/旧記録)→×。
   var _useStateUKU = useState(initSig.ukiUsed === true ? "○" : "×"),
@@ -5638,14 +5705,7 @@ function EntryRecordForm(_ref_erf) {
   // 新規記録では基本αに直近50件の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21→2026-06-22c→件数ベース2026-06-26。
   var _baTouchedRef = useRef(false);
   var _baAutoRef = useRef("");
-  useEffect(function() {
-    if (isEdit || _baTouchedRef.current) return;
-    if (_defBaseA == null) return;
-    if (fBaseAlpha !== "" && fBaseAlpha !== _baAutoRef.current) return;
-    var _nv = String(_defBaseA);
-    _baAutoRef.current = _nv;
-    if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
-  }, [_defBaseA, fBaseAlpha, isEdit]);
+  // （基本αの自動入力useEffectは_refSigAlpha定義の直後へ移動 2026-07-07c＝詳細別→シグナル別→銘柄全体の段階フォールバック値_autoBaseAを使うため。_defBaseAは銘柄全体段として温存）
   // 推奨追加α（追加α〇の記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」）2026-06-22→2026-06-27: 表示・自動入力している推奨基本αと同じ件数窓(_defBaseWin)から取る＝「合計」＝画面の基本α＋推奨追加α が一致（旧: 全期間窓固定で、表示する基本α(直近50件)と窓・起点が食い違っていた）。
   var _refAddAlpha = (_defBaseWin && _defBaseWin.add) ? _defBaseWin.add : null;
   // 推奨損切り値（実現H1損益をほぼ維持できる範囲で最小=タイトな損切り値・この銘柄の前日までの算入v2記録から。損切り回避率/H1勝率は根拠として併記）2026-06-22→22dタイト優先。
@@ -5656,8 +5716,10 @@ function EntryRecordForm(_ref_erf) {
     var p = _elCutPick(recs, function(r) { return _elAlphaInfo(r, data); });
     return (p && p.cut != null && p.status !== "none") ? p : null;
   }, [data, fStock, fDate]);
-  // シグナル/詳細別の推奨基本α参考（2026-07-06）: 選択中シグナル（先頭タグ）と選択詳細で絞った_elBaseAlphaPick＝表示のみ。
-  // 自動入力は従来どおり銘柄全体（_defBaseA）のまま＝日別ページ/シミュとの値の統一性を維持。母数はこの銘柄・v2・算入分・fDate前日まで（look-ahead回避）・全期間。
+  // シグナル/詳細別の推奨基本α・追加α（2026-07-06→2026-07-07c拡張・ユーザー選択＝自動入力もシグナル/詳細別）:
+  // 選択中シグナル（先頭タグ）と①②③の選択詳細で母数を絞り、段階フォールバック＝詳細の組み合わせ→シグナル→銘柄全体（_defBaseA）の順で
+  // 「データ十分（_elBaseAlphaPickのstatus ok・直近50→100→全期間の件数窓）」な推奨基本αを自動入力に使う（★表示）。データ不足の段は「データ不足(n=X)」表示で下の段へ。
+  // 追加α・選択値ごとの内訳は表示のみ。母数はこの銘柄・v2・算入分・fDate前日まで（look-ahead回避）。日別ページ/シミュのrecoOfは銘柄全体のまま＝値がズレうる点はユーザー了承済み。
   var _refSigAlpha = useMemo(function() {
     if (!fStock || !fTags.length) return null;
     var _t = fTags[0];
@@ -5666,11 +5728,59 @@ function EntryRecordForm(_ref_erf) {
       return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate) && _tagsOf(r.signal).indexOf(_t) >= 0;
     });
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
+    // 窓付きpick: 直近50→100→全期間の順に最初のok推奨を採用（銘柄全体の_defBaseAと同じ考え方）。okが無ければ全期間の参考値(na)をalphaに入れつつok:false＝データ不足扱い。addは同じ窓の推奨追加α。
+    var _pickWin = function(rs) {
+      if (!rs.length) return { alpha: null, ok: false, n: 0, add: null };
+      var _sorted = rs.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+      var _wins = [];
+      [_EL_PERIOD_COUNTS[1], _EL_PERIOD_COUNTS[2]].forEach(function(n) { if (_sorted.length > n) _wins.push(_sorted.slice(_sorted.length - n)); });
+      _wins.push(_sorted);
+      var _lastA = null;
+      for (var i = 0; i < _wins.length; i++) {
+        var A = _elBaseAlphaA(_wins[i], aiOf); _lastA = A;
+        if (A && A.pick && A.pick.alpha != null && A.pick.status === "ok") return { alpha: A.pick.alpha, ok: true, n: rs.length, add: (A.add && A.add.improved) ? A.add : null };
+      }
+      return { alpha: (_lastA && _lastA.pick && _lastA.pick.alpha != null && _lastA.pick.status !== "none") ? _lastA.pick.alpha : null, ok: false, n: rs.length, add: (_lastA && _lastA.add && _lastA.add.improved) ? _lastA.add : null };
+    };
+    // 選択値ごとの参考pick（全期間・表示のみ）＝そのセクションの値が一致する記録だけに絞る（旧フラット記録は③として一致判定）。
     var _pickOf = function(rs) { if (!rs.length) return { alpha: null, n: 0 }; var p = _elBaseAlphaPick(rs, aiOf); return (p && p.alpha != null && p.status !== "none") ? { alpha: p.alpha, ok: p.status === "ok", n: rs.length } : { alpha: null, n: rs.length }; };
-    var _dets = (fSigDetail && fSigDetail[_t]) || [];   // 選択中の詳細（複数可）＝各詳細で母数を絞った参考αを1つずつ出す
-    var _detPicks = _dets.map(function(_dn) { return { name: _dn, pick: _pickOf(recs.filter(function(r) { return _elSigDetailList(r.signal, _t).indexOf(_dn) >= 0; })) }; });
-    return { tag: _t, sig: _pickOf(recs), detPicks: _detPicks };
+    var _sel = (fSigDetail && fSigDetail[_t]) || { b: null, k: null, f: [] };
+    var _selB = _sel.b || null, _selK = _sel.k || null, _selF = (_sel.f || []);
+    var picks = [];
+    if (_selB) picks.push({ sec: "b", lb: "底", name: _selB, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).b === _selB; })) });
+    if (_selK) picks.push({ sec: "k", lb: "起", name: _selK, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).k === _selK; })) });
+    _selF.forEach(function(_dn) { picks.push({ sec: "f", lb: "特", name: _dn, pick: _pickOf(recs.filter(function(r) { return _elSigDetailSec(r.signal, _t).f.indexOf(_dn) >= 0; })) }); });
+    // 詳細の組み合わせ（選択した①②③をすべて満たす記録）＝最も具体的な母数。①②③とも未選択ならnull。
+    var det = (_selB || _selK || _selF.length) ? _pickWin(recs.filter(function(r) {
+      var _sc = _elSigDetailSec(r.signal, _t);
+      if (_selB && _sc.b !== _selB) return false;
+      if (_selK && _sc.k !== _selK) return false;
+      for (var i = 0; i < _selF.length; i++) { if (_sc.f.indexOf(_selF[i]) < 0) return false; }
+      return true;
+    })) : null;
+    return { tag: _t, sig: _pickWin(recs), det: det, picks: picks };
   }, [data, fStock, fDate, fTags, fSigDetail]);
+  // 自動入力に使う推奨基本α＝詳細別(ok)→シグナル別(ok)→銘柄全体(_defBaseA)の段階フォールバック（ユーザー選択 2026-07-07c）。srcは★バッジ表示用。
+  var _autoBase = (function() {
+    if (_refSigAlpha && _refSigAlpha.det && _refSigAlpha.det.ok && _refSigAlpha.det.alpha != null) return { a: _refSigAlpha.det.alpha, src: "詳細別" };
+    if (_refSigAlpha && _refSigAlpha.sig && _refSigAlpha.sig.ok && _refSigAlpha.sig.alpha != null) return { a: _refSigAlpha.sig.alpha, src: "シグナル別" };
+    if (_defBaseA != null) return { a: _defBaseA, src: "銘柄全体" };
+    return { a: null, src: null };
+  })();
+  var _autoBaseA = _autoBase.a;
+  // 新規記録では基本αに段階フォールバックの推奨基本αを自動入力（手動操作するまで・銘柄/日付/シグナル/詳細変更で追従）2026-06-21→2026-07-07c。
+  useEffect(function() {
+    if (isEdit || _baTouchedRef.current) return;
+    if (_autoBaseA == null) return;
+    if (fBaseAlpha !== "" && fBaseAlpha !== _baAutoRef.current) return;
+    var _nv = String(_autoBaseA);
+    _baAutoRef.current = _nv;
+    if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
+  }, [_autoBaseA, fBaseAlpha, isEdit]);
+  // 推奨追加αの表示も同じ段階（詳細別→シグナル別→銘柄全体）で最初に得られたものを使う（表示のみ・追加α欄への自動入力はしない）。
+  var _refAddAlphaSrc = (_refSigAlpha && _refSigAlpha.det && _refSigAlpha.det.add) ? { add: _refSigAlpha.det.add, src: "詳細別" }
+    : ((_refSigAlpha && _refSigAlpha.sig && _refSigAlpha.sig.add) ? { add: _refSigAlpha.sig.add, src: "シグナル別" }
+    : (_refAddAlpha ? { add: _refAddAlpha, src: "銘柄全体" } : null));
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
   var _useStateINC = useState(initSig.includeInTotal !== false),
@@ -5747,7 +5857,7 @@ function EntryRecordForm(_ref_erf) {
 
   
   // 合計α値 = 基本α値（未入力なら直近50件の推奨基本α・無ければ0。予想OS度とは連動しない 2026-06-21）＋ 浮き足加算α値 ＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
-  var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_defBaseA != null ? _defBaseA : 0);
+  var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_autoBaseA != null ? _autoBaseA : 0);
   // 浮き足加算α値（2026-07-03）: エントリーシグナルに「底抜け水準線OS」(data.custom.ukiSignalNameで変更可)を選択中のみ欄を表示・算入。〇のとき入力値(前足浮き値)の半額（小数切捨て）を加算。
   var _ukiSigName = (data && data.custom && data.custom.ukiSignalName) || "底抜け水準線OS";
   var _showUki = fTags.indexOf(_ukiSigName) >= 0;
@@ -6257,7 +6367,7 @@ function EntryRecordForm(_ref_erf) {
       id: isEdit ? initSig.id : _sigId(),
       tag: fTags.length > 0 ? fTags[0] : (fIsCustom ? "__custom__" : ""),
       tags: fTags,
-      sigDetail: (function() { var _o = {}, _any = false; fTags.forEach(function(_t) { var _l = (fSigDetail && fSigDetail[_t]) || []; if (_l.length) { _o[_t] = _l.slice(); _any = true; } }); return _any ? _o : null; })(),
+      sigDetail: (function() { var _o = {}, _any = false; fTags.forEach(function(_t) { var _s = (fSigDetail && fSigDetail[_t]) || null; if (!_s) return; var _e = {}, _has = false; if (_s.b) { _e.b = _s.b; _has = true; } if (_s.k) { _e.k = _s.k; _has = true; } if (_s.f && _s.f.length) { _e.f = _s.f.slice(); _has = true; } if (_has) { _o[_t] = _e; _any = true; } }); return _any ? _o : null; })(),
       passThrough: fThru === true ? true : null,
       thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,
       result: fResult,
@@ -6283,6 +6393,7 @@ function EntryRecordForm(_ref_erf) {
       addAlphaVal: (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : null,
       addAlphaUsed: fAddAlphaUsed === "○" ? true : (fAddAlphaUsed === "×" ? false : null),
       addAlphaReasons: (fAddAlphaUsed === "○") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
+      addReasonDetail: (fAddAlphaUsed === "○") ? (function() { var _o = {}, _any = false; (fAddReasons || []).forEach(function(_r) { var _l = (fRsnDetail && fRsnDetail[_r]) || []; if (_l.length) { _o[_r] = _l.slice(); _any = true; } }); return _any ? _o : null; })() : null,
       ukiUsed: _showUki ? (fUkiUsed === "○") : null,
       ukiVal: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Number(fUkiVal) : null,
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
@@ -6497,175 +6608,222 @@ function EntryRecordForm(_ref_erf) {
         })()
       ),
       fTags.length ? React.createElement("div", { style: { marginBottom: 6 } },
-        // シグナル詳細（案A階層型 2026-07-06・複数選択化 2026-07-06f）: 選択中の各シグナルの直下に、そのシグナル専用の詳細候補（custom.sigDetails[タグ]）をチップで表示。複数選択可・再タップ解除・任意（未選択=分析では「未分類」）。
+        // シグナル詳細（3セクション化 2026-07-07c・案A縦積み）: 選択中の各シグナルの直下に①底抜け(単一)/②起点(単一)/③その他特徴(複数)のチップ行を表示。再タップ解除・任意（未選択=分析では「未分類」）。
+        // 候補はセクション別custom.sigDetails2[タグ]={b,k,f}（タグに無ければ旧custom.sigDetails[タグ]を各セクションへ複製表示）。追加/改名/削除/並び替えの書き込みは_writeSec経由でsigDetails2のみ（旧キーは旧端末互換のため凍結）。
         fTags.map(function(_dt) {
-          var _cands0 = ((custom.sigDetails || {})[_dt] || []);
-          var _cands = (fDetOrder && fDetOrder.tag === _dt) ? fDetOrder.list : _cands0;
-          var _cur = (fSigDetail && fSigDetail[_dt]) || [];   // 選択中の詳細（配列）
-          var _list = _cands.concat(_cur.filter(function(_x) { return _cands.indexOf(_x) < 0; }));   // 選択済みのマスター外(孤児)も末尾に表示
+          var _m2raw = (custom.sigDetails2 || {})[_dt];
+          var _seed = ((custom.sigDetails || {})[_dt] || []);
+          var _m2 = (_m2raw && typeof _m2raw === "object") ? { b: (_m2raw.b || []), k: (_m2raw.k || []), f: (_m2raw.f || []) } : { b: _seed, k: _seed, f: _seed };
+          var _curSec = (fSigDetail && fSigDetail[_dt]) || { b: null, k: null, f: [] };
+          // セクション別リストの書き込みヘルパー（prevベース）: sigDetails2[_dt]が無ければ旧リストから3セクションを実体化してから対象セクションを更新。_listは配列 or (現リスト)=>新リスト。
+          var _writeSec = function(prev, _secKey, _list) {
+            var _c = Object.assign({}, prev.custom || {});
+            var _all = Object.assign({}, _c.sigDetails2 || {});
+            var _cur = _all[_dt];
+            var _base = (_cur && typeof _cur === "object")
+              ? { b: (_cur.b || []).slice(), k: (_cur.k || []).slice(), f: (_cur.f || []).slice() }
+              : (function() { var _s0 = (((prev.custom || {}).sigDetails || {})[_dt] || []); return { b: _s0.slice(), k: _s0.slice(), f: _s0.slice() }; })();
+            _base[_secKey] = (typeof _list === "function") ? _list(_base[_secKey]) : _list;
+            _all[_dt] = _base;
+            _c.sigDetails2 = _all;
+            return _c;
+          };
           return React.createElement("div", { key: "det_" + _dt, style: { margin: "0 0 6px 12px", padding: "7px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
-            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（任意・複数可）",
-              _cands0.length >= 2 ? React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え") : null),
-            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" } },
-              _list.map(function(_dn) {
-                var _on = _cur.indexOf(_dn) >= 0;
-                var _isOrphan = _cands.indexOf(_dn) < 0;
-                var _dragSt = _detDragRef.current;
-                var _dragging = !!(_dragSt && _dragSt.started && _dragSt.tag === _dt && _dragSt.name === _dn);
-                return React.createElement("span", { key: _dn,
-                  "data-dettag": _dt, "data-detname": _dn,
-                  onPointerDown: _isOrphan ? null : function(e) {
-                    // setPointerCaptureはドラッグ開始時（下のpointermove）まで呼ばない＝タップ時にclickがキャプチャ先へretargetされ内側buttonのonClick（選択）が発火しない不具合の回避 2026-07-06g。
-                    _detDragRef.current = { tag: _dt, name: _dn, sx: e.clientX, sy: e.clientY, started: false, list: null };
-                  },
-                  onPointerMove: function(e) {
-                    var d = _detDragRef.current;
-                    if (!d || d.tag !== _dt || d.name !== _dn) return;
-                    if (!d.started) {
-                      if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
-                      d.started = true;
-                      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
-                      d.list = (((custom.sigDetails || {})[_dt]) || []).slice();
-                      _detMovedRef.current = true;
-                      setFDetOrder({ tag: _dt, list: d.list.slice() });
-                      return;
-                    }
-                    var el = document.elementFromPoint(e.clientX, e.clientY);
-                    var chip = (el && el.closest) ? el.closest("[data-dettag]") : null;
-                    if (!chip || chip.getAttribute("data-dettag") !== _dt) return;
-                    var over = chip.getAttribute("data-detname");
-                    if (!over || over === d.name) return;
-                    var lst = d.list.slice();
-                    var fi = lst.indexOf(d.name), ti = lst.indexOf(over);
-                    if (fi < 0 || ti < 0 || fi === ti) return;
-                    lst.splice(fi, 1); lst.splice(ti, 0, d.name);
-                    d.list = lst;
-                    setFDetOrder({ tag: _dt, list: lst.slice() });
-                  },
-                  onPointerUp: function() {
-                    var d = _detDragRef.current;
-                    _detDragRef.current = null;
-                    if (d && d.started && d.list) {
-                      var _fin = d.list.slice(), _ftag = d.tag;
-                      save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); _sd[_ftag] = _fin; _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
-                      setTimeout(function() { _detMovedRef.current = false; }, 0);
-                    }
-                    setFDetOrder(null);
-                  },
-                  onPointerCancel: function() { _detDragRef.current = null; _detMovedRef.current = false; setFDetOrder(null); },
-                  style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none",
-                    boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null,
-                    transform: _dragging ? "scale(1.06)" : null,
-                    opacity: _dragging ? 0.9 : null } },
+            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（任意）",
+              React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え（同セクション内）")),
+            _EL_SIG_SECS.map(function(_sc) {
+              var _cands0 = _m2[_sc.key];
+              var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _sc.key) ? fDetOrder.list : _cands0;
+              var _curArr = _sc.multi ? (_curSec.f || []) : (_curSec[_sc.key] ? [_curSec[_sc.key]] : []);
+              var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0; }));   // 選択済みのマスター外(孤児)も末尾に表示
+              return React.createElement("div", { key: _sc.key, style: { margin: "2px 0 6px" } },
+                React.createElement("div", { style: { fontSize: 10, color: "#B45309", fontWeight: 700, marginBottom: 3 } }, _sc.label,
+                  React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? "（複数可）" : "（1つまで）")),
+                React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" } },
+                  _list.map(function(_dn) {
+                    var _on = _curArr.indexOf(_dn) >= 0;
+                    var _isOrphan = _cands.indexOf(_dn) < 0;
+                    var _dragSt = _detDragRef.current;
+                    var _dragging = !!(_dragSt && _dragSt.started && _dragSt.tag === _dt && _dragSt.sec === _sc.key && _dragSt.name === _dn);
+                    return React.createElement("span", { key: _dn,
+                      "data-dettag": _dt, "data-detsec": _sc.key, "data-detname": _dn,
+                      onPointerDown: _isOrphan ? null : function(e) {
+                        // setPointerCaptureはドラッグ開始時（下のpointermove）まで呼ばない＝タップ時にclickがキャプチャ先へretargetされ内側buttonのonClick（選択）が発火しない不具合の回避 2026-07-06g。
+                        _detDragRef.current = { tag: _dt, sec: _sc.key, name: _dn, sx: e.clientX, sy: e.clientY, started: false, list: null };
+                      },
+                      onPointerMove: function(e) {
+                        var d = _detDragRef.current;
+                        if (!d || d.tag !== _dt || d.sec !== _sc.key || d.name !== _dn) return;
+                        if (!d.started) {
+                          if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
+                          d.started = true;
+                          try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
+                          d.list = _cands0.slice();
+                          _detMovedRef.current = true;
+                          setFDetOrder({ tag: _dt, sec: _sc.key, list: d.list.slice() });
+                          return;
+                        }
+                        var el = document.elementFromPoint(e.clientX, e.clientY);
+                        var chip = (el && el.closest) ? el.closest("[data-dettag]") : null;
+                        if (!chip || chip.getAttribute("data-dettag") !== _dt || chip.getAttribute("data-detsec") !== _sc.key) return;
+                        var over = chip.getAttribute("data-detname");
+                        if (!over || over === d.name) return;
+                        var lst = d.list.slice();
+                        var fi = lst.indexOf(d.name), ti = lst.indexOf(over);
+                        if (fi < 0 || ti < 0 || fi === ti) return;
+                        lst.splice(fi, 1); lst.splice(ti, 0, d.name);
+                        d.list = lst;
+                        setFDetOrder({ tag: _dt, sec: _sc.key, list: lst.slice() });
+                      },
+                      onPointerUp: function() {
+                        var d = _detDragRef.current;
+                        _detDragRef.current = null;
+                        if (d && d.started && d.list) {
+                          var _fin = d.list.slice(), _fsec = d.sec;
+                          save(function(prev) { return Object.assign({}, prev, { custom: _writeSec(prev, _fsec, _fin) }); });
+                          setTimeout(function() { _detMovedRef.current = false; }, 0);
+                        }
+                        setFDetOrder(null);
+                      },
+                      onPointerCancel: function() { _detDragRef.current = null; _detMovedRef.current = false; setFDetOrder(null); },
+                      style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none",
+                        boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null,
+                        transform: _dragging ? "scale(1.06)" : null,
+                        opacity: _dragging ? 0.9 : null } },
+                      React.createElement("button", {
+                        onClick: function() {
+                          if (_detMovedRef.current) { _detMovedRef.current = false; return; }
+                          setFSigDetail(function(prev) {
+                            var _o = Object.assign({}, prev);
+                            var _pe = _o[_dt] || {};
+                            var _e = { b: _pe.b || null, k: _pe.k || null, f: (_pe.f || []).slice() };
+                            if (_sc.multi) {
+                              var _i = _e.f.indexOf(_dn);
+                              if (_i >= 0) _e.f.splice(_i, 1); else _e.f.push(_dn);
+                            } else {
+                              _e[_sc.key] = (_e[_sc.key] === _dn) ? null : _dn;   // ①②は単一＝再タップで解除・別チップで置き換え
+                            }
+                            if (_e.b || _e.k || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
+                            return _o;
+                          });
+                        },
+                        style: { padding: "4px 9px", fontSize: 11, fontWeight: 600,
+                          border: _on ? "1.5px solid #D97706" : "1px solid #ddd",
+                          background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#777",
+                          borderRadius: 6, cursor: "pointer" }
+                      }, _dn),
+                      (fDetEdit && !_isOrphan) ? React.createElement(React.Fragment, null,
+                        React.createElement("button", {
+                          title: "この詳細の名前を変更（このセクションに付いた過去の記録の詳細も一括変更）",
+                          onClick: function() { if (_detMovedRef.current) { _detMovedRef.current = false; return; } _detAddValRef.current = _dn; setFDetAdd({ tag: _dt, sec: _sc.key, val: _dn, old: _dn }); },
+                          style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" }
+                        }, "✎"),
+                        React.createElement("button", {
+                          title: "この詳細をこのセクションの候補から削除（過去の記録に付いた詳細はそのまま残ります）",
+                          onClick: function() {
+                            if (_detMovedRef.current) { _detMovedRef.current = false; return; }
+                            setFDetAdd(null);
+                            save(function(prev) { return Object.assign({}, prev, { custom: _writeSec(prev, _sc.key, function(_l) { return _l.filter(function(x) { return x !== _dn; }); }) }); });
+                            setFSigDetail(function(prev) {
+                              var _pe = prev[_dt]; if (!_pe) return prev;
+                              var _e = { b: _pe.b || null, k: _pe.k || null, f: (_pe.f || []).slice() };
+                              if (_sc.multi) { if (_e.f.indexOf(_dn) < 0) return prev; _e.f = _e.f.filter(function(x) { return x !== _dn; }); }
+                              else { if (_e[_sc.key] !== _dn) return prev; _e[_sc.key] = null; }
+                              var _o = Object.assign({}, prev);
+                              if (_e.b || _e.k || _e.f.length) _o[_dt] = _e; else delete _o[_dt];
+                              return _o;
+                            });
+                          },
+                          style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" }
+                        }, "×")
+                      ) : null);
+                  }),
+                  (function() {
+                    var _addOpen = !!(fDetAdd && fDetAdd.tag === _dt && fDetAdd.sec === _sc.key);
+                    return React.createElement("button", {
+                      onClick: function() {
+                        if (_addOpen) { setFDetAdd(null); return; }
+                        _detAddValRef.current = "";
+                        setFDetAdd({ tag: _dt, sec: _sc.key, val: "" });
+                      },
+                      style: { padding: "4px 9px", fontSize: 11, fontWeight: 600, border: _addOpen ? "1px solid #0369A1" : "1px dashed #bbb", background: _addOpen ? "#EFF6FF" : "#fff", color: _addOpen ? "#0369A1" : "#888", borderRadius: 6, cursor: "pointer" }
+                    }, _addOpen ? "✕ 閉じる" : "＋追加");
+                  })(),
+                  _cands.length ? React.createElement("button", {
+                    onClick: function() { setFDetEdit(!fDetEdit); setFDetAdd(null); },
+                    title: "詳細候補の名前変更・削除モード（✎で改名・×で削除）",
+                    style: { padding: "4px 8px", fontSize: 10, fontWeight: 700, border: "1px solid " + (fDetEdit ? "#B91C1C" : "#ddd"), background: fDetEdit ? "#FEF2F2" : "#fff", color: fDetEdit ? "#B91C1C" : "#999", borderRadius: 6, cursor: "pointer" }
+                  }, fDetEdit ? "完了" : "編集") : null
+                ),
+                (fDetAdd && fDetAdd.tag === _dt && fDetAdd.sec === _sc.key) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center", flexWrap: "wrap" } },
+                  fDetAdd.old != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "『" + fDetAdd.old + "』を改名:") : null,
+                  React.createElement(FastInput, {
+                    type: "text",
+                    value: fDetAdd.val || "",
+                    onChange: function(v) { _detAddValRef.current = v; setFDetAdd(function(p) { return (p && p.tag === _dt && p.sec === _sc.key) ? Object.assign({}, p, { val: v }) : p; }); },
+                    placeholder: fDetAdd.old != null ? "新しい名前" : "詳細名（例: 押し目前）",
+                    style: { flex: 1, minWidth: 120, padding: "6px 9px", fontSize: 12, border: "1px solid #93C5FD", borderRadius: 6, background: "#fff", boxSizing: "border-box" }
+                  }),
                   React.createElement("button", {
                     onClick: function() {
-                      if (_detMovedRef.current) { _detMovedRef.current = false; return; }
-                      setFSigDetail(function(prev) {
-                        var _o = Object.assign({}, prev);
-                        var _arr = (_o[_dt] || []).slice();
-                        var _i = _arr.indexOf(_dn);
-                        if (_i >= 0) _arr.splice(_i, 1); else _arr.push(_dn);
-                        if (_arr.length) _o[_dt] = _arr; else delete _o[_dt];
-                        return _o;
-                      });
-                    },
-                    style: { padding: "4px 9px", fontSize: 11, fontWeight: 600,
-                      border: _on ? "1.5px solid #D97706" : "1px solid #ddd",
-                      background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#777",
-                      borderRadius: 6, cursor: "pointer" }
-                  }, _dn),
-                  (fDetEdit && !_isOrphan) ? React.createElement(React.Fragment, null,
-                    React.createElement("button", {
-                      title: "この詳細の名前を変更（過去の記録の詳細も一括変更）",
-                      onClick: function() { if (_detMovedRef.current) { _detMovedRef.current = false; return; } _detAddValRef.current = _dn; setFDetAdd({ tag: _dt, val: _dn, old: _dn }); },
-                      style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" }
-                    }, "✎"),
-                    React.createElement("button", {
-                      title: "この詳細を候補から削除（過去の記録に付いた詳細はそのまま残ります）",
-                      onClick: function() {
-                        if (_detMovedRef.current) { _detMovedRef.current = false; return; }
-                        setFDetAdd(null);
-                        save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); _sd[_dt] = (_sd[_dt] || []).filter(function(x) { return x !== _dn; }); _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
-                        setFSigDetail(function(prev) { var _ca = prev[_dt] || []; if (_ca.indexOf(_dn) < 0) return prev; var _o = Object.assign({}, prev); var _na = _ca.filter(function(x) { return x !== _dn; }); if (_na.length) _o[_dt] = _na; else delete _o[_dt]; return _o; });
-                      },
-                      style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" }
-                    }, "×")
-                  ) : null);
-              }),
-              (function() {
-                var _addOpen = !!(fDetAdd && fDetAdd.tag === _dt);
-                return React.createElement("button", {
-                  onClick: function() {
-                    if (_addOpen) { setFDetAdd(null); return; }
-                    _detAddValRef.current = "";
-                    setFDetAdd({ tag: _dt, val: "" });
-                  },
-                  style: { padding: "4px 9px", fontSize: 11, fontWeight: 600, border: _addOpen ? "1px solid #0369A1" : "1px dashed #bbb", background: _addOpen ? "#EFF6FF" : "#fff", color: _addOpen ? "#0369A1" : "#888", borderRadius: 6, cursor: "pointer" }
-                }, _addOpen ? "✕ 閉じる" : "＋追加");
-              })(),
-              _cands.length ? React.createElement("button", {
-                onClick: function() { setFDetEdit(!fDetEdit); setFDetAdd(null); },
-                title: "詳細候補の名前変更・削除モード（✎で改名・×で削除）",
-                style: { padding: "4px 8px", fontSize: 10, fontWeight: 700, border: "1px solid " + (fDetEdit ? "#B91C1C" : "#ddd"), background: fDetEdit ? "#FEF2F2" : "#fff", color: fDetEdit ? "#B91C1C" : "#999", borderRadius: 6, cursor: "pointer" }
-              }, fDetEdit ? "完了" : "編集") : null
-            ),
-            (fDetAdd && fDetAdd.tag === _dt) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center", flexWrap: "wrap" } },
-              fDetAdd.old != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "『" + fDetAdd.old + "』を改名:") : null,
-              React.createElement(FastInput, {
-                type: "text",
-                value: fDetAdd.val || "",
-                onChange: function(v) { _detAddValRef.current = v; setFDetAdd(function(p) { return (p && p.tag === _dt) ? Object.assign({}, p, { val: v }) : p; }); },
-                placeholder: fDetAdd.old != null ? "新しい名前" : "詳細名（例: 押し目前）",
-                style: { flex: 1, minWidth: 120, padding: "6px 9px", fontSize: 12, border: "1px solid #93C5FD", borderRadius: 6, background: "#fff", boxSizing: "border-box" }
-              }),
-              React.createElement("button", {
-                onClick: function() {
-                  _fiFlushAll();
-                  var _nm = (_detAddValRef.current || "").trim();
-                  if (!_nm) return;
-                  if (fDetAdd.old != null) {
-                    // 改名: マスター＋過去記録(signal.sigDetail[このタグ])を一括変更＝分析のグループが割れない（根拠選択肢の_renameRと同型）。同名が既にあれば何もしない。
-                    var _old = fDetAdd.old;
-                    if (_nm !== _old) {
-                      save(function(prev) {
-                        var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {});
-                        var _ar = (_sd[_dt] || []).slice();
-                        if (_ar.indexOf(_nm) >= 0) return prev;
-                        _sd[_dt] = _ar.map(function(x) { return x === _old ? _nm : x; });
-                        _c.sigDetails = _sd;
-                        var _pCharts = prev.charts || {}, _nCharts = {};
-                        Object.keys(_pCharts).forEach(function(ck) {
-                          var cc = _pCharts[ck];
-                          if (!cc || !Array.isArray(cc.signals)) { _nCharts[ck] = cc; return; }
-                          var _ch = false;
-                          var sigs = cc.signals.map(function(s) {
-                            var _sl = _elSigDetailList(s, _dt);
-                            if (!_sl.length || _sl.indexOf(_old) < 0) return s;
-                            _ch = true;
-                            var _nl = []; _sl.forEach(function(x) { var _y = (x === _old) ? _nm : x; if (_nl.indexOf(_y) < 0) _nl.push(_y); });
-                            var _nsd = Object.assign({}, s.sigDetail); _nsd[_dt] = _nl;
-                            return Object.assign({}, s, { sigDetail: _nsd });
+                      _fiFlushAll();
+                      var _nm = (_detAddValRef.current || "").trim();
+                      if (!_nm) return;
+                      if (fDetAdd.old != null) {
+                        // 改名: セクション別マスター＋過去記録(signal.sigDetail[このタグ]の同セクション)を一括変更＝分析のグループが割れない。③(f)は旧形式（文字列/フラット配列）の記録も追従（_elSigDetailRenameSig）。同名が既にあれば何もしない。
+                        var _old = fDetAdd.old;
+                        if (_nm !== _old) {
+                          save(function(prev) {
+                            var _curList = (function() { var _cur = ((prev.custom || {}).sigDetails2 || {})[_dt]; if (_cur && typeof _cur === "object") return (_cur[_sc.key] || []); return (((prev.custom || {}).sigDetails || {})[_dt] || []); })();
+                            if (_curList.indexOf(_nm) >= 0) return prev;
+                            var _c = _writeSec(prev, _sc.key, _curList.map(function(x) { return x === _old ? _nm : x; }));
+                            var _pCharts = prev.charts || {}, _nCharts = {};
+                            Object.keys(_pCharts).forEach(function(ck) {
+                              var cc = _pCharts[ck];
+                              if (!cc || !Array.isArray(cc.signals)) { _nCharts[ck] = cc; return; }
+                              var _ch = false;
+                              var sigs = cc.signals.map(function(s) { var _ns = _elSigDetailRenameSig(s, _dt, _sc.key, _old, _nm); if (_ns !== s) _ch = true; return _ns; });
+                              _nCharts[ck] = _ch ? Object.assign({}, cc, { signals: sigs }) : cc;
+                            });
+                            return Object.assign({}, prev, { custom: _c, charts: _nCharts });
                           });
-                          _nCharts[ck] = _ch ? Object.assign({}, cc, { signals: sigs }) : cc;
+                          setFSigDetail(function(prev) {
+                            var _pe = prev[_dt]; if (!_pe) return prev;
+                            var _e = { b: _pe.b || null, k: _pe.k || null, f: (_pe.f || []).slice() };
+                            if (_sc.multi) {
+                              if (_e.f.indexOf(_old) < 0) return prev;
+                              var _nf = []; _e.f.forEach(function(x) { var _y = x === _old ? _nm : x; if (_nf.indexOf(_y) < 0) _nf.push(_y); }); _e.f = _nf;
+                            } else {
+                              if (_e[_sc.key] !== _old) return prev;
+                              _e[_sc.key] = _nm;
+                            }
+                            var _o = Object.assign({}, prev); _o[_dt] = _e; return _o;
+                          });
+                        }
+                      } else {
+                        if (_cands0.indexOf(_nm) < 0) save(function(prev) { return Object.assign({}, prev, { custom: _writeSec(prev, _sc.key, function(_l) { var _ar = _l.slice(); if (_ar.indexOf(_nm) < 0) _ar.push(_nm); return _ar; }) }); });
+                        setFSigDetail(function(prev) {
+                          var _o = Object.assign({}, prev);
+                          var _pe = _o[_dt] || {};
+                          var _e = { b: _pe.b || null, k: _pe.k || null, f: (_pe.f || []).slice() };
+                          if (_sc.multi) { if (_e.f.indexOf(_nm) < 0) _e.f.push(_nm); }
+                          else _e[_sc.key] = _nm;
+                          _o[_dt] = _e;
+                          return _o;
                         });
-                        return Object.assign({}, prev, { custom: _c, charts: _nCharts });
-                      });
-                      setFSigDetail(function(prev) { var _ca = prev[_dt] || []; if (_ca.indexOf(_old) < 0) return prev; var _o = Object.assign({}, prev); var _na = []; _ca.forEach(function(x) { var _y = x === _old ? _nm : x; if (_na.indexOf(_y) < 0) _na.push(_y); }); _o[_dt] = _na; return _o; });
-                    }
-                  } else {
-                    if (_cands0.indexOf(_nm) < 0) save(function(prev) { var _c = Object.assign({}, prev.custom || {}); var _sd = Object.assign({}, _c.sigDetails || {}); var _ar = (_sd[_dt] || []).slice(); if (_ar.indexOf(_nm) < 0) _ar.push(_nm); _sd[_dt] = _ar; _c.sigDetails = _sd; return Object.assign({}, prev, { custom: _c }); });
-                    setFSigDetail(function(prev) { var _o = Object.assign({}, prev); var _arr = (_o[_dt] || []).slice(); if (_arr.indexOf(_nm) < 0) _arr.push(_nm); _o[_dt] = _arr; return _o; });
-                  }
-                  _detAddValRef.current = "";
-                  setFDetAdd(null);
-                },
-                style: { padding: "6px 14px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }
-              }, fDetAdd.old != null ? "変更" : "追加"),
-              React.createElement("button", {
-                onClick: function() { _detAddValRef.current = ""; setFDetAdd(null); },
-                style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" }
-              }, "✕")
-            ) : null
+                      }
+                      _detAddValRef.current = "";
+                      setFDetAdd(null);
+                    },
+                    style: { padding: "6px 14px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }
+                  }, fDetAdd.old != null ? "変更" : "追加"),
+                  React.createElement("button", {
+                    onClick: function() { _detAddValRef.current = ""; setFDetAdd(null); },
+                    style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" }
+                  }, "✕")
+                ) : null
+              );
+            })
           );
         })
       ) : null,
@@ -6716,12 +6874,12 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋浮き足加算α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。浮き足は「" + _ukiSigName + "」選択時のみ＝入力値（前足浮き値）の半額・小数切捨てを加算。追加αは〇を選んだ時だけ入力。基本αの初期値＝直近50件の推奨基本α"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋浮き足加算α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。浮き足は「" + _ukiSigName + "」選択時のみ＝入力値（前足浮き値）の半額・小数切捨てを加算。追加αは〇を選んだ時だけ入力。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setBA = function(val) { _baTouchedRef.current = true; var _v = _toHankakuNum(val); if (_v === "") { setFBaseAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
-        var _stepBA = function(delta) { _baTouchedRef.current = true; setFBaseAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_defBaseA != null ? _defBaseA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
+        var _stepBA = function(delta) { _baTouchedRef.current = true; setFBaseAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_autoBaseA != null ? _autoBaseA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F0F9FF", border: "1px solid #BAE6FD", fontSize: 12 }
         },
@@ -6729,7 +6887,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
-              value: fBaseAlpha !== "" ? fBaseAlpha : (_defBaseA != null ? String(_defBaseA) : ""),
+              value: fBaseAlpha !== "" ? fBaseAlpha : (_autoBaseA != null ? String(_autoBaseA) : ""),
               onChange: function(e) { _setBA(e.target.value); },
               placeholder: "推奨基本α",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
@@ -6751,21 +6909,38 @@ function EntryRecordForm(_ref_erf) {
             }));
         })()),
       _refSigAlpha ? React.createElement("div", {
-        // シグナル/詳細別の推奨基本α参考（2026-07-06）: 表示のみ。自動入力は銘柄全体のまま＝値の統一性維持。
-        title: "選択中シグナル（先頭タグ）/詳細で絞った推奨基本α（全期間・記録日前日まで・追加α〇除外）。自動入力は従来どおり銘柄全体の値のまま＝参考表示のみ",
+        // シグナル/詳細別の推奨基本α（2026-07-07c）: 詳細別→シグナル別→銘柄全体の段階フォールバックで基本αを自動入力（★=採用段）。データ不足(ok未満)の段は件数を添えて表示し下の段へ。
+        title: "選択中シグナル（先頭タグ）/①②③の選択詳細で母数を絞った推奨基本α（直近50→100→全期間の件数窓・記録日前日まで・追加α〇除外）。★＝基本αの自動入力に使用中の段。データ不足＝件数フロア未満（仮＝参考値）。各選択値の内訳は全期間・表示のみ",
         style: { fontSize: 11, fontWeight: 600, color: "#64748B", margin: "0 0 6px" } },
         React.createElement("span", { style: { color: "#94A3B8" } }, "シグナル別参考"),
-        "　" + _refSigAlpha.tag + "：",
-        _refSigAlpha.sig.alpha != null
-          ? React.createElement("span", { style: { color: "#9A3412", fontWeight: 700 } }, _refSigAlpha.sig.alpha + "円", _refSigAlpha.sig.ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）"))
-          : React.createElement("span", { style: { color: "#aaa" } }, "—"),
-        React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _refSigAlpha.sig.n + "）"),
-        _refSigAlpha.detPicks.map(function(_dp, _di) {
-          return React.createElement("span", { key: _di },
-            "　" + _dp.name + "：",
+        (function() {
+          var _star = React.createElement("span", { style: { color: "#B91C1C", fontSize: 9, fontWeight: 800, marginLeft: 2 } }, "★自動入力");
+          var _lvl = function(_key, _label, _p, _clr) {
+            if (!_p) return null;
+            return React.createElement("span", { key: _key },
+              "　" + _label + "：",
+              (_p.alpha != null && _p.ok)
+                ? React.createElement("span", { style: { color: _clr, fontWeight: 700 } }, _p.alpha + "円")
+                : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足",
+                    _p.alpha != null ? React.createElement("span", { style: { fontSize: 9 } }, "（仮" + _p.alpha + "円）") : null),
+              React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _p.n + "）"),
+              _autoBase.src === _key ? _star : null);
+          };
+          return React.createElement(React.Fragment, null,
+            _lvl("詳細別", "選択詳細の組合せ", _refSigAlpha.det, "#B91C1C"),
+            _lvl("シグナル別", _refSigAlpha.tag, _refSigAlpha.sig, "#9A3412"),
+            _autoBase.src === "銘柄全体" ? React.createElement("span", null,
+              "　銘柄全体：",
+              _defBaseA != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, _defBaseA + "円") : React.createElement("span", { style: { color: "#aaa" } }, "—"),
+              _star) : null);
+        })(),
+        _refSigAlpha.picks.length ? React.createElement("span", { style: { color: "#CBD5E1" } }, "　｜") : null,
+        _refSigAlpha.picks.map(function(_dp, _di) {
+          return React.createElement("span", { key: "p" + _di },
+            "　" + _dp.lb + "＝" + _dp.name + "：",
             _dp.pick.alpha != null
               ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, _dp.pick.alpha + "円", _dp.pick.ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）"))
-              : React.createElement("span", { style: { color: "#aaa" } }, "—"),
+              : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足"),
             React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _dp.pick.n + "）"));
         })
       ) : null,
@@ -6838,7 +7013,8 @@ function EntryRecordForm(_ref_erf) {
       })(),
         (function() {
           if (fAddAlphaUsed !== "○") return null;
-          if (_refAddAlpha) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlpha.add + "円"), (_refAddAlpha.add2 != null ? React.createElement("span", { style: { fontWeight: 800, marginLeft: 4 } }, "（次点：+" + _refAddAlpha.add2 + "円）") : null));
+          // 推奨追加αも段階フォールバック（詳細別→シグナル別→銘柄全体・_refAddAlphaSrc）＝どの段の値かを添えて表示（表示のみ・自動入力なし）2026-07-07c。
+          if (_refAddAlphaSrc) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α（詳細別→シグナル別→銘柄全体の順でデータのある段の値・括弧が採用段）", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlphaSrc.add.add + "円"), (_refAddAlphaSrc.add.add2 != null ? React.createElement("span", { style: { fontWeight: 800, marginLeft: 4 } }, "（次点：+" + _refAddAlphaSrc.add.add2 + "円）") : null), React.createElement("span", { style: { color: "#94A3B8", fontSize: 9, fontWeight: 600, marginLeft: 2 } }, "（" + _refAddAlphaSrc.src + "）"));
           return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨追加α：データ無し") : null;
         })()),
       (fAddAlphaUsed === "○") ? (function() {
@@ -6983,7 +7159,188 @@ function EntryRecordForm(_ref_erf) {
             }, style: { padding: "6px 14px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" } }, fRsnInput.old != null ? "変更" : "追加"),
             React.createElement("button", { type: "button", onClick: function() { _rsnValRef.current = ""; setFRsnInput(null); }, style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "✕")
           ) : null,
-          fOtherOn ? React.createElement(FastInput, { value: fAddReasonOther, onChange: function(v) { setFAddReasonOther(v); }, placeholder: "その他の理由を入力（複数は / で区切り）", style: { padding: "4px 8px", fontSize: 12, border: "1px solid #cbd5e1", borderRadius: 5, outline: "none", width: "100%", maxWidth: 280, boxSizing: "border-box" } }) : null
+          fOtherOn ? React.createElement(FastInput, { value: fAddReasonOther, onChange: function(v) { setFAddReasonOther(v); }, placeholder: "その他の理由を入力（複数は / で区切り）", style: { padding: "4px 8px", fontSize: 12, border: "1px solid #cbd5e1", borderRadius: 5, outline: "none", width: "100%", maxWidth: 280, boxSizing: "border-box" } }) : null,
+          // 根拠の詳細（2026-07-07d・複数可）: 選択中の各根拠の直下に、その根拠専用の詳細候補（custom.addReasonDetails[根拠]）をチップで表示（例:指標線支え→50EMA）。再タップ解除・任意・今回は記録のみ（分析への組み込みはのちに）。
+          (function() {
+            var _selRsn = _reasons.filter(function(_r) { return fAddReasons.indexOf(_r) >= 0; }).concat(fAddReasons.filter(function(_r) { return _reasons.indexOf(_r) < 0; }));
+            if (!_selRsn.length) return null;
+            return React.createElement(React.Fragment, null, _selRsn.map(function(_rn) {
+              var _cands0 = ((custom.addReasonDetails || {})[_rn] || []);
+              var _cands = (fRsnDetOrder && fRsnDetOrder.rsn === _rn) ? fRsnDetOrder.list : _cands0;
+              var _cur = (fRsnDetail && fRsnDetail[_rn]) || [];
+              var _list = _cands.concat(_cur.filter(function(_x) { return _cands.indexOf(_x) < 0; }));   // 選択済みのマスター外(孤児)も末尾に表示
+              var _writeRD = function(prev, _listOrFn) {
+                var _c = Object.assign({}, prev.custom || {});
+                var _all = Object.assign({}, _c.addReasonDetails || {});
+                var _base = (_all[_rn] || []).slice();
+                _all[_rn] = (typeof _listOrFn === "function") ? _listOrFn(_base) : _listOrFn;
+                _c.addReasonDetails = _all;
+                return _c;
+              };
+              return React.createElement("div", { key: "rd_" + _rn, style: { margin: "0 0 0 12px", padding: "6px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
+                React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _rn + " の詳細（任意・複数可）",
+                  _cands0.length >= 2 ? React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え") : null),
+                React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" } },
+                  _list.map(function(_dn) {
+                    var _on = _cur.indexOf(_dn) >= 0;
+                    var _isOrphan = _cands.indexOf(_dn) < 0;
+                    var _dragSt = _rsnDetDragRef.current;
+                    var _dragging = !!(_dragSt && _dragSt.started && _dragSt.rsn === _rn && _dragSt.name === _dn);
+                    return React.createElement("span", { key: _dn,
+                      "data-rdrsn": _rn, "data-rdname": _dn,
+                      onPointerDown: _isOrphan ? null : function(e) {
+                        // setPointerCaptureはドラッグ開始時（下のpointermove）まで呼ばない＝タップ時にclickがキャプチャ先へretargetされ内側buttonのonClick（選択）が発火しない不具合の回避 2026-07-06g。
+                        _rsnDetDragRef.current = { rsn: _rn, name: _dn, sx: e.clientX, sy: e.clientY, started: false, list: null };
+                      },
+                      onPointerMove: function(e) {
+                        var d = _rsnDetDragRef.current;
+                        if (!d || d.rsn !== _rn || d.name !== _dn) return;
+                        if (!d.started) {
+                          if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
+                          d.started = true;
+                          try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
+                          d.list = _cands0.slice();
+                          _rsnDetMovedRef.current = true;
+                          setFRsnDetOrder({ rsn: _rn, list: d.list.slice() });
+                          return;
+                        }
+                        var el = document.elementFromPoint(e.clientX, e.clientY);
+                        var chip = (el && el.closest) ? el.closest("[data-rdrsn]") : null;
+                        if (!chip || chip.getAttribute("data-rdrsn") !== _rn) return;
+                        var over = chip.getAttribute("data-rdname");
+                        if (!over || over === d.name) return;
+                        var lst = d.list.slice();
+                        var fi = lst.indexOf(d.name), ti = lst.indexOf(over);
+                        if (fi < 0 || ti < 0 || fi === ti) return;
+                        lst.splice(fi, 1); lst.splice(ti, 0, d.name);
+                        d.list = lst;
+                        setFRsnDetOrder({ rsn: _rn, list: lst.slice() });
+                      },
+                      onPointerUp: function() {
+                        var d = _rsnDetDragRef.current;
+                        _rsnDetDragRef.current = null;
+                        if (d && d.started && d.list) {
+                          var _fin = d.list.slice();
+                          save(function(prev) { return Object.assign({}, prev, { custom: _writeRD(prev, _fin) }); });
+                          setTimeout(function() { _rsnDetMovedRef.current = false; }, 0);
+                        }
+                        setFRsnDetOrder(null);
+                      },
+                      onPointerCancel: function() { _rsnDetDragRef.current = null; _rsnDetMovedRef.current = false; setFRsnDetOrder(null); },
+                      style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none",
+                        boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null,
+                        transform: _dragging ? "scale(1.06)" : null,
+                        opacity: _dragging ? 0.9 : null } },
+                      React.createElement("button", { type: "button",
+                        onClick: function() {
+                          if (_rsnDetMovedRef.current) { _rsnDetMovedRef.current = false; return; }
+                          setFRsnDetail(function(prev) {
+                            var _o = Object.assign({}, prev);
+                            var _arr = (_o[_rn] || []).slice();
+                            var _i = _arr.indexOf(_dn);
+                            if (_i >= 0) _arr.splice(_i, 1); else _arr.push(_dn);
+                            if (_arr.length) _o[_rn] = _arr; else delete _o[_rn];
+                            return _o;
+                          });
+                        },
+                        style: { padding: "4px 9px", fontSize: 11, fontWeight: 600,
+                          border: _on ? "1.5px solid #D97706" : "1px solid #ddd",
+                          background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#777",
+                          borderRadius: 6, cursor: "pointer" }
+                      }, _dn),
+                      (fRsnDetEdit && !_isOrphan) ? React.createElement(React.Fragment, null,
+                        React.createElement("button", { type: "button",
+                          title: "この詳細の名前を変更（過去の記録の詳細も一括変更）",
+                          onClick: function() { if (_rsnDetMovedRef.current) { _rsnDetMovedRef.current = false; return; } _rsnDetValRef.current = _dn; setFRsnDetAdd({ rsn: _rn, val: _dn, old: _dn }); },
+                          style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" }
+                        }, "✎"),
+                        React.createElement("button", { type: "button",
+                          title: "この詳細を候補から削除（過去の記録に付いた詳細はそのまま残ります）",
+                          onClick: function() {
+                            if (_rsnDetMovedRef.current) { _rsnDetMovedRef.current = false; return; }
+                            setFRsnDetAdd(null);
+                            save(function(prev) { return Object.assign({}, prev, { custom: _writeRD(prev, function(_l) { return _l.filter(function(x) { return x !== _dn; }); }) }); });
+                            setFRsnDetail(function(prev) { var _ca = prev[_rn] || []; if (_ca.indexOf(_dn) < 0) return prev; var _o = Object.assign({}, prev); var _na = _ca.filter(function(x) { return x !== _dn; }); if (_na.length) _o[_rn] = _na; else delete _o[_rn]; return _o; });
+                          },
+                          style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" }
+                        }, "×")
+                      ) : null);
+                  }),
+                  (function() {
+                    var _addOpen = !!(fRsnDetAdd && fRsnDetAdd.rsn === _rn);
+                    return React.createElement("button", { type: "button",
+                      onClick: function() {
+                        if (_addOpen) { setFRsnDetAdd(null); return; }
+                        _rsnDetValRef.current = "";
+                        setFRsnDetAdd({ rsn: _rn, val: "" });
+                      },
+                      style: { padding: "4px 9px", fontSize: 11, fontWeight: 600, border: _addOpen ? "1px solid #0369A1" : "1px dashed #bbb", background: _addOpen ? "#EFF6FF" : "#fff", color: _addOpen ? "#0369A1" : "#888", borderRadius: 6, cursor: "pointer" }
+                    }, _addOpen ? "✕ 閉じる" : "＋追加");
+                  })(),
+                  _cands.length ? React.createElement("button", { type: "button",
+                    onClick: function() { setFRsnDetEdit(!fRsnDetEdit); setFRsnDetAdd(null); },
+                    title: "詳細候補の名前変更・削除モード（✎で改名・×で削除）",
+                    style: { padding: "4px 8px", fontSize: 10, fontWeight: 700, border: "1px solid " + (fRsnDetEdit ? "#B91C1C" : "#ddd"), background: fRsnDetEdit ? "#FEF2F2" : "#fff", color: fRsnDetEdit ? "#B91C1C" : "#999", borderRadius: 6, cursor: "pointer" }
+                  }, fRsnDetEdit ? "完了" : "編集") : null
+                ),
+                (fRsnDetAdd && fRsnDetAdd.rsn === _rn) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 6, alignItems: "center", flexWrap: "wrap" } },
+                  fRsnDetAdd.old != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "『" + fRsnDetAdd.old + "』を改名:") : null,
+                  React.createElement(FastInput, {
+                    type: "text",
+                    value: fRsnDetAdd.val || "",
+                    onChange: function(v) { _rsnDetValRef.current = v; setFRsnDetAdd(function(p) { return (p && p.rsn === _rn) ? Object.assign({}, p, { val: v }) : p; }); },
+                    placeholder: fRsnDetAdd.old != null ? "新しい名前" : "詳細名（例: 50EMA）",
+                    style: { flex: 1, minWidth: 120, padding: "6px 9px", fontSize: 12, border: "1px solid #93C5FD", borderRadius: 6, background: "#fff", boxSizing: "border-box" }
+                  }),
+                  React.createElement("button", { type: "button",
+                    onClick: function() {
+                      _fiFlushAll();
+                      var _nm = (_rsnDetValRef.current || "").trim();
+                      if (!_nm) return;
+                      if (fRsnDetAdd.old != null) {
+                        // 改名: マスター＋過去記録(signal.addReasonDetail[この根拠])を一括変更＝将来の分析グループが割れない（シグナル詳細と同型）。同名が既にあれば何もしない。
+                        var _old = fRsnDetAdd.old;
+                        if (_nm !== _old) {
+                          save(function(prev) {
+                            var _curList = (((prev.custom || {}).addReasonDetails || {})[_rn] || []);
+                            if (_curList.indexOf(_nm) >= 0) return prev;
+                            var _c = _writeRD(prev, _curList.map(function(x) { return x === _old ? _nm : x; }));
+                            var _pCharts = prev.charts || {}, _nCharts = {};
+                            Object.keys(_pCharts).forEach(function(ck) {
+                              var cc = _pCharts[ck];
+                              if (!cc || !Array.isArray(cc.signals)) { _nCharts[ck] = cc; return; }
+                              var _ch = false;
+                              var sigs = cc.signals.map(function(s) {
+                                var _sl = _elAddReasonDetailList(s, _rn);
+                                if (!_sl.length || _sl.indexOf(_old) < 0) return s;
+                                _ch = true;
+                                var _nl = []; _sl.forEach(function(x) { var _y = (x === _old) ? _nm : x; if (_nl.indexOf(_y) < 0) _nl.push(_y); });
+                                var _nrd = Object.assign({}, s.addReasonDetail); _nrd[_rn] = _nl;
+                                return Object.assign({}, s, { addReasonDetail: _nrd });
+                              });
+                              _nCharts[ck] = _ch ? Object.assign({}, cc, { signals: sigs }) : cc;
+                            });
+                            return Object.assign({}, prev, { custom: _c, charts: _nCharts });
+                          });
+                          setFRsnDetail(function(prev) { var _ca = prev[_rn] || []; if (_ca.indexOf(_old) < 0) return prev; var _o = Object.assign({}, prev); var _na = []; _ca.forEach(function(x) { var _y = x === _old ? _nm : x; if (_na.indexOf(_y) < 0) _na.push(_y); }); _o[_rn] = _na; return _o; });
+                        }
+                      } else {
+                        if (_cands0.indexOf(_nm) < 0) save(function(prev) { return Object.assign({}, prev, { custom: _writeRD(prev, function(_l) { var _ar = _l.slice(); if (_ar.indexOf(_nm) < 0) _ar.push(_nm); return _ar; }) }); });
+                        setFRsnDetail(function(prev) { var _o = Object.assign({}, prev); var _arr = (_o[_rn] || []).slice(); if (_arr.indexOf(_nm) < 0) _arr.push(_nm); _o[_rn] = _arr; return _o; });
+                      }
+                      _rsnDetValRef.current = "";
+                      setFRsnDetAdd(null);
+                    },
+                    style: { padding: "6px 14px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }
+                  }, fRsnDetAdd.old != null ? "変更" : "追加"),
+                  React.createElement("button", { type: "button",
+                    onClick: function() { _rsnDetValRef.current = ""; setFRsnDetAdd(null); },
+                    style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" }
+                  }, "✕")
+                ) : null
+              );
+            }));
+          })()
         );
       })() : null,
       (function() {

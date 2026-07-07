@@ -433,6 +433,16 @@ function migrateData(d) {
   if (typeof d.custom.orphanAutoDelete.enabled !== "boolean") d.custom.orphanAutoDelete.enabled = true;
   if (typeof d.custom.orphanAutoDelete.graceDays !== "number" || !(d.custom.orphanAutoDelete.graceDays >= 0)) d.custom.orphanAutoDelete.graceDays = 7;
   if (typeof d.custom.orphanAutoDelete.intervalDays !== "number" || !(d.custom.orphanAutoDelete.intervalDays > 0)) d.custom.orphanAutoDelete.intervalDays = 7;
+  // シグナル詳細のセクション別候補（①底抜け/②起点/③その他特徴 2026-07-07c）: 旧フラット候補custom.sigDetailsを3セクションへ複製シード（タグ単位・冪等＝sigDetails2に無いタグのみ追加）。
+  // 旧sigDetailsは旧端末互換のため温存＝新コードはシード/フォールバック読みのみで編集しない。記録側signal.sigDetailの旧形式（文字列/フラット配列）は③として読む（_elSigDetailSec app-05）＝一括migrateなし。
+  if (!d.custom.sigDetails2 || typeof d.custom.sigDetails2 !== "object") d.custom.sigDetails2 = {};
+  if (d.custom.sigDetails && typeof d.custom.sigDetails === "object") {
+    Object.keys(d.custom.sigDetails).forEach(function(_t) {
+      if (d.custom.sigDetails2[_t] && typeof d.custom.sigDetails2[_t] === "object") return;
+      var _l = Array.isArray(d.custom.sigDetails[_t]) ? d.custom.sigDetails[_t].filter(function(x) { return x; }) : [];
+      d.custom.sigDetails2[_t] = { b: _l.slice(), k: _l.slice(), f: _l.slice() };
+    });
+  }
 
   if (!d.custom._alphaDefault5Mig) {
     if (d.charts && typeof d.charts === "object") {

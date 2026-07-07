@@ -4657,8 +4657,12 @@ function EntryLogView(_ref_elv2) {
   // シグナル詳細スコープ（2026-07-06・複数選択化 2026-07-06f）: 候補=マスター(custom.sigDetails[選択シグナル])∪記録に実在する詳細名（マスターから削除済みの過去詳細も拾う）。1記録に複数詳細が付く＝各詳細バケットに算入（件数は重複しうる）。
   var _detNames = (function() {
     var m = {}, ord = [];
-    (((custom || {}).sigDetails || {})[_selSigKey] || []).forEach(function(d) { if (d && !m[d]) { m[d] = 1; ord.push(d); } });
-    _selSigRecs.forEach(function(r) { _elSigDetailList(r.signal, _selSigKey).forEach(function(d) { if (d && !m[d]) { m[d] = 1; ord.push(d); } }); });
+    var _add = function(d) { if (d && !m[d]) { m[d] = 1; ord.push(d); } };
+    (((custom || {}).sigDetails || {})[_selSigKey] || []).forEach(_add);
+    // セクション別マスター（3セクション化 2026-07-07c）: custom.sigDetails2[タグ]={b,k,f}の全セクション候補も合流（サブタブは従来どおり名前ベース＝どのセクションに付いていても同じ名前は同じバケット）。
+    var _m2 = ((custom || {}).sigDetails2 || {})[_selSigKey];
+    if (_m2 && typeof _m2 === "object") ["b", "k", "f"].forEach(function(_sk) { (Array.isArray(_m2[_sk]) ? _m2[_sk] : []).forEach(_add); });
+    _selSigRecs.forEach(function(r) { _elSigDetailList(r.signal, _selSigKey).forEach(_add); });
     return ord;
   })();
   var _detHas = function(r, name) { return _elSigDetailList(r.signal, _selSigKey).indexOf(name) >= 0; };
