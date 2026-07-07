@@ -4670,7 +4670,7 @@ function EntrySignalSection(_ref_es) {
             var totalRecs = isCustomMode ? (sortedRecs || []).length : 0;
             dataRows.push(
               React.createElement("tr", { key: rKey,
-                style: Object.assign({ cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" }, _elNotInclRowStyle(s)),
+                style: Object.assign({ cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" }, _elRowStyleWithColl(data, r)),
                 onClick: function() { setTableRecExp(function(prev) { var n = Object.assign({}, prev); if (n[rKeyRef]) delete n[rKeyRef]; else n[rKeyRef] = true; return n; }); }
               },
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
@@ -5001,7 +5001,7 @@ function WeeklyPnlPanel(_wpp) {
     var realPnl = (item && item.pnl != null) ? Number(item.pnl) : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
     var entered = _elIsEntered(s, item);
     var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
-    var _row = React.createElement("tr", { key: rKey + "_row", style: Object.assign({ background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elNotInclRowStyle(s)),
+    var _row = React.createElement("tr", { key: rKey + "_row", style: Object.assign({ background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r)),
       onClick: function() { setRecExp(function(p) { var n = Object.assign({}, p); if (n[rKey]) delete n[rKey]; else n[rKey] = true; return n; }); } },
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, color: "#F97316", width: "1%" } }, rExp ? "▼" : "▶"),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#9A3412" } },
