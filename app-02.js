@@ -5264,7 +5264,9 @@ function TechnicalManageModal(_ref_tm) {
   };
   var _rename = function(id, nm) {
     var v = (nm || "").trim(); if (!v) return;
+    var _old = (technicals.filter(function(t) { return t.id === id; })[0] || {}).name;
     onChange(technicals.map(function(t) { return t.id === id ? Object.assign({}, t, { name: v }) : t; }));
+    if (_ref_tm.onRename && _old && _old !== v) _ref_tm.onRename(_old, v);   // 過去の手動出現行(テクニカル)の名前も追従 2026-07-07g
   };
   var _del = function(id) { if (window.confirm("このテクニカルを削除しますか？（過去に記録した名前はそのまま残ります）")) onChange(technicals.filter(function(t) { return t.id !== id; })); };
   var _move = function(i, dir) { var j = i + dir; if (j < 0 || j >= technicals.length) return; var a = technicals.slice(); var t = a[i]; a[i] = a[j]; a[j] = t; onChange(a); };
@@ -5368,7 +5370,21 @@ function AppearanceSection(_ref_ap) {
       React.createElement("button", { onClick: _submit, style: { padding: "6px 16px", fontSize: 12, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" } }, editId ? "更新" : "追加"),
       React.createElement("button", { onClick: _reset, style: { padding: "6px 14px", fontSize: 12, fontWeight: 600, background: "#f5f4f0", color: "#555", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "キャンセル"))
   ) : null;
-  var _manageModal = manageOpen ? React.createElement(TechnicalManageModal, { technicals: technicals, onChange: _setTechnicals, onClose: function() { setManageOpen(false); } }) : null;
+  var _manageModal = manageOpen ? React.createElement(TechnicalManageModal, { technicals: technicals, onChange: _setTechnicals, onClose: function() { setManageOpen(false); },
+    // テクニカル改名の全域追従（2026-07-07g）: 全銘柄・全日付の手動出現行(kind=tech)の名前を新名へ書き換え＝出現欄の履歴が割れない
+    onRename: function(oldNm, newNm) {
+      save(function(prev) {
+        var charts = prev.charts || {}, nCharts = {}, any = false;
+        Object.keys(charts).forEach(function(ck) {
+          var c = charts[ck];
+          if (c && Array.isArray(c.appearances) && c.appearances.some(function(ap) { return ap && ap.kind !== "signal" && ap.name === oldNm; })) {
+            any = true;
+            nCharts[ck] = Object.assign({}, c, { appearances: c.appearances.map(function(ap) { return (ap && ap.kind !== "signal" && ap.name === oldNm) ? Object.assign({}, ap, { name: newNm }) : ap; }) });
+          } else nCharts[ck] = c;
+        });
+        return any ? Object.assign({}, prev, { charts: nCharts }) : prev;
+      });
+    } }) : null;
   return React.createElement("div", { style: { marginTop: 12 } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
       React.createElement("div", { style: { fontSize: 13, color: "#888", fontWeight: 600 } }, "📡 出現シグナル・テクニカル"),

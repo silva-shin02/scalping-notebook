@@ -5223,6 +5223,83 @@ function _elSigDetailRenameSig(s, t, secKey, oldN, newN) {
   var _nv = Object.assign({}, _v); _nv[secKey] = newN;
   return _set(_nv);
 }
+// ===== シグナル名マスター改名の全域追従（2026-07-07g・恒久版）=====
+// oldNm→newNm を「旧名が保存される全箇所」へ一括適用した新しいdataを返す（改名UI＝EPナビ選択肢管理から呼ぶ。保存自体はsave側）。
+// 改名先が既存名でも「統合」として実行（配列=和集合・単一値=新名側優先で欠けのみ補完）＝マスターだけ変わり過去記録が別シグナル扱いになる事故を防ぐ。
+// 対象は migrateData の _migSignalRename2 と同一: 記録(tag/tagsのdedupe/sigDetailキー)・custom.signalTags/ukiSignalNames/ukiSignalName/sigDetails/sigDetails2・
+// 出現欄メモ(apMemos「s|id|名前」キー)・手動出現(appearances[].name kind=signal)・EPナビ保存(epNavi[].tag)。
+// 完全削除（マスターから外すだけ）は対象外＝過去記録の名前は従来どおり残す。変化のないchartsエントリは同一参照のまま（copy-on-write）。
+function _elSignalRenameData(prev, oldNm, newNm) {
+  if (!prev || !oldNm || !newNm || oldNm === newNm) return prev;
+  var _rn = function(x) { return x === oldNm ? newNm : x; };
+  var _uniq = function(a) { var o = []; (a || []).forEach(function(x) { if (x && o.indexOf(x) < 0) o.push(x); }); return o; };
+  var _rnList = function(arr) { return _uniq(arr.map(_rn)); };
+  var _mergeArr = function(nw, od) { return _uniq([].concat(Array.isArray(nw) ? nw : [], Array.isArray(od) ? od : [])); };
+  var _renameKey = function(m, mergeFn) {
+    if (!m || typeof m !== "object" || m[oldNm] === undefined) return m;
+    var n = Object.assign({}, m);
+    n[newNm] = (n[newNm] !== undefined) ? mergeFn(n[newNm], n[oldNm]) : n[oldNm];
+    delete n[oldNm];
+    return n;
+  };
+  var _mergeSec = function(nw, od) { var n = (nw && typeof nw === "object") ? nw : {}, o = (od && typeof od === "object") ? od : {}; return { b: _mergeArr(n.b, o.b), k: _mergeArr(n.k, o.k), f: _mergeArr(n.f, o.f) }; };
+  var _mergeRecSec = function(nw, od) {
+    var n = (nw && typeof nw === "object") ? nw : {}, o = (od && typeof od === "object") ? od : {};
+    var out = {};
+    if (n.b || o.b) out.b = n.b || o.b;
+    if (n.k || o.k) out.k = n.k || o.k;
+    var f = _mergeArr(Array.isArray(n.f) ? n.f : (n.f ? [n.f] : []), Array.isArray(o.f) ? o.f : (o.f ? [o.f] : []));
+    if (f.length) out.f = f;
+    return out;
+  };
+  var custom = Object.assign({}, prev.custom || {});
+  if (Array.isArray(custom.signalTags)) custom.signalTags = _rnList(custom.signalTags);
+  if (Array.isArray(custom.ukiSignalNames)) custom.ukiSignalNames = _rnList(custom.ukiSignalNames);
+  if (custom.ukiSignalName === oldNm) custom.ukiSignalName = newNm;
+  custom.sigDetails = _renameKey(custom.sigDetails, _mergeArr);
+  custom.sigDetails2 = _renameKey(custom.sigDetails2, _mergeSec);
+  var charts = prev.charts || {}, nCharts = {};
+  Object.keys(charts).forEach(function(ck) {
+    var c = charts[ck];
+    if (!c) { nCharts[ck] = c; return; }
+    var nc = c, changed = false;
+    var _own = function() { if (!changed) { nc = Object.assign({}, c); changed = true; } };
+    if (Array.isArray(c.signals) && c.signals.some(function(s) { return s && (s.tag === oldNm || (Array.isArray(s.tags) && s.tags.indexOf(oldNm) >= 0) || (s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[oldNm] !== undefined)); })) {
+      _own();
+      nc.signals = c.signals.map(function(s) {
+        if (!s) return s;
+        var hit = s.tag === oldNm || (Array.isArray(s.tags) && s.tags.indexOf(oldNm) >= 0) || (s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[oldNm] !== undefined);
+        if (!hit) return s;
+        var ns = Object.assign({}, s);
+        if (ns.tag === oldNm) ns.tag = newNm;
+        if (Array.isArray(ns.tags)) ns.tags = _rnList(ns.tags);
+        if (ns.sigDetail && typeof ns.sigDetail === "object") ns.sigDetail = _renameKey(Object.assign({}, ns.sigDetail), _mergeRecSec);
+        return ns;
+      });
+    }
+    var _apKeyNm = function(k) { var p = k.split("|"); return (p[0] === "s" && p.length >= 3) ? p.slice(2).join("|") : null; };
+    if (c.apMemos && typeof c.apMemos === "object" && Object.keys(c.apMemos).some(function(k) { return _apKeyNm(k) === oldNm; })) {
+      _own();
+      var nm = {};
+      Object.keys(c.apMemos).forEach(function(k) {
+        var p = k.split("|");
+        var k2 = (_apKeyNm(k) === oldNm) ? (p[0] + "|" + p[1] + "|" + newNm) : k;
+        if (!(k2 in nm)) nm[k2] = c.apMemos[k];
+      });
+      nc.apMemos = nm;
+    }
+    if (Array.isArray(c.appearances) && c.appearances.some(function(ap) { return ap && ap.kind === "signal" && ap.name === oldNm; })) {
+      _own();
+      nc.appearances = c.appearances.map(function(ap) { return (ap && ap.kind === "signal" && ap.name === oldNm) ? Object.assign({}, ap, { name: newNm }) : ap; });
+    }
+    if (Array.isArray(c.epNavi) && c.epNavi.some(function(en) { return en && en.tag === oldNm; })) {
+      _own();
+      nc.epNavi = c.epNavi.map(function(en) { return (en && en.tag === oldNm) ? Object.assign({}, en, { tag: newNm }) : en; });
+    }
+    nCharts[ck] = nc;
+  });
+  return Object.assign({}, prev, { custom: custom, charts: nCharts });
+}
 function _elTagDisp(s, t) {
   var _sec = _elSigDetailSec(s, t);
   var _ps = [];

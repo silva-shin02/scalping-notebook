@@ -3616,26 +3616,9 @@ function EpNaviPanel(_refEPN) {
   var _sigDelete = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : []; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: cur.filter(function(x) { return x !== nm; }) }) }); }); };
   var _sigReorder = function(list) { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: list.slice() }) }); }); };
   var _sigRename = function(oldNm, newNm) {
-    save(function(prev) {
-      var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : [];
-      if (cur.indexOf(newNm) >= 0) return prev;
-      var _custom = Object.assign({}, prev.custom || {}, { signalTags: cur.map(function(x) { return x === oldNm ? newNm : x; }) });
-      ["sigDetails2", "sigDetails"].forEach(function(kk) { var m = prev.custom && prev.custom[kk]; if (m && m[oldNm] !== undefined && m[newNm] === undefined) { var nm2 = Object.assign({}, m); nm2[newNm] = nm2[oldNm]; delete nm2[oldNm]; _custom[kk] = nm2; } });
-      var charts = prev.charts || {}, nCharts = {};
-      Object.keys(charts).forEach(function(ck) {
-        var c = charts[ck]; if (!c || !Array.isArray(c.signals)) { nCharts[ck] = c; return; }
-        var changed = false;
-        var sigs = c.signals.map(function(s) {
-          if (!s) return s; var ns = s, hit = false;
-          if (Array.isArray(s.tags) && s.tags.indexOf(oldNm) >= 0) { ns = Object.assign({}, ns, { tags: s.tags.map(function(x) { return x === oldNm ? newNm : x; }) }); hit = true; }
-          if (s.tag === oldNm) { ns = Object.assign({}, ns, { tag: newNm }); hit = true; }
-          if (ns.sigDetail && ns.sigDetail[oldNm] !== undefined && ns.sigDetail[newNm] === undefined) { var sd = Object.assign({}, ns.sigDetail); sd[newNm] = sd[oldNm]; delete sd[oldNm]; ns = Object.assign({}, ns, { sigDetail: sd }); hit = true; }
-          if (hit) changed = true; return ns;
-        });
-        nCharts[ck] = changed ? Object.assign({}, c, { signals: sigs }) : c;
-      });
-      return Object.assign({}, prev, { custom: _custom, charts: nCharts });
-    });
+    // 改名は過去記録も全域追従（_elSignalRenameData・app-05）。旧実装は改名先が既存名だと中断＝マスターと記録がズレる事故の元だったため、
+    // 既存名への改名も「統合」として実行する（記録/詳細候補/浮き足対象/出現欄メモ/EPナビ保存まで追従）2026-07-07g。削除(_sigDelete)は従来どおり記録に触らない。
+    save(function(prev) { return _elSignalRenameData(prev, oldNm, newNm); });
     if (nTag === oldNm) setNTag(newNm);
   };
   var _detWrite = function(prev, secKey, listOrFn) {
@@ -3657,8 +3640,9 @@ function EpNaviPanel(_refEPN) {
   var _detRename = function(secKey, oldNm, newNm) {
     save(function(prev) {
       var _curList = (function() { var _cur = ((prev.custom || {}).sigDetails2 || {})[nTag]; if (_cur && typeof _cur === "object") return (_cur[secKey] || []); return (((prev.custom || {}).sigDetails || {})[nTag] || []); })();
-      if (_curList.indexOf(newNm) >= 0) return prev;
-      var _c = _detWrite(prev, secKey, _curList.map(function(x) { return x === oldNm ? newNm : x; }));
+      // 既存名への改名も「統合」として実行（候補はdedupe・記録側は_elSigDetailRenameSigがf重複を除去）2026-07-07g（旧: 同名ありは中断）
+      var _renamed = _curList.map(function(x) { return x === oldNm ? newNm : x; });
+      var _c = _detWrite(prev, secKey, _renamed.filter(function(x, i) { return x && _renamed.indexOf(x) === i; }));
       var _pCharts = prev.charts || {}, _nCharts = {};
       Object.keys(_pCharts).forEach(function(ck) {
         var cc = _pCharts[ck];
