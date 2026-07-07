@@ -995,6 +995,7 @@ function App() {
       c.signals.forEach(function(sig) {
         var s = _compatSignal(sig);
         if (!_elInclTotal(s)) return;
+        if (_elCollExcludedSig(data, ck.slice(0, ck.lastIndexOf("_")), dt, s)) return;  // 時間かぶり除外（良い方）2026-07-07
         if (!_elIsEntered(s, null)) return;
         var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
         var p = v != null ? v : 0;

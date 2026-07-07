@@ -1161,6 +1161,8 @@ function _elWeekdayHeatV2(days, opts) {
 // 累積損益（記録順）: EP損益/H1/H2/実現の累積線。寄与は合計行と同一基準（H1=_elHold1TotParts.main・H2=_elHold2TotParts.main）。
 function _elCumPnlSectionV2(props) {
   var recs = props.recs, aiOf = props.aiOf;
+  // 時間かぶり除外: dataが渡された場合は良い方を累積から抜く＝合計行と同一基準を維持 2026-07-07
+  if (props.data) recs = (recs || []).filter(function(r) { return !_elCollExcluded(props.data, r); });
   var _hs = useState(null), hoverIdx = _hs[0], setHoverIdx = _hs[1];
   var _dsS = useState(""), startDate = _dsS[0], setStartDate = _dsS[1];  // 起算日（""=最初から）
   if (!recs || recs.length < 2) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "記録が2件以上で表示されます");
@@ -4573,7 +4575,7 @@ function EntryLogView(_ref_elv2) {
       rs.length ? React.createElement(React.Fragment, null,
         _secH("📊 OS値の分析", "初動の強さ＝OS値の中央値・帯別成績とα設定の目安（重視すべきは平均でなく中央値＝α到達確率と直結）"), _elOsSectionV2(rs, _ai)) : null,
       rs.length >= 2 ? React.createElement(React.Fragment, null,
-        _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: rs, aiOf: _ai })) : null,
+        _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: rs, aiOf: _ai, data: data })) : null,
       rs.length >= 2 ? React.createElement(React.Fragment, null,
         _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理）"), _elStreakDDSectionV2(rs, _ai)) : null);
   };
@@ -4820,7 +4822,7 @@ function EntryLogView(_ref_elv2) {
         return React.createElement(React.Fragment, null,
           _addFilBar(),
           _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）"), _elEpPosSectionV2(_osFilRecs, _ai),
-          _osFilRecs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: _osFilRecs, aiOf: _ai })) : null,
+          _osFilRecs.length >= 2 ? React.createElement(React.Fragment, null, _secH("📈 累積損益（記録順）"), React.createElement(_elCumPnlSectionV2, { recs: _osFilRecs, aiOf: _ai, data: data })) : null,
           _secH("📉 α感応度カーブ", "α=0〜20円で再計算した合計の推移"), _elAlphaCurveSectionV2(_osFilRecs, _ai),
           _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績"), _elTimeOfDaySectionV2(_osFilRecs, _ai),
           _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益"), _elDowSectionV2(_osFilRecs, _ai),
@@ -4849,7 +4851,7 @@ function EntryLogView(_ref_elv2) {
             })),
           _ovPnlTbl(v2recs, gran === "custom" ? "week" : gran)),
         v2recs.length >= 2 ? React.createElement(React.Fragment, null,
-          _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: v2recs, aiOf: _ai })) : null,
+          _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: v2recs, aiOf: _ai, data: data })) : null,
         v2recs.length >= 2 ? React.createElement(React.Fragment, null,
           _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理）"), _elStreakDDSectionV2(v2recs, _ai)) : null);
     } else {

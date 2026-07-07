@@ -1860,12 +1860,14 @@ function SearchView(_ref45) {
     var enteredSigs = chartKeys.flatMap(function(k) {
       var _cSV = data.charts[k] || {};
       var _cutSV = _cSV.cutLine != null ? Number(_cSV.cutLine) : 10;
+      var _stkSV = k.slice(0, k.lastIndexOf("_"));
       return (_cSV.signals || []).filter(function(sig) { return _elIsEntered(sig, null); })
-        .map(function(sig) { return { sig: sig, cut: _cutSV }; });
+        .map(function(sig) { return { sig: sig, cut: _cutSV, stock: _stkSV }; });
     });
     // 合計額算入: 検索日カードの損益/勝敗は除外記録(includeInTotal===false)を抜く。タグ表示(entryTagLabels)は全件のまま。2026-06-18
     var _enteredSigsT = enteredSigs.filter(function(e) { return _elInclTotal(e.sig); });
-    var pnl = _enteredSigsT.reduce(function(acc, e) {
+    // 時間かぶり除外: 実現損益合計だけ良い方を抜く（勝敗カウントは件数系＝全件のまま）2026-07-07
+    var pnl = _enteredSigsT.filter(function(e) { return !_elCollExcludedSig(data, e.stock, date, e.sig); }).reduce(function(acc, e) {
       var v = _elSignedVal(e.sig.realizedPnl, e.sig.realizedPnlSign);
       return acc + (v != null ? v : 0);
     }, 0);
@@ -3214,7 +3216,7 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
-              var _g = _elCalcChartGrades(c2.signals, null, _cutA);
+              var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg); });
               if (_g.allMiss) return _qZeroCell();
               if (_g.plan === "Z" && _g.planRefCnt <= 0) return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
@@ -3225,7 +3227,7 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
-              var _g = _elCalcChartGrades(c2.signals, null, _cutA);
+              var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg); });
               if (_g.allMissH) return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.25 } },
                 React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", borderBottom: "1px solid #e0d8c8", paddingBottom: 1 } },
                   React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H１："), _qZeroCell()),
@@ -3247,7 +3249,7 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 10;
-              var _gR = _elCalcChartGrades(c2.signals, null, _cutR);
+              var _gR = _elCalcChartGrades(c2.signals, null, _cutR, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg); });
               if (_gR.real === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
                 _qrMkBadge(_gR.real), _qrAmtSpan(_gR.realSum, "円"));

@@ -4245,6 +4245,7 @@ function EntrySignalSection(_ref_es) {
   var _esTotHold2 = null, _esTotHold2Cnt = 0, _esTotHold2Ref = null, _esTotHold2RefCnt = 0;
   var _esTotPlanRef = null, _esTotPlanRefCnt = 0;
   _recsForTot.forEach(function(r) {
+    if (_elCollExcluded(data, r)) return;  // 時間かぶり除外: 良い方は合計行から全スキップ（行表示は全件）2026-07-07
     var s = r.signal, rIt = r.item;
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
     var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
@@ -4676,7 +4677,7 @@ function EntrySignalSection(_ref_es) {
                   React.createElement("div", null,
                     React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                     s.time || "—", _minBarBadge(s)),
-                  _epIncompleteMark(s),
+                  _epIncompleteMark(s), _elCollMarkNode(data, r),
                   _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null
                 ),
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
