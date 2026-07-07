@@ -4267,6 +4267,8 @@ function EntryLogView(_ref_elv2) {
   var _uFS = useState("other"), floatSub = _uFS[0], setFloatSub = _uFS[1];   // シグナル内サブタブ: 底抜け前足浮き(float)/その他(other・既定)。選択中シグナルの記録を数値根拠(底抜け前足浮き＝_elHasNumReason)で二分し、集計/α値/損切り/未達/深掘りの母数を分ける（OS値分布ほか）。既定=その他 2026-07-02
   var _uDS = useState("all"), detSub = _uDS[0], setDetSub = _uDS[1];   // シグナル詳細サブタブ（案A階層型 2026-07-06）: 全体(all)/各詳細名/未分類(__none__)。選択中シグナルの記録を signal.sigDetail[シグナル名] でさらに絞る第3の軸（浮きサブタブに重ねて適用）。候補が無いシグナルではバー非表示＝従来と同一母数。
   var _uAR = useState("all"), alphaReasonFil = _uAR[0], setAlphaReasonFil = _uAR[1];   // α値タブ 根拠セレクタ（2026-07-06）: 全体(all)/各根拠/根拠なし(__none__)で基本α・共通ツールの母数を絞る第4の軸。追加αタブは④⑤根拠別を内蔵するため対象外。全体選択時は従来と完全同一。
+  var _uDTM = useState(false), detTagMode = _uDTM[0], setDetTagMode = _uDTM[1];   // 集計タブ銘柄側の分析軸: false=シグナル別(既定)/true=詳細タグ別（銘柄内・全シグナル横断で選んだsigDetailタグの記録を分析）2026-07-07
+  var _uSDT = useState(null), selDetTag = _uSDT[0], setSelDetTag = _uSDT[1];   // 詳細タグ別モードの選択タグ（"セクションキー|タグ名"）
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
@@ -4674,6 +4676,36 @@ function EntryLogView(_ref_elv2) {
     return (rs || []).filter(function(r) { return _detHas(r, _detSel); });
   };
   var _selSigRecsScoped = _detFilter(_floatMode ? _selSigFloat : _selSigOther);   // 全分析セクションが詳細スコープに自動追従（全体選択時は従来どおり）
+  // 詳細タグ別モード（2026-07-07・銘柄内シグナル横断）: この銘柄の全シグナル(_sigAxisGroups)を横断し、各記録の sigDetail を _elSigDetailSec でセクション別(b/k/f)に読み、詳細名ごとに記録をバケット化。件数降順。1記録が複数詳細を持つと各バケットに算入＝件数は重複しうる。同一タグ×同一詳細名の二重算入だけは記録同一性で排除。
+  var _detTagGroups = (function() {
+    var secMap = {};
+    _EL_SIG_SECS.forEach(function(sec) { secMap[sec.key] = { order: [], byName: {} }; });
+    var _put = function(secKey, name, r) {
+      if (!name) return;
+      var bk = secMap[secKey];
+      if (!bk.byName[name]) { bk.byName[name] = []; bk.order.push(name); }
+      if (bk.byName[name].indexOf(r) < 0) bk.byName[name].push(r);
+    };
+    _sigAxisGroups.forEach(function(g) {
+      (g.recs || []).forEach(function(r) {
+        var sec = _elSigDetailSec(r.signal, g.key);
+        if (sec.b) _put("b", sec.b, r);
+        if (sec.k) _put("k", sec.k, r);
+        (sec.f || []).forEach(function(fn) { _put("f", fn, r); });
+      });
+    });
+    return _EL_SIG_SECS.map(function(sec) {
+      var bk = secMap[sec.key];
+      var tags = bk.order.map(function(nm) { return { name: nm, recs: bk.byName[nm] }; });
+      tags.sort(function(a, b) { return b.recs.length - a.recs.length; });
+      return { key: sec.key, label: sec.label, tags: tags };
+    });
+  })();
+  var _detTagFlat = [];
+  _detTagGroups.forEach(function(sg) { sg.tags.forEach(function(t) { _detTagFlat.push({ sec: sg.key, secLabel: sg.label, name: t.name, recs: t.recs, tkey: sg.key + "|" + t.name }); }); });
+  var _hasDetTags = _detTagFlat.length > 0;
+  var _selDetTagKey = (selDetTag && _detTagFlat.some(function(t) { return t.tkey === selDetTag; })) ? selDetTag : (_detTagFlat[0] ? _detTagFlat[0].tkey : null);
+  var _selDetTagObj = _detTagFlat.filter(function(t) { return t.tkey === _selDetTagKey; })[0] || null;
   // 追加α母数トグル（osDistFil）を集計KPI/OS分布・損切り・未達で共有。全記録/×+未選択(既定)/〇のみ。〇=高α(基本+追加)は損切り/未達に寄るため、既定×+未選択で基本α運用の素の姿を出す 2026-07-01。
   var _addFilOf = function(rs) {
     if (_floatMode) return (rs || []);   // 前足浮きタブは全件（前足浮き記録は数値根拠の追加α〇なので×+未選択トグルは無効）2026-07-02
@@ -4819,10 +4851,45 @@ function EntryLogView(_ref_elv2) {
           _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理）"), _elStreakDDSectionV2(v2recs, _ai)) : null);
     } else {
       // 銘柄別の集計＝選択中シグナルの総合パネル（旧🎯シグナル別タブを昇格・上のシグナル軸で切替）。母数は選択中シグナル×サブタブ（前足浮き/その他）の固定母数（_selSigRecsScoped）。推奨基本α/追加αカードだけはシグナル全体（_selSigRecs）で算出＝サブタブ間で一貫。2026-07-01→前足浮き対応 2026-07-02
-      _tabBody = _sigAxisGroups.length
-        ? (_selSigRecsScoped.length ? _groupPanel(_selSigRecsScoped, null, _selSigRecs)
-            : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）"))
-        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この銘柄に集計できるシグナルがありません（EP起算v2の記録なし）");
+      // 分析軸トグル（2026-07-07）: 🎯シグナル別（従来）／🏷詳細タグ別（銘柄内・全シグナル横断で選んだ詳細タグの記録を _groupPanel で分析）。詳細タグが1件も無い銘柄ではトグル非表示＝従来どおり。
+      var _detTagToggle = _hasDetTags ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "分析軸:"),
+        [["sig", "🎯 シグナル別", false], ["det", "🏷 詳細タグ別", true]].map(function(kv) {
+          var on = detTagMode === kv[2];
+          return React.createElement("button", { key: kv[0], onClick: function() { setDetTagMode(kv[2]); if (kv[2]) setFloatSub("other"); setExpKey(null); },
+            style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#888" } }, kv[1]);
+        }),
+        React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "詳細タグ別＝この銘柄の全シグナル横断・件数は重複しうる")) : null;
+      if (detTagMode && _hasDetTags) {
+        var _secLabelOf = function(sk) { for (var _si = 0; _si < _EL_SIG_SECS.length; _si++) { if (_EL_SIG_SECS[_si].key === sk) return _EL_SIG_SECS[_si].label; } return ""; };
+        _tabBody = React.createElement(React.Fragment, null, _detTagToggle,
+          React.createElement("div", { style: { display: "grid", gridTemplateColumns: "minmax(0, 168px) minmax(0, 1fr)", gap: 14 } },
+            React.createElement("div", { style: { borderRight: "1px solid #eee", paddingRight: 8 } },
+              _detTagGroups.map(function(sg) {
+                if (!sg.tags.length) return null;
+                return React.createElement("div", { key: sg.key },
+                  React.createElement("div", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412", margin: "6px 0 3px" } }, sg.label),
+                  sg.tags.map(function(t) {
+                    var _tk = sg.key + "|" + t.name, on = _selDetTagKey === _tk;
+                    return React.createElement("button", { key: _tk, onClick: function() { setSelDetTag(_tk); setExpKey(null); },
+                      style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, width: "100%", textAlign: "left", padding: "5px 8px", marginBottom: 3, fontSize: 11.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid " + (on ? "#B45309" : "#e0d8cf"), background: on ? "#FFF7ED" : "#fff", color: on ? "#B45309" : "#555" } },
+                      React.createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.name),
+                      React.createElement("span", { style: { fontSize: 10, color: on ? "#B45309" : "#aaa", flexShrink: 0 } }, t.recs.length));
+                  }));
+              })),
+            React.createElement("div", { style: { minWidth: 0 } },
+              _selDetTagObj ? React.createElement(React.Fragment, null,
+                React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#B45309", marginBottom: 6 } }, _selDetTagObj.name,
+                  React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, "（" + _secLabelOf(_selDetTagObj.sec) + "・" + _selDetTagObj.recs.length + "件・シグナル横断）")),
+                _groupPanel(_selDetTagObj.recs, null, _selDetTagObj.recs))
+                : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "左から詳細タグを選択"))));
+      } else {
+        _tabBody = React.createElement(React.Fragment, null, _detTagToggle,
+          _sigAxisGroups.length
+            ? (_selSigRecsScoped.length ? _groupPanel(_selSigRecsScoped, null, _selSigRecs)
+                : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）"))
+            : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この銘柄に集計できるシグナルがありません（EP起算v2の記録なし）"));
+      }
     }
   } else if (view === "alpha") {
     if (!_selSigRecs.length) {
@@ -5088,29 +5155,29 @@ function EntryLogView(_ref_elv2) {
       React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
         [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetSub("all"); setPerExp(null); setAddAlphaFil("all"); if (view !== "sum" && view !== "period") setView("sum"); },
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetSub("all"); setPerExp(null); setAddAlphaFil("all"); setDetTagMode(false); setSelDetTag(null); if (view !== "sum" && view !== "period") setView("sum"); },
         style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1a1a1a" : "#ddd"), background: _isAllStock ? "#1a1a1a" : "#fff", color: _isAllStock ? "#fff" : "#666" } },
         "💰 損益 (" + _periodRecs.length + ")"),
       _tickerList.length ? _tickerList.map(function(s) {
         var on = _selStock === s;
-        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetSub("all"); setPerExp(null); },
+        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetSub("all"); setPerExp(null); setDetTagMode(false); setSelDetTag(null); },
           style: { flexShrink: 0, padding: "7px 14px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
             border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
-    (!_isAllStock && _sigAxisGroups.length) ? React.createElement("div", { style: { marginBottom: 6 } },
+    (!_isAllStock && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { marginBottom: 6 } },
       React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", alignItems: "center" } },
         React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "🎯 シグナル"),
         _sigAxisGroups.map(function(g) {
           var on = _selSigKey === g.key;
           var lowN = g.recs.length < _EL_BASE_MIN_N;
-          return React.createElement("button", { key: g.key, onClick: function() { setSelSig(g.key); setExpKey(null); setFloatSub("other"); setDetSub("all"); },
+          return React.createElement("button", { key: g.key, onClick: function() { setSelSig(g.key); setExpKey(null); setFloatSub("other"); setDetSub("all"); setDetTagMode(false); setSelDetTag(null); },
             style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
               border: "1px solid " + (on ? "#9A3412" : "#e0d8cf"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : (lowN ? "#c0b6ab" : "#666") } },
             g.label + " (" + g.recs.length + ")" + (lowN ? " 参考" : ""));
         }))) : null,
-    (!_isAllStock && _sigAxisGroups.length) ? React.createElement("div", { style: { marginBottom: 6 } },   // 内訳サブタブ: 底抜け前足浮き / その他（既定）。選択中シグナルの記録を数値根拠で二分し、集計/α値/損切り/未達/深掘りの母数を切替。全シグナルで常時表示。2026-07-02
+    (!_isAllStock && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { marginBottom: 6 } },   // 内訳サブタブ: 底抜け前足浮き / その他（既定）。選択中シグナルの記録を数値根拠で二分し、集計/α値/損切り/未達/深掘りの母数を切替。全シグナルで常時表示。2026-07-02
       React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 4px", alignItems: "center", flexWrap: "wrap" } },
         React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "内訳"),
         [["float", "浮き足", _selSigFloat.length], ["other", "その他", _selSigOther.length]].map(function(kv) {
@@ -5120,7 +5187,7 @@ function EntryLogView(_ref_elv2) {
               border: "1px solid " + (on ? "#9A3412" : "#e0d8cf"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
             kv[1] + " (" + kv[2] + ")");
         }))) : null,
-    (!_isAllStock && _sigAxisGroups.length && _detNames.length) ? React.createElement("div", { style: { marginBottom: 6 } },   // シグナル詳細サブタブ（案A階層型 2026-07-06）: 選択中シグナルの記録を詳細（signal.sigDetail）で絞る。候補が無いシグナルでは非表示。
+    (!_isAllStock && _sigAxisGroups.length && _detNames.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { marginBottom: 6 } },   // シグナル詳細サブタブ（案A階層型 2026-07-06）: 選択中シグナルの記録を詳細（signal.sigDetail）で絞る。候補が無いシグナルでは非表示。
       React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 4px", alignItems: "center", flexWrap: "wrap" } },
         React.createElement("span", { title: "1記録に複数の詳細が付く場合は各詳細に算入＝件数は重複しうる（全体＝実件数）", style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "詳細"),
         (function() {

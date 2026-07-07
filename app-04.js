@@ -1152,6 +1152,20 @@ function SearchView(_ref45) {
     onClose = _ref45.onClose;
   var custom = data.custom || EMPTY.custom;
   var pool = makeTagPoolHandlers(data, save, custom);
+  // シグナル詳細タグ（sigDetail）の全名称を平坦化（新形式{b,k,f}・旧フラット配列・旧単一文字列すべて対応）2026-07-07。検索の詳細タグ絞り込み用。
+  var _sigDetailNames = function(s) {
+    var out = [], sd = s && s.sigDetail;
+    if (!sd || typeof sd !== "object") return out;
+    Object.keys(sd).forEach(function(k) {
+      var v = sd[k];
+      if (v == null) return;
+      if (Array.isArray(v)) { v.forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); return; }
+      if (typeof v === "string") { if (out.indexOf(v) < 0) out.push(v); return; }
+      if (typeof v === "object") { [v.b, v.k].forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); (Array.isArray(v.f) ? v.f : []).forEach(function(x) { if (x && out.indexOf(x) < 0) out.push(x); }); }
+    });
+    return out;
+  };
+  var _sigHasDetail = function(s, det) { return _sigDetailNames(s).indexOf(det) >= 0; };
   var deleteExtraTag = function deleteExtraTag(tag) {
     // 関数アップデータで最新stateにマージ＝古いdataスナップショットでcharts/tradesを上書きしない。2026-06-20
     save(function (prev) {
@@ -1252,7 +1266,7 @@ function SearchView(_ref45) {
         return k.replace(/_\d{4}-\d{2}-\d{2}$/, "");
       })), _toConsumableArray(chartArr.flatMap(function (c) {
         return (c && c.signals || []).flatMap(function(s) {
-          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", s.tradeType || ""];
+          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", s.tradeType || ""].concat(_sigDetailNames(s));
         });
       }))).join(" ").toLowerCase();
       if (!hay.includes(kw)) return false;
@@ -1298,6 +1312,11 @@ function SearchView(_ref45) {
             if (!chartArr.some(function (c) {
               return c && (c.signals || []).some(function(s) { return _elIsEntered(s, null) === entVal; });
             })) return { v: false };
+          } else if (tag.startsWith("__detail:")) {
+            var det = tag.slice(9);
+            if (!chartArr.some(function (c) {
+              return c && (c.signals || []).some(function(s) { return _sigHasDetail(s, det); });
+            })) return { v: false };
           } else {
             var inM = allMTags.includes(tag),
               inS = allS.includes(tag);
@@ -1338,7 +1357,7 @@ function SearchView(_ref45) {
           if (tag.startsWith("__macro:") || tag.startsWith("__flow:")) return {
             v: "charts"
           };
-          if (tag.startsWith("__signal:") || tag.startsWith("__tradetype:") || tag.startsWith("__result:") || tag.startsWith("__entered:")) return {
+          if (tag.startsWith("__signal:") || tag.startsWith("__tradetype:") || tag.startsWith("__result:") || tag.startsWith("__entered:") || tag.startsWith("__detail:")) return {
             v: "charts"
           };
           if (allMTags.includes(tag)) return {
@@ -1703,6 +1722,20 @@ function SearchView(_ref45) {
       })
     )
   ),
+  (function() {
+    // 🔖 詳細タグ（sigDetail）で絞り込み 2026-07-07。候補=マスターcustom.sigDetails2{b,k,f}∪旧custom.sigDetails∪記録に実在する詳細名。
+    var _detNames = {}, _detOrd = [];
+    var _addDet = function(n) { if (n && !_detNames[n]) { _detNames[n] = 1; _detOrd.push(n); } };
+    var _sd2 = custom.sigDetails2 || {};
+    Object.keys(_sd2).forEach(function(k) { var v = _sd2[k]; if (v && typeof v === "object") ["b", "k", "f"].forEach(function(sk) { (Array.isArray(v[sk]) ? v[sk] : []).forEach(_addDet); }); });
+    var _sd1 = custom.sigDetails || {};
+    Object.keys(_sd1).forEach(function(k) { (Array.isArray(_sd1[k]) ? _sd1[k] : []).forEach(_addDet); });
+    Object.keys(data.charts || {}).forEach(function(ck) { var c = data.charts[ck]; (c && c.signals || []).forEach(function(s) { _sigDetailNames(s).forEach(_addDet); }); });
+    return _detOrd.length ? React.createElement(React.Fragment, null,
+      React.createElement(SH, { label: "🔖 詳細タグ" }),
+      React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 1 } },
+        _detOrd.map(function(t) { return React.createElement(TC, { key: "__detail:" + t, tagKey: "__detail:" + t, label: t, color: ["#FFF7ED", "#FDBA74", "#B45309"] }); }))) : null;
+  })(),
   React.createElement(SH, { label: "📊 売買・結果" }),
   React.createElement("div", { style:{display:"flex",flexWrap:"wrap",gap:1} },
     React.createElement(TC, { tagKey: "__tradetype:空売", label: "空売", color: ["#FCEBEB","#F5C6CB","#C0392B"] }),
@@ -1714,11 +1747,12 @@ function SearchView(_ref45) {
   )
   ), (keyword || selTags.length > 0) && React.createElement("div", null,
   
-  selTags.some(function(t){ return t.startsWith("__signal:") || t.startsWith("__tradetype:") || t.startsWith("__result:") || t.startsWith("__entered:"); }) && (function() {
+  selTags.some(function(t){ return t.startsWith("__signal:") || t.startsWith("__tradetype:") || t.startsWith("__result:") || t.startsWith("__entered:") || t.startsWith("__detail:"); }) && (function() {
     var sigTags = selTags.filter(function(t){ return t.startsWith("__signal:"); }).map(function(t){ return t.slice(9); });
     var ttFilters = selTags.filter(function(t){ return t.startsWith("__tradetype:"); }).map(function(t){ return t.slice(12); });
     var resFilters = selTags.filter(function(t){ return t.startsWith("__result:"); }).map(function(t){ return t.slice(9); });
     var entFilters = selTags.filter(function(t){ return t.startsWith("__entered:"); }).map(function(t){ return t.slice(10); });
+    var detFilters = selTags.filter(function(t){ return t.startsWith("__detail:"); }).map(function(t){ return t.slice(9); });
     var hits = [];
     Object.entries(data.charts || {}).forEach(function(e) {
       var k = e[0], c = e[1];
@@ -1733,6 +1767,7 @@ function SearchView(_ref45) {
           var ent = _elIsEntered(s, null);
           if (!entFilters.some(function(f) { return (f === "true") === ent; })) return;
         }
+        if (detFilters.length > 0 && !detFilters.some(function(d) { return _sigHasDetail(s, d); })) return;
         hits.push({ stock: st, date: dt, tag: s.tag, tags: s.tags, isCustomTag: s.isCustomTag, customTagText: s.customTagText, result: s.result, tradeType: s.tradeType, entered: _elIsEntered(s, null), rationale: s.rationale, priceIn: s.priceIn, priceOut: s.priceOut, chartImg: c.chartImg });
       });
     });

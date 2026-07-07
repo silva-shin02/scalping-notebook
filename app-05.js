@@ -7021,7 +7021,7 @@ function EntryRecordForm(_ref_erf) {
         (function() {
           if (fAddAlphaUsed !== "○") return null;
           // 推奨追加αも段階フォールバック（詳細別→シグナル別→銘柄全体・_refAddAlphaSrc）＝どの段の値かを添えて表示（表示のみ・自動入力なし）2026-07-07c。
-          if (_refAddAlphaSrc) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α（詳細別→シグナル別→銘柄全体の順でデータのある段の値・括弧が採用段）", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlphaSrc.add.add + "円"), (_refAddAlphaSrc.add.add2 != null ? React.createElement("span", { style: { fontWeight: 800, marginLeft: 4 } }, "（次点：+" + _refAddAlphaSrc.add.add2 + "円）") : null), React.createElement("span", { style: { color: "#94A3B8", fontSize: 9, fontWeight: 600, marginLeft: 2 } }, "（" + _refAddAlphaSrc.src + "）"));
+          if (_refAddAlphaSrc) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α（詳細別→シグナル別→銘柄全体の順でデータのある段の値・括弧が採用段）", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlphaSrc.add.add + "円"), (_refAddAlphaSrc.add.add2 != null ? React.createElement("span", { style: { fontWeight: 800, marginLeft: 4 } }, "（次点：+" + _refAddAlphaSrc.add.add2 + "円）") : null), React.createElement("span", { style: { color: "#94A3B8", fontSize: 9, fontWeight: 600, marginLeft: 2 } }, "（" + _refAddAlphaSrc.src + (_refAddAlphaSrc.add.scN != null ? "・n=" + _refAddAlphaSrc.add.scN : "") + "）"));
           return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨追加α：データ無し") : null;
         })()),
       (fAddAlphaUsed === "○") ? (function() {
