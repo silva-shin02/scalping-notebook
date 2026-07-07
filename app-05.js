@@ -5866,9 +5866,8 @@ function EntryRecordForm(_ref_erf) {
   
   // 合計α値 = 基本α値（未入力なら直近50件の推奨基本α・無ければ0。予想OS度とは連動しない 2026-06-21）＋ 浮き足加算α値 ＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
   var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_autoBaseA != null ? _autoBaseA : 0);
-  // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 対象シグナル（既定＝底抜け水準線OS／底抜けラインOS・_elUkiSignalNames）のいずれかを選択中のみ欄を表示・算入。〇のとき入力値(前足浮き値)の半額（小数切捨て）を加算。
-  var _ukiSigNames = _elUkiSignalNames(data && data.custom);
-  var _showUki = fTags.some(function(_t) { return _ukiSigNames.indexOf(_t) >= 0; });
+  // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)の半額（小数切捨て）を加算。
+  var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
   var _fUkiAdd = (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Math.floor(Number(fUkiVal) / 2) : 0;
   // 追加αは「〇（必要）」を選んだ時だけ合計に算入。×なら0＝基本αのみ。
   var _fAddA = (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
@@ -6882,7 +6881,7 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋浮き足加算α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。浮き足は「" + _ukiSigNames.join("／") + "」選択時のみ＝入力値（前足浮き値）の半額・小数切捨てを加算。追加αは〇を選んだ時だけ入力。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋浮き足加算α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。浮き足は入力値（前足浮き値）の半額・小数切捨てを加算（全シグナルで入力可）。追加αは〇を選んだ時だけ入力。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
@@ -6954,7 +6953,7 @@ function EntryRecordForm(_ref_erf) {
       ) : null,
       _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
-        // 浮き足加算α値の行（対象シグナル選択時のみ＝底抜け水準線OS／底抜けラインOS・基本α行と追加α行の間）2026-07-03→07-07。〇×→〇で前足浮き値（生値）を入力し半額（切捨て）をαに加算。
+        // 浮き足加算α値の行（全シグナルで表示・基本α行と追加α行の間）2026-07-03→07-07。〇×→〇で前足浮き値（生値）を入力し半額（切捨て）をαに加算。
         var _setUV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setFUkiVal(String(n)); };
         var _stepUV = function(delta) { setFUkiVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
         var _ukiOn = fUkiUsed === "○";
