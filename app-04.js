@@ -3262,6 +3262,276 @@ function StockQuickRefTableWithChart(_props_qrtc) {
 }
 
 
+// ===== ⚡EPナビ（場中のEP計算・保存早見 2026-07-07）=====
+// 日別ページ取引タブ「エントリー記録」テーブル右の常設サイドバー。①銘柄②シグナル③詳細(底/起/特)を選ぶと
+// 記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ）で
+// 推奨基本α/推奨追加αを表示し、予定EP＝起点(水準線)価格＋実効α（基本α＋浮き足加算＋追加α）を算出。
+// 「💾保存」で charts[銘柄_日付].epNavi に保存（Firebase同期・×2タップで削除・過去日を開くと当時の保存が残る）。
+// 推奨ロジックは EntryRecordForm の _refSigAlpha/_pickWin（app-05）と同一。変更時は両方直すこと。
+function _epnTagsOf(s) { return (s.tags && s.tags.length) ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []); }
+function _epnPickWin(rs, aiOf) {
+  if (!rs.length) return { alpha: null, ok: false, n: 0, add: null };
+  var _sorted = rs.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  var _wins = [];
+  [_EL_PERIOD_COUNTS[1], _EL_PERIOD_COUNTS[2]].forEach(function(n) { if (_sorted.length > n) _wins.push(_sorted.slice(_sorted.length - n)); });
+  _wins.push(_sorted);
+  var _lastA = null;
+  for (var i = 0; i < _wins.length; i++) {
+    var A = _elBaseAlphaA(_wins[i], aiOf); _lastA = A;
+    if (A && A.pick && A.pick.alpha != null && A.pick.status === "ok") return { alpha: A.pick.alpha, ok: true, n: rs.length, add: (A.add && A.add.improved) ? A.add : null };
+  }
+  return { alpha: (_lastA && _lastA.pick && _lastA.pick.alpha != null && _lastA.pick.status !== "none") ? _lastA.pick.alpha : null, ok: false, n: rs.length, add: (_lastA && _lastA.add && _lastA.add.improved) ? _lastA.add : null };
+}
+function _epnCascade(data, stock, tag, sel, beforeDate) {
+  var all = _elCollectAllSignals(data).filter(function(r) {
+    return r.stock === stock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!beforeDate || r.date < beforeDate);
+  });
+  var aiOf = function(r) { return _elAlphaInfo(r, data); };
+  var stk = _epnPickWin(all, aiOf);
+  if (!tag) return { all: all, stk: stk, sig: null, det: null };
+  var recs = all.filter(function(r) { return _epnTagsOf(r.signal).indexOf(tag) >= 0; });
+  var _selB = (sel && sel.b) || null, _selK = (sel && sel.k) || null, _selF = (sel && sel.f) || [];
+  var det = (_selB || _selK || _selF.length) ? _epnPickWin(recs.filter(function(r) {
+    var _sc = _elSigDetailSec(r.signal, tag);
+    if (_selB && _sc.b !== _selB) return false;
+    if (_selK && _sc.k !== _selK) return false;
+    for (var i = 0; i < _selF.length; i++) { if (_sc.f.indexOf(_selF[i]) < 0) return false; }
+    return true;
+  }), aiOf) : null;
+  return { all: all, stk: stk, sig: _epnPickWin(recs, aiOf), det: det };
+}
+function _epnSave(save, stock, date, item) {
+  save(function(prev) {
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date;
+    var c = charts[ck] || {};
+    var arr = Array.isArray(c.epNavi) ? c.epNavi.slice() : [];
+    arr.push(item);
+    charts[ck] = Object.assign({}, c, { epNavi: arr });
+    return Object.assign({}, prev, { charts: charts });
+  });
+}
+function _epnDelete(save, stock, date, id) {
+  save(function(prev) {
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date;
+    var c = charts[ck]; if (!c) return prev;
+    var arr = (Array.isArray(c.epNavi) ? c.epNavi : []).filter(function(x) { return x && x.id !== id; });
+    charts[ck] = Object.assign({}, c, { epNavi: arr });
+    return Object.assign({}, prev, { charts: charts });
+  });
+}
+function EpNaviPanel(_refEPN) {
+  var data = _refEPN.data, save = _refEPN.save, date = _refEPN.date, stocks = _refEPN.stocks, activeStock = _refEPN.activeStock;
+  var custom = data.custom || EMPTY.custom;
+  var _useStateEPN1 = useState(false), _useStateEPN1A = _slicedToArray(_useStateEPN1, 2), epnOpen = _useStateEPN1A[0], setEpnOpen = _useStateEPN1A[1];
+  var _useStateEPN2 = useState(activeStock || (stocks && stocks[0]) || ""), _useStateEPN2A = _slicedToArray(_useStateEPN2, 2), nStock = _useStateEPN2A[0], setNStock = _useStateEPN2A[1];
+  var _useStateEPN3 = useState(""), _useStateEPN3A = _slicedToArray(_useStateEPN3, 2), nTag = _useStateEPN3A[0], setNTag = _useStateEPN3A[1];
+  var _useStateEPN4 = useState(null), _useStateEPN4A = _slicedToArray(_useStateEPN4, 2), nSelB = _useStateEPN4A[0], setNSelB = _useStateEPN4A[1];
+  var _useStateEPN5 = useState(null), _useStateEPN5A = _slicedToArray(_useStateEPN5, 2), nSelK = _useStateEPN5A[0], setNSelK = _useStateEPN5A[1];
+  var _useStateEPN6 = useState([]), _useStateEPN6A = _slicedToArray(_useStateEPN6, 2), nSelF = _useStateEPN6A[0], setNSelF = _useStateEPN6A[1];
+  var _useStateEPN7 = useState(""), _useStateEPN7A = _slicedToArray(_useStateEPN7, 2), nBase = _useStateEPN7A[0], setNBase = _useStateEPN7A[1];
+  var _useStateEPN8 = useState("×"), _useStateEPN8A = _slicedToArray(_useStateEPN8, 2), nAddUsed = _useStateEPN8A[0], setNAddUsed = _useStateEPN8A[1];
+  var _useStateEPN9 = useState(""), _useStateEPN9A = _slicedToArray(_useStateEPN9, 2), nAdd = _useStateEPN9A[0], setNAdd = _useStateEPN9A[1];
+  var _useStateEPN10 = useState("×"), _useStateEPN10A = _slicedToArray(_useStateEPN10, 2), nUkiUsed = _useStateEPN10A[0], setNUkiUsed = _useStateEPN10A[1];
+  var _useStateEPN11 = useState(""), _useStateEPN11A = _slicedToArray(_useStateEPN11, 2), nUkiVal = _useStateEPN11A[0], setNUkiVal = _useStateEPN11A[1];
+  var _useStateEPN12 = useState(""), _useStateEPN12A = _slicedToArray(_useStateEPN12, 2), nLevel = _useStateEPN12A[0], setNLevel = _useStateEPN12A[1];
+  var _useStateEPN13 = useState(null), _useStateEPN13A = _slicedToArray(_useStateEPN13, 2), delArm = _useStateEPN13A[0], setDelArm = _useStateEPN13A[1];
+  var _delTimerRef = useRef(null);
+  useEffect(function() { return function() { if (_delTimerRef.current) clearTimeout(_delTimerRef.current); }; }, []);
+  // 推奨カスケードはパネルを開いている間だけ計算（閉じている間はdata更新でも走らせない）
+  var casc = useMemo(function() {
+    if (!epnOpen || !nStock) return null;
+    return _epnCascade(data, nStock, nTag || null, { b: nSelB, k: nSelK, f: nSelF }, date);
+  }, [epnOpen, data, nStock, nTag, nSelB, nSelK, nSelF, date]);
+  var tagOpts = useMemo(function() {
+    if (!casc) return [];
+    var cnt = {};
+    casc.all.forEach(function(r) { _epnTagsOf(r.signal).forEach(function(t) { cnt[t] = (cnt[t] || 0) + 1; }); });
+    return Object.keys(cnt).sort(function(a, b) { return cnt[b] - cnt[a]; }).map(function(t) { return { t: t, n: cnt[t] }; });
+  }, [casc]);
+  var cands = useMemo(function() {
+    if (!nTag) return { b: [], k: [], f: [] };
+    var m2 = (custom.sigDetails2 || {})[nTag];
+    if (m2 && typeof m2 === "object" && !Array.isArray(m2)) return { b: Array.isArray(m2.b) ? m2.b : [], k: Array.isArray(m2.k) ? m2.k : [], f: Array.isArray(m2.f) ? m2.f : [] };
+    var old = (custom.sigDetails || {})[nTag];
+    var oldArr = Array.isArray(old) ? old : [];
+    return { b: oldArr, k: oldArr, f: oldArr };
+  }, [custom, nTag]);
+  var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
+  // 採用基本α: 詳細別ok→シグナル別ok→銘柄全体ok。全段データ不足なら仮値（参考推奨）を同順で採用＝フォームと違い場中は値を出すのが仕事（（仮）表示で明示）。
+  var autoPick = (function() {
+    if (det && det.ok && det.alpha != null) return { a: det.alpha, key: "det", src: "詳細別", ok: true };
+    if (sig && sig.ok && sig.alpha != null) return { a: sig.alpha, key: "sig", src: "シグナル別", ok: true };
+    if (stk && stk.ok && stk.alpha != null) return { a: stk.alpha, key: "stk", src: "銘柄全体", ok: true };
+    if (det && det.alpha != null) return { a: det.alpha, key: "det", src: "詳細別（仮）", ok: false };
+    if (sig && sig.alpha != null) return { a: sig.alpha, key: "sig", src: "シグナル別（仮）", ok: false };
+    if (stk && stk.alpha != null) return { a: stk.alpha, key: "stk", src: "銘柄全体（仮）", ok: false };
+    return { a: null, key: null, src: null, ok: false };
+  })();
+  var addReco = (function() {
+    if (det && det.add) return { v: det.add.add, src: "詳細別" };
+    if (sig && sig.add) return { v: sig.add.add, src: "シグナル別" };
+    if (stk && stk.add) return { v: stk.add.add, src: "銘柄全体" };
+    return null;
+  })();
+  var _ukiSig = (custom && custom.ukiSignalName) || "底抜け水準線OS";
+  var showUki = nTag === _ukiSig;
+  var baseV = (nBase !== "" && !isNaN(Number(nBase))) ? Number(nBase) : (autoPick.a != null ? autoPick.a : null);
+  var addV = (nAddUsed === "○") ? ((nAdd !== "" && !isNaN(Number(nAdd))) ? Number(nAdd) : (addReco && addReco.v != null ? addReco.v : 0)) : 0;
+  var ukiAddV = (showUki && nUkiUsed === "○" && nUkiVal !== "" && !isNaN(Number(nUkiVal)) && Number(nUkiVal) > 0) ? Math.floor(Number(nUkiVal) / 2) : 0;
+  var effA = baseV != null ? (baseV + ukiAddV + addV) : null;
+  var levelN = (nLevel !== "" && !isNaN(parseFloat(nLevel))) ? parseFloat(nLevel) : null;
+  var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
+  var savedList = useMemo(function() {
+    var out = [];
+    var suf = "_" + date;
+    var charts = data.charts || {};
+    Object.keys(charts).forEach(function(ck) {
+      var pos = ck.length - suf.length;
+      if (pos <= 0 || ck.indexOf(suf, pos) !== pos) return;
+      var arr = (charts[ck] || {}).epNavi;
+      if (!Array.isArray(arr)) return;
+      var st = ck.slice(0, pos);
+      arr.forEach(function(e) { if (e && e.id != null) out.push({ stock: st, e: e }); });
+    });
+    out.sort(function(a, b) { return (a.e.at || 0) - (b.e.at || 0); });
+    return out;
+  }, [data.charts, date]);
+  var doSave = function() {
+    if (epV == null || !nStock) return;
+    _epnSave(save, nStock, date, {
+      id: "epn_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7),
+      tag: nTag || null, b: nSelB || null, k: nSelK || null, f: nSelF.slice(),
+      base: baseV, add: addV, uki: ukiAddV, ukiVal: ukiAddV > 0 ? Number(nUkiVal) : null,
+      level: levelN, ep: epV, src: autoPick.src || null, at: Date.now()
+    });
+  };
+  // ×は2タップ確認（window.confirmはiPad standaloneで無反応のため使わない）
+  var onDel = function(stock, id) {
+    if (delArm === id) {
+      if (_delTimerRef.current) { clearTimeout(_delTimerRef.current); _delTimerRef.current = null; }
+      setDelArm(null);
+      _epnDelete(save, stock, date, id);
+    } else {
+      setDelArm(id);
+      if (_delTimerRef.current) clearTimeout(_delTimerRef.current);
+      _delTimerRef.current = setTimeout(function() { setDelArm(null); }, 3000);
+    }
+  };
+  var _lrow = function(label, node) {
+    return React.createElement("div", { style: { marginBottom: 6 } },
+      React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#64748B", marginBottom: 2 } }, label),
+      node);
+  };
+  var _inpStyle = { padding: "3px 6px", fontSize: 12, fontWeight: 700, color: "#334155", border: "1px solid #CBD5E1", borderRadius: 5, background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box", outline: "none" };
+  var _selStyle = { width: "100%", fontSize: 11, padding: "4px", border: "1px solid #CBD5E1", borderRadius: 5, background: "#fff", color: "#334155", boxSizing: "border-box" };
+  var _oxBtns = function(cur, setFn) {
+    return React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
+      [["○", "#C0392B", "#FCEBEB"], ["×", "#1E8449", "#EAF3DE"]].map(function(kv) {
+        var on = cur === kv[0];
+        return React.createElement("button", { key: kv[0], type: "button", onClick: function() { setFn(kv[0]); },
+          style: { padding: "1px 9px", fontSize: 11, fontWeight: on ? 800 : 600, border: on ? "2px solid " + kv[1] : "1px solid #ddd", background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.5 } }, kv[0]);
+      }));
+  };
+  var _pickLine = function(key, label, p) {
+    if (!p) return null;
+    return React.createElement("div", { key: key, style: { fontSize: 10, color: "#475569", lineHeight: 1.6 } },
+      React.createElement("span", { style: { color: "#94A3B8" } }, label + "："),
+      (p.alpha != null && p.ok)
+        ? React.createElement("span", { style: { fontWeight: 800, color: "#B91C1C" } }, p.alpha + "円")
+        : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足", p.alpha != null ? "（仮" + p.alpha + "円）" : ""),
+      React.createElement("span", { style: { color: "#94A3B8", fontSize: 8.5 } }, "（n=" + p.n + "）"),
+      autoPick.key === key ? React.createElement("span", { style: { color: "#B91C1C", fontSize: 8.5, fontWeight: 800, marginLeft: 2 } }, "★採用") : null);
+  };
+  var savedCards = savedList.map(function(sv) {
+    var e = sv.e;
+    var alphaSum = (Number(e.base) || 0) + (Number(e.uki) || 0) + (Number(e.add) || 0);
+    var bk = "基" + (e.base != null ? e.base : "—") + (e.uki ? "＋浮" + e.uki : "") + (e.add ? "＋追" + e.add : "");
+    var detTxt = [e.b ? "底:" + e.b : null, e.k ? "起:" + e.k : null].concat((e.f || []).map(function(x) { return "特:" + x; })).filter(function(x) { return !!x; }).join("・");
+    var armed = delArm === e.id;
+    return React.createElement("div", { key: e.id, style: { border: "1px solid #BFDBFE", borderRadius: 6, padding: "5px 7px", background: "#EFF6FF", marginBottom: 5 } },
+      React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 } },
+        React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#1E3A8A", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sv.stock),
+        React.createElement("button", { type: "button", onClick: function() { onDel(sv.stock, e.id); },
+          title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",
+          style: { flexShrink: 0, padding: "1px 7px", fontSize: armed ? 10 : 12, fontWeight: 800, lineHeight: 1.5, border: armed ? "1.5px solid #DC2626" : "1px solid #BFDBFE", background: armed ? "#DC2626" : "#fff", color: armed ? "#fff" : "#94A3B8", borderRadius: 5, cursor: "pointer", minHeight: IS_TOUCH ? 26 : 20 } },
+          armed ? "削除?" : "×")),
+      React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: "#1D4ED8", fontVariantNumeric: "tabular-nums", lineHeight: 1.3 } }, "EP " + e.ep + "円"),
+      React.createElement("div", { style: { fontSize: 9.5, color: "#3B82F6" } }, "起点" + e.level + "＋α" + alphaSum + "（" + bk + "）"),
+      (e.tag || detTxt) ? React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 1, lineHeight: 1.4 } },
+        (e.tag || "") + (detTxt ? "・" + detTxt : ""),
+        e.src ? React.createElement("span", { style: { color: "#94A3B8" } }, "（" + e.src + "）") : null) : null);
+  });
+  var calcPanel = epnOpen ? React.createElement("div", { style: { borderTop: "1px dashed #BFDBFE", marginTop: 6, paddingTop: 8 } },
+    _lrow("① 銘柄", React.createElement("select", { value: nStock, onChange: function(e) { setNStock(e.target.value); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]); }, style: _selStyle },
+      (stocks || []).map(function(st) { return React.createElement("option", { key: st, value: st }, st); }))),
+    _lrow("② シグナル", React.createElement("select", { value: nTag, onChange: function(e) { setNTag(e.target.value); setNSelB(null); setNSelK(null); setNSelF([]); }, style: _selStyle },
+      React.createElement("option", { value: "" }, "—（銘柄全体で計算）"),
+      tagOpts.map(function(o) { return React.createElement("option", { key: o.t, value: o.t }, o.t + "（" + o.n + "件）"); }))),
+    nTag && cands.b.length ? _lrow("③ 底抜け", React.createElement("select", { value: nSelB || "", onChange: function(e) { setNSelB(e.target.value || null); }, style: _selStyle },
+      React.createElement("option", { value: "" }, "—"),
+      cands.b.map(function(nm) { return React.createElement("option", { key: nm, value: nm }, nm); }))) : null,
+    nTag && cands.k.length ? _lrow("③ 起点", React.createElement("select", { value: nSelK || "", onChange: function(e) { setNSelK(e.target.value || null); }, style: _selStyle },
+      React.createElement("option", { value: "" }, "—"),
+      cands.k.map(function(nm) { return React.createElement("option", { key: nm, value: nm }, nm); }))) : null,
+    nTag && cands.f.length ? _lrow("③ その他特徴（複数可）", React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 3 } },
+      cands.f.map(function(nm) {
+        var on = nSelF.indexOf(nm) >= 0;
+        return React.createElement("button", { key: nm, type: "button", onClick: function() { setNSelF(on ? nSelF.filter(function(x) { return x !== nm; }) : nSelF.concat([nm])); },
+          style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 600, border: on ? "1.5px solid #B45309" : "1px solid #ddd", background: on ? "#FEF3C7" : "#fff", color: on ? "#B45309" : "#888", borderRadius: 4, cursor: "pointer" } }, nm);
+      }))) : null,
+    React.createElement("div", { title: "記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ・追加α〇/浮き足〇は母数から除外）。★＝EP計算に採用中の段。データ不足＝件数フロア未満（仮＝参考値）", style: { background: "#fff", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 7px", marginBottom: 6 } },
+      React.createElement("div", { style: { fontSize: 9, fontWeight: 800, color: "#94A3B8", marginBottom: 1 } }, "推奨基本α"),
+      _pickLine("det", "詳細別", det),
+      nTag ? _pickLine("sig", "シグナル別", sig) : null,
+      _pickLine("stk", "銘柄全体", stk),
+      (!det && !nTag) ? React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1" } }, "シグナル・詳細を選ぶと絞った推奨が出ます") : null),
+    _lrow("基本α（空欄＝推奨値を自動採用）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+      React.createElement("input", { type: "text", inputMode: "numeric", value: nBase, placeholder: autoPick.a != null ? String(autoPick.a) : "—",
+        onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "" || !isNaN(Number(v))) setNBase(v); }, style: _inpStyle }),
+      React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
+      _stepBtn(function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (autoPick.a != null ? autoPick.a : 0); var n = b + 1; if (n > 50) n = 50; return String(n); }); },
+        function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (autoPick.a != null ? autoPick.a : 0); var n = b - 1; if (n < 0) n = 0; return String(n); }); }))),
+    _lrow("追加α", React.createElement("div", null,
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+        _oxBtns(nAddUsed, setNAddUsed),
+        nAddUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nAdd, placeholder: addReco && addReco.v != null ? String(addReco.v) : "0",
+          onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "" || !isNaN(Number(v))) setNAdd(v); }, style: Object.assign({}, _inpStyle, { width: 44 }) }) : null,
+        nAddUsed === "○" ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円") : null),
+      nAddUsed === "○" ? React.createElement("div", { style: { fontSize: 9.5, color: addReco ? "#9A3412" : "#94A3B8", marginTop: 2 } },
+        addReco ? "推奨追加α +" + addReco.v + "円（" + addReco.src + "・空欄＝自動採用）" : "推奨追加α データ無し（空欄＝0円）") : null)),
+    showUki ? _lrow("浮き足加算（前足浮き値→半額切捨て）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+      _oxBtns(nUkiUsed, setNUkiUsed),
+      nUkiUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nUkiVal, placeholder: "浮き値",
+        onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "") { setNUkiVal(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setNUkiVal(String(n)); }, style: Object.assign({}, _inpStyle, { width: 48 }) }) : null,
+      nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null)) : null,
+    _lrow("起点（水準線）価格", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+      React.createElement("input", { type: "text", inputMode: "decimal", value: nLevel, placeholder: "—",
+        onChange: function(e) { setNLevel(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 72 }) }),
+      React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
+      _stepBtn(function() { setNLevel(function(v) { return String(Math.round(((parseFloat(v) || 0) + 1) * 100) / 100); }); },
+        function() { setNLevel(function(v) { return String(Math.max(0, Math.round(((parseFloat(v) || 0) - 1) * 100) / 100)); }); }))),
+    React.createElement("div", { style: { margin: "8px 0 6px", padding: "7px 6px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, textAlign: "center" } },
+      React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 800 } }, "予定EP "),
+      React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(epV) : "—"),
+      React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8" } }, "円"),
+      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, "実効α" + effA + "円＝基" + (baseV != null ? baseV : 0) + (ukiAddV ? "＋浮" + ukiAddV : "") + (addV ? "＋追" + addV : "") + (autoPick.src && nBase === "" ? "・推奨" + autoPick.src : ""))
+        : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? "記録が無い銘柄は基本αを手入力" : "起点価格を入力")),
+    React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
+      style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? "#1D4ED8" : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, "💾 保存（早見に追加）")
+  ) : null;
+  return React.createElement("div", { style: { flex: "1 1 200px", maxWidth: 320, minWidth: 185, border: "1.5px solid #BFDBFE", borderRadius: 8, padding: 8, background: "#F8FAFF", boxSizing: "border-box" } },
+    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#1D4ED8", whiteSpace: "nowrap" } }, "⚡ EPナビ"),
+      React.createElement("button", { type: "button", onClick: function() { setEpnOpen(!epnOpen); },
+        style: { padding: "3px 9px", fontSize: 11, fontWeight: 700, border: "1px solid " + (epnOpen ? "#94A3B8" : "#BFDBFE"), background: epnOpen ? "#F1F5F9" : "#fff", color: epnOpen ? "#64748B" : "#1D4ED8", borderRadius: 5, cursor: "pointer", minHeight: IS_TOUCH ? 34 : 24 } },
+        epnOpen ? "▲ 閉じる" : "＋ 計算")),
+    savedList.length ? savedCards : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", lineHeight: 1.6, padding: "2px 2px 4px" } }, "保存済みEPはまだありません。「＋ 計算」で銘柄・シグナル・詳細から推奨αとEPを計算し、💾保存するとここに常時表示されます。"),
+    calcPanel);
+}
+
+
 function DayView(_ref57) {
   var date = _ref57.date,
     data = _ref57.data,
@@ -4034,6 +4304,8 @@ function DayView(_ref57) {
         }, "＋ 追加")
       )
     ),
+    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-start" } },
+    React.createElement("div", { style: { flex: "1 1 460px", minWidth: 0 } },
     _trEntryRecords.length === 0 && !showForm && React.createElement("div", {
       style: { textAlign: "center", padding: 20, color: "#ccc", fontSize: 13 }
     }, "記録なし"),
@@ -4313,6 +4585,9 @@ function DayView(_ref57) {
       React.createElement("div", null, "成功/失敗 ", React.createElement("span", {
         style: { fontWeight: 600 }
       }, _trSuccessCount, "勝", _trFailCount, "敗"))
+    )
+    ),
+    React.createElement(EpNaviPanel, { data: data, save: save, date: date, stocks: allStocks, activeStock: cs })
     )
   ),
   
