@@ -35,6 +35,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-07g ⚡EPナビ 早見の操作性改善＝カードタップ編集・銘柄ごと＋計算・表示銘柄ピッカー(最大3)・計算画面は常時表示（ユーザー要望）
+- **app-04.js**: (1)**早見カードはカード全体タップで編集**（`_renderCard`にonClick=loadForEdit＋cursor:pointer・旧✎ボタン削除・×は`ev.stopPropagation()`で伝播止め）。(2)**「＋計算」を各銘柄カラムの下に**（`marginTop:auto`で下端揃え・onClick=setNStock(st)+_resetForm・ヘッダーの旧グローバル＋計算トグルは撤去）。(3)**計算画面は常時表示**＝epnOpen既定true・閉じるボタン撤去（開閉トグル廃止）。(4)**保存でリセット**は既存doSave→_resetForm（維持）＋**①銘柄の右に「↺リセット」ボタン**（_resetForm＝銘柄以外を初期化）。(5)**早見は横並び最大3銘柄＝`custom.epnStocks`**（EPナビ右上「⚙表示銘柄」ピッカーで選択・最大3で4つ目はdisabled・空/未設定は既定＝全銘柄先頭3から**「古河電工」を除外**・ピッカーで戻せる）。`_EPN_MAX_STOCKS=3`/`_epnStockToggle`（save→custom.epnStocks）/`showStockPicker`。savedViewは`epnStocks`（≤3）を列挙・EP無し銘柄も列は出す（「EPなし」＋＋計算）。
+- ユーザー要望（会話・逐次）: 早見はEP欄タップで編集／＋計算は各銘柄の下／全銘柄→最大3＋EPナビ内で設定／現状は古河電工を既定除外／計算画面は常時表示／保存でリセット＋①銘柄右にリセットボタン。
+- sw.js: APP_CACHE v52→v53。
+- 検証: V8構文OK（全app＋sw）＋実マウント（計算常時表示/閉じるボタン無し・列は最大3で古河電工除外・＋計算×3・⚙ピッカー開閉/最大3cap/deselectで補充/古河電工復帰/列即更新・カードタップで編集読込・↺リセットでバナー消去+水準線クリア・2タップ削除）すべてpass・console0。
+
 ### 2026-07-07f ⚡EPナビ大改修＝独立配置＋選択肢管理＋基準分足＋追加α根拠＋早見の銘柄横並び/色分け/編集（ユーザー要望・モック案C継続）
 - **app-04.js**: EpNaviPanelを全面刷新。**配置**＝エントリー記録テーブルの右サイドバー→**エントリー記録カードの「上」に独立表示**（full幅・DayView取引タブ先頭）。**番号**＝①銘柄／**②基準分足（新設・"1"/"5"トグル・両方可・フォームfMinBarsと同形）**／③シグナル／④底抜け／④起点／⑤その他特徴（それに伴い番号ずらし）。**水準線**＝旧「起点（水準線）価格」を「水準線」に改名し基本α欄の【上】へ移動。
 - **選択肢管理（新設ヘルパー`_EpnChipMgr`）**: シグナル（custom.signalTags）・底抜け/起点/その他特徴（custom.sigDetails2[タグ].{b,k,f}）・追加α根拠（custom.addAlphaReasons）の各チップに「＋追加・✎改名・×削除・ドラッグ並び替え」。改名は過去記録も追従＝`_sigRename`（signals[].tags/tag＋sigDetails2/sigDetailsキー＋各signal.sigDetailキーをrekey）／`_detRename`（`_elSigDetailRenameSig`で全charts走査・app-05）／`_rsnRename`（signals[].addAlphaReasons/addAlphaReason）。ドラッグはフォームのsigDetailチップと同方式（setPointerCapture遅延でタップ選択と両立）。マスター外の記録由来タグはorphansで選択可・編集不可。
