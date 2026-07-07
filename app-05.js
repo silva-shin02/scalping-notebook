@@ -6965,13 +6965,13 @@ function EntryRecordForm(_ref_erf) {
                       var _nm = (_detAddValRef.current || "").trim();
                       if (!_nm) return;
                       if (fDetAdd.old != null) {
-                        // 改名: セクション別マスター＋過去記録(signal.sigDetail[このタグ]の同セクション)を一括変更＝分析のグループが割れない。③(f)は旧形式（文字列/フラット配列）の記録も追従（_elSigDetailRenameSig）。同名が既にあれば何もしない。
+                        // 改名: セクション別マスター＋過去記録(signal.sigDetail[このタグ]の同セクション)を一括変更＝分析のグループが割れない。③(f)は旧形式（文字列/フラット配列）の記録も追従（_elSigDetailRenameSig）。同名が既にあれば「統合」(dedupe) 2026-07-07g。
                         var _old = fDetAdd.old;
                         if (_nm !== _old) {
                           save(function(prev) {
                             var _curList = (function() { var _cur = ((prev.custom || {}).sigDetails2 || {})[_dt]; if (_cur && typeof _cur === "object") return (_cur[_sc.key] || []); return (((prev.custom || {}).sigDetails || {})[_dt] || []); })();
-                            if (_curList.indexOf(_nm) >= 0) return prev;
-                            var _c = _writeSec(prev, _sc.key, _curList.map(function(x) { return x === _old ? _nm : x; }));
+                            var _rnL = _curList.map(function(x) { return x === _old ? _nm : x; });
+                            var _c = _writeSec(prev, _sc.key, _rnL.filter(function(x, i) { return x && _rnL.indexOf(x) === i; }));
                             var _pCharts = prev.charts || {}, _nCharts = {};
                             Object.keys(_pCharts).forEach(function(ck) {
                               var cc = _pCharts[ck];
@@ -7236,8 +7236,11 @@ function EntryRecordForm(_ref_erf) {
           if (!newNm || newNm === oldNm) return;
           save(function(prev) {
             var cur = (prev.custom && Array.isArray(prev.custom.addAlphaReasons)) ? prev.custom.addAlphaReasons : _DEF_ADD_REASONS.slice();
-            if (cur.indexOf(newNm) >= 0) return prev;  // 同名が既にある場合は何もしない
-            var newMaster = cur.map(function(x) { return x === oldNm ? newNm : x; });
+            // 既存名への改名も「統合」(dedupe)＋根拠詳細（custom.addReasonDetails／記録のaddReasonDetail）のキーも追従（衝突は和集合）2026-07-07g（旧: 同名ありは何もしない・詳細キー未追従）
+            var _rnM = cur.map(function(x) { return x === oldNm ? newNm : x; });
+            var newMaster = _rnM.filter(function(x, i) { return x && _rnM.indexOf(x) === i; });
+            var _mergeArrR = function(nw, od) { var _a = [].concat(Array.isArray(nw) ? nw : (nw ? [nw] : []), Array.isArray(od) ? od : (od ? [od] : [])); return _a.filter(function(x, i) { return x && _a.indexOf(x) === i; }); };
+            var _rnKeyR = function(m) { if (!m || typeof m !== "object" || m[oldNm] === undefined) return m; var n = Object.assign({}, m); n[newNm] = (n[newNm] !== undefined) ? _mergeArrR(n[newNm], n[oldNm]) : n[oldNm]; delete n[oldNm]; return n; };
             var charts = prev.charts || {}, newCharts = {};
             Object.keys(charts).forEach(function(ck) {
               var c = charts[ck];
@@ -7247,16 +7250,20 @@ function EntryRecordForm(_ref_erf) {
                 if (!s) return s;
                 var ns = s, hit = false;
                 if (Array.isArray(s.addAlphaReasons) && s.addAlphaReasons.indexOf(oldNm) >= 0) {
-                  ns = Object.assign({}, ns, { addAlphaReasons: s.addAlphaReasons.map(function(x) { return x === oldNm ? newNm : x; }) }); hit = true;
+                  var _rl = s.addAlphaReasons.map(function(x) { return x === oldNm ? newNm : x; });
+                  ns = Object.assign({}, ns, { addAlphaReasons: _rl.filter(function(x, i) { return x && _rl.indexOf(x) === i; }) }); hit = true;
                 }
                 if (s.addAlphaReason === oldNm) { ns = Object.assign({}, ns, { addAlphaReason: newNm }); hit = true; }
+                if (s.addReasonDetail && typeof s.addReasonDetail === "object" && s.addReasonDetail[oldNm] !== undefined) {
+                  ns = Object.assign({}, ns, { addReasonDetail: _rnKeyR(Object.assign({}, s.addReasonDetail)) }); hit = true;
+                }
                 if (hit) changed = true;
                 return ns;
               });
               newCharts[ck] = changed ? Object.assign({}, c, { signals: sigs }) : c;
             });
             return Object.assign({}, prev, {
-              custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: newMaster }),
+              custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: newMaster, addReasonDetails: _rnKeyR((prev.custom || {}).addReasonDetails) }),
               charts: newCharts
             });
           });
@@ -7493,13 +7500,13 @@ function EntryRecordForm(_ref_erf) {
                       var _nm = (_rsnDetValRef.current || "").trim();
                       if (!_nm) return;
                       if (fRsnDetAdd.old != null) {
-                        // 改名: マスター＋過去記録(signal.addReasonDetail[この根拠])を一括変更＝将来の分析グループが割れない（シグナル詳細と同型）。同名が既にあれば何もしない。
+                        // 改名: マスター＋過去記録(signal.addReasonDetail[この根拠])を一括変更＝将来の分析グループが割れない（シグナル詳細と同型）。同名が既にあれば「統合」(dedupe) 2026-07-07g。
                         var _old = fRsnDetAdd.old;
                         if (_nm !== _old) {
                           save(function(prev) {
                             var _curList = (((prev.custom || {}).addReasonDetails || {})[_rn] || []);
-                            if (_curList.indexOf(_nm) >= 0) return prev;
-                            var _c = _writeRD(prev, _curList.map(function(x) { return x === _old ? _nm : x; }));
+                            var _rnL = _curList.map(function(x) { return x === _old ? _nm : x; });
+                            var _c = _writeRD(prev, _rnL.filter(function(x, i) { return x && _rnL.indexOf(x) === i; }));
                             var _pCharts = prev.charts || {}, _nCharts = {};
                             Object.keys(_pCharts).forEach(function(ck) {
                               var cc = _pCharts[ck];

@@ -4126,7 +4126,10 @@ function DayView(_ref57) {
         psc[newName] = psc[oldName];
         delete psc[oldName];
       }
-      next.custom = Object.assign({}, pc, { stocks: ps, stockCodes: psc });
+      // 銘柄名で保持している他のcustomも追従（2026-07-07g・従来の追従漏れ）: EPナビ表示銘柄・ニュース参照(stockSubCatRefs)・銘柄情報タブ(stockInfoTabs)
+      var _rnStockKey = function(m) { if (!m || typeof m !== "object" || !(oldName in m)) return m; var n = Object.assign({}, m); if (!(newName in n)) n[newName] = n[oldName]; delete n[oldName]; return n; };
+      var _pepn = Array.isArray(pc.epnStocks) ? pc.epnStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.epnStocks;
+      next.custom = Object.assign({}, pc, { stocks: ps, stockCodes: psc, epnStocks: _pepn, stockSubCatRefs: _rnStockKey(pc.stockSubCatRefs), stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
       
       var pch = prev.charts || {};
       var nch = {};
