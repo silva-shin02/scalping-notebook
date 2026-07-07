@@ -4068,10 +4068,10 @@ function _elCollisionExcludedSet(data) {
       if (!_epIsV2(s) || !_elInclTotal(s)) return;
       var mn = _toMin(s.time);
       if (mn == null) return;
-      (byDay[date] = byDay[date] || []).push({ key: _elCollKey(stock, date, s), min: mn, main: _elHold2TotParts(s, _epOwnAlpha(s), cut).main });
+      (byDay[date] = byDay[date] || []).push({ key: _elCollKey(stock, date, s), stock: stock, time: s.time || "", min: mn, main: _elHold2TotParts(s, _epOwnAlpha(s), cut).main });
     });
   });
-  var excluded = {}, marked = {};
+  var excluded = {}, marked = {}, info = {};
   Object.keys(byDay).forEach(function(d) {
     var arr = byDay[d].sort(function(a, b) { return (a.min - b.min) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0); });
     var i = 0;
@@ -4080,8 +4080,11 @@ function _elCollisionExcludedSet(data) {
         var A = arr[i], B = arr[i + 1];
         if (A.main != null && B.main != null) {
           var drop = (B.main >= A.main) ? B : A;
+          var keep = (drop === B) ? A : B;
           excluded[drop.key] = 1;
-          marked[(drop === B ? A : B).key] = 1;
+          marked[keep.key] = 1;
+          info[drop.key] = { role: "drop", own: drop.main, oStock: keep.stock, oTime: keep.time, oMain: keep.main };
+          info[keep.key] = { role: "keep", own: keep.main, oStock: drop.stock, oTime: drop.time, oMain: drop.main };
         }
         i += 2;
       } else {
@@ -4090,7 +4093,7 @@ function _elCollisionExcludedSet(data) {
     }
   });
   _elCollMemoCharts = charts;
-  _elCollMemoSet = { excluded: excluded, marked: marked };
+  _elCollMemoSet = { excluded: excluded, marked: marked, info: info };
   return _elCollMemoSet;
 }
 // r={stock,date,signal} が除外対象（良い方＝合計額に入れない）か／残した側（※被り有マーク）か。
@@ -4098,11 +4101,29 @@ function _elCollExcluded(data, r) { return !!(r && r.signal && _elCollisionExclu
 function _elCollMarked(data, r) { return !!(r && r.signal && _elCollisionExcludedSet(data).marked[_elCollKey(r.stock, r.date, r.signal)]); }
 // signal直渡し版（recラッパーが無いループ用: カレンダー月次/日別ランク・検索日カード・早見表等）。
 function _elCollExcludedSig(data, stock, date, s) { return !!(s && _elCollisionExcludedSet(data).excluded[_elCollKey(stock, date, s)]); }
-// 明細行用の「※被り有」小バッジ（残した側＝悪い方に付く。対象外はnull）。
+// recs配列中の「被り除外」該当件数（KPI等の可視化用）。
+function _elCollExclCountRecs(data, recs) { var n = 0; (recs || []).forEach(function(r) { if (_elCollExcluded(data, r)) n++; }); return n; }
+// 明細行用の時間かぶり小バッジ（残した側＝悪い方「※被り有」・除外された側＝良い方「被り除外」灰色。対象外はnull）2026-07-07両側可視化。
 function _elCollMarkNode(data, r) {
-  if (!_elCollMarked(data, r)) return null;
-  return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。ペアの良い方（（）外手じまい損益が高い方）は合計額から除外し、この記録（悪い方）だけを合計に算入（件数は両方残る）",
-    style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "※被り有");
+  if (_elCollMarked(data, r)) {
+    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。ペアの良い方（（）外手じまい損益が高い方）は合計額から除外し、この記録（悪い方）だけを合計に算入（件数は両方残る）",
+      style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "※被り有");
+  }
+  if (_elCollExcluded(data, r)) {
+    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。この記録は良い方（（）外手じまい損益が高い方）＝損益は合計額に入れない（件数は残る）",
+      style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "被り除外");
+  }
+  return null;
+}
+// EntryLogCard用: 被りペアの相手（銘柄/時刻/（）外損益）を1行で示す。dataが無い呼び出し（app-02/04のα直指定カード）はnull。
+function _elCollPairNode(data, r) {
+  if (!data || !r || !r.signal) return null;
+  var inf = _elCollisionExcludedSet(data).info[_elCollKey(r.stock, r.date, r.signal)];
+  if (!inf) return null;
+  var isKeep = inf.role === "keep";
+  return React.createElement("div", { style: { fontSize: 9, fontWeight: 600, color: isKeep ? "#B45309" : "#64748B", background: isKeep ? "#FFFBEB" : "#F8FAFC", border: "1px solid " + (isKeep ? "#FCD34D" : "#E2E8F0"), borderRadius: 4, padding: "2px 6px", marginBottom: 6, lineHeight: 1.4 } },
+    (isKeep ? "※被り有: " : "被り除外: ") + "同日" + (inf.oTime || "—") + "の" + inf.oStock + "（" + _elPnlFmt(inf.oMain) + "）とペア＝" +
+    (isKeep ? "良い方（相手）を合計から除外し、この記録（" + _elPnlFmt(inf.own) + "）を算入" : "この記録（" + _elPnlFmt(inf.own) + "・良い方）は合計額に入れない（件数は残る）"));
 }
 // 合計行の共通集計: EP損益(planCap/AB込み)・H1(_elHold1TotParts)・H2(_elHold2TotParts)・実現損益。
 // get={signal,alpha,cut,real?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
@@ -8245,6 +8266,7 @@ function EntryLogCard(_ref_elc) {
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock)
     ),
+    _ref_elc.data ? _elCollPairNode(_ref_elc.data, record) : null,
 
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       s.tradeType && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: s.tradeType === "空売" ? "#FCEBEB" : "#EAF3DE", color: s.tradeType === "空売" ? "#C0392B" : "#1E8449", borderRadius: 4, border: "1px solid " + (s.tradeType === "空売" ? "#F5C6CB" : "#A9DFBF") } }, s.tradeType),

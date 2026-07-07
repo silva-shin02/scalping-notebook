@@ -4483,6 +4483,13 @@ function EntryLogView(_ref_elv2) {
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
           React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } }, head)),
           React.createElement("tbody", null, body))),
+      (function() {   // 時間かぶりの凡例（表示中に該当行がある時だけ・tooltipはスマホで見えないため明記）2026-07-07
+        var _hasColl = shown.some(function(r) { return _elCollMarked(data, r) || _elCollExcluded(data, r); });
+        if (!_hasColl) return null;
+        return React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", padding: "4px 6px 0", lineHeight: 1.5 } },
+          "凡例: ", React.createElement("b", { style: { color: "#B45309" } }, "※被り有"), "＝同日5分以内ペアの残した側（悪い方＝損益を合計に算入）／",
+          React.createElement("b", { style: { color: "#64748B" } }, "被り除外"), "＝ペアの良い方（損益は合計額に入れない・件数は残る）");
+      })(),
       (limit && recs.length > limit) ? React.createElement("button", {
         onClick: function() { setListLimit(listLimit + 100); },
         style: { width: "100%", padding: "8px", fontSize: 12, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", marginTop: 6 }
@@ -4556,8 +4563,9 @@ function EntryLogView(_ref_elv2) {
     var _ewinD = _wOk + _wNg + _wDr, _ewin = _ewinD ? Math.round(_wOk / _ewinD * 100) : null;
     var _entDays = 0; for (var _dk in _daySet) { if (_daySet.hasOwnProperty(_dk)) _entDays++; }
     var _perDay = (_entDays > 0 && t.holdPlanCap != null) ? Math.round(t.holdPlanCap / _entDays) : null;
+    var _collXN = _elCollExclCountRecs(data, rs);
     return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 } },
-      _kpiCard("件数", n + "件", "#333", "v2記録のみ"),
+      _kpiCard("件数", n + "件", "#333", "v2記録のみ" + (_collXN > 0 ? "・被り除外" + _collXN + "件" : "")),
       _kpiCard("E到達率", reach != null ? reach + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
       _kpiCard("E後の勝率", _ewin != null ? _ewin + "%" : "—", _ewin != null ? (_ewin >= 50 ? "#1E8449" : "#B45309") : "#bbb", "勝" + _wOk + "・負" + _wNg + (_wDr ? "・分" + _wDr : "") + "／E成立" + _ewinD + "件"),
       _kpiCard("EP損益", _yenNR(t.plan, t.planCnt, t.planRef, t.planRefCnt), null, t.planCnt + "件"),
@@ -4787,7 +4795,7 @@ function EntryLogView(_ref_elv2) {
     return React.createElement(React.Fragment, null,
       _addFilBar(),
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
-        _kpiCard("件数", _osFilRecs.length + "件", "#333"),
+        _kpiCard("件数", _osFilRecs.length + "件", "#333", (function() { var _cn = _elCollExclCountRecs(data, _osFilRecs); return _cn > 0 ? "被り除外" + _cn + "件" : null; })()),
         _kpiCard("E到達数（到達率）", _reach + "件（" + _reachRate + "%）", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
         _kpiCard("一番引っ張った損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, "○で最深（○△）・" + t.hold2Cnt + "件"),
         _kpiCard("損切り件数（損切り率）", (ss.any || 0) + "回（" + (ss.rate != null ? ss.rate : 0) + "%）", ss.any > 0 ? "#1E8449" : "#bbb", "E成立が分母"),
@@ -5019,7 +5027,7 @@ function EntryLogView(_ref_elv2) {
       var _periodKpi = function(rs) {
         var t = _periodTot(rs), rr = _ratesOf(rs);
         return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
-          _kpiCard("件数", rs.length + "件", "#333"),
+          _kpiCard("件数", rs.length + "件", "#333", (function() { var _cn = _elCollExclCountRecs(data, rs); return _cn > 0 ? "被り除外" + _cn + "件" : null; })()),
           _kpiCard("実現損益", _yenN(t.real, t.realCnt), null, t.realCnt + "件"),
           _kpiCard("EP損益", _yenNR(t.plan, t.planCnt, t.planRef, t.planRefCnt), null, t.planCnt + "件"),
           _kpiCard("H1損益", _yenNR(t.holdPlanCap, t.holdCnt, t.holdRef, t.holdRefCnt), null, t.holdCnt + "件"),
