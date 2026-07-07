@@ -4779,7 +4779,7 @@ function DayView(_ref57) {
               _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
-            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, sigLabel),
+            React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _elSigCell(s, "flex-start")),
             React.createElement("td", { style: { padding: "4px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", background: _elAddAlphaYes(s) ? "#FEF3C7" : null } },
               _aiTr.alpha != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _aiTr.alpha + "円"), _elAlphaBreakdownNode(s, _aiTr.alpha)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", {
@@ -4968,7 +4968,7 @@ function DayView(_ref57) {
       return _elGradeBadge18(grade);
     };
     // 一括α理想値ボタン＋リセットボタン。records各記録のα値シミュに推奨基本α値を一括入力／全クリアして採用α値に戻す（非保存）。
-    var _bulkIdealCtrl = function(records, simVal, simSet, keyOf, cutOf) {
+    var _bulkIdealCtrl = function(records, simVal, simSet, keyOf, cutOf) { return null;   // 一括α理想値バー撤去 2026-07-07
       // 適用中=表示中の全記録のα値シミュが各記録の推奨基本α値と一致している状態。trueならボタンに✓＋塗りつぶし表示。
       var _bav = (function() { var _ba = _elBaseAlphaPick(records, function(r) { return { cutLine: cutOf(r) }; }); return (_ba && _ba.alpha != null) ? String(_ba.alpha) : null; })();
       var _applied = !!(_bav != null && records && records.length > 0 && records.every(function(r) { return simVal && simVal[keyOf(r)] === _bav; }));
@@ -5010,7 +5010,7 @@ function DayView(_ref57) {
         var amt = missFlag ? React.createElement("span", { style: { color: "#888" } }, "—") : (pnl != null ? React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(pnl) } }, _rPnlFmt(pnl)) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
         return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _lane(sym, 14), _sl(), _lane(badge, 18), _sl(), _lane(amt, 52, "flex-start"));
       };
-      var _renderSimAlphaInput = function(r, _sc) {
+      var _renderSimAlphaInput = function(r, _sc) { return null;   // α値シミュ撤去 2026-07-07
         var k = _sc.keyOf(r);
         var actualA = _sc.actualOf(r);
         var raw = _sc.val[k];
@@ -5038,7 +5038,7 @@ function DayView(_ref57) {
         );
       };
       // 損切り値シミュ欄（α値シミュと全く同じ形。色は紫で区別）。理想損切り値=10/15/20で損切り回避できる最小値。
-      var _renderSimCutInput = function(r, _sc) {
+      var _renderSimCutInput = function(r, _sc) { return null;   // 損切り値シミュ撤去 2026-07-07
         var k = _sc.keyOf(r);
         var actualC = _sc.actualOf(r);
         var raw = _sc.val[k];
@@ -5158,12 +5158,7 @@ function DayView(_ref57) {
             _epIncompleteMark(s),
             _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
-            (function() {
-              var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : []));
-              if (!_sigs.length) return "—";
-              return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } },
-                _sigs.map(function(_t, _i) { return _sigNameNode(_elTagDisp(s, _t), _i); }));
-            })()),
+            _elSigCell(s, "center")),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%", background: _elAddAlphaYes(s) ? "#FEF3C7" : null } },
             _alphaRec != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _alphaRec + "円"), _elAlphaBreakdownNode(s, _alphaRec)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },

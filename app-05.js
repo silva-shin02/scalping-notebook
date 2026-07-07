@@ -5144,6 +5144,30 @@ function _elTagDisp(s, t) {
   _sec.f.forEach(function(x) { _ps.push(x); });
   return _ps.length ? t + "（" + _ps.join("・") + "）" : t;
 }
+// シグナルセルの2行表示（案B 2026-07-07）: 1行目=シグナル名、2行目=底X・起Y、3行目=③特徴。詳細が1つも無い記録は赤「詳細未選択」バッジで明示。_elTagDisp（1行括弧表記）の縦積み版で、明細表のシグナル欄に使う。
+function _elSigCellNode(s, t, key) {
+  var _sec = _elSigDetailSec(s, t);
+  var _hasDet = !!(_sec.b || _sec.k || (_sec.f && _sec.f.length));
+  var _bk = [];
+  if (_sec.b) _bk.push("底 " + _sec.b);
+  if (_sec.k) _bk.push("起 " + _sec.k);
+  var _feat = (_sec.f || []).filter(Boolean);
+  return React.createElement("div", { key: key, style: { lineHeight: 1.3 } },
+    React.createElement("div", { style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, t),
+    _bk.length ? React.createElement("div", { style: { fontSize: 9.5, color: "#64748B", lineHeight: 1.25 } }, _bk.join("・")) : null,
+    _feat.length ? React.createElement("div", { style: { fontSize: 9.5, color: "#64748B", lineHeight: 1.25 } }, "特徴 " + _feat.join("・")) : null,
+    !_hasDet ? React.createElement("div", { style: { display: "inline-block", fontSize: 8.5, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 3, padding: "0 4px", marginTop: 1 } }, "詳細未選択") : null);
+}
+// 明細表のシグナル欄（全タグ＋カスタムタグ＋未設定）を案Bの縦積みで返す共有部品。align=セル内の水平寄せ。
+function _elSigCell(s, align) {
+  var _tags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []));
+  var _nodes = _tags.map(function(_t, _i) { return _elSigCellNode(s, _t, _i); });
+  if (s.isCustomTag) _nodes.push(React.createElement("div", { key: "cust", style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, s.customTagText || "(その他)"));
+  // タグ非設定でカテゴリ記録（日経/マクロ等・sigDetail概念なし）はプレーン表示（詳細未選択バッジは出さない）
+  if (!_nodes.length && s.categories && s.categories.length) _nodes = s.categories.map(function(_c, _i) { return React.createElement("div", { key: "c" + _i, style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, _c); });
+  if (!_nodes.length) return React.createElement("span", { style: { color: "#94A3B8" } }, "(未設定)");
+  return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: align || "center", gap: 3 } }, _nodes);
+}
 // 追加α根拠の詳細（2026-07-07d・ユーザー選択=複数可）: signal.addReasonDetail={根拠名:[詳細名...]}（任意・根拠ごと複数可）・候補マスターはcustom.addReasonDetails={根拠名:[詳細名]}。
 // 例:「指標線支え」→50EMA。分析への組み込みはのちに（今回は記録のみ）。読み取りはこれ経由（文字列/配列を正規化）。
 function _elAddReasonDetailList(s, rsn) {

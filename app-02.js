@@ -3966,7 +3966,7 @@ function EntrySignalSection(_ref_es) {
   // α値シミュ/損切り値シミュ入力（本日の損益データと同型・記録ごと。未入力なら採用α値/c.cutLineで従来と同一）。
   var _esAlphaSimCtx = { keyOf: _esRecKey, actualOf: function(rr){ return _esActualAlpha(rr.signal); }, val: _esSimAlpha, set: setEsSimAlpha };
   var _esCutSimCtx = { keyOf: _esRecKey, actualOf: function(rr){ return _esActualCut(rr.signal); }, val: _esSimCut, set: setEsSimCut };
-  var _esRenderSimAlpha = function(r) {
+  var _esRenderSimAlpha = function(r) { return null;   // α/損切りシミュ撤去 2026-07-07
     var sc = _esAlphaSimCtx, k = sc.keyOf(r), actualA = sc.actualOf(r), raw = sc.val[k];
     var hasOv = raw != null && raw !== "";
     var curStr = (raw != null) ? raw : (actualA != null ? String(actualA) : "");
@@ -3991,7 +3991,7 @@ function EntrySignalSection(_ref_es) {
       )
     );
   };
-  var _esRenderSimCut = function(r) {
+  var _esRenderSimCut = function(r) { return null;   // α/損切りシミュ撤去 2026-07-07
     var sc = _esCutSimCtx, k = sc.keyOf(r), actualC = sc.actualOf(r), raw = sc.val[k];
     var hasOv = raw != null && raw !== "";
     var curStr = (raw != null) ? raw : (actualC != null ? String(actualC) : "");
@@ -4491,7 +4491,7 @@ function EntrySignalSection(_ref_es) {
         })
       )
     ),
-    records.length > 0 ? (function() {
+    false ? (function() {   // 一括α理想値バー撤去 2026-07-07
       // 適用中=表示中の全記録のα値シミュが各記録の推奨基本α値と一致。trueならボタンに✓＋塗りつぶし表示。
       var _esBAV = (function() { var _ba = _elBaseAlphaPick(records, function(r) { return { cutLine: _esCut(r.signal) }; }); return (_ba && _ba.alpha != null) ? String(_ba.alpha) : null; })();
       var _esApplied = _esBAV != null && records.length > 0 && records.every(function(r) { return _esSimAlpha[_esRecKey(r)] === _esBAV; });
@@ -4680,11 +4680,7 @@ function EntrySignalSection(_ref_es) {
                   _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null
                 ),
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
-                  _sigParts.length > 0
-                    ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 } }, _sigParts.map(function(_t, _i) { return _sigNameNode(_t, _i); }))
-                    : "(未設定)",
-                  _esRenderSimAlpha(r),
-                  _esRenderSimCut(r)),
+                  _elSigCell(s, "flex-start")),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", background: _elAddAlphaYes(s) ? "#FEF3C7" : null } },
                   _avH != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _avH + "円"), _elAlphaBreakdownNode(s, _avH)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
                 React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
@@ -4961,7 +4957,7 @@ function WeeklyPnlPanel(_wpp) {
   var _alphaOf = function(r) { var o = simAlpha[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _alphaActual(r); };
   var _cutOf = function(r) { var o = simCut[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _cutActual(r); };
   var _navBtn = function(lbl, fn) { return React.createElement("button", { onClick: fn, style: { padding: "2px 9px", fontSize: 13, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#555", lineHeight: 1.2 } }, lbl); };
-  var _simInput = function(r, isAlpha) {
+  var _simInput = function(r, isAlpha) { return null;   // α/損切りシミュ撤去 2026-07-07
     var k = _key(r);
     var actual = isAlpha ? _alphaActual(r) : _cutActual(r);
     var sv = isAlpha ? simAlpha : simCut, setSv = isAlpha ? setSimAlpha : setSimCut;
@@ -5013,7 +5009,7 @@ function WeeklyPnlPanel(_wpp) {
         React.createElement("div", null, s.time || "—", _minBarBadge(s)), _epIncompleteMark(s),
         _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
-        (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_elTagDisp(s, _t), _i); })); })()),
+        _elSigCell(s, "center")),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%", background: _elAddAlphaYes(s) ? "#FEF3C7" : null } },
         a != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, a + "円"), _elAlphaBreakdownNode(s, a)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, width: "1%" } }, _epOsChainCell(s, a)),
@@ -5205,7 +5201,7 @@ function WeeklyPnlPanel(_wpp) {
   var _simAlphaCnt = Object.keys(simAlpha).filter(function(k) { return simAlpha[k] != null && simAlpha[k] !== ""; }).length;
   var _simCutCnt = Object.keys(simCut).filter(function(k) { return simCut[k] != null && simCut[k] !== ""; }).length;
   var _simActive = _simAlphaCnt + _simCutCnt;
-  var _simControlsBar = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 6px", flexWrap: "wrap" } },
+  var _simControlsBar = null && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 6px", flexWrap: "wrap" } },
     _simActive > 0 ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件 / 損切り " + _simCutCnt + "件") : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: "#94A3B8" } }, "α値・損切り値シミュ：行の数値を変えると再計算（非保存）"),
     React.createElement("button", { onClick: function() { var ba = _elBaseAlphaPick(_recs, function(r) { return { cutLine: _cutOf(r) }; }); if (!ba || ba.alpha == null) return; var v = String(ba.alpha); var m = {}; _recs.forEach(function(r) { m[_key(r)] = v; }); setSimAlpha(m); }, style: { fontSize: 10, fontWeight: 700, padding: "2px 8px", border: "1px solid #0369A1", borderRadius: 4, background: "#E0F2FE", color: "#0369A1", cursor: "pointer", whiteSpace: "nowrap" } }, "一括 推奨基本α"),
     _simActive > 0 ? React.createElement("button", { onClick: function() { setSimAlpha({}); setSimCut({}); }, style: { fontSize: 10, padding: "2px 8px", border: "1px solid #ddd", borderRadius: 4, background: "#f5f4f0", color: "#555", cursor: "pointer", fontWeight: 600 } }, "↺ 全解除") : null);
