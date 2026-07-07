@@ -109,6 +109,7 @@ function Calendar(_ref60) {
       c.signals.forEach(function(sig) {
         var s = _compatSignal(sig);
         if (!_elInclTotal(s)) return;
+        if (_elCollExcludedSig(data, ck.slice(0, ck.lastIndexOf("_")), dt, s)) return;
         if (!_elIsEntered(s, null)) return;
         if (!m[dt]) m[dt] = { sum: 0, count: 0 };
         var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
@@ -4095,6 +4096,8 @@ function _elCollisionExcludedSet(data) {
 // r={stock,date,signal} が除外対象（良い方＝合計額に入れない）か／残した側（※被り有マーク）か。
 function _elCollExcluded(data, r) { return !!(r && r.signal && _elCollisionExcludedSet(data).excluded[_elCollKey(r.stock, r.date, r.signal)]); }
 function _elCollMarked(data, r) { return !!(r && r.signal && _elCollisionExcludedSet(data).marked[_elCollKey(r.stock, r.date, r.signal)]); }
+// signal直渡し版（recラッパーが無いループ用: カレンダー月次/日別ランク・検索日カード・早見表等）。
+function _elCollExcludedSig(data, stock, date, s) { return !!(s && _elCollisionExcludedSet(data).excluded[_elCollKey(stock, date, s)]); }
 // 明細行用の「※被り有」小バッジ（残した側＝悪い方に付く。対象外はnull）。
 function _elCollMarkNode(data, r) {
   if (!_elCollMarked(data, r)) return null;
@@ -4933,8 +4936,9 @@ function _elAllMissRow(recs, alphaOf, cutOf) {
 // _elCalcStats の結果から全miss(E基準未達)集計かを判定（statsの想定/H1/H2合計と同じαで算出済み）。
 function _elStatAllMiss(st) { return !!st && st.total > 0 && st.miss === st.total; }
 
-function _elCalcChartGrades(signals, alpha, cutLine) {
+function _elCalcChartGrades(signals, alpha, cutLine, exclFn) {
   var _fixedA = alpha != null;  // α固定指定。null=各記録の採用α値(signal.alphaVal)で実計算
+  // exclFn(compat済signal)→true＝時間かぶり除外（良い方）＝金額もCntも全スキップ（早見表/カレンダーの呼び出し側で配線）2026-07-07
   var _c = (cutLine != null ? cutLine : 10);
   var realSum = 0, planSum = 0, holdSum = 0;
   var realCount = 0, planCount = 0, holdCount = 0;
@@ -4949,6 +4953,7 @@ function _elCalcChartGrades(signals, alpha, cutLine) {
   // 合計額算入: includeInTotal===false の記録は合計/グレード/件数から除外（早見表の3セル等が使用）。2026-06-18
   (signals || []).filter(function(sig) { return _elInclTotal(sig); }).forEach(function(sig) {
     var s = _compatSignal(sig);
+    if (exclFn && exclFn(s)) return;
     var _aSig = _fixedA ? alpha : (s.alphaVal != null && s.alphaVal !== "" ? Number(s.alphaVal) : _gradeAlpha(s.difficulty));
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     _totCnt++;
