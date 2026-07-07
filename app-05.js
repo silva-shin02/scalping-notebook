@@ -8279,9 +8279,25 @@ function EntryLogCard(_ref_elc) {
       record.stockTags && record.stockTags.map(function(t) {
         return React.createElement("span", { key: t, style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, border: "1px solid #BFDBFE" } }, "📌 " + t);
       }),
-      _elcAi && _elcAi.alpha != null && React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", padding: "1px 6px", background: "#F0F9FF", borderRadius: 4, border: "1px solid #BAE6FD" } }, "採用α " + _elcAi.alpha + "円 / 損切り " + _elcAi.cutLine + "円")
+      _elcAi && _elcAi.alpha != null && React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", padding: "1px 6px", background: "#F0F9FF", borderRadius: 4, border: "1px solid #BAE6FD" } }, "採用α " + _elcAi.alpha + "円 / 損切り " + _elcAi.cutLine + "円"),
+      _elcAi && _elcAi.alpha != null ? _elAlphaBreakdownNode(s, _elcAi.alpha) : null
     ),
-    
+    (function() {   // 詳細タグ（底/起/特徴）＝明細表のシグナル欄2行表示(_elSigCell)とカードを対称に 2026-07-07
+      var _dTags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []));
+      var _parts = [];
+      _dTags.forEach(function(t) {
+        var _sec = _elSigDetailSec(s, t);
+        var _b = [];
+        if (_sec.b) _b.push("底 " + _sec.b);
+        if (_sec.k) _b.push("起 " + _sec.k);
+        var _f = (_sec.f || []).filter(Boolean);
+        if (_f.length) _b.push("特徴 " + _f.join("・"));
+        if (_b.length) _parts.push((_dTags.length > 1 ? t + ": " : "") + _b.join("・"));
+      });
+      if (!_parts.length) return null;
+      return React.createElement("div", { style: { fontSize: 9.5, color: "#64748B", margin: "-2px 0 6px", lineHeight: 1.4 } }, _parts.join(" ／ "));
+    })(),
+
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start", marginBottom: (s.rationale || s.reflection || s.thruMemo || s.priceIn || s.priceOut) ? 6 : 0 } },
 
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
