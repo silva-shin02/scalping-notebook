@@ -3167,6 +3167,14 @@ function _elNotInclRowStyle(s) {
   if (_elIsThru(s)) return { opacity: 0.6, background: "#F5F5F4", borderLeft: "3px solid #9CA3AF" };
   return _elIsExcluded(s) ? { opacity: 0.62, background: "#EFF8FF", borderLeft: "3px solid #38BDF8" } : null;
 }
+// 行スタイル統合版（2026-07-08）: スルー(灰)/不算入(水色)に加え、時間かぶりで除外された記録（良い方）を薄紫で行全体色分け。
+// 優先順位はスルー/不算入が先（被り除外の母数=算入のみなので実際には排他）。r={stock,date,signal}・dataが無い呼び出しは従来どおり。
+function _elRowStyleWithColl(data, r) {
+  var st = _elNotInclRowStyle(r && r.signal);
+  if (st) return st;
+  if (data && _elCollExcluded(data, r)) return { opacity: 0.68, background: "#F5F3FF", borderLeft: "3px solid #A78BFA" };
+  return null;
+}
 // 水色ドット（銘柄タブ/カレンダー用）。countを渡すとタイトルに件数。
 function _elExclDot(count, extra) {
   return React.createElement("span", { title: (count ? "不算入 " + count + "件" : "不算入の記録あり"),
@@ -4112,7 +4120,7 @@ function _elCollMarkNode(data, r) {
   }
   if (_elCollExcluded(data, r)) {
     return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。この記録は良い方（（）外手じまい損益が高い方）＝損益は合計額に入れない（件数は残る）",
-      style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "被り除外");
+      style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "被り除外");
   }
   return null;
 }

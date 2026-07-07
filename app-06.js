@@ -4469,7 +4469,7 @@ function EntryLogView(_ref_elv2) {
         ]).concat(_elHoldTd2(s, a.alpha, a.cutLine, { padding: "4px 6px", textAlign: "center", fontSize: 11, borderTop: "1px solid #f0ede8" }))
           .concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60) : _dash)]);
       }
-      body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elNotInclRowStyle(s)) }, cells));
+      body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r)) }, cells));
       if (on) body.push(React.createElement("tr", { key: ek + "_c" },
         React.createElement("td", { colSpan: colN, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
           React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate }))));
@@ -4488,7 +4488,7 @@ function EntryLogView(_ref_elv2) {
         if (!_hasColl) return null;
         return React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", padding: "4px 6px 0", lineHeight: 1.5 } },
           "凡例: ", React.createElement("b", { style: { color: "#B45309" } }, "※被り有"), "＝同日5分以内ペアの残した側（悪い方＝損益を合計に算入）／",
-          React.createElement("b", { style: { color: "#64748B" } }, "被り除外"), "＝ペアの良い方（損益は合計額に入れない・件数は残る）");
+          React.createElement("b", { style: { color: "#6D28D9" } }, "被り除外"), "＝ペアの良い方（薄紫の行・損益は合計額に入れない・件数は残る）");
       })(),
       (limit && recs.length > limit) ? React.createElement("button", {
         onClick: function() { setListLimit(listLimit + 100); },

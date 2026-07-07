@@ -4758,7 +4758,7 @@ function DayView(_ref57) {
         var rKeyRef = rKey;
         dataRows.push(
           React.createElement("tr", { key: rKey,
-            style: Object.assign({ cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" }, _elNotInclRowStyle(s)),
+            style: Object.assign({ cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" }, _elRowStyleWithColl(data, r)),
             onClick: function() { setTrTableRecExp(function(prev) { var n = Object.assign({}, prev); if (n[rKeyRef]) delete n[rKeyRef]; else n[rKeyRef] = true; return n; }); }
           },
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
@@ -5131,7 +5131,7 @@ function DayView(_ref57) {
         var gPlan = planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null;
         subRows.push(React.createElement("tr", {
           key: rKey + "_row",
-          style: Object.assign({ background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elNotInclRowStyle(s)),
+          style: Object.assign({ background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r)),
           onClick: function() {
             var next = Object.assign({}, pnlRecordExpandSet);
             if (rExp) { delete next[rKey]; } else { next[rKey] = true; }
