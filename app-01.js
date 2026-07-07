@@ -696,6 +696,86 @@ function migrateData(d) {
     } catch(e) { console.warn("[migrateData] sigRename error:", e); }
   }
 
+  // シグナル名の統合改名（2026-07-07f・ユーザーがマスター名を変更→過去記録が別シグナル扱いになった件の追従）:
+  //   底抜け水準線OS→底抜けラインOS／底つきサイン水準線OS→底つきラインOS／寄り付き足OS→寄り付きラインOS。
+  // 旧名を保持する全保存箇所を新名へ書き換え＝記録帳/分析/推奨αで同一シグナルとして集計される（旧「底抜けラインOS」既存記録とも統合）。
+  // 対象: 記録(tag/tags/sigDetailキー)・マスター(custom.signalTags)・詳細候補(custom.sigDetails/sigDetails2キー)・
+  //       浮き足対象(custom.ukiSignalNames/ukiSignalName)・出現欄メモ(charts[*].apMemos「s|id|名前」キー)・手動出現(appearances[].name)・EPナビ保存(epNavi[].tag)。
+  // キー衝突（改名先が既存）は統合: 配列=和集合・単一値=既存(新名側)優先で欠けのみ旧から補完。冪等（_migSignalRename2）。
+  if (!d._migSignalRename2) {
+    try {
+      var _RN2 = { "底抜け水準線OS": "底抜けラインOS", "底つきサイン水準線OS": "底つきラインOS", "寄り付き足OS": "寄り付きラインOS" };
+      var _rn2 = function(nm) { return (nm != null && _RN2[nm]) ? _RN2[nm] : nm; };
+      var _rn2List = function(arr) {
+        if (!Array.isArray(arr)) return arr;
+        var out = arr.map(_rn2);
+        return out.filter(function(x, i) { return out.indexOf(x) === i; });
+      };
+      var _rn2Uniq = function(a) { return (Array.isArray(a) ? a : []).filter(function(x, i, ar) { return x && ar.indexOf(x) === i; }); };
+      var _rn2Keys = function(obj, mergeFn) {
+        if (!obj || typeof obj !== "object") return;
+        Object.keys(_RN2).forEach(function(oldNm) {
+          if (!(oldNm in obj)) return;
+          var newNm = _RN2[oldNm];
+          obj[newNm] = (newNm in obj) ? mergeFn(obj[newNm], obj[oldNm]) : obj[oldNm];
+          delete obj[oldNm];
+        });
+      };
+      var _rn2MergeArr = function(nw, od) { return _rn2Uniq([].concat(Array.isArray(nw) ? nw : [], Array.isArray(od) ? od : [])); };
+      var _rn2MergeSec = function(nw, od) {   // custom.sigDetails2 の {b:[],k:[],f:[]}（候補配列）
+        var n = (nw && typeof nw === "object") ? nw : {}, o = (od && typeof od === "object") ? od : {};
+        return { b: _rn2MergeArr(n.b, o.b), k: _rn2MergeArr(n.k, o.k), f: _rn2MergeArr(n.f, o.f) };
+      };
+      var _rn2MergeRecSec = function(nw, od) {   // 記録側 signal.sigDetail の {b:"名",k:"名",f:[名...]}（新名側優先・fは和集合）
+        var n = (nw && typeof nw === "object") ? nw : {}, o = (od && typeof od === "object") ? od : {};
+        var out = {};
+        if (n.b || o.b) out.b = n.b || o.b;
+        if (n.k || o.k) out.k = n.k || o.k;
+        var f = _rn2MergeArr(n.f, o.f);
+        if (f.length) out.f = f;
+        return out;
+      };
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var cc = d.charts[ck];
+          if (!cc) return;
+          if (Array.isArray(cc.signals)) {
+            cc.signals = cc.signals.map(function(s) {
+              if (!s) return s;
+              var updated = Object.assign({}, s);
+              if (updated.tag && _RN2[updated.tag]) updated.tag = _RN2[updated.tag];
+              if (Array.isArray(updated.tags)) updated.tags = _rn2List(updated.tags);
+              if (updated.sigDetail && typeof updated.sigDetail === "object") {
+                updated.sigDetail = Object.assign({}, updated.sigDetail);
+                _rn2Keys(updated.sigDetail, _rn2MergeRecSec);
+              }
+              return updated;
+            });
+          }
+          if (cc.apMemos && typeof cc.apMemos === "object") {   // キー「s|<sigId>|<シグナル名>」の名前部を改名（衝突は既存優先＝旧を破棄）
+            var _nm2 = {};
+            Object.keys(cc.apMemos).forEach(function(k) {
+              var p = k.split("|");
+              var k2 = (p.length >= 3 && p[0] === "s") ? (p[0] + "|" + p[1] + "|" + _rn2(p.slice(2).join("|"))) : k;
+              if (!(k2 in _nm2)) _nm2[k2] = cc.apMemos[k];
+            });
+            cc.apMemos = _nm2;
+          }
+          if (Array.isArray(cc.appearances)) cc.appearances.forEach(function(ap) { if (ap && ap.name && _RN2[ap.name]) ap.name = _RN2[ap.name]; });
+          if (Array.isArray(cc.epNavi)) cc.epNavi.forEach(function(en) { if (en && en.tag && _RN2[en.tag]) en.tag = _RN2[en.tag]; });
+        });
+      }
+      if (d.custom) {
+        if (Array.isArray(d.custom.signalTags)) d.custom.signalTags = _rn2List(d.custom.signalTags);
+        if (Array.isArray(d.custom.ukiSignalNames)) d.custom.ukiSignalNames = _rn2List(d.custom.ukiSignalNames);
+        if (d.custom.ukiSignalName && _RN2[d.custom.ukiSignalName]) d.custom.ukiSignalName = _RN2[d.custom.ukiSignalName];
+        if (d.custom.sigDetails && typeof d.custom.sigDetails === "object") _rn2Keys(d.custom.sigDetails, _rn2MergeArr);
+        if (d.custom.sigDetails2 && typeof d.custom.sigDetails2 === "object") _rn2Keys(d.custom.sigDetails2, _rn2MergeSec);
+      }
+      d._migSignalRename2 = true;
+    } catch(e) { console.warn("[migrateData] sigRename2 error:", e); }
+  }
+
   // EP損益 or H1の結果損益が損切りの記録は H2期待度を「損切り済」に設定（既存の○/△/×も上書き）。
   if (!d._migHold2StopExp1) {
     try {

@@ -3137,9 +3137,10 @@ function _addAlphaUnsetBadge(s) {
 function _elUkiYes(s) { return !!s && s.ukiUsed === true; }
 function _elUkiVal(s) { if (!s || s.ukiVal == null || s.ukiVal === "" || isNaN(Number(s.ukiVal))) return null; return Number(s.ukiVal); }
 function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); return (v != null && v > 0) ? Math.floor(v / 2) : 0; }
-// 浮き足加算の欄を表示・算入する対象シグナル名の集合 2026-07-07（ユーザー決定＝両方に付ける）。既定＝底抜け水準線OS＋底抜けラインOS。
+// 浮き足加算の欄を表示・算入する対象シグナル名の集合 2026-07-07（ユーザー決定＝両方に付ける）。
+// 2026-07-07f: 底抜け水準線OS→底抜けラインOSへ統合改名（migrateData _migSignalRename2）＝既定は1本に。
 // 後方互換: custom.ukiSignalNames(配列)があれば優先／旧custom.ukiSignalName(単一)も常に対象へ含める。下流(_elUkiYes/_elUkiAdd/記録帳の浮き足分析)はsignal.ukiUsed駆動でシグナル名非依存＝この集合はフォーム(app-05)/EPナビ(app-04)の「欄を出すか」ゲート専用。
-var _UKI_DEFAULT_SIGNALS = ["底抜け水準線OS", "底抜けラインOS"];
+var _UKI_DEFAULT_SIGNALS = ["底抜けラインOS"];
 function _elUkiSignalNames(custom) {
   var out = (custom && Array.isArray(custom.ukiSignalNames) && custom.ukiSignalNames.length) ? custom.ukiSignalNames.slice() : _UKI_DEFAULT_SIGNALS.slice();
   if (custom && custom.ukiSignalName && out.indexOf(custom.ukiSignalName) < 0) out.push(custom.ukiSignalName);
