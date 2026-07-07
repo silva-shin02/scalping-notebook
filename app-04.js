@@ -4673,6 +4673,7 @@ function DayView(_ref57) {
         signal: function(r) { return r.signal; },
         alpha: function(r) { return _elAlphaInfo(r, data).alpha; },
         cut: function(r) { return _elAlphaInfo(r, data).cutLine; },
+        excluded: function(r) { return _elCollExcluded(data, r); },
         real: function(r) {
           var s0 = r.signal, it0 = r.item;
           var v = (it0 && it0.pnl != null) ? Number(it0.pnl) : _elSignedVal(s0.realizedPnl, s0.realizedPnlSign);
@@ -4775,7 +4776,7 @@ function DayView(_ref57) {
               React.createElement("div", null,
                 React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                 s.time || "—", _minBarBadge(s)),
-              _epIncompleteMark(s),
+              _epIncompleteMark(s), _elCollMarkNode(data, r),
               _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
@@ -5096,10 +5097,11 @@ function DayView(_ref57) {
         var bb = "1px solid #e8e5de";
         var _isXskipPb = _epIsXSkip(s, _alphaRec);  // E×（×見送り）→ 本合計に算入せず参考(ref)へ
         var _inclTpb = _elInclTotal(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18
-        if (entered && _inclTpb) _totRealCnt++;
-        if (realPnl != null && _inclTpb) { _totReal = (_totReal || 0) + realPnl; }
+        var _collXpb = _elCollExcluded(data, r);  // 時間かぶり除外: 良い方はフッター合計からも全スキップ（行表示は全件のまま）2026-07-07
+        if (entered && _inclTpb && !_collXpb) _totRealCnt++;
+        if (realPnl != null && _inclTpb && !_collXpb) { _totReal = (_totReal || 0) + realPnl; }
         var _h2tpb = _elHold2TotParts(s, _alphaRec, _cutLrec);
-        if (_isXskipPb || !_inclTpb) {
+        if (_isXskipPb || !_inclTpb || _collXpb) {
           // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
         } else {
         var _epTriPb = _epIsTriEntry(s, _alphaRec);  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内のみ・（）外は0
@@ -5155,7 +5157,7 @@ function DayView(_ref57) {
             cutCtx ? _renderSimCutInput(r, cutCtx) : null),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             React.createElement("div", null, s.time || "—", _minBarBadge(s)),
-            _epIncompleteMark(s),
+            _epIncompleteMark(s), _elCollMarkNode(data, r),
             _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
             _elSigCell(s, "center")),
@@ -5367,6 +5369,9 @@ function DayView(_ref57) {
         var _exclN = (recs || []).filter(function(r) { return _elIsExcluded(r.signal); }).length;  // この日に不算入があれば青点を出す
         recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
         var st = _elCalcStats(recs, data);
+        // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_wkRecsM＝被り除外後・件数系(st/件/到達等)はrecsのまま 2026-07-07
+        var _wkRecsM = recs.filter(function(r) { return !_elCollExcluded(data, r); });
+        var _wkStM = _wkRecsM.length === recs.length ? st : _elCalcStats(_wkRecsM, data);
         var _ent = _wkEntCnt(recs);
         var _osv = _wkAvgOs(recs);
         var _isExp = !!pnlTableExpandSet[rowKey];
@@ -5396,7 +5401,7 @@ function DayView(_ref57) {
             if (_allExcl) return _elNotInclBadge();
             if (_allMiss) return _qZeroCell();
             var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;
-            (recs || []).forEach(function(r) {
+            _wkRecsM.forEach(function(r) {
               var s = r.signal;
               var _aD = _wkAlphaOf(r);
               var _cutLwkD = _wkCutOf(r);
@@ -5412,7 +5417,7 @@ function DayView(_ref57) {
           _td((function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hMain = null, _hRef = null, _hRefCnt = 0, _hCnt = 0;
-            recs.forEach(function(r) {
+            _wkRecsM.forEach(function(r) {
               var s = r.signal;
               var _aR = _wkAlphaOf(r);
               var _cutLR = _wkCutOf(r);
@@ -5443,7 +5448,7 @@ function DayView(_ref57) {
           _td((function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _h2Tot = null, _h2Cnt = 0, _h2Ref = null, _h2RefCnt = 0;
-            recs.forEach(function(r) {
+            _wkRecsM.forEach(function(r) {
               var s = r.signal;
               var _aR = _wkAlphaOf(r); var _cutLR = _wkCutOf(r);
               var _h2p = _elHold2TotParts(s, _aR, _cutLR);
@@ -5455,7 +5460,7 @@ function DayView(_ref57) {
               _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
           })()),
-          _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(st.sumPnl, (_ent > 0 && st.sumPnl !== 0) ? _ent : 0), _ent > 0 ? st.sumPnl : null)),
+          _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_wkStM.sumPnl, (_ent > 0 && _wkStM.sumPnl !== 0) ? _ent : 0), _ent > 0 ? _wkStM.sumPnl : null)),
           React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
             (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
         );
@@ -5601,6 +5606,7 @@ function DayView(_ref57) {
       var keyRef = rowKey;
       var _allExcl = (!recs || recs.length === 0) && (exclN || 0) > 0;  // 取引はあるが全部不算入(算入0件)
       var _allMiss = _elAllMissRow(recs, _pbAlphaOf, _pbCutOf);  // 全記録E基準未達(全miss)→想定/H1/H2に「Q 0」
+      var _pbRecsM = (recs || []).filter(function(r) { return !_elCollExcluded(data, r); });  // 時間かぶり除外（金額集計用。件数系はrecs/stのまま）2026-07-07
       return React.createElement("tr", {
         style: Object.assign({ background: bg, cursor: rowKey ? "pointer" : "default" }, _allExcl ? { background: "#EFF8FF", borderLeft: "3px solid #38BDF8", opacity: 0.72 } : null),
         onClick: rowKey ? function() { setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); if (n[keyRef]) delete n[keyRef]; else n[keyRef] = true; return n; }); if (isExp) setPnlRecordExpandSet({}); } : undefined
@@ -5629,7 +5635,7 @@ function DayView(_ref57) {
             if (_allExcl) return _elNotInclBadge();
             if (_allMiss) return _qZeroCell();
             var _dynSP = null, _dynSPAB = null, _dynSPRef = null, _dynSPRefCnt = 0;
-            (recs || []).forEach(function(r) {
+            _pbRecsM.forEach(function(r) {
               var s = r.signal;
               var _aD = _pbAlphaOf(r);
               var _cutLpbD = _pbCutOf(r);
@@ -5647,7 +5653,7 @@ function DayView(_ref57) {
           (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _hMain = null, _hRef = null, _hRefCnt = 0, _hCnt = 0;
-            recs.forEach(function(r) {
+            _pbRecsM.forEach(function(r) {
               var s = r.signal;
               var _aR = _pbAlphaOf(r);
               var _cutLR = _pbCutOf(r);
@@ -5679,7 +5685,7 @@ function DayView(_ref57) {
           (function() {
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _h2Tot = null, _h2Cnt = 0, _h2Ref = null, _h2RefCnt = 0;
-            recs.forEach(function(r) {
+            _pbRecsM.forEach(function(r) {
               var s = r.signal;
               var _aR = _pbAlphaOf(r); var _cutLR = _pbCutOf(r);
               var _h2p = _elHold2TotParts(s, _aR, _cutLR);
@@ -5692,7 +5698,7 @@ function DayView(_ref57) {
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
-          _allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _pbRealABAll(recs)),
+          _allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _pbRealABAll(_pbRecsM)),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
           tags && tags.length > 0
             ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } },

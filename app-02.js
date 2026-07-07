@@ -5006,7 +5006,7 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#9A3412" } },
         React.createElement("div", null, (r.date || "").slice(5)), _simInput(r, true), _simInput(r, false)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } },
-        React.createElement("div", null, s.time || "—", _minBarBadge(s)), _epIncompleteMark(s),
+        React.createElement("div", null, s.time || "—", _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r),
         _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         _elSigCell(s, "center")),
@@ -5038,7 +5038,7 @@ function WeeklyPnlPanel(_wpp) {
   var _detailTotRowFor = function(_list) {
     // 合計額算入: フッター合計は除外記録を抜く（明細行 _detailRowsFor は全件のまま表示）2026-06-18
     _list = (_list || []).filter(function(r) { return _elInclTotal(r.signal); });
-    var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, real: function(r) { if (!_elIsEntered(r.signal, r.item)) return null; var it = r.item; return (it && it.pnl != null) ? Number(it.pnl) : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); } });
+    var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, excluded: function(r) { return _elCollExcluded(data, r); }, real: function(r) { if (!_elIsEntered(r.signal, r.item)) return null; var it = r.item; return (it && it.pnl != null) ? Number(it.pnl) : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); } });
     var _allMiss = _elAllMissRow(_list, _alphaOf, _cutOf);
     return React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
       React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
@@ -5101,6 +5101,9 @@ function WeeklyPnlPanel(_wpp) {
     var _exclN = (recs || []).filter(function(r) { return _elIsExcluded(r.signal); }).length;
     recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
     var st = _elCalcStats(recs, data);
+    // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_recsM＝被り除外後・件数系(st/件/到達等)はrecsのまま 2026-07-07
+    var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r); });
+    var _stM = _recsM.length === recs.length ? st : _elCalcStats(_recsM, data);
     var _ent = _wkEntCnt(recs);
     var _osv = _wkAvgOs(recs);
     var _isExp = !!dayExp[rowKey];
@@ -5130,7 +5133,7 @@ function WeeklyPnlPanel(_wpp) {
         if (_allExcl) return _elNotInclBadge();
         if (_allMiss) return _qZeroCell();
         var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;
-        (recs || []).forEach(function(r) {
+        _recsM.forEach(function(r) {
           var s = r.signal;
           var _aD = _alphaOf(r);
           var _cutLwkD = _cutOf(r);
@@ -5146,7 +5149,7 @@ function WeeklyPnlPanel(_wpp) {
       _td((function() {
         if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
         var _hMain = null, _hRef = null, _hRefCnt = 0, _hCnt = 0;
-        recs.forEach(function(r) {
+        _recsM.forEach(function(r) {
           var s = r.signal;
           var _aR = _alphaOf(r);
           var _cutLR = _cutOf(r);
@@ -5177,7 +5180,7 @@ function WeeklyPnlPanel(_wpp) {
       _td((function() {
         if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
         var _h2Tot = null, _h2Cnt = 0, _h2Ref = null, _h2RefCnt = 0;
-        recs.forEach(function(r) {
+        _recsM.forEach(function(r) {
           var s = r.signal;
           var _aR = _alphaOf(r); var _cutLR = _cutOf(r);
           var _h2p = _elHold2TotParts(s, _aR, _cutLR);
@@ -5189,7 +5192,7 @@ function WeeklyPnlPanel(_wpp) {
           _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
           _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
       })()),
-      _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(st.sumPnl, (_ent > 0 && st.sumPnl !== 0) ? _ent : 0), _ent > 0 ? st.sumPnl : null)),
+      _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_stM.sumPnl, (_ent > 0 && _stM.sumPnl !== 0) ? _ent : 0), _ent > 0 ? _stM.sumPnl : null)),
       React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
         (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
     );

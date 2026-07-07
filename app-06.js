@@ -2759,12 +2759,12 @@ function _HScrollBox(props) {
 // 週間サマリー（記録帳・期間タブ先頭／全銘柄合算・銘柄別の両方）2026-06-26: 「1取引日あたり平均損益(＋5営業日換算/週)」と「目標(2500円/100株換算)達成率(＋5日換算の達成日数/週)」を実現損益(100株換算)/EP/H1/H2の4基準で表示。
 // 2026-06-26b: 週合計の単純平均は休場で短い週があると下振れるバイアスがあるため、日ベース(1取引日あたり=Σ損益÷取引日／達成率=達成日÷取引日)へ変更。週イメージは×5営業日の換算で目安表示。週別内訳表は各週の実額のまま。
 // 日別損益は本日の損益データの合計と同基準＝_elTotAccum（EP=plan / H1=holdPlanCap / H2=hold2・（）外＝○のみ・採用α基準・EP/H1/H2は値幅×100で既に100株換算）。週=月〜金(_elBucketKey)。平均の分母=取引のあった週だけ。recs=現スコープのv2算入記録・aiOf(r)→{alpha,cutLine}。
-function _elWeeklyTargetSummaryV2(recs, aiOf) {
+function _elWeeklyTargetSummaryV2(recs, aiOf, dataOpt) {
   var TARGET = _EL_DAY_TARGET_YEN;
   var list = (recs || []).filter(function(r) { return r && r.signal && r.date; });
   if (!list.length) return null;
   // 実現損益は本日の損益データ/取引テーブルと同じ100株換算（損益÷株数×100・株数未入力はそのまま・E成立分のみ）。app-04の_elTotAccum real getterと同一。
-  var _get = { signal: function(r) { return r.signal; }, alpha: function(r) { return aiOf(r).alpha; }, cut: function(r) { return aiOf(r).cutLine; }, real: function(r) {
+  var _get = { signal: function(r) { return r.signal; }, alpha: function(r) { return aiOf(r).alpha; }, cut: function(r) { return aiOf(r).cutLine; }, excluded: dataOpt ? function(r) { return _elCollExcluded(dataOpt, r); } : null, real: function(r) {
     if (!_elIsEntered(r.signal, r.item)) return null;
     var v = (r.item && r.item.pnl != null) ? Number(r.item.pnl) : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign);
     if (v == null) return null;
@@ -4363,7 +4363,7 @@ function EntryLogView(_ref_elv2) {
       var c = 0; days.forEach(function(d) { if (d <= _today2 && _fmIsBizDay(d, _holiSet)) c++; });
       return c;
     };
-    var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
+    var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
     var winOf = function(x) { var ok = 0, dec = 0; x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine, res = _elDynResult(s, a, c); if (res === "ok") { ok++; dec++; } else if (res === "ng" || res === "draw") dec++; }); return dec ? Math.round(ok / dec * 100) : null; };
     // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
     var stopsOf = function(x) {
@@ -4437,7 +4437,7 @@ function EntryLogView(_ref_elv2) {
       var on = expKey === ek;
       var cells = [
         _td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8, fontWeight: 700 }),
-        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null), { color: "#666" }),
+        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null), { color: "#666" }),
         _td(r.stock, { color: "#9A3412", fontWeight: 700 })
       ];
       if (mode === "day") {
@@ -4499,6 +4499,7 @@ function EntryLogView(_ref_elv2) {
         signal: function(r) { return r.signal; },
         alpha: function(r) { return _ai(r).alpha; },
         cut: function(r) { return _ai(r).cutLine; },
+        excluded: function(r) { return _elCollExcluded(data, r); },
         real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
       });
       var reach = recs.filter(function(r) { return _epReachedAt(r.signal, _ai(r).alpha); }).length;
@@ -4543,6 +4544,7 @@ function EntryLogView(_ref_elv2) {
       signal: function(r) { return r.signal; },
       alpha: function(r) { return _ai(r).alpha; },
       cut: function(r) { return _ai(r).cutLine; },
+      excluded: function(r) { return _elCollExcluded(data, r); },
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
     var ss = _elStopStatsV2(rs, data), reach = n ? Math.round((ok + x) / n * 100) : null;
@@ -4749,6 +4751,7 @@ function EntryLogView(_ref_elv2) {
       signal: function(r) { return r.signal; },
       alpha: function(r) { return _ai(r).alpha; },
       cut: function(r) { return _ai(r).cutLine; },
+      excluded: function(r) { return _elCollExcluded(data, r); },
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
     var _osAll = _elOsStatsV2(recs, _elOsMaxAll);
@@ -4998,14 +5001,14 @@ function EntryLogView(_ref_elv2) {
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）");
   } else if (view === "period") {
     var _timeScope = (gran === "custom") ? v2recs.filter(function(r) { return (!cFrom || r.date >= cFrom) && (!cTo || r.date <= cTo); }) : v2recs;   // 時間帯別/曜日別は指定期間モードのときその範囲(_crecs相当)に追従 2026-06-28
-    _tabBody = React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 6, padding: "5px 9px", marginBottom: 8 } }, "🎯 期間タブはこの銘柄の全シグナル合算（時系列の俯瞰）。上のシグナル軸の選択では絞り込まれません。"), _elWeeklyTargetSummaryV2(v2recs, _ai), (function() {
+    _tabBody = React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 6, padding: "5px 9px", marginBottom: 8 } }, "🎯 期間タブはこの銘柄の全シグナル合算（時系列の俯瞰）。上のシグナル軸の選択では絞り込まれません。"), _elWeeklyTargetSummaryV2(v2recs, _ai, data), (function() {
       var _granBtns = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
         [["day", "日別"], ["week", "週別"], ["month", "月別"], ["custom", "指定期間"]].map(function(g) {
           var on = gran === g[0];
           return React.createElement("button", { key: g[0], onClick: function() { setGran(g[0]); setPerExp(null); },
             style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, g[1]);
         }));
-      var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
+      var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
       var _ratesOf = function(rs) {
         var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0, draw = 0;
         rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; if (!_epReachedAt(s, a)) miss++; var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c)); if (isStop) stop++; else if (res === "ng") soft++; });

@@ -4042,8 +4042,67 @@ function _elDeriveHoldProfit(hp, pp, res, fallback) {
   if (hp === 0) return "none";
   return fallback;
 }
+// ===== #2 時間かぶりの合計除外 2026-07-07 [[project_scalping_total_pnl_system #2]] =====
+// かぶり＝同一日・全銘柄のv2算入記録を時刻昇順に並べ、隣接が5分以内(≤5分)なら「上限2個の貪欲ペアリング」でペア化
+// （例 9:31/9:34/9:39/9:42/9:47 → {9:31,9:34}{9:39,9:42}{9:47}）。各ペアは（）外手じまい損益(_elHold2TotPartsのmain・採用α/採用損切り基準)を比較し、
+// 悪い方（低い方）を残して良い方（高い方）を合計額から除外（同額は後の時刻側を除外・どちらかmain無しのペアは除外なし）。単独記録は除外なし。
+// 母数＝v2(_epIsV2)かつ算入(_elInclTotal)・時刻無しは対象外。返り値 {excluded:{key:1}, marked:{key:1}}＝除外keyと「※被り有」（残した側）key。
+// data.charts参照でmemo化（保存でchartsの識別が変わると再計算）。配線は「表示総計」のみ＝α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
+var _elCollMemoCharts = null, _elCollMemoSet = null;
+function _elCollKey(stock, date, s) { return stock + "|" + date + "|" + ((s && s.id != null && s.id !== "") ? String(s.id) : (((s && s.time) || "") + "|" + ((s && (s.tag || "")) || ""))); }
+function _elCollisionExcludedSet(data) {
+  var charts = (data && data.charts) || {};
+  if (_elCollMemoCharts === charts && _elCollMemoSet) return _elCollMemoSet;
+  var _toMin = function(t) { if (!t) return null; var m = String(t).match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; };
+  var byDay = {};
+  Object.keys(charts).forEach(function(ck) {
+    var c = charts[ck];
+    if (!c || !Array.isArray(c.signals)) return;
+    var idx = ck.lastIndexOf("_");
+    if (idx < 0) return;
+    var stock = ck.slice(0, idx), date = ck.slice(idx + 1);
+    var cut = (c.cutLine != null) ? Number(c.cutLine) : 10;
+    c.signals.forEach(function(sig) {
+      var s = _compatSignal(sig);
+      if (!_epIsV2(s) || !_elInclTotal(s)) return;
+      var mn = _toMin(s.time);
+      if (mn == null) return;
+      (byDay[date] = byDay[date] || []).push({ key: _elCollKey(stock, date, s), min: mn, main: _elHold2TotParts(s, _epOwnAlpha(s), cut).main });
+    });
+  });
+  var excluded = {}, marked = {};
+  Object.keys(byDay).forEach(function(d) {
+    var arr = byDay[d].sort(function(a, b) { return (a.min - b.min) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0); });
+    var i = 0;
+    while (i < arr.length) {
+      if (i + 1 < arr.length && (arr[i + 1].min - arr[i].min) <= 5) {
+        var A = arr[i], B = arr[i + 1];
+        if (A.main != null && B.main != null) {
+          var drop = (B.main >= A.main) ? B : A;
+          excluded[drop.key] = 1;
+          marked[(drop === B ? A : B).key] = 1;
+        }
+        i += 2;
+      } else {
+        i++;
+      }
+    }
+  });
+  _elCollMemoCharts = charts;
+  _elCollMemoSet = { excluded: excluded, marked: marked };
+  return _elCollMemoSet;
+}
+// r={stock,date,signal} が除外対象（良い方＝合計額に入れない）か／残した側（※被り有マーク）か。
+function _elCollExcluded(data, r) { return !!(r && r.signal && _elCollisionExcludedSet(data).excluded[_elCollKey(r.stock, r.date, r.signal)]); }
+function _elCollMarked(data, r) { return !!(r && r.signal && _elCollisionExcludedSet(data).marked[_elCollKey(r.stock, r.date, r.signal)]); }
+// 明細行用の「※被り有」小バッジ（残した側＝悪い方に付く。対象外はnull）。
+function _elCollMarkNode(data, r) {
+  if (!_elCollMarked(data, r)) return null;
+  return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。ペアの良い方（（）外手じまい損益が高い方）は合計額から除外し、この記録（悪い方）だけを合計に算入（件数は両方残る）",
+    style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "※被り有");
+}
 // 合計行の共通集計: EP損益(planCap/AB込み)・H1(_elHold1TotParts)・H2(_elHold2TotParts)・実現損益。
-// get={signal,alpha,cut,real?,norm?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。
+// get={signal,alpha,cut,real?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
 function _elTotAccum(items, get) {
   var nm = get.norm || function(it, v) { return v; };
   var t = { real: null, realCnt: 0, plan: null, planCnt: 0, planCap: null, planStop: false,
@@ -4053,6 +4112,7 @@ function _elTotAccum(items, get) {
   (items || []).forEach(function(it) {
     var s = get.signal(it), a = get.alpha(it), c = get.cut(it);
     if (!s) return;
+    if (get.excluded && get.excluded(it)) return;
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     if (get.real) { var rv = get.real(it); if (rv != null) { t.real = (t.real || 0) + rv; t.realCnt++; } }
     // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
