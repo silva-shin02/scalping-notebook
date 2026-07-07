@@ -3429,6 +3429,9 @@ function EpNaviPanel(_refEPN) {
     else { if (cur.length >= _EPN_MAX_STOCKS) return; cur.push(st); }
     save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { epnStocks: cur }) }); });
   };
+  var _epnStockReorder = function(list) {
+    save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { epnStocks: list.slice() }) }); });
+  };
   // 計算画面は常時表示（epnOpenは常にtrue＝閉じない。過去の開閉トグルは廃止 2026-07-07g）。
   var _useStateEPN1 = useState(true), _useStateEPN1A = _slicedToArray(_useStateEPN1, 2), epnOpen = _useStateEPN1A[0], setEpnOpen = _useStateEPN1A[1];
   var _useStateEPN2 = useState(activeStock || (stocks && stocks[0]) || ""), _useStateEPN2A = _slicedToArray(_useStateEPN2, 2), nStock = _useStateEPN2A[0], setNStock = _useStateEPN2A[1];
@@ -3448,7 +3451,9 @@ function EpNaviPanel(_refEPN) {
   var _useStateEPNed = useState(null), _useStateEPNedA = _slicedToArray(_useStateEPNed, 2), editId = _useStateEPNedA[0], setEditId = _useStateEPNedA[1];
   var _useStateEPNea = useState(null), _useStateEPNeaA = _slicedToArray(_useStateEPNea, 2), editAt = _useStateEPNeaA[0], setEditAt = _useStateEPNeaA[1];
   var _useStateEPNsp = useState(false), _useStateEPNspA = _slicedToArray(_useStateEPNsp, 2), showStockPicker = _useStateEPNspA[0], setShowStockPicker = _useStateEPNspA[1];
+  var _useStateEPNso = useState(null), _useStateEPNsoA = _slicedToArray(_useStateEPNso, 2), _stkOrd = _useStateEPNsoA[0], setStkOrd = _useStateEPNsoA[1];
   var _delTimerRef = useRef(null);
+  var _stkDragRef = useRef(null), _stkMovedRef = useRef(false);
   useEffect(function() { return function() { if (_delTimerRef.current) clearTimeout(_delTimerRef.current); }; }, []);
   // 推奨カスケードはパネルを開いている間だけ計算（閉じている間はdata更新でも走らせない）
   var casc = useMemo(function() {
@@ -3783,14 +3788,49 @@ function EpNaviPanel(_refEPN) {
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）")
   ) : null;
-  var _stockPicker = showStockPicker ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", marginBottom: 8, padding: "6px 8px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: 6 } },
-    React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#64748B", marginRight: 2 } }, "表示銘柄（最大" + _EPN_MAX_STOCKS + "・タップで選択）"),
-    _epnAllStocks.map(function(st) {
-      var on = epnStocks.indexOf(st) >= 0;
-      var full = !on && epnStocks.length >= _EPN_MAX_STOCKS;
-      return React.createElement("button", { key: st, type: "button", onClick: function() { _epnStockToggle(st); }, disabled: full,
-        style: { padding: "3px 9px", fontSize: 11, fontWeight: on ? 800 : 600, border: on ? "1.5px solid #1D4ED8" : "1px solid #ddd", background: on ? "#DBEAFE" : (full ? "#F8FAFC" : "#fff"), color: on ? "#1E3A8A" : (full ? "#CBD5E1" : "#555"), borderRadius: 5, cursor: full ? "default" : "pointer" } }, st);
-    })) : null;
+  var _stockPicker = showStockPicker ? React.createElement("div", { style: { marginBottom: 8, padding: "6px 8px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: 6 } },
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#64748B", marginBottom: 4 } }, "表示銘柄（最大" + _EPN_MAX_STOCKS + "・ドラッグで並び替え・タップで外す）"),
+    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", minHeight: 26 } },
+      (_stkOrd || epnStocks).map(function(st) {
+        var _d = _stkDragRef.current;
+        var _dragging = !!(_d && _d.started && _d.name === st);
+        return React.createElement("span", { key: st, "data-epnstk": st,
+          onPointerDown: function(e) { _stkDragRef.current = { name: st, sx: e.clientX, sy: e.clientY, started: false, list: null }; },
+          onPointerMove: function(e) {
+            var d = _stkDragRef.current; if (!d || d.name !== st) return;
+            if (!d.started) {
+              if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
+              d.started = true;
+              try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
+              d.list = epnStocks.slice(); _stkMovedRef.current = true; setStkOrd(d.list.slice()); return;
+            }
+            var el = document.elementFromPoint(e.clientX, e.clientY);
+            var chip = (el && el.closest) ? el.closest("[data-epnstk]") : null;
+            if (!chip) return;
+            var over = chip.getAttribute("data-epnstk");
+            if (!over || over === d.name) return;
+            var lst = d.list.slice(), fi = lst.indexOf(d.name), ti = lst.indexOf(over);
+            if (fi < 0 || ti < 0 || fi === ti) return;
+            lst.splice(fi, 1); lst.splice(ti, 0, d.name); d.list = lst; setStkOrd(lst.slice());
+          },
+          onPointerUp: function() { var d = _stkDragRef.current; _stkDragRef.current = null; if (d && d.started && d.list) { _epnStockReorder(d.list.slice()); setTimeout(function() { _stkMovedRef.current = false; }, 0); } setStkOrd(null); },
+          onPointerCancel: function() { _stkDragRef.current = null; _stkMovedRef.current = false; setStkOrd(null); },
+          style: { touchAction: "none", boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null, transform: _dragging ? "scale(1.06)" : null, opacity: _dragging ? 0.9 : null } },
+          React.createElement("button", { type: "button", onClick: function() { if (_stkMovedRef.current) { _stkMovedRef.current = false; return; } _epnStockToggle(st); }, title: "ドラッグで並び替え・タップで表示から外す",
+            style: { padding: "3px 9px", fontSize: 11, fontWeight: 800, border: "1.5px solid #1D4ED8", background: "#DBEAFE", color: "#1E3A8A", borderRadius: 5, cursor: "pointer" } }, st));
+      }),
+      epnStocks.length === 0 ? React.createElement("span", { style: { fontSize: 10, color: "#CBD5E1" } }, "↓ から銘柄を選択") : null),
+    (function() {
+      var avail = _epnAllStocks.filter(function(s) { return epnStocks.indexOf(s) < 0; });
+      if (!avail.length) return null;
+      var full = epnStocks.length >= _EPN_MAX_STOCKS;
+      return React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", marginTop: 5, paddingTop: 5, borderTop: "1px dashed #E2E8F0" } },
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginRight: 2 } }, full ? "最大" + _EPN_MAX_STOCKS + "銘柄（外すと追加可）" : "追加:"),
+        avail.map(function(st) {
+          return React.createElement("button", { key: st, type: "button", onClick: function() { _epnStockToggle(st); }, disabled: full,
+            style: { padding: "3px 9px", fontSize: 11, fontWeight: 600, border: "1px solid #ddd", background: full ? "#F8FAFC" : "#fff", color: full ? "#CBD5E1" : "#555", borderRadius: 5, cursor: full ? "default" : "pointer" } }, "＋ " + st);
+        }));
+    })()) : null;
   return React.createElement("div", { style: { border: "1.5px solid #BFDBFE", borderRadius: 8, padding: 10, background: "#F8FAFF", boxSizing: "border-box", marginBottom: 12 } },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
       React.createElement("span", { style: { fontSize: 13.5, fontWeight: 800, color: "#1D4ED8", whiteSpace: "nowrap" } }, "⚡ EPナビ"),

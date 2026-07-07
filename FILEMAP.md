@@ -35,6 +35,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-07h ⚡EPナビ 表示銘柄をドラッグで並び替え（ユーザー要望）
+- **app-04.js**: 「⚙表示銘柄」ピッカーを2段化＝上段「選択中（ドラッグで並び替え・タップで外す）」＝`epnStocks`のチップを`data-epnstk`＋pointer drag（フォームのsigDetailチップと同方式・setPointerCapture遅延でタップ選択と両立）で並べ替え→`_epnStockReorder`が`custom.epnStocks`へ保存＝早見カラム順に即反映。下段「追加」＝未選択銘柄（最大3で満杯時はdisabled）。新規state`_stkOrd`（ドラッグ中プレビュー）＋refs`_stkDragRef`/`_stkMovedRef`。列順は`custom.epnStocks`の並び（既定はallStocks先頭3から古河電工除外）。
+- sw.js: APP_CACHE v53→v54。
+- 検証: V8構文OK＋実マウント（合成PointerEventでSBGを末尾へドラッグ→epnStocks=["7203","6501","SBG"]・カラム順も一致・選択中/追加の2段表示）pass・console0。
+
 ### 2026-07-07g ⚡EPナビ 早見の操作性改善＝カードタップ編集・銘柄ごと＋計算・表示銘柄ピッカー(最大3)・計算画面は常時表示（ユーザー要望）
 - **app-04.js**: (1)**早見カードはカード全体タップで編集**（`_renderCard`にonClick=loadForEdit＋cursor:pointer・旧✎ボタン削除・×は`ev.stopPropagation()`で伝播止め）。(2)**「＋計算」を各銘柄カラムの下に**（`marginTop:auto`で下端揃え・onClick=setNStock(st)+_resetForm・ヘッダーの旧グローバル＋計算トグルは撤去）。(3)**計算画面は常時表示**＝epnOpen既定true・閉じるボタン撤去（開閉トグル廃止）。(4)**保存でリセット**は既存doSave→_resetForm（維持）＋**①銘柄の右に「↺リセット」ボタン**（_resetForm＝銘柄以外を初期化）。(5)**早見は横並び最大3銘柄＝`custom.epnStocks`**（EPナビ右上「⚙表示銘柄」ピッカーで選択・最大3で4つ目はdisabled・空/未設定は既定＝全銘柄先頭3から**「古河電工」を除外**・ピッカーで戻せる）。`_EPN_MAX_STOCKS=3`/`_epnStockToggle`（save→custom.epnStocks）/`showStockPicker`。savedViewは`epnStocks`（≤3）を列挙・EP無し銘柄も列は出す（「EPなし」＋＋計算）。
 - ユーザー要望（会話・逐次）: 早見はEP欄タップで編集／＋計算は各銘柄の下／全銘柄→最大3＋EPナビ内で設定／現状は古河電工を既定除外／計算画面は常時表示／保存でリセット＋①銘柄右にリセットボタン。
