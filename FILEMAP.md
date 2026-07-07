@@ -35,6 +35,13 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-07b 推奨基本α/追加α詳細表に「頻度（何営業日に1回エントリーできたか）」列を追加（ユーザー要望・全営業日ベース）
+- **app-06.js**: 新設ヘルパー3つ＝`_elBizSpanDays(recs,holiSet,validOf)`（母数の活動期間[初回〜直近の記録日]の営業日数・`_fmIsBizDay`で平日かつ非祝日・holiSet省略時は土日のみ・validOfで推奨α算出不能記録を除外）／`_elEnteredDays(recs,alphaOf)`（各記録にαを当てEP到達したdistinct日付数＝分子）／`_elFreqCell(span,enteredDays)`（span÷enteredDays＝X→「約X営業日に1回」・1.3未満はほぼ毎営業日・10以上は整数）。
+- `_elBaseAlphaDetailV2`と`_elAddAlphaDetailV2`に第3引数`holiSet`（任意）を追加し、両表（基本α総当たり・追加α日付別スイープ）の「到達率」列の右に「頻度」列を挿入。分母（span）は表ごとに1回・分子（到達実日数）は行のαごと＝高αほど到達日数減→頻度の間隔が広がる。母数＝各表と同じ（基本α＝×+未選択／追加α日付別＝addPool）。
+- 呼び出し: `_groupPanel`で`_holiSet=_buildHolidayDateSet(data.trades,custom.eventCategories)`を1回作り、`_elBaseAlphaDetailV2(_baRecs,_ai,_holiSet)`（2か所）と`_elAddAlphaDetailV2(_baRecs,_ai,_holiSet)`へ渡す。α値タブ①の`_elBaseAlphaDetailV2(_alReasonRecsFull,_ai)`はholiSet無し＝土日のみ除外にフォールバック（許容）。
+- ユーザー選択（AskUserQuestion）: 分母＝全営業日ベース（活動期間の営業日で割る／シグナルが出なかった日も分母に含む）。列見出しは「頻度」・セルは「X営業日に1回」・各表のラベルに算出式注記。
+- 検証: V8構文OK＋ヘルパーunit（span=平日inclusive5/holiday除外4/single1・freq「2営業日に1回」「ほぼ毎営業日」「15」「1.8」「—」）＋実マウントで両表の頻度列が到達率低下に連動して増加（例: 到達100%→1.4営業日に1回・58%→2.4営業日に1回）・警告0。sw.js v48→v49。
+
 ### 2026-07-07 追加α分析: 「各記録日の推奨基本α＋追加α（0〜10円）」別のスコア表を新設（基本α詳細表を模倣・ユーザー要望）
 - **app-06.js**: 新設`_elAlphaEvalByFn(recs, aiOf, alphaOf)`＝`_elBaseAlphaEval`の一般化（記録ごとにαを変えられる版・`alphaOf(r)`→そのレコードのα・null=母数外でnに数えない・返り値shape同一でa=null）。固定α版と挙動一致（`_elBaseAlphaEval`は無改修＝コア不変）。
 - `_elAddAlphaDetailV2`に日付別スイープ表を追加（既存の単一基本α＋加算表の下）: 実効α＝`_elKabuRecoBaseFn(recs,aiOf)`の`recoOf(記録日)`＋追加α（0〜10円・記録ごとに推奨基本αが変わる反実仮想）。列は画像の基本α表と同じ＝追加α/到達率/有効件数/損切り率/H1勝率/平均H1損益/スコア内訳(0.7×(1−損切り率)+0.3×H1勝率)/スコア。★＝件数フロア(minN)を満たす中でスコア最大。母数＝addPool（追加α〇・数値根拠/浮き足除外）＝既存の追加α分析と一致。推奨基本α算出不能な記録（履歴不足）は母数外。

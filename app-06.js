@@ -1347,6 +1347,42 @@ function _elAlphaEvalByFn(recs, aiOf, alphaOf) {
   var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
   return { a: null, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
 }
+// 「何営業日に1日エントリーできたか」用 2026-07-07（ユーザー要望・全営業日ベース）: 母数の活動期間（初回〜直近の記録日）の営業日数。holiSet省略時は土日のみ除外・渡せば祝日も除外（_fmIsBizDay app-03）。validOf(r)=母数に含めるか（推奨α算出不能などの除外・省略時は全記録）。
+function _elBizSpanDays(recs, holiSet, validOf) {
+  var minD = null, maxD = null;
+  (recs || []).forEach(function(r) {
+    if (!r || !r.date || !r.signal) return;
+    if (validOf && !validOf(r)) return;
+    if (minD == null || r.date < minD) minD = r.date;
+    if (maxD == null || r.date > maxD) maxD = r.date;
+  });
+  if (minD == null) return 0;
+  var span = 0, cur = new Date(minD + "T00:00:00"), end = new Date(maxD + "T00:00:00"), _p = function(n) { return ("0" + n).slice(-2); };
+  while (cur <= end) {
+    var ds = cur.getFullYear() + "-" + _p(cur.getMonth() + 1) + "-" + _p(cur.getDate());
+    if (_fmIsBizDay(ds, holiSet)) span++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return span;
+}
+// alphaOf(r)で各記録にαを当て、EP到達した「実日数」（distinct日付）＝「何営業日に1日」の分子。2026-07-07。
+function _elEnteredDays(recs, alphaOf) {
+  var d = {};
+  (recs || []).forEach(function(r) {
+    var s = r && r.signal; if (!s || !r.date) return;
+    var a = alphaOf(r); if (a == null) return;
+    var rr = _epResolve(s, a);
+    if (rr && rr.epIdx >= 0 && rr.epIdx <= 2) d[r.date] = 1;
+  });
+  return Object.keys(d).length;
+}
+// 「何営業日に1回エントリーできたか」セル 2026-07-07: span(活動期間の営業日)÷enteredDays(到達実日数)=X→「約X営業日に1回」。1.3未満はほぼ毎営業日・10以上は整数・到達0/期間0は—。
+function _elFreqCell(span, enteredDays) {
+  if (!(enteredDays > 0) || !(span > 0)) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var r = span / enteredDays;
+  var txt = (r < 1.3) ? "ほぼ毎営業日" : ((r < 10 ? (Math.round(r * 10) / 10) : Math.round(r)) + "営業日に1回");
+  return React.createElement("span", { style: { fontWeight: 700, color: "#0369A1", fontSize: 10.5, whiteSpace: "nowrap" }, title: "活動" + span + "営業日中 到達" + enteredDays + "日" }, txt);
+}
 // 次点（2番目の推奨α）を1番目の真下に「（次点：〇円）」で小書き（1番目と同サイズ・同色）。次点が無ければ「（次点なし）」を淡色で表示。ユーザー方針 2026-06-24。text例 "9円"/"+5円"。
 function _elReco2Node(text, fontSize, color) {
   var _has = (text != null && text !== "");
@@ -1578,7 +1614,7 @@ function _elBaseAlphaTrendV2(props) {
   return React.createElement("div", null, toggle, body);
 }
 // 推奨基本α 詳細データ（この銘柄/グループ）2026-06-22: 推奨値が出た根拠＝結論バー＋α別の総当たり(スコア内訳付き)＋読み取り。②採用αでの母数記録の内訳テーブルは2026-06-26にユーザー要望で削除（集計値は読み取りに残す）。
-function _elBaseAlphaDetailV2(recs, aiOf) {
+function _elBaseAlphaDetailV2(recs, aiOf, holiSet) {
   var _A = _elBaseAlphaA(recs, aiOf);
   var pick = _A ? _A.pick : _elBaseAlphaPick(recs, aiOf);
   if (!pick || pick.status === "none" || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
@@ -1607,6 +1643,7 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
       : (add ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "追加α＝推奨無し") : null));
   // α別総当たりの表示は0円から（推奨対象範囲_EL_BASE_ALPHAS=5〜20・★選定は不変／0〜4円は参考行として追加表示のみ）2026-07-02→0円を追加 2026-07-03。母数は推奨基本αと同じ×+未選択（_elBaseAlphaPickが内部で〇を除外するのに揃える）。
   var _baseRecs = (recs || []).filter(function(r) { return r && !_elAddAlphaYes(r.signal); });
+  var _baseSpan = _elBizSpanDays(_baseRecs, holiSet);   // 頻度列（何営業日に1回）用: 母数の活動期間の営業日数（全行共通・分母は固定でαごとに到達実日数だけ変わる）2026-07-07
   var _lowSweep = [0, 1, 2, 3, 4].map(function(la) { return _elBaseAlphaEval(_baseRecs, aiOf, la); });
   var _dispSweep = _lowSweep.concat(pick.sweep);   // [0..4]（表示のみ）＋[5..20]（推奨対象）＝昇順
   var sweepRows = _dispSweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
@@ -1614,6 +1651,7 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
     return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.4 } },
       _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
       _elv2Td(_elPctCell(e.eRate)),
+      _elv2Td(_elFreqCell(_baseSpan, _elEnteredDays(_baseRecs, function() { return e.a; }))),
       _elv2Td(e.scN + "件"),
       _elv2Td(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
       _elv2Td(e.h1win == null ? "—" : _elPctCell(e.h1win)),
@@ -1641,12 +1679,12 @@ function _elBaseAlphaDetailV2(recs, aiOf) {
   ], { note: "この銘柄のv2・算入記録に各αを当ててシミュレーション。母数＝採用αでOS1〜3にEP到達しH1結果が判定できる記録。損切り率・H1勝率はこの母数で算出。" + (na ? " ※データ不足（母数<" + minN + "件）のため参考値。" : "") });
   return React.createElement("div", null,
     concl,
-    _lbl("α別の総当たり（0〜20円・★＝採用[推奨対象は5〜20円]・件数フロア" + minN + "件未満は淡色／平均H1損益＝ΣH1損益÷件数）"),
-    _elv2Table(["基本α", "到達率", "有効件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], sweepRows),
+    _lbl("α別の総当たり（0〜20円・★＝採用[推奨対象は5〜20円]・件数フロア" + minN + "件未満は淡色／平均H1損益＝ΣH1損益÷件数／頻度＝そのα通りなら何営業日に1回エントリーできたか＝活動期間の営業日÷到達した実日数・全営業日ベース）"),
+    _elv2Table(["基本α", "到達率", "頻度", "有効件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], sweepRows),
     insight);
 }
 // 推奨追加α 詳細データ（この銘柄/グループ）2026-07-03: 推奨基本α詳細データ(_elBaseAlphaDetailV2)の追加α版＝結論バー＋加算値別の総当たり（基本α＋加算ごとの到達率/件数/損切り率/H1勝率/想定損益・★＝推奨）＋読み取り。母数＝追加α〇（数値根拠＝底抜け前足浮きは除外・_elAddAlphaRecoと同一）。集計タブ銘柄別パネルで追加α母数トグル〇のとき、畳んだ基本α詳細の下に表示。想定損益＝ΣH1損益（_elBaseAlphaEval.pnl＝_elSimPnlByDay.sumと同値）。
-function _elAddAlphaDetailV2(recs, aiOf) {
+function _elAddAlphaDetailV2(recs, aiOf, holiSet) {
   var _A = _elBaseAlphaA(recs, aiOf);
   var pick = _A ? _A.pick : null;
   if (!pick || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "基本αが未確定のため追加αを算出できません");
@@ -1696,6 +1734,7 @@ function _elAddAlphaDetailV2(recs, aiOf) {
   ], { note: "母数＝追加α〇（要）を明示した記録（浮き足〇は除外）。各加算で『基本α＋加算』の合計αを当ててシミュレーション（想定損益＝ΣH1損益）。推奨＝想定損益プラスかつ母数" + minN + "件以上の中で、損切り率0%→≤30%→最小の順に最小加算（_elAddAlphaRecoと同基準）。" });
   // 各記録日の推奨基本α＋追加α（0〜10円）別の総当たり（2026-07-07・基本α詳細表を模倣・ユーザー要望）: 実効α＝recoOf(記録日)＋追加α（記録ごとに推奨基本αが変わる反実仮想）・母数＝addPool（追加α〇）・推奨基本αが算出不能な記録（履歴不足）は母数外。★＝件数フロアを満たす中でスコア最大。
   var _recoOf = _elKabuRecoBaseFn(recs, aiOf);
+  var _dsSpan = _elBizSpanDays(addPool, holiSet, function(r) { return _recoOf(r.date) != null; });   // 頻度列用: 推奨基本αが算出できる追加α〇記録の活動期間の営業日数（分母・全行共通）2026-07-07
   var _dateSweep = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function(X) {
     return { X: X, e: _elAlphaEvalByFn(addPool, aiOf, function(r) { var b = _recoOf(r.date); return b == null ? null : b + X; }) };
   });
@@ -1706,6 +1745,7 @@ function _elAddAlphaDetailV2(recs, aiOf) {
     return React.createElement("tr", { key: row.X, style: { background: on ? "#FFF7ED" : "transparent", opacity: pass ? 1 : 0.4 } },
       _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: "#9A3412" } }, "+" + row.X + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
       _elv2Td(_elPctCell(e.eRate)),
+      _elv2Td(_elFreqCell(_dsSpan, _elEnteredDays(addPool, function(r) { var b = _recoOf(r.date); return b == null ? null : b + row.X; }))),
       _elv2Td(e.scN + "件"),
       _elv2Td(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
       _elv2Td(e.h1win == null ? "—" : _elPctCell(e.h1win)),
@@ -1717,8 +1757,8 @@ function _elAddAlphaDetailV2(recs, aiOf) {
     concl,
     _lbl("加算値別の総当たり（基本α" + base + "円＋1〜" + _EL_BASE_ADD_MAX + "円・★＝推奨・件数フロア" + minN + "件未満は淡色／想定損益＝ΣH1損益）"),
     _elv2Table(["追加α", "合計α", "到達率", "有効件数", "損切り率", "H1勝率", "想定損益"], addRows),
-    _lbl("各記録日の推奨基本α＋追加α（0〜10円）別（★＝スコア最大・件数フロア" + minN + "件未満は淡色／実効α＝記録ごとの推奨基本α＋追加α・平均H1損益＝ΣH1損益÷件数）"),
-    _dateRows.length ? _elv2Table(["追加α", "到達率", "有効件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], _dateRows) : React.createElement("div", { style: { fontSize: 10.5, color: "#bbb", padding: "4px 0" } }, "推奨基本αが算出できる記録がありません（履歴不足）"),
+    _lbl("各記録日の推奨基本α＋追加α（0〜10円）別（★＝スコア最大・件数フロア" + minN + "件未満は淡色／実効α＝記録ごとの推奨基本α＋追加α・平均H1損益＝ΣH1損益÷件数／頻度＝そのα通りなら何営業日に1回入れたか＝活動期間の営業日÷到達した実日数・全営業日ベース）"),
+    _dateRows.length ? _elv2Table(["追加α", "到達率", "頻度", "有効件数", "損切り率", "H1勝率", "平均H1損益", "スコア内訳", "スコア"], _dateRows) : React.createElement("div", { style: { fontSize: 10.5, color: "#bbb", padding: "4px 0" } }, "推奨基本αが算出できる記録がありません（履歴不足）"),
     insight);
 }
 // 推奨基本α表（銘柄/期間グループ別）: groups=[{label,recs}]・cutFn(r)→損切り値。各グループの推奨基本α(_elBaseAlphaPick・5〜20・
@@ -4666,6 +4706,7 @@ function EntryLogView(_ref_elv2) {
   var _groupPanel = function(recs, stkKey, fixedRecs) {
     if (!recs || !recs.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "記録なし");
     var _baRecs = (fixedRecs && fixedRecs.length) ? fixedRecs : recs;   // 推奨基本αパネルはトグル非適用の母数固定(×+未選択)で算出＝α値タブと一致 2026-06-24i
+    var _holiSet = _buildHolidayDateSet(data.trades, custom.eventCategories);   // 「何営業日に1回」用の営業日カレンダー（平日かつ非祝日）2026-07-07
     // 追加α母数トグル(osDistFil)で母数を切替: 全記録/×+未選択(基本α運用の素の姿・既定)/〇のみ。KPI(件数/E到達/一番引っ張った損益/損切り件数)・OS分布を同じ母数で揃える＝損切り率/未達率が〇(高α)混入で上振れするのを回避 2026-07-01。
     var _osFilRecs = _addFilOf(recs);
     var t = _elTotAccum(_osFilRecs, {
@@ -4730,12 +4771,12 @@ function EntryLogView(_ref_elv2) {
       // 追加α母数トグル〇のとき: 推奨基本α詳細は畳んで（要約はKPIカードに常時表示）、代わりに推奨追加α詳細（加算値別の総当たり）をフル表示。×/全記録・前足浮きタブは従来どおり基本α詳細をフル表示。2026-07-03
       (!_floatMode && osDistFil === "yes")
         ? React.createElement(React.Fragment, null,
-            React.createElement(_SNCollapse, { title: "🔬 推奨基本α 詳細データ（推奨値の根拠・タップで展開）", render: function() { return _elBaseAlphaDetailV2(_baRecs, _ai); } }),
+            React.createElement(_SNCollapse, { title: "🔬 推奨基本α 詳細データ（推奨値の根拠・タップで展開）", render: function() { return _elBaseAlphaDetailV2(_baRecs, _ai, _holiSet); } }),
             _secH("🔬 推奨追加α 詳細データ", "推奨追加αの根拠＝加算値別の総当たり（各加算の到達率/件数/損切り率/H1勝率/想定損益）＋各記録日の推奨基本α＋追加α（0〜10円）別のスコア表。母数＝追加α〇（数値根拠除く）"),
-            _elAddAlphaDetailV2(_baRecs, _ai))
+            _elAddAlphaDetailV2(_baRecs, _ai, _holiSet))
         : React.createElement(React.Fragment, null,
             _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αの到達率/件数/損切り率/H1勝率/スコア）"),
-            _elBaseAlphaDetailV2(_baRecs, _ai)),
+            _elBaseAlphaDetailV2(_baRecs, _ai, _holiSet)),
       React.createElement(_SNCollapse, { title: "詳細分析（EP位置・累積損益・α感応度・時間帯別・曜日別・期待度×/△）", render: function() {   // 遅延描画 2026-06-29: 閉じている間は重い7セクションを計算しない＝シグナル別パネルの体感速度（汎用分析は各専用タブにも全体版あり）
         return React.createElement(React.Fragment, null,
           _addFilBar(),
