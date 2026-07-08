@@ -5223,7 +5223,8 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#333", display: "flex", alignItems: "center", flexWrap: "wrap" } }, "📅 今週の損益データ（" + stock + "）"),
       _navBtn("→", function() { setWeekOffset(function(o) { return o + 1; }); }),
       weekOffset !== 0 ? React.createElement("button", { onClick: function() { setWeekOffset(0); }, style: { padding: "2px 8px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", border: "1px solid #FB923C", borderRadius: 6, cursor: "pointer", color: "#9A3412" } }, "今週へ") : null,
-      React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, _wkDates[0].slice(5) + "〜" + _wkDates[4].slice(5))),
+      React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, _wkDates[0].slice(5) + "〜" + _wkDates[4].slice(5)),
+      (function(){ var _cc = _elCollExclCountRecs(data, _recs, stock); return _cc > 0 ? React.createElement("span", { title: "時間かぶりで合計から除外した記録の件数（この銘柄内で同日5分以内ペアの遅い方／同時刻なら損益が大きい方・件数系には残る）", style: { fontSize: 10, fontWeight: 700, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "被り除外 " + _cc + "件") : null; })()),
     _recs.length === 0 ? React.createElement("div", { style: { color: "#aaa", fontSize: 12, padding: "8px 0" } }, "今週この銘柄の記録はありません") :
     React.createElement("div", { style: { overflowX: "auto" } },
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
