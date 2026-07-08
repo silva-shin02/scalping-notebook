@@ -40,6 +40,7 @@ HomeEventFormModal, App
 - 原因: ニュースタブ(app-03 NewsTab)/ニュース履歴(app-07 NewsHistoryView)の記事カードは `overflow:hidden` + `width:cardW`(220)。`ImgGrid`(app-02)は画像を `height:IMG_H`(180)固定・`width:auto` で表示するため、**横長画像は幅がカード幅を超え**、画像右上に `-7` ではみ出し配置した鍵/削除ボタンがカードの角丸クリップで切れて見えなくなっていた（縦長画像は幅が収まるので鍵が見える＝「ものによっては出ない」の正体）。実機で再現確認（横長500×360→表示249×180・鍵ボタンがカード右端+10px＝clipped）。
 - 修正: `ImgGrid` に `boxed` prop を追加。boxed時は画像を `maxWidth:100%`/`height:auto`/`maxHeight:IMG_H` でコンテナ幅に収め（横長も全体表示・アスペクト維持）、鍵/削除ボタンを画像の内側(`top:2 right:2`)に配置。`NewsTab`(app-03:4539)と `NewsHistoryView`(app-07:1907)で `boxed:true`。**他のImgGrid使用箇所（メモ添付 app-02:2140 等）は既定(boxed無し=従来の-7はみ出し)で見た目・挙動とも不変**。本文リッチテキスト内画像は元々自動削除対象外のため対象外。
 - sw.js: APP_CACHE v79→v80。
+- **追補(v81)**: v80で boxed時にボタン(★/削除)を画像右上内側(top:2 right:2)へ置いたら、記事カードの移動(⇄)/削除(×)ボタン(右上 top:4)と密集して**被った**(ユーザー報告)。boxed時のボタンコンテナを**画像右下(bottom:4 right:4)**へ移動（`top:boxed?"auto":-7` / `bottom:boxed?4:"auto"` / `right:boxed?4:-7`）＝記事カード上部ボタンと分離。非boxed(メモ等)は従来の-7はみ出しで不変。実機で★がヘッダーと非重複・非クリップ(画像218×158に収まる)を確認。sw v80→v81。
 
 ### 2026-07-08i 推奨の件数フロア _EL_BASE_MIN_N を 3→10 に引き上げ（ユーザー要望・全推奨一律）
 - **app-06.js**: `_EL_BASE_MIN_N` 3→10。推奨基本α（件数フロア=`max(10, maxScN×_EL_BASE_MIN_FRAC(0.5))`）・推奨追加α（各加算 `scN≥10`）・推奨損切り（各損切り値 `n≥10`）の絶対下限＝EPナビ/記録フォーム/記録帳分析すべてに共通で効く（使用箇所: 1405 floorN / 1443 追加α black / 1500 損切り cand / 1575・1623・1696 minN表示 / 5266 lowN判定）。10件未満は status="ok" にならず（仮）/参考表示。件数窓（直近50→100→全期間 _EL_PERIOD_COUNTS[1],[2]）は不変。

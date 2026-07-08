@@ -1072,8 +1072,9 @@ function ImgGrid(_ref15) {
     }), React.createElement("div", {
       style: {
         position: "absolute",
-        top: boxed ? 2 : -7,
-        right: boxed ? 2 : -7,
+        top: boxed ? "auto" : -7,
+        bottom: boxed ? 4 : "auto",
+        right: boxed ? 4 : -7,
         display: "flex",
         gap: 3
       }
