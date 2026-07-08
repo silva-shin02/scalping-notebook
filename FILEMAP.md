@@ -35,6 +35,15 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-08h「RNまたぎ加算」を第5のα要素として新設（記録フォーム＋EPナビ計算フォーム＋早見カード・ユーザー要望）
+- RN＝ラウンドナンバー（キリ番株価）をまたぐ動きへの加算。〇×（既定×）→〇で加算値（既定5・手動可・▲▼ステッパー/長押し連続）を**そのまま**合計α/実効αに加算（浮き足の÷2のような計算なし）。全シグナルで表示。基本α＋浮き足加算＋追加α＋ライン併存に続く第5要素。alphaVal/effA畳み込みで下流（採用α・EP・分析・シミュ）は無改修で反映。
+- **app-05（EntryRecordForm）**: 追加α（根拠含む）行の下・合計α値バーの上に「RNまたぎ加算」欄（青系#EFF6FF）。state `fRnUsed`（既定 initSig.rnUsed===true?"○":"×"）/`fRnVal`（initSig.rnVal）。`_fRnAdd`を`_fAlpha=_fBaseA+_fUkiAdd+_fAddA+_fRnAdd`に合流。saveに`rnUsed`/`rnVal`。合計α値バー内訳に「＋RN」（_fRnAdd>0時）。**欄のすぐ横に「暫定EP」＝水準線値+合計α（既存の予定EP欄と同値・RN含む）を小さく表示＝EPを見てRN要否を判断（ユーザー要望）**。〇でfRnVal空なら5補完。範囲0〜50。
+- **app-04（_EpnCalcForm）**: 浮き足加算の下・予定EPの直前に「RNまたぎ加算」欄（_lrow・_oxBtns・〇でnRnVal空なら5補完）。state `nRnUsed`/`nRnVal`。`rnAddV`を`effA=baseV+ukiAddV+addV+rnAddV`に合流。_resetForm/doSave(`rn:rnAddV`,`rnUsed`)/loadForEdit(rnUsed明示 or rn>0で推定)。実効α表示に「＋RN」。
+- **app-04（早見カード）**: 新コンポーネント`_EpnRnSection`（追加αの_EpnAddSectionを簡略化＝根拠なし・値はローカルstate/onBlur確定・青系）を追加αインラインの下に配置。`onSetRnUsed`（〇＝rn5または既存値でEP再計算/×＝rn0）/`onSetRn`。カードのalphaSum/bk内訳に`e.rn`（＋RN）。**EP計算箇所を全て`+rn`化＝_epnRecalcBase・onSetAdd・onSetAddUsedにも`rn=Number(e.rn)||0`を合算（rnを保持しつつ他要素編集してもEPが崩れない）**。
+- **migrateData**: 変更なし。既存signal/itemにrn無し→`Number(e.rn)||0=0`で加算0＝既存alphaVal/EP不変（新規保存分のみrnが入る）。
+- sw.js: APP_CACHE v77→v78。
+- 配置はユーザー選択（EPナビは浮き足の下＝加算系の最後／早見カードはインライン編集あり／記録フォームは追加αの下＋暫定EP併記）。
+
 ### 2026-07-08g「ライン併存ルール」を独自の〇×欄として新設＋既存記録を移行（ユーザー要望）
 - 旧来は「併存ライン/ライン併存」チップ（シグナル詳細等）で暗黙に基本α=1にしていたが、チップ表記「ライン併存」とコード定数「併存ライン」が食い違い実質未機能だった。今回それを明示欄化し正す。
 - **app-05（EntryRecordForm）**: ③その他（「特徴」の語を削除）の下に「④ ライン併存ルール」を〇×（既定×）で新設。state `fLineCoexist`（既定 initSig.lineCoexist===true）＋effectで〇→setFBaseAlpha("1")/×→base=="1"なら""へ戻し_baTouchedRef=false（推奨復帰）。旧`_KYOZON`/`_isKyozon`チップ検知は撤去。saveに`lineCoexist:fLineCoexist`。`_EL_SIG_SECS`のfラベルを「③ その他特徴」→「③ その他」（記録フォーム/app-06分析の見出し共通）。

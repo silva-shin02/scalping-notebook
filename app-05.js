@@ -5920,6 +5920,14 @@ function EntryRecordForm(_ref_erf) {
   var _useStateUKV = useState(initSig.ukiVal != null ? String(initSig.ukiVal) : ""),
     _useStateUKVA = _slicedToArray(_useStateUKV, 2),
     fUkiVal = _useStateUKVA[0], setFUkiVal = _useStateUKVA[1];
+  // RNまたぎ加算α値（第5のα要素 2026-07-08h・RN＝ラウンドナンバー＝キリ番またぎ）: 〇×＋加算値（円・生値をそのまま加算・÷2等の計算なし）。全シグナルで表示。signal.rnUsed/rnValに保存。
+  // 初期化: rnUsed===true→〇・それ以外（false/未設定/旧記録）→×。
+  var _useStateRNU = useState(initSig.rnUsed === true ? "○" : "×"),
+    _useStateRNUA = _slicedToArray(_useStateRNU, 2),
+    fRnUsed = _useStateRNUA[0], setFRnUsed = _useStateRNUA[1];
+  var _useStateRNV = useState(initSig.rnVal != null ? String(initSig.rnVal) : ""),
+    _useStateRNVA = _slicedToArray(_useStateRNV, 2),
+    fRnVal = _useStateRNVA[0], setFRnVal = _useStateRNVA[1];
   // α値セクションのメモ（記録固有=signal.alphaMemo）2026-06-21。
   var _useStateALM = useState(initSig.alphaMemo || ""),
     _useStateALMA = _slicedToArray(_useStateALM, 2),
@@ -6118,7 +6126,9 @@ function EntryRecordForm(_ref_erf) {
   var _fUkiAdd = (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Math.floor(Number(fUkiVal) / 2) : 0;
   // 追加αは「〇（必要）」を選んだ時だけ合計に算入。×なら0＝基本αのみ。
   var _fAddA = (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
-  var _fAlpha = _fBaseA + _fUkiAdd + _fAddA;
+  // RNまたぎ加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
+  var _fRnAdd = (fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : 0;
+  var _fAlpha = _fBaseA + _fUkiAdd + _fAddA + _fRnAdd;
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
@@ -6651,6 +6661,8 @@ function EntryRecordForm(_ref_erf) {
       addReasonDetail: (fAddAlphaUsed === "○") ? (function() { var _o = {}, _any = false; (fAddReasons || []).forEach(function(_r) { var _l = (fRsnDetail && fRsnDetail[_r]) || []; if (_l.length) { _o[_r] = _l.slice(); _any = true; } }); return _any ? _o : null; })() : null,
       ukiUsed: _showUki ? (fUkiUsed === "○") : null,
       ukiVal: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Number(fUkiVal) : null,
+      rnUsed: fRnUsed === "○",
+      rnVal: (fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : null,
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
       includeInTotal: fIncl,
@@ -7617,6 +7629,45 @@ function EntryRecordForm(_ref_erf) {
         );
       })() : null,
       (function() {
+        // RNまたぎ加算α値の行（全シグナル・追加α（根拠含む）行の下）2026-07-08h。〇×→〇で加算値（円・そのまま）をαに加算。すぐ横に暫定EP（水準線値＋合計α）を小さく表示＝EPを見て要否判断。
+        var _setRV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFRnVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFRnVal(String(n)); };
+        var _stepRV = function(delta) { setFRnVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
+        var _rnOn = fRnUsed === "○";
+        var _rnAddShown = (fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : 0;
+        var _epPrev = (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return null; return Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100; })();
+        return React.createElement("div", {
+          style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 12, flexWrap: "wrap" }
+        },
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "RNまたぎ加算"),
+          React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
+            [["○", "○", "要", "#C0392B", "#FCEBEB"], ["×", "×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
+              var on = fRnUsed === kv[0];
+              return React.createElement("button", { key: kv[0], type: "button",
+                onClick: function() { setFRnUsed(kv[0]); if (kv[0] === "○" && fRnVal === "") setFRnVal("5"); },
+                title: kv[0] === "○" ? "ラウンドナンバー（キリ番）をまたぐ＝入力値をそのままαに加算" : "RNまたぎなし＝加算しない",
+                style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
+                kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
+            })
+          ),
+          _rnOn ? React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BFDBFE", borderRadius: 4, overflow: "hidden" } },
+            React.createElement("input", {
+              type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
+              value: fRnVal,
+              onChange: function(e) { _setRV(e.target.value); },
+              placeholder: "5",
+              style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#1D4ED8", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
+            }),
+            _stepBtn(function() { _stepRV(1); }, function() { _stepRV(-1); })
+          ) : null,
+          _rnOn ? React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円") : null,
+          _rnOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#1D4ED8", whiteSpace: "nowrap" } }, "→ ＋" + _rnAddShown + "円を加算") : null,
+          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 4, padding: "1px 7px", borderRadius: 6, background: "#DBEAFE", border: "1px solid #93C5FD", whiteSpace: "nowrap" } },
+            React.createElement("span", { style: { fontSize: 9.5, color: "#1D4ED8", fontWeight: 700 } }, "暫定EP"),
+            React.createElement("span", { title: "水準線値＋合計α値（RNまたぎ加算を含む）＝この設定でのエントリー予定価格の目安。EPを見てRNまたぎ加算の要否を判断（下の予定EP欄と同じ値）。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, _epPrev != null ? String(_epPrev) : "—"),
+            React.createElement("span", { style: { fontSize: 9.5, color: "#93C5FD" } }, "円"))
+        );
+      })(),
+      (function() {
         // 合計α値バー（案B 2026-07-03）: 3要素の内訳（基本＋浮き足＋追加）を常設表示。浮き足欄が出ないシグナルでは基本＋追加の2要素。値は_fBaseA/_fUkiAdd/_fAddA＝採用α計算(_fAlpha)と同一。
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "baseline", gap: 6, padding: "5px 12px", borderRadius: 6, background: "#F8FAFC", border: "1px solid #CBD5E1", fontSize: 12, flexWrap: "wrap" }
@@ -7628,7 +7679,8 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, _fBaseA),
             _showUki ? React.createElement("span", null, " ＋ 浮き足 ", React.createElement("span", { style: { color: "#15803D", fontWeight: 700 } }, _fUkiAdd)) : null,
             " ＋ 追加 ",
-            React.createElement("span", { style: { color: "#92400E", fontWeight: 700 } }, _fAddA))
+            React.createElement("span", { style: { color: "#92400E", fontWeight: 700 } }, _fAddA),
+            _fRnAdd > 0 ? React.createElement("span", null, " ＋ RN ", React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, _fRnAdd)) : null)
         );
       })(),
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
