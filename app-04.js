@@ -3474,6 +3474,17 @@ function _EpnCalcForm(_p) {
   var _useStateEPNed = useState(null), _useStateEPNedA = _slicedToArray(_useStateEPNed, 2), editId = _useStateEPNedA[0], setEditId = _useStateEPNedA[1];
   var _useStateEPNea = useState(null), _useStateEPNeaA = _slicedToArray(_useStateEPNea, 2), editAt = _useStateEPNeaA[0], setEditAt = _useStateEPNeaA[1];
   var _useStateEPNdn = useState(false), _useStateEPNdnA = _slicedToArray(_useStateEPNdn, 2), editDone = _useStateEPNdnA[0], setEditDone = _useStateEPNdnA[1];
+  var _rootRef = useRef(null);
+  // 併存ライン（シグナル/詳細のどこで選んでも）を選ぶと基本α欄へ1を自動入力＝選択の瞬間だけ効き、手修正可・解除で1なら空に戻す（推奨に戻る）。記録フォームEntryRecordFormと同ルール＝二重実装。2026-07-08
+  var _KYOZON = "併存ライン";
+  var _isKyozon = nTag === _KYOZON || nSelB === _KYOZON || nSelK === _KYOZON || nSelF.indexOf(_KYOZON) >= 0;
+  var _kyozPrevRef = useRef(_isKyozon);
+  useEffect(function() {
+    if (_isKyozon === _kyozPrevRef.current) return;
+    _kyozPrevRef.current = _isKyozon;
+    if (_isKyozon) setNBase("1");
+    else setNBase(function(_p) { return _p === "1" ? "" : _p; });
+  }, [_isKyozon]);
   // 列フォーム常設化に伴い推奨カスケードは常時計算（旧epnOpenゲートは廃止・銘柄ごとuseMemo）。
   var casc = useMemo(function() {
     if (!stock) return null;
@@ -3534,6 +3545,7 @@ function _EpnCalcForm(_p) {
   var _resetForm = function() {
     setEditId(null); setEditAt(null); setEditDone(false); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
     setNBase(""); setNAddUsed("×"); setNAdd(""); setNAddReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNLevel("");
+    _kyozPrevRef.current = false;
   };
   var doSave = function() {
     if (epV == null || !stock) return;
@@ -3561,10 +3573,11 @@ function _EpnCalcForm(_p) {
     setNUkiUsed(hasUki ? "○" : "×"); setNUkiVal(hasUki && e.ukiVal != null ? String(e.ukiVal) : "");
     setNLevel(e.level != null ? String(e.level) : "");
     setEditId(e.id); setEditAt(e.at || null); setEditDone(!!e.done);
+    _kyozPrevRef.current = (e.tag === _KYOZON) || (e.b === _KYOZON) || (e.k === _KYOZON) || (Array.isArray(e.f) && e.f.indexOf(_KYOZON) >= 0);
   };
   // 親へAPI登録（毎レンダー再登録＝最新クロージャ維持・アンマウントで解除）。
   useEffect(function() {
-    if (register) register(stock, { loadForEdit: loadForEdit, onDeleted: function(id) { if (editId === id) _resetForm(); } });
+    if (register) register(stock, { loadForEdit: loadForEdit, focus: function() { if (_rootRef.current && _rootRef.current.scrollIntoView) _rootRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, onDeleted: function(id) { if (editId === id) _resetForm(); } });
     return function() { if (register) register(stock, null); };
   });
   // ===== 選択肢の管理（追加/改名/削除/並び替え・改名は過去記録も追従）=====
@@ -3668,9 +3681,11 @@ function _EpnCalcForm(_p) {
     return React.createElement("span", null, _nl(num, text), React.createElement("span", { style: { fontSize: 8, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "＋追加・✎編集・ドラッグで並び替え"));
   };
   // ===== 描画（縦積み1カラム＝列幅に収まる）=====
-  return React.createElement("div", { style: { minWidth: 0, boxSizing: "border-box", background: "#fff", border: "1px solid #BFDBFE", borderRadius: 8, padding: 8 } },
+  // 編集中（editId有り）は計算欄を琥珀色に＝どの列を編集中か一目で分かる（保存済みバナー＋更新保存ボタンと同系色）。2026-07-08
+  var _editing = !!editId;
+  return React.createElement("div", { ref: _rootRef, style: { minWidth: 0, boxSizing: "border-box", background: _editing ? "#FFFBEB" : "#fff", border: _editing ? "2px solid #F59E0B" : "1px solid #BFDBFE", borderRadius: 8, padding: _editing ? 7 : 8 } },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6 } },
-      React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#1D4ED8", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "計算：" + stock),
+      React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: _editing ? "#B45309" : "#1D4ED8", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (_editing ? "✎ 編集：" : "計算：") + stock),
       React.createElement("button", { type: "button", onClick: _resetForm, title: "計算内容をリセット（シグナル/α/水準線などを初期化）",
         style: { flexShrink: 0, padding: "3px 9px", fontSize: 10.5, fontWeight: 700, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 30 : 22 } }, "↺ リセット")),
     editId ? React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6, padding: "4px 8px", background: "#FEF9C3", border: "1px solid #FDE68A", borderRadius: 6, flexWrap: "wrap" } },
@@ -3821,12 +3836,14 @@ function EpNaviPanel(_refEPN) {
     var epColor = (hasAdd && !isDone) ? "#B91C1C" : C.main;
     var subColor = (hasAdd && !isDone) ? "#DC2626" : C.sub;
     var mbBadge = (has5 || has1) ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, borderRadius: 3, padding: "0 3px", marginRight: 3, color: C.bc, background: C.bbg, border: "0.5px solid " + C.bd } }, mb.join("・") + "分") : null;
-    return React.createElement("div", { key: e.id, onClick: function() { var _api = _formApisRef.current[st]; if (_api) _api.loadForEdit(e); }, title: "タップで編集（この銘柄の計算フォームに読込・追加αの後付け等）", style: { border: "1px solid " + C.bd, borderRadius: 6, padding: "5px 7px", background: C.bg, marginBottom: 5, cursor: "pointer", opacity: isDone ? 0.72 : 1 } },
+    return React.createElement("div", { key: e.id, style: { border: "1px solid " + C.bd, borderRadius: 6, padding: "5px 7px", background: C.bg, marginBottom: 5, opacity: isDone ? 0.72 : 1 } },
       React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 } },
         React.createElement("span", { style: { display: "flex", alignItems: "center", minWidth: 0, flex: 1 } }, mbBadge,
           e.tag ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.tag) : null,
           hasAdd ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: isDone ? "#94A3B8" : "#DC2626", marginLeft: 3 } }, "追") : null),
         React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 3, flexShrink: 0 } },
+          React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); var _api = _formApisRef.current[st]; if (_api) { _api.loadForEdit(e); if (_api.focus) _api.focus(); } }, title: "計算フォームに読み込んで全体を編集（起点・その他特徴・追加α等）",
+            style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "編集"),
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDone(st, e); }, title: isDone ? "済みを解除（未済みに戻して上へ）" : "済みにする（薄い灰色で一番下へ）",
             style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: isDone ? "1.5px solid #64748B" : "1px solid #CBD5E1", background: isDone ? "#64748B" : "#fff", color: isDone ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "済"),
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDel(st, e.id); }, title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",

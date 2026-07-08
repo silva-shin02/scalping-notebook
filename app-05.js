@@ -6017,6 +6017,25 @@ function EntryRecordForm(_ref_erf) {
     _baAutoRef.current = _nv;
     if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
   }, [_autoBaseA, fBaseAlpha, isEdit]);
+  // 併存ライン（シグナル/詳細のどこで選んでも）を選ぶと基本α欄へ1を自動入力＝選択の瞬間だけ効き、手修正可・解除で1なら空へ戻し推奨に復帰。新規/編集どちらも適用（EPナビ_EpnCalcFormと同ルール＝二重実装・変更時は両方直す）2026-07-08。
+  var _KYOZON = "併存ライン";
+  var _isKyozon = (function() {
+    if (fTags.indexOf(_KYOZON) >= 0) return true;
+    for (var _ki = 0; _ki < fTags.length; _ki++) {
+      var _ksd = fSigDetail && fSigDetail[fTags[_ki]];
+      if (!_ksd) continue;
+      if (_ksd.b === _KYOZON || _ksd.k === _KYOZON) return true;
+      if (Array.isArray(_ksd.f) && _ksd.f.indexOf(_KYOZON) >= 0) return true;
+    }
+    return false;
+  })();
+  var _kyozPrevRef = useRef(_isKyozon);
+  useEffect(function() {
+    if (_isKyozon === _kyozPrevRef.current) return;
+    _kyozPrevRef.current = _isKyozon;
+    if (_isKyozon) setFBaseAlpha("1");
+    else { _baTouchedRef.current = false; setFBaseAlpha(function(_p) { return _p === "1" ? "" : _p; }); }
+  }, [_isKyozon]);
   // 推奨追加αの表示も同じ段階（詳細別→シグナル別→銘柄全体）で最初に得られたものを使う（表示のみ・追加α欄への自動入力はしない）。
   var _refAddAlphaSrc = (_refSigAlpha && _refSigAlpha.det && _refSigAlpha.det.add) ? { add: _refSigAlpha.det.add, src: "詳細別" }
     : ((_refSigAlpha && _refSigAlpha.sig && _refSigAlpha.sig.add) ? { add: _refSigAlpha.sig.add, src: "シグナル別" }
