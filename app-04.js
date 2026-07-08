@@ -3216,7 +3216,7 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
-              var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg); });
+              var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
               if (_g.allMiss) return _qZeroCell();
               if (_g.plan === "Z" && _g.planRefCnt <= 0) return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
@@ -3227,7 +3227,7 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
-              var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg); });
+              var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
               if (_g.allMissH) return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.25 } },
                 React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", borderBottom: "1px solid #e0d8c8", paddingBottom: 1 } },
                   React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700 } }, "H１："), _qZeroCell()),
@@ -3249,7 +3249,7 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 10;
-              var _gR = _elCalcChartGrades(c2.signals, null, _cutR, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg); });
+              var _gR = _elCalcChartGrades(c2.signals, null, _cutR, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
               if (_gR.real === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
                 _qrMkBadge(_gR.real), _qrAmtSpan(_gR.realSum, "円"));

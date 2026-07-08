@@ -3169,10 +3169,10 @@ function _elNotInclRowStyle(s) {
 }
 // 行スタイル統合版（2026-07-08）: スルー(灰)/不算入(水色)に加え、時間かぶりで除外された記録（良い方）を薄紫で行全体色分け。
 // 優先順位はスルー/不算入が先（被り除外の母数=算入のみなので実際には排他）。r={stock,date,signal}・dataが無い呼び出しは従来どおり。
-function _elRowStyleWithColl(data, r) {
+function _elRowStyleWithColl(data, r, scope) {
   var st = _elNotInclRowStyle(r && r.signal);
   if (st) return st;
-  if (data && _elCollExcluded(data, r)) return { opacity: 0.68, background: "#F5F3FF", borderLeft: "3px solid #A78BFA" };
+  if (data && _elCollExcluded(data, r, scope)) return { opacity: 0.68, background: "#F5F3FF", borderLeft: "3px solid #A78BFA" };
   return null;
 }
 // 水色ドット（銘柄タブ/カレンダー用）。countを渡すとタイトルに件数。
@@ -4058,11 +4058,15 @@ function _elDeriveHoldProfit(hp, pp, res, fallback) {
 // 悪い方（低い方）を残して良い方（高い方）を合計額から除外（同額は後の時刻側を除外・どちらかmain無しのペアは除外なし）。単独記録は除外なし。
 // 母数＝v2(_epIsV2)かつ算入(_elInclTotal)・時刻無しは対象外。返り値 {excluded:{key:1}, marked:{key:1}}＝除外keyと「※被り有」（残した側）key。
 // data.charts参照でmemo化（保存でchartsの識別が変わると再計算）。配線は「表示総計」のみ＝α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
-var _elCollMemoCharts = null, _elCollMemoSet = null;
+// scopeStock を渡すと「その銘柄の記録だけ」でペアリング＝同一銘柄内の被りだけ除外（銘柄別のみのビュー用 2026-07-08）。
+// 省略/null＝全銘柄横断（従来どおり＝本日/今週/検索日カード/ホーム月次/カレンダー等の全銘柄合算ビュー）。scopeごとにmemo。
+var _elCollMemo = {};
 function _elCollKey(stock, date, s) { return stock + "|" + date + "|" + ((s && s.id != null && s.id !== "") ? String(s.id) : (((s && s.time) || "") + "|" + ((s && (s.tag || "")) || ""))); }
-function _elCollisionExcludedSet(data) {
+function _elCollisionExcludedSet(data, scopeStock) {
   var charts = (data && data.charts) || {};
-  if (_elCollMemoCharts === charts && _elCollMemoSet) return _elCollMemoSet;
+  var _mk = scopeStock || "";
+  var _m = _elCollMemo[_mk];
+  if (_m && _m.charts === charts) return _m.set;
   var _toMin = function(t) { if (!t) return null; var m = String(t).match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; };
   var byDay = {};
   Object.keys(charts).forEach(function(ck) {
@@ -4071,6 +4075,7 @@ function _elCollisionExcludedSet(data) {
     var idx = ck.lastIndexOf("_");
     if (idx < 0) return;
     var stock = ck.slice(0, idx), date = ck.slice(idx + 1);
+    if (scopeStock && stock !== scopeStock) return;   // 銘柄別ビュー: 自銘柄以外は被り母数に入れない＝別銘柄との時間かぶりでは除外しない 2026-07-08
     var cut = (c.cutLine != null) ? Number(c.cutLine) : 10;
     c.signals.forEach(function(sig) {
       var s = _compatSignal(sig);
@@ -4101,33 +4106,34 @@ function _elCollisionExcludedSet(data) {
       }
     }
   });
-  _elCollMemoCharts = charts;
-  _elCollMemoSet = { excluded: excluded, marked: marked, info: info };
-  return _elCollMemoSet;
+  var _set = { excluded: excluded, marked: marked, info: info };
+  _elCollMemo[_mk] = { charts: charts, set: _set };
+  return _set;
 }
 // r={stock,date,signal} が除外対象（良い方＝合計額に入れない）か／残した側（※被り有マーク）か。
-function _elCollExcluded(data, r) { return !!(r && r.signal && _elCollisionExcludedSet(data).excluded[_elCollKey(r.stock, r.date, r.signal)]); }
-function _elCollMarked(data, r) { return !!(r && r.signal && _elCollisionExcludedSet(data).marked[_elCollKey(r.stock, r.date, r.signal)]); }
-// signal直渡し版（recラッパーが無いループ用: カレンダー月次/日別ランク・検索日カード・早見表等）。
-function _elCollExcludedSig(data, stock, date, s) { return !!(s && _elCollisionExcludedSet(data).excluded[_elCollKey(stock, date, s)]); }
-// recs配列中の「被り除外」該当件数（KPI等の可視化用）。
-function _elCollExclCountRecs(data, recs) { var n = 0; (recs || []).forEach(function(r) { if (_elCollExcluded(data, r)) n++; }); return n; }
+// 第3引数 scope（銘柄名）を渡すと同一銘柄内のみの被り除外を参照＝銘柄別ビュー用。省略時は全銘柄横断（従来）2026-07-08。
+function _elCollExcluded(data, r, scope) { return !!(r && r.signal && _elCollisionExcludedSet(data, scope).excluded[_elCollKey(r.stock, r.date, r.signal)]); }
+function _elCollMarked(data, r, scope) { return !!(r && r.signal && _elCollisionExcludedSet(data, scope).marked[_elCollKey(r.stock, r.date, r.signal)]); }
+// signal直渡し版（recラッパーが無いループ用: カレンダー月次/日別ランク・検索日カード・早見表等）。scope省略=全銘柄横断。
+function _elCollExcludedSig(data, stock, date, s, scope) { return !!(s && _elCollisionExcludedSet(data, scope).excluded[_elCollKey(stock, date, s)]); }
+// recs配列中の「被り除外」該当件数（KPI等の可視化用）。scope省略=全銘柄横断。
+function _elCollExclCountRecs(data, recs, scope) { var n = 0; (recs || []).forEach(function(r) { if (_elCollExcluded(data, r, scope)) n++; }); return n; }
 // 明細行用の時間かぶり小バッジ（残した側＝悪い方「※被り有」・除外された側＝良い方「被り除外」灰色。対象外はnull）2026-07-07両側可視化。
-function _elCollMarkNode(data, r) {
-  if (_elCollMarked(data, r)) {
+function _elCollMarkNode(data, r, scope) {
+  if (_elCollMarked(data, r, scope)) {
     return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。ペアの良い方（（）外手じまい損益が高い方）は合計額から除外し、この記録（悪い方）だけを合計に算入（件数は両方残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "※被り有");
   }
-  if (_elCollExcluded(data, r)) {
+  if (_elCollExcluded(data, r, scope)) {
     return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。この記録は良い方（（）外手じまい損益が高い方）＝損益は合計額に入れない（件数は残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "被り除外");
   }
   return null;
 }
 // EntryLogCard用: 被りペアの相手（銘柄/時刻/（）外損益）を1行で示す。dataが無い呼び出し（app-02/04のα直指定カード）はnull。
-function _elCollPairNode(data, r) {
+function _elCollPairNode(data, r, scope) {
   if (!data || !r || !r.signal) return null;
-  var inf = _elCollisionExcludedSet(data).info[_elCollKey(r.stock, r.date, r.signal)];
+  var inf = _elCollisionExcludedSet(data, scope).info[_elCollKey(r.stock, r.date, r.signal)];
   if (!inf) return null;
   var isKeep = inf.role === "keep";
   return React.createElement("div", { style: { fontSize: 9, fontWeight: 600, color: isKeep ? "#B45309" : "#64748B", background: isKeep ? "#FFFBEB" : "#F8FAFC", border: "1px solid " + (isKeep ? "#FCD34D" : "#E2E8F0"), borderRadius: 4, padding: "2px 6px", marginBottom: 6, lineHeight: 1.4 } },
@@ -8359,7 +8365,7 @@ function EntryLogCard(_ref_elc) {
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock)
     ),
-    _ref_elc.data ? _elCollPairNode(_ref_elc.data, record) : null,
+    _ref_elc.data ? _elCollPairNode(_ref_elc.data, record, _ref_elc.collScope) : null,
 
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       s.tradeType && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: s.tradeType === "空売" ? "#FCEBEB" : "#EAF3DE", color: s.tradeType === "空売" ? "#C0392B" : "#1E8449", borderRadius: 4, border: "1px solid " + (s.tradeType === "空売" ? "#F5C6CB" : "#A9DFBF") } }, s.tradeType),

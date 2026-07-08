@@ -4106,7 +4106,7 @@ function EntrySignalSection(_ref_es) {
     var recKey = _esRecKey(r);
     if (sortMode !== "custom") {
       return React.createElement(EntryLogCard, {
-        key: recKey, record: r, data: data, onEdit: function(rec) { setEditTarget(rec); }
+        key: recKey, record: r, data: data, collScope: stock, onEdit: function(rec) { setEditTarget(rec); }
       });
     }
     var isDragging = dragRecKey === recKey;
@@ -4161,7 +4161,7 @@ function EntrySignalSection(_ref_es) {
       ),
       React.createElement("div", { style: { flex: 1, minWidth: 0 } },
         React.createElement(EntryLogCard, {
-          record: r, data: data, onEdit: function(rec) { setEditTarget(rec); }
+          record: r, data: data, collScope: stock, onEdit: function(rec) { setEditTarget(rec); }
         })
       )
     );
@@ -4245,7 +4245,7 @@ function EntrySignalSection(_ref_es) {
   var _esTotHold2 = null, _esTotHold2Cnt = 0, _esTotHold2Ref = null, _esTotHold2RefCnt = 0;
   var _esTotPlanRef = null, _esTotPlanRefCnt = 0;
   _recsForTot.forEach(function(r) {
-    if (_elCollExcluded(data, r)) return;  // 時間かぶり除外: 良い方は合計行から全スキップ（行表示は全件）2026-07-07
+    if (_elCollExcluded(data, r, stock)) return;  // 時間かぶり除外: 良い方は合計行から全スキップ（行表示は全件）。銘柄別ビュー＝同一銘柄内のみ 2026-07-08
     var s = r.signal, rIt = r.item;
     var _sh = Number(s.shares) > 0 ? Number(s.shares) : 0;
     var _p100 = function(v) { return _sh > 0 ? Math.round(v / _sh * 100) : Math.round(v); };
@@ -4670,14 +4670,14 @@ function EntrySignalSection(_ref_es) {
             var totalRecs = isCustomMode ? (sortedRecs || []).length : 0;
             dataRows.push(
               React.createElement("tr", { key: rKey,
-                style: Object.assign({ cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" }, _elRowStyleWithColl(data, r)),
+                style: Object.assign({ cursor: "pointer", background: rExp ? "#FFFBF5" : "transparent" }, _elRowStyleWithColl(data, r, stock)),
                 onClick: function() { setTableRecExp(function(prev) { var n = Object.assign({}, prev); if (n[rKeyRef]) delete n[rKeyRef]; else n[rKeyRef] = true; return n; }); }
               },
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   React.createElement("div", null,
                     React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                     s.time || "—", _minBarBadge(s)),
-                  _epIncompleteMark(s), _elCollMarkNode(data, r),
+                  _epIncompleteMark(s), _elCollMarkNode(data, r, stock),
                   _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null
                 ),
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
@@ -4719,7 +4719,7 @@ function EntrySignalSection(_ref_es) {
               dataRows.push(
                 React.createElement("tr", { key: rKey + "_card" },
                   React.createElement("td", { colSpan: isCustomMode ? 10 : 9, style: { padding: "4px 8px 8px", background: "#FFFBF5", borderBottom: "1px solid #f0ede6" } },
-                    React.createElement(EntryLogCard, { record: r, data: data, onEdit: function(rec) { setEditTarget(rec); } })
+                    React.createElement(EntryLogCard, { record: r, data: data, collScope: stock, onEdit: function(rec) { setEditTarget(rec); } })
                   )
                 )
               );
@@ -5001,13 +5001,13 @@ function WeeklyPnlPanel(_wpp) {
     var realPnl = (item && item.pnl != null) ? Number(item.pnl) : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
     var entered = _elIsEntered(s, item);
     var gReal = entered && realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null;
-    var _row = React.createElement("tr", { key: rKey + "_row", style: Object.assign({ background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r)),
+    var _row = React.createElement("tr", { key: rKey + "_row", style: Object.assign({ background: rExp ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, stock)),
       onClick: function() { setRecExp(function(p) { var n = Object.assign({}, p); if (n[rKey]) delete n[rKey]; else n[rKey] = true; return n; }); } },
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, color: "#F97316", width: "1%" } }, rExp ? "▼" : "▶"),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#9A3412" } },
         React.createElement("div", null, (r.date || "").slice(5)), _simInput(r, true), _simInput(r, false)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } },
-        React.createElement("div", null, s.time || "—", _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r),
+        React.createElement("div", null, s.time || "—", _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r, stock),
         _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         _elSigCell(s, "center")),
@@ -5039,7 +5039,7 @@ function WeeklyPnlPanel(_wpp) {
   var _detailTotRowFor = function(_list) {
     // 合計額算入: フッター合計は除外記録を抜く（明細行 _detailRowsFor は全件のまま表示）2026-06-18
     _list = (_list || []).filter(function(r) { return _elInclTotal(r.signal); });
-    var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, excluded: function(r) { return _elCollExcluded(data, r); }, real: function(r) { if (!_elIsEntered(r.signal, r.item)) return null; var it = r.item; return (it && it.pnl != null) ? Number(it.pnl) : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); } });
+    var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, excluded: function(r) { return _elCollExcluded(data, r, stock); }, real: function(r) { if (!_elIsEntered(r.signal, r.item)) return null; var it = r.item; return (it && it.pnl != null) ? Number(it.pnl) : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); } });
     var _allMiss = _elAllMissRow(_list, _alphaOf, _cutOf);
     return React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
       React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
@@ -5102,8 +5102,8 @@ function WeeklyPnlPanel(_wpp) {
     var _exclN = (recs || []).filter(function(r) { return _elIsExcluded(r.signal); }).length;
     recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
     var st = _elCalcStats(recs, data);
-    // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_recsM＝被り除外後・件数系(st/件/到達等)はrecsのまま 2026-07-07
-    var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r); });
+    // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_recsM＝被り除外後・件数系(st/件/到達等)はrecsのまま。銘柄別ビュー＝同一銘柄内のみ 2026-07-08
+    var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r, stock); });
     var _stM = _recsM.length === recs.length ? st : _elCalcStats(_recsM, data);
     var _ent = _wkEntCnt(recs);
     var _osv = _wkAvgOs(recs);
