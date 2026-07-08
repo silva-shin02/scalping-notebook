@@ -3468,6 +3468,7 @@ function _EpnCalcForm(_p) {
   var _useStateEPN12 = useState(""), _useStateEPN12A = _slicedToArray(_useStateEPN12, 2), nLevel = _useStateEPN12A[0], setNLevel = _useStateEPN12A[1];
   var _useStateEPNed = useState(null), _useStateEPNedA = _slicedToArray(_useStateEPNed, 2), editId = _useStateEPNedA[0], setEditId = _useStateEPNedA[1];
   var _useStateEPNea = useState(null), _useStateEPNeaA = _slicedToArray(_useStateEPNea, 2), editAt = _useStateEPNeaA[0], setEditAt = _useStateEPNeaA[1];
+  var _useStateEPNdn = useState(false), _useStateEPNdnA = _slicedToArray(_useStateEPNdn, 2), editDone = _useStateEPNdnA[0], setEditDone = _useStateEPNdnA[1];
   // 列フォーム常設化に伴い推奨カスケードは常時計算（旧epnOpenゲートは廃止・銘柄ごとuseMemo）。
   var casc = useMemo(function() {
     if (!stock) return null;
@@ -3526,18 +3527,20 @@ function _EpnCalcForm(_p) {
   var levelN = (nLevel !== "" && !isNaN(parseFloat(nLevel))) ? parseFloat(nLevel) : null;
   var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
   var _resetForm = function() {
-    setEditId(null); setEditAt(null); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
+    setEditId(null); setEditAt(null); setEditDone(false); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
     setNBase(""); setNAddUsed("×"); setNAdd(""); setNAddReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNLevel("");
   };
   var doSave = function() {
     if (epV == null || !stock) return;
-    _epnPut(save, date, stock, {
+    var _item = {
       id: editId || ("epn_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7)),
       tag: nTag || null, b: nSelB || null, k: nSelK || null, f: nSelF.slice(), minBars: nMinBars.slice(),
       base: baseV, add: addV, uki: ukiAddV, ukiVal: ukiAddV > 0 ? Number(nUkiVal) : null,
       reasons: (nAddUsed === "○") ? nAddReasons.slice() : [],
       level: levelN, ep: epV, src: autoPick.src || null, at: editAt || Date.now()
-    });
+    };
+    if (editId && editDone) _item.done = true;
+    _epnPut(save, date, stock, _item);
     _resetForm();
   };
   // ✎編集: 保存済みEPの全項目をこの列のフォームへ読込んで更新モードに（あとから追加αを取る等）。
@@ -3552,7 +3555,7 @@ function _EpnCalcForm(_p) {
     var hasUki = (Number(e.uki) || 0) > 0;
     setNUkiUsed(hasUki ? "○" : "×"); setNUkiVal(hasUki && e.ukiVal != null ? String(e.ukiVal) : "");
     setNLevel(e.level != null ? String(e.level) : "");
-    setEditId(e.id); setEditAt(e.at || null);
+    setEditId(e.id); setEditAt(e.at || null); setEditDone(!!e.done);
   };
   // 親へAPI登録（毎レンダー再登録＝最新クロージャ維持・アンマウントで解除）。
   useEffect(function() {
@@ -3767,7 +3770,12 @@ function EpNaviPanel(_refEPN) {
       var st = ck.slice(0, pos);
       arr.forEach(function(e) { if (e && e.id != null) (map[st] = map[st] || []).push(e); });
     });
-    Object.keys(map).forEach(function(st) { map[st].sort(function(a, b) { return (Number(b.ep) || 0) - (Number(a.ep) || 0); }); });
+    // 並び: 未済みをEP高い順→その下に済み（済み同士もEP高い順）2026-07-08b
+    Object.keys(map).forEach(function(st) { map[st].sort(function(a, b) {
+      var d = (a.done ? 1 : 0) - (b.done ? 1 : 0);
+      if (d) return d;
+      return (Number(b.ep) || 0) - (Number(a.ep) || 0);
+    }); });
     var order = Object.keys(map).sort(function(a, b) { return (map[b][0] ? Number(map[b][0].ep) || 0 : 0) - (map[a][0] ? Number(map[a][0].ep) || 0 : 0); });
     return { map: map, stocks: order };
   }, [data.charts, date]);
@@ -3785,25 +3793,41 @@ function EpNaviPanel(_refEPN) {
       _delTimerRef.current = setTimeout(function() { setDelArm(null); }, 3000);
     }
   };
-  // 保存済みEPカード（追加αあり＝赤字・5分足＝緑バッジ＋緑左ライン。別チャンネルで両立）
+  // 「済」トグル: 押すと灰色に薄く＋列の一番下へ（再タップで解除）。_epnPut（同一id除去→追加）でid/at維持のまま更新＝Firebase同期。
+  var onDone = function(st, e) {
+    var ne = Object.assign({}, e);
+    if (ne.done) delete ne.done; else ne.done = true;
+    _epnPut(save, date, st, ne);
+  };
+  // 保存済みEPカード（面=分足色: 5分含む=緑/1分=オレンジ・追加αありはEP/内訳の文字だけ赤＋「追」・済み=灰色薄く 2026-07-08b。旧: 追加α=赤面・5分=緑左ライン）
   var _renderCard = function(st, e) {
     var hasAdd = (Number(e.add) || 0) > 0;
     var mb = Array.isArray(e.minBars) ? e.minBars : [];
     var has5 = mb.indexOf("5") >= 0, has1 = mb.indexOf("1") >= 0;
+    var isDone = !!e.done;
     var alphaSum = (Number(e.base) || 0) + (Number(e.uki) || 0) + (Number(e.add) || 0);
     var bk = "基" + (e.base != null ? e.base : "—") + (e.uki ? "＋浮" + e.uki : "") + (e.add ? "＋追" + e.add : "");
     var detTxt = [e.b ? "底:" + e.b : null, e.k ? "起:" + e.k : null].concat((e.f || []).map(function(x) { return "特:" + x; })).filter(function(x) { return !!x; }).join("・");
     var armed = delArm === e.id;
-    var mbBadge = (has5 || has1) ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, borderRadius: 3, padding: "0 3px", marginRight: 3, color: has5 ? "#166534" : "#64748B", background: has5 ? "#DCFCE7" : "#F1F5F9", border: "0.5px solid " + (has5 ? "#86EFAC" : "#CBD5E1") } }, mb.join("・") + "分") : null;
-    return React.createElement("div", { key: e.id, onClick: function() { var _api = _formApisRef.current[st]; if (_api) _api.loadForEdit(e); }, title: "タップで編集（この銘柄の計算フォームに読込・追加αの後付け等）", style: { border: "1px solid " + (hasAdd ? "#FCA5A5" : "#BFDBFE"), borderLeft: has5 ? "3px solid #22C55E" : ("1px solid " + (hasAdd ? "#FCA5A5" : "#BFDBFE")), borderRadius: 6, padding: "5px 7px", background: hasAdd ? "#FEF2F2" : "#EFF6FF", marginBottom: 5, cursor: "pointer" } },
+    var C = has5
+      ? { bd: "#86EFAC", bg: "#F0FDF4", main: "#15803D", sub: "#16A34A", bbg: "#DCFCE7", bc: "#166534" }
+      : { bd: "#FDBA74", bg: "#FFF7ED", main: "#C2410C", sub: "#EA580C", bbg: "#FFEDD5", bc: "#9A3412" };
+    if (isDone) C = { bd: "#CBD5E1", bg: "#F1F5F9", main: "#94A3B8", sub: "#94A3B8", bbg: "#E2E8F0", bc: "#94A3B8" };
+    var epColor = (hasAdd && !isDone) ? "#B91C1C" : C.main;
+    var subColor = (hasAdd && !isDone) ? "#DC2626" : C.sub;
+    var mbBadge = (has5 || has1) ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, borderRadius: 3, padding: "0 3px", marginRight: 3, color: C.bc, background: C.bbg, border: "0.5px solid " + C.bd } }, mb.join("・") + "分") : null;
+    return React.createElement("div", { key: e.id, onClick: function() { var _api = _formApisRef.current[st]; if (_api) _api.loadForEdit(e); }, title: "タップで編集（この銘柄の計算フォームに読込・追加αの後付け等）", style: { border: "1px solid " + C.bd, borderRadius: 6, padding: "5px 7px", background: C.bg, marginBottom: 5, cursor: "pointer", opacity: isDone ? 0.72 : 1 } },
       React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 } },
         React.createElement("span", { style: { display: "flex", alignItems: "center", minWidth: 0, flex: 1 } }, mbBadge,
-          e.tag ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: hasAdd ? "#B91C1C" : "#1E3A8A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.tag) : null,
-          hasAdd ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: "#DC2626", marginLeft: 3 } }, "追") : null),
-        React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDel(st, e.id); }, title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",
-          style: { flexShrink: 0, padding: "1px 6px", fontSize: armed ? 9 : 11, fontWeight: 800, lineHeight: 1.5, border: armed ? "1.5px solid #DC2626" : "1px solid #BFDBFE", background: armed ? "#DC2626" : "#fff", color: armed ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, armed ? "削除?" : "×")),
-      React.createElement("div", { style: { fontSize: 16, fontWeight: 800, color: hasAdd ? "#B91C1C" : "#1D4ED8", fontVariantNumeric: "tabular-nums", lineHeight: 1.25 } }, "EP " + e.ep + "円"),
-      React.createElement("div", { style: { fontSize: 9, color: hasAdd ? "#DC2626" : "#3B82F6" } }, "起点" + e.level + "＋α" + alphaSum + "（" + bk + "）"),
+          e.tag ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.tag) : null,
+          hasAdd ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: isDone ? "#94A3B8" : "#DC2626", marginLeft: 3 } }, "追") : null),
+        React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 3, flexShrink: 0 } },
+          React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDone(st, e); }, title: isDone ? "済みを解除（未済みに戻して上へ）" : "済みにする（薄い灰色で一番下へ）",
+            style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: isDone ? "1.5px solid #64748B" : "1px solid #CBD5E1", background: isDone ? "#64748B" : "#fff", color: isDone ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "済"),
+          React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDel(st, e.id); }, title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",
+            style: { padding: "1px 6px", fontSize: armed ? 9 : 11, fontWeight: 800, lineHeight: 1.5, border: armed ? "1.5px solid #DC2626" : "1px solid " + C.bd, background: armed ? "#DC2626" : "#fff", color: armed ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, armed ? "削除?" : "×"))),
+      React.createElement("div", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums", lineHeight: 1.25 } }, "EP " + e.ep + "円"),
+      React.createElement("div", { style: { fontSize: 9, color: subColor } }, "起点" + e.level + "＋α" + alphaSum + "（" + bk + "）"),
       detTxt ? React.createElement("div", { style: { fontSize: 8.5, color: "#64748B", marginTop: 1, lineHeight: 1.4 } }, detTxt, e.src ? React.createElement("span", { style: { color: "#94A3B8" } }, "（" + e.src + "）") : null) : (e.src ? React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8", marginTop: 1 } }, "（" + e.src + "）") : null));
   };
   // 早見（上段: 銘柄ヘッダー＋EPカード）と計算フォーム（下段: _EpnCalcForm常設）を銘柄列ごとにグリッドで2段整列（案A 2026-07-08）。
