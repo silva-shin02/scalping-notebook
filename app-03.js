@@ -4539,7 +4539,8 @@ function NewsTab(_ref36) {
     React.createElement(ImgGrid, {
       images: imgs,
       maxHeight: 320,
-      onRemove: function(i) { 
+      boxed: true,
+      onRemove: function(i) {
         console.log("[ImgGrid onRemove] nid=" + ni.id + " imgIdx=" + i + " cat=" + currentCat);
         return updNews(ni.id, function(n) { 
           var newImgs = (n.images||[]).filter(function(_, j){ return j !== i; });

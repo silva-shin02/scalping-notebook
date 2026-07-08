@@ -1027,7 +1027,8 @@ function ImgGrid(_ref15) {
     onAnnotate = _ref15.onAnnotate,
     onEnlarge = _ref15.onEnlarge,
     onUpdateImg = _ref15.onUpdateImg,
-    onToggleStar = _ref15.onToggleStar;
+    onToggleStar = _ref15.onToggleStar,
+    boxed = _ref15.boxed;
   if (!images || !images.length) return null;
   return React.createElement("div", {
     style: {
@@ -1053,7 +1054,15 @@ function ImgGrid(_ref15) {
         if (onAnnotate) return onAnnotate(i);
         return onEnlarge && onEnlarge(i);
       },
-      imgStyle: {
+      imgStyle: boxed ? {
+        maxWidth: "100%",
+        height: "auto",
+        maxHeight: IMG_H,
+        borderRadius: 6,
+        display: "block",
+        cursor: onAnnotate ? "pointer" : "zoom-in",
+        border: "1px solid #e0ddd6"
+      } : {
         height: IMG_H,
         borderRadius: 6,
         display: "block",
@@ -1063,8 +1072,8 @@ function ImgGrid(_ref15) {
     }), React.createElement("div", {
       style: {
         position: "absolute",
-        top: -7,
-        right: -7,
+        top: boxed ? 2 : -7,
+        right: boxed ? 2 : -7,
         display: "flex",
         gap: 3
       }

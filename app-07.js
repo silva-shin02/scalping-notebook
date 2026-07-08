@@ -1907,6 +1907,7 @@ function NewsHistoryView(_ref_nhv) {
       React.createElement(ImgGrid, {
         images: imgs,
         maxHeight: 280,
+        boxed: true,
         onRemove: function(i) { delImgFromNi(date, ni.id, i); },
         onEnlarge: function(i) {
           setViewTarget({ imgs: imgs, idx: i,
