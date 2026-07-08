@@ -5308,26 +5308,29 @@ function _elSignalRenameData(prev, oldNm, newNm) {
     if (!c) { nCharts[ck] = c; return; }
     var nc = c, changed = false;
     var _own = function() { if (!changed) { nc = Object.assign({}, c); changed = true; } };
-    if (Array.isArray(c.signals) && c.signals.some(function(s) { return s && (s.tag === oldNm || (Array.isArray(s.tags) && s.tags.indexOf(oldNm) >= 0) || (s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[oldNm] !== undefined)); })) {
+    if (Array.isArray(c.signals) && c.signals.some(function(s) { return s && (s.tag === oldNm || s.customTagText === oldNm || (Array.isArray(s.tags) && s.tags.indexOf(oldNm) >= 0) || (s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[oldNm] !== undefined)); })) {
       _own();
       nc.signals = c.signals.map(function(s) {
         if (!s) return s;
-        var hit = s.tag === oldNm || (Array.isArray(s.tags) && s.tags.indexOf(oldNm) >= 0) || (s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[oldNm] !== undefined);
+        var hit = s.tag === oldNm || s.customTagText === oldNm || (Array.isArray(s.tags) && s.tags.indexOf(oldNm) >= 0) || (s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[oldNm] !== undefined);
         if (!hit) return s;
         var ns = Object.assign({}, s);
         if (ns.tag === oldNm) ns.tag = newNm;
+        if (ns.customTagText === oldNm) ns.customTagText = newNm;
         if (Array.isArray(ns.tags)) ns.tags = _rnList(ns.tags);
         if (ns.sigDetail && typeof ns.sigDetail === "object") ns.sigDetail = _renameKey(Object.assign({}, ns.sigDetail), _mergeRecSec);
         return ns;
       });
     }
     var _apKeyNm = function(k) { var p = k.split("|"); return (p[0] === "s" && p.length >= 3) ? p.slice(2).join("|") : null; };
-    if (c.apMemos && typeof c.apMemos === "object" && Object.keys(c.apMemos).some(function(k) { return _apKeyNm(k) === oldNm; })) {
+    // apMemosキーの名前部は書込時にstripCat(名前)で保存される（app-02 _apSetAutoMemo）ため、比較/付け替えもstripCatで揃える。通常のシグナル名（コロン無し）ではstripCatは恒等でno-op。2026-07-08
+    var _apOld = (typeof stripCat === "function") ? stripCat(oldNm) : oldNm, _apNew = (typeof stripCat === "function") ? stripCat(newNm) : newNm;
+    if (c.apMemos && typeof c.apMemos === "object" && Object.keys(c.apMemos).some(function(k) { return _apKeyNm(k) === _apOld; })) {
       _own();
       var nm = {};
       Object.keys(c.apMemos).forEach(function(k) {
         var p = k.split("|");
-        var k2 = (_apKeyNm(k) === oldNm) ? (p[0] + "|" + p[1] + "|" + newNm) : k;
+        var k2 = (_apKeyNm(k) === _apOld) ? (p[0] + "|" + p[1] + "|" + _apNew) : k;
         if (!(k2 in nm)) nm[k2] = c.apMemos[k];
       });
       nc.apMemos = nm;

@@ -2529,6 +2529,17 @@ function SettingsModal(_ref54) {
       )
     );
   })() : null,
+  _stTab === "data" && data && save ? (function() {
+    var signalTags = (data.custom && Array.isArray(data.custom.signalTags)) ? data.custom.signalTags : [];
+    var _sigAdd = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : []; if (cur.indexOf(nm) >= 0) return prev; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: cur.concat([nm]) }) }); }); };
+    var _sigDelete = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : []; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: cur.filter(function(x) { return x !== nm; }) }) }); }); };
+    var _sigReorder = function(list) { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: list.slice() }) }); }); };
+    var _sigRename = function(oldNm, newNm) { save(function(prev) { return _elSignalRenameData(prev, oldNm, newNm); }); };
+    return React.createElement("div", { style: { marginBottom: 22 } },
+      React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 6 } }, "📡 シグナル管理"),
+      React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 10 } }, "シグナル名の追加・改名・削除・並び替え。「✎編集」を押すと各チップに改名(✎)・削除(×)が出ます。改名すると過去の全記録・分析・EPナビ等でその名前が新しい名前へ移行します（既存の名前へ改名した場合は統合）。削除は候補リストから外すだけで、過去の記録に付いた名前は残ります。"),
+      React.createElement(_EpnChipMgr, { items: signalTags, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder }));
+  })() : null,
   _stTab === "maint" && React.createElement("div", { style: { marginTop: 18, paddingTop: 14, borderTop: "1px solid #eee" } },
     React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "🧹 メンテナンス"),
     (function() {   // 端末localStorage使用量メーター（事前見える化）2026-06-29。満杯になると記録の保存に失敗するので、満杯前に整理を促す。タブを開いた時だけ計測。
