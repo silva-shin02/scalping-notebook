@@ -3380,6 +3380,27 @@ function _epnDelete(save, stock, date, id) {
     return Object.assign({}, prev, { charts: charts });
   });
 }
+// 早見のインライン編集（③起点/④その他特徴の変更）用: 新しい詳細から推奨基本αを再導出（併存ラインなら1）してepを再計算。
+// _EpnCalcForm.autoPick と同じ段階フォールバック（詳細別→シグナル別→銘柄全体・okが無ければ仮値）＝変更時は両方直す。推奨が全く無ければbaseは据え置き。
+function _epnRecalcBase(data, stock, date, item) {
+  var _K = "併存ライン";
+  var _f = Array.isArray(item.f) ? item.f : [];
+  var base = Number(item.base) || 0, src = item.src || null;
+  if (item.tag === _K || item.b === _K || item.k === _K || _f.indexOf(_K) >= 0) { base = 1; src = "併存ライン"; }
+  else {
+    var casc = _epnCascade(data, stock, item.tag || null, { b: item.b || null, k: item.k || null, f: _f }, date);
+    var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
+    if (det && det.ok && det.alpha != null) { base = det.alpha; src = "詳細別"; }
+    else if (sig && sig.ok && sig.alpha != null) { base = sig.alpha; src = "シグナル別"; }
+    else if (stk && stk.ok && stk.alpha != null) { base = stk.alpha; src = "銘柄全体"; }
+    else if (det && det.alpha != null) { base = det.alpha; src = "詳細別（仮）"; }
+    else if (sig && sig.alpha != null) { base = sig.alpha; src = "シグナル別（仮）"; }
+    else if (stk && stk.alpha != null) { base = stk.alpha; src = "銘柄全体（仮）"; }
+  }
+  var level = Number(item.level) || 0, uki = Number(item.uki) || 0, add = Number(item.add) || 0;
+  var ep = Math.round((level + base + uki + add) * 100) / 100;
+  return Object.assign({}, item, { base: base, src: src, ep: ep });
+}
 // ===== EPナビ用チップ管理（選択＋追加/改名/削除/ドラッグ並び替え）=====
 // items=マスター配列（並び替え/改名/削除の対象）。orphans=マスター外だが選択肢に出す（記録由来など・編集不可）。selected=選択中の名前配列。
 // 記録フォームのシグナル詳細チップと同方式（setPointerCaptureはドラッグ開始まで遅延＝タップ選択とドラッグの両立 2026-07-06g）。
@@ -3577,9 +3598,13 @@ function _EpnCalcForm(_p) {
   };
   // 親へAPI登録（毎レンダー再登録＝最新クロージャ維持・アンマウントで解除）。
   useEffect(function() {
-    if (register) register(stock, { loadForEdit: loadForEdit, focus: function() { if (_rootRef.current && _rootRef.current.scrollIntoView) _rootRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, onDeleted: function(id) { if (editId === id) _resetForm(); } });
+    if (register) register(stock, { loadForEdit: loadForEdit, save: doSave, focus: function() { if (_rootRef.current && _rootRef.current.scrollIntoView) _rootRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, onDeleted: function(id) { if (editId === id) _resetForm(); } });
     return function() { if (register) register(stock, null); };
   });
+  // 編集モード（editId）の変化を親EpNaviPanelへ通知＝早見カードの「編集」ボタンを編集中だけ「💾保存」に切替（onEditing）。
+  // 注意: 上のregister useEffectはdeps無し＝毎レンダー再実行。そのcleanupでonEditingを呼ぶと親再描画のたびnullで打ち消される→通知はこの専用effect（deps[editId,stock]）のみ、unmountクリアは別effectに分離。
+  useEffect(function() { if (_p.onEditing) _p.onEditing(stock, editId); }, [editId, stock]);
+  useEffect(function() { return function() { if (_p.onEditing) _p.onEditing(stock, null); }; }, []);
   // ===== 選択肢の管理（追加/改名/削除/並び替え・改名は過去記録も追従）=====
   var _sigToggle = function(t) { setNTag(nTag === t ? "" : t); setNSelB(null); setNSelK(null); setNSelF([]); };
   var _sigAdd = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : []; if (cur.indexOf(nm) >= 0) return prev; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: cur.concat([nm]) }) }); }); };
@@ -3777,6 +3802,27 @@ function EpNaviPanel(_refEPN) {
   // 各列フォームのAPI（loadForEdit/onDeleted）をrefマップで保持＝カードタップ編集読込・削除通知を命令的に連携（再レンダー不要）。
   var _formApisRef = useRef({});
   var _regForm = function(st, api) { if (api) _formApisRef.current[st] = api; else delete _formApisRef.current[st]; };
+  // 早見カードのインライン編集（③起点/④その他特徴/追加α）＝「編集」ボタン無しで直接編集・変更は即_epnPut保存。EPは③④で推奨基本αを再導出（_epnRecalcBase・併存ライン→1）、追加αは直接再計算。
+  var onEditK = function(st, e, k) { _epnPut(save, date, st, _epnRecalcBase(data, st, date, Object.assign({}, e, { k: k || null }))); };
+  var onToggleF = function(st, e, f) {
+    var cur = Array.isArray(e.f) ? e.f.slice() : []; var i = cur.indexOf(f);
+    if (i >= 0) cur.splice(i, 1); else cur.push(f);
+    _epnPut(save, date, st, _epnRecalcBase(data, st, date, Object.assign({}, e, { f: cur })));
+  };
+  var onSetAdd = function(st, e, newAdd) {
+    var nA = Math.max(0, Number(newAdd) || 0);
+    var base = Number(e.base) || 0, uki = Number(e.uki) || 0, level = Number(e.level) || 0;
+    _epnPut(save, date, st, Object.assign({}, e, { add: nA, ep: Math.round((level + base + uki + nA) * 100) / 100 }));
+  };
+  // 編集中（editId）を銘柄→id で保持＝該当カードの「編集」を「💾保存」に切替＋そのカードのインライン編集を抑止（フォーム編集との二重編集の衝突回避）。
+  var _useStateEPNem = useState({}), _useStateEPNemA = _slicedToArray(_useStateEPNem, 2), _editingMap = _useStateEPNemA[0], setEditingMap = _useStateEPNemA[1];
+  var _onFormEditing = function(st, eid) {
+    setEditingMap(function(m) {
+      var cur = m[st] || null, nv = eid || null;
+      if (cur === nv) return m;
+      var n = Object.assign({}, m); if (nv == null) delete n[st]; else n[st] = nv; return n;
+    });
+  };
   // 早見: 銘柄ごとにまとめ、各銘柄内はEP高い順。銘柄の並びは「その銘柄の最高EP」の降順。
   var savedByStock = useMemo(function() {
     var map = {};
@@ -3836,21 +3882,53 @@ function EpNaviPanel(_refEPN) {
     var epColor = (hasAdd && !isDone) ? "#B91C1C" : C.main;
     var subColor = (hasAdd && !isDone) ? "#DC2626" : C.sub;
     var mbBadge = (has5 || has1) ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, borderRadius: 3, padding: "0 3px", marginRight: 3, color: C.bc, background: C.bbg, border: "0.5px solid " + C.bd } }, mb.join("・") + "分") : null;
+    var _isEditingThis = _editingMap[st] === e.id;
+    var _cand = (custom.sigDetails2 || {})[e.tag] || {};
+    var _candK = Array.isArray(_cand.k) ? _cand.k.slice() : [];
+    if (e.k && _candK.indexOf(e.k) < 0) _candK.unshift(e.k);
+    var _candF = Array.isArray(_cand.f) ? _cand.f.slice() : [];
+    (e.f || []).forEach(function(x) { if (_candF.indexOf(x) < 0) _candF.push(x); });
+    var _curAdd = Number(e.add) || 0;
+    var _mBtn = { padding: "0 8px", fontSize: 13, fontWeight: 800, lineHeight: 1.5, border: "1px solid #CBD5E1", background: "#fff", color: "#475569", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 20 };
+    // 早見カードのインライン編集（③起点=select単一/④その他特徴=トグルチップ/追加α=±ステッパー）＝「編集」ボタン無しで直接編集・即保存。フォーム編集中（_isEditingThis）は抑止し「下の計算フォームで編集中」表示。
+    var _inlineEditor = _isEditingThis
+      ? React.createElement("div", { style: { fontSize: 8.5, color: "#B45309", marginTop: 4, fontWeight: 700 } }, "✎ 下の計算フォームで編集中（💾保存で確定）")
+      : React.createElement("div", { style: { marginTop: 4, paddingTop: 4, borderTop: "1px dashed " + C.bd, display: "flex", flexDirection: "column", gap: 3 } },
+          e.tag ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
+            React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, flexShrink: 0 } }, "起点"),
+            React.createElement("select", { value: e.k || "", onChange: function(ev) { onEditK(st, e, ev.target.value); }, style: { flex: 1, minWidth: 0, fontSize: 10, padding: "2px 4px", border: "1px solid #CBD5E1", borderRadius: 4, background: "#fff", color: "#334155" } },
+              [React.createElement("option", { key: "_none", value: "" }, "（なし）")].concat(_candK.map(function(k) { return React.createElement("option", { key: k, value: k }, k); })))) : null,
+          (e.tag && _candF.length) ? React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 4 } },
+            React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, flexShrink: 0, marginTop: 3 } }, "特徴"),
+            React.createElement("span", { style: { display: "flex", flexWrap: "wrap", gap: 3 } }, _candF.map(function(f) {
+              var _on = (e.f || []).indexOf(f) >= 0;
+              return React.createElement("button", { key: f, type: "button", onClick: function() { onToggleF(st, e, f); },
+                style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 600, border: _on ? "1.5px solid #B45309" : "1px solid #ddd", background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#94A3B8", borderRadius: 4, cursor: "pointer" } }, f);
+            }))) : null,
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
+            React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700 } }, "追加α"),
+            React.createElement("button", { type: "button", onClick: function() { onSetAdd(st, e, _curAdd - 1); }, disabled: _curAdd <= 0, style: Object.assign({}, _mBtn, { opacity: _curAdd <= 0 ? 0.4 : 1 }) }, "－"),
+            React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: _curAdd > 0 ? "#B91C1C" : "#94A3B8", minWidth: 16, textAlign: "center" } }, String(_curAdd)),
+            React.createElement("button", { type: "button", onClick: function() { onSetAdd(st, e, _curAdd + 1); }, style: _mBtn }, "＋"),
+            React.createElement("span", { style: { fontSize: 8, color: "#CBD5E1" } }, "円 (0で無し)")));
     return React.createElement("div", { key: e.id, style: { border: "1px solid " + C.bd, borderRadius: 6, padding: "5px 7px", background: C.bg, marginBottom: 5, opacity: isDone ? 0.72 : 1 } },
       React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 } },
         React.createElement("span", { style: { display: "flex", alignItems: "center", minWidth: 0, flex: 1 } }, mbBadge,
           e.tag ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.tag) : null,
           hasAdd ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: isDone ? "#94A3B8" : "#DC2626", marginLeft: 3 } }, "追") : null),
         React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 3, flexShrink: 0 } },
-          React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); var _api = _formApisRef.current[st]; if (_api) { _api.loadForEdit(e); if (_api.focus) _api.focus(); } }, title: "計算フォームに読み込んで全体を編集（起点・その他特徴・追加α等）",
-            style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "編集"),
+          _isEditingThis
+            ? React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); var _api = _formApisRef.current[st]; if (_api && _api.save) _api.save(); }, title: "下の計算フォームで編集中の内容をこのEPに上書き保存",
+                style: { padding: "1px 7px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: "1.5px solid #B45309", background: "#B45309", color: "#fff", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "💾保存")
+            : React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); var _api = _formApisRef.current[st]; if (_api) { _api.loadForEdit(e); if (_api.focus) _api.focus(); } }, title: "計算フォームに読み込んで全体を編集（基準分足・シグナル・水準線・基本α等も）",
+                style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "編集"),
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDone(st, e); }, title: isDone ? "済みを解除（未済みに戻して上へ）" : "済みにする（薄い灰色で一番下へ）",
             style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: isDone ? "1.5px solid #64748B" : "1px solid #CBD5E1", background: isDone ? "#64748B" : "#fff", color: isDone ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "済"),
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDel(st, e.id); }, title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",
             style: { padding: "1px 6px", fontSize: armed ? 9 : 11, fontWeight: 800, lineHeight: 1.5, border: armed ? "1.5px solid #DC2626" : "1px solid " + C.bd, background: armed ? "#DC2626" : "#fff", color: armed ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, armed ? "削除?" : "×"))),
       React.createElement("div", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums", lineHeight: 1.25 } }, "EP " + e.ep + "円"),
       React.createElement("div", { style: { fontSize: 9, color: subColor } }, "起点" + e.level + "＋α" + alphaSum + "（" + bk + "）"),
-      detTxt ? React.createElement("div", { style: { fontSize: 8.5, color: "#64748B", marginTop: 1, lineHeight: 1.4 } }, detTxt, e.src ? React.createElement("span", { style: { color: "#94A3B8" } }, "（" + e.src + "）") : null) : (e.src ? React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8", marginTop: 1 } }, "（" + e.src + "）") : null));
+      detTxt ? React.createElement("div", { style: { fontSize: 8.5, color: "#64748B", marginTop: 1, lineHeight: 1.4 } }, detTxt, e.src ? React.createElement("span", { style: { color: "#94A3B8" } }, "（" + e.src + "）") : null) : (e.src ? React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8", marginTop: 1 } }, "（" + e.src + "）") : null), _inlineEditor);
   };
   // 早見（上段: 銘柄ヘッダー＋EPカード）と計算フォーム（下段: _EpnCalcForm常設）を銘柄列ごとにグリッドで2段整列（案A 2026-07-08）。
   // 「＋計算」ボタンは廃止＝フォームは常時表示。gridの自動配置で前半n個=上段・後半n個=下段となり、フォームの上端が列間で揃う。
@@ -3862,7 +3940,7 @@ function EpNaviPanel(_refEPN) {
       _cards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"));
   });
   var _cellsForm = epnStocks.map(function(st) {
-    return React.createElement(_EpnCalcForm, { key: "epnf_" + st, data: data, save: save, date: date, stock: st, signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm });
+    return React.createElement(_EpnCalcForm, { key: "epnf_" + st, data: data, save: save, date: date, stock: st, signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing });
   });
   var savedView = epnStocks.length
     ? React.createElement("div", { style: { overflowX: "auto", paddingBottom: 2 } },
