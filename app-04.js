@@ -3316,7 +3316,7 @@ function StockQuickRefTableWithChart(_props_qrtc) {
 
 
 // ===== ⚡EPナビ（場中のEP計算・保存早見 2026-07-07）=====
-// 日別ページ取引タブ「エントリー記録」の【上】に独立表示。①銘柄②基準分足③シグナル④底抜け/起点⑤その他特徴を選ぶと
+// 日別ページ取引タブ「エントリー記録」の【上】に独立表示。①基準分足②シグナル③底抜け/起点④その他⑤ライン併存ルールを選ぶと
 // 記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ）で
 // 推奨基本α/推奨追加α（根拠別）を表示し、予定EP＝水準線価格＋実効α（基本α＋浮き足加算＋追加α）を算出。
 // 「💾保存」で charts[銘柄_日付].epNavi に保存（Firebase同期・×2タップ削除・過去日を開くと当時の保存が残る）。
@@ -3399,13 +3399,12 @@ function _epnDelete(save, stock, date, id) {
     return Object.assign({}, prev, { charts: charts });
   });
 }
-// 早見のインライン編集（③起点/④その他特徴の変更）用: 新しい詳細から推奨基本αを再導出（併存ラインなら1）してepを再計算。
+// 早見のインライン編集（③起点/④その他/⑤ライン併存の変更）用: 新しい詳細から推奨基本αを再導出（ライン併存ルール〇なら1）してepを再計算。
 // _EpnCalcForm.autoPick と同じ段階フォールバック（詳細別→シグナル別→銘柄全体・okが無ければ仮値）＝変更時は両方直す。推奨が全く無ければbaseは据え置き。
 function _epnRecalcBase(data, stock, date, item) {
-  var _K = "併存ライン";
   var _f = Array.isArray(item.f) ? item.f : [];
   var base = Number(item.base) || 0, src = item.src || null;
-  if (item.tag === _K || item.b === _K || item.k === _K || _f.indexOf(_K) >= 0) { base = 1; src = "併存ライン"; }
+  if (item.lineCoexist === true) { base = 1; src = "ライン併存"; }   // ライン併存ルール（独自欄 2026-07-08g・旧「併存ライン」チップ検知から移行）＝基本α1固定
   else {
     var casc = _epnCascade(data, stock, item.tag || null, { b: item.b || null, k: item.k || null, f: _f }, date);
     var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
@@ -3613,20 +3612,19 @@ function _EpnCalcForm(_p) {
   var _useStateEPN10 = useState("×"), _useStateEPN10A = _slicedToArray(_useStateEPN10, 2), nUkiUsed = _useStateEPN10A[0], setNUkiUsed = _useStateEPN10A[1];
   var _useStateEPN11 = useState(""), _useStateEPN11A = _slicedToArray(_useStateEPN11, 2), nUkiVal = _useStateEPN11A[0], setNUkiVal = _useStateEPN11A[1];
   var _useStateEPN12 = useState(""), _useStateEPN12A = _slicedToArray(_useStateEPN12, 2), nLevel = _useStateEPN12A[0], setNLevel = _useStateEPN12A[1];
+  var _useStateEPNlc = useState(false), _useStateEPNlcA = _slicedToArray(_useStateEPNlc, 2), nLineCoexist = _useStateEPNlcA[0], setNLineCoexist = _useStateEPNlcA[1];   // ⑤ライン併存ルール（〇×独立欄 2026-07-08g）: 〇で基本α1自動入力（下effect）
   var _useStateEPNed = useState(null), _useStateEPNedA = _slicedToArray(_useStateEPNed, 2), editId = _useStateEPNedA[0], setEditId = _useStateEPNedA[1];
   var _useStateEPNea = useState(null), _useStateEPNeaA = _slicedToArray(_useStateEPNea, 2), editAt = _useStateEPNeaA[0], setEditAt = _useStateEPNeaA[1];
   var _useStateEPNdn = useState(false), _useStateEPNdnA = _slicedToArray(_useStateEPNdn, 2), editDone = _useStateEPNdnA[0], setEditDone = _useStateEPNdnA[1];
   var _rootRef = useRef(null);
-  // 併存ライン（シグナル/詳細のどこで選んでも）を選ぶと基本α欄へ1を自動入力＝選択の瞬間だけ効き、手修正可・解除で1なら空に戻す（推奨に戻る）。記録フォームEntryRecordFormと同ルール＝二重実装。2026-07-08
-  var _KYOZON = "併存ライン";
-  var _isKyozon = nTag === _KYOZON || nSelB === _KYOZON || nSelK === _KYOZON || nSelF.indexOf(_KYOZON) >= 0;
-  var _kyozPrevRef = useRef(_isKyozon);
+  // ライン併存ルール（独自欄nLineCoexist 2026-07-08g）: 〇にすると基本α欄へ1を自動入力＝切替の瞬間だけ効き、手修正可・×へ戻すと1なら空に戻す（推奨に戻る）。記録フォームEntryRecordFormと同ルール＝二重実装・変更時は両方直す。旧・併存ラインチップ検知はmigrateData _migLineCoexistで本フラグへ移行済み。
+  var _kyozPrevRef = useRef(nLineCoexist);
   useEffect(function() {
-    if (_isKyozon === _kyozPrevRef.current) return;
-    _kyozPrevRef.current = _isKyozon;
-    if (_isKyozon) setNBase("1");
+    if (nLineCoexist === _kyozPrevRef.current) return;
+    _kyozPrevRef.current = nLineCoexist;
+    if (nLineCoexist) setNBase("1");
     else setNBase(function(_p) { return _p === "1" ? "" : _p; });
-  }, [_isKyozon]);
+  }, [nLineCoexist]);
   // 列フォーム常設化に伴い推奨カスケードは常時計算（旧epnOpenゲートは廃止・銘柄ごとuseMemo）。
   var casc = useMemo(function() {
     if (!stock) return null;
@@ -3673,7 +3671,7 @@ function _EpnCalcForm(_p) {
   var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
   var _resetForm = function() {
     setEditId(null); setEditAt(null); setEditDone(false); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
-    setNBase(""); setNAddUsed("×"); setNAdd(""); setNAddReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNLevel("");
+    setNBase(""); setNAddUsed("×"); setNAdd(""); setNAddReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNLevel(""); setNLineCoexist(false);
     _kyozPrevRef.current = false;
   };
   var doSave = function() {
@@ -3683,6 +3681,7 @@ function _EpnCalcForm(_p) {
       tag: nTag || null, b: nSelB || null, k: nSelK || null, f: nSelF.slice(), minBars: nMinBars.slice(),
       base: baseV, add: addV, uki: ukiAddV, ukiVal: ukiAddV > 0 ? Number(nUkiVal) : null,
       addUsed: nAddUsed === "○", reasons: (nAddUsed === "○") ? nAddReasons.slice() : [],
+      lineCoexist: nLineCoexist,
       level: levelN, ep: epV, src: autoPick.src || null, at: editAt || Date.now()
     };
     if (editId && editDone) _item.done = true;
@@ -3702,8 +3701,9 @@ function _EpnCalcForm(_p) {
     var hasUki = (Number(e.uki) || 0) > 0;
     setNUkiUsed(hasUki ? "○" : "×"); setNUkiVal(hasUki && e.ukiVal != null ? String(e.ukiVal) : "");
     setNLevel(e.level != null ? String(e.level) : "");
+    setNLineCoexist(e.lineCoexist === true);
     setEditId(e.id); setEditAt(e.at || null); setEditDone(!!e.done);
-    _kyozPrevRef.current = (e.tag === _KYOZON) || (e.b === _KYOZON) || (e.k === _KYOZON) || (Array.isArray(e.f) && e.f.indexOf(_KYOZON) >= 0);
+    _kyozPrevRef.current = (e.lineCoexist === true);
   };
   // 親へAPI登録（毎レンダー再登録＝最新クロージャ維持・アンマウントで解除）。
   useEffect(function() {
@@ -3817,7 +3817,10 @@ function _EpnCalcForm(_p) {
     _lrow(_mgmtHead("②", "シグナル"), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: nTag ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),
     nTag ? _lrow(_mgmtHead("③", "底抜け"), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "底抜け名（例: 前日安値）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,
     nTag ? _lrow(_mgmtHead("③", "起点"), React.createElement(_EpnChipMgr, { items: cands.k, selected: nSelK ? [nSelK] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "起点名（例: 50EMA）", onToggle: function(nm) { setNSelK(nSelK === nm ? null : nm); }, onAdd: function(nm) { _detAdd("k", nm); }, onRename: function(o, n) { _detRename("k", o, n); }, onDelete: function(nm) { _detDelete("k", nm); }, onReorder: function(l) { _detReorder("k", l); } })) : null,
-    nTag ? _lrow(_mgmtHead("④", "その他特徴（複数可）"), React.createElement(_EpnChipMgr, { items: cands.f, selected: nSelF, accent: { b: "#B45309", bg: "#FEF3C7", c: "#92400E" }, addPh: "特徴名", onToggle: function(nm) { setNSelF(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: function(nm) { _detAdd("f", nm); }, onRename: function(o, n) { _detRename("f", o, n); }, onDelete: function(nm) { _detDelete("f", nm); }, onReorder: function(l) { _detReorder("f", l); } })) : null,
+    nTag ? _lrow(_mgmtHead("④", "その他（複数可）"), React.createElement(_EpnChipMgr, { items: cands.f, selected: nSelF, accent: { b: "#B45309", bg: "#FEF3C7", c: "#92400E" }, addPh: "特徴名", onToggle: function(nm) { setNSelF(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: function(nm) { _detAdd("f", nm); }, onRename: function(o, n) { _detRename("f", o, n); }, onDelete: function(nm) { _detDelete("f", nm); }, onReorder: function(l) { _detReorder("f", l); } })) : null,
+    _lrow(_nl("⑤", "ライン併存ルール"), React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // ⑤ライン併存ルール（独自欄 2026-07-08g）: 〇で基本α1自動入力（nLineCoexist effect・手修正可）。④その他の下。
+      _oxBtns(nLineCoexist ? "○" : "×", function(v) { setNLineCoexist(v === "○"); }),
+      React.createElement("span", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 600 } }, "〇で基本α＝1（手修正可）"))),
     React.createElement("div", { title: "記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ・追加α〇/浮き足〇は母数から除外）。★＝EP計算に採用中の段。データ不足＝件数フロア未満（仮＝参考値）", style: { background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 7px", marginBottom: 7 } },
       React.createElement("div", { style: { fontSize: 9, fontWeight: 800, color: "#94A3B8", marginBottom: 1 } }, "推奨基本α"),
       _pickLine("det", "詳細別", det),
@@ -3893,12 +3896,16 @@ function EpNaviPanel(_refEPN) {
   // 各列フォームのAPI（loadForEdit/onDeleted）をrefマップで保持＝カードタップ編集読込・削除通知を命令的に連携（再レンダー不要）。
   var _formApisRef = useRef({});
   var _regForm = function(st, api) { if (api) _formApisRef.current[st] = api; else delete _formApisRef.current[st]; };
-  // 早見カードのインライン編集（③起点/④その他特徴/追加α）＝「編集」ボタン無しで直接編集・変更は即_epnPut保存。EPは③④で推奨基本αを再導出（_epnRecalcBase・併存ライン→1）、追加αは直接再計算。
+  // 早見カードのインライン編集（③起点/④その他/⑤ライン併存/追加α）＝「編集」ボタン無しで直接編集・変更は即_epnPut保存。EPは③④⑤で推奨基本αを再導出（_epnRecalcBase・ライン併存ルール〇→1）、追加αは直接再計算。
   var onEditK = function(st, e, k) { _epnPut(save, date, st, _epnRecalcBase(data, st, date, Object.assign({}, e, { k: k || null }))); };
   var onToggleF = function(st, e, f) {
     var cur = Array.isArray(e.f) ? e.f.slice() : []; var i = cur.indexOf(f);
     if (i >= 0) cur.splice(i, 1); else cur.push(f);
     _epnPut(save, date, st, _epnRecalcBase(data, st, date, Object.assign({}, e, { f: cur })));
+  };
+  // ライン併存ルール 〇×（早見カード 2026-07-08g）: 〇＝lineCoexist:true→_epnRecalcBaseで基本α1・EP再計算／×＝false→推奨基本αを再導出。計算欄⑤と同ルール。
+  var onSetLineCoexist = function(st, e, used) {
+    _epnPut(save, date, st, _epnRecalcBase(data, st, date, Object.assign({}, e, { lineCoexist: !!used })));
   };
   var onSetAdd = function(st, e, newAdd) {
     var nA = Math.max(0, Number(newAdd) || 0);
@@ -3999,7 +4006,7 @@ function EpNaviPanel(_refEPN) {
     if (e.k && _candK.indexOf(e.k) < 0) _candK.unshift(e.k);
     var _candF = Array.isArray(_cand.f) ? _cand.f.slice() : [];
     (e.f || []).forEach(function(x) { if (_candF.indexOf(x) < 0) _candF.push(x); });
-    // 早見カードのインライン編集（③起点=select単一/④その他特徴=トグルチップ/追加α=計算欄と同じ〇×→根拠 2026-07-08f）＝「編集」ボタン無しで直接編集・即保存。フォーム編集中（_isEditingThis）は抑止し「下の計算フォームで編集中」表示。
+    // 早見カードのインライン編集（③起点=select単一/④その他=トグルチップ/⑤ライン併存=〇×/追加α=計算欄と同じ〇×→根拠 2026-07-08f→g）＝「編集」ボタン無しで直接編集・即保存。フォーム編集中（_isEditingThis）は抑止し「下の計算フォームで編集中」表示。
     var _inlineEditor = _isEditingThis
       ? React.createElement("div", { style: { fontSize: 8.5, color: "#B45309", marginTop: 4, fontWeight: 700 } }, "✎ 下の計算フォームで編集中（💾保存で確定）")
       : React.createElement("div", { style: { marginTop: 4, paddingTop: 4, borderTop: "1px dashed " + C.bd, display: "flex", flexDirection: "column", gap: 3 } },
@@ -4014,6 +4021,14 @@ function EpNaviPanel(_refEPN) {
               return React.createElement("button", { key: f, type: "button", onClick: function() { onToggleF(st, e, f); },
                 style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 600, border: _on ? "1.5px solid #B45309" : "1px solid #ddd", background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#94A3B8", borderRadius: 4, cursor: "pointer" } }, f);
             }))) : null,
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5 } },   // ⑤ライン併存ルール（早見カード 2026-07-08g）: 〇で基本α1・EP再計算
+            React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, flexShrink: 0 } }, "ライン併存"),
+            [["○", true, "#C0392B", "#FCEBEB"], ["×", false, "#1E8449", "#EAF3DE"]].map(function(kv) {
+              var _on = (e.lineCoexist === true) === kv[1];
+              return React.createElement("button", { key: kv[0], type: "button", onClick: function() { onSetLineCoexist(st, e, kv[1]); },
+                style: { padding: "1px 8px", fontSize: 10.5, fontWeight: _on ? 800 : 600, border: _on ? "1.5px solid " + kv[2] : "1px solid #ddd", background: _on ? kv[3] : "#fff", color: _on ? kv[2] : "#999", borderRadius: 4, cursor: "pointer", lineHeight: 1.5 } }, kv[0]);
+            }),
+            (e.lineCoexist === true) ? React.createElement("span", { style: { fontSize: 8, color: "#0F766E", fontWeight: 700 } }, "基α=1") : null),
           React.createElement(_EpnAddSection, { data: data, save: save, date: date, stock: st, item: e, reasonsMaster: reasonsMaster,
             onUsed: function(u) { onSetAddUsed(st, e, u); },
             onValue: function(n) { onSetAdd(st, e, n); },

@@ -891,6 +891,61 @@ function migrateData(d) {
       if (d.custom.addAlphaNumericReason != null) delete d.custom.addAlphaNumericReason;
     }
   } catch(e) { console.warn("[migrateData] ukiAlpha error:", e); }
+  // ライン併存ルールへの移行（_migLineCoexist 2026-07-08g）: 旧・シグナル詳細③(その他/f・単一b/k含む)に付けていた「ライン併存」「併存ライン」を独立フラグ signal.lineCoexist=true へ移し、詳細/EPナビitem/候補マスターから当該名を除去。
+  // 履歴の基本α(baseAlphaVal/alphaVal/ep)は書き換えない＝過去損益の整合を保つ（フラグ付与のみ）。条件ベース＝冪等（除去後は当該名が無いので再実行no-op）。
+  try {
+    var _LC = ["ライン併存", "併存ライン"];
+    var _isLC = function(x) { return _LC.indexOf(x) >= 0; };
+    var _stripArr = function(arr) { var out = [], hit = false; (arr || []).forEach(function(x) { if (_isLC(x)) hit = true; else if (out.indexOf(x) < 0) out.push(x); }); return { list: out, hit: hit }; };
+    // sigDetail[tag]（新obj{b,k,f}/旧string/旧array）から当該名を除去。返り値 {val:新エントリ or null(空), hit}。
+    var _stripDetail = function(sd) {
+      if (sd == null) return { val: sd, hit: false };
+      if (typeof sd === "string") return _isLC(sd) ? { val: null, hit: true } : { val: sd, hit: false };
+      if (Array.isArray(sd)) { var r0 = _stripArr(sd); return { val: r0.list.length ? r0.list : null, hit: r0.hit }; }
+      if (typeof sd === "object") {
+        var hit = false, nb = sd.b, nk = sd.k, nf = sd.f;
+        if (_isLC(sd.b)) { nb = null; hit = true; }
+        if (_isLC(sd.k)) { nk = null; hit = true; }
+        if (Array.isArray(sd.f)) { var rf = _stripArr(sd.f); nf = rf.list; if (rf.hit) hit = true; }
+        if (!hit) return { val: sd, hit: false };
+        var nv = {}; if (nb) nv.b = nb; if (nk) nv.k = nk; if (nf && nf.length) nv.f = nf;
+        return { val: (nv.b || nv.k || (nv.f && nv.f.length)) ? nv : null, hit: true };
+      }
+      return { val: sd, hit: false };
+    };
+    if (d.charts && typeof d.charts === "object") {
+      Object.keys(d.charts).forEach(function(ck) {
+        var c = d.charts[ck]; if (!c) return;
+        if (Array.isArray(c.signals)) {
+          c.signals.forEach(function(s) {
+            if (!s || !s.sigDetail || typeof s.sigDetail !== "object") return;
+            var anyHit = false, nsd = {};
+            Object.keys(s.sigDetail).forEach(function(tag) {
+              var r = _stripDetail(s.sigDetail[tag]);
+              if (r.hit) anyHit = true;
+              if (r.val != null) nsd[tag] = r.val;
+            });
+            if (anyHit) { s.lineCoexist = true; s.sigDetail = Object.keys(nsd).length ? nsd : null; }
+          });
+        }
+        if (Array.isArray(c.epNavi)) {
+          c.epNavi.forEach(function(it) {
+            if (!it) return;
+            var hit = false;
+            if (_isLC(it.b)) { it.b = null; hit = true; }
+            if (_isLC(it.k)) { it.k = null; hit = true; }
+            if (Array.isArray(it.f)) { var rf2 = _stripArr(it.f); if (rf2.hit) { it.f = rf2.list; hit = true; } }
+            if (hit) it.lineCoexist = true;
+          });
+        }
+      });
+    }
+    if (d.custom) {
+      var _cleanCand = function(m) { if (!m || typeof m !== "object") return; Object.keys(m).forEach(function(tag) { var v = m[tag]; if (Array.isArray(v)) { m[tag] = v.filter(function(x) { return !_isLC(x); }); } else if (v && typeof v === "object") { ["b", "k", "f"].forEach(function(sk) { if (Array.isArray(v[sk])) v[sk] = v[sk].filter(function(x) { return !_isLC(x); }); }); } }); };
+      _cleanCand(d.custom.sigDetails);
+      _cleanCand(d.custom.sigDetails2);
+    }
+  } catch(e) { console.warn("[migrateData] lineCoexist error:", e); }
   return d;
 }
 function stLoad() {

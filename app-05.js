@@ -5233,7 +5233,7 @@ function _elTagLabel(s) {
 // 後方互換: 旧記録は sigDetail[t]=文字列（単一）/フラット配列（複数）＝③その他特徴(f)として読む（ユーザー決定 2026-07-07）。
 // _elSigDetailSec がセクション読み取りの正本・_elSigDetailList は全セクションをフラット配列へ正規化（詳細サブタブ等の従来読者用＝名前ベースの集計は不変）。
 // 表示(_elTagDisp)は「タグ（底:X・起:Y・特徴名...）」。分析のグループ化(_elTagEntries)は素のタグ名のまま＝シグナル全体の集計・名寄せは不変。
-var _EL_SIG_SECS = [{ key: "b", label: "① 底抜け", multi: false }, { key: "k", label: "② 起点", multi: false }, { key: "f", label: "③ その他特徴", multi: true }];
+var _EL_SIG_SECS = [{ key: "b", label: "① 底抜け", multi: false }, { key: "k", label: "② 起点", multi: false }, { key: "f", label: "③ その他", multi: true }];   // 2026-07-08g「その他特徴」→「その他」（記録フォーム/分析の見出し共通・「特徴」削除）
 function _elSigDetailSec(s, t) {
   var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
   if (_v == null) return { b: null, k: null, f: [] };
@@ -5840,6 +5840,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateBA = useState(initSig.baseAlphaVal != null ? String(initSig.baseAlphaVal) : (initSig.alphaVal != null ? String(initSig.alphaVal) : "")),
     _useStateBAA = _slicedToArray(_useStateBA, 2),
     fBaseAlpha = _useStateBAA[0], setFBaseAlpha = _useStateBAA[1];
+  // ライン併存ルール（〇×独立欄 2026-07-08g）: signal.lineCoexist(boolean)。〇で基本α欄へ1を自動入力（下のeffect）。新規=×（false）。旧「併存ライン/ライン併存」チップ検知はmigrateDataで本フラグへ移行。
+  var _useStateLC = useState(initSig.lineCoexist === true),
+    _useStateLCA = _slicedToArray(_useStateLC, 2),
+    fLineCoexist = _useStateLCA[0], setFLineCoexist = _useStateLCA[1];
   // 水準線値（OS見出しの右・記録用の参考値＝OS値は水準線比なので基準の実価格を残す。損益計算には不使用。旧levelPrice欄を再導入 2026-06-22）。
   var _useStateLP = useState(initSig.levelPrice != null ? String(initSig.levelPrice) : ""),
     _useStateLPA = _slicedToArray(_useStateLP, 2),
@@ -6020,25 +6024,14 @@ function EntryRecordForm(_ref_erf) {
     _baAutoRef.current = _nv;
     if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
   }, [_autoBaseA, fBaseAlpha, isEdit]);
-  // 併存ライン（シグナル/詳細のどこで選んでも）を選ぶと基本α欄へ1を自動入力＝選択の瞬間だけ効き、手修正可・解除で1なら空へ戻し推奨に復帰。新規/編集どちらも適用（EPナビ_EpnCalcFormと同ルール＝二重実装・変更時は両方直す）2026-07-08。
-  var _KYOZON = "併存ライン";
-  var _isKyozon = (function() {
-    if (fTags.indexOf(_KYOZON) >= 0) return true;
-    for (var _ki = 0; _ki < fTags.length; _ki++) {
-      var _ksd = fSigDetail && fSigDetail[fTags[_ki]];
-      if (!_ksd) continue;
-      if (_ksd.b === _KYOZON || _ksd.k === _KYOZON) return true;
-      if (Array.isArray(_ksd.f) && _ksd.f.indexOf(_KYOZON) >= 0) return true;
-    }
-    return false;
-  })();
-  var _kyozPrevRef = useRef(_isKyozon);
+  // ライン併存ルール（独自欄fLineCoexist 2026-07-08g）: 〇にすると基本α欄へ1を自動入力＝切替の瞬間だけ効き、手修正可・×へ戻すと1なら空へ戻し推奨に復帰。新規/編集どちらも適用（EPナビ_EpnCalcFormと同ルール＝二重実装・変更時は両方直す）。旧・併存ラインチップ検知はmigrateData _migLineCoexistで本フラグへ移行済み。
+  var _kyozPrevRef = useRef(fLineCoexist);
   useEffect(function() {
-    if (_isKyozon === _kyozPrevRef.current) return;
-    _kyozPrevRef.current = _isKyozon;
-    if (_isKyozon) setFBaseAlpha("1");
+    if (fLineCoexist === _kyozPrevRef.current) return;
+    _kyozPrevRef.current = fLineCoexist;
+    if (fLineCoexist) setFBaseAlpha("1");
     else { _baTouchedRef.current = false; setFBaseAlpha(function(_p) { return _p === "1" ? "" : _p; }); }
-  }, [_isKyozon]);
+  }, [fLineCoexist]);
   // 推奨追加αの表示も同じ段階（詳細別→シグナル別→銘柄全体）で最初に得られたものを使う（表示のみ・追加α欄への自動入力はしない）。
   var _refAddAlphaSrc = (_refSigAlpha && _refSigAlpha.det && _refSigAlpha.det.add) ? { add: _refSigAlpha.det.add, src: "詳細別" }
     : ((_refSigAlpha && _refSigAlpha.sig && _refSigAlpha.sig.add) ? { add: _refSigAlpha.sig.add, src: "シグナル別" }
@@ -6649,6 +6642,7 @@ function EntryRecordForm(_ref_erf) {
       shares: fEntered && fShares !== "" ? (parseInt(fShares) || null) : null,
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       baseAlphaVal: fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null,
+      lineCoexist: fLineCoexist,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
       minBar: (fMinBars && fMinBars.length) ? fMinBars.map(Number).sort(function(_a, _b) { return _a - _b; }) : null,
       addAlphaVal: (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : null,
@@ -7088,6 +7082,17 @@ function EntryRecordForm(_ref_erf) {
           );
         })
       ) : null,
+      // ④ ライン併存ルール（独自欄 2026-07-08g）: ③その他の下・〇×（既定×）。〇で基本α値が自動的に1（fLineCoexist effect・手修正可）。
+      React.createElement("div", { style: { margin: "6px 0 8px", padding: "8px 10px", borderRadius: 8, background: fLineCoexist ? "#F0FDFA" : "#F8FAFC", border: "1px solid " + (fLineCoexist ? "#99F6E4" : "#E2E8F0") } },
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0F766E", marginBottom: 4 } }, "④ ライン併存ルール"),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+          React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
+            [["○", "#C0392B", "#FCEBEB", true], ["×", "#1E8449", "#EAF3DE", false]].map(function(kv) {
+              var on = fLineCoexist === kv[3];
+              return React.createElement("button", { key: kv[0], type: "button", onClick: function() { setFLineCoexist(kv[3]); },
+                style: { padding: "3px 14px", fontSize: 13, fontWeight: on ? 800 : 600, border: on ? "2px solid " + kv[1] : "1px solid #ddd", background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999", borderRadius: 6, cursor: "pointer", lineHeight: 1.5 } }, kv[0]);
+            })),
+          React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "〇で基本α値が自動的に1になります（手修正可）"))),
       (function() {
         var _oc = {};
         _elCollectAllSignals(data).forEach(function(r) {
