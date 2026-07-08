@@ -1871,6 +1871,7 @@ function SearchView(_ref45) {
       var v = _elSignedVal(e.sig.realizedPnl, e.sig.realizedPnlSign);
       return acc + (v != null ? v : 0);
     }, 0);
+    var _collExclN = _enteredSigsT.filter(function(e) { return _elCollExcludedSig(data, e.stock, date, e.sig); }).length;   // その日の時間かぶり除外件数（全銘柄横断＝実現損益合計と同じ母数）2026-07-08
     // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出）
     var _resSV = function(e) { return _elDynResult(e.sig, _epOwnAlpha(e.sig), e.cut); };
     var w = _enteredSigsT.filter(function(e) { return _resSV(e) === "ok"; }).length;
@@ -1914,6 +1915,10 @@ function SearchView(_ref45) {
         fontWeight: 700
       }
     }, date, "\uFF08", dow, "\uFF09"),
+    _collExclN > 0 && React.createElement("span", {
+      title: "\u6642\u9593\u304B\u3076\u308A\u3067\u5408\u8A08\u304B\u3089\u9664\u5916\u3057\u305F\u8A18\u9332\u306E\u4EF6\u6570\uFF08\u540C\u65E55\u5206\u4EE5\u5185\u30DA\u30A2\u306E\u9045\u3044\u65B9\uFF0F\u540C\u6642\u523B\u306A\u3089\u640D\u76CA\u304C\u5927\u304D\u3044\u65B9\uFF09",
+      style: { fontSize: 10, fontWeight: 700, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" }
+    }, "\u88AB\u308A\u9664\u5916 " + _collExclN + "\u4EF6"),
     enteredSigs.length > 0 && React.createElement("div", {
       style: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }
     },
@@ -4590,6 +4595,7 @@ function DayView(_ref57) {
     hiddenStocks: hiddenStocks,
     hasData: stockHasData,
     exclCount: function(s) { return _elDayStockExclCount(data, s, date); },
+    collCount: function(s) { return _elDayStockCollCount(data, s, date); },
     fmActive: fmActive,
     onFmSelect: function() { setFmActive(true); },
     hasFmData: hasFmData

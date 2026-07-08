@@ -4264,6 +4264,7 @@ function EntryLogView(_ref_elv2) {
   var _uSM = useState("month"), sumMode = _uSM[0], setSumMode = _uSM[1];   // 銘柄別 集計タブの今月/全期間トグル（既定=今月）2026-06-22
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
   var _uAA = useState("all"), addAlphaFil = _uAA[0], setAddAlphaFil = _uAA[1];   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
+  var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
   var _uFS = useState("other"), floatSub = _uFS[0], setFloatSub = _uFS[1];   // シグナル内サブタブ: 底抜け前足浮き(float)/その他(other・既定)。選択中シグナルの記録を数値根拠(底抜け前足浮き＝_elHasNumReason)で二分し、集計/α値/損切り/未達/深掘りの母数を分ける（OS値分布ほか）。既定=その他 2026-07-02
@@ -4840,7 +4841,17 @@ function EntryLogView(_ref_elv2) {
           _secH("🚫 期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）"), _elXSkipSectionV2(_osFilRecs, _ai),
           _secH("🔺 期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）"), _elTriangleHoldSectionV2(_osFilRecs, _ai));
       } }),
-      _addFilBar(), _secH("🗂 記録一覧（行タップで明細・追加α母数トグルに連動）"), _recTable(_osFilRecs.slice().sort(_byDateDesc), "full", "gp_"));
+      _addFilBar(), _secH("🗂 記録一覧（行タップで明細・追加α母数トグルに連動）"),
+      (function(){
+        var _cn = _elCollExclCountRecs(data, _osFilRecs, _collScope);
+        if (_cn <= 0) return null;
+        return React.createElement("div", { style: { marginBottom: 6 } },
+          React.createElement("button", { type: "button", onClick: function(){ setCollOnly(!collOnly); },
+            style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid " + (collOnly ? "#6D28D9" : "#C4B5FD"), background: collOnly ? "#6D28D9" : "#F5F3FF", color: collOnly ? "#fff" : "#6D28D9" } },
+            (collOnly ? "✓ " : "") + "被り除外のみ（" + _cn + "件）"),
+          collOnly ? React.createElement("span", { style: { marginLeft: 8, fontSize: 10, color: "#6D28D9", fontWeight: 700 } }, "時間かぶりで合計から除外した記録だけ表示中（タップで解除）") : null);
+      })(),
+      _recTable((collOnly ? _osFilRecs.filter(function(r){ return _elCollExcluded(data, r, _collScope); }) : _osFilRecs).slice().sort(_byDateDesc), "full", "gp_"));
   };
 
   // ===== タブ本体 =====

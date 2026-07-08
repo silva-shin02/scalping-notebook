@@ -257,7 +257,8 @@ function Calendar(_ref60) {
             }
             return null;
           })(),
-          (function() { var _xc = _elDayExclCount(data, key); return _xc > 0 ? _elExclDot(_xc, { width: 8, height: 8 }) : null; })()
+          (function() { var _xc = _elDayExclCount(data, key); return _xc > 0 ? _elExclDot(_xc, { width: 8, height: 8 }) : null; })(),
+          (function() { var _cc = _elDayCollCount(data, key); return _cc > 0 ? _elCollDot(_cc, { width: 8, height: 8 }) : null; })()
         ),
         React.createElement("button", {
           onClick: function(e) {
@@ -3202,6 +3203,31 @@ function _elDayStockExclCount(data, stock, date) {
 function _elDayExclCount(data, date) {
   var charts = (data && data.charts) || {}, n = 0, suf = "_" + date;
   for (var k in charts) { if (charts.hasOwnProperty(k) && k.length > suf.length && k.slice(-suf.length) === suf) n += _elExclCountSigs(charts[k].signals); }
+  return n;
+}
+// 紫ドット（時間かぶり除外・銘柄タブ/カレンダー用）2026-07-08。不算入(水色)と別チャンネルで両立。
+function _elCollDot(count, extra) {
+  return React.createElement("span", { title: (count ? "被り除外 " + count + "件（時間かぶりで合計から除外）" : "時間かぶり除外あり"),
+    style: Object.assign({ display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+      background: "#A78BFA", boxShadow: "0 0 0 1px #fff", flexShrink: 0 }, extra || {}) });
+}
+// その日その銘柄の時間かぶり除外件数。scope省略時はその銘柄自身（同一銘柄内＝ChartSection/銘柄別ビューと一致）。
+function _elDayStockCollCount(data, stock, date, scope) {
+  var c = data && data.charts && data.charts[stock + "_" + date];
+  if (!c || !Array.isArray(c.signals)) return 0;
+  var sc = (scope === undefined) ? stock : scope;
+  var n = 0; for (var i = 0; i < c.signals.length; i++) { var s = c.signals[i]; if (s && _elCollExcludedSig(data, stock, date, _compatSignal(s), sc)) n++; }
+  return n;
+}
+// その日(全銘柄)の時間かぶり除外件数（全銘柄横断＝本日/カレンダーの合計と同じ母数）。
+function _elDayCollCount(data, date) {
+  var charts = (data && data.charts) || {}, n = 0, suf = "_" + date;
+  for (var k in charts) {
+    if (!charts.hasOwnProperty(k) || k.length <= suf.length || k.slice(-suf.length) !== suf) continue;
+    var stock = k.slice(0, k.length - suf.length), sigs = charts[k].signals;
+    if (!Array.isArray(sigs)) continue;
+    for (var i = 0; i < sigs.length; i++) { var s = sigs[i]; if (s && _elCollExcludedSig(data, stock, date, _compatSignal(s), null)) n++; }
+  }
   return n;
 }
 
