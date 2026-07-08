@@ -4054,8 +4054,9 @@ function _elDeriveHoldProfit(hp, pp, res, fallback) {
 }
 // ===== #2 時間かぶりの合計除外 2026-07-07 [[project_scalping_total_pnl_system #2]] =====
 // かぶり＝同一日・全銘柄のv2算入記録を時刻昇順に並べ、隣接が5分以内(≤5分)なら「上限2個の貪欲ペアリング」でペア化
-// （例 9:31/9:34/9:39/9:42/9:47 → {9:31,9:34}{9:39,9:42}{9:47}）。各ペアは（）外手じまい損益(_elHold2TotPartsのmain・採用α/採用損切り基準)を比較し、
-// 悪い方（低い方）を残して良い方（高い方）を合計額から除外（同額は後の時刻側を除外・どちらかmain無しのペアは除外なし）。単独記録は除外なし。
+// （例 9:31/9:34/9:39/9:42/9:47 → {9:31,9:34}{9:39,9:42}{9:47}）。残す方の選定 2026-07-08 ユーザー指示:
+// 「時刻が異なれば早い方(=ペアの先頭)を残す（損益に依らず＝リアルタイムで先に入った方）／同時刻(分が同じ)のときだけ（）外手じまい損益
+// (_elHold2TotPartsのmain・採用α/採用損切り)が小さい方を残す（同額は先を残す）」＝残さない方（遅い方／同時刻なら損益大）を合計額から除外。どちらかmain無しのペアは除外なし・単独記録は除外なし。
 // 母数＝v2(_epIsV2)かつ算入(_elInclTotal)・時刻無しは対象外。返り値 {excluded:{key:1}, marked:{key:1}}＝除外keyと「※被り有」（残した側）key。
 // data.charts参照でmemo化（保存でchartsの識別が変わると再計算）。配線は「表示総計」のみ＝α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
 // scopeStock を渡すと「その銘柄の記録だけ」でペアリング＝同一銘柄内の被りだけ除外（銘柄別のみのビュー用 2026-07-08）。
@@ -4091,10 +4092,13 @@ function _elCollisionExcludedSet(data, scopeStock) {
     var i = 0;
     while (i < arr.length) {
       if (i + 1 < arr.length && (arr[i + 1].min - arr[i].min) <= 5) {
-        var A = arr[i], B = arr[i + 1];
+        var A = arr[i], B = arr[i + 1];   // arrはmin昇順＝Aが早い方（同時刻ならkey順でA先）
         if (A.main != null && B.main != null) {
-          var drop = (B.main >= A.main) ? B : A;
-          var keep = (drop === B) ? A : B;
+          // 残す方の選定 2026-07-08 ユーザー指示: 時刻が異なれば「早い方(A)」を残す（損益に依らず＝リアルタイムで先に入った方）。
+          // 同時刻（分が同じ＝順序が付けられない）ときだけ「（）外損益が小さい方」を残す（同額はA=先を残す）。
+          var drop, keep;
+          if (A.min === B.min) { drop = (B.main >= A.main) ? B : A; keep = (drop === B) ? A : B; }
+          else { drop = B; keep = A; }
           excluded[drop.key] = 1;
           marked[keep.key] = 1;
           info[drop.key] = { role: "drop", own: drop.main, oStock: keep.stock, oTime: keep.time, oMain: keep.main };
@@ -4110,7 +4114,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
   _elCollMemo[_mk] = { charts: charts, set: _set };
   return _set;
 }
-// r={stock,date,signal} が除外対象（良い方＝合計額に入れない）か／残した側（※被り有マーク）か。
+// r={stock,date,signal} が除外対象（遅い方／同時刻なら損益が大きい方＝合計額に入れない）か／残した側（早い方・※被り有マーク）か。
 // 第3引数 scope（銘柄名）を渡すと同一銘柄内のみの被り除外を参照＝銘柄別ビュー用。省略時は全銘柄横断（従来）2026-07-08。
 function _elCollExcluded(data, r, scope) { return !!(r && r.signal && _elCollisionExcludedSet(data, scope).excluded[_elCollKey(r.stock, r.date, r.signal)]); }
 function _elCollMarked(data, r, scope) { return !!(r && r.signal && _elCollisionExcludedSet(data, scope).marked[_elCollKey(r.stock, r.date, r.signal)]); }
@@ -4118,14 +4122,14 @@ function _elCollMarked(data, r, scope) { return !!(r && r.signal && _elCollision
 function _elCollExcludedSig(data, stock, date, s, scope) { return !!(s && _elCollisionExcludedSet(data, scope).excluded[_elCollKey(stock, date, s)]); }
 // recs配列中の「被り除外」該当件数（KPI等の可視化用）。scope省略=全銘柄横断。
 function _elCollExclCountRecs(data, recs, scope) { var n = 0; (recs || []).forEach(function(r) { if (_elCollExcluded(data, r, scope)) n++; }); return n; }
-// 明細行用の時間かぶり小バッジ（残した側＝悪い方「※被り有」・除外された側＝良い方「被り除外」灰色。対象外はnull）2026-07-07両側可視化。
+// 明細行用の時間かぶり小バッジ（残した側＝早い方「※被り有」・除外された側＝遅い方「被り除外」灰色。対象外はnull）2026-07-07両側可視化→07-08 早い方を残す方式に変更。
 function _elCollMarkNode(data, r, scope) {
   if (_elCollMarked(data, r, scope)) {
-    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。ペアの良い方（（）外手じまい損益が高い方）は合計額から除外し、この記録（悪い方）だけを合計に算入（件数は両方残る）",
+    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。早い方（同時刻なら（）外手じまい損益が小さい方）だけを合計に算入し、もう片方は除外。この記録＝残した側（件数は両方残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "※被り有");
   }
   if (_elCollExcluded(data, r, scope)) {
-    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。この記録は良い方（（）外手じまい損益が高い方）＝損益は合計額に入れない（件数は残る）",
+    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。この記録は除外側＝遅い方（同時刻なら（）外手じまい損益が大きい方）＝損益は合計額に入れない（件数は残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "被り除外");
   }
   return null;
@@ -4138,7 +4142,7 @@ function _elCollPairNode(data, r, scope) {
   var isKeep = inf.role === "keep";
   return React.createElement("div", { style: { fontSize: 9, fontWeight: 600, color: isKeep ? "#B45309" : "#64748B", background: isKeep ? "#FFFBEB" : "#F8FAFC", border: "1px solid " + (isKeep ? "#FCD34D" : "#E2E8F0"), borderRadius: 4, padding: "2px 6px", marginBottom: 6, lineHeight: 1.4 } },
     (isKeep ? "※被り有: " : "被り除外: ") + "同日" + (inf.oTime || "—") + "の" + inf.oStock + "（" + _elPnlFmt(inf.oMain) + "）とペア＝" +
-    (isKeep ? "良い方（相手）を合計から除外し、この記録（" + _elPnlFmt(inf.own) + "）を算入" : "この記録（" + _elPnlFmt(inf.own) + "・良い方）は合計額に入れない（件数は残る）"));
+    (isKeep ? "遅い方（相手・同時刻なら損益が大きい方）を合計から除外し、この記録（" + _elPnlFmt(inf.own) + "・早い方）を算入" : "この記録（" + _elPnlFmt(inf.own) + "・遅い方／同時刻なら損益が大きい方）は合計額に入れない（件数は残る）"));
 }
 // 合計行の共通集計: EP損益(planCap/AB込み)・H1(_elHold1TotParts)・H2(_elHold2TotParts)・実現損益。
 // get={signal,alpha,cut,real?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
