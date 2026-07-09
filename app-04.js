@@ -5066,7 +5066,7 @@ function DayView(_ref57) {
               _epECell(s, _aiTr.alpha)),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#FFFBF0" } }, _elHold2AmtNode(s, _aiTr.alpha, _aiTr.cutLine)),
-            React.createElement("td", { colSpan: 2, style: { padding: "1px 4px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#F8FBFE" } }, _elDetailFlowStack(s, _aiTr.alpha, _aiTr.cutLine)),
+            React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#F8FBFE" } }, _elDetailFlowStack(s, _aiTr.alpha, _aiTr.cutLine)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trLane(_tradeAlphaChip(s), 26, "flex-end"), _trRPnlDisp(realPnlN, realGrade))
           )
         );
@@ -5414,7 +5414,7 @@ function DayView(_ref57) {
           ),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", background: "#FFFBF0" } },
             _elHold2AmtNode(s, _alphaRec, _cutLrec)),
-          React.createElement("td", { colSpan: 2, style: { padding: "1px 2px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", background: "#F8FBFE" } },
+          React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", background: "#F8FBFE" } },
             _elDetailFlowStack(s, _alphaRec, _cutLrec)),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
             _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnl, gReal))

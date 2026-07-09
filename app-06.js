@@ -4451,7 +4451,7 @@ function EntryLogView(_ref_elv2) {
               ? React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス")
               : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 13 } }, "×")),
           _td(_elHold2AmtNode(s, a.alpha, a.cutLine), { background: "#FFFBF0" }),
-          React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: "4px 6px", textAlign: "center", fontSize: 11, borderTop: "1px solid #f0ede8", background: "#F8FBFE" } }, _elDetailFlowStack(s, a.alpha, a.cutLine))
+          React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: "4px 6px", textAlign: "left", fontSize: 11, borderTop: "1px solid #f0ede8", background: "#F8FBFE" } }, _elDetailFlowStack(s, a.alpha, a.cutLine))
         ]).concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60) : _dash)]);
       }
       body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, _collScope)) }, cells));

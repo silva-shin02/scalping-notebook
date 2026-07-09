@@ -4692,7 +4692,7 @@ function EntrySignalSection(_ref_es) {
                       : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#FFFBF0" } },
                   _elHold2AmtNode(s, _avH, _cutLH)),
-                React.createElement("td", { colSpan: 2, style: { padding: "1px 2px", textAlign: "center", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#F8FBFE" } },
+                React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#F8FBFE" } },
                   _elDetailFlowStack(s, _avH, _cutLH)),
                 React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esLane(_tradeAlphaChip(s), 26, "flex-end"), _esRPnlDisp(entered ? realPnlN : 0, realGrade, !entered)),
                 isCustomMode ? React.createElement("td", {
