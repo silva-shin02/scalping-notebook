@@ -4737,6 +4737,32 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
   }
   return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, _elHoldStackInner(s, alpha, cutLine), capNote || null) ];
 }
+// 明細の「詳細損益」セル(1記録): EP(_epPnlCell)を上段・H1/H2(_elHoldStackInner)を下段に縦積み＝旧EP損益列＋H損益列を1セルに統合 2026-07-10。miss/×見送り分岐は_elHoldTd2と同一（矢印つき明細を維持）。
+function _elDetailFlowStack(s, alpha, cutLine) {
+  var _epRow = React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "center", gap: 3, padding: "0 0 1px", borderBottom: "1px solid #e0d8c8", whiteSpace: "nowrap" } },
+    React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 700, flexShrink: 0 } }, "EP"),
+    _epPnlCell(s, alpha, cutLine));
+  var _tdMiss = false;
+  if (s && alpha != null) { if (_epIsV2(s)) { var _rT = _epResolve(s, alpha); _tdMiss = !!(_rT && _rT.judge === "miss"); } else _tdMiss = _elH2Miss(s, alpha); }
+  var _hPart;
+  if (_tdMiss) _hPart = React.createElement("div", { style: { color: "#ccc", padding: "1px 0" } }, "ー");
+  else if (_epIsXSkip(s, alpha)) _hPart = React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", opacity: 0.7, justifyContent: "center" } },
+    React.createElement("span", { style: { fontSize: 12, color: "#1E8449", fontWeight: 800 } }, "×"), _elHoldStackInner(_epAsTraded(s), alpha, cutLine));
+  else _hPart = _elHoldStackInner(s, alpha, cutLine);
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.3 } }, _epRow, _hPart);
+}
+// 明細の「最終損益」セル(1記録): その記録の手じまい(_elHold2TotParts.main)をランク+額+（）内=△で表示＝集計の最終損益列と同基準。2026-07-10。
+function _elHold2AmtNode(s, alpha, cutLine) {
+  var p = _elHold2TotParts(s, alpha, cutLine);
+  if (p.main == null) return (p.ref != null)
+    ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, p.ref, 1))
+    : React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var g = _profitGradeFromPnl(p.main, 1);
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+    g ? _elHoldGradeBadge(g) : null,
+    React.createElement("span", { style: { fontWeight: 700, color: p.main > 0 ? "#C0392B" : p.main < 0 ? "#1E8449" : "#888" } }, (p.main > 0 ? "+" : "") + p.main.toLocaleString() + "円"),
+    _elHold2RefSuffix(p.main, p.ref, p.ref != null ? 1 : 0));
+}
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
 function _elHoldSumTd2(sumH1, sumH2, tdStyle, refH2, refCnt, allMiss, refH1, refCntH1) {
   // allMiss=その集計が全記録E基準未達(全miss)→H1/H2とも「Q 0」表示・参考合計は出さない。
