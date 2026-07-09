@@ -4662,7 +4662,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
   var _h2StopDone = (alpha != null) && _elHoldIsStop(s, alpha, cutLine);   // 想定orH1で損切り→H2は損切り済み表示（期待度問わず）
   var p1 = _h1StopDone ? null : _elHoldParts(s, alpha, cutLine, false);
   var p2 = _h2StopDone ? null : (_h2miss || exp || _elHas2Data(s, alpha)) ? _elHoldParts(s, alpha, cutLine, true) : null;
-  var _pnW = 78, _parW = 10, _tblW = 241;
+  var _pnW = 58, _parW = 10, _tblW = 189;
   var _expCol = { "○": "#1E8449", "△": "#B45309", "×": "#C0392B" };
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
   var _paren = function(ch, lvl) { return React.createElement("span", { style: (lvl === 1) ? { color: "#6B3A0F", fontWeight: 900 } : { color: "#888" } }, ch); };  // △(level1)=濃く太く／×・撤退(level2)=薄め
@@ -4671,15 +4671,15 @@ function _elHoldStackInner(s, alpha, cutLine) {
     var bt = topB ? { borderTop: "1px solid #e0d8c8" } : null;
     var btf = (paren >= 2) ? Object.assign({ opacity: 0.6 }, bt) : bt;  // 括弧の中身: △/損切り済(参考=level1)は薄くしない／×・H1撤退(除外=level2)は薄く(0.6)
     return React.createElement("tr", { key: rk },
-      _c("lbl", lblNode, "center", 22, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 3 }, bt)),
-      _c("e", expNode, "center", 14, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
+      _c("lbl", lblNode, "center", 16, Object.assign({ fontSize: 9, color: "#999", fontWeight: 700, paddingRight: 2 }, bt)),
+      _c("e", expNode, "center", 11, Object.assign({ paddingRight: 1, fontWeight: 800 }, bt)),
       _c("op", paren ? _paren("（", paren) : null, "center", _parW, bt),
-      _c("hi", p && p.high, "right", 26, btf),
+      _c("hi", p && p.high, "right", 20, btf),
       _c("ar", p && p.width ? _sep("→") : null, "center", 10, btf),
-      _c("wd", p && p.width, "right", 26, btf),
-      _c("s1", p && p.acmp ? _sep("/") : null, "center", 6, btf),
-      _c("ac", p && p.acmp, "right", 33, btf),
-      _c("s2", p && p.pnl ? _sep("/") : null, "center", 6, btf),
+      _c("wd", p && p.width, "right", 20, btf),
+      _c("s1", p && p.acmp ? _sep("/") : null, "center", 4, btf),
+      _c("ac", p && p.acmp, "right", 26, btf),
+      _c("s2", p && p.pnl ? _sep("/") : null, "center", 4, btf),
       _c("pn", p ? (p.pnl != null ? p.pnl : React.createElement("span", { style: { color: "#ddd" } }, "—")) : null, "left", _pnW, btf),
       _c("cp", paren ? _paren("）", paren) : null, "center", _parW, bt));
   };
@@ -4718,7 +4718,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
     // H2○でもH1=△ or EP△でチェーンが切れていれば参考(level1)で（）囲み。合計(_elHold2TotParts)の（）内計算と一致。
     rows.push(_row("h2", "H２", h2exp, p2, (hexp === "×" || hexp === "損切り済" || exp === "×") ? 2 : ((exp === "△" || exp === "損切り済" || hexp === "△" || _epTriH2) ? 1 : 0), true));
   }
-  return React.createElement("table", { style: { borderCollapse: "collapse", margin: "0 auto", fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: _tblW } }, React.createElement("tbody", null, rows));
+  return React.createElement("table", { style: { borderCollapse: "collapse", margin: 0, fontSize: 9, fontVariantNumeric: "tabular-nums", lineHeight: 1.45, tableLayout: "fixed", width: _tblW } }, React.createElement("tbody", null, rows));
 }
 // 明細表(フロー表示)用: H列を1セルに統合(H1上/H2下)。colSpan:2で旧2列分の幅を占有し他のcolSpanは不変。
 function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
@@ -4740,19 +4740,20 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
 }
 // 明細の「詳細損益」セル(1記録): EP(_epPnlCell)を上段・H1/H2(_elHoldStackInner)を下段に縦積み＝旧EP損益列＋H損益列を1セルに統合 2026-07-10。miss/×見送り分岐は_elHoldTd2と同一（矢印つき明細を維持）。
 function _elDetailFlowStack(s, alpha, cutLine) {
-  var _epRow = React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "center", gap: 3, padding: "0 0 1px", borderBottom: "1px solid #e0d8c8", whiteSpace: "nowrap" } },
+  var _epRow = React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-start", gap: 3, padding: "0 0 1px", borderBottom: "1px solid #e0d8c8", whiteSpace: "nowrap" } },
     React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 700, flexShrink: 0 } }, "EP"),
     _epPnlCell(s, alpha, cutLine));
   var _tdMiss = false;
   if (s && alpha != null) { if (_epIsV2(s)) { var _rT = _epResolve(s, alpha); _tdMiss = !!(_rT && _rT.judge === "miss"); } else _tdMiss = _elH2Miss(s, alpha); }
   var _hPart;
   if (_tdMiss) _hPart = React.createElement("div", { style: { color: "#ccc", padding: "1px 0" } }, "ー");
-  else if (_epIsXSkip(s, alpha)) _hPart = React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", opacity: 0.7, justifyContent: "center" } },
+  else if (_epIsXSkip(s, alpha)) _hPart = React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", opacity: 0.7, justifyContent: "flex-start" } },
     React.createElement("span", { style: { fontSize: 12, color: "#1E8449", fontWeight: 800 } }, "×"), _elHoldStackInner(_epAsTraded(s), alpha, cutLine));
   else _hPart = _elHoldStackInner(s, alpha, cutLine);
   // 2026-07-09: OS足取り(_epOsChainCell)を詳細損益セルの最上段に統合（旧・独立OS列を廃止＝案A）。EP行の上に点線区切りで重ねる。
-  var _osTop = React.createElement("div", { style: { display: "flex", justifyContent: "center", padding: "0 0 2px", marginBottom: 2, borderBottom: "1px dashed #d8cbb8", whiteSpace: "nowrap" } }, _epOsChainCell(s, alpha));
-  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.3 } }, _osTop, _epRow, _hPart);
+  // 2026-07-09e: 幅圧縮＝ブロック全体を左寄せ＋fontSize10・OS足取りは9.5に微縮小（H1/H2明細の固定幅縮小と併せてOS・損益詳細列を約240→約200pxに）。
+  var _osTop = React.createElement("div", { style: { display: "flex", justifyContent: "flex-start", padding: "0 0 2px", marginBottom: 2, borderBottom: "1px dashed #d8cbb8", whiteSpace: "nowrap", fontSize: 9 } }, _epOsChainCell(s, alpha));
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3, fontSize: 9 } }, _osTop, _epRow, _hPart);
 }
 // 明細の「最終損益」セル(1記録): その記録の手じまい(_elHold2TotParts.main)をランク+額+（）内=△で表示＝集計の最終損益列と同基準。2026-07-10。
 function _elHold2AmtNode(s, alpha, cutLine) {
@@ -5415,7 +5416,8 @@ function _elTagDisp(s, t) {
 // シグナルセルの2行表示（案B 2026-07-07）: 1行目=シグナル名、2行目=底X・起Y、3行目=③特徴。詳細が1つも無い記録は赤「詳細未選択」バッジで明示。_elTagDisp（1行括弧表記）の縦積み版で、明細表のシグナル欄に使う。
 function _elSigCellNode(s, t, key) {
   // 2026-07-09: 明細表のシグナル欄はシグナル名だけ表示（旧=底/起/特徴の詳細＋詳細未選択バッジも表示）。詳細はsigDetailに保持され分析側で使用。
-  return React.createElement("div", { key: key, style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, t);
+  // 2026-07-09e: nowrapで1行固定（OS・損益詳細の幅圧縮で捻出した幅を使う）。
+  return React.createElement("div", { key: key, style: { fontWeight: 700, color: "#334155", fontSize: 11, whiteSpace: "nowrap" } }, t);
 }
 // 明細表のシグナル欄（全タグ＋カスタムタグ＋未設定）を案Bの縦積みで返す共有部品。align=セル内の水平寄せ。
 function _elSigCell(s, align) {
