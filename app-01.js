@@ -946,6 +946,19 @@ function migrateData(d) {
       _cleanCand(d.custom.sigDetails2);
     }
   } catch(e) { console.warn("[migrateData] lineCoexist error:", e); }
+  // 追加α根拠の「詳細」機能を廃止（_migDropAddReasonDetail 2026-07-09）: 全記録の signal.addReasonDetail と候補マスター custom.addReasonDetails を削除（分析未組み込み＝記録のみだった機能）。フラグで一回性・以降スキップ。基本α/損益は不変。
+  if (!d._migDropAddReasonDetail) {
+    try {
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var c = d.charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+          c.signals.forEach(function(s) { if (s && s.addReasonDetail !== undefined) delete s.addReasonDetail; });
+        });
+      }
+      if (d.custom && d.custom.addReasonDetails !== undefined) delete d.custom.addReasonDetails;
+      d._migDropAddReasonDetail = true;
+    } catch(e) { console.warn("[migrateData] dropAddReasonDetail error:", e); }
+  }
   return d;
 }
 function stLoad() {
