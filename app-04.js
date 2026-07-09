@@ -5439,8 +5439,6 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%", background: _elAddAlphaYes(s) ? "#FEF3C7" : null } },
             _alphaRec != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _alphaRec + "円"), _elAlphaBreakdownNode(s, _alphaRec)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
-            _epOsChainCell(s, _alphaRec)),
-          React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             _epECell(s, _alphaRec)),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%" } },
             entered
@@ -5456,7 +5454,7 @@ function DayView(_ref57) {
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
-            React.createElement("td", { colSpan: 12, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
+            React.createElement("td", { colSpan: 11, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
               React.createElement(EntryLogCard, {
                 record: r,
                 alpha: alphaOf(r),
@@ -5488,7 +5486,7 @@ function DayView(_ref57) {
       var _pbAllMiss = _elAllMissRow(expRecs.filter(function(r) { return _elInclTotal(r.signal); }), alphaOf, cutOf);
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
-        React.createElement("td", { colSpan: 6, style: { borderTop: "2px solid #FB923C" } }),
+        React.createElement("td", { colSpan: 5, style: { borderTop: "2px solid #FB923C" } }),
         React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#FFFBF0" } }, _lblTot("最終損益"),
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _totHold2Cnt > 0 ? (function() { var _g2f = _profitGradeFromPnl(_totHold2 != null ? _totHold2 : 0, _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2f ? _pbBadge(_g2f) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })() : (_totHold2RefCnt > 0 ? null : (_pbAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_totHold2, _totHold2Ref, _totHold2RefCnt))),
         React.createElement("td", { colSpan: 2, style: { padding: "1px 4px", textAlign: "left", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#F8FBFE" } },
@@ -5523,11 +5521,10 @@ function DayView(_ref57) {
               _rTh("時間", { width: 44 }),
               _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
               _rTh("α値", { width: 32 }),
-              _rTh("OS", { width: 80 }),
               _rTh("E", { width: 26 }),
               _rTh("取引", { width: 26 }),
               _rTh(React.createElement("span", null, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "○途切れで手じまい")), { width: 84 }),
-              React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, React.createElement("span", null, "詳細損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EP / H1 / H2（勝敗/ランク/額）"))),
+              React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, React.createElement("span", null, "OS・損益詳細", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "OS ／ EP / H1 / H2（勝敗/ランク/額）"))),
               _rTh("実現損益", { width: 82 })
             )
           ),

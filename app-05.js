@@ -4749,7 +4749,9 @@ function _elDetailFlowStack(s, alpha, cutLine) {
   else if (_epIsXSkip(s, alpha)) _hPart = React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", opacity: 0.7, justifyContent: "center" } },
     React.createElement("span", { style: { fontSize: 12, color: "#1E8449", fontWeight: 800 } }, "×"), _elHoldStackInner(_epAsTraded(s), alpha, cutLine));
   else _hPart = _elHoldStackInner(s, alpha, cutLine);
-  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.3 } }, _epRow, _hPart);
+  // 2026-07-09: OS足取り(_epOsChainCell)を詳細損益セルの最上段に統合（旧・独立OS列を廃止＝案A）。EP行の上に点線区切りで重ねる。
+  var _osTop = React.createElement("div", { style: { display: "flex", justifyContent: "center", padding: "0 0 2px", marginBottom: 2, borderBottom: "1px dashed #d8cbb8", whiteSpace: "nowrap" } }, _epOsChainCell(s, alpha));
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.3 } }, _osTop, _epRow, _hPart);
 }
 // 明細の「最終損益」セル(1記録): その記録の手じまい(_elHold2TotParts.main)をランク+額+（）内=△で表示＝集計の最終損益列と同基準。2026-07-10。
 function _elHold2AmtNode(s, alpha, cutLine) {
