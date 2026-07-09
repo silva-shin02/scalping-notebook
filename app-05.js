@@ -5333,15 +5333,19 @@ function _elSigDetailRenameSig(s, t, secKey, oldN, newN) {
 // 完全削除（マスターから外すだけ）は対象外＝過去記録の名前は従来どおり残す。変化のないchartsエントリは同一参照のまま（copy-on-write）。
 function _elSignalRenameData(prev, oldNm, newNm) {
   if (!prev || !oldNm || !newNm || oldNm === newNm) return prev;
-  var _rn = function(x) { return x === oldNm ? newNm : x; };
+  var _nt = function(x) { return (typeof x === "string") ? x.normalize("NFC").trim() : x; };   // 照合はNFC+trim正規化＝記録保存(非trim)とマスター(trim済)の空白/全半角/合成文字差で改名がスルーされ旧名記録が残る事故を防ぐ 2026-07-10
+  var _oldN = _nt(oldNm);
+  var _rn = function(x) { return _nt(x) === _oldN ? newNm : x; };
   var _uniq = function(a) { var o = []; (a || []).forEach(function(x) { if (x && o.indexOf(x) < 0) o.push(x); }); return o; };
   var _rnList = function(arr) { return _uniq(arr.map(_rn)); };
   var _mergeArr = function(nw, od) { return _uniq([].concat(Array.isArray(nw) ? nw : [], Array.isArray(od) ? od : [])); };
   var _renameKey = function(m, mergeFn) {
-    if (!m || typeof m !== "object" || m[oldNm] === undefined) return m;
+    if (!m || typeof m !== "object") return m;
+    var _ok = null; for (var _k in m) { if (m.hasOwnProperty(_k) && _nt(_k) === _oldN) { _ok = _k; break; } }
+    if (_ok === null) return m;
     var n = Object.assign({}, m);
-    n[newNm] = (n[newNm] !== undefined) ? mergeFn(n[newNm], n[oldNm]) : n[oldNm];
-    delete n[oldNm];
+    n[newNm] = (n[newNm] !== undefined) ? mergeFn(n[newNm], n[_ok]) : n[_ok];
+    if (_ok !== newNm) delete n[_ok];
     return n;
   };
   var _mergeSec = function(nw, od) { var n = (nw && typeof nw === "object") ? nw : {}, o = (od && typeof od === "object") ? od : {}; return { b: _mergeArr(n.b, o.b), k: _mergeArr(n.k, o.k), f: _mergeArr(n.f, o.f) }; };
@@ -5366,15 +5370,15 @@ function _elSignalRenameData(prev, oldNm, newNm) {
     if (!c) { nCharts[ck] = c; return; }
     var nc = c, changed = false;
     var _own = function() { if (!changed) { nc = Object.assign({}, c); changed = true; } };
-    if (Array.isArray(c.signals) && c.signals.some(function(s) { return s && (s.tag === oldNm || s.customTagText === oldNm || (Array.isArray(s.tags) && s.tags.indexOf(oldNm) >= 0) || (s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[oldNm] !== undefined)); })) {
+    var _sigHit = function(s) { return s && (_nt(s.tag) === _oldN || _nt(s.customTagText) === _oldN || (Array.isArray(s.tags) && s.tags.some(function(t) { return _nt(t) === _oldN; })) || (s.sigDetail && typeof s.sigDetail === "object" && Object.keys(s.sigDetail).some(function(dk) { return _nt(dk) === _oldN; }))); };
+    if (Array.isArray(c.signals) && c.signals.some(_sigHit)) {
       _own();
       nc.signals = c.signals.map(function(s) {
         if (!s) return s;
-        var hit = s.tag === oldNm || s.customTagText === oldNm || (Array.isArray(s.tags) && s.tags.indexOf(oldNm) >= 0) || (s.sigDetail && typeof s.sigDetail === "object" && s.sigDetail[oldNm] !== undefined);
-        if (!hit) return s;
+        if (!_sigHit(s)) return s;
         var ns = Object.assign({}, s);
-        if (ns.tag === oldNm) ns.tag = newNm;
-        if (ns.customTagText === oldNm) ns.customTagText = newNm;
+        if (_nt(ns.tag) === _oldN) ns.tag = newNm;
+        if (_nt(ns.customTagText) === _oldN) ns.customTagText = newNm;
         if (Array.isArray(ns.tags)) ns.tags = _rnList(ns.tags);
         if (ns.sigDetail && typeof ns.sigDetail === "object") ns.sigDetail = _renameKey(Object.assign({}, ns.sigDetail), _mergeRecSec);
         return ns;
@@ -5382,24 +5386,24 @@ function _elSignalRenameData(prev, oldNm, newNm) {
     }
     var _apKeyNm = function(k) { var p = k.split("|"); return (p[0] === "s" && p.length >= 3) ? p.slice(2).join("|") : null; };
     // apMemosキーの名前部は書込時にstripCat(名前)で保存される（app-02 _apSetAutoMemo）ため、比較/付け替えもstripCatで揃える。通常のシグナル名（コロン無し）ではstripCatは恒等でno-op。2026-07-08
-    var _apOld = (typeof stripCat === "function") ? stripCat(oldNm) : oldNm, _apNew = (typeof stripCat === "function") ? stripCat(newNm) : newNm;
-    if (c.apMemos && typeof c.apMemos === "object" && Object.keys(c.apMemos).some(function(k) { return _apKeyNm(k) === _apOld; })) {
+    var _apOld = _nt((typeof stripCat === "function") ? stripCat(oldNm) : oldNm), _apNew = (typeof stripCat === "function") ? stripCat(newNm) : newNm;
+    if (c.apMemos && typeof c.apMemos === "object" && Object.keys(c.apMemos).some(function(k) { return _nt(_apKeyNm(k)) === _apOld; })) {
       _own();
       var nm = {};
       Object.keys(c.apMemos).forEach(function(k) {
         var p = k.split("|");
-        var k2 = (_apKeyNm(k) === _apOld) ? (p[0] + "|" + p[1] + "|" + _apNew) : k;
+        var k2 = (_nt(_apKeyNm(k)) === _apOld) ? (p[0] + "|" + p[1] + "|" + _apNew) : k;
         if (!(k2 in nm)) nm[k2] = c.apMemos[k];
       });
       nc.apMemos = nm;
     }
-    if (Array.isArray(c.appearances) && c.appearances.some(function(ap) { return ap && ap.kind === "signal" && ap.name === oldNm; })) {
+    if (Array.isArray(c.appearances) && c.appearances.some(function(ap) { return ap && ap.kind === "signal" && _nt(ap.name) === _oldN; })) {
       _own();
-      nc.appearances = c.appearances.map(function(ap) { return (ap && ap.kind === "signal" && ap.name === oldNm) ? Object.assign({}, ap, { name: newNm }) : ap; });
+      nc.appearances = c.appearances.map(function(ap) { return (ap && ap.kind === "signal" && _nt(ap.name) === _oldN) ? Object.assign({}, ap, { name: newNm }) : ap; });
     }
-    if (Array.isArray(c.epNavi) && c.epNavi.some(function(en) { return en && en.tag === oldNm; })) {
+    if (Array.isArray(c.epNavi) && c.epNavi.some(function(en) { return en && _nt(en.tag) === _oldN; })) {
       _own();
-      nc.epNavi = c.epNavi.map(function(en) { return (en && en.tag === oldNm) ? Object.assign({}, en, { tag: newNm }) : en; });
+      nc.epNavi = c.epNavi.map(function(en) { return (en && _nt(en.tag) === _oldN) ? Object.assign({}, en, { tag: newNm }) : en; });
     }
     nCharts[ck] = nc;
   });
@@ -6674,10 +6678,11 @@ function EntryRecordForm(_ref_erf) {
     }
     if (_savingRef.current) return;
     _savingRef.current = true;
+    var _ntf = function(t) { return (typeof t === "string") ? t.normalize("NFC").trim() : t; };   // 保存tagはNFC+trim正規化＝空白/全半角/合成文字差でシグナルが記録帳で別グループに割れる/改名がスルーされるのを防ぐ 2026-07-10
     var sig = {
       id: isEdit ? initSig.id : _sigId(),
-      tag: fTags.length > 0 ? fTags[0] : (fIsCustom ? "__custom__" : ""),
-      tags: fTags,
+      tag: fTags.length > 0 ? _ntf(fTags[0]) : (fIsCustom ? "__custom__" : ""),
+      tags: fTags.map(_ntf),
       sigDetail: (function() {
         var _o = {}, _any = false;
         // 分足オーバーライドは「分足欄と異なる」場合だけ number配列で保存＝一致/未設定は分足欄に追従（キー無し）2026-07-09。
@@ -6689,7 +6694,7 @@ function EntryRecordForm(_ref_erf) {
           var _e = {}, _has = false;
           if (_s) { if (_s.b) { _e.b = _s.b; _has = true; } if (_s.k) { _e.k = _s.k; _has = true; } if (_s.f && _s.f.length) { _e.f = _s.f.slice(); _has = true; } }
           if (_sb) { var _bb = _barDiff(_sb.b), _kb = _barDiff(_sb.k), _fb = _barDiff(_sb.f); if (_bb) { _e.bBar = _bb; _has = true; } if (_kb) { _e.kBar = _kb; _has = true; } if (_fb) { _e.fBar = _fb; _has = true; } }
-          if (_has) { _o[_t] = _e; _any = true; }
+          if (_has) { _o[_ntf(_t)] = _e; _any = true; }
         });
         return _any ? _o : null;
       })(),
@@ -6699,7 +6704,7 @@ function EntryRecordForm(_ref_erf) {
       memo: initSig.memo || "", 
       time: fTime || "",
       isCustomTag: fIsCustom,
-      customTagText: fIsCustom ? fCustomText : "",
+      customTagText: fIsCustom ? _ntf(fCustomText) : "",
       rationale: fRationale,
       entered: fEntered,
       tradeType: fTradeType,

@@ -959,6 +959,18 @@ function migrateData(d) {
       d._migDropAddReasonDetail = true;
     } catch(e) { console.warn("[migrateData] dropAddReasonDetail error:", e); }
   }
+  // 【一回性 _migSignalRename3・2026-07-10】ユーザー指定3改名で過去に割れた記録を統合。改名UIが空白/全半角/NFC差でスルーし旧名記録が残っていた分を、正規化(NFC+trim)照合済みの_elSignalRenameData(app-05)で新名へ吸収＝記録帳のシグナル軸(記録tag名でグループ化)で新旧が別々に出ていたのを1本化。冪等（フラグで1回）。d=返り値で再代入(全トップレベル保持・後続migなしのreturn直前配置)。今後のUI改名は正規化済み_elSignalRenameDataが担当。
+  if (!d._migSignalRename3) {
+    try {
+      if (typeof _elSignalRenameData === "function") {
+        // ユーザー指定3改名＋各々の旧世代名(_migSignalRename2の_RN2由来: 底抜け水準線OS/底つきサイン水準線OS/寄り付きラインOS)も同じ新名へ集約＝mig2の実行順・実行有無に依らず1本化（正規化照合で空白/全半角/NFC差も吸収）
+        [["底抜けラインOS", "指標線底抜けOS"], ["底抜け水準線OS", "指標線底抜けOS"],
+         ["底つきラインOS", "水平線耐えOS"], ["底つきサイン水準線OS", "水平線耐えOS"],
+         ["寄り付き足OS", "寄り足上値OS"], ["寄り付きラインOS", "寄り足上値OS"]].forEach(function(p) { var _r = _elSignalRenameData(d, p[0], p[1]); if (_r) d = _r; });
+      }
+      d._migSignalRename3 = true;
+    } catch(e) { console.warn("[migrateData] sigRename3 error:", e); }
+  }
   return d;
 }
 function stLoad() {
