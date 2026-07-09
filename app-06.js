@@ -4353,21 +4353,29 @@ function EntryLogView(_ref_elv2) {
       return c;
     };
     var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
-    var winOf = function(x) { var ok = 0, dec = 0; x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine, res = _elDynResult(s, a, c); if (res === "ok") { ok++; dec++; } else if (res === "ng" || res === "draw") dec++; }); return dec ? Math.round(ok / dec * 100) : null; };
     // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
     var stopsOf = function(x) {
       var sn = 0, sl = 0, wn = 0;
       x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) { sn++; sl += _elCapLossYen(c); } });
       return { n: sn, avg: sn ? Math.round(sl / sn) : null, rate: wn ? Math.round(sn / wn * 100) : null };
     };
+    // 到達: EPに到達した件数（採用α基準・_epReachedAt）2026-07-09
+    var reachOf = function(x) { var r = 0; x.forEach(function(rec) { if (_epReachedAt(rec.signal, _ai(rec).alpha)) r++; }); return r; };
+    // 利確: E成立(EP到達して決着＝損切り率と同母数wn)のうち最終損益(（）外main)>0で手じまいした件数・率 2026-07-09
+    var winTakeOf = function(x) {
+      var wn = 0, tp = 0;
+      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; var _t2 = _elHold2TotParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) tp++; });
+      return { n: tp, rate: wn ? Math.round(tp / wn * 100) : null };
+    };
     var byP = {}; rs.forEach(function(r) { var k = keyOf(r.date); (byP[k] = byP[k] || []).push(r); });
     var keys = Object.keys(byP).sort().reverse();
     if (!keys.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "v2記録なし");
     var oth = function(t) { return React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, t); };
     var otd = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
-    var winCell = function(w, ex) { return otd(w != null ? w + "%" : "—", Object.assign({ color: w != null ? (w >= 50 ? "#1E8449" : "#B45309") : "#bbb", fontWeight: 700 }, ex || {})); };
     var avgLine = function(v, cnt) { if (!cnt || v == null) return null; var a = Math.round(v / cnt); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "平均" + (a >= 0 ? "+" : "") + a.toLocaleString()); };
-    var pnlCell = function(v, cnt, ref, refCnt, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt), avgLine(v, cnt)), ex); };
+    // 最終損益だけ「1日あたり平均」＝合計÷日数(営業日数)。実現損益は据え置き(1トレードあたり平均avgLine) 2026-07-09
+    var avgDayLine = function(v, days) { if (!days || v == null) return null; var a = Math.round(v / days); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (a >= 0 ? "+" : "") + a.toLocaleString()); };
+    var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt), avgDayLine(v, days)), ex); };
     var realCell = function(v, cnt, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt), avgLine(v, cnt)), ex); };
     var stopCell = function(st, ex) {
       if (!st || st.n === 0) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
@@ -4375,18 +4383,28 @@ function EntryLogView(_ref_elv2) {
         React.createElement("span", { style: { fontWeight: 700, color: "#1E8449" } }, st.n + "件・" + (st.rate != null ? st.rate + "%" : "—")),
         React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "平均" + (st.avg != null ? st.avg.toLocaleString() : "—") + "円")), ex);
     };
+    // 到達セル: EP到達件数（主）＋到達率（対 件数=全記録・小書き）2026-07-09
+    var reachCell = function(rn, tot, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+      React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, rn + "件"),
+      tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(rn / tot * 100) + "%") : null), ex); };
+    // 利確セル: 利益で手じまいした件数・率（旧勝率の位置・色分けは勝率と同じ緑/橙）2026-07-09
+    var winTakeCell = function(wt, ex) {
+      if (!wt || wt.rate == null) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
+      return otd(React.createElement("span", { style: { fontWeight: 700, color: wt.rate >= 50 ? "#1E8449" : "#B45309" } }, wt.n + "件・" + wt.rate + "%"), ex);
+    };
     var rows = [];
     keys.forEach(function(k) {
-      var x = byP[k], t = totOf(x), st = stopsOf(x), on = ovExp === k;
+      var x = byP[k], t = totOf(x), st = stopsOf(x), dn = _bizDaysIn(k), on = ovExp === k;
       rows.push(React.createElement("tr", { key: k, onClick: function() { setOvExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
         otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k)), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
-        otd(_bizDaysIn(k) + "日", { fontWeight: 600, color: "#555" }),
+        otd(dn + "日", { fontWeight: 600, color: "#555" }),
         otd(x.length + "件", { fontWeight: 700 }),
-        winCell(winOf(x)),
-        pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt),
-        realCell(t.real, t.realCnt),
-        stopCell(st)));
-      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 7, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+        reachCell(reachOf(x), x.length),
+        winTakeCell(winTakeOf(x)),
+        stopCell(st),
+        pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
+        realCell(t.real, t.realCnt)));
+      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 8, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
         React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件）"),
         _recTable(x, "full", "ovp_" + k + "_", null))));
     });
@@ -4396,17 +4414,23 @@ function EntryLogView(_ref_elv2) {
       otd("合計", Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
       otd(_ovTotDays + "日", Object.assign({ fontWeight: 700, color: "#555" }, bt)),
       otd(rs.length + "件", Object.assign({ fontWeight: 800 }, bt)),
-      winCell(winOf(rs), Object.assign({ fontWeight: 800 }, bt)),
-      pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, bt),
-      realCell(tt.real, tt.realCnt, bt),
-      stopCell(stopsOf(rs), bt));
+      reachCell(reachOf(rs), rs.length, Object.assign({ fontWeight: 800 }, bt)),
+      winTakeCell(winTakeOf(rs), Object.assign({ fontWeight: 800 }, bt)),
+      stopCell(stopsOf(rs), bt),
+      pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
+      realCell(tt.real, tt.realCnt, bt));
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#f5f4f0" } },
-          oth(g === "day" ? "日" : g === "week" ? "週" : "月"), oth("日数"), oth("件数"), oth("勝率"),
+          oth(g === "day" ? "日" : g === "week" ? "週" : "月"), oth("日数"), oth("件数"),
+          oth(React.createElement("span", null, "到達",
+            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EP到達件数"))),
+          oth(React.createElement("span", null, "利確",
+            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立分母"))),
+          oth("損切り"),
           oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "最終損益",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "○が途切れた所で手じまい・( )=△含む"))),
-          oth("実現損益"), oth("損切り"))),
+          oth("実現損益"))),
         React.createElement("tbody", null, rows),
         React.createElement("tfoot", null, totRow)));
   };
