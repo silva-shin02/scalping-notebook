@@ -4081,7 +4081,7 @@ function _elDeriveHoldProfit(hp, pp, res, fallback) {
 // ===== #2 時間かぶりの合計除外 2026-07-07 [[project_scalping_total_pnl_system #2]] =====
 // かぶり＝同一日・全銘柄のv2算入記録を時刻昇順に並べ、隣接が5分以内(≤5分)なら「上限2個の貪欲ペアリング」でペア化
 // （例 9:31/9:34/9:39/9:42/9:47 → {9:31,9:34}{9:39,9:42}{9:47}）。残す方の選定 2026-07-08 ユーザー指示:
-// 「時刻が異なれば早い方(=ペアの先頭)を残す（損益に依らず＝リアルタイムで先に入った方）／同時刻(分が同じ)のときだけ（）外手じまい損益
+// 「時刻が異なれば早い方(=ペアの先頭)を残す（損益に依らず＝リアルタイムで先に入った方）／同時刻(分が同じ)のときだけ（）外最終損益
 // (_elHold2TotPartsのmain・採用α/採用損切り)が小さい方を残す（同額は先を残す）」＝残さない方（遅い方／同時刻なら損益大）を合計額から除外。どちらかmain無しのペアは除外なし・単独記録は除外なし。
 // 母数＝v2(_epIsV2)かつ算入(_elInclTotal)・時刻無しは対象外。返り値 {excluded:{key:1}, marked:{key:1}}＝除外keyと「※被り有」（残した側）key。
 // data.charts参照でmemo化（保存でchartsの識別が変わると再計算）。配線は「表示総計」のみ＝α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
@@ -4151,11 +4151,11 @@ function _elCollExclCountRecs(data, recs, scope) { var n = 0; (recs || []).forEa
 // 明細行用の時間かぶり小バッジ（残した側＝早い方「※被り有」・除外された側＝遅い方「被り除外」灰色。対象外はnull）2026-07-07両側可視化→07-08 早い方を残す方式に変更。
 function _elCollMarkNode(data, r, scope) {
   if (_elCollMarked(data, r, scope)) {
-    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。早い方（同時刻なら（）外手じまい損益が小さい方）だけを合計に算入し、もう片方は除外。この記録＝残した側（件数は両方残る）",
+    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。早い方（同時刻なら（）外最終損益が小さい方）だけを合計に算入し、もう片方は除外。この記録＝残した側（件数は両方残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "※被り有");
   }
   if (_elCollExcluded(data, r, scope)) {
-    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。この記録は除外側＝遅い方（同時刻なら（）外手じまい損益が大きい方）＝損益は合計額に入れない（件数は残る）",
+    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。この記録は除外側＝遅い方（同時刻なら（）外最終損益が大きい方）＝損益は合計額に入れない（件数は残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "被り除外");
   }
   return null;
@@ -4223,6 +4223,34 @@ function _elTotAccum(items, get) {
     if (t2.ref != null) { t.hold2Ref = (t.hold2Ref || 0) + nm(it, t2.ref); t.hold2RefCnt++; }
   });
   return t;
+}
+// 詳細損益セル（EP/H1/H2縦積み・（）外main＋（）内=△参考）。本日/今週/銘柄別今週の3表で共用＝_elTotAccumで全表と同一基準。recsMは被り除外後の記録・aiAlpha(r)/aiCut(r)=採用α/損切り・badgeFn(grade)=グレードバッジ・allMiss=全E未達でQ0。H２行＝最終損益列と同値。2026-07-10。
+function _elDetailPnlStackNode(recsM, aiAlpha, aiCut, badgeFn, allMiss) {
+  if (!recsM || !recsM.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var t = _elTotAccum(recsM, { signal: function(r) { return r.signal; }, alpha: aiAlpha, cut: aiCut });
+  // allMissFirst=EP行のみ（旧EPセルはallMiss時に計画0でもQ0優先）。H1/H2は「値があれば値・無ければ参考/Q0/—」＝旧H1・最終セルと完全一致＝詳細のH2は最終損益列と常に同値。
+  var _line = function(lbl, main, cnt, ref, refCnt, mid, allMissFirst) {
+    var body;
+    if (allMissFirst && allMiss) {
+      body = _qZeroCell();
+    } else if (main != null) {
+      var g = _profitGradeFromPnl(main, cnt);
+      body = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+        g ? badgeFn(g) : null,
+        React.createElement("span", { style: { fontWeight: 700, color: main > 0 ? "#C0392B" : main < 0 ? "#1E8449" : "#888" } }, (main > 0 ? "+" : "") + main.toLocaleString() + "円"),
+        _elHold2RefSuffix(main, ref, refCnt));
+    } else if (refCnt > 0) {
+      body = _elHold2RefSuffix(0, ref, refCnt);
+    } else {
+      body = allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
+    }
+    return React.createElement("span", { style: Object.assign({ display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", padding: "1px 0" }, mid ? { borderTop: "1px solid #e0d8c8", borderBottom: "1px solid #e0d8c8" } : {}) },
+      React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, minWidth: 26, textAlign: "left", flexShrink: 0 } }, lbl), body);
+  };
+  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.25, fontVariantNumeric: "tabular-nums" } },
+    _line("EP：", (t.planCnt > 0 ? t.plan : null), t.planCnt, t.planRef, t.planRefCnt, false, true),
+    _line("H１：", (t.holdCnt > 0 ? t.holdPlanCap : null), t.holdCnt, t.holdRef, t.holdRefCnt, true, false),
+    _line("H２：", (t.hold2Cnt > 0 ? t.hold2 : null), t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, false, false));
 }
 // 理想α値（EP起算v2/v3対応・完全刷新 2026-06-13）: EP/H1/H2の各指標について、α候補(0〜50円1刻み)を
 // 総当たりし合計が最大になるαを返す。各候補で _elTotAccum を回す＝合計行(EP損益/H1/H2)と完全一致。

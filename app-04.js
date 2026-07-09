@@ -3164,7 +3164,7 @@ function StockQuickRefTable(_props_qrt) {
               : [
                   { label: "日付", pad: "6px 4px" },
                   { label: "地合い", pad: "6px 6px" },
-                  { label: "手じまい損益", pad: "6px 7px" },
+                  { label: "最終損益", pad: "6px 7px" },
                   { label: "実現損益", pad: "6px 7px" },
                   { label: "イベント・タグ", pad: "6px 6px" }
                 ]
@@ -3229,7 +3229,7 @@ function StockQuickRefTable(_props_qrt) {
             isNikkei ? null : React.createElement("td", {
               style: { padding: "6px 7px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
-              // 手じまい損益＝期待度○が途切れた所で手じまい（（）外・旧H2損益と同一基準・（）内=△含む）。EP損益/H1損益列を集約 2026-07-09。
+              // 最終損益＝期待度○が途切れた所で手じまい（（）外・旧H2損益と同一基準・（）内=△含む）。EP損益/H1損益列を集約 2026-07-09。
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
@@ -5688,6 +5688,7 @@ function DayView(_ref57) {
               _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
           })()),
+          _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _elDetailPnlStackNode(_wkRecsM, _wkAlphaOf, _wkCutOf, _wkBadge, _allMiss)),
           _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_wkStM.sumPnl, (_ent > 0 && _wkStM.sumPnl !== 0) ? _ent : 0), _ent > 0 ? _wkStM.sumPnl : null)),
           React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
             (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
@@ -5705,7 +5706,7 @@ function DayView(_ref57) {
       var _wkExpRow = function(recs, rowKey) {
         var _isTotal = rowKey === "wk__total__";
         return React.createElement("tr", { key: rowKey + "_exp" },
-          React.createElement("td", { colSpan: 12, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+          React.createElement("td", { colSpan: 13, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
             _isTotal ? _wkIdealEl : null,
             recs.length ? React.createElement("div", { style: { margin: "2px 4px 8px 18px", border: "1px solid #FDBA74", borderRadius: 8, background: "#fff", padding: "6px 8px", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time", { val: simAlphaWk, set: setSimAlphaWk, keyOf: _wkRecKey, actualOf: _wkAlphaActualOf }, { val: simCutWk, set: setSimCutWk, keyOf: _wkRecKey, actualOf: _wkCutActualOf }, true)) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
           )
@@ -5727,8 +5728,8 @@ function DayView(_ref57) {
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
-                _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "手じまい損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
-                _wkTh(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "手じまい損益")), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
+                _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
+                _wkTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "最終損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／H2損益を縦積み。H２＝最終損益と同値" }, "詳細損益")), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
               )
             ),
             React.createElement("tbody", null,
@@ -5877,6 +5878,8 @@ function DayView(_ref57) {
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
           })()),
         React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
+          _allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _elDetailPnlStackNode(_pbRecsM, _pbAlphaOf, _pbCutOf, _pbBadge, _allMiss)),
+        React.createElement("td", { style: { padding: "3px 3px", textAlign: "center", fontSize: 10, whiteSpace: "nowrap", borderBottom: bb, borderTop: bt, borderRight: br } },
           _allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _pbRealABAll(_pbRecsM)),
         React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
           tags && tags.length > 0
@@ -5919,7 +5922,7 @@ function DayView(_ref57) {
           )
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
-        React.createElement("td", { colSpan: 12, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
+        React.createElement("td", { colSpan: 13, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
           rowKey === "__total__" ? null : React.createElement("div", {
             style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" }
           },
@@ -6004,7 +6007,7 @@ function DayView(_ref57) {
       };
       return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8, fontSize: 9 } },
         mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-", Q:"E基準未達のため非表示" }),
-        mkRow("EP・手じまい損益", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-", Q:"E基準未達のため非表示" })
+        mkRow("損益（EP/H1/H2/最終）", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-", Q:"E基準未達のため非表示" })
       );
     })();
     
@@ -6025,12 +6028,13 @@ function DayView(_ref57) {
               _pbTh("件", { width: 34 }),
               _pbTh(React.createElement("span", { style: { color: "#374151" } }, "到達"), { width: 36 }),
               _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確"), { width: 36 }),
-              _pbTh(React.createElement("span", { style: { color: "#D97706" }, title: "手じまい損益が±0（トントン）" }, "△"), { width: 28 }),
+              _pbTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△"), { width: 28 }),
               _pbTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損"), { width: 42 }),
               _pbTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り"), { width: 42 }),
               _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達"), { width: 40 }),
               _pbTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外"), { width: 40 }),
-              _pbTh(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "手じまい損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "○途切れで手じまい・( )=△含む")), { width: 128 }),
+              _pbTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "○途切れで手じまい・( )=△含む")), { width: 100 }),
+              _pbTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／H2損益を縦積み。（）内=△も保有し続けた場合。H２＝最終損益と同値（100株換算）" }, "詳細損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "EP / H1 / H2")), { width: 150 }),
               _pbTh("実現損益", { width: 80 }),
               _pbTh("タグ", { width: 120, textAlign: "left" })
             )
