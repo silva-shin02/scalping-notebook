@@ -3928,7 +3928,8 @@ function _epOsChainCell(s, alpha) {
   var _chain = React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", whiteSpace: "nowrap" } }, nodes);
   var _mx = _epOsMaxChainNode(s, alpha);
   if (!_mx) return _chain;
-  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center" } }, _chain, _mx);
+  // 2026-07-09: 最高値ノードをOS3の右に横並び（旧=チェーン下に縦積み）＝縦幅を1行分削減。
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "flex-start", gap: 5, whiteSpace: "nowrap" } }, _chain, _mx);
 }
 // OS4・OS5（4・5本目=hold*/hold2*）が未入力の記録の【未記録】マーク（時間欄の下などに表示）。完備ならnull。
 // αシミュでEPが後ろにずれた際に足が足りず深いホールド検証ができない記録を識別する。
@@ -5413,17 +5414,8 @@ function _elTagDisp(s, t) {
 }
 // シグナルセルの2行表示（案B 2026-07-07）: 1行目=シグナル名、2行目=底X・起Y、3行目=③特徴。詳細が1つも無い記録は赤「詳細未選択」バッジで明示。_elTagDisp（1行括弧表記）の縦積み版で、明細表のシグナル欄に使う。
 function _elSigCellNode(s, t, key) {
-  var _sec = _elSigDetailSec(s, t);
-  var _hasDet = !!(_sec.b || _sec.k || (_sec.f && _sec.f.length));
-  var _bk = [];
-  if (_sec.b) _bk.push("底 " + _sec.b);
-  if (_sec.k) _bk.push("起 " + _sec.k);
-  var _feat = (_sec.f || []).filter(Boolean);
-  return React.createElement("div", { key: key, style: { lineHeight: 1.3 } },
-    React.createElement("div", { style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, t),
-    _bk.length ? React.createElement("div", { style: { fontSize: 9.5, color: "#64748B", lineHeight: 1.25 } }, _bk.join("・")) : null,
-    _feat.length ? React.createElement("div", { style: { fontSize: 9.5, color: "#64748B", lineHeight: 1.25 } }, "特徴 " + _feat.join("・")) : null,
-    !_hasDet ? React.createElement("div", { style: { display: "inline-block", fontSize: 8.5, fontWeight: 700, color: "#DC2626", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 3, padding: "0 4px", marginTop: 1 } }, "詳細未選択") : null);
+  // 2026-07-09: 明細表のシグナル欄はシグナル名だけ表示（旧=底/起/特徴の詳細＋詳細未選択バッジも表示）。詳細はsigDetailに保持され分析側で使用。
+  return React.createElement("div", { key: key, style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, t);
 }
 // 明細表のシグナル欄（全タグ＋カスタムタグ＋未設定）を案Bの縦積みで返す共有部品。align=セル内の水平寄せ。
 function _elSigCell(s, align) {
