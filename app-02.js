@@ -4523,23 +4523,7 @@ function EntrySignalSection(_ref_es) {
     },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", whiteSpace: "nowrap" } }, "合計"),
       React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-        "EP損益: ",
-        _esAllMiss ? _qZeroCell() : (_esTotPlanCnt > 0
-          ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esRPnlDispABAll(_esTotPlanAB, _esTotPlan, _esTotPlanGradeAB, _esTotPlanGrade), _elHold2RefSuffix(_esTotPlan, _esTotPlanRef, _esTotPlanRefCnt))
-          : (_esTotPlanRefCnt > 0 ? _elHold2RefSuffix(0, _esTotPlanRef, _esTotPlanRefCnt) : React.createElement("span", { style: { color: "#ccc" } }, "—")))
-      ),
-      React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-        "H１結果損益: ",
-        _esTotHoldCnt > 0
-          ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
-              _esRPnlDispABAll(_esTotHoldAB, _esTotHold, _esTotHoldGradeAB, _esTotHoldGrade),
-              null,
-              _esTotHoldHasUnrecorded ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（※未記録あり）") : null
-            )
-          : (_esTotHoldRefCnt > 0 ? null : (_esAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_esTotHold, _esTotHoldRef, _esTotHoldRefCnt)
-      ),
-      React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-        "H２結果損益: ",
+        "手じまい損益: ",
         React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Cnt > 0
           ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _esTotHold2Grade ? _esBadge(_esTotHold2Grade) : null, React.createElement("span", { style: { fontWeight: 700, color: _esTotHold2 > 0 ? "#C0392B" : _esTotHold2 < 0 ? "#1E8449" : "#888" } }, (_esTotHold2 > 0 ? "+" : "") + _esTotHold2.toLocaleString() + "円"))
           : (_esTotHold2RefCnt > 0 ? null : (_esAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_esTotHold2, _esTotHold2Ref, _esTotHold2RefCnt))
@@ -5142,53 +5126,6 @@ function WeeklyPnlPanel(_wpp) {
       _td(_exclN || "0", { color: "#0284C7", fontWeight: (_exclN || 0) > 0 ? 700 : 400 }),
       _td((function() {
         if (_allExcl) return _elNotInclBadge();
-        if (_allMiss) return _qZeroCell();
-        var _dynSP = null, _dynSPRef = null, _dynSPRefCnt = 0;
-        _recsM.forEach(function(r) {
-          var s = r.signal;
-          var _aD = _alphaOf(r);
-          var _cutLwkD = _cutOf(r);
-          if (_epIsXSkip(s, _aD)) return;  // EP×（×見送り）→ 完全に算入無し
-          var pp = _elDynPlanned(s, _aD, _cutLwkD);
-          if (pp != null) {
-            if (_epIsTriEntry(s, _aD)) { _dynSPRef = (_dynSPRef || 0) + pp; _dynSPRefCnt++; }  // EP-OS△→（）内のみ・（）外は0
-            else _dynSP = (_dynSP || 0) + pp;
-          }
-        });
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkPnlCell(_profitGradeFromPnl(_dynSP != null ? _dynSP : 0, (_dynSP != null && _dynSP !== 0) ? st.total : 0), _dynSP), _elHold2RefSuffix(_dynSP, _dynSPRef, _dynSPRefCnt));
-      })()),
-      _td((function() {
-        if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        var _hMain = null, _hRef = null, _hRefCnt = 0, _hCnt = 0;
-        _recsM.forEach(function(r) {
-          var s = r.signal;
-          var _aR = _alphaOf(r);
-          var _cutLR = _cutOf(r);
-          if (_epIsXSkip(s, _aR)) return;  // EP×（×見送り）→ 完全に算入無し
-          var hp = (_aR != null) ? _elDynHold(s, _aR, _cutLR) : _elSignedVal(s.holdPnl, s.holdPnlSign);
-          if (hp == null) return;
-          var pp = _elDynPlanned(s, _aR, _cutLR);
-          var _pStop = (_aR != null && _elPlanIsStop(s, _aR, _cutLR));
-          var _cap = (_pStop && pp != null) ? pp : hp;
-          var _hxW = _elH1ExpAt(s, _aR);   // 2026-07-06e
-          if (_epIsTriEntry(s, _aR)) {
-            // EP△→H1も（）外0。○/△/損切り済は（）内（参考）へ・×/未設定は完全除外（1段下0を継承）。
-            if (_hxW && _hxW !== "×") { _hRef = (_hRef || 0) + _cap; _hRefCnt++; }
-          } else {
-            var _fbW = (_hxW !== "○");  // ○以外（×/△/損切り済/未設定）→想定額へフォールバック。未設定=×扱い
-            _hMain = (_hMain || 0) + ((_fbW && pp != null) ? pp : _cap);
-            if ((_hxW === "△" || _hxW === "損切り済") && pp != null && (_cap - pp) !== 0) { _hRef = (_hRef || 0) + (_cap - pp); _hRefCnt++; }  // △/損切り済のみ参考（×/未設定は無し）
-            _hCnt++;
-          }
-        });
-        if (_hMain == null) return (_hRefCnt > 0) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, _hRef, _hRefCnt)) : (_allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
-        var _hgCap = _profitGradeFromPnl(_hMain, _hCnt);
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
-          _hgCap ? _wkBadge(_hgCap) : null,
-          React.createElement("span", { style: { fontWeight: 700, color: _hMain > 0 ? "#C0392B" : _hMain < 0 ? "#1E8449" : "#888" } }, (_hMain > 0 ? "+" : "") + _hMain.toLocaleString() + "円"),
-          _elHold2RefSuffix(_hMain, _hRef, _hRefCnt));
-      })()),
-      _td((function() {
         if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
         var _h2Tot = null, _h2Cnt = 0, _h2Ref = null, _h2RefCnt = 0;
         _recsM.forEach(function(r) {
@@ -5242,7 +5179,7 @@ function WeeklyPnlPanel(_wpp) {
           React.createElement("tr", { style: { background: "#f5f4f0" } },
             _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
             _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "手じまい損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
-            _wkTh("EP損益"), _wkTh("H１結果損益"), _wkTh("H２結果損益"), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" }))),
+            _wkTh(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "手じまい損益")), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" }))),
         React.createElement("tbody", null,
           [
             _sumRow("週合計", "#555", _recs, true, "wk__total__"),
