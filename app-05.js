@@ -5662,6 +5662,16 @@ function EntryRecordForm(_ref_erf) {
   })()),
     _useStateSGDA = _slicedToArray(_useStateSGD, 2),
     fSigDetail = _useStateSGDA[0], setFSigDetail = _useStateSGDA[1];
+  // ①②③各セクションの分足オーバーライド（フォーム状態）: signal.sigDetail[タグ].bBar/kBar/fBar(number配列)から復元。値=文字列配列["1"/"5"] or null(=分足欄fMinBarsに追従)。2026-07-09。
+  var _useStateSCB = useState((function() {
+    var _src = (initSig.sigDetail && typeof initSig.sigDetail === "object") ? initSig.sigDetail : {};
+    var _rd = function(_val) { if (_val == null) return null; var _a = Array.isArray(_val) ? _val : [_val]; var _out = []; _a.forEach(function(_x) { var _sx = String(_x); if ((_sx === "1" || _sx === "5") && _out.indexOf(_sx) < 0) _out.push(_sx); }); return _out.length ? _out.sort() : null; };
+    var _o = {};
+    Object.keys(_src).forEach(function(_k) { var _v = _src[_k]; if (!_v || typeof _v !== "object" || Array.isArray(_v)) return; var _b = _rd(_v.bBar), _kk = _rd(_v.kBar), _f = _rd(_v.fBar); if (_b || _kk || _f) _o[_k] = { b: _b, k: _kk, f: _f }; });
+    return _o;
+  })()),
+    _useStateSCBA = _slicedToArray(_useStateSCB, 2),
+    fSecBar = _useStateSCBA[0], setFSecBar = _useStateSCBA[1];
   var _useStateSGE = useState(false),
     _useStateSGEA = _slicedToArray(_useStateSGE, 2),
     fDetEdit = _useStateSGEA[0], setFDetEdit = _useStateSGEA[1];
@@ -5843,6 +5853,24 @@ function EntryRecordForm(_ref_erf) {
   var _useStateMB = useState(function() { var mb = initSig.minBar; var arr = Array.isArray(mb) ? mb : (mb != null ? [mb] : []); var out = []; for (var i = 0; i < arr.length; i++) { var v = String(arr[i]); if ((v === "1" || v === "5") && out.indexOf(v) < 0) out.push(v); } return out; }),
     _useStateMBA = _slicedToArray(_useStateMB, 2),
     fMinBars = _useStateMBA[0], setFMinBars = _useStateMBA[1];
+  // ①②③各セクションの分足: 実効値（オーバーライドがあればそれ・無ければ分足欄fMinBarsに追従）2026-07-09。
+  var _secBarEff = function(_tag, _sk) { var _sb = fSecBar && fSecBar[_tag]; var _ov = _sb ? _sb[_sk] : null; return (_ov != null) ? _ov : fMinBars; };
+  var _secBarFollowing = function(_tag, _sk) { var _sb = fSecBar && fSecBar[_tag]; return !(_sb && _sb[_sk] != null); };
+  // トグル: 実効値から1/5を反転。結果が分足欄と一致したら追従(null)へ戻す＝分足欄変更に再追従。
+  var _toggleSecBar = function(_tag, _sk, _v) {
+    setFSecBar(function(_prev) {
+      var _o = Object.assign({}, _prev);
+      var _cur = _o[_tag] ? Object.assign({}, _o[_tag]) : { b: null, k: null, f: null };
+      var _eff = (_cur[_sk] != null) ? _cur[_sk] : fMinBars;
+      var _next = (_eff.indexOf(_v) >= 0) ? _eff.filter(function(_x) { return _x !== _v; }) : _eff.concat([_v]);
+      _next = _next.slice().sort();
+      var _mb = (fMinBars || []).slice().sort();
+      var _same = _next.length === _mb.length && _next.every(function(_x, _i) { return _x === _mb[_i]; });
+      _cur[_sk] = _same ? null : _next;
+      _o[_tag] = _cur;
+      return _o;
+    });
+  };
   var _useStateADA = useState(initSig.addAlphaVal != null ? String(initSig.addAlphaVal) : ""),
     _useStateADAA = _slicedToArray(_useStateADA, 2),
     fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
@@ -6600,7 +6628,21 @@ function EntryRecordForm(_ref_erf) {
       id: isEdit ? initSig.id : _sigId(),
       tag: fTags.length > 0 ? fTags[0] : (fIsCustom ? "__custom__" : ""),
       tags: fTags,
-      sigDetail: (function() { var _o = {}, _any = false; fTags.forEach(function(_t) { var _s = (fSigDetail && fSigDetail[_t]) || null; if (!_s) return; var _e = {}, _has = false; if (_s.b) { _e.b = _s.b; _has = true; } if (_s.k) { _e.k = _s.k; _has = true; } if (_s.f && _s.f.length) { _e.f = _s.f.slice(); _has = true; } if (_has) { _o[_t] = _e; _any = true; } }); return _any ? _o : null; })(),
+      sigDetail: (function() {
+        var _o = {}, _any = false;
+        // 分足オーバーライドは「分足欄と異なる」場合だけ number配列で保存＝一致/未設定は分足欄に追従（キー無し）2026-07-09。
+        var _mbNow = (fMinBars || []).slice().sort();
+        var _barDiff = function(_arr) { if (!_arr || !_arr.length) return null; var _a = _arr.slice().sort(); var _same = _a.length === _mbNow.length && _a.every(function(_x, _i) { return _x === _mbNow[_i]; }); return _same ? null : _a.map(Number); };
+        fTags.forEach(function(_t) {
+          var _s = (fSigDetail && fSigDetail[_t]) || null;
+          var _sb = (fSecBar && fSecBar[_t]) || null;
+          var _e = {}, _has = false;
+          if (_s) { if (_s.b) { _e.b = _s.b; _has = true; } if (_s.k) { _e.k = _s.k; _has = true; } if (_s.f && _s.f.length) { _e.f = _s.f.slice(); _has = true; } }
+          if (_sb) { var _bb = _barDiff(_sb.b), _kb = _barDiff(_sb.k), _fb = _barDiff(_sb.f); if (_bb) { _e.bBar = _bb; _has = true; } if (_kb) { _e.kBar = _kb; _has = true; } if (_fb) { _e.fBar = _fb; _has = true; } }
+          if (_has) { _o[_t] = _e; _any = true; }
+        });
+        return _any ? _o : null;
+      })(),
       passThrough: fThru === true ? true : null,
       thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,
       result: fResult,
@@ -6872,8 +6914,25 @@ function EntryRecordForm(_ref_erf) {
               var _curArr = _sc.multi ? (_curSec.f || []) : (_curSec[_sc.key] ? [_curSec[_sc.key]] : []);
               var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0; }));   // 選択済みのマスター外(孤児)も末尾に表示
               return React.createElement("div", { key: _sc.key, style: { margin: "2px 0 6px" } },
-                React.createElement("div", { style: { fontSize: 10, color: "#B45309", fontWeight: 700, marginBottom: 3 } }, _sc.label,
-                  React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? "（複数可）" : "（1つまで）")),
+                React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 } },
+                  React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label,
+                    React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? "（複数可）" : "（1つまで）")),
+                  React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+                    React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", fontWeight: 600 } }, "分足"),
+                    React.createElement("span", { style: { display: "inline-flex", border: "1px solid #B9DCC5", borderRadius: 6, overflow: "hidden" } },
+                      ["1", "5"].map(function(_bv, _bvi) {
+                        var _eff = _secBarEff(_dt, _sc.key);
+                        var _bon = _eff.indexOf(_bv) >= 0;
+                        var _fol = _secBarFollowing(_dt, _sc.key);
+                        return React.createElement("button", { key: _bv, type: "button",
+                          onClick: function() { _toggleSecBar(_dt, _sc.key, _bv); },
+                          title: _fol ? "分足欄に従う既定（タップで個別指定）" : "個別指定中（分足欄と一致させると追従に戻る）",
+                          style: { padding: "2px 9px", fontSize: 10, fontWeight: 700, border: "none",
+                            borderLeft: _bvi > 0 ? "1px solid #B9DCC5" : "none",
+                            background: _bon ? (_fol ? "#EAF7EE" : "#166534") : "#fff",
+                            color: _bon ? (_fol ? "#166534" : "#fff") : "#999",
+                            cursor: "pointer" } }, _bv);
+                      })))),
                 React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" } },
                   _list.map(function(_dn) {
                     var _on = _curArr.indexOf(_dn) >= 0;
