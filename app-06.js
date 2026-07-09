@@ -473,7 +473,7 @@ function _elOsHistV2(_ref) {
   var _selEl = null;
   if (_histClickable && _selKey != null) {
     var _selRecs = (_histRecs || []).filter(function(r) {
-      var ov = _elOsMaxAll(r.signal); if (ov == null) return false;
+      var ov = (_ref.osOf || _elOsMaxAll)(r.signal); if (ov == null) return false;   // 棒タップの絞り込みも分布と同じOS基準（実現/生）で 2026-07-09
       var nv = Number(ov); if (isNaN(nv) || nv < 0) return false;
       if (_selKey === "0-4") return nv <= 4;
       if (_selKey === "25+") return Math.round(nv) >= _EL_OS_TOP;
@@ -2602,7 +2602,7 @@ function _elOsBandPerfV2(_ref) {
   var agg = {};
   var recsByKey = {};
   recs.forEach(function(r) {
-    var s = r.signal; if (!s) return; var _ov = _elOsMaxAll(s); if (_ov == null) return;
+    var s = r.signal; if (!s) return; var _ov = (_ref.osFn || _elOsMaxAll)(s); if (_ov == null) return;   // osFn=実現/生の帯分類基準（_elOsSectionV2から伝播）2026-07-09
     var nv = Number(_ov); if (isNaN(nv) || nv < 0) return;
     var fk = (nv <= 4) ? "0-4" : String(Math.round(nv));
     (recsByKey[fk] || (recsByKey[fk] = [])).push(r);
@@ -2664,9 +2664,18 @@ function _elOsBandPerfV2(_ref) {
 // OS値の総合分析（記録帳・集計タブ／2026-06-14）: 中央値主軸の統計＋右偏バッジ＋OS値帯別の成績。成立率→α分位表(α目安)は2026-06-28にα値タブ(_elOsAlphaPctlTableV2)へ移設。
 // 2026-06-23: OS値=OS1〜3最高値(_elOsMaxAll)基準へ統一＝α目安(到達確率)の整合性向上・選択バイアス回避。DayViewの銘柄別OS1値分析(寄り付き専用)はOS1のまま。
 // 「重視すべきは平均でなく中央値（α到達確率と直結）」という方針をUIに落とし込む。aiOf(r)→{alpha,cutLine}。
-function _elOsSectionV2(recs, aiOf) {
-  var os = _elOsStatsV2(recs, _elOsMaxAll), pc = _elOsPctlV2(recs, _elOsMaxAll);
+function _elOsSectionV2(recs, aiOf, osFn, osValMode, setOsValMode) {
+  var _of = osFn || _elOsMaxAll;   // 実現OS/生の抽出関数（親EntryLogViewの_osValFn・未指定は従来=生）2026-07-09
+  var os = _elOsStatsV2(recs, _of), pc = _elOsPctlV2(recs, _of);
   if (!os || !pc) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "OS値の記録がありません");
+  var _osToggle = setOsValMode ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+    React.createElement("span", { style: { fontSize: 9.5, color: "#9A3412", fontWeight: 700 } }, "OS基準:"),
+    [["real", "実現OS（×打ち切り）"], ["raw", "生の最高OS"]].map(function(kv) {
+      var on = osValMode === kv[0];
+      return React.createElement("button", { key: kv[0], type: "button", onClick: function() { setOsValMode(kv[0]); },
+        style: { padding: "2px 9px", fontSize: 10, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
+    }),
+    React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, osValMode === "real" ? "期待度×/損切りで降りた足以降を除外した実現分" : "結果に依らず最高値（アウトカム盲目）")) : null;
   var _baPickAlpha = (function() { var _p = _elBaseAlphaPick(recs, aiOf); return (_p && _p.alpha != null) ? _p.alpha : null; })();   // OS値分布に現在の推奨基本αを青字マーク 2026-06-28
   var skewBadge = pc.skewRight ? React.createElement("span", { title: "平均が一部の大きいOS値に引っ張られています。典型値は中央値で読むのが安全です。", style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 4, padding: "1px 6px", marginLeft: 6 } }, "右偏") : null;
   var statLine = React.createElement("div", { style: { display: "flex", gap: "6px 18px", flexWrap: "wrap", alignItems: "baseline", marginBottom: 6 } },
@@ -2678,12 +2687,12 @@ function _elOsSectionV2(recs, aiOf) {
     React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "OS入力 " + os.n + "件"));
   var pieRow = React.createElement("div", { style: { marginBottom: 8 } },
     React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 700, marginBottom: 4 } }, "OS値の分布（1円刻み・各棒に件数）"),
-    React.createElement(_elOsHistV2, { vals: os.vals, recs: recs, aiOf: aiOf, markVal: _baPickAlpha }),
+    React.createElement(_elOsHistV2, { vals: os.vals, recs: recs, aiOf: aiOf, osOf: _of, markVal: _baPickAlpha }),
     React.createElement("div", { style: { marginTop: 6 } }, _elOsBandLegendV2()));
   var mk = function() { return { cnt: 0, reach: 0, ok: 0, ng: 0, miss: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, stop: 0 }; };
   var bands = {};
   (recs || []).forEach(function(r) {
-    var s = r.signal; var _ov = _elOsMaxAll(s); if (_ov == null) return; var bi = _elOsBucketKey(_ov, false); if (bi == null) return;
+    var s = r.signal; var _ov = _of(s); if (_ov == null) return; var bi = _elOsBucketKey(_ov, false); if (bi == null) return;
     var ai = aiOf(r); var o = bands[bi] || (bands[bi] = mk()); o.cnt++;
     if (_epReachedAt(s, ai.alpha)) o.reach++;
     var rr = _epResolve(s, ai.alpha);
@@ -2695,12 +2704,12 @@ function _elOsSectionV2(recs, aiOf) {
     } else if (rr && rr.judge === "miss") o.miss++;
   });
   // 帯別成績テーブルは帯⇄1円刻みトグル付きの子コンポーネントへ（集計ロジックは上のbandsと共通ルール）。
-  var bTable = React.createElement(_elOsBandPerfV2, { recs: recs, aiOf: aiOf });
+  var bTable = React.createElement(_elOsBandPerfV2, { recs: recs, aiOf: aiOf, osFn: _of });
   var items = [];
   items.push(React.createElement("span", null, "OS値（OS1〜3最高）は", _elInsightEmV2(_elOsBucketLabel(pc.bucketMode.key), _elOsBucketColor(pc.bucketMode.key)), "が最多（" + pc.bucketMode.pct + "%）。典型値＝", _elInsightEmV2("中央値 " + os.med + "円"), pc.skewRight ? React.createElement("span", null, "（平均 " + os.avg + "円は一部の大きいOSに上振れ＝", _elInsightEmV2("中央値で読むのが安全", "#B45309"), "）") : null, "。"));
   var bw = null; for (var bk2 in bands) { if (!bands.hasOwnProperty(bk2)) continue; var o2 = bands[bk2]; var dn = o2.ok + o2.ng; if (dn >= 3 && (bw == null || o2.ok / dn > bw.v)) bw = { v: o2.ok / dn, k: bk2 }; }
   if (bw) items.push(React.createElement("span", null, "勝率が最も高いOS値は", _elInsightEmV2(_elOsBucketLabel(bw.k), _elOsBucketColor(bw.k)), "（", _elInsightEmV2(Math.round(bw.v * 100) + "%"), "・3件以上で比較）。"));
-  return React.createElement("div", null, statLine, pieRow, bTable, _elInsightBoxV2(items, { note: "中央値=ちょうど半数がそれ以上のOSになる値（α到達確率と直結＝α設定はこちらが目安）。平均は合計・期待値の計算向き。最頻=最も多く出るOS値（0〜4円と25円〜は帯）。E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）。成績は採用α基準・E成立分のみ。" }));
+  return React.createElement("div", null, _osToggle, statLine, pieRow, bTable, _elInsightBoxV2(items, { note: "OS基準＝実現OS（×/損切りで降りた足以降を除外＝既定）／生の最高OS（アウトカム盲目）で切替。中央値=ちょうど半数がそれ以上のOSになる値。平均は合計・期待値の計算向き。最頻=最も多く出るOS値（0〜4円と25円〜は帯）。E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）。成績は採用α基準・E成立分のみ。※α到達確率の目安はα値タブ「成立率の目安」（生基準固定）を参照。" }));
 }
 
 // OS値（OS1〜3最高）の分位→成立率別のα目安テーブル。2026-06-28にα値タブへ移設（集計タブの_elOsSectionV2内「成立率の目安」を切り出し）。各成立率（このα以下なら約その割合でα到達＝取引機会）に対応するαの目安。aiOf不要（_elOsPctlV2はOS抽出器_elOsMaxAllを使う）。
@@ -2829,7 +2838,7 @@ function _elPeriodStatsV2(recs, aiOf) {
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s || s.osVal == null || s.osVal === "") return;
     var ai = aiOf(r);
-    var nv = _elOsMaxAll(s); if (nv != null) osv.push(nv);  // 分析用OS値＝OS1〜3の最高値（結果に依らず全足・アウトカム盲目）2026-06-23
+    var nv = _elOsMaxFiltered(s); if (nv != null) osv.push(nv);  // OS中央値＝実現OS（×/損切りで打ち切り＝ホールドで降りた足以降を除外・記録の採用α基準）2026-07-09（旧: _elOsMaxAllの生最高値。未判定の当日記録は×無し→実現＝生に一致）
     cnt++;
     if (_elIsEntered(s, r.item) && s.realizedPnl != null && s.realizedPnl !== "") { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) { realSum += rv; realCnt++; } }   // 実現損益はE成立(エントリー)分のみ＝他の全実現損益集計と統一 2026-06-24i
     if (_epReachedAt(s, ai.alpha)) reach++;
@@ -4250,6 +4259,8 @@ function EntryLogView(_ref_elv2) {
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
+  var _uOsV = useState("real"), osValMode = _uOsV[0], setOsValMode = _uOsV[1];   // OS値分布の基準 2026-07-09: 実現OS(real・既定＝×/損切りで打ち切り_elOsMaxFiltered＝ホールド判断で降りた足以降を除外した実現分)／生の最高OS(raw＝アウトカム盲目_elOsMaxAll)。中央/平均/最頻/範囲/ヒストグラム/帯別成績に適用。※α目安(7割=α)＝到達確率は選択バイアス回避のため常に生固定・α値タブ「成立率の目安」も生固定
+  var _osValFn = (osValMode === "real") ? function(s) { return _elOsMaxFiltered(s); } : _elOsMaxAll;   // OS値分布の共有抽出関数（_kpiOsと「📊OS値の分析」_elOsSectionV2で共用）2026-07-09
   var _uFS = useState("other"), floatSub = _uFS[0], setFloatSub = _uFS[1];   // シグナル内サブタブ: 底抜け前足浮き(float)/その他(other・既定)。選択中シグナルの記録を数値根拠(底抜け前足浮き＝_elHasNumReason)で二分し、集計/α値/損切り/未達/深掘りの母数を分ける（OS値分布ほか）。既定=その他 2026-07-02
   var _uDS = useState({}), detScopes = _uDS[0], setDetScopes = _uDS[1];   // 詳細スコープ（セクション独立 2026-07-08e・旧detSubサブタブ→各セクションのプルダウンへ）: secKey→"all"(まとめて)/"__cmp__"(詳細ごと比較)/詳細名/"__none__"(未分類)。銘柄/シグナル切替でリセット。候補が無いシグナルではプルダウン非表示＝従来と同一母数。
   var _uAR = useState("all"), alphaReasonFil = _uAR[0], setAlphaReasonFil = _uAR[1];   // α値タブ 根拠セレクタ（2026-07-06）: 全体(all)/各根拠/根拠なし(__none__)で基本α・共通ツールの母数を絞る第4の軸。追加αタブは④⑤根拠別を内蔵するため対象外。全体選択時は従来と完全同一。
@@ -4586,7 +4597,7 @@ function EntryLogView(_ref_elv2) {
     return React.createElement(React.Fragment, null,
       _kpiBlockOf(rs),
       rs.length ? React.createElement(React.Fragment, null,
-        _secH("📊 OS値の分析", "初動の強さ＝OS値の中央値・帯別成績とα設定の目安（重視すべきは平均でなく中央値＝α到達確率と直結）"), _elOsSectionV2(rs, _ai)) : null,
+        _secH("📊 OS値の分析", "初動の強さ＝OS値の中央値・帯別成績とα設定の目安（重視すべきは平均でなく中央値＝α到達確率と直結）"), _elOsSectionV2(rs, _ai, _osValFn, osValMode, setOsValMode)) : null,
       rs.length >= 2 ? React.createElement(React.Fragment, null,
         _secH("📈 累積損益（記録順）", "EP損益/H1/H2/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: rs, aiOf: _ai, data: data, scopeStock: _collScope })) : null,
       rs.length >= 2 ? React.createElement(React.Fragment, null,
@@ -4811,8 +4822,10 @@ function EntryLogView(_ref_elv2) {
       excluded: function(r) { return _elCollExcluded(data, r, _collScope); },
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
-    var _osAll = _elOsStatsV2(rs, _elOsMaxAll);
-    var os = _elOsStatsV2(_osFilRecs, _elOsMaxAll), ss = _elStopStatsV2(_osFilRecs, data), pcg = _elOsPctlV2(_osFilRecs, _elOsMaxAll);
+    var _osFn = _osValFn;   // 実現OS=×/損切りで打ち切り（記録の採用α基準）／生=アウトカム盲目の最高値 2026-07-09（共有）
+    var _osAll = _elOsStatsV2(rs, _osFn);
+    var os = _elOsStatsV2(_osFilRecs, _osFn), ss = _elStopStatsV2(_osFilRecs, data), pcg = _elOsPctlV2(_osFilRecs, _osFn);
+    var _pcgRaw = (osValMode === "real") ? _elOsPctlV2(_osFilRecs, _elOsMaxAll) : pcg;   // α目安(7割=α)＝到達確率は選択バイアス回避のため常に生基準 2026-07-09
     var _baA = _elBaseAlphaA(baRs, _ai);   // {pick, add}＝推奨基本α(母数×+未選択)＋推奨追加α(母数〇のみ)。KPIカードとOS分布▲マークで共用 2026-07-01
     var _baPick = _baA ? _baA.pick : null, _baAdd = _baA ? _baA.add : null;
     var _baPickAlpha = (_baPick && _baPick.alpha != null) ? _baPick.alpha : null;   // OS値分布に推奨基本αを青字マーク（母数はトグル非依存の_baRecs＝推奨基本α表示と一致）
@@ -4825,7 +4838,7 @@ function EntryLogView(_ref_elv2) {
       else if (!_floatMode && osDistFil === "no") { _osRedMark = _baPickAlpha + _baCutVal; _osRedLabel = "推奨基本α＋損切り値"; }
     }
     var ok = 0, x = 0, miss = 0, _osXVals = [];
-    _osFilRecs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") { x++; var _xv = _elOsMaxAll(r.signal); if (_xv != null && !isNaN(_xv)) _osXVals.push(_xv); } else if (j === "miss") miss++; });
+    _osFilRecs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") { x++; var _xv = _osFn(r.signal); if (_xv != null && !isNaN(_xv)) _osXVals.push(_xv); } else if (j === "miss") miss++; });
     // KPIカード（ユーザー指定6項目・件数/E到達/一番引っ張った損益/損切り件数は追加α母数トグルに連動 2026-07-01）: 件数／E到達数（到達率）／一番引っ張った損益／損切り件数（損切り率）／推奨基本α（次点も）／推奨追加α（次点も）。
     var _reach = ok + x, _reachRate = _osFilRecs.length ? Math.round(_reach / _osFilRecs.length * 100) : 0;
     var _kpiBase = (function() {
@@ -4850,15 +4863,23 @@ function EntryLogView(_ref_elv2) {
       _osAll ? React.createElement("div", { style: { background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "10px 12px", marginBottom: 4 } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 4 } }, "OS値分布（OS1〜3最高・1円刻み）"),
           React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 6 } }, _floatMode ? "母数＝浮き足〇の記録" :("母数は上の「追加α母数」トグルに連動（" + (osDistFil === "no" ? "×+未選択＝▲推奨基本αと同じ母数" : osDistFil === "yes" ? "追加α〇のみ" : "全記録") + "）")),
+          React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+            React.createElement("span", { style: { fontSize: 9.5, color: "#9A3412", fontWeight: 700 } }, "OS基準:"),
+            [["real", "実現OS（×打ち切り）"], ["raw", "生の最高OS"]].map(function(kv) {
+              var on = osValMode === kv[0];
+              return React.createElement("button", { key: kv[0], type: "button", onClick: function() { setOsValMode(kv[0]); },
+                style: { padding: "2px 9px", fontSize: 10, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
+            }),
+            React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, osValMode === "real" ? "期待度×/損切りで降りた足以降を除外した実現分のOS" : "結果に依らずOS1〜3の最高値（アウトカム盲目）")),
           os ? React.createElement(React.Fragment, null,
             React.createElement("div", { style: { display: "flex", gap: "4px 16px", flexWrap: "wrap", fontSize: 12, color: "#555", marginBottom: 7, alignItems: "baseline" } },
               React.createElement("span", null, "中央 ", React.createElement("b", { style: { color: "#9A3412", fontSize: 15 } }, os.med + "円"), (pcg && pcg.skewRight) ? React.createElement("span", { title: "平均が大きいOS値に上振れ。典型値は中央値で読むのが安全。", style: { display: "inline-block", fontSize: 8, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 3, padding: "0 4px", marginLeft: 4 } }, "右偏") : null),
               React.createElement("span", null, "平均 ", React.createElement("b", null, os.avg + "円")),
               React.createElement("span", null, "最頻 ", React.createElement("b", null, pcg ? _elOsBucketLabel(pcg.bucketMode.key) : os.mode.val + "円")),
               React.createElement("span", null, "範囲 ", React.createElement("b", null, os.min + "〜" + os.max + "円")),
-              pcg ? React.createElement("span", null, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + pcg.a70 + "円")) : null,
+              _pcgRaw ? React.createElement("span", { title: "OS到達確率の目安。選択バイアス回避のため常に生（アウトカム盲目）データで算出＝OS基準トグルの影響を受けない。" }, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + _pcgRaw.a70 + "円"), (osValMode === "real") ? React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 2 } }, "(生基準)") : null) : null,
               React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "（" + _osFilRecs.length + "件）")),
-            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, recs: _osFilRecs, aiOf: _ai, xVals: _osXVals, markVal: _baPickAlpha,
+            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, recs: _osFilRecs, aiOf: _ai, osOf: _osFn, xVals: _osXVals, markVal: _baPickAlpha,
               markVal2: ((_floatMode || osDistFil === "yes") && _baPickAlpha != null && _baAdd && _baAdd.improved && _baAdd.add != null) ? (_baPickAlpha + _baAdd.add) : null,
               markVal3: _osRedMark, mark3Label: _osRedLabel })),
             _elOsBandLegendV2())
