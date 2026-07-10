@@ -3619,6 +3619,7 @@ function _EpnCalcForm(_p) {
   var _useStateEPNed = useState(null), _useStateEPNedA = _slicedToArray(_useStateEPNed, 2), editId = _useStateEPNedA[0], setEditId = _useStateEPNedA[1];
   var _useStateEPNea = useState(null), _useStateEPNeaA = _slicedToArray(_useStateEPNea, 2), editAt = _useStateEPNeaA[0], setEditAt = _useStateEPNeaA[1];
   var _useStateEPNdn = useState(false), _useStateEPNdnA = _slicedToArray(_useStateEPNdn, 2), editDone = _useStateEPNdnA[0], setEditDone = _useStateEPNdnA[1];
+  var _useStateEPNdo = useState(false), _useStateEPNdoA = _slicedToArray(_useStateEPNdo, 2), detOpen = _useStateEPNdoA[0], setDetOpen = _useStateEPNdoA[1];   // ③〜⑤詳細の開閉（案A 2026-07-10）: 既定は畳み＝場中は②＋水準線の最短入力・編集読込で詳細値があれば自動展開・保存対象外のUI状態
   var _rootRef = useRef(null);
   // ライン併存ルール（独自欄nLineCoexist 2026-07-08g）: 〇にすると基本α欄へ1を自動入力＝切替の瞬間だけ効き、手修正可・×へ戻すと1なら空に戻す（推奨に戻る）。記録フォームEntryRecordFormと同ルール＝二重実装・変更時は両方直す。旧・併存ラインチップ検知はmigrateData _migLineCoexistで本フラグへ移行済み。
   var _kyozPrevRef = useRef(nLineCoexist);
@@ -3675,7 +3676,7 @@ function _EpnCalcForm(_p) {
   var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
   var _resetForm = function() {
     setEditId(null); setEditAt(null); setEditDone(false); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
-    setNBase(""); setNAddUsed("×"); setNAdd(""); setNAddReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNRnUsed("×"); setNRnVal(""); setNLevel(""); setNLineCoexist(false);
+    setNBase(""); setNAddUsed("×"); setNAdd(""); setNAddReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNRnUsed("×"); setNRnVal(""); setNLevel(""); setNLineCoexist(false); setDetOpen(false);
     _kyozPrevRef.current = false;
   };
   var doSave = function() {
@@ -3709,6 +3710,7 @@ function _EpnCalcForm(_p) {
     setNRnUsed(hasRn ? "○" : "×"); setNRnVal(hasRn ? String(Number(e.rn) || 0) : "");
     setNLevel(e.level != null ? String(e.level) : "");
     setNLineCoexist(e.lineCoexist === true);
+    setDetOpen(!!(e.b || e.k || (Array.isArray(e.f) && e.f.length) || e.lineCoexist === true));   // 詳細入りの保存EPは③〜⑤を自動展開＝入力済みが隠れたまま上書き保存される事故を防ぐ（案A 2026-07-10）
     setEditId(e.id); setEditAt(e.at || null); setEditDone(!!e.done);
     _kyozPrevRef.current = (e.lineCoexist === true);
   };
@@ -3803,6 +3805,8 @@ function _EpnCalcForm(_p) {
   var _mgmtHead = function(num, text) {
     return React.createElement("span", null, _nl(num, text), React.createElement("span", { style: { fontSize: 8, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "＋追加・✎編集・ドラッグで並び替え"));
   };
+  // ③〜⑤の畳み中要約（案A 2026-07-10）: 選択済みの詳細をトグル行に圧縮表示＝畳んでいても入力済みが分かる。
+  var _detSummary = [nSelB ? "底:" + nSelB : null, nSelK ? "起:" + nSelK : null, nSelF.length ? "特×" + nSelF.length : null, nLineCoexist ? "併存○" : null].filter(Boolean).join("・");
   // ===== 描画（縦積み1カラム＝列幅に収まる）=====
   // 編集中（editId有り）は計算欄を琥珀色に＝どの列を編集中か一目で分かる（保存済みバナー＋更新保存ボタンと同系色）。2026-07-08
   var _editing = !!editId;
@@ -3822,12 +3826,18 @@ function _EpnCalcForm(_p) {
       }),
       React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "分足（両方選択可・5分は早見で緑）"))),
     _lrow(_mgmtHead("②", "シグナル"), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: nTag ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),
-    nTag ? _lrow(_mgmtHead("③", "底抜け"), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "底抜け名（例: 前日安値）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,
-    nTag ? _lrow(_mgmtHead("③", "起点"), React.createElement(_EpnChipMgr, { items: cands.k, selected: nSelK ? [nSelK] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "起点名（例: 50EMA）", onToggle: function(nm) { setNSelK(nSelK === nm ? null : nm); }, onAdd: function(nm) { _detAdd("k", nm); }, onRename: function(o, n) { _detRename("k", o, n); }, onDelete: function(nm) { _detDelete("k", nm); }, onReorder: function(l) { _detReorder("k", l); } })) : null,
-    nTag ? _lrow(_mgmtHead("④", "その他（複数可）"), React.createElement(_EpnChipMgr, { items: cands.f, selected: nSelF, accent: { b: "#B45309", bg: "#FEF3C7", c: "#92400E" }, addPh: "特徴名", onToggle: function(nm) { setNSelF(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: function(nm) { _detAdd("f", nm); }, onRename: function(o, n) { _detRename("f", o, n); }, onDelete: function(nm) { _detDelete("f", nm); }, onReorder: function(l) { _detReorder("f", l); } })) : null,
-    _lrow(_nl("⑤", "ライン併存ルール"), React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // ⑤ライン併存ルール（独自欄 2026-07-08g）: 〇で基本α1自動入力（nLineCoexist effect・手修正可）。④その他の下。
-      _oxBtns(nLineCoexist ? "○" : "×", function(v) { setNLineCoexist(v === "○"); }),
-      React.createElement("span", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 600 } }, "〇で基本α＝1（手修正可）"))),
+    React.createElement("button", { type: "button", onClick: function() { setDetOpen(!detOpen); },   // ③〜⑤はデフォルト畳み（案A 2026-07-10）: 場中は②＋水準線の最短入力で保存→上昇に転じたら✎編集/カードで本格入力。畳んでいても選択値は生きて保存される（下の要約表示）。
+      title: "③底抜け・③起点・④その他・⑤ライン併存の入力欄を開閉。畳んだままでも保存可＝推奨基本αはシグナル別/銘柄全体へ自動フォールバック。あとから✎編集や早見カードのインライン編集でも入力できます",
+      style: { display: "block", width: "100%", textAlign: "left", boxSizing: "border-box", padding: "4px 8px", marginBottom: detOpen ? 4 : 7, fontSize: 10.5, fontWeight: 700, border: "1px dashed #FCD34D", background: "#FFFBEB", color: "#92400E", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 30 : 22 } },
+      detOpen ? "▽ 詳細を閉じる（③〜⑤）" : ("▷ 詳細を入力（③〜⑤）" + (_detSummary ? "　" + _detSummary : ""))),
+    detOpen ? React.createElement("div", { style: { border: "1px solid #FDE68A", background: "#FFFBEB", borderRadius: 6, padding: "6px 7px 0", marginBottom: 7 } },
+      !nTag ? React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", fontWeight: 600, paddingBottom: 6 } }, "②シグナルを選ぶと③④の候補が出ます") : null,
+      nTag ? _lrow(_mgmtHead("③", "底抜け"), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "底抜け名（例: 前日安値）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,
+      nTag ? _lrow(_mgmtHead("③", "起点"), React.createElement(_EpnChipMgr, { items: cands.k, selected: nSelK ? [nSelK] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "起点名（例: 50EMA）", onToggle: function(nm) { setNSelK(nSelK === nm ? null : nm); }, onAdd: function(nm) { _detAdd("k", nm); }, onRename: function(o, n) { _detRename("k", o, n); }, onDelete: function(nm) { _detDelete("k", nm); }, onReorder: function(l) { _detReorder("k", l); } })) : null,
+      nTag ? _lrow(_mgmtHead("④", "その他（複数可）"), React.createElement(_EpnChipMgr, { items: cands.f, selected: nSelF, accent: { b: "#B45309", bg: "#FEF3C7", c: "#92400E" }, addPh: "特徴名", onToggle: function(nm) { setNSelF(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: function(nm) { _detAdd("f", nm); }, onRename: function(o, n) { _detRename("f", o, n); }, onDelete: function(nm) { _detDelete("f", nm); }, onReorder: function(l) { _detReorder("f", l); } })) : null,
+      _lrow(_nl("⑤", "ライン併存ルール"), React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // ⑤ライン併存ルール（独自欄 2026-07-08g）: 〇で基本α1自動入力（nLineCoexist effect・手修正可）。④その他の下。
+        _oxBtns(nLineCoexist ? "○" : "×", function(v) { setNLineCoexist(v === "○"); }),
+        React.createElement("span", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 600 } }, "〇で基本α＝1（手修正可）")))) : null,
     React.createElement("div", { title: "記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ・追加α〇/浮き足〇は母数から除外）。★＝EP計算に採用中の段。データ不足＝件数フロア未満（仮＝参考値）", style: { background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 7px", marginBottom: 7 } },
       React.createElement("div", { style: { fontSize: 9, fontWeight: 800, color: "#94A3B8", marginBottom: 1 } }, "推奨基本α"),
       _pickLine("det", "詳細別", det),
