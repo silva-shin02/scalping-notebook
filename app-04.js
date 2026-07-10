@@ -3554,6 +3554,17 @@ function _EpnAddSection(_p) {
     return _epnCascade(data, stock, e.tag || null, { b: e.b || null, k: e.k || null, f: Array.isArray(e.f) ? e.f : [] }, date);
   }, [addUsed, data, stock, e.tag, e.b, e.k, _fJoin, date]);
   var reco = useMemo(function() { return casc ? _epnAddRecoFrom(casc, Number(e.base) || 0, Array.isArray(e.reasons) ? e.reasons : []) : null; }, [casc, e.base, _rJoin]);
+  // ▲▼ステッパー（2026-07-10b）: クリック即_epnPut保存（onValue）＝○×・チップと同じ即時反映（onBlur待ちだと押しただけでは保存されないため）。
+  // 長押しリピート(_stepBtn)は古いクロージャから呼ばれ続けるので、表示中の値(addStr)と確定値(e.add)はrefで最新を参照＝連打でも正しく積み上がる。0〜50。
+  var _addStrRef = useRef(addStr); _addStrRef.current = addStr;
+  var _addCurRef = useRef(0); _addCurRef.current = Number(e.add) || 0;
+  var _stepAdd = function(delta) {
+    var cur = _addStrRef.current;
+    var b = (cur !== "" && !isNaN(Number(cur))) ? Number(cur) : _addCurRef.current;
+    var n = b + delta; if (n > 50) n = 50; if (n < 0) n = 0;
+    setAddStr(String(n));
+    if (n !== _addCurRef.current) _p.onValue(n);
+  };
   var _oxBtn = function(sym, on, color, bg, onClick) {
     return React.createElement("button", { type: "button", onClick: onClick,
       style: { padding: "1px 8px", fontSize: 11, fontWeight: on ? 800 : 600, border: on ? "2px solid " + color : "1px solid #ddd", background: on ? bg : "#fff", color: on ? color : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.5, minHeight: IS_TOUCH ? 24 : 20 } }, sym);
@@ -3567,7 +3578,8 @@ function _EpnAddSection(_p) {
         onChange: function(ev) { var v = _toHankakuNum(ev.target.value); if (v === "" || !isNaN(Number(v))) setAddStr(v); },
         onBlur: function() { var n = (addStr === "" || isNaN(Number(addStr))) ? 0 : Math.max(0, Number(addStr)); if (n !== (Number(e.add) || 0)) _p.onValue(n); },
         style: { width: 38, padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#B91C1C", border: "1px solid #CBD5E1", borderRadius: 5, background: "#fff", textAlign: "right", boxSizing: "border-box", outline: "none" } }) : null,
-      addUsed ? React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円") : null),
+      addUsed ? React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円") : null,
+      addUsed ? _stepBtn(function() { _stepAdd(1); }, function() { _stepAdd(-1); }) : null),
     addUsed ? React.createElement("div", null,
       React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "根拠（選ぶと推奨追加αが変わる・複数可）"),
       React.createElement(_EpnChipMgr, { items: _p.reasonsMaster, selected: Array.isArray(e.reasons) ? e.reasons : [], accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: _p.onToggleReason, onAdd: _p.onAddReason, onRename: _p.onRenameReason, onDelete: _p.onDeleteReason, onReorder: _p.onReorderReason }),
@@ -3861,7 +3873,9 @@ function _EpnCalcForm(_p) {
         _oxBtns(nAddUsed, setNAddUsed),
         nAddUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nAdd, placeholder: addReco && addReco.v != null ? String(addReco.v) : "0",
           onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "" || !isNaN(Number(v))) setNAdd(v); }, style: Object.assign({}, _inpStyle, { width: 44 }) }) : null,
-        nAddUsed === "○" ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円") : null),
+        nAddUsed === "○" ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円") : null,
+        nAddUsed === "○" ? _stepBtn(function() { setNAdd(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((addReco && addReco.v != null) ? addReco.v : 0); var n = b + 1; if (n > 50) n = 50; return String(n); }); },   // 空欄=推奨追加α起点＝基本αステッパー(autoPick起点)と同流儀 2026-07-10b
+          function() { setNAdd(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((addReco && addReco.v != null) ? addReco.v : 0); var n = b - 1; if (n < 0) n = 0; return String(n); }); }) : null),
       nAddUsed === "○" ? React.createElement("div", { style: { marginTop: 4 } },
         React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 3 } }, "根拠（選ぶと推奨追加αが変わる・複数可）"),
         React.createElement(_EpnChipMgr, { items: reasonsMaster, selected: nAddReasons, accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: function(nm) { setNAddReasons(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: _rsnAdd, onRename: _rsnRename, onDelete: _rsnDelete, onReorder: _rsnReorder }),
