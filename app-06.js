@@ -1338,6 +1338,29 @@ function _elAlphaEvalByFn(recs, aiOf, alphaOf) {
   var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
   return { a: null, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
 }
+// 最終損益(H2)ベースの反実仮想エバリュエータ 2026-07-12: alphaOf(r)→そのレコードの総合α（null=母数外）。_elAlphaEvalByFn(H1版)の最終損益版＝到達(entered)/E成立(decided)/損切り率/利確率(最終損益>0)/想定損益(Σ最終損益h2Sum)/平均(avgH2)/スコアを返す。損益は取引・銘柄別記録と同一基準(_elHold2TotParts.main=（）外最終損益)。損切り率・利確率の分母＝E成立(_elDynResult ok/ng/draw)。スコア＝0.7×(1−損切り率)+0.3×利確率。浮き足加算率スイープ(_elUkiPctSweep)で使用。
+function _elH2EvalByFn(recs, aiOf, alphaOf) {
+  var n = 0, entered = 0, decided = 0, stopN = 0, takeN = 0, h2Sum = 0, h2Cnt = 0;
+  (recs || []).forEach(function(r) {
+    var s = r.signal; if (!s) return;
+    var a = alphaOf(r); if (a == null) return;
+    var c = aiOf(r).cutLine;
+    n++;
+    var rr = _epResolve(s, a);
+    if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return;   // OS1〜3でEP未到達＝到達せず
+    entered++;
+    var res = _elDynResult(s, a, c);
+    if (!(res === "ok" || res === "ng" || res === "draw")) return;   // E成立(decided)のみ損切り/利確/損益の母数
+    decided++;
+    if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) stopN++;
+    var t2 = _elHold2TotParts(s, a, c);
+    if (t2 && t2.main != null) { h2Sum += t2.main; h2Cnt++; if (t2.main > 0) takeN++; }
+  });
+  var stopRate = decided > 0 ? stopN / decided : null;
+  var takeRate = decided > 0 ? takeN / decided : null;
+  var score = decided > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * takeRate) : null;
+  return { n: n, entered: entered, eRate: n > 0 ? entered / n : 0, decided: decided, stopN: stopN, stopRate: stopRate, takeN: takeN, takeRate: takeRate, h2Sum: h2Cnt ? h2Sum : null, h2Cnt: h2Cnt, avgH2: h2Cnt ? (h2Sum / h2Cnt) : null, score: score };
+}
 // 「何営業日に1日エントリーできたか」用 2026-07-07（ユーザー要望・全営業日ベース）: 母数の活動期間（初回〜直近の記録日）の営業日数。holiSet省略時は土日のみ除外・渡せば祝日も除外（_fmIsBizDay app-03）。validOf(r)=母数に含めるか（推奨α算出不能などの除外・省略時は全記録）。
 function _elBizSpanDays(recs, holiSet, validOf) {
   var minD = null, maxD = null;
@@ -2344,66 +2367,16 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
   var _addFmt = function(v, suf) { return v == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#9A3412" : "#94A3B8" } }, "+" + v + "円" + (suf || "")); };
   var floatRecs = totalV2.filter(function(r) { return _elUkiYes(r.signal); });   // 母数＝浮き足〇の記録（旧: 追加α〇＋数値根拠）2026-07-03
   if (!floatRecs.length) return null;
-  var _dash2 = React.createElement("span", { style: { color: "#bbb" } }, "—");
-  var _pctTxt = function(v) { return v == null ? _dash2 : React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, Math.round(v) + "%"); };
-  var idealPcts = [];   // 各記録の理想%（winMin÷前足浮き×100）＝中央値・シミュ上限に使用
-  // 理想%（winMin÷前足浮き×100）を集める＝%別シミュ(下の📐)の上限追従用。表示用の行は下の2段テーブルで別途構築。
-  floatRecs.forEach(function(r) {
-    var s = r.signal, base = _baseOf(s), cut = aiOf(r).cutLine;
-    var floatV = _elUkiVal(s);
-    var idealRaw = (base != null) ? _elIdealAddForRec(s, base, cut).winMin : undefined;
-    var idealPct = (floatV != null && floatV > 0 && typeof idealRaw === "number") ? (idealRaw / floatV * 100) : null;
-    if (idealPct != null) idealPcts.push(idealPct);
-  });
-  // %別シミュ: 浮き値のP%を加算にして（addAmt=floor(F×P/100)＝現行ルールの切捨てに整合 2026-07-03）基本αに足し、到達率/損切り率/H1勝率/想定損益(計=ΣH1)を評価→最適%（想定損益最大）を推奨。母数=浮き値と基本αが揃う浮き足記録。Pの上限は理想%の最大に追従（10刻み・最大200%）。
-  var simRecs = floatRecs.filter(function(r) { var b = _baseOf(r.signal); var f = _elUkiVal(r.signal); return b != null && f != null && f > 0; });
-  var simNode = null;
-  if (simRecs.length) {
-    var _maxIdeal = idealPcts.length ? Math.max.apply(null, idealPcts) : 100;
-    var _maxP = Math.min(200, Math.max(100, Math.ceil(_maxIdeal / 10) * 10));
-    var _cands = []; for (var _pp = 0; _pp <= _maxP; _pp += 10) _cands.push(_pp);
-    var _evalP = function(P) {
-      var scN = 0, stopN = 0, winN = 0, sum = 0, ent = 0;
-      simRecs.forEach(function(r) {
-        var s = r.signal, cut = aiOf(r).cutLine, b = _baseOf(s), f = _elUkiVal(s);
-        var tot = b + Math.floor(f * P / 100);
-        var rr = _epResolve(s, tot);
-        if (!(rr && rr.epIdx >= 0)) return;   // EP未到達
-        ent++;
-        var hd = _elDynHold(s, tot, cut);
-        if (hd == null) return;
-        scN++;
-        if (_elPlanIsStop(s, tot, cut) || _elHoldIsStop(s, tot, cut)) stopN++;
-        if (hd > 0) winN++;
-        sum += hd;
-      });
-      return { P: P, scN: scN, stopRate: scN ? stopN / scN : null, h1win: scN ? winN / scN : null, eRate: simRecs.length ? ent / simRecs.length : null, sum: scN ? sum : null };
-    };
-    var _rowsP = _cands.map(_evalP);
-    var _withPnl = _rowsP.filter(function(x) { return x.sum != null && x.sum > 0; });
-    var _best = _withPnl.length ? _withPnl.reduce(function(a, b) { return b.sum > a.sum ? b : a; }) : null;
-    var _recoNode = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 4, color: _best ? "#0369A1" : "#94A3B8" } },
-      _best ? React.createElement("span", null, "推奨 ＝ 浮き値の ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, _best.P + "%"), " を加算（損切り" + Math.round((_best.stopRate || 0) * 100) + "%・H1勝" + Math.round((_best.h1win || 0) * 100) + "%・想定損益計" + _elPnlFmt(Math.round(_best.sum)) + "・" + _best.scN + "件）")
-        : "推奨：浮き値比で想定損益がプラスになる%は出ていません（データ不足／基本αで十分の傾向）");
-    var _pRows = _rowsP.map(function(x) {
-      var on = _best && x.P === _best.P;
-      return React.createElement("tr", { key: x.P, style: on ? { background: "#FEF3C7" } : null },
-        _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: on ? "#B45309" : "#9A3412" } }, x.P + "%" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
-        _elv2Td(x.eRate != null ? _elPctCell(x.eRate) : _dash2),
-        _elv2Td((x.scN || 0) + "件"),
-        _elv2Td(x.stopRate != null ? _elStopRateCell(x.stopRate) : _dash2),
-        _elv2Td(x.h1win != null ? _elPctCell(x.h1win) : _dash2),
-        _elv2Td(x.sum == null ? _dash2 : React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(Math.round(x.sum)) } }, _elPnlFmt(Math.round(x.sum)))));
-    });
-    simNode = React.createElement("div", { style: { marginTop: 8 } },
-      React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "0 0 2px" } }, "📐 浮き値の何%を加算すると最適か（%別シミュ・現行ルール＝50%＝半額切捨て・★＝想定損益最大）"),
-      _recoNode,
-      _elv2Table(["浮き値%", "到達率", "件数", "損切り率", "H1勝率", "想定損益(計)"], _pRows));
-  }
+  // 浮き足加算率スイープ 2026-07-12: 採用α（基本＋追加＋RN）は実績のまま浮き足加算だけをP=0〜100%(10刻み)で振り、最終損益(H2)で評価。全銘柄版(シグナル総合)と同じ_elUkiPctSweepに統一（旧「基本α＋浮き足%・ΣH1最大」から刷新）。母数=浮き値>0の浮き足〇記録。
+  var _ukiPool = floatRecs.filter(function(r) { var f = _elUkiVal(r.signal); return f != null && f > 0; });
+  var _sweep = _ukiPool.length ? _elUkiPctSweep(_ukiPool, aiOf) : null;
+  var simNode = _sweep ? React.createElement("div", { style: { marginTop: 8 } },
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "0 0 2px" } }, "📐 浮き足の何%を加算すると最適か（採用α維持・浮き足%だけ振り・最終損益で評価・現行=50%＝半額・★＝スコア最大）"),
+    _elUkiPctSweepNode(_sweep)) : null;
   // ===== 2段テーブル（案B・2026-07-01刷新）: 1記録＝現実(採用したα)／推奨(推奨どおりのα)の上下2段。列＝日付(＋記録ボタン)/種別/基本α/追加α/合計α/OS/乖離度。 =====
   var recoBase = (basePick && basePick.alpha != null && basePick.status !== "none") ? basePick.alpha : null;   // 推奨基本α（シグナル単一値・_elBaseAlphaPick由来）
-  var bestP = _best ? _best.P : null;   // 推奨%（下の📐%別シミュの最適%）。null=黒字%なし
-  var simRan = simRecs.length > 0;
+  var bestP = (_sweep && _sweep.best) ? _sweep.best.P : null;   // 推奨%（浮き足加算率スイープの最良%）。null=該当%なし
+  var simRan = _ukiPool.length > 0;
   var _devNode = function(actual, ref) {   // 到達最高OS−採用合計α（＋到達＝赤/−未達＝緑/0グレー）
     if (actual == null || ref == null) return React.createElement("span", { style: { color: "#cbd5e1" } }, "—");
     var d = actual - ref, col = d > 0 ? "#C0392B" : d < 0 ? "#1E8449" : "#94A3B8", lbl = d < 0 ? "未達" : "到達";
@@ -2462,6 +2435,63 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
     React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "0 0 4px", lineHeight: 1.5 } }, "浮き足〇の記録を1件ずつ、現実（採用したα＝基本＋浮き足加算＋追加α）と推奨（推奨どおりのα）で上下2段に対比。OS＝OS1〜3の到達最高値（×で打ち切り）。乖離度＝到達最高OSと各段αの差（現実＝OS−採用合計α／推奨＝OS−推奨合計α・＋到達／−未達）。推奨の加算＝浮き値×推奨%（下の📐%シミュ・現行ルールは50%＝半額切捨て）" + (recoBase != null ? ("・推奨基本α " + recoBase + "円") : "") + "。日付の「記録」でその日の記録を開閉。"),
     _floatTable,
     simNode);
+}
+// 浮き足加算率スイープ 2026-07-12: 採用α（基本＋追加＋RN）は実績のまま、浮き足加算だけをP=0〜100%(10刻み)で振り、最終損益で評価。alphaOf(r)=（採用α−現行浮き足加算floor(v/2)）＋floor(浮き値×P/100)＝P=50%で現行(半額)に一致＝実績と同値。母数poolは呼び出し側で浮き足〇&浮き値>0に絞る。best=件数(E成立)≥_EL_BASE_MIN_N&想定損益>0でスコア最大。シグナル総合タブ(全銘柄)＋シグナル別「浮き足」サブタブ(_elFloatReasonSectionV2)で共用。
+function _elUkiPctSweep(pool, aiOf) {
+  var _mk = function(P) {
+    return function(r) {
+      var s = r.signal, uv = _elUkiVal(s);
+      if (uv == null || uv <= 0) return null;
+      var a = (s.alphaVal != null && s.alphaVal !== "" && !isNaN(Number(s.alphaVal))) ? Number(s.alphaVal) : null;
+      if (a == null) return null;
+      return (a - _elUkiAdd(s)) + Math.floor(uv * P / 100);
+    };
+  };
+  var rows = [];
+  for (var P = 0; P <= 100; P += 10) rows.push({ P: P, ev: _elH2EvalByFn(pool, aiOf, _mk(P)) });
+  var best = null;
+  rows.forEach(function(x) { if (x.ev.decided >= _EL_BASE_MIN_N && x.ev.h2Sum != null && x.ev.h2Sum > 0 && x.ev.score != null && (!best || x.ev.score > best.ev.score)) best = x; });
+  return { rows: rows, best: best };
+}
+// 浮き足加算率スイープの推奨バー＋表を描画 2026-07-12。列＝浮き足%/到達率/件数(E成立)/損切り率/利確率/平均最終/スコア/想定損益(計)。★＝最良・P=50は「現行」・件数_EL_BASE_MIN_N未満は薄字「参考」。
+function _elUkiPctSweepNode(sweep) {
+  var rows = sweep.rows, best = sweep.best;
+  var _dash = React.createElement("span", { style: { color: "#bbb" } }, "—");
+  var cur = null; rows.forEach(function(x) { if (x.P === 50) cur = x; });
+  var _reco = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: best ? "#0369A1" : "#94A3B8" } },
+    best
+      ? React.createElement("span", null, "推奨 浮き足加算率 ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, best.P + "%"),
+          "（損切り" + Math.round((best.ev.stopRate || 0) * 100) + "%・利確" + Math.round((best.ev.takeRate || 0) * 100) + "%・想定損益計" + _elPnlFmt(Math.round(best.ev.h2Sum)) + "・" + best.ev.decided + "件）",
+          (cur && cur.ev.score != null) ? React.createElement("span", { style: { color: "#64748B", fontWeight: 600 } }, "　｜　現行50%＝スコア" + Math.round(cur.ev.score * 100) + (cur.ev.h2Sum != null ? ("・想定" + _elPnlFmt(Math.round(cur.ev.h2Sum))) : "")) : null)
+      : "推奨：件数" + _EL_BASE_MIN_N + "以上で想定損益プラスの加算率は出ていません（データ不足／現行50%で十分の傾向）");
+  var _trs = rows.map(function(x) {
+    var e = x.ev, isBest = !!(best && x.P === best.P), isCur = x.P === 50, low = e.decided < _EL_BASE_MIN_N;
+    var bg = isBest ? "#FEF3C7" : (isCur ? "#EFF6FF" : null);
+    var lblColor = isBest ? "#B45309" : (isCur ? "#0369A1" : "#9A3412");
+    var label = React.createElement("span", { style: { fontWeight: 700, color: lblColor } }, x.P + "%" + (isBest ? " ★" : "") + (isCur ? " 現行" : "") + (low ? " 参考" : ""));
+    return React.createElement("tr", { key: x.P, style: Object.assign({}, bg ? { background: bg } : {}, low ? { opacity: 0.5 } : {}) },
+      _elv2Td(label, { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(e.eRate != null ? _elPctCell(e.eRate) : _dash),
+      _elv2Td(e.decided + "件"),
+      _elv2Td(e.stopRate != null ? _elStopRateCell(e.stopRate) : _dash),
+      _elv2Td(e.takeRate != null ? _elPctCell(e.takeRate) : _dash),
+      _elv2Td(e.avgH2 == null ? _dash : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(Math.round(e.avgH2)) } }, _elPnlFmt(Math.round(e.avgH2)))),
+      _elv2Td(e.score != null ? _elScoreCell(e.score) : _dash),
+      _elv2Td(e.h2Sum == null ? _dash : React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(Math.round(e.h2Sum)) } }, _elPnlFmt(Math.round(e.h2Sum)))));
+  });
+  return React.createElement("div", { style: { marginTop: 4 } },
+    _reco,
+    _elv2Table(["浮き足%", "到達率", "件数", "損切り率", "利確率", "平均最終", "スコア", "想定損益(計)"], _trs));
+}
+// 全銘柄共通の浮き足加算率最適化ボード（シグナル総合タブ）2026-07-12。母数=全銘柄の浮き足〇・浮き値>0のv2記録。
+function _elUkiPctBoardV2(recs, aiOf) {
+  var pool = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal) && _elInclTotal(r.signal) && _elUkiYes(r.signal) && _elUkiVal(r.signal) != null && _elUkiVal(r.signal) > 0; });
+  if (!pool.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "浮き足〇（浮き値あり）の記録がまだありません");
+  var sweep = _elUkiPctSweep(pool, aiOf);
+  return React.createElement(React.Fragment, null,
+    React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px" } },
+      "母数＝全銘柄の浮き足〇記録 " + pool.length + "件（浮き値あり）。基本α・追加αは実際に採用した値のまま、浮き足の加算だけを0〜100%（10刻み）で振り、最終損益で評価。P=50%が現行ルール（＝半額切捨て）で実績と一致。★＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大。"),
+    _elUkiPctSweepNode(sweep));
 }
 
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====
@@ -4266,6 +4296,7 @@ function EntryLogView(_ref_elv2) {
   var _uAR = useState("all"), alphaReasonFil = _uAR[0], setAlphaReasonFil = _uAR[1];   // α値タブ 根拠セレクタ（2026-07-06）: 全体(all)/各根拠/根拠なし(__none__)で基本α・共通ツールの母数を絞る第4の軸。追加αタブは④⑤根拠別を内蔵するため対象外。全体選択時は従来と完全同一。
   var _uDTM = useState(false), detTagMode = _uDTM[0], setDetTagMode = _uDTM[1];   // 集計タブ銘柄側の分析軸: false=シグナル別(既定)/true=詳細タグ別（銘柄内・全シグナル横断で選んだsigDetailタグの記録を分析）2026-07-07
   var _uSDT = useState(null), selDetTag = _uSDT[0], setSelDetTag = _uSDT[1];   // 詳細タグ別モードの選択タグ（"セクションキー|タグ名"）
+  var _uSGT = useState("uki"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: uki(浮き足%)/tod(時間帯)/dow(曜日)/rn(RN) 2026-07-12
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
@@ -4283,15 +4314,17 @@ function EntryLogView(_ref_elv2) {
   })();
   // 「全体」タブ（一番左）＝全銘柄合算。stockFil が _ALL_STOCK か未選択(初期)なら全体を表示 2026-06-22d。
   var _ALL_STOCK = "__all__";
+  var _SIG_TOTAL = "__sigtotal__";   // 📡シグナル総合ピル（全銘柄共通の分析＝浮き足加算率/時間帯/曜日/RN）2026-07-12。損益(_ALL_STOCK)とは別モード。
+  var _isSigTotal = stockFil === _SIG_TOTAL;
   var _selStock = (stockFil === _ALL_STOCK || (stockFil && _tickerList.indexOf(stockFil) >= 0)) ? stockFil : _ALL_STOCK;
-  var _isAllStock = _selStock === _ALL_STOCK;
+  var _isAllStock = !_isSigTotal && _selStock === _ALL_STOCK;
   // 時間かぶり除外のスコープ 2026-07-08: 全体タブ＝null（全銘柄横断＝従来）／銘柄タブ＝その銘柄（同一銘柄内の被りだけ除外＝別銘柄との時間かぶりでは落とさない）。
   // EntryLogView内の被り除外呼び出しは全てこの_collScopeを渡す＝タブに応じて母数が切り替わる。
-  var _collScope = _isAllStock ? null : _selStock;
+  var _collScope = (_isAllStock || _isSigTotal) ? null : _selStock;
   var _periodRecs = _elFilterPeriod(allRecs, period);
   // 銘柄タブのバッジ件数: 選択期間内・銘柄未限定の記録数（顔ぶれは固定、件数だけ期間連動）
   var _cntByStock = (function() { var m = {}; _periodRecs.forEach(function(r) { if (r.stock) m[r.stock] = (m[r.stock] || 0) + 1; }); return m; })();
-  var filtered = _isAllStock ? _periodRecs : _periodRecs.filter(function(r) { return r.stock === _selStock; });
+  var filtered = (_isAllStock || _isSigTotal) ? _periodRecs : _periodRecs.filter(function(r) { return r.stock === _selStock; });
   // 合計額算入: includeInTotal===false の記録は集計/分析の母集団から除外（一覧 filtered は全件のまま）。2026-06-18
   // _v2recsAll=銘柄/期間で絞ったv2算入記録（追加α〇/×/未選択は混在）＝推奨基本α/追加αタブはこれを使い全体トグルと独立。
   var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal); });
@@ -4304,6 +4337,7 @@ function EntryLogView(_ref_elv2) {
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"]]
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
+  var _SIG_TABS = [["uki", "⚡ 浮き足%"], ["tod", "🕘 時間帯"], ["dow", "📅 曜日"], ["rn", "🔢 RN"]];   // 📡シグナル総合のサブタブ 2026-07-12
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub, right) {   // right=見出し右端の追加コントロール（詳細スコープのプルダウン等）2026-07-08e
@@ -4928,7 +4962,16 @@ function EntryLogView(_ref_elv2) {
 
   // ===== タブ本体 =====
   var _tabBody;
-  if (view === "sum") {
+  if (_isSigTotal) {
+    // 📡シグナル総合＝全銘柄共通の分析（銘柄別に分ける必要のないデータ）。母数は常に全銘柄(_v2recsAll)。2026-07-12
+    _tabBody = (sigSub === "tod")
+      ? React.createElement(React.Fragment, null, _secH("🕘 時間帯別の成績（寄り付き重視・全銘柄）"), _elTimeOfDaySectionV2(_v2recsAll, _ai))
+      : (sigSub === "dow")
+      ? React.createElement(React.Fragment, null, _secH("📅 曜日別の成績（全銘柄）"), _elDowSectionV2(_v2recsAll, _ai))
+      : (sigSub === "rn")
+      ? React.createElement("div", { style: { color: "#94A3B8", textAlign: "center", padding: "28px 12px", fontSize: 12, border: "1px dashed #e0ddd6", borderRadius: 8 } }, "RNまたぎ加算（キリ番株価またぎ）の最適化は近日実装。浮き足%と同じ形で、RN加算値・採用有無別の成績を出す予定です。")
+      : React.createElement(React.Fragment, null, _secH("⚡ 浮き足加算率の最適化（全銘柄共通）"), _elUkiPctBoardV2(_v2recsAll, _ai));
+  } else if (view === "sum") {
     if (_isAllStock) {
       // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。
       _tabBody = React.createElement(React.Fragment, null,
@@ -5102,7 +5145,6 @@ function EntryLogView(_ref_elv2) {
       }))
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）");
   } else if (view === "period") {
-    var _timeScope = (gran === "custom") ? v2recs.filter(function(r) { return (!cFrom || r.date >= cFrom) && (!cTo || r.date <= cTo); }) : v2recs;   // 時間帯別/曜日別は指定期間モードのときその範囲(_crecs相当)に追従 2026-06-28
     _tabBody = React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 6, padding: "5px 9px", marginBottom: 8 } }, "🎯 期間タブはこの銘柄の全シグナル合算（時系列の俯瞰）。上のシグナル軸の選択では絞り込まれません。"), _elWeeklyTargetSummaryV2(v2recs, _ai, data, _collScope), (function() {
       var _granBtns = React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
         [["day", "日別"], ["week", "週別"], ["month", "月別"], ["custom", "指定期間"]].map(function(g) {
@@ -5221,9 +5263,7 @@ function EntryLogView(_ref_elv2) {
               _thP("損切り率"), _thP("見切り率"),
               _thP("最終損益"), _thP("実現損益"))),
             React.createElement("tbody", null, _rows))));
-    })(),
-    _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までに出た寄り足OSがどの程度OSし、成功（E成立・勝率）／損切りしているか。集計タブから移設（指定期間のときはその範囲に追従）"), _elTimeOfDaySectionV2(_timeScope, _ai),
-    _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益（どの曜日が成功しやすいか）。集計タブから移設（指定期間のときはその範囲に追従）"), _elDowSectionV2(_timeScope, _ai));
+    })());
   } else if (view === "deep") {
     _tabBody = _selSigRecsScoped.length ? React.createElement(React.Fragment, null,
       React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 6, padding: "5px 9px", marginBottom: 8 } }, "ℹ 深掘りは" + (_floatMode ? "浮き足" : "その他") + "の全記録（〇+×+未選択）を各記録の採用α基準で分析（本数最適化・EP位置・執行の学習が目的）。追加α〇は採用αが高いため損切り率は高め・未達で母数から抜けやすい点に注意。〇/×の分離は集計/損切り/未達タブの「追加α母数」トグルで。"),
@@ -5272,6 +5312,10 @@ function EntryLogView(_ref_elv2) {
         style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1a1a1a" : "#ddd"), background: _isAllStock ? "#1a1a1a" : "#fff", color: _isAllStock ? "#fff" : "#666" } },
         "💰 損益 (" + _periodRecs.length + ")"),
+      React.createElement("button", { key: "__sigtotalbtn__", onClick: function() { setStockFil(_SIG_TOTAL); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode(false); setSelDetTag(null); },
+        style: { flexShrink: 0, padding: "7px 14px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
+          border: "1px solid " + (_isSigTotal ? "#0F766E" : "#ddd"), background: _isSigTotal ? "#0F766E" : "#fff", color: _isSigTotal ? "#fff" : "#666" } },
+        "📡 シグナル総合"),
       _tickerList.length ? _tickerList.map(function(s) {
         var on = _selStock === s;
         return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setDetTagMode(false); setSelDetTag(null); },
@@ -5279,7 +5323,7 @@ function EntryLogView(_ref_elv2) {
             border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
-    (!_isAllStock && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { marginBottom: 6 } },
+    (!_isAllStock && !_isSigTotal && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { marginBottom: 6 } },
       React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", alignItems: "center" } },
         React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "🎯 シグナル"),
         _sigAxisGroups.map(function(g) {
@@ -5290,7 +5334,7 @@ function EntryLogView(_ref_elv2) {
               border: "1px solid " + (on ? "#9A3412" : "#e0d8cf"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : (lowN ? "#c0b6ab" : "#666") } },
             g.label + " (" + g.recs.length + ")" + (lowN ? " 参考" : ""));
         }))) : null,
-    (!_isAllStock && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { marginBottom: 6 } },   // 内訳サブタブ: 底抜け前足浮き / その他（既定）。選択中シグナルの記録を数値根拠で二分し、集計/α値/損切り/未達/深掘りの母数を切替。全シグナルで常時表示。2026-07-02
+    (!_isAllStock && !_isSigTotal && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { marginBottom: 6 } },   // 内訳サブタブ: 底抜け前足浮き / その他（既定）。選択中シグナルの記録を数値根拠で二分し、集計/α値/損切り/未達/深掘りの母数を切替。全シグナルで常時表示。2026-07-02
       React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 4px", alignItems: "center", flexWrap: "wrap" } },
         React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "内訳"),
         [["float", "浮き足", _selSigFloat.length], ["other", "その他", _selSigOther.length]].map(function(kv) {
@@ -5301,16 +5345,17 @@ function EntryLogView(_ref_elv2) {
             kv[1] + " (" + kv[2] + ")");
         }))) : null,
     React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
-      _tabs.map(function(kv) {
-        var on = view === kv[0];
-        var cnt = kv[0] === "miss" ? _missCnt : null;
+      (_isSigTotal ? _SIG_TABS : _tabs).map(function(kv) {
+        var on = _isSigTotal ? (sigSub === kv[0]) : (view === kv[0]);
+        var cnt = (!_isSigTotal && kv[0] === "miss") ? _missCnt : null;
+        var _acc = _isSigTotal ? "#0F766E" : "#1a1a1a";
         return React.createElement("button", { key: kv[0],
-          onClick: function() { setView(kv[0]); setExpKey(null); },
+          onClick: function() { if (_isSigTotal) { setSigSub(kv[0]); } else { setView(kv[0]); } setExpKey(null); },
           style: { padding: "8px 12px", fontSize: 12, fontWeight: 700, background: "none", border: "none", cursor: "pointer",
-            borderBottom: on ? "2px solid #1a1a1a" : "2px solid transparent", color: on ? "#1a1a1a" : "#888", whiteSpace: "nowrap" }
+            borderBottom: on ? "2px solid " + _acc : "2px solid transparent", color: on ? _acc : "#888", whiteSpace: "nowrap" }
         }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    (view === "period" && !_isAllStock) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝期間タブ限定（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数でトグル非適用・全銘柄合算=非表示）。絞り込み中は橙で強調 2026-07-01
+    (view === "period" && !_isAllStock && !_isSigTotal) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝期間タブ限定（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数でトグル非適用・全銘柄合算=非表示）。絞り込み中は橙で強調 2026-07-01
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "追加α分析:"),
       [["all", "全部"], ["yes", "〇 要"], ["no", "× 不要"], ["unset", "未選択"]].map(function(kv) {
         var on = addAlphaFil === kv[0];
