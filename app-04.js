@@ -3910,7 +3910,7 @@ function _EpnCalcForm(_p) {
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 800 } }, "予定EP "),
       React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(epV) : "—"),
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8" } }, "円"),
-      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, "実効α" + effA + "円＝基" + (baseV != null ? baseV : 0) + (ukiAddV ? "＋浮" + ukiAddV : "") + (addV ? "＋追" + addV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (autoPick.src && nBase === "" ? "・推奨" + autoPick.src : ""))
+      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, "実効α" + (effA - ukiAddV) + "円＝基" + (baseV != null ? baseV : 0) + (addV ? "＋追" + addV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (ukiAddV ? "　最終水準線＝水準線＋浮" + ukiAddV : "") + (autoPick.src && nBase === "" ? "・推奨" + autoPick.src : ""))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? "記録が無い銘柄は基本αを手入力" : "水準線を入力")),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"));
@@ -4056,7 +4056,7 @@ function EpNaviPanel(_refEPN) {
     var has5 = mb.indexOf("5") >= 0, has1 = mb.indexOf("1") >= 0;
     var isDone = !!e.done;
     var alphaSum = (Number(e.base) || 0) + (Number(e.uki) || 0) + (Number(e.add) || 0) + (Number(e.rn) || 0);
-    var bk = "基" + (e.base != null ? e.base : "—") + (e.uki ? "＋浮" + e.uki : "") + (e.add ? "＋追" + e.add : "") + (e.rn ? "＋RN" + e.rn : "");
+    var bk = "基" + (e.base != null ? e.base : "—") + (e.add ? "＋追" + e.add : "") + (e.rn ? "＋RN" + e.rn : "");   // 浮き足は最終水準線側へ（起点に併記）2026-07-12
     var detTxt = [e.b ? "底:" + e.b : null, e.k ? "起:" + e.k : null].concat((e.f || []).map(function(x) { return "特:" + x; })).filter(function(x) { return !!x; }).join("・");
     var armed = delArm === e.id;
     var C = has5
@@ -4117,7 +4117,7 @@ function EpNaviPanel(_refEPN) {
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDel(st, e.id); }, title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",
             style: { padding: "1px 6px", fontSize: armed ? 9 : 11, fontWeight: 800, lineHeight: 1.5, border: armed ? "1.5px solid #DC2626" : "1px solid " + C.bd, background: armed ? "#DC2626" : "#fff", color: armed ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, armed ? "削除?" : "×"))),
       React.createElement("div", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums", lineHeight: 1.25 } }, "EP " + e.ep + "円"),
-      React.createElement("div", { style: { fontSize: 9, color: subColor } }, "起点" + e.level + "＋α" + alphaSum + "（" + bk + "）"),
+      React.createElement("div", { style: { fontSize: 9, color: subColor } }, "起点" + e.level + (e.uki ? "＋浮" + e.uki : "") + "＋α" + (alphaSum - (Number(e.uki) || 0)) + "（" + bk + "）"),
       detTxt ? React.createElement("div", { style: { fontSize: 8.5, color: "#64748B", marginTop: 1, lineHeight: 1.4 } }, detTxt, e.src ? React.createElement("span", { style: { color: "#94A3B8" } }, "（" + e.src + "）") : null) : (e.src ? React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8", marginTop: 1 } }, "（" + e.src + "）") : null), _inlineEditor);
   };
   // 早見（上段: 銘柄ヘッダー＋EPカード）と計算フォーム（下段: _EpnCalcForm常設）を銘柄列ごとにグリッドで2段整列（案A 2026-07-08）。
@@ -5100,7 +5100,7 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _elSigCell(s, "flex-start")),
             React.createElement("td", { style: { padding: "4px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%", background: _elAddAlphaYes(s) ? "#FEF3C7" : null } },
-              _aiTr.alpha != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _aiTr.alpha + "円"), _elAlphaBreakdownNode(s, _aiTr.alpha)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
+              _aiTr.alpha != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _elAlphaShown(s, _aiTr.alpha) + "円"), _elAlphaBreakdownNode(s, _aiTr.alpha)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               _epECell(s, _aiTr.alpha)),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
@@ -5443,7 +5443,7 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
             _elSigCell(s, "center")),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%", background: _elAddAlphaYes(s) ? "#FEF3C7" : null } },
-            _alphaRec != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _alphaRec + "円"), _elAlphaBreakdownNode(s, _alphaRec)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
+            _alphaRec != null ? React.createElement("div", null, React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: "#0369A1", fontWeight: 600 } }, _elAlphaShown(s, _alphaRec) + "円"), _elAlphaBreakdownNode(s, _alphaRec)) : React.createElement("span", { style: { color: "#ddd" } }, "—")),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%" } },
             _epECell(s, _alphaRec)),
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%" } },
