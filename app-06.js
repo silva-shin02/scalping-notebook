@@ -4314,6 +4314,9 @@ function EntryLogView(_ref_elv2) {
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
+  // 2026年6月以前（EMAの位置に間違い）の損益は参考程度 2026-07-12: 境界=2026-07-01（月別キーは2026-07）。上部バナー＋期間別表の該当行に「※参考」。
+  var _elIsEmaRefPeriod = function(k, g) { return (g === "month") ? (String(k) < "2026-07") : (String(k) < "2026-07-01"); };
+  var _elEmaRefNote = function(isRef) { return isRef ? React.createElement("span", { title: "6月以前の損益はEMAの位置に間違いがあったため参考程度", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※参考") : null; };
   var allRecs = _elCollectAllSignals(data);
   var _apAllRows = useMemo(function() { return _apCollectAll(data); }, [data]);  // 出現シグナル・テクニカルの全行（銘柄タブの顔ぶれ）。全chartを走査する純粋計算なのでdata不変なら再計算しない（メモ化 2026-06-29）
   // 銘柄タブ（主ナビ）: 記録のある銘柄をマスター登録順で固定（顔ぶれは期間に依存しない）。記録帳は全項目を銘柄別に分析する。2026-06-22
@@ -4454,7 +4457,7 @@ function EntryLogView(_ref_elv2) {
     keys.forEach(function(k) {
       var x = byP[k], t = totOf(x), st = stopsOf(x), dn = _bizDaysIn(k), on = ovExp === k;
       rows.push(React.createElement("tr", { key: k, onClick: function() { setOvExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
-        otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k)), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+        otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, g))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
         otd(dn + "日", { fontWeight: 600, color: "#555" }),
         otd(x.length + "件", { fontWeight: 700 }),
         reachCell(reachOf(x), x.length),
@@ -5254,7 +5257,7 @@ function EntryLogView(_ref_elv2) {
       _keys.forEach(function(k) {
         var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), dn = _bizDaysIn(k), _reach = rs.length - rr.miss, on = perExp === k;
         _rows.push(React.createElement("tr", { key: k, onClick: function() { setPerExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
-          _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k)), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+          _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, gran))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           _tdP(dn + "日", { fontWeight: 600, color: "#555" }),
           _tdP(rs.length + "件", { fontWeight: 700 }),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, _reach + "件"), rs.length ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(_reach / rs.length * 100) + "%") : null)),
@@ -5321,6 +5324,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("button", { onClick: function() { setEditTarget({}); }, style: { padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", marginLeft: "auto" } }, "＋ 新規記録"),
       React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
         [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
+    React.createElement("div", { style: { fontSize: 10.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "5px 9px", marginBottom: 8, lineHeight: 1.5 } }, "※ 2026年6月以前の損益は、EMAの位置に間違いがあったため参考程度です（7月以降が正）。"),
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
       React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode(false); setSelDetTag(null); if (view !== "sum" && view !== "period") setView("sum"); },
         style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
