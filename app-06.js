@@ -4285,6 +4285,8 @@ function EntryLogView(_ref_elv2) {
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
   var _uV = useState("sum"), view = _uV[0], setView = _uV[1];
   var _uP = useState("all"), period = _uP[0], setPeriod = _uP[1];
+  var _uRF = useState(""), rngFrom = _uRF[0], setRngFrom = _uRF[1];
+  var _uRT = useState(""), rngTo = _uRT[0], setRngTo = _uRT[1];
   var _uS = useState(""), stockFil = _uS[0], setStockFil = _uS[1];
   var _uE = useState(initialEdit || null), editTarget = _uE[0], setEditTarget = _uE[1];
   var _uX = useState(null), expKey = _uX[0], setExpKey = _uX[1];
@@ -4338,7 +4340,9 @@ function EntryLogView(_ref_elv2) {
   // 時間かぶり除外のスコープ 2026-07-08: 全体タブ＝null（全銘柄横断＝従来）／銘柄タブ＝その銘柄（同一銘柄内の被りだけ除外＝別銘柄との時間かぶりでは落とさない）。
   // EntryLogView内の被り除外呼び出しは全てこの_collScopeを渡す＝タブに応じて母数が切り替わる。
   var _collScope = (_isAllStock || _isSigTotal) ? null : _selStock;
-  var _periodRecs = _elFilterPeriod(allRecs, period);
+  var _periodRecs = (period === "range")
+    ? allRecs.filter(function(r) { var d = r.date || ""; return d && (!rngFrom || d >= rngFrom) && (!rngTo || d <= rngTo); })
+    : _elFilterPeriod(allRecs, period);
   // 銘柄タブのバッジ件数: 選択期間内・銘柄未限定の記録数（顔ぶれは固定、件数だけ期間連動）
   var _cntByStock = (function() { var m = {}; _periodRecs.forEach(function(r) { if (r.stock) m[r.stock] = (m[r.stock] || 0) + 1; }); return m; })();
   var filtered = (_isAllStock || _isSigTotal) ? _periodRecs : _periodRecs.filter(function(r) { return r.stock === _selStock; });
@@ -5317,13 +5321,47 @@ function EntryLogView(_ref_elv2) {
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）"));
   }
 
+  var _rngISty = { padding: "5px 7px", fontSize: 12, border: "1px solid #ddd", borderRadius: 6, background: "#fff", color: "#1a1a1a" };
+  var _rngBtn = function(lbl, f, t) {
+    return React.createElement("button", { onClick: function() { setRngFrom(f); setRngTo(t); }, style: { padding: "4px 10px", fontSize: 11, fontWeight: 700, background: "#fff", border: "1px solid #FED7AA", borderRadius: 14, cursor: "pointer", color: "#9A3412" } }, lbl);
+  };
+  var _rngBar = (period !== "range") ? null : (function() {
+    var _p2 = function(n) { return (n < 10 ? "0" : "") + n; };
+    var _iso = function(dt) { return dt.getFullYear() + "-" + _p2(dt.getMonth() + 1) + "-" + _p2(dt.getDate()); };
+    var _now = new Date();
+    var _today = _iso(_now);
+    var _mFrom = _iso(new Date(_now.getFullYear(), _now.getMonth(), 1));
+    var _pmFrom = _iso(new Date(_now.getFullYear(), _now.getMonth() - 1, 1));
+    var _pmTo = _iso(new Date(_now.getFullYear(), _now.getMonth(), 0));
+    var _ymVal = (rngFrom && rngTo && rngFrom.slice(8) === "01" && rngFrom.slice(0, 7) === rngTo.slice(0, 7) && rngTo === _iso(new Date(+rngFrom.slice(0, 4), +rngFrom.slice(5, 7), 0))) ? rngFrom.slice(0, 7) : "";
+    var _setYM = function(ym) {
+      if (!ym) { setRngFrom(""); setRngTo(""); return; }
+      setRngFrom(ym + "-01");
+      setRngTo(_iso(new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0)));
+    };
+    return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 6, padding: "7px 9px", marginBottom: 8 } },
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#9A3412" } }, "🗓 期間指定"),
+      React.createElement("input", { type: "month", value: _ymVal, onChange: function(e) { _setYM(e.target.value); }, title: "月を選ぶと その月の1日〜末日 が入る", style: _rngISty }),
+      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#FDBA74" } }, "｜"),
+      React.createElement("input", { type: "date", value: rngFrom, max: rngTo || _today, onChange: function(e) { setRngFrom(e.target.value); }, style: _rngISty }),
+      React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#9A3412" } }, "〜"),
+      React.createElement("input", { type: "date", value: rngTo, min: rngFrom || undefined, onChange: function(e) { setRngTo(e.target.value); }, style: _rngISty }),
+      _rngBtn("今月", _mFrom, ""),
+      _rngBtn("先月", _pmFrom, _pmTo),
+      _rngBtn("今日まで", rngFrom, ""),
+      _rngBtn("クリア", "", ""),
+      React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#9A3412", marginLeft: "auto" } },
+        (rngFrom || "最古") + " 〜 " + (rngTo || "今日(" + _today + ")") + " ・ " + _periodRecs.length + "件"));
+  })();
+
   return React.createElement("div", { style: { padding: "12px 14px", maxWidth: 1100, margin: "0 auto" } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" } },
       onBack ? React.createElement("button", { onClick: onBack, style: { padding: "6px 12px", fontSize: 12, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "← 戻る") : null,
       React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#1a1a1a" } }, "📒 エントリー記録帳"),
       React.createElement("button", { onClick: function() { setEditTarget({}); }, style: { padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", marginLeft: "auto" } }, "＋ 新規記録"),
       React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
-        [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
+        [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"], ["range", "🗓 期間指定"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
+    _rngBar,
     React.createElement("div", { style: { fontSize: 10.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "5px 9px", marginBottom: 8, lineHeight: 1.5 } }, "※ 2026年6月以前の損益は、EMAの位置に間違いがあったため参考程度です（7月以降が正）。"),
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
       React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode(false); setSelDetTag(null); if (view !== "sum" && view !== "period") setView("sum"); },
