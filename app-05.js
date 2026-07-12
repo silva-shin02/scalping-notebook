@@ -7233,8 +7233,65 @@ function EntryRecordForm(_ref_erf) {
       }),
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
+        React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "EP（エントリーポイント）")),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "水準線値に浮き足加算を足した『最終水準線』が土台。これに下のα値（基本＋追加＋RN）を足したものが予定EP（実際のエントリー予定価格）。浮き足は前足浮き値の半額・小数切捨て。"),
+      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
+          React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F1F5F9", border: "1px solid #CBD5E1", fontSize: 12 } },
+            React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "水準線値"),
+            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #CBD5E1", borderRadius: 4, overflow: "hidden" } },
+              React.createElement("input", { type: "text", inputMode: "decimal", step: "1", min: "0", value: fLevelPrice, onChange: function(e) { setFLevelPrice(_toHankakuDecimal(e.target.value)); }, placeholder: "—", style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#334155", border: "none", outline: "none", background: "#fff", width: 70, textAlign: "right", boxSizing: "border-box" } }),
+              _stepBtn(function() { setFLevelPrice(function(v) { return String((parseFloat(v) || 0) + 1); }); }, function() { setFLevelPrice(function(v) { return String(Math.max(0, (parseFloat(v) || 0) - 1)); }); })
+            ),
+            React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円"),
+            React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "（OS見出し右と同期）")
+          )
+        ),
+        _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
+        (function() {
+          // 浮き足加算（水準線側へ移設 2026-07-12）。〇×→〇で前足浮き値（生値）を入力し半額（切捨て）を水準線に加算＝最終水準線。データは従来どおりsignal.ukiUsed/ukiVal・alphaValへ畳み込み（保存/EP/損益/分析は不変）。
+          var _setUV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setFUkiVal(String(n)); };
+          var _stepUV = function(delta) { setFUkiVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
+          var _ukiOn = fUkiUsed === "○";
+          return React.createElement("div", {
+            style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F0FDF4", border: "1px solid #86EFAC", fontSize: 12 }
+          },
+            React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "＋浮き足加算"),
+            React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
+              [["○", "○", "要", "#C0392B", "#FCEBEB"], ["×", "×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
+                var on = fUkiUsed === kv[0];
+                return React.createElement("button", { key: kv[0], type: "button",
+                  onClick: function() { setFUkiUsed(kv[0]); },
+                  title: kv[0] === "○" ? "前足の浮きがあった（浮き値を入力→半額・小数切捨てを水準線に加算＝最終水準線）" : "浮きなし＝加算しない",
+                  style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
+                  kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
+              })
+            ),
+            _ukiOn ? React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #86EFAC", borderRadius: 4, overflow: "hidden" } },
+              React.createElement("input", {
+                type: "text", inputMode: "numeric", min: "0", max: "999", step: "1",
+                value: fUkiVal,
+                onChange: function(e) { _setUV(e.target.value); },
+                placeholder: "浮き値",
+                style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#14532D", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
+              }),
+              _stepBtn(function() { _stepUV(1); }, function() { _stepUV(-1); })
+            ) : null,
+            _ukiOn ? React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円") : null,
+            _ukiOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#15803D", whiteSpace: "nowrap" } }, "→ ＋" + _fUkiAdd + "円") : null,
+            _ukiOn ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", whiteSpace: "nowrap" } }, "（半額・小数切捨て）") : null
+          );
+        })()) : null,
+        React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, borderTop: "1px dashed #CBD5E1", paddingTop: 8 } },
+          React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700, fontSize: 12 } }, "最終水準線"),
+          React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; return String(Math.round((_lv + (isNaN(_fUkiAdd) ? 0 : _fUkiAdd)) * 100) / 100); })()),
+          React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "円"),
+          React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "＝ 水準線 ＋ 浮き足 " + _fUkiAdd + "円")
+        )
+      ),
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋浮き足加算α値＋追加α値＝合計α値（合計が実際に使う採用α＝水準線比）。浮き足は入力値（前足浮き値）の半額・小数切捨てを加算（全シグナルで入力可）。追加αは〇を選んだ時だけ入力。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋追加α値（＋RNまたぎ）＝合計α値（水準線比）。この合計αを上のEPセクションの『最終水準線』に足したものが予定EP。追加αは〇を選んだ時だけ入力。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
@@ -7304,41 +7361,6 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _dp.pick.n + "）"));
         })
       ) : null,
-      _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
-      (function() {
-        // 浮き足加算α値の行（全シグナルで表示・基本α行と追加α行の間）2026-07-03→07-07。〇×→〇で前足浮き値（生値）を入力し半額（切捨て）をαに加算。
-        var _setUV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setFUkiVal(String(n)); };
-        var _stepUV = function(delta) { setFUkiVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
-        var _ukiOn = fUkiUsed === "○";
-        return React.createElement("div", {
-          style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F0FDF4", border: "1px solid #86EFAC", fontSize: 12 }
-        },
-          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "浮き足加算α値"),
-          React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
-            [["○", "○", "要", "#C0392B", "#FCEBEB"], ["×", "×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
-              var on = fUkiUsed === kv[0];
-              return React.createElement("button", { key: kv[0], type: "button",
-                onClick: function() { setFUkiUsed(kv[0]); },
-                title: kv[0] === "○" ? "前足の浮きがあった（浮き値を入力→半額・小数切捨てをαに加算）" : "浮きなし＝加算しない",
-                style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
-                kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
-            })
-          ),
-          _ukiOn ? React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #86EFAC", borderRadius: 4, overflow: "hidden" } },
-            React.createElement("input", {
-              type: "text", inputMode: "numeric", min: "0", max: "999", step: "1",
-              value: fUkiVal,
-              onChange: function(e) { _setUV(e.target.value); },
-              placeholder: "浮き値",
-              style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#14532D", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
-            }),
-            _stepBtn(function() { _stepUV(1); }, function() { _stepUV(-1); })
-          ) : null,
-          _ukiOn ? React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円") : null,
-          _ukiOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#15803D", whiteSpace: "nowrap" } }, "→ ＋" + _fUkiAdd + "円を加算") : null,
-          _ukiOn ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", whiteSpace: "nowrap" } }, "（半額・小数切捨て）") : null
-        );
-      })()) : null,
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setAA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFAddAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFAddAlpha(String(n)); };
@@ -7569,14 +7591,14 @@ function EntryRecordForm(_ref_erf) {
           style: { display: "inline-flex", alignItems: "baseline", gap: 6, padding: "5px 12px", borderRadius: 6, background: "#F8FAFC", border: "1px solid #CBD5E1", fontSize: 12, flexWrap: "wrap" }
         },
           React.createElement("span", { style: { color: "#334155", fontWeight: 700 } }, "合計α値"),
-          React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 } }, _fAlpha),
+          React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 } }, _fBaseA + _fAddA + _fRnAdd),
           React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "円"),
           React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "＝ 基本 ",
             React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, _fBaseA),
-            _showUki ? React.createElement("span", null, " ＋ 浮き足 ", React.createElement("span", { style: { color: "#15803D", fontWeight: 700 } }, _fUkiAdd)) : null,
             " ＋ 追加 ",
             React.createElement("span", { style: { color: "#92400E", fontWeight: 700 } }, _fAddA),
-            _fRnAdd > 0 ? React.createElement("span", null, " ＋ RN ", React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, _fRnAdd)) : null)
+            _fRnAdd > 0 ? React.createElement("span", null, " ＋ RN ", React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, _fRnAdd)) : null),
+          React.createElement("span", { title: "最終水準線（水準線＋浮き足）＋合計α＝実際のエントリー予定価格。", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap", marginLeft: 4 } }, "→ 予定EP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; return String(Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100); })()), "円")
         );
       })(),
       React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
@@ -7762,7 +7784,7 @@ function EntryRecordForm(_ref_erf) {
               style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
             },
               React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, "予定EP"),
-              React.createElement("span", { title: "水準線値＋合計α値（基本α＋浮き足加算＋追加α）＝自動計算。エントリー予定価格の目安。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right" } },
+              React.createElement("span", { title: "最終水準線（水準線＋浮き足加算）＋合計α（基本＋追加＋RN）＝自動計算。エントリー予定価格の目安。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right" } },
                 (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; var _ep = _lv + (isNaN(_fAlpha) ? 0 : _fAlpha); return String(Math.round(_ep * 100) / 100); })()
               ),
               React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),
