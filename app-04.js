@@ -3426,7 +3426,7 @@ function _epnAddRecoFrom(casc, baseV, reasons) {
     return false;
   });
   if (!pool.length) return null;
-  var reco = _elAddAlphaReco(pool, casc.aiOf, baseV);
+  var reco = _elAddAlphaReco(pool, casc.aiOf, baseV, baseLevelRecs);   // 第4引数=recoFn（各記録日の推奨基本α）母数＝採用段の全記録（2026-07-13 日付別方式化）
   return (reco && reco.add != null) ? { v: reco.add, n: pool.length, byReason: rs.length > 0 } : null;
 }
 function _epnAddReco(data, stock, date, tag, sel, baseV, reasons) {

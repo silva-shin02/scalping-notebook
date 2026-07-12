@@ -3296,6 +3296,7 @@ function _gradeAlpha(difficulty) {
   return (difficulty != null && _OS_GRADE_ALPHA[difficulty] != null) ? _OS_GRADE_ALPHA[difficulty] : 10;
 }
 function _elAlphaInfo(r, data) {
+  if (typeof _elAnaCut === "function") _elAnaCutCur = _elAnaCut(data);   // 前提損切り値のモジュール同期（2026-07-13b）: 全画面のaiOfはここを通るため、推奨α分析(app-06のpick群)が常に最新のcustom.anaCutPremiseを読める
   var c = (data && data.charts) ? data.charts[r.stock + "_" + r.date] : null;
   var s = r && r.signal;
   return {
