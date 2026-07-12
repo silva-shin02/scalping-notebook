@@ -971,6 +971,17 @@ function migrateData(d) {
       d._migSignalRename3 = true;
     } catch(e) { console.warn("[migrateData] sigRename3 error:", e); }
   }
+  // 【一回性 _migSignalRename4・2026-07-12】sigRename3と同じ3改名（旧世代名含む6ペア）を再適用。rename3実行後に他端末から旧名の記録が同期合流した/フラグだけ先に同期された端末の救済＝既知ペアの割れを再吸収。冪等（統合済みならno-op）。
+  if (!d._migSignalRename4) {
+    try {
+      if (typeof _elSignalRenameData === "function") {
+        [["底抜けラインOS", "指標線底抜けOS"], ["底抜け水準線OS", "指標線底抜けOS"],
+         ["底つきラインOS", "水平線耐えOS"], ["底つきサイン水準線OS", "水平線耐えOS"],
+         ["寄り付き足OS", "寄り足上値OS"], ["寄り付きラインOS", "寄り足上値OS"]].forEach(function(p) { var _r = _elSignalRenameData(d, p[0], p[1]); if (_r) d = _r; });
+      }
+      d._migSignalRename4 = true;
+    } catch(e) { console.warn("[migrateData] sigRename4 error:", e); }
+  }
   return d;
 }
 function stLoad() {

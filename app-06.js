@@ -4372,10 +4372,10 @@ function EntryLogView(_ref_elv2) {
       (sub && typeof sub === "string" && sub.indexOf("※") === 0) ? React.createElement("div", { style: { fontSize: 10, color: "#aaa", marginTop: 2 } }, sub) : null);   // 見出し下の定型説明は非表示・※で始まる注記/補足のみ残す 2026-07-03
   };
   var _kpiCard = function(label, val, color, sub) {
-    return React.createElement("div", { key: label, style: { flex: "1 1 90px", minWidth: 88, background: "#fff", border: "1px solid #e8e3d8", borderRadius: 8, padding: "8px 10px", textAlign: "center" } },
-      React.createElement("div", { style: { fontSize: 10, color: "#999", fontWeight: 700, marginBottom: 3 } }, label),
-      React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: color || "#333", lineHeight: 1.1, whiteSpace: "nowrap" } }, val),
-      sub ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginTop: 2 } }, sub) : null);
+    return React.createElement("div", { key: label, style: { flex: "1 1 96px", minWidth: 92, background: "#fff", border: "1px solid #EEE9E1", borderRadius: 12, padding: "10px 12px", textAlign: "left" } },
+      React.createElement("div", { style: { fontSize: 10, color: "#9A9186", fontWeight: 700, marginBottom: 3 } }, label),
+      React.createElement("div", { style: { fontSize: 19, fontWeight: 800, color: color || "#1A1714", lineHeight: 1.1, whiteSpace: "nowrap", letterSpacing: "-0.01em" } }, val),
+      sub ? React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 2 } }, sub) : null);
   };
   var _yenN = function(v, cnt) {
     if (cnt === 0 || v == null) return _dash;
@@ -5354,62 +5354,66 @@ function EntryLogView(_ref_elv2) {
         (rngFrom || "最古") + " 〜 " + (rngTo || "今日(" + _today + ")") + " ・ " + _periodRecs.length + "件"));
   })();
 
+  // レイアウト刷新・案A（2026-07-12）: ヘッダー=アイコン＋タイトル＋スコープサブタイトル。期間はチップ風セレクト・＋新規は右端。
   return React.createElement("div", { style: { padding: "12px 14px", maxWidth: 1100, margin: "0 auto" } },
-    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" } },
-      onBack ? React.createElement("button", { onClick: onBack, style: { padding: "6px 12px", fontSize: 12, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "← 戻る") : null,
-      React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#1a1a1a" } }, "📒 エントリー記録帳"),
-      React.createElement("button", { onClick: function() { setEditTarget({}); }, style: { padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", marginLeft: "auto" } }, "＋ 新規記録"),
-      React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: _selSty },
-        [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"], ["range", "🗓 期間指定"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); }))),
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, marginBottom: 8, flexWrap: "wrap" } },
+      onBack ? React.createElement("button", { onClick: onBack, title: "戻る", style: { padding: "6px 11px", fontSize: 13, fontWeight: 700, background: "#fff", border: "1px solid #E4DFD7", borderRadius: 9, cursor: "pointer", color: "#5C554B" } }, "←") : null,
+      React.createElement("div", { style: { width: 30, height: 30, borderRadius: 9, background: "#FBEDE6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 } }, "📒"),
+      React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#1A1714", lineHeight: 1.2 } }, "エントリー記録帳"),
+        React.createElement("div", { style: { fontSize: 10, color: "#9A9186", fontWeight: 700, marginTop: 1 } }, (_isSigTotal ? "シグナル総合" : _isAllStock ? "全銘柄" : _selStock) + " ・ " + filtered.length + "件")),
+      React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: { marginLeft: "auto", padding: "6px 9px", fontSize: 11.5, fontWeight: 700, border: "1px solid #E4DFD7", borderRadius: 9, background: "#fff", color: "#5C554B", cursor: "pointer" } },
+        [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"], ["range", "🗓 期間指定"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); })),
+      React.createElement("button", { onClick: function() { setEditTarget({}); }, style: { padding: "7px 13px", fontSize: 12, fontWeight: 800, background: "#1A1714", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer" } }, "＋新規")),
     _rngBar,
-    React.createElement("div", { style: { fontSize: 10.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "5px 9px", marginBottom: 8, lineHeight: 1.5 } }, "※ 2026年6月以前の損益は、EMAの位置に間違いがあったため参考程度です（7月以降が正）。"),
-    React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 8px", marginBottom: 2, borderBottom: "2px solid #f0ede8" } },
+    React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", margin: "0 2px 7px", lineHeight: 1.4 } }, "※ 2026年6月以前の損益は、EMAの位置に間違いがあったため参考程度です（7月以降が正）。"),
+    React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", marginBottom: 6 } },
       React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode(false); setSelDetTag(null); if (view !== "sum" && view !== "period") setView("sum"); },
-        style: { flexShrink: 0, padding: "7px 16px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
-          border: "1px solid " + (_isAllStock ? "#1a1a1a" : "#ddd"), background: _isAllStock ? "#1a1a1a" : "#fff", color: _isAllStock ? "#fff" : "#666" } },
+        style: { flexShrink: 0, padding: "6px 15px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
+          border: "1px solid " + (_isAllStock ? "#1A1714" : "#E0DAD1"), background: _isAllStock ? "#1A1714" : "#fff", color: _isAllStock ? "#fff" : "#6B6459" } },
         "💰 損益 (" + _periodRecs.length + ")"),
       React.createElement("button", { key: "__sigtotalbtn__", onClick: function() { setStockFil(_SIG_TOTAL); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode(false); setSelDetTag(null); },
-        style: { flexShrink: 0, padding: "7px 14px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
-          border: "1px solid " + (_isSigTotal ? "#0F766E" : "#ddd"), background: _isSigTotal ? "#0F766E" : "#fff", color: _isSigTotal ? "#fff" : "#666" } },
+        style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
+          border: "1px solid " + (_isSigTotal ? "#0F766E" : "#E0DAD1"), background: _isSigTotal ? "#0F766E" : "#fff", color: _isSigTotal ? "#fff" : "#6B6459" } },
         "📡 シグナル総合"),
       _tickerList.length ? _tickerList.map(function(s) {
         var on = _selStock === s;
         return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setDetTagMode(false); setSelDetTag(null); },
-          style: { flexShrink: 0, padding: "7px 14px", fontSize: 12.5, fontWeight: 800, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
-            border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
+          style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
+            border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
-    (!_isAllStock && !_isSigTotal && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { marginBottom: 6 } },
-      React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", alignItems: "center" } },
-        React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "🎯 シグナル"),
+    (!_isAllStock && !_isSigTotal && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { margin: "0 0 10px", background: "#fff", border: "1px solid #ECE7DE", borderRadius: 13, padding: "10px 12px", boxShadow: "0 1px 2px rgba(0,0,0,.03)" } },   // 文脈カード（案A 2026-07-12）: 旧シグナル行＋内訳行を1枚に統合。内訳（浮き足/その他 2026-07-02）は右上のセグメント・シグナルは折返しチップ。
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: "#9A3412", letterSpacing: ".04em" } }, "🎯 シグナル"),
+        React.createElement("div", { style: { marginLeft: "auto", display: "flex", background: "#F1EEE8", borderRadius: 9, padding: 2, gap: 2 } },
+          [["float", "浮き足", _selSigFloat.length], ["other", "その他", _selSigOther.length]].map(function(kv) {
+            var on = floatSub === kv[0];
+            return React.createElement("button", { key: kv[0], onClick: function() { setFloatSub(kv[0]); setExpKey(null); },
+              style: { padding: "3px 10px", fontSize: 10.5, fontWeight: 700, border: "none", borderRadius: 7, cursor: "pointer", whiteSpace: "nowrap",
+                background: on ? "#fff" : "transparent", color: on ? "#1A1714" : "#6B6459", boxShadow: on ? "0 1px 2px rgba(0,0,0,.08)" : "none" } },
+              kv[1] + " (" + kv[2] + ")");
+          }))),
+      React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
         _sigAxisGroups.map(function(g) {
           var on = _selSigKey === g.key;
           var lowN = g.recs.length < _EL_BASE_MIN_N;
           return React.createElement("button", { key: g.key, onClick: function() { setSelSig(g.key); setExpKey(null); setFloatSub("other"); setDetScopes({}); setDetTagMode(false); setSelDetTag(null); },
-            style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 700, borderRadius: 16, cursor: "pointer", whiteSpace: "nowrap",
-              border: "1px solid " + (on ? "#9A3412" : "#e0d8cf"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : (lowN ? "#c0b6ab" : "#666") } },
+            style: { padding: "5px 12px", fontSize: 11.5, fontWeight: 700, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap",
+              border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : (lowN ? "#c0b6ab" : "#6B6459") } },
             g.label + " (" + g.recs.length + ")" + (lowN ? " 参考" : ""));
         }))) : null,
-    (!_isAllStock && !_isSigTotal && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { marginBottom: 6 } },   // 内訳サブタブ: 底抜け前足浮き / その他（既定）。選択中シグナルの記録を数値根拠で二分し、集計/α値/損切り/未達/深掘りの母数を切替。全シグナルで常時表示。2026-07-02
-      React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 4px", alignItems: "center", flexWrap: "wrap" } },
-        React.createElement("span", { style: { flexShrink: 0, fontSize: 10, fontWeight: 800, color: "#9A3412", marginRight: 2 } }, "内訳"),
-        [["float", "浮き足", _selSigFloat.length], ["other", "その他", _selSigOther.length]].map(function(kv) {
-          var on = floatSub === kv[0];
-          return React.createElement("button", { key: kv[0], onClick: function() { setFloatSub(kv[0]); setExpKey(null); },
-            style: { flexShrink: 0, padding: "5px 13px", fontSize: 11.5, fontWeight: 700, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap",
-              border: "1px solid " + (on ? "#9A3412" : "#e0d8cf"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } },
-            kv[1] + " (" + kv[2] + ")");
-        }))) : null,
-    React.createElement("div", { style: { display: "flex", gap: 2, marginBottom: 6, borderBottom: "1px solid #e0ddd6", overflowX: "auto" } },
+    React.createElement("div", { style: { display: "flex", background: "#EFEBE4", borderRadius: 11, padding: 3, marginBottom: 10, gap: 2, overflowX: "auto" } },   // タブ=セグメントコントロール式（案A 2026-07-12・選択=白カード浮き・ラベルは絵文字なし）
       (_isSigTotal ? _SIG_TABS : _tabs).map(function(kv) {
         var on = _isSigTotal ? (sigSub === kv[0]) : (view === kv[0]);
         var cnt = (!_isSigTotal && kv[0] === "miss") ? _missCnt : null;
-        var _acc = _isSigTotal ? "#0F766E" : "#1a1a1a";
+        var _acc = _isSigTotal ? "#0F766E" : "#9A3412";
+        var _lbl = kv[1].indexOf(" ") > 0 ? kv[1].slice(kv[1].indexOf(" ") + 1) : kv[1];
         return React.createElement("button", { key: kv[0],
           onClick: function() { if (_isSigTotal) { setSigSub(kv[0]); } else { setView(kv[0]); } setExpKey(null); },
-          style: { padding: "8px 12px", fontSize: 12, fontWeight: 700, background: "none", border: "none", cursor: "pointer",
-            borderBottom: on ? "2px solid " + _acc : "2px solid transparent", color: on ? _acc : "#888", whiteSpace: "nowrap" }
-        }, kv[1] + (cnt != null ? "(" + cnt + ")" : ""));
+          style: { flexShrink: 0, padding: "6px 12px", fontSize: 11.5, fontWeight: 700, border: "none", cursor: "pointer", borderRadius: 8,
+            background: on ? "#fff" : "transparent", color: on ? _acc : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" }
+        }, _lbl + (cnt != null ? "(" + cnt + ")" : ""));
       })),
     (view === "period" && !_isAllStock && !_isSigTotal) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝期間タブ限定（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数でトグル非適用・全銘柄合算=非表示）。絞り込み中は橙で強調 2026-07-01
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "追加α分析:"),
