@@ -4543,9 +4543,10 @@ function DayView(_ref57) {
         records.push({ date: date, stock: _trStock, signal: s, item: item });
         if (_elInclTotal(s)) {  // 合計額算入: 除外記録は合計/成功失敗カウントに入れない（行は表示する）2026-06-18
         // 表の合計行(_elTotAccum)と一致させる: item.pnl優先＋per-100換算。2026-06-20
+        // 監査所見2（2026-07-12）: 実現損益合計にも時間かぶり除外を適用＝同タブの合計行(_elTotAccum=除外済)とフッターの不一致を解消（勝敗ok/ngは件数系なので従来どおり全件）。
         var _it0 = item;
         var _v0 = (_it0 && _it0.pnl != null) ? Number(_it0.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        if (_v0 != null) { var _sh0 = Number(s.shares) > 0 ? Number(s.shares) : 0; realSum += _sh0 > 0 ? Math.round(_v0 / _sh0 * 100) : Math.round(_v0); }
+        if (_v0 != null && !_elCollExcludedSig(data, _trStock, date, s)) { var _sh0 = Number(s.shares) > 0 ? Number(s.shares) : 0; realSum += _sh0 > 0 ? Math.round(_v0 / _sh0 * 100) : Math.round(_v0); }
         // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出・旧記録も全表ライブα計算方針に統一）
         var _resTr = _elDynResult(s, _epOwnAlpha(s), _trC.cutLine != null ? Number(_trC.cutLine) : 10);
         if (_resTr === "ok") ok++;
@@ -5962,30 +5963,21 @@ function DayView(_ref57) {
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             (function() {
-              var _ck = rowKey + "_" + date;
-              var _recs = expRecs || [];
-              var _totPb = null, _totPbCnt = 0, _totHPb = null, _totHPbCnt = 0;
+              // 監査所見1（2026-07-12）: 旧=EP損益合計/結果損益合計(H1)・不算入/被り込み → 最終損益合計（手じまい・_elHold2TotParts.main）＋_elInclTotal＋被り除外に統一＝折り畳み行/明細表と同一基準。
+              var _recs = (expRecs || []).filter(function(r) { return r && _elInclTotal(r.signal) && !_elCollExcluded(data, r); });
+              var _totH2 = null, _totH2Cnt = 0;
               _recs.forEach(function(r) {
                 var s = r.signal;
-                var _aW = _pbAlphaOf(r);
-                var _cutLW = _pbCutOf(r);
-                var pp = _elDynPlanned(s, _aW, _cutLW);  // EP起算v2対応
-                var hp = _elDynHold(s, _aW, _cutLW);
-                if (pp != null) { _totPb = (_totPb || 0) + pp; _totPbCnt++; }
-                if (hp != null) { _totHPb = (_totHPb || 0) + hp; _totHPbCnt++; }
+                var t2 = _elHold2TotParts(s, _pbAlphaOf(r), _pbCutOf(r));
+                if (t2 && t2.main != null) { _totH2 = (_totH2 || 0) + t2.main; _totH2Cnt++; }
               });
-              if (_totPbCnt === 0 && _totHPbCnt === 0) return null;
+              if (_totH2Cnt === 0) return null;
               return React.createElement("span", { style: { display: "inline-flex", gap: 10, marginLeft: 8, paddingLeft: 8, borderLeft: "1px solid #f0ede6", flexWrap: "wrap" } },
-                _totPbCnt > 0 ? React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-                  "EP損益合計: ",
-                  React.createElement("span", { style: { fontWeight: 700, color: (_totPb||0) > 0 ? "#C0392B" : (_totPb||0) < 0 ? "#1E8449" : "#888" } },
-                    ((_totPb||0) > 0 ? "+" : "") + (_totPb||0).toLocaleString() + "円")
-                ) : null,
-                _totHPbCnt > 0 ? React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
-                  "結果損益合計: ",
-                  React.createElement("span", { style: { fontWeight: 700, color: (_totHPb||0) > 0 ? "#C0392B" : (_totHPb||0) < 0 ? "#1E8449" : "#888" } },
-                    ((_totHPb||0) > 0 ? "+" : "") + (_totHPb||0).toLocaleString() + "円")
-                ) : null
+                React.createElement("span", { style: { fontSize: 11, color: "#555", whiteSpace: "nowrap" } },
+                  "最終損益合計: ",
+                  React.createElement("span", { style: { fontWeight: 700, color: (_totH2||0) > 0 ? "#C0392B" : (_totH2||0) < 0 ? "#1E8449" : "#888" } },
+                    ((_totH2||0) > 0 ? "+" : "") + (_totH2||0).toLocaleString() + "円"),
+                  React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "（" + _totH2Cnt + "件・○途切れ手じまい・被り除外後）"))
               );
             })()
           ),
@@ -6074,7 +6066,7 @@ function DayView(_ref57) {
       )
     );
     var _benchEl = (_pbStks && _pbStks.length) ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0 }) },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 α比較・深掘り（本日／今週／今月／全期間・銘柄別）"),
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#333" } }, "📊 α比較・深掘り（本日／直近25・50・100件／全期間・銘柄別）"),
       _pbStks.map(function(_sk) { return React.createElement(_elDayStockBenchV2, { key: _sk, data: data, date: date, stock: _sk }); })) : null;
     return React.createElement(React.Fragment, null, _pbMainEl, _simpleAlphaEl, _soukatsuEl, _wkMainEl, _benchEl);
   })(),

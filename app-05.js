@@ -3131,13 +3131,16 @@ function _addAlphaUnsetBadge(s) {
   return React.createElement("span", { title: "追加α値が未選択（〇要/×不要を未判断）＝基本αのみの記録として推奨基本αの母数には算入されます（推奨追加αの母数は〇のみ＝未選択は除外）。記録を開いて〇を選ぶと追加αの母数に入ります。", style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: "#F1F5F9", color: "#64748B", borderRadius: 4, border: "1px dashed #CBD5E1", whiteSpace: "nowrap" } }, "追加α未選択");
 }
 // ===== 浮き足加算α値（第3のα要素 2026-07-03。対象シグナル＝既定で底抜け水準線OS／底抜けラインOS・_elUkiSignalNames 2026-07-07）=====
-// signal.ukiUsed(true=〇/false=×/null・undefined=対象外)・signal.ukiVal(前足浮き値の生値・円)。実効加算＝floor(ukiVal/2)＝半額・小数切捨て。
+// signal.ukiUsed(true=〇/false=×/null・undefined=対象外)・signal.ukiVal(前足浮き値の生値・円)。実効加算＝floor(ukiVal×ukiPct/100)・小数切捨て（ukiPct=採用加算率%・既定50＝旧半額 2026-07-12d）。
 // 合計採用α(signal.alphaVal)＝基本α＋浮き足加算＋追加α（保存時に畳み込み済み＝下流の損益/EP計算は無改修で正）。
 // 旧方式「追加α〇＋根拠=底抜け前足浮き＋数値(addAlphaReasonVal)」はmigrateData(_migUkiAlpha・app-01)で本フィールドへ自動移行済み。
 // 母数の扱い: 推奨基本αからは追加α〇と同様に除外(_elBaseAlphaPick)・推奨追加αからも除外(_elHasNumReason=浮き足判定に載せ替え・app-06)。
 function _elUkiYes(s) { return !!s && s.ukiUsed === true; }
 function _elUkiVal(s) { if (!s || s.ukiVal == null || s.ukiVal === "" || isNaN(Number(s.ukiVal))) return null; return Number(s.ukiVal); }
 function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); if (v == null || v <= 0) return 0; var pct = (s && s.ukiPct != null && !isNaN(Number(s.ukiPct))) ? Number(s.ukiPct) : 50; return Math.floor(v * pct / 100); }   // 実効加算＝floor(浮き値×加算率/100)。ukiPct=使った加算率(%)・既定50=半額（旧記録はukiPct無し→50%で従来と一致）2026-07-12
+// RNまたぎ加算の判定/成分（第5のα要素 07-08h・signal.rnUsed/rnVal）。浮き足(_elUkiYes/_elUkiAdd)と対になる分析用ヘルパー 2026-07-12: 推奨基本αの母数除外・RN分析ボード・反実仮想(採用α−RN)で使用。
+function _elRnYes(s) { return !!s && s.rnUsed === true; }
+function _elRnAdd(s) { if (!_elRnYes(s)) return 0; var v = Number(s.rnVal); return (isNaN(v) || v <= 0) ? 0 : v; }
 // 浮き足加算の欄を表示・算入する対象シグナル名の集合 2026-07-07（ユーザー決定＝両方に付ける）。
 // 2026-07-07f: 底抜け水準線OS→底抜けラインOSへ統合改名（migrateData _migSignalRename2）＝既定は1本に。
 // 後方互換: custom.ukiSignalNames(配列)があれば優先／旧custom.ukiSignalName(単一)も常に対象へ含める。下流(_elUkiYes/_elUkiAdd/記録帳の浮き足分析)はsignal.ukiUsed駆動でシグナル名非依存＝この集合はフォーム(app-05)/EPナビ(app-04)の「欄を出すか」ゲート専用。
@@ -6026,7 +6029,9 @@ function EntryRecordForm(_ref_erf) {
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate); });
     if (!recs.length) return null;
     var p = _elCutPick(recs, function(r) { return _elAlphaInfo(r, data); });
-    return (p && p.cut != null && p.status !== "none") ? p : null;
+    if (!(p && p.cut != null && p.status !== "none")) return null;
+    p._h2 = _elCutPickH2(recs, function(r) { return _elAlphaInfo(r, data); });   // 最終損益基準の並走pick（デュアル評価① 2026-07-12・記録帳_elCutPickCellと同一）
+    return p;
   }, [data, fStock, fDate]);
   // シグナル/詳細別の推奨基本α・追加α（2026-07-06→2026-07-07c拡張・ユーザー選択＝自動入力もシグナル/詳細別）:
   // 選択中シグナル（先頭タグ）と①②③の選択詳細で母数を絞り、段階フォールバック＝詳細の組み合わせ→シグナル→銘柄全体（_defBaseA）の順で
@@ -6178,7 +6183,7 @@ function EntryRecordForm(_ref_erf) {
   
   // 合計α値 = 基本α値（未入力なら直近50件の推奨基本α・無ければ0。予想OS度とは連動しない 2026-06-21）＋ 浮き足加算α値 ＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
   var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_autoBaseA != null ? _autoBaseA : 0);
-  // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)の半額（小数切捨て）を加算。
+  // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)×採用加算率（推奨%・既定50%・07-12d）を切捨て加算。
   var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨(reco)/次点(runnerUp)を算出（_elUkiPctSweep）。fUkiPct=""は自動=推奨(無ければ50%)。加算=floor(浮き値×採用%/100)。2026-07-12
   var _ukiReco = useMemo(function() { return _elUkiRecoPcts(data, fDate); }, [data, fDate]);
@@ -7244,7 +7249,7 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "EP（エントリーポイント）")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "水準線値に浮き足加算を足した『最終水準線』が土台。これに下のα値（基本＋追加＋RN）を足したものが予定EP（実際のエントリー予定価格）。浮き足は前足浮き値の半額・小数切捨て。"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "水準線値に浮き足加算を足した『最終水準線』が土台。これに下のα値（基本＋追加＋RN）を足したものが予定EP（実際のエントリー予定価格）。浮き足は前足浮き値×採用加算率（推奨%・既定50%）・小数切捨て。"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
           React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F1F5F9", border: "1px solid #CBD5E1", fontSize: 12 } },
@@ -7259,7 +7264,7 @@ function EntryRecordForm(_ref_erf) {
         ),
         _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
         (function() {
-          // 浮き足加算（水準線側へ移設 2026-07-12）。〇×→〇で前足浮き値（生値）を入力し半額（切捨て）を水準線に加算＝最終水準線。データは従来どおりsignal.ukiUsed/ukiVal・alphaValへ畳み込み（保存/EP/損益/分析は不変）。
+          // 浮き足加算（水準線側へ移設 2026-07-12）。〇×→〇で前足浮き値（生値）を入力し採用加算率（推奨%・既定50%）で切捨て加算＝最終水準線。データは従来どおりsignal.ukiUsed/ukiVal(+ukiPct)・alphaValへ畳み込み（保存/EP/損益/分析は不変）。
           var _setUV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setFUkiVal(String(n)); };
           var _stepUV = function(delta) { setFUkiVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
           var _ukiOn = fUkiUsed === "○";
@@ -7277,7 +7282,7 @@ function EntryRecordForm(_ref_erf) {
                 var on = fUkiUsed === kv[0];
                 return React.createElement("button", { key: kv[0], type: "button",
                   onClick: function() { setFUkiUsed(kv[0]); },
-                  title: kv[0] === "○" ? "前足の浮きがあった（浮き値を入力→半額・小数切捨てを水準線に加算＝最終水準線）" : "浮きなし＝加算しない",
+                  title: kv[0] === "○" ? "前足の浮きがあった（浮き値を入力→採用加算率[推奨%・既定50%]で加算・小数切捨て＝最終水準線）" : "浮きなし＝加算しない",
                   style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
                   kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
               })
@@ -7674,11 +7679,12 @@ function EntryRecordForm(_ref_erf) {
         (function() {
           if (!_refCutPick) return null;
           var p = _refCutPick;
-          return React.createElement("span", { title: "実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（この銘柄の前日までの算入記録から）", style: { fontSize: 11, fontWeight: 600, color: "#7F1D1D", whiteSpace: "nowrap" } },
+          return React.createElement("span", { title: "実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（この銘柄の前日までの算入記録から）。バッジ＝最終損益（手じまい）基準で同じ選定をした並走値（デュアル評価 2026-07-12）", style: { fontSize: 11, fontWeight: 600, color: "#7F1D1D", whiteSpace: "nowrap" } },
             "推奨損切り：", React.createElement("span", { style: { fontWeight: 800 } }, p.cut + "円"),
             p.status === "na"
               ? React.createElement("span", { style: { color: "#B45309", marginLeft: 3, fontSize: 10 } }, "（参考）")
-              : React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3, fontSize: 10 } }, "（H1平均" + (p.mean != null ? (p.mean >= 0 ? "+" : "") + Math.round(p.mean) : "—") + "円・損切" + (p.stopRate != null ? Math.round(p.stopRate * 100) : "—") + "%・" + (p.n || 0) + "件）"));
+              : React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3, fontSize: 10 } }, "（H1平均" + (p.mean != null ? (p.mean >= 0 ? "+" : "") + Math.round(p.mean) : "—") + "円・損切" + (p.stopRate != null ? Math.round(p.stopRate * 100) : "—") + "%・" + (p.n || 0) + "件）"),
+            _elH2AgreeNode(p.cut, p._h2 ? p._h2.cut : null, "円"));
         })())
       ),
       React.createElement("div", { style: { marginBottom: 8 } },
