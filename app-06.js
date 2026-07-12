@@ -2896,36 +2896,9 @@ function _elOsAlphaPctlTableV2(recs) {
 
 // 1日の目標利益（100株換算・円）。既存の理想α目標(_elIdealAlphaV2 tgtA=2500)と一致。
 var _EL_DAY_TARGET_YEN = 2500;
-// 横長テーブル用ラッパー（記録帳）2026-06-26: 内容が枠からはみ出す時だけ「タップして初めて横スクロール」。普段は固定でページの縦スクロールを妨げない＋右端フェードと「タップで横スクロール →」ピルで明示。タップで枠が光り横スクロール可、外をタップで解除。はみ出さない表は素通り（ピルもロックも出さない）。props.styleは外枠(余白)へ。
+// 横長テーブル用ラッパー（記録帳）2026-07-13: ヒント/ロック全廃＝常に素の横スクロール（旧「👆タップで横スクロール」ピル・タップロック・右端フェードを削除・ユーザー指示）。plainプロップは互換のため受けるが挙動は同一。props.styleは外枠へ。
 function _HScrollBox(props) {
-  if (props.plain) return React.createElement("div", { style: Object.assign({ overflowX: "auto", WebkitOverflowScrolling: "touch" }, props.style || {}) }, props.children);   // ヒント/ロックなしの素の横スクロール（対象取引リスト等）2026-07-03r
-  var _uA = useState(false), active = _uA[0], setActive = _uA[1];
-  var _uO = useState(false), overflow = _uO[0], setOverflow = _uO[1];
-  var wrapRef = useRef(null), innerRef = useRef(null);
-  useEffect(function() {
-    var measure = function() { var el = innerRef.current; if (el) setOverflow((el.scrollWidth - el.clientWidth) > 4); };
-    measure();
-    var t1 = setTimeout(measure, 250), t2 = setTimeout(measure, 1000);
-    window.addEventListener("resize", measure);
-    return function() { clearTimeout(t1); clearTimeout(t2); window.removeEventListener("resize", measure); };
-  }, []);
-  useEffect(function() {
-    if (!active) return;
-    var onDoc = function(e) { if (wrapRef.current && !wrapRef.current.contains(e.target)) setActive(false); };
-    document.addEventListener("mousedown", onDoc, true);
-    document.addEventListener("touchstart", onDoc, true);
-    return function() { document.removeEventListener("mousedown", onDoc, true); document.removeEventListener("touchstart", onDoc, true); };
-  }, [active]);
-  var locked = overflow && !active;
-  return React.createElement("div", { ref: wrapRef, style: Object.assign({ position: "relative" }, props.style || {}) },
-    React.createElement("div", { ref: innerRef,
-      onClickCapture: locked ? function(e) { e.preventDefault(); e.stopPropagation(); setActive(true); } : null,
-      style: { overflowX: locked ? "hidden" : "auto", WebkitOverflowScrolling: "touch", borderRadius: 6, boxShadow: active ? "0 0 0 2px #FB923C" : "none", cursor: locked ? "pointer" : "auto" } },
-      props.children),
-    locked ? React.createElement(React.Fragment, null,
-      React.createElement("div", { style: { position: "absolute", right: 0, top: 0, bottom: 0, width: 44, pointerEvents: "none", borderRadius: "0 6px 6px 0", background: "linear-gradient(to right, rgba(255,255,255,0), rgba(255,250,244,0.95))" } }),
-      React.createElement("div", { onClick: function() { setActive(true); }, style: { position: "absolute", right: 6, top: 6, zIndex: 3, fontSize: 10, fontWeight: 700, color: "#9A3412", background: "rgba(255,247,237,0.97)", border: "1px solid #FB923C", borderRadius: 12, padding: "2px 10px", cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" } }, "👆 タップで横スクロール →")
-    ) : (active ? React.createElement("div", { style: { position: "absolute", right: 6, top: 6, zIndex: 3, fontSize: 9, fontWeight: 700, color: "#166534", background: "rgba(240,253,244,0.97)", border: "1px solid #86EFAC", borderRadius: 12, padding: "2px 10px", whiteSpace: "nowrap", pointerEvents: "none" } }, "↔ 横スクロール中・外をタップで解除") : null));
+  return React.createElement("div", { style: Object.assign({ overflowX: "auto", WebkitOverflowScrolling: "touch" }, props.style || {}) }, props.children);
 }
 // 週間サマリー（記録帳・期間タブ先頭／全銘柄合算・銘柄別の両方）2026-06-26: 「1取引日あたり平均損益(＋5営業日換算/週)」と「目標(2500円/100株換算)達成率(＋5日換算の達成日数/週)」を実現損益(100株換算)/EP/H1/H2の4基準で表示。
 // 2026-06-26b: 週合計の単純平均は休場で短い週があると下振れるバイアスがあるため、日ベース(1取引日あたり=Σ損益÷取引日／達成率=達成日÷取引日)へ変更。週イメージは×5営業日の換算で目安表示。週別内訳表は各週の実額のまま。
