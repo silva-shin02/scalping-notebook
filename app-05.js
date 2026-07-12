@@ -7264,6 +7264,7 @@ function EntryRecordForm(_ref_erf) {
           var _stepUV = function(delta) { setFUkiVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
           var _ukiOn = fUkiUsed === "○";
           var _setUkiPct = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiPct(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 100) n = 100; if (n < 0) n = 0; setFUkiPct(String(n)); };
+          var _stepUkiPct = function(delta) { setFUkiPct(function(prev) { var cur = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : null; if (cur == null) return "50"; var n = cur + delta; if (n > 100) n = 100; if (n < 0) n = 0; return String(n); }); };   // 手入力の↑↓: 空欄→デフォルト50・以降±10 2026-07-12
           var _recoAct = fUkiPct === "" || (_ukiReco.reco != null && Number(fUkiPct) === _ukiReco.reco);   // 推奨ピルがアクティブ（""=自動=推奨）
           var _runAct = _ukiReco.runnerUp != null && fUkiPct !== "" && Number(fUkiPct) === _ukiReco.runnerUp;
           var _custAct = !_recoAct && !_runAct;   // 手入力（推奨/次点いずれにも一致しない％）
@@ -7302,8 +7303,9 @@ function EntryRecordForm(_ref_erf) {
                 style: { padding: "2px 7px", fontSize: 11, fontWeight: _runAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.3, whiteSpace: "nowrap", border: _runAct ? "2px solid #0369A1" : "1px solid #ddd", background: _runAct ? "#EFF6FF" : "#fff", color: _runAct ? "#0369A1" : "#999" } },
                 "次点 " + _ukiReco.runnerUp + "%") : null,
               React.createElement("span", { style: { display: "inline-flex", alignItems: "center", border: _custAct ? "2px solid #B45309" : "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff" } },
-                React.createElement("input", { type: "text", inputMode: "numeric", value: _custAct ? fUkiPct : "", onChange: function(e) { _setUkiPct(e.target.value); }, placeholder: "手入力", style: { width: 42, padding: "2px 5px", fontSize: 11, fontWeight: 700, border: "none", outline: "none", background: "transparent", textAlign: "right", color: "#B45309" } }),
-                React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", paddingRight: 4 } }, "%"))
+                React.createElement("input", { type: "text", inputMode: "numeric", value: _custAct ? fUkiPct : "", onChange: function(e) { _setUkiPct(e.target.value); }, placeholder: "50", style: { width: 42, padding: "2px 5px", fontSize: 11, fontWeight: 700, border: "none", outline: "none", background: "transparent", textAlign: "right", color: "#B45309" } }),
+                React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", paddingRight: 4 } }, "%"),
+                _stepBtn(function() { _stepUkiPct(10); }, function() { _stepUkiPct(-10); }))
             ) : null
           );
         })()) : null,

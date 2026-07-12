@@ -3689,6 +3689,7 @@ function _EpnCalcForm(_p) {
   var _ukiRunAct = _ukiReco.runnerUp != null && nUkiPct !== "" && Number(nUkiPct) === _ukiReco.runnerUp;
   var _ukiCustAct = !_ukiRecoAct && !_ukiRunAct;
   var _setNUkiPct = function(val) { var v = _toHankakuNum(val); if (v === "") { setNUkiPct(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 100) n = 100; if (n < 0) n = 0; setNUkiPct(String(n)); };
+  var _stepNUkiPct = function(delta) { setNUkiPct(function(prev) { var cur = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : null; if (cur == null) return "50"; var n = cur + delta; if (n > 100) n = 100; if (n < 0) n = 0; return String(n); }); };   // 手入力の↑↓: 空欄→デフォルト50・以降±10 2026-07-12
   var ukiAddV = (showUki && nUkiUsed === "○" && nUkiVal !== "" && !isNaN(Number(nUkiVal)) && Number(nUkiVal) > 0) ? Math.floor(Number(nUkiVal) * _effUkiPct / 100) : 0;
   var rnAddV = (nRnUsed === "○" && nRnVal !== "" && !isNaN(Number(nRnVal)) && Number(nRnVal) > 0) ? Number(nRnVal) : 0;   // RNまたぎ加算（そのまま加算・全シグナル 2026-07-08h）
   var effA = baseV != null ? (baseV + ukiAddV + addV + rnAddV) : null;
@@ -3898,8 +3899,9 @@ function _EpnCalcForm(_p) {
       (nUkiUsed === "○" && _ukiReco.runnerUp != null) ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(String(_ukiReco.runnerUp)); }, title: "次点の加算率",
         style: { padding: "2px 6px", fontSize: 10, fontWeight: _ukiRunAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.2, whiteSpace: "nowrap", border: _ukiRunAct ? "2px solid #0369A1" : "1px solid #ddd", background: _ukiRunAct ? "#EFF6FF" : "#fff", color: _ukiRunAct ? "#0369A1" : "#999" } }, "次点" + _ukiReco.runnerUp + "%") : null,
       nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", border: _ukiCustAct ? "2px solid #B45309" : "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff" } },
-        React.createElement("input", { type: "text", inputMode: "numeric", value: _ukiCustAct ? nUkiPct : "", onChange: function(e) { _setNUkiPct(e.target.value); }, placeholder: "率", style: { width: 30, padding: "2px 4px", fontSize: 10, fontWeight: 700, border: "none", outline: "none", background: "transparent", textAlign: "right", color: "#B45309" } }),
-        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", paddingRight: 3 } }, "%")) : null,
+        React.createElement("input", { type: "text", inputMode: "numeric", value: _ukiCustAct ? nUkiPct : "", onChange: function(e) { _setNUkiPct(e.target.value); }, placeholder: "50", style: { width: 30, padding: "2px 4px", fontSize: 10, fontWeight: 700, border: "none", outline: "none", background: "transparent", textAlign: "right", color: "#B45309" } }),
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", paddingRight: 3 } }, "%"),
+        _stepBtn(function() { _stepNUkiPct(10); }, function() { _stepNUkiPct(-10); })) : null,
       nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null)) : null,
     _lrow("RNまたぎ加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RNまたぎ加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
       _oxBtns(nRnUsed, function(v) { setNRnUsed(v); if (v === "○" && nRnVal === "") setNRnVal("5"); }),
