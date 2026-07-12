@@ -3137,7 +3137,7 @@ function _addAlphaUnsetBadge(s) {
 // 母数の扱い: 推奨基本αからは追加α〇と同様に除外(_elBaseAlphaPick)・推奨追加αからも除外(_elHasNumReason=浮き足判定に載せ替え・app-06)。
 function _elUkiYes(s) { return !!s && s.ukiUsed === true; }
 function _elUkiVal(s) { if (!s || s.ukiVal == null || s.ukiVal === "" || isNaN(Number(s.ukiVal))) return null; return Number(s.ukiVal); }
-function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); return (v != null && v > 0) ? Math.floor(v / 2) : 0; }
+function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); if (v == null || v <= 0) return 0; var pct = (s && s.ukiPct != null && !isNaN(Number(s.ukiPct))) ? Number(s.ukiPct) : 50; return Math.floor(v * pct / 100); }   // 実効加算＝floor(浮き値×加算率/100)。ukiPct=使った加算率(%)・既定50=半額（旧記録はukiPct無し→50%で従来と一致）2026-07-12
 // 浮き足加算の欄を表示・算入する対象シグナル名の集合 2026-07-07（ユーザー決定＝両方に付ける）。
 // 2026-07-07f: 底抜け水準線OS→底抜けラインOSへ統合改名（migrateData _migSignalRename2）＝既定は1本に。
 // 後方互換: custom.ukiSignalNames(配列)があれば優先／旧custom.ukiSignalName(単一)も常に対象へ含める。下流(_elUkiYes/_elUkiAdd/記録帳の浮き足分析)はsignal.ukiUsed駆動でシグナル名非依存＝この集合はフォーム(app-05)/EPナビ(app-04)の「欄を出すか」ゲート専用。
@@ -5971,6 +5971,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateUKV = useState(initSig.ukiVal != null ? String(initSig.ukiVal) : ""),
     _useStateUKVA = _slicedToArray(_useStateUKV, 2),
     fUkiVal = _useStateUKVA[0], setFUkiVal = _useStateUKVA[1];
+  // 浮き足加算率（%）2026-07-12: ""=自動(推奨%・無ければ50%)。編集時は記録のukiPct、旧記録(uki〇でukiPct無し)は"50"で従来値を保持。推奨/次点をタップ or 手入力で上書き可。
+  var _useStateUKP = useState(initSig.ukiPct != null ? String(initSig.ukiPct) : (initSig.ukiUsed === true ? "50" : "")),
+    _useStateUKPA = _slicedToArray(_useStateUKP, 2),
+    fUkiPct = _useStateUKPA[0], setFUkiPct = _useStateUKPA[1];
   // RNまたぎ加算α値（第5のα要素 2026-07-08h・RN＝ラウンドナンバー＝キリ番またぎ）: 〇×＋加算値（円・生値をそのまま加算・÷2等の計算なし）。全シグナルで表示。signal.rnUsed/rnValに保存。
   // 初期化: rnUsed===true→〇・それ以外（false/未設定/旧記録）→×。
   var _useStateRNU = useState(initSig.rnUsed === true ? "○" : "×"),
@@ -6174,7 +6178,10 @@ function EntryRecordForm(_ref_erf) {
   var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_autoBaseA != null ? _autoBaseA : 0);
   // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)の半額（小数切捨て）を加算。
   var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
-  var _fUkiAdd = (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Math.floor(Number(fUkiVal) / 2) : 0;
+  // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨(reco)/次点(runnerUp)を算出（_elUkiPctSweep）。fUkiPct=""は自動=推奨(無ければ50%)。加算=floor(浮き値×採用%/100)。2026-07-12
+  var _ukiReco = useMemo(function() { return _elUkiRecoPcts(data, fDate); }, [data, fDate]);
+  var _effUkiPct = (fUkiPct !== "" && !isNaN(Number(fUkiPct))) ? Number(fUkiPct) : (_ukiReco.reco != null ? _ukiReco.reco : 50);
+  var _fUkiAdd = (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Math.floor(Number(fUkiVal) * _effUkiPct / 100) : 0;
   // 追加αは「〇（必要）」を選んだ時だけ合計に算入。×なら0＝基本αのみ。
   var _fAddA = (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
   // RNまたぎ加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
@@ -6726,6 +6733,7 @@ function EntryRecordForm(_ref_erf) {
       addAlphaReasons: (fAddAlphaUsed === "○") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
       ukiUsed: _showUki ? (fUkiUsed === "○") : null,
       ukiVal: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Number(fUkiVal) : null,
+      ukiPct: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? _effUkiPct : null,   // 使った加算率(%)。_elUkiAddが復元に使用 2026-07-12
       rnUsed: fRnUsed === "○",
       rnVal: (fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : null,
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
@@ -7253,8 +7261,12 @@ function EntryRecordForm(_ref_erf) {
           var _setUV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setFUkiVal(String(n)); };
           var _stepUV = function(delta) { setFUkiVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
           var _ukiOn = fUkiUsed === "○";
+          var _setUkiPct = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiPct(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 100) n = 100; if (n < 0) n = 0; setFUkiPct(String(n)); };
+          var _recoAct = fUkiPct === "" || (_ukiReco.reco != null && Number(fUkiPct) === _ukiReco.reco);   // 推奨ピルがアクティブ（""=自動=推奨）
+          var _runAct = _ukiReco.runnerUp != null && fUkiPct !== "" && Number(fUkiPct) === _ukiReco.runnerUp;
+          var _custAct = !_recoAct && !_runAct;   // 手入力（推奨/次点いずれにも一致しない％）
           return React.createElement("div", {
-            style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F0FDF4", border: "1px solid #86EFAC", fontSize: 12 }
+            style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F0FDF4", border: "1px solid #86EFAC", fontSize: 12, flexWrap: "wrap" }
           },
             React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "＋浮き足加算"),
             React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
@@ -7279,7 +7291,18 @@ function EntryRecordForm(_ref_erf) {
             ) : null,
             _ukiOn ? React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円") : null,
             _ukiOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#15803D", whiteSpace: "nowrap" } }, "→ ＋" + _fUkiAdd + "円") : null,
-            _ukiOn ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", whiteSpace: "nowrap" } }, "（半額・小数切捨て）") : null
+            _ukiOn ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+              React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "率"),
+              React.createElement("button", { type: "button", onClick: function() { setFUkiPct(""); }, title: "推奨加算率（全銘柄の浮き足〇記録" + (_ukiReco.n ? "・" + _ukiReco.n + "件" : "") + "から）。データ不足時は50%",
+                style: { padding: "2px 7px", fontSize: 11, fontWeight: _recoAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.3, whiteSpace: "nowrap", border: _recoAct ? "2px solid #15803D" : "1px solid #ddd", background: _recoAct ? "#EAF3DE" : "#fff", color: _recoAct ? "#15803D" : "#999" } },
+                "推奨 " + (_ukiReco.reco != null ? _ukiReco.reco : 50) + "%"),
+              (_ukiReco.runnerUp != null) ? React.createElement("button", { type: "button", onClick: function() { setFUkiPct(String(_ukiReco.runnerUp)); }, title: "次点の加算率",
+                style: { padding: "2px 7px", fontSize: 11, fontWeight: _runAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.3, whiteSpace: "nowrap", border: _runAct ? "2px solid #0369A1" : "1px solid #ddd", background: _runAct ? "#EFF6FF" : "#fff", color: _runAct ? "#0369A1" : "#999" } },
+                "次点 " + _ukiReco.runnerUp + "%") : null,
+              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", border: _custAct ? "2px solid #B45309" : "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff" } },
+                React.createElement("input", { type: "text", inputMode: "numeric", value: _custAct ? fUkiPct : "", onChange: function(e) { _setUkiPct(e.target.value); }, placeholder: "手入力", style: { width: 42, padding: "2px 5px", fontSize: 11, fontWeight: 700, border: "none", outline: "none", background: "transparent", textAlign: "right", color: "#B45309" } }),
+                React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", paddingRight: 4 } }, "%"))
+            ) : null
           );
         })()) : null,
         React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, borderTop: "1px dashed #CBD5E1", paddingTop: 8 } },

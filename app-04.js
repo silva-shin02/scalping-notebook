@@ -3624,6 +3624,7 @@ function _EpnCalcForm(_p) {
   var _useStateEPNrs = useState([]), _useStateEPNrsA = _slicedToArray(_useStateEPNrs, 2), nAddReasons = _useStateEPNrsA[0], setNAddReasons = _useStateEPNrsA[1];
   var _useStateEPN10 = useState("×"), _useStateEPN10A = _slicedToArray(_useStateEPN10, 2), nUkiUsed = _useStateEPN10A[0], setNUkiUsed = _useStateEPN10A[1];
   var _useStateEPN11 = useState(""), _useStateEPN11A = _slicedToArray(_useStateEPN11, 2), nUkiVal = _useStateEPN11A[0], setNUkiVal = _useStateEPN11A[1];
+  var _useStateEPN11B = useState(""), _useStateEPN11BA = _slicedToArray(_useStateEPN11B, 2), nUkiPct = _useStateEPN11BA[0], setNUkiPct = _useStateEPN11BA[1];   // 浮き足加算率(%)・""=自動(推奨) 2026-07-12
   var _useStateEPNrn1 = useState("×"), _useStateEPNrn1A = _slicedToArray(_useStateEPNrn1, 2), nRnUsed = _useStateEPNrn1A[0], setNRnUsed = _useStateEPNrn1A[1];   // RNまたぎ加算（第5のα要素 2026-07-08h・全シグナル・そのまま加算）
   var _useStateEPNrn2 = useState(""), _useStateEPNrn2A = _slicedToArray(_useStateEPNrn2, 2), nRnVal = _useStateEPNrn2A[0], setNRnVal = _useStateEPNrn2A[1];
   var _useStateEPN12 = useState(""), _useStateEPN12A = _slicedToArray(_useStateEPN12, 2), nLevel = _useStateEPN12A[0], setNLevel = _useStateEPN12A[1];
@@ -3681,14 +3682,21 @@ function _EpnCalcForm(_p) {
   // 推奨追加αは採用した基本α段の記録から算出（追加α〇・浮き足除外）。根拠を選ぶとその根拠を持つ記録に絞る＝根拠別の推奨追加α。共有ヘルパー_epnAddRecoFrom（早見カードと同一）。
   var addReco = _epnAddRecoFrom(casc, baseV, nAddReasons);
   var addV = (nAddUsed === "○") ? ((nAdd !== "" && !isNaN(Number(nAdd))) ? Number(nAdd) : (addReco && addReco.v != null ? addReco.v : 0)) : 0;
-  var ukiAddV = (showUki && nUkiUsed === "○" && nUkiVal !== "" && !isNaN(Number(nUkiVal)) && Number(nUkiVal) > 0) ? Math.floor(Number(nUkiVal) / 2) : 0;
+  // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨/次点（_elUkiPctSweep）。nUkiPct=""は自動=推奨(無ければ50%)。2026-07-12
+  var _ukiReco = useMemo(function() { return _elUkiRecoPcts(data, date); }, [data, date]);
+  var _effUkiPct = (nUkiPct !== "" && !isNaN(Number(nUkiPct))) ? Number(nUkiPct) : (_ukiReco.reco != null ? _ukiReco.reco : 50);
+  var _ukiRecoAct = nUkiPct === "" || (_ukiReco.reco != null && Number(nUkiPct) === _ukiReco.reco);
+  var _ukiRunAct = _ukiReco.runnerUp != null && nUkiPct !== "" && Number(nUkiPct) === _ukiReco.runnerUp;
+  var _ukiCustAct = !_ukiRecoAct && !_ukiRunAct;
+  var _setNUkiPct = function(val) { var v = _toHankakuNum(val); if (v === "") { setNUkiPct(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 100) n = 100; if (n < 0) n = 0; setNUkiPct(String(n)); };
+  var ukiAddV = (showUki && nUkiUsed === "○" && nUkiVal !== "" && !isNaN(Number(nUkiVal)) && Number(nUkiVal) > 0) ? Math.floor(Number(nUkiVal) * _effUkiPct / 100) : 0;
   var rnAddV = (nRnUsed === "○" && nRnVal !== "" && !isNaN(Number(nRnVal)) && Number(nRnVal) > 0) ? Number(nRnVal) : 0;   // RNまたぎ加算（そのまま加算・全シグナル 2026-07-08h）
   var effA = baseV != null ? (baseV + ukiAddV + addV + rnAddV) : null;
   var levelN = (nLevel !== "" && !isNaN(parseFloat(nLevel))) ? parseFloat(nLevel) : null;
   var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
   var _resetForm = function() {
     setEditId(null); setEditAt(null); setEditDone(false); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
-    setNBase(""); setNAddUsed("×"); setNAdd(""); setNAddReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNRnUsed("×"); setNRnVal(""); setNLevel(""); setNLineCoexist(false); setDetOpen(false);
+    setNBase(""); setNAddUsed("×"); setNAdd(""); setNAddReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNUkiPct(""); setNRnUsed("×"); setNRnVal(""); setNLevel(""); setNLineCoexist(false); setDetOpen(false);
     _kyozPrevRef.current = false;
   };
   var doSave = function() {
@@ -3696,7 +3704,7 @@ function _EpnCalcForm(_p) {
     var _item = {
       id: editId || ("epn_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7)),
       tag: nTag || null, b: nSelB || null, k: nSelK || null, f: nSelF.slice(), minBars: nMinBars.slice(),
-      base: baseV, add: addV, uki: ukiAddV, ukiVal: ukiAddV > 0 ? Number(nUkiVal) : null,
+      base: baseV, add: addV, uki: ukiAddV, ukiVal: ukiAddV > 0 ? Number(nUkiVal) : null, ukiPct: ukiAddV > 0 ? _effUkiPct : null,
       rn: rnAddV, rnUsed: nRnUsed === "○",
       addUsed: nAddUsed === "○", reasons: (nAddUsed === "○") ? nAddReasons.slice() : [],
       lineCoexist: nLineCoexist,
@@ -3717,7 +3725,7 @@ function _EpnCalcForm(_p) {
     setNAddUsed(_usd); setNAdd(hasAdd && e.add != null ? String(e.add) : "");
     setNAddReasons(Array.isArray(e.reasons) ? e.reasons.slice() : []);
     var hasUki = (Number(e.uki) || 0) > 0;
-    setNUkiUsed(hasUki ? "○" : "×"); setNUkiVal(hasUki && e.ukiVal != null ? String(e.ukiVal) : "");
+    setNUkiUsed(hasUki ? "○" : "×"); setNUkiVal(hasUki && e.ukiVal != null ? String(e.ukiVal) : ""); setNUkiPct(e.ukiPct != null ? String(e.ukiPct) : (hasUki ? "50" : ""));
     var hasRn = (e.rnUsed === true) || ((Number(e.rn) || 0) > 0);   // RNまたぎ加算の復元（rnUsed明示・旧itemはrn>0で推定）2026-07-08h
     setNRnUsed(hasRn ? "○" : "×"); setNRnVal(hasRn ? String(Number(e.rn) || 0) : "");
     setNLevel(e.level != null ? String(e.level) : "");
@@ -3881,10 +3889,17 @@ function _EpnCalcForm(_p) {
         React.createElement(_EpnChipMgr, { items: reasonsMaster, selected: nAddReasons, accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: function(nm) { setNAddReasons(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: _rsnAdd, onRename: _rsnRename, onDelete: _rsnDelete, onReorder: _rsnReorder }),
         React.createElement("div", { style: { fontSize: 9.5, color: addReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
           addReco ? ("推奨追加α +" + addReco.v + "円" + (addReco.byReason ? "（選択根拠・n=" + addReco.n + "・空欄＝自動採用）" : "（空欄＝自動採用）")) : "推奨追加α データ無し（空欄＝0円）")) : null)),
-    showUki ? _lrow("浮き足加算（前足浮き値→半額切捨て）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+    showUki ? _lrow("浮き足加算（前足浮き値×加算率）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
       _oxBtns(nUkiUsed, setNUkiUsed),
       nUkiUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nUkiVal, placeholder: "浮き値",
         onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "") { setNUkiVal(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setNUkiVal(String(n)); }, style: Object.assign({}, _inpStyle, { width: 48 }) }) : null,
+      nUkiUsed === "○" ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(""); }, title: "推奨加算率" + (_ukiReco.n ? "（" + _ukiReco.n + "件）" : "") + "・データ不足時50%",
+        style: { padding: "2px 6px", fontSize: 10, fontWeight: _ukiRecoAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.2, whiteSpace: "nowrap", border: _ukiRecoAct ? "2px solid #15803D" : "1px solid #ddd", background: _ukiRecoAct ? "#EAF3DE" : "#fff", color: _ukiRecoAct ? "#15803D" : "#999" } }, "推奨" + (_ukiReco.reco != null ? _ukiReco.reco : 50) + "%") : null,
+      (nUkiUsed === "○" && _ukiReco.runnerUp != null) ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(String(_ukiReco.runnerUp)); }, title: "次点の加算率",
+        style: { padding: "2px 6px", fontSize: 10, fontWeight: _ukiRunAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.2, whiteSpace: "nowrap", border: _ukiRunAct ? "2px solid #0369A1" : "1px solid #ddd", background: _ukiRunAct ? "#EFF6FF" : "#fff", color: _ukiRunAct ? "#0369A1" : "#999" } }, "次点" + _ukiReco.runnerUp + "%") : null,
+      nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", border: _ukiCustAct ? "2px solid #B45309" : "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff" } },
+        React.createElement("input", { type: "text", inputMode: "numeric", value: _ukiCustAct ? nUkiPct : "", onChange: function(e) { _setNUkiPct(e.target.value); }, placeholder: "率", style: { width: 30, padding: "2px 4px", fontSize: 10, fontWeight: 700, border: "none", outline: "none", background: "transparent", textAlign: "right", color: "#B45309" } }),
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", paddingRight: 3 } }, "%")) : null,
       nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null)) : null,
     _lrow("RNまたぎ加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RNまたぎ加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
       _oxBtns(nRnUsed, function(v) { setNRnUsed(v); if (v === "○" && nRnVal === "") setNRnVal("5"); }),

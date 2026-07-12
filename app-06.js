@@ -2449,26 +2449,40 @@ function _elUkiPctSweep(pool, aiOf) {
   };
   var rows = [];
   for (var P = 0; P <= 100; P += 10) rows.push({ P: P, ev: _elH2EvalByFn(pool, aiOf, _mk(P)) });
+  var _qual = function(x) { return x.ev.decided >= _EL_BASE_MIN_N && x.ev.h2Sum != null && x.ev.h2Sum > 0 && x.ev.score != null; };
   var best = null;
-  rows.forEach(function(x) { if (x.ev.decided >= _EL_BASE_MIN_N && x.ev.h2Sum != null && x.ev.h2Sum > 0 && x.ev.score != null && (!best || x.ev.score > best.ev.score)) best = x; });
-  return { rows: rows, best: best };
+  rows.forEach(function(x) { if (_qual(x) && (!best || x.ev.score > best.ev.score)) best = x; });
+  var runnerUp = null;   // 次点＝best以外で有資格の中のスコア最大 2026-07-12
+  rows.forEach(function(x) { if (best && x.P === best.P) return; if (_qual(x) && (!runnerUp || x.ev.score > runnerUp.ev.score)) runnerUp = x; });
+  return { rows: rows, best: best, runnerUp: runnerUp };
 }
-// 浮き足加算率スイープの推奨バー＋表を描画 2026-07-12。列＝浮き足%/到達率/件数(E成立)/損切り率/利確率/平均最終/スコア/想定損益(計)。★＝最良・P=50は「現行」・件数_EL_BASE_MIN_N未満は薄字「参考」。
+// フォーム/EPナビ向け: 全銘柄の浮き足〇記録(refDate未満=記録日前日まで)から推奨浮き足加算率(reco=best.P)と次点(runnerUp.P)を算出 2026-07-12。データ不足はnull（呼び出し側で50%フォールバック）。母数はシグナル総合の浮き足%分析と同一。
+function _elUkiRecoPcts(data, refDate) {
+  var all = _elCollectAllSignals(data) || [];
+  var pool = all.filter(function(r) {
+    if (!r || !r.signal) return false;
+    if (refDate && r.date && r.date >= refDate) return false;   // 記録日前日まで（当日除外＝look-ahead回避）
+    return _epIsV2(r.signal) && _elInclTotal(r.signal) && _elUkiYes(r.signal) && _elUkiVal(r.signal) != null && _elUkiVal(r.signal) > 0;
+  });
+  if (!pool.length) return { reco: null, runnerUp: null, n: 0 };
+  var sweep = _elUkiPctSweep(pool, function(r) { return _elAlphaInfo(r, data); });
+  return { reco: sweep.best ? sweep.best.P : null, runnerUp: sweep.runnerUp ? sweep.runnerUp.P : null, n: pool.length };
+}
+// 浮き足加算率スイープの推奨バー＋表を描画 2026-07-12。列＝浮き足%/到達率/件数(E成立)/損切り率/利確率/平均最終/スコア/想定損益(計)。★推奨＝最良（フォーム自動入力に使う値）・次点も表示・件数_EL_BASE_MIN_N未満は薄字「参考」。
 function _elUkiPctSweepNode(sweep) {
-  var rows = sweep.rows, best = sweep.best;
+  var rows = sweep.rows, best = sweep.best, runnerUp = sweep.runnerUp;
   var _dash = React.createElement("span", { style: { color: "#bbb" } }, "—");
-  var cur = null; rows.forEach(function(x) { if (x.P === 50) cur = x; });
   var _reco = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: best ? "#0369A1" : "#94A3B8" } },
     best
       ? React.createElement("span", null, "推奨 浮き足加算率 ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, best.P + "%"),
           "（損切り" + Math.round((best.ev.stopRate || 0) * 100) + "%・利確" + Math.round((best.ev.takeRate || 0) * 100) + "%・想定損益計" + _elPnlFmt(Math.round(best.ev.h2Sum)) + "・" + best.ev.decided + "件）",
-          (cur && cur.ev.score != null) ? React.createElement("span", { style: { color: "#64748B", fontWeight: 600 } }, "　｜　現行50%＝スコア" + Math.round(cur.ev.score * 100) + (cur.ev.h2Sum != null ? ("・想定" + _elPnlFmt(Math.round(cur.ev.h2Sum))) : "")) : null)
-      : "推奨：件数" + _EL_BASE_MIN_N + "以上で想定損益プラスの加算率は出ていません（データ不足／現行50%で十分の傾向）");
+          runnerUp ? React.createElement("span", { style: { color: "#64748B", fontWeight: 600 } }, "　｜　次点 " + runnerUp.P + "%（スコア" + Math.round(runnerUp.ev.score * 100) + "）") : null)
+      : "推奨：件数" + _EL_BASE_MIN_N + "以上で想定損益プラスの加算率は出ていません（データ不足／50%で十分の傾向）");
   var _trs = rows.map(function(x) {
-    var e = x.ev, isBest = !!(best && x.P === best.P), isCur = x.P === 50, low = e.decided < _EL_BASE_MIN_N;
-    var bg = isBest ? "#FEF3C7" : (isCur ? "#EFF6FF" : null);
-    var lblColor = isBest ? "#B45309" : (isCur ? "#0369A1" : "#9A3412");
-    var label = React.createElement("span", { style: { fontWeight: 700, color: lblColor } }, x.P + "%" + (isBest ? " ★" : "") + (isCur ? " 現行" : "") + (low ? " 参考" : ""));
+    var e = x.ev, isBest = !!(best && x.P === best.P), isRunner = !!(runnerUp && x.P === runnerUp.P), low = e.decided < _EL_BASE_MIN_N;
+    var bg = isBest ? "#FEF3C7" : (isRunner ? "#EFF6FF" : null);
+    var lblColor = isBest ? "#B45309" : (isRunner ? "#0369A1" : "#9A3412");
+    var label = React.createElement("span", { style: { fontWeight: 700, color: lblColor } }, x.P + "%" + (isBest ? " ★推奨" : "") + (isRunner ? " 次点" : "") + (low ? " 参考" : ""));
     return React.createElement("tr", { key: x.P, style: Object.assign({}, bg ? { background: bg } : {}, low ? { opacity: 0.5 } : {}) },
       _elv2Td(label, { textAlign: "left", paddingLeft: 8 }),
       _elv2Td(e.eRate != null ? _elPctCell(e.eRate) : _dash),
@@ -2490,7 +2504,7 @@ function _elUkiPctBoardV2(recs, aiOf) {
   var sweep = _elUkiPctSweep(pool, aiOf);
   return React.createElement(React.Fragment, null,
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px" } },
-      "母数＝全銘柄の浮き足〇記録 " + pool.length + "件（浮き値あり）。基本α・追加αは実際に採用した値のまま、浮き足の加算だけを0〜100%（10刻み）で振り、最終損益で評価。P=50%が現行ルール（＝半額切捨て）で実績と一致。★＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大。"),
+      "母数＝全銘柄の浮き足〇記録 " + pool.length + "件（浮き値あり）。各記録は実際に使った加算率で採用αに畳み込み済み。ここでは浮き足の加算だけを0〜100%（10刻み）で振り直して最終損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大＝新規記録の浮き足加算の自動入力に使う推奨率（次点も表示）。"),
     _elUkiPctSweepNode(sweep));
 }
 
