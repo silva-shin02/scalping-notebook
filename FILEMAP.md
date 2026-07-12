@@ -45,6 +45,14 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-13c 推奨合計α（追加α〇局面）新セクション＋★色分け（赤/青）＋頻度ゲート（≤4営業日/回）＋頻度数字表記
+- **推奨合計α（新セクション・app-06）**: ユーザー要望「追加α〇記録向けの推奨基本α分析」→AskUserQuestionで「基本/追加を分けず合計α1本・0〜20円・表示のみ・追加αサブタブに新設」に確定。新規=`_EL_TOTAL_ALPHAS`(0〜20)・`_elTotalAlphaPick(pool,aiOf)`（母数=追加α〇[浮き足〇/RN〇除外]・各合計α0〜20を前提損切り値で一律評価・_elH2EvalByFn手じまい基準・★選定は_elBaseAlphaPickと厳密同一条件式＋平均最終損益最大）・`_elTotalAlphaSectionV2(recs,aiOf,holiSet)`（結論バー＋母数内訳＋合計α別総当たり表）。配線=追加αゾーン先頭に`_secH/_detBody("al_totA", _alReasonRecsFull)`。**表示のみ＝フォーム/EPナビ/シミュ/推奨値の自動入力には非配線**（純加算・0削除・敵対的レビュー2観点[正しさ/副作用なし]でPASS＝既存推奨は1円も不変）。母数は下の追加α詳細と件数一致。
+- **★色分け（赤/青・全推奨α詳細表）**: ユーザー指定「濃い字の中での推奨=赤★・薄い字でも推奨があれば青★」。新helper`_elStarNode(status)`＝status ok→赤#C0392B（条件充足＝濃い字の推奨）／na→青#0369A1（条件緩和の参考推奨）。適用=_elBaseAlphaDetailV2/_elBaseAlphaSummary/_elAddAlphaDetailV2(日付別主表)/_elTotalAlphaSectionV2。red★は常にpass行(濃)に載る（ok=strict通過）・blue★は緩和pick(na)に載る。
+- **頻度ゲート（≤4営業日/回・★選定に組込・app-06）**: ユーザー指定「理想は4営業日以内に1回」。`_EL_FREQ_MAX=4`。_elBaseAlphaPick/_elTotalAlphaPick/_elAddAlphaPickDate の選定に頻度条件を追加＝活動営業日span(`_elBizSpanDays(pool)`・holiSet無し平日ベース)÷そのαの到達実日数(`_elEnteredDays`)≤4。**フォールバック順=損切り20%＋頻度≤4(ok) → 損切り30%＋頻度≤4(na) → 頻度ゲート解除(na)**＝頻度の理想を最後まで温存。**不変条件（検証済）＝第3段`_selFrom(0.3,false)`は旧na段`_selFrom(0.3)`とバイト同一→頻度ゲートで「none」への退行は起きない**（推奨が消えることはなく、頻度不足なら青★の参考に降格するだけ）。これは_elBaseAlphaPick経由で全画面（日別ページ/取引・銘柄別テーブル/フォーム/EPナビ/シミュ）の推奨に波及＝疎な（めったに入れない）高αは青★に落ち、頻度の高いαが赤★で選ばれやすくなる。
+- **頻度セル数字のみ表記（`_elFreqCell`）**: ユーザー指定「『3.8』とか数字のみ」。「X営業日に1回」→数字のみ（10未満は小数1桁・以上は整数・ツールチップに意味を残す）。全詳細表の頻度列に波及。
+- 条件文言/凡例更新: 各詳細表のconcl na/banner/insight/主表ラベルに「頻度≤4営業日/回」と「★赤=条件充足／★青=緩和参考」を追記。
+- 検証: esprima＋実マウント（console 0）＋単体＝★色(ok赤rgb(192,57,43)/na青rgb(3,105,161))・頻度セル"3.8"・**頻度ゲート切り分け（同じ勝ちトレードで密[毎営業日到達]=ok/赤★・疎[4日集中でfreq5.5]=na/青★）**・合計αpick(母数22=〇24−浮き足2・0〜20レンジ)・3詳細表レンダー(頻度条件文言/★/凡例)全PASS。敵対的レビュー(正しさ/副作用)PASS。sw.js APP_CACHE v108→**v109**。
+
 ### 2026-07-13b 推奨追加αを「日付別カウンターファクタル（各記録日の推奨基本α＋加算X・手仕舞い基準）」へ全面刷新＋②追加αタブに根拠セレクタ・詳細データ表
 - ユーザー要望「それぞれの記録での推奨基本α値（新★基準で再計算されたもの）に何円を追加していれば手仕舞いでこうだった、という分析」＋「基本αと同じような分析・全体と根拠別・詳細データ表」。AskUserQuestionで確定＝★基準は基本αと完全統一／範囲0〜10円（0円=足さない基準行）／固定スイープは参考で残す／根拠別UI=案Aセレクタ／旧④⑤根拠別は撤去／日付別表（旧H1版）は主表に昇格。
 - **新コア（app-06・_elAddAlphaRecoScoreの直後）**: `_EL_ADD_SWEEP_MAX=10`・**`_elAddAlphaPickDate(pool, aiOf, recoFn, baseAlpha)`**＝X=0〜10を「実効α=recoFn(記録日)+X」で_elH2EvalByFn（手仕舞い）＋_elAlphaEvalByFn（H1参考）並走→基本αと同一条件式（到達≥50%・損切り(手じまい)≤20%・E成立≥20→10緩和・黒字→Σ最終損益最大・同点E成立多→小X・緩和30%=na）。★X=0→improved:false＋**zeroBest:true**（「足さない方が良い」）。返り値旧互換＋{zeroBest,status,minN,nBase,decided,takeRate,h2Sum,avgH2,h2Sum2,sweepDate}。**`_elRecoFnCached(recs,aiOf)`**＝recoFn（日付時点推奨基本α）のモジュールLRUキャッシュ（内容署名・上限24）。**`_elAddAlphaReco(recs,aiOf,baseAlpha,fullRecs)`＝新正本のラッパー**（fullRecs=recoFn母数・全呼び出し元が新方式に）。旧・段階選抜は**`_elAddAlphaRecoScore`**に改名保存（「旧基準 +X円」チップ用・_elOldPickChipにpfx引数追加）。
