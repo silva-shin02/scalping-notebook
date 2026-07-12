@@ -406,28 +406,35 @@ function _elOsHistV2(_ref) {
   var _histClickable = !!(_histRecs && _histAiOf);
   var cm = _elOsCountMap(vals);
   var xcm = _elOsCountMap(_ref.xVals || []);   // 期待度×(見送り)記録のOS最高値分布＝棒の中で「×見送り」割合を点線枠で示す用 2026-07-01→点線枠化2026-07-05
+  // 同時表示（2026-07-13 ユーザー承認③・案A重ね棒/濃淡逆）: rawVals=生の最高OS(_elOsMaxAll)の配列を渡すと、生＝色付きの棒（背面・全幅）／実現(vals)＝白地に濃枠の棒（前面・細め）で同じ列に重ねる。
+  // rawVals無しの呼び出し（未達タブ等）は従来どおり単系列。統計・棒クリックの取引一覧・×見送り枠は実現(vals)基準のまま。
+  var rcm = _elOsCountMap(_ref.rawVals || []);
+  var _dual = !!(_ref.rawVals && _ref.rawVals.length);
   var _uE = useState(false), exp = _uE[0], setExp = _uE[1];
   var _uSel = useState(null), _selKey = _uSel[0], _setSelKey = _uSel[1];
-  if (!cm.tot) return React.createElement("div", { style: { color: "#ccc", fontSize: 11, padding: "6px 0" } }, "—");
+  if (!cm.tot && !rcm.tot) return React.createElement("div", { style: { color: "#ccc", fontSize: 11, padding: "6px 0" } }, "—");
   // マーカー数値（推奨基本α/＋追加α/＋損切り）を先に取得＝25円以上の展開時、データの無いマーカー値にもゼロ枠を用意して▲を載せるため。keyは_EL_OS_TOP/expに依存するので後段で算出 2026-07-01。
   var markVal = (_ref.markVal != null && !isNaN(Number(_ref.markVal))) ? Math.round(Number(_ref.markVal)) : null;
   var markVal2 = (_ref.markVal2 != null && !isNaN(Number(_ref.markVal2))) ? Math.round(Number(_ref.markVal2)) : null;
   var markVal3 = (_ref.markVal3 != null && !isNaN(Number(_ref.markVal3))) ? Math.round(Number(_ref.markVal3)) : null;
   var _xTopTot = 0; for (var _xtk in xcm.vc) { if (xcm.vc.hasOwnProperty(_xtk) && Number(_xtk) >= _EL_OS_TOP) _xTopTot += xcm.vc[_xtk]; }
+  var _rTopTot = 0; for (var _rtk in rcm.vc) { if (rcm.vc.hasOwnProperty(_rtk) && Number(_rtk) >= _EL_OS_TOP) _rTopTot += rcm.vc[_rtk]; }
   var bars = [];
-  if (includeNeg && cm.neg) bars.push({ key: "neg", x: "下落", full: "下落", cnt: cm.neg, xcnt: xcm.neg || 0, color: "#6B7280", band: true });
-  for (var v = 0; v < _EL_OS_TOP; v++) bars.push({ key: String(v), x: String(v), full: v + "円", cnt: cm.vc[v] || 0, xcnt: xcm.vc[v] || 0, color: _elOsShade(v) });   // 0〜24を1円刻みの個別バーに（旧: 0〜4は帯）2026-07-03
-  var topKeys = []; for (var tk in cm.vc) { if (cm.vc.hasOwnProperty(tk) && Number(tk) >= _EL_OS_TOP) topKeys.push(Number(tk)); }
-  topKeys.sort(function(a, b) { return a - b; });
-  var topTot = 0; topKeys.forEach(function(k) { topTot += cm.vc[k]; });
+  if (includeNeg && (cm.neg || (_dual && rcm.neg))) bars.push({ key: "neg", x: "下落", full: "下落", cnt: cm.neg, rcnt: rcm.neg || 0, xcnt: xcm.neg || 0, color: "#6B7280", band: true });
+  for (var v = 0; v < _EL_OS_TOP; v++) bars.push({ key: String(v), x: String(v), full: v + "円", cnt: cm.vc[v] || 0, rcnt: rcm.vc[v] || 0, xcnt: xcm.vc[v] || 0, color: _elOsShade(v) });   // 0〜24を1円刻みの個別バーに（旧: 0〜4は帯）2026-07-03
+  var _topSet0 = {};
+  for (var tk in cm.vc) { if (cm.vc.hasOwnProperty(tk) && Number(tk) >= _EL_OS_TOP) _topSet0[Number(tk)] = 1; }
+  for (var rk0 in rcm.vc) { if (rcm.vc.hasOwnProperty(rk0) && Number(rk0) >= _EL_OS_TOP) _topSet0[Number(rk0)] = 1; }   // 生だけに存在する高OSのバーも展開に含める（同時表示 2026-07-13）
+  var topKeys = Object.keys(_topSet0).map(Number).sort(function(a, b) { return a - b; });
+  var topTot = 0; topKeys.forEach(function(k) { topTot += (cm.vc[k] || 0); });
   if (exp && topKeys.length) {
     var _topSet = {}; topKeys.forEach(function(k) { _topSet[k] = 1; });
     [markVal, markVal2, markVal3].forEach(function(mv) { if (mv != null && mv >= _EL_OS_TOP) _topSet[mv] = 1; });   // マーカー値(≥25)はデータが無くてもゼロ本数の枠を用意して▲を載せる 2026-07-01
-    Object.keys(_topSet).map(Number).sort(function(a, b) { return a - b; }).forEach(function(k) { bars.push({ key: "t" + k, x: String(k), full: k + "円", cnt: cm.vc[k] || 0, xcnt: xcm.vc[k] || 0, color: _elOsShade(_EL_OS_TOP), collapse: true }); });
+    Object.keys(_topSet).map(Number).sort(function(a, b) { return a - b; }).forEach(function(k) { bars.push({ key: "t" + k, x: String(k), full: k + "円", cnt: cm.vc[k] || 0, rcnt: rcm.vc[k] || 0, xcnt: xcm.vc[k] || 0, color: _elOsShade(_EL_OS_TOP), collapse: true }); });
   } else {
-    bars.push({ key: "25+", x: "25〜", full: "25円〜", cnt: topTot, xcnt: _xTopTot, color: _elOsBucketColor("25+"), band: true, expand: topKeys.length > 0 });
+    bars.push({ key: "25+", x: "25〜", full: "25円〜", cnt: topTot, rcnt: _rTopTot, xcnt: _xTopTot, color: _elOsBucketColor("25+"), band: true, expand: topKeys.length > 0 });
   }
-  var maxC = 1; bars.forEach(function(b) { if (b.cnt > maxC) maxC = b.cnt; });
+  var maxC = 1; bars.forEach(function(b) { if (b.cnt > maxC) maxC = b.cnt; if (_dual && b.rcnt > maxC) maxC = b.rcnt; });
   var _xTot = (_ref.xVals || []).length;   // 期待度×(見送り)の総件数（凡例用）
   // マーカーのbucketキー算出（数値markVal/2/3は上部で取得済。keyは_EL_OS_TOP/expに依存＝ここで算出）。"0".."24" / 25+ / 展開時"t"+値。
   var markKey = null;
@@ -447,7 +454,7 @@ function _elOsHistV2(_ref) {
   }
   var mark3Label = _ref.mark3Label || "推奨基本α＋追加α＋損切り値";   // 赤マークの意味ラベル（〇のみ＝基本α＋追加α＋損切り／×+未選択＝基本α＋損切り）2026-07-01
   var colNodes = bars.map(function(b) {
-    var pct = Math.round(b.cnt / cm.tot * 100);
+    var pct = cm.tot ? Math.round(b.cnt / cm.tot * 100) : 0;
     var _isSel = _histClickable && _selKey === b.key;
     var _isMark = markKey != null && b.key === markKey;
     var _isMark2 = markKey2 != null && b.key === markKey2;
@@ -455,12 +462,33 @@ function _elOsHistV2(_ref) {
     var click = _histClickable
       ? function() { _setSelKey(_selKey === b.key ? null : b.key); }
       : (b.expand ? function() { setExp(true); } : (b.collapse ? function() { setExp(false); } : null));
-    return React.createElement("div", { key: b.key, title: b.full + ": " + b.cnt + "件 (" + pct + "%)" + (b.xcnt ? "・うち期待度×(見送り)" + b.xcnt + "件" : "") + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_isMark2 ? "（推奨基本α＋追加α " + markVal2 + "円）" : "") + (_isMark3 ? "（" + mark3Label + " " + markVal3 + "円）" : "") + (_histClickable ? "（クリックで取引一覧）" : ""), onClick: click,
-        style: { flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", cursor: click ? "pointer" : "default" } },
-      React.createElement("div", { style: { fontSize: 10, color: _isSel ? "#9A3412" : (b.cnt ? "#555" : "#ccc"), fontWeight: _isSel ? 700 : 400, marginBottom: 2, lineHeight: 1 } }, b.cnt),
-      React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? "transparent" : "#eee", borderRadius: "2px 2px 0 0", overflow: "hidden", outline: _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (_isMark2 ? "2px solid #EA580C" : (_isMark3 ? "2px solid #C0392B" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none")))), outlineOffset: 1 } },
+    var _outline = _isSel ? "2px solid #9A3412" : (_isMark ? "2px solid #0369A1" : (_isMark2 ? "2px solid #EA580C" : (_isMark3 ? "2px solid #C0392B" : (b.band ? "1.5px dashed rgba(120,53,15,0.5)" : "none"))));
+    var _title = b.full + ": " + (_dual ? ("実現" + b.cnt + "件・生" + (b.rcnt || 0) + "件") : (b.cnt + "件 (" + pct + "%)")) + (b.xcnt ? "・うち期待度×(見送り)" + b.xcnt + "件" : "") + (_isMark ? "（現在の推奨基本α " + markVal + "円）" : "") + (_isMark2 ? "（推奨基本α＋追加α " + markVal2 + "円）" : "") + (_isMark3 ? "（" + mark3Label + " " + markVal3 + "円）" : "") + (_histClickable ? "（クリックで取引一覧＝実現OS基準）" : "");
+    var cntNode = _dual
+      ? React.createElement("div", { style: { marginBottom: 2, lineHeight: 1.05, textAlign: "center" } },
+          React.createElement("div", { style: { fontSize: 10, color: _isSel ? "#9A3412" : (b.cnt ? "#9A3412" : "#ccc"), fontWeight: 700 } }, b.cnt),
+          React.createElement("div", { style: { fontSize: 8.5, color: b.rcnt ? "#999" : "#ddd" } }, b.rcnt || 0))
+      : React.createElement("div", { style: { fontSize: 10, color: _isSel ? "#9A3412" : (b.cnt ? "#555" : "#ccc"), fontWeight: _isSel ? 700 : 400, marginBottom: 2, lineHeight: 1 } }, b.cnt);
+    var barNode;
+    if (_dual) {
+      // 案A重ね棒（濃淡逆・2026-07-13）: 背面=生（色付き・全幅）／前面=実現（白地＋濃枠・細め）。×見送りの点線は実現バー内の割合表示。
+      var hR = b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 0;
+      var hG = b.rcnt ? Math.max(2, Math.round(b.rcnt / maxC * barH)) : 0;
+      var hBox = Math.max(hR, hG, 2);
+      var xPct = (b.cnt && b.xcnt) ? Math.min(100, Math.round(b.xcnt / b.cnt * 100)) : 0;
+      barNode = React.createElement("div", { style: { width: "100%", height: hBox + "px", position: "relative", outline: _outline, outlineOffset: 1 } },
+        hG ? React.createElement("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, height: hG + "px", background: b.color, borderRadius: "2px 2px 0 0" } }) : null,
+        hR ? React.createElement("div", { style: { position: "absolute", bottom: 0, left: "18%", width: "64%", height: hR + "px", background: "#fff", border: "1.5px solid #9A3412", boxSizing: "border-box", borderRadius: "2px 2px 0 0" } },
+          xPct ? React.createElement("div", { title: "期待度×（見送り）" + b.xcnt + "件", style: { width: "100%", height: xPct + "%", boxSizing: "border-box", borderBottom: "1.5px dotted #9A3412", display: "flex", alignItems: "center", justifyContent: "center" } }, React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", lineHeight: 1 } }, b.xcnt)) : null) : null,
+        (!hG && !hR) ? React.createElement("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "#eee" } }) : null);
+    } else {
+      barNode = React.createElement("div", { style: { width: "100%", height: (b.cnt ? Math.max(2, Math.round(b.cnt / maxC * barH)) : 2) + "px", background: b.cnt ? "transparent" : "#eee", borderRadius: "2px 2px 0 0", overflow: "hidden", outline: _outline, outlineOffset: 1 } },
         (b.cnt && b.xcnt) ? React.createElement("div", { title: "期待度×（見送り）" + b.xcnt + "件", style: { width: "100%", height: Math.min(100, Math.round(b.xcnt / b.cnt * 100)) + "%", boxSizing: "border-box", border: "1.5px dotted #9A3412", borderRadius: "2px 2px 0 0", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", lineHeight: 1 } }, b.xcnt)) : null,
-        b.cnt ? React.createElement("div", { style: { width: "100%", height: (100 - (b.xcnt ? Math.min(100, Math.round(b.xcnt / b.cnt * 100)) : 0)) + "%", background: b.color } }) : null));
+        b.cnt ? React.createElement("div", { style: { width: "100%", height: (100 - (b.xcnt ? Math.min(100, Math.round(b.xcnt / b.cnt * 100)) : 0)) + "%", background: b.color } }) : null);
+    }
+    return React.createElement("div", { key: b.key, title: _title, onClick: click,
+        style: { flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", cursor: click ? "pointer" : "default" } },
+      cntNode, barNode);
   });
   var xNodes = bars.map(function(b) {
     var _isMark = markKey != null && b.key === markKey;
@@ -500,10 +528,15 @@ function _elOsHistV2(_ref) {
   var _xCap = _xTot > 0 ? React.createElement("div", { style: { fontSize: 9, color: "#6B7280", fontWeight: 700, marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4 } },
     React.createElement("span", { style: { display: "inline-block", width: 14, height: 9, borderRadius: 2, boxSizing: "border-box", backgroundColor: "transparent", border: "1.5px dotted #9A3412" } }),
     "点線枠＝期待度×（見送り） " + _xTot + "件・枠外 " + (cm.tot - _xTot) + "件（この母数のうち・棒内の割合で表示）") : null;
+  var _dualCap = _dual ? React.createElement("div", { style: { fontSize: 9, color: "#6B7280", fontWeight: 700, marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+    React.createElement("span", { style: { display: "inline-block", width: 14, height: 9, borderRadius: 2, background: "#D97706" } }),
+    "色棒＝生の最高OS（" + rcm.tot + "件）",
+    React.createElement("span", { style: { display: "inline-block", width: 10, height: 9, borderRadius: 2, background: "#fff", border: "1.5px solid #9A3412", boxSizing: "border-box", marginLeft: 6 } }),
+    "白枠＝実現OS（×/損切り打ち切り・" + cm.tot + "件）・数字は上＝実現／下＝生") : null;
   return React.createElement("div", { style: { width: _ref.w || "100%", minWidth: 0 } },
-    React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 2, height: (barH + 14) + "px" } }, colNodes),
+    React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 2, height: (barH + (_dual ? 26 : 14)) + "px" } }, colNodes),
     React.createElement("div", { style: { display: "flex", gap: 2, borderTop: "1.5px solid #e0ddd6", paddingTop: 3 } }, xNodes),
-    toggle, markCap, _xCap, _selEl);
+    toggle, _dualCap, markCap, _xCap, _selEl);
 }
 // 「💡 読み取り」欄。items=文字列/ノードの配列（null/falseは除外）。空ならnull。
 // opts.title=見出しに添える分析名・opts.note=末尾の薄字注記。
@@ -1253,7 +1286,10 @@ function _elBucketLabel(key, gran) {
 }
 // 推奨基本αの選定パラメータ【再設計 2026-06-22】。後で調整可。
 var _EL_BASE_MIN_N = 10;          // 最低エントリー件数（H1結果が判定できる記録数 scN）の絶対下限。未満のαは推奨対象外＝薄い標本の偶然採用を防ぐ。2026-07-08 3→10（推奨基本α/追加α/損切り共通の下限・件数の信頼性重視・ユーザー要望＝全推奨一律。10件未満は(仮)/参考表示に）。
-var _EL_BASE_MIN_FRAC = 0.5;     // 件数フロア（実データ連動）: 最も件数(scN)の多いαの何割以上を要求するか。高αの薄い標本(選抜バイアスでスコア上振れ)を除外 2026-06-22b。後で調整可。
+var _EL_BASE_MIN_FRAC = 0.5;     // 件数フロア（実データ連動）: 最も件数(scN)の多いαの何割以上を要求するか。高αの薄い標本(選抜バイアスでスコア上振れ)を除外 2026-06-22b。後で調整可。※2026-07-13以降は旧スコア方式(_elBaseAlphaPickScore)のみで使用。
+var _EL_BASE_N_PREF = 20;        // ★選定の有効件数(E成立)フロア第1候補（2026-07-13 条件式化・ユーザー方針=20件、無ければ_EL_BASE_MIN_N(10件)へ自動緩和）。
+var _EL_BASE_MAX_STOPRATE = 0.20;   // ★選定の損切り率(手じまい基準)上限（2026-07-13 ユーザー方針=20%以下）。
+var _EL_BASE_MAX_STOPRATE_2 = 0.30; // 該当なし時の緩和上限（30%・status=na参考）。
 var _EL_BASE_MIN_ERATE = 0.5;    // 到達率フロア: EP到達率(OS3まで)がこの値未満のαは推奨対象外＝約定しにくい高αを除外（ユーザー方針 2026-06-22c）。後で調整可。
 var _EL_BASE_W_STOP = 0.7;       // 合成スコアの重み: 損切り回避 (1−損切り率)。
 var _EL_BASE_W_H1 = 0.3;         // 合成スコアの重み: H1勝率。
@@ -1522,7 +1558,9 @@ function _elReco2Node(text, fontSize, color) {
 // 推奨基本α(5〜20)を選定【2026-06-22c】: 件数フロア＝最大件数(scN)×_EL_BASE_MIN_FRAC（最低_EL_BASE_MIN_N件）かつ 到達率≥_EL_BASE_MIN_ERATE のαから、合成スコア(0.7×(1−損切り率)+0.3×H1勝率)が最大。
 // 高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアスでスコア上振れ)」になるため、件数フロア＋到達率フロアで薄い高α・約定しにくい高αを除外＝厚く約定しやすい標本の中で最良のαを選ぶ。同点は件数最大→低α。フロア皆無なら件数(scN)最大のαを参考(status="na")・entered皆無は"none"。
 // 返り値 { alpha, score, stopRate, h1win, eRate, entered, scN, pnl, epPnl, stopN, ewin, status('ok'|'na'|'none'), sweep, minN(=採用した件数フロア) }。
-function _elBaseAlphaPick(recs, aiOf) {
+// 旧・合成スコア方式の選定（〜2026-07-12の_elBaseAlphaPick本体）。2026-07-13に★基準を「条件式＋Σ最終損益」へ刷新した際、
+// 乖離確認用の「旧基準」チップ（結論バー/KPIカード）のために保存。ロジックは刷新前と同一（0.7×損切り回避+0.3×H1勝率・H1基準）。
+function _elBaseAlphaPickScore(recs, aiOf) {
   if (!recs || !recs.length) return null;
   // 推奨基本αの母数: 追加α=〇(上乗せあり)以外＝×(不要)＋未選択(未判断)の記録。未選択はaddAlphaVal無し＝基本αのみの記録なので母数に算入する（〇だけ除外）2026-06-24。
   // 浮き足〇（_elUkiYes）も除外＝浮き足加算で嵩上げされる特殊状況の記録を素の基本α評価に混ぜない（旧: 追加α〇として除外されていた挙動を移行後も維持）2026-07-03。
@@ -1553,6 +1591,53 @@ function _elBaseAlphaPick(recs, aiOf) {
   if (!withEntry.length) return { alpha: null, score: null, stopRate: null, h1win: null, eRate: null, entered: 0, scN: 0, pnl: null, epPnl: null, stopN: null, ewin: null, status: "none", sweep: sweep, minN: floorN, alpha2: null, score2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null };
   withEntry.sort(function(x, y) { return (x.scN - y.scN) || (x.a - y.a); });
   return _ret(withEntry[withEntry.length - 1], "na");
+}
+// ★選定【2026-07-13 全面刷新・ユーザー承認②】: 母数=素の記録（追加α〇/浮き足〇/RN〇除外・従来どおり）。各α(5〜20円)を最終損益(手じまい)基準 _elH2EvalByFn で評価し、
+// 「到達率≥_EL_BASE_MIN_ERATE(50%)・損切り率(手じまい基準=EP/H1/H2いずれか)≤_EL_BASE_MAX_STOPRATE(20%)・E成立≥_EL_BASE_N_PREF(20件・無ければ_EL_BASE_MIN_N=10件へ自動緩和)・Σ最終損益>0」
+// を満たすαの中でΣ最終損益（手じまい合計）が最大のものを推奨（同点はE成立多→低α）。該当なしは損切り率≤30%へ緩和して参考(status na)→それも無ければ従来どおり件数最大のαを参考。
+// 次点=推奨より大きいαで同条件Σ最大（従来方針を踏襲）。旧スコア方式は_elBaseAlphaPickScoreに保存（「旧基準」チップで併記）。
+// 返り値shapeは旧版互換（score/h1win/scN/pnl等はH1基準の値を同αで併記＝既存表示の互換用）＋新フィールド decided(E成立)/takeRate(利確率)/h2Sum(Σ最終損益)/avgH2/h2sweep/h2Sum2。stopRate/stopRate2は手じまい基準に変更。
+function _elBaseAlphaPick(recs, aiOf) {
+  if (!recs || !recs.length) return null;
+  recs = recs.filter(function(r) { return r && !_elAddAlphaYes(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+  if (!recs.length) return null;
+  var sweep = _EL_BASE_ALPHAS.map(function(a) { return _elBaseAlphaEval(recs, aiOf, a); });
+  var h2sweep = _EL_BASE_ALPHAS.map(function(a) { var e = _elH2EvalByFn(recs, aiOf, function() { return a; }); e.a = a; return e; });
+  var h1At = {}; sweep.forEach(function(e) { h1At[e.a] = e; });
+  var _mk = function(p, status, floorUsed) {
+    var h1 = h1At[p.a] || {};
+    return { alpha: p.a, score: (h1.score != null ? h1.score : null), stopRate: p.stopRate, h1win: (h1.h1win != null ? h1.h1win : null), eRate: p.eRate, entered: p.entered, scN: (h1.scN != null ? h1.scN : 0), pnl: (h1.pnl != null ? h1.pnl : null), epPnl: (h1.epPnl != null ? h1.epPnl : null), stopN: p.stopN, ewin: (h1.ewin != null ? h1.ewin : null), status: status, sweep: sweep, h2sweep: h2sweep, minN: floorUsed, decided: p.decided, takeRate: p.takeRate, h2Sum: p.h2Sum, avgH2: p.avgH2, alpha2: null, score2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null, h2Sum2: null };
+  };
+  var _selFrom = function(maxStop) {
+    var floors = [_EL_BASE_N_PREF, _EL_BASE_MIN_N];
+    for (var fi = 0; fi < floors.length; fi++) {
+      var f = floors[fi];
+      var cand = h2sweep.filter(function(e) { return e.decided >= f && e.eRate != null && e.eRate >= _EL_BASE_MIN_ERATE && e.stopRate != null && e.stopRate <= maxStop && e.h2Sum != null && e.h2Sum > 0; });
+      if (cand.length) return { cand: cand, floor: f };
+    }
+    return null;
+  };
+  var sel = _selFrom(_EL_BASE_MAX_STOPRATE), status = "ok";
+  if (!sel) { sel = _selFrom(_EL_BASE_MAX_STOPRATE_2); if (sel) status = "na"; }
+  if (sel) {
+    var byBest = function(x, y) { return (x.h2Sum - y.h2Sum) || (x.decided - y.decided) || (y.a - x.a); };
+    var cand2 = sel.cand.slice().sort(byBest);
+    var picked = cand2[cand2.length - 1];
+    var larger = cand2.filter(function(e) { return e.a > picked.a; }).sort(byBest);
+    var p2 = larger.length ? larger[larger.length - 1] : null;
+    var rk = _mk(picked, status, sel.floor);
+    if (p2) { rk.alpha2 = p2.a; rk.score2 = (h1At[p2.a] || {}).score; rk.stopRate2 = p2.stopRate; rk.h1win2 = (h1At[p2.a] || {}).h1win; rk.eRate2 = p2.eRate; rk.scN2 = p2.decided; rk.h2Sum2 = p2.h2Sum; }
+    return rk;
+  }
+  var withEntry = h2sweep.filter(function(e) { return e.entered > 0; });
+  if (!withEntry.length) return { alpha: null, score: null, stopRate: null, h1win: null, eRate: null, entered: 0, scN: 0, pnl: null, epPnl: null, stopN: null, ewin: null, status: "none", sweep: sweep, h2sweep: h2sweep, minN: _EL_BASE_MIN_N, decided: 0, takeRate: null, h2Sum: null, avgH2: null, alpha2: null, score2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null, h2Sum2: null };
+  withEntry.sort(function(x, y) { return (x.decided - y.decided) || (x.a - y.a); });
+  return _mk(withEntry[withEntry.length - 1], "na", _EL_BASE_MIN_N);
+}
+// 「旧基準」チップ（2026-07-13）: ★基準刷新の乖離確認用＝旧・合成スコア方式(_elBaseAlphaPickScore)なら選ばれていた値を、新推奨と異なる時だけグレーで併記。
+function _elOldPickChip(newVal, oldVal) {
+  if (oldVal == null || newVal == null || oldVal === newVal) return null;
+  return React.createElement("span", { title: "旧・合成スコア方式（0.7×損切り回避+0.3×H1勝率・H1基準・〜2026-07-12）ならこの値。新基準（条件式＋Σ最終損益）への移行で乖離を確認する用", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "1px 6px", marginLeft: 4, verticalAlign: "middle", color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1" } }, "旧基準 " + oldVal + "円");
 }
 // 推奨追加α【再設計 2026-06-29d／ユーザー方針＝損切り回避・段階フォールバック】: 基本αに +1〜+_EL_BASE_ADD_MAX(合計≤50)を上乗せした合計αを〇プールに当て、
 // まず「黒字(想定損益ΣH1>0) かつ scN≥_EL_BASE_MIN_N」の加算に絞り（黒字は全段共通の必須条件＝赤字の上乗せは推奨しない）、損切り回避の優先順で選ぶ:
@@ -1687,16 +1772,16 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
       _elv2Td(b.label, { fontWeight: 700, color: "#9A3412" }),
       _elv2Td(React.createElement("div", { style: { lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: p.status === "na" ? "#B45309" : "#0369A1" } }, p.alpha + "円", p.status === "na" ? React.createElement("span", { style: { fontSize: 8, fontWeight: 700, marginLeft: 2 } }, "参考") : null), _elReco2Node(p.alpha2 != null ? (p.alpha2 + "円") : null, 11, p.status === "na" ? "#B45309" : "#0369A1"))),
       _elv2Td(p.stopRate == null ? "—" : _elStopRateCell(p.stopRate)),
-      _elv2Td(p.h1win == null ? "—" : _elPctCell(p.h1win)),
-      _elv2Td(_elScoreCell(p.score)),
-      _elv2Td((p.scN != null ? p.scN : 0) + "件"));   // 件数も推奨基本αの母数(×+未選択かつH1判定可能)に統一＝同行のα/損切り率/勝率/スコアと一致 2026-06-24i
+      _elv2Td(p.takeRate == null ? "—" : _elPctCell(p.takeRate)),
+      _elv2Td(p.h2Sum == null ? "—" : React.createElement("b", { style: { color: _elPnlColor(p.h2Sum) } }, _elPnlFmt(Math.round(p.h2Sum)))),
+      _elv2Td((p.decided != null ? p.decided : 0) + "件"));   // 新基準（最終損益ベース）の統計に統一 2026-07-13
   });
   var first = buckets[0], last = buckets[buckets.length - 1];
   var insight = (buckets.length >= 2) ? _elInsightBoxV2([
     React.createElement("span", null, "〜", _elInsightEmV2(first.label), "の推奨基本αは", _elInsightEmV2(first.pick.alpha + "円"), "、直近の", _elInsightEmV2(last.label), "は", _elInsightEmV2(last.pick.alpha + "円"), "。"),
     (last.pick.alpha !== first.pick.alpha) ? React.createElement("span", null, "最近は", _elInsightEmV2((last.pick.alpha > first.pick.alpha ? "高め" : "低め") + "（" + (last.pick.alpha > first.pick.alpha ? "+" : "") + (last.pick.alpha - first.pick.alpha) + "円）"), "の傾向。") : null
-  ].filter(Boolean), { note: "各期間で「件数フロアを満たす中で合成スコア(損切り回避70%＋H1勝率30%)が最大のα」＝損切りしにくくH1で利益が出やすい土台。スコアは0〜100点。件数が少ない期間も参考(橙「参考」)で表示。5〜20円。件数が少ない期間は振れやすい" }) : null;
-  return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "損切り率", "H1勝率", "スコア", "有効件数"], rows), insight);
+  ].filter(Boolean), { note: "各期間で「到達率50%・損切り率(最終)20%以下・E成立" + _EL_BASE_N_PREF + "→" + _EL_BASE_MIN_N + "件・黒字の中でΣ最終損益が最大のα」（2026-07-13新基準・手じまいベース）。件数が少ない期間も参考(橙「参考」)で表示。5〜20円。件数が少ない期間は振れやすい" }) : null;
+  return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "損切り率(最終)", "利確率", "Σ最終損益", "E成立"], rows), insight);
 }
 // 推奨基本αの「期間まとめ」: 1つの推奨値＋追加α＋α別の 損切り率(H1)/H1勝率/スコア 早見表（★=推奨）＋読み取り。2026-06-22再設計。
 function _elBaseAlphaSummary(recs, aiOf) {
@@ -1705,34 +1790,35 @@ function _elBaseAlphaSummary(recs, aiOf) {
   if (!pick || pick.status === "none" || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var na = pick.status === "na";
   var minN = pick.minN || _EL_BASE_MIN_N;
-  var noteSub = "件数フロア" + minN + "件以上（最も件数の多いαの" + Math.round(_EL_BASE_MIN_FRAC * 100) + "%以上）のαから、合成スコア＝損切り回避" + Math.round(_EL_BASE_W_STOP * 100) + "%＋H1勝率" + Math.round(_EL_BASE_W_H1 * 100) + "%が最大のα。高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアス)」でスコアが上振れるため件数フロアで除外。同点は件数の多い方。該当なし時は件数最大のαを参考表示。5〜20円1円刻み";
-  var sweepRows = pick.sweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
+  var noteSub = "★（2026-07-13新基準）＝到達率" + Math.round(_EL_BASE_MIN_ERATE * 100) + "%以上・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_N_PREF + "件以上（無ければ" + _EL_BASE_MIN_N + "件に自動緩和）・黒字のαの中でΣ最終損益（手じまい合計）が最大のα。同点はE成立多→低α。該当なしは損切り率30%へ緩和して参考、それも無ければ件数最大を参考表示。5〜20円1円刻み";
+  var _h2s = pick.h2sweep || [];
+  var sweepRows = _h2s.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var on = e.a === pick.alpha;
-    var pass = e.scN >= minN && e.score != null;
+    var pass = e.decided >= minN && e.eRate != null && e.eRate >= _EL_BASE_MIN_ERATE && e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && e.h2Sum != null && e.h2Sum > 0;
     return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.45 } },
       _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
       _elv2Td(_elPctCell(e.eRate)),
       _elv2Td(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
-      _elv2Td(e.h1win == null ? "—" : _elPctCell(e.h1win)),
-      _elv2Td(e.scN + "件"),
-      _elv2Td(_elScoreCell(e.score)));
+      _elv2Td(e.takeRate == null ? "—" : _elPctCell(e.takeRate)),
+      _elv2Td(e.decided + "件"),
+      _elv2Td(e.h2Sum == null ? "—" : React.createElement("b", { style: { color: _elPnlColor(e.h2Sum) } }, _elPnlFmt(Math.round(e.h2Sum)))));
   });
-  var _sweepHead = ["基本α", "EP到達(OS2)", "損切り率(H1)", "H1勝率", "有効件数", "スコア"];
+  var _sweepHead = ["基本α", "到達率", "損切り率(最終)", "利確率(最終)", "E成立", "Σ最終損益"];
   var stopP = pick.stopRate != null ? Math.round(pick.stopRate * 100) : null;
-  var winP = pick.h1win != null ? Math.round(pick.h1win * 100) : null;
+  var takeP = pick.takeRate != null ? Math.round(pick.takeRate * 100) : null;
   var cards = _elv2CardRow([
-    _elv2Card("推奨基本α", React.createElement(React.Fragment, null, React.createElement("span", { style: { color: na ? "#B45309" : "#0369A1" } }, pick.alpha + "円"), _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 15, na ? "#B45309" : "#0369A1")), na ? "#B45309" : "#0369A1", na ? "該当なし→件数最大" : "スコア最大"),
-    _elv2Card("損切り率(H1)", stopP != null ? stopP + "%" : "—", stopP != null ? (stopP <= 20 ? "#1E8449" : stopP <= 40 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
-    _elv2Card("H1勝率", winP != null ? winP + "%" : "—", winP != null ? (winP >= 70 ? "#1E8449" : winP >= 50 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
-    _elv2Card("スコア", _elScoreCell(pick.score), null, "0〜100"),
-    _elv2Card("EP到達率(OS2)", _elPctCell(pick.eRate), null),
-    _elv2Card("有効件数", (pick.scN != null ? pick.scN : 0) + "件", null, "判定可能なE")
+    _elv2Card("推奨基本α", React.createElement(React.Fragment, null, React.createElement("span", { style: { color: na ? "#B45309" : "#0369A1" } }, pick.alpha + "円"), _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 15, na ? "#B45309" : "#0369A1")), na ? "#B45309" : "#0369A1", na ? "条件緩和の参考" : "Σ最終損益 最大"),
+    _elv2Card("損切り率(最終)", stopP != null ? stopP + "%" : "—", stopP != null ? (stopP <= 20 ? "#1E8449" : stopP <= 40 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
+    _elv2Card("利確率(最終)", takeP != null ? takeP + "%" : "—", takeP != null ? (takeP >= 70 ? "#1E8449" : takeP >= 50 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
+    _elv2Card("Σ最終損益", pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—", _elPnlColor(pick.h2Sum), "手じまい合計"),
+    _elv2Card("EP到達率", _elPctCell(pick.eRate), null),
+    _elv2Card("E成立", (pick.decided != null ? pick.decided : 0) + "件", null, "勝敗判定できたE")
   ]);
-  var banner = na ? React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 6, padding: "5px 8px", marginBottom: 6 } }, "⚠ 該当なし：件数フロア" + minN + "件以上のαがありません → 件数最大のα " + pick.alpha + "円 を参考表示（信頼度低）") : null;
+  var banner = na ? React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 6, padding: "5px 8px", marginBottom: 6 } }, "⚠ ★条件（到達50%・損切り(最終)20%以下・E成立" + _EL_BASE_N_PREF + "→" + _EL_BASE_MIN_N + "件・黒字）を満たすαなし → 緩和したα " + pick.alpha + "円 を参考表示（信頼度低）") : null;
   return React.createElement("div", null, banner, cards,
-    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "α別の EP到達率(OS2)・損切り率(H1)・H1勝率・スコア（★＝推奨基本α・フロア未満は淡色）"),
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "α別の 到達率・損切り率(最終)・利確率・E成立・Σ最終損益（★＝推奨基本α・条件を満たさないαは淡色）"),
     _elv2Table(_sweepHead, sweepRows),
-    _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（", (na ? "該当なし→件数最大" : ("損切り率" + (stopP != null ? stopP + "%" : "—") + "・H1勝率" + (winP != null ? winP + "%" : "—") + "・スコア" + (pick.score != null ? Math.round(pick.score * 100) : "—") + "点")), "）。", "（追加αは「② 追加α」タブで）")], { note: noteSub }));
+    _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（", (na ? "条件緩和の参考" : ("Σ最終損益" + (pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—") + "・損切り率" + (stopP != null ? stopP + "%" : "—") + "・利確率" + (takeP != null ? takeP + "%" : "—"))), "）。", "（追加αは「② 追加α」タブで）")], { note: noteSub }));
 }
 // 🎯 推奨基本α値: 週別/月別/期間まとめを切替（ステートフル・既定=週別）。日別は廃止（1シグナルだと1件/日で参考だらけ）。件数が少ない期間も参考(na)で表示。2026-07-01
 function _elBaseAlphaTrendV2(props) {
@@ -1754,7 +1840,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet) {
   if (!pick || pick.status === "none" || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var a = pick.alpha, na = pick.status === "na", minN = pick.minN || _EL_BASE_MIN_N;
   var add = _A ? _A.add : null;
-  var _h2p = _elBaseAlphaH2Pick(recs, aiOf);   // 最終損益基準の並走pick（承認① 2026-07-12・結論バーの答え合わせバッジ用）
+  var _lg = _elBaseAlphaPickScore(recs, aiOf);   // 旧・合成スコア方式なら選ばれていた値（乖離確認チップ用 2026-07-13・旧_elBaseAlphaH2Pickバッジを置換）
   var stopP = pick.stopRate != null ? Math.round(pick.stopRate * 100) : null;
   var winP = pick.h1win != null ? Math.round(pick.h1win * 100) : null;
   var _lbl = function(t) { return React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "10px 0 2px" } }, t); };
@@ -1763,14 +1849,14 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet) {
     React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
       React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: na ? "#B45309" : "#0369A1" } }, a + "円"),
       _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 20, na ? "#B45309" : "#0369A1")),
-    _elH2AgreeNode(a, _h2p ? _h2p.alpha : null, "円"),
+    _elOldPickChip(a, _lg ? _lg.alpha : null),
     na
-      ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B45309" } }, "データ不足 " + (pick.scN != null ? pick.scN : 0) + "件/最低" + minN + "件・参考値")
+      ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B45309" } }, "参考値：到達50%・損切り(最終)20%以下・E成立" + _EL_BASE_N_PREF + "→" + _EL_BASE_MIN_N + "件・黒字を満たすαが無く緩和（E成立 " + (pick.decided != null ? pick.decided : 0) + "件）")
       : React.createElement("span", { style: { fontSize: 11, color: "#555" } },
-          "スコア ", React.createElement("b", { style: { color: "#0369A1" } }, pick.score != null ? Math.round(pick.score * 100) : "—"),
-          "／損切り率 ", React.createElement("b", null, stopP != null ? stopP + "%" : "—"),
-          "／H1勝率 ", React.createElement("b", null, winP != null ? winP + "%" : "—"),
-          "／母数 ", React.createElement("b", null, (pick.scN || 0) + "件"),
+          "Σ最終損益 ", React.createElement("b", { style: { color: _elPnlColor(pick.h2Sum) } }, pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—"),
+          "／損切り率(最終) ", React.createElement("b", null, stopP != null ? stopP + "%" : "—"),
+          "／利確率 ", React.createElement("b", null, pick.takeRate != null ? Math.round(pick.takeRate * 100) + "%" : "—"),
+          "／E成立 ", React.createElement("b", null, (pick.decided || 0) + "件"),
           "／到達率 ", React.createElement("b", null, Math.round((pick.eRate || 0) * 100) + "%")),
     (add && add.improved)
       ? React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
@@ -1780,19 +1866,23 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet) {
   // α別総当たりの表示は0円から（推奨対象範囲_EL_BASE_ALPHAS=5〜20・★選定は不変／0〜4円は参考行として追加表示のみ）2026-07-02→0円を追加 2026-07-03。母数は推奨基本αと同じ×+未選択（_elBaseAlphaPickが内部で〇を除外するのに揃える）。
   // 2026-07-12: 浮き足〇/RN〇の除外も_elBaseAlphaPickに完全一致させる（旧=追加α〇だけ除外で、0〜4円行・頻度・母数集計にだけ浮き足〇が混入し5〜20円行と母数がズレていた）。
   var _baseRecs = (recs || []).filter(function(r) { return r && !_elAddAlphaYes(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+  // 母数内訳（⑤透明化 2026-07-13）: シグナル全体N件がどう絞られて母数になったかを表の上に明示（〇同士は重複しうるが除外判定は_baseRecsと同一）。
+  var _exAddN = 0, _exUkiN = 0, _exRnN = 0;
+  (recs || []).forEach(function(r) { var s = r && r.signal; if (!s) return; if (_elAddAlphaYes(s)) _exAddN++; if (_elUkiYes(s)) _exUkiN++; if (_elRnYes(s)) _exRnN++; });
   var _baseSpan = _elBizSpanDays(_baseRecs, holiSet);   // 頻度列（何営業日に1回）用: 母数の活動期間の営業日数（全行共通・分母は固定でαごとに到達実日数だけ変わる）2026-07-07
   var _lowSweep = [0, 1, 2, 3, 4].map(function(la) { return _elBaseAlphaEval(_baseRecs, aiOf, la); });
   var _dispSweep = _lowSweep.concat(pick.sweep);   // [0..4]（表示のみ）＋[5..20]（推奨対象）＝昇順
   var _h2ByA = {};   // 最終損益デュアル列（利確率(最終)/Σ最終損益・承認① 2026-07-12）: 表示各αの最終基準評価を母数一致(_baseRecs)で並走
   _dispSweep.forEach(function(e) { _h2ByA[e.a] = _elH2EvalByFn(_baseRecs, aiOf, function() { return e.a; }); });
   var sweepRows = _dispSweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
-    var on = e.a === a, pass = e.scN >= minN && e.score != null;
+    var _h2r = _h2ByA[e.a];
+    var on = e.a === a, pass = !!(_h2r && _h2r.decided >= minN && _h2r.eRate != null && _h2r.eRate >= _EL_BASE_MIN_ERATE && _h2r.stopRate != null && _h2r.stopRate <= _EL_BASE_MAX_STOPRATE && _h2r.h2Sum != null && _h2r.h2Sum > 0);
     return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.4 } },
       _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円" + (on ? " ★" : "")), { textAlign: "left", paddingLeft: 8 }),
       _elv2Td(_elPctCell(e.eRate)),
       _elv2Td(_elFreqCell(_baseSpan, _elEnteredDays(_baseRecs, function() { return e.a; }))),
-      _elv2Td(e.scN + "件"),
-      _elv2Td(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
+      _elv2Td((_h2r ? _h2r.decided : 0) + "件"),
+      _elv2Td((!_h2r || _h2r.stopRate == null) ? "—" : _elStopRateCell(_h2r.stopRate)),
       _elv2Td(e.h1win == null ? "—" : _elPctCell(e.h1win)),
       _elv2Td((function() { var _av = (e.pnl != null && e.scN > 0) ? Math.round(e.pnl / e.scN) : null; return _av == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(_av), fontWeight: 700 } }, _elPnlFmt(_av)); })()),
       _elv2Td((function() { var _h2 = _h2ByA[e.a]; return (_h2 && _h2.takeRate != null) ? _elPctCell(_h2.takeRate) : "—"; })()),
@@ -1816,12 +1906,14 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet) {
   });
   var insight = _elInsightBoxV2([
     React.createElement("span", null, "採用α", _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS3までにEP到達しH1判定可能）。うち損切り", _elInsightEmV2(stopN + "件"), "・H1勝ち", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（未到達）。"),
-    React.createElement("span", null, "スコア＝0.7×(1−損切り率", _elInsightEmV2((stopP != null ? stopP : "—") + "%"), ")＋0.3×H1勝率", _elInsightEmV2((winP != null ? winP : "—") + "%"), "＝", _elInsightEmV2((pick.score != null ? Math.round(pick.score * 100) : "—") + "点"), "。")
-  ], { note: "この銘柄のv2・算入記録に各αを当ててシミュレーション。母数＝採用αでOS1〜3にEP到達しH1結果が判定できる記録。損切り率・H1勝率はこの母数で算出。" + (na ? " ※データ不足（母数<" + minN + "件）のため参考値。" : "") });
+    React.createElement("span", null, "★選定（2026-07-13新基準）＝到達率50%以上・損切り率(最終)20%以下・E成立", _elInsightEmV2(_EL_BASE_N_PREF + "件"), "（無ければ" + _EL_BASE_MIN_N + "件に緩和）・黒字のαの中で", _elInsightEmV2("Σ最終損益が最大"), "。スコア列は旧基準の参考。")
+  ], { note: "この銘柄のv2・算入記録（素の記録のみ）に各αを当ててシミュレーション。E成立・損切り率(最終)・利確率・Σ最終損益＝最終損益(手じまい・EP/H1/H2損切り込み)基準。H1勝率・平均H1損益・スコア＝旧H1基準の参考列。" + (na ? " ※★条件を満たすαが無いため緩和した参考値。" : "") });
   return React.createElement("div", null,
     concl,
-    _lbl("α別の総当たり（0〜20円・★＝採用[推奨対象は5〜20円]・件数フロア" + minN + "件未満は淡色／平均H1損益＝ΣH1損益÷件数／利確率(最終)・Σ最終損益＝最終損益(手じまい)基準の並走列／頻度＝そのα通りなら何営業日に1回エントリーできたか＝活動期間の営業日÷到達した実日数・全営業日ベース）"),
-    _elv2Table(["基本α", "到達率", "頻度", "有効件数", "損切り率", "H1勝率", "平均H1損益", "利確率(最終)", "Σ最終損益", "スコア内訳", "スコア"], sweepRows),
+    React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "8px 0 0" } },
+      "母数の内訳: 算入 " + (recs || []).length + "件 → 追加α〇 " + _exAddN + "件・浮き足〇 " + _exUkiN + "件・RN〇 " + _exRnN + "件を除外 → 素の記録 " + _baseRecs.length + "件（E成立＝そのαでOS3までにEP到達し勝敗判定できた数）"),
+    _lbl("α別の総当たり（0〜20円・★＝採用[推奨対象は5〜20円]・淡色＝★条件[到達率50%・損切り率(最終)20%以下・E成立" + minN + "件・黒字]を満たさないα／★＝条件内でΣ最終損益が最大 2026-07-13／平均H1損益・H1勝率・スコア＝旧基準の参考列／頻度＝そのα通りなら何営業日に1回エントリーできたか）"),
+    _elv2Table(["基本α", "到達率", "頻度", "E成立", "損切り率(最終)", "H1勝率", "平均H1損益", "利確率(最終)", "Σ最終損益", "スコア内訳", "スコア"], sweepRows),
     insight);
 }
 // 推奨追加α 詳細データ（この銘柄/グループ）2026-07-03: 推奨基本α詳細データ(_elBaseAlphaDetailV2)の追加α版＝結論バー＋加算値別の総当たり（基本α＋加算ごとの到達率/件数/損切り率/H1勝率/想定損益・★＝推奨）＋読み取り。母数＝追加α〇（数値根拠＝底抜け前足浮きは除外・_elAddAlphaRecoと同一）。集計タブ銘柄別パネルで追加α母数トグル〇のとき、畳んだ基本α詳細の下に表示。想定損益＝ΣH1損益（_elBaseAlphaEval.pnl＝_elSimPnlByDay.sumと同値）。
@@ -2836,29 +2928,24 @@ function _elOsBandPerfV2(_ref) {
 // 2026-06-23: OS値=OS1〜3最高値(_elOsMaxAll)基準へ統一＝α目安(到達確率)の整合性向上・選択バイアス回避。DayViewの銘柄別OS1値分析(寄り付き専用)はOS1のまま。
 // 「重視すべきは平均でなく中央値（α到達確率と直結）」という方針をUIに落とし込む。aiOf(r)→{alpha,cutLine}。
 function _elOsSectionV2(recs, aiOf, osFn, osValMode, setOsValMode) {
-  var _of = osFn || _elOsMaxAll;   // 実現OS/生の抽出関数（親EntryLogViewの_osValFn・未指定は従来=生）2026-07-09
+  var _of = osFn || _elOsMaxAll;   // 実現OSの抽出関数（親EntryLogViewの_osValFn・未指定は従来=生）2026-07-09
   var os = _elOsStatsV2(recs, _of), pc = _elOsPctlV2(recs, _of);
   if (!os || !pc) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "OS値の記録がありません");
-  var _osToggle = setOsValMode ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
-    React.createElement("span", { style: { fontSize: 9.5, color: "#9A3412", fontWeight: 700 } }, "OS基準:"),
-    [["real", "実現OS（×打ち切り）"], ["raw", "生の最高OS"]].map(function(kv) {
-      var on = osValMode === kv[0];
-      return React.createElement("button", { key: kv[0], type: "button", onClick: function() { setOsValMode(kv[0]); },
-        style: { padding: "2px 9px", fontSize: 10, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (on ? "#9A3412" : "#ddd"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#666" } }, kv[1]);
-    }),
-    React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, osValMode === "real" ? "期待度×/損切りで降りた足以降を除外した実現分のOS" : "結果に依らずOS1〜3の最高値（アウトカム盲目）")) : null;
+  // OS基準トグルは2026-07-13廃止（ユーザー承認③）＝実現OS（主基準・統計/帯別/棒クリック）＋生の最高OS（ヒストの色棒・統計は括弧併記）を同時表示。
+  var osRaw = _elOsStatsV2(recs, _elOsMaxAll);
+  var _rawEm = function(v) { return (osRaw && v != null) ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（生" + v + "円）") : null; };
   var _baPickAlpha = (function() { var _p = _elBaseAlphaPick(recs, aiOf); return (_p && _p.alpha != null) ? _p.alpha : null; })();   // OS値分布に現在の推奨基本αを青字マーク 2026-06-28
   var skewBadge = pc.skewRight ? React.createElement("span", { title: "平均が一部の大きいOS値に引っ張られています。典型値は中央値で読むのが安全です。", style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 4, padding: "1px 6px", marginLeft: 6 } }, "右偏") : null;
   var statLine = React.createElement("div", { style: { display: "flex", gap: "6px 18px", flexWrap: "wrap", alignItems: "baseline", marginBottom: 6 } },
-    React.createElement("span", null, React.createElement("span", { style: { fontSize: 10, color: "#888", fontWeight: 700, marginRight: 3 } }, "中央値"), React.createElement("b", { style: { fontSize: 18, color: "#9A3412" } }, os.med + "円"), skewBadge),
-    React.createElement("span", null, React.createElement("span", { style: { fontSize: 10, color: "#888", marginRight: 3 } }, "平均"), React.createElement("b", { style: { fontSize: 13, color: "#555" } }, os.avg + "円")),
+    React.createElement("span", null, React.createElement("span", { style: { fontSize: 10, color: "#888", fontWeight: 700, marginRight: 3 } }, "中央値"), React.createElement("b", { style: { fontSize: 18, color: "#9A3412" } }, os.med + "円"), _rawEm(osRaw ? osRaw.med : null), skewBadge),
+    React.createElement("span", null, React.createElement("span", { style: { fontSize: 10, color: "#888", marginRight: 3 } }, "平均"), React.createElement("b", { style: { fontSize: 13, color: "#555" } }, os.avg + "円"), _rawEm(osRaw ? osRaw.avg : null)),
     React.createElement("span", null, React.createElement("span", { style: { fontSize: 10, color: "#888", marginRight: 3 } }, "最頻"), _elOsBucketChip(pc.bucketMode.key), React.createElement("span", { style: { fontSize: 10, color: "#aaa", marginLeft: 3 } }, pc.bucketMode.pct + "%")),
     React.createElement("span", null, React.createElement("span", { style: { fontSize: 10, color: "#888", marginRight: 3 } }, "中位50%"), React.createElement("b", { style: { fontSize: 12, color: "#555" } }, pc.p25 + "〜" + pc.p75 + "円")),
     React.createElement("span", null, React.createElement("span", { style: { fontSize: 10, color: "#888", marginRight: 3 } }, "範囲"), React.createElement("b", { style: { fontSize: 12, color: "#555" } }, os.min + "〜" + os.max + "円")),
-    React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "OS入力 " + os.n + "件"));
+    React.createElement("span", { style: { fontSize: 10, color: "#aaa" } }, "OS入力 " + os.n + "件（実現・統計はこちら基準）"));
   var pieRow = React.createElement("div", { style: { marginBottom: 8 } },
-    React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 700, marginBottom: 4 } }, "OS値の分布（1円刻み・各棒に件数）"),
-    React.createElement(_elOsHistV2, { vals: os.vals, recs: recs, aiOf: aiOf, osOf: _of, markVal: _baPickAlpha }),
+    React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 700, marginBottom: 4 } }, "OS値の分布（1円刻み・色棒＝生の最高OS／白枠＝実現OS・数字は上＝実現/下＝生）"),
+    React.createElement(_elOsHistV2, { vals: os.vals, rawVals: osRaw ? osRaw.vals : [], recs: recs, aiOf: aiOf, osOf: _of, markVal: _baPickAlpha }),
     React.createElement("div", { style: { marginTop: 6 } }, _elOsBandLegendV2()));
   var mk = function() { return { cnt: 0, reach: 0, ok: 0, ng: 0, miss: 0, plan: 0, planCnt: 0, h1: 0, h1Cnt: 0, stop: 0 }; };
   var bands = {};
@@ -2880,7 +2967,7 @@ function _elOsSectionV2(recs, aiOf, osFn, osValMode, setOsValMode) {
   items.push(React.createElement("span", null, "OS値（OS1〜3最高）は", _elInsightEmV2(_elOsBucketLabel(pc.bucketMode.key), _elOsBucketColor(pc.bucketMode.key)), "が最多（" + pc.bucketMode.pct + "%）。典型値＝", _elInsightEmV2("中央値 " + os.med + "円"), pc.skewRight ? React.createElement("span", null, "（平均 " + os.avg + "円は一部の大きいOSに上振れ＝", _elInsightEmV2("中央値で読むのが安全", "#B45309"), "）") : null, "。"));
   var bw = null; for (var bk2 in bands) { if (!bands.hasOwnProperty(bk2)) continue; var o2 = bands[bk2]; var dn = o2.ok + o2.ng; if (dn >= 3 && (bw == null || o2.ok / dn > bw.v)) bw = { v: o2.ok / dn, k: bk2 }; }
   if (bw) items.push(React.createElement("span", null, "勝率が最も高いOS値は", _elInsightEmV2(_elOsBucketLabel(bw.k), _elOsBucketColor(bw.k)), "（", _elInsightEmV2(Math.round(bw.v * 100) + "%"), "・3件以上で比較）。"));
-  return React.createElement("div", null, _osToggle, statLine, pieRow, bTable, _elInsightBoxV2(items, { note: "OS基準＝実現OS（×/損切りで降りた足以降を除外＝既定）／生の最高OS（アウトカム盲目）で切替。中央値=ちょうど半数がそれ以上のOSになる値。平均は合計・期待値の計算向き。最頻=最も多く出るOS値（0〜4円と25円〜は帯）。E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）。成績は採用α基準・E成立分のみ。※α到達確率の目安はα値タブ「成立率の目安」（生基準固定）を参照。" }));
+  return React.createElement("div", null, statLine, pieRow, bTable, _elInsightBoxV2(items, { note: "分布は実現OS（×/損切りで降りた足以降を除外＝白枠・統計/帯別/棒クリックの主基準）と生の最高OS（アウトカム盲目＝色棒・統計は（生◯円）併記）の同時表示（2026-07-13トグル廃止）。中央値=ちょうど半数がそれ以上のOSになる値。平均は合計・期待値の計算向き。最頻=最も多く出るOS値（0〜4円と25円〜は帯）。E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）。成績は採用α基準・E成立分のみ。※α到達確率の目安はα値タブ「成立率の目安」（生基準固定）を参照。" }));
 }
 
 // OS値（OS1〜3最高）の分位→成立率別のα目安テーブル。2026-06-28にα値タブへ移設（集計タブの_elOsSectionV2内「成立率の目安」を切り出し）。各成立率（このα以下なら約その割合でα到達＝取引機会）に対応するαの目安。aiOf不要（_elOsPctlV2はOS抽出器_elOsMaxAllを使う）。
@@ -3122,7 +3209,7 @@ function _elDayStockBenchV2(_ref) {
 // 「最良手仕舞い」だったら何円だったかを併記。損切りが早すぎないかを検証する。aiOf(r)→{alpha,cutLine}。
 //   超過幅 = _elHoldMaxHigh(s).all − α − cutLine（損切りラインを超えて伸びた円・水準線比）。
 //   損切り損失 = _epHoldLadder(s,α,cut).finalPnl（損切りラインで止めた損益・深掘り「最適ホールド本数」と同基準）。
-//   保有なら = _epHoldLadder(s,α,BIG).finalPnl（損切り無効で最後の足まで保有）、ベスト = .maxPnl（損切り後の最良手仕舞い）。
+//   保有なら = _elRuleHoldPnl（損切りせず、確定値が前の足より悪化したらその足で手仕舞い・悪化しなければ最後まで＝実運用ルール 2026-07-13）、ベスト = _epHoldLadder(s,α,BIG).maxPnl（損切り後の最良手仕舞い）。
 function _elStopOvershootSectionV2(recs, aiOf) {
   var BIG = 99999;
   var rows = [];
@@ -3139,7 +3226,7 @@ function _elStopOvershootSectionV2(recs, aiOf) {
     var idc = _elIdealCut(s, a);
     rows.push({
       r: r, s: s, a: a, cut: cut, over: over,
-      actual: Lc.finalPnl, held: Lb.finalPnl, best: Lb.maxPnl,
+      actual: Lc.finalPnl, held: _elRuleHoldPnl(s, a), best: Lb.maxPnl,
       avoidCut: (!_elHoldIsStop(s, a, idc) ? idc : null)
     });
   });
@@ -3208,7 +3295,7 @@ function _elStopOvershootSectionV2(recs, aiOf) {
   if (small.length) items.push(React.createElement("span", null, "超過1円以下（損切りラインをほんの少し超えただけ）が", _elInsightEmV2(small.length + "件"), smallHeld.length ? React.createElement("span", null, "。うち保有していれば利益化したのは", _elInsightEmV2(smallProfit + "/" + smallHeld.length + "件"), "＝", (smallHeld.length && smallProfit / smallHeld.length >= 0.5 ? _elInsightEmV2("損切りが早すぎた可能性大", "#B45309") : "損切りは概ね妥当"), "。") : "。"));
   if (heldBase.length) items.push(React.createElement("span", null, "損切りした記録を全て損切りせず最後まで保有していたら、利益化したのは", _elInsightEmV2(profitable + "/" + heldBase.length + "件", profitable / heldBase.length >= 0.5 ? "#B45309" : "#1E8449"), "＝", (profitable / heldBase.length >= 0.5 ? "損切りを我慢する方が良かった場面が多い" : "損切りは機能している（保有しても損が増える方が多い）"), "。"));
   if (avoidN) items.push(React.createElement("span", null, "損切り値を", _elInsightEmV2("15〜20円"), "に上げていれば損切りを回避できたのは", _elInsightEmV2(avoidN + "件"), "。"));
-  return React.createElement("div", null, cards, distTable, listTable, _elInsightBoxV2(items, { note: "対象＝実現結果が「損切り」のEP起算(v2)記録。超過幅＝最高値(水準線比)−(α＋損切り値)。損切り損失＝損切りラインで止めた損益(_epHoldLadder・採用α基準・100株換算)。保有なら＝損切りせず最後の足まで保有した損益(finalPnl)、ベスト＝損切り後の各足で最も良い手仕舞い(maxPnl)。改善額＝保有なら−損切り損失。損益色は赤=利益/緑=損失。" }));
+  return React.createElement("div", null, cards, distTable, listTable, _elInsightBoxV2(items, { note: "対象＝実現結果が「損切り」のEP起算(v2)記録。超過幅＝最高値(水準線比)−(α＋損切り値)。損切り損失＝損切りラインで止めた損益(_epHoldLadder・採用α基準・100株換算)。保有なら＝損切りせず実運用ルール（確定値が前の足より悪化したらその足の確定値で手仕舞い・悪化しなければ最後まで保有）で降りた損益（2026-07-13変更・旧=無条件で最後の足まで）、ベスト＝損切り後の各足で最も良い手仕舞い(maxPnl)。改善額＝保有なら−損切り損失。損益色は赤=利益/緑=損失。" }));
 }
 
 // ===== 損切りの分析（記録帳・銘柄別タブ「🛑損切り」／2026-06-22）=====
@@ -3238,8 +3325,8 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig) {
     var s = r.signal, a = aiOf(r).alpha, c = aiOf(r).cutLine;
     if (!_isStop(s, a, c)) return;
     enteredStopN++;
-    var Lc = _epHoldLadder(s, a, c), Lb = _epHoldLadder(s, a, BIG);
-    if (Lc && Lc.finalPnl != null) { lossArr.push(Lc.finalPnl); if (Lb && Lb.finalPnl != null) savedArr.push(Lb.finalPnl - Lc.finalPnl); }
+    var Lc = _epHoldLadder(s, a, c), _rh = _elRuleHoldPnl(s, a);
+    if (Lc && Lc.finalPnl != null) { lossArr.push(Lc.finalPnl); if (_rh != null) savedArr.push(_rh - Lc.finalPnl); }
   });
   var stopRate = entered.length ? Math.round(enteredStopN / entered.length * 100) : 0;
   var lossTotal = lossArr.reduce(function(a, b) { return a + b; }, 0);
@@ -3293,7 +3380,7 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig) {
     var Lc = _epHoldLadder(s, a, c), loss = (Lc ? Lc.finalPnl : null), avoid = null;
     for (var C = c + 1; C <= 40; C++) { if (!_isStop(s, a, C)) { avoid = C; break; } }
     var avPnl = null;
-    if (avoid != null) { var La = _epHoldLadder(s, a, avoid); avPnl = (La ? La.finalPnl : null); }
+    if (avoid != null) avPnl = _elRuleHoldPnl(s, a);   // 広げて損切りを回避した場合の着地＝保有ならと同じ実運用ルール（確定値悪化で手仕舞い）2026-07-13
     avRows.push({ cut: c, avoid: avoid, inc: (avoid != null ? avoid - c : null), loss: loss, avPnl: avPnl });
   });
   var avDefs = [{ lim: 2, label: "+1〜2円" }, { lim: 5, label: "+3〜5円" }, { lim: 10, label: "+6〜10円" }, { lim: Infinity, label: "+11円〜" }];
@@ -3357,6 +3444,10 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig) {
 
   return React.createElement(React.Fragment, null,
     cards,
+    React.createElement("div", { style: { margin: "8px 0" } },
+      React.createElement(_SNCollapse, { title: "📋 対象記録（E成立 " + entered.length + "件・タップで展開）", render: function() {
+        return React.createElement("div", { style: { maxHeight: 320, overflowY: "auto" } }, _elOsTradeMini(entered, aiOf, { plain: true }));
+      } })),
     _h("🎚 損切り値の最適化（損切り値別シミュ）", "全記録に同じ損切り値を当てたときの損切り回数・最終損益。★=最終損益が最大の損切り値。狭いほど損切り増・損失浅／広いほど損切り減・損失大"),
     simTbl,
     _h("📐 損切りの上振れ・早すぎ検証", "損切りラインを何円超えて伸びたか＋損切りせず保有/最良手仕舞いなら何円だったか＝損切りが早すぎないかの検証"),
@@ -3886,6 +3977,7 @@ function _elKabuLadderSimV2(props) {
   var _uM = useState("manual"), mode = _uM[0], setMode = _uM[1];
   var _uF = useState("no"), addFil = _uF[0], setAddFil = _uF[1];
   var _uAo = useState("act"), addOn = _uAo[0], setAddOn = _uAo[1];   // 追加α〇記録への上乗せ: act=実追加α(既定)/reco=記録日時点の推奨追加α/none=なし。〇記録がシミュ対象にいる時だけピル表示 2026-07-06
+  var _uEx = useState({ uki: false, lc: false, rn: false }), exFlags = _uEx[0], setExFlags = _uEx[1];   // 除外チェック（⑥ 2026-07-13）: 浮き足加算〇/ライン併存〇/RN〇の記録をシミュ母数から外す（既定＝外さない＝従来値不変）
   var _uPd = useState("all"), period = _uPd[0], setPeriod = _uPd[1];   // 対象取引の期間絞り込み（本日/1週/1月/3月/6月/1年/全期間）既定=全期間 2026-07-03q
   var _uRw = useState([{ method: "", off: "", cum: "", addMethod: "act", addOff: "" }, { method: "", off: "", cum: "", addMethod: "act", addOff: "" }]), rows = _uRw[0], setRows = _uRw[1];   // 取引ごとに入力方式(method)＋追加α方式(addMethod/addOff)を持つ 2026-07-03→2026-07-06追加α取引ごと化。初期は基本α未選択・追加αは実追加α(act)既定（触らなければ実際の追加αを反映＝シミュ=従来で差額0・×+未選択母数では実追加α=0で従来値不変）
   var _uAP = useState(false), addPicker = _uAP[0], setAddPicker = _uAP[1];   // 取引追加時の入力方式ピッカー表示 2026-07-03
@@ -3912,6 +4004,7 @@ function _elKabuLadderSimV2(props) {
     return recs.filter(function(r) { return r && r.date && r.date >= _cut; });
   })();
   var pool = floatMode ? _periodRecs : (addFil === "no" ? _periodRecs.filter(function(r) { return r && !_elAddAlphaYes(r.signal); }) : addFil === "yes" ? _periodRecs.filter(function(r) { return r && _elAddAlphaYes(r.signal); }) : _periodRecs);
+  if (exFlags.uki || exFlags.lc || exFlags.rn) pool = pool.filter(function(r) { var s = r && r.signal; if (!s) return true; if (!floatMode && exFlags.uki && _elUkiYes(s)) return false; if (exFlags.lc && s.lineCoexist === true) return false; if (exFlags.rn && _elRnYes(s)) return false; return true; });   // 除外チェック（⑥ 2026-07-13・floatModeでは浮き足除外は無効＝母数が浮き足記録のため）
   // 日付時点推奨α（重い計算）はrefキャッシュ＝スコープ/データが実際に変わった時だけ再構築（EntryLogViewは毎レンダーで配列を作り直すため参照同一性では判定できない→内容署名で判定）。
   var recoRef = useRef(null);
   // 署名にOS/H足の実データ(_epLegs=高値/確定値/期待度)・浮き足〇も含める＝OS値や期待度だけ編集しても推奨αが再計算されるように（旧: alphaVal/addAlphaUsed/cutLine/dateのみ→OS編集で古い推奨のまま）2026-07-04c
@@ -4200,6 +4293,14 @@ function _elKabuLadderSimV2(props) {
           React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "追加α母数:"),
           [["no", "×+未選択"], ["yes", "〇のみ"], ["all", "全記録"]].map(function(kv) { return _pill(addFil === kv[0], kv[1], function() { setAddFil(kv[0]); setAutoExp(null); setMtExp(null); }, "#9A3412"); }),   // mtExpも解除＝母数が変わると展開キー(oi)が別記録を指すため 2026-07-04c
           React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（" + pool.length + "件）既定＝×+未選択＝基本αだけで運用した記録")),
+    React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#B45309" } }, "除外:"),
+      [(!floatMode ? ["uki", "浮き足加算〇"] : null), ["lc", "ライン併存〇"], ["rn", "RN〇"]].filter(Boolean).map(function(kv) {
+        var on = !!exFlags[kv[0]];
+        return React.createElement("button", { key: kv[0], type: "button", onClick: function() { var nf = Object.assign({}, exFlags); nf[kv[0]] = !on; setExFlags(nf); setAutoExp(null); setMtExp(null); },
+          style: { padding: "3px 10px", fontSize: 10.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid " + (on ? "#B45309" : "#ddd"), background: on ? "#FFF7ED" : "#fff", color: on ? "#B45309" : "#666", whiteSpace: "nowrap" } }, (on ? "☑ " : "☐ ") + kv[1]);
+      }),
+      React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "チェックした記録をシミュ母数から除外（現在 " + pool.length + "件）")),
     (mode === "auto" && _poolHasYes) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },   // 自動配分＝グローバル上乗せ（手動は取引ごと追加αに移行・自動は据え置き）2026-07-06
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "追加α上乗せ（自動配分）:"),
       [["act", "実追加α"], ["reco", "推奨追加α"], ["none", "なし"]].map(function(kv) { return _pill(addOn === kv[0], kv[1], function() { setAddOn(kv[0]); }, "#9A3412"); }),
@@ -4294,7 +4395,8 @@ function _elKabuLadderSimV2(props) {
           _stepBtn(function() { _stepStopOff(1); }, function() { _stepStopOff(-1); })),
         React.createElement("span", { style: { fontSize: 10.5, whiteSpace: "nowrap" } }, "円"),
         stopOff !== "" ? React.createElement("button", { onClick: function() { setStopOff(""); }, style: { padding: "2px 8px", fontSize: 10, fontWeight: 700, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#B45309", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 記録の値に戻す")
-          : React.createElement("span", { style: { fontSize: 9, color: "#94a3b8" } }, "（空欄＝各記録の実際の損切り値）")),
+          : React.createElement("span", { style: { fontSize: 9, color: "#94a3b8" } }, "（空欄＝各記録の実際の損切り値）"),
+        React.createElement("span", { style: { fontSize: 9, color: "#94a3b8" } }, "※損切りライン＝各取引のEP＋この損切り値（円）")),
       React.createElement("div", { style: { fontSize: 9.5, color: "#666", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 8px", marginBottom: 8 } }, "各取引の株数をそのまま空売り: " + _ladderPrev + " ※推奨系（推奨α±X・推奨基本α値）の実効αは記録ごと（日付時点）に変わります。実効α＝基本α部分＋浮き足加算（浮き足〇の記録・浮き値÷2切捨て・常時）＋各取引の追加α欄の分（推奨追加α系は記録日時点・無い日は0／実追加α＝その記録の追加α値）"),
       manCalc ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
@@ -4399,8 +4501,9 @@ function EntryLogView(_ref_elv2) {
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
-  var _uOsV = useState("real"), osValMode = _uOsV[0], setOsValMode = _uOsV[1];   // OS値分布の基準 2026-07-09: 実現OS(real・既定＝×/損切りで打ち切り_elOsMaxFiltered＝ホールド判断で降りた足以降を除外した実現分)／生の最高OS(raw＝アウトカム盲目_elOsMaxAll)。中央/平均/最頻/範囲/ヒストグラム/帯別成績に適用。※α目安(7割=α)＝到達確率は選択バイアス回避のため常に生固定・α値タブ「成立率の目安」も生固定
-  var _osValFn = (osValMode === "real") ? function(s) { return _elOsMaxFiltered(s); } : _elOsMaxAll;   // OS値分布の共有抽出関数（_kpiOsと「📊OS値の分析」_elOsSectionV2で共用）2026-07-09
+  // OS値分布の基準トグルは2026-07-13に廃止（ユーザー承認③）＝実現OS(白枠・統計/棒クリックの主基準)と生の最高OS(色棒)をヒストグラムに同時表示（案A重ね棒・濃淡逆）。α目安(7割=α)は従来どおり生固定。
+  var _osValFn = function(s) { return _elOsMaxFiltered(s); };   // OS値分布の主基準＝実現OS（×/損切りで打ち切り）。生(_elOsMaxAll)は各所でrawVals/併記として追加 2026-07-13
+  var osValMode = "real", setOsValMode = null;   // 互換用の残置（消費側の分岐は撤去済み・シグネチャ互換のため）
   var _uFS = useState("other"), floatSub = _uFS[0], setFloatSub = _uFS[1];   // シグナル内サブタブ: 底抜け前足浮き(float)/その他(other・既定)。選択中シグナルの記録を数値根拠(底抜け前足浮き＝_elHasNumReason)で二分し、集計/α値/損切り/未達/深掘りの母数を分ける（OS値分布ほか）。既定=その他 2026-07-02
   var _uDS = useState({}), detScopes = _uDS[0], setDetScopes = _uDS[1];   // 詳細スコープ（セクション独立 2026-07-08e・旧detSubサブタブ→各セクションのプルダウンへ）: secKey→"all"(まとめて)/"__cmp__"(詳細ごと比較)/詳細名/"__none__"(未分類)。銘柄/シグナル切替でリセット。候補が無いシグナルではプルダウン非表示＝従来と同一母数。
   var _uAR = useState("all"), alphaReasonFil = _uAR[0], setAlphaReasonFil = _uAR[1];   // α値タブ 根拠セレクタ（2026-07-06）: 全体(all)/各根拠/根拠なし(__none__)で基本α・共通ツールの母数を絞る第4の軸。追加αタブは④⑤根拠別を内蔵するため対象外。全体選択時は従来と完全同一。
@@ -5002,10 +5105,11 @@ function EntryLogView(_ref_elv2) {
       excluded: function(r) { return _elCollExcluded(data, r, _collScope); },
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
-    var _osFn = _osValFn;   // 実現OS=×/損切りで打ち切り（記録の採用α基準）／生=アウトカム盲目の最高値 2026-07-09（共有）
+    var _osFn = _osValFn;   // 実現OS=×/損切りで打ち切り（記録の採用α基準）＝主基準。生=アウトカム盲目の最高値は同時表示（rawVals/併記）2026-07-13
     var _osAll = _elOsStatsV2(rs, _osFn);
     var os = _elOsStatsV2(_osFilRecs, _osFn), ss = _elStopStatsV2(_osFilRecs, data), pcg = _elOsPctlV2(_osFilRecs, _osFn);
-    var _pcgRaw = (osValMode === "real") ? _elOsPctlV2(_osFilRecs, _elOsMaxAll) : pcg;   // α目安(7割=α)＝到達確率は選択バイアス回避のため常に生基準 2026-07-09
+    var osRaw = _elOsStatsV2(_osFilRecs, _elOsMaxAll);   // 生の最高OS（色棒＋括弧併記用）2026-07-13
+    var _pcgRaw = _elOsPctlV2(_osFilRecs, _elOsMaxAll);   // α目安(7割=α)＝到達確率は選択バイアス回避のため常に生基準 2026-07-09
     var _baA = _elBaseAlphaA(baRs, _ai);   // {pick, add}＝推奨基本α(母数×+未選択)＋推奨追加α(母数〇のみ)。KPIカードとOS分布▲マークで共用 2026-07-01
     var _baPick = _baA ? _baA.pick : null, _baAdd = _baA ? _baA.add : null;
     var _baPickAlpha = (_baPick && _baPick.alpha != null) ? _baPick.alpha : null;   // OS値分布に推奨基本αを青字マーク（母数はトグル非依存の_baRecs＝推奨基本α表示と一致）
@@ -5024,12 +5128,12 @@ function EntryLogView(_ref_elv2) {
     // デュアル評価（承認① 2026-07-12）: 最終損益基準の並走pick＋6月以前混入バッジ（承認③）。実母数（浮き足/RN/追加α除外）でバッジ件数を出す。
     var _baBasePool = (baRs || []).filter(function(r) { return r && !_elAddAlphaYes(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
     var _baAddPool = (baRs || []).filter(function(r) { return r && _elAddAlphaYes(r.signal) && !_elHasNumReason(r.signal) && !_elRnYes(r.signal); });
-    var _baH2 = _elBaseAlphaH2Pick(baRs, _ai);
+    var _baLg = _elBaseAlphaPickScore(baRs, _ai);   // 旧スコア基準の値（乖離確認チップ・旧_elBaseAlphaH2Pickバッジを置換 2026-07-13）
     var _baAddH2 = (_baPickAlpha != null && _baAddPool.length) ? _elAddAlphaH2Pick(_baAddPool, _ai, _baPickAlpha) : null;
     var _kpiBase = (function() {
       if (!_baPick || _baPick.alpha == null) return _kpiCard("推奨基本α値", "—", "#94A3B8", "データ不足");
       var na = _baPick.status === "na";
-      var sub = React.createElement("span", null, (_baPick.alpha2 != null) ? ("次点 " + _baPick.alpha2 + "円") : (na ? "件数不足で参考値" : "次点なし"), _elH2AgreeNode(_baPick.alpha, _baH2 ? _baH2.alpha : null, "円"), _elPreEmaBadge(_baBasePool));
+      var sub = React.createElement("span", null, (_baPick.alpha2 != null) ? ("次点 " + _baPick.alpha2 + "円") : (na ? "条件緩和の参考値" : "次点なし"), _elOldPickChip(_baPick.alpha, _baLg ? _baLg.alpha : null), _elPreEmaBadge(_baBasePool));
       return _kpiCard("推奨基本α値", _baPick.alpha + "円" + (na ? "（参考）" : ""), na ? "#B45309" : "#0369A1", sub);
     })();
     var _kpiAdd = (function() {
@@ -5047,25 +5151,16 @@ function EntryLogView(_ref_elv2) {
         _kpiAdd),
       _osAll ? React.createElement("div", { style: { background: "#fff", border: "1px solid #ECE7DE", borderRadius: 13, padding: "12px 14px", marginBottom: 12, boxShadow: "0 1px 2px rgba(0,0,0,.03)" } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 4 } }, "OS値分布（OS1〜3最高・1円刻み）"),
-          React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 6 } }, _floatMode ? "母数＝浮き足〇の記録" :("母数は上の「追加α母数」トグルに連動（" + (osDistFil === "no" ? "×+未選択＝▲推奨基本αと同じ母数" : osDistFil === "yes" ? "追加α〇のみ" : "全記録") + "）")),
-          React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
-            React.createElement("span", { style: { fontSize: 9.5, color: "#9A9186", fontWeight: 700 } }, "OS基準:"),
-            React.createElement("span", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 2, gap: 2 } },
-              [["real", "実現OS（×打ち切り）"], ["raw", "生の最高OS"]].map(function(kv) {
-                var on = osValMode === kv[0];
-                return React.createElement("button", { key: kv[0], type: "button", onClick: function() { setOsValMode(kv[0]); },
-                  style: { padding: "2px 10px", fontSize: 10, fontWeight: 700, borderRadius: 7, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#1A1714" : "#6B6459", boxShadow: on ? "0 1px 2px rgba(0,0,0,.08)" : "none", whiteSpace: "nowrap" } }, kv[1]);
-              })),
-            React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, osValMode === "real" ? "期待度×/損切りで降りた足以降を除外した実現分のOS" : "結果に依らずOS1〜3の最高値（アウトカム盲目）")),
+          React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 6 } }, _floatMode ? "母数＝浮き足〇の記録" :("母数は上の「追加α母数」トグルに連動（" + (osDistFil === "no" ? "×+未選択" : osDistFil === "yes" ? "追加α〇のみ" : "全記録") + "）。▲推奨基本αの母数はここからさらに浮き足〇/RN〇を除いたもの")),
           os ? React.createElement(React.Fragment, null,
             React.createElement("div", { style: { display: "flex", gap: "4px 16px", flexWrap: "wrap", fontSize: 12, color: "#555", marginBottom: 7, alignItems: "baseline" } },
-              React.createElement("span", null, "中央 ", React.createElement("b", { style: { color: "#9A3412", fontSize: 15 } }, os.med + "円"), (pcg && pcg.skewRight) ? React.createElement("span", { title: "平均が大きいOS値に上振れ。典型値は中央値で読むのが安全。", style: { display: "inline-block", fontSize: 8, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 3, padding: "0 4px", marginLeft: 4 } }, "右偏") : null),
-              React.createElement("span", null, "平均 ", React.createElement("b", null, os.avg + "円")),
+              React.createElement("span", null, "中央 ", React.createElement("b", { style: { color: "#9A3412", fontSize: 15 } }, os.med + "円"), (osRaw ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（生" + osRaw.med + "円）") : null), (pcg && pcg.skewRight) ? React.createElement("span", { title: "平均が大きいOS値に上振れ。典型値は中央値で読むのが安全。", style: { display: "inline-block", fontSize: 8, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 3, padding: "0 4px", marginLeft: 4 } }, "右偏") : null),
+              React.createElement("span", null, "平均 ", React.createElement("b", null, os.avg + "円"), (osRaw ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（生" + osRaw.avg + "円）") : null)),
               React.createElement("span", null, "最頻 ", React.createElement("b", null, pcg ? _elOsBucketLabel(pcg.bucketMode.key) : os.mode.val + "円")),
               React.createElement("span", null, "範囲 ", React.createElement("b", null, os.min + "〜" + os.max + "円")),
-              _pcgRaw ? React.createElement("span", { title: "OS到達確率の目安。選択バイアス回避のため常に生（アウトカム盲目）データで算出＝OS基準トグルの影響を受けない。" }, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + _pcgRaw.a70 + "円"), (osValMode === "real") ? React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 2 } }, "(生基準)") : null) : null,
-              React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "（" + _osFilRecs.length + "件）")),
-            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, recs: _osFilRecs, aiOf: _ai, osOf: _osFn, xVals: _osXVals, markVal: _baPickAlpha,
+              _pcgRaw ? React.createElement("span", { title: "OS到達確率の目安。選択バイアス回避のため常に生（アウトカム盲目）データで算出。" }, "α目安 ", React.createElement("b", { style: { color: "#0369A1" } }, "7割=α" + _pcgRaw.a70 + "円"), React.createElement("span", { style: { fontSize: 8, color: "#94A3B8", marginLeft: 2 } }, "(生基準)")) : null,
+              React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "（" + _osFilRecs.length + "件・統計は実現OS基準）")),
+            React.createElement("div", { style: { margin: "4px 0 6px" } }, React.createElement(_elOsHistV2, { vals: os.vals, rawVals: osRaw ? osRaw.vals : [], recs: _osFilRecs, aiOf: _ai, osOf: _osFn, xVals: _osXVals, markVal: _baPickAlpha,
               markVal2: ((_floatMode || osDistFil === "yes") && _baPickAlpha != null && _baAdd && _baAdd.improved && _baAdd.add != null) ? (_baPickAlpha + _baAdd.add) : null,
               markVal3: _osRedMark, mark3Label: _osRedLabel })),
             _elOsBandLegendV2())
@@ -5216,9 +5311,9 @@ function EntryLogView(_ref_elv2) {
       var _alphaTable = _alphaTableFn(_alReasonRecsScoped);   // α意思決定表はサブタブ母数（前足浮き/その他）＋根拠フィルタで再計算 2026-07-02→2026-07-06
       var _alPick = _alABase ? _alABase.pick : null;
       var _alAdd = _alA ? _alA.add : null;
-      // デュアル評価（承認① 2026-07-12）: ゾーンヘッド用の最終損益基準pick＋6月以前混入バッジ（承認③）。母数はゾーンヘッドの主表示（_alABase/_alA）と同一スコープ。
+      // 旧基準チップ（2026-07-13・旧デュアル評価バッジを置換）: ゾーンヘッド用に旧スコア方式の値を併記。母数はゾーンヘッドの主表示（_alABase/_alA）と同一スコープ。
       var _alH2Recs = (_reasonSel === "all") ? _selSigRecs : _alReasonRecsFull;
-      var _alH2Pick = _elBaseAlphaH2Pick(_alH2Recs, _ai);
+      var _alLgPick = _elBaseAlphaPickScore(_alH2Recs, _ai);
       var _alBasePoolBadge = (_alH2Recs || []).filter(function(r) { return r && !_elAddAlphaYes(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
       var _alAddPool = (_selSigRecs || []).filter(function(r) { return r && _elAddAlphaYes(r.signal) && !_elHasNumReason(r.signal) && !_elRnYes(r.signal); });
       var _alAddH2 = (_alPick && _alPick.alpha != null && _alAddPool.length) ? _elAddAlphaH2Pick(_alAddPool, _ai, _alPick.alpha) : null;
@@ -5253,7 +5348,7 @@ function EntryLogView(_ref_elv2) {
       var _alBaseSum;
       if (_alPick && _alPick.alpha != null) {
         var _bna = _alPick.status === "na";
-        _alBaseSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: _bna ? "#B45309" : "#0369A1" } }, "推奨基本α " + _alPick.alpha + "円", _alPick.alpha2 != null ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, marginLeft: 6 } }, "（次点 " + _alPick.alpha2 + "円）") : null, _bna ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, marginLeft: 4 } }, "参考") : null, _elH2AgreeNode(_alPick.alpha, _alH2Pick ? _alH2Pick.alpha : null, "円"), _elPreEmaBadge(_alBasePoolBadge));
+        _alBaseSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: _bna ? "#B45309" : "#0369A1" } }, "推奨基本α " + _alPick.alpha + "円", _alPick.alpha2 != null ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, marginLeft: 6 } }, "（次点 " + _alPick.alpha2 + "円）") : null, _bna ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, marginLeft: 4 } }, "参考") : null, _elOldPickChip(_alPick.alpha, _alLgPick ? _alLgPick.alpha : null), _elPreEmaBadge(_alBasePoolBadge));
       } else {
         _alBaseSum = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#94A3B8" } }, "推奨基本α：データ不足");
       }

@@ -3506,6 +3506,23 @@ function _epHoldLadder(s, alpha, cutLine) {
   }
   return { epIdx: r.epIdx, items: items, stopDepth: stopDepth, maxPnl: maxPnl, maxDepth: maxDepth, finalPnl: finalPnl };
 }
+// 損切りタブ「保有なら」2026-07-13（ユーザー承認①）: 損切りしなかった場合の損益を実運用ルール
+// 「確定値が前の足より悪化（上昇）したらその足の確定値で手仕舞い・悪化しなければ最後の足まで保有」で計算。
+// 旧: _epHoldLadder(s,α,BIG).finalPnl＝無条件で最後の足まで保有（悪化後の戻りを取ったことになり実態より良く出る）。
+// 比較は確定値(c)が入っている足同士（cなしの足はスキップ）。E成立(judge ok)以外はnull。
+function _elRuleHoldPnl(s, alpha) {
+  var L = _epHoldLadder(s, alpha, 99999);
+  if (!L || !L.items || !L.items.length) return null;
+  var prevC = null, last = null;
+  for (var i = 0; i < L.items.length; i++) {
+    var it = L.items[i], c = it.leg ? it.leg.c : null;
+    if (it.pnl != null) last = it.pnl;
+    if (c == null) continue;
+    if (i > 0 && prevC != null && c > prevC) return it.pnl != null ? it.pnl : last;
+    prevC = c;
+  }
+  return last;
+}
 function _elDynResult(s, alpha, cutLine) {
   if (_epIsV2(s) && alpha != null) {
     var _rv2 = _epResolve(s, alpha);
@@ -4744,6 +4761,44 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
   return [ React.createElement("td", { key: "hc", colSpan: 2, style: tdStyle }, _elHoldStackInner(s, alpha, cutLine), capNote || null) ];
 }
 // 明細の「詳細損益」セル(1記録): EP(_epPnlCell)を上段・H1/H2(_elHoldStackInner)を下段に縦積み＝旧EP損益列＋H損益列を1セルに統合 2026-07-10。miss/×見送り分岐は_elHoldTd2と同一（矢印つき明細を維持）。
+// ④ 決済サマリー行（2026-07-13 ユーザー承認・案A最下段）: 「最高↑18 → 決済↓3（H2）」＝EP足から手仕舞い足までの高値の最大（どこまで逆行したか）と、
+// 最終損益(_elHold2TotParts.main)と同じ手仕舞い足の確定値。損切り記録は「最高↑26 → 損切（H1）」。手仕舞い足＝損切り足／非損切りは次足期待度○のみ次足へ（H2まで）。
+// E成立(judge ok)のv2記録のみ・それ以外はnull（行を出さない）。
+function _elRideSummaryNode(s, alpha, cutLine) {
+  if (!s || !_epIsV2(s) || alpha == null) return null;
+  var r = _epResolve(s, alpha);
+  if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
+  var cut = cutLine != null ? cutLine : 10;
+  var legs = _epLegs(s);
+  var _sp = _elPlanIsStop(s, alpha, cut);
+  var _s1 = !_sp && _elHoldIsStop(s, alpha, cut);
+  var _s2 = !_sp && !_s1 && _elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cut);
+  var stopped = _sp || _s1 || _s2;
+  var exitD;
+  if (_sp) exitD = 0; else if (_s1) exitD = 1; else if (_s2) exitD = 2;
+  else {
+    var h1e = _epNextExpAt(s, r.epIdx), h2e = _epNextExpAt(s, r.epIdx + 1);
+    exitD = (h1e !== "○") ? 0 : (h2e !== "○") ? 1 : 2;
+    while (exitD > 0 && !legs[r.epIdx + exitD]) exitD--;
+  }
+  var mx = null;
+  for (var i = r.epIdx; i <= r.epIdx + exitD && i < legs.length; i++) { var h = legs[i] && legs[i].h; if (h != null && (mx == null || h > mx)) mx = h; }
+  var exitLeg = legs[r.epIdx + exitD] || null;
+  var exitC = exitLeg ? exitLeg.c : null;
+  var lbl = exitD === 0 ? "EP" : "H" + exitD;
+  if (mx == null && exitC == null && !stopped) return null;
+  var _sml = function(t, col) { return React.createElement("span", { style: { fontSize: 9, color: col || "#B45309", fontWeight: 700, flexShrink: 0 } }, t); };
+  return React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 3, whiteSpace: "nowrap", borderTop: "1px dashed #d8cbb8", marginTop: 2, paddingTop: 1 } },
+    _sml("最高"),
+    _epSignedNode(mx, "mx"),
+    React.createElement("span", { style: { color: "#bbb", fontSize: "0.9em" } }, "→"),
+    stopped
+      ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#1E8449" } }, "損切（" + lbl + "）")
+      : React.createElement("span", { style: { display: "inline-flex", alignItems: "baseline", gap: 2 } },
+          _sml("決済"),
+          _epSignedNode(exitC, "ec"),
+          React.createElement("span", { style: { fontSize: 9, color: "#9CA3AF" } }, "（" + lbl + "）")));
+}
 function _elDetailFlowStack(s, alpha, cutLine) {
   var _epRow = React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-start", gap: 3, padding: "0 0 1px", borderBottom: "1px solid #e0d8c8", whiteSpace: "nowrap" } },
     React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 700, flexShrink: 0 } }, "EP"),
@@ -4758,7 +4813,7 @@ function _elDetailFlowStack(s, alpha, cutLine) {
   // 2026-07-09: OS足取り(_epOsChainCell)を詳細損益セルの最上段に統合（旧・独立OS列を廃止＝案A）。EP行の上に点線区切りで重ねる。
   // 2026-07-09f: ブロック全体を左寄せ（中央寄せの左右余白を除去）＝幅stretch時の無駄な余白を減らす。フォントは通常サイズ(セル継承=11)に戻す（列に余白があるため縮小不要）。
   var _osTop = React.createElement("div", { style: { display: "flex", justifyContent: "flex-start", padding: "0 0 2px", marginBottom: 2, borderBottom: "1px dashed #d8cbb8", whiteSpace: "nowrap" } }, _epOsChainCell(s, alpha));
-  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3 } }, _osTop, _epRow, _hPart);
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3 } }, _osTop, _epRow, _hPart, _elRideSummaryNode(s, alpha, cutLine));
 }
 // 明細の「最終損益」セル(1記録): その記録の手じまい(_elHold2TotParts.main)をランク+額+（）内=△で表示＝集計の最終損益列と同基準。2026-07-10。
 function _elHold2AmtNode(s, alpha, cutLine) {
