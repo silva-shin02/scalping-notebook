@@ -45,6 +45,15 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-13d EPナビ「本日の採用α値」欄＋「表を参照」ポップアップ（記録帳と同じ推奨α値詳細表から選択）＋頻度ゲート理想 4→5
+- **「本日の採用α値」欄（app-04・新規`_EpnDayAlphaField`）**: EPナビ各銘柄列の見出し直下に常設。既定＝推奨基本α（銘柄全体＝`_epnCascade(data,stock,null,null,date).stk`＝計算フォームautoPickのstk段と同一・この日より前の記録が母数）。数値入力＋`_stepBtn`▲▼で±1（長押し連続・即保存）。空欄＝推奨に追従（stored=null）／数値を入れると`charts[銘柄_日付].epNaviDayAlpha`へ即保存。並び＝入力欄＋▲▼ → 「表を参照」ボタン → 現状の推奨α値（ユーザー指定）。
+- **保存ヘルパー（app-04）**: `_epnDayAlphaGet(data,stock,date)`／`_epnDayAlphaSet(save,stock,date,val)`＝EP保存(epNavi)と同じチャートオブジェクトの別フィールド`epNaviDayAlpha`（数値・null=未設定）。日付ごと・銘柄ごと＝「本日の」は日付キーで自動リセット。migration不要（既存に無ければnull＝推奨追従）。
+- **計算フォームへ反映（app-04 `_EpnCalcForm`）**: `dayAlpha` propを受け、`_baseDefault = dayAlpha!=null ? dayAlpha : autoPick.a`。基本αのbaseV/placeholder/▲▼ステッパー/実効α注記/ラベル「空欄＝(本日の採用α値|推奨値)を自動採用」が_baseDefault起点に。**手入力nBaseは常に最優先／dayAlpha未設定は従来どおりautoPick（シグナル別に絞れる）＝純追加で既存不変**。`_cellsForm`で`dayAlpha:_epnDayAlphaGet(data,st,date)`を配線。※早見カードのインライン編集`_epnRecalcBase`はautoPick起点のまま（本欄は計算フォーム初期値のみ・既知の割り切り）。
+- **「表を参照」ポップアップ（app-04 EpNaviPanel）**: state`tableStock`（null=閉）。オーバーレイ（position:fixed/inset0/zIndex10000・背景タップ＝閉）に記録帳と**全く同じ**推奨α値詳細表`_elBaseAlphaDetailV2(_c.all,_c.aiOf,_hs,onPick,curEff)`を表示。母数＝`_epnCascade(...).all`（この銘柄v2・この日より前＝フォーム推奨と同一）。行タップでその基本α値を本日の採用α値へ取り込み閉じる。現採用値は青ハイライト。
+- **`_elBaseAlphaDetailV2`に選択機能を追加（app-06）**: 引数を`(recs,aiOf,holiSet,onPick,curSel)`に拡張（**後方互換＝既存3引数呼び出しは非選択で不変**）。onPick時のみ各行を`createElement.apply`でクリック可能化＋末尾に「選択/採用中」列・ヘッダーに「選択」を`.concat(onPick?["選択"]:[])`。curSel一致行を青#EFF6FF背景。
+- **頻度ゲート理想 4→5（app-06 `_EL_FREQ_MAX`）**: ユーザー方針変更「頻度の理想は5以下」。`_EL_FREQ_MAX=4→5`（≤5営業日/回）。全推奨★（_elBaseAlphaPick/_elTotalAlphaPick/_elAddAlphaPickDate）＋UI文言は`_EL_FREQ_MAX`補間で自動追従（コメントのみ手修正）。
+- 検証: node無し→自前http.server(:8848 別オリジン)で全8ファイル実マウント＝console 0・`_EpnDayAlphaField`隔離レンダー（入力/▲▼/表を参照→onOpenTable発火/推奨データ無し表示）・`_elBaseAlphaDetailV2`新シグネチャ空データ非throw・`_elBaseAlphaDetailV2.length===5`・`_EL_FREQ_MAX===5`全pass。sw.js APP_CACHE v109→**v110**。
+
 ### 2026-07-13c 推奨合計α（追加α〇局面）新セクション＋★色分け（赤/青）＋頻度ゲート（≤4営業日/回）＋頻度数字表記
 - **推奨合計α（新セクション・app-06）**: ユーザー要望「追加α〇記録向けの推奨基本α分析」→AskUserQuestionで「基本/追加を分けず合計α1本・0〜20円・表示のみ・追加αサブタブに新設」に確定。新規=`_EL_TOTAL_ALPHAS`(0〜20)・`_elTotalAlphaPick(pool,aiOf)`（母数=追加α〇[浮き足〇/RN〇除外]・各合計α0〜20を前提損切り値で一律評価・_elH2EvalByFn手じまい基準・★選定は_elBaseAlphaPickと厳密同一条件式＋平均最終損益最大）・`_elTotalAlphaSectionV2(recs,aiOf,holiSet)`（結論バー＋母数内訳＋合計α別総当たり表）。配線=追加αゾーン先頭に`_secH/_detBody("al_totA", _alReasonRecsFull)`。**表示のみ＝フォーム/EPナビ/シミュ/推奨値の自動入力には非配線**（純加算・0削除・敵対的レビュー2観点[正しさ/副作用なし]でPASS＝既存推奨は1円も不変）。母数は下の追加α詳細と件数一致。
 - **★色分け（赤/青・全推奨α詳細表）**: ユーザー指定「濃い字の中での推奨=赤★・薄い字でも推奨があれば青★」。新helper`_elStarNode(status)`＝status ok→赤#C0392B（条件充足＝濃い字の推奨）／na→青#0369A1（条件緩和の参考推奨）。適用=_elBaseAlphaDetailV2/_elBaseAlphaSummary/_elAddAlphaDetailV2(日付別主表)/_elTotalAlphaSectionV2。red★は常にpass行(濃)に載る（ok=strict通過）・blue★は緩和pick(na)に載る。

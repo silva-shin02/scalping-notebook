@@ -1290,7 +1290,7 @@ var _EL_BASE_MIN_FRAC = 0.5;     // 件数フロア（実データ連動）: 最
 var _EL_BASE_N_PREF = 20;        // ★選定の有効件数(E成立)フロア第1候補（2026-07-13 条件式化・ユーザー方針=20件、無ければ_EL_BASE_MIN_N(10件)へ自動緩和）。
 var _EL_BASE_MAX_STOPRATE = 0.20;   // ★選定の損切り率(手じまい基準)上限（2026-07-13 ユーザー方針=20%以下）。
 var _EL_BASE_MAX_STOPRATE_2 = 0.30; // 該当なし時の緩和上限（30%・status=na参考）。
-var _EL_FREQ_MAX = 4;               // ★選定の頻度ゲート（2026-07-13c ユーザー方針=理想は4営業日に1回以内）＝活動営業日span÷そのαの到達実日数 ≤ これ。損切り率30%まで緩和しても該当なしなら最後にこのゲートを外す（status=na）。span算出不能/到達0はゲート素通り。
+var _EL_FREQ_MAX = 5;               // ★選定の頻度ゲート（2026-07-13c 導入→2026-07-13d 理想を4→5に緩和 ユーザー方針=理想は5営業日に1回以内）＝活動営業日span÷そのαの到達実日数 ≤ これ。損切り率30%まで緩和しても該当なしなら最後にこのゲートを外す（status=na）。span算出不能/到達0はゲート素通り。
 // ===== 前提損切り値（2026-07-13 ユーザー指定）＝推奨α分析（基本α/追加αのスイープ・★選定・詳細データ表）はこの損切り値を前提に評価 =====
 // 「損切り値が何円であることを前提として、分析の結果、推奨α値はこうなった」。既定15円・custom.anaCutPremiseに保存（全端末同期）。
 // 対象＝推奨系スイープのみ（_elBaseAlphaPick/Score・_elAddAlphaPickDate/RecoScore・詳細データ表の表示スイープ）。
@@ -2019,7 +2019,7 @@ function _elBaseAlphaTrendV2(props) {
   return React.createElement("div", null, toggle, body);
 }
 // 推奨基本α 詳細データ（この銘柄/グループ）2026-06-22: 推奨値が出た根拠＝結論バー＋α別の総当たり(スコア内訳付き)＋読み取り。②採用αでの母数記録の内訳テーブルは2026-06-26にユーザー要望で削除（集計値は読み取りに残す）。
-function _elBaseAlphaDetailV2(recs, aiOf, holiSet) {
+function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel) {
   var _A = _elBaseAlphaA(recs, aiOf);
   var pick = _A ? _A.pick : _elBaseAlphaPick(recs, aiOf);
   if (!pick || pick.status === "none" || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
@@ -2064,7 +2064,8 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet) {
   var sweepRows = _dispSweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var _h2r = _h2ByA[e.a];
     var on = e.a === a, pass = !!(_h2r && _h2r.decided >= minN && _h2r.eRate != null && _h2r.eRate >= _EL_BASE_MIN_ERATE && _h2r.stopRate != null && _h2r.stopRate <= _EL_BASE_MAX_STOPRATE && _h2r.h2Sum != null && _h2r.h2Sum > 0);
-    return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.4 } },
+    var _isCur = !!(onPick && curSel != null && e.a === curSel);   // EPナビ「表を参照」ポップアップで現在の採用α値を青ハイライト 2026-07-13d
+    var _cells = [
       _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円", on ? _elStarNode(pick.status) : null), { textAlign: "left", paddingLeft: 8 }),
       _elv2Td(_elPctCell(e.eRate)),
       _elv2Td(_elFreqCell(_baseSpan, _elEnteredDays(_baseRecs, function() { return e.a; }))),
@@ -2075,7 +2076,10 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet) {
       _elv2Td((function() { var _h2 = _h2ByA[e.a]; return (_h2 && _h2.takeRate != null) ? _elPctCell(_h2.takeRate) : "—"; })()),
       _elv2Td((function() { var _h2 = _h2ByA[e.a]; if (!_h2 || _h2.avgH2 == null) return "—"; return React.createElement("div", { style: { lineHeight: 1.15 } }, React.createElement("b", { style: { color: _elPnlColor(_h2.avgH2) } }, _elPnlFmt(Math.round(_h2.avgH2))), React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8" } }, "Σ" + _elPnlFmt(Math.round(_h2.h2Sum)))); })()),
       _elv2Td(e.score == null ? "—" : React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "0.7×" + Math.round((1 - e.stopRate) * 100) + "+0.3×" + Math.round(e.h1win * 100))),
-      _elv2Td(_elScoreCell(e.score)));
+      _elv2Td(_elScoreCell(e.score))
+    ];
+    if (onPick) _cells.push(_elv2Td(React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 800, fontSize: 10, whiteSpace: "nowrap" } }, _isCur ? "採用中" : "選択")));
+    return React.createElement.apply(null, ["tr", { key: e.a, onClick: onPick ? function() { onPick(e.a); } : null, style: { background: on ? "#FEF3C7" : (_isCur ? "#EFF6FF" : "transparent"), opacity: pass ? 1 : 0.4, cursor: onPick ? "pointer" : "default" } }].concat(_cells));
   });
   // ②の母数記録テーブルは2026-06-26にユーザー要望で削除。母数集計（scN/損切り/勝ち/その他/対象外）だけ残し読み取りに使用。母数＝追加α〇を除く（×・未選択のみ）＝_baseRecs。
   var _mRecs = _baseRecs;
@@ -2100,7 +2104,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet) {
     React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "8px 0 0" } },
       "母数の内訳: 算入 " + (recs || []).length + "件 → 追加α〇 " + _exAddN + "件・浮き足〇 " + _exUkiN + "件・RN〇 " + _exRnN + "件を除外 → 素の記録 " + _baseRecs.length + "件（E成立＝そのαでOS3までにEP到達し勝敗判定できた数）"),
     _lbl("α別の総当たり（0〜20円・★赤＝条件を満たす推奨／★青＝条件緩和の参考推奨[推奨対象は5〜20円]・淡色＝★条件[到達率50%・損切り率(最終)20%以下・頻度≤" + _EL_FREQ_MAX + "営業日/回・E成立" + minN + "件・黒字]を満たさないα／★＝条件内で平均最終損益（1件あたり）が最大 2026-07-13／前提損切り値" + _elAnaCutCur + "円で評価／平均H1損益・H1勝率・スコア＝旧基準の参考列／頻度＝数字が小さいほど高頻度）"),
-    _elv2Table(["基本α", "到達率", "頻度", "E成立", "損切り率(最終)", "H1勝率", "平均H1損益", "利確率(最終)", "最終損益(平均/Σ)", "スコア内訳", "スコア"], sweepRows),
+    _elv2Table(["基本α", "到達率", "頻度", "E成立", "損切り率(最終)", "H1勝率", "平均H1損益", "利確率(最終)", "最終損益(平均/Σ)", "スコア内訳", "スコア"].concat(onPick ? ["選択"] : []), sweepRows),
     insight);
 }
 // 推奨追加α 詳細データ（この銘柄/グループ）2026-07-03: 推奨基本α詳細データ(_elBaseAlphaDetailV2)の追加α版＝結論バー＋加算値別の総当たり（基本α＋加算ごとの到達率/件数/損切り率/H1勝率/想定損益・★＝推奨）＋読み取り。母数＝追加α〇（数値根拠＝底抜け前足浮きは除外・_elAddAlphaRecoと同一）。集計タブ銘柄別パネルで追加α母数トグル〇のとき、畳んだ基本α詳細の下に表示。想定損益＝ΣH1損益（_elBaseAlphaEval.pnl＝_elSimPnlByDay.sumと同値）。
