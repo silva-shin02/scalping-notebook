@@ -1906,6 +1906,10 @@ function _elAddAlphaReco(recs, aiOf, baseAlpha, fullRecs) {
 // 用途は従来どおり: 推奨追加α値の母数から除外＝固定の＋X円推奨に馴染まない数値ベース加算を外す（記録帳のシグナル内サブタブ・根拠別分析④/⑤・浮き足専用分析と同基準）。
 function _elHasNumReason(s) { return _elUkiYes(s); }
 // 一括: { pick(推奨基本α本体・追加α無し母数), add(推奨追加α・追加α〇の記録だけを母数に算出) }。二プール設計 2026-06-22→2026-06-24g: pick.statusがna(件数不足)でも追加αを算出（ユーザー方針＝1件でも参考表示）。
+// 「この銘柄・EP起算(v2)・損益算入・(任意)基準日より前」の共通母数（2026-07-14 共通化・監査findingA）: 推奨α/EP計算の母数正本。before指定で当日以降を除外(後知恵回避)・null=全期間。EPナビ(_ElDayAlphaPair)/記録フォーム(_refBaseAlpha[全期間]/_alTblRecs/_refCutPick/_refSpecial)/日別ブロックが共用。※EPナビ_epnCascadeはキャッシュ_epnCollectSignals維持のため対象外。
+function _elStockRecsBefore(data, stock, before) {
+  return _elCollectAllSignals(data).filter(function(r) { return r && r.stock === stock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!before || r.date < before); });
+}
 // 直近件数窓の段階pick（2026-07-14 共通化・監査finding#3/25）: recsを日付昇順で直近50→100→全期間の窓に切り、最初にstatus==="ok"の推奨基本αを返す。無ければ全期間pick(仮値)。EPナビ_epnPickWinと記録フォーム_pickWinの共通正本＝窓刻み/フォールバック/idealAlphaのズレ防止。返り値{alpha,idealAlpha,ok,n,add}。
 function _elWinPick(rs, aiOf) {
   if (!rs || !rs.length) return { alpha: null, idealAlpha: null, ok: false, n: 0, add: null };
@@ -2445,7 +2449,7 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
 // 銘柄ごとの「α 推奨α値（{stock}・期間別）」ブロック（見出し＋説明＋期間別表_elBaseAlphaPeriodTableV2＝基本αに追加αの└サブ行も内包）。ChartSection(app-02)と取引テーブルの本日損益データ(app-04)で共用＝同じ見た目に統一 2026-06-24（2026-07-01 追加α独立テーブルを廃し基本α表へ統合・見出しを推奨α値に改称）。
 // data・stock・refDate(基準日=本日行は当日・他は前日まで)。recsは内部で全記録(_elCollectAllSignals→stock絞り)を集計。
 function _elBaseAlphaPeriodBlockV2(data, stock, refDate, save) {
-  var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === stock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!refDate || r.date < refDate); });   // 母数＝前日まで全期間（当日以降は含めない）＝上段_ElDayAlphaPair/フォーム/EPナビ/取引ボードと同一。旧: r.stock===stockのみで全日付を含み後知恵混入=推奨値が上段とズレていた 2026-07-13
+  var recs = _elStockRecsBefore(data, stock, refDate);   // 母数＝前日まで全期間（当日以降は含めない）＝上段_ElDayAlphaPair/フォーム/EPナビ/取引ボードと同一（2026-07-14 _elStockRecsBefore共通化）
   var aiOf = function(r) { return _elAlphaInfo(r, data); };
   return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨α値（" + stock + "）"),

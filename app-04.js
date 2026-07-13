@@ -3403,7 +3403,7 @@ function _ElDayAlphaPair(_p) {
   var _m = useState(null), modal = _m[0], setModal = _m[1];   // null | "base" | "special"
   var recs = useMemo(function() {
     if (!stock) return [];
-    return _elCollectAllSignals(data).filter(function(r) { return r.stock === stock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!date || r.date < date); });
+    return _elStockRecsBefore(data, stock, date);
   }, [data, stock, date]);
   var _A = useMemo(function() { return recs.length ? _elBaseAlphaA(recs, function(r) { return _elAlphaInfo(r, data); }) : null; }, [recs, data]);
   var baseReco = (_A && _A.pick && _A.pick.alpha != null) ? _A.pick.alpha : null;

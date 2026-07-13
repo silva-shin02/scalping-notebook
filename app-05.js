@@ -6133,7 +6133,7 @@ function EntryRecordForm(_ref_erf) {
   // 窓はカレンダーでなく fDate を起点にした直近N件の件数窓＝銘柄別でカレンダー窓が痩せるのを避け「最近の傾向」を安定して映す 2026-06-21→件数ベース2026-06-26。全期間も含め母数は fDate(その日)の前日までの記録のみ＝当日(同日)を含めず、過去記録の編集時に未来・当日データを使わない(look-ahead回避)2026-06-22c。
   var _refBaseAlpha = useMemo(function() {
     if (!fStock) return null;
-    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
+    var recs = _elStockRecsBefore(data, fStock, null);
     if (!recs.length) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var pickOf = function(rs) { if (!rs || !rs.length) return null; var A = _elBaseAlphaA(rs, aiOf); if (!A) return null; var p = A.pick; if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok", alpha2: p.alpha2, add: A.add }; };   // 2026-06-27: 同じ窓から推奨追加α(add)も一緒に取得＝フォームの基本α/追加αの窓・起点を揃える
@@ -6152,7 +6152,7 @@ function EntryRecordForm(_ref_erf) {
   // 詳細表ポップアップ用の母数（この銘柄・v2・算入・fDate前日まで＝推奨α値の算出と同一）とholiSet（頻度列用）2026-07-13
   var _alTblRecs = useMemo(function() {
     if (!fStock) return [];
-    return _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate); });
+    return _elStockRecsBefore(data, fStock, fDate);
   }, [data, fStock, fDate]);
   var _alTblHoli = useMemo(function() { return _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories); }, [data]);
   // 基本αの既定値＝直近50件の推奨基本α（無ければ100件→全期間でフォールバック）。直近25件は標本が薄くブレやすいので自動入力には使わず表示のみ（ユーザー方針 2026-06-22c→件数ベース2026-06-26）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
@@ -6169,7 +6169,7 @@ function EntryRecordForm(_ref_erf) {
   // 推奨損切り値（実現H1損益をほぼ維持できる範囲で最小=タイトな損切り値・この銘柄の前日までの算入v2記録から。損切り回避率/H1勝率は根拠として併記）2026-06-22→22dタイト優先。
   var _refCutPick = useMemo(function() {
     if (!fStock) return null;
-    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate); });
+    var recs = _elStockRecsBefore(data, fStock, fDate);
     if (!recs.length) return null;
     var p = _elCutPick(recs, function(r) { return _elAlphaInfo(r, data); });
     if (!(p && p.cut != null && p.status !== "none")) return null;
@@ -6241,7 +6241,7 @@ function EntryRecordForm(_ref_erf) {
   var _refSpecial = useMemo(function() {
     if (!fStock) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
-    var allR = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate); });
+    var allR = _elStockRecsBefore(data, fStock, fDate);
     var _bp = allR.length ? _elBaseAlphaPick(allR, aiOf) : null;   // 銘柄全体の基本α理想＝応用αを基本αより大きくクランプ 2026-07-13
     var recs = allR.filter(function(r) { return _elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
     if (!recs.length) return null;
