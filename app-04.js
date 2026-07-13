@@ -3555,7 +3555,7 @@ function _epnBaseLevelKey(casc) {
 }
 function _epnSpecialRecoFrom(casc, reasons) {
   if (!casc) return null;
-  // 応用αの母数は銘柄全体（全応用〇・浮き足〇/RN〇除外）。根拠別はその中を根拠で絞り、E成立（到達し勝敗判定できた件数）が下限_elSpecialMinDecidedCur以上のときだけ「根拠別」を採用＝未満は銘柄全体へフォールバック（ユーザー方針 2026-07-13）。
+  // 応用αの母数は銘柄全体（全応用〇・浮き足〇/RN〇除外）。根拠別はその中を根拠で絞り、プール件数（その根拠の応用〇記録数・EP到達/判定は問わない＝画面のn=）が下限_elSpecialMinDecidedCur以上のときだけ「根拠別」を採用＝未満は銘柄全体へフォールバック（ユーザー方針 2026-07-13・E成立でなくプール件数で判定）。
   var allSp = (casc.all || []).filter(function(r) { return _elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
   if (!allSp.length) return null;
   var key = _epnBaseLevelKey(casc);
@@ -3565,10 +3565,10 @@ function _epnSpecialRecoFrom(casc, reasons) {
   var _floor = (typeof _elSpecialMinDecidedCur === "number") ? _elSpecialMinDecidedCur : (typeof _EL_SPECIAL_MIN_DECIDED_DEF === "number" ? _EL_SPECIAL_MIN_DECIDED_DEF : 15);
   if (rs.length) {
     var poolR = allSp.filter(function(r) { var rr = _epnReasonsOf(r.signal); for (var i = 0; i < rs.length; i++) { if (rr.indexOf(rs[i]) >= 0) return true; } return false; });
-    if (poolR.length) {
+    if (poolR.length >= _floor) {   // プール件数（その根拠の応用〇記録数）で判定 2026-07-13
       var recoR = _elSpecialAlphaPick(poolR, casc.aiOf, _minIdeal);
-      if (recoR && recoR.alpha != null && recoR.status !== "none" && (recoR.decided || 0) >= _floor) {
-        return { v: recoR.alpha, v2: recoR.alpha2, n: poolR.length, decided: recoR.decided || 0, byReason: true, fellBack: false };   // 根拠別を採用（E成立≥下限）
+      if (recoR && recoR.alpha != null && recoR.status !== "none") {
+        return { v: recoR.alpha, v2: recoR.alpha2, n: poolR.length, decided: recoR.decided || 0, byReason: true, fellBack: false };   // 根拠別を採用（プール件数≥下限）
       }
     }
   }

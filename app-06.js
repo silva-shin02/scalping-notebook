@@ -1331,7 +1331,7 @@ function _ElAnaReachCtl(props) {
     React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _btn("↑", 10), _btn("↓", -10)),
     React.createElement("span", { style: { fontSize: 8.5, color: "#0369A1" } }, "基本αの★＝この到達率以上を保てる最も高いα（黒字前提）・既定" + _EL_ANA_REACH_DEF + "%"));
 }
-// ===== 根拠別 推奨応用αの下限（2026-07-13 ユーザー指定）＝根拠で絞った母数のE成立（到達し勝敗判定できた件数）がこの数以上のときだけ「根拠別」を採用。未満は銘柄全体の応用αへフォールバック =====
+// ===== 根拠別 推奨応用αの下限（2026-07-13 ユーザー指定）＝根拠で絞った母数のプール件数（その根拠の応用〇記録数＝画面のn=・EP到達/判定は問わない）がこの数以上のときだけ「根拠別」を採用。未満は銘柄全体の応用αへフォールバック =====
 // 既定15件・custom.specialMinDecidedに保存（全端末同期）。同期は_elAlphaInfo(app-05)内。対象＝EPナビ/早見の根拠別推奨応用α（_epnSpecialRecoFrom app-04）のみ。記録フォームの推奨応用αは元々銘柄全体母数なので対象外。
 var _EL_SPECIAL_MIN_DECIDED_DEF = 15;
 var _elSpecialMinDecidedCur = _EL_SPECIAL_MIN_DECIDED_DEF;
@@ -1344,7 +1344,7 @@ function _ElSpecialMinCtl(props) {
     React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "🧩 根拠別応用αの下限"),
     React.createElement("b", { style: { fontSize: 14, color: "#9A3412", fontVariantNumeric: "tabular-nums" } }, v + "件"),
     React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _btn("↑", 1), _btn("↓", -1)),
-    React.createElement("span", { style: { fontSize: 8.5, color: "#9A3412" } }, "EPナビの根拠別推奨応用αはE成立がこの件数以上で採用・未満は銘柄全体へフォールバック・既定" + _EL_SPECIAL_MIN_DECIDED_DEF + "件"));
+    React.createElement("span", { style: { fontSize: 8.5, color: "#9A3412" } }, "EPナビの根拠別推奨応用αはプール件数（n=）がこの件数以上で採用・未満は銘柄全体へフォールバック・既定" + _EL_SPECIAL_MIN_DECIDED_DEF + "件"));
 }
 var _EL_BASE_MIN_ERATE = 0.5;    // 到達率フロア: EP到達率(OS3まで)がこの値未満のαは推奨対象外＝約定しにくい高αを除外（ユーザー方針 2026-06-22c）。後で調整可。
 var _EL_BASE_W_STOP = 0.7;       // 合成スコアの重み: 損切り回避 (1−損切り率)。

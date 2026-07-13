@@ -3301,7 +3301,7 @@ function _gradeAlpha(difficulty) {
 function _elAlphaInfo(r, data) {
   if (typeof _elAnaCut === "function") _elAnaCutCur = _elAnaCut(data);   // 前提損切り値のモジュール同期（2026-07-13b）: 全画面のaiOfはここを通るため、推奨α分析(app-06のpick群)が常に最新のcustom.anaCutPremiseを読める
   if (typeof _elAnaReach === "function") _elAnaReachCur = _elAnaReach(data);   // 到達率下限のモジュール同期（2026-07-13）: 基本α★(_elBaseAlphaPick)が最新のcustom.anaReachFloorを読める
-  if (typeof _elSpecialMinDecided === "function") _elSpecialMinDecidedCur = _elSpecialMinDecided(data);   // 根拠別応用αの下限(E成立件数)のモジュール同期（2026-07-13）: EPナビ_epnSpecialRecoFromが最新のcustom.specialMinDecidedを読める
+  if (typeof _elSpecialMinDecided === "function") _elSpecialMinDecidedCur = _elSpecialMinDecided(data);   // 根拠別応用αの下限(プール件数)のモジュール同期（2026-07-13）: EPナビ_epnSpecialRecoFromが最新のcustom.specialMinDecidedを読める
   var c = (data && data.charts) ? data.charts[r.stock + "_" + r.date] : null;
   var s = r && r.signal;
   return {
