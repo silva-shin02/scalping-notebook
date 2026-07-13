@@ -66,10 +66,21 @@ html.sn-dark img,html.sn-dark canvas,html.sn-dark video,html.sn-dark [data-sn-no
 <body>
 <div id="root"><div style="display:flex;align-items:center;justify-content:center;height:80vh;font-size:15px;color:#888">読み込み中...</div></div>
 <script>
-// Service Worker 登録: Firebase Storage リクエストをキャッシュして課金を削減
+// Service Worker 登録＋自動更新（2026-07-13）: Firebase Storage 画像キャッシュに加え、
+// 新バージョン(sw.js変更でAPP_CACHE名が変わる)を検知したら install→skipWaiting→activate で controllerchange が発火。
+// 既存SWからの更新時のみ、開いているページを1回だけ自動リロードして新しい app-*.js に差し替える。
+// → iPad(ホーム画面PWA)の「修正が反映されない＝旧app-*.jsをSWが握ったまま」を解消（従来は手動で1〜2回開き直しが必要だった）。
 if ("serviceWorker" in navigator) {
+  var _snHadController = !!navigator.serviceWorker.controller;   // 読込時に既存SWが居たか＝更新か初回かの判定
+  var _snRefreshing = false;                                     // 二重リロード防止
+  navigator.serviceWorker.addEventListener("controllerchange", function() {
+    if (_snRefreshing) return;
+    _snRefreshing = true;
+    if (_snHadController) window.location.reload();              // 初回インストール（コントローラ無し→有り）はリロードしない・既存SWからの更新だけ自動リロード
+  });
   navigator.serviceWorker.register("sw.js").then(function(reg) {
     console.log("[SW] registered, scope:", reg.scope);
+    try { reg.update(); } catch (e) {}                           // 起動時に更新チェックを能動的に走らせる（iOSは自動チェックが遅いため）
   })["catch"](function(e) {
     console.warn("[SW] registration failed:", e);
   });
