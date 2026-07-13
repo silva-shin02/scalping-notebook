@@ -3316,6 +3316,17 @@ function _elAlphaInfo(r, data) {
 function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var base = _elBaseLevelAlpha(s); if (base == null) return null; var _bdStyle = { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" }; if (_elSpecialUsed(s)) return React.createElement("div", { style: Object.assign({}, _bdStyle, { color: "#9A3412" }) }, "（応用α " + base + "）"); return React.createElement("div", { style: _bdStyle }, "（" + base + "）"); }
 // 表示用α（浮き足加算を除いた 基本+追加+RN）2026-07-12: 浮き足は最終水準線側に移したのでα値欄はこれ（採用α−浮き足加算）を表示。保存alphaVal/EP/損益は不変。浮き足なし(×)の記録はukiAdd=0で採用αと同値。
 function _elAlphaShown(s, a) { var n = (a != null && a !== "" && !isNaN(Number(a))) ? Number(a) : null; return (n == null) ? a : (n - _elUkiAdd(s)); }
+// α値セル本体（2026-07-13）: 基本α/応用αの別を「基本」(青#0369A1)/「応用」(赤#DC2626)ラベル＋α値(浮き足除く)の2段で表示。折衷＝浮き足/RN加算があるときだけ内訳（基本α値）を3段目に出す。alphaはnullで「—」。
+function _elAlphaTypeCell(s, alpha) {
+  if (alpha == null || alpha === "") return React.createElement("span", { style: { color: "#ddd" } }, "—");
+  var sp = _elSpecialUsed(s);
+  var col = sp ? "#DC2626" : "#0369A1";
+  var hasAdd = (_elUkiAdd(s) > 0) || (_elRnAdd(s) > 0);
+  return React.createElement("div", { style: { lineHeight: 1.2 } },
+    React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, sp ? "応用" : "基本"),
+    React.createElement("div", { style: { color: col, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, _elAlphaShown(s, alpha) + "円"),
+    hasAdd ? _elAlphaBreakdownNode(s, alpha) : null);
+}
 // 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
 function _minBarList(s) { if (!s || s.minBar == null) return []; var arr = Array.isArray(s.minBar) ? s.minBar : [s.minBar]; var out = []; for (var i = 0; i < arr.length; i++) { var n = Number(arr[i]); if ((n === 1 || n === 5) && out.indexOf(n) < 0) out.push(n); } out.sort(function(a, b) { return a - b; }); return out; }
 // 各記録の分足を表の時間欄の下に出す小バッジ（「1分」=薄青／「5分」=薄緑の個別ピル・両方選択時は2つ並ぶ）。未設定はnull。2026-06-24に新規エントリー記録フォームへ再導入＝旧minBar欄。色分け2026-06-24→色入替2026-06-25(1分=青/5分=緑)。
@@ -4819,8 +4830,51 @@ function _elRideMiniNode(s, alpha, cutLine) {
     React.createElement("span", { style: { color: "#bbb", fontSize: "0.9em" } }, "→"),
     _epSignedNode(v.exitC, "ec"));
 }
+// EP行をH1/H2の固定表(_elHoldStackInner)と同じ桁で描く1行テーブル（2026-07-13 縦そろえ）。列幅 lbl22/e14/op10/hi26/ar10/wd26/s1 6/ac33/s2 6/pn78/cp10＝合計241で_elHoldStackInnerと一致。
+// 結果マーカー(○/×/△)はH1/H2に合わせて末尾(pn列)に置く。miss/×見送りはnull（呼び側が従来のインラインEP行にフォールバック）。値の取り出し・描画は_epPnlCellと同一。
+function _elEpAlignedRow(s, alpha, cutLine) {
+  if (!s || alpha == null) return null;
+  var j = _epIsV2(s) ? (function() { var r = _epResolve(s, alpha); return r ? r.judge : null; })() : (s.osVal != null && _elH2Miss(s, alpha) ? "miss" : "ok");
+  if (j === "x" || j === "miss") return null;
+  var res = _elDynResult(s, alpha, cutLine);
+  if (res === "miss") return null;
+  var eph = null, epc = null;
+  if (_epIsV2(s)) { var _r2 = _epResolve(s, alpha); if (_r2 && _r2.ep) { eph = _r2.ep.h; epc = _r2.ep.c; } }
+  else { eph = s.osVal != null ? Number(s.osVal) : null; epc = s.osConfVal != null ? (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)) : null; }
+  var pnl = _elDynPlanned(s, alpha, cutLine);
+  var _high = eph != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", fontWeight: 700, color: _vcol(Math.abs(eph), eph >= 0) } }, (eph < 0 ? "↓" : "↑") + Math.abs(eph)) : React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var _acmp = null;
+  if (epc != null) { var _ew = alpha - epc, _ewAbs = Math.abs(_ew); _acmp = _ew === 0 ? React.createElement("span", { style: { color: "#888" } }, "α0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: 700 } }, "α" + (_ew > 0 ? "↓" : "↑") + _ewAbs); }
+  var _resEl = res === "ok" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "○")
+    : res === "ng" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "×")
+    : res === "draw" ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700 } }, "△")
+    : null;
+  var _pnlNode = (pnl != null)
+    ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+        _elHoldGradeBadge(_profitGradeFromPnl(pnl, 1)),
+        React.createElement("span", { style: { fontWeight: 700, color: pnl > 0 ? "#C0392B" : pnl < 0 ? "#1E8449" : "#888" } }, (pnl > 0 ? "+" : "") + pnl.toLocaleString() + "円"),
+        _resEl ? React.createElement("span", { style: { marginLeft: 3 } }, _resEl) : null)
+    : React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
+  var _cc = function(k, node, ta, w) { return React.createElement("td", { key: k, style: { padding: "0 1px", whiteSpace: "nowrap", verticalAlign: "baseline", textAlign: ta || "center", width: w, overflow: "visible" } }, node != null ? node : null); };
+  var _tbl = React.createElement("table", { style: { borderCollapse: "collapse", margin: 0, fontSize: 11, fontVariantNumeric: "tabular-nums", lineHeight: 1.5, tableLayout: "fixed", width: 241 } },
+    React.createElement("tbody", null, React.createElement("tr", null,
+      _cc("lbl", React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 700 } }, "EP"), "center", 22),
+      _cc("e", null, "center", 14),
+      _cc("op", null, "center", 10),
+      _cc("hi", _high, "right", 26),
+      _cc("ar", _sep("→"), "center", 10),
+      _cc("wd", _epSignedNode(epc, "c"), "right", 26),
+      _cc("s1", _sep("/"), "center", 6),
+      _cc("ac", _acmp, "right", 33),
+      _cc("s2", _sep("/"), "center", 6),
+      _cc("pn", _pnlNode, "left", 78),
+      _cc("cp", null, "center", 10))));
+  return React.createElement("div", { style: { borderBottom: "1px solid #e0d8c8" } }, _tbl);
+}
 function _elDetailFlowStack(s, alpha, cutLine) {
-  var _epRow = React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-start", gap: 3, padding: "0 0 1px", borderBottom: "1px solid #e0d8c8", whiteSpace: "nowrap" } },
+  // 2026-07-13 EP行をH1/H2と同じ桁にそろえる(_elEpAlignedRow)。miss/×見送りはnull→従来のインラインEP行にフォールバック。
+  var _epRow = _elEpAlignedRow(s, alpha, cutLine) || React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-start", gap: 3, padding: "0 0 1px", borderBottom: "1px solid #e0d8c8", whiteSpace: "nowrap" } },
     React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 700, flexShrink: 0 } }, "EP"),
     _epPnlCell(s, alpha, cutLine));
   var _tdMiss = false;
@@ -4833,7 +4887,8 @@ function _elDetailFlowStack(s, alpha, cutLine) {
   // 2026-07-09: OS足取り(_epOsChainCell)を詳細損益セルの最上段に統合（旧・独立OS列を廃止＝案A）。EP行の上に点線区切りで重ねる。
   // 2026-07-09f: ブロック全体を左寄せ（中央寄せの左右余白を除去）＝幅stretch時の無駄な余白を減らす。フォントは通常サイズ(セル継承=11)に戻す（列に余白があるため縮小不要）。
   var _osTop = React.createElement("div", { style: { display: "flex", justifyContent: "flex-start", padding: "0 0 2px", marginBottom: 2, borderBottom: "1px dashed #d8cbb8", whiteSpace: "nowrap" } }, _epOsChainCell(s, alpha));
-  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3 } }, _osTop, _epRow, _hPart, _elRideSummaryNode(s, alpha, cutLine));
+  // 2026-07-13 「最高↑→決済↓」行(_elRideSummaryNode)は最終損益欄(_elRideMiniNode)に移設したため削除。
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3 } }, _osTop, _epRow, _hPart);
 }
 // 明細の「最終損益」セル(1記録): その記録の手じまい(_elHold2TotParts.main)をランク+額+（）内=△で表示＝集計の最終損益列と同基準。2026-07-10。
 function _elHold2AmtNode(s, alpha, cutLine) {
