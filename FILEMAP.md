@@ -45,6 +45,13 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-13e EPナビ計算フォーム調整（浮き足を全シグナル表示・③底抜けを畳みの外・早見EP右に底抜け・特段α詳細表ポップアップ）
+- **浮き足加算を全シグナルで常時表示（app-04 `_EpnCalcForm`）**: `showUki=_ukiSigNames.indexOf(nTag)>=0`（底抜け系シグナルのみ）→`showUki=true`に。記録フォーム(app-05 `_showUki=true`)と同じ＝全シグナルで浮き足欄＋推奨/次点/手入力%が出る。`_ukiSigNames/_elUkiSignalNames`のEPナビ用途は撤去（関数自体は分析母数で存続）。
+- **③底抜けを「詳細を入力」畳みの外へ（app-04 `_EpnCalcForm`）**: ③底抜けチップを`detOpen`畳みブロックから出し、②シグナルの直下に常時表示（`nTag`選択時）。畳みは③起点/④その他/⑤ライン併存だけに＝トグル文言「③〜⑤」→「③起点〜⑤」・`_detSummary`から`底:`除外・空ヒント文言も更新。
+- **早見カードのEP価格の右に底抜け（app-04 `_renderCard`）**: `EP ○○円`のdivをflex化し、右に`e.b`（③底抜けの選択値）をEP価格と同サイズ(16px)・プレーン(#475569)で表示（「EP 4232円　前日安値」＝ユーザー指定「VWAPみたいに表示するだけ」）。
+- **「特段α 詳細データ表」ポップアップ（app-04 `_EpnCalcForm`・基本αの下）**: 基本α行の下にボタン→state`showSpTable`のオーバーレイ(position:fixed/zIndex10000)で記録帳と同じ`_elTotalAlphaSectionV2`（＝推奨合計α＝特段αの実体・母数=追加α〇[浮き/RN除外]）を表示。母数=`_epnCascade(data,stock,null,null,date).all`＋`_buildHolidayDateSet`。**追加α→特段αの本移行後は自動で正式な特段α表に切替わる**。「本日の採用α値」の「表を参照」と同方式。
+- 検証: node無し→自前http.server(:8849別オリジン)で全8ファイル実マウントconsole0・`_EpnCalcForm`隔離レンダー（浮き足/特段αボタン/トグル改称/③底抜けが畳みの外[②シグナル<③底抜け<トグル]）・特段αモーダル開閉（空データで空メッセージ非throw）・EpNaviPanelをEPカード入りでマウント「EP 4232円→前日安値」の順で表示 全pass。sw.js APP_CACHE v110→**v111**。
+
 ### 2026-07-13d EPナビ「本日の採用α値」欄＋「表を参照」ポップアップ（記録帳と同じ推奨α値詳細表から選択）＋頻度ゲート理想 4→5
 - **「本日の採用α値」欄（app-04・新規`_EpnDayAlphaField`）**: EPナビ各銘柄列の見出し直下に常設。既定＝推奨基本α（銘柄全体＝`_epnCascade(data,stock,null,null,date).stk`＝計算フォームautoPickのstk段と同一・この日より前の記録が母数）。数値入力＋`_stepBtn`▲▼で±1（長押し連続・即保存）。空欄＝推奨に追従（stored=null）／数値を入れると`charts[銘柄_日付].epNaviDayAlpha`へ即保存。並び＝入力欄＋▲▼ → 「表を参照」ボタン → 現状の推奨α値（ユーザー指定）。
 - **保存ヘルパー（app-04）**: `_epnDayAlphaGet(data,stock,date)`／`_epnDayAlphaSet(save,stock,date,val)`＝EP保存(epNavi)と同じチャートオブジェクトの別フィールド`epNaviDayAlpha`（数値・null=未設定）。日付ごと・銘柄ごと＝「本日の」は日付キーで自動リセット。migration不要（既存に無ければnull＝推奨追従）。
