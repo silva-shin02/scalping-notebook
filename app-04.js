@@ -3411,7 +3411,7 @@ function _epnDaySpecialAlphaSet(save, stock, date, val) {
 // 「本日の採用α値」欄（基本α＋応用α・案B横並び2カラム 2026-07-13 task3）: 銘柄別記録テーブル/取引テーブルの推奨α欄に置く。母数＝この銘柄の「開いている日付の前日まで全期間」（詳細データ表・EPナビ・記録フォームと同じ）。
 // 各カラム＝入力＋▲▼＋「表を参照」（詳細データ表をポップアップし行タップで取込）。基本α＝charts.epNaviDayAlpha（EPナビと共有）／応用α＝charts.epNaviDaySpecialAlpha。
 function _ElDayAlphaPair(_p) {
-  var data = _p.data, save = _p.save, date = _p.date, stock = _p.stock;
+  var data = _p.data, save = _p.save, date = _p.date, stock = _p.stock, stacked = _p.stacked;   // stacked=true＝縦積み（EPナビの狭い列用）2026-07-13
   var _m = useState(null), modal = _m[0], setModal = _m[1];   // null | "base" | "special"
   var recs = useMemo(function() {
     if (!stock) return [];
@@ -3470,7 +3470,7 @@ function _ElDayAlphaPair(_p) {
   })() : null;
   return React.createElement("div", null,
     React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#334155", marginBottom: 3 } }, "本日の採用α値（この銘柄・前日まで基準）"),
-    React.createElement("div", { style: { display: "flex", gap: 6 } },
+    React.createElement("div", { style: { display: "flex", flexDirection: stacked ? "column" : "row", gap: 6 } },
       _col(true, bVal, setBVal, baseStored, baseReco, "#0369A1", "#93C5FD", "基本α"),
       _col(false, sVal, setSVal, spStored, spReco, "#9A3412", "#FDBA74", "応用α")),
     _modalEl);
@@ -4020,10 +4020,7 @@ function _EpnCalcForm(_p) {
     detOpen ? React.createElement("div", { style: { border: "1px solid #FDE68A", background: "#FFFBEB", borderRadius: 6, padding: "6px 7px 0", marginBottom: 7 } },
       !nTag ? React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", fontWeight: 600, paddingBottom: 6 } }, "②シグナルを選ぶと③起点・④の候補が出ます") : null,
       nTag ? _lrow(_mgmtHead("③", "起点"), React.createElement(_EpnChipMgr, { items: cands.k, selected: nSelK ? [nSelK] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "起点名（例: 50EMA）", onToggle: function(nm) { setNSelK(nSelK === nm ? null : nm); }, onAdd: function(nm) { _detAdd("k", nm); }, onRename: function(o, n) { _detRename("k", o, n); }, onDelete: function(nm) { _detDelete("k", nm); }, onReorder: function(l) { _detReorder("k", l); } })) : null,
-      nTag ? _lrow(_mgmtHead("④", "その他（複数可）"), React.createElement(_EpnChipMgr, { items: cands.f, selected: nSelF, accent: { b: "#B45309", bg: "#FEF3C7", c: "#92400E" }, addPh: "特徴名", onToggle: function(nm) { setNSelF(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: function(nm) { _detAdd("f", nm); }, onRename: function(o, n) { _detRename("f", o, n); }, onDelete: function(nm) { _detDelete("f", nm); }, onReorder: function(l) { _detReorder("f", l); } })) : null,
-      _lrow(_nl("⑤", "ライン併存ルール"), React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // ⑤ライン併存ルール（独自欄 2026-07-08g）: 〇で基本α1自動入力（nLineCoexist effect・手修正可）。④その他の下。
-        _oxBtns(nLineCoexist ? "○" : "×", function(v) { setNLineCoexist(v === "○"); }),
-        React.createElement("span", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 600 } }, "〇で基本α＝1（手修正可）")))) : null,
+      nTag ? _lrow(_mgmtHead("④", "その他（複数可）"), React.createElement(_EpnChipMgr, { items: cands.f, selected: nSelF, accent: { b: "#B45309", bg: "#FEF3C7", c: "#92400E" }, addPh: "特徴名", onToggle: function(nm) { setNSelF(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: function(nm) { _detAdd("f", nm); }, onRename: function(o, n) { _detRename("f", o, n); }, onDelete: function(nm) { _detDelete("f", nm); }, onReorder: function(l) { _detReorder("f", l); } })) : null) : null,
     React.createElement("div", { title: "記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ・追加α〇/浮き足〇は母数から除外）。★＝EP計算に採用中の段。データ不足＝件数フロア未満（仮＝参考値）", style: { background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 7px", marginBottom: 7 } },
       React.createElement("div", { style: { fontSize: 9, fontWeight: 800, color: "#94A3B8", marginBottom: 1 } }, "推奨基本α"),
       _pickLine("det", "詳細別", det),
@@ -4036,27 +4033,7 @@ function _EpnCalcForm(_p) {
       React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
       _stepBtn(function() { setNLevel(function(v) { return String(Math.round(((parseFloat(v) || 0) + 1) * 100) / 100); }); },
         function() { setNLevel(function(v) { return String(Math.max(0, Math.round(((parseFloat(v) || 0) - 1) * 100) / 100)); }); }))),
-    _lrow("基本α（空欄＝" + (dayAlpha != null ? "本日の採用α値" : "推奨値") + "を自動採用）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-      React.createElement("input", { type: "text", inputMode: "numeric", value: nBase, placeholder: _baseDefault != null ? String(_baseDefault) : "—",
-        onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "" || !isNaN(Number(v))) setNBase(v); }, style: _inpStyle }),
-      React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
-      _stepBtn(function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_baseDefault != null ? _baseDefault : 0); var n = b + 1; if (n > 50) n = 50; return String(n); }); },
-        function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_baseDefault != null ? _baseDefault : 0); var n = b - 1; if (n < 0) n = 0; return String(n); }); }))),
-    React.createElement("button", { type: "button", onClick: function() { setShowSpTable(true); }, title: "記録帳と同じ推奨応用α（合計α）の詳細データ表をポップアップ表示",
-      style: { width: "100%", fontSize: 10, fontWeight: 700, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 5, padding: "4px", marginBottom: 7, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: IS_TOUCH ? 28 : 22 } }, "📊 応用α 詳細データ表（記録帳と同じ）"),
-    _lrow("応用α", React.createElement("div", null,
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
-        _oxBtns(nSpecialUsed, setNSpecialUsed),
-        nSpecialUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nSpecialAlpha, placeholder: specialReco && specialReco.v != null ? String(specialReco.v) : (baseV != null ? String(baseV) : "0"),
-          onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "" || !isNaN(Number(v))) setNSpecialAlpha(v); }, style: Object.assign({}, _inpStyle, { width: 44 }) }) : null,
-        nSpecialUsed === "○" ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円") : null,
-        nSpecialUsed === "○" ? _stepBtn(function() { setNSpecialAlpha(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((specialReco && specialReco.v != null) ? specialReco.v : (baseV != null ? baseV : 0)); var n = b + 1; if (n > 50) n = 50; return String(n); }); },   // 空欄=推奨応用α起点 2026-07-13
-          function() { setNSpecialAlpha(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((specialReco && specialReco.v != null) ? specialReco.v : (baseV != null ? baseV : 0)); var n = b - 1; if (n < 0) n = 0; return String(n); }); }) : null),
-      nSpecialUsed === "○" ? React.createElement("div", { style: { marginTop: 4 } },
-        React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 3 } }, "根拠（選ぶと推奨応用αが変わる・複数可）"),
-        React.createElement(_EpnChipMgr, { items: reasonsMaster, selected: nSpecialReasons, accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: function(nm) { setNSpecialReasons(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: _rsnAdd, onRename: _rsnRename, onDelete: _rsnDelete, onReorder: _rsnReorder }),
-        React.createElement("div", { style: { fontSize: 9.5, color: specialReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
-          specialReco ? ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : "（空欄＝自動採用）")) : "推奨応用α データ無し（空欄＝基本α）")) : null)),
+    // 浮き足加算（水準線直下へ移動 2026-07-13・最終水準線に効くため）
     showUki ? _lrow("浮き足加算（前足浮き値×加算率）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
       _oxBtns(nUkiUsed, setNUkiUsed),
       nUkiUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nUkiVal, placeholder: "浮き値",
@@ -4070,6 +4047,38 @@ function _EpnCalcForm(_p) {
         React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", paddingRight: 3 } }, "%"),
         _stepBtn(function() { _stepNUkiPct(10); }, function() { _stepNUkiPct(-10); })) : null,
       nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null)) : null,
+    // ⑤ライン併存ルール（浮き足の下へ移動 2026-07-13・元は③〜⑤詳細畳みの中）
+    _lrow(_nl("⑤", "ライン併存ルール"), React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+      _oxBtns(nLineCoexist ? "○" : "×", function(v) { setNLineCoexist(v === "○"); }),
+      React.createElement("span", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 600 } }, "〇で基本α＝1（手修正可）"))),
+    // 採用α（基本α/応用α セレクタ・記録フォームと同じ 2026-07-13・旧「基本α入力＋📊応用α詳細ボタン＋応用α〇×」を統合。応用α詳細表は上「本日の採用α値」の応用α『表を参照』で代替）
+    _lrow("採用α", React.createElement("div", null,
+      React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3, marginBottom: 5 } },
+        [["base", "基本α", "#0369A1"], ["special", "応用α", "#9A3412"]].map(function(_kk) {
+          var _on = (_kk[0] === "special") === (nSpecialUsed === "○");
+          return React.createElement("button", { key: _kk[0], type: "button", title: _kk[0] === "base" ? "通常はこちら＝基本α値を採用" : "応用α値を採用",
+            onClick: (function(_k) { return function() { setNSpecialUsed(_k === "special" ? "○" : "×"); }; })(_kk[0]),
+            style: { padding: "4px 14px", fontSize: 12, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "none", background: _on ? "#fff" : "transparent", color: _on ? _kk[2] : "#6B6459", boxShadow: _on ? "0 1px 3px rgba(0,0,0,.12)" : "none" } }, _kk[1]);
+        })),
+      nSpecialUsed !== "○" ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+        React.createElement("input", { type: "text", inputMode: "numeric", value: nBase, placeholder: _baseDefault != null ? String(_baseDefault) : "—",
+          onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "" || !isNaN(Number(v))) setNBase(v); }, style: _inpStyle }),
+        React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
+        _stepBtn(function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_baseDefault != null ? _baseDefault : 0); var n = b + 1; if (n > 50) n = 50; return String(n); }); },
+          function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_baseDefault != null ? _baseDefault : 0); var n = b - 1; if (n < 0) n = 0; return String(n); }); }),
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "空欄＝" + (dayAlpha != null ? "本日の採用α値" : "推奨値") + "を自動採用")) : null,
+      nSpecialUsed === "○" ? React.createElement("div", null,
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+          React.createElement("input", { type: "text", inputMode: "numeric", value: nSpecialAlpha, placeholder: specialReco && specialReco.v != null ? String(specialReco.v) : (baseV != null ? String(baseV) : "0"),
+            onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "" || !isNaN(Number(v))) setNSpecialAlpha(v); }, style: Object.assign({}, _inpStyle, { width: 44 }) }),
+          React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
+          _stepBtn(function() { setNSpecialAlpha(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((specialReco && specialReco.v != null) ? specialReco.v : (baseV != null ? baseV : 0)); var n = b + 1; if (n > 50) n = 50; return String(n); }); },
+            function() { setNSpecialAlpha(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((specialReco && specialReco.v != null) ? specialReco.v : (baseV != null ? baseV : 0)); var n = b - 1; if (n < 0) n = 0; return String(n); }); })),
+        React.createElement("div", { style: { marginTop: 4 } },
+          React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 3 } }, "根拠（選ぶと推奨応用αが変わる・複数可）"),
+          React.createElement(_EpnChipMgr, { items: reasonsMaster, selected: nSpecialReasons, accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: function(nm) { setNSpecialReasons(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: _rsnAdd, onRename: _rsnRename, onDelete: _rsnDelete, onReorder: _rsnReorder }),
+          React.createElement("div", { style: { fontSize: 9.5, color: specialReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
+            specialReco ? ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : "（空欄＝自動採用）")) : "推奨応用α データ無し（空欄＝基本α）"))) : null)),
     _lrow("RNまたぎ加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RNまたぎ加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
       _oxBtns(nRnUsed, function(v) { setNRnUsed(v); if (v === "○" && nRnVal === "") setNRnVal("5"); }),
       nRnUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nRnVal, placeholder: "5",
@@ -4299,7 +4308,7 @@ function EpNaviPanel(_refEPN) {
     var _cards = savedByStock.map[st] || [];
     return React.createElement("div", { key: "epnc_" + st, style: { minWidth: 0 } },
       React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", background: "#DBEAFE", borderRadius: 5, padding: "3px 7px", marginBottom: 5, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, st),
-      React.createElement(_EpnDayAlphaField, { key: "epnda_" + st, data: data, save: save, date: date, stock: st, onOpenTable: setTableStock }),
+      React.createElement(_ElDayAlphaPair, { key: "epnda_" + st, data: data, save: save, date: date, stock: st, stacked: true }),
       _cards.map(function(e) { return _renderCard(st, e); }),
       _cards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"));
   });
