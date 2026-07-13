@@ -2416,7 +2416,7 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
 // 銘柄ごとの「α 推奨α値（{stock}・期間別）」ブロック（見出し＋説明＋期間別表_elBaseAlphaPeriodTableV2＝基本αに追加αの└サブ行も内包）。ChartSection(app-02)と取引テーブルの本日損益データ(app-04)で共用＝同じ見た目に統一 2026-06-24（2026-07-01 追加α独立テーブルを廃し基本α表へ統合・見出しを推奨α値に改称）。
 // data・stock・refDate(基準日=本日行は当日・他は前日まで)。recsは内部で全記録(_elCollectAllSignals→stock絞り)を集計。
 function _elBaseAlphaPeriodBlockV2(data, stock, refDate, save) {
-  var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === stock; });
+  var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === stock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!refDate || r.date < refDate); });   // 母数＝前日まで全期間（当日以降は含めない）＝上段_ElDayAlphaPair/フォーム/EPナビ/取引ボードと同一。旧: r.stock===stockのみで全日付を含み後知恵混入=推奨値が上段とズレていた 2026-07-13
   var aiOf = function(r) { return _elAlphaInfo(r, data); };
   return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨α値（" + stock + "）"),
