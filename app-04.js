@@ -3310,19 +3310,7 @@ function _epnReasonsOf(s) {
   if (s.addAlphaReason) return [s.addAlphaReason];
   return [];
 }
-function _epnPickWin(rs, aiOf) {
-  if (!rs.length) return { alpha: null, ok: false, n: 0, add: null };
-  var _sorted = rs.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
-  var _wins = [];
-  [_EL_PERIOD_COUNTS[1], _EL_PERIOD_COUNTS[2]].forEach(function(n) { if (_sorted.length > n) _wins.push(_sorted.slice(_sorted.length - n)); });
-  _wins.push(_sorted);
-  var _lastA = null;
-  for (var i = 0; i < _wins.length; i++) {
-    var A = _elBaseAlphaA(_wins[i], aiOf); _lastA = A;
-    if (A && A.pick && A.pick.alpha != null && A.pick.status === "ok") return { alpha: A.pick.alpha, idealAlpha: A.pick.idealAlpha, ok: true, n: rs.length, add: A.add };
-  }
-  return { alpha: (_lastA && _lastA.pick && _lastA.pick.alpha != null && _lastA.pick.status !== "none") ? _lastA.pick.alpha : null, idealAlpha: (_lastA && _lastA.pick) ? _lastA.pick.idealAlpha : null, ok: false, n: rs.length, add: (_lastA && _lastA.add) ? _lastA.add : null };
-}
+function _epnPickWin(rs, aiOf) { return _elWinPick(rs, aiOf); }   // 2026-07-14 共通化: 記録フォーム_pickWinと同一ロジックを_elWinPick(app-06)へ集約
 // _elCollectAllSignals(data) の単一スロット・同一性キャッシュ（2026-07-08f）: _epnCascade は計算フォーム最大3列＋追加α〇カードごとに呼ばれ、同一data参照の全チャート走査が重複する。dataはsaveで必ず新オブジェクトになる＝参照が変われば自動失効・結果は純粋関数で不変なので安全。返り値配列は_epnCascade側でfilter（新配列生成）してから使うためキャッシュ配列は不変。
 var _epnSigCacheData = null, _epnSigCacheOut = null;
 function _epnCollectSignals(data) {

@@ -6189,19 +6189,7 @@ function EntryRecordForm(_ref_erf) {
     });
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     // 窓付きpick: 直近50→100→全期間の順に最初のok推奨を採用（銘柄全体の_defBaseAと同じ考え方）。okが無ければ全期間の参考値(na)をalphaに入れつつok:false＝データ不足扱い。addは同じ窓の推奨追加α。
-    var _pickWin = function(rs) {
-      if (!rs.length) return { alpha: null, ok: false, n: 0, add: null };
-      var _sorted = rs.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
-      var _wins = [];
-      [_EL_PERIOD_COUNTS[1], _EL_PERIOD_COUNTS[2]].forEach(function(n) { if (_sorted.length > n) _wins.push(_sorted.slice(_sorted.length - n)); });
-      _wins.push(_sorted);
-      var _lastA = null;
-      for (var i = 0; i < _wins.length; i++) {
-        var A = _elBaseAlphaA(_wins[i], aiOf); _lastA = A;
-        if (A && A.pick && A.pick.alpha != null && A.pick.status === "ok") return { alpha: A.pick.alpha, ok: true, n: rs.length, add: A.add };
-      }
-      return { alpha: (_lastA && _lastA.pick && _lastA.pick.alpha != null && _lastA.pick.status !== "none") ? _lastA.pick.alpha : null, ok: false, n: rs.length, add: (_lastA && _lastA.add) ? _lastA.add : null };
-    };
+    var _pickWin = function(rs) { return _elWinPick(rs, aiOf); };   // 2026-07-14 共通化: EPナビ_epnPickWinと同一ロジックを_elWinPick(app-06)へ集約（返り値にidealAlphaが増えるが未使用で無害）
     // 選択値ごとの参考pick（全期間・表示のみ）＝そのセクションの値が一致する記録だけに絞る（旧フラット記録は③として一致判定）。
     var _pickOf = function(rs) { if (!rs.length) return { alpha: null, n: 0 }; var p = _elBaseAlphaPick(rs, aiOf); return (p && p.alpha != null && p.status !== "none") ? { alpha: p.alpha, ok: p.status === "ok", n: rs.length } : { alpha: null, n: rs.length }; };
     var _sel = (fSigDetail && fSigDetail[_t]) || { b: null, k: null, f: [] };

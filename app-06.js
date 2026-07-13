@@ -1906,6 +1906,20 @@ function _elAddAlphaReco(recs, aiOf, baseAlpha, fullRecs) {
 // 用途は従来どおり: 推奨追加α値の母数から除外＝固定の＋X円推奨に馴染まない数値ベース加算を外す（記録帳のシグナル内サブタブ・根拠別分析④/⑤・浮き足専用分析と同基準）。
 function _elHasNumReason(s) { return _elUkiYes(s); }
 // 一括: { pick(推奨基本α本体・追加α無し母数), add(推奨追加α・追加α〇の記録だけを母数に算出) }。二プール設計 2026-06-22→2026-06-24g: pick.statusがna(件数不足)でも追加αを算出（ユーザー方針＝1件でも参考表示）。
+// 直近件数窓の段階pick（2026-07-14 共通化・監査finding#3/25）: recsを日付昇順で直近50→100→全期間の窓に切り、最初にstatus==="ok"の推奨基本αを返す。無ければ全期間pick(仮値)。EPナビ_epnPickWinと記録フォーム_pickWinの共通正本＝窓刻み/フォールバック/idealAlphaのズレ防止。返り値{alpha,idealAlpha,ok,n,add}。
+function _elWinPick(rs, aiOf) {
+  if (!rs || !rs.length) return { alpha: null, idealAlpha: null, ok: false, n: 0, add: null };
+  var _sorted = rs.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  var _wins = [];
+  [_EL_PERIOD_COUNTS[1], _EL_PERIOD_COUNTS[2]].forEach(function(n) { if (_sorted.length > n) _wins.push(_sorted.slice(_sorted.length - n)); });
+  _wins.push(_sorted);
+  var _lastA = null;
+  for (var i = 0; i < _wins.length; i++) {
+    var A = _elBaseAlphaA(_wins[i], aiOf); _lastA = A;
+    if (A && A.pick && A.pick.alpha != null && A.pick.status === "ok") return { alpha: A.pick.alpha, idealAlpha: A.pick.idealAlpha, ok: true, n: rs.length, add: A.add };
+  }
+  return { alpha: (_lastA && _lastA.pick && _lastA.pick.alpha != null && _lastA.pick.status !== "none") ? _lastA.pick.alpha : null, idealAlpha: (_lastA && _lastA.pick) ? _lastA.pick.idealAlpha : null, ok: false, n: rs.length, add: (_lastA && _lastA.add) ? _lastA.add : null };
+}
 function _elBaseAlphaA(recs, aiOf) {
   var pick = _elBaseAlphaPick(recs, aiOf);   // 内部で応用〇記録を除外＝基本αの母数は「応用なし（通常）」
   if (!pick || pick.alpha == null) return null;
