@@ -2419,10 +2419,10 @@ function _elBaseAlphaPeriodBlockV2(data, stock, refDate, save) {
   var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === stock; });
   var aiOf = function(r) { return _elAlphaInfo(r, data); };
   return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨α値（" + stock + "・期間別）"),
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨α値（" + stock + "）"),
     (save && typeof _ElDayAlphaPair === "function") ? React.createElement("div", { style: { marginBottom: 6 } }, React.createElement(_ElDayAlphaPair, { data: data, save: save, date: refDate, stock: stock })) : null,   // 本日の採用α値（基本α+応用α）＝見出し直下 2026-07-13 task3
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で「到達率50%以上・損切り率(手じまい)20%以下・E成立20件（無ければ10件に緩和）・黒字」を満たすαの中で平均最終損益（手じまい・1件あたり）が最大のα（2026-07-13新基準・該当なしは損切り30%へ緩和して参考）。基本αは追加α〇・浮き足〇・RN〇以外（×・未選択）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・追加α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。表の「└ +追加α」＝追加α〇記録だけを母数に「各記録日の推奨基本α＋加算X円(0〜10)」を手じまい基準で評価し、基本αと同じ条件式で平均最終損益最大の加算（＋0円＝足さない判定あり・2026-07-13日付別方式）。次点（2番目の候補）は基本α・追加αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
-    _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true));
+    React.createElement(_ElRecoAlphaDetail, { recs: recs, aiOf: aiOf, holiSet: _buildHolidayDateSet((data || {}).trades, ((data || {}).custom || {}).eventCategories) }));   // 2026-07-13 期間別表→取引/記録帳と同じ基本↔応用トグル付き総当たり詳細表(常時展開)。期間別は_ElRecoAlphaDetail内の「直近参考」サブ行で残す。
 }
 // DayView「チャート」タブで早見表の下に出す推奨αブロック（2026-06-24）。各銘柄テーブル(ChartSection)の_elBaseAlphaPeriodBlockV2と同等に充実＝説明文＋本日行付き期間表(_elBaseAlphaPeriodTableV2＝基本αに追加αの└サブ行も内包)。さらに「今日の推奨◯円」の大見出し(headNode)を併載＝いいとこ取り 2026-06-24c（2026-07-01 追加α独立テーブル(_elAddAlphaPeriodTableV2)を廃し基本α表へ統合・最上位見出しを🎯推奨α値に改称）。
 // 見出し＝直近50件（データ不足なら100件→全期間にフォールバック）の推奨基本α＋追加α。本日のみ記録の銘柄でも本日行を出すためガードは「前日まで or 本日」のどちらかにデータがあれば表示。
@@ -2489,7 +2489,26 @@ function _ElBaseAlphaBoardCard(_p) {
   return React.createElement("div", { style: { background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 10px", marginBottom: 8 } },
     _p.body,
     React.createElement("button", { type: "button", onClick: function() { setOpen(function(o) { return !o; }); }, style: { marginTop: 6, fontSize: 10, fontWeight: 700, color: "#0369A1", background: "#fff", border: "1px solid #93C5FD", borderRadius: 5, padding: "3px 9px", cursor: "pointer", minHeight: IS_TOUCH ? 28 : 22 } }, open ? "▲ 詳細データ表を閉じる" : "▼ この銘柄の詳細データ表（記録帳と同じ・前日まで全期間）"),
-    open ? React.createElement("div", { style: { marginTop: 6, paddingTop: 6, borderTop: "1px dashed #93C5FD", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, _elBaseAlphaDetailV2(_p.recs, _p.aiOf, _p.holiSet)) : null);
+    open ? React.createElement("div", { style: { marginTop: 6, paddingTop: 6, borderTop: "1px dashed #93C5FD", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, React.createElement(_ElRecoAlphaDetail, { recs: _p.recs, aiOf: _p.aiOf, holiSet: _p.holiSet })) : null);
+}
+// 推奨α詳細（基本α↔応用αトグル＋総当たり詳細表＋期間別「直近参考」サブ行）2026-07-13 ユーザー要望。銘柄別記録(_elBaseAlphaPeriodBlockV2)と取引ボード(_ElBaseAlphaBoardCard)で共用＝両箇所に同じトグル。詳細表の母数＝渡されたrecs（前日まで全期間）。期間別(25/50/100件)は表を差し替えず「直近参考」1行で残す（記録フォームの直近期間別参考と同パターン・値=各窓の_elBaseAlphaA pick/add）。
+function _ElRecoAlphaDetail(_p) {
+  var recs = _p.recs, aiOf = _p.aiOf, holiSet = _p.holiSet;
+  var _k = useState("base"), kind = _k[0], setKind = _k[1];
+  var _byDate = (recs || []).filter(function(r) { return r && r.date && _epIsV2(r.signal) && _elInclTotal(r.signal); }).sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  var _lastN = function(n) { return _byDate.length > n ? _byDate.slice(_byDate.length - n) : _byDate.slice(); };
+  var _winStr = function(n) { var A = _byDate.length ? _elBaseAlphaA(_lastN(n), aiOf) : null; if (!A) return "—"; if (kind === "special") { return (A.add && A.add.alpha != null) ? (A.add.alpha + "円") : "—"; } return (A.pick && A.pick.alpha != null) ? (A.pick.alpha + "円" + (A.pick.status === "ok" ? "" : "(仮)")) : "—"; };
+  var _pill = function(kk, lbl, col) {
+    var on = kind === kk;
+    return React.createElement("button", { key: kk, type: "button", onClick: function() { setKind(kk); },
+      style: { padding: "3px 14px", fontSize: 12, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? col : "#8a8378", boxShadow: on ? "0 1px 3px rgba(0,0,0,.12)" : "none" } }, lbl);
+  };
+  return React.createElement("div", null,
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" } },
+      React.createElement("span", { style: { display: "inline-flex", background: "#E2DED6", borderRadius: 9, padding: 3, gap: 3 } },
+        _pill("base", "基本α", "#0369A1"), _pill("special", "応用α", "#9A3412")),
+      React.createElement("span", { style: { fontSize: 9.5, color: "#94A3B8" } }, "直近参考　" + _EL_PERIOD_COUNTS[0] + "件:" + _winStr(_EL_PERIOD_COUNTS[0]) + "　" + _EL_PERIOD_COUNTS[1] + "件:" + _winStr(_EL_PERIOD_COUNTS[1]) + "　" + _EL_PERIOD_COUNTS[2] + "件:" + _winStr(_EL_PERIOD_COUNTS[2]))),
+    kind === "special" ? _elTotalAlphaSectionV2(recs, aiOf, holiSet) : _elBaseAlphaDetailV2(recs, aiOf, holiSet));
 }
 function _elBaseAlphaSimpleBoardV2(data, stocks, refDate, save) {
   var aiOf = function(r) { return _elAlphaInfo(r, data); };
