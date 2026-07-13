@@ -985,6 +985,16 @@ function migrateData(d) {
       d._migSignalRename4 = true;
     } catch(e) { console.warn("[migrateData] sigRename4 error:", e); }
   }
+  // 【一回性 _migSignalRename5・2026-07-13】ユーザー指定の統合改名（OS系等→基本シグナルへ）。②シグナルで新旧同一シグナルが別チップに割れていたのを1本化＝正規化照合済み_elSignalRenameDataで記録tag/signalTags/sigDetails/EPナビ等を全経路移行し既存名へ統合。冪等（フラグで1回・統合済みはno-op）。
+  if (!d._migSignalRename5) {
+    try {
+      if (typeof _elSignalRenameData === "function") {
+        [["指標線底抜けOS", "指標線底抜け"], ["寄り足下値OS", "寄り足下値"],
+         ["水平線耐えラインOS", "水平線底抜け"], ["水平線耐えライン", "水平線底抜け"]].forEach(function(p) { var _r = _elSignalRenameData(d, p[0], p[1]); if (_r) d = _r; });
+      }
+      d._migSignalRename5 = true;
+    } catch(e) { console.warn("[migrateData] sigRename5 error:", e); }
+  }
   // 応用α（独立α値）への移行（_migSpecialAlpha 2026-07-13）: 旧「基本α＋追加α増分」を廃止し、追加α〇(addAlphaUsed===true)だった記録を独立α値 specialAlpha へ作り替える。
   //  各記録の原本を _almig にbackup → specialAlpha＝各銘柄の推奨応用α(銘柄全体母数・_elSpecialAlphaPick＝旧_elTotalAlphaPick／浮き足〇・RN〇は母数除外)、不足時は推奨基本α(_elBaseAlphaPick)、
   //  それも無ければ旧 baseAlphaVal+addAlphaVal（＝旧採用αを厳密維持）→ base-levelα=specialAlpha として alphaVal を再計算(=specialAlpha+浮き足+RN)＝過去の応用記録のEP/損益が変わる（ユーザー承認）。EPは非保存で alphaVal から都度導出(_epResolve)。
