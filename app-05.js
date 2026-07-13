@@ -3120,16 +3120,7 @@ function _elIsEntered(s, item) {
 function _elInclTotal(s) { return !s || (s.includeInTotal !== false && s.passThrough !== true); }   // スルー(passThrough=true)は算入チェックに関わらず常に不算入 2026-07-06
 // recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
-// 追加α値の3状態判定（2026-06-24）: 〇=必要と明示(addAlphaUsed===true)／×=不要と明示(===false)／未選択=未判断(それ以外=null)。
-// 推奨基本αの母数=×＋未選択(=〇以外・!_elAddAlphaYes)・推奨追加αの母数=「〇明示」のみ。〇だけが基本α母数から外れ、未選択は基本αのみの記録として基本α母数に算入(2026-06-24b拡大・推奨追加αの母数からのみ除外)。
-function _elAddAlphaYes(s) { return !!s && s.addAlphaUsed === true; }
-function _elAddAlphaNo(s) { return !!s && s.addAlphaUsed === false; }
-function _elAddAlphaUnset(s) { return !s || (s.addAlphaUsed !== true && s.addAlphaUsed !== false); }
-// 追加α値が未選択の記録に付ける小バッジ（基本α・追加αの推奨母数から外れていることを明示）2026-06-24。
-function _addAlphaUnsetBadge(s) {
-  if (!_elAddAlphaUnset(s)) return null;
-  return React.createElement("span", { title: "追加α値が未選択（〇要/×不要を未判断）＝基本αのみの記録として推奨基本αの母数には算入されます（推奨追加αの母数は〇のみ＝未選択は除外）。記録を開いて〇を選ぶと追加αの母数に入ります。", style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: "#F1F5F9", color: "#64748B", borderRadius: 4, border: "1px dashed #CBD5E1", whiteSpace: "nowrap" } }, "追加α未選択");
-}
+// 特段α（旧・追加α〇×未選択の3状態は廃止 2026-07-13）: 記録は「特段あり(specialUsed===true)」か「通常(それ以外＝旧×+未選択を統合)」の2状態。判定は _elSpecialUsed(上部)。
 // ===== 浮き足加算α値（第3のα要素 2026-07-03。対象シグナル＝既定で底抜け水準線OS／底抜けラインOS・_elUkiSignalNames 2026-07-07）=====
 // signal.ukiUsed(true=〇/false=×/null・undefined=対象外)・signal.ukiVal(前足浮き値の生値・円)。実効加算＝floor(ukiVal×ukiPct/100)・小数切捨て（ukiPct=採用加算率%・既定50＝旧半額 2026-07-12d）。
 // 合計採用α(signal.alphaVal)＝基本α＋浮き足加算＋追加α（保存時に畳み込み済み＝下流の損益/EP計算は無改修で正）。
@@ -3141,6 +3132,20 @@ function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); if (v
 // RNまたぎ加算の判定/成分（第5のα要素 07-08h・signal.rnUsed/rnVal）。浮き足(_elUkiYes/_elUkiAdd)と対になる分析用ヘルパー 2026-07-12: 推奨基本αの母数除外・RN分析ボード・反実仮想(採用α−RN)で使用。
 function _elRnYes(s) { return !!s && s.rnUsed === true; }
 function _elRnAdd(s) { if (!_elRnYes(s)) return 0; var v = Number(s.rnVal); return (isNaN(v) || v <= 0) ? 0 : v; }
+// ===== 特段α（特段の事情がある時に使う独立α値。旧「基本α＋追加α増分」を廃止し置換 2026-07-13） =====
+// specialUsed(bool)=特段α採用／specialAlpha(number)=独立α値／specialReasons(array)=根拠。旧 addAlphaUsed/addAlphaVal/specialReasons は撤去（移行 _migSpecialAlpha・app-01）。
+// 特段αは「基本α部分だけ」を置換＝base-levelα。浮き足・RN・ライン併存(base=1畳み込み)は従来どおり base-levelα の上に上乗せ（採用α＝base-levelα＋浮き足＋RN）。
+function _elSpecialUsed(s) { return !!s && s.specialUsed === true; }
+// base-levelα（採用αの土台）＝特段α採用時は specialAlpha、通常時は baseAlphaVal。両欠損時は 採用α(alphaVal)−浮き足−RN から逆算。採用α alphaVal ＝ base-levelα ＋ _elUkiAdd ＋ _elRnAdd。全画面のαの正本。
+function _elBaseLevelAlpha(s) {
+  if (!s) return null;
+  var _n = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
+  if (s.specialUsed === true) { var sp = _n(s.specialAlpha); if (sp != null) return sp; }
+  var b = _n(s.baseAlphaVal); if (b != null) return b;
+  var tot = _n(s.alphaVal); return (tot == null) ? null : (tot - _elUkiAdd(s) - _elRnAdd(s));
+}
+// 特段αの根拠（理由）選択肢の既定。data.custom.specialReasons でユーザーが追加/削除/改名可（改名は過去記録の根拠名も追従）。旧 custom.specialReasons から移行。
+var _DEF_SPECIAL_REASONS = ["指標線支え"];
 // 浮き足加算の欄を表示・算入する対象シグナル名の集合 2026-07-07（ユーザー決定＝両方に付ける）。
 // 2026-07-07f: 底抜け水準線OS→底抜けラインOSへ統合改名（migrateData _migSignalRename2）＝既定は1本に。
 // 後方互換: custom.ukiSignalNames(配列)があれば優先／旧custom.ukiSignalName(単一)も常に対象へ含める。下流(_elUkiYes/_elUkiAdd/記録帳の浮き足分析)はsignal.ukiUsed駆動でシグナル名非依存＝この集合はフォーム(app-05)/EPナビ(app-04)の「欄を出すか」ゲート専用。
@@ -3150,9 +3155,7 @@ function _elUkiSignalNames(custom) {
   if (custom && custom.ukiSignalName && out.indexOf(custom.ukiSignalName) < 0) out.push(custom.ukiSignalName);
   return out;
 }
-// 追加α〇の「根拠（理由）」選択肢の既定。data.custom.addAlphaReasons でユーザーが追加/削除/改名可（改名は過去記録の根拠名も追従・未設定時はこの既定を表示）2026-06-22→改名2026-06-23。
-// 「底抜け前足浮き」は2026-07-03に独立要素「浮き足加算α値」へ昇格＝既定から削除（過去記録・マスターはmigrateDataで移行/掃除）。
-var _DEF_ADD_REASONS = ["指標線支え"];
+// （旧 _DEF_SPECIAL_REASONS は _DEF_SPECIAL_REASONS へ統合＝2026-07-13 特段α化）
 
 // ===== 不算入(計算・データ算入オフ=includeInTotal===false)の可視化ヘルパー 2026-06-18 =====
 function _elIsExcluded(s) { return !!(s && (s.includeInTotal === false || s.passThrough === true)); }
@@ -3309,7 +3312,7 @@ function _elAlphaInfo(r, data) {
 // 追加α3状態(addAlphaUsed)対応 2026-06-25: 未選択(true/false以外)は「（未選択）」表記・×不要(add=0)は「（基本α）」表記(例（10）＝基本αだけを括弧で・円なし・2026-06-25f：当初は非表示にしていたが誤解で、本来は基本αを括弧表示が正)・〇要(add>0)は「（基本+追加）」。
 // 2026-06-25e: 「（未選択）」は新形式記録(baseAlphaVal有り)で addAlphaUsedが〇/×以外(=未選択)なら表示＝《不算入記録でも出す》(ユーザー要望: 不算入でも追加αの〇×が未選択なら（未選択）を表記)。旧記録(baseAlphaVal無し=base==nullで早期null返し)だけは追加α3状態の概念が無いため対象外。先回の「（不算入）」表記・不算入での（未選択）抑止・旧記録への（未選択）付与はすべて撤回。
 // 浮き足加算α値(uki=floor(ukiVal/2))対応 2026-07-03: 3要素（基本+浮+追加）。浮き足分は「浮」を付けて追加αと区別（例（10+浮8+5）/（10+浮8））。整合チェックは base+uki+add===dispAlpha。
-function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var _bn = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; }; var base = _bn(s.baseAlphaVal), add = _bn(s.addAlphaVal), total = _bn(s.alphaVal), uki = _elUkiAdd(s); if (base == null) { if (total != null && add != null) base = total - add - uki; else return null; } if (add == null) add = (total != null) ? (total - base - uki) : 0; if (base < 0 || add < 0) return null; if (dispAlpha != null && Number(dispAlpha) !== base + uki + add) return null; var _bdStyle = { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" }; if (s.addAlphaUsed !== true && s.addAlphaUsed !== false) return React.createElement("div", { style: _bdStyle }, "（未選択）"); if (add === 0) return React.createElement("div", { style: _bdStyle }, "（" + base + "）"); return React.createElement("div", { style: _bdStyle }, "（" + base + "+" + add + "）"); }
+function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var base = _elBaseLevelAlpha(s); if (base == null) return null; var _bdStyle = { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" }; if (_elSpecialUsed(s)) return React.createElement("div", { style: Object.assign({}, _bdStyle, { color: "#9A3412" }) }, "（特段α " + base + "）"); return React.createElement("div", { style: _bdStyle }, "（" + base + "）"); }
 // 表示用α（浮き足加算を除いた 基本+追加+RN）2026-07-12: 浮き足は最終水準線側に移したのでα値欄はこれ（採用α−浮き足加算）を表示。保存alphaVal/EP/損益は不変。浮き足なし(×)の記録はukiAdd=0で採用αと同値。
 function _elAlphaShown(s, a) { var n = (a != null && a !== "" && !isNaN(Number(a))) ? Number(a) : null; return (n == null) ? a : (n - _elUkiAdd(s)); }
 // 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
@@ -5986,19 +5989,19 @@ function EntryRecordForm(_ref_erf) {
       return _o;
     });
   };
-  var _useStateADA = useState(initSig.addAlphaVal != null ? String(initSig.addAlphaVal) : ""),
+  var _useStateADA = useState(initSig.specialAlpha != null ? String(initSig.specialAlpha) : ""),
     _useStateADAA = _slicedToArray(_useStateADA, 2),
-    fAddAlpha = _useStateADAA[0], setFAddAlpha = _useStateADAA[1];
-  // 追加α 使用フラグ（3状態 2026-06-24）: 〇=必要だった→数値入力／×=不要＝基本αのみ／未選択=未判断。signal.addAlphaUsed(true/false/null)に保存。
-  // 初期化: addAlphaUsed===true→〇・===false→×・新規記録→×（既定 2026-07-01。従来は未選択→ユーザー要望で×へ＝新規だけ）／編集時の未設定(旧記録)→未選択（据え置き＝開いて保存しても勝手に×へ変えない）。推奨基本αの母数=×＋未選択(=〇以外)・推奨追加αの母数=〇のみ・未選択は推奨追加αの母数からのみ除外(基本αには基本αのみの記録として算入)。
-  var _initAddUsed = (initSig.addAlphaUsed === true) ? "○" : (initSig.addAlphaUsed === false) ? "×" : (isEdit ? "未選択" : "×");
-  var _useStateAAU = useState(_initAddUsed),
+    fSpecialAlpha = _useStateADAA[0], setFSpecialAlpha = _useStateADAA[1];
+  // 採用α値の選択（2026-07-13 特段α化）: "base"＝基本α／"special"＝特段α（特段の事情がある局面で使う独立α値）。signal.specialUsed(bool)に保存（specialUsed===true→"special"）。
+  // 初期化: 既存の特段記録は"special"、それ以外（通常記録・新規）は"base"（既定＝基本α）。旧3状態(○/×/未選択)は廃止＝×・未選択はいずれも通常＝"base"。
+  var _initAlphaKind = (initSig.specialUsed === true) ? "special" : "base";
+  var _useStateAAU = useState(_initAlphaKind),
     _useStateAAUA = _slicedToArray(_useStateAAU, 2),
-    fAddAlphaUsed = _useStateAAUA[0], setFAddAlphaUsed = _useStateAAUA[1];
-  // 追加α〇の「根拠」（複数選択可＝指標線支え/底抜け前足浮き/その他＋ユーザー追加。signal.addAlphaReasons[]に保存・旧addAlphaReason(文字列)も読む）2026-06-22→22d複数選択化。
+    fAlphaKind = _useStateAAUA[0], setFAlphaKind = _useStateAAUA[1];
+  // 追加α〇の「根拠」（複数選択可＝指標線支え/底抜け前足浮き/その他＋ユーザー追加。signal.specialReasons[]に保存・旧addAlphaReason(文字列)も読む）2026-06-22→22d複数選択化。
   // 初期化: 保存配列をマスター内(プリセット選択)とマスター外(その他テキスト)に分ける。
-  var _reasonMasterInit = (data && data.custom && Array.isArray(data.custom.addAlphaReasons)) ? data.custom.addAlphaReasons : _DEF_ADD_REASONS;
-  var _savedReasons = Array.isArray(initSig.addAlphaReasons) ? initSig.addAlphaReasons.filter(function(x) { return x; }) : ((typeof initSig.addAlphaReason === "string" && initSig.addAlphaReason) ? [initSig.addAlphaReason] : []);
+  var _reasonMasterInit = (data && data.custom && Array.isArray(data.custom.specialReasons)) ? data.custom.specialReasons : _DEF_SPECIAL_REASONS;
+  var _savedReasons = Array.isArray(initSig.specialReasons) ? initSig.specialReasons.filter(function(x) { return x; }) : [];
   var _initPresets = _savedReasons.filter(function(x) { return _reasonMasterInit.indexOf(x) >= 0; });
   var _initOthers = _savedReasons.filter(function(x) { return _reasonMasterInit.indexOf(x) < 0; });
   var _useStateARS = useState(_initPresets),
@@ -6014,7 +6017,7 @@ function EntryRecordForm(_ref_erf) {
     _useStateRMGA = _slicedToArray(_useStateRMG, 2),
     fReasonMgr = _useStateRMGA[0], setFReasonMgr = _useStateRMGA[1];
   // 根拠選択肢のドラッグ並び替え＋インライン追加/改名（2026-07-06e）: window.promptはiPad(standalone)で無反応のため廃止し、シグナル詳細チップと同方式へ統一。
-  // 並び=custom.addAlphaReasonsの配列順（未設定時は既定配列を実体化して保存）・fRsnInput={val}=追加/{old,val}=改名・値の正本は_rsnValRef（確定時_fiFlushAll）。
+  // 並び=custom.specialReasonsの配列順（未設定時は既定配列を実体化して保存）・fRsnInput={val}=追加/{old,val}=改名・値の正本は_rsnValRef（確定時_fiFlushAll）。
   var _useStateRSO = useState(null),
     _useStateRSOA = _slicedToArray(_useStateRSO, 2),
     fRsnOrder = _useStateRSOA[0], setFRsnOrder = _useStateRSOA[1];
@@ -6055,7 +6058,7 @@ function EntryRecordForm(_ref_erf) {
     var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal); });
     if (!recs.length) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
-    var pickOf = function(rs) { if (!rs || !rs.length) return null; var A = _elBaseAlphaA(rs, aiOf); if (!A) return null; var p = A.pick; if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok", alpha2: p.alpha2, add: (A.add && A.add.improved) ? A.add : null }; };   // 2026-06-27: 同じ窓から推奨追加α(add)も一緒に取得＝フォームの基本α/追加αの窓・起点を揃える
+    var pickOf = function(rs) { if (!rs || !rs.length) return null; var A = _elBaseAlphaA(rs, aiOf); if (!A) return null; var p = A.pick; if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok", alpha2: p.alpha2, add: A.add }; };   // 2026-06-27: 同じ窓から推奨追加α(add)も一緒に取得＝フォームの基本α/追加αの窓・起点を揃える
     // 件数ベースの窓【2026-06-26】: fDate前日までを日付順に並べ末尾から直近25/50/100件。キーw1/m1/m3は直近25/50/100件の意味（旧カレンダー1週/1月/3月から変更）。_defBaseAはm1=直近50件を既定に使う。
     var _base = fDate ? recs.filter(function(r) { return r.date < fDate; }) : recs;
     var _sorted = _base.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
@@ -6111,9 +6114,9 @@ function EntryRecordForm(_ref_erf) {
       var _lastA = null;
       for (var i = 0; i < _wins.length; i++) {
         var A = _elBaseAlphaA(_wins[i], aiOf); _lastA = A;
-        if (A && A.pick && A.pick.alpha != null && A.pick.status === "ok") return { alpha: A.pick.alpha, ok: true, n: rs.length, add: (A.add && A.add.improved) ? A.add : null };
+        if (A && A.pick && A.pick.alpha != null && A.pick.status === "ok") return { alpha: A.pick.alpha, ok: true, n: rs.length, add: A.add };
       }
-      return { alpha: (_lastA && _lastA.pick && _lastA.pick.alpha != null && _lastA.pick.status !== "none") ? _lastA.pick.alpha : null, ok: false, n: rs.length, add: (_lastA && _lastA.add && _lastA.add.improved) ? _lastA.add : null };
+      return { alpha: (_lastA && _lastA.pick && _lastA.pick.alpha != null && _lastA.pick.status !== "none") ? _lastA.pick.alpha : null, ok: false, n: rs.length, add: (_lastA && _lastA.add) ? _lastA.add : null };
     };
     // 選択値ごとの参考pick（全期間・表示のみ）＝そのセクションの値が一致する記録だけに絞る（旧フラット記録は③として一致判定）。
     var _pickOf = function(rs) { if (!rs.length) return { alpha: null, n: 0 }; var p = _elBaseAlphaPick(rs, aiOf); return (p && p.alpha != null && p.status !== "none") ? { alpha: p.alpha, ok: p.status === "ok", n: rs.length } : { alpha: null, n: rs.length }; };
@@ -6162,6 +6165,15 @@ function EntryRecordForm(_ref_erf) {
   var _refAddAlphaSrc = (_refSigAlpha && _refSigAlpha.det && _refSigAlpha.det.add) ? { add: _refSigAlpha.det.add, src: "詳細別" }
     : ((_refSigAlpha && _refSigAlpha.sig && _refSigAlpha.sig.add) ? { add: _refSigAlpha.sig.add, src: "シグナル別" }
     : (_refAddAlpha ? { add: _refAddAlpha, src: "銘柄全体" } : null));
+  // 推奨特段α（特段α採用時の自動入力・§9 銘柄全体母数で1本＝移行のspecialAlphaと一致）: この銘柄の特段〇記録（浮き足〇/RN〇除外・fDate前日まで）から独立α最適(_elSpecialAlphaPick)。特段shape or null。
+  var _refSpecial = useMemo(function() {
+    if (!fStock) return null;
+    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate) && _elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+    if (!recs.length) return null;
+    var p = _elSpecialAlphaPick(recs, function(r) { return _elAlphaInfo(r, data); });
+    return (p && p.alpha != null && p.status !== "none") ? p : null;
+  }, [data, fStock, fDate]);
+  var _refSpecialA = (_refSpecial && _refSpecial.alpha != null) ? _refSpecial.alpha : null;
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
   var _useStateINC = useState(initSig.includeInTotal !== false),
@@ -6237,19 +6249,19 @@ function EntryRecordForm(_ref_erf) {
 
 
   
-  // 合計α値 = 基本α値（未入力なら直近50件の推奨基本α・無ければ0。予想OS度とは連動しない 2026-06-21）＋ 浮き足加算α値 ＋ 追加α値（未入力なら0）。これが採用α＝全計算で使用。
-  var _fBaseA = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_autoBaseA != null ? _autoBaseA : 0);
+  // 採用α値 = base-levelα（採用α選択が特段なら特段α値、通常なら基本α値）＋ 浮き足加算α値 ＋ RNまたぎ加算。これが採用α＝全計算で使用（2026-07-13 特段α化）。
+  var _fBaseAInput = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_autoBaseA != null ? _autoBaseA : 0);   // 基本α入力（未入力なら推奨基本α・無ければ0）
+  var _fSpecialA = (fSpecialAlpha !== "" && !isNaN(Number(fSpecialAlpha))) ? Number(fSpecialAlpha) : (_refSpecialA != null ? _refSpecialA : _fBaseAInput);   // 特段α入力（未入力なら推奨特段α・無ければ基本α入力）
+  var _fBaseLevel = (fAlphaKind === "special") ? _fSpecialA : _fBaseAInput;   // base-levelα正本（採用α選択で切替）
   // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)×採用加算率（推奨%・既定50%・07-12d）を切捨て加算。
   var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨(reco)/次点(runnerUp)を算出（_elUkiPctSweep）。fUkiPct=""は自動=推奨(無ければ50%)。加算=floor(浮き値×採用%/100)。2026-07-12
   var _ukiReco = useMemo(function() { return _elUkiRecoPcts(data, fDate); }, [data, fDate]);
   var _effUkiPct = (fUkiPct !== "" && !isNaN(Number(fUkiPct))) ? Number(fUkiPct) : (_ukiReco.reco != null ? _ukiReco.reco : 50);
   var _fUkiAdd = (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Math.floor(Number(fUkiVal) * _effUkiPct / 100) : 0;
-  // 追加αは「〇（必要）」を選んだ時だけ合計に算入。×なら0＝基本αのみ。
-  var _fAddA = (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : 0;
   // RNまたぎ加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
   var _fRnAdd = (fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : 0;
-  var _fAlpha = _fBaseA + _fUkiAdd + _fAddA + _fRnAdd;
+  var _fAlpha = _fBaseLevel + _fUkiAdd + _fRnAdd;
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
@@ -6791,9 +6803,9 @@ function EntryRecordForm(_ref_erf) {
       lineCoexist: fLineCoexist,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
       minBar: (fMinBars && fMinBars.length) ? fMinBars.map(Number).sort(function(_a, _b) { return _a - _b; }) : null,
-      addAlphaVal: (fAddAlphaUsed === "○" && fAddAlpha !== "" && !isNaN(Number(fAddAlpha))) ? Number(fAddAlpha) : null,
-      addAlphaUsed: fAddAlphaUsed === "○" ? true : (fAddAlphaUsed === "×" ? false : null),
-      addAlphaReasons: (fAddAlphaUsed === "○") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
+      specialUsed: fAlphaKind === "special",
+      specialAlpha: (fAlphaKind === "special") ? _fSpecialA : null,
+      specialReasons: (fAlphaKind === "special") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
       ukiUsed: _showUki ? (fUkiUsed === "○") : null,
       ukiVal: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Number(fUkiVal) : null,
       ukiPct: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? _effUkiPct : null,   // 使った加算率(%)。_elUkiAddが復元に使用 2026-07-12
@@ -7379,9 +7391,19 @@ function EntryRecordForm(_ref_erf) {
       ),
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "基本α値＋追加α値（＋RNまたぎ）＝合計α値（水準線比）。この合計αを上のEPセクションの『最終水準線』に足したものが予定EP。追加αは〇を選んだ時だけ入力。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "採用α値（基本α or 特段α）＋浮き足加算＋RNまたぎ＝合計α値（水準線比）。この合計αを上のEPセクションの『最終水準線』に足したものが予定EP。特段の事情がある局面だけ特段αを選ぶ。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
-      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "採用α値"),
+        React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3 } },
+          [["base", "基本α", "#0369A1"], ["special", "特段α", "#9A3412"]].map(function(_kk) {
+            var _on = fAlphaKind === _kk[0];
+            return React.createElement("button", { key: _kk[0], type: "button",
+              onClick: function() { setFAlphaKind(_kk[0]); if (_kk[0] === "special" && fSpecialAlpha === "" && _refSpecialA != null) setFSpecialAlpha(String(_refSpecialA)); },
+              title: _kk[0] === "base" ? "通常はこちら＝基本α値を採用" : "特段の事情がある局面で使う独立α値（特段α）を採用",
+              style: { padding: "6px 16px", fontSize: 13, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "none", background: _on ? "#fff" : "transparent", color: _on ? _kk[2] : "#6B6459", boxShadow: _on ? "0 1px 3px rgba(0,0,0,.12)" : "none" } }, _kk[1]);
+          }))),
+      fAlphaKind === "base" ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setBA = function(val) { _baTouchedRef.current = true; var _v = _toHankakuNum(val); if (_v === "") { setFBaseAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
         var _stepBA = function(delta) { _baTouchedRef.current = true; setFBaseAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_autoBaseA != null ? _autoBaseA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
@@ -7412,8 +7434,8 @@ function EntryRecordForm(_ref_erf) {
                 kv[1] && kv[1].alpha != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1].alpha + "円", kv[1].ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）")) : React.createElement("span", { style: { color: "#aaa" } }, "—"),
                 (kv[1] && kv[1].alpha2 != null) ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "（次点：" + kv[1].alpha2 + "円）") : null);
             }));
-        })()),
-      _refSigAlpha ? React.createElement("div", {
+        })()) : null,
+      (fAlphaKind === "base" && _refSigAlpha) ? React.createElement("div", {
         // シグナル/詳細別の推奨基本α（2026-07-07c）: 詳細別→シグナル別→銘柄全体の段階フォールバックで基本αを自動入力（★=採用段）。データ不足(ok未満)の段は件数を添えて表示し下の段へ。
         title: "選択中シグナル（先頭タグ）/①②③の選択詳細で母数を絞った推奨基本α（直近50→100→全期間の件数窓・記録日前日まで・追加α〇除外）。★＝基本αの自動入力に使用中の段。データ不足＝件数フロア未満（仮＝参考値）。各選択値の内訳は全期間・表示のみ",
         style: { fontSize: 11, fontWeight: 600, color: "#64748B", margin: "0 0 6px" } },
@@ -7449,68 +7471,55 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _dp.pick.n + "）"));
         })
       ) : null,
-      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
+      fAlphaKind === "special" ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
-        var _setAA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFAddAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFAddAlpha(String(n)); };
-        var _stepAA = function(delta) { setFAddAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
-        var _addOn = fAddAlphaUsed === "○";
+        var _setSA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFSpecialAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFSpecialAlpha(String(n)); };
+        var _stepSA = function(delta) { setFSpecialAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_refSpecialA != null ? _refSpecialA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
         return React.createElement("div", {
-          style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#FFFBEB", border: "1px solid #FDE68A", fontSize: 12 }
+          style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#FFF7ED", border: "1px solid #FED7AA", fontSize: 12 }
         },
-          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "追加α値"),
-          React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
-            [["○", "○", "要", "#C0392B", "#FCEBEB"], ["×", "×", "不要", "#1E8449", "#EAF3DE"], ["未選択", "未", "未定", "#64748B", "#F1F5F9"]].map(function(kv) {
-              var on = fAddAlphaUsed === kv[0];
-              return React.createElement("button", { key: kv[0], type: "button",
-                onClick: function() { setFAddAlphaUsed(kv[0]); if (kv[0] === "○" && fAddAlpha === "") setFAddAlpha("5"); },
-                title: kv[0] === "○" ? "追加αが必要だった（数値を入力）" : kv[0] === "×" ? "追加αは不要＝基本αのみ（基本αの推奨母数に算入）" : "未判断＝基本αのみとして基本αの推奨母数には算入（推奨追加αの母数からのみ除外）",
-                style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
-                kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
-            })
-          ),
-          _addOn ? React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FDE68A", borderRadius: 4, overflow: "hidden" } },
+          React.createElement("span", { style: { color: "#9A3412", fontWeight: 700 } }, "特段α値"),
+          React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FED7AA", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
-              value: fAddAlpha,
-              onChange: function(e) { _setAA(e.target.value); },
-              placeholder: "0",
+              value: fSpecialAlpha !== "" ? fSpecialAlpha : (_refSpecialA != null ? String(_refSpecialA) : ""),
+              onChange: function(e) { _setSA(e.target.value); },
+              placeholder: "推奨特段α",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#92400E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
             }),
-            _stepBtn(function() { _stepAA(1); }, function() { _stepAA(-1); })
-          ) : null,
-          _addOn ? React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円") : null
+            _stepBtn(function() { _stepSA(1); }, function() { _stepSA(-1); })
+          ),
+          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })(),
         (function() {
-          if (fAddAlphaUsed !== "○") return null;
-          // 推奨追加αも段階フォールバック（詳細別→シグナル別→銘柄全体・_refAddAlphaSrc）＝どの段の値かを添えて表示（表示のみ・自動入力なし）2026-07-07c。
-          if (_refAddAlphaSrc) return React.createElement("span", { title: "追加αが必要だった記録だけを母数に算出した推奨追加α（詳細別→シグナル別→銘柄全体の順でデータのある段の値・括弧が採用段）", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, "推奨追加α：", React.createElement("span", { style: { fontWeight: 800 } }, "+" + _refAddAlphaSrc.add.add + "円"), (_refAddAlphaSrc.add.add2 != null ? React.createElement("span", { style: { fontWeight: 800, marginLeft: 4 } }, "（次点：+" + _refAddAlphaSrc.add.add2 + "円）") : null), React.createElement("span", { style: { color: "#94A3B8", fontSize: 9, fontWeight: 600, marginLeft: 2 } }, "（" + _refAddAlphaSrc.src + (_refAddAlphaSrc.add.scN != null ? "・n=" + _refAddAlphaSrc.add.scN : "") + "）"));
-          return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨追加α：データ無し") : null;
-        })()),
-      (fAddAlphaUsed === "○") ? (function() {
-        var _reasonsM = (data && data.custom && Array.isArray(data.custom.addAlphaReasons)) ? data.custom.addAlphaReasons : _DEF_ADD_REASONS;
+          if (_refSpecial && _refSpecial.alpha != null) return React.createElement("span", { title: "この銘柄の特段〇の記録だけを母数に算出した推奨特段α（独立α値・銘柄全体・記録日前日まで・浮き足〇/RN〇除外）。移行の特段αと同じ算出", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, React.createElement("span", { style: { color: "#B91C1C", fontWeight: 800, marginRight: 2 } }, "★"), "推奨特段α ", React.createElement("span", { style: { fontWeight: 800 } }, _refSpecial.alpha + "円"), (_refSpecial.alpha2 != null ? React.createElement("span", { style: { fontWeight: 700, marginLeft: 4, color: "#94A3B8" } }, "（次点：" + _refSpecial.alpha2 + "円）") : null), (_refSpecial.status === "na" ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, marginLeft: 3, color: "#B45309" } }, "参考") : null));
+          return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨特段α：データ無し（この銘柄の特段記録が不足）") : null;
+        })()) : null,
+      (fAlphaKind === "special") ? (function() {
+        var _reasonsM = (data && data.custom && Array.isArray(data.custom.specialReasons)) ? data.custom.specialReasons : _DEF_SPECIAL_REASONS;
         var _reasons = (fRsnOrder && fRsnOrder.list) ? fRsnOrder.list : _reasonsM;   // ドラッグ中は並びプレビュー（2026-07-06e）
         var _addR = function(nm) {
           nm = (nm || "").trim(); if (!nm) return;
           save(function(prev) {
-            var cur = (prev.custom && Array.isArray(prev.custom.addAlphaReasons)) ? prev.custom.addAlphaReasons : _DEF_ADD_REASONS.slice();
+            var cur = (prev.custom && Array.isArray(prev.custom.specialReasons)) ? prev.custom.specialReasons : _DEF_SPECIAL_REASONS.slice();
             if (cur.indexOf(nm) >= 0) return prev;
-            return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: cur.concat([nm]) }) });
+            return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { specialReasons: cur.concat([nm]) }) });
           });
         };
         var _delR = function(nm) {
           save(function(prev) {
-            var cur = (prev.custom && Array.isArray(prev.custom.addAlphaReasons)) ? prev.custom.addAlphaReasons : _DEF_ADD_REASONS.slice();
-            return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: cur.filter(function(x) { return x !== nm; }) }) });
+            var cur = (prev.custom && Array.isArray(prev.custom.specialReasons)) ? prev.custom.specialReasons : _DEF_SPECIAL_REASONS.slice();
+            return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { specialReasons: cur.filter(function(x) { return x !== nm; }) }) });
           });
           if (fAddReasons.indexOf(nm) >= 0) setFAddReasons(fAddReasons.filter(function(x) { return x !== nm; }));
         };
-        // 根拠選択肢の改名: マスター(addAlphaReasons)の名前を変更し、過去記録(全charts.signalsのaddAlphaReasons[]・旧addAlphaReason文字列)も一括追従。2026-06-23。
+        // 根拠選択肢の改名: マスター(specialReasons)の名前を変更し、過去記録(全charts.signalsのspecialReasons[]・旧addAlphaReason文字列)も一括追従。2026-06-23。
         var _renameR = function(oldNm, newNm) {
           newNm = (newNm || "").trim();
           if (!newNm || newNm === oldNm) return;
           save(function(prev) {
-            var cur = (prev.custom && Array.isArray(prev.custom.addAlphaReasons)) ? prev.custom.addAlphaReasons : _DEF_ADD_REASONS.slice();
+            var cur = (prev.custom && Array.isArray(prev.custom.specialReasons)) ? prev.custom.specialReasons : _DEF_SPECIAL_REASONS.slice();
             // 既存名への改名も「統合」(dedupe) 2026-07-07g（旧: 同名ありは何もしない）
             var _rnM = cur.map(function(x) { return x === oldNm ? newNm : x; });
             var newMaster = _rnM.filter(function(x, i) { return x && _rnM.indexOf(x) === i; });
@@ -7522,9 +7531,9 @@ function EntryRecordForm(_ref_erf) {
               var sigs = c.signals.map(function(s) {
                 if (!s) return s;
                 var ns = s, hit = false;
-                if (Array.isArray(s.addAlphaReasons) && s.addAlphaReasons.indexOf(oldNm) >= 0) {
-                  var _rl = s.addAlphaReasons.map(function(x) { return x === oldNm ? newNm : x; });
-                  ns = Object.assign({}, ns, { addAlphaReasons: _rl.filter(function(x, i) { return x && _rl.indexOf(x) === i; }) }); hit = true;
+                if (Array.isArray(s.specialReasons) && s.specialReasons.indexOf(oldNm) >= 0) {
+                  var _rl = s.specialReasons.map(function(x) { return x === oldNm ? newNm : x; });
+                  ns = Object.assign({}, ns, { specialReasons: _rl.filter(function(x, i) { return x && _rl.indexOf(x) === i; }) }); hit = true;
                 }
                 if (s.addAlphaReason === oldNm) { ns = Object.assign({}, ns, { addAlphaReason: newNm }); hit = true; }
                 if (hit) changed = true;
@@ -7533,7 +7542,7 @@ function EntryRecordForm(_ref_erf) {
               newCharts[ck] = changed ? Object.assign({}, c, { signals: sigs }) : c;
             });
             return Object.assign({}, prev, {
-              custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: newMaster }),
+              custom: Object.assign({}, prev.custom || {}, { specialReasons: newMaster }),
               charts: newCharts
             });
           });
@@ -7544,7 +7553,7 @@ function EntryRecordForm(_ref_erf) {
             style: { padding: "3px 9px", fontSize: 11, fontWeight: sel ? 800 : 600, border: sel ? ("2px solid " + color) : "1px solid #ddd", background: sel ? "#FFF7ED" : "#fff", color: sel ? color : "#666", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } }, label);
         };
         return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, padding: "2px 0 0 2px" } },
-          React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 600 } }, "根拠（追加αが必要だった理由・複数選択可）"),
+          React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 600 } }, "根拠（特段αを使う理由・複数選択可）"),
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 } },
             _reasons.map(function(rsn) {
               var on = fAddReasons.indexOf(rsn) >= 0;
@@ -7584,7 +7593,7 @@ function EntryRecordForm(_ref_erf) {
                   _rsnDragRef.current = null;
                   if (d && d.started && d.list) {
                     var _fin = d.list.slice();
-                    save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { addAlphaReasons: _fin }) }); });
+                    save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { specialReasons: _fin }) }); });
                     setTimeout(function() { _rsnMovedRef.current = false; }, 0);
                   }
                   setFRsnOrder(null);
@@ -7674,17 +7683,15 @@ function EntryRecordForm(_ref_erf) {
         );
       })(),
       (function() {
-        // 合計α値バー（案B 2026-07-03）: 3要素の内訳（基本＋浮き足＋追加）を常設表示。浮き足欄が出ないシグナルでは基本＋追加の2要素。値は_fBaseA/_fUkiAdd/_fAddA＝採用α計算(_fAlpha)と同一。
+        // 合計α値バー（案B 2026-07-03→2026-07-13特段α化）: 内訳（base-levelα＝基本α or 特段α ＋RN）を常設表示。浮き足は最終水準線側なのでα値からは除外（_elAlphaShownと整合）。予定EPは水準線＋_fAlpha（浮き足込み）。
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "baseline", gap: 6, padding: "5px 12px", borderRadius: 6, background: "#F8FAFC", border: "1px solid #CBD5E1", fontSize: 12, flexWrap: "wrap" }
         },
           React.createElement("span", { style: { color: "#334155", fontWeight: 700 } }, "合計α値"),
-          React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 } }, _fBaseA + _fAddA + _fRnAdd),
+          React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 } }, _fBaseLevel + _fRnAdd),
           React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "円"),
-          React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "＝ 基本 ",
-            React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, _fBaseA),
-            " ＋ 追加 ",
-            React.createElement("span", { style: { color: "#92400E", fontWeight: 700 } }, _fAddA),
+          React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "＝ " + (fAlphaKind === "special" ? "特段" : "基本") + " ",
+            React.createElement("span", { style: { color: fAlphaKind === "special" ? "#92400E" : "#0369A1", fontWeight: 700 } }, _fBaseLevel),
             _fRnAdd > 0 ? React.createElement("span", null, " ＋ RN ", React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, _fRnAdd)) : null),
           React.createElement("span", { title: "最終水準線（水準線＋浮き足）＋合計α＝実際のエントリー予定価格。", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap", marginLeft: 4 } }, "→ 予定EP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; return String(Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100); })()), "円")
         );
@@ -8477,7 +8484,6 @@ function EntryLogCard(_ref_elc) {
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" } }, _fmtDow(record.date)),
       (_elIsExcluded(s) && !_elIsThru(s)) ? _elNotInclBadge() : null,   // スルーは下の実エントリー状態チップで表示＝二重バッジ回避 2026-07-06
-      _addAlphaUnsetBadge(s),
       s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock)
     ),

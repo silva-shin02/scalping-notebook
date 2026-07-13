@@ -851,7 +851,8 @@ function migrateData(d) {
   // 変換: ukiUsed=true・ukiVal=旧数値（生値）・実効加算=floor(値/2)（半額切捨て）。根拠からは当該名を除去し、
   //   根拠がそれだけ→追加α×(addAlphaVal=null)／他根拠と複合→追加α〇のまま addAlphaVal=旧値−半額（下限0）。
   // 合計α(alphaVal)=基本α＋半額＋新追加α に再計算（基本α不明で導出も不能なら合計は据え置き）。マスター(custom.addAlphaReasons)からも当該名を削除・custom.addAlphaNumericReasonは廃止。
-  // フラグ無しの条件ベース＝冪等（変換後は根拠に当該名が無くなるので再実行しても no-op・未更新端末が後から作った旧形式記録も次回起動で回収）。
+  // 一回性フラグ化（_migUkiAlpha 2026-07-13ガード）: 特段α移行(_migSpecialAlpha)が addAlpha* を delete する前に必ず先行させ、以後は再実行しない。条件ベースの冪等性も保つ（変換後は根拠名が消えるので二重変換なし）。
+  if (!d._migUkiAlpha) {
   try {
     var _ukNR = (d.custom && d.custom.addAlphaNumericReason) || "底抜け前足浮き";
     var _ukNum = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
@@ -891,6 +892,8 @@ function migrateData(d) {
       if (d.custom.addAlphaNumericReason != null) delete d.custom.addAlphaNumericReason;
     }
   } catch(e) { console.warn("[migrateData] ukiAlpha error:", e); }
+  d._migUkiAlpha = true;
+  }
   // ライン併存ルールへの移行（_migLineCoexist 2026-07-08g）: 旧・シグナル詳細③(その他/f・単一b/k含む)に付けていた「ライン併存」「併存ライン」を独立フラグ signal.lineCoexist=true へ移し、詳細/EPナビitem/候補マスターから当該名を除去。
   // 履歴の基本α(baseAlphaVal/alphaVal/ep)は書き換えない＝過去損益の整合を保つ（フラグ付与のみ）。条件ベース＝冪等（除去後は当該名が無いので再実行no-op）。
   try {
@@ -981,6 +984,67 @@ function migrateData(d) {
       }
       d._migSignalRename4 = true;
     } catch(e) { console.warn("[migrateData] sigRename4 error:", e); }
+  }
+  // 特段α（独立α値）への移行（_migSpecialAlpha 2026-07-13）: 旧「基本α＋追加α増分」を廃止し、追加α〇(addAlphaUsed===true)だった記録を独立α値 specialAlpha へ作り替える。
+  //  各記録の原本を _almig にbackup → specialAlpha＝各銘柄の推奨特段α(銘柄全体母数・_elSpecialAlphaPick＝旧_elTotalAlphaPick／浮き足〇・RN〇は母数除外)、不足時は推奨基本α(_elBaseAlphaPick)、
+  //  それも無ければ旧 baseAlphaVal+addAlphaVal（＝旧採用αを厳密維持）→ base-levelα=specialAlpha として alphaVal を再計算(=specialAlpha+浮き足+RN)＝過去の特段記録のEP/損益が変わる（ユーザー承認）。EPは非保存で alphaVal から都度導出(_epResolve)。
+  //  通常記録(addAlphaUsed!==true)は一切触らない。旧 addAlpha* は delete。custom.addAlphaReasons→custom.specialReasons へ一度だけ付替。_elSpecialAlphaPick(app-06)ロード後前提＝typeofガード。d._migSpecialAlpha フラグで冪等。順序＝_migUkiAlpha の後。
+  if (!d._migSpecialAlpha && typeof _elSpecialAlphaPick === "function" && typeof _elBaseAlphaPick === "function" && typeof _elAlphaInfo === "function") {
+    try {
+      var _saN = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
+      var _saAiOf = function(r) { return _elAlphaInfo(r, d); };
+      var _saCharts = (d.charts && typeof d.charts === "object") ? d.charts : {};
+      // 銘柄ごとに算入v2記録を1回だけ集約
+      var _saByStock = {};
+      Object.keys(_saCharts).forEach(function(ck) {
+        var c = _saCharts[ck]; if (!c || !Array.isArray(c.signals)) return;
+        var _us = ck.lastIndexOf("_"); if (_us < 0) return;
+        var _stock = ck.slice(0, _us), _date = ck.slice(_us + 1);
+        var arr = _saByStock[_stock] || (_saByStock[_stock] = []);
+        c.signals.forEach(function(s2) { if (s2 && _elInclTotal(s2) && _epIsV2(s2)) arr.push({ stock: _stock, date: _date, signal: s2 }); });
+      });
+      // 銘柄ごとの推奨特段α(1本・銘柄全体母数)と推奨基本α(フォールバック)を先に算出（旧・追加α〇の状態で。浮き足〇/RN〇は特段プールから除外）
+      var _saSpecialOf = {}, _saBaseOf = {};
+      Object.keys(_saByStock).forEach(function(_stock) {
+        var _all = _saByStock[_stock];
+        var _spPool = _all.filter(function(r) { return r.signal.addAlphaUsed === true && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+        var _sp = null;
+        if (_spPool.length) { var _pk = _elSpecialAlphaPick(_spPool, _saAiOf); if (_pk && _pk.alpha != null && _pk.status !== "none") _sp = _pk.alpha; }
+        _saSpecialOf[_stock] = _sp;
+        var _bpk = _elBaseAlphaPick(_all.filter(function(r) { return r.signal.addAlphaUsed !== true; }), _saAiOf);
+        _saBaseOf[_stock] = (_bpk && _bpk.alpha != null && _bpk.status !== "none") ? _bpk.alpha : null;
+      });
+      // 各記録を変換（旧・追加α〇のみ）
+      var _saMigN = 0;
+      Object.keys(_saCharts).forEach(function(ck) {
+        var c = _saCharts[ck]; if (!c || !Array.isArray(c.signals)) return;
+        var _us = ck.lastIndexOf("_"); if (_us < 0) return;
+        var _stock = ck.slice(0, _us);
+        c.signals = c.signals.map(function(s) {
+          if (!s || s.addAlphaUsed !== true) return s;   // 通常記録は触らない
+          var _oldBase = _saN(s.baseAlphaVal), _oldAdd = _saN(s.addAlphaVal);
+          var _fallback = (_oldBase != null ? _oldBase : 0) + (_oldAdd != null ? _oldAdd : 0);   // 旧base+add＝旧採用αを厳密維持
+          var _spec = (_saSpecialOf[_stock] != null) ? _saSpecialOf[_stock] : ((_saBaseOf[_stock] != null) ? _saBaseOf[_stock] : _fallback);
+          var _up = Object.assign({}, s);
+          _up._almig = { baseAlphaVal: (s.baseAlphaVal != null ? s.baseAlphaVal : null), addAlphaVal: (s.addAlphaVal != null ? s.addAlphaVal : null), addAlphaUsed: s.addAlphaUsed, addAlphaReasons: (Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.slice() : (s.addAlphaReason ? [s.addAlphaReason] : null)), alphaVal: (s.alphaVal != null ? s.alphaVal : null) };
+          _up.specialUsed = true;
+          _up.specialAlpha = _spec;
+          var _srsn = Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.filter(function(x) { return x; }) : (s.addAlphaReason ? [s.addAlphaReason] : []);
+          _up.specialReasons = _srsn.length ? _srsn : null;
+          _up.alphaVal = _spec + _elUkiAdd(s) + _elRnAdd(s);   // base-levelα=特段α ＋ 浮き足 ＋ RN
+          delete _up.addAlphaUsed; delete _up.addAlphaVal; delete _up.addAlphaReasons; delete _up.addAlphaReason;
+          _saMigN++;
+          return _up;
+        });
+      });
+      // 根拠マスター: custom.addAlphaReasons → custom.specialReasons（既存 specialReasons が無い時のみ移す・一度だけ）
+      if (d.custom) {
+        if (!Array.isArray(d.custom.specialReasons) && Array.isArray(d.custom.addAlphaReasons)) d.custom.specialReasons = d.custom.addAlphaReasons.slice();
+        if (d.custom.addAlphaReasons !== undefined) delete d.custom.addAlphaReasons;
+      }
+      d._migSpecialAlpha = true;
+      if (_saMigN) console.log("[migrateData] specialAlpha migrated: " + _saMigN + " records");
+    } catch(e) { console.warn("[migrateData] specialAlpha error:", e); }
   }
   return d;
 }
