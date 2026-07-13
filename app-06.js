@@ -1332,8 +1332,8 @@ function _ElAnaReachCtl(props) {
     React.createElement("span", { style: { fontSize: 8.5, color: "#0369A1" } }, "基本αの★＝この到達率以上を保てる最も高いα（黒字前提）・既定" + _EL_ANA_REACH_DEF + "%"));
 }
 // ===== 根拠別 推奨応用αの下限（2026-07-13 ユーザー指定）＝根拠で絞った母数のE成立（到達し勝敗判定できた件数）がこの数以上のときだけ「根拠別」を採用。未満は銘柄全体の応用αへフォールバック =====
-// 既定20件・custom.specialMinDecidedに保存（全端末同期）。同期は_elAlphaInfo(app-05)内。対象＝EPナビ/早見の根拠別推奨応用α（_epnSpecialRecoFrom app-04）のみ。記録フォームの推奨応用αは元々銘柄全体母数なので対象外。
-var _EL_SPECIAL_MIN_DECIDED_DEF = 20;
+// 既定15件・custom.specialMinDecidedに保存（全端末同期）。同期は_elAlphaInfo(app-05)内。対象＝EPナビ/早見の根拠別推奨応用α（_epnSpecialRecoFrom app-04）のみ。記録フォームの推奨応用αは元々銘柄全体母数なので対象外。
+var _EL_SPECIAL_MIN_DECIDED_DEF = 15;
 var _elSpecialMinDecidedCur = _EL_SPECIAL_MIN_DECIDED_DEF;
 function _elSpecialMinDecided(data) { var v = data && data.custom ? data.custom.specialMinDecided : null; var n = Number(v); return (v != null && v !== "" && !isNaN(n) && n >= 1 && n <= 100) ? Math.round(n) : _EL_SPECIAL_MIN_DECIDED_DEF; }
 function _ElSpecialMinCtl(props) {

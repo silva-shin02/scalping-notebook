@@ -3562,7 +3562,7 @@ function _epnSpecialRecoFrom(casc, reasons) {
   var _bp = key === "det" ? casc.det : (key === "sig" ? casc.sig : casc.stk);   // 採用した基本α段の理想＝応用αを基本αより大きくクランプ 2026-07-13
   var _minIdeal = (_bp && _bp.idealAlpha != null) ? _bp.idealAlpha : ((_bp && _bp.alpha != null) ? _bp.alpha : null);
   var rs = reasons || [];
-  var _floor = (typeof _elSpecialMinDecidedCur === "number") ? _elSpecialMinDecidedCur : (typeof _EL_SPECIAL_MIN_DECIDED_DEF === "number" ? _EL_SPECIAL_MIN_DECIDED_DEF : 20);
+  var _floor = (typeof _elSpecialMinDecidedCur === "number") ? _elSpecialMinDecidedCur : (typeof _EL_SPECIAL_MIN_DECIDED_DEF === "number" ? _EL_SPECIAL_MIN_DECIDED_DEF : 15);
   if (rs.length) {
     var poolR = allSp.filter(function(r) { var rr = _epnReasonsOf(r.signal); for (var i = 0; i < rs.length; i++) { if (rr.indexOf(rs[i]) >= 0) return true; } return false; });
     if (poolR.length) {
