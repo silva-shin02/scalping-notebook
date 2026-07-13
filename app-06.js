@@ -1906,6 +1906,13 @@ function _elAddAlphaReco(recs, aiOf, baseAlpha, fullRecs) {
 // 用途は従来どおり: 推奨追加α値の母数から除外＝固定の＋X円推奨に馴染まない数値ベース加算を外す（記録帳のシグナル内サブタブ・根拠別分析④/⑤・浮き足専用分析と同基準）。
 function _elHasNumReason(s) { return _elUkiYes(s); }
 // 一括: { pick(推奨基本α本体・追加α無し母数), add(推奨追加α・追加α〇の記録だけを母数に算出) }。二プール設計 2026-06-22→2026-06-24g: pick.statusがna(件数不足)でも追加αを算出（ユーザー方針＝1件でも参考表示）。
+// det→sig→stk 段階フォールバックの共通選定（2026-07-14 共通化・監査finding7/9）: legs=[{key,label,alpha,ok},...]を順に、まずok段、無ければ(allowProvisional時のみ)仮値段を同順で採用。返り値{alpha,key,src,ok}。src=label（仮値は label+「（仮）」）。全滅は{alpha:null,key:null,src:null,ok:false}。EPナビ(autoPick/_epnBaseLevelKey/_epnRecalcBase)=allowProvisional:true(場中は値を出す)／記録フォーム(_autoBase)=false(okのみ自動入力)。
+function _elCascadePick(legs, allowProvisional) {
+  var i, L;
+  for (i = 0; i < legs.length; i++) { L = legs[i]; if (L && L.alpha != null && L.ok) return { alpha: L.alpha, key: L.key, src: L.label, ok: true }; }
+  if (allowProvisional) for (i = 0; i < legs.length; i++) { L = legs[i]; if (L && L.alpha != null) return { alpha: L.alpha, key: L.key, src: L.label + "（仮）", ok: false }; }
+  return { alpha: null, key: null, src: null, ok: false };
+}
 // 「この銘柄・EP起算(v2)・損益算入・(任意)基準日より前」の共通母数（2026-07-14 共通化・監査findingA）: 推奨α/EP計算の母数正本。before指定で当日以降を除外(後知恵回避)・null=全期間。EPナビ(_ElDayAlphaPair)/記録フォーム(_refBaseAlpha[全期間]/_alTblRecs/_refCutPick/_refSpecial)/日別ブロックが共用。※EPナビ_epnCascadeはキャッシュ_epnCollectSignals維持のため対象外。
 function _elStockRecsBefore(data, stock, before) {
   return _elCollectAllSignals(data).filter(function(r) { return r && r.stock === stock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!before || r.date < before); });

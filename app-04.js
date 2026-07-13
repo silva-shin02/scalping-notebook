@@ -3516,15 +3516,15 @@ function _epnRecalcBase(data, stock, date, item) {
   else {
     var casc = _epnCascade(data, stock, item.tag || null, { b: item.b || null, k: item.k || null, f: _f }, date);
     var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
-    if (!_followReco) {   // 固定＝銘柄全体（詳細非依存）。③④⑤を触っても基本αは動かさない
-      if (stk && stk.ok && stk.alpha != null) { base = stk.alpha; src = "銘柄全体"; }
-      else if (stk && stk.alpha != null) { base = stk.alpha; src = "銘柄全体（仮）"; }
-    } else if (det && det.ok && det.alpha != null) { base = det.alpha; src = "詳細別"; }
-    else if (sig && sig.ok && sig.alpha != null) { base = sig.alpha; src = "シグナル別"; }
-    else if (stk && stk.ok && stk.alpha != null) { base = stk.alpha; src = "銘柄全体"; }
-    else if (det && det.alpha != null) { base = det.alpha; src = "詳細別（仮）"; }
-    else if (sig && sig.alpha != null) { base = sig.alpha; src = "シグナル別（仮）"; }
-    else if (stk && stk.alpha != null) { base = stk.alpha; src = "銘柄全体（仮）"; }
+    // 2026-07-14 共通化: 固定(!_followReco)=stk段のみ／追従=det→sig→stk。仮値含む選定を_elCascadePickへ集約（autoPick/_epnBaseLevelKeyと同一梯子）。全滅時はbase/src据え置き。
+    var _cp = !_followReco
+      ? _elCascadePick([{ key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) }], true)
+      : _elCascadePick([
+          { key: "det", label: "詳細別", alpha: det ? det.alpha : null, ok: !!(det && det.ok) },
+          { key: "sig", label: "シグナル別", alpha: sig ? sig.alpha : null, ok: !!(sig && sig.ok) },
+          { key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) }
+        ], true);
+    if (_cp.alpha != null) { base = _cp.alpha; src = _cp.src; }
   }
   var level = Number(item.level) || 0, uki = Number(item.uki) || 0, rn = Number(item.rn) || 0;   // rn=RNまたぎ加算（そのまま加算）2026-07-08h
   var special = (item.specialUsed === true && item.special != null) ? Number(item.special) : null;
@@ -3536,13 +3536,11 @@ function _epnRecalcBase(data, stock, date, item) {
 // 応用〇・浮き足/RN除外・根拠一致で絞って _elSpecialAlphaPick で推奨応用α（独立α値）を出す。計算欄とカードで同一ロジック＝変更時は両方に効く。
 function _epnBaseLevelKey(casc) {
   var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
-  if (det && det.ok && det.alpha != null) return "det";
-  if (sig && sig.ok && sig.alpha != null) return "sig";
-  if (stk && stk.ok && stk.alpha != null) return "stk";
-  if (det && det.alpha != null) return "det";
-  if (sig && sig.alpha != null) return "sig";
-  if (stk && stk.alpha != null) return "stk";
-  return null;
+  return _elCascadePick([   // 2026-07-14 共通化: autoPick/_autoBaseと同一梯子
+    { key: "det", label: "詳細別", alpha: det ? det.alpha : null, ok: !!(det && det.ok) },
+    { key: "sig", label: "シグナル別", alpha: sig ? sig.alpha : null, ok: !!(sig && sig.ok) },
+    { key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) }
+  ], true).key;
 }
 function _epnSpecialRecoFrom(casc, reasons) {
   if (!casc) return null;
@@ -3806,13 +3804,12 @@ function _EpnCalcForm(_p) {
   var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
   // 採用基本α: 詳細別ok→シグナル別ok→銘柄全体ok。全段データ不足なら仮値（参考推奨）を同順で採用＝フォームと違い場中は値を出すのが仕事（（仮）表示で明示）。
   var autoPick = (function() {
-    if (det && det.ok && det.alpha != null) return { a: det.alpha, key: "det", src: "詳細別", ok: true };
-    if (sig && sig.ok && sig.alpha != null) return { a: sig.alpha, key: "sig", src: "シグナル別", ok: true };
-    if (stk && stk.ok && stk.alpha != null) return { a: stk.alpha, key: "stk", src: "銘柄全体", ok: true };
-    if (det && det.alpha != null) return { a: det.alpha, key: "det", src: "詳細別（仮）", ok: false };
-    if (sig && sig.alpha != null) return { a: sig.alpha, key: "sig", src: "シグナル別（仮）", ok: false };
-    if (stk && stk.alpha != null) return { a: stk.alpha, key: "stk", src: "銘柄全体（仮）", ok: false };
-    return { a: null, key: null, src: null, ok: false };
+    var _cp = _elCascadePick([   // 2026-07-14 共通化: det→sig→stk（仮値含む）の選定を_elCascadePickへ集約（記録フォーム_autoBase/_epnBaseLevelKey/_epnRecalcBaseと同一梯子）
+      { key: "det", label: "詳細別", alpha: det ? det.alpha : null, ok: !!(det && det.ok) },
+      { key: "sig", label: "シグナル別", alpha: sig ? sig.alpha : null, ok: !!(sig && sig.ok) },
+      { key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) }
+    ], true);
+    return { a: _cp.alpha, key: _cp.key, src: _cp.src, ok: _cp.ok };
   })();
   // 本日の採用α値（見出し下欄・_EpnDayAlphaField）が設定されていれば基本αの既定に採用＝「上で一度決めれば下の計算が従う」。未設定はnull＝従来どおりautoPick（シグナル別に絞れる）。手入力nBaseは常に最優先。2026-07-13d
   var dayAlpha = (_p.dayAlpha != null && !isNaN(Number(_p.dayAlpha))) ? Number(_p.dayAlpha) : null;

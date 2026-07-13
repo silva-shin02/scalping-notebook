@@ -6209,11 +6209,14 @@ function EntryRecordForm(_ref_erf) {
     return { tag: _t, sig: _pickWin(recs), det: det, picks: picks };
   }, [data, fStock, fDate, fTags, fSigDetail]);
   // 自動入力に使う推奨基本α＝詳細別(ok)→シグナル別(ok)→銘柄全体(_defBaseA)の段階フォールバック（ユーザー選択 2026-07-07c）。srcは★バッジ表示用。
-  var _autoBase = (function() {
-    if (_refSigAlpha && _refSigAlpha.det && _refSigAlpha.det.ok && _refSigAlpha.det.alpha != null) return { a: _refSigAlpha.det.alpha, src: "詳細別" };
-    if (_refSigAlpha && _refSigAlpha.sig && _refSigAlpha.sig.ok && _refSigAlpha.sig.alpha != null) return { a: _refSigAlpha.sig.alpha, src: "シグナル別" };
-    if (_defBaseA != null) return { a: _defBaseA, src: "銘柄全体" };
-    return { a: null, src: null };
+  var _autoBase = (function() {   // 2026-07-14 共通化: EPナビautoPickと同一梯子を_elCascadePickへ（記録フォームは仮値を採らない＝allowProvisional:false・銘柄全体レグは_defBaseA）
+    var _dd = _refSigAlpha && _refSigAlpha.det, _ss = _refSigAlpha && _refSigAlpha.sig;
+    var _cp = _elCascadePick([
+      { key: "det", label: "詳細別", alpha: _dd ? _dd.alpha : null, ok: !!(_dd && _dd.ok) },
+      { key: "sig", label: "シグナル別", alpha: _ss ? _ss.alpha : null, ok: !!(_ss && _ss.ok) },
+      { key: "stk", label: "銘柄全体", alpha: _defBaseA, ok: _defBaseA != null }
+    ], false);
+    return { a: _cp.alpha, src: _cp.src };
   })();
   var _autoBaseA = _autoBase.a;
   // 新規記録では基本αに段階フォールバックの推奨基本αを自動入力（手動操作するまで・銘柄/日付/シグナル/詳細変更で追従）2026-06-21→2026-07-07c。
