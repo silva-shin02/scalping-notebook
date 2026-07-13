@@ -6047,7 +6047,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
   !hideSignals && (function() {
     var _iaSigs = Array.isArray(cd.signals) ? cd.signals : [];
     if (!_iaSigs.length) return null;
-    return _elBaseAlphaPeriodBlockV2(data, stock, date);
+    return _elBaseAlphaPeriodBlockV2(data, stock, date, save);
   })(),
   React.createElement(AppearanceSection, { data: data, save: save, stock: stock, date: date }));
 });

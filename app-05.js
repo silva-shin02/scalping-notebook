@@ -7431,54 +7431,25 @@ function EntryRecordForm(_ref_erf) {
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
+      })()) : null,
+      (function() {
+        // 推奨α値サマリー（2026-07-13 レイアウト刷新・ユーザー要望「数値が多すぎる」）: 第1＝推奨基本α値・推奨特段α値。その下に括弧で直近件数窓の参考（25/50/100件）。基本α窓＝_refBaseAlpha.wN.alpha／特段α窓＝同wN.add.alpha（同じ窓の特段pick）。
+        var _winStr = function(w, sp) { if (!w) return "—"; if (sp) { return (w.add && w.add.alpha != null) ? (w.add.alpha + "円") : "—"; } return (w.alpha != null) ? (w.alpha + "円" + (w.ok ? "" : "(仮)")) : "—"; };
+        var _rb = _refBaseAlpha;
+        var _line = function(sp) { return "（直近期間別参考　25件：" + _winStr(_rb && _rb.w1, sp) + "　50件：" + _winStr(_rb && _rb.m1, sp) + "　100件：" + _winStr(_rb && _rb.m3, sp) + "）"; };
+        var _sub = { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 2, marginBottom: 3 };
+        return React.createElement("div", { title: "推奨基本α値＝詳細別→シグナル別→銘柄全体で自動入力に使う採用値／推奨特段α値＝この銘柄の特段〇記録から（前日まで・銘柄全体）。括弧内は直近件数窓の参考（(仮)＝データ不足）", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
+          React.createElement("div", null,
+            React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
+            _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
+            (_autoBaseA != null && _autoBase && _autoBase.src) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#B91C1C", marginLeft: 4 } }, "★自動入力（" + _autoBase.src + "）") : null),
+          React.createElement("div", { style: _sub }, _line(false)),
+          React.createElement("div", null,
+            React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨特段α値 "),
+            _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
+            (_refSpecial && _refSpecial.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "参考") : null),
+          React.createElement("div", { style: _sub }, _line(true)));
       })(),
-        (function() {
-          if (!_refBaseAlpha) return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨基本α値：データ無し") : null;
-          return React.createElement("span", { title: "保存済み記録から算出した推奨基本α（記録日起点の直近・参考用。追加α〇・浮き足〇の記録は母数から除外）", style: { fontSize: 11, fontWeight: 600, color: "#64748B" } },
-            React.createElement("span", { style: { color: "#94A3B8" } }, "推奨基本α値"),
-            [["直近25件", _refBaseAlpha.w1], ["直近50件", _refBaseAlpha.m1], ["直近100件", _refBaseAlpha.m3], ["全期間", _refBaseAlpha.all]].map(function(kv, i) {
-              return React.createElement("span", { key: i },
-                "　" + kv[0] + "：",
-                kv[1] && kv[1].alpha != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, kv[1].alpha + "円", kv[1].ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）")) : React.createElement("span", { style: { color: "#aaa" } }, "—"),
-                (kv[1] && kv[1].alpha2 != null) ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, "（次点：" + kv[1].alpha2 + "円）") : null);
-            }));
-        })()) : null,
-      (fAlphaKind === "base" && _refSigAlpha) ? React.createElement("div", {
-        // シグナル/詳細別の推奨基本α（2026-07-07c）: 詳細別→シグナル別→銘柄全体の段階フォールバックで基本αを自動入力（★=採用段）。データ不足(ok未満)の段は件数を添えて表示し下の段へ。
-        title: "選択中シグナル（先頭タグ）/①②③の選択詳細で母数を絞った推奨基本α（直近50→100→全期間の件数窓・記録日前日まで・追加α〇除外）。★＝基本αの自動入力に使用中の段。データ不足＝件数フロア未満（仮＝参考値）。各選択値の内訳は全期間・表示のみ",
-        style: { fontSize: 11, fontWeight: 600, color: "#64748B", margin: "0 0 6px" } },
-        React.createElement("span", { style: { color: "#94A3B8" } }, "シグナル別参考"),
-        (function() {
-          var _star = React.createElement("span", { style: { color: "#B91C1C", fontSize: 9, fontWeight: 800, marginLeft: 2 } }, "★自動入力");
-          var _lvl = function(_key, _label, _p, _clr) {
-            if (!_p) return null;
-            return React.createElement("span", { key: _key },
-              "　" + _label + "：",
-              (_p.alpha != null && _p.ok)
-                ? React.createElement("span", { style: { color: _clr, fontWeight: 700 } }, _p.alpha + "円")
-                : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足",
-                    _p.alpha != null ? React.createElement("span", { style: { fontSize: 9 } }, "（仮" + _p.alpha + "円）") : null),
-              React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _p.n + "）"),
-              _autoBase.src === _key ? _star : null);
-          };
-          return React.createElement(React.Fragment, null,
-            _lvl("詳細別", "選択詳細の組合せ", _refSigAlpha.det, "#B91C1C"),
-            _lvl("シグナル別", _refSigAlpha.tag, _refSigAlpha.sig, "#9A3412"),
-            _autoBase.src === "銘柄全体" ? React.createElement("span", null,
-              "　銘柄全体：",
-              _defBaseA != null ? React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, _defBaseA + "円") : React.createElement("span", { style: { color: "#aaa" } }, "—"),
-              _star) : null);
-        })(),
-        _refSigAlpha.picks.length ? React.createElement("span", { style: { color: "#CBD5E1" } }, "　｜") : null,
-        _refSigAlpha.picks.map(function(_dp, _di) {
-          return React.createElement("span", { key: "p" + _di },
-            "　" + _dp.lb + "＝" + _dp.name + "：",
-            _dp.pick.alpha != null
-              ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, _dp.pick.alpha + "円", _dp.pick.ok ? null : React.createElement("span", { style: { color: "#94A3B8", fontWeight: 600, fontSize: 9, marginLeft: 1 } }, "（仮参考）"))
-              : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足"),
-            React.createElement("span", { style: { color: "#94A3B8", fontSize: 9 } }, "（n=" + _dp.pick.n + "）"));
-        })
-      ) : null,
       fAlphaKind === "special" ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setSA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFSpecialAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFSpecialAlpha(String(n)); };
@@ -7499,11 +7470,7 @@ function EntryRecordForm(_ref_erf) {
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
-      })(),
-        (function() {
-          if (_refSpecial && _refSpecial.alpha != null) return React.createElement("span", { title: "この銘柄の特段〇の記録だけを母数に算出した推奨特段α（独立α値・銘柄全体・記録日前日まで・浮き足〇/RN〇除外）。移行の特段αと同じ算出", style: { fontSize: 11, fontWeight: 600, color: "#9A3412", whiteSpace: "nowrap" } }, React.createElement("span", { style: { color: "#B91C1C", fontWeight: 800, marginRight: 2 } }, "★"), "推奨特段α ", React.createElement("span", { style: { fontWeight: 800 } }, _refSpecial.alpha + "円"), (_refSpecial.alpha2 != null ? React.createElement("span", { style: { fontWeight: 700, marginLeft: 4, color: "#94A3B8" } }, "（次点：" + _refSpecial.alpha2 + "円）") : null), (_refSpecial.status === "na" ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, marginLeft: 3, color: "#B45309" } }, "参考") : null));
-          return fStock ? React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8" } }, "推奨特段α：データ無し（この銘柄の特段記録が不足）") : null;
-        })()) : null,
+      })()) : null,
       (fAlphaKind === "special") ? (function() {
         var _reasonsM = (data && data.custom && Array.isArray(data.custom.specialReasons)) ? data.custom.specialReasons : _DEF_SPECIAL_REASONS;
         var _reasons = (fRsnOrder && fRsnOrder.list) ? fRsnOrder.list : _reasonsM;   // ドラッグ中は並びプレビュー（2026-07-06e）
