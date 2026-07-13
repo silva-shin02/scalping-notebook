@@ -6126,6 +6126,8 @@ function EntryRecordForm(_ref_erf) {
   var _useStateALM = useState(initSig.alphaMemo || ""),
     _useStateALMA = _slicedToArray(_useStateALM, 2),
     fAlphaMemo = _useStateALMA[0], setFAlphaMemo = _useStateALMA[1];
+  // α詳細データ表ポップアップ（閲覧のみ・記録帳「α値」タブと同じ表を流用）2026-07-13
+  var _uAlTbl = useState(null), _alTblModal = _uAlTbl[0], _setAlTblModal = _uAlTbl[1];   // null | "base"（基本α詳細）| "special"（応用α詳細）
   // α値見出しの右に出す「推奨基本α（直近25件/50件/100件/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分・追加α〇は_elBaseAlphaPick内で除外＝×＋未選択の記録)から算出＝記録の参考用。
   // 窓はカレンダーでなく fDate を起点にした直近N件の件数窓＝銘柄別でカレンダー窓が痩せるのを避け「最近の傾向」を安定して映す 2026-06-21→件数ベース2026-06-26。全期間も含め母数は fDate(その日)の前日までの記録のみ＝当日(同日)を含めず、過去記録の編集時に未来・当日データを使わない(look-ahead回避)2026-06-22c。
   var _refBaseAlpha = useMemo(function() {
@@ -6146,6 +6148,12 @@ function EntryRecordForm(_ref_erf) {
     };
     return out;
   }, [data, fStock, fDate]);
+  // 詳細表ポップアップ用の母数（この銘柄・v2・算入・fDate前日まで＝推奨α値の算出と同一）とholiSet（頻度列用）2026-07-13
+  var _alTblRecs = useMemo(function() {
+    if (!fStock) return [];
+    return _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate); });
+  }, [data, fStock, fDate]);
+  var _alTblHoli = useMemo(function() { return _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories); }, [data]);
   // 基本αの既定値＝直近50件の推奨基本α（無ければ100件→全期間でフォールバック）。直近25件は標本が薄くブレやすいので自動入力には使わず表示のみ（ユーザー方針 2026-06-22c→件数ベース2026-06-26）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
   var _baAlpha = function(w) { return (w && w.ok && w.alpha != null) ? w.alpha : null; };
   // 基本αに使う窓オブジェクトを確定（m1=直近50件→m3=100件→all=全期間）＝この同じ窓から推奨追加αも取る 2026-06-27。
@@ -7395,7 +7403,7 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "EP（エントリーポイント）")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "水準線値に浮き足加算を足した『最終水準線』が土台。これに下のα値（基本＋追加＋RN）を足したものが予定EP（実際のエントリー予定価格）。浮き足は前足浮き値×採用加算率（推奨%・既定50%）・小数切捨て。"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "水準線値に浮き足加算を足した『最終水準線』が土台。これに下のα値（基本／応用＋RN）を足したものが予定EP（実際のエントリー予定価格）。浮き足は前足浮き値×採用加算率（推奨%・既定50%）・小数切捨て。"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
           React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F1F5F9", border: "1px solid #CBD5E1", fontSize: 12 } },
@@ -7504,21 +7512,37 @@ function EntryRecordForm(_ref_erf) {
       })()) : null,
       (function() {
         // 推奨α値サマリー（2026-07-13 レイアウト刷新・ユーザー要望「数値が多すぎる」）: 第1＝推奨基本α値・推奨応用α値。その下に括弧で直近件数窓の参考（25/50/100件）。基本α窓＝_refBaseAlpha.wN.alpha／応用α窓＝同wN.add.alpha（同じ窓の応用pick）。
-        var _winStr = function(w, sp) { if (!w) return "—"; if (sp) { return (w.add && w.add.alpha != null) ? (w.add.alpha + "円") : "—"; } return (w.alpha != null) ? (w.alpha + "円" + (w.ok ? "" : "(仮)")) : "—"; };
+        var _winStr = function(w, sp) { if (!w) return "—"; if (sp) { return (w.add && w.add.alpha != null) ? (w.add.alpha + "円") : "—"; } return (w.alpha != null) ? (w.alpha + "円" + (w.ok ? "" : "（仮）")) : "—"; };
         var _rb = _refBaseAlpha;
         var _line = function(sp) { return "（直近期間別参考　25件：" + _winStr(_rb && _rb.w1, sp) + "　50件：" + _winStr(_rb && _rb.m1, sp) + "　100件：" + _winStr(_rb && _rb.m3, sp) + "）"; };
         var _sub = { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 2, marginBottom: 3 };
-        return React.createElement("div", { title: "推奨基本α値＝詳細別→シグナル別→銘柄全体で自動入力に使う採用値／推奨応用α値＝この銘柄の応用〇記録から（前日まで・銘柄全体）。括弧内は直近件数窓の参考（(仮)＝データ不足）", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
-          React.createElement("div", null,
+        var _rowFlex = { display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" };
+        var _tblBtn = function(kind, color, bd) { return React.createElement("button", { type: "button", onClick: function() { _setAlTblModal(kind); }, title: "記録帳「α値」タブと同じ詳細データ表を表示（閲覧のみ）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"); };
+        var _modalEl = _alTblModal ? React.createElement("div", { onClick: function() { _setAlTblModal(null); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
+          React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } },
+            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } },
+              React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: _alTblModal === "base" ? "#0369A1" : "#9A3412" } }, (_alTblModal === "base" ? "🔬 推奨基本α 詳細データ" : "🔬 推奨応用α 詳細データ") + "（" + (fStock || "—") + "・前日まで全期間）"),
+              React.createElement("button", { type: "button", onClick: function() { _setAlTblModal(null); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")),
+            React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "記録帳の分析と同じ表（閲覧のみ）。母数＝この銘柄・前日まで全期間"),
+            _alTblRecs.length
+              ? (_alTblModal === "base"
+                  ? _elBaseAlphaDetailV2(_alTblRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli)
+                  : _elTotalAlphaSectionV2(_alTblRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli))
+              : React.createElement("div", { style: { fontSize: 11, color: "#94A3B8", padding: "10px 0" } }, "この銘柄の記録がまだありません"))) : null;
+        return React.createElement("div", { title: "推奨基本α値＝詳細別→シグナル別→銘柄全体で自動入力に使う採用値／推奨応用α値＝この銘柄の応用〇記録から（前日まで・銘柄全体）。括弧内は直近件数窓の参考（（仮）＝データ不足／参考＝条件緩和の推奨値）", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
+          React.createElement("div", { style: _rowFlex },
             React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
             _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
-            (_autoBaseA != null && _autoBase && _autoBase.src) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#B91C1C", marginLeft: 4 } }, "★自動入力（" + _autoBase.src + "）") : null),
+            (_autoBaseA != null && _autoBase && _autoBase.src) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#B91C1C", marginLeft: 4 } }, "★自動入力（" + _autoBase.src + "）") : null,
+            _tblBtn("base", "#0369A1", "#93C5FD")),
           React.createElement("div", { style: _sub }, _line(false)),
-          React.createElement("div", null,
+          React.createElement("div", { style: _rowFlex },
             React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨応用α値 "),
             _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
-            (_refSpecial && _refSpecial.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "参考") : null),
-          React.createElement("div", { style: _sub }, _line(true)));
+            (_refSpecial && _refSpecial.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "参考") : null,
+            _tblBtn("special", "#9A3412", "#FDBA74")),
+          React.createElement("div", { style: _sub }, _line(true)),
+          _modalEl);
       })(),
       fAlphaKind === "special" ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
@@ -7925,7 +7949,7 @@ function EntryRecordForm(_ref_erf) {
               style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
             },
               React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, "予定EP"),
-              React.createElement("span", { title: "最終水準線（水準線＋浮き足加算）＋合計α（基本＋追加＋RN）＝自動計算。エントリー予定価格の目安。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right" } },
+              React.createElement("span", { title: "最終水準線（水準線＋浮き足加算）＋合計α（基本／応用＋RN）＝自動計算。エントリー予定価格の目安。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right" } },
                 (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; var _ep = _lv + (isNaN(_fAlpha) ? 0 : _fAlpha); return String(Math.round(_ep * 100) / 100); })()
               ),
               React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),

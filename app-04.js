@@ -3991,7 +3991,7 @@ function _EpnCalcForm(_p) {
       React.createElement("div", { onClick: function(ev) { ev.stopPropagation(); },
           style: { background: "#fff", borderRadius: 10, padding: "12px 14px", maxWidth: 660, width: "100%", maxHeight: "85vh", overflowY: "auto", boxSizing: "border-box" } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
-          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#6D28D9" } }, "応用α（合計α）詳細データ ・ " + stock),
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#6D28D9" } }, "応用α 詳細データ ・ " + stock),
           React.createElement("button", { type: "button", onClick: function() { setShowSpTable(false); },
             style: { border: "none", background: "transparent", fontSize: 18, color: "#94A3B8", cursor: "pointer", lineHeight: 1, padding: 2 } }, "×")),
         _elTotalAlphaSectionV2(_c.all, _c.aiOf, _hs)));
@@ -4021,7 +4021,7 @@ function _EpnCalcForm(_p) {
       !nTag ? React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", fontWeight: 600, paddingBottom: 6 } }, "②シグナルを選ぶと③起点・④の候補が出ます") : null,
       nTag ? _lrow(_mgmtHead("③", "起点"), React.createElement(_EpnChipMgr, { items: cands.k, selected: nSelK ? [nSelK] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "起点名（例: 50EMA）", onToggle: function(nm) { setNSelK(nSelK === nm ? null : nm); }, onAdd: function(nm) { _detAdd("k", nm); }, onRename: function(o, n) { _detRename("k", o, n); }, onDelete: function(nm) { _detDelete("k", nm); }, onReorder: function(l) { _detReorder("k", l); } })) : null,
       nTag ? _lrow(_mgmtHead("④", "その他（複数可）"), React.createElement(_EpnChipMgr, { items: cands.f, selected: nSelF, accent: { b: "#B45309", bg: "#FEF3C7", c: "#92400E" }, addPh: "特徴名", onToggle: function(nm) { setNSelF(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: function(nm) { _detAdd("f", nm); }, onRename: function(o, n) { _detRename("f", o, n); }, onDelete: function(nm) { _detDelete("f", nm); }, onReorder: function(l) { _detReorder("f", l); } })) : null) : null,
-    React.createElement("div", { title: "記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ・追加α〇/浮き足〇は母数から除外）。★＝EP計算に採用中の段。データ不足＝件数フロア未満（仮＝参考値）", style: { background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 7px", marginBottom: 7 } },
+    React.createElement("div", { title: "記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ・応用〇/浮き足〇は母数から除外）。★＝EP計算に採用中の段。データ不足＝件数フロア未満（仮＝参考値）", style: { background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 7px", marginBottom: 7 } },
       React.createElement("div", { style: { fontSize: 9, fontWeight: 800, color: "#94A3B8", marginBottom: 1 } }, "推奨基本α"),
       _pickLine("det", "詳細別", det),
       nTag ? _pickLine("sig", "シグナル別", sig) : null,
@@ -4088,7 +4088,7 @@ function _EpnCalcForm(_p) {
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 800 } }, "予定EP "),
       React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(epV) : "—"),
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8" } }, "円"),
-      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, "実効α" + (effA - ukiAddV) + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (rnAddV ? "＋RN" + rnAddV : "") + (ukiAddV ? "　最終水準線＝水準線＋浮" + ukiAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : ""))
+      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, "合計α値" + (effA - ukiAddV) + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (rnAddV ? "＋RN" + rnAddV : "") + (ukiAddV ? "　最終水準線＝水準線＋浮" + ukiAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : ""))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? "記録が無い銘柄は基本αを手入力" : "水準線を入力")),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"), _spModal);
@@ -4236,7 +4236,7 @@ function EpNaviPanel(_refEPN) {
     var isDone = !!e.done;
     var _cardBL = (e.specialUsed === true && e.special != null) ? Number(e.special) : (Number(e.base) || 0);   // base-levelα（応用〇＝応用α／通常＝基本α）
     var alphaSum = _cardBL + (Number(e.uki) || 0) + (Number(e.rn) || 0);
-    var bk = (e.specialUsed === true && e.special != null ? "特" + e.special : "基" + (e.base != null ? e.base : "—")) + (e.rn ? "＋RN" + e.rn : "");   // 浮き足は最終水準線側へ 2026-07-12→応用α化 2026-07-13
+    var bk = (e.specialUsed === true && e.special != null ? "応" + e.special : "基" + (e.base != null ? e.base : "—")) + (e.rn ? "＋RN" + e.rn : "");   // 浮き足は最終水準線側へ 2026-07-12→応用α化 2026-07-13
     var detTxt = [e.b ? "底:" + e.b : null, e.k ? "起:" + e.k : null].concat((e.f || []).map(function(x) { return "特:" + x; })).filter(function(x) { return !!x; }).join("・");
     var armed = delArm === e.id;
     var C = has5
@@ -4285,7 +4285,7 @@ function EpNaviPanel(_refEPN) {
       React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 } },
         React.createElement("span", { style: { display: "flex", alignItems: "center", minWidth: 0, flex: 1 } }, mbBadge,
           e.tag ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.tag) : null,
-          hasSpecial ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: isDone ? "#94A3B8" : "#DC2626", marginLeft: 3 } }, "特") : null),
+          hasSpecial ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: isDone ? "#94A3B8" : "#DC2626", marginLeft: 3 } }, "応") : null),
         React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 3, flexShrink: 0 } },
           _isEditingThis
             ? React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); var _api = _formApisRef.current[st]; if (_api && _api.save) _api.save(); }, title: "下の計算フォームで編集中の内容をこのEPに上書き保存",
@@ -5912,7 +5912,7 @@ function DayView(_ref57) {
       var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk].filter(function(r) { return _elInclTotal(r.signal); }) }; });
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円・週間）"),
-        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上かつ想定損益がプラスのαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高α・赤字αは除外・データ不足時は件数最大を参考表示）。追加α目安＝基本αに何円足せば損切りしにくくH1利益が出たか。"),
+        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上かつ想定損益がプラスのαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高α・赤字αは除外・データ不足時は件数最大を参考表示）。応用α目安＝応用〇局面で採用する独立α値（応用〇の記録から算出）。"),
         _elBaseAlphaTableV2(_wkGroups, _wkCutOf));
       var _wkExpRow = function(recs, rowKey) {
         var _isTotal = rowKey === "wk__total__";
