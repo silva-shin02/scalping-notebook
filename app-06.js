@@ -1331,6 +1331,21 @@ function _ElAnaReachCtl(props) {
     React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _btn("↑", 10), _btn("↓", -10)),
     React.createElement("span", { style: { fontSize: 8.5, color: "#0369A1" } }, "基本αの★＝この到達率以上を保てる最も高いα（黒字前提）・既定" + _EL_ANA_REACH_DEF + "%"));
 }
+// ===== 根拠別 推奨応用αの下限（2026-07-13 ユーザー指定）＝根拠で絞った母数のE成立（到達し勝敗判定できた件数）がこの数以上のときだけ「根拠別」を採用。未満は銘柄全体の応用αへフォールバック =====
+// 既定20件・custom.specialMinDecidedに保存（全端末同期）。同期は_elAlphaInfo(app-05)内。対象＝EPナビ/早見の根拠別推奨応用α（_epnSpecialRecoFrom app-04）のみ。記録フォームの推奨応用αは元々銘柄全体母数なので対象外。
+var _EL_SPECIAL_MIN_DECIDED_DEF = 20;
+var _elSpecialMinDecidedCur = _EL_SPECIAL_MIN_DECIDED_DEF;
+function _elSpecialMinDecided(data) { var v = data && data.custom ? data.custom.specialMinDecided : null; var n = Number(v); return (v != null && v !== "" && !isNaN(n) && n >= 1 && n <= 100) ? Math.round(n) : _EL_SPECIAL_MIN_DECIDED_DEF; }
+function _ElSpecialMinCtl(props) {
+  var v = _elSpecialMinDecided(props.data), save = props.save;
+  var _set = function(nv) { if (nv < 1) nv = 1; if (nv > 100) nv = 100; save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { specialMinDecided: nv }) }); }); };
+  var _btn = function(lbl, d) { return React.createElement("button", { type: "button", onClick: function() { _set(v + d); }, style: { padding: "0 7px", fontSize: 10, fontWeight: 800, lineHeight: 1.5, border: "1px solid #FED7AA", borderRadius: 4, background: "#fff", color: "#9A3412", cursor: "pointer" } }, lbl); };
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 7, padding: "3px 9px", whiteSpace: "nowrap" } },
+    React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "🧩 根拠別応用αの下限"),
+    React.createElement("b", { style: { fontSize: 14, color: "#9A3412", fontVariantNumeric: "tabular-nums" } }, v + "件"),
+    React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _btn("↑", 1), _btn("↓", -1)),
+    React.createElement("span", { style: { fontSize: 8.5, color: "#9A3412" } }, "EPナビの根拠別推奨応用αはE成立がこの件数以上で採用・未満は銘柄全体へフォールバック・既定" + _EL_SPECIAL_MIN_DECIDED_DEF + "件"));
+}
 var _EL_BASE_MIN_ERATE = 0.5;    // 到達率フロア: EP到達率(OS3まで)がこの値未満のαは推奨対象外＝約定しにくい高αを除外（ユーザー方針 2026-06-22c）。後で調整可。
 var _EL_BASE_W_STOP = 0.7;       // 合成スコアの重み: 損切り回避 (1−損切り率)。
 var _EL_BASE_W_H1 = 0.3;         // 合成スコアの重み: H1勝率。
@@ -5355,7 +5370,7 @@ function EntryLogView(_ref_elv2) {
     };
     return _cardify([
       _addFilBar(),
-      React.createElement("div", { style: { margin: "2px 0 8px", display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save })),   // 前提損切り値＋到達率下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
+      React.createElement("div", { style: { margin: "2px 0 8px", display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save }), React.createElement(_ElSpecialMinCtl, { data: data, save: save })),   // 前提損切り値＋到達率下限＋根拠別応用α下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
       _gDet ? _detCtlRow("gp_kpi", recs) : null,
       _bodyOf("gp_kpi", recs, function(_drs, _dv) { return _kpiOs(_drs, _detFilterBy(_dv, _baRecs)); }),
       // 追加α母数トグル〇のとき: 推奨基本α詳細は畳んで（要約はKPIカードに常時表示）、代わりに推奨追加α詳細（加算値別の総当たり）をフル表示。×/全記録・前足浮きタブは従来どおり基本α詳細をフル表示。2026-07-03
@@ -5580,7 +5595,7 @@ function EntryLogView(_ref_elv2) {
       }
       _tabBody = _cardify([
         _alphaPills,
-        React.createElement("div", { style: { marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save })),   // 前提損切り値＋到達率下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
+        React.createElement("div", { style: { marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save }), React.createElement(_ElSpecialMinCtl, { data: data, save: save })),   // 前提損切り値＋到達率下限＋根拠別応用α下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
         _alReasonBar,
         _alBody]);
     }
