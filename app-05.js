@@ -6173,9 +6173,12 @@ function EntryRecordForm(_ref_erf) {
   // 推奨特段α（特段α採用時の自動入力・§9 銘柄全体母数で1本＝移行のspecialAlphaと一致）: この銘柄の特段〇記録（浮き足〇/RN〇除外・fDate前日まで）から独立α最適(_elSpecialAlphaPick)。特段shape or null。
   var _refSpecial = useMemo(function() {
     if (!fStock) return null;
-    var recs = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate) && _elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+    var aiOf = function(r) { return _elAlphaInfo(r, data); };
+    var allR = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate); });
+    var _bp = allR.length ? _elBaseAlphaPick(allR, aiOf) : null;   // 銘柄全体の基本α理想＝特段αを基本αより大きくクランプ 2026-07-13
+    var recs = allR.filter(function(r) { return _elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
     if (!recs.length) return null;
-    var p = _elSpecialAlphaPick(recs, function(r) { return _elAlphaInfo(r, data); });
+    var p = _elSpecialAlphaPick(recs, aiOf, _bp ? _bp.idealAlpha : null);
     return (p && p.alpha != null && p.status !== "none") ? p : null;
   }, [data, fStock, fDate]);
   var _refSpecialA = (_refSpecial && _refSpecial.alpha != null) ? _refSpecial.alpha : null;

@@ -3319,9 +3319,9 @@ function _epnPickWin(rs, aiOf) {
   var _lastA = null;
   for (var i = 0; i < _wins.length; i++) {
     var A = _elBaseAlphaA(_wins[i], aiOf); _lastA = A;
-    if (A && A.pick && A.pick.alpha != null && A.pick.status === "ok") return { alpha: A.pick.alpha, ok: true, n: rs.length, add: A.add };
+    if (A && A.pick && A.pick.alpha != null && A.pick.status === "ok") return { alpha: A.pick.alpha, idealAlpha: A.pick.idealAlpha, ok: true, n: rs.length, add: A.add };
   }
-  return { alpha: (_lastA && _lastA.pick && _lastA.pick.alpha != null && _lastA.pick.status !== "none") ? _lastA.pick.alpha : null, ok: false, n: rs.length, add: (_lastA && _lastA.add) ? _lastA.add : null };
+  return { alpha: (_lastA && _lastA.pick && _lastA.pick.alpha != null && _lastA.pick.status !== "none") ? _lastA.pick.alpha : null, idealAlpha: (_lastA && _lastA.pick) ? _lastA.pick.idealAlpha : null, ok: false, n: rs.length, add: (_lastA && _lastA.add) ? _lastA.add : null };
 }
 // _elCollectAllSignals(data) の単一スロット・同一性キャッシュ（2026-07-08f）: _epnCascade は計算フォーム最大3列＋追加α〇カードごとに呼ばれ、同一data参照の全チャート走査が重複する。dataはsaveで必ず新オブジェクトになる＝参照が変われば自動失効・結果は純粋関数で不変なので安全。返り値配列は_epnCascade側でfilter（新配列生成）してから使うためキャッシュ配列は不変。
 var _epnSigCacheData = null, _epnSigCacheOut = null;
@@ -3486,7 +3486,9 @@ function _epnSpecialRecoFrom(casc, reasons) {
     return false;
   });
   if (!pool.length) return null;
-  var reco = _elSpecialAlphaPick(pool, casc.aiOf);   // 推奨特段α（独立α値・特段shape）2026-07-13
+  var _bp = key === "det" ? casc.det : (key === "sig" ? casc.sig : casc.stk);   // 採用した基本α段の理想＝特段αを基本αより大きくクランプ 2026-07-13
+  var _minIdeal = (_bp && _bp.idealAlpha != null) ? _bp.idealAlpha : ((_bp && _bp.alpha != null) ? _bp.alpha : null);
+  var reco = _elSpecialAlphaPick(pool, casc.aiOf, _minIdeal);   // 推奨特段α（独立α値・特段shape・基本αより大きくクランプ）2026-07-13
   return (reco && reco.alpha != null && reco.status !== "none") ? { v: reco.alpha, v2: reco.alpha2, n: pool.length, byReason: rs.length > 0 } : null;
 }
 function _epnSpecialReco(data, stock, date, tag, sel, reasons) {
