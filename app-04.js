@@ -3515,6 +3515,9 @@ function _EpnDayAlphaField(_p) {
 }
 // 早見のインライン編集（③起点/④その他/⑤ライン併存の変更）用: 新しい詳細から推奨基本αを再導出（ライン併存ルール〇なら1）してepを再計算。
 // _EpnCalcForm.autoPick と同じ段階フォールバック（詳細別→シグナル別→銘柄全体・okが無ければ仮値）＝変更時は両方直す。推奨が全く無ければbaseは据え置き。
+// 予定EPの正本計算（2026-07-14 共通化・監査finding#1）: base-levelα＝応用〇なら応用α・通常は基本α。予定EP＝round((水準線+base-levelα+浮き足+RN)*100)/100。保存EPを書く全ハンドラはこの2関数経由に統一＝式のズレ・応用α落ち・廃止add項の混入を防ぐ。
+function _epnBaseLevelOf(it) { return (it && it.specialUsed === true && it.special != null) ? (Number(it.special) || 0) : (Number(it && it.base) || 0); }
+function _epnComputeEp(level, baseLevel, uki, rn) { return Math.round(((Number(level) || 0) + (Number(baseLevel) || 0) + (Number(uki) || 0) + (Number(rn) || 0)) * 100) / 100; }
 function _epnRecalcBase(data, stock, date, item) {
   var _f = Array.isArray(item.f) ? item.f : [];
   var base = Number(item.base) || 0, src = item.src || null;
@@ -3538,7 +3541,7 @@ function _epnRecalcBase(data, stock, date, item) {
   var level = Number(item.level) || 0, uki = Number(item.uki) || 0, rn = Number(item.rn) || 0;   // rn=RNまたぎ加算（そのまま加算）2026-07-08h
   var special = (item.specialUsed === true && item.special != null) ? Number(item.special) : null;
   var baseLevel = (special != null) ? special : base;   // base-levelα＝応用〇なら応用α、通常は再導出した基本α（2026-07-13応用α化）
-  var ep = Math.round((level + baseLevel + uki + rn) * 100) / 100;
+  var ep = _epnComputeEp(level, baseLevel, uki, rn);
   return Object.assign({}, item, { base: base, src: src, ep: ep });
 }
 // 推奨応用α（EPナビ用・_EpnCalcFormと早見カードで共有 2026-07-08f→2026-07-13応用α化）: cascadeの採用段（詳細別ok→シグナル別ok→銘柄全体ok→各仮値の順＝autoPick.keyと同一導出）の記録を母数に、
@@ -4143,7 +4146,7 @@ function EpNaviPanel(_refEPN) {
   var onSetSpecial = function(st, e, newSpecial) {
     var nS = Math.max(0, Number(newSpecial) || 0);
     var uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
-    _epnPut(save, date, st, Object.assign({}, e, { special: nS, specialUsed: true, ep: Math.round((level + nS + uki + rn) * 100) / 100 }));   // base-levelα=応用α=nS
+    _epnPut(save, date, st, Object.assign({}, e, { special: nS, specialUsed: true, ep: _epnComputeEp(level, nS, uki, rn) }));   // base-levelα=応用α=nS
   };
   // 応用α 〇×トグル（計算欄と同じ仕組み 2026-07-08f→2026-07-13応用α化）: 〇＝推奨応用α（無ければ基本α）を初期値に入れてEP再計算／×＝通常（基本α）に戻す・根拠クリア。値・根拠はあとで手動変更可。
   var onSetSpecialUsed = function(st, e, used) {
@@ -4151,25 +4154,25 @@ function EpNaviPanel(_refEPN) {
     if (used) {
       var reco = _epnSpecialReco(data, st, date, e.tag, { b: e.b || null, k: e.k || null, f: Array.isArray(e.f) ? e.f : [] }, Array.isArray(e.specialReasons) ? e.specialReasons : []);
       var nS = (reco && reco.v != null) ? reco.v : base;
-      _epnPut(save, date, st, Object.assign({}, e, { specialUsed: true, special: nS, ep: Math.round((level + nS + uki + rn) * 100) / 100 }));
+      _epnPut(save, date, st, Object.assign({}, e, { specialUsed: true, special: nS, ep: _epnComputeEp(level, nS, uki, rn) }));
     } else {
-      _epnPut(save, date, st, Object.assign({}, e, { specialUsed: false, special: null, specialReasons: [], ep: Math.round((level + base + uki + rn) * 100) / 100 }));
+      _epnPut(save, date, st, Object.assign({}, e, { specialUsed: false, special: null, specialReasons: [], ep: _epnComputeEp(level, base, uki, rn) }));
     }
   };
   // RNまたぎ加算 〇×＋値（早見カード 2026-07-08h）: 〇＝rn値（既定5・既存値あればそれ）を入れてEP再計算／×＝rn0。追加α・ライン併存と同じ即_epnPut保存パターン。
   var onSetRnUsed = function(st, e, used) {
-    var base = Number(e.base) || 0, uki = Number(e.uki) || 0, level = Number(e.level) || 0, add = Number(e.add) || 0;
+    var uki = Number(e.uki) || 0, level = Number(e.level) || 0, bl = _epnBaseLevelOf(e);   // base-levelα(応用〇なら応用α)で統一＝RN操作で応用α分が落ちる不整合を修正 2026-07-14（旧: base固定＋廃止add項）
     if (used) {
       var nR = (Number(e.rn) || 0) > 0 ? Number(e.rn) : 5;
-      _epnPut(save, date, st, Object.assign({}, e, { rnUsed: true, rn: nR, ep: Math.round((level + base + uki + add + nR) * 100) / 100 }));
+      _epnPut(save, date, st, Object.assign({}, e, { rnUsed: true, rn: nR, ep: _epnComputeEp(level, bl, uki, nR) }));
     } else {
-      _epnPut(save, date, st, Object.assign({}, e, { rnUsed: false, rn: 0, ep: Math.round((level + base + uki + add) * 100) / 100 }));
+      _epnPut(save, date, st, Object.assign({}, e, { rnUsed: false, rn: 0, ep: _epnComputeEp(level, bl, uki, 0) }));
     }
   };
   var onSetRn = function(st, e, newRn) {
     var nR = Math.max(0, Number(newRn) || 0);
-    var base = Number(e.base) || 0, uki = Number(e.uki) || 0, level = Number(e.level) || 0, add = Number(e.add) || 0;
-    _epnPut(save, date, st, Object.assign({}, e, { rn: nR, rnUsed: true, ep: Math.round((level + base + uki + add + nR) * 100) / 100 }));
+    var uki = Number(e.uki) || 0, level = Number(e.level) || 0, bl = _epnBaseLevelOf(e);
+    _epnPut(save, date, st, Object.assign({}, e, { rn: nR, rnUsed: true, ep: _epnComputeEp(level, bl, uki, nR) }));
   };
   var onToggleReason = function(st, e, nm) {
     var cur = Array.isArray(e.specialReasons) ? e.specialReasons.slice() : []; var i = cur.indexOf(nm);
