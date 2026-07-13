@@ -4691,7 +4691,7 @@ function EntrySignalSection(_ref_es) {
                       ? React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス")
                       : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#FFFBF0" } },
-                  _elHold2AmtNode(s, _avH, _cutLH)),
+                  _elHold2AmtNode(s, _avH, _cutLH), _elRideMiniNode(s, _avH, _cutLH)),
                 React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#F8FBFE" } },
                   _elDetailFlowStack(s, _avH, _cutLH)),
                 React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esLane(_tradeAlphaChip(s), 26, "flex-end"), _esRPnlDisp(entered ? realPnlN : 0, realGrade, !entered)),
@@ -4734,8 +4734,8 @@ function EntrySignalSection(_ref_es) {
                   _esTh("α値", { width: 36 }),
                   _esTh("E", { width: 28 }),
                   _esTh("取引", { width: 28 }),
-                  _esTh(React.createElement("span", null, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "○途切れで手じまい")), { width: 84 }),
-                  React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, React.createElement("span", null, "OS・損益詳細", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "OS ／ EP / H1 / H2（勝敗/ランク/額）"))),
+                  _esTh("最終損益・詳細", { width: 84 }),
+                  React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "OS・損益詳細"),
                   _esTh("実現損益", { width: 90 }),
                   isCustomMode ? _esTh("並替", { width: 40 }) : null
                 )

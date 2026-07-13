@@ -4935,7 +4935,7 @@ function EntryLogView(_ref_elv2) {
             : _elIsThru(s)
               ? React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス")
               : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 13 } }, "×")),
-          _td(_elHold2AmtNode(s, a.alpha, a.cutLine), { background: "#FFFBF0" }),
+          _td(React.createElement(React.Fragment, null, _elHold2AmtNode(s, a.alpha, a.cutLine), _elRideMiniNode(s, a.alpha, a.cutLine)), { background: "#FFFBF0" }),
           React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: "4px 6px", textAlign: "left", fontSize: 11, borderTop: "1px solid #f0ede8", background: "#F8FBFE" } }, _elDetailFlowStack(s, a.alpha, a.cutLine))
         ]).concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60) : _dash)]);
       }
@@ -4947,7 +4947,7 @@ function EntryLogView(_ref_elv2) {
     var head = mode === "day"
       ? [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("OS"), _th("E"), _th("OS帯"), _th("H中最高値"), _th("実現結果")]
       : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("α値"), _th("E"), _th("取引"),
-         _th(React.createElement("span", null, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "○途切れで手じまい"))), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, React.createElement("span", null, "OS・損益詳細", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "OS ／ EP / H1 / H2（勝敗/ランク/額）"))), _th("実現損益")];
+         _th("最終損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th("実現損益")];
     return React.createElement(React.Fragment, null,
       React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },

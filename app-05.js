@@ -4769,7 +4769,8 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
 // ④ 決済サマリー行（2026-07-13 ユーザー承認・案A最下段）: 「最高↑18 → 決済↓3（H2）」＝EP足から手仕舞い足までの高値の最大（どこまで逆行したか）と、
 // 最終損益(_elHold2TotParts.main)と同じ手仕舞い足の確定値。損切り記録は「最高↑26 → 損切（H1）」。手仕舞い足＝損切り足／非損切りは次足期待度○のみ次足へ（H2まで）。
 // E成立(judge ok)のv2記録のみ・それ以外はnull（行を出さない）。
-function _elRideSummaryNode(s, alpha, cutLine) {
+// 決済サマリーの素の値（最高値mx・手仕舞い足の確定値exitC・損切りstopped・足ラベルlbl）を返す共通ヘルパー。_elRideSummaryNode（詳細表示）と_elRideMiniNode（簡易表示）が共用。
+function _elRideVals(s, alpha, cutLine) {
   if (!s || !_epIsV2(s) || alpha == null) return null;
   var r = _epResolve(s, alpha);
   if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
@@ -4792,17 +4793,31 @@ function _elRideSummaryNode(s, alpha, cutLine) {
   var exitC = exitLeg ? exitLeg.c : null;
   var lbl = exitD === 0 ? "EP" : "H" + exitD;
   if (mx == null && exitC == null && !stopped) return null;
+  return { mx: mx, exitC: exitC, stopped: stopped, lbl: lbl };
+}
+function _elRideSummaryNode(s, alpha, cutLine) {
+  var v = _elRideVals(s, alpha, cutLine);
+  if (!v) return null;
   var _sml = function(t, col) { return React.createElement("span", { style: { fontSize: 9, color: col || "#B45309", fontWeight: 700, flexShrink: 0 } }, t); };
   return React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 3, whiteSpace: "nowrap", borderTop: "1px dashed #d8cbb8", marginTop: 2, paddingTop: 1 } },
     _sml("最高"),
-    _epSignedNode(mx, "mx"),
+    _epSignedNode(v.mx, "mx"),
     React.createElement("span", { style: { color: "#bbb", fontSize: "0.9em" } }, "→"),
-    stopped
-      ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#1E8449" } }, "損切（" + lbl + "）")
+    v.stopped
+      ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#1E8449" } }, "損切（" + v.lbl + "）")
       : React.createElement("span", { style: { display: "inline-flex", alignItems: "baseline", gap: 2 } },
           _sml("決済"),
-          _epSignedNode(exitC, "ec"),
-          React.createElement("span", { style: { fontSize: 9, color: "#9CA3AF" } }, "（" + lbl + "）")));
+          _epSignedNode(v.exitC, "ec"),
+          React.createElement("span", { style: { fontSize: 9, color: "#9CA3AF" } }, "（" + v.lbl + "）")));
+}
+// 最終損益セル本体の下に出す簡易版（2026-07-13 ユーザー要望）: 手じまいまでの最高値→手じまい時点の確定値を「↑17→↓23」の矢印＋数値のみで表示。E成立(judge ok)のv2記録のみ（それ以外はnull＝非表示）。
+function _elRideMiniNode(s, alpha, cutLine) {
+  var v = _elRideVals(s, alpha, cutLine);
+  if (!v) return null;
+  return React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "center", gap: 2, whiteSpace: "nowrap", fontSize: 10, marginTop: 1 } },
+    _epSignedNode(v.mx, "mx"),
+    React.createElement("span", { style: { color: "#bbb", fontSize: "0.9em" } }, "→"),
+    _epSignedNode(v.exitC, "ec"));
 }
 function _elDetailFlowStack(s, alpha, cutLine) {
   var _epRow = React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-start", gap: 3, padding: "0 0 1px", borderBottom: "1px solid #e0d8c8", whiteSpace: "nowrap" } },

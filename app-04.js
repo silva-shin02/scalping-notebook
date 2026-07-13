@@ -5300,7 +5300,7 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               _epECell(s, _aiTr.alpha)),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#FFFBF0" } }, _elHold2AmtNode(s, _aiTr.alpha, _aiTr.cutLine)),
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#FFFBF0" } }, _elHold2AmtNode(s, _aiTr.alpha, _aiTr.cutLine), _elRideMiniNode(s, _aiTr.alpha, _aiTr.cutLine)),
             React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#F8FBFE" } }, _elDetailFlowStack(s, _aiTr.alpha, _aiTr.cutLine)),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trLane(_tradeAlphaChip(s), 26, "flex-end"), _trRPnlDisp(realPnlN, realGrade))
           )
@@ -5335,8 +5335,8 @@ function DayView(_ref57) {
                 _trTh("α値", { width: "1%" }),
                 _trTh("E", { width: "1%" }),
                 _trTh("取引", { width: 1, padding: "4px 2px" }),
-                _trTh(React.createElement("span", null, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "○途切れで手じまい"))),
-                React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, React.createElement("span", null, "OS・損益詳細", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "OS ／ EP / H1 / H2（勝敗/ランク/額）"))),
+                _trTh("最終損益・詳細"),
+                React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "OS・損益詳細"),
                 _trTh("実現損益")
               )
             ),
@@ -5648,7 +5648,7 @@ function DayView(_ref57) {
               : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")
           ),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", background: "#FFFBF0" } },
-            _elHold2AmtNode(s, _alphaRec, _cutLrec)),
+            _elHold2AmtNode(s, _alphaRec, _cutLrec), _elRideMiniNode(s, _alphaRec, _cutLrec)),
           React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: bb, borderRight: "1px solid #e8e5de", background: "#F8FBFE" } },
             _elDetailFlowStack(s, _alphaRec, _cutLrec)),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
@@ -5725,8 +5725,8 @@ function DayView(_ref57) {
               _rTh("α値", { width: 32 }),
               _rTh("E", { width: 26 }),
               _rTh("取引", { width: 26 }),
-              _rTh(React.createElement("span", null, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "○途切れで手じまい")), { width: 84 }),
-              React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, React.createElement("span", null, "OS・損益詳細", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "OS ／ EP / H1 / H2（勝敗/ランク/額）"))),
+              _rTh("最終損益・詳細", { width: 84 }),
+              React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "OS・損益詳細"),
               _rTh("実現損益", { width: 82 })
             )
           ),
