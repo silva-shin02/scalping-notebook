@@ -57,6 +57,14 @@ HomeEventFormModal, App
 - 検証: node無し→自前http.server別オリジン+SW全消しで実マウント console 0。**移行チェックサム**（`migrateData`合成データ）＝specialUsed/specialAlpha変換・`_almig`backup・冪等・alphaVal===specialAlpha+浮き+RN・通常記録不変 全pass。記録帳/α値タブ(推奨特段α20円・母数内訳)/シミュ(特段なし・特段あり・全記録)/EntryRecordForm(採用α選択→特段αで特段α値+根拠+推奨特段α)/_EpnCalcForm(特段α・追加α消滅) 隔離マウント全pass。
 - **既知の残作業（follow-up）**: 撤去対象の死関数（_elAddAlphaReco 等 約8本）は呼び出しを全停止したが定義は残置（削除は別パスで）。シミュ手動ラダーの取引ごと「追加α」行UIは無効化済み(結果列非表示)だが行設定UIは残置。
 
+### 2026-07-13g 特段α移行の敵対的レビュー後の修正（3件・sw v112→v113）
+独立レビュー（12エージェント・移行/母数/二重三重/base-level/シミュ）で確定した実害3件を修正。二重/三重実装（推奨特段αの _refSpecial/_epnSpecialRecoFrom/_migSpecialAlpha/_elBaseAlphaA.add/_elTotalAlphaSectionV2）は一致で問題なし。
+- **[medium] 移行フォールバック（app-01 `_migSpecialAlpha`）**: 最深フォールバック（推奨特段α/推奨基本αとも算出不能な薄い銘柄）を `_oldBase+_oldAdd`（baseAlphaVal欠損=0扱いで旧採用αを取りこぼす）→ `_oldTot(=旧alphaVal)−浮き足−RN`（＝旧base-levelαを厳密復元）へ。baseAlphaValがnull（採用αに畳込み済み）の特段記録でもEP/損益を厳密維持。合成データで検算: base欠損+浮き足込みの記録で旧採用α15を厳密保持。
+- **[low] `_elBaseAlphaPeriodTableV2` basePool（app-06）**: 想定損益(1日/1件)列の母数 `!_elSpecialUsed` のみ→`!_elSpecialUsed && !_elUkiYes && !_elRnYes` の三重除外へ（推奨基本α選定 `_elBaseAlphaPick` と母数一致・2026-07-12に `_elBaseAlphaDetailV2` で入れた修正の取りこぼし分）。
+- **[medium] シミュ手動ラダーの取引ごと「追加α」入力UI（app-06 `_elKabuLadderSimV2`）**: 特段α化で `_manTiersOf` が addMethod を参照しなくなった（機能停止）のに入力UI＋説明文が残り誤誘導 → 取引ごと追加α行（_addSel/_addInputs）を削除・見出し/注記を「基本αのみ・特段〇は特段α値を基底に採用」へ更新。
+- 残（follow-up・dead code）: `_elAddAlphaSectionV2/_elAddAlphaPeriodTableV2` 等の死関数内の increment 残骸・sim の未使用 addOn state は呼び出し無しのため別パスで物理削除。
+- 検証: 自前http.server別オリジンで console 0・移行フォールバック検算（旧採用α厳密保持）・_elKabuLadderSimV2 隔離マウント（追加α行消滅・console 0）pass。
+
 ### 2026-07-13e EPナビ計算フォーム調整（浮き足を全シグナル表示・③底抜けを畳みの外・早見EP右に底抜け・特段α詳細表ポップアップ）
 - **浮き足加算を全シグナルで常時表示（app-04 `_EpnCalcForm`）**: `showUki=_ukiSigNames.indexOf(nTag)>=0`（底抜け系シグナルのみ）→`showUki=true`に。記録フォーム(app-05 `_showUki=true`)と同じ＝全シグナルで浮き足欄＋推奨/次点/手入力%が出る。`_ukiSigNames/_elUkiSignalNames`のEPナビ用途は撤去（関数自体は分析母数で存続）。
 - **③底抜けを「詳細を入力」畳みの外へ（app-04 `_EpnCalcForm`）**: ③底抜けチップを`detOpen`畳みブロックから出し、②シグナルの直下に常時表示（`nTag`選択時）。畳みは③起点/④その他/⑤ライン併存だけに＝トグル文言「③〜⑤」→「③起点〜⑤」・`_detSummary`から`底:`除外・空ヒント文言も更新。

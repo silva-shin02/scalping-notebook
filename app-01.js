@@ -1022,8 +1022,9 @@ function migrateData(d) {
         var _stock = ck.slice(0, _us);
         c.signals = c.signals.map(function(s) {
           if (!s || s.addAlphaUsed !== true) return s;   // 通常記録は触らない
-          var _oldBase = _saN(s.baseAlphaVal), _oldAdd = _saN(s.addAlphaVal);
-          var _fallback = (_oldBase != null ? _oldBase : 0) + (_oldAdd != null ? _oldAdd : 0);   // 旧base+add＝旧採用αを厳密維持
+          var _oldBase = _saN(s.baseAlphaVal), _oldAdd = _saN(s.addAlphaVal), _oldTot = _saN(s.alphaVal);
+          // 旧採用αを厳密維持するフォールバック＝旧base-levelα＝旧alphaVal−浮き足−RN（baseAlphaVal欠損＝旧採用αに畳み込み済みの記録も正しく保持）。alphaVal欠損時のみ base+add へ。
+          var _fallback = (_oldTot != null) ? (_oldTot - _elUkiAdd(s) - _elRnAdd(s)) : ((_oldBase != null ? _oldBase : 0) + (_oldAdd != null ? _oldAdd : 0));
           var _spec = (_saSpecialOf[_stock] != null) ? _saSpecialOf[_stock] : ((_saBaseOf[_stock] != null) ? _saBaseOf[_stock] : _fallback);
           var _up = Object.assign({}, s);
           _up._almig = { baseAlphaVal: (s.baseAlphaVal != null ? s.baseAlphaVal : null), addAlphaVal: (s.addAlphaVal != null ? s.addAlphaVal : null), addAlphaUsed: s.addAlphaUsed, addAlphaReasons: (Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.slice() : (s.addAlphaReason ? [s.addAlphaReason] : null)), alphaVal: (s.alphaVal != null ? s.alphaVal : null) };

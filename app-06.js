@@ -2298,7 +2298,7 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
     var A = _elBaseAlphaA(pd.recs, aiOf);
     var pk = A ? A.pick : null;
     var add = A ? A.add : null;
-    var basePool = pd.recs.filter(function(r) { return r && !_elSpecialUsed(r.signal); });
+    var basePool = pd.recs.filter(function(r) { return r && !_elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });   // 想定損益の母数も推奨基本α(_elBaseAlphaPick)と同じ三重除外に揃える 2026-07-13
     var alphaCell, simBase = null;
     if (!pk || pk.alpha == null) alphaCell = dash;
     else {
@@ -4487,7 +4487,7 @@ function _elKabuLadderSimV2(props) {
     var _stopRate = (manCalc && manCalc.builtRecN) ? manCalc.stopRecN / manCalc.builtRecN : null;
     var _perShare = (manCalc && _manTot > 0) ? Math.round(manCalc.sum / _manTot * 10) / 10 : null;   // 1株あたり損益＝通算÷総株数
     body = React.createElement(React.Fragment, null,
-      React.createElement("div", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 700, marginBottom: 6 } }, "取引ごとに『基本α』と『追加α』を選べます（基本α＝絶対値／推奨α±X／推奨基本α値・追加α＝絶対値／推奨追加α±X／推奨追加α値／実追加α／なし）"),
+      React.createElement("div", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 700, marginBottom: 6 } }, "取引ごとに『基本α』を選べます（絶対値／推奨α±X／推奨基本α値）。特段〇の記録はその記録の特段α値を基底に採用（掃引対象外）・実効α＝基底α＋浮き足加算"),
       React.createElement("div", { style: { marginBottom: 6 } },
         rows.map(function(rw, i) {
           var _baseSel = React.createElement("select", { value: rw.method || "", onChange: function(e) { _upd(i, { method: e.target.value }); }, style: { padding: "3px 6px", fontSize: 10.5, fontWeight: 700, color: rw.method ? "#0F766E" : "#aaa", border: "1px solid #ddd", borderRadius: 5, background: "#fff" } }, [React.createElement("option", { key: "_none", value: "" }, "（未選択）")].concat(_METHODS.map(function(m) { return React.createElement("option", { key: m.key, value: m.key }, m.short); })));
@@ -4501,11 +4501,7 @@ function _elKabuLadderSimV2(props) {
             React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 4 } },
               React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#64748b", minWidth: 34 } }, "基本α"),
               _baseSel,
-              (rw.method === "abs" || rw.method === "reco" || rw.method === "recobase") ? _rowInputs(rw, i) : React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "入力方式を選択")),
-            React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" } },
-              React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#9A3412", minWidth: 34 } }, "追加α"),
-              _addSel,
-              rw.addMethod ? _addInputs(rw, i) : React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "なし")));
+              (rw.method === "abs" || rw.method === "reco" || rw.method === "recobase") ? _rowInputs(rw, i) : React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "入力方式を選択")));
         }),
         addPicker
           ? React.createElement("div", { style: { border: "1px dashed #0F766E", borderRadius: 8, background: "#F0FDFA", padding: "8px 10px", marginTop: 4, maxWidth: 320 } },
@@ -4524,7 +4520,7 @@ function _elKabuLadderSimV2(props) {
         stopOff !== "" ? React.createElement("button", { onClick: function() { setStopOff(""); }, style: { padding: "2px 8px", fontSize: 10, fontWeight: 700, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#B45309", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 記録の値に戻す")
           : React.createElement("span", { style: { fontSize: 9, color: "#94a3b8" } }, "（空欄＝各記録の実際の損切り値）"),
         React.createElement("span", { style: { fontSize: 9, color: "#94a3b8" } }, "※損切りライン＝各取引のEP＋この損切り値（円）")),
-      React.createElement("div", { style: { fontSize: 9.5, color: "#666", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 8px", marginBottom: 8 } }, "各取引の株数をそのまま空売り: " + _ladderPrev + " ※推奨系（推奨α±X・推奨基本α値）の実効αは記録ごと（日付時点）に変わります。実効α＝基本α部分＋浮き足加算（浮き足〇の記録・浮き値÷2切捨て・常時）＋各取引の追加α欄の分（推奨追加α系は記録日時点・無い日は0／実追加α＝その記録の追加α値）"),
+      React.createElement("div", { style: { fontSize: 9.5, color: "#666", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 8px", marginBottom: 8 } }, "各取引の株数をそのまま空売り: " + _ladderPrev + " ※推奨系（推奨α±X・推奨基本α値）の実効αは記録ごと（日付時点）に変わります。実効α＝基底α（特段〇の記録は特段α値・候補αの掃引対象外）＋浮き足加算（浮き足〇の記録・浮き値÷2切捨て・常時）"),
       manCalc ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
           _card("通算損益", (function() { var _m = manCalc.sum, _rf = manCalc.sumRef; return React.createElement("span", { style: { whiteSpace: "normal" } }, React.createElement("span", { style: { color: _elPnlColor(_m), fontSize: 17, whiteSpace: "nowrap" } }, _elPnlFmt(_m)), (_rf ? React.createElement("span", { style: { color: _elPnlColor(_m), fontSize: 17, marginLeft: 2, whiteSpace: "nowrap", display: "inline-block" } }, "（" + _elPnlFmt(_m + _rf) + "）") : null)); })(), manCalc.n + "記録中 建玉あり" + manCalc.builtRecN + "件"),
@@ -4595,7 +4591,7 @@ function _elKabuLadderSimV2(props) {
   return React.createElement("div", null, head,
     _targetList,
     _modeToggle,
-    React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝実際のH1（推奨基本α・追加α・%シミュと同一基準・損切りルール適用後）／損切り＝「シミュ損切」列の値で取引ごと独立（手動ラダーで『推奨基本α値+X円』を設定するとその記録日時点の推奨基本α+X＝橙字・空欄や推奨α不明・自動配分は各記録の実際の損切り値＝灰字）／×見送り・H1判定不可の取引は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※損益は本日の損益データ欄と同じ（）外/（）内方式（○のみH1本算入＝（）外／△・損切り済はEP想定額を（）外にしH1まで保有した場合との差を（）内へ／×・未設定・EP×はEP想定額のみで（）内なし）。金額の（括弧内）＝（）内合計（○△を含む参考額）。従来列＝損益データ欄と同じ（）外/（）内理論値（採用α・100株当たり）を総株数に単純按分した値（シミュの取引構成・第1/第2取引とは無関係）。シミュ列の下段＝取引ごとの内訳（（）外・建たなかった取引は—）。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝実際のH1（推奨基本α・特段α・%シミュと同一基準・損切りルール適用後）／損切り＝「シミュ損切」列の値で取引ごと独立（手動ラダーで『推奨基本α値+X円』を設定するとその記録日時点の推奨基本α+X＝橙字・空欄や推奨α不明・自動配分は各記録の実際の損切り値＝灰字）／×見送り・H1判定不可の取引は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※損益は本日の損益データ欄と同じ（）外/（）内方式（○のみH1本算入＝（）外／△・損切り済はEP想定額を（）外にしH1まで保有した場合との差を（）内へ／×・未設定・EP×はEP想定額のみで（）内なし）。金額の（括弧内）＝（）内合計（○△を含む参考額）。従来列＝損益データ欄と同じ（）外/（）内理論値（採用α・100株当たり）を総株数に単純按分した値（シミュの取引構成・第1/第2取引とは無関係）。シミュ列の下段＝取引ごとの内訳（（）外・建たなかった取引は—）。"),
     body);
 }
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
