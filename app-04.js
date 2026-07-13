@@ -3394,7 +3394,7 @@ function _epnDayAlphaSet(save, stock, date, val) {
     return Object.assign({}, prev, { charts: charts });
   });
 }
-// 「本日の採用α値（特段α）」の保存（2026-07-13 task3）: charts[銘柄_日付].epNaviDaySpecialAlpha。基本α(epNaviDayAlpha)と対の独立フィールド。null=未設定＝推奨特段αに追従。
+// 「本日の採用α値（応用α）」の保存（2026-07-13 task3）: charts[銘柄_日付].epNaviDaySpecialAlpha。基本α(epNaviDayAlpha)と対の独立フィールド。null=未設定＝推奨応用αに追従。
 function _epnDaySpecialAlphaGet(data, stock, date) {
   var c = ((data && data.charts) || {})[stock + "_" + date];
   var v = c ? c.epNaviDaySpecialAlpha : null;
@@ -3408,8 +3408,8 @@ function _epnDaySpecialAlphaSet(save, stock, date, val) {
     return Object.assign({}, prev, { charts: charts });
   });
 }
-// 「本日の採用α値」欄（基本α＋特段α・案B横並び2カラム 2026-07-13 task3）: 銘柄別記録テーブル/取引テーブルの推奨α欄に置く。母数＝この銘柄の「開いている日付の前日まで全期間」（詳細データ表・EPナビ・記録フォームと同じ）。
-// 各カラム＝入力＋▲▼＋「表を参照」（詳細データ表をポップアップし行タップで取込）。基本α＝charts.epNaviDayAlpha（EPナビと共有）／特段α＝charts.epNaviDaySpecialAlpha。
+// 「本日の採用α値」欄（基本α＋応用α・案B横並び2カラム 2026-07-13 task3）: 銘柄別記録テーブル/取引テーブルの推奨α欄に置く。母数＝この銘柄の「開いている日付の前日まで全期間」（詳細データ表・EPナビ・記録フォームと同じ）。
+// 各カラム＝入力＋▲▼＋「表を参照」（詳細データ表をポップアップし行タップで取込）。基本α＝charts.epNaviDayAlpha（EPナビと共有）／応用α＝charts.epNaviDaySpecialAlpha。
 function _ElDayAlphaPair(_p) {
   var data = _p.data, save = _p.save, date = _p.date, stock = _p.stock;
   var _m = useState(null), modal = _m[0], setModal = _m[1];   // null | "base" | "special"
@@ -3461,9 +3461,9 @@ function _ElDayAlphaPair(_p) {
     return React.createElement("div", { onClick: function() { setModal(null); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
       React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } },
-          React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: isBase ? "#0369A1" : "#9A3412" } }, (isBase ? "🔬 推奨基本α 詳細データ" : "🔬 推奨特段α 詳細データ") + "（" + stock + "・前日まで全期間）"),
+          React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: isBase ? "#0369A1" : "#9A3412" } }, (isBase ? "🔬 推奨基本α 詳細データ" : "🔬 推奨応用α 詳細データ") + "（" + stock + "・前日まで全期間）"),
           React.createElement("button", { type: "button", onClick: function() { setModal(null); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")),
-        React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "行をタップすると本日の採用" + (isBase ? "基本α" : "特段α") + "値に取り込みます"),
+        React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "行をタップすると本日の採用" + (isBase ? "基本α" : "応用α") + "値に取り込みます"),
         isBase
           ? _elBaseAlphaDetailV2(recs, aiOf, _hs, function(av) { _epnDayAlphaSet(save, stock, date, av); setModal(null); }, curEff)
           : _elTotalAlphaSectionV2(recs, aiOf, _hs, function(av) { _epnDaySpecialAlphaSet(save, stock, date, av); setModal(null); }, curEff)));
@@ -3472,7 +3472,7 @@ function _ElDayAlphaPair(_p) {
     React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#334155", marginBottom: 3 } }, "本日の採用α値（この銘柄・前日まで基準）"),
     React.createElement("div", { style: { display: "flex", gap: 6 } },
       _col(true, bVal, setBVal, baseStored, baseReco, "#0369A1", "#93C5FD", "基本α"),
-      _col(false, sVal, setSVal, spStored, spReco, "#9A3412", "#FDBA74", "特段α")),
+      _col(false, sVal, setSVal, spStored, spReco, "#9A3412", "#FDBA74", "応用α")),
     _modalEl);
 }
 // 「本日の採用α値」欄（2026-07-13d）: 各銘柄列の見出し直下に常設。既定＝推奨基本α（銘柄全体＝_epnCascade stk＝計算フォームautoPickのstk段と同一・この日より前の記録が母数）。
@@ -3537,12 +3537,12 @@ function _epnRecalcBase(data, stock, date, item) {
   }
   var level = Number(item.level) || 0, uki = Number(item.uki) || 0, rn = Number(item.rn) || 0;   // rn=RNまたぎ加算（そのまま加算）2026-07-08h
   var special = (item.specialUsed === true && item.special != null) ? Number(item.special) : null;
-  var baseLevel = (special != null) ? special : base;   // base-levelα＝特段〇なら特段α、通常は再導出した基本α（2026-07-13特段α化）
+  var baseLevel = (special != null) ? special : base;   // base-levelα＝応用〇なら応用α、通常は再導出した基本α（2026-07-13応用α化）
   var ep = Math.round((level + baseLevel + uki + rn) * 100) / 100;
   return Object.assign({}, item, { base: base, src: src, ep: ep });
 }
-// 推奨特段α（EPナビ用・_EpnCalcFormと早見カードで共有 2026-07-08f→2026-07-13特段α化）: cascadeの採用段（詳細別ok→シグナル別ok→銘柄全体ok→各仮値の順＝autoPick.keyと同一導出）の記録を母数に、
-// 特段〇・浮き足/RN除外・根拠一致で絞って _elSpecialAlphaPick で推奨特段α（独立α値）を出す。計算欄とカードで同一ロジック＝変更時は両方に効く。
+// 推奨応用α（EPナビ用・_EpnCalcFormと早見カードで共有 2026-07-08f→2026-07-13応用α化）: cascadeの採用段（詳細別ok→シグナル別ok→銘柄全体ok→各仮値の順＝autoPick.keyと同一導出）の記録を母数に、
+// 応用〇・浮き足/RN除外・根拠一致で絞って _elSpecialAlphaPick で推奨応用α（独立α値）を出す。計算欄とカードで同一ロジック＝変更時は両方に効く。
 function _epnBaseLevelKey(casc) {
   var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
   if (det && det.ok && det.alpha != null) return "det";
@@ -3567,9 +3567,9 @@ function _epnSpecialRecoFrom(casc, reasons) {
     return false;
   });
   if (!pool.length) return null;
-  var _bp = key === "det" ? casc.det : (key === "sig" ? casc.sig : casc.stk);   // 採用した基本α段の理想＝特段αを基本αより大きくクランプ 2026-07-13
+  var _bp = key === "det" ? casc.det : (key === "sig" ? casc.sig : casc.stk);   // 採用した基本α段の理想＝応用αを基本αより大きくクランプ 2026-07-13
   var _minIdeal = (_bp && _bp.idealAlpha != null) ? _bp.idealAlpha : ((_bp && _bp.alpha != null) ? _bp.alpha : null);
-  var reco = _elSpecialAlphaPick(pool, casc.aiOf, _minIdeal);   // 推奨特段α（独立α値・特段shape・基本αより大きくクランプ）2026-07-13
+  var reco = _elSpecialAlphaPick(pool, casc.aiOf, _minIdeal);   // 推奨応用α（独立α値・応用shape・基本αより大きくクランプ）2026-07-13
   return (reco && reco.alpha != null && reco.status !== "none") ? { v: reco.alpha, v2: reco.alpha2, n: pool.length, byReason: rs.length > 0 } : null;
 }
 function _epnSpecialReco(data, stock, date, tag, sel, reasons) {
@@ -3714,7 +3714,7 @@ function _EpnAddSection(_p) {
   };
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" } },
-      React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700 } }, "特段α"),
+      React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700 } }, "応用α"),
       _oxBtn("○", specialUsed, "#C0392B", "#FCEBEB", function() { _p.onUsed(true); }),
       _oxBtn("×", !specialUsed, "#1E8449", "#EAF3DE", function() { _p.onUsed(false); }),
       specialUsed ? React.createElement("input", { type: "text", inputMode: "numeric", value: addStr,
@@ -3724,10 +3724,10 @@ function _EpnAddSection(_p) {
       specialUsed ? React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円") : null,
       specialUsed ? _stepBtn(function() { _stepAdd(1); }, function() { _stepAdd(-1); }) : null),
     specialUsed ? React.createElement("div", null,
-      React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "根拠（選ぶと推奨特段αが変わる・複数可）"),
+      React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "根拠（選ぶと推奨応用αが変わる・複数可）"),
       React.createElement(_EpnChipMgr, { items: _p.reasonsMaster, selected: Array.isArray(e.specialReasons) ? e.specialReasons : [], accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: _p.onToggleReason, onAdd: _p.onAddReason, onRename: _p.onRenameReason, onDelete: _p.onDeleteReason, onReorder: _p.onReorderReason }),
       React.createElement("div", { style: { fontSize: 8.5, color: reco ? "#9A3412" : "#94A3B8", marginTop: 2 } },
-        reco ? ("推奨特段α " + reco.v + "円" + (reco.byReason ? "（選択根拠・n=" + reco.n + "・手動変更可）" : "（n=" + reco.n + "・手動変更可）")) : "推奨特段α データ無し（手動入力）")) : null);
+        reco ? ("推奨応用α " + reco.v + "円" + (reco.byReason ? "（選択根拠・n=" + reco.n + "・手動変更可）" : "（n=" + reco.n + "・手動変更可）")) : "推奨応用α データ無し（手動入力）")) : null);
 }
 // 早見カードのRNまたぎ加算インライン編集（2026-07-08h）: 〇×ボタン→〇のとき数値入力（円・そのまま加算）。値入力はローカルstate（onBlur確定＝1文字ごとの全体保存を避ける）。根拠なし＝追加αより単純。
 function _EpnRnSection(_p) {
@@ -3762,8 +3762,8 @@ function _EpnCalcForm(_p) {
   var _useStateEPN5 = useState(null), _useStateEPN5A = _slicedToArray(_useStateEPN5, 2), nSelK = _useStateEPN5A[0], setNSelK = _useStateEPN5A[1];
   var _useStateEPN6 = useState([]), _useStateEPN6A = _slicedToArray(_useStateEPN6, 2), nSelF = _useStateEPN6A[0], setNSelF = _useStateEPN6A[1];
   var _useStateEPN7 = useState(""), _useStateEPN7A = _slicedToArray(_useStateEPN7, 2), nBase = _useStateEPN7A[0], setNBase = _useStateEPN7A[1];
-  var _useStateEPN8 = useState("×"), _useStateEPN8A = _slicedToArray(_useStateEPN8, 2), nSpecialUsed = _useStateEPN8A[0], setNSpecialUsed = _useStateEPN8A[1];   // 特段α使用〇×（既定×＝通常＝基本α）2026-07-13
-  var _useStateEPN9 = useState(""), _useStateEPN9A = _slicedToArray(_useStateEPN9, 2), nSpecialAlpha = _useStateEPN9A[0], setNSpecialAlpha = _useStateEPN9A[1];   // 特段α値（独立）
+  var _useStateEPN8 = useState("×"), _useStateEPN8A = _slicedToArray(_useStateEPN8, 2), nSpecialUsed = _useStateEPN8A[0], setNSpecialUsed = _useStateEPN8A[1];   // 応用α使用〇×（既定×＝通常＝基本α）2026-07-13
+  var _useStateEPN9 = useState(""), _useStateEPN9A = _slicedToArray(_useStateEPN9, 2), nSpecialAlpha = _useStateEPN9A[0], setNSpecialAlpha = _useStateEPN9A[1];   // 応用α値（独立）
   var _useStateEPNrs = useState([]), _useStateEPNrsA = _slicedToArray(_useStateEPNrs, 2), nSpecialReasons = _useStateEPNrsA[0], setNSpecialReasons = _useStateEPNrsA[1];
   var _useStateEPN10 = useState("×"), _useStateEPN10A = _slicedToArray(_useStateEPN10, 2), nUkiUsed = _useStateEPN10A[0], setNUkiUsed = _useStateEPN10A[1];
   var _useStateEPN11 = useState(""), _useStateEPN11A = _slicedToArray(_useStateEPN11, 2), nUkiVal = _useStateEPN11A[0], setNUkiVal = _useStateEPN11A[1];
@@ -3776,7 +3776,7 @@ function _EpnCalcForm(_p) {
   var _useStateEPNea = useState(null), _useStateEPNeaA = _slicedToArray(_useStateEPNea, 2), editAt = _useStateEPNeaA[0], setEditAt = _useStateEPNeaA[1];
   var _useStateEPNdn = useState(false), _useStateEPNdnA = _slicedToArray(_useStateEPNdn, 2), editDone = _useStateEPNdnA[0], setEditDone = _useStateEPNdnA[1];
   var _useStateEPNdo = useState(false), _useStateEPNdoA = _slicedToArray(_useStateEPNdo, 2), detOpen = _useStateEPNdoA[0], setDetOpen = _useStateEPNdoA[1];   // ③起点〜⑤詳細の開閉（案A 2026-07-10・③底抜けは2026-07-13で畳みの外へ）: 既定は畳み・編集読込で詳細値があれば自動展開・保存対象外のUI状態
-  var _useSpT = useState(false), _useSpTA = _slicedToArray(_useSpT, 2), showSpTable = _useSpTA[0], setShowSpTable = _useSpTA[1];   // 特段α（合計α）詳細データ表ポップアップの開閉 2026-07-13
+  var _useSpT = useState(false), _useSpTA = _slicedToArray(_useSpT, 2), showSpTable = _useSpTA[0], setShowSpTable = _useSpTA[1];   // 応用α（合計α）詳細データ表ポップアップの開閉 2026-07-13
   var _rootRef = useRef(null);
   // ライン併存ルール（独自欄nLineCoexist 2026-07-08g）: 〇にすると基本α欄へ1を自動入力＝切替の瞬間だけ効き、手修正可・×へ戻すと1なら空に戻す（推奨に戻る）。記録フォームEntryRecordFormと同ルール＝二重実装・変更時は両方直す。旧・併存ラインチップ検知はmigrateData _migLineCoexistで本フラグへ移行済み。
   var _kyozPrevRef = useRef(nLineCoexist);
@@ -3830,10 +3830,10 @@ function _EpnCalcForm(_p) {
   var _baseSrc = (dayAlpha != null) ? "本日の採用α値" : (followReco ? autoPick.src : ((stk && stk.alpha != null) ? (stk.ok ? "銘柄全体" : "銘柄全体（仮）") : autoPick.src));   // 保存EPのsrc表記＝実際に採用した既定の出所
   var showUki = true;   // 浮き足加算は全シグナルで表示・入力可（記録フォームと同じ_showUki=true。旧＝底抜け系のみ_elUkiSignalNamesゲート→2026-07-13解除・推奨/次点/手入力%は従来どおり適用）
   var baseV = (nBase !== "" && !isNaN(Number(nBase))) ? Number(nBase) : _baseDefault;
-  // 推奨特段α（特段〇の記録から算出・浮き足/RN除外）。根拠を選ぶとその根拠を持つ記録に絞る。共有ヘルパー_epnSpecialRecoFrom（早見カードと同一）。
+  // 推奨応用α（応用〇の記録から算出・浮き足/RN除外）。根拠を選ぶとその根拠を持つ記録に絞る。共有ヘルパー_epnSpecialRecoFrom（早見カードと同一）。
   var specialReco = _epnSpecialRecoFrom(casc, nSpecialReasons);
   var specialV = (nSpecialUsed === "○") ? ((nSpecialAlpha !== "" && !isNaN(Number(nSpecialAlpha))) ? Number(nSpecialAlpha) : (specialReco && specialReco.v != null ? specialReco.v : (baseV != null ? baseV : 0))) : null;
-  var _epnBaseLevel = (specialV != null) ? specialV : baseV;   // base-levelα＝特段〇なら特段α、通常は基本α（場中版の採用α選択）
+  var _epnBaseLevel = (specialV != null) ? specialV : baseV;   // base-levelα＝応用〇なら応用α、通常は基本α（場中版の採用α選択）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨/次点（_elUkiPctSweep）。nUkiPct=""は自動=推奨(無ければ50%)。2026-07-12
   var _ukiReco = useMemo(function() { return _elUkiRecoPcts(data, date); }, [data, date]);
   var _effUkiPct = (nUkiPct !== "" && !isNaN(Number(nUkiPct))) ? Number(nUkiPct) : (_ukiReco.reco != null ? _ukiReco.reco : 50);
@@ -3982,7 +3982,7 @@ function _EpnCalcForm(_p) {
   // ===== 描画（縦積み1カラム＝列幅に収まる）=====
   // 編集中（editId有り）は計算欄を琥珀色に＝どの列を編集中か一目で分かる（保存済みバナー＋更新保存ボタンと同系色）。2026-07-08
   var _editing = !!editId;
-  // 「特段α 詳細データ表」ポップアップ（基本αの下のボタン→ 2026-07-13）: 記録帳と同じ_elTotalAlphaSectionV2（＝推奨合計α＝特段αの実体・母数は追加α〇[浮き/RN除外]）を、この銘柄のv2記録（この日より前＝_epnCascade.all）でオーバーレイ表示。本移行後は正式な特段α表に自動で切替わる。
+  // 「応用α 詳細データ表」ポップアップ（基本αの下のボタン→ 2026-07-13）: 記録帳と同じ_elTotalAlphaSectionV2（＝推奨合計α＝応用αの実体・母数は追加α〇[浮き/RN除外]）を、この銘柄のv2記録（この日より前＝_epnCascade.all）でオーバーレイ表示。本移行後は正式な応用α表に自動で切替わる。
   var _spModal = showSpTable ? (function() {
     var _c = _epnCascade(data, stock, null, null, date);
     var _hs = _buildHolidayDateSet(data.trades, custom.eventCategories);
@@ -3991,7 +3991,7 @@ function _EpnCalcForm(_p) {
       React.createElement("div", { onClick: function(ev) { ev.stopPropagation(); },
           style: { background: "#fff", borderRadius: 10, padding: "12px 14px", maxWidth: 660, width: "100%", maxHeight: "85vh", overflowY: "auto", boxSizing: "border-box" } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
-          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#6D28D9" } }, "特段α（合計α）詳細データ ・ " + stock),
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#6D28D9" } }, "応用α（合計α）詳細データ ・ " + stock),
           React.createElement("button", { type: "button", onClick: function() { setShowSpTable(false); },
             style: { border: "none", background: "transparent", fontSize: 18, color: "#94A3B8", cursor: "pointer", lineHeight: 1, padding: 2 } }, "×")),
         _elTotalAlphaSectionV2(_c.all, _c.aiOf, _hs)));
@@ -4042,21 +4042,21 @@ function _EpnCalcForm(_p) {
       React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
       _stepBtn(function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_baseDefault != null ? _baseDefault : 0); var n = b + 1; if (n > 50) n = 50; return String(n); }); },
         function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_baseDefault != null ? _baseDefault : 0); var n = b - 1; if (n < 0) n = 0; return String(n); }); }))),
-    React.createElement("button", { type: "button", onClick: function() { setShowSpTable(true); }, title: "記録帳と同じ推奨特段α（合計α）の詳細データ表をポップアップ表示",
-      style: { width: "100%", fontSize: 10, fontWeight: 700, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 5, padding: "4px", marginBottom: 7, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: IS_TOUCH ? 28 : 22 } }, "📊 特段α 詳細データ表（記録帳と同じ）"),
-    _lrow("特段α（特段の事情がある局面）", React.createElement("div", null,
+    React.createElement("button", { type: "button", onClick: function() { setShowSpTable(true); }, title: "記録帳と同じ推奨応用α（合計α）の詳細データ表をポップアップ表示",
+      style: { width: "100%", fontSize: 10, fontWeight: 700, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 5, padding: "4px", marginBottom: 7, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4, minHeight: IS_TOUCH ? 28 : 22 } }, "📊 応用α 詳細データ表（記録帳と同じ）"),
+    _lrow("応用α", React.createElement("div", null,
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
         _oxBtns(nSpecialUsed, setNSpecialUsed),
         nSpecialUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nSpecialAlpha, placeholder: specialReco && specialReco.v != null ? String(specialReco.v) : (baseV != null ? String(baseV) : "0"),
           onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "" || !isNaN(Number(v))) setNSpecialAlpha(v); }, style: Object.assign({}, _inpStyle, { width: 44 }) }) : null,
         nSpecialUsed === "○" ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円") : null,
-        nSpecialUsed === "○" ? _stepBtn(function() { setNSpecialAlpha(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((specialReco && specialReco.v != null) ? specialReco.v : (baseV != null ? baseV : 0)); var n = b + 1; if (n > 50) n = 50; return String(n); }); },   // 空欄=推奨特段α起点 2026-07-13
+        nSpecialUsed === "○" ? _stepBtn(function() { setNSpecialAlpha(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((specialReco && specialReco.v != null) ? specialReco.v : (baseV != null ? baseV : 0)); var n = b + 1; if (n > 50) n = 50; return String(n); }); },   // 空欄=推奨応用α起点 2026-07-13
           function() { setNSpecialAlpha(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((specialReco && specialReco.v != null) ? specialReco.v : (baseV != null ? baseV : 0)); var n = b - 1; if (n < 0) n = 0; return String(n); }); }) : null),
       nSpecialUsed === "○" ? React.createElement("div", { style: { marginTop: 4 } },
-        React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 3 } }, "根拠（選ぶと推奨特段αが変わる・複数可）"),
+        React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 3 } }, "根拠（選ぶと推奨応用αが変わる・複数可）"),
         React.createElement(_EpnChipMgr, { items: reasonsMaster, selected: nSpecialReasons, accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: function(nm) { setNSpecialReasons(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: _rsnAdd, onRename: _rsnRename, onDelete: _rsnDelete, onReorder: _rsnReorder }),
         React.createElement("div", { style: { fontSize: 9.5, color: specialReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
-          specialReco ? ("推奨特段α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : "（空欄＝自動採用）")) : "推奨特段α データ無し（空欄＝基本α）")) : null)),
+          specialReco ? ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : "（空欄＝自動採用）")) : "推奨応用α データ無し（空欄＝基本α）")) : null)),
     showUki ? _lrow("浮き足加算（前足浮き値×加算率）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
       _oxBtns(nUkiUsed, setNUkiUsed),
       nUkiUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nUkiVal, placeholder: "浮き値",
@@ -4079,7 +4079,7 @@ function _EpnCalcForm(_p) {
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 800 } }, "予定EP "),
       React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(epV) : "—"),
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8" } }, "円"),
-      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, "実効α" + (effA - ukiAddV) + "円＝" + (specialV != null ? ("特段" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (rnAddV ? "＋RN" + rnAddV : "") + (ukiAddV ? "　最終水準線＝水準線＋浮" + ukiAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : ""))
+      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, "実効α" + (effA - ukiAddV) + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (rnAddV ? "＋RN" + rnAddV : "") + (ukiAddV ? "　最終水準線＝水準線＋浮" + ukiAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : ""))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? "記録が無い銘柄は基本αを手入力" : "水準線を入力")),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"), _spModal);
@@ -4131,9 +4131,9 @@ function EpNaviPanel(_refEPN) {
   var onSetSpecial = function(st, e, newSpecial) {
     var nS = Math.max(0, Number(newSpecial) || 0);
     var uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
-    _epnPut(save, date, st, Object.assign({}, e, { special: nS, specialUsed: true, ep: Math.round((level + nS + uki + rn) * 100) / 100 }));   // base-levelα=特段α=nS
+    _epnPut(save, date, st, Object.assign({}, e, { special: nS, specialUsed: true, ep: Math.round((level + nS + uki + rn) * 100) / 100 }));   // base-levelα=応用α=nS
   };
-  // 特段α 〇×トグル（計算欄と同じ仕組み 2026-07-08f→2026-07-13特段α化）: 〇＝推奨特段α（無ければ基本α）を初期値に入れてEP再計算／×＝通常（基本α）に戻す・根拠クリア。値・根拠はあとで手動変更可。
+  // 応用α 〇×トグル（計算欄と同じ仕組み 2026-07-08f→2026-07-13応用α化）: 〇＝推奨応用α（無ければ基本α）を初期値に入れてEP再計算／×＝通常（基本α）に戻す・根拠クリア。値・根拠はあとで手動変更可。
   var onSetSpecialUsed = function(st, e, used) {
     var base = Number(e.base) || 0, uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
     if (used) {
@@ -4225,9 +4225,9 @@ function EpNaviPanel(_refEPN) {
     var mb = Array.isArray(e.minBars) ? e.minBars : [];
     var has5 = mb.indexOf("5") >= 0, has1 = mb.indexOf("1") >= 0;
     var isDone = !!e.done;
-    var _cardBL = (e.specialUsed === true && e.special != null) ? Number(e.special) : (Number(e.base) || 0);   // base-levelα（特段〇＝特段α／通常＝基本α）
+    var _cardBL = (e.specialUsed === true && e.special != null) ? Number(e.special) : (Number(e.base) || 0);   // base-levelα（応用〇＝応用α／通常＝基本α）
     var alphaSum = _cardBL + (Number(e.uki) || 0) + (Number(e.rn) || 0);
-    var bk = (e.specialUsed === true && e.special != null ? "特" + e.special : "基" + (e.base != null ? e.base : "—")) + (e.rn ? "＋RN" + e.rn : "");   // 浮き足は最終水準線側へ 2026-07-12→特段α化 2026-07-13
+    var bk = (e.specialUsed === true && e.special != null ? "特" + e.special : "基" + (e.base != null ? e.base : "—")) + (e.rn ? "＋RN" + e.rn : "");   // 浮き足は最終水準線側へ 2026-07-12→応用α化 2026-07-13
     var detTxt = [e.b ? "底:" + e.b : null, e.k ? "起:" + e.k : null].concat((e.f || []).map(function(x) { return "特:" + x; })).filter(function(x) { return !!x; }).join("・");
     var armed = delArm === e.id;
     var C = has5

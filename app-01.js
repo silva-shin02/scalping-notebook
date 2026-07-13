@@ -851,7 +851,7 @@ function migrateData(d) {
   // 変換: ukiUsed=true・ukiVal=旧数値（生値）・実効加算=floor(値/2)（半額切捨て）。根拠からは当該名を除去し、
   //   根拠がそれだけ→追加α×(addAlphaVal=null)／他根拠と複合→追加α〇のまま addAlphaVal=旧値−半額（下限0）。
   // 合計α(alphaVal)=基本α＋半額＋新追加α に再計算（基本α不明で導出も不能なら合計は据え置き）。マスター(custom.addAlphaReasons)からも当該名を削除・custom.addAlphaNumericReasonは廃止。
-  // 一回性フラグ化（_migUkiAlpha 2026-07-13ガード）: 特段α移行(_migSpecialAlpha)が addAlpha* を delete する前に必ず先行させ、以後は再実行しない。条件ベースの冪等性も保つ（変換後は根拠名が消えるので二重変換なし）。
+  // 一回性フラグ化（_migUkiAlpha 2026-07-13ガード）: 応用α移行(_migSpecialAlpha)が addAlpha* を delete する前に必ず先行させ、以後は再実行しない。条件ベースの冪等性も保つ（変換後は根拠名が消えるので二重変換なし）。
   if (!d._migUkiAlpha) {
   try {
     var _ukNR = (d.custom && d.custom.addAlphaNumericReason) || "底抜け前足浮き";
@@ -985,9 +985,9 @@ function migrateData(d) {
       d._migSignalRename4 = true;
     } catch(e) { console.warn("[migrateData] sigRename4 error:", e); }
   }
-  // 特段α（独立α値）への移行（_migSpecialAlpha 2026-07-13）: 旧「基本α＋追加α増分」を廃止し、追加α〇(addAlphaUsed===true)だった記録を独立α値 specialAlpha へ作り替える。
-  //  各記録の原本を _almig にbackup → specialAlpha＝各銘柄の推奨特段α(銘柄全体母数・_elSpecialAlphaPick＝旧_elTotalAlphaPick／浮き足〇・RN〇は母数除外)、不足時は推奨基本α(_elBaseAlphaPick)、
-  //  それも無ければ旧 baseAlphaVal+addAlphaVal（＝旧採用αを厳密維持）→ base-levelα=specialAlpha として alphaVal を再計算(=specialAlpha+浮き足+RN)＝過去の特段記録のEP/損益が変わる（ユーザー承認）。EPは非保存で alphaVal から都度導出(_epResolve)。
+  // 応用α（独立α値）への移行（_migSpecialAlpha 2026-07-13）: 旧「基本α＋追加α増分」を廃止し、追加α〇(addAlphaUsed===true)だった記録を独立α値 specialAlpha へ作り替える。
+  //  各記録の原本を _almig にbackup → specialAlpha＝各銘柄の推奨応用α(銘柄全体母数・_elSpecialAlphaPick＝旧_elTotalAlphaPick／浮き足〇・RN〇は母数除外)、不足時は推奨基本α(_elBaseAlphaPick)、
+  //  それも無ければ旧 baseAlphaVal+addAlphaVal（＝旧採用αを厳密維持）→ base-levelα=specialAlpha として alphaVal を再計算(=specialAlpha+浮き足+RN)＝過去の応用記録のEP/損益が変わる（ユーザー承認）。EPは非保存で alphaVal から都度導出(_epResolve)。
   //  通常記録(addAlphaUsed!==true)は一切触らない。旧 addAlpha* は delete。custom.addAlphaReasons→custom.specialReasons へ一度だけ付替。_elSpecialAlphaPick(app-06)ロード後前提＝typeofガード。d._migSpecialAlpha フラグで冪等。順序＝_migUkiAlpha の後。
   if (!d._migSpecialAlpha && typeof _elSpecialAlphaPick === "function" && typeof _elBaseAlphaPick === "function" && typeof _elAlphaInfo === "function") {
     try {
@@ -1003,7 +1003,7 @@ function migrateData(d) {
         var arr = _saByStock[_stock] || (_saByStock[_stock] = []);
         c.signals.forEach(function(s2) { if (s2 && _elInclTotal(s2) && _epIsV2(s2)) arr.push({ stock: _stock, date: _date, signal: s2 }); });
       });
-      // 銘柄ごとの推奨特段α(1本・銘柄全体母数)と推奨基本α(フォールバック)を先に算出（旧・追加α〇の状態で。浮き足〇/RN〇は特段プールから除外）
+      // 銘柄ごとの推奨応用α(1本・銘柄全体母数)と推奨基本α(フォールバック)を先に算出（旧・追加α〇の状態で。浮き足〇/RN〇は応用プールから除外）
       var _saSpecialOf = {}, _saBaseOf = {};
       Object.keys(_saByStock).forEach(function(_stock) {
         var _all = _saByStock[_stock];
@@ -1032,7 +1032,7 @@ function migrateData(d) {
           _up.specialAlpha = _spec;
           var _srsn = Array.isArray(s.addAlphaReasons) ? s.addAlphaReasons.filter(function(x) { return x; }) : (s.addAlphaReason ? [s.addAlphaReason] : []);
           _up.specialReasons = _srsn.length ? _srsn : null;
-          _up.alphaVal = _spec + _elUkiAdd(s) + _elRnAdd(s);   // base-levelα=特段α ＋ 浮き足 ＋ RN
+          _up.alphaVal = _spec + _elUkiAdd(s) + _elRnAdd(s);   // base-levelα=応用α ＋ 浮き足 ＋ RN
           delete _up.addAlphaUsed; delete _up.addAlphaVal; delete _up.addAlphaReasons; delete _up.addAlphaReason;
           _saMigN++;
           return _up;

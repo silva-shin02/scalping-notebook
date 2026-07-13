@@ -3120,7 +3120,7 @@ function _elIsEntered(s, item) {
 function _elInclTotal(s) { return !s || (s.includeInTotal !== false && s.passThrough !== true); }   // スルー(passThrough=true)は算入チェックに関わらず常に不算入 2026-07-06
 // recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
-// 特段α（旧・追加α〇×未選択の3状態は廃止 2026-07-13）: 記録は「特段あり(specialUsed===true)」か「通常(それ以外＝旧×+未選択を統合)」の2状態。判定は _elSpecialUsed(上部)。
+// 応用α（旧・追加α〇×未選択の3状態は廃止 2026-07-13）: 記録は「応用あり(specialUsed===true)」か「通常(それ以外＝旧×+未選択を統合)」の2状態。判定は _elSpecialUsed(上部)。
 // ===== 浮き足加算α値（第3のα要素 2026-07-03。対象シグナル＝既定で底抜け水準線OS／底抜けラインOS・_elUkiSignalNames 2026-07-07）=====
 // signal.ukiUsed(true=〇/false=×/null・undefined=対象外)・signal.ukiVal(前足浮き値の生値・円)。実効加算＝floor(ukiVal×ukiPct/100)・小数切捨て（ukiPct=採用加算率%・既定50＝旧半額 2026-07-12d）。
 // 合計採用α(signal.alphaVal)＝基本α＋浮き足加算＋追加α（保存時に畳み込み済み＝下流の損益/EP計算は無改修で正）。
@@ -3132,11 +3132,11 @@ function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); if (v
 // RNまたぎ加算の判定/成分（第5のα要素 07-08h・signal.rnUsed/rnVal）。浮き足(_elUkiYes/_elUkiAdd)と対になる分析用ヘルパー 2026-07-12: 推奨基本αの母数除外・RN分析ボード・反実仮想(採用α−RN)で使用。
 function _elRnYes(s) { return !!s && s.rnUsed === true; }
 function _elRnAdd(s) { if (!_elRnYes(s)) return 0; var v = Number(s.rnVal); return (isNaN(v) || v <= 0) ? 0 : v; }
-// ===== 特段α（特段の事情がある時に使う独立α値。旧「基本α＋追加α増分」を廃止し置換 2026-07-13） =====
-// specialUsed(bool)=特段α採用／specialAlpha(number)=独立α値／specialReasons(array)=根拠。旧 addAlphaUsed/addAlphaVal/specialReasons は撤去（移行 _migSpecialAlpha・app-01）。
-// 特段αは「基本α部分だけ」を置換＝base-levelα。浮き足・RN・ライン併存(base=1畳み込み)は従来どおり base-levelα の上に上乗せ（採用α＝base-levelα＋浮き足＋RN）。
+// ===== 応用α（旧「基本α＋追加α増分」を廃止し置換 2026-07-13） =====
+// specialUsed(bool)=応用α採用／specialAlpha(number)=独立α値／specialReasons(array)=根拠。旧 addAlphaUsed/addAlphaVal/specialReasons は撤去（移行 _migSpecialAlpha・app-01）。
+// 応用αは「基本α部分だけ」を置換＝base-levelα。浮き足・RN・ライン併存(base=1畳み込み)は従来どおり base-levelα の上に上乗せ（採用α＝base-levelα＋浮き足＋RN）。
 function _elSpecialUsed(s) { return !!s && s.specialUsed === true; }
-// base-levelα（採用αの土台）＝特段α採用時は specialAlpha、通常時は baseAlphaVal。両欠損時は 採用α(alphaVal)−浮き足−RN から逆算。採用α alphaVal ＝ base-levelα ＋ _elUkiAdd ＋ _elRnAdd。全画面のαの正本。
+// base-levelα（採用αの土台）＝応用α採用時は specialAlpha、通常時は baseAlphaVal。両欠損時は 採用α(alphaVal)−浮き足−RN から逆算。採用α alphaVal ＝ base-levelα ＋ _elUkiAdd ＋ _elRnAdd。全画面のαの正本。
 function _elBaseLevelAlpha(s) {
   if (!s) return null;
   var _n = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
@@ -3144,7 +3144,7 @@ function _elBaseLevelAlpha(s) {
   var b = _n(s.baseAlphaVal); if (b != null) return b;
   var tot = _n(s.alphaVal); return (tot == null) ? null : (tot - _elUkiAdd(s) - _elRnAdd(s));
 }
-// 特段αの根拠（理由）選択肢の既定。data.custom.specialReasons でユーザーが追加/削除/改名可（改名は過去記録の根拠名も追従）。旧 custom.specialReasons から移行。
+// 応用αの根拠（理由）選択肢の既定。data.custom.specialReasons でユーザーが追加/削除/改名可（改名は過去記録の根拠名も追従）。旧 custom.specialReasons から移行。
 var _DEF_SPECIAL_REASONS = ["指標線支え"];
 // 浮き足加算の欄を表示・算入する対象シグナル名の集合 2026-07-07（ユーザー決定＝両方に付ける）。
 // 2026-07-07f: 底抜け水準線OS→底抜けラインOSへ統合改名（migrateData _migSignalRename2）＝既定は1本に。
@@ -3155,7 +3155,7 @@ function _elUkiSignalNames(custom) {
   if (custom && custom.ukiSignalName && out.indexOf(custom.ukiSignalName) < 0) out.push(custom.ukiSignalName);
   return out;
 }
-// （旧 _DEF_SPECIAL_REASONS は _DEF_SPECIAL_REASONS へ統合＝2026-07-13 特段α化）
+// （旧 _DEF_SPECIAL_REASONS は _DEF_SPECIAL_REASONS へ統合＝2026-07-13 応用α化）
 
 // ===== 不算入(計算・データ算入オフ=includeInTotal===false)の可視化ヘルパー 2026-06-18 =====
 function _elIsExcluded(s) { return !!(s && (s.includeInTotal === false || s.passThrough === true)); }
@@ -3313,7 +3313,7 @@ function _elAlphaInfo(r, data) {
 // 追加α3状態(addAlphaUsed)対応 2026-06-25: 未選択(true/false以外)は「（未選択）」表記・×不要(add=0)は「（基本α）」表記(例（10）＝基本αだけを括弧で・円なし・2026-06-25f：当初は非表示にしていたが誤解で、本来は基本αを括弧表示が正)・〇要(add>0)は「（基本+追加）」。
 // 2026-06-25e: 「（未選択）」は新形式記録(baseAlphaVal有り)で addAlphaUsedが〇/×以外(=未選択)なら表示＝《不算入記録でも出す》(ユーザー要望: 不算入でも追加αの〇×が未選択なら（未選択）を表記)。旧記録(baseAlphaVal無し=base==nullで早期null返し)だけは追加α3状態の概念が無いため対象外。先回の「（不算入）」表記・不算入での（未選択）抑止・旧記録への（未選択）付与はすべて撤回。
 // 浮き足加算α値(uki=floor(ukiVal/2))対応 2026-07-03: 3要素（基本+浮+追加）。浮き足分は「浮」を付けて追加αと区別（例（10+浮8+5）/（10+浮8））。整合チェックは base+uki+add===dispAlpha。
-function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var base = _elBaseLevelAlpha(s); if (base == null) return null; var _bdStyle = { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" }; if (_elSpecialUsed(s)) return React.createElement("div", { style: Object.assign({}, _bdStyle, { color: "#9A3412" }) }, "（特段α " + base + "）"); return React.createElement("div", { style: _bdStyle }, "（" + base + "）"); }
+function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var base = _elBaseLevelAlpha(s); if (base == null) return null; var _bdStyle = { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" }; if (_elSpecialUsed(s)) return React.createElement("div", { style: Object.assign({}, _bdStyle, { color: "#9A3412" }) }, "（応用α " + base + "）"); return React.createElement("div", { style: _bdStyle }, "（" + base + "）"); }
 // 表示用α（浮き足加算を除いた 基本+追加+RN）2026-07-12: 浮き足は最終水準線側に移したのでα値欄はこれ（採用α−浮き足加算）を表示。保存alphaVal/EP/損益は不変。浮き足なし(×)の記録はukiAdd=0で採用αと同値。
 function _elAlphaShown(s, a) { var n = (a != null && a !== "" && !isNaN(Number(a))) ? Number(a) : null; return (n == null) ? a : (n - _elUkiAdd(s)); }
 // 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
@@ -6012,8 +6012,8 @@ function EntryRecordForm(_ref_erf) {
   var _useStateADA = useState(initSig.specialAlpha != null ? String(initSig.specialAlpha) : ""),
     _useStateADAA = _slicedToArray(_useStateADA, 2),
     fSpecialAlpha = _useStateADAA[0], setFSpecialAlpha = _useStateADAA[1];
-  // 採用α値の選択（2026-07-13 特段α化）: "base"＝基本α／"special"＝特段α（特段の事情がある局面で使う独立α値）。signal.specialUsed(bool)に保存（specialUsed===true→"special"）。
-  // 初期化: 既存の特段記録は"special"、それ以外（通常記録・新規）は"base"（既定＝基本α）。旧3状態(○/×/未選択)は廃止＝×・未選択はいずれも通常＝"base"。
+  // 採用α値の選択（2026-07-13 応用α化）: "base"＝基本α／"special"＝応用α。signal.specialUsed(bool)に保存（specialUsed===true→"special"）。
+  // 初期化: 既存の応用記録は"special"、それ以外（通常記録・新規）は"base"（既定＝基本α）。旧3状態(○/×/未選択)は廃止＝×・未選択はいずれも通常＝"base"。
   var _initAlphaKind = (initSig.specialUsed === true) ? "special" : "base";
   var _useStateAAU = useState(_initAlphaKind),
     _useStateAAUA = _slicedToArray(_useStateAAU, 2),
@@ -6185,12 +6185,12 @@ function EntryRecordForm(_ref_erf) {
   var _refAddAlphaSrc = (_refSigAlpha && _refSigAlpha.det && _refSigAlpha.det.add) ? { add: _refSigAlpha.det.add, src: "詳細別" }
     : ((_refSigAlpha && _refSigAlpha.sig && _refSigAlpha.sig.add) ? { add: _refSigAlpha.sig.add, src: "シグナル別" }
     : (_refAddAlpha ? { add: _refAddAlpha, src: "銘柄全体" } : null));
-  // 推奨特段α（特段α採用時の自動入力・§9 銘柄全体母数で1本＝移行のspecialAlphaと一致）: この銘柄の特段〇記録（浮き足〇/RN〇除外・fDate前日まで）から独立α最適(_elSpecialAlphaPick)。特段shape or null。
+  // 推奨応用α（応用α採用時の自動入力・§9 銘柄全体母数で1本＝移行のspecialAlphaと一致）: この銘柄の応用〇記録（浮き足〇/RN〇除外・fDate前日まで）から独立α最適(_elSpecialAlphaPick)。応用shape or null。
   var _refSpecial = useMemo(function() {
     if (!fStock) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var allR = _elCollectAllSignals(data).filter(function(r) { return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate); });
-    var _bp = allR.length ? _elBaseAlphaPick(allR, aiOf) : null;   // 銘柄全体の基本α理想＝特段αを基本αより大きくクランプ 2026-07-13
+    var _bp = allR.length ? _elBaseAlphaPick(allR, aiOf) : null;   // 銘柄全体の基本α理想＝応用αを基本αより大きくクランプ 2026-07-13
     var recs = allR.filter(function(r) { return _elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
     if (!recs.length) return null;
     var p = _elSpecialAlphaPick(recs, aiOf, _bp ? _bp.idealAlpha : null);
@@ -6272,9 +6272,9 @@ function EntryRecordForm(_ref_erf) {
 
 
   
-  // 採用α値 = base-levelα（採用α選択が特段なら特段α値、通常なら基本α値）＋ 浮き足加算α値 ＋ RNまたぎ加算。これが採用α＝全計算で使用（2026-07-13 特段α化）。
+  // 採用α値 = base-levelα（採用α選択が応用なら応用α値、通常なら基本α値）＋ 浮き足加算α値 ＋ RNまたぎ加算。これが採用α＝全計算で使用（2026-07-13 応用α化）。
   var _fBaseAInput = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_autoBaseA != null ? _autoBaseA : 0);   // 基本α入力（未入力なら推奨基本α・無ければ0）
-  var _fSpecialA = (fSpecialAlpha !== "" && !isNaN(Number(fSpecialAlpha))) ? Number(fSpecialAlpha) : (_refSpecialA != null ? _refSpecialA : _fBaseAInput);   // 特段α入力（未入力なら推奨特段α・無ければ基本α入力）
+  var _fSpecialA = (fSpecialAlpha !== "" && !isNaN(Number(fSpecialAlpha))) ? Number(fSpecialAlpha) : (_refSpecialA != null ? _refSpecialA : _fBaseAInput);   // 応用α入力（未入力なら推奨応用α・無ければ基本α入力）
   var _fBaseLevel = (fAlphaKind === "special") ? _fSpecialA : _fBaseAInput;   // base-levelα正本（採用α選択で切替）
   // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)×採用加算率（推奨%・既定50%・07-12d）を切捨て加算。
   var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
@@ -7414,16 +7414,16 @@ function EntryRecordForm(_ref_erf) {
       ),
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "採用α値（基本α or 特段α）＋浮き足加算＋RNまたぎ＝合計α値（水準線比）。この合計αを上のEPセクションの『最終水準線』に足したものが予定EP。特段の事情がある局面だけ特段αを選ぶ。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "採用α値（基本α or 応用α）＋浮き足加算＋RNまたぎ＝合計α値（水準線比）。この合計αを上のEPセクションの『最終水準線』に足したものが予定EP。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "採用α値"),
         React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3 } },
-          [["base", "基本α", "#0369A1"], ["special", "特段α", "#9A3412"]].map(function(_kk) {
+          [["base", "基本α", "#0369A1"], ["special", "応用α", "#9A3412"]].map(function(_kk) {
             var _on = fAlphaKind === _kk[0];
             return React.createElement("button", { key: _kk[0], type: "button",
               onClick: function() { setFAlphaKind(_kk[0]); if (_kk[0] === "special" && fSpecialAlpha === "" && _refSpecialA != null) setFSpecialAlpha(String(_refSpecialA)); },
-              title: _kk[0] === "base" ? "通常はこちら＝基本α値を採用" : "特段の事情がある局面で使う独立α値（特段α）を採用",
+              title: _kk[0] === "base" ? "通常はこちら＝基本α値を採用" : "応用α値を採用",
               style: { padding: "6px 16px", fontSize: 13, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "none", background: _on ? "#fff" : "transparent", color: _on ? _kk[2] : "#6B6459", boxShadow: _on ? "0 1px 3px rgba(0,0,0,.12)" : "none" } }, _kk[1]);
           }))),
       fAlphaKind === "base" ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
@@ -7448,19 +7448,19 @@ function EntryRecordForm(_ref_erf) {
         );
       })()) : null,
       (function() {
-        // 推奨α値サマリー（2026-07-13 レイアウト刷新・ユーザー要望「数値が多すぎる」）: 第1＝推奨基本α値・推奨特段α値。その下に括弧で直近件数窓の参考（25/50/100件）。基本α窓＝_refBaseAlpha.wN.alpha／特段α窓＝同wN.add.alpha（同じ窓の特段pick）。
+        // 推奨α値サマリー（2026-07-13 レイアウト刷新・ユーザー要望「数値が多すぎる」）: 第1＝推奨基本α値・推奨応用α値。その下に括弧で直近件数窓の参考（25/50/100件）。基本α窓＝_refBaseAlpha.wN.alpha／応用α窓＝同wN.add.alpha（同じ窓の応用pick）。
         var _winStr = function(w, sp) { if (!w) return "—"; if (sp) { return (w.add && w.add.alpha != null) ? (w.add.alpha + "円") : "—"; } return (w.alpha != null) ? (w.alpha + "円" + (w.ok ? "" : "(仮)")) : "—"; };
         var _rb = _refBaseAlpha;
         var _line = function(sp) { return "（直近期間別参考　25件：" + _winStr(_rb && _rb.w1, sp) + "　50件：" + _winStr(_rb && _rb.m1, sp) + "　100件：" + _winStr(_rb && _rb.m3, sp) + "）"; };
         var _sub = { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 2, marginBottom: 3 };
-        return React.createElement("div", { title: "推奨基本α値＝詳細別→シグナル別→銘柄全体で自動入力に使う採用値／推奨特段α値＝この銘柄の特段〇記録から（前日まで・銘柄全体）。括弧内は直近件数窓の参考（(仮)＝データ不足）", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
+        return React.createElement("div", { title: "推奨基本α値＝詳細別→シグナル別→銘柄全体で自動入力に使う採用値／推奨応用α値＝この銘柄の応用〇記録から（前日まで・銘柄全体）。括弧内は直近件数窓の参考（(仮)＝データ不足）", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
           React.createElement("div", null,
             React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
             _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
             (_autoBaseA != null && _autoBase && _autoBase.src) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#B91C1C", marginLeft: 4 } }, "★自動入力（" + _autoBase.src + "）") : null),
           React.createElement("div", { style: _sub }, _line(false)),
           React.createElement("div", null,
-            React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨特段α値 "),
+            React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨応用α値 "),
             _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
             (_refSpecial && _refSpecial.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "参考") : null),
           React.createElement("div", { style: _sub }, _line(true)));
@@ -7472,13 +7472,13 @@ function EntryRecordForm(_ref_erf) {
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#FFF7ED", border: "1px solid #FED7AA", fontSize: 12 }
         },
-          React.createElement("span", { style: { color: "#9A3412", fontWeight: 700 } }, "特段α値"),
+          React.createElement("span", { style: { color: "#9A3412", fontWeight: 700 } }, "応用α値"),
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FED7AA", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
               value: fSpecialAlpha !== "" ? fSpecialAlpha : (_refSpecialA != null ? String(_refSpecialA) : ""),
               onChange: function(e) { _setSA(e.target.value); },
-              placeholder: "推奨特段α",
+              placeholder: "推奨応用α",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#92400E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(function() { _stepSA(1); }, function() { _stepSA(-1); })
@@ -7543,7 +7543,7 @@ function EntryRecordForm(_ref_erf) {
             style: { padding: "3px 9px", fontSize: 11, fontWeight: sel ? 800 : 600, border: sel ? ("2px solid " + color) : "1px solid #ddd", background: sel ? "#FFF7ED" : "#fff", color: sel ? color : "#666", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } }, label);
         };
         return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, padding: "2px 0 0 2px" } },
-          React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 600 } }, "根拠（特段αを使う理由・複数選択可）"),
+          React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 600 } }, "根拠（応用αを使う理由・複数選択可）"),
           React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 } },
             _reasons.map(function(rsn) {
               var on = fAddReasons.indexOf(rsn) >= 0;
@@ -7673,14 +7673,14 @@ function EntryRecordForm(_ref_erf) {
         );
       })(),
       (function() {
-        // 合計α値バー（案B 2026-07-03→2026-07-13特段α化）: 内訳（base-levelα＝基本α or 特段α ＋RN）を常設表示。浮き足は最終水準線側なのでα値からは除外（_elAlphaShownと整合）。予定EPは水準線＋_fAlpha（浮き足込み）。
+        // 合計α値バー（案B 2026-07-03→2026-07-13応用α化）: 内訳（base-levelα＝基本α or 応用α ＋RN）を常設表示。浮き足は最終水準線側なのでα値からは除外（_elAlphaShownと整合）。予定EPは水準線＋_fAlpha（浮き足込み）。
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "baseline", gap: 6, padding: "5px 12px", borderRadius: 6, background: "#F8FAFC", border: "1px solid #CBD5E1", fontSize: 12, flexWrap: "wrap" }
         },
           React.createElement("span", { style: { color: "#334155", fontWeight: 700 } }, "合計α値"),
           React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0F172A", lineHeight: 1 } }, _fBaseLevel + _fRnAdd),
           React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "円"),
-          React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "＝ " + (fAlphaKind === "special" ? "特段" : "基本") + " ",
+          React.createElement("span", { style: { fontSize: 11, color: "#64748B" } }, "＝ " + (fAlphaKind === "special" ? "応用" : "基本") + " ",
             React.createElement("span", { style: { color: fAlphaKind === "special" ? "#92400E" : "#0369A1", fontWeight: 700 } }, _fBaseLevel),
             _fRnAdd > 0 ? React.createElement("span", null, " ＋ RN ", React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, _fRnAdd)) : null),
           React.createElement("span", { title: "最終水準線（水準線＋浮き足）＋合計α＝実際のエントリー予定価格。", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap", marginLeft: 4 } }, "→ 予定EP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; return String(Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100); })()), "円")
