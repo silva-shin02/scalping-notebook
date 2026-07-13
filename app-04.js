@@ -1859,7 +1859,7 @@ function SearchView(_ref45) {
     
     var enteredSigs = chartKeys.flatMap(function(k) {
       var _cSV = data.charts[k] || {};
-      var _cutSV = _cSV.cutLine != null ? Number(_cSV.cutLine) : 10;
+      var _cutSV = _cSV.cutLine != null ? Number(_cSV.cutLine) : 15;
       var _stkSV = k.slice(0, k.lastIndexOf("_"));
       return (_cSV.signals || []).filter(function(sig) { return _elIsEntered(sig, null); })
         .map(function(sig) { return { sig: sig, cut: _cutSV, stock: _stkSV }; });
@@ -3231,7 +3231,7 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               // 最終損益＝期待度○が途切れた所で手じまい（（）外・旧H2損益と同一基準・（）内=△含む）。EP損益/H1損益列を集約 2026-07-09。
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
-              var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 10;
+              var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 15;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
               if (_g.allMissH) return _qZeroCell();
               if (_g.hold2Sum == null) return (_g.hold2RefCnt > 0)
@@ -3245,7 +3245,7 @@ function StockQuickRefTable(_props_qrt) {
               style: { padding: "6px 7px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
-              var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 10;
+              var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 15;
               var _gR = _elCalcChartGrades(c2.signals, null, _cutR, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
               if (_gR.real === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
@@ -3437,11 +3437,17 @@ function _EpnDayAlphaField(_p) {
 function _epnRecalcBase(data, stock, date, item) {
   var _f = Array.isArray(item.f) ? item.f : [];
   var base = Number(item.base) || 0, src = item.src || null;
+  var _followReco = !!(data && data.custom && data.custom.epnFollowReco);   // 「詳細で更新」トグル（既定false=固定）2026-07-13
+  var _dayA = _epnDayAlphaGet(data, stock, date);   // 本日の採用α値（設定済みなら最優先で固定）
   if (item.lineCoexist === true) { base = 1; src = "ライン併存"; }   // ライン併存ルール（独自欄 2026-07-08g・旧「併存ライン」チップ検知から移行）＝基本α1固定
+  else if (_dayA != null) { base = _dayA; src = "本日の採用α値"; }   // 本日の採用α値で固定（詳細変更で動かさない）2026-07-13
   else {
     var casc = _epnCascade(data, stock, item.tag || null, { b: item.b || null, k: item.k || null, f: _f }, date);
     var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
-    if (det && det.ok && det.alpha != null) { base = det.alpha; src = "詳細別"; }
+    if (!_followReco) {   // 固定＝銘柄全体（詳細非依存）。③④⑤を触っても基本αは動かさない
+      if (stk && stk.ok && stk.alpha != null) { base = stk.alpha; src = "銘柄全体"; }
+      else if (stk && stk.alpha != null) { base = stk.alpha; src = "銘柄全体（仮）"; }
+    } else if (det && det.ok && det.alpha != null) { base = det.alpha; src = "詳細別"; }
     else if (sig && sig.ok && sig.alpha != null) { base = sig.alpha; src = "シグナル別"; }
     else if (stk && stk.ok && stk.alpha != null) { base = stk.alpha; src = "銘柄全体"; }
     else if (det && det.alpha != null) { base = det.alpha; src = "詳細別（仮）"; }
@@ -3733,7 +3739,12 @@ function _EpnCalcForm(_p) {
   })();
   // 本日の採用α値（見出し下欄・_EpnDayAlphaField）が設定されていれば基本αの既定に採用＝「上で一度決めれば下の計算が従う」。未設定はnull＝従来どおりautoPick（シグナル別に絞れる）。手入力nBaseは常に最優先。2026-07-13d
   var dayAlpha = (_p.dayAlpha != null && !isNaN(Number(_p.dayAlpha))) ? Number(_p.dayAlpha) : null;
-  var _baseDefault = dayAlpha != null ? dayAlpha : (autoPick.a != null ? autoPick.a : null);
+  // 「詳細で更新」トグル（custom.epnFollowReco・既定false=固定 2026-07-13）: OFF＝②③④の詳細を選んでも基本αの既定を動かさず、本日の採用α値→無ければ銘柄全体(stk・詳細非依存)の推奨で固定（ユーザー「一度止めたい・本日の採用α値で固定」）。ON＝従来の詳細別→シグナル別→銘柄全体の追従。手入力nBaseは常に最優先。
+  var followReco = !!(data && data.custom && data.custom.epnFollowReco);
+  var _stkBase = (stk && stk.alpha != null) ? stk.alpha : (autoPick.a != null ? autoPick.a : null);   // 銘柄全体（詳細非依存）＝固定時の既定
+  var _autoBase = followReco ? (autoPick.a != null ? autoPick.a : null) : _stkBase;
+  var _baseDefault = dayAlpha != null ? dayAlpha : _autoBase;
+  var _baseSrc = (dayAlpha != null) ? "本日の採用α値" : (followReco ? autoPick.src : ((stk && stk.alpha != null) ? (stk.ok ? "銘柄全体" : "銘柄全体（仮）") : autoPick.src));   // 保存EPのsrc表記＝実際に採用した既定の出所
   var showUki = true;   // 浮き足加算は全シグナルで表示・入力可（記録フォームと同じ_showUki=true。旧＝底抜け系のみ_elUkiSignalNamesゲート→2026-07-13解除・推奨/次点/手入力%は従来どおり適用）
   var baseV = (nBase !== "" && !isNaN(Number(nBase))) ? Number(nBase) : _baseDefault;
   // 推奨特段α（特段〇の記録から算出・浮き足/RN除外）。根拠を選ぶとその根拠を持つ記録に絞る。共有ヘルパー_epnSpecialRecoFrom（早見カードと同一）。
@@ -3767,7 +3778,7 @@ function _EpnCalcForm(_p) {
       rn: rnAddV, rnUsed: nRnUsed === "○",
       specialUsed: nSpecialUsed === "○", specialReasons: (nSpecialUsed === "○") ? nSpecialReasons.slice() : [],
       lineCoexist: nLineCoexist,
-      level: levelN, ep: epV, src: autoPick.src || null, at: editAt || Date.now()
+      level: levelN, ep: epV, src: _baseSrc || null, at: editAt || Date.now()
     };
     if (editId && editDone) _item.done = true;
     _epnPut(save, date, stock, _item);
@@ -4278,10 +4289,13 @@ function EpNaviPanel(_refEPN) {
         _elBaseAlphaDetailV2(_c.all, _c.aiOf, _hs, function(av) { _epnDayAlphaSet(save, tableStock, date, av); setTableStock(null); }, _curEff)));
   })() : null;
   return React.createElement("div", { style: { border: "1.5px solid #BFDBFE", borderRadius: 8, padding: 10, background: "#F8FAFF", boxSizing: "border-box", marginBottom: 12 } },
-    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
+    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 6, flexWrap: "wrap" } },
       React.createElement("span", { style: { fontSize: 13.5, fontWeight: 800, color: "#1D4ED8", whiteSpace: "nowrap" } }, "⚡ EPナビ"),
-      React.createElement("button", { type: "button", onClick: function() { setShowStockPicker(!showStockPicker); },
-        style: { padding: "4px 10px", fontSize: 11, fontWeight: 700, border: "1px solid " + (showStockPicker ? "#1D4ED8" : "#BFDBFE"), background: showStockPicker ? "#EFF6FF" : "#fff", color: "#1D4ED8", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 34 : 24 } }, "⚙ 表示銘柄")),
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+        React.createElement("button", { type: "button", title: "OFF（固定）＝②③④の詳細を選んでも基本αの既定を動かさず、本日の採用α値（無ければ銘柄全体の推奨）で固定／ON＝詳細に合わせて推奨αへ更新（従来の挙動）", onClick: function() { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { epnFollowReco: !(prev.custom && prev.custom.epnFollowReco) }) }); }); },
+          style: { padding: "4px 10px", fontSize: 10, fontWeight: 700, border: "1px solid " + ((custom && custom.epnFollowReco) ? "#F59E0B" : "#BFDBFE"), background: (custom && custom.epnFollowReco) ? "#FFFBEB" : "#fff", color: (custom && custom.epnFollowReco) ? "#B45309" : "#64748B", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 34 : 24, whiteSpace: "nowrap" } }, (custom && custom.epnFollowReco) ? "詳細で更新：ON" : "詳細で更新：OFF（固定）"),
+        React.createElement("button", { type: "button", onClick: function() { setShowStockPicker(!showStockPicker); },
+          style: { padding: "4px 10px", fontSize: 11, fontWeight: 700, border: "1px solid " + (showStockPicker ? "#1D4ED8" : "#BFDBFE"), background: showStockPicker ? "#EFF6FF" : "#fff", color: "#1D4ED8", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 34 : 24 } }, "⚙ 表示銘柄"))),
     _stockPicker,
     savedView,
     _tableModal);
@@ -4644,7 +4658,7 @@ function DayView(_ref57) {
         var _v0 = (_it0 && _it0.pnl != null) ? Number(_it0.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
         if (_v0 != null && !_elCollExcludedSig(data, _trStock, date, s)) { var _sh0 = Number(s.shares) > 0 ? Number(s.shares) : 0; realSum += _sh0 > 0 ? Math.round(_v0 / _sh0 * 100) : Math.round(_v0); }
         // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出・旧記録も全表ライブα計算方針に統一）
-        var _resTr = _elDynResult(s, _epOwnAlpha(s), _trC.cutLine != null ? Number(_trC.cutLine) : 10);
+        var _resTr = _elDynResult(s, _epOwnAlpha(s), _trC.cutLine != null ? Number(_trC.cutLine) : 15);
         if (_resTr === "ok") ok++;
         else if (_resTr === "ng") ng++;
         }
@@ -5257,7 +5271,7 @@ function DayView(_ref57) {
             var _hvV = _epHoldView(s, _elAlphaInfo(r, data).alpha, false);
             _trVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf, holdOsConf: _hvV.holdOsConf != null ? Number(_hvV.holdOsConf) : null, holdHighVal: _hvV.holdHighVal != null ? Number(_hvV.holdHighVal) : null, holdHighSign: _hvV.holdHighSign || null });
             var _cTr = (data.charts || {})[r.stock + "_" + date];
-            _trCutLineByStk[r.stock] = _cTr && _cTr.cutLine != null ? _cTr.cutLine : 10;
+            _trCutLineByStk[r.stock] = _cTr && _cTr.cutLine != null ? _cTr.cutLine : 15;
           });
           if (!Object.keys(_trVirtByStk).length) return null;
           
@@ -5336,7 +5350,7 @@ function DayView(_ref57) {
     };
     var _pbCutActualOf = function(r) {
       var _c = _pbCharts[r.stock + "_" + date];
-      return _c && _c.cutLine != null ? _c.cutLine : 10;
+      return _c && _c.cutLine != null ? _c.cutLine : 15;
     };
     // 損切り値シミュ(非永続)を最優先。未設定なら実際の損切り値。本日の損益データ表(サマリー＋明細)で使用。
     var _pbCutOf = function(r) {
@@ -5705,7 +5719,7 @@ function DayView(_ref57) {
     };
     var _wkCutActualOf = function(r) {
       var _c = _pbCharts[r.stock + "_" + r.date];
-      return _c && _c.cutLine != null ? _c.cutLine : 10;
+      return _c && _c.cutLine != null ? _c.cutLine : 15;
     };
     // 損切り値シミュ(非永続・今週用)を最優先。未設定なら実際の損切り値。サマリー＋明細で使用。
     var _wkCutOf = function(r) {
@@ -6036,7 +6050,7 @@ function DayView(_ref57) {
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
               React.createElement("input", {
                 type: "number", inputMode: "numeric", step: "1",
-                value: (function() { var _avc2 = _pbCharts[rowKey + "_" + date]; return _avc2 && _avc2.cutLine != null ? String(_avc2.cutLine) : "10"; })(),
+                value: (function() { var _avc2 = _pbCharts[rowKey + "_" + date]; return _avc2 && _avc2.cutLine != null ? String(_avc2.cutLine) : "15"; })(),
                 onChange: function(e) {
                   var v = _toHankaku(e.target.value).trim();
                   var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
@@ -6053,8 +6067,8 @@ function DayView(_ref57) {
                 style: { width: 48, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { var _ckRef2 = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 10; _ce2.cutLine = _n2 + 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); },
-                function() { var _ckRef2 = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 10; if (_n2 <= 1) return prev; _ce2.cutLine = _n2 - 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); }
+                function() { var _ckRef2 = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 15; _ce2.cutLine = _n2 + 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); },
+                function() { var _ckRef2 = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 15; if (_n2 <= 1) return prev; _ce2.cutLine = _n2 - 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); }
               )
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
@@ -6174,7 +6188,7 @@ function DayView(_ref57) {
     var _dayRecs = [];
     allStocks.forEach(function(stk) {
       var c = _aCharts[stk + "_" + date] || {};
-      var cut = c.cutLine != null ? Number(c.cutLine) : 10;
+      var cut = c.cutLine != null ? Number(c.cutLine) : 15;
       (Array.isArray(c.signals) ? c.signals : []).forEach(function(sig) {
         var s = _compatSignal(sig);
         if (!_epIsV2(s) || !_elInclTotal(s)) return;

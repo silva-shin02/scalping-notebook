@@ -3300,12 +3300,13 @@ function _gradeAlpha(difficulty) {
 }
 function _elAlphaInfo(r, data) {
   if (typeof _elAnaCut === "function") _elAnaCutCur = _elAnaCut(data);   // 前提損切り値のモジュール同期（2026-07-13b）: 全画面のaiOfはここを通るため、推奨α分析(app-06のpick群)が常に最新のcustom.anaCutPremiseを読める
+  if (typeof _elAnaReach === "function") _elAnaReachCur = _elAnaReach(data);   // 到達率下限のモジュール同期（2026-07-13）: 基本α★(_elBaseAlphaPick)が最新のcustom.anaReachFloorを読める
   var c = (data && data.charts) ? data.charts[r.stock + "_" + r.date] : null;
   var s = r && r.signal;
   return {
     // 採用α値は各エントリー記録(signal.alphaVal)固有。未設定なら各記録の予想OS度α
     alpha: (s && s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty),
-    cutLine: (c && c.cutLine != null) ? Number(c.cutLine) : 10
+    cutLine: (c && c.cutLine != null) ? Number(c.cutLine) : 15
   };
 }
 // 各記録の採用α(signal.alphaVal)の内訳「（基本α+追加α）」をα値欄の数値の下に出す小ノード（2026-06-24）。baseAlphaVal/addAlphaValから算出（片方欠損は合計から逆算）。基本αが無い旧記録、または表示中αが内訳の合計と異なる（α値シミュ中）場合はnull＝内訳を出さない。
@@ -3497,7 +3498,7 @@ function _epHoldLadder(s, alpha, cutLine) {
   if (!_epIsV2(s) || alpha == null) return null;
   var r = _epResolve(s, alpha);
   if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
-  var legs = _epLegs(s), cut = cutLine != null ? cutLine : 10;
+  var legs = _epLegs(s), cut = cutLine != null ? cutLine : 15;
   var items = [], stopDepth = -1, stopHigh = null, maxPnl = null, maxDepth = 0, finalPnl = null;
   for (var i = r.epIdx; i < legs.length; i++) {
     var lg = legs[i], depth = i - r.epIdx;
@@ -3553,7 +3554,7 @@ function _elDynResult(s, alpha, cutLine) {
 function _elWinBucket(s, alpha, cutLine) {
   var base = _elDynResult(s, alpha, cutLine);
   if (base === "miss") return "miss";
-  var cut = cutLine != null ? cutLine : 10;
+  var cut = cutLine != null ? cutLine : 15;
   if (!_epIsV2(s) || alpha == null) {
     if (base === "draw") return "even";
     if (base === "ng") return "loss";
@@ -3654,13 +3655,13 @@ function _elPlanIsStop(s, alpha, cutLine) {
   if (_epIsV2(s)) {
     if (alpha == null) return false;
     var _rs2 = _epResolve(s, alpha);
-    return !!(_rs2 && _rs2.judge === "ok" && (_rs2.ep.h - alpha) >= (cutLine != null ? cutLine : 10));
+    return !!(_rs2 && _rs2.judge === "ok" && (_rs2.ep.h - alpha) >= (cutLine != null ? cutLine : 15));
   }
-  return alpha != null && s.osVal != null && (Number(s.osVal) - alpha) >= (cutLine != null ? cutLine : 10);
+  return alpha != null && s.osVal != null && (Number(s.osVal) - alpha) >= (cutLine != null ? cutLine : 15);
 }
 function _elHoldIsStop(s, alpha, cutLine) {
   if (alpha == null) return false;
-  var _cl = cutLine != null ? cutLine : 10;
+  var _cl = cutLine != null ? cutLine : 15;
   if (_epIsV2(s)) {
     var _rt2 = _epResolve(s, alpha);
     if (!_rt2 || _rt2.judge !== "ok") return false;
@@ -3678,7 +3679,7 @@ function _elHoldIsStop(s, alpha, cutLine) {
 var _EL_IDEAL_ALPHAS = (function() { var _a = []; for (var _i = 0; _i <= 50; _i++) _a.push(_i); return _a; })();
 function _elIdealAlpha(s, cutLine) {
   if (!s) return null;
-  var _cl = cutLine != null ? cutLine : 10;
+  var _cl = cutLine != null ? cutLine : 15;
   var best = null, fallback = null;
   _EL_IDEAL_ALPHAS.forEach(function(a) {
     var _pl = _elDynPlanned(s, a, _cl);
@@ -3755,7 +3756,7 @@ function _elHoldIsStop2(s, alpha, cutLine) {
   if (_epIsV2(s)) {
     if (alpha == null) return false;
     var _r32 = _epResolve(s, alpha);
-    return !!(_r32 && _r32.judge === "ok" && _r32.h2 && _r32.h2.h != null && (_r32.h2.h - alpha) >= (cutLine != null ? cutLine : 10));
+    return !!(_r32 && _r32.judge === "ok" && _r32.h2 && _r32.h2.h != null && (_r32.h2.h - alpha) >= (cutLine != null ? cutLine : 15));
   }
   return _elHoldIsStop(_h2sig(s), alpha, cutLine);
 }
@@ -4130,7 +4131,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
     if (idx < 0) return;
     var stock = ck.slice(0, idx), date = ck.slice(idx + 1);
     if (scopeStock && stock !== scopeStock) return;   // 銘柄別ビュー: 自銘柄以外は被り母数に入れない＝別銘柄との時間かぶりでは除外しない 2026-07-08
-    var cut = (c.cutLine != null) ? Number(c.cutLine) : 10;
+    var cut = (c.cutLine != null) ? Number(c.cutLine) : 15;
     c.signals.forEach(function(sig) {
       var s = _compatSignal(sig);
       if (!_epIsV2(s) || !_elInclTotal(s)) return;
@@ -4772,7 +4773,7 @@ function _elRideSummaryNode(s, alpha, cutLine) {
   if (!s || !_epIsV2(s) || alpha == null) return null;
   var r = _epResolve(s, alpha);
   if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
-  var cut = cutLine != null ? cutLine : 10;
+  var cut = cutLine != null ? cutLine : 15;
   var legs = _epLegs(s);
   var _sp = _elPlanIsStop(s, alpha, cut);
   var _s1 = !_sp && _elHoldIsStop(s, alpha, cut);
@@ -4840,7 +4841,7 @@ function _elHoldSumTd2(sumH1, sumH2, tdStyle, refH2, refCnt, allMiss, refH1, ref
     React.createElement("td", { key: "h2s", style: tdStyle }, _f(sumH2), allMiss ? null : _elHold2RefSuffix(sumH2, refH2, refCnt))
   ];
 }
-function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 10) * 100); }
+function _elCapLossYen(cutLine) { return -Math.round((cutLine != null ? cutLine : 15) * 100); }
 function _elCapNoteAmt(amount, opts) {
   // 「仮に損切値ちょうどで損切できていたら」の損失額（カッコ表示）は非表示にする。
   // 表示を復活させたい場合はこの return を外す。_elCapNote も内部でこれを呼ぶため全箇所が一括で消える。
@@ -4868,7 +4869,7 @@ function _elCapNoteAmt(amount, opts) {
 }
 function _elCapNote(cutLine, opts) {
   opts = opts || {};
-  var _cl = cutLine != null ? cutLine : 10;
+  var _cl = cutLine != null ? cutLine : 15;
   return _elCapNoteAmt(_elCapLossYen(_cl), Object.assign({ title: "損切り値（" + _cl + "円）ちょうどで損切りできていた場合の損失額（100株換算）" }, opts));
 }
 
@@ -4971,7 +4972,7 @@ function _elCalcStats(records, data, simResolve) {
     else if (_hc === "no") hNo++;
 
     // H2合計（結果損益）: _elHold2TotParts で統一（損切り→想定額・非損切り○/△→_elDynHold2・非損切り×→参考）。本日/今週・明細・各集計表の合計を一致させる。
-    var _h2t = _elHold2TotParts(s, _liveA ? _ai.alpha : null, _liveA ? _ai.cutLine : 10);
+    var _h2t = _elHold2TotParts(s, _liveA ? _ai.alpha : null, _liveA ? _ai.cutLine : 15);
     if (_h2t.main != null) { sumHold2 += (_liveA ? Math.round(_h2t.main) : _per100(_h2t.main)); hold2HasData = true; }
     if (_h2t.ref != null) { sumHold2Ref += (_liveA ? Math.round(_h2t.ref) : _per100(_h2t.ref)); hold2RefCnt++; }
     // H2期待度の勝敗分類（○/△のみ）と損切りキャップ集計は従来どおり。
@@ -5127,7 +5128,7 @@ function _elStatAllMiss(st) { return !!st && st.total > 0 && st.miss === st.tota
 function _elCalcChartGrades(signals, alpha, cutLine, exclFn) {
   var _fixedA = alpha != null;  // α固定指定。null=各記録の採用α値(signal.alphaVal)で実計算
   // exclFn(compat済signal)→true＝時間かぶり除外（良い方）＝金額もCntも全スキップ（早見表/カレンダーの呼び出し側で配線）2026-07-07
-  var _c = (cutLine != null ? cutLine : 10);
+  var _c = (cutLine != null ? cutLine : 15);
   var realSum = 0, planSum = 0, holdSum = 0;
   var realCount = 0, planCount = 0, holdCount = 0;
   var planSumAB = 0, planCountAB = 0;
@@ -5485,7 +5486,11 @@ function _elTagDisp(s, t) {
 function _elSigCellNode(s, t, key) {
   // 2026-07-09: 明細表のシグナル欄はシグナル名だけ表示（旧=底/起/特徴の詳細＋詳細未選択バッジも表示）。詳細はsigDetailに保持され分析側で使用。
   // 2026-07-09e: nowrapで1行固定（OS・損益詳細の幅圧縮で捻出した幅を使う）。
-  return React.createElement("div", { key: key, style: { fontWeight: 700, color: "#334155", fontSize: 11, whiteSpace: "nowrap" } }, t);
+  // 2026-07-13: シグナル名の下に①底抜け(sigDetail[t].b)をプレーンで小さく表示（ユーザー「VWAPみたいにシンプルに」）。EPナビ早見カードの e.b 表示と同思想。旧記録(b無し)は名前だけ。
+  var _b = _elSigDetailSec(s, t).b;
+  return React.createElement("div", { key: key, style: { whiteSpace: "nowrap" } },
+    React.createElement("div", { style: { fontWeight: 700, color: "#334155", fontSize: 11 } }, t),
+    _b ? React.createElement("div", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", lineHeight: 1.15 } }, _b) : null);
 }
 // 明細表のシグナル欄（全タグ＋カスタムタグ＋未設定）を案Bの縦積みで返す共有部品。align=セル内の水平寄せ。
 function _elSigCell(s, align) {
@@ -5626,7 +5631,7 @@ function VirtualAlphaCalc(_ref_vac) {
     var alpha = Number(_toHankaku(aStr));
     if (aStr === "" || isNaN(alpha)) return null;
     var sigs = sigsByStock[stock] || [];
-    var cutLine = cutLineByStock[stock] != null ? cutLineByStock[stock] : 10;
+    var cutLine = cutLineByStock[stock] != null ? cutLineByStock[stock] : 15;
     var planTotal = 0, resultTotal = 0, hasPlan = false, hasResult = false;
     sigs.forEach(function(d) {
       if (d.osVal == null) return;
@@ -6265,7 +6270,7 @@ function EntryRecordForm(_ref_erf) {
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
-    return (_cd != null && _cd.cutLine != null) ? _cd.cutLine : 10;
+    return (_cd != null && _cd.cutLine != null) ? _cd.cutLine : 15;
   })();
   // === EP起算方式: フォーム状態からEP位置・E判定をライブ導出（OS1高値=常に↑正・OS2/3は符号付き）===
   var _epFormState = (function() {
@@ -6399,7 +6404,7 @@ function EntryRecordForm(_ref_erf) {
       setFEstWidthSign(null); setFEstWidthVal("0");
       setFPlanSign(null); setFPlan("0"); return;
     }
-    var cutL1 = cd && cd.cutLine != null ? cd.cutLine : 10;
+    var cutL1 = cd && cd.cutLine != null ? cd.cutLine : 15;
     if (av != null && osV > 0 && osV - av >= cutL1) {
       setFEstWidthSign("-"); setFEstWidthVal(String(osV - av));
       setFPlanSign("-"); setFPlan(String(Math.round((osV - av) * 100))); return;
@@ -6440,7 +6445,7 @@ function EntryRecordForm(_ref_erf) {
     if (av == null) return;
     var osV = Number(fOsVal) || 0;
     if (osV <= 0) return;
-    var cutL2 = cd && cd.cutLine != null ? cd.cutLine : 10;
+    var cutL2 = cd && cd.cutLine != null ? cd.cutLine : 15;
     var diff = osV - av;
     if (diff < 0) { setFResult("miss"); return; }
     if (diff >= cutL2) { setFResult("ng"); return; }
@@ -6461,7 +6466,7 @@ function EntryRecordForm(_ref_erf) {
     if (av != null && osV > 0 && osV < av) {
       setFPlanSign(null); setFPlan("0"); return;
     }
-    var cutL3 = (function(){ var _ck3 = fStock + "_" + fDate; var _cd3 = data.charts && data.charts[_ck3]; return _cd3 && _cd3.cutLine != null ? _cd3.cutLine : 10; })();
+    var cutL3 = (function(){ var _ck3 = fStock + "_" + fDate; var _cd3 = data.charts && data.charts[_ck3]; return _cd3 && _cd3.cutLine != null ? _cd3.cutLine : 15; })();
     if (av != null && osV > 0 && (osV - av) >= cutL3) {
       setFPlanSign("-");
       setFPlan(String(Math.round((osV - av) * 100)));
@@ -6502,7 +6507,7 @@ function EntryRecordForm(_ref_erf) {
     var _cd = data.charts && data.charts[_ck];
     var _av = _fAlpha;
 
-    var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 10;
+    var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 15;
     if (fResult === "miss") {
 
       if (!(fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _av)) {
@@ -6597,7 +6602,7 @@ function EntryRecordForm(_ref_erf) {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
     var _av = _fAlpha;
-    var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 10;
+    var _cutLHold = _cd && _cd.cutLine != null ? _cd.cutLine : 15;
     if (fResult === "miss") {
       // H1の高値がα到達（H1でエントリー成立）なら、H2は自身がα未達でもmiss扱いせず結果を算出。
       var _h1ReachedA = (_av != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _av);
@@ -7700,7 +7705,7 @@ function EntryRecordForm(_ref_erf) {
       (function() {
         var _ckC = fStock + "_" + fDate;
         var _cdC = data.charts && data.charts[_ckC];
-        var _cv = _cdC && _cdC.cutLine != null ? _cdC.cutLine : 10;
+        var _cv = _cdC && _cdC.cutLine != null ? _cdC.cutLine : 15;
         var _saveCut = function(val) {
           var _v = _toHankakuNum(val);
           var n = _v !== "" ? Number(_v) : null;
@@ -7724,7 +7729,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FECACA", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "1", max: "30", step: "1",
-              value: _cv != null ? String(_cv) : "10",
+              value: _cv != null ? String(_cv) : "15",
               onChange: function(e) { _saveCut(e.target.value); },
               placeholder: "10",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#7F1D1D",
@@ -7732,8 +7737,8 @@ function EntryRecordForm(_ref_erf) {
                        textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(
-              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ckC] || {}); var _n = _ent.cutLine != null ? _ent.cutLine : 10; if (_n >= 30) return prev; _ent.cutLine = _n + 1; _pC[_ckC] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
-              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ckC] || {}); var _n = _ent.cutLine != null ? _ent.cutLine : 10; if (_n <= 1) return prev; _ent.cutLine = _n - 1; _pC[_ckC] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ckC] || {}); var _n = _ent.cutLine != null ? _ent.cutLine : 15; if (_n >= 30) return prev; _ent.cutLine = _n + 1; _pC[_ckC] = _ent; return Object.assign({}, prev, { charts: _pC }); }); },
+              function() { save(function(prev) { var _pC = Object.assign({}, (prev && prev.charts) || {}); var _ent = Object.assign({}, _pC[_ckC] || {}); var _n = _ent.cutLine != null ? _ent.cutLine : 15; if (_n <= 1) return prev; _ent.cutLine = _n - 1; _pC[_ckC] = _ent; return Object.assign({}, prev, { charts: _pC }); }); }
             )
           ),
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
@@ -8429,7 +8434,7 @@ function EntryLogCard(_ref_elc) {
   var realPnl = (item && item.pnl != null) ? Number(item.pnl)
     : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
   var _elcAi = (_ref_elc.alpha != null)
-    ? { alpha: Number(_ref_elc.alpha), cutLine: (_ref_elc.cutLine != null ? Number(_ref_elc.cutLine) : 10) }
+    ? { alpha: Number(_ref_elc.alpha), cutLine: (_ref_elc.cutLine != null ? Number(_ref_elc.cutLine) : 15) }
     : (_ref_elc.data ? _elAlphaInfo(record, _ref_elc.data) : null);
   var planPnl = _elcAi ? _elDynPlanned(s, _elcAi.alpha, _elcAi.cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
   var holdPnl = _elcAi ? _elDynHold(s, _elcAi.alpha, _elcAi.cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
@@ -8549,9 +8554,9 @@ function EntryLogCard(_ref_elc) {
 
       React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap", alignSelf: "center" } },
         React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "H１"),
-        _elHoldFlow(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10, false),
+        _elHoldFlow(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 15, false),
         (_elH2Miss(s, _elcAi ? _elcAi.alpha : null) || s.hold2Exp) ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２") : null,
-        (_elH2Miss(s, _elcAi ? _elcAi.alpha : null) || s.hold2Exp) ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 10) : null
+        (_elH2Miss(s, _elcAi ? _elcAi.alpha : null) || s.hold2Exp) ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 15) : null
       ),
       React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
       entered && realPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },

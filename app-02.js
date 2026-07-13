@@ -3798,7 +3798,7 @@ function _sigStats(tag, allData, period) {
       var dp = k.split("_").pop();
       if (dp < cutoff.toISOString().slice(0,10)) return;
     }
-    var _clSg = c.cutLine != null ? Number(c.cutLine) : 10;
+    var _clSg = c.cutLine != null ? Number(c.cutLine) : 15;
     (c.signals || []).forEach(function(s) {
       if (s.tag !== tag) return;
       if (!_elInclTotal(s)) return;
@@ -3818,7 +3818,7 @@ function _sigStockHistory(tag, allData, currentStock, currentDate) {
     var idx = k.lastIndexOf("_");
     if (idx < 0) return;
     var st = k.slice(0, idx), dt = k.slice(idx + 1);
-    var _clSh = c.cutLine != null ? Number(c.cutLine) : 10;
+    var _clSh = c.cutLine != null ? Number(c.cutLine) : 15;
     (c.signals || []).forEach(function(s) {
       if (s.tag !== tag) return;
       if (!map[st]) map[st] = [];
@@ -3934,7 +3934,7 @@ function EntrySignalSection(_ref_es) {
       _esSimCut = _useStateESSC1A[0], setEsSimCut = _useStateESSC1A[1];
   useEffect(function() { setEsSimAlpha({}); setEsSimCut({}); }, [ck]);
   var _esActualAlpha = function(s) { return (s && s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
-  var _esActualCut = function(s) { return c.cutLine != null ? c.cutLine : 10; };
+  var _esActualCut = function(s) { return c.cutLine != null ? c.cutLine : 15; };
   var _esAlpha = function(s) { var _k = (s && s.id) || ""; var _sv = _esSimAlpha[_k]; return (_sv != null && _sv !== "") ? Number(_sv) : _esActualAlpha(s); };
   var _esCut = function(s) { var _k = (s && s.id) || ""; var _cv = _esSimCut[_k]; return (_cv != null && _cv !== "") ? Number(_cv) : _esActualCut(s); };
 
@@ -4947,7 +4947,7 @@ function WeeklyPnlPanel(_wpp) {
   });
   var _key = function(r) { return r.stock + "_" + r.date + "_" + (r.signal.id || r.signal.time || ""); };
   var _alphaActual = function(r) { var s = r.signal; return s && s.alphaVal != null && s.alphaVal !== "" ? Number(s.alphaVal) : _gradeAlpha(s && s.difficulty); };
-  var _cutActual = function(r) { var c = _charts[r.stock + "_" + r.date]; return c && c.cutLine != null ? c.cutLine : 10; };
+  var _cutActual = function(r) { var c = _charts[r.stock + "_" + r.date]; return c && c.cutLine != null ? c.cutLine : 15; };
   var _alphaOf = function(r) { var o = simAlpha[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _alphaActual(r); };
   var _cutOf = function(r) { var o = simCut[_key(r)]; return (o != null && o !== "" && !isNaN(Number(o))) ? Number(o) : _cutActual(r); };
   var _navBtn = function(lbl, fn) { return React.createElement("button", { onClick: fn, style: { padding: "2px 9px", fontSize: 13, fontWeight: 700, background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#555", lineHeight: 1.2 } }, lbl); };

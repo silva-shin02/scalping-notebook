@@ -783,7 +783,7 @@ function migrateData(d) {
         Object.keys(d.charts).forEach(function(ck) {
           var cc = d.charts[ck];
           if (!cc || !Array.isArray(cc.signals)) return;
-          var _cl = (cc.cutLine != null) ? Number(cc.cutLine) : 10;
+          var _cl = (cc.cutLine != null) ? Number(cc.cutLine) : 15;
           cc.signals.forEach(function(s) {
             if (!s || s.osVal == null) return;
             if (s.scheme === 2 || s.scheme === 3) return;  // EP起算記録は対象外（旧式判定が合わない・表側はライブ判定）
