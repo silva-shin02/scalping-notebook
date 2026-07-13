@@ -6427,7 +6427,7 @@ function EntryRecordForm(_ref_erf) {
   var _fHoldXEl = React.createElement("span", {
     style: { display: "inline-block", padding: "5px 14px", fontSize: 13, fontWeight: 700,
       color: "#B45309", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FCD34D" }
-  }, "期待度×のため非表示");
+  }, "次足期待度×のため非表示");
 
   
   useEffect(function() {
@@ -7886,7 +7886,7 @@ function EntryRecordForm(_ref_erf) {
         var _eChip = (function() {
           var j = _ef.judge;
           if (j === "ok") return React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#C0392B", background: "#FCEBEB", border: "1px solid #C0392B", borderRadius: 5, padding: "2px 8px" } }, "E：○（EP=OS" + (_ef.epIdx + 1) + "）");
-          if (j === "x") return React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 5, padding: "2px 8px" } }, "E：×　∵α値到達期待度×");
+          if (j === "x") return React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 5, padding: "2px 8px" } }, "E：×　∵次足期待度×");
           if (j === "miss") return React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#7C3AED", background: "#F5F3FF", border: "1px solid #7C3AED", borderRadius: 5, padding: "2px 8px" } }, "E：未達（3本以内にα値到達なし）");
           return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#999", background: "#f5f4f0", borderRadius: 5, padding: "2px 8px" } }, "E：判定待ち");
         })();

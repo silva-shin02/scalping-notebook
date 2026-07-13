@@ -3032,12 +3032,11 @@ function _elOsTradeMini(recs, aiOf, opts) {
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
         _elAlphaTypeCell(s, a)),
-      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _epOsChainCell(s, a)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _epECell(s, a)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap" } },
         entered ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇") : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
-      React.createElement("td", { style: { padding: "1px 1px", textAlign: "center", fontSize: 11, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap" } }, _epPnlCell(s, a, c)),
-      _elHoldTd2(s, a, c, { padding: "1px 0", textAlign: "center", fontSize: 11, borderBottom: _bb, borderRight: _bb }, (_elDynHold(s, a, c) != null && _elHoldIsStop(s, a, c)) ? _elCapNote(c) : null),
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, background: "#FFFBF0" } }, _elHold2AmtNode(s, a, c), _elRideMiniNode(s, a, c)),
+      React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: _bb, borderRight: _bb, background: "#F8FBFE" } }, _elDetailFlowStack(s, a, c)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, whiteSpace: "nowrap" } },
         _elLane(_tradeAlphaChip(s), 26, "flex-end"), _elRPnlDispW(realPnl, gReal, 72))
     );
@@ -3045,8 +3044,8 @@ function _elOsTradeMini(recs, aiOf, opts) {
   return React.createElement(_HScrollBox, { style: { marginTop: 4 }, plain: !!(opts && opts.plain) },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
-        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("α値", { width: 34 }), _th("OS", { width: 78 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("EP損益", { width: 96 }),
-        React.createElement("th", { colSpan: 2, style: { padding: "2px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", textAlign: "center", fontSize: 10, color: "#9A9186", whiteSpace: "nowrap" } }, "H損益"),
+        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("α値", { width: 34 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("最終損益・詳細", { width: 84 }),
+        React.createElement("th", { colSpan: 2, style: { padding: "2px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", textAlign: "center", fontSize: 10, color: "#9A9186", whiteSpace: "nowrap" } }, "OS・損益詳細"),
         _th("実現損益", { width: 80 }))),
       React.createElement("tbody", null, rows)));
 }
@@ -4453,7 +4452,7 @@ function _elKabuLadderSimV2(props) {
         React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 730 } },
           React.createElement("thead", null,
             React.createElement("tr", { style: { background: "#F0FDFA", color: "#0F766E" } },
-              _mtTh("日付"), _mtTh("OS連鎖（期待度）"), _mtTh("E", "center"), _mtTh("推奨α"), _mtTh("採用α"), _mtTh("シミュα"), _mtTh("シミュ損切", "center"), _mtTh("従来", "right"), _mtTh("シミュレーション", "center", true), _mtTh("差額", "right"), _mtTh(""))),
+              _mtTh("日付"), _mtTh("OS連鎖（次足期待度）"), _mtTh("E", "center"), _mtTh("推奨α"), _mtTh("採用α"), _mtTh("シミュα"), _mtTh("シミュ損切", "center"), _mtTh("従来", "right"), _mtTh("シミュレーション", "center", true), _mtTh("差額", "right"), _mtTh(""))),
           React.createElement("tbody", null, brows),
           React.createElement("tfoot", null, _sumRow("f")))),
       _mtBar(cfgSum, cfgRef, cfgLabel, baseSum, baseRef, upl, uplRef, true));
@@ -5381,8 +5380,8 @@ function EntryLogView(_ref_elv2) {
           _secH("🕘 時間帯別の成績（寄り付き重視）", "寄り足OSが出た時刻で分類。9:15／9:30までの早い寄り足OSの成績", _ctl("gp_tod", recs)), _bodyOf("gp_tod", recs, function(_drs) { return _elTimeOfDaySectionV2(_addFilOf(_drs), _ai); }),
           _secH("📅 曜日別の成績", "月〜金別の件数・OS中央値・勝率・損切り率・平均EP/H1損益", _ctl("gp_dow", recs)), _bodyOf("gp_dow", recs, function(_drs) { return _elDowSectionV2(_addFilOf(_drs), _ai); }),
           _gDet ? null : React.createElement(React.Fragment, null,
-            _secH("🚫 期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）", _ctl("gp_x", recs)), _bodyOf("gp_x", recs, function(_drs) { return _elXSkipSectionV2(_addFilOf(_drs), _ai); }),
-            _secH("🔺 期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）", _ctl("gp_tri", recs)), _bodyOf("gp_tri", recs, function(_drs) { return _elTriangleHoldSectionV2(_addFilOf(_drs), _ai); })));
+            _secH("🚫 次足期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）", _ctl("gp_x", recs)), _bodyOf("gp_x", recs, function(_drs) { return _elXSkipSectionV2(_addFilOf(_drs), _ai); }),
+            _secH("🔺 次足期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）", _ctl("gp_tri", recs)), _bodyOf("gp_tri", recs, function(_drs) { return _elTriangleHoldSectionV2(_addFilOf(_drs), _ai); })));
       } })),
       _secH("🗂 記録一覧（行タップで明細・応用α母数トグルに連動）", null, _ctl("gp_recs", recs)), _addFilBar(),
       _bodyOf("gp_recs", recs, function(_drs, _dv) {
@@ -5625,8 +5624,8 @@ function EntryLogView(_ref_elv2) {
           _secH("🎯 シグナル別 成功度", "損失なし率・勝率で並べ替え＝どのシグナルが成功しやすいか（損失が出なかったか）"), _elSignalSuccessTableV2(rs, _ai),
           _secH("🕘 時間帯別の成績（寄り付き重視）"), _elTimeOfDaySectionV2(rs, _ai),
           _secH("📍 EP位置の分析"), _elEpPosSectionV2(rs, _ai),
-          _secH("🚫 期待度×（見送り）の分析"), _elXSkipSectionV2(rs, _ai),
-          _secH("🔺 期待度△（ホールド）の分析"), _elTriangleHoldSectionV2(rs, _ai));
+          _secH("🚫 次足期待度×（見送り）の分析"), _elXSkipSectionV2(rs, _ai),
+          _secH("🔺 次足期待度△（ホールド）の分析"), _elTriangleHoldSectionV2(rs, _ai));
       };
       if (gran === "custom") {
         var _crecs = v2recs.filter(function(r) { return (!cFrom || r.date >= cFrom) && (!cTo || r.date <= cTo); });
@@ -5718,11 +5717,11 @@ function EntryLogView(_ref_elv2) {
     })());
   } else if (view === "deep") {
     _tabBody = _selSigRecsScoped.length ? _cardify([
-      React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, "ℹ 深掘りは" + (_floatMode ? "浮き足" : "その他") + "の全記録（〇+×+未選択）を各記録の採用α基準で分析（本数最適化・EP位置・執行の学習が目的）。追加α〇は採用αが高いため損切り率は高め・未達で母数から抜けやすい点に注意。〇/×の分離は集計/損切り/未達タブの「追加α母数」トグルで。"),
+      React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, "ℹ 深掘りは" + (_floatMode ? "浮き足" : "その他") + "の全記録（〇+×+未選択）を各記録の採用α基準で分析（本数最適化・EP位置・執行の学習が目的）。応用α〇は採用αが高いため損切り率は高め・未達で母数から抜けやすい点に注意。〇/×の分離は集計/損切り/未達タブの「応用α分析」トグルで。"),
       _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・損切り率・EP比改善率）", _detCtl("dp_hold", _selSigRecsScoped)), _detBody("dp_hold", _selSigRecsScoped, function(_drs) { return _elHoldDepthSectionV2(_drs, _ai); }),
-      _secH("🎯 期待度キャリブレーション", "事前のH期待が実結果とどれだけ一致したか（予想は当たっているか過信か）", _detCtl("dp_calib", _selSigRecsScoped)), _detBody("dp_calib", _selSigRecsScoped, function(_drs) { return _elExpCalibSectionV2(_drs, _ai); }),
-      _secH("🚫 期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）。集計タブから移設", _detCtl("dp_x", _selSigRecsScoped)), _detBody("dp_x", _selSigRecsScoped, function(_drs) { return _elXSkipSectionV2(_drs, _ai); }),
-      _secH("🔺 期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）。集計タブから移設", _detCtl("dp_tri", _selSigRecsScoped)), _detBody("dp_tri", _selSigRecsScoped, function(_drs) { return _elTriangleHoldSectionV2(_drs, _ai); }),
+      _secH("🎯 次足期待度キャリブレーション", "事前のH期待が実結果とどれだけ一致したか（予想は当たっているか過信か）", _detCtl("dp_calib", _selSigRecsScoped)), _detBody("dp_calib", _selSigRecsScoped, function(_drs) { return _elExpCalibSectionV2(_drs, _ai); }),
+      _secH("🚫 次足期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）。集計タブから移設", _detCtl("dp_x", _selSigRecsScoped)), _detBody("dp_x", _selSigRecsScoped, function(_drs) { return _elXSkipSectionV2(_drs, _ai); }),
+      _secH("🔺 次足期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）。集計タブから移設", _detCtl("dp_tri", _selSigRecsScoped)), _detBody("dp_tri", _selSigRecsScoped, function(_drs) { return _elTriangleHoldSectionV2(_drs, _ai); }),
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）とEP位置別の成績。集計タブから移設", _detCtl("dp_ep", _selSigRecsScoped)), _detBody("dp_ep", _selSigRecsScoped, function(_drs) { return _elEpPosSectionV2(_drs, _ai); }),
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）", _detCtl("dp_exec", _selSigRecsScoped)), _detBody("dp_exec", _selSigRecsScoped, function(_drs) { return _elExecGapSectionV2(_drs, _ai); }),
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）", _detCtl("dp_memo", _selSigRecsScoped)), _detBody("dp_memo", _selSigRecsScoped, function(_drs) { return _elMemoPerfSectionV2(_drs, _ai); })
