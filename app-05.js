@@ -6166,9 +6166,15 @@ function EntryRecordForm(_ref_erf) {
   // 基本αに使う窓オブジェクトを確定（m1=直近50件→m3=100件→all=全期間）＝この同じ窓から推奨追加αも取る 2026-06-27。
   var _defBaseWin = _refBaseAlpha ? _refBaseAlpha.all : null;   // 2026-07-14: 直近50→100件優先を廃止＝銘柄全体は「前日まで全期間」pick。詳細表_elBaseAlphaDetailV2と同一の母数(_alTblRecs=_base)・同一関数(_elBaseAlphaA.pick)なので推奨★が完全一致（ユーザー指示）。
   var _defBaseA = _defBaseWin ? _baAlpha(_defBaseWin) : null;
+  // 詳細表・直近参考に出る銘柄全体の推奨値（ok/na問わず）＝「全体の推奨値にする」ボタンの切替先（headlineを詳細表と一致させる）。ok限定の_defBaseAはカスケード自動入力（確信度okのみ）用に温存。2026-07-14 レビュー反映。
+  var _defStkShown = (_defBaseWin && _defBaseWin.alpha != null) ? _defBaseWin.alpha : null;
   // 新規記録では基本αに直近50件の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21→2026-06-22c→件数ベース2026-06-26。
   var _baTouchedRef = useRef(false);
   var _baAutoRef = useRef("");
+  // 「全体の推奨値にする」トグル（2026-07-14 ユーザー要望）: 推奨基本α値がシグナル別/詳細別で自動入力されている時、ワンタップで銘柄全体の推奨値へ切替（trueで銘柄全体を採用）。
+  var _useStatePSB = useState(false),
+    _useStatePSBA = _slicedToArray(_useStatePSB, 2),
+    _preferStkBase = _useStatePSBA[0], _setPreferStkBase = _useStatePSBA[1];
   // （基本αの自動入力useEffectは_refSigAlpha定義の直後へ移動 2026-07-07c＝詳細別→シグナル別→銘柄全体の段階フォールバック値_autoBaseAを使うため。_defBaseAは銘柄全体段として温存）
   // 推奨追加α（追加α〇の記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」）2026-06-22→2026-06-27: 表示・自動入力している推奨基本αと同じ件数窓(_defBaseWin)から取る＝「合計」＝画面の基本α＋推奨追加α が一致（旧: 全期間窓固定で、表示する基本α(直近50件)と窓・起点が食い違っていた）。
   var _refAddAlpha = (_defBaseWin && _defBaseWin.add) ? _defBaseWin.add : null;
@@ -6215,15 +6221,20 @@ function EntryRecordForm(_ref_erf) {
     return { tag: _t, sig: _pickWin(recs), det: det, picks: picks };
   }, [data, fStock, fDate, fTags, fSigDetail]);
   // 自動入力に使う推奨基本α＝詳細別(ok)→シグナル別(ok)→銘柄全体(_defBaseA)の段階フォールバック（ユーザー選択 2026-07-07c）。srcは★バッジ表示用。
-  var _autoBase = (function() {   // 2026-07-14 共通化: EPナビautoPickと同一梯子を_elCascadePickへ（記録フォームは仮値を採らない＝allowProvisional:false・銘柄全体レグは_defBaseA）
+  var _autoBaseNat = (function() {   // 2026-07-14 共通化: EPナビautoPickと同一梯子を_elCascadePickへ（記録フォームは仮値を採らない＝allowProvisional:false・銘柄全体レグは_defBaseA）。ナチュラルなカスケード結果（det→sig→stk）。
     var _dd = _refSigAlpha && _refSigAlpha.det, _ss = _refSigAlpha && _refSigAlpha.sig;
     var _cp = _elCascadePick([
       { key: "det", label: "詳細別", alpha: _dd ? _dd.alpha : null, ok: !!(_dd && _dd.ok) },
       { key: "sig", label: "シグナル別", alpha: _ss ? _ss.alpha : null, ok: !!(_ss && _ss.ok) },
       { key: "stk", label: "銘柄全体", alpha: _defBaseA, ok: _defBaseA != null }
     ], false);
-    return { a: _cp.alpha, src: _cp.src };
+    return { a: _cp.alpha, src: _cp.src, key: _cp.key };
   })();
+  // 「全体の推奨値にする」適用後の実効値（2026-07-14 ユーザー要望）: シグナル別/詳細別が採用されている時に_preferStkBaseがtrueなら銘柄全体(_defBaseA)へ差し替え。銘柄全体データが無ければナチュラルのまま。
+  var _autoBaseNatSig = (_autoBaseNat.key === "det" || _autoBaseNat.key === "sig");
+  var _autoBase = (_preferStkBase && _autoBaseNatSig && _defStkShown != null)
+    ? { a: _defStkShown, src: (_defBaseWin && _defBaseWin.ok) ? "銘柄全体" : "銘柄全体・参考", key: "stk" }
+    : _autoBaseNat;
   var _autoBaseA = _autoBase.a;
   // 新規記録では基本αに段階フォールバックの推奨基本αを自動入力（手動操作するまで・銘柄/日付/シグナル/詳細変更で追従）2026-06-21→2026-07-07c。
   useEffect(function() {
@@ -6234,6 +6245,8 @@ function EntryRecordForm(_ref_erf) {
     _baAutoRef.current = _nv;
     if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
   }, [_autoBaseA, fBaseAlpha, isEdit]);
+  // 「全体の推奨値にする」はシグナル単位の選択（2026-07-14 レビュー反映）: 銘柄/シグナル/日付が変わったら銘柄全体の上書きを解除し、そのシグナル本来の推奨（カスケード）へ戻す＝他シグナルへ設定が持ち越されるのを防ぐ。
+  useEffect(function() { _setPreferStkBase(false); }, [fStock, fDate, (fTags && fTags.length ? fTags[0] : null)]);
   // ライン併存ルール（独自欄fLineCoexist 2026-07-08g）: 〇にすると基本α欄へ1を自動入力＝切替の瞬間だけ効き、手修正可・×へ戻すと1なら空へ戻し推奨に復帰。新規/編集どちらも適用（EPナビ_EpnCalcFormと同ルール＝二重実装・変更時は両方直す）。旧・併存ラインチップ検知はmigrateData _migLineCoexistで本フラグへ移行済み。
   var _kyozPrevRef = useRef(fLineCoexist);
   useEffect(function() {
@@ -7527,11 +7540,28 @@ function EntryRecordForm(_ref_erf) {
                   ? _elBaseAlphaDetailV2(_alTblRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli)
                   : _elTotalAlphaSectionV2(_alTblRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli))
               : React.createElement("div", { style: { fontSize: 11, color: "#94A3B8", padding: "10px 0" } }, "この銘柄の記録がまだありません"))) : null;
-        return React.createElement("div", { title: "推奨基本α値＝詳細別→シグナル別→銘柄全体で自動入力に使う採用値／推奨応用α値＝この銘柄の応用〇記録から（前日まで・銘柄全体）。括弧内は直近件数窓の参考（（仮）＝データ不足／参考＝条件緩和の推奨値）", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
+        // シグナル名の明示＋「全体の推奨値にする」「シグナル別に戻す」ボタン（2026-07-14 ユーザー要望）:
+        // 推奨基本α値がシグナル別/詳細別で自動入力されている時はシグナル名「○○」を前置し、すぐ左に銘柄全体へ切り替えるボタンを置く。
+        // 上書き中（銘柄全体を採用中）はシグナル別へ戻すボタンを出す。銘柄全体データ無し/値が同じなら非表示。押下で基本α欄も即設定（_baTouchedRef=true＝以後カスケードで戻さない）。
+        var _effSigBased = (_autoBase.key === "det" || _autoBase.key === "sig");
+        var _natSigBased = (_autoBaseNat.key === "det" || _autoBaseNat.key === "sig");
+        var _tag0 = (fTags && fTags.length) ? fTags[0] : null;
+        var _canToStk = _effSigBased && (_defStkShown != null) && (_defStkShown !== _autoBase.a);
+        var _canToSig = (_autoBase.key === "stk") && _preferStkBase && _natSigBased && (_autoBaseNat.a != null) && (_autoBaseNat.a !== _autoBase.a);
+        var _pickStk = function() { _setPreferStkBase(true); if (_defStkShown != null) { _baAutoRef.current = String(_defStkShown); setFBaseAlpha(String(_defStkShown)); } };
+        var _pickSig = function() { _setPreferStkBase(false); if (_autoBaseNat.a != null) { _baAutoRef.current = String(_autoBaseNat.a); setFBaseAlpha(String(_autoBaseNat.a)); } };
+        var _switchBtn = _canToStk
+          ? React.createElement("button", { type: "button", onClick: _pickStk, title: "銘柄全体（全シグナル）の推奨基本α値 " + _defStkShown + "円 に切り替える", style: { fontSize: 9, fontWeight: 700, color: "#0369A1", background: "#EFF6FF", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "全体の推奨値にする")
+          : (_canToSig
+            ? React.createElement("button", { type: "button", onClick: _pickSig, title: "このシグナルに基づく推奨基本α値 " + _autoBaseNat.a + "円 に戻す", style: { fontSize: 9, fontWeight: 700, color: "#B91C1C", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "シグナル別に戻す")
+            : null);
+        return React.createElement("div", { title: "推奨基本α値＝詳細別→シグナル別→銘柄全体で自動入力に使う採用値（シグナル別/詳細別の時は「全体の推奨値にする」で銘柄全体へ切替可）／推奨応用α値＝この銘柄の応用〇記録から（前日まで・銘柄全体）。括弧内は直近件数窓の参考（（仮）＝データ不足／参考＝条件緩和の推奨値）", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
           React.createElement("div", { style: _rowFlex },
+            _switchBtn,
+            (_effSigBased && _tag0) ? React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#B91C1C", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 5, padding: "1px 6px" } }, "「" + _tag0 + "」") : null,
             React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
             _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
-            (_autoBaseA != null && _autoBase && _autoBase.src) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#B91C1C", marginLeft: 4 } }, "★自動入力（" + _autoBase.src + "）") : null,
+            (_autoBaseA != null && _autoBase && _autoBase.src) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: (_effSigBased ? "#B91C1C" : "#0369A1"), marginLeft: 4 } }, "★自動入力（" + _autoBase.src + "）") : null,
             _tblBtn("base", "#0369A1", "#93C5FD")),
           React.createElement("div", { style: _sub }, _line(false)),
           React.createElement("div", { style: _rowFlex },
