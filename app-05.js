@@ -4891,6 +4891,12 @@ function _elDetailFlowStack(s, alpha, cutLine) {
   // 2026-07-13 「最高↑→決済↓」行(_elRideSummaryNode)は最終損益欄(_elRideMiniNode)に移設したため削除。
   return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3 } }, _osTop, _epRow, _hPart);
 }
+// 記録表の「最終損益」セル＋「OS・損益詳細」セル(colSpan2)の共通td枠(2026-07-14 系統2小抽出)。セル内容(_elHold2AmtNode/_elRideMiniNode/_elDetailFlowStack)は既に共有・td枠だけが各表で重複していたので集約。border/padは表ごとに異なる(app-02/06=_bb・"1px 3px"／app-04=#f0ede6・"4px 6px")ため引数化＝各呼出は従来と同一バイトを渡す。Fragmentなので<tr>内で従来の2td並びと同一DOM。
+function _elPnlDetailCells(s, alpha, cutLine, border, pad1, pad2) {
+  return React.createElement(React.Fragment, null,
+    React.createElement("td", { key: "pnl", style: { padding: pad1, textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: border, borderRight: border, background: "#FFFBF0" } }, _elHold2AmtNode(s, alpha, cutLine), _elRideMiniNode(s, alpha, cutLine)),
+    React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: pad2, textAlign: "left", fontSize: 11, borderBottom: border, borderRight: border, background: "#F8FBFE" } }, _elDetailFlowStack(s, alpha, cutLine)));
+}
 // 明細の「最終損益」セル(1記録): その記録の手じまい(_elHold2TotParts.main)をランク+額+（）内=△で表示＝集計の最終損益列と同基準。2026-07-10。
 function _elHold2AmtNode(s, alpha, cutLine) {
   var p = _elHold2TotParts(s, alpha, cutLine);

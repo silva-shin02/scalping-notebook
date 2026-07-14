@@ -5328,8 +5328,7 @@ function DayView(_ref57) {
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
               _epECell(s, _aiTr.alpha)),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#FFFBF0" } }, _elHold2AmtNode(s, _aiTr.alpha, _aiTr.cutLine), _elRideMiniNode(s, _aiTr.alpha, _aiTr.cutLine)),
-            React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#F8FBFE" } }, _elDetailFlowStack(s, _aiTr.alpha, _aiTr.cutLine)),
+            _elPnlDetailCells(s, _aiTr.alpha, _aiTr.cutLine, "1px solid #f0ede6", "4px 6px", "1px 5px"),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trLane(_tradeAlphaChip(s), 26, "flex-end"), _trRPnlDisp(realPnlN, realGrade))
           )
         );
