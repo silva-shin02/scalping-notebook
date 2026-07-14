@@ -6286,7 +6286,7 @@ function EntryRecordForm(_ref_erf) {
     var recs = allR.filter(_elIsSpecialAlphaPoolRec);
     if (!recs.length) return null;
     var p = _elSpecialAlphaPick(recs, aiOf, _bp ? _bp.idealAlpha : null);
-    return (p && p.alpha != null && p.status !== "none") ? p : null;
+    return (p && p.status !== "none") ? p : null;   // 2026-07-14f nominも保持（alpha=nullで潰さない）＝基本αの_baPickForScopeと対称にしフォームに「ー（条件適合無し）」を出す。下流は_refSpecialA(alpha!=nullガード)なので不変
   }, [data, fStock, fDate]);
   var _refSpecialA = (_refSpecial && _refSpecial.alpha != null) ? _refSpecial.alpha : null;
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
@@ -7586,7 +7586,7 @@ function EntryRecordForm(_ref_erf) {
           (fAlphaKind === "base") ? React.createElement("div", { title: "推奨基本α値＝選んだ母数（既定=銘柄全体／各シグナル）の推奨基本α。母数プルダウンで切替、詳細表で閲覧。", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
             React.createElement("div", { style: _rowFlex },
               React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
-              _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : ((_baActive && _baActive.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#B45309" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
+              _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : ((_baActive && _baActive.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#0369A1" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
               _headScopeSel,
               _toAllBtn,
               _tblBtn("base", "#0369A1", "#93C5FD")),
@@ -7624,7 +7624,7 @@ function EntryRecordForm(_ref_erf) {
         return React.createElement("div", { style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "2px 0 4px" } },
           React.createElement("div", { style: _rowFlex },
             React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨応用α値 "),
-            _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : ((_refSpecial && _refSpecial.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#B45309" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
+            _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : ((_refSpecial && _refSpecial.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#9A3412" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
             React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal("special"); }, title: "詳細データ表を表示（全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#fff", border: "1px solid #FDBA74", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表")),
           React.createElement("div", { style: _sub }, _line));
       })() : null,

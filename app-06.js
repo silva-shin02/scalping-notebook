@@ -1741,14 +1741,14 @@ function _elTotalAlphaSectionV2(recs, aiOf, holiSet, onPick, curSel) {
   var minN = pick.minN || _EL_BASE_MIN_N;
   var _pctS = function(v) { return v != null ? Math.round(v * 100) + "%" : "—"; };
   var _lbl = function(t) { return React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "10px 0 2px" } }, t); };
-  var concl = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 10px", background: (na || _nomin) ? "#FEF3C7" : "#FFF7ED", border: "1px solid " + ((na || _nomin) ? "#FCD34D" : "#FED7AA"), borderRadius: 8, padding: "8px 12px" } },
+  var concl = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 10px", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 8, padding: "8px 12px" } },   // 応用αは茶基調（nominでも警告琥珀にせず茶系のまま）2026-07-14f
     React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, "推奨応用α"),
     _nomin
-      ? React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: "#B45309" } }, "ー（条件適合無し）")
+      ? React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: "#9A3412" } }, "ー（条件適合無し）")
       : React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
           React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: na ? "#B45309" : "#9A3412" } }, a + "円", (ideal !== a) ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B98A5E", marginLeft: 6 } }, "（理想 " + ideal + "円 −" + _EL_ALPHA_OFFSET + "）") : null),
           _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 20, na ? "#B45309" : "#9A3412")),
-    _nomin ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B45309" } }, "全条件（到達率" + reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度≤" + _EL_FREQ_MAX + "）を満たす応用αが1つも無いため推奨を出せません（下表は参考）") : null,
+    _nomin ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412" } }, "全条件（到達率" + reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度≤" + _EL_FREQ_MAX + "）を満たす応用αが1つも無いため推奨を出せません（下表は参考）") : null,
     _nomin ? null : React.createElement("span", { style: { fontSize: 11, color: "#555" } },
       "平均最終損益 ", React.createElement("b", { style: { color: _elPnlColor(pick.avgH2) } }, pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—"),
       React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（Σ" + (pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—") + "）"),
@@ -2100,16 +2100,16 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel) {
   var stopP = pick.stopRate != null ? Math.round(pick.stopRate * 100) : null;
   var winP = pick.h1win != null ? Math.round(pick.h1win * 100) : null;
   var _lbl = function(t) { return React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "10px 0 2px" } }, t); };
-  var concl = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 10px", background: (na || _nomin) ? "#FEF3C7" : "#F0F9FF", border: "1px solid " + ((na || _nomin) ? "#FCD34D" : "#BAE6FD"), borderRadius: 8, padding: "8px 12px" } },
+  var concl = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 10px", background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 12px" } },   // 基本αは青基調（nominでも警告琥珀にせず青系のまま）2026-07-14f
     React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, "推奨基本α"),
     _nomin
-      ? React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: "#B45309" } }, "ー（条件適合無し）")
+      ? React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: "#0369A1" } }, "ー（条件適合無し）")
       : React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
           React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: na ? "#B45309" : "#0369A1" } }, a + "円", (ideal !== a) ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#64748B", marginLeft: 6 } }, "（理想 " + ideal + "円 −" + _EL_ALPHA_OFFSET + "）") : null),
           _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 20, na ? "#B45309" : "#0369A1")),
     _nomin ? null : _elOldPickChip(a, _lg ? _lg.alpha : null),
     _nomin
-      ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B45309" } }, "E成立" + _EL_BASE_MIN_N + "件以上のαが1つも無いため推奨を出せません（下表は参考）")
+      ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "E成立" + _EL_BASE_MIN_N + "件以上のαが1つも無いため推奨を出せません（下表は参考）")
       : na
       ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B45309" } }, "参考値（青★）：自信条件（損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度≤" + _EL_FREQ_MAX + "営業日/回）を満たさない、または到達率" + Math.round((pick.reachFloor != null ? pick.reachFloor : (_EL_ANA_REACH_DEF / 100)) * 100) + "%以上のαが無く緩和（E成立 " + (pick.decided != null ? pick.decided : 0) + "件）")
       : React.createElement("span", { style: { fontSize: 11, color: "#555" } },
@@ -5588,7 +5588,7 @@ function EntryLogView(_ref_elv2) {
         var _bna = _alPick.status === "na";
         _alBaseSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: _bna ? "#B45309" : "#0369A1" } }, "推奨基本α " + _alPick.alpha + "円", _alPick.alpha2 != null ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, marginLeft: 6 } }, "（次点 " + _alPick.alpha2 + "円）") : null, _bna ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, marginLeft: 4 } }, "参考") : null, _elOldPickChip(_alPick.alpha, _alLgPick ? _alLgPick.alpha : null), _elPreEmaBadge(_alBasePoolBadge));
       } else if (_alPick && _alPick.status === "nomin") {
-        _alBaseSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#B45309" } }, "推奨基本α ー（条件適合無し）");   // 全条件を満たすα無し（データはある）＝詳細表と同じ「条件適合無し」表記に統一 2026-07-14e
+        _alBaseSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0369A1" } }, "推奨基本α ー（条件適合無し）");   // 全条件を満たすα無し（データはある）＝詳細表と同じ「条件適合無し」表記に統一・基本αは青基調 2026-07-14e/f
       } else {
         _alBaseSum = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#94A3B8" } }, "推奨基本α：データ不足");
       }
@@ -5597,7 +5597,7 @@ function EntryLogView(_ref_elv2) {
         var _alAddNa = _alAdd.status === "na";
         _alAddSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: _alAddNa ? "#B45309" : "#9A3412" } }, "推奨応用α " + _alAdd.alpha + "円", _alAdd.alpha2 != null ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, marginLeft: 6, color: "#94A3B8" } }, "（次点：" + _alAdd.alpha2 + "円）") : null, _alAddNa ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, marginLeft: 4 } }, "参考") : null, _elPreEmaBadge(_alAddPool));
       } else if (_alAdd && _alAdd.status === "nomin") {
-        _alAddSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#B45309" } }, "推奨応用α ー（条件適合無し）");   // 全条件を満たす応用α無し（データはある）＝詳細表と同じ「条件適合無し」表記に統一 2026-07-14e
+        _alAddSum = React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#9A3412" } }, "推奨応用α ー（条件適合無し）");   // 全条件を満たす応用α無し（データはある）＝詳細表と同じ「条件適合無し」表記に統一・応用αは茶基調 2026-07-14e/f
       } else {
         _alAddSum = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#94A3B8" } }, _alAddPool.length ? "推奨応用α：推奨無し（件数不足）" : "推奨応用α：応用〇の記録なし");
       }
