@@ -3504,7 +3504,7 @@ function _EpnDayAlphaField(_p) {
 // 早見のインライン編集（③起点/④その他/⑤ライン併存の変更）用: 新しい詳細から推奨基本αを再導出（ライン併存ルール〇なら1）してepを再計算。
 // _EpnCalcForm.autoPick と同じ段階フォールバック（詳細別→シグナル別→銘柄全体・okが無ければ仮値）＝変更時は両方直す。推奨が全く無ければbaseは据え置き。
 // 予定EPの正本計算（2026-07-14 共通化・監査finding#1）: base-levelα＝応用〇なら応用α・通常は基本α。予定EP＝round((水準線+base-levelα+浮き足+RN)*100)/100。保存EPを書く全ハンドラはこの2関数経由に統一＝式のズレ・応用α落ち・廃止add項の混入を防ぐ。
-function _epnBaseLevelOf(it) { return (it && it.specialUsed === true && it.special != null) ? (Number(it.special) || 0) : (Number(it && it.base) || 0); }
+function _epnBaseLevelOf(it) { if (it && it.ukiUsed === true) return 0; return (it && it.specialUsed === true && it.special != null) ? (Number(it.special) || 0) : (Number(it && it.base) || 0); }   // 2026-07-14g 浮き足〇＝土台α無し（採用α＝浮き足加算＋RNのみ）
 function _epnComputeEp(level, baseLevel, uki, rn) { return Math.round(((Number(level) || 0) + (Number(baseLevel) || 0) + (Number(uki) || 0) + (Number(rn) || 0)) * 100) / 100; }
 function _epnRecalcBase(data, stock, date, item) {
   var _f = Array.isArray(item.f) ? item.f : [];
@@ -3858,7 +3858,7 @@ function _EpnCalcForm(_p) {
   var _stepNUkiPct = _elMkPctStepper(setNUkiPct);   // 手入力の↑↓: 空欄→50・以降±10（2026-07-14 共通化）
   var ukiAddV = _elUkiAddVal(showUki && nUkiUsed === "○", nUkiVal, _effUkiPct);   // 2026-07-14 共通化
   var rnAddV = _elRnAddVal(nRnUsed === "○", nRnVal);   // RNまたぎ加算（そのまま加算・全シグナル 2026-07-08h→2026-07-14共通化）
-  var effA = (_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV + rnAddV) : null;
+  var effA = (nUkiUsed === "○") ? (ukiAddV + rnAddV) : ((_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV + rnAddV) : null);   // 2026-07-14g 浮き足〇＝土台α不使用（採用α＝浮き足加算＋RN）
   var levelN = (nLevel !== "" && !isNaN(parseFloat(nLevel))) ? parseFloat(nLevel) : null;
   var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
   var _resetForm = function() {

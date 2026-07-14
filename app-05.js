@@ -6150,6 +6150,9 @@ function EntryRecordForm(_ref_erf) {
   // α詳細データ表ポップアップ（閲覧のみ・記録帳「α値」タブと同じ表を流用）2026-07-13
   var _uAlTbl = useState(null), _alTblModal = _uAlTbl[0], _setAlTblModal = _uAlTbl[1];   // null | "base"（基本α詳細）| "special"（応用α詳細）
   var _uUkiTbl = useState(false), _ukiTblOpen = _uUkiTbl[0], _setUkiTblOpen = _uUkiTbl[1];   // 浮き足加算率の詳細データ表ポップアップ 2026-07-14d
+  // 浮き足専用α化 2026-07-14g（第2弾-B）: 浮き足〇のとき基本α/応用αを使わず浮き足加算%のみ。浮き足基本/応用の2段（応用は根拠つき）＝基本α/応用αと同じ使い分け。
+  var _uUkiSp = useState(initSig.ukiSpecial === true), fUkiSpecial = _uUkiSp[0], setFUkiSpecial = _uUkiSp[1];   // 浮き足応用フラグ（大きめ%・根拠つき）
+  var _uUkiRsn = useState(Array.isArray(initSig.ukiReasons) ? initSig.ukiReasons.slice() : []), fUkiReasons = _uUkiRsn[0], setFUkiReasons = _uUkiRsn[1];   // 浮き足応用の根拠
   // α値見出しの右に出す「推奨基本α（直近25件/50件/100件/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分・追加α〇は_elBaseAlphaPick内で除外＝×＋未選択の記録)から算出＝記録の参考用。
   // 窓はカレンダーでなく fDate を起点にした直近N件の件数窓＝銘柄別でカレンダー窓が痩せるのを避け「最近の傾向」を安定して映す 2026-06-21→件数ベース2026-06-26。全期間も含め母数は fDate(その日)の前日までの記録のみ＝当日(同日)を含めず、過去記録の編集時に未来・当日データを使わない(look-ahead回避)2026-06-22c。
   var _refBaseAlpha = useMemo(function() {
@@ -6381,7 +6384,7 @@ function EntryRecordForm(_ref_erf) {
   // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)×採用加算率（推奨%・既定50%・07-12d）を切捨て加算。
   var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨(reco)/次点(runnerUp)を算出（_elUkiPctSweep）。fUkiPct=""は自動=推奨(無ければ50%)。加算=floor(浮き値×採用%/100)。2026-07-12
-  var _ukiReco = useMemo(function() { return _elUkiRecoPcts(data, fDate); }, [data, fDate]);
+  var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, fDate, fUkiSpecial ? "special" : "basic"); }, [data, fDate, fUkiSpecial]);   // 2026-07-14g 浮き足基本/応用のタグ別プール推奨（旧_elUkiRecoPctsは全浮き足）
   var _effUkiPct = _elUkiEffPct(fUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
   var _fUkiAdd = _elUkiAddVal(_showUki && fUkiUsed === "○", fUkiVal, _effUkiPct);   // 2026-07-14 共通化
   // RNまたぎ加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
@@ -6930,12 +6933,14 @@ function EntryRecordForm(_ref_erf) {
       lineCoexist: fLineCoexist,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
       minBar: (fMinBars && fMinBars.length) ? fMinBars.map(Number).sort(function(_a, _b) { return _a - _b; }) : null,
-      specialUsed: fAlphaKind === "special",
-      specialAlpha: (fAlphaKind === "special") ? _fSpecialA : null,
-      specialReasons: (fAlphaKind === "special") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
+      specialUsed: (fUkiUsed === "○") ? false : (fAlphaKind === "special"),   // 浮き足〇＝土台α（基本α/応用α）不使用 2026-07-14g
+      specialAlpha: (fUkiUsed !== "○" && fAlphaKind === "special") ? _fSpecialA : null,
+      specialReasons: (fUkiUsed !== "○" && fAlphaKind === "special") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
       ukiUsed: _showUki ? (fUkiUsed === "○") : null,
       ukiVal: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Number(fUkiVal) : null,
       ukiPct: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? _effUkiPct : null,   // 使った加算率(%)。_elUkiAddが復元に使用 2026-07-12
+      ukiSpecial: (_showUki && fUkiUsed === "○") ? (fUkiSpecial === true) : null,   // 浮き足応用フラグ 2026-07-14g
+      ukiReasons: (_showUki && fUkiUsed === "○" && fUkiSpecial === true) ? (function() { var _a = (fUkiReasons || []).filter(function(x) { return x; }); return _a.length ? _a : null; })() : null,
       rnUsed: fRnUsed === "○",
       rnVal: (fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : null,
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
@@ -7446,7 +7451,7 @@ function EntryRecordForm(_ref_erf) {
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
       React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "採用α値（基本α or 応用α）＋浮き足加算＋RNまたぎ＝合計α値（水準線比）。この合計αを水準線値に足したものが予定EP。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+      (fUkiUsed !== "○") ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "採用α値"),
         React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3 } },
           [["base", "基本α", "#0369A1"], ["special", "応用α", "#9A3412"]].map(function(_kk) {
@@ -7455,8 +7460,8 @@ function EntryRecordForm(_ref_erf) {
               onClick: function() { setFAlphaKind(_kk[0]); if (_kk[0] === "special" && fSpecialAlpha === "" && _refSpecialA != null) setFSpecialAlpha(String(_refSpecialA)); },
               title: _kk[0] === "base" ? "通常はこちら＝基本α値を採用" : "応用α値を採用",
               style: { padding: "6px 16px", fontSize: 13, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "none", background: _on ? "#fff" : "transparent", color: _on ? _kk[2] : "#6B6459", boxShadow: _on ? "0 1px 3px rgba(0,0,0,.12)" : "none" } }, _kk[1]);
-          }))),
-      fAlphaKind === "base" ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
+          }))) : null,
+      (fUkiUsed !== "○" && fAlphaKind === "base") ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setBA = function(val) { _baTouchedRef.current = true; var _v = _toHankakuNum(val); if (_v === "") { setFBaseAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
         var _stepBA = function(delta) { _baTouchedRef.current = true; setFBaseAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_autoBaseA != null ? _autoBaseA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
@@ -7517,7 +7522,7 @@ function EntryRecordForm(_ref_erf) {
         var _toAllBtn = null;   // 全体復帰は上のトグルに統合 2026-07-14d
         // 基本α選択時のみ推奨基本α値サマリーを表示（応用α選択時は非表示・応用サマリーは応用入力の下に別途表示）2026-07-14c。モーダルは常時（どちらの📊詳細表からも開く）。
         return React.createElement(React.Fragment, null,
-          (fAlphaKind === "base") ? React.createElement("div", { title: "推奨基本α値＝選んだ母数（既定=銘柄全体／各シグナル）の推奨基本α。母数プルダウンで切替、詳細表で閲覧。", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
+          (fUkiUsed !== "○" && fAlphaKind === "base") ? React.createElement("div", { title: "推奨基本α値＝選んだ母数（既定=銘柄全体／各シグナル）の推奨基本α。母数プルダウンで切替、詳細表で閲覧。", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
             React.createElement("div", { style: _rowFlex },
               React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
               _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : ((_baActive && _baActive.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#0369A1" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
@@ -7527,7 +7532,7 @@ function EntryRecordForm(_ref_erf) {
             (_baScope === "all") ? React.createElement("div", { style: _sub }, _line(false)) : null) : null,
           _modalEl);
       })(),
-      fAlphaKind === "special" ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
+      (fUkiUsed !== "○" && fAlphaKind === "special") ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setSA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFSpecialAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFSpecialAlpha(String(n)); };
         var _stepSA = function(delta) { setFSpecialAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_refSpecialA != null ? _refSpecialA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
@@ -7548,7 +7553,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })()) : null,
-      (fAlphaKind === "special") ? (function() {
+      (fUkiUsed !== "○" && fAlphaKind === "special") ? (function() {
         // 推奨応用α値サマリー（応用α入力の下・2026-07-14c 基本αと[入力]→[推奨]の順を統一）。詳細表📊は state 駆動でモーダルを開く。
         var _sub = { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 2, marginBottom: 3 };
         var _rowFlex = { display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" };
@@ -7569,7 +7574,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal("special"); }, title: "詳細データ表を表示（全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#fff", border: "1px solid #FDBA74", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表")),
           (_spScope === "all") ? React.createElement("div", { style: _sub }, _line) : null);
       })() : null,
-      (fAlphaKind === "special") ? (function() {
+      (fUkiUsed !== "○" && fAlphaKind === "special") ? (function() {
         var _reasonsM = (data && data.custom && Array.isArray(data.custom.specialReasons)) ? data.custom.specialReasons : _DEF_SPECIAL_REASONS;
         var _reasons = (fRsnOrder && fRsnOrder.list) ? fRsnOrder.list : _reasonsM;   // ドラッグ中は並びプレビュー（2026-07-06e）
         var _addR = function(nm) {
@@ -7741,6 +7746,13 @@ function EntryRecordForm(_ref_erf) {
                   kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
               })
             ),
+            _ukiOn ? React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },
+              [["basic", "浮基本", false], ["special", "浮応用", true]].map(function(_uk) {
+                var _uon = fUkiSpecial === _uk[2];
+                return React.createElement("button", { key: _uk[0], type: "button", onClick: function() { setFUkiSpecial(_uk[2]); },
+                  title: _uk[2] ? "浮き足応用＝大きめの加算率（根拠つき）で採用" : "浮き足基本＝通常の加算率で採用",
+                  style: { padding: "3px 11px", fontSize: 11, fontWeight: _uon ? 800 : 600, borderRadius: 5, cursor: "pointer", border: "none", background: _uon ? "#fff" : "transparent", color: _uon ? "#15803D" : "#6B6459", boxShadow: _uon ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, _uk[1]);
+              })) : null,
             _ukiOn ? React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #86EFAC", borderRadius: 4, overflow: "hidden" } },
               React.createElement("input", {
                 type: "text", inputMode: "numeric", min: "0", max: "999", step: "1",
@@ -7769,7 +7781,7 @@ function EntryRecordForm(_ref_erf) {
           );
         })(),
         React.createElement("button", { type: "button", onClick: function() { _setUkiTblOpen(true); }, title: "浮き足加算率の詳細データ表（全銘柄・前日まで＝推奨%と同母数）", style: { alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#15803D", background: "#fff", border: "1px solid #86EFAC", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"),
-        _ukiTblOpen ? React.createElement("div", { onClick: function() { _setUkiTblOpen(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ 浮き足加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setUkiTblOpen(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると最終損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝記録フォームの推奨%と同母数（全銘柄の浮き足〇・前日まで）。"), _elUkiPctBoardV2(_elCollectAllSignals(data).filter(function(r) { return r && (!fDate || r.date < fDate); }), function(r) { return _elAlphaInfo(r, data); }))) : null) : null,
+        _ukiTblOpen ? React.createElement("div", { onClick: function() { _setUkiTblOpen(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setUkiTblOpen(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると最終損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝" + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!fDate || r.date < fDate); }), function(r) { return _elAlphaInfo(r, data); }, fUkiSpecial ? "special" : "basic"))) : null) : null,
       (function() {
         // RNまたぎ加算α値の行（全シグナル・追加α（根拠含む）行の下）2026-07-08h。〇×→〇で加算値（円・そのまま）をαに加算。すぐ横に暫定EP（水準線値＋合計α）を小さく表示＝EPを見て要否判断。
         var _setRV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFRnVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFRnVal(String(n)); };
