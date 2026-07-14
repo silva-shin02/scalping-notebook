@@ -6277,18 +6277,24 @@ function EntryRecordForm(_ref_erf) {
   var _refAddAlphaSrc = (_refSigAlpha && _refSigAlpha.det && _refSigAlpha.det.add) ? { add: _refSigAlpha.det.add, src: "詳細別" }
     : ((_refSigAlpha && _refSigAlpha.sig && _refSigAlpha.sig.add) ? { add: _refSigAlpha.sig.add, src: "シグナル別" }
     : (_refAddAlpha ? { add: _refAddAlpha, src: "銘柄全体" } : null));
-  // 推奨応用α（応用α採用時の自動入力・§9 銘柄全体母数で1本＝移行のspecialAlphaと一致）: この銘柄の応用〇記録（浮き足〇/RN〇除外・fDate前日まで）から独立α最適(_elSpecialAlphaPick)。応用shape or null。
-  var _refSpecial = useMemo(function() {
+  // 推奨応用α（応用α採用時の自動入力）: この銘柄の応用〇記録（浮き足〇/RN〇除外・fDate前日まで）から独立α最適(_elSpecialAlphaPick)。応用shape or null。
+  // 母数スコープ _spScope（既定=all=銘柄全体＝移行のspecialAlphaと一致／シグナル名でその記録のシグナルに絞る）＝基本αの_baScope/_baPickForScopeと対称 2026-07-14f。
+  var _uSpScope = useState("all"), _spScope = _uSpScope[0], _setSpScope = _uSpScope[1];
+  var _spRecsForScope = function(scope) {
     if (!fStock) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var allR = _elStockRecsBefore(data, fStock, fDate);
     var _bp = allR.length ? _elBaseAlphaPick(allR, aiOf) : null;   // 銘柄全体の基本α理想＝応用αを基本αより大きくクランプ 2026-07-13
     var recs = allR.filter(_elIsSpecialAlphaPoolRec);
+    if (scope && scope !== "all") recs = recs.filter(function(r) { return _baTagsOf(r.signal).indexOf(scope) >= 0; });   // シグナル別スコープ（基本α_baRecsForScopeと同一のタグ判定）
     if (!recs.length) return null;
     var p = _elSpecialAlphaPick(recs, aiOf, _bp ? _bp.idealAlpha : null);
-    return (p && p.status !== "none") ? p : null;   // 2026-07-14f nominも保持（alpha=nullで潰さない）＝基本αの_baPickForScopeと対称にしフォームに「ー（条件適合無し）」を出す。下流は_refSpecialA(alpha!=nullガード)なので不変
-  }, [data, fStock, fDate]);
+    return (p && p.status !== "none") ? p : null;   // nominも保持（alpha=nullで潰さない）＝フォームに「ー（条件適合無し）」を出す 2026-07-14f
+  };
+  var _refSpecial = useMemo(function() { return _spRecsForScope(_spScope); }, [data, fStock, fDate, _spScope]);
   var _refSpecialA = (_refSpecial && _refSpecial.alpha != null) ? _refSpecial.alpha : null;
+  // スコープ切替＝そのスコープの推奨応用αを応用α欄へ即反映（基本αの_applyBaScopeと対称）。null（推奨なし）は欄を空に＝見出し「—」と一致。
+  var _applySpScope = function(scope) { _setSpScope(scope); var pv = _spRecsForScope(scope); var pa = (pv && pv.alpha != null) ? pv.alpha : null; setFSpecialAlpha(pa != null ? String(pa) : ""); };
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
   // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
   var _useStateINC = useState(initSig.includeInTotal !== false),
@@ -7621,12 +7627,19 @@ function EntryRecordForm(_ref_erf) {
         var _rb = _refBaseAlpha;
         var _winStr = function(w) { return (w && w.add && w.add.alpha != null) ? (w.add.alpha + "円") : "—"; };
         var _line = "（直近期間別参考　25件：" + _winStr(_rb && _rb.w1) + "　50件：" + _winStr(_rb && _rb.m1) + "　100件：" + _winStr(_rb && _rb.m3) + "）";
+        var _spPrimaryTag = (fTags && fTags.length) ? fTags[0] : null;   // トグル対象＝この記録のシグナル（先頭タグ）＝基本αの_headPrimaryTagと対称 2026-07-14f
+        var _spScopeSel = _spPrimaryTag ? React.createElement("button", { type: "button",
+            onClick: function() { _applySpScope(_spScope === "all" ? _spPrimaryTag : "all"); },
+            title: (_spScope === "all") ? ("タップでこの記録のシグナル「" + _spPrimaryTag + "」の推奨に切替") : "タップで銘柄全体の推奨に切替",
+            style: { fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 5, border: "1px solid #FDBA74", background: "#FFF7ED", color: "#9A3412", cursor: "pointer", whiteSpace: "nowrap" } },
+            (_spScope === "all") ? ("「" + _spPrimaryTag + "」で見る") : "全体で見る") : null;
         return React.createElement("div", { style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "2px 0 4px" } },
           React.createElement("div", { style: _rowFlex },
             React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨応用α値 "),
             _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : ((_refSpecial && _refSpecial.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#9A3412" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
+            _spScopeSel,
             React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal("special"); }, title: "詳細データ表を表示（全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#fff", border: "1px solid #FDBA74", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表")),
-          React.createElement("div", { style: _sub }, _line));
+          (_spScope === "all") ? React.createElement("div", { style: _sub }, _line) : null);
       })() : null,
       (fAlphaKind === "special") ? (function() {
         var _reasonsM = (data && data.custom && Array.isArray(data.custom.specialReasons)) ? data.custom.specialReasons : _DEF_SPECIAL_REASONS;
