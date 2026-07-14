@@ -6145,6 +6145,7 @@ function EntryRecordForm(_ref_erf) {
     fAlphaMemo = _useStateALMA[0], setFAlphaMemo = _useStateALMA[1];
   // α詳細データ表ポップアップ（閲覧のみ・記録帳「α値」タブと同じ表を流用）2026-07-13
   var _uAlTbl = useState(null), _alTblModal = _uAlTbl[0], _setAlTblModal = _uAlTbl[1];   // null | "base"（基本α詳細）| "special"（応用α詳細）
+  var _uUkiTbl = useState(false), _ukiTblOpen = _uUkiTbl[0], _setUkiTblOpen = _uUkiTbl[1];   // 浮き足加算率の詳細データ表ポップアップ 2026-07-14d
   // α値見出しの右に出す「推奨基本α（直近25件/50件/100件/全期間）」の参考値。保存済み記録(この銘柄・v2・算入分・追加α〇は_elBaseAlphaPick内で除外＝×＋未選択の記録)から算出＝記録の参考用。
   // 窓はカレンダーでなく fDate を起点にした直近N件の件数窓＝銘柄別でカレンダー窓が痩せるのを避け「最近の傾向」を安定して映す 2026-06-21→件数ベース2026-06-26。全期間も含め母数は fDate(その日)の前日までの記録のみ＝当日(同日)を含めず、過去記録の編集時に未来・当日データを使わない(look-ahead回避)2026-06-22c。
   var _refBaseAlpha = useMemo(function() {
@@ -6181,9 +6182,9 @@ function EntryRecordForm(_ref_erf) {
   var _baRecsForScope = function(scope) { return (!scope || scope === "all") ? _alTblRecs : _alTblRecs.filter(function(r) { return _baTagsOf(r.signal).indexOf(scope) >= 0; }); };
   var _baPickForScope = function(scope) {
     var rs = _baRecsForScope(scope);
-    if (!rs.length) return { alpha: null, ok: false, n: 0 };
+    if (!rs.length) return { alpha: null, ok: false, n: 0, status: "none" };
     var p = _elBaseAlphaPick(rs, function(r) { return _elAlphaInfo(r, data); });
-    return { alpha: (p && p.alpha != null && p.status !== "none") ? p.alpha : null, ok: !!(p && p.status === "ok"), n: rs.length };
+    return { alpha: (p && p.alpha != null && p.status !== "none") ? p.alpha : null, ok: !!(p && p.status === "ok"), n: rs.length, status: p ? p.status : "none" };   // status: ok/nomin(条件適合無し)/none(データ無し) 2026-07-14d
   };
   // 基本αの既定値＝直近50件の推奨基本α（無ければ100件→全期間でフォールバック）。直近25件は標本が薄くブレやすいので自動入力には使わず表示のみ（ユーザー方針 2026-06-22c→件数ベース2026-06-26）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
   var _baAlpha = function(w) { return (w && w.ok && w.alpha != null) ? w.alpha : null; };
@@ -7497,7 +7498,9 @@ function EntryRecordForm(_ref_erf) {
                 _stepBtn(function() { _stepUkiPct(10); }, function() { _stepUkiPct(-10); }))
             ) : null
           );
-        })()) : null,
+        })(),
+        React.createElement("button", { type: "button", onClick: function() { _setUkiTblOpen(true); }, title: "浮き足加算率の詳細データ表（全銘柄・前日まで＝推奨%と同母数）", style: { alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#15803D", background: "#fff", border: "1px solid #86EFAC", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"),
+        _ukiTblOpen ? React.createElement("div", { onClick: function() { _setUkiTblOpen(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ 浮き足加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setUkiTblOpen(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると最終損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝記録フォームの推奨%と同母数（全銘柄の浮き足〇・前日まで）。"), _elUkiPctBoardV2(_elCollectAllSignals(data).filter(function(r) { return r && (!fDate || r.date < fDate); }), function(r) { return _elAlphaInfo(r, data); }))) : null) : null,
         React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, borderTop: "1px dashed #CBD5E1", paddingTop: 8 } },
           React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700, fontSize: 12 } }, "最終水準線"),
           React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; return String(Math.round((_lv + (isNaN(_fUkiAdd) ? 0 : _fUkiAdd)) * 100) / 100); })()),
@@ -7570,17 +7573,20 @@ function EntryRecordForm(_ref_erf) {
                   ? _elBaseAlphaDetailV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli)
                   : _elTotalAlphaSectionV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli))
               : React.createElement("div", { style: { fontSize: 11, color: "#94A3B8", padding: "10px 0" } }, "この母数の記録がまだありません"))) : null;
-        // 母数プルダウン（全体／各シグナル・既定=全体）＋全体以外を選択中は「全体の推奨値にする」で全体へ戻す（2026-07-14b ユーザー要望・「★自動入力」注記は撤去・ボタンは推奨値の右）。
-        var _headScopeSel = React.createElement("select", { value: _baScope, onChange: function(e) { _applyBaScope(e.target.value); }, title: "推奨基本αの母数を切替（全体／各シグナル）", style: { fontSize: 11, fontWeight: 700, padding: "2px 5px", borderRadius: 5, border: "1px solid #93C5FD", background: "#F8FAFF", color: "#0369A1", maxWidth: 170 } },
-          [React.createElement("option", { key: "__all", value: "all" }, "全体")].concat(
-            _baSignalList.map(function(t) { return React.createElement("option", { key: t, value: t }, "「" + t + "」"); })));
-        var _toAllBtn = (_baScope !== "all") ? React.createElement("button", { type: "button", onClick: function() { _applyBaScope("all"); }, title: "銘柄全体の推奨基本α値に戻す", style: { fontSize: 9, fontWeight: 700, color: "#0369A1", background: "#EFF6FF", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "全体の推奨値にする") : null;
+        // 母数のワンクリック切替（2026-07-14d ユーザー要望）: 選択式を廃止し、全体⇄この記録のシグナル（先頭タグ）をボタン1つでトグル。全体表示中はシグナル名ボタン（押すとシグナルへ）／シグナル表示中は「全体」ボタン（押すと全体へ）。ボタンのラベル＝切り替え先。シグナル未選択（fTags空）なら非表示。
+        var _headPrimaryTag = (fTags && fTags.length) ? fTags[0] : null;
+        var _headScopeSel = _headPrimaryTag ? React.createElement("button", { type: "button",
+            onClick: function() { _applyBaScope(_baScope === "all" ? _headPrimaryTag : "all"); },
+            title: (_baScope === "all") ? ("タップでこの記録のシグナル「" + _headPrimaryTag + "」の推奨に切替") : "タップで銘柄全体の推奨に切替",
+            style: { fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 5, border: "1px solid #93C5FD", background: "#F8FAFF", color: "#0369A1", cursor: "pointer", whiteSpace: "nowrap" } },
+            (_baScope === "all") ? ("「" + _headPrimaryTag + "」で見る") : "全体で見る") : null;
+        var _toAllBtn = null;   // 全体復帰は上のトグルに統合 2026-07-14d
         // 基本α選択時のみ推奨基本α値サマリーを表示（応用α選択時は非表示・応用サマリーは応用入力の下に別途表示）2026-07-14c。モーダルは常時（どちらの📊詳細表からも開く）。
         return React.createElement(React.Fragment, null,
           (fAlphaKind === "base") ? React.createElement("div", { title: "推奨基本α値＝選んだ母数（既定=銘柄全体／各シグナル）の推奨基本α。母数プルダウンで切替、詳細表で閲覧。", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
             React.createElement("div", { style: _rowFlex },
               React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
-              _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
+              _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : ((_baActive && _baActive.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#B45309" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
               _headScopeSel,
               _toAllBtn,
               _tblBtn("base", "#0369A1", "#93C5FD")),
