@@ -3682,6 +3682,8 @@ function _EpnAddSection(_p) {
   var specialUsed = (e.specialUsed === true);
   var _s = useState(e.special != null ? String(e.special) : ""), _sa = _slicedToArray(_s, 2), addStr = _sa[0], setAddStr = _sa[1];
   useEffect(function() { setAddStr(e.special != null ? String(e.special) : ""); }, [e.special]);
+  var _bs = useState(e.base != null ? String(e.base) : ""), _bsa = _slicedToArray(_bs, 2), baseStr = _bsa[0], setBaseStr = _bsa[1];   // 基本α値のローカル編集（2026-07-14 採用αセレクタ化）
+  useEffect(function() { setBaseStr(e.base != null ? String(e.base) : ""); }, [e.base]);
   var _fJoin = Array.isArray(e.f) ? e.f.join("|") : "";
   var _rJoin = Array.isArray(e.specialReasons) ? e.specialReasons.join("|") : "";
   var casc = useMemo(function() {
@@ -3700,21 +3702,41 @@ function _EpnAddSection(_p) {
     setAddStr(String(n));
     if (n !== _addCurRef.current) _p.onValue(n);
   };
-  var _oxBtn = function(sym, on, color, bg, onClick) {
-    return React.createElement("button", { type: "button", onClick: onClick,
-      style: { padding: "1px 8px", fontSize: 11, fontWeight: on ? 800 : 600, border: on ? "2px solid " + color : "1px solid #ddd", background: on ? bg : "#fff", color: on ? color : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.5, minHeight: IS_TOUCH ? 24 : 20 } }, sym);
+  // ▲▼ステッパー（基本α値・2026-07-14 採用αセレクタ化）: 基本α選択時に基本α値を直接編集＝即_epnPut保存＋EP再計算（refで最新値参照＝連打対応・0〜50）。
+  var _baseStrRef = useRef(baseStr); _baseStrRef.current = baseStr;
+  var _baseCurRef = useRef(0); _baseCurRef.current = Number(e.base) || 0;
+  var _stepBase = function(delta) {
+    var cur = _baseStrRef.current;
+    var b = (cur !== "" && !isNaN(Number(cur))) ? Number(cur) : _baseCurRef.current;
+    var n = b + delta; if (n > 50) n = 50; if (n < 0) n = 0;
+    setBaseStr(String(n));
+    if (n !== _baseCurRef.current) _p.onBase(n);
+  };
+  // 採用α セグメントセレクタ（基本α/応用α・計算フォーム/記録フォームと同じ 2026-07-14）: 選択＝onUsed(true/false)＝既存 onSetSpecialUsed 流用。
+  var _segBtn = function(label, on, color, onClick, title) {
+    return React.createElement("button", { type: "button", title: title, onClick: onClick,
+      style: { padding: "2px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? color : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.12)" : "none", minHeight: IS_TOUCH ? 24 : 20 } }, label);
   };
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" } },
-      React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700 } }, "応用α"),
-      _oxBtn("○", specialUsed, "#C0392B", "#FCEBEB", function() { _p.onUsed(true); }),
-      _oxBtn("×", !specialUsed, "#1E8449", "#EAF3DE", function() { _p.onUsed(false); }),
-      specialUsed ? React.createElement("input", { type: "text", inputMode: "numeric", value: addStr,
+      React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700 } }, "採用α"),
+      React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 8, padding: 2, gap: 2 } },
+        _segBtn("基本α", !specialUsed, "#0369A1", function() { _p.onUsed(false); }, "通常はこちら＝基本α値を採用"),
+        _segBtn("応用α", specialUsed, "#9A3412", function() { _p.onUsed(true); }, "応用α値を採用"))),
+    !specialUsed ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" } },
+      React.createElement("input", { type: "text", inputMode: "numeric", value: baseStr,
+        onChange: function(ev) { var v = _toHankakuNum(ev.target.value); if (v === "" || !isNaN(Number(v))) setBaseStr(v); },
+        onBlur: function() { var n = (baseStr === "" || isNaN(Number(baseStr))) ? 0 : Math.max(0, Number(baseStr)); if (n !== (Number(e.base) || 0)) _p.onBase(n); },
+        style: { width: 38, padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#0369A1", border: "1px solid #CBD5E1", borderRadius: 5, background: "#fff", textAlign: "right", boxSizing: "border-box", outline: "none" } }),
+      React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円"),
+      _stepBtn(function() { _stepBase(1); }, function() { _stepBase(-1); })) : null,
+    specialUsed ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" } },
+      React.createElement("input", { type: "text", inputMode: "numeric", value: addStr,
         onChange: function(ev) { var v = _toHankakuNum(ev.target.value); if (v === "" || !isNaN(Number(v))) setAddStr(v); },
         onBlur: function() { var n = (addStr === "" || isNaN(Number(addStr))) ? 0 : Math.max(0, Number(addStr)); if (n !== (Number(e.special) || 0)) _p.onValue(n); },
-        style: { width: 38, padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#B91C1C", border: "1px solid #CBD5E1", borderRadius: 5, background: "#fff", textAlign: "right", boxSizing: "border-box", outline: "none" } }) : null,
-      specialUsed ? React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円") : null,
-      specialUsed ? _stepBtn(function() { _stepAdd(1); }, function() { _stepAdd(-1); }) : null),
+        style: { width: 38, padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#B91C1C", border: "1px solid #CBD5E1", borderRadius: 5, background: "#fff", textAlign: "right", boxSizing: "border-box", outline: "none" } }),
+      React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円"),
+      _stepBtn(function() { _stepAdd(1); }, function() { _stepAdd(-1); })) : null,
     specialUsed ? React.createElement("div", null,
       React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "根拠（選ぶと推奨応用αが変わる・複数可）"),
       React.createElement(_EpnChipMgr, { items: _p.reasonsMaster, selected: Array.isArray(e.specialReasons) ? e.specialReasons : [], accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: _p.onToggleReason, onAdd: _p.onAddReason, onRename: _p.onRenameReason, onDelete: _p.onDeleteReason, onReorder: _p.onReorderReason }),
@@ -4133,6 +4155,12 @@ function EpNaviPanel(_refEPN) {
     var uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
     _epnPut(save, date, st, Object.assign({}, e, { special: nS, specialUsed: true, ep: _epnComputeEp(level, nS, uki, rn) }));   // base-levelα=応用α=nS
   };
+  // 基本α値のインライン編集（早見カード 2026-07-14 採用αセレクタ化）: 基本α選択時（specialUsed=false）に基本α値を直接編集＝base-levelα=基本αでEP再計算。
+  var onSetBase = function(st, e, newBase) {
+    var nB = Math.max(0, Number(newBase) || 0);
+    var uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
+    _epnPut(save, date, st, Object.assign({}, e, { base: nB, ep: _epnComputeEp(level, nB, uki, rn) }));
+  };
   // 応用α 〇×トグル（計算欄と同じ仕組み 2026-07-08f→2026-07-13応用α化）: 〇＝推奨応用α（無ければ基本α）を初期値に入れてEP再計算／×＝通常（基本α）に戻す・根拠クリア。値・根拠はあとで手動変更可。
   var onSetSpecialUsed = function(st, e, used) {
     var base = Number(e.base) || 0, uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
@@ -4269,6 +4297,7 @@ function EpNaviPanel(_refEPN) {
           React.createElement(_EpnAddSection, { data: data, save: save, date: date, stock: st, item: e, reasonsMaster: reasonsMaster,
             onUsed: function(u) { onSetSpecialUsed(st, e, u); },
             onValue: function(n) { onSetSpecial(st, e, n); },
+            onBase: function(n) { onSetBase(st, e, n); },
             onToggleReason: function(nm) { onToggleReason(st, e, nm); },
             onAddReason: _rsnAddG, onRenameReason: _rsnRenameG, onDeleteReason: _rsnDeleteG, onReorderReason: _rsnReorderG }),
           React.createElement(_EpnRnSection, { item: e, onUsed: function(u) { onSetRnUsed(st, e, u); }, onValue: function(n) { onSetRn(st, e, n); } }));
