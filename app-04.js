@@ -1266,7 +1266,7 @@ function SearchView(_ref45) {
         return k.replace(/_\d{4}-\d{2}-\d{2}$/, "");
       })), _toConsumableArray(chartArr.flatMap(function (c) {
         return (c && c.signals || []).flatMap(function(s) {
-          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", s.tradeType || ""].concat(_sigDetailNames(s));
+          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", s.reviewMemo || "", s.tradeType || ""].concat(_sigDetailNames(s));
         });
       }))).join(" ").toLowerCase();
       if (!hay.includes(kw)) return false;
@@ -1404,7 +1404,7 @@ function SearchView(_ref45) {
       })) return "charts";
       if (chartArr.some(function (c) {
         return c && (c.signals || []).some(function(s) {
-          return (s.rationale || "").toLowerCase().includes(kw) || (s.reflection || "").toLowerCase().includes(kw) || (s.thruMemo || "").toLowerCase().includes(kw) || (s.tradeType || "").toLowerCase().includes(kw);
+          return (s.rationale || "").toLowerCase().includes(kw) || (s.reflection || "").toLowerCase().includes(kw) || (s.thruMemo || "").toLowerCase().includes(kw) || (s.reviewMemo || "").toLowerCase().includes(kw) || (s.tradeType || "").toLowerCase().includes(kw);
         });
       })) return "charts";
       if ((dd.items || []).some(function (t) {
@@ -5300,7 +5300,9 @@ function DayView(_ref57) {
           ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 14 } }, "〇")
           : _elIsThru(s)
             ? React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス")
-            : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
+            : _elIsReview(s)
+              ? React.createElement("span", { title: "要審議", style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審")
+              : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
         var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(_t) { return _elTagDisp(s, _t); }).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
         var resultEl = _dynResTr === "ok"

@@ -3161,6 +3161,8 @@ function _elUkiSignalNames(custom) {
 function _elIsExcluded(s) { return !!(s && (s.includeInTotal === false || s.passThrough === true)); }
 // スルー判定（実エントリー3択の第3状態 2026-07-06）: シグナルは出たが判断の土俵に乗せなかった記録＝計算は不算入と同経路・見た目は灰色（不算入の水色と区別）。
 function _elIsThru(s) { return !!(s && s.passThrough === true); }
+// 要審議判定（実エントリー第4状態 2026-07-14c）: 無エントリー扱い（合計損益は無エントリーで0＝実質不算入）だが、スルーと違い分析母数(_elInclTotal)には算入する。見た目はピンク。
+function _elIsReview(s) { return !!(s && s.review === true); }
 // 「不算入」水色バッジ（行/カードに付ける）。
 function _elNotInclBadge(extra, s) {
   var _thru = _elIsThru(s);
@@ -4221,6 +4223,7 @@ function _elTotAccum(items, get) {
   (items || []).forEach(function(it) {
     var s = get.signal(it), a = get.alpha(it), c = get.cut(it);
     if (!s) return;
+    if (_elIsReview(s)) return;   // 要審議＝合計損益に不算入（無エントリー扱い・分析母数には _elInclTotal 経由で算入）2026-07-14c
     if (get.excluded && get.excluded(it)) return;
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     if (get.real) { var rv = get.real(it); if (rv != null) { t.real = (t.real || 0) + rv; t.realCnt++; } }
@@ -5851,6 +5854,13 @@ function EntryRecordForm(_ref_erf) {
   var _useStateTHM = useState(initSig.thruMemo || ""),
     _useStateTHMA = _slicedToArray(_useStateTHM, 2),
     fThruMemo = _useStateTHMA[0], setFThruMemo = _useStateTHMA[1];
+  // 要審議の状態＋根拠メモ（実エントリー第4状態 2026-07-14c）: 無エントリー扱い（合計不算入）だが分析母数には算入・見た目ピンク。signal.review/reviewMemoに保存。
+  var _useStateRVW = useState(initSig.review === true),
+    _useStateRVWA = _slicedToArray(_useStateRVW, 2),
+    fReview = _useStateRVWA[0], setFReview = _useStateRVWA[1];
+  var _useStateRVM = useState(initSig.reviewMemo || ""),
+    _useStateRVMA = _slicedToArray(_useStateRVM, 2),
+    fReviewMemo = _useStateRVMA[0], setFReviewMemo = _useStateRVMA[1];
   // シグナル詳細（3セクション化 2026-07-07c）: 選択タグごとに {b:①底抜け(単一), k:②起点(単一), f:[③その他特徴...](複数)}・任意。signal.sigDetail={タグ名:{b,k,f}}。
   // 候補はcustom.sigDetails2={タグ名:{b,k,f}}（タグに無ければ旧custom.sigDetails[タグ]を各セクションへ複製表示）。
   // 旧記録(sigDetail[t]=文字列/フラット配列)は③その他特徴(f)として読み込む（_elSigDetailSec・ユーザー決定 2026-07-07）＝保存すると新形式{f:[...]}に置き換わる。
@@ -6886,6 +6896,8 @@ function EntryRecordForm(_ref_erf) {
       })(),
       passThrough: fThru === true ? true : null,
       thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,
+      review: fReview === true ? true : null,
+      reviewMemo: (fReview === true && fReviewMemo) ? fReviewMemo : null,
       result: fResult,
       memo: initSig.memo || "", 
       time: fTime || "",
@@ -7535,15 +7547,15 @@ function EntryRecordForm(_ref_erf) {
         var _line = function(sp) { return "（直近期間別参考　25件：" + _winStr(_rb && _rb.w1, sp) + "　50件：" + _winStr(_rb && _rb.m1, sp) + "　100件：" + _winStr(_rb && _rb.m3, sp) + "）"; };
         var _sub = { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 2, marginBottom: 3 };
         var _rowFlex = { display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" };
-        var _tblBtn = function(kind, color, bd) { return React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal(kind); }, title: "各シグナルの詳細データ表を表示（母数を選んで閲覧／基本αはこの推奨値を採用も可）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"); };
-        // 詳細表ポップアップ（2026-07-14b）: 母数セレクタ（全体／各シグナル・既定=全体）で各シグナルの詳細表を閲覧。基本αは選択母数の推奨値を「この推奨値を使う」でフォームに採用可（応用αは閲覧のみ）。
+        var _tblBtn = function(kind, color, bd) { return React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal(kind); }, title: "詳細データ表を表示（全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"); };
+        // 詳細表ポップアップ（2026-07-14c）: 母数トグル（全体／この記録のシグナル・既定=全体）で詳細表を閲覧（閲覧のみ）。任意シグナルは見出しの母数プルダウンで選ぶ。
         var _alScopeRecs = _baRecsForScope(_alTblScope);
         var _alScopeLabel = (_alTblScope === "all") ? "全体（全シグナル）" : ("「" + _alTblScope + "」");
-        var _alScopePick = _alTblModal ? _baPickForScope(_alTblScope) : { alpha: null };   // ポップアップ閉時は重い_elBaseAlphaPickを走らせない（2026-07-14b レビュー反映）
-        var _scopeSel = React.createElement("select", { value: _alTblScope, onChange: function(e) { _setAlTblScope(e.target.value); }, style: { fontSize: 12, fontWeight: 700, padding: "3px 6px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#fff", maxWidth: 260 } },
-          [React.createElement("option", { key: "__all", value: "all" }, "全体（全シグナル）")].concat(
-            _baSignalList.map(function(t) { return React.createElement("option", { key: t, value: t }, t + "（" + _baRecsForScope(t).length + "件）"); })));
-        var _useScopeBtn = (_alTblModal === "base" && _alScopePick.alpha != null) ? React.createElement("button", { type: "button", onClick: function() { _applyBaScope(_alTblScope); _setAlTblModal(null); }, title: "この母数の推奨基本α値をフォームに採用する", style: { fontSize: 11, fontWeight: 700, color: "#fff", background: "#0369A1", border: "1px solid #0369A1", borderRadius: 6, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "この推奨値（" + _alScopePick.alpha + "円）を使う") : null;
+        var _alPrimaryTag = (fTags && fTags.length) ? fTags[0] : null;   // トグル「この記録のシグナル」＝最初のタグ 2026-07-14c
+        var _scopeBtnStyle = function(on) { return { padding: "4px 12px", fontSize: 11, fontWeight: 800, borderRadius: 6, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#0369A1" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.12)" : "none" }; };
+        var _scopeToggle = React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 8, padding: 3, gap: 3, flexWrap: "wrap" } },
+          React.createElement("button", { key: "__all", type: "button", onClick: function() { _setAlTblScope("all"); }, style: _scopeBtnStyle(_alTblScope === "all") }, "全体"),
+          _alPrimaryTag ? React.createElement("button", { key: "__sig", type: "button", onClick: function() { _setAlTblScope(_alPrimaryTag); }, style: _scopeBtnStyle(_alTblScope === _alPrimaryTag) }, "この記録のシグナル") : null);
         var _modalEl = _alTblModal ? React.createElement("div", { onClick: function() { _setAlTblModal(null); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
           React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } },
@@ -7551,9 +7563,8 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("button", { type: "button", onClick: function() { _setAlTblModal(null); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")),
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
               React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "母数"),
-              _scopeSel,
-              _useScopeBtn),
-            React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "記録帳の分析と同じ表。母数＝この銘柄・" + _alScopeLabel + "・前日まで全期間" + (_alTblModal === "base" ? "（「この推奨値を使う」でフォームに採用）" : "（閲覧のみ）")),
+              _scopeToggle),
+            React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "記録帳の分析と同じ表。母数＝この銘柄・" + _alScopeLabel + "・前日まで全期間（閲覧のみ）"),
             _alScopeRecs.length
               ? (_alTblModal === "base"
                   ? _elBaseAlphaDetailV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli)
@@ -7564,20 +7575,16 @@ function EntryRecordForm(_ref_erf) {
           [React.createElement("option", { key: "__all", value: "all" }, "全体")].concat(
             _baSignalList.map(function(t) { return React.createElement("option", { key: t, value: t }, "「" + t + "」"); })));
         var _toAllBtn = (_baScope !== "all") ? React.createElement("button", { type: "button", onClick: function() { _applyBaScope("all"); }, title: "銘柄全体の推奨基本α値に戻す", style: { fontSize: 9, fontWeight: 700, color: "#0369A1", background: "#EFF6FF", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "全体の推奨値にする") : null;
-        return React.createElement("div", { title: "推奨基本α値＝選んだ母数（既定=銘柄全体／各シグナル）の推奨基本α。母数プルダウンで切替、詳細表からも採用可。推奨応用α値＝この銘柄の応用〇記録から（前日まで・銘柄全体）。", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
-          React.createElement("div", { style: _rowFlex },
-            React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
-            _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
-            _headScopeSel,
-            _toAllBtn,
-            _tblBtn("base", "#0369A1", "#93C5FD")),
-          (_baScope === "all") ? React.createElement("div", { style: _sub }, _line(false)) : null,
-          React.createElement("div", { style: _rowFlex },
-            React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨応用α値 "),
-            _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
-            (_refSpecial && _refSpecial.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "参考") : null,
-            _tblBtn("special", "#9A3412", "#FDBA74")),
-          React.createElement("div", { style: _sub }, _line(true)),
+        // 基本α選択時のみ推奨基本α値サマリーを表示（応用α選択時は非表示・応用サマリーは応用入力の下に別途表示）2026-07-14c。モーダルは常時（どちらの📊詳細表からも開く）。
+        return React.createElement(React.Fragment, null,
+          (fAlphaKind === "base") ? React.createElement("div", { title: "推奨基本α値＝選んだ母数（既定=銘柄全体／各シグナル）の推奨基本α。母数プルダウンで切替、詳細表で閲覧。", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
+            React.createElement("div", { style: _rowFlex },
+              React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
+              _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
+              _headScopeSel,
+              _toAllBtn,
+              _tblBtn("base", "#0369A1", "#93C5FD")),
+            (_baScope === "all") ? React.createElement("div", { style: _sub }, _line(false)) : null) : null,
           _modalEl);
       })(),
       fAlphaKind === "special" ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
@@ -7601,6 +7608,21 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
         );
       })()) : null,
+      (fAlphaKind === "special") ? (function() {
+        // 推奨応用α値サマリー（応用α入力の下・2026-07-14c 基本αと[入力]→[推奨]の順を統一）。詳細表📊は state 駆動でモーダルを開く。
+        var _sub = { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 2, marginBottom: 3 };
+        var _rowFlex = { display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" };
+        var _rb = _refBaseAlpha;
+        var _winStr = function(w) { return (w && w.add && w.add.alpha != null) ? (w.add.alpha + "円") : "—"; };
+        var _line = "（直近期間別参考　25件：" + _winStr(_rb && _rb.w1) + "　50件：" + _winStr(_rb && _rb.m1) + "　100件：" + _winStr(_rb && _rb.m3) + "）";
+        return React.createElement("div", { style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "2px 0 4px" } },
+          React.createElement("div", { style: _rowFlex },
+            React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨応用α値 "),
+            _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
+            (_refSpecial && _refSpecial.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "参考") : null,
+            React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal("special"); }, title: "詳細データ表を表示（全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#fff", border: "1px solid #FDBA74", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表")),
+          React.createElement("div", { style: _sub }, _line));
+      })() : null,
       (fAlphaKind === "special") ? (function() {
         var _reasonsM = (data && data.custom && Array.isArray(data.custom.specialReasons)) ? data.custom.specialReasons : _DEF_SPECIAL_REASONS;
         var _reasons = (fRsnOrder && fRsnOrder.list) ? fRsnOrder.list : _reasonsM;   // ドラッグ中は並びプレビュー（2026-07-06e）
@@ -8263,25 +8285,26 @@ function EntryRecordForm(_ref_erf) {
 
 
       React.createElement("div", { style: SH_ }, "実エントリー"),
-      React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
-        // 3択（2026-07-06）: あり/見送り/スルー。スルー=entered:false＋passThrough:true＝常に不算入（灰色）。
-        [["あり", "y"], ["見送り", "n"], ["スルー", "t"]].map(function(kv) {
+      React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" } },
+        // 4択（2026-07-06→2026-07-14c 要審議追加）: あり/見送り/スルー/要審議。スルー=entered:false＋passThrough:true＝常に不算入（灰色・分析からも除外）。要審議=entered:false＋review:true＝無エントリーで合計不算入だが分析母数には算入（ピンク）。
+        [["あり", "y"], ["見送り", "n"], ["スルー", "t"], ["要審議", "r"]].map(function(kv) {
           var label = kv[0], mode = kv[1];
-          var on = mode === "y" ? (fEntered && !fThru) : (mode === "n" ? (!fEntered && !fThru) : fThru === true);
+          var on = mode === "y" ? (fEntered && !fThru && !fReview) : (mode === "n" ? (!fEntered && !fThru && !fReview) : (mode === "t" ? fThru === true : fReview === true));
           var thruSel = mode === "t" && on;
+          var reviewSel = mode === "r" && on;
           return React.createElement("button", {
             key: label,
             onClick: function() {
-              if (mode === "y") { setFEntered(true); setFThru(false); }
-              else { setFEntered(false); setFThru(mode === "t"); setFItemId(null); }
+              if (mode === "y") { setFEntered(true); setFThru(false); setFReview(false); }
+              else { setFEntered(false); setFThru(mode === "t"); setFReview(mode === "r"); setFItemId(null); }
             },
-            title: mode === "t" ? "シグナルは出たが判断の土俵に乗せなかった記録＝合計・データ分析に算入しない（一覧では灰色表示）" : null,
+            title: mode === "t" ? "シグナルは出たが判断の土俵に乗せなかった記録＝合計・データ分析に算入しない（一覧では灰色表示）" : (mode === "r" ? "判断を保留する記録＝合計損益には算入しないが、データ分析には算入する（一覧ではピンク表示）" : null),
             style: {
               padding: "8px 14px", fontSize: 13, fontWeight: 600,
-              border: on ? (thruSel ? "1.5px solid #475569" : "1.5px solid #1a1a1a") : "1px solid #ddd",
-              background: on ? (thruSel ? "#64748B" : "#1a1a1a") : "#fff",
+              border: on ? (reviewSel ? "1.5px solid #BE185D" : (thruSel ? "1.5px solid #475569" : "1.5px solid #1a1a1a")) : "1px solid #ddd",
+              background: on ? (reviewSel ? "#DB2777" : (thruSel ? "#64748B" : "#1a1a1a")) : "#fff",
               color: on ? "#fff" : "#555",
-              borderRadius: 6, cursor: "pointer", flex: 1
+              borderRadius: 6, cursor: "pointer", flex: 1, minWidth: 64
             }
           }, label);
         })
@@ -8295,6 +8318,20 @@ function EntryRecordForm(_ref_erf) {
           autoResize: true,
           value: fThruMemo,
           onChange: function(v) { setFThruMemo(v); },
+          placeholder: "",
+          rows: 2,
+          style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56, marginBottom: 8 })
+        })
+      ) : null,
+      fReview ? React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 6, padding: "6px 9px" } },
+          "要審議＝判断を保留する記録。合計損益には算入されませんが、データ分析には算入されます。一覧ではピンク表示になります。"),
+        React.createElement("div", { style: SH_ }, "要審議の根拠メモ"),
+        React.createElement(FastInput, {
+          multiline: true,
+          autoResize: true,
+          value: fReviewMemo,
+          onChange: function(v) { setFReviewMemo(v); },
           placeholder: "",
           rows: 2,
           style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56, marginBottom: 8 })
@@ -8596,7 +8633,7 @@ function EntryLogCard(_ref_elc) {
 
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       s.tradeType && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: s.tradeType === "空売" ? "#FCEBEB" : "#EAF3DE", color: s.tradeType === "空売" ? "#C0392B" : "#1E8449", borderRadius: 4, border: "1px solid " + (s.tradeType === "空売" ? "#F5C6CB" : "#A9DFBF") } }, s.tradeType),
-      React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: entered ? "#E8F5E9" : (_elIsThru(s) ? "#E5E7EB" : "#f5f4f0"), color: entered ? "#2E7D32" : (_elIsThru(s) ? "#4B5563" : "#888"), borderRadius: 4, border: "1px solid " + (entered ? "#A9DFBF" : (_elIsThru(s) ? "#9CA3AF" : "#ddd")) } }, entered ? "実エントリー" : (_elIsThru(s) ? "スルー" : "見送り")),
+      React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: entered ? "#E8F5E9" : (_elIsThru(s) ? "#E5E7EB" : (_elIsReview(s) ? "#FCE7F3" : "#f5f4f0")), color: entered ? "#2E7D32" : (_elIsThru(s) ? "#4B5563" : (_elIsReview(s) ? "#9D174D" : "#888")), borderRadius: 4, border: "1px solid " + (entered ? "#A9DFBF" : (_elIsThru(s) ? "#9CA3AF" : (_elIsReview(s) ? "#F9A8D4" : "#ddd"))) } }, entered ? "実エントリー" : (_elIsThru(s) ? "スルー" : (_elIsReview(s) ? "要審議" : "見送り"))),
       (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(t) {
         return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, _elTagDisp(s, t));
       }),
@@ -8677,6 +8714,7 @@ function EntryLogCard(_ref_elc) {
 
     s.alphaMemo && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "αメモ"), s.alphaMemo),
     s.thruMemo && React.createElement("div", { style: { fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, marginRight: 3 } }, "スルー根拠"), s.thruMemo),
+    s.reviewMemo && React.createElement("div", { style: { fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } }, React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, marginRight: 3 } }, "審議根拠"), s.reviewMemo),
     s.rationale && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale),
     s.reflection && React.createElement("div", { style: { fontSize: 11, color: "#777", marginTop: 4, lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection),
     onGoDate && React.createElement("div", { style: { textAlign: "right", marginTop: 4 } },

@@ -4651,7 +4651,9 @@ function EntrySignalSection(_ref_es) {
               ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 14 } }, "〇")
               : _elIsThru(s)
                 ? React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス")
-                : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
+                : _elIsReview(s)
+                  ? React.createElement("span", { title: "要審議", style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審")
+                  : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×");
             var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(_t) { return _elTagDisp(s, _t); }).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
             var sigLabel = _sigParts.length > 0 ? _sigParts.join(" / ") : "(未設定)";
             var resultEl = _dispResult === "ok"
@@ -4689,7 +4691,9 @@ function EntrySignalSection(_ref_es) {
                     ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇")
                     : _elIsThru(s)
                       ? React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス")
-                      : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
+                      : _elIsReview(s)
+                        ? React.createElement("span", { title: "要審議", style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審")
+                        : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#FFFBF0" } },
                   _elHold2AmtNode(s, _avH, _cutLH), _elRideMiniNode(s, _avH, _cutLH)),
                 React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", background: "#F8FBFE" } },

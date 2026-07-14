@@ -1197,6 +1197,7 @@ function _elCumPnlSectionV2(props) {
   var recs = props.recs, aiOf = props.aiOf;
   // 時間かぶり除外: dataが渡された場合は良い方を累積から抜く＝合計行と同一基準を維持。scopeStock指定時は同一銘柄内のみ（銘柄別ビュー）2026-07-08
   if (props.data) recs = (recs || []).filter(function(r) { return !_elCollExcluded(props.data, r, props.scopeStock); });
+  recs = (recs || []).filter(function(r) { return !(r.signal && _elIsReview(r.signal)); });   // 要審議は合計損益（累積）に不算入（_elTotAccumと同基準）2026-07-14c
   var _hs = useState(null), hoverIdx = _hs[0], setHoverIdx = _hs[1];
   var _dsS = useState(""), startDate = _dsS[0], setStartDate = _dsS[1];  // 起算日（""=最初から）
   if (!recs || recs.length < 2) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "記録が2件以上で表示されます");
@@ -2182,9 +2183,6 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel) {
   ], { note: "この銘柄のv2・算入記録（素の記録のみ）に各αを当ててシミュレーション（前提損切り値" + _elAnaCutCur + "円＝各記録の実損切り値ではなくこの前提で評価）。E成立・損切り率(最終)・利確率・最終損益(平均/Σ)＝最終損益(手じまい・EP/H1/H2損切り込み)基準・理想αは到達率" + _reachP + "%の下限で選定・推奨α＝理想−" + _EL_ALPHA_OFFSET + "円。H1勝率・平均H1損益・スコア＝旧H1基準の参考列。" + (na ? " ※到達率下限を満たすαが無い、または自信条件を満たさないため緩和した参考値。" : "") });
   return React.createElement("div", null,
     concl,
-    React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "8px 0 0" } },
-      "母数の内訳: 算入 " + (recs || []).length + "件 → 応用α " + _exAddN + "件・浮き足〇 " + _exUkiN + "件・RN〇 " + _exRnN + "件を除外 → 素の記録 " + _baseRecs.length + "件（E成立＝そのαでOS3までにEP到達し勝敗判定できた数）"),
-    _lbl("α別の総当たり（0〜20円・淡色＝到達率" + _reachP + "%未満または赤字＝対象外／「理想」＝到達率" + _reachP + "%以上を保てる最も高いα／★＝推奨α＝理想−" + _EL_ALPHA_OFFSET + "円（指値を通しやすく）・★赤＝理想が損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%/E成立≥" + _EL_BASE_MIN_N + "件/頻度≤" + _EL_FREQ_MAX + "も満たす・★青＝参考 2026-07-13／前提損切り値" + _elAnaCutCur + "円で評価／平均H1損益・H1勝率・スコア＝旧基準の参考列／頻度＝数字が小さいほど高頻度）"),
     _elv2Table(["基本α", "到達率", "頻度", "E成立", "損切り率(最終)", "H1勝率", "平均H1損益", "利確率(最終)", "最終損益(平均/Σ)", "スコア"].concat(onPick ? ["選択"] : []), sweepRows),
     insight);
 }
@@ -5004,7 +5002,9 @@ function EntryLogView(_ref_elv2) {
             ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "〇")
             : _elIsThru(s)
               ? React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス")
-              : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 13 } }, "×")),
+              : _elIsReview(s)
+                ? React.createElement("span", { title: "要審議", style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審")
+                : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 13 } }, "×")),
           _td(React.createElement(React.Fragment, null, _elHold2AmtNode(s, a.alpha, a.cutLine), _elRideMiniNode(s, a.alpha, a.cutLine)), { background: "#FFFBF0" }),
           React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: "4px 6px", textAlign: "left", fontSize: 11, borderTop: "1px solid #f0ede8", background: "#F8FBFE" } }, _elDetailFlowStack(s, a.alpha, a.cutLine))
         ]).concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60) : _dash)]);
