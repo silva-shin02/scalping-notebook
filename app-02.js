@@ -4933,6 +4933,7 @@ function WeeklyPnlPanel(_wpp) {
   var _wre = useState({}), recExp = _wre[0], setRecExp = _wre[1];
   var _wde = useState({}), dayExp = _wde[0], setDayExp = _wde[1];
   useEffect(function() { setSimAlpha({}); setSimCut({}); }, [date, weekOffset, stock]);
+  var _wkHoli = useMemo(function() { return _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories); }, [data]);   // 休場日（カレンダーの「祝日・休場」イベント＝頻度計算と同じ）＝日付行に「休」表示 2026-07-14e
   var _pad = function(n) { return ("0" + n).slice(-2); };
   var _d0 = new Date(date + "T00:00:00");
   var _mon = new Date(_d0); _mon.setDate(_d0.getDate() - ((_d0.getDay() + 6) % 7) + weekOffset * 7);
@@ -5186,7 +5187,7 @@ function WeeklyPnlPanel(_wpp) {
           ].concat(
             _wkDates.map(function(wd) {
               var _dobj = new Date(wd + "T00:00:00");
-              var _lbl = _DOWJP[_dobj.getDay()] + " " + wd.slice(5).replace("-", "/");
+              var _lbl = React.createElement(React.Fragment, null, _DOWJP[_dobj.getDay()] + " " + wd.slice(5).replace("-", "/"), _wkHoli[wd] ? React.createElement("span", { title: "休場日（祝日・休場）", style: { marginLeft: 4, fontSize: 9, fontWeight: 700, color: "#7C3AED", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 3, padding: "0 3px", verticalAlign: "middle" } }, "休") : null);
               var _rk = "wk_" + wd;
               return [
                 _sumRow(_lbl, null, _byDay[wd] || [], false, _rk),

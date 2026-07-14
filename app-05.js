@@ -7624,8 +7624,7 @@ function EntryRecordForm(_ref_erf) {
         return React.createElement("div", { style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "2px 0 4px" } },
           React.createElement("div", { style: _rowFlex },
             React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨応用α値 "),
-            _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
-            (_refSpecial && _refSpecial.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "参考") : null,
+            _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : ((_refSpecial && _refSpecial.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#B45309" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
             React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal("special"); }, title: "詳細データ表を表示（全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#fff", border: "1px solid #FDBA74", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表")),
           React.createElement("div", { style: _sub }, _line));
       })() : null,

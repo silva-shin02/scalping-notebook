@@ -3562,7 +3562,8 @@ function _epnSpecialRecoFrom(casc, reasons) {
     }
   }
   var reco = _elSpecialAlphaPick(allSp, casc.aiOf, _minIdeal);   // 銘柄全体（根拠不問）フォールバック
-  return (reco && reco.alpha != null && reco.status !== "none") ? { v: reco.alpha, v2: reco.alpha2, n: allSp.length, decided: reco.decided || 0, byReason: false, fellBack: rs.length > 0 } : null;
+  if (reco && reco.alpha != null && reco.status !== "none") return { v: reco.alpha, v2: reco.alpha2, n: allSp.length, decided: reco.decided || 0, byReason: false, fellBack: rs.length > 0 };
+  return (reco && reco.status === "nomin") ? { nomin: true, n: allSp.length } : null;   // 全条件を満たす応用αが無い＝条件適合無し 2026-07-14e
 }
 function _epnSpecialReco(data, stock, date, tag, sel, reasons) {
   if (!stock) return null;
@@ -3741,7 +3742,7 @@ function _EpnAddSection(_p) {
       React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "根拠（選ぶと推奨応用αが変わる・複数可）"),
       React.createElement(_EpnChipMgr, { items: _p.reasonsMaster, selected: Array.isArray(e.specialReasons) ? e.specialReasons : [], accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: _p.onToggleReason, onAdd: _p.onAddReason, onRename: _p.onRenameReason, onDelete: _p.onDeleteReason, onReorder: _p.onReorderReason }),
       React.createElement("div", { style: { fontSize: 8.5, color: reco ? "#9A3412" : "#94A3B8", marginTop: 2 } },
-        reco ? ("推奨応用α " + reco.v + "円" + (reco.byReason ? "（選択根拠・n=" + reco.n + "・手動変更可）" : reco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + reco.n + "・手動変更可）" : "（銘柄全体・n=" + reco.n + "・手動変更可）")) : "推奨応用α データ無し（手動入力）")) : null);
+        reco ? (reco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + reco.v + "円" + (reco.byReason ? "（選択根拠・n=" + reco.n + "・手動変更可）" : reco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + reco.n + "・手動変更可）" : "（銘柄全体・n=" + reco.n + "・手動変更可）"))) : "推奨応用α データ無し（手動入力）")) : null);
 }
 // 早見カードのRNまたぎ加算インライン編集（2026-07-08h）: 〇×ボタン→〇のとき数値入力（円・そのまま加算）。値入力はローカルstate（onBlur確定＝1文字ごとの全体保存を避ける）。根拠なし＝追加αより単純。
 function _EpnRnSection(_p) {
@@ -4091,7 +4092,7 @@ function _EpnCalcForm(_p) {
           React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 3 } }, "根拠（選ぶと推奨応用αが変わる・複数可）"),
           React.createElement(_EpnChipMgr, { items: reasonsMaster, selected: nSpecialReasons, accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: function(nm) { setNSpecialReasons(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: _rsnAdd, onRename: _rsnRename, onDelete: _rsnDelete, onReorder: _rsnReorder }),
           React.createElement("div", { style: { fontSize: 9.5, color: specialReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
-            specialReco ? ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : specialReco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）" : "（銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）")) : "推奨応用α データ無し（空欄＝基本α）"))) : null)),
+            specialReco ? (specialReco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : specialReco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）" : "（銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）"))) : "推奨応用α データ無し（空欄＝基本α）"))) : null)),
     _lrow("RNまたぎ加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RNまたぎ加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
       _oxBtns(nRnUsed, function(v) { setNRnUsed(v); if (v === "○" && nRnVal === "") setNRnVal("5"); }),
       nRnUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nRnVal, placeholder: "5",
@@ -5841,6 +5842,7 @@ function DayView(_ref57) {
     };
     var _wkMainEl = (function() {
       var _DOWJP = ["日", "月", "火", "水", "木", "金", "土"];
+      var _wkHoli = _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories);   // 休場日（カレンダーの「祝日・休場」イベント）＝日付行に「休」表示 2026-07-14e
       var _wkBadge = function(g) {
         var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
         return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 } }, g);
@@ -5971,7 +5973,7 @@ function DayView(_ref57) {
               ].concat(
                 _wkDates.map(function(_wd) {
                   var _dobj = new Date(_wd + "T00:00:00");
-                  var _lbl = _DOWJP[_dobj.getDay()] + " " + _wd.slice(5).replace("-", "/");
+                  var _lbl = React.createElement(React.Fragment, null, _DOWJP[_dobj.getDay()] + " " + _wd.slice(5).replace("-", "/"), _wkHoli[_wd] ? React.createElement("span", { title: "休場日（祝日・休場）", style: { marginLeft: 4, fontSize: 9, fontWeight: 700, color: "#7C3AED", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 3, padding: "0 3px", verticalAlign: "middle" } }, "休") : null);
                   var _rk = "wk_" + _wd;
                   return [
                     _wkRow(_lbl, null, _wkByDay[_wd], false, _rk),
