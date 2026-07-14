@@ -4926,12 +4926,13 @@ function _NikkeiManualInput(_p) {
 // 単一銘柄の「今週の損益データ」パネル（取引タブの今週欄と同システム＝同じ計算/セルヘルパー・明細表・α/損切りシミュ・週送り・理想α）。
 // ChartSection末尾の📝メモ下に表示。hideSignals(日経)では非表示・外国市場はChartSection自体が描画されないため対象外。合計は_elTotAccumで取引タブと一致。
 function WeeklyPnlPanel(_wpp) {
-  var data = _wpp.data, stock = _wpp.stock, date = _wpp.date;
+  var data = _wpp.data, stock = _wpp.stock, date = _wpp.date, save = _wpp.save;
   var _wo = useState(0), weekOffset = _wo[0], setWeekOffset = _wo[1];
   var _wsa = useState({}), simAlpha = _wsa[0], setSimAlpha = _wsa[1];
   var _wsc = useState({}), simCut = _wsc[0], setSimCut = _wsc[1];
   var _wre = useState({}), recExp = _wre[0], setRecExp = _wre[1];
   var _wde = useState({}), dayExp = _wde[0], setDayExp = _wde[1];
+  var _wet = useState(null), _wEdit = _wet[0], _wSetEdit = _wet[1];   // 展開カードから選択記録を編集（EntryRecordForm）2026-07-14g
   useEffect(function() { setSimAlpha({}); setSimCut({}); }, [date, weekOffset, stock]);
   var _wkHoli = useMemo(function() { return _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories); }, [data]);   // 休場日（カレンダーの「祝日・休場」イベント＝頻度計算と同じ）＝日付行に「休」表示 2026-07-14e
   var _pad = function(n) { return ("0" + n).slice(-2); };
@@ -5021,7 +5022,7 @@ function WeeklyPnlPanel(_wpp) {
     if (!rExp) return _row;
     return React.createElement(React.Fragment, { key: rKey + "_f" }, _row,
       React.createElement("tr", { key: rKey + "_d" }, React.createElement("td", { colSpan: 11, style: { padding: "0 0 4px 0", borderBottom: "1px solid #e0ddd6" } },
-        React.createElement(EntryLogCard, { record: r, alpha: a, cutLine: c }))));
+        React.createElement(EntryLogCard, { record: r, alpha: a, cutLine: c, onEdit: function(rec) { _wSetEdit(rec); } }))));
   });
   };
   var _amtCell = function(v, cnt, ref, refCnt, isReal, allMiss) {
@@ -5197,7 +5198,8 @@ function WeeklyPnlPanel(_wpp) {
           )
         )
       )
-    )
+    ),
+    _wEdit && React.createElement(EntryRecordForm, { data: data, save: save, initial: _wEdit, onClose: function() { _wSetEdit(null); } })
   );
 }
 
