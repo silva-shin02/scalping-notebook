@@ -3545,7 +3545,7 @@ function _epnBaseLevelKey(casc) {
 function _epnSpecialRecoFrom(casc, reasons) {
   if (!casc) return null;
   // 応用αの母数は銘柄全体（全応用〇・浮き足〇/RN〇除外）。根拠別はその中を根拠で絞り、プール件数（その根拠の応用〇記録数・EP到達/判定は問わない＝画面のn=）が下限_elSpecialMinDecidedCur以上のときだけ「根拠別」を採用＝未満は銘柄全体へフォールバック（ユーザー方針 2026-07-13・E成立でなくプール件数で判定）。
-  var allSp = (casc.all || []).filter(function(r) { return _elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+  var allSp = (casc.all || []).filter(_elIsSpecialAlphaPoolRec);
   if (!allSp.length) return null;
   var key = _epnBaseLevelKey(casc);
   var _bp = key === "det" ? casc.det : (key === "sig" ? casc.sig : casc.stk);   // 採用した基本α段の理想＝応用αを基本αより大きくクランプ 2026-07-13

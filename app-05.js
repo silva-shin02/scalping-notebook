@@ -6252,7 +6252,7 @@ function EntryRecordForm(_ref_erf) {
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var allR = _elStockRecsBefore(data, fStock, fDate);
     var _bp = allR.length ? _elBaseAlphaPick(allR, aiOf) : null;   // 銘柄全体の基本α理想＝応用αを基本αより大きくクランプ 2026-07-13
-    var recs = allR.filter(function(r) { return _elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+    var recs = allR.filter(_elIsSpecialAlphaPoolRec);
     if (!recs.length) return null;
     var p = _elSpecialAlphaPick(recs, aiOf, _bp ? _bp.idealAlpha : null);
     return (p && p.alpha != null && p.status !== "none") ? p : null;

@@ -1460,7 +1460,7 @@ function _elH2EvalByFn(recs, aiOf, alphaOf) {
 // 推奨基本αの最終損益版: 母数=_elBaseAlphaPickと同一（追加α〇/浮き足〇/RN〇除外）。選定=E成立数(decided)≥フロア かつ 到達率≥_EL_BASE_MIN_ERATE かつ Σ最終損益>0 の中でスコア(0.7×(1−損切り率)+0.3×利確率)最大（同点は件数多→低α）。
 function _elBaseAlphaH2Pick(recs, aiOf) {
   if (!recs || !recs.length) return null;
-  var pool = recs.filter(function(r) { return r && !_elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+  var pool = recs.filter(_elIsBaseAlphaPoolRec);
   if (!pool.length) return null;
   var sweep = _EL_BASE_ALPHAS.map(function(a) { var e = _elH2EvalByFn(pool, aiOf, function() { return a; }); e.a = a; return e; });
   var maxN = sweep.reduce(function(m, e) { return Math.max(m, e.decided || 0); }, 0);
@@ -1621,7 +1621,7 @@ function _elBaseAlphaPickScore(recs, aiOf) {
   // 推奨基本αの母数: 追加α=〇(上乗せあり)以外＝×(不要)＋未選択(未判断)の記録。未選択はaddAlphaVal無し＝基本αのみの記録なので母数に算入する（〇だけ除外）2026-06-24。
   // 浮き足〇（_elUkiYes）も除外＝浮き足加算で嵩上げされる特殊状況の記録を素の基本α評価に混ぜない（旧: 追加α〇として除外されていた挙動を移行後も維持）2026-07-03。
   // RN〇（_elRnYes）も同思想で除外 2026-07-12: RNまたぎ加算込みの採用αを一様置換すると加算成分が消えて評価が歪むため、素の基本α母数から外す（浮き足と対称）。
-  recs = recs.filter(function(r) { return r && !_elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+  recs = recs.filter(_elIsBaseAlphaPoolRec);
   if (!recs.length) return null;
   aiOf = _elAnaAiOf(aiOf);   // 旧基準チップも同じ前提損切り値で比較（公平）2026-07-13b
   var sweep = _EL_BASE_ALPHAS.map(function(a) { return _elBaseAlphaEval(recs, aiOf, a); });
@@ -1657,7 +1657,7 @@ function _elBaseAlphaPickScore(recs, aiOf) {
 // 返り値shapeは旧版互換（score/h1win/scN/pnl等はH1基準を同αで併記・低αpickはH1参考列がnull）＋decided/takeRate/h2Sum/avgH2/h2sweep/reachFloor。旧スコア方式は_elBaseAlphaPickScoreに保存（「旧基準」チップで併記）。
 function _elBaseAlphaPick(recs, aiOf) {
   if (!recs || !recs.length) return null;
-  recs = recs.filter(function(r) { return r && !_elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+  recs = recs.filter(_elIsBaseAlphaPoolRec);
   if (!recs.length) return null;
   aiOf = _elAnaAiOf(aiOf);   // 前提損切り値（既定15円・custom.anaCutPremise）で評価＝「損切り値が◯円である前提での推奨α」2026-07-13b
   var sweep = _EL_BASE_ALPHAS.map(function(a) { return _elBaseAlphaEval(recs, aiOf, a); });   // H1基準（5〜20・旧表示互換の参考列用）
@@ -1905,6 +1905,9 @@ function _elAddAlphaReco(recs, aiOf, baseAlpha, fullRecs) {
 // 浮き足加算α値（signal.ukiUsed=〇）の記録判定。旧: 追加α根拠「底抜け前足浮き（数値根拠）」を含む判定＝2026-07-03に浮き足フィールドへ載せ替え（過去記録はmigrateData(_migUkiAlpha app-01)で移行済み・関数名は互換のため据え置き・_EL_NUM_REASON/app-08同期は廃止）。
 // 用途は従来どおり: 推奨追加α値の母数から除外＝固定の＋X円推奨に馴染まない数値ベース加算を外す（記録帳のシグナル内サブタブ・根拠別分析④/⑤・浮き足専用分析と同基準）。
 function _elHasNumReason(s) { return _elUkiYes(s); }
+// 推奨α母数の正本プール判定（2026-07-14 系統4共通化）: 基本α母数＝応用×・浮き足×・RN×／応用α母数＝応用〇・浮き足×・RN×。_elHasNumReason===_elUkiYes なのでフォーム系(!_elUkiYes)と分析系(!_elHasNumReason)は同一＝1本化。副作用カウント付きの母数構築(_yesN/_exUki/_exRn)とRN除外を省く旧サイト(app-06:2429)は構造が別なので対象外。
+function _elIsBaseAlphaPoolRec(r) { return r && !_elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); }
+function _elIsSpecialAlphaPoolRec(r) { return r && _elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); }
 // 一括: { pick(推奨基本α本体・追加α無し母数), add(推奨追加α・追加α〇の記録だけを母数に算出) }。二プール設計 2026-06-22→2026-06-24g: pick.statusがna(件数不足)でも追加αを算出（ユーザー方針＝1件でも参考表示）。
 // 浮き足加算率(%)・RN加算の共通数値ロジック（2026-07-14 共通化・監査finding2）: EPナビ_EpnCalcFormと記録フォームEntryRecordFormで字面まで二重だった実効%/加算値/ステッパーを1本化＝既定50%/floor/クランプ/空欄=自動のズレ防止。浮き値/RN値は入力で0〜にクランプ済み前提。
 function _elUkiEffPct(pctStr, recoPct) { return (pctStr !== "" && !isNaN(Number(pctStr))) ? Number(pctStr) : (recoPct != null ? recoPct : 50); }   // 実効%＝手入力→推奨(_elUkiRecoPcts.reco)→50
@@ -1942,7 +1945,7 @@ function _elBaseAlphaA(recs, aiOf) {
   // 推奨応用α（2026-07-13 応用α化）: 応用〇の記録だけを母数に、独立α値の最適(_elSpecialAlphaPick＝0〜20円1本)を算出。浮き足〇/RN〇は評価一貫性のため母数から除外。
   // 返り値 .add は応用shape {alpha,alpha2,status,minN,sweep,decided,eRate,stopRate,takeRate,h2Sum,avgH2,...}（旧増分shape{add,total,improved}は廃止）。使えない時はnull。
   var add = null;
-  var spPool = (recs || []).filter(function(r) { return r && _elSpecialUsed(r.signal) && !_elHasNumReason(r.signal) && !_elRnYes(r.signal); });
+  var spPool = (recs || []).filter(_elIsSpecialAlphaPoolRec);
   if (spPool.length) { var _sp = _elSpecialAlphaPick(spPool, aiOf, pick.idealAlpha); if (_sp && _sp.alpha != null && _sp.status !== "none") add = _sp; }   // minIdeal=基本αの理想＝応用αを基本αより大きくクランプ 2026-07-13
   return { pick: pick, add: add };
 }
@@ -2128,7 +2131,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel) {
       : null);
   // α別総当たりの表示は0円から（推奨対象範囲_EL_BASE_ALPHAS=5〜20・★選定は不変／0〜4円は参考行として追加表示のみ）2026-07-02→0円を追加 2026-07-03。母数は推奨基本αと同じ×+未選択（_elBaseAlphaPickが内部で〇を除外するのに揃える）。
   // 2026-07-12: 浮き足〇/RN〇の除外も_elBaseAlphaPickに完全一致させる（旧=追加α〇だけ除外で、0〜4円行・頻度・母数集計にだけ浮き足〇が混入し5〜20円行と母数がズレていた）。
-  var _baseRecs = (recs || []).filter(function(r) { return r && !_elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+  var _baseRecs = (recs || []).filter(_elIsBaseAlphaPoolRec);
   // 母数内訳（⑤透明化 2026-07-13）: シグナル全体N件がどう絞られて母数になったかを表の上に明示（〇同士は重複しうるが除外判定は_baseRecsと同一）。
   var _exAddN = 0, _exUkiN = 0, _exRnN = 0;
   (recs || []).forEach(function(r) { var s = r && r.signal; if (!s) return; if (_elSpecialUsed(s)) _exAddN++; if (_elUkiYes(s)) _exUkiN++; if (_elRnYes(s)) _exRnN++; });
@@ -2190,7 +2193,7 @@ function _elAddAlphaDetailV2(recs, aiOf, holiSet, fullRecs) {
   var _A = _elBaseAlphaA(recs, aiOf);
   var pick = _A ? _A.pick : null;
   if (!pick || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "基本αが未確定のため追加αを算出できません");
-  var addPool = (recs || []).filter(function(r) { return r && _elSpecialUsed(r.signal) && !_elHasNumReason(r.signal) && !_elRnYes(r.signal); });
+  var addPool = (recs || []).filter(_elIsSpecialAlphaPoolRec);
   if (!addPool.length) return React.createElement("div", { style: { fontSize: 11, color: "#94A3B8", padding: "4px 0" } }, "追加α〇（要）を明示した記録がありません（このスコープ）");
   // 【2026-07-13 全面刷新・ユーザー承認】主表＝日付別カウンターファクタル（各記録日の推奨基本α＋加算X・手じまい基準）。fullRecs=recoFn母数（銘柄/シグナル全体・省略時recs）。
   var base = pick.alpha;
@@ -2376,7 +2379,7 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
     var A = _elBaseAlphaA(pd.recs, aiOf);
     var pk = A ? A.pick : null;
     var add = A ? A.add : null;
-    var basePool = pd.recs.filter(function(r) { return r && !_elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });   // 想定損益の母数も推奨基本α(_elBaseAlphaPick)と同じ三重除外に揃える 2026-07-13
+    var basePool = pd.recs.filter(_elIsBaseAlphaPoolRec);   // 想定損益の母数も推奨基本α(_elBaseAlphaPick)と同じ三重除外に揃える 2026-07-13
     var alphaCell, simBase = null;
     if (!pk || pk.alpha == null) alphaCell = dash;
     else {
@@ -4165,7 +4168,7 @@ function _elKabuRecoBaseFn(baseRecs, aiOf) {
     var e = _ent(dateStr);
     if (!e) return null;
     if (e.add === undefined) {
-      var pool = (e.w || []).filter(function(r) { return r && _elSpecialUsed(r.signal) && !_elHasNumReason(r.signal) && !_elRnYes(r.signal); });
+      var pool = (e.w || []).filter(_elIsSpecialAlphaPoolRec);
       var pk = pool.length ? _elSpecialAlphaPick(pool, aiOf) : null;
       e.add = (pk && pk.status !== "none" && pk.alpha != null) ? pk.alpha : null;
       e.w = null;   // 窓の参照を解放
@@ -5361,8 +5364,8 @@ function EntryLogView(_ref_elv2) {
     // KPIカード（ユーザー指定6項目・件数/E到達/一番引っ張った損益/損切り件数は追加α母数トグルに連動 2026-07-01）: 件数／E到達数（到達率）／一番引っ張った損益／損切り件数（損切り率）／推奨基本α（次点も）／推奨追加α（次点も）。
     var _reach = ok + x, _reachRate = _osFilRecs.length ? Math.round(_reach / _osFilRecs.length * 100) : 0;
     // デュアル評価（承認① 2026-07-12）: 最終損益基準の並走pick＋6月以前混入バッジ（承認③）。実母数（浮き足/RN/追加α除外）でバッジ件数を出す。
-    var _baBasePool = (baRs || []).filter(function(r) { return r && !_elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
-    var _baAddPool = (baRs || []).filter(function(r) { return r && _elSpecialUsed(r.signal) && !_elHasNumReason(r.signal) && !_elRnYes(r.signal); });
+    var _baBasePool = (baRs || []).filter(_elIsBaseAlphaPoolRec);
+    var _baAddPool = (baRs || []).filter(_elIsSpecialAlphaPoolRec);
     var _baLg = _elBaseAlphaPickScore(baRs, _ai);   // 旧スコア基準の値（乖離確認チップ・旧_elBaseAlphaH2Pickバッジを置換 2026-07-13）
     var _baAddLg = null;   // 応用α化 2026-07-13: 旧基準（増分方式）チップは廃止＝応用αは独立値のため旧基準の比較対象なし
     var _kpiBase = (function() {
@@ -5548,12 +5551,12 @@ function EntryLogView(_ref_elv2) {
       var _alphaTable = _alphaTableFn(_alReasonRecsScoped);   // α意思決定表はサブタブ母数（前足浮き/その他）＋根拠フィルタで再計算 2026-07-02→2026-07-06
       var _alPick = _alABase ? _alABase.pick : null;
       // 追加α（2026-07-13 日付別方式・根拠セレクタ連動）: プール＝根拠フィルタ後の追加α〇（浮き足・RN除外）。recoFn（各記録日の推奨基本α）の母数はシグナル全体＝根拠に依らない基本α履歴。
-      var _alAddPool = _reasonFilter(_selSigRecs).filter(function(r) { return r && _elSpecialUsed(r.signal) && !_elHasNumReason(r.signal) && !_elRnYes(r.signal); });
+      var _alAddPool = _reasonFilter(_selSigRecs).filter(_elIsSpecialAlphaPoolRec);
       var _alAdd = _alAddPool.length ? _elSpecialAlphaPick(_alAddPool, _ai) : null;   // 推奨応用α（応用〇プールの独立α最適・応用shape）2026-07-13
       // 旧基準チップ（2026-07-13・旧デュアル評価バッジを置換）: ゾーンヘッド用に旧方式の値を併記。母数はゾーンヘッドの主表示と同一スコープ。
       var _alH2Recs = (_reasonSel === "all") ? _selSigRecs : _alReasonRecsFull;
       var _alLgPick = _elBaseAlphaPickScore(_alH2Recs, _ai);
-      var _alBasePoolBadge = (_alH2Recs || []).filter(function(r) { return r && !_elSpecialUsed(r.signal) && !_elUkiYes(r.signal) && !_elRnYes(r.signal); });
+      var _alBasePoolBadge = (_alH2Recs || []).filter(_elIsBaseAlphaPoolRec);
       var _alAddLg = null;   // 応用α化 2026-07-13: 旧基準（増分方式）チップ廃止
       var _alphaSubs = [["base", "① 基本α", "#0369A1"], ["add", "② 応用α", "#9A3412"], ["tools", "③ α早見・ツール", "#64748B"]];   // ④株数シミュは独立タブ「🧮 シミュ」へ昇格（旧alphaSub="kabu"は_alSelがbaseへフォールバック）2026-07-03
       var _alSel = _alphaSubs.some(function(p) { return p[0] === alphaSub; }) ? alphaSub : "base";
