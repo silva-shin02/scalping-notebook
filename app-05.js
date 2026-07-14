@@ -3129,6 +3129,7 @@ function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _
 function _elUkiYes(s) { return !!s && s.ukiUsed === true; }
 function _elUkiVal(s) { if (!s || s.ukiVal == null || s.ukiVal === "" || isNaN(Number(s.ukiVal))) return null; return Number(s.ukiVal); }
 function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); if (v == null || v <= 0) return 0; var pct = (s && s.ukiPct != null && !isNaN(Number(s.ukiPct))) ? Number(s.ukiPct) : 50; return Math.floor(v * pct / 100); }   // 実効加算＝floor(浮き値×加算率/100)。ukiPct=使った加算率(%)・既定50=半額（旧記録はukiPct無し→50%で従来と一致）2026-07-12
+function _elUkiSpecialUsed(s) { return !!(s && s.ukiSpecial === true); }   // 浮き足応用フラグ（大きめ%・根拠つき）2026-07-14g。false/未設定＝浮き足基本。基本α/応用αの specialUsed と対の概念。※α計算切替（浮き足○＝浮き足%のみ）と移行は第2弾
 // RNまたぎ加算の判定/成分（第5のα要素 07-08h・signal.rnUsed/rnVal）。浮き足(_elUkiYes/_elUkiAdd)と対になる分析用ヘルパー 2026-07-12: 推奨基本αの母数除外・RN分析ボード・反実仮想(採用α−RN)で使用。
 function _elRnYes(s) { return !!s && s.rnUsed === true; }
 function _elRnAdd(s) { if (!_elRnYes(s)) return 0; var v = Number(s.rnVal); return (isNaN(v) || v <= 0) ? 0 : v; }

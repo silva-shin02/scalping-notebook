@@ -2965,6 +2965,26 @@ function _elUkiPctBoardV2(recs, aiOf) {
       "母数＝全銘柄の浮き足〇記録 " + pool.length + "件（浮き値あり）。各記録は実際に使った加算率で採用αに畳み込み済み。ここでは浮き足の加算だけを0〜100%（10刻み）で振り直して最終損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大＝新規記録の浮き足加算の自動入力に使う推奨率（次点も表示）。"),
     _elUkiPctSweepNode(sweep));
 }
+// 浮き足の基本/応用プール別 加算率ボード（詳細表）2026-07-14g: 母数＝浮き足〇&浮き値>0&算入&v2 のうち mode で基本(応用フラグ無)/応用(応用フラグ有)に分岐。各プールに%スイープ(_elUkiPctSweep)を当て推奨%を出す＝基本α/応用αのタグ別プールと同じ発想。※フォーム📊詳細表ボタンから開く（配線は第2弾）。
+function _elUkiPctBoardScoped(recs, aiOf, mode) {
+  var _sp = mode === "special";
+  var pool = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal) && _elInclTotal(r.signal) && _elUkiYes(r.signal) && _elUkiVal(r.signal) != null && _elUkiVal(r.signal) > 0 && (_sp ? _elUkiSpecialUsed(r.signal) : !_elUkiSpecialUsed(r.signal)); });
+  if (!pool.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sp ? "浮き足応用〇（浮き値あり）の記録がまだありません" : "浮き足基本〇（浮き値あり）の記録がまだありません");
+  var sweep = _elUkiPctSweep(pool, aiOf);
+  return React.createElement(React.Fragment, null,
+    React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px" } },
+      "母数＝" + (_sp ? "浮き足応用" : "浮き足基本") + "〇の記録 " + pool.length + "件（浮き値あり）。加算率を0〜100%（10刻み）で振り直し最終損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大＝" + (_sp ? "浮き足応用" : "浮き足基本") + "加算率の推奨（次点も表示）。"),
+    _elUkiPctSweepNode(sweep));
+}
+// フォーム/EPナビ向け: 全銘柄の浮き足(基本 or 応用)記録(refDate=記録日前日まで)から推奨加算率(reco)/次点(runnerUp)を算出 2026-07-14g。データ不足は{reco:null}。_elUkiRecoPctsのmode分岐版。
+function _elUkiPctPickScoped(data, refDate, mode) {
+  var _sp = mode === "special";
+  var all = _elCollectAllSignals(data) || [];
+  var pool = all.filter(function(r) { if (!r || !r.signal) return false; if (refDate && r.date && r.date >= refDate) return false; return _epIsV2(r.signal) && _elInclTotal(r.signal) && _elUkiYes(r.signal) && _elUkiVal(r.signal) != null && _elUkiVal(r.signal) > 0 && (_sp ? _elUkiSpecialUsed(r.signal) : !_elUkiSpecialUsed(r.signal)); });
+  if (!pool.length) return { reco: null, runnerUp: null, n: 0 };
+  var sweep = _elUkiPctSweep(pool, function(r) { return _elAlphaInfo(r, data); });
+  return { reco: sweep.best ? sweep.best.P : null, runnerUp: sweep.runnerUp ? sweep.runnerUp.P : null, n: pool.length };
+}
 
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====
 function _elv2Th(t) { return React.createElement("th", { style: { padding: "4px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); }
