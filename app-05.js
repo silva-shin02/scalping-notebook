@@ -6143,7 +6143,7 @@ function EntryRecordForm(_ref_erf) {
     if (!recs.length) return null;
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var pickOf = function(rs) { if (!rs || !rs.length) return null; var A = _elBaseAlphaA(rs, aiOf); if (!A) return null; var p = A.pick; if (!p || p.alpha == null || p.status === "none") return null; return { alpha: p.alpha, ok: p.status === "ok", alpha2: p.alpha2, add: A.add }; };   // 2026-06-27: 同じ窓から推奨追加α(add)も一緒に取得＝フォームの基本α/追加αの窓・起点を揃える
-    // 件数ベースの窓【2026-06-26】: fDate前日までを日付順に並べ末尾から直近25/50/100件。キーw1/m1/m3は直近25/50/100件の意味（旧カレンダー1週/1月/3月から変更）。_defBaseAはm1=直近50件を既定に使う。
+    // 件数ベースの窓【2026-06-26】: fDate前日までを日付順に並べ末尾から直近25/50/100件。キーw1/m1/m3は直近25/50/100件の意味。※2026-07-14: 推奨の選定は窓を使わず前日まで全期間(all)に統一＝w1/m1/m3は「直近期間別参考」の表示のみ（_defBaseAはallを使う・直近優先は廃止）。
     var _base = fDate ? recs.filter(function(r) { return r.date < fDate; }) : recs;
     var _sorted = _base.slice().sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
     var _lastN = function(n) { return _sorted.length > n ? _sorted.slice(_sorted.length - n) : _sorted.slice(); };
@@ -6164,7 +6164,7 @@ function EntryRecordForm(_ref_erf) {
   // 基本αの既定値＝直近50件の推奨基本α（無ければ100件→全期間でフォールバック）。直近25件は標本が薄くブレやすいので自動入力には使わず表示のみ（ユーザー方針 2026-06-22c→件数ベース2026-06-26）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
   var _baAlpha = function(w) { return (w && w.ok && w.alpha != null) ? w.alpha : null; };
   // 基本αに使う窓オブジェクトを確定（m1=直近50件→m3=100件→all=全期間）＝この同じ窓から推奨追加αも取る 2026-06-27。
-  var _defBaseWin = _refBaseAlpha ? (_baAlpha(_refBaseAlpha.m1) != null ? _refBaseAlpha.m1 : (_baAlpha(_refBaseAlpha.m3) != null ? _refBaseAlpha.m3 : (_baAlpha(_refBaseAlpha.all) != null ? _refBaseAlpha.all : null))) : null;
+  var _defBaseWin = _refBaseAlpha ? _refBaseAlpha.all : null;   // 2026-07-14: 直近50→100件優先を廃止＝銘柄全体は「前日まで全期間」pick。詳細表_elBaseAlphaDetailV2と同一の母数(_alTblRecs=_base)・同一関数(_elBaseAlphaA.pick)なので推奨★が完全一致（ユーザー指示）。
   var _defBaseA = _defBaseWin ? _baAlpha(_defBaseWin) : null;
   // 新規記録では基本αに直近50件の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21→2026-06-22c→件数ベース2026-06-26。
   var _baTouchedRef = useRef(false);
@@ -6194,8 +6194,8 @@ function EntryRecordForm(_ref_erf) {
       return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate) && _tagsOf(r.signal).indexOf(_t) >= 0;
     });
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
-    // 窓付きpick: 直近50→100→全期間の順に最初のok推奨を採用（銘柄全体の_defBaseAと同じ考え方）。okが無ければ全期間の参考値(na)をalphaに入れつつok:false＝データ不足扱い。addは同じ窓の推奨追加α。
-    var _pickWin = function(rs) { return _elWinPick(rs, aiOf); };   // 2026-07-14 共通化: EPナビ_epnPickWinと同一ロジックを_elWinPick(app-06)へ集約（返り値にidealAlphaが増えるが未使用で無害）
+    // 全期間pick（2026-07-14 直近50→100件窓を廃止）: 詳細別/シグナル別も「前日まで全期間」で推奨を出す＝銘柄全体(_defBaseA=_refBaseAlpha.all)と同じ全期間基準に統一（ユーザー指示・見出しと詳細表を一致）。返り値shapeは_elWinPickと同一{alpha,idealAlpha,ok,n,add}＝カスケード(.alpha/.ok)そのまま。okが無ければalpha=null・ok:false＝データ不足扱い。
+    var _pickWin = function(rs) { if (!rs || !rs.length) return { alpha: null, idealAlpha: null, ok: false, n: 0, add: null }; var _A = _elBaseAlphaA(rs, aiOf); var p = _A ? _A.pick : null; if (!p || p.alpha == null || p.status === "none") return { alpha: null, idealAlpha: null, ok: false, n: rs.length, add: _A ? _A.add : null }; return { alpha: p.alpha, idealAlpha: p.idealAlpha, ok: p.status === "ok", n: rs.length, add: _A ? _A.add : null }; };
     // 選択値ごとの参考pick（全期間・表示のみ）＝そのセクションの値が一致する記録だけに絞る（旧フラット記録は③として一致判定）。
     var _pickOf = function(rs) { if (!rs.length) return { alpha: null, n: 0 }; var p = _elBaseAlphaPick(rs, aiOf); return (p && p.alpha != null && p.status !== "none") ? { alpha: p.alpha, ok: p.status === "ok", n: rs.length } : { alpha: null, n: rs.length }; };
     var _sel = (fSigDetail && fSigDetail[_t]) || { b: null, k: null, f: [] };

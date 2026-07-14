@@ -3302,7 +3302,7 @@ function StockQuickRefTableWithChart(_props_qrtc) {
 // 推奨基本α/推奨追加α（根拠別）を表示し、予定EP＝水準線価格＋実効α（基本α＋浮き足加算＋追加α）を算出。
 // 「💾保存」で charts[銘柄_日付].epNavi に保存（Firebase同期・×2タップ削除・過去日を開くと当時の保存が残る）。
 // 早見は銘柄を横並び＋各銘柄でEP高い順に縦積み・追加αありは赤字/5分足基準は緑・✎で計算パネルへ読込んで更新。
-// 推奨ロジックは EntryRecordForm の _refSigAlpha/_pickWin（app-05）と同一。変更時は両方直すこと。
+// 推奨ロジックは元々 EntryRecordForm の _refSigAlpha/_pickWin（app-05）と同一だった。※2026-07-14: 記録フォーム側だけユーザー指示で「直近50→100件窓を廃止＝前日まで全期間pick」に変更（見出しと詳細表を一致させるため）。EPナビ(_epnCascade/_epnPickWin→_elWinPick)は現状の件数窓のまま＝両者は意図的に一時乖離中。EPナビも全期間へ揃えるかは要判断（揃える場合は _epnPickWin/autoPick を app-05 _pickWin と同様に全期間pickへ）。
 function _epnTagsOf(s) { return (s.tags && s.tags.length) ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []); }
 function _epnReasonsOf(s) {
   if (!s) return [];
