@@ -1906,6 +1906,11 @@ function _elAddAlphaReco(recs, aiOf, baseAlpha, fullRecs) {
 // 用途は従来どおり: 推奨追加α値の母数から除外＝固定の＋X円推奨に馴染まない数値ベース加算を外す（記録帳のシグナル内サブタブ・根拠別分析④/⑤・浮き足専用分析と同基準）。
 function _elHasNumReason(s) { return _elUkiYes(s); }
 // 一括: { pick(推奨基本α本体・追加α無し母数), add(推奨追加α・追加α〇の記録だけを母数に算出) }。二プール設計 2026-06-22→2026-06-24g: pick.statusがna(件数不足)でも追加αを算出（ユーザー方針＝1件でも参考表示）。
+// 浮き足加算率(%)・RN加算の共通数値ロジック（2026-07-14 共通化・監査finding2）: EPナビ_EpnCalcFormと記録フォームEntryRecordFormで字面まで二重だった実効%/加算値/ステッパーを1本化＝既定50%/floor/クランプ/空欄=自動のズレ防止。浮き値/RN値は入力で0〜にクランプ済み前提。
+function _elUkiEffPct(pctStr, recoPct) { return (pctStr !== "" && !isNaN(Number(pctStr))) ? Number(pctStr) : (recoPct != null ? recoPct : 50); }   // 実効%＝手入力→推奨(_elUkiRecoPcts.reco)→50
+function _elUkiAddVal(useOn, valStr, effPct) { var v = Number(valStr); return (useOn && valStr !== "" && !isNaN(v) && v > 0) ? Math.floor(v * effPct / 100) : 0; }   // 浮き足加算＝floor(浮き値×実効%/100)
+function _elRnAddVal(useOn, valStr) { var v = Number(valStr); return (useOn && valStr !== "" && !isNaN(v) && v > 0) ? v : 0; }   // RN加算＝そのまま加算
+function _elMkPctStepper(setFn) { return function(delta) { setFn(function(prev) { var cur = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : null; if (cur == null) return "50"; var n = cur + delta; if (n > 100) n = 100; if (n < 0) n = 0; return String(n); }); }; }   // 加算率↑↓: 空欄→50・以降±delta(0〜100)
 // det→sig→stk 段階フォールバックの共通選定（2026-07-14 共通化・監査finding7/9）: legs=[{key,label,alpha,ok},...]を順に、まずok段、無ければ(allowProvisional時のみ)仮値段を同順で採用。返り値{alpha,key,src,ok}。src=label（仮値は label+「（仮）」）。全滅は{alpha:null,key:null,src:null,ok:false}。EPナビ(autoPick/_epnBaseLevelKey/_epnRecalcBase)=allowProvisional:true(場中は値を出す)／記録フォーム(_autoBase)=false(okのみ自動入力)。
 function _elCascadePick(legs, allowProvisional) {
   var i, L;

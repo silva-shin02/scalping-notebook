@@ -6335,10 +6335,10 @@ function EntryRecordForm(_ref_erf) {
   var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨(reco)/次点(runnerUp)を算出（_elUkiPctSweep）。fUkiPct=""は自動=推奨(無ければ50%)。加算=floor(浮き値×採用%/100)。2026-07-12
   var _ukiReco = useMemo(function() { return _elUkiRecoPcts(data, fDate); }, [data, fDate]);
-  var _effUkiPct = (fUkiPct !== "" && !isNaN(Number(fUkiPct))) ? Number(fUkiPct) : (_ukiReco.reco != null ? _ukiReco.reco : 50);
-  var _fUkiAdd = (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Math.floor(Number(fUkiVal) * _effUkiPct / 100) : 0;
+  var _effUkiPct = _elUkiEffPct(fUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
+  var _fUkiAdd = _elUkiAddVal(_showUki && fUkiUsed === "○", fUkiVal, _effUkiPct);   // 2026-07-14 共通化
   // RNまたぎ加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
-  var _fRnAdd = (fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : 0;
+  var _fRnAdd = _elRnAddVal(fRnUsed === "○", fRnVal);   // 2026-07-14 共通化
   var _fAlpha = _fBaseLevel + _fUkiAdd + _fRnAdd;
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
@@ -7415,7 +7415,7 @@ function EntryRecordForm(_ref_erf) {
           var _stepUV = function(delta) { setFUkiVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
           var _ukiOn = fUkiUsed === "○";
           var _setUkiPct = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiPct(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 100) n = 100; if (n < 0) n = 0; setFUkiPct(String(n)); };
-          var _stepUkiPct = function(delta) { setFUkiPct(function(prev) { var cur = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : null; if (cur == null) return "50"; var n = cur + delta; if (n > 100) n = 100; if (n < 0) n = 0; return String(n); }); };   // 手入力の↑↓: 空欄→デフォルト50・以降±10 2026-07-12
+          var _stepUkiPct = _elMkPctStepper(setFUkiPct);   // 手入力の↑↓: 空欄→50・以降±10（2026-07-14 共通化）
           var _recoAct = fUkiPct === "" || (_ukiReco.reco != null && Number(fUkiPct) === _ukiReco.reco);   // 推奨ピルがアクティブ（""=自動=推奨）
           var _runAct = _ukiReco.runnerUp != null && fUkiPct !== "" && Number(fUkiPct) === _ukiReco.runnerUp;
           var _custAct = !_recoAct && !_runAct;   // 手入力（推奨/次点いずれにも一致しない％）

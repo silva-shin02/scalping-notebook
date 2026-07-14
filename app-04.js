@@ -3827,14 +3827,14 @@ function _EpnCalcForm(_p) {
   var _epnBaseLevel = (specialV != null) ? specialV : baseV;   // base-levelα＝応用〇なら応用α、通常は基本α（場中版の採用α選択）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨/次点（_elUkiPctSweep）。nUkiPct=""は自動=推奨(無ければ50%)。2026-07-12
   var _ukiReco = useMemo(function() { return _elUkiRecoPcts(data, date); }, [data, date]);
-  var _effUkiPct = (nUkiPct !== "" && !isNaN(Number(nUkiPct))) ? Number(nUkiPct) : (_ukiReco.reco != null ? _ukiReco.reco : 50);
+  var _effUkiPct = _elUkiEffPct(nUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
   var _ukiRecoAct = nUkiPct === "" || (_ukiReco.reco != null && Number(nUkiPct) === _ukiReco.reco);
   var _ukiRunAct = _ukiReco.runnerUp != null && nUkiPct !== "" && Number(nUkiPct) === _ukiReco.runnerUp;
   var _ukiCustAct = !_ukiRecoAct && !_ukiRunAct;
   var _setNUkiPct = function(val) { var v = _toHankakuNum(val); if (v === "") { setNUkiPct(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 100) n = 100; if (n < 0) n = 0; setNUkiPct(String(n)); };
-  var _stepNUkiPct = function(delta) { setNUkiPct(function(prev) { var cur = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : null; if (cur == null) return "50"; var n = cur + delta; if (n > 100) n = 100; if (n < 0) n = 0; return String(n); }); };   // 手入力の↑↓: 空欄→デフォルト50・以降±10 2026-07-12
-  var ukiAddV = (showUki && nUkiUsed === "○" && nUkiVal !== "" && !isNaN(Number(nUkiVal)) && Number(nUkiVal) > 0) ? Math.floor(Number(nUkiVal) * _effUkiPct / 100) : 0;
-  var rnAddV = (nRnUsed === "○" && nRnVal !== "" && !isNaN(Number(nRnVal)) && Number(nRnVal) > 0) ? Number(nRnVal) : 0;   // RNまたぎ加算（そのまま加算・全シグナル 2026-07-08h）
+  var _stepNUkiPct = _elMkPctStepper(setNUkiPct);   // 手入力の↑↓: 空欄→50・以降±10（2026-07-14 共通化）
+  var ukiAddV = _elUkiAddVal(showUki && nUkiUsed === "○", nUkiVal, _effUkiPct);   // 2026-07-14 共通化
+  var rnAddV = _elRnAddVal(nRnUsed === "○", nRnVal);   // RNまたぎ加算（そのまま加算・全シグナル 2026-07-08h→2026-07-14共通化）
   var effA = (_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV + rnAddV) : null;
   var levelN = (nLevel !== "" && !isNaN(parseFloat(nLevel))) ? parseFloat(nLevel) : null;
   var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
