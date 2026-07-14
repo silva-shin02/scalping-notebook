@@ -993,6 +993,30 @@ function migrateData(d) {
       if (_saMigN) console.log("[migrateData] specialAlpha migrated: " + _saMigN + " records");
     } catch(e) { console.warn("[migrateData] specialAlpha error:", e); }
   }
+  // 浮き足専用α化（2026-07-14g）: 浮き足〇＝土台α（基本α/応用α）を持たず、採用α＝浮き足加算(floor(浮き値×%))＋RN のみ。
+  // 過去の浮き足〇記録の alphaVal を再計算（土台αを落とす）＝EP/損益が変わる（ユーザー承認④）。原本は _almigUki にbackup・冪等（フラグ＋値一致チェック）・浮き足〇以外は一切触らない。_elUkiAdd/_elRnAdd(app-05)ロード後前提＝typeofガード。順序＝_migSpecialAlpha の後。
+  if (!d._migUkiDedicated && typeof _elUkiAdd === "function" && typeof _elRnAdd === "function" && typeof _elUkiYes === "function") {
+    try {
+      var _uddN = 0;
+      var _uCharts = (d.charts && typeof d.charts === "object") ? d.charts : {};
+      Object.keys(_uCharts).forEach(function(ck) {
+        var c = _uCharts[ck]; if (!c || !Array.isArray(c.signals)) return;
+        c.signals = c.signals.map(function(s) {
+          if (!s || !_elUkiYes(s)) return s;   // 浮き足〇以外は触らない
+          var _newA = _elUkiAdd(s) + _elRnAdd(s);   // 土台α無し＝浮き足加算＋RN のみ
+          var _oldA = (s.alphaVal != null && s.alphaVal !== "" && !isNaN(Number(s.alphaVal))) ? Number(s.alphaVal) : null;
+          if (_oldA != null && _oldA === _newA) return s;   // 既に一致＝冪等
+          var _up = Object.assign({}, s);
+          _up._almigUki = { alphaVal: (s.alphaVal != null ? s.alphaVal : null), baseAlphaVal: (s.baseAlphaVal != null ? s.baseAlphaVal : null), specialAlpha: (s.specialAlpha != null ? s.specialAlpha : null), specialUsed: (s.specialUsed != null ? s.specialUsed : null) };
+          _up.alphaVal = _newA;
+          _uddN++;
+          return _up;
+        });
+      });
+      d._migUkiDedicated = true;
+      if (_uddN) console.log("[migrateData] uki-dedicated migrated: " + _uddN + " records → float-only alpha");
+    } catch(e) { console.warn("[migrateData] uki-dedicated error:", e); }
+  }
   return d;
 }
 function stLoad() {
