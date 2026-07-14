@@ -5603,7 +5603,7 @@ function DayView(_ref57) {
         var isMiss = _dispResExp === "miss";
         var bb = "1px solid #e8e5de";
         var _isXskipPb = _epIsXSkip(s, _alphaRec);  // E×（×見送り）→ 本合計に算入せず参考(ref)へ
-        var _inclTpb = _elInclTotal(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18
+        var _inclTpb = _elInclTotal(s) && !_elIsReview(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18。要審議も合計不算入（無エントリー扱い・_elTotAccum:app-05:4226と同基準）＝行は表示しtot集計のみ除外 2026-07-14f
         var _collXpb = _elCollExcluded(data, r);  // 時間かぶり除外: 良い方はフッター合計からも全スキップ（行表示は全件のまま）2026-07-07
         if (entered && _inclTpb && !_collXpb) _totRealCnt++;
         if (realPnl != null && _inclTpb && !_collXpb) { _totReal = (_totReal || 0) + realPnl; }
