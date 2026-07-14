@@ -5702,8 +5702,8 @@ function DayView(_ref57) {
       var _totHoldCapGradeABpb = _totHoldPlanCapABCnt > 0 ? _profitGradeFromPnl(_totHoldPlanCapAB != null ? _totHoldPlanCapAB : 0, _totHoldPlanCapABCnt) : null;
       var _rPnlDispABAllPb = function(abV, allV, abGrade, allGrade) {
         // 全ランク(全体)のみ表示。B以上/全ランクのAB分割は廃止。
-        var _fmtAB = function(v) { return v != null ? (v > 0 ? "+" : "") + v.toLocaleString() + "円" : "—"; };
-        var _colAB = function(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+        var _fmtAB = _elPnlFmt;   // 共通化 2026-07-14: _elPnlFmt と同一実装（符号+千区切り+円・null→—）
+        var _colAB = _elPnlColor;   // 共通化 2026-07-14: _elPnlColor と同一実装（正負色・null→#ccc）
         var _v = allV != null ? allV : abV;
         var _g = allGrade || abGrade;
         if (_v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");

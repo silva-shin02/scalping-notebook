@@ -4053,7 +4053,7 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
       : (pnl != null
         ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center" } },
             _elHoldGradeBadge(_profitGradeFromPnl(pnl, 1)),
-            React.createElement("span", { style: { fontWeight: 700, color: pnl > 0 ? "#C0392B" : pnl < 0 ? "#1E8449" : "#888" } }, (pnl > 0 ? "+" : "") + pnl.toLocaleString() + "円"))
+            React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(pnl) } }, _elPnlFmt(pnl)))
         : React.createElement("span", { style: { color: "#ccc" } }, "—"))));
   if (_elPlanIsStop(s, alpha, cutLine)) nodes.push(React.createElement("span", { key: "cap" }, _elCapNote(cutLine)));
   var _epInner = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, nodes);
@@ -4277,7 +4277,7 @@ function _elDetailPnlStackNode(recsM, aiAlpha, aiCut, badgeFn, allMiss) {
       var g = _profitGradeFromPnl(main, cnt);
       body = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
         g ? badgeFn(g) : null,
-        React.createElement("span", { style: { fontWeight: 700, color: main > 0 ? "#C0392B" : main < 0 ? "#1E8449" : "#888" } }, (main > 0 ? "+" : "") + main.toLocaleString() + "円"),
+        React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(main) } }, _elPnlFmt(main)),
         _elHold2RefSuffix(main, ref, refCnt));
     } else if (refCnt > 0) {
       body = _elHold2RefSuffix(0, ref, refCnt);
@@ -4530,7 +4530,7 @@ function _elHold2RefSuffix(mainSum, refSum, refCnt) {
   return React.createElement("span", { key: "h2ref", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF", fontWeight: 600, marginLeft: 2 } },
     "（",
     _elHoldGradeBadge(_profitGradeFromPnl(_incl, 1)),
-    React.createElement("span", { style: { color: _incl > 0 ? "#C0392B" : _incl < 0 ? "#1E8449" : "#888" } }, (_incl > 0 ? "+" : "") + _incl.toLocaleString() + "円"),
+    React.createElement("span", { style: { color: _elPnlColor(_incl) } }, _elPnlFmt(_incl)),
     "）");
 }
 // H1合計（結果損益）用の1記録あたりの寄与。【合計損益システム 2026-06-16改】（）外＝○のみ／（）内＝○△／×は一切算入しない:
@@ -4631,7 +4631,7 @@ function _elHold2TotParts(s, alpha, cutLine) {
 }
 function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt, allMiss, refH1, refCntH1) {
   // allMiss=その集計が全記録E基準未達(全miss)→H1/H2とも「Q 0」表示・参考合計は出さない。
-  var _f = function(v) { return allMiss ? _qZeroCell() : (v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円")); };
+  var _f = function(v) { return allMiss ? _qZeroCell() : (v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v))); };
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, flexWrap: "wrap", justifyContent: "center", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } },
     React.createElement("span", { key: "h1", style: { display: "inline-flex", alignItems: "center" } }, React.createElement("span", { style: { fontSize: 8, color: "#bbb", fontWeight: 700, marginRight: 1 } }, "①"), _f(sumH1), allMiss ? null : _elHold2RefSuffix(sumH1, refH1, refCntH1)),
     React.createElement("span", { key: "sep", style: { color: "#ddd" } }, "｜"),
@@ -4853,7 +4853,7 @@ function _elEpAlignedRow(s, alpha, cutLine) {
   var _pnlNode = (pnl != null)
     ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
         _elHoldGradeBadge(_profitGradeFromPnl(pnl, 1)),
-        React.createElement("span", { style: { fontWeight: 700, color: pnl > 0 ? "#C0392B" : pnl < 0 ? "#1E8449" : "#888" } }, (pnl > 0 ? "+" : "") + pnl.toLocaleString() + "円"),
+        React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(pnl) } }, _elPnlFmt(pnl)),
         _resEl ? React.createElement("span", { style: { marginLeft: 3 } }, _resEl) : null)
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _sep = function(ch) { return React.createElement("span", { style: { color: "#ccc" } }, ch); };
@@ -4900,13 +4900,13 @@ function _elHold2AmtNode(s, alpha, cutLine) {
   var g = _profitGradeFromPnl(p.main, 1);
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
     g ? _elHoldGradeBadge(g) : null,
-    React.createElement("span", { style: { fontWeight: 700, color: p.main > 0 ? "#C0392B" : p.main < 0 ? "#1E8449" : "#888" } }, (p.main > 0 ? "+" : "") + p.main.toLocaleString() + "円"),
+    React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(p.main) } }, _elPnlFmt(p.main)),
     _elHold2RefSuffix(p.main, p.ref, p.ref != null ? 1 : 0));
 }
 // 集計/早見表用: 「H１合計」td と「H２合計」td の2セル。集計表はH列を統合しない（2列のまま）。
 function _elHoldSumTd2(sumH1, sumH2, tdStyle, refH2, refCnt, allMiss, refH1, refCntH1) {
   // allMiss=その集計が全記録E基準未達(全miss)→H1/H2とも「Q 0」表示・参考合計は出さない。
-  var _f = function(v) { return allMiss ? _qZeroCell() : (v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + v.toLocaleString() + "円")); };
+  var _f = function(v) { return allMiss ? _qZeroCell() : (v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v))); };
   return [
     React.createElement("td", { key: "h1s", style: tdStyle }, _f(sumH1), allMiss ? null : _elHold2RefSuffix(sumH1, refH1, refCntH1)),
     React.createElement("td", { key: "h2s", style: tdStyle }, _f(sumH2), allMiss ? null : _elHold2RefSuffix(sumH2, refH2, refCnt))
@@ -5726,8 +5726,8 @@ function VirtualAlphaCalc(_ref_vac) {
     });
     return { plan: hasPlan ? Math.round(planTotal) : null, result: hasResult ? Math.round(resultTotal) : null };
   };
-  var fmtAmt = function(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
-  var amtCol = function(v) { return v == null ? "#aaa" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
+  var fmtAmt = _elPnlFmt;   // 共通化 2026-07-14: _elPnlFmt と同一実装（null→—）
+  var amtCol = function(v) { return v == null ? "#aaa" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };   // null→#aaa の独自色のため共通化対象外
   return React.createElement("div", {
     style: { marginTop: 8, padding: "6px 10px", borderRadius: 7, background: "#FFFBF0", border: "1px solid #FDE68A" }
   },
@@ -8514,8 +8514,8 @@ function EntryLogCard(_ref_elc) {
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: valueColor || "#333", lineHeight: 1.3, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, value)
     );
   };
-  var _pnlColor = function(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; };
-  var _pnlFmt = function(v) { return (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+  var _pnlColor = _elPnlColor;   // 共通化 2026-07-14: 非null呼び出しのみ＝_elPnlColorと同一出力
+  var _pnlFmt = _elPnlFmt;   // 共通化 2026-07-14: 非null呼び出しのみ＝_elPnlFmtと同一出力
   
   var _resultBadge = function(res) {
     var map = { ok: ["○", "#1E8449", "#EAF3DE", "#A9DFBF"], ng: ["×", "#C0392B", "#FCEBEB", "#F5C6CB"], draw: ["△", "#6B7280", "#F3F4F6", "#D1D5DB"], miss: ["ー", "#B45309", "#FEF9C3", "#FDE68A"] };

@@ -584,7 +584,7 @@ function _elBestAlphaBadgeV2(data, stock) {
   var txt;
   if (b.h1 && b.h2 && b.h1.a === b.h2.a) txt = b.h1.a + "円";
   else txt = (b.h1 ? "H1 " + b.h1.a + "円" : "") + (b.h1 && b.h2 ? "・" : "") + (b.h2 ? "H2 " + b.h2.a + "円" : "");
-  var _fy = function(v) { return (v > 0 ? "+" : "") + v.toLocaleString() + "円"; };
+  var _fy = _elPnlFmt;   // 共通化 2026-07-14: 非null呼び出しのみ＝_elPnlFmtと同一出力
   var tip = "全エントリー記録" + b.n + "件（OS値入力分）をα=0/5/10/15/20円（5刻み・参考）で再計算し、H1/H2結果損益の合計が最大になるα。損切り値は各記録の採用値・損益基準は取引/銘柄別記録と同一。" +
     (b.h1 ? "　H1最良: α" + b.h1.a + "円（" + _fy(b.h1.sum) + "）" : "") +
     (b.h2 ? "　H2最良: α" + b.h2.a + "円（" + _fy(b.h2.sum) + "）" : "");
