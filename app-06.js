@@ -4192,35 +4192,44 @@ function _elKabuTierEval(s, a, cut) {
 }
 // ラダーを記録群へ一括適用。tiersOf(r)→[{a(実効α・nullは算出不可), add(この取引で建てる株数)}]。各取引は独立ショート＝addだけ空売り（2026-07-05: 手動は各取引の株数そのまま／自動はs1・s2）。
 // sum=通算損益（判定可能な段のみ）・builtRecN=建玉あり（1段以上約定し損益判定できた記録）・stopRecN=うち損切り段あり・indetRecN=判定不可段あり・xRecN=×見送りのみ・noBaseRecN=推奨α不明段あり。
+// tier積算コア（2026-07-14 系統3共通化）: 1記録のtier列を積算し（）外recPnl/（）内recRef＋各フラグを返す。マスター表(_elKabuLadderCalc)と自動配分ランキングの二重実装を1本化＝ドリフト（ランキング≠マスター表）を構造的に防止。
+// evalOf(t,ctx)→ev（_elKabuTierEval or キャッシュ_evAt。base-levelα不明のtierはevalOf側で_EL_TIER_SKIPを返す＝旧ランキングの `_bl==null→continue` と同値・キャッシュ非汚染）／weightOf(t,ctx)→株数／collectCells=falseで表用cells配列を作らない（ランキングのperf維持）。旧実装とバイト等価（積算条件・丸め位置は不変）。
+var _EL_TIER_SKIP = { skip: "noalpha" };
+function _elKabuAccumTiers(tiers, evalOf, weightOf, collectCells, ctx) {
+  var recPnl = 0, recRef = 0, any = false, hasMain = false, anyStop = false, anyIndet = false, anyNoBase = false, anyX = false;
+  var cells = collectCells ? [] : null;
+  for (var i = 0; i < tiers.length; i++) {
+    var t = tiers[i], w = weightOf(t, ctx), ev = evalOf(t, ctx);
+    if (ev.skip === "noalpha" && w > 0) anyNoBase = true;
+    if (ev.skip === "x") anyX = true;
+    if (ev.built && ev.indet && w > 0) anyIndet = true;
+    if (ev.built && !ev.indet && w > 0) {
+      if (ev.main100 != null) { recPnl += ev.main100 * w / 100; hasMain = true; }   // （）外
+      if (ev.ref100 != null) recRef += ev.ref100 * w / 100;     // （）内差分（△・損切り済）
+      any = true;
+      if (ev.stop) anyStop = true;
+    }
+    if (collectCells) cells.push({ t: t, ev: ev });
+  }
+  return { recPnl: recPnl, recRef: recRef, any: any, hasMain: hasMain, anyStop: anyStop, anyIndet: anyIndet, anyNoBase: anyNoBase, anyX: anyX, cells: cells };
+}
 function _elKabuLadderCalc(recs, aiOf, tiersOf) {
   var rows = [], sum = 0, sumRef = 0, builtRecN = 0, stopRecN = 0, indetRecN = 0, xRecN = 0, noBaseRecN = 0;
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s) return;
     var cut = aiOf(r).cutLine;
     var tiers = tiersOf(r) || [];
-    var cells = [], recPnl = 0, recRef = 0, any = false, hasMain = false, anyStop = false, anyIndet = false, anyNoBase = false, anyX = false;
-    tiers.forEach(function(t) {
-      var ev = _elKabuTierEval(s, t.a, cut);
-      if (ev.skip === "noalpha" && t.add > 0) anyNoBase = true;
-      if (ev.skip === "x") anyX = true;
-      if (ev.built && ev.indet && t.add > 0) anyIndet = true;
-      if (ev.built && !ev.indet && t.add > 0) {
-        if (ev.main100 != null) { recPnl += ev.main100 * t.add / 100; hasMain = true; }   // （）外
-        if (ev.ref100 != null) recRef += ev.ref100 * t.add / 100;     // （）内差分（△・損切り済）
-        any = true;
-        if (ev.stop) anyStop = true;
-      }
-      cells.push({ t: t, ev: ev });
-    });
-    if (any) { sum += recPnl; sumRef += recRef; builtRecN++; if (anyStop) stopRecN++; }
-    if (anyIndet) indetRecN++;
-    if (anyX && !any) xRecN++;
-    if (anyNoBase) noBaseRecN++;
+    var acc = _elKabuAccumTiers(tiers, function(t) { return _elKabuTierEval(s, t.a, cut); }, _elKabuTierAdd, true);
+    if (acc.any) { sum += acc.recPnl; sumRef += acc.recRef; builtRecN++; if (acc.anyStop) stopRecN++; }
+    if (acc.anyIndet) indetRecN++;
+    if (acc.anyX && !acc.any) xRecN++;
+    if (acc.anyNoBase) noBaseRecN++;
     // recPnl: （）外を持つ取引が1つも無い記録（EP△＝△確信度エントリーで（）内のみ等）はnull＝表示「—」。従来列（_elHold1TotParts直・main null→—）と表示規約を一致 2026-07-04c。合計へは0円として算入（従来どおり）。
-    rows.push({ r: r, cells: cells, recPnl: (any && hasMain) ? Math.round(recPnl) : null, recRef: any ? Math.round(recRef) : 0, anyStop: anyStop, anyIndet: anyIndet });
+    rows.push({ r: r, cells: acc.cells, recPnl: (acc.any && acc.hasMain) ? Math.round(acc.recPnl) : null, recRef: acc.any ? Math.round(acc.recRef) : 0, anyStop: acc.anyStop, anyIndet: acc.anyIndet });
   });
   return { rows: rows, sum: Math.round(sum), sumRef: Math.round(sumRef), builtRecN: builtRecN, stopRecN: stopRecN, indetRecN: indetRecN, xRecN: xRecN, noBaseRecN: noBaseRecN, n: rows.length };
 }
+function _elKabuTierAdd(t) { return t.add; }
 // UI本体（α値タブ④）。props: recs=シミュ母数（シグナル×内訳サブタブのスコープ）/ baseRecs=推奨α算出用（銘柄全体・全シグナル＝日別ページ/記録フォームと同じ母数 2026-07-03t。旧: シグナル全体_selSigRecs）/ aiOf / floatMode。
 // 手動ラダー（取引ごとに入力方式=絶対値/推奨α±X/推奨基本α値を選択・各取引{method,off,株数}・実効αを記録ごとに算出し各取引の株数をそのまま空売り＝合計は総和・2026-07-05累積廃止）と自動配分（合計株数→第1取引α0〜推奨基本α未満×100株刻み配分を総当たり・第2取引=記録日時点の推奨α・★最適+上位ランキング）の2モード。
 function _elKabuLadderSimV2(props) {
@@ -4331,6 +4340,9 @@ function _elKabuLadderSimV2(props) {
     var _evAt = function(pi, a) { var m = _evCache[pi]; if (!m.hasOwnProperty(a)) m[a] = _elKabuTierEval(pool[pi].signal, a, aiOf(pool[pi]).cutLine); return m[a]; };
     var _recoAs = pool.map(function(r) { return recoOf(r.date); });
     var _exAs = pool.map(function(r) { return _simAddOf(r); });   // 記録固有の上乗せ（浮き足加算＋追加α上乗せ）＝候補の基本αにこれを足して実効α評価 2026-07-06
+    // tier積算コア(_elKabuAccumTiers)へ渡す評価/株数コールバック（ループ外で1回定義＝ホットループでクロージャを再生成しない・perf維持 2026-07-14 系統3）。ctx=pool index。base-levelα不明は_EL_TIER_SKIP＝旧 `_bl==null→continue` と同値（_evAt未呼出でキャッシュ非汚染）。
+    var _rankEvalOf = function(tr, pi) { var _base = _candBaseFromReco(tr.cand, _recoAs[pi]); var _bl = _simBaseLevel(pool[pi], _base); return (_bl == null) ? _EL_TIER_SKIP : _evAt(pi, _bl + _exAs[pi]); };
+    var _rankSharesOf = function(tr) { return tr.shares; };
     var _noRecoN = 0; _recoAs.forEach(function(v) { if (v == null) _noRecoN++; });
     var _combos = [], _seen = {};
     for (var _s1 = 0; _s1 <= totalN; _s1 += 100) {
@@ -4348,15 +4360,8 @@ function _elKabuLadderSimV2(props) {
           if (_seen[_sig]) continue; _seen[_sig] = 1;
           var _sum = 0, _refSum = 0, _builtN = 0, _stopN = 0;
           for (var _pi = 0; _pi < pool.length; _pi++) {
-            var _rp = 0, _rf = 0, _any = false, _ast = false;
-            for (var _ti = 0; _ti < _trs.length; _ti++) {
-              var _tr = _trs[_ti], _base = _candBaseFromReco(_tr.cand, _recoAs[_pi]);
-              var _bl = _simBaseLevel(pool[_pi], _base);
-              if (_bl == null) continue;
-              var _ev = _evAt(_pi, _bl + _exAs[_pi]);
-              if (_ev.built && !_ev.indet) { if (_ev.main100 != null) _rp += _ev.main100 * _tr.shares / 100; if (_ev.ref100 != null) _rf += _ev.ref100 * _tr.shares / 100; _any = true; if (_ev.stop) _ast = true; }
-            }
-            if (_any) { _sum += _rp; _refSum += _rf; _builtN++; if (_ast) _stopN++; }
+            var _acc = _elKabuAccumTiers(_trs, _rankEvalOf, _rankSharesOf, false, _pi);   // マスター表(_elKabuLadderCalc)と同一の積算コア＝ランキング＝マスター表を構造的に保証・cells非生成でperf維持 2026-07-14
+            if (_acc.any) { _sum += _acc.recPnl; _refSum += _acc.recRef; _builtN++; if (_acc.anyStop) _stopN++; }
           }
           _combos.push({ tranches: _trs, sig: _sig, sum: Math.round(_sum), sumRef: Math.round(_refSum), builtN: _builtN, stopN: _stopN });
         }
