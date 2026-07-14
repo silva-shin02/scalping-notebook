@@ -3298,11 +3298,11 @@ function StockQuickRefTableWithChart(_props_qrtc) {
 
 // ===== ⚡EPナビ（場中のEP計算・保存早見 2026-07-07）=====
 // 日別ページ取引タブ「エントリー記録」の【上】に独立表示。①基準分足②シグナル③底抜け/起点④その他⑤ライン併存ルールを選ぶと
-// 記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ）で
+// 記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・前日まで全期間・この日より前の記録のみ／直近件数窓は2026-07-14に廃止）で
 // 推奨基本α/推奨追加α（根拠別）を表示し、予定EP＝水準線価格＋実効α（基本α＋浮き足加算＋追加α）を算出。
 // 「💾保存」で charts[銘柄_日付].epNavi に保存（Firebase同期・×2タップ削除・過去日を開くと当時の保存が残る）。
 // 早見は銘柄を横並び＋各銘柄でEP高い順に縦積み・追加αありは赤字/5分足基準は緑・✎で計算パネルへ読込んで更新。
-// 推奨ロジックは元々 EntryRecordForm の _refSigAlpha/_pickWin（app-05）と同一だった。※2026-07-14: 記録フォーム側だけユーザー指示で「直近50→100件窓を廃止＝前日まで全期間pick」に変更（見出しと詳細表を一致させるため）。EPナビ(_epnCascade/_epnPickWin→_elWinPick)は現状の件数窓のまま＝両者は意図的に一時乖離中。EPナビも全期間へ揃えるかは要判断（揃える場合は _epnPickWin/autoPick を app-05 _pickWin と同様に全期間pickへ）。
+// 推奨ロジックは EntryRecordForm の _refSigAlpha/_pickWin（app-05）と同一。※2026-07-14: ユーザー指示で記録フォーム・EPナビ両方とも「直近50→100件窓を廃止＝前日まで全期間pick」に変更（見出し/推奨★と詳細表を一致させるため）。両者は再び同一ロジック＝変更時は両方直すこと（app-05 _pickWin と app-04 _epnPickWin）。仮値の扱いのみ差（記録フォーム=okのみ／EPナビ=場中は仮値も採る＝_elCascadePick allowProvisional）。
 function _epnTagsOf(s) { return (s.tags && s.tags.length) ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []); }
 function _epnReasonsOf(s) {
   if (!s) return [];
@@ -3310,7 +3310,7 @@ function _epnReasonsOf(s) {
   if (s.addAlphaReason) return [s.addAlphaReason];
   return [];
 }
-function _epnPickWin(rs, aiOf) { return _elWinPick(rs, aiOf); }   // 2026-07-14 共通化: 記録フォーム_pickWinと同一ロジックを_elWinPick(app-06)へ集約
+function _epnPickWin(rs, aiOf) { if (!rs || !rs.length) return { alpha: null, idealAlpha: null, ok: false, n: 0, add: null }; var _A = _elBaseAlphaA(rs, aiOf); var p = _A ? _A.pick : null; if (!p || p.alpha == null || p.status === "none") return { alpha: null, idealAlpha: null, ok: false, n: rs.length, add: _A ? _A.add : null }; return { alpha: p.alpha, idealAlpha: p.idealAlpha, ok: p.status === "ok", n: rs.length, add: _A ? _A.add : null }; }   // 2026-07-14: 直近件数窓(_elWinPick)を廃止＝前日まで全期間pick。記録フォーム_pickWin(app-05)と同一ロジックに再統一＝EPナビの推奨★と「表を参照」全期間詳細表(_elBaseAlphaDetailV2 over casc.all)を一致させる（ユーザー指示）。返り値shapeは_elWinPickと同一。
 // _elCollectAllSignals(data) の単一スロット・同一性キャッシュ（2026-07-08f）: _epnCascade は計算フォーム最大3列＋追加α〇カードごとに呼ばれ、同一data参照の全チャート走査が重複する。dataはsaveで必ず新オブジェクトになる＝参照が変われば自動失効・結果は純粋関数で不変なので安全。返り値配列は_epnCascade側でfilter（新配列生成）してから使うためキャッシュ配列は不変。
 var _epnSigCacheData = null, _epnSigCacheOut = null;
 function _epnCollectSignals(data) {
