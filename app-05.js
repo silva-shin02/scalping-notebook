@@ -6161,20 +6161,32 @@ function EntryRecordForm(_ref_erf) {
     return _elStockRecsBefore(data, fStock, fDate);
   }, [data, fStock, fDate]);
   var _alTblHoli = useMemo(function() { return _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories); }, [data]);
+  // 推奨基本αの母数スコープ別pick（2026-07-14b ユーザー要望）: _alTblRecs（詳細表と同一母数＝この銘柄・前日まで全期間）をシグナルで絞り_elBaseAlphaPick。詳細表(_elBaseAlphaDetailV2)と同じ母数・同じ関数なので★が一致。scope="all"=銘柄全体。
+  var _baTagsOf = function(s) { return (s && s.tags && s.tags.length) ? s.tags : (s && s.tag && s.tag !== "__custom__" ? [s.tag] : []); };
+  var _baSignalList = useMemo(function() {
+    var seen = {}, out = [];
+    _alTblRecs.forEach(function(r) { _baTagsOf(r.signal).forEach(function(t) { if (t && !seen[t]) { seen[t] = 1; out.push(t); } }); });
+    return out;
+  }, [_alTblRecs]);
+  var _baRecsForScope = function(scope) { return (!scope || scope === "all") ? _alTblRecs : _alTblRecs.filter(function(r) { return _baTagsOf(r.signal).indexOf(scope) >= 0; }); };
+  var _baPickForScope = function(scope) {
+    var rs = _baRecsForScope(scope);
+    if (!rs.length) return { alpha: null, ok: false, n: 0 };
+    var p = _elBaseAlphaPick(rs, function(r) { return _elAlphaInfo(r, data); });
+    return { alpha: (p && p.alpha != null && p.status !== "none") ? p.alpha : null, ok: !!(p && p.status === "ok"), n: rs.length };
+  };
   // 基本αの既定値＝直近50件の推奨基本α（無ければ100件→全期間でフォールバック）。直近25件は標本が薄くブレやすいので自動入力には使わず表示のみ（ユーザー方針 2026-06-22c→件数ベース2026-06-26）。自動入力は確信度の高い ok の推奨のみ使用（na=参考は使わない）。予想OS度とは連動しない 2026-06-21→2026-06-22再設計。
   var _baAlpha = function(w) { return (w && w.ok && w.alpha != null) ? w.alpha : null; };
   // 基本αに使う窓オブジェクトを確定（m1=直近50件→m3=100件→all=全期間）＝この同じ窓から推奨追加αも取る 2026-06-27。
   var _defBaseWin = _refBaseAlpha ? _refBaseAlpha.all : null;   // 2026-07-14: 直近50→100件優先を廃止＝銘柄全体は「前日まで全期間」pick。詳細表_elBaseAlphaDetailV2と同一の母数(_alTblRecs=_base)・同一関数(_elBaseAlphaA.pick)なので推奨★が完全一致（ユーザー指示）。
   var _defBaseA = _defBaseWin ? _baAlpha(_defBaseWin) : null;
-  // 詳細表・直近参考に出る銘柄全体の推奨値（ok/na問わず）＝「全体の推奨値にする」ボタンの切替先（headlineを詳細表と一致させる）。ok限定の_defBaseAはカスケード自動入力（確信度okのみ）用に温存。2026-07-14 レビュー反映。
-  var _defStkShown = (_defBaseWin && _defBaseWin.alpha != null) ? _defBaseWin.alpha : null;
   // 新規記録では基本αに直近50件の推奨基本αを自動入力（手動操作するまで・銘柄/日付変更で追従）2026-06-21→2026-06-22c→件数ベース2026-06-26。
   var _baTouchedRef = useRef(false);
   var _baAutoRef = useRef("");
-  // 「全体の推奨値にする」トグル（2026-07-14 ユーザー要望）: 推奨基本α値がシグナル別/詳細別で自動入力されている時、ワンタップで銘柄全体の推奨値へ切替（trueで銘柄全体を採用）。
-  var _useStatePSB = useState(false),
-    _useStatePSBA = _slicedToArray(_useStatePSB, 2),
-    _preferStkBase = _useStatePSBA[0], _setPreferStkBase = _useStatePSBA[1];
+  // 推奨基本αの母数スコープ（2026-07-14b ユーザー要望）: "all"=銘柄全体（既定）| シグナルtag。見出しの母数プルダウン／詳細表の「この推奨値を使う」で設定＝デフォルト全体。
+  var _uBaScope = useState("all"), _baScope = _uBaScope[0], _setBaScope = _uBaScope[1];
+  // 詳細表ポップアップ内で閲覧中の母数（フォームの_baScopeとは独立＝見るだけ・開くたび全体に戻す）。"all"|シグナルtag。
+  var _uAlScope = useState("all"), _alTblScope = _uAlScope[0], _setAlTblScope = _uAlScope[1];
   // （基本αの自動入力useEffectは_refSigAlpha定義の直後へ移動 2026-07-07c＝詳細別→シグナル別→銘柄全体の段階フォールバック値_autoBaseAを使うため。_defBaseAは銘柄全体段として温存）
   // 推奨追加α（追加α〇の記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」）2026-06-22→2026-06-27: 表示・自動入力している推奨基本αと同じ件数窓(_defBaseWin)から取る＝「合計」＝画面の基本α＋推奨追加α が一致（旧: 全期間窓固定で、表示する基本α(直近50件)と窓・起点が食い違っていた）。
   var _refAddAlpha = (_defBaseWin && _defBaseWin.add) ? _defBaseWin.add : null;
@@ -6220,22 +6232,17 @@ function EntryRecordForm(_ref_erf) {
     })) : null;
     return { tag: _t, sig: _pickWin(recs), det: det, picks: picks };
   }, [data, fStock, fDate, fTags, fSigDetail]);
-  // 自動入力に使う推奨基本α＝詳細別(ok)→シグナル別(ok)→銘柄全体(_defBaseA)の段階フォールバック（ユーザー選択 2026-07-07c）。srcは★バッジ表示用。
-  var _autoBaseNat = (function() {   // 2026-07-14 共通化: EPナビautoPickと同一梯子を_elCascadePickへ（記録フォームは仮値を採らない＝allowProvisional:false・銘柄全体レグは_defBaseA）。ナチュラルなカスケード結果（det→sig→stk）。
-    var _dd = _refSigAlpha && _refSigAlpha.det, _ss = _refSigAlpha && _refSigAlpha.sig;
-    var _cp = _elCascadePick([
-      { key: "det", label: "詳細別", alpha: _dd ? _dd.alpha : null, ok: !!(_dd && _dd.ok) },
-      { key: "sig", label: "シグナル別", alpha: _ss ? _ss.alpha : null, ok: !!(_ss && _ss.ok) },
-      { key: "stk", label: "銘柄全体", alpha: _defBaseA, ok: _defBaseA != null }
-    ], false);
-    return { a: _cp.alpha, src: _cp.src, key: _cp.key };
-  })();
-  // 「全体の推奨値にする」適用後の実効値（2026-07-14 ユーザー要望）: シグナル別/詳細別が採用されている時に_preferStkBaseがtrueなら銘柄全体(_defBaseA)へ差し替え。銘柄全体データが無ければナチュラルのまま。
-  var _autoBaseNatSig = (_autoBaseNat.key === "det" || _autoBaseNat.key === "sig");
-  var _autoBase = (_preferStkBase && _autoBaseNatSig && _defStkShown != null)
-    ? { a: _defStkShown, src: (_defBaseWin && _defBaseWin.ok) ? "銘柄全体" : "銘柄全体・参考", key: "stk" }
-    : _autoBaseNat;
-  var _autoBaseA = _autoBase.a;
+  // 推奨基本α＝現在の母数スコープ(_baScope・既定=全体)のpick＝auto-input/見出し/_fBaseAInputの正本（2026-07-14b：旧カスケードdet→sig→stkの自動優先は廃止＝デフォルト全体・切替はユーザー操作）。詳細表と同一母数(_alTblRecs)・同一関数(_elBaseAlphaPick)。
+  var _baActive = useMemo(function() { return _baPickForScope(_baScope); }, [_alTblRecs, _baScope, data]);
+  var _autoBaseA = _baActive.alpha;
+  // 母数スコープ変更＝そのスコープのpickを基本α欄へ即反映（手touched解除＝以後もこのスコープpickを追従）。見出しプルダウン／詳細表「この推奨値を使う」／「全体の推奨値にする」から呼ぶ。
+  var _applyBaScope = function(scope) {
+    _setBaScope(scope);
+    _baTouchedRef.current = false;
+    var pv = _baPickForScope(scope).alpha;
+    _baAutoRef.current = (pv != null) ? String(pv) : "";
+    setFBaseAlpha(pv != null ? String(pv) : "");   // pv=null（この母数に基本α推奨なし）は欄も空に＝見出し「—」と一致・旧スコープの値を残さない（2026-07-14b レビュー反映）
+  };
   // 新規記録では基本αに段階フォールバックの推奨基本αを自動入力（手動操作するまで・銘柄/日付/シグナル/詳細変更で追従）2026-06-21→2026-07-07c。
   useEffect(function() {
     if (isEdit || _baTouchedRef.current) return;
@@ -6245,8 +6252,8 @@ function EntryRecordForm(_ref_erf) {
     _baAutoRef.current = _nv;
     if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
   }, [_autoBaseA, fBaseAlpha, isEdit]);
-  // 「全体の推奨値にする」はシグナル単位の選択（2026-07-14 レビュー反映）: 銘柄/シグナル/日付が変わったら銘柄全体の上書きを解除し、そのシグナル本来の推奨（カスケード）へ戻す＝他シグナルへ設定が持ち越されるのを防ぐ。
-  useEffect(function() { _setPreferStkBase(false); }, [fStock, fDate, (fTags && fTags.length ? fTags[0] : null)]);
+  // 母数スコープは銘柄ごと（2026-07-14b）: 銘柄が変わったら母数を全体に戻す（別銘柄に存在しないシグナルへの持ち越し防止・デフォルト全体）。
+  useEffect(function() { _setBaScope("all"); _setAlTblScope("all"); }, [fStock]);
   // ライン併存ルール（独自欄fLineCoexist 2026-07-08g）: 〇にすると基本α欄へ1を自動入力＝切替の瞬間だけ効き、手修正可・×へ戻すと1なら空へ戻し推奨に復帰。新規/編集どちらも適用（EPナビ_EpnCalcFormと同ルール＝二重実装・変更時は両方直す）。旧・併存ラインチップ検知はmigrateData _migLineCoexistで本フラグへ移行済み。
   var _kyozPrevRef = useRef(fLineCoexist);
   useEffect(function() {
@@ -7528,42 +7535,43 @@ function EntryRecordForm(_ref_erf) {
         var _line = function(sp) { return "（直近期間別参考　25件：" + _winStr(_rb && _rb.w1, sp) + "　50件：" + _winStr(_rb && _rb.m1, sp) + "　100件：" + _winStr(_rb && _rb.m3, sp) + "）"; };
         var _sub = { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 2, marginBottom: 3 };
         var _rowFlex = { display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" };
-        var _tblBtn = function(kind, color, bd) { return React.createElement("button", { type: "button", onClick: function() { _setAlTblModal(kind); }, title: "記録帳「α値」タブと同じ詳細データ表を表示（閲覧のみ）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"); };
+        var _tblBtn = function(kind, color, bd) { return React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal(kind); }, title: "各シグナルの詳細データ表を表示（母数を選んで閲覧／基本αはこの推奨値を採用も可）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"); };
+        // 詳細表ポップアップ（2026-07-14b）: 母数セレクタ（全体／各シグナル・既定=全体）で各シグナルの詳細表を閲覧。基本αは選択母数の推奨値を「この推奨値を使う」でフォームに採用可（応用αは閲覧のみ）。
+        var _alScopeRecs = _baRecsForScope(_alTblScope);
+        var _alScopeLabel = (_alTblScope === "all") ? "全体（全シグナル）" : ("「" + _alTblScope + "」");
+        var _alScopePick = _alTblModal ? _baPickForScope(_alTblScope) : { alpha: null };   // ポップアップ閉時は重い_elBaseAlphaPickを走らせない（2026-07-14b レビュー反映）
+        var _scopeSel = React.createElement("select", { value: _alTblScope, onChange: function(e) { _setAlTblScope(e.target.value); }, style: { fontSize: 12, fontWeight: 700, padding: "3px 6px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#fff", maxWidth: 260 } },
+          [React.createElement("option", { key: "__all", value: "all" }, "全体（全シグナル）")].concat(
+            _baSignalList.map(function(t) { return React.createElement("option", { key: t, value: t }, t + "（" + _baRecsForScope(t).length + "件）"); })));
+        var _useScopeBtn = (_alTblModal === "base" && _alScopePick.alpha != null) ? React.createElement("button", { type: "button", onClick: function() { _applyBaScope(_alTblScope); _setAlTblModal(null); }, title: "この母数の推奨基本α値をフォームに採用する", style: { fontSize: 11, fontWeight: 700, color: "#fff", background: "#0369A1", border: "1px solid #0369A1", borderRadius: 6, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "この推奨値（" + _alScopePick.alpha + "円）を使う") : null;
         var _modalEl = _alTblModal ? React.createElement("div", { onClick: function() { _setAlTblModal(null); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
           React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } },
               React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: _alTblModal === "base" ? "#0369A1" : "#9A3412" } }, (_alTblModal === "base" ? "🔬 推奨基本α 詳細データ" : "🔬 推奨応用α 詳細データ") + "（" + (fStock || "—") + "・前日まで全期間）"),
               React.createElement("button", { type: "button", onClick: function() { _setAlTblModal(null); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")),
-            React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "記録帳の分析と同じ表（閲覧のみ）。母数＝この銘柄・前日まで全期間"),
-            _alTblRecs.length
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
+              React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "母数"),
+              _scopeSel,
+              _useScopeBtn),
+            React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "記録帳の分析と同じ表。母数＝この銘柄・" + _alScopeLabel + "・前日まで全期間" + (_alTblModal === "base" ? "（「この推奨値を使う」でフォームに採用）" : "（閲覧のみ）")),
+            _alScopeRecs.length
               ? (_alTblModal === "base"
-                  ? _elBaseAlphaDetailV2(_alTblRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli)
-                  : _elTotalAlphaSectionV2(_alTblRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli))
-              : React.createElement("div", { style: { fontSize: 11, color: "#94A3B8", padding: "10px 0" } }, "この銘柄の記録がまだありません"))) : null;
-        // シグナル名の明示＋「全体の推奨値にする」「シグナル別に戻す」ボタン（2026-07-14 ユーザー要望）:
-        // 推奨基本α値がシグナル別/詳細別で自動入力されている時はシグナル名「○○」を前置し、すぐ左に銘柄全体へ切り替えるボタンを置く。
-        // 上書き中（銘柄全体を採用中）はシグナル別へ戻すボタンを出す。銘柄全体データ無し/値が同じなら非表示。押下で基本α欄も即設定（_baTouchedRef=true＝以後カスケードで戻さない）。
-        var _effSigBased = (_autoBase.key === "det" || _autoBase.key === "sig");
-        var _natSigBased = (_autoBaseNat.key === "det" || _autoBaseNat.key === "sig");
-        var _tag0 = (fTags && fTags.length) ? fTags[0] : null;
-        var _canToStk = _effSigBased && (_defStkShown != null) && (_defStkShown !== _autoBase.a);
-        var _canToSig = (_autoBase.key === "stk") && _preferStkBase && _natSigBased && (_autoBaseNat.a != null) && (_autoBaseNat.a !== _autoBase.a);
-        var _pickStk = function() { _setPreferStkBase(true); if (_defStkShown != null) { _baAutoRef.current = String(_defStkShown); setFBaseAlpha(String(_defStkShown)); } };
-        var _pickSig = function() { _setPreferStkBase(false); if (_autoBaseNat.a != null) { _baAutoRef.current = String(_autoBaseNat.a); setFBaseAlpha(String(_autoBaseNat.a)); } };
-        var _switchBtn = _canToStk
-          ? React.createElement("button", { type: "button", onClick: _pickStk, title: "銘柄全体（全シグナル）の推奨基本α値 " + _defStkShown + "円 に切り替える", style: { fontSize: 9, fontWeight: 700, color: "#0369A1", background: "#EFF6FF", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "全体の推奨値にする")
-          : (_canToSig
-            ? React.createElement("button", { type: "button", onClick: _pickSig, title: "このシグナルに基づく推奨基本α値 " + _autoBaseNat.a + "円 に戻す", style: { fontSize: 9, fontWeight: 700, color: "#B91C1C", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "シグナル別に戻す")
-            : null);
-        return React.createElement("div", { title: "推奨基本α値＝詳細別→シグナル別→銘柄全体で自動入力に使う採用値（シグナル別/詳細別の時は「全体の推奨値にする」で銘柄全体へ切替可）／推奨応用α値＝この銘柄の応用〇記録から（前日まで・銘柄全体）。括弧内は直近件数窓の参考（（仮）＝データ不足／参考＝条件緩和の推奨値）", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
+                  ? _elBaseAlphaDetailV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli)
+                  : _elTotalAlphaSectionV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli))
+              : React.createElement("div", { style: { fontSize: 11, color: "#94A3B8", padding: "10px 0" } }, "この母数の記録がまだありません"))) : null;
+        // 母数プルダウン（全体／各シグナル・既定=全体）＋全体以外を選択中は「全体の推奨値にする」で全体へ戻す（2026-07-14b ユーザー要望・「★自動入力」注記は撤去・ボタンは推奨値の右）。
+        var _headScopeSel = React.createElement("select", { value: _baScope, onChange: function(e) { _applyBaScope(e.target.value); }, title: "推奨基本αの母数を切替（全体／各シグナル）", style: { fontSize: 11, fontWeight: 700, padding: "2px 5px", borderRadius: 5, border: "1px solid #93C5FD", background: "#F8FAFF", color: "#0369A1", maxWidth: 170 } },
+          [React.createElement("option", { key: "__all", value: "all" }, "全体")].concat(
+            _baSignalList.map(function(t) { return React.createElement("option", { key: t, value: t }, "「" + t + "」"); })));
+        var _toAllBtn = (_baScope !== "all") ? React.createElement("button", { type: "button", onClick: function() { _applyBaScope("all"); }, title: "銘柄全体の推奨基本α値に戻す", style: { fontSize: 9, fontWeight: 700, color: "#0369A1", background: "#EFF6FF", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "全体の推奨値にする") : null;
+        return React.createElement("div", { title: "推奨基本α値＝選んだ母数（既定=銘柄全体／各シグナル）の推奨基本α。母数プルダウンで切替、詳細表からも採用可。推奨応用α値＝この銘柄の応用〇記録から（前日まで・銘柄全体）。", style: { fontSize: 13, color: "#334155", lineHeight: 1.3, margin: "0 0 4px" } },
           React.createElement("div", { style: _rowFlex },
-            _switchBtn,
-            (_effSigBased && _tag0) ? React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#B91C1C", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 5, padding: "1px 6px" } }, "「" + _tag0 + "」") : null,
             React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
             _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
-            (_autoBaseA != null && _autoBase && _autoBase.src) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: (_effSigBased ? "#B91C1C" : "#0369A1"), marginLeft: 4 } }, "★自動入力（" + _autoBase.src + "）") : null,
+            _headScopeSel,
+            _toAllBtn,
             _tblBtn("base", "#0369A1", "#93C5FD")),
-          React.createElement("div", { style: _sub }, _line(false)),
+          (_baScope === "all") ? React.createElement("div", { style: _sub }, _line(false)) : null,
           React.createElement("div", { style: _rowFlex },
             React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨応用α値 "),
             _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—"),
