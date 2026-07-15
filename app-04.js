@@ -3504,7 +3504,7 @@ function _EpnDayAlphaField(_p) {
 // 早見のインライン編集（③起点/④その他/⑤ライン併存の変更）用: 新しい詳細から推奨基本αを再導出（ライン併存ルール〇なら1）してepを再計算。
 // _EpnCalcForm.autoPick と同じ段階フォールバック（詳細別→シグナル別→銘柄全体・okが無ければ仮値）＝変更時は両方直す。推奨が全く無ければbaseは据え置き。
 // 予定EPの正本計算（2026-07-14 共通化・監査finding#1）: base-levelα＝応用〇なら応用α・通常は基本α。予定EP＝round((水準線+base-levelα+浮き足+RN)*100)/100。保存EPを書く全ハンドラはこの2関数経由に統一＝式のズレ・応用α落ち・廃止add項の混入を防ぐ。
-function _epnBaseLevelOf(it) { if (it && it.ukiUsed === true) return 0; return (it && it.specialUsed === true && it.special != null) ? (Number(it.special) || 0) : (Number(it && it.base) || 0); }   // 2026-07-14g 浮き足〇＝土台α無し（採用α＝浮き足加算＋RNのみ）
+function _epnBaseLevelOf(it) { if (it && (it.ukiUsed === true || (Number(it.uki) || 0) > 0)) return 0; return (it && it.specialUsed === true && it.special != null) ? (Number(it.special) || 0) : (Number(it && it.base) || 0); }   // 2026-07-14g 浮き足〇＝土台α無し（採用α＝浮き足加算＋RNのみ）。uki>0でも0＝旧保存カード（ukiUsed無し）も同じ扱い
 function _epnComputeEp(level, baseLevel, uki, rn) { return Math.round(((Number(level) || 0) + (Number(baseLevel) || 0) + (Number(uki) || 0) + (Number(rn) || 0)) * 100) / 100; }
 function _epnRecalcBase(data, stock, date, item) {
   var _f = Array.isArray(item.f) ? item.f : [];
@@ -3783,6 +3783,8 @@ function _EpnCalcForm(_p) {
   var _useStateEPN10 = useState("×"), _useStateEPN10A = _slicedToArray(_useStateEPN10, 2), nUkiUsed = _useStateEPN10A[0], setNUkiUsed = _useStateEPN10A[1];
   var _useStateEPN11 = useState(""), _useStateEPN11A = _slicedToArray(_useStateEPN11, 2), nUkiVal = _useStateEPN11A[0], setNUkiVal = _useStateEPN11A[1];
   var _useStateEPN11B = useState(""), _useStateEPN11BA = _slicedToArray(_useStateEPN11B, 2), nUkiPct = _useStateEPN11BA[0], setNUkiPct = _useStateEPN11BA[1];   // 浮き足加算率(%)・""=自動(推奨) 2026-07-12
+  var _useStateEPN11S = useState(false), _useStateEPN11SA = _slicedToArray(_useStateEPN11S, 2), nUkiSpecial = _useStateEPN11SA[0], setNUkiSpecial = _useStateEPN11SA[1];   // 浮き足応用〇＝大きめ加算率プール（false=浮基本）2026-07-14g
+  var _useStateEPN11T = useState(false), _useStateEPN11TA = _slicedToArray(_useStateEPN11T, 2), _epnUkiTbl = _useStateEPN11TA[0], _setEpnUkiTbl = _useStateEPN11TA[1];   // 浮き足加算率 詳細表モーダル 2026-07-14g
   var _useStateEPNrn1 = useState("×"), _useStateEPNrn1A = _slicedToArray(_useStateEPNrn1, 2), nRnUsed = _useStateEPNrn1A[0], setNRnUsed = _useStateEPNrn1A[1];   // RNまたぎ加算（第5のα要素 2026-07-08h・全シグナル・そのまま加算）
   var _useStateEPNrn2 = useState(""), _useStateEPNrn2A = _slicedToArray(_useStateEPNrn2, 2), nRnVal = _useStateEPNrn2A[0], setNRnVal = _useStateEPNrn2A[1];
   var _useStateEPN12 = useState(""), _useStateEPN12A = _slicedToArray(_useStateEPN12, 2), nLevel = _useStateEPN12A[0], setNLevel = _useStateEPN12A[1];
@@ -3849,7 +3851,7 @@ function _EpnCalcForm(_p) {
   var specialV = (nSpecialUsed === "○") ? ((nSpecialAlpha !== "" && !isNaN(Number(nSpecialAlpha))) ? Number(nSpecialAlpha) : (specialReco && specialReco.v != null ? specialReco.v : (baseV != null ? baseV : 0))) : null;
   var _epnBaseLevel = (specialV != null) ? specialV : baseV;   // base-levelα＝応用〇なら応用α、通常は基本α（場中版の採用α選択）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨/次点（_elUkiPctSweep）。nUkiPct=""は自動=推奨(無ければ50%)。2026-07-12
-  var _ukiReco = useMemo(function() { return _elUkiRecoPcts(data, date); }, [data, date]);
+  var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, date, nUkiSpecial ? "special" : "basic"); }, [data, date, nUkiSpecial]);   // 2026-07-14g 浮基本/浮応用でプールを分けて推奨%（記録フォームと同じ）
   var _effUkiPct = _elUkiEffPct(nUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
   var _ukiRecoAct = nUkiPct === "" || (_ukiReco.reco != null && Number(nUkiPct) === _ukiReco.reco);
   var _ukiRunAct = _ukiReco.runnerUp != null && nUkiPct !== "" && Number(nUkiPct) === _ukiReco.runnerUp;
@@ -3863,7 +3865,7 @@ function _EpnCalcForm(_p) {
   var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
   var _resetForm = function() {
     setEditId(null); setEditAt(null); setEditDone(false); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
-    setNBase(""); setNSpecialUsed("×"); setNSpecialAlpha(""); setNSpecialReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNUkiPct(""); setNRnUsed("×"); setNRnVal(""); setNLevel(""); setNLineCoexist(false); setDetOpen(false);
+    setNBase(""); setNSpecialUsed("×"); setNSpecialAlpha(""); setNSpecialReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNUkiPct(""); setNUkiSpecial(false); setNRnUsed("×"); setNRnVal(""); setNLevel(""); setNLineCoexist(false); setDetOpen(false);
     _kyozPrevRef.current = false;
   };
   var doSave = function() {
@@ -3871,9 +3873,9 @@ function _EpnCalcForm(_p) {
     var _item = {
       id: editId || ("epn_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7)),
       tag: nTag || null, b: nSelB || null, k: nSelK || null, f: nSelF.slice(), minBars: nMinBars.slice(),
-      base: baseV, special: specialV, uki: ukiAddV, ukiVal: ukiAddV > 0 ? Number(nUkiVal) : null, ukiPct: ukiAddV > 0 ? _effUkiPct : null,
+      base: baseV, special: specialV, uki: ukiAddV, ukiUsed: nUkiUsed === "○", ukiSpecial: (nUkiUsed === "○") ? nUkiSpecial : null, ukiVal: ukiAddV > 0 ? Number(nUkiVal) : null, ukiPct: ukiAddV > 0 ? _effUkiPct : null,
       rn: rnAddV, rnUsed: nRnUsed === "○",
-      specialUsed: nSpecialUsed === "○", specialReasons: (nSpecialUsed === "○") ? nSpecialReasons.slice() : [],
+      specialUsed: (nUkiUsed === "○") ? false : (nSpecialUsed === "○"), specialReasons: (nUkiUsed !== "○" && nSpecialUsed === "○") ? nSpecialReasons.slice() : [],
       lineCoexist: nLineCoexist,
       level: levelN, ep: epV, src: _baseSrc || null, at: editAt || Date.now()
     };
@@ -3891,7 +3893,7 @@ function _EpnCalcForm(_p) {
     setNSpecialUsed(_spUsed ? "○" : "×"); setNSpecialAlpha(_spUsed && e.special != null ? String(e.special) : "");
     setNSpecialReasons(Array.isArray(e.specialReasons) ? e.specialReasons.slice() : (Array.isArray(e.reasons) ? e.reasons.slice() : []));
     var hasUki = (Number(e.uki) || 0) > 0;
-    setNUkiUsed(hasUki ? "○" : "×"); setNUkiVal(hasUki && e.ukiVal != null ? String(e.ukiVal) : ""); setNUkiPct(e.ukiPct != null ? String(e.ukiPct) : (hasUki ? "50" : ""));
+    setNUkiUsed(hasUki ? "○" : "×"); setNUkiVal(hasUki && e.ukiVal != null ? String(e.ukiVal) : ""); setNUkiPct(e.ukiPct != null ? String(e.ukiPct) : (hasUki ? "50" : "")); setNUkiSpecial(e.ukiSpecial === true);
     var hasRn = (e.rnUsed === true) || ((Number(e.rn) || 0) > 0);   // RNまたぎ加算の復元（rnUsed明示・旧itemはrn>0で推定）2026-07-08h
     setNRnUsed(hasRn ? "○" : "×"); setNRnVal(hasRn ? String(Number(e.rn) || 0) : "");
     setNLevel(e.level != null ? String(e.level) : "");
@@ -4050,6 +4052,13 @@ function _EpnCalcForm(_p) {
     // 浮き足加算（前足浮き値×加算率＝合計α値へ上乗せ 2026-07-14f。旧: 2026-07-13 水準線直下・最終水準線に効かせていたのを合計αに戻す）
     showUki ? _lrow("浮き足加算（前足浮き値×加算率）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
       _oxBtns(nUkiUsed, setNUkiUsed),
+      (nUkiUsed === "○") ? React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },   // 浮基本/浮応用トグル（記録フォームと同じ・プールを分けて推奨%）2026-07-14g
+        [["basic", "浮基本", false], ["special", "浮応用", true]].map(function(_uk) {
+          var _uon = nUkiSpecial === _uk[2];
+          return React.createElement("button", { key: _uk[0], type: "button", onClick: (function(_v) { return function() { setNUkiSpecial(_v); }; })(_uk[2]),
+            title: _uk[2] ? "浮き足応用＝大きめの加算率（根拠つき）で採用" : "浮き足基本＝通常の加算率で採用",
+            style: { padding: "3px 11px", fontSize: 11, fontWeight: _uon ? 800 : 600, borderRadius: 5, cursor: "pointer", border: "none", background: _uon ? "#fff" : "transparent", color: _uon ? "#15803D" : "#6B6459", boxShadow: _uon ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, _uk[1]);
+        })) : null,
       nUkiUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nUkiVal, placeholder: "浮き値",
         onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "") { setNUkiVal(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setNUkiVal(String(n)); }, style: Object.assign({}, _inpStyle, { width: 48 }) }) : null,
       nUkiUsed === "○" ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(""); }, title: "推奨加算率" + (_ukiReco.n ? "（" + _ukiReco.n + "件）" : "") + "・データ不足時50%",
@@ -4060,7 +4069,9 @@ function _EpnCalcForm(_p) {
         React.createElement("input", { type: "text", inputMode: "numeric", value: _ukiCustAct ? nUkiPct : "", onChange: function(e) { _setNUkiPct(e.target.value); }, placeholder: "50", style: { width: 30, padding: "2px 4px", fontSize: 10, fontWeight: 700, border: "none", outline: "none", background: "transparent", textAlign: "right", color: "#B45309" } }),
         React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", paddingRight: 3 } }, "%"),
         _stepBtn(function() { _stepNUkiPct(10); }, function() { _stepNUkiPct(-10); })) : null,
-      nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null)) : null,
+      nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null,
+      nUkiUsed === "○" ? React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(true); }, title: "浮き足加算率の詳細データ表（全銘柄・前日まで＝推奨%と同母数）", style: { fontSize: 10, fontWeight: 700, color: "#15803D", background: "#fff", border: "1px solid #86EFAC", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表") : null,
+      (nUkiUsed === "○" && _epnUkiTbl) ? React.createElement("div", { onClick: function() { _setEpnUkiTbl(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると最終損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝" + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!date || r.date < date); }), function(r) { return _elAlphaInfo(r, data); }, nUkiSpecial ? "special" : "basic"))) : null)) : null,
     // ⑤ライン併存ルール（浮き足の下へ移動 2026-07-13・元は③〜⑤詳細畳みの中）
     _lrow(_nl("⑤", "ライン併存ルール"), React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
       _oxBtns(nLineCoexist ? "○" : "×", function(v) { setNLineCoexist(v === "○"); }),
@@ -4102,7 +4113,9 @@ function _EpnCalcForm(_p) {
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 800 } }, "予定EP "),
       React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(epV) : "—"),
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8" } }, "円"),
-      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, "合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : ""))
+      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, (nUkiUsed === "○")
+        ? ("合計α値" + effA + "円＝" + (nUkiSpecial ? "浮応" : "浮") + ukiAddV + (rnAddV ? "＋RN" + rnAddV : "") + "（浮き足〇＝基本α/応用α無し）")
+        : ("合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : "")))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? "記録が無い銘柄は基本αを手入力" : "水準線を入力")),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"), _spModal);
@@ -4250,13 +4263,16 @@ function EpNaviPanel(_refEPN) {
   };
   // 保存済みEPカード（面=分足色: 5分含む=緑/1分=オレンジ・追加αありはEP/内訳の文字だけ赤＋「追」・済み=灰色薄く 2026-07-08b。旧: 追加α=赤面・5分=緑左ライン）
   var _renderCard = function(st, e) {
-    var hasSpecial = e.specialUsed === true;
+    var hasSpecial = e.specialUsed === true && !((e.ukiUsed === true) || ((Number(e.uki) || 0) > 0));   // 2026-07-14g 浮き足〇カードは応用α扱いにしない（旧保存の残特殊フラグも無視）
     var mb = Array.isArray(e.minBars) ? e.minBars : [];
     var has5 = mb.indexOf("5") >= 0, has1 = mb.indexOf("1") >= 0;
     var isDone = !!e.done;
-    var _cardBL = (e.specialUsed === true && e.special != null) ? Number(e.special) : (Number(e.base) || 0);   // base-levelα（応用〇＝応用α／通常＝基本α）
+    var _isUkiCard = (e.ukiUsed === true) || ((Number(e.uki) || 0) > 0);   // 2026-07-14g 浮き足〇カード＝土台α無し（採用α＝浮き足加算＋RN）
+    var _cardBL = _epnBaseLevelOf(e);   // base-levelα（浮き足〇＝0／応用〇＝応用α／通常＝基本α）
     var alphaSum = _cardBL + (Number(e.uki) || 0) + (Number(e.rn) || 0);
-    var bk = (e.specialUsed === true && e.special != null ? "応" + e.special : "基" + (e.base != null ? e.base : "—")) + (e.uki ? "＋浮" + e.uki : "") + (e.rn ? "＋RN" + e.rn : "");   // 浮き足を合計α値の内訳に戻す 2026-07-14f（旧: 最終水準線側へ 2026-07-12）
+    var bk = _isUkiCard
+      ? ((e.ukiSpecial === true ? "浮応" : "浮") + (Number(e.uki) || 0) + (e.rn ? "＋RN" + e.rn : ""))   // 浮き足〇＝基本α/応用α無し・浮き足加算＋RNのみ
+      : ((e.specialUsed === true && e.special != null ? "応" + e.special : "基" + (e.base != null ? e.base : "—")) + (e.uki ? "＋浮" + e.uki : "") + (e.rn ? "＋RN" + e.rn : ""));
     var detTxt = [e.b ? "底:" + e.b : null, e.k ? "起:" + e.k : null].concat((e.f || []).map(function(x) { return "特:" + x; })).filter(function(x) { return !!x; }).join("・");
     var armed = delArm === e.id;
     var C = has5
@@ -4295,7 +4311,7 @@ function EpNaviPanel(_refEPN) {
                 style: { padding: "1px 8px", fontSize: 10.5, fontWeight: _on ? 800 : 600, border: _on ? "1.5px solid " + kv[2] : "1px solid #ddd", background: _on ? kv[3] : "#fff", color: _on ? kv[2] : "#999", borderRadius: 4, cursor: "pointer", lineHeight: 1.5 } }, kv[0]);
             }),
             (e.lineCoexist === true) ? React.createElement("span", { style: { fontSize: 8, color: "#0F766E", fontWeight: 700 } }, "基α=1") : null),
-          React.createElement(_EpnAddSection, { data: data, save: save, date: date, stock: st, item: e, reasonsMaster: reasonsMaster,
+          _isUkiCard ? null : React.createElement(_EpnAddSection, { data: data, save: save, date: date, stock: st, item: e, reasonsMaster: reasonsMaster,
             onUsed: function(u) { onSetSpecialUsed(st, e, u); },
             onValue: function(n) { onSetSpecial(st, e, n); },
             onBase: function(n) { onSetBase(st, e, n); },
@@ -4320,7 +4336,7 @@ function EpNaviPanel(_refEPN) {
       React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", lineHeight: 1.25 } },
         React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums" } }, "EP " + e.ep + "円"),
         e.b ? React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#475569" } }, e.b) : null),   // ③底抜けをEP価格の右に同サイズで表示（プレーン）2026-07-13
-      React.createElement("div", { style: { fontSize: 9, color: subColor } }, "起点" + e.level + (e.uki ? "＋浮" + e.uki : "") + "＋α" + (alphaSum - (Number(e.uki) || 0)) + "（" + bk + "）"),
+      React.createElement("div", { style: { fontSize: 9, color: subColor } }, _isUkiCard ? ("起点" + e.level + "＋α" + alphaSum + "（" + bk + "）") : ("起点" + e.level + (e.uki ? "＋浮" + e.uki : "") + "＋α" + (alphaSum - (Number(e.uki) || 0)) + "（" + bk + "）")),
       detTxt ? React.createElement("div", { style: { fontSize: 8.5, color: "#64748B", marginTop: 1, lineHeight: 1.4 } }, detTxt, e.src ? React.createElement("span", { style: { color: "#94A3B8" } }, "（" + e.src + "）") : null) : (e.src ? React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8", marginTop: 1 } }, "（" + e.src + "）") : null), _inlineEditor);
   };
   // 早見（上段: 銘柄ヘッダー＋EPカード）と計算フォーム（下段: _EpnCalcForm常設）を銘柄列ごとにグリッドで2段整列（案A 2026-07-08）。
