@@ -3302,8 +3302,10 @@ var _OS_GRADE_ALPHA = { A: 20, B: 15, C: 10, D: 5, E: 0 };
 function _gradeAlpha(difficulty) {
   return (difficulty != null && _OS_GRADE_ALPHA[difficulty] != null) ? _OS_GRADE_ALPHA[difficulty] : 10;
 }
+var _elHoliMemo = { d: undefined, set: null };   // 頻度ゲート用の休場日カレンダーのメモ 2026-07-15g: _buildHolidayDateSetは重いのでdata参照ごとに1回だけ構築（_elAlphaInfoは毎レコード呼ばれるため）。
 function _elAlphaInfo(r, data) {
   if (typeof _elAnaCut === "function") _elAnaCutCur = _elAnaCut(data);   // 前提損切り値のモジュール同期（2026-07-13b）: 全画面のaiOfはここを通るため、推奨α分析(app-06のpick群)が常に最新のcustom.anaCutPremiseを読める
+  if (data && typeof _buildHolidayDateSet === "function") { if (_elHoliMemo.d !== data) { _elHoliMemo.d = data; _elHoliMemo.set = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories); } _elHoliCur = _elHoliMemo.set; }   // 頻度ゲートの休場日カレンダー同期 2026-07-15g: 選定の_freqOkが表示の頻度列と同じ「祝日も除外」で評価するため（土日のみだと祝日ぶんゲート頻度が高く出て4円等を誤除外）。dataごとにメモ。
   if (typeof _elAnaReach === "function") _elAnaReachCur = _elAnaReach(data);   // 到達率下限のモジュール同期（2026-07-13）: 基本α★(_elBaseAlphaPick)が最新のcustom.anaReachFloorを読める
   if (typeof _elSpecialMinDecided === "function") _elSpecialMinDecidedCur = _elSpecialMinDecided(data);   // 根拠別応用αの下限(プール件数)のモジュール同期（2026-07-13）: EPナビ_epnSpecialRecoFromが最新のcustom.specialMinDecidedを読める
   var c = (data && data.charts) ? data.charts[r.stock + "_" + r.date] : null;
