@@ -1322,8 +1322,9 @@ function _ElAnaCutCtl(props) {
     React.createElement("span", { style: { fontSize: 8.5, color: "#B45309" } }, "推奨α分析（基本/追加・フォーム/EPナビ/シミュの推奨含む）はこの損切り値を前提に評価・既定" + _EL_ANA_CUT_DEF + "円"));
 }
 // ===== 到達率の下限（2026-07-13 ユーザー指定）＝基本α★の付け方＝「この到達率以上・黒字を満たすαのうち平均最終損益（1件あたり）が最大のα（2026-07-15f）を理想とし推奨＝理想−1」 =====
-// 既定50%（2026-07-14e 60→50に緩和）・10刻みで調整可・custom.anaReachFloorに保存（全端末同期）。同期は_elAlphaInfo(app-05)内で_elAnaCutと並んで実施。2026-07-14e以降＝基本α★(_elBaseAlphaPick)＋応用α★(_elSpecialAlphaPick)の両方が全条件ゲートでこの到達率下限を使用（旧「応用αは平均最終損益最大のまま」は失効）。
-var _EL_ANA_REACH_DEF = 50;
+// 既定60%（2026-07-14e 60→50→2026-07-15j 50→60に戻す ユーザー要望）・10刻みで調整可・custom.anaReachFloorに保存（全端末同期）。同期は_elAlphaInfo(app-05)内で_elAnaCutと並んで実施。基本α★(_elBaseAlphaPick)＋応用α★(_elSpecialAlphaPick)の両方が全条件ゲートでこの到達率下限を使用。※目標到達率を満たすαが1つも無い時は_EL_ANA_REACH_FLOOR2(50%)まで引き下げて参考(na/青★)選定（2026-07-15j）。
+var _EL_ANA_REACH_DEF = 60;
+var _EL_ANA_REACH_FLOOR2 = 50;   // 到達率フォールバックの下限（2026-07-15j ユーザー要望）: 目標到達率で該当αが無い時ここまで引き下げて再選定＝参考(na/青★)。これ以下には下げない安全網。基本α/応用α共通。
 var _elAnaReachCur = _EL_ANA_REACH_DEF;
 function _elAnaReach(data) { var v = data && data.custom ? data.custom.anaReachFloor : null; var n = Number(v); return (v != null && v !== "" && !isNaN(n) && n >= 0 && n <= 100) ? Math.round(n / 10) * 10 : _EL_ANA_REACH_DEF; }
 // 到達率下限のステッパー（前提損切り値の隣に設置・10刻み・保存はcustom.anaReachFloor＝基本αの★が連動）。
@@ -1335,7 +1336,7 @@ function _ElAnaReachCtl(props) {
     React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1" } }, "🎯 到達率の下限"),
     React.createElement("b", { style: { fontSize: 14, color: "#0369A1", fontVariantNumeric: "tabular-nums" } }, v + "%"),
     React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _btn("↑", 10), _btn("↓", -10)),
-    React.createElement("span", { style: { fontSize: 8.5, color: "#0369A1" } }, "基本αの理想＝この到達率以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうち平均最終損益（1件あたり）が最大のα／推奨＝理想−" + _EL_ALPHA_OFFSET + "円・既定" + _EL_ANA_REACH_DEF + "%"));
+    React.createElement("span", { style: { fontSize: 8.5, color: "#0369A1" } }, "基本αの理想＝この到達率以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうち平均最終損益（1件あたり）が最大のα／推奨＝理想−" + _EL_ALPHA_OFFSET + "円・既定" + _EL_ANA_REACH_DEF + "%（満たすαが無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで引き下げて参考=青★）"));
 }
 // ===== 根拠別 推奨応用αの下限（2026-07-13 ユーザー指定）＝根拠で絞った母数のプール件数（その根拠の応用〇記録数＝画面のn=・EP到達/判定は問わない）がこの数以上のときだけ「根拠別」を採用。未満は銘柄全体の応用αへフォールバック =====
 // 既定15件・custom.specialMinDecidedに保存（全端末同期）。同期は_elAlphaInfo(app-05)内。対象＝EPナビ/早見の根拠別推奨応用α（_epnSpecialRecoFrom app-04）のみ。記録フォームの推奨応用αは元々銘柄全体母数なので対象外。
@@ -1687,11 +1688,21 @@ function _elBaseAlphaPick(recs, aiOf) {
   };
   var _minOk = function(e) { return e.decided != null && e.decided >= _EL_BASE_MIN_N; };   // E成立(decided)≥_EL_BASE_MIN_N(10件)
   // 【2026-07-14d ユーザー要望】理想/推奨は全条件（黒字・到達率≥下限・損切り率(最終)≤上限・E成立≥10・頻度<_EL_FREQ_MAX）を満たすαのみ。1つも無ければ status:"nomin"（条件適合無し）＝na緩和(参考値/青★)は全廃。※10件以上E成立でも他条件を満たさなければ条件適合無し。
-  var _confFull = function(e) { return e.entered > 0 && e.h2Sum != null && e.h2Sum > 0 && e.eRate != null && e.eRate >= reachFloor && e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && _minOk(e) && _freqOk(e.a); };
-  var okCands = full.filter(_confFull);
+  var _confAt = function(rf) { return function(e) { return e.entered > 0 && e.h2Sum != null && e.h2Sum > 0 && e.eRate != null && e.eRate >= rf && e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && _minOk(e) && _freqOk(e.a); }; };
+  var okCands = full.filter(_confAt(reachFloor));
   if (okCands.length) {
     var _best = _elBordaBest(okCands, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // 平均最終損益 最大 2026-07-15f
     return _finish(_best, "ok");   // 理想＝平均最大／推奨＝理想−_EL_ALPHA_OFFSET（指値フィルマージン）
+  }
+  // 到達率フォールバック 2026-07-15j: 目標到達率で該当αが無ければ_EL_ANA_REACH_FLOOR2(50%)まで引き下げて再選定＝参考(na/青★)。reachFloorも引き下げた値にして表示・淡色を50%基準に。
+  var _rf2 = _EL_ANA_REACH_FLOOR2 / 100;
+  if (_rf2 < reachFloor) {
+    var okLo = full.filter(_confAt(_rf2));
+    if (okLo.length) {
+      reachFloor = _rf2;
+      var _bestLo = _elBordaBest(okLo, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // 平均最終損益 最大（50%引き下げ）
+      return _finish(_bestLo, "na");   // 到達率50%に引き下げた参考(青★)
+    }
   }
   var _anyEntry = full.some(function(e) { return e.entered > 0; });   // 全条件を満たすα無し→到達記録が全く無ければデータ無し(none)・到達はあるが条件適合無し(nomin)
   return { alpha: null, idealAlpha: null, score: null, stopRate: null, h1win: null, eRate: null, entered: 0, scN: 0, pnl: null, epPnl: null, stopN: null, ewin: null, status: _anyEntry ? "nomin" : "none", sweep: sweep, h2sweep: h2sweep, minN: _EL_BASE_MIN_N, decided: 0, takeRate: null, h2Sum: null, avgH2: null, reachFloor: reachFloor, alpha2: null, score2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null, h2Sum2: null };
@@ -1721,11 +1732,21 @@ function _elSpecialAlphaPick(pool, aiOf, minIdeal) {
   };
   // 【2026-07-14e ユーザー要望】応用αも基本αと同じ全条件ゲート＝黒字・到達率≥下限・損切り率(最終)≤上限・E成立≥_EL_BASE_MIN_N・頻度<_EL_FREQ_MAX を満たすαのみ。1つも無ければ status:"nomin"（条件適合無し）＝na緩和(参考値/青★)は全廃。クランプ（応用理想≥基本理想+1）は_finishで温存。
   var _minOk = function(e) { return e.decided != null && e.decided >= _EL_BASE_MIN_N; };
-  var _confFull = function(e) { return e.entered > 0 && e.h2Sum != null && e.h2Sum > 0 && e.eRate != null && e.eRate >= reachFloor && e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && _minOk(e) && _freqOk(e.a); };
-  var okCands = sweep.filter(_confFull);
+  var _confAt = function(rf) { return function(e) { return e.entered > 0 && e.h2Sum != null && e.h2Sum > 0 && e.eRate != null && e.eRate >= rf && e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && _minOk(e) && _freqOk(e.a); }; };
+  var okCands = sweep.filter(_confAt(reachFloor));
   if (okCands.length) {
     var _best = _elBordaBest(okCands, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // 平均最終損益 最大 2026-07-15f
     return _finish(_best, "ok");   // 理想＝平均最大／推奨＝理想−1（クランプは_finishで温存）
+  }
+  // 到達率フォールバック 2026-07-15j: 目標到達率で該当αが無ければ_EL_ANA_REACH_FLOOR2(50%)まで引き下げて再選定＝参考(na/青★)。クランプは_finishで温存。
+  var _rf2 = _EL_ANA_REACH_FLOOR2 / 100;
+  if (_rf2 < reachFloor) {
+    var okLo = sweep.filter(_confAt(_rf2));
+    if (okLo.length) {
+      reachFloor = _rf2;
+      var _bestLo = _elBordaBest(okLo, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // 平均最終損益 最大（50%引き下げ）
+      return _finish(_bestLo, "na");   // 到達率50%に引き下げた参考(青★)
+    }
   }
   var _anyEntry = sweep.some(function(e) { return e.entered > 0; });   // 全条件を満たすα無し→到達記録なし=none／到達はあるが条件適合無し=nomin
   return { alpha: null, idealAlpha: null, status: _anyEntry ? "nomin" : "none", minN: _EL_BASE_MIN_N, sweep: sweep, decided: 0, eRate: null, stopRate: null, takeRate: null, h2Sum: null, avgH2: null, reachFloor: reachFloor, alpha2: null, avgH2_2: null, h2Sum2: null };
