@@ -47,6 +47,15 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-15 推奨α★の選定を「膝（B案）」へ全面変更（基本・応用・追加・浮き足）＋詳細表/見出しの説明更新
+ユーザー方針: 平均が高くてもエントリー数が少なく累計が痩せる高α側を★にしない。ゲート（黒字・到達率・損切り率・E成立・頻度）通過候補の中で「累計損益Σがほぼ最大（既定95%以上）を保てる範囲」に絞り、その中で質（スコア=0.7×損切り回避+0.3×利確率）最良のα＝膝を★に。旧＝「到達率下限ギリギリまで最も高いα−1」／旧追加α＝「平均最終損益最大」。
+- 新規 `_EL_KNEE_FRAC=0.95`（膝の閾値・調整可）＋共通ヘルパー `_elKneeFilter(cands, sigOf)`（app-06・`_EL_ALPHA_OFFSET`直後）。Σが候補中の最大のこの割合以上に絞る純関数。
+- `_elBaseAlphaPick`/`_elSpecialAlphaPick`（app-06）: okCands→`_elKneeFilter`→スコア最大ソート→`_finish(…, 0)`（膝＝理想＝推奨・フィルマージン−1は付けない・応用のクランプは温存）。両`_finish`に第3引数offを追加（既定=`_EL_ALPHA_OFFSET`）。
+- `_elAddAlphaPickDate`（app-06）: sel.cand→`_elKneeFilter`→スコア最大（旧avgH2最大を置換）。
+- `_elUkiPctSweep`（app-06）: qual行→`_elKneeFilter`→スコア最大（best/runnerUpとも膝内）。
+- 説明文更新（膝ロジックに統一）: 基本α詳細表サブ見出し/解説ボックス（`_elBaseAlphaDetailV2`）・応用α詳細表note/insight/label（`_elTotalAlphaSectionV2`）・期間表note・到達率設定ラベル・セクションヘッダー。offset=0で ideal===a になるため「（理想 X −1）」注記は全箇所で自動非表示。
+- 検証: node無し→ブラウザV8で `new Function`構文OK＋実ロード関数で膝単体テスト。画面表データ（gate通過0〜10円）で膝集合={0,3,4}・★=4円（膝無しなら質最大で8円=Σ34%減）。実機はユーザー。
+
 ### 2026-07-13f 追加α（基本αへの増分）→ 特段α（独立α値）へ全面移行（一括切替・過去の特段記録のEP/損益が変わる移行含む）
 「基本α＋追加α増分」モデルを廃止し、**特段の事情がある局面で使う独立したα値＝特段α**へ作り替え。base-levelα ＝ `specialUsed ? specialAlpha : baseAlphaVal` を正本に集約。採用α(alphaVal)＝ base-levelα ＋ 浮き足(_elUkiAdd) ＋ RN(_elRnAdd)。「+追加」増分は消滅。sw v111→**v112**。
 - **①データ土台（app-01/05）**: 新helper `_elSpecialUsed(s)=specialUsed===true` / `_elBaseLevelAlpha(s)`（正本）/ `_DEF_SPECIAL_REASONS` を app-05 α-hub に新設。旧3状態判定 `_elAddAlphaYes/No/Unset`・`_addAlphaUnsetBadge`・`_DEF_ADD_REASONS` は撤去。app-05 EntryRecordForm: `fAddAlpha/fAddAlphaUsed/nAddReasons` → `fSpecialAlpha/fAlphaKind("base"/"special")/fAddReasons(=specialReasons由来)`・`_fBaseLevel=(fAlphaKind==="special")?_fSpecialA:_fBaseAInput`・`_fAlpha=_fBaseLevel+浮き+RN`・doSaveは `specialUsed/specialAlpha/specialReasons` を保存（旧addAlpha*撤去）。新 `_refSpecial`（銘柄全体母数の推奨特段α＝§9で移行値と一致）。
