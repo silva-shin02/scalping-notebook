@@ -1528,54 +1528,113 @@ function _elH2AgreeNode(h1Val, h2Val, unit, pfx) {
   var same = h2Val === h1Val;
   return React.createElement("span", { title: "最終損益（手じまい・旧H2）基準で同じスイープを評価した結果。スコア＝0.7×(1−損切り率)＋0.3×利確率・黒字条件＝Σ最終損益>0。主軸のH1推奨と数ヶ月併走して乖離を見るためのデュアル表示 2026-07-12", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "1px 6px", marginLeft: 4, verticalAlign: "middle", color: same ? "#1E8449" : "#6D28D9", background: same ? "#EAF3DE" : "#F5F3FF", border: "1px solid " + (same ? "#A7D28D" : "#DDD6FE") } }, same ? ("✓最終基準も" + (pfx || "") + h2Val + unit) : ("最終基準 " + (pfx || "") + h2Val + unit));
 }
-// ===== RNまたぎ加算の分析ボード（シグナル総合「🔢RN」・承認④ 2026-07-12）=====
-// 浮き足%ボードと同思想＝最終損益(手じまい)基準(_elH2EvalByFn)。母数=渡されたv2算入記録のうちRN〇(signal.rnUsed・_elRnYes)。
-// 上段=現実(採用α=記録どおり) vs 反実仮想(RN加算を外す=採用α−RN値・EP到達から再判定)＝「またぎまで待つ判断は割に合っているか」。
-// 下段=RN加算値別の現実成績。E成立<_EL_BASE_MIN_Nは（仮）。※RN×側との比較は「RNまたぎ状況だったか」のフラグが記録に無く不可能＝出さない。
+// ===== RNまたぎ加算の分析ボード（シグナル総合「🔢RN」・2026-07-16d 全面刷新）=====
+// RNまたぎ＝EPの下二桁が90台(91〜99・90ちょうどは除く)のとき、RN加算(rnVal=100−下二桁)でEPをRNちょうど(例5391〜99→5400)に乗せる運用。
+// 母数=渡されたv2算入記録のうちRN〇(signal.rnUsed・_elRnYes)。最終損益(手じまい)基準(_elH2EvalByFn)。
+// ①EP位置スイープ＝EPをRN−3〜RN+3の各位置に置き直して再判定（採用α+オフセット）＋RN無し(素のα=採用α−RN値)の参考行。「本当にRNちょうどでいいのか」。
+//   ★＝E成立≥_EL_BASE_MIN_N かつ Σ黒字 の候補で平均最終損益が最大（浮き足%ボードと同流儀・薄いうちは全行（仮））。現行=RNちょうど行は琥珀ハイライト。RN無しが★を取ることもある＝そもそも不要のサイン。
+// ②寄与の内訳＝現実−RN無しの差を「両方成立の値幅改善」「RN待ちで入れなかった取引の仮想損益（負=待って正解）」に分解＋記録ごとの得/損/同件数。「そもそも採る必要があるのか」。
+// ③RN距離別＝rnVal別に Σ現実/ΣRN無し/寄与。近い距離(+1〜3)は誤差か・遠い距離(+7〜9)でも待つ価値があるか。
+// ※旧「RN込みvsRN無し2行表」「RN加算値別(現実のみ)」は①③に吸収＝撤去(2026-07-16d)。RN×側との比較は「RNまたぎ状況だったか」のフラグが記録に無く不可能＝出さない。
 function _elRnBoardV2(recs, aiOf) {
   var pool = (recs || []).filter(function(r) { return r && _elRnYes(r.signal); });
   var _th2 = function(t, k) { return React.createElement("th", { key: k, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
   var _td2 = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #F0EDE7", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
   if (!pool.length) return React.createElement("div", { style: { color: "#94A3B8", textAlign: "center", padding: "24px 12px", fontSize: 12, border: "1px dashed #e0ddd6", borderRadius: 10 } }, "RNまたぎ加算〇の記録がまだありません（記録フォーム/EPナビでRN〇を付けると貯まります・2026-07-08導入）");
-  var real = _elH2EvalByFn(pool, aiOf, function(r) { return aiOf(r).alpha; });
-  var cf = _elH2EvalByFn(pool, aiOf, function(r) { var a = aiOf(r).alpha; if (a == null) return null; return Math.max(0, a - _elRnAdd(r.signal)); });
-  var _better = (real.h2Sum != null && cf.h2Sum != null) ? (real.h2Sum - cf.h2Sum) : null;
-  var _rowOf = function(label, e, hot) {
-    var thin = e.decided < _EL_BASE_MIN_N;
-    return React.createElement("tr", { key: label, style: { background: hot ? "#FEF3C7" : "transparent" } },
-      _td2(React.createElement("span", { style: { fontWeight: 700, color: "#334155" } }, label, thin ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 3, fontWeight: 700 } }, "（仮）") : null), { textAlign: "left", paddingLeft: 8 }),
+  var _aReal = function(r) { return aiOf(r).alpha; };
+  var _aNone = function(r) { var a = aiOf(r).alpha; if (a == null) return null; return Math.max(0, a - _elRnAdd(r.signal)); };
+  var _aOff = function(off) { return function(r) { var a = aiOf(r).alpha; if (a == null) return null; return Math.max(0, a + off); }; };
+  var _sumCell = function(v, w) { return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: w || 800 } }, _elPnlFmt(Math.round(v))); };
+  // ---- ① EP位置スイープ（RN−3〜+3＋RN無し参考行） ----
+  var rows = [{ key: "none", label: "RN無し（素のα・下二桁のまま）", ref: true, e: _elH2EvalByFn(pool, aiOf, _aNone) }];
+  [-3, -2, -1, 0, 1, 2, 3].forEach(function(off) {
+    var lbl = off === 0 ? "RNちょうど" : (off < 0 ? "RN−" + (-off) + "（" + (-off) + "円手前）" : "RN+" + off + "（" + off + "円超え）");
+    rows.push({ key: "o" + off, label: lbl, cur: off === 0, e: _elH2EvalByFn(pool, aiOf, off === 0 ? _aReal : _aOff(off)) });
+  });
+  var _gated = rows.filter(function(rw) { return rw.e.decided >= _EL_BASE_MIN_N && rw.e.h2Sum != null && rw.e.h2Sum > 0; });
+  _gated.sort(function(x, y) { return (x.e.avgH2 - y.e.avgH2) || (x.e.h2Sum - y.e.h2Sum); });
+  var _star = _gated.length ? _gated[_gated.length - 1] : null;
+  var _swRow = function(rw) {
+    var e = rw.e, thin = e.decided < _EL_BASE_MIN_N;
+    var isStar = _star && _star.key === rw.key;
+    return React.createElement("tr", { key: rw.key, style: { background: rw.cur ? "#FEF3C7" : (isStar ? "#E1F5EE" : "transparent") } },
+      _td2(React.createElement("span", { style: { fontWeight: 700, color: rw.ref ? "#94A3B8" : "#334155" } },
+        isStar ? React.createElement("span", { style: { color: "#0F766E", marginRight: 3 } }, "★") : null,
+        rw.label,
+        rw.cur ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", borderRadius: 8, padding: "0 6px", marginLeft: 5, verticalAlign: "middle" } }, "現行") : null,
+        rw.ref ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", marginLeft: 4 } }, "参考") : null,
+        thin ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 3, fontWeight: 700 } }, "（仮）") : null), { textAlign: "left", paddingLeft: 8 }),
       _td2(e.n + "件"),
       _td2(_elPctCell(e.eRate)),
       _td2(e.decided + "件"),
       _td2(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
       _td2(e.takeRate == null ? "—" : _elPctCell(e.takeRate)),
-      _td2(e.h2Sum == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(e.h2Sum), fontWeight: 800 } }, _elPnlFmt(e.h2Sum))),
-      _td2(e.avgH2 == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(e.avgH2), fontWeight: 700 } }, _elPnlFmt(Math.round(e.avgH2)))));
+      _td2(_sumCell(e.h2Sum)),
+      _td2(_sumCell(e.avgH2, 700)));
   };
+  // ---- ② 寄与の内訳（記録単位・判定は_elH2EvalByFnと同一） ----
+  var _pnlAt = function(r, a) {
+    var s = r.signal, c = aiOf(r).cutLine;
+    if (a == null) return null;
+    var rr = _epResolve(s, a);
+    if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return null;
+    var res = _elDynResult(s, a, c);
+    if (!(res === "ok" || res === "ng" || res === "draw")) return null;
+    var t2 = _elHold2TotParts(s, a, c);
+    return (t2 && t2.main != null) ? t2.main : null;
+  };
+  var bothN = 0, bothDiff = 0, cfOnlyN = 0, cfOnlySum = 0, realOnlyN = 0, realOnlySum = 0, winN = 0, loseN = 0, evenN = 0;
+  pool.forEach(function(r) {
+    var pr = _pnlAt(r, _aReal(r)), pc = _pnlAt(r, _aNone(r));
+    if (pr != null && pc != null) { bothN++; bothDiff += pr - pc; }
+    else if (pc != null) { cfOnlyN++; cfOnlySum += pc; }
+    else if (pr != null) { realOnlyN++; realOnlySum += pr; }
+    var d = (pr || 0) - (pc || 0);
+    if (d > 0) winN++; else if (d < 0) loseN++; else evenN++;
+  });
+  var net = bothDiff - cfOnlySum + realOnlySum;
+  var _statCard = function(title, amt, desc, hot) {
+    return React.createElement("div", { key: title, style: { flex: "1 1 170px", minWidth: 170, background: hot ? "#E1F5EE" : "#FFFBF5", border: "1px solid " + (hot ? "#9FE1CB" : "#F0E6D2"), borderRadius: 8, padding: "8px 12px" } },
+      React.createElement("div", { style: { fontSize: 10, color: hot ? "#085041" : "#B08968", fontWeight: 700 } }, title),
+      React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: amt == null ? "#94A3B8" : _elPnlColor(amt), fontVariantNumeric: "tabular-nums" } }, amt == null ? "—" : _elPnlFmt(Math.round(amt))),
+      React.createElement("div", { style: { fontSize: 10, color: hot ? "#0F6E56" : "#777", lineHeight: 1.4 } }, desc));
+  };
+  // ---- ③ RN距離別の寄与 ----
   var byVal = {};
   pool.forEach(function(r) { var v = _elRnAdd(r.signal); (byVal[v] = byVal[v] || []).push(r); });
   var valRows = Object.keys(byVal).map(Number).sort(function(a, b) { return a - b; }).map(function(v) {
-    var e = _elH2EvalByFn(byVal[v], aiOf, function(r) { return aiOf(r).alpha; });
+    var g = byVal[v];
+    var e = _elH2EvalByFn(g, aiOf, _aReal);
+    var ec = _elH2EvalByFn(g, aiOf, _aNone);
+    var d = (e.h2Sum == null && ec.h2Sum == null) ? null : (e.h2Sum || 0) - (ec.h2Sum || 0);
     return React.createElement("tr", { key: "v" + v },
       _td2(React.createElement("span", { style: { fontWeight: 700, color: "#1D4ED8" } }, "+" + v + "円"), { textAlign: "left", paddingLeft: 8 }),
-      _td2(byVal[v].length + "件"),
+      _td2(g.length + "件"),
       _td2(_elPctCell(e.eRate)),
-      _td2(e.decided + "件"),
-      _td2(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
-      _td2(e.takeRate == null ? "—" : _elPctCell(e.takeRate)),
-      _td2(e.h2Sum == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(e.h2Sum), fontWeight: 800 } }, _elPnlFmt(e.h2Sum))));
+      _td2(_sumCell(e.h2Sum)),
+      _td2(_sumCell(ec.h2Sum, 700)),
+      _td2(_sumCell(d)));
   });
   return React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6 } }, "母数＝RN〇の全記録（" + pool.length + "件）。反実仮想＝RN加算を外した採用α（−RN値）でEP到達から再判定＝「またぎまで待たなかったら」。最終損益（手じまい・○途切れ）基準。"),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6 } }, "母数＝RN〇の全記録（" + pool.length + "件）。EPを各位置に置き直して再判定（採用α±オフセットでEP到達〜最終損益[手じまい・○途切れ]まで同一基準で再計算）。RN無し＝RN加算を外した素のα＝EPは下二桁91〜99のまま（記録ごとに位置が違う参考行）。"),
+    React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "① EP位置スイープ 〜本当にRNちょうどでいいのか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
-      React.createElement("thead", null, React.createElement("tr", null, ["", "母数", "到達率", "E成立", "損切り率", "利確率", "Σ最終損益", "平均"].map(function(h, i) { return _th2(h, i); }))),
-      React.createElement("tbody", null, _rowOf("RN込み（記録どおり）", real, _better != null && _better > 0), _rowOf("RN無しなら（α−RN）", cf, _better != null && _better < 0)))),
-    _better != null ? React.createElement("div", { style: { fontSize: 10.5, color: "#555", marginTop: 6 } }, "RNまたぎ加算の寄与（Σ最終損益の差）: ", React.createElement("b", { style: { color: _elPnlColor(_better) } }, (_better > 0 ? "+" : "") + Math.round(_better).toLocaleString() + "円"), React.createElement("span", { style: { color: "#94A3B8", marginLeft: 6 } }, _better > 0 ? "＝RNまで待つ判断が効いている" : _better < 0 ? "＝RNを外した方が良かった（浅いαで到達が増える効果）" : "")) : null,
-    valRows.length > 1 ? React.createElement("div", { style: { marginTop: 12 } },
-      React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", marginBottom: 4 } }, "RN加算値別（記録どおり・現実成績）"),
-      React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
-        React.createElement("thead", null, React.createElement("tr", null, ["RN値", "件数", "到達率", "E成立", "損切り率", "利確率", "Σ最終損益"].map(function(h, i) { return _th2(h, i); }))),
-        React.createElement("tbody", null, valRows)))) : null);
+      React.createElement("thead", null, React.createElement("tr", null, ["EP位置", "母数", "到達率", "E成立", "損切り率", "利確率", "Σ最終損益", "平均"].map(function(h, i) { return _th2(h, i); }))),
+      React.createElement("tbody", null, rows.map(_swRow)))),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4 } }, "上（手前）ほど早く入れて到達が増え、下（超え）ほど1件あたりが良くなるトレードオフ。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字の位置で平均最終損益が最大（該当なしなら★なし）。RN無しが★なら「そもそもまたぎ不要」のサイン。"),
+    React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "12px 0 4px" } }, "② RN待ちの寄与・内訳 〜そもそも採る必要があるのか〜"),
+    React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
+      _statCard("両方成立した取引（" + bothN + "件）", bothN ? bothDiff : null, "RN値ぶんエントリーが有利になった値幅改善（判定変化の影響含む）"),
+      _statCard("RN待ちで入れなかった取引（" + cfOnlyN + "件）", cfOnlyN ? cfOnlySum : null, "入っていたらの仮想損益。マイナスなら「待って正解＝損失回避」・プラスなら機会損失"),
+      _statCard("差し引き（寄与）", net, net > 0 ? "＝RNまで待つ判断が効いている" : net < 0 ? "＝RNを外した方が良かった（浅いαで到達が増える効果）" : "＝差なし", true)),
+    realOnlyN ? React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", marginBottom: 4 } }, "※現実のみ成立 " + realOnlyN + "件（Σ" + _elPnlFmt(Math.round(realOnlySum)) + "・差し引きに加算済み）") : null,
+    React.createElement("div", { style: { fontSize: 11, color: "#555" } }, "記録ごとの勝敗（Σが1件に引っ張られていないか）: ",
+      React.createElement("b", { style: { color: "#C0392B" } }, "得 " + winN + "件"), " ・ ",
+      React.createElement("b", { style: { color: "#1E8449" } }, "損 " + loseN + "件"), " ・ 同等 " + evenN + "件（両方未達含む）"),
+    React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "12px 0 4px" } }, "③ RN距離別の寄与 〜遠くても待つ価値はあるか〜"),
+    React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, React.createElement("tr", null, ["RN値（またぎ距離）", "件数", "到達率", "Σ現実", "ΣRN無しなら", "寄与（差）"].map(function(h, i) { return _th2(h, i); }))),
+      React.createElement("tbody", null, valRows))));
 }
 // 「何営業日に1日エントリーできたか」用 2026-07-07（ユーザー要望・全営業日ベース）: 母数の活動期間（初回〜直近の記録日）の営業日数。holiSet省略時は土日のみ除外・渡せば祝日も除外（_fmIsBizDay app-03）。validOf(r)=母数に含めるか（推奨α算出不能などの除外・省略時は全記録）。
 function _elBizSpanDays(recs, holiSet, validOf) {
@@ -5521,7 +5580,7 @@ function EntryLogView(_ref_elv2) {
     // 📡シグナル総合＝全銘柄共通の分析（銘柄別に分ける必要のないデータ）。母数は常に全銘柄(_v2recsAll)。2026-07-12
     _tabBody = (sigSub === "rn")
       ? _cardify([
-          _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。現実（RN込み）vs 反実仮想（RN加算を外した場合）＋RN値別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai),
+          _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai),
           _secH("🗂 RN〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝RNまたぎ加算〇の全記録。行タップで明細カード・カードタップで編集フォーム"),
           _recTable(_v2recsAll.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateDesc), "full", "rntab_")])
       : _cardify([_secH("⚡ 浮き足加算率の最適化（全銘柄共通）"), _elUkiPctBoardV2(_v2recsAll, _ai)]);   // 時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去（旧sigSub値はこのelseで浮き足%に落ちる）
