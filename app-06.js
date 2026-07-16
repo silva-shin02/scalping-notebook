@@ -3625,6 +3625,120 @@ function _elDayStockBenchV2(_ref) {
 //   超過幅 = _elHoldMaxHigh(s).all − α − cutLine（損切りラインを超えて伸びた円・水準線比）。
 //   損切り損失 = _epHoldLadder(s,α,cut).finalPnl（損切りラインで止めた損益・深掘り「最適ホールド本数」と同基準）。
 //   保有なら = _elRuleHoldPnl（損切りせず、確定値が前の足より悪化したらその足で手仕舞い・悪化しなければ最後まで＝実運用ルール 2026-07-13）、ベスト = _epHoldLadder(s,α,BIG).maxPnl（損切り後の最良手仕舞い）。
+// ===== 逆行(MAE)分析 2026-07-16f =====
+// 逆行＝「損切りを免れた取引が、EP足から手じまい足までに最大何円踏まれたか」＝ mx − α（水準線比の円・**損益ではない**）。
+// 母数＝損切り値Cで stopped===false の取引だけ。損切りになった記録は _elStopOvershootSectionV2（超過幅・鏡像）の担当＝排他。
+// 【この分析の中核定理】非損切り＝深さ0.._expD のどの足も「高値−α≥C」を満たさない（_elPlanIsStop/_elHoldIsStop/_elHoldIsStop2 の判定式の対偶）。
+//   mx は同じ 0..exitD(=_expD) の最大なので **逆行 < C が構造的に保証される**。また _epResolve が legs[i].h>=alpha でEPを立てるので **逆行 >= 0** も保証。
+//   ⇒ 損切り値を C' = 最悪逆行+1 に詰めても、全生存者の逆行 < C' なので **生存者は1件も損切りに変わらず、手じまい足も損益も完全に不変**。
+//   一方 _epHoldLadder は「最初に h−α≥C に触れた足の高値」で損失を決めるので、C を詰めると損切り組の停止足は早まるか同じ＝**損失は縮むか同額**（実測: C20→15 で -12,000円→-12,000円＝同額のケースあり＝「必ず縮む」ではない）。
+//   ⇒ C' = 最悪逆行+1 は「この標本では損切り率も生存損益も悪化させず、損切り組の負け額は縮むか同額」のパレート改善。★はここに置く。
+//   実測検証(2026-07-16f): C=20/生存12件/最悪逆行14 → C'=15 で生存者12件が顔ぶれ・損益とも完全同一・損切り組の損失も悪化なし。単調性(C5→最悪4/C8→7/C10→8/C12→11/C15→14/C20→14)も確認＝常に「最悪<C」。
+// ※ただし最悪値は標本の max ＝1件の外れ値に全依存。件数が薄いうちは参考表示に留め、「将来これを超える逆行が出ない保証はない」を明示する。
+function _elMaeStats(entered, aiOf, C) {
+  var rows = [], stopN = 0;
+  (entered || []).forEach(function(r) {
+    var s = r && r.signal; if (!s) return;
+    var a = aiOf(r).alpha; if (a == null) return;
+    var v = _elRideVals(s, a, C);   // Cは必ず明示（省略すると_elRideVals内で15円に化ける・app-05:4802）
+    if (!v) return;
+    if (v.stopped) { stopN++; return; }   // 損切り組は母数外
+    if (v.mx == null) return;
+    var mae = Math.round((v.mx - a) * 10) / 10;
+    if (mae < 0) mae = 0;   // 理屈上起きないがクランプ
+    var L = _epHoldLadder(s, a, C);
+    rows.push({ r: r, s: s, a: a, mae: mae, pnl: (L ? L.finalPnl : null), lbl: v.lbl, exitD: v.exitD });
+  });
+  var arr = rows.map(function(o) { return o.mae; });
+  var srt = arr.slice().sort(function(x, y) { return x - y; });
+  return { n: rows.length, stopN: stopN, rows: rows, arr: arr,
+    max: srt.length ? srt[srt.length - 1] : null,
+    mean: arr.length ? _elMean(arr) : null,
+    med: arr.length ? _elMedian(arr) : null,
+    p90: srt.length ? srt[Math.min(srt.length - 1, Math.ceil(srt.length * 0.9) - 1)] : null };
+}
+// 逆行セクション本体。cutOf(r)=各記録の採用損切り値。表示色は「深いほど赤」＝損益色(_elPnlColor: 赤=利益)とは意味が逆なので絶対に流用しない。
+function _elStopMaeSectionV2(entered, aiOf) {
+  var _cutOf = function(r) { var c = aiOf(r).cutLine; return c != null ? c : 15; };
+  var _cuts = {}; (entered || []).forEach(function(r) { _cuts[_cutOf(r)] = 1; });
+  var _cutKeys = Object.keys(_cuts).map(Number).sort(function(a, b) { return a - b; });
+  var _cutLbl = _cutKeys.length === 1 ? (_cutKeys[0] + "円") : (_cutKeys[0] + "〜" + _cutKeys[_cutKeys.length - 1] + "円");
+  // 母数は各記録の採用損切り値で評価（記録ごとにcutが違ってもよい）
+  var rows = [], stopN = 0;
+  (entered || []).forEach(function(r) {
+    var s = r.signal, a = aiOf(r).alpha; if (a == null) return;
+    var C = _cutOf(r);
+    var v = _elRideVals(s, a, C);
+    if (!v) return;
+    if (v.stopped) { stopN++; return; }
+    if (v.mx == null) return;
+    var mae = Math.round((v.mx - a) * 10) / 10; if (mae < 0) mae = 0;
+    var L = _epHoldLadder(s, a, C);
+    rows.push({ r: r, s: s, a: a, cut: C, mae: mae, pnl: (L ? L.finalPnl : null), lbl: v.lbl, exitD: v.exitD, margin: Math.round((C - mae) * 10) / 10 });
+  });
+  if (!rows.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "損切りを免れた記録がありません（E成立 " + (entered || []).length + "件・うち損切り " + stopN + "件）");
+  var arr = rows.map(function(o) { return o.mae; });
+  var srt = arr.slice().sort(function(x, y) { return x - y; });
+  var maxMae = srt[srt.length - 1], meanMae = _elMean(arr), medMae = _elMedian(arr);
+  var minCut = _cutKeys[0];
+  var floorCut = Math.round((maxMae + 1) * 10) / 10;   // 詰められる下限
+  var canTighten = floorCut < minCut;
+  var _thin = rows.length < _EL_BASE_MIN_N;   // 薄い標本＝推奨を出さず参考表示（★選定の件数フロアに合わせる）
+  var cards = _elv2CardRow([
+    _elv2Card("損切りを免れた", rows.length + "件", "#9A3412", "E成立" + (entered || []).length + "件中・損切り" + stopN + "件"),
+    _elv2Card("逆行（平均/中央）", "平均" + meanMae + " / 中央" + medMae + "円", "#555", "EP足〜手じまい足の最高値−α"),
+    _elv2Card("最悪逆行", maxMae + "円", (minCut - maxMae) <= 2 ? "#C0392B" : "#B45309", "この母数でギリギリ生き残った深さ"),
+    _elv2Card("詰められる下限", _thin ? "—（参考）" : (canTighten ? floorCut + "円" : "—"), _thin ? "#94A3B8" : (canTighten ? "#1E8449" : "#94A3B8"),
+      _thin ? "件数" + _EL_BASE_MIN_N + "件未満＝判断保留" : (canTighten ? ("現在 " + _cutLbl + " → −" + Math.round((minCut - floorCut) * 10) / 10 + "円") : "既に最小（余地なし）"))
+  ]);
+  // 分布（浅い→深い）。深いほど赤＝損切りに近かった。
+  var BK = [[0, 0, "0"], [0.1, 2, "1-2"], [2.1, 4, "3-4"], [4.1, 6, "5-6"], [6.1, 9, "7-9"], [9.1, 9999, "10+"]];
+  var cum = 0;
+  var distRows = BK.map(function(b) {
+    var cnt = arr.filter(function(v) { return v >= b[0] && v <= b[1]; }).length;
+    return { lbl: b[2], cnt: cnt, lo: b[0] };
+  }).filter(function(b) { return b.cnt > 0; }).map(function(b) {
+    cum += b.cnt;
+    var _c = cum;
+    return React.createElement("tr", { key: b.lbl },
+      _elv2Td(React.createElement("b", { style: { color: b.lo >= 6.1 ? "#C0392B" : b.lo >= 2.1 ? "#B45309" : "#555" } }, b.lbl + "円"), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(b.cnt + "件"),
+      _elv2Td(_elv2Rate(b.cnt, rows.length)),
+      _elv2Td(React.createElement("span", { style: { color: "#64748B" } }, Math.round(_c / rows.length * 100) + "%")));
+  });
+  var distTbl = _elv2Table(["逆行(円)", "件数", "構成比", "累積"], distRows);
+  // 個別（深い順＝損切りに一番近かった順）
+  var top = rows.slice().sort(function(x, y) { return y.mae - x.mae; });
+  var _detRow = function(o, i) {
+    return React.createElement("tr", { key: i },
+      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, (o.r.date || "").slice(5)), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(React.createElement("span", { style: { color: "#555" } }, o.r.stock), { textAlign: "left" }),
+      _elv2Td(React.createElement("span", { style: { color: "#0369A1", fontWeight: 700 } }, o.a + " / " + o.cut + "円")),
+      _elv2Td(React.createElement("b", { style: { color: o.margin <= 2 ? "#C0392B" : o.margin <= 4 ? "#B45309" : "#555" } }, "+" + o.mae + "円")),
+      _elv2Td(React.createElement("span", { style: { color: o.margin <= 2 ? "#C0392B" : "#94A3B8", fontWeight: o.margin <= 2 ? 700 : 400 } }, "残" + o.margin + "円")),
+      _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, o.lbl + "・" + o.exitD + "分")),
+      _elv2Td(React.createElement("b", { style: { color: _elPnlColor(o.pnl) } }, _elPnlFmt(o.pnl != null ? Math.round(o.pnl) : null))));
+  };
+  var detTbl = _elv2Table(["日付", "銘柄", "α/損切", "逆行(円)", "損切りまで", "手じまい", "最終損益(100株)"], top.map(_detRow));
+  var nearN = rows.filter(function(o) { return o.margin <= 2; }).length;
+  var items = [
+    React.createElement("span", null, "損切りを免れた", _elInsightEmV2(rows.length + "件"), "の逆行は平均", _elInsightEmV2(meanMae + "円"), "・中央", _elInsightEmV2(medMae + "円"), "・最悪", _elInsightEmV2(maxMae + "円", "#C0392B"), "。"),
+    (!_thin && canTighten)
+      ? React.createElement("span", null, "損切り値", _elInsightEmV2(_cutLbl), "に対し最悪でも", _elInsightEmV2(maxMae + "円"), "で収まっている＝", _elInsightEmV2(floorCut + "円まで詰めても"), "この母数では損切り率も生存側の損益も1円も変わらず、", _elInsightEmV2("損切りになった記録の負け額は縮むか同額（悪化しない）", "#1E8449"), "。")
+      : (_thin
+        ? React.createElement("span", null, "件数が", _elInsightEmV2(_EL_BASE_MIN_N + "件未満"), "のため「詰められる下限」は参考値（最悪値は1件の外れ値で簡単に動く）。")
+        : React.createElement("span", null, "最悪逆行が損切り値に肉薄＝", _elInsightEmV2("詰める余地なし"), "。")),
+    nearN ? React.createElement("span", null, "損切りまで残り2円以内まで踏まれた記録が", _elInsightEmV2(nearN + "件", "#C0392B"), "＝ここを詰めると真っ先にこれが損切りに変わる。") : null,
+    (meanMae != null && minCut > 0 && (meanMae / minCut) >= 0.6)
+      ? React.createElement("span", null, "平均逆行が損切り値の", _elInsightEmV2(Math.round(meanMae / minCut * 100) + "%"), "＝場が荒く、EPからほぼ毎回ライン近くまで踏まれている。詰める余地は小さい。") : null
+  ].filter(Boolean);
+  return React.createElement("div", null, cards,
+    React.createElement("div", { style: { marginTop: 10 } }, distTbl),
+    React.createElement("div", { style: { marginTop: 10 } },
+      React.createElement(_SNCollapse, { title: "📋 個別（逆行の深い順・" + rows.length + "件）", render: function() { return React.createElement("div", { style: { maxHeight: 320, overflowY: "auto" } }, detTbl); } })),
+    React.createElement("div", { style: { marginTop: 8 } },
+      _elInsightBoxV2(items, { note: "対象＝E成立(judge ok)のEP起算v2記録のうち、採用α・採用損切り値で**損切りにならなかった**もの（" + rows.length + "件／損切り " + stopN + "件）。逆行＝EP足〜手じまい足の高値の最大 − α（水準線比の円・100株換算ではない・**損益ではないので深いほど赤**）。手じまい足＝次足期待度×/未設定で降りた足＝記録表の「最終損益・詳細」「保有」列と同基準。※上の「損切り回数」カードとこの「損切り" + stopN + "件」は基準が違う（カードは期待度キャップ無しで損切りラインへの接触を数え、こちらは期待度×で先に降りた後の接触は『免れた』側に数える）ため一致しないことがある。損切りになった記録は下の『📐 損切りの上振れ』が担当（そちらの超過幅は全足の非キャップ最高値基準＝母数も物差しも別）。「詰められる下限」はこの標本の実績値＝将来これを超える逆行が出る可能性は排除できない。" })));
+}
 function _elStopOvershootSectionV2(recs, aiOf) {
   var BIG = 99999;
   var rows = [];
@@ -3762,12 +3876,17 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig) {
     return { cut: C, sN: sN, rate: entered.length ? sN / entered.length : 0, h2: t.hold2 };
   });
   var bestI = 0; sim.forEach(function(x, i) { if (x.h2 > sim[bestI].h2) bestI = i; });
-  var simTbl = _elv2Table(["損切り値", "損切り回数", "損切り率", "最終損益"], sim.map(function(x, i) {
+  // 2026-07-16f: 各損切り値での「生存側の逆行」を併記＝その損切り値がどれだけ余裕を持って生き残らせているか。
+  // 最悪逆行は cut が広いほど単調非減少になるはず（広い＝生存者が増える＝より深い逆行が母数に入る）＝逆転したらバグの検算になる。
+  var simM = cuts.map(function(C) { return _elMaeStats(entered, aiOf, C); });
+  var simTbl = _elv2Table(["損切り値", "損切り回数", "損切り率", "最終損益", "平均逆行", "最悪逆行"], sim.map(function(x, i) {
     return React.createElement("tr", { key: x.cut, style: i === bestI ? { background: "#FEF3C7" } : null },
       _elv2Td(React.createElement("span", null, x.cut + "円", i === bestI ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 800, marginLeft: 4 } }, "★手じまい最大") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
       _elv2Td(x.sN + "回"),
       _elv2Td(_elStopRateCell(x.rate)),
-      _elv2Td(React.createElement("b", { style: { color: _elPnlColor(x.h2) } }, _elPnlFmt(Math.round(x.h2)))));
+      _elv2Td(React.createElement("b", { style: { color: _elPnlColor(x.h2) } }, _elPnlFmt(Math.round(x.h2)))),
+      _elv2Td(simM[i].mean != null ? React.createElement("span", { style: { color: "#555" } }, simM[i].mean + "円") : "—"),
+      _elv2Td(simM[i].max != null ? React.createElement("b", { style: { color: (x.cut - simM[i].max) <= 2 ? "#C0392B" : "#555" } }, simM[i].max + "円") : "—"));
   }));
 
   // ④ シグナル別 損切り率
@@ -3863,8 +3982,10 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig) {
       React.createElement(_SNCollapse, { title: "📋 対象記録（E成立 " + entered.length + "件・タップで展開）", render: function() {
         return React.createElement("div", { style: { maxHeight: 320, overflowY: "auto" } }, _elOsTradeMini(entered, aiOf, { plain: true }));
       } })),
-    _h("🎚 損切り値の最適化（損切り値別シミュ）", "全記録に同じ損切り値を当てたときの損切り回数・最終損益。★=最終損益が最大の損切り値。狭いほど損切り増・損失浅／広いほど損切り減・損失大"),
+    _h("🎚 損切り値の最適化（損切り値別シミュ）", "※全記録に同じ損切り値を当てたときの損切り回数・最終損益（★=最終損益が最大）。逆行＝その損切り値で生き残った取引が踏まれた深さ＝損切り値との差が余裕。損益色は赤=利益だが、逆行は損益ではなく深いほど悪い（赤=損切りに肉薄）"),
     simTbl,
+    _h("📉 逆行（MAE）＝損切りを免れた取引は何円踏まれたか", "※対象＝採用損切り値で損切りにならなかった取引。最悪逆行＋1円がその損切り値を詰められる下限（この母数では損切り率も生存側の損益も変わらず、損切り組の負け額は縮むか同額）"),
+    _elStopMaeSectionV2(entered, aiOf),
     _h("📐 損切りの上振れ・早すぎ検証", "損切りラインを何円超えて伸びたか＋損切りせず保有/最良手仕舞いなら何円だったか＝損切りが早すぎないかの検証"),
     _elStopOvershootSectionV2(rs, aiOf),
     hideSig ? null : _h("🎯 シグナル別 損切り率", "どのシグナルが損切りになりやすいか（損切り率の高い順・平均損切り額）。複数タグは各タグに算入"),

@@ -75,6 +75,15 @@ HomeEventFormModal, App
   - **⚠️`_elAddAlphaDetailV2`は呼び出し元ゼロの死んだ関数**（2026-07-13fの応用α移行で配線が外れ「当面残置」＝FILEMAP:77）。同型なので列は揃えたが**画面には出ない**。関数先頭に未配線マーカーを明記した。専用の`_elAddAlphaPickDate`/`_elAddAlphaRecoScore`も同様。**ここの文言/列を直しても無意味＝将来繰り返さないこと**。
   - **⚠️`_secH`の副題は「※」で始まらないと描画されない**(app-06:4987・2026-07-03「見出し下の定型説明は非表示」)。よってセクション副題の文言修正はコード上のみで画面に出ない。**「見出しの文言がおかしい」系の指摘を受けたら、まず`_secH`の※ルールを確認すること**。
   - 敵対レビューで棄却した指摘: 「0〜4円行に★が出ないのに✓が出る」→**誤り**。★選定は`full`=`_EL_BASE_ALPHAS_FULL`(0〜20)で行われ(app-06:1759)、`pick.sweep`(5〜20)はH1参考列用に運ばれるだけ＝0〜4円も★になりうる（現に理想5円→推奨4円が★）。sw v177。
+- **2026-07-16f＝損切りタブに「📉 逆行(MAE)」セクション新設（ユーザー承認）＋2表食い違いの調査**:
+  - **新関数2本**（app-06・`_elStopOvershootSectionV2`の直前）＝`_elMaeStats(entered, aiOf, C)`（素値・{n,stopN,rows,arr,max,mean,med,p90}）／`_elStopMaeSectionV2(entered, aiOf)`（本体・カード4＋分布表＋個別`_SNCollapse`＋insight）。挿入位置＝`simTbl`と`📐上振れ`の間。**simTbl に「平均逆行」「最悪逆行」列も追加**（6列化）。
+  - **逆行の定義**＝`_elRideVals(s,α,C).mx − α`（EP足〜手じまい足の最高値−α・**水準線比の円＝損益ではない**）。母数＝`v.stopped===false`（損切りを免れた取引）＝`_elStopOvershootSectionV2`(損切りした記録・`_elHoldMaxHigh.all`基準)と**排他**。
+  - **中核定理（実測検証済み）**: ①逆行≥0（`_epResolve`が`h>=alpha`でEPを立てる）②非損切りなら**逆行 < C**（損切り判定`h−α≥C`の対偶・mxの走査範囲0..exitDと判定の深さが同じ土俵）③**C'=最悪逆行+1に詰めても生存者は顔ぶれ・損益とも完全不変**（C=20/生存12件/最悪14→C'=15で12→12件・損益完全同一を実測）④損切り組の損失は**縮むか同額**（実測: −12,000→−12,000＝同額もある。「必ず縮む」は誤り）⑤**単調性**＝Cが広いほど最悪逆行は非減少（実表: C5→4/C8→7/C10→8/C12→11/C15→14/C20→14）＝**バグの検算に使える**。
+  - **⚠️色の規約が逆**: このアプリの`_elPnlColor`は赤=利益。逆行は損益ではなく**深いほど悪い＝深い方を赤**。`_elPnlFmt/_elPnlColor`を逆行に通すと利益に見える大事故。最終損益列だけ`_elPnlColor`。単位も混在（逆行=水準線比の円／最終損益=100株換算）＝列見出しで明示。
+  - **⚠️`_elRideVals`はcutLine省略で15円に化ける**（app-05:4802）＝スイープでCを渡し忘れると全行15円基準になる。
+  - **⚠️「損切り回数」カード(`_isStop`＝期待度キャップ無し)と`M.stopN`(`v.stopped`＝期待度×で先に降りた後の接触は「免れた」側)は基準が違い一致しないことがある**＝noteに明記済み。
+  - n<`_EL_BASE_MIN_N`(10)は「詰められる下限」を出さず参考表示（最悪値は1件の外れ値で動くため）。
+  - **2表食い違いの調査結論**: 既定状態(根拠=全体/詳細=まとめて/詳細タグ別OFF)なら集計タブ(`_baRecs`=`_selSigRecs`)とα値タブ(`_alReasonRecsFull`=`_reasonFilter(_selSigRecs)`)は**同一配列＝完全一致**（実測で14行diff 0）。**修正前は頻度列が全行ズレていた**（営業日22→18・頻度1.2→1.0）＝f552d16が原因ではなく食い違いを直した側。**今も差が出る条件＝①α値タブの根拠セレクタが「全体」以外（集計タブに同フィルタが無い・告知は見出し末尾の小さな注記のみ）②「詳細:」プルダウンが表ごとに独立state(`gp_ba`/`al_baD`)③集計タブの詳細タグ別モード④SWの旧JSキャッシュ**。sw v178。
 - **2026-07-16d＝RN分析ボード`_elRnBoardV2`(app-06:1531)を全面刷新（ユーザー相談→①②③全採用・旧2表置き換え）**: RNまたぎ＝EP下二桁90台(91〜99)→RN加算(rnVal=100−下二桁)でEPをRNちょうどに乗せる運用（ユーザー定義をヘッダーコメントに明記）。**①EP位置スイープ**＝EPをRN−3〜RN+3に置き直して`_elH2EvalByFn(pool, aiOf, α+off)`で再判定＋RN無し(α−rnVal)参考行。現行=RNちょうど行は琥珀ハイライト・★=E成立≥`_EL_BASE_MIN_N`かつΣ黒字で平均最終損益最大（RN無しが★なら「そもそも不要」のサイン・薄いうちは（仮））。**②寄与の内訳**＝記録単位で現実/RN無しの最終損益を`_pnlAt`(engine同一判定=_epResolve epIdx0-2→_elDynResult ok/ng/draw→_elHold2TotParts.main)で並べ、「両方成立の値幅改善」「RN待ちで入れなかった取引の仮想損益（負=待って正解）」「差し引き(寄与)」の3カード＋記録ごとの得/損/同件数（Σの1件支配チェック）。恒等式: 差し引き=Σ現実−ΣRN無し=bothDiff−cfOnlySum+realOnlySum。**③RN距離別の寄与**＝rnVal別にΣ現実/ΣRN無し/寄与差。旧「RN込みvsRN無し2行表」「RN加算値別(現実のみ)表」は①③に吸収＝撤去。呼出側_secH注記も更新。sw v176。
 
 ### 2026-07-13f 追加α（基本αへの増分）→ 特段α（独立α値）へ全面移行（一括切替・過去の特段記録のEP/損益が変わる移行含む）
@@ -246,7 +255,7 @@ HomeEventFormModal, App
 ### 2026-07-07b 推奨基本α/追加α詳細表に「頻度（何営業日に1回エントリーできたか）」列を追加（ユーザー要望・全営業日ベース）
 - **app-06.js**: 新設ヘルパー3つ＝`_elBizSpanDays(recs,holiSet,validOf)`（母数の活動期間[初回〜直近の記録日]の営業日数・`_fmIsBizDay`で平日かつ非祝日・holiSet省略時は土日のみ・validOfで推奨α算出不能記録を除外）／`_elEnteredDays(recs,alphaOf)`（各記録にαを当てEP到達したdistinct日付数＝分子）／`_elFreqCell(span,enteredDays)`（span÷enteredDays＝X→「約X営業日に1回」・1.3未満はほぼ毎営業日・10以上は整数）。
 - `_elBaseAlphaDetailV2`と`_elAddAlphaDetailV2`に第3引数`holiSet`（任意）を追加し、両表（基本α総当たり・追加α日付別スイープ）の「到達率」列の右に「頻度」列を挿入。分母（span）は表ごとに1回・分子（到達実日数）は行のαごと＝高αほど到達日数減→頻度の間隔が広がる。母数＝各表と同じ（基本α＝×+未選択／追加α日付別＝addPool）。
-- 呼び出し: `_groupPanel`で`_holiSet=_buildHolidayDateSet(data.trades,custom.eventCategories)`を1回作り、`_elBaseAlphaDetailV2(_baRecs,_ai,_holiSet)`（2か所）と`_elAddAlphaDetailV2(_baRecs,_ai,_holiSet)`へ渡す。α値タブ①の`_elBaseAlphaDetailV2(_alReasonRecsFull,_ai)`はholiSet無し＝土日のみ除外にフォールバック（許容）。
+- 呼び出し: `_groupPanel`で`_holiSet=_buildHolidayDateSet(data.trades,custom.eventCategories)`を1回作り、`_elBaseAlphaDetailV2(_baRecs,_ai,_holiSet)`（2か所）と`_elAddAlphaDetailV2(_baRecs,_ai,_holiSet)`へ渡す。~~α値タブ①の`_elBaseAlphaDetailV2(_alReasonRecsFull,_ai)`はholiSet無し＝土日のみ除外にフォールバック（許容）。~~ **←2026-07-16eに失効・修正済み**: これが「集計タブとα値タブで頻度列/淡色が食い違う」の原因だった（★は`_elHoliCur`で祝日除外済み＝表とも不整合）。`_alHoliSet`をゾーン分岐の外で宣言し全呼出でholiSetを渡すよう修正（実測: 営業日22→18・頻度1.2→1.0で全行ズレていた）。**「許容」ではなくバグだったので、同種の“片方だけ引数を省略”は今後許容しないこと。**
 - ユーザー選択（AskUserQuestion）: 分母＝全営業日ベース（活動期間の営業日で割る／シグナルが出なかった日も分母に含む）。列見出しは「頻度」・セルは「X営業日に1回」・各表のラベルに算出式注記。
 - 検証: V8構文OK＋ヘルパーunit（span=平日inclusive5/holiday除外4/single1・freq「2営業日に1回」「ほぼ毎営業日」「15」「1.8」「—」）＋実マウントで両表の頻度列が到達率低下に連動して増加（例: 到達100%→1.4営業日に1回・58%→2.4営業日に1回）・警告0。sw.js v48→v49。
 
