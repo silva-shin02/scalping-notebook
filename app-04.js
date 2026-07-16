@@ -4072,10 +4072,7 @@ function _EpnCalcForm(_p) {
       nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null,
       nUkiUsed === "○" ? React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(true); }, title: "浮き足加算率の詳細データ表（全銘柄・前日まで＝推奨%と同母数）", style: { fontSize: 10, fontWeight: 700, color: "#15803D", background: "#fff", border: "1px solid #86EFAC", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表") : null,
       (nUkiUsed === "○" && _epnUkiTbl) ? React.createElement("div", { onClick: function() { _setEpnUkiTbl(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると最終損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝" + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!date || r.date < date); }), function(r) { return _elAlphaInfo(r, data); }, nUkiSpecial ? "special" : "basic"))) : null)) : null,
-    // ⑤ライン併存ルール（浮き足の下へ移動 2026-07-13・元は③〜⑤詳細畳みの中）
-    _lrow(_nl("⑤", "ライン併存ルール"), React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
-      _oxBtns(nLineCoexist ? "○" : "×", function(v) { setNLineCoexist(v === "○"); }),
-      React.createElement("span", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 600 } }, "〇で基本α＝1（手修正可）"))),
+    // ⑤ライン併存ルール欄は廃止（2026-07-16）＝新規EPで〇にできない。過去の lineCoexist は保存のまま（記録一覧の「併存」バッジ_elAlphaTypeCellで識別・基本α自動1入力も廃止）。
     // 採用α（基本α/応用α セレクタ・記録フォームと同じ 2026-07-13・旧「基本α入力＋📊応用α詳細ボタン＋応用α〇×」を統合。応用α詳細表は上「本日の採用α値」の応用α『表を参照』で代替）
     (nUkiUsed !== "○") ? _lrow("採用α", React.createElement("div", null,
       React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3, marginBottom: 5 } },
@@ -4303,14 +4300,7 @@ function EpNaviPanel(_refEPN) {
               return React.createElement("button", { key: f, type: "button", onClick: function() { onToggleF(st, e, f); },
                 style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 600, border: _on ? "1.5px solid #B45309" : "1px solid #ddd", background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#94A3B8", borderRadius: 4, cursor: "pointer" } }, f);
             }))) : null,
-          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5 } },   // ⑤ライン併存ルール（早見カード 2026-07-08g）: 〇で基本α1・EP再計算
-            React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, flexShrink: 0 } }, "ライン併存"),
-            [["○", true, "#C0392B", "#FCEBEB"], ["×", false, "#1E8449", "#EAF3DE"]].map(function(kv) {
-              var _on = (e.lineCoexist === true) === kv[1];
-              return React.createElement("button", { key: kv[0], type: "button", onClick: function() { onSetLineCoexist(st, e, kv[1]); },
-                style: { padding: "1px 8px", fontSize: 10.5, fontWeight: _on ? 800 : 600, border: _on ? "1.5px solid " + kv[2] : "1px solid #ddd", background: _on ? kv[3] : "#fff", color: _on ? kv[2] : "#999", borderRadius: 4, cursor: "pointer", lineHeight: 1.5 } }, kv[0]);
-            }),
-            (e.lineCoexist === true) ? React.createElement("span", { style: { fontSize: 8, color: "#0F766E", fontWeight: 700 } }, "基α=1") : null),
+          // ライン併存ルール（早見カード）欄は廃止（2026-07-16）＝新規EPで〇にできない。過去の識別は記録一覧の「併存」バッジ（_elAlphaTypeCell）。onSetLineCoexistは未使用となるが保持（無害）。
           _isUkiCard ? null : React.createElement(_EpnAddSection, { data: data, save: save, date: date, stock: st, item: e, reasonsMaster: reasonsMaster,
             onUsed: function(u) { onSetSpecialUsed(st, e, u); },
             onValue: function(n) { onSetSpecial(st, e, n); },

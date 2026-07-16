@@ -3334,7 +3334,8 @@ function _elAlphaTypeCell(s, alpha) {
   return React.createElement("div", { style: { lineHeight: 1.2 } },
     React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),
     React.createElement("div", { style: { color: col, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, _elAlphaShown(s, alpha) + "円"),
-    hasAdd ? _elAlphaBreakdownNode(s, alpha) : null);
+    hasAdd ? _elAlphaBreakdownNode(s, alpha) : null,
+    (s && s.lineCoexist === true) ? React.createElement("div", { title: "ライン併存（過去に設定・入力欄は廃止）", style: { display: "inline-block", marginTop: 1, fontSize: 8, fontWeight: 700, color: "#0F766E", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 3, padding: "0 4px", lineHeight: 1.5 } }, "併存") : null);   // 過去のライン併存〇の識別バッジ（欄は廃止・2026-07-16）
 }
 // 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
 function _minBarList(s) { if (!s || s.minBar == null) return []; var arr = Array.isArray(s.minBar) ? s.minBar : [s.minBar]; var out = []; for (var i = 0; i < arr.length; i++) { var n = Number(arr[i]); if ((n === 1 || n === 5) && out.indexOf(n) < 0) out.push(n); } out.sort(function(a, b) { return a - b; }); return out; }
@@ -7400,17 +7401,7 @@ function EntryRecordForm(_ref_erf) {
           );
         })
       ) : null,
-      // ④ ライン併存ルール（独自欄 2026-07-08g）: ③その他の下・〇×（既定×）。〇で基本α値が自動的に1（fLineCoexist effect・手修正可）。
-      React.createElement("div", { style: { margin: "6px 0 8px", padding: "8px 10px", borderRadius: 8, background: fLineCoexist ? "#F0FDFA" : "#F8FAFC", border: "1px solid " + (fLineCoexist ? "#99F6E4" : "#E2E8F0") } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0F766E", marginBottom: 4 } }, "④ ライン併存ルール"),
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-          React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
-            [["○", "#C0392B", "#FCEBEB", true], ["×", "#1E8449", "#EAF3DE", false]].map(function(kv) {
-              var on = fLineCoexist === kv[3];
-              return React.createElement("button", { key: kv[0], type: "button", onClick: function() { setFLineCoexist(kv[3]); },
-                style: { padding: "3px 14px", fontSize: 13, fontWeight: on ? 800 : 600, border: on ? "2px solid " + kv[1] : "1px solid #ddd", background: on ? kv[2] : "#fff", color: on ? kv[1] : "#999", borderRadius: 6, cursor: "pointer", lineHeight: 1.5 } }, kv[0]);
-            })),
-          React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "〇で基本α値が自動的に1になります（手修正可）"))),
+      // ④ ライン併存ルール欄は廃止（2026-07-16）＝新規記録で〇にできない。過去の signal.lineCoexist は保存したまま（記録表のα値セル_elAlphaTypeCellの「併存」バッジで識別）。基本α自動1入力の効果も無効化（fLineCoexist stateはinitSigからそのまま保存＝過去値保持）。
       (function() {
         var _oc = {};
         _elCollectAllSignals(data).forEach(function(r) {
