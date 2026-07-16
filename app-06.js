@@ -5086,7 +5086,7 @@ function EntryLogView(_ref_elv2) {
         var _hasColl = shown.some(function(r) { return _elCollMarked(data, r, _collScope) || _elCollExcluded(data, r, _collScope); });
         if (!_hasColl) return null;
         return React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", padding: "4px 6px 0", lineHeight: 1.5 } },
-          "凡例: ", React.createElement("b", { style: { color: "#B45309" } }, "※被り有"), "＝同日5分以内ペアの残した側（早い方／同時刻なら損益が小さい方＝合計に算入）／",
+          "凡例: ", React.createElement("b", { style: { color: "#B45309" } }, "※被り有"), "＝同日・早い方の保有時間（EP〜手じまい）に入ったペアの残した側（早い方／同時刻なら損益が小さい方＝合計に算入）／",
           React.createElement("b", { style: { color: "#6D28D9" } }, "被り除外"), "＝除外側（遅い方／同時刻なら損益が大きい方・薄紫の行・損益は合計額に入れない・件数は残る）");
       })(),
       (limit && recs.length > limit) ? React.createElement("button", {

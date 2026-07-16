@@ -4127,7 +4127,7 @@ function _elDeriveHoldProfit(hp, pp, res, fallback) {
   return fallback;
 }
 // ===== #2 時間かぶりの合計除外 2026-07-07 [[project_scalping_total_pnl_system #2]] =====
-// かぶり＝同一日・全銘柄のv2算入記録を時刻昇順に並べ、隣接が5分以内(≤5分)なら「上限2個の貪欲ペアリング」でペア化
+// かぶり＝同一日・全銘柄のv2算入記録を時刻昇順に並べ、遅い方のシグナル時刻が早い方の手じまい足の時刻以内（＝早い方の保有[EP〜手じまい]に遅い方のシグナルが入った）なら「上限2個の貪欲ペアリング」でペア化 2026-07-16（旧＝隣接5分以内）
 // （例 9:31/9:34/9:39/9:42/9:47 → {9:31,9:34}{9:39,9:42}{9:47}）。残す方の選定 2026-07-08 ユーザー指示:
 // 「時刻が異なれば早い方(=ペアの先頭)を残す（損益に依らず＝リアルタイムで先に入った方）／同時刻(分が同じ)のときだけ（）外最終損益
 // (_elHold2TotPartsのmain・採用α/採用損切り)が小さい方を残す（同額は先を残す）」＝残さない方（遅い方／同時刻なら損益大）を合計額から除外。どちらかmain無しのペアは除外なし・単独記録は除外なし。
@@ -4157,7 +4157,10 @@ function _elCollisionExcludedSet(data, scopeStock) {
       if (!_epIsV2(s) || !_elInclTotal(s)) return;
       var mn = _toMin(s.time);
       if (mn == null) return;
-      (byDay[date] = byDay[date] || []).push({ key: _elCollKey(stock, date, s), stock: stock, time: s.time || "", min: mn, main: _elHold2TotParts(s, _epOwnAlpha(s), cut).main });
+      var _own = _epOwnAlpha(s);
+      var _rv = _elRideVals(s, _own, cut);   // 手じまい足（EP起算の本数）2026-07-16
+      var _exMin = (_rv && _rv.exitIdx != null) ? (mn + _rv.exitIdx) : mn;   // 手じまい足の時刻＝シグナル時刻(OS1=leg0)＋手じまい足index（OS足=1分前提・EP以降は元々1分足基準）
+      (byDay[date] = byDay[date] || []).push({ key: _elCollKey(stock, date, s), stock: stock, time: s.time || "", min: mn, exitMin: _exMin, main: _elHold2TotParts(s, _own, cut).main });
     });
   });
   var excluded = {}, marked = {}, info = {};
@@ -4165,7 +4168,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
     var arr = byDay[d].sort(function(a, b) { return (a.min - b.min) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0); });
     var i = 0;
     while (i < arr.length) {
-      if (i + 1 < arr.length && (arr[i + 1].min - arr[i].min) <= 5) {
+      if (i + 1 < arr.length && (arr[i + 1].min <= arr[i].exitMin)) {   // 遅い方(B)のシグナル時刻が早い方(A)の手じまい足の時刻以内＝Aの保有[EP〜手じまい]にBのシグナルが入った 2026-07-16（旧＝隣接5分以内）
         var A = arr[i], B = arr[i + 1];   // arrはmin昇順＝Aが早い方（同時刻ならkey順でA先）
         if (A.main != null && B.main != null) {
           // 残す方の選定 2026-07-08 ユーザー指示: 時刻が異なれば「早い方(A)」を残す（損益に依らず＝リアルタイムで先に入った方）。
@@ -4199,11 +4202,11 @@ function _elCollExclCountRecs(data, recs, scope) { var n = 0; (recs || []).forEa
 // 明細行用の時間かぶり小バッジ（残した側＝早い方「※被り有」・除外された側＝遅い方「被り除外」灰色。対象外はnull）2026-07-07両側可視化→07-08 早い方を残す方式に変更。
 function _elCollMarkNode(data, r, scope) {
   if (_elCollMarked(data, r, scope)) {
-    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。早い方（同時刻なら（）外最終損益が小さい方）だけを合計に算入し、もう片方は除外。この記録＝残した側（件数は両方残る）",
+    return React.createElement("div", { title: "時間被り: 同一日で、早い方の保有時間（EP〜手じまい）に遅い方のシグナルが入ったペア。早い方（同時刻なら（）外最終損益が小さい方）だけを合計に算入し、もう片方は除外。この記録＝残した側（件数は両方残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "※被り有");
   }
   if (_elCollExcluded(data, r, scope)) {
-    return React.createElement("div", { title: "時間被り: 同一日で5分以内の別記録とペア。この記録は除外側＝遅い方（同時刻なら（）外最終損益が大きい方）＝損益は合計額に入れない（件数は残る）",
+    return React.createElement("div", { title: "時間被り: 同一日で、早い方の保有時間（EP〜手じまい）に遅い方のシグナルが入ったペア。この記録は除外側＝遅い方（同時刻なら（）外最終損益が大きい方）＝損益は合計額に入れない（件数は残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "被り除外");
   }
   return null;
@@ -4814,7 +4817,7 @@ function _elRideVals(s, alpha, cutLine) {
   var exitC = exitLeg ? exitLeg.c : null;
   var lbl = exitD === 0 ? "EP" : "H" + exitD;
   if (mx == null && exitC == null && !stopped) return null;
-  return { mx: mx, exitC: exitC, stopped: stopped, lbl: lbl };
+  return { mx: mx, exitC: exitC, stopped: stopped, lbl: lbl, epIdx: r.epIdx, exitD: exitD, exitIdx: r.epIdx + exitD };   // exitIdx=手じまい足の0基点レグindex（OS1=0）＝時間かぶり除外の手じまい時刻算出用 2026-07-16
 }
 function _elRideSummaryNode(s, alpha, cutLine) {
   var v = _elRideVals(s, alpha, cutLine);
