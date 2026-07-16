@@ -4806,7 +4806,7 @@ function EntryLogView(_ref_elv2) {
   var _uAR = useState("all"), alphaReasonFil = _uAR[0], setAlphaReasonFil = _uAR[1];   // α値タブ 根拠セレクタ（2026-07-06）: 全体(all)/各根拠/根拠なし(__none__)で基本α・共通ツールの母数を絞る第4の軸。追加αタブは④⑤根拠別を内蔵するため対象外。全体選択時は従来と完全同一。
   var _uDTM = useState(false), detTagMode = _uDTM[0], setDetTagMode = _uDTM[1];   // 集計タブ銘柄側の分析軸: false=シグナル別(既定)/true=詳細タグ別（銘柄内・全シグナル横断で選んだsigDetailタグの記録を分析）2026-07-07
   var _uSDT = useState(null), selDetTag = _uSDT[0], setSelDetTag = _uSDT[1];   // 詳細タグ別モードの選択タグ（"セクションキー|タグ名"）
-  var _uSGT = useState("uki"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: uki(浮き足%)/tod(時間帯)/dow(曜日)/rn(RN) 2026-07-12
+  var _uSGT = useState("uki"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）
   var _uJF = useState(false), anaJul = _uJF[0], setAnaJul = _uJF[1];   // 分析母数トグル（承認③+ 2026-07-12）: true=7月以降（EMA修正後）のみを記録帳全体（推奨・表・一覧）の母数に。既定false=全期間（従来どおり不変）。
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -4861,7 +4861,7 @@ function EntryLogView(_ref_elv2) {
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"]]
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
-  var _SIG_TABS = [["uki", "⚡ 浮き足%"], ["tod", "🕘 時間帯"], ["dow", "📅 曜日"], ["rn", "🔢 RN"]];   // 📡シグナル総合のサブタブ 2026-07-12
+  var _SIG_TABS = [["uki", "⚡ 浮き足%"], ["rn", "🔢 RN"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要・シグナル別グループ分析内の時間帯/曜日は残置）
   var _byDateDesc = function(a, b) { return (b.date + (b.signal.time || "")).localeCompare(a.date + (a.signal.time || "")); };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub, right) {   // right=見出し右端の追加コントロール（詳細スコープのプルダウン等）2026-07-08e。data-elsech=カード化の区切りマーカー（_cardify 2026-07-12）
@@ -5519,13 +5519,12 @@ function EntryLogView(_ref_elv2) {
   var _tabBody;
   if (_isSigTotal) {
     // 📡シグナル総合＝全銘柄共通の分析（銘柄別に分ける必要のないデータ）。母数は常に全銘柄(_v2recsAll)。2026-07-12
-    _tabBody = (sigSub === "tod")
-      ? _cardify([_secH("🕘 時間帯別の成績（寄り付き重視・全銘柄）"), _elTimeOfDaySectionV2(_v2recsAll, _ai)])
-      : (sigSub === "dow")
-      ? _cardify([_secH("📅 曜日別の成績（全銘柄）"), _elDowSectionV2(_v2recsAll, _ai)])
-      : (sigSub === "rn")
-      ? _cardify([_secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。現実（RN込み）vs 反実仮想（RN加算を外した場合）＋RN値別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai)])
-      : _cardify([_secH("⚡ 浮き足加算率の最適化（全銘柄共通）"), _elUkiPctBoardV2(_v2recsAll, _ai)]);
+    _tabBody = (sigSub === "rn")
+      ? _cardify([
+          _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。現実（RN込み）vs 反実仮想（RN加算を外した場合）＋RN値別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai),
+          _secH("🗂 RN〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝RNまたぎ加算〇の全記録。行タップで明細カード・カードタップで編集フォーム"),
+          _recTable(_v2recsAll.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateDesc), "full", "rntab_")])
+      : _cardify([_secH("⚡ 浮き足加算率の最適化（全銘柄共通）"), _elUkiPctBoardV2(_v2recsAll, _ai)]);   // 時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去（旧sigSub値はこのelseで浮き足%に落ちる）
   } else if (view === "sum") {
     if (_isAllStock) {
       // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。
