@@ -4848,6 +4848,21 @@ function _elRideMiniNode(s, alpha, cutLine) {
     React.createElement("span", { style: { color: "#bbb", fontSize: "0.9em" } }, "→"),
     _epSignedNode(v.exitC, "ec"));
 }
+// 記録表「損切り」セル内容: その行の採用損切り値（α値セルの隣に表示・_elAlphaInfo/α直指定と同じcutLine）。無ければ「—」。2026-07-16 列追加。
+function _elCutValNode(cutLine) {
+  if (cutLine == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  return React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, cutLine + "円");
+}
+// 記録表「保有」セル内容: EP足〜手じまい足の保有時間（分＝足数・1分足換算）。時間かぶり判定(_elCollisionExcludedSet)のexitIdxと同基準（_elRideVals.exitD）。
+// E成立v2のみ・それ以外は「—」。損切り手じまいは緑「切」を添える。2026-07-16 列追加。
+function _elHoldMinNode(s, alpha, cutLine) {
+  var v = _elRideVals(s, alpha, cutLine);
+  if (!v) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+  var m = v.exitD;
+  return React.createElement("span", { title: "EP足〜手じまい足（" + v.lbl + (v.stopped ? "・損切" : "") + "）＝" + m + "足・1分足換算（時間かぶり判定と同基準）", style: { display: "inline-flex", alignItems: "baseline", gap: 1, whiteSpace: "nowrap" } },
+    React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", fontVariantNumeric: "tabular-nums" } }, m + "分"),
+    v.stopped ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, color: "#1E8449" } }, "切") : null);
+}
 // EP行をH1/H2の固定表(_elHoldStackInner)と同じ桁で描く1行テーブル（2026-07-13 縦そろえ）。列幅 lbl22/e14/op10/hi26/ar10/wd26/s1 6/ac33/s2 6/pn78/cp10＝合計241で_elHoldStackInnerと一致。
 // 結果マーカー(○/×/△)はH1/H2に合わせて末尾(pn列)に置く。miss/×見送りはnull（呼び側が従来のインラインEP行にフォールバック）。値の取り出し・描画は_epPnlCellと同一。
 function _elEpAlignedRow(s, alpha, cutLine) {
@@ -4910,9 +4925,11 @@ function _elDetailFlowStack(s, alpha, cutLine) {
 }
 // 記録表の「最終損益」セル＋「OS・損益詳細」セル(colSpan2)の共通td枠(2026-07-14 系統2小抽出)。セル内容(_elHold2AmtNode/_elRideMiniNode/_elDetailFlowStack)は既に共有・td枠だけが各表で重複していたので集約。border/padは表ごとに異なる(app-02/06=_bb・"1px 3px"／app-04=#f0ede6・"4px 6px")ため引数化＝各呼出は従来と同一バイトを渡す。Fragmentなので<tr>内で従来の2td並びと同一DOM。
 function _elPnlDetailCells(s, alpha, cutLine, border, pad1, pad2) {
+  // 2026-07-16 「保有」td追加（EP〜手じまい保有時間・_elHoldMinNode）＝この共通セルを使う表（週明細/取引タブ/OSミニ明細）は自動で3セル構成になる。ヘッダー側thは各表で追加。
   return React.createElement(React.Fragment, null,
     React.createElement("td", { key: "pnl", style: { padding: pad1, textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: border, borderRight: border, background: "#FFFBF0" } }, _elHold2AmtNode(s, alpha, cutLine), _elRideMiniNode(s, alpha, cutLine)),
-    React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: pad2, textAlign: "left", fontSize: 11, borderBottom: border, borderRight: border, background: "#F8FBFE" } }, _elDetailFlowStack(s, alpha, cutLine)));
+    React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: pad2, textAlign: "left", fontSize: 11, borderBottom: border, borderRight: border, background: "#F8FBFE" } }, _elDetailFlowStack(s, alpha, cutLine)),
+    React.createElement("td", { key: "hld", style: { padding: pad1, textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: border, borderRight: border } }, _elHoldMinNode(s, alpha, cutLine)));
 }
 // 明細の「最終損益」セル(1記録): その記録の手じまい(_elHold2TotParts.main)をランク+額+（）内=△で表示＝集計の最終損益列と同基準。2026-07-10。
 function _elHold2AmtNode(s, alpha, cutLine) {
@@ -8599,43 +8616,17 @@ function EntryLogCard(_ref_elc) {
   var _elcAi = (_ref_elc.alpha != null)
     ? { alpha: Number(_ref_elc.alpha), cutLine: (_ref_elc.cutLine != null ? Number(_ref_elc.cutLine) : 15) }
     : (_ref_elc.data ? _elAlphaInfo(record, _ref_elc.data) : null);
-  var planPnl = _elcAi ? _elDynPlanned(s, _elcAi.alpha, _elcAi.cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
-  var holdPnl = _elcAi ? _elDynHold(s, _elcAi.alpha, _elcAi.cutLine) : _elSignedVal(s.holdPnl, s.holdPnlSign);
-  var _dispResult = _elcAi ? _elDynResult(s, _elcAi.alpha, _elcAi.cutLine) : s.result;
-  var _dispHP = _elcAi ? (function() {
-    var hp = holdPnl, pp = planPnl;
-    if (hp == null) return s.holdProfit;
-    if (_dispResult === "miss" || _dispResult === "draw") return hp > 0 ? "yes" : hp < 0 ? "no" : "none";
-    if (pp == null) return s.holdProfit;
-    if (pp > 0 && hp > 0) return hp > pp ? "yes" : hp < pp ? "mid" : "none";
-    if (pp < 0 && hp < 0) return "no";
-    if (pp > 0 && hp < 0) return "no";
-    if (pp < 0 && hp > 0) return "yes";
-    if (hp === 0) return "none";
-    return s.holdProfit;
-  })() : s.holdProfit;
-  
+  // 2026-07-16 カード刷新（案B 右パネル型）: 旧v1形式チップ(OS値/確定値/結果/EP損益/H1/H2)を廃し、表の最新式と同じ
+  // 最終損益(_elHold2AmtNode)＋OS・損益詳細(_elDetailFlowStack)を右パネルに集約。旧planPnl/holdPnl/_dispResult/_dispHPは不要化。
+  var _alpElc = _elcAi ? _elcAi.alpha : null;
+  var _cutElc = (_elcAi && _elcAi.cutLine != null) ? _elcAi.cutLine : 15;
+
   var _chip = function(label, value, valueColor, extra) {
     return React.createElement("div", { style: Object.assign({ display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 }, extra || {}) },
       React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2, whiteSpace: "nowrap" } }, label),
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: valueColor || "#333", lineHeight: 1.3, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, value)
     );
   };
-  var _pnlColor = _elPnlColor;   // 共通化 2026-07-14: 非null呼び出しのみ＝_elPnlColorと同一出力
-  var _pnlFmt = _elPnlFmt;   // 共通化 2026-07-14: 非null呼び出しのみ＝_elPnlFmtと同一出力
-  
-  var _resultBadge = function(res) {
-    var map = { ok: ["○", "#1E8449", "#EAF3DE", "#A9DFBF"], ng: ["×", "#C0392B", "#FCEBEB", "#F5C6CB"], draw: ["△", "#6B7280", "#F3F4F6", "#D1D5DB"], miss: ["ー", "#B45309", "#FEF9C3", "#FDE68A"] };
-    var m = map[res]; if (!m) return null;
-    return React.createElement("span", { style: { padding: "2px 6px", fontSize: 10, fontWeight: 700, background: m[2], color: m[1], borderRadius: 4, border: "1px solid " + m[3] } }, m[0]);
-  };
-  
-  var _hpBadge = function(hp) {
-    var map = { yes: ["○", "#1E8449"], mid: ["△", "#B45309"], none: ["ー", "#888"], no: ["×", "#C0392B"] };
-    var m = map[hp]; if (!m) return null;
-    return React.createElement("span", { style: { fontWeight: 700, color: m[1], marginRight: 2 } }, m[0]);
-  };
-  
   var _gradeBadge = function(grade) {
     if (!grade || grade === "Z") return null;
     var gs = _GRADE_STYLE[grade] || _GRADE_STYLE.Z;
@@ -8652,7 +8643,7 @@ function EntryLogCard(_ref_elc) {
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" } }, _fmtDow(record.date)),
       (_elIsExcluded(s) && !_elIsThru(s)) ? _elNotInclBadge() : null,   // スルーは下の実エントリー状態チップで表示＝二重バッジ回避 2026-07-06
-      s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time),
+      s.time && React.createElement("span", { style: { fontSize: 12, color: "#666", fontWeight: 600 } }, s.time, _minBarBadge(s)),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, record.stock)
     ),
     _ref_elc.data ? _elCollPairNode(_ref_elc.data, record, _ref_elc.collScope) : null,
@@ -8661,7 +8652,7 @@ function EntryLogCard(_ref_elc) {
       s.tradeType && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: s.tradeType === "空売" ? "#FCEBEB" : "#EAF3DE", color: s.tradeType === "空売" ? "#C0392B" : "#1E8449", borderRadius: 4, border: "1px solid " + (s.tradeType === "空売" ? "#F5C6CB" : "#A9DFBF") } }, s.tradeType),
       React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: entered ? "#E8F5E9" : (_elIsThru(s) ? "#E5E7EB" : (_elIsReview(s) ? "#FCE7F3" : "#f5f4f0")), color: entered ? "#2E7D32" : (_elIsThru(s) ? "#4B5563" : (_elIsReview(s) ? "#9D174D" : "#888")), borderRadius: 4, border: "1px solid " + (entered ? "#A9DFBF" : (_elIsThru(s) ? "#9CA3AF" : (_elIsReview(s) ? "#F9A8D4" : "#ddd"))) } }, entered ? "実エントリー" : (_elIsThru(s) ? "スルー" : (_elIsReview(s) ? "要審議" : "見送り"))),
       (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(t) {
-        return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, _elTagDisp(s, t));
+        return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, t);   // 詳細は下の詳細タグ行に一本化（旧_elTagDispの括弧併記は二重表示だった）2026-07-16
       }),
       s.isCustomTag && React.createElement("span", { style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#EEF2FF", color: "#4338CA", borderRadius: 5, border: "1px solid #C7D2FE" } }, s.customTagText || "(その他)"),
       s.tpDifficulty && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#DCFCE7", color: "#14532D", borderRadius: 4, border: "1px solid #86EFAC" } }, "利確" + s.tpDifficulty),
@@ -8669,7 +8660,10 @@ function EntryLogCard(_ref_elc) {
         return React.createElement("span", { key: t, style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, border: "1px solid #BFDBFE" } }, "📌 " + t);
       }),
       _elcAi && _elcAi.alpha != null && React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", padding: "1px 6px", background: "#F0F9FF", borderRadius: 4, border: "1px solid #BAE6FD" } }, "採用α " + _elAlphaShown(s, _elcAi.alpha) + "円 / 損切り " + _elcAi.cutLine + "円"),
-      _elcAi && _elcAi.alpha != null ? _elAlphaBreakdownNode(s, _elcAi.alpha) : null
+      _elcAi && _elcAi.alpha != null ? _elAlphaBreakdownNode(s, _elcAi.alpha) : null,
+      _elcAi && _elcAi.alpha != null ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
+        React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "E"),
+        _epECell(s, _elcAi.alpha)) : null
     ),
     (function() {   // 詳細タグ（底/起/特徴）＝明細表のシグナル欄2行表示(_elSigCell)とカードを対称に 2026-07-07
       var _dTags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []));
@@ -8687,62 +8681,43 @@ function EntryLogCard(_ref_elc) {
       return React.createElement("div", { style: { fontSize: 9.5, color: "#64748B", margin: "-2px 0 6px", lineHeight: 1.4 } }, _parts.join(" ／ "));
     })(),
 
-    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start", marginBottom: (s.rationale || s.reflection || s.thruMemo || s.priceIn || s.priceOut) ? 6 : 0 } },
+    React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" } },
 
-      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
-        s.osVal != null ? _chip("OS値", s.osVal + "円", _vcol(s.osVal, true)) : null
+      React.createElement("div", { style: { flex: "1 1 200px", minWidth: 0, display: "flex", flexDirection: "column", gap: 4 } },
+        !_epIsV2(s) && (s.osVal != null || s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) ? React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },   // 旧v1記録のみ: OS連鎖が無いのでOS値/確定値チップを残す
+          s.osVal != null ? _chip("OS値", s.osVal + "円", _vcol(s.osVal, true)) : null,
+          (s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) ? _chip("確定値",
+            Number(s.osConfVal) === 0 ? "0円" : (s.osConfSign === "+" ? "↑" : s.osConfSign === "-" ? "↓" : "↕") + Math.abs(Number(s.osConfVal)) + "円",
+            Number(s.osConfVal) === 0 ? "#888" : _vcol(s.osConfVal, s.osConfSign === "+")) : null) : null,
+        (s.holdMemo || s.hold2Memo) ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2 } },
+          s.holdMemo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H１メモ"), s.holdMemo) : null,
+          s.hold2Memo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H２メモ"), s.hold2Memo) : null) : null,
+        s.alphaMemo ? React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "αメモ"), s.alphaMemo) : null,
+        s.thruMemo ? React.createElement("div", { style: { fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, marginRight: 3 } }, "スルー根拠"), s.thruMemo) : null,
+        s.reviewMemo ? React.createElement("div", { style: { fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } }, React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, marginRight: 3 } }, "審議根拠"), s.reviewMemo) : null,
+        s.rationale ? React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale) : null,
+        s.reflection ? React.createElement("div", { style: { fontSize: 11, color: "#777", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection) : null
       ),
 
-      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
-        (s.osConfSign || (s.osConfVal != null && Number(s.osConfVal) === 0)) ? _chip("確定値",
-          Number(s.osConfVal) === 0 ? "0円" : (s.osConfSign === "+" ? "↑" : s.osConfSign === "-" ? "↓" : "↕") + Math.abs(Number(s.osConfVal)) + "円",
-          Number(s.osConfVal) === 0 ? "#888" : _vcol(s.osConfVal, s.osConfSign === "+")) : null
-      ),
-
-      _dispResult ? React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 } },
-        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "結果"),
-        _resultBadge(_dispResult)
-      ) : null,
-
-      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
-        _dispResult === "miss" ? _chip("EP損益", _qMissCell(14), "#888") :
-        planPnl != null ? React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
-          React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "EP損益"),
-          React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(planPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
-            _gradeBadge(planPnl != null ? _profitGradeFromPnl(planPnl, 1) : null),
-            _pnlFmt(planPnl)),
-          (_elcAi && _elPlanIsStop(s, _elcAi.alpha, _elcAi.cutLine)) ? _elCapNote(_elcAi.cutLine) : null
-        ) : null
-      ),
-
-      React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap", alignSelf: "center" } },
-        React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "H１"),
-        _elHoldFlow(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 15, false),
-        (_elH2Miss(s, _elcAi ? _elcAi.alpha : null) || s.hold2Exp) ? React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700, marginLeft: 6 } }, "H２") : null,
-        (_elH2Miss(s, _elcAi ? _elcAi.alpha : null) || s.hold2Exp) ? _elHold2Cell(s, _elcAi ? _elcAi.alpha : null, _elcAi ? _elcAi.cutLine : 15) : null
-      ),
-      React.createElement("span", { style: { alignSelf: "center", color: "#ddd", fontSize: 14 } }, "|"),
-      entered && realPnl != null && React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", padding: "2px 6px", background: "#f5f4f0", borderRadius: 4, border: "1px solid #e8e5de", minWidth: 36 } },
-        React.createElement("span", { style: { fontSize: 8, color: "#aaa", fontWeight: 700, lineHeight: 1.2 } }, "実現損益"),
-        React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 700, color: _pnlColor(realPnl), lineHeight: 1.3, whiteSpace: "nowrap" } },
-          _tradeAlphaChip(s),
-          _gradeBadge(realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null),
-          _pnlFmt(realPnl))
-      ),
-
-      (s.priceIn || s.priceOut) && _chip("価格", (s.priceIn ? "入" + s.priceIn : "") + (s.priceIn && s.priceOut ? "→" : "") + (s.priceOut ? "出" + s.priceOut : ""), "#555")
+      React.createElement("div", { style: { flex: "0 1 auto", maxWidth: "100%", background: "#FFFBF5", border: "1px solid #F0E6D2", borderRadius: 6, padding: "6px 10px", display: "flex", flexDirection: "column", gap: 3, overflowX: "auto" } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+          React.createElement("span", { style: { fontSize: 9, color: "#B08968", fontWeight: 700, flexShrink: 0 } }, "最終損益"),
+          React.createElement("span", { style: { fontSize: 13 } }, _elHold2AmtNode(s, _alpElc, _cutElc)),
+          _elRideMiniNode(s, _alpElc, _cutElc),
+          _elRideVals(s, _alpElc, _cutElc) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "baseline", gap: 2 } },
+            React.createElement("span", { style: { fontSize: 9, color: "#B08968", fontWeight: 700 } }, "保有"),
+            _elHoldMinNode(s, _alpElc, _cutElc)) : null),
+        React.createElement("div", { style: { borderTop: "1px dashed #e0d8c8", paddingTop: 3 } }, _elDetailFlowStack(s, _alpElc, _cutElc)),
+        ((entered && realPnl != null) || s.priceIn || s.priceOut) ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, borderTop: "1px solid #f0ede6", paddingTop: 3, flexWrap: "wrap" } },
+          (entered && realPnl != null) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
+            React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "実現損益"),
+            React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 12, fontWeight: 700, color: _elPnlColor(realPnl), whiteSpace: "nowrap" } },
+              _tradeAlphaChip(s),
+              _gradeBadge(realPnl != null ? _profitGradeFromPnlReal(realPnl, 1) : null),
+              _elPnlFmt(realPnl))) : null,
+          (s.priceIn || s.priceOut) ? React.createElement("span", { style: { fontSize: 10, color: "#777", whiteSpace: "nowrap" } }, "価格 " + (s.priceIn ? "入" + s.priceIn : "") + (s.priceIn && s.priceOut ? " → " : "") + (s.priceOut ? "出" + s.priceOut : "")) : null) : null
+      )
     ),
-
-    (s.holdMemo || s.hold2Memo) && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, marginTop: 4 } },
-      s.holdMemo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H１メモ"), s.holdMemo) : null,
-      s.hold2Memo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H２メモ"), s.hold2Memo) : null
-    ),
-
-    s.alphaMemo && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "αメモ"), s.alphaMemo),
-    s.thruMemo && React.createElement("div", { style: { fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, marginRight: 3 } }, "スルー根拠"), s.thruMemo),
-    s.reviewMemo && React.createElement("div", { style: { fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } }, React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, marginRight: 3 } }, "審議根拠"), s.reviewMemo),
-    s.rationale && React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale),
-    s.reflection && React.createElement("div", { style: { fontSize: 11, color: "#777", marginTop: 4, lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection),
     onGoDate && React.createElement("div", { style: { textAlign: "right", marginTop: 4 } },
       React.createElement("button", {
         onClick: function(e) { e.stopPropagation(); onGoDate(record.date); },

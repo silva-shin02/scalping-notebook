@@ -3137,6 +3137,8 @@ function _elOsTradeMini(recs, aiOf, opts) {
         (function() { var _sigs = (s.tags && s.tags.length > 0 ? s.tags : (s.categories && s.categories.length > 0 ? s.categories : [])); if (!_sigs.length) return "—"; return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 1 } }, _sigs.map(function(_t, _i) { return _sigNameNode(_t, _i); })); })()),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb, background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
         _elAlphaTypeCell(s, a)),
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } },
+        _elCutValNode(c)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _epECell(s, a)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap" } },
         entered ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇") : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
@@ -3148,9 +3150,9 @@ function _elOsTradeMini(recs, aiOf, opts) {
   return React.createElement(_HScrollBox, { style: { marginTop: 4 }, plain: !!(opts && opts.plain) },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
-        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("α値", { width: 34 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("最終損益・詳細", { width: 84 }),
+        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("α値", { width: 34 }), _th("損切り", { width: 34 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("最終損益・詳細", { width: 84 }),
         React.createElement("th", { colSpan: 2, style: { padding: "2px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", textAlign: "center", fontSize: 10, color: "#9A9186", whiteSpace: "nowrap" } }, "OS・損益詳細"),
-        _th("実現損益", { width: 80 }))),
+        _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: 30 }), _th("実現損益", { width: 80 }))),
       React.createElement("tbody", null, rows)));
 }
 // OS値別の成績テーブル【1円刻み 2026-06-25】。0〜4=帯／5〜24=1円／25〜=帯(ボタンで1円内訳に展開)。集計タブ「OS値の分析」内。aiOf(r)→{alpha,cutLine}。
@@ -5029,7 +5031,7 @@ function EntryLogView(_ref_elv2) {
   var _recTable = function(recs, mode, keyPfx, limit) {
     if (!recs.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし");
     var shown = (limit && recs.length > limit) ? recs.slice(0, limit) : recs;
-    var colN = mode === "day" ? 8 : 11;
+    var colN = mode === "day" ? 8 : 13;   // full: 2026-07-16 損切り・保有列追加で11→13
     var body = [];
     shown.forEach(function(r) {
       var s = r.signal, a = _ai(r);
@@ -5056,6 +5058,7 @@ function EntryLogView(_ref_elv2) {
         cells = cells.concat([
           _td(_elSigCell(s, "flex-start"), { textAlign: "left" }),
           _td(_elAlphaTypeCell(s, a.alpha), { background: _elSpecialUsed(s) ? "#FEF3C7" : null }),
+          _td(_elCutValNode(a.cutLine)),
           _td(_epECell(s, a.alpha)),
           _td(entered
             ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "〇")
@@ -5065,7 +5068,8 @@ function EntryLogView(_ref_elv2) {
                 ? React.createElement("span", { title: "要審議", style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審")
                 : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 13 } }, "×")),
           _td(React.createElement(React.Fragment, null, _elHold2AmtNode(s, a.alpha, a.cutLine), _elRideMiniNode(s, a.alpha, a.cutLine)), { background: "#FFFBF0" }),
-          React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: "4px 6px", textAlign: "left", fontSize: 11, borderTop: "1px solid #f0ede8", background: "#F8FBFE" } }, _elDetailFlowStack(s, a.alpha, a.cutLine))
+          React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: "4px 6px", textAlign: "left", fontSize: 11, borderTop: "1px solid #f0ede8", background: "#F8FBFE" } }, _elDetailFlowStack(s, a.alpha, a.cutLine)),
+          _td(_elHoldMinNode(s, a.alpha, a.cutLine))
         ]).concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60) : _dash)]);
       }
       body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, _collScope)) }, cells));
@@ -5075,8 +5079,8 @@ function EntryLogView(_ref_elv2) {
     });
     var head = mode === "day"
       ? [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("OS"), _th("E"), _th("OS帯"), _th("H中最高値"), _th("実現結果")]
-      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("α値"), _th("E"), _th("取引"),
-         _th("最終損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th("実現損益")];
+      : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("α値"), _th("損切り"), _th("E"), _th("取引"),
+         _th("最終損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有")), _th("実現損益")];
     return React.createElement(React.Fragment, null,
       React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
