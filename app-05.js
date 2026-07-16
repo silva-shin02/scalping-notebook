@@ -4800,17 +4800,21 @@ function _elRideVals(s, alpha, cutLine) {
   if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
   var cut = cutLine != null ? cutLine : 15;
   var legs = _epLegs(s);
+  // 手じまい足＝「次足期待度で降りる足(_expD)」と「損切り足(_stopD)」の“早い方”。2026-07-16修正:
+  //  旧実装は損切り判定を無条件で優先していたため、期待度×より後の足で損切りが検出されると手じまいがそこまで伸び、
+  //  最高(mx)/確定(exitC)に期待度×以降の足が混入して最終損益額(_elHold2TotParts)・打ち切り最高値(_elOsMaxCapped)と食い違っていた。
+  //  損切りは期待度手じまいより後には起こり得ないので_expDでキャップする。△(中間)は継続扱い＝×/損切り済/未設定のみで降りる（_elOsMaxCapped/_elHold2TotPartsと同規約）。
+  var _cutExp = function(e) { return e === "×" || e === "損切り済" || !e; };
+  var _h1e = _epNextExpAt(s, r.epIdx), _h2e = _epNextExpAt(s, r.epIdx + 1);
+  var _expD = _cutExp(_h1e) ? 0 : _cutExp(_h2e) ? 1 : 2;   // 期待度ベースの手じまい足
   var _sp = _elPlanIsStop(s, alpha, cut);
   var _s1 = !_sp && _elHoldIsStop(s, alpha, cut);
   var _s2 = !_sp && !_s1 && _elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cut);
-  var stopped = _sp || _s1 || _s2;
-  var exitD;
-  if (_sp) exitD = 0; else if (_s1) exitD = 1; else if (_s2) exitD = 2;
-  else {
-    var h1e = _epNextExpAt(s, r.epIdx), h2e = _epNextExpAt(s, r.epIdx + 1);
-    exitD = (h1e !== "○") ? 0 : (h2e !== "○") ? 1 : 2;
-    while (exitD > 0 && !legs[r.epIdx + exitD]) exitD--;
-  }
+  var _stopD = _sp ? 0 : _s1 ? 1 : _s2 ? 2 : null;   // 損切り足（無ければnull）
+  var exitD, stopped;
+  if (_stopD != null && _stopD <= _expD) { exitD = _stopD; stopped = true; }   // 期待度手じまいまでに損切り→損切り足で確定
+  else { exitD = _expD; stopped = false; }                                     // 期待度×/損切り済/未設定で手じまい（以降の損切りは発生しない）
+  while (exitD > 0 && !legs[r.epIdx + exitD]) exitD--;
   var mx = null;
   for (var i = r.epIdx; i <= r.epIdx + exitD && i < legs.length; i++) { var h = legs[i] && legs[i].h; if (h != null && (mx == null || h > mx)) mx = h; }
   var exitLeg = legs[r.epIdx + exitD] || null;
