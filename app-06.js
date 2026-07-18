@@ -1544,8 +1544,9 @@ function _elH2AgreeNode(h1Val, h2Val, unit, pfx) {
 // ②寄与の内訳＝現実−RN無しの差を「両方成立の値幅改善」「RN待ちで入れなかった取引の仮想損益（負=待って正解）」に分解＋記録ごとの得/損/同件数。「そもそも採る必要があるのか」。
 // ③RN距離別＝rnVal別に Σ現実/ΣRN無し/寄与。近い距離(+1〜3)は誤差か・遠い距離(+7〜9)でも待つ価値があるか。
 // ※旧「RN込みvsRN無し2行表」「RN加算値別(現実のみ)」は①③に吸収＝撤去(2026-07-16d)。RN×側との比較は「RNまたぎ状況だったか」のフラグが記録に無く不可能＝出さない。
-function _elRnBoardV2(recs, aiOf) {
+function _elRnBoardV2(recs, aiOf, holiSet) {
   var pool = (recs || []).filter(function(r) { return r && _elRnYes(r.signal); });
+  var _span = _elBizSpanDays(pool, holiSet);   // ①EP位置スイープの頻度列用（α詳細表と同基準）2026-07-18: 母数の活動営業日数（全行共通・EP位置ごとに到達実日数だけ変わる）。
   var _th2 = function(t, k) { return React.createElement("th", { key: k, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
   var _td2 = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #F0EDE7", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
   if (!pool.length) return React.createElement("div", { style: { color: "#94A3B8", textAlign: "center", padding: "24px 12px", fontSize: 12, border: "1px dashed #e0ddd6", borderRadius: 10 } }, "RNまたぎ加算〇の記録がまだありません（記録フォーム/EPナビでRN〇を付けると貯まります・2026-07-08導入）");
@@ -1554,10 +1555,11 @@ function _elRnBoardV2(recs, aiOf) {
   var _aOff = function(off) { return function(r) { var a = aiOf(r).alpha; if (a == null) return null; return Math.max(0, a + off); }; };
   var _sumCell = function(v, w) { return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: w || 800 } }, _elPnlFmt(Math.round(v))); };
   // ---- ① EP位置スイープ（RN−3〜+3＋RN無し参考行） ----
-  var rows = [{ key: "none", label: "RN無し（素のα・下二桁のまま）", ref: true, e: _elH2EvalByFn(pool, aiOf, _aNone) }];
+  var rows = [{ key: "none", label: "RN無し（素のα・下二桁のまま）", ref: true, af: _aNone, e: _elH2EvalByFn(pool, aiOf, _aNone) }];
   [-3, -2, -1, 0, 1, 2, 3].forEach(function(off) {
     var lbl = off === 0 ? "RNちょうど" : (off < 0 ? "RN−" + (-off) + "（" + (-off) + "円手前）" : "RN+" + off + "（" + off + "円超え）");
-    rows.push({ key: "o" + off, label: lbl, cur: off === 0, e: _elH2EvalByFn(pool, aiOf, off === 0 ? _aReal : _aOff(off)) });
+    var _f = off === 0 ? _aReal : _aOff(off);
+    rows.push({ key: "o" + off, label: lbl, cur: off === 0, af: _f, e: _elH2EvalByFn(pool, aiOf, _f) });
   });
   var _gated = rows.filter(function(rw) { return rw.e.decided >= _EL_BASE_MIN_N && rw.e.h2Sum != null && rw.e.h2Sum > 0; });
   _gated.sort(function(x, y) { return (x.e.avgH2 - y.e.avgH2) || (x.e.h2Sum - y.e.h2Sum); });
@@ -1575,6 +1577,7 @@ function _elRnBoardV2(recs, aiOf) {
       _td2(e.n + "件"),
       _td2(_elPctCell(e.eRate)),
       _td2(e.decided + "件"),
+      _td2(_elFreqCell(_span, _elEnteredDays(pool, rw.af))),
       _td2(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
       _td2(e.takeRate == null ? "—" : _elPctCell(e.takeRate)),
       _td2(_sumCell(e.h2Sum)),
@@ -1627,7 +1630,7 @@ function _elRnBoardV2(recs, aiOf) {
     React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6 } }, "母数＝RN〇の全記録（" + pool.length + "件）。EPを各位置に置き直して再判定（採用α±オフセットでEP到達〜最終損益[手じまい・○途切れ]まで同一基準で再計算）。RN無し＝RN加算を外した素のα＝EPは下二桁91〜99のまま（記録ごとに位置が違う参考行）。"),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "① EP位置スイープ 〜本当にRNちょうどでいいのか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
-      React.createElement("thead", null, React.createElement("tr", null, ["EP位置", "母数", "到達率", "E成立", "損切り率", "利確率", "Σ最終損益", "平均"].map(function(h, i) { return _th2(h, i); }))),
+      React.createElement("thead", null, React.createElement("tr", null, ["EP位置", "母数", "到達率", "E成立", "頻度", "損切り率", "利確率", "Σ最終損益", "平均"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, rows.map(_swRow)))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4 } }, "上（手前）ほど早く入れて到達が増え、下（超え）ほど1件あたりが良くなるトレードオフ。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字の位置で平均最終損益が最大（該当なしなら★なし）。RN無しが★なら「そもそもまたぎ不要」のサイン。"),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "12px 0 4px" } }, "② RN待ちの寄与・内訳 〜そもそも採る必要があるのか〜"),
@@ -2976,7 +2979,7 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
   if (!floatRecs.length) return null;
   // 浮き足加算率スイープ 2026-07-12: 採用α（基本＋追加＋RN）は実績のまま浮き足加算だけをP=0〜100%(10刻み)で振り、最終損益(H2)で評価。全銘柄版(シグナル総合)と同じ_elUkiPctSweepに統一（旧「基本α＋浮き足%・ΣH1最大」から刷新）。母数=浮き値>0の浮き足〇記録。
   var _ukiPool = floatRecs.filter(function(r) { var f = _elUkiVal(r.signal); return f != null && f > 0; });
-  var _sweep = _ukiPool.length ? _elUkiPctSweep(_ukiPool, aiOf) : null;
+  var _sweep = _ukiPool.length ? _elUkiPctSweep(_ukiPool, aiOf, _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories)) : null;
   var simNode = _sweep ? React.createElement("div", { style: { marginTop: 8 } },
     React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "0 0 2px" } }, "📐 浮き足の何%を加算すると最適か（浮き足〇＝α＝浮き足加算＋RN・浮き足%だけ振り・最終損益で評価・★＝スコア最大＝現行の推奨%）"),
     _elUkiPctSweepNode(_sweep)) : null;
@@ -3040,7 +3043,7 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
     simNode);
 }
 // 浮き足加算率スイープ 2026-07-12: 採用α（基本＋追加＋RN）は実績のまま、浮き足加算だけをP=0〜100%(10刻み)で振り、最終損益で評価。alphaOf(r)=（採用α−現行浮き足加算floor(v/2)）＋floor(浮き値×P/100)＝P=50%で現行(半額)に一致＝実績と同値。母数poolは呼び出し側で浮き足〇&浮き値>0に絞る。best=件数(E成立)≥_EL_BASE_MIN_N&想定損益>0でスコア最大。シグナル総合タブ(全銘柄)＋シグナル別「浮き足」サブタブ(_elFloatReasonSectionV2)で共用。
-function _elUkiPctSweep(pool, aiOf) {
+function _elUkiPctSweep(pool, aiOf, holiSet) {
   var _mk = function(P) {
     return function(r) {
       var s = r.signal, uv = _elUkiVal(s);
@@ -3050,15 +3053,16 @@ function _elUkiPctSweep(pool, aiOf) {
       return (a - _elUkiAdd(s)) + Math.floor(uv * P / 100);
     };
   };
+  var _span = _elBizSpanDays(pool, holiSet);   // 頻度列用（α詳細表と同基準）2026-07-18: 母数の活動営業日数（全行共通・分母固定でαごとに到達実日数だけ変わる）。holiSet省略時は土日のみ除外。
   var rows = [];
-  for (var P = 0; P <= 100; P += 10) rows.push({ P: P, ev: _elH2EvalByFn(pool, aiOf, _mk(P)) });
+  for (var P = 0; P <= 100; P += 10) { var _af = _mk(P); rows.push({ P: P, ev: _elH2EvalByFn(pool, aiOf, _af), entDays: _elEnteredDays(pool, _af) }); }
   var _qual = function(x) { return x.ev.decided >= _EL_BASE_MIN_N && x.ev.h2Sum != null && x.ev.h2Sum > 0 && x.ev.score != null; };
   var _quals = rows.filter(_qual);
   var _sigOf = function(x) { return x.ev.h2Sum; }, _avgOf = function(x) { return x.ev.avgH2; }, _pOf = function(x) { return x.P; };   // 平均最終損益 最大 2026-07-15f
   var best = _elBordaBest(_quals, _sigOf, _avgOf, _pOf);
   var _rest = _quals.filter(function(x) { return !best || x.P !== best.P; });   // 次点＝best以外で平均最大
   var runnerUp = _rest.length ? _elBordaBest(_rest, _sigOf, _avgOf, _pOf) : null;
-  return { rows: rows, best: best, runnerUp: runnerUp };
+  return { rows: rows, best: best, runnerUp: runnerUp, span: _span };
 }
 // フォーム/EPナビ向け: 全銘柄の浮き足〇記録(refDate未満=記録日前日まで)から推奨浮き足加算率(reco=best.P)と次点(runnerUp.P)を算出 2026-07-12。データ不足はnull（呼び出し側で50%フォールバック）。母数はシグナル総合の浮き足%分析と同一。
 function _elUkiRecoPcts(data, refDate) {
@@ -3072,7 +3076,7 @@ function _elUkiRecoPcts(data, refDate) {
   var sweep = _elUkiPctSweep(pool, function(r) { return _elAlphaInfo(r, data); });
   return { reco: sweep.best ? sweep.best.P : null, runnerUp: sweep.runnerUp ? sweep.runnerUp.P : null, n: pool.length };
 }
-// 浮き足加算率スイープの推奨バー＋表を描画 2026-07-12。列＝浮き足%/到達率/件数(E成立)/損切り率/利確率/平均最終/スコア/想定損益(計)。★推奨＝最良（フォーム自動入力に使う値）・次点も表示・件数_EL_BASE_MIN_N未満は薄字「参考」。
+// 浮き足加算率スイープの推奨バー＋表を描画 2026-07-12→2026-07-18 α詳細表(_elBaseAlphaDetailV2)と同じ列立てに刷新。列＝浮き足%/E成立/到達率/頻度/利確率/損切り率/最終損益(平均/中央/Σ)/勝ち負け平均/スコア。★推奨＝最良（フォーム自動入力に使う値）・次点も表示・件数_EL_BASE_MIN_N未満は薄字「参考」。頻度はsweep.span(活動営業日)÷行のentDays(到達実日数)。
 function _elUkiPctSweepNode(sweep) {
   var rows = sweep.rows, best = sweep.best, runnerUp = sweep.runnerUp;
   var _dash = React.createElement("span", { style: { color: "#bbb" } }, "—");
@@ -3089,30 +3093,31 @@ function _elUkiPctSweepNode(sweep) {
     var label = React.createElement("span", { style: { fontWeight: 700, color: lblColor } }, x.P + "%" + (isBest ? " ★推奨" : "") + (isRunner ? " 次点" : "") + (low ? " 参考" : ""));
     return React.createElement("tr", { key: x.P, style: Object.assign({}, bg ? { background: bg } : {}, low ? { opacity: 0.5 } : {}) },
       _elv2Td(label, { textAlign: "left", paddingLeft: 8 }),
-      _elv2Td(e.eRate != null ? _elPctCell(e.eRate) : _dash),
       _elv2Td(e.decided + "件"),
-      _elv2Td(e.stopRate != null ? _elStopRateCell(e.stopRate) : _dash),
+      _elv2Td(e.eRate != null ? _elPctCell(e.eRate) : _dash),
+      _elv2Td(_elFreqCell(sweep.span, x.entDays)),
       _elv2Td(e.takeRate != null ? _elPctCell(e.takeRate) : _dash),
-      _elv2Td(e.avgH2 == null ? _dash : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(Math.round(e.avgH2)) } }, _elPnlFmt(Math.round(e.avgH2)))),
-      _elv2Td(e.score != null ? _elScoreCell(e.score) : _dash),
-      _elv2Td(e.h2Sum == null ? _dash : React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(Math.round(e.h2Sum)) } }, _elPnlFmt(Math.round(e.h2Sum)))));
+      _elv2Td(e.stopRate != null ? _elStopRateCell(e.stopRate) : _dash),
+      _elv2Td(_elH2AmtCell(e)),
+      _elv2Td(_elH2WinLossCell(e)),
+      _elv2Td(e.score != null ? _elScoreCell(e.score) : _dash));
   });
   return React.createElement("div", { style: { marginTop: 4 } },
     _reco,
-    _elv2Table(["浮き足%", "到達率", "件数", "損切り率", "利確率", "平均最終", "スコア", "想定損益(計)"], _trs));
+    _elv2Table(["浮き足%", "E成立", "到達率", "頻度", "利確率", "損切り率", "最終損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"], _trs));
 }
 // 全銘柄共通の浮き足加算率最適化ボード（シグナル総合タブ）2026-07-12。母数=全銘柄の浮き足〇・浮き値>0のv2記録。
-function _elUkiPctBoardV2(recs, aiOf) {
+function _elUkiPctBoardV2(recs, aiOf, holiSet) {
   var pool = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal) && _elInclTotal(r.signal) && _elUkiYes(r.signal) && _elUkiVal(r.signal) != null && _elUkiVal(r.signal) > 0; });
   if (!pool.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "浮き足〇（浮き値あり）の記録がまだありません");
-  var sweep = _elUkiPctSweep(pool, aiOf);
+  var sweep = _elUkiPctSweep(pool, aiOf, holiSet);
   return React.createElement(React.Fragment, null,
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px" } },
       "母数＝全銘柄の浮き足〇記録 " + pool.length + "件（浮き値あり）。各記録は実際に使った加算率で採用αに畳み込み済み。ここでは浮き足の加算だけを0〜100%（10刻み）で振り直して最終損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大＝新規記録の浮き足加算の自動入力に使う推奨率（次点も表示）。"),
     _elUkiPctSweepNode(sweep));
 }
 // 浮き足の基本/応用プール別 加算率ボード（詳細表）2026-07-14g: 母数＝浮き足〇&浮き値>0&算入&v2 のうち mode で基本(応用フラグ無)/応用(応用フラグ有)に分岐。各プールに%スイープ(_elUkiPctSweep)を当て推奨%を出す＝基本α/応用αのタグ別プールと同じ発想。※フォーム📊詳細表ボタンから開く（配線は第2弾）。
-function _elUkiPctBoardScoped(recs, aiOf, mode, reasons) {
+function _elUkiPctBoardScoped(recs, aiOf, mode, reasons, holiSet) {
   var _sp = mode === "special";
   var pool = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal) && _elInclTotal(r.signal) && _elUkiYes(r.signal) && _elUkiVal(r.signal) != null && _elUkiVal(r.signal) > 0 && (_sp ? _elUkiSpecialUsed(r.signal) : !_elUkiSpecialUsed(r.signal)); });
   var byReason = false;   // 浮き足応用の根拠別＝選んだ根拠を持つ記録に絞る（≥下限で採用・薄ければ全応用に戻す）2026-07-14g
@@ -3121,7 +3126,7 @@ function _elUkiPctBoardScoped(recs, aiOf, mode, reasons) {
     if (byR.length >= _EL_BASE_MIN_N) { pool = byR; byReason = true; }
   }
   if (!pool.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sp ? "浮き足応用〇（浮き値あり）の記録がまだありません" : "浮き足基本〇（浮き値あり）の記録がまだありません");
-  var sweep = _elUkiPctSweep(pool, aiOf);
+  var sweep = _elUkiPctSweep(pool, aiOf, holiSet);
   return React.createElement(React.Fragment, null,
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px" } },
       "母数＝" + (_sp ? "浮き足応用" : "浮き足基本") + (byReason ? "（選択根拠）" : "") + "〇の記録 " + pool.length + "件（浮き値あり）。加算率を0〜100%（10刻み）で振り直し最終損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大＝" + (_sp ? "浮き足応用" : "浮き足基本") + "加算率の推奨（次点も表示）。"),
@@ -5382,7 +5387,7 @@ function EntryLogView(_ref_elv2) {
   };
 
   // ===== 集計タブ: KPIブロック（任意の記録集合から算出。今月/全期間で共用）+ α意思決定表(_alphaTable) =====
-  var _kpiBlockOf = function(rs) {
+  var _kpiBlockOf = function(rs, _freqHoli) {
     var n = rs.length, ok = 0, x = 0, miss = 0;
     rs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
     var t = _elTotAccum(rs, {
@@ -5400,15 +5405,25 @@ function EntryLogView(_ref_elv2) {
     var _entDays = 0; for (var _dk in _daySet) { if (_daySet.hasOwnProperty(_dk)) _entDays++; }
     var _perDay = (_entDays > 0 && t.hold2 != null) ? Math.round(t.hold2 / _entDays) : null;   // 2026-07-09 H1基準→手じまい基準
     var _collXN = _elCollExclCountRecs(data, rs, _collScope);
-    return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 } },
+    // シグナル総合タブのKPI早見だけ頻度カードを足す（8枚→9枚・3×3）2026-07-18。_freqHoli未指定（集計タブ）は従来の8枚(4×2)のまま。頻度＝母数の活動営業日÷採用αでEP到達した実日数。
+    var _freqCard = null, _gridN = 4;
+    if (_freqHoli) {
+      var _fSpan = _elBizSpanDays(rs, _freqHoli), _fEnt = _elEnteredDays(rs, function(r) { return _ai(r).alpha; });
+      var _fR = (_fSpan > 0 && _fEnt > 0) ? _fSpan / _fEnt : null, _fNum = _fR == null ? null : (_fR < 10 ? (Math.round(_fR * 10) / 10) : Math.round(_fR));
+      _freqCard = _kpiCard("頻度", _fNum == null ? "—" : ("" + _fNum), _fNum == null ? "#bbb" : "#0369A1", _fNum == null ? "到達日なし" : ("営業日に1回・到達" + _fEnt + "日/活動" + _fSpan + "営業日"));
+      _gridN = 3;
+    }
+    return React.createElement.apply(null, ["div", { style: { display: "grid", gridTemplateColumns: "repeat(" + _gridN + ", minmax(0, 1fr))", gap: 8 } }].concat([
       _kpiCard("件数", n + "件", "#333", "v2記録のみ" + (_collXN > 0 ? "・被り除外" + _collXN + "件" : "")),
+      _freqCard,
       _kpiCard("E到達率", reach != null ? reach + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
       _kpiCard("E後の勝率", _ewin != null ? _ewin + "%" : "—", _ewin != null ? (_ewin >= 50 ? "#1E8449" : "#B45309") : "#bbb", "勝" + _wOk + "・負" + _wNg + (_wDr ? "・分" + _wDr : "") + "／E成立" + _ewinD + "件"),
       _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件・○途切れで手じまい"),
       _kpiCard("損切り", (ss && ss.any || 0) + "回", ss && ss.any > 0 ? "#1E8449" : "#bbb", ss && ss.rate != null ? "率" + ss.rate + "%（想" + ss.plan + "・H1 " + ss.h1 + "・H2 " + ss.h2 + "）" : null),
       _kpiCard("×見送り", x + "件", x > 0 ? "#1E8449" : "#bbb", "×宣言後の到達"),
       _kpiCard("実現損益", _yenN(t.real, t.realCnt), null, t.realCnt + "件"),
-      _kpiCard("1日あたり損益", _perDay != null ? (_elPnlFmt(_perDay) + "/日") : "—", _perDay != null ? _elPnlColor(_perDay) : "#bbb", "手じまい基準・" + _entDays + "日エントリー"));
+      _kpiCard("1日あたり損益", _perDay != null ? (_elPnlFmt(_perDay) + "/日") : "—", _perDay != null ? _elPnlColor(_perDay) : "#bbb", "手じまい基準・" + _entDays + "日エントリー")
+    ].filter(Boolean)));
   };
   // 銘柄別 集計タブの本体（KPI＋各分析セクション）。今月/全期間で同じ構成を共用＝引数の記録集合rsだけ差し替える。
   var _sumStockContent = function(rs) {
@@ -5754,12 +5769,23 @@ function EntryLogView(_ref_elv2) {
   var _tabBody;
   if (_isSigTotal) {
     // 📡シグナル総合＝全銘柄共通の分析（銘柄別に分ける必要のないデータ）。母数は常に全銘柄(_v2recsAll)。2026-07-12
+    // KPI早見（集計タブと同じ8枚＋頻度）をサブタブごとの母数で頭に出す 2026-07-18: 浮き足%タブ＝浮き足〇(浮き値あり)／RNタブ＝RN〇＝下の分析表と同母数（件数一致）。集計タブと同様、見出しの前に置くのでカード外にそのまま並ぶ。
+    var _sigHoliSet = _buildHolidayDateSet(data.trades, custom.eventCategories);
+    var _sigUkiPool = _v2recsAll.filter(function(r) { return r && r.signal && _elUkiYes(r.signal) && _elUkiVal(r.signal) != null && _elUkiVal(r.signal) > 0; });
+    var _sigRnPool = _v2recsAll.filter(function(r) { return r && _elRnYes(r.signal); });
+    var _sigKpiHead = function(t) { return React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#6B6459", margin: "2px 0 6px" } }, t); };
+    var _sigKpiEmpty = function(t) { return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, t); };
     _tabBody = (sigSub === "rn")
       ? _cardify([
-          _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai),
+          _sigKpiHead("📊 KPI早見｜RN〇の全記録（" + _sigRnPool.length + "件・採用αはRN加算込み・最終損益基準）"),
+          _sigRnPool.length ? _kpiBlockOf(_sigRnPool, _sigHoliSet) : _sigKpiEmpty("RNまたぎ加算〇の記録がまだありません"),
+          _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai, _sigHoliSet),
           _secH("🗂 RN〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝RNまたぎ加算〇の全記録。行タップで明細カード・カードタップで編集フォーム"),
           _recTable(_v2recsAll.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateAsc), "full", "rntab_")])
-      : _cardify([_secH("⚡ 浮き足加算率の最適化（全銘柄共通）"), _elUkiPctBoardV2(_v2recsAll, _ai)]);   // 時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去（旧sigSub値はこのelseで浮き足%に落ちる）
+      : _cardify([
+          _sigKpiHead("📊 KPI早見｜浮き足〇の全記録（" + _sigUkiPool.length + "件・採用αは浮き足加算込み・最終損益基準）"),
+          _sigUkiPool.length ? _kpiBlockOf(_sigUkiPool, _sigHoliSet) : _sigKpiEmpty("浮き足〇（浮き値あり）の記録がまだありません"),
+          _secH("⚡ 浮き足加算率の最適化（全銘柄共通）"), _elUkiPctBoardV2(_v2recsAll, _ai, _sigHoliSet)]);   // 時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去（旧sigSub値はこのelseで浮き足%に落ちる）
   } else if (view === "sum") {
     if (_isAllStock) {
       // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。

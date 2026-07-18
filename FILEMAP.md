@@ -47,6 +47,14 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-18b 📡シグナル総合タブにKPI早見（8枚＋頻度）＋浮き足/RN表をα詳細表スタイルへ刷新（sw v183→v184）
+ユーザー要望「分析を充実させたい・KPI（勝率/平均損益/頻度）を出す・既存表もα詳細表を参照して刷新」。母数=サブタブごと（浮き足%→浮き足〇[浮き値あり]／RN→RN〇）。
+- **KPI早見**: `_kpiBlockOf(rs, _freqHoli)`（app-06）に第2引数を追加＝holiSetを渡すと頻度カードを差し込み8枚(4×2)→9枚(3×3)。未指定（集計タブの既存2呼出）は従来の8枚(4×2)のまま不変。頻度＝`_elBizSpanDays`(活動営業日)÷`_elEnteredDays`(採用αでEP到達した実日数)。シグナル総合タブ本体（app-06 `_isSigTotal`分岐）で`_sigHoliSet`/`_sigUkiPool`/`_sigRnPool`を作り、集計タブと同様に見出しの前へKPI見出し＋`_kpiBlockOf(pool,_sigHoliSet)`を置く（カード外にそのまま並ぶ）。
+- **浮き足加算率表の刷新**: `_elUkiPctSweep(pool, aiOf, holiSet)`に第3引数追加＝`span`(`_elBizSpanDays`)を返し各行に`entDays`(`_elEnteredDays`)を持たせる。`_elUkiPctSweepNode`の列を α詳細表(`_elBaseAlphaDetailV2`)と同じ「浮き足%/E成立/到達率/**頻度**/利確率/損切り率/**最終損益(平均/中央/Σ)**/**勝ち/負け平均**/スコア」へ（共通セル`_elFreqCell`/`_elH2AmtCell`/`_elH2WinLossCell`/`_elScoreCell`を流用）。旧列「件数/平均最終/想定損益(計)」は最終損益セルに集約。★推奨/次点/推奨バーは不変。`_elUkiPctBoardV2`/`_elUkiPctBoardScoped`にholiSet引数を追加し透過。銘柄別グループ内の`_elFloatReasonSectionV2`のスイープ表もholiSetを渡し同刷新。
+- **RN①EP位置スイープ表**: `_elRnBoardV2(recs, aiOf, holiSet)`に第3引数追加＝各行に`af`(αオフセット関数)を持たせ`_span`＋「**頻度**」列（E成立の隣）を追加。②寄与内訳・③RN距離別は不変。
+- **呼出更新**: シグナル総合（app-06 5762/5759相当）＋記録フォーム📊詳細表（app-05）＋EPナビ📊詳細表（app-04）の`_elUkiPctBoardScoped`呼出にholiSet(`_buildHolidayDateSet(data.trades,(data.custom||{}).eventCategories)`)を追加。
+- **検証**: node無し→preview(:3457別オリジン=データ空)で実マウント（console 0・シグナル総合の空状態にKPI見出し描画）＋合成12〜10記録で`_elUkiPctSweepNode`/`_elRnBoardV2`/`_elUkiPctBoardV2`をReactDOM detached renderし例外0・ヘッダ9列/セル9個一致・頻度列presence・span/entDays実値・KPIの9枚(3×3)/8枚(4×2)分岐をassert。損益は合成値なので参考。
+
 ### 2026-07-15 推奨α★の選定を「膝（B案）」へ全面変更（基本・応用・追加・浮き足）＋詳細表/見出しの説明更新
 ユーザー方針: 平均が高くてもエントリー数が少なく累計が痩せる高α側を★にしない。ゲート（黒字・到達率・損切り率・E成立・頻度）通過候補の中で「累計損益Σがほぼ最大（既定95%以上）を保てる範囲」に絞り、その中で質（スコア=0.7×損切り回避+0.3×利確率）最良のα＝膝を理想とし、推奨（★）＝理想−1（指値フィルマージン）。旧＝「到達率下限ギリギリまで最も高いα−1」／旧追加α＝「平均最終損益最大」。
 - 新規 `_EL_KNEE_FRAC=0.95`（膝の閾値・調整可）＋共通ヘルパー `_elKneeFilter(cands, sigOf)`（app-06・`_EL_ALPHA_OFFSET`直後）。Σが候補中の最大のこの割合以上に絞る純関数。
