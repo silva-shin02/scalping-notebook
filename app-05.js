@@ -4853,7 +4853,7 @@ function _elCutValNode(cutLine) {
   if (cutLine == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   return React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, cutLine + "円");
 }
-// 記録の「EP水準値（高値）」＝OS・損益詳細の「EP ↑○」の○。α未達(miss)/EP未成立ならnull。返り値は符号つき数値（上=正／下=負）。2026-07-18「ライン」列で使用。
+// 記録の「EP水準値（高値）」＝OS・損益詳細の「EP ↑○」の○。α未達(miss)/EP未成立ならnull。返り値は符号つき数値（上=正／下=負）。※2026-07-18eでライン列は実価格(_elLineInner)へ変更＝現在この関数は未使用（EP水準値が再び必要になれば流用可）。
 function _elEpHighVal(s, alpha, cutLine) {
   if (!s || alpha == null) return null;
   if (_elDynResult(s, alpha, cutLine) === "miss") return null;   // α未達＝EPが立たない
@@ -4868,21 +4868,23 @@ function _elEpHighVal(s, alpha, cutLine) {
   }
   return (eph == null || isNaN(eph)) ? null : eph;
 }
-// 記録表「ライン」セルの中身(td無し): EP水準値と損切ライン(EP＋損切り値)を4行(EP／値／損切／値)で縦積み。EP未成立は「—」。数値の左右余白は最小。2026-07-18 列追加。
+// 記録表「ライン」セルの中身(td無し): 予定EP額（水準線値＋合計α）と予定損切りライン額（予定EP＋損切り値）を4行(EP／額／損切／額)で縦積み＝EPナビ/フォームの「予定EP」「予定損切りライン」と同じ実価格（円）。水準線値(levelPrice)未入力の記録は「—」。2026-07-18e 実価格へ修正（旧＝EP高値の水準線比・符号付き値は解釈違い）。合計α=各行の採用α・損切り値=採用損切り値。
 function _elLineInner(s, alpha, cutLine) {
-  var eph = _elEpHighVal(s, alpha, cutLine);
+  var lv = (s && s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
+  var a = (alpha != null && !isNaN(Number(alpha))) ? Number(alpha) : null;
+  var epPrice = (lv != null && a != null) ? Math.round((lv + a) * 100) / 100 : null;   // 予定EP額＝水準線値＋合計α（app-04:3506の正本式と同じ）
+  var stopPrice = (epPrice != null && cutLine != null && !isNaN(Number(cutLine))) ? Math.round((epPrice + Number(cutLine)) * 100) / 100 : null;   // 予定損切りライン＝予定EP＋損切り値（向きは常にEP＋・2026-07-18d確定）
   var _lbl = { fontSize: 9, color: "#999", fontWeight: 700, lineHeight: 1.1 };
   var _num = { fontSize: 11, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: "tabular-nums" };
   var _fmt = function(v, col) {
     if (v == null) return React.createElement("span", { style: { color: "#ccc", fontWeight: 700, fontSize: 11 } }, "—");
-    return React.createElement("span", { style: Object.assign({}, _num, { color: col }) }, (v < 0 ? "↓" : "↑") + Math.abs(v));
+    return React.createElement("span", { style: Object.assign({}, _num, { color: col }) }, v);
   };
-  var cutV = (eph != null && cutLine != null) ? (eph + cutLine) : null;
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } },
     React.createElement("span", { style: _lbl }, "EP"),
-    _fmt(eph, "#334155"),
+    _fmt(epPrice, "#334155"),
     React.createElement("span", { style: Object.assign({}, _lbl, { marginTop: 1 }) }, "損切"),
-    _fmt(cutV, "#B45309"));
+    _fmt(stopPrice, "#B45309"));
 }
 // 「ライン」セル(td込み)。数値の左右余白を最小(2px)に。border=各表の枠線(borderBottom/borderRightに同値)。2026-07-18。
 function _elLineCell(s, alpha, cutLine, border) {
