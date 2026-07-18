@@ -3863,6 +3863,7 @@ function _EpnCalcForm(_p) {
   var effA = (nUkiUsed === "○") ? (ukiAddV + rnAddV) : ((_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV + rnAddV) : null);   // 2026-07-14g 浮き足〇＝土台α不使用（採用α＝浮き足加算＋RN）
   var levelN = (nLevel !== "" && !isNaN(parseFloat(nLevel))) ? parseFloat(nLevel) : null;
   var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
+  var _epnCutLine = (function() { var _ck = stock + "_" + date; var _cd = data.charts && data.charts[_ck]; return (_cd != null && _cd.cutLine != null) ? Number(_cd.cutLine) : 15; })();   // 予定損切りライン用の損切り値（水準線比・既定15）2026-07-18
   var _resetForm = function() {
     setEditId(null); setEditAt(null); setEditDone(false); setNMinBars(["1"]); setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]);
     setNBase(""); setNSpecialUsed("×"); setNSpecialAlpha(""); setNSpecialReasons([]); setNUkiUsed("×"); setNUkiVal(""); setNUkiPct(""); setNUkiSpecial(false); setNRnUsed("×"); setNRnVal(""); setNLevel(""); setNLineCoexist(false); setDetOpen(false);
@@ -4114,6 +4115,11 @@ function _EpnCalcForm(_p) {
         ? ("合計α値" + effA + "円＝" + (nUkiSpecial ? "浮応" : "浮") + ukiAddV + (rnAddV ? "＋RN" + rnAddV : "") + "（浮き足〇＝基本α/応用α無し）")
         : ("合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : "")))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? "記録が無い銘柄は基本αを手入力" : "水準線を入力")),
+    React.createElement("div", { style: { margin: "0 0 6px", padding: "6px 6px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, textAlign: "center" } },   // 予定損切りライン＝予定EP＋損切り値（逆行して損切りになる価格の目安）2026-07-18
+      React.createElement("span", { style: { fontSize: 10, color: "#B91C1C", fontWeight: 800 } }, "予定損切りライン "),
+      React.createElement("span", { style: { fontSize: 17, fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(Math.round((epV + _epnCutLine) * 100) / 100) : "—"),
+      React.createElement("span", { style: { fontSize: 10, color: "#B91C1C" } }, "円"),
+      epV != null ? React.createElement("div", { style: { fontSize: 9, color: "#EF4444", marginTop: 1 } }, "予定EP" + epV + "＋損切り" + _epnCutLine) : null),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"), _spModal);
 }
