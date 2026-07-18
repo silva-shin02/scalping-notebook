@@ -5238,15 +5238,19 @@ function EntryLogView(_ref_elv2) {
         React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件）"),
         _recTable(x.slice().sort(_byDateAsc), "full", "ovp_" + k + "_", null))));
     });
-    var tt = totOf(rs), bt = { borderTop: "2px solid #FB923C" };
-    var _ovTotDays = keys.reduce(function(s, k) { return s + _bizDaysIn(k); }, 0);
+    // 合計・平均は「※参考」期間（EMA位置ズレの4月＝_elIsEmaRefPeriod）を除外。参考行自体は上に表示し、集計だけ除く。件数・日数・到達/利確/損切り率・1日平均も参考期間を抜いた母数で算出 2026-07-18
+    var _isRefKey = function(k) { return _elIsEmaRefPeriod(k, g); };
+    var rsInc = rs.filter(function(r) { return !_isRefKey(keyOf(r.date)); });
+    var _hasRef = keys.some(_isRefKey);
+    var tt = totOf(rsInc), bt = { borderTop: "2px solid #FB923C" };
+    var _ovTotDays = keys.reduce(function(s, k) { return _isRefKey(k) ? s : s + _bizDaysIn(k); }, 0);
     var totRow = React.createElement("tr", { key: "__ovtot__", style: { background: "#FFF7ED" } },
-      otd("合計", Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
+      otd(React.createElement("span", null, "合計", _hasRef ? React.createElement("span", { title: "4月（EMA位置ズレの参考期間）は合計・平均から除外しています", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※参考除く") : null), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
       otd(_ovTotDays + "日", Object.assign({ fontWeight: 700, color: "#555" }, bt)),
-      otd(rs.length + "件", Object.assign({ fontWeight: 800 }, bt)),
-      reachCell(reachOf(rs), rs.length, Object.assign({ fontWeight: 800 }, bt)),
-      winTakeCell(winTakeOf(rs), Object.assign({ fontWeight: 800 }, bt)),
-      stopCell(stopsOf(rs), bt),
+      otd(rsInc.length + "件", Object.assign({ fontWeight: 800 }, bt)),
+      reachCell(reachOf(rsInc), rsInc.length, Object.assign({ fontWeight: 800 }, bt)),
+      winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
+      stopCell(stopsOf(rsInc), bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
       realCell(tt.real, tt.realCnt, _ovTotDays, bt));
     return React.createElement(_HScrollBox, null,
