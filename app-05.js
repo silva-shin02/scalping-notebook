@@ -4853,6 +4853,41 @@ function _elCutValNode(cutLine) {
   if (cutLine == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   return React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, cutLine + "円");
 }
+// 記録の「EP水準値（高値）」＝OS・損益詳細の「EP ↑○」の○。α未達(miss)/EP未成立ならnull。返り値は符号つき数値（上=正／下=負）。2026-07-18「ライン」列で使用。
+function _elEpHighVal(s, alpha, cutLine) {
+  if (!s || alpha == null) return null;
+  if (_elDynResult(s, alpha, cutLine) === "miss") return null;   // α未達＝EPが立たない
+  var eph = null;
+  if (_epIsV2(s)) {
+    var r = _epResolve(s, alpha);
+    if (!r || r.judge === "miss" || !r.ep) return null;
+    eph = r.ep.h;
+  } else {
+    if (s.osVal == null || s.osVal === "") return null;
+    eph = Number(s.osVal);
+  }
+  return (eph == null || isNaN(eph)) ? null : eph;
+}
+// 記録表「ライン」セルの中身(td無し): EP水準値と損切ライン(EP＋損切り値)を4行(EP／値／損切／値)で縦積み。EP未成立は「—」。数値の左右余白は最小。2026-07-18 列追加。
+function _elLineInner(s, alpha, cutLine) {
+  var eph = _elEpHighVal(s, alpha, cutLine);
+  var _lbl = { fontSize: 9, color: "#999", fontWeight: 700, lineHeight: 1.1 };
+  var _num = { fontSize: 11, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: "tabular-nums" };
+  var _fmt = function(v, col) {
+    if (v == null) return React.createElement("span", { style: { color: "#ccc", fontWeight: 700, fontSize: 11 } }, "—");
+    return React.createElement("span", { style: Object.assign({}, _num, { color: col }) }, (v < 0 ? "↓" : "↑") + Math.abs(v));
+  };
+  var cutV = (eph != null && cutLine != null) ? (eph + cutLine) : null;
+  return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } },
+    React.createElement("span", { style: _lbl }, "EP"),
+    _fmt(eph, "#334155"),
+    React.createElement("span", { style: Object.assign({}, _lbl, { marginTop: 1 }) }, "損切"),
+    _fmt(cutV, "#B45309"));
+}
+// 「ライン」セル(td込み)。数値の左右余白を最小(2px)に。border=各表の枠線(borderBottom/borderRightに同値)。2026-07-18。
+function _elLineCell(s, alpha, cutLine, border) {
+  return React.createElement("td", { style: { padding: "1px 2px", textAlign: "center", whiteSpace: "nowrap", borderBottom: border, borderRight: border, width: "1%", verticalAlign: "middle" } }, _elLineInner(s, alpha, cutLine));
+}
 // 記録表「保有」セル内容: EP足〜手じまい足の保有時間（分＝足数・1分足換算）。時間かぶり判定(_elCollisionExcludedSet)のexitIdxと同基準（_elRideVals.exitD）。
 // E成立v2のみ・それ以外は「—」。損切り手じまいは緑「切」を添える。2026-07-16 列追加。
 function _elHoldMinNode(s, alpha, cutLine) {

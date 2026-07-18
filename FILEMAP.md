@@ -47,6 +47,13 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-18d 記録表に「ライン」列を追加（損切り列の右・EP水準値／損切ライン=EP＋損切り値／sw v189→v190）
+ユーザー要望「損切り欄の右に『ライン』列を追加。EP（円不要）と損切（EPに損切り値を足した数値）の計4行構成（EP／値／損切／値）」。損切ラインの向きは「常に EP＋損切り値」（ロング/ショートで符号は変えない）で確定。数値の左右余白は最小（2px）。
+- **共有ヘルパー新設（app-05・`_elCutValNode`直後）**: `_elEpHighVal(s,alpha,cutLine)`＝記録のEP水準値（高値＝OS・損益詳細の「EP ↑○」の○。v2は`_epResolve(s,alpha).ep.h`／旧記録は`Number(s.osVal)`。α未達(`_elDynResult==="miss"` or v2 judge==="miss")・EP未成立はnull）。`_elLineInner(s,alpha,cutLine)`＝4行縦積みノード（`EP`／符号つき`↑/↓`値／`損切`／`EP＋損切り値`。EP未成立は「—」・EP色#334155/損切色#B45309）。`_elLineCell(s,alpha,cutLine,border)`＝`_elLineInner`をtd(padding "1px 2px"・borderBottom/borderRight=border)で包む。
+- **適用＝同レイアウト（EP/OS・損益詳細を持つ）記録表6つすべて**（`_elDetailFlowStack`描画表）: ①ChartSection銘柄別シグナル表`_esTh`(app-02・画像の表・`_elLineCell(s,_avH,_cutLH,...)`)②WeeklyPnlPanel週次明細`_detailTableFor`(app-02)③DayView取引表`_trTh`(app-04)④DayView銘柄別サブ表`_rTh`(app-04・α/損切りシミュ表)⑤OS分析クリック明細`_elOsTradeMini`(app-06)⑥記録帳一覧`_recTable` full(app-06・`_elLineInner`を`_td`で包む)。各表で「損切り」ヘッダーthの右にライン列thを追加＋本体の`_elCutValNode`セルの右に挿入。
+- **colSpan整合**: 各表の合計行の「合計」or空セルのcolSpanを+1／行展開カード(EntryLogCard)のcolSpanを+1／`_recTable`の`colN`を13→14。EntryLogCard自体（app-05:8721=縦カード・列表でない）は対象外。
+- 検証: nodeなし→preview_start scalping＋SW古キャッシュ削除後リロードで`_elEpHighVal/_elLineInner/_elLineCell`定義確認＋合成記録でEP確立→`EP ↑20/損切 ↑35`（20+15）・α未達→`EP —/損切 —`を確認。表描画（実データ）はユーザー実機。
+
 ### 2026-07-18c 銘柄別記録タブのα詳細表を「その日に取引記録が無くても」既定表示（sw v184→v185）
 ユーザー要望「銘柄別記録テーブルのα値の詳細表などは、その日に取引記録がなくてもデフォルトで表示して。現状表示されていない」。
 - **原因**: ChartSection（app-02・DayViewの「銘柄別記録」タブ`tab==="charts"`で描画）の「α 推奨α値（{stock}）」ブロック（`_elBaseAlphaPeriodBlockV2`＝本日の採用α値`_ElDayAlphaPair`＋α詳細データ表`_ElRecoAlphaDetail`／母数は前日まで全期間）が `if (!_iaSigs.length) return null;`（＝その日の`cd.signals`が空なら非表示）で当日エントリーの有無に依存して隠れていた。DayViewの`_elBaseAlphaDayBlockV2`は「前日まで or 本日」ガードで既に無記録日でも表示していたので非対称だった。
