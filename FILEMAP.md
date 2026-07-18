@@ -47,6 +47,10 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-18h RNまたぎ〇の記録はライン列EP行を「EP（RN）〇」表記（紫・sw v194→v195）
+ユーザー要望「RNまたぎ〇の記録のライン列は『EP（RN）〇』と表記」（EPがRN＝キリ番に乗っている明示）。`_elLineInner`(app-05・EP行ラベル)を `_elRnYes(s) ? "EP（RN）〇" : "EP"` に分岐＝RN〇(`signal.rnUsed`)は紫#7C3AED・whiteSpace:nowrap。値(予定EP額)・損切行ラベルは不変。6記録表すべて(共通ヘルパー)に自動反映。
+- 検証: preview→app-05.js `new Function`パースOK・合成レンダー＝{rnUsed:true,levelPrice5940,α10,損切15}→「EP（RN）〇5950 損切5965」(ラベル紫rgb(124,58,237))・RN無し→「EP5950 損切5965」・例外0。sw v194→**v195**。
+
 ### 2026-07-18g 要審議記録を合計・累積に算入（見送りと同じ）＋記録一覧に「要審議のみ」絞り込み（sw v193→v194）
 ユーザー要望「要審議記録はデータに算入されるように（合計算入なども）＋各銘柄で要審議記録の一覧を表示・直接編集」。要審議(`signal.review`)は2026-07-14cで「分析算入・合計不算入」だったが、合計にも算入（＝見送りと同じ無エントリー扱い＝×宣言が無ければ仮想損益で（）内）へ変更。審バッジ・ピンク・審議メモは維持。
 - **合計除外の撤回（9箇所の`!_elIsReview`/`if(_elIsReview)return`を削除）**: `_elTotAccum`(app-05:4236)・`_elCalcChartGrades`(app-05:5291)・`_elCumPnlSectionV2`(app-06:1200)・手集計ループ`_recsForTot`(app-02:3972)/`_recsM`(app-02:5114)/`_inclTpb`(app-04:5627)/`_wkRecsM`(app-04:5912)/`_pbRecsM`(app-04:6103)/最終損益バッジ`_recs`(app-04:6221)。`_elIsReview`自体は残す（審バッジ表示app-02:4655/4698・app-04:5319・app-06:5355＝現状維持）。

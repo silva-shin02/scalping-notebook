@@ -4881,7 +4881,7 @@ function _elLineInner(s, alpha, cutLine) {
     return React.createElement("span", { style: Object.assign({}, _num, { color: col }) }, v);
   };
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } },
-    React.createElement("span", { style: _lbl }, "EP"),
+    React.createElement("span", { style: _elRnYes(s) ? Object.assign({}, _lbl, { whiteSpace: "nowrap", color: "#7C3AED" }) : _lbl }, _elRnYes(s) ? "EP（RN）〇" : "EP"),   // RNまたぎ〇＝EPがRN(キリ番)に乗っている記録は「EP（RN）〇」表記（紫）2026-07-18h
     _fmt(epPrice, "#334155"),
     React.createElement("span", { style: Object.assign({}, _lbl, { marginTop: 1 }) }, "損切"),
     _fmt(stopPrice, "#B45309"));
