@@ -5444,11 +5444,12 @@ function EntryLogView(_ref_elv2) {
   var _stockAllV2 = _anaRecs.filter(function(r) { return (_isAllStock || r.stock === _selStock) && _epIsV2(r.signal) && _elInclTotal(r.signal) && (addAlphaFil === "all" || (addAlphaFil === "yes" ? _elSpecialUsed(r.signal) : !_elSpecialUsed(r.signal))); });   // 母数トグル追従（2状態化 2026-07-13: yes=応用あり/no=応用なし）
   var _curSumYM = sumYM || (function() { var d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
   var _sumMonthRecs = _stockAllV2.filter(function(r) { var p = (r.date || "").split("-"); return (+p[0]) === _curSumYM.y && (+p[1]) === _curSumYM.m; });
+  var _sumMonthIsRef = _elIsEmaRefPeriod(_curSumYM.y + "-" + ("0" + _curSumYM.m).slice(-2), "month");   // 選択月が4月（EMA位置ズレの参考期間）ならKPI早見に「※参考」バッジ 2026-07-18
   var _shiftSumM = function(delta) { var m = _curSumYM.m + delta, y = _curSumYM.y; while (m < 1) { m += 12; y--; } while (m > 12) { m -= 12; y++; } setSumYM({ y: y, m: m }); setExpKey(null); };
   var _sumNavBtn = function(lbl, fn) { return React.createElement("button", { onClick: fn, style: { padding: "3px 14px", fontSize: 16, fontWeight: 800, background: "#fff", border: "1px solid #E4DFD7", borderRadius: 9, cursor: "pointer", color: "#9A3412" } }, lbl); };
   var _sumMonthNav = React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12, margin: "6px 0 10px" } },
     _sumNavBtn("←", function() { _shiftSumM(-1); }),
-    React.createElement("span", { style: { fontSize: 14, fontWeight: 800, color: "#9A3412", minWidth: 170, textAlign: "center" } }, _curSumYM.y + "年" + _curSumYM.m + "月データ早見"),
+    React.createElement("span", { style: { fontSize: 14, fontWeight: 800, color: "#9A3412", minWidth: 170, textAlign: "center" } }, _curSumYM.y + "年" + _curSumYM.m + "月データ早見", _elEmaRefNote(_sumMonthIsRef)),
     _sumNavBtn("→", function() { _shiftSumM(1); }));
   var _sumModeBar = _isAllStock ? null : React.createElement("div", { style: { display: "flex", marginBottom: 6 } },
     React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
@@ -5793,6 +5794,8 @@ function EntryLogView(_ref_elv2) {
   } else if (view === "sum") {
     if (_isAllStock) {
       // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。
+      // 累積損益カーブ・連勝連敗DDは4月（EMA位置ズレの参考期間）を除外＝_v2recsNonRef（期間別表の合計・平均と揃える）2026-07-18。
+      var _v2recsNonRef = v2recs.filter(function(r) { return !_elIsEmaRefPeriod((r.date || "").slice(0, 7), "month"); });
       _tabBody = _cardify([
         _sumMonthNav,
         _sumMonthRecs.length ? _kpiBlockOf(_sumMonthRecs)
@@ -5807,10 +5810,10 @@ function EntryLogView(_ref_elv2) {
                   style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, g[1]);
               }))),
           _ovPnlTbl(v2recs, gran === "custom" ? "week" : gran)],
-        v2recs.length >= 2 ? [
-          _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・合計行と同一基準"), React.createElement(_elCumPnlSectionV2, { recs: v2recs, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
-        v2recs.length >= 2 ? [
-          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理）"), _elStreakDDSectionV2(v2recs, _ai)] : null]);
+        _v2recsNonRef.length >= 2 ? [
+          _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・合計行と同一基準（4月＝EMA位置ズレの参考期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNonRef, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
+        _v2recsNonRef.length >= 2 ? [
+          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・4月＝参考期間は除外）"), _elStreakDDSectionV2(_v2recsNonRef, _ai)] : null]);
     } else {
       // 銘柄別の集計＝選択中シグナルの総合パネル（旧🎯シグナル別タブを昇格・上のシグナル軸で切替）。母数は選択中シグナル×サブタブ（前足浮き/その他）の固定母数（_selSigRecsScoped）。推奨基本α/追加αカードだけはシグナル全体（_selSigRecs）で算出＝サブタブ間で一貫。2026-07-01→前足浮き対応 2026-07-02
       // 分析軸トグル（2026-07-07）: 🎯シグナル別（従来）／🏷詳細タグ別（銘柄内・全シグナル横断で選んだ詳細タグの記録を _groupPanel で分析）。詳細タグが1件も無い銘柄ではトグル非表示＝従来どおり。
