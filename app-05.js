@@ -8056,6 +8056,16 @@ function EntryRecordForm(_ref_erf) {
               ),
               React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),
               React.createElement("span", { style: { fontSize: 9, color: "#93C5FD", fontWeight: 700 } }, "自動")
+            ),
+            React.createElement("div", {
+              style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#FEF2F2", border: "1px solid #FECACA", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
+            },
+              React.createElement("span", { style: { color: "#B91C1C", fontWeight: 700 } }, "予定損切りライン"),
+              React.createElement("span", { title: "予定EP＋損切り値＝ここまで逆行したら損切りになる価格の目安（自動計算）。", style: { fontSize: 12, fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums", minWidth: 36, textAlign: "right" } },
+                (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; var _ep = Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100; var _sl = _ep + (_fCutLine != null ? _fCutLine : 15); return String(Math.round(_sl * 100) / 100); })()
+              ),
+              React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円"),
+              React.createElement("span", { style: { fontSize: 9, color: "#FCA5A5", fontWeight: 700 } }, "損切り" + String(_fCutLine != null ? _fCutLine : 15))
             )
           ),
           React.createElement("div", { style: { fontSize: 10, color: "#64748B", fontWeight: 600, margin: "0 0 6px 2px", lineHeight: 1.4 } }, "※5分足の場合、EPまでは5分足基準、EPからは1分足基準"),
