@@ -47,6 +47,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-18c 銘柄別記録タブのα詳細表を「その日に取引記録が無くても」既定表示（sw v184→v185）
+ユーザー要望「銘柄別記録テーブルのα値の詳細表などは、その日に取引記録がなくてもデフォルトで表示して。現状表示されていない」。
+- **原因**: ChartSection（app-02・DayViewの「銘柄別記録」タブ`tab==="charts"`で描画）の「α 推奨α値（{stock}）」ブロック（`_elBaseAlphaPeriodBlockV2`＝本日の採用α値`_ElDayAlphaPair`＋α詳細データ表`_ElRecoAlphaDetail`／母数は前日まで全期間）が `if (!_iaSigs.length) return null;`（＝その日の`cd.signals`が空なら非表示）で当日エントリーの有無に依存して隠れていた。DayViewの`_elBaseAlphaDayBlockV2`は「前日まで or 本日」ガードで既に無記録日でも表示していたので非対称だった。
+- **修正**（app-02:6060付近）: ガードを `if (!_elStockRecsBefore(data, stock, date).length && !_iaSigs.length) return null;` に変更＝前日まで全期間の履歴（v2・算入）があれば当日エントリー0でも表示。履歴ゼロ（前日まで・当日とも記録なし）の銘柄だけ非表示（空ブロック回避）。日経(hideSignals=true)は従来どおり対象外。
+- **検証**: preview(:3457・データ空)で実マウント console 0。合成12記録＋無記録閲覧日で `_elStockRecsBefore`=12→`guardShows=true`（表示）、履歴ゼロ銘柄=`guardShows=false`（非表示）、`_elBaseAlphaPeriodBlockV2`をReactDOM renderし例外0・見出し「α 推奨α値（TEST）」＋本日の採用α値欄＋α詳細data表(table)presenceを確認。
+
 ### 2026-07-18b 📡シグナル総合タブにKPI早見（8枚＋頻度）＋浮き足/RN表をα詳細表スタイルへ刷新（sw v183→v184）
 ユーザー要望「分析を充実させたい・KPI（勝率/平均損益/頻度）を出す・既存表もα詳細表を参照して刷新」。母数=サブタブごと（浮き足%→浮き足〇[浮き値あり]／RN→RN〇）。
 - **KPI早見**: `_kpiBlockOf(rs, _freqHoli)`（app-06）に第2引数を追加＝holiSetを渡すと頻度カードを差し込み8枚(4×2)→9枚(3×3)。未指定（集計タブの既存2呼出）は従来の8枚(4×2)のまま不変。頻度＝`_elBizSpanDays`(活動営業日)÷`_elEnteredDays`(採用αでEP到達した実日数)。シグナル総合タブ本体（app-06 `_isSigTotal`分岐）で`_sigHoliSet`/`_sigUkiPool`/`_sigRnPool`を作り、集計タブと同様に見出しの前へKPI見出し＋`_kpiBlockOf(pool,_sigHoliSet)`を置く（カード外にそのまま並ぶ）。

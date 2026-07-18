@@ -6058,8 +6058,10 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
   }),
   !hideSignals ? React.createElement(WeeklyPnlPanel, { data: data, stock: stock, date: date, save: save }) : null,
   !hideSignals && (function() {
+    // 本日エントリーが無い日でも、この銘柄の前日までの履歴（v2・算入）があれば「α 推奨α値」ブロック（本日の採用α値＋α詳細データ表）を既定表示する 2026-07-18。
+    // 母数は前日まで全期間なので当日の記録有無に依存しない（DayViewの_elBaseAlphaDayBlockV2と同じ「前日まで or 本日」ガードに揃える）。前日まで・当日とも記録ゼロの銘柄だけ非表示。
     var _iaSigs = Array.isArray(cd.signals) ? cd.signals : [];
-    if (!_iaSigs.length) return null;
+    if (!_elStockRecsBefore(data, stock, date).length && !_iaSigs.length) return null;
     return _elBaseAlphaPeriodBlockV2(data, stock, date, save);
   })(),
   React.createElement(AppearanceSection, { data: data, save: save, stock: stock, date: date }));
