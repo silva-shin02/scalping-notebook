@@ -3329,12 +3329,12 @@ function _elAlphaTypeCell(s, alpha) {
   var _isUki = _elUkiYes(s);
   var sp = _isUki ? _elUkiSpecialUsed(s) : _elSpecialUsed(s);
   var col = _isUki ? "#15803D" : (sp ? "#DC2626" : "#0369A1");
-  var hasAdd = (_elUkiAdd(s) > 0) || (_elRnAdd(s) > 0);
-  var _label = hasAdd ? "計" : (_isUki ? (sp ? "浮応用" : "浮基本") : (sp ? "応用" : "基本"));   // 2026-07-18 RN/浮き足の加算があると値は合計＝「計」表記（種別色は維持・内訳に基/応/浮）。加算なしは種別ラベルのまま。
+  var hasRn = _elRnAdd(s) > 0;   // 「計」＝RNまたぎが乗って値が合計（種別α＋RN）になったときだけ。浮き足のみ/RN無しは値＝種別αそのものなので種別ラベル 2026-07-18b
+  var _label = hasRn ? "計" : (_isUki ? (sp ? "浮き応用" : "浮き基本") : (sp ? "応用" : "基本"));   // RN>0＝「計」＋内訳（基/応/浮 ＋RN）。RN無し＝種別ラベル（基本/応用/浮き基本/浮き応用）・内訳なし。
   return React.createElement("div", { style: { lineHeight: 1.2 } },
     React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),
     React.createElement("div", { style: { color: col, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, _elAlphaShown(s, alpha) + "円"),
-    hasAdd ? _elAlphaBreakdownNode(s, alpha) : null,
+    hasRn ? _elAlphaBreakdownNode(s, alpha) : null,
     (s && s.lineCoexist === true) ? React.createElement("div", { title: "ライン併存（過去に設定・入力欄は廃止）", style: { display: "inline-block", marginTop: 1, fontSize: 8, fontWeight: 700, color: "#0F766E", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 3, padding: "0 4px", lineHeight: 1.5 } }, "併存") : null);   // 過去のライン併存〇の識別バッジ（欄は廃止・2026-07-16）
 }
 // 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
@@ -7495,7 +7495,7 @@ function EntryRecordForm(_ref_erf) {
               })
             ),
             _ukiOn ? React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },
-              [["basic", "浮基本", false], ["special", "浮応用", true]].map(function(_uk) {
+              [["basic", "浮き基本", false], ["special", "浮き応用", true]].map(function(_uk) {
                 var _uon = fUkiSpecial === _uk[2];
                 return React.createElement("button", { key: _uk[0], type: "button", onClick: function() { setFUkiSpecial(_uk[2]); },
                   title: _uk[2] ? "浮き足応用＝大きめの加算率（根拠つき）で採用" : "浮き足基本＝通常の加算率で採用",

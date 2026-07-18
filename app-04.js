@@ -4053,7 +4053,7 @@ function _EpnCalcForm(_p) {
     showUki ? _lrow("浮き足加算（前足浮き値×加算率）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
       _oxBtns(nUkiUsed, setNUkiUsed),
       (nUkiUsed === "○") ? React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },   // 浮基本/浮応用トグル（記録フォームと同じ・プールを分けて推奨%）2026-07-14g
-        [["basic", "浮基本", false], ["special", "浮応用", true]].map(function(_uk) {
+        [["basic", "浮き基本", false], ["special", "浮き応用", true]].map(function(_uk) {
           var _uon = nUkiSpecial === _uk[2];
           return React.createElement("button", { key: _uk[0], type: "button", onClick: (function(_v) { return function() { setNUkiSpecial(_v); }; })(_uk[2]),
             title: _uk[2] ? "浮き足応用＝大きめの加算率（根拠つき）で採用" : "浮き足基本＝通常の加算率で採用",
