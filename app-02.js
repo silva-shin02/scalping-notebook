@@ -5108,7 +5108,7 @@ function WeeklyPnlPanel(_wpp) {
     recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
     var st = _elCalcStats(recs, data);
     // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_recsM＝被り除外後・件数系(st/件/到達等)はrecsのまま。銘柄別ビュー＝同一銘柄内のみ 2026-07-08
-    var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r, stock); });
+    var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r, stock) && !_elIsReview(r.signal); });   // 金額集計母数＝時間かぶり除外＋要審議除外（要審議は無エントリー＝合計不算入・件数系はrecs/stで分析算入を温存）2026-07-18
     var _stM = _recsM.length === recs.length ? st : _elCalcStats(_recsM, data);
     var _ent = _wkEntCnt(recs);
     var _osv = _wkAvgOs(recs);

@@ -5897,7 +5897,7 @@ function DayView(_ref57) {
         recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
         var st = _elCalcStats(recs, data);
         // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_wkRecsM＝被り除外後・件数系(st/件/到達等)はrecsのまま 2026-07-07
-        var _wkRecsM = recs.filter(function(r) { return !_elCollExcluded(data, r); });
+        var _wkRecsM = recs.filter(function(r) { return !_elCollExcluded(data, r) && !_elIsReview(r.signal); });   // 金額集計母数＝時間かぶり除外＋要審議除外（要審議は無エントリー＝合計不算入・件数系はrecs/stで分析算入を温存）2026-07-18
         var _wkStM = _wkRecsM.length === recs.length ? st : _elCalcStats(_wkRecsM, data);
         var _ent = _wkEntCnt(recs);
         var _osv = _wkAvgOs(recs);
@@ -6088,7 +6088,7 @@ function DayView(_ref57) {
       var keyRef = rowKey;
       var _allExcl = (!recs || recs.length === 0) && (exclN || 0) > 0;  // 取引はあるが全部不算入(算入0件)
       var _allMiss = _elAllMissRow(recs, _pbAlphaOf, _pbCutOf);  // 全記録E基準未達(全miss)→想定/H1/H2に「Q 0」
-      var _pbRecsM = (recs || []).filter(function(r) { return !_elCollExcluded(data, r); });  // 時間かぶり除外（金額集計用。件数系はrecs/stのまま）2026-07-07
+      var _pbRecsM = (recs || []).filter(function(r) { return !_elCollExcluded(data, r) && !_elIsReview(r.signal); });  // 時間かぶり除外＋要審議除外（金額集計用。件数系はrecs/stのまま＝分析算入を温存）2026-07-07/2026-07-18
       return React.createElement("tr", {
         style: Object.assign({ background: bg, cursor: rowKey ? "pointer" : "default" }, _allExcl ? { background: "#EFF8FF", borderLeft: "3px solid #38BDF8", opacity: 0.72 } : null),
         onClick: rowKey ? function() { setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); if (n[keyRef]) delete n[keyRef]; else n[keyRef] = true; return n; }); if (isExp) setPnlRecordExpandSet({}); } : undefined
@@ -6206,7 +6206,7 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             (function() {
               // 監査所見1（2026-07-12）: 旧=EP損益合計/結果損益合計(H1)・不算入/被り込み → 最終損益合計（手じまい・_elHold2TotParts.main）＋_elInclTotal＋被り除外に統一＝折り畳み行/明細表と同一基準。
-              var _recs = (expRecs || []).filter(function(r) { return r && _elInclTotal(r.signal) && !_elCollExcluded(data, r); });
+              var _recs = (expRecs || []).filter(function(r) { return r && _elInclTotal(r.signal) && !_elIsReview(r.signal) && !_elCollExcluded(data, r); });   // 要審議は最終損益合計バッジから除外（姉妹の_inclTpb:5617と統一）2026-07-18
               var _totH2 = null, _totH2Cnt = 0;
               _recs.forEach(function(r) {
                 var s = r.signal;

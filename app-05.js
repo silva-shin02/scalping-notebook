@@ -5253,6 +5253,7 @@ function _elCalcChartGrades(signals, alpha, cutLine, exclFn) {
   // 合計額算入: includeInTotal===false の記録は合計/グレード/件数から除外（早見表の3セル等が使用）。2026-06-18
   (signals || []).filter(function(sig) { return _elInclTotal(sig); }).forEach(function(sig) {
     var s = _compatSignal(sig);
+    if (_elIsReview(s)) return;   // 要審議＝早見表の合計/グレード/件数から全除外（無エントリー扱い・_elTotAccum:4236と同一規約。realSumは元々entered-gatedで安全）2026-07-18
     if (exclFn && exclFn(s)) return;
     var _aSig = _fixedA ? alpha : (s.alphaVal != null && s.alphaVal !== "" ? Number(s.alphaVal) : _gradeAlpha(s.difficulty));
     var isAB = s.difficulty === "A" || s.difficulty === "B";
