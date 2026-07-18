@@ -3163,7 +3163,7 @@ function _elUkiSignalNames(custom) {
 function _elIsExcluded(s) { return !!(s && (s.includeInTotal === false || s.passThrough === true)); }
 // スルー判定（実エントリー3択の第3状態 2026-07-06）: シグナルは出たが判断の土俵に乗せなかった記録＝計算は不算入と同経路・見た目は灰色（不算入の水色と区別）。
 function _elIsThru(s) { return !!(s && s.passThrough === true); }
-// 要審議判定（実エントリー第4状態 2026-07-14c）: 無エントリー扱い（合計損益は無エントリーで0＝実質不算入）だが、スルーと違い分析母数(_elInclTotal)には算入する。見た目はピンク。
+// 要審議判定（実エントリー第4状態 2026-07-14c）: 無エントリー扱い。2026-07-18gで合計損益にも算入（見送りと同じ＝×宣言が無ければ仮想損益で（）内）。スルーと違い分析母数(_elInclTotal)にも算入。見た目はピンク。
 function _elIsReview(s) { return !!(s && s.review === true); }
 // 「不算入」水色バッジ（行/カードに付ける）。
 function _elNotInclBadge(extra, s) {
@@ -4233,7 +4233,7 @@ function _elTotAccum(items, get) {
   (items || []).forEach(function(it) {
     var s = get.signal(it), a = get.alpha(it), c = get.cut(it);
     if (!s) return;
-    if (_elIsReview(s)) return;   // 要審議＝合計損益に不算入（無エントリー扱い・分析母数には _elInclTotal 経由で算入）2026-07-14c
+    // 2026-07-18g 要審議も合計損益に算入（見送りと同じ無エントリー扱い＝×宣言が無ければ仮想損益で（）内）。旧＝ここでreturn除外していた（2026-07-14c）
     if (get.excluded && get.excluded(it)) return;
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     if (get.real) { var rv = get.real(it); if (rv != null) { t.real = (t.real || 0) + rv; t.realCnt++; } }
@@ -5290,7 +5290,7 @@ function _elCalcChartGrades(signals, alpha, cutLine, exclFn) {
   // 合計額算入: includeInTotal===false の記録は合計/グレード/件数から除外（早見表の3セル等が使用）。2026-06-18
   (signals || []).filter(function(sig) { return _elInclTotal(sig); }).forEach(function(sig) {
     var s = _compatSignal(sig);
-    if (_elIsReview(s)) return;   // 要審議＝早見表の合計/グレード/件数から全除外（無エントリー扱い・_elTotAccum:4236と同一規約。realSumは元々entered-gatedで安全）2026-07-18
+    // 2026-07-18g 要審議も早見表の合計/グレード/件数に算入（見送りと同じ・_elTotAccum:4236と同一規約）。旧＝ここでreturn除外
     if (exclFn && exclFn(s)) return;
     var _aSig = _fixedA ? alpha : (s.alphaVal != null && s.alphaVal !== "" ? Number(s.alphaVal) : _gradeAlpha(s.difficulty));
     var isAB = s.difficulty === "A" || s.difficulty === "B";
@@ -8377,7 +8377,7 @@ function EntryRecordForm(_ref_erf) {
 
       React.createElement("div", { style: SH_ }, "実エントリー"),
       React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" } },
-        // 4択（2026-07-06→2026-07-14c 要審議追加）: あり/見送り/スルー/要審議。スルー=entered:false＋passThrough:true＝常に不算入（灰色・分析からも除外）。要審議=entered:false＋review:true＝無エントリーで合計不算入だが分析母数には算入（ピンク）。
+        // 4択（2026-07-06→2026-07-14c 要審議追加）: あり/見送り/スルー/要審議。スルー=entered:false＋passThrough:true＝常に不算入（灰色・分析からも除外）。要審議=entered:false＋review:true＝無エントリー・2026-07-18gで合計にも算入（見送りと同じ）・分析母数にも算入（ピンク）。
         [["あり", "y"], ["見送り", "n"], ["スルー", "t"], ["要審議", "r"]].map(function(kv) {
           var label = kv[0], mode = kv[1];
           var on = mode === "y" ? (fEntered && !fThru && !fReview) : (mode === "n" ? (!fEntered && !fThru && !fReview) : (mode === "t" ? fThru === true : fReview === true));
@@ -8389,7 +8389,7 @@ function EntryRecordForm(_ref_erf) {
               if (mode === "y") { setFEntered(true); setFThru(false); setFReview(false); }
               else { setFEntered(false); setFThru(mode === "t"); setFReview(mode === "r"); setFItemId(null); }
             },
-            title: mode === "t" ? "シグナルは出たが判断の土俵に乗せなかった記録＝合計・データ分析に算入しない（一覧では灰色表示）" : (mode === "r" ? "判断を保留する記録＝合計損益には算入しないが、データ分析には算入する（一覧ではピンク表示）" : null),
+            title: mode === "t" ? "シグナルは出たが判断の土俵に乗せなかった記録＝合計・データ分析に算入しない（一覧では灰色表示）" : (mode === "r" ? "判断を保留する記録＝見送りと同じく合計損益・データ分析に算入する（一覧ではピンク表示で区別）" : null),
             style: {
               padding: "8px 14px", fontSize: 13, fontWeight: 600,
               border: on ? (reviewSel ? "1.5px solid #BE185D" : (thruSel ? "1.5px solid #475569" : "1.5px solid #1a1a1a")) : "1px solid #ddd",
@@ -8416,7 +8416,7 @@ function EntryRecordForm(_ref_erf) {
       ) : null,
       fReview ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 6, padding: "6px 9px" } },
-          "要審議＝判断を保留する記録。合計損益には算入されませんが、データ分析には算入されます。一覧ではピンク表示になります。"),
+          "要審議＝判断を保留する記録。見送りと同じく合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入・一覧ではピンク表示で区別）。"),
         React.createElement("div", { style: SH_ }, "要審議の根拠メモ"),
         React.createElement(FastInput, {
           multiline: true,

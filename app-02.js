@@ -3969,7 +3969,7 @@ function EntrySignalSection(_ref_es) {
     });
   }, [signals, trades, date, stock]);
   // 合計額算入: 集計/合計用は除外記録(includeInTotal===false)を抜いた版。表示(tblItems/sortedRecs)は records の全件のまま。2026-06-18
-  var _recsForTot = records.filter(function(r) { return _elInclTotal(r.signal) && !_elIsReview(r.signal); });   // 要審議は合計損益に不算入（無エントリー扱い・_elTotAccum:app-05:4226と同基準）＝行表示(records/sortedRecs)には残るが_esTot*/_esRealSum等の集計と_esAllMissから除外。2026-07-14c追加時にこの手集計ループが漏れていた 2026-07-14f
+  var _recsForTot = records.filter(function(r) { return _elInclTotal(r.signal); });   // 2026-07-18g 要審議も合計に算入（見送りと同じ）＝_elIsReview除外を撤回（旧2026-07-14f）。_elTotAccum:app-05:4226と同基準
 
 
   var _esRecKey = function(r) { return (r.signal && r.signal.id) || ""; };
@@ -5111,7 +5111,7 @@ function WeeklyPnlPanel(_wpp) {
     recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
     var st = _elCalcStats(recs, data);
     // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_recsM＝被り除外後・件数系(st/件/到達等)はrecsのまま。銘柄別ビュー＝同一銘柄内のみ 2026-07-08
-    var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r, stock) && !_elIsReview(r.signal); });   // 金額集計母数＝時間かぶり除外＋要審議除外（要審議は無エントリー＝合計不算入・件数系はrecs/stで分析算入を温存）2026-07-18
+    var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r, stock); });   // 金額集計母数＝時間かぶり除外のみ（2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）
     var _stM = _recsM.length === recs.length ? st : _elCalcStats(_recsM, data);
     var _ent = _wkEntCnt(recs);
     var _osv = _wkAvgOs(recs);

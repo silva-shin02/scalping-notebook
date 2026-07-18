@@ -5624,7 +5624,7 @@ function DayView(_ref57) {
         var isMiss = _dispResExp === "miss";
         var bb = "1px solid #e8e5de";
         var _isXskipPb = _epIsXSkip(s, _alphaRec);  // E×（×見送り）→ 本合計に算入せず参考(ref)へ
-        var _inclTpb = _elInclTotal(s) && !_elIsReview(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18。要審議も合計不算入（無エントリー扱い・_elTotAccum:app-05:4226と同基準）＝行は表示しtot集計のみ除外 2026-07-14f
+        var _inclTpb = _elInclTotal(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18。2026-07-18g 要審議も合計算入（見送りと同じ）＝_elIsReview除外を撤回
         var _collXpb = _elCollExcluded(data, r);  // 時間かぶり除外: 良い方はフッター合計からも全スキップ（行表示は全件のまま）2026-07-07
         if (entered && _inclTpb && !_collXpb) _totRealCnt++;
         if (realPnl != null && _inclTpb && !_collXpb) { _totReal = (_totReal || 0) + realPnl; }
@@ -5909,7 +5909,7 @@ function DayView(_ref57) {
         recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
         var st = _elCalcStats(recs, data);
         // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_wkRecsM＝被り除外後・件数系(st/件/到達等)はrecsのまま 2026-07-07
-        var _wkRecsM = recs.filter(function(r) { return !_elCollExcluded(data, r) && !_elIsReview(r.signal); });   // 金額集計母数＝時間かぶり除外＋要審議除外（要審議は無エントリー＝合計不算入・件数系はrecs/stで分析算入を温存）2026-07-18
+        var _wkRecsM = recs.filter(function(r) { return !_elCollExcluded(data, r); });   // 金額集計母数＝時間かぶり除外のみ（2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）
         var _wkStM = _wkRecsM.length === recs.length ? st : _elCalcStats(_wkRecsM, data);
         var _ent = _wkEntCnt(recs);
         var _osv = _wkAvgOs(recs);
@@ -6100,7 +6100,7 @@ function DayView(_ref57) {
       var keyRef = rowKey;
       var _allExcl = (!recs || recs.length === 0) && (exclN || 0) > 0;  // 取引はあるが全部不算入(算入0件)
       var _allMiss = _elAllMissRow(recs, _pbAlphaOf, _pbCutOf);  // 全記録E基準未達(全miss)→想定/H1/H2に「Q 0」
-      var _pbRecsM = (recs || []).filter(function(r) { return !_elCollExcluded(data, r) && !_elIsReview(r.signal); });  // 時間かぶり除外＋要審議除外（金額集計用。件数系はrecs/stのまま＝分析算入を温存）2026-07-07/2026-07-18
+      var _pbRecsM = (recs || []).filter(function(r) { return !_elCollExcluded(data, r); });  // 時間かぶり除外のみ（金額集計用。2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）
       return React.createElement("tr", {
         style: Object.assign({ background: bg, cursor: rowKey ? "pointer" : "default" }, _allExcl ? { background: "#EFF8FF", borderLeft: "3px solid #38BDF8", opacity: 0.72 } : null),
         onClick: rowKey ? function() { setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); if (n[keyRef]) delete n[keyRef]; else n[keyRef] = true; return n; }); if (isExp) setPnlRecordExpandSet({}); } : undefined
@@ -6218,7 +6218,7 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             (function() {
               // 監査所見1（2026-07-12）: 旧=EP損益合計/結果損益合計(H1)・不算入/被り込み → 最終損益合計（手じまい・_elHold2TotParts.main）＋_elInclTotal＋被り除外に統一＝折り畳み行/明細表と同一基準。
-              var _recs = (expRecs || []).filter(function(r) { return r && _elInclTotal(r.signal) && !_elIsReview(r.signal) && !_elCollExcluded(data, r); });   // 要審議は最終損益合計バッジから除外（姉妹の_inclTpb:5617と統一）2026-07-18
+              var _recs = (expRecs || []).filter(function(r) { return r && _elInclTotal(r.signal) && !_elCollExcluded(data, r); });   // 2026-07-18g 要審議も最終損益合計バッジに算入（見送りと同じ・姉妹の_inclTpb:5627と統一）
               var _totH2 = null, _totH2Cnt = 0;
               _recs.forEach(function(r) {
                 var s = r.signal;

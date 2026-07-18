@@ -1197,7 +1197,7 @@ function _elCumPnlSectionV2(props) {
   var recs = props.recs, aiOf = props.aiOf;
   // 時間かぶり除外: dataが渡された場合は良い方を累積から抜く＝合計行と同一基準を維持。scopeStock指定時は同一銘柄内のみ（銘柄別ビュー）2026-07-08
   if (props.data) recs = (recs || []).filter(function(r) { return !_elCollExcluded(props.data, r, props.scopeStock); });
-  recs = (recs || []).filter(function(r) { return !(r.signal && _elIsReview(r.signal)); });   // 要審議は合計損益（累積）に不算入（_elTotAccumと同基準）2026-07-14c
+  // 2026-07-18g 要審議も累積損益に算入（見送りと同じ・_elTotAccumと同基準）。旧＝ここで_elIsReviewをfilter除外していた（2026-07-14c）
   var _hs = useState(null), hoverIdx = _hs[0], setHoverIdx = _hs[1];
   var _dsS = useState(""), startDate = _dsS[0], setStartDate = _dsS[1];  // 起算日（""=最初から）
   if (!recs || recs.length < 2) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "記録が2件以上で表示されます");
@@ -5079,6 +5079,7 @@ function EntryLogView(_ref_elv2) {
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
   var _uAA = useState("all"), addAlphaFil = _uAA[0], setAddAlphaFil = _uAA[1];   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
+  var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
   // OS値分布の基準トグルは2026-07-13に廃止（ユーザー承認③）＝実現OS(白枠・統計/棒クリックの主基準)と生の最高OS(色棒)をヒストグラムに同時表示（案A重ね棒・濃淡逆）。α目安(7割=α)は従来どおり生固定。
@@ -5803,14 +5804,19 @@ function EntryLogView(_ref_elv2) {
         return React.createElement(React.Fragment, null,
           (function(){
             var _cn = _elCollExclCountRecs(data, _fr, _collScope);
-            if (_cn <= 0) return null;
-            return React.createElement("div", { style: { marginBottom: 6 } },
-              React.createElement("button", { type: "button", onClick: function(){ setCollOnly(!collOnly); },
+            var _rvN = _fr.filter(function(r){ return r.signal && _elIsReview(r.signal); }).length;   // この銘柄・このビューの要審議件数 2026-07-18g
+            if (_cn <= 0 && _rvN <= 0) return null;
+            return React.createElement("div", { style: { marginBottom: 6, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 } },
+              _cn > 0 ? React.createElement("button", { type: "button", onClick: function(){ setCollOnly(!collOnly); },
                 style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (collOnly ? "#6D28D9" : "#C4B5FD"), background: collOnly ? "#6D28D9" : "#F5F3FF", color: collOnly ? "#fff" : "#6D28D9" } },
-                (collOnly ? "✓ " : "") + "被り除外のみ（" + _cn + "件）"),
-              collOnly ? React.createElement("span", { style: { marginLeft: 8, fontSize: 10, color: "#6D28D9", fontWeight: 700 } }, "時間かぶりで合計から除外した記録だけ表示中（タップで解除）") : null);
+                (collOnly ? "✓ " : "") + "被り除外のみ（" + _cn + "件）") : null,
+              _rvN > 0 ? React.createElement("button", { type: "button", onClick: function(){ setReviewOnly(!reviewOnly); },
+                style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (reviewOnly ? "#BE185D" : "#FBCFE8"), background: reviewOnly ? "#DB2777" : "#FDF2F8", color: reviewOnly ? "#fff" : "#BE185D" } },
+                (reviewOnly ? "✓ " : "") + "要審議のみ（" + _rvN + "件）") : null,
+              collOnly ? React.createElement("span", { style: { fontSize: 10, color: "#6D28D9", fontWeight: 700 } }, "時間かぶりで合計から除外した記録だけ表示中（タップで解除）") : null,
+              reviewOnly ? React.createElement("span", { style: { fontSize: 10, color: "#BE185D", fontWeight: 700 } }, "要審議（審）の記録だけ表示中（タップで解除・行タップで明細→編集）") : null);
           })(),
-          _recTable((collOnly ? _fr.filter(function(r){ return _elCollExcluded(data, r, _collScope); }) : _fr).slice().sort(_byDateAsc), "full", "gp_" + (_dv === "all" ? "" : _dv + "_")));
+          _recTable((function(){ var _sh = _fr; if (collOnly) _sh = _sh.filter(function(r){ return _elCollExcluded(data, r, _collScope); }); if (reviewOnly) _sh = _sh.filter(function(r){ return r.signal && _elIsReview(r.signal); }); return _sh; })().slice().sort(_byDateAsc), "full", "gp_" + (_dv === "all" ? "" : _dv + "_")));
       })]);
   };
 
