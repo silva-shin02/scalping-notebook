@@ -2975,8 +2975,16 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
   var _enteredAt = function(s, a) { var rr = _epResolve(s, a); return !!(rr && rr.judge === "ok"); };
   var _h1At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var h = _elDynHold(s, a, cut); return h == null ? 0 : h; };
   var _addFmt = function(v, suf) { return v == null ? React.createElement("span", { style: { color: "#bbb" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#9A3412" : "#94A3B8" } }, "+" + v + "円" + (suf || "")); };
-  var floatRecs = totalV2.filter(function(r) { return _elUkiYes(r.signal); });   // 母数＝浮き足〇の記録（旧: 追加α〇＋数値根拠）2026-07-03
-  if (!floatRecs.length) return null;
+  var floatAll = totalV2.filter(function(r) { return _elUkiYes(r.signal); });   // 母数＝浮き足〇の記録（旧: 追加α〇＋数値根拠）2026-07-03
+  if (!floatAll.length) return null;
+  // 2026-07-18 浮き足加算率の基本/応用スコープ（recCtx.ukiSp）で母数を絞る＝採用αの浮基本/浮応用と分析を揃える。トグルは常に描画（片方0件でも切替可）。
+  var _ukiSp = !!(recCtx && recCtx.ukiSp);
+  var _ukiScopeTgl = (recCtx && recCtx.setUkiSp) ? React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", margin: "0 0 4px" } }, _ukiScopeToggle(_ukiSp, recCtx.setUkiSp)) : null;
+  var floatRecs = floatAll.filter(function(r) { return _ukiSp ? _elUkiSpecialUsed(r.signal) : !_elUkiSpecialUsed(r.signal); });
+  if (!floatRecs.length) return React.createElement(React.Fragment, null,
+    secH("🔻 浮き足の記録（採用α・推奨α・OS・乖離の一覧）"),
+    _ukiScopeTgl,
+    React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "浮き足" + (_ukiSp ? "応用" : "基本") + "〇（浮き値入り）の記録がまだありません"));
   // 浮き足加算率スイープ 2026-07-12: 採用α（基本＋追加＋RN）は実績のまま浮き足加算だけをP=0〜100%(10刻み)で振り、最終損益(H2)で評価。全銘柄版(シグナル総合)と同じ_elUkiPctSweepに統一（旧「基本α＋浮き足%・ΣH1最大」から刷新）。母数=浮き値>0の浮き足〇記録。
   var _ukiPool = floatRecs.filter(function(r) { var f = _elUkiVal(r.signal); return f != null && f > 0; });
   var _ukiHoli = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories);
@@ -3040,6 +3048,7 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
       React.createElement("tbody", null, devRows)));
   return React.createElement(React.Fragment, null,
     secH("🔻 浮き足の記録（採用α・推奨α・OS・乖離の一覧）"),
+    _ukiScopeTgl,
     React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "0 0 4px", lineHeight: 1.5 } }, "浮き足〇の記録を1件ずつ、現実（採用した浮き足加算α）と推奨（推奨%どおりの浮き足加算）で上下2段に対比。浮き足〇はα＝浮き足加算（＋RN）のみ＝基本α/応用αは無し。OS＝OS1〜3の到達最高値（×で打ち切り）。乖離度＝到達最高OSと各段の浮き足加算αの差（＋到達／−未達）。推奨の加算＝浮き値×推奨%（下の📐%シミュ）。日付の「記録」でその日の記録を開閉。"),
     _floatTable,
     simNode);
@@ -3187,6 +3196,16 @@ function _elUkiPctPickScoped(data, refDate, mode, reasons) {
   if (!pool.length) return { reco: null, runnerUp: null, n: 0, byReason: byReason, fellBack: fellBack };
   var sweep = _elUkiPctSweep(pool, function(r) { return _elAlphaInfo(r, data); });
   return { reco: sweep.best ? sweep.best.P : null, runnerUp: sweep.runnerUp ? sweep.runnerUp.P : null, n: pool.length, byReason: byReason, fellBack: fellBack };
+}
+// 浮き足加算率ボードの基本/応用スコープ切替トグル（フォームの浮き足[浮き基本|浮き応用]と同スタイル）2026-07-18。sp=true→応用。onSet(boolean)で切替。分析ボード(シグナル総合/シグナル別)を_elUkiPctBoardScopedのmodeに連動させる。
+function _ukiScopeToggle(sp, onSet) {
+  return React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },
+    [["basic", "浮き基本", false], ["special", "浮き応用", true]].map(function(_uk) {
+      var _uon = sp === _uk[2];
+      return React.createElement("button", { key: _uk[0], type: "button", onClick: function() { onSet(_uk[2]); },
+        title: _uk[2] ? "浮き足応用〇の記録だけを母数に加算率を最適化" : "浮き足基本〇の記録だけを母数に加算率を最適化",
+        style: { padding: "3px 11px", fontSize: 11, fontWeight: _uon ? 800 : 600, borderRadius: 5, cursor: "pointer", border: "none", background: _uon ? "#fff" : "transparent", color: _uon ? "#15803D" : "#6B6459", boxShadow: _uon ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, _uk[1]);
+    }));
 }
 
 // ===== 追加分析セクション群の共通小物（2026-06-14）=====
@@ -5086,6 +5105,7 @@ function EntryLogView(_ref_elv2) {
   var _osValFn = function(s) { return _elOsMaxFiltered(s); };   // OS値分布の主基準＝実現OS（×/損切りで打ち切り）。生(_elOsMaxAll)は各所でrawVals/併記として追加 2026-07-13
   var osValMode = "real", setOsValMode = null;   // 互換用の残置（消費側の分岐は撤去済み・シグネチャ互換のため）
   var _uFS = useState("other"), floatSub = _uFS[0], setFloatSub = _uFS[1];   // シグナル内サブタブ: 底抜け前足浮き(float)/その他(other・既定)。選択中シグナルの記録を数値根拠(底抜け前足浮き＝_elHasNumReason)で二分し、集計/α値/損切り/未達/深掘りの母数を分ける（OS値分布ほか）。既定=その他 2026-07-02
+  var _uUAS = useState(false), ukiAnaSp = _uUAS[0], setUkiAnaSp = _uUAS[1];   // 浮き足加算率ボードの基本/応用スコープ（false=浮き基本/true=浮き応用）。シグナル総合の全銘柄共通ボードとシグナル別「浮き足の記録」で共用＝採用αの浮基本/浮応用と分析母数を揃える 2026-07-18
   var _uDS = useState({}), detScopes = _uDS[0], setDetScopes = _uDS[1];   // 詳細スコープ（セクション独立 2026-07-08e・旧detSubサブタブ→各セクションのプルダウンへ）: secKey→"all"(まとめて)/"__cmp__"(詳細ごと比較)/詳細名/"__none__"(未分類)。銘柄/シグナル切替でリセット。候補が無いシグナルではプルダウン非表示＝従来と同一母数。
   var _uAR = useState("all"), alphaReasonFil = _uAR[0], setAlphaReasonFil = _uAR[1];   // α値タブ 根拠セレクタ（2026-07-06）: 全体(all)/各根拠/根拠なし(__none__)で基本α・共通ツールの母数を絞る第4の軸。追加αタブは④⑤根拠別を内蔵するため対象外。全体選択時は従来と完全同一。
   var _uDTM = useState(false), detTagMode = _uDTM[0], setDetTagMode = _uDTM[1];   // 集計タブ銘柄側の分析軸: false=シグナル別(既定)/true=詳細タグ別（銘柄内・全シグナル横断で選んだsigDetailタグの記録を分析）2026-07-07
@@ -5840,7 +5860,9 @@ function EntryLogView(_ref_elv2) {
       : _cardify([
           _sigKpiHead("📊 KPI早見｜浮き足〇の全記録（" + _sigUkiPool.length + "件・採用αは浮き足加算込み・最終損益基準）"),
           _sigUkiPool.length ? _kpiBlockOf(_sigUkiPool, _sigHoliSet) : _sigKpiEmpty("浮き足〇（浮き値あり）の記録がまだありません"),
-          _secH("⚡ 浮き足加算率の最適化（全銘柄共通）"), _elUkiPctBoardV2(_v2recsAll, _ai, _sigHoliSet)]);   // 時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去（旧sigSub値はこのelseで浮き足%に落ちる）
+          _secH("⚡ 浮き足加算率の最適化（全銘柄共通）"),
+          React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _ukiScopeToggle(ukiAnaSp, setUkiAnaSp)),
+          _elUkiPctBoardScoped(_v2recsAll, _ai, ukiAnaSp ? "special" : "basic", null, _sigHoliSet)]);   // 2026-07-18 浮き足加算率を浮基本/浮応用のプール別に最適化（上のトグル連動）。旧: _elUkiPctBoardV2（基本/応用混在1プール）。時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去
   } else if (view === "sum") {
     if (_isAllStock) {
       // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。
@@ -6002,7 +6024,7 @@ function EntryLogView(_ref_elv2) {
           ? [_alZoneHead("#9A3412", "#FFF7ED", "#FED7AA", "浮き足加算αゾーン ― 前足浮き（浮き値×採用加算率・推奨%/既定50%）", null),
               _elCard(_detCtlRow("al_float", _selSigRecs),
               _detBody("al_float", _selSigRecs, function(_drs) {
-                return (_elFloatReasonSectionV2(_drs, _ai, data, _secH, _alPick, { expKey: expKey, setExpKey: setExpKey, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate })
+                return (_elFloatReasonSectionV2(_drs, _ai, data, _secH, _alPick, { expKey: expKey, setExpKey: setExpKey, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate, ukiSp: ukiAnaSp, setUkiSp: setUkiAnaSp })
                   || React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "浮き足〇（浮き値入り）の記録がありません"));
               }))]
           : [_alZoneHead("#9A3412", "#FFF7ED", "#FED7AA", "応用αゾーン" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」）" : ""), _alAddSum),
