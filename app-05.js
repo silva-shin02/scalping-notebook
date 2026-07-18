@@ -3179,10 +3179,12 @@ function _elNotInclRowStyle(s) {
   return _elIsExcluded(s) ? { opacity: 0.62, background: "#EFF8FF", borderLeft: "3px solid #38BDF8" } : null;
 }
 // 行スタイル統合版（2026-07-08）: スルー(灰)/不算入(水色)に加え、時間かぶりで除外された記録（良い方）を薄紫で行全体色分け。
-// 優先順位はスルー/不算入が先（被り除外の母数=算入のみなので実際には排他）。r={stock,date,signal}・dataが無い呼び出しは従来どおり。
+// 要審議(第4状態)は合計に算入する記録なので、スルーのようなopacityフェードはかけず薄ピンク背景＋ピンク左線で行全体をウォッシュ（文字は薄くしない）2026-07-18。
+// 優先順位はスルー/不算入が先（被り除外の母数=算入のみなので実際には排他）。要審議はその次・被り除外より前。r={stock,date,signal}・dataが無い呼び出しは従来どおり。
 function _elRowStyleWithColl(data, r, scope) {
   var st = _elNotInclRowStyle(r && r.signal);
   if (st) return st;
+  if (r && r.signal && _elIsReview(r.signal)) return { background: "#FCE7F3", borderLeft: "3px solid #EC4899" };
   if (data && _elCollExcluded(data, r, scope)) return { opacity: 0.68, background: "#F5F3FF", borderLeft: "3px solid #A78BFA" };
   return null;
 }
