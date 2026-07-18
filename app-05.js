@@ -3320,7 +3320,7 @@ function _elAlphaInfo(r, data) {
 // 追加α3状態(addAlphaUsed)対応 2026-06-25: 未選択(true/false以外)は「（未選択）」表記・×不要(add=0)は「（基本α）」表記(例（10）＝基本αだけを括弧で・円なし・2026-06-25f：当初は非表示にしていたが誤解で、本来は基本αを括弧表示が正)・〇要(add>0)は「（基本+追加）」。
 // 2026-06-25e: 「（未選択）」は新形式記録(baseAlphaVal有り)で addAlphaUsedが〇/×以外(=未選択)なら表示＝《不算入記録でも出す》(ユーザー要望: 不算入でも追加αの〇×が未選択なら（未選択）を表記)。旧記録(baseAlphaVal無し=base==nullで早期null返し)だけは追加α3状態の概念が無いため対象外。先回の「（不算入）」表記・不算入での（未選択）抑止・旧記録への（未選択）付与はすべて撤回。
 // 浮き足加算α値(uki=floor(ukiVal/2))対応 2026-07-03: 3要素（基本+浮+追加）。浮き足分は「浮」を付けて追加αと区別（例（10+浮8+5）/（10+浮8））。整合チェックは base+uki+add===dispAlpha。
-function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var _bdStyle = { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" }; var _rn = _elRnAdd(s); if (_elUkiYes(s)) { var _uki = _elUkiAdd(s); return React.createElement("div", { style: Object.assign({}, _bdStyle, { color: "#15803D" }) }, "（浮" + _uki + (_rn > 0 ? " ＋RN" + _rn : "") + "）"); } var base = _elBaseLevelAlpha(s); if (base == null) return null; var _rnNode = _rn > 0 ? React.createElement("span", { style: { color: "#1D4ED8" } }, " ＋RN" + _rn) : null; if (_elSpecialUsed(s)) return React.createElement("div", { style: Object.assign({}, _bdStyle, { color: "#9A3412" }) }, "（応用α " + base, _rnNode, "）"); return React.createElement("div", { style: _bdStyle }, "（" + base, _rnNode, "）"); }   // 2026-07-14g 浮き足〇＝「（浮○＋RN○）」緑（土台α無し）／通常＝「（基本/応用α＋RN○）」。RN×は省略。
+function _elAlphaBreakdownNode(s, dispAlpha) { if (!s) return null; var _bdStyle = { fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums" }; var _rn = _elRnAdd(s); var _rnNode = _rn > 0 ? React.createElement("span", { style: { color: "#1D4ED8" } }, " ＋RN" + _rn) : null; if (_elUkiYes(s)) { return React.createElement("div", { style: _bdStyle }, "（", React.createElement("span", { style: { color: "#15803D", fontWeight: 700 } }, "浮" + _elUkiAdd(s)), _rnNode, "）"); } var base = _elBaseLevelAlpha(s); if (base == null) return null; var _sp = _elSpecialUsed(s); return React.createElement("div", { style: _bdStyle }, "（", React.createElement("span", { style: { color: _sp ? "#9A3412" : "#0369A1", fontWeight: 700 } }, (_sp ? "応" : "基") + base), _rnNode, "）"); }   // 2026-07-18 「計」化: 土台α部に種別マーカー（基/応/浮）＋種別色太字、RNは青。全体「（基１ ＋RN8）」。加算があるとき_elAlphaTypeCellのラベルは「計」（値は合計）。
 // 表示用α（採用α全体＝基本/応用＋浮き足＋RN）2026-07-14f: 浮き足を合計α値に戻したのでα値欄は採用α全体を表示（旧07-12eは−浮き足で水準線側に出していた＝失効）。保存alphaVal/EP/損益は不変。
 function _elAlphaShown(s, a) { var n = (a != null && a !== "" && !isNaN(Number(a))) ? Number(a) : null; return (n == null) ? a : n; }
 // α値セル本体（2026-07-13）: 基本α/応用αの別を「基本」(青#0369A1)/「応用」(赤#DC2626)ラベル＋α値(浮き足除く)の2段で表示。折衷＝浮き足/RN加算があるときだけ内訳（基本α値）を3段目に出す。alphaはnullで「—」。
@@ -3329,8 +3329,8 @@ function _elAlphaTypeCell(s, alpha) {
   var _isUki = _elUkiYes(s);
   var sp = _isUki ? _elUkiSpecialUsed(s) : _elSpecialUsed(s);
   var col = _isUki ? "#15803D" : (sp ? "#DC2626" : "#0369A1");
-  var _label = _isUki ? (sp ? "浮応用" : "浮基本") : (sp ? "応用" : "基本");
   var hasAdd = (_elUkiAdd(s) > 0) || (_elRnAdd(s) > 0);
+  var _label = hasAdd ? "計" : (_isUki ? (sp ? "浮応用" : "浮基本") : (sp ? "応用" : "基本"));   // 2026-07-18 RN/浮き足の加算があると値は合計＝「計」表記（種別色は維持・内訳に基/応/浮）。加算なしは種別ラベルのまま。
   return React.createElement("div", { style: { lineHeight: 1.2 } },
     React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),
     React.createElement("div", { style: { color: col, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, _elAlphaShown(s, alpha) + "円"),
