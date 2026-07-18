@@ -47,6 +47,13 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-18e 浮き足分析に「浮き足α値（円）」の詳細表を追加＝%表と併記（基本α詳細表と同形式・sw v191→v192）
+ユーザー要望「浮き足を%でなく『浮き足α値＝何円』として、基本α値の詳細データ表と同じ形式で見たい」。既存の浮き足加算率(%)スイープ表(`_elUkiPctSweepNode`)はそのまま残し、その下に円版を併記（AskUserQuestion＝「円版を追加（両方表示）」「%表がある全箇所に」）。
+- **描画コア共通化（app-06）**: `_elUkiPctSweepNode`の中身を汎用`_elUkiSweepNodeCore(sweep,cfg)`へ分離（`cfg.keyOf`=行→P/X・`unit`="%"/"円"・`head`=第1列見出し・`recoWord`=推奨バー語・`noneTail`=推奨無し時の末尾）。%版`_elUkiPctSweepNode`は薄いラッパに（列/スタイル/ロジックは完全等価＝見た目不変）。
+- **円版スイープ`_elUkiValSweep(pool,aiOf,holiSet)`（app-06）**: 加算率%でなく浮き足α値=固定X円(0〜20・1円刻み＝基本α詳細表と同レンジ)を全記録に上乗せ＝実効α=`(採用α−_elUkiAdd(s))+X`（%版`_elUkiPctSweep`の`uv*P/100`をXへ置換）。母数/評価(`_elH2EvalByFn`)/★選定(`_elBordaBest`=平均最終損益最大・qual=E成立≥`_EL_BASE_MIN_N`&Σ黒字)は%版と同一。円版ノード`_elUkiValSweepNode`＋併記ブロック`_elUkiValBoardBlock(pool,aiOf,holiSet)`（見出し「⚡浮き足α値（円）で見る＝基本αと同じ土俵」＋緑説明＋表）。
+- **呼出3関数＝4画面に反映**: `_elUkiPctBoardV2`（📡シグナル総合タブ）・`_elUkiPctBoardScoped`（記録フォーム📊 app-05:7567／EPナビ📊 app-04:4076）・`_elFloatReasonSectionV2`（各シグナルの浮き足分析欄）の%表ノード直後に`_elUkiValBoardBlock(pool,…)`を追加＝%と同じpoolで母数一致。app-04/05は`_elUkiPctBoardScoped`経由で自動反映（両ファイル無改修＝編集はapp-06.js＋sw.jsのみ）。
+- **検証**: node無し→preview(:3457別オリジン)でSW/旧キャッシュ削除→リロード→`new Function`パースOK(len581396)・新関数5つ`typeof=function`・`_elUkiValSweep`合成poolでrows21(X=0〜20)・`_elUkiValBoardBlock`を`ReactDOM.render`例外0(本文に「浮き足α値」「円」)・console 0。実データの数値/見た目はユーザー実機。sw v191→**v192**。
+
 ### 2026-07-18d 記録表に「ライン」列を追加（損切り列の右・EP水準値／損切ライン=EP＋損切り値／sw v189→v190）
 ユーザー要望「損切り欄の右に『ライン』列を追加。EP（円不要）と損切（EPに損切り値を足した数値）の計4行構成（EP／値／損切／値）」。損切ラインの向きは「常に EP＋損切り値」（ロング/ショートで符号は変えない）で確定。数値の左右余白は最小（2px）。
 - **共有ヘルパー新設（app-05・`_elCutValNode`直後）**: `_elEpHighVal(s,alpha,cutLine)`＝記録のEP水準値（高値＝OS・損益詳細の「EP ↑○」の○。v2は`_epResolve(s,alpha).ep.h`／旧記録は`Number(s.osVal)`。α未達(`_elDynResult==="miss"` or v2 judge==="miss")・EP未成立はnull）。`_elLineInner(s,alpha,cutLine)`＝4行縦積みノード（`EP`／符号つき`↑/↓`値／`損切`／`EP＋損切り値`。EP未成立は「—」・EP色#334155/損切色#B45309）。`_elLineCell(s,alpha,cutLine,border)`＝`_elLineInner`をtd(padding "1px 2px"・borderBottom/borderRight=border)で包む。
