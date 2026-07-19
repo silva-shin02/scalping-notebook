@@ -5271,6 +5271,9 @@ function EntryLogView(_ref_elv2) {
     var otd = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
     // 最終損益・実現損益とも「1日あたり平均」＝合計÷日数(営業日数)に統一 2026-07-09（旧: 実現損益は1トレード平均avgLine→ユーザー要望で1日平均に）
     var avgDayLine = function(v, days) { if (!days || v == null) return null; var a = Math.round(v / days); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (a >= 0 ? "+" : "") + a.toLocaleString()); };
+    // 件数の下の「（1日平均〇件）」＝件数÷日数(営業日数)。割り切れれば整数・端数は小数第1位まで（四捨五入後に整数化されれば整数表示）。日別(g==="day")は各行=1日で件数と同値になり冗長なので非表示 2026-07-19。
+    var avgCntLine = function(cnt, days) { if (!days || g === "day" || cnt == null) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };
+    var cntCell = function(cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", null, cnt + "件"), avgCntLine(cnt, days)), ex); };
     var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt), avgDayLine(v, days)), ex); };
     var realCell = function(v, cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt), avgDayLine(v, days)), ex); };
     var stopCell = function(st, ex) {
@@ -5294,7 +5297,7 @@ function EntryLogView(_ref_elv2) {
       rows.push(React.createElement("tr", { key: k, onClick: function() { setOvExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
         otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, g))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
         otd(dn + "日", { fontWeight: 600, color: "#555" }),
-        otd(x.length + "件", { fontWeight: 700 }),
+        cntCell(x.length, dn, { fontWeight: 700 }),
         reachCell(reachOf(x), x.length),
         winTakeCell(winTakeOf(x)),
         stopCell(st),
@@ -5313,7 +5316,7 @@ function EntryLogView(_ref_elv2) {
     var totRow = React.createElement("tr", { key: "__ovtot__", style: { background: "#FFF7ED" } },
       otd(React.createElement("span", null, "合計", _hasRef ? React.createElement("span", { title: "4月（EMA位置ズレの参考期間）は合計・平均から除外しています", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※参考除く") : null), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
       otd(_ovTotDays + "日", Object.assign({ fontWeight: 700, color: "#555" }, bt)),
-      otd(rsInc.length + "件", Object.assign({ fontWeight: 800 }, bt)),
+      cntCell(rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       reachCell(reachOf(rsInc), rsInc.length, Object.assign({ fontWeight: 800 }, bt)),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
       stopCell(stopsOf(rsInc), bt),
@@ -6193,13 +6196,15 @@ function EntryLogView(_ref_elv2) {
         var c = 0; days.forEach(function(d) { if (d <= _today2 && _fmIsBizDay(d, _holiSet)) c++; });
         return c;
       };
+      // 件数の下の「（1日平均〇件）」＝件数÷日数。割り切れれば整数・端数は小数第1位まで。日別は各行=1日で冗長なので非表示 2026-07-19（全体損益・期間別の_ovPnlTblと同扱い）。
+      var _avgCntLine2 = function(cnt, days) { if (!days || gran === "day" || cnt == null) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };
       var _rows = [];
       _keys.forEach(function(k) {
         var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), dn = _bizDaysIn(k), _reach = rs.length - rr.miss, on = perExp === k;
         _rows.push(React.createElement("tr", { key: k, onClick: function() { setPerExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
           _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, gran))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           _tdP(dn + "日", { fontWeight: 600, color: "#555" }),
-          _tdP(rs.length + "件", { fontWeight: 700 }),
+          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700 } }, rs.length + "件"), _avgCntLine2(rs.length, dn))),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, _reach + "件"), rs.length ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(_reach / rs.length * 100) + "%") : null)),
           _tdP(rr.takeRate != null ? React.createElement("span", { style: { fontWeight: 700, color: rr.takeRate >= 50 ? "#1E8449" : "#B45309" } }, rr.take + "件・" + rr.takeRate + "%") : React.createElement("span", { style: { color: "#bbb" } }, "—")),
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 }),
