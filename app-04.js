@@ -2779,7 +2779,7 @@ function NikkeiPriceChart(_p) {
     if (!allPoints.length) return [];
     var last = allPoints[allPoints.length - 1].date;
     if (chartPeriod === "all") return allPoints;
-    var cutoff = new Date(last);
+    var cutoff = new Date(last + "T00:00:00");
     if (chartPeriod === "1m")  cutoff.setMonth(cutoff.getMonth() - 1);
     if (chartPeriod === "3m")  cutoff.setMonth(cutoff.getMonth() - 3);
     if (chartPeriod === "6m")  cutoff.setMonth(cutoff.getMonth() - 6);

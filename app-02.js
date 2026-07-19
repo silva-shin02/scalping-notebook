@@ -3796,7 +3796,8 @@ function _sigStats(tag, allData, period) {
     var k = e[0], c = e[1];
     if (cutoff) {
       var dp = k.split("_").pop();
-      if (dp < cutoff.toISOString().slice(0,10)) return;
+      var _cutStr = cutoff.getFullYear() + "-" + String(cutoff.getMonth()+1).padStart(2,"0") + "-" + String(cutoff.getDate()).padStart(2,"0");  // 2026-07-18 ローカル日付で比較（旧 toISOString はUTCでJST朝に1日ずれた）
+      if (dp < _cutStr) return;
     }
     var _clSg = c.cutLine != null ? Number(c.cutLine) : 15;
     (c.signals || []).forEach(function(s) {
@@ -5970,10 +5971,9 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
           }
         });
       },
-      onError: function() {
-        var newImgs = chartImgs.filter(function(_, j){ return j !== cidx; });
-        upd("chartImgs", newImgs);
-        upd("chartImg", newImgs[0] || null);
+      onError: function(e) {
+        // 2026-07-18 読込失敗（オフライン/Storage一時エラー/URL失効）でデータから画像を削除しない＝一時的失敗と恒久欠損を区別できないため。薄く表示するだけに留める（ゴミ箱ボタンで手動削除は従来どおり）。
+        if (e && e.target) e.target.style.opacity = "0.35";
       },
       style: { maxWidth: "100%", maxHeight: 400, borderRadius: 8, display: "block", cursor: "zoom-in" },
       alt: ""
@@ -5981,7 +5981,6 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     React.createElement("button", {
       onClick: function() {
         var newImgs = chartImgs.filter(function(_, j){ return j !== cidx; });
-        console.log("[chartImg delete] ck=" + ck + " cidx=" + cidx + " before=" + chartImgs.length + " after=" + newImgs.length);
         save(function(prevData) {
           var prevCd = (prevData.charts && prevData.charts[ck]) || {};
           return _objectSpread(_objectSpread({}, prevData), {}, {

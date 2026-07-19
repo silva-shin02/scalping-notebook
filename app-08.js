@@ -674,11 +674,11 @@ function App() {
             clearTimeout(fbSyncTimerRef.current);
             fbSyncTimerRef.current = null;
             fbPut(cfgRef.current, dataRef.current).then(function() {
-              fbStatusRef.current = "ok";
+              fbStatusRef.current = "ok"; setFbStatus("ok");
               console.log("[_snFbFlushNow] immediate fbPut done");
             })["catch"](function(e) {
               console.warn("[_snFbFlushNow] fbPut failed:", e);
-              fbStatusRef.current = "err";
+              fbStatusRef.current = "err"; setFbStatus("err");
             });
           }
           
@@ -712,7 +712,7 @@ function App() {
     if (cfgRef.current && cfgRef.current.fbUrl && cfgRef.current.fbPaused === false) {
       skipRef.current = true;
       if (skipTimerRef.current) clearTimeout(skipTimerRef.current);
-      fbStatusRef.current = "syncing";
+      fbStatusRef.current = "syncing"; setFbStatus("syncing");
       
       
       
@@ -740,14 +740,14 @@ function App() {
         if (fbSyncTimerRef.current) clearTimeout(fbSyncTimerRef.current);
         fbSyncTimerRef.current = null;
         fbPut(cfgRef.current, dataRef.current).then(function () {
-          fbStatusRef.current = "ok";
+          fbStatusRef.current = "ok"; setFbStatus("ok");
           skipTimerRef.current = setTimeout(function () {
             skipRef.current = false;
             skipTimerRef.current = null;
           }, 30000);
         })["catch"](function (e) {
           console.warn("fbPut failed:", e);
-          fbStatusRef.current = "err";
+          fbStatusRef.current = "err"; setFbStatus("err");
           skipRef.current = false;
           window._snHtmlUploadCb = null;
           window._snImgUploadCb = null;
@@ -758,14 +758,14 @@ function App() {
         fbSyncTimerRef.current = setTimeout(function() {
           fbSyncTimerRef.current = null;
           fbPut(cfgRef.current, dataRef.current).then(function () {
-            fbStatusRef.current = "ok";
+            fbStatusRef.current = "ok"; setFbStatus("ok");
             skipTimerRef.current = setTimeout(function () {
               skipRef.current = false;
               skipTimerRef.current = null;
             }, 30000);
           })["catch"](function (e) {
             console.warn("fbPut failed:", e);
-            fbStatusRef.current = "err";
+            fbStatusRef.current = "err"; setFbStatus("err");
             skipRef.current = false;
             window._snHtmlUploadCb = null;
             window._snImgUploadCb = null;

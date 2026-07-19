@@ -3100,7 +3100,12 @@ function NewsTab(_ref36) {
         if (!dd || !dd.newsCats) return;
         if (dd.newsCats[oldName] != null) {
           var nc = Object.assign({}, dd.newsCats);
-          nc[nm] = nc[oldName];
+          // 2026-07-18 改名先nmが孤児カテゴリ(=一覧から外したが当日データが残存)の場合、既存nc[nm]を無条件上書きで破棄せずnewsItemsをマージ（bulkMoveNewsData:3196と同型）＝データ消失防止
+          if (nc[nm] != null) {
+            nc[nm] = Object.assign({}, nc[nm], { newsItems: ((nc[nm] || {}).newsItems || []).concat((nc[oldName] || {}).newsItems || []) });
+          } else {
+            nc[nm] = nc[oldName];
+          }
           delete nc[oldName];
           newTrades[dt] = _objectSpread(_objectSpread({}, dd), {}, { newsCats: nc });
         }
@@ -4541,12 +4546,10 @@ function NewsTab(_ref36) {
       maxHeight: 320,
       boxed: true,
       onRemove: function(i) {
-        console.log("[ImgGrid onRemove] nid=" + ni.id + " imgIdx=" + i + " cat=" + currentCat);
-        return updNews(ni.id, function(n) { 
+        return updNews(ni.id, function(n) {
           var newImgs = (n.images||[]).filter(function(_, j){ return j !== i; });
-          console.log("[ImgGrid onRemove] before=" + (n.images||[]).length + " after=" + newImgs.length);
-          return { images: newImgs }; 
-        }); 
+          return { images: newImgs };
+        });
       },
       onAnnotate: function(i) { return setAnnotTarget({ nid: ni.id, idx: i }); },
       onEnlarge: function(i) {

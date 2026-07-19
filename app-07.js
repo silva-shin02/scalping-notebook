@@ -5058,7 +5058,7 @@ function StockHistoryView(_ref_shv) {
       var _stkAlpha = (data.custom.stockDefaultAlpha || {})[selStock];
       var _saveAlpha = function(v) {
         var n = v !== "" ? Number(v) : null;
-        if (n != null && !isNaN(n)) { if (n > 30) n = 30; if (n < 0) n = 0; }
+        if (n != null && !isNaN(n)) { if (n > 20) n = 20; if (n < 0) n = 0; }
         save(function(prev) {
           var pc = prev.custom || {};
           var nm = Object.assign({}, pc.stockDefaultAlpha || {});
@@ -5244,7 +5244,7 @@ function StockHistoryView(_ref_shv) {
         },
           React.createElement("div", {
             style: { fontSize: 14, fontWeight: 700, color: "#1a1a1a" }
-          }, e.date + " (" + ["日","月","火","水","木","金","土"][new Date(e.date).getDay()] + ")"),
+          }, e.date + " (" + ["日","月","火","水","木","金","土"][new Date(e.date + "T00:00:00").getDay()] + ")"),
           React.createElement("div", { style: { marginLeft: "auto", display: "flex", gap: 4 } },
             React.createElement("button", {
               onClick: function(){ onSelectDate && onSelectDate(e.date, "news"); },

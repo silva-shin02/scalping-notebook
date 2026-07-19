@@ -40,7 +40,7 @@ function _elOsBucketKey(v, includeNeg) {
 // バケットキー→ソート用数値（neg=-1 / 0-4=0 / 整数 / 25+=大）。
 function _elOsBucketOrd(key) { return key === "neg" ? -1 : key === "0-4" ? 0 : key === "25+" ? 9999 : Number(key); }
 // バケットキー→ラベル。
-function _elOsBucketLabel(key) { return key === "neg" ? "下落" : key === "0-4" ? "0〜4円" : key === "25+" ? "25円〜" : (key + "円"); }
+function _elOsBucketLabel(key) { return (key == null) ? "—" : key === "neg" ? "下落" : key === "0-4" ? "0〜4円" : key === "25+" ? "25円〜" : (key + "円"); }
 // バケットキー→色（neg=グレー・他は代表値のグラデ色）。
 function _elOsBucketColor(key) { if (key === "neg") return "#6B7280"; var v = key === "0-4" ? 2 : key === "25+" ? _EL_OS_TOP : Number(key); return _elOsShade(v); }
 // 展開可能なバケット（25〜のみ。0〜4・下落は帯のまま＝ユーザー決定 2026-06-25）。

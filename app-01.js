@@ -1204,14 +1204,18 @@ function _fbUsageKey() {
   return _FB_USAGE_PREFIX + d.getFullYear() + "_" + (d.getMonth() + 1);
 }
 function _fbUsageGet() {
-  if (_fbUsageCache) return _fbUsageCache;
+  var _curM = new Date().getMonth() + 1;  // 2026-07-18 月跨ぎ検知: タブを開いたまま月をまたぐと前月累積が新月キーへ繰り越されるのを防ぐ
+  if (_fbUsageCache) {
+    if (_fbUsageCache.month === _curM) return _fbUsageCache;
+    _fbUsageCache = null;  // 月が変わった→前月キャッシュを捨てて新月キーを読み直す
+  }
   try {
     var s = localStorage.getItem(_fbUsageKey());
-    if (s) { _fbUsageCache = JSON.parse(s); return _fbUsageCache; }
+    if (s) { _fbUsageCache = JSON.parse(s); if (_fbUsageCache.month == null) _fbUsageCache.month = _curM; return _fbUsageCache; }
   } catch(e){}
   _fbUsageCache = { db_dl: 0, db_ul: 0, st_dl: 0, st_ul: 0,
            st_ul_ops: 0, st_dl_ops: 0, polls: 0, puts: 0,
-           month: new Date().getMonth() + 1 };
+           month: _curM };
   return _fbUsageCache;
 }
 function _fbUsageFlush() {
