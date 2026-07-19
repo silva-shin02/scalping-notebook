@@ -5111,6 +5111,8 @@ function EntryLogView(_ref_elv2) {
   var _uDTM = useState(false), detTagMode = _uDTM[0], setDetTagMode = _uDTM[1];   // 集計タブ銘柄側の分析軸: false=シグナル別(既定)/true=詳細タグ別（銘柄内・全シグナル横断で選んだsigDetailタグの記録を分析）2026-07-07
   var _uSDT = useState(null), selDetTag = _uSDT[0], setSelDetTag = _uSDT[1];   // 詳細タグ別モードの選択タグ（"セクションキー|タグ名"）
   var _uSGT = useState("uki"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）
+  var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RNまたぎタブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録) 2026-07-19
+  var _uUKS = useState("ana"), ukiSub = _uUKS[0], setUkiSub = _uUKS[1];   // ⚡浮き足%タブ内の入れ子サブタブ: ana(分析)/list(記録一覧) 2026-07-19
   var _uJF = useState(false), anaJul = _uJF[0], setAnaJul = _uJF[1];   // 分析母数トグル（承認③+ 2026-07-12→2026-07-18 境界を5月〜に）: true=5月以降（EMA修正後）のみを記録帳全体（推奨・表・一覧）の母数に。既定false=全期間（従来どおり不変）。※変数名anaJulは内部名（実境界は2026-05-01）。
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -5165,7 +5167,7 @@ function EntryLogView(_ref_elv2) {
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"]]
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
-  var _SIG_TABS = [["uki", "⚡ 浮き足%"], ["rn", "🔢 RN"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要・シグナル別グループ分析内の時間帯/曜日は残置）
+  var _SIG_TABS = [["uki", "⚡ 浮き足%"], ["rn", "🔢 RNまたぎ"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RNまたぎ改名 2026-07-19
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub, right) {   // right=見出し右端の追加コントロール（詳細スコープのプルダウン等）2026-07-08e。data-elsech=カード化の区切りマーカー（_cardify 2026-07-12）
@@ -5850,19 +5852,63 @@ function EntryLogView(_ref_elv2) {
     var _sigRnPool = _v2recsAll.filter(function(r) { return r && _elRnYes(r.signal); });
     var _sigKpiHead = function(t) { return React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#6B6459", margin: "2px 0 6px" } }, t); };
     var _sigKpiEmpty = function(t) { return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, t); };
-    _tabBody = (sigSub === "rn")
-      ? _cardify([
-          _sigKpiHead("📊 KPI早見｜RN〇の全記録（" + _sigRnPool.length + "件・採用αはRN加算込み・最終損益基準）"),
-          _sigRnPool.length ? _kpiBlockOf(_sigRnPool, _sigHoliSet) : _sigKpiEmpty("RNまたぎ加算〇の記録がまだありません"),
-          _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai, _sigHoliSet),
-          _secH("🗂 RN〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝RNまたぎ加算〇の全記録。行タップで明細カード・カードタップで編集フォーム"),
-          _recTable(_v2recsAll.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateAsc), "full", "rntab_")])
-      : _cardify([
-          _sigKpiHead("📊 KPI早見｜浮き足〇の全記録（" + _sigUkiPool.length + "件・採用αは浮き足加算込み・最終損益基準）"),
-          _sigUkiPool.length ? _kpiBlockOf(_sigUkiPool, _sigHoliSet) : _sigKpiEmpty("浮き足〇（浮き値あり）の記録がまだありません"),
-          _secH("⚡ 浮き足加算率の最適化（全銘柄共通）"),
-          React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _ukiScopeToggle(ukiAnaSp, setUkiAnaSp)),
-          _elUkiPctBoardScoped(_v2recsAll, _ai, ukiAnaSp ? "special" : "basic", null, _sigHoliSet)]);   // 2026-07-18 浮き足加算率を浮基本/浮応用のプール別に最適化（上のトグル連動）。旧: _elUkiPctBoardV2（基本/応用混在1プール）。時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去
+    // 入れ子サブタブ 2026-07-19: RNまたぎ/浮き足%それぞれの内容（KPI＋分析ボード＋記録一覧）が縦長になったのでタブ式に分割。
+    // 入れ子タブバー（トップの_SIG_TABSより小ぶり・teal系）。tabs=[[key,ラベル,件数],...]。
+    var _sigInnerBar = function(tabs, cur, onSet) {
+      return React.createElement("div", { style: { display: "flex", background: "#E4EFEC", borderRadius: 9, padding: 3, marginBottom: 10, gap: 2, overflowX: "auto" } },
+        tabs.map(function(t) {
+          var on = cur === t[0];
+          return React.createElement("button", { key: t[0], type: "button", onClick: function() { onSet(t[0]); setExpKey(null); },
+            style: { flexShrink: 0, padding: "5px 13px", fontSize: 11.5, fontWeight: 700, border: "none", cursor: "pointer", borderRadius: 7, background: on ? "#fff" : "transparent", color: on ? "#0F766E" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } },
+            t[1] + " (" + t[2] + ")");
+        }));
+    };
+    if (sigSub === "rn") {
+      var _rnListRecs = _v2recsAll.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateAsc);
+      // RNまたぎ候補＝RNまたぎ加算×だが予定EP（水準線値＋採用α）の下2桁が40〜49／90〜99の記録（＝50/00のキリ番をまたげた可能性）。
+      // 母数=全記録（filtered＝スルー・要審議・合計除外も含む・_elInclTotalで絞らない）。levelPrice未入力/α未達は下2桁不明のため対象外。2026-07-19
+      var _rnCandRecs = filtered.filter(function(r) {
+        var s = r && r.signal;
+        if (!s || !_epIsV2(s) || _elRnYes(s)) return false;
+        var lv = (s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
+        if (lv == null) return false;
+        var a = _ai(r).alpha;
+        if (a == null) return false;
+        var d2 = Math.round((lv + a) * 100) / 100;
+        d2 = ((Math.round(d2) % 100) + 100) % 100;
+        return (d2 >= 40 && d2 <= 49) || (d2 >= 90 && d2 <= 99);
+      }).slice().sort(_byDateAsc);
+      var _rnBody = (rnSub === "list")
+        ? _cardify([
+            _secH("🗂 RN〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝RNまたぎ加算〇の全記録。行タップで明細カード・カードタップで編集フォーム"),
+            _recTable(_rnListRecs, "full", "rntab_")])
+        : (rnSub === "cand")
+          ? _cardify([
+              _secH("🎯 RNまたぎ候補の記録一覧（全銘柄・全記録）", "※RNまたぎ加算×だが予定EPの下2桁が40〜49／90〜99の記録＝50/00のキリ番をまたげた可能性。スルー・要審議・合計除外も含む全記録が対象。予定EP＝水準線値＋採用α（ライン列に表示）"),
+              _rnCandRecs.length ? _recTable(_rnCandRecs, "full", "rncand_") : _sigKpiEmpty("該当する候補記録がありません（RN加算×かつ予定EP下2桁40〜49/90〜99・水準線値入りの記録が対象）")])
+          : _cardify([
+              _sigKpiHead("📊 KPI早見｜RN〇の全記録（" + _sigRnPool.length + "件・採用αはRN加算込み・最終損益基準）"),
+              _sigRnPool.length ? _kpiBlockOf(_sigRnPool, _sigHoliSet) : _sigKpiEmpty("RNまたぎ加算〇の記録がまだありません"),
+              _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai, _sigHoliSet)]);
+      _tabBody = React.createElement(React.Fragment, null,
+        _sigInnerBar([["ana", "分析", _sigRnPool.length], ["list", "記録一覧", _rnListRecs.length], ["cand", "候補記録", _rnCandRecs.length]], rnSub, setRnSub),
+        _rnBody);
+    } else {
+      var _ukiListRecs = _sigUkiPool.slice().sort(_byDateAsc);
+      var _ukiBody = (ukiSub === "list")
+        ? _cardify([
+            _secH("🗂 浮き足〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝浮き足〇（浮き値あり）の全記録。行タップで明細カード・カードタップで編集フォーム"),
+            _recTable(_ukiListRecs, "full", "ukitab_")])
+        : _cardify([
+            _sigKpiHead("📊 KPI早見｜浮き足〇の全記録（" + _sigUkiPool.length + "件・採用αは浮き足加算込み・最終損益基準）"),
+            _sigUkiPool.length ? _kpiBlockOf(_sigUkiPool, _sigHoliSet) : _sigKpiEmpty("浮き足〇（浮き値あり）の記録がまだありません"),
+            _secH("⚡ 浮き足加算率の最適化（全銘柄共通）"),
+            React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _ukiScopeToggle(ukiAnaSp, setUkiAnaSp)),
+            _elUkiPctBoardScoped(_v2recsAll, _ai, ukiAnaSp ? "special" : "basic", null, _sigHoliSet)]);   // 2026-07-18 浮き足加算率を浮基本/浮応用のプール別に最適化（上のトグル連動）。旧: _elUkiPctBoardV2（基本/応用混在1プール）。時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去
+      _tabBody = React.createElement(React.Fragment, null,
+        _sigInnerBar([["ana", "分析", _sigUkiPool.length], ["list", "記録一覧", _ukiListRecs.length]], ukiSub, setUkiSub),
+        _ukiBody);
+    }
   } else if (view === "sum") {
     if (_isAllStock) {
       // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。
