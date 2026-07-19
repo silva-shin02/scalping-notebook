@@ -5048,9 +5048,7 @@ function StockHistoryView(_ref_shv) {
         bars: dcDisplayBars,
         recordedDates: dcRecordedDates,
         tradeDates: dcTradeDates,
-        showSparse: false,
-        thumbnail: true,
-        thumbHeight: 140
+        showSparse: false
       })
     ),
     

@@ -3364,7 +3364,11 @@ function _epnDelete(save, stock, date, id) {
     var ck = stock + "_" + date;
     var c = charts[ck]; if (!c) return prev;
     var arr = (Array.isArray(c.epNavi) ? c.epNavi : []).filter(function(x) { return x && x.id !== id; });
-    charts[ck] = Object.assign({}, c, { epNavi: arr });
+    // 2026-07-18 削除トムストーン: 物理削除に加え削除idを_delEpNaviに記録＝多端末同期でEP保存が復活しない（signalsの_delSig:app-05 _elDeleteSignalと同型）。保存/更新(_epnSave側)ではidを積まない＝再追加が消えるのを回避。
+    var _dels = Array.isArray(c._delEpNavi) ? c._delEpNavi.slice() : [];
+    var _eid = String(id);
+    if (_dels.indexOf(_eid) < 0) _dels.push(_eid);
+    charts[ck] = Object.assign({}, c, { epNavi: arr, _delEpNavi: _dels });
     return Object.assign({}, prev, { charts: charts });
   });
 }

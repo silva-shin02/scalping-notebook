@@ -1498,6 +1498,9 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
   // 未伝播のローカル追加(signals/items)を保護＝相手が新しいだけで新規記録を取りこぼさない。2026-06-20
   _reAddLocalAdditions(out, local, remote, "_delSig", "signals");
   _reAddLocalAdditions(out, local, remote, "_delItem", "items");
+  // 2026-07-18 EP保存(epNavi)も signals と同じ削除トムストーン(_delEpNavi)/未伝播追加保護に配線＝同一チャートの多端末同時編集でEP保存が消失・復活しない。id付き配列(1404)なので保存/更新はマージ側で処理済み。
+  _applyDelTombstones(out, local, remote, "_delEpNavi", "epNavi");
+  _reAddLocalAdditions(out, local, remote, "_delEpNavi", "epNavi");
   return out;
 }
 
