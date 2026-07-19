@@ -1136,7 +1136,7 @@ function _stWriteToStorage(data) {
         try {
           if (typeof window !== "undefined" && !window._snQuotaAlerted) {
             window._snQuotaAlerted = true;
-            alert("⚠️ 端末の保存領域が一杯で、記録を保存できませんでした。\n設定→エクスポートでバックアップを取り、不要な銘柄を整理してください。");
+            window._snAlert("⚠️ 端末の保存領域が一杯で、記録を保存できませんでした。\n設定→エクスポートでバックアップを取り、不要な銘柄を整理してください。");
           }
         } catch(e3){}
       }

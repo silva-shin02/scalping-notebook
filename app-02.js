@@ -1421,14 +1421,14 @@ function RichMemoEditor(_propsRME) {
   var onClickHandler = function(e) {
     if (e.target.classList && e.target.classList.contains("sn-rme-img-del")) {
       e.preventDefault(); e.stopPropagation();
-      if (window.confirm("画像を削除しますか？")) {
+      window._snConfirm("画像を削除しますか？").then(function(_ok){ if(!_ok) return;
         var wrap = e.target.parentNode;
         if (wrap && wrap.parentNode) {
           wrap.parentNode.removeChild(wrap);
           emit();
           setIsEmpty(_isEmpty());
         }
-      }
+      });
       return;
     }
     if (e.target.tagName === "IMG" && e.target.getAttribute("data-sn-rme-img")) {
@@ -3281,7 +3281,7 @@ function makeShapeTagPoolHandlers(data, save, custom) {
       if (!newName || oldName === newName) return;
       var cur = custom.chartShapeCats || {};
       if (!(oldName in cur)) return;
-      if (newName in cur) { alert("同名のカテゴリが既に存在します"); return; }
+      if (newName in cur) { window._snAlert("同名のカテゴリが既に存在します"); return; }
       var nc = {};
       Object.keys(cur).forEach(function(k) {
         nc[k === oldName ? newName : k] = cur[k];
@@ -3311,7 +3311,7 @@ function makeShapeTagPoolHandlers(data, save, custom) {
       var items = (cur[cat] || []).slice();
       var i = items.indexOf(oldName);
       if (i < 0) return;
-      if (items.indexOf(newName) >= 0) { alert("同名のタグが既に存在します"); return; }
+      if (items.indexOf(newName) >= 0) { window._snAlert("同名のタグが既に存在します"); return; }
       items[i] = newName;
       var oldTag = cat + ":" + oldName, newTag = cat + ":" + newName;
       var ch = _objectSpread({}, data.charts);
@@ -3334,7 +3334,7 @@ function makeShapeTagPoolHandlers(data, save, custom) {
       var tags = (custom.chartShapeTags || []).slice();
       var i = tags.indexOf(oldName);
       if (i < 0) return;
-      if (tags.indexOf(newName) >= 0) { alert("同名のタグが既に存在します"); return; }
+      if (tags.indexOf(newName) >= 0) { window._snAlert("同名のタグが既に存在します"); return; }
       tags[i] = newName;
       var ch = _objectSpread({}, data.charts);
       Object.keys(ch).forEach(function (k) {
@@ -3553,7 +3553,7 @@ function makeTagPoolHandlers(data, save, custom) {
       if (!newName || oldName === newName) return;
       var cur = custom.cats || {};
       if (!(oldName in cur)) return;
-      if (newName in cur) { alert("同名のカテゴリが既に存在します"); return; }
+      if (newName in cur) { window._snAlert("同名のカテゴリが既に存在します"); return; }
       var nc = {};
       Object.keys(cur).forEach(function(k) {
         nc[k === oldName ? newName : k] = cur[k];
@@ -3616,7 +3616,7 @@ function makeTagPoolHandlers(data, save, custom) {
       var items = (cur[cat] || []).slice();
       var i = items.indexOf(oldName);
       if (i < 0) return;
-      if (items.indexOf(newName) >= 0) { alert("同名のタグが既に存在します"); return; }
+      if (items.indexOf(newName) >= 0) { window._snAlert("同名のタグが既に存在します"); return; }
       items[i] = newName;
       var oldTag = cat + ":" + oldName, newTag = cat + ":" + newName;
       var renameTag = function(t) { return t === oldTag ? newTag : t; };
@@ -3664,7 +3664,7 @@ function makeTagPoolHandlers(data, save, custom) {
       var tags = (custom.tags || []).slice();
       var i = tags.indexOf(oldName);
       if (i < 0) return;
-      if (tags.indexOf(newName) >= 0) { alert("同名のタグが既に存在します"); return; }
+      if (tags.indexOf(newName) >= 0) { window._snAlert("同名のタグが既に存在します"); return; }
       tags[i] = newName;
       var renameTag = function(t) { return t === oldName ? newName : t; };
       var ch = _objectSpread({}, data.charts);
@@ -5224,7 +5224,7 @@ function TechnicalManageModal(_ref_tm) {
   var _uNew = useState(""), newName = _uNew[0], setNewName = _uNew[1];
   var _add = function() {
     var nm = (newName || "").trim(); if (!nm) return;
-    if (technicals.some(function(t) { return t.name === nm; })) { alert("同じ名前があります"); return; }
+    if (technicals.some(function(t) { return t.name === nm; })) { window._snAlert("同じ名前があります"); return; }
     onChange(technicals.concat([{ id: _sigId(), name: nm }])); setNewName("");
   };
   var _rename = function(id, nm) {
@@ -5233,7 +5233,7 @@ function TechnicalManageModal(_ref_tm) {
     onChange(technicals.map(function(t) { return t.id === id ? Object.assign({}, t, { name: v }) : t; }));
     if (_ref_tm.onRename && _old && _old !== v) _ref_tm.onRename(_old, v);   // 過去の手動出現行(テクニカル)の名前も追従 2026-07-07g
   };
-  var _del = function(id) { if (window.confirm("このテクニカルを削除しますか？（過去に記録した名前はそのまま残ります）")) onChange(technicals.filter(function(t) { return t.id !== id; })); };
+  var _del = function(id) { window._snConfirm("このテクニカルを削除しますか？（過去に記録した名前はそのまま残ります）").then(function(_ok){ if(_ok) onChange(technicals.filter(function(t) { return t.id !== id; })); }); };
   var _move = function(i, dir) { var j = i + dir; if (j < 0 || j >= technicals.length) return; var a = technicals.slice(); var t = a[i]; a[i] = a[j]; a[j] = t; onChange(a); };
   return React.createElement("div", { style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 20, overflowY: "auto" }, onClick: onClose },
     React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 12, padding: 18, maxWidth: 460, width: "100%", maxHeight: "85vh", overflowY: "auto" } },
@@ -5272,11 +5272,11 @@ function AppearanceSection(_ref_ap) {
   var _openEdit = function(r) { setEditId(r.id); setAKind(r.kind === "signal" ? "signal" : "tech"); setAName(r.name); setATime(r.time || ""); setAMemo(r.memo || ""); setAddOpen(true); };
   var _submit = function() {
     var nm = (aName || "").trim();
-    if (!nm) { alert("シグナル・テクニカル名を選んでください"); return; }
+    if (!nm) { window._snAlert("シグナル・テクニカル名を選んでください"); return; }
     _apSave(save, stock, date, { id: editId || _sigId(), kind: aKind === "signal" ? "signal" : "tech", name: nm, time: (aTime || "").trim(), memo: (aMemo || "").trim() });
     _reset();
   };
-  var _del = function(r) { if (window.confirm("この出現記録を削除しますか？")) _apDelete(save, stock, date, r.id); };
+  var _del = function(r) { window._snConfirm("この出現記録を削除しますか？").then(function(_ok){ if(_ok) _apDelete(save, stock, date, r.id); }); };
   var _setTechnicals = function(arr) { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { technicals: arr }) }); }); };
   var _kindChip = function(kind) {
     var isSig = kind === "signal";
@@ -5424,10 +5424,10 @@ var ChartSection = React.memo(function ChartSection(_ref32) {
   var _uSim = useState(null), _uSimS = _slicedToArray(_uSim, 2),
     simDraftId = _uSimS[0], setSimDraftId = _uSimS[1];
   var runSimilarSearch = function runSimilarSearch(draftId) {
-    if (!cfg || !cfg.fbUrl) { alert("Firebase未設定のため検索できません。"); return; }
+    if (!cfg || !cfg.fbUrl) { window._snAlert("Firebase未設定のため検索できません。"); return; }
     var info = _caGetStockInfo(stock, custom);
     if (!info.caTicker && !info.code) {
-      alert("この銘柄は分析ツールと未対応です。設定の「チャート分析ツール連携」で銘柄コードを設定してください。");
+      window._snAlert("この銘柄は分析ツールと未対応です。設定の「チャート分析ツール連携」で銘柄コードを設定してください。");
       return;
     }
     if (draftId) { setSimDraftId(draftId); return; }
@@ -5435,16 +5435,16 @@ var ChartSection = React.memo(function ChartSection(_ref32) {
     _caFetchMeta(cfg, false).then(function(allMeta) {
       var todayList = _caFilterByStockDate(allMeta, info.caTicker, date, info.code);
       if (!todayList.length) {
-        alert("この日のチャート分析データが見つかりません。先にチャート分析ツールで作成してください。");
+        window._snAlert("この日のチャート分析データが見つかりません。先にチャート分析ツールで作成してください。");
         return;
       }
       var top = todayList[0];
       var did = top.id || (top._raw && (top._raw.draftId || top._raw.id));
-      if (!did) { alert("draftIdを解決できませんでした。"); return; }
+      if (!did) { window._snAlert("draftIdを解決できませんでした。"); return; }
       setSimDraftId(did);
     }).catch(function(e) {
       console.warn("[similar] fetch meta failed:", e);
-      alert("チャート分析データ一覧の取得に失敗しました: " + (e.message || e));
+      window._snAlert("チャート分析データ一覧の取得に失敗しました: " + (e.message || e));
     });
   };
   useModalBack(simDraftId != null, function(){ setSimDraftId(null); }, "sim-search-wrap");

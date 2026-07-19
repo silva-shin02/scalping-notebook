@@ -570,9 +570,10 @@ function ForeignMarketTable(_p) {
     });
   };
   var addRow = function(type) {
-    var name = window.prompt(type === "indicator" ? "指標名を入力" : "銘柄名を入力");
-    if (!name || !name.trim()) return;
-    updArr(type, function(arr){ return arr.concat([{ id: String(Date.now()), name: name.trim(), value: null }]); });
+    window._snPrompt(type === "indicator" ? "指標名を入力" : "銘柄名を入力").then(function(name){
+      if (!name || !name.trim()) return;
+      updArr(type, function(arr){ return arr.concat([{ id: String(Date.now()), name: name.trim(), value: null }]); });
+    });
   };
   var delRow = function(type, id) {
     updArr(type, function(arr){ return arr.filter(function(e){ return e.id !== id; }); });
@@ -802,14 +803,15 @@ function ForeignMarketTable(_p) {
                       React.createElement("span", {
                         title: "名前変更", style: iconBtn,
                         onClick: function() {
-                          var nn = window.prompt("名前を変更", entry.name);
+                          window._snPrompt("名前を変更", entry.name).then(function(nn){
                           if (nn && nn.trim() && nn.trim() !== entry.name) renameRow(type, entry.id, nn.trim());
+                          });
                         }
                       }, "✎"),
                       React.createElement("span", {
                         title: "削除", style: iconBtn,
                         onClick: function() {
-                          if (window.confirm(entry.name + " を削除しますか？")) delRow(type, entry.id);
+                          window._snConfirm(entry.name + " を削除しますか？").then(function(_ok){ if(_ok) delRow(type, entry.id); });
                         }
                       }, "×")
                     )
@@ -1286,15 +1288,16 @@ function StockTabs(_ref34) {
     }), (exclCount && exclCount(s) > 0) ? _elExclDot(exclCount(s), { position: "absolute", top: 4, left: 15, pointerEvents: "none" }) : null, (collCount && collCount(s) > 0) ? _elCollDot(collCount(s), { position: "absolute", top: 4, left: (exclCount && exclCount(s) > 0) ? 24 : 15, pointerEvents: "none" }) : null, s, (onRename && s !== "日経平均株価") && React.createElement("span", {
       onClick: function onClickRn(e) {
         e.stopPropagation();
+        window._snPrompt("銘柄名を変更", s).then(function(nn){
         try {
-          var nn = window.prompt("銘柄名を変更", s);
           if (nn == null) return;
           nn = String(nn).trim();
           if (!nn || nn === s) return;
-          if (nn === "日経平均株価") { alert("その名前は使用できません"); return; }
-          if (stocks.indexOf(nn) !== -1) { alert("同じ名前の銘柄が既にあります"); return; }
+          if (nn === "日経平均株価") { window._snAlert("その名前は使用できません"); return; }
+          if (stocks.indexOf(nn) !== -1) { window._snAlert("同じ名前の銘柄が既にあります"); return; }
           onRename(s, nn);
         } catch(_e) {}
+        });
       },
       title: "名前を変更",
       style: {
@@ -1841,7 +1844,7 @@ function EventsTab(_ref_evt) {
     setEditId(null); setDraft(null);
   };
   var deleteEvent = function(id) {
-    if (!window.confirm("\u3053\u306E\u4E88\u5B9A\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F")) return;
+    window._snConfirm("\u3053\u306E\u4E88\u5B9A\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F").then(function(_ok){ if(!_ok) return;
     var delDate = (draft && typeof draft.originalDate === "string" && draft.originalDate) ? draft.originalDate : date;
     save(function(prevData) {
       var prevDd = (prevData.trades && prevData.trades[delDate]) || {};
@@ -1854,6 +1857,7 @@ function EventsTab(_ref_evt) {
       });
     });
     setEditId(null); setDraft(null);
+    });
   };
   var togRelStock = function(stk) {
     setDraft(function(prev) {
@@ -3870,11 +3874,11 @@ function NewsTab(_ref36) {
               disabled: !catMgmtMoveToMain,
               onClick: function() {
                 if (!catMgmtMoveToMain) return;
-                if (window.confirm("「" + cat + "」を「" + catMgmtMoveToMain + "」のサブカテゴリに移動しますか？")) {
+                window._snConfirm("「" + cat + "」を「" + catMgmtMoveToMain + "」のサブカテゴリに移動しますか？").then(function(_ok){ if(!_ok) return;
                   moveMainCatToSubCat(cat, catMgmtMoveToMain);
                   setCatMgmtMoveToMain("");
                   setCatMgmtTarget(null);
-                }
+                });
               },
               style: { padding: "6px 14px", fontSize: 13, fontWeight: 700, background: catMgmtMoveToMain ? "#EFF6FF" : "#f5f4f0", color: catMgmtMoveToMain ? "#1D4ED8" : "#bbb", border: "1px solid " + (catMgmtMoveToMain ? "#BFDBFE" : "#ddd"), borderRadius: 6, cursor: catMgmtMoveToMain ? "pointer" : "not-allowed" }
             }, "移動")
@@ -3915,11 +3919,11 @@ function NewsTab(_ref36) {
               if (!catMgmtBulkTo) return;
               var dest = catMgmtBulkToSub || catMgmtBulkTo;
               var destLabel = catMgmtBulkToSub ? (catMgmtBulkTo + " › " + catMgmtBulkToSub) : catMgmtBulkTo;
-              if (window.confirm("「" + cat + "」の全データを「" + destLabel + "」に移動し、「" + cat + "」を削除しますか？\nこの操作は元に戻せません。")) {
+              window._snConfirm("「" + cat + "」の全データを「" + destLabel + "」に移動し、「" + cat + "」を削除しますか？\nこの操作は元に戻せません。").then(function(_ok){ if(!_ok) return;
                 bulkMoveNewsData(cat, dest, null);
                 setCatMgmtBulkTo(""); setCatMgmtBulkToSub("");
                 setCatMgmtTarget(null);
-              }
+              });
             },
             style: { padding: "6px 14px", fontSize: 13, fontWeight: 700, background: catMgmtBulkTo ? "#FFF7ED" : "#f5f4f0", color: catMgmtBulkTo ? "#9A3412" : "#bbb", border: "1px solid " + (catMgmtBulkTo ? "#FDBA74" : "#ddd"), borderRadius: 6, cursor: catMgmtBulkTo ? "pointer" : "not-allowed" }
           }, "📦 一括移動して削除")
@@ -3928,10 +3932,10 @@ function NewsTab(_ref36) {
         },
           React.createElement("button", {
             onClick: function() {
-              if (window.confirm("\u300C" + cat + "\u300D\u30AB\u30C6\u30B4\u30EA\u3092\u4E00\u89A7\u304B\u3089\u5916\u3057\u307E\u3059\u304B\uFF1F\n\u904E\u53BB\u306E\u30C7\u30FC\u30BF\u306F\u4FDD\u6301\u3055\u308C\u307E\u3059\u3002")) {
+              window._snConfirm("\u300C" + cat + "\u300D\u30AB\u30C6\u30B4\u30EA\u3092\u4E00\u89A7\u304B\u3089\u5916\u3057\u307E\u3059\u304B\uFF1F\n\u904E\u53BB\u306E\u30C7\u30FC\u30BF\u306F\u4FDD\u6301\u3055\u308C\u307E\u3059\u3002").then(function(_ok){ if(!_ok) return;
                 delNewsCat(cat);
                 setCatMgmtTarget(null);
-              }
+              });
             },
             style: {
               padding: "7px 16px", fontSize: 13, fontWeight: 700,
@@ -4119,11 +4123,11 @@ function NewsTab(_ref36) {
             if (!subCatMgmtBulkTo) return;
             var dest = subCatMgmtBulkToSub || subCatMgmtBulkTo;
             var destLabel = subCatMgmtBulkToSub ? (subCatMgmtBulkTo + " › " + subCatMgmtBulkToSub) : subCatMgmtBulkTo;
-            if (window.confirm("「" + subCatMgmtTarget + "」の全データを「" + destLabel + "」に移動し、「" + subCatMgmtTarget + "」を削除しますか？\nこの操作は元に戻せません。")) {
+            window._snConfirm("「" + subCatMgmtTarget + "」の全データを「" + destLabel + "」に移動し、「" + subCatMgmtTarget + "」を削除しますか？\nこの操作は元に戻せません。").then(function(_ok){ if(!_ok) return;
               bulkMoveNewsData(subCatMgmtTarget, dest, currentCat);
               setSubCatMgmtBulkTo(""); setSubCatMgmtBulkToSub("");
               setSubCatMgmtTarget(null);
-            }
+            });
           },
           style: { padding: "6px 14px", fontSize: 13, fontWeight: 700, background: subCatMgmtBulkTo ? "#FFF7ED" : "#f5f4f0", color: subCatMgmtBulkTo ? "#9A3412" : "#bbb", border: "1px solid " + (subCatMgmtBulkTo ? "#FDBA74" : "#ddd"), borderRadius: 6, cursor: subCatMgmtBulkTo ? "pointer" : "not-allowed" }
         }, "📦 一括移動して削除")
@@ -4133,10 +4137,10 @@ function NewsTab(_ref36) {
       },
         React.createElement("button", {
           onClick: function() {
-            if (window.confirm("\u300C" + subCatMgmtTarget + "\u300D\u30B5\u30D6\u30BF\u30D6\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F\n\u30CB\u30E5\u30FC\u30B9\u81EA\u4F53\u306F\u6B8B\u308A\u672A\u5206\u985E\u306B\u79FB\u308A\u307E\u3059\u3002\n\u95A2\u9023\u3059\u308B\u9298\u67C4\u53C2\u7167\u3068\u81EA\u52D5\u30BF\u30B0\u8A2D\u5B9A\u3082\u524A\u9664\u3055\u308C\u307E\u3059\u3002")) {
+            window._snConfirm("\u300C" + subCatMgmtTarget + "\u300D\u30B5\u30D6\u30BF\u30D6\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F\n\u30CB\u30E5\u30FC\u30B9\u81EA\u4F53\u306F\u6B8B\u308A\u672A\u5206\u985E\u306B\u79FB\u308A\u307E\u3059\u3002\n\u95A2\u9023\u3059\u308B\u9298\u67C4\u53C2\u7167\u3068\u81EA\u52D5\u30BF\u30B0\u8A2D\u5B9A\u3082\u524A\u9664\u3055\u308C\u307E\u3059\u3002").then(function(_ok){ if(!_ok) return;
               delSubCat(subCatMgmtTarget);
               setSubCatMgmtTarget(null);
-            }
+            });
           },
           style: {
             padding: "7px 16px", fontSize: 13, fontWeight: 700,

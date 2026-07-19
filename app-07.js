@@ -401,12 +401,12 @@ function ChartSectionDailyCandle(_p_csdc) {
   // CSVは丸ごと置き換え（全期間の書き出し前提）。CA当日分(caExtraBars)はdisplayBarsで別途マージされるので維持される。
   var _dcUploadCsv = function(file) {
     if (!file) return;
-    if (!_dcCodeR) { alert("この銘柄に証券コードが設定されていません。設定 → 銘柄管理から登録してください。"); return; }
+    if (!_dcCodeR) { window._snAlert("この銘柄に証券コードが設定されていません。設定 → 銘柄管理から登録してください。"); return; }
     var reader = new FileReader();
     reader.onload = function(ev) {
       var text = ev.target.result;
       var parsed = _parseDailyCsv(text);
-      if (!parsed.length) { alert("CSV を解析できませんでした。Hyper SBI 2 の TimeChart 形式（日付,始値,高値,安値,終値,…）であることを確認してください。"); return; }
+      if (!parsed.length) { window._snAlert("CSV を解析できませんでした。Hyper SBI 2 の TimeChart 形式（日付,始値,高値,安値,終値,…）であることを確認してください。"); return; }
       var now = Date.now();
       setBars(parsed); setStatus("loaded");
       _dcCacheSave(_dcCodeR, text, now);
@@ -414,7 +414,7 @@ function ChartSectionDailyCandle(_p_csdc) {
         _dcSaveCsvToFb(cfg, _dcCodeR, text).then(function(ok) { if (ok) console.log("[DCC] CSV synced to Firebase: " + _dcCodeR); });
       }
     };
-    reader.onerror = function() { alert("ファイル読み込み失敗"); };
+    reader.onerror = function() { window._snAlert("ファイル読み込み失敗"); };
     reader.readAsText(file, "UTF-8");
   };
   var _dcUploadBar = (canCaFetch || _dcCodeR) ? React.createElement("div", {
@@ -1799,8 +1799,9 @@ function NewsHistoryView(_ref_nhv) {
   };
   
   var delNi = function(date, niId) {
-    if (!window.confirm("このニュースを削除しますか?")) return;
+    window._snConfirm("このニュースを削除しますか?").then(function(_ok){ if(!_ok) return;
     _nhvDeleteNi(save, date, selCat, niId);
+    });
   };
   
   var addImgToNi = function(date, niId, img) {
@@ -2533,8 +2534,9 @@ function SummaryHistoryView(_ref_shv) {
   };
   var appendToToday = function(srcDate, srcHtml) {
     if (srcDate === todayStr) return;
-    if (!window.confirm(srcDate + " のメモを今日 (" + todayStr + ") のメモ末尾に引用追記しますか?")) return;
+    window._snConfirm(srcDate + " のメモを今日 (" + todayStr + ") のメモ末尾に引用追記しますか?").then(function(_ok){ if(!_ok) return;
     _shvAppendToToday(save, todayStr, srcDate, srcHtml);
+    });
   };
 
   
@@ -2947,7 +2949,7 @@ function StockInfoTabsManagementModal(_props_simm) {
     var nm = ((forceName != null ? forceName : renamingName) || "").trim();
     if (!nm || !renamingId) return;
     if (existingNames.indexOf(nm) >= 0 && tabs.find(function(t){ return t.id === renamingId && t.name !== nm; })) {
-      window.alert("同名のタブが既に存在します");
+      window._snAlert("同名のタブが既に存在します");
       return;
     }
     _siRenameTab(save, stockName, renamingId, nm);
@@ -2955,12 +2957,13 @@ function StockInfoTabsManagementModal(_props_simm) {
     setRenamingName("");
   };
   var doDel = function(t) {
-    if (!window.confirm("タブ「" + t.name + "」を削除しますか?\nこのタブの内容も完全に削除されます。")) return;
+    window._snConfirm("タブ「" + t.name + "」を削除しますか?\nこのタブの内容も完全に削除されます。").then(function(_ok){ if(!_ok) return;
     _siDelTab(save, stockName, t.id);
+    });
   };
   var doTemplateAdd = function(nm) {
     if (existingNames.indexOf(nm) >= 0) {
-      window.alert("「" + nm + "」は既に存在します");
+      window._snAlert("「" + nm + "」は既に存在します");
       return;
     }
     _siAddTab(save, stockName, nm);
@@ -2988,8 +2991,9 @@ function StockInfoTabsManagementModal(_props_simm) {
   }, [copyOpen, custom.stockInfoTabs, data.stockInfo, stockName]);
 
   var doCopy = function(srcStock, tabName) {
-    if (!window.confirm(srcStock + " の「" + tabName + "」タブの内容を、" + stockName + " の同名タブ末尾に引用追記しますか?")) return;
+    window._snConfirm(srcStock + " の「" + tabName + "」タブの内容を、" + stockName + " の同名タブ末尾に引用追記しますか?").then(function(_ok){ if(!_ok) return;
     _siCopyFromOtherStock(save, srcStock, stockName, tabName);
+    });
   };
 
   return React.createElement("div", {
@@ -3412,7 +3416,7 @@ function MemoEditableField(_propsMEF) {
             React.createElement("button", {
               onClick: function() {
                 if (!_isDirty()) { exitEdit(); return; }
-                if (window.confirm("編集内容を破棄しますか？")) exitEdit({ revert: true });
+                window._snConfirm("編集内容を破棄しますか？").then(function(_ok){ if(_ok) exitEdit({ revert: true }); });
               },
               style: { padding: "7px 14px", fontSize: 12, fontWeight: 700,
                 background: "#fff", color: "#666",
@@ -3692,9 +3696,10 @@ function StockInfoSection(_props_si) {
   
   var quickAdd = function() {
     _confirmExitEdit(function() {
-      var nm = window.prompt("新しいタブ名を入力してください", "");
+      window._snPrompt("新しいタブ名を入力してください", "").then(function(nm){
       if (!nm) return;
       _siAddTab(save, stockName, nm);
+      });
     });
   };
 
@@ -3811,7 +3816,7 @@ function StockInfoSection(_props_si) {
                 }, "✎ 編集中 — 「保存」を押すまで変更は反映されません"),
                 React.createElement("button", {
                   onClick: function() {
-                    if (window.confirm("編集内容を破棄しますか？")) _exitEdit();
+                    window._snConfirm("編集内容を破棄しますか？").then(function(_ok){ if(_ok) _exitEdit(); });
                   },
                   style: { padding: "7px 14px", fontSize: 12, fontWeight: 700,
                     background: "#fff", color: "#666",
@@ -4531,10 +4536,10 @@ function StockHistoryView(_ref_shv) {
   
   var dcOnFileSelected = function(file) {
     if (!file) return;
-    if (!selStock) { alert("銘柄を選択してください"); return; }
+    if (!selStock) { window._snAlert("銘柄を選択してください"); return; }
     var info = _caGetStockInfo(selStock, custom);
     var code = (info && info.code) || "";
-    if (!code) { alert("この銘柄に証券コードが設定されていません。設定 → 銘柄管理から登録してください。"); return; }
+    if (!code) { window._snAlert("この銘柄に証券コードが設定されていません。設定 → 銘柄管理から登録してください。"); return; }
     var reader = new FileReader();
     reader.onload = function(ev) {
       var text = ev.target.result;
@@ -4542,7 +4547,7 @@ function StockHistoryView(_ref_shv) {
       
       var bars = _parseDailyCsv(text);
       if (!bars.length) {
-        alert("CSV を解析できませんでした。Hyper SBI 2 の TimeChart 形式 (日付,始値,高値,安値,終値,...) であることを確認してください。");
+        window._snAlert("CSV を解析できませんでした。Hyper SBI 2 の TimeChart 形式 (日付,始値,高値,安値,終値,...) であることを確認してください。");
         return;
       }
       var now = Date.now();
@@ -4557,7 +4562,7 @@ function StockHistoryView(_ref_shv) {
         });
       }
     };
-    reader.onerror = function() { alert("ファイル読み込み失敗"); };
+    reader.onerror = function() { window._snAlert("ファイル読み込み失敗"); };
     reader.readAsText(file, "UTF-8");
   };
   

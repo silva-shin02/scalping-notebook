@@ -2078,11 +2078,11 @@ function SettingsModal(_ref54) {
   var _stFmtMB = function(b) { return (b >= 1048576) ? (b / 1048576).toFixed(2) + " MB" : Math.round(b / 1024) + " KB"; };
   var _runStAudit = function() {
     if (_stBusy) return;
-    if (!_fbStorageRef) { window.alert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
+    if (!_fbStorageRef) { window._snAlert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
     _setStBusy("audit"); _setStAudit(null);
     _snStorageAudit(data, cfg).then(function(r) {
       _setStBusy("");
-      if (!r || !r.ok) { window.alert("Storageの診断に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
+      if (!r || !r.ok) { window._snAlert("Storageの診断に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
       _setStAudit(r);
     });
   };
@@ -2090,87 +2090,90 @@ function SettingsModal(_ref54) {
     if (_stBusy) return;
     graceDays = (graceDays == null ? 30 : graceDays);
     // 安全ガード: dataが読めていない可能性がある時は中止（全消し事故防止）。
-    if (!data || (!data.charts && !data.trades)) { window.alert("記録データが読み込めていないため中止しました。"); return; }
+    if (!data || (!data.charts && !data.trades)) { window._snAlert("記録データが読み込めていないため中止しました。"); return; }
     _setStBusy("delete");
     // 削除直前に最新を取り直す（多端末リモート＋CA参照を含む完全な参照集合で判定）。
     _snStorageAudit(data, cfg).then(function(r) {
-      if (!r || !r.ok) { _setStBusy(""); window.alert("再診断に失敗しました。通信状態を確認してください。"); return; }
+      if (!r || !r.ok) { _setStBusy(""); window._snAlert("再診断に失敗しました。通信状態を確認してください。"); return; }
       _setStAudit(r);
       // 多端末: notebookリモートを取得できなかった＝他端末だけが参照する画像を巻き込む恐れ→中止。
-      if (cfg && cfg.fbUrl && (r.remoteOk === false || r.caOk === false)) { _setStBusy(""); window.alert("⚠️ 最新データ（または分析ツールの参照情報）を取得できなかったため中止しました。\n全端末で同期し、通信が安定した状態で再実行してください。"); return; }
+      if (cfg && cfg.fbUrl && (r.remoteOk === false || r.caOk === false)) { _setStBusy(""); window._snAlert("⚠️ 最新データ（または分析ツールの参照情報）を取得できなかったため中止しました。\n全端末で同期し、通信が安定した状態で再実行してください。"); return; }
       // 参照が1件も拾えない＝データ未読込/取得失敗の疑い→安全側で中止。
-      if (r.refSetSize === 0 && r.total > 0) { _setStBusy(""); window.alert("⚠️ 参照中の画像が見つかりませんでした。データ未読込の可能性があるため中止しました。"); return; }
+      if (r.refSetSize === 0 && r.total > 0) { _setStBusy(""); window._snAlert("⚠️ 参照中の画像が見つかりませんでした。データ未読込の可能性があるため中止しました。"); return; }
       var cutoff = Date.now() - graceDays * 86400000;
       // created不明(0)は安全側で常に残す。grace=0なら「作成日が判明している未参照孤児すべて」が対象。
       var delable = r.orphans.filter(function(o) { return o.created && o.created < cutoff; });
-      if (!delable.length) { _setStBusy(""); window.alert("削除できる孤児（" + (graceDays > 0 ? (graceDays + "日以上前・") : "") + "未参照）はありませんでした。"); return; }
+      if (!delable.length) { _setStBusy(""); window._snAlert("削除できる孤児（" + (graceDays > 0 ? (graceDays + "日以上前・") : "") + "未参照）はありませんでした。"); return; }
       var bytes = delable.reduce(function(s2, o) { return s2 + o.size; }, 0);
       var msg = (graceDays > 0)
         ? ("未参照の孤児画像 " + delable.length + "件（約" + _stFmtMB(bytes) + "）をFirebase Storageから削除します。\n※このアプリが作成し、記録・CAのどこからも参照されず、" + graceDays + "日以上前のものだけが対象です。表示中の画像・記録には影響しません。\n実行しますか？")
         : ("⚠️ 新しいものも含め、未参照の孤児画像を「すべて」削除します（" + delable.length + "件・約" + _stFmtMB(bytes) + "）。\n※記録・リモート・CAのどこからも参照されていない画像だけが対象です（圧縮で置き換えた古い画像など。表示中の画像は保護されます）。\n※他の端末で同期前の画像を巻き込まないよう、全端末を同期してから実行してください。\n実行しますか？");
-      if (!window.confirm(msg)) { _setStBusy(""); return; }
+      window._snConfirm(msg).then(function(_okc){ if(!_okc) { _setStBusy(""); return; }
       _snStorageDeleteOrphans(delable, graceDays, Date.now()).then(function(res) {
         _setStBusy("");
-        window.alert("孤児画像を削除しました（" + res.deleted + "件 / 約" + _stFmtMB(res.freed) + "解放" + (res.errs ? " / 失敗" + res.errs + "件" : "") + "）。");
+        window._snAlert("孤児画像を削除しました（" + res.deleted + "件 / 約" + _stFmtMB(res.freed) + "解放" + (res.errs ? " / 失敗" + res.errs + "件" : "") + "）。");
         _runStAudit();
+      });
       });
     });
   };
   var _runRecompress = function() {
     if (_stBusy) return;
-    if (!_fbStorageRef) { window.alert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
-    if (!data || (!data.charts && !data.trades)) { window.alert("記録データが読み込めていないため中止しました。"); return; }
-    if (!window.confirm("過去の画像（ニュース・チャート・メモなど）をWebP形式・長辺1600pxに再圧縮して、Firebase Storageの容量を削減します。\n\n・画質はほぼ保ったまま1枚あたりの容量を大きく削減します（すでに最適化済みの画像はそのまま）。\n・同じ内容の「表示用」と「原画像(orig)」の重複は1つに集約されます。注釈付き画像の原画像は再編集用に温存します。\n・現在の画像をクラウドから読み込むため、通信量を少し消費します（端末にキャッシュ済みの分は消費しません）。\n・圧縮後、古い画像はクラウドにしばらく残ります。同期完了後に下の「🗂 クラウド画像の整理 → 使用量を診断 → 孤児を削除」を実行すると実際に容量が解放されます。\n\n実行しますか？")) return;
+    if (!_fbStorageRef) { window._snAlert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
+    if (!data || (!data.charts && !data.trades)) { window._snAlert("記録データが読み込めていないため中止しました。"); return; }
+    window._snConfirm("過去の画像（ニュース・チャート・メモなど）をWebP形式・長辺1600pxに再圧縮して、Firebase Storageの容量を削減します。\n\n・画質はほぼ保ったまま1枚あたりの容量を大きく削減します（すでに最適化済みの画像はそのまま）。\n・同じ内容の「表示用」と「原画像(orig)」の重複は1つに集約されます。注釈付き画像の原画像は再編集用に温存します。\n・現在の画像をクラウドから読み込むため、通信量を少し消費します（端末にキャッシュ済みの分は消費しません）。\n・圧縮後、古い画像はクラウドにしばらく残ります。同期完了後に下の「🗂 クラウド画像の整理 → 使用量を診断 → 孤児を削除」を実行すると実際に容量が解放されます。\n\n実行しますか？").then(function(_okc){ if(!_okc) return;
     _setStBusy("recompress"); _setStRc(null); _setStRcP({ done: 0, total: 0 });
     _snRecompressImages(data, function(p) { _setStRcP(p); }).then(function(r) {
-      if (!r || !r.ok) { _setStBusy(""); _setStRcP(null); window.alert("画像の圧縮に失敗しました（" + ((r && r.reason) || "error") + "）。Firebase設定・通信状態を確認してください。"); return; }
+      if (!r || !r.ok) { _setStBusy(""); _setStRcP(null); window._snAlert("画像の圧縮に失敗しました（" + ((r && r.reason) || "error") + "）。Firebase設定・通信状態を確認してください。"); return; }
       if (r.compressed === 0) {
         _setStBusy(""); _setStRcP(null); _setStRc(r);
-        window.alert("圧縮できる画像はありませんでした。\n（対象 " + r.total + "件はすべて最適化済み" + (r.errs ? " / 取得失敗 " + r.errs + "件" : "") + "）");
+        window._snAlert("圧縮できる画像はありませんでした。\n（対象 " + r.total + "件はすべて最適化済み" + (r.errs ? " / 取得失敗 " + r.errs + "件" : "") + "）");
         return;
       }
       // 参照を新URL（圧縮済みの小さい画像）へ張り替えて保存＝旧オブジェクトは孤児になり、既存GCで回収可能になる。
       save(function(prev) { return _snApplyImgMaps(prev, r.urlMap, r.localMap); });
       _setStBusy(""); _setStRcP(null); _setStRc(r);
-      window.alert("画像 " + r.compressed + "件を圧縮しました（約" + _stFmtMB(r.savedBytes) + "削減見込み" + (r.errs ? " / 取得失敗 " + r.errs + "件" : "") + "）。\n\n古い画像はまだクラウドに残っています。数十秒待って同期の完了を確認してから、下の「🗂 クラウド画像の整理 → 使用量を診断 → 孤児を削除」を実行すると、実際に容量が解放されます。");
-    })["catch"](function(e) { _setStBusy(""); _setStRcP(null); window.alert("画像の圧縮中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
+      window._snAlert("画像 " + r.compressed + "件を圧縮しました（約" + _stFmtMB(r.savedBytes) + "削減見込み" + (r.errs ? " / 取得失敗 " + r.errs + "件" : "") + "）。\n\n古い画像はまだクラウドに残っています。数十秒待って同期の完了を確認してから、下の「🗂 クラウド画像の整理 → 使用量を診断 → 孤児を削除」を実行すると、実際に容量が解放されます。");
+    })["catch"](function(e) { _setStBusy(""); _setStRcP(null); window._snAlert("画像の圧縮中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
+    });
   };
   var _runBreakdown = function() {
     if (_stBusy) return;
-    if (!_fbStorageRef) { window.alert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
+    if (!_fbStorageRef) { window._snAlert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
     _setStBusy("breakdown"); _setStBd(null); _setStBdP({ done: 0, total: 0 });
     _snStorageBreakdown(function(p) { _setStBdP(p); }).then(function(r) {
       _setStBusy(""); _setStBdP(null);
-      if (!r || !r.ok) { window.alert("内訳の測定に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
+      if (!r || !r.ok) { window._snAlert("内訳の測定に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
       _setStBd(r);
-    })["catch"](function(e) { _setStBusy(""); _setStBdP(null); window.alert("内訳の測定中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
+    })["catch"](function(e) { _setStBusy(""); _setStBdP(null); window._snAlert("内訳の測定中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
   };
   var _runCatAudit = function() {
     if (_stBusy) return;
-    if (!_fbStorageRef) { window.alert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
-    if (!data || (!data.charts && !data.trades)) { window.alert("記録データが読み込めていないため中止しました。"); return; }
+    if (!_fbStorageRef) { window._snAlert("Firebase（Storage）が未設定です。先にFirebase設定を保存してください。"); return; }
+    if (!data || (!data.charts && !data.trades)) { window._snAlert("記録データが読み込めていないため中止しました。"); return; }
     _setStBusy("cat"); _setStCat(null); _setStCatP({ done: 0, total: 0 });
     _snStorageCategoryAudit(data, cfg, function(p) { _setStCatP(p); }).then(function(r) {
       _setStBusy(""); _setStCatP(null);
-      if (!r || !r.ok) { window.alert("種類別の分析に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
+      if (!r || !r.ok) { window._snAlert("種類別の分析に失敗しました（" + ((r && r.reason) || "error") + "）。通信状態を確認してください。"); return; }
       _setStCat(r);
-    })["catch"](function(e) { _setStBusy(""); _setStCatP(null); window.alert("種類別の分析中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
+    })["catch"](function(e) { _setStBusy(""); _setStCatP(null); window._snAlert("種類別の分析中にエラーが発生しました: " + (e && e.message ? e.message : e)); });
   };
   var _runNewsPreview = function() {
-    if (!data || !data.trades) { window.alert("記録データが読み込めていません。"); return; }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(_stNewsCut || "")) { window.alert("日付を YYYY-MM-DD 形式で指定してください。"); return; }
+    if (!data || !data.trades) { window._snAlert("記録データが読み込めていません。"); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(_stNewsCut || "")) { window._snAlert("日付を YYYY-MM-DD 形式で指定してください。"); return; }
     var r = _snStripOldNewsImages(data, _stNewsCut);
     _setStNewsPrev({ count: r.count, cutoff: _stNewsCut });
   };
   var _runNewsStrip = function() {
-    if (!data || !data.trades) { window.alert("記録データが読み込めていません。"); return; }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(_stNewsCut || "")) { window.alert("日付を YYYY-MM-DD 形式で指定してください。"); return; }
+    if (!data || !data.trades) { window._snAlert("記録データが読み込めていません。"); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(_stNewsCut || "")) { window._snAlert("日付を YYYY-MM-DD 形式で指定してください。"); return; }
     var r = _snStripOldNewsImages(data, _stNewsCut);
-    if (!r.count) { window.alert(_stNewsCut + " より前のニュース画像はありませんでした。"); _setStNewsPrev({ count: 0, cutoff: _stNewsCut }); return; }
-    if (!window.confirm(_stNewsCut + " より前のニュース画像 " + r.count + "枚を記録から外します。\n※テキスト・タグ・記録は残ります（画像だけ削除）。元に戻せません。\n外した画像は、このあと「🗂 使用量を診断 → 新しい孤児も含めて全部削除」を実行するとクラウドから消えて容量が解放されます。\n実行しますか？")) return;
+    if (!r.count) { window._snAlert(_stNewsCut + " より前のニュース画像はありませんでした。"); _setStNewsPrev({ count: 0, cutoff: _stNewsCut }); return; }
+    window._snConfirm(_stNewsCut + " より前のニュース画像 " + r.count + "枚を記録から外します。\n※テキスト・タグ・記録は残ります（画像だけ削除）。元に戻せません。\n外した画像は、このあと「🗂 使用量を診断 → 新しい孤児も含めて全部削除」を実行するとクラウドから消えて容量が解放されます。\n実行しますか？").then(function(_okc){ if(!_okc) return;
     save(function(prev) { return _snStripOldNewsImages(prev, _stNewsCut).data; });
     _setStNewsPrev({ count: 0, cutoff: _stNewsCut, doneCount: r.count });
-    window.alert("ニュース画像 " + r.count + "枚を記録から外しました。\n続けて下の「🗂 使用量を診断 → 新しい孤児も含めて全部削除」を実行すると、クラウドの容量が解放されます。");
+    window._snAlert("ニュース画像 " + r.count + "枚を記録から外しました。\n続けて下の「🗂 使用量を診断 → 新しい孤児も含めて全部削除」を実行すると、クラウドの容量が解放されます。");
+    });
   };
   var _ndCalcDays = function(v, u) { var n = Number(typeof _toHankakuNum === "function" ? _toHankakuNum(v) : v); if (!(n > 0)) return 0; return u === "week" ? Math.round(n * 7) : Math.round(n); };
   var _ndSaveEnabled = function(en) { if (!save) return; save(function(prev) { var pc = prev.custom || {}; var pn = pc.newsImgAutoDelete || {}; return Object.assign({}, prev, { custom: Object.assign({}, pc, { newsImgAutoDelete: Object.assign({}, pn, { enabled: !!en }) }) }); }); };
@@ -2370,10 +2373,10 @@ function SettingsModal(_ref54) {
         "\u26A0 80%\u3067\u8B66\u544A\u3000\u26D4 90%\u3067\u540C\u671F\u81EA\u52D5\u505C\u6B62"),
       React.createElement("button", {
         onClick: function() {
-          if (confirm("\u4ECA\u6708\u306E\u901A\u4FE1\u91CF\u30AB\u30A6\u30F3\u30BF\u30FC\u3092\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3059\u304B\uFF1F")) {
+          window._snConfirm("\u4ECA\u6708\u306E\u901A\u4FE1\u91CF\u30AB\u30A6\u30F3\u30BF\u30FC\u3092\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3059\u304B\uFF1F").then(function(_ok){ if(!_ok) return;
             try { localStorage.removeItem(_fbUsageKey()); _fbWarnShown = {}; } catch(e){}
-            alert("\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3057\u305F");
-          }
+            window._snAlert("\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3057\u305F");
+          });
         },
         style: { marginTop: 8, fontSize: 11, color: "#999", background: "none", border: "1px solid #ddd", borderRadius: 5, padding: "4px 10px", cursor: "pointer" }
       }, "\u30AB\u30A6\u30F3\u30BF\u30FC\u30EA\u30BB\u30C3\u30C8")
@@ -2403,7 +2406,7 @@ function SettingsModal(_ref54) {
       });
     };
     var purgeOne = function(stock) {
-      if (!window.confirm("「" + stock + "」を完全削除しますか？\nチャートデータも含めて全て消去され、戻せません。")) return;
+      window._snConfirm("「" + stock + "」を完全削除しますか？\nチャートデータも含めて全て消去され、戻せません。").then(function(_ok){ if(!_ok) return;
       save(function(prev) {
         var pc = prev.custom || {};
         var ps = (pc.stocks && pc.stocks.length > 0) ? pc.stocks.slice() : [].concat(DEF_STOCKS);
@@ -2416,6 +2419,7 @@ function SettingsModal(_ref54) {
           custom: Object.assign({}, pc, { stocks: ns, stockCodes: psc }),
           charts: nc
         });
+      });
       });
     };
     return React.createElement("div", { style: { marginBottom: 22 } },
@@ -2604,10 +2608,11 @@ function SettingsModal(_ref54) {
             if (k && (k.indexOf("sn_dc_csv_v1_") === 0 || k.indexOf("sn_dcc_ca_bar_v1_") === 0)) { keys.push(k); bytes += (localStorage.getItem(k) || "").length; }
           }
         } catch(e){}
-        if (!keys.length) { window.alert("削除できる不要キャッシュはありませんでした。"); return; }
-        if (!window.confirm("チャートのキャッシュ " + keys.length + "件（約" + Math.round(bytes / 1024) + "KB）を削除します。\n記録・設定・画像は消えません。次にチャートを見るとき再取得されます。\n実行しますか？")) return;
+        if (!keys.length) { window._snAlert("削除できる不要キャッシュはありませんでした。"); return; }
+        window._snConfirm("チャートのキャッシュ " + keys.length + "件（約" + Math.round(bytes / 1024) + "KB）を削除します。\n記録・設定・画像は消えません。次にチャートを見るとき再取得されます。\n実行しますか？").then(function(_okc){ if(!_okc) return;
         var removed = _snEvictExpendableCaches();
-        window.alert("不要キャッシュを削除しました（" + removed + "件 / 約" + Math.round(bytes / 1024) + "KB）。");
+        window._snAlert("不要キャッシュを削除しました（" + removed + "件 / 約" + Math.round(bytes / 1024) + "KB）。");
+        });
       },
       style: { display: "block", marginTop: 14, padding: "9px 14px", fontSize: 13, fontWeight: 600, background: "#EAF3FB", color: "#1A5276", border: "1px solid #A9CCE3", borderRadius: 7, cursor: "pointer" }
     }, "🧽 不要キャッシュを削除（記録は残す）"),

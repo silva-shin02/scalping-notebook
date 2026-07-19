@@ -877,11 +877,7 @@ function App() {
       if (!r.count || r.data === d) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
       var label = (period % 7 === 0) ? (period / 7 + "週間") : (period + "日");
       var firstRun = localStorage.getItem("sn_news_autoprune_ack_v1") !== "1";
-      if (firstRun) {
-        var ok = window.confirm("ニュース画像の自動削除がオンになっています。\n\n追加から" + label + "を過ぎたニュース画像 " + r.count + "枚 を削除します。\n「保存済み」にした画像は残ります。テキスト・タグ・記録は消えません。\n\n削除しますか？（設定でオフ／期間変更できます）");
-        if (!ok) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
-        localStorage.setItem("sn_news_autoprune_ack_v1", "1");
-      }
+      var _doPrune = function() {
       save(r.data);
       localStorage.setItem("sn_news_autoprune_day_v1", today);
       console.log("[autoprune] removed news image refs:", r.count);
@@ -895,6 +891,16 @@ function App() {
           else if (res && res.aborted) console.log("[autoprune] storage reclaim skipped (will retry next open):", res.aborted);
         })["catch"](function(e2) { console.warn("[autoprune] reclaim error:", e2); });
       } catch(e3) { console.warn("[autoprune] reclaim setup error:", e3); }
+      };
+      if (firstRun) {
+        window._snConfirm("ニュース画像の自動削除がオンになっています。\n\n追加から" + label + "を過ぎたニュース画像 " + r.count + "枚 を削除します。\n「保存済み」にした画像は残ります。テキスト・タグ・記録は消えません。\n\n削除しますか？（設定でオフ／期間変更できます）").then(function(_ok){
+          if (!_ok) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
+          localStorage.setItem("sn_news_autoprune_ack_v1", "1");
+          _doPrune();
+        });
+      } else {
+        _doPrune();
+      }
     } catch(e) { console.warn("[autoprune] error:", e); }
   }, [fbStatus]);
 
@@ -930,14 +936,18 @@ function App() {
           var _mb = (bytes >= 1048576) ? (bytes / 1048576).toFixed(2) + " MB" : Math.round(bytes / 1024) + " KB";
           var firstRun = localStorage.getItem("sn_orphan_autogc_ack_v1") !== "1";
           if (firstRun) {
-            var ok = window.confirm("未参照（孤児）画像の自動削除がオンになっています。\n\nどの記録・分析ツールからも参照されていない画像 " + delable.length + "枚（約" + _mb + "）をFirebase Storageから削除します。\n表示中の画像・記録には影響しません。作成から" + grace + "日以上前のものだけが対象です。\n\n削除しますか？（設定でオフにできます）");
-            if (!ok) { _stamp(); return; }                            // 断られたら今回はスキップ（次回interval後に再確認）
+            window._snConfirm("未参照（孤児）画像の自動削除がオンになっています。\n\nどの記録・分析ツールからも参照されていない画像 " + delable.length + "枚（約" + _mb + "）をFirebase Storageから削除します。\n表示中の画像・記録には影響しません。作成から" + grace + "日以上前のものだけが対象です。\n\n削除しますか？（設定でオフにできます）").then(function(_okc){
+            if (!_okc) { _stamp(); return; }                            // 断られたら今回はスキップ（次回interval後に再確認）
             localStorage.setItem("sn_orphan_autogc_ack_v1", "1");
-          }
+            _doGc();
+            });
+          } else { _doGc(); }
+          function _doGc() {
           _snStorageDeleteOrphans(delable, grace, Date.now()).then(function(res) {
             _stamp();
             console.log("[orphan-gc] deleted:", res.deleted, "/", res.freed, "bytes", res.errs ? ("errs " + res.errs) : "");
           })["catch"](function(e2) { console.warn("[orphan-gc] delete error:", e2); });
+          }
         } catch(e1) { console.warn("[orphan-gc] handler error:", e1); }
       })["catch"](function(e0) { console.warn("[orphan-gc] audit error:", e0); });
     } catch(e) { console.warn("[orphan-gc] error:", e); }
@@ -960,9 +970,9 @@ function App() {
     r.onload = function (ev) {
       try {
         save(migrateData(JSON.parse(ev.target.result)));
-        alert("インポート完了！");
+        window._snAlert("インポート完了！");
       } catch (_unused0) {
-        alert("ファイル形式エラー");
+        window._snAlert("ファイル形式エラー");
       }
     };
     r.readAsText(f);

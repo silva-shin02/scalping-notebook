@@ -728,7 +728,7 @@ function EventCategoryManagementModal(_propECM) {
     var nm = (newCat.name || "").trim();
     if (!nm) return;
     if (eventCategories.some(function(c){ return c.name === nm; })) {
-      window.alert("\u540C\u540D\u306E\u30AB\u30C6\u30B4\u30EA\u304C\u3042\u308A\u307E\u3059");
+      window._snAlert("\u540C\u540D\u306E\u30AB\u30C6\u30B4\u30EA\u304C\u3042\u308A\u307E\u3059");
       return;
     }
     var nid = "evcat_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
@@ -745,11 +745,12 @@ function EventCategoryManagementModal(_propECM) {
   };
   var delCat = function(id) {
     if (eventCategories.length <= 1) {
-      window.alert("\u6700\u4F4E 1 \u3064\u306F\u30AB\u30C6\u30B4\u30EA\u3092\u6B8B\u3057\u3066\u304F\u3060\u3055\u3044");
+      window._snAlert("\u6700\u4F4E 1 \u3064\u306F\u30AB\u30C6\u30B4\u30EA\u3092\u6B8B\u3057\u3066\u304F\u3060\u3055\u3044");
       return;
     }
-    if (!window.confirm("\u3053\u306E\u30AB\u30C6\u30B4\u30EA\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F\n(\u3053\u306E\u30AB\u30C6\u30B4\u30EA\u306B\u5C5E\u3057\u3066\u3044\u305F\u4E88\u5B9A\u306F\u300C\u672A\u5206\u985E\u300D\u306B\u306A\u308A\u307E\u3059)")) return;
+    window._snConfirm("\u3053\u306E\u30AB\u30C6\u30B4\u30EA\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F\n(\u3053\u306E\u30AB\u30C6\u30B4\u30EA\u306B\u5C5E\u3057\u3066\u3044\u305F\u4E88\u5B9A\u306F\u300C\u672A\u5206\u985E\u300D\u306B\u306A\u308A\u307E\u3059)").then(function(_ok){ if(!_ok) return;
     updateCats(function(prev) { return prev.filter(function(c){ return c.id !== id; }); });
+    });
   };
   var moveCat = function(id, dir) {
     updateCats(function(prev) {
@@ -2499,7 +2500,7 @@ function PatternSearchDialog(_ref_psd) {
                   if (info && info.code && rd) {
                     _caOpen(info.code, rd, draftId);
                   } else {
-                    alert("\u3053\u306E\u5206\u6790\u30C7\u30FC\u30BF\u306E\u65E5\u4ED8\u60C5\u5831\u304C\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F");
+                    window._snAlert("\u3053\u306E\u5206\u6790\u30C7\u30FC\u30BF\u306E\u65E5\u4ED8\u60C5\u5831\u304C\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F");
                   }
                 },
                 style: { flex: 1, padding: "6px 4px", fontSize: 10, fontWeight: 600,
@@ -2510,7 +2511,7 @@ function PatternSearchDialog(_ref_psd) {
                 onClick: function() {
                   var rd = _caResolveDate(m);
                   if (!rd) {
-                    alert("\u3053\u306E\u5206\u6790\u30C7\u30FC\u30BF\u306E\u65E5\u4ED8\u60C5\u5831\u304C\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F");
+                    window._snAlert("\u3053\u306E\u5206\u6790\u30C7\u30FC\u30BF\u306E\u65E5\u4ED8\u60C5\u5831\u304C\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F");
                     return;
                   }
                   onJumpDate && onJumpDate(rd, m._matchedStock, "trades");
@@ -2866,7 +2867,7 @@ function SimilarSearchDialog(_ref_ssd) {
                     if (info && info.code && rd) {
                       _caOpen(info.code, rd, draftId);
                     } else {
-                      alert("\u3053\u306E\u5206\u6790\u30C7\u30FC\u30BF\u306E\u65E5\u4ED8\u60C5\u5831\u304C\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F");
+                      window._snAlert("\u3053\u306E\u5206\u6790\u30C7\u30FC\u30BF\u306E\u65E5\u4ED8\u60C5\u5831\u304C\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F");
                     }
                   },
                   style: { flex: 1, padding: "6px 4px", fontSize: 10, fontWeight: 600,
@@ -2877,7 +2878,7 @@ function SimilarSearchDialog(_ref_ssd) {
                   onClick: function() {
                     var rd = _caResolveDate(m);
                     if (!rd) {
-                      alert("\u3053\u306E\u5206\u6790\u30C7\u30FC\u30BF\u306E\u65E5\u4ED8\u60C5\u5831\u304C\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F");
+                      window._snAlert("\u3053\u306E\u5206\u6790\u30C7\u30FC\u30BF\u306E\u65E5\u4ED8\u60C5\u5831\u304C\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F");
                       return;
                     }
                     onJumpDate && onJumpDate(rd, m._matchedStock, "trades");
@@ -6899,7 +6900,7 @@ function EntryRecordForm(_ref_erf) {
 
   var itemCandidates = _elGetItemCandidates(data, fDate, fStock);
 
-  var handleSave = function() {
+  var handleSave = function(_hConfirmed) {
 
     _fiFlushAll();
     // EP起算方式: 入力漏れ（メモ欄除く）があれば保存不可。必須セットは現在の採用αで動的に決まる。
@@ -6948,9 +6949,10 @@ function EntryRecordForm(_ref_erf) {
         if (!fHold2Exp) _vm.push("次足期待度（" + (_fBarsV[_ef.epIdx + 1] ? _fBarsV[_ef.epIdx + 1].name : "H1足") + "・H2保有）");
       }
       if (fEntered && fReal === "") _vm.push("実現損益");
-      if (_vm.length) { window.alert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
-      if (_ef.epIdx >= 0 && _hEmpty) {
-        if (!window.confirm("H1/H2が未入力のままです。このまま保存しますか？\n（表ではー表示・H損益は集計から除外されます）")) return;
+      if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
+      if (_ef.epIdx >= 0 && _hEmpty && _hConfirmed !== true) {
+        window._snConfirm("H1/H2が未入力のままです。このまま保存しますか？\n（表ではー表示・H損益は集計から除外されます）").then(function(_ok){ if(_ok) handleSave(true); });
+        return;
       }
     }
     if (_savingRef.current) return;
@@ -7471,7 +7473,7 @@ function EntryRecordForm(_ref_erf) {
         var _tot = 0; _ot.forEach(function(t) { _tot += _oc[t]; });
         return React.createElement("button", {
           onClick: function() {
-            if (!window.confirm("プールに無い『削除済みシグナル』を全記録から除去します：\n\n" + _ot.map(function(t) { return "・" + t + "（" + _oc[t] + "件）"; }).join("\n") + "\n\n戻せません。実行しますか？")) return;
+            window._snConfirm("プールに無い『削除済みシグナル』を全記録から除去します：\n\n" + _ot.map(function(t) { return "・" + t + "（" + _oc[t] + "件）"; }).join("\n") + "\n\n戻せません。実行しますか？").then(function(_ok){ if(!_ok) return;
             var _set = {}; _ot.forEach(function(t) { _set[t] = 1; });
             save(function(prev) {
               var charts = Object.assign({}, prev.charts || {});
@@ -7491,7 +7493,8 @@ function EntryRecordForm(_ref_erf) {
               return Object.assign({}, prev, { charts: charts });
             });
             setFTags(function(prev) { return prev.filter(function(x) { return _set[x] !== 1; }); });
-            window.alert("削除済みシグナルを全記録から除去しました。");
+            window._snAlert("削除済みシグナルを全記録から除去しました。");
+            });
           },
           style: { marginBottom: 8, padding: "7px 11px", fontSize: 11, fontWeight: 700, color: "#B91C1C", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 6, cursor: "pointer", width: "100%", textAlign: "left" }
         }, "🧹 プール外の削除済みシグナル（" + _ot.length + "種・計" + _tot + "件）を全記録から一括除去");
@@ -8640,9 +8643,10 @@ function EntryRecordForm(_ref_erf) {
         }, isEdit ? "\u66F4\u65B0" : "\u4FDD\u5B58"),
         isEdit && React.createElement("button", {
           onClick: function() {
-            if (!window.confirm("このエントリー記録を削除しますか？")) return;
+            window._snConfirm("このエントリー記録を削除しますか？").then(function(_ok){ if(!_ok) return;
             _elDeleteSignal(save, initial.stock, initial.date, initSig.id);
             onClose();
+            });
           },
           style: { padding: "12px 16px", fontSize: 13, fontWeight: 600, background: "#FCEBEB", color: "#C0392B", border: "1px solid #F5C6CB", borderRadius: 6, cursor: "pointer" }
         }, "削除")
