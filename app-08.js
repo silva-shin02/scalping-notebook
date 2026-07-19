@@ -258,6 +258,7 @@ function App() {
   // 同期ステータス強化（オンライン/オフライン・最終同期時刻）2026-06-29
   var _uOnline = useState(typeof navigator !== "undefined" ? navigator.onLine : true), _snOnline = _uOnline[0], _setSnOnline = _uOnline[1];
   var _uLastSync = useState(null), _snLastSync = _uLastSync[0], _setSnLastSync = _uLastSync[1];
+  var _uSnDlg = useState(null), snDlg = _uSnDlg[0], setSnDlg = _uSnDlg[1];   // 2026-07-18 グローバル確認/通知/入力ダイアログ（iPad standaloneでwindow.confirm/prompt/alertが無反応な問題の代替）
   useEffect(function() {
     var _on = function() { _setSnOnline(true); }, _off = function() { _setSnOnline(false); };
     window.addEventListener("online", _on); window.addEventListener("offline", _off);
@@ -687,6 +688,13 @@ function App() {
       } catch(e) { console.warn("[_snFbFlushNow] error:", e); }
     };
     return function() { delete window._snFbFlushNow; };
+  }, []);
+  // 2026-07-18 グローバル確認/通知/入力ダイアログのwindow公開＝各コンポーネントから _snConfirm/_snAlert/_snPrompt をPromiseで呼ぶ（iPad standaloneでwindow.confirm等が無反応な問題の代替）
+  useEffect(function() {
+    window._snAlert = function(m){ return new Promise(function(res){ setSnDlg({ type: "alert", message: (m == null ? "" : String(m)), resolve: res }); }); };
+    window._snConfirm = function(m){ return new Promise(function(res){ setSnDlg({ type: "confirm", message: (m == null ? "" : String(m)), resolve: res }); }); };
+    window._snPrompt = function(m, def){ return new Promise(function(res){ setSnDlg({ type: "prompt", message: (m == null ? "" : String(m)), defaultVal: (def == null ? "" : String(def)), resolve: res }); }); };
+    return function() { try { delete window._snAlert; delete window._snConfirm; delete window._snPrompt; } catch(e){} };
   }, []);
   useModalBack(showSearch, function(){ setShowSearch(false); }, "search");
   var save = function save(dOrFn, opts) {
@@ -1449,7 +1457,42 @@ function App() {
     data: data,
     save: save,
     onClose: function() { setShowHomeEventForm(false); }
+  }), snDlg && React.createElement(_SnDialog, {
+    dlg: snDlg,
+    onDone: function(result) { var _r = snDlg.resolve; setSnDlg(null); if (_r) _r(result); }
   })));
+}
+
+// 2026-07-18 グローバル確認/通知/入力ダイアログ本体（DeleteDlg様式）。dlg={type,message,defaultVal}・onDone(result): confirm→true/false, alert→true, prompt→入力値/null。iPad standaloneでwindow.confirm/prompt/alertが無反応な問題の代替（App が window._snConfirm/_snAlert/_snPrompt を公開）。
+function _SnDialog(_p) {
+  var dlg = _p.dlg, onDone = _p.onDone;
+  var _uv = useState(dlg.defaultVal || ""), val = _uv[0], setVal = _uv[1];
+  var isPrompt = dlg.type === "prompt", isAlert = dlg.type === "alert";
+  return ReactDOM.createPortal(React.createElement("div", {
+    style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 10050, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 },
+    onClick: function() { onDone(isAlert ? true : (isPrompt ? null : false)); }
+  }, React.createElement("div", {
+    onClick: function(e) { e.stopPropagation(); },
+    style: { background: "#fff", borderRadius: 14, padding: "20px 22px", maxWidth: 340, width: "100%", boxSizing: "border-box" }
+  },
+    React.createElement("div", { style: { fontSize: 13, lineHeight: 1.8, color: "#333", marginBottom: 14, whiteSpace: "pre-wrap" } }, dlg.message),
+    isPrompt ? React.createElement("input", {
+      type: "text", value: val, autoFocus: true,
+      onChange: function(e) { setVal(e.target.value); },
+      onKeyDown: function(e) { if (e.key === "Enter") onDone(val); else if (e.key === "Escape") onDone(null); },
+      style: { width: "100%", boxSizing: "border-box", padding: "8px 10px", fontSize: 14, border: "1px solid #ccc", borderRadius: 8, marginBottom: 14 }
+    }) : null,
+    React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } },
+      isAlert ? null : React.createElement("button", {
+        onClick: function() { onDone(isPrompt ? null : false); },
+        style: { padding: "9px 18px", background: "#f0ede8", color: "#555", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }
+      }, "キャンセル"),
+      React.createElement("button", {
+        onClick: function() { onDone(isPrompt ? val : true); },
+        style: { padding: "9px 18px", background: "#C0392B", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }
+      }, "OK")
+    )
+  )), document.body);
 }
 
 // React エラーバウンダリ（2026-06-29）: どこか1コンポーネントが描画中にthrowしてもアプリ全体を白画面にせず、エラー表示＋再読み込みに切り替える。過去に構文ミスで本番が白画面になった事故の安全網。ES5プロトタイプ方式（このコードはJSXもclass構文も使わないため）。labelを渡すと場所名を表示（個別ビュー用）。
