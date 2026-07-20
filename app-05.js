@@ -3134,6 +3134,33 @@ function _elUkiSpecialUsed(s) { return !!(s && s.ukiSpecial === true); }   // �
 // RNまたぎ加算の判定/成分（第5のα要素 07-08h・signal.rnUsed/rnVal）。浮き足(_elUkiYes/_elUkiAdd)と対になる分析用ヘルパー 2026-07-12: 推奨基本αの母数除外・RN分析ボード・反実仮想(採用α−RN)で使用。
 function _elRnYes(s) { return !!s && s.rnUsed === true; }
 function _elRnAdd(s) { if (!_elRnYes(s)) return 0; var v = Number(s.rnVal); return (isNaN(v) || v <= 0) ? 0 : v; }
+// ===== RNまたぎ自動判定 2026-07-20b（記録フォーム/EPナビの自動セット・シミュの動的再判定・候補一覧が共通で使う単一源）=====
+// 予定EP（水準線 ＋ RN加算“前”のα＝基底α＋浮き足加算）の下二桁がキリ番の手前バンドに入っていれば、そのキリ番ちょうどに乗せる加算額を返す。
+// ⚠️判定は必ずRN加算“前”のEPに対して行う: 予定EP＝水準線＋採用α で採用αにRNが含まれるため、RN込みEPで判定すると循環する。
+// バンド＝41-49→…50／91-99→…00。40・90は含めない（距離10はバンド内で最も高い授業料なのに得るものは同じ「RNちょうど」1個。
+//   しかも…40/…90はそれ自体10円刻みのキリ番＝費用対効果が最悪。ユーザー決定 2026-07-20）。③RN距離別データを見て後から調整できるよう定数で外出し。
+var _EL_RN_BANDS = [{ from: 41, to: 49, target: 50 }, { from: 91, to: 99, target: 100 }];
+// 予定EP価格 → 加算額。null＝判定不可（価格が数値でない＝水準線未入力など）／0＝対象外（自動×）／>0＝RNまたぎ加算額。
+function _elRnAutoAt(epPre) {
+  if (epPre == null || epPre === "" || isNaN(Number(epPre))) return null;
+  var last2 = ((Math.round(Number(epPre)) % 100) + 100) % 100;   // 円単位で下二桁（負値・小数も安全に）
+  for (var i = 0; i < _EL_RN_BANDS.length; i++) { var b = _EL_RN_BANDS[i]; if (last2 >= b.from && last2 <= b.to) return b.target - last2; }
+  return 0;
+}
+// 水準線値 ＋ RN前α から判定。水準線未入力／α不明は null＝判定不可（呼び出し側で「RN無しで建てる＋件数を可視化」等を決める）。
+function _elRnAutoFrom(levelPrice, preAlpha) {
+  var lv = (levelPrice != null && levelPrice !== "" && !isNaN(Number(levelPrice))) ? Number(levelPrice) : null;
+  var a = (preAlpha != null && preAlpha !== "" && !isNaN(Number(preAlpha))) ? Number(preAlpha) : null;
+  if (lv == null || a == null) return null;
+  return _elRnAutoAt(lv + a);
+}
+// 既存記録から判定（候補一覧・分析用）。渡すalphaは採用α（RN込み）＝ここでRN分を引き戻して「RN前α」にするのでRN〇/×どちらの記録でも使える。
+function _elRnAutoOfRec(s, alpha) {
+  if (!s) return null;
+  var a = (alpha != null && alpha !== "" && !isNaN(Number(alpha))) ? Number(alpha) : null;
+  if (a == null) return null;
+  return _elRnAutoFrom(s.levelPrice, a - _elRnAdd(s));
+}
 // ===== 応用α（旧「基本α＋追加α増分」を廃止し置換 2026-07-13） =====
 // specialUsed(bool)=応用α採用／specialAlpha(number)=独立α値／specialReasons(array)=根拠。旧 addAlphaUsed/addAlphaVal/specialReasons は撤去（移行 _migSpecialAlpha・app-01）。
 // 応用αは「基本α部分だけ」を置換＝base-levelα。浮き足・RN・ライン併存(base=1畳み込み)は従来どおり base-levelα の上に上乗せ（採用α＝base-levelα＋浮き足＋RN）。
@@ -6237,6 +6264,12 @@ function EntryRecordForm(_ref_erf) {
   var _useStateRNV = useState(initSig.rnVal != null ? String(initSig.rnVal) : ""),
     _useStateRNVA = _slicedToArray(_useStateRNV, 2),
     fRnVal = _useStateRNVA[0], setFRnVal = _useStateRNVA[1];
+  // RNまたぎ自動判定（2026-07-20b）: 予定EP（水準線＋RN前α）の下二桁が41-49/91-99なら自動で〇＋50/00までの加算額をセット・外れたら自動×。
+  // rnAuto=false は「手動で上書き済み＝自動を止める」印。〇×か数値に触った瞬間falseになり、「↺自動」でtrueへ戻す。
+  // ⚠️既存記録(isEdit)は初期値false固定＝過去記録を開いただけでRNが書き換わらない（「過去記録は移行しない」というユーザー決定を保護）。新規はtrue。
+  var _useStateRNA = useState(isEdit ? (initSig.rnAuto === true) : (initSig.rnAuto !== false)),
+    _useStateRNAA = _slicedToArray(_useStateRNA, 2),
+    fRnAuto = _useStateRNAA[0], setFRnAuto = _useStateRNAA[1];
   // α値セクションのメモ（記録固有=signal.alphaMemo）2026-06-21。
   var _useStateALM = useState(initSig.alphaMemo || ""),
     _useStateALMA = _slicedToArray(_useStateALM, 2),
@@ -6484,6 +6517,40 @@ function EntryRecordForm(_ref_erf) {
   // RNまたぎ加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
   var _fRnAdd = _elRnAddVal(fRnUsed === "○", fRnVal);   // 2026-07-14 共通化
   var _fAlpha = (fUkiUsed === "○" ? 0 : _fBaseLevel) + _fUkiAdd + _fRnAdd;   // 2026-07-14g 浮き足〇＝土台α不使用＝採用α＝浮き足加算＋RN のみ（基本α/応用αは通常時のみ）
+  // RNまたぎ自動判定 2026-07-20b（_fBaseLevel/_fUkiAdd の定義後でないと undefined を掴むのでこの位置）。
+  // RN前α＝基底α＋浮き足加算（RNは含めない＝予定EPにRNが入ると判定が循環するため）。null＝水準線未入力で判定不可＝現状維持＋ヒント表示。
+  var _fRnPre = (fUkiUsed === "○" ? 0 : _fBaseLevel) + _fUkiAdd;
+  var _fRnAutoAdd = _elRnAutoFrom(fLevelPrice, _fRnPre);   // null=判定不可 / 0=対象外(自動×) / >0=加算額
+  // 水準線値の入力ボックス（2026-07-20b）: 「分足」欄の右と「OS」見出しの右の2箇所に置く共通部品。
+  // 同じ state(fLevelPrice/setFLevelPrice) を見るので、どちらで打っても相互に自動反映される（同期処理は不要）。
+  // 見た目・挙動を1箇所に集約＝2つが食い違わない（同一UIの二重実装はreplace_all事故の元・[[reference_scalping_edit_gotchas]]）。
+  var _lvPriceBox = function(_k) {
+    return React.createElement("div", { key: _k,
+      style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#F1F5F9", border: "1px solid #CBD5E1", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 } },
+      React.createElement("span", { style: { color: "#64748B", fontWeight: 700 } }, "水準線値"),
+      React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #CBD5E1", borderRadius: 4, overflow: "hidden" } },
+        React.createElement("input", {
+          type: "text", inputMode: "decimal", step: "1", min: "0",
+          value: fLevelPrice,
+          onChange: function(e) { setFLevelPrice(_toHankakuDecimal(e.target.value)); },
+          placeholder: "—",
+          style: { padding: "2px 5px", fontSize: 12, fontWeight: 700, color: "#334155", border: "none", outline: "none", background: "#fff", width: 70, textAlign: "right", boxSizing: "border-box" }
+        }),
+        _stepBtn(
+          function() { setFLevelPrice(function(v) { return String((parseFloat(v) || 0) + 1); }); },
+          function() { setFLevelPrice(function(v) { return String(Math.max(0, (parseFloat(v) || 0) - 1)); }); }
+        )
+      ),
+      React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円")
+    );
+  };
+  useEffect(function() {
+    if (!fRnAuto || _fRnAutoAdd == null) return;
+    var _w = _fRnAutoAdd > 0 ? "○" : "×";
+    if (fRnUsed !== _w) setFRnUsed(_w);
+    var _wv = _fRnAutoAdd > 0 ? String(_fRnAutoAdd) : "";
+    if (fRnVal !== _wv) setFRnVal(_wv);
+  }, [fRnAuto, _fRnAutoAdd, fRnUsed, fRnVal]);
   var _fCutLine = (function() {
     var _ck = fStock + "_" + fDate;
     var _cd = data.charts && data.charts[_ck];
@@ -7038,6 +7105,8 @@ function EntryRecordForm(_ref_erf) {
       ukiReasons: (_showUki && fUkiUsed === "○" && fUkiSpecial === true) ? (function() { var _a = (fUkiReasons || []).filter(function(x) { return x; }); return _a.length ? _a : null; })() : null,
       rnUsed: fRnUsed === "○",
       rnVal: (fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : null,
+      rnAuto: fRnAuto,   // 2026-07-20b RNまたぎ自動判定が有効か（false=手動で上書き済み）。編集で開き直したときに自動が勝手に上書きしないための印
+
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
       includeInTotal: fIncl,
@@ -7212,10 +7281,11 @@ function EntryRecordForm(_ref_erf) {
               background: on ? "#EAF7EE" : "#fff",
               color: on ? "#166534" : "#888",
               borderRadius: 6, cursor: "pointer", textAlign: "center"
-            }
+            }, "data-mb": _mb
           }, _mb);
         }),
-        React.createElement("span", { style: { fontSize: 12, color: "#94A3B8", fontWeight: 600 } }, "分足")
+        React.createElement("span", { style: { fontSize: 12, color: "#94A3B8", fontWeight: 600 } }, "分足"),
+        _lvPriceBox("lv_mb")   // 2026-07-20b 分足欄の右に水準線値欄（下のOS見出し右の欄と同じ部品・同じstate＝相互に自動反映）。早い段階で入れておくとRNまたぎ自動判定が効く
       ),
 
       React.createElement("div", { style: SH_ }, "🎯 エントリーシグナル"),
@@ -7880,8 +7950,10 @@ function EntryRecordForm(_ref_erf) {
       })() : null,
       (function() {
         // RNまたぎ加算α値の行（全シグナル・追加α（根拠含む）行の下）2026-07-08h。〇×→〇で加算値（円・そのまま）をαに加算。すぐ横に暫定EP（水準線値＋合計α）を小さく表示＝EPを見て要否判断。
-        var _setRV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFRnVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFRnVal(String(n)); };
-        var _stepRV = function(delta) { setFRnVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
+        // 2026-07-20b 手動で触ったら自動判定を止める（_offAuto）＝以後αや水準線を動かしても上書きされない。「↺自動」で復帰。
+        var _offAuto = function() { if (fRnAuto) setFRnAuto(false); };
+        var _setRV = function(val) { _offAuto(); var _v = _toHankakuNum(val); if (_v === "") { setFRnVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFRnVal(String(n)); };
+        var _stepRV = function(delta) { _offAuto(); setFRnVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
         var _rnOn = fRnUsed === "○";
         var _rnAddShown = (fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : 0;
         var _epPrev = (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return null; return Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100; })();
@@ -7893,7 +7965,7 @@ function EntryRecordForm(_ref_erf) {
             [["○", "○", "要", "#C0392B", "#FCEBEB"], ["×", "×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
               var on = fRnUsed === kv[0];
               return React.createElement("button", { key: kv[0], type: "button",
-                onClick: function() { setFRnUsed(kv[0]); if (kv[0] === "○" && fRnVal === "") setFRnVal("5"); },
+                onClick: function() { _offAuto(); setFRnUsed(kv[0]); if (kv[0] === "○" && fRnVal === "") setFRnVal("5"); },
                 title: kv[0] === "○" ? "ラウンドナンバー（キリ番）をまたぐ＝入力値をそのままαに加算" : "RNまたぎなし＝加算しない",
                 style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
                 kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
@@ -7911,6 +7983,13 @@ function EntryRecordForm(_ref_erf) {
           ) : null,
           _rnOn ? React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円") : null,
           _rnOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#1D4ED8", whiteSpace: "nowrap" } }, "→ ＋" + _rnAddShown + "円を加算") : null,
+          // 2026-07-20b 自動判定の状態表示。自動中＝バッジ／手動上書き中＝「↺自動」ボタンで復帰。水準線未入力は判定不可のヒント。
+          fRnAuto
+            ? React.createElement("span", { title: "予定EP（水準線＋基底α＋浮き足加算）の下二桁が41〜49／91〜99なら自動で〇にして…50/…00ちょうどまで加算します。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9.5, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
+                _fRnAutoAdd == null ? "自動判定：水準線値を入力すると効きます" : (_fRnAutoAdd > 0 ? "自動判定中" : "自動判定中（対象外）"))
+            : React.createElement("button", { type: "button", onClick: function() { setFRnAuto(true); },
+                title: "自動判定に戻す（予定EPの下二桁から〇×と加算値を自動でセットし直します）",
+                style: { fontSize: 9.5, fontWeight: 700, color: "#B45309", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 自動に戻す（手動中）"),
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 4, padding: "1px 7px", borderRadius: 6, background: "#DBEAFE", border: "1px solid #93C5FD", whiteSpace: "nowrap" } },
             React.createElement("span", { style: { fontSize: 9.5, color: "#1D4ED8", fontWeight: 700 } }, "暫定EP"),
             React.createElement("span", { title: "水準線値＋合計α値（RNまたぎ加算を含む）＝この設定でのエントリー予定価格の目安。EPを見てRNまたぎ加算の要否を判断（下の予定EP欄と同じ値）。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, _epPrev != null ? String(_epPrev) : "—"),
@@ -8096,25 +8175,7 @@ function EntryRecordForm(_ref_erf) {
         return React.createElement(React.Fragment, null,
           React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) },
             "OS",
-            React.createElement("div", {
-              style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#F1F5F9", border: "1px solid #CBD5E1", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
-            },
-              React.createElement("span", { style: { color: "#64748B", fontWeight: 700 } }, "水準線値"),
-              React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #CBD5E1", borderRadius: 4, overflow: "hidden" } },
-                React.createElement("input", {
-                  type: "text", inputMode: "decimal", step: "1", min: "0",
-                  value: fLevelPrice,
-                  onChange: function(e) { setFLevelPrice(_toHankakuDecimal(e.target.value)); },
-                  placeholder: "—",
-                  style: { padding: "2px 5px", fontSize: 12, fontWeight: 700, color: "#334155", border: "none", outline: "none", background: "#fff", width: 70, textAlign: "right", boxSizing: "border-box" }
-                }),
-                _stepBtn(
-                  function() { setFLevelPrice(function(v) { return String((parseFloat(v) || 0) + 1); }); },
-                  function() { setFLevelPrice(function(v) { return String(Math.max(0, (parseFloat(v) || 0) - 1)); }); }
-                )
-              ),
-              React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円")
-            ),
+            _lvPriceBox("lv_os"),   // 2026-07-20b インライン実装から共通部品へ＝分足欄の右の欄と完全に同一（同じstateなので相互に自動反映）
             React.createElement("div", {
               style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }
             },
