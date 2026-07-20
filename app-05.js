@@ -4225,6 +4225,32 @@ function _elCollPairNode(data, r, scope) {
     (isKeep ? "※被り有: " : "被り除外: ") + "同日" + (inf.oTime || "—") + "の" + inf.oStock + "（" + _elPnlFmt(inf.oMain) + "）とペア＝" +
     (isKeep ? "遅い方（相手・同時刻なら損益が大きい方）を合計から除外し、この記録（" + _elPnlFmt(inf.own) + "・早い方）を算入" : "この記録（" + _elPnlFmt(inf.own) + "・遅い方／同時刻なら損益が大きい方）は合計額に入れない（件数は残る）"));
 }
+// ===== 指値不成立リスク（OS値＝α値）2026-07-20 =====
+// 予定EP（＝水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録。
+// 例: 予定EP3961で株価も3961まで上がって下落＝EP価格に触れただけなので、実際の指値注文は約定しなかった可能性がある。
+// この記録を除いた「保守的な損益」を併記するための判定。判定基準はユーザー指定 2026-07-20:
+//   _elOsMaxAll（OS1〜3高値の最大・アウトカム盲目）=== _epOwnAlpha（採用α）の「ちょうど一致」。
+//   後の足でEPを上抜けた記録は「刺さった」とみなして対象外＝OS最大がαを超えていれば対象外。
+// 実エントリー済み（_elIsEntered＝実際に約定した証拠）は対象外＝仮想損益（見送り等のシミュレーション値）にだけ効かせる。
+// 時間かぶり(_elCollisionExcludedSet)と違い「記録単体で完結する判定」なのでセット構築もmemoも不要（毎回の再計算が安い）。
+// 配線は時間かぶりと同じ線引き＝「表示総計」のみ。α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
+function _elFillRisk(s, item) {
+  if (!s) return false;
+  if (_elIsEntered(s, item)) return false;
+  var _real = (item && item.pnl != null) ? Number(item.pnl) : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
+  if (_real != null) return false;
+  var a = _epOwnAlpha(s), os = _elOsMaxAll(s);
+  if (a == null || os == null) return false;
+  return Number(os) === Number(a);
+}
+// r={stock,date,signal,item} 版と件数版（KPI/セクション表示用）。
+function _elFillRiskRec(r) { return !!(r && r.signal && _elFillRisk(r.signal, r.item)); }
+function _elFillRiskCountRecs(recs) { var n = 0; (recs || []).forEach(function(r) { if (_elFillRiskRec(r)) n++; }); return n; }
+// 明細行用の小バッジ（該当記録に「指値注意」）。対象外はnull。
+function _elFillRiskNode(r) {
+  if (!_elFillRiskRec(r)) return null;
+  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値注意");
+}
 // 合計行の共通集計: EP損益(planCap/AB込み)・H1(_elHold1TotParts)・H2(_elHold2TotParts)・実現損益。
 // get={signal,alpha,cut,real?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
 function _elTotAccum(items, get) {

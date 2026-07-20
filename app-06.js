@@ -5099,6 +5099,7 @@ function EntryLogView(_ref_elv2) {
   var _uAA = useState("all"), addAlphaFil = _uAA[0], setAddAlphaFil = _uAA[1];   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
+  var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値不成立リスク」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
   // OS値分布の基準トグルは2026-07-13に廃止（ユーザー承認③）＝実現OS(白枠・統計/棒クリックの主基準)と生の最高OS(色棒)をヒストグラムに同時表示（案A重ね棒・濃淡逆）。α目安(7割=α)は従来どおり生固定。
@@ -5300,6 +5301,13 @@ function EntryLogView(_ref_elv2) {
       if (!wt || wt.rate == null) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
       return otd(React.createElement("span", { style: { fontWeight: 700, color: wt.rate >= 50 ? "#1E8449" : "#B45309" } }, wt.n + "件・" + wt.rate + "%"), ex);
     };
+    // 指値注意セル: OS高値の最大＝採用α値＝予定EPを一度も上抜けなかった記録の件数（実際の指値が約定しなかった可能性）＋対 件数の率。0件は「—」2026-07-20
+    var friskCell = function(n, tot, ex) {
+      if (!n) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
+      return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+        React.createElement("span", { style: { fontWeight: 700, color: "#0F6E56" } }, n + "件"),
+        tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(n / tot * 100) + "%") : null), ex);
+    };
     var rows = [];
     keys.forEach(function(k) {
       var x = byP[k] || [], _thruRow = _thruByP[k] || [];   // x=算入記録（スルーのみの期間は空配列）／_thruRow=表示専用のスルー記録
@@ -5312,9 +5320,10 @@ function EntryLogView(_ref_elv2) {
         reachCell(reachOf(x), x.length),
         winTakeCell(winTakeOf(x)),
         stopCell(st),
+        friskCell(_elFillRiskCountRecs(x), x.length),
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
         realCell(t.real, t.realCnt, dn)));
-      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 8, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
         React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件" + (_thruRow.length ? "＋スルー" + _thruRow.length + "件" : "") + "）"),
         _thruRow.length ? React.createElement("div", { style: { fontSize: 9, color: "#9CA3AF", fontWeight: 600, margin: "0 0 4px" } }, "※グレーの「ス」行＝スルー記録。件数・損益の集計には入りません（表示のみ）") : null,
         _recTable(x.concat(_thruRow).sort(_byDateAsc), "full", "ovp_" + k + "_", null))));
@@ -5332,6 +5341,7 @@ function EntryLogView(_ref_elv2) {
       reachCell(reachOf(rsInc), rsInc.length, Object.assign({ fontWeight: 800 }, bt)),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
       stopCell(stopsOf(rsInc), bt),
+      friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, Object.assign({ fontWeight: 800 }, bt)),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
       realCell(tt.real, tt.realCnt, _ovTotDays, bt));
     return React.createElement(_HScrollBox, null,
@@ -5343,6 +5353,8 @@ function EntryLogView(_ref_elv2) {
           oth(React.createElement("span", null, "利確",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
           oth("損切り"),
+          oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録。実際の指値注文は約定しなかった可能性がある（実エントリー済みは対象外）" }, "指値注意",
+            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "OS＝α・EPを上抜けず"))),
           oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "最終損益",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "○が途切れた所で手じまい・( )=△含む"))),
           oth("実現損益"))),
@@ -5364,7 +5376,7 @@ function EntryLogView(_ref_elv2) {
       var on = expKey === ek;
       var cells = [
         _td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8, fontWeight: 700 }),
-        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r, _collScope), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null), { color: "#666" }),
+        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r, _collScope), _elFillRiskNode(r), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null), { color: "#666" }),
         _td(r.stock, { color: "#9A3412", fontWeight: 700 })
       ];
       if (mode === "day") {
@@ -5491,6 +5503,7 @@ function EntryLogView(_ref_elv2) {
     var _entDays = 0; for (var _dk in _daySet) { if (_daySet.hasOwnProperty(_dk)) _entDays++; }
     var _perDay = (_entDays > 0 && t.hold2 != null) ? Math.round(t.hold2 / _entDays) : null;   // 2026-07-09 H1基準→手じまい基準
     var _collXN = _elCollExclCountRecs(data, rs, _collScope);
+    var _friskN = _elFillRiskCountRecs(rs);   // 指値不成立リスク（OS値＝α値）の該当件数＝件数カードの副文言に併記 2026-07-20
     // シグナル総合タブのKPI早見だけ頻度カードを足す（8枚→9枚・3×3）2026-07-18。_freqHoli未指定（集計タブ）は従来の8枚(4×2)のまま。頻度＝母数の活動営業日÷採用αでEP到達した実日数。
     var _freqCard = null, _gridN = 4;
     if (_freqHoli) {
@@ -5500,7 +5513,7 @@ function EntryLogView(_ref_elv2) {
       _gridN = 3;
     }
     return React.createElement.apply(null, ["div", { style: { display: "grid", gridTemplateColumns: "repeat(" + _gridN + ", minmax(0, 1fr))", gap: 8 } }].concat([
-      _kpiCard("件数", n + "件", "#333", "v2記録のみ" + (_collXN > 0 ? "・被り除外" + _collXN + "件" : "")),
+      _kpiCard("件数", n + "件", "#333", "v2記録のみ" + (_collXN > 0 ? "・被り除外" + _collXN + "件" : "") + (_friskN > 0 ? "・指値注意" + _friskN + "件" : "")),
       _freqCard,
       _kpiCard("E到達率", reach != null ? reach + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
       _kpiCard("E後の勝率", _ewin != null ? _ewin + "%" : "—", _ewin != null ? (_ewin >= 50 ? "#1E8449" : "#B45309") : "#bbb", "勝" + _wOk + "・負" + _wNg + (_wDr ? "・分" + _wDr : "") + "／E成立" + _ewinD + "件"),
@@ -5510,6 +5523,41 @@ function EntryLogView(_ref_elv2) {
       _kpiCard("実現損益", _yenN(t.real, t.realCnt), null, t.realCnt + "件"),
       _kpiCard("1日あたり損益", _perDay != null ? (_elPnlFmt(_perDay) + "/日") : "—", _perDay != null ? _elPnlColor(_perDay) : "#bbb", "手じまい基準・" + _entDays + "日エントリー")
     ].filter(Boolean)));
+  };
+  // 指値不成立リスク（OS値＝α値）セクション 2026-07-20。判定は _elFillRisk（app-05）。
+  // 予定EPにちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある記録を数え、
+  // それを除いた「保守的な最終損益」と差額を併記する。通常側は既存KPIと同じ配線（時間かぶり除外あり）なので、
+  // 除外後は「そこに指値リスク分を足しただけ」＝2値は必ず同じ母数・同じ基準で比較できる。
+  var _fillRiskSection = function(rs, scopeNote) {
+    var _riskRecs = (rs || []).filter(_elFillRiskRec);
+    var _tOf = function(exFill) {
+      return _elTotAccum(rs, {
+        signal: function(r) { return r.signal; },
+        alpha: function(r) { return _ai(r).alpha; },
+        cut: function(r) { return _ai(r).cutLine; },
+        excluded: function(r) { return _elCollExcluded(data, r, _collScope) || (exFill && _elFillRiskRec(r)); }
+      });
+    };
+    var t = _tOf(false), t2 = _tOf(true);
+    var _diff = (t.hold2 != null && t2.hold2 != null) ? (t2.hold2 - t.hold2) : null;
+    var _cell = function(label, val, color, sub) {
+      return React.createElement("div", { key: label },
+        React.createElement("div", { style: { fontSize: 10, color: "#9A9186", fontWeight: 700, marginBottom: 3 } }, label),
+        React.createElement("div", { style: { fontSize: 19, fontWeight: 800, color: color || "#1A1714", lineHeight: 1.1, whiteSpace: "nowrap", letterSpacing: "-0.01em" } }, val),
+        sub ? React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 2 } }, sub) : null);
+    };
+    var _btn = _riskRecs.length ? React.createElement("button", { type: "button", onClick: function() { setRiskOpen(!riskOpen); },
+      style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (riskOpen ? "#0F6E56" : "#5DCAA5"), background: riskOpen ? "#0F6E56" : "#E1F5EE", color: riskOpen ? "#fff" : "#0F6E56" } },
+      (riskOpen ? "✓ " : "") + "該当のみ表示（" + _riskRecs.length + "件）") : null;
+    return [
+      _secH("🎯 指値不成立リスク（OS値＝α値）", "※ 予定EP（水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
+      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 } },
+        _cell("該当件数", _riskRecs.length + "件", _riskRecs.length > 0 ? "#0F6E56" : "#bbb", "OS高値の最大＝採用α値"),
+        _cell("通常の最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
+        _cell("除外後", _yenNR(t2.hold2, t2.hold2Cnt, t2.hold2Ref, t2.hold2RefCnt), null, t2.hold2Cnt + "件"),
+        _cell("差額", _diff == null ? _dash : _elPnlFmt(_diff), _diff == null ? "#bbb" : _elPnlColor(_diff), "刺さらなければ失う分")),
+      (riskOpen && _riskRecs.length) ? _recTable(_riskRecs.slice().sort(_byDateAsc), "full", "frisk_") : null
+    ];
   };
   // 銘柄別 集計タブの本体（KPI＋各分析セクション）。今月/全期間で同じ構成を共用＝引数の記録集合rsだけ差し替える。
   var _sumStockContent = function(rs) {
@@ -5810,6 +5858,8 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { margin: "2px 0 8px", display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save }), React.createElement(_ElSpecialMinCtl, { data: data, save: save })),   // 前提損切り値＋到達率下限＋根拠別応用α下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
       _gDet ? _detCtlRow("gp_kpi", recs) : null,
       _bodyOf("gp_kpi", recs, function(_drs, _dv) { return _kpiOs(_drs, _detFilterBy(_dv, _baRecs)); }),
+      // 指値不成立リスク（OS値＝α値）2026-07-20。母数は上のKPI（_kpiOs）と同じ _addFilOf(recs) ＝「通常の最終損益」がKPIの最終損益と一致する。
+      _fillRiskSection(_addFilOf(recs), "この分析パネルの母数（v2記録のみ・上の母数トグル準拠）"),
       // 追加α母数トグル〇のとき: 推奨基本α詳細は畳んで（要約はKPIカードに常時表示）、代わりに推奨追加α詳細（加算値別の総当たり）をフル表示。×/全記録・前足浮きタブは従来どおり基本α詳細をフル表示。2026-07-03
       (!_floatMode && osDistFil === "yes")
         ? [_elCard(_gDet ? _detCtlRow("gp_ba", _baRecs) : null,
@@ -5943,6 +5993,7 @@ function EntryLogView(_ref_elv2) {
                   style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, g[1]);
               }))),
           _ovPnlTbl(v2recs, gran === "custom" ? "week" : gran)],
+        v2recs.length ? _fillRiskSection(v2recs) : null,
         _v2recsNonRef.length >= 2 ? [
           _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・合計行と同一基準（4月＝EMA位置ズレの参考期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNonRef, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
         _v2recsNonRef.length >= 2 ? [
