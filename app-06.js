@@ -5268,17 +5268,20 @@ function EntryLogView(_ref_elv2) {
     // 展開明細だけスルー記録も並べる（表示専用 2026-07-20 ユーザー選択「表示だけ」）。
     // 母数rs(=v2recs)は_elInclTotalでスルー(passThrough)を除外済＝件数/到達/利確/損切り/最終損益/実現/1日平均/合計行は一切不変。
     // 出典はfilteredの生記録（期間・銘柄の絞り込みはrsと同条件）。行のグレー表示と「ス」バッジは_recTableが_elRowStyleWithCollで自動描画。
-    // ※その期間に算入記録が1件も無いとkeys(byP由来)に行自体が出ないため、スルーだけの期間は表示されない（既存の行生成仕様のまま）。
+    // 2026-07-20b: スルーだけの週/月も行として出す＝表示用keysにのみ_thruByPのキーを合流。
+    // 集計用キー(_aggKeys)はbyP由来のまま＝合計行の日数(_ovTotDays)・※参考判定(_hasRef)は従来と完全に同一
+    // （スルーだけの期間の営業日を合計日数に足すと1日平均が動いてしまうため、ここを分けるのが要）。
     var _thruByP = {};
     filtered.forEach(function(r) { if (r && r.date && r.signal && _epIsV2(r.signal) && _elIsThru(r.signal)) { var _kt = keyOf(r.date); (_thruByP[_kt] = _thruByP[_kt] || []).push(r); } });
-    var keys = Object.keys(byP).sort().reverse();
+    var _aggKeys = Object.keys(byP);   // 集計に使う期間＝算入記録がある期間のみ（従来どおり）
+    var keys = _aggKeys.concat(Object.keys(_thruByP).filter(function(k) { return !byP[k]; })).sort().reverse();   // 表示用＝スルーのみの期間も行にする
     if (!keys.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "v2記録なし");
     var oth = function(t) { return React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
     var otd = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
     // 最終損益・実現損益とも「1日あたり平均」＝合計÷日数(営業日数)に統一 2026-07-09（旧: 実現損益は1トレード平均avgLine→ユーザー要望で1日平均に）
     var avgDayLine = function(v, days) { if (!days || v == null) return null; var a = Math.round(v / days); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (a >= 0 ? "+" : "") + a.toLocaleString()); };
     // 件数の下の「（1日平均〇件）」＝件数÷日数(営業日数)。割り切れれば整数・端数は小数第1位まで（四捨五入後に整数化されれば整数表示）。日別(g==="day")は各行=1日で件数と同値になり冗長なので非表示 2026-07-19。
-    var avgCntLine = function(cnt, days) { if (!days || g === "day" || cnt == null) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };
+    var avgCntLine = function(cnt, days) { if (!days || g === "day" || !cnt) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };   // !cnt＝0件(スルーのみの期間)は「1日平均0件」が冗長なので出さない 2026-07-20b
     var cntCell = function(cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", null, cnt + "件"), avgCntLine(cnt, days)), ex); };
     var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt), avgDayLine(v, days)), ex); };
     var realCell = function(v, cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt), avgDayLine(v, days)), ex); };
@@ -5299,9 +5302,11 @@ function EntryLogView(_ref_elv2) {
     };
     var rows = [];
     keys.forEach(function(k) {
-      var x = byP[k], t = totOf(x), st = stopsOf(x), dn = _bizDaysIn(k), on = ovExp === k;
+      var x = byP[k] || [], _thruRow = _thruByP[k] || [];   // x=算入記録（スルーのみの期間は空配列）／_thruRow=表示専用のスルー記録
+      var t = totOf(x), st = stopsOf(x), dn = _bizDaysIn(k), on = ovExp === k;
       rows.push(React.createElement("tr", { key: k, onClick: function() { setOvExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
-        otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, g))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+        otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, g)),
+          (!x.length && _thruRow.length) ? React.createElement("span", { title: "この期間は算入記録が無く、スルー記録だけがあります（集計は全て—）", style: { fontSize: 8.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 4px", marginLeft: 4, whiteSpace: "nowrap" } }, "スルーのみ") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
         otd(dn + "日", { fontWeight: 600, color: "#555" }),
         cntCell(x.length, dn, { fontWeight: 700 }),
         reachCell(reachOf(x), x.length),
@@ -5309,20 +5314,17 @@ function EntryLogView(_ref_elv2) {
         stopCell(st),
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
         realCell(t.real, t.realCnt, dn)));
-      if (on) {
-        var _thruX = _thruByP[k] || [];   // 表示専用の追加行（合計・件数には不参加）
-        rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 8, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
-          React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件" + (_thruX.length ? "＋スルー" + _thruX.length + "件" : "") + "）"),
-          _thruX.length ? React.createElement("div", { style: { fontSize: 9, color: "#9CA3AF", fontWeight: 600, margin: "0 0 4px" } }, "※グレーの「ス」行＝スルー記録。件数・損益の集計には入りません（表示のみ）") : null,
-          _recTable(x.concat(_thruX).sort(_byDateAsc), "full", "ovp_" + k + "_", null))));
-      }
+      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 8, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+        React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件" + (_thruRow.length ? "＋スルー" + _thruRow.length + "件" : "") + "）"),
+        _thruRow.length ? React.createElement("div", { style: { fontSize: 9, color: "#9CA3AF", fontWeight: 600, margin: "0 0 4px" } }, "※グレーの「ス」行＝スルー記録。件数・損益の集計には入りません（表示のみ）") : null,
+        _recTable(x.concat(_thruRow).sort(_byDateAsc), "full", "ovp_" + k + "_", null))));
     });
     // 合計・平均は「※参考」期間（EMA位置ズレの4月＝_elIsEmaRefPeriod）を除外。参考行自体は上に表示し、集計だけ除く。件数・日数・到達/利確/損切り率・1日平均も参考期間を抜いた母数で算出 2026-07-18
     var _isRefKey = function(k) { return _elIsEmaRefPeriod(k, g); };
     var rsInc = rs.filter(function(r) { return !_isRefKey(keyOf(r.date)); });
-    var _hasRef = keys.some(_isRefKey);
+    var _hasRef = _aggKeys.some(_isRefKey);
     var tt = totOf(rsInc), bt = { borderTop: "2px solid #FB923C" };
-    var _ovTotDays = keys.reduce(function(s, k) { return _isRefKey(k) ? s : s + _bizDaysIn(k); }, 0);
+    var _ovTotDays = _aggKeys.reduce(function(s, k) { return _isRefKey(k) ? s : s + _bizDaysIn(k); }, 0);   // 集計用キーのみ＝スルーだけの期間の営業日は合計日数に加算しない（1日平均を従来値のまま保つ）2026-07-20b
     var totRow = React.createElement("tr", { key: "__ovtot__", style: { background: "#FFF7ED" } },
       otd(React.createElement("span", null, "合計", _hasRef ? React.createElement("span", { title: "4月（EMA位置ズレの参考期間）は合計・平均から除外しています", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※参考除く") : null), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
       otd(_ovTotDays + "日", Object.assign({ fontWeight: 700, color: "#555" }, bt)),
