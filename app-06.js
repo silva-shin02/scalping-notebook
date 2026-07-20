@@ -4605,7 +4605,7 @@ function _elKabuLadderSimV2(props) {
   var _uPd = useState("all"), period = _uPd[0], setPeriod = _uPd[1];   // 対象取引の期間絞り込み（本日/1週/1月/3月/6月/1年/全期間）既定=全期間 2026-07-03q
   var _uRw = useState([{ method: "", off: "", cum: "", addMethod: "act", addOff: "" }, { method: "", off: "", cum: "", addMethod: "act", addOff: "" }]), rows = _uRw[0], setRows = _uRw[1];   // 取引ごとに入力方式(method)＋追加α方式(addMethod/addOff)を持つ 2026-07-03→2026-07-06追加α取引ごと化。初期は基本α未選択・追加αは実追加α(act)既定（触らなければ実際の追加αを反映＝シミュ=従来で差額0・×+未選択母数では実追加α=0で従来値不変）
   var _uAP = useState(false), addPicker = _uAP[0], setAddPicker = _uAP[1];   // 取引追加時の入力方式ピッカー表示 2026-07-03
-  var _METHODS = [{ key: "abs", label: "絶対値（0円基準）でα○円", short: "絶対値" }, { key: "reco", label: "推奨α±X（記録日時点）", short: "推奨α±X" }, { key: "recobase", label: "推奨基本α値で（株数だけ）", short: "推奨基本α値" }];   // 手動ラダーの基本α入力方式マスター
+  var _METHODS = [{ key: "abs", label: "絶対値（0円基準）でα○円", short: "絶対値" }, { key: "reco", label: "推奨α±X（記録日時点）", short: "推奨α±X" }, { key: "recobase", label: "推奨基本α値で（株数だけ）", short: "推奨基本α値" }, { key: "adopt", label: "採用α値±X（その記録の実際のα）", short: "採用α±X" }];   // 手動ラダーの基本α入力方式マスター。adopt＝採用α（合計α・浮き足/RN込み）起点＝上乗せ無しでそのまま実効α 2026-07-20
   var _ADD_METHODS = [{ key: "abs", label: "絶対値で追加α○円", short: "絶対値" }, { key: "reco", label: "各日の推奨追加α±X", short: "推奨追加α±X" }, { key: "recoadd", label: "各取引日の推奨追加α値", short: "推奨追加α値" }, { key: "act", label: "実追加α（記録の値）", short: "実追加α" }];   // 手動ラダーの追加α入力方式マスター（取引ごと）2026-07-06。推奨追加α系は「推奨基本αに何円足すか」の値＝任意の基本αに乗せられるが推奨基本α値との併用が前提
   var _uTt = useState("500"), total = _uTt[0], setTotal = _uTt[1];
   var _uAX = useState(null), autoExp = _uAX[0], setAutoExp = _uAX[1];
@@ -4657,10 +4657,12 @@ function _elKabuLadderSimV2(props) {
   var _simAddOf = function(r) { var s = r && r.signal; return s ? _elUkiAdd(s) : 0; };   // 記録固有の上乗せ＝浮き足加算のみ（追加α増分は廃止＝応用は基底α置換 2026-07-13）
   // 応用〇の記録は候補（swept）基本αを specialAlpha へ置換＝base-levelα。通常記録は候補のまま。実効α＝base-levelα＋浮き足加算（意味反転: 増分上乗せ→基底置換）2026-07-13。
   var _simBaseLevel = function(r, candidateBase) { var s = r && r.signal; if (s && _elUkiYes(s)) return 0; if (s && _elSpecialUsed(s)) { var sp = _elBaseLevelAlpha(s); if (sp != null) return sp; } return candidateBase; };   // 2026-07-14g 浮き足〇＝土台α無し＝基底0（採用α＝浮き足加算のみ・候補は無視）
+  // 「採用α値±X」の起点＝その記録の実際の採用α（合計α＝土台α＋浮き足加算＋RN加算）。他方式と違い _simBaseLevel／浮き足加算を通さず、採用α＋X をそのまま実効αにする（浮き足を二重に足さないため）＝この方式なら浮き足〇・応用〇の記録も初めてα掃引の対象になる。採用α未入力(null)はこの取引を建てない 2026-07-20。
+  var _adoptOf = function(r) { if (!r) return null; var a = aiOf(r).alpha; return (a == null || isNaN(Number(a))) ? null : Number(a); };
   var _poolHasYes = pool.some(function(r) { return r && r.signal && _elSpecialUsed(r.signal); });   // 応用〇の記録がシミュ母数にいるか（表示条件用）
   // ===== 手動ラダー: 取引ごとに入力方式（絶対値/推奨α±X/推奨基本α値）→実効αを記録ごとに算出し、各取引の株数をそのまま空売り（足し算＝自動配分と同じ）2026-07-05 =====
   // ★2026-07-05 累積(累計)方式を廃止＝各取引の株数はその取引で建てる株数そのもの。第1取引100株＋第2取引400株＝合計500株（旧: 累積400なら増し300株の差分方式）。
-  // 各取引の実効α: abs=off(絶対値・0未満は0) / reco=推奨α(日付時点)+off / recobase=推奨α(日付時点)。推奨不明(reco系)はこの記録では建てない(a=null)。α昇順ソートは表示（シミュα列・内訳）と揃えるためで、足し算なので合計は順序に依らない。
+  // 各取引の実効α: abs=off(絶対値・0未満は0) / reco=推奨α(日付時点)+off / recobase=推奨α(日付時点) / adopt=採用α(その記録の実際のα)+off。推奨不明(reco系)・採用α未入力(adopt)はこの記録では建てない(a=null)。α昇順ソートは表示（シミュα列・内訳）と揃えるためで、足し算なので合計は順序に依らない。
   // 注: state のフィールド名は歴史的に `cum` だが意味は「この取引の株数」（累積ではない）2026-07-05。
   var _manTiersOf = function(r) {
     var reco;   // recoOf(r.date)は必要時のみ算出（キャッシュ済）。undefined=未算出
@@ -4668,6 +4670,11 @@ function _elKabuLadderSimV2(props) {
     var _uki = _elUkiAdd(r.signal);   // 浮き足加算＝記録固有・常時（取引ごとオプションの対象外）2026-07-06
     return rows.map(function(rw) {
       var sh = _kbInt(rw.cum); if (sh == null || sh <= 0) return null;   // この取引の株数（そのまま）
+      if (rw.method === "adopt") {   // 採用α値±X＝合計α起点。基底置換(_simBaseLevel)も浮き足加算も通さない（採用αに既に含まれるため）＝浮き足〇/応用〇も掃引可 2026-07-20
+        var ad = _adoptOf(r); if (ad == null) return null;   // 採用α未入力＝この記録では建てない
+        var oa = _kbInt(rw.off);
+        return { a: Math.max(0, ad + (oa == null ? 0 : oa)), add: sh, _uki: 0, _addA: null };   // _uki=0＝浮き足加算は採用αに内包済み（マスター表の「浮N込」表示用）
+      }
       var a;
       if (rw.method === "abs") { var off = _kbInt(rw.off); a = (off == null) ? null : Math.max(0, off); }
       else if (rw.method === "recobase") { var b1 = _recoAt(); a = (b1 == null) ? null : b1; }
@@ -4689,14 +4696,24 @@ function _elKabuLadderSimV2(props) {
   var _simCutInfo = function(r) { var c = _simCutOf(r); var ov = (_stopOffN != null && recoOf(r.date) != null); return { cut: c, ov: ov }; };   // ov=推奨基本α+オフセットで上書き中か（表示色用）
   var _aiSim = function(r) { return { alpha: aiOf(r).alpha, cutLine: _simCutOf(r) }; };
   var manCalc = (mode === "manual" && pool.length) ? _elKabuLadderCalc(pool, _aiSim, _manTiersOf) : null;   // 手動は損切りオフセットを反映（_aiSim）2026-07-05
-  // ===== 自動配分: 第1・第2取引の各αを候補セット（絶対値0/3/5・各日の推奨基本α・推奨α±1〜±5）から選び、総株数を100株刻みで2取引に配分して総当たり 2026-07-07 =====
-  // 候補α方式（14種）: 絶対値0/3/5（定数）＋推奨基本α（＝推奨α±0）＋推奨α±1〜±5（記録日時点・推奨不明の日は建てない）。旧: 第1取引を0〜推奨基本α未満の全整数×第2取引固定＝推奨α。
+  // ===== 自動配分: 第1・第2取引の各αを候補セット（絶対値0/3/5・各日の推奨基本α・推奨α±1〜±5・各記録の採用α±0〜±5）から選び、総株数を100株刻みで2取引に配分して総当たり 2026-07-07→2026-07-20採用α系を追加 =====
+  // 候補α方式（25種）: 絶対値0/3/5（定数）＋推奨基本α（＝推奨α±0）＋推奨α±1〜±5（記録日時点・推奨不明の日は建てない）＋採用α±0〜±5（その記録の実際のα・採用α未入力の記録は建てない）。旧: 第1取引を0〜推奨基本α未満の全整数×第2取引固定＝推奨α。
   var _AUTO_CANDS = [{ key: "abs0", kind: "abs", v: 0 }, { key: "abs3", kind: "abs", v: 3 }, { key: "abs5", kind: "abs", v: 5 }, { key: "r0", kind: "reco", x: 0 }];
   for (var _rx = 1; _rx <= 5; _rx++) { _AUTO_CANDS.push({ key: "r+" + _rx, kind: "reco", x: _rx }); _AUTO_CANDS.push({ key: "r-" + _rx, kind: "reco", x: -_rx }); }
+  _AUTO_CANDS.push({ key: "a0", kind: "adopt", x: 0 });
+  for (var _ax = 1; _ax <= 5; _ax++) { _AUTO_CANDS.push({ key: "a+" + _ax, kind: "adopt", x: _ax }); _AUTO_CANDS.push({ key: "a-" + _ax, kind: "adopt", x: -_ax }); }
   var _candIdx = {}; _AUTO_CANDS.forEach(function(c, i) { _candIdx[c.key] = i; });
-  // 候補の基本α（rb＝その記録日時点の推奨α・null可）。絶対値は定数／推奨系は rb+x を0クランプ・推奨不明(null)は建てない。実効α＝この基本α＋記録固有の上乗せ（浮き足加算＋追加α上乗せ）。
+  // 候補の基本α（rb＝その記録日時点の推奨α・null可）。絶対値は定数／推奨系は rb+x を0クランプ・推奨不明(null)は建てない。実効α＝この基本α＋記録固有の上乗せ（浮き足加算＋追加α上乗せ）。採用系は _candEffAlpha 側で処理（ここは通らない）。
   var _candBaseFromReco = function(cand, rb) { if (cand.kind === "abs") return cand.v; if (rb == null) return null; var b = rb + cand.x; return b < 0 ? 0 : b; };
-  var _candLabel = function(cand) { if (cand.kind === "abs") return "α" + cand.v + "円"; if (cand.x === 0) return "推奨α"; return "推奨α" + (cand.x > 0 ? "+" + cand.x : cand.x); };
+  // 候補方式→その記録の実効α（この1関数に集約＝ランキング(_rankEvalOf)とマスター表(_autoTiersOfFor)の一致を構造的に保証）。
+  // adopt＝採用α（合計α・浮き足/RN込み）+x をそのまま（_simBaseLevel／浮き足加算を通さない＝二重加算回避・浮き足〇/応用〇も掃引可）／abs・reco＝従来どおり 基底α（応用〇は応用α値・浮き足〇は0）＋浮き足加算。null＝この記録では建てない。2026-07-20
+  var _candEffAlpha = function(cand, r, rb, ex, ad) {
+    if (cand.kind === "adopt") { if (ad == null) return null; var v = ad + cand.x; return v < 0 ? 0 : v; }
+    var b = _candBaseFromReco(cand, rb);
+    var bl = _simBaseLevel(r, b);
+    return (bl == null) ? null : (bl + ex);
+  };
+  var _candLabel = function(cand) { if (cand.kind === "abs") return "α" + cand.v + "円"; if (cand.kind === "adopt") return cand.x === 0 ? "採用α" : ("採用α" + (cand.x > 0 ? "+" + cand.x : cand.x)); if (cand.x === 0) return "推奨α"; return "推奨α" + (cand.x > 0 ? "+" + cand.x : cand.x); };
   var totalN = (function() { var t = _kbInt(total); if (t == null || t <= 0) return 0; return Math.max(100, Math.round(t / 100) * 100); })();
   var autoRes = null;
   if (mode === "auto" && totalN > 0 && pool.length) {
@@ -4704,10 +4721,12 @@ function _elKabuLadderSimV2(props) {
     var _evAt = function(pi, a) { var m = _evCache[pi]; if (!m.hasOwnProperty(a)) m[a] = _elKabuTierEval(pool[pi].signal, a, aiOf(pool[pi]).cutLine); return m[a]; };
     var _recoAs = pool.map(function(r) { return recoOf(r.date); });
     var _exAs = pool.map(function(r) { return _simAddOf(r); });   // 記録固有の上乗せ（浮き足加算＋追加α上乗せ）＝候補の基本αにこれを足して実効α評価 2026-07-06
+    var _adoptAs = pool.map(function(r) { return _adoptOf(r); });   // その記録の採用α（合計α）＝採用α系候補の起点 2026-07-20
     // tier積算コア(_elKabuAccumTiers)へ渡す評価/株数コールバック（ループ外で1回定義＝ホットループでクロージャを再生成しない・perf維持 2026-07-14 系統3）。ctx=pool index。base-levelα不明は_EL_TIER_SKIP＝旧 `_bl==null→continue` と同値（_evAt未呼出でキャッシュ非汚染）。
-    var _rankEvalOf = function(tr, pi) { var _base = _candBaseFromReco(tr.cand, _recoAs[pi]); var _bl = _simBaseLevel(pool[pi], _base); return (_bl == null) ? _EL_TIER_SKIP : _evAt(pi, _bl + _exAs[pi]); };
+    var _rankEvalOf = function(tr, pi) { var _a = _candEffAlpha(tr.cand, pool[pi], _recoAs[pi], _exAs[pi], _adoptAs[pi]); return (_a == null) ? _EL_TIER_SKIP : _evAt(pi, _a); };
     var _rankSharesOf = function(tr) { return tr.shares; };
     var _noRecoN = 0; _recoAs.forEach(function(v) { if (v == null) _noRecoN++; });
+    var _noAdoptN = 0; _adoptAs.forEach(function(v) { if (v == null) _noAdoptN++; });   // 採用α未入力＝採用α系候補を建てない件数（注記表示用）2026-07-20
     var _combos = [], _seen = {};
     for (var _s1 = 0; _s1 <= totalN; _s1 += 100) {
       var _s2 = totalN - _s1;
@@ -4732,9 +4751,9 @@ function _elKabuLadderSimV2(props) {
       }
     }
     _combos.sort(function(x, y) { return (y.sum - x.sum) || (x.tranches.length - y.tranches.length) || (_candIdx[x.tranches[0].cand.key] - _candIdx[y.tranches[0].cand.key]); });
-    autoRes = { combos: _combos, best: _combos[0] || null, noRecoN: _noRecoN, comboN: _combos.length };
+    autoRes = { combos: _combos, best: _combos[0] || null, noRecoN: _noRecoN, noAdoptN: _noAdoptN, comboN: _combos.length };
   }
-  var _autoTiersOfFor = function(cb) { return function(r) { var _ex = _simAddOf(r), _rb = recoOf(r.date); return (cb.tranches || []).map(function(tr) { var _base = _candBaseFromReco(tr.cand, _rb); var _bl = _simBaseLevel(r, _base); return { a: (_bl == null ? null : _bl + _ex), add: tr.shares }; }); }; };   // 総当たり(_evAt)と同じ実効α（base-levelα+浮き足）＝ランキングとマスター表が一致 2026-07-07→応用α化 2026-07-13
+  var _autoTiersOfFor = function(cb) { return function(r) { var _ex = _simAddOf(r), _rb = recoOf(r.date), _ad = _adoptOf(r); return (cb.tranches || []).map(function(tr) { return { a: _candEffAlpha(tr.cand, r, _rb, _ex, _ad), add: tr.shares, _uki: (tr.cand.kind === "adopt" ? 0 : _ex) }; }); }; };   // 総当たり(_rankEvalOf)と同じ_candEffAlphaを共有＝ランキングとマスター表が一致 2026-07-07→応用α化 2026-07-13→採用α系追加 2026-07-20
   // ===== 表示部品 =====
   var _pill = function(on, label, onClick, color) {
     return React.createElement("button", { key: label, onClick: onClick,
@@ -4767,7 +4786,7 @@ function _elKabuLadderSimV2(props) {
     (cells || []).forEach(function(c, j) {
       if (!(c.t.add > 0)) return;
       var ev = c.ev, txt;
-      if (ev.skip === "noalpha") txt = React.createElement("span", { style: { color: "#bbb" } }, "推奨α不明（取引対象外）");
+      if (ev.skip === "noalpha") txt = React.createElement("span", { style: { color: "#bbb" } }, "α不明（取引対象外）");   // 推奨α不明／採用α未入力の両方 2026-07-20
       else if (ev.skip === "unreached") txt = React.createElement("span", { style: { color: "#94A3B8" } }, "α" + ev.a + "円×" + c.t.add + "株 未到達");
       else if (ev.skip === "x") txt = React.createElement("span", { style: { color: "#0369A1" } }, "α" + ev.a + "円×" + c.t.add + "株 ×見送り");
       else if (ev.indet) txt = React.createElement("span", { style: { color: "#B45309" } }, "α" + ev.a + "円×" + c.t.add + "株 判定不可");
@@ -4839,11 +4858,12 @@ function _elKabuLadderSimV2(props) {
       var _cv = _kbConvParts(r, nShares);
       var _sa = []; (row.cells || []).forEach(function(c) { if (c.t.add > 0 && c.t.a != null && !isNaN(c.t.a)) { var av = Math.round(c.t.a); if (_sa.indexOf(av) < 0) _sa.push(av); } }); _sa.sort(function(p, q) { return p - q; });   // この配分(シミュ)が各記録で使ったα＝推奨基本α値なら recoOf(日付)。採用αとの差の理由を可視化 2026-07-03
       var _cc = _cutOf(r);
-      var _exU = _elUkiAdd(s);   // 浮き足加算（記録固有）
+      // 実効αに実際に乗った浮き足加算＝tierの_ukiの最大（採用α±X方式のtierは_uki=0＝浮き足は採用αに内包済み）。_ukiを持たない旧経路は記録値へフォールバック 2026-07-20
+      var _exU = (function() { var _u = null; (row.cells || []).forEach(function(c) { if (!(c.t && c.t.add > 0 && c.t.a != null)) return; var v = (c.t._uki != null) ? c.t._uki : _elUkiAdd(s); if (_u == null || v > _u) _u = v; }); return (_u == null) ? _elUkiAdd(s) : _u; })();
       var _perTx = (row.cells || []).some(function(c) { return c.t && c.t._addA != null; });   // 手動＝tierに取引ごと追加αを持つ／自動＝持たない
       var _addAs = [];
       if (_perTx) { (row.cells || []).forEach(function(c) { var v = c.t && c.t._addA; if (v != null && v > 0 && _addAs.indexOf(v) < 0) _addAs.push(v); }); _addAs.sort(function(p, q) { return p - q; }); }   // 取引ごとに異なりうる追加αの実値（>0のみ・昇順）
-      else { var _g = _simAddOf(r) - _exU; if (_g > 0) _addAs.push(_g); }   // 自動配分＝グローバルaddOn（据え置き）
+      else { var _g = _simAddOf(r) - _elUkiAdd(s); if (_g > 0) _addAs.push(_g); }   // 自動配分＝グローバルaddOn（据え置き・現行は_simAddOf=_elUkiAddなので常に0）。_exUと切り離す＝採用α方式で_exU=0でも浮き足を「追」に誤表示しない 2026-07-20
       mrecs.push({ oi: i, r: r, s: s, a: aiOf(r).alpha, recoA: recoOf(r.date), simA: _sa, simUki: _exU, simAddOn: _addAs, simCut: _cc.cut, simCutOv: _cc.ov, cfgPnl: row.recPnl, cfgRef: row.recRef, basePnl: _cv.main, baseRef: _cv.ref, cells: row.cells, anyStop: row.anyStop });
     });
     mrecs.sort(function(x, y) { var dx = (x.r.date || "") + (x.s.time || ""), dy = (y.r.date || "") + (y.s.time || ""); return dx < dy ? 1 : dx > dy ? -1 : 0; });
@@ -4907,7 +4927,7 @@ function _elKabuLadderSimV2(props) {
       (exFlags.uki || exFlags.lc || exFlags.rn)
         ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: _exCount > 0 ? "#B45309" : "#C0392B", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 5, padding: "1px 7px" } }, _exCount > 0 ? (_exCount + "件を除外中（対象 " + pool.length + "件）") : "除外0件＝チェック中のフラグ（〇）が付いた記録がこの母数にありません")
         : React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "チェックした記録をシミュ母数から除外（現在 " + pool.length + "件）")),
-    (mode === "auto" && _poolHasYes) ? React.createElement("div", { style: { fontSize: 9, color: "#9A3412", marginBottom: 6 } }, "応用〇の記録はその記録の応用α値を基底αに採用（候補αの掃引対象外）。通常記録は候補αを掃引。") : null);
+    (mode === "auto" && _poolHasYes) ? React.createElement("div", { style: { fontSize: 9, color: "#9A3412", marginBottom: 6 } }, "応用〇の記録はその記録の応用α値を基底αに採用（絶対値/推奨α系の掃引対象外）。通常記録は候補αを掃引。※採用α±X系の候補なら応用〇・浮き足〇の記録も掃引されます。") : null);
   if (!pool.length) {
     return React.createElement("div", null, head,
       React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この母数に該当する記録がありません"));
@@ -4917,10 +4937,10 @@ function _elKabuLadderSimV2(props) {
     var _ladderPrev = (function() {   // 各取引の株数をそのまま足す（累積ではない）＝「α0円で100株 ＋ 推奨基本α値で400株 ＝ 合計500株」2026-07-05
       var parts = [], tot = 0;
       rows.forEach(function(rw) {
-        if (rw.method !== "abs" && rw.method !== "reco" && rw.method !== "recobase") return;   // 未選択は除外
+        if (rw.method !== "abs" && rw.method !== "reco" && rw.method !== "recobase" && rw.method !== "adopt") return;   // 未選択は除外
         var sh = _kbInt(rw.cum); if (sh == null || sh <= 0) return;
         var off = _kbInt(rw.off); off = (off == null ? 0 : off);
-        var lbl = rw.method === "abs" ? ("α" + Math.max(0, off) + "円") : rw.method === "recobase" ? "推奨基本α値" : ("推奨α" + (off >= 0 ? "+" : "") + off + "円");
+        var lbl = rw.method === "abs" ? ("α" + Math.max(0, off) + "円") : rw.method === "recobase" ? "推奨基本α値" : rw.method === "adopt" ? ("採用α" + (off >= 0 ? "+" : "") + off + "円") : ("推奨α" + (off >= 0 ? "+" : "") + off + "円");
         parts.push(lbl + "で" + sh + "株"); tot += sh;
       });
       return parts.length ? (parts.join(" ＋ ") + " ＝ 合計" + tot + "株") : "有効な取引がありません";
@@ -4942,7 +4962,7 @@ function _elKabuLadderSimV2(props) {
       var _offIn = React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff", verticalAlign: "middle" } },
         React.createElement("input", { type: "text", inputMode: "numeric", value: rw.off, onChange: function(e) { _upd(i, { off: e.target.value }); }, style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
         _stepBtn(function() { _stepOff(i, 1); }, function() { _stepOff(i, -1); }));
-      return React.createElement(React.Fragment, null, React.createElement("span", { style: { fontSize: 10.5 } }, rw.method === "abs" ? "α" : "推奨α"), _offIn, React.createElement("span", { style: { fontSize: 10.5 } }, "円で"), _cumIn, React.createElement("span", { style: { fontSize: 10.5 } }, "株"));
+      return React.createElement(React.Fragment, null, React.createElement("span", { style: { fontSize: 10.5 } }, rw.method === "abs" ? "α" : rw.method === "adopt" ? "採用α" : "推奨α"), _offIn, React.createElement("span", { style: { fontSize: 10.5 } }, "円で"), _cumIn, React.createElement("span", { style: { fontSize: 10.5 } }, "株"), rw.method === "adopt" ? React.createElement("span", { style: { fontSize: 9, color: "#0F766E" } }, "（±X・浮き足/RN込みの実際のα起点）") : null);
     };
     // 追加α行の入力部品（_rowInputsのミラー）2026-07-06。act/recoadd=入力なしテキスト・abs/reco=＋[__]▲▼円（recoは±Xでマイナス可）
     var _addInputs = function(rw, i) {
@@ -4954,7 +4974,7 @@ function _elKabuLadderSimV2(props) {
         _stepBtn(function() { _stepAddOff(i, 1); }, function() { _stepAddOff(i, -1); }));
       return React.createElement(React.Fragment, null, React.createElement("span", { style: { fontSize: 10.5 } }, rw.addMethod === "abs" ? "＋" : "推奨追加α"), _addIn, React.createElement("span", { style: { fontSize: 10.5 } }, "円"), rw.addMethod === "reco" ? React.createElement("span", { style: { fontSize: 9, color: "#9A3412" } }, "（±X）") : null, _coup);
     };
-    var _manTot = 0; rows.forEach(function(x) { if (x.method !== "abs" && x.method !== "reco" && x.method !== "recobase") return; var c = _kbInt(x.cum); if (c != null && c > 0) _manTot += c; });   // 手動ラダーの合計株数＝各取引の株数の総和（旧: 最大累積）2026-07-05。未選択行は数えない
+    var _manTot = 0; rows.forEach(function(x) { if (x.method !== "abs" && x.method !== "reco" && x.method !== "recobase" && x.method !== "adopt") return; var c = _kbInt(x.cum); if (c != null && c > 0) _manTot += c; });   // 手動ラダーの合計株数＝各取引の株数の総和（旧: 最大累積）2026-07-05。未選択行は数えない
     var _convMan = _manTot > 0 ? _kbConvSums(_manTot) : null;   // 従来（損益データ欄と同じ理論値×総株数按分）＝差額の基準（_kbMasterTableのbaseSumと同一計算）2026-07-04
     var _uplMan = (_convMan && manCalc) ? (manCalc.sum - _convMan.sum) : null;   // 差額＝シミュ−従来（＝マスター表の合計差額と一致）
     var _uplManRef = (_convMan && manCalc) ? (manCalc.sumRef - _convMan.sumRef) : null;   // 差額の（）内側差分（0なら（）非表示）2026-07-04b
@@ -4963,7 +4983,7 @@ function _elKabuLadderSimV2(props) {
     var _stopRate = (manCalc && manCalc.builtRecN) ? manCalc.stopRecN / manCalc.builtRecN : null;
     var _perShare = (manCalc && _manTot > 0) ? Math.round(manCalc.sum / _manTot * 10) / 10 : null;   // 1株あたり損益＝通算÷総株数
     body = React.createElement(React.Fragment, null,
-      React.createElement("div", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 700, marginBottom: 6 } }, "取引ごとに『基本α』を選べます（絶対値／推奨α±X／推奨基本α値）。応用〇の記録はその記録の応用α値を基底に採用（掃引対象外）・実効α＝基底α＋浮き足加算"),
+      React.createElement("div", { style: { fontSize: 9.5, color: "#0F766E", fontWeight: 700, marginBottom: 6 } }, "取引ごとに『基本α』を選べます（絶対値／推奨α±X／推奨基本α値／採用α±X）。応用〇の記録はその記録の応用α値を基底に採用（掃引対象外）・実効α＝基底α＋浮き足加算。※採用α±Xだけは例外＝その記録の実際の採用α（浮き足・RN込みの合計α）＋X がそのまま実効α＝浮き足〇・応用〇の記録もこの方式なら掃引できます"),
       React.createElement("div", { style: { marginBottom: 6 } },
         rows.map(function(rw, i) {
           var _baseSel = React.createElement("select", { value: rw.method || "", onChange: function(e) { _upd(i, { method: e.target.value }); }, style: { padding: "3px 6px", fontSize: 10.5, fontWeight: 700, color: rw.method ? "#0F766E" : "#aaa", border: "1px solid #ddd", borderRadius: 5, background: "#fff" } }, [React.createElement("option", { key: "_none", value: "" }, "（未選択）")].concat(_METHODS.map(function(m) { return React.createElement("option", { key: m.key, value: m.key }, m.short); })));
@@ -4977,7 +4997,7 @@ function _elKabuLadderSimV2(props) {
             React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 4 } },
               React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#64748b", minWidth: 34 } }, "基本α"),
               _baseSel,
-              (rw.method === "abs" || rw.method === "reco" || rw.method === "recobase") ? _rowInputs(rw, i) : React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "入力方式を選択")));
+              (rw.method === "abs" || rw.method === "reco" || rw.method === "recobase" || rw.method === "adopt") ? _rowInputs(rw, i) : React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "入力方式を選択")));
         }),
         addPicker
           ? React.createElement("div", { style: { border: "1px dashed #0F766E", borderRadius: 8, background: "#F0FDFA", padding: "8px 10px", marginTop: 4, maxWidth: 320 } },
@@ -4996,7 +5016,7 @@ function _elKabuLadderSimV2(props) {
         stopOff !== "" ? React.createElement("button", { onClick: function() { setStopOff(""); }, style: { padding: "2px 8px", fontSize: 10, fontWeight: 700, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#B45309", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 記録の値に戻す")
           : React.createElement("span", { style: { fontSize: 9, color: "#94a3b8" } }, "（空欄＝各記録の実際の損切り値）"),
         React.createElement("span", { style: { fontSize: 9, color: "#94a3b8" } }, "※損切りライン＝各取引のEP＋この損切り値（円）")),
-      React.createElement("div", { style: { fontSize: 9.5, color: "#666", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 8px", marginBottom: 8 } }, "各取引の株数をそのまま空売り: " + _ladderPrev + " ※推奨系（推奨α±X・推奨基本α値）の実効αは記録ごと（日付時点）に変わります。実効α＝基底α（応用〇の記録は応用α値・候補αの掃引対象外）＋浮き足加算（浮き足〇の記録・浮き値÷2切捨て・常時）"),
+      React.createElement("div", { style: { fontSize: 9.5, color: "#666", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 8px", marginBottom: 8 } }, "各取引の株数をそのまま空売り: " + _ladderPrev + " ※推奨系（推奨α±X・推奨基本α値）の実効αは記録ごと（日付時点）に変わります。実効α＝基底α（応用〇の記録は応用α値・候補αの掃引対象外）＋浮き足加算（浮き足〇の記録・浮き値÷2切捨て・常時）。※採用α±X＝その記録の採用α（浮き足・RN込みの合計α）＋X をそのまま実効αに（浮き足加算を重ねない・採用α未入力の記録は建てない）"),
       manCalc ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
           _card("通算損益", (function() { var _m = manCalc.sum, _rf = manCalc.sumRef; return React.createElement("span", { style: { whiteSpace: "normal" } }, React.createElement("span", { style: { color: _elPnlColor(_m), fontSize: 17, whiteSpace: "nowrap" } }, _elPnlFmt(_m)), (_rf ? React.createElement("span", { style: { color: _elPnlColor(_m), fontSize: 17, marginLeft: 2, whiteSpace: "nowrap", display: "inline-block" } }, "（" + _elPnlFmt(_m + _rf) + "）") : null)); })(), manCalc.n + "記録中 建玉あり" + manCalc.builtRecN + "件"),
@@ -5044,7 +5064,7 @@ function _elKabuLadderSimV2(props) {
           _stepBtn(function() { _stepTotal(100); }, function() { _stepTotal(-100); })),
         React.createElement("span", { style: { fontSize: 11 } }, "株（100株刻み" + (totalN ? "・実効" + totalN + "株" : "") + "）")),
       React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: "#0F766E", marginBottom: 6 } }, "推奨基本α値＝", _recoBaseAlpha != null ? React.createElement("b", null, _recoBaseAlpha + "円") : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足"), (_recoBaseAlpha != null && _recoBasePick && _recoBasePick.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "（参考・件数不足）") : null),
-      React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 8 } }, "第1・第2取引の各αを候補（絶対値0/3/5・各日の推奨基本α・推奨α±1〜±5）から選び、総株数を100株刻みで2取引に配分して総当たり。探索・表示のα＝基本α部分＝浮き足〇/追加α〇の記録は浮き足加算・上乗せセレクタ分を加えた実効αで評価。" + (autoRes && autoRes.noRecoN ? " ※推奨α不明" + autoRes.noRecoN + "件は推奨α系の候補を建てない扱い（絶対値0/3/5は建てる）。" : "")),
+      React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 8 } }, "第1・第2取引の各αを候補（絶対値0/3/5・各日の推奨基本α・推奨α±1〜±5・各記録の採用α±0〜±5）から選び、総株数を100株刻みで2取引に配分して総当たり。探索・表示のα＝基本α部分＝浮き足〇/追加α〇の記録は浮き足加算・上乗せセレクタ分を加えた実効αで評価。※採用α系だけは例外＝その記録の採用α（浮き足・RN込みの合計α）＋X がそのまま実効α。" + (autoRes && autoRes.noRecoN ? " ※推奨α不明" + autoRes.noRecoN + "件は推奨α系の候補を建てない扱い（絶対値0/3/5は建てる）。" : "") + (autoRes && autoRes.noAdoptN ? " ※採用α未入力" + autoRes.noAdoptN + "件は採用α系の候補を建てない扱い。" : "")),
       _bestTxt,
       (function() {   // 選択配分のマスター表＋注記行（判定不可/推奨α不明/×見送り件数＝手動と同じ_notesLine・従来は自動配分に注記が無かった）2026-07-04c
         if (!_selCb) return null;
