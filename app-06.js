@@ -5099,7 +5099,7 @@ function EntryLogView(_ref_elv2) {
   var _uAA = useState("all"), addAlphaFil = _uAA[0], setAddAlphaFil = _uAA[1];   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
-  var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値不成立リスク」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
+  var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値同値」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
   // OS値分布の基準トグルは2026-07-13に廃止（ユーザー承認③）＝実現OS(白枠・統計/棒クリックの主基準)と生の最高OS(色棒)をヒストグラムに同時表示（案A重ね棒・濃淡逆）。α目安(7割=α)は従来どおり生固定。
@@ -5226,7 +5226,7 @@ function EntryLogView(_ref_elv2) {
   };
   // 損益（期間別）テーブル＝全銘柄合算をday/week/monthで集計。各損益セルに合計＋平均を併記・損切り(件数/平均額/率)列・行タップでその期間の取引記録を展開。「損益」タブの集計ビュー頭 2026-06-22d。損益基準は_elTotAccum（取引/銘柄別記録と同一）。2026-07-09 EP損益/H1損益列を廃し「最終損益」1列に集約（＝旧H2損益・_elHold2TotPartsの（）外=○が途切れた所で手じまい/（）内=△含む・値は不変）。
   // 期間キー/ラベル（日別=日付・週別=月曜起点の5営業日・月別=YYYY-MM）2026-07-20に共通化。
-  // 「全体損益（期間別）」(_ovPnlTbl)と「指値不成立リスク」(_fillRiskSection)の日別/週別/月別で同じ区切りを使う＝二重実装しない。
+  // 「全体損益（期間別）」(_ovPnlTbl)と「指値同値」(_fillRiskSection)の日別/週別/月別で同じ区切りを使う＝二重実装しない。
   var _granKeyOf = function(ds, g) {
     if (g === "day") return ds;
     if (g === "month") return ds.slice(0, 7);
@@ -5239,7 +5239,7 @@ function EntryLogView(_ref_elv2) {
     var mon = new Date(k + "T00:00:00"); var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
     return (mon.getMonth() + 1) + "/" + mon.getDate() + "〜" + (fri.getMonth() + 1) + "/" + fri.getDate();
   };
-  // 日別/週別/月別の切替セグメント（全体損益・指値不成立リスクで共用）2026-07-20
+  // 日別/週別/月別の切替セグメント（全体損益・指値同値で共用）2026-07-20
   var _granSeg = function(cur, setFn, keyPfx) {
     return React.createElement("div", { style: { display: "flex", marginBottom: 8 } },
       React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
@@ -5523,7 +5523,7 @@ function EntryLogView(_ref_elv2) {
     var _entDays = 0; for (var _dk in _daySet) { if (_daySet.hasOwnProperty(_dk)) _entDays++; }
     var _perDay = (_entDays > 0 && t.hold2 != null) ? Math.round(t.hold2 / _entDays) : null;   // 2026-07-09 H1基準→手じまい基準
     var _collXN = _elCollExclCountRecs(data, rs, _collScope);
-    var _friskN = _elFillRiskCountRecs(rs);   // 指値不成立リスク（OS値＝α値）の該当件数＝件数カードの副文言に併記 2026-07-20
+    var _friskN = _elFillRiskCountRecs(rs);   // 指値同値（OS値＝α値）の該当件数＝件数カードの副文言に併記 2026-07-20
     // シグナル総合タブのKPI早見だけ頻度カードを足す（8枚→9枚・3×3）2026-07-18。_freqHoli未指定（集計タブ）は従来の8枚(4×2)のまま。頻度＝母数の活動営業日÷採用αでEP到達した実日数。
     var _freqCard = null, _gridN = 4;
     if (_freqHoli) {
@@ -5544,7 +5544,7 @@ function EntryLogView(_ref_elv2) {
       _kpiCard("1日あたり損益", _perDay != null ? (_elPnlFmt(_perDay) + "/日") : "—", _perDay != null ? _elPnlColor(_perDay) : "#bbb", "手じまい基準・" + _entDays + "日エントリー")
     ].filter(Boolean)));
   };
-  // 指値不成立リスク（OS値＝α値）2026-07-20。判定は _elFillRisk（app-05）＝予定EPにちょうど到達しただけで
+  // 指値同値（OS値＝α値）2026-07-20。判定は _elFillRisk（app-05）＝予定EPにちょうど到達しただけで
   // 一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある記録。
   // 集計器（exFill=false:通常／true:指値リスク除外）＝セクションの4カード用。通常側は既存KPIと同じ配線
   // （時間かぶり除外あり）なので、除外後は「そこに指値リスク分を足しただけ」＝2値は必ず同じ母数・同じ基準で比較できる。
@@ -5570,7 +5570,7 @@ function EntryLogView(_ref_elv2) {
       style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (riskOpen ? "#0F6E56" : "#5DCAA5"), background: riskOpen ? "#0F6E56" : "#E1F5EE", color: riskOpen ? "#fff" : "#0F6E56" } },
       (riskOpen ? "✓ " : "") + "該当のみ表示（" + _riskRecs.length + "件）") : null;
     return [
-      _secH("🎯 指値不成立リスク（OS値＝α値）", "※ 予定EP（水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
+      _secH("🎯 指値同値（OS値＝α値）", "※ 予定EP（水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 } },
         _cell("該当件数", _riskRecs.length + "件", _riskRecs.length > 0 ? "#0F6E56" : "#bbb", "OS高値の最大＝採用α値"),
         _cell("通常の最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
@@ -5880,7 +5880,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { margin: "2px 0 8px", display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save }), React.createElement(_ElSpecialMinCtl, { data: data, save: save })),   // 前提損切り値＋到達率下限＋根拠別応用α下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
       _gDet ? _detCtlRow("gp_kpi", recs) : null,
       _bodyOf("gp_kpi", recs, function(_drs, _dv) { return _kpiOs(_drs, _detFilterBy(_dv, _baRecs)); }),
-      // 指値不成立リスク（OS値＝α値）2026-07-20。母数は上のKPI（_kpiOs）と同じ _addFilOf(recs) ＝「通常の最終損益」がKPIの最終損益と一致する。
+      // 指値同値（OS値＝α値）2026-07-20。母数は上のKPI（_kpiOs）と同じ _addFilOf(recs) ＝「通常の最終損益」がKPIの最終損益と一致する。
       _fillRiskSection(_addFilOf(recs), "この分析パネルの母数（v2記録のみ・上の母数トグル準拠）"),
       // 追加α母数トグル〇のとき: 推奨基本α詳細は畳んで（要約はKPIカードに常時表示）、代わりに推奨追加α詳細（加算値別の総当たり）をフル表示。×/全記録・前足浮きタブは従来どおり基本α詳細をフル表示。2026-07-03
       (!_floatMode && osDistFil === "yes")
