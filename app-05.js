@@ -4246,10 +4246,10 @@ function _elFillRisk(s, item) {
 // r={stock,date,signal,item} 版と件数版（KPI/セクション表示用）。
 function _elFillRiskRec(r) { return !!(r && r.signal && _elFillRisk(r.signal, r.item)); }
 function _elFillRiskCountRecs(recs) { var n = 0; (recs || []).forEach(function(r) { if (_elFillRiskRec(r)) n++; }); return n; }
-// 明細行用の小バッジ（該当記録に「指値注意」）。対象外はnull。
+// 明細行用の小バッジ（該当記録に「指値同値」）。対象外はnull。
 function _elFillRiskNode(r) {
   if (!_elFillRiskRec(r)) return null;
-  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値注意");
+  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値同値");
 }
 // 合計行の共通集計: EP損益(planCap/AB込み)・H1(_elHold1TotParts)・H2(_elHold2TotParts)・実現損益。
 // get={signal,alpha,cut,real?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。

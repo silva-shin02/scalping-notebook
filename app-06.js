@@ -5265,7 +5265,7 @@ function EntryLogView(_ref_elv2) {
       return c;
     };
     var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
-    // 「除外後」列の集計＝totOfの除外条件に「指値注意」(_elFillRiskRec)を足しただけ。母数・基準はtotOfと完全に同一なので同じ行で素直に比較できる 2026-07-20c
+    // 「除外後」列の集計＝totOfの除外条件に「指値同値」(_elFillRiskRec)を足しただけ。母数・基準はtotOfと完全に同一なので同じ行で素直に比較できる 2026-07-20c
     var totExOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
     // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
     var stopsOf = function(x) {
@@ -5317,20 +5317,15 @@ function EntryLogView(_ref_elv2) {
       if (!wt || wt.rate == null) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
       return otd(React.createElement("span", { style: { fontWeight: 700, color: wt.rate >= 50 ? "#1E8449" : "#B45309" } }, wt.n + "件・" + wt.rate + "%"), ex);
     };
-    // 指値注意セル: OS高値の最大＝採用α値＝予定EPを一度も上抜けなかった記録の件数（実際の指値が約定しなかった可能性）＋対 件数の率。0件は「—」2026-07-20
-    var friskCell = function(n, tot, ex) {
-      if (!n) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
-      return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
-        React.createElement("span", { style: { fontWeight: 700, color: "#0F6E56" } }, n + "件"),
-        tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(n / tot * 100) + "%") : null), ex);
-    };
-    // 除外後セル: 指値注意（OS＝α＝予定EPを一度も上抜けず）の記録を除いた最終損益＋1日平均＋差額。
-    // 差額0（該当記録が無い期間）は行を出さない＝最終損益と同額であることが一目で分かる 2026-07-20c
-    var exclCell = function(a, b, days, ex) {
+    // 指値同値セル（最終損益の右・件数と除外後損益を1欄に統合 2026-07-20d ユーザー指示）:
+    // 上＝該当件数（OS高値の最大＝採用α値＝予定EPを一度も上抜けなかった記録＝指値が約定しなかった可能性）＋対 件数の率、
+    // 下＝その記録を除いた最終損益（除外後）。差額は小書きで併記（0＝該当無しのときは出さない＝最終損益と同額が一目で分かる）。
+    // 該当0件でも除外後の金額は出す＝最終損益と同額であることを示すため（列全体が「—」だと欠測と紛らわしい）。
+    var friskCell = function(n, tot, a, b, ex) {
       var df = (a.hold2 != null && b.hold2 != null) ? (b.hold2 - a.hold2) : null;
-      return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
-        _yenNR(b.hold2, b.hold2Cnt, b.hold2Ref, b.hold2RefCnt),
-        avgDayLine(b.hold2, days),
+      return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
+        React.createElement("span", { style: { fontWeight: 800, color: n ? "#0F6E56" : "#bbb" } }, n + "件", (n && tot) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", marginLeft: 3 } }, Math.round(n / tot * 100) + "%") : null),
+        React.createElement("span", { style: { marginTop: 1 } }, _yenNR(b.hold2, b.hold2Cnt, b.hold2Ref, b.hold2RefCnt)),
         (df != null && df !== 0) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#0F6E56", fontWeight: 700, lineHeight: 1.1 } }, "差額" + (df >= 0 ? "+" : "") + df.toLocaleString()) : null), ex);
     };
     var rows = [];
@@ -5345,11 +5340,10 @@ function EntryLogView(_ref_elv2) {
         reachCell(reachOf(x), x.length),
         winTakeCell(winTakeOf(x)),
         stopCell(st),
-        friskCell(_elFillRiskCountRecs(x), x.length),
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
-        exclCell(t, totExOf(x), dn),
+        friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x)),
         realCell(t.real, t.realCnt, dn)));
-      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
         React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件" + (_thruRow.length ? "＋スルー" + _thruRow.length + "件" : "") + "）"),
         _thruRow.length ? React.createElement("div", { style: { fontSize: 9, color: "#9CA3AF", fontWeight: 600, margin: "0 0 4px" } }, "※グレーの「ス」行＝スルー記録。件数・損益の集計には入りません（表示のみ）") : null,
         _recTable(x.concat(_thruRow).sort(_byDateAsc), "full", "ovp_" + k + "_", null))));
@@ -5367,9 +5361,8 @@ function EntryLogView(_ref_elv2) {
       reachCell(reachOf(rsInc), rsInc.length, Object.assign({ fontWeight: 800 }, bt)),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
       stopCell(stopsOf(rsInc), bt),
-      friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, Object.assign({ fontWeight: 800 }, bt)),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
-      exclCell(tt, totExOf(rsInc), _ovTotDays, bt),
+      friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
       realCell(tt.real, tt.realCnt, _ovTotDays, bt));
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
@@ -5380,12 +5373,10 @@ function EntryLogView(_ref_elv2) {
           oth(React.createElement("span", null, "利確",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
           oth("損切り"),
-          oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録。実際の指値注文は約定しなかった可能性がある（実エントリー済みは対象外）" }, "指値注意",
-            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "OS＝α・EPを上抜けず"))),
           oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "最終損益",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "○が途切れた所で手じまい・( )=△含む"))),
-          oth(React.createElement("span", { title: "指値注意（OS高値の最大＝採用α＝予定EPを一度も上抜けなかった記録＝指値が約定しなかった可能性）を除いた最終損益。該当が無い期間は最終損益と同額（差額行なし）" }, "除外後",
-            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "指値注意を除く"))),
+          oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済みは対象外）。上＝該当件数、下＝その記録を除いた最終損益。該当が無い期間は最終損益と同額（差額行なし）" }, "指値同値",
+            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "上=件数／下=除外後の損益"))),
           oth("実現損益"))),
         React.createElement("tbody", null, rows),
         React.createElement("tfoot", null, totRow)));
@@ -5542,7 +5533,7 @@ function EntryLogView(_ref_elv2) {
       _gridN = 3;
     }
     return React.createElement.apply(null, ["div", { style: { display: "grid", gridTemplateColumns: "repeat(" + _gridN + ", minmax(0, 1fr))", gap: 8 } }].concat([
-      _kpiCard("件数", n + "件", "#333", "v2記録のみ" + (_collXN > 0 ? "・被り除外" + _collXN + "件" : "") + (_friskN > 0 ? "・指値注意" + _friskN + "件" : "")),
+      _kpiCard("件数", n + "件", "#333", "v2記録のみ" + (_collXN > 0 ? "・被り除外" + _collXN + "件" : "") + (_friskN > 0 ? "・指値同値" + _friskN + "件" : "")),
       _freqCard,
       _kpiCard("E到達率", reach != null ? reach + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
       _kpiCard("E後の勝率", _ewin != null ? _ewin + "%" : "—", _ewin != null ? (_ewin >= 50 ? "#1E8449" : "#B45309") : "#bbb", "勝" + _wOk + "・負" + _wNg + (_wDr ? "・分" + _wDr : "") + "／E成立" + _ewinD + "件"),
@@ -5585,8 +5576,8 @@ function EntryLogView(_ref_elv2) {
         _cell("通常の最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
         _cell("除外後", _yenNR(t2.hold2, t2.hold2Cnt, t2.hold2Ref, t2.hold2RefCnt), null, t2.hold2Cnt + "件"),
         _cell("差額", _diff == null ? _dash : _elPnlFmt(_diff), _diff == null ? "#bbb" : _elPnlColor(_diff), "刺さらなければ失う分")),
-      // 日別/週別/月別の内訳はここに持たず「全体損益（期間別）」の指値注意列＋除外後列に統合（2026-07-20c ユーザー選択）。
-      // 元表に載せることで1日平均が自動で付き、件数/指値注意/粒度トグルの二重持ちも解消。ここは一目での件数確認と対象記録の確認に絞る。
+      // 日別/週別/月別の内訳はここに持たず「全体損益（期間別）」の指値同値列＋除外後列に統合（2026-07-20c ユーザー選択）。
+      // 元表に載せることで1日平均が自動で付き、件数/指値同値/粒度トグルの二重持ちも解消。ここは一目での件数確認と対象記録の確認に絞る。
       (riskOpen && _riskRecs.length) ? _recTable(_riskRecs.slice().sort(_byDateAsc), "full", "frisk_") : null
     ];
   };
