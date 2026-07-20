@@ -4668,7 +4668,10 @@ function _elKabuLadderSimV2(props) {
   var _simHasLv = function(r) { var s = r && r.signal; return !!(s && s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))); };
   var _noLvN = 0; pool.forEach(function(r) { if (!_simHasLv(r)) _noLvN++; });   // 水準線未入力＝RN自動判定ができない記録の件数（バッジ表示）
   // 応用〇の記録は候補（swept）基本αを specialAlpha へ置換＝base-levelα。通常記録は候補のまま。実効α＝base-levelα＋浮き足加算（意味反転: 増分上乗せ→基底置換）2026-07-13。
-  var _simBaseLevel = function(r, candidateBase) { var s = r && r.signal; if (s && _elUkiYes(s)) return 0; if (s && _elSpecialUsed(s)) { var sp = _elBaseLevelAlpha(s); if (sp != null) return sp; } return candidateBase; };   // 2026-07-14g 浮き足〇＝土台α無し＝基底0（採用α＝浮き足加算のみ・候補は無視）
+  // 2026-07-20d 修正: 候補αが無い（未選択・空欄・その日の推奨α不明）ときは浮き足〇/応用〇でも **null＝建てない**。
+  // 旧＝先にuki/応用を判定していたため candidateBase=null でも 0 / specialAlpha を返して建ってしまい、「未選択は建てない」の不変条件に反していた。
+  // かつ _manTot（合計株数）はその行を数えないので、従来列の按分株数だけが小さくなり差額・通算損益が食い違っていた。
+  var _simBaseLevel = function(r, candidateBase) { if (candidateBase == null) return null; var s = r && r.signal; if (s && _elUkiYes(s)) return 0; if (s && _elSpecialUsed(s)) { var sp = _elBaseLevelAlpha(s); if (sp != null) return sp; } return candidateBase; };   // 2026-07-14g 浮き足〇＝土台α無し＝基底0（採用α＝浮き足加算のみ・候補は無視）
   // 「採用α値±X」の起点＝その記録の実際の採用α（合計α＝土台α＋浮き足加算＋RN加算）。他方式と違い _simBaseLevel／浮き足加算を通さず、採用α＋X をそのまま実効αにする（浮き足を二重に足さないため）＝この方式なら浮き足〇・応用〇の記録も初めてα掃引の対象になる。採用α未入力(null)はこの取引を建てない 2026-07-20。
   // ⚠️aiOf(r).alphaは使わない＝_elAlphaInfo(app-05:3318)がalphaVal未入力時に_gradeAlpha(難度・既定10)へフォールバックするため決してnullにならず「未入力は建てない」が効かない（2026-07-20b修正）。signal.alphaValを直読みする。
   var _adoptOf = function(r) { var s = r && r.signal; if (!s) return null; var v = s.alphaVal; return (v == null || v === "" || isNaN(Number(v))) ? null : Number(v); };
@@ -4918,11 +4921,32 @@ function _elKabuLadderSimV2(props) {
   };
   var _pnlNode = function(v, big) { return React.createElement("span", { style: { color: _elPnlColor(v), fontSize: big ? 17 : undefined } }, _elPnlFmt(v)); };
   var _pnlNode2 = function(main, ref, big) { return React.createElement("span", { style: { whiteSpace: "nowrap" } }, React.createElement("span", { style: { color: _elPnlColor(main), fontSize: big ? 17 : undefined } }, _elPnlFmt(main)), (ref ? React.createElement("span", { style: { color: "#999", fontSize: big ? 11 : 9, marginLeft: 1 } }, "（" + _elPnlFmt(main + ref) + "）") : null)); };   // （）外＋（）内併記 2026-07-03
+  // 掃引αがOS高値の最大とちょうど一致した記録の件数（＝シミュ版の「指値同値」2026-07-20d）。
+  // シミュの到達判定は _epResolve の `高値 >= α` なので、αがOS高値ちょうどでも「刺さった」扱いになる＝予定EPに触れただけの可能性を含む楽観側。
+  // 実績の指値同値(_elFillRisk・app-05)はα総当たり系に配線しない方針（同関数のコメント）なので損益からは除外せず、件数だけ出して可視化する。
+  // ただし「その記録の採用αと一致し、かつ実際に約定している(_elIsEntered)」ケースは約定した証拠があるので数えない。
+  var _fillEqN = function(calc) {
+    var n = 0;
+    (calc.rows || []).forEach(function(row) {
+      var r = row.r, s = r && r.signal; if (!s) return;
+      var osMax = _elOsMaxAll(s); if (osMax == null) return;
+      var adoptA = aiOf(r).alpha, entered = _elIsEntered(s, r.item);
+      var hit = (row.cells || []).some(function(c) {
+        if (!(c.t && c.t.add > 0 && c.t.a != null)) return false;
+        if (Math.round(c.t.a) !== Math.round(osMax)) return false;
+        return !(entered && adoptA != null && Math.round(c.t.a) === Math.round(adoptA));
+      });
+      if (hit) n++;
+    });
+    return n;
+  };
   var _notesLine = function(calc) {
     var parts = [];
     if (calc.xRecN) parts.push("×見送りのみ" + calc.xRecN + "件（建てない）");
     if (calc.indetRecN) parts.push("判定不可の取引あり" + calc.indetRecN + "件（その取引は損益に不算入）");
     if (calc.noBaseRecN) parts.push("推奨α不明" + calc.noBaseRecN + "件（その取引は建てない）");
+    var _fq = _fillEqN(calc);
+    if (_fq) parts.push("指値同値" + _fq + "件（掃引αがOS高値の最大とちょうど一致＝予定EPに触れただけで約定しなかった可能性あり・損益からは除外していません）");
     return parts.length ? React.createElement("div", { style: { fontSize: 9, color: "#B45309", marginTop: 3 } }, "※ " + parts.join("・")) : null;
   };
   // ===== 本体 =====
@@ -4932,7 +4956,7 @@ function _elKabuLadderSimV2(props) {
       [["today", "本日"], ["1w", "1週間"], ["1m", "1か月"], ["3m", "3か月"], ["6m", "6か月"], ["1y", "1年"], ["all", "全期間"]].map(function(kv) { return _pill(period === kv[0], kv[1], function() { setPeriod(kv[0]); setAutoExp(null); setMtExp(null); }, "#0F766E"); }),
       React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（" + _periodRecs.length + "件）")),
     floatMode
-      ? React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 6 } }, "母数＝浮き足の記録（" + pool.length + "件）・シミュαには各記録の浮き足加算（浮き値÷2切捨て）を上乗せ")
+      ? React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "4px 8px", marginBottom: 6 } }, "母数＝浮き足の記録（" + pool.length + "件）。浮き足〇は土台α無し＝実効α＝各記録の浮き足加算（採用加算率）＋RN自動加算のみ。※このタブでは絶対値／推奨α±X／推奨基本α値を選んでも実効αは変わりません（土台αが常に0のため）。αを掃引したいときは「採用α±X」方式を使ってください。")   // 2026-07-20d 明記（旧「浮き値÷2切捨てを上乗せ」＝加算率可変化で古く、かつ候補α＋浮き足と読めて誤解を招いた）
       : React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
           React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "分類:"),
           [["all", "全記録"], ["no", "基本α"], ["yes", "応用α"]].map(function(kv) { return _pill(addFil === kv[0], kv[1], function() { setAddFil(kv[0]); setAutoExp(null); setMtExp(null); }, "#9A3412"); }),   // mtExpも解除＝母数が変わると展開キー(oi)が別記録を指すため 2026-07-04c
@@ -4961,6 +4985,7 @@ function _elKabuLadderSimV2(props) {
       rows.forEach(function(rw) {
         if (rw.method !== "abs" && rw.method !== "reco" && rw.method !== "recobase" && rw.method !== "adopt") return;   // 未選択は除外
         var sh = _kbInt(rw.cum); if (sh == null || sh <= 0) return;
+        if (rw.method === "abs" && _kbInt(rw.off) == null) return;   // 2026-07-20d 絶対値でα欄が空＝_manTiersOfはどの記録でも建てない→プレビューにも出さない（旧: nullを0扱いして「α0円で100株」と嘘の行を出していた）
         var off = _kbInt(rw.off); off = (off == null ? 0 : off);
         var lbl = rw.method === "abs" ? ("α" + Math.max(0, off) + "円") : rw.method === "recobase" ? "推奨基本α値" : rw.method === "adopt" ? ("採用α" + (off >= 0 ? "+" : "") + off + "円") : ("推奨α" + (off >= 0 ? "+" : "") + off + "円");
         parts.push(lbl + "で" + sh + "株"); tot += sh;
@@ -4996,7 +5021,7 @@ function _elKabuLadderSimV2(props) {
         _stepBtn(function() { _stepAddOff(i, 1); }, function() { _stepAddOff(i, -1); }));
       return React.createElement(React.Fragment, null, React.createElement("span", { style: { fontSize: 10.5 } }, rw.addMethod === "abs" ? "＋" : "推奨追加α"), _addIn, React.createElement("span", { style: { fontSize: 10.5 } }, "円"), rw.addMethod === "reco" ? React.createElement("span", { style: { fontSize: 9, color: "#9A3412" } }, "（±X）") : null, _coup);
     };
-    var _manTot = 0; rows.forEach(function(x) { if (x.method !== "abs" && x.method !== "reco" && x.method !== "recobase" && x.method !== "adopt") return; var c = _kbInt(x.cum); if (c != null && c > 0) _manTot += c; });   // 手動ラダーの合計株数＝各取引の株数の総和（旧: 最大累積）2026-07-05。未選択行は数えない
+    var _manTot = 0; rows.forEach(function(x) { if (x.method !== "abs" && x.method !== "reco" && x.method !== "recobase" && x.method !== "adopt") return; if (x.method === "abs" && _kbInt(x.off) == null) return; var c = _kbInt(x.cum); if (c != null && c > 0) _manTot += c; });   // 2026-07-20d 絶対値でα欄が空の行は_manTiersOfが建てないので合計株数にも数えない（従来列の按分株数だけ膨らんで差額が食い違うのを防ぐ）   // 手動ラダーの合計株数＝各取引の株数の総和（旧: 最大累積）2026-07-05。未選択行は数えない
     var _convMan = _manTot > 0 ? _kbConvSums(_manTot) : null;   // 従来（損益データ欄と同じ理論値×総株数按分）＝差額の基準（_kbMasterTableのbaseSumと同一計算）2026-07-04
     var _uplMan = (_convMan && manCalc) ? (manCalc.sum - _convMan.sum) : null;   // 差額＝シミュ−従来（＝マスター表の合計差額と一致）
     var _uplManRef = (_convMan && manCalc) ? (manCalc.sumRef - _convMan.sumRef) : null;   // 差額の（）内側差分（0なら（）非表示）2026-07-04b
