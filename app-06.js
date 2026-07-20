@@ -5320,13 +5320,16 @@ function EntryLogView(_ref_elv2) {
     // 指値同値セル（最終損益の右・件数と除外後損益を1欄に統合 2026-07-20d ユーザー指示）:
     // 上＝該当件数（OS高値の最大＝採用α値＝予定EPを一度も上抜けなかった記録＝指値が約定しなかった可能性）＋対 件数の率、
     // 下＝その記録を除いた最終損益（除外後）。差額は小書きで併記（0＝該当無しのときは出さない＝最終損益と同額が一目で分かる）。
+    // さらにその下に1日平均（除外後の金額÷営業日数・他の損益列と同じavgDayLine）2026-07-20f ユーザー指示。
     // 該当0件でも除外後の金額は出す＝最終損益と同額であることを示すため（列全体が「—」だと欠測と紛らわしい）。
-    var friskCell = function(n, tot, a, b, ex) {
+    // 段の順: 件数(＋率) → 除外後の最終損益 → 差額 → 1日平均。
+    var friskCell = function(n, tot, a, b, days, ex) {
       var df = (a.hold2 != null && b.hold2 != null) ? (b.hold2 - a.hold2) : null;
       return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
         React.createElement("span", { style: { fontWeight: 800, color: n ? "#0F6E56" : "#bbb" } }, n + "件", (n && tot) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", marginLeft: 3 } }, Math.round(n / tot * 100) + "%") : null),
         React.createElement("span", { style: { marginTop: 1 } }, _yenNR(b.hold2, b.hold2Cnt, b.hold2Ref, b.hold2RefCnt)),
-        (df != null && df !== 0) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#0F6E56", fontWeight: 700, lineHeight: 1.1 } }, "差額" + (df >= 0 ? "+" : "") + df.toLocaleString()) : null), ex);
+        (df != null && df !== 0) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#0F6E56", fontWeight: 700, lineHeight: 1.1 } }, "差額" + (df >= 0 ? "+" : "") + df.toLocaleString()) : null,
+        avgDayLine(b.hold2, days)), ex);
     };
     var rows = [];
     keys.forEach(function(k) {
@@ -5341,7 +5344,7 @@ function EntryLogView(_ref_elv2) {
         winTakeCell(winTakeOf(x)),
         stopCell(st),
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
-        friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x)),
+        friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x), dn),
         realCell(t.real, t.realCnt, dn)));
       if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
         React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件" + (_thruRow.length ? "＋スルー" + _thruRow.length + "件" : "") + "）"),
@@ -5362,7 +5365,7 @@ function EntryLogView(_ref_elv2) {
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
       stopCell(stopsOf(rsInc), bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
-      friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
+      friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       realCell(tt.real, tt.realCnt, _ovTotDays, bt));
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
