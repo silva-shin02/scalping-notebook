@@ -4691,11 +4691,12 @@ function _elKabuTierEval(s, a, cut) {
 // evalOf(t,ctx)→ev（_elKabuTierEval or キャッシュ_evAt。base-levelα不明のtierはevalOf側で_EL_TIER_SKIPを返す＝旧ランキングの `_bl==null→continue` と同値・キャッシュ非汚染）／weightOf(t,ctx)→株数／collectCells=falseで表用cells配列を作らない（ランキングのperf維持）。旧実装とバイト等価（積算条件・丸め位置は不変）。
 var _EL_TIER_SKIP = { skip: "noalpha" };
 function _elKabuAccumTiers(tiers, evalOf, weightOf, collectCells, ctx) {
-  var recPnl = 0, recRef = 0, any = false, hasMain = false, anyStop = false, anyIndet = false, anyNoBase = false, anyX = false;
+  var recPnl = 0, recRef = 0, any = false, hasMain = false, anyStop = false, anyIndet = false, anyNoBase = false, anyX = false, anyUnreached = false;
   var cells = collectCells ? [] : null;
   for (var i = 0; i < tiers.length; i++) {
     var t = tiers[i], w = weightOf(t, ctx), ev = evalOf(t, ctx);
     if (ev.skip === "noalpha" && w > 0) anyNoBase = true;
+    if (ev.skip === "unreached" && w > 0) anyUnreached = true;   // 2026-07-20f EP未到達＝掃引αにOS1〜3で届かず建たない。従来はフラグが立たず注記にも出ないため「対象−建玉あり」の最大の塊が引き算しないと見えなかった
     if (ev.skip === "x") anyX = true;
     if (ev.built && ev.indet && w > 0) anyIndet = true;
     if (ev.built && !ev.indet && w > 0) {
@@ -4706,10 +4707,19 @@ function _elKabuAccumTiers(tiers, evalOf, weightOf, collectCells, ctx) {
     }
     if (collectCells) cells.push({ t: t, ev: ev });
   }
-  return { recPnl: recPnl, recRef: recRef, any: any, hasMain: hasMain, anyStop: anyStop, anyIndet: anyIndet, anyNoBase: anyNoBase, anyX: anyX, cells: cells };
+  return { recPnl: recPnl, recRef: recRef, any: any, hasMain: hasMain, anyStop: anyStop, anyIndet: anyIndet, anyNoBase: anyNoBase, anyX: anyX, anyUnreached: anyUnreached, cells: cells };
+}
+// 建玉ゼロの記録に「建たなかった理由」を1つだけ割り当てる（銘柄別内訳が 対象＝建玉あり＋各理由 でぴったり合うように排他化）2026-07-20f。
+// 優先順 x > noalpha > unreached: ×見送りはαもEP到達も確定したうえでの意思決定＝最も情報が確か／α不明はその方式が適用できないデータ側の問題／どちらでもなければ純粋にαへ届かなかった。
+function _elKabuNoBuildReason(acc) {
+  if (!acc || acc.any) return null;
+  if (acc.anyX) return "x";
+  if (acc.anyNoBase) return "noalpha";
+  if (acc.anyUnreached) return "unreached";
+  return "other";   // 有効な取引行が1つも無い（株数0・方式未選択）等
 }
 function _elKabuLadderCalc(recs, aiOf, tiersOf) {
-  var rows = [], sum = 0, sumRef = 0, builtRecN = 0, stopRecN = 0, indetRecN = 0, xRecN = 0, noBaseRecN = 0;
+  var rows = [], sum = 0, sumRef = 0, builtRecN = 0, stopRecN = 0, indetRecN = 0, xRecN = 0, noBaseRecN = 0, unreachedRecN = 0;
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s) return;
     var cut = aiOf(r).cutLine;
@@ -4719,16 +4729,22 @@ function _elKabuLadderCalc(recs, aiOf, tiersOf) {
     if (acc.anyIndet) indetRecN++;
     if (acc.anyX && !acc.any) xRecN++;
     if (acc.anyNoBase) noBaseRecN++;
+    var _nbr = _elKabuNoBuildReason(acc);   // 2026-07-20f 建玉ゼロの記録の理由（排他・銘柄別内訳と注記で共用）
+    if (_nbr === "unreached") unreachedRecN++;
     // recPnl: （）外を持つ取引が1つも無い記録（EP△＝△確信度エントリーで（）内のみ等）はnull＝表示「—」。従来列（_elHold1TotParts直・main null→—）と表示規約を一致 2026-07-04c。合計へは0円として算入（従来どおり）。
-    rows.push({ r: r, cells: acc.cells, recPnl: (acc.any && acc.hasMain) ? Math.round(acc.recPnl) : null, recRef: acc.any ? Math.round(acc.recRef) : 0, anyStop: acc.anyStop, anyIndet: acc.anyIndet });
+    rows.push({ r: r, cells: acc.cells, recPnl: (acc.any && acc.hasMain) ? Math.round(acc.recPnl) : null, recRef: acc.any ? Math.round(acc.recRef) : 0, anyStop: acc.anyStop, anyIndet: acc.anyIndet, built: acc.any, noBuild: _nbr });
   });
-  return { rows: rows, sum: Math.round(sum), sumRef: Math.round(sumRef), builtRecN: builtRecN, stopRecN: stopRecN, indetRecN: indetRecN, xRecN: xRecN, noBaseRecN: noBaseRecN, n: rows.length };
+  return { rows: rows, sum: Math.round(sum), sumRef: Math.round(sumRef), builtRecN: builtRecN, stopRecN: stopRecN, indetRecN: indetRecN, xRecN: xRecN, noBaseRecN: noBaseRecN, unreachedRecN: unreachedRecN, n: rows.length };
 }
 function _elKabuTierAdd(t) { return t.add; }
 // UI本体（α値タブ④）。props: recs=シミュ母数（シグナル×内訳サブタブのスコープ）/ baseRecs=推奨α算出用（銘柄全体・全シグナル＝日別ページ/記録フォームと同じ母数 2026-07-03t。旧: シグナル全体_selSigRecs）/ aiOf / floatMode。
 // 手動ラダー（取引ごとに入力方式=絶対値/推奨α±X/推奨基本α値を選択・各取引{method,off,株数}・実効αを記録ごとに算出し各取引の株数をそのまま空売り＝合計は総和・2026-07-05累積廃止）と自動配分（合計株数→第1取引α0〜推奨基本α未満×100株刻み配分を総当たり・第2取引=記録日時点の推奨α・★最適+上位ランキング）の2モード。
 function _elKabuLadderSimV2(props) {
   var recs = props.recs || [], baseRecs = props.baseRecs || recs, aiOf = props.aiOf, floatMode = !!props.floatMode;
+  // allStock＝💰損益タブの全銘柄一括モード 2026-07-20f。推奨α系（推奨α±X・推奨基本α値）は**銘柄ごと**に算出する＝各記録は自分の銘柄の、その日時点の推奨基本αを使う。
+  // ⚠️全銘柄の記録を1本のrecoFnに混ぜてはいけない: αは値幅の絶対値なので、株価水準の違う銘柄をまたいで平均した推奨αには意味がない（銘柄別シミュとも数字が合わなくなる）。
+  // この設計により「全銘柄シミュ ＝ 各銘柄シミュの合算」が成立する。絶対値/採用α±X方式は元から銘柄非依存なので影響なし。
+  var allStock = !!props.allStock;
   var _simData = props.data || null, _simCollScope = props.scopeStock;   // 時間かぶり除外用（2026-07-20b）＝他のP&L集計(_elTotAccum の excluded)と同じ線引きをシミュにも適用。data未渡しなら従来どおり無効
   var _uM = useState("manual"), mode = _uM[0], setMode = _uM[1];
   var _uF = useState("no"), addFil = _uF[0], setAddFil = _uF[1];
@@ -4741,6 +4757,7 @@ function _elKabuLadderSimV2(props) {
   var _ADD_METHODS = [{ key: "abs", label: "絶対値で追加α○円", short: "絶対値" }, { key: "reco", label: "各日の推奨追加α±X", short: "推奨追加α±X" }, { key: "recoadd", label: "各取引日の推奨追加α値", short: "推奨追加α値" }, { key: "act", label: "実追加α（記録の値）", short: "実追加α" }];   // 手動ラダーの追加α入力方式マスター（取引ごと）2026-07-06。推奨追加α系は「推奨基本αに何円足すか」の値＝任意の基本αに乗せられるが推奨基本α値との併用が前提
   var _uTt = useState("500"), total = _uTt[0], setTotal = _uTt[1];
   var _uAX = useState(null), autoExp = _uAX[0], setAutoExp = _uAX[1];
+  var _uARun = useState(null), autoRunSig = _uARun[0], setAutoRunSig = _uARun[1];   // 全銘柄モードの自動配分＝「計算する」を押した時の入力署名。現在の署名と一致する間だけ総当たりを実行（母数が銘柄数倍でタブを開くたび固まるのを防ぐ）2026-07-20f。銘柄別モードは従来どおり即時
   var _uMt = useState(null), mtExp = _uMt[0], setMtExp = _uMt[1];   // 案Aマスター表の行展開キー 2026-07-03
   var _uSo = useState("10"), stopOff = _uSo[0], setStopOff = _uSo[1];   // 手動ラダーのシミュ損切り値＝推奨基本α値+Xのオフセット（既定10＝推奨基本α+10円・空欄にすると各記録の実際の損切り値）2026-07-05
   var _kbSan = function(v) { return String(v == null ? "" : v).replace(/[０-９]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }).replace(/[ー−―‐]/g, "-").replace(/[^0-9\-]/g, ""); };
@@ -4769,19 +4786,38 @@ function _elKabuLadderSimV2(props) {
   // 日付時点推奨α（重い計算）はrefキャッシュ＝スコープ/データが実際に変わった時だけ再構築（EntryLogViewは毎レンダーで配列を作り直すため参照同一性では判定できない→内容署名で判定）。
   var recoRef = useRef(null);
   // 署名にOS/H足の実データ(_epLegs=高値/確定値/期待度)・浮き足〇も含める＝OS値や期待度だけ編集しても推奨αが再計算されるように（旧: alphaVal/addAlphaUsed/cutLine/dateのみ→OS編集で古い推奨のまま）2026-07-04c
-  var recoSig = "c" + _elAnaCutCur + "!" + baseRecs.length + "|" + baseRecs.map(function(r) { var s = r && r.signal; if (!s) return (r && r.date) || ""; return (r.date || "") + "." + (s.alphaVal != null ? s.alphaVal : "") + "." + (s.specialUsed === true ? ("s" + (s.specialAlpha != null ? s.specialAlpha : "")) : "n") + (_elUkiYes(s) ? "U" : "") + "." + (aiOf(r).cutLine != null ? aiOf(r).cutLine : "") + "." + (_epIsV2(s) ? _epLegs(s).map(function(l) { return l.h + "," + l.c + "," + (l.exp || ""); }).join("|") : ""); }).join(";");   // 前提損切り値+応用α(specialAlpha)もキーに（推奨α/base-levelが依存）2026-07-13
+  var recoSig = "c" + _elAnaCutCur + (allStock ? "A" : "") + "!" + baseRecs.length + "|" + baseRecs.map(function(r) { var s = r && r.signal; if (!s) return (r && r.date) || ""; return (allStock ? ((r.stock || "") + "@") : "") + (r.date || "") + "." + (s.alphaVal != null ? s.alphaVal : "") + "." + (s.specialUsed === true ? ("s" + (s.specialAlpha != null ? s.specialAlpha : "")) : "n") + (_elUkiYes(s) ? "U" : "") + "." + (aiOf(r).cutLine != null ? aiOf(r).cutLine : "") + "." + (_epIsV2(s) ? _epLegs(s).map(function(l) { return l.h + "," + l.c + "," + (l.exp || ""); }).join("|") : ""); }).join(";");   // 前提損切り値+応用α(specialAlpha)もキーに（推奨α/base-levelが依存）2026-07-13
   if (!recoRef.current || recoRef.current.sig !== recoSig) {
     // 推奨基本α（単一値）＝日別ページ「今日の推奨」・記録フォームと同一の算出＝v2＋算入・本日の前日まで・直近50→100→全期間で最初に値が出た窓（statusも保持＝na参考バッジ用）。
     // 旧: 生baseRecs（非v2が母数nを膨らませ到達率を希釈・不算入記録も混入）・窓なし・当日込みの_elBaseAlphaPick直当て＝日別ページとズレていた 2026-07-04c修正。
-    var _bpT = todayStr();
-    var _bpAll = baseRecs.filter(function(r) { return r && r.date && r.date < _bpT && _epIsV2(r.signal) && _elInclTotal(r.signal); }).sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
-    var _bpLastN = function(n) { return _bpAll.length > n ? _bpAll.slice(_bpAll.length - n) : _bpAll.slice(); };
-    var _bpCand = [_bpLastN(_EL_PERIOD_COUNTS[1]), _bpLastN(_EL_PERIOD_COUNTS[2]), _bpAll];
-    var _bpPick = null;
-    for (var _bpI = 0; _bpI < _bpCand.length && !_bpPick; _bpI++) { var _bpA = _elBaseAlphaA(_bpCand[_bpI], aiOf); if (_bpA && _bpA.pick && _bpA.pick.alpha != null) _bpPick = _bpA.pick; }
-    recoRef.current = { sig: recoSig, fn: _elKabuRecoBaseFn(baseRecs, aiOf), basePick: _bpPick };
+    // 本日時点の推奨基本α（表示用・日別ページ「今日の推奨」と同一基準＝前日まで・直近50→100→全期間で最初に値が出た窓）。銘柄別/全銘柄で共用するため関数化 2026-07-20f
+    var _todayPickOf = function(rs) {
+      var _bpT = todayStr();
+      var _bpAll = (rs || []).filter(function(r) { return r && r.date && r.date < _bpT && _epIsV2(r.signal) && _elInclTotal(r.signal); }).sort(function(a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+      var _bpLastN = function(n) { return _bpAll.length > n ? _bpAll.slice(_bpAll.length - n) : _bpAll.slice(); };
+      var _bpCand = [_bpLastN(_EL_PERIOD_COUNTS[1]), _bpLastN(_EL_PERIOD_COUNTS[2]), _bpAll];
+      var _bpPick = null;
+      for (var _bpI = 0; _bpI < _bpCand.length && !_bpPick; _bpI++) { var _bpA = _elBaseAlphaA(_bpCand[_bpI], aiOf); if (_bpA && _bpA.pick && _bpA.pick.alpha != null) _bpPick = _bpA.pick; }
+      return _bpPick;
+    };
+    if (allStock) {
+      // 銘柄ごとにrecoFnと本日時点のpickを持つ。baseRecsはその銘柄の全記録（全シグナル）＝日別ページ/記録フォームと同じ母数。
+      var _byStk = {};
+      baseRecs.forEach(function(r) { var st = r && r.stock; if (!st) return; (_byStk[st] = _byStk[st] || []).push(r); });
+      var _fnByStk = {}, _pickByStk = {};
+      Object.keys(_byStk).forEach(function(st) { _fnByStk[st] = _elKabuRecoBaseFn(_byStk[st], aiOf); _pickByStk[st] = _todayPickOf(_byStk[st]); });
+      recoRef.current = { sig: recoSig, fn: null, basePick: null, fnByStock: _fnByStk, pickByStock: _pickByStk };
+    } else {
+      recoRef.current = { sig: recoSig, fn: _elKabuRecoBaseFn(baseRecs, aiOf), basePick: _todayPickOf(baseRecs), fnByStock: null, pickByStock: null };
+    }
   }
   var recoOf = recoRef.current.fn;
+  // 記録→その日時点の推奨基本α。全銘柄モードは自分の銘柄のrecoFnを引く（銘柄の記録が無い/薄い＝null＝推奨α系の取引は建てない）2026-07-20f
+  var _recoOfRec = function(r) {
+    if (!allStock) return recoOf(r.date);
+    var f = (r && r.stock) ? recoRef.current.fnByStock[r.stock] : null;
+    return f ? f(r.date) : null;
+  };
   // この銘柄の推奨基本α（単一値・日別ページ「今日の推奨」と同一基準）。表示＋自動配分の第1取引α上限（推奨基本α未満）に使用。recoRefに同梱キャッシュ。2026-07-03→2026-07-04c基準統一
   var _recoBasePick = recoRef.current.basePick;
   var _recoBaseAlpha = (_recoBasePick && _recoBasePick.alpha != null) ? _recoBasePick.alpha : null;
@@ -4812,7 +4848,7 @@ function _elKabuLadderSimV2(props) {
   // 注: state のフィールド名は歴史的に `cum` だが意味は「この取引の株数」（累積ではない）2026-07-05。
   var _manTiersOf = function(r) {
     var reco;   // recoOf(r.date)は必要時のみ算出（キャッシュ済）。undefined=未算出
-    var _recoAt = function() { if (reco === undefined) reco = recoOf(r.date); return reco; };
+    var _recoAt = function() { if (reco === undefined) reco = _recoOfRec(r); return reco; };
     var _uki = _elUkiAdd(r.signal), _rn = _elRnAdd(r.signal);   // 浮き足加算・RNまたぎ加算＝記録固有・常時（取引ごとオプションの対象外）2026-07-06／RNは2026-07-20b追加。合算は_simAddOf(r)と同値
     return rows.map(function(rw) {
       var sh = _kbInt(rw.cum); if (sh == null || sh <= 0) return null;   // この取引の株数（そのまま）
@@ -4836,12 +4872,12 @@ function _elKabuLadderSimV2(props) {
   var _stopOffN = _kbInt(stopOff);   // 損切りオフセット（null=空欄）
   var _simCutOf = function(r) {
     if (_stopOffN == null) return aiOf(r).cutLine;
-    var rb = recoOf(r.date);
+    var rb = _recoOfRec(r);   // 2026-07-20f 全銘柄モードは銘柄ごとの推奨α（recoOfは全銘柄モードでnull）
     if (rb == null) return aiOf(r).cutLine;
     var c = rb + _stopOffN;
     return c >= 1 ? c : 1;
   };
-  var _simCutInfo = function(r) { var c = _simCutOf(r); var ov = (_stopOffN != null && recoOf(r.date) != null); return { cut: c, ov: ov }; };   // ov=推奨基本α+オフセットで上書き中か（表示色用）
+  var _simCutInfo = function(r) { var c = _simCutOf(r); var ov = (_stopOffN != null && _recoOfRec(r) != null); return { cut: c, ov: ov }; };   // ov=推奨基本α+オフセットで上書き中か（表示色用）
   var _aiSim = function(r) { return { alpha: aiOf(r).alpha, cutLine: _simCutOf(r) }; };
   var manCalc = (mode === "manual" && pool.length) ? _elKabuLadderCalc(pool, _aiSim, _manTiersOf) : null;   // 手動は損切りオフセットを反映（_aiSim）2026-07-05
   // ===== 自動配分: 第1・第2取引の各αを候補セット（絶対値0/3/5・各日の推奨基本α・推奨α±1〜±5・各記録の採用α±0〜±5）から選び、総株数を100株刻みで2取引に配分して総当たり 2026-07-07→2026-07-20採用α系を追加 =====
@@ -4867,11 +4903,14 @@ function _elKabuLadderSimV2(props) {
   };
   var _candLabel = function(cand) { if (cand.kind === "abs") return "α" + cand.v + "円"; if (cand.kind === "adopt") return cand.x === 0 ? "採用α" : ("採用α" + (cand.x > 0 ? "+" + cand.x : cand.x)); if (cand.x === 0) return "推奨α"; return "推奨α" + (cand.x > 0 ? "+" + cand.x : cand.x); };
   var totalN = (function() { var t = _kbInt(total); if (t == null || t <= 0) return 0; return Math.max(100, Math.round(t / 100) * 100); })();
+  // 自動配分の入力署名＝これが変われば結果は無効＝再度「計算する」を要求（全銘柄モードのみ）。銘柄別は_autoReady常時trueで従来の即時計算のまま。
+  var _autoSig = totalN + "|" + pool.length + "|" + period + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + (exFlags.lc ? 1 : 0) + (exFlags.rn ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length;
+  var _autoReady = !allStock || autoRunSig === _autoSig;
   var autoRes = null;
-  if (mode === "auto" && totalN > 0 && pool.length) {
+  if (mode === "auto" && totalN > 0 && pool.length && _autoReady) {
     var _evCache = pool.map(function() { return {}; });
     var _evAt = function(pi, a) { var m = _evCache[pi]; if (!m.hasOwnProperty(a)) m[a] = _elKabuTierEval(pool[pi].signal, a, aiOf(pool[pi]).cutLine); return m[a]; };
-    var _recoAs = pool.map(function(r) { return recoOf(r.date); });
+    var _recoAs = pool.map(function(r) { return _recoOfRec(r); });
     var _exAs = pool.map(function(r) { return _simAddOf(r); });   // 記録固有の上乗せ（浮き足加算＋追加α上乗せ）＝候補の基本αにこれを足して実効α評価 2026-07-06
     var _adoptAs = pool.map(function(r) { return _adoptOf(r); });   // その記録の採用α（合計α）＝採用α系候補の起点 2026-07-20
     // tier積算コア(_elKabuAccumTiers)へ渡す評価/株数コールバック（ループ外で1回定義＝ホットループでクロージャを再生成しない・perf維持 2026-07-14 系統3）。ctx=pool index。base-levelα不明は_EL_TIER_SKIP＝旧 `_bl==null→continue` と同値（_evAt未呼出でキャッシュ非汚染）。
@@ -4905,7 +4944,7 @@ function _elKabuLadderSimV2(props) {
     _combos.sort(function(x, y) { return (y.sum - x.sum) || (x.tranches.length - y.tranches.length) || (_candIdx[x.tranches[0].cand.key] - _candIdx[y.tranches[0].cand.key]); });
     autoRes = { combos: _combos, best: _combos[0] || null, noRecoN: _noRecoN, noAdoptN: _noAdoptN, comboN: _combos.length };
   }
-  var _autoTiersOfFor = function(cb) { return function(r) { var _ex = _simAddOf(r), _rb = recoOf(r.date), _ad = _adoptOf(r), _u = _elUkiAdd(r.signal); return (cb.tranches || []).map(function(tr) { var _isAd = (tr.cand.kind === "adopt"); var _a = _candEffAlpha(tr.cand, r, _rb, _ex, _ad); return { a: _a, add: tr.shares, _uki: (_isAd ? 0 : _u), _rn: (_isAd || _a == null) ? 0 : Math.max(0, _a - _simBaseLevel(r, _candBaseFromReco(tr.cand, _rb)) - _u) }; }); }; };   // _rn は表示用＝実効αから基底α・浮き足を引いた自動RN分 2026-07-20c   // 総当たり(_rankEvalOf)と同じ_candEffAlphaを共有＝ランキングとマスター表が一致 2026-07-07→応用α化 2026-07-13→採用α系追加 2026-07-20
+  var _autoTiersOfFor = function(cb) { return function(r) { var _ex = _simAddOf(r), _rb = _recoOfRec(r), _ad = _adoptOf(r), _u = _elUkiAdd(r.signal); return (cb.tranches || []).map(function(tr) { var _isAd = (tr.cand.kind === "adopt"); var _a = _candEffAlpha(tr.cand, r, _rb, _ex, _ad); return { a: _a, add: tr.shares, _uki: (_isAd ? 0 : _u), _rn: (_isAd || _a == null) ? 0 : Math.max(0, _a - _simBaseLevel(r, _candBaseFromReco(tr.cand, _rb)) - _u) }; }); }; };   // _rn は表示用＝実効αから基底α・浮き足を引いた自動RN分 2026-07-20c   // 総当たり(_rankEvalOf)と同じ_candEffAlphaを共有＝ランキングとマスター表が一致 2026-07-07→応用α化 2026-07-13→採用α系追加 2026-07-20
   // ===== 表示部品 =====
   var _pill = function(on, label, onClick, color) {
     return React.createElement("button", { key: label, onClick: onClick,
@@ -4997,6 +5036,62 @@ function _elKabuLadderSimV2(props) {
     return { main: p.main != null ? Math.round(p.main * nSh / 100) : null, ref: p.ref != null ? Math.round(p.ref * nSh / 100) : null };
   };
   var _kbConvSums = function(nSh) { var m = 0, rf = 0; pool.forEach(function(r) { var p = _kbConvParts(r, nSh); if (p.main != null) m += p.main; if (p.ref != null) rf += p.ref; }); return { sum: Math.round(m), sumRef: Math.round(rf) }; };
+  // 銘柄別の内訳（全銘柄モード）2026-07-20f: 合計が1〜2銘柄に引っ張られていないかを見る＋「建たなかった理由」を銘柄ごとに出す。
+  // 同じ「16/21件」でも、EP未到達なら“αが高すぎる＝下げれば拾える”、推奨α不明なら“その銘柄の記録がまだ薄いだけ＝ラダーの問題ではない”＝打ち手が正反対になるため。
+  // 従来Σは_kbConvSumsと同じくpool全記録（シミュで建たなかった記録も含む）＝「実際の採用αでnShares建てていたら」の基準。合計行はシミュ合計（calc.sum）と一致する。
+  var _KB_NB = [["unreached", "未到達", "#B45309", "#FFF7ED", "#FED7AA"], ["x", "×見送り", "#1E8449", "#F0FDF4", "#BBF7D0"], ["noalpha", "α不明", "#6B7280", "#F3F4F6", "#D1D5DB"], ["other", "取引なし", "#6B7280", "#F3F4F6", "#D1D5DB"]];
+  var _kbStockTable = function(calc, nShares) {
+    if (!calc || !calc.rows.length || !(nShares > 0)) return null;
+    var by = {}, order = [];
+    calc.rows.forEach(function(row) {
+      var st = (row.r && row.r.stock) || "（銘柄なし）";
+      if (!by[st]) { by[st] = { stock: st, n: 0, built: 0, sim: 0, simHas: false, conv: 0, convHas: false, unreached: 0, x: 0, noalpha: 0, other: 0 }; order.push(st); }
+      var g = by[st];
+      g.n++;
+      if (row.built) { g.built++; if (row.recPnl != null) { g.sim += row.recPnl; g.simHas = true; } }
+      else if (row.noBuild) g[row.noBuild]++;
+      var cp = _kbConvParts(row.r, nShares);
+      if (cp.main != null) { g.conv += cp.main; g.convHas = true; }
+    });
+    var list = order.map(function(st) { return by[st]; });
+    list.sort(function(a, b) { return (b.simHas ? b.sim : -Infinity) - (a.simHas ? a.sim : -Infinity) || b.n - a.n; });   // シミュΣの大きい順＝寄与の大きい銘柄が上
+    var _amt = function(v, has, w) { return has ? React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: w || 800 } }, _elPnlFmt(Math.round(v))) : React.createElement("span", { style: { color: "#ccc" } }, "—"); };
+    var _nbCell = function(g) {
+      var chips = _KB_NB.filter(function(k) { return g[k[0]] > 0; }).map(function(k) {
+        return React.createElement("span", { key: k[0], title: k[0] === "unreached" ? "掃引αにOS1〜3で届かなかった＝αを下げれば拾える可能性" : k[0] === "x" ? "×見送り宣言後の到達＝実際には降りているので建てない" : k[0] === "noalpha" ? "その銘柄の推奨αが出せない（記録が薄い）／採用α未入力＝その取引は建てない" : "有効な取引行が無い（株数0・方式未選択）",
+          style: { fontSize: 9, fontWeight: 700, color: k[2], background: k[3], border: "1px solid " + k[4], borderRadius: 4, padding: "0 5px", marginRight: 3, whiteSpace: "nowrap" } }, k[1] + g[k[0]]);
+      });
+      return chips.length ? React.createElement("span", null, chips) : React.createElement("span", { style: { color: "#ccc" } }, "—");
+    };
+    var tot = { n: 0, built: 0, sim: 0, conv: 0 };
+    list.forEach(function(g) { tot.n += g.n; tot.built += g.built; if (g.simHas) tot.sim += g.sim; if (g.convHas) tot.conv += g.conv; });
+    var rows2 = list.map(function(g) {
+      var d = (g.simHas || g.convHas) ? (g.sim - g.conv) : null;
+      return React.createElement("tr", { key: g.stock, style: { background: (g.simHas && g.sim < 0) ? "#FEF2F2" : "transparent" } },
+        _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: g.built ? "#334155" : "#94A3B8" } }, g.stock), { textAlign: "left", paddingLeft: 8 }),
+        _elv2Td(g.n + "件"),
+        _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: g.built ? "#0F766E" : "#94A3B8" } }, g.built + "件")),
+        _elv2Td(_nbCell(g), { textAlign: "left" }),
+        _elv2Td(_amt(g.sim, g.simHas)),
+        _elv2Td(_amt(g.conv, g.convHas, 700)),
+        _elv2Td(d == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _amt(d, true)));
+    });
+    return React.createElement("div", { style: { marginTop: 10 } },
+      React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "銘柄別の内訳 〜合計が1銘柄に引っ張られていないか〜"),
+      React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+        React.createElement("thead", null, React.createElement("tr", null, ["銘柄", "対象", "建った", "建たなかった理由", "シミュΣ", "従来Σ", "差額"].map(function(h, i) { return _elv2Th(h, i); }))),
+        React.createElement("tbody", null, rows2),
+        React.createElement("tfoot", null, React.createElement("tr", { style: { background: "#FFFBF5" } },
+          _elv2Td(React.createElement("b", null, "合計"), { textAlign: "left", paddingLeft: 8, borderTop: "2px solid #E4DFD7" }),
+          _elv2Td(tot.n + "件", { borderTop: "2px solid #E4DFD7" }),
+          _elv2Td(React.createElement("b", { style: { color: "#0F766E" } }, tot.built + "件"), { borderTop: "2px solid #E4DFD7" }),
+          _elv2Td("", { borderTop: "2px solid #E4DFD7" }),
+          _elv2Td(_amt(tot.sim, true), { borderTop: "2px solid #E4DFD7" }),
+          _elv2Td(_amt(tot.conv, true, 700), { borderTop: "2px solid #E4DFD7" }),
+          _elv2Td(_amt(tot.sim - tot.conv, true), { borderTop: "2px solid #E4DFD7" }))))),
+      React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 } },
+        "対象＝建った＋建たなかった理由の各件数（理由は1記録に1つ・×見送り＞α不明＞未到達の優先順）。従来Σはシミュで建たなかった記録も含む全対象＝「実際の採用αで" + nShares + "株建てていたら」の基準なので、建った件数が少ない銘柄ほど差額は不利に出る。"));
+  };
   var _kbMasterTable = function(cfgCalc, cfgLabel, nShares, cutOf) {
     if (!cfgCalc || !(nShares > 0)) return null;
     var _cutOf = cutOf || function(r) { return { cut: aiOf(r).cutLine, ov: false }; };   // シミュ損切列の値（{cut,ov}）。省略時＝各記録の実際の損切り値 2026-07-05
@@ -5017,7 +5112,7 @@ function _elKabuLadderSimV2(props) {
       var _addAs = [];
       if (_perTx) { (row.cells || []).forEach(function(c) { var v = c.t && c.t._addA; if (v != null && v > 0 && _addAs.indexOf(v) < 0) _addAs.push(v); }); _addAs.sort(function(p, q) { return p - q; }); }   // 取引ごとに異なりうる追加αの実値（>0のみ・昇順）
       else { var _g = _simAddOf(r) - _elUkiAdd(s) - _elRnAdd(s); if (_g > 0) _addAs.push(_g); }   // 自動配分＝グローバルaddOn（据え置き・現行は_simAddOf=浮き足+RNなので常に0）。_exU/_exRと切り離す＝採用α方式で0でも浮き足/RNを「追」に誤表示しない 2026-07-20b
-      mrecs.push({ oi: i, r: r, s: s, a: aiOf(r).alpha, recoA: recoOf(r.date), simA: _sa, simUki: _exU, simRn: _exR, simAddOn: _addAs, simCut: _cc.cut, simCutOv: _cc.ov, cfgPnl: row.recPnl, cfgRef: row.recRef, basePnl: _cv.main, baseRef: _cv.ref, cells: row.cells, anyStop: row.anyStop });
+      mrecs.push({ oi: i, r: r, s: s, a: aiOf(r).alpha, recoA: _recoOfRec(r), simA: _sa, simUki: _exU, simRn: _exR, simAddOn: _addAs, simCut: _cc.cut, simCutOv: _cc.ov, cfgPnl: row.recPnl, cfgRef: row.recRef, basePnl: _cv.main, baseRef: _cv.ref, cells: row.cells, anyStop: row.anyStop });
     });
     mrecs.sort(function(x, y) { var dx = (x.r.date || "") + (x.s.time || ""), dy = (y.r.date || "") + (y.s.time || ""); return dx < dy ? 1 : dx > dy ? -1 : 0; });
     var _sumRow = function(k) { return React.createElement("tr", { key: k, style: { background: "#E1F5EE" } },
@@ -5072,6 +5167,7 @@ function _elKabuLadderSimV2(props) {
   };
   var _notesLine = function(calc) {
     var parts = [];
+    if (calc.unreachedRecN) parts.push("EP未到達" + calc.unreachedRecN + "件（掃引αにOS1〜3で届かず建たない）");   // 2026-07-20f 追加＝「対象−建玉あり」の最大の塊。従来はフラグが無く注記に出ていなかった
     if (calc.xRecN) parts.push("×見送りのみ" + calc.xRecN + "件（建てない）");
     if (calc.indetRecN) parts.push("判定不可の取引あり" + calc.indetRecN + "件（その取引は損益に不算入）");
     if (calc.noBaseRecN) parts.push("推奨α不明" + calc.noBaseRecN + "件（その取引は建てない）");
@@ -5080,7 +5176,12 @@ function _elKabuLadderSimV2(props) {
     return parts.length ? React.createElement("div", { style: { fontSize: 9, color: "#B45309", marginTop: 3 } }, "※ " + parts.join("・")) : null;
   };
   // ===== 本体 =====
+  var _stkN = (function() { if (!allStock) return 0; var m = {}; pool.forEach(function(r) { if (r && r.stock) m[r.stock] = 1; }); return Object.keys(m).length; })();
   var head = React.createElement(React.Fragment, null,
+    allStock ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "母数:"),
+      React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F6E56", background: "#E4EFEC", borderRadius: 5, padding: "1px 8px" } }, _stkN + "銘柄・" + pool.length + "件"),
+      React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "全銘柄・全シグナルの記録に同じラダーを一律適用")) : null,
     React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "対象期間:"),
       [["today", "本日"], ["1w", "1週間"], ["1m", "1か月"], ["3m", "3か月"], ["6m", "6か月"], ["1y", "1年"], ["all", "全期間"]].map(function(kv) { return _pill(period === kv[0], kv[1], function() { setPeriod(kv[0]); setAutoExp(null); setMtExp(null); }, "#0F766E"); }),
@@ -5203,6 +5304,7 @@ function _elKabuLadderSimV2(props) {
           _card("勝率", _winRate == null ? "—" : React.createElement("b", { style: { color: _winRate >= 0.5 ? "#1E8449" : "#B45309" } }, Math.round(_winRate * 100) + "%"), "建玉あり中プラス"),
           _card("損切り率", _stopRate == null ? "—" : React.createElement("b", { style: { color: _stopRate <= 0.3 ? "#1E8449" : _stopRate <= 0.5 ? "#B45309" : "#C0392B" } }, Math.round(_stopRate * 100) + "%"), manCalc.stopRecN + "件／建玉あり"),
           _card("1株あたり損益", _perShare == null ? "—" : React.createElement("b", { style: { color: _elPnlColor(_perShare) } }, (_perShare >= 0 ? "+" : "") + _perShare + "円"), "通算÷" + _manTot + "株")),
+        allStock ? _kbStockTable(manCalc, _manTot) : null,
         _kbMasterTable(manCalc, "シミュレーション・" + _manTot + "株", _manTot, _simCutInfo),
         _notesLine(manCalc)) : null);
   } else {
@@ -5233,6 +5335,12 @@ function _elKabuLadderSimV2(props) {
     }
     var _selCb = null;
     if (autoRes) { if (autoExp && autoRes.combos) { for (var _ci = 0; _ci < autoRes.combos.length; _ci++) { if (autoRes.combos[_ci].sig === autoExp) { _selCb = autoRes.combos[_ci]; break; } } } if (!_selCb) _selCb = autoRes.best; }
+    // 全銘柄モードは総当たりが母数×銘柄数ぶん重いので「計算する」を押した時だけ走らせる（入力を変えると再度ボタンに戻る）2026-07-20f。銘柄別モードは_autoReady常時true＝従来どおり即時。
+    var _autoGate = (allStock && !_autoReady) ? React.createElement("div", { style: { border: "1px dashed #D1D5DB", borderRadius: 10, padding: "16px 12px", textAlign: "center", marginBottom: 8 } },
+      React.createElement("button", { type: "button", disabled: !(totalN > 0 && pool.length), onClick: function() { setAutoRunSig(_autoSig); setAutoExp(null); },
+        style: { padding: "7px 20px", fontSize: 12, fontWeight: 800, borderRadius: 8, cursor: (totalN > 0 && pool.length) ? "pointer" : "default", border: "1px solid #0F766E", background: (totalN > 0 && pool.length) ? "#0F766E" : "#CBD5E1", color: "#fff" } }, "総当たりを計算する"),
+      React.createElement("div", { style: { fontSize: 10.5, color: "#888780", marginTop: 8 } }, "候補25種 × " + totalN + "株の配分 × 母数" + pool.length + "件"),
+      React.createElement("div", { style: { fontSize: 9.5, color: "#B4B2A9", marginTop: 3 } }, "全銘柄ぶんの総当たりは重いので、ボタンを押したときだけ計算します（数秒かかることがあります）。株数・期間・除外を変えると再計算が必要です")) : null;
     body = React.createElement(React.Fragment, null,
       React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700 } }, "合計"),
@@ -5240,18 +5348,34 @@ function _elKabuLadderSimV2(props) {
           React.createElement("input", { type: "text", inputMode: "numeric", value: total, onChange: function(e) { setTotal(e.target.value); setAutoExp(null); }, style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
           _stepBtn(function() { _stepTotal(100); }, function() { _stepTotal(-100); })),
         React.createElement("span", { style: { fontSize: 11 } }, "株（100株刻み" + (totalN ? "・実効" + totalN + "株" : "") + "）")),
-      React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: "#0F766E", marginBottom: 6 } }, "推奨基本α値＝", _recoBaseAlpha != null ? React.createElement("b", null, _recoBaseAlpha + "円") : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足"), (_recoBaseAlpha != null && _recoBasePick && _recoBasePick.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "（参考・件数不足）") : null),
+      allStock
+        ? (function() {   // 全銘柄モード＝推奨αは銘柄ごと。1本の数字にまとめると意味が壊れるので銘柄別チップで出す 2026-07-20f
+            var _pbs = recoRef.current.pickByStock || {};
+            var _ks = Object.keys(_pbs).sort();
+            return React.createElement("div", { style: { marginBottom: 6 } },
+              React.createElement("div", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E", marginBottom: 3 } }, "各銘柄の推奨基本α（本日時点）"),
+              React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
+                _ks.length ? _ks.map(function(st) {
+                  var p = _pbs[st], a = (p && p.alpha != null) ? p.alpha : null, na = !!(p && p.status === "na");
+                  return React.createElement("span", { key: st, style: { fontSize: 10.5, borderRadius: 5, padding: "1px 8px", whiteSpace: "nowrap", border: "1px solid " + (a == null ? "#D1D5DB" : na ? "#FAC775" : "#99F6E4"), background: a == null ? "#F3F4F6" : na ? "#FAEEDA" : "#F0FDFA", color: a == null ? "#888780" : na ? "#854F0B" : "#0F6E56" } },
+                    st + " ", a == null ? "データ不足" : React.createElement("b", null, a + "円"), na ? React.createElement("span", { style: { fontSize: 9, marginLeft: 3 } }, "参考") : null);
+                }) : React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "—")),
+              React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginTop: 3 } }, "推奨α系（推奨α±X・推奨基本α値）は各記録が自分の銘柄のこの値（記録日時点）を使います＝銘柄をまたいで平均しません。データ不足の銘柄はその取引を建てません。"));
+          })()
+        : React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: "#0F766E", marginBottom: 6 } }, "推奨基本α値＝", _recoBaseAlpha != null ? React.createElement("b", null, _recoBaseAlpha + "円") : React.createElement("span", { style: { color: "#94A3B8" } }, "データ不足"), (_recoBaseAlpha != null && _recoBasePick && _recoBasePick.status === "na") ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", marginLeft: 4 } }, "（参考・件数不足）") : null),
       React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 8 } }, "第1・第2取引の各αを候補（絶対値0/3/5・各日の推奨基本α・推奨α±1〜±5・各記録の採用α±0〜±5）から選び、総株数を100株刻みで2取引に配分して総当たり。探索・表示のα＝基本α部分＝浮き足〇/追加α〇の記録は浮き足加算・上乗せセレクタ分を加えた実効αで評価。※採用α系だけは例外＝その記録の採用α（浮き足・RN込みの合計α）＋X がそのまま実効α。" + (autoRes && autoRes.noRecoN ? " ※推奨α不明" + autoRes.noRecoN + "件は推奨α系の候補を建てない扱い（絶対値0/3/5は建てる）。" : "") + (autoRes && autoRes.noAdoptN ? " ※採用α未入力" + autoRes.noAdoptN + "件は採用α系の候補を建てない扱い。" : "")),
-      _bestTxt,
-      (function() {   // 選択配分のマスター表＋注記行（判定不可/推奨α不明/×見送り件数＝手動と同じ_notesLine・従来は自動配分に注記が無かった）2026-07-04c
+      _autoGate,
+      _autoGate ? null : _bestTxt,
+      _autoGate ? null : (function() {   // 選択配分のマスター表＋注記行（判定不可/推奨α不明/×見送り件数＝手動と同じ_notesLine・従来は自動配分に注記が無かった）2026-07-04c
         if (!_selCb) return null;
         var _selCalc = _elKabuLadderCalc(pool, aiOf, _autoTiersOfFor(_selCb));
         return React.createElement(React.Fragment, null,
+          allStock ? _kbStockTable(_selCalc, totalN) : null,
           _kbMasterTable(_selCalc, (_selCb === (autoRes && autoRes.best) ? "★最適配分・" : "選択配分・") + totalN + "株", totalN),
           _notesLine(_selCalc));
       })(),
-      _rankRows.length ? _elv2Table(["順位", "配分（α方式×株数）", "建玉あり", "損切り", "通算損益", ""], _rankRows)
-        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 11 } }, "合計株数を入力してください"));
+      _autoGate ? null : (_rankRows.length ? _elv2Table(["順位", "配分（α方式×株数）", "建玉あり", "損切り", "通算損益", ""], _rankRows)
+        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 11 } }, "合計株数を入力してください")));
   }
   var _periodLbl = ({ today: "本日", "1w": "1週間", "1m": "1か月", "3m": "3か月", "6m": "6か月", "1y": "1年", all: "全期間" })[period] || "全期間";
   var _targetList = React.createElement("div", { style: { marginBottom: 10 } },   // 期間で絞った対象取引をまず表示（＝シミュの母数）2026-07-03q
@@ -5364,7 +5488,7 @@ function EntryLogView(_ref_elv2) {
   // 未達タブのバッジ件数は、選択中シグナルの母数で数える（シグナル軸の下で _missCnt を定義 2026-07-01）。
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
-    ? [["sum", "📊 集計"], ["period", "📆 期間"]]
+    ? [["sum", "📊 集計"], ["period", "📆 期間"], ["sim", "🧮 シミュ"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   var _SIG_TABS = [["uki", "⚡ 浮き足%"], ["rn", "🔢 RNまたぎ"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RNまたぎ改名 2026-07-19
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
@@ -6519,6 +6643,16 @@ function EntryLogView(_ref_elv2) {
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）", _detCtl("dp_exec", _selSigRecsScoped)), _detBody("dp_exec", _selSigRecsScoped, function(_drs) { return _elExecGapSectionV2(_drs, _ai); }),
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）", _detCtl("dp_memo", _selSigRecsScoped)), _detBody("dp_memo", _selSigRecsScoped, function(_drs) { return _elMemoPerfSectionV2(_drs, _ai); })
     ]) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）");
+  } else if (view === "sim" && _isAllStock) {
+    // 🧮 全銘柄一括シミュ 2026-07-20f（💰損益タブ・期間の右）: 銘柄を問わず全記録に同じラダーを当てる。母数＝_v2recsAll（全銘柄・全シグナルのv2算入記録）＝シグナル選択も内訳(浮き足/その他)タブも持たない＝文字どおり一括。浮き足は除外チェックで扱う。
+    // baseRecs＝allRecs（全銘柄・全期間）を渡し、コンポーネント側が**銘柄ごとに**推奨αを算出する（銘柄別シミュの baseRecs=allRecs.filter(その銘柄) と同じ母数を銘柄数ぶん持つ形）。
+    // scopeStock=null＝時間かぶり除外は銘柄横断＝💰損益タブの他の集計と同じ線引き（銘柄別タブだけが同一銘柄内限定）。
+    _tabBody = _v2recsAll.length ? _cardify([
+      React.createElement("div", { style: { background: "#F0FDFA", border: "1px solid #99F6E4", borderLeft: "4px solid #0F766E", borderRadius: 11, padding: "8px 12px", marginBottom: 6 } },
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#0F766E" } }, "株数シミュ ― 全銘柄一括の空売りバックテスト"),
+        React.createElement("div", { style: { fontSize: 9.5, color: "#0F6E56", marginTop: 3, lineHeight: 1.5 } }, "同じラダーを全銘柄・全シグナルに一律で適用したら通算いくらだったか。推奨α系の方式は各記録が自分の銘柄の推奨αを使うので、銘柄別タブのシミュを合算した値と一致します。")),
+      _elCard(React.createElement(_elKabuLadderSimV2, { recs: _v2recsAll, baseRecs: allRecs, aiOf: _ai, data: data, scopeStock: null, allStock: true }))])
+      : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
   } else if (view === "sim") {
     // 🧮 シミュタブ 2026-07-03: 株数シミュ（建て株数ラダーの空売りバックテスト）をα値タブ④から独立タブへ昇格（ユーザー決定＝案A・深掘りの右）。シミュ母数＝内訳スコープ（前足浮き/その他）・推奨αの算出は銘柄全体（全シグナル）＝日別ページ/記録フォームと一致 2026-07-03t（旧: baseRecs=_selSigRecsでシグナル別→値ズレのため銘柄全体へ）。
     _tabBody = _selSigRecs.length ? _cardify([
