@@ -1105,6 +1105,12 @@ function App() {
     onClose: function onClose() {
       return setShowSettings(false);
     }
+  }),
+  // 2026-07-20 _SnDialogは必ず sel/showEntryLog の三項分岐の「外」（ルート直下）に置く。
+  // ホーム分岐の中に置くとDayView/記録帳では描画されず、_snConfirm等がPromise未解決のまま無反応になる（削除ボタンが効かない不具合の真因）。
+  snDlg && React.createElement(_SnDialog, {
+    dlg: snDlg,
+    onDone: function(result) { var _r = snDlg.resolve; setSnDlg(null); if (_r) _r(result); }
   }), sel ? React.createElement(DayView, {
     date: sel,
     data: data,
@@ -1467,9 +1473,6 @@ function App() {
     data: data,
     save: save,
     onClose: function() { setShowHomeEventForm(false); }
-  }), snDlg && React.createElement(_SnDialog, {
-    dlg: snDlg,
-    onDone: function(result) { var _r = snDlg.resolve; setSnDlg(null); if (_r) _r(result); }
   })));
 }
 
