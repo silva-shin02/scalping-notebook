@@ -3154,12 +3154,40 @@ function _elRnAutoFrom(levelPrice, preAlpha) {
   if (lv == null || a == null) return null;
   return _elRnAutoAt(lv + a);
 }
-// 既存記録から判定（候補一覧・分析用）。渡すalphaは採用α（RN込み）＝ここでRN分を引き戻して「RN前α」にするのでRN〇/×どちらの記録でも使える。
-function _elRnAutoOfRec(s, alpha) {
+// 既存記録の「RN加算“前”EP」＝水準線 ＋（採用α − 実RN加算）。渡すalphaは採用α（RN込み）＝ここでRN分を引き戻すのでRN〇/×どちらの記録でも使える。
+// null＝判定不可（水準線未入力／α不明）。候補一覧・閾値スイープが共通で使う単一源 2026-07-20e。
+function _elRnPreEpOfRec(s, alpha) {
   if (!s) return null;
   var a = (alpha != null && alpha !== "" && !isNaN(Number(alpha))) ? Number(alpha) : null;
-  if (a == null) return null;
-  return _elRnAutoFrom(s.levelPrice, a - _elRnAdd(s));
+  var lv = (s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
+  if (a == null || lv == null) return null;
+  return lv + (a - _elRnAdd(s));
+}
+// 既存記録から判定（候補一覧・分析用）。2026-07-20e _elRnPreEpOfRec へ委譲＝「RN前EP」の算出式を単一源化（結果は従来と同一）。
+function _elRnAutoOfRec(s, alpha) {
+  return _elRnAutoAt(_elRnPreEpOfRec(s, alpha));
+}
+// ===== RNまたぎ閾値スイープ（「−何円から〇にすべきか」分析の単一源）2026-07-20e =====
+// 運用の自動判定はバンド固定（距離1〜9）だが、分析では距離の上限Tを1件ずつ振って成績を比べる。距離＝RN加算“前”EPの下二桁から直近のキリ番（…50／…00）までの円数。
+// 直近キリ番までの距離。1〜49／0＝すでに…50・…00ちょうど（どのTでも動かない＝閾値分析の母数外）／null＝判定不可。
+function _elRnDistAt(epPre) {
+  if (epPre == null || epPre === "" || isNaN(Number(epPre))) return null;
+  var last2 = ((Math.round(Number(epPre)) % 100) + 100) % 100;
+  if (last2 === 0 || last2 === 50) return 0;
+  return (last2 < 50) ? (50 - last2) : (100 - last2);
+}
+// どちらのキリ番へ寄せる記録か: "50"＝…50の段（下二桁1〜49）／"00"＝…00の段（51〜99）／null＝判定不可・ちょうど。段別トグルの振り分け用。
+function _elRnTierAt(epPre) {
+  var d = _elRnDistAt(epPre);
+  if (d == null || d <= 0) return null;
+  return ((((Math.round(Number(epPre)) % 100) + 100) % 100) < 50) ? "50" : "00";
+}
+// 閾値T（距離≤T円なら〇にする）でのRN加算額。0＝対象外／>0＝加算額／null＝判定不可。T=9で現行バンド(41-49/91-99)と完全一致・T≥10で…40／…90も含む。
+function _elRnAddAtT(epPre, T) {
+  var d = _elRnDistAt(epPre);
+  if (d == null) return null;
+  var t = (T != null && !isNaN(Number(T))) ? Number(T) : 0;
+  return (d > 0 && d <= t) ? d : 0;
 }
 // ===== 応用α（旧「基本α＋追加α増分」を廃止し置換 2026-07-13） =====
 // specialUsed(bool)=応用α採用／specialAlpha(number)=独立α値／specialReasons(array)=根拠。旧 addAlphaUsed/addAlphaVal/specialReasons は撤去（移行 _migSpecialAlpha・app-01）。

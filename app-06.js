@@ -1647,6 +1647,136 @@ function _elRnBoardV2(recs, aiOf, holiSet) {
       React.createElement("thead", null, React.createElement("tr", null, ["RN値（またぎ距離）", "件数", "到達率", "Σ現実", "ΣRN無しなら", "寄与（差）"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, valRows))));
 }
+// ===== RNまたぎ閾値スイープ「RNは何円手前から〇にすべきか」2026-07-20e =====
+// ③RN距離別(_elRnBoardV2)は _elRnAdd でグループ分けする実績の内訳＝母数が「実際に〇にした記録」に偏り、〇にしなかった距離のデータが入らない。
+// こちらは RN× の記録も含む全記録の反実仮想＝「RNまでの距離≤T円なら〇にする」というルールのTを0〜_EL_RN_T_MAXで振って成績を比べる。
+var _EL_RN_T_MAX = 12;   // 閾値スイープの上限T。現行バンド＝9（41-49/91-99）・10以上は…40／…90も含む＝「現行バンド外」とグレー表示。40・90を外した2026-07-20の判断をこの表で再検証するために12まで見る。
+// 段別トグル（全体／…50の段／…00の段）。…40台と…00台で効きが違う可能性を切り分ける。作法は_ukiScopeToggleに合わせる。
+function _rnTierToggle(tier, onSet) {
+  return React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },
+    [["all", "全体"], ["50", "…50の段"], ["00", "…00の段"]].map(function(_tk) {
+      var _on = (tier || "all") === _tk[0];
+      return React.createElement("button", { key: _tk[0], type: "button", onClick: function() { onSet(_tk[0]); },
+        title: _tk[0] === "all" ? "…50/…00の両方を合算して母数にする" : ("RN前EPの下二桁が" + (_tk[0] === "50" ? "1〜49（…50へ寄せる記録）" : "51〜99（…00へ寄せる記録）") + "だけを母数にする"),
+        style: { padding: "3px 11px", fontSize: 11, fontWeight: _on ? 800 : 600, borderRadius: 5, cursor: "pointer", border: "none", background: _on ? "#fff" : "transparent", color: _on ? "#0F766E" : "#6B6459", boxShadow: _on ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, _tk[1]);
+    }));
+}
+// 閾値スイープの母数抽出（ボード本体とサブタブの件数バッジが同じ条件を使うための単一源）。tier: "all"／"50"／"00"。
+// 除外の理由別件数も返す＝「母数が薄いから判断保留」をユーザーが読めるようにするため。
+function _elRnThrPool(recs, aiOf, tier) {
+  var _tier = tier || "all", out = { pool: [], noLv: 0, onRn: 0, offTier: 0, rnYesN: 0 };
+  (recs || []).forEach(function(r) {
+    var s = r && r.signal; if (!s) return;
+    var a = aiOf(r).alpha; if (a == null) return;
+    var ep = _elRnPreEpOfRec(s, a);
+    if (ep == null) { out.noLv++; return; }                                 // 水準線未入力＝下二桁が出せない
+    var d = _elRnDistAt(ep);
+    if (d == null || d <= 0) { out.onRn++; return; }                        // すでに…50/…00ちょうど＝どのTでも不変
+    if (_tier !== "all" && _elRnTierAt(ep) !== _tier) { out.offTier++; return; }
+    if (_elRnYes(s)) out.rnYesN++;
+    out.pool.push(r);
+  });
+  return out;
+}
+// 母数＝水準線値入り かつ RN前EPが…50/…00ちょうどでない記録（ちょうど＝どのTでも動かないので除外）。tier: "all"／"50"／"00"。
+function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
+  var _tier = tier || "all";
+  var _th2 = function(t, k) { return React.createElement("th", { key: k, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
+  var _td2 = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #F0EDE7", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+  var _sumCell = function(v, w) { return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: w || 800 } }, _elPnlFmt(Math.round(v))); };
+  var _sel = _elRnThrPool(recs, aiOf, _tier);
+  var pool = _sel.pool, noLv = _sel.noLv, onRn = _sel.onRn, offTier = _sel.offTier, rnYesN = _sel.rnYesN;
+  if (!pool.length) return React.createElement("div", { style: { color: "#94A3B8", textAlign: "center", padding: "24px 12px", fontSize: 12, border: "1px dashed #e0ddd6", borderRadius: 10 } },
+    "母数になる記録がまだありません（水準線値入りが必要・未入力" + noLv + "件）。記録フォームのOS見出し右／EPナビの分足欄右で水準線値を入れると貯まります");
+  // ---- 閾値Tのα関数。T=0＝またぎ無し（素のα）＝_elRnBoardV2の「RN無し」行と同じ式 ----
+  var _alphaAtT = function(T) {
+    return function(r) {
+      var s = r && r.signal; if (!s) return null;
+      var a = aiOf(r).alpha; if (a == null) return null;
+      var ep = _elRnPreEpOfRec(s, a); if (ep == null) return null;
+      return Math.max(0, a - _elRnAdd(s)) + (_elRnAddAtT(ep, T) || 0);
+    };
+  };
+  var _span = _elBizSpanDays(pool, holiSet);
+  var _dists = pool.map(function(r) { return _elRnDistAt(_elRnPreEpOfRec(r.signal, aiOf(r).alpha)); });   // poolと同じ並び。距離はαに依らず不変なので1回だけ算出（aiOfは重いので13行×N回の再計算を避ける）
+  var rows = [], _t, _i;
+  for (_t = 0; _t <= _EL_RN_T_MAX; _t++) {
+    var _f = _alphaAtT(_t), _hit = 0;
+    for (_i = 0; _i < _dists.length; _i++) { if (_dists[_i] <= _t) _hit++; }
+    rows.push({ t: _t, af: _f, hit: _hit, e: _elH2EvalByFn(pool, aiOf, _f) });
+  }
+  // ★＝①EP位置スイープと同じ軽いゲート（E成立≥_EL_BASE_MIN_N かつ Σ黒字のうち平均最終損益 最大）。推奨基本αの4条件フルゲートは使わない
+  //   ＝全T行が同じ母数・ほぼ同じ到達率/頻度になるためゲートが効かず「条件適合無し」しか出ないため。T=0が★なら「そもそもまたぎ不要」のサイン。
+  var _gated = rows.filter(function(rw) { return rw.e.decided >= _EL_BASE_MIN_N && rw.e.h2Sum != null && rw.e.h2Sum > 0; });
+  _gated.sort(function(x, y) { return (x.e.avgH2 - y.e.avgH2) || (x.e.h2Sum - y.e.h2Sum); });
+  var _star = _gated.length ? _gated[_gated.length - 1] : null;
+  var _base = rows[0].e.h2Sum;
+  var _tRow = function(rw) {
+    var e = rw.e, thin = e.decided < _EL_BASE_MIN_N, out = rw.t >= 10, cur = rw.t === 9, ref = rw.t === 0;
+    var isStar = _star && _star.t === rw.t;
+    var diff = (e.h2Sum == null || _base == null) ? null : (e.h2Sum - _base);
+    return React.createElement("tr", { key: "t" + rw.t, style: { background: cur ? "#FEF3C7" : (isStar ? "#E1F5EE" : "transparent") } },
+      _td2(React.createElement("span", { style: { fontWeight: 700, color: ref ? "#94A3B8" : (out ? "#888780" : "#334155") } },
+        isStar ? React.createElement("span", { style: { color: "#0F766E", marginRight: 3 } }, "★") : null,
+        ref ? "T=0 またぎ無し" : ("T=" + rw.t + "（" + rw.t + "円以内）"),
+        cur ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", borderRadius: 8, padding: "0 6px", marginLeft: 5, verticalAlign: "middle" } }, "現行") : null,
+        out ? React.createElement("span", { style: { fontSize: 8.5, color: "#888780", marginLeft: 4 } }, "現行バンド外") : null,
+        ref ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", marginLeft: 4 } }, "参考") : null,
+        thin ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 3, fontWeight: 700 } }, "（仮）") : null), { textAlign: "left", paddingLeft: 8 }),
+      _td2(ref ? React.createElement("span", { style: { color: "#94A3B8" } }, "—") : (rw.hit + "件")),
+      _td2(_elPctCell(e.eRate)),
+      _td2(e.decided + "件"),
+      _td2(_elFreqCell(_span, _elEnteredDays(pool, rw.af))),
+      _td2(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
+      _td2(e.takeRate == null ? "—" : _elPctCell(e.takeRate)),
+      _td2(_sumCell(e.h2Sum)),
+      _td2(_sumCell(e.avgH2, 700)),
+      _td2(ref ? React.createElement("span", { style: { color: "#94A3B8" } }, "—") : _sumCell(diff, 700)));
+  };
+  // ---- 距離別の限界寄与（どこで符号が反転するか）。距離dの記録はT=dでちょうど〇になる＝差の累計が主表のT=0比と一致する（相互検算）----
+  var byDist = {}, farN = 0;
+  pool.forEach(function(r, i) { var d = _dists[i]; (byDist[d] = byDist[d] || []).push(r); });
+  var distKeys = Object.keys(byDist).map(Number).sort(function(a, b) { return a - b; });
+  distKeys.forEach(function(d) { if (d > _EL_RN_T_MAX) farN += byDist[d].length; });
+  var _cum = 0, _firstNeg = null, distData = [];
+  distKeys.filter(function(d) { return d <= _EL_RN_T_MAX; }).forEach(function(d) {
+    var g = byDist[d];
+    var eOn = _elH2EvalByFn(g, aiOf, _alphaAtT(d)), eOff = _elH2EvalByFn(g, aiOf, _alphaAtT(0));
+    var diff = (eOn.h2Sum == null && eOff.h2Sum == null) ? null : (eOn.h2Sum || 0) - (eOff.h2Sum || 0);
+    if (diff != null) _cum += diff;
+    if (_firstNeg == null && diff != null && diff < 0) _firstNeg = d;
+    distData.push({ d: d, n: g.length, on: eOn.h2Sum, off: eOff.h2Sum, diff: diff, cum: _cum });
+  });
+  var distRows = distData.map(function(x) {
+    var out = x.d >= 10, flip = _firstNeg === x.d;
+    return React.createElement("tr", { key: "d" + x.d, style: { background: flip ? "#FCEBEB" : "transparent" } },
+      _td2(React.createElement("span", { style: { fontWeight: 700, color: out ? "#888780" : "#1D4ED8" } }, x.d + "円手前",
+        flip ? React.createElement("span", { style: { fontSize: 8.5, color: "#A32D2D", marginLeft: 5, fontWeight: 700 } }, "符号反転") : null,
+        out ? React.createElement("span", { style: { fontSize: 8.5, color: "#888780", marginLeft: 4, fontWeight: 400 } }, "現行バンド外") : null), { textAlign: "left", paddingLeft: 8 }),
+      _td2(x.n + "件"),
+      _td2(_sumCell(x.on)),
+      _td2(_sumCell(x.off)),
+      _td2(_sumCell(x.diff, 700)),
+      _td2(_sumCell(x.cum, 700)));
+  });
+  var _tierLbl = _tier === "50" ? "…50の段（下二桁1〜49）のみ" : (_tier === "00" ? "…00の段（下二桁51〜99）のみ" : "…50/…00 合算");
+  return React.createElement("div", null,
+    React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6, lineHeight: 1.5 } },
+      "母数＝水準線値入りの記録 " + pool.length + "件（RN〇 " + rnYesN + "／RN× " + (pool.length - rnYesN) + "・" + _tierLbl + "）。RN加算“前”のEP（水準線＋基底α＋浮き足加算）の下二桁から直近のキリ番までの距離を測り、距離≤T円なら〇にするルールで採用αを組み直して再判定（EP到達〜最終損益[手じまい・○途切れ]まで推奨α系と同一基準）。",
+      React.createElement("span", { style: { color: "#B08968" } }, "除外＝水準線未入力 " + noLv + "件／すでに…50・…00ちょうど " + onRn + "件" + (offTier ? "／他の段 " + offTier + "件" : "") + "。")),
+    React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "① 閾値スイープ 〜何円手前までなら待つ価値があるのか〜"),
+    React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, React.createElement("tr", null, ["閾値T", "該当", "到達率", "E成立", "頻度", "損切り率", "利確率", "Σ最終損益", "平均", "T=0比"].map(function(h, i) { return _th2(h, i); }))),
+      React.createElement("tbody", null, rows.map(_tRow)))),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 } },
+      "該当＝そのTで〇になる記録数（Tが上がるほど積み上がる）。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字のTで平均最終損益が最大（該当なしなら★なし）。T=0が★なら「そもそもRNまたぎ不要」のサイン。RNの間隔は50円なのでTを1上げても該当は全体の約2%ずつしか増えない＝Σの差が小さく見えるため、右端の「T=0比」と下の距離別で判断する。"),
+    React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "12px 0 4px" } }, "② 距離別の限界寄与 〜どこで符号が反転するか〜"),
+    React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+      React.createElement("thead", null, React.createElement("tr", null, ["RNまでの距離", "件数", "またぐΣ", "またがないΣ", "差", "累計差"].map(function(h, i) { return _th2(h, i); }))),
+      React.createElement("tbody", null, distRows))),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 } },
+      "距離dの記録はT=dでちょうど〇になるので、差を1円手前から積み上げた「累計差」は主表の同じTの「T=0比」と一致する（ズレていたら実装バグ）。最初に差がマイナスへ転じた距離の1つ手前が最適T。" + (farN ? "距離" + (_EL_RN_T_MAX + 1) + "円以上 " + farN + "件は表示範囲外（どのTでも〇にならない）。" : "")));
+}
 // 「何営業日に1日エントリーできたか」用 2026-07-07（ユーザー要望・全営業日ベース）: 母数の活動期間（初回〜直近の記録日）の営業日数。holiSet省略時は土日のみ除外・渡せば祝日も除外（_fmIsBizDay app-03）。validOf(r)=母数に含めるか（推奨α算出不能などの除外・省略時は全記録）。
 function _elBizSpanDays(recs, holiSet, validOf) {
   var minD = null, maxD = null;
@@ -5179,7 +5309,8 @@ function EntryLogView(_ref_elv2) {
   var _uDTM = useState(false), detTagMode = _uDTM[0], setDetTagMode = _uDTM[1];   // 集計タブ銘柄側の分析軸: false=シグナル別(既定)/true=詳細タグ別（銘柄内・全シグナル横断で選んだsigDetailタグの記録を分析）2026-07-07
   var _uSDT = useState(null), selDetTag = _uSDT[0], setSelDetTag = _uSDT[1];   // 詳細タグ別モードの選択タグ（"セクションキー|タグ名"）
   var _uSGT = useState("uki"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）
-  var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RNまたぎタブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録) 2026-07-19
+  var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RNまたぎタブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録)/thr(閾値スイープ) 2026-07-19→2026-07-20e thr追加
+  var _uRNT = useState("all"), rnTier = _uRNT[0], setRnTier = _uRNT[1];   // 閾値タブの段別トグル: all(…50/…00合算)/50(…50の段)/00(…00の段) 2026-07-20e
   var _uUKS = useState("ana"), ukiSub = _uUKS[0], setUkiSub = _uUKS[1];   // ⚡浮き足%タブ内の入れ子サブタブ: ana(分析)/list(記録一覧) 2026-07-19
   var _uJF = useState(false), anaJul = _uJF[0], setAnaJul = _uJF[1];   // 分析母数トグル（承認③+ 2026-07-12→2026-07-18 境界を5月〜に）: true=5月以降（EMA修正後）のみを記録帳全体（推奨・表・一覧）の母数に。既定false=全期間（従来どおり不変）。※変数名anaJulは内部名（実境界は2026-05-01）。
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
@@ -6031,7 +6162,13 @@ function EntryLogView(_ref_elv2) {
         var _add = _elRnAutoOfRec(s, _ai(r).alpha);
         return _add != null && _add > 0;
       }).slice().sort(_byDateAsc);
-      var _rnBody = (rnSub === "list")
+      var _rnThrN = _elRnThrPool(_v2recsAll, _ai, "all").pool.length;   // 閾値タブの件数バッジ＝ボード本体と同じ仕分け（_elRnThrPool単一源）2026-07-20e
+      var _rnBody = (rnSub === "thr")
+        ? _cardify([
+            _secH("🎚 RNは何円手前から〇にすべきか（全銘柄共通）", "※最終損益（手じまい）基準。RN×の記録も含む全記録の反実仮想＝「RNまでの距離≤T円なら〇」のTを0〜" + _EL_RN_T_MAX + "でスイープ。①閾値スイープ ②距離別の限界寄与。母数はRN〇に限らない（③RN距離別＝実績の内訳とは別物）"),
+            React.createElement("div", { key: "rntier", style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _rnTierToggle(rnTier, setRnTier)),
+            _elRnThresholdBoardV2(_v2recsAll, _ai, _sigHoliSet, rnTier)])
+        : (rnSub === "list")
         ? _cardify([
             _secH("🗂 RN〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝RNまたぎ加算〇の全記録。行タップで明細カード・カードタップで編集フォーム"),
             _recTable(_rnListRecs, "full", "rntab_")])
@@ -6044,7 +6181,7 @@ function EntryLogView(_ref_elv2) {
               _sigRnPool.length ? _kpiBlockOf(_sigRnPool, _sigHoliSet) : _sigKpiEmpty("RNまたぎ加算〇の記録がまだありません"),
               _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai, _sigHoliSet)]);
       _tabBody = React.createElement(React.Fragment, null,
-        _sigInnerBar([["ana", "分析", _sigRnPool.length], ["list", "記録一覧", _rnListRecs.length], ["cand", "候補記録", _rnCandRecs.length]], rnSub, setRnSub),
+        _sigInnerBar([["ana", "分析", _sigRnPool.length], ["list", "記録一覧", _rnListRecs.length], ["cand", "候補記録", _rnCandRecs.length], ["thr", "閾値", _rnThrN]], rnSub, setRnSub),
         _rnBody);
     } else {
       var _ukiListRecs = _sigUkiPool.slice().sort(_byDateAsc);
