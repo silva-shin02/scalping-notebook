@@ -4922,7 +4922,12 @@ function _elKabuLadderSimV2(props) {
   var _uM = useState("manual"), mode = _uM[0], setMode = _uM[1];
   var _uF = useState("no"), addFil = _uF[0], setAddFil = _uF[1];
   var _uAo = useState("act"), addOn = _uAo[0], setAddOn = _uAo[1];   // 追加α〇記録への上乗せ: act=実追加α(既定)/reco=記録日時点の推奨追加α/none=なし。〇記録がシミュ対象にいる時だけピル表示 2026-07-06
-  var _uEx = useState({ uki: true, lc: true, rn: true }), exFlags = _uEx[0], setExFlags = _uEx[1];   // 除外チェック（⑥ 2026-07-13）: 浮き足〇/ライン併存〇/RN〇の記録をシミュ母数から外す（既定＝全て除外＝素の基本α母数で見る・ユーザー要望2026-07-13）。floatModeでは浮き足除外は無効
+  // 除外チェック（⑥ 2026-07-13）→ 2026-07-20k **浮き足〇だけに縮小**（ユーザー決定）:
+  //   ・RN〇の除外は意味を失った＝除外しても保存値rnUsedの記録を母数から外すだけで、掃引αに対する動的再判定(_simRnAt)は止まらず、
+  //     RNを使っていない記録にも加算が乗っていた。誤解を招くだけのチェックだったので撤去。
+  //   ・ライン併存はユーザーが概念として使わなくなったため撤去。
+  // 既定＝浮き足〇を除外（floatModeでは浮き足除外は無効＝母数が浮き足記録のため）。
+  var _uEx = useState({ uki: true }), exFlags = _uEx[0], setExFlags = _uEx[1];
   // 2026-07-20i 対象期間を年月週日カスケード選択へ置換（旧: 本日/1週/1月/3月/6月/1年/全期間のローリング）。
   // 既定＝今月のみ（週日は「全て」）＝ユーザー選択。記録帳の外側バーは既定「全期間」なので、こちらだけ今月に寄せている点に注意。
   var _uPd = useState(_elPSelThisMonth), pSel = _uPd[0], setPSel = _uPd[1];
@@ -4945,7 +4950,7 @@ function _elKabuLadderSimV2(props) {
   var _periodRecs = _elPSelFilter(recs, pSel);   // 2026-07-20i 年月週日カスケード選択（_elPSelFilter）。旧＝今日起点のローリング窓
   var pool = floatMode ? _periodRecs : (addFil === "no" ? _periodRecs.filter(function(r) { return r && !_elSpecialUsed(r.signal); }) : addFil === "yes" ? _periodRecs.filter(function(r) { return r && _elSpecialUsed(r.signal); }) : _periodRecs);
   var _poolBeforeEx = pool.length;
-  if (exFlags.uki || exFlags.lc || exFlags.rn) pool = pool.filter(function(r) { var s = r && r.signal; if (!s) return true; if (!floatMode && exFlags.uki && _elUkiYes(s)) return false; if (exFlags.lc && s.lineCoexist === true) return false; if (exFlags.rn && _elRnYes(s)) return false; return true; });   // 除外チェック（⑥ 2026-07-13・floatModeでは浮き足除外は無効＝母数が浮き足記録のため）
+  if (exFlags.uki && !floatMode) pool = pool.filter(function(r) { var s = r && r.signal; return !(s && _elUkiYes(s)); });   // 2026-07-20k 浮き足〇のみ（ライン併存/RN〇の除外は撤去）。floatModeでは無効＝母数が浮き足記録のため
   var _exCount = _poolBeforeEx - pool.length;   // 除外中の件数（バッジ表示・0=該当記録なし＝フラグ未設定の可能性を可視化）2026-07-13b
   // 時間かぶり除外（2026-07-20b）＝保有時間が重なる記録は早い方だけ残す。他の全P&L集計(_elTotAccum の excluded)と同じ線引きで、シミュだけ二重計上していたのを解消。poolを直接絞るのでシミュ損益・従来列・_origPnl・対象取引リストの全部に一律で効く。
   var _collN = 0;
@@ -5033,7 +5038,11 @@ function _elKabuLadderSimV2(props) {
       else { a = null; }   // 未選択（method空）は建てない 2026-07-03p
       var _bl = _simBaseLevel(r, a);   // 応用〇＝specialAlphaで基底αを置換（候補は無視）2026-07-13
       if (_bl == null) return { a: null, add: sh, _uki: _uki, _rn: 0, _addA: null };
-      var _pre = _bl + _uki, _rnD = _simRnAt(r, _pre);   // 2026-07-20c RNは掃引αごとに再判定（記録の保存値_rnは使わない＝αが動けばEPも下二桁も動くため）
+      // 2026-07-20c RNは掃引αごとに再判定（記録の保存値_rnは使わない＝αが動けばEPも下二桁も動くため）。
+      // ⚠️2026-07-20k 例外: **絶対値方式はRN自動加算を乗せない**。「絶対値3円」と入力したのに予定EPの下二桁次第で実効7円になり、
+      //   OS高値5円の記録が未到達＝建たない扱いになって従来欄との差額が生まれていた（同じOS高値でも水準線の下二桁だけで結果が変わる）。
+      //   絶対値は「入力した値がそのまま効く」のが存在意義なので、ここだけ再判定を外す。推奨α系（reco/recobase）は実運用の建値を模すので従来どおり再判定する。
+      var _pre = _bl + _uki, _rnD = (rw.method === "abs") ? 0 : _simRnAt(r, _pre);
       return { a: _pre + _rnD, add: sh, _uki: _uki, _rn: _rnD, _addA: null };   // 実効α＝base-levelα＋浮き足加算＋自動RN加算。_addA=null（追加α増分は廃止＝取引ごと追加α列は非表示）
     // 2026-07-20h `t.a != null` の除外を撤回＝α不明のtierも_elKabuTierEvalへ渡す（skip:"noalpha"が立つ）。
     // 旧: ここで捨てていたため手動モードでは anyNoBase が構造的に立たず、①注記「推奨α不明N件」が一度も出ず、
@@ -5073,12 +5082,12 @@ function _elKabuLadderSimV2(props) {
     var bl = _simBaseLevel(r, b);
     if (bl == null) return null;
     var pre = bl + _elUkiAdd(r && r.signal);
-    return pre + _simRnAt(r, pre);
+    return pre + ((cand.kind === "abs") ? 0 : _simRnAt(r, pre));   // 2026-07-20k 絶対値候補はRN自動加算を乗せない＝手動ラダーの絶対値方式と挙動を揃える（入力した値がそのまま効く）
   };
   var _candLabel = function(cand) { if (cand.kind === "abs") return "α" + cand.v + "円"; if (cand.kind === "adopt") return cand.x === 0 ? "採用α" : ("採用α" + (cand.x > 0 ? "+" + cand.x : cand.x)); if (cand.x === 0) return "推奨α"; return "推奨α" + (cand.x > 0 ? "+" + cand.x : cand.x); };
   var totalN = (function() { var t = _kbInt(total); if (t == null || t <= 0) return 0; return Math.max(100, Math.round(t / 100) * 100); })();
   // 自動配分の入力署名＝これが変われば結果は無効＝再度「計算する」を要求（全銘柄モードのみ）。銘柄別は_autoReady常時trueで従来の即時計算のまま。
-  var _autoSig = totalN + "|" + pool.length + "|" + _elPSelSig(pSel) + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + (exFlags.lc ? 1 : 0) + (exFlags.rn ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length + "|" + (multiTrade ? 1 : 0);   // multiTradeも署名に＝〇×を切り替えたら再計算が必要 2026-07-20g
+  var _autoSig = totalN + "|" + pool.length + "|" + _elPSelSig(pSel) + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length + "|" + (multiTrade ? 1 : 0);   // multiTradeも署名に＝〇×を切り替えたら再計算が必要 2026-07-20g
   var _autoReady = !allStock || !multiTrade || autoRunSig === _autoSig;   // 2026-07-20h ×は25通りで軽いのでゲートせず即時（_autoGateと条件を揃える）
   var autoRes = null;
   if (mode === "auto" && totalN > 0 && pool.length && _autoReady) {
@@ -5168,7 +5177,16 @@ function _elKabuLadderSimV2(props) {
   //   取引が1件だけ（内訳なし）は「=」を出さず合計だけ。ref皆無（△・損切り済なし）は（）外の1段のみ。全取引未成立は「—」。
   //   並びはα昇順＝シミュα列と1:1対応・同一αは合算・α不明は末尾—。
   var _SIM_SUM_FS = 13;   // 合計の文字サイズ（セル既定10.5より少し大きい）
+  // 2026-07-20k 建たなかった記録は「—」ではなく理由を出す（未到達／×見送り／α不明）。
+  // 「オプション通りなら建つはずなのに建たない」が画面から追えなかったため＝銘柄別内訳と同じ_elKabuNoBuildReasonの分類を記録単位でも見せる。
+  var _mtNoBuildChip = function(nb) {
+    var k = null; (_KB_NB || []).forEach(function(x) { if (x[0] === nb) k = x; });
+    if (!k) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+    return React.createElement("span", { title: nb === "unreached" ? "掃引αにOS1〜3で届かなかった（αを下げれば拾える可能性）" : nb === "x" ? "×見送り宣言の後にαへ到達＝実際には降りているので建てない" : nb === "noalpha" ? "この取引のαが出せない（推奨α不明／採用α未入力）" : "有効な取引行が無い（株数0・方式未選択）",
+      style: { fontSize: 9, fontWeight: 700, color: k[2], background: k[3], border: "1px solid " + k[4], borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap" } }, k[1]);
+  };
   var _mtSimCell = function(m) {
+    if (m.noBuild) return _mtNoBuildChip(m.noBuild);
     if (m.cfgPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");   // （）外が無い記録（全未成立・EP△のみ等）
     var items = [];
     (m.cells || []).forEach(function(c) {
@@ -5289,7 +5307,7 @@ function _elKabuLadderSimV2(props) {
       var _addAs = [];
       if (_perTx) { (row.cells || []).forEach(function(c) { var v = c.t && c.t._addA; if (v != null && v > 0 && _addAs.indexOf(v) < 0) _addAs.push(v); }); _addAs.sort(function(p, q) { return p - q; }); }   // 取引ごとに異なりうる追加αの実値（>0のみ・昇順）
       else { var _g = _simAddOf(r) - _elUkiAdd(s) - _elRnAdd(s); if (_g > 0) _addAs.push(_g); }   // 自動配分＝グローバルaddOn（据え置き・現行は_simAddOf=浮き足+RNなので常に0）。_exU/_exRと切り離す＝採用α方式で0でも浮き足/RNを「追」に誤表示しない 2026-07-20b
-      mrecs.push({ oi: i, r: r, s: s, a: aiOf(r).alpha, recoA: _recoOfRec(r), simA: _sa, simUki: _exU, simRn: _exR, simAddOn: _addAs, simCut: _cc.cut, simCutOv: _cc.ov, cfgPnl: row.recPnl, cfgRef: row.recRef, basePnl: _cv.main, baseRef: _cv.ref, cells: row.cells, anyStop: row.anyStop });
+      mrecs.push({ oi: i, r: r, s: s, a: aiOf(r).alpha, recoA: _recoOfRec(r), simA: _sa, simUki: _exU, simRn: _exR, simAddOn: _addAs, simCut: _cc.cut, simCutOv: _cc.ov, cfgPnl: row.recPnl, cfgRef: row.recRef, basePnl: _cv.main, baseRef: _cv.ref, cells: row.cells, anyStop: row.anyStop, noBuild: row.noBuild });   // noBuild=建たなかった理由（2026-07-20k・シミュ列に表示）
     });
     mrecs.sort(function(x, y) { var dx = (x.r.date || "") + (x.s.time || ""), dy = (y.r.date || "") + (y.s.time || ""); return dx < dy ? 1 : dx > dy ? -1 : 0; });
     var _sumRow = function(k) { return React.createElement("tr", { key: k, style: { background: "#E1F5EE" } },
@@ -5368,14 +5386,15 @@ function _elKabuLadderSimV2(props) {
           React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（" + pool.length + "件）既定＝基本α＝応用αを使わなかった記録（浮き足/RN加算は含みうる）")),
     React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#B45309" } }, "除外:"),
-      [(!floatMode ? ["uki", "浮き足〇"] : null), ["lc", "ライン併存〇"], ["rn", "RN〇"]].filter(Boolean).map(function(kv) {
+      // 2026-07-20k 浮き足〇のみに縮小（ライン併存＝概念を使わなくなった／RN〇＝除外しても動的再判定は止まらず誤解を招くだけだった）
+      (!floatMode ? [["uki", "浮き足〇"]] : []).map(function(kv) {
         var on = !!exFlags[kv[0]];
         return React.createElement("button", { key: kv[0], type: "button", onClick: function() { var nf = Object.assign({}, exFlags); nf[kv[0]] = !on; setExFlags(nf); setAutoExp(null); setMtExp(null); },
           style: { padding: "3px 10px", fontSize: 10.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid " + (on ? "#B45309" : "#ddd"), background: on ? "#FFF7ED" : "#fff", color: on ? "#B45309" : "#666", whiteSpace: "nowrap" } }, (on ? "☑ " : "☐ ") + kv[1]);
       }),
-      (exFlags.uki || exFlags.lc || exFlags.rn)
-        ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: _exCount > 0 ? "#B45309" : "#C0392B", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 5, padding: "1px 7px" } }, _exCount > 0 ? (_exCount + "件を除外中（対象 " + pool.length + "件）") : "除外0件＝チェック中のフラグ（〇）が付いた記録がこの母数にありません")
-        : React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "チェックした記録をシミュ母数から除外（現在 " + pool.length + "件）"),
+      (exFlags.uki && !floatMode)
+        ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: _exCount > 0 ? "#B45309" : "#C0392B", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 5, padding: "1px 7px" } }, _exCount > 0 ? (_exCount + "件を除外中（対象 " + pool.length + "件）") : "除外0件＝浮き足〇の記録がこの母数にありません")
+        : React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "浮き足〇の記録をシミュ母数から除外（現在 " + pool.length + "件）"),
       _collN > 0 ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 5, padding: "1px 7px" } }, "時間かぶり除外 " + _collN + "件") : null,   // 2026-07-20b 他のP&L集計と同じ被り除外を適用中であることの可視化（常時ON・チェックではない）
       _noLvN > 0 ? React.createElement("span", { title: "水準線値が未入力の記録は予定EPが出せないためRNまたぎ自動判定ができません。RN加算なし（0円）として掃引しています（母数からは外していません）。", style: { fontSize: 9.5, fontWeight: 800, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 5, padding: "1px 7px" } }, "水準線未入力 " + _noLvN + "件（RN自動判定なし）") : null),   // 2026-07-20c
     (mode === "auto" && _poolHasYes) ? React.createElement("div", { style: { fontSize: 9, color: "#9A3412", marginBottom: 6 } }, "応用〇の記録はその記録の応用α値を基底αに採用（絶対値/推奨α系の掃引対象外）。通常記録は候補αを掃引。※採用α±X系の候補なら応用〇・浮き足〇の記録も掃引されます。") : null);
