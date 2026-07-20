@@ -1292,6 +1292,161 @@ function _elBucketLabel(key, gran) {
   }
   return "全期間";
 }
+// ===== EMA修正前（2026年4月以前）の判定 2026-07-20i =====
+// EntryLogView内のローカル定義からトップレベルへ移動（年月週日ピッカーが選択肢の足切りにも使うため＝単一源）。
+// 境界=2026-05-01（月別キーは2026-05）。g==="month"なら"YYYY-MM"、それ以外は"YYYY-MM-DD"で比較。
+function _elIsEmaRefPeriod(k, g) { return (g === "month") ? (String(k) < "2026-05") : (String(k) < "2026-05-01"); }
+
+// ===== 年月週日カスケード期間選択 2026-07-20i =====
+// 選択値 sel = { y:[2026,…]|null, m:["2026-07",…]|null, w:["2026-07-13",…]|null, d:["2026-07-13",…]|null }
+//   null＝その階層は「全て」（無制限）。全階層nullなら全期間＝素通し。各階層はAND（積）で効く。
+//   週キーは月曜日＝_elBucketKey(date,"week")と同一。週の所属判定は必ずこのヘルパー経由（自前の曜日計算を書かない）。
+// ⚠️旧_elFilterPeriodの「今週」はローカル深夜0時をtoISOString()していたためJSTで窓が1日前へずれ、金曜が落ちて日曜が入っていた。
+//   こちらは_elBucketKey（ローカルgetter）だけを使うので同じ穴を踏まない。
+var _EL_PSEL_Y0 = 2026;   // 選択肢に出す最初の年（記録の開始年）
+var _EL_PSEL_LV = ["y", "m", "w", "d"];
+function _elPSelAll() { return { y: null, m: null, w: null, d: null }; }
+function _elPSelIsAll(sel) { return !sel || (!sel.y && !sel.m && !sel.w && !sel.d); }
+function _elPSelThisMonth() { var t = todayStr(); return { y: [Number(t.slice(0, 4))], m: [t.slice(0, 7)], w: null, d: null }; }   // シミュの既定＝今月のみ（週日は全て）
+// 上位階層を変えたら下位はリセット＝下位の選択（週/日）が範囲外を指したまま残るのを防ぐ。
+function _elPSelSet(sel, lvl, val) {
+  var s = { y: sel.y, m: sel.m, w: sel.w, d: sel.d };
+  s[lvl] = (val && val.length) ? val : null;
+  for (var j = _EL_PSEL_LV.indexOf(lvl) + 1; j < _EL_PSEL_LV.length; j++) s[_EL_PSEL_LV[j]] = null;
+  return s;
+}
+function _elPSelToggle(sel, lvl, key) {
+  var cur = sel[lvl];
+  if (!cur) return _elPSelSet(sel, lvl, [key]);            // 「全て」状態から1つ選ぶ＝そのキーだけに絞る
+  var i = -1; cur.forEach(function(v, ix) { if (String(v) === String(key)) i = ix; });
+  var next = (i >= 0) ? cur.filter(function(v, ix) { return ix !== i; }) : cur.concat([key]);
+  return _elPSelSet(sel, lvl, next);                        // 空になったら_elPSelSetがnull＝「全て」へ戻す
+}
+function _elPSelMatch(sel, date) {
+  if (!date) return false;
+  if (sel.y && sel.y.indexOf(Number(date.slice(0, 4))) < 0) return false;
+  if (sel.m && sel.m.indexOf(date.slice(0, 7)) < 0) return false;
+  if (sel.w && sel.w.indexOf(_elBucketKey(date, "week")) < 0) return false;
+  if (sel.d && sel.d.indexOf(date) < 0) return false;
+  return true;
+}
+function _elPSelFilter(recs, sel) {
+  if (_elPSelIsAll(sel)) return recs || [];
+  return (recs || []).filter(function(r) { return _elPSelMatch(sel, r && r.date); });
+}
+function _elPSelSig(sel) { return _elPSelIsAll(sel) ? "all" : (_EL_PSEL_LV.map(function(k) { return sel[k] ? sel[k].join(",") : "*"; }).join("|")); }   // 署名（_autoSig等の再計算判定用）
+// 選択肢の列挙＋各期間の件数。年=2026〜今年／月=1月〜今月（未来は出さない・EMA修正前は隠す）／週=選択中の月に1日でも重なる月曜週／日=選択中の週(無ければ月)の平日で今日まで。
+function _elPSelOpts(recs, sel) {
+  var t = todayStr(), curY = Number(t.slice(0, 4)), curM = Number(t.slice(5, 7));
+  var cy = {}, cm = {}, cw = {}, cd = {};
+  (recs || []).forEach(function(r) {
+    var dt = r && r.date; if (!dt) return;
+    cy[dt.slice(0, 4)] = (cy[dt.slice(0, 4)] || 0) + 1;
+    cm[dt.slice(0, 7)] = (cm[dt.slice(0, 7)] || 0) + 1;
+    var wk = _elBucketKey(dt, "week"); cw[wk] = (cw[wk] || 0) + 1;
+    cd[dt] = (cd[dt] || 0) + 1;
+  });
+  var _p2 = function(n) { return ("0" + n).slice(-2); };
+  var years = [];
+  for (var y = _EL_PSEL_Y0; y <= curY; y++) years.push({ key: y, label: y + "", n: cy[String(y)] || 0 });
+  var selY = (sel.y && sel.y.length) ? sel.y.slice().sort(function(a, b) { return a - b; }) : years.map(function(o) { return o.key; });
+  var months = [], multiY = selY.length > 1;
+  selY.forEach(function(yy) {
+    var last = (yy === curY) ? curM : 12;
+    for (var m = 1; m <= last; m++) {
+      var k = yy + "-" + _p2(m);
+      if (_elIsEmaRefPeriod(k, "month")) continue;   // 2026年1〜4月は選択肢に出さない（EMA修正前＝算入しない）
+      months.push({ key: k, label: (multiY ? (yy + "/") : "") + m + "月", n: cm[k] || 0 });
+    }
+  });
+  var selM = (sel.m && sel.m.length) ? sel.m : months.map(function(o) { return o.key; });
+  var wSeen = {}, weeks = [];
+  selM.forEach(function(mk) {
+    var last = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5, 7)), 0).getDate();
+    for (var dd = 1; dd <= last; dd++) {
+      var ds = mk + "-" + _p2(dd);
+      if (ds > t) break;
+      if (_elIsEmaRefPeriod(ds)) continue;
+      var wk = _elBucketKey(ds, "week");
+      if (wSeen[wk]) continue;
+      wSeen[wk] = 1;
+      weeks.push({ key: wk, label: _elBucketLabel(wk, "week"), n: cw[wk] || 0 });
+    }
+  });
+  weeks.sort(function(a, b) { return a.key < b.key ? -1 : 1; });
+  var days = [], dSeen = {};
+  var _pushDay = function(ds) {
+    if (ds > t || dSeen[ds] || _elIsEmaRefPeriod(ds)) return;
+    var dw = new Date(ds + "T00:00:00").getDay();
+    if (dw === 0 || dw === 6) return;   // 土日は市場が休みで記録が存在しないので選択肢に出さない
+    dSeen[ds] = 1;
+    days.push({ key: ds, label: Number(ds.slice(5, 7)) + "/" + Number(ds.slice(8, 10)), n: cd[ds] || 0 });
+  };
+  if (sel.w && sel.w.length) {
+    sel.w.forEach(function(wk) {
+      var b = new Date(wk + "T00:00:00");
+      for (var i = 0; i < 5; i++) {
+        var d2 = new Date(b); d2.setDate(b.getDate() + i);
+        var ds = d2.getFullYear() + "-" + _p2(d2.getMonth() + 1) + "-" + _p2(d2.getDate());
+        if (!sel.m || sel.m.indexOf(ds.slice(0, 7)) >= 0) _pushDay(ds);   // 月をまたぐ週は選択中の月の側だけ出す
+      }
+    });
+  } else {
+    selM.forEach(function(mk) {
+      var last = new Date(Number(mk.slice(0, 4)), Number(mk.slice(5, 7)), 0).getDate();
+      for (var dd = 1; dd <= last; dd++) _pushDay(mk + "-" + _p2(dd));
+    });
+  }
+  days.sort(function(a, b) { return a.key < b.key ? -1 : 1; });
+  return { years: years, months: months, weeks: weeks, days: days };
+}
+// 折りたたみ時のサマリー「2026年 ▸ 7月 ▸ 全週 ▸ 全日」
+function _elPSelSummary(sel, opts) {
+  var _lb = function(list, arr, allTxt, suf) {
+    if (!arr || !arr.length) return allTxt;
+    if (arr.length === 1) { var f = null; (list || []).forEach(function(o) { if (String(o.key) === String(arr[0])) f = o; }); return (f ? f.label : String(arr[0])) + (suf || ""); }
+    return arr.length + "件選択";
+  };
+  return _lb(opts.years, sel.y, "全年", "年") + " ▸ " + _lb(opts.months, sel.m, "全月") + " ▸ " + _lb(opts.weeks, sel.w, "全週") + " ▸ " + _lb(opts.days, sel.d, "全日");
+}
+// UI本体（案B: 折りたたみサマリー＋変更▾で4段チップ展開）。props: value(sel) / onChange(sel) / recs(件数表示の母数) / label
+function _ElPeriodPicker(props) {
+  var sel = props.value || _elPSelAll(), onSet = props.onChange, recs = props.recs || [];
+  var _uo = useState(false), open = _uo[0], setOpen = _uo[1];
+  var opts = _elPSelOpts(recs, sel);
+  var hitN = _elPSelFilter(recs, sel).length;
+  var _chip = function(on, txt, n, dim, onClick, key) {
+    return React.createElement("button", { key: key, type: "button", onClick: onClick,
+      style: { padding: "3px 10px", fontSize: 10.5, fontWeight: on ? 800 : 600, borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap",
+        border: "1px solid " + (on ? "#0F766E" : "#ddd"), background: on ? "#0F766E" : "#fff", color: on ? "#fff" : (dim ? "#C4C0B8" : "#666") } },
+      txt, (n != null) ? React.createElement("span", { style: { fontSize: 8.5, marginLeft: 4, opacity: 0.75 } }, n) : null);
+  };
+  var _row = function(lvl, lbl, list) {
+    var cur = sel[lvl];
+    return React.createElement("div", { key: lvl, style: { display: "flex", gap: 5, alignItems: "flex-start", flexWrap: "nowrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E", minWidth: 20, paddingTop: 4, flexShrink: 0 } }, lbl),
+      React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", flex: 1 } },
+        [_chip(!cur, "全て", null, false, function() { onSet(_elPSelSet(sel, lvl, null)); }, "__all__")].concat(
+          list.map(function(o) {
+            var on = !!cur && cur.some(function(v) { return String(v) === String(o.key); });
+            return _chip(on, o.label, o.n, o.n === 0, function() { onSet(_elPSelToggle(sel, lvl, o.key)); }, String(o.key));
+          }))));
+  };
+  return React.createElement("div", { style: { marginBottom: 8 } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 8, padding: "6px 10px" } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E", whiteSpace: "nowrap" } }, props.label || "対象期間"),
+      React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#0F6E56" } }, _elPSelSummary(sel, opts)),
+      React.createElement("span", { style: { fontSize: 9, color: "#7FA9A0" } }, hitN + "件"),
+      React.createElement("div", { style: { marginLeft: "auto", display: "flex", gap: 5 } },
+        // ラベルは「クリア」＝すぐ隣の母数トグルにも「全期間」があり、同じ文言が2つ並ぶと紛らわしいため 2026-07-20i
+        (!_elPSelIsAll(sel)) ? React.createElement("button", { type: "button", title: "選択を解除して全期間に戻す", onClick: function() { onSet(_elPSelAll()); },
+          style: { padding: "2px 9px", fontSize: 10, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid #99F6E4", background: "#fff", color: "#0F766E" } }, "クリア") : null,
+        React.createElement("button", { type: "button", onClick: function() { setOpen(!open); },
+          style: { padding: "2px 11px", fontSize: 10.5, fontWeight: 800, borderRadius: 6, cursor: "pointer", border: "1px solid #99F6E4", background: "#fff", color: "#0F766E", whiteSpace: "nowrap" } }, open ? "閉じる ▴" : "変更 ▾"))),
+    open ? React.createElement("div", { style: { border: "1px dashed #99F6E4", borderRadius: 8, padding: "9px 10px", marginTop: 6, background: "#fff" } },
+      _row("y", "年", opts.years), _row("m", "月", opts.months), _row("w", "週", opts.weeks), _row("d", "日", opts.days),
+      React.createElement("div", { style: { fontSize: 9, color: "#aaa", marginTop: 2 } }, "上の階層を変えると下の階層は「全て」に戻ります。数字は各期間の記録件数（0件は薄字）。2026年1〜4月はEMA修正前のため選択肢に出しません。")) : null);
+}
 // 推奨基本αの選定パラメータ【再設計 2026-06-22】。後で調整可。
 var _EL_BASE_MIN_N = 10;          // 最低エントリー件数（H1結果が判定できる記録数 scN）の絶対下限。未満のαは推奨対象外＝薄い標本の偶然採用を防ぐ。2026-07-08 3→10（推奨基本α/追加α/損切り共通の下限・件数の信頼性重視・ユーザー要望＝全推奨一律。10件未満は(仮)/参考表示に）。
 var _EL_BASE_MIN_FRAC = 0.5;     // 件数フロア（実データ連動）: 最も件数(scN)の多いαの何割以上を要求するか。高αの薄い標本(選抜バイアスでスコア上振れ)を除外 2026-06-22b。後で調整可。※2026-07-13以降は旧スコア方式(_elBaseAlphaPickScore)のみで使用。
@@ -4764,7 +4919,9 @@ function _elKabuLadderSimV2(props) {
   var _uF = useState("no"), addFil = _uF[0], setAddFil = _uF[1];
   var _uAo = useState("act"), addOn = _uAo[0], setAddOn = _uAo[1];   // 追加α〇記録への上乗せ: act=実追加α(既定)/reco=記録日時点の推奨追加α/none=なし。〇記録がシミュ対象にいる時だけピル表示 2026-07-06
   var _uEx = useState({ uki: true, lc: true, rn: true }), exFlags = _uEx[0], setExFlags = _uEx[1];   // 除外チェック（⑥ 2026-07-13）: 浮き足〇/ライン併存〇/RN〇の記録をシミュ母数から外す（既定＝全て除外＝素の基本α母数で見る・ユーザー要望2026-07-13）。floatModeでは浮き足除外は無効
-  var _uPd = useState("all"), period = _uPd[0], setPeriod = _uPd[1];   // 対象取引の期間絞り込み（本日/1週/1月/3月/6月/1年/全期間）既定=全期間 2026-07-03q
+  // 2026-07-20i 対象期間を年月週日カスケード選択へ置換（旧: 本日/1週/1月/3月/6月/1年/全期間のローリング）。
+  // 既定＝今月のみ（週日は「全て」）＝ユーザー選択。記録帳の外側バーは既定「全期間」なので、こちらだけ今月に寄せている点に注意。
+  var _uPd = useState(_elPSelThisMonth), pSel = _uPd[0], setPSel = _uPd[1];
   var _uRw = useState([{ method: "", off: "", cum: "", addMethod: "act", addOff: "" }]), rows = _uRw[0], setRows = _uRw[1];   // 2026-07-20g 初期1行（既定＝「複数回の取引」×＝1回だけ建てる）。〇に切り替えた時に第2取引の空行を足す（旧: 初期2行）   // 取引ごとに入力方式(method)＋追加α方式(addMethod/addOff)を持つ 2026-07-03→2026-07-06追加α取引ごと化。初期は基本α未選択・追加αは実追加α(act)既定（触らなければ実際の追加αを反映＝シミュ=従来で差額0・×+未選択母数では実追加α=0で従来値不変）
   var _uAP = useState(false), addPicker = _uAP[0], setAddPicker = _uAP[1];   // 取引追加時の入力方式ピッカー表示 2026-07-03
   // 「複数回の取引 〇×」2026-07-20g（ユーザー要望＝そもそも分割するかを最初に選ぶ）。既定×＝1回だけ建てる。
@@ -4781,19 +4938,7 @@ function _elKabuLadderSimV2(props) {
   var _kbSan = function(v) { return String(v == null ? "" : v).replace(/[０-９]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }).replace(/[ー−―‐]/g, "-").replace(/[^0-9\-]/g, ""); };
   var _kbInt = function(v) { var t = _kbSan(v); if (t === "" || t === "-") return null; var n = parseInt(t, 10); return isNaN(n) ? null : n; };
   // 対象取引を期間で絞り込み（記録日基準・本日=当日/相対=今日からN遡り以降/全期間=無制限）2026-07-03q。推奨α(baseRecs/recoOf)は各記録日の履歴で別途算出＝ここでは絞らない。
-  var _periodRecs = (function() {
-    if (period === "all") return recs;
-    var _t = todayStr();
-    if (period === "today") return recs.filter(function(r) { return r && r.date === _t; });
-    var _cd = new Date(_t + "T00:00:00");
-    if (period === "1w") _cd.setDate(_cd.getDate() - 7);
-    else if (period === "1m") _cd.setMonth(_cd.getMonth() - 1);
-    else if (period === "3m") _cd.setMonth(_cd.getMonth() - 3);
-    else if (period === "6m") _cd.setMonth(_cd.getMonth() - 6);
-    else if (period === "1y") _cd.setFullYear(_cd.getFullYear() - 1);
-    var _cut = _cd.getFullYear() + "-" + String(_cd.getMonth() + 1).padStart(2, "0") + "-" + String(_cd.getDate()).padStart(2, "0");
-    return recs.filter(function(r) { return r && r.date && r.date >= _cut; });
-  })();
+  var _periodRecs = _elPSelFilter(recs, pSel);   // 2026-07-20i 年月週日カスケード選択（_elPSelFilter）。旧＝今日起点のローリング窓
   var pool = floatMode ? _periodRecs : (addFil === "no" ? _periodRecs.filter(function(r) { return r && !_elSpecialUsed(r.signal); }) : addFil === "yes" ? _periodRecs.filter(function(r) { return r && _elSpecialUsed(r.signal); }) : _periodRecs);
   var _poolBeforeEx = pool.length;
   if (exFlags.uki || exFlags.lc || exFlags.rn) pool = pool.filter(function(r) { var s = r && r.signal; if (!s) return true; if (!floatMode && exFlags.uki && _elUkiYes(s)) return false; if (exFlags.lc && s.lineCoexist === true) return false; if (exFlags.rn && _elRnYes(s)) return false; return true; });   // 除外チェック（⑥ 2026-07-13・floatModeでは浮き足除外は無効＝母数が浮き足記録のため）
@@ -4929,7 +5074,7 @@ function _elKabuLadderSimV2(props) {
   var _candLabel = function(cand) { if (cand.kind === "abs") return "α" + cand.v + "円"; if (cand.kind === "adopt") return cand.x === 0 ? "採用α" : ("採用α" + (cand.x > 0 ? "+" + cand.x : cand.x)); if (cand.x === 0) return "推奨α"; return "推奨α" + (cand.x > 0 ? "+" + cand.x : cand.x); };
   var totalN = (function() { var t = _kbInt(total); if (t == null || t <= 0) return 0; return Math.max(100, Math.round(t / 100) * 100); })();
   // 自動配分の入力署名＝これが変われば結果は無効＝再度「計算する」を要求（全銘柄モードのみ）。銘柄別は_autoReady常時trueで従来の即時計算のまま。
-  var _autoSig = totalN + "|" + pool.length + "|" + period + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + (exFlags.lc ? 1 : 0) + (exFlags.rn ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length + "|" + (multiTrade ? 1 : 0);   // multiTradeも署名に＝〇×を切り替えたら再計算が必要 2026-07-20g
+  var _autoSig = totalN + "|" + pool.length + "|" + _elPSelSig(pSel) + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + (exFlags.lc ? 1 : 0) + (exFlags.rn ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length + "|" + (multiTrade ? 1 : 0);   // multiTradeも署名に＝〇×を切り替えたら再計算が必要 2026-07-20g
   var _autoReady = !allStock || !multiTrade || autoRunSig === _autoSig;   // 2026-07-20h ×は25通りで軽いのでゲートせず即時（_autoGateと条件を揃える）
   var autoRes = null;
   if (mode === "auto" && totalN > 0 && pool.length && _autoReady) {
@@ -5209,10 +5354,7 @@ function _elKabuLadderSimV2(props) {
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "母数:"),
       React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F6E56", background: "#E4EFEC", borderRadius: 5, padding: "1px 8px" } }, _stkN + "銘柄・" + pool.length + "件"),
       React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "全銘柄・全シグナルの記録に同じラダーを一律適用")) : null,
-    React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
-      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "対象期間:"),
-      [["today", "本日"], ["1w", "1週間"], ["1m", "1か月"], ["3m", "3か月"], ["6m", "6か月"], ["1y", "1年"], ["all", "全期間"]].map(function(kv) { return _pill(period === kv[0], kv[1], function() { setPeriod(kv[0]); setAutoExp(null); setMtExp(null); }, "#0F766E"); }),
-      React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "（" + _periodRecs.length + "件）")),
+    React.createElement(_ElPeriodPicker, { value: pSel, onChange: function(s) { setPSel(s); setAutoExp(null); setMtExp(null); }, recs: recs, label: "対象期間" }),   // 2026-07-20i 年月週日カスケード（既定＝今月のみ）
     floatMode
       ? React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "4px 8px", marginBottom: 6 } }, "母数＝浮き足の記録（" + pool.length + "件）。浮き足〇は土台α無し＝実効α＝各記録の浮き足加算（採用加算率）＋RN自動加算のみ。※このタブでは絶対値／推奨α±X／推奨基本α値を選んでも実効αは変わりません（土台αが常に0のため）。αを掃引したいときは「採用α±X」方式を使ってください。")   // 2026-07-20d 明記（旧「浮き値÷2切捨てを上乗せ」＝加算率可変化で古く、かつ候補α＋浮き足と読めて誤解を招いた）
       : React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
@@ -5405,7 +5547,7 @@ function _elKabuLadderSimV2(props) {
       _autoGate ? null : (_rankRows.length ? _elv2Table(["順位", multiTrade ? "配分（α方式×株数）" : "α方式（全株）", "建玉あり", "損切り", "通算損益", ""], _rankRows)
         : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "12px 0", fontSize: 11 } }, "合計株数を入力してください")));
   }
-  var _periodLbl = ({ today: "本日", "1w": "1週間", "1m": "1か月", "3m": "3か月", "6m": "6か月", "1y": "1年", all: "全期間" })[period] || "全期間";
+  var _periodLbl = _elPSelIsAll(pSel) ? "全期間" : _elPSelSummary(pSel, _elPSelOpts(recs, pSel));   // 2026-07-20i 選択中の年月週日をそのまま見出しに出す
   var _targetList = React.createElement("div", { style: { marginBottom: 10 } },   // 期間で絞った対象取引をまず表示（＝シミュの母数）2026-07-03q
     React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#0F766E", marginBottom: 4 } }, "対象取引（" + pool.length + "件）",
       React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, _periodLbl + "・シミュの母数")),
@@ -5444,9 +5586,10 @@ function EntryLogView(_ref_elv2) {
   var custom = data.custom || {};
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
   var _uV = useState("sum"), view = _uV[0], setView = _uV[1];
-  var _uP = useState("all"), period = _uP[0], setPeriod = _uP[1];
-  var _uRF = useState(""), rngFrom = _uRF[0], setRngFrom = _uRF[1];
-  var _uRT = useState(""), rngTo = _uRT[0], setRngTo = _uRT[1];
+  // 2026-07-20i 期間の指定を年月週日カスケード選択へ置換。既定は全階層「全て」＝全期間（従来の既定と同じ見え方を維持・ユーザー選択）。
+  // 旧 period/rngFrom/rngTo（全期間/今週/1ヶ月…＋🗓期間指定）は撤去。旧「今週」はJSTで金曜が落ちるバグがあった（_elFilterPeriodのtoISOString）。
+  var _uPS = useState(_elPSelAll), pSel = _uPS[0], setPSel = _uPS[1];
+  // 2026-07-20i rngFrom/rngTo（🗓期間指定の自由レンジ）は_ElPeriodPickerへ統合して撤去。
   var _uS = useState(""), stockFil = _uS[0], setStockFil = _uS[1];
   var _uE = useState(initialEdit || null), editTarget = _uE[0], setEditTarget = _uE[1];
   var _uX = useState(null), expKey = _uX[0], setExpKey = _uX[1];
@@ -5485,7 +5628,7 @@ function EntryLogView(_ref_elv2) {
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
   // 2026年4月のみ（EMAの位置に間違い）の損益は参考程度 2026-07-12→2026-07-18: 境界=2026-05-01（月別キーは2026-05）。5月以降が正（5・6月は再取込で修正済み）。上部バナー＋期間別表の該当行に「※参考」。
-  var _elIsEmaRefPeriod = function(k, g) { return (g === "month") ? (String(k) < "2026-05") : (String(k) < "2026-05-01"); };
+  // ※本体は2026-07-20iにトップレベル _elIsEmaRefPeriod へ移動（年月週日ピッカーが選択肢の足切りに使うため）。ここは参照するだけ＝ローカル定義は削除済み。
   var _elEmaRefNote = function(isRef) { return isRef ? React.createElement("span", { title: "4月の損益はEMAの位置に間違いがあったため参考程度（5月以降が正）", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※参考") : null; };
   var _elPreEmaN = function(rs) { var n = 0; (rs || []).forEach(function(r) { if (((r && r.date) || "") < "2026-05-01") n++; }); return n; };
   var _elPreEmaBadge = function(rs) {   // 推奨カード用（承認③ 2026-07-12→2026-07-18 4月のみ）: 母数にEMA修正前(4月)の記録が混ざっている件数を琥珀で明示。母数トグル「5月〜」ON時は自然に消える。
@@ -5516,9 +5659,7 @@ function EntryLogView(_ref_elv2) {
   var _collScope = (_isAllStock || _isSigTotal) ? null : _selStock;
   // 分析母数トグル（承認③+ 2026-07-12→2026-07-18）: 「5月〜」ON時はEMA修正後（2026-05-01以降）の記録だけを記録帳全体の母数にする。顔ぶれ(_tickerList)は固定のまま。
   var _anaRecs = anaJul ? allRecs.filter(function(r) { return ((r && r.date) || "") >= "2026-05-01"; }) : allRecs;
-  var _periodRecs = (period === "range")
-    ? _anaRecs.filter(function(r) { var d = r.date || ""; return d && (!rngFrom || d >= rngFrom) && (!rngTo || d <= rngTo); })
-    : _elFilterPeriod(_anaRecs, period);
+  var _periodRecs = _elPSelFilter(_anaRecs, pSel);   // 2026-07-20i 年月週日カスケード選択（_elPSelFilter＝ローカル基準・_elBucketKey準拠）。旧_elFilterPeriod経路は廃止
   // 銘柄タブのバッジ件数: 選択期間内・銘柄未限定の記録数（顔ぶれは固定、件数だけ期間連動）
   var _cntByStock = (function() { var m = {}; _periodRecs.forEach(function(r) { if (r.stock) m[r.stock] = (m[r.stock] || 0) + 1; }); return m; })();
   var filtered = (_isAllStock || _isSigTotal) ? _periodRecs : _periodRecs.filter(function(r) { return r.stock === _selStock; });
@@ -6725,38 +6866,8 @@ function EntryLogView(_ref_elv2) {
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）"));
   }
 
-  var _rngISty = { padding: "5px 7px", fontSize: 12, border: "1px solid #ddd", borderRadius: 6, background: "#fff", color: "#1a1a1a" };
-  var _rngBtn = function(lbl, f, t) {
-    return React.createElement("button", { onClick: function() { setRngFrom(f); setRngTo(t); }, style: { padding: "4px 10px", fontSize: 11, fontWeight: 700, background: "#fff", border: "1px solid #FED7AA", borderRadius: 14, cursor: "pointer", color: "#9A3412" } }, lbl);
-  };
-  var _rngBar = (period !== "range") ? null : (function() {
-    var _p2 = function(n) { return (n < 10 ? "0" : "") + n; };
-    var _iso = function(dt) { return dt.getFullYear() + "-" + _p2(dt.getMonth() + 1) + "-" + _p2(dt.getDate()); };
-    var _now = new Date();
-    var _today = _iso(_now);
-    var _mFrom = _iso(new Date(_now.getFullYear(), _now.getMonth(), 1));
-    var _pmFrom = _iso(new Date(_now.getFullYear(), _now.getMonth() - 1, 1));
-    var _pmTo = _iso(new Date(_now.getFullYear(), _now.getMonth(), 0));
-    var _ymVal = (rngFrom && rngTo && rngFrom.slice(8) === "01" && rngFrom.slice(0, 7) === rngTo.slice(0, 7) && rngTo === _iso(new Date(+rngFrom.slice(0, 4), +rngFrom.slice(5, 7), 0))) ? rngFrom.slice(0, 7) : "";
-    var _setYM = function(ym) {
-      if (!ym) { setRngFrom(""); setRngTo(""); return; }
-      setRngFrom(ym + "-01");
-      setRngTo(_iso(new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0)));
-    };
-    return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 6, padding: "7px 9px", marginBottom: 8 } },
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#9A3412" } }, "🗓 期間指定"),
-      React.createElement("input", { type: "month", value: _ymVal, onChange: function(e) { _setYM(e.target.value); }, title: "月を選ぶと その月の1日〜末日 が入る", style: _rngISty }),
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#FDBA74" } }, "｜"),
-      React.createElement("input", { type: "date", value: rngFrom, max: rngTo || _today, onChange: function(e) { setRngFrom(e.target.value); }, style: _rngISty }),
-      React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#9A3412" } }, "〜"),
-      React.createElement("input", { type: "date", value: rngTo, min: rngFrom || undefined, onChange: function(e) { setRngTo(e.target.value); }, style: _rngISty }),
-      _rngBtn("今月", _mFrom, ""),
-      _rngBtn("先月", _pmFrom, _pmTo),
-      _rngBtn("今日まで", rngFrom, ""),
-      _rngBtn("クリア", "", ""),
-      React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#9A3412", marginLeft: "auto" } },
-        (rngFrom || "最古") + " 〜 " + (rngTo || "今日(" + _today + ")") + " ・ " + _periodRecs.length + "件"));
-  })();
+  // 2026-07-20i 旧「🗓 期間指定」バー（_rngISty/_rngBtn/_rngBar と rngFrom/rngTo state）は年月週日カスケード選択(_ElPeriodPicker)へ統合したため撤去。
+  // 任意の開始日〜終了日という自由レンジは無くなるが、年→月→週→日を複数選択できるので実用上の指定はカバーできる。
 
   // レイアウト刷新・案A（2026-07-12）: ヘッダー=アイコン＋タイトル＋スコープサブタイトル。期間はチップ風セレクト・＋新規は右端。
   return React.createElement("div", { style: { padding: "12px 14px", maxWidth: 1100, margin: "0 auto" } },
@@ -6766,8 +6877,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#1A1714", lineHeight: 1.2 } }, "エントリー記録帳"),
         React.createElement("div", { style: { fontSize: 10, color: "#9A9186", fontWeight: 700, marginTop: 1 } }, (_isSigTotal ? "シグナル総合" : _isAllStock ? "全銘柄" : _selStock) + " ・ " + filtered.length + "件")),
-      React.createElement("select", { value: period, onChange: function(e) { setPeriod(e.target.value); }, style: { marginLeft: "auto", padding: "6px 9px", fontSize: 11.5, fontWeight: 700, border: "1px solid #E4DFD7", borderRadius: 9, background: "#fff", color: "#5C554B", cursor: "pointer" } },
-        [["all", "全期間"], ["1w", "今週"], ["1m", "1ヶ月"], ["3m", "3ヶ月"], ["6m", "6ヶ月"], ["1y", "1年"], ["range", "🗓 期間指定"]].map(function(kv) { return React.createElement("option", { key: kv[0], value: kv[0] }, kv[1]); })),
+      React.createElement("div", { style: { marginLeft: "auto" } }),   // 2026-07-20i 期間の<select>は年月週日ピッカー（下の_periodPickerEl）へ置換。ここは右寄せ用のスペーサー
       React.createElement("div", { title: "分析母数（承認③+）: 「5月〜」＝EMA修正後（2026-05-01以降）の記録だけで記録帳全体（推奨α・損切り・浮き足%・各表・一覧）を計算。既定＝全期間", style: { display: "inline-flex", alignItems: "center", background: anaJul ? "#FFF7ED" : "#EFEBE4", border: "1px solid " + (anaJul ? "#FDBA74" : "transparent"), borderRadius: 9, padding: 2, gap: 2 } },
         React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: anaJul ? "#C2410C" : "#9A9186", padding: "0 2px 0 6px" } }, "母数"),
         [[false, "全期間"], [true, "5月〜"]].map(function(kv) {
@@ -6776,7 +6886,9 @@ function EntryLogView(_ref_elv2) {
             style: { padding: "4px 10px", fontSize: 10.5, fontWeight: 700, border: "none", borderRadius: 7, cursor: "pointer", whiteSpace: "nowrap", background: on ? "#fff" : "transparent", color: on ? (kv[0] ? "#C2410C" : "#1A1714") : "#6B6459", boxShadow: on ? "0 1px 2px rgba(0,0,0,.08)" : "none" } }, kv[1]);
         })),
       React.createElement("button", { onClick: function() { setEditTarget({}); }, style: { padding: "7px 13px", fontSize: 12, fontWeight: 800, background: "#1A1714", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer" } }, "＋新規")),
-    _rngBar,
+    // 2026-07-20i 期間の指定を年月週日カスケード選択へ置換（旧: 全期間/今週/1ヶ月…のローリング<select>＋🗓期間指定バー）。既定は全て「全て」＝全期間で、開いた時の見え方は従来と同じ。
+    // 母数は_anaRecs（「5月〜」トグル適用後）＝ピッカーの件数表示も同じ母数で数える。
+    React.createElement(_ElPeriodPicker, { value: pSel, onChange: function(s) { setPSel(s); setExpKey(null); setPerExp(null); }, recs: _anaRecs, label: "期間" }),
     React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", margin: "0 2px 7px", lineHeight: 1.4 } }, "※ 2026年4月の損益は、EMAの位置に間違いがあったため参考程度です（5月以降が正）。" + (anaJul ? " 現在、母数トグルにより5月以降のみで分析中。" : "")),
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", marginBottom: 6 } },
       React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode(false); setSelDetTag(null); if (view !== "sum" && view !== "period" && view !== "sim") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった

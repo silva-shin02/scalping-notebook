@@ -5551,6 +5551,12 @@ function _elPnlPeriodFilter(records, period, from, to) {
   }
   return records; 
 }
+// ⚠️【使用禁止・2026-07-20iで呼び出し元ゼロ】新規に期間で絞るときは app-06 の _elPSelFilter(recs, sel)（年月週日カスケード選択）を使うこと。
+// 【バグ】この関数はローカル深夜0時のDateに toISOString() をかけて日付文字列を作るため、UTCより東（日本=UTC+9）では窓が丸ごと1日前へずれる。
+//   実測（2026-07-20 月曜・JST）: "1w" の境界が 月7/20〜金7/24 のつもりで 日7/19〜木7/23 になり、**金曜の記録が落ちて日曜が入っていた**。
+//   "1m"/"3m"/"6m"/"1y" は cutoff に深夜0時ではなく「現在時刻」を入れているため、JSTでは朝9時より前に開くと境界が1日手前へずれる（開いた時刻で母数が変わる）。
+//   修正するなら toISOString() をやめて getFullYear/getMonth/getDate のローカルgetterで組み立てる（_elBucketKey app-06:1274 と同じ流儀）。
+// 直下の _elPnlPeriodFilter も同様に呼び出し元ゼロ。
 function _elFilterPeriod(records, period) {
   if (period === "all") return records;
   var now = new Date();
