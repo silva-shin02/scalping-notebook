@@ -5265,6 +5265,12 @@ function EntryLogView(_ref_elv2) {
       return { n: tp, rate: wn ? Math.round(tp / wn * 100) : null };
     };
     var byP = {}; rs.forEach(function(r) { var k = keyOf(r.date); (byP[k] = byP[k] || []).push(r); });
+    // 展開明細だけスルー記録も並べる（表示専用 2026-07-20 ユーザー選択「表示だけ」）。
+    // 母数rs(=v2recs)は_elInclTotalでスルー(passThrough)を除外済＝件数/到達/利確/損切り/最終損益/実現/1日平均/合計行は一切不変。
+    // 出典はfilteredの生記録（期間・銘柄の絞り込みはrsと同条件）。行のグレー表示と「ス」バッジは_recTableが_elRowStyleWithCollで自動描画。
+    // ※その期間に算入記録が1件も無いとkeys(byP由来)に行自体が出ないため、スルーだけの期間は表示されない（既存の行生成仕様のまま）。
+    var _thruByP = {};
+    filtered.forEach(function(r) { if (r && r.date && r.signal && _epIsV2(r.signal) && _elIsThru(r.signal)) { var _kt = keyOf(r.date); (_thruByP[_kt] = _thruByP[_kt] || []).push(r); } });
     var keys = Object.keys(byP).sort().reverse();
     if (!keys.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "v2記録なし");
     var oth = function(t) { return React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
@@ -5303,9 +5309,13 @@ function EntryLogView(_ref_elv2) {
         stopCell(st),
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
         realCell(t.real, t.realCnt, dn)));
-      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 8, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
-        React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件）"),
-        _recTable(x.slice().sort(_byDateAsc), "full", "ovp_" + k + "_", null))));
+      if (on) {
+        var _thruX = _thruByP[k] || [];   // 表示専用の追加行（合計・件数には不参加）
+        rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 8, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+          React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件" + (_thruX.length ? "＋スルー" + _thruX.length + "件" : "") + "）"),
+          _thruX.length ? React.createElement("div", { style: { fontSize: 9, color: "#9CA3AF", fontWeight: 600, margin: "0 0 4px" } }, "※グレーの「ス」行＝スルー記録。件数・損益の集計には入りません（表示のみ）") : null,
+          _recTable(x.concat(_thruX).sort(_byDateAsc), "full", "ovp_" + k + "_", null))));
+      }
     });
     // 合計・平均は「※参考」期間（EMA位置ズレの4月＝_elIsEmaRefPeriod）を除外。参考行自体は上に表示し、集計だけ除く。件数・日数・到達/利確/損切り率・1日平均も参考期間を抜いた母数で算出 2026-07-18
     var _isRefKey = function(k) { return _elIsEmaRefPeriod(k, g); };
