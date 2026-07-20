@@ -4928,6 +4928,9 @@ function _elKabuLadderSimV2(props) {
   //   ・ライン併存はユーザーが概念として使わなくなったため撤去。
   // 既定＝浮き足〇を除外（floatModeでは浮き足除外は無効＝母数が浮き足記録のため）。
   var _uEx = useState({ uki: true }), exFlags = _uEx[0], setExFlags = _uEx[1];
+  // RN自動加算トグル 2026-07-21a（ユーザー要望＝既定ONで戻す）: ONなら掃引αの予定EP下二桁が41-49/91-99のとき…50/…00まで自動で乗せる（記録フォーム/EPナビと同じ）。
+  //   全方式（絶対値・推奨α系）に一律。OFFなら入力αがそのまま効く（下二桁に依らず建つ/建たないが安定）。採用α±X系はRNが採用αに内包済みなので対象外（別経路_adoptOf）。
+  var _uRnA = useState(true), rnAuto = _uRnA[0], setRnAuto = _uRnA[1];
   // 2026-07-20i 対象期間を年月週日カスケード選択へ置換（旧: 本日/1週/1月/3月/6月/1年/全期間のローリング）。
   // 既定＝今月のみ（週日は「全て」）＝ユーザー選択。記録帳の外側バーは既定「全期間」なので、こちらだけ今月に寄せている点に注意。
   var _uPd = useState(_elPSelThisMonth), pSel = _uPd[0], setPSel = _uPd[1];
@@ -5039,10 +5042,9 @@ function _elKabuLadderSimV2(props) {
       var _bl = _simBaseLevel(r, a);   // 応用〇＝specialAlphaで基底αを置換（候補は無視）2026-07-13
       if (_bl == null) return { a: null, add: sh, _uki: _uki, _rn: 0, _addA: null };
       // 2026-07-20c RNは掃引αごとに再判定（記録の保存値_rnは使わない＝αが動けばEPも下二桁も動くため）。
-      // ⚠️2026-07-20k 例外: **絶対値方式はRN自動加算を乗せない**。「絶対値3円」と入力したのに予定EPの下二桁次第で実効7円になり、
-      //   OS高値5円の記録が未到達＝建たない扱いになって従来欄との差額が生まれていた（同じOS高値でも水準線の下二桁だけで結果が変わる）。
-      //   絶対値は「入力した値がそのまま効く」のが存在意義なので、ここだけ再判定を外す。推奨α系（reco/recobase）は実運用の建値を模すので従来どおり再判定する。
-      var _pre = _bl + _uki, _rnD = (rw.method === "abs") ? 0 : _simRnAt(r, _pre);
+      // 2026-07-21a RN自動加算トグル(rnAuto・既定ON)で全方式一律にON/OFF。ONなら予定EP下二桁41-49/91-99を…50/…00へ自動で乗せる（記録フォーム/EPナビと同じ）。
+      //   OFFなら「入力αがそのまま効く」＝下二桁に依らず判定が安定（旧2026-07-20kの「絶対値だけ常時OFF」を撤回しトグル化＝OFFにすれば同じ効果）。採用α±X系はRN込みなので別経路（このコードを通らない）。
+      var _pre = _bl + _uki, _rnD = rnAuto ? _simRnAt(r, _pre) : 0;
       return { a: _pre + _rnD, add: sh, _uki: _uki, _rn: _rnD, _addA: null };   // 実効α＝base-levelα＋浮き足加算＋自動RN加算。_addA=null（追加α増分は廃止＝取引ごと追加α列は非表示）
     // 2026-07-20h `t.a != null` の除外を撤回＝α不明のtierも_elKabuTierEvalへ渡す（skip:"noalpha"が立つ）。
     // 旧: ここで捨てていたため手動モードでは anyNoBase が構造的に立たず、①注記「推奨α不明N件」が一度も出ず、
@@ -5082,12 +5084,12 @@ function _elKabuLadderSimV2(props) {
     var bl = _simBaseLevel(r, b);
     if (bl == null) return null;
     var pre = bl + _elUkiAdd(r && r.signal);
-    return pre + ((cand.kind === "abs") ? 0 : _simRnAt(r, pre));   // 2026-07-20k 絶対値候補はRN自動加算を乗せない＝手動ラダーの絶対値方式と挙動を揃える（入力した値がそのまま効く）
+    return pre + (rnAuto ? _simRnAt(r, pre) : 0);   // 2026-07-21a RN自動加算トグル（既定ON）。手動ラダーの_rnDと同じ扱い＝OFFで入力αがそのまま効く。採用系(adopt)は上のearly returnで別処理
   };
   var _candLabel = function(cand) { if (cand.kind === "abs") return "α" + cand.v + "円"; if (cand.kind === "adopt") return cand.x === 0 ? "採用α" : ("採用α" + (cand.x > 0 ? "+" + cand.x : cand.x)); if (cand.x === 0) return "推奨α"; return "推奨α" + (cand.x > 0 ? "+" + cand.x : cand.x); };
   var totalN = (function() { var t = _kbInt(total); if (t == null || t <= 0) return 0; return Math.max(100, Math.round(t / 100) * 100); })();
   // 自動配分の入力署名＝これが変われば結果は無効＝再度「計算する」を要求（全銘柄モードのみ）。銘柄別は_autoReady常時trueで従来の即時計算のまま。
-  var _autoSig = totalN + "|" + pool.length + "|" + _elPSelSig(pSel) + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length + "|" + (multiTrade ? 1 : 0);   // multiTradeも署名に＝〇×を切り替えたら再計算が必要 2026-07-20g
+  var _autoSig = totalN + "|" + pool.length + "|" + _elPSelSig(pSel) + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length + "|" + (multiTrade ? 1 : 0) + "|" + (rnAuto ? 1 : 0);   // multiTrade/rnAutoも署名に＝切り替えたら再計算が必要 2026-07-20g→2026-07-21a
   var _autoReady = !allStock || !multiTrade || autoRunSig === _autoSig;   // 2026-07-20h ×は25通りで軽いのでゲートせず即時（_autoGateと条件を揃える）
   var autoRes = null;
   if (mode === "auto" && totalN > 0 && pool.length && _autoReady) {
@@ -5396,7 +5398,14 @@ function _elKabuLadderSimV2(props) {
         ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: _exCount > 0 ? "#B45309" : "#C0392B", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 5, padding: "1px 7px" } }, _exCount > 0 ? (_exCount + "件を除外中（対象 " + pool.length + "件）") : "除外0件＝浮き足〇の記録がこの母数にありません")
         : React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "浮き足〇の記録をシミュ母数から除外（現在 " + pool.length + "件）"),
       _collN > 0 ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 5, padding: "1px 7px" } }, "時間かぶり除外 " + _collN + "件") : null,   // 2026-07-20b 他のP&L集計と同じ被り除外を適用中であることの可視化（常時ON・チェックではない）
-      _noLvN > 0 ? React.createElement("span", { title: "水準線値が未入力の記録は予定EPが出せないためRNまたぎ自動判定ができません。RN加算なし（0円）として掃引しています（母数からは外していません）。", style: { fontSize: 9.5, fontWeight: 800, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 5, padding: "1px 7px" } }, "水準線未入力 " + _noLvN + "件（RN自動判定なし）") : null),   // 2026-07-20c
+      (rnAuto && _noLvN > 0) ? React.createElement("span", { title: "水準線値が未入力の記録は予定EPが出せないためRNまたぎ自動判定ができません。RN加算なし（0円）として掃引しています（母数からは外していません）。", style: { fontSize: 9.5, fontWeight: 800, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 5, padding: "1px 7px" } }, "水準線未入力 " + _noLvN + "件（RN自動判定なし）") : null),   // 2026-07-20c／2026-07-21a RN自動加算OFF時はこのバッジも不要
+    // RN自動加算トグル 2026-07-21a（既定ON）: 全方式一律。ONで予定EP下二桁41-49/91-99を…50/…00へ／OFFで入力αそのまま。採用α±X系は元からRN込みで対象外。
+    React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "RN自動加算:"),
+      React.createElement("button", { type: "button", onClick: function() { setRnAuto(!rnAuto); setAutoExp(null); setMtExp(null); },
+        title: "予定EPの下二桁が41〜49／91〜99のとき…50/…00ちょうどまでαを自動で引き上げる（記録フォーム/EPナビと同じキリ番調整）。OFFにすると入力したαがそのまま効く（下二桁に依らず判定が安定）。採用α±X系は元からRN込みのため対象外。",
+        style: { padding: "3px 10px", fontSize: 10.5, fontWeight: 700, borderRadius: 6, cursor: "pointer", border: "1px solid " + (rnAuto ? "#0F766E" : "#ddd"), background: rnAuto ? "#F0FDFA" : "#fff", color: rnAuto ? "#0F766E" : "#666", whiteSpace: "nowrap" } }, (rnAuto ? "☑ " : "☐ ") + "乗せる"),
+      React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, rnAuto ? "予定EP下二桁41〜49/91〜99を…50/…00へ（採用α±X系は元から込み）" : "入力したαをそのまま評価（キリ番調整なし）")),
     (mode === "auto" && _poolHasYes) ? React.createElement("div", { style: { fontSize: 9, color: "#9A3412", marginBottom: 6 } }, "応用〇の記録はその記録の応用α値を基底αに採用（絶対値/推奨α系の掃引対象外）。通常記録は候補αを掃引。※採用α±X系の候補なら応用〇・浮き足〇の記録も掃引されます。") : null);
   if (!pool.length) {
     return React.createElement("div", null, head,
