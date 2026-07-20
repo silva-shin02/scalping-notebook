@@ -1664,12 +1664,16 @@ function _rnTierToggle(tier, onSet) {
 // 閾値スイープの母数抽出（ボード本体とサブタブの件数バッジが同じ条件を使うための単一源）。tier: "all"／"50"／"00"。
 // 除外の理由別件数も返す＝「母数が薄いから判断保留」をユーザーが読めるようにするため。
 function _elRnThrPool(recs, aiOf, tier) {
-  var _tier = tier || "all", out = { pool: [], noLv: 0, onRn: 0, offTier: 0, rnYesN: 0 };
+  var _tier = tier || "all", out = { pool: [], noLv: 0, onRn: 0, offTier: 0, rnYesN: 0, badPre: 0 };
   (recs || []).forEach(function(r) {
     var s = r && r.signal; if (!s) return;
+    if (!_epIsV2(s)) return;                                                // 2026-07-20h v2ガード＝再利用可能な単一源として非v2を弾く（_rnCandRecsと同じ線引き。_epResolveが弾く記録で母数/バッジを膨らませない）
     var a = aiOf(r).alpha; if (a == null) return;
+    // 2026-07-20h RN加算“前”αが負の記録は除外＝採用αよりRN加算のほうが大きい不整合データ（αを下げてRN〇を消し忘れた等）。
+    // ボードは実効αを Math.max(0, a - _elRnAdd) でクランプする一方、距離は未クランプのEPから測るため、残すと「クランプ後のαではキリ番に乗らない」矛盾した反実仮想を出す。
+    if ((a - _elRnAdd(s)) < 0) { out.badPre++; return; }
     var ep = _elRnPreEpOfRec(s, a);
-    if (ep == null) { out.noLv++; return; }                                 // 水準線未入力＝下二桁が出せない
+    if (ep == null || isNaN(ep)) { out.noLv++; return; }                    // 水準線未入力＝下二桁が出せない（NaNもここで判定不可に寄せる）
     var d = _elRnDistAt(ep);
     if (d == null || d <= 0) { out.onRn++; return; }                        // すでに…50/…00ちょうど＝どのTでも不変
     if (_tier !== "all" && _elRnTierAt(ep) !== _tier) { out.offTier++; return; }
@@ -1678,6 +1682,7 @@ function _elRnThrPool(recs, aiOf, tier) {
   });
   return out;
 }
+function _tierName(t) { return t === "50" ? "…50の段（下二桁1〜49）のみ" : (t === "00" ? "…00の段（下二桁51〜99）のみ" : "…50/…00 合算"); }   // 段別トグルの表示名（注記と空状態で共用）2026-07-20h
 // 母数＝水準線値入り かつ RN前EPが…50/…00ちょうどでない記録（ちょうど＝どのTでも動かないので除外）。tier: "all"／"50"／"00"。
 function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
   var _tier = tier || "all";
@@ -1685,9 +1690,12 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
   var _td2 = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #F0EDE7", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
   var _sumCell = function(v, w) { return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: w || 800 } }, _elPnlFmt(Math.round(v))); };
   var _sel = _elRnThrPool(recs, aiOf, _tier);
-  var pool = _sel.pool, noLv = _sel.noLv, onRn = _sel.onRn, offTier = _sel.offTier, rnYesN = _sel.rnYesN;
+  var pool = _sel.pool, noLv = _sel.noLv, onRn = _sel.onRn, offTier = _sel.offTier, rnYesN = _sel.rnYesN, badPre = _sel.badPre;
+  // 2026-07-20h 空状態が「未入力N件」しか言わず、段別トグルで絞って0件になった時に「水準線値を入れろ」と誤った指示を出していたので理由別に出し分ける
   if (!pool.length) return React.createElement("div", { style: { color: "#94A3B8", textAlign: "center", padding: "24px 12px", fontSize: 12, border: "1px dashed #e0ddd6", borderRadius: 10 } },
-    "母数になる記録がまだありません（水準線値入りが必要・未入力" + noLv + "件）。記録フォームのOS見出し右／EPナビの分足欄右で水準線値を入れると貯まります");
+    offTier > 0
+      ? React.createElement("span", null, "この段に該当する記録がありません（" + _tierName(_tier) + "・他の段に" + offTier + "件）。上の段別トグルを「全体」に戻すと表示されます")
+      : React.createElement("span", null, "母数になる記録がまだありません（水準線値入りが必要・未入力" + noLv + "件" + (onRn ? "／すでに…50・…00ちょうど" + onRn + "件" : "") + "）。記録フォームのOS見出し右／EPナビの分足欄右で水準線値を入れると貯まります"));
   // ---- 閾値Tのα関数。T=0＝またぎ無し（素のα）＝_elRnBoardV2の「RN無し」行と同じ式 ----
   var _alphaAtT = function(T) {
     return function(r) {
@@ -1759,11 +1767,11 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
       _td2(_sumCell(x.diff, 700)),
       _td2(_sumCell(x.cum, 700)));
   });
-  var _tierLbl = _tier === "50" ? "…50の段（下二桁1〜49）のみ" : (_tier === "00" ? "…00の段（下二桁51〜99）のみ" : "…50/…00 合算");
+  var _tierLbl = _tierName(_tier);
   return React.createElement("div", null,
     React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6, lineHeight: 1.5 } },
       "母数＝水準線値入りの記録 " + pool.length + "件（RN〇 " + rnYesN + "／RN× " + (pool.length - rnYesN) + "・" + _tierLbl + "）。RN加算“前”のEP（水準線＋基底α＋浮き足加算）の下二桁から直近のキリ番までの距離を測り、距離≤T円なら〇にするルールで採用αを組み直して再判定（EP到達〜最終損益[手じまい・○途切れ]まで推奨α系と同一基準）。",
-      React.createElement("span", { style: { color: "#B08968" } }, "除外＝水準線未入力 " + noLv + "件／すでに…50・…00ちょうど " + onRn + "件" + (offTier ? "／他の段 " + offTier + "件" : "") + "。")),
+      React.createElement("span", { style: { color: "#B08968" } }, "除外＝水準線未入力 " + noLv + "件／すでに…50・…00ちょうど " + onRn + "件" + (offTier ? "／他の段 " + offTier + "件" : "") + (badPre ? "／採用αよりRN加算が大きい不整合 " + badPre + "件" : "") + "。")),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "① 閾値スイープ 〜何円手前までなら待つ価値があるのか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", null, ["閾値T", "該当", "到達率", "E成立", "頻度", "損切り率", "利確率", "Σ最終損益", "平均", "T=0比"].map(function(h, i) { return _th2(h, i); }))),
@@ -1775,7 +1783,8 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
       React.createElement("thead", null, React.createElement("tr", null, ["RNまでの距離", "件数", "またぐΣ", "またがないΣ", "差", "累計差"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, distRows))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 } },
-      "距離dの記録はT=dでちょうど〇になるので、差を1円手前から積み上げた「累計差」は主表の同じTの「T=0比」と一致する（ズレていたら実装バグ）。最初に差がマイナスへ転じた距離の1つ手前が最適T。" + (farN ? "距離" + (_EL_RN_T_MAX + 1) + "円以上 " + farN + "件は表示範囲外（どのTでも〇にならない）。" : "")));
+      "距離dの記録はT=dでちょうど〇になるので、差を1円手前から積み上げた「累計差」は主表の同じTの「T=0比」と一致する（ズレていたら実装バグ）。最初に差がマイナスへ転じた距離の1つ手前が、Σ最終損益を最大にするT。"
+      + "⚠️①の★は『平均』最終損益が最大のTなので、この2つはしばしば違うTを指す（Tを上げるほどEPが深くなり到達が減る＝残った少数の強い記録だけで平均が上がるため、★は深いTへ寄りやすい）。総額を積みたいならこの累計差、1件あたりの質を見たいなら★。★のTが極端に少ないE成立で選ばれていないか件数列も確認。" + (farN ? "距離" + (_EL_RN_T_MAX + 1) + "円以上 " + farN + "件は表示範囲外（どのTでも〇にならない）。" : "")));
 }
 // 「何営業日に1日エントリーできたか」用 2026-07-07（ユーザー要望・全営業日ベース）: 母数の活動期間（初回〜直近の記録日）の営業日数。holiSet省略時は土日のみ除外・渡せば祝日も除外（_fmIsBizDay app-03）。validOf(r)=母数に含めるか（推奨α算出不能などの除外・省略時は全記録）。
 function _elBizSpanDays(recs, holiSet, validOf) {
@@ -4737,13 +4746,18 @@ function _elKabuLadderCalc(recs, aiOf, tiersOf) {
   return { rows: rows, sum: Math.round(sum), sumRef: Math.round(sumRef), builtRecN: builtRecN, stopRecN: stopRecN, indetRecN: indetRecN, xRecN: xRecN, noBaseRecN: noBaseRecN, unreachedRecN: unreachedRecN, n: rows.length };
 }
 function _elKabuTierAdd(t) { return t.add; }
-// UI本体（α値タブ④）。props: recs=シミュ母数（シグナル×内訳サブタブのスコープ）/ baseRecs=推奨α算出用（銘柄全体・全シグナル＝日別ページ/記録フォームと同じ母数 2026-07-03t。旧: シグナル全体_selSigRecs）/ aiOf / floatMode。
+// UI本体。マウント元は2箇所＝①銘柄タブの「🧮 シミュ」（旧α値タブ④）②💰損益タブの「🧮 シミュ」＝全銘柄一括（2026-07-20f）。
+// props: recs=シミュ母数（①シグナル×内訳サブタブのスコープ／②_v2recsAll＝全銘柄・全シグナル）／baseRecs=推奨α算出用（①その銘柄の全記録＝日別ページ/記録フォームと同じ母数 2026-07-03t／②allRecs＝銘柄ごとに分けてrecoFnを作る）／
+//   aiOf／floatMode（浮き足サブタブ＝浮き足〇の除外を無効化）／data＋scopeStock=時間かぶり除外（2026-07-20b・scopeStock=nullで銘柄横断）／allStock=全銘柄一括モード（2026-07-20f）。
 // 手動ラダー（取引ごとに入力方式=絶対値/推奨α±X/推奨基本α値を選択・各取引{method,off,株数}・実効αを記録ごとに算出し各取引の株数をそのまま空売り＝合計は総和・2026-07-05累積廃止）と自動配分（合計株数→第1取引α0〜推奨基本α未満×100株刻み配分を総当たり・第2取引=記録日時点の推奨α・★最適+上位ランキング）の2モード。
 function _elKabuLadderSimV2(props) {
   var recs = props.recs || [], baseRecs = props.baseRecs || recs, aiOf = props.aiOf, floatMode = !!props.floatMode;
   // allStock＝💰損益タブの全銘柄一括モード 2026-07-20f。推奨α系（推奨α±X・推奨基本α値）は**銘柄ごと**に算出する＝各記録は自分の銘柄の、その日時点の推奨基本αを使う。
   // ⚠️全銘柄の記録を1本のrecoFnに混ぜてはいけない: αは値幅の絶対値なので、株価水準の違う銘柄をまたいで平均した推奨αには意味がない（銘柄別シミュとも数字が合わなくなる）。
-  // この設計により「全銘柄シミュ ＝ 各銘柄シミュの合算」が成立する。絶対値/採用α±X方式は元から銘柄非依存なので影響なし。
+  // 絶対値/採用α±X方式は元から銘柄非依存なので影響なし。
+  // ⚠️2026-07-20h 訂正: 当初コメント/画面に書いた「全銘柄シミュ＝各銘柄シミュの合算」は**誤り**。α（＝1記録あたりの実効α）は銘柄ごとで正しいが、母数の定義が3点で違う:
+  //   ①時間かぶり除外のスコープ（全銘柄=null＝銘柄をまたいだ被りも除外／銘柄別=その銘柄内だけ）②銘柄別シミュの母数は**選択中シグナルのみ**（全銘柄は全シグナル）③floatMode（浮き足サブタブ）の有無で浮き足〇の除外が反転。
+  //   同一シグナル1本・時間かぶり無し・浮き足無しの銘柄なら結果的に一致するが、一般には一致しない。
   var allStock = !!props.allStock;
   var _simData = props.data || null, _simCollScope = props.scopeStock;   // 時間かぶり除外用（2026-07-20b）＝他のP&L集計(_elTotAccum の excluded)と同じ線引きをシミュにも適用。data未渡しなら従来どおり無効
   var _uM = useState("manual"), mode = _uM[0], setMode = _uM[1];
@@ -4872,7 +4886,12 @@ function _elKabuLadderSimV2(props) {
       if (_bl == null) return { a: null, add: sh, _uki: _uki, _rn: 0, _addA: null };
       var _pre = _bl + _uki, _rnD = _simRnAt(r, _pre);   // 2026-07-20c RNは掃引αごとに再判定（記録の保存値_rnは使わない＝αが動けばEPも下二桁も動くため）
       return { a: _pre + _rnD, add: sh, _uki: _uki, _rn: _rnD, _addA: null };   // 実効α＝base-levelα＋浮き足加算＋自動RN加算。_addA=null（追加α増分は廃止＝取引ごと追加α列は非表示）
-    }).filter(function(t) { return t != null && t.a != null; }).sort(function(x, y) { return x.a - y.a; });
+    // 2026-07-20h `t.a != null` の除外を撤回＝α不明のtierも_elKabuTierEvalへ渡す（skip:"noalpha"が立つ）。
+    // 旧: ここで捨てていたため手動モードでは anyNoBase が構造的に立たず、①注記「推奨α不明N件」が一度も出ず、
+    //     ②銘柄別内訳の理由が「取引なし（株数0・方式未選択）」と誤表示されていた（自動配分は元から捨てないので手動だけの非対称）。
+    // 消費側は全て `c.t.a != null` でガード済み（_kbMasterTableの_sa/_tMax/_perTx）＝自動配分と同じ形なので安全。合計・損益は不変（skipのtierは積算されない）。
+    // nullは末尾へソート＝表示順だけの都合（足し算なので合計は順序に依らない）。
+    }).filter(function(t) { return t != null; }).sort(function(x, y) { return (x.a == null ? Infinity : x.a) - (y.a == null ? Infinity : y.a); });
   };
   // シミュの損切り値: 空欄→各記録の実際の損切り値(aiOf.cutLine)／設定時→その記録日時点の推奨基本α(recoOf)+オフセット（1円未満は1にクランプ・推奨α不明は記録値へフォールバック）。手動ラダー専用（自動配分は各記録の実際の損切り値のまま）2026-07-05。
   var _stopOffN = _kbInt(stopOff);   // 損切りオフセット（null=空欄）
@@ -4911,7 +4930,7 @@ function _elKabuLadderSimV2(props) {
   var totalN = (function() { var t = _kbInt(total); if (t == null || t <= 0) return 0; return Math.max(100, Math.round(t / 100) * 100); })();
   // 自動配分の入力署名＝これが変われば結果は無効＝再度「計算する」を要求（全銘柄モードのみ）。銘柄別は_autoReady常時trueで従来の即時計算のまま。
   var _autoSig = totalN + "|" + pool.length + "|" + period + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + (exFlags.lc ? 1 : 0) + (exFlags.rn ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length + "|" + (multiTrade ? 1 : 0);   // multiTradeも署名に＝〇×を切り替えたら再計算が必要 2026-07-20g
-  var _autoReady = !allStock || autoRunSig === _autoSig;
+  var _autoReady = !allStock || !multiTrade || autoRunSig === _autoSig;   // 2026-07-20h ×は25通りで軽いのでゲートせず即時（_autoGateと条件を揃える）
   var autoRes = null;
   if (mode === "auto" && totalN > 0 && pool.length && _autoReady) {
     var _evCache = pool.map(function() { return {}; });
@@ -5087,7 +5106,7 @@ function _elKabuLadderSimV2(props) {
     return React.createElement("div", { style: { marginTop: 10 } },
       React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "銘柄別の内訳 〜合計が1銘柄に引っ張られていないか〜"),
       React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
-        React.createElement("thead", null, React.createElement("tr", null, ["銘柄", "対象", "建った", "建たなかった理由", "シミュΣ", "従来Σ", "差額"].map(function(h, i) { return _elv2Th(h, i); }))),
+        React.createElement("thead", null, React.createElement("tr", null, ["銘柄", "対象", "建った", "建たなかった理由", "シミュΣ", "従来Σ", "差額"].map(function(h, i) { return React.createElement("th", { key: i, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, h); }))),   // 2026-07-20h _elv2Th(h,i)はkeyを受け取らない実装＝配列に渡すとReactのkey警告が出るため直接createElement
         React.createElement("tbody", null, rows2),
         React.createElement("tfoot", null, React.createElement("tr", { style: { background: "#FFFBF5" } },
           _elv2Td(React.createElement("b", null, "合計"), { textAlign: "left", paddingLeft: 8, borderTop: "2px solid #E4DFD7" }),
@@ -5344,7 +5363,8 @@ function _elKabuLadderSimV2(props) {
     var _selCb = null;
     if (autoRes) { if (autoExp && autoRes.combos) { for (var _ci = 0; _ci < autoRes.combos.length; _ci++) { if (autoRes.combos[_ci].sig === autoExp) { _selCb = autoRes.combos[_ci]; break; } } } if (!_selCb) _selCb = autoRes.best; }
     // 全銘柄モードは総当たりが母数×銘柄数ぶん重いので「計算する」を押した時だけ走らせる（入力を変えると再度ボタンに戻る）2026-07-20f。銘柄別モードは_autoReady常時true＝従来どおり即時。
-    var _autoGate = (allStock && !_autoReady) ? React.createElement("div", { style: { border: "1px dashed #D1D5DB", borderRadius: 10, padding: "16px 12px", textAlign: "center", marginBottom: 8 } },
+    // 2026-07-20h ×（単一取引）はゲート不要＝候補25通りだけで〇の約1/49。ボタンを挟む意味が無いので即時実行に戻す。
+    var _autoGate = (allStock && multiTrade && !_autoReady) ? React.createElement("div", { style: { border: "1px dashed #D1D5DB", borderRadius: 10, padding: "16px 12px", textAlign: "center", marginBottom: 8 } },
       React.createElement("button", { type: "button", disabled: !(totalN > 0 && pool.length), onClick: function() { setAutoRunSig(_autoSig); setAutoExp(null); },
         style: { padding: "7px 20px", fontSize: 12, fontWeight: 800, borderRadius: 8, cursor: (totalN > 0 && pool.length) ? "pointer" : "default", border: "1px solid #0F766E", background: (totalN > 0 && pool.length) ? "#0F766E" : "#CBD5E1", color: "#fff" } }, "総当たりを計算する"),
       React.createElement("div", { style: { fontSize: 10.5, color: "#888780", marginTop: 8 } }, multiTrade ? ("候補25種 × " + totalN + "株の2取引配分 × 母数" + pool.length + "件") : ("候補25種（単一取引） × 母数" + pool.length + "件")),
@@ -5397,7 +5417,8 @@ function _elKabuLadderSimV2(props) {
       [[true, "〇"], [false, "×"]].map(function(kv) {
         var on = multiTrade === kv[0];
         return React.createElement("button", { key: String(kv[0]), type: "button",
-          onClick: function() { setMultiTrade(kv[0]); setAutoExp(null); setMtExp(null); setAddPicker(false); if (kv[0] && rows.length < 2) setRows(rows.concat([{ method: "", off: "", cum: "", addMethod: "act", addOff: "" }])); },
+          // 2026-07-20h 同値ガード: 既に〇の状態でもう一度〇を押すと、🗑で第2取引を消した直後なら空行が復活し、開いていた展開(autoExp/mtExp)まで畳まれていた
+          onClick: function() { if (multiTrade === kv[0]) return; setMultiTrade(kv[0]); setAutoExp(null); setMtExp(null); setAddPicker(false); if (kv[0] && rows.length < 2) setRows(rows.concat([{ method: "", off: "", cum: "", addMethod: "act", addOff: "" }])); },
           style: { padding: "2px 15px", fontSize: 11.5, fontWeight: on ? 800 : 600, borderRadius: 4, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#0F766E" : "#6B6459", boxShadow: on ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, kv[1]);
       })),
     React.createElement("span", { style: { fontSize: 9.5, color: "#0F6E56" } }, multiTrade ? "αを変えて複数回に分けて建てる" : "1回だけ建てる（分割しない）"),
@@ -6309,7 +6330,9 @@ function EntryLogView(_ref_elv2) {
         var _add = _elRnAutoOfRec(s, _ai(r).alpha);
         return _add != null && _add > 0;
       }).slice().sort(_byDateAsc);
-      var _rnThrN = _elRnThrPool(_v2recsAll, _ai, "all").pool.length;   // 閾値タブの件数バッジ＝ボード本体と同じ仕分け（_elRnThrPool単一源）2026-07-20e
+      // 閾値タブの件数バッジ＝ボード本体と同じ仕分け（_elRnThrPool単一源）2026-07-20e。
+      // 2026-07-20h 段別トグル(rnTier)を渡す＝旧: "all"固定だったため「…50の段」を選ぶとバッジ48件／ボード24件と食い違っていた。thrタブを開いている時だけ算出（他サブタブでは捨てるだけの重いaiOf全走査だった）。
+      var _rnThrN = (rnSub === "thr") ? _elRnThrPool(_v2recsAll, _ai, rnTier).pool.length : null;
       var _rnBody = (rnSub === "thr")
         ? _cardify([
             _secH("🎚 RNは何円手前から〇にすべきか（全銘柄共通）", "※最終損益（手じまい）基準。RN×の記録も含む全記録の反実仮想＝「RNまでの距離≤T円なら〇」のTを0〜" + _EL_RN_T_MAX + "でスイープ。①閾値スイープ ②距離別の限界寄与。母数はRN〇に限らない（③RN距離別＝実績の内訳とは別物）"),
@@ -6328,7 +6351,7 @@ function EntryLogView(_ref_elv2) {
               _sigRnPool.length ? _kpiBlockOf(_sigRnPool, _sigHoliSet) : _sigKpiEmpty("RNまたぎ加算〇の記録がまだありません"),
               _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAll, _ai, _sigHoliSet)]);
       _tabBody = React.createElement(React.Fragment, null,
-        _sigInnerBar([["ana", "分析", _sigRnPool.length], ["list", "記録一覧", _rnListRecs.length], ["cand", "候補記録", _rnCandRecs.length], ["thr", "閾値", _rnThrN]], rnSub, setRnSub),
+        _sigInnerBar([["ana", "分析", _sigRnPool.length], ["list", "記録一覧", _rnListRecs.length], ["cand", "候補記録", _rnCandRecs.length], ["thr", "閾値", _rnThrN == null ? "—" : _rnThrN]], rnSub, setRnSub),
         _rnBody);
     } else {
       var _ukiListRecs = _sigUkiPool.slice().sort(_byDateAsc);
@@ -6673,7 +6696,8 @@ function EntryLogView(_ref_elv2) {
     _tabBody = _v2recsAll.length ? _cardify([
       React.createElement("div", { style: { background: "#F0FDFA", border: "1px solid #99F6E4", borderLeft: "4px solid #0F766E", borderRadius: 11, padding: "8px 12px", marginBottom: 6 } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#0F766E" } }, "株数シミュ ― 全銘柄一括の空売りバックテスト"),
-        React.createElement("div", { style: { fontSize: 9.5, color: "#0F6E56", marginTop: 3, lineHeight: 1.5 } }, "同じラダーを全銘柄・全シグナルに一律で適用したら通算いくらだったか。推奨α系の方式は各記録が自分の銘柄の推奨αを使うので、銘柄別タブのシミュを合算した値と一致します。")),
+        React.createElement("div", { style: { fontSize: 9.5, color: "#0F6E56", marginTop: 3, lineHeight: 1.5 } }, "同じラダーを全銘柄・全シグナルに一律で適用したら通算いくらだったか。推奨α系の方式は各記録が自分の銘柄の推奨αを使います（銘柄をまたいで平均しません）。",
+          React.createElement("span", { style: { color: "#B45309" } }, "※銘柄別タブのシミュとは母数が違うので合計は一致しません＝あちらは選択中シグナルのみが母数、時間かぶり除外も同一銘柄内だけ。こちらは全シグナル・銘柄をまたいだ被りも除外します。"))),   // 2026-07-20h 「銘柄別タブのシミュを合算した値と一致します」は誤りだったので訂正（母数の定義が3点で異なる）
       _elCard(React.createElement(_elKabuLadderSimV2, { recs: _v2recsAll, baseRecs: allRecs, aiOf: _ai, data: data, scopeStock: null, allStock: true }))])
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
   } else if (view === "sim") {
@@ -6755,7 +6779,7 @@ function EntryLogView(_ref_elv2) {
     _rngBar,
     React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", margin: "0 2px 7px", lineHeight: 1.4 } }, "※ 2026年4月の損益は、EMAの位置に間違いがあったため参考程度です（5月以降が正）。" + (anaJul ? " 現在、母数トグルにより5月以降のみで分析中。" : "")),
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", marginBottom: 6 } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode(false); setSelDetTag(null); if (view !== "sum" && view !== "period") setView("sum"); },
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode(false); setSelDetTag(null); if (view !== "sum" && view !== "period" && view !== "sim") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった
         style: { flexShrink: 0, padding: "6px 15px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1A1714" : "#E0DAD1"), background: _isAllStock ? "#1A1714" : "#fff", color: _isAllStock ? "#fff" : "#6B6459" } },
         "💰 損益 (" + _periodRecs.length + ")"),
