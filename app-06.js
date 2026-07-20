@@ -5100,6 +5100,7 @@ function EntryLogView(_ref_elv2) {
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
   var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値不成立リスク」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
+  var _uFG = useState("week"), riskGran = _uFG[0], setRiskGran = _uFG[1];   // 「指値不成立リスク」セクションの日別/週別/月別（全体損益のgranとは独立＝別々に見られる）2026-07-20
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
   // OS値分布の基準トグルは2026-07-13に廃止（ユーザー承認③）＝実現OS(白枠・統計/棒クリックの主基準)と生の最高OS(色棒)をヒストグラムに同時表示（案A重ね棒・濃淡逆）。α目安(7割=α)は従来どおり生固定。
@@ -5225,19 +5226,33 @@ function EntryLogView(_ref_elv2) {
       React.createElement("span", { style: { fontSize: 11, fontWeight: 600, lineHeight: 1.2 } }, suf));
   };
   // 損益（期間別）テーブル＝全銘柄合算をday/week/monthで集計。各損益セルに合計＋平均を併記・損切り(件数/平均額/率)列・行タップでその期間の取引記録を展開。「損益」タブの集計ビュー頭 2026-06-22d。損益基準は_elTotAccum（取引/銘柄別記録と同一）。2026-07-09 EP損益/H1損益列を廃し「最終損益」1列に集約（＝旧H2損益・_elHold2TotPartsの（）外=○が途切れた所で手じまい/（）内=△含む・値は不変）。
+  // 期間キー/ラベル（日別=日付・週別=月曜起点の5営業日・月別=YYYY-MM）2026-07-20に共通化。
+  // 「全体損益（期間別）」(_ovPnlTbl)と「指値不成立リスク」(_fillRiskSection)の日別/週別/月別で同じ区切りを使う＝二重実装しない。
+  var _granKeyOf = function(ds, g) {
+    if (g === "day") return ds;
+    if (g === "month") return ds.slice(0, 7);
+    var d = new Date(ds + "T00:00:00"); var mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return mon.getFullYear() + "-" + ("0" + (mon.getMonth() + 1)).slice(-2) + "-" + ("0" + mon.getDate()).slice(-2);
+  };
+  var _granLabelOf = function(k, g) {
+    if (g === "day") return k.slice(5) + "(" + _dow(k) + ")";
+    if (g === "month") return k.replace("-", "/");
+    var mon = new Date(k + "T00:00:00"); var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+    return (mon.getMonth() + 1) + "/" + mon.getDate() + "〜" + (fri.getMonth() + 1) + "/" + fri.getDate();
+  };
+  // 日別/週別/月別の切替セグメント（全体損益・指値不成立リスクで共用）2026-07-20
+  var _granSeg = function(cur, setFn, keyPfx) {
+    return React.createElement("div", { style: { display: "flex", marginBottom: 8 } },
+      React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
+        [["day", "日別"], ["week", "週別"], ["month", "月別"]].map(function(g) {
+          var on = (cur === "custom" ? "week" : cur) === g[0];
+          return React.createElement("button", { key: keyPfx + g[0], onClick: function() { setFn(g[0]); },
+            style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, g[1]);
+        })));
+  };
   var _ovPnlTbl = function(rs, g) {
-    var keyOf = function(ds) {
-      if (g === "day") return ds;
-      if (g === "month") return ds.slice(0, 7);
-      var d = new Date(ds + "T00:00:00"); var mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-      return mon.getFullYear() + "-" + ("0" + (mon.getMonth() + 1)).slice(-2) + "-" + ("0" + mon.getDate()).slice(-2);
-    };
-    var labelOf = function(k) {
-      if (g === "day") return k.slice(5) + "(" + _dow(k) + ")";
-      if (g === "month") return k.replace("-", "/");
-      var mon = new Date(k + "T00:00:00"); var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
-      return (mon.getMonth() + 1) + "/" + mon.getDate() + "〜" + (fri.getMonth() + 1) + "/" + fri.getDate();
-    };
+    var keyOf = function(ds) { return _granKeyOf(ds, g); };
+    var labelOf = function(k) { return _granLabelOf(k, g); };
     // 日数: その期間に市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える・当日までで頭打ち）。祝日＝記録した祝日/休場イベント(_buildHolidayDateSet)。期間集計タブの日数列と同基準 2026-06-27。
     var _holiSet = _buildHolidayDateSet(data.trades, custom.eventCategories);
     var _today2 = todayStr();
@@ -5528,17 +5543,57 @@ function EntryLogView(_ref_elv2) {
   // 予定EPにちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある記録を数え、
   // それを除いた「保守的な最終損益」と差額を併記する。通常側は既存KPIと同じ配線（時間かぶり除外あり）なので、
   // 除外後は「そこに指値リスク分を足しただけ」＝2値は必ず同じ母数・同じ基準で比較できる。
+  // 集計器（exFill=false:通常／true:指値リスク除外）＝上の4カードと下の日別/週別/月別 内訳表で共用。
+  // 通常側は既存KPIと同じ配線（時間かぶり除外あり）なので、除外後は「そこに指値リスク分を足しただけ」。
+  var _friskTotOf = function(x, exFill) {
+    return _elTotAccum(x, {
+      signal: function(r) { return r.signal; },
+      alpha: function(r) { return _ai(r).alpha; },
+      cut: function(r) { return _ai(r).cutLine; },
+      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || (exFill && _elFillRiskRec(r)); }
+    });
+  };
+  // 日別/週別/月別の内訳表（期間／件数／指値注意／通常の最終損益／除外後／差額）。tfootの合計行＝累積。
+  // 期間の区切りは全体損益（期間別）と同じ_granKeyOf。合計は上の4カードと同じ母数rs全体＝カードと必ず一致する
+  // （_ovPnlTblの合計は4月＝EMA参考期間を抜くが、こちらはカードとの整合を優先して抜かない）。2026-07-20
+  var _fillRiskGranTbl = function(rs, g) {
+    var byP = {};
+    (rs || []).forEach(function(r) { if (r && r.date) { var k = _granKeyOf(r.date, g); (byP[k] = byP[k] || []).push(r); } });
+    var keys = Object.keys(byP).sort().reverse();
+    if (!keys.length) return null;
+    var fh = function(t) { return React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
+    var fd = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
+    var riskCell = function(n, tot, ex) {
+      if (!n) return fd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
+      return fd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+        React.createElement("span", { style: { fontWeight: 700, color: "#0F6E56" } }, n + "件"),
+        tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(n / tot * 100) + "%") : null), ex);
+    };
+    var rowFor = function(label, x, ex) {
+      var a = _friskTotOf(x, false), b = _friskTotOf(x, true);
+      var df = (a.hold2 != null && b.hold2 != null) ? (b.hold2 - a.hold2) : null;
+      return [
+        fd(label, Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }, ex || {})),
+        fd(x.length + "件", Object.assign({ fontWeight: 700 }, ex || {})),
+        riskCell(_elFillRiskCountRecs(x), x.length, ex),
+        fd(_yenNR(a.hold2, a.hold2Cnt, a.hold2Ref, a.hold2RefCnt), ex),
+        fd(_yenNR(b.hold2, b.hold2Cnt, b.hold2Ref, b.hold2RefCnt), ex),
+        fd(df == null ? _dash : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(df) } }, _elPnlFmt(df)), ex)
+      ];
+    };
+    var bt = { borderTop: "2px solid #FB923C", fontWeight: 800 };
+    return React.createElement(_HScrollBox, null,
+      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+        React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
+          fh(g === "day" ? "日" : g === "week" ? "週" : "月"), fh("件数"), fh("指値注意"), fh("通常の最終損益"), fh("除外後"), fh("差額"))),
+        React.createElement("tbody", null, keys.map(function(k) {
+          return React.createElement.apply(null, ["tr", { key: k }].concat(rowFor(_granLabelOf(k, g), byP[k])));
+        })),
+        React.createElement("tfoot", null, React.createElement.apply(null, ["tr", { style: { background: "#FFF7ED" } }].concat(rowFor("合計", rs || [], bt))))));
+  };
   var _fillRiskSection = function(rs, scopeNote) {
     var _riskRecs = (rs || []).filter(_elFillRiskRec);
-    var _tOf = function(exFill) {
-      return _elTotAccum(rs, {
-        signal: function(r) { return r.signal; },
-        alpha: function(r) { return _ai(r).alpha; },
-        cut: function(r) { return _ai(r).cutLine; },
-        excluded: function(r) { return _elCollExcluded(data, r, _collScope) || (exFill && _elFillRiskRec(r)); }
-      });
-    };
-    var t = _tOf(false), t2 = _tOf(true);
+    var t = _friskTotOf(rs, false), t2 = _friskTotOf(rs, true);
     var _diff = (t.hold2 != null && t2.hold2 != null) ? (t2.hold2 - t.hold2) : null;
     var _cell = function(label, val, color, sub) {
       return React.createElement("div", { key: label },
@@ -5556,6 +5611,9 @@ function EntryLogView(_ref_elv2) {
         _cell("通常の最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
         _cell("除外後", _yenNR(t2.hold2, t2.hold2Cnt, t2.hold2Ref, t2.hold2RefCnt), null, t2.hold2Cnt + "件"),
         _cell("差額", _diff == null ? _dash : _elPnlFmt(_diff), _diff == null ? "#bbb" : _elPnlColor(_diff), "刺さらなければ失う分")),
+      // 日別/週別/月別の内訳（区切りは全体損益と同じ_granKeyOf・granは独立state）2026-07-20
+      _granSeg(riskGran, setRiskGran, "frg_"),
+      _fillRiskGranTbl(rs, riskGran),
       (riskOpen && _riskRecs.length) ? _recTable(_riskRecs.slice().sort(_byDateAsc), "full", "frisk_") : null
     ];
   };
@@ -5985,13 +6043,7 @@ function EntryLogView(_ref_elv2) {
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
         [
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。最終損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）"),
-          React.createElement("div", { style: { display: "flex", marginBottom: 8 } },
-            React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
-              [["day", "日別"], ["week", "週別"], ["month", "月別"]].map(function(g) {
-                var on = (gran === "custom" ? "week" : gran) === g[0];
-                return React.createElement("button", { key: g[0], onClick: function() { setGran(g[0]); },
-                  style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, g[1]);
-              }))),
+          _granSeg(gran, setGran, "ov_"),
           _ovPnlTbl(v2recs, gran === "custom" ? "week" : gran)],
         v2recs.length ? _fillRiskSection(v2recs) : null,
         _v2recsNonRef.length >= 2 ? [
