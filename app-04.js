@@ -4082,37 +4082,44 @@ function _EpnCalcForm(_p) {
       _stepBtn(function() { setNLevel(function(v) { return String(Math.round(((parseFloat(v) || 0) + 1) * 100) / 100); }); },
         function() { setNLevel(function(v) { return String(Math.max(0, Math.round(((parseFloat(v) || 0) - 1) * 100) / 100)); }); }))),
     // 浮き足加算（底抜け前足−底抜けライン[=水準線nLevel]＝差額×加算率＝合計α値へ上乗せ 2026-07-21b。差額はuseEffectでnUkiValへ。旧: 浮き値の直接入力 2026-07-14f）
-    showUki ? _lrow("浮き足加算（前足−ライン）", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
-      _oxBtns(nUkiUsed, setNUkiUsed),
-      (nUkiUsed === "○") ? React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },   // 浮基本/浮応用トグル（記録フォームと同じ・プールを分けて推奨%）2026-07-14g
-        [["basic", "浮き基本", false], ["special", "浮き応用", true]].map(function(_uk) {
-          var _uon = nUkiSpecial === _uk[2];
-          return React.createElement("button", { key: _uk[0], type: "button", onClick: (function(_v) { return function() { setNUkiSpecial(_v); }; })(_uk[2]),
-            title: _uk[2] ? "浮き足応用＝大きめの加算率（根拠つき）で採用" : "浮き足基本＝通常の加算率で採用",
-            style: { padding: "3px 11px", fontSize: 11, fontWeight: _uon ? 800 : 600, borderRadius: 5, cursor: "pointer", border: "none", background: _uon ? "#fff" : "transparent", color: _uon ? "#15803D" : "#6B6459", boxShadow: _uon ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, _uk[1]);
-        })) : null,
-      nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
-        React.createElement("span", { style: { fontSize: 10, color: "#15803D", fontWeight: 700 } }, "底抜け前足"),
-        React.createElement("input", { type: "text", inputMode: "decimal", value: nUkiPrev, placeholder: "—",
-          onChange: function(e) { setNUkiPrev(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 58 }) }),
-        _stepBtn(function() { setNUkiPrev(function(v) { return String((parseFloat(v) || 0) + 1); }); }, function() { setNUkiPrev(function(v) { return String(Math.max(0, (parseFloat(v) || 0) - 1)); }); })) : null,
-      nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", fontWeight: 700 } }, "−") : null,
-      nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
-        React.createElement("span", { style: { fontSize: 10, color: "#64748B", fontWeight: 700 } }, "底抜けライン"),
-        React.createElement("input", { type: "text", inputMode: "decimal", value: nLevel, placeholder: "水準線",
-          onChange: function(e) { setNLevel(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 58 }) }),
-        _stepBtn(function() { setNLevel(function(v) { return String(Math.round(((parseFloat(v) || 0) + 1) * 100) / 100); }); }, function() { setNLevel(function(v) { return String(Math.max(0, Math.round(((parseFloat(v) || 0) - 1) * 100) / 100)); }); })) : null,
-      nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D", whiteSpace: "nowrap", background: "#EAF3DE", borderRadius: 5, padding: "2px 7px" } }, "浮き " + ((nUkiVal !== "" && !isNaN(Number(nUkiVal))) ? Number(nUkiVal) : 0) + "円") : null,
-      nUkiUsed === "○" ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(""); }, title: "推奨加算率" + (_ukiReco.n ? "（" + _ukiReco.n + "件）" : "") + "・データ不足時50%",
-        style: { padding: "2px 6px", fontSize: 10, fontWeight: _ukiRecoAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.2, whiteSpace: "nowrap", border: _ukiRecoAct ? "2px solid #15803D" : "1px solid #ddd", background: _ukiRecoAct ? "#EAF3DE" : "#fff", color: _ukiRecoAct ? "#15803D" : "#999" } }, "推奨" + (_ukiReco.reco != null ? _ukiReco.reco : 50) + "%") : null,
-      (nUkiUsed === "○" && _ukiReco.runnerUp != null) ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(String(_ukiReco.runnerUp)); }, title: "次点の加算率",
-        style: { padding: "2px 6px", fontSize: 10, fontWeight: _ukiRunAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.2, whiteSpace: "nowrap", border: _ukiRunAct ? "2px solid #0369A1" : "1px solid #ddd", background: _ukiRunAct ? "#EFF6FF" : "#fff", color: _ukiRunAct ? "#0369A1" : "#999" } }, "次点" + _ukiReco.runnerUp + "%") : null,
-      nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", border: _ukiCustAct ? "2px solid #B45309" : "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff" } },
-        React.createElement("input", { type: "text", inputMode: "numeric", value: _ukiCustAct ? nUkiPct : "", onChange: function(e) { _setNUkiPct(e.target.value); }, placeholder: "50", style: { width: 30, padding: "2px 4px", fontSize: 10, fontWeight: 700, border: "none", outline: "none", background: "transparent", textAlign: "right", color: "#B45309" } }),
-        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", paddingRight: 3 } }, "%"),
-        _stepBtn(function() { _stepNUkiPct(10); }, function() { _stepNUkiPct(-10); })) : null,
-      nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null,
-      nUkiUsed === "○" ? React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(true); }, title: "浮き足加算率の詳細データ表（全銘柄・前日まで＝推奨%と同母数）", style: { fontSize: 10, fontWeight: 700, color: "#15803D", background: "#fff", border: "1px solid #86EFAC", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表") : null,
+    showUki ? _lrow("浮き足加算（前足−ライン）", React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // 1段目: 要/不要・浮き基本/応用 2026-07-21
+        _oxBtns(nUkiUsed, setNUkiUsed),
+        (nUkiUsed === "○") ? React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },   // 浮基本/浮応用トグル（記録フォームと同じ・プールを分けて推奨%）2026-07-14g
+          [["basic", "浮き基本", false], ["special", "浮き応用", true]].map(function(_uk) {
+            var _uon = nUkiSpecial === _uk[2];
+            return React.createElement("button", { key: _uk[0], type: "button", onClick: (function(_v) { return function() { setNUkiSpecial(_v); }; })(_uk[2]),
+              title: _uk[2] ? "浮き足応用＝大きめの加算率（根拠つき）で採用" : "浮き足基本＝通常の加算率で採用",
+              style: { padding: "3px 11px", fontSize: 11, fontWeight: _uon ? 800 : 600, borderRadius: 5, cursor: "pointer", border: "none", background: _uon ? "#fff" : "transparent", color: _uon ? "#15803D" : "#6B6459", boxShadow: _uon ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, _uk[1]);
+          })) : null
+      ),
+      (nUkiUsed === "○") ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // 2段目: 率（推奨%＋手入力）＋📊詳細表 2026-07-21
+        React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "率"),
+        nUkiUsed === "○" ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(""); }, title: "推奨加算率" + (_ukiReco.n ? "（" + _ukiReco.n + "件）" : "") + "・データ不足時50%",
+          style: { padding: "2px 6px", fontSize: 10, fontWeight: _ukiRecoAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.2, whiteSpace: "nowrap", border: _ukiRecoAct ? "2px solid #15803D" : "1px solid #ddd", background: _ukiRecoAct ? "#EAF3DE" : "#fff", color: _ukiRecoAct ? "#15803D" : "#999" } }, "推奨" + (_ukiReco.reco != null ? _ukiReco.reco : 50) + "%") : null,
+        (nUkiUsed === "○" && _ukiReco.runnerUp != null) ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(String(_ukiReco.runnerUp)); }, title: "次点の加算率",
+          style: { padding: "2px 6px", fontSize: 10, fontWeight: _ukiRunAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.2, whiteSpace: "nowrap", border: _ukiRunAct ? "2px solid #0369A1" : "1px solid #ddd", background: _ukiRunAct ? "#EFF6FF" : "#fff", color: _ukiRunAct ? "#0369A1" : "#999" } }, "次点" + _ukiReco.runnerUp + "%") : null,
+        nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", border: _ukiCustAct ? "2px solid #B45309" : "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff" } },
+          React.createElement("input", { type: "text", inputMode: "numeric", value: _ukiCustAct ? nUkiPct : "", onChange: function(e) { _setNUkiPct(e.target.value); }, placeholder: "50", style: { width: 30, padding: "2px 4px", fontSize: 10, fontWeight: 700, border: "none", outline: "none", background: "transparent", textAlign: "right", color: "#B45309" } }),
+          React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", paddingRight: 3 } }, "%"),
+          _stepBtn(function() { _stepNUkiPct(10); }, function() { _stepNUkiPct(-10); })) : null,
+        nUkiUsed === "○" ? React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(true); }, title: "浮き足加算率の詳細データ表（全銘柄・前日まで＝推奨%と同母数）", style: { fontSize: 10, fontWeight: 700, color: "#15803D", background: "#fff", border: "1px solid #86EFAC", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表") : null
+      ) : null,
+      (nUkiUsed === "○") ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // 3段目: 底抜け前足−底抜けライン＋浮き○円→＋×円 2026-07-21（底抜け前足はグレー＝底抜けラインに統一）
+        nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+          React.createElement("span", { style: { fontSize: 10, color: "#64748B", fontWeight: 700 } }, "底抜け前足"),
+          React.createElement("input", { type: "text", inputMode: "decimal", value: nUkiPrev, placeholder: "—",
+            onChange: function(e) { setNUkiPrev(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 58 }) }),
+          _stepBtn(function() { setNUkiPrev(function(v) { return String((parseFloat(v) || 0) + 1); }); }, function() { setNUkiPrev(function(v) { return String(Math.max(0, (parseFloat(v) || 0) - 1)); }); })) : null,
+        nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 11, color: "#94A3B8", fontWeight: 700 } }, "−") : null,
+        nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+          React.createElement("span", { style: { fontSize: 10, color: "#64748B", fontWeight: 700 } }, "底抜けライン"),
+          React.createElement("input", { type: "text", inputMode: "decimal", value: nLevel, placeholder: "水準線",
+            onChange: function(e) { setNLevel(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 58 }) }),
+          _stepBtn(function() { setNLevel(function(v) { return String(Math.round(((parseFloat(v) || 0) + 1) * 100) / 100); }); }, function() { setNLevel(function(v) { return String(Math.max(0, Math.round(((parseFloat(v) || 0) - 1) * 100) / 100)); }); })) : null,
+        nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D", whiteSpace: "nowrap", background: "#EAF3DE", borderRadius: 5, padding: "2px 7px" } }, "浮き " + ((nUkiVal !== "" && !isNaN(Number(nUkiVal))) ? Number(nUkiVal) : 0) + "円") : null,
+        nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null
+      ) : null,
       (nUkiUsed === "○" && _epnUkiTbl) ? React.createElement("div", { onClick: function() { _setEpnUkiTbl(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると最終損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝" + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!date || r.date < date); }), function(r) { return _elAlphaInfo(r, data); }, nUkiSpecial ? "special" : "basic", null, _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories)))) : null)) : null,
     // ⑤ライン併存ルール欄は廃止（2026-07-16）＝新規EPで〇にできない。過去の lineCoexist は保存のまま（記録一覧の「併存」バッジ_elAlphaTypeCellで識別・基本α自動1入力も廃止）。
     // 採用α（基本α/応用α セレクタ・記録フォームと同じ 2026-07-13・旧「基本α入力＋📊応用α詳細ボタン＋応用α〇×」を統合。応用α詳細表は上「本日の採用α値」の応用α『表を参照』で代替）
