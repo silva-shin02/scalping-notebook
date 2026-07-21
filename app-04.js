@@ -5247,8 +5247,6 @@ function DayView(_ref57) {
         }, "＋ 追加")
       )
     ),
-    React.createElement("div", { style: { marginBottom: 12 } },   // 本日の採用α値欄（選択中銘柄・EPナビ/記録帳と同一部品_ElDayAlphaPair）2026-07-21: 旧📖記録帳ボタンの位置へ
-      React.createElement(_ElDayAlphaPair, { data: data, save: save, date: date, stock: activeStock })),
     _trEntryRecords.length === 0 && !showForm && React.createElement("div", {
       style: { textAlign: "center", padding: 20, color: "#ccc", fontSize: 13 }
     }, "記録なし"),

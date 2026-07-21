@@ -4350,17 +4350,8 @@ function EntrySignalSection(_ref_es) {
           records.length > 0 && React.createElement("span", {
             style: { marginLeft: 8, fontSize: 11, color: "#888", fontWeight: 500 }
           }, "(" + records.length + "件)")
-        ),
-        onOpenEntryLog && React.createElement("button", {
-          onClick: onOpenEntryLog,
-          title: "エントリー記録帳を開く",
-          style: {
-            padding: "3px 10px", fontSize: 11, fontWeight: 700,
-            background: "#FFF7ED", border: "1.5px solid #FDBA74",
-            borderRadius: 6, cursor: "pointer", color: "#9A3412",
-            lineHeight: 1.4
-          }
-        }, "📖 記録帳")
+        )
+        // 📖 記録帳ボタンは撤去 2026-07-21（この位置＝見出し直下に本日の採用α値欄を新設・下記_ElDayAlphaPair）
       ),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } },
         
@@ -4445,7 +4436,11 @@ function EntrySignalSection(_ref_es) {
         )
       )
     ),
-    
+
+    // 本日の採用α値欄（基本α+応用α・EPナビ/記録帳と同一部品_ElDayAlphaPair）2026-07-21: 旧📖記録帳ボタンの位置＝見出し直下へ
+    (save && stock && typeof _ElDayAlphaPair === "function") ? React.createElement("div", { style: { marginBottom: 10 } },
+      React.createElement(_ElDayAlphaPair, { data: data, save: save, date: date, stock: stock })) : null,
+
     records.length === 0 && React.createElement("div", { style: { marginBottom: 8 } },
       React.createElement("button", {
         onClick: function() { setShowAddForm(true); },
