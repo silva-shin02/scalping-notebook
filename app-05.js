@@ -6418,10 +6418,13 @@ function EntryRecordForm(_ref_erf) {
   // 推奨基本α＝現在の母数スコープ(_baScope・既定=全体)のpick＝auto-input/見出し/_fBaseAInputの正本（2026-07-14b：旧カスケードdet→sig→stkの自動優先は廃止＝デフォルト全体・切替はユーザー操作）。詳細表と同一母数(_alTblRecs)・同一関数(_elBaseAlphaPick)。
   var _baActive = useMemo(function() { return _baPickForScope(_baScope); }, [_alTblRecs, _baScope, data]);
   var _autoBaseA = _baActive.alpha;
+  // 本日の採用α値（EPナビと共有・charts.epNaviDayAlpha）を新規記録の基本α既定に優先採用（あれば固定＝シグナル変更でも追従しない・無ければ推奨基本α_autoBaseAに追従）2026-07-21。見出しの推奨基本α表示は_autoBaseAのままEP＝履歴推奨を示す。
+  var _dayBaseA = _epnDayAlphaGet(data, fStock, fDate);
+  var _baDefault = (_dayBaseA != null) ? _dayBaseA : _autoBaseA;
   // 母数スコープ変更＝そのスコープのpickを基本α欄へ即反映（手touched解除＝以後もこのスコープpickを追従）。見出しプルダウン／詳細表「この推奨値を使う」／「全体の推奨値にする」から呼ぶ。
   var _applyBaScope = function(scope) {
     _setBaScope(scope);
-    _baTouchedRef.current = false;
+    _baTouchedRef.current = (_dayBaseA != null);   // dayAlpha固定時のみ手動上書き扱い＝自動useEffectの巻き戻しを止めスコープ切替を効かせる（dayAlpha無しは従来どおり追従）2026-07-21
     var pv = _baPickForScope(scope).alpha;
     _baAutoRef.current = (pv != null) ? String(pv) : "";
     setFBaseAlpha(pv != null ? String(pv) : "");   // pv=null（この母数に基本α推奨なし）は欄も空に＝見出し「—」と一致・旧スコープの値を残さない（2026-07-14b レビュー反映）
@@ -6429,12 +6432,12 @@ function EntryRecordForm(_ref_erf) {
   // 新規記録では基本αに段階フォールバックの推奨基本αを自動入力（手動操作するまで・銘柄/日付/シグナル/詳細変更で追従）2026-06-21→2026-07-07c。
   useEffect(function() {
     if (isEdit || _baTouchedRef.current) return;
-    if (_autoBaseA == null) return;
+    if (_baDefault == null) return;
     if (fBaseAlpha !== "" && fBaseAlpha !== _baAutoRef.current) return;
-    var _nv = String(_autoBaseA);
+    var _nv = String(_baDefault);
     _baAutoRef.current = _nv;
     if (_nv !== fBaseAlpha) setFBaseAlpha(_nv);
-  }, [_autoBaseA, fBaseAlpha, isEdit]);
+  }, [_baDefault, fBaseAlpha, isEdit]);
   // 母数スコープは銘柄ごと（2026-07-14b）: 銘柄が変わったら母数を全体に戻す（別銘柄に存在しないシグナルへの持ち越し防止・デフォルト全体）。
   useEffect(function() { _setBaScope("all"); _setAlTblScope("all"); }, [fStock]);
   // ライン併存ルール（独自欄fLineCoexist 2026-07-08g）: 〇にすると基本α欄へ1を自動入力＝切替の瞬間だけ効き、手修正可・×へ戻すと1なら空へ戻し推奨に復帰。新規/編集どちらも適用（EPナビ_EpnCalcFormと同ルール＝二重実装・変更時は両方直す）。旧・併存ラインチップ検知はmigrateData _migLineCoexistで本フラグへ移行済み。
@@ -6465,6 +6468,9 @@ function EntryRecordForm(_ref_erf) {
   };
   var _refSpecial = useMemo(function() { return _spRecsForScope(_spScope); }, [data, fStock, fDate, _spScope]);
   var _refSpecialA = (_refSpecial && _refSpecial.alpha != null) ? _refSpecial.alpha : null;
+  // 本日の採用応用α値（charts.epNaviDaySpecialAlpha）を応用α既定に優先採用（種別=応用α選択時に充填・無ければ推奨応用α_refSpecialA）2026-07-21。基本αの_baDefaultと対称。
+  var _daySpecialA = _epnDaySpecialAlphaGet(data, fStock, fDate);
+  var _spDefault = (_daySpecialA != null) ? _daySpecialA : _refSpecialA;
   // スコープ切替＝そのスコープの推奨応用αを応用α欄へ即反映（基本αの_applyBaScopeと対称）。null（推奨なし）は欄を空に＝見出し「—」と一致。
   var _applySpScope = function(scope) { _setSpScope(scope); var pv = _spRecsForScope(scope); var pa = (pv && pv.alpha != null) ? pv.alpha : null; setFSpecialAlpha(pa != null ? String(pa) : ""); };
   // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
@@ -6543,8 +6549,8 @@ function EntryRecordForm(_ref_erf) {
 
   
   // 採用α値 = base-levelα（採用α選択が応用なら応用α値、通常なら基本α値）＋ 浮き足加算α値 ＋ RNまたぎ加算。これが採用α＝全計算で使用（2026-07-13 応用α化）。
-  var _fBaseAInput = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : (_autoBaseA != null ? _autoBaseA : 0);   // 基本α入力（未入力なら推奨基本α・無ければ0）
-  var _fSpecialA = (fSpecialAlpha !== "" && !isNaN(Number(fSpecialAlpha))) ? Number(fSpecialAlpha) : (_refSpecialA != null ? _refSpecialA : _fBaseAInput);   // 応用α入力（未入力なら推奨応用α・無ければ基本α入力）
+  var _fBaseAInput = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : ((!isEdit && _baDefault != null) ? _baDefault : (_autoBaseA != null ? _autoBaseA : 0));   // 基本α入力（新規は本日の採用α値→推奨基本α／編集は推奨のみで本日α混入せず・無ければ0）2026-07-21
+  var _fSpecialA = (fSpecialAlpha !== "" && !isNaN(Number(fSpecialAlpha))) ? Number(fSpecialAlpha) : ((!isEdit && _spDefault != null) ? _spDefault : (_refSpecialA != null ? _refSpecialA : _fBaseAInput));   // 応用α入力（新規は本日の採用応用α値→推奨応用α／編集は推奨のみ・無ければ基本α入力）2026-07-21
   var _fBaseLevel = (fAlphaKind === "special") ? _fSpecialA : _fBaseAInput;   // base-levelα正本（採用α選択で切替）
   // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)×採用加算率（推奨%・既定50%・07-12d）を切捨て加算。
   var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
@@ -7739,14 +7745,14 @@ function EntryRecordForm(_ref_erf) {
           [["base", "基本α", "#0369A1"], ["special", "応用α", "#9A3412"]].map(function(_kk) {
             var _on = fAlphaKind === _kk[0];
             return React.createElement("button", { key: _kk[0], type: "button",
-              onClick: function() { setFAlphaKind(_kk[0]); if (_kk[0] === "special" && fSpecialAlpha === "" && _refSpecialA != null) setFSpecialAlpha(String(_refSpecialA)); },
+              onClick: function() { setFAlphaKind(_kk[0]); if (_kk[0] === "special" && fSpecialAlpha === "" && _spDefault != null) setFSpecialAlpha(String(_spDefault)); },
               title: _kk[0] === "base" ? "通常はこちら＝基本α値を採用" : "応用α値を採用",
               style: { padding: "6px 16px", fontSize: 13, fontWeight: 800, borderRadius: 7, cursor: "pointer", border: "none", background: _on ? "#fff" : "transparent", color: _on ? _kk[2] : "#6B6459", boxShadow: _on ? "0 1px 3px rgba(0,0,0,.12)" : "none" } }, _kk[1]);
           }))) : null,
       (fUkiUsed !== "○" && fAlphaKind === "base") ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setBA = function(val) { _baTouchedRef.current = true; var _v = _toHankakuNum(val); if (_v === "") { setFBaseAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFBaseAlpha(String(n)); };
-        var _stepBA = function(delta) { _baTouchedRef.current = true; setFBaseAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_autoBaseA != null ? _autoBaseA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
+        var _stepBA = function(delta) { _baTouchedRef.current = true; setFBaseAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_baDefault != null ? _baDefault : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F0F9FF", border: "1px solid #BAE6FD", fontSize: 12 }
         },
@@ -7754,14 +7760,15 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
-              value: fBaseAlpha !== "" ? fBaseAlpha : (_autoBaseA != null ? String(_autoBaseA) : ""),
+              value: fBaseAlpha !== "" ? fBaseAlpha : ((!isEdit && _baDefault != null) ? String(_baDefault) : (_autoBaseA != null ? String(_autoBaseA) : "")),
               onChange: function(e) { _setBA(e.target.value); },
               placeholder: "推奨基本α",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(function() { _stepBA(1); }, function() { _stepBA(-1); })
           ),
-          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
+          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円"),
+          (!isEdit && _dayBaseA != null) ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#0369A1", background: "#E0F2FE", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "本日の採用α値") : null
         );
       })()) : null,
       (function() {
@@ -7817,7 +7824,7 @@ function EntryRecordForm(_ref_erf) {
       (fUkiUsed !== "○" && fAlphaKind === "special") ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _setSA = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFSpecialAlpha(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFSpecialAlpha(String(n)); };
-        var _stepSA = function(delta) { setFSpecialAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_refSpecialA != null ? _refSpecialA : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
+        var _stepSA = function(delta) { setFSpecialAlpha(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : (_spDefault != null ? _spDefault : 0); var n = base + delta; if (n > 50) n = 50; if (n < 0) n = 0; return String(n); }); };
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#FFF7ED", border: "1px solid #FED7AA", fontSize: 12 }
         },
@@ -7825,14 +7832,15 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FED7AA", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
-              value: fSpecialAlpha !== "" ? fSpecialAlpha : (_refSpecialA != null ? String(_refSpecialA) : ""),
+              value: fSpecialAlpha !== "" ? fSpecialAlpha : ((!isEdit && _spDefault != null) ? String(_spDefault) : (_refSpecialA != null ? String(_refSpecialA) : "")),
               onChange: function(e) { _setSA(e.target.value); },
               placeholder: "推奨応用α",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#92400E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(function() { _stepSA(1); }, function() { _stepSA(-1); })
           ),
-          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円")
+          React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円"),
+          (!isEdit && _daySpecialA != null) ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "本日の採用応用α値") : null
         );
       })()) : null,
       (fUkiUsed !== "○" && fAlphaKind === "special") ? (function() {

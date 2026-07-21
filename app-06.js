@@ -3493,7 +3493,19 @@ function _elUkiPctPickScoped(data, refDate, mode, reasons) {
   }
   if (!pool.length) return { reco: null, runnerUp: null, n: 0, byReason: byReason, fellBack: fellBack };
   var sweep = _elUkiPctSweep(pool, function(r) { return _elAlphaInfo(r, data); });
-  return { reco: sweep.best ? sweep.best.P : null, runnerUp: sweep.runnerUp ? sweep.runnerUp.P : null, n: pool.length, byReason: byReason, fellBack: fellBack };
+  var _reco = sweep.best ? sweep.best.P : null;
+  var _runnerUp = sweep.runnerUp ? sweep.runnerUp.P : null;
+  // 浮き足応用の推奨%は必ず基本の推奨%より大きく（同値不可・10%刻み→基本+10以上へクランプ）2026-07-21。基本の推奨は同条件(refDate前日まで)のbasic pickから再帰取得（basicは_spでないので再帰しない）。
+  if (_sp && _reco != null) {
+    var _bp = _elUkiPctPickScoped(data, refDate, "basic", null);
+    if (_bp && _bp.reco != null) {
+      var _floor = Math.min(100, _bp.reco + 10);
+      if (_reco < _floor) _reco = _floor;
+      if (_runnerUp != null && _runnerUp < _floor) _runnerUp = _floor;
+      if (_runnerUp === _reco) _runnerUp = null;
+    }
+  }
+  return { reco: _reco, runnerUp: _runnerUp, n: pool.length, byReason: byReason, fellBack: fellBack };
 }
 // 浮き足加算率ボードの基本/応用スコープ切替トグル（フォームの浮き足[浮き基本|浮き応用]と同スタイル）2026-07-18。sp=true→応用。onSet(boolean)で切替。分析ボード(シグナル総合/シグナル別)を_elUkiPctBoardScopedのmodeに連動させる。
 function _ukiScopeToggle(sp, onSet) {

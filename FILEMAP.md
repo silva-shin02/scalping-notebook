@@ -47,6 +47,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-21d 日別ページに「本日の採用α」欄＋記録フォームα既定のdayAlpha化＋EPナビ応用α対称化＋浮き足応用%の下限（sw v223→v224）
+ユーザー要望3件＋敵対的レビュー修正。(1)要望1: 取引タブ「エントリー記録」見出し直下に既存部品 _ElDayAlphaPair(基本α+応用α本日採用値・stock=activeStock) を配置・📖記録帳ボタン削除(他タブ5135/5215に導線残る・app-04:5250/5243)。(2)要望2: 記録フォーム(EntryRecordForm)の基本α/応用α既定を「本日の採用α値(charts[stock_date].epNaviDayAlpha/epNaviDaySpecialAlpha)→無ければ従来推奨」に(_baDefault/_spDefault・新規のみ!isEditゲート・見出しの推奨表示は_autoBaseAのまま=履歴推奨・dayAlpha採用時は欄に出所ラベル)。(3)要望3: 浮き足応用の推奨%を必ず基本%より大きく(同値不可・10%刻み→基本+10以上へクランプ・_elUkiPctPickScopedのspecialでbasicを再帰取得しfloor=basic+10・runnerUp重複はnull・app-06:3494)。
+- **レビュー修正(Workflow4観点→10 confirmed・誤検出1棄却)**: A[回帰]dayAlpha時に基本α母数スコープ切替(_applyBaScope)が自動useEffectで巻き戻りデッドコントロール化→ _baTouchedRef.current=(_dayBaseA!=null) で手動上書き扱い(app-05:6427)。B[要望連携の核心]＋追加の初期銘柄がallStocks[0](日経=指数)で見出し下α欄(activeStock)と食い違う→ activeStock優先(app-04:6497)。E[副作用]編集時にdayAlphaが既定に混入し得る→ _fBaseAInput/_fSpecialA/入力value を!isEditゲート(app-05)。C[非対称→対称化]EPナビ計算フォームが応用day-alphaを無視していた→ daySpecialAlpha配線(app-04:4396)＋_EpnCalcForm内daySpecialAlpha(3851直後)＋specialVフォールバックに手入力＞本日応用α＞推奨＞baseVで優先(3862)。D[二重表示]EPナビ版(各銘柄カラム)と見出し下版(activeStock)のα欄同居=値連動・意図通り・据置。F[UX]見出し履歴推奨と欄dayAlphaの食い違い→ dayAlpha採用時に「本日の採用α値/応用α値」出所ラベル(app-05・青/茶)。
+- データ: charts[stock_date].epNaviDayAlpha(基本)/epNaviDaySpecialAlpha(応用)・get/set=_epnDayAlphaGet/Set・_epnDaySpecialAlphaGet/Set(app-04:3381-3407)。共通部品_ElDayAlphaPair(app-04:3410)。記録フォームはdayAlphaを読むだけ(編集は_ElDayAlphaPairのみ)。
+- 検証: 全ファイル構文OK・EntryRecordForm新規で基本α17/応用α22＋出所ラベル・_elUkiPctPickScoped特殊クランプ(基本30→応用生20が40・生70は据置・runnerUp重複null)を実マウント/関数で確認。A/B/C(EPナビ応用α)は構文＋コード＋mount(実データはユーザー実機)。sw v223→**v224**。
+
 ### 2026-07-21b 浮き足加算の入力を「浮き値の直接入力」→「底抜け前足−底抜けライン＝差額を自動計算」へ（sw v221→v222）
 ユーザー要望「浮き足加算の数値を、浮き値ではなく『底抜け前足』『底抜けライン』の2価格を入力して差額を自動計算、そこから加算値も自動に」。AskUserQuestionで確定＝**①底抜けライン＝既存の水準線を流用（相互反映・浮き足欄でも上書き可）②％は既存の加算率のまま（差額×率＝加算値／新しい乖離率指標は作らない）③レイアウト案B（前足・ライン2欄＋「浮きN円」差額バッジ）**。
 - **データ（下流無改修）**: 浮き値`signal.ukiVal`は差額の保持役として存続＝`差額=max(0, 前足−ライン)`をuseEffectで`ukiVal`へ書込み。加算(`_elUkiAdd`)・EP・損益・分析・シミュは`ukiVal`駆動で不変。前足価格は内訳として新フィールド`signal.ukiPrevBar`に保存。**過去記録は移行せず**、前足が空なら保存済み`ukiVal`を据え置き（前足を入れ直せば再計算）。前足がライン以下なら浮き0。

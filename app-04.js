@@ -3849,6 +3849,7 @@ function _EpnCalcForm(_p) {
   })();
   // 本日の採用α値（見出し下欄・_EpnDayAlphaField）が設定されていれば基本αの既定に採用＝「上で一度決めれば下の計算が従う」。未設定はnull＝従来どおりautoPick（シグナル別に絞れる）。手入力nBaseは常に最優先。2026-07-13d
   var dayAlpha = (_p.dayAlpha != null && !isNaN(Number(_p.dayAlpha))) ? Number(_p.dayAlpha) : null;
+  var daySpecialAlpha = (_p.daySpecialAlpha != null && !isNaN(Number(_p.daySpecialAlpha))) ? Number(_p.daySpecialAlpha) : null;   // 本日の採用応用α値（epNaviDaySpecialAlpha）＝応用α既定に優先採用 2026-07-21（基本αのdayAlphaと対称・記録フォームと揃える）
   // 「詳細で更新」トグル（custom.epnFollowReco・既定false=固定 2026-07-13）: OFF＝②③④の詳細を選んでも基本αの既定を動かさず、本日の採用α値→無ければ銘柄全体(stk・詳細非依存)の推奨で固定（ユーザー「一度止めたい・本日の採用α値で固定」）。ON＝従来の詳細別→シグナル別→銘柄全体の追従。手入力nBaseは常に最優先。
   var followReco = !!(data && data.custom && data.custom.epnFollowReco);
   var _stkBase = (stk && stk.alpha != null) ? stk.alpha : (autoPick.a != null ? autoPick.a : null);   // 銘柄全体（詳細非依存）＝固定時の既定
@@ -3859,7 +3860,7 @@ function _EpnCalcForm(_p) {
   var baseV = (nBase !== "" && !isNaN(Number(nBase))) ? Number(nBase) : _baseDefault;
   // 推奨応用α（応用〇の記録から算出・浮き足/RN除外）。根拠を選ぶとその根拠を持つ記録に絞る。共有ヘルパー_epnSpecialRecoFrom（早見カードと同一）。
   var specialReco = _epnSpecialRecoFrom(casc, nSpecialReasons);
-  var specialV = (nSpecialUsed === "○") ? ((nSpecialAlpha !== "" && !isNaN(Number(nSpecialAlpha))) ? Number(nSpecialAlpha) : (specialReco && specialReco.v != null ? specialReco.v : (baseV != null ? baseV : 0))) : null;
+  var specialV = (nSpecialUsed === "○") ? ((nSpecialAlpha !== "" && !isNaN(Number(nSpecialAlpha))) ? Number(nSpecialAlpha) : (daySpecialAlpha != null ? daySpecialAlpha : (specialReco && specialReco.v != null ? specialReco.v : (baseV != null ? baseV : 0)))) : null;   // 手入力＞本日の採用応用α値＞推奨応用α＞基本α 2026-07-21
   var _epnBaseLevel = (specialV != null) ? specialV : baseV;   // base-levelα＝応用〇なら応用α、通常は基本α（場中版の採用α選択）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨/次点（_elUkiPctSweep）。nUkiPct=""は自動=推奨(無ければ50%)。2026-07-12
   var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, date, nUkiSpecial ? "special" : "basic"); }, [data, date, nUkiSpecial]);   // 2026-07-14g 浮基本/浮応用でプールを分けて推奨%（記録フォームと同じ）
@@ -4393,7 +4394,7 @@ function EpNaviPanel(_refEPN) {
       _cards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"));
   });
   var _cellsForm = epnStocks.map(function(st) {
-    return React.createElement(_EpnCalcForm, { key: "epnf_" + st, data: data, save: save, date: date, stock: st, dayAlpha: _epnDayAlphaGet(data, st, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing });
+    return React.createElement(_EpnCalcForm, { key: "epnf_" + st, data: data, save: save, date: date, stock: st, dayAlpha: _epnDayAlphaGet(data, st, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, st, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing });
   });
   var savedView = epnStocks.length
     ? React.createElement("div", { style: { overflowX: "auto", paddingBottom: 2 } },
@@ -5240,17 +5241,14 @@ function DayView(_ref57) {
           title: "チャート分析ツールを開く",
           style: { padding: "9px 12px", fontSize: 12, fontWeight: 600, background: "#EEF2FF", border: "1.5px solid #C7D2FE", borderRadius: 6, cursor: "pointer", color: "#4338CA", minHeight: IS_TOUCH ? 40 : 32 }
         }, "📐 チャート分析"),
-        onOpenEntryLog && React.createElement("button", {
-          onClick: onOpenEntryLog,
-          title: "エントリー記録帳を開く",
-          style: { padding: "9px 12px", fontSize: 12, fontWeight: 600, background: "#FFF7ED", border: "1.5px solid #FDBA74", borderRadius: 6, cursor: "pointer", color: "#9A3412", minHeight: IS_TOUCH ? 40 : 32 }
-        }, "📖 記録帳"),
         React.createElement("button", {
           onClick: function() { setTradeEditTarget(null); setShowForm(true); },
           style: { padding: "9px 18px", fontSize: 13, fontWeight: 600, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 40 : 32 }
         }, "＋ 追加")
       )
     ),
+    React.createElement("div", { style: { marginBottom: 12 } },   // 本日の採用α値欄（選択中銘柄・EPナビ/記録帳と同一部品_ElDayAlphaPair）2026-07-21: 旧📖記録帳ボタンの位置へ
+      React.createElement(_ElDayAlphaPair, { data: data, save: save, date: date, stock: activeStock })),
     _trEntryRecords.length === 0 && !showForm && React.createElement("div", {
       style: { textAlign: "center", padding: 20, color: "#ccc", fontSize: 13 }
     }, "記録なし"),
@@ -6497,7 +6495,7 @@ function DayView(_ref57) {
     save: save,
     initial: tradeEditTarget
       ? { stock: tradeEditTarget.stock, date: tradeEditTarget.date, signal: tradeEditTarget.signal }
-      : { date: date, stock: allStocks[0] || "" },
+      : { date: date, stock: activeStock || allStocks[0] || "" },   // 新規は選択中の銘柄タブ(activeStock)を初期銘柄に＝見出し下の本日の採用α欄と一致 2026-07-21
     onClose: function() { setShowForm(false); setTradeEditTarget(null); }
   })));
 }
