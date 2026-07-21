@@ -6286,6 +6286,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateUKV = useState(initSig.ukiVal != null ? String(initSig.ukiVal) : ""),
     _useStateUKVA = _slicedToArray(_useStateUKV, 2),
     fUkiVal = _useStateUKVA[0], setFUkiVal = _useStateUKVA[1];
+  // 底抜け前足の価格（2026-07-21）: 浮き値＝max(0, 前足−底抜けライン[=水準線fLevelPrice])を下のuseEffectでfUkiValへ自動計算。前足空なら据え置き（過去記録は保存済みukiValを維持）。signal.ukiPrevBarに内訳保存。
+  var _useStateUKPB = useState(initSig.ukiPrevBar != null ? String(initSig.ukiPrevBar) : ""),
+    _useStateUKPBA = _slicedToArray(_useStateUKPB, 2),
+    fUkiPrev = _useStateUKPBA[0], setFUkiPrev = _useStateUKPBA[1];
   // 浮き足加算率（%）2026-07-12: ""=自動(推奨%・無ければ50%)。編集時は記録のukiPct、旧記録(uki〇でukiPct無し)は"50"で従来値を保持。推奨/次点をタップ or 手入力で上書き可。
   var _useStateUKP = useState(initSig.ukiPct != null ? String(initSig.ukiPct) : (initSig.ukiUsed === true ? "50" : "")),
     _useStateUKPA = _slicedToArray(_useStateUKP, 2),
@@ -6558,10 +6562,10 @@ function EntryRecordForm(_ref_erf) {
   // 水準線値の入力ボックス（2026-07-20b）: 「分足」欄の右と「OS」見出しの右の2箇所に置く共通部品。
   // 同じ state(fLevelPrice/setFLevelPrice) を見るので、どちらで打っても相互に自動反映される（同期処理は不要）。
   // 見た目・挙動を1箇所に集約＝2つが食い違わない（同一UIの二重実装はreplace_all事故の元・[[reference_scalping_edit_gotchas]]）。
-  var _lvPriceBox = function(_k) {
+  var _lvPriceBox = function(_k, _label) {
     return React.createElement("div", { key: _k,
       style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#F1F5F9", border: "1px solid #CBD5E1", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 } },
-      React.createElement("span", { style: { color: "#64748B", fontWeight: 700 } }, "水準線値"),
+      React.createElement("span", { style: { color: "#64748B", fontWeight: 700 } }, _label || "水準線値"),
       React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #CBD5E1", borderRadius: 4, overflow: "hidden" } },
         React.createElement("input", {
           type: "text", inputMode: "decimal", step: "1", min: "0",
@@ -6578,6 +6582,15 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("span", { style: { fontSize: 11, color: "#94A3B8" } }, "円")
     );
   };
+  // 底抜け前足−底抜けライン（水準線）＝浮き値を自動計算しfUkiValへ（下流無改修）。前足orライン未入力なら据え置き＝過去記録は保存済みukiValを維持。2026-07-21
+  useEffect(function() {
+    if (fUkiUsed !== "○") return;
+    if (fUkiPrev === "" || isNaN(Number(fUkiPrev))) return;
+    if (fLevelPrice === "" || isNaN(Number(fLevelPrice))) return;
+    var _d = Math.max(0, Number(fUkiPrev) - Number(fLevelPrice));
+    var _s = String(_d);
+    if (fUkiVal !== _s) setFUkiVal(_s);
+  }, [fUkiPrev, fLevelPrice, fUkiUsed]);
   useEffect(function() {
     if (!fRnAuto || _fRnAutoAdd == null) return;
     var _w = _fRnAutoAdd > 0 ? "○" : "×";
@@ -7134,6 +7147,7 @@ function EntryRecordForm(_ref_erf) {
       specialReasons: (fUkiUsed !== "○" && fAlphaKind === "special") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
       ukiUsed: _showUki ? (fUkiUsed === "○") : null,
       ukiVal: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Number(fUkiVal) : null,
+      ukiPrevBar: (_showUki && fUkiUsed === "○" && fUkiPrev !== "" && !isNaN(Number(fUkiPrev))) ? Number(fUkiPrev) : null,   // 底抜け前足の価格（内訳・差額計算の復元用）2026-07-21
       ukiPct: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? _effUkiPct : null,   // 使った加算率(%)。_elUkiAddが復元に使用 2026-07-12
       ukiSpecial: (_showUki && fUkiUsed === "○") ? (fUkiSpecial === true) : null,   // 浮き足応用フラグ 2026-07-14g
       ukiReasons: (_showUki && fUkiUsed === "○" && fUkiSpecial === true) ? (function() { var _a = (fUkiReasons || []).filter(function(x) { return x; }); return _a.length ? _a : null; })() : null,
@@ -7643,9 +7657,11 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
         _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
         (function() {
-          // 浮き足加算（2026-07-14f α値セクションに復帰＝RNまたぎ加算欄の上）。〇×→〇で前足浮き値（生値）を入力し採用加算率（推奨%・既定50%）で切捨て加算し合計α値へ上乗せ。データは従来どおりsignal.ukiUsed/ukiVal(+ukiPct)・alphaValへ畳み込み（保存/EP/損益/分析は不変）。
-          var _setUV = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setFUkiVal(String(n)); };
-          var _stepUV = function(delta) { setFUkiVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
+          // 浮き足加算（2026-07-14f α値セクションに復帰＝RNまたぎ加算欄の上）。〇×→〇で底抜け前足とライン（水準線）を入力し差額（＝浮き値・ukiPrevBar/ukiVal）×採用加算率（推奨%・既定50%）で切捨て加算し合計α値へ上乗せ。データは従来どおりsignal.ukiUsed/ukiVal(+ukiPct)・alphaValへ畳み込み（保存/EP/損益/分析は不変）。
+          // 底抜け前足の入力（価格・小数可・±1）。ライン＝水準線fLevelPrice（相互反映・下の_lvPriceBox）。差額＝浮き値はuseEffectでfUkiValへ。2026-07-21
+          var _setPrev = function(val) { setFUkiPrev(_toHankakuDecimal(val)); };
+          var _stepPrev = function(delta) { setFUkiPrev(function(prev) { var base = (prev !== "" && !isNaN(parseFloat(prev))) ? parseFloat(prev) : 0; var n = base + delta; if (n < 0) n = 0; return String(n); }); };
+          var _fUkiDiffShown = (fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Number(fUkiVal) : 0;
           var _ukiOn = fUkiUsed === "○";
           var _setUkiPct = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFUkiPct(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 100) n = 100; if (n < 0) n = 0; setFUkiPct(String(n)); };
           var _stepUkiPct = _elMkPctStepper(setFUkiPct);   // 手入力の↑↓: 空欄→50・以降±10（2026-07-14 共通化）
@@ -7661,7 +7677,7 @@ function EntryRecordForm(_ref_erf) {
                 var on = fUkiUsed === kv[0];
                 return React.createElement("button", { key: kv[0], type: "button",
                   onClick: function() { setFUkiUsed(kv[0]); },
-                  title: kv[0] === "○" ? "前足の浮きがあった（浮き値を入力→採用加算率[推奨%・既定50%]で加算・小数切捨て＝合計α値へ上乗せ）" : "浮きなし＝加算しない",
+                  title: kv[0] === "○" ? "前足の浮きがあった（底抜け前足とライン[水準線]を入力→差額×採用加算率[推奨%・既定50%]で加算・小数切捨て＝合計α値へ上乗せ）" : "浮きなし＝加算しない",
                   style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
                   kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
               })
@@ -7673,17 +7689,22 @@ function EntryRecordForm(_ref_erf) {
                   title: _uk[2] ? "浮き足応用＝大きめの加算率（根拠つき）で採用" : "浮き足基本＝通常の加算率で採用",
                   style: { padding: "3px 11px", fontSize: 11, fontWeight: _uon ? 800 : 600, borderRadius: 5, cursor: "pointer", border: "none", background: _uon ? "#fff" : "transparent", color: _uon ? "#15803D" : "#6B6459", boxShadow: _uon ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, _uk[1]);
               })) : null,
-            _ukiOn ? React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #86EFAC", borderRadius: 4, overflow: "hidden" } },
-              React.createElement("input", {
-                type: "text", inputMode: "numeric", min: "0", max: "999", step: "1",
-                value: fUkiVal,
-                onChange: function(e) { _setUV(e.target.value); },
-                placeholder: "浮き値",
-                style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#14532D", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
-              }),
-              _stepBtn(function() { _stepUV(1); }, function() { _stepUV(-1); })
+            _ukiOn ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+              React.createElement("span", { style: { fontSize: 11, color: "#15803D", fontWeight: 700 } }, "底抜け前足"),
+              React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #86EFAC", borderRadius: 4, overflow: "hidden" } },
+                React.createElement("input", {
+                  type: "text", inputMode: "decimal",
+                  value: fUkiPrev,
+                  onChange: function(e) { _setPrev(e.target.value); },
+                  placeholder: "—",
+                  style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#14532D", border: "none", outline: "none", background: "#fff", width: 60, textAlign: "right", boxSizing: "border-box" }
+                }),
+                _stepBtn(function() { _stepPrev(1); }, function() { _stepPrev(-1); })
+              )
             ) : null,
-            _ukiOn ? React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円") : null,
+            _ukiOn ? React.createElement("span", { style: { fontSize: 13, color: "#94A3B8", fontWeight: 700 } }, "−") : null,
+            _ukiOn ? _lvPriceBox("lv_uki", "底抜けライン") : null,
+            _ukiOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#15803D", whiteSpace: "nowrap", background: "#EAF3DE", borderRadius: 5, padding: "3px 9px" } }, "浮き " + _fUkiDiffShown + "円") : null,
             _ukiOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#15803D", whiteSpace: "nowrap" } }, "→ ＋" + _fUkiAdd + "円") : null,
             _ukiOn ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
               React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "率"),
