@@ -2534,6 +2534,65 @@ function SettingsModal(_ref54) {
     );
   })() : null,
   _stTab === "data" && data && save ? (function() {
+    // 株価帯の境界（2026-07-22）: custom.priceBandBounds（円・昇順）。「本日の株価帯」(DayView)と記録帳「株価帯別」分析の帯分けに使う。動的判定なので変更は過去分にも即追従（手動選択済みの日は帯番号のまま）。
+    var _pbCur = _pbBoundsOf(data.custom);
+    var _pbLabels = (function() { var ls = []; for (var i = 0; i <= _pbCur.length; i++) ls.push(_pbBandLabel(i, _pbCur)); return ls.join(" ／ "); })();
+    var _PBINP = { padding: "6px 8px", border: "1px solid #ccc", borderRadius: 5, fontSize: 12, outline: "none", width: "100%", boxSizing: "border-box", background: "#fff" };
+    return React.createElement("div", { style: { marginBottom: 22 } },
+      React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 6 } }, "💴 株価帯の境界"),
+      React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 10 } },
+        "「本日の株価帯」の帯分け境界（円・カンマ区切り）。前日終値がこの境界で帯に分類されます。境界を変えると過去の自動判定・株価帯別分析も即追従します（手動選択した日は帯番号のまま）。"),
+      React.createElement("div", { style: { background: "#f8f7f4", borderRadius: 8, padding: 10 } },
+        React.createElement(FastInput, {
+          type: "text", inputMode: "numeric",
+          value: _pbCur.join(", "),
+          onChange: function(v) {
+            var arr = [];
+            String(v || "").split(/[,、　\s]+/).forEach(function(s) {
+              var n = Number(String(s).replace(/[^\d.]/g, ""));
+              if (!isNaN(n) && n > 0 && arr.indexOf(n) < 0) arr.push(n);
+            });
+            save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { priceBandBounds: arr }) }); });
+          },
+          debounceMs: 800,
+          placeholder: "4000, 5000",
+          style: _PBINP
+        }),
+        React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6, lineHeight: 1.5 } },
+          "現在の帯: " + _pbLabels + "　＊空欄＝既定 4000, 5000")
+      )
+    );
+  })() : null,
+  _stTab === "data" && data && save ? (function() {
+    // 日替わり銘柄の指定（2026-07-22）: custom.rotatingStocks。指定した銘柄は日別ページの銘柄タブに個別タブを作らず「📅日替わり」タブ1つに集約（記録・分析は通常銘柄と同じ）。
+    var stocks = (data.custom && data.custom.stocks && data.custom.stocks.length > 0) ? data.custom.stocks : _DEF_STOCKS_FROZEN;
+    var rot = (data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
+    var tgl = function(nm) {
+      save(function(prev) {
+        var pc = prev.custom || {};
+        var cur = Array.isArray(pc.rotatingStocks) ? pc.rotatingStocks.slice() : [];
+        var i = cur.indexOf(nm);
+        if (i >= 0) cur.splice(i, 1); else cur.push(nm);
+        return Object.assign({}, prev, { custom: Object.assign({}, pc, { rotatingStocks: cur }) });
+      });
+    };
+    return React.createElement("div", { style: { marginBottom: 22 } },
+      React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 6 } }, "📅 日替わり銘柄"),
+      React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 10 } },
+        "日替わりに指定した銘柄は、日別ページの銘柄タブに個別タブを作らず「📅日替わり」タブ1つに集約します（記録・分析は通常銘柄と同じ）。タップで切替。"),
+      React.createElement("div", { style: { background: "#f8f7f4", borderRadius: 8, padding: 10, display: "flex", flexWrap: "wrap", gap: 6 } },
+        stocks.filter(function(s) { return s !== "日経平均株価"; }).map(function(s) {
+          var on = rot.indexOf(s) >= 0;
+          return React.createElement("button", { key: s, onClick: function() { tgl(s); },
+            style: { padding: "5px 12px", fontSize: 12, fontWeight: 600, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap",
+              border: on ? "1.5px solid #4338CA" : "1px solid #ccc",
+              background: on ? "#EEF2FF" : "#fff", color: on ? "#4338CA" : "#666" } },
+            (on ? "📅 " : "") + s);
+        })),
+      React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "📅＝日替わり指定中。常設（JX金属・フジクラ・SBG等）はそのまま個別タブに残します。")
+    );
+  })() : null,
+  _stTab === "data" && data && save ? (function() {
     var signalTags = (data.custom && Array.isArray(data.custom.signalTags)) ? data.custom.signalTags : [];
     var _sigAdd = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : []; if (cur.indexOf(nm) >= 0) return prev; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: cur.concat([nm]) }) }); }); };
     var _sigDelete = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : []; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: cur.filter(function(x) { return x !== nm; }) }) }); }); };
@@ -3404,6 +3463,125 @@ function _epnDaySpecialAlphaSet(save, stock, date, val) {
     charts[ck] = Object.assign({}, charts[ck] || {}, { epNaviDaySpecialAlpha: (val == null ? null : val) });
     return Object.assign({}, prev, { charts: charts });
   });
+}
+// ===== 株価帯（price band）2026-07-22 =====
+// 「本日の株価帯」＝日×銘柄の属性。判定は動的: 手動上書き(charts[ck].dayPriceBand) > 前日終値からの自動(日足CSV sn_dc_csv_v1_*) > null(未設定)。
+// 境界はcustom.priceBandBounds（昇順の円・既定[4000,5000]＝〜4000/4001〜5000/5001〜）。境界変更で過去分の自動判定・株価帯別分析も即追従（保存するのは手動上書きと材料フラグのみ）。
+// 材料フラグ(charts[ck].dayMaterial)＝前日大引け後に材料があった日。株価帯別分析では帯から外して「⚡材料あり」独立グループ。
+var _PB_DEF_BOUNDS = [4000, 5000];
+function _pbBoundsOf(custom) {
+  var b = custom && custom.priceBandBounds;
+  if (!Array.isArray(b) || !b.length) return _PB_DEF_BOUNDS;
+  var v = [];
+  b.forEach(function(x) { var n = Number(x); if (!isNaN(n) && n > 0 && v.indexOf(n) < 0) v.push(n); });
+  v.sort(function(a, b2) { return a - b2; });
+  return v.length ? v : _PB_DEF_BOUNDS;
+}
+function _pbBandIdx(price, bounds) {
+  if (price == null || isNaN(Number(price))) return null;
+  var p = Number(price);
+  for (var i = 0; i < bounds.length; i++) { if (p <= bounds[i]) return i; }
+  return bounds.length;
+}
+function _pbBandLabel(idx, bounds) {
+  if (idx == null || idx < 0 || idx > bounds.length) return "";
+  if (idx === 0) return "〜" + bounds[0];
+  if (idx === bounds.length) return (bounds[bounds.length - 1] + 1) + "〜";
+  return (bounds[idx - 1] + 1) + "〜" + bounds[idx];
+}
+// 日足CSVの終値ルックアップ。モジュールキャッシュ＝3秒以内の連続参照はlocalStorage/JSON.parse/CSVパースを踏まない（記録帳の一括帯グルーピング対策）。CSV再取込(uploadedAt変化)で自動無効化。
+var _pbCsvCache = {};
+function _pbBarsOf(code) {
+  if (!code) return null;
+  var m = _pbCsvCache[code], now = Date.now();
+  if (m && (now - m.checkTs) < 3000) return m.dates.length ? m : null;
+  var cached = _dcCacheLoad(code);
+  var upAt = (cached && cached.uploadedAt) || 0;
+  if (m && m.upAt === upAt) { m.checkTs = now; return m.dates.length ? m : null; }
+  var bars = (cached && cached.csv) ? _parseDailyCsv(cached.csv) : [];
+  m = { checkTs: now, upAt: upAt, dates: bars.map(function(b) { return b.date; }), closes: bars.map(function(b) { return b.close; }) };
+  _pbCsvCache[code] = m;
+  return m.dates.length ? m : null;
+}
+function _pbPrevClose(custom, stock, date) {
+  if (!stock || !date) return null;
+  var info = _caGetStockInfo(stock, custom);
+  var m = _pbBarsOf((info && info.code) ? info.code : "");
+  if (!m) return null;
+  var lo = 0, hi = m.dates.length - 1, ans = -1;
+  while (lo <= hi) { var mid = (lo + hi) >> 1; if (m.dates[mid] < date) { ans = mid; lo = mid + 1; } else { hi = mid - 1; } }
+  return ans >= 0 ? m.closes[ans] : null;
+}
+// 日×銘柄の帯解決（単一源）。返り値 {idx, src:"manual"|"auto"|null, prevClose, material, bounds}。idx=null＝帯不明。手動値は境界縮小後も範囲内へ丸める。
+function _pbDayBandOf(data, stock, date) {
+  var custom = (data && data.custom) || {};
+  var bounds = _pbBoundsOf(custom);
+  var c = ((data && data.charts) || {})[stock + "_" + date] || {};
+  var material = !!c.dayMaterial;
+  var mv = c.dayPriceBand;
+  var manual = (mv != null && mv !== "" && !isNaN(Number(mv))) ? Math.max(0, Math.min(bounds.length, Math.round(Number(mv)))) : null;
+  if (manual != null) return { idx: manual, src: "manual", prevClose: null, material: material, bounds: bounds };
+  var pc = _pbPrevClose(custom, stock, date);
+  if (pc != null) return { idx: _pbBandIdx(pc, bounds), src: "auto", prevClose: pc, material: material, bounds: bounds };
+  return { idx: null, src: null, prevClose: null, material: material, bounds: bounds };
+}
+function _pbDayBandSet(save, stock, date, idx) {
+  save(function(prev) {
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date;
+    charts[ck] = Object.assign({}, charts[ck] || {}, { dayPriceBand: (idx == null ? null : idx) });
+    return Object.assign({}, prev, { charts: charts });
+  });
+}
+function _pbDayMaterialSet(save, stock, date, on) {
+  save(function(prev) {
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date;
+    charts[ck] = Object.assign({}, charts[ck] || {}, { dayMaterial: !!on });
+    return Object.assign({}, prev, { charts: charts });
+  });
+}
+// 「本日の株価帯」バー（DayView銘柄タブ直下 2026-07-22・A1案）: 帯チップ＋判定根拠（自動=前日終値/手動/未設定）＋⚡材料ありトグル。
+// チップタップ=手動選択（保存）・選択中の手動チップ再タップ or ↺=自動判定へ戻す（dayPriceBand=null）。
+function _PbDayBandBar(_p) {
+  var data = _p.data, save = _p.save, stock = _p.stock, date = _p.date;
+  if (!stock || !date) return null;
+  var info = _pbDayBandOf(data, stock, date);
+  var bounds = info.bounds;
+  var chips = [];
+  for (var i = 0; i <= bounds.length; i++) chips.push(i);
+  var srcNote = info.src === "auto" ? ("自動: 前日終値 " + Number(info.prevClose).toLocaleString() + "円")
+    : info.src === "manual" ? "手動選択" : "未設定（日足データなし・タップで選択）";
+  return React.createElement("div", { style: { background: "#fff", border: "1px solid #ECE7DE", borderRadius: 13, padding: "8px 12px", margin: "10px 0", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+    React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1", whiteSpace: "nowrap" } }, "💴 本日の株価帯"),
+    chips.map(function(bi) {
+      var on = info.idx === bi;
+      var manual = on && info.src === "manual";
+      return React.createElement("button", {
+        key: bi,
+        onClick: function() { if (manual) { _pbDayBandSet(save, stock, date, null); } else { _pbDayBandSet(save, stock, date, bi); } },
+        title: manual ? "再タップで自動判定（前日終値）に戻す" : "タップで手動選択（この日のこの銘柄に保存）",
+        style: { padding: "4px 11px", fontSize: 11, fontWeight: 700, borderRadius: 13, cursor: "pointer", whiteSpace: "nowrap",
+          border: "1px solid " + (on ? "#0369A1" : "#E0DAD1"),
+          background: on ? (manual ? "#0369A1" : "#E0F2FE") : "#fff",
+          color: on ? (manual ? "#fff" : "#0369A1") : "#6B6459", minHeight: IS_TOUCH ? 34 : 26 }
+      }, _pbBandLabel(bi, bounds));
+    }),
+    info.src === "manual" ? React.createElement("button", {
+      onClick: function() { _pbDayBandSet(save, stock, date, null); },
+      title: "手動選択を解除して自動判定（前日終値）に戻す",
+      style: { padding: "4px 9px", fontSize: 11, fontWeight: 700, borderRadius: 13, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid #BAE6FD", background: "#F0F9FF", color: "#0369A1", minHeight: IS_TOUCH ? 34 : 26 }
+    }, "↺ 自動") : null,
+    React.createElement("span", { style: { fontSize: 9.5, color: "#94A3B8", whiteSpace: "nowrap" } }, srcNote),
+    React.createElement("button", {
+      onClick: function() { _pbDayMaterialSet(save, stock, date, !info.material); },
+      title: "前日大引け後に材料があった日のマーク。株価帯別分析では帯から外して「⚡材料あり」独立グループとして分析（前日終値ベースの帯が材料ギャップでずれる日を分離）",
+      style: { marginLeft: "auto", padding: "4px 11px", fontSize: 11, fontWeight: 700, borderRadius: 13, cursor: "pointer", whiteSpace: "nowrap",
+        border: "1px solid " + (info.material ? "#F59E0B" : "#E0DAD1"),
+        background: info.material ? "#FEF3C7" : "#fff",
+        color: info.material ? "#B45309" : "#9CA3AF", minHeight: IS_TOUCH ? 34 : 26 }
+    }, info.material ? "⚡ 材料あり ✓" : "⚡ 材料あり")
+  );
 }
 // 「本日の採用α値」欄（基本α＋応用α・案B横並び2カラム 2026-07-13 task3）: 銘柄別記録テーブル/取引テーブルの推奨α欄に置く。母数＝この銘柄の「開いている日付の前日まで全期間」（詳細データ表・EPナビ・記録フォームと同じ）。
 // 各カラム＝入力＋▲▼＋「表を参照」（詳細データ表をポップアップし行タップで取込）。基本α＝charts.epNaviDayAlpha（EPナビと共有）／応用α＝charts.epNaviDaySpecialAlpha。
@@ -4493,6 +4671,10 @@ function DayView(_ref57) {
     onOpenEntryLog = _ref57.onOpenEntryLog;
   var custom = data.custom || EMPTY.custom;
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
+  // 日替わり銘柄（📅集約タブ 2026-07-22）: custom.rotatingStocksのうちマスターに実在するものだけ有効（改名はhandleRenameStockで追従・削除は実在フィルタで自然に無効化）。個別タブを作らず「📅日替わり」1タブに集約。
+  var rotStocks = (Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : []).filter(function(s) { return allStocks.indexOf(s) >= 0 && s !== "日経平均株価"; });
+  var _uRotAdd = useState(false), rotAddOpen = _uRotAdd[0], setRotAddOpen = _uRotAdd[1];
+  var _uRotVal = useState(""), rotAddVal = _uRotVal[0], setRotAddVal = _uRotVal[1];
   var _useState139 = useState(function(){
       try { var _sv=localStorage.getItem("scalping_cs_v1"); return (_sv&&allStocks.includes(_sv))?_sv:(allStocks[0]||""); } catch(e){ return allStocks[0]||""; }
     }),
@@ -4745,7 +4927,8 @@ function DayView(_ref57) {
       // 銘柄名で保持している他のcustomも追従（2026-07-07g・従来の追従漏れ）: EPナビ表示銘柄・ニュース参照(stockSubCatRefs)・銘柄情報タブ(stockInfoTabs)
       var _rnStockKey = function(m) { if (!m || typeof m !== "object" || !(oldName in m)) return m; var n = Object.assign({}, m); if (!(newName in n)) n[newName] = n[oldName]; delete n[oldName]; return n; };
       var _pepn = Array.isArray(pc.epnStocks) ? pc.epnStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.epnStocks;
-      next.custom = Object.assign({}, pc, { stocks: ps, stockCodes: psc, epnStocks: _pepn, stockSubCatRefs: _rnStockKey(pc.stockSubCatRefs), stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
+      var _prot = Array.isArray(pc.rotatingStocks) ? pc.rotatingStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.rotatingStocks;   // 日替わり属性も追従 2026-07-22
+      next.custom = Object.assign({}, pc, { stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, stockSubCatRefs: _rnStockKey(pc.stockSubCatRefs), stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
       
       var pch = prev.charts || {};
       var nch = {};
@@ -4907,6 +5090,58 @@ function DayView(_ref57) {
     return _any(fm.indicators) || _any(fm.stocks);
   })();
   var hasChartData = allStocks.some(stockHasData) || hasFmData;
+  // 📅日替わりタブの中身（2026-07-22）: 日替わり銘柄のチップ列（本日データありは赤点・タップで切替＝選択はscalping_rot_cs_v1に記憶）＋「＋」でその場追加（マスター＋日替わり属性に同時登録）。選択銘柄の記録テーブル・株価帯バー・記録フォームは既存の1銘柄表示がそのまま動く。
+  var _rotOn = !fmActive && rotStocks.indexOf(activeStock) >= 0;
+  var _rotChipBar = _rotOn ? React.createElement("div", { style: { background: "#fff", border: "1px solid #E0E7FF", borderRadius: 13, padding: "8px 12px", margin: "0 0 10px", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+    React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#4338CA", whiteSpace: "nowrap" } }, "📅 日替わり銘柄"),
+    rotStocks.map(function(s) {
+      var on = activeStock === s;
+      return React.createElement("button", {
+        key: s,
+        onClick: function() { setCs(s); try { localStorage.setItem("scalping_rot_cs_v1", s); } catch(e) {} },
+        style: { position: "relative", padding: "5px 12px", fontSize: 12, fontWeight: 600, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap",
+          border: on ? "1.5px solid #4338CA" : "1px solid #E0DAD1",
+          background: on ? "#4338CA" : "#fff", color: on ? "#fff" : "#6B6459", minHeight: IS_TOUCH ? 36 : 28 }
+      },
+        stockHasData(s) ? React.createElement("span", { style: { position: "absolute", top: 3, left: 4, width: 6, height: 6, borderRadius: "50%", background: "#E53935", pointerEvents: "none" } }) : null,
+        s);
+    }),
+    !rotAddOpen ? React.createElement("button", {
+      onClick: function() { setRotAddOpen(true); },
+      title: "日替わり銘柄を追加（銘柄マスターにも登録されます）",
+      style: { padding: "5px 12px", fontSize: 12, color: "#888", border: "1.5px dashed #ccc", borderRadius: 14, background: "#fff", cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
+    }, "＋") : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
+      React.createElement(FastInput, {
+        value: rotAddVal,
+        onChange: function(v) { setRotAddVal(v); },
+        debounceMs: 100,
+        placeholder: "銘柄名",
+        style: { padding: "5px 8px", border: "1px solid #ccc", borderRadius: 6, fontSize: 12, width: 110, boxSizing: "border-box", background: "#fff" }
+      }),
+      React.createElement("button", {
+        onClick: function() {
+          var nm = String(rotAddVal || "").trim();
+          if (!nm || nm === "日経平均株価" || rotStocks.indexOf(nm) >= 0) { setRotAddOpen(false); setRotAddVal(""); return; }
+          save(function(prev) {
+            var pc = prev.custom || {};
+            var ps = (pc.stocks && pc.stocks.length > 0) ? pc.stocks.slice() : [].concat(DEF_STOCKS);
+            if (ps.indexOf(nm) < 0) ps.push(nm);
+            var rot = Array.isArray(pc.rotatingStocks) ? pc.rotatingStocks.slice() : [];
+            if (rot.indexOf(nm) < 0) rot.push(nm);
+            return Object.assign({}, prev, { custom: Object.assign({}, pc, { stocks: ps, rotatingStocks: rot }) });
+          });
+          setCs(nm);
+          try { localStorage.setItem("scalping_rot_cs_v1", nm); } catch(e) {}
+          setRotAddOpen(false); setRotAddVal("");
+        },
+        style: { padding: "5px 10px", fontSize: 11, fontWeight: 600, background: "#4338CA", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
+      }, "追加"),
+      React.createElement("button", {
+        onClick: function() { setRotAddOpen(false); setRotAddVal(""); },
+        style: { padding: "5px 8px", fontSize: 11, background: "#fff", color: "#888", border: "1px solid #ccc", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
+      }, "✕")),
+    React.createElement("span", { style: { marginLeft: "auto", fontSize: 9, color: "#94A3B8", whiteSpace: "nowrap" } }, "日替わり指定の変更は設定「📊データ・銘柄」")
+  ) : null;
   var RedDot = function RedDot() {
     return React.createElement("span", {
       style: {
@@ -5157,12 +5392,14 @@ function DayView(_ref57) {
       )
     )
   ), tab === "charts" && React.createElement("div", null, React.createElement(StockTabs, {
-    stocks: allStocks.filter(function(s) { return s !== "日経平均株価"; }),
+    stocks: allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; }),
     active: fmActive ? "" : activeStock,
     onSelect: function(s) { setCs(s); setFmActive(false); },
-    onReorder: function onReorder(stocks) {
+    onReorder: function onReorder(reordered) {
+      // タブに出していない銘柄（日経平均・日替わり）を末尾で保持＝並べ替えでマスターから消さない 2026-07-22
+      var kept = allStocks.filter(function(s) { return reordered.indexOf(s) < 0; });
       return updCustom({
-        stocks: stocks
+        stocks: reordered.concat(kept)
       });
     },
     onAdd: addStock,
@@ -5176,7 +5413,19 @@ function DayView(_ref57) {
     collCount: function(s) { return _elDayStockCollCount(data, s, date); },
     fmActive: fmActive,
     onFmSelect: function() { setFmActive(true); },
-    hasFmData: hasFmData
+    hasFmData: hasFmData,
+    rotStocks: rotStocks,
+    rotActive: !fmActive && rotStocks.indexOf(activeStock) >= 0,
+    onRotSelect: function() {
+      // 直近の日替わり選択（scalping_rot_cs_v1）→本日データありの先頭→リスト先頭 の順で復帰 2026-07-22
+      var last = null;
+      try { last = localStorage.getItem("scalping_rot_cs_v1"); } catch(e) {}
+      var pick = (last && rotStocks.indexOf(last) >= 0) ? last : null;
+      if (!pick) { var wd = rotStocks.filter(stockHasData); pick = wd[0] || rotStocks[0]; }
+      if (pick) setCs(pick);
+      setFmActive(false);
+    },
+    rotHasData: rotStocks.some(stockHasData)
   }),
   fmActive
     ? React.createElement(React.Fragment, null,
@@ -5190,6 +5439,8 @@ function DayView(_ref57) {
         })
       )
     : React.createElement(React.Fragment, null,
+  _rotChipBar,
+  React.createElement(_PbDayBandBar, { data: data, save: save, stock: activeStock, date: date }),
   React.createElement(StockQuickRefTableWithChart, {
     data: data,
     activeStock: activeStock,

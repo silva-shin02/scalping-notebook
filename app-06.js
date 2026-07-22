@@ -5666,8 +5666,9 @@ function EntryLogView(_ref_elv2) {
   var _uUAS = useState(false), ukiAnaSp = _uUAS[0], setUkiAnaSp = _uUAS[1];   // 浮き足加算率ボードの基本/応用スコープ（false=浮き基本/true=浮き応用）。シグナル総合の全銘柄共通ボードとシグナル別「浮き足の記録」で共用＝採用αの浮基本/浮応用と分析母数を揃える 2026-07-18
   var _uDS = useState({}), detScopes = _uDS[0], setDetScopes = _uDS[1];   // 詳細スコープ（セクション独立 2026-07-08e・旧detSubサブタブ→各セクションのプルダウンへ）: secKey→"all"(まとめて)/"__cmp__"(詳細ごと比較)/詳細名/"__none__"(未分類)。銘柄/シグナル切替でリセット。候補が無いシグナルではプルダウン非表示＝従来と同一母数。
   var _uAR = useState("all"), alphaReasonFil = _uAR[0], setAlphaReasonFil = _uAR[1];   // α値タブ 根拠セレクタ（2026-07-06）: 全体(all)/各根拠/根拠なし(__none__)で基本α・共通ツールの母数を絞る第4の軸。追加αタブは④⑤根拠別を内蔵するため対象外。全体選択時は従来と完全同一。
-  var _uDTM = useState(false), detTagMode = _uDTM[0], setDetTagMode = _uDTM[1];   // 集計タブ銘柄側の分析軸: false=シグナル別(既定)/true=詳細タグ別（銘柄内・全シグナル横断で選んだsigDetailタグの記録を分析）2026-07-07
+  var _uDTM = useState("sig"), detTagMode = _uDTM[0], setDetTagMode = _uDTM[1];   // 集計タブの分析軸: "sig"=シグナル別(既定・全銘柄側は「全体」)/"det"=詳細タグ別（銘柄内・全シグナル横断）/"band"=株価帯別（日×銘柄の帯で分類・全銘柄側は銘柄横断）2026-07-07→3値文字列化 2026-07-22
   var _uSDT = useState(null), selDetTag = _uSDT[0], setSelDetTag = _uSDT[1];   // 詳細タグ別モードの選択タグ（"セクションキー|タグ名"）
+  var _uBSel = useState(null), bandSel = _uBSel[0], setBandSel = _uBSel[1];   // 株価帯別モードの選択帯キー（"b0".."bN"/"mat"=材料あり/"unk"=帯不明・null=件数最多帯に自動フォールバック）2026-07-22
   var _uSGT = useState("uki"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）
   var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RNまたぎタブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録)/thr(閾値スイープ) 2026-07-19→2026-07-20e thr追加
   var _uRNT = useState("all"), rnTier = _uRNT[0], setRnTier = _uRNT[1];   // 閾値タブの段別トグル: all(…50/…00合算)/50(…50の段)/00(…00の段) 2026-07-20e
@@ -6323,6 +6324,36 @@ function EntryLogView(_ref_elv2) {
   var _hasDetTags = _detTagFlat.length > 0;
   var _selDetTagKey = (selDetTag && _detTagFlat.some(function(t) { return t.tkey === selDetTag; })) ? selDetTag : (_detTagFlat[0] ? _detTagFlat[0].tkey : null);
   var _selDetTagObj = _detTagFlat.filter(function(t) { return t.tkey === _selDetTagKey; })[0] || null;
+  // 株価帯別分析ボディ（2026-07-22）: pool（v2算入記録）を日×銘柄の帯（_pbDayBandOf＝手動＞前日終値自動・app-04）でグループ化し、帯ピル＋選択帯の総合パネル(_groupPanel)を描く。
+  // 材料あり日（charts[ck].dayMaterial）は帯から外して「⚡材料あり」独立グループ＝材料日専用のα実態を分離。帯が判定できない日は「帯不明」。帯は0件でも表示（データが無いこと自体が情報）・材料/不明は0件なら非表示。
+  // cross=true（全銘柄側）は見出しに銘柄種数を出す。_groupPanel(recs, null, recs)＝詳細タグ別と同型＝KPI・OS分布・推奨基本α/応用α・α詳細表まで既存パネルがそのまま出る。
+  var _bandAxisBody = function(pool, cross) {
+    var _pbB = _pbBoundsOf(custom);
+    var _pbMemo = {};
+    var _pbOf = function(r) { var k = r.stock + "_" + r.date; if (!(k in _pbMemo)) _pbMemo[k] = _pbDayBandOf(data, r.stock, r.date); return _pbMemo[k]; };
+    var _bgs = [];
+    for (var _bi2 = 0; _bi2 <= _pbB.length; _bi2++) _bgs.push({ key: "b" + _bi2, label: "💴 " + _pbBandLabel(_bi2, _pbB), recs: [] });
+    var _bMat = { key: "mat", label: "⚡ 材料あり", recs: [] }, _bUnk = { key: "unk", label: "帯不明", recs: [] };
+    (pool || []).forEach(function(r) {
+      var bi = _pbOf(r);
+      if (bi.material) { _bMat.recs.push(r); return; }
+      if (bi.idx != null && _bgs[bi.idx]) { _bgs[bi.idx].recs.push(r); return; }
+      _bUnk.recs.push(r);
+    });
+    var _bAll = _bgs.concat(_bMat.recs.length ? [_bMat] : []).concat(_bUnk.recs.length ? [_bUnk] : []);
+    var _bSelKey = (bandSel && _bAll.some(function(g) { return g.key === bandSel; })) ? bandSel : (function() { var bst = _bAll[0]; _bAll.forEach(function(g) { if (g.recs.length > bst.recs.length) bst = g; }); return bst.key; })();
+    var _bSel = _bAll.filter(function(g) { return g.key === _bSelKey; })[0] || null;
+    var _bStkN = 0; if (_bSel) { var _bSeen = {}; _bSel.recs.forEach(function(r) { if (r.stock && !_bSeen[r.stock]) { _bSeen[r.stock] = 1; _bStkN++; } }); }
+    return React.createElement(React.Fragment, null,
+      React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + _pbB.join("・") + "円）"),
+      _subTabBar(_bAll, _bSelKey, setBandSel),
+      (_bSel && _bSel.recs.length)
+        ? React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0369A1", marginBottom: 6 } }, _bSel.label,
+              React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, "（" + _bSel.recs.length + "件" + (cross ? "・銘柄" + _bStkN + "種・銘柄横断" : "") + "）")),
+            _groupPanel(_bSel.recs, null, _bSel.recs))
+        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この帯の記録がありません"));
+  };
   // 追加α母数トグル（osDistFil）を集計KPI/OS分布・損切り・未達で共有。全記録/×+未選択(既定)/〇のみ。〇=高α(基本+追加)は損切り/未達に寄るため、既定×+未選択で基本α運用の素の姿を出す 2026-07-01。
   var _addFilOf = function(rs) {
     if (_floatMode) return (rs || []);   // 前足浮きタブは全件（前足浮き記録は数値根拠の追加α〇なので×+未選択トグルは無効）2026-07-02
@@ -6565,8 +6596,20 @@ function EntryLogView(_ref_elv2) {
     if (_isAllStock) {
       // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。
       // 累積損益カーブ・連勝連敗DDは4月（EMA位置ズレの参考期間）を除外＝_v2recsNonRef（期間別表の合計・平均と揃える）2026-07-18。
+      // 分析軸トグル（2026-07-22）: 💰全体（従来）／💴株価帯別（全銘柄横断＝同じ帯の銘柄を混ぜて分析＝帯共通αの検証）。stateは銘柄側と同じdetTagMode（"band"以外は全体扱い）。
+      var _allAxisToggle = React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "分析軸:"),
+        [["sig", "💰 全体"], ["band", "💴 株価帯別"]].map(function(kv) {
+          var on = (kv[0] === "band") ? (detTagMode === "band") : (detTagMode !== "band");
+          return React.createElement("button", { key: kv[0], onClick: function() { setDetTagMode(kv[0]); setExpKey(null); },
+            style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } }, kv[1]);
+        }),
+        detTagMode === "band" ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "株価帯別＝全銘柄横断・同じ帯の銘柄を混ぜて分析（帯は日×銘柄で判定）") : null);
+      if (detTagMode === "band") {
+        _tabBody = React.createElement(React.Fragment, null, _allAxisToggle, _bandAxisBody(_v2recsAll, true));
+      } else {
       var _v2recsNonRef = v2recs.filter(function(r) { return !_elIsEmaRefPeriod((r.date || "").slice(0, 7), "month"); });
-      _tabBody = _cardify([
+      _tabBody = React.createElement(React.Fragment, null, _allAxisToggle, _cardify([
         _sumMonthNav,
         _sumMonthRecs.length ? _kpiBlockOf(_sumMonthRecs)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
@@ -6578,19 +6621,23 @@ function EntryLogView(_ref_elv2) {
         _v2recsNonRef.length >= 2 ? [
           _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・合計行と同一基準（4月＝EMA位置ズレの参考期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNonRef, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
         _v2recsNonRef.length >= 2 ? [
-          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・4月＝参考期間は除外）"), _elStreakDDSectionV2(_v2recsNonRef, _ai)] : null]);
+          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・4月＝参考期間は除外）"), _elStreakDDSectionV2(_v2recsNonRef, _ai)] : null]));
+      }
     } else {
       // 銘柄別の集計＝選択中シグナルの総合パネル（旧🎯シグナル別タブを昇格・上のシグナル軸で切替）。母数は選択中シグナル×サブタブ（前足浮き/その他）の固定母数（_selSigRecsScoped）。推奨基本α/追加αカードだけはシグナル全体（_selSigRecs）で算出＝サブタブ間で一貫。2026-07-01→前足浮き対応 2026-07-02
       // 分析軸トグル（2026-07-07）: 🎯シグナル別（従来）／🏷詳細タグ別（銘柄内・全シグナル横断で選んだ詳細タグの記録を _groupPanel で分析）。詳細タグが1件も無い銘柄ではトグル非表示＝従来どおり。
-      var _detTagToggle = _hasDetTags ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
+      var _axisBtns = [["sig", "🎯 シグナル別"]].concat(_hasDetTags ? [["det", "🏷 詳細タグ別"]] : []).concat([["band", "💴 株価帯別"]]);   // 株価帯別を第3の軸に追加 2026-07-22（詳細タグが無い銘柄でも帯別は出す＝トグル常時表示化）
+      var _detTagToggle = React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "分析軸:"),
-        [["sig", "🎯 シグナル別", false], ["det", "🏷 詳細タグ別", true]].map(function(kv) {
-          var on = detTagMode === kv[2];
-          return React.createElement("button", { key: kv[0], onClick: function() { setDetTagMode(kv[2]); if (kv[2]) setFloatSub("other"); setExpKey(null); },
+        _axisBtns.map(function(kv) {
+          var on = detTagMode === kv[0] || (kv[0] === "sig" && detTagMode === "det" && !_hasDetTags);
+          return React.createElement("button", { key: kv[0], onClick: function() { setDetTagMode(kv[0]); if (kv[0] !== "sig") setFloatSub("other"); setExpKey(null); },
             style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } }, kv[1]);
         }),
-        React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "詳細タグ別＝この銘柄の全シグナル横断・件数は重複しうる")) : null;
-      if (detTagMode && _hasDetTags) {
+        React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, detTagMode === "band" ? "株価帯別＝この銘柄の記録を日ごとの帯で分類（シグナル横断）" : "詳細タグ別＝この銘柄の全シグナル横断・件数は重複しうる"));
+      if (detTagMode === "band") {
+        _tabBody = React.createElement(React.Fragment, null, _detTagToggle, _bandAxisBody(_v2recsAll, false));
+      } else if (detTagMode === "det" && _hasDetTags) {
         var _secLabelOf = function(sk) { for (var _si = 0; _si < _EL_SIG_SECS.length; _si++) { if (_EL_SIG_SECS[_si].key === sk) return _EL_SIG_SECS[_si].label; } return ""; };
         _tabBody = React.createElement(React.Fragment, null, _detTagToggle,
           React.createElement("div", { style: { display: "grid", gridTemplateColumns: "minmax(0, 168px) minmax(0, 1fr)", gap: 14 } },
@@ -6951,7 +6998,7 @@ function EntryLogView(_ref_elv2) {
             border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
       }) : null),
-    (!_isAllStock && !_isSigTotal && _sigAxisGroups.length && !(view === "sum" && detTagMode && _hasDetTags)) ? React.createElement("div", { style: { margin: "0 0 10px", background: "#fff", border: "1px solid #ECE7DE", borderRadius: 13, padding: "10px 12px", boxShadow: "0 1px 2px rgba(0,0,0,.03)" } },   // 文脈カード（案A 2026-07-12）: 旧シグナル行＋内訳行を1枚に統合。内訳（浮き足/その他 2026-07-02）は右上のセグメント・シグナルは折返しチップ。
+    (!_isAllStock && !_isSigTotal && _sigAxisGroups.length && !(view === "sum" && ((detTagMode === "det" && _hasDetTags) || detTagMode === "band"))) ? React.createElement("div", { style: { margin: "0 0 10px", background: "#fff", border: "1px solid #ECE7DE", borderRadius: 13, padding: "10px 12px", boxShadow: "0 1px 2px rgba(0,0,0,.03)" } },   // 文脈カード（案A 2026-07-12）: 旧シグナル行＋内訳行を1枚に統合。内訳（浮き足/その他 2026-07-02）は右上のセグメント・シグナルは折返しチップ。
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: "#9A3412", letterSpacing: ".04em" } }, "🎯 シグナル"),
         React.createElement("div", { style: { marginLeft: "auto", display: "flex", background: "#F1EEE8", borderRadius: 9, padding: 2, gap: 2 } },

@@ -1110,7 +1110,11 @@ function StockTabs(_ref34) {
     collCount = _ref34.collCount,
     fmActive = _ref34.fmActive,
     onFmSelect = _ref34.onFmSelect,
-    hasFmData = _ref34.hasFmData;
+    hasFmData = _ref34.hasFmData,
+    rotStocks = _ref34.rotStocks,
+    rotActive = _ref34.rotActive,
+    onRotSelect = _ref34.onRotSelect,
+    rotHasData = _ref34.rotHasData;
   var _useState105 = useState(null),
     _useState106 = _slicedToArray(_useState105, 2),
     drag = _useState106[0],
@@ -1353,7 +1357,29 @@ function StockTabs(_ref34) {
       }
     }, "\u2715"));
   }),
-  
+  // \ud83d\udcc5\u65e5\u66ff\u308f\u308a\u96c6\u7d04\u30bf\u30d6\uff082026-07-22\uff09: \u65e5\u66ff\u308f\u308a\u5c5e\u6027\u9298\u67c4(custom.rotatingStocks)\u306f\u500b\u5225\u30bf\u30d6\u3092\u4f5c\u3089\u305a\u3053\u306e1\u30bf\u30d6\u306b\u96c6\u7d04\u3002\u4e2d\u306e\u9298\u67c4\u5207\u66ff\u306fDayView\u5074\u306e\u30c1\u30c3\u30d7\u5217\uff08_rotChipBar\uff09\u3002rotStocks\u304c\u7a7a\u306a\u3089\u975e\u8868\u793a\uff1d\u5f93\u6765\u3068\u540c\u4e00\u3002
+  (rotStocks && rotStocks.length > 0 && onRotSelect) ? React.createElement("button", {
+    key: "__rot__",
+    onClick: function() { if (!touchState.current.on) onRotSelect(); },
+    style: {
+      position: "relative", flexShrink: 0,
+      padding: "8px 14px",
+      fontSize: 13, fontWeight: 600,
+      border: rotActive ? "1.5px solid #4338CA" : "1px solid #C7D2FE",
+      borderRadius: 7, cursor: "pointer",
+      background: rotActive ? "#4338CA" : "#EEF2FF",
+      color: rotActive ? "#fff" : "#4338CA",
+      whiteSpace: "nowrap",
+      minHeight: IS_TOUCH ? 40 : 32,
+      userSelect: "none"
+    }
+  },
+    rotHasData && React.createElement("span", {
+      style: { position: "absolute", top: 4, left: 5, width: 7, height: 7,
+        borderRadius: "50%", background: "#E53935", pointerEvents: "none" }
+    }),
+    "\ud83d\udcc5 \u65e5\u66ff\u308f\u308a\uff08" + rotStocks.length + "\uff09"
+  ) : null,
   React.createElement("span", {
     style: { display: "inline-flex", alignItems: "stretch", flexShrink: 0, position: "relative" }
   },
