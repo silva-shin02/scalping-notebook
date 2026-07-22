@@ -54,7 +54,8 @@ HomeEventFormModal, App
 - **`amtScope`（app-04 `_pnlDetailTableEl` 第8引数）**: 既定falsy＝銘柄別展開は据置。グランド展開（`_pbExpRow("__total__")`）と今週展開（`_wkExpRow`）でのみtrue＝共有関数を壊さず両立。
 - **(S)/(P)据置（変更なし）**: app-04 `_skT`（銘柄別行）・本日データ分析/OS別/`_epnCascade`（推奨α）。app-02 ChartSection全て（`_recsForTot`/`_detailTotRowFor`/`_sumRow`/α表・per-stock）。app-05 `_hdRecentRecords`/被り除外母数/早見表stats共有関数/詳細タグ母数。app-06 `_v2recsAll`/`_sigGroups`/分析プール。app-01 `_saByStock`（推奨α）。
 - **記録フォーム（app-05 EntryRecordForm）**: 「計算・データ算入」欄の下に「**合計算入（本日の取引銘柄）: 自動／入れる／外す**」セグメント新設（`fTotOv`/`setFTotOv`・既定auto・保存`totalOverride`=auto時null）。分析母数は不変の注記つき。
-- **検証**: V8で`_isDataOnly`/`_elInclTotalAmt`を直接11ケース単体テスト全pass（指定日=データのみ/未指定日=ガードで算入/override in・out/固定銘柄/プール空でAmt≡Incl＝不変条件）。実マウント無エラー。
+- **敵対レビュー修正2件（find→verify 2エージェント）**: (1)**`handleRenameStock`（app-04:4976）が`dailyStock`を改名追従していなかった**＝`dailyStock[date]`は値が銘柄名なので、指定銘柄を改名すると記録が「候補で未指定」＝データのみ扱いに落ちて全グランド合計から静かに消える（指定●も外れる）→`rotatingStocks`追従の直後に値remap（oldName→newName）を追加。**⚠️銘柄名を値/キーに持つ永続データを新設したら`handleRenameStock`に追加**（signalTags等と同方針）。(2)**全銘柄横断（scope=null）の時間かぶり母数`_elCollisionExcludedSet`（app-05:4218）はデータのみを外す**＝参考トレードは実トレード枠を占有しない→指定/固定銘柄の記録を被りで落とさない。母数gateを`scopeStock?_elInclTotal:_elInclTotalAmt`に・memoキーに`dailyStock`/`rotatingStocks`identity追加（銘柄別scopeは_elInclTotalのまま＝自タブは自記録で被り判定）。
+- **検証**: V8で`_isDataOnly`/`_elInclTotalAmt`を直接11ケース単体テスト全pass（指定日=データのみ/未指定日=ガードで算入/override in・out/固定銘柄/プール空でAmt≡Incl＝不変条件）＋改名migration再現テスト（rename後に指定銘柄が算入に戻る）＋衝突集合no-throw。実マウント無エラー。push済(dd9e6ab)。
 
 ### 2026-07-22d 日替わりを「本日の取引銘柄」per-day化＋タブを外国市場の右に固定（①・sw v230→v231）
 - **概念変更**: 「日替わり銘柄」＝1日1つ実際に取引する銘柄を指定（`data.dailyStock[日付]`・trades/foreignMarkets同型のtop-levelマップ＝汎用マージで同期）。`custom.rotatingStocks` は「候補プール」に役割変更。以前の集約チップ切替（v229）を置換。
