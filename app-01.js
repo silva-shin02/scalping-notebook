@@ -957,7 +957,7 @@ function migrateData(d) {
         var _us = ck.lastIndexOf("_"); if (_us < 0) return;
         var _stock = ck.slice(0, _us), _date = ck.slice(_us + 1);
         var arr = _saByStock[_stock] || (_saByStock[_stock] = []);
-        c.signals.forEach(function(s2) { if (s2 && _elInclTotal(s2) && _epIsV2(s2)) arr.push({ stock: _stock, date: _date, signal: s2 }); });
+        c.signals.forEach(function(s2) { if (s2 && _elInclData(s2) && _epIsV2(s2)) arr.push({ stock: _stock, date: _date, signal: s2 }); });   // 推奨α計算＝分析母数（データ算入）2026-07-22f
       });
       // 銘柄ごとの推奨応用α(1本・銘柄全体母数)と推奨基本α(フォールバック)を先に算出（旧・追加α〇の状態で。浮き足〇/RN〇は応用プールから除外）
       var _saSpecialOf = {}, _saBaseOf = {};

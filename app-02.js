@@ -3802,7 +3802,7 @@ function _sigStats(tag, allData, period) {
     var _clSg = c.cutLine != null ? Number(c.cutLine) : 15;
     (c.signals || []).forEach(function(s) {
       if (s.tag !== tag) return;
-      if (!_elInclTotal(s)) return;
+      if (!_elInclData(s)) return;   // シグナル別勝率＝分析母数（データ算入）2026-07-22f
       // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出）
       var _resSg = _elDynResult(s, _epOwnAlpha(s), _clSg);
       if (_resSg === "ok") ok++;
@@ -5159,7 +5159,7 @@ function WeeklyPnlPanel(_wpp) {
   var _idealEl = _recs.length ? React.createElement("div", { style: { marginTop: 8, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円・週間）"),
     React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "今週(月〜金)の全記録に同じαを当てて、件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上かつ想定損益がプラスのαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高α・赤字αは除外・データ不足時は件数最大を参考表示）。応用α目安＝応用〇局面で採用する独立α値（応用〇の記録から算出）。"),
-    _elBaseAlphaTableV2([{ label: stock, recs: _recs.filter(function(r) { return _elInclTotal(r.signal); }) }], _cutOf)) : null;
+    _elBaseAlphaTableV2([{ label: stock, recs: _recs.filter(function(r) { return _elInclData(r.signal); }) }], _cutOf)) : null;   // 推奨基本α表＝分析母数（データ算入）2026-07-22f
   var _simAlphaCnt = Object.keys(simAlpha).filter(function(k) { return simAlpha[k] != null && simAlpha[k] !== ""; }).length;
   var _simCutCnt = Object.keys(simCut).filter(function(k) { return simCut[k] != null && simCut[k] !== ""; }).length;
   var _simActive = _simAlphaCnt + _simCutCnt;

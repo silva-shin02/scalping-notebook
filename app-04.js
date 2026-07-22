@@ -3386,11 +3386,17 @@ function _epnCollectSignals(data) {
 }
 function _epnCascade(data, stock, tag, sel, beforeDate) {
   var all = _epnCollectSignals(data).filter(function(r) {
-    return r.stock === stock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!beforeDate || r.date < beforeDate);
+    return r.stock === stock && _epIsV2(r.signal) && _elInclData(r.signal) && (!beforeDate || r.date < beforeDate);   // _epnCascade＝推奨α（分析母数・データ算入）2026-07-22f
   });
   var aiOf = function(r) { return _elAlphaInfo(r, data); };
   var stk = _epnPickWin(all, aiOf);
-  if (!tag) return { all: all, sigRecs: null, detRecs: null, stk: stk, sig: null, det: null, aiOf: aiOf };
+  // 株価帯フォールバック（第2弾 2026-07-22f）: 銘柄全体が確信推奨を出せないとき（!stk.ok）だけ、その銘柄の対象日の株価帯と同じ帯の全銘柄記録（銘柄横断・前日まで・材料日除外）から推奨基本αを計算＝薄い銘柄を似た株価帯の銘柄で補う。perf: 銘柄okまたは帯不明のときは計算しない。カスケードは詳細→シグナル→銘柄→帯の順で最後のフォールバック。
+  var band = null;
+  if (!(stk && stk.ok) && beforeDate) {
+    var _bi = _pbDayBandOf(data, stock, beforeDate);
+    if (_bi && !_bi.material && _bi.idx != null) { var _bpool = _pbBandPoolFor(data, _bi.idx, beforeDate); if (_bpool.length) band = _epnPickWin(_bpool, aiOf); }
+  }
+  if (!tag) return { all: all, sigRecs: null, detRecs: null, stk: stk, sig: null, det: null, band: band, aiOf: aiOf };
   var recs = all.filter(function(r) { return _epnTagsOf(r.signal).indexOf(tag) >= 0; });
   var _selB = (sel && sel.b) || null, _selK = (sel && sel.k) || null, _selF = (sel && sel.f) || [];
   var detRecs = (_selB || _selK || _selF.length) ? recs.filter(function(r) {
@@ -3400,7 +3406,7 @@ function _epnCascade(data, stock, tag, sel, beforeDate) {
     for (var i = 0; i < _selF.length; i++) { if (_sc.f.indexOf(_selF[i]) < 0) return false; }
     return true;
   }) : null;
-  return { all: all, sigRecs: recs, detRecs: detRecs, stk: stk, sig: _epnPickWin(recs, aiOf), det: detRecs ? _epnPickWin(detRecs, aiOf) : null, aiOf: aiOf };
+  return { all: all, sigRecs: recs, detRecs: detRecs, stk: stk, sig: _epnPickWin(recs, aiOf), det: detRecs ? _epnPickWin(detRecs, aiOf) : null, band: band, aiOf: aiOf };
 }
 // 保存/更新を一本化: 同一idの既存エントリー（同日どの銘柄でも）を除去してから stock に追加＝新規追加も編集更新（銘柄変更含む）も同経路。
 function _epnPut(save, date, stock, item) {
@@ -3568,6 +3574,45 @@ function _dailyStockSet(save, date, stock) {
     return Object.assign({}, prev, { dailyStock: m });
   });
 }
+// ===== 株価帯の推奨α（第2弾 2026-07-22f）=====
+// _pbBandPoolFor: 指定した株価帯idxと同じ帯だった全記録（銘柄横断・beforeDateより前・データ算入・v2・材料日は帯から除外）。各(stock,date)の帯は_pbDayBandOfで動的判定（手動＞前日終値）。chartsごとに(bandIdx,before)キーでメモ化。
+var _pbBandPoolCache = { charts: null, bsig: null, out: {} };
+function _pbBandPoolFor(data, bandIdx, beforeDate) {
+  if (bandIdx == null) return [];
+  var charts = (data && data.charts) || null;
+  var _bsig = _pbBoundsOf((data && data.custom) || {}).join(",");   // 境界(priceBandBounds)はchartsに含まれない＝境界だけ変えた時のstale回避（敵対レビューBUG1修正 2026-07-22f）
+  if (_pbBandPoolCache.charts !== charts || _pbBandPoolCache.bsig !== _bsig) _pbBandPoolCache = { charts: charts, bsig: _bsig, out: {} };
+  var _k = bandIdx + "|" + (beforeDate || "");
+  if (Object.prototype.hasOwnProperty.call(_pbBandPoolCache.out, _k)) return _pbBandPoolCache.out[_k];
+  var out = [];
+  _elCollectAllSignals(data).forEach(function(r) {
+    if (!r || !r.signal || !r.date || !_epIsV2(r.signal) || !_elInclData(r.signal)) return;
+    if (beforeDate && r.date >= beforeDate) return;
+    var bi = _pbDayBandOf(data, r.stock, r.date);
+    if (bi.material || bi.idx !== bandIdx) return;
+    out.push(r);
+  });
+  _pbBandPoolCache.out[_k] = out;
+  return out;
+}
+// _pbBandBizDays（頻度の分母 2026-07-22f・ユーザー定義）: プールの各銘柄について、プールの日付範囲[min,max]の営業日のうち「その銘柄がその帯だった日数」を合計＝(銘柄×営業日)セル数。祝日はholiSetで除外。「その株価帯であった営業日の中で（EP到達が）何日に1回か」の分母。
+function _pbBandBizDays(data, bandIdx, pool, holiSet) {
+  if (bandIdx == null || !pool || !pool.length) return 0;
+  var minD = null, maxD = null, stocks = {};
+  pool.forEach(function(r) { if (!r || !r.date) return; if (minD == null || r.date < minD) minD = r.date; if (maxD == null || r.date > maxD) maxD = r.date; if (r.stock) stocks[r.stock] = 1; });
+  if (minD == null) return 0;
+  var _p2 = function(n) { return ("0" + n).slice(-2); };
+  var total = 0;
+  Object.keys(stocks).forEach(function(stk) {
+    var cur = new Date(minD + "T00:00:00"), end = new Date(maxD + "T00:00:00");
+    while (cur <= end) {
+      var ds = cur.getFullYear() + "-" + _p2(cur.getMonth() + 1) + "-" + _p2(cur.getDate());
+      if (_fmIsBizDay(ds, holiSet)) { var bi = _pbDayBandOf(data, stk, ds); if (!bi.material && bi.idx === bandIdx) total++; }
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+  return total;
+}
 // 「本日の株価帯」バー（DayView銘柄タブ直下 2026-07-22・A1案・2026-07-22b縦2段化）: 上段=帯チップ＋判定根拠（自動=前日終値[早見表と同一のdayClose]/手動/未設定）、下段=固有材料〇×＋材料タグ選択。
 // チップタップ=手動選択（保存）・選択中の手動チップ再タップ or ↺=自動判定へ戻す（dayPriceBand=null）。固有材料〇（dayMaterial=true）のとき材料タグ一覧（_EpnChipMgr＝選択＋追加/改名/削除/ドラッグ並替）を出す。
 function _PbDayBandBar(_p) {
@@ -3639,8 +3684,61 @@ function _PbDayBandBar(_p) {
           addPh: "材料タグ名",
           onToggle: _matToggle, onAdd: _matAdd, onRename: _matRename, onDelete: _matDelete, onReorder: _matReorder
         })) : null
-    )
+    ),
+    React.createElement(_PbDayBandReco, { data: data, save: save, stock: stock, date: date, info: info })
   );
+}
+// 本日の推奨α（株価帯）＝固有材料の下（第2弾 2026-07-22f）: その銘柄の本日の株価帯と同じ帯だった全記録（銘柄横断・前日まで・データ算入）から推奨基本α/応用αを算出＋頻度（帯営業日/EP到達日で「N日に1回」）＋📊帯別α詳細表ボタン。材料日/帯不明は非表示。
+function _PbDayBandReco(_p) {
+  var data = _p.data, stock = _p.stock, date = _p.date, info = _p.info;
+  var _m = useState(null), modal = _m[0], setModal = _m[1];   // null | "base" | "special"
+  var bandIdx = (info && !info.material && info.idx != null) ? info.idx : null;
+  var bandLabel = bandIdx != null ? _pbBandLabel(bandIdx, info.bounds) : null;
+  var band = useMemo(function() {
+    if (!stock || !date || bandIdx == null) return null;
+    var aiOf = function(r) { return _elAlphaInfo(r, data); };
+    var pool = _pbBandPoolFor(data, bandIdx, date);
+    if (!pool.length) return { pool: pool, base: null, sp: null, freq: null, span: 0, ent: 0, n: 0 };
+    var A = _elBaseAlphaA(pool, aiOf);
+    var holi = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories);
+    var span = _pbBandBizDays(data, bandIdx, pool, holi);
+    // EP到達した(銘柄×日)セル数＝分母_pbBandBizDays(銘柄×営業日セル)と単位を合わせる（敵対レビューBUG2修正 2026-07-22f・_elEnteredDaysは日付のみ集約で銘柄横断だと単位不一致だった）
+    var _entSeen = {}, ent = 0;
+    pool.forEach(function(r) { if (!r || !r.signal || !r.date || !r.stock) return; var a = aiOf(r).alpha; if (a == null) return; var rr = _epResolve(r.signal, a); if (rr && rr.epIdx >= 0 && rr.epIdx <= 2) { var _ek = r.stock + "|" + r.date; if (!_entSeen[_ek]) { _entSeen[_ek] = 1; ent++; } } });
+    var fr = (span > 0 && ent > 0) ? span / ent : null;
+    return { pool: pool, base: (A && A.pick && A.pick.alpha != null) ? A.pick.alpha : null, sp: (A && A.add && A.add.alpha != null) ? A.add.alpha : null, freq: fr == null ? null : (fr < 10 ? Math.round(fr * 10) / 10 : Math.round(fr)), span: span, ent: ent, n: pool.length };
+  }, [data, stock, date, bandIdx]);
+  if (bandIdx == null) {
+    return React.createElement("div", { style: { borderTop: "1px dashed #EFE9DF", paddingTop: 8 } },
+      React.createElement("span", { style: { fontSize: 9.5, color: "#94A3B8" } }, (info && info.material) ? "⚡ 材料あり日＝株価帯の推奨αは対象外（材料日専用）" : "株価帯が未判定のため推奨αは出せません（前日終値なし）"));
+  }
+  var aiOf = function(r) { return _elAlphaInfo(r, data); };
+  var holi = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories);
+  var _pill = function(lbl, val, color, bd, bg) {
+    return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", background: bg, border: "1px solid " + bd, borderRadius: 8, padding: "3px 12px", minWidth: 54 } },
+      React.createElement("span", { style: { fontSize: 8.5, fontWeight: 700, color: color } }, lbl),
+      React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: (val == null) ? "#C4BDB2" : color, lineHeight: 1.1 } }, (val == null) ? "—" : (val + "円")));
+  };
+  var _modalEl = (modal && band) ? React.createElement("div", { onClick: function() { setModal(null); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
+    React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } },
+      React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } },
+        React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: modal === "base" ? "#0369A1" : "#9A3412" } }, (modal === "base" ? "🔬 推奨基本α 詳細（株価帯別）" : "🔬 推奨応用α 詳細（株価帯別）") + "｜" + bandLabel + "・銘柄横断・前日まで"),
+        React.createElement("button", { type: "button", onClick: function() { setModal(null); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")),
+      React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "同じ株価帯だった全銘柄の記録を合算した分析です（この帯のα共通化の検証）"),
+      modal === "base" ? _elBaseAlphaDetailV2(band.pool, aiOf, holi) : _elTotalAlphaSectionV2(band.pool, aiOf, holi))) : null;
+  return React.createElement("div", { style: { borderTop: "1px dashed #EFE9DF", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1", whiteSpace: "nowrap" } }, "🎯 本日の推奨α（帯）"),
+      React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", whiteSpace: "nowrap" } }, bandLabel + "・" + band.n + "件"),
+      _pill("基本α", band.base, "#0369A1", "#93C5FD", "#EFF6FF"),
+      _pill("応用α", band.sp, "#9A3412", "#FDBA74", "#FFF7ED"),
+      React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "3px 10px" } },
+        React.createElement("span", { style: { fontSize: 8.5, fontWeight: 700, color: "#64748B" } }, "頻度"),
+        React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: (band.freq == null) ? "#C4BDB2" : "#0369A1", lineHeight: 1.1, whiteSpace: "nowrap" } }, (band.freq == null) ? "—" : (band.freq + "日に1回"))),
+      React.createElement("button", { type: "button", onClick: function() { if (band.n) setModal("base"); }, style: { fontSize: 9.5, fontWeight: 700, color: "#0369A1", background: "#fff", border: "1px solid #93C5FD", borderRadius: 6, padding: "4px 8px", cursor: band.n ? "pointer" : "default", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 28 : 22, opacity: band.n ? 1 : 0.4 } }, "📊 基本α詳細"),
+      React.createElement("button", { type: "button", onClick: function() { if (band.n) setModal("special"); }, style: { fontSize: 9.5, fontWeight: 700, color: "#9A3412", background: "#fff", border: "1px solid #FDBA74", borderRadius: 6, padding: "4px 8px", cursor: band.n ? "pointer" : "default", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 28 : 22, opacity: band.n ? 1 : 0.4 } }, "📊 応用α詳細")),
+    (band.freq != null) ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } }, "頻度＝この帯だった " + band.span + "（銘柄×営業日）÷ EP到達 " + band.ent + "（銘柄×日）＝同じ帯の銘柄を合算") : (band.n ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } }, "EP到達日が無いため頻度は—") : React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } }, "この帯の前日までの記録がまだありません")),
+    _modalEl);
 }
 // 「本日の採用α値」欄（基本α＋応用α・案B横並び2カラム 2026-07-13 task3）: 銘柄別記録テーブル/取引テーブルの推奨α欄に置く。母数＝この銘柄の「開いている日付の前日まで全期間」（詳細データ表・EPナビ・記録フォームと同じ）。
 // 各カラム＝入力＋▲▼＋「表を参照」（詳細データ表をポップアップし行タップで取込）。基本α＝charts.epNaviDayAlpha（EPナビと共有）／応用α＝charts.epNaviDaySpecialAlpha。
@@ -3761,14 +3859,16 @@ function _epnRecalcBase(data, stock, date, item) {
   else if (_dayA != null) { base = _dayA; src = "本日の採用α値"; }   // 本日の採用α値で固定（詳細変更で動かさない）2026-07-13
   else {
     var casc = _epnCascade(data, stock, item.tag || null, { b: item.b || null, k: item.k || null, f: _f }, date);
-    var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
-    // 2026-07-14 共通化: 固定(!_followReco)=stk段のみ／追従=det→sig→stk。仮値含む選定を_elCascadePickへ集約（autoPick/_epnBaseLevelKeyと同一梯子）。全滅時はbase/src据え置き。
+    var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk, band = casc && casc.band;
+    // 2026-07-14 共通化: 固定(!_followReco)=stk段のみ／追従=det→sig→stk→帯。仮値含む選定を_elCascadePickへ集約（autoPick/_epnBaseLevelKeyと同一梯子）。全滅時はbase/src据え置き。帯＝第2弾フォールバック 2026-07-22f
+    var _bandLeg = { key: "band", label: "株価帯", alpha: band ? band.alpha : null, ok: !!(band && band.ok) };
     var _cp = !_followReco
-      ? _elCascadePick([{ key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) }], true)
+      ? _elCascadePick([{ key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) }, _bandLeg], true)
       : _elCascadePick([
           { key: "det", label: "詳細別", alpha: det ? det.alpha : null, ok: !!(det && det.ok) },
           { key: "sig", label: "シグナル別", alpha: sig ? sig.alpha : null, ok: !!(sig && sig.ok) },
-          { key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) }
+          { key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) },
+          _bandLeg
         ], true);
     if (_cp.alpha != null) { base = _cp.alpha; src = _cp.src; }
   }
@@ -3781,11 +3881,12 @@ function _epnRecalcBase(data, stock, date, item) {
 // 推奨応用α（EPナビ用・_EpnCalcFormと早見カードで共有 2026-07-08f→2026-07-13応用α化）: cascadeの採用段（詳細別ok→シグナル別ok→銘柄全体ok→各仮値の順＝autoPick.keyと同一導出）の記録を母数に、
 // 応用〇・浮き足/RN除外・根拠一致で絞って _elSpecialAlphaPick で推奨応用α（独立α値）を出す。計算欄とカードで同一ロジック＝変更時は両方に効く。
 function _epnBaseLevelKey(casc) {
-  var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
-  return _elCascadePick([   // 2026-07-14 共通化: autoPick/_autoBaseと同一梯子
+  var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk, band = casc && casc.band;
+  return _elCascadePick([   // 2026-07-14 共通化: autoPick/_autoBaseと同一梯子。帯＝第2弾フォールバック 2026-07-22f
     { key: "det", label: "詳細別", alpha: det ? det.alpha : null, ok: !!(det && det.ok) },
     { key: "sig", label: "シグナル別", alpha: sig ? sig.alpha : null, ok: !!(sig && sig.ok) },
-    { key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) }
+    { key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) },
+    { key: "band", label: "株価帯", alpha: band ? band.alpha : null, ok: !!(band && band.ok) }
   ], true).key;
 }
 function _epnSpecialRecoFrom(casc, reasons) {
@@ -3794,7 +3895,7 @@ function _epnSpecialRecoFrom(casc, reasons) {
   var allSp = (casc.all || []).filter(_elIsSpecialAlphaPoolRec);
   if (!allSp.length) return null;
   var key = _epnBaseLevelKey(casc);
-  var _bp = key === "det" ? casc.det : (key === "sig" ? casc.sig : casc.stk);   // 採用した基本α段の理想＝応用αを基本αより大きくクランプ 2026-07-13
+  var _bp = key === "det" ? casc.det : (key === "sig" ? casc.sig : (key === "band" ? casc.band : casc.stk));   // 採用した基本α段の理想＝応用αを基本αより大きくクランプ 2026-07-13。帯段も対応 2026-07-22f
   var _minIdeal = (_bp && _bp.idealAlpha != null) ? _bp.idealAlpha : ((_bp && _bp.alpha != null) ? _bp.alpha : null);
   var rs = reasons || [];
   var _floor = (typeof _elSpecialMinDecidedCur === "number") ? _elSpecialMinDecidedCur : (typeof _EL_SPECIAL_MIN_DECIDED_DEF === "number" ? _EL_SPECIAL_MIN_DECIDED_DEF : 15);
@@ -4074,13 +4175,14 @@ function _EpnCalcForm(_p) {
     var oldArr = Array.isArray(old) ? old : [];
     return { b: oldArr, k: oldArr, f: oldArr };
   }, [custom, nTag]);
-  var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk;
-  // 採用基本α: 詳細別ok→シグナル別ok→銘柄全体ok。全段データ不足なら仮値（参考推奨）を同順で採用＝フォームと違い場中は値を出すのが仕事（（仮）表示で明示）。
+  var det = casc && casc.det, sig = casc && casc.sig, stk = casc && casc.stk, band = casc && casc.band;
+  // 採用基本α: 詳細別ok→シグナル別ok→銘柄全体ok→株価帯ok。全段データ不足なら仮値（参考推奨）を同順で採用＝フォームと違い場中は値を出すのが仕事（（仮）表示で明示）。帯＝第2弾フォールバック 2026-07-22f
   var autoPick = (function() {
-    var _cp = _elCascadePick([   // 2026-07-14 共通化: det→sig→stk（仮値含む）の選定を_elCascadePickへ集約（記録フォーム_autoBase/_epnBaseLevelKey/_epnRecalcBaseと同一梯子）
+    var _cp = _elCascadePick([   // 2026-07-14 共通化: det→sig→stk→帯（仮値含む）の選定を_elCascadePickへ集約（記録フォーム_autoBase/_epnBaseLevelKey/_epnRecalcBaseと同一梯子）
       { key: "det", label: "詳細別", alpha: det ? det.alpha : null, ok: !!(det && det.ok) },
       { key: "sig", label: "シグナル別", alpha: sig ? sig.alpha : null, ok: !!(sig && sig.ok) },
-      { key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) }
+      { key: "stk", label: "銘柄全体", alpha: stk ? stk.alpha : null, ok: !!(stk && stk.ok) },
+      { key: "band", label: "株価帯", alpha: band ? band.alpha : null, ok: !!(band && band.ok) }
     ], true);
     return { a: _cp.alpha, key: _cp.key, src: _cp.src, ok: _cp.ok };
   })();
@@ -6329,7 +6431,7 @@ function DayView(_ref57) {
       var _wkByStk = {};
       _wkAllRecs.forEach(function(r) { if (!_wkByStk[r.stock]) _wkByStk[r.stock] = []; _wkByStk[r.stock].push(r); });
       var _wkStks = Object.keys(_wkByStk).sort(function(a, b) { var ia = _pbStkOrder.indexOf(a), ib = _pbStkOrder.indexOf(b); if (ia !== -1 || ib !== -1) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; } return a < b ? -1 : a > b ? 1 : 0; });
-      var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk].filter(function(r) { return _elInclTotal(r.signal); }) }; });
+      var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk].filter(function(r) { return _elInclData(r.signal); }) }; });   // 今週の推奨α表＝分析母数（データ算入）2026-07-22f
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円・週間）"),
         React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上かつ想定損益がプラスのαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高α・赤字αは除外・データ不足時は件数最大を参考表示）。応用α目安＝応用〇局面で採用する独立α値（応用〇の記録から算出）。"),
@@ -6705,7 +6807,7 @@ function DayView(_ref57) {
       var cut = c.cutLine != null ? Number(c.cutLine) : 15;
       (Array.isArray(c.signals) ? c.signals : []).forEach(function(sig) {
         var s = _compatSignal(sig);
-        if (!_epIsV2(s) || !_elInclTotal(s)) return;
+        if (!_epIsV2(s) || !_elInclData(s)) return;   // 本日のデータ分析（OS/ホールド検証）＝分析母数（データ算入）2026-07-22f
         var a = (s.alphaVal != null && s.alphaVal !== "") ? Number(s.alphaVal) : _gradeAlpha(s.difficulty);
         _dayRecs.push({ stock: stk, signal: s, alpha: a, cut: cut, time: s.time || "" });
       });
@@ -6775,7 +6877,7 @@ function DayView(_ref57) {
         if(!pred(dt))return;
         var c=_aCharts[k];
         (Array.isArray(c.signals)?c.signals:[]).forEach(function(sig){
-          var s=_compatSignal(sig); if(!_epIsV2(s)||!_elInclTotal(s)||s.osVal==null||s.osVal==="")return;
+          var s=_compatSignal(sig); if(!_epIsV2(s)||!_elInclData(s)||s.osVal==null||s.osVal==="")return;   // 銘柄別OS値分析＝分析母数（データ算入）2026-07-22f
           (by[stk]=by[stk]||[]).push({signal:s});
         });
       });

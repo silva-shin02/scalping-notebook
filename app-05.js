@@ -906,7 +906,7 @@ function _hdRecentRecords(data, days) {
   var cutoff = new Date(now);
   cutoff.setDate(cutoff.getDate() - days);
   var cutStr = cutoff.toISOString().slice(0, 10);
-  return all.filter(function(r) { return r.date >= cutStr && _elInclTotal(r.signal); });
+  return all.filter(function(r) { return r.date >= cutStr && _elInclData(r.signal); });   // ホームダッシュボード（勝ち/負けトップ・連敗）＝分析母数（データ算入）2026-07-22f
 }
 
 
@@ -3140,6 +3140,17 @@ function _isDataOnly(data, r) {
 // 合計額算入（金額版）: 従来の_elInclTotal（スルー/手動不算入）に加え、②データのみ（候補で未指定）も合計から外す。
 // グランド/銘柄横断の合計を出す消費側だけで使う（銘柄別の自タブ・分析母数は_elInclTotalのまま）。dataとr（.stock/.date/.signalを持つ記録）を渡す。
 function _elInclTotalAmt(data, r) { return _elInclTotal(r && r.signal) && !_isDataOnly(data, r); }
+// ===== データ算入フラグ（計算算入と分離 2026-07-22f）=====
+// signal.includeInData===false の記録を「分析母数（α値/OS値/推奨α/勝率/頻度・株価帯別等）」から除外する。合計損益（計算算入）は _elInclTotal が別に制御。
+// 未設定（旧記録・includeInData==null）は includeInTotal に追従＝移行不要（既存で「計算・データ算入」チェックを外していた記録→分析からも外れる／付けていた記録→分析にも入る、を自動再現）。
+// スルー(passThrough)は従来通り分析からも常に除外。要審議は分析に算入（_elInclTotalと同じ扱い）。
+function _elInclData(s) {
+  if (!s) return true;
+  if (s.passThrough === true) return false;
+  return (s.includeInData != null) ? (s.includeInData !== false) : (s.includeInTotal !== false);
+}
+// recs配列から分析算入(_elInclData)対象だけを残すヘルパー（分析用。表示/合計用には使わない）。
+function _elFilterData(recs) { return (recs || []).filter(function(r) { return _elInclData(r && r.signal); }); }
 // 応用α（旧・追加α〇×未選択の3状態は廃止 2026-07-13）: 記録は「応用あり(specialUsed===true)」か「通常(それ以外＝旧×+未選択を統合)」の2状態。判定は _elSpecialUsed(上部)。
 // ===== 浮き足加算α値（第3のα要素 2026-07-03。対象シグナル＝既定で底抜け水準線OS／底抜けラインOS・_elUkiSignalNames 2026-07-07）=====
 // signal.ukiUsed(true=〇/false=×/null・undefined=対象外)・signal.ukiVal(前足浮き値の生値・円)。実効加算＝floor(ukiVal×ukiPct/100)・小数切捨て（ukiPct=採用加算率%・既定50＝旧半額 2026-07-12d）。
@@ -6414,7 +6425,7 @@ function EntryRecordForm(_ref_erf) {
     var _t = fTags[0];
     var _tagsOf = function(s) { return (s.tags && s.tags.length) ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []); };
     var recs = _elCollectAllSignals(data).filter(function(r) {
-      return r.stock === fStock && _epIsV2(r.signal) && _elInclTotal(r.signal) && (!fDate || r.date < fDate) && _tagsOf(r.signal).indexOf(_t) >= 0;
+      return r.stock === fStock && _epIsV2(r.signal) && _elInclData(r.signal) && (!fDate || r.date < fDate) && _tagsOf(r.signal).indexOf(_t) >= 0;   // 詳細タグ別分析＝分析母数（データ算入）2026-07-22f
     });
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     // 全期間pick（2026-07-14 直近50→100件窓を廃止）: 詳細別/シグナル別も「前日まで全期間」で推奨を出す＝銘柄全体(_defBaseA=_refBaseAlpha.all)と同じ全期間基準に統一（ユーザー指示・見出しと詳細表を一致）。返り値shapeは_elWinPickと同一{alpha,idealAlpha,ok,n,add}＝カスケード(.alpha/.ok)そのまま。okが無ければalpha=null・ok:false＝データ不足扱い。
@@ -6500,10 +6511,19 @@ function EntryRecordForm(_ref_erf) {
   var _useStateINC = useState(initSig.includeInTotal !== false),
     _useStateINCA = _slicedToArray(_useStateINC, 2),
     fIncl = _useStateINCA[0], setFIncl = _useStateINCA[1];
+  // データ算入（計算算入と分離 2026-07-22f）: 未設定（旧記録）は includeInTotal に追従＝既存チェックの入切をそのまま2軸に引き継ぐ。
+  // ただし「本日の取引銘柄」に選ばれていない候補銘柄（rotatingStocksに属しdailyStock[日]でない＝データのみ）の記録は、計算算入の状態に関わらずデータ算入を既定ON（分析には残す・ユーザー要望 2026-07-22f）。includeInData明示があればそれを優先。
+  var _indDataOnlyCand = (function() {
+    var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
+    if (!fStock || pool.indexOf(fStock) < 0) return false;
+    var _dsInd = (data && data.dailyStock && fDate) ? (data.dailyStock[fDate] || "") : "";
+    return fStock !== _dsInd;
+  })();
+  var _useStateIND = useState(initSig.includeInData != null ? (initSig.includeInData !== false) : (_indDataOnlyCand ? true : (initSig.includeInTotal !== false))),
+    _useStateINDA = _slicedToArray(_useStateIND, 2),
+    fInclData = _useStateINDA[0], setFInclData = _useStateINDA[1];
   // 合計算入オーバーライド（②データのみ除外 2026-07-22e）: "auto"=自動判定（候補銘柄で本日の取引銘柄でない日はグランド合計から除外）/"in"=常に算入/"out"=常に除外。既定auto。分析母数は_elInclTotalなので不変（この設定はグランド合計だけに効く）。
-  var _useStateTOV = useState(initSig.totalOverride === "in" || initSig.totalOverride === "out" ? initSig.totalOverride : "auto"),
-    _useStateTOVA = _slicedToArray(_useStateTOV, 2),
-    fTotOv = _useStateTOVA[0], setFTotOv = _useStateTOVA[1];
+  // ②の手動オーバーライドUI（自動/入れる/外す）は2チェック統一で廃止（2026-07-22f ユーザー確定）。候補銘柄のグランド合計除外は_isDataOnlyの自動判定を裏で維持＝合計算入チェックはON表示のままでも自動で外れる。既存記録のtotalOverrideは_isDataOnlyが引き続き尊重（新規は保存しない）。
 
   var _useStateEONO = useState(initSig.entryOsNo != null ? Number(initSig.entryOsNo) : null),
     _useStateEONOA = _slicedToArray(_useStateEONO, 2),
@@ -7190,7 +7210,7 @@ function EntryRecordForm(_ref_erf) {
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
       includeInTotal: fIncl,
-      totalOverride: (fTotOv === "in" || fTotOv === "out") ? fTotOv : null,   // ②データのみ除外の手動オーバーライド（auto=null＝自動判定）2026-07-22e
+      includeInData: fInclData,   // データ算入（合計算入と分離 2026-07-22f）
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
       maxPnl: fMax !== "" ? Number(fMax) : null,
@@ -8790,42 +8810,21 @@ function EntryRecordForm(_ref_erf) {
       }),
 
 
-      React.createElement("div", {
-        onClick: function() { setFIncl(function(v) { return !v; }); },
-        style: { display: "flex", alignItems: "center", gap: 10, marginTop: 16, padding: "11px 13px",
-          borderRadius: 8, cursor: "pointer", userSelect: "none",
-          border: "1px solid " + (fIncl ? "#A9DFBF" : "#e0e0e0"),
-          background: fIncl ? "#EAF3DE" : "#f5f5f5" }
-      },
-        React.createElement("span", {
-          style: { width: 22, height: 22, borderRadius: 5, flexShrink: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 15, fontWeight: 900, color: "#fff",
-            border: "2px solid " + (fIncl ? "#1E8449" : "#bbb"),
-            background: fIncl ? "#1E8449" : "#fff" }
-        }, fIncl ? "✓" : ""),
-        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1 } },
-          React.createElement("span", { style: { fontSize: 13.5, fontWeight: 800, color: "#1a1a1a" } }, "計算・データ算入"),
-          React.createElement("span", { style: { fontSize: 11, color: fIncl ? "#1E8449" : "#999", fontWeight: 600 } },
-            fIncl ? "この記録を計算・データに算入します" : "この記録は計算・データから除外されます")
-        )
-      ),
-
-      // 合計算入オーバーライド（②データのみ除外 2026-07-22e）: 候補銘柄（日替わり）のグランド合計への算入を記録別に上書き。分析母数は不変。
-      React.createElement("div", { style: { marginTop: 10, padding: "10px 13px", borderRadius: 8, border: "1px solid #e0e0e0", background: "#fafafa" } },
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" } },
-          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1a1a1a" } }, "合計算入（本日の取引銘柄）"),
-          React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "候補銘柄のグランド合計への算入を上書き")),
-        React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
-          [["auto", "自動"], ["in", "入れる"], ["out", "外す"]].map(function(_tov) {
-            var _on = fTotOv === _tov[0];
-            return React.createElement("button", { key: _tov[0], type: "button", onClick: function() { setFTotOv(_tov[0]); },
-              style: { padding: "5px 16px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: _on ? "#fff" : "transparent", color: _on ? "#9A3412" : "#6B6459", boxShadow: _on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, _tov[1]);
-          })),
-        React.createElement("div", { style: { fontSize: 10.5, color: "#999", fontWeight: 600, marginTop: 6, lineHeight: 1.4 } },
-          fTotOv === "in" ? "この記録を必ずグランド合計（本日/今週/カレンダー/ホーム/全体）に算入します。"
-            : fTotOv === "out" ? "この記録をグランド合計から必ず外します（データのみ＝分析には残ります）。"
-            : "自動: 候補銘柄（日替わり）で、その日「本日の取引銘柄」に指定されていない記録はグランド合計から自動で外れます（分析には残る）。固定銘柄・指定銘柄・未指定日は従来通り算入。")),
+      React.createElement("div", { style: { marginTop: 16 } },
+        React.createElement("div", { style: { fontSize: 10.5, color: "#94A3B8", fontWeight: 700, marginBottom: 6, lineHeight: 1.4 } }, "合計算入＝損益の合計に／データ算入＝分析（α値・OS値・推奨α・勝率等）に、それぞれ算入するか。※候補銘柄（日替わり）でその日「本日の取引銘柄」でない記録は、合計算入ONのままでも自動でグランド合計から外れます（分析には残る）。"),
+        React.createElement("div", { style: { display: "flex", gap: 8 } },
+          [["calc", fIncl, setFIncl, "合計算入", "合計損益に算入"], ["data", fInclData, setFInclData, "データ算入", "分析に算入"]].map(function(_c2) {
+            var _cOn = _c2[1];
+            return React.createElement("div", { key: _c2[0],
+              onClick: (function(_setF) { return function() { _setF(function(v) { return !v; }); }; })(_c2[2]),
+              style: { flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "11px 13px", borderRadius: 8, cursor: "pointer", userSelect: "none",
+                border: "1px solid " + (_cOn ? "#A9DFBF" : "#e0e0e0"), background: _cOn ? "#EAF3DE" : "#f5f5f5" } },
+              React.createElement("span", { style: { width: 22, height: 22, borderRadius: 5, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 15, fontWeight: 900, color: "#fff", border: "2px solid " + (_cOn ? "#1E8449" : "#bbb"), background: _cOn ? "#1E8449" : "#fff" } }, _cOn ? "✓" : ""),
+              React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 1 } },
+                React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1a1a1a" } }, _c2[3]),
+                React.createElement("span", { style: { fontSize: 10.5, color: _cOn ? "#1E8449" : "#999", fontWeight: 600 } }, _cOn ? _c2[4] : "除外")));
+          }))),
 
       React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 16 } },
         React.createElement("button", {

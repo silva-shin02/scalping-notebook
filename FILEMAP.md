@@ -47,6 +47,20 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-22f 計算/データ算入の分離＋第2弾（株価帯の推奨α表示・帯カスケード・頻度再定義）（sw v232→v233）
+- **計算/データ算入の分離（Req1）**: 記録フォーム最下部の「計算・データ算入」1チェック→「**計算算入（合計損益に算入＝_elInclTotal）／データ算入（分析に算入＝_elInclData）**」の2チェックに分割。`_elInclData(s)`（app-05・_elInclTotal直後）＝passThrough→false／includeInData明示があればそれ／未設定は includeInTotal に追従（**移行不要**＝既存チェックの入切をそのまま2軸に引き継ぐ）。`_elFilterData` も追加。
+  - **分析母数を_elInclDataへ（約35箇所）**: 推奨α全経路（_epnCascade/_saByStock/_elStockRecsBefore/最良αbadge/期間窓_okR）・OS分析・今週α表_wkGroups・シグナル別勝率_sigStats・浮き足/RN/追加α pool・詳細タグ母数・ホームダッシュボード。**合計損益（計算算入）は_elInclTotalのまま据置**。
+  - **記録帳(app-06)の共有母数を分割**: `_v2recsAllData = filtered.filter(_epIsV2 && _elInclData)` を新設し、**分析パネルを再ルート**（6228 `_sigGroupsAll`→銘柄別軸[集計/α値/損切り/未達/深掘り/詳細タグ別/株価帯別]＋_selSigRecs(Scoped)が一括／浮き足RNボード／band）。**合計損益ダッシュボード（_ovPnlTbl/KPI早見_sumMonthRecs2/期間タブ_perRecs/累積/連勝連敗/指値同値）は_v2recsAll/v2recs系のまま**。設計＝「分析パネルに同居する金額（一番引っ張った損益等）はデータ側、合計ダッシュボードに同居する率（到達率等）は合計側」の主目的振り分け（関数内二重化は回避）。
+  - **不変条件（検証済）**: includeInData未設定なら `_elInclData ≡ _elInclTotal` → `_v2recsAllData ≡ _v2recsAll` → 分割前と一致。V8で全ケースpass。
+  - **データ算入の既定（ユーザー要望）**: 「本日の取引銘柄」に選ばれていない候補銘柄（rotatingStocksに属しdailyStock[日]でない＝データのみ）の記録は、計算算入の状態に関わらず**データ算入を既定ON**（分析には残す）。フォーム`fInclData`の初期化で判定（`_indDataOnlyCand`・fStock/fDate基準）。
+- **株価帯の推奨α（第2弾/Req2＋Req4）**: 
+  - **helpers（app-04・_dailyStockSet直後）**: `_pbBandPoolFor(data,bandIdx,beforeDate)`＝同じ株価帯だった全記録（銘柄横断・前日まで・データ算入・材料日除外・各(stock,date)の帯は_pbDayBandOfで動的判定・chartsごとにメモ化）／`_pbBandBizDays(data,bandIdx,pool,holiSet)`＝頻度の分母＝プール各銘柄のプール日付範囲の営業日のうち「その帯だった日数」の合計（(銘柄×営業日)セル数）。
+  - **本日の推奨α表示（Req2）**: `_PbDayBandReco`（app-04・`_PbDayBandBar`内の固有材料の下にマウント）＝その銘柄の本日の株価帯と同じ帯の推奨**基本α/応用α**（_elBaseAlphaAを帯プールに適用）＋**頻度**（Req3＝帯営業日/EP到達日で「N日に1回」）＋📊帯別α詳細表ボタン（_elBaseAlphaDetailV2/_elTotalAlphaSectionV2を帯プールで開く）。材料日/帯不明は非表示。
+  - **帯カスケード（Req4）**: `_epnCascade`に**帯フォールバックleg**を追加＝銘柄全体が確信推奨を出せない（!stk.ok）ときだけ帯プールから推奨基本αを計算（perf: 通常は計算しない・lazy）。カスケードを**詳細→シグナル→銘柄→帯**の順に（3つの梯子builder `_epnRecalcBase`/`_epnBaseLevelKey`/autoPick`_autoBase`＋`_bp`キーマップ）。**帯は純フォールバック＝既存推奨は不変**（V8で stkWinsOverBand/bandPicked 検証済）。
+- **頻度の再定義（Req3）**: 「その株価帯であった営業日の中でEP到達が何日に1回か」＝分母 `_pbBandBizDays`（その帯だった(銘柄×営業日)セル数）÷分子（EP到達した(銘柄×日)セル数）。**株価帯コンテキスト（本日の推奨α表示）でのみ適用**。記録帳の株価帯別パネルは`_kpiOs`（頻度カード無し）・非帯の頻度（シグナル総合RN/浮き足・_kpiBlockOf）は従来どおり`_elBizSpanDays`（記録スパン）＝帯スコープでないため不変。
+- **フォームUI確定（ユーザー確定）**: 記録フォームの算入UIを「**合計算入／データ算入**」の2チェック横並びに統一。**②の「合計算入(本日の取引銘柄): 自動/入れる/外す」セレクタは廃止**（fTotOv/totalOverride保存も削除）。候補銘柄の合計自動除外は`_isDataOnly`（自動・動的）を裏で維持＝合計算入チェックはON表示のままでも自動でグランド合計から外れる（既存記録のtotalOverrideは引き続き尊重・新規は保存せず）。
+- **敵対レビュー(find→verify 2エージェント)修正3件**: (1)🐛`_pbBandPoolFor`のcacheが`priceBandBounds`（境界）変更でstale＝chartsのみkey化だった→boundsシグネチャをcacheキーに追加。(2)🐛頻度の分母(銘柄×営業日セル)と分子(旧`_elEnteredDays`＝日付のみ)の単位不一致→分子を(銘柄×日)セルに統一。(3)銘柄別🧮シミュが分析根(`_v2recsAllData`)由来で損益what-ifに計算off/データon記録が混入→SIM母数を`_elInclTotal`（money）でフィルタ。**コア（不変条件/分類/配線/カスケード安全性）は全PASS**。
+
 ### 2026-07-22e ②データのみ除外（候補銘柄でその日の指定でない記録をグランド合計から除外・分析は残す・sw v231→v232）
 - **コア（app-05・_elInclTotal直後）**: `_isDataOnly(data,r)`＝手動override（`signal.totalOverride` "in"=常に算入/"out"=常に除外）＞自動（`r.stock`が候補プール`custom.rotatingStocks`所属 かつ その日`data.dailyStock[date]`が**指定済み** かつ `r.stock!==指定銘柄`）。**ガード＝指定日のみ発動**（未指定日は候補も算入＝不変条件「プール空 or dailyStock未指定なら現行と一致」を満たす・ユーザー確定）。dailyStook参照はインライン（app-04依存を避ける）。`_elInclTotalAmt(data,r)=_elInclTotal(r.signal)&&!_isDataOnly(data,r)`＝**グランド/銘柄横断の合計消費側だけ**で使う金額版。
 - **方針**: 分類監査で全`_elInclTotal`（6ファイル）を (G)グランド合計=`_elInclTotalAmt`へ差替／(S)銘柄別の自行・自タブ=`_elInclTotal`据置／(P)分析母数=据置 に分けた。**分析母数（α/OS/推奨α/浮き足/RN/株価帯別プール・`_v2recsAll`）は一切緩めない**＝データのみ記録もα分析には残る。
