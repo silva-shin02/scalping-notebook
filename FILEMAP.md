@@ -47,6 +47,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-22h スルー選択で算入チェックを自動オフ（sw v235→v236）
+- ユーザー要望。記録フォームの実エントリー4択（あり/見送り/スルー/要審議・app-05:8593 onClick）で**スルー選択→「合計算入」「データ算入」を自動でOFF**（`setFIncl(false)`/`setFInclData(false)`）＝スルーは合計・分析とも常に不算入（`_elInclTotal`/`_elInclData`がpassThroughでfalse）なので見た目のチェックも外す。**スルーから他状態へ戻すときは既定へ復帰**（`else if (fThru)`＝候補なら合計OFF/データON、それ以外はON/ON）＝あり記録を誤って除外したまま保存しないため。実マウントで initial=✓✓ / スルー=外れる / あり=✓✓に復帰 を確認。⚠️検証時のstaleキャッシュ注意（app-05だけHTTPキャッシュで旧版配信＝`fetch(cache:'reload')`で全app-*.jsをprime後にreloadが確実・reference_scalping_verify参照）。
+
 ### 2026-07-22g α推奨の到達率下限 60%→70%（sw v234→v235）
 - ユーザー要望「推奨条件に到達率70%以上を加えて」。`_EL_ANA_REACH_DEF` 60→70（app-06:1485）＝基本α★(_elBaseAlphaPick)・応用α★(_elSpecialAlphaPick)の全条件ゲート`_confAt(reachFloor)`が到達率≥70%を要求（両方が共有`reachFloor`を使用）。ステッパー(`_ElAnaReachCtl`/custom.anaReachFloor・10刻み)の既定も70%。フォールバック`_EL_ANA_REACH_FLOOR2`(50%・目標未達時に参考=青★を出す安全網)は据置＝70%を満たすαが無ければ従来通り50%まで下げて参考表示。⚠️ステッパーを過去に手動調整して`custom.anaReachFloor`を保存済みならその値が優先（過去の60/50/60変更は定数だったので通常は未保存＝70%が効く）。
 

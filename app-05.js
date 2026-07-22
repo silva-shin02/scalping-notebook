@@ -8591,6 +8591,9 @@ function EntryRecordForm(_ref_erf) {
           return React.createElement("button", {
             key: label,
             onClick: function() {
+              // スルー選択で下の算入チェック（合計算入・データ算入）を自動で外す＝スルーは合計・分析とも常に不算入なので見た目も合わせる（ユーザー要望 2026-07-22g）。スルーから他へ戻すときは既定（候補ならデータのみ＝合計OFF/データON、それ以外はON/ON）へ復帰＝あり記録を誤って除外したまま保存しないように。
+              if (mode === "t") { setFIncl(false); setFInclData(false); }
+              else if (fThru) { setFIncl(_indDataOnlyCand ? false : true); setFInclData(true); }
               if (mode === "y") { setFEntered(true); setFThru(false); setFReview(false); }
               else { setFEntered(false); setFThru(mode === "t"); setFReview(mode === "r"); setFItemId(null); }
             },
