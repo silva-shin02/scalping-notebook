@@ -6515,6 +6515,7 @@ function EntryRecordForm(_ref_erf) {
     var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
     if (!fStock || pool.indexOf(fStock) < 0) return false;
     var _dsInd = (data && data.dailyStock && fDate) ? (data.dailyStock[fDate] || "") : "";
+    if (!_dsInd) return false;   // その日に取引銘柄が未指定＝_isDataOnly(app-05 上部・!_ds→算入)と対称化＝候補も既定ON（v232不変条件「dailyStock未指定なら現行一致」に整合）。旧: 未指定日でも候補が既定OFFで、同条件の旧記録[includeInTotal未設定→_isDataOnlyで算入]と算入が逆転していた 2026-07-22i
     return fStock !== _dsInd;
   })();
   var _useStateINC = useState(initSig.includeInTotal != null ? (initSig.includeInTotal !== false) : (_indDataOnlyCand ? false : true)),

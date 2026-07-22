@@ -1322,7 +1322,7 @@ function StockTabs(_ref34) {
           nn = String(nn).trim();
           if (!nn || nn === s) return;
           if (nn === "日経平均株価") { window._snAlert("その名前は使用できません"); return; }
-          if (stocks.indexOf(nn) !== -1) { window._snAlert("同じ名前の銘柄が既にあります"); return; }
+          if (((stocks || []).concat(rotStocks || []).concat(hiddenStocks || [])).indexOf(nn) !== -1) { window._snAlert("同じ名前の銘柄が既にあります（表示中・日替わり候補・非表示のいずれか）"); return; }
           onRename(s, nn);
         } catch(_e) {}
         });

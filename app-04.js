@@ -3574,7 +3574,7 @@ function _dailyStockSet(save, date, stock) {
     return Object.assign({}, prev, { dailyStock: m });
   });
 }
-// EPナビの日替わり列の「表示銘柄」（端末ローカル・per-date 2026-07-22g）: dailyStock（合計算入の指定）とは別で、EPナビでどの候補のEPを計算・早見するかの表示選択だけ。既定は指定銘柄。Firebase同期しない＝localStorage（ユーザー決定＝▽は表示切替のみ・指定は変えない）。
+// EPナビの日替わり列の「表示銘柄」（端末ローカル・per-date 2026-07-22i）: dailyStock（合計算入の指定）とは別で、EPナビでどの候補のEPを計算・早見するかの表示選択だけ。既定は指定銘柄。Firebase同期しない＝localStorage（ユーザー決定＝▽は表示切替のみ・指定は変えない）。
 var _EPN_ROT_LS = "scalping_epn_rot_v1";
 function _epnRotGet(date) { try { var m = JSON.parse(localStorage.getItem(_EPN_ROT_LS) || "{}"); return (date && m[date]) || ""; } catch (_e) { return ""; } }
 function _epnRotSet(date, stock) { try { var m = JSON.parse(localStorage.getItem(_EPN_ROT_LS) || "{}"); if (stock) m[date] = stock; else delete m[date]; localStorage.setItem(_EPN_ROT_LS, JSON.stringify(m)); } catch (_e) {} }
@@ -3749,7 +3749,7 @@ function _PbDayBandReco(_p) {
 function _ElDayAlphaPair(_p) {
   var data = _p.data, save = _p.save, date = _p.date, stock = _p.stock, stacked = _p.stacked;   // stacked=true＝縦積み（EPナビの狭い列用）2026-07-13
   var _m = useState(null), modal = _m[0], setModal = _m[1];   // null | "base" | "special"
-  var _ts = useState("band"), tblScope = _ts[0], setTblScope = _ts[1];   // 表を参照の母数: "band"=株価帯別（既定・この銘柄の本日の帯と同じ帯だった全記録）/"stock"=銘柄別。帯不明/材料日は銘柄別へフォールバック 2026-07-22g
+  var _ts = useState("band"), tblScope = _ts[0], setTblScope = _ts[1];   // 表を参照の母数: "band"=株価帯別（既定・この銘柄の本日の帯と同じ帯だった全記録）/"stock"=銘柄別。帯不明/材料日は銘柄別へフォールバック 2026-07-22i
   var recs = useMemo(function() {
     if (!stock) return [];
     return _elStockRecsBefore(data, stock, date);
@@ -3788,14 +3788,14 @@ function _ElDayAlphaPair(_p) {
         React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円"),
         _stepBtn((function(_ib) { return function() { _step(_ib, 1); }; })(isBase), (function(_ib) { return function() { _step(_ib, -1); }; })(isBase))),
       React.createElement("button", { type: "button", onClick: (function(_ib) { return function() { setModal(_ib ? "base" : "special"); }; })(isBase), style: { marginTop: 4, fontSize: 9, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 24 : 18 } }, "表を参照"),
-      React.createElement("div", { style: { fontSize: 8, color: "#94A3B8", marginTop: 2, whiteSpace: "nowrap" } }, reco != null ? ("推奨 " + reco + "円") : "推奨データ無し"));
+      React.createElement("div", { style: { fontSize: 8, color: "#94A3B8", marginTop: 2, whiteSpace: "nowrap" } }, reco != null ? ("推奨 " + reco + "円（銘柄別）") : "推奨データ無し"));   // 銘柄別プールの推奨（帯の推奨は「表を参照」の株価帯別または_PbDayBandReco）＝混同回避 2026-07-22i
   };
   var _modalEl = modal ? (function() {
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var _hs = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories);
     var isBase = modal === "base";
     var curEff = isBase ? (baseStored != null ? baseStored : baseReco) : (spStored != null ? spStored : spReco);
-    // 株価帯別トグル（2026-07-22g・ユーザー要望）: 既定=株価帯別＝この銘柄の本日の株価帯と同じ帯だった全記録（銘柄横断・前日まで・データ算入）。帯不明/材料日は帯プール無し→銘柄別へフォールバック。取込先は常にこの銘柄の本日採用α値。
+    // 株価帯別トグル（2026-07-22i・ユーザー要望）: 既定=株価帯別＝この銘柄の本日の株価帯と同じ帯だった全記録（銘柄横断・前日まで・データ算入）。帯不明/材料日は帯プール無し→銘柄別へフォールバック。取込先は常にこの銘柄の本日採用α値。
     var _bandInfo = _pbDayBandOf(data, stock, date);
     var _bandIdx = (_bandInfo && !_bandInfo.material && _bandInfo.idx != null) ? _bandInfo.idx : null;
     var _bandPool = _bandIdx != null ? _pbBandPoolFor(data, _bandIdx, date) : [];
@@ -3818,7 +3818,7 @@ function _ElDayAlphaPair(_p) {
           React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#64748B", whiteSpace: "nowrap" } }, "母数:"),
           _scopeBtn("band", "💴 株価帯別" + (_bandLbl ? "（" + _bandLbl + "）" : ""), !_bandOk),
           _scopeBtn("stock", "🏷 銘柄別（" + stock + "）", false),
-          React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } }, _useBand ? ("同じ帯だった全銘柄・前日まで・" + _pool.length + "件") : (tblScope === "band" && !_bandOk ? "この日は株価帯が未判定/材料日のため銘柄別で表示" : (stock + "・前日まで全期間")))),
+          React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } }, _useBand ? ("同じ帯だった全銘柄・前日まで・" + _pool.length + "件") : (tblScope === "band" && !_bandOk ? (_bandIdx == null ? "この日は株価帯が未判定/材料日のため銘柄別で表示" : ("株価帯" + (_bandLbl || "") + "の前日までの記録が0件のため銘柄別で表示")) : (stock + "・前日まで全期間")))),
         React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "行をタップすると本日の採用" + (isBase ? "基本α" : "応用α") + "値に取り込みます"),
         isBase
           ? _elBaseAlphaDetailV2(_pool, aiOf, _hs, function(av) { _epnDayAlphaSet(save, stock, date, av); setModal(null); }, curEff)
@@ -4553,7 +4553,7 @@ function EpNaviPanel(_refEPN) {
   var epnStocks = (custom && Array.isArray(custom.epnStocks) && custom.epnStocks.length)
     ? custom.epnStocks.filter(function(s) { return _epnAllStocks.indexOf(s) >= 0; }).slice(0, _EPN_MAX_STOCKS)
     : _epnAllStocks.filter(function(s) { return s !== "古河電工"; }).slice(0, _EPN_MAX_STOCKS);
-  // 日替わり列（📅・右端 2026-07-22g・ユーザー要望）: custom.rotatingStocks＝候補プール（マスター実在のみ・日経＋固定表示銘柄は除外＝二重表示回避）。見出しの▽で1銘柄を選び右端の列に表示（表示のみ＝指定dailyStock/合計算入は変えない）。
+  // 日替わり列（📅・右端 2026-07-22i・ユーザー要望）: custom.rotatingStocks＝候補プール（マスター実在のみ・日経＋固定表示銘柄は除外＝二重表示回避）。見出しの▽で1銘柄を選び右端の列に表示（表示のみ＝指定dailyStock/合計算入は変えない）。
   var rotStocks = (Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : []).filter(function(s) { return _epnAllStocks.indexOf(s) >= 0 && s !== "日経平均株価" && epnStocks.indexOf(s) < 0; });
   var _hasRot = rotStocks.length > 0;
   var _dayStock = _dailyStockGet(data, date);   // その日の指定銘柄（合計算入）。▽の既定表示に使う（指定は変えない）
@@ -4573,7 +4573,7 @@ function EpNaviPanel(_refEPN) {
   var _useStateEPNsp = useState(false), _useStateEPNspA = _slicedToArray(_useStateEPNsp, 2), showStockPicker = _useStateEPNspA[0], setShowStockPicker = _useStateEPNspA[1];
   var _useStateEPNso = useState(null), _useStateEPNsoA = _slicedToArray(_useStateEPNso, 2), _stkOrd = _useStateEPNsoA[0], setStkOrd = _useStateEPNsoA[1];
   var _useStateEPNtm = useState(null), _useStateEPNtmA = _slicedToArray(_useStateEPNtm, 2), tableStock = _useStateEPNtmA[0], setTableStock = _useStateEPNtmA[1];   // 「表を参照」ポップアップ対象の銘柄（null=閉）2026-07-13d
-  var _uRotSel = useState(""), rotSelRaw = _uRotSel[0], setRotSelRaw = _uRotSel[1];   // 日替わり列の表示銘柄（端末ローカル・表示のみ）2026-07-22g
+  var _uRotSel = useState(""), rotSelRaw = _uRotSel[0], setRotSelRaw = _uRotSel[1];   // 日替わり列の表示銘柄（端末ローカル・表示のみ）2026-07-22i
   useEffect(function() { setRotSelRaw(_epnRotGet(date)); }, [date]);   // 日付ごとにlocalStorageの表示選択を読込（未設定/失効時は下の_rotSelで指定銘柄→候補先頭にフォールバック）
   var _rotSel = (rotSelRaw && rotStocks.indexOf(rotSelRaw) >= 0) ? rotSelRaw : _rotDefault;
   var _delTimerRef = useRef(null);
@@ -4774,7 +4774,7 @@ function EpNaviPanel(_refEPN) {
   var _cellsForm = epnStocks.map(function(st) {
     return React.createElement(_EpnCalcForm, { key: "epnf_" + st, data: data, save: save, date: date, stock: st, dayAlpha: _epnDayAlphaGet(data, st, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, st, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing });
   });
-  // 日替わり列（📅・右端 2026-07-22g）: 見出しは候補銘柄の▽（表示切替のみ・既定は指定銘柄）。選んだ銘柄で本日採用α値/早見カード/計算フォームが固定銘柄と全く同じに動く。列は固定銘柄の右端に1つ追加。
+  // 日替わり列（📅・右端 2026-07-22i）: 見出しは候補銘柄の▽（表示切替のみ・既定は指定銘柄）。選んだ銘柄で本日採用α値/早見カード/計算フォームが固定銘柄と全く同じに動く。列は固定銘柄の右端に1つ追加。
   var _rotCards = (_hasRot && _rotSel) ? (savedByStock.map[_rotSel] || []) : [];
   var _rotTop = _hasRot ? React.createElement("div", { key: "epncrot", style: { minWidth: 0, borderLeft: "2px solid #A5B4FC", paddingLeft: 6 } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, background: "#EEF2FF", borderRadius: 5, padding: "3px 5px", marginBottom: 5 } },
@@ -6483,7 +6483,7 @@ function DayView(_ref57) {
       var _wkGroups = _wkStks.map(function(sk) { return { label: sk, recs: _wkByStk[sk].filter(function(r) { return _elInclData(r.signal); }) }; });   // 今週の推奨α表＝分析母数（データ算入）2026-07-22f
       var _wkIdealEl = React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨基本α値（5〜20円・週間）"),
-        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、件数フロア（最も件数の多いαの半分以上）かつ到達率50%以上かつ想定損益がプラスのαから 損切り率(EP〜H1)の低さ×0.7＋H1勝率×0.3 の合成スコアが最大のα（薄い高α・約定しにくい高α・赤字αは除外・データ不足時は件数最大を参考表示）。応用α目安＝応用〇局面で採用する独立α値（応用〇の記録から算出）。"),
+        React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "週(月〜金)の各銘柄の全記録に同じαを当てて、到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαの中で平均最終損益（手じまい・1件あたり）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考・薄い高α/約定しにくい高α/赤字αは除外・データ不足時は参考表示）。応用α目安＝応用〇局面で採用する独立α値（応用〇の記録から算出）。"),
         _elBaseAlphaTableV2(_wkGroups, _wkCutOf));
       var _wkExpRow = function(recs, rowKey) {
         var _isTotal = rowKey === "wk__total__";

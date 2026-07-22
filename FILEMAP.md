@@ -47,6 +47,16 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-22j 当日変更(v228〜v237)の横断整合性監査＝5観点並列＋実コード検証で確定バグ/不整合/stale文言を修正（sw v237→v238）
+- **監査方法**: 観点別5エージェント（A記録帳UI/B算入母数/C定数文言/D日替わり改名/E帯推奨α）並列＋各指摘を実コードReadで検証＋V8構文＋実マウント再テスト。**確定分のみ修正**（設計判断はユーザーへ別途）。
+- **[BUG・今日の回帰] `setDetTagMode(false)`×4 → `"sig"`**（app-06:6985/6989/6995/7015）: v229でdetTagModeをboolean→3値文字列化した際、リセット4箇所が旧`false`残存＝銘柄タップ等で切替後に**銘柄別「集計」の分析軸トグル(🎯/🏷/💴)が全部無ハイライト**（中身はsig・選択状態と乖離）。実マウントで🎯シグナル別が`rgb(154,52,18)`ハイライト復活を確認。
+- **[BUG・データ消失の穴・今日拡大] 銘柄改名の重複ガード**（app-03:1325）: `stocks.indexOf(nn)`は固定タブ銘柄のみ照合＝**日替わり候補(rotStocks・今日v231でタブから除外)/非表示(hiddenStocks)と同名に改名すると素通り**→`custom.stocks`重複＋`charts`同名日付キー上書き（データ消失）。`(stocks∪rotStocks∪hiddenStocks)`照合に修正（両propはStockTabsに既存app-03:1107/1114）。
+- **[不整合] `_indDataOnlyCand`（app-05:6518）に未指定日カーブアウト追加**: `_isDataOnly`(app-05:3140 `if(!_ds)return false`)と非対称＝取引銘柄**未指定日**でも候補の新規記録が既定【合計算入OFF】になり、同条件の旧記録(includeInTotal未設定→_isDataOnlyで算入)と算入が逆転。`if(!_dsInd)return false`追加で対称化（v232不変条件「未指定日は現行一致」に整合）。
+- **[不整合・ユーザー表示] α選定条件の説明文が実ゲートと乖離（今日の定数変更で拡大）→定数補間化**: app-06:2624「理想−2円…1円下げた」矛盾（offset1→2の残骸）→「少し下げた」／app-06:2917・2955（ChartSection＋DayViewの推奨α説明）「到達率50%以上・損切り率20%以下・損切り30%緩和・応用到達50%/損切り20%」（実=70%/40%・フォールバック到達率50%）→`_EL_ANA_REACH_DEF/_EL_BASE_MAX_STOPRATE/_EL_ANA_REACH_FLOOR2`等へ補間／app-06:2483 noteSubの到達率が誤定数`_EL_BASE_MIN_ERATE`(50%)→`pick.reachFloor`(70%)＋フォールバック文言修正／app-04:6486 週次表の説明が「合成スコア・到達率50%」（実=平均最終損益・70%）→補間で全面更新。実マウントで「到達率70%」表示・旧「50%以上」消滅を確認。
+- **[stale文言修正] コメント**: app-06:2078「理想−1」→`_EL_ALPHA_OFFSET`／5669 detTagMode「全銘柄側は銘柄横断」→「銘柄別タブ専用＝横断はシグナル総合へ」／5672 sigSubにband追記／2058「na緩和全廃」→到達率50%フォールバックは復活済(2065)と整合。**v237のコメント日付タグ`2026-07-22g`→`2026-07-22i`**（g=到達率60→70の別変更・app-04/06計8箇所）。
+- **[v237 UX] `_ElDayAlphaPair`**: インライン推奨に「（銘柄別）」明記（同画面の`_PbDayBandReco`帯推奨と混同回避）／空帯フォールバック文言を「帯未判定/材料日」と「帯判定済み・記録0件」で分離。
+- **未修正（ユーザー判断待ち・別途提示）**: ①sigSub既定を"uki"→"band"にするか（最左bandだが既定uki）②帯コンテキストの頻度不一致＝帯ピル(新`_pbBandBizDays`)とα詳細表の頻度列(旧`_elBizSpanDays`＝帯外日含む)が同ラベルで乖離（app-04:3708 vs app-06:2568）③EPナビ▽と📅●の絵文字被り＝タッチで紛らわしい。**低優先の残stale文言**（app-06:2240-2241/2666/2731/3921 損切り率/合成スコアのコメント・app-05:8595 date tag[\u escape で編集困難]）。**死コード**（`_EpnDayAlphaField`/`_spModal`/`_tableModal`/`_sigGroups`(6229)/`_sumStockContent`(6149)）。
+
 ### 2026-07-22i 株価帯別をシグナル総合へ移設＋EPナビ日替わり列＋α詳細表の株価帯別トグル（sw v236→v237）
 - ユーザー要望3件（AskUserQuestion＋show_widgetモックで確定）。**A: 株価帯別分析をシグナル総合の先頭サブタブへ**（app-06）＝`_SIG_TABS`に`["band","💴 株価帯別"]`を浮き足%の左（先頭）へ追加＋`sigSub==="band"`分岐で`_bandAxisBody(_v2recsAllData,true)`（全銘柄横断＝帯共通αの検証）。**全銘柄「集計」の分析軸トグル（💰全体/💴株価帯別＝`_allAxisToggle`）は撤去**＝損益ダッシュボード専念（**銘柄別タブの株価帯別軸`_axisBtns`は存続**・detTagMode共用）。sigSub既定はuki据置（左に足すだけ）。
 - **B: EPナビ右端に日替わり列**（app-04 `EpNaviPanel`）＝`custom.rotatingStocks`（実在・日経・固定表示銘柄を除外＝二重表示回避）を候補プールに、見出しの`<select>▽`で1銘柄を選び固定3銘柄の右に1列追加（本日採用α値/早見カード/計算フォームが固定銘柄と同じに動く）。**表示のみ＝指定dailyStock/合計算入は変えない**（ユーザー確定）。既定表示＝その日の指定銘柄（`_dailyStockGet`）→無ければ候補先頭。選択は端末ローカル`localStorage scalping_epn_rot_v1`（per-date・Firebase非同期）＝**新関数`_epnRotGet`/`_epnRotSet`（app-04・_dailyStockSet直後）**。grid列数`_colN=epnStocks.length+(_hasRot?1:0)`・`_rotSel`は失効時_rotDefaultにフォールバック・列key`epncrot_/epnfrot_`は固定列と別prefix（衝突回避）・stock変化でkeyが変わり_EpnCalcFormはリマウントされてフォームstateがリセットされる。
