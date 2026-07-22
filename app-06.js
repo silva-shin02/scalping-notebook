@@ -1974,6 +1974,17 @@ function _elEnteredDays(recs, alphaOf) {
   });
   return Object.keys(d).length;
 }
+// EP到達した「(銘柄×日付)セル数」＝銘柄横断プール（株価帯等）の頻度分母。_elEnteredDaysはdistinct日付のみ集約なので、分母を_pbBandBizDays（銘柄×営業日セル）に合わせる帯コンテキストで単位を一致させる用。_PbDayBandReco/_ElDayAlphaPairピルの_entSeenと同一の(stock|date)キー 2026-07-22k（ユーザー指摘の単位不一致修正）。
+function _elEnteredCells(recs, alphaOf) {
+  var d = {};
+  (recs || []).forEach(function(r) {
+    var s = r && r.signal; if (!s || !r.date || !r.stock) return;
+    var a = alphaOf(r); if (a == null) return;
+    var rr = _epResolve(s, a);
+    if (rr && rr.epIdx >= 0 && rr.epIdx <= 2) d[r.stock + "|" + r.date] = 1;
+  });
+  return Object.keys(d).length;
+}
 // 頻度セル 2026-07-07→2026-07-13c 数字のみ表記（ユーザー指定「3.8」）: span(活動営業日)÷enteredDays(到達実日数)=X営業日に1回。10未満は小数1桁・以上は整数。到達0/期間0は—。ツールチップに意味を残す。
 function _elFreqCell(span, enteredDays) {
   if (!(enteredDays > 0) || !(span > 0)) return React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -2041,7 +2052,7 @@ function _elBaseAlphaPick(recs, aiOf, spanOverride) {   // spanOverride: 頻度�
   var h1At = {}; sweep.forEach(function(e) { h1At[e.a] = e; });
   var reachFloor = (_elAnaReachCur != null ? _elAnaReachCur : _EL_ANA_REACH_DEF) / 100;   // 到達率の下限（既定0.70・custom.anaReachFloor・_elAlphaInfoで同期）
   var _fspan = (spanOverride != null) ? spanOverride : _elBizSpanDays(recs, _elHoliCur);   // 頻度ゲート用（2026-07-13c／2026-07-15g 祝日も除外＝表示の頻度列と一致）: 活動営業日span。0なら頻度ゲート素通り。spanOverrideあり=帯基準 2026-07-22j
-  var _freqOk = function(a) { if (!(_fspan > 0)) return true; var ed = _elEnteredDays(recs, function() { return a; }); return ed > 0 && (_fspan / ed) < _EL_FREQ_MAX; };
+  var _freqOk = function(a) { if (!(_fspan > 0)) return true; var ed = (spanOverride != null) ? _elEnteredCells(recs, function() { return a; }) : _elEnteredDays(recs, function() { return a; }); return ed > 0 && (_fspan / ed) < _EL_FREQ_MAX; };   // 帯基準(spanOverride)時は分母も(銘柄×日)セルで単位一致 2026-07-22k
   var _conf = function(e) { return e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && e.decided != null && e.decided >= _EL_BASE_MIN_N && _freqOk(e.a); };   // 赤★の自信条件
   var fullByA = {}; full.forEach(function(e) { fullByA[e.a] = e; });
   var _mk = function(p, status, idealA) {
@@ -2086,7 +2097,7 @@ function _elSpecialAlphaPick(pool, aiOf, minIdeal, spanOverride) {   // spanOver
   var byA = {}; sweep.forEach(function(e) { byA[e.a] = e; });
   var reachFloor = (_elAnaReachCur != null ? _elAnaReachCur : _EL_ANA_REACH_DEF) / 100;
   var _fspan = (spanOverride != null) ? spanOverride : _elBizSpanDays(pool, _elHoliCur);   // 頻度ゲート（基本αと同一・2026-07-15g 祝日も除外＝表示の頻度列と一致）。spanOverrideあり=帯基準 2026-07-22j
-  var _freqOk = function(a) { if (!(_fspan > 0)) return true; var ed = _elEnteredDays(pool, function() { return a; }); return ed > 0 && (_fspan / ed) < _EL_FREQ_MAX; };
+  var _freqOk = function(a) { if (!(_fspan > 0)) return true; var ed = (spanOverride != null) ? _elEnteredCells(pool, function() { return a; }) : _elEnteredDays(pool, function() { return a; }); return ed > 0 && (_fspan / ed) < _EL_FREQ_MAX; };   // 帯基準(spanOverride)時は分母も(銘柄×日)セルで単位一致 2026-07-22k
   var _conf = function(e) { return e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && e.decided != null && e.decided >= _EL_BASE_MIN_N && _freqOk(e.a); };
   var _clampFloor = (minIdeal != null && !isNaN(Number(minIdeal))) ? (Number(minIdeal) + 1) : null;   // 応用の理想は基本の理想+1以上（応用α>基本α 2026-07-13）
   var _mk = function(e, st, idealA) { return { alpha: e.a, idealAlpha: (idealA != null ? idealA : e.a), status: st, minN: _EL_BASE_MIN_N, sweep: sweep, decided: e.decided, eRate: e.eRate, stopRate: e.stopRate, takeRate: e.takeRate, h2Sum: e.h2Sum, avgH2: e.avgH2, reachFloor: reachFloor, alpha2: null, avgH2_2: null, h2Sum2: null }; };
@@ -2155,7 +2166,7 @@ function _elTotalAlphaSectionV2(recs, aiOf, holiSet, onPick, curSel, spanOverrid
   var _h1ByA = {}; pick.sweep.forEach(function(e) { _h1ByA[e.a] = _elBaseAlphaEval(pool, _aiAna, e.a); });   // 基本αに列を合わせる: 応用プールのH1評価
   var rows = pick.sweep.filter(function(e) { return e.entered > 0 || e.a === a || e.a === ideal; }).map(function(e) {
     var on = e.a === a, _isIdeal = (e.a === ideal && ideal !== a);
-    var _ed = _elEnteredDays(pool, (function(_a) { return function() { return _a; }; })(e.a));
+    var _ed = (spanOverride != null) ? _elEnteredCells(pool, (function(_a) { return function() { return _a; }; })(e.a)) : _elEnteredDays(pool, (function(_a) { return function() { return _a; }; })(e.a));   // 帯基準時は分母も(銘柄×日)セルで単位一致（ピルと同じ）2026-07-22k
     var _freqVal = (_span > 0 && _ed > 0) ? (_span / _ed) : null;   // 表示の頻度列と同じ値（祝日除外）
     // 淡色でない(pass)＝全最低条件（到達率・E成立・頻度・損切り率・黒字）を満たす 2026-07-15g。
     // 2026-07-16e: 基本α表と同じく「未達」列用に&&をほどく（判定は等価）。※応用表は主スイープが_elH2EvalByFn＝e自体がH2評価（基本表の_h2ByA[e.a]に相当）。
@@ -2575,7 +2586,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride)
   _dispSweep.forEach(function(e) { _h2ByA[e.a] = _elH2EvalByFn(_baseRecs, aiOfAna, function() { return e.a; }); });
   var sweepRows = _dispSweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var _h2r = _h2ByA[e.a];
-    var _ed = _elEnteredDays(_baseRecs, function() { return e.a; });
+    var _ed = (spanOverride != null) ? _elEnteredCells(_baseRecs, function() { return e.a; }) : _elEnteredDays(_baseRecs, function() { return e.a; });   // 帯基準時は分母も(銘柄×日)セルで単位一致（ピルと同じ）2026-07-22k
     var _freqVal = (_baseSpan > 0 && _ed > 0) ? (_baseSpan / _ed) : null;   // 表示の頻度列と同じ値（祝日除外）
     var on = e.a === a, _isIdeal = (e.a === ideal && ideal !== a);
     // 淡色でない(pass)＝★の全最低条件（到達率・E成立・頻度・損切り率・黒字）を満たす 2026-07-15g。
