@@ -47,6 +47,15 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-22d 日替わりを「本日の取引銘柄」per-day化＋タブを外国市場の右に固定（①・sw v230→v231）
+- **概念変更**: 「日替わり銘柄」＝1日1つ実際に取引する銘柄を指定（`data.dailyStock[日付]`・trades/foreignMarkets同型のtop-levelマップ＝汎用マージで同期）。`custom.rotatingStocks` は「候補プール」に役割変更。以前の集約チップ切替（v229）を置換。
+- **helpers（app-04・_PbDayBandBar直前）**: `_dailyStockGet(data,date)`／`_dailyStockSet(save,date,stock)`。
+- **タブ配置（app-03 StockTabs）**: 📅日替わりタブを**外国市場ボタンの右に固定**（旧位置＝銘柄マップの後から移動）。`onRotSelect` があれば常時表示。ラベルは新prop`rotLabel`（=📅 銘柄名/📅 日替わり）。
+- **DayView（app-04）**: `rotTabActive`（fmActiveと並列の明示state）＋`rotViewStock`（タブ内の表示銘柄・指定とは別）。`dayStock=_dailyStockGet`、`dispStock=rotTabActive?_rotView:activeStock`（フル表示に渡す銘柄）。`activeStock` は候補プールを除いた固定銘柄優先に。旧`_rotChipBar`→**`_rotPickerBar`**（「📅 本日の取引銘柄」バー＝候補を「銘柄名（件数）」で並べ、名前タップ=表示/記録切替 setRotViewStock、各チップの**指定●**=dailyStock[date]に指定（赤●・合計算入）、＋でその場追加）。
+- **中身**: rotTabActive時は`_rotPickerBar`＋**固定銘柄と同じフル表示**（_PbDayBandBar/早見表/日足/ChartSection/bench を`dispStock`で描画）。StockTabsの`active`は(fmActive||rotTabActive)で空、onSelectでrotTabActive解除。
+- **記録件数**: `_rotRecCount(stk)=charts[stk_date].signals.length`。候補チップに（件数）表示。
+- **注意**: 損益/分析の母数は**未変更**（②データのみ除外は別コミット予定）。指定＝表示ではない（安川電機を表示・記録しても指定＝合計算入にはならない＝②で「未指定候補はデータのみ」に）。実マウント検証済み（タブ固定位置・件数・指定●・表示≠指定・フル表示）。
+
 ### 2026-07-22c 株価帯バーの前日終値を早見表と一致（バグ修正）＋材料あり→固有材料〇×＋材料タグ管理（sw v229→v230）
 - **前日終値バグ修正（app-04 `_pbPrevClose`）**: 旧実装は日足CSV（sn_dc_csv_v1_*）を独立に読み、早見表(StockQuickRefTable)と食い違った（JX金属で前日終値4,653と誤表示・正は早見表7/21終値3,665）。真因＝早見表は `charts[銘柄_日付].dayClose`（CAツールの当日1分足終値・開くたび自動取得）を読むのに株価帯バーだけ別フィードのCSVを読んでいた。→ `_pbPrevClose(data,stock,date)` を **dayClose走査**（date未満の最大日付のdayClose・`Math.round`＝早見表と同一源同一丸め）に置換。`_pbBarsOf`/`_pbCsvCache` 削除。`_pbDayBandOf` は `_pbPrevClose(data,...)` を呼ぶよう変更。移行不要・早見表が新鮮化されれば即追従。CAツール未取得日は前日終値null＝「未設定」（早見表が「—」の日と整合）。
 - **固有材料UI（app-04 `_PbDayBandBar` 縦2段化）**: 「⚡材料あり」トグルを廃し、バーを上段（本日の株価帯）＋下段（固有材料）に分離。下段＝「⚡固有材料」ラベル＋〇×セグメント（既定×＝`dayMaterial` false）。〇のとき材料タグ選択UI（`_EpnChipMgr` 流用＝タップで選択・✎編集で改名/削除・ドラッグ並替・＋追加）。マスター＝`custom.materialTags`、選択＝`charts[ck].dayMaterialTags`（名前ベース）。ハンドラは `_PbDayBandBar` 内インライン（`_matAdd`/`_matDelete`/`_matReorder`/`_matToggle`）＋改名cascade `_matRenameData`（トップレベル）。

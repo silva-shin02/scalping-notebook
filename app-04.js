@@ -3557,6 +3557,16 @@ function _pbDayMaterialSet(save, stock, date, on) {
     return Object.assign({}, prev, { charts: charts });
   });
 }
+// 本日の取引銘柄（per-day 2026-07-22d）: その日に「実際に取引した1銘柄」を指定＝data.dailyStock[日付]（候補プール=custom.rotatingStocks）。trades/foreignMarketsと同じ日付キーのtop-levelマップ＝汎用マージで同期。
+// 指定銘柄＝合計＋分析に算入。候補で未指定の記録＝データのみ（合計除外・分析は残す）。固定銘柄は従来通り。
+function _dailyStockGet(data, date) { var m = (data && data.dailyStock) || {}; return (date && m[date]) || ""; }
+function _dailyStockSet(save, date, stock) {
+  save(function(prev) {
+    var m = Object.assign({}, prev.dailyStock || {});
+    if (stock) m[date] = stock; else delete m[date];
+    return Object.assign({}, prev, { dailyStock: m });
+  });
+}
 // 「本日の株価帯」バー（DayView銘柄タブ直下 2026-07-22・A1案・2026-07-22b縦2段化）: 上段=帯チップ＋判定根拠（自動=前日終値[早見表と同一のdayClose]/手動/未設定）、下段=固有材料〇×＋材料タグ選択。
 // チップタップ=手動選択（保存）・選択中の手動チップ再タップ or ↺=自動判定へ戻す（dayPriceBand=null）。固有材料〇（dayMaterial=true）のとき材料タグ一覧（_EpnChipMgr＝選択＋追加/改名/削除/ドラッグ並替）を出す。
 function _PbDayBandBar(_p) {
@@ -4719,10 +4729,12 @@ function DayView(_ref57) {
     onOpenEntryLog = _ref57.onOpenEntryLog;
   var custom = data.custom || EMPTY.custom;
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
-  // 日替わり銘柄（📅集約タブ 2026-07-22）: custom.rotatingStocksのうちマスターに実在するものだけ有効（改名はhandleRenameStockで追従・削除は実在フィルタで自然に無効化）。個別タブを作らず「📅日替わり」1タブに集約。
+  // 日替わり銘柄（📅タブ 2026-07-22→per-day 2026-07-22d）: custom.rotatingStocks＝候補プール（マスター実在のみ・日経除く）。改名はhandleRenameStockで追従・削除は実在フィルタで自然に無効化。外国市場の右に固定した1タブ。
   var rotStocks = (Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : []).filter(function(s) { return allStocks.indexOf(s) >= 0 && s !== "日経平均株価"; });
   var _uRotAdd = useState(false), rotAddOpen = _uRotAdd[0], setRotAddOpen = _uRotAdd[1];
   var _uRotVal = useState(""), rotAddVal = _uRotVal[0], setRotAddVal = _uRotVal[1];
+  var _uRotTab = useState(false), rotTabActive = _uRotTab[0], setRotTabActive = _uRotTab[1];   // 📅日替わりタブ(per-day)が選択中か。fmActiveと並列の明示フラグ 2026-07-22d
+  var _uRotView = useState(""), rotViewStock = _uRotView[0], setRotViewStock = _uRotView[1];   // タブ内で表示/記録中の候補銘柄（指定=dailyStockとは別。表示切替用）
   var _useState139 = useState(function(){
       try { var _sv=localStorage.getItem("scalping_cs_v1"); return (_sv&&allStocks.includes(_sv))?_sv:(allStocks[0]||""); } catch(e){ return allStocks[0]||""; }
     }),
@@ -4837,7 +4849,11 @@ function DayView(_ref57) {
   useEffect(function(){
     try { var _sv=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}"); localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({},_sv,{tab:tab}))); } catch(e){}
   }, [tab]);
-  var activeStock = allStocks.includes(cs) ? cs : allStocks[0] || "";
+  var _regStocks = allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; });   // 通常タブに出る固定銘柄（日経・候補プールを除く）2026-07-22d
+  var activeStock = (allStocks.includes(cs) && rotStocks.indexOf(cs) < 0) ? cs : (_regStocks[0] || allStocks[0] || "");
+  var dayStock = _dailyStockGet(data, date);   // その日の本日の取引銘柄（指定・赤マーク・合計算入）
+  var _rotView = (rotViewStock && rotStocks.indexOf(rotViewStock) >= 0) ? rotViewStock : (dayStock || rotStocks[0] || "");   // タブ内の表示銘柄（指定優先→候補先頭）
+  var dispStock = rotTabActive ? _rotView : activeStock;   // フル表示に渡す銘柄（タブ時=表示中の候補／通常時=固定銘柄）
   useEffect(function () {
     return setWeekOffset(0);
   }, [activeStock]);
@@ -5138,25 +5154,29 @@ function DayView(_ref57) {
     return _any(fm.indicators) || _any(fm.stocks);
   })();
   var hasChartData = allStocks.some(stockHasData) || hasFmData;
-  // 📅日替わりタブの中身（2026-07-22）: 日替わり銘柄のチップ列（本日データありは赤点・タップで切替＝選択はscalping_rot_cs_v1に記憶）＋「＋」でその場追加（マスター＋日替わり属性に同時登録）。選択銘柄の記録テーブル・株価帯バー・記録フォームは既存の1銘柄表示がそのまま動く。
-  var _rotOn = !fmActive && rotStocks.indexOf(activeStock) >= 0;
-  var _rotChipBar = _rotOn ? React.createElement("div", { style: { background: "#fff", border: "1px solid #E0E7FF", borderRadius: 13, padding: "8px 12px", margin: "0 0 10px", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
-    React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#4338CA", whiteSpace: "nowrap" } }, "📅 日替わり銘柄"),
+  // 「本日の取引銘柄」バー（📅日替わりタブ最上部 2026-07-22d）: 候補プール(rotStocks)を「銘柄名（件数）」で並べる。名前タップ=表示/記録の切替(setRotViewStock)。各チップの指定●=その日の本日の取引銘柄に指定(dailyStock[date]・赤マーク・合計算入)。未指定の候補の記録はデータのみ(合計除外・分析は残す)。＋でその場追加(候補プール＋マスターへ)。
+  var _rotRecCount = function(stk) { var c = data.charts[stk + "_" + date]; return (c && c.signals) ? c.signals.length : 0; };
+  var _rotPickerBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #E0E7FF", borderRadius: 13, padding: "8px 12px", margin: "0 0 10px", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+    React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#4338CA", whiteSpace: "nowrap" } }, "📅 本日の取引銘柄"),
     rotStocks.map(function(s) {
-      var on = activeStock === s;
-      return React.createElement("button", {
-        key: s,
-        onClick: function() { setCs(s); try { localStorage.setItem("scalping_rot_cs_v1", s); } catch(e) {} },
-        style: { position: "relative", padding: "5px 12px", fontSize: 12, fontWeight: 600, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap",
-          border: on ? "1.5px solid #4338CA" : "1px solid #E0DAD1",
-          background: on ? "#4338CA" : "#fff", color: on ? "#fff" : "#6B6459", minHeight: IS_TOUCH ? 36 : 28 }
-      },
-        stockHasData(s) ? React.createElement("span", { style: { position: "absolute", top: 3, left: 4, width: 6, height: 6, borderRadius: "50%", background: "#E53935", pointerEvents: "none" } }) : null,
-        s);
+      var viewing = _rotView === s;
+      var designated = dayStock === s;
+      var cnt = _rotRecCount(s);
+      return React.createElement("span", { key: s, style: { display: "inline-flex", alignItems: "center", borderRadius: 14, border: "1px solid " + (viewing ? "#4338CA" : "#E0DAD1"), background: viewing ? "#EEF2FF" : "#fff", overflow: "hidden" } },
+        React.createElement("button", {
+          onClick: function() { setRotViewStock(s); },
+          title: "表示・記録に切替",
+          style: { padding: "5px 8px 5px 10px", fontSize: 12, fontWeight: 600, border: "none", background: "transparent", color: viewing ? "#3730A3" : "#6B6459", cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 36 : 28 }
+        }, s, cnt > 0 ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（" + cnt + "）") : null),
+        React.createElement("button", {
+          onClick: function() { _dailyStockSet(save, date, designated ? "" : s); },
+          title: designated ? "本日の取引銘柄の指定を解除" : "この銘柄を本日の取引銘柄に指定（合計に算入・赤マーク）",
+          style: { padding: "5px 8px", fontSize: 11, border: "none", borderLeft: "1px solid " + (viewing ? "#C7D2FE" : "#EEE"), background: designated ? "#E53935" : "transparent", color: designated ? "#fff" : "#CBD5E1", cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
+        }, "●"));
     }),
     !rotAddOpen ? React.createElement("button", {
       onClick: function() { setRotAddOpen(true); },
-      title: "日替わり銘柄を追加（銘柄マスターにも登録されます）",
+      title: "取引銘柄を追加（候補プール＋銘柄マスターに登録されます）",
       style: { padding: "5px 12px", fontSize: 12, color: "#888", border: "1.5px dashed #ccc", borderRadius: 14, background: "#fff", cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
     }, "＋") : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
       React.createElement(FastInput, {
@@ -5178,8 +5198,7 @@ function DayView(_ref57) {
             if (rot.indexOf(nm) < 0) rot.push(nm);
             return Object.assign({}, prev, { custom: Object.assign({}, pc, { stocks: ps, rotatingStocks: rot }) });
           });
-          setCs(nm);
-          try { localStorage.setItem("scalping_rot_cs_v1", nm); } catch(e) {}
+          setRotViewStock(nm);
           setRotAddOpen(false); setRotAddVal("");
         },
         style: { padding: "5px 10px", fontSize: 11, fontWeight: 600, background: "#4338CA", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
@@ -5188,8 +5207,8 @@ function DayView(_ref57) {
         onClick: function() { setRotAddOpen(false); setRotAddVal(""); },
         style: { padding: "5px 8px", fontSize: 11, background: "#fff", color: "#888", border: "1px solid #ccc", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
       }, "✕")),
-    React.createElement("span", { style: { marginLeft: "auto", fontSize: 9, color: "#94A3B8", whiteSpace: "nowrap" } }, "日替わり指定の変更は設定「📊データ・銘柄」")
-  ) : null;
+    React.createElement("span", { style: { marginLeft: "auto", fontSize: 9, color: "#94A3B8", whiteSpace: "nowrap" } }, dayStock ? ("● " + dayStock + "＝本日の取引銘柄（合計算入）") : "●で本日の取引銘柄を指定（未指定の候補はデータのみ）")
+  );
   var RedDot = function RedDot() {
     return React.createElement("span", {
       style: {
@@ -5441,8 +5460,8 @@ function DayView(_ref57) {
     )
   ), tab === "charts" && React.createElement("div", null, React.createElement(StockTabs, {
     stocks: allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; }),
-    active: fmActive ? "" : activeStock,
-    onSelect: function(s) { setCs(s); setFmActive(false); },
+    active: (fmActive || rotTabActive) ? "" : activeStock,
+    onSelect: function(s) { setCs(s); setFmActive(false); setRotTabActive(false); },
     onReorder: function onReorder(reordered) {
       // タブに出していない銘柄（日経平均・日替わり）を末尾で保持＝並べ替えでマスターから消さない 2026-07-22
       var kept = allStocks.filter(function(s) { return reordered.indexOf(s) < 0; });
@@ -5463,17 +5482,10 @@ function DayView(_ref57) {
     onFmSelect: function() { setFmActive(true); },
     hasFmData: hasFmData,
     rotStocks: rotStocks,
-    rotActive: !fmActive && rotStocks.indexOf(activeStock) >= 0,
-    onRotSelect: function() {
-      // 直近の日替わり選択（scalping_rot_cs_v1）→本日データありの先頭→リスト先頭 の順で復帰 2026-07-22
-      var last = null;
-      try { last = localStorage.getItem("scalping_rot_cs_v1"); } catch(e) {}
-      var pick = (last && rotStocks.indexOf(last) >= 0) ? last : null;
-      if (!pick) { var wd = rotStocks.filter(stockHasData); pick = wd[0] || rotStocks[0]; }
-      if (pick) setCs(pick);
-      setFmActive(false);
-    },
-    rotHasData: rotStocks.some(stockHasData)
+    rotActive: rotTabActive,
+    rotLabel: dayStock ? ("📅 " + dayStock) : "📅 日替わり",
+    onRotSelect: function() { setRotTabActive(true); setFmActive(false); },
+    rotHasData: dayStock ? stockHasData(dayStock) : rotStocks.some(stockHasData)
   }),
   fmActive
     ? React.createElement(React.Fragment, null,
@@ -5487,11 +5499,11 @@ function DayView(_ref57) {
         })
       )
     : React.createElement(React.Fragment, null,
-  _rotChipBar,
-  React.createElement(_PbDayBandBar, { data: data, save: save, stock: activeStock, date: date }),
+  rotTabActive ? _rotPickerBar : null,
+  React.createElement(_PbDayBandBar, { data: data, save: save, stock: dispStock, date: date }),
   React.createElement(StockQuickRefTableWithChart, {
     data: data,
-    activeStock: activeStock,
+    activeStock: dispStock,
     onSelectDate: onSelectDate,
     save: save,
     highlightDate: date,
@@ -5500,7 +5512,7 @@ function DayView(_ref57) {
   }),
   React.createElement("div", null,
     React.createElement(ChartSectionDailyCandle, {
-      stock: activeStock, data: data, custom: custom, cfg: cfg, highlightDate: date
+      stock: dispStock, data: data, custom: custom, cfg: cfg, highlightDate: date
     })
   ),
   React.createElement("div", {
@@ -5511,8 +5523,8 @@ function DayView(_ref57) {
       fontWeight: 700,
       marginBottom: 12
     }
-  }, activeStock, " \u2014 ", date), React.createElement(ChartSection, {
-    stock: activeStock,
+  }, dispStock, " \u2014 ", date), React.createElement(ChartSection, {
+    stock: dispStock,
     date: date,
     data: data,
     save: save,
@@ -5526,7 +5538,7 @@ function DayView(_ref57) {
       
       if (catName && niId) {
         setJumpTarget({ catName: catName, niId: niId, ts: Date.now() });
-        setChartReturnCtx({ stock: activeStock });
+        setChartReturnCtx({ stock: dispStock });
       } else if (catName) {
         
         try {
@@ -5536,7 +5548,7 @@ function DayView(_ref57) {
       }
       _safeSetTab("news");
     }
-  })), React.createElement(_elDayStockBenchV2, { data: data, date: date, stock: activeStock }))), tab === "trades" && React.createElement("div", null,
+  })), React.createElement(_elDayStockBenchV2, { data: data, date: date, stock: dispStock }))), tab === "trades" && React.createElement("div", null,
   React.createElement(EpNaviPanel, { data: data, save: save, date: date, stocks: allStocks }),
   React.createElement("div", { style: Card },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
