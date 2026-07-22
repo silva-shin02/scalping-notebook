@@ -3574,6 +3574,10 @@ function _dailyStockSet(save, date, stock) {
     return Object.assign({}, prev, { dailyStock: m });
   });
 }
+// EPナビの日替わり列の「表示銘柄」（端末ローカル・per-date 2026-07-22g）: dailyStock（合計算入の指定）とは別で、EPナビでどの候補のEPを計算・早見するかの表示選択だけ。既定は指定銘柄。Firebase同期しない＝localStorage（ユーザー決定＝▽は表示切替のみ・指定は変えない）。
+var _EPN_ROT_LS = "scalping_epn_rot_v1";
+function _epnRotGet(date) { try { var m = JSON.parse(localStorage.getItem(_EPN_ROT_LS) || "{}"); return (date && m[date]) || ""; } catch (_e) { return ""; } }
+function _epnRotSet(date, stock) { try { var m = JSON.parse(localStorage.getItem(_EPN_ROT_LS) || "{}"); if (stock) m[date] = stock; else delete m[date]; localStorage.setItem(_EPN_ROT_LS, JSON.stringify(m)); } catch (_e) {} }
 // ===== 株価帯の推奨α（第2弾 2026-07-22f）=====
 // _pbBandPoolFor: 指定した株価帯idxと同じ帯だった全記録（銘柄横断・beforeDateより前・データ算入・v2・材料日は帯から除外）。各(stock,date)の帯は_pbDayBandOfで動的判定（手動＞前日終値）。chartsごとに(bandIdx,before)キーでメモ化。
 var _pbBandPoolCache = { charts: null, bsig: null, out: {} };
@@ -3745,6 +3749,7 @@ function _PbDayBandReco(_p) {
 function _ElDayAlphaPair(_p) {
   var data = _p.data, save = _p.save, date = _p.date, stock = _p.stock, stacked = _p.stacked;   // stacked=true＝縦積み（EPナビの狭い列用）2026-07-13
   var _m = useState(null), modal = _m[0], setModal = _m[1];   // null | "base" | "special"
+  var _ts = useState("band"), tblScope = _ts[0], setTblScope = _ts[1];   // 表を参照の母数: "band"=株価帯別（既定・この銘柄の本日の帯と同じ帯だった全記録）/"stock"=銘柄別。帯不明/材料日は銘柄別へフォールバック 2026-07-22g
   var recs = useMemo(function() {
     if (!stock) return [];
     return _elStockRecsBefore(data, stock, date);
@@ -3790,15 +3795,34 @@ function _ElDayAlphaPair(_p) {
     var _hs = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories);
     var isBase = modal === "base";
     var curEff = isBase ? (baseStored != null ? baseStored : baseReco) : (spStored != null ? spStored : spReco);
+    // 株価帯別トグル（2026-07-22g・ユーザー要望）: 既定=株価帯別＝この銘柄の本日の株価帯と同じ帯だった全記録（銘柄横断・前日まで・データ算入）。帯不明/材料日は帯プール無し→銘柄別へフォールバック。取込先は常にこの銘柄の本日採用α値。
+    var _bandInfo = _pbDayBandOf(data, stock, date);
+    var _bandIdx = (_bandInfo && !_bandInfo.material && _bandInfo.idx != null) ? _bandInfo.idx : null;
+    var _bandPool = _bandIdx != null ? _pbBandPoolFor(data, _bandIdx, date) : [];
+    var _bandOk = _bandPool.length > 0;
+    var _useBand = (tblScope === "band") && _bandOk;
+    var _pool = _useBand ? _bandPool : recs;
+    var _bandLbl = _bandIdx != null ? _pbBandLabel(_bandIdx, _bandInfo.bounds) : null;
+    var _scopeBtn = function(k, lbl, dis) {
+      var on = (k === "band") ? _useBand : !_useBand;
+      return React.createElement("button", { type: "button", disabled: dis, onClick: function() { if (!dis) setTblScope(k); },
+        style: { padding: "3px 11px", fontSize: 10.5, fontWeight: 700, borderRadius: 12, cursor: dis ? "default" : "pointer", whiteSpace: "nowrap", opacity: dis ? 0.4 : 1, minHeight: IS_TOUCH ? 28 : 22,
+          border: "1px solid " + (on ? "#0369A1" : "#E0DAD1"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#6B6459" } }, lbl);
+    };
     return React.createElement("div", { onClick: function() { setModal(null); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
       React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } },
-          React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: isBase ? "#0369A1" : "#9A3412" } }, (isBase ? "🔬 推奨基本α 詳細データ" : "🔬 推奨応用α 詳細データ") + "（" + stock + "・前日まで全期間）"),
+          React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: isBase ? "#0369A1" : "#9A3412" } }, isBase ? "🔬 推奨基本α 詳細データ" : "🔬 推奨応用α 詳細データ"),
           React.createElement("button", { type: "button", onClick: function() { setModal(null); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
+          React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#64748B", whiteSpace: "nowrap" } }, "母数:"),
+          _scopeBtn("band", "💴 株価帯別" + (_bandLbl ? "（" + _bandLbl + "）" : ""), !_bandOk),
+          _scopeBtn("stock", "🏷 銘柄別（" + stock + "）", false),
+          React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } }, _useBand ? ("同じ帯だった全銘柄・前日まで・" + _pool.length + "件") : (tblScope === "band" && !_bandOk ? "この日は株価帯が未判定/材料日のため銘柄別で表示" : (stock + "・前日まで全期間")))),
         React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "行をタップすると本日の採用" + (isBase ? "基本α" : "応用α") + "値に取り込みます"),
         isBase
-          ? _elBaseAlphaDetailV2(recs, aiOf, _hs, function(av) { _epnDayAlphaSet(save, stock, date, av); setModal(null); }, curEff)
-          : _elTotalAlphaSectionV2(recs, aiOf, _hs, function(av) { _epnDaySpecialAlphaSet(save, stock, date, av); setModal(null); }, curEff)));
+          ? _elBaseAlphaDetailV2(_pool, aiOf, _hs, function(av) { _epnDayAlphaSet(save, stock, date, av); setModal(null); }, curEff)
+          : _elTotalAlphaSectionV2(_pool, aiOf, _hs, function(av) { _epnDaySpecialAlphaSet(save, stock, date, av); setModal(null); }, curEff)));
   })() : null;
   return React.createElement("div", null,
     React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#334155", marginBottom: 3 } }, "本日の採用α値（この銘柄・前日まで基準）"),
@@ -4529,6 +4553,11 @@ function EpNaviPanel(_refEPN) {
   var epnStocks = (custom && Array.isArray(custom.epnStocks) && custom.epnStocks.length)
     ? custom.epnStocks.filter(function(s) { return _epnAllStocks.indexOf(s) >= 0; }).slice(0, _EPN_MAX_STOCKS)
     : _epnAllStocks.filter(function(s) { return s !== "古河電工"; }).slice(0, _EPN_MAX_STOCKS);
+  // 日替わり列（📅・右端 2026-07-22g・ユーザー要望）: custom.rotatingStocks＝候補プール（マスター実在のみ・日経＋固定表示銘柄は除外＝二重表示回避）。見出しの▽で1銘柄を選び右端の列に表示（表示のみ＝指定dailyStock/合計算入は変えない）。
+  var rotStocks = (Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : []).filter(function(s) { return _epnAllStocks.indexOf(s) >= 0 && s !== "日経平均株価" && epnStocks.indexOf(s) < 0; });
+  var _hasRot = rotStocks.length > 0;
+  var _dayStock = _dailyStockGet(data, date);   // その日の指定銘柄（合計算入）。▽の既定表示に使う（指定は変えない）
+  var _rotDefault = (_dayStock && rotStocks.indexOf(_dayStock) >= 0) ? _dayStock : (rotStocks[0] || "");
   var _epnStockToggle = function(st) {
     var cur = epnStocks.slice();
     var i = cur.indexOf(st);
@@ -4544,6 +4573,9 @@ function EpNaviPanel(_refEPN) {
   var _useStateEPNsp = useState(false), _useStateEPNspA = _slicedToArray(_useStateEPNsp, 2), showStockPicker = _useStateEPNspA[0], setShowStockPicker = _useStateEPNspA[1];
   var _useStateEPNso = useState(null), _useStateEPNsoA = _slicedToArray(_useStateEPNso, 2), _stkOrd = _useStateEPNsoA[0], setStkOrd = _useStateEPNsoA[1];
   var _useStateEPNtm = useState(null), _useStateEPNtmA = _slicedToArray(_useStateEPNtm, 2), tableStock = _useStateEPNtmA[0], setTableStock = _useStateEPNtmA[1];   // 「表を参照」ポップアップ対象の銘柄（null=閉）2026-07-13d
+  var _uRotSel = useState(""), rotSelRaw = _uRotSel[0], setRotSelRaw = _uRotSel[1];   // 日替わり列の表示銘柄（端末ローカル・表示のみ）2026-07-22g
+  useEffect(function() { setRotSelRaw(_epnRotGet(date)); }, [date]);   // 日付ごとにlocalStorageの表示選択を読込（未設定/失効時は下の_rotSelで指定銘柄→候補先頭にフォールバック）
+  var _rotSel = (rotSelRaw && rotStocks.indexOf(rotSelRaw) >= 0) ? rotSelRaw : _rotDefault;
   var _delTimerRef = useRef(null);
   var _stkDragRef = useRef(null), _stkMovedRef = useRef(false);
   useEffect(function() { return function() { if (_delTimerRef.current) clearTimeout(_delTimerRef.current); }; }, []);
@@ -4742,10 +4774,27 @@ function EpNaviPanel(_refEPN) {
   var _cellsForm = epnStocks.map(function(st) {
     return React.createElement(_EpnCalcForm, { key: "epnf_" + st, data: data, save: save, date: date, stock: st, dayAlpha: _epnDayAlphaGet(data, st, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, st, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing });
   });
-  var savedView = epnStocks.length
+  // 日替わり列（📅・右端 2026-07-22g）: 見出しは候補銘柄の▽（表示切替のみ・既定は指定銘柄）。選んだ銘柄で本日採用α値/早見カード/計算フォームが固定銘柄と全く同じに動く。列は固定銘柄の右端に1つ追加。
+  var _rotCards = (_hasRot && _rotSel) ? (savedByStock.map[_rotSel] || []) : [];
+  var _rotTop = _hasRot ? React.createElement("div", { key: "epncrot", style: { minWidth: 0, borderLeft: "2px solid #A5B4FC", paddingLeft: 6 } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, background: "#EEF2FF", borderRadius: 5, padding: "3px 5px", marginBottom: 5 } },
+      React.createElement("span", { title: "日替わり銘柄（その日の取引銘柄を候補から選択・表示のみ）", style: { fontSize: 12, whiteSpace: "nowrap" } }, "📅"),
+      React.createElement("select", { value: _rotSel, onChange: function(ev) { var v = ev.target.value; setRotSelRaw(v); _epnRotSet(date, v); },
+        style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#3730A3", background: "#fff", border: "1px solid #C7D2FE", borderRadius: 4, padding: "3px 4px", boxSizing: "border-box", minHeight: IS_TOUCH ? 30 : 24 } },
+        rotStocks.map(function(s) { var _c = data.charts[s + "_" + date]; var cnt = (_c && Array.isArray(_c.signals)) ? _c.signals.length : 0; return React.createElement("option", { key: s, value: s }, s + (cnt ? "（" + cnt + "）" : "")); }))),
+    _rotSel ? React.createElement(React.Fragment, null,
+      React.createElement(_ElDayAlphaPair, { key: "epndarot_" + _rotSel, data: data, save: save, date: date, stock: _rotSel, stacked: true }),
+      _rotCards.map(function(e) { return _renderCard(_rotSel, e); }),
+      _rotCards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"))
+      : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "center", padding: "6px 0" } }, "候補を選択")) : null;
+  var _rotForm = (_hasRot && _rotSel) ? React.createElement(_EpnCalcForm, { key: "epnfrot_" + _rotSel, data: data, save: save, date: date, stock: _rotSel, dayAlpha: _epnDayAlphaGet(data, _rotSel, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, _rotSel, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing }) : (_hasRot ? React.createElement("div", { key: "epnfrot_empty" }) : null);
+  var _topAll = _hasRot ? _cellsTop.concat([_rotTop]) : _cellsTop;
+  var _formAll = _hasRot ? _cellsForm.concat([_rotForm]) : _cellsForm;
+  var _colN = epnStocks.length + (_hasRot ? 1 : 0);
+  var savedView = _colN
     ? React.createElement("div", { style: { overflowX: "auto", paddingBottom: 2 } },
-        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + epnStocks.length + ", minmax(200px, 1fr))", gap: 8, alignItems: "stretch" } },
-          _cellsTop.concat(_cellsForm)))
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + _colN + ", minmax(200px, 1fr))", gap: 8, alignItems: "stretch" } },
+          _topAll.concat(_formAll)))
     : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", padding: "4px 0" } }, "「⚙表示銘柄」から銘柄を選ぶと、銘柄ごとの早見と計算フォームが並びます");
   var _stockPicker = showStockPicker ? React.createElement("div", { style: { marginBottom: 8, padding: "6px 8px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: 6 } },
     React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#64748B", marginBottom: 4 } }, "表示銘柄（最大" + _EPN_MAX_STOCKS + "・ドラッグで並び替え・タップで外す）"),

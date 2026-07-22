@@ -47,6 +47,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-22i 株価帯別をシグナル総合へ移設＋EPナビ日替わり列＋α詳細表の株価帯別トグル（sw v236→v237）
+- ユーザー要望3件（AskUserQuestion＋show_widgetモックで確定）。**A: 株価帯別分析をシグナル総合の先頭サブタブへ**（app-06）＝`_SIG_TABS`に`["band","💴 株価帯別"]`を浮き足%の左（先頭）へ追加＋`sigSub==="band"`分岐で`_bandAxisBody(_v2recsAllData,true)`（全銘柄横断＝帯共通αの検証）。**全銘柄「集計」の分析軸トグル（💰全体/💴株価帯別＝`_allAxisToggle`）は撤去**＝損益ダッシュボード専念（**銘柄別タブの株価帯別軸`_axisBtns`は存続**・detTagMode共用）。sigSub既定はuki据置（左に足すだけ）。
+- **B: EPナビ右端に日替わり列**（app-04 `EpNaviPanel`）＝`custom.rotatingStocks`（実在・日経・固定表示銘柄を除外＝二重表示回避）を候補プールに、見出しの`<select>▽`で1銘柄を選び固定3銘柄の右に1列追加（本日採用α値/早見カード/計算フォームが固定銘柄と同じに動く）。**表示のみ＝指定dailyStock/合計算入は変えない**（ユーザー確定）。既定表示＝その日の指定銘柄（`_dailyStockGet`）→無ければ候補先頭。選択は端末ローカル`localStorage scalping_epn_rot_v1`（per-date・Firebase非同期）＝**新関数`_epnRotGet`/`_epnRotSet`（app-04・_dailyStockSet直後）**。grid列数`_colN=epnStocks.length+(_hasRot?1:0)`・`_rotSel`は失効時_rotDefaultにフォールバック・列key`epncrot_/epnfrot_`は固定列と別prefix（衝突回避）・stock変化でkeyが変わり_EpnCalcFormはリマウントされてフォームstateがリセットされる。
+- **C: 「本日の採用α値」表を参照に`[💴株価帯別|🏷銘柄別]`トグル**（app-04 `_ElDayAlphaPair`・**既定=株価帯別**）＝共有部品なのでEPナビ・日別ページ(銘柄タブ)・記録帳の取引/銘柄別記録の**4箇所すべて**に反映。株価帯別＝この銘柄の本日の帯と同じ帯だった全記録（`_pbDayBandOf`→`_pbBandPoolFor`・銘柄横断・前日まで・データ算入＝`_PbDayBandReco`と同じプール）。帯不明/材料日は帯プール空→**銘柄別へ自動フォールバック**（`💴株価帯別`ボタンdisabled＋注記「株価帯が未判定/材料日のため銘柄別で表示」）。取込先(onPick)は常にこの銘柄の本日採用α値（`_epnDayAlphaSet`/`_epnDaySpecialAlphaSet`）。state`tblScope`（既定"band"）。
+- 検証: 全9ファイルV8構文OK（`new Function`）＋実マウント（別ポート3468別オリジン・空データ→合成データ）。A=EntryLogViewでシグナル総合クリック→サブタブ順`["株価帯別","浮き足%","RNまたぎ"]`・帯本体描画（「帯＝日×銘柄で判定」）・全銘柄集計に💴株価帯別トグル無し（分析軸ラベルも消滅）。B=EpNaviPanelで▽既定＝指定銘柄(安川電機)・候補2件（件数付き「安川電機（1）」）・列描画。C=_ElDayAlphaPairで表を参照→既定株価帯別で「同じ帯だった全銘柄・3件」（帯プール=銘柄横断・SUMCO/JX金属）・帯不明時は銘柄別フォールバック注記。console 0。実データ/見た目はユーザー実機。
+
 ### 2026-07-22h スルー選択で算入チェックを自動オフ（sw v235→v236）
 - ユーザー要望。記録フォームの実エントリー4択（あり/見送り/スルー/要審議・app-05:8593 onClick）で**スルー選択→「合計算入」「データ算入」を自動でOFF**（`setFIncl(false)`/`setFInclData(false)`）＝スルーは合計・分析とも常に不算入（`_elInclTotal`/`_elInclData`がpassThroughでfalse）なので見た目のチェックも外す。**スルーから他状態へ戻すときは既定へ復帰**（`else if (fThru)`＝候補なら合計OFF/データON、それ以外はON/ON）＝あり記録を誤って除外したまま保存しないため。実マウントで initial=✓✓ / スルー=外れる / あり=✓✓に復帰 を確認。⚠️検証時のstaleキャッシュ注意（app-05だけHTTPキャッシュで旧版配信＝`fetch(cache:'reload')`で全app-*.jsをprime後にreloadが確実・reference_scalping_verify参照）。
 

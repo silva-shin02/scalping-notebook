@@ -5729,7 +5729,7 @@ function EntryLogView(_ref_elv2) {
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"], ["sim", "🧮 シミュ"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
-  var _SIG_TABS = [["uki", "⚡ 浮き足%"], ["rn", "🔢 RNまたぎ"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RNまたぎ改名 2026-07-19
+  var _SIG_TABS = [["band", "💴 株価帯別"], ["uki", "⚡ 浮き足%"], ["rn", "🔢 RNまたぎ"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RNまたぎ改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22g（旧・全銘柄集計の分析軸トグルから移動）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub, right) {   // right=見出し右端の追加コントロール（詳細スコープのプルダウン等）2026-07-08e。data-elsech=カード化の区切りマーカー（_cardify 2026-07-12）
@@ -6544,7 +6544,10 @@ function EntryLogView(_ref_elv2) {
             t[1] + " (" + t[2] + ")");
         }));
     };
-    if (sigSub === "rn") {
+    if (sigSub === "band") {
+      // 株価帯別を📡シグナル総合の先頭サブタブへ移設（2026-07-22g・ユーザー要望）＝全銘柄横断で同じ帯の銘柄を混ぜて帯共通αを検証。旧・全銘柄「集計」の分析軸トグル(_bandAxisBody(_v2recsAllData,true))から移動。
+      _tabBody = _bandAxisBody(_v2recsAllData, true);
+    } else if (sigSub === "rn") {
       var _rnListRecs = _v2recsAllData.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateAsc);   // 分析（データ算入）2026-07-22f
       // RNまたぎ候補＝RNまたぎ加算×だが予定EP（水準線値＋採用α）の下2桁がバンド内の記録（＝50/00のキリ番をまたげた可能性）。
       // 母数=全記録（filtered＝スルー・要審議・合計除外も含む・_elInclTotalで絞らない）。levelPrice未入力/α未達は下2桁不明のため対象外。2026-07-19
@@ -6598,23 +6601,12 @@ function EntryLogView(_ref_elv2) {
     if (_isAllStock) {
       // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。
       // 累積損益カーブ・連勝連敗DDは4月（EMA位置ズレの参考期間）を除外＝_v2recsNonRef（期間別表の合計・平均と揃える）2026-07-18。
-      // 分析軸トグル（2026-07-22）: 💰全体（従来）／💴株価帯別（全銘柄横断＝同じ帯の銘柄を混ぜて分析＝帯共通αの検証）。stateは銘柄側と同じdetTagMode（"band"以外は全体扱い）。
-      var _allAxisToggle = React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
-        React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "分析軸:"),
-        [["sig", "💰 全体"], ["band", "💴 株価帯別"]].map(function(kv) {
-          var on = (kv[0] === "band") ? (detTagMode === "band") : (detTagMode !== "band");
-          return React.createElement("button", { key: kv[0], onClick: function() { setDetTagMode(kv[0]); setExpKey(null); },
-            style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } }, kv[1]);
-        }),
-        detTagMode === "band" ? React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "株価帯別＝全銘柄横断・同じ帯の銘柄を混ぜて分析（帯は日×銘柄で判定）") : null);
-      if (detTagMode === "band") {
-        _tabBody = React.createElement(React.Fragment, null, _allAxisToggle, _bandAxisBody(_v2recsAllData, true));
-      } else {
+      // 株価帯別は📡シグナル総合タブへ移設（2026-07-22g・ユーザー要望）＝全銘柄「集計」は損益ダッシュボードに専念。旧・分析軸トグル（💰全体／💴株価帯別）は撤去（銘柄別タブの株価帯別軸は存続）。
       // ②データのみ除外（本日の取引銘柄システム 2026-07-22e）: 全銘柄側（全体タブ）の合計消費側だけ候補・未指定(データのみ)を外す。分析母数(v2recs/_v2recsAll)・銘柄別タブは据置。
       var _v2recsAmt = v2recs.filter(function(r) { return !_isDataOnly(data, r); });
       var _sumMonthRecs2 = _sumMonthRecs.filter(function(r) { return !_isDataOnly(data, r); });
       var _v2recsNonRef = _v2recsAmt.filter(function(r) { return !_elIsEmaRefPeriod((r.date || "").slice(0, 7), "month"); });
-      _tabBody = React.createElement(React.Fragment, null, _allAxisToggle, _cardify([
+      _tabBody = _cardify([
         _sumMonthNav,
         _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
@@ -6626,8 +6618,7 @@ function EntryLogView(_ref_elv2) {
         _v2recsNonRef.length >= 2 ? [
           _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・合計行と同一基準（4月＝EMA位置ズレの参考期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNonRef, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
         _v2recsNonRef.length >= 2 ? [
-          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・4月＝参考期間は除外）"), _elStreakDDSectionV2(_v2recsNonRef, _ai)] : null]));
-      }
+          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・4月＝参考期間は除外）"), _elStreakDDSectionV2(_v2recsNonRef, _ai)] : null]);
     } else {
       // 銘柄別の集計＝選択中シグナルの総合パネル（旧🎯シグナル別タブを昇格・上のシグナル軸で切替）。母数は選択中シグナル×サブタブ（前足浮き/その他）の固定母数（_selSigRecsScoped）。推奨基本α/追加αカードだけはシグナル全体（_selSigRecs）で算出＝サブタブ間で一貫。2026-07-01→前足浮き対応 2026-07-02
       // 分析軸トグル（2026-07-07）: 🎯シグナル別（従来）／🏷詳細タグ別（銘柄内・全シグナル横断で選んだ詳細タグの記録を _groupPanel で分析）。詳細タグが1件も無い銘柄ではトグル非表示＝従来どおり。
