@@ -3489,28 +3489,43 @@ function _pbBandLabel(idx, bounds) {
   if (idx === bounds.length) return (bounds[bounds.length - 1] + 1) + "〜";
   return (bounds[idx - 1] + 1) + "〜" + bounds[idx];
 }
-// 日足CSVの終値ルックアップ。モジュールキャッシュ＝3秒以内の連続参照はlocalStorage/JSON.parse/CSVパースを踏まない（記録帳の一括帯グルーピング対策）。CSV再取込(uploadedAt変化)で自動無効化。
-var _pbCsvCache = {};
-function _pbBarsOf(code) {
-  if (!code) return null;
-  var m = _pbCsvCache[code], now = Date.now();
-  if (m && (now - m.checkTs) < 3000) return m.dates.length ? m : null;
-  var cached = _dcCacheLoad(code);
-  var upAt = (cached && cached.uploadedAt) || 0;
-  if (m && m.upAt === upAt) { m.checkTs = now; return m.dates.length ? m : null; }
-  var bars = (cached && cached.csv) ? _parseDailyCsv(cached.csv) : [];
-  m = { checkTs: now, upAt: upAt, dates: bars.map(function(b) { return b.date; }), closes: bars.map(function(b) { return b.close; }) };
-  _pbCsvCache[code] = m;
-  return m.dates.length ? m : null;
-}
-function _pbPrevClose(custom, stock, date) {
+// 前日終値ルックアップ（2026-07-22b修正）: 早見表(StockQuickRefTable)と同一源＝charts[銘柄_日付].dayClose（CAツールの当日1分足終値・開くたび自動取得）。
+// 旧実装は日足CSV(sn_dc_csv_v1_*)を別途読んでいたため早見表と食い違った（stale/別フィード＝JX金属で4,653を誤表示）。dayCloseを読めば定義上一致し銘柄別に正しい・移行不要・早見表が新鮮化されれば即追従。
+function _pbPrevClose(data, stock, date) {
   if (!stock || !date) return null;
-  var info = _caGetStockInfo(stock, custom);
-  var m = _pbBarsOf((info && info.code) ? info.code : "");
-  if (!m) return null;
-  var lo = 0, hi = m.dates.length - 1, ans = -1;
-  while (lo <= hi) { var mid = (lo + hi) >> 1; if (m.dates[mid] < date) { ans = mid; lo = mid + 1; } else { hi = mid - 1; } }
-  return ans >= 0 ? m.closes[ans] : null;
+  var charts = (data && data.charts) || {};
+  var pre = stock + "_", best = null;
+  Object.keys(charts).forEach(function(k) {
+    if (k.indexOf(pre) !== 0) return;
+    var dt = k.slice(pre.length);
+    if (dt >= date) return;
+    var c = charts[k];
+    var v = (c && typeof c.dayClose === "number" && !isNaN(c.dayClose)) ? c.dayClose : null;
+    if (v == null) return;
+    if (best === null || dt > best.dt) best = { dt: dt, val: v };
+  });
+  return best ? Math.round(best.val) : null;   // 早見表の地合い列と同じくMath.round
+}
+// 固有材料タグ改名（2026-07-22b）: custom.materialTags の改名＋charts[*].dayMaterialTags の旧名も追従（重複排除・既存名への統合可）。固有材料は名前ベース保存なので改名はこのcascadeで整合を保つ（削除は候補からのみ＝過去の選択は残す＝signalTagsと同方針）。
+function _matRenameData(prev, oldNm, newNm) {
+  oldNm = String(oldNm == null ? "" : oldNm).trim();
+  newNm = String(newNm == null ? "" : newNm).trim();
+  if (!oldNm || !newNm || oldNm === newNm) return prev;
+  var pc = prev.custom || {};
+  var cur = Array.isArray(pc.materialTags) ? pc.materialTags.slice() : [];
+  var oi = cur.indexOf(oldNm);
+  // マスターに旧名がある時だけ配列を更新。孤児（記録だけに残った旧名＝マスター削除済みだが過去日に選択が残存）は下のchartsカスケードで改名/統合する（_elSignalRenameDataと同型＝カスケードは無条件）。oi<0で早期returnすると孤児チップの✎改名が無反応になる。
+  if (oi >= 0) { if (cur.indexOf(newNm) >= 0) cur.splice(oi, 1); else cur[oi] = newNm; }
+  var charts = prev.charts || {}, nch = null;
+  Object.keys(charts).forEach(function(k) {
+    var c = charts[k];
+    if (!c || !Array.isArray(c.dayMaterialTags) || c.dayMaterialTags.indexOf(oldNm) < 0) return;
+    var nt = [];
+    c.dayMaterialTags.forEach(function(x) { var y = (x === oldNm) ? newNm : x; if (nt.indexOf(y) < 0) nt.push(y); });
+    if (!nch) nch = Object.assign({}, charts);
+    nch[k] = Object.assign({}, c, { dayMaterialTags: nt });
+  });
+  return Object.assign({}, prev, { custom: Object.assign({}, pc, { materialTags: cur }), charts: nch || charts });
 }
 // 日×銘柄の帯解決（単一源）。返り値 {idx, src:"manual"|"auto"|null, prevClose, material, bounds}。idx=null＝帯不明。手動値は境界縮小後も範囲内へ丸める。
 function _pbDayBandOf(data, stock, date) {
@@ -3518,12 +3533,13 @@ function _pbDayBandOf(data, stock, date) {
   var bounds = _pbBoundsOf(custom);
   var c = ((data && data.charts) || {})[stock + "_" + date] || {};
   var material = !!c.dayMaterial;
+  var materialTags = Array.isArray(c.dayMaterialTags) ? c.dayMaterialTags : [];
   var mv = c.dayPriceBand;
   var manual = (mv != null && mv !== "" && !isNaN(Number(mv))) ? Math.max(0, Math.min(bounds.length, Math.round(Number(mv)))) : null;
-  if (manual != null) return { idx: manual, src: "manual", prevClose: null, material: material, bounds: bounds };
-  var pc = _pbPrevClose(custom, stock, date);
-  if (pc != null) return { idx: _pbBandIdx(pc, bounds), src: "auto", prevClose: pc, material: material, bounds: bounds };
-  return { idx: null, src: null, prevClose: null, material: material, bounds: bounds };
+  if (manual != null) return { idx: manual, src: "manual", prevClose: null, material: material, materialTags: materialTags, bounds: bounds };
+  var pc = _pbPrevClose(data, stock, date);
+  if (pc != null) return { idx: _pbBandIdx(pc, bounds), src: "auto", prevClose: pc, material: material, materialTags: materialTags, bounds: bounds };
+  return { idx: null, src: null, prevClose: null, material: material, materialTags: materialTags, bounds: bounds };
 }
 function _pbDayBandSet(save, stock, date, idx) {
   save(function(prev) {
@@ -3541,8 +3557,8 @@ function _pbDayMaterialSet(save, stock, date, on) {
     return Object.assign({}, prev, { charts: charts });
   });
 }
-// 「本日の株価帯」バー（DayView銘柄タブ直下 2026-07-22・A1案）: 帯チップ＋判定根拠（自動=前日終値/手動/未設定）＋⚡材料ありトグル。
-// チップタップ=手動選択（保存）・選択中の手動チップ再タップ or ↺=自動判定へ戻す（dayPriceBand=null）。
+// 「本日の株価帯」バー（DayView銘柄タブ直下 2026-07-22・A1案・2026-07-22b縦2段化）: 上段=帯チップ＋判定根拠（自動=前日終値[早見表と同一のdayClose]/手動/未設定）、下段=固有材料〇×＋材料タグ選択。
+// チップタップ=手動選択（保存）・選択中の手動チップ再タップ or ↺=自動判定へ戻す（dayPriceBand=null）。固有材料〇（dayMaterial=true）のとき材料タグ一覧（_EpnChipMgr＝選択＋追加/改名/削除/ドラッグ並替）を出す。
 function _PbDayBandBar(_p) {
   var data = _p.data, save = _p.save, stock = _p.stock, date = _p.date;
   if (!stock || !date) return null;
@@ -3551,36 +3567,68 @@ function _PbDayBandBar(_p) {
   var chips = [];
   for (var i = 0; i <= bounds.length; i++) chips.push(i);
   var srcNote = info.src === "auto" ? ("自動: 前日終値 " + Number(info.prevClose).toLocaleString() + "円")
-    : info.src === "manual" ? "手動選択" : "未設定（日足データなし・タップで選択）";
-  return React.createElement("div", { style: { background: "#fff", border: "1px solid #ECE7DE", borderRadius: 13, padding: "8px 12px", margin: "10px 0", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
-    React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1", whiteSpace: "nowrap" } }, "💴 本日の株価帯"),
-    chips.map(function(bi) {
-      var on = info.idx === bi;
-      var manual = on && info.src === "manual";
-      return React.createElement("button", {
-        key: bi,
-        onClick: function() { if (manual) { _pbDayBandSet(save, stock, date, null); } else { _pbDayBandSet(save, stock, date, bi); } },
-        title: manual ? "再タップで自動判定（前日終値）に戻す" : "タップで手動選択（この日のこの銘柄に保存）",
-        style: { padding: "4px 11px", fontSize: 11, fontWeight: 700, borderRadius: 13, cursor: "pointer", whiteSpace: "nowrap",
-          border: "1px solid " + (on ? "#0369A1" : "#E0DAD1"),
-          background: on ? (manual ? "#0369A1" : "#E0F2FE") : "#fff",
-          color: on ? (manual ? "#fff" : "#0369A1") : "#6B6459", minHeight: IS_TOUCH ? 34 : 26 }
-      }, _pbBandLabel(bi, bounds));
-    }),
-    info.src === "manual" ? React.createElement("button", {
-      onClick: function() { _pbDayBandSet(save, stock, date, null); },
-      title: "手動選択を解除して自動判定（前日終値）に戻す",
-      style: { padding: "4px 9px", fontSize: 11, fontWeight: 700, borderRadius: 13, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid #BAE6FD", background: "#F0F9FF", color: "#0369A1", minHeight: IS_TOUCH ? 34 : 26 }
-    }, "↺ 自動") : null,
-    React.createElement("span", { style: { fontSize: 9.5, color: "#94A3B8", whiteSpace: "nowrap" } }, srcNote),
-    React.createElement("button", {
-      onClick: function() { _pbDayMaterialSet(save, stock, date, !info.material); },
-      title: "前日大引け後に材料があった日のマーク。株価帯別分析では帯から外して「⚡材料あり」独立グループとして分析（前日終値ベースの帯が材料ギャップでずれる日を分離）",
-      style: { marginLeft: "auto", padding: "4px 11px", fontSize: 11, fontWeight: 700, borderRadius: 13, cursor: "pointer", whiteSpace: "nowrap",
-        border: "1px solid " + (info.material ? "#F59E0B" : "#E0DAD1"),
-        background: info.material ? "#FEF3C7" : "#fff",
-        color: info.material ? "#B45309" : "#9CA3AF", minHeight: IS_TOUCH ? 34 : 26 }
-    }, info.material ? "⚡ 材料あり ✓" : "⚡ 材料あり")
+    : info.src === "manual" ? "手動選択" : "未設定（前日終値なし・タップで選択）";
+  var _rowSty = { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" };
+  // 固有材料タグのマスター（custom.materialTags）＆選択（charts[ck].dayMaterialTags）ハンドラ
+  var matMaster = (data.custom && Array.isArray(data.custom.materialTags)) ? data.custom.materialTags : [];
+  var _matAdd = function(nm) { save(function(prev) { var pc = prev.custom || {}; var cur = Array.isArray(pc.materialTags) ? pc.materialTags : []; if (cur.indexOf(nm) >= 0) return prev; return Object.assign({}, prev, { custom: Object.assign({}, pc, { materialTags: cur.concat([nm]) }) }); }); };
+  var _matDelete = function(nm) { save(function(prev) { var pc = prev.custom || {}; var cur = Array.isArray(pc.materialTags) ? pc.materialTags : []; return Object.assign({}, prev, { custom: Object.assign({}, pc, { materialTags: cur.filter(function(x) { return x !== nm; }) }) }); }); };
+  var _matReorder = function(list) { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { materialTags: list.slice() }) }); }); };
+  var _matRename = function(o, n) { save(function(prev) { return _matRenameData(prev, o, n); }); };
+  var _matToggle = function(nm) { save(function(prev) { var charts = Object.assign({}, prev.charts || {}); var ck = stock + "_" + date; var c = charts[ck] || {}; var cur = Array.isArray(c.dayMaterialTags) ? c.dayMaterialTags : []; var nt = cur.indexOf(nm) >= 0 ? cur.filter(function(x) { return x !== nm; }) : cur.concat([nm]); charts[ck] = Object.assign({}, c, { dayMaterialTags: nt }); return Object.assign({}, prev, { charts: charts }); }); };
+  return React.createElement("div", { style: { background: "#fff", border: "1px solid #ECE7DE", borderRadius: 13, padding: "8px 12px", margin: "10px 0", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", flexDirection: "column", gap: 8 } },
+    // 上段: 本日の株価帯
+    React.createElement("div", { style: _rowSty },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1", whiteSpace: "nowrap" } }, "💴 本日の株価帯"),
+      chips.map(function(bi) {
+        var on = info.idx === bi;
+        var manual = on && info.src === "manual";
+        return React.createElement("button", {
+          key: bi,
+          onClick: function() { if (manual) { _pbDayBandSet(save, stock, date, null); } else { _pbDayBandSet(save, stock, date, bi); } },
+          title: manual ? "再タップで自動判定（前日終値）に戻す" : "タップで手動選択（この日のこの銘柄に保存）",
+          style: { padding: "4px 11px", fontSize: 11, fontWeight: 700, borderRadius: 13, cursor: "pointer", whiteSpace: "nowrap",
+            border: "1px solid " + (on ? "#0369A1" : "#E0DAD1"),
+            background: on ? (manual ? "#0369A1" : "#E0F2FE") : "#fff",
+            color: on ? (manual ? "#fff" : "#0369A1") : "#6B6459", minHeight: IS_TOUCH ? 34 : 26 }
+        }, _pbBandLabel(bi, bounds));
+      }),
+      info.src === "manual" ? React.createElement("button", {
+        onClick: function() { _pbDayBandSet(save, stock, date, null); },
+        title: "手動選択を解除して自動判定（前日終値）に戻す",
+        style: { padding: "4px 9px", fontSize: 11, fontWeight: 700, borderRadius: 13, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid #BAE6FD", background: "#F0F9FF", color: "#0369A1", minHeight: IS_TOUCH ? 34 : 26 }
+      }, "↺ 自動") : null,
+      React.createElement("span", { style: { fontSize: 9.5, color: "#94A3B8", whiteSpace: "nowrap" } }, srcNote)
+    ),
+    // 下段: 固有材料〇×
+    React.createElement("div", { style: { borderTop: "1px dashed #EFE9DF", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 } },
+      React.createElement("div", { style: _rowSty },
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#B45309", whiteSpace: "nowrap" } }, "⚡ 固有材料"),
+        React.createElement("div", { style: { display: "flex", gap: 4 } },
+          [["yes", "〇", true], ["no", "×", false]].map(function(kv) {
+            var on = info.material === kv[2];
+            return React.createElement("button", {
+              key: kv[0],
+              onClick: function() { _pbDayMaterialSet(save, stock, date, kv[2]); },
+              title: kv[2] ? "前日大引け後に固有の材料が出た日（〇）" : "固有材料なし（×・既定）",
+              style: { padding: "4px 15px", fontSize: 12, fontWeight: 700, borderRadius: 13, cursor: "pointer", whiteSpace: "nowrap",
+                border: "1px solid " + (on ? (kv[2] ? "#F59E0B" : "#94A3B8") : "#E0DAD1"),
+                background: on ? (kv[2] ? "#FEF3C7" : "#F1F5F9") : "#fff",
+                color: on ? (kv[2] ? "#B45309" : "#475569") : "#C4BDB2", minHeight: IS_TOUCH ? 34 : 26 }
+            }, kv[1]);
+          })),
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", whiteSpace: "nowrap" } }, "前日大引け後に固有の材料が出た日")
+      ),
+      info.material ? React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginBottom: 4 } }, "材料タグ（タップで選択・「✎編集」で改名/削除・ドラッグで並替。「＋追加」で新規）"),
+        React.createElement(_EpnChipMgr, {
+          items: matMaster,
+          selected: info.materialTags,
+          accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#B45309" },
+          addPh: "材料タグ名",
+          onToggle: _matToggle, onAdd: _matAdd, onRename: _matRename, onDelete: _matDelete, onReorder: _matReorder
+        })) : null
+    )
   );
 }
 // 「本日の採用α値」欄（基本α＋応用α・案B横並び2カラム 2026-07-13 task3）: 銘柄別記録テーブル/取引テーブルの推奨α欄に置く。母数＝この銘柄の「開いている日付の前日まで全期間」（詳細データ表・EPナビ・記録フォームと同じ）。

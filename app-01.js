@@ -1449,7 +1449,7 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
   var _LOCAL_WINS_KEYS = { cats: 1, tags: 1, marketTags: 1, stockTags: 1,
     signalTags: 1, signalDefs: 1, flowOpenTags: 1, flowMoveTags: 1,
     newsCategories: 1, newsSubCats: 1, newsCatDefaults: 1, newsSubCatDefaults: 1, stocks: 1,
-    eventCategories: 1 };
+    eventCategories: 1, materialTags: 1 };
   
   var _ALWAYS_LOCAL_WINS_KEYS = { cats: 1, tags: 1 };
   var _remoteIsNewer = false;

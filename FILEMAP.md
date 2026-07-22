@@ -47,6 +47,13 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-22c 株価帯バーの前日終値を早見表と一致（バグ修正）＋材料あり→固有材料〇×＋材料タグ管理（sw v229→v230）
+- **前日終値バグ修正（app-04 `_pbPrevClose`）**: 旧実装は日足CSV（sn_dc_csv_v1_*）を独立に読み、早見表(StockQuickRefTable)と食い違った（JX金属で前日終値4,653と誤表示・正は早見表7/21終値3,665）。真因＝早見表は `charts[銘柄_日付].dayClose`（CAツールの当日1分足終値・開くたび自動取得）を読むのに株価帯バーだけ別フィードのCSVを読んでいた。→ `_pbPrevClose(data,stock,date)` を **dayClose走査**（date未満の最大日付のdayClose・`Math.round`＝早見表と同一源同一丸め）に置換。`_pbBarsOf`/`_pbCsvCache` 削除。`_pbDayBandOf` は `_pbPrevClose(data,...)` を呼ぶよう変更。移行不要・早見表が新鮮化されれば即追従。CAツール未取得日は前日終値null＝「未設定」（早見表が「—」の日と整合）。
+- **固有材料UI（app-04 `_PbDayBandBar` 縦2段化）**: 「⚡材料あり」トグルを廃し、バーを上段（本日の株価帯）＋下段（固有材料）に分離。下段＝「⚡固有材料」ラベル＋〇×セグメント（既定×＝`dayMaterial` false）。〇のとき材料タグ選択UI（`_EpnChipMgr` 流用＝タップで選択・✎編集で改名/削除・ドラッグ並替・＋追加）。マスター＝`custom.materialTags`、選択＝`charts[ck].dayMaterialTags`（名前ベース）。ハンドラは `_PbDayBandBar` 内インライン（`_matAdd`/`_matDelete`/`_matReorder`/`_matToggle`）＋改名cascade `_matRenameData`（トップレベル）。
+- **改名cascade `_matRenameData`（app-04）**: `custom.materialTags` の改名＋`charts[*].dayMaterialTags` の旧名も追従（重複排除・既存名への統合可）。**孤児（マスター削除済みだが過去日に選択残存）の改名も効くよう、chartsカスケードは無条件・マスター更新は `oi>=0` 時のみ**（`_elSignalRenameData` と同型・敵対レビュー指摘の修正）。削除は候補からのみ（過去の選択は残す＝signalTags同方針）。
+- **同期（app-01 `_LOCAL_WINS_KEYS`）**: `materialTags` を追加（マスター配列の端末間LWWマージ保護＝signalTags等と同列）。`charts[ck].dayMaterialTags` はcharts差分同期に乗るため追加不要。
+- 保存する新データ: `charts[ck].dayMaterialTags`（選択タグ名配列）／`custom.materialTags`（材料タグマスター）。`dayMaterial`(bool)は〇×として流用（株価帯別分析の「⚡材料あり」グループは従来どおり `dayMaterial` bool でグループ化）。
+
 ### 2026-07-22b 「本日の株価帯」＋記録帳「株価帯別」分析軸＋📅日替わり集約タブを新設（sw v228→v229）
 - **株価帯エンジン（app-04・_epnDaySpecialAlphaSet直後）**: `_PB_DEF_BOUNDS`[4000,5000]／`_pbBoundsOf(custom)`＝custom.priceBandBounds正規化（昇順・重複除去・空なら既定）／`_pbBandIdx(price,bounds)`／`_pbBandLabel(idx,bounds)`（〜4000/4001〜5000/5001〜）／`_pbBarsOf(code)`＝sn_dc_csv_v1_*を_parseDailyCsvしdates/closes化（3秒メモリキャッシュ＋uploadedAt変化で無効化）／`_pbPrevClose(custom,stock,date)`＝対象日より前の直近close（二分探索・証券コードは_caGetStockInfo）／`_pbDayBandOf(data,stock,date)`＝**日×銘柄の帯解決の単一源**（手動charts[ck].dayPriceBand＞前日終値自動＞null。{idx,src,prevClose,material,bounds}を返す）／`_pbDayBandSet`／`_pbDayMaterialSet`（_epnDayAlphaSetと同じsaveパターン）。
 - **DayView（app-04）**: `_PbDayBandBar`＝銘柄タブ直下の常時バー（帯チップ＝タップで手動保存・手動中の同帯再タップ/↺で自動へ・自動時は「前日終値N円」注記・⚡材料ありトグル＝charts[ck].dayMaterial）。chartsタブの銘柄コンテンツFragment先頭にマウント。
