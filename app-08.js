@@ -1012,7 +1012,7 @@ function App() {
       if (!c || !Array.isArray(c.signals)) return;
       c.signals.forEach(function(sig) {
         var s = _compatSignal(sig);
-        if (!_elInclTotal(s)) return;
+        if (!_elInclTotalAmt(data, { stock: ck.slice(0, ck.lastIndexOf("_")), date: dt, signal: s })) return;   // ホーム月次損益は全銘柄横断のグランド＝②データのみも除外 2026-07-22e
         if (_elCollExcludedSig(data, ck.slice(0, ck.lastIndexOf("_")), dt, s)) return;  // 時間かぶり除外（良い方）2026-07-07
         if (!_elIsEntered(s, null)) return;
         var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);

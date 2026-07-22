@@ -108,7 +108,7 @@ function Calendar(_ref60) {
       if (!c || !Array.isArray(c.signals)) return;
       c.signals.forEach(function(sig) {
         var s = _compatSignal(sig);
-        if (!_elInclTotal(s)) return;
+        if (!_elInclTotalAmt(data, { stock: ck.slice(0, ck.lastIndexOf("_")), date: dt, signal: s })) return;   // カレンダー日次損益は全銘柄横断のグランド＝②データのみも除外 2026-07-22e
         if (_elCollExcludedSig(data, ck.slice(0, ck.lastIndexOf("_")), dt, s)) return;
         if (!_elIsEntered(s, null)) return;
         if (!m[dt]) m[dt] = { sum: 0, count: 0 };
@@ -3121,6 +3121,25 @@ function _elIsEntered(s, item) {
 function _elInclTotal(s) { return !s || (s.includeInTotal !== false && s.passThrough !== true); }   // スルー(passThrough=true)は算入チェックに関わらず常に不算入 2026-07-06
 // recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
+// ===== ②データのみ除外（本日の取引銘柄システム 2026-07-22e）=====
+// 候補プール(custom.rotatingStocks)の銘柄で、その日の「本日の取引銘柄」(data.dailyStock[date])に指定されていない記録は「データのみ」＝グランド/銘柄横断の合計から除外する（分析母数_elInclTotalには残す＝α値等の分析にはそのまま使う）。
+// 自動判定は「その日に取引銘柄を指定した日だけ」発動＝dailyStock未指定日は候補銘柄も従来通り算入（不変条件『候補プール空 or dailyStock未指定なら現行と一致』を満たす。2026-07-22e ユーザー確定）。
+// 手動オーバーライド signal.totalOverride: "in"=常に算入 / "out"=常に除外 / "auto"(既定・null/undefined含む)=上の自動判定。手動はレコード別に自動を上書きする。
+function _isDataOnly(data, r) {
+  if (!r || !r.signal) return false;
+  var ov = r.signal.totalOverride;
+  if (ov === "in") return false;   // 手動「入れる」＝データのみ扱いにしない（スルー/計算・データ算入オフは_elInclTotalAmtのAND側で別途除外＝この設定はデータのみ層だけを上書き）
+  if (ov === "out") return true;   // 手動「外す」＝常にデータのみ（合計から除外）
+  var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
+  if (!r.stock || pool.indexOf(r.stock) < 0) return false;   // 候補プール外（固定銘柄）＝従来通り
+  var _dsMap = (data && data.dailyStock) || {};
+  var _ds = (r.date && _dsMap[r.date]) || "";
+  if (!_ds) return false;   // その日に取引銘柄が未指定＝発動しない（未指定日は算入）
+  return r.stock !== _ds;   // 指定銘柄と違う候補＝データのみ
+}
+// 合計額算入（金額版）: 従来の_elInclTotal（スルー/手動不算入）に加え、②データのみ（候補で未指定）も合計から外す。
+// グランド/銘柄横断の合計を出す消費側だけで使う（銘柄別の自タブ・分析母数は_elInclTotalのまま）。dataとr（.stock/.date/.signalを持つ記録）を渡す。
+function _elInclTotalAmt(data, r) { return _elInclTotal(r && r.signal) && !_isDataOnly(data, r); }
 // 応用α（旧・追加α〇×未選択の3状態は廃止 2026-07-13）: 記録は「応用あり(specialUsed===true)」か「通常(それ以外＝旧×+未選択を統合)」の2状態。判定は _elSpecialUsed(上部)。
 // ===== 浮き足加算α値（第3のα要素 2026-07-03。対象シグナル＝既定で底抜け水準線OS／底抜けラインOS・_elUkiSignalNames 2026-07-07）=====
 // signal.ukiUsed(true=〇/false=×/null・undefined=対象外)・signal.ukiVal(前足浮き値の生値・円)。実効加算＝floor(ukiVal×ukiPct/100)・小数切捨て（ukiPct=採用加算率%・既定50＝旧半額 2026-07-12d）。
@@ -4198,9 +4217,12 @@ var _elCollMemo = {};
 function _elCollKey(stock, date, s) { return stock + "|" + date + "|" + ((s && s.id != null && s.id !== "") ? String(s.id) : (((s && s.time) || "") + "|" + ((s && (s.tag || "")) || ""))); }
 function _elCollisionExcludedSet(data, scopeStock) {
   var charts = (data && data.charts) || {};
+  // ②データのみ除外（2026-07-22e）: 全銘柄横断(scope=null)の被り母数は_elInclTotalAmtで絞る＝データのみ（候補で未指定の参考トレード）は実トレード枠を占有しない→指定/固定銘柄の記録を被りで落とさない。銘柄別scopeは_elInclTotalのまま（自タブは自記録で被り判定）。dailyStock/候補プール変更でmemo無効化。
+  var _dsRef = (data && data.dailyStock) || null;
+  var _poolRef = (data && data.custom && data.custom.rotatingStocks) || null;
   var _mk = scopeStock || "";
   var _m = _elCollMemo[_mk];
-  if (_m && _m.charts === charts) return _m.set;
+  if (_m && _m.charts === charts && _m.ds === _dsRef && _m.pool === _poolRef) return _m.set;
   var _toMin = function(t) { if (!t) return null; var m = String(t).match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; };
   var byDay = {};
   Object.keys(charts).forEach(function(ck) {
@@ -4213,7 +4235,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
     var cut = (c.cutLine != null) ? Number(c.cutLine) : 15;
     c.signals.forEach(function(sig) {
       var s = _compatSignal(sig);
-      if (!_epIsV2(s) || !_elInclTotal(s)) return;
+      if (!_epIsV2(s) || !(scopeStock ? _elInclTotal(s) : _elInclTotalAmt(data, { stock: stock, date: date, signal: s }))) return;   // ②データのみ除外: 横断scopeはデータのみを被り母数から外す 2026-07-22e
       var mn = _toMin(s.time);
       if (mn == null) return;
       var _own = _epOwnAlpha(s);
@@ -4247,7 +4269,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
     }
   });
   var _set = { excluded: excluded, marked: marked, info: info };
-  _elCollMemo[_mk] = { charts: charts, set: _set };
+  _elCollMemo[_mk] = { charts: charts, ds: _dsRef, pool: _poolRef, set: _set };
   return _set;
 }
 // r={stock,date,signal} が除外対象（遅い方／同時刻なら損益が大きい方＝合計額に入れない）か／残した側（早い方・※被り有マーク）か。
@@ -6478,6 +6500,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateINC = useState(initSig.includeInTotal !== false),
     _useStateINCA = _slicedToArray(_useStateINC, 2),
     fIncl = _useStateINCA[0], setFIncl = _useStateINCA[1];
+  // 合計算入オーバーライド（②データのみ除外 2026-07-22e）: "auto"=自動判定（候補銘柄で本日の取引銘柄でない日はグランド合計から除外）/"in"=常に算入/"out"=常に除外。既定auto。分析母数は_elInclTotalなので不変（この設定はグランド合計だけに効く）。
+  var _useStateTOV = useState(initSig.totalOverride === "in" || initSig.totalOverride === "out" ? initSig.totalOverride : "auto"),
+    _useStateTOVA = _slicedToArray(_useStateTOV, 2),
+    fTotOv = _useStateTOVA[0], setFTotOv = _useStateTOVA[1];
 
   var _useStateEONO = useState(initSig.entryOsNo != null ? Number(initSig.entryOsNo) : null),
     _useStateEONOA = _slicedToArray(_useStateEONO, 2),
@@ -7164,6 +7190,7 @@ function EntryRecordForm(_ref_erf) {
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
       includeInTotal: fIncl,
+      totalOverride: (fTotOv === "in" || fTotOv === "out") ? fTotOv : null,   // ②データのみ除外の手動オーバーライド（auto=null＝自動判定）2026-07-22e
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
       maxPnl: fMax !== "" ? Number(fMax) : null,
@@ -8783,6 +8810,22 @@ function EntryRecordForm(_ref_erf) {
             fIncl ? "この記録を計算・データに算入します" : "この記録は計算・データから除外されます")
         )
       ),
+
+      // 合計算入オーバーライド（②データのみ除外 2026-07-22e）: 候補銘柄（日替わり）のグランド合計への算入を記録別に上書き。分析母数は不変。
+      React.createElement("div", { style: { marginTop: 10, padding: "10px 13px", borderRadius: 8, border: "1px solid #e0e0e0", background: "#fafafa" } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" } },
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1a1a1a" } }, "合計算入（本日の取引銘柄）"),
+          React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "候補銘柄のグランド合計への算入を上書き")),
+        React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
+          [["auto", "自動"], ["in", "入れる"], ["out", "外す"]].map(function(_tov) {
+            var _on = fTotOv === _tov[0];
+            return React.createElement("button", { key: _tov[0], type: "button", onClick: function() { setFTotOv(_tov[0]); },
+              style: { padding: "5px 16px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: _on ? "#fff" : "transparent", color: _on ? "#9A3412" : "#6B6459", boxShadow: _on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, _tov[1]);
+          })),
+        React.createElement("div", { style: { fontSize: 10.5, color: "#999", fontWeight: 600, marginTop: 6, lineHeight: 1.4 } },
+          fTotOv === "in" ? "この記録を必ずグランド合計（本日/今週/カレンダー/ホーム/全体）に算入します。"
+            : fTotOv === "out" ? "この記録をグランド合計から必ず外します（データのみ＝分析には残ります）。"
+            : "自動: 候補銘柄（日替わり）で、その日「本日の取引銘柄」に指定されていない記録はグランド合計から自動で外れます（分析には残る）。固定銘柄・指定銘柄・未指定日は従来通り算入。")),
 
       React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 16 } },
         React.createElement("button", {

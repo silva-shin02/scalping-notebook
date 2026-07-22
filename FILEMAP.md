@@ -47,6 +47,15 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-22e ②データのみ除外（候補銘柄でその日の指定でない記録をグランド合計から除外・分析は残す・sw v231→v232）
+- **コア（app-05・_elInclTotal直後）**: `_isDataOnly(data,r)`＝手動override（`signal.totalOverride` "in"=常に算入/"out"=常に除外）＞自動（`r.stock`が候補プール`custom.rotatingStocks`所属 かつ その日`data.dailyStock[date]`が**指定済み** かつ `r.stock!==指定銘柄`）。**ガード＝指定日のみ発動**（未指定日は候補も算入＝不変条件「プール空 or dailyStock未指定なら現行と一致」を満たす・ユーザー確定）。dailyStook参照はインライン（app-04依存を避ける）。`_elInclTotalAmt(data,r)=_elInclTotal(r.signal)&&!_isDataOnly(data,r)`＝**グランド/銘柄横断の合計消費側だけ**で使う金額版。
+- **方針**: 分類監査で全`_elInclTotal`（6ファイル）を (G)グランド合計=`_elInclTotalAmt`へ差替／(S)銘柄別の自行・自タブ=`_elInclTotal`据置／(P)分析母数=据置 に分けた。**分析母数（α/OS/推奨α/浮き足/RN/株価帯別プール・`_v2recsAll`）は一切緩めない**＝データのみ記録もα分析には残る。
+- **(G)差替え箇所**: app-04＝`_enteredSigsT`（検索日カード）・`_trEntryAgg`（取引集計 realSum/ok/ng/totRecords）・`_pnlDetailTableEl`（展開P&Lの`_inclTpb`/`_pbAllMiss`を新引数**`amtScope`**でグランド時のみ除外）・`_wkRow`（今週の週合計/日別行＝全銘柄横断）・`_pbAllRecsT`＋`_pbAllReal`/`_pbAllEnt`（本日「合計」行＝per-recordで再計算・銘柄別スカラー`_pbRealByStk`は据置）・最終損益合計バッジ（`rowKey==="__total__"`時のみ）。app-05:111（カレンダー日次）。app-08:1015（ホーム月次）。app-06＝全体タブ集計（`_ovPnlTbl`/`_fillRiskSection`/KPI月`_sumMonthRecs2`/累積・連勝連敗`_v2recsNonRef`は`_v2recsAmt`から）＋期間タブ（`_perRecs=_isAllStock?データのみ除外:v2recs`＝全体タブのみ除外・銘柄別タブは据置）。
+- **`amtScope`（app-04 `_pnlDetailTableEl` 第8引数）**: 既定falsy＝銘柄別展開は据置。グランド展開（`_pbExpRow("__total__")`）と今週展開（`_wkExpRow`）でのみtrue＝共有関数を壊さず両立。
+- **(S)/(P)据置（変更なし）**: app-04 `_skT`（銘柄別行）・本日データ分析/OS別/`_epnCascade`（推奨α）。app-02 ChartSection全て（`_recsForTot`/`_detailTotRowFor`/`_sumRow`/α表・per-stock）。app-05 `_hdRecentRecords`/被り除外母数/早見表stats共有関数/詳細タグ母数。app-06 `_v2recsAll`/`_sigGroups`/分析プール。app-01 `_saByStock`（推奨α）。
+- **記録フォーム（app-05 EntryRecordForm）**: 「計算・データ算入」欄の下に「**合計算入（本日の取引銘柄）: 自動／入れる／外す**」セグメント新設（`fTotOv`/`setFTotOv`・既定auto・保存`totalOverride`=auto時null）。分析母数は不変の注記つき。
+- **検証**: V8で`_isDataOnly`/`_elInclTotalAmt`を直接11ケース単体テスト全pass（指定日=データのみ/未指定日=ガードで算入/override in・out/固定銘柄/プール空でAmt≡Incl＝不変条件）。実マウント無エラー。
+
 ### 2026-07-22d 日替わりを「本日の取引銘柄」per-day化＋タブを外国市場の右に固定（①・sw v230→v231）
 - **概念変更**: 「日替わり銘柄」＝1日1つ実際に取引する銘柄を指定（`data.dailyStock[日付]`・trades/foreignMarkets同型のtop-levelマップ＝汎用マージで同期）。`custom.rotatingStocks` は「候補プール」に役割変更。以前の集約チップ切替（v229）を置換。
 - **helpers（app-04・_PbDayBandBar直前）**: `_dailyStockGet(data,date)`／`_dailyStockSet(save,date,stock)`。

@@ -1865,7 +1865,8 @@ function SearchView(_ref45) {
         .map(function(sig) { return { sig: sig, cut: _cutSV, stock: _stkSV }; });
     });
     // 合計額算入: 検索日カードの損益/勝敗は除外記録(includeInTotal===false)を抜く。タグ表示(entryTagLabels)は全件のまま。2026-06-18
-    var _enteredSigsT = enteredSigs.filter(function(e) { return _elInclTotal(e.sig); });
+    // 検索日カードは全銘柄横断のグランド日合計＝②データのみ（候補で未指定）も除外 2026-07-22e。
+    var _enteredSigsT = enteredSigs.filter(function(e) { return _elInclTotalAmt(data, { stock: e.stock, date: date, signal: e.sig }); });
     // 時間かぶり除外: 実現損益合計だけ良い方を抜く（勝敗カウントは件数系＝全件のまま）2026-07-07
     var pnl = _enteredSigsT.filter(function(e) { return !_elCollExcludedSig(data, e.stock, date, e.sig); }).reduce(function(acc, e) {
       var v = _elSignedVal(e.sig.realizedPnl, e.sig.realizedPnlSign);
@@ -5023,6 +5024,12 @@ function DayView(_ref57) {
         ntr[dk] = Object.assign({}, dayObj, { items: ni });
       });
       next.trades = ntr;
+      // 本日の取引銘柄（②データのみ除外 2026-07-22e）: data.dailyStock は値が銘柄名＝改名追従しないと、指定した銘柄の記録が「候補で未指定」＝データのみ扱いに落ちてグランド合計から消える（指定●も外れる）。値をoldName→newNameへ付替。
+      if (prev.dailyStock && typeof prev.dailyStock === "object") {
+        var _nds = {};
+        Object.keys(prev.dailyStock).forEach(function(_dsk) { _nds[_dsk] = (prev.dailyStock[_dsk] === oldName) ? newName : prev.dailyStock[_dsk]; });
+        next.dailyStock = _nds;
+      }
       return next;
     });
     
@@ -5078,7 +5085,7 @@ function DayView(_ref57) {
           }
         }
         records.push({ date: date, stock: _trStock, signal: s, item: item });
-        if (_elInclTotal(s)) {  // 合計額算入: 除外記録は合計/成功失敗カウントに入れない（行は表示する）2026-06-18
+        if (_elInclTotalAmt(data, { date: date, stock: _trStock, signal: s })) {  // 合計額算入: 除外記録は合計/成功失敗カウントに入れない（行は表示する）2026-06-18。全銘柄横断のグランド日集計＝②データのみも除外 2026-07-22e
         // 表の合計行(_elTotAccum)と一致させる: item.pnl優先＋per-100換算。2026-06-20
         // 監査所見2（2026-07-12）: 実現損益合計にも時間かぶり除外を適用＝同タブの合計行(_elTotAccum=除外済)とフッターの不一致を解消（勝敗ok/ngは件数系なので従来どおり全件）。
         var _it0 = item;
@@ -5096,7 +5103,7 @@ function DayView(_ref57) {
       var tb = (b.signal && b.signal.time) || "99:99";
       return ta.localeCompare(tb);
     });
-    return { records: records, totRecords: records.filter(function(r) { return _elInclTotal(r.signal); }), realSum: realSum, ok: ok, ng: ng };
+    return { records: records, totRecords: records.filter(function(r) { return _elInclTotalAmt(data, r); }), realSum: realSum, ok: ok, ng: ng };
   }, [data.charts, dd.items, allStocks, date]);
   var _trEntryRecords = _trEntryAgg.records;
   var _trTotRecs = _trEntryAgg.totRecords;  // 合計額算入: 集計専用（除外記録を抜いた版）2026-06-18
@@ -5875,7 +5882,7 @@ function DayView(_ref57) {
     };
     // 本日／今週の損益データ共通：1記録ごとの明細テーブル（thead＋subRows＋totRow）を返す。
     // records は呼び出し側でフィルタ済み。内部で時間昇順にソート。α/損切りは alphaOf/cutOf で解決。
-    var _pnlDetailTableEl = function(records, alphaOf, cutOf, sortMode, simCtx, cutCtx, showBulk) {
+    var _pnlDetailTableEl = function(records, alphaOf, cutOf, sortMode, simCtx, cutCtx, showBulk, amtScope) {   // amtScope=true: グランド（全銘柄横断/週）の合計行なので②データのみも除外。銘柄別展開はfalse＝据置 2026-07-22e
       var expRecs = (records || []).slice().sort(function(a, b) {
         if (sortMode === "stock") {
           if (a.stock !== b.stock) return a.stock.localeCompare(b.stock);
@@ -5983,7 +5990,7 @@ function DayView(_ref57) {
         var isMiss = _dispResExp === "miss";
         var bb = "1px solid #e8e5de";
         var _isXskipPb = _epIsXSkip(s, _alphaRec);  // E×（×見送り）→ 本合計に算入せず参考(ref)へ
-        var _inclTpb = _elInclTotal(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18。2026-07-18g 要審議も合計算入（見送りと同じ）＝_elIsReview除外を撤回
+        var _inclTpb = amtScope ? _elInclTotalAmt(data, r) : _elInclTotal(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18。2026-07-18g 要審議も合計算入（見送りと同じ）＝_elIsReview除外を撤回。amtScope時は②データのみも除外 2026-07-22e
         var _collXpb = _elCollExcluded(data, r);  // 時間かぶり除外: 良い方はフッター合計からも全スキップ（行表示は全件のまま）2026-07-07
         if (entered && _inclTpb && !_collXpb) _totRealCnt++;
         if (realPnl != null && _inclTpb && !_collXpb) { _totReal = (_totReal || 0) + realPnl; }
@@ -6100,7 +6107,7 @@ function DayView(_ref57) {
         );
       };
       var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
-      var _pbAllMiss = _elAllMissRow(expRecs.filter(function(r) { return _elInclTotal(r.signal); }), alphaOf, cutOf);
+      var _pbAllMiss = _elAllMissRow(expRecs.filter(function(r) { return amtScope ? _elInclTotalAmt(data, r) : _elInclTotal(r.signal); }), alphaOf, cutOf);
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
         React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
@@ -6264,8 +6271,9 @@ function DayView(_ref57) {
       };
       var _wkRow = function(label, labelColor, recs, isTotal, rowKey) {
         // 合計額算入: 除外記録(includeInTotal===false)はサマリ集計から外す。明細展開(_wkExpRow)は全件のまま。2026-06-18
+        // 今週テーブルの各行（週合計・日別）は全銘柄横断のグランド集計＝②データのみ（候補で未指定）も除外 2026-07-22e（銘柄別のα推奨は_wkGroupsで別途・据置）。
         var _exclN = (recs || []).filter(function(r) { return _elIsExcluded(r.signal); }).length;  // この日に不算入があれば青点を出す
-        recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
+        recs = (recs || []).filter(function(r) { return _elInclTotalAmt(data, r); });
         var st = _elCalcStats(recs, data);
         // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_wkRecsM＝被り除外後・件数系(st/件/到達等)はrecsのまま 2026-07-07
         var _wkRecsM = recs.filter(function(r) { return !_elCollExcluded(data, r); });   // 金額集計母数＝時間かぶり除外のみ（2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）
@@ -6331,7 +6339,7 @@ function DayView(_ref57) {
         return React.createElement("tr", { key: rowKey + "_exp" },
           React.createElement("td", { colSpan: 13, style: { padding: "6px 8px", background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
             _isTotal ? _wkIdealEl : null,
-            recs.length ? React.createElement("div", { style: { margin: "2px 4px 8px 18px", border: "1px solid #FDBA74", borderRadius: 8, background: "#fff", padding: "6px 8px", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time", { val: simAlphaWk, set: setSimAlphaWk, keyOf: _wkRecKey, actualOf: _wkAlphaActualOf }, { val: simCutWk, set: setSimCutWk, keyOf: _wkRecKey, actualOf: _wkCutActualOf }, true)) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
+            recs.length ? React.createElement("div", { style: { margin: "2px 4px 8px 18px", border: "1px solid #FDBA74", borderRadius: 8, background: "#fff", padding: "6px 8px", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, _pnlDetailTableEl(recs, _wkAlphaOf, _wkCutOf, "time", { val: simAlphaWk, set: setSimAlphaWk, keyOf: _wkRecKey, actualOf: _wkAlphaActualOf }, { val: simCutWk, set: setSimCutWk, keyOf: _wkRecKey, actualOf: _wkCutActualOf }, true, true)) : React.createElement("span", { style: { color: "#aaa", fontSize: 11 } }, "記録なし")
           )
         );
       };
@@ -6395,14 +6403,17 @@ function DayView(_ref57) {
     if (!_pbStks.length) return React.createElement(React.Fragment, null, _simpleAlphaEl, _soukatsuEl, _wkMainEl);
     
     var _pbAllRecs = [];
+    _pbStks.forEach(function(sk) { _pbAllRecs = _pbAllRecs.concat(_pbByStk[sk]); });
+    // 合計額算入: 統計/合計は除外記録を抜いた _pbAllRecsT で計算（明細・行表示は _pbAllRecs/_pbByStk の全件のまま）2026-06-18。
+    // 本日「合計」行は全銘柄横断のグランド集計＝②データのみ（候補で未指定）も除外 2026-07-22e（銘柄別の自行 _pbRealByStk/_pbEntByStk は_elInclTotalのまま＝据置）。
+    var _pbAllRecsT = _pbAllRecs.filter(function(r) { return _elInclTotalAmt(data, r); });
+    // 実現損益/エントリー数のグランド積上げも_pbAllRecsT（②データのみ除外済）から再計算＝銘柄別スカラーの単純合算だと候補銘柄が混入するため（override差も正しく反映）2026-07-22e。
     var _pbAllReal = 0, _pbAllEnt = 0;
-    _pbStks.forEach(function(sk) {
-      _pbAllRecs = _pbAllRecs.concat(_pbByStk[sk]);
-      _pbAllReal += _pbRealByStk[sk];
-      _pbAllEnt  += _pbEntByStk[sk];
+    _pbAllRecsT.forEach(function(r) {
+      var _rvAll = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign);
+      if (_rvAll != null) _pbAllReal += _rvAll;
+      if (r.signal.entered === true) _pbAllEnt++;
     });
-    // 合計額算入: 統計/合計は除外記録を抜いた _pbAllRecsT で計算（明細・行表示は _pbAllRecs/_pbByStk の全件のまま）2026-06-18
-    var _pbAllRecsT = _pbAllRecs.filter(function(r) { return _elInclTotal(r.signal); });
     var _pbAll = _elCalcStats(_pbAllRecsT, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; });
     // 勝敗カウント（αシミュ対応）: EP起算v2/v3もEP足基準で判定（_elDynResult。旧式はEP=OS2/3成立を未達に誤算入していた）
     var _pbDynOkNg = function(recs) { var ok = 0, ng = 0, draw = 0, miss = 0, win = 0, tri = 0, even = 0, loss = 0, stop = 0; (recs || []).forEach(function(r) { var s = r.signal; var _a = _pbAlphaOf(r), _c = _pbCutOf(r); var res = _elDynResult(s, _a, _c); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; else if (res === "miss") miss++; var wb = _elWinBucket(s, _a, _c); if (wb === "win") win++; else if (wb === "tri") tri++; else if (wb === "even") even++; else if (wb === "loss") loss++; else if (wb === "stop") stop++; }); var tot = ok + ng; return { ok: ok, ng: ng, draw: draw, miss: miss, reach: win + tri + even + loss + stop, win: win, tri: tri, even: even, loss: loss, stop: stop, winPct: tot > 0 ? Math.round(ok / tot * 100) : null }; };
@@ -6577,7 +6588,7 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             (function() {
               // 監査所見1（2026-07-12）: 旧=EP損益合計/結果損益合計(H1)・不算入/被り込み → 最終損益合計（手じまい・_elHold2TotParts.main）＋_elInclTotal＋被り除外に統一＝折り畳み行/明細表と同一基準。
-              var _recs = (expRecs || []).filter(function(r) { return r && _elInclTotal(r.signal) && !_elCollExcluded(data, r); });   // 2026-07-18g 要審議も最終損益合計バッジに算入（見送りと同じ・姉妹の_inclTpb:5627と統一）
+              var _recs = (expRecs || []).filter(function(r) { return r && (rowKey === "__total__" ? _elInclTotalAmt(data, r) : _elInclTotal(r.signal)) && !_elCollExcluded(data, r); });   // 2026-07-18g 要審議も最終損益合計バッジに算入（見送りと同じ・姉妹の_inclTpb:5627と統一）。グランド展開(__total__)は②データのみも除外 2026-07-22e
               var _totH2 = null, _totH2Cnt = 0;
               _recs.forEach(function(r) {
                 var s = r.signal;
@@ -6595,7 +6606,7 @@ function DayView(_ref57) {
             })()
           ),
           sortToggle,
-          React.createElement("div", { style: { margin: "2px 4px 8px 18px", border: "1px solid #FDBA74", borderRadius: 8, background: "#fff", padding: "6px 8px", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, _pnlDetailTableEl(expRecs, _pbAlphaOf, _pbCutOf, pnlSortOrder, { val: simAlpha, set: setSimAlpha, keyOf: _pbRecKey, actualOf: _pbAlphaActualOf }, { val: simCut, set: setSimCut, keyOf: _pbRecKey, actualOf: _pbCutActualOf })),
+          React.createElement("div", { style: { margin: "2px 4px 8px 18px", border: "1px solid #FDBA74", borderRadius: 8, background: "#fff", padding: "6px 8px", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, _pnlDetailTableEl(expRecs, _pbAlphaOf, _pbCutOf, pnlSortOrder, { val: simAlpha, set: setSimAlpha, keyOf: _pbRecKey, actualOf: _pbAlphaActualOf }, { val: simCut, set: setSimCut, keyOf: _pbRecKey, actualOf: _pbCutActualOf }, false, rowKey === "__total__")),
         )
       );
     };

@@ -6608,16 +6608,19 @@ function EntryLogView(_ref_elv2) {
       if (detTagMode === "band") {
         _tabBody = React.createElement(React.Fragment, null, _allAxisToggle, _bandAxisBody(_v2recsAll, true));
       } else {
-      var _v2recsNonRef = v2recs.filter(function(r) { return !_elIsEmaRefPeriod((r.date || "").slice(0, 7), "month"); });
+      // ②データのみ除外（本日の取引銘柄システム 2026-07-22e）: 全銘柄側（全体タブ）の合計消費側だけ候補・未指定(データのみ)を外す。分析母数(v2recs/_v2recsAll)・銘柄別タブは据置。
+      var _v2recsAmt = v2recs.filter(function(r) { return !_isDataOnly(data, r); });
+      var _sumMonthRecs2 = _sumMonthRecs.filter(function(r) { return !_isDataOnly(data, r); });
+      var _v2recsNonRef = _v2recsAmt.filter(function(r) { return !_elIsEmaRefPeriod((r.date || "").slice(0, 7), "month"); });
       _tabBody = React.createElement(React.Fragment, null, _allAxisToggle, _cardify([
         _sumMonthNav,
-        _sumMonthRecs.length ? _kpiBlockOf(_sumMonthRecs)
+        _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
         [
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。最終損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）"),
           _granSeg(gran, setGran, "ov_"),
-          _ovPnlTbl(v2recs, gran === "custom" ? "week" : gran)],
-        v2recs.length ? _fillRiskSection(v2recs) : null,
+          _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
+        _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
         _v2recsNonRef.length >= 2 ? [
           _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・合計行と同一基準（4月＝EMA位置ズレの参考期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNonRef, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
         _v2recsNonRef.length >= 2 ? [
@@ -6794,7 +6797,9 @@ function EntryLogView(_ref_elv2) {
       })])
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）");
   } else if (view === "period") {
-    _tabBody = React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, "🎯 期間タブはこの銘柄の全シグナル合算（時系列の俯瞰）。上のシグナル軸の選択では絞り込まれません。"), _elWeeklyTargetSummaryV2(v2recs, _ai, data, _collScope), (function() {
+    // ②データのみ除外（2026-07-22e）: 全体タブ（全銘柄横断）の期間集計だけ候補・未指定(データのみ)を外す。銘柄別タブ（この銘柄の自データ＝自行相当）は据置＝v2recsのまま。件数/勝敗/損益とも一貫して除外。
+    var _perRecs = _isAllStock ? v2recs.filter(function(r) { return !_isDataOnly(data, r); }) : v2recs;
+    _tabBody = React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, "🎯 期間タブはこの銘柄の全シグナル合算（時系列の俯瞰）。上のシグナル軸の選択では絞り込まれません。"), _elWeeklyTargetSummaryV2(_perRecs, _ai, data, _collScope), (function() {
       var _granBtns = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
         React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
           [["day", "日別"], ["week", "週別"], ["month", "月別"], ["custom", "指定期間"]].map(function(g) {
@@ -6828,7 +6833,7 @@ function EntryLogView(_ref_elv2) {
           _secH("🔺 次足期待度△（ホールド）の分析"), _elTriangleHoldSectionV2(rs, _ai));
       };
       if (gran === "custom") {
-        var _crecs = v2recs.filter(function(r) { return (!cFrom || r.date >= cFrom) && (!cTo || r.date <= cTo); });
+        var _crecs = _perRecs.filter(function(r) { return (!cFrom || r.date >= cFrom) && (!cTo || r.date <= cTo); });
         var _dInput = function(val, setFn, label) { return React.createElement("label", { style: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#555" } }, label, React.createElement("input", { type: "date", value: val, onChange: function(e) { setFn(e.target.value); }, style: { padding: "4px 6px", fontSize: 12, border: "1px solid #ddd", borderRadius: 5 } })); };
         return _cardify([
           _secH("📆 期間集計", "粒度を選択。指定期間は開始・終了日で絞り込み（v2記録のみ）"), _granBtns,
@@ -6848,7 +6853,7 @@ function EntryLogView(_ref_elv2) {
         return (mon.getMonth() + 1) + "/" + mon.getDate() + "〜" + (fri.getMonth() + 1) + "/" + fri.getDate();
       };
       var _byP = {};
-      v2recs.forEach(function(r) { var k = _keyOf(r.date); (_byP[k] = _byP[k] || []).push(r); });
+      _perRecs.forEach(function(r) { var k = _keyOf(r.date); (_byP[k] = _byP[k] || []).push(r); });
       var _keys = Object.keys(_byP).sort().reverse();
       if (!_keys.length) return _cardify([_secH("📆 期間集計"), _granBtns, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし")]);
       var _chartKeys = _keys.slice().reverse();
@@ -6857,7 +6862,7 @@ function EntryLogView(_ref_elv2) {
       var _xt = [], _step = Math.max(1, Math.ceil(_chartKeys.length / 6));
       var _per = _chartKeys.map(function(k, i) { var t = _periodTot(_byP[k]), rr = _ratesOf(_byP[k]); if (i % _step === 0 || i === _chartKeys.length - 1) _xt.push({ i: i, label: _labelOf(k) }); return { label: _labelOf(k), value: _mi.get(t), win: rr.takeRate }; });   // 破線=利確(最終損益>0)に統一 2026-07-09
       var _cum = [], _cs = 0; _per.forEach(function(p) { _cs += p.value; _cum.push(_cs); });
-      var _dayBy = {}; v2recs.forEach(function(r) { (_dayBy[r.date] = _dayBy[r.date] || []).push(r); });
+      var _dayBy = {}; _perRecs.forEach(function(r) { (_dayBy[r.date] = _dayBy[r.date] || []).push(r); });
       var _dayPer = Object.keys(_dayBy).map(function(dk) { var t = _periodTot(_dayBy[dk]); return { date: dk, value: _mi.get(t) }; });
       var _metBtns = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", marginBottom: 8 } },
         React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
