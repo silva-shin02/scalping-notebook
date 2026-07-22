@@ -47,6 +47,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-22g α推奨の到達率下限 60%→70%（sw v234→v235）
+- ユーザー要望「推奨条件に到達率70%以上を加えて」。`_EL_ANA_REACH_DEF` 60→70（app-06:1485）＝基本α★(_elBaseAlphaPick)・応用α★(_elSpecialAlphaPick)の全条件ゲート`_confAt(reachFloor)`が到達率≥70%を要求（両方が共有`reachFloor`を使用）。ステッパー(`_ElAnaReachCtl`/custom.anaReachFloor・10刻み)の既定も70%。フォールバック`_EL_ANA_REACH_FLOOR2`(50%・目標未達時に参考=青★を出す安全網)は据置＝70%を満たすαが無ければ従来通り50%まで下げて参考表示。⚠️ステッパーを過去に手動調整して`custom.anaReachFloor`を保存済みならその値が優先（過去の60/50/60変更は定数だったので通常は未保存＝70%が効く）。
+
 ### 2026-07-22f 計算/データ算入の分離＋第2弾（株価帯の推奨α表示・帯カスケード・頻度再定義）（sw v232→v233）
 - **計算/データ算入の分離（Req1）**: 記録フォーム最下部の「計算・データ算入」1チェック→「**計算算入（合計損益に算入＝_elInclTotal）／データ算入（分析に算入＝_elInclData）**」の2チェックに分割。`_elInclData(s)`（app-05・_elInclTotal直後）＝passThrough→false／includeInData明示があればそれ／未設定は includeInTotal に追従（**移行不要**＝既存チェックの入切をそのまま2軸に引き継ぐ）。`_elFilterData` も追加。
   - **分析母数を_elInclDataへ（約35箇所）**: 推奨α全経路（_epnCascade/_saByStock/_elStockRecsBefore/最良αbadge/期間窓_okR）・OS分析・今週α表_wkGroups・シグナル別勝率_sigStats・浮き足/RN/追加α pool・詳細タグ母数・ホームダッシュボード。**合計損益（計算算入）は_elInclTotalのまま据置**。

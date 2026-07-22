@@ -1481,8 +1481,8 @@ function _ElAnaCutCtl(props) {
     React.createElement("span", { style: { fontSize: 8.5, color: "#B45309" } }, "推奨α分析（基本/追加・フォーム/EPナビ/シミュの推奨含む）はこの損切り値を前提に評価・既定" + _EL_ANA_CUT_DEF + "円"));
 }
 // ===== 到達率の下限（2026-07-13 ユーザー指定）＝基本α★の付け方＝「この到達率以上・黒字を満たすαのうち平均最終損益（1件あたり）が最大のα（2026-07-15f）を理想とし推奨＝理想−_EL_ALPHA_OFFSET」 =====
-// 既定60%（2026-07-14e 60→50→2026-07-15j 50→60に戻す ユーザー要望）・10刻みで調整可・custom.anaReachFloorに保存（全端末同期）。同期は_elAlphaInfo(app-05)内で_elAnaCutと並んで実施。基本α★(_elBaseAlphaPick)＋応用α★(_elSpecialAlphaPick)の両方が全条件ゲートでこの到達率下限を使用。※目標到達率を満たすαが1つも無い時は_EL_ANA_REACH_FLOOR2(50%)まで引き下げて参考(na/青★)選定（2026-07-15j）。
-var _EL_ANA_REACH_DEF = 60;
+// 既定70%（2026-07-14e 60→50→2026-07-15j 50→60→2026-07-22f 60→70 ユーザー要望「推奨条件に到達率70%以上を加えて」）・10刻みで調整可・custom.anaReachFloorに保存（全端末同期）。同期は_elAlphaInfo(app-05)内で_elAnaCutと並んで実施。基本α★(_elBaseAlphaPick)＋応用α★(_elSpecialAlphaPick)の両方が全条件ゲートでこの到達率下限を使用。※目標到達率を満たすαが1つも無い時は_EL_ANA_REACH_FLOOR2(50%)まで引き下げて参考(na/青★)選定（2026-07-15j）。
+var _EL_ANA_REACH_DEF = 70;
 var _EL_ANA_REACH_FLOOR2 = 50;   // 到達率フォールバックの下限（2026-07-15j ユーザー要望）: 目標到達率で該当αが無い時ここまで引き下げて再選定＝参考(na/青★)。これ以下には下げない安全網。基本α/応用α共通。
 var _elAnaReachCur = _EL_ANA_REACH_DEF;
 function _elAnaReach(data) { var v = data && data.custom ? data.custom.anaReachFloor : null; var n = Number(v); return (v != null && v !== "" && !isNaN(n) && n >= 0 && n <= 100) ? Math.round(n / 10) * 10 : _EL_ANA_REACH_DEF; }
@@ -2025,7 +2025,7 @@ function _elBaseAlphaPickScore(recs, aiOf) {
   return _ret(withEntry[withEntry.length - 1], "na");
 }
 // ★選定【2026-07-13 到達率ベースに全面刷新・ユーザー承認】: 母数=素の記録（追加α〇/浮き足〇/RN〇除外・従来どおり）。各α(0〜20円)を最終損益(手じまい)基準 _elH2EvalByFn で評価し、
-// 「黒字(Σ最終損益>0)かつ 到達率≥下限(_elAnaReachCur%・既定60・10刻み調整可)かつ 頻度<_EL_FREQ_MAX」のαのうち【最も高いα】を理想α（＝その到達率・頻度は保てる範囲でいちばん有利な高いα）2026-07-13頻度も選定に組込。全滅時は黒字/到達最大へ緩和(na)。
+// 「黒字(Σ最終損益>0)かつ 到達率≥下限(_elAnaReachCur%・既定70・10刻み調整可)かつ 頻度<_EL_FREQ_MAX」のαのうち【最も高いα】を理想α（＝その到達率・頻度は保てる範囲でいちばん有利な高いα）2026-07-13頻度も選定に組込。全滅時は黒字/到達最大へ緩和(na)。
 // 推奨α＝max(0,理想−_EL_ALPHA_OFFSET)＝指値を通しやすくするため理想からオフセットぶん下げた実際に置く値（返り値.alpha＝推奨・消費者へ流れる／.idealAlpha＝理想）。stats・★は推奨αのもの。
 // 赤★(status ok)=さらに 損切り率(最終)≤_EL_BASE_MAX_STOPRATE(40%)・E成立≥_EL_BASE_MIN_N(10件)・頻度<_EL_FREQ_MAX の自信条件も満たす／青★(na)=条件を一部満たさない参考。
 // 下限を満たすα無し(相場が荒い)→黒字αのうち最も到達率が高い(最も届きやすい)αを参考(na)。黒字α皆無→件数最大を参考。次点=推奨より高い黒字αの最小値（もう一段クッション）。
@@ -2039,7 +2039,7 @@ function _elBaseAlphaPick(recs, aiOf) {
   var full = _EL_BASE_ALPHAS_FULL.map(function(a) { var e = _elH2EvalByFn(recs, aiOf, function() { return a; }); e.a = a; return e; });   // 手じまい基準・0〜20（★選定はこちら）
   var h2sweep = full.filter(function(e) { return e.a >= 5; });   // 返り値互換（従来は5〜20）
   var h1At = {}; sweep.forEach(function(e) { h1At[e.a] = e; });
-  var reachFloor = (_elAnaReachCur != null ? _elAnaReachCur : _EL_ANA_REACH_DEF) / 100;   // 到達率の下限（既定0.60・custom.anaReachFloor・_elAlphaInfoで同期）
+  var reachFloor = (_elAnaReachCur != null ? _elAnaReachCur : _EL_ANA_REACH_DEF) / 100;   // 到達率の下限（既定0.70・custom.anaReachFloor・_elAlphaInfoで同期）
   var _fspan = _elBizSpanDays(recs, _elHoliCur);   // 頻度ゲート用（2026-07-13c／2026-07-15g 祝日も除外＝表示の頻度列と一致）: 活動営業日span。0なら頻度ゲート素通り
   var _freqOk = function(a) { if (!(_fspan > 0)) return true; var ed = _elEnteredDays(recs, function() { return a; }); return ed > 0 && (_fspan / ed) < _EL_FREQ_MAX; };
   var _conf = function(e) { return e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && e.decided != null && e.decided >= _EL_BASE_MIN_N && _freqOk(e.a); };   // 赤★の自信条件
