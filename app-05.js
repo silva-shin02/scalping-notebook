@@ -3128,8 +3128,11 @@ function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _
 function _isDataOnly(data, r) {
   if (!r || !r.signal) return false;
   var ov = r.signal.totalOverride;
-  if (ov === "in") return false;   // 手動「入れる」＝データのみ扱いにしない（スルー/計算・データ算入オフは_elInclTotalAmtのAND側で別途除外＝この設定はデータのみ層だけを上書き）
-  if (ov === "out") return true;   // 手動「外す」＝常にデータのみ（合計から除外）
+  if (ov === "in") return false;   // 手動「入れる」（旧②セレクタ・レガシー）＝データのみ扱いにしない
+  if (ov === "out") return true;   // 手動「外す」（旧②セレクタ・レガシー）＝常にデータのみ
+  // 2026-07-22f 合計算入チェックの2軸化に伴う整合: signal.includeInTotal が明示設定済み（true/false）ならチェックが制御＝自動判定は上書きしない。
+  // ＝候補でも「合計算入ON」にチェックすれば合計に入り（return false）、「OFF」なら_elInclTotalが別途除外。未設定(null)の旧記録だけ下の動的自動判定にフォールバック（遡及・後方互換）。
+  if (r.signal.includeInTotal != null) return false;
   var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
   if (!r.stock || pool.indexOf(r.stock) < 0) return false;   // 候補プール外（固定銘柄）＝従来通り
   var _dsMap = (data && data.dailyStock) || {};
@@ -6506,24 +6509,20 @@ function EntryRecordForm(_ref_erf) {
   var _spDefault = (_daySpecialA != null) ? _daySpecialA : _refSpecialA;
   // スコープ切替＝そのスコープの推奨応用αを応用α欄へ即反映（基本αの_applyBaScopeと対称）。null（推奨なし）は欄を空に＝見出し「—」と一致。
   var _applySpScope = function(scope) { _setSpScope(scope); var pv = _spRecsForScope(scope); var pa = (pv && pv.alpha != null) ? pv.alpha : null; setFSpecialAlpha(pa != null ? String(pa) : ""); };
-  // 合計額算入（チェックでこの記録を合計額・データ分析に算入。既定=算入。記録固有=signal.includeInTotal。
-  // undefined/null（旧記録）は算入＝true として初期化＝既定はチェック済み）2026-06-18。
-  var _useStateINC = useState(initSig.includeInTotal !== false),
-    _useStateINCA = _slicedToArray(_useStateINC, 2),
-    fIncl = _useStateINCA[0], setFIncl = _useStateINCA[1];
-  // データ算入（計算算入と分離 2026-07-22f）: 未設定（旧記録）は includeInTotal に追従＝既存チェックの入切をそのまま2軸に引き継ぐ。
-  // ただし「本日の取引銘柄」に選ばれていない候補銘柄（rotatingStocksに属しdailyStock[日]でない＝データのみ）の記録は、計算算入の状態に関わらずデータ算入を既定ON（分析には残す・ユーザー要望 2026-07-22f）。includeInData明示があればそれを優先。
+  // 合計算入／データ算入（2軸 2026-07-22f）: 記録固有 signal.includeInTotal / includeInData。既定は算入(ON)。旧記録の未設定はincludeInTotalに追従。
+  // 「本日の取引銘柄」に選ばれていない候補銘柄（rotatingStocksに属しdailyStock[日]でない＝データのみ）の新規記録は、既定で【合計算入OFF・データ算入ON】＝合計から外れ分析に残る（ユーザー要望 2026-07-22f・見た目でも除外が分かるようチェックを外す）。明示設定(includeInTotal/InData)があればそれを優先。
   var _indDataOnlyCand = (function() {
     var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
     if (!fStock || pool.indexOf(fStock) < 0) return false;
     var _dsInd = (data && data.dailyStock && fDate) ? (data.dailyStock[fDate] || "") : "";
     return fStock !== _dsInd;
   })();
+  var _useStateINC = useState(initSig.includeInTotal != null ? (initSig.includeInTotal !== false) : (_indDataOnlyCand ? false : true)),
+    _useStateINCA = _slicedToArray(_useStateINC, 2),
+    fIncl = _useStateINCA[0], setFIncl = _useStateINCA[1];
   var _useStateIND = useState(initSig.includeInData != null ? (initSig.includeInData !== false) : (_indDataOnlyCand ? true : (initSig.includeInTotal !== false))),
     _useStateINDA = _slicedToArray(_useStateIND, 2),
     fInclData = _useStateINDA[0], setFInclData = _useStateINDA[1];
-  // 合計算入オーバーライド（②データのみ除外 2026-07-22e）: "auto"=自動判定（候補銘柄で本日の取引銘柄でない日はグランド合計から除外）/"in"=常に算入/"out"=常に除外。既定auto。分析母数は_elInclTotalなので不変（この設定はグランド合計だけに効く）。
-  // ②の手動オーバーライドUI（自動/入れる/外す）は2チェック統一で廃止（2026-07-22f ユーザー確定）。候補銘柄のグランド合計除外は_isDataOnlyの自動判定を裏で維持＝合計算入チェックはON表示のままでも自動で外れる。既存記録のtotalOverrideは_isDataOnlyが引き続き尊重（新規は保存しない）。
 
   var _useStateEONO = useState(initSig.entryOsNo != null ? Number(initSig.entryOsNo) : null),
     _useStateEONOA = _slicedToArray(_useStateEONO, 2),

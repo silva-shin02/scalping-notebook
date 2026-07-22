@@ -58,7 +58,8 @@ HomeEventFormModal, App
   - **本日の推奨α表示（Req2）**: `_PbDayBandReco`（app-04・`_PbDayBandBar`内の固有材料の下にマウント）＝その銘柄の本日の株価帯と同じ帯の推奨**基本α/応用α**（_elBaseAlphaAを帯プールに適用）＋**頻度**（Req3＝帯営業日/EP到達日で「N日に1回」）＋📊帯別α詳細表ボタン（_elBaseAlphaDetailV2/_elTotalAlphaSectionV2を帯プールで開く）。材料日/帯不明は非表示。
   - **帯カスケード（Req4）**: `_epnCascade`に**帯フォールバックleg**を追加＝銘柄全体が確信推奨を出せない（!stk.ok）ときだけ帯プールから推奨基本αを計算（perf: 通常は計算しない・lazy）。カスケードを**詳細→シグナル→銘柄→帯**の順に（3つの梯子builder `_epnRecalcBase`/`_epnBaseLevelKey`/autoPick`_autoBase`＋`_bp`キーマップ）。**帯は純フォールバック＝既存推奨は不変**（V8で stkWinsOverBand/bandPicked 検証済）。
 - **頻度の再定義（Req3）**: 「その株価帯であった営業日の中でEP到達が何日に1回か」＝分母 `_pbBandBizDays`（その帯だった(銘柄×営業日)セル数）÷分子（EP到達した(銘柄×日)セル数）。**株価帯コンテキスト（本日の推奨α表示）でのみ適用**。記録帳の株価帯別パネルは`_kpiOs`（頻度カード無し）・非帯の頻度（シグナル総合RN/浮き足・_kpiBlockOf）は従来どおり`_elBizSpanDays`（記録スパン）＝帯スコープでないため不変。
-- **フォームUI確定（ユーザー確定）**: 記録フォームの算入UIを「**合計算入／データ算入**」の2チェック横並びに統一。**②の「合計算入(本日の取引銘柄): 自動/入れる/外す」セレクタは廃止**（fTotOv/totalOverride保存も削除）。候補銘柄の合計自動除外は`_isDataOnly`（自動・動的）を裏で維持＝合計算入チェックはON表示のままでも自動でグランド合計から外れる（既存記録のtotalOverrideは引き続き尊重・新規は保存せず）。
+- **フォームUI確定（ユーザー確定）**: 記録フォームの算入UIを「**合計算入／データ算入**」の2チェック横並びに統一。**②の「合計算入(本日の取引銘柄): 自動/入れる/外す」セレクタは廃止**（fTotOv/totalOverride保存も削除）。
+- **候補銘柄の既定（ユーザー確定 2026-07-22f）**: 「本日の取引銘柄」でない候補銘柄の**新規記録は既定で【合計算入OFF・データ算入ON】**＝合計から外れ分析に残るのが見た目で分かる（`_indDataOnlyCand`をfIncl/fInclData両方の初期化に使用・fIncl既定を`候補?false:true`に）。**`_isDataOnly`を整合化**＝`signal.includeInTotal`が明示設定済み(true/false)ならチェックが制御（自動判定は上書きしない）＝候補でも合計算入ONにすれば合計に入る／未設定(null)の旧記録だけ動的自動判定にフォールバック（遡及・後方互換）。V8で候補OFF=除外/候補ON=算入/未設定=動的除外/空プール≡不変 全pass。
 - **敵対レビュー(find→verify 2エージェント)修正3件**: (1)🐛`_pbBandPoolFor`のcacheが`priceBandBounds`（境界）変更でstale＝chartsのみkey化だった→boundsシグネチャをcacheキーに追加。(2)🐛頻度の分母(銘柄×営業日セル)と分子(旧`_elEnteredDays`＝日付のみ)の単位不一致→分子を(銘柄×日)セルに統一。(3)銘柄別🧮シミュが分析根(`_v2recsAllData`)由来で損益what-ifに計算off/データon記録が混入→SIM母数を`_elInclTotal`（money）でフィルタ。**コア（不変条件/分類/配線/カスケード安全性）は全PASS**。
 
 ### 2026-07-22e ②データのみ除外（候補銘柄でその日の指定でない記録をグランド合計から除外・分析は残す・sw v231→v232）
