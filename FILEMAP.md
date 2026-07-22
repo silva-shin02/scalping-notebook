@@ -47,6 +47,13 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-22k 監査の残課題をユーザー決定で解消（既定サブタブ/帯頻度再計算/死コード削除/残stale文言）（sw v238→v239）
+- 2026-07-22jの「未修正（ユーザー判断待ち）」3点をAskUserQuestionで確定し実装。
+- **①シグナル総合の既定サブタブ "uki"→"band"**（app-06 `sigSub` useState）＝移設先の株価帯別を前面に（ユーザー決定）。実マウントで📡シグナル総合クリック→帯本体が既定表示を確認。
+- **②帯コンテキストの頻度を帯基準に再計算**（ユーザー決定＝注記でなく再計算）: `_elBaseAlphaPick`/`_elSpecialAlphaPick`/`_elBaseAlphaA`/`_elBaseAlphaDetailV2`/`_elTotalAlphaSectionV2` に**任意引数 `spanOverride`** を追加＝頻度ゲート(`_fspan`)＋表示頻度列(`_baseSpan`/`_span`)の分母を外部指定に。`_groupPanel` に `bandSpan` 引数を追加し `_bandAxisBody` が実帯グループ("bN")で `_pbBandBizDays`（その帯だった営業日）を計算して渡す。app-04の `_PbDayBandReco`（`_elBaseAlphaA(pool,aiOf,span)`＋モーダル）と `_ElDayAlphaPair` 帯モーダル（`_bandSpan=_pbBandBizDays`）も渡す。**帯ピルとα詳細表の頻度が同一分母に統一**（旧＝ピル帯基準/表は記録スパンで乖離）。**後方互換＝spanOverride未指定は`_elBizSpanDays`（従来）で非帯呼び出しはバイト等価**（arity pick3/A3/detail6/total6/special4＋source確認・V8＋実マウントconsole0）。⚠️新たに帯コンテキストでα詳細表を出す時は`spanOverride`/`bandSpan`を渡す。
+- **③死コード削除（ユーザー選択）**: app-06 `_sigGroups`(死変数)/`_sumStockContent`(未使用関数)削除。app-04 `_EpnDayAlphaField`(未マウント関数・_ElDayAlphaPairへ差替済)削除／`_spModal`(応用α詳細ポップアップ)・`_tableModal`(表参照ポップアップ)のIIFE本体を削除しnull化＋`showSpTable`/`tableStock` state撤去（いずれもsetX(true/stock)呼出無し＝到達不能を確認済）。**表参照は_ElDayAlphaPairに集約**。EpNaviPanel実マウントで無破綻を確認。**EPナビ日替わり列の「表示」ラベルはユーザー選択せず＝見送り**。
+- **③残stale文言（ユーザー選択）**: app-06 合成スコア→平均最終損益（2731/3921）・追加α損切り率20/30%→40%＋na=頻度ゲート解除（2240-2241/2666）のコメント修正。**app-05:8595の日付タグ(g→h)は\uエスケープ保存でEdit不能につき見送り（非表示コメント）**。
+
 ### 2026-07-22j 当日変更(v228〜v237)の横断整合性監査＝5観点並列＋実コード検証で確定バグ/不整合/stale文言を修正（sw v237→v238）
 - **監査方法**: 観点別5エージェント（A記録帳UI/B算入母数/C定数文言/D日替わり改名/E帯推奨α）並列＋各指摘を実コードReadで検証＋V8構文＋実マウント再テスト。**確定分のみ修正**（設計判断はユーザーへ別途）。
 - **[BUG・今日の回帰] `setDetTagMode(false)`×4 → `"sig"`**（app-06:6985/6989/6995/7015）: v229でdetTagModeをboolean→3値文字列化した際、リセット4箇所が旧`false`残存＝銘柄タップ等で切替後に**銘柄別「集計」の分析軸トグル(🎯/🏷/💴)が全部無ハイライト**（中身はsig・選択状態と乖離）。実マウントで🎯シグナル別が`rgb(154,52,18)`ハイライト復活を確認。

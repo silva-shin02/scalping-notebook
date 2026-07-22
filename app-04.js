@@ -3703,9 +3703,9 @@ function _PbDayBandReco(_p) {
     var aiOf = function(r) { return _elAlphaInfo(r, data); };
     var pool = _pbBandPoolFor(data, bandIdx, date);
     if (!pool.length) return { pool: pool, base: null, sp: null, freq: null, span: 0, ent: 0, n: 0 };
-    var A = _elBaseAlphaA(pool, aiOf);
     var holi = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories);
     var span = _pbBandBizDays(data, bandIdx, pool, holi);
+    var A = _elBaseAlphaA(pool, aiOf, span);   // 頻度分母を帯基準（span）に＝ピル/詳細表/★選定を一致 2026-07-22j
     // EP到達した(銘柄×日)セル数＝分母_pbBandBizDays(銘柄×営業日セル)と単位を合わせる（敵対レビューBUG2修正 2026-07-22f・_elEnteredDaysは日付のみ集約で銘柄横断だと単位不一致だった）
     var _entSeen = {}, ent = 0;
     pool.forEach(function(r) { if (!r || !r.signal || !r.date || !r.stock) return; var a = aiOf(r).alpha; if (a == null) return; var rr = _epResolve(r.signal, a); if (rr && rr.epIdx >= 0 && rr.epIdx <= 2) { var _ek = r.stock + "|" + r.date; if (!_entSeen[_ek]) { _entSeen[_ek] = 1; ent++; } } });
@@ -3729,7 +3729,7 @@ function _PbDayBandReco(_p) {
         React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: modal === "base" ? "#0369A1" : "#9A3412" } }, (modal === "base" ? "🔬 推奨基本α 詳細（株価帯別）" : "🔬 推奨応用α 詳細（株価帯別）") + "｜" + bandLabel + "・銘柄横断・前日まで"),
         React.createElement("button", { type: "button", onClick: function() { setModal(null); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")),
       React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "同じ株価帯だった全銘柄の記録を合算した分析です（この帯のα共通化の検証）"),
-      modal === "base" ? _elBaseAlphaDetailV2(band.pool, aiOf, holi) : _elTotalAlphaSectionV2(band.pool, aiOf, holi))) : null;
+      modal === "base" ? _elBaseAlphaDetailV2(band.pool, aiOf, holi, undefined, undefined, band.span) : _elTotalAlphaSectionV2(band.pool, aiOf, holi, undefined, undefined, band.span))) : null;
   return React.createElement("div", { style: { borderTop: "1px dashed #EFE9DF", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1", whiteSpace: "nowrap" } }, "🎯 本日の推奨α（帯）"),
@@ -3802,6 +3802,7 @@ function _ElDayAlphaPair(_p) {
     var _bandOk = _bandPool.length > 0;
     var _useBand = (tblScope === "band") && _bandOk;
     var _pool = _useBand ? _bandPool : recs;
+    var _bandSpan = _useBand ? _pbBandBizDays(data, _bandIdx, _bandPool, _hs) : undefined;   // 帯選択時は頻度分母を帯基準に＝_PbDayBandReco/記録帳帯パネルと一致（銘柄別時はundefined＝記録スパン）2026-07-22j
     var _bandLbl = _bandIdx != null ? _pbBandLabel(_bandIdx, _bandInfo.bounds) : null;
     var _scopeBtn = function(k, lbl, dis) {
       var on = (k === "band") ? _useBand : !_useBand;
@@ -3821,8 +3822,8 @@ function _ElDayAlphaPair(_p) {
           React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } }, _useBand ? ("同じ帯だった全銘柄・前日まで・" + _pool.length + "件") : (tblScope === "band" && !_bandOk ? (_bandIdx == null ? "この日は株価帯が未判定/材料日のため銘柄別で表示" : ("株価帯" + (_bandLbl || "") + "の前日までの記録が0件のため銘柄別で表示")) : (stock + "・前日まで全期間")))),
         React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "行をタップすると本日の採用" + (isBase ? "基本α" : "応用α") + "値に取り込みます"),
         isBase
-          ? _elBaseAlphaDetailV2(_pool, aiOf, _hs, function(av) { _epnDayAlphaSet(save, stock, date, av); setModal(null); }, curEff)
-          : _elTotalAlphaSectionV2(_pool, aiOf, _hs, function(av) { _epnDaySpecialAlphaSet(save, stock, date, av); setModal(null); }, curEff)));
+          ? _elBaseAlphaDetailV2(_pool, aiOf, _hs, function(av) { _epnDayAlphaSet(save, stock, date, av); setModal(null); }, curEff, _bandSpan)
+          : _elTotalAlphaSectionV2(_pool, aiOf, _hs, function(av) { _epnDaySpecialAlphaSet(save, stock, date, av); setModal(null); }, curEff, _bandSpan)));
   })() : null;
   return React.createElement("div", null,
     React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#334155", marginBottom: 3 } }, "本日の採用α値（この銘柄・前日まで基準）"),
@@ -3831,44 +3832,7 @@ function _ElDayAlphaPair(_p) {
       _col(false, sVal, setSVal, spStored, spReco, "#9A3412", "#FDBA74", "応用α")),
     _modalEl);
 }
-// 「本日の採用α値」欄（2026-07-13d）: 各銘柄列の見出し直下に常設。既定＝推奨基本α（銘柄全体＝_epnCascade stk＝計算フォームautoPickのstk段と同一・この日より前の記録が母数）。
-// 空欄＝推奨に追従（stored=null→計算フォームは従来どおりautoPick）／数値を入れると即保存し、下の計算フォームの基本α初期値に反映。▲▼は±1（_stepBtn長押し・即保存）。「表を参照」で記録帳と同じ推奨α値詳細表(_elBaseAlphaDetailV2)をポップアップ＝行タップで取り込み。
-function _EpnDayAlphaField(_p) {
-  var data = _p.data, save = _p.save, date = _p.date, stock = _p.stock;
-  var casc = useMemo(function() { return stock ? _epnCascade(data, stock, null, null, date) : null; }, [data, stock, date]);
-  var stk = casc && casc.stk;
-  var reco = (stk && stk.alpha != null) ? stk.alpha : null;
-  var recoOk = !!(stk && stk.ok);
-  var stored = _epnDayAlphaGet(data, stock, date);
-  var _s = useState(stored != null ? String(stored) : ""), _sa = _slicedToArray(_s, 2), val = _sa[0], setVal = _sa[1];
-  useEffect(function() { setVal(stored != null ? String(stored) : ""); }, [stored, stock, date]);
-  var _valRef = useRef(val); _valRef.current = val;
-  var _storedRef = useRef(stored); _storedRef.current = stored;
-  var _recoRef = useRef(reco); _recoRef.current = reco;
-  var _step = function(delta) {
-    var cur = _valRef.current;
-    var b = (cur !== "" && !isNaN(Number(cur))) ? Number(cur) : (_storedRef.current != null ? _storedRef.current : (_recoRef.current != null ? _recoRef.current : 0));
-    var n = b + delta; if (n > 50) n = 50; if (n < 0) n = 0;
-    setVal(String(n));
-    if (n !== _storedRef.current) _epnDayAlphaSet(save, stock, date, n);
-  };
-  return React.createElement("div", { style: { background: "#fff", border: "1px solid #BAE6FD", borderRadius: 7, padding: "6px 8px", marginBottom: 5 } },
-    React.createElement("div", { style: { fontSize: 9.5, color: "#0369A1", fontWeight: 700, marginBottom: 3 } }, "本日の採用α値"),
-    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
-      React.createElement("input", { type: "text", inputMode: "numeric", value: val, placeholder: reco != null ? String(reco) : "—",
-        onChange: function(ev) { var v = _toHankakuNum(ev.target.value); if (v === "" || !isNaN(Number(v))) setVal(v); },
-        onBlur: function() {
-          if (val === "" || isNaN(Number(val))) { if (stored != null) _epnDayAlphaSet(save, stock, date, null); return; }
-          var n = Math.max(0, Math.min(50, Number(val)));
-          if (n !== stored) _epnDayAlphaSet(save, stock, date, n);
-        },
-        style: { width: 46, padding: "2px 5px", fontSize: 15, fontWeight: 700, color: "#0369A1", border: "1px solid #93C5FD", borderRadius: 5, background: "#fff", textAlign: "right", boxSizing: "border-box", outline: "none" } }),
-      React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
-      _stepBtn(function() { _step(1); }, function() { _step(-1); }),
-      React.createElement("button", { type: "button", onClick: function() { _p.onOpenTable(stock); },
-        style: { fontSize: 10, fontWeight: 700, color: "#1D4ED8", background: "#fff", border: "1px solid #93C5FD", borderRadius: 5, padding: "3px 7px", cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 26 : 20 } }, "表を参照"),
-      React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", whiteSpace: "nowrap" } }, reco != null ? ("現状の推奨 " + reco + "円" + (recoOk ? "" : "（仮）")) : "推奨データ無し")));
-}
+// 旧 _EpnDayAlphaField（本日の採用α値の単一版）は _ElDayAlphaPair（基本α＋応用αの2カラム版）へ差し替え済みで未マウント＝死コードのため削除。関連の _tableModal / onOpenTable も死コード化（表参照は _ElDayAlphaPair に集約）2026-07-22j
 // 早見のインライン編集（③起点/④その他/⑤ライン併存の変更）用: 新しい詳細から推奨基本αを再導出（ライン併存ルール〇なら1）してepを再計算。
 // _EpnCalcForm.autoPick と同じ段階フォールバック（詳細別→シグナル別→銘柄全体・okが無ければ仮値）＝変更時は両方直す。推奨が全く無ければbaseは据え置き。
 // 予定EPの正本計算（2026-07-14 共通化・監査finding#1）: base-levelα＝応用〇なら応用α・通常は基本α。予定EP＝round((水準線+base-levelα+浮き足+RN)*100)/100。保存EPを書く全ハンドラはこの2関数経由に統一＝式のズレ・応用α落ち・廃止add項の混入を防ぐ。
@@ -4166,7 +4130,7 @@ function _EpnCalcForm(_p) {
   var _useStateEPNea = useState(null), _useStateEPNeaA = _slicedToArray(_useStateEPNea, 2), editAt = _useStateEPNeaA[0], setEditAt = _useStateEPNeaA[1];
   var _useStateEPNdn = useState(false), _useStateEPNdnA = _slicedToArray(_useStateEPNdn, 2), editDone = _useStateEPNdnA[0], setEditDone = _useStateEPNdnA[1];
   var _useStateEPNdo = useState(false), _useStateEPNdoA = _slicedToArray(_useStateEPNdo, 2), detOpen = _useStateEPNdoA[0], setDetOpen = _useStateEPNdoA[1];   // ③起点〜⑤詳細の開閉（案A 2026-07-10・③底抜けは2026-07-13で畳みの外へ）: 既定は畳み・編集読込で詳細値があれば自動展開・保存対象外のUI状態
-  var _useSpT = useState(false), _useSpTA = _slicedToArray(_useSpT, 2), showSpTable = _useSpTA[0], setShowSpTable = _useSpTA[1];   // 応用α（合計α）詳細データ表ポップアップの開閉 2026-07-13
+  // 旧 showSpTable state は削除（_spModal を死コード化＝未使用）2026-07-22j
   var _rootRef = useRef(null);
   // ライン併存ルール（独自欄nLineCoexist 2026-07-08g）: 〇にすると基本α欄へ1を自動入力＝切替の瞬間だけ効き、手修正可・×へ戻すと1なら空に戻す（推奨に戻る）。記録フォームEntryRecordFormと同ルール＝二重実装・変更時は両方直す。旧・併存ラインチップ検知はmigrateData _migLineCoexistで本フラグへ移行済み。
   var _kyozPrevRef = useRef(nLineCoexist);
@@ -4394,19 +4358,7 @@ function _EpnCalcForm(_p) {
   // 編集中（editId有り）は計算欄を琥珀色に＝どの列を編集中か一目で分かる（保存済みバナー＋更新保存ボタンと同系色）。2026-07-08
   var _editing = !!editId;
   // 「応用α 詳細データ表」ポップアップ（基本αの下のボタン→ 2026-07-13）: 記録帳と同じ_elTotalAlphaSectionV2（＝推奨合計α＝応用αの実体・母数は追加α〇[浮き/RN除外]）を、この銘柄のv2記録（この日より前＝_epnCascade.all）でオーバーレイ表示。本移行後は正式な応用α表に自動で切替わる。
-  var _spModal = showSpTable ? (function() {
-    var _c = _epnCascade(data, stock, null, null, date);
-    var _hs = _buildHolidayDateSet(data.trades, custom.eventCategories);
-    return React.createElement("div", { onClick: function() { setShowSpTable(false); },
-        style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 } },
-      React.createElement("div", { onClick: function(ev) { ev.stopPropagation(); },
-          style: { background: "#fff", borderRadius: 10, padding: "12px 14px", maxWidth: 660, width: "100%", maxHeight: "85vh", overflowY: "auto", boxSizing: "border-box" } },
-        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
-          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#6D28D9" } }, "応用α 詳細データ ・ " + stock),
-          React.createElement("button", { type: "button", onClick: function() { setShowSpTable(false); },
-            style: { border: "none", background: "transparent", fontSize: 18, color: "#94A3B8", cursor: "pointer", lineHeight: 1, padding: 2 } }, "×")),
-        _elTotalAlphaSectionV2(_c.all, _c.aiOf, _hs)));
-  })() : null;
+  var _spModal = null;   // 旧・応用α詳細ポップアップは開くボタンが撤去され到達不能（setShowSpTable(true)の呼出無し）＝死コードのため本体を削除。「表を参照」は_ElDayAlphaPairに集約済み 2026-07-22j
   return React.createElement("div", { ref: _rootRef, style: { minWidth: 0, boxSizing: "border-box", background: _editing ? "#FFFBEB" : "#fff", border: _editing ? "2px solid #F59E0B" : "1px solid #BFDBFE", borderRadius: 8, padding: _editing ? 7 : 8 } },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: _editing ? "#B45309" : "#1D4ED8", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (_editing ? "✎ 編集：" : "計算：") + stock),
@@ -4572,7 +4524,7 @@ function EpNaviPanel(_refEPN) {
   var _useStateEPN13 = useState(null), _useStateEPN13A = _slicedToArray(_useStateEPN13, 2), delArm = _useStateEPN13A[0], setDelArm = _useStateEPN13A[1];
   var _useStateEPNsp = useState(false), _useStateEPNspA = _slicedToArray(_useStateEPNsp, 2), showStockPicker = _useStateEPNspA[0], setShowStockPicker = _useStateEPNspA[1];
   var _useStateEPNso = useState(null), _useStateEPNsoA = _slicedToArray(_useStateEPNso, 2), _stkOrd = _useStateEPNsoA[0], setStkOrd = _useStateEPNsoA[1];
-  var _useStateEPNtm = useState(null), _useStateEPNtmA = _slicedToArray(_useStateEPNtm, 2), tableStock = _useStateEPNtmA[0], setTableStock = _useStateEPNtmA[1];   // 「表を参照」ポップアップ対象の銘柄（null=閉）2026-07-13d
+  // 旧 tableStock state は削除（_tableModal を死コード化＝未使用・表参照は_ElDayAlphaPairへ集約）2026-07-22j
   var _uRotSel = useState(""), rotSelRaw = _uRotSel[0], setRotSelRaw = _uRotSel[1];   // 日替わり列の表示銘柄（端末ローカル・表示のみ）2026-07-22i
   useEffect(function() { setRotSelRaw(_epnRotGet(date)); }, [date]);   // 日付ごとにlocalStorageの表示選択を読込（未設定/失効時は下の_rotSelで指定銘柄→候補先頭にフォールバック）
   var _rotSel = (rotSelRaw && rotStocks.indexOf(rotSelRaw) >= 0) ? rotSelRaw : _rotDefault;
@@ -4840,22 +4792,7 @@ function EpNaviPanel(_refEPN) {
         }));
     })()) : null;
   // 「表を参照」ポップアップ（2026-07-13d）: 記録帳と同じ推奨α値詳細表(_elBaseAlphaDetailV2)を全く同じ列でオーバーレイ表示。母数＝この銘柄のv2・算入記録（この日より前＝_epnCascade.all）＝計算フォーム推奨と同一。行タップ(onPick)でその基本α値を本日の採用α値に取り込み閉じる。現在の採用値(_curEff)を青ハイライト。
-  var _tableModal = tableStock ? (function() {
-    var _c = _epnCascade(data, tableStock, null, null, date);
-    var _hs = _buildHolidayDateSet(data.trades, custom.eventCategories);
-    var _cur = _epnDayAlphaGet(data, tableStock, date);
-    var _curEff = _cur != null ? _cur : ((_c && _c.stk && _c.stk.alpha != null) ? _c.stk.alpha : null);
-    return React.createElement("div", { onClick: function() { setTableStock(null); },
-        style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 } },
-      React.createElement("div", { onClick: function(ev) { ev.stopPropagation(); },
-          style: { background: "#fff", borderRadius: 10, padding: "12px 14px", maxWidth: 660, width: "100%", maxHeight: "85vh", overflowY: "auto", boxSizing: "border-box" } },
-        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
-          React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1D4ED8" } }, "推奨α値 詳細データ ・ " + tableStock),
-          React.createElement("button", { type: "button", onClick: function() { setTableStock(null); },
-            style: { border: "none", background: "transparent", fontSize: 18, color: "#94A3B8", cursor: "pointer", lineHeight: 1, padding: 2 } }, "×")),
-        React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginBottom: 6 } }, "行をタップでその基本α値を「本日の採用α値」に取り込み（ポップアップは閉じます）。横スクロールで全列。"),
-        _elBaseAlphaDetailV2(_c.all, _c.aiOf, _hs, function(av) { _epnDayAlphaSet(save, tableStock, date, av); setTableStock(null); }, _curEff)));
-  })() : null;
+  var _tableModal = null;   // 旧・_EpnDayAlphaField用の「表を参照」ポップアップは_EpnDayAlphaField自体が未マウント＝到達不能（setTableStock(stock)呼出無し）＝死コードのため本体を削除。現行の表参照は_ElDayAlphaPairに集約 2026-07-22j
   return React.createElement("div", { style: { border: "1.5px solid #BFDBFE", borderRadius: 8, padding: 10, background: "#F8FAFF", boxSizing: "border-box", marginBottom: 12 } },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 6, flexWrap: "wrap" } },
       React.createElement("span", { style: { fontSize: 13.5, fontWeight: 800, color: "#1D4ED8", whiteSpace: "nowrap" } }, "⚡ EPナビ"),
