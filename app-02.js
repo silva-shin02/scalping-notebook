@@ -5047,7 +5047,7 @@ function WeeklyPnlPanel(_wpp) {
     var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, excluded: function(r) { return _elCollExcluded(data, r, stock); }, real: function(r) { if (!_elIsEntered(r.signal, r.item)) return null; var it = r.item; return (it && it.pnl != null) ? Number(it.pnl) : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); } });
     var _allMiss = _elAllMissRow(_list, _alphaOf, _cutOf);
     var _listM = _list.filter(function(r) { return !_elCollExcluded(data, r, stock); });   // 時間かぶり除外後＝OS・損益詳細(EP/H1/H2)の集計は姉妹の最新式サマリーと同じ_recsM方式 2026-07-13
-    var _totDays = _elActiveDays(_listM);
+    var _totDays = _elBizDaysOf(_listM, data);
     return React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
       React.createElement("td", { colSpan: 9, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#FFFBF0" } }, _lblTot("最終損益"), _amtCell(_t.hold2, _t.hold2Cnt, _t.hold2Ref, _t.hold2RefCnt, false, _allMiss, _totDays)),
@@ -5110,7 +5110,7 @@ function WeeklyPnlPanel(_wpp) {
     // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_recsM＝被り除外後・件数系(st/件/到達等)はrecsのまま。銘柄別ビュー＝同一銘柄内のみ 2026-07-08
     var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r, stock); });   // 金額集計母数＝時間かぶり除外のみ（2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）
     var _stM = _recsM.length === recs.length ? st : _elCalcStats(_recsM, data);
-    var _rowDays = _elActiveDays(_recsM);
+    var _rowDays = _elBizDaysOf(_recsM, data);
     var _ent = _wkEntCnt(recs);
     var _osv = _wkAvgOs(recs);
     var _isExp = !!dayExp[rowKey];

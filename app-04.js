@@ -6158,7 +6158,7 @@ function DayView(_ref57) {
           ));
         }
       });
-      var _pbTotDays = _elActiveDays(expRecs);
+      var _pbTotDays = _elBizDaysOf(expRecs, data);
       var _pdAvg = function(_x) { return _pbTotDays > 0 ? Math.round(_x / _pbTotDays) : _x; };
       var _totRealGrade = _totRealCnt > 0 ? _profitGradeFromPnlReal(_pdAvg(_totReal != null ? _totReal : 0), _totRealCnt) : null;
       var _totPlanGrade = _totPlanCnt > 0 ? _profitGradeFromPnl(_pdAvg(_totPlan != null ? _totPlan : 0), _totPlanCnt) : null;
@@ -6349,7 +6349,7 @@ function DayView(_ref57) {
         // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_wkRecsM＝被り除外後・件数系(st/件/到達等)はrecsのまま 2026-07-07
         var _wkRecsM = recs.filter(function(r) { return !_elCollExcluded(data, r); });   // 金額集計母数＝時間かぶり除外のみ（2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）
         var _wkStM = _wkRecsM.length === recs.length ? st : _elCalcStats(_wkRecsM, data);
-        var _wkRowDays = _elActiveDays(_wkRecsM);
+        var _wkRowDays = _elBizDaysOf(_wkRecsM, data);
         var _ent = _wkEntCnt(recs);
         var _osv = _wkAvgOs(recs);
         var _isExp = !!pnlTableExpandSet[rowKey];

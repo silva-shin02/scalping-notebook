@@ -136,8 +136,8 @@ function stripHtml(h) {
   }
 }
 
-// 複数日合計のグレード判定用の除数＝集計対象記録に含まれる異なる取引日の数（実稼働営業日）。単一日データは1を返すため、どこに渡しても安全（単日行・記録単位は不変）。2026-07-23
-function _elActiveDays(recs) { var s = {}; (recs || []).forEach(function (r) { if (r && r.date) s[r.date] = 1; }); return Object.keys(s).length; }
+// 複数日合計のグレード判定用の除数＝集計対象記録のスパンの営業日数（_elBizSpanDays）＝全体損益(_bizDaysIn)の営業日ベースと統一 2026-07-23。単日/1記録はその日が営業日なら1で不変（0でも判定側が合計へフォールバック）。holiSetはdataから内製。
+function _elBizDaysOf(recs, data) { var _d = data || {}; return _elBizSpanDays(recs, _buildHolidayDateSet(_d.trades, (_d.custom || {}).eventCategories)); }
 
 
 function _hasText(t) {

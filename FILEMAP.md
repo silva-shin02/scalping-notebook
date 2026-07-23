@@ -47,6 +47,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23o 1日平均グレードの分母を「営業日」に統一（取引実日数→_elBizDaysOf・sw v254→v255）
+- ユーザー「営業日ベースに寄せて」。2026-07-23nの分母 `_elActiveDays`（取引実日数）を **`_elBizDaysOf(recs, data)`（記録スパンの営業日数＝`_elBizSpanDays`・全体損益`_bizDaysIn`の営業日ベースと統一）** に差し替え。`_elActiveDays`(app-01)は削除。
+- **全9呼び出し更新**: app-02（`_totDays`/`_rowDays`）・app-04（`_pbTotDays`/`_wkRowDays`）・app-06（`_frDays`/`_pkDays`/分析パネル`_osFilRecs`／集計KPIは旧`_entDays`→`_elBizDaysOf(rs,data)`）。holiSetは`_buildHolidayDateSet(data.trades,(data.custom||{}).eventCategories)`で内製。**単日=1で不変・スパン0時は合計にフォールバック**（判定側の`days>0?…:合計`）。
+- 検証: app-01/02/04/06 V8 parse OK＋`_elBizDaysOf`単体（月〜金=**5**・単日=1・空=0・木〜翌木=**6**[土日除外]）＋`_elActiveDays`残存0＋実マウント（console 0）。実データの見た目はユーザー実機。
+
 ### 2026-07-23n 複数日合計のグレードを全表で「1日平均」に統一（記録帳KPI・今週の週合計・共有関数）（sw v253→v254）
 - ユーザー「エントリー記録帳などアプリ全体でもチェックして」。監査（専任エージェント＋精査）でper-day目盛りのグレードを複数日合計に当てている箇所を**17＋共有関数1**特定→全て1日平均化。
 - **新helper `_elActiveDays(recs)`（app-01・`stripHtml`直後）**＝集計対象記録の異なる取引日数（単日/1記録は1→不変で安全）。これを除数に `Math.round(合計/日数)` でグレード判定（**表示は合計のまま**）。

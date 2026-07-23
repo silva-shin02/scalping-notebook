@@ -6113,10 +6113,10 @@ function EntryLogView(_ref_elv2) {
       _freqCard,
       _kpiCard("E到達率", reach != null ? reach + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
       _kpiCard("E後の勝率", _ewin != null ? _ewin + "%" : "—", _ewin != null ? (_ewin >= 50 ? "#1E8449" : "#B45309") : "#bbb", "勝" + _wOk + "・負" + _wNg + (_wDr ? "・分" + _wDr : "") + "／E成立" + _ewinD + "件"),
-      _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _entDays), null, t.hold2Cnt + "件・○途切れで手じまい"),
+      _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _elBizDaysOf(rs, data)), null, t.hold2Cnt + "件・○途切れで手じまい"),
       _kpiCard("損切り", (ss && ss.any || 0) + "回", ss && ss.any > 0 ? "#1E8449" : "#bbb", ss && ss.rate != null ? "率" + ss.rate + "%（想" + ss.plan + "・H1 " + ss.h1 + "・H2 " + ss.h2 + "）" : null),
       _kpiCard("×見送り", x + "件", x > 0 ? "#1E8449" : "#bbb", "×宣言後の到達"),
-      _kpiCard("実現損益", _yenN(t.real, t.realCnt, _entDays), null, t.realCnt + "件"),
+      _kpiCard("実現損益", _yenN(t.real, t.realCnt, _elBizDaysOf(rs, data)), null, t.realCnt + "件"),
       _kpiCard("1日あたり損益", _perDay != null ? (_elPnlFmt(_perDay) + "/日") : "—", _perDay != null ? _elPnlColor(_perDay) : "#bbb", "手じまい基準・" + _entDays + "日エントリー")
     ].filter(Boolean)));
   };
@@ -6135,7 +6135,7 @@ function EntryLogView(_ref_elv2) {
   var _fillRiskSection = function(rs, scopeNote) {
     var _riskRecs = (rs || []).filter(_elFillRiskRec);
     var t = _friskTotOf(rs, false), t2 = _friskTotOf(rs, true);
-    var _frDays = _elActiveDays(rs);
+    var _frDays = _elBizDaysOf(rs, data);
     var _diff = (t.hold2 != null && t2.hold2 != null) ? (t2.hold2 - t.hold2) : null;
     var _cell = function(label, val, color, sub) {
       return React.createElement("div", { key: label },
@@ -6453,7 +6453,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
         _kpiCard("件数", _osFilRecs.length + "件", "#333", (function() { var _cn = _elCollExclCountRecs(data, _osFilRecs, _collScope); return _cn > 0 ? "被り除外" + _cn + "件" : null; })()),
         _kpiCard("E到達数（到達率）", _reach + "件（" + _reachRate + "%）", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
-        _kpiCard("一番引っ張った損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _elActiveDays(_osFilRecs)), null, "○で最深（○△）・" + t.hold2Cnt + "件"),
+        _kpiCard("一番引っ張った損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _elBizDaysOf(_osFilRecs, data)), null, "○で最深（○△）・" + t.hold2Cnt + "件"),
         _kpiCard("損切り件数（損切り率）", (ss.any || 0) + "回（" + (ss.rate != null ? ss.rate : 0) + "%）", ss.any > 0 ? "#1E8449" : "#bbb", "E成立が分母"),
         _kpiBase,
         _kpiAdd),
@@ -6814,7 +6814,7 @@ function EntryLogView(_ref_elv2) {
       };
       var _periodKpi = function(rs) {
         var t = _periodTot(rs), rr = _ratesOf(rs);
-        var _pkDays = _elActiveDays(rs);
+        var _pkDays = _elBizDaysOf(rs, data);
         return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
           _kpiCard("件数", rs.length + "件", "#333", (function() { var _cn = _elCollExclCountRecs(data, rs, _collScope); return _cn > 0 ? "被り除外" + _cn + "件" : null; })()),
           _kpiCard("実現損益", _yenN(t.real, t.realCnt, _pkDays), null, t.realCnt + "件"),
