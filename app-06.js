@@ -2192,7 +2192,7 @@ function _elTotalAlphaSectionV2(recs, aiOf, holiSet, onPick, curSel, spanOverrid
       _elv2Td(_elGateBadges(_ng))
     ];
     if (onPick) _cells.push(_elv2Td(React.createElement("span", { style: { color: "#B45309", fontWeight: 800, fontSize: 10, whiteSpace: "nowrap" } }, _isCur ? "採用中" : "選択")));
-    return React.createElement.apply(null, ["tr", { key: e.a, onClick: onPick ? function() { onPick(e.a); } : null, style: { background: on ? "#FFF7ED" : (_isCur ? "#FEF3C7" : "transparent"), opacity: pass ? 1 : 0.4, cursor: onPick ? "pointer" : "default" } }].concat(_cells));
+    return React.createElement.apply(null, ["tr", { key: e.a, onClick: onPick ? function() { onPick(e.a); } : null, style: { background: on ? "#FFF7ED" : (_isCur ? "#FEF3C7" : "transparent"), opacity: pass ? 1 : 0.65, cursor: onPick ? "pointer" : "default" } }].concat(_cells));
   });
   var insight = _nomin ? null : _elInsightBoxV2([
     React.createElement("span", null, "応用〇で採用する独立α値の", _elInsightEmV2("理想は応用α " + ideal + "円"), "、", _elInsightEmV2("推奨は " + a + "円（理想−" + _EL_ALPHA_OFFSET + "）"), "（平均最終損益 ", _elInsightEmV2(pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—"), "・損切り率(最終) ", _elInsightEmV2(_pctS(pick.stopRate)), "・E成立 ", _elInsightEmV2((pick.decided || 0) + "件"), "）。"),
@@ -2496,7 +2496,7 @@ function _elBaseAlphaSummary(recs, aiOf) {
   var sweepRows = _h2s.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var on = e.a === pick.alpha;
     var pass = e.decided >= minN && e.eRate != null && e.eRate >= _EL_BASE_MIN_ERATE && e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && e.h2Sum != null && e.h2Sum > 0;
-    return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.45 } },
+    return React.createElement("tr", { key: e.a, style: { background: on ? "#FEF3C7" : "transparent", opacity: pass ? 1 : 0.65 } },
       _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: on ? "#B45309" : "#0369A1" } }, e.a + "円", on ? _elStarNode(pick.status) : null), { textAlign: "left", paddingLeft: 8 }),
       _elv2Td(_elPctCell(e.eRate)),
       _elv2Td(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
@@ -2612,7 +2612,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride)
       _elv2Td(_elGateBadges(_ng))
     ];
     if (onPick) _cells.push(_elv2Td(React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 800, fontSize: 10, whiteSpace: "nowrap" } }, _isCur ? "採用中" : "選択")));
-    return React.createElement.apply(null, ["tr", { key: e.a, onClick: onPick ? function() { onPick(e.a); } : null, style: { background: on ? "#FEF3C7" : (_isCur ? "#EFF6FF" : "transparent"), opacity: pass ? 1 : 0.4, cursor: onPick ? "pointer" : "default" } }].concat(_cells));
+    return React.createElement.apply(null, ["tr", { key: e.a, onClick: onPick ? function() { onPick(e.a); } : null, style: { background: on ? "#FEF3C7" : (_isCur ? "#EFF6FF" : "transparent"), opacity: pass ? 1 : 0.65, cursor: onPick ? "pointer" : "default" } }].concat(_cells));
   });
   // ②の母数記録テーブルは2026-06-26にユーザー要望で削除。母数集計（scN/損切り/勝ち/その他/対象外）だけ残し読み取りに使用。母数＝追加α〇を除く（×・未選択のみ）＝_baseRecs。
   var _mRecs = _baseRecs;
