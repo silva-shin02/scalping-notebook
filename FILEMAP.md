@@ -47,6 +47,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23e 記録フォームのα入力欄デフォルトを「その日の採用α値」のみに＋推奨α値の右にその日の採用α値を表示（sw v244→v245）
+ユーザー指示。**app-05.js `EntryRecordForm` の基本α/応用α**。①`_baDefault`/`_spDefault` を `epNaviDayAlpha`/`epNaviDaySpecialAlpha`（＝その日の採用α値・`_epnDayAlphaGet`/`_epnDaySpecialAlphaGet`）**のみ**に（推奨α`_autoBaseA`/`_refSpecialA`フォールバックを廃止）＝入力欄デフォルトはその日の採用α値のみ・未設定なら空（placeholder「推奨基本α/応用α」→「ー」）②基本α/応用α入力欄の value の推奨αフォールバックを空文字に③推奨基本α値/推奨応用α値サマリーの右に「その日の採用α値 N円 or ー」バッジを追加（青#E0F2FE/茶#FFEDD5）。**予定EP計算 `_fBaseAInput`/`_fSpecialA` は既存維持**（欄が空のとき従来どおり推奨α/基本αで値を出す＝EPプレビューは変えない）。自動入力useEffectは`_baDefault`経由で連動＝その日の採用α値が無ければ自動入力なし（欄空・手入力）。検証=`EntryRecordForm`実マウントで その日の採用α値3→基本α入力欄value="3"・「その日の採用α値 3円」表示／未設定→「その日の採用α値 ー」（対称の応用αも同コード）。
+
 ### 2026-07-23d チャート形状タグ「ノーシグナル」を「チャート形状」→「取引」カテゴリへ移動＋既存記録を一括移行（sw v243→v244）
 ユーザー指示。**app-01.js `migrateData` に一回性移行 `_migShapeNoSignalToTrade` を追加**（`return d` 直前）＝①マスター `custom.chartShapeCats` の「チャート形状」配列から「ノーシグナル」を除去し「取引」へ追加 ②全記録 `charts[ck].chartShapeTags` の `"チャート形状:ノーシグナル"→"取引:ノーシグナル"` を付け替え。タグは「カテゴリ:名前」形式・区切りは半角`:`（`stripCat`＝`/^[^:]+:/`と同じ）。**条件ベース冪等**（「チャート形状」に「ノーシグナル」が無ければ no-op）・「取引」カテゴリが無ければ作成・in-place mutate（`_migLineCoexist`と同型）。タグ管理は `makeShapeTagPoolHandlers`(app-02)＝`chartShapeCats`{cat:[names]}＋loose `chartShapeTags`。検証=`migrateData` 合成データで カテゴリ移動／記録付替（他タグ不変）／冪等／取引カテゴリ新規作成 を確認。※早見表・今週の損益データへの「ノーシグナル」バッジ表示は別途（前回決定=淡いバッジ・早見表＋今週）。
 

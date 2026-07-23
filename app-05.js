@@ -6454,9 +6454,9 @@ function EntryRecordForm(_ref_erf) {
   // 推奨基本α＝現在の母数スコープ(_baScope・既定=全体)のpick＝auto-input/見出し/_fBaseAInputの正本（2026-07-14b：旧カスケードdet→sig→stkの自動優先は廃止＝デフォルト全体・切替はユーザー操作）。詳細表と同一母数(_alTblRecs)・同一関数(_elBaseAlphaPick)。
   var _baActive = useMemo(function() { return _baPickForScope(_baScope); }, [_alTblRecs, _baScope, data]);
   var _autoBaseA = _baActive.alpha;
-  // 本日の採用α値（EPナビと共有・charts.epNaviDayAlpha）を新規記録の基本α既定に優先採用（あれば固定＝シグナル変更でも追従しない・無ければ推奨基本α_autoBaseAに追従）2026-07-21。見出しの推奨基本α表示は_autoBaseAのままEP＝履歴推奨を示す。
+  // 本日の採用α値（EPナビと共有・charts.epNaviDayAlpha）を新規記録の基本α既定に採用（あれば固定＝シグナル変更でも追従しない）2026-07-21。2026-07-23: 未設定時の推奨基本α_autoBaseAフォールバックは廃止＝その日の採用α値のみをデフォルトに（無ければ入力欄は空「ー」・推奨基本αは右に参考表示）。見出しの推奨基本α表示は_autoBaseAのまま＝履歴推奨。
   var _dayBaseA = _epnDayAlphaGet(data, fStock, fDate);
-  var _baDefault = (_dayBaseA != null) ? _dayBaseA : _autoBaseA;
+  var _baDefault = _dayBaseA;   // その日の採用α値のみ（推奨基本αフォールバック廃止 2026-07-23）
   // 母数スコープ変更＝そのスコープのpickを基本α欄へ即反映（手touched解除＝以後もこのスコープpickを追従）。見出しプルダウン／詳細表「この推奨値を使う」／「全体の推奨値にする」から呼ぶ。
   var _applyBaScope = function(scope) {
     _setBaScope(scope);
@@ -6504,9 +6504,9 @@ function EntryRecordForm(_ref_erf) {
   };
   var _refSpecial = useMemo(function() { return _spRecsForScope(_spScope); }, [data, fStock, fDate, _spScope]);
   var _refSpecialA = (_refSpecial && _refSpecial.alpha != null) ? _refSpecial.alpha : null;
-  // 本日の採用応用α値（charts.epNaviDaySpecialAlpha）を応用α既定に優先採用（種別=応用α選択時に充填・無ければ推奨応用α_refSpecialA）2026-07-21。基本αの_baDefaultと対称。
+  // 本日の採用応用α値（charts.epNaviDaySpecialAlpha）を応用α既定に採用（種別=応用α選択時に充填）2026-07-21。2026-07-23: 未設定時の推奨応用α_refSpecialAフォールバックは廃止＝その日の採用応用α値のみ（無ければ入力欄は空「ー」・推奨応用αは右に参考表示）。基本αの_baDefaultと対称。
   var _daySpecialA = _epnDaySpecialAlphaGet(data, fStock, fDate);
-  var _spDefault = (_daySpecialA != null) ? _daySpecialA : _refSpecialA;
+  var _spDefault = _daySpecialA;   // その日の採用応用α値のみ（推奨応用αフォールバック廃止 2026-07-23）
   // スコープ切替＝そのスコープの推奨応用αを応用α欄へ即反映（基本αの_applyBaScopeと対称）。null（推奨なし）は欄を空に＝見出し「—」と一致。
   var _applySpScope = function(scope) { _setSpScope(scope); var pv = _spRecsForScope(scope); var pa = (pv && pv.alpha != null) ? pv.alpha : null; setFSpecialAlpha(pa != null ? String(pa) : ""); };
   // 合計算入／データ算入（2軸 2026-07-22f）: 記録固有 signal.includeInTotal / includeInData。既定は算入(ON)。旧記録の未設定はincludeInTotalに追従。
@@ -7811,9 +7811,9 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
-              value: fBaseAlpha !== "" ? fBaseAlpha : ((!isEdit && _baDefault != null) ? String(_baDefault) : (_autoBaseA != null ? String(_autoBaseA) : "")),
+              value: fBaseAlpha !== "" ? fBaseAlpha : ((!isEdit && _baDefault != null) ? String(_baDefault) : ""),
               onChange: function(e) { _setBA(e.target.value); },
-              placeholder: "推奨基本α",
+              placeholder: "ー",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#0C4A6E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(function() { _stepBA(1); }, function() { _stepBA(-1); })
@@ -7866,6 +7866,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("div", { style: _rowFlex },
               React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, "推奨基本α値 "),
               _autoBaseA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#0369A1" } }, _autoBaseA + "円") : ((_baActive && _baActive.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#0369A1" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
+              React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", background: "#E0F2FE", borderRadius: 4, padding: "1px 7px", whiteSpace: "nowrap" }, title: "EPナビ/日別ページで設定した『本日の採用α値』。基本α入力欄の初期値になります（未設定は「ー」）" }, "その日の採用α値 " + (_dayBaseA != null ? (_dayBaseA + "円") : "ー")),
               _headScopeSel,
               _toAllBtn,
               _tblBtn("base", "#0369A1", "#93C5FD")),
@@ -7883,9 +7884,9 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #FED7AA", borderRadius: 4, overflow: "hidden" } },
             React.createElement("input", {
               type: "text", inputMode: "numeric", min: "0", max: "50", step: "1",
-              value: fSpecialAlpha !== "" ? fSpecialAlpha : ((!isEdit && _spDefault != null) ? String(_spDefault) : (_refSpecialA != null ? String(_refSpecialA) : "")),
+              value: fSpecialAlpha !== "" ? fSpecialAlpha : ((!isEdit && _spDefault != null) ? String(_spDefault) : ""),
               onChange: function(e) { _setSA(e.target.value); },
-              placeholder: "推奨応用α",
+              placeholder: "ー",
               style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#92400E", border: "none", outline: "none", background: "#fff", width: 56, textAlign: "right", boxSizing: "border-box" }
             }),
             _stepBtn(function() { _stepSA(1); }, function() { _stepSA(-1); })
@@ -7911,6 +7912,7 @@ function EntryRecordForm(_ref_erf) {
           React.createElement("div", { style: _rowFlex },
             React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, "推奨応用α値 "),
             _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : ((_refSpecial && _refSpecial.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#9A3412" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
+            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", borderRadius: 4, padding: "1px 7px", whiteSpace: "nowrap" }, title: "EPナビ/日別ページで設定した『本日の採用応用α値』。応用α入力欄の初期値になります（未設定は「ー」）" }, "その日の採用α値 " + (_daySpecialA != null ? (_daySpecialA + "円") : "ー")),
             _spScopeSel,
             React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal("special"); }, title: "詳細データ表を表示（全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#fff", border: "1px solid #FDBA74", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表")),
           (_spScope === "all") ? React.createElement("div", { style: _sub }, _line) : null);
