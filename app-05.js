@@ -4656,12 +4656,13 @@ function _elHoldBoth(s, alpha, cutLine) {
 }
 // 集計表のH損益セル用: ①H1合計 ｜ ②H2合計 を1セルに横並び表示。sumH1/sumH2 は数値(円・nullなら—)。
 // 参考表示（（）内）: 期待度△（本合計（）外＝○のみから除外）の記録も含めた○△合計を「（Ⓐ +9,900円）」で返す（= 本合計mainSum ＋ △参考refSum）。×は一切算入しない。参考が無ければnull。
-function _elHold2RefSuffix(mainSum, refSum, refCnt) {
+function _elHold2RefSuffix(mainSum, refSum, refCnt, days) {
   if (refCnt == null || refCnt <= 0 || refSum == null) return null;
   var _incl = (mainSum || 0) + refSum;
+  var _gv = (days && days > 0) ? Math.round(_incl / days) : _incl;   // days指定＝複数日合計は1日平均でグレード判定（表示は合計）2026-07-23
   return React.createElement("span", { key: "h2ref", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF", fontWeight: 600, marginLeft: 2 } },
     "（",
-    _elHoldGradeBadge(_profitGradeFromPnl(_incl, 1)),
+    _elHoldGradeBadge(_profitGradeFromPnl(_gv, 1)),
     React.createElement("span", { style: { color: _elPnlColor(_incl) } }, _elPnlFmt(_incl)),
     "）");
 }

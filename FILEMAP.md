@@ -47,6 +47,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23m 全体損益（期間別）の複数日合計行はグレードを「1日平均」で判定（sw v252→v253）
+- ユーザー指摘「A〜G+は1日あたりの目盛りなので、複数日の合計にそのまま当てると常にA+化して無意味」。AskUserQuestionで「1日平均で判定」を選択。
+- **days（除数）を引数化**（後方互換＝未指定なら従来の合計判定）: app-05 `_elHold2RefSuffix(mainSum,refSum,refCnt,days)`／app-06 `_yenN(v,cnt,days)`・`_yenNR(v,cnt,ref,refCnt,days)`。days>0のとき **`Math.round(合計/days)`（＝1日平均）をグレード判定に使う（表示は合計額のまま・（）内参考も同基準）**。
+- **配線（app-06 `_ovPnlTbl`＋別の期間別テーブル）**: `pnlCell`(最終損益)・`realCell`(実現損益)・`friskCell`(指値同値除外後) が持つ `days`（=`_bizDaysIn`／`avgDayLine`と同じ営業日数）を `_yenN`/`_yenNR` へ。別テーブル(6904/6905)は `dn`。**日別行は days=1 で従来と同値**。**KPIカード・per-signal行（1日平均を出さない箇所）は対象外＝合計判定のまま**（1記録の実現損益グレード6006も不変）。
+- 検証: app-05/06 V8 parse OK＋days配線8箇所を実ソースで確認＋グレード妥当性（合計+128,200/56日＝+2,289→**A−**／2026-07=A+／2026-05=B・旧合計額ならA+）＋実マウント（console 0・`_elHold2RefSuffix`4引数）。実データの見た目はユーザー実機。
+
 ### 2026-07-23l グレードを9段(A+〜G+)に細分化＋Q→Z統合＋ノーシグナル=DNF/有効シグナルなし=Z（sw v251→v252）
 - **9段グレード（ユーザー設計）**: 損益/実現損益のグレードを A〜G の7段から **A+/A−/B/C/D/E/F/G−/G+ の9段**へ（D=0中心に対称・両端A/Gのみ±分割）。`_profitGradeFromPnl`（損益: A+≥2500 / A−2000〜2499 / B1000〜1999 / C1〜999 / D0 / E−1〜−999 / F−1000〜−1999 / G−−2000〜−2499 / G+≤−2500）と`_profitGradeFromPnlReal`（実現損益＝10倍スケール: A+≥25000…G+≤−25000）を書換（app-05）。`_GRADE_STYLE`/`_GRADE_DESC`/`_GRADE_DESC_REAL`にA+/A−/G−/G+追加（旧A/Gはエイリアス保持）＝赤(利益)→グレー(0)→緑(損失)ランプ。
 - **Q→Z統合**: 「E基準未達で損益なし(Q)」を **Z（取引なし）に統合**。`_qZeroCell`＝「Q ー円」→「Z ー円」、app-04 `_pbBadge("Q")`→`_pbBadge("Z")`。全凡例からQ削除（app-02×2 `_renderGradeLegend2Row`／app-04 `_trLegendPairs`＋`grades`配列＋mkRow）。

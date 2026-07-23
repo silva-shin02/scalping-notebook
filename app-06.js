@@ -5781,19 +5781,20 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { fontSize: 19, fontWeight: 800, color: color || "#1A1714", lineHeight: 1.1, whiteSpace: "nowrap", letterSpacing: "-0.01em" } }, val),
       sub ? React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 2 } }, sub) : null);
   };
-  var _yenN = function(v, cnt) {
+  var _yenN = function(v, cnt, days) {
     if (cnt === 0 || v == null) return _dash;
+    var _gv = (days && days > 0) ? Math.round(v / days) : v;   // days指定＝複数日合計は1日平均でグレード判定（表示は合計）2026-07-23
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, justifyContent: "center", whiteSpace: "nowrap" } },
-      _elHoldGradeBadge(_profitGradeFromPnl(v, 1)),
+      _elHoldGradeBadge(_profitGradeFromPnl(_gv, 1)),
       React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)));
   };
   // 金額＋（）内の○△参考値。EP/H1/H2の合計表示で「△を本算入(（）外)していたら」の○△合計を（Ⓐ+9,900円）で併記（2026-06-16: ×と未設定は算入も参考も無し）。
   // ref/refCnt は _elTotAccum の planRef/holdRef/hold2Ref 系（△/損切り済由来）。参考が無ければ通常表示。実現損益には付けない。
-  var _yenNR = function(v, cnt, ref, refCnt) {
-    var suf = _elHold2RefSuffix(v, ref, refCnt);
-    if (!suf) return _yenN(v, cnt);
+  var _yenNR = function(v, cnt, ref, refCnt, days) {
+    var suf = _elHold2RefSuffix(v, ref, refCnt, days);
+    if (!suf) return _yenN(v, cnt, days);
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 2, whiteSpace: "nowrap" } },
-      _yenN(v, cnt),
+      _yenN(v, cnt, days),
       React.createElement("span", { style: { fontSize: 11, fontWeight: 600, lineHeight: 1.2 } }, suf));
   };
   // 損益（期間別）テーブル＝全銘柄合算をday/week/monthで集計。各損益セルに合計＋平均を併記・損切り(件数/平均額/率)列・行タップでその期間の取引記録を展開。「損益」タブの集計ビュー頭 2026-06-22d。損益基準は_elTotAccum（取引/銘柄別記録と同一）。2026-07-09 EP損益/H1損益列を廃し「最終損益」1列に集約（＝旧H2損益・_elHold2TotPartsの（）外=○が途切れた所で手じまい/（）内=△含む・値は不変）。
@@ -5872,8 +5873,8 @@ function EntryLogView(_ref_elv2) {
     // 件数の下の「（1日平均〇件）」＝件数÷日数(営業日数)。割り切れれば整数・端数は小数第1位まで（四捨五入後に整数化されれば整数表示）。日別(g==="day")は各行=1日で件数と同値になり冗長なので非表示 2026-07-19。
     var avgCntLine = function(cnt, days) { if (!days || g === "day" || !cnt) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };   // !cnt＝0件(スルーのみの期間)は「1日平均0件」が冗長なので出さない 2026-07-20b
     var cntCell = function(cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", null, cnt + "件"), avgCntLine(cnt, days)), ex); };
-    var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt), avgDayLine(v, days)), ex); };
-    var realCell = function(v, cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt), avgDayLine(v, days)), ex); };
+    var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt, days), avgDayLine(v, days)), ex); };   // days渡し＝1日平均でグレード判定 2026-07-23
+    var realCell = function(v, cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt, days), avgDayLine(v, days)), ex); };
     var stopCell = function(st, ex) {
       if (!st || st.n === 0) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
       return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
@@ -5899,7 +5900,7 @@ function EntryLogView(_ref_elv2) {
       var df = (a.hold2 != null && b.hold2 != null) ? (b.hold2 - a.hold2) : null;
       return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
         React.createElement("span", { style: { fontWeight: 800, color: n ? "#0F6E56" : "#bbb" } }, n + "件", (n && tot) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", marginLeft: 3 } }, Math.round(n / tot * 100) + "%") : null),
-        React.createElement("span", { style: { marginTop: 1 } }, _yenNR(b.hold2, b.hold2Cnt, b.hold2Ref, b.hold2RefCnt)),
+        React.createElement("span", { style: { marginTop: 1 } }, _yenNR(b.hold2, b.hold2Cnt, b.hold2Ref, b.hold2RefCnt, days)),
         (df != null && df !== 0) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#0F6E56", fontWeight: 700, lineHeight: 1.1 } }, "差額" + (df >= 0 ? "+" : "") + df.toLocaleString()) : null,
         avgDayLine(b.hold2, days)), ex);
     };
@@ -6901,8 +6902,8 @@ function EntryLogView(_ref_elv2) {
           _tdP(rr.takeRate != null ? React.createElement("span", { style: { fontWeight: 700, color: rr.takeRate >= 50 ? "#1E8449" : "#B45309" } }, rr.take + "件・" + rr.takeRate + "%") : React.createElement("span", { style: { color: "#bbb" } }, "—")),
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 }),
           _tdP(rr.soft + "%", { color: rr.soft > 0 ? "#B45309" : "#bbb", fontWeight: rr.soft > 0 ? 700 : 400 }),
-          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), (dn && t.hold2 != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.hold2 / dn) >= 0 ? "+" : "") + Math.round(t.hold2 / dn).toLocaleString()) : null)),
-          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(t.real, t.realCnt), (dn && t.real != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.real / dn) >= 0 ? "+" : "") + Math.round(t.real / dn).toLocaleString()) : null))));
+          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn), (dn && t.hold2 != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.hold2 / dn) >= 0 ? "+" : "") + Math.round(t.hold2 / dn).toLocaleString()) : null)),
+          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(t.real, t.realCnt, dn), (dn && t.real != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.real / dn) >= 0 ? "+" : "") + Math.round(t.real / dn).toLocaleString()) : null))));
         if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
       });
       return _cardify([
