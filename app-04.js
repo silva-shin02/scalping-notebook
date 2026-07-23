@@ -4542,15 +4542,19 @@ function EpNaviPanel(_refEPN) {
     var uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
     _epnPut(save, date, st, Object.assign({}, e, { base: nB, ep: _epnComputeEp(level, nB, uki, rn) }));
   };
-  // 応用α 〇×トグル（計算欄と同じ仕組み 2026-07-08f→2026-07-13応用α化）: 〇＝推奨応用α（無ければ基本α）を初期値に入れてEP再計算／×＝通常（基本α）に戻す・根拠クリア。値・根拠はあとで手動変更可。
+  // 応用α 〇×トグル（計算欄と同じ仕組み 2026-07-08f→2026-07-13応用α化）: 選択時のデフォルト値は「本日の採用α値」を最優先（2026-07-23・計算フォームと揃える）。〇＝本日の採用応用α値（無ければ推奨応用α→基本α）／×＝本日の採用α値（無ければ既存の基本α値）でEP再計算・根拠クリア。値・根拠はあとで手動変更可。
   var onSetSpecialUsed = function(st, e, used) {
     var base = Number(e.base) || 0, uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
     if (used) {
-      var reco = _epnSpecialReco(data, st, date, e.tag, { b: e.b || null, k: e.k || null, f: Array.isArray(e.f) ? e.f : [] }, Array.isArray(e.specialReasons) ? e.specialReasons : []);
-      var nS = (reco && reco.v != null) ? reco.v : base;
+      var _daySp = _epnDaySpecialAlphaGet(data, st, date);   // 本日の採用応用α値を最優先（無ければ推奨応用α→基本α）2026-07-23
+      var nS;
+      if (_daySp != null) { nS = _daySp; }
+      else { var reco = _epnSpecialReco(data, st, date, e.tag, { b: e.b || null, k: e.k || null, f: Array.isArray(e.f) ? e.f : [] }, Array.isArray(e.specialReasons) ? e.specialReasons : []); nS = (reco && reco.v != null) ? reco.v : base; }
       _epnPut(save, date, st, Object.assign({}, e, { specialUsed: true, special: nS, ep: _epnComputeEp(level, nS, uki, rn) }));
     } else {
-      _epnPut(save, date, st, Object.assign({}, e, { specialUsed: false, special: null, specialReasons: [], ep: _epnComputeEp(level, base, uki, rn) }));
+      var _dayB = _epnDayAlphaGet(data, st, date);   // 本日の採用α値（基本α）を最優先（無ければ既存の基本α値）2026-07-23
+      var nB = (_dayB != null) ? _dayB : base;
+      _epnPut(save, date, st, Object.assign({}, e, { specialUsed: false, special: null, specialReasons: [], base: nB, ep: _epnComputeEp(level, nB, uki, rn) }));
     }
   };
   // RNまたぎ加算 〇×＋値（早見カード 2026-07-08h）: 〇＝rn値（既定5・既存値あればそれ）を入れてEP再計算／×＝rn0。追加α・ライン併存と同じ即_epnPut保存パターン。
