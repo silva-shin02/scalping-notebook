@@ -6406,6 +6406,8 @@ function EntryRecordForm(_ref_erf) {
   var _uBaScope = useState("all"), _baScope = _uBaScope[0], _setBaScope = _uBaScope[1];
   // 詳細表ポップアップ内で閲覧中の母数（フォームの_baScopeとは独立＝見るだけ・開くたび全体に戻す）。"all"|シグナルtag。
   var _uAlScope = useState("all"), _alTblScope = _uAlScope[0], _setAlTblScope = _uAlScope[1];
+  // 詳細表ポップアップの母数種類（2026-07-23 ユーザー要望＝「表を参照」_ElDayAlphaPairと対称）: "band"=株価帯別（この銘柄の本日の帯と同じ帯だった全記録・銘柄横断）/"stock"=銘柄別（既存の全体/シグナルのサブトグル）。帯不明/材料日はstockへ自動フォールバック。開くたびbandへ戻す。
+  var _uAlPool = useState("band"), _alTblPool = _uAlPool[0], _setAlTblPool = _uAlPool[1];
   // （基本αの自動入力useEffectは_refSigAlpha定義の直後へ移動 2026-07-07c＝詳細別→シグナル別→銘柄全体の段階フォールバック値_autoBaseAを使うため。_defBaseAは銘柄全体段として温存）
   // 推奨追加α（追加α〇の記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」）2026-06-22→2026-06-27: 表示・自動入力している推奨基本αと同じ件数窓(_defBaseWin)から取る＝「合計」＝画面の基本α＋推奨追加α が一致（旧: 全期間窓固定で、表示する基本α(直近50件)と窓・起点が食い違っていた）。
   var _refAddAlpha = (_defBaseWin && _defBaseWin.add) ? _defBaseWin.add : null;
@@ -7829,28 +7831,49 @@ function EntryRecordForm(_ref_erf) {
         var _line = function(sp) { return "（直近期間別参考　25件：" + _winStr(_rb && _rb.w1, sp) + "　50件：" + _winStr(_rb && _rb.m1, sp) + "　100件：" + _winStr(_rb && _rb.m3, sp) + "）"; };
         var _sub = { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 2, marginBottom: 3 };
         var _rowFlex = { display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" };
-        var _tblBtn = function(kind, color, bd) { return React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal(kind); }, title: "詳細データ表を表示（全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"); };
-        // 詳細表ポップアップ（2026-07-14c）: 母数トグル（全体／この記録のシグナル・既定=全体）で詳細表を閲覧（閲覧のみ）。任意シグナルは見出しの母数プルダウンで選ぶ。
-        var _alScopeRecs = _baRecsForScope(_alTblScope);
-        var _alScopeLabel = (_alTblScope === "all") ? "全体（全シグナル）" : ("「" + _alTblScope + "」");
+        var _tblBtn = function(kind, color, bd) { return React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblPool("band"); _setAlTblModal(kind); }, title: "詳細データ表を表示（株価帯別／銘柄別・全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"); };
+        // 詳細表ポップアップ（2026-07-14c→2026-07-23 株価帯別トグル追加）: 最上段＝母数種類トグル（💴株価帯別／🏷銘柄別・既定=株価帯別）。銘柄別のときだけ下段に既存の全体／この記録のシグナルのサブトグルを出す。帯不明/材料日は帯プール無し→銘柄別へ自動フォールバック（閲覧のみ）。
         var _alPrimaryTag = (fTags && fTags.length) ? fTags[0] : null;   // トグル「この記録のシグナル」＝最初のタグ 2026-07-14c
+        // 株価帯別プール（app-04の_ElDayAlphaPairと同一ロジック＝この銘柄の本日の帯と同じ帯だった全記録・銘柄横断・前日まで・データ算入。頻度分母は帯基準_pbBandBizDays）2026-07-23
+        var _alBandInfo = _pbDayBandOf(data, fStock, fDate);
+        var _alBandIdx = (_alBandInfo && !_alBandInfo.material && _alBandInfo.idx != null) ? _alBandInfo.idx : null;
+        var _alBandPool = _alBandIdx != null ? _pbBandPoolFor(data, _alBandIdx, fDate) : [];
+        var _alBandOk = _alBandPool.length > 0;
+        var _alUseBand = (_alTblPool === "band") && _alBandOk;
+        var _alBandLbl = _alBandIdx != null ? _pbBandLabel(_alBandIdx, _alBandInfo.bounds) : null;
+        var _alBandSpan = _alUseBand ? _pbBandBizDays(data, _alBandIdx, _alBandPool, _alTblHoli) : undefined;   // 帯選択時のみ頻度分母を帯基準に（銘柄別時はundefined＝記録スパン）
+        var _alScopeRecs = _alUseBand ? _alBandPool : _baRecsForScope(_alTblScope);
+        var _alScopeLabel = (_alTblScope === "all") ? "全体（全シグナル）" : ("「" + _alTblScope + "」");
+        var _alPoolBtn = function(k, lbl, dis) {
+          var on = (k === "band") ? _alUseBand : !_alUseBand;
+          return React.createElement("button", { type: "button", disabled: dis, onClick: function() { if (!dis) _setAlTblPool(k); },
+            style: { padding: "3px 11px", fontSize: 10.5, fontWeight: 700, borderRadius: 12, cursor: dis ? "default" : "pointer", whiteSpace: "nowrap", opacity: dis ? 0.4 : 1, minHeight: IS_TOUCH ? 28 : 22,
+              border: "1px solid " + (on ? "#0369A1" : "#E0DAD1"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#6B6459" } }, lbl);
+        };
+        var _alPoolToggle = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+          _alPoolBtn("band", "💴 株価帯別" + (_alBandLbl ? "（" + _alBandLbl + "）" : ""), !_alBandOk),
+          _alPoolBtn("stock", "🏷 銘柄別（" + (fStock || "—") + "）", false));
         var _scopeBtnStyle = function(on) { return { padding: "4px 12px", fontSize: 11, fontWeight: 800, borderRadius: 6, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#0369A1" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.12)" : "none" }; };
-        var _scopeToggle = React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 8, padding: 3, gap: 3, flexWrap: "wrap" } },
+        var _scopeToggle = (!_alUseBand) ? React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 8, padding: 3, gap: 3, flexWrap: "wrap" } },
           React.createElement("button", { key: "__all", type: "button", onClick: function() { _setAlTblScope("all"); }, style: _scopeBtnStyle(_alTblScope === "all") }, "全体"),
-          _alPrimaryTag ? React.createElement("button", { key: "__sig", type: "button", onClick: function() { _setAlTblScope(_alPrimaryTag); }, style: _scopeBtnStyle(_alTblScope === _alPrimaryTag) }, "この記録のシグナル") : null);
+          _alPrimaryTag ? React.createElement("button", { key: "__sig", type: "button", onClick: function() { _setAlTblScope(_alPrimaryTag); }, style: _scopeBtnStyle(_alTblScope === _alPrimaryTag) }, "この記録のシグナル") : null) : null;
+        var _alNote = _alUseBand ? ("同じ帯だった全銘柄・前日まで・" + _alScopeRecs.length + "件")
+          : ((_alTblPool === "band" && !_alBandOk) ? (_alBandIdx == null ? "この日は株価帯が未判定/材料日のため銘柄別で表示" : ("株価帯" + (_alBandLbl || "") + "の前日までの記録が0件のため銘柄別で表示"))
+            : ("この銘柄・" + _alScopeLabel + "・前日まで全期間"));
         var _modalEl = _alTblModal ? React.createElement("div", { onClick: function() { _setAlTblModal(null); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
           React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } },
-              React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: _alTblModal === "base" ? "#0369A1" : "#9A3412" } }, (_alTblModal === "base" ? "🔬 推奨基本α 詳細データ" : "🔬 推奨応用α 詳細データ") + "（" + (fStock || "—") + "・前日まで全期間）"),
+              React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: _alTblModal === "base" ? "#0369A1" : "#9A3412" } }, (_alTblModal === "base" ? "🔬 推奨基本α 詳細データ" : "🔬 推奨応用α 詳細データ") + (_alUseBand ? ("（株価帯別" + (_alBandLbl ? "・" + _alBandLbl : "") + "・銘柄横断・前日まで）") : ("（" + (fStock || "—") + "・前日まで全期間）"))),
               React.createElement("button", { type: "button", onClick: function() { _setAlTblModal(null); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")),
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
               React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "母数"),
+              _alPoolToggle,
               _scopeToggle),
-            React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "記録帳の分析と同じ表。母数＝この銘柄・" + _alScopeLabel + "・前日まで全期間（閲覧のみ）"),
+            React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "記録帳の分析と同じ表。母数＝" + _alNote + "（閲覧のみ）"),
             _alScopeRecs.length
               ? (_alTblModal === "base"
-                  ? _elBaseAlphaDetailV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli)
-                  : _elTotalAlphaSectionV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli))
+                  ? _elBaseAlphaDetailV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli, undefined, undefined, _alBandSpan)
+                  : _elTotalAlphaSectionV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli, undefined, undefined, _alBandSpan))
               : React.createElement("div", { style: { fontSize: 11, color: "#94A3B8", padding: "10px 0" } }, "この母数の記録がまだありません"))) : null;
         // 母数のワンクリック切替（2026-07-14d ユーザー要望）: 選択式を廃止し、全体⇄この記録のシグナル（先頭タグ）をボタン1つでトグル。全体表示中はシグナル名ボタン（押すとシグナルへ）／シグナル表示中は「全体」ボタン（押すと全体へ）。ボタンのラベル＝切り替え先。シグナル未選択（fTags空）なら非表示。
         var _headPrimaryTag = (fTags && fTags.length) ? fTags[0] : null;
@@ -7914,7 +7937,7 @@ function EntryRecordForm(_ref_erf) {
             _refSpecialA != null ? React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: "#9A3412" } }, _refSpecialA + "円") : ((_refSpecial && _refSpecial.status === "nomin") ? React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#9A3412" } }, "ー（条件適合無し）") : React.createElement("span", { style: { color: "#aaa", fontWeight: 700 } }, "—")),
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", borderRadius: 4, padding: "1px 7px", whiteSpace: "nowrap" }, title: "EPナビ/日別ページで設定した『本日の採用応用α値』。応用α入力欄の初期値になります（未設定は「ー」）" }, "その日の採用α値 " + (_daySpecialA != null ? (_daySpecialA + "円") : "ー")),
             _spScopeSel,
-            React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblModal("special"); }, title: "詳細データ表を表示（全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#fff", border: "1px solid #FDBA74", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表")),
+            React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblPool("band"); _setAlTblModal("special"); }, title: "詳細データ表を表示（株価帯別／銘柄別・全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: "#9A3412", background: "#fff", border: "1px solid #FDBA74", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表")),
           (_spScope === "all") ? React.createElement("div", { style: _sub }, _line) : null);
       })() : null,
       (fUkiUsed !== "○" && fAlphaKind === "special") ? (function() {

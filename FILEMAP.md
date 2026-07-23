@@ -47,6 +47,11 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23h 記録フォームのα値📊詳細表に「株価帯別／銘柄別」トグルを追加（sw v247→v248）
+- ユーザー指摘「この詳細表は株価帯別とその銘柄だけの両方がトグルで見れるのでは？」。記録フォーム(EntryRecordForm・app-05)のα値セクションの📊詳細表（基本α/応用α共通モーダル`_modalEl`）は従来「全体／この記録のシグナル」の2択のみ＝どちらも**この銘柄だけ**で、株価帯別が無かった（帯別トグルは「本日の採用α値」の`表を参照`=`_ElDayAlphaPair`だけに存在＝2026-07-22i）。AskUserQuestionで「帯別/銘柄別トグル＋銘柄別の中に既存の全体/シグナルのサブトグルを残す」案を採用。
+- **実装（app-05のみ）**: 新state `_alTblPool`（"band"=株価帯別/"stock"=銘柄別・既定band・📊ボタン(`_tblBtn`/応用αインライン)を開くたび`_setAlTblPool("band")`でリセット）。モーダルの母数行に最上段トグル`_alPoolToggle`（💴 株価帯別（帯ラベル）／🏷 銘柄別（銘柄名））を追加＋`_scopeToggle`（全体/この記録のシグナル）は`!_alUseBand`＝銘柄別のときだけ表示。株価帯別プールは`表を参照`と同一ロジック＝`_pbDayBandOf(data,fStock,fDate)`→`_pbBandPoolFor(data,idx,fDate)`（銘柄横断・前日まで・データ算入・材料日除外）。頻度分母は`_pbBandBizDays`を`_elBaseAlphaDetailV2`/`_elTotalAlphaSectionV2`の第6引数spanOverrideへ渡す（銘柄別時はundefined＝記録スパン）。帯不明/材料日/帯0件は株価帯別ボタンdisabled＋自動で銘柄別へフォールバック（注記「株価帯が未判定/材料日…」等）。**共有モーダルなので基本α・応用αの両方の詳細表に反映**。閲覧のみ（行タップ取込なし＝onPick/curSel引数は渡さない）。**app-05からapp-04のトップレベル`_pb*`ヘルパーをグローバル参照**（連結・load順で解決）。
+- 検証: 全8ファイルV8 parse OK（fetch cache:reload＝SW回避）＋実マウント（root描画44KB・console 0・依存グローバル`_pbDayBandOf`/`_pbBandPoolFor`/`_pbBandBizDays`/`_pbBandLabel`/`IS_TOUCH`/detail関数を解決）＋帯計算スモーク（前日終値なし=idx null→銘柄別フォールバック／手動帯idx=1→ラベル「4001〜5000」・プール/頻度算出・例外なし）。実データ（帯をまたぐ実記録の見た目・件数）はユーザー実機。
+
 ### 2026-07-23g 古河電工を日替わり銘柄(rotatingStocks)に組み込む＋EPナビ固定表示の古河電工ハードコード除外を一般化（sw v246→v247）
 ユーザー指示「コードで自動組み込み」。**①app-01.js `migrateData` に一回性移行 `_migFurukawaRotating`**＝`custom.stocks`に古河電工が実在すれば`custom.rotatingStocks`へ追加＋`custom.epnStocks`(EPナビ固定表示)から除去・フラグ`d._migFurukawaRotating`で冪等（ユーザーが後で設定UIから外せる）・in-place。**②app-04.js `EpNaviPanel` の epnStocks既定(4491-4495)の`s!=="古河電工"`ハードコード除外を`rotatingStocks`参照(`_epnRot.indexOf(s)<0`)に一般化**＝日替わり銘柄は固定表示の既定から自動除外（`rotStocks`の日替わり列へ回る）。日替わり銘柄は日別ページで個別タブを作らず「📅日替わり」タブに集約（既存2026-07-22・設定→📊データ・銘柄→📅日替わり銘柄でトグル`custom.rotatingStocks`）。検証=app-01/04 V8 parse OK＋`migrateData`合成でrotatingStocks追加/epnStocks除去/冪等/未実在はスキップ/既存は重複追加せず。
 
