@@ -3123,7 +3123,7 @@ function _elInclTotal(s) { return !s || (s.includeInTotal !== false && s.passThr
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
 // ===== ②データのみ除外（本日の取引銘柄システム 2026-07-22e）=====
 // 候補プール(custom.rotatingStocks)の銘柄で、その日の「本日の取引銘柄」(data.dailyStock[date])に指定されていない記録は「データのみ」＝グランド/銘柄横断の合計から除外する（分析母数_elInclTotalには残す＝α値等の分析にはそのまま使う）。
-// 自動判定は「その日に取引銘柄を指定した日だけ」発動＝dailyStock未指定日は候補銘柄も従来通り算入（不変条件『候補プール空 or dailyStock未指定なら現行と一致』を満たす。2026-07-22e ユーザー確定）。
+// 自動判定＝候補プールの銘柄で「その日の指定銘柄でない」記録はデータのみ（合計除外）。指定日は指定銘柄以外の候補が、未指定日は候補すべてがデータのみ（2026-07-23 ユーザー選択B＝候補は常にデータのみ・旧2026-07-22iの未指定日カーブアウトを撤回）。残る不変条件は『候補プール空なら現行と一致』のみ（未指定日一致は撤回）。
 // 手動オーバーライド signal.totalOverride: "in"=常に算入 / "out"=常に除外 / "auto"(既定・null/undefined含む)=上の自動判定。手動はレコード別に自動を上書きする。
 function _isDataOnly(data, r) {
   if (!r || !r.signal) return false;
@@ -3137,8 +3137,7 @@ function _isDataOnly(data, r) {
   if (!r.stock || pool.indexOf(r.stock) < 0) return false;   // 候補プール外（固定銘柄）＝従来通り
   var _dsMap = (data && data.dailyStock) || {};
   var _ds = (r.date && _dsMap[r.date]) || "";
-  if (!_ds) return false;   // その日に取引銘柄が未指定＝発動しない（未指定日は算入）
-  return r.stock !== _ds;   // 指定銘柄と違う候補＝データのみ
+  return r.stock !== _ds;   // 指定銘柄と違う候補＝データのみ。未指定日(_ds="")は候補すべてがデータのみ＝合計除外（2026-07-23 ユーザー選択B＝旧2026-07-22iの未指定日カーブアウトを撤回・指定銘柄本人のみ算入）
 }
 // 合計額算入（金額版）: 従来の_elInclTotal（スルー/手動不算入）に加え、②データのみ（候補で未指定）も合計から外す。
 // グランド/銘柄横断の合計を出す消費側だけで使う（銘柄別の自タブ・分析母数は_elInclTotalのまま）。dataとr（.stock/.date/.signalを持つ記録）を渡す。
@@ -6517,8 +6516,7 @@ function EntryRecordForm(_ref_erf) {
     var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
     if (!fStock || pool.indexOf(fStock) < 0) return false;
     var _dsInd = (data && data.dailyStock && fDate) ? (data.dailyStock[fDate] || "") : "";
-    if (!_dsInd) return false;   // その日に取引銘柄が未指定＝_isDataOnly(app-05 上部・!_ds→算入)と対称化＝候補も既定ON（v232不変条件「dailyStock未指定なら現行一致」に整合）。旧: 未指定日でも候補が既定OFFで、同条件の旧記録[includeInTotal未設定→_isDataOnlyで算入]と算入が逆転していた 2026-07-22i
-    return fStock !== _dsInd;
+    return fStock !== _dsInd;   // 候補で「その日の指定銘柄でない」→データのみ（合計算入OFF既定）。未指定日は_dsInd=""なので候補は全てOFF既定（2026-07-23 ユーザー選択B＝_isDataOnlyと対称に未指定日カーブアウトを撤回）。指定銘柄本人のみON既定
   })();
   var _useStateINC = useState(initSig.includeInTotal != null ? (initSig.includeInTotal !== false) : (_indDataOnlyCand ? false : true)),
     _useStateINCA = _slicedToArray(_useStateINC, 2),
