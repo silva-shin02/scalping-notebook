@@ -4074,8 +4074,6 @@ function _EpnAddSection(_p) {
       React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円"),
       _stepBtn(function() { _stepAdd(1); }, function() { _stepAdd(-1); })) : null,
     specialUsed ? React.createElement("div", null,
-      React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "根拠（選ぶと推奨応用αが変わる・複数可）"),
-      React.createElement(_EpnChipMgr, { items: _p.reasonsMaster, selected: Array.isArray(e.specialReasons) ? e.specialReasons : [], accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: _p.onToggleReason, onAdd: _p.onAddReason, onRename: _p.onRenameReason, onDelete: _p.onDeleteReason, onReorder: _p.onReorderReason }),
       React.createElement("div", { style: { fontSize: 8.5, color: reco ? "#9A3412" : "#94A3B8", marginTop: 2 } },
         reco ? (reco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + reco.v + "円" + (reco.byReason ? "（選択根拠・n=" + reco.n + "・手動変更可）" : reco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + reco.n + "・手動変更可）" : "（銘柄全体・n=" + reco.n + "・手動変更可）"))) : "推奨応用α データ無し（手動入力）")) : null);
 }
@@ -4375,21 +4373,11 @@ function _EpnCalcForm(_p) {
       }),
       React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "分足（両方選択可・5分は早見で緑）"))),
     _lrow(_mgmtHead("②", "シグナル"), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: nTag ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),
-    nTag ? _lrow(_mgmtHead("③", "底抜け"), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "底抜け名（例: 前日安値）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは畳みの外に常時表示（②シグナルの直下）2026-07-13
-    React.createElement("button", { type: "button", onClick: function() { setDetOpen(!detOpen); },   // ③〜⑤はデフォルト畳み（案A 2026-07-10）: 場中は②＋水準線の最短入力で保存→上昇に転じたら✎編集/カードで本格入力。畳んでいても選択値は生きて保存される（下の要約表示）。
-      title: "③底抜け・③起点・④その他・⑤ライン併存の入力欄を開閉。畳んだままでも保存可＝推奨基本αはシグナル別/銘柄全体へ自動フォールバック。あとから✎編集や早見カードのインライン編集でも入力できます",
-      style: { display: "block", width: "100%", textAlign: "left", boxSizing: "border-box", padding: "4px 8px", marginBottom: detOpen ? 4 : 7, fontSize: 10.5, fontWeight: 700, border: "1px dashed #FCD34D", background: "#FFFBEB", color: "#92400E", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 30 : 22 } },
-      detOpen ? "▽ 詳細を閉じる（③起点〜⑤）" : ("▷ 詳細を入力（③起点〜⑤）" + (_detSummary ? "　" + _detSummary : ""))),
-    detOpen ? React.createElement("div", { style: { border: "1px solid #FDE68A", background: "#FFFBEB", borderRadius: 6, padding: "6px 7px 0", marginBottom: 7 } },
-      !nTag ? React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", fontWeight: 600, paddingBottom: 6 } }, "②シグナルを選ぶと③起点・④の候補が出ます") : null,
-      nTag ? _lrow(_mgmtHead("③", "起点"), React.createElement(_EpnChipMgr, { items: cands.k, selected: nSelK ? [nSelK] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "起点名（例: 50EMA）", onToggle: function(nm) { setNSelK(nSelK === nm ? null : nm); }, onAdd: function(nm) { _detAdd("k", nm); }, onRename: function(o, n) { _detRename("k", o, n); }, onDelete: function(nm) { _detDelete("k", nm); }, onReorder: function(l) { _detReorder("k", l); } })) : null,
-      nTag ? _lrow(_mgmtHead("④", "その他（複数可）"), React.createElement(_EpnChipMgr, { items: cands.f, selected: nSelF, accent: { b: "#B45309", bg: "#FEF3C7", c: "#92400E" }, addPh: "特徴名", onToggle: function(nm) { setNSelF(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: function(nm) { _detAdd("f", nm); }, onRename: function(o, n) { _detRename("f", o, n); }, onDelete: function(nm) { _detDelete("f", nm); }, onReorder: function(l) { _detReorder("f", l); } })) : null) : null,
     React.createElement("div", { title: "記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ・応用〇/浮き足〇は母数から除外）。★＝EP計算に採用中の段。データ不足＝件数フロア未満（仮＝参考値）", style: { background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 7px", marginBottom: 7 } },
       React.createElement("div", { style: { fontSize: 9, fontWeight: 800, color: "#94A3B8", marginBottom: 1 } }, "推奨基本α"),
-      _pickLine("det", "詳細別", det),
       nTag ? _pickLine("sig", "シグナル別", sig) : null,
       _pickLine("stk", "銘柄全体", stk),
-      (!det && !nTag) ? React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1" } }, "シグナル・詳細を選ぶと絞った推奨が出ます") : null),
+      (!det && !nTag) ? React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1" } }, "シグナルを選ぶと絞った推奨が出ます") : null),
     _lrow("水準線", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
       React.createElement("input", { type: "text", inputMode: "decimal", value: nLevel, placeholder: "—",
         onChange: function(e) { setNLevel(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 72 }) }),
@@ -4461,8 +4449,6 @@ function _EpnCalcForm(_p) {
           _stepBtn(function() { setNSpecialAlpha(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((specialReco && specialReco.v != null) ? specialReco.v : (baseV != null ? baseV : 0)); var n = b + 1; if (n > 50) n = 50; return String(n); }); },
             function() { setNSpecialAlpha(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : ((specialReco && specialReco.v != null) ? specialReco.v : (baseV != null ? baseV : 0)); var n = b - 1; if (n < 0) n = 0; return String(n); }); })),
         React.createElement("div", { style: { marginTop: 4 } },
-          React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", marginBottom: 3 } }, "根拠（選ぶと推奨応用αが変わる・複数可）"),
-          React.createElement(_EpnChipMgr, { items: reasonsMaster, selected: nSpecialReasons, accent: { b: "#F59E0B", bg: "#FEF3C7", c: "#92400E" }, addPh: "根拠名（例: 指標線支え）", onToggle: function(nm) { setNSpecialReasons(function(p) { return p.indexOf(nm) >= 0 ? p.filter(function(x) { return x !== nm; }) : p.concat([nm]); }); }, onAdd: _rsnAdd, onRename: _rsnRename, onDelete: _rsnDelete, onReorder: _rsnReorder }),
           React.createElement("div", { style: { fontSize: 9.5, color: specialReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
             specialReco ? (specialReco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : specialReco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）" : "（銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）"))) : "推奨応用α データ無し（空欄＝基本α）"))) : null)) : null,
     _lrow("RNまたぎ加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RNまたぎ加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
@@ -4654,7 +4640,6 @@ function EpNaviPanel(_refEPN) {
     var bk = _isUkiCard
       ? ((e.ukiSpecial === true ? "浮応" : "浮") + (Number(e.uki) || 0) + (e.rn ? "＋RN" + e.rn : ""))   // 浮き足〇＝基本α/応用α無し・浮き足加算＋RNのみ
       : ((e.specialUsed === true && e.special != null ? "応" + e.special : "基" + (e.base != null ? e.base : "—")) + (e.uki ? "＋浮" + e.uki : "") + (e.rn ? "＋RN" + e.rn : ""));
-    var detTxt = [e.b ? "底:" + e.b : null, e.k ? "起:" + e.k : null].concat((e.f || []).map(function(x) { return "特:" + x; })).filter(function(x) { return !!x; }).join("・");
     var armed = delArm === e.id;
     var C = has5
       ? { bd: "#86EFAC", bg: "#F0FDF4", main: "#15803D", sub: "#16A34A", bbg: "#DCFCE7", bc: "#166534" }
@@ -4673,17 +4658,6 @@ function EpNaviPanel(_refEPN) {
     var _inlineEditor = _isEditingThis
       ? React.createElement("div", { style: { fontSize: 8.5, color: "#B45309", marginTop: 4, fontWeight: 700 } }, "✎ 下の計算フォームで編集中（💾保存で確定）")
       : React.createElement("div", { style: { marginTop: 4, paddingTop: 4, borderTop: "1px dashed " + C.bd, display: "flex", flexDirection: "column", gap: 3 } },
-          e.tag ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-            React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, flexShrink: 0 } }, "起点"),
-            React.createElement("select", { value: e.k || "", onChange: function(ev) { onEditK(st, e, ev.target.value); }, style: { flex: 1, minWidth: 0, fontSize: 10, padding: "2px 4px", border: "1px solid #CBD5E1", borderRadius: 4, background: "#fff", color: "#334155" } },
-              [React.createElement("option", { key: "_none", value: "" }, "（なし）")].concat(_candK.map(function(k) { return React.createElement("option", { key: k, value: k }, k); })))) : null,
-          (e.tag && _candF.length) ? React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 4 } },
-            React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, flexShrink: 0, marginTop: 3 } }, "特徴"),
-            React.createElement("span", { style: { display: "flex", flexWrap: "wrap", gap: 3 } }, _candF.map(function(f) {
-              var _on = (e.f || []).indexOf(f) >= 0;
-              return React.createElement("button", { key: f, type: "button", onClick: function() { onToggleF(st, e, f); },
-                style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 600, border: _on ? "1.5px solid #B45309" : "1px solid #ddd", background: _on ? "#FEF3C7" : "#fff", color: _on ? "#92400E" : "#94A3B8", borderRadius: 4, cursor: "pointer" } }, f);
-            }))) : null,
           // ライン併存ルール（早見カード）欄は廃止（2026-07-16）＝新規EPで〇にできない。過去の識別は記録一覧の「併存」バッジ（_elAlphaTypeCell）。onSetLineCoexistは未使用となるが保持（無害）。
           _isUkiCard ? null : React.createElement(_EpnAddSection, { data: data, save: save, date: date, stock: st, item: e, reasonsMaster: reasonsMaster,
             onUsed: function(u) { onSetSpecialUsed(st, e, u); },
@@ -4708,10 +4682,9 @@ function EpNaviPanel(_refEPN) {
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDel(st, e.id); }, title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",
             style: { padding: "1px 6px", fontSize: armed ? 9 : 11, fontWeight: 800, lineHeight: 1.5, border: armed ? "1.5px solid #DC2626" : "1px solid " + C.bd, background: armed ? "#DC2626" : "#fff", color: armed ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, armed ? "削除?" : "×"))),
       React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", lineHeight: 1.25 } },
-        React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums" } }, "EP " + e.ep + "円"),
-        e.b ? React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#475569" } }, e.b) : null),   // ③底抜けをEP価格の右に同サイズで表示（プレーン）2026-07-13
+        React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums" } }, "EP " + e.ep + "円")),
       React.createElement("div", { style: { fontSize: 9, color: subColor } }, _isUkiCard ? ("起点" + e.level + "＋α" + alphaSum + "（" + bk + "）") : ("起点" + e.level + (e.uki ? "＋浮" + e.uki : "") + "＋α" + (alphaSum - (Number(e.uki) || 0)) + "（" + bk + "）")),
-      detTxt ? React.createElement("div", { style: { fontSize: 8.5, color: "#64748B", marginTop: 1, lineHeight: 1.4 } }, detTxt, e.src ? React.createElement("span", { style: { color: "#94A3B8" } }, "（" + e.src + "）") : null) : (e.src ? React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8", marginTop: 1 } }, "（" + e.src + "）") : null), _inlineEditor);
+      e.src ? React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8", marginTop: 1 } }, "（" + e.src + "）") : null, _inlineEditor);
   };
   // 早見（上段: 銘柄ヘッダー＋EPカード）と計算フォーム（下段: _EpnCalcForm常設）を銘柄列ごとにグリッドで2段整列（案A 2026-07-08）。
   // 「＋計算」ボタンは廃止＝フォームは常時表示。gridの自動配置で前半n個=上段・後半n個=下段となり、フォームの上端が列間で揃う。
