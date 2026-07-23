@@ -5231,6 +5231,7 @@ function DayView(_ref57) {
   var hasChartData = allStocks.some(stockHasData) || hasFmData;
   // 「本日の取引銘柄」バー（📅日替わりタブ最上部 2026-07-22d）: 候補プール(rotStocks)を「銘柄名（件数）」で並べる。名前タップ=表示/記録の切替(setRotViewStock)。各チップの指定●=その日の本日の取引銘柄に指定(dailyStock[date]・赤マーク・合計算入)。未指定の候補の記録はデータのみ(合計除外・分析は残す)。＋でその場追加(候補プール＋マスターへ)。
   var _rotRecCount = function(stk) { var c = data.charts[stk + "_" + date]; return (c && c.signals) ? c.signals.length : 0; };
+  var _rotHasTradeTag = function(stk) { var c = data.charts[stk + "_" + date]; return !!(c && Array.isArray(c.chartShapeTags) && c.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }).length); };   // 「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）が付いた銘柄＝取引0件を（0）で明示 2026-07-23
   var _rotPickerBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #E0E7FF", borderRadius: 13, padding: "8px 12px", margin: "0 0 10px", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
     React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#4338CA", whiteSpace: "nowrap" } }, "📅 本日の取引銘柄"),
     rotStocks.map(function(s) {
@@ -5242,7 +5243,7 @@ function DayView(_ref57) {
           onClick: function() { setRotViewStock(s); },
           title: "表示・記録に切替",
           style: { padding: "5px 8px 5px 10px", fontSize: 12, fontWeight: 600, border: "none", background: "transparent", color: viewing ? "#3730A3" : "#6B6459", cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 36 : 28 }
-        }, s, cnt > 0 ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（" + cnt + "）") : null),
+        }, s, cnt > 0 ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（" + cnt + "）") : (_rotHasTradeTag(s) ? React.createElement("span", { title: "ノーシグナル等（取引0件）", style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（0）") : null)),
         React.createElement("button", {
           onClick: function() { _dailyStockSet(save, date, designated ? "" : s); },
           title: designated ? "本日の取引銘柄の指定を解除" : "この銘柄を本日の取引銘柄に指定（合計に算入・赤マーク）",

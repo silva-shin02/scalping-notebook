@@ -3264,7 +3264,7 @@ function _elNotInclBadge(extra, s) {
 // 不算入行に重ねるstyle（淡色＋水色の左ライン＋淡い水色背景）。既存rowスタイルへ Object.assign で合成。
 function _elNotInclRowStyle(s) {
   if (_elIsThru(s)) return { opacity: 0.6, background: "#F5F5F4", borderLeft: "3px solid #9CA3AF" };
-  return _elIsExcluded(s) ? { opacity: 0.62, background: "#EFF8FF", borderLeft: "3px solid #38BDF8" } : null;
+  return _elIsExcluded(s) ? { opacity: 0.65, background: "#EFF8FF", borderLeft: "3px solid #38BDF8" } : null;   // 不算入行の文字＝α詳細表の参考行と同じ0.65（2026-07-23 ユーザー要望・スルーは0.6据置）
 }
 // 行スタイル統合版（2026-07-08）: スルー(灰)/不算入(水色)に加え、時間かぶりで除外された記録（良い方）を薄紫で行全体色分け。
 // 要審議(第4状態)は合計に算入する記録なので、スルーのようなopacityフェードはかけず薄ピンク背景＋ピンク左線で行全体をウォッシュ（文字は薄くしない）2026-07-18。
