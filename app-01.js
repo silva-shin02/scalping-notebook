@@ -136,6 +136,9 @@ function stripHtml(h) {
   }
 }
 
+// 複数日合計のグレード判定用の除数＝集計対象記録に含まれる異なる取引日の数（実稼働営業日）。単一日データは1を返すため、どこに渡しても安全（単日行・記録単位は不変）。2026-07-23
+function _elActiveDays(recs) { var s = {}; (recs || []).forEach(function (r) { if (r && r.date) s[r.date] = 1; }); return Object.keys(s).length; }
+
 
 function _hasText(t) {
   if (!t) return false;

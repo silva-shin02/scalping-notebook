@@ -5033,10 +5033,10 @@ function WeeklyPnlPanel(_wpp) {
         React.createElement(EntryLogCard, { record: r, alpha: a, cutLine: c, onEdit: function(rec) { _wSetEdit(rec); } }))));
   });
   };
-  var _amtCell = function(v, cnt, ref, refCnt, isReal, allMiss) {
+  var _amtCell = function(v, cnt, ref, refCnt, isReal, allMiss, days) {
     refCnt = refCnt || 0;
     if (cnt === 0) return (refCnt > 0) ? _elHold2RefSuffix(0, ref, refCnt) : (allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
-    var g = isReal ? _profitGradeFromPnlReal(v || 0, cnt) : _profitGradeFromPnl(v || 0, cnt);
+    var g = isReal ? _profitGradeFromPnlReal((days && days > 0) ? Math.round((v || 0) / days) : (v || 0), cnt) : _profitGradeFromPnl((days && days > 0) ? Math.round((v || 0) / days) : (v || 0), cnt);
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, g ? _elGradeBadge18(g) : null, React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)), refCnt > 0 ? _elHold2RefSuffix(v, ref, refCnt) : null);
   };
   var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
@@ -5047,12 +5047,13 @@ function WeeklyPnlPanel(_wpp) {
     var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, excluded: function(r) { return _elCollExcluded(data, r, stock); }, real: function(r) { if (!_elIsEntered(r.signal, r.item)) return null; var it = r.item; return (it && it.pnl != null) ? Number(it.pnl) : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); } });
     var _allMiss = _elAllMissRow(_list, _alphaOf, _cutOf);
     var _listM = _list.filter(function(r) { return !_elCollExcluded(data, r, stock); });   // 時間かぶり除外後＝OS・損益詳細(EP/H1/H2)の集計は姉妹の最新式サマリーと同じ_recsM方式 2026-07-13
+    var _totDays = _elActiveDays(_listM);
     return React.createElement("tr", { key: "wpp_tot", style: { background: "#FFF7ED" } },
       React.createElement("td", { colSpan: 9, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
-      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#FFFBF0" } }, _lblTot("最終損益"), _amtCell(_t.hold2, _t.hold2Cnt, _t.hold2Ref, _t.hold2RefCnt, false, _allMiss)),
-      React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#F8FBFE" } }, _elDetailPnlStackNode(_listM, _alphaOf, _cutOf, _elGradeBadge18, _allMiss)),
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#FFFBF0" } }, _lblTot("最終損益"), _amtCell(_t.hold2, _t.hold2Cnt, _t.hold2Ref, _t.hold2RefCnt, false, _allMiss, _totDays)),
+      React.createElement("td", { colSpan: 2, style: { padding: "1px 5px", textAlign: "left", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap", background: "#F8FBFE" } }, _elDetailPnlStackNode(_listM, _alphaOf, _cutOf, _elGradeBadge18, _allMiss, _totDays)),
       React.createElement("td", { style: { borderTop: "2px solid #FB923C" } }),
-      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _amtCell(_t.real, _t.realCnt, null, 0, true, _allMiss))
+      React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _amtCell(_t.real, _t.realCnt, null, 0, true, _allMiss, _totDays))
     );
   };
   // 明細テーブル全体（list 単位。サマリー行の展開時に表示）
@@ -5109,6 +5110,7 @@ function WeeklyPnlPanel(_wpp) {
     // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_recsM＝被り除外後・件数系(st/件/到達等)はrecsのまま。銘柄別ビュー＝同一銘柄内のみ 2026-07-08
     var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r, stock); });   // 金額集計母数＝時間かぶり除外のみ（2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）
     var _stM = _recsM.length === recs.length ? st : _elCalcStats(_recsM, data);
+    var _rowDays = _elActiveDays(_recsM);
     var _ent = _wkEntCnt(recs);
     var _osv = _wkAvgOs(recs);
     var _isExp = !!dayExp[rowKey];
@@ -5147,11 +5149,11 @@ function WeeklyPnlPanel(_wpp) {
         });
         if (_h2Cnt === 0 && _h2RefCnt === 0) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
         return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } },
-          _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
+          _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_rowDays > 0 ? Math.round(_h2Tot / _rowDays) : _h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
           _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
       })()),
-      _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _elDetailPnlStackNode(_recsM, _alphaOf, _cutOf, _wkBadge, _allMiss)),
-      _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_stM.sumPnl, (_ent > 0 && _stM.sumPnl !== 0) ? _ent : 0), _ent > 0 ? _stM.sumPnl : null)),
+      _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _elDetailPnlStackNode(_recsM, _alphaOf, _cutOf, _wkBadge, _allMiss, _rowDays)),
+      _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_rowDays > 0 ? Math.round(_stM.sumPnl / _rowDays) : _stM.sumPnl, (_ent > 0 && _stM.sumPnl !== 0) ? _ent : 0), _ent > 0 ? _stM.sumPnl : null)),
       React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
         (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
     );

@@ -4397,7 +4397,7 @@ function _elTotAccum(items, get) {
   return t;
 }
 // 詳細損益セル（EP/H1/H2縦積み・（）外main＋（）内=△参考）。本日/今週/銘柄別今週の3表で共用＝_elTotAccumで全表と同一基準。recsMは被り除外後の記録・aiAlpha(r)/aiCut(r)=採用α/損切り・badgeFn(grade)=グレードバッジ・allMiss=全E未達でQ0。H２行＝最終損益列と同値。2026-07-10。
-function _elDetailPnlStackNode(recsM, aiAlpha, aiCut, badgeFn, allMiss) {
+function _elDetailPnlStackNode(recsM, aiAlpha, aiCut, badgeFn, allMiss, days) {
   if (!recsM || !recsM.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var t = _elTotAccum(recsM, { signal: function(r) { return r.signal; }, alpha: aiAlpha, cut: aiCut });
   // allMissFirst=EP行のみ（旧EPセルはallMiss時に計画0でもQ0優先）。H1/H2は「値があれば値・無ければ参考/Q0/—」＝旧H1・最終セルと完全一致＝詳細のH2は最終損益列と常に同値。
@@ -4406,13 +4406,13 @@ function _elDetailPnlStackNode(recsM, aiAlpha, aiCut, badgeFn, allMiss) {
     if (allMissFirst && allMiss) {
       body = _qZeroCell();
     } else if (main != null) {
-      var g = _profitGradeFromPnl(main, cnt);
+      var g = _profitGradeFromPnl((days && days > 0) ? Math.round(main / days) : main, cnt);
       body = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
         g ? badgeFn(g) : null,
         React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(main) } }, _elPnlFmt(main)),
-        _elHold2RefSuffix(main, ref, refCnt));
+        _elHold2RefSuffix(main, ref, refCnt, days));
     } else if (refCnt > 0) {
-      body = _elHold2RefSuffix(0, ref, refCnt);
+      body = _elHold2RefSuffix(0, ref, refCnt, days);
     } else {
       body = allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
     }

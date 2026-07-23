@@ -47,6 +47,15 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23n 複数日合計のグレードを全表で「1日平均」に統一（記録帳KPI・今週の週合計・共有関数）（sw v253→v254）
+- ユーザー「エントリー記録帳などアプリ全体でもチェックして」。監査（専任エージェント＋精査）でper-day目盛りのグレードを複数日合計に当てている箇所を**17＋共有関数1**特定→全て1日平均化。
+- **新helper `_elActiveDays(recs)`（app-01・`stripHtml`直後）**＝集計対象記録の異なる取引日数（単日/1記録は1→不変で安全）。これを除数に `Math.round(合計/日数)` でグレード判定（**表示は合計のまま**）。
+- **共有 `_elDetailPnlStackNode`（app-05）**に`days`引数追加（詳細損益EP/H1/H2の合計グレードの元・内部の`_elHold2RefSuffix`へもdays伝播）。
+- **今週の損益データ 週合計**（app-02 `WeeklyPnlPanel`の`_sumRow`/`_detailTotRowFor._amtCell`／app-04 `_wkRow`＋`_pnlDetailTableEl` totRow[`expRecs`基準]）＝最終/実現/詳細損益を`_elActiveDays`で1日平均化（**単日行・本日の株価帯単日展開はdays=1で不変**）。
+- **記録帳KPI（app-06 EntryLogView）**＝集計タブ(既存`_entDays`)・期間タブ(`_pkDays`)・指値同値(`_frDays`)・分析パネル(`_elActiveDays(_osFilRecs)`)の最終/実現損益カードに`days`を渡す。
+- **不変**: 全体損益(期間別・2026-07-23m済)・本日/取引/カレンダーの単日・1記録・死コード`_grpTable`(未配線)。
+- 検証: 5ファイルV8 parse OK＋`_elActiveDays`単体（空/null→0・重複→1・3日→3）＋`_elDetailPnlStackNode`6引数＋実マウント（console 0）＋差分レビュー（`expRecs`はL5955 `var expRecs=(records||[]).slice()...`で実在＝記録配列と確認）。分母は「取引実日数」（全体損益の営業日ベースとは僅差・粗いグレードでは実害なし・厳密統一も可）。実データの見た目はユーザー実機。
+
 ### 2026-07-23m 全体損益（期間別）の複数日合計行はグレードを「1日平均」で判定（sw v252→v253）
 - ユーザー指摘「A〜G+は1日あたりの目盛りなので、複数日の合計にそのまま当てると常にA+化して無意味」。AskUserQuestionで「1日平均で判定」を選択。
 - **days（除数）を引数化**（後方互換＝未指定なら従来の合計判定）: app-05 `_elHold2RefSuffix(mainSum,refSum,refCnt,days)`／app-06 `_yenN(v,cnt,days)`・`_yenNR(v,cnt,ref,refCnt,days)`。days>0のとき **`Math.round(合計/days)`（＝1日平均）をグレード判定に使う（表示は合計額のまま・（）内参考も同基準）**。

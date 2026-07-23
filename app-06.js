@@ -6113,10 +6113,10 @@ function EntryLogView(_ref_elv2) {
       _freqCard,
       _kpiCard("E到達率", reach != null ? reach + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
       _kpiCard("E後の勝率", _ewin != null ? _ewin + "%" : "—", _ewin != null ? (_ewin >= 50 ? "#1E8449" : "#B45309") : "#bbb", "勝" + _wOk + "・負" + _wNg + (_wDr ? "・分" + _wDr : "") + "／E成立" + _ewinD + "件"),
-      _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件・○途切れで手じまい"),
+      _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _entDays), null, t.hold2Cnt + "件・○途切れで手じまい"),
       _kpiCard("損切り", (ss && ss.any || 0) + "回", ss && ss.any > 0 ? "#1E8449" : "#bbb", ss && ss.rate != null ? "率" + ss.rate + "%（想" + ss.plan + "・H1 " + ss.h1 + "・H2 " + ss.h2 + "）" : null),
       _kpiCard("×見送り", x + "件", x > 0 ? "#1E8449" : "#bbb", "×宣言後の到達"),
-      _kpiCard("実現損益", _yenN(t.real, t.realCnt), null, t.realCnt + "件"),
+      _kpiCard("実現損益", _yenN(t.real, t.realCnt, _entDays), null, t.realCnt + "件"),
       _kpiCard("1日あたり損益", _perDay != null ? (_elPnlFmt(_perDay) + "/日") : "—", _perDay != null ? _elPnlColor(_perDay) : "#bbb", "手じまい基準・" + _entDays + "日エントリー")
     ].filter(Boolean)));
   };
@@ -6135,6 +6135,7 @@ function EntryLogView(_ref_elv2) {
   var _fillRiskSection = function(rs, scopeNote) {
     var _riskRecs = (rs || []).filter(_elFillRiskRec);
     var t = _friskTotOf(rs, false), t2 = _friskTotOf(rs, true);
+    var _frDays = _elActiveDays(rs);
     var _diff = (t.hold2 != null && t2.hold2 != null) ? (t2.hold2 - t.hold2) : null;
     var _cell = function(label, val, color, sub) {
       return React.createElement("div", { key: label },
@@ -6149,8 +6150,8 @@ function EntryLogView(_ref_elv2) {
       _secH("🎯 指値同値（OS値＝α値）", "※ 予定EP（水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 } },
         _cell("該当件数", _riskRecs.length + "件", _riskRecs.length > 0 ? "#0F6E56" : "#bbb", "OS高値の最大＝採用α値"),
-        _cell("通常の最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件"),
-        _cell("除外後", _yenNR(t2.hold2, t2.hold2Cnt, t2.hold2Ref, t2.hold2RefCnt), null, t2.hold2Cnt + "件"),
+        _cell("通常の最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _frDays), null, t.hold2Cnt + "件"),
+        _cell("除外後", _yenNR(t2.hold2, t2.hold2Cnt, t2.hold2Ref, t2.hold2RefCnt, _frDays), null, t2.hold2Cnt + "件"),
         _cell("差額", _diff == null ? _dash : _elPnlFmt(_diff), _diff == null ? "#bbb" : _elPnlColor(_diff), "刺さらなければ失う分")),
       // 日別/週別/月別の内訳はここに持たず「全体損益（期間別）」の指値同値列＋除外後列に統合（2026-07-20c ユーザー選択）。
       // 元表に載せることで1日平均が自動で付き、件数/指値同値/粒度トグルの二重持ちも解消。ここは一目での件数確認と対象記録の確認に絞る。
@@ -6452,7 +6453,7 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
         _kpiCard("件数", _osFilRecs.length + "件", "#333", (function() { var _cn = _elCollExclCountRecs(data, _osFilRecs, _collScope); return _cn > 0 ? "被り除外" + _cn + "件" : null; })()),
         _kpiCard("E到達数（到達率）", _reach + "件（" + _reachRate + "%）", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
-        _kpiCard("一番引っ張った損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, "○で最深（○△）・" + t.hold2Cnt + "件"),
+        _kpiCard("一番引っ張った損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _elActiveDays(_osFilRecs)), null, "○で最深（○△）・" + t.hold2Cnt + "件"),
         _kpiCard("損切り件数（損切り率）", (ss.any || 0) + "回（" + (ss.rate != null ? ss.rate : 0) + "%）", ss.any > 0 ? "#1E8449" : "#bbb", "E成立が分母"),
         _kpiBase,
         _kpiAdd),
@@ -6813,10 +6814,11 @@ function EntryLogView(_ref_elv2) {
       };
       var _periodKpi = function(rs) {
         var t = _periodTot(rs), rr = _ratesOf(rs);
+        var _pkDays = _elActiveDays(rs);
         return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
           _kpiCard("件数", rs.length + "件", "#333", (function() { var _cn = _elCollExclCountRecs(data, rs, _collScope); return _cn > 0 ? "被り除外" + _cn + "件" : null; })()),
-          _kpiCard("実現損益", _yenN(t.real, t.realCnt), null, t.realCnt + "件"),
-          _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt), null, t.hold2Cnt + "件・○途切れで手じまい"),
+          _kpiCard("実現損益", _yenN(t.real, t.realCnt, _pkDays), null, t.realCnt + "件"),
+          _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _pkDays), null, t.hold2Cnt + "件・○途切れで手じまい"),
           _kpiCard("利確", rr.takeRate != null ? rr.take + "件・" + rr.takeRate + "%" : "—", rr.takeRate != null ? (rr.takeRate >= 50 ? "#1E8449" : "#B45309") : "#0369A1", "利益で手じまい／E成立" + (rr.ok + rr.ng + rr.draw) + "件"),
           _kpiCard("見切り率", rr.soft + "%", rr.soft > 0 ? "#B45309" : "#bbb"),
           _kpiCard("損切り率", rr.stop + "%", rr.stop > 0 ? "#1E8449" : "#bbb"));
