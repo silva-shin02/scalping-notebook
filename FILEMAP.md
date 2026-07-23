@@ -47,6 +47,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23c DayView（取引テーブル）の今週の損益データ欄より下＝「α比較・深掘り」＋「本日のデータ分析」を削除（sw v242→v243）
+ユーザー要望「取引テーブルの今週の損益データ欄より下の、深堀り欄以下のセクションはすべて不要」。**app-04.js `DayView` から2セクションを削除**＝①「📊 α比較・深掘り」（`_benchEl`＝定義＋Fragmentから除去）②「📊 本日のデータ分析」IIFE（📍EP位置別／📈EP→OS5ホールド検証／📊銘柄別OS値分析／🔗OS連鎖分析）。今週の損益データ欄（`_wkMainEl`）までは残す＝Fragmentは `_pbMainEl, _simpleAlphaEl, _soukatsuEl, _wkMainEl` に。取引フォームのモーダル（`EntryRecordForm`・showForm時）は不変。IIFE（約120行）はPythonで行削除（CRLF保持・境界assert）、`_benchEl` はEditで処理。未使用化する `_elDayStockBenchV2`/`_elEpPosSectionV2`/`_elOsChainSection` 等は他ファイル定義なので無害。検証=app-04.js V8 parse OK（442KB→430KB）＋`DayView`(initialTab:"trades")実マウントで 今週=残存・深掘り/本日のデータ分析/ホールド検証/OS連鎖/α比較=全消滅・クラッシュ無し。
+
 ### 2026-07-23b 早見カード（保存済みEP）の基本α/応用α選択時のデフォルト値を「本日の採用α値」優先に（sw v241→v242）
 ユーザー要望「早見カードで基本α・応用αを選択したときのデフォ数値を本日の採用α値にして」。**app-04.js `EpNaviPanel` の `onSetSpecialUsed`（早見カードの採用αセグメント切替ハンドラ・4546）を修正**＝応用α選択時は `_epnDaySpecialAlphaGet`（本日の採用応用α値）を最優先→無ければ推奨応用α→基本α／基本α選択時は `_epnDayAlphaGet`（本日の採用α値）を最優先→無ければ既存の基本α値、で `special`/`base`＋EPを再計算。計算フォーム `_EpnCalcForm` は元々本日の採用α値ベース（dayAlpha/daySpecialAlpha優先）＝早見カードをそれに揃えた。本日の採用α値が未設定なら従来フォールバック（後方互換）。検証=実マウントで epNaviDayAlpha=1/epNaviDaySpecialAlpha=4 を設定→応用αボタン click→special=4/ep=1004・基本αボタン click→base=1/ep=1001（本日の採用α値がセット）を確認。
 
