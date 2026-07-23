@@ -47,6 +47,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23d チャート形状タグ「ノーシグナル」を「チャート形状」→「取引」カテゴリへ移動＋既存記録を一括移行（sw v243→v244）
+ユーザー指示。**app-01.js `migrateData` に一回性移行 `_migShapeNoSignalToTrade` を追加**（`return d` 直前）＝①マスター `custom.chartShapeCats` の「チャート形状」配列から「ノーシグナル」を除去し「取引」へ追加 ②全記録 `charts[ck].chartShapeTags` の `"チャート形状:ノーシグナル"→"取引:ノーシグナル"` を付け替え。タグは「カテゴリ:名前」形式・区切りは半角`:`（`stripCat`＝`/^[^:]+:/`と同じ）。**条件ベース冪等**（「チャート形状」に「ノーシグナル」が無ければ no-op）・「取引」カテゴリが無ければ作成・in-place mutate（`_migLineCoexist`と同型）。タグ管理は `makeShapeTagPoolHandlers`(app-02)＝`chartShapeCats`{cat:[names]}＋loose `chartShapeTags`。検証=`migrateData` 合成データで カテゴリ移動／記録付替（他タグ不変）／冪等／取引カテゴリ新規作成 を確認。※早見表・今週の損益データへの「ノーシグナル」バッジ表示は別途（前回決定=淡いバッジ・早見表＋今週）。
+
 ### 2026-07-23c DayView（取引テーブル）の今週の損益データ欄より下＝「α比較・深掘り」＋「本日のデータ分析」を削除（sw v242→v243）
 ユーザー要望「取引テーブルの今週の損益データ欄より下の、深堀り欄以下のセクションはすべて不要」。**app-04.js `DayView` から2セクションを削除**＝①「📊 α比較・深掘り」（`_benchEl`＝定義＋Fragmentから除去）②「📊 本日のデータ分析」IIFE（📍EP位置別／📈EP→OS5ホールド検証／📊銘柄別OS値分析／🔗OS連鎖分析）。今週の損益データ欄（`_wkMainEl`）までは残す＝Fragmentは `_pbMainEl, _simpleAlphaEl, _soukatsuEl, _wkMainEl` に。取引フォームのモーダル（`EntryRecordForm`・showForm時）は不変。IIFE（約120行）はPythonで行削除（CRLF保持・境界assert）、`_benchEl` はEditで処理。未使用化する `_elDayStockBenchV2`/`_elEpPosSectionV2`/`_elOsChainSection` 等は他ファイル定義なので無害。検証=app-04.js V8 parse OK（442KB→430KB）＋`DayView`(initialTab:"trades")実マウントで 今週=残存・深掘り/本日のデータ分析/ホールド検証/OS連鎖/α比較=全消滅・クラッシュ無し。
 

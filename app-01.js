@@ -1027,6 +1027,30 @@ function migrateData(d) {
       if (_uddN) console.log("[migrateData] uki-dedicated migrated: " + _uddN + " records → float-only alpha");
     } catch(e) { console.warn("[migrateData] uki-dedicated error:", e); }
   }
+  // チャート形状タグ「ノーシグナル」を「チャート形状」→「取引」カテゴリへ移動（_migShapeNoSignalToTrade 2026-07-23・ユーザー指示）: マスター custom.chartShapeCats の配列を付け替え＋全記録 charts[ck].chartShapeTags の "チャート形状:ノーシグナル"→"取引:ノーシグナル" を一括改名。条件ベース冪等（「チャート形状」に「ノーシグナル」が無ければ no-op）・「取引」カテゴリが無ければ作成・in-place。
+  try {
+    var _cShapeCats = d.custom && d.custom.chartShapeCats;
+    if (_cShapeCats && typeof _cShapeCats === "object") {
+      var _nsFrom = "チャート形状", _nsTo = "取引", _nsNm = "ノーシグナル";
+      var _nsFromArr = Array.isArray(_cShapeCats[_nsFrom]) ? _cShapeCats[_nsFrom] : null;
+      if (_nsFromArr && _nsFromArr.indexOf(_nsNm) >= 0) {
+        _cShapeCats[_nsFrom] = _nsFromArr.filter(function(t) { return t !== _nsNm; });
+        var _nsToArr = Array.isArray(_cShapeCats[_nsTo]) ? _cShapeCats[_nsTo].slice() : [];
+        if (_nsToArr.indexOf(_nsNm) < 0) _nsToArr.push(_nsNm);
+        _cShapeCats[_nsTo] = _nsToArr;
+        var _nsOld = _nsFrom + ":" + _nsNm, _nsNew = _nsTo + ":" + _nsNm, _nsN = 0;
+        var _nsCharts = (d.charts && typeof d.charts === "object") ? d.charts : {};
+        Object.keys(_nsCharts).forEach(function(ck) {
+          var c = _nsCharts[ck];
+          if (c && Array.isArray(c.chartShapeTags) && c.chartShapeTags.indexOf(_nsOld) >= 0) {
+            c.chartShapeTags = c.chartShapeTags.map(function(t) { return t === _nsOld ? _nsNew : t; });
+            _nsN++;
+          }
+        });
+        if (_nsN) console.log("[migrateData] ノーシグナル: チャート形状→取引 に " + _nsN + " 記録を移行");
+      }
+    }
+  } catch(e) { console.warn("[migrateData] shape-nosignal-move error:", e); }
   return d;
 }
 function stLoad() {
