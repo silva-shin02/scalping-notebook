@@ -47,6 +47,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23f 予定EP計算もその日の採用α値ベースに＋早見表・今週の損益データに「取引」タグ（ノーシグナル/有効シグナルなし）バッジ（sw v245→v246）
+2つの続き実装（ユーザー指示）。**①予定EP計算も その日の採用α値ベースに**（app-05.js `EntryRecordForm`）＝`_fBaseAInput`(6598)/`_fSpecialA`(6599) の推奨α`_autoBaseA`/`_refSpecialA`フォールバックを廃止＝新規は その日の採用α値のみ・無ければ基本α0／応用αは基本α入力＝入力欄デフォルトと一致（v245で入力欄だけ変えたのを予定EPにも波及）。**②早見表＋今週の損益データの最終損益欄に「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）を淡いグレーバッジ表示**（app-04.js）。判定＝`chartShapeTags` の `取引:` プレフィックス（v244で「ノーシグナル」を`取引`カテゴリへ移動済み・カテゴリ全体対応で将来のタグも自動）。**早見表 `StockQuickRefTable`(3298)** ＝銘柄別（`c2.chartShapeTags`）を最終損益欄冒頭で判定→バッジ。**今週 `_wkMainEl`** ＝日別行で全銘柄集約（`_wdTradeTags`・**ノーシグナルの銘柄はsignals無しで`_wkByDay`(recs)に含まれないため`_pbCharts`直参照**）→`_wkRow`に`tradeTags`引数追加＋最終損益ノードを`_pnlNode`に wrap してバッジ併記（`_pbMainEl`の同型セルと2箇所マッチするので`_wkRecsM`詳細損益をcontextに含めて限定）。検証=app-04/05 V8 parse OK＋`StockQuickRefTable`実マウント(ノーシグナル/有効シグナルなし各2＝最終損益欄＋既存タグ欄)＋`DayView`実マウント(今週の損益データ日別行 各1)。
+
 ### 2026-07-23e 記録フォームのα入力欄デフォルトを「その日の採用α値」のみに＋推奨α値の右にその日の採用α値を表示（sw v244→v245）
 ユーザー指示。**app-05.js `EntryRecordForm` の基本α/応用α**。①`_baDefault`/`_spDefault` を `epNaviDayAlpha`/`epNaviDaySpecialAlpha`（＝その日の採用α値・`_epnDayAlphaGet`/`_epnDaySpecialAlphaGet`）**のみ**に（推奨α`_autoBaseA`/`_refSpecialA`フォールバックを廃止）＝入力欄デフォルトはその日の採用α値のみ・未設定なら空（placeholder「推奨基本α/応用α」→「ー」）②基本α/応用α入力欄の value の推奨αフォールバックを空文字に③推奨基本α値/推奨応用α値サマリーの右に「その日の採用α値 N円 or ー」バッジを追加（青#E0F2FE/茶#FFEDD5）。**予定EP計算 `_fBaseAInput`/`_fSpecialA` は既存維持**（欄が空のとき従来どおり推奨α/基本αで値を出す＝EPプレビューは変えない）。自動入力useEffectは`_baDefault`経由で連動＝その日の採用α値が無ければ自動入力なし（欄空・手入力）。検証=`EntryRecordForm`実マウントで その日の採用α値3→基本α入力欄value="3"・「その日の採用α値 3円」表示／未設定→「その日の採用α値 ー」（対称の応用αも同コード）。
 

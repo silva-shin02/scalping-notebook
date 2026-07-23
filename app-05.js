@@ -6595,8 +6595,8 @@ function EntryRecordForm(_ref_erf) {
 
   
   // 採用α値 = base-levelα（採用α選択が応用なら応用α値、通常なら基本α値）＋ 浮き足加算α値 ＋ RNまたぎ加算。これが採用α＝全計算で使用（2026-07-13 応用α化）。
-  var _fBaseAInput = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : ((!isEdit && _baDefault != null) ? _baDefault : (_autoBaseA != null ? _autoBaseA : 0));   // 基本α入力（新規は本日の採用α値→推奨基本α／編集は推奨のみで本日α混入せず・無ければ0）2026-07-21
-  var _fSpecialA = (fSpecialAlpha !== "" && !isNaN(Number(fSpecialAlpha))) ? Number(fSpecialAlpha) : ((!isEdit && _spDefault != null) ? _spDefault : (_refSpecialA != null ? _refSpecialA : _fBaseAInput));   // 応用α入力（新規は本日の採用応用α値→推奨応用α／編集は推奨のみ・無ければ基本α入力）2026-07-21
+  var _fBaseAInput = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : ((!isEdit && _baDefault != null) ? _baDefault : 0);   // 基本α入力（新規＝その日の採用α値のみ・無ければ0＝推奨基本αフォールバック廃止で予定EPもその日の採用α値ベース 2026-07-23）
+  var _fSpecialA = (fSpecialAlpha !== "" && !isNaN(Number(fSpecialAlpha))) ? Number(fSpecialAlpha) : ((!isEdit && _spDefault != null) ? _spDefault : _fBaseAInput);   // 応用α入力（新規＝その日の採用応用α値のみ・無ければ基本α入力＝推奨応用αフォールバック廃止 2026-07-23）
   var _fBaseLevel = (fAlphaKind === "special") ? _fSpecialA : _fBaseAInput;   // base-levelα正本（採用α選択で切替）
   // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)×採用加算率（推奨%・既定50%・07-12d）を切捨て加算。
   var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）

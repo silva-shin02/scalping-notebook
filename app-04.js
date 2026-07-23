@@ -3296,6 +3296,8 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               // 最終損益＝期待度○が途切れた所で手じまい（（）外・旧H2損益と同一基準・（）内=△含む）。EP損益/H1損益列を集約 2026-07-09。
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
+              var _tradeTags = Array.isArray(c2.chartShapeTags) ? c2.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }) : [];   // 「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等）を最終損益欄に淡いバッジ表示 2026-07-23
+              if (_tradeTags.length) return React.createElement("span", { style: { display: "inline-block", fontSize: 10.5, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 4, padding: "1px 7px", whiteSpace: "nowrap" }, title: "「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等）" }, _tradeTags.map(stripCat).join("・"));
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 15;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
               if (_g.allMissH) return _qZeroCell();
@@ -6334,7 +6336,7 @@ function DayView(_ref57) {
         });
         return out.slice(0, 6);
       };
-      var _wkRow = function(label, labelColor, recs, isTotal, rowKey) {
+      var _wkRow = function(label, labelColor, recs, isTotal, rowKey, tradeTags) {
         // 合計額算入: 除外記録(includeInTotal===false)はサマリ集計から外す。明細展開(_wkExpRow)は全件のまま。2026-06-18
         // 今週テーブルの各行（週合計・日別）は全銘柄横断のグランド集計＝②データのみ（候補で未指定）も除外 2026-07-22e（銘柄別のα推奨は_wkGroupsで別途・据置）。
         var _exclN = (recs || []).filter(function(r) { return _elIsExcluded(r.signal); }).length;  // この日に不算入があれば青点を出す
@@ -6369,6 +6371,7 @@ function DayView(_ref57) {
           _td(st.miss || "0", { color: "#6B7280" }),
           _td(_exclN || "0", { color: "#0284C7", fontWeight: (_exclN || 0) > 0 ? 700 : 400 }),
           _td((function() {
+            var _pnlNode = (function() {
             if (_allExcl) return _elNotInclBadge();
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _h2Tot = null, _h2Cnt = 0, _h2Ref = null, _h2RefCnt = 0;
@@ -6383,6 +6386,9 @@ function DayView(_ref57) {
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } },
               _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
+            })();
+            if (!(tradeTags && tradeTags.length)) return _pnlNode;
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap", justifyContent: "center" } }, React.createElement("span", { style: { display: "inline-block", fontSize: 9, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 3, padding: "0 5px", whiteSpace: "nowrap" }, title: "「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等・その日いずれかの銘柄）" }, tradeTags.join("・")), _pnlNode);
           })()),
           _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _elDetailPnlStackNode(_wkRecsM, _wkAlphaOf, _wkCutOf, _wkBadge, _allMiss)),
           _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_wkStM.sumPnl, (_ent > 0 && _wkStM.sumPnl !== 0) ? _ent : 0), _ent > 0 ? _wkStM.sumPnl : null)),
@@ -6437,8 +6443,10 @@ function DayView(_ref57) {
                   var _dobj = new Date(_wd + "T00:00:00");
                   var _lbl = React.createElement(React.Fragment, null, _DOWJP[_dobj.getDay()] + " " + _wd.slice(5).replace("-", "/"), _wkHoli[_wd] ? React.createElement("span", { title: "休場日（祝日・休場）", style: { marginLeft: 4, fontSize: 9, fontWeight: 700, color: "#7C3AED", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 3, padding: "0 3px", verticalAlign: "middle" } }, "休") : null);
                   var _rk = "wk_" + _wd;
+                  var _wdTradeTags = [];   // その日の全銘柄の「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）を集約＝ノーシグナルの銘柄はrecsに無いのでcharts直参照 2026-07-23
+                  allStocks.forEach(function(_stk) { var _cc = _pbCharts[_stk + "_" + _wd]; if (_cc && Array.isArray(_cc.chartShapeTags)) _cc.chartShapeTags.forEach(function(_t) { if (_t.indexOf("取引:") === 0) { var _s = stripCat(_t); if (_wdTradeTags.indexOf(_s) < 0) _wdTradeTags.push(_s); } }); });
                   return [
-                    _wkRow(_lbl, null, _wkByDay[_wd], false, _rk),
+                    _wkRow(_lbl, null, _wkByDay[_wd], false, _rk, _wdTradeTags),
                     !!pnlTableExpandSet[_rk] ? _wkExpRow(_wkByDay[_wd], _rk) : null
                   ];
                 })
