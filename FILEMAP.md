@@ -47,6 +47,9 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23g 古河電工を日替わり銘柄(rotatingStocks)に組み込む＋EPナビ固定表示の古河電工ハードコード除外を一般化（sw v246→v247）
+ユーザー指示「コードで自動組み込み」。**①app-01.js `migrateData` に一回性移行 `_migFurukawaRotating`**＝`custom.stocks`に古河電工が実在すれば`custom.rotatingStocks`へ追加＋`custom.epnStocks`(EPナビ固定表示)から除去・フラグ`d._migFurukawaRotating`で冪等（ユーザーが後で設定UIから外せる）・in-place。**②app-04.js `EpNaviPanel` の epnStocks既定(4491-4495)の`s!=="古河電工"`ハードコード除外を`rotatingStocks`参照(`_epnRot.indexOf(s)<0`)に一般化**＝日替わり銘柄は固定表示の既定から自動除外（`rotStocks`の日替わり列へ回る）。日替わり銘柄は日別ページで個別タブを作らず「📅日替わり」タブに集約（既存2026-07-22・設定→📊データ・銘柄→📅日替わり銘柄でトグル`custom.rotatingStocks`）。検証=app-01/04 V8 parse OK＋`migrateData`合成でrotatingStocks追加/epnStocks除去/冪等/未実在はスキップ/既存は重複追加せず。
+
 ### 2026-07-23f 予定EP計算もその日の採用α値ベースに＋早見表・今週の損益データに「取引」タグ（ノーシグナル/有効シグナルなし）バッジ（sw v245→v246）
 2つの続き実装（ユーザー指示）。**①予定EP計算も その日の採用α値ベースに**（app-05.js `EntryRecordForm`）＝`_fBaseAInput`(6598)/`_fSpecialA`(6599) の推奨α`_autoBaseA`/`_refSpecialA`フォールバックを廃止＝新規は その日の採用α値のみ・無ければ基本α0／応用αは基本α入力＝入力欄デフォルトと一致（v245で入力欄だけ変えたのを予定EPにも波及）。**②早見表＋今週の損益データの最終損益欄に「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）を淡いグレーバッジ表示**（app-04.js）。判定＝`chartShapeTags` の `取引:` プレフィックス（v244で「ノーシグナル」を`取引`カテゴリへ移動済み・カテゴリ全体対応で将来のタグも自動）。**早見表 `StockQuickRefTable`(3298)** ＝銘柄別（`c2.chartShapeTags`）を最終損益欄冒頭で判定→バッジ。**今週 `_wkMainEl`** ＝日別行で全銘柄集約（`_wdTradeTags`・**ノーシグナルの銘柄はsignals無しで`_wkByDay`(recs)に含まれないため`_pbCharts`直参照**）→`_wkRow`に`tradeTags`引数追加＋最終損益ノードを`_pnlNode`に wrap してバッジ併記（`_pbMainEl`の同型セルと2箇所マッチするので`_wkRecsM`詳細損益をcontextに含めて限定）。検証=app-04/05 V8 parse OK＋`StockQuickRefTable`実マウント(ノーシグナル/有効シグナルなし各2＝最終損益欄＋既存タグ欄)＋`DayView`実マウント(今週の損益データ日別行 各1)。
 

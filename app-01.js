@@ -1051,6 +1051,18 @@ function migrateData(d) {
       }
     }
   } catch(e) { console.warn("[migrateData] shape-nosignal-move error:", e); }
+  // 古河電工を日替わり銘柄(custom.rotatingStocks)に組み込む（_migFurukawaRotating 2026-07-23・ユーザー指示）: マスターに実在すればrotatingStocksへ追加＋epnStocks(EPナビ固定表示)から除去。一回性フラグで冪等（ユーザーが後でUIから外せる）。in-place。
+  if (!d._migFurukawaRotating) {
+    try {
+      var _fcC = d.custom;
+      if (_fcC && Array.isArray(_fcC.stocks) && _fcC.stocks.indexOf("古河電工") >= 0) {
+        var _fcRot = Array.isArray(_fcC.rotatingStocks) ? _fcC.rotatingStocks.slice() : [];
+        if (_fcRot.indexOf("古河電工") < 0) { _fcRot.push("古河電工"); _fcC.rotatingStocks = _fcRot; }
+        if (Array.isArray(_fcC.epnStocks) && _fcC.epnStocks.indexOf("古河電工") >= 0) _fcC.epnStocks = _fcC.epnStocks.filter(function(s) { return s !== "古河電工"; });
+      }
+      d._migFurukawaRotating = true;
+    } catch(e) { console.warn("[migrateData] furukawa-rotating error:", e); }
+  }
   return d;
 }
 function stLoad() {

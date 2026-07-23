@@ -4488,11 +4488,12 @@ function EpNaviPanel(_refEPN) {
   var reasonsMaster = (custom && Array.isArray(custom.specialReasons)) ? custom.specialReasons : _DEF_SPECIAL_REASONS;
   var _EPN_MAX_STOCKS = 3;
   // 早見に横並び表示する銘柄（最大3・EPナビの「⚙表示銘柄」で選択＝custom.epnStocksに保存・Firebase同期）。
-  // 未設定時の既定＝全銘柄の先頭3（ただし「古河電工」はユーザー現状指定で既定除外＝ピッカーで戻せる）。
+  // 未設定時の既定＝全銘柄の先頭3（日替わり銘柄rotatingStocksは固定表示の既定から除外＝rotStocksの日替わり列へ・ピッカーで戻せる）2026-07-23一般化（旧: 「古河電工」をハードコード除外）。
   var _epnAllStocks = (stocks && stocks.length) ? stocks : [];
+  var _epnRot = Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : [];
   var epnStocks = (custom && Array.isArray(custom.epnStocks) && custom.epnStocks.length)
     ? custom.epnStocks.filter(function(s) { return _epnAllStocks.indexOf(s) >= 0; }).slice(0, _EPN_MAX_STOCKS)
-    : _epnAllStocks.filter(function(s) { return s !== "古河電工"; }).slice(0, _EPN_MAX_STOCKS);
+    : _epnAllStocks.filter(function(s) { return _epnRot.indexOf(s) < 0; }).slice(0, _EPN_MAX_STOCKS);
   // 日替わり列（📅・右端 2026-07-22i・ユーザー要望）: custom.rotatingStocks＝候補プール（マスター実在のみ・日経＋固定表示銘柄は除外＝二重表示回避）。見出しの▽で1銘柄を選び右端の列に表示（表示のみ＝指定dailyStock/合計算入は変えない）。
   var rotStocks = (Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : []).filter(function(s) { return _epnAllStocks.indexOf(s) >= 0 && s !== "日経平均株価" && epnStocks.indexOf(s) < 0; });
   var _hasRot = rotStocks.length > 0;
