@@ -47,6 +47,12 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-07-23l グレードを9段(A+〜G+)に細分化＋Q→Z統合＋ノーシグナル=DNF/有効シグナルなし=Z（sw v251→v252）
+- **9段グレード（ユーザー設計）**: 損益/実現損益のグレードを A〜G の7段から **A+/A−/B/C/D/E/F/G−/G+ の9段**へ（D=0中心に対称・両端A/Gのみ±分割）。`_profitGradeFromPnl`（損益: A+≥2500 / A−2000〜2499 / B1000〜1999 / C1〜999 / D0 / E−1〜−999 / F−1000〜−1999 / G−−2000〜−2499 / G+≤−2500）と`_profitGradeFromPnlReal`（実現損益＝10倍スケール: A+≥25000…G+≤−25000）を書換（app-05）。`_GRADE_STYLE`/`_GRADE_DESC`/`_GRADE_DESC_REAL`にA+/A−/G−/G+追加（旧A/Gはエイリアス保持）＝赤(利益)→グレー(0)→緑(損失)ランプ。
+- **Q→Z統合**: 「E基準未達で損益なし(Q)」を **Z（取引なし）に統合**。`_qZeroCell`＝「Q ー円」→「Z ー円」、app-04 `_pbBadge("Q")`→`_pbBadge("Z")`。全凡例からQ削除（app-02×2 `_renderGradeLegend2Row`／app-04 `_trLegendPairs`＋`grades`配列＋mkRow）。
+- **ノーシグナル=DNF / 有効シグナルなし=Z**: 早見表(app-04:3299)の最終損益欄のタグ日を、旧タグ名バッジ→**`_elTradeTagMarker(c)`**（ノーシグナル→グレー「DNF」ピル`_dnfBadge`／それ以外の取引:タグ→Z丸バッジ・タグ名はtooltip）。共用関数`_dnfBadge`/`_elTradeTagMarker`はapp-05（`_qZeroCell`直後・hoistでapp-04から呼出）。**今週の損益データ（per-day集約）はタグ名維持**（複数銘柄混在のため今回は据置）。**別系統の手動評価セレクタ`GRADES`(app-01:80)は不変**。
+- 検証: app-02/04/05 V8 parse OK（SW unregister＋caches消し＋fetch reload）＋**グレード2関数の全境界スモーク全pass**（A+〜G+/Z・損益/実現損益 各18ケース）＋実マウント（root描画・console 0・`_GRADE_STYLE["A+"]/["DNF"]`存在・`_elGradeBadge18("A+")`描画）。**DNFは丸凡例に3文字入らないためピル専用＝凡例には非掲載（セルのtooltipで表現）**。実データの見た目はユーザー実機。
+
 ### 2026-07-23k 不算入行の文字濃度を0.65に＋本日の取引銘柄チップにノーシグナル銘柄（0）表示（sw v250→v251）
 - **不算入行の濃さ（app-05 `_elNotInclRowStyle`）**: 不算入(includeInTotal===false)行の opacity 0.62→**0.65**（α詳細表の参考行と同じ・ユーザー要望「詳細データ表と同じ」）。スルーは0.6据置。全記録テーブル共通の行スタイルなので銘柄別記録/取引テーブル等すべてに反映。
 - **本日の取引銘柄チップ（app-04 `_rotPickerBar`）**: `_rotHasTradeTag(stk)`＝`charts[銘柄_日付].chartShapeTags`に「取引:」カテゴリ（ノーシグナル/有効シグナルなし等）があるか。記録0件でもこのタグが付いた銘柄はチップに**（0）**表示（記録ありは従来どおり（件数））。

@@ -3296,8 +3296,8 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               // 最終損益＝期待度○が途切れた所で手じまい（（）外・旧H2損益と同一基準・（）内=△含む）。EP損益/H1損益列を集約 2026-07-09。
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
-              var _tradeTags = Array.isArray(c2.chartShapeTags) ? c2.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }) : [];   // 「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等）を最終損益欄に淡いバッジ表示 2026-07-23
-              if (_tradeTags.length) return React.createElement("span", { style: { display: "inline-block", fontSize: 10.5, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 4, padding: "1px 7px", whiteSpace: "nowrap" }, title: "「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等）" }, _tradeTags.map(stripCat).join("・"));
+              var _ttMark = _elTradeTagMarker(c2);   // 取引カテゴリタグ日: ノーシグナル→DNFピル / 有効シグナルなし等→Z（取引なし）2026-07-23
+              if (_ttMark) return _ttMark;
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 15;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
               if (_g.allMissH) return _qZeroCell();
@@ -5855,7 +5855,7 @@ function DayView(_ref57) {
         var _trCount = _trTotRecs.filter(function(r){ return _elIsEntered(r.signal, r.item); }).length;
         var _tg = _profitGradeFromPnlReal(_trRealSum, _trCount);
         var _ts = _GRADE_STYLE[_tg] || _GRADE_STYLE.Z;
-        var _trLegendPairs = [["A","25001円~"],["B","10001~25000円"],["C","1~10000円"],["D","0円"],["E","-1~-10000円"],["F","-10001~-25000円"],["G","-25001円~"],["Z","取引なし"],["Q","E基準未達のため非表示"]];
+        var _trLegendPairs = [["A+","25000円~"],["A-","20000~24999円"],["B","10000~19999円"],["C","1~9999円"],["D","0円"],["E","-1~-9999円"],["F","-10000~-19999円"],["G-","-20000~-24999円"],["G+","-25000円~"],["Z","取引なし"]];
         var _trRenderLegendRow = function(items) {
           return React.createElement("div", { style: { display: "flex", gap: "3px 8px", flexWrap: "wrap" } },
             items.map(function(pair) {
@@ -5970,7 +5970,7 @@ function DayView(_ref57) {
       var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0", fontWeight: 400 } }, "/"); };
       var _pbSlashCell = function(symObj, grade, pnl, missFlag) {
         var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
-        var badge = missFlag ? _pbBadge("Q") : (grade && grade !== "Z" ? _pbBadge(grade) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
+        var badge = missFlag ? _pbBadge("Z") : (grade && grade !== "Z" ? _pbBadge(grade) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
         var amt = missFlag ? React.createElement("span", { style: { color: "#888" } }, "—") : (pnl != null ? React.createElement("span", { style: { fontWeight: 600, color: _rPnlCol(pnl) } }, _rPnlFmt(pnl)) : React.createElement("span", { style: { color: "#ccc" } }, "—"));
         return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } }, _lane(sym, 14), _sl(), _lane(badge, 18), _sl(), _lane(amt, 52, "flex-start"));
       };
@@ -6690,7 +6690,7 @@ function DayView(_ref57) {
       return [].concat(c.chartShapeTags || [], c.stockTags || []).map(stripCat);
     };
     var _pbGradeLegend = (function() {
-      var grades = ["A","B","C","D","E","F","G","Q"];
+      var grades = ["A+","A-","B","C","D","E","F","G-","G+"];
       var mkRow = function(title, descs) {
         return React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px 6px", marginBottom: 2 } },
           React.createElement("span", { style: { fontSize: 9, color: "#888", minWidth: 70, flexShrink: 0 } }, title),
@@ -6706,8 +6706,8 @@ function DayView(_ref57) {
         );
       };
       return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8, fontSize: 9 } },
-        mkRow("実現損益", { A:"25001+", B:"10001～25000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-25000", G:"-25001-", Q:"E基準未達のため非表示" }),
-        mkRow("損益（EP/H1/H2/最終）", { A:"2501+", B:"1001～2500", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2500", G:"-2501-", Q:"E基準未達のため非表示" })
+        mkRow("実現損益", { "A+":"25000+", "A-":"20000～24999", B:"10000～19999", C:"1～9999", D:"0", E:"-1～-9999", F:"-10000～-19999", "G-":"-20000～-24999", "G+":"-25000-" }),
+        mkRow("損益（EP/H1/H2/最終）", { "A+":"2500+", "A-":"2000～2499", B:"1000～1999", C:"1～999", D:"0", E:"-1～-999", F:"-1000～-1999", "G-":"-2000～-2499", "G+":"-2500-" })
       );
     })();
     

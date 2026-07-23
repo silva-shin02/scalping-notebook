@@ -5317,49 +5317,60 @@ function _elCalcStats(records, data, simResolve) {
 
 
 
+// 損益(EP/H1/H2/最終)グレード（2026-07-23 A+〜G+の9段・D=0中心に対称・両端A/Gのみ±分割）。enteredCount=0→Z(取引なし)。
 function _profitGradeFromPnl(pnl, enteredCount) {
   if (!enteredCount) return "Z";
-  if (pnl >= 2501)  return "A";
-  if (pnl >= 1001)  return "B";
+  if (pnl >= 2500)  return "A+";
+  if (pnl >= 2000)  return "A-";
+  if (pnl >= 1000)  return "B";
   if (pnl >= 1)     return "C";
   if (pnl === 0)    return "D";
-  if (pnl >= -1000) return "E";
-  if (pnl >= -2500) return "F";
-  return "G";
+  if (pnl >= -999)  return "E";
+  if (pnl >= -1999) return "F";
+  if (pnl >= -2499) return "G-";
+  return "G+";
 }
 
+// 実現損益グレード（2026-07-23 損益スケールの10倍・A+〜G+の9段）。enteredCount=0→Z。
 function _profitGradeFromPnlReal(pnl, enteredCount) {
   if (!enteredCount) return "Z";
-  if (pnl >= 25001)  return "A";
-  if (pnl >= 10001)  return "B";
+  if (pnl >= 25000)  return "A+";
+  if (pnl >= 20000)  return "A-";
+  if (pnl >= 10000)  return "B";
   if (pnl >= 1)      return "C";
   if (pnl === 0)     return "D";
-  if (pnl >= -10000) return "E";
-  if (pnl >= -25000) return "F";
-  return "G";
+  if (pnl >= -9999)  return "E";
+  if (pnl >= -19999) return "F";
+  if (pnl >= -24999) return "G-";
+  return "G+";
 }
 var _GRADE_STYLE = {
-  A: { bg: "#FDECEA", color: "#B71C1C", border: "#FFCDD2" },
+  "A+": { bg: "#F8C6C6", color: "#7F0000", border: "#EC9A9A" },
+  "A-": { bg: "#FDECEA", color: "#B71C1C", border: "#FFCDD2" },
   B: { bg: "#FFEBEE", color: "#C62828", border: "#EF9A9A" },
   C: { bg: "#FFF3F3", color: "#E53935", border: "#FFCDD2" },
   D: { bg: "#F5F5F5", color: "#555",    border: "#DDD" },
   E: { bg: "#F1F8E9", color: "#558B2F", border: "#AED581" },
   F: { bg: "#E8F5E9", color: "#2E7D32", border: "#A5D6A7" },
+  "G-": { bg: "#C8E6C9", color: "#1B5E20", border: "#81C784" },
+  "G+": { bg: "#A5D6A7", color: "#0B3D0B", border: "#66BB6A" },
+  A: { bg: "#FDECEA", color: "#B71C1C", border: "#FFCDD2" },
   G: { bg: "#C8E6C9", color: "#1B5E20", border: "#81C784" },
   Z: { bg: "#f5f4f0", color: "#888",    border: "#ddd" },
-  Q: { bg: "#FEF3C7", color: "#B45309", border: "#FCD34D" }
+  Q: { bg: "#f5f4f0", color: "#888",    border: "#ddd" },
+  DNF: { bg: "#f5f4f0", color: "#888",  border: "#ddd" }
 };
 
 var _GRADE_DESC = {
-  A: "2501円~", B: "1001~2500円", C: "1~1000円",
-  D: "0円", E: "-1~-1000円", F: "-1001~-2500円", G: "-2501円~",
-  Z: "取引なし", Q: "E基準未達のため非表示"
+  "A+": "2500円~", "A-": "2000~2499円", B: "1000~1999円", C: "1~999円",
+  D: "0円", E: "-1~-999円", F: "-1000~-1999円", "G-": "-2000~-2499円", "G+": "-2500円~",
+  Z: "取引なし", DNF: "ノーシグナル"
 };
 
 var _GRADE_DESC_REAL = {
-  A: "25001円~", B: "10001~25000円", C: "1~10000円",
-  D: "0円", E: "-1~-10000円", F: "-10001~-25000円", G: "-25001円~",
-  Z: "取引なし", Q: "E基準未達のため非表示"
+  "A+": "25000円~", "A-": "20000~24999円", B: "10000~19999円", C: "1~9999円",
+  D: "0円", E: "-1~-9999円", F: "-10000~-19999円", "G-": "-20000~-24999円", "G+": "-25000円~",
+  Z: "取引なし", DNF: "ノーシグナル"
 };
 
 
@@ -5368,16 +5379,35 @@ function _qMissCell(size) {
   return React.createElement("span", { title: "E基準未達のため非表示", style: { color: "#888" } }, "ー");
 }
 // その集計行の全記録がE基準未達(全miss)の場合のセル表示「Ⓠ ー円」（Qをランク風に〇で囲む）。
+// 全記録E基準未達（取引不成立）のセル。2026-07-23 QをZ（取引なし）に統合＝「Z ー円」。
 function _qZeroCell(size) {
   var sz = size || 16;
-  var gs = _GRADE_STYLE.Q;
+  var gs = _GRADE_STYLE.Z;
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
-    React.createElement("span", { title: "全記録がE基準未達のため損益なし",
+    React.createElement("span", { title: "全記録がE基準未達＝取引不成立（取引なし扱い）",
       style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: sz, height: sz,
         borderRadius: "50%", background: gs.bg, color: gs.color, border: "1px solid " + gs.border,
-        fontWeight: 800, fontSize: Math.round(sz * 0.6), flexShrink: 0 } }, "Q"),
+        fontWeight: 800, fontSize: Math.round(sz * 0.6), flexShrink: 0 } }, "Z"),
     React.createElement("span", { style: { color: "#888", fontWeight: 700 } }, "ー円")
   );
+}
+// ノーシグナル用「DNF」ピル（2026-07-23）＝取引の土俵に無い日。丸バッジに3文字は入らないためピル。
+function _dnfBadge(label) {
+  return React.createElement("span", { title: label || "ノーシグナル（取引の土俵に無し）",
+    style: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "1px 6px", borderRadius: 4,
+      background: "#f5f4f0", color: "#888", border: "1px solid #ddd", fontWeight: 800, fontSize: 9.5, letterSpacing: "0.3px", whiteSpace: "nowrap", flexShrink: 0 } }, "DNF");
+}
+// 「取引」カテゴリタグ日のマーカー（早見表/損益データ表の最終損益欄で共用 2026-07-23）: ノーシグナル→DNFピル / それ以外(有効シグナルなし等)→Z（取引なし）丸バッジ。タグ名はtooltip。無ければnull。
+function _elTradeTagMarker(c) {
+  var tags = (c && Array.isArray(c.chartShapeTags)) ? c.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }) : [];
+  if (!tags.length) return null;
+  var names = tags.map(function(t) { return stripCat(t); });
+  var title = names.join("・");
+  if (names.indexOf("ノーシグナル") >= 0) return _dnfBadge(title);
+  var gs = _GRADE_STYLE.Z;
+  return React.createElement("span", { title: title,
+    style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%",
+      background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, flexShrink: 0 } }, "Z");
 }
 // 集計行が全miss(E基準未達)かを判定。recs各記録を行セルと同じαで _elDynResult し全て"miss"ならtrue。
 function _elAllMissRow(recs, alphaOf, cutOf) {
