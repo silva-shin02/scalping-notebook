@@ -5446,7 +5446,8 @@ function _elKabuLadderSimV2(props) {
     if (!m) _inputPart = React.createElement("span", { style: { fontSize: 10, color: "#bbb" } }, "方式を選択");
     else if (m === "recobase") _inputPart = React.createElement(React.Fragment, null, React.createElement("span", { style: { fontSize: 10.5 } }, "推奨基本α値で"), _cumF, React.createElement("span", { style: { fontSize: 10.5 } }, "株"));
     else {
-      var _pfx = m === "abs" ? "α値" : m === "adopt" ? "採用α値＋" : "推奨α＋";   // ① 方式別の入力ラベル
+      var _negOff = (m !== "abs" && _kbInt(rw.off) != null && _kbInt(rw.off) < 0);   // 採用α−X/推奨α−X＝マイナスは「＋」を出さない（−は入力欄側で表示・＋−の二重表示回避）2026-07-24
+      var _pfx = m === "abs" ? "α値" : m === "adopt" ? ("採用α値" + (_negOff ? "" : "＋")) : ("推奨α" + (_negOff ? "" : "＋"));   // ① 方式別の入力ラベル（±X両対応）
       var _offF = _cfgStepField(rw.off, function(e) { o.upd(i, { off: e.target.value }); }, function() { o.stepOff(i, 1); }, function() { o.stepOff(i, -1); });
       _inputPart = React.createElement(React.Fragment, null, React.createElement("span", { style: { fontSize: 10.5, whiteSpace: "nowrap" } }, _pfx), _offF, React.createElement("span", { style: { fontSize: 10.5 } }, "円で"), _cumF, React.createElement("span", { style: { fontSize: 10.5 } }, "株"));
     }
