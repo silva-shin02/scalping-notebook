@@ -4988,23 +4988,30 @@ function _elEpHighVal(s, alpha, cutLine) {
   }
   return (eph == null || isNaN(eph)) ? null : eph;
 }
-// 記録表「ライン」セルの中身(td無し): 予定EP額（水準線値＋合計α）と予定損切りライン額（予定EP＋損切り値）を4行(EP／額／損切／額)で縦積み＝EPナビ/フォームの「予定EP」「予定損切りライン」と同じ実価格（円）。水準線値(levelPrice)未入力の記録は「—」。2026-07-18e 実価格へ修正（旧＝EP高値の水準線比・符号付き値は解釈違い）。合計α=各行の採用α・損切り値=採用損切り値。
+// 記録表「ライン」セルの中身(td無し): 水準線値／予定EP額（水準線＋合計α）／予定損切りライン額（EP＋損切り値）／実現到達（水準線＋手じまいまでの最高値mx）を6行(各 ラベル／額)で縦積み＝実価格（円）。EPナビ/フォームの「予定EP」「予定損切りライン」と同じ実価格。水準線値(levelPrice)未入力は「—」・実現到達はE成立(v2)行のみ（未成立/α未達は「—」）。2026-07-18e実価格化。2026-07-24 EPの上に「水準」・損切の下に「実現到達」を追加（実現到達＝水準線＋_elRideVals.mx＝手じまいまでに到達した最高値・OS値ではなく実価格）。合計α=各行の採用α・損切り値=採用損切り値。
 function _elLineInner(s, alpha, cutLine) {
   var lv = (s && s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
   var a = (alpha != null && !isNaN(Number(alpha))) ? Number(alpha) : null;
   var epPrice = (lv != null && a != null) ? Math.round((lv + a) * 100) / 100 : null;   // 予定EP額＝水準線値＋合計α（app-04:3506の正本式と同じ）
   var stopPrice = (epPrice != null && cutLine != null && !isNaN(Number(cutLine))) ? Math.round((epPrice + Number(cutLine)) * 100) / 100 : null;   // 予定損切りライン＝予定EP＋損切り値（向きは常にEP＋・2026-07-18d確定）
+  var _rv = _elRideVals(s, alpha, cutLine);   // 決済サマリーの素の値（mx=手じまいまでの最高値・水準線比↑正）
+  var reachPrice = (lv != null && _rv && _rv.mx != null && !isNaN(Number(_rv.mx))) ? Math.round((lv + Number(_rv.mx)) * 100) / 100 : null;   // 実現到達＝水準線値＋手じまいまでの最高値（実価格）2026-07-24
   var _lbl = { fontSize: 9, color: "#999", fontWeight: 700, lineHeight: 1.1 };
   var _num = { fontSize: 11, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: "tabular-nums" };
   var _fmt = function(v, col) {
     if (v == null) return React.createElement("span", { style: { color: "#ccc", fontWeight: 700, fontSize: 11 } }, "—");
     return React.createElement("span", { style: Object.assign({}, _num, { color: col }) }, v);
   };
+  var _epLbl = _elRnYes(s) ? Object.assign({}, _lbl, { marginTop: 1, whiteSpace: "nowrap", color: "#7C3AED" }) : Object.assign({}, _lbl, { marginTop: 1 });
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } },
-    React.createElement("span", { style: _elRnYes(s) ? Object.assign({}, _lbl, { whiteSpace: "nowrap", color: "#7C3AED" }) : _lbl }, _elRnYes(s) ? "EP（RN）〇" : "EP"),   // RNまたぎ〇＝EPがRN(キリ番)に乗っている記録は「EP（RN）〇」表記（紫）2026-07-18h
+    React.createElement("span", { style: _lbl }, "水準"),   // 水準線値をEPの上に表示 2026-07-24
+    _fmt(lv, "#64748B"),
+    React.createElement("span", { style: _epLbl }, _elRnYes(s) ? "EP（RN）〇" : "EP"),   // RNまたぎ〇＝EPがRN(キリ番)に乗っている記録は「EP（RN）〇」表記（紫）2026-07-18h
     _fmt(epPrice, "#334155"),
     React.createElement("span", { style: Object.assign({}, _lbl, { marginTop: 1 }) }, "損切"),
-    _fmt(stopPrice, "#B45309"));
+    _fmt(stopPrice, "#B45309"),
+    React.createElement("span", { style: Object.assign({}, _lbl, { marginTop: 1, whiteSpace: "nowrap" }) }, "実現到達"),   // 手じまいまでに到達した最高値＝水準線値＋mx（実価格）2026-07-24
+    _fmt(reachPrice, "#475569"));
 }
 // 「ライン」セル(td込み)。数値の左右余白を最小(2px)に。border=各表の枠線(borderBottom/borderRightに同値)。2026-07-18。
 function _elLineCell(s, alpha, cutLine, border) {
