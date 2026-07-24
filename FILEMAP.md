@@ -120,6 +120,12 @@ HomeEventFormModal, App
 - **早見カード**: EP価格右の③底抜け値・詳細要約(底:/起:/特:)・インライン編集の起点select/特徴チップ・`_EpnAddSection` 内の応用α根拠チップ を削除＝カードは EP値・α内訳・(推奨元)・採用α(基本/応用)・RN・済/編集のみ。
 - 未使用化した定義（nSelB/nSelK/nSelF/detOpen/cands/_detAdd系/onEditK/onToggleF/_candK/_candF）は無害につき残置。検証=app-04.js V8 parse OK＋`EpNaviPanel` 合成データ実マウントで KEEP(推奨基本α/水準線/採用α/RN/予定EP/早見EP)=全live・DEL(底抜け名/詳細を入力/その他複数可/根拠選ぶと/起点名/特徴名)=全消滅・クラッシュ無し。
 
+### 2026-07-24 ③底抜け欄「だけ」を復活（計算フォーム＋早見カード・sw v255→v256）
+ユーザー要望「EPナビ、底抜けライン欄だけ復活させて。早見表でも」。上記2026-07-23削除の逆適用のうち**③底抜けのみ**を戻す（詳細トグル/③起点/④特徴/応用α根拠/推奨基本αの「詳細別」行/早見カードの起点select・特徴チップ・detTxt要約は復活させない）。残置していた state/ヘルパー（nSelB/setNSelB/cands.b/_detAdd/_detRename/_detDelete/_detReorder）と loadForEdit(e.b)/doSave(b) がそのまま生きているためレンダー2行の復元のみ。
+- **計算フォーム**（`_EpnCalcForm`・②シグナル `_lrow` の直下）: `nTag ? _lrow(_mgmtHead("③","底抜け"), _EpnChipMgr{items:cands.b,…}) : null` を復元。
+- **早見カード**（`EpNaviPanel` の EP価格行）: `e.b ? <span 16px #475569>e.b</span> : null` を EP価格の右に復元。
+- 検証=node --check OK＋`EpNaviPanel` 合成データ実マウント（早見カードに「EP 1234円→前日安値」／②シグナル選択後に③底抜け候補チップ「前日終値」が出現）＝pass。
+
 ### 2026-07-22k 監査の残課題をユーザー決定で解消（既定サブタブ/帯頻度再計算/死コード削除/残stale文言）（sw v238→v239）
 - 2026-07-22jの「未修正（ユーザー判断待ち）」3点をAskUserQuestionで確定し実装。
 - **①シグナル総合の既定サブタブ "uki"→"band"**（app-06 `sigSub` useState）＝移設先の株価帯別を前面に（ユーザー決定）。実マウントで📡シグナル総合クリック→帯本体が既定表示を確認。
