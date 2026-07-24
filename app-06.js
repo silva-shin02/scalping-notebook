@@ -5881,10 +5881,12 @@ function EntryLogView(_ref_elv2) {
         React.createElement("span", { style: { fontWeight: 700, color: "#1E8449" } }, st.n + "件・" + (st.rate != null ? st.rate + "%" : "—")),
         React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "平均" + (st.avg != null ? st.avg.toLocaleString() : "—") + "円")), ex);
     };
-    // 到達セル: EP到達件数（主）＋到達率（対 件数=全記録・小書き）2026-07-09
-    var reachCell = function(rn, tot, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+    // 到達セル: EP到達件数（主）＋到達率（対 件数=全記録・小書き）＋1日平均（到達÷営業日数・欄が狭いので「1日平均」「〇件」の2行）2026-07-24。日別(g==="day")は各行=1日で冗長・0件は非表示（avgCntLineと同扱い）。
+    var reachAvg2 = function(rn, days) { if (!days || g === "day" || !rn) return null; var r1 = Math.round(rn / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); };
+    var reachCell = function(rn, tot, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
       React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, rn + "件"),
-      tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(rn / tot * 100) + "%") : null), ex); };
+      tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(rn / tot * 100) + "%") : null,
+      reachAvg2(rn, days)), ex); };
     // 利確セル: 利益で手じまいした件数・率（旧勝率の位置・色分けは勝率と同じ緑/橙）2026-07-09
     var winTakeCell = function(wt, ex) {
       if (!wt || wt.rate == null) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
@@ -5913,7 +5915,7 @@ function EntryLogView(_ref_elv2) {
           (!x.length && _thruRow.length) ? React.createElement("span", { title: "この期間は算入記録が無く、スルー記録だけがあります（集計は全て—）", style: { fontSize: 8.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 4px", marginLeft: 4, whiteSpace: "nowrap" } }, "スルーのみ") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
         otd(dn + "日", { fontWeight: 600, color: "#555" }),
         cntCell(x.length, dn, { fontWeight: 700 }),
-        reachCell(reachOf(x), x.length),
+        reachCell(reachOf(x), x.length, dn),
         winTakeCell(winTakeOf(x)),
         stopCell(st),
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
@@ -5934,7 +5936,7 @@ function EntryLogView(_ref_elv2) {
       otd(React.createElement("span", null, "合計", _hasRef ? React.createElement("span", { title: "4月（EMA位置ズレの参考期間）は合計・平均から除外しています", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※参考除く") : null), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
       otd(_ovTotDays + "日", Object.assign({ fontWeight: 700, color: "#555" }, bt)),
       cntCell(rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
-      reachCell(reachOf(rsInc), rsInc.length, Object.assign({ fontWeight: 800 }, bt)),
+      reachCell(reachOf(rsInc), rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
       stopCell(stopsOf(rsInc), bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
@@ -6900,7 +6902,7 @@ function EntryLogView(_ref_elv2) {
           _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, gran))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           _tdP(dn + "日", { fontWeight: 600, color: "#555" }),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700 } }, rs.length + "件"), _avgCntLine2(rs.length, dn))),
-          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, _reach + "件"), rs.length ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(_reach / rs.length * 100) + "%") : null)),
+          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, _reach + "件"), rs.length ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(_reach / rs.length * 100) + "%") : null, (dn && gran !== "day" && _reach) ? (function() { var r1 = Math.round(_reach / dn * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); })() : null)),   // 到達の1日平均（2行）2026-07-24
           _tdP(rr.takeRate != null ? React.createElement("span", { style: { fontWeight: 700, color: rr.takeRate >= 50 ? "#1E8449" : "#B45309" } }, rr.take + "件・" + rr.takeRate + "%") : React.createElement("span", { style: { color: "#bbb" } }, "—")),
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 }),
           _tdP(rr.soft + "%", { color: rr.soft > 0 ? "#B45309" : "#bbb", fontWeight: rr.soft > 0 ? 700 : 400 }),
