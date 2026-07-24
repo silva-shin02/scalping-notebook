@@ -126,6 +126,9 @@ HomeEventFormModal, App
 - **早見カード**（`EpNaviPanel` の EP価格行）: `e.b ? <span 16px #475569>e.b</span> : null` を EP価格の右に復元。
 - 検証=node --check OK＋`EpNaviPanel` 合成データ実マウント（早見カードに「EP 1234円→前日安値」／②シグナル選択後に③底抜け候補チップ「前日終値」が出現）＝pass。
 
+### 2026-07-24 早見カードの配色を2チャンネル化＝面色は分足・EP数字色は採用α（sw v256→v257）
+ユーザー要望「1分足はオレンジ・5分足は黄緑、基本αはEP文字を青・応用αは赤」（show_widgetモック提示→承認）。**app-04.js `EpNaviPanel._renderCard`（4652付近）のみ**。①**5分パレット `C`（has5）を緑→黄緑(lime)** に（bd #86EFAC→#A3E635・bg #F0FDF4→#F7FEE7・bbg #DCFCE7→#ECFCCB・bc #166534→#3F6212・sub #16A34A→#65A30D・main #15803D→#4D7C0F）。1分オレンジ/済グレーは不変。②**EP数字色 `epColor` を採用αで決定**＝`isDone ? C.main : (_applied ? "#B91C1C"(赤) : "#1D4ED8"(青))`。`_applied` = 浮き足カードは `e.ukiSpecial===true`（浮応）・通常カードは `e.specialUsed===true`。旧は「応用αのみ赤・他は分足色」。③**起点サブ行 `subColor` は分足色のまま**（`C.sub`固定・旧の応用α時#DC2626を撤去）＝色でαを示すのはEP数字だけ（ユーザー選択）。面色（枠/背景/分足バッジ）は従来どおり分足駆動。検証=V8 parse OK＋実マウントで computed color 実測（1分=bg#FFF7ED/5分=bg#F7FEE7・基本α=EP rgb(29,78,216)青/応用α=rgb(185,28,28)赤/済=rgb(148,163,184)灰）全一致。
+
 ### 2026-07-22k 監査の残課題をユーザー決定で解消（既定サブタブ/帯頻度再計算/死コード削除/残stale文言）（sw v238→v239）
 - 2026-07-22jの「未修正（ユーザー判断待ち）」3点をAskUserQuestionで確定し実装。
 - **①シグナル総合の既定サブタブ "uki"→"band"**（app-06 `sigSub` useState）＝移設先の株価帯別を前面に（ユーザー決定）。実マウントで📡シグナル総合クリック→帯本体が既定表示を確認。

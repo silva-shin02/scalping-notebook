@@ -4636,7 +4636,7 @@ function EpNaviPanel(_refEPN) {
     if (ne.done) delete ne.done; else ne.done = true;
     _epnPut(save, date, st, ne);
   };
-  // 保存済みEPカード（面=分足色: 5分含む=緑/1分=オレンジ・追加αありはEP/内訳の文字だけ赤＋「追」・済み=灰色薄く 2026-07-08b。旧: 追加α=赤面・5分=緑左ライン）
+  // 保存済みEPカード（面=分足色: 5分=黄緑(lime)/1分=オレンジ・EP数字=採用α色(基本α=青#1D4ED8/応用α=赤#B91C1C・分足に依らず)・済み=灰色薄く 2026-07-24。旧: 面=分足色(5分緑)/応用αのみEP赤 2026-07-08b）
   var _renderCard = function(st, e) {
     var hasSpecial = e.specialUsed === true && !((e.ukiUsed === true) || ((Number(e.uki) || 0) > 0));   // 2026-07-14g 浮き足〇カードは応用α扱いにしない（旧保存の残特殊フラグも無視）
     var mb = Array.isArray(e.minBars) ? e.minBars : [];
@@ -4650,11 +4650,12 @@ function EpNaviPanel(_refEPN) {
       : ((e.specialUsed === true && e.special != null ? "応" + e.special : "基" + (e.base != null ? e.base : "—")) + (e.uki ? "＋浮" + e.uki : "") + (e.rn ? "＋RN" + e.rn : ""));
     var armed = delArm === e.id;
     var C = has5
-      ? { bd: "#86EFAC", bg: "#F0FDF4", main: "#15803D", sub: "#16A34A", bbg: "#DCFCE7", bc: "#166534" }
-      : { bd: "#FDBA74", bg: "#FFF7ED", main: "#C2410C", sub: "#EA580C", bbg: "#FFEDD5", bc: "#9A3412" };
+      ? { bd: "#A3E635", bg: "#F7FEE7", main: "#4D7C0F", sub: "#65A30D", bbg: "#ECFCCB", bc: "#3F6212" }   // 5分＝黄緑(lime) 2026-07-24
+      : { bd: "#FDBA74", bg: "#FFF7ED", main: "#C2410C", sub: "#EA580C", bbg: "#FFEDD5", bc: "#9A3412" };   // 1分＝オレンジ
     if (isDone) C = { bd: "#CBD5E1", bg: "#F1F5F9", main: "#94A3B8", sub: "#94A3B8", bbg: "#E2E8F0", bc: "#94A3B8" };
-    var epColor = (hasSpecial && !isDone) ? "#B91C1C" : C.main;
-    var subColor = (hasSpecial && !isDone) ? "#DC2626" : C.sub;
+    var _applied = _isUkiCard ? (e.ukiSpecial === true) : (e.specialUsed === true);   // 応用α相当か（浮き足カードは浮応＝応用扱い）2026-07-24
+    var epColor = isDone ? C.main : (_applied ? "#B91C1C" : "#1D4ED8");   // EP数字の色＝採用α: 基本α=青/応用α=赤（分足に依らず・済=灰）2026-07-24
+    var subColor = C.sub;   // 起点行は分足色のまま（EP数字だけでαを示す）2026-07-24
     var mbBadge = (has5 || has1) ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, borderRadius: 3, padding: "0 3px", marginRight: 3, color: C.bc, background: C.bbg, border: "0.5px solid " + C.bd } }, mb.join("・") + "分") : null;
     var _isEditingThis = _editingMap[st] === e.id;
     var _cand = (custom.sigDetails2 || {})[e.tag] || {};
