@@ -5235,9 +5235,11 @@ function DayView(_ref57) {
   // 「本日の取引銘柄」バー（📅日替わりタブ最上部 2026-07-22d）: 候補プール(rotStocks)を「銘柄名（件数）」で並べる。名前タップ=表示/記録の切替(setRotViewStock)。各チップの指定●=その日の本日の取引銘柄に指定(dailyStock[date]・赤マーク・合計算入)。未指定の候補の記録はデータのみ(合計除外・分析は残す)。＋でその場追加(候補プール＋マスターへ)。
   var _rotRecCount = function(stk) { var c = data.charts[stk + "_" + date]; return (c && c.signals) ? c.signals.length : 0; };
   var _rotHasTradeTag = function(stk) { var c = data.charts[stk + "_" + date]; return !!(c && Array.isArray(c.chartShapeTags) && c.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }).length); };   // 「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）が付いた銘柄＝取引0件を（0）で明示 2026-07-23
+  var _rotCodeOf = function(stk) { var c = (custom.stockCodes || {})[stk]; var n = (c != null && c !== "") ? parseInt(String(c).replace(/\D/g, ""), 10) : NaN; return isNaN(n) ? Infinity : n; };   // 銘柄コード（数値）・未登録は末尾 2026-07-24
+  var _rotSorted = rotStocks.slice().sort(function(a, b) { var ca = _rotCodeOf(a), cb = _rotCodeOf(b); if (ca !== cb) return ca - cb; return a < b ? -1 : a > b ? 1 : 0; });   // 本日の取引銘柄チップを銘柄コード昇順で左から並べる（同/無コードは名前順）2026-07-24
   var _rotPickerBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #E0E7FF", borderRadius: 13, padding: "8px 12px", margin: "0 0 10px", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
     React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#4338CA", whiteSpace: "nowrap" } }, "📅 本日の取引銘柄"),
-    rotStocks.map(function(s) {
+    _rotSorted.map(function(s) {
       var viewing = _rotView === s;
       var designated = dayStock === s;
       var cnt = _rotRecCount(s);

@@ -73,6 +73,9 @@ HomeEventFormModal, App
 - **ノーシグナル=DNF / 有効シグナルなし=Z**: 早見表(app-04:3299)の最終損益欄のタグ日を、旧タグ名バッジ→**`_elTradeTagMarker(c)`**（ノーシグナル→グレー「DNF」ピル`_dnfBadge`／それ以外の取引:タグ→Z丸バッジ・タグ名はtooltip）。共用関数`_dnfBadge`/`_elTradeTagMarker`はapp-05（`_qZeroCell`直後・hoistでapp-04から呼出）。**今週の損益データ（per-day集約）はタグ名維持**（複数銘柄混在のため今回は据置）。**別系統の手動評価セレクタ`GRADES`(app-01:80)は不変**。
 - 検証: app-02/04/05 V8 parse OK（SW unregister＋caches消し＋fetch reload）＋**グレード2関数の全境界スモーク全pass**（A+〜G+/Z・損益/実現損益 各18ケース）＋実マウント（root描画・console 0・`_GRADE_STYLE["A+"]/["DNF"]`存在・`_elGradeBadge18("A+")`描画）。**DNFは丸凡例に3文字入らないためピル専用＝凡例には非掲載（セルのtooltipで表現）**。実データの見た目はユーザー実機。
 
+### 2026-07-24 本日の取引銘柄チップを銘柄コード昇順で自動整列（sw v258→v259）
+ユーザー要望「左から銘柄コードが早い順に（SUMCO→古河電工→安川電機）」。**app-04 `_rotPickerBar`（本日の取引銘柄バー・app-04:5238付近）のみ**。`rotStocks.map` を **`_rotSorted.map` に変更**＝`_rotCodeOf(stk)`=`custom.stockCodes[銘柄名]` を数値化（`parseInt(String(c).replace(/\D/g,""),10)`・未登録は`Infinity`）→`rotStocks.slice().sort()` で**コード昇順・同/無コードは名前順**。表示順のみ整列（rotStocks本体・_rotView/dailyStock等のロジックは不変）。**コードは設定→銘柄管理で登録した`custom.stockCodes`（名前キー）が前提＝未登録銘柄は末尾**。EPナビ側の日替わり`<select>`(app-04:4719・別rotStocks)は今回対象外。検証=V8 parse OK＋比較関数をユーザー銘柄コード(3436/5801/6506)で実行＝任意入力順→[SUMCO,古河電工,安川電機]・コード無しは末尾。
+
 ### 2026-07-23k 不算入行の文字濃度を0.65に＋本日の取引銘柄チップにノーシグナル銘柄（0）表示（sw v250→v251）
 - **不算入行の濃さ（app-05 `_elNotInclRowStyle`）**: 不算入(includeInTotal===false)行の opacity 0.62→**0.65**（α詳細表の参考行と同じ・ユーザー要望「詳細データ表と同じ」）。スルーは0.6据置。全記録テーブル共通の行スタイルなので銘柄別記録/取引テーブル等すべてに反映。
 - **本日の取引銘柄チップ（app-04 `_rotPickerBar`）**: `_rotHasTradeTag(stk)`＝`charts[銘柄_日付].chartShapeTags`に「取引:」カテゴリ（ノーシグナル/有効シグナルなし等）があるか。記録0件でもこのタグが付いた銘柄はチップに**（0）**表示（記録ありは従来どおり（件数））。
