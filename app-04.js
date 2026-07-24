@@ -6398,7 +6398,7 @@ function DayView(_ref57) {
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
             })();
             if (!(tradeTags && tradeTags.length)) return _pnlNode;
-            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap", justifyContent: "center" } }, React.createElement("span", { style: { display: "inline-block", fontSize: 9, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 3, padding: "0 5px", whiteSpace: "nowrap" }, title: "「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等・その日いずれかの銘柄）" }, tradeTags.join("・")), _pnlNode);
+            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap", justifyContent: "center" } }, React.createElement("span", { style: { display: "inline-block", fontSize: 9, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 3, padding: "0 5px", whiteSpace: "nowrap" }, title: "「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等）。この日はエントリーした銘柄が無く全銘柄が取引なしのため表示。" }, tradeTags.join("・")), _pnlNode);
           })()),
           _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _elDetailPnlStackNode(_wkRecsM, _wkAlphaOf, _wkCutOf, _wkBadge, _allMiss, _wkRowDays)),
           _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_wkRowDays > 0 ? Math.round(_wkStM.sumPnl / _wkRowDays) : _wkStM.sumPnl, (_ent > 0 && _wkStM.sumPnl !== 0) ? _ent : 0), _ent > 0 ? _wkStM.sumPnl : null)),
@@ -6454,7 +6454,8 @@ function DayView(_ref57) {
                   var _lbl = React.createElement(React.Fragment, null, _DOWJP[_dobj.getDay()] + " " + _wd.slice(5).replace("-", "/"), _wkHoli[_wd] ? React.createElement("span", { title: "休場日（祝日・休場）", style: { marginLeft: 4, fontSize: 9, fontWeight: 700, color: "#7C3AED", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 3, padding: "0 3px", verticalAlign: "middle" } }, "休") : null);
                   var _rk = "wk_" + _wd;
                   var _wdTradeTags = [];   // その日の全銘柄の「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）を集約＝ノーシグナルの銘柄はrecsに無いのでcharts直参照 2026-07-23
-                  allStocks.forEach(function(_stk) { var _cc = _pbCharts[_stk + "_" + _wd]; if (_cc && Array.isArray(_cc.chartShapeTags)) _cc.chartShapeTags.forEach(function(_t) { if (_t.indexOf("取引:") === 0) { var _s = stripCat(_t); if (_wdTradeTags.indexOf(_s) < 0) _wdTradeTags.push(_s); } }); });
+                  // 取引タグは「その日エントリーした銘柄が1つも無い＝全銘柄が取引なし」の日だけ表示（集約表なので1銘柄でも取引があれば誤解を招く）2026-07-24
+                  if (_wkEntCnt(_wkByDay[_wd]) === 0) allStocks.forEach(function(_stk) { var _cc = _pbCharts[_stk + "_" + _wd]; if (_cc && Array.isArray(_cc.chartShapeTags)) _cc.chartShapeTags.forEach(function(_t) { if (_t.indexOf("取引:") === 0) { var _s = stripCat(_t); if (_wdTradeTags.indexOf(_s) < 0) _wdTradeTags.push(_s); } }); });
                   return [
                     _wkRow(_lbl, null, _wkByDay[_wd], false, _rk, _wdTradeTags),
                     !!pnlTableExpandSet[_rk] ? _wkExpRow(_wkByDay[_wd], _rk) : null

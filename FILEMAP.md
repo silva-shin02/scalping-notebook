@@ -73,6 +73,9 @@ HomeEventFormModal, App
 - **ノーシグナル=DNF / 有効シグナルなし=Z**: 早見表(app-04:3299)の最終損益欄のタグ日を、旧タグ名バッジ→**`_elTradeTagMarker(c)`**（ノーシグナル→グレー「DNF」ピル`_dnfBadge`／それ以外の取引:タグ→Z丸バッジ・タグ名はtooltip）。共用関数`_dnfBadge`/`_elTradeTagMarker`はapp-05（`_qZeroCell`直後・hoistでapp-04から呼出）。**今週の損益データ（per-day集約）はタグ名維持**（複数銘柄混在のため今回は据置）。**別系統の手動評価セレクタ`GRADES`(app-01:80)は不変**。
 - 検証: app-02/04/05 V8 parse OK（SW unregister＋caches消し＋fetch reload）＋**グレード2関数の全境界スモーク全pass**（A+〜G+/Z・損益/実現損益 各18ケース）＋実マウント（root描画・console 0・`_GRADE_STYLE["A+"]/["DNF"]`存在・`_elGradeBadge18("A+")`描画）。**DNFは丸凡例に3文字入らないためピル専用＝凡例には非掲載（セルのtooltipで表現）**。実データの見た目はユーザー実機。
 
+### 2026-07-24 今週の損益データ（日ごと集約）の取引タグは「全銘柄が取引なしの日」だけ表示（sw v259→v260）
+ユーザー指摘「最終損益欄のノーシグナル等は全銘柄がそうである場合のみ表示すべき（集約表なのに1銘柄でも取引があると誤解）」。**app-04.js `_wkMainEl` の日別行のみ**（v246で追加した`_wdTradeTags`集約・[[2026-07-23f]]）。`_wdTradeTags`の収集を **`if (_wkEntCnt(_wkByDay[_wd]) === 0)` でゲート**＝その日エントリーした銘柄が1つも無い（＝全銘柄が取引なし）ときだけ「取引:」タグを集約表示、1銘柄でもエントリー有りなら非表示（旧＝いずれかの銘柄にタグがあれば表示）。表示は全銘柄のタグの和集合（例「有効シグナルなし・ノーシグナル」）。`_wkEntCnt`=`_elIsEntered`ベース＝ノーシグナル銘柄はrecs無し(0)・有効シグナルなし等の未エントリー記録も0。週合計行は元々tradeTags非渡し（不変）。バッジtitleも更新。ユーザー選択＝AskUserQuestion 3案（全銘柄取引なしの日だけ[採用]／全銘柄同一タグの日だけ／集約表からは撤去）。検証=V8 parse OK＋`_elIsEntered`実測（entered:true→true/false→false）＋ゲート再現（記録なし→0=表示・エントリー混在→1=非表示・全未エントリー→0=表示）。
+
 ### 2026-07-24 本日の取引銘柄チップを銘柄コード昇順で自動整列（sw v258→v259）
 ユーザー要望「左から銘柄コードが早い順に（SUMCO→古河電工→安川電機）」。**app-04 `_rotPickerBar`（本日の取引銘柄バー・app-04:5238付近）のみ**。`rotStocks.map` を **`_rotSorted.map` に変更**＝`_rotCodeOf(stk)`=`custom.stockCodes[銘柄名]` を数値化（`parseInt(String(c).replace(/\D/g,""),10)`・未登録は`Infinity`）→`rotStocks.slice().sort()` で**コード昇順・同/無コードは名前順**。表示順のみ整列（rotStocks本体・_rotView/dailyStock等のロジックは不変）。**コードは設定→銘柄管理で登録した`custom.stockCodes`（名前キー）が前提＝未登録銘柄は末尾**。EPナビ側の日替わり`<select>`(app-04:4719・別rotStocks)は今回対象外。検証=V8 parse OK＋比較関数をユーザー銘柄コード(3436/5801/6506)で実行＝任意入力順→[SUMCO,古河電工,安川電機]・コード無しは末尾。
 
