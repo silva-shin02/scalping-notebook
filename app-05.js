@@ -3581,13 +3581,15 @@ function _elOsMaxAll(s) {
   }
   return max;
 }
-// OS1〜3の最高値（×打ち切り版・ユーザー仕様 2026-06-24）: 各足を「算入してから」、到達期待度×/H期待度×/損切り済の足でそこまで含めて打ち切る（その足以降は除外）。EP足は打ち切り対象外。
-// _elOsMaxFiltered（×足は算入せず除外）と違い、×になった足自身の高値は含める＝「×になった所までの最高値」。OS欄の最高値表示で（）外に出す値。
+// OS1〜5の最高値（×打ち切り版・ユーザー仕様 2026-06-24／2026-07-25にOS1〜3→OS1〜5へ拡張）: 各足を「算入してから」、到達期待度×/H期待度×/損切り済の足でそこまで含めて打ち切る（その足以降は除外）。EP足は打ち切り対象外。
+// _elOsMaxFiltered（×足は算入せず除外）と違い、×になった足自身の高値は含める＝「×になった所までの最高値」＝手じまい足の間はまだ保有していた分（ユーザー確定 2026-07-25「含める」）。OS欄「実現最高」の（）外に出す値。
+// 2026-07-25 OS4・OS5（H1/H2枠）まで見るよう拡張: ユーザー指摘「最高OS値は手じまいまでの最高値ではないの？」＝EPがOS2/OS3にずれた記録では手じまい足(H1/H2)がOS4/OS5に来るため高値が抜けていた。
+// EPがOS1の記録はOS1〜3＝EP/H1/H2なので従来と同値。打ち切り規則は不変＝期待度×より後ろの足は拡張後も入らない。**分析用の_elOsMaxAll/_elOsMaxFiltered（OS1〜3・母数の定義）は不変**＝この関数は表示専用（_epOsMaxChainNodeのみが使用）。
 function _elOsMaxCapped(s, alpha) {
   if (!s) return null;
   if (!_epIsV2(s)) return (s.osVal != null && s.osVal !== "") ? Number(s.osVal) : null;
   var a = (alpha != null) ? alpha : _epOwnAlpha(s);
-  var legs = _epLegs(s).slice(0, 3);
+  var legs = _epLegs(s);   // 2026-07-25 slice(0,3)を撤去＝OS4・OS5（H1/H2枠）も対象。_epNextExpAt(s,x)の有効域はx=0〜3なので i-1 は最大3で範囲内
   if (!legs.length) return null;
   var epIdx = -1; var _r = _epResolve(s, a); if (_r) epIdx = _r.epIdx;
   var _cut = function(e) { return e === "×" || e === "損切り済"; };
@@ -3985,10 +3987,22 @@ function _epSignedNode(v, key) {
 // 各足の数値下に期待度（EP前=α到達期待 os1Exp/os2Exp・EP後=H期待 holdExp/hold2Exp）を○△×で表示。
 // ×宣言後の到達（judge="x"＝EP足より前のOSで到達期待×）の場合、EP足は「↑EP（×）」と表示。
 // 旧記録はOS1のみ（osVal≥αならEPマーカー・期待度は非表示）。
-// OS欄の最下部中央に出す「OS1〜3の最高値」ノード（ユーザー仕様 2026-06-24）。
-// 通常は最高値を1つ表示。到達期待度×/H期待度×/損切り済の足より後ろに更に高い足がある場合だけ「打ち切り最高値（全体最高値）」＝例 12（21）。値は水準線比(↑/↓)。
+// 表示専用の「生の最高値（OS1〜5・打ち切り無し）」2026-07-25: _epOsMaxChainNodeの（）内に出す値。
+// **分析用の_elOsMaxAll（OS1〜3・OS分布/α目安/指値同値判定の母数）とは別物＝あちらは触らない**。（）外の実現最高がOS1〜5になったので（）内も同じ足数に揃える（揃えないと実現＞生になり得る）。
+function _epOsMaxRawAll(s) {
+  if (!s) return null;
+  if (!_epIsV2(s)) return (s.osVal != null && s.osVal !== "") ? Number(s.osVal) : null;
+  var legs = _epLegs(s), max = null;
+  for (var i = 0; i < legs.length; i++) { var h = legs[i].h; if (h != null && (max == null || h > max)) max = h; }
+  return max;
+}
+// OS欄の右に出す「実現最高」ノード（ユーザー仕様 2026-06-24／2026-07-25に「最高」→「実現最高」へ改名＋OS1〜5へ拡張）。
+// （）外＝実現最高＝EP足〜手じまい足（到達期待度×/H期待度×/損切り済の足まで・その足自身の高値は含む）の高値の最大＝_elOsMaxCapped。
+// （）内＝打ち切り無しの生の最高値。**打ち切りより後ろに更に高い足がある場合だけ**表示＝例 12（21）。値は水準線比(↑/↓)。
+// 改名の理由（ユーザー指摘 2026-07-25「手じまいまでの最高値ではないの？」）: ラベルが「最高」だけだと（）外が実現ベースだと読み取れなかった。分析側の語彙「実現OS」(_elOsMaxFiltered)／「生の最高OS」(_elOsMaxAll)と揃えた。
+// ※「実現最高」は×になった足自身の高値を含む／分析の「実現OS」は含まない＝1足ぶん定義が違う（ユーザー確定 2026-07-25＝表示は含める側を維持）。
 function _epOsMaxChainNode(s, alpha) {
-  var raw = _elOsMaxAll(s);
+  var raw = _epOsMaxRawAll(s);
   if (raw == null) return null;
   var capped = _elOsMaxCapped(s, alpha);
   if (capped == null) capped = raw;
@@ -3996,8 +4010,9 @@ function _epOsMaxChainNode(s, alpha) {
   var inner = (raw > capped)
     ? React.createElement(React.Fragment, null, _fmt(capped), React.createElement("span", { style: { color: "#9CA3AF" } }, "（"), _fmt(raw), React.createElement("span", { style: { color: "#9CA3AF" } }, "）"))
     : _fmt(raw);
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, marginTop: 1, fontSize: "0.92em", whiteSpace: "nowrap" } },
-    React.createElement("span", { style: { fontSize: "0.8em", color: "#94A3B8", fontWeight: 700 } }, "最高"), inner);
+  return React.createElement("span", { title: "実現最高＝EP足〜手じまい足（到達期待度×／H期待度×／損切りの足まで・その足自身の高値も含む）の高値の最大。OS1〜OS5が対象。（）内＝打ち切り無しの生の最高値で、手じまいより後ろに更に高い足があった時だけ表示",
+    style: { display: "inline-flex", alignItems: "center", gap: 2, marginTop: 1, fontSize: "0.92em", whiteSpace: "nowrap" } },
+    React.createElement("span", { style: { fontSize: "0.8em", color: "#94A3B8", fontWeight: 700 } }, "実現最高"), inner);
 }
 function _epOsChainCell(s, alpha) {
   var legs, epIdx = -1, judge = null;
