@@ -4337,6 +4337,8 @@ function _elFillRisk(s, item) {
 function _elFillRiskRec(r) { return !!(r && r.signal && _elFillRisk(r.signal, r.item)); }
 function _elFillRiskCountRecs(recs) { var n = 0; (recs || []).forEach(function(r) { if (_elFillRiskRec(r)) n++; }); return n; }
 // 明細行用の小バッジ（該当記録に「指値同値」）。対象外はnull。
+// 配線＝記録の明細表5つ全部（時間セルの被り除外バッジ_elCollMarkNodeの直後に同じ並びで置く）2026-07-25 ユーザー指示「この表でも指値同値は表示されるようにして」:
+//   記録帳の記録一覧(app-06)／日別ページの🎯エントリー記録(app-02 EntrySignalSection)／今週の損益データ(app-02 WeeklyPnlPanel)／日別ページ 取引タブのエントリー記録・💰損益タブの記録表(app-04 DayView)。
 function _elFillRiskNode(r) {
   if (!_elFillRiskRec(r)) return null;
   return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値同値");

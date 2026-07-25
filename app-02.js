@@ -4674,7 +4674,7 @@ function EntrySignalSection(_ref_es) {
                   React.createElement("div", null,
                     React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                     s.time || "—", _minBarBadge(s)),
-                  _epIncompleteMark(s), _elCollMarkNode(data, r, stock),
+                  _epIncompleteMark(s), _elCollMarkNode(data, r, stock), _elFillRiskNode(r),
                   _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null
                 ),
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
@@ -5011,7 +5011,7 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#9A3412" } },
         React.createElement("div", null, (r.date || "").slice(5)), _simInput(r, true), _simInput(r, false)),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap", color: "#666" } },
-        React.createElement("div", null, s.time || "—", _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r, stock),
+        React.createElement("div", null, s.time || "—", _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r, stock), _elFillRiskNode(r),
         _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, color: "#555", minWidth: 60 } },
         _elSigCell(s, "center")),
