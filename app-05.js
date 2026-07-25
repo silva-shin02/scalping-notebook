@@ -6641,7 +6641,7 @@ function EntryRecordForm(_ref_erf) {
   // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)×採用加算率（推奨%・既定50%・07-12d）を切捨て加算。
   var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨(reco)/次点(runnerUp)を算出（_elUkiPctSweep）。fUkiPct=""は自動=推奨(無ければ50%)。加算=floor(浮き値×採用%/100)。2026-07-12
-  var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, fDate, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null); }, [data, fDate, fUkiSpecial, fUkiReasons]);   // 2026-07-14g 浮き足基本/応用のタグ別プール推奨（応用は選択根拠で絞る・薄ければ全応用）
+  var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, fDate, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null, fStock); }, [data, fDate, fUkiSpecial, fUkiReasons, fStock]);   // 2026-07-14g 浮き足基本/応用のタグ別プール推奨（応用は選択根拠で絞る・薄ければ全応用）。2026-07-25 fStockを渡して株価帯優先（帯が薄ければ全銘柄へフォールバック）
   var _effUkiPct = _elUkiEffPct(fUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
   var _fUkiAdd = _elUkiAddVal(_showUki && fUkiUsed === "○", fUkiVal, _effUkiPct);   // 2026-07-14 共通化
   // RNまたぎ加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
@@ -7799,6 +7799,8 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("button", { type: "button", onClick: function() { setFUkiPct(""); }, title: "推奨加算率（全銘柄の浮き足〇記録" + (_ukiReco.n ? "・" + _ukiReco.n + "件" : "") + "から）。データ不足時は50%",
                 style: { padding: "2px 7px", fontSize: 11, fontWeight: _recoAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.3, whiteSpace: "nowrap", border: _recoAct ? "2px solid #15803D" : "1px solid #ddd", background: _recoAct ? "#EAF3DE" : "#fff", color: _recoAct ? "#15803D" : "#999" } },
                 "推奨 " + (_ukiReco.reco != null ? _ukiReco.reco : 50) + "%"),
+              _ukiReco.byBand ? React.createElement("span", { title: "この日のこの銘柄の株価帯（" + _ukiReco.bandLabel + "円）と同じ帯の記録" + _ukiReco.n + "件（銘柄横断）から算出。帯の記録が" + _EL_BASE_MIN_N + "件未満・帯不明・⚡固有材料日は全銘柄プールに戻ります",
+                style: { fontSize: 9.5, fontWeight: 700, color: "#0369A1", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap" } }, "💴 " + _ukiReco.bandLabel + "円") : null,
               (_ukiReco.runnerUp != null) ? React.createElement("button", { type: "button", onClick: function() { setFUkiPct(String(_ukiReco.runnerUp)); }, title: "次点の加算率",
                 style: { padding: "2px 7px", fontSize: 11, fontWeight: _runAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.3, whiteSpace: "nowrap", border: _runAct ? "2px solid #0369A1" : "1px solid #ddd", background: _runAct ? "#EFF6FF" : "#fff", color: _runAct ? "#0369A1" : "#999" } },
                 "次点 " + _ukiReco.runnerUp + "%") : null,

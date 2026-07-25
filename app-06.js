@@ -3493,22 +3493,39 @@ function _elUkiPctBoardScoped(recs, aiOf, mode, reasons, holiSet) {
     _elUkiValBoardBlock(pool, aiOf, holiSet));
 }
 // フォーム/EPナビ向け: 全銘柄の浮き足(基本 or 応用)記録(refDate=記録日前日まで)から推奨加算率(reco)/次点(runnerUp)を算出 2026-07-14g。データ不足は{reco:null}。_elUkiRecoPctsのmode分岐版。
-function _elUkiPctPickScoped(data, refDate, mode, reasons) {
+// 2026-07-25 株価帯レッグ（ユーザー決定「推奨%も帯優先にする」）: stockを渡すと「refDateのその銘柄の株価帯」と同じ帯の記録だけに絞る（銘柄横断・帯判定は_pbDayBandOfが単一源）。
+//   帯プールが_EL_BASE_MIN_N未満／帯不明／⚡固有材料日 は従来どおり全銘柄プール＝純フォールバック（推奨αの帯カスケードと同じ思想）。
+//   **stock未指定なら従来と完全に同一＝後方互換**。根拠別(_sp)の絞り込みは帯プールの上に重ねて効く。
+function _elUkiPctPickScoped(data, refDate, mode, reasons, stock) {
   var _sp = mode === "special";
   var all = _elCollectAllSignals(data) || [];
   var pool = all.filter(function(r) { if (!r || !r.signal) return false; if (refDate && r.date && r.date >= refDate) return false; return _epIsV2(r.signal) && _elInclData(r.signal) && _elUkiYes(r.signal) && _elUkiVal(r.signal) != null && _elUkiVal(r.signal) > 0 && (_sp ? _elUkiSpecialUsed(r.signal) : !_elUkiSpecialUsed(r.signal)); });   // 浮き足分析＝データ算入 2026-07-22f
+  var byBand = false, bandLabel = null;   // 株価帯レッグ 2026-07-25（帯プールが十分なときだけ帯に絞る）
+  if (stock && refDate && typeof _pbDayBandOf === "function") {
+    var _myB = _pbDayBandOf(data, stock, refDate);
+    if (_myB && _myB.idx != null && !_myB.material) {
+      var _bMemo = {};
+      var _bandPool = pool.filter(function(r) {
+        var k = r.stock + "_" + r.date;
+        if (!(k in _bMemo)) _bMemo[k] = _pbDayBandOf(data, r.stock, r.date);
+        var b = _bMemo[k];
+        return !!(b && !b.material && b.idx === _myB.idx);
+      });
+      if (_bandPool.length >= _EL_BASE_MIN_N) { pool = _bandPool; byBand = true; bandLabel = _pbBandLabel(_myB.idx, _myB.bounds); }
+    }
+  }
   var byReason = false, fellBack = false;   // 浮き足応用の根拠別（≥下限で採用・薄ければ全応用にフォールバック＝応用αと同じ）2026-07-14g
   if (_sp && reasons && reasons.length) {
     var byR = pool.filter(function(r) { var rs = (r.signal && Array.isArray(r.signal.ukiReasons)) ? r.signal.ukiReasons : []; return rs.filter(function(x) { return reasons.indexOf(x) >= 0; }).length > 0; });
     if (byR.length >= _EL_BASE_MIN_N) { pool = byR; byReason = true; } else if (pool.length) { fellBack = true; }
   }
-  if (!pool.length) return { reco: null, runnerUp: null, n: 0, byReason: byReason, fellBack: fellBack };
+  if (!pool.length) return { reco: null, runnerUp: null, n: 0, byReason: byReason, fellBack: fellBack, byBand: byBand, bandLabel: bandLabel };
   var sweep = _elUkiPctSweep(pool, function(r) { return _elAlphaInfo(r, data); });
   var _reco = sweep.best ? sweep.best.P : null;
   var _runnerUp = sweep.runnerUp ? sweep.runnerUp.P : null;
   // 浮き足応用の推奨%は必ず基本の推奨%より大きく（同値不可・10%刻み→基本+10以上へクランプ）2026-07-21。基本の推奨は同条件(refDate前日まで)のbasic pickから再帰取得（basicは_spでないので再帰しない）。
   if (_sp && _reco != null) {
-    var _bp = _elUkiPctPickScoped(data, refDate, "basic", null);
+    var _bp = _elUkiPctPickScoped(data, refDate, "basic", null, stock);   // 2026-07-25 帯も同じスコープで取る（帯の応用推奨を帯の基本推奨でクランプ）
     if (_bp && _bp.reco != null) {
       var _floor = Math.min(100, _bp.reco + 10);
       if (_reco < _floor) _reco = _floor;
@@ -3516,7 +3533,7 @@ function _elUkiPctPickScoped(data, refDate, mode, reasons) {
       if (_runnerUp === _reco) _runnerUp = null;
     }
   }
-  return { reco: _reco, runnerUp: _runnerUp, n: pool.length, byReason: byReason, fellBack: fellBack };
+  return { reco: _reco, runnerUp: _runnerUp, n: pool.length, byReason: byReason, fellBack: fellBack, byBand: byBand, bandLabel: bandLabel };
 }
 // 浮き足加算率ボードの基本/応用スコープ切替トグル（フォームの浮き足[浮き基本|浮き応用]と同スタイル）2026-07-18。sp=true→応用。onSet(boolean)で切替。分析ボード(シグナル総合/シグナル別)を_elUkiPctBoardScopedのmodeに連動させる。
 function _ukiScopeToggle(sp, onSet) {
@@ -5771,6 +5788,7 @@ function EntryLogView(_ref_elv2) {
   var _uSGT = useState("band"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: band(株価帯別・先頭・既定)/uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）。既定を"uki"→"band"に（移設先を前面・ユーザー決定 2026-07-22j）
   var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RNまたぎタブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録)/thr(閾値スイープ) 2026-07-19→2026-07-20e thr追加
   var _uRNT = useState("all"), rnTier = _uRNT[0], setRnTier = _uRNT[1];   // 閾値タブの段別トグル: all(…50/…00合算)/50(…50の段)/00(…00の段) 2026-07-20e
+  var _uUKB = useState("all"), ukiBand = _uUKB[0], setUkiBand = _uUKB[1];   // ⚡浮き足%タブの株価帯フィルタ（"all"=従来の全銘柄共通・既定／"b0".."bN"／"mat"／"unk"）。KPI早見・加算率ボード・記録一覧の3つ全部に効く 2026-07-25
   var _uUKS = useState("ana"), ukiSub = _uUKS[0], setUkiSub = _uUKS[1];   // ⚡浮き足%タブ内の入れ子サブタブ: ana(分析)/list(記録一覧) 2026-07-19
   // 2026-07-20j 分析母数トグル anaJul/setAnaJul（「全期間/5月〜」）を撤去＝_anaRecsで4月以前を常時除外にしたため両状態が同結果になり無意味になった。
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
@@ -6421,7 +6439,9 @@ function EntryLogView(_ref_elv2) {
   // 株価帯別分析ボディ（2026-07-22）: pool（v2算入記録）を日×銘柄の帯（_pbDayBandOf＝手動＞前日終値自動・app-04）でグループ化し、帯ピル＋選択帯の総合パネル(_groupPanel)を描く。
   // 材料あり日（charts[ck].dayMaterial）は帯から外して「⚡材料あり」独立グループ＝材料日専用のα実態を分離。帯が判定できない日は「帯不明」。帯は0件でも表示（データが無いこと自体が情報）・材料/不明は0件なら非表示。
   // cross=true（全銘柄側）は見出しに銘柄種数を出す。_groupPanel(recs, null, recs)＝詳細タグ別と同型＝KPI・OS分布・推奨基本α/応用α・α詳細表まで既存パネルがそのまま出る。
-  var _bandAxisBody = function(pool, cross) {
+  // 記録プールを株価帯グループに割る単一源（💴株価帯別タブ＝_bandAxisBody と ⚡浮き足%タブの帯ピルで共用）2026-07-25。
+  // 帯＝日×銘柄(_pbDayBandOf)・⚡固有材料日は帯から外して独立グループ・帯不明は末尾。実帯は0件でも表示／材料・不明は0件なら非表示（旧_bandAxisBody内のインライン実装と同一挙動）。
+  var _pbSplitByBand = function(pool) {
     var _pbB = _pbBoundsOf(custom);
     var _pbMemo = {};
     var _pbOf = function(r) { var k = r.stock + "_" + r.date; if (!(k in _pbMemo)) _pbMemo[k] = _pbDayBandOf(data, r.stock, r.date); return _pbMemo[k]; };
@@ -6434,7 +6454,10 @@ function EntryLogView(_ref_elv2) {
       if (bi.idx != null && _bgs[bi.idx]) { _bgs[bi.idx].recs.push(r); return; }
       _bUnk.recs.push(r);
     });
-    var _bAll = _bgs.concat(_bMat.recs.length ? [_bMat] : []).concat(_bUnk.recs.length ? [_bUnk] : []);
+    return { bounds: _pbB, groups: _bgs.concat(_bMat.recs.length ? [_bMat] : []).concat(_bUnk.recs.length ? [_bUnk] : []) };
+  };
+  var _bandAxisBody = function(pool, cross) {
+    var _pbSpl = _pbSplitByBand(pool), _pbB = _pbSpl.bounds, _bAll = _pbSpl.groups;
     var _bSelKey = (bandSel && _bAll.some(function(g) { return g.key === bandSel; })) ? bandSel : (function() { var bst = _bAll[0]; _bAll.forEach(function(g) { if (g.recs.length > bst.recs.length) bst = g; }); return bst.key; })();
     var _bSel = _bAll.filter(function(g) { return g.key === _bSelKey; })[0] || null;
     var _bStkN = 0; if (_bSel) { var _bSeen = {}; _bSel.recs.forEach(function(r) { if (r.stock && !_bSeen[r.stock]) { _bSeen[r.stock] = 1; _bStkN++; } }); }
@@ -6677,19 +6700,30 @@ function EntryLogView(_ref_elv2) {
         _sigInnerBar([["ana", "分析", _sigRnPool.length], ["list", "記録一覧", _rnListRecs.length], ["cand", "候補記録", _rnCandRecs.length], ["thr", "閾値", _rnThrN == null ? "—" : _rnThrN]], rnSub, setRnSub),
         _rnBody);
     } else {
-      var _ukiListRecs = _sigUkiPool.slice().sort(_byDateAsc);
+      // ⚡浮き足%の株価帯別 2026-07-25（ユーザー要望・案A）: タブ先頭に帯ピル［すべて／💴帯…／⚡材料あり／帯不明］。
+      // 選んだ帯はKPI早見・加算率ボード・記録一覧の3つ全部に効く＝画面内で母数が食い違わない（ユーザー決定「全部そろえる」）。既定"all"＝従来の全銘柄共通の見え方のまま。
+      // 帯グルーピングは_pbSplitByBand＝💴株価帯別タブと同一源（帯＝日×銘柄・⚡固有材料日は帯から外す）。
+      // ボードへ渡す母数を_v2recsAllData→_ukiRecsに変更。_sigUkiPoolは_v2recsAllData（v2かつデータ算入）由来なのでボード内の再フィルタ結果は"all"時は従来と同一。
+      var _ukiSplit = _pbSplitByBand(_sigUkiPool);
+      var _ukiPills = [{ key: "all", label: "すべて", recs: _sigUkiPool }].concat(_ukiSplit.groups);
+      var _ukiBandGrp = (ukiBand !== "all") ? (_ukiPills.filter(function(g) { return g.key === ukiBand; })[0] || null) : null;
+      var _ukiRecs = _ukiBandGrp ? _ukiBandGrp.recs : _sigUkiPool;
+      var _ukiScopeLbl = _ukiBandGrp ? _ukiBandGrp.label : "全銘柄共通";
+      var _ukiListRecs = _ukiRecs.slice().sort(_byDateAsc);
       var _ukiBody = (ukiSub === "list")
         ? _cardify([
-            _secH("🗂 浮き足〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝浮き足〇（浮き値あり）の全記録。行タップで明細カード・カードタップで編集フォーム"),
+            _secH("🗂 浮き足〇の記録一覧（" + _ukiScopeLbl + "）", "上の分析の母数そのもの＝浮き足〇（浮き値あり）の記録。行タップで明細カード・カードタップで編集フォーム"),
             _recTable(_ukiListRecs, "full", "ukitab_")])
         : _cardify([
-            _sigKpiHead("📊 KPI早見｜浮き足〇の全記録（" + _sigUkiPool.length + "件・採用αは浮き足加算込み・最終損益基準）"),
-            _sigUkiPool.length ? _kpiBlockOf(_sigUkiPool, _sigHoliSet) : _sigKpiEmpty("浮き足〇（浮き値あり）の記録がまだありません"),
-            _secH("⚡ 浮き足加算率の最適化（全銘柄共通）"),
+            _sigKpiHead("📊 KPI早見｜浮き足〇の記録（" + _ukiScopeLbl + "・" + _ukiRecs.length + "件・採用αは浮き足加算込み・最終損益基準）"),
+            _ukiRecs.length ? _kpiBlockOf(_ukiRecs, _sigHoliSet) : _sigKpiEmpty("浮き足〇（浮き値あり）の記録がまだありません"),
+            _secH("⚡ 浮き足加算率の最適化（" + (_ukiBandGrp ? _ukiScopeLbl + "・銘柄横断" : "全銘柄共通") + "）"),
             React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _ukiScopeToggle(ukiAnaSp, setUkiAnaSp)),
-            _elUkiPctBoardScoped(_v2recsAllData, _ai, ukiAnaSp ? "special" : "basic", null, _sigHoliSet)]);   // 2026-07-18 浮き足加算率を浮基本/浮応用のプール別に最適化（上のトグル連動）。旧: _elUkiPctBoardV2（基本/応用混在1プール）。時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去
+            _elUkiPctBoardScoped(_ukiRecs, _ai, ukiAnaSp ? "special" : "basic", null, _sigHoliSet)]);   // 2026-07-18 浮き足加算率を浮基本/浮応用のプール別に最適化（上のトグル連動）。旧: _elUkiPctBoardV2（基本/応用混在1プール）。時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去
       _tabBody = React.createElement(React.Fragment, null,
-        _sigInnerBar([["ana", "分析", _sigUkiPool.length], ["list", "記録一覧", _ukiListRecs.length]], ukiSub, setUkiSub),
+        React.createElement("div", { key: "ukibandnote", style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + _ukiSplit.bounds.join("・") + "円）。⚡固有材料日は帯から外して独立グループ"),
+        _subTabBar(_ukiPills, ukiBand, setUkiBand),
+        _sigInnerBar([["ana", "分析", _ukiRecs.length], ["list", "記録一覧", _ukiListRecs.length]], ukiSub, setUkiSub),
         _ukiBody);
     }
   } else if (view === "sum") {

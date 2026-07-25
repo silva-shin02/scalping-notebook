@@ -4190,7 +4190,7 @@ function _EpnCalcForm(_p) {
   var specialV = (nSpecialUsed === "○") ? ((nSpecialAlpha !== "" && !isNaN(Number(nSpecialAlpha))) ? Number(nSpecialAlpha) : (daySpecialAlpha != null ? daySpecialAlpha : (specialReco && specialReco.v != null ? specialReco.v : (baseV != null ? baseV : 0)))) : null;   // 手入力＞本日の採用応用α値＞推奨応用α＞基本α 2026-07-21
   var _epnBaseLevel = (specialV != null) ? specialV : baseV;   // base-levelα＝応用〇なら応用α、通常は基本α（場中版の採用α選択）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨/次点（_elUkiPctSweep）。nUkiPct=""は自動=推奨(無ければ50%)。2026-07-12
-  var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, date, nUkiSpecial ? "special" : "basic"); }, [data, date, nUkiSpecial]);   // 2026-07-14g 浮基本/浮応用でプールを分けて推奨%（記録フォームと同じ）
+  var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, date, nUkiSpecial ? "special" : "basic", null, stock); }, [data, date, nUkiSpecial, stock]);   // 2026-07-14g 浮基本/浮応用でプールを分けて推奨%（記録フォームと同じ）。2026-07-25 stockを渡して株価帯優先（帯が薄ければ全銘柄へフォールバック）
   var _effUkiPct = _elUkiEffPct(nUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
   var _ukiRecoAct = nUkiPct === "" || (_ukiReco.reco != null && Number(nUkiPct) === _ukiReco.reco);
   var _ukiRunAct = _ukiReco.runnerUp != null && nUkiPct !== "" && Number(nUkiPct) === _ukiReco.runnerUp;
@@ -4403,6 +4403,8 @@ function _EpnCalcForm(_p) {
         React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "率"),
         nUkiUsed === "○" ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(""); }, title: "推奨加算率" + (_ukiReco.n ? "（" + _ukiReco.n + "件）" : "") + "・データ不足時50%",
           style: { padding: "2px 6px", fontSize: 10, fontWeight: _ukiRecoAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.2, whiteSpace: "nowrap", border: _ukiRecoAct ? "2px solid #15803D" : "1px solid #ddd", background: _ukiRecoAct ? "#EAF3DE" : "#fff", color: _ukiRecoAct ? "#15803D" : "#999" } }, "推奨" + (_ukiReco.reco != null ? _ukiReco.reco : 50) + "%") : null,
+        (nUkiUsed === "○" && _ukiReco.byBand) ? React.createElement("span", { title: "この日のこの銘柄の株価帯（" + _ukiReco.bandLabel + "円）と同じ帯の記録" + _ukiReco.n + "件（銘柄横断）から算出。帯の記録が" + _EL_BASE_MIN_N + "件未満・帯不明・⚡固有材料日は全銘柄プールに戻ります",
+          style: { fontSize: 9, fontWeight: 700, color: "#0369A1", background: "#E0F2FE", border: "1px solid #BAE6FD", borderRadius: 4, padding: "1px 4px", whiteSpace: "nowrap" } }, "💴 " + _ukiReco.bandLabel + "円") : null,
         (nUkiUsed === "○" && _ukiReco.runnerUp != null) ? React.createElement("button", { type: "button", onClick: function() { setNUkiPct(String(_ukiReco.runnerUp)); }, title: "次点の加算率",
           style: { padding: "2px 6px", fontSize: 10, fontWeight: _ukiRunAct ? 800 : 600, borderRadius: 5, cursor: "pointer", lineHeight: 1.2, whiteSpace: "nowrap", border: _ukiRunAct ? "2px solid #0369A1" : "1px solid #ddd", background: _ukiRunAct ? "#EFF6FF" : "#fff", color: _ukiRunAct ? "#0369A1" : "#999" } }, "次点" + _ukiReco.runnerUp + "%") : null,
         nUkiUsed === "○" ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", border: _ukiCustAct ? "2px solid #B45309" : "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff" } },
