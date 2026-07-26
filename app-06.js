@@ -131,7 +131,7 @@ function _elOscAgg(recs, legIdx, aiOf, gran) {
       if (pv != null) { b.planSum += pv; b.planCnt++; b.planVals.push(pv); }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine);
       if (h1 && h1.main != null) { b.h1Sum += h1.main; b.h1Cnt++; b.h1Vals.push(h1.main); }
-      var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || (_elHoldIsStop2(s, ai.alpha, ai.cutLine) || _elStoppedDeep(s, ai.alpha, ai.cutLine));
+      var isStop = _elIsStopFinal(s, ai.alpha, ai.cutLine);
       if (isStop) b.stop++; else if (res === "ng") b.soft++;
     } else if (rr && rr.judge === "miss") b.miss++;
   });
@@ -331,7 +331,7 @@ function _elStopStatsV2(recs, data) {
     if (_dr === "miss") o.miss++; else if (_dr === "ok" || _dr === "ng" || _dr === "draw") o.entered++;   // E成立=損切り率の母数 2026-06-24i
     var p = _elPlanIsStop(s, ai.alpha, ai.cutLine);
     var h1 = !p && _elHoldIsStop(s, ai.alpha, ai.cutLine);
-    var h2 = !p && !h1 && _elHas2Data(s) && !_elH2Miss(s, ai.alpha) && (_elHoldIsStop2(s, ai.alpha, ai.cutLine) || _elStoppedDeep(s, ai.alpha, ai.cutLine));
+    var h2 = !p && !h1 && _elIsStopFinal(s, ai.alpha, ai.cutLine);
     if (p) o.plan++;
     if (h1) o.h1++;
     if (h2) o.h2++;
@@ -621,7 +621,7 @@ function _elEpPosStatsV2(recs, aiOf) {
     if (h1p.main != null) { o.h1 += h1p.main; o.h1Cnt++; o.h1Arr.push(h1p.main); }
     var h2p = _elHoldFinalParts(s, ai.alpha, ai.cutLine);
     if (h2p.main != null) { o.h2 += h2p.main; o.h2Cnt++; o.h2Arr.push(h2p.main); }
-    var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || (_elHoldIsStop2(s, ai.alpha, ai.cutLine) || _elStoppedDeep(s, ai.alpha, ai.cutLine));
+    var isStop = _elIsStopFinal(s, ai.alpha, ai.cutLine);
     if (isStop) o.stop++; else if (res === "ng") o.soft++;
   });
   c.n = n;
@@ -737,7 +737,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     var res = _elDynResult(s, a, c);
     if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++; else if (res === "draw") o.draw++;
     if (res !== "miss") {  // 損切り率・見切り率・損益平均はE成立（エントリーできた）分のみを母数に＝未達・×見送りは除外 2026-06-20
-      var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && (_elHoldIsStop2(s, a, c) || _elStoppedDeep(s, a, c)));
+      var isStop = _elIsStopFinal(s, a, c);
       if (isStop) o.stop++; else if (res === "ng") o.soft++;
       var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; o.planArr.push(plan); }
       var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; o.h1Arr.push(h1t.main); }
@@ -829,7 +829,7 @@ function _elSignalSuccessTableV2(recs, aiOf) {
       var xskip = _epIsXSkip(s, a);
       var rr = _epResolve(s, a);
       var entered = !!(rr && rr.judge === "ok");  // E成立（エントリーできた）＝損益平均の母数
-      var isStop = !xskip && (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && (_elHoldIsStop2(s, a, c) || _elStoppedDeep(s, a, c))));
+      var isStop = !xskip && (_elIsStopFinal(s, a, c));
       if (isStop) o.stop++;
       var pp = entered ? _elDynPlanned(s, a, c) : null;
       var isLoss = !xskip && (isStop || (pp != null && pp < 0));
@@ -1545,7 +1545,7 @@ function _elBaseAlphaEval(recs, aiOf, a) {
     var res = _elDynResult(s, a, c);          // E後勝率の母数=実トレード（ok/ng/draw・miss/×見送りは除外）
     if (res === "ok") wOk++; else if (res === "ng") wNg++; else if (res === "draw") wDr++;
     var hasH2 = _elHas2Data(s);
-    if (epStop || h1Stop || (hasH2 && !_elH2Miss(s, a) && (_elHoldIsStop2(s, a, c) || _elStoppedDeep(s, a, c)))) stopN++;
+    if (_elIsStopFinal(s, a, c)) stopN++;
     // ===== 新スコア（損切り率・H1勝率は「H1まで」で測る）=====
     var determinable = epStop || h1Stop || hd != null;   // H1までの結果が判定できる記録だけを母数に
     if (determinable) {
@@ -1583,7 +1583,7 @@ function _elAlphaEvalByFn(recs, aiOf, alphaOf) {
     var res = _elDynResult(s, _a, c);
     if (res === "ok") wOk++; else if (res === "ng") wNg++; else if (res === "draw") wDr++;
     var hasH2 = _elHas2Data(s);
-    if (epStop || h1Stop || (hasH2 && !_elH2Miss(s, _a) && (_elHoldIsStop2(s, _a, c) || _elStoppedDeep(s, _a, c)))) stopN++;
+    if (_elIsStopFinal(s, _a, c)) stopN++;
     var determinable = epStop || h1Stop || hd != null;
     if (determinable) {
       scN++;
@@ -1614,7 +1614,7 @@ function _elH2EvalByFn(recs, aiOf, alphaOf) {
     var res = _elDynResult(s, a, c);
     if (!(res === "ok" || res === "ng" || res === "draw")) return;   // E成立(decided)のみ損切り/利確/損益の母数
     decided++;
-    if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && (_elHoldIsStop2(s, a, c) || _elStoppedDeep(s, a, c)))) stopN++;
+    if (_elIsStopFinal(s, a, c)) stopN++;
     var t2 = _elHoldFinalParts(s, a, c);
     if (t2 && t2.main != null) {
       h2Sum += t2.main; h2Cnt++; h2Vals.push(t2.main);
@@ -1673,7 +1673,7 @@ function _elCutH2Eval(recs, aiOf, cut) {
     var t2 = _elHoldFinalParts(s, alpha, cut);
     if (!t2 || t2.main == null) return;
     nn++; sum += t2.main;
-    if (_elPlanIsStop(s, alpha, cut) || _elHoldIsStop(s, alpha, cut) || (_elHas2Data(s) && !_elH2Miss(s, alpha) && (_elHoldIsStop2(s, alpha, cut) || _elStoppedDeep(s, alpha, cut)))) stopN++;
+    if (_elIsStopFinal(s, alpha, cut)) stopN++;
     else if (t2.main > 0) takeN++;
   });
   return { cut: cut, n: nn, sum: nn ? sum : null, mean: nn ? sum / nn : null, stopRate: nn ? stopN / nn : null, takeRate: nn ? takeN / nn : null };
@@ -3190,7 +3190,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   var _enteredAt = function(s, a) { var rr = _epResolve(s, a); return !!(rr && rr.judge === "ok"); };
   var _h1At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var h = _elDynHold(s, a, cut); return h == null ? 0 : h; };
   var _h2At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var t = _elHoldFinalParts(s, a, cut); return (t && t.main != null) ? t.main : 0; };   // 手じまい（最終損益・（）外）基準 2026-07-13
-  var _stopAt = function(s, a, cut) { return _enteredAt(s, a) && (_elPlanIsStop(s, a, cut) || _elHoldIsStop(s, a, cut) || (_elHas2Data(s, a) && !_elH2Miss(s, a) && (_elHoldIsStop2(s, a, cut) || _elStoppedDeep(s, a, cut)))); };   // H2損切りも含む（手じまい基準）2026-07-13
+  var _stopAt = function(s, a, cut) { return _enteredAt(s, a) && (_elIsStopFinal(s, a, cut)); };   // H2損切りも含む（手じまい基準）2026-07-13
 
   // 効果計算（採用α=基本+追加 vs 基本αだけ・手じまい基準 2026-07-13＝旧H1比較を置換。変数名h1A/h1Bは互換のため据え置き）
   var eff = [];
@@ -3696,7 +3696,7 @@ function _elOsBandPerfV2(_ref) {
       var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "draw") o.draw++;
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { o.plan += pv; o.planCnt++; o.planArr.push(pv); }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { o.h1 += h1.main; o.h1Cnt++; o.h1Arr.push(h1.main); }
-      var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || (_elHoldIsStop2(s, ai.alpha, ai.cutLine) || _elStoppedDeep(s, ai.alpha, ai.cutLine));
+      var isStop = _elIsStopFinal(s, ai.alpha, ai.cutLine);
       if (isStop) o.stop++; else if (res === "ng") o.soft++;
     } else if (rr && rr.judge === "miss") o.miss++;
   });
@@ -3778,7 +3778,7 @@ function _elOsSectionV2(recs, aiOf, osFn, osValMode, setOsValMode) {
       var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") o.ok++; else if (res === "ng") o.ng++;
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { o.plan += pv; o.planCnt++; }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { o.h1 += h1.main; o.h1Cnt++; }
-      if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || (_elHoldIsStop2(s, ai.alpha, ai.cutLine) || _elStoppedDeep(s, ai.alpha, ai.cutLine))) o.stop++;
+      if (_elIsStopFinal(s, ai.alpha, ai.cutLine)) o.stop++;
     } else if (rr && rr.judge === "miss") o.miss++;
   });
   // 帯別成績テーブルは帯⇄1円刻みトグル付きの子コンポーネントへ（集計ロジックは上のbandsと共通ルール）。
@@ -3899,7 +3899,7 @@ function _elPeriodStatsV2(recs, aiOf) {
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { planSum += pv; planCnt++; }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1 && h1.main != null) { h1Sum += h1.main; h1Cnt++; }
       var h2 = _elHoldFinalParts(s, ai.alpha, ai.cutLine); if (h2 && h2.main != null) { h2Sum += h2.main; h2Cnt++; }
-      var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || (_elHoldIsStop2(s, ai.alpha, ai.cutLine) || _elStoppedDeep(s, ai.alpha, ai.cutLine));
+      var isStop = _elIsStopFinal(s, ai.alpha, ai.cutLine);
       if (isStop) stop++; else if (res === "ng") soft++;
     }
   });
@@ -4247,7 +4247,7 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig) {
     var tags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
     return tags.length ? tags : ["(未設定)"];
   };
-  var _isStop = function(s, a, c) { return _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHoldIsStop2(s, a, c) || _elStoppedDeep(s, a, c)); };
+  var _isStop = function(s, a, c) { return _elIsStopFinal(s, a, c); };
   var rs = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal); });
   var entered = rs.filter(function(r) { var a = aiOf(r).alpha; if (a == null) return false; var rr = _epResolve(r.signal, a); return !!(rr && rr.judge === "ok"); });
   if (!entered.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "18px 0", fontSize: 12 } }, "エントリー成立（E成立）のv2記録がありません。損切り分析はエントリーできた記録が対象です。");
@@ -4547,7 +4547,7 @@ function _elMemoPerfSectionV2(recs, aiOf) {
     var s = r.signal, ai = aiOf(r), g = _has(s) ? grp.yes : grp.no; g.cnt++; g.chars += _memoText(s).replace(/\s/g, "").length;
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {
-      var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || (_elHoldIsStop2(s, ai.alpha, ai.cutLine) || _elStoppedDeep(s, ai.alpha, ai.cutLine));
+      var isStop = _elIsStopFinal(s, ai.alpha, ai.cutLine);
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { g.plan += pv; g.planCnt++; g.planArr.push(pv); if (pv > 0) { g.win++; g.dec++; } else if (pv < 0) { g.dec++; if (!isStop) g.soft++; } else { g.draw++; } }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { g.h1 += h1.main; g.h1Cnt++; g.h1Arr.push(h1.main); }
       if (isStop) g.stop++;
@@ -4648,7 +4648,7 @@ function _elDowSectionV2(recs, aiOf) {
     var res = _elDynResult(s, a, c);
     if (res === "ok") o.ok++; else if (res === "ng") o.ng++; else if (res === "miss") o.miss++; else if (res === "draw") o.draw++;
     if (res !== "miss") {  // 損切り率・見切り率・損益平均はE成立（エントリーできた）分のみを母数に＝未達・×見送りは除外 2026-06-20
-      var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && (_elHoldIsStop2(s, a, c) || _elStoppedDeep(s, a, c)));
+      var isStop = _elIsStopFinal(s, a, c);
       if (isStop) o.stop++; else if (res === "ng") o.soft++;
       var plan = _elDynPlanned(s, a, c); if (plan != null) { o.plan += plan; o.planCnt++; o.planArr.push(plan); }
       var h1t = _elHold1TotParts(s, a, c); if (h1t.main != null) { o.h1 += h1t.main; o.h1Cnt++; o.h1Arr.push(h1t.main); }
@@ -5949,7 +5949,7 @@ function EntryLogView(_ref_elv2) {
     // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
     var stopsOf = function(x) {
       var sn = 0, sl = 0, wn = 0;
-      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && (_elHoldIsStop2(s, a, c) || _elStoppedDeep(s, a, c)))) { sn++; sl += _elCapLossYen(c); } });
+      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; if (_elIsStopFinal(s, a, c)) { sn++; sl += _elCapLossYen(c); } });
       return { n: sn, avg: sn ? Math.round(sl / sn) : null, rate: wn ? Math.round(sn / wn * 100) : null };
     };
     // 到達: EPに到達した件数（採用α基準・_epReachedAt）2026-07-09
@@ -6293,7 +6293,7 @@ function EntryLogView(_ref_elv2) {
       rs.forEach(function(r) {
         var s = r.signal, cut = _ai(r).cutLine;
         if (_epReachedAt(s, a)) ent++;
-        if (_elPlanIsStop(s, a, cut) || _elHoldIsStop(s, a, cut) || (_elHoldIsStop2(s, a, cut) || _elStoppedDeep(s, a, cut))) stp++;
+        if (_elIsStopFinal(s, a, cut)) stp++;
       });
       var t = _elTotAccum(rs, {
         signal: function(r) { return r.signal; },
@@ -6932,7 +6932,7 @@ function EntryLogView(_ref_elv2) {
       var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
       var _ratesOf = function(rs) {
         var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0, draw = 0, take = 0;   // take=利確(E成立かつ最終損益>0で手じまい) 2026-07-09
-        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); var _dec = (res === "ok" || res === "ng" || res === "draw"); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; if (!_epReachedAt(s, a)) miss++; var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && (_elHoldIsStop2(s, a, c) || _elStoppedDeep(s, a, c))); if (isStop) stop++; else if (res === "ng") soft++; if (_dec) { var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) take++; } });
+        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); var _dec = (res === "ok" || res === "ng" || res === "draw"); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; if (!_epReachedAt(s, a)) miss++; var isStop = _elIsStopFinal(s, a, c); if (isStop) stop++; else if (res === "ng") soft++; if (_dec) { var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) take++; } });
         var _d = ok + ng + draw;
         return { ok: ok, ng: ng, miss: miss, draw: draw, n: rs.length, win: _d ? Math.round(ok / _d * 100) : null, soft: _d ? Math.round(soft / _d * 100) : 0, stop: _d ? Math.round(stop / _d * 100) : 0, take: take, takeRate: _d ? Math.round(take / _d * 100) : null };
       };

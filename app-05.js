@@ -3873,14 +3873,16 @@ function _elDynHold2(s, alpha, cutLine) {
   }
   return _elDynHold(_h2s, alpha, cutLine);
 }
-// H2より後の足（H3/H4）で損切りしたか＝**既存の EP/H1/H2 判定に足すだけの追加分** 2026-07-25b。
-// 損切り率は推奨α/推奨損切りのゲート条件なので、最終損益を手じまいまで伸ばした以上ここも同じ深さで数える必要がある。
-// 判定は_elRideVals（手じまい足と損切り足の早い方＝最終損益と同じ基準）＝降りた後の足の損切りは拾わない。
-// **exitD<=2の記録は常にfalse＝既存式にORしても従来と完全に同一**。※_elHoldIsStop2自体は変更しない（_elRideVals内部が使うため）。
-function _elStoppedDeep(s, alpha, cutLine) {
-  if (!s || !_epIsV2(s) || alpha == null) return false;
-  var v = _elRideVals(s, alpha, cutLine);
-  return !!(v && v.stopped && v.exitD >= 3);
+// 【損切り判定の単一源】手じまいまでに損切りしたか＝**最終損益と同じ基準** 2026-07-25d。
+// 旧＝`_elPlanIsStop || _elHoldIsStop || _elHoldIsStop2` は「EP/H1/H2の足のどれかが損切り値に触れたか」で、
+//   **手じまいより後の足で触れた場合も損切りに数えていた**（ユーザー指摘の実例: 次×でH1で降りたのに、その先のOS3の高値が損切り値を超えていたため損切り1件になっていた）。
+// 判定は_elRideVals＝「期待度の手じまい足」と「損切り足」の早い方（表示側は2026-07-16に修正済み・ここで集計側も同じ源に統一）。
+// E成立v2以外（旧記録/×見送り/E未達）は従来式へフォールバック＝挙動不変。**損切り件数・損切り率は必ずこの関数を使う**。
+function _elIsStopFinal(s, alpha, cutLine) {
+  if (!s || alpha == null) return false;
+  if (_epIsV2(s)) { var v = _elRideVals(s, alpha, cutLine); if (v) return !!v.stopped; }
+  return _elPlanIsStop(s, alpha, cutLine) || _elHoldIsStop(s, alpha, cutLine)
+    || (_elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cutLine));
 }
 function _elHoldIsStop2(s, alpha, cutLine) {
   if (_epIsV2(s)) {
@@ -4012,12 +4014,8 @@ function _elRealizedOutcome(s, alpha, cutLine) {
     if (_ro2 && _ro2.judge === "x") return "x";  // ×宣言後の到達=見送り（参考）
   }
   if (_elH2Miss(s, alpha)) return "miss";
-  var _sp = _elPlanIsStop(s, alpha, cutLine);
-  var _sh1 = !_sp && _elHoldIsStop(s, alpha, cutLine);
-  var _sh2 = !_sp && !_sh1 && _elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cutLine);
-  var _rvO = (_epIsV2(s) && alpha != null) ? _elRideVals(s, alpha, cutLine) : null;   // 手じまい足（3段目以降の判定に使う）2026-07-25b
-  var _shN = !_sp && !_sh1 && !_sh2 && !!(_rvO && _rvO.stopped && _rvO.exitD >= 3);   // H2より後の足で損切り
-  if (_sp || _sh1 || _sh2 || _shN) return "stop";
+  var _rvO = (_epIsV2(s) && alpha != null) ? _elRideVals(s, alpha, cutLine) : null;   // 手じまい足（利益/損失の判定足）2026-07-25b
+  if (_elIsStopFinal(s, alpha, cutLine)) return "stop";   // 2026-07-25d 損切りは最終損益と同じ基準（手じまいより後の足の損切りは数えない）
   var res = (_elHas2Data(s, alpha) && !_elH2Miss(s, alpha)) ? _elDynHold2(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
   if (_rvO && _rvO.exitD >= 3) { var _resN = _elDynHoldAt(s, alpha, cutLine, _rvO.exitD); if (_resN != null) res = _resN; }   // 手じまいがH2より後＝その足の損益で利益/損失を判定 2026-07-25b
   if (res == null) return null;
