@@ -6086,7 +6086,7 @@ function EntryLogView(_ref_elv2) {
       if (mode === "day") {
         var _ovd = _elOsMaxAll(s); var _bkey = (_ovd != null) ? _elOsBucketKey(_ovd, false) : null;
         cells = cells.concat([
-          _td(_epOsChainCell(s, a.alpha)),
+          _td(_epOsChainCell(s, a.alpha, a.cutLine)),
           _td(_epECell(s, a.alpha)),
           _td(_bkey != null ? React.createElement("span", { style: { display: "inline-block", padding: "1px 6px", borderRadius: 8, fontSize: 9, fontWeight: 700, color: "#fff", background: _elOsBucketColor(_bkey), whiteSpace: "nowrap" } }, _elOsBucketLabel(_bkey)) : _dash),
           _td(_elHoldMaxHighCell(s)),

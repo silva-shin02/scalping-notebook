@@ -3596,9 +3596,15 @@ function _elOsMaxCapped(s, alpha) {
   var max = null;
   for (var i = 0; i < legs.length; i++) {
     var o = legs[i];
+    // 2026-07-25b 修正: EP以降の保有足は「その足を保有したか」を**算入の前に**判定する。
+    //   _epNextExpAt(s, i-1)＝足i-1の引けで下した『足iへ継続するか』の判断（2026-07-06の次足期待度統一）なので、×＝足iは保有していない＝実現最高に入れてはいけない。
+    //   旧実装は「算入してから打ち切り」で降りた次の足を1本ぶん含んでいた（OS1〜3スライス時代はEP=OS1の記録で表に出なかったが、2026-07-25のOS1〜5拡張で露見:
+    //   高値5/7/7・次○→次○→次×・OS4高値9 の記録が実現最高9＝保有していない足の高値を表示した）。これで _elRideVals.mx（実現到達）と常に一致する。
+    if (epIdx >= 0 && i > epIdx && _cut(_epNextExpAt(s, i - 1))) break;
     if (o.h != null && (max == null || o.h > max)) max = o.h;
     if (i === epIdx) continue;
-    var exp = (epIdx >= 0) ? (i > epIdx ? _epNextExpAt(s, i - 1) : _epNextExpAt(s, i)) : o.exp;   // 保有側=足i-1の引け/待ち側=足iの引けの次足期待度（採用αでは従来と同値・新記録のnextExpN対応）2026-07-06e
+    if (epIdx >= 0 && i > epIdx) continue;   // 保有足の打ち切りは算入前に済ませた
+    var exp = (epIdx >= 0) ? _epNextExpAt(s, i) : o.exp;   // 待ち足(EP前)/EP未成立は従来どおり（算入してから打ち切り）
     if (_cut(exp)) break;
   }
   return max;
@@ -4053,10 +4059,15 @@ function _epOsMaxChainNode(s, alpha) {
     style: { display: "inline-flex", alignItems: "center", gap: 2, marginTop: 1, fontSize: "0.92em", whiteSpace: "nowrap" } },
     React.createElement("span", { style: { fontSize: "0.8em", color: "#94A3B8", fontWeight: 700 } }, "実現最高"), inner);
 }
-function _epOsChainCell(s, alpha) {
+function _epOsChainCell(s, alpha, cutLine) {
   var legs, epIdx = -1, judge = null;
   if (_epIsV2(s)) {
-    legs = _epLegs(s).slice(0, 3);
+    // 2026-07-25b: 既定はOS1〜3（従来）。**実際に手じまい足がOS3より後まで伸びた記録だけ**その足まで表示＝H３/H４行・実現最高と足並みを揃える。
+    //   保有していない足は出さない（_elRideVals.exitD＝最終損益と同じ手じまい足）。E未達/×見送り/旧記録は従来どおり3本。
+    var _rv = (alpha != null) ? _elRideVals(s, alpha, cutLine) : null;   // cutLine未指定は_elRideVals内で既定15
+    var _showN = 3;
+    if (_rv) { var _rr0 = _epResolve(s, alpha); if (_rr0 && _rr0.epIdx >= 0) _showN = Math.max(3, _rr0.epIdx + _rv.exitD + 1); }
+    legs = _epLegs(s).slice(0, _showN);
     if (alpha != null) { var _rc = _epResolve(s, alpha); if (_rc) { epIdx = _rc.epIdx; judge = _rc.judge; } }
   } else {
     legs = (s && s.osVal != null) ? [{ h: Number(s.osVal), c: s.osConfVal != null ? (s.osConfSign === "-" ? -Number(s.osConfVal) : Number(s.osConfVal)) : null }] : [];
@@ -5206,7 +5217,7 @@ function _elDetailFlowStack(s, alpha, cutLine) {
   else _hPart = _elHoldStackInner(s, alpha, cutLine);
   // 2026-07-09: OS足取り(_epOsChainCell)を詳細損益セルの最上段に統合（旧・独立OS列を廃止＝案A）。EP行の上に点線区切りで重ねる。
   // 2026-07-09f: ブロック全体を左寄せ（中央寄せの左右余白を除去）＝幅stretch時の無駄な余白を減らす。フォントは通常サイズ(セル継承=11)に戻す（列に余白があるため縮小不要）。
-  var _osTop = React.createElement("div", { style: { display: "flex", justifyContent: "flex-start", padding: "0 0 2px", marginBottom: 2, borderBottom: "1px dashed #d8cbb8", whiteSpace: "nowrap" } }, _epOsChainCell(s, alpha));
+  var _osTop = React.createElement("div", { style: { display: "flex", justifyContent: "flex-start", padding: "0 0 2px", marginBottom: 2, borderBottom: "1px dashed #d8cbb8", whiteSpace: "nowrap" } }, _epOsChainCell(s, alpha, cutLine));
   // 2026-07-13 「最高↑→決済↓」行(_elRideSummaryNode)は最終損益欄(_elRideMiniNode)に移設したため削除。
   return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3 } }, _osTop, _epRow, _hPart);
 }
