@@ -4290,7 +4290,7 @@ function EntrySignalSection(_ref_es) {
                 : (!_epIsV2(s) && s.holdWidthSign == null && s.holdWidth == null && s.holdOsConf == null)) _esTotHoldHasUnrecorded = true;
     var _isXes = _epIsXSkip(s, _esAlpha(s));  // E×（×見送り）→本合計に算入せず参考(ref)へ
     var rpN = rp != null ? _p100(rp) : null;
-    // pp/mp/hp/_h2tes は _elDynPlanned/_elDynHold/_elHold2TotParts の動的値＝既に100株換算済み。
+    // pp/mp/hp/_h2tes は _elDynPlanned/_elDynHold/_elHoldFinalParts の動的値＝既に100株換算済み。
     // _elCalcStats と同様、動的値は Math.round のみ（_p100 で株数を二重に割らない）。rp は保存実額なので _p100 を維持。2026-06-20
     var ppN = (pp != null && !_isXes) ? Math.round(pp) : null;
     var mpN = (mp != null && !_isXes) ? Math.round(mp) : null;
@@ -4321,7 +4321,7 @@ function EntrySignalSection(_ref_es) {
       if (_planStopTot && ppN != null && hpN !== ppN) _esTotHoldPlanStopDiff = true;
       }
     }
-    var _h2tes = _elHold2TotParts(s, _esAlpha(s), _esCut(s));
+    var _h2tes = _elHoldFinalParts(s, _esAlpha(s), _esCut(s));
     if (_h2tes.main != null) { _esTotHold2 = (_esTotHold2 || 0) + Math.round(_h2tes.main); _esTotHold2Cnt++; }
     if (_h2tes.ref != null) { _esTotHold2Ref = (_esTotHold2Ref || 0) + Math.round(_h2tes.ref); _esTotHold2RefCnt++; }
     var _isAB = (s.difficulty === "A" || s.difficulty === "B");
@@ -5143,7 +5143,7 @@ function WeeklyPnlPanel(_wpp) {
         _recsM.forEach(function(r) {
           var s = r.signal;
           var _aR = _alphaOf(r); var _cutLR = _cutOf(r);
-          var _h2p = _elHold2TotParts(s, _aR, _cutLR);
+          var _h2p = _elHoldFinalParts(s, _aR, _cutLR);
           if (_h2p.main != null) { _h2Tot = (_h2Tot || 0) + _h2p.main; _h2Cnt++; }
           if (_h2p.ref != null) { _h2Ref = (_h2Ref || 0) + _h2p.ref; _h2RefCnt++; }
         });
@@ -5192,7 +5192,7 @@ function WeeklyPnlPanel(_wpp) {
           React.createElement("tr", { style: { background: "#f5f4f0" } },
             _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
             _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
-            _wkTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "最終損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／H2損益を縦積み。H２＝最終損益と同値" }, "詳細損益")), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" }))),
+            _wkTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "最終損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／最終損益を縦積み。最終＝○が続く限り手じまい足まで保有した損益＝最終損益列と同値" }, "詳細損益")), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" }))),
         React.createElement("tbody", null,
           [
             _sumRow("週合計", "#555", _recs, true, "wk__total__"),

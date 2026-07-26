@@ -556,7 +556,7 @@ function _elInsightEmV2(text, color) {
 }
 // 記録群からα候補(0/5/10/15/20)を総当たりし、H1/H2結果損益の合計が最大になるαを返す。
 // 戻り値 {h1:{a,sum}|null, h2:{a,sum}|null, n} / OS値入力なしはnull。同点は小さいα優先。
-// 損益は取引・銘柄別記録テーブルと同一基準（H1=_elHold1TotParts・H2=_elHold2TotParts・損切り値=各記録の採用値）。
+// 損益は取引・銘柄別記録テーブルと同一基準（H1=_elHold1TotParts・H2=_elHoldFinalParts・損切り値=各記録の採用値）。
 function _elBestAlphaV2(recs, data) {
   var rs = (recs || []).filter(function(r) { var s = r.signal; return s && s.osVal != null && s.osVal !== ""; });
   if (!rs.length) return null;
@@ -567,7 +567,7 @@ function _elBestAlphaV2(recs, data) {
       var s = r.signal;
       var cut = _elAlphaInfo(r, data).cutLine;
       var t1 = _elHold1TotParts(s, a, cut); if (t1.main != null) { s1 += t1.main; c1++; }
-      var t2 = _elHold2TotParts(s, a, cut); if (t2.main != null) { s2 += t2.main; c2++; }
+      var t2 = _elHoldFinalParts(s, a, cut); if (t2.main != null) { s2 += t2.main; c2++; }
     });
     if (c1 > 0 && (bestH1 == null || s1 > bestH1.sum)) bestH1 = { a: a, sum: s1 };
     if (c2 > 0 && (bestH2 == null || s2 > bestH2.sum)) bestH2 = { a: a, sum: s2 };
@@ -619,7 +619,7 @@ function _elEpPosStatsV2(recs, aiOf) {
     if (pv != null) { o.plan += pv; o.planCnt++; o.planArr.push(pv); }
     var h1p = _elHold1TotParts(s, ai.alpha, ai.cutLine);
     if (h1p.main != null) { o.h1 += h1p.main; o.h1Cnt++; o.h1Arr.push(h1p.main); }
-    var h2p = _elHold2TotParts(s, ai.alpha, ai.cutLine);
+    var h2p = _elHoldFinalParts(s, ai.alpha, ai.cutLine);
     if (h2p.main != null) { o.h2 += h2p.main; o.h2Cnt++; o.h2Arr.push(h2p.main); }
     var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine);
     if (isStop) o.stop++; else if (res === "ng") o.soft++;
@@ -1192,7 +1192,7 @@ function _elWeekdayHeatV2(days, opts) {
   });
   return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "auto repeat(5, 1fr)", gap: 4 } }, kids);
 }
-// 累積損益（記録順）: 最終損益/実現の累積線。寄与は合計行と同一基準（手じまい=_elHold2TotParts.main）。2026-07-09 EP/H1系列を廃止＝最終損益に集約。
+// 累積損益（記録順）: 最終損益/実現の累積線。寄与は合計行と同一基準（手じまい=_elHoldFinalParts.main）。2026-07-09 EP/H1系列を廃止＝最終損益に集約。
 function _elCumPnlSectionV2(props) {
   var recs = props.recs, aiOf = props.aiOf;
   // 時間かぶり除外: dataが渡された場合は良い方を累積から抜く＝合計行と同一基準を維持。scopeStock指定時は同一銘柄内のみ（銘柄別ビュー）2026-07-08
@@ -1215,7 +1215,7 @@ function _elCumPnlSectionV2(props) {
   var pH2 = [], pReal = [], xTicks = [], xLabels = [], lastDate = null;
   _filtered.forEach(function(r, i) {
     var s = r.signal, ai = aiOf(r);
-    var h2p = _elHold2TotParts(s, ai.alpha, ai.cutLine);
+    var h2p = _elHoldFinalParts(s, ai.alpha, ai.cutLine);
     if (h2p.main != null) c2 += h2p.main;
     var rv = _elIsEntered(s, r.item) ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null;
     if (rv != null) cr += rv;
@@ -1597,11 +1597,11 @@ function _elAlphaEvalByFn(recs, aiOf, alphaOf) {
   var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
   return { a: null, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
 }
-// 最終損益(H2)ベースの反実仮想エバリュエータ 2026-07-12: alphaOf(r)→そのレコードの総合α（null=母数外）。_elAlphaEvalByFn(H1版)の最終損益版＝到達(entered)/E成立(decided)/損切り率/利確率(最終損益>0)/想定損益(Σ最終損益h2Sum)/平均(avgH2)/スコアを返す。損益は取引・銘柄別記録と同一基準(_elHold2TotParts.main=（）外最終損益)。損切り率・利確率の分母＝E成立(_elDynResult ok/ng/draw)。スコア＝0.7×(1−損切り率)+0.3×利確率。浮き足加算率スイープ(_elUkiPctSweep)で使用。
+// 最終損益(H2)ベースの反実仮想エバリュエータ 2026-07-12: alphaOf(r)→そのレコードの総合α（null=母数外）。_elAlphaEvalByFn(H1版)の最終損益版＝到達(entered)/E成立(decided)/損切り率/利確率(最終損益>0)/想定損益(Σ最終損益h2Sum)/平均(avgH2)/スコアを返す。損益は取引・銘柄別記録と同一基準(_elHoldFinalParts.main=（）外最終損益)。損切り率・利確率の分母＝E成立(_elDynResult ok/ng/draw)。スコア＝0.7×(1−損切り率)+0.3×利確率。浮き足加算率スイープ(_elUkiPctSweep)で使用。
 function _elH2EvalByFn(recs, aiOf, alphaOf) {
   var n = 0, entered = 0, decided = 0, stopN = 0, takeN = 0, h2Sum = 0, h2Cnt = 0;
   // 2026-07-16e 追加: medH2(中央値)・avgWin/avgLoss(勝ち/負け平均)を既存1パス内で収集＝プール再走査なし（α毎のsortが1回増えるだけ）。
-  // 母数は平均/Σと同じ h2Cnt（_elHold2TotParts.main が非null＝最終損益が確定した件数）＝decided と一致しないことがある（EP×見送り・H2未達で main=null）。
+  // 母数は平均/Σと同じ h2Cnt（_elHoldFinalParts.main が非null＝最終損益が確定した件数）＝decided と一致しないことがある（EP×見送り・H2未達で main=null）。
   var h2Vals = [], winSum = 0, lossSum = 0, lossN = 0;
   (recs || []).forEach(function(r) {
     var s = r.signal; if (!s) return;
@@ -1615,7 +1615,7 @@ function _elH2EvalByFn(recs, aiOf, alphaOf) {
     if (!(res === "ok" || res === "ng" || res === "draw")) return;   // E成立(decided)のみ損切り/利確/損益の母数
     decided++;
     if (_elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c))) stopN++;
-    var t2 = _elHold2TotParts(s, a, c);
+    var t2 = _elHoldFinalParts(s, a, c);
     if (t2 && t2.main != null) {
       h2Sum += t2.main; h2Cnt++; h2Vals.push(t2.main);
       if (t2.main > 0) { takeN++; winSum += t2.main; } else { lossN++; lossSum += t2.main; }   // 勝ち/負けの境界は利確率(takeN)と同一＝main>0が勝ち
@@ -1670,7 +1670,7 @@ function _elCutH2Eval(recs, aiOf, cut) {
     if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return;
     var res = _elDynResult(s, alpha, cut);
     if (!(res === "ok" || res === "ng" || res === "draw")) return;
-    var t2 = _elHold2TotParts(s, alpha, cut);
+    var t2 = _elHoldFinalParts(s, alpha, cut);
     if (!t2 || t2.main == null) return;
     nn++; sum += t2.main;
     if (_elPlanIsStop(s, alpha, cut) || _elHoldIsStop(s, alpha, cut) || (_elHas2Data(s) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cut))) stopN++;
@@ -1750,7 +1750,7 @@ function _elRnBoardV2(recs, aiOf, holiSet) {
     if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return null;
     var res = _elDynResult(s, a, c);
     if (!(res === "ok" || res === "ng" || res === "draw")) return null;
-    var t2 = _elHold2TotParts(s, a, c);
+    var t2 = _elHoldFinalParts(s, a, c);
     return (t2 && t2.main != null) ? t2.main : null;
   };
   var bothN = 0, bothDiff = 0, cfOnlyN = 0, cfOnlySum = 0, realOnlyN = 0, realOnlySum = 0, winN = 0, loseN = 0, evenN = 0;
@@ -3189,7 +3189,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   var _addOf = function(s) { var v = _num(s.addAlphaVal); if (v == null) { var a = _num(s.alphaVal), b = _num(s.baseAlphaVal); v = (a != null && b != null) ? (a - b) : null; } return v; };
   var _enteredAt = function(s, a) { var rr = _epResolve(s, a); return !!(rr && rr.judge === "ok"); };
   var _h1At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var h = _elDynHold(s, a, cut); return h == null ? 0 : h; };
-  var _h2At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var t = _elHold2TotParts(s, a, cut); return (t && t.main != null) ? t.main : 0; };   // 手じまい（最終損益・（）外）基準 2026-07-13
+  var _h2At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var t = _elHoldFinalParts(s, a, cut); return (t && t.main != null) ? t.main : 0; };   // 手じまい（最終損益・（）外）基準 2026-07-13
   var _stopAt = function(s, a, cut) { return _enteredAt(s, a) && (_elPlanIsStop(s, a, cut) || _elHoldIsStop(s, a, cut) || (_elHas2Data(s, a) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, cut))); };   // H2損切りも含む（手じまい基準）2026-07-13
 
   // 効果計算（採用α=基本+追加 vs 基本αだけ・手じまい基準 2026-07-13＝旧H1比較を置換。変数名h1A/h1Bは互換のため据え置き）
@@ -3898,7 +3898,7 @@ function _elPeriodStatsV2(recs, aiOf) {
       var res = _elDynResult(s, ai.alpha, ai.cutLine); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++;
       var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (pv != null) { planSum += pv; planCnt++; }
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1 && h1.main != null) { h1Sum += h1.main; h1Cnt++; }
-      var h2 = _elHold2TotParts(s, ai.alpha, ai.cutLine); if (h2 && h2.main != null) { h2Sum += h2.main; h2Cnt++; }
+      var h2 = _elHoldFinalParts(s, ai.alpha, ai.cutLine); if (h2 && h2.main != null) { h2Sum += h2.main; h2Cnt++; }
       var isStop = _elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop2(s, ai.alpha, ai.cutLine);
       if (isStop) stop++; else if (res === "ng") soft++;
     }
@@ -4877,7 +4877,7 @@ function _elKabuRecoBaseFn(baseRecs, aiOf) {
   return fn;
 }
 // 1段（1建値）の評価。α<0は0にクランプ・cutLine未設定は10（※他所の既定は15＝_elPlanIsStop等。実際にはaiOf/_simCutOfが必ず数値を返すので到達しない）。
-// 【2026-07-20b】損益は記録表/損益データ欄の「最終損益」と同一の期待度別算入（_elHold2TotParts＝（）外main/（）内ref）に統一。
+// 【2026-07-20b】損益は記録表/損益データ欄の「最終損益」と同一の期待度別算入（_elHoldFinalParts＝（）外main/（）内ref）に統一。
 //  旧＝_elHold1TotParts（H1基準）だったが、アプリ全体が2026-07-09〜07-13で最終損益へ移行し推奨α選定(_elBaseAlphaPick)も最終損益基準なのに、シミュだけH1で採点していた＝H2まで持った勝ちを取りこぼす構造的なズレだったため切替。
 //  main100=（）外／ref100=（）内差分（△・損切り済のみ）。pnl100はmain100の別名（既存の（）外消費箇所と互換）。
 // 返り値 { built, skip('unreached'|'x'|'noalpha'|null), pnl100/main100/ref100(100株換算・判定不可はnull), stop, indet, a(実効α) }。
@@ -4889,7 +4889,7 @@ function _elKabuTierEval(s, a, cut) {
   if (!rr || rr.epIdx < 0 || rr.epIdx > 2) return { built: false, skip: "unreached", pnl100: null, main100: null, ref100: null, stop: false, indet: false, a: _a };
   if (rr.judge !== "ok") return { built: false, skip: "x", pnl100: null, main100: null, ref100: null, stop: false, indet: false, a: _a };
   var stop = _elPlanIsStop(s, _a, _cl) || _elHoldIsStop(s, _a, _cl);
-  var parts = _elHold2TotParts(s, _a, _cl);   // { main:（）外, ref:（）内差分 } ＝最終損益（手じまい・○が途切れた所で手仕舞い）＝記録表/損益データ欄の「最終損益」と同一基準。2026-07-20b にH1(_elHold1TotParts)から切替＝アプリ全体(07-09〜07-13で最終損益へ移行)・推奨α選定(_elBaseAlphaPick=_elH2EvalByFn)と基準を統一。α可変でも正しい（内部で_epResolve(s,alpha)を引く）
+  var parts = _elHoldFinalParts(s, _a, _cl);   // { main:（）外, ref:（）内差分 } ＝最終損益（手じまい・○が途切れた所で手仕舞い）＝記録表/損益データ欄の「最終損益」と同一基準。2026-07-20b にH1(_elHold1TotParts)から切替＝アプリ全体(07-09〜07-13で最終損益へ移行)・推奨α選定(_elBaseAlphaPick=_elH2EvalByFn)と基準を統一。α可変でも正しい（内部で_epResolve(s,alpha)を引く）
   if (parts.main == null && parts.ref == null) return { built: true, skip: null, pnl100: null, main100: null, ref100: null, stop: stop, indet: true, a: _a };
   return { built: true, skip: null, pnl100: parts.main, main100: parts.main, ref100: parts.ref, stop: stop, indet: false, a: _a };
 }
@@ -5284,7 +5284,7 @@ function _elKabuLadderSimV2(props) {
   var _kbConvParts = function(r, nSh) {
     var s = r && r.signal; if (!s) return { main: null, ref: null };
     var _cai = aiOf(r);
-    var p = _elHold2TotParts(s, _cai.alpha, _cai.cutLine);   // 最終損益（手じまい）＝記録表の「最終損益」列と同一関数。2026-07-20b にH1から切替＝「従来」列が記録表と同じ数字になる
+    var p = _elHoldFinalParts(s, _cai.alpha, _cai.cutLine);   // 最終損益（手じまい）＝記録表の「最終損益」列と同一関数。2026-07-20b にH1から切替＝「従来」列が記録表と同じ数字になる
     return { main: p.main != null ? Math.round(p.main * nSh / 100) : null, ref: p.ref != null ? Math.round(p.ref * nSh / 100) : null };
   };
   var _kbConvSums = function(nSh) { var m = 0, rf = 0; pool.forEach(function(r) { var p = _kbConvParts(r, nSh); if (p.main != null) m += p.main; if (p.ref != null) rf += p.ref; }); return { sum: Math.round(m), sumRef: Math.round(rf) }; };
@@ -5739,7 +5739,7 @@ function _elKabuLadderSimV2(props) {
     _targetList,
     _multiToggle,
     _modeToggle,
-    React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝最終損益（期待度○が途切れた所で手じまい・_elHold2TotParts）＝記録表/損益データ欄の「最終損益」列・推奨α選定と完全に同一基準（2026-07-20bにH1基準から切替）／損切り＝「シミュ損切」列の値で取引ごと独立（手動ラダーで『推奨基本α値+X円』を設定するとその記録日時点の推奨基本α+X＝橙字・空欄や推奨α不明・自動配分は各記録の実際の損切り値＝灰字）／×見送り・判定不可の取引は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※（）外/（）内は記録表と同じ方式（（）内＝△・損切り済ぶんの参考差分）。金額の（括弧内）＝（）内合計（○△を含む参考額）。従来列＝記録表の「最終損益」（採用α・100株当たり）を総株数に単純按分した値＝同じ記録・同じαなら記録表と一致する（シミュの取引構成・第1/第2取引とは無関係）。シミュ列の下段＝取引ごとの内訳（（）外・建たなかった取引は—）。※時間かぶり（保有時間の重なり）の記録は他のP&L集計と同じく早い方だけを残して除外。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝最終損益（期待度○が途切れた所で手じまい・_elHoldFinalParts）＝記録表/損益データ欄の「最終損益」列・推奨α選定と完全に同一基準（2026-07-20bにH1基準から切替）／損切り＝「シミュ損切」列の値で取引ごと独立（手動ラダーで『推奨基本α値+X円』を設定するとその記録日時点の推奨基本α+X＝橙字・空欄や推奨α不明・自動配分は各記録の実際の損切り値＝灰字）／×見送り・判定不可の取引は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※（）外/（）内は記録表と同じ方式（（）内＝△・損切り済ぶんの参考差分）。金額の（括弧内）＝（）内合計（○△を含む参考額）。従来列＝記録表の「最終損益」（採用α・100株当たり）を総株数に単純按分した値＝同じ記録・同じαなら記録表と一致する（シミュの取引構成・第1/第2取引とは無関係）。シミュ列の下段＝取引ごとの内訳（（）外・建たなかった取引は—）。※時間かぶり（保有時間の重なり）の記録は他のP&L集計と同じく早い方だけを残して除外。"),
     body);
 }
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
@@ -5903,7 +5903,7 @@ function EntryLogView(_ref_elv2) {
       _yenN(v, cnt, days),
       React.createElement("span", { style: { fontSize: 11, fontWeight: 600, lineHeight: 1.2 } }, suf));
   };
-  // 損益（期間別）テーブル＝全銘柄合算をday/week/monthで集計。各損益セルに合計＋平均を併記・損切り(件数/平均額/率)列・行タップでその期間の取引記録を展開。「損益」タブの集計ビュー頭 2026-06-22d。損益基準は_elTotAccum（取引/銘柄別記録と同一）。2026-07-09 EP損益/H1損益列を廃し「最終損益」1列に集約（＝旧H2損益・_elHold2TotPartsの（）外=○が途切れた所で手じまい/（）内=△含む・値は不変）。
+  // 損益（期間別）テーブル＝全銘柄合算をday/week/monthで集計。各損益セルに合計＋平均を併記・損切り(件数/平均額/率)列・行タップでその期間の取引記録を展開。「損益」タブの集計ビュー頭 2026-06-22d。損益基準は_elTotAccum（取引/銘柄別記録と同一）。2026-07-09 EP損益/H1損益列を廃し「最終損益」1列に集約（＝旧H2損益・_elHoldFinalPartsの（）外=○が途切れた所で手じまい/（）内=△含む・値は不変）。
   // 期間キー/ラベル（日別=日付・週別=月曜起点の5営業日・月別=YYYY-MM）2026-07-20に共通化。
   // 「全体損益（期間別）」(_ovPnlTbl)と「指値同値」(_fillRiskSection)の日別/週別/月別で同じ区切りを使う＝二重実装しない。
   var _granKeyOf = function(ds, g) {
@@ -5957,7 +5957,7 @@ function EntryLogView(_ref_elv2) {
     // 利確: E成立(EP到達して決着＝損切り率と同母数wn)のうち最終損益(（）外main)>0で手じまいした件数・率 2026-07-09
     var winTakeOf = function(x) {
       var wn = 0, tp = 0;
-      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; var _t2 = _elHold2TotParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) tp++; });
+      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) tp++; });
       return { n: tp, rate: wn ? Math.round(tp / wn * 100) : null };
     };
     var byP = {}; rs.forEach(function(r) { var k = keyOf(r.date); (byP[k] = byP[k] || []).push(r); });
@@ -6932,7 +6932,7 @@ function EntryLogView(_ref_elv2) {
       var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
       var _ratesOf = function(rs) {
         var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0, draw = 0, take = 0;   // take=利確(E成立かつ最終損益>0で手じまい) 2026-07-09
-        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); var _dec = (res === "ok" || res === "ng" || res === "draw"); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; if (!_epReachedAt(s, a)) miss++; var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c)); if (isStop) stop++; else if (res === "ng") soft++; if (_dec) { var _t2 = _elHold2TotParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) take++; } });
+        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); var _dec = (res === "ok" || res === "ng" || res === "draw"); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; if (!_epReachedAt(s, a)) miss++; var isStop = _elPlanIsStop(s, a, c) || _elHoldIsStop(s, a, c) || (_elHas2Data(s) && !_elH2Miss(s, a) && _elHoldIsStop2(s, a, c)); if (isStop) stop++; else if (res === "ng") soft++; if (_dec) { var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) take++; } });
         var _d = ok + ng + draw;
         return { ok: ok, ng: ng, miss: miss, draw: draw, n: rs.length, win: _d ? Math.round(ok / _d * 100) : null, soft: _d ? Math.round(soft / _d * 100) : 0, stop: _d ? Math.round(stop / _d * 100) : 0, take: take, takeRate: _d ? Math.round(take / _d * 100) : null };
       };
