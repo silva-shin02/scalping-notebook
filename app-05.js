@@ -3873,6 +3873,15 @@ function _elDynHold2(s, alpha, cutLine) {
   }
   return _elDynHold(_h2s, alpha, cutLine);
 }
+// H2より後の足（H3/H4）で損切りしたか＝**既存の EP/H1/H2 判定に足すだけの追加分** 2026-07-25b。
+// 損切り率は推奨α/推奨損切りのゲート条件なので、最終損益を手じまいまで伸ばした以上ここも同じ深さで数える必要がある。
+// 判定は_elRideVals（手じまい足と損切り足の早い方＝最終損益と同じ基準）＝降りた後の足の損切りは拾わない。
+// **exitD<=2の記録は常にfalse＝既存式にORしても従来と完全に同一**。※_elHoldIsStop2自体は変更しない（_elRideVals内部が使うため）。
+function _elStoppedDeep(s, alpha, cutLine) {
+  if (!s || !_epIsV2(s) || alpha == null) return false;
+  var v = _elRideVals(s, alpha, cutLine);
+  return !!(v && v.stopped && v.exitD >= 3);
+}
 function _elHoldIsStop2(s, alpha, cutLine) {
   if (_epIsV2(s)) {
     if (alpha == null) return false;
@@ -3994,6 +4003,8 @@ function _elHoldMaxHighCell(s) {
 }
 // 実現結果: "miss"(E未達=OS・H1ともα未達でノートレード) / "stop"(想定orH1orH2で損切り) / "profit" / "loss" / "zero" / null。
 // 利益/損失は結果損益（H2データあり＆H2成立ならH2、無ければH1）で判定。
+// 2026-07-25b: 手じまいがH2より後まで伸びた記録は「手じまい足の損益」で判定し、H2より後の損切りも"stop"に含める
+//   （最終損益_elHoldFinalParts・保有時間_elRideVals と同じ手じまい足に揃える）。**exitD<=2の記録は従来と完全に同一**。
 function _elRealizedOutcome(s, alpha, cutLine) {
   if (!s) return null;
   if (_epIsV2(s) && alpha != null) {
@@ -4004,8 +4015,11 @@ function _elRealizedOutcome(s, alpha, cutLine) {
   var _sp = _elPlanIsStop(s, alpha, cutLine);
   var _sh1 = !_sp && _elHoldIsStop(s, alpha, cutLine);
   var _sh2 = !_sp && !_sh1 && _elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cutLine);
-  if (_sp || _sh1 || _sh2) return "stop";
+  var _rvO = (_epIsV2(s) && alpha != null) ? _elRideVals(s, alpha, cutLine) : null;   // 手じまい足（3段目以降の判定に使う）2026-07-25b
+  var _shN = !_sp && !_sh1 && !_sh2 && !!(_rvO && _rvO.stopped && _rvO.exitD >= 3);   // H2より後の足で損切り
+  if (_sp || _sh1 || _sh2 || _shN) return "stop";
   var res = (_elHas2Data(s, alpha) && !_elH2Miss(s, alpha)) ? _elDynHold2(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
+  if (_rvO && _rvO.exitD >= 3) { var _resN = _elDynHoldAt(s, alpha, cutLine, _rvO.exitD); if (_resN != null) res = _resN; }   // 手じまいがH2より後＝その足の損益で利益/損失を判定 2026-07-25b
   if (res == null) return null;
   return res > 0 ? "profit" : res < 0 ? "loss" : "zero";
 }
