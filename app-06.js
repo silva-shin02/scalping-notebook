@@ -329,9 +329,14 @@ function _elStopStatsV2(recs, data) {
     if (s.osVal != null && s.osVal !== "") o.os++;
     var _dr = _elDynResult(s, ai.alpha, ai.cutLine);
     if (_dr === "miss") o.miss++; else if (_dr === "ok" || _dr === "ng" || _dr === "draw") o.entered++;   // E成立=損切り率の母数 2026-06-24i
-    var p = _elPlanIsStop(s, ai.alpha, ai.cutLine);
-    var h1 = !p && _elHoldIsStop(s, ai.alpha, ai.cutLine);
-    var h2 = !p && !h1 && _elIsStopFinal(s, ai.alpha, ai.cutLine);
+    // 2026-07-25e: まず「手じまいまでに損切りしたか」(_elIsStopFinal)で判定してから足に割り当てる。
+    //   旧は h1 が _elHoldIsStop（EP足orH1足が損切り値に触れたか）を手じまい足と無関係に見ていたため、
+    //   EP足で降りた記録でもH1足の高値が損切り値を超えていれば「H1で損切り」に数えていた（損切り件数の過大計上）。
+    //   EP足は必ず保有しているので_elPlanIsStopはそのまま使える。H2以降（H3/H4での損切り）はh2バケットに入る。
+    var _anyStop = _elIsStopFinal(s, ai.alpha, ai.cutLine);
+    var p = _anyStop && _elPlanIsStop(s, ai.alpha, ai.cutLine);
+    var h1 = _anyStop && !p && _elHoldIsStop(s, ai.alpha, ai.cutLine);
+    var h2 = _anyStop && !p && !h1;
     if (p) o.plan++;
     if (h1) o.h1++;
     if (h2) o.h2++;
@@ -4161,7 +4166,7 @@ function _elStopOvershootSectionV2(recs, aiOf) {
     rows.push({
       r: r, s: s, a: a, cut: cut, over: over,
       actual: Lc.finalPnl, held: _elRuleHoldPnl(s, a), best: Lb.maxPnl,
-      avoidCut: (!_elHoldIsStop(s, a, idc) ? idc : null)
+      avoidCut: (!_elIsStopFinal(s, a, idc) ? idc : null)   // 2026-07-25e EP/H1足だけ見ていたのを手じまいまでの判定へ
     });
   });
   if (!rows.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "損切りになった記録（EP起算v2）がありません");
@@ -4571,7 +4576,7 @@ function _elMemoPerfSectionV2(recs, aiOf) {
   var kwCnt = {}, lossN = 0;
   v2.forEach(function(r) {
     var s = r.signal, ai = aiOf(r), rr = _epResolve(s, ai.alpha), lost = false;
-    if (rr && rr.judge === "ok") { var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (_elPlanIsStop(s, ai.alpha, ai.cutLine) || _elHoldIsStop(s, ai.alpha, ai.cutLine) || (pv != null && pv < 0)) lost = true; }
+    if (rr && rr.judge === "ok") { var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (_elIsStopFinal(s, ai.alpha, ai.cutLine) || (pv != null && pv < 0)) lost = true; }   // 2026-07-25e 損切り判定を手じまい基準へ
     if (_elIsEntered(s, r.item)) { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null && rv < 0) lost = true; }
     if (!lost || !_has(s)) return; lossN++;
     var txt = _memoText(s); _EL_MEMO_KW.forEach(function(kw) { if (txt.indexOf(kw) >= 0) kwCnt[kw] = (kwCnt[kw] || 0) + 1; });
@@ -4888,7 +4893,7 @@ function _elKabuTierEval(s, a, cut) {
   var rr = _epResolve(s, _a);
   if (!rr || rr.epIdx < 0 || rr.epIdx > 2) return { built: false, skip: "unreached", pnl100: null, main100: null, ref100: null, stop: false, indet: false, a: _a };
   if (rr.judge !== "ok") return { built: false, skip: "x", pnl100: null, main100: null, ref100: null, stop: false, indet: false, a: _a };
-  var stop = _elPlanIsStop(s, _a, _cl) || _elHoldIsStop(s, _a, _cl);
+  var stop = _elIsStopFinal(s, _a, _cl);   // 2026-07-25e 損益(_elHoldFinalParts)が手じまい基準なのにフラグだけEP/H1足だったので統一
   var parts = _elHoldFinalParts(s, _a, _cl);   // { main:（）外, ref:（）内差分 } ＝最終損益（手じまい・○が途切れた所で手仕舞い）＝記録表/損益データ欄の「最終損益」と同一基準。2026-07-20b にH1(_elHold1TotParts)から切替＝アプリ全体(07-09〜07-13で最終損益へ移行)・推奨α選定(_elBaseAlphaPick=_elH2EvalByFn)と基準を統一。α可変でも正しい（内部で_epResolve(s,alpha)を引く）
   if (parts.main == null && parts.ref == null) return { built: true, skip: null, pnl100: null, main100: null, ref100: null, stop: stop, indet: true, a: _a };
   return { built: true, skip: null, pnl100: parts.main, main100: parts.main, ref100: parts.ref, stop: stop, indet: false, a: _a };
