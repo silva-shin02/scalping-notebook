@@ -6490,29 +6490,16 @@ function EntryLogView(_ref_elv2) {
     });
     return { bounds: _pbB, groups: _bgs.concat(_bMat.recs.length ? [_bMat] : []).concat(_bUnk.recs.length ? [_bUnk] : []) };
   };
-  // 株価帯グループの選択解決（2026-07-27 _bandAxisBody から抽出＝帯別サブタブと📡シグナル総合の🛑損切りで共用）。
-  // bandSel が現在のグループに無ければ件数最大の帯へフォールバック＝抽出前と同じ挙動。groups が空の場合だけ
-  // 従来の bst.key 参照で落ちていたのを null 返しにした（帯サブタブは「記録がありません」を出す側で処理済み）。
-  var _bandPick = function(pool) {
-    var spl = _pbSplitByBand(pool), groups = spl.groups;
-    if (!groups || !groups.length) return { bounds: spl.bounds, groups: groups || [], selKey: null, sel: null, stkN: 0 };
-    var selKey = (bandSel && groups.some(function(g) { return g.key === bandSel; })) ? bandSel : (function() { var bst = groups[0]; groups.forEach(function(g) { if (g.recs.length > bst.recs.length) bst = g; }); return bst.key; })();
-    var sel = groups.filter(function(g) { return g.key === selKey; })[0] || null;
-    var stkN = 0; if (sel) { var seen = {}; sel.recs.forEach(function(r) { if (r.stock && !seen[r.stock]) { seen[r.stock] = 1; stkN++; } }); }
-    return { bounds: spl.bounds, groups: groups, selKey: selKey, sel: sel, stkN: stkN };
-  };
-  // 帯の境界注記（帯別サブタブと🛑損切り帯別で共用）2026-07-27
-  var _bandBoundsNote = function(bounds) {
-    return React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + bounds.join("・") + "円）");
-  };
   var _bandAxisBody = function(pool, cross) {
-    var _bp = _bandPick(pool), _pbB = _bp.bounds, _bAll = _bp.groups;
-    var _bSelKey = _bp.selKey, _bSel = _bp.sel, _bStkN = _bp.stkN;
+    var _pbSpl = _pbSplitByBand(pool), _pbB = _pbSpl.bounds, _bAll = _pbSpl.groups;
+    var _bSelKey = (bandSel && _bAll.some(function(g) { return g.key === bandSel; })) ? bandSel : (function() { var bst = _bAll[0]; _bAll.forEach(function(g) { if (g.recs.length > bst.recs.length) bst = g; }); return bst.key; })();
+    var _bSel = _bAll.filter(function(g) { return g.key === _bSelKey; })[0] || null;
+    var _bStkN = 0; if (_bSel) { var _bSeen = {}; _bSel.recs.forEach(function(r) { if (r.stock && !_bSeen[r.stock]) { _bSeen[r.stock] = 1; _bStkN++; } }); }
     // 頻度の帯基準化（2026-07-22j・ユーザー決定）: 実帯グループ（"bN"）は分母を_pbBandBizDays（その帯だった営業日）に＝本日の推奨α（帯）ピルと一致。材料あり/帯不明は帯基準の意味が無いのでundefined＝記録スパン。
     var _bandIdxSel = (_bSel && /^b\d+$/.test(_bSel.key)) ? parseInt(_bSel.key.slice(1), 10) : null;
     var _bandSpanSel = (_bandIdxSel != null && _bSel && _bSel.recs.length && typeof _pbBandBizDays === "function") ? _pbBandBizDays(data, _bandIdxSel, _bSel.recs, _buildHolidayDateSet(data.trades, custom.eventCategories)) : undefined;
     return React.createElement(React.Fragment, null,
-      _bandBoundsNote(_pbB),
+      React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + _pbB.join("・") + "円）"),
       _subTabBar(_bAll, _bSelKey, setBandSel),
       (_bSel && _bSel.recs.length)
         ? React.createElement(React.Fragment, null,
@@ -6722,25 +6709,15 @@ function EntryLogView(_ref_elv2) {
       // 株価帯別を📡シグナル総合の先頭サブタブへ移設（2026-07-22i・ユーザー要望）＝全銘柄横断で同じ帯の銘柄を混ぜて帯共通αを検証。旧・全銘柄「集計」の分析軸トグル(_bandAxisBody(_v2recsAllData,true))から移動。
       _tabBody = _bandAxisBody(_v2recsAllData, true);
     } else if (sigSub === "stop") {
-      // 🛑損切り（全銘柄・株価帯別）2026-07-27。銘柄別タブの🛑損切り（銘柄×シグナル母数）は存続＝両方で見る。
-      // 帯で区切るのが要: 損切り値は円建てなので5,900円の銘柄と1,600円の銘柄を混ぜると「15円の損切り」の意味が
-      // 変わる（推奨αを銘柄ごとに出しているのと同じ理由）。帯内なら値幅の桁が揃うので横断集計が成立する。
-      var _stBp = _bandPick(_v2recsAllData);
-      var _stSel = _stBp.sel;
-      var _stRecsBand = _stSel ? _addFilPure(_stSel.recs) : [];
+      // 🛑損切り（全銘柄）2026-07-27。銘柄別タブの🛑損切り（銘柄×シグナル母数）は存続＝両方で見る。
+      // 株価帯での分割は入れない（ユーザー決定 2026-07-27）。銘柄を区別せず1つの母数として集計する。
+      var _stRecsSig = _addFilPure(_v2recsAllData);
       _tabBody = _cardify([
-        _secH("🛑 損切りの分析（全銘柄・株価帯別）", "同じ株価帯の銘柄を横断で混ぜて損切り値を検証。損切り値の最適化（損切り値別シミュ）・上振れ（早すぎ検証）・シグナル別の損切り率。銘柄ごとに見たい場合は各銘柄タブの🛑損切りへ"),
-        _bandBoundsNote(_stBp.bounds),
-        _subTabBar(_stBp.groups, _stBp.selKey, setBandSel),
-        _stSel
-          ? React.createElement(React.Fragment, null,
-              React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0369A1", marginBottom: 6 } }, _stSel.label,
-                React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, "（" + _stSel.recs.length + "件・銘柄" + _stBp.stkN + "種・銘柄横断）")),
-              _addFilBarPure(),
-              _stRecsBand.length
-                ? _elStopTabSectionV2(_stRecsBand, _ai, data, false)
-                : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この母数に該当する記録がありません（分類トグルを切替）"))
-          : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この帯の記録がありません")]);
+        _secH("🛑 損切りの分析（全銘柄）", "全銘柄をまとめて損切りを多角的に分析。損切り値の最適化（損切り値別シミュ）・上振れ（早すぎ検証）・シグナル別の損切り率。銘柄ごとに見たい場合は各銘柄タブの🛑損切りへ"),
+        _addFilBarPure(),
+        _stRecsSig.length
+          ? _elStopTabSectionV2(_stRecsSig, _ai, data, false)
+          : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この母数に該当する記録がありません（分類トグルを切替）")]);
     } else if (sigSub === "rn") {
       var _rnListRecs = _v2recsAllData.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateAsc);   // 分析（データ算入）2026-07-22f
       // RNまたぎ候補＝RNまたぎ加算×だが予定EP（水準線値＋採用α）の下2桁がバンド内の記録（＝50/00のキリ番をまたげた可能性）。
