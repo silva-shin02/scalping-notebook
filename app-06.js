@@ -3459,6 +3459,34 @@ function _elUkiPctPickScoped(data, refDate, mode, reasons, stock) {
   }
   return { reco: _reco, runnerUp: _runnerUp, n: pool.length, byReason: byReason, fellBack: fellBack, byBand: byBand, bandLabel: bandLabel };
 }
+// ===== 応用α換算（浮き足%を使わず応用αを使っていたら）2026-07-25g ユーザー要望 =====
+// 株価帯→応用α値の対応（ユーザー指定）。**帯の判定はその記録の水準線価格 signal.levelPrice**（ユーザー選択・実際にその取引をした価格帯）。
+// 水準線未入力の記録は帯不明＝換算不可（表では「—」・合計からも除外）。値を変えたくなったらこの表だけ直せばよい。
+var _EL_UKI_ALT_BANDS = [{ max: 5000, a: 3 }, { max: 7000, a: 5 }, { max: Infinity, a: 7 }];   // 〜5000=3円 / 5001〜7000=5円 / 7001〜=7円
+function _elUkiAltBandOf(s) {
+  var p = (s && s.levelPrice != null && s.levelPrice !== "" && !isNaN(Number(s.levelPrice))) ? Number(s.levelPrice) : null;
+  if (p == null) return null;
+  for (var i = 0; i < _EL_UKI_ALT_BANDS.length; i++) if (p <= _EL_UKI_ALT_BANDS[i].max) return { price: p, alpha: _EL_UKI_ALT_BANDS[i].a, idx: i };
+  return null;
+}
+function _elUkiAltBandLabel(i) {
+  if (i == null) return "帯不明";
+  if (i === 0) return "〜" + _EL_UKI_ALT_BANDS[0].max;
+  if (i >= _EL_UKI_ALT_BANDS.length - 1) return (_EL_UKI_ALT_BANDS[_EL_UKI_ALT_BANDS.length - 2].max + 1) + "〜";
+  return (_EL_UKI_ALT_BANDS[i - 1].max + 1) + "〜" + _EL_UKI_ALT_BANDS[i].max;
+}
+// 換算後の採用α＝応用α（帯別）＋RNまたぎ加算（ユーザー選択＝RNは浮き足でも上乗せする規約なので条件を揃える）。浮き足加算は使わない。
+function _elUkiAltAlpha(s) { var b = _elUkiAltBandOf(s); return b ? (b.alpha + _elRnAdd(s)) : null; }
+// 1記録の換算結果 {band, altA, curA, cut, cur(実際の最終損益main), alt(換算の最終損益main), diff}。換算不可はalt/diff=null。
+function _elUkiAltRow(r, aiOf) {
+  var s = r && r.signal; if (!s) return null;
+  var ai = aiOf(r), curA = ai.alpha, cut = ai.cutLine;
+  var b = _elUkiAltBandOf(s), altA = _elUkiAltAlpha(s);
+  var cur = (curA != null) ? _elHoldFinalParts(s, curA, cut).main : null;
+  var alt = (altA != null) ? _elHoldFinalParts(s, altA, cut).main : null;
+  return { r: r, s: s, band: b, altA: altA, curA: curA, cut: cut, cur: cur, alt: alt,
+    diff: (cur != null && alt != null) ? (alt - cur) : null };
+}
 // 浮き足加算率ボードの基本/応用スコープ切替トグル（フォームの浮き足[浮き基本|浮き応用]と同スタイル）2026-07-18。sp=true→応用。onSet(boolean)で切替。分析ボード(シグナル総合/シグナル別)を_elUkiPctBoardScopedのmodeに連動させる。
 function _ukiScopeToggle(sp, onSet) {
   return React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },
@@ -6634,7 +6662,48 @@ function EntryLogView(_ref_elv2) {
       var _ukiRecs = _ukiBandGrp ? _ukiBandGrp.recs : _sigUkiPool;
       var _ukiScopeLbl = _ukiBandGrp ? _ukiBandGrp.label : "全銘柄共通";
       var _ukiListRecs = _ukiRecs.slice().sort(_byDateAsc);
-      var _ukiBody = (ukiSub === "list")
+      // 🔁 応用α換算 2026-07-25g（ユーザー要望「浮足％でなくすべて応用αを用いた場合の各取引の記録＋差額を見たい」）:
+      //   αだけ差し替えて全部を再計算（既存の表示ヘルパーは全て(signal, α, 損切り値)を受けるのでそのまま流用できる）。
+      //   帯＝その記録の水準線価格（_elUkiAltBandOf）・換算α＝帯別応用α＋RN加算・損切り値は記録の採用値のまま。
+      var _altRows = _ukiListRecs.map(function(r) { return _elUkiAltRow(r, _ai); }).filter(Boolean);
+      var _altT = { cur: 0, alt: 0, diff: 0, n: 0, skip: 0 };
+      _altRows.forEach(function(o) {
+        if (o.alt == null || o.cur == null) { _altT.skip++; return; }
+        _altT.n++; _altT.cur += o.cur; _altT.alt += o.alt; _altT.diff += o.diff;
+      });
+      var _altAmt = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+        : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+      var _altDiff = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+        : React.createElement("span", { style: { fontWeight: 800, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "円"); };
+      var _altBodyRows = _altRows.map(function(o, i) {
+        var s2 = o.s;
+        return React.createElement("tr", { key: "alt" + i, style: { background: (o.diff != null && o.diff > 0) ? "#FFF7F5" : (o.diff != null && o.diff < 0) ? "#F4FBF5" : "transparent" } },
+          _elv2Td(o.r.date.slice(5).replace("-", "/") + (s2.time ? " " + s2.time : ""), { textAlign: "left", paddingLeft: 8 }),
+          _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, o.r.stock)),
+          _elv2Td(_elSigCell(s2, "center"), { minWidth: 60 }),
+          _elv2Td(o.band ? React.createElement("span", null, React.createElement("span", { style: { fontWeight: 700 } }, o.band.price.toLocaleString()),
+            React.createElement("span", { style: { fontSize: 9, color: "#0369A1", marginLeft: 3 } }, "💴" + _elUkiAltBandLabel(o.band.idx))) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+          _elv2Td(o.curA != null ? React.createElement("span", { style: { fontWeight: 700, color: "#15803D" } }, o.curA + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+          _elv2Td(o.altA != null ? React.createElement("span", { style: { fontWeight: 700, color: "#B91C1C" } }, o.altA + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+          _elv2Td(_altAmt(o.cur)),
+          _elv2Td(_altAmt(o.alt)),
+          _elv2Td(_altDiff(o.diff)));
+      });
+      _altBodyRows.push(React.createElement("tr", { key: "alttot", style: { background: "#FFFBF0", borderTop: "2px solid #FB923C" } },
+        _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, "合計"), { textAlign: "left", paddingLeft: 8 }),
+        _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#666" } }, _altT.n + "件" + (_altT.skip ? "（換算不可" + _altT.skip + "件除く）" : "")), { colSpan: 5 }),
+        _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _altT.n ? _altAmt(_altT.cur) : _altAmt(null))),
+        _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _altT.n ? _altAmt(_altT.alt) : _altAmt(null))),
+        _elv2Td(_altT.n ? _altDiff(_altT.diff) : _altDiff(null))));
+      var _ukiBody = (ukiSub === "alt")
+        ? _cardify([
+            _secH("🔁 応用α換算（" + _ukiScopeLbl + "）", "※ 浮き足%を使わず「株価帯別の応用α＋RNまたぎ加算」を採用αにしていたら各取引がどうなっていたかを再計算。帯は記録の水準線価格で判定（〜" + _EL_UKI_ALT_BANDS[0].max + "=" + _EL_UKI_ALT_BANDS[0].a + "円／" + (_EL_UKI_ALT_BANDS[0].max + 1) + "〜" + _EL_UKI_ALT_BANDS[1].max + "=" + _EL_UKI_ALT_BANDS[1].a + "円／" + (_EL_UKI_ALT_BANDS[1].max + 1) + "〜=" + _EL_UKI_ALT_BANDS[2].a + "円）。損切り値は記録の採用値のまま。損益は最終損益（手じまいまで）の（）外。水準線未入力の記録は換算不可"),
+            _elv2CardRow([
+              _elv2Card("浮き足%（実際）", _altT.n ? _altAmt(_altT.cur) : _altAmt(null), null, _altT.n + "件の合計"),
+              _elv2Card("応用α換算", _altT.n ? _altAmt(_altT.alt) : _altAmt(null), null, "同じ母数で再計算"),
+              _elv2Card("差額（換算−実際）", _altT.n ? _altDiff(_altT.diff) : _altDiff(null), null, _altT.n ? ("1件あたり " + Math.round(_altT.diff / _altT.n).toLocaleString() + "円") : null)]),
+            _elv2Table(["日付・時刻", "銘柄", "シグナル", "水準線（株価帯）", "実際の採用α", "換算α", "最終損益（実際）", "最終損益（換算）", "差額"], _altBodyRows)])
+        : (ukiSub === "list")
         ? _cardify([
             _secH("🗂 浮き足〇の記録一覧（" + _ukiScopeLbl + "）", "上の分析の母数そのもの＝浮き足〇（浮き値あり）の記録。行タップで明細カード・カードタップで編集フォーム"),
             _recTable(_ukiListRecs, "full", "ukitab_")])
@@ -6647,7 +6716,7 @@ function EntryLogView(_ref_elv2) {
       _tabBody = React.createElement(React.Fragment, null,
         React.createElement("div", { key: "ukibandnote", style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + _ukiSplit.bounds.join("・") + "円）。⚡固有材料日は帯から外して独立グループ"),
         _subTabBar(_ukiPills, ukiBand, setUkiBand),
-        _sigInnerBar([["ana", "分析", _ukiRecs.length], ["list", "記録一覧", _ukiListRecs.length]], ukiSub, setUkiSub),
+        _sigInnerBar([["ana", "分析", _ukiRecs.length], ["list", "記録一覧", _ukiListRecs.length], ["alt", "🔁 応用α換算", _ukiListRecs.length]], ukiSub, setUkiSub),
         _ukiBody);
     }
   } else if (view === "sum") {
