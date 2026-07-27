@@ -1633,73 +1633,6 @@ function _elH2EvalByFn(recs, aiOf, alphaOf) {
   if (h2Cnt) { var _sv = h2Vals.slice().sort(function(x, y) { return x - y; }), _mi = (_sv.length - 1) / 2; medH2 = (_sv.length % 2) ? _sv[_mi] : (_sv[Math.floor(_mi)] + _sv[Math.ceil(_mi)]) / 2; }   // 昇順ソートの中央（偶数件は中2値の平均）＝_elOsPctlV2の_q(0.5)と同型
   return { n: n, entered: entered, eRate: n > 0 ? entered / n : 0, decided: decided, stopN: stopN, stopRate: stopRate, takeN: takeN, takeRate: takeRate, h2Sum: h2Cnt ? h2Sum : null, h2Cnt: h2Cnt, avgH2: h2Cnt ? (h2Sum / h2Cnt) : null, score: score, medH2: medH2, avgWin: takeN ? (winSum / takeN) : null, avgLoss: lossN ? (lossSum / lossN) : null };
 }
-// ===== 推奨のデュアル評価（最終損益基準の並走 2026-07-12・承認①）=====
-// 主軸のH1推奨（_elBaseAlphaPick等）はそのまま、同じ母数・同じフロア思想で最終損益(手じまい・_elH2EvalByFn)のスイープを並走し「最終基準ならどの値か」を併記する。
-// 意図＝UI損益は最終損益に統一済み(07-09〜10)なのに意思決定だけH1基準という分裂の可視化。数ヶ月併走して両者の乖離を見てから主軸を決める。
-// 推奨基本αの最終損益版: 母数=_elBaseAlphaPickと同一（追加α〇/浮き足〇/RN〇除外）。選定=E成立数(decided)≥フロア かつ 到達率≥_EL_BASE_MIN_ERATE かつ Σ最終損益>0 の中でスコア(0.7×(1−損切り率)+0.3×利確率)最大（同点は件数多→低α）。
-function _elBaseAlphaH2Pick(recs, aiOf) {
-  if (!recs || !recs.length) return null;
-  var pool = recs.filter(_elIsBaseAlphaPoolRec);
-  if (!pool.length) return null;
-  var sweep = _EL_BASE_ALPHAS.map(function(a) { var e = _elH2EvalByFn(pool, aiOf, function() { return a; }); e.a = a; return e; });
-  var maxN = sweep.reduce(function(m, e) { return Math.max(m, e.decided || 0); }, 0);
-  var floorN = Math.max(_EL_BASE_MIN_N, Math.round(maxN * _EL_BASE_MIN_FRAC));
-  var cand = sweep.filter(function(e) { return e.decided >= floorN && e.eRate != null && e.eRate >= _EL_BASE_MIN_ERATE && e.score != null && e.h2Sum != null && e.h2Sum > 0; });
-  if (!cand.length) return { alpha: null, status: "none", sweep: sweep, minN: floorN };
-  cand.sort(function(x, y) { return (x.score - y.score) || (x.decided - y.decided) || (y.a - x.a); });
-  var p = cand[cand.length - 1];
-  return { alpha: p.a, score: p.score, stopRate: p.stopRate, takeRate: p.takeRate, h2Sum: p.h2Sum, decided: p.decided, eRate: p.eRate, status: "ok", sweep: sweep, minN: floorN };
-}
-// 推奨追加αの最終損益版: 母数=追加α〇（浮き足/RN除外・呼び出し側で絞り済みを渡す）。基本α+addの一様スイープをE成立≥_EL_BASE_MIN_N かつ Σ最終>0で絞り、損切り率最小→最小加算。
-function _elAddAlphaH2Pick(recs, aiOf, baseAlpha) {
-  if (!recs || !recs.length || baseAlpha == null) return null;
-  var cands = [];
-  for (var add = 1; add <= _EL_BASE_ADD_MAX; add += 1) {
-    var tot = baseAlpha + add;
-    if (tot > 50) break;
-    var e = _elH2EvalByFn(recs, aiOf, function() { return tot; });
-    if (e.decided >= _EL_BASE_MIN_N && e.h2Sum != null && e.h2Sum > 0) cands.push({ add: add, e: e });
-  }
-  if (!cands.length) return null;
-  cands.sort(function(x, y) { return ((x.e.stopRate == null ? 1 : x.e.stopRate) - (y.e.stopRate == null ? 1 : y.e.stopRate)) || (x.add - y.add); });
-  var p = cands[0];
-  return { add: p.add, stopRate: p.e.stopRate, takeRate: p.e.takeRate, h2Sum: p.e.h2Sum, decided: p.e.decided };
-}
-// 推奨損切りの最終損益版: 採用α実値のままcutだけ置換（H1版_elCutEvalと同意味論）・平均最終損益でH1版と同じ「タイト優先」ルール。
-function _elCutH2Eval(recs, aiOf, cut) {
-  var sum = 0, nn = 0, stopN = 0, takeN = 0;
-  (recs || []).forEach(function(r) {
-    var s = r.signal; if (!s) return;
-    var alpha = aiOf(r).alpha; if (alpha == null) return;
-    var rr = _epResolve(s, alpha);
-    if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return;
-    var res = _elDynResult(s, alpha, cut);
-    if (!(res === "ok" || res === "ng" || res === "draw")) return;
-    var t2 = _elHoldFinalParts(s, alpha, cut);
-    if (!t2 || t2.main == null) return;
-    nn++; sum += t2.main;
-    if (_elIsStopFinal(s, alpha, cut)) stopN++;
-    else if (t2.main > 0) takeN++;
-  });
-  return { cut: cut, n: nn, sum: nn ? sum : null, mean: nn ? sum / nn : null, stopRate: nn ? stopN / nn : null, takeRate: nn ? takeN / nn : null };
-}
-function _elCutPickH2(recs, aiOf) {
-  if (!recs || !recs.length) return null;
-  var sweep = _EL_CUT_CANDS.map(function(c) { return _elCutH2Eval(recs, aiOf, c); });
-  var cand = sweep.filter(function(e) { return e.n >= _EL_BASE_MIN_N && e.mean != null; });
-  if (!cand.length) return null;
-  var maxMean = cand.reduce(function(m, e) { return Math.max(m, e.mean); }, -Infinity);
-  var tol = Math.max(_EL_CUT_TOL_MIN, Math.abs(maxMean) * _EL_CUT_TOL_FRAC);
-  var near = cand.filter(function(e) { return e.mean >= maxMean - tol; });
-  near.sort(function(x, y) { return x.cut - y.cut; });
-  return { cut: near[0].cut, mean: near[0].mean, stopRate: near[0].stopRate, takeRate: near[0].takeRate, n: near[0].n, status: "ok", sweep: sweep };
-}
-// デュアル評価バッジ: H1主軸の推奨値に最終損益基準の答え合わせを添える（一致=緑✓・不一致=紫で最終基準値・算出不可=非表示）。
-function _elH2AgreeNode(h1Val, h2Val, unit, pfx) {
-  if (h2Val == null || h1Val == null) return null;
-  var same = h2Val === h1Val;
-  return React.createElement("span", { title: "最終損益（手じまい・旧H2）基準で同じスイープを評価した結果。スコア＝0.7×(1−損切り率)＋0.3×利確率・黒字条件＝Σ最終損益>0。主軸のH1推奨と数ヶ月併走して乖離を見るためのデュアル表示 2026-07-12", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontSize: 9, fontWeight: 800, borderRadius: 4, padding: "1px 6px", marginLeft: 4, verticalAlign: "middle", color: same ? "#1E8449" : "#6D28D9", background: same ? "#EAF3DE" : "#F5F3FF", border: "1px solid " + (same ? "#A7D28D" : "#DDD6FE") } }, same ? ("✓最終基準も" + (pfx || "") + h2Val + unit) : ("最終基準 " + (pfx || "") + h2Val + unit));
-}
 // ===== RNまたぎ加算の分析ボード（シグナル総合「🔢RN」・2026-07-16d 全面刷新）=====
 // RNまたぎ＝EPの下二桁が90台(91〜99・90ちょうどは除く)のとき、RN加算(rnVal=100−下二桁)でEPをRNちょうど(例5391〜99→5400)に乗せる運用。
 // 母数=渡されたv2算入記録のうちRN〇(signal.rnUsed・_elRnYes)。最終損益(手じまい)基準(_elH2EvalByFn)。
@@ -2379,10 +2312,15 @@ function _elCutEval(recs, aiOf, cut) {
     var ai = aiOf(r), alpha = ai.alpha; if (alpha == null) return;
     var rr = _epResolve(s, alpha);
     if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return;   // OS1〜3でEP到達のみ
-    var hd = _elDynHold(s, alpha, cut); if (hd == null) return;   // H1損益が判定できる記録のみ
-    nn++; sum += hd;
-    if (_elPlanIsStop(s, alpha, cut) || _elHoldIsStop(s, alpha, cut)) stopN++;
-    else if (hd > 0) winN++;
+    // 2026-07-25f H1基準→**最終損益（手じまいまで）基準**へ（ユーザー指示）: 旧は_elDynHold（H1まで保有）＋EP/H1足の損切り判定で、
+    //   アプリの主指標（最終損益）と推奨損切りの選定基準が食い違っていた。母数ゲートも_elDynResultの決着判定へ統一（旧・並走pickと同型）。
+    var _res = _elDynResult(s, alpha, cut);
+    if (!(_res === "ok" || _res === "ng" || _res === "draw")) return;   // 決着しない記録は母数外
+    var t2 = _elHoldFinalParts(s, alpha, cut);
+    if (!t2 || t2.main == null) return;
+    nn++; sum += t2.main;
+    if (_elIsStopFinal(s, alpha, cut)) stopN++;
+    else if (t2.main > 0) winN++;
   });
   return { cut: cut, n: nn, sum: nn ? sum : null, mean: nn ? sum / nn : null, stopRate: nn ? stopN / nn : null, h1win: nn ? winN / nn : null };
 }
@@ -2411,11 +2349,9 @@ function _elCutPickCell(recs, aiOf) {
   var p = _elCutPick(recs, aiOf);
   if (!p || p.cut == null || p.status === "none") return React.createElement("span", { style: { color: "#bbb" } }, "—");
   var na = p.status === "na";
-  var h2 = _elCutPickH2(recs, aiOf);   // 最終損益基準の並走pick（承認① 2026-07-12・タイト優先ルールはH1版と同一）
   return React.createElement("span", { style: { whiteSpace: "nowrap", fontWeight: 800, fontSize: 13, color: na ? "#B45309" : "#C0392B" } },
     p.cut + "円",
-    na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 2, fontWeight: 700 } }, "参考") : null,
-    _elH2AgreeNode(p.cut, h2 ? h2.cut : null, "円"));
+    na ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 2, fontWeight: 700 } }, "参考") : null);
 }
 // 割合(0〜1)→%セル（70%以上=緑/50%以上=橙/未満=赤）。高いほど良い指標用。
 function _elPctCell(rate) {
@@ -2628,15 +2564,18 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride)
     var s = r.signal; if (!s) return;
     var c = aiOfAna(r).cutLine, rr = _epResolve(s, a), epIdx = rr ? rr.epIdx : -1;   // 前提損切り値で判定（★と同一）2026-07-13b
     if (!(epIdx >= 0 && epIdx <= 2)) { offN++; return; }   // OS1〜3以外（未到達）は対象外
-    var epStop = _elPlanIsStop(s, a, c), h1Stop = _elHoldIsStop(s, a, c), hd = _elDynHold(s, a, c);
-    if (!(epStop || h1Stop || hd != null)) return;   // 判定不可は母数外
+    // 2026-07-25f H1基準→最終損益基準へ（表の★ゲートは元から最終基準_elH2EvalByFnなので、この文章だけH1で食い違っていた）。
+    var _resI = _elDynResult(s, a, c);
+    if (!(_resI === "ok" || _resI === "ng" || _resI === "draw")) return;   // 決着しない記録は母数外
+    var _t2I = _elHoldFinalParts(s, a, c);
+    if (!_t2I || _t2I.main == null) return;
     scN++;
-    if (epStop || h1Stop) stopN++;
-    else if (hd != null && hd > 0) winN++;
+    if (_elIsStopFinal(s, a, c)) stopN++;
+    else if (_t2I.main > 0) winN++;
     else otherN++;
   });
   insight = _elInsightBoxV2([
-    React.createElement("span", null, "採用α", _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS3までにEP到達しH1判定可能）。うち損切り", _elInsightEmV2(stopN + "件"), "・H1勝ち", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（未到達）。"),
+    React.createElement("span", null, "採用α", _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS3までにEP到達し決着）。うち損切り", _elInsightEmV2(stopN + "件"), "・最終損益プラス", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（未到達）。"),
     React.createElement("span", null, "理想α＝", _elInsightEmV2("全条件（到達率" + _reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字）を満たすαのうち、平均最終損益（1件あたり）が最大のα"), "（到達率下限は🎯で調整可）。", _elInsightEmV2("推奨α＝理想−" + _EL_ALPHA_OFFSET + "円"), "（指値をギリギリで外さないよう理想より少し下げた実際に置く値）。同点は累計Σが大きい方→低α。全条件を満たすαが1つも無ければ『条件適合無し』。"),
     React.createElement("span", null, _elInsightEmV2("中央値"), "が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。", _elInsightEmV2("未達列"), "はその行が★のどの条件で落ちたかを示す（到=到達率・件=E成立・頻=頻度・損=損切り率・赤=Σ赤字）。")
   ], { note: "この銘柄のv2・算入記録（素の記録のみ）に各αを当ててシミュレーション（前提損切り値" + _elAnaCutCur + "円＝各記録の実損切り値ではなくこの前提で評価）。E成立・利確率・損切り率(最終)・最終損益(平均/中央/Σ)・勝ち/負け平均＝最終損益(手じまい・EP/H1/H2損切り込み)基準・理想＝全条件を満たすαのうち平均最終損益（1件あたり）が最大のα・推奨α＝理想−" + _EL_ALPHA_OFFSET + "円。最終損益(平均/中央/Σ)と勝ち/負け平均の母数＝最終損益が確定した件数で、隣のE成立とはEP×見送り等でズレることがある。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝旧H1基準の参考値［0.7×(1−H1損切り率)+0.3×H1勝率］＝★選定には不使用（H1勝率・平均H1損益の列は最終損益と重複のため2026-07-16に削除）。" });
@@ -3152,26 +3091,6 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate, save) {
     cards);
 }
 
-// 各記録の理想の追加α（基本αに何円足すべきだったか）2026-06-24。base=基本α・cut=損切り値。add=0〜_EL_BASE_ADD_MAX(30)を総当たり：
-//   winMin=損切り回避かつH1損益>0を満たす最小の追加α（無ければnull＝足しても勝てなかった／0＝足さず勝ち）。
-//   fillMax=OS1〜3でEP到達を保てる最大の追加α（約定上限・base自体で未到達ならnull）。αを増やすほど高値≥αが難化＝EP到達は退化方向なので「約定の観点」は上限で表す。
-function _elIdealAddForRec(s, base, cut) {
-  if (base == null) return { winMin: null, fillMax: null };
-  var winMin = null, fillMax = null;
-  for (var add = 0; add <= _EL_BASE_ADD_MAX; add++) {
-    var a = base + add;
-    if (a > 50) break;
-    var rr = _epResolve(s, a);
-    var reached = !!(rr && rr.epIdx >= 0);
-    if (reached) fillMax = add;
-    if (reached && winMin == null) {
-      var hd = _elDynHold(s, a, cut);
-      var stop = _elPlanIsStop(s, a, cut) || _elHoldIsStop(s, a, cut);
-      if (!stop && hd != null && hd > 0) winMin = add;
-    }
-  }
-  return { winMin: winMin, fillMax: fillMax };
-}
 // ピアソン相関係数（pairs=[[x,y],...]）。n<2 or 分散0はnull。2026-06-24。
 function _elCorr(pairs) {
   var n = pairs.length; if (n < 2) return null;

@@ -3547,11 +3547,14 @@ function _epAsTraded(s) {
 //   ○/△/未設定は算入。期待度＝EP前の待ち足はα到達期待(os1Exp/os2Exp)・EP後の保有足はH期待(holdExp/hold2Exp)・
 //   OS3で待ち足扱い(未達等)は欄なし＝未設定→算入。算入足が無ければnull。旧記録(非v2)はOS1(osVal)をそのまま。
 //   alpha未指定時は記録固有の採用α(_epOwnAlpha)でEP位置を決める。OS値の中央/平均はこの値を記録ぶん集めて算出。
+// 2026-07-25f 実現OSもOS1〜5へ拡張（最終損益・実現最高・保有時間と同じ手じまい足まで見る）: EPがOS2/OS3にずれた記録やH3/H4まで保有した記録で、
+//   実際に到達した足の高値がOS1〜3の外にあると母数から抜けていた。打ち切り規則（保有しない足は算入しない）は不変＝**手じまい足までの最高値**。
+//   ※アウトカム盲目の_elOsMaxAll（α到達確率・α目安・指値同値の母数）はEPがOS1〜3でしか成立しない性質上OS1〜3のままで正しい（変更しない）。
 function _elOsMaxFiltered(s, alpha) {
   if (!s) return null;
   if (!_epIsV2(s)) return (s.osVal != null && s.osVal !== "") ? Number(s.osVal) : null;
   var a = (alpha != null) ? alpha : _epOwnAlpha(s);
-  var legs = _epLegs(s).slice(0, 3);
+  var legs = _epLegs(s);
   if (!legs.length) return null;
   var epIdx = -1;
   if (a != null) { var r = _epResolve(s, a); if (r) epIdx = r.epIdx; }
@@ -6601,7 +6604,6 @@ function EntryRecordForm(_ref_erf) {
     if (!recs.length) return null;
     var p = _elCutPick(recs, function(r) { return _elAlphaInfo(r, data); });
     if (!(p && p.cut != null && p.status !== "none")) return null;
-    p._h2 = _elCutPickH2(recs, function(r) { return _elAlphaInfo(r, data); });   // 最終損益基準の並走pick（デュアル評価① 2026-07-12・記録帳_elCutPickCellと同一）
     return p;
   }, [data, fStock, fDate]);
   // シグナル/詳細別の推奨基本α・追加α（2026-07-06→2026-07-07c拡張・ユーザー選択＝自動入力もシグナル/詳細別）:
@@ -8387,8 +8389,7 @@ function EntryRecordForm(_ref_erf) {
             "推奨損切り：", React.createElement("span", { style: { fontWeight: 800 } }, p.cut + "円"),
             p.status === "na"
               ? React.createElement("span", { style: { color: "#B45309", marginLeft: 3, fontSize: 10 } }, "（参考）")
-              : React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3, fontSize: 10 } }, "（H1平均" + (p.mean != null ? (p.mean >= 0 ? "+" : "") + Math.round(p.mean) : "—") + "円・損切" + (p.stopRate != null ? Math.round(p.stopRate * 100) : "—") + "%・" + (p.n || 0) + "件）"),
-            _elH2AgreeNode(p.cut, p._h2 ? p._h2.cut : null, "円"));
+              : React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3, fontSize: 10 } }, "（H1平均" + (p.mean != null ? (p.mean >= 0 ? "+" : "") + Math.round(p.mean) : "—") + "円・損切" + (p.stopRate != null ? Math.round(p.stopRate * 100) : "—") + "%・" + (p.n || 0) + "件）"));
         })())
       ),
       React.createElement("div", { style: { marginBottom: 8 } },
