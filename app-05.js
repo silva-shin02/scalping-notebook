@@ -3621,17 +3621,27 @@ function _epHoldLadder(s, alpha, cutLine) {
   var r = _epResolve(s, alpha);
   if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
   var legs = _epLegs(s), cut = cutLine != null ? cutLine : 15;
-  var items = [], stopDepth = -1, stopHigh = null, maxPnl = null, maxDepth = 0, finalPnl = null;
+  var items = [], stopDepth = -1, stopHigh = null, stopPnl = null, maxPnl = null, maxDepth = 0, finalPnl = null;
   for (var i = r.epIdx; i < legs.length; i++) {
     var lg = legs[i], depth = i - r.epIdx;
-    if (stopDepth < 0 && lg.h != null && (lg.h - alpha) >= cut) { stopDepth = depth; stopHigh = lg.h; }
-    var pnl;
-    if (stopDepth >= 0) pnl = -Math.round((stopHigh - alpha) * 100);
-    else pnl = (lg.c != null) ? Math.round((alpha - lg.c) * 100) : null;
+    // 2026-07-27 損切り方式の変更（ユーザー決定）: 損切り値に触れた「瞬間」で切るのをやめ、
+    // 触れた足はその足の確定値(終値)まで持って撤退する。高値は撤退のトリガーであって約定値ではないので、
+    // 損益は他の足と同じ (α−終値)×100株。終値が利益側に戻っていれば利益で撤退＝損切りではない
+    // （損切りかどうかの判定は _elRideVals.stoppedLoss / _elIsStopFinal 側）。
+    if (stopDepth < 0 && lg.h != null && (lg.h - alpha) >= cut) {
+      stopDepth = depth; stopHigh = lg.h;
+      stopPnl = (lg.c != null) ? Math.round((alpha - lg.c) * 100) : null;
+    }
+    var pnl = (stopDepth >= 0) ? stopPnl : ((lg.c != null) ? Math.round((alpha - lg.c) * 100) : null);
     items.push({ idx: i, depth: depth, role: depth === 0 ? "EP" : ("H" + depth), leg: lg, pnl: pnl, isStop: stopDepth === depth, afterStop: stopDepth >= 0 && stopDepth < depth });
     if (pnl != null) { finalPnl = pnl; if (maxPnl == null || pnl > maxPnl) { maxPnl = pnl; maxDepth = depth; } }
   }
-  return { epIdx: r.epIdx, items: items, stopDepth: stopDepth, maxPnl: maxPnl, maxDepth: maxDepth, finalPnl: finalPnl };
+  // 撤退済みなら最終損益は撤退足の確定値で固定する。旧実装は高値から必ず算出できたので暗黙に成立していたが、
+  // 終値ベースでは撤退足に終値が無いと null になり、明示しないと撤退前の含み益が最終値として残ってしまう。
+  if (stopDepth >= 0) finalPnl = stopPnl;
+  // stopLinePnl＝旧方式（ラインに触れた瞬間に約定）の損益。方式変更の差分を出す分析用に残す（損益計算には使わない）。
+  var stopLinePnl = (stopHigh != null) ? -Math.round((stopHigh - alpha) * 100) : null;
+  return { epIdx: r.epIdx, items: items, stopDepth: stopDepth, stopHigh: stopHigh, stopPnl: stopPnl, stopLinePnl: stopLinePnl, maxPnl: maxPnl, maxDepth: maxDepth, finalPnl: finalPnl };
 }
 // 損切りタブ「保有なら」2026-07-13（ユーザー承認①）: 損切りしなかった場合の損益を実運用ルール
 // 「確定値が前の足より悪化（上昇）したらその足の確定値で手仕舞い・悪化しなければ最後の足まで保有」で計算。
@@ -3701,13 +3711,15 @@ function _elWinBucket(s, alpha, cutLine) {
       if (_cut(exp)) break;
       if (exp === "△") hasTri = true;
     }
-    if (o.h != null && (o.h - alpha) >= cut) { stopped = true; break; }
+    // 2026-07-27 終値撤退方式: ラインに触れた足はその足の確定値で撤退＝その終値を到達点として採用してから抜ける。
+    // 旧実装は終値を採らずに break し無条件で "stop" を返していた（＝触れたら必ず損切り扱い）。
+    if (o.h != null && (o.h - alpha) >= cut) { stopped = true; if (o.c != null) exitC = o.c; break; }
     if (o.c != null) exitC = o.c;
   }
-  if (stopped) return "stop";
+  if (stopped && exitC == null) return "stop";   // 撤退足の終値が無く損益を出せない＝ライン接触の事実を優先
   if (exitC == null) { if (base === "draw") return "even"; if (base === "ng") return "loss"; return hasTri ? "tri" : "win"; }
   var pnl = Math.round((alpha - exitC) * 100);
-  if (pnl < 0) return "loss";
+  if (pnl < 0) return stopped ? "stop" : "loss";   // 損で撤退＝損切り。利益/同値で撤退なら下の win/even 側へ落とす
   if (pnl === 0) return "even";
   return hasTri ? "tri" : "win";
 }
@@ -3716,8 +3728,8 @@ function _elDynPlanned(s, alpha, cutLine) {
     var _rp2 = _epResolve(s, alpha);
     if (_rp2) {
       if (_rp2.judge !== "ok") return 0;
-      var _dfp2 = _rp2.ep.h - alpha;
-      if (_dfp2 >= cutLine) return -Math.round(_dfp2 * 100);
+      // 2026-07-27 終値撤退方式: EP足でラインに触れてもEP足の終値で撤退するので、
+      // 損切りの有無にかかわらずEP足の確定値。旧実装の -(高値−α)×100 分岐は廃止。
       return _rp2.ep.c != null ? Math.round((alpha - _rp2.ep.c) * 100) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
     }
   }
@@ -3736,8 +3748,10 @@ function _elDynHold(s, alpha, cutLine) {
     if (_rh2) {
       if (_rh2.judge !== "ok") return null;
       var _h1l = _rh2.h1;
-      if (_h1l && _h1l.h != null && (_h1l.h - alpha) >= cutLine) return -Math.round((_h1l.h - alpha) * 100);
-      if ((_rh2.ep.h - alpha) >= cutLine) return -Math.round((_rh2.ep.h - alpha) * 100);
+      // 2026-07-27 終値撤退方式: EP足でラインに触れたらEP足の終値で撤退＝H1へは進まない。
+      // H1足はラインに触れても触れなくても「H1の終値」なので、旧実装のH1損切り分岐は最終行に吸収される。
+      // 旧実装はH1の損切りを先に見ていたためEP足で撤退済みでもH1の損失を返していた（順序も同時に是正）。
+      if (_rh2.ep.h != null && (_rh2.ep.h - alpha) >= cutLine) return _rh2.ep.c != null ? Math.round((alpha - _rh2.ep.c) * 100) : null;
       return (_h1l && _h1l.c != null) ? Math.round((alpha - _h1l.c) * 100) : null;
     }
   }
@@ -3745,6 +3759,8 @@ function _elDynHold(s, alpha, cutLine) {
   if (s.osVal != null && alpha > Number(s.osVal)) {
     if (!(s.holdHighSign === "-" && s.holdHighVal != null && Number(s.holdHighVal) >= alpha)) return null;
   }
+  // 以下は旧記録(非v2)のパス。足ごとの確定値(終値)を持たないので終値撤退方式は適用できず、
+  // 2026-07-27 の方式変更後も旧来のライン基準(-(高値−α)×100)のまま。旧記録は集計対象外なので実害はない。
   var hp, done = false;
   if (s.holdHighSign === "-" && s.holdHighVal != null) {
     var hhE = Number(s.holdHighVal) - alpha;
@@ -3860,9 +3876,8 @@ function _elDynHold2(s, alpha, cutLine) {
     if (!_r22 || _r22.judge !== "ok") return null;
     var _h2l = _r22.h2;
     if (!_h2l) return null;
-    // EPまたはH1で既に損切り→損切りルール非適用（確定値ベース）。
-    if (_elHoldIsStop(s, alpha, cutLine)) return _h2l.c != null ? Math.round((alpha - _h2l.c) * 100) : null;
-    if (_h2l.h != null && (_h2l.h - alpha) >= cutLine) return -Math.round((_h2l.h - alpha) * 100);
+    // 2026-07-27 終値撤退方式: H2足でラインに触れてもH2の終値で撤退するので、
+    // 「EP/H1で既に損切り済み（＝確定値ベース）」「H2で損切り」「無事」の3分岐が全てH2の終値に一致する。
     return _h2l.c != null ? Math.round((alpha - _h2l.c) * 100) : null;
   }
   // EP損益またはH1で既に損切りの場合、H2には損切りルールを適用せず値幅から算出（損益変化はH1損益との純粋比較）。
@@ -3883,7 +3898,9 @@ function _elDynHold2(s, alpha, cutLine) {
 // E成立v2以外（旧記録/×見送り/E未達）は従来式へフォールバック＝挙動不変。**損切り件数・損切り率は必ずこの関数を使う**。
 function _elIsStopFinal(s, alpha, cutLine) {
   if (!s || alpha == null) return false;
-  if (_epIsV2(s)) { var v = _elRideVals(s, alpha, cutLine); if (v) return !!v.stopped; }
+  // 2026-07-27 終値撤退方式: ライン接触(stopped)ではなく「損で撤退したか(stoppedLoss)」が損切り。
+  // ここが損切り率・実現結果ラベル・推奨α/推奨損切り値のゲートの単一源（isStop系は全てこの関数を見ている）。
+  if (_epIsV2(s)) { var v = _elRideVals(s, alpha, cutLine); if (v) return !!v.stoppedLoss; }
   return _elPlanIsStop(s, alpha, cutLine) || _elHoldIsStop(s, alpha, cutLine)
     || (_elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cutLine));
 }
@@ -3936,9 +3953,8 @@ function _elDynHoldAt(s, alpha, cutLine, d) {
   if (!r || r.judge !== "ok") return null;
   var lg = r.legs[r.epIdx + d];
   if (!lg) return null;
-  var cut = cutLine != null ? cutLine : 15;
-  if (_elHoldIsStopAt(s, alpha, cut, d - 1)) return lg.c != null ? Math.round((alpha - lg.c) * 100) : null;
-  if (lg.h != null && (lg.h - alpha) >= cut) return -Math.round((lg.h - alpha) * 100);
+  // 2026-07-27 終値撤退方式: この足でラインに触れてもその足の終値で撤退するので、
+  // 「既に手前の足で損切り済み」「この足で損切り」「無事」の3分岐が全てこの足の終値に一致する。
   return lg.c != null ? Math.round((alpha - lg.c) * 100) : null;
 }
 // EP損益もH1もE基準未達（OS値<α かつ H1高値もα未達）→ H2は成立せず非表示扱い。
@@ -5091,7 +5107,11 @@ function _elRideVals(s, alpha, cutLine) {
   var exitC = exitLeg ? exitLeg.c : null;
   var lbl = exitD === 0 ? "EP" : "H" + exitD;
   if (mx == null && exitC == null && !stopped) return null;
-  return { mx: mx, exitC: exitC, stopped: stopped, lbl: lbl, epIdx: r.epIdx, exitD: exitD, exitIdx: r.epIdx + exitD };   // exitIdx=手じまい足の0基点レグindex（OS1=0）＝時間かぶり除外の手じまい時刻算出用 2026-07-16
+  // 2026-07-27 終値撤退方式: stopped＝損切りラインに触れた（＝撤退トリガーが引かれた）。
+  // 撤退はその足の終値なので、損切り扱いになるのは終値が損側（終値>α＝(α−終値)<0）のときだけ。
+  // 終値不明は判定できないので、ラインに触れた事実を優先して損切り扱いにする（旧方式と同じ側に倒す）。
+  var stoppedLoss = !!(stopped && (exitC == null || (alpha != null && exitC > alpha)));
+  return { mx: mx, exitC: exitC, stopped: stopped, stoppedLoss: stoppedLoss, lbl: lbl, epIdx: r.epIdx, exitD: exitD, exitIdx: r.epIdx + exitD };   // exitIdx=手じまい足の0基点レグindex（OS1=0）＝時間かぶり除外の手じまい時刻算出用 2026-07-16
 }
 function _elRideSummaryNode(s, alpha, cutLine) {
   var v = _elRideVals(s, alpha, cutLine);
@@ -5101,7 +5121,7 @@ function _elRideSummaryNode(s, alpha, cutLine) {
     _sml("最高"),
     _epSignedNode(v.mx, "mx"),
     React.createElement("span", { style: { color: "#bbb", fontSize: "0.9em" } }, "→"),
-    v.stopped
+    v.stoppedLoss
       ? React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#1E8449" } }, "損切（" + v.lbl + "）")
       : React.createElement("span", { style: { display: "inline-flex", alignItems: "baseline", gap: 2 } },
           _sml("決済"),
@@ -5172,9 +5192,9 @@ function _elHoldMinNode(s, alpha, cutLine) {
   var v = _elRideVals(s, alpha, cutLine);
   if (!v) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var m = v.exitD;
-  return React.createElement("span", { title: "EP足〜手じまい足（" + v.lbl + (v.stopped ? "・損切" : "") + "）＝" + m + "足・1分足換算（時間かぶり判定と同基準）", style: { display: "inline-flex", alignItems: "baseline", gap: 1, whiteSpace: "nowrap" } },
+  return React.createElement("span", { title: "EP足〜手じまい足（" + v.lbl + (v.stoppedLoss ? "・損切" : v.stopped ? "・線接触で撤退" : "") + "）＝" + m + "足・1分足換算（時間かぶり判定と同基準）", style: { display: "inline-flex", alignItems: "baseline", gap: 1, whiteSpace: "nowrap" } },
     React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", fontVariantNumeric: "tabular-nums" } }, m + "分"),
-    v.stopped ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, color: "#1E8449" } }, "切") : null);
+    v.stoppedLoss ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, color: "#1E8449" } }, "切") : null);
 }
 // EP行をH1/H2の固定表(_elHoldStackInner)と同じ桁で描く1行テーブル（2026-07-13 縦そろえ）。列幅 lbl22/e14/op10/hi26/ar10/wd26/s1 6/ac33/s2 6/pn78/cp10＝合計241で_elHoldStackInnerと一致。
 // 結果マーカー(○/×/△)はH1/H2に合わせて末尾(pn列)に置く。miss/×見送りはnull（呼び側が従来のインラインEP行にフォールバック）。値の取り出し・描画は_epPnlCellと同一。

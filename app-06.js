@@ -4127,14 +4127,13 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
     if (!Lc || !Lb) return;
     var over = Math.round((mh - a - cut) * 10) / 10; if (over < 0) over = 0;
     var idc = _elIdealCut(s, a);
-    // 2026-07-26 損切足の終値: 損切り値にかかった瞬間に切らず「損切りが出たその足を最後まで持って終値で降りた」損益。
-    // 損切り無しラダー(Lb)の同じ深さの足の pnl が (α−終値)×100 でそのまま該当する（Lb は損切りが発動しないので全足が終値ベース）。
-    // 「保有なら」(_elRuleHoldPnl)は足をまたいで先まで持つ別物なので混同しないこと。
-    var _sd = Lc.stopDepth, _sbi = (_sd >= 0 && Lb.items) ? Lb.items[_sd] : null;
+    // 2026-07-27 損切り方式の変更に合わせて比較軸を反転。
+    //  actual  = 現行＝終値撤退方式の損切り額（撤退足の確定値。_epHoldLadder が終値ベースになった）
+    //  lineNow = 旧方式＝ラインに触れた瞬間に約定していた場合の損切り額（_epHoldLadder.stopLinePnl・分析専用）
+    // 旧「損切足の終値」列は actual そのものになったので廃止。差額＝actual−lineNow＝方式変更で減った損失。
     rows.push({
       r: r, s: s, a: a, cut: cut, over: over,
-      actual: Lc.finalPnl, held: _elRuleHoldPnl(s, a), best: Lb.maxPnl,
-      stopBarC: (_sbi && _sbi.depth === _sd) ? _sbi.pnl : null,
+      actual: Lc.finalPnl, lineNow: Lc.stopLinePnl, held: _elRuleHoldPnl(s, a), best: Lb.maxPnl,
       avoidCut: (!_elIsStopFinal(s, a, idc) ? idc : null)   // 2026-07-25e EP/H1足だけ見ていたのを手じまいまでの判定へ
     });
   });
@@ -4144,16 +4143,16 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
   var actualArr = rows.map(function(o) { return o.actual; }).filter(function(v) { return v != null; });
   var heldBase = rows.filter(function(o) { return o.held != null; });
   var profitable = heldBase.filter(function(o) { return o.held > 0; }).length;
-  // 2026-07-26 損切足の終値まで持ち切った場合の改善: 損切り損失と両方揃っている記録だけを母数にする
-  var sbcBase = rows.filter(function(o) { return o.stopBarC != null && o.actual != null; });
-  var sbcBetter = sbcBase.filter(function(o) { return o.stopBarC > o.actual; }).length;
-  var sbcDiff = sbcBase.reduce(function(t, o) { return t + (o.stopBarC - o.actual); }, 0);
+  // 2026-07-27 方式変更による改善: 現行(終値撤退)と旧方式(ライン即時)が両方揃っている記録だけを母数にする
+  var sbcBase = rows.filter(function(o) { return o.lineNow != null && o.actual != null; });
+  var sbcBetter = sbcBase.filter(function(o) { return o.actual > o.lineNow; }).length;
+  var sbcDiff = sbcBase.reduce(function(t, o) { return t + (o.actual - o.lineNow); }, 0);
   var cards = _elv2CardRow([
     _elv2Card("損切り記録", rows.length + "件", "#9A3412", "実現結果=損切り"),
     _elv2Card("損切り値からの超過幅", "平均" + _elMean(overArr) + " / 中央" + _elMedian(overArr) + "円", "#555", "ラインを超えて伸びた幅"),
     _elv2Card("損切り損失(平均)", _elPnlFmt(actualArr.length ? Math.round(_elMean(actualArr)) : null), _elPnlColor(actualArr.length ? _elMean(actualArr) : null), rows.length + "件"),
     _elv2Card("保有なら利益化", heldBase.length ? Math.round(profitable / heldBase.length * 100) + "%" : "—", heldBase.length && profitable / heldBase.length >= 0.5 ? "#B45309" : "#1E8449", heldBase.length ? profitable + "/" + heldBase.length + "件が保有で利益" : "—"),
-    _elv2Card("損切足の終値なら", sbcBase.length ? sbcBetter + "/" + sbcBase.length + "件が改善" : "—", sbcBase.length && sbcBetter / sbcBase.length >= 0.5 ? "#B45309" : "#1E8449", sbcBase.length ? "合計 " + _elPnlFmt(Math.round(sbcDiff)) + " の差" : "—")
+    _elv2Card("旧方式より改善", sbcBase.length ? sbcBetter + "/" + sbcBase.length + "件" : "—", sbcBase.length && sbcBetter / sbcBase.length >= 0.5 ? "#B45309" : "#1E8449", sbcBase.length ? "合計 " + _elPnlFmt(Math.round(sbcDiff)) + " の差" : "—")
   ]);
 
   // 2026-07-27 レイアウト刷新（ユーザー要望）:
@@ -4164,7 +4163,7 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
   //    （＝損切りしなければ助かっていた順）。旧・超過幅の小さい順は上記の理由で意味を成していなかった。
   //  ・「保有なら」「ベスト」列は落とす（カードと読み取り文には残す）。
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
-  var _diffOf = function(o) { return (o.stopBarC != null && o.actual != null) ? (o.stopBarC - o.actual) : null; };
+  var _diffOf = function(o) { return (o.lineNow != null && o.actual != null) ? (o.actual - o.lineNow) : null; };
   var listed = rows.slice().sort(function(a, b) {
     var da = _diffOf(a), db = _diffOf(b);
     if (da == null && db == null) return a.r.date < b.r.date ? 1 : -1;
@@ -4174,12 +4173,12 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
   });
   var _tot = function(pick) { var t = null; rows.forEach(function(o) { var v = pick(o); if (v != null) t = (t == null ? 0 : t) + v; }); return t; };
   var totActual = _tot(function(o) { return o.actual; });
-  var totStopBarC = _tot(function(o) { return o.stopBarC; });
+  var totLineNow = _tot(function(o) { return o.lineNow; });
   var totDiff = _tot(_diffOf);
   var listTable = React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "損切り記録の一覧（差額の大きい順＝損切りしなければ助かっていた順・" + rows.length + "件）"),
+    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "損切り記録の一覧（差額の大きい順＝方式変更で得をした順・" + rows.length + "件）"),
     recCtx ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "1px 0 0" } }, "行をタップすると明細カードが開きます") : null,
-    _elv2Table(["日付", "銘柄/シグナル", "α/損切値", "実際の損切り額", "終値まで持ったら", "差額"], listed.map(function(o, i) {
+    _elv2Table(["日付", "銘柄/シグナル", "α/損切値", "実際の損切り額", "旧方式（ライン即時）", "差額"], listed.map(function(o, i) {
       var ek = "stopov_" + o.r.stock + "_" + ((o.s && (o.s.id || o.s.time)) || i);
       var on = !!(recCtx && recCtx.expKey === ek);
       var df = _diffOf(o);
@@ -4189,9 +4188,9 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
         _elv2Td((on ? "▶ " : "") + o.r.date.slice(5) + "(" + _dow(o.r.date) + ")", { textAlign: "left", paddingLeft: 8, whiteSpace: "nowrap" }),
         _elv2Td(React.createElement("span", null, React.createElement("b", { style: { color: "#9A3412" } }, o.r.stock), React.createElement("span", { style: { color: "#999", fontSize: 9, marginLeft: 4 } }, _elTagLabel(o.s))), { textAlign: "left" }),
         _elv2Td(o.a + "/" + o.cut + "円", { fontSize: 10, color: "#666" }),
-        _elv2Td(React.createElement("span", { style: { color: _elPnlColor(o.actual) } }, _elPnlFmt(o.actual))),
-        // 損切り損失より良ければ「切らなければ助かっていた」記録＝太字で目立たせる 2026-07-26
-        _elv2Td(React.createElement(df != null && df > 0 ? "b" : "span", { style: { color: _elPnlColor(o.stopBarC) } }, _elPnlFmt(o.stopBarC))),
+        // 現行（終値撤退）。旧方式より良ければ方式変更で得をした記録＝太字で目立たせる
+        _elv2Td(React.createElement(df != null && df > 0 ? "b" : "span", { style: { color: _elPnlColor(o.actual) } }, _elPnlFmt(o.actual))),
+        _elv2Td(React.createElement("span", { style: { color: _elPnlColor(o.lineNow) } }, _elPnlFmt(o.lineNow))),
         _elv2Td(React.createElement("b", { style: { color: _elPnlColor(df) } }, _elPnlFmt(df))));
       if (!on || !recCtx) return row;
       return [row, React.createElement("tr", { key: ek + "_c" },
@@ -4203,7 +4202,7 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
         _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#9A9186" } }, rows.length + "件"), { textAlign: "left" }),
         _elv2Td(""),
         _elv2Td(React.createElement("b", { style: { color: _elPnlColor(totActual) } }, _elPnlFmt(totActual))),
-        _elv2Td(React.createElement("b", { style: { color: _elPnlColor(totStopBarC) } }, _elPnlFmt(totStopBarC))),
+        _elv2Td(React.createElement("b", { style: { color: _elPnlColor(totLineNow) } }, _elPnlFmt(totLineNow))),
         _elv2Td(React.createElement("b", { style: { color: _elPnlColor(totDiff), fontSize: 12 } }, _elPnlFmt(totDiff))))
     ])));
 
@@ -4216,9 +4215,9 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
   items.push(React.createElement("span", null, "損切り", _elInsightEmV2(rows.length + "件"), "の損切り値からの超過幅は平均", _elInsightEmV2(_elMean(overArr) + "円"), "・中央", _elInsightEmV2(_elMedian(overArr) + "円"), "＝損切りライン到達後にさらにこれだけ伸びてから反転/継続している。"));
   if (small.length) items.push(React.createElement("span", null, "超過1円以下（損切りラインをほんの少し超えただけ）が", _elInsightEmV2(small.length + "件"), smallHeld.length ? React.createElement("span", null, "。うち保有していれば利益化したのは", _elInsightEmV2(smallProfit + "/" + smallHeld.length + "件"), "＝", (smallHeld.length && smallProfit / smallHeld.length >= 0.5 ? _elInsightEmV2("損切りが早すぎた可能性大", "#B45309") : "損切りは概ね妥当"), "。") : "。"));
   if (heldBase.length) items.push(React.createElement("span", null, "損切りした記録を全て損切りせず最後まで保有していたら、利益化したのは", _elInsightEmV2(profitable + "/" + heldBase.length + "件", profitable / heldBase.length >= 0.5 ? "#B45309" : "#1E8449"), "＝", (profitable / heldBase.length >= 0.5 ? "損切りを我慢する方が良かった場面が多い" : "損切りは機能している（保有しても損が増える方が多い）"), "。"));
-  if (sbcBase.length) items.push(React.createElement("span", null, "損切り値にかかった瞬間で切らず", _elInsightEmV2("その足の終値まで持ち切って"), "いたら、損切り損失より良くなったのは", _elInsightEmV2(sbcBetter + "/" + sbcBase.length + "件", sbcBetter / sbcBase.length >= 0.5 ? "#B45309" : "#1E8449"), "・合計", _elInsightEmV2(_elPnlFmt(Math.round(sbcDiff)), _elPnlColor(sbcDiff)), "の差（プラス＝持ち切った方が良かった／マイナス＝即損切りが正解）。", (sbcBetter / sbcBase.length >= 0.5 ? "損切りの執行が一足早い可能性がある。" : "足の終値まで待っても悪化する方が多い＝即損切りは機能している。")));
+  if (sbcBase.length) items.push(React.createElement("span", null, "現行の", _elInsightEmV2("終値撤退方式"), "は、旧方式（ラインに触れた瞬間に約定）より", _elInsightEmV2(sbcBetter + "/" + sbcBase.length + "件", sbcBetter / sbcBase.length >= 0.5 ? "#B45309" : "#1E8449"), "で損失が小さく、合計", _elInsightEmV2(_elPnlFmt(Math.round(sbcDiff)), _elPnlColor(sbcDiff)), "の差（プラス＝方式変更で得をした）。※終値が利益側に戻った記録はそもそも損切りでなくなるのでこの表には出ず、差はここに現れない分さらに大きい。"));
   if (avoidN) items.push(React.createElement("span", null, "損切り値を", _elInsightEmV2("15〜20円"), "に上げていれば損切りを回避できたのは", _elInsightEmV2(avoidN + "件"), "。"));
-  return React.createElement("div", null, cards, listTable, _elInsightBoxV2(items, { note: "対象＝実現結果が「損切り」のEP起算(v2)記録＝**手じまい足までに損切りラインへ触れたもの**（×見送り・E未達・手じまい後の接触は対象外）。実際の損切り額＝損切りラインで止めた損益(_epHoldLadder・採用α基準・100株換算)。終値まで持ったら＝損切り値にかかった瞬間で切らず**その損切り足だけを最後まで持って終値で降りた**場合の損益((α−終値)×100株)＝足をまたがない1足だけの検証（2026-07-26追加）。差額＝終値まで持ったら−実際の損切り額（プラス＝持ち切った方が良かった）。カード/読み取りの「保有なら」＝損切りせず実運用ルール（確定値が前の足より悪化したらその足の確定値で手仕舞い・悪化しなければ最後まで保有）で降りた損益＝**足をまたいで先まで持つので「終値まで持ったら」とは別物**、ベスト＝損切り後の各足で最も良い手仕舞い(maxPnl)。超過幅＝最高値(水準線比)−(α＋損切り値)＝**全足の最高値基準**なので「損切りした瞬間の行き過ぎ」ではなく「最終的にどこまで逆行したか」。損益色は赤=利益/緑=損失。" }));
+  return React.createElement("div", null, cards, listTable, _elInsightBoxV2(items, { note: "**2026-07-27 損切り方式を変更**＝損切り値に触れた瞬間ではなく**触れた足の確定値(終値)で撤退**し、損で撤退したものだけを損切りとする。対象＝実現結果が「損切り」のEP起算(v2)記録＝**手じまい足までに損切りラインへ触れ、その足の終値が損側だったもの**（×見送り・E未達・手じまい後の接触は対象外。**終値が利益側に戻った記録は損切りでなくなるのでこの表には出ない**）。実際の損切り額＝撤退足の確定値((α−終値)×100株・採用α基準)。旧方式（ライン即時）＝ラインに触れた瞬間に約定していた場合の損益(−(高値−α)×100株)＝比較用で損益計算には使っていない。差額＝実際−旧方式（プラス＝方式変更で得をした）。カード/読み取りの「保有なら」＝損切りせず実運用ルール（確定値が前の足より悪化したらその足の確定値で手仕舞い・悪化しなければ最後まで保有）で降りた損益＝**足をまたいで先まで持つので撤退足の終値とは別物**、ベスト＝各足で最も良い手仕舞い(maxPnl)。超過幅＝最高値(水準線比)−(α＋損切り値)＝**全足の最高値基準**なので「損切りした瞬間の行き過ぎ」ではなく「最終的にどこまで逆行したか」。損益色は赤=利益/緑=損失。" }));
 }
 
 // ===== 損切りの分析（記録帳・銘柄別タブ「🛑損切り」／2026-06-22）=====
