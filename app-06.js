@@ -5955,10 +5955,27 @@ function EntryLogView(_ref_elv2) {
     // 「除外後」列の集計＝totOfの除外条件に「指値同値」(_elFillRiskRec)を足しただけ。母数・基準はtotOfと完全に同一なので同じ行で素直に比較できる 2026-07-20c
     var totExOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
     // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
+    // 2026-07-27 2系統に分離（ユーザー要望「シンプルに損失で手じまいした記録が見えない」）:
+    //  損切＝損切りラインに触れて損で撤退（_elIsStopFinal）／損失＝ラインには触れず期待度×等で降りたら損だった。
+    //  これで E成立母数 = 利確 + 損切 + 損失 + 同値 が閉じる（従来は「損失」がどの列にも出ていなかった）。
+    //  平均額は _elCapLossYen（損切り値ちょうどの理想値＝全期間 −1,500円固定になっていた）をやめ、
+    //  最終損益(_elHoldFinalParts.main＝利確列・最終損益列と同じ基準)の実額平均にする。終値撤退方式では
+    //  実際の損失は撤退足の終値次第で毎回変わるので、理想値では実態と乖離する。
     var stopsOf = function(x) {
-      var sn = 0, sl = 0, wn = 0;
-      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; if (_elIsStopFinal(s, a, c)) { sn++; sl += _elCapLossYen(c); } });
-      return { n: sn, avg: sn ? Math.round(sl / sn) : null, rate: wn ? Math.round(sn / wn * 100) : null };
+      var sn = 0, sSum = 0, sCnt = 0, ln = 0, lSum = 0, lCnt = 0, wn = 0;
+      x.forEach(function(r) {
+        var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine;
+        if (a == null) return;
+        var _dr = _elDynResult(s, a, c);
+        if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return;
+        wn++;
+        var _t2 = _elHoldFinalParts(s, a, c);
+        var pnl = (_t2 && _t2.main != null) ? _t2.main : null;
+        if (_elIsStopFinal(s, a, c)) { sn++; if (pnl != null) { sSum += pnl; sCnt++; } }
+        else if (pnl != null && pnl < 0) { ln++; lSum += pnl; lCnt++; }   // 損切り以外の負け（同値0は数えない＝利確の>0と対称）
+      });
+      return { n: sn, avg: sCnt ? Math.round(sSum / sCnt) : null, rate: wn ? Math.round(sn / wn * 100) : null,
+               lossN: ln, lossAvg: lCnt ? Math.round(lSum / lCnt) : null, lossRate: wn ? Math.round(ln / wn * 100) : null };
     };
     // 到達: EPに到達した件数（採用α基準・_epReachedAt）2026-07-09
     var reachOf = function(x) { var r = 0; x.forEach(function(rec) { if (_epReachedAt(rec.signal, _ai(rec).alpha)) r++; }); return r; };
@@ -6009,11 +6026,18 @@ function EntryLogView(_ref_elv2) {
     var cntCell = function(cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", null, cnt + "件"), avgCntLine(cnt, days)), ex); };
     var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt, days), avgDayLine(v, days)), ex); };   // days渡し＝1日平均でグレード判定 2026-07-23
     var realCell = function(v, cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt, days), avgDayLine(v, days)), ex); };
+    // 2026-07-27 2段化: 上段=損切（ラインに触れて損で撤退）／下段=損失（それ以外の負け）。列幅を増やさずに両方出す。
+    var _stopGrp = function(lbl, n, rate, avg, col, sep) {
+      return React.createElement("span", { style: Object.assign({ display: "block", lineHeight: 1.15 }, sep ? { borderTop: "1px dashed #E4DFD7", marginTop: 2, paddingTop: 2 } : null) },
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginRight: 3 } }, lbl),
+        React.createElement("span", { style: { fontWeight: 700, color: col } }, n + "件・" + (rate != null ? rate + "%" : "—")),
+        React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8" } }, "平均" + (avg != null ? avg.toLocaleString() : "—") + "円"));
+    };
     var stopCell = function(st, ex) {
-      if (!st || st.n === 0) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
+      if (!st || (st.n === 0 && st.lossN === 0)) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
       return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
-        React.createElement("span", { style: { fontWeight: 700, color: "#1E8449" } }, st.n + "件・" + (st.rate != null ? st.rate + "%" : "—")),
-        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "平均" + (st.avg != null ? st.avg.toLocaleString() : "—") + "円")), ex);
+        st.n ? _stopGrp("損切", st.n, st.rate, st.avg, "#1E8449", false) : null,
+        st.lossN ? _stopGrp("損失", st.lossN, st.lossRate, st.lossAvg, "#0F766E", !!st.n) : null), ex);
     };
     // 到達セル: EP到達件数（主）＋到達率（対 件数=全記録・小書き）＋1日平均（到達÷営業日数・欄が狭いので「1日平均」「〇件」の2行）2026-07-24。日別(g==="day")は各行=1日で冗長・0件は非表示（avgCntLineと同扱い）。
     var reachAvg2 = function(rn, days) { if (!days || g === "day" || !rn) return null; var r1 = Math.round(rn / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); };
@@ -6086,7 +6110,8 @@ function EntryLogView(_ref_elv2) {
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EP到達件数"))),
           oth(React.createElement("span", null, "利確",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
-          oth("損切り"),
+          oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの。損失＝ラインには触れず期待度×等で降りたら損だったもの。平均は最終損益と同じ基準の実額。利確＋損切＋損失＋同値＝E成立母数" }, "損切り / 損失",
+            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "上=ライン起因／下=それ以外の負け"))),
           oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "最終損益",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "○が途切れた所で手じまい・( )=△含む"))),
           oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済みは対象外）。上＝該当件数、下＝その記録を除いた最終損益。該当が無い期間は最終損益と同額（差額行なし）" }, "指値同値",
