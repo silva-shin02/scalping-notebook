@@ -5739,6 +5739,7 @@ function EntryLogView(_ref_elv2) {
   var _uAA = useState("all"), addAlphaFil = _uAA[0], setAddAlphaFil = _uAA[1];   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
+  var _uSO = useState("desc"), recOrder = _uSO[0], setRecOrder = _uSO[1];   // 記録一覧の並び順 2026-07-27（ユーザー指定）: "desc"=日付が新しい順（既定）／"asc"=古い順。どちらでも各日付の中は時間が早い順。全一覧で共通の1つの状態＝どこで切り替えても全部に効く
   var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値同値」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
   var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
@@ -5815,6 +5816,25 @@ function EntryLogView(_ref_elv2) {
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   var _SIG_TABS = [["band", "💴 株価帯別"], ["uki", "⚡ 浮き足%"], ["rn", "🔢 RNまたぎ"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RNまたぎ改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
+  // 日付だけ新しい順・各日付の中は時間が早い順（2段ソート）2026-07-27 ユーザー指定＝「新しい日から見て、その日は朝から順に読む」。
+  // 日付＋時刻を繋げた文字列の単純降順にすると日内まで逆順になるので、日付と時刻を分けて比較するのが要。
+  var _byDateDescTimeAsc = function(a, b) {
+    var da = (a && a.date) || "", db = (b && b.date) || "";
+    if (da !== db) return db.localeCompare(da);
+    return (((a && a.signal && a.signal.time) || "")).localeCompare(((b && b.signal && b.signal.time) || ""));
+  };
+  var _recSorted = function(rs) { return (rs || []).slice().sort(recOrder === "asc" ? _byDateAsc : _byDateDescTimeAsc); };
+  // 並び順トグル（日別/週別/月別・浮基本/浮応用と同じセグメント）。_recTableが表の頭に自動で出すので、_recTable経由の一覧は呼び出し側の対応不要。
+  var _recSortBar = function() {
+    return React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } },
+      React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },
+        [["desc", "新しい順"], ["asc", "古い順"]].map(function(o) {
+          var _on = recOrder === o[0];
+          return React.createElement("button", { key: o[0], type: "button", onClick: function() { setRecOrder(o[0]); },
+            title: (o[0] === "desc" ? "日付が新しい順" : "日付が古い順") + "（どちらも各日付の中は時間が早い順）",
+            style: { padding: "3px 11px", fontSize: 11, fontWeight: _on ? 800 : 600, borderRadius: 5, cursor: "pointer", border: "none", background: _on ? "#fff" : "transparent", color: _on ? "#9A3412" : "#6B6459", boxShadow: _on ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, o[1]);
+        })));
+  };
   var _dow = function(ds) { var p = ds.split("-"); return ["日", "月", "火", "水", "木", "金", "土"][new Date(+p[0], +p[1] - 1, +p[2]).getDay()]; };
   var _secH = function(t, sub, right) {   // right=見出し右端の追加コントロール（詳細スコープのプルダウン等）2026-07-08e。data-elsech=カード化の区切りマーカー（_cardify 2026-07-12）
     // 追加α分析トグルが効いている時だけ、各セクション見出しに現在の絞り込みをバッジで明示（スクロールで見出しが目に入っても「今どの母数か」が分かる）。
@@ -6062,7 +6082,10 @@ function EntryLogView(_ref_elv2) {
   // スルー/不算入は_elNotInclBadge＋_elRowStyleWithCollが元から色分けするので、それ以外（データのみ/旧記録など）だけを拾う。
   var _recTable = function(recs, mode, keyPfx, limit, dimOf) {
     if (!recs.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし");
-    var shown = (limit && recs.length > limit) ? recs.slice(0, limit) : recs;
+    // 並び順は_recTableが一手に引き受ける（全一覧で共通・呼び出し側の.sort(_byDateAsc)は残っていても二度手間なだけで無害）2026-07-27。
+    // limitより先に並べ替える＝「新しい順の先頭N件」になる（旧: 昇順の先頭N件をそのまま切っていた）。
+    var _sorted = _recSorted(recs);
+    var shown = (limit && _sorted.length > limit) ? _sorted.slice(0, limit) : _sorted;
     var colN = mode === "day" ? 8 : 14;   // full: 2026-07-16 損切り・保有列追加で11→13／2026-07-18 ライン列追加で13→14
     var body = [];
     shown.forEach(function(r) {
@@ -6118,6 +6141,7 @@ function EntryLogView(_ref_elv2) {
       : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("α値"), _th("損切り"), _th("ライン"), _th("E"), _th("取引"),
          _th("最終損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有")), _th("実現損益")];
     return React.createElement(React.Fragment, null,
+      recs.length > 1 ? _recSortBar() : null,   // 1件の表にトグルを出しても意味がないので2件以上だけ
       React.createElement(_HScrollBox, null,
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
           React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } }, head)),
@@ -6703,7 +6727,7 @@ function EntryLogView(_ref_elv2) {
       var _ukiBandGrp = (ukiBand !== "all") ? (_ukiPills.filter(function(g) { return g.key === ukiBand; })[0] || null) : null;
       var _ukiRecs = _ukiBandGrp ? _ukiBandGrp.recs : _sigUkiPool;
       var _ukiScopeLbl = _ukiBandGrp ? _ukiBandGrp.label : "全銘柄共通";
-      var _ukiListRecs = _ukiRecs.slice().sort(_byDateAsc);
+      var _ukiListRecs = _recSorted(_ukiRecs);   // 2026-07-27 並び順トグル追従（記録一覧＝_recTableが自前で並べ替え・🔁応用α換算の明細もこの順を使う）
       // 🔁 応用α換算 2026-07-25g（ユーザー要望「浮足％でなくすべて応用αを用いた場合の各取引の記録＋差額を見たい」）:
       //   αだけ差し替えて全部を再計算（既存の表示ヘルパーは全て(signal, α, 損切り値)を受けるのでそのまま流用できる）。
       //   帯＝その記録の水準線価格（_elUkiAltBandOf）・換算α＝帯別応用α＋RN加算・損切り値は記録の採用値のまま。
@@ -6752,6 +6776,7 @@ function EntryLogView(_ref_elv2) {
               _elv2Card("浮き足%（実際）", _altT.n ? _altAmt(_altT.cur) : _altAmt(null), null, _altT.n + "件の合計" + (_altT.ne ? "（無エントリー0円 " + _altT.ne + "件込み）" : "")),
               _elv2Card("応用α換算", _altT.n ? _altAmt(_altT.alt) : _altAmt(null), null, "同じ母数で再計算"),
               _elv2Card("差額（換算−実際）", _altT.n ? _altDiff(_altT.diff) : _altDiff(null), null, _altT.n ? ("1件あたり " + Math.round(_altT.diff / _altT.n).toLocaleString() + "円") : null)]),
+            (_altRows.length > 1 ? _recSortBar() : null),   // 記録一覧と同じ並び順トグル（_elv2Table製なので_recTableの自動表示に乗らない）2026-07-27
             _elv2Table(["日付・時刻", "銘柄", "シグナル", "水準線（株価帯）", "実際の採用α", "換算α", "最終損益（実際）", "最終損益（換算）", "差額"], _altBodyRows)])
         : (ukiSub === "list")
         ? _cardify([
