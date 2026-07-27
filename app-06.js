@@ -5928,16 +5928,36 @@ function EntryLogView(_ref_elv2) {
       return { n: tp, rate: wn ? Math.round(tp / wn * 100) : null };
     };
     var byP = {}; rs.forEach(function(r) { var k = keyOf(r.date); (byP[k] = byP[k] || []).push(r); });
-    // 展開明細だけスルー記録も並べる（表示専用 2026-07-20 ユーザー選択「表示だけ」）。
-    // 母数rs(=v2recs)は_elInclTotalでスルー(passThrough)を除外済＝件数/到達/利確/損切り/最終損益/実現/1日平均/合計行は一切不変。
+    // 展開明細だけ集計外の記録も並べる（表示専用 2026-07-20 ユーザー選択「表示だけ」）。
     // 出典はfilteredの生記録（期間・銘柄の絞り込みはrsと同条件）。行のグレー表示と「ス」バッジは_recTableが_elRowStyleWithCollで自動描画。
-    // 2026-07-20b: スルーだけの週/月も行として出す＝表示用keysにのみ_thruByPのキーを合流。
+    // 2026-07-20b: 集計外だけの週/月も行として出す＝表示用keysにのみ_extraByPのキーを合流。
     // 集計用キー(_aggKeys)はbyP由来のまま＝合計行の日数(_ovTotDays)・※参考判定(_hasRef)は従来と完全に同一
-    // （スルーだけの期間の営業日を合計日数に足すと1日平均が動いてしまうため、ここを分けるのが要）。
-    var _thruByP = {};
-    filtered.forEach(function(r) { if (r && r.date && r.signal && _epIsV2(r.signal) && _elIsThru(r.signal)) { var _kt = keyOf(r.date); (_thruByP[_kt] = _thruByP[_kt] || []).push(r); } });
+    // （集計外だけの期間の営業日を合計日数に足すと1日平均が動いてしまうため、ここを分けるのが要）。
+    // 2026-07-27 スルー限定→「対象期間の全記録」へ拡張（ユーザー要望「不算入記録だろうが表示してくれ」）。
+    //   表示専用＝filtered − rs（＝集計母数に入らなかった記録すべて）＝スルー／不算入(includeInTotal=false)／②データのみ／旧記録(非v2)／母数トグルで外れた記録。
+    //   母数rsは一切触らない＝件数/到達/利確/損切り/最終損益/実現/1日平均/合計行は不変（「表示だけ」の据置方針そのまま）。
+    //   行の色分け＝スルー(灰)/不算入(水色)は_recTableの_elRowStyleWithCollが自動。それ以外は_recTableの第5引数(dimOf)に_extraLblを渡して淡色＋バッジで出す。
+    var _extraLbl = function(r) {
+      var s = r && r.signal;
+      if (!s) return "対象外";
+      if (_elIsThru(s)) return "スルー";
+      if (_elIsExcluded(s)) return "不算入";
+      if (!_epIsV2(s)) return "旧記録";
+      if (_isDataOnly(data, r)) return "データのみ";
+      return "対象外";
+    };
+    var _extraBrk = function(rows) {   // 内訳文言（スルー3件・不算入2件…）＝どの理由で何件が集計外かを明細の頭に出す
+      var m = {}, _ord = ["スルー", "不算入", "データのみ", "旧記録", "対象外"];
+      rows.forEach(function(r) { var L = _extraLbl(r); m[L] = (m[L] || 0) + 1; });
+      return _ord.filter(function(L) { return m[L]; }).map(function(L) { return L + m[L] + "件"; }).join("・");
+    };
+    var _extraByP = {};
+    filtered.forEach(function(r) {
+      if (!r || !r.date || !r.signal || rs.indexOf(r) >= 0) return;   // rsに居る＝算入記録＝byP側で出る
+      var _kt = keyOf(r.date); (_extraByP[_kt] = _extraByP[_kt] || []).push(r);
+    });
     var _aggKeys = Object.keys(byP);   // 集計に使う期間＝算入記録がある期間のみ（従来どおり）
-    var keys = _aggKeys.concat(Object.keys(_thruByP).filter(function(k) { return !byP[k]; })).sort().reverse();   // 表示用＝スルーのみの期間も行にする
+    var keys = _aggKeys.concat(Object.keys(_extraByP).filter(function(k) { return !byP[k]; })).sort().reverse();   // 表示用＝表示専用記録だけの期間も行にする
     if (!keys.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "v2記録なし");
     var oth = function(t) { return React.createElement("th", { style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
     var otd = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
@@ -5981,11 +6001,12 @@ function EntryLogView(_ref_elv2) {
     };
     var rows = [];
     keys.forEach(function(k) {
-      var x = byP[k] || [], _thruRow = _thruByP[k] || [];   // x=算入記録（スルーのみの期間は空配列）／_thruRow=表示専用のスルー記録
+      var x = byP[k] || [], _extraRow = _extraByP[k] || [];   // x=算入記録（表示専用だけの期間は空配列）／_extraRow=集計に入らない表示専用の記録
       var t = totOf(x), st = stopsOf(x), dn = _bizDaysIn(k), on = ovExp === k;
       rows.push(React.createElement("tr", { key: k, onClick: function() { setOvExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
         otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, g)),
-          (!x.length && _thruRow.length) ? React.createElement("span", { title: "この期間は算入記録が無く、スルー記録だけがあります（集計は全て—）", style: { fontSize: 8.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 4px", marginLeft: 4, whiteSpace: "nowrap" } }, "スルーのみ") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+          (!x.length && _extraRow.length) ? React.createElement("span", { title: "この期間は集計に入る記録が無く、表示専用の記録だけがあります（" + _extraBrk(_extraRow) + "・集計は全て—）", style: { fontSize: 8.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 4px", marginLeft: 4, whiteSpace: "nowrap" } },
+            _extraRow.every(function(r) { return _elIsThru(r.signal); }) ? "スルーのみ" : "算入記録なし") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
         otd(dn + "日", { fontWeight: 600, color: "#555" }),
         cntCell(x.length, dn, { fontWeight: 700 }),
         reachCell(reachOf(x), x.length, dn),
@@ -5995,9 +6016,10 @@ function EntryLogView(_ref_elv2) {
         friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x), dn),
         realCell(t.real, t.realCnt, dn)));
       if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
-        React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件" + (_thruRow.length ? "＋スルー" + _thruRow.length + "件" : "") + "）"),
-        _thruRow.length ? React.createElement("div", { style: { fontSize: 9, color: "#9CA3AF", fontWeight: 600, margin: "0 0 4px" } }, "※グレーの「ス」行＝スルー記録。件数・損益の集計には入りません（表示のみ）") : null,
-        _recTable(x.concat(_thruRow).sort(_byDateAsc), "full", "ovp_" + k + "_", null))));
+        React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件" + (_extraRow.length ? "＋表示のみ" + _extraRow.length + "件" : "") + "）"),
+        _extraRow.length ? React.createElement("div", { style: { fontSize: 9, color: "#9CA3AF", fontWeight: 600, margin: "0 0 4px" } }, "※淡色の行＝集計に入らない記録（" + _extraBrk(_extraRow) + "）。件数・損益・率のどれにも入りません（表示のみ）") : null,
+        _recTable(x.concat(_extraRow).sort(_byDateAsc), "full", "ovp_" + k + "_", null,
+          function(r) { return _extraRow.indexOf(r) >= 0 ? _extraLbl(r) : null; }))));
     });
     // 合計・平均は「※参考」期間（EMA位置ズレの4月＝_elIsEmaRefPeriod）を除外。参考行自体は上に表示し、集計だけ除く。件数・日数・到達/利確/損切り率・1日平均も参考期間を抜いた母数で算出 2026-07-18
     var _isRefKey = function(k) { return _elIsEmaRefPeriod(k, g); };
@@ -6036,18 +6058,23 @@ function EntryLogView(_ref_elv2) {
   var _td = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
 
   // ===== 記録テーブル（mode "day"=日別の簡易列 / "full"=一覧・展開明細の詳細列）。行タップで明細カード =====
-  var _recTable = function(recs, mode, keyPfx, limit) {
+  // dimOf(r)＝表示専用（集計に入らない）記録のラベルを返す任意関数 2026-07-27。返した行は淡色＋グレーのバッジで出す。
+  // スルー/不算入は_elNotInclBadge＋_elRowStyleWithCollが元から色分けするので、それ以外（データのみ/旧記録など）だけを拾う。
+  var _recTable = function(recs, mode, keyPfx, limit, dimOf) {
     if (!recs.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし");
     var shown = (limit && recs.length > limit) ? recs.slice(0, limit) : recs;
     var colN = mode === "day" ? 8 : 14;   // full: 2026-07-16 損切り・保有列追加で11→13／2026-07-18 ライン列追加で13→14
     var body = [];
     shown.forEach(function(r) {
       var s = r.signal, a = _ai(r);
+      var _dimLbl = (dimOf && !_elIsExcluded(s)) ? dimOf(r) : null;   // スルー/不算入は専用バッジ・行色があるので二重に付けない
       var ek = keyPfx + r.stock + "_" + (s.id || s.time || "");
       var on = expKey === ek;
       var cells = [
         _td((on ? "▶ " : "") + r.date.slice(5) + "(" + _dow(r.date) + ")", { textAlign: "left", paddingLeft: 8, fontWeight: 700 }),
-        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r, _collScope), _elFillRiskNode(r), _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null), { color: "#666" }),
+        _td(React.createElement("span", null, React.createElement("div", null, s.time || _dash, _minBarBadge(s)), _epIncompleteMark(s), _elCollMarkNode(data, r, _collScope), _elFillRiskNode(r),
+          _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s))
+            : (_dimLbl ? React.createElement("div", { style: { marginTop: 1 } }, React.createElement("span", { title: "集計に入らない記録（表示のみ）", style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#78716C", background: "#F5F5F4", border: "1px solid #D6D3D1", borderRadius: 3, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, _dimLbl)) : null)), { color: "#666" }),
         _td(r.stock, { color: "#9A3412", fontWeight: 700 })
       ];
       if (mode === "day") {
@@ -6081,7 +6108,7 @@ function EntryLogView(_ref_elv2) {
           _td(_elHoldMinNode(s, a.alpha, a.cutLine))
         ]).concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60) : _dash)]);
       }
-      body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, _collScope)) }, cells));
+      body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, _collScope), _dimLbl ? { opacity: 0.6, background: "#FAFAF9", borderLeft: "3px solid #D6D3D1" } : null) }, cells));
       if (on) body.push(React.createElement("tr", { key: ek + "_c" },
         React.createElement("td", { colSpan: colN, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
           React.createElement(EntryLogCard, { record: r, data: data, collScope: _collScope, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate }))));
