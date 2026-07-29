@@ -5765,7 +5765,7 @@ function DayView(_ref57) {
                 React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                 s.time || "—", _minBarBadge(s)),
               _epIncompleteMark(s), _elCollMarkNode(data, r), _elFillRiskNode(r),
-              _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null
+              (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()   // 2026-07-29 選外(データのみ)も無印にしない
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", whiteSpace: "nowrap" } }, _elSigCell(s, "flex-start")),
@@ -6107,7 +6107,7 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             React.createElement("div", null, s.time || "—", _minBarBadge(s)),
             _epIncompleteMark(s), _elCollMarkNode(data, r), _elFillRiskNode(r),
-            _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null),
+            (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()),   // 2026-07-29 選外(データのみ)も無印にしない
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
             _elSigCell(s, "center")),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de", width: "1%", background: _elSpecialUsed(s) ? "#FEF3C7" : null } },
@@ -6329,8 +6329,14 @@ function DayView(_ref57) {
       var _wkRow = function(label, labelColor, recs, isTotal, rowKey, tradeTags) {
         // 合計額算入: 除外記録(includeInTotal===false)はサマリ集計から外す。明細展開(_wkExpRow)は全件のまま。2026-06-18
         // 今週テーブルの各行（週合計・日別）は全銘柄横断のグランド集計＝②データのみ（候補で未指定）も除外 2026-07-22e（銘柄別のα推奨は_wkGroupsで別途・据置）。
-        var _exclN = (recs || []).filter(function(r) { return _elIsExcluded(r.signal); }).length;  // この日に不算入があれば青点を出す
-        recs = (recs || []).filter(function(r) { return _elInclTotalAmt(data, r); });
+        // 2026-07-29 除外件数を「合計から外れた記録すべて」に拡張。旧実装は _elIsExcluded（不算入/スルー）だけを
+        //   数えていたが、下の行は _elInclTotalAmt で【選外銘柄（②データのみ）】も落とす。選外は新規記録なら
+        //   自動で includeInTotal=false が入り不算入として数えられるものの、includeInTotal 未設定の旧記録は
+        //   _isDataOnly 側でしか落ちない（app-05.js:3135 で両者は排他）ため、件数からも除外列からも黙って消えていた。
+        //   件 = st.total + _exclN なので、ここを揃えると「件＝生の記録数」「除外＝合計に入らなかった内訳」が復活する。
+        var _wkAllRecs = recs || [];
+        var _exclN = _wkAllRecs.filter(function(r) { return !_elInclTotalAmt(data, r); }).length;  // 合計から外れた記録があれば青点を出す
+        recs = _wkAllRecs.filter(function(r) { return _elInclTotalAmt(data, r); });
         var st = _elCalcStats(recs, data);
         // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_wkRecsM＝被り除外後・件数系(st/件/到達等)はrecsのまま 2026-07-07
         var _wkRecsM = recs.filter(function(r) { return !_elCollExcluded(data, r); });   // 金額集計母数＝時間かぶり除外のみ（2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）
@@ -6421,7 +6427,7 @@ function DayView(_ref57) {
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
-                _wkTh(React.createElement("span", { style: { color: "#374151" } }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
+                _wkTh(React.createElement("span", { style: { color: "#374151" }, title: "EPに到達した件数＝利確＋△＋確定損＋損切りの合計。件＝到達＋未達＋除外" }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
                 _wkTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "最終損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／最終損益を縦積み。最終＝○が続く限り手じまい足まで保有した損益＝最終損益列と同値" }, "詳細損益")), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
               )
             ),

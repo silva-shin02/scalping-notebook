@@ -3261,6 +3261,22 @@ function _elNotInclBadge(extra, s) {
       background: _thru ? "#E5E7EB" : "#E0F2FE", border: "1px solid " + (_thru ? "#9CA3AF" : "#7DD3FC"), borderRadius: 3, padding: "0 4px",
       whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" }, extra || {}) }, _thru ? "スルー" : "不算入");
 }
+// 合計から外れた記録のバッジ（スルー／不算入／データのみ）2026-07-29。
+// 旧: 各表の行が _elIsExcluded だけを見てバッジを出していたため、includeInTotal 未設定の選外銘柄
+//   （_isDataOnly 側でしか落ちない記録・app-05.js:3135 で両者は排他）が無印のまま合計から静かに消え、
+//   「行は見えているのに合計に入らない・理由も出ない」状態になっていた。合計に入らない理由を必ず1つ出す。
+// r={stock,date,signal}。合計に入る記録では null を返す。
+function _elOutOfTotalBadge(data, r) {
+  var s = r && r.signal;
+  if (!s) return null;
+  if (_elIsExcluded(s)) return _elNotInclBadge(null, s);
+  if (_isDataOnly(data, r)) return React.createElement("span", {
+    title: "その日の「本日の取引銘柄」に指定しなかった候補銘柄の記録＝データのみ（分析母数には残すが合計からは外す）",
+    style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#4338CA",
+      background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 3, padding: "0 4px",
+      whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" } }, "データのみ");
+  return null;
+}
 // 不算入行に重ねるstyle（淡色＋水色の左ライン＋淡い水色背景）。既存rowスタイルへ Object.assign で合成。
 function _elNotInclRowStyle(s) {
   if (_elIsThru(s)) return { opacity: 0.6, background: "#F5F5F4", borderLeft: "3px solid #9CA3AF" };
@@ -3558,13 +3574,15 @@ function _elOsMaxFiltered(s, alpha) {
   if (!legs.length) return null;
   var epIdx = -1;
   if (a != null) { var r = _epResolve(s, a); if (r) epIdx = r.epIdx; }
-  var _cut = function(e) { return e === "×" || e === "損切り済"; };
+  var _cut = function(e) { return e === "×" || e === "損切り済"; };            // 待ち足(EP前)用＝明示×のみ（_epResolve.xBefore と同基準。未記録から見送りは推定できない）
+  var _cutHold = function(e) { return e === "×" || e === "損切り済" || !e; };   // 保有足(EP以降)用＝未設定も降りる（_cutExp/_elHoldFinalParts:4890 と同規約）2026-07-29
   var max = null;
   for (var i = 0; i < legs.length; i++) {
     var o = legs[i];
     if (i === epIdx) { if (o.h != null && (max == null || o.h > max)) max = o.h; continue; }
-    var exp = (epIdx >= 0) ? (i > epIdx ? _epNextExpAt(s, i - 1) : _epNextExpAt(s, i)) : o.exp;   // 保有側=足i-1の引け/待ち側=足iの引けの次足期待度（採用αでは従来と同値・新記録のnextExpN対応）2026-07-06e
-    if (_cut(exp)) break;  // ×/損切り済 → この足以降を除外（打ち切り）
+    var _isHold = (epIdx >= 0 && i > epIdx);   // EP以降の保有足か＝未設定も降りる側で判定する 2026-07-29
+    var exp = (epIdx >= 0) ? (_isHold ? _epNextExpAt(s, i - 1) : _epNextExpAt(s, i)) : o.exp;   // 保有側=足i-1の引け/待ち側=足iの引けの次足期待度（採用αでは従来と同値・新記録のnextExpN対応）2026-07-06e
+    if (_isHold ? _cutHold(exp) : _cut(exp)) break;  // ×/損切り済（保有足は未設定も）→ この足以降を除外（打ち切り）
     if (o.h != null && (max == null || o.h > max)) max = o.h;
   }
   return max;
@@ -3595,7 +3613,8 @@ function _elOsMaxCapped(s, alpha) {
   var legs = _epLegs(s);   // 2026-07-25 slice(0,3)を撤去＝OS4・OS5（H1/H2枠）も対象。_epNextExpAt(s,x)の有効域はx=0〜3なので i-1 は最大3で範囲内
   if (!legs.length) return null;
   var epIdx = -1; var _r = _epResolve(s, a); if (_r) epIdx = _r.epIdx;
-  var _cut = function(e) { return e === "×" || e === "損切り済"; };
+  var _cut = function(e) { return e === "×" || e === "損切り済"; };            // 待ち足(EP前)用＝明示×のみ（_epResolve.xBefore と同基準）
+  var _cutHold = function(e) { return e === "×" || e === "損切り済" || !e; };   // 保有足(EP以降)用＝未設定も降りる。下の「_elRideVals.mxと常に一致する」を未設定でも成立させる 2026-07-29
   var max = null;
   for (var i = 0; i < legs.length; i++) {
     var o = legs[i];
@@ -3603,7 +3622,7 @@ function _elOsMaxCapped(s, alpha) {
     //   _epNextExpAt(s, i-1)＝足i-1の引けで下した『足iへ継続するか』の判断（2026-07-06の次足期待度統一）なので、×＝足iは保有していない＝実現最高に入れてはいけない。
     //   旧実装は「算入してから打ち切り」で降りた次の足を1本ぶん含んでいた（OS1〜3スライス時代はEP=OS1の記録で表に出なかったが、2026-07-25のOS1〜5拡張で露見:
     //   高値5/7/7・次○→次○→次×・OS4高値9 の記録が実現最高9＝保有していない足の高値を表示した）。これで _elRideVals.mx（実現到達）と常に一致する。
-    if (epIdx >= 0 && i > epIdx && _cut(_epNextExpAt(s, i - 1))) break;
+    if (epIdx >= 0 && i > epIdx && _cutHold(_epNextExpAt(s, i - 1))) break;
     if (o.h != null && (max == null || o.h > max)) max = o.h;
     if (i === epIdx) continue;
     if (epIdx >= 0 && i > epIdx) continue;   // 保有足の打ち切りは算入前に済ませた
@@ -3665,8 +3684,14 @@ function _elDynResult(s, alpha, cutLine) {
     var _rv2 = _epResolve(s, alpha);
     if (_rv2) {
       if (_rv2.judge !== "ok") return "miss";
-      if ((_rv2.ep.h - alpha) >= cutLine) return "ng";
+      // 2026-07-29 終値撤退方式(2026-07-27 cacf2f5)へ追従。旧実装はEP足の高値が損切りラインに触れた時点で
+      //   無条件に "ng" を返し、下の終値判定に到達しなかった＝「触れたら必ず負け」＝ラインで約定する前提のまま
+      //   （cacf2f5 の移行対象リストからこの関数が漏れていた）。終値撤退方式では触れた足の終値で撤退するので、
+      //   終値が利益側に戻っていれば勝ち。判定順を入れ替えて終値を優先する。
+      //   終値が不明なときだけライン接触の事実を優先して負けへ倒す＝_elRideVals.stoppedLoss(app-05.js) の
+      //   「exitC==null ならライン接触を優先」と同じ倒し方で、保守側の挙動は維持する。
       if (_rv2.ep.c != null) return _rv2.ep.c < alpha ? "ok" : _rv2.ep.c === alpha ? "draw" : "ng";
+      if ((_rv2.ep.h - alpha) >= cutLine) return "ng";
       return s.result;
     }
   }
@@ -3700,7 +3725,10 @@ function _elWinBucket(s, alpha, cutLine) {
   }
   var legs = _epLegs(s);
   var epIdx = r.epIdx;
-  var _cut = function(e) { return e === "×" || e === "損切り済"; };
+  // 2026-07-29 未設定も「降りる」側へ（正本 _cutExp＝_elRideVals内／_elHoldFinalParts:4890 の
+  //   「×/損切り済/未設定＝ここで手じまい」と同規約）。この _cut は下の i !== epIdx＝EP以降の保有足でしか
+  //   使わないので、EP前の待ち足（_epResolve.xBefore＝明示×のみ）の扱いは変わらない。
+  var _cut = function(e) { return e === "×" || e === "損切り済" || !e; };
   var hasTri = false, i;
   for (i = 0; i < epIdx; i++) { if (_epNextExpAt(s, i) === "△") hasTri = true; }   // 次足期待度（採用αでは=legs[i].exp）2026-07-06e
   var exitC = null, stopped = false;
@@ -4266,6 +4294,20 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
   }
   return _epInner;
 }
+// 【有効な到達】の単一源 2026-07-29（ユーザー定義）: 次の3条件をすべて満たすもの。
+//  ①EPに到達している ②×見送りでない（_epResolve.judge==="ok"＝EPより手前の足で×宣言していない＝実際にエントリーした）
+//  ③到達足(EP足)の次足期待度が「降りる」側でない（×／損切り済／未設定＝_cutExp と同基準）。
+// ＝「到達したが到達足で降りる判断だった」「×宣言後に到達した」記録を除いた到達。スルーは呼び出し側の母数で既に外れる。
+// ※単純到達 _epReachedAt（下）は成立率・時間帯別など別目的の指標が使うので置き換えないこと。
+//   また「件＝到達＋未達＋除外」が成立する内訳型の表（本日/今週の損益データ表）でこれを使うと行の足し算が壊れる。
+//   使ってよいのは到達が独立列になっている表（記録帳の全体損益（期間別）・期間集計）だけ。
+function _elIsValidReach(s, alpha) {
+  if (!s || alpha == null) return false;
+  var rr = _epResolve(s, alpha);
+  if (!rr || rr.epIdx < 0 || rr.judge !== "ok") return false;
+  var e = _epNextExpAt(s, rr.epIdx);
+  return !(e === "×" || e === "損切り済" || !e);
+}
 // 成立率の到達判定: v2=3本以内にα値到達、旧記録=OS値≥α。
 function _epReachedAt(s, alpha) {
   if (s == null || alpha == null) return false;
@@ -4614,19 +4656,24 @@ function _elHoldStopDetail(hs, alpha) {
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", opacity: 0.6, fontSize: 9 } },
     React.createElement("span", { key: "op", style: { color: "#888" } }, "（"), nodes, React.createElement("span", { key: "cp", style: { color: "#888" } }, "）"));
 }
-// 損切り額ノード「ランク 損切額 損」（損益列。amount=損切り額・負）。損益変化を表す「損」(丸囲みなし)を損益額の右に配置。
+// 撤退額ノード「ランク 金額 [損]」（損益列）。呼び出し元は「ラインに触れて撤退した足」の額を渡す。
+// 2026-07-29 終値撤退方式へ追従: 以前は無条件に「損」を付けていたが、触れた足の終値で撤退するため
+//   額がプラスになることがあり「+900円 損」という矛盾表示になっていた。負のときだけ「損」を付ける。
 function _elHoldStopAmtNode(amount, key) {
   return React.createElement("span", { key: key || "sa", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 700 } },
     _elHoldGradeBadge(_profitGradeFromPnl(amount, 1)),
     React.createElement("span", { key: "y", style: { color: amount > 0 ? "#C0392B" : amount < 0 ? "#1E8449" : "#888" } }, amount.toLocaleString() + "円"),
-    React.createElement("span", { key: "x", style: { color: "#333", fontWeight: 800, marginLeft: 3 } }, "損"));
+    amount < 0 ? React.createElement("span", { key: "x", style: { color: "#333", fontWeight: 800, marginLeft: 3 } }, "損") : null);
 }
-// EP損益またはH1で損切り済みのインラインセル表示「損切 （高値→確定値/α値比） / ランク 損切額 損」。
-// amount=損切り額(=H1結果損益・負)。hs/alphaを渡すと明細を薄く（）で表示（無ければ「（ー）」）。
+// ラインに触れて撤退した足のインラインセル表示「損切|撤退 （高値→確定値/α値比） / ランク 額 [損]」。
+// amount=撤退足の損益。hs/alphaを渡すと明細を薄く（）で表示（無ければ「（ー）」）。
+// 2026-07-29 終値撤退方式へ追従: 以前は接触しただけで無条件に「損切」と表示していたため、
+//   損切り件数（_elIsStopFinal＝触れて且つ損）には入らない記録が行だけ損切りに見えていた。
+//   額が負なら「損切」、利益/同値で降りたなら「撤退」に出し分ける。
 function _elHoldStopDoneNode(amount, key, hs, alpha) {
   var _detail = (hs && alpha != null) ? _elHoldStopDetail(hs, alpha) : null;
   return React.createElement("span", { key: key || "sd", style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontSize: 11 } },
-    React.createElement("span", { key: "lbl", style: { color: "#888", fontWeight: 700, marginRight: 2 } }, "損切"),
+    React.createElement("span", { key: "lbl", title: amount < 0 ? "損切りラインに触れ、その足の終値で撤退＝損だったので損切り" : "損切りラインに触れて撤退したが、その足の終値は損ではないので損切りではない", style: { color: "#888", fontWeight: 700, marginRight: 2 } }, amount < 0 ? "損切" : "撤退"),
     _detail != null ? _detail : React.createElement("span", { key: "dash", style: { color: "#888", opacity: 0.6 } }, "（ー）"),
     React.createElement("span", { key: "sep", style: { color: "#ccc", margin: "0 2px" } }, "/"),
     _elHoldStopAmtNode(amount, "a"));
@@ -8476,10 +8523,14 @@ function EntryRecordForm(_ref_erf) {
           if (_ef.judge !== "ok" || _ef.epHigh == null || _ef.alpha == null) return null;
           var _cl = _fCutLine != null ? _fCutLine : 10;
           var _df = _ef.epHigh - _ef.alpha;
-          var _pnl = _df >= _cl ? -Math.round(_df * 100) : (_ef.epConf != null ? Math.round((_ef.alpha - _ef.epConf) * 100) : null);
+          // 2026-07-29 終値撤退方式へ追従: 旧実装は高値がラインに触れたら -(高値−α)×100（＝ラインで約定する前提の
+          //   旧式。_elDynPlanned が「旧実装の分岐は廃止」として捨てた式）を使っていたため、入力中にこの欄が出す額と
+          //   保存後に表・集計が出す額（撤退足の終値ベース）が必ず食い違っていた。終値(epConf)基準に一本化する。
+          //   終値が未入力のときだけ、旧式を保守的なフォールバックとして残す（_elRideVals と同じ倒し方）。
+          var _pnl = (_ef.epConf != null) ? Math.round((_ef.alpha - _ef.epConf) * 100) : (_df >= _cl ? -Math.round(_df * 100) : null);
           if (_pnl == null) return null;
           return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: _pnl > 0 ? "#C0392B" : _pnl < 0 ? "#1E8449" : "#888" } },
-            "EP損益 " + (_pnl > 0 ? "+" : "") + _pnl.toLocaleString() + "円" + (_df >= _cl ? "（損切り）" : ""));
+            "EP損益 " + (_pnl > 0 ? "+" : "") + _pnl.toLocaleString() + "円" + ((_df >= _cl && _pnl < 0) ? "（損切り）" : ""));   // 損切り＝ラインに触れて【かつ】損。触れても終値が利益側なら付けない
         })();
         return React.createElement(React.Fragment, null,
           React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }) },
@@ -8622,7 +8673,9 @@ function EntryRecordForm(_ref_erf) {
           var _pvV2 = null;
           if (_useV2P) {
             var _dfV2 = _epFormState.epHigh - _fAlpha;
-            _pvV2 = _dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100) : (_epFormState.epConf != null ? Math.round((_fAlpha - _epFormState.epConf) * 100) : null);
+            // 2026-07-29 上のEPチップと同じく終値(epConf)基準へ一本化。旧式 -(高値−α)×100 は
+            //   ラインで約定する前提で、保存後の表・集計（撤退足の終値ベース）と必ずズレていた。
+            _pvV2 = (_epFormState.epConf != null) ? Math.round((_fAlpha - _epFormState.epConf) * 100) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100) : null);
           }
           var _sgnP = _useV2P ? (_pvV2 == null ? null : _pvV2 > 0 ? "+" : _pvV2 < 0 ? "-" : null) : fPlanSign;
           var _txtP = _useV2P

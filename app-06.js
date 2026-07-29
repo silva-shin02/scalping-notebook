@@ -812,7 +812,7 @@ function _elTimeOfDaySectionV2(recs, aiOf) {
     var o930 = _elMedian(c930.osv), oLate = _elMedian(late.osv);
     if (o930 != null && oLate != null) items.push(React.createElement("span", null, "OS中央値は 〜9:30=", _elInsightEmV2(o930 + "円"), "・9:31以降=", _elInsightEmV2(oLate + "円"), o930 > oLate ? "＝早い時間ほどOSが深い（強い初動）。" : "。"));
   }
-  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切り発生。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
+  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切りラインに触れ、その足の終値で撤退した結果が損だったもの（2026-07-27 終値撤退方式・_elIsStopFinal。触れても終値が利益側なら損切りに数えない）。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
 }
 // シグナル別の成功度ランキング: 「損失が出なかった割合(損失なし率)」と勝率で並べ替え＝どのシグナルが成功しやすいか。
 // 複数タグの記録は各タグに算入。損失=損切り or EP損益<0（未達/×見送りは取引なし=損失なし扱い）。採用α基準・aiOf(r)→{alpha,cutLine}。
@@ -1555,7 +1555,9 @@ function _elBaseAlphaEval(recs, aiOf, a) {
     var determinable = epStop || h1Stop || hd != null;   // H1までの結果が判定できる記録だけを母数に
     if (determinable) {
       scN++;
-      if (epStop || h1Stop) stopH1N++;     // EP足 or H1足で損切り＝損切り扱い
+      if (epStop || h1Stop) stopH1N++;     // EP足 or H1足が損切りラインに【接触】＝スコア用の stopRate。2026-07-29追記:
+      //   これは接触基準で、同じ関数の 1553行 stopN（_elIsStopFinal＝触れて且つ終値が損）とは別定義。
+      //   スコアは「H1までで測る」設計（1554）なので接触基準のまま据え置く。表示名は「損切り率(H1接触)」に統一済み。
       else if (hd != null && hd > 0) h1WinN++;   // 損切りでなく、H1損益>0＝H1勝ち
     }
   });
@@ -2679,7 +2681,7 @@ function _elAddAlphaDetailV2(recs, aiOf, holiSet, fullRecs) {
     _lbl("日付別カウンターファクタル（主表）: 各記録日の推奨基本α＋加算X円で入っていたら手仕舞いでどうだったか（0円＝足さない・★赤＝条件を満たす推奨／★青＝条件緩和の参考推奨・淡色＝条件[到達" + Math.round(_EL_BASE_MIN_ERATE * 100) + "%・損切り(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + minN + "件・黒字]を満たさない加算／前提損切り値" + _elAnaCutCur + "円で評価／頻度＝数字が小さいほど高頻度）"),
     _dateRows.length ? _elv2Table(["追加α", "E成立", "到達率", "頻度", "利確率(最終)", "損切り率(最終)", "最終損益(平均/中央/Σ)", "勝ち/負け平均"], _dateRows) : React.createElement("div", { style: { fontSize: 10.5, color: "#bbb", padding: "4px 0" } }, "推奨基本αが算出できる記録がありません（履歴不足）"),
     _lbl("（参考）現在の推奨基本α" + base + "円＋加算の固定スイープ（＋1〜" + _EL_BASE_ADD_MAX + "円・H1基準・旧方式＝記録日に依らず今の推奨基本αを土台に一様加算・★なし）"),
-    _elv2Table(["追加α", "合計α", "到達率", "有効件数", "損切り率", "H1勝率", "想定損益"], addRows),
+    _elv2Table(["追加α", "合計α", "到達率", "有効件数", "損切り率(H1接触)", "H1勝率", "想定損益"], addRows),
     insight);
 }
 // 推奨基本α表（銘柄/期間グループ別）: groups=[{label,recs}]・cutFn(r)→損切り値。各グループの推奨基本α(_elBaseAlphaPick・5〜20・
@@ -4003,8 +4005,13 @@ function _elDayStockBenchV2(_ref) {
 // 【この分析の中核定理】非損切り＝深さ0.._expD のどの足も「高値−α≥C」を満たさない（_elPlanIsStop/_elHoldIsStop/_elHoldIsStop2 の判定式の対偶）。
 //   mx は同じ 0..exitD(=_expD) の最大なので **逆行 < C が構造的に保証される**。また _epResolve が legs[i].h>=alpha でEPを立てるので **逆行 >= 0** も保証。
 //   ⇒ 損切り値を C' = 最悪逆行+1 に詰めても、全生存者の逆行 < C' なので **生存者は1件も損切りに変わらず、手じまい足も損益も完全に不変**。
-//   一方 _epHoldLadder は「最初に h−α≥C に触れた足の高値」で損失を決めるので、C を詰めると損切り組の停止足は早まるか同じ＝**損失は縮むか同額**（実測: C20→15 で -12,000円→-12,000円＝同額のケースあり＝「必ず縮む」ではない）。
-//   ⇒ C' = 最悪逆行+1 は「この標本では損切り率も生存損益も悪化させず、損切り組の負け額は縮むか同額」のパレート改善。★はここに置く。
+//   一方 _epHoldLadder は【2026-07-27の終値撤退方式より前は】「最初に h−α≥C に触れた足の高値」で損失を決めていたので、
+//   C を詰めると損切り組の停止足は早まるか同じ＝損失は縮むか同額、と言えた（実測: C20→15 で -12,000円→-12,000円＝同額のケースあり）。
+//   2026-07-29 訂正: 現在の _epHoldLadder(app-05.js) は撤退足の【終値】で損益を決めるため、この定理は成り立たない。
+//   C を詰めると撤退足が前へ移り、その足の終値が元の撤退足より悪いことがある（高値と終値の大小は独立）。
+//   さらに、接触しただけで損切りにならなかった記録（終値が利益側）が、C を詰めた結果ほんとうに損切りへ転ぶこともある。
+//   ⇒ C' = 最悪逆行+1 について断定できるのは「この標本では損切り率も生存側の損益も悪化させない」までで、
+//     損切り組の損益は再計算しないと分からない。★の位置は据え置くが、表示文からは「負け額は縮むか同額」を外してある。
 //   実測検証(2026-07-16f): C=20/生存12件/最悪逆行14 → C'=15 で生存者12件が顔ぶれ・損益とも完全同一・損切り組の損失も悪化なし。単調性(C5→最悪4/C8→7/C10→8/C12→11/C15→14/C20→14)も確認＝常に「最悪<C」。
 // ※ただし最悪値は標本の max ＝1件の外れ値に全依存。件数が薄いうちは参考表示に留め、「将来これを超える逆行が出ない保証はない」を明示する。
 function _elMaeStats(entered, aiOf, C) {
@@ -4096,7 +4103,7 @@ function _elStopMaeSectionV2(entered, aiOf) {
   var items = [
     React.createElement("span", null, "損切りを免れた", _elInsightEmV2(rows.length + "件"), "の逆行は平均", _elInsightEmV2(meanMae + "円"), "・中央", _elInsightEmV2(medMae + "円"), "・最悪", _elInsightEmV2(maxMae + "円", "#C0392B"), "。"),
     (!_thin && canTighten)
-      ? React.createElement("span", null, "損切り値", _elInsightEmV2(_cutLbl), "に対し最悪でも", _elInsightEmV2(maxMae + "円"), "で収まっている＝", _elInsightEmV2(floorCut + "円まで詰めても"), "この母数では損切り率も生存側の損益も1円も変わらず、", _elInsightEmV2("損切りになった記録の負け額は縮むか同額（悪化しない）", "#1E8449"), "。")
+      ? React.createElement("span", null, "損切り値", _elInsightEmV2(_cutLbl), "に対し最悪でも", _elInsightEmV2(maxMae + "円"), "で収まっている＝", _elInsightEmV2(floorCut + "円まで詰めても"), "この母数では損切り率も生存側の損益も1円も変わらない", _elInsightEmV2("（損切り組の損益は要確認）", "#B45309"), "。")
       : (_thin
         ? React.createElement("span", null, "件数が", _elInsightEmV2(_EL_BASE_MIN_N + "件未満"), "のため「詰められる下限」は参考値（最悪値は1件の外れ値で簡単に動く）。")
         : React.createElement("span", null, "最悪逆行が損切り値に肉薄＝", _elInsightEmV2("詰める余地なし"), "。")),
@@ -4146,7 +4153,7 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
   var cards = _elv2CardRow([
     _elv2Card("損切り記録", rows.length + "件", "#9A3412", "実現結果=損切り"),
     _elv2Card("損切り値からの超過幅", "平均" + _elMean(overArr) + " / 中央" + _elMedian(overArr) + "円", "#555", "ラインを超えて伸びた幅"),
-    _elv2Card("損切り損失(平均)", _elPnlFmt(actualArr.length ? Math.round(_elMean(actualArr)) : null), _elPnlColor(actualArr.length ? _elMean(actualArr) : null), rows.length + "件"),
+    _elv2Card("損切り損失(平均)", _elPnlFmt(actualArr.length ? Math.round(_elMean(actualArr)) : null), _elPnlColor(actualArr.length ? _elMean(actualArr) : null), actualArr.length + "件" + (rows.length > actualArr.length ? "（終値未入力" + (rows.length - actualArr.length) + "件を除く）" : "")),   // 2026-07-29 平均の母数は金額が出せた件数(actualArr)。旧表示は rows.length で、件数×平均が合わなかった
     _elv2Card("保有なら利益化", heldBase.length ? Math.round(profitable / heldBase.length * 100) + "%" : "—", heldBase.length && profitable / heldBase.length >= 0.5 ? "#B45309" : "#1E8449", heldBase.length ? profitable + "/" + heldBase.length + "件が保有で利益" : "—")
   ]);
 
@@ -4375,7 +4382,7 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig, recCtx) {
       } })),
     _h("🎚 損切り値の最適化（損切り値別シミュ）", "※全記録に同じ損切り値を当てたときの損切り回数・最終損益（★=最終損益が最大）。逆行＝その損切り値で生き残った取引が踏まれた深さ＝損切り値との差が余裕。損益色は赤=利益だが、逆行は損益ではなく深いほど悪い（赤=損切りに肉薄）"),
     simTbl,
-    _h("📉 逆行（MAE）＝損切りを免れた取引は何円踏まれたか", "※対象＝採用損切り値で損切りにならなかった取引。最悪逆行＋1円がその損切り値を詰められる下限（この母数では損切り率も生存側の損益も変わらず、損切り組の負け額は縮むか同額）"),
+    _h("📉 逆行（MAE）＝損切りを免れた取引は何円踏まれたか", "※対象＝採用損切り値で損切りにならなかった取引。最悪逆行＋1円がその損切り値を詰められる下限（この母数では損切り率も生存側の損益も変わらない。ただし終値撤退方式では損切り組の額は撤退足の終値次第なので、縮むとは限らない）"),
     _elStopMaeSectionV2(entered, aiOf),
     _h("📐 損切りの上振れ・早すぎ検証", "損切りラインを何円超えて伸びたか＋損切りせず保有/最良手仕舞いなら何円だったか＝損切りが早すぎないかの検証"),
     _elStopOvershootSectionV2(rs, aiOf, data, recCtx),
@@ -4386,7 +4393,7 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig, recCtx) {
     insight);
 }
 
-// 最適ホールド本数（記録帳・深掘りタブ／2026-06-14）: EPから+0/+1/+2本…と持ち続けた場合の深さ別の平均損益・損切り率・EP比改善率を集計し、
+// 最適ホールド本数（記録帳・深掘りタブ／2026-06-14）: EPから+0/+1/+2本…と持ち続けた場合の深さ別の平均損益・ライン接触率・EP比改善率を集計し、
 // 全期間で最も期待値の高い手仕舞い本数を示す。_epHoldLadder（E成立分のみ・採用α/損切り基準）を深さ別に転置集計。aiOf(r)→{alpha,cutLine}。
 function _elHoldDepthSectionV2(recs, aiOf) {
   var ladders = [];
@@ -4464,14 +4471,17 @@ function _elExpCalibSectionV2(recs, aiOf) {
     });
   };
   var h1Rows = _expRows(h1g), h2Rows = _expRows(h2g);
-  var hHead = ["H期待", "件数", "実損益", "実勝率", "損切り率", "予想的中率"];
+  // 2026-07-29 「損切り率」→「ライン接触率」へ改称。この列は _elHoldIsStop/_elHoldIsStop2＝そのレグの高値が
+  //   損切りラインに触れたか（接触）で数えており、他セクションの損切り率(_elIsStopFinal＝触れて且つ終値が損)とは
+  //   別物。同じ名前で2つの意味が並ぶのを避ける（変更Eの「ライン接触率(累積)」と同じ整理）。計算は変更なし。
+  var hHead = ["H期待", "件数", "実損益", "実勝率", "ライン接触率", "予想的中率"];
   var h1Table = h1Rows.length ? React.createElement("div", null, React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "H1期待（保有の予想）の的中"), _elv2Table(hHead, h1Rows)) : null;
   var h2Table = h2Rows.length ? React.createElement("div", null, React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", margin: "8px 0 0" } }, "H2期待（さらに保有）の的中"), _elv2Table(hHead, h2Rows)) : null;
   var items = [];
   var o1 = h1g["○"], x1 = h1g["×"];
   if (o1 && o1.hitBase) items.push(React.createElement("span", null, "H1で○（利益を予想）したうちの実勝率は", _elInsightEmV2(Math.round(o1.hit / o1.hitBase * 100) + "%"), Math.round(o1.hit / o1.hitBase * 100) >= 60 ? "＝予想は概ね妥当。" : "＝", _elInsightEmV2("やや過信ぎみ", "#B45309"), "（○予想でも外す場面が多い）。"));
   if (x1 && x1.hitBase) items.push(React.createElement("span", null, "×（損失を予想）の的中は", _elInsightEmV2(Math.round(x1.hit / x1.hitBase * 100) + "%"), "（予想どおり利益が出なかった割合）。"));
-  return React.createElement("div", null, h1Table, h2Table, _elInsightBoxV2(items, { note: "H期待の的中=○なら実H1/H2損益>0、×なら≦0。実損益・損切りは採用α基準・E成立分のみ。" }));
+  return React.createElement("div", null, h1Table, h2Table, _elInsightBoxV2(items, { note: "H期待の的中=○なら実H1/H2損益>0、×なら≦0。実損益は採用α基準・E成立分のみ。ライン接触率＝そのレグの高値が損切りラインに触れた割合＝**接触基準**で、他セクションの「損切り率」（_elIsStopFinal＝触れて**かつ**その足の終値が損）とは別物。実損益は終値ベースなので、接触しても終値が利益側なら損益はプラスのまま出る。" }));
 }
 
 // 計画EP vs 実エントリーの乖離（記録帳・深掘りタブ／2026-06-14）: 実エントリー記録について、計画EP高値と実際の建玉OS水準のズレ、
@@ -4685,7 +4695,7 @@ function _elDowSectionV2(recs, aiOf) {
     var byStop = avail.filter(function(x) { return x.o.cnt >= 2; }).sort(function(a, b) { return (b.o.stop / ((b.o.ok + b.o.ng + b.o.draw) || 1)) - (a.o.stop / ((a.o.ok + a.o.ng + a.o.draw) || 1)); });
     if (byStop.length && byStop[0].o.stop > 0) items.push(React.createElement("span", null, "損切り率が最も高いのは", _elInsightEmV2(byStop[0].d.label + "曜"), "（" + Math.round(byStop[0].o.stop / ((byStop[0].o.ok + byStop[0].o.ng + byStop[0].o.draw) || 1) * 100) + "%）＝この曜日は慎重に。"));
   }
-  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切り発生。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
+  return React.createElement("div", null, bar, tbl, items.length ? _elInsightBoxV2(items, { note: "曜日は記録日付から算出。OS値=寄り足の高値（水準線比）の中央値（主）と平均（副）を併記（OS値は右偏なので典型値は中央値）／E到達率=3本以内にα到達（×見送り含む）／E後の勝率=エントリー（E成立）後にEP損益が利益だった割合（敗率・未達率はE到達率の裏返しなので省略）／損切り率=想定orH1orH2で損切りラインに触れ、その足の終値で撤退した結果が損だったもの（2026-07-27 終値撤退方式・_elIsStopFinal。触れても終値が利益側なら損切りに数えない）。EP/H1損益はE成立（エントリーできた）分のみの平均＋合計。未達（α未到達）・×見送りは母数に含めない。採用α基準。" }) : null);
 }
 
 // ===== 未達記録の分析（記録帳・銘柄別タブ「未達」／2026-06-22）=====
@@ -5973,7 +5983,9 @@ function EntryLogView(_ref_elv2) {
         else if (pnl != null && pnl < 0) { ln++; lSum += pnl; lCnt++; }   // 損切り以外の負け（同値0は数えない＝利確の>0と対称）
       });
       return { n: sn, avg: sCnt ? Math.round(sSum / sCnt) : null, rate: wn ? Math.round(sn / wn * 100) : null,
-               lossN: ln, lossAvg: lCnt ? Math.round(lSum / lCnt) : null, lossRate: wn ? Math.round(ln / wn * 100) : null };
+               lossN: ln, lossAvg: lCnt ? Math.round(lSum / lCnt) : null, lossRate: wn ? Math.round(ln / wn * 100) : null,
+               wn: wn,                          // E成立母数＝利確/損切り/損失の分母。到達セルに併記する 2026-07-29
+               noCloseN: sn - sCnt };           // 損切りのうち撤退足の終値が未入力＝金額を出せない件数（件数と平均で母数が違う理由）2026-07-29
     };
     // 到達: EPに到達した「有効な」件数 2026-07-29（ユーザー要望で単純到達→有効到達へ変更）。
     //  有効＝①EPに到達している ②×見送りでない（judge==="ok"＝EPより手前の足で×宣言していない＝実際にエントリーした）
@@ -5983,15 +5995,8 @@ function EntryLogView(_ref_elv2) {
     //    最終損益の手じまい判定と母数が食い違う。
     //  ※スルー記録はそもそも母数rsに入っていない（表示専用の_extraRow側）ので、ここでの考慮は不要。
     //  ※_epReachedAt 自体は成立率・時間帯別など他9箇所が使うので触らない＝変更はこの表に閉じる。
-    var _reachValidOf = function(rec) {
-      var s = rec && rec.signal, a = _ai(rec).alpha;
-      if (!s || a == null) return false;
-      var rr = _epResolve(s, a);
-      if (!rr || rr.epIdx < 0 || rr.judge !== "ok") return false;
-      var e = _epNextExpAt(s, rr.epIdx);
-      return !(e === "×" || e === "損切り済" || !e);
-    };
-    var reachOf = function(x) { var r = 0; x.forEach(function(rec) { if (_reachValidOf(rec)) r++; }); return r; };
+    //  2026-07-29b 判定本体は _elIsValidReach(app-05.js) へ切り出し＝記録帳📆期間タブの期間集計表と単一源を共有。
+    var reachOf = function(x) { var r = 0; x.forEach(function(rec) { if (_elIsValidReach(rec && rec.signal, _ai(rec).alpha)) r++; }); return r; };
     // 利確: E成立(EP到達して決着＝損切り率と同母数wn)のうち最終損益(（）外main)>0で手じまいした件数・率 2026-07-09
     var winTakeOf = function(x) {
       var wn = 0, tp = 0;
@@ -6040,23 +6045,30 @@ function EntryLogView(_ref_elv2) {
     var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt, days), avgDayLine(v, days)), ex); };   // days渡し＝1日平均でグレード判定 2026-07-23
     var realCell = function(v, cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt, days), avgDayLine(v, days)), ex); };
     // 2026-07-27 2段化: 上段=損切（ラインに触れて損で撤退）／下段=損失（それ以外の負け）。列幅を増やさずに両方出す。
-    var _stopGrp = function(lbl, n, rate, avg, col, sep) {
+    // note: 件数と平均で母数が違うときの理由書き（終値未入力＝金額を出せない件数）2026-07-29
+    var _stopGrp = function(lbl, n, rate, avg, col, sep, note) {
       return React.createElement("span", { style: Object.assign({ display: "block", lineHeight: 1.15 }, sep ? { borderTop: "1px dashed #E4DFD7", marginTop: 2, paddingTop: 2 } : null) },
         React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginRight: 3 } }, lbl),
         React.createElement("span", { style: { fontWeight: 700, color: col } }, n + "件・" + (rate != null ? rate + "%" : "—")),
-        React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8" } }, "平均" + (avg != null ? avg.toLocaleString() : "—") + "円"));
+        React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8" } }, "平均" + (avg != null ? avg.toLocaleString() : "—") + "円"),
+        note ? React.createElement("span", { title: "撤退足の終値が未入力の記録は損益を出せないため、件数には入るが平均・合計からは外れる（ライン接触の事実を優先して損切りには算入＝保守側）", style: { display: "block", fontSize: 8.5, color: "#B45309", fontWeight: 700 } }, note) : null);
     };
     var stopCell = function(st, ex) {
       if (!st || (st.n === 0 && st.lossN === 0)) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
       return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
-        st.n ? _stopGrp("損切", st.n, st.rate, st.avg, "#1E8449", false) : null,
+        st.n ? _stopGrp("損切", st.n, st.rate, st.avg, "#1E8449", false, st.noCloseN ? "終値未入力" + st.noCloseN + "件は金額不明" : null) : null,
         st.lossN ? _stopGrp("損失", st.lossN, st.lossRate, st.lossAvg, "#0F766E", !!st.n) : null), ex);
     };
     // 到達セル: 有効なEP到達件数（主・2026-07-29に単純到達から変更）＋到達率（対 件数=全記録・小書き）＋1日平均（到達÷営業日数・欄が狭いので「1日平均」「〇件」の2行）2026-07-24。日別(g==="day")は各行=1日で冗長・0件は非表示（avgCntLineと同扱い）。
     var reachAvg2 = function(rn, days) { if (!days || g === "day" || !rn) return null; var r1 = Math.round(rn / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); };
-    var reachCell = function(rn, tot, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+    // 2026-07-29 E成立母数(eN)を併記する。到達を「有効な到達」(①EP到達②×見送りでない③到達足の次足期待度が
+    //   降りる側でない)へ絞ったのに対し、右隣の利確/損切り/損失の分母は①②だけのE成立母数(_elDynResultが決着)
+    //   のままで、条件③のぶん 有効到達 ⊊ E成立母数 になる。分母が画面のどこにも出ないと
+    //   「到達2件なのに損切3件」に見えるため、到達セルに小さく出す（rn と eN が同数なら冗長なので出さない）。
+    var reachCell = function(rn, tot, days, ex, eN) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
       React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, rn + "件"),
       tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(rn / tot * 100) + "%") : null,
+      (eN != null && eN !== rn) ? React.createElement("span", { title: "右隣の利確・損切り・損失の分母＝E成立母数（EP到達して決着した件数）。到達（有効）はここからさらに『到達足の次足期待度が×/損切り済/未設定』を除いた数なので、到達の方が少なくなる", style: { display: "block", fontSize: 9, color: "#B45309", fontWeight: 700 } }, "E成立" + eN + "件") : null,
       reachAvg2(rn, days)), ex); };
     // 利確セル: 利益で手じまいした件数・率（旧勝率の位置・色分けは勝率と同じ緑/橙）2026-07-09
     var winTakeCell = function(wt, ex) {
@@ -6087,7 +6099,7 @@ function EntryLogView(_ref_elv2) {
             _extraRow.every(function(r) { return _elIsThru(r.signal); }) ? "スルーのみ" : "算入記録なし") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
         otd(dn + "日", { fontWeight: 600, color: "#555" }),
         cntCell(x.length, dn, { fontWeight: 700 }),
-        reachCell(reachOf(x), x.length, dn),
+        reachCell(reachOf(x), x.length, dn, null, st.wn),
         winTakeCell(winTakeOf(x)),
         stopCell(st),
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
@@ -6104,14 +6116,15 @@ function EntryLogView(_ref_elv2) {
     var rsInc = rs.filter(function(r) { return !_isRefKey(keyOf(r.date)); });
     var _hasRef = _aggKeys.some(_isRefKey);
     var tt = totOf(rsInc), bt = { borderTop: "2px solid #FB923C" };
+    var _ovTotStops = stopsOf(rsInc);   // 到達セルのE成立母数併記と損切りセルで使い回す（2回計算しない）2026-07-29
     var _ovTotDays = _aggKeys.reduce(function(s, k) { return _isRefKey(k) ? s : s + _bizDaysIn(k); }, 0);   // 集計用キーのみ＝スルーだけの期間の営業日は合計日数に加算しない（1日平均を従来値のまま保つ）2026-07-20b
     var totRow = React.createElement("tr", { key: "__ovtot__", style: { background: "#FFF7ED" } },
       otd(React.createElement("span", null, "合計", _hasRef ? React.createElement("span", { title: "4月（EMA位置ズレの参考期間）は合計・平均から除外しています", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※参考除く") : null), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
       otd(_ovTotDays + "日", Object.assign({ fontWeight: 700, color: "#555" }, bt)),
       cntCell(rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
-      reachCell(reachOf(rsInc), rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
+      reachCell(reachOf(rsInc), rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt), _ovTotStops.wn),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
-      stopCell(stopsOf(rsInc), bt),
+      stopCell(_ovTotStops, bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
       friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       realCell(tt.real, tt.realCnt, _ovTotDays, bt));
@@ -7165,7 +7178,11 @@ function EntryLogView(_ref_elv2) {
       var _avgCntLine2 = function(cnt, days) { if (!days || gran === "day" || cnt == null) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };
       var _rows = [];
       _keys.forEach(function(k) {
-        var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), dn = _bizDaysIn(k), _reach = rs.length - rr.miss, on = perExp === k;
+        // 2026-07-29 到達を【有効な到達】へ（全体損益（期間別）_ovPnlTbl と同一の _elIsValidReach を使う。
+        //   この表は到達が独立列で「件＝到達＋未達」の内訳型ではないため、絞っても行の足し算は壊れない）。
+        //   旧: rs.length - rr.miss（_ratesOf の単純到達）＝×見送りも到達足で降りた記録も数えていた。
+        var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), dn = _bizDaysIn(k), on = perExp === k;
+        var _reach = rs.filter(function(r) { return _elIsValidReach(r.signal, _ai(r).alpha); }).length;
         _rows.push(React.createElement("tr", { key: k, onClick: function() { setPerExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
           _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, gran))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           _tdP(dn + "日", { fontWeight: 600, color: "#555" }),
@@ -7185,7 +7202,7 @@ function EntryLogView(_ref_elv2) {
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
               _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("日数"), _thP("件数"),
-              _thP(React.createElement("span", null, "到達", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EP到達件数"))),
+              _thP(React.createElement("span", { title: "有効な到達＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく ③到達足(EP足)の次足期待度が×／損切り済／未設定でないもの。到達しても到達足で降りる判断だった記録・×宣言後に到達した記録・スルーは数えません（2026-07-29・全体損益（期間別）と同基準）" }, "到達", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "有効なEP到達件数"))),
               _thP(React.createElement("span", null, "利確", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
               _thP("損切り率"), _thP("見切り率"),
               _thP("最終損益"), _thP("実現損益"))),
@@ -7194,7 +7211,7 @@ function EntryLogView(_ref_elv2) {
   } else if (view === "deep") {
     _tabBody = _selSigRecsScoped.length ? _cardify([
       React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, "ℹ 深掘りは" + (_floatMode ? "浮き足" : "その他") + "の全記録（応用あり＋応用なし）を各記録の採用α基準で分析（本数最適化・EP位置・執行の学習が目的）。応用α〇は採用αが高いため損切り率は高め・未達で母数から抜けやすい点に注意。基本α/応用αの分離は集計/損切り/未達タブの「分類」トグルで。"),
-      _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・損切り率・EP比改善率）", _detCtl("dp_hold", _selSigRecsScoped)), _detBody("dp_hold", _selSigRecsScoped, function(_drs) { return _elHoldDepthSectionV2(_drs, _ai); }),
+      _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・ライン接触率・EP比改善率）", _detCtl("dp_hold", _selSigRecsScoped)), _detBody("dp_hold", _selSigRecsScoped, function(_drs) { return _elHoldDepthSectionV2(_drs, _ai); }),
       _secH("🎯 次足期待度キャリブレーション", "事前のH期待が実結果とどれだけ一致したか（予想は当たっているか過信か）", _detCtl("dp_calib", _selSigRecsScoped)), _detBody("dp_calib", _selSigRecsScoped, function(_drs) { return _elExpCalibSectionV2(_drs, _ai); }),
       _secH("🚫 次足期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）。集計タブから移設", _detCtl("dp_x", _selSigRecsScoped)), _detBody("dp_x", _selSigRecsScoped, function(_drs) { return _elXSkipSectionV2(_drs, _ai); }),
       _secH("🔺 次足期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）。集計タブから移設", _detCtl("dp_tri", _selSigRecsScoped)), _detBody("dp_tri", _selSigRecsScoped, function(_drs) { return _elTriangleHoldSectionV2(_drs, _ai); }),
