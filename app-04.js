@@ -6467,10 +6467,43 @@ function DayView(_ref57) {
       _elBaseAlphaSimpleBoardV2(data, _alphaBoardStks, date, save)) : null;
     if (!_pbStks.length) return React.createElement(React.Fragment, null, _simpleAlphaEl, _soukatsuEl, _wkMainEl);
     
+    // ===== 選外銘柄（その日の日替わり銘柄に選ばれなかった候補）を主表から切り出す 2026-07-29 =====
+    // 判定は【銘柄レベル】＝候補プール(custom.rotatingStocks)に居て、その日のdailyStockでない銘柄。
+    //   記録レベルの includeInTotal / _isDataOnly は2経路に分かれており（新規記録は自動でincludeInTotal=false、
+    //   未設定の旧記録は_isDataOnly側で合計除外）、_elIsExcluded だけで切ると後者が主表に残って
+    //   「合計行と銘柄行の数字が理由不明でズレる」状態が解消しない。銘柄レベルなら両経路とも同じ表に入る。
+    // ただし手動で合計算入にした記録（includeInTotal=true / totalOverride:"in"）は合計に効いているので主表側へ残す
+    //   ＝「主表の合計＝主表に見えている行」が常に成立する（ユーザー選択 2026-07-29）。
+    var _pbRotPool = (data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
+    var _pbDayStk = (data.dailyStock || {})[date] || "";
+    var _pbIsRotOut = function(stk) { return _pbRotPool.indexOf(stk) >= 0 && stk !== _pbDayStk; };
+    var _pbOutOf = function(r) { return _pbIsRotOut(r.stock) && !_elInclTotalAmt(data, r); };
+    var _pbByStkMain = {}, _pbByStkOut = {};
+    _pbStks.forEach(function(sk) {
+      var _m = [], _o = [];
+      _pbByStk[sk].forEach(function(r) { (_pbOutOf(r) ? _o : _m).push(r); });
+      if (_m.length) _pbByStkMain[sk] = _m;
+      if (_o.length) _pbByStkOut[sk] = _o;
+    });
+    var _pbStksMain = _pbStks.filter(function(sk) { return !!_pbByStkMain[sk]; });
+    var _pbStksOut = _pbStks.filter(function(sk) { return !!_pbByStkOut[sk]; });
+    // 銘柄別の実現損益/エントリー数をバケット単位で出し直す。1銘柄が主表と選外表に割れた場合に
+    // 銘柄スカラー(_pbRealByStk/_pbEntByStk=全記録ぶん)を使うと主表側へ選外分が混じるため。
+    // 割れていない銘柄では従来値と完全一致する（同じ_elInclTotalフィルタ・同じ記録）。
+    var _pbRealOf = function(recs) { var t = 0; (recs || []).forEach(function(r) { if (_elInclTotal(r.signal)) { var v = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); if (v != null) t += v; } }); return t; };
+    var _pbEntOf = function(recs) { var n = 0; (recs || []).forEach(function(r) { if (_elInclTotal(r.signal) && r.signal.entered === true) n++; }); return n; };
+    // 行キー→記録の対応（明細展開_pbExpRow用）。選外表の行は "__out__"+銘柄 で主表と別キーにする
+    // ＝同じ銘柄が両表に出ても展開状態(pnlTableExpandSet)が連動しない。
+    var _pbRowRecs = {};
+
     var _pbAllRecs = [];
-    _pbStks.forEach(function(sk) { _pbAllRecs = _pbAllRecs.concat(_pbByStk[sk]); });
-    // 合計額算入: 統計/合計は除外記録を抜いた _pbAllRecsT で計算（明細・行表示は _pbAllRecs/_pbByStk の全件のまま）2026-06-18。
-    // 本日「合計」行は全銘柄横断のグランド集計＝②データのみ（候補で未指定）も除外 2026-07-22e（銘柄別の自行 _pbRealByStk/_pbEntByStk は_elInclTotalのまま＝据置）。
+    _pbStksMain.forEach(function(sk) { _pbAllRecs = _pbAllRecs.concat(_pbByStkMain[sk]); _pbRowRecs[sk] = _pbByStkMain[sk]; });
+    var _pbOutRecs = [];
+    _pbStksOut.forEach(function(sk) { _pbOutRecs = _pbOutRecs.concat(_pbByStkOut[sk]); _pbRowRecs["__out__" + sk] = _pbByStkOut[sk]; });
+    _pbRowRecs["__total__"] = _pbAllRecs;
+    _pbRowRecs["__outtotal__"] = _pbOutRecs;
+    // 合計額算入: 統計/合計は除外記録を抜いた _pbAllRecsT で計算（明細・行表示は _pbAllRecs/_pbByStkMain の全件のまま）2026-06-18。
+    // 本日「合計」行は全銘柄横断のグランド集計＝②データのみ（候補で未指定）も除外 2026-07-22e。
     var _pbAllRecsT = _pbAllRecs.filter(function(r) { return _elInclTotalAmt(data, r); });
     // 実現損益/エントリー数のグランド積上げも_pbAllRecsT（②データのみ除外済）から再計算＝銘柄別スカラーの単純合算だと候補銘柄が混入するため（override差も正しく反映）2026-07-22e。
     var _pbAllReal = 0, _pbAllEnt = 0;
@@ -6593,8 +6626,13 @@ function DayView(_ref57) {
       );
     };
     var _pbExpRow = function(rowKey) {
-      var expRecs = rowKey === "__total__"
-        ? _pbAllRecs.slice().sort(function(a, b) {
+      // 2026-07-29 行キー→記録は _pbRowRecs 経由（銘柄キー＝主表ぶん／"__out__"+銘柄＝選外表ぶん／
+      //   "__total__"＝主表の合計／"__outtotal__"＝選外表の参考合計）。同じ銘柄が両表に出ても展開が連動しない。
+      var _isTotKey = (rowKey === "__total__" || rowKey === "__outtotal__");
+      var _isOutKey = (rowKey === "__outtotal__" || rowKey.indexOf("__out__") === 0);   // 選外表の行（"__outtotal__"は"__out__"で始まらないので衝突しない）
+      var _stkOfKey = (rowKey.indexOf("__out__") === 0) ? rowKey.slice(7) : rowKey;     // 行キーから実銘柄名（損切りライン入力のcharts参照に使う）
+      var expRecs = _isTotKey
+        ? (_pbRowRecs[rowKey] || []).slice().sort(function(a, b) {
             if (pnlSortOrder === "time") {
               var ta = (a.signal.time || "99:99"), tb = (b.signal.time || "99:99");
               if (ta !== tb) return ta.localeCompare(tb);
@@ -6603,11 +6641,11 @@ function DayView(_ref57) {
             if (a.stock !== b.stock) return a.stock.localeCompare(b.stock);
             return (a.signal.time || "99:99").localeCompare(b.signal.time || "99:99");
           })
-        : (_pbByStk[rowKey] || []).slice().sort(function(a, b) {
+        : (_pbRowRecs[rowKey] || []).slice().sort(function(a, b) {
             return (a.signal.time || "99:99").localeCompare(b.signal.time || "99:99");
           });
       if (!expRecs.length) return null;
-      var sortToggle = rowKey === "__total__"
+      var sortToggle = _isTotKey
         ? React.createElement("div", { style: { display: "flex", gap: 4, padding: "4px 6px" } },
             React.createElement("span", { style: { fontSize: 10, color: "#888", alignSelf: "center" } }, "並び順:"),
             React.createElement("button", {
@@ -6622,18 +6660,18 @@ function DayView(_ref57) {
         : null;
       return React.createElement("tr", { key: rowKey + "_exprow" },
         React.createElement("td", { colSpan: 13, style: { padding: 0, background: "#FFFBF5", borderBottom: "2px solid #FB923C" } },
-          rowKey === "__total__" ? null : React.createElement("div", {
+          _isTotKey ? null : React.createElement("div", {
             style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderBottom: "1px solid #f0ede6", flexWrap: "wrap" }
           },
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "損切りライン"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
               React.createElement("input", {
                 type: "number", inputMode: "numeric", step: "1",
-                value: (function() { var _avc2 = _pbCharts[rowKey + "_" + date]; return _avc2 && _avc2.cutLine != null ? String(_avc2.cutLine) : "15"; })(),
+                value: (function() { var _avc2 = _pbCharts[_stkOfKey + "_" + date]; return _avc2 && _avc2.cutLine != null ? String(_avc2.cutLine) : "15"; })(),
                 onChange: function(e) {
                   var v = _toHankaku(e.target.value).trim();
                   var n = v === "" ? null : (isNaN(Number(v)) ? null : Number(v));
-                  var _ck2 = rowKey + "_" + date;
+                  var _ck2 = _stkOfKey + "_" + date;
                   save(function(prev) {
                     var pCharts = Object.assign({}, (prev && prev.charts) || {});
                     var _ce2 = Object.assign({}, pCharts[_ck2] || {});
@@ -6646,14 +6684,14 @@ function DayView(_ref57) {
                 style: { width: 48, padding: "4px", fontSize: 12, border: "none", outline: "none", background: "#fff", textAlign: "right", boxSizing: "border-box" }
               }),
               _stepBtn(
-                function() { var _ckRef2 = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 15; _ce2.cutLine = _n2 + 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); },
-                function() { var _ckRef2 = rowKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 15; if (_n2 <= 1) return prev; _ce2.cutLine = _n2 - 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); }
+                function() { var _ckRef2 = _stkOfKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 15; _ce2.cutLine = _n2 + 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); },
+                function() { var _ckRef2 = _stkOfKey + "_" + date; save(function(prev) { var pCharts = Object.assign({}, (prev && prev.charts) || {}); var _ce2 = Object.assign({}, pCharts[_ckRef2] || {}); var _n2 = _ce2.cutLine != null ? _ce2.cutLine : 15; if (_n2 <= 1) return prev; _ce2.cutLine = _n2 - 1; pCharts[_ckRef2] = _ce2; return Object.assign({}, prev, { charts: pCharts }); }); }
               )
             ),
             React.createElement("span", { style: { fontSize: 12, color: "#888" } }, "円"),
             (function() {
               // 監査所見1（2026-07-12）: 旧=EP損益合計/結果損益合計(H1)・不算入/被り込み → 最終損益合計（手じまい・_elHoldFinalParts.main）＋_elInclTotal＋被り除外に統一＝折り畳み行/明細表と同一基準。
-              var _recs = (expRecs || []).filter(function(r) { return r && (rowKey === "__total__" ? _elInclTotalAmt(data, r) : _elInclTotal(r.signal)) && !_elCollExcluded(data, r); });   // 2026-07-18g 要審議も最終損益合計バッジに算入（見送りと同じ・姉妹の_inclTpb:5627と統一）。グランド展開(__total__)は②データのみも除外 2026-07-22e
+              var _recs = (expRecs || []).filter(function(r) { return r && (_isOutKey ? !_elIsThru(r.signal) : (rowKey === "__total__" ? _elInclTotalAmt(data, r) : _elInclTotal(r.signal))) && !_elCollExcluded(data, r); });   // 2026-07-29 選外表は算入フラグを見ない（選外は既定で算入OFFが入るため・スルーだけ外す）   // 2026-07-18g 要審議も最終損益合計バッジに算入（見送りと同じ・姉妹の_inclTpb:5627と統一）。グランド展開(__total__)は②データのみも除外 2026-07-22e
               var _totH2 = null, _totH2Cnt = 0;
               _recs.forEach(function(r) {
                 var s = r.signal;
@@ -6704,6 +6742,24 @@ function DayView(_ref57) {
     
     
     
+    // 2026-07-29 ヘッダ行は主表と選外表で共有（列構成を1箇所に保つ）。React要素は記述オブジェクトなので毎回生成する。
+    var _pbHeadTr = function() {
+      return React.createElement("tr", { style: { background: "#f5f4f0" } },
+        _pbTh("銘柄", { width: 120, textAlign: "left" }),
+        _pbTh("件", { width: 34 }),
+        _pbTh(React.createElement("span", { style: { color: "#374151" } }, "到達"), { width: 36 }),
+        _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確"), { width: 36 }),
+        _pbTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△"), { width: 28 }),
+        _pbTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損"), { width: 42 }),
+        _pbTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り"), { width: 42 }),
+        _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達"), { width: 40 }),
+        _pbTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）。選外銘柄表ではスルーのみ" }, "除外"), { width: 40 }),
+        _pbTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "○途切れで手じまい・( )=△含む")), { width: 100 }),
+        _pbTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／最終損益を縦積み。（）内=△も保有し続けた場合。最終＝○が続く限り手じまい足まで保有した損益＝最終損益列と同値（100株換算）" }, "詳細損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "EP / H1 / H2")), { width: 150 }),
+        _pbTh("実現損益", { width: 80 }),
+        _pbTh("タグ", { width: 120, textAlign: "left" })
+      );
+    };
     var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "📊 本日の損益データ",
         (function(){ var _xc = _elExclCountRecs(_pbAllRecs); return _xc > 0 ? React.createElement("span", { title: "計算・データに算入しない記録の件数", style: { fontSize: 10, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #7DD3FC", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "不算入 " + _xc + "件") : null; })(),
@@ -6712,25 +6768,9 @@ function DayView(_ref57) {
       _pbAllRecs.length ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, margin: "2px 0 8px", flexWrap: "wrap" } }, _bulkIdealCtrl(_pbAllRecs, simAlpha, setSimAlpha, _pbRecKey, _pbCutOf)) : null,
       React.createElement("div", { style: { overflowX: "auto" } },
         React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
-          React.createElement("thead", null,
-            React.createElement("tr", { style: { background: "#f5f4f0" } },
-              _pbTh("銘柄", { width: 120, textAlign: "left" }),
-              _pbTh("件", { width: 34 }),
-              _pbTh(React.createElement("span", { style: { color: "#374151" } }, "到達"), { width: 36 }),
-              _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確"), { width: 36 }),
-              _pbTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△"), { width: 28 }),
-              _pbTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損"), { width: 42 }),
-              _pbTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り"), { width: 42 }),
-              _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達"), { width: 40 }),
-              _pbTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外"), { width: 40 }),
-              _pbTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "○途切れで手じまい・( )=△含む")), { width: 100 }),
-              _pbTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／最終損益を縦積み。（）内=△も保有し続けた場合。最終＝○が続く限り手じまい足まで保有した損益＝最終損益列と同値（100株換算）" }, "詳細損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "EP / H1 / H2")), { width: 150 }),
-              _pbTh("実現損益", { width: 80 }),
-              _pbTh("タグ", { width: 120, textAlign: "left" })
-            )
-          ),
+          React.createElement("thead", null, _pbHeadTr()),
           React.createElement("tbody", null,
-            _pbStks.length > 1 ? [
+            _pbStksMain.length > 1 ? [
               _pbRow("合計", Object.assign({}, _pbAll, _pbDynOkNg(_pbAllRecsT)), true, "#555",
                 _profitGradeFromPnlReal(_pbAllReal, _pbAllEnt),
                 _profitGradeFromPnl(_pbAll.sumPlanned, _pbAll.sumPlanned !== 0 ? _pbAll.total : 0),
@@ -6738,23 +6778,66 @@ function DayView(_ref57) {
                 _pbAllEnt > 0, "__total__", null, _pbAllRecsT, _elExclCountRecs(_pbAllRecs)),
               !!pnlTableExpandSet["__total__"] ? _pbExpRow("__total__") : null
             ] : null,
-            _pbStks.map(function(sk) {
-              var _skT = _pbByStk[sk].filter(function(r) { return _elInclTotal(r.signal); });  // 合計額算入: 統計用（明細展開_pbExpRowは全件）2026-06-18
+            _pbStksMain.map(function(sk) {
+              var _skRecs = _pbByStkMain[sk];   // 2026-07-29 選外ぶんを除いた主表側の記録
+              var _skT = _skRecs.filter(function(r) { return _elInclTotal(r.signal); });  // 合計額算入: 統計用（明細展開_pbExpRowは全件）2026-06-18
               var skSt = Object.assign({}, _elCalcStats(_skT, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; }), _pbDynOkNg(_skT));
+              var _skReal = _pbRealOf(_skRecs), _skEnt = _pbEntOf(_skRecs);
               return [
                 _pbRow(sk, skSt, false, null,
-                  _profitGradeFromPnlReal(_pbRealByStk[sk], _pbEntByStk[sk]),
+                  _profitGradeFromPnlReal(_skReal, _skEnt),
                   _profitGradeFromPnl(skSt.sumPlanned, skSt.sumPlanned !== 0 ? skSt.total : 0),
                   _profitGradeFromPnl(skSt.sumMax, skSt.sumMax !== 0 ? skSt.total : 0),
-                  _pbEntByStk[sk] > 0, sk, _pbStockTags(sk), _skT, _elExclCountRecs(_pbByStk[sk])),
+                  _skEnt > 0, sk, _pbStockTags(sk), _skT, _elExclCountRecs(_skRecs)),
                 !!pnlTableExpandSet[sk] ? _pbExpRow(sk) : null
               ];
-            })
+            }),
+            !_pbStksMain.length ? React.createElement("tr", { key: "__nomain__" },
+              React.createElement("td", { colSpan: 13, style: { padding: "10px 8px", textAlign: "center", fontSize: 11, color: "#94A3B8" } },
+                "本日の取引銘柄に指定した銘柄の記録はありません（下の「選外銘柄」を参照）")) : null
           )
         )
       )
     );
-    return React.createElement(React.Fragment, null, _pbMainEl, _simpleAlphaEl, _soukatsuEl, _wkMainEl);
+    // ===== 選外銘柄（本日の取引銘柄に未選択）の表 2026-07-29 =====
+    // 主表と同じ列構成。行の統計は【算入フラグを見ない】＝選外の記録は既定で includeInTotal=false が入るため
+    //   _elInclTotal でフィルタすると全行「—」になり情報がゼロになる（現状の主表内の選外行がまさにその状態）。
+    //   判断の土俵に乗せなかったスルーだけを外す。
+    // 除外列にはそのスルー件数を渡す。件 = st.total + 除外 なので、ここに不算入件数を渡すと二重計上になる。
+    var _pbOutStatOf = function(recs) { return (recs || []).filter(function(r) { return !_elIsThru(r.signal); }); };
+    var _pbRealRawOf = function(recs) { var t = 0; (recs || []).forEach(function(r) { var v = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); if (v != null) t += v; }); return t; };
+    var _pbEntRawOf = function(recs) { var n = 0; (recs || []).forEach(function(r) { if (r.signal.entered === true) n++; }); return n; };
+    var _pbOutRowOf = function(label, recs, rowKey, isTotal, tags) {
+      var _oT = _pbOutStatOf(recs);
+      var _oSt = Object.assign({}, _elCalcStats(_oT, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; }), _pbDynOkNg(_oT));
+      var _oReal = _pbRealRawOf(_oT), _oEnt = _pbEntRawOf(_oT);
+      return [
+        _pbRow(label, _oSt, isTotal, "#4338CA",
+          _profitGradeFromPnlReal(_oReal, _oEnt),
+          _profitGradeFromPnl(_oSt.sumPlanned, _oSt.sumPlanned !== 0 ? _oSt.total : 0),
+          _profitGradeFromPnl(_oSt.sumMax, _oSt.sumMax !== 0 ? _oSt.total : 0),
+          _oEnt > 0, rowKey, tags || null, _oT, recs.length - _oT.length),
+        !!pnlTableExpandSet[rowKey] ? _pbExpRow(rowKey) : null
+      ];
+    };
+    var _pbOutEl = _pbStksOut.length ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 10, borderLeft: "3px solid #A5B4FC" }) },
+      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#4338CA", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "📅 選外銘柄（本日の取引銘柄に未選択）",
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#4338CA", background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, _pbOutRecs.length + "件")),
+      React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", lineHeight: 1.6, marginBottom: 8 } },
+        "候補プール（設定→📅日替わり銘柄）に入っていて、この日の「本日の取引銘柄」に指定しなかった銘柄です。数字は「選んでいたらどうだったか」の参考値で、",
+        React.createElement("b", { style: { color: "#4338CA" } }, "参考合計は上の合計と足さないでください"),
+        "。選外でも手動で合計算入にした記録は上の表に残しています（上の合計に効いているため）。除外列はスルーのみ。"),
+      React.createElement("div", { style: { overflowX: "auto" } },
+        React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
+          React.createElement("thead", null, _pbHeadTr()),
+          React.createElement("tbody", null,
+            _pbStksOut.length > 1 ? _pbOutRowOf("参考合計", _pbOutRecs, "__outtotal__", true, null) : null,
+            _pbStksOut.map(function(sk) { return _pbOutRowOf(sk, _pbByStkOut[sk], "__out__" + sk, false, _pbStockTags(sk)); })
+          )
+        )
+      )
+    ) : null;
+    return React.createElement(React.Fragment, null, _pbMainEl, _pbOutEl, _simpleAlphaEl, _soukatsuEl, _wkMainEl);
   })(),
 
   showForm && React.createElement(EntryRecordForm, {
