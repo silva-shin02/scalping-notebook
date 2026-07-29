@@ -6973,11 +6973,16 @@ function EntryRecordForm(_ref_erf) {
         setFPlanSign(null); setFPlan(_z); return;
       }
       var _dfe = _efp.epHigh - _efp.alpha;
-      if (_dfe >= _fCutLine) {
-        setFEstWidthSign("-"); setFEstWidthVal(String(_dfe));
-        setFPlanSign("-"); setFPlan(String(Math.round(_dfe * 100))); return;
+      // 2026-07-29d 終値撤退方式へ追従（EPチップ_epPnlChip・_elDynPlanned(app-05:3754)と同じ式）: ラインに触れてもEP足の終値で撤退するので、
+      //   想定値幅・EP損益は損切りの有無にかかわらず「α−EP足の終値」。旧実装の -(高値−α)×100（＝ラインで約定する前提）は
+      //   終値が未入力のときだけの保守的フォールバックへ降格＝入力中に出る額と保存後に表・集計が出す額が食い違わない。
+      if (_efp.epConf == null) {
+        if (_dfe >= _fCutLine) {
+          setFEstWidthSign("-"); setFEstWidthVal(String(_dfe));
+          setFPlanSign("-"); setFPlan(String(Math.round(_dfe * 100))); return;
+        }
+        setFEstWidthSign(null); setFEstWidthVal(""); return;
       }
-      if (_efp.epConf == null) { setFEstWidthSign(null); setFEstWidthVal(""); return; }
       var _we = _efp.alpha - _efp.epConf;
       var _ws = _we === 0 ? null : (_we > 0 ? "+" : "-");
       setFEstWidthSign(_ws); setFEstWidthVal(String(Math.abs(_we)));
@@ -7022,9 +7027,11 @@ function EntryRecordForm(_ref_erf) {
       var _efr = _epFormState;
       if (_efr.judge === "miss" || _efr.judge === "x") { setFResult("miss"); return; }
       if (_efr.judge === "ok" && _efr.alpha != null && _efr.epHigh != null) {
+        // 2026-07-29d 終値撤退方式へ追従（_elDynResult(app-05:3682)と同じ判定順）: ラインに触れてもEP足の終値で撤退するので、
+        //   終値が利益側なら勝ち。旧実装は触れた時点で無条件に ng にしていて、保存後の勝敗（終値基準）と食い違っていた。
+        //   終値が未入力のときだけライン接触の事実を優先して ng へ倒す（_elRideVals.stoppedLoss と同じ倒し方）。
         var _dfr = _efr.epHigh - _efr.alpha;
-        if (_dfr >= _fCutLine) { setFResult("ng"); return; }
-        if (_efr.epConf == null) return;
+        if (_efr.epConf == null) { if (_dfr >= _fCutLine) setFResult("ng"); return; }
         setFResult(_efr.epConf < _efr.alpha ? "ok" : _efr.epConf === _efr.alpha ? "draw" : "ng");
       }
       return;
@@ -7049,6 +7056,11 @@ function EntryRecordForm(_ref_erf) {
 
   
   useEffect(function() {
+    // 旧記録（非v2）専用の予定損益チェーン: OS1高値＋想定値幅 → 予定損益。
+    // 2026-07-29d v2フォームでは動かさない。v2の予定損益は上のEP足effect（終値撤退方式）が正本で、
+    //   ここが後から走ると①OS1高値がラインに触れた記録を旧式 -(高値−α)×100 で上書き（EP=OS1で実際に起きていた）
+    //   ②EP=OS2/3の記録はOS1高値<αなので予定損益を0で上書き、と二重に壊していた。
+    if (isV2Form) return;
     var ck = fStock + "_" + fDate;
     var cd = data.charts && data.charts[ck];
     var av = _fAlpha;
@@ -8657,8 +8669,10 @@ function EntryRecordForm(_ref_erf) {
       React.createElement("div", { style: { marginBottom: 8 } },
         React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "EP損益（100株換算）"),
         _fMiss ? _fMissEl : (function() {
-          // v2でEP=OS2/3の場合、fPlan(OS1基準の自動計算)ではなくEP足から直接計算した値を表示。
-          var _useV2P = isV2Form && _epFormState && _epFormState.epIdx > 0 && _fAlpha != null && _epFormState.epHigh != null;
+          // v2はEP足から直接計算した値を表示（fPlan経由にしない＝上のEPチップと同じ単一の式）。
+          // 2026-07-29d 条件を epIdx>0（EP=OS2/3のみ）→ epIdx>=0 へ。EP=OS1だけがfPlanフォールバックのままで、
+          //   予定損益effectの旧式（ラインで約定＝-(高値−α)×100）がそのままこの欄に出ていた（例: α5・高値21・終値14で−1600円／正しくは−900円）。
+          var _useV2P = isV2Form && _epFormState && _epFormState.epIdx >= 0 && _fAlpha != null && _epFormState.epHigh != null;
           var _pvV2 = null;
           if (_useV2P) {
             var _dfV2 = _epFormState.epHigh - _fAlpha;
