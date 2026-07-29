@@ -5975,8 +5975,23 @@ function EntryLogView(_ref_elv2) {
       return { n: sn, avg: sCnt ? Math.round(sSum / sCnt) : null, rate: wn ? Math.round(sn / wn * 100) : null,
                lossN: ln, lossAvg: lCnt ? Math.round(lSum / lCnt) : null, lossRate: wn ? Math.round(ln / wn * 100) : null };
     };
-    // 到達: EPに到達した件数（採用α基準・_epReachedAt）2026-07-09
-    var reachOf = function(x) { var r = 0; x.forEach(function(rec) { if (_epReachedAt(rec.signal, _ai(rec).alpha)) r++; }); return r; };
+    // 到達: EPに到達した「有効な」件数 2026-07-29（ユーザー要望で単純到達→有効到達へ変更）。
+    //  有効＝①EPに到達している ②×見送りでない（judge==="ok"＝EPより手前の足で×宣言していない＝実際にエントリーした）
+    //        ③到達足(EP足)の次足期待度が「降りる」側でない。
+    //  ③は _elRideVals の _cutExp(app-05:5092) と同基準＝×／損切り済／未設定をすべて「降りる」扱い。
+    //    _epNextExpAt のコメント(app-05:3496)も未記録＝×扱いと明記しており、ここだけ緩めると
+    //    最終損益の手じまい判定と母数が食い違う。
+    //  ※スルー記録はそもそも母数rsに入っていない（表示専用の_extraRow側）ので、ここでの考慮は不要。
+    //  ※_epReachedAt 自体は成立率・時間帯別など他9箇所が使うので触らない＝変更はこの表に閉じる。
+    var _reachValidOf = function(rec) {
+      var s = rec && rec.signal, a = _ai(rec).alpha;
+      if (!s || a == null) return false;
+      var rr = _epResolve(s, a);
+      if (!rr || rr.epIdx < 0 || rr.judge !== "ok") return false;
+      var e = _epNextExpAt(s, rr.epIdx);
+      return !(e === "×" || e === "損切り済" || !e);
+    };
+    var reachOf = function(x) { var r = 0; x.forEach(function(rec) { if (_reachValidOf(rec)) r++; }); return r; };
     // 利確: E成立(EP到達して決着＝損切り率と同母数wn)のうち最終損益(（）外main)>0で手じまいした件数・率 2026-07-09
     var winTakeOf = function(x) {
       var wn = 0, tp = 0;
@@ -6037,7 +6052,7 @@ function EntryLogView(_ref_elv2) {
         st.n ? _stopGrp("損切", st.n, st.rate, st.avg, "#1E8449", false) : null,
         st.lossN ? _stopGrp("損失", st.lossN, st.lossRate, st.lossAvg, "#0F766E", !!st.n) : null), ex);
     };
-    // 到達セル: EP到達件数（主）＋到達率（対 件数=全記録・小書き）＋1日平均（到達÷営業日数・欄が狭いので「1日平均」「〇件」の2行）2026-07-24。日別(g==="day")は各行=1日で冗長・0件は非表示（avgCntLineと同扱い）。
+    // 到達セル: 有効なEP到達件数（主・2026-07-29に単純到達から変更）＋到達率（対 件数=全記録・小書き）＋1日平均（到達÷営業日数・欄が狭いので「1日平均」「〇件」の2行）2026-07-24。日別(g==="day")は各行=1日で冗長・0件は非表示（avgCntLineと同扱い）。
     var reachAvg2 = function(rn, days) { if (!days || g === "day" || !rn) return null; var r1 = Math.round(rn / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); };
     var reachCell = function(rn, tot, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
       React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, rn + "件"),
@@ -6104,8 +6119,8 @@ function EntryLogView(_ref_elv2) {
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
           oth(g === "day" ? "日" : g === "week" ? "週" : "月"), oth("日数"), oth("件数"),
-          oth(React.createElement("span", null, "到達",
-            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EP到達件数"))),
+          oth(React.createElement("span", { title: "有効な到達＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく ③到達足(EP足)の次足期待度が×／損切り済／未設定でないもの。到達しても到達足で降りる判断だった記録・×宣言後に到達した記録・スルーは数えません（2026-07-29）" }, "到達",
+            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "有効なEP到達件数"))),
           oth(React.createElement("span", null, "利確",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
           oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの。損失＝ラインには触れず期待度×等で降りたら損だったもの。平均は最終損益と同じ基準の実額。利確＋損切＋損失＋同値＝E成立母数" }, "損切り / 損失",
