@@ -3828,13 +3828,18 @@ function _elIdealAlpha(s, cutLine) {
   });
   return best ? best.a : (fallback ? fallback.a : null);
 }
-// 理想損切り値: 候補(10/15/20)のうち損切りを回避できる(=_elHoldIsStopがfalse)最小の値。
+// 理想損切り値: 候補(10/15/20)のうち損切りにならない(=_elIsStopFinalがfalse)最小の値。
 // 回避できる値が無ければ（全部損切り）最小の10。alphaは現在の採用α(シミュ含む)を渡す。本日/今週の損切り値シミュ用。
+// 2026-07-29 判定を _elHoldIsStop（H1足がラインに触れたか）から _elIsStopFinal（手じまいまでに触れて、
+//   その足の終値が損側だったか＝終値撤退方式）へ変更。旧実装は①H1足しか見ないためEP足や3段目以降の損切りを
+//   見落とす ②「触れた＝損切り」の旧定義なので、終値が利益側に戻って損切りにならない値まで「回避不可」と
+//   誤判定する、の2点で新方式とズレていた。損切りの上振れセクションは avoidCut を _elIsStopFinal で再検証
+//   しているため、ここが旧基準だと「本当は回避できた損切り値」を返せず回避件数が過少に出ていた。
 var _EL_IDEAL_CUTS = [10, 15, 20];
 function _elIdealCut(s, alpha) {
   if (!s) return null;
   for (var i = 0; i < _EL_IDEAL_CUTS.length; i++) {
-    if (!_elHoldIsStop(s, alpha, _EL_IDEAL_CUTS[i])) return _EL_IDEAL_CUTS[i];
+    if (!_elIsStopFinal(s, alpha, _EL_IDEAL_CUTS[i])) return _EL_IDEAL_CUTS[i];
   }
   return _EL_IDEAL_CUTS[0];
 }

@@ -4247,11 +4247,14 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig, recCtx) {
   });
   var stopRate = entered.length ? Math.round(enteredStopN / entered.length * 100) : 0;
   var lossTotal = lossArr.reduce(function(a, b) { return a + b; }, 0);
+  // 2026-07-29 撤退足の終値(確定値)が未入力の記録は損益を出せない＝件数には入るが金額集計から落ちる。
+  // その差が「損切り回数」と「損切り損失 合計」の件数の食い違いとして現れるので、件数を明示する。
+  var noCloseN = enteredStopN - lossArr.length;
   var stopBreak = [ss.plan ? ("想" + ss.plan) : null, ss.h1 ? ("H1 " + ss.h1) : null, ss.h2 ? ("H2 " + ss.h2) : null].filter(Boolean).join("・") || "内訳なし";
   var cards = _elv2CardRow([
     _elv2Card("損切り回数", enteredStopN + "回", enteredStopN > 0 ? "#1E8449" : "#bbb", stopBreak),
     _elv2Card("損切り率", stopRate + "%", stopRate >= 30 ? "#C0392B" : stopRate >= 15 ? "#B45309" : "#1E8449", "E成立" + entered.length + "件中"),
-    _elv2Card("損切り損失 合計", _elPnlFmt(lossArr.length ? Math.round(lossTotal) : null), _elPnlColor(lossArr.length ? lossTotal : null), lossArr.length + "件"),
+    _elv2Card("損切り損失 合計", _elPnlFmt(lossArr.length ? Math.round(lossTotal) : null), _elPnlColor(lossArr.length ? lossTotal : null), lossArr.length + "件" + (noCloseN > 0 ? "（終値未入力" + noCloseN + "件は金額不明）" : "")),
     _elv2Card("平均損切り額", _elPnlFmt(lossArr.length ? Math.round(_elMean(lossArr)) : null), _elPnlColor(lossArr.length ? _elMean(lossArr) : null), "1件あたり")
   ]);
 
@@ -4362,7 +4365,7 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig, recCtx) {
     savedArr.length ? React.createElement("span", null, "損切りした記録を損切りせず保有していたら合計 ", _elInsightEmV2(_elPnlFmt(Math.round(savedTotal)), savedTotal > 0 ? "#B45309" : "#1E8449"), " の差（プラス＝我慢した方が良かった／マイナス＝損切りが正解）。詳細は下の「上振れ」分析。") : null,
     worstSig ? React.createElement("span", null, "損切り率が高いシグナルは ", _elInsightEmV2("「" + stripCat(worstSig.tag) + "」（" + Math.round(worstSig.rate * 100) + "%・" + worstSig.stop + "/" + worstSig.tot + "件）"), "。") : null,
     xDecided ? React.createElement("span", null, "事前の×見送りは ", _elInsightEmV2(xRecs.length + "件"), "・正解率 ", _elInsightEmV2(xAcc + "%"), "（損失回避 ", _elInsightEmV2(xAvoidCnt + "件"), "／機会損失 ", _elInsightEmV2(xMissCnt + "件"), "）＝", _elInsightEmV2(xAcc >= 50 ? "損切りを避ける×判断は機能している" : "×判断はやや保守的（利益も逃している）"), "。") : null
-  ], { note: "対象＝E成立（エントリーできた）v2記録 " + entered.length + "件。損切り＝想定/H1/H2いずれかで損切りライン（高値−α≥損切り値）に触れ、その足の終値で撤退した結果が損だったもの（触れても終値が利益側なら損切りに数えない＝2026-07-27 終値撤退方式）。損切り値別シミュは全記録に同じ損切り値を当てた場合の合計（採用α基準・100株換算・損益色は赤=利益/緑=損失）。×見送り＝事前に期待度×を宣言した後にα到達した記録を「取引していたら」のEP損益で評価。" });
+  ], { note: "対象＝E成立（エントリーできた）v2記録 " + entered.length + "件。損切り＝想定/H1/H2いずれかで損切りライン（高値−α≥損切り値）に触れ、その足の終値で撤退した結果が損だったもの（触れても終値が利益側なら損切りに数えない＝2026-07-27 終値撤退方式）。※撤退足の終値が未入力の記録は損か利益かを判定できないため、ラインに触れた事実を優先して損切りに算入する（保守側に倒す）。ただし金額は出せないので損失合計・平均からは外れる＝「損切り回数」と「損切り損失 合計」の件数が食い違うのはこのため。損切り値別シミュは全記録に同じ損切り値を当てた場合の合計（採用α基準・100株換算・損益色は赤=利益/緑=損失）。×見送り＝事前に期待度×を宣言した後にα到達した記録を「取引していたら」のEP損益で評価。" });
 
   return React.createElement(React.Fragment, null,
     cards,
@@ -4420,8 +4423,8 @@ function _elHoldDepthSectionV2(recs, aiOf) {
   var h1r = rows[1];
   if (h1r && h1r.impBase) items.push(React.createElement("span", null, "EPからH1まで持って損益が改善した割合は", _elInsightEmV2(Math.round(h1r.imp / h1r.impBase * 100) + "%"), "。"));
   return React.createElement("div", null,
-    _elv2Table(["手仕舞い位置", "件数(到達)", "平均損益", "合計", "損切り率(累積)", "EP比改善率"], body),
-    _elInsightBoxV2(items, { note: "各記録をEPからその本数だけ持って手仕舞いした場合の損益（_epHoldLadder・採用α/損切り基準・100株換算）。深い本数はそこまで足がある記録のみの平均＝母数が減る点に注意（合計列も参考に）。損切り率(累積)=その本数までに損切りラインへ到達した割合。EP比改善率=EP即手仕舞いより損益が良くなった割合。★=平均損益が最大の本数。" }));
+    _elv2Table(["手仕舞い位置", "件数(到達)", "平均損益", "合計", "ライン接触率(累積)", "EP比改善率"], body),
+    _elInsightBoxV2(items, { note: "各記録をEPからその本数だけ持って手仕舞いした場合の損益（_epHoldLadder・採用α/損切り基準・100株換算）。深い本数はそこまで足がある記録のみの平均＝母数が減る点に注意（合計列も参考に）。ライン接触率(累積)=その本数までに損切りラインへ触れた割合＝終値撤退方式ではその時点で撤退している割合（2026-07-29に「損切り率(累積)」から改称。他セクションの「損切り率」は_elIsStopFinal＝触れて**かつ**損で撤退したものだけなので別物＝同じ名前で2つの意味が混ざるのを解消した）。EP比改善率=EP即手仕舞いより損益が良くなった割合。★=平均損益が最大の本数。" }));
 }
 
 // 期待度キャリブレーション（記録帳・深掘りタブ／2026-06-14）: 事前のH期待 vs 実結果の的中検証。
