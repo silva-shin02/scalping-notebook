@@ -7097,11 +7097,14 @@ function EntryLogView(_ref_elv2) {
               style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, g[1]);
           })));
       var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
+      // 2026-07-29e even/unk を追加（全体損益（期間別）stopsOf の evenN/unkN と同じ判定・同じ優先順＝2表で同じ数になる）:
+      //   even＝最終損益ちょうど±0（利確>0・見切り<0のどちらにも入らない第4バケツ）／unk＝損切り以外で撤退足の終値が未入力＝金額を出せない記録。
       var _ratesOf = function(rs) {
-        var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0, draw = 0, take = 0;   // take=利確(E成立かつ最終損益>0で手じまい) 2026-07-09
-        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); var _dec = (res === "ok" || res === "ng" || res === "draw"); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; if (!_epReachedAt(s, a)) miss++; var isStop = _elIsStopFinal(s, a, c); if (isStop) stop++; else if (res === "ng") soft++; if (_dec) { var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) take++; } });
+        var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0, draw = 0, take = 0, even = 0, unk = 0;   // take=利確(E成立かつ最終損益>0で手じまい) 2026-07-09
+        rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); var _dec = (res === "ok" || res === "ng" || res === "draw"); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; if (!_epReachedAt(s, a)) miss++; var isStop = _elIsStopFinal(s, a, c); if (isStop) stop++; else if (res === "ng") soft++; if (_dec) { var _t2 = _elHoldFinalParts(s, a, c); var _m = (_t2 && _t2.main != null) ? _t2.main : null; if (_m != null && _m > 0) take++; if (!isStop) { if (_m == null) unk++; else if (_m === 0) even++; } } });
         var _d = ok + ng + draw;
-        return { ok: ok, ng: ng, miss: miss, draw: draw, n: rs.length, win: _d ? Math.round(ok / _d * 100) : null, soft: _d ? Math.round(soft / _d * 100) : 0, stop: _d ? Math.round(stop / _d * 100) : 0, take: take, takeRate: _d ? Math.round(take / _d * 100) : null };
+        return { ok: ok, ng: ng, miss: miss, draw: draw, n: rs.length, win: _d ? Math.round(ok / _d * 100) : null, soft: _d ? Math.round(soft / _d * 100) : 0, stop: _d ? Math.round(stop / _d * 100) : 0, take: take, takeRate: _d ? Math.round(take / _d * 100) : null,
+                 even: even, unk: unk, evenRate: _d ? Math.round(even / _d * 100) : null };
       };
       var _periodKpi = function(rs) {
         var t = _periodTot(rs), rr = _ratesOf(rs);
@@ -7197,11 +7200,16 @@ function EntryLogView(_ref_elv2) {
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700 } }, rs.length + "件"), _avgCntLine2(rs.length, dn))),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, _reach + "件"), rs.length ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(_reach / rs.length * 100) + "%") : null, (dn && gran !== "day" && _reach) ? (function() { var r1 = Math.round(_reach / dn * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); })() : null)),   // 到達の1日平均（2行）2026-07-24
           _tdP(rr.takeRate != null ? React.createElement("span", { style: { fontWeight: 700, color: rr.takeRate >= 50 ? "#1E8449" : "#B45309" } }, rr.take + "件・" + rr.takeRate + "%") : React.createElement("span", { style: { color: "#bbb" } }, "—")),
+          // 同値（利確の右・2026-07-29e 全体損益（期間別）と同じ位置・同じ中身）。0件かつ金額不明0なら「—」。
+          _tdP((rr.even || rr.unk) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+            rr.even ? React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, rr.even + "件" + (rr.evenRate != null ? "・" + rr.evenRate + "%" : "")) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
+            rr.unk ? React.createElement("span", { title: "損切り以外で撤退足の終値が未入力＝最終損益を出せない記録。利確・同値・損切り・見切りのどれにも入れられないため件数だけ出しています（終値を入れれば該当のバケツに入ります）", style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "金額不明" + rr.unk + "件") : null)
+            : React.createElement("span", { style: { color: "#bbb" } }, "—")),
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 }),
           _tdP(rr.soft + "%", { color: rr.soft > 0 ? "#B45309" : "#bbb", fontWeight: rr.soft > 0 ? 700 : 400 }),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn), (dn && t.hold2 != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.hold2 / dn) >= 0 ? "+" : "") + Math.round(t.hold2 / dn).toLocaleString()) : null)),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(t.real, t.realCnt, dn), (dn && t.real != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.real / dn) >= 0 ? "+" : "") + Math.round(t.real / dn).toLocaleString()) : null))));
-        if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
+        if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
       });
       return _cardify([
         _secH("📆 期間集計（" + (gran === "day" ? "日別" : gran === "week" ? "週別" : "月別") + "・新しい順）", "行タップでその期間の詳細分析（シグナル成功度・時間帯傾向・EP位置）"), _granBtns,
@@ -7212,6 +7220,8 @@ function EntryLogView(_ref_elv2) {
               _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("日数"), _thP("件数"),
               _thP(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右の利確・損切り率・見切り率の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c・全体損益（期間別）と同基準）" }, "到達", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EPに乗った件数＝E成立"))),
               _thP(React.createElement("span", null, "利確", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
+              _thP(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・見切り（<0）のどちらにも入らない第4のバケツ（2026-07-29e・全体損益（期間別）と同基準）" }, "同値",
+                React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "±0で手じまい・E成立母数"))),
               _thP("損切り率"), _thP("見切り率"),
               _thP("最終損益"), _thP("実現損益"))),
             React.createElement("tbody", null, _rows))))]);
