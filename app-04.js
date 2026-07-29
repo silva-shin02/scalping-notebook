@@ -3105,20 +3105,6 @@ function StockQuickRefTable(_props_qrt) {
       border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, lineHeight: 1, flexShrink: 0
     } }, g);
   };
-  var _qrCapGrid = function(badgeNode, numNode, capAmt) {
-    var g = _profitGradeFromPnl(capAmt, 1);
-    var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
-    var col = capAmt < 0 ? "#1E8449" : capAmt > 0 ? "#C0392B" : "#888";
-    var capBadge = (g && g !== "Z") ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0 } }, g) : React.createElement("span", null);
-    var _pr = function(ch) { return React.createElement("span", { style: { fontSize: 11, color: "#bbb", lineHeight: 1 } }, ch); };
-    return React.createElement("div", { title: "損切り値ちょうどで損切りできていた場合の損失額（100株換算）",
-      style: { display: "grid", gridTemplateColumns: "auto auto auto auto", columnGap: 3, rowGap: 1, alignItems: "center", justifyItems: "start", width: "fit-content" } },
-      React.createElement("span", null), badgeNode, numNode, React.createElement("span", null),
-      _pr("（"), capBadge,
-      React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: col, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(capAmt) + "円"),
-      _pr("）")
-    );
-  };
   // 金額を固定幅・右寄せにして、カッコや内側の数字が縦にそろうようにする。
   var _qrAmtR = function(v, w, fs) {
     return React.createElement("span", { style: { display: "inline-flex", justifyContent: "flex-end", width: w, minWidth: w, fontSize: fs, fontWeight: 700, color: _qrAmtCol(v), fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, _qrFmtAmt(v) + "円");
@@ -4476,7 +4462,7 @@ function _EpnCalcForm(_p) {
         ? ("合計α値" + effA + "円＝" + (nUkiSpecial ? "浮応" : "浮") + ukiAddV + (rnAddV ? "＋RN" + rnAddV : "") + "（浮き足〇＝基本α/応用α無し）")
         : ("合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : "")))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? "記録が無い銘柄は基本αを手入力" : "水準線を入力")),
-    React.createElement("div", { style: { margin: "0 0 6px", padding: "6px 6px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, textAlign: "center" } },   // 予定損切りライン＝予定EP＋損切り値（逆行して損切りになる価格の目安）2026-07-18
+    React.createElement("div", { style: { margin: "0 0 6px", padding: "6px 6px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, textAlign: "center" } },   // 予定損切りライン＝予定EP＋損切り値（逆行したら撤退する価格の目安＝引き金であって約定値ではない・触れた足の終値で撤退）2026-07-18／2026-07-29 終値撤退方式へ文言追従
       React.createElement("span", { style: { fontSize: 10, color: "#B91C1C", fontWeight: 800 } }, "予定損切りライン "),
       React.createElement("span", { style: { fontSize: 17, fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(Math.round((epV + _epnCutLine) * 100) / 100) : "—"),
       React.createElement("span", { style: { fontSize: 10, color: "#B91C1C" } }, "円"),
@@ -6041,7 +6027,6 @@ function DayView(_ref57) {
       var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
       var _totPlanABpb = null;
       var _totPlanABCntpb = 0;
-      var _totPlanCap = null, _totHoldCap = null, _totPlanStop = false, _totHoldStop = false;
       var _totHoldPlanCap = null, _totHoldPlanCapAB = null, _totHoldPlanCapABCnt = 0, _totHoldPlanStopDiffPb = false;
       var _totHoldRef = null, _totHoldRefCnt = 0;
       var _totHold2 = null, _totHold2Cnt = 0, _totHold2Ref = null, _totHold2RefCnt = 0;
@@ -6077,15 +6062,9 @@ function DayView(_ref57) {
         var _epTriPb = _epIsTriEntry(s, _alphaRec);  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内のみ・（）外は0
         if (planPnl != null) {
           if (_epTriPb) { _totPlanRef = (_totPlanRef || 0) + planPnl; _totPlanRefCnt++; }
-          else { _totPlan = (_totPlan || 0) + planPnl; _totPlanCnt++;
-            var _pStopT = (_alphaRec != null && _elPlanIsStop(s, _alphaRec, _cutLrec));
-            if (_pStopT) _totPlanStop = true;
-            _totPlanCap = (_totPlanCap || 0) + (_pStopT ? _elCapLossYen(_cutLrec) : planPnl); }
+          else { _totPlan = (_totPlan || 0) + planPnl; _totPlanCnt++; }
         }
-        if (holdPnl != null && !_epTriPb) { _totHold = (_totHold || 0) + holdPnl; _totHoldCnt++;  // EP△はH1も（）外0＝主計数に入れない（下で参考へ）
-          var _hStopT = (_alphaRec != null && _elHoldIsStop(s, _alphaRec, _cutLrec));
-          if (_hStopT) _totHoldStop = true;
-          _totHoldCap = (_totHoldCap || 0) + (_hStopT ? _elCapLossYen(_cutLrec) : holdPnl); }
+        if (holdPnl != null && !_epTriPb) { _totHold = (_totHold || 0) + holdPnl; _totHoldCnt++; }  // EP△はH1も（）外0＝主計数に入れない（下で参考へ）
         var _isABpb = (s.difficulty === "A" || s.difficulty === "B");
         if (planPnl != null && _isABpb && !_epTriPb) { _totPlanABpb = (_totPlanABpb || 0) + planPnl; _totPlanABCntpb++; }
         if (_h2tpb.main != null) { _totHold2 = (_totHold2 || 0) + _h2tpb.main; _totHold2Cnt++; }
