@@ -5970,7 +5970,7 @@ function EntryLogView(_ref_elv2) {
     //  最終損益(_elHoldFinalParts.main＝利確列・最終損益列と同じ基準)の実額平均にする。終値撤退方式では
     //  実際の損失は撤退足の終値次第で毎回変わるので、理想値では実態と乖離する。
     var stopsOf = function(x) {
-      var sn = 0, sSum = 0, sCnt = 0, ln = 0, lSum = 0, lCnt = 0, wn = 0;
+      var sn = 0, sSum = 0, sCnt = 0, ln = 0, lSum = 0, lCnt = 0, wn = 0, evN = 0, ukN = 0;
       x.forEach(function(r) {
         var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine;
         if (a == null) return;
@@ -5980,11 +5980,14 @@ function EntryLogView(_ref_elv2) {
         var _t2 = _elHoldFinalParts(s, a, c);
         var pnl = (_t2 && _t2.main != null) ? _t2.main : null;
         if (_elIsStopFinal(s, a, c)) { sn++; if (pnl != null) { sSum += pnl; sCnt++; } }
-        else if (pnl != null && pnl < 0) { ln++; lSum += pnl; lCnt++; }   // 損切り以外の負け（同値0は数えない＝利確の>0と対称）
-      });
+        else if (pnl == null) { ukN++; }                                  // 損切り以外で金額が出せない＝撤退足の終値が未入力（2026-07-29e 見えない穴だった分を可視化）
+        else if (pnl < 0) { ln++; lSum += pnl; lCnt++; }                  // 損切り以外の負け
+        else if (pnl === 0) { evN++; }                                    // 同値＝ちょうど±0で手じまい（利確の>0・損失の<0と対称の第4バケツ 2026-07-29e）
+      });                                                                 // pnl>0 は winTakeOf が「利確」で数える
       return { n: sn, avg: sCnt ? Math.round(sSum / sCnt) : null, rate: wn ? Math.round(sn / wn * 100) : null,
                lossN: ln, lossAvg: lCnt ? Math.round(lSum / lCnt) : null, lossRate: wn ? Math.round(ln / wn * 100) : null,
-               wn: wn,                          // E成立母数＝利確/損切り/損失の分母。到達セルに併記する 2026-07-29
+               wn: wn,                          // E成立母数＝到達＝利確/損切り/損失/同値の分母 2026-07-29→29c
+               evenN: evN, unkN: ukN,           // 同値／金額不明。到達＝利確＋損切＋損失＋同値＋金額不明 で閉じる 2026-07-29e
                noCloseN: sn - sCnt };           // 損切りのうち撤退足の終値が未入力＝金額を出せない件数（件数と平均で母数が違う理由）2026-07-29
     };
     // 到達: EPに乗った件数 2026-07-29c（ユーザー決定「EPに乗った分でいい」）。
@@ -6062,6 +6065,15 @@ function EntryLogView(_ref_elv2) {
       React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, rn + "件"),
       tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(rn / tot * 100) + "%") : null,
       reachAvg2(rn, days)), ex); };
+    // 同値セル（利確の右・2026-07-29e ユーザー要望）: 最終損益がちょうど±0で手じまいした件数・率（対E成立）。
+    //   到達＝利確＋損切＋損失＋同値 の4バケツが閉じるための最後の1つ＝これが無いと「到達54なのに44+3+5=52」と数が合わなく見える。
+    //   金額不明（損切り以外で撤退足の終値が未入力＝どのバケツにも入れられない）が有れば小書きで併記＝差の残りもここで説明が付く。
+    var evenCell = function(st, ex) {
+      if (!st || (!st.evenN && !st.unkN)) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
+      return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+        st.evenN ? React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, st.evenN + "件" + (st.wn ? "・" + Math.round(st.evenN / st.wn * 100) + "%" : "")) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
+        st.unkN ? React.createElement("span", { title: "損切り以外で撤退足の終値が未入力＝最終損益を出せない記録。利確・損切り・損失・同値のどれにも入れられないため、ここに件数だけ出しています（終値を入れれば該当のバケツに入ります）", style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "金額不明" + st.unkN + "件") : null), ex);
+    };
     // 利確セル: 利益で手じまいした件数・率（旧勝率の位置・色分けは勝率と同じ緑/橙）2026-07-09
     var winTakeCell = function(wt, ex) {
       if (!wt || wt.rate == null) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
@@ -6093,11 +6105,12 @@ function EntryLogView(_ref_elv2) {
         cntCell(x.length, dn, { fontWeight: 700 }),
         reachCell(st.wn, x.length, dn),
         winTakeCell(winTakeOf(x)),
+        evenCell(st),
         stopCell(st),
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
         friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x), dn),
         realCell(t.real, t.realCnt, dn)));
-      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 9, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+      if (on) rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
         React.createElement("div", { style: { fontSize: 10, color: "#9A3412", fontWeight: 700, margin: "2px 0 4px" } }, labelOf(k) + " の取引記録（" + x.length + "件" + (_extraRow.length ? "＋表示のみ" + _extraRow.length + "件" : "") + "）"),
         _extraRow.length ? React.createElement("div", { style: { fontSize: 9, color: "#9CA3AF", fontWeight: 600, margin: "0 0 4px" } }, "※淡色の行＝集計に入らない記録（" + _extraBrk(_extraRow) + "）。件数・損益・率のどれにも入りません（表示のみ）") : null,
         _recTable(x.concat(_extraRow).sort(_byDateAsc), "full", "ovp_" + k + "_", null,
@@ -6116,6 +6129,7 @@ function EntryLogView(_ref_elv2) {
       cntCell(rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       reachCell(_ovTotStops.wn, rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
+      evenCell(_ovTotStops, Object.assign({ fontWeight: 800 }, bt)),
       stopCell(_ovTotStops, bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
       friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
@@ -6128,6 +6142,8 @@ function EntryLogView(_ref_elv2) {
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EPに乗った件数＝E成立"))),
           oth(React.createElement("span", null, "利確",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
+          oth(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋損切＋損失＋同値 で件数が閉じます（2026-07-29e）" }, "同値",
+            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "±0で手じまい・E成立母数"))),
           oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの。損失＝ラインには触れず期待度×等で降りたら損だったもの。平均は最終損益と同じ基準の実額。利確＋損切＋損失＋同値＝E成立母数" }, "損切り / 損失",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "上=ライン起因／下=それ以外の負け"))),
           oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "最終損益",
