@@ -5987,16 +5987,12 @@ function EntryLogView(_ref_elv2) {
                wn: wn,                          // E成立母数＝利確/損切り/損失の分母。到達セルに併記する 2026-07-29
                noCloseN: sn - sCnt };           // 損切りのうち撤退足の終値が未入力＝金額を出せない件数（件数と平均で母数が違う理由）2026-07-29
     };
-    // 到達: EPに到達した「有効な」件数 2026-07-29（ユーザー要望で単純到達→有効到達へ変更）。
-    //  有効＝①EPに到達している ②×見送りでない（judge==="ok"＝EPより手前の足で×宣言していない＝実際にエントリーした）
-    //        ③到達足(EP足)の次足期待度が「降りる」側でない。
-    //  ③は _elRideVals の _cutExp(app-05:5092) と同基準＝×／損切り済／未設定をすべて「降りる」扱い。
-    //    _epNextExpAt のコメント(app-05:3496)も未記録＝×扱いと明記しており、ここだけ緩めると
-    //    最終損益の手じまい判定と母数が食い違う。
+    // 到達: EPに乗った件数 2026-07-29c（ユーザー決定「EPに乗った分でいい」）。
+    //  乗った＝①EPに到達している ②×見送りでない（judge==="ok"＝EPより手前の足で×宣言していない＝実際にエントリーした）で決着したもの
+    //  ＝右隣の利確/損切り/損失の分母（E成立母数 stopsOf().wn）そのもの。専用の集計関数は置かず wn を使い回す＝分母が食い違いようがない。
+    //   （2026-07-29の「有効な到達」＝さらに③到達足の次足期待度が×/損切り済/未設定を除く、は撤回。乗ってはいる記録なので数える）
     //  ※スルー記録はそもそも母数rsに入っていない（表示専用の_extraRow側）ので、ここでの考慮は不要。
-    //  ※_epReachedAt 自体は成立率・時間帯別など他9箇所が使うので触らない＝変更はこの表に閉じる。
-    //  2026-07-29b 判定本体は _elIsValidReach(app-05.js) へ切り出し＝記録帳📆期間タブの期間集計表と単一源を共有。
-    var reachOf = function(x) { var r = 0; x.forEach(function(rec) { if (_elIsValidReach(rec && rec.signal, _ai(rec).alpha)) r++; }); return r; };
+    //  ※単純到達 _epReachedAt（×見送りも数える）は成立率・時間帯別など他9箇所が使うので触らない＝変更はこの表に閉じる。
     // 利確: E成立(EP到達して決着＝損切り率と同母数wn)のうち最終損益(（）外main)>0で手じまいした件数・率 2026-07-09
     var winTakeOf = function(x) {
       var wn = 0, tp = 0;
@@ -6059,16 +6055,12 @@ function EntryLogView(_ref_elv2) {
         st.n ? _stopGrp("損切", st.n, st.rate, st.avg, "#1E8449", false, st.noCloseN ? "終値未入力" + st.noCloseN + "件は金額不明" : null) : null,
         st.lossN ? _stopGrp("損失", st.lossN, st.lossRate, st.lossAvg, "#0F766E", !!st.n) : null), ex);
     };
-    // 到達セル: 有効なEP到達件数（主・2026-07-29に単純到達から変更）＋到達率（対 件数=全記録・小書き）＋1日平均（到達÷営業日数・欄が狭いので「1日平均」「〇件」の2行）2026-07-24。日別(g==="day")は各行=1日で冗長・0件は非表示（avgCntLineと同扱い）。
+    // 到達セル: EPに乗った件数（主・2026-07-29cにE成立母数と同値へ）＋到達率（対 件数=全記録・小書き）＋1日平均（到達÷営業日数・欄が狭いので「1日平均」「〇件」の2行）2026-07-24。日別(g==="day")は各行=1日で冗長・0件は非表示（avgCntLineと同扱い）。
     var reachAvg2 = function(rn, days) { if (!days || g === "day" || !rn) return null; var r1 = Math.round(rn / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); };
-    // 2026-07-29 E成立母数(eN)を併記する。到達を「有効な到達」(①EP到達②×見送りでない③到達足の次足期待度が
-    //   降りる側でない)へ絞ったのに対し、右隣の利確/損切り/損失の分母は①②だけのE成立母数(_elDynResultが決着)
-    //   のままで、条件③のぶん 有効到達 ⊊ E成立母数 になる。分母が画面のどこにも出ないと
-    //   「到達2件なのに損切3件」に見えるため、到達セルに小さく出す（rn と eN が同数なら冗長なので出さない）。
-    var reachCell = function(rn, tot, days, ex, eN) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+    // 2026-07-29 に併記していた「E成立◯件」の小書きは 2026-07-29c で撤去＝到達＝E成立母数になり常に同数＝冗長になったため。
+    var reachCell = function(rn, tot, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
       React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, rn + "件"),
       tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(rn / tot * 100) + "%") : null,
-      (eN != null && eN !== rn) ? React.createElement("span", { title: "右隣の利確・損切り・損失の分母＝E成立母数（EP到達して決着した件数）。到達（有効）はここからさらに『到達足の次足期待度が×/損切り済/未設定』を除いた数なので、到達の方が少なくなる", style: { display: "block", fontSize: 9, color: "#B45309", fontWeight: 700 } }, "E成立" + eN + "件") : null,
       reachAvg2(rn, days)), ex); };
     // 利確セル: 利益で手じまいした件数・率（旧勝率の位置・色分けは勝率と同じ緑/橙）2026-07-09
     var winTakeCell = function(wt, ex) {
@@ -6099,7 +6091,7 @@ function EntryLogView(_ref_elv2) {
             _extraRow.every(function(r) { return _elIsThru(r.signal); }) ? "スルーのみ" : "算入記録なし") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
         otd(dn + "日", { fontWeight: 600, color: "#555" }),
         cntCell(x.length, dn, { fontWeight: 700 }),
-        reachCell(reachOf(x), x.length, dn, null, st.wn),
+        reachCell(st.wn, x.length, dn),
         winTakeCell(winTakeOf(x)),
         stopCell(st),
         pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
@@ -6116,13 +6108,13 @@ function EntryLogView(_ref_elv2) {
     var rsInc = rs.filter(function(r) { return !_isRefKey(keyOf(r.date)); });
     var _hasRef = _aggKeys.some(_isRefKey);
     var tt = totOf(rsInc), bt = { borderTop: "2px solid #FB923C" };
-    var _ovTotStops = stopsOf(rsInc);   // 到達セルのE成立母数併記と損切りセルで使い回す（2回計算しない）2026-07-29
+    var _ovTotStops = stopsOf(rsInc);   // 到達セル（＝E成立母数wn）と損切りセルで使い回す（2回計算しない）2026-07-29→29c
     var _ovTotDays = _aggKeys.reduce(function(s, k) { return _isRefKey(k) ? s : s + _bizDaysIn(k); }, 0);   // 集計用キーのみ＝スルーだけの期間の営業日は合計日数に加算しない（1日平均を従来値のまま保つ）2026-07-20b
     var totRow = React.createElement("tr", { key: "__ovtot__", style: { background: "#FFF7ED" } },
       otd(React.createElement("span", null, "合計", _hasRef ? React.createElement("span", { title: "4月（EMA位置ズレの参考期間）は合計・平均から除外しています", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※参考除く") : null), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
       otd(_ovTotDays + "日", Object.assign({ fontWeight: 700, color: "#555" }, bt)),
       cntCell(rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
-      reachCell(reachOf(rsInc), rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt), _ovTotStops.wn),
+      reachCell(_ovTotStops.wn, rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
       stopCell(_ovTotStops, bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
@@ -6132,8 +6124,8 @@ function EntryLogView(_ref_elv2) {
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
           oth(g === "day" ? "日" : g === "week" ? "週" : "月"), oth("日数"), oth("件数"),
-          oth(React.createElement("span", { title: "有効な到達＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく ③到達足(EP足)の次足期待度が×／損切り済／未設定でないもの。到達しても到達足で降りる判断だった記録・×宣言後に到達した記録・スルーは数えません（2026-07-29）" }, "到達",
-            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "有効なEP到達件数"))),
+          oth(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右隣の利確・損切り・損失の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c）" }, "到達",
+            React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EPに乗った件数＝E成立"))),
           oth(React.createElement("span", null, "利確",
             React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
           oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの。損失＝ラインには触れず期待度×等で降りたら損だったもの。平均は最終損益と同じ基準の実額。利確＋損切＋損失＋同値＝E成立母数" }, "損切り / 損失",
@@ -7178,11 +7170,11 @@ function EntryLogView(_ref_elv2) {
       var _avgCntLine2 = function(cnt, days) { if (!days || gran === "day" || cnt == null) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };
       var _rows = [];
       _keys.forEach(function(k) {
-        // 2026-07-29 到達を【有効な到達】へ（全体損益（期間別）_ovPnlTbl と同一の _elIsValidReach を使う。
-        //   この表は到達が独立列で「件＝到達＋未達」の内訳型ではないため、絞っても行の足し算は壊れない）。
-        //   旧: rs.length - rr.miss（_ratesOf の単純到達）＝×見送りも到達足で降りた記録も数えていた。
+        // 2026-07-29c 到達＝EPに乗った件数（全体損益（期間別）_ovPnlTbl と同基準）＝この表のE成立母数 rr.ok+rr.ng+rr.draw そのもの。
+        //   利確率・損切り率・見切り率の分母(_ratesOfの_d)と同じ値を使い回す＝分母が食い違いようがない。
+        //   旧: rs.length - rr.miss（単純到達＝×見送りも数える）→ 2026-07-29の有効到達（③到達足の次足期待度で絞る）→ 本方式。
         var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), dn = _bizDaysIn(k), on = perExp === k;
-        var _reach = rs.filter(function(r) { return _elIsValidReach(r.signal, _ai(r).alpha); }).length;
+        var _reach = rr.ok + rr.ng + rr.draw;
         _rows.push(React.createElement("tr", { key: k, onClick: function() { setPerExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
           _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, gran))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           _tdP(dn + "日", { fontWeight: 600, color: "#555" }),
@@ -7202,7 +7194,7 @@ function EntryLogView(_ref_elv2) {
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
               _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("日数"), _thP("件数"),
-              _thP(React.createElement("span", { title: "有効な到達＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく ③到達足(EP足)の次足期待度が×／損切り済／未設定でないもの。到達しても到達足で降りる判断だった記録・×宣言後に到達した記録・スルーは数えません（2026-07-29・全体損益（期間別）と同基準）" }, "到達", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "有効なEP到達件数"))),
+              _thP(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右の利確・損切り率・見切り率の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c・全体損益（期間別）と同基準）" }, "到達", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EPに乗った件数＝E成立"))),
               _thP(React.createElement("span", null, "利確", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
               _thP("損切り率"), _thP("見切り率"),
               _thP("最終損益"), _thP("実現損益"))),

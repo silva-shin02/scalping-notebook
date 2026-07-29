@@ -4294,20 +4294,8 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
   }
   return _epInner;
 }
-// 【有効な到達】の単一源 2026-07-29（ユーザー定義）: 次の3条件をすべて満たすもの。
-//  ①EPに到達している ②×見送りでない（_epResolve.judge==="ok"＝EPより手前の足で×宣言していない＝実際にエントリーした）
-//  ③到達足(EP足)の次足期待度が「降りる」側でない（×／損切り済／未設定＝_cutExp と同基準）。
-// ＝「到達したが到達足で降りる判断だった」「×宣言後に到達した」記録を除いた到達。スルーは呼び出し側の母数で既に外れる。
-// ※単純到達 _epReachedAt（下）は成立率・時間帯別など別目的の指標が使うので置き換えないこと。
-//   また「件＝到達＋未達＋除外」が成立する内訳型の表（本日/今週の損益データ表）でこれを使うと行の足し算が壊れる。
-//   使ってよいのは到達が独立列になっている表（記録帳の全体損益（期間別）・期間集計）だけ。
-function _elIsValidReach(s, alpha) {
-  if (!s || alpha == null) return false;
-  var rr = _epResolve(s, alpha);
-  if (!rr || rr.epIdx < 0 || rr.judge !== "ok") return false;
-  var e = _epNextExpAt(s, rr.epIdx);
-  return !(e === "×" || e === "損切り済" || !e);
-}
+// 【_elIsValidReach（有効な到達）は2026-07-29cに廃止】期間表の「到達」＝EPに乗った件数＝E成立母数（_elDynResultが決着）へ統一したため、
+//  「③到達足の次足期待度が×／損切り済／未設定を除く」判定は不要になった（ユーザー決定「EPに乗った分でいい」）。母数は各表がすでに持つE成立件数を使う。
 // 成立率の到達判定: v2=3本以内にα値到達、旧記録=OS値≥α。
 function _epReachedAt(s, alpha) {
   if (s == null || alpha == null) return false;
