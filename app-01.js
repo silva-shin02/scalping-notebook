@@ -1066,6 +1066,25 @@ function migrateData(d) {
       d._migFurukawaRotating = true;
     } catch(e) { console.warn("[migrateData] furukawa-rotating error:", e); }
   }
+  // RN加算の自動判定を既存記録にも有効化（_migRnAutoOn 2026-07-29・ユーザー指示「自動になっていないものは自動に」）: 全記録 charts[*].signals の signal.rnAuto を true にする。
+  // 2026-07-20b の当初決定「既存記録は自動を止める（開いてもRNが書き換わらない）」の撤回。以後は過去記録を編集フォーム/EPナビで開くと自動判定が効き、保存時にRN〇×と加算額が現行ルール（下二桁41-49→…50／91-99→…00）へ揃う。
+  // rn/rnUsed/rnVal/alphaVal/ep は移行では一切書き換えない＝開いて保存し直すまで過去の損益・分析は不変。
+  // 一回性フラグ＝この移行より後に手動へ倒した記録(rnAuto:false)は二度と踏まない。フラグ後も rnAuto 未設定（2026-07-20b以前の記録が旧端末から後から同期された分）は毎回 true 補完＝条件ベースで冪等。
+  try {
+    var _raForce = !d._migRnAutoOn, _raN = 0;
+    if (d.charts && typeof d.charts === "object") {
+      Object.keys(d.charts).forEach(function(ck) {
+        var c = d.charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+        c.signals.forEach(function(s) {
+          if (!s || s.rnAuto === true) return;
+          if (s.rnAuto === false && !_raForce) return;   // 移行後にユーザーが手動へ倒した分は尊重（未設定＝旧記録のみ補完）
+          s.rnAuto = true; _raN++;
+        });
+      });
+    }
+    if (_raN) console.log("[migrateData] rnAuto: " + _raN + " 記録をRN加算の自動判定ONへ");
+    d._migRnAutoOn = true;
+  } catch(e) { console.warn("[migrateData] rnAutoOn error:", e); }
   return d;
 }
 function stLoad() {

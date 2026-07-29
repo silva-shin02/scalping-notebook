@@ -3848,7 +3848,7 @@ function _epnRecalcBase(data, stock, date, item) {
         ], true);
     if (_cp.alpha != null) { base = _cp.alpha; src = _cp.src; }
   }
-  var level = Number(item.level) || 0, uki = Number(item.uki) || 0, rn = Number(item.rn) || 0;   // rn=RNまたぎ加算（そのまま加算）2026-07-08h
+  var level = Number(item.level) || 0, uki = Number(item.uki) || 0, rn = Number(item.rn) || 0;   // rn=RN加算（そのまま加算）2026-07-08h
   var special = (item.specialUsed === true && item.special != null) ? Number(item.special) : null;
   var baseLevel = (special != null) ? special : base;   // base-levelα＝応用〇なら応用α、通常は再導出した基本α（2026-07-13応用α化）
   var ep = _epnComputeEp(level, baseLevel, uki, rn);
@@ -4065,7 +4065,7 @@ function _EpnAddSection(_p) {
       React.createElement("div", { style: { fontSize: 8.5, color: reco ? "#9A3412" : "#94A3B8", marginTop: 2 } },
         reco ? (reco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + reco.v + "円" + (reco.byReason ? "（選択根拠・n=" + reco.n + "・手動変更可）" : reco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + reco.n + "・手動変更可）" : "（銘柄全体・n=" + reco.n + "・手動変更可）"))) : "推奨応用α データ無し（手動入力）")) : null);
 }
-// 早見カードのRNまたぎ加算インライン編集（2026-07-08h）: 〇×ボタン→〇のとき数値入力（円・そのまま加算）。値入力はローカルstate（onBlur確定＝1文字ごとの全体保存を避ける）。根拠なし＝追加αより単純。
+// 早見カードのRN加算インライン編集（2026-07-08h）: 〇×ボタン→〇のとき数値入力（円・そのまま加算）。値入力はローカルstate（onBlur確定＝1文字ごとの全体保存を避ける）。根拠なし＝追加αより単純。
 function _EpnRnSection(_p) {
   var e = _p.item;
   var rnUsed = (e.rnUsed === true) || (e.rnUsed == null && (Number(e.rn) || 0) > 0);
@@ -4076,7 +4076,7 @@ function _EpnRnSection(_p) {
       style: { padding: "1px 8px", fontSize: 11, fontWeight: on ? 800 : 600, border: on ? "2px solid " + color : "1px solid #ddd", background: on ? bg : "#fff", color: on ? color : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.5, minHeight: IS_TOUCH ? 24 : 20 } }, sym);
   };
   return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" } },
-    React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, flexShrink: 0 } }, "RNまたぎ"),
+    React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, flexShrink: 0 } }, "RN加算"),
     _oxBtn("○", rnUsed, "#1D4ED8", "#EFF6FF", function() { _p.onUsed(true); }),
     _oxBtn("×", !rnUsed, "#1E8449", "#EAF3DE", function() { _p.onUsed(false); }),
     rnUsed ? React.createElement("input", { type: "text", inputMode: "numeric", value: rnStr,
@@ -4107,9 +4107,9 @@ function _EpnCalcForm(_p) {
   var _useStateEPN11B = useState(""), _useStateEPN11BA = _slicedToArray(_useStateEPN11B, 2), nUkiPct = _useStateEPN11BA[0], setNUkiPct = _useStateEPN11BA[1];   // 浮き足加算率(%)・""=自動(推奨) 2026-07-12
   var _useStateEPN11S = useState(false), _useStateEPN11SA = _slicedToArray(_useStateEPN11S, 2), nUkiSpecial = _useStateEPN11SA[0], setNUkiSpecial = _useStateEPN11SA[1];   // 浮き足応用〇＝大きめ加算率プール（false=浮基本）2026-07-14g
   var _useStateEPN11T = useState(false), _useStateEPN11TA = _slicedToArray(_useStateEPN11T, 2), _epnUkiTbl = _useStateEPN11TA[0], _setEpnUkiTbl = _useStateEPN11TA[1];   // 浮き足加算率 詳細表モーダル 2026-07-14g
-  var _useStateEPNrn1 = useState("×"), _useStateEPNrn1A = _slicedToArray(_useStateEPNrn1, 2), nRnUsed = _useStateEPNrn1A[0], setNRnUsed = _useStateEPNrn1A[1];   // RNまたぎ加算（第5のα要素 2026-07-08h・全シグナル・そのまま加算）
+  var _useStateEPNrn1 = useState("×"), _useStateEPNrn1A = _slicedToArray(_useStateEPNrn1, 2), nRnUsed = _useStateEPNrn1A[0], setNRnUsed = _useStateEPNrn1A[1];   // RN加算（第5のα要素 2026-07-08h・全シグナル・そのまま加算）
   var _useStateEPNrn2 = useState(""), _useStateEPNrn2A = _slicedToArray(_useStateEPNrn2, 2), nRnVal = _useStateEPNrn2A[0], setNRnVal = _useStateEPNrn2A[1];
-  var _useStateEPNrn3 = useState(true), _useStateEPNrn3A = _slicedToArray(_useStateEPNrn3, 2), nRnAuto = _useStateEPNrn3A[0], setNRnAuto = _useStateEPNrn3A[1];   // RNまたぎ自動判定が有効か 2026-07-20b（false=手動で上書き済み＝自動を止める。「↺自動」で復帰）
+  var _useStateEPNrn3 = useState(true), _useStateEPNrn3A = _slicedToArray(_useStateEPNrn3, 2), nRnAuto = _useStateEPNrn3A[0], setNRnAuto = _useStateEPNrn3A[1];   // RN加算自動判定が有効か 2026-07-20b（false=手動で上書き済み＝自動を止める。「↺自動」で復帰）
   var _useStateEPN12 = useState(""), _useStateEPN12A = _slicedToArray(_useStateEPN12, 2), nLevel = _useStateEPN12A[0], setNLevel = _useStateEPN12A[1];
   var _useStateEPNlc = useState(false), _useStateEPNlcA = _slicedToArray(_useStateEPNlc, 2), nLineCoexist = _useStateEPNlcA[0], setNLineCoexist = _useStateEPNlcA[1];   // ⑤ライン併存ルール（〇×独立欄 2026-07-08g）: 〇で基本α1自動入力（下effect）
   var _useStateEPNed = useState(null), _useStateEPNedA = _slicedToArray(_useStateEPNed, 2), editId = _useStateEPNedA[0], setEditId = _useStateEPNedA[1];
@@ -4184,8 +4184,8 @@ function _EpnCalcForm(_p) {
   var _setNUkiPct = function(val) { var v = _toHankakuNum(val); if (v === "") { setNUkiPct(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 100) n = 100; if (n < 0) n = 0; setNUkiPct(String(n)); };
   var _stepNUkiPct = _elMkPctStepper(setNUkiPct);   // 手入力の↑↓: 空欄→50・以降±10（2026-07-14 共通化）
   var ukiAddV = _elUkiAddVal(showUki && nUkiUsed === "○", nUkiVal, _effUkiPct);   // 2026-07-14 共通化
-  var rnAddV = _elRnAddVal(nRnUsed === "○", nRnVal);   // RNまたぎ加算（そのまま加算・全シグナル 2026-07-08h→2026-07-14共通化）
-  // RNまたぎ自動判定 2026-07-20b（記録フォームと同じ挙動）: RN前α＝浮き足〇なら浮き足加算のみ／通常は基底α＋浮き足加算。RNは含めない＝予定EPが循環しないように。
+  var rnAddV = _elRnAddVal(nRnUsed === "○", nRnVal);   // RN加算（そのまま加算・全シグナル 2026-07-08h→2026-07-14共通化）
+  // RN加算自動判定 2026-07-20b（記録フォームと同じ挙動）: RN前α＝浮き足〇なら浮き足加算のみ／通常は基底α＋浮き足加算。RNは含めない＝予定EPが循環しないように。
   var _nRnPre = (nUkiUsed === "○") ? ukiAddV : ((_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV) : null);
   var _nRnAutoAdd = _elRnAutoFrom(nLevel, _nRnPre);   // null=判定不可（水準線未入力/基底α未確定） / 0=対象外(自動×) / >0=加算額
   // 底抜け前足−底抜けライン（水準線nLevel）＝浮き値を自動計算しnUkiValへ（記録フォームと対称）。前足orライン未入力なら据え置き＝過去記録の保存値を維持。2026-07-21
@@ -4239,7 +4239,7 @@ function _EpnCalcForm(_p) {
     setNSpecialReasons(Array.isArray(e.specialReasons) ? e.specialReasons.slice() : (Array.isArray(e.reasons) ? e.reasons.slice() : []));
     var hasUki = (Number(e.uki) || 0) > 0;
     setNUkiUsed(hasUki ? "○" : "×"); setNUkiVal(hasUki && e.ukiVal != null ? String(e.ukiVal) : ""); setNUkiPrev(hasUki && e.ukiPrevBar != null ? String(e.ukiPrevBar) : ""); setNUkiPct(e.ukiPct != null ? String(e.ukiPct) : (hasUki ? "50" : "")); setNUkiSpecial(e.ukiSpecial === true);
-    var hasRn = (e.rnUsed === true) || ((Number(e.rn) || 0) > 0);   // RNまたぎ加算の復元（rnUsed明示・旧itemはrn>0で推定）2026-07-08h
+    var hasRn = (e.rnUsed === true) || ((Number(e.rn) || 0) > 0);   // RN加算の復元（rnUsed明示・旧itemはrn>0で推定）2026-07-08h
     setNRnUsed(hasRn ? "○" : "×"); setNRnVal(hasRn ? String(Number(e.rn) || 0) : ""); setNRnAuto(e.rnAuto === true);   // 保存済みカードを開くときは既定false＝過去の値を自動で書き換えない（rnAuto:true保存分だけ自動を継続）2026-07-20b
     setNLevel(e.level != null ? String(e.level) : "");
     setNLineCoexist(e.lineCoexist === true);
@@ -4442,7 +4442,7 @@ function _EpnCalcForm(_p) {
         React.createElement("div", { style: { marginTop: 4 } },
           React.createElement("div", { style: { fontSize: 9.5, color: specialReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
             specialReco ? (specialReco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : specialReco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）" : "（銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）"))) : "推奨応用α データ無し（空欄＝基本α）"))) : null)) : null,
-    _lrow("RNまたぎ加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RNまたぎ加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
+    _lrow("RN加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RN加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
       _oxBtns(nRnUsed, function(v) { setNRnAuto(false); setNRnUsed(v); if (v === "○" && nRnVal === "") setNRnVal("5"); }),   // 手動操作＝自動判定を止める 2026-07-20b
       nRnUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nRnVal, placeholder: "5",
         onChange: function(e) { setNRnAuto(false); var v = _toHankakuNum(e.target.value); if (v === "") { setNRnVal(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setNRnVal(String(n)); }, style: Object.assign({}, _inpStyle, { width: 48 }) }) : null,
@@ -4549,7 +4549,7 @@ function EpNaviPanel(_refEPN) {
       _epnPut(save, date, st, Object.assign({}, e, { specialUsed: false, special: null, specialReasons: [], base: nB, ep: _epnComputeEp(level, nB, uki, rn) }));
     }
   };
-  // RNまたぎ加算 〇×＋値（早見カード 2026-07-08h）: 〇＝rn値（既定5・既存値あればそれ）を入れてEP再計算／×＝rn0。追加α・ライン併存と同じ即_epnPut保存パターン。
+  // RN加算 〇×＋値（早見カード 2026-07-08h）: 〇＝rn値（既定5・既存値あればそれ）を入れてEP再計算／×＝rn0。追加α・ライン併存と同じ即_epnPut保存パターン。
   var onSetRnUsed = function(st, e, used) {
     var uki = Number(e.uki) || 0, level = Number(e.level) || 0, bl = _epnBaseLevelOf(e);   // base-levelα(応用〇なら応用α)で統一＝RN操作で応用α分が落ちる不整合を修正 2026-07-14（旧: base固定＋廃止add項）
     if (used) {

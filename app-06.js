@@ -1635,20 +1635,20 @@ function _elH2EvalByFn(recs, aiOf, alphaOf) {
   if (h2Cnt) { var _sv = h2Vals.slice().sort(function(x, y) { return x - y; }), _mi = (_sv.length - 1) / 2; medH2 = (_sv.length % 2) ? _sv[_mi] : (_sv[Math.floor(_mi)] + _sv[Math.ceil(_mi)]) / 2; }   // 昇順ソートの中央（偶数件は中2値の平均）＝_elOsPctlV2の_q(0.5)と同型
   return { n: n, entered: entered, eRate: n > 0 ? entered / n : 0, decided: decided, stopN: stopN, stopRate: stopRate, takeN: takeN, takeRate: takeRate, h2Sum: h2Cnt ? h2Sum : null, h2Cnt: h2Cnt, avgH2: h2Cnt ? (h2Sum / h2Cnt) : null, score: score, medH2: medH2, avgWin: takeN ? (winSum / takeN) : null, avgLoss: lossN ? (lossSum / lossN) : null };
 }
-// ===== RNまたぎ加算の分析ボード（シグナル総合「🔢RN」・2026-07-16d 全面刷新）=====
-// RNまたぎ＝EPの下二桁が90台(91〜99・90ちょうどは除く)のとき、RN加算(rnVal=100−下二桁)でEPをRNちょうど(例5391〜99→5400)に乗せる運用。
+// ===== RN加算の分析ボード（シグナル総合「🔢RN」・2026-07-16d 全面刷新）=====
+// RN加算＝EPの下二桁が90台(91〜99・90ちょうどは除く)のとき、RN加算(rnVal=100−下二桁)でEPをRNちょうど(例5391〜99→5400)に乗せる運用。
 // 母数=渡されたv2算入記録のうちRN〇(signal.rnUsed・_elRnYes)。最終損益(手じまい)基準(_elH2EvalByFn)。
 // ①EP位置スイープ＝EPをRN−3〜RN+3の各位置に置き直して再判定（採用α+オフセット）＋RN無し(素のα=採用α−RN値)の参考行。「本当にRNちょうどでいいのか」。
 //   ★＝E成立≥_EL_BASE_MIN_N かつ Σ黒字 の候補で平均最終損益が最大（浮き足%ボードと同流儀・薄いうちは全行（仮））。現行=RNちょうど行は琥珀ハイライト。RN無しが★を取ることもある＝そもそも不要のサイン。
 // ②寄与の内訳＝現実−RN無しの差を「両方成立の値幅改善」「RN待ちで入れなかった取引の仮想損益（負=待って正解）」に分解＋記録ごとの得/損/同件数。「そもそも採る必要があるのか」。
 // ③RN距離別＝rnVal別に Σ現実/ΣRN無し/寄与。近い距離(+1〜3)は誤差か・遠い距離(+7〜9)でも待つ価値があるか。
-// ※旧「RN込みvsRN無し2行表」「RN加算値別(現実のみ)」は①③に吸収＝撤去(2026-07-16d)。RN×側との比較は「RNまたぎ状況だったか」のフラグが記録に無く不可能＝出さない。
+// ※旧「RN込みvsRN無し2行表」「RN加算値別(現実のみ)」は①③に吸収＝撤去(2026-07-16d)。RN×側との比較は「RN加算状況だったか」のフラグが記録に無く不可能＝出さない。
 function _elRnBoardV2(recs, aiOf, holiSet) {
   var pool = (recs || []).filter(function(r) { return r && _elRnYes(r.signal); });
   var _span = _elBizSpanDays(pool, holiSet);   // ①EP位置スイープの頻度列用（α詳細表と同基準）2026-07-18: 母数の活動営業日数（全行共通・EP位置ごとに到達実日数だけ変わる）。
   var _th2 = function(t, k) { return React.createElement("th", { key: k, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
   var _td2 = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #F0EDE7", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
-  if (!pool.length) return React.createElement("div", { style: { color: "#94A3B8", textAlign: "center", padding: "24px 12px", fontSize: 12, border: "1px dashed #e0ddd6", borderRadius: 10 } }, "RNまたぎ加算〇の記録がまだありません（記録フォーム/EPナビでRN〇を付けると貯まります・2026-07-08導入）");
+  if (!pool.length) return React.createElement("div", { style: { color: "#94A3B8", textAlign: "center", padding: "24px 12px", fontSize: 12, border: "1px dashed #e0ddd6", borderRadius: 10 } }, "RN加算〇の記録がまだありません（記録フォーム/EPナビでRN〇を付けると貯まります・2026-07-08導入）");
   var _aReal = function(r) { return aiOf(r).alpha; };
   var _aNone = function(r) { var a = aiOf(r).alpha; if (a == null) return null; return Math.max(0, a - _elRnAdd(r.signal)); };
   var _aOff = function(off) { return function(r) { var a = aiOf(r).alpha; if (a == null) return null; return Math.max(0, a + off); }; };
@@ -1746,7 +1746,7 @@ function _elRnBoardV2(recs, aiOf, holiSet) {
       React.createElement("thead", null, React.createElement("tr", null, ["RN値（またぎ距離）", "件数", "到達率", "Σ現実", "ΣRN無しなら", "寄与（差）"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, valRows))));
 }
-// ===== RNまたぎ閾値スイープ「RNは何円手前から〇にすべきか」2026-07-20e =====
+// ===== RN加算閾値スイープ「RNは何円手前から〇にすべきか」2026-07-20e =====
 // ③RN距離別(_elRnBoardV2)は _elRnAdd でグループ分けする実績の内訳＝母数が「実際に〇にした記録」に偏り、〇にしなかった距離のデータが入らない。
 // こちらは RN× の記録も含む全記録の反実仮想＝「RNまでの距離≤T円なら〇にする」というルールのTを0〜_EL_RN_T_MAXで振って成績を比べる。
 var _EL_RN_T_MAX = 12;   // 閾値スイープの上限T。現行バンド＝9（41-49/91-99）・10以上は…40／…90も含む＝「現行バンド外」とグレー表示。40・90を外した2026-07-20の判断をこの表で再検証するために12まで見る。
@@ -1876,7 +1876,7 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
       React.createElement("thead", null, React.createElement("tr", null, ["閾値T", "該当", "到達率", "E成立", "頻度", "損切り率", "利確率", "Σ最終損益", "平均", "T=0比"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, rows.map(_tRow)))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 } },
-      "該当＝そのTで〇になる記録数（Tが上がるほど積み上がる）。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字のTで平均最終損益が最大（該当なしなら★なし）。T=0が★なら「そもそもRNまたぎ不要」のサイン。RNの間隔は50円なのでTを1上げても該当は全体の約2%ずつしか増えない＝Σの差が小さく見えるため、右端の「T=0比」と下の距離別で判断する。"),
+      "該当＝そのTで〇になる記録数（Tが上がるほど積み上がる）。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字のTで平均最終損益が最大（該当なしなら★なし）。T=0が★なら「そもそもRN加算不要」のサイン。RNの間隔は50円なのでTを1上げても該当は全体の約2%ずつしか増えない＝Σの差が小さく見えるため、右端の「T=0比」と下の距離別で判断する。"),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "12px 0 4px" } }, "② 距離別の限界寄与 〜どこで符号が反転するか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", null, ["RNまでの距離", "件数", "またぐΣ", "またがないΣ", "差", "累計差"].map(function(h, i) { return _th2(h, i); }))),
@@ -1946,7 +1946,7 @@ function _elBaseAlphaPickScore(recs, aiOf) {
   if (!recs || !recs.length) return null;
   // 推奨基本αの母数: 追加α=〇(上乗せあり)以外＝×(不要)＋未選択(未判断)の記録。未選択はaddAlphaVal無し＝基本αのみの記録なので母数に算入する（〇だけ除外）2026-06-24。
   // 浮き足〇（_elUkiYes）も除外＝浮き足加算で嵩上げされる特殊状況の記録を素の基本α評価に混ぜない（旧: 追加α〇として除外されていた挙動を移行後も維持）2026-07-03。
-  // RN〇（_elRnYes）も同思想で除外 2026-07-12: RNまたぎ加算込みの採用αを一様置換すると加算成分が消えて評価が歪むため、素の基本α母数から外す（浮き足と対称）。
+  // RN〇（_elRnYes）も同思想で除外 2026-07-12: RN加算込みの採用αを一様置換すると加算成分が消えて評価が歪むため、素の基本α母数から外す（浮き足と対称）。
   recs = recs.filter(_elIsBaseAlphaPoolRec);
   if (!recs.length) return null;
   aiOf = _elAnaAiOf(aiOf);   // 旧基準チップも同じ前提損切り値で比較（公平）2026-07-13b
@@ -3477,7 +3477,7 @@ function _elUkiAltBandLabel(i) {
   if (i >= _EL_UKI_ALT_BANDS.length - 1) return (_EL_UKI_ALT_BANDS[_EL_UKI_ALT_BANDS.length - 2].max + 1) + "〜";
   return (_EL_UKI_ALT_BANDS[i - 1].max + 1) + "〜" + _EL_UKI_ALT_BANDS[i].max;
 }
-// 換算後の採用α＝応用α（帯別）＋RNまたぎ加算（ユーザー選択＝RNは浮き足でも上乗せする規約なので条件を揃える）。浮き足加算は使わない。
+// 換算後の採用α＝応用α（帯別）＋RN加算（ユーザー選択＝RNは浮き足でも上乗せする規約なので条件を揃える）。浮き足加算は使わない。
 function _elUkiAltAlpha(s) { var b = _elUkiAltBandOf(s); return b ? (b.alpha + _elRnAdd(s)) : null; }
 // そのαでのエントリー不成立の理由（null＝成立して（）外が立った）。2026-07-27
 // 最終損益の（）外(main)がnullになるのは ①×見送り（スルー宣言がEP足より前）②α未達（EP不成立）③（）外が立たない△エントリー の3つ。
@@ -5046,8 +5046,8 @@ function _elKabuLadderSimV2(props) {
   // 記録固有の上乗せ＝浮き足加算（常時・floor(浮き値÷2)・浮き足×/対象外は0）＋追加α上乗せ（〇記録のみ・addOnセレクタ）。シミュの入力α/自動配分の探索αは「基本α部分」・実効α＝入力＋この上乗せ＝実運用ルール（α＝基本α＋浮き足加算＋追加α）の基本α部分だけ差し替える反実仮想 2026-07-06。
   // 既定母数（×+未選択・その他サブタブ）では全記録0＝従来の数値と完全一致。損切りは相対幅(cutLine)なので自動的に実効α起点＝変更不要。
   // 2026-07-20b RN加算を追加＝採用α（＝base-levelα＋浮き足＋RN・app-05:3141）と成分を一致させる。旧＝浮き足のみでRNが欠落し、RN〇を母数に入れると実効αが採用α−RN値になっていた（既定除外で普段は表面化しないがチェックを外すと発生・損切り判定まで歪む）。
-  var _simAddOf = function(r) { var s = r && r.signal; return s ? (_elUkiAdd(s) + _elRnAdd(s)) : 0; };   // 記録固有の上乗せ＝浮き足加算＋RNまたぎ加算（追加α増分は廃止＝応用は基底α置換 2026-07-13）
-  // ===== RNまたぎ自動判定（動的）2026-07-20c =====
+  var _simAddOf = function(r) { var s = r && r.signal; return s ? (_elUkiAdd(s) + _elRnAdd(s)) : 0; };   // 記録固有の上乗せ＝浮き足加算＋RN加算（追加α増分は廃止＝応用は基底α置換 2026-07-13）
+  // ===== RN加算自動判定（動的）2026-07-20c =====
   // シミュはαを動かす＝予定EPが動く＝下二桁も変わるので、RNは記録の保存値ではなく「掃引したαで判定し直す」（ユーザー決定 2026-07-20）。
   // _simRnAt(r, preAlpha)＝そのRN前α（基底α＋浮き足加算）での自動RN加算額。水準線(levelPrice)未入力＝判定不可はRN無し(0)で建てる（ユーザー決定・件数は_noLvNでバッジ表示）。
   var _simRnAt = function(r, preAlpha) { var s = r && r.signal; if (!s) return 0; var v = _elRnAutoFrom(s.levelPrice, preAlpha); return (v == null) ? 0 : v; };
@@ -5576,7 +5576,7 @@ function _elKabuLadderSimV2(props) {
         ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: _exCount > 0 ? "#B45309" : "#C0392B", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 5, padding: "1px 7px" } }, _exCount > 0 ? (_exCount + "件を除外中（対象 " + pool.length + "件）") : "除外0件＝浮き足〇の記録がこの母数にありません")
         : React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "浮き足〇の記録をシミュ母数から除外（現在 " + pool.length + "件）"),
       _collN > 0 ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 5, padding: "1px 7px" } }, "時間かぶり除外 " + _collN + "件") : null,   // 2026-07-20b 他のP&L集計と同じ被り除外を適用中であることの可視化（常時ON・チェックではない）
-      (rnAuto && _noLvN > 0) ? React.createElement("span", { title: "水準線値が未入力の記録は予定EPが出せないためRNまたぎ自動判定ができません。RN加算なし（0円）として掃引しています（母数からは外していません）。", style: { fontSize: 9.5, fontWeight: 800, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 5, padding: "1px 7px" } }, "水準線未入力 " + _noLvN + "件（RN自動判定なし）") : null),   // 2026-07-20c／2026-07-21a RN自動加算OFF時はこのバッジも不要
+      (rnAuto && _noLvN > 0) ? React.createElement("span", { title: "水準線値が未入力の記録は予定EPが出せないためRN加算自動判定ができません。RN加算なし（0円）として掃引しています（母数からは外していません）。", style: { fontSize: 9.5, fontWeight: 800, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 5, padding: "1px 7px" } }, "水準線未入力 " + _noLvN + "件（RN自動判定なし）") : null),   // 2026-07-20c／2026-07-21a RN自動加算OFF時はこのバッジも不要
     // RN自動加算トグル 2026-07-21a（既定ON）: 全方式一律。ONで予定EP下二桁41-49/91-99を…50/…00へ／OFFで入力αそのまま。採用α±X系は元からRN込みで対象外。
     React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "RN自動加算:"),
@@ -5783,7 +5783,7 @@ function EntryLogView(_ref_elv2) {
   var _uSDT = useState(null), selDetTag = _uSDT[0], setSelDetTag = _uSDT[1];   // 詳細タグ別モードの選択タグ（"セクションキー|タグ名"）
   var _uBSel = useState(null), bandSel = _uBSel[0], setBandSel = _uBSel[1];   // 株価帯別モードの選択帯キー（"b0".."bN"/"mat"=材料あり/"unk"=帯不明・null=件数最多帯に自動フォールバック）2026-07-22
   var _uSGT = useState("band"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: band(株価帯別・先頭・既定)/uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）。既定を"uki"→"band"に（移設先を前面・ユーザー決定 2026-07-22j）
-  var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RNまたぎタブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録)/thr(閾値スイープ) 2026-07-19→2026-07-20e thr追加
+  var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RN加算タブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録)/thr(閾値スイープ) 2026-07-19→2026-07-20e thr追加
   var _uRNT = useState("all"), rnTier = _uRNT[0], setRnTier = _uRNT[1];   // 閾値タブの段別トグル: all(…50/…00合算)/50(…50の段)/00(…00の段) 2026-07-20e
   var _uUKB = useState("all"), ukiBand = _uUKB[0], setUkiBand = _uUKB[1];   // ⚡浮き足%タブの株価帯フィルタ（"all"=従来の全銘柄共通・既定／"b0".."bN"／"mat"／"unk"）。KPI早見・加算率ボード・記録一覧の3つ全部に効く 2026-07-25
   var _uUKS = useState("ana"), ukiSub = _uUKS[0], setUkiSub = _uUKS[1];   // ⚡浮き足%タブ内の入れ子サブタブ: ana(分析)/list(記録一覧) 2026-07-19
@@ -5843,7 +5843,7 @@ function EntryLogView(_ref_elv2) {
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["period", "📆 期間"], ["sim", "🧮 シミュ"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
-  var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["uki", "⚡ 浮き足%"], ["rn", "🔢 RNまたぎ"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RNまたぎ改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
+  var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["uki", "⚡ 浮き足%"], ["rn", "🔢 RN加算"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
   // 日付だけ新しい順・各日付の中は時間が早い順（2段ソート）2026-07-27 ユーザー指定＝「新しい日から見て、その日は朝から順に読む」。
   // 日付＋時刻を繋げた文字列の単純降順にすると日内まで逆順になるので、日付と時刻を分けて比較するのが要。
@@ -6750,7 +6750,7 @@ function EntryLogView(_ref_elv2) {
     var _sigRnPool = _v2recsAllData.filter(function(r) { return r && _elRnYes(r.signal); });
     var _sigKpiHead = function(t) { return React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#6B6459", margin: "2px 0 6px" } }, t); };
     var _sigKpiEmpty = function(t) { return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, t); };
-    // 入れ子サブタブ 2026-07-19: RNまたぎ/浮き足%それぞれの内容（KPI＋分析ボード＋記録一覧）が縦長になったのでタブ式に分割。
+    // 入れ子サブタブ 2026-07-19: RN加算/浮き足%それぞれの内容（KPI＋分析ボード＋記録一覧）が縦長になったのでタブ式に分割。
     // 入れ子タブバー（トップの_SIG_TABSより小ぶり・teal系）。tabs=[[key,ラベル,件数],...]。
     var _sigInnerBar = function(tabs, cur, onSet) {
       return React.createElement("div", { style: { display: "flex", background: "#E4EFEC", borderRadius: 9, padding: 3, marginBottom: 10, gap: 2, overflowX: "auto" } },
@@ -6776,7 +6776,7 @@ function EntryLogView(_ref_elv2) {
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この母数に該当する記録がありません（分類トグルを切替）")]);
     } else if (sigSub === "rn") {
       var _rnListRecs = _v2recsAllData.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateAsc);   // 分析（データ算入）2026-07-22f
-      // RNまたぎ候補＝RNまたぎ加算×だが予定EP（水準線値＋採用α）の下2桁がバンド内の記録（＝50/00のキリ番をまたげた可能性）。
+      // RN加算候補＝RN加算×だが予定EP（水準線値＋採用α）の下2桁がバンド内の記録（＝50/00のキリ番をまたげた可能性）。
       // 母数=全記録（filtered＝スルー・要審議・合計除外も含む・_elInclTotalで絞らない）。levelPrice未入力/α未達は下2桁不明のため対象外。2026-07-19
       // 2026-07-20b 自前の下2桁判定（40〜49/90〜99）を廃し共通ヘルパー_elRnAutoOfRec(app-05)へ＝自動判定と同じバンド(41-49/91-99)・同じ式を単一源から使う（40・90を含めないのはユーザー決定）。
       var _rnCandRecs = filtered.filter(function(r) {
@@ -6795,16 +6795,16 @@ function EntryLogView(_ref_elv2) {
             _elRnThresholdBoardV2(_v2recsAllData, _ai, _sigHoliSet, rnTier)])
         : (rnSub === "list")
         ? _cardify([
-            _secH("🗂 RN〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝RNまたぎ加算〇の全記録。行タップで明細カード・カードタップで編集フォーム"),
+            _secH("🗂 RN〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝RN加算〇の全記録。行タップで明細カード・カードタップで編集フォーム"),
             _recTable(_rnListRecs, "full", "rntab_")])
         : (rnSub === "cand")
           ? _cardify([
-              _secH("🎯 RNまたぎ候補の記録一覧（全銘柄・全記録）", "※RNまたぎ加算×だが予定EPの下2桁が41〜49／91〜99の記録＝50/00のキリ番をまたげた可能性。自動判定と同じ範囲（…40/…90は距離10で費用対効果が悪いため対象外）。スルー・要審議・合計除外も含む全記録が対象。予定EP＝水準線値＋採用α（ライン列に表示）"),
+              _secH("🎯 RN加算候補の記録一覧（全銘柄・全記録）", "※RN加算×だが予定EPの下2桁が41〜49／91〜99の記録＝50/00のキリ番をまたげた可能性。自動判定と同じ範囲（…40/…90は距離10で費用対効果が悪いため対象外）。スルー・要審議・合計除外も含む全記録が対象。予定EP＝水準線値＋採用α（ライン列に表示）"),
               _rnCandRecs.length ? _recTable(_rnCandRecs, "full", "rncand_") : _sigKpiEmpty("該当する候補記録がありません（RN加算×かつ予定EP下2桁41〜49/91〜99・水準線値入りの記録が対象）")])
           : _cardify([
               _sigKpiHead("📊 KPI早見｜RN〇の全記録（" + _sigRnPool.length + "件・採用αはRN加算込み・最終損益基準）"),
-              _sigRnPool.length ? _kpiBlockOf(_sigRnPool, _sigHoliSet) : _sigKpiEmpty("RNまたぎ加算〇の記録がまだありません"),
-              _secH("🔢 RNまたぎ加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAllData, _ai, _sigHoliSet)]);
+              _sigRnPool.length ? _kpiBlockOf(_sigRnPool, _sigHoliSet) : _sigKpiEmpty("RN加算〇の記録がまだありません"),
+              _secH("🔢 RN加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAllData, _ai, _sigHoliSet)]);
       _tabBody = React.createElement(React.Fragment, null,
         _sigInnerBar([["ana", "分析", _sigRnPool.length], ["list", "記録一覧", _rnListRecs.length], ["cand", "候補記録", _rnCandRecs.length], ["thr", "閾値", _rnThrN == null ? "—" : _rnThrN]], rnSub, setRnSub),
         _rnBody);
@@ -6862,7 +6862,7 @@ function EntryLogView(_ref_elv2) {
         _elv2Td(_altT.n ? _altDiff(_altT.diff) : _altDiff(null))));
       var _ukiBody = (ukiSub === "alt")
         ? _cardify([
-            _secH("🔁 応用α換算（" + _ukiScopeLbl + "）", "※ 浮き足%を使わず「株価帯別の応用α＋RNまたぎ加算」を採用αにしていたら各取引がどうなっていたかを再計算。帯は記録の水準線価格で判定（〜" + _EL_UKI_ALT_BANDS[0].max + "=" + _EL_UKI_ALT_BANDS[0].a + "円／" + (_EL_UKI_ALT_BANDS[0].max + 1) + "〜" + _EL_UKI_ALT_BANDS[1].max + "=" + _EL_UKI_ALT_BANDS[1].a + "円／" + (_EL_UKI_ALT_BANDS[1].max + 1) + "〜=" + _EL_UKI_ALT_BANDS[2].a + "円）。損切り値は記録の採用値のまま。損益は最終損益（手じまいまで）の（）外。エントリー不成立（α未達・スルー・（）外なしの△）は「そのαなら取引しなかった＝0円」として両側とも算入＝差額は全件で計算。水準線未入力（帯不明）の記録だけ換算不可"),
+            _secH("🔁 応用α換算（" + _ukiScopeLbl + "）", "※ 浮き足%を使わず「株価帯別の応用α＋RN加算」を採用αにしていたら各取引がどうなっていたかを再計算。帯は記録の水準線価格で判定（〜" + _EL_UKI_ALT_BANDS[0].max + "=" + _EL_UKI_ALT_BANDS[0].a + "円／" + (_EL_UKI_ALT_BANDS[0].max + 1) + "〜" + _EL_UKI_ALT_BANDS[1].max + "=" + _EL_UKI_ALT_BANDS[1].a + "円／" + (_EL_UKI_ALT_BANDS[1].max + 1) + "〜=" + _EL_UKI_ALT_BANDS[2].a + "円）。損切り値は記録の採用値のまま。損益は最終損益（手じまいまで）の（）外。エントリー不成立（α未達・スルー・（）外なしの△）は「そのαなら取引しなかった＝0円」として両側とも算入＝差額は全件で計算。水準線未入力（帯不明）の記録だけ換算不可"),
             _elv2CardRow([
               _elv2Card("浮き足%（実際）", _altT.n ? _altAmt(_altT.cur) : _altAmt(null), null, _altT.n + "件の合計" + (_altT.ne ? "（無エントリー0円 " + _altT.ne + "件込み）" : "")),
               _elv2Card("応用α換算", _altT.n ? _altAmt(_altT.alt) : _altAmt(null), null, "同じ母数で再計算"),

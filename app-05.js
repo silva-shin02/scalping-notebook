@@ -3163,16 +3163,16 @@ function _elUkiYes(s) { return !!s && s.ukiUsed === true; }
 function _elUkiVal(s) { if (!s || s.ukiVal == null || s.ukiVal === "" || isNaN(Number(s.ukiVal))) return null; return Number(s.ukiVal); }
 function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); if (v == null || v <= 0) return 0; var pct = (s && s.ukiPct != null && !isNaN(Number(s.ukiPct))) ? Number(s.ukiPct) : 50; return Math.floor(v * pct / 100); }   // 実効加算＝floor(浮き値×加算率/100)。ukiPct=使った加算率(%)・既定50=半額（旧記録はukiPct無し→50%で従来と一致）2026-07-12
 function _elUkiSpecialUsed(s) { return !!(s && s.ukiSpecial === true); }   // 浮き足応用フラグ（大きめ%・根拠つき）2026-07-14g。false/未設定＝浮き足基本。基本α/応用αの specialUsed と対の概念。※α計算切替（浮き足○＝浮き足%のみ）と移行は第2弾
-// RNまたぎ加算の判定/成分（第5のα要素 07-08h・signal.rnUsed/rnVal）。浮き足(_elUkiYes/_elUkiAdd)と対になる分析用ヘルパー 2026-07-12: 推奨基本αの母数除外・RN分析ボード・反実仮想(採用α−RN)で使用。
+// RN加算の判定/成分（第5のα要素 07-08h・signal.rnUsed/rnVal）。浮き足(_elUkiYes/_elUkiAdd)と対になる分析用ヘルパー 2026-07-12: 推奨基本αの母数除外・RN分析ボード・反実仮想(採用α−RN)で使用。
 function _elRnYes(s) { return !!s && s.rnUsed === true; }
 function _elRnAdd(s) { if (!_elRnYes(s)) return 0; var v = Number(s.rnVal); return (isNaN(v) || v <= 0) ? 0 : v; }
-// ===== RNまたぎ自動判定 2026-07-20b（記録フォーム/EPナビの自動セット・シミュの動的再判定・候補一覧が共通で使う単一源）=====
+// ===== RN加算自動判定 2026-07-20b（記録フォーム/EPナビの自動セット・シミュの動的再判定・候補一覧が共通で使う単一源）=====
 // 予定EP（水準線 ＋ RN加算“前”のα＝基底α＋浮き足加算）の下二桁がキリ番の手前バンドに入っていれば、そのキリ番ちょうどに乗せる加算額を返す。
 // ⚠️判定は必ずRN加算“前”のEPに対して行う: 予定EP＝水準線＋採用α で採用αにRNが含まれるため、RN込みEPで判定すると循環する。
 // バンド＝41-49→…50／91-99→…00。40・90は含めない（距離10はバンド内で最も高い授業料なのに得るものは同じ「RNちょうど」1個。
 //   しかも…40/…90はそれ自体10円刻みのキリ番＝費用対効果が最悪。ユーザー決定 2026-07-20）。③RN距離別データを見て後から調整できるよう定数で外出し。
 var _EL_RN_BANDS = [{ from: 41, to: 49, target: 50 }, { from: 91, to: 99, target: 100 }];
-// 予定EP価格 → 加算額。null＝判定不可（価格が数値でない＝水準線未入力など）／0＝対象外（自動×）／>0＝RNまたぎ加算額。
+// 予定EP価格 → 加算額。null＝判定不可（価格が数値でない＝水準線未入力など）／0＝対象外（自動×）／>0＝RN加算額。
 function _elRnAutoAt(epPre) {
   if (epPre == null || epPre === "" || isNaN(Number(epPre))) return null;
   var last2 = ((Math.round(Number(epPre)) % 100) + 100) % 100;   // 円単位で下二桁（負値・小数も安全に）
@@ -3199,7 +3199,7 @@ function _elRnPreEpOfRec(s, alpha) {
 function _elRnAutoOfRec(s, alpha) {
   return _elRnAutoAt(_elRnPreEpOfRec(s, alpha));
 }
-// ===== RNまたぎ閾値スイープ（「−何円から〇にすべきか」分析の単一源）2026-07-20e =====
+// ===== RN加算閾値スイープ（「−何円から〇にすべきか」分析の単一源）2026-07-20e =====
 // 運用の自動判定はバンド固定（距離1〜9）だが、分析では距離の上限Tを1件ずつ振って成績を比べる。距離＝RN加算“前”EPの下二桁から直近のキリ番（…50／…00）までの円数。
 // 直近キリ番までの距離。1〜49／0＝すでに…50・…00ちょうど（どのTでも動かない＝閾値分析の母数外）／null＝判定不可。
 function _elRnDistAt(epPre) {
@@ -3435,7 +3435,7 @@ function _elAlphaTypeCell(s, alpha) {
   var _isUki = _elUkiYes(s);
   var sp = _isUki ? _elUkiSpecialUsed(s) : _elSpecialUsed(s);
   var col = _isUki ? "#15803D" : (sp ? "#DC2626" : "#0369A1");
-  var hasRn = _elRnAdd(s) > 0;   // 「計」＝RNまたぎが乗って値が合計（種別α＋RN）になったときだけ。浮き足のみ/RN無しは値＝種別αそのものなので種別ラベル 2026-07-18b
+  var hasRn = _elRnAdd(s) > 0;   // 「計」＝RN加算が乗って値が合計（種別α＋RN）になったときだけ。浮き足のみ/RN無しは値＝種別αそのものなので種別ラベル 2026-07-18b
   var _label = hasRn ? "計" : (_isUki ? (sp ? "浮き応用" : "浮き基本") : (sp ? "応用" : "基本"));   // RN>0＝「計」＋内訳（基/応/浮 ＋RN）。RN無し＝種別ラベル（基本/応用/浮き基本/浮き応用）・内訳なし。
   return React.createElement("div", { style: { lineHeight: 1.2 } },
     React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),
@@ -5225,7 +5225,7 @@ function _elLineInner(s, alpha, cutLine) {
   return React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 } },
     React.createElement("span", { style: _lbl }, "水準"),   // 水準線値をEPの上に表示 2026-07-24
     _fmt(lv, "#64748B"),
-    React.createElement("span", { style: _epLbl }, _elRnYes(s) ? "EP（RN）〇" : "EP"),   // RNまたぎ〇＝EPがRN(キリ番)に乗っている記録は「EP（RN）〇」表記（紫）2026-07-18h
+    React.createElement("span", { style: _epLbl }, _elRnYes(s) ? "EP（RN）〇" : "EP"),   // RN加算〇＝EPがRN(キリ番)に乗っている記録は「EP（RN）〇」表記（紫）2026-07-18h
     _fmt(epPrice, "#334155"),
     React.createElement("span", { style: Object.assign({}, _lbl, { marginTop: 1 }) }, "損切"),
     _fmt(stopPrice, "#B45309"),
@@ -6549,7 +6549,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateUKP = useState(initSig.ukiPct != null ? String(initSig.ukiPct) : (initSig.ukiUsed === true ? "50" : "")),
     _useStateUKPA = _slicedToArray(_useStateUKP, 2),
     fUkiPct = _useStateUKPA[0], setFUkiPct = _useStateUKPA[1];
-  // RNまたぎ加算α値（第5のα要素 2026-07-08h・RN＝ラウンドナンバー＝キリ番またぎ）: 〇×＋加算値（円・生値をそのまま加算・÷2等の計算なし）。全シグナルで表示。signal.rnUsed/rnValに保存。
+  // RN加算α値（第5のα要素 2026-07-08h・RN＝ラウンドナンバー＝キリ番またぎ）: 〇×＋加算値（円・生値をそのまま加算・÷2等の計算なし）。全シグナルで表示。signal.rnUsed/rnValに保存。
   // 初期化: rnUsed===true→〇・それ以外（false/未設定/旧記録）→×。
   var _useStateRNU = useState(initSig.rnUsed === true ? "○" : "×"),
     _useStateRNUA = _slicedToArray(_useStateRNU, 2),
@@ -6557,10 +6557,11 @@ function EntryRecordForm(_ref_erf) {
   var _useStateRNV = useState(initSig.rnVal != null ? String(initSig.rnVal) : ""),
     _useStateRNVA = _slicedToArray(_useStateRNV, 2),
     fRnVal = _useStateRNVA[0], setFRnVal = _useStateRNVA[1];
-  // RNまたぎ自動判定（2026-07-20b）: 予定EP（水準線＋RN前α）の下二桁が41-49/91-99なら自動で〇＋50/00までの加算額をセット・外れたら自動×。
+  // RN加算自動判定（2026-07-20b）: 予定EP（水準線＋RN前α）の下二桁が41-49/91-99なら自動で〇＋50/00までの加算額をセット・外れたら自動×。
   // rnAuto=false は「手動で上書き済み＝自動を止める」印。〇×か数値に触った瞬間falseになり、「↺自動」でtrueへ戻す。
-  // ⚠️既存記録(isEdit)は初期値false固定＝過去記録を開いただけでRNが書き換わらない（「過去記録は移行しない」というユーザー決定を保護）。新規はtrue。
-  var _useStateRNA = useState(isEdit ? (initSig.rnAuto === true) : (initSig.rnAuto !== false)),
+  // 2026-07-29 ユーザー指示で既存記録も自動へ: 未設定（rnAuto無しの旧記録）＝自動＝新規と同じ扱い。明示的な false（手動で倒して保存した記録）だけ手動を維持。
+  // 旧記録への rnAuto:true 付与は migrateData(_migRnAutoOn・app-01)が担当＝ここは「未設定なら自動」のフォールバック。旧仕様＝isEdit時は初期値false固定（過去記録を開いてもRNが書き換わらない）は撤回。
+  var _useStateRNA = useState(initSig.rnAuto !== false),
     _useStateRNAA = _slicedToArray(_useStateRNA, 2),
     fRnAuto = _useStateRNAA[0], setFRnAuto = _useStateRNAA[1];
   // α値セクションのメモ（記録固有=signal.alphaMemo）2026-06-21。
@@ -6813,7 +6814,7 @@ function EntryRecordForm(_ref_erf) {
 
 
   
-  // 採用α値 = base-levelα（採用α選択が応用なら応用α値、通常なら基本α値）＋ 浮き足加算α値 ＋ RNまたぎ加算。これが採用α＝全計算で使用（2026-07-13 応用α化）。
+  // 採用α値 = base-levelα（採用α選択が応用なら応用α値、通常なら基本α値）＋ 浮き足加算α値 ＋ RN加算。これが採用α＝全計算で使用（2026-07-13 応用α化）。
   var _fBaseAInput = (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha))) ? Number(fBaseAlpha) : ((!isEdit && _baDefault != null) ? _baDefault : 0);   // 基本α入力（新規＝その日の採用α値のみ・無ければ0＝推奨基本αフォールバック廃止で予定EPもその日の採用α値ベース 2026-07-23）
   var _fSpecialA = (fSpecialAlpha !== "" && !isNaN(Number(fSpecialAlpha))) ? Number(fSpecialAlpha) : ((!isEdit && _spDefault != null) ? _spDefault : _fBaseAInput);   // 応用α入力（新規＝その日の採用応用α値のみ・無ければ基本α入力＝推奨応用αフォールバック廃止 2026-07-23）
   var _fBaseLevel = (fAlphaKind === "special") ? _fSpecialA : _fBaseAInput;   // base-levelα正本（採用α選択で切替）
@@ -6823,10 +6824,10 @@ function EntryRecordForm(_ref_erf) {
   var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, fDate, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null, fStock); }, [data, fDate, fUkiSpecial, fUkiReasons, fStock]);   // 2026-07-14g 浮き足基本/応用のタグ別プール推奨（応用は選択根拠で絞る・薄ければ全応用）。2026-07-25 fStockを渡して株価帯優先（帯が薄ければ全銘柄へフォールバック）
   var _effUkiPct = _elUkiEffPct(fUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
   var _fUkiAdd = _elUkiAddVal(_showUki && fUkiUsed === "○", fUkiVal, _effUkiPct);   // 2026-07-14 共通化
-  // RNまたぎ加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
+  // RN加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
   var _fRnAdd = _elRnAddVal(fRnUsed === "○", fRnVal);   // 2026-07-14 共通化
   var _fAlpha = (fUkiUsed === "○" ? 0 : _fBaseLevel) + _fUkiAdd + _fRnAdd;   // 2026-07-14g 浮き足〇＝土台α不使用＝採用α＝浮き足加算＋RN のみ（基本α/応用αは通常時のみ）
-  // RNまたぎ自動判定 2026-07-20b（_fBaseLevel/_fUkiAdd の定義後でないと undefined を掴むのでこの位置）。
+  // RN加算自動判定 2026-07-20b（_fBaseLevel/_fUkiAdd の定義後でないと undefined を掴むのでこの位置）。
   // RN前α＝基底α＋浮き足加算（RNは含めない＝予定EPにRNが入ると判定が循環するため）。null＝水準線未入力で判定不可＝現状維持＋ヒント表示。
   var _fRnPre = (fUkiUsed === "○" ? 0 : _fBaseLevel) + _fUkiAdd;
   var _fRnAutoAdd = _elRnAutoFrom(fLevelPrice, _fRnPre);   // null=判定不可 / 0=対象外(自動×) / >0=加算額
@@ -7423,7 +7424,7 @@ function EntryRecordForm(_ref_erf) {
       ukiReasons: (_showUki && fUkiUsed === "○" && fUkiSpecial === true) ? (function() { var _a = (fUkiReasons || []).filter(function(x) { return x; }); return _a.length ? _a : null; })() : null,
       rnUsed: fRnUsed === "○",
       rnVal: (fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : null,
-      rnAuto: fRnAuto,   // 2026-07-20b RNまたぎ自動判定が有効か（false=手動で上書き済み）。編集で開き直したときに自動が勝手に上書きしないための印
+      rnAuto: fRnAuto,   // 2026-07-20b RN加算自動判定が有効か（false=手動で上書き済み）。編集で開き直したときに自動が勝手に上書きしないための印
 
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
@@ -7604,7 +7605,7 @@ function EntryRecordForm(_ref_erf) {
           }, _mb);
         }),
         React.createElement("span", { style: { fontSize: 12, color: "#94A3B8", fontWeight: 600 } }, "分足"),
-        _lvPriceBox("lv_mb")   // 2026-07-20b 分足欄の右に水準線値欄（下のOS見出し右の欄と同じ部品・同じstate＝相互に自動反映）。早い段階で入れておくとRNまたぎ自動判定が効く
+        _lvPriceBox("lv_mb")   // 2026-07-20b 分足欄の右に水準線値欄（下のOS見出し右の欄と同じ部品・同じstate＝相互に自動反映）。早い段階で入れておくとRN加算自動判定が効く
       ),
 
       React.createElement("div", { style: SH_ }, "🎯 エントリーシグナル"),
@@ -7924,11 +7925,11 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "採用α値（基本α or 応用α）＋浮き足加算＋RNまたぎ＝合計α値（水準線比）。この合計αを水準線値に足したものが予定EP。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "採用α値（基本α or 応用α）＋浮き足加算＋RN加算＝合計α値（水準線比）。この合計αを水準線値に足したものが予定EP。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
         _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
         (function() {
-          // 浮き足加算（2026-07-14f α値セクションに復帰＝RNまたぎ加算欄の上）。〇×→〇で底抜け前足とライン（水準線）を入力し差額（＝浮き値・ukiPrevBar/ukiVal）×採用加算率（推奨%・既定50%）で切捨て加算し合計α値へ上乗せ。データは従来どおりsignal.ukiUsed/ukiVal(+ukiPct)・alphaValへ畳み込み（保存/EP/損益/分析は不変）。
+          // 浮き足加算（2026-07-14f α値セクションに復帰＝RN加算欄の上）。〇×→〇で底抜け前足とライン（水準線）を入力し差額（＝浮き値・ukiPrevBar/ukiVal）×採用加算率（推奨%・既定50%）で切捨て加算し合計α値へ上乗せ。データは従来どおりsignal.ukiUsed/ukiVal(+ukiPct)・alphaValへ畳み込み（保存/EP/損益/分析は不変）。
           // 底抜け前足の入力（価格・小数可・±1）。ライン＝水準線fLevelPrice（相互反映・下の_lvPriceBox）。差額＝浮き値はuseEffectでfUkiValへ。2026-07-21
           var _setPrev = function(val) { setFUkiPrev(_toHankakuDecimal(val)); };
           var _stepPrev = function(delta) { setFUkiPrev(function(prev) { var base = (prev !== "" && !isNaN(parseFloat(prev))) ? parseFloat(prev) : 0; var n = base + delta; if (n < 0) n = 0; return String(n); }); };
@@ -8306,7 +8307,7 @@ function EntryRecordForm(_ref_erf) {
         );
       })() : null,
       (function() {
-        // RNまたぎ加算α値の行（全シグナル・追加α（根拠含む）行の下）2026-07-08h。〇×→〇で加算値（円・そのまま）をαに加算。すぐ横に暫定EP（水準線値＋合計α）を小さく表示＝EPを見て要否判断。
+        // RN加算α値の行（全シグナル・追加α（根拠含む）行の下）2026-07-08h。〇×→〇で加算値（円・そのまま）をαに加算。すぐ横に暫定EP（水準線値＋合計α）を小さく表示＝EPを見て要否判断。
         // 2026-07-20b 手動で触ったら自動判定を止める（_offAuto）＝以後αや水準線を動かしても上書きされない。「↺自動」で復帰。
         var _offAuto = function() { if (fRnAuto) setFRnAuto(false); };
         var _setRV = function(val) { _offAuto(); var _v = _toHankakuNum(val); if (_v === "") { setFRnVal(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setFRnVal(String(n)); };
@@ -8317,13 +8318,13 @@ function EntryRecordForm(_ref_erf) {
         return React.createElement("div", {
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 12, flexWrap: "wrap" }
         },
-          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "RNまたぎ加算"),
+          React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "RN加算"),
           React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
             [["○", "○", "要", "#C0392B", "#FCEBEB"], ["×", "×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
               var on = fRnUsed === kv[0];
               return React.createElement("button", { key: kv[0], type: "button",
                 onClick: function() { _offAuto(); setFRnUsed(kv[0]); if (kv[0] === "○" && fRnVal === "") setFRnVal("5"); },
-                title: kv[0] === "○" ? "ラウンドナンバー（キリ番）をまたぐ＝入力値をそのままαに加算" : "RNまたぎなし＝加算しない",
+                title: kv[0] === "○" ? "ラウンドナンバー（キリ番）をまたぐ＝入力値をそのままαに加算" : "RN加算なし＝加算しない",
                 style: { padding: "2px 8px", fontSize: 12, fontWeight: on ? 800 : 600, border: on ? ("2px solid " + kv[3]) : "1px solid #ddd", background: on ? kv[4] : "#fff", color: on ? kv[3] : "#999", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } },
                 kv[1], React.createElement("span", { style: { fontSize: 9, marginLeft: 2, fontWeight: 600 } }, kv[2]));
             })
@@ -8349,7 +8350,7 @@ function EntryRecordForm(_ref_erf) {
                 style: { fontSize: 9.5, fontWeight: 700, color: "#B45309", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 自動に戻す（手動中）"),
           React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 4, padding: "1px 7px", borderRadius: 6, background: "#DBEAFE", border: "1px solid #93C5FD", whiteSpace: "nowrap" } },
             React.createElement("span", { style: { fontSize: 9.5, color: "#1D4ED8", fontWeight: 700 } }, "暫定EP"),
-            React.createElement("span", { title: "水準線値＋合計α値（RNまたぎ加算を含む）＝この設定でのエントリー予定価格の目安。EPを見てRNまたぎ加算の要否を判断（下の予定EP欄と同じ値）。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, _epPrev != null ? String(_epPrev) : "—"),
+            React.createElement("span", { title: "水準線値＋合計α値（RN加算を含む）＝この設定でのエントリー予定価格の目安。EPを見てRN加算の要否を判断（下の予定EP欄と同じ値）。", style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, _epPrev != null ? String(_epPrev) : "—"),
             React.createElement("span", { style: { fontSize: 9.5, color: "#93C5FD" } }, "円"))
         );
       })(),
