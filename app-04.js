@@ -6789,7 +6789,7 @@ function DayView(_ref57) {
         _pbTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り"), { width: 42 }),
         _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達"), { width: 40 }),
         _pbTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）。選外銘柄表ではスルーのみ" }, "除外"), { width: 40 }),
-        _pbTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "○途切れで手じまい・( )=△含む")), { width: 100 }),
+        _pbTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block", whiteSpace: "normal", maxWidth: 76, margin: "0 auto", lineHeight: 1.2 } }, "○途切れで手じまい ()=△")), { width: 100 }),
         _pbTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／最終損益を縦積み。（）内=△も保有し続けた場合。最終＝○が続く限り手じまい足まで保有した損益＝最終損益列と同値（100株換算）" }, "詳細損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block" } }, "EP / H1 / H2")), { width: 150 }),
         _pbTh("実現損益", { width: 80 }),
         _pbTh("タグ", { width: 120, textAlign: "left" })

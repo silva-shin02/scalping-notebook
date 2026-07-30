@@ -6188,8 +6188,9 @@ function EntryLogView(_ref_elv2) {
         React.createElement("tbody", null, rows),
         React.createElement("tfoot", null, totRow)));
   };
-  var _th = function(t, ex) { return React.createElement("th", { style: Object.assign({ padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#9A9186" }, ex || {}) }, t); };
-  var _td = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
+  // 記録一覧テーブル(_recTable)のth/td。2026-07-30c 左右paddingを6→4px＝14列前後あるので合計で約50px縮む（アプリ内で最も横に長い表）。
+  var _th = function(t, ex) { return React.createElement("th", { style: Object.assign({ padding: "5px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", width: "1%", fontSize: 10, color: "#9A9186" }, ex || {}) }, t); };
+  var _td = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
 
   // ===== 記録テーブル（mode "day"=日別の簡易列 / "full"=一覧・展開明細の詳細列）。行タップで明細カード =====
   // dimOf(r)＝表示専用（集計に入らない）記録のラベルを返す任意関数 2026-07-27。返した行は淡色＋グレーのバッジで出す。
@@ -7205,8 +7206,9 @@ function EntryLogView(_ref_elv2) {
         _cumChart ? [_secH("📈 累積損益カーブ（" + _mi.label + "）", "右肩上がりなら勝ち越し（資産曲線）"), _cumChart] : null,
         _secH("🟥 ヒートマップ（曜日揃え・日別・" + _mi.label + "）", "列＝曜日(月〜金)で縦に揃え、曜日ごとの傾向を見る。色の濃淡で損益（赤=利益/緑=損失）・上が古い週→下が最新週・記録の無い営業日枠は薄い空セル"),
         _elWeekdayHeatV2(_dayPer, {})];
-      var _thP = function(t) { return React.createElement("th", { style: { padding: "5px 5px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
-      var _tdP = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 5px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
+      var _thP = function(t) { return React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
+      var _thPSub = function(txt) { return React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block", whiteSpace: "normal", maxWidth: 74, margin: "0 auto", lineHeight: 1.2 } }, txt); };   // 2026-07-30c 全体損益（期間別）の_othSubと同じ＝小書きだけ折り返して列幅を押し広げない
+      var _tdP = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
       // 日数: その期間に市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える・当日までで頭打ち）。祝日＝ユーザーが記録した祝日/休場イベント(_buildHolidayDateSet)。2026-06-22d
       var _holiSet = _buildHolidayDateSet(data.trades, custom.eventCategories);
       var _today2 = todayStr();
@@ -7252,10 +7254,10 @@ function EntryLogView(_ref_elv2) {
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
               _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("日数"), _thP("件数"),
-              _thP(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右の利確・損切り率・見切り率の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c・全体損益（期間別）と同基準）" }, "到達", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "EPに乗った件数＝E成立"))),
-              _thP(React.createElement("span", null, "利確", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "利益で手じまい・E成立母数"))),
+              _thP(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右の利確・損切り率・見切り率の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c・全体損益（期間別）と同基準）" }, "到達", _thPSub("EPに乗った＝E成立"))),
+              _thP(React.createElement("span", { title: "利益（最終損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確", _thPSub("利益で手じまい"))),
               _thP(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・見切り（<0）のどちらにも入らない第4のバケツ（2026-07-29e・全体損益（期間別）と同基準）" }, "同値",
-                React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block" } }, "±0で手じまい・E成立母数"))),
+                _thPSub("±0で手じまい"))),
               _thP("損切り率"), _thP("見切り率"),
               _thP("最終損益"), _thP("実現損益"))),
             React.createElement("tbody", null, _rows))))]);
