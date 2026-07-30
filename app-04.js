@@ -3826,6 +3826,23 @@ function _ElDayAlphaPair(_p) {
 // 予定EPの正本計算（2026-07-14 共通化・監査finding#1）: base-levelα＝応用〇なら応用α・通常は基本α。予定EP＝round((水準線+base-levelα+浮き足+RN)*100)/100。保存EPを書く全ハンドラはこの2関数経由に統一＝式のズレ・応用α落ち・廃止add項の混入を防ぐ。
 function _epnBaseLevelOf(it) { if (it && (it.ukiUsed === true || (Number(it.uki) || 0) > 0)) return 0; return (it && it.specialUsed === true && it.special != null) ? (Number(it.special) || 0) : (Number(it && it.base) || 0); }   // 2026-07-14g 浮き足〇＝土台α無し（採用α＝浮き足加算＋RNのみ）。uki>0でも0＝旧保存カード（ukiUsed無し）も同じ扱い
 function _epnComputeEp(level, baseLevel, uki, rn) { return Math.round(((Number(level) || 0) + (Number(baseLevel) || 0) + (Number(uki) || 0) + (Number(rn) || 0)) * 100) / 100; }
+// RN加算の自動再判定（早見カード用・2026-07-30 ユーザー指摘「早見で基本α→応用αに切り替えたときもRN加算は自動でやってくれる？」）。
+// 早見カードのインライン編集（採用αの切替・基本α/応用α値・③④/ライン併存）はEPを組み直すのに rn を据え置いていたため、
+// 切替後の予定EPが…41〜49/…91〜99でもRNが乗らず（逆に対象外になっても乗ったまま）＝計算フォームの自動判定と食い違っていた。
+// 判定本体は記録フォーム/計算フォームと同じ単一源 _elRnAutoFrom(app-05)＝RN“前”EP（水準線＋base-levelα＋浮き足加算）で判定＝循環しない。
+// it.rnAuto === false（＝カードでRNを手動操作した）だけ据え置き。未設定＝自動（エントリー記録の _migRnAutoOn と同じ扱い）。
+// 水準線が無い(≤0)／判定不可(null)は現状維持。変化が無ければ同じ参照を返す＝無駄な保存をしない。
+function _epnApplyRnAuto(item) {
+  if (!item || item.rnAuto === false) return item;
+  var level = Number(item.level) || 0;
+  if (!(level > 0)) return item;
+  var bl = _epnBaseLevelOf(item), uki = Number(item.uki) || 0;
+  var add = (typeof _elRnAutoFrom === "function") ? _elRnAutoFrom(level, bl + uki) : null;
+  if (add == null) return item;
+  var rn = add > 0 ? add : 0;
+  if ((Number(item.rn) || 0) === rn && (item.rnUsed === true) === (rn > 0)) return item;
+  return Object.assign({}, item, { rnUsed: rn > 0, rn: rn, ep: _epnComputeEp(level, bl, uki, rn) });
+}
 function _epnRecalcBase(data, stock, date, item) {
   var _f = Array.isArray(item.f) ? item.f : [];
   var base = Number(item.base) || 0, src = item.src || null;
@@ -4083,7 +4100,13 @@ function _EpnRnSection(_p) {
       onChange: function(ev) { var v = _toHankakuNum(ev.target.value); if (v === "" || !isNaN(Number(v))) setRnStr(v); },
       onBlur: function() { var n = (rnStr === "" || isNaN(Number(rnStr))) ? 0 : Math.max(0, Number(rnStr)); if (n !== (Number(e.rn) || 0)) _p.onValue(n); },
       style: { width: 38, padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#1D4ED8", border: "1px solid #CBD5E1", borderRadius: 5, background: "#fff", textAlign: "right", boxSizing: "border-box", outline: "none" } }) : null,
-    rnUsed ? React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円") : null);
+    rnUsed ? React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円") : null,
+    // 自動判定の状態（2026-07-30）: 自動中は淡いラベル・手動で触った後は「↺自動」ボタンで復帰（計算フォームの表示と対）。
+    (e.rnAuto === false)
+      ? React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "RN加算の自動判定に戻す（予定EPの下二桁41〜49→…50／91〜99→…00）",
+          style: { padding: "0 5px", fontSize: 8.5, fontWeight: 800, color: "#0F766E", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 4, cursor: "pointer", lineHeight: 1.7, whiteSpace: "nowrap" } }, "↺自動")
+      : React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "自動判定ON: 採用α（基本α/応用α）や詳細を変えると、予定EPの下二桁41〜49→…50／91〜99→…00 になるようRN加算を自動で乗せ直します。〇×か数値に触ると手動に切り替わります。タップすると今すぐ再判定（この変更より前に作ったカード用）",
+          style: { padding: 0, fontSize: 8.5, color: "#94A3B8", fontWeight: 700, whiteSpace: "nowrap", background: "none", border: "none", cursor: "pointer" } }, "自動"));
 }
 // ===== EPナビ 列ごとの独立計算フォーム（2026-07-08 案A: 2段整列）=====
 // 各銘柄列に1フォームを常設＝最大3銘柄を同時に独立計算。銘柄はprops.stockに固定（旧①銘柄セレクタは廃止・番号は①基準分足〜④その他特徴へ繰り上げ）。
@@ -4240,7 +4263,7 @@ function _EpnCalcForm(_p) {
     var hasUki = (Number(e.uki) || 0) > 0;
     setNUkiUsed(hasUki ? "○" : "×"); setNUkiVal(hasUki && e.ukiVal != null ? String(e.ukiVal) : ""); setNUkiPrev(hasUki && e.ukiPrevBar != null ? String(e.ukiPrevBar) : ""); setNUkiPct(e.ukiPct != null ? String(e.ukiPct) : (hasUki ? "50" : "")); setNUkiSpecial(e.ukiSpecial === true);
     var hasRn = (e.rnUsed === true) || ((Number(e.rn) || 0) > 0);   // RN加算の復元（rnUsed明示・旧itemはrn>0で推定）2026-07-08h
-    setNRnUsed(hasRn ? "○" : "×"); setNRnVal(hasRn ? String(Number(e.rn) || 0) : ""); setNRnAuto(e.rnAuto === true);   // 保存済みカードを開くときは既定false＝過去の値を自動で書き換えない（rnAuto:true保存分だけ自動を継続）2026-07-20b
+    setNRnUsed(hasRn ? "○" : "×"); setNRnVal(hasRn ? String(Number(e.rn) || 0) : ""); setNRnAuto(e.rnAuto !== false);   // 2026-07-30 未設定＝自動（早見カードの_epnApplyRnAutoと同じ扱い）。明示的なfalse＝カード/フォームで手動に倒した分だけ手動を維持（旧: ===true＝保存済みカードは既定手動 2026-07-20b）
     setNLevel(e.level != null ? String(e.level) : "");
     setNLineCoexist(e.lineCoexist === true);
     setDetOpen(!!(e.b || e.k || (Array.isArray(e.f) && e.f.length) || e.lineCoexist === true));   // 詳細入りの保存EPは③〜⑤を自動展開＝入力済みが隠れたまま上書き保存される事故を防ぐ（案A 2026-07-10）
@@ -4513,26 +4536,27 @@ function EpNaviPanel(_refEPN) {
   var _formApisRef = useRef({});
   var _regForm = function(st, api) { if (api) _formApisRef.current[st] = api; else delete _formApisRef.current[st]; };
   // 早見カードのインライン編集（③起点/④その他/⑤ライン併存/追加α）＝「編集」ボタン無しで直接編集・変更は即_epnPut保存。EPは③④⑤で推奨基本αを再導出（_epnRecalcBase・ライン併存ルール〇→1）、追加αは直接再計算。
-  var onEditK = function(st, e, k) { _epnPut(save, date, st, _epnRecalcBase(data, st, date, Object.assign({}, e, { k: k || null }))); };
+  // 2026-07-30: α（＝予定EP）が動く編集は _epnApplyRnAuto を通す＝RN加算を自動で乗せ直す（rnAuto:false＝手動のカードは据え置き）。
+  var onEditK = function(st, e, k) { _epnPut(save, date, st, _epnApplyRnAuto(_epnRecalcBase(data, st, date, Object.assign({}, e, { k: k || null })))); };
   var onToggleF = function(st, e, f) {
     var cur = Array.isArray(e.f) ? e.f.slice() : []; var i = cur.indexOf(f);
     if (i >= 0) cur.splice(i, 1); else cur.push(f);
-    _epnPut(save, date, st, _epnRecalcBase(data, st, date, Object.assign({}, e, { f: cur })));
+    _epnPut(save, date, st, _epnApplyRnAuto(_epnRecalcBase(data, st, date, Object.assign({}, e, { f: cur }))));
   };
   // ライン併存ルール 〇×（早見カード 2026-07-08g）: 〇＝lineCoexist:true→_epnRecalcBaseで基本α1・EP再計算／×＝false→推奨基本αを再導出。計算欄⑤と同ルール。
   var onSetLineCoexist = function(st, e, used) {
-    _epnPut(save, date, st, _epnRecalcBase(data, st, date, Object.assign({}, e, { lineCoexist: !!used })));
+    _epnPut(save, date, st, _epnApplyRnAuto(_epnRecalcBase(data, st, date, Object.assign({}, e, { lineCoexist: !!used }))));
   };
   var onSetSpecial = function(st, e, newSpecial) {
     var nS = Math.max(0, Number(newSpecial) || 0);
     var uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
-    _epnPut(save, date, st, Object.assign({}, e, { special: nS, specialUsed: true, ep: _epnComputeEp(level, nS, uki, rn) }));   // base-levelα=応用α=nS
+    _epnPut(save, date, st, _epnApplyRnAuto(Object.assign({}, e, { special: nS, specialUsed: true, ep: _epnComputeEp(level, nS, uki, rn) })));   // base-levelα=応用α=nS
   };
   // 基本α値のインライン編集（早見カード 2026-07-14 採用αセレクタ化）: 基本α選択時（specialUsed=false）に基本α値を直接編集＝base-levelα=基本αでEP再計算。
   var onSetBase = function(st, e, newBase) {
     var nB = Math.max(0, Number(newBase) || 0);
     var uki = Number(e.uki) || 0, level = Number(e.level) || 0, rn = Number(e.rn) || 0;
-    _epnPut(save, date, st, Object.assign({}, e, { base: nB, ep: _epnComputeEp(level, nB, uki, rn) }));
+    _epnPut(save, date, st, _epnApplyRnAuto(Object.assign({}, e, { base: nB, ep: _epnComputeEp(level, nB, uki, rn) })));
   };
   // 応用α 〇×トグル（計算欄と同じ仕組み 2026-07-08f→2026-07-13応用α化）: 選択時のデフォルト値は「本日の採用α値」を最優先（2026-07-23・計算フォームと揃える）。〇＝本日の採用応用α値（無ければ推奨応用α→基本α）／×＝本日の採用α値（無ければ既存の基本α値）でEP再計算・根拠クリア。値・根拠はあとで手動変更可。
   var onSetSpecialUsed = function(st, e, used) {
@@ -4542,27 +4566,32 @@ function EpNaviPanel(_refEPN) {
       var nS;
       if (_daySp != null) { nS = _daySp; }
       else { var reco = _epnSpecialReco(data, st, date, e.tag, { b: e.b || null, k: e.k || null, f: Array.isArray(e.f) ? e.f : [] }, Array.isArray(e.specialReasons) ? e.specialReasons : []); nS = (reco && reco.v != null) ? reco.v : base; }
-      _epnPut(save, date, st, Object.assign({}, e, { specialUsed: true, special: nS, ep: _epnComputeEp(level, nS, uki, rn) }));
+      _epnPut(save, date, st, _epnApplyRnAuto(Object.assign({}, e, { specialUsed: true, special: nS, ep: _epnComputeEp(level, nS, uki, rn) })));
     } else {
       var _dayB = _epnDayAlphaGet(data, st, date);   // 本日の採用α値（基本α）を最優先（無ければ既存の基本α値）2026-07-23
       var nB = (_dayB != null) ? _dayB : base;
-      _epnPut(save, date, st, Object.assign({}, e, { specialUsed: false, special: null, specialReasons: [], base: nB, ep: _epnComputeEp(level, nB, uki, rn) }));
+      _epnPut(save, date, st, _epnApplyRnAuto(Object.assign({}, e, { specialUsed: false, special: null, specialReasons: [], base: nB, ep: _epnComputeEp(level, nB, uki, rn) })));
     }
   };
   // RN加算 〇×＋値（早見カード 2026-07-08h）: 〇＝rn値（既定5・既存値あればそれ）を入れてEP再計算／×＝rn0。追加α・ライン併存と同じ即_epnPut保存パターン。
+  // 2026-07-30: 手動で〇×/値に触ったら rnAuto:false＝以後このカードでは自動判定を止める（計算フォーム・記録フォームと同じ規約）。「↺自動」で復帰。
   var onSetRnUsed = function(st, e, used) {
     var uki = Number(e.uki) || 0, level = Number(e.level) || 0, bl = _epnBaseLevelOf(e);   // base-levelα(応用〇なら応用α)で統一＝RN操作で応用α分が落ちる不整合を修正 2026-07-14（旧: base固定＋廃止add項）
     if (used) {
       var nR = (Number(e.rn) || 0) > 0 ? Number(e.rn) : 5;
-      _epnPut(save, date, st, Object.assign({}, e, { rnUsed: true, rn: nR, ep: _epnComputeEp(level, bl, uki, nR) }));
+      _epnPut(save, date, st, Object.assign({}, e, { rnUsed: true, rn: nR, rnAuto: false, ep: _epnComputeEp(level, bl, uki, nR) }));
     } else {
-      _epnPut(save, date, st, Object.assign({}, e, { rnUsed: false, rn: 0, ep: _epnComputeEp(level, bl, uki, 0) }));
+      _epnPut(save, date, st, Object.assign({}, e, { rnUsed: false, rn: 0, rnAuto: false, ep: _epnComputeEp(level, bl, uki, 0) }));
     }
   };
   var onSetRn = function(st, e, newRn) {
     var nR = Math.max(0, Number(newRn) || 0);
     var uki = Number(e.uki) || 0, level = Number(e.level) || 0, bl = _epnBaseLevelOf(e);
-    _epnPut(save, date, st, Object.assign({}, e, { rn: nR, rnUsed: true, ep: _epnComputeEp(level, bl, uki, nR) }));
+    _epnPut(save, date, st, Object.assign({}, e, { rn: nR, rnUsed: true, rnAuto: false, ep: _epnComputeEp(level, bl, uki, nR) }));
+  };
+  // 「↺自動」: 自動判定に戻して即その場で乗せ直す（判定不可なら値は据え置き＝フラグだけ戻る）2026-07-30
+  var onSetRnAuto = function(st, e) {
+    _epnPut(save, date, st, _epnApplyRnAuto(Object.assign({}, e, { rnAuto: true })));
   };
   var onToggleReason = function(st, e, nm) {
     var cur = Array.isArray(e.specialReasons) ? e.specialReasons.slice() : []; var i = cur.indexOf(nm);
@@ -4662,7 +4691,7 @@ function EpNaviPanel(_refEPN) {
             onBase: function(n) { onSetBase(st, e, n); },
             onToggleReason: function(nm) { onToggleReason(st, e, nm); },
             onAddReason: _rsnAddG, onRenameReason: _rsnRenameG, onDeleteReason: _rsnDeleteG, onReorderReason: _rsnReorderG }),
-          React.createElement(_EpnRnSection, { item: e, onUsed: function(u) { onSetRnUsed(st, e, u); }, onValue: function(n) { onSetRn(st, e, n); } }));
+          React.createElement(_EpnRnSection, { item: e, onUsed: function(u) { onSetRnUsed(st, e, u); }, onValue: function(n) { onSetRn(st, e, n); }, onAuto: function() { onSetRnAuto(st, e); } }));
     return React.createElement("div", { key: e.id, style: { border: "1px solid " + C.bd, borderRadius: 6, padding: "5px 7px", background: C.bg, marginBottom: 5, opacity: isDone ? 0.72 : 1 } },
       React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 } },
         React.createElement("span", { style: { display: "flex", alignItems: "center", minWidth: 0, flex: 1 } }, mbBadge,
