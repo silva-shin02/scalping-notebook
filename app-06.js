@@ -6473,6 +6473,12 @@ function EntryLogView(_ref_elv2) {
   var _sigGroupsAll = _buildSigGroups(_v2recsAllData);   // 旧_sigGroups(v2recs由来)は死変数だったので削除（分析母数は_v2recsAllData=データ算入）2026-07-22j   // トグル非適用＝推奨基本αパネルの母数固定用 2026-06-24i。分析軸なのでデータ算入母数（計算/データ分離 2026-07-22f）＝銘柄別の集計/α値/損切り/未達/深掘り/詳細タグ別/株価帯別と_selSigRecs(Scoped)が一括でデータ母数に
   // シグナル軸（第2階層に昇格 2026-07-01）: 銘柄の下でシグナルを常設ピルで選ぶ。母数はトグル非依存の固定母数（_sigGroupsAll）で統一。全シグナル合算は持たず、選んだ1シグナルで 集計/α値/損切り/未達/深掘り を分析（期間は全シグナルのまま）。既定＝件数最多のシグナル。
   var _sigAxisGroups = _sigGroupsAll;
+  // 📡シグナル総合タブに各シグナルのタブを生やす 2026-08-02（ユーザー要望）: 分析軸4つ（株価帯別/損切り/浮き足%/RN加算）の右に細い区切り線を挟み、件数降順で全シグナルを並べる。
+  // キーは "sig:" + シグナルキー（_buildSigGroupsのkey＝カテゴリ接頭辞付きの生タグ）。ラベルは既にstripCat済みなのでタブ側の絵文字剥がしは通さない（4要素目のtrueで判別）。
+  // 中身は💴株価帯別と同じ_bandAxisBody（帯ピル→_groupPanel）をそのシグナルの記録で呼ぶだけ＝分析内容が二重管理にならない。
+  var _SIG_TAB_DIV = "__sigdiv__";
+  var _sigTotTabs = _SIG_TABS.concat(_sigGroupsAll.length ? [[_SIG_TAB_DIV, ""]] : [])
+    .concat(_sigGroupsAll.map(function(g) { return ["sig:" + g.key, g.label, g.recs.length, true]; }));
   var _selSigKey = (selSig != null && _sigAxisGroups.some(function(g) { return g.key === selSig; })) ? selSig : (_sigAxisGroups[0] ? _sigAxisGroups[0].key : null);
   var _selSigGrp = _sigAxisGroups.filter(function(g) { return g.key === _selSigKey; })[0];
   var _selSigRecs = (_selSigGrp && _selSigGrp.recs) ? _selSigGrp.recs : [];
@@ -6589,8 +6595,12 @@ function EntryLogView(_ref_elv2) {
     });
     return { bounds: _pbB, groups: _bgs.concat(_bMat.recs.length ? [_bMat] : []).concat(_bUnk.recs.length ? [_bUnk] : []) };
   };
-  var _bandAxisBody = function(pool, cross) {
-    var _pbSpl = _pbSplitByBand(pool), _pbB = _pbSpl.bounds, _bAll = _pbSpl.groups;
+  // opts（2026-08-02 シグナル別タブ用に拡張）: { withAll:true }=帯ピルの先頭に「すべて」（pool全件）を足す／{ sigLabel }=グループ見出しにシグナル名を前置。
+  // 「すべて」は必ず最大件数になるので、bandSel=null時の「件数最多へフォールバック」がそのまま既定として効く＝追加の分岐が要らない。opts省略時は従来どおり。
+  var _bandAxisBody = function(pool, cross, opts) {
+    var _o = opts || {};
+    var _pbSpl = _pbSplitByBand(pool), _pbB = _pbSpl.bounds;
+    var _bAll = (_o.withAll ? [{ key: "all", label: "すべて", recs: (pool || []) }] : []).concat(_pbSpl.groups);
     var _bSelKey = (bandSel && _bAll.some(function(g) { return g.key === bandSel; })) ? bandSel : (function() { var bst = _bAll[0]; _bAll.forEach(function(g) { if (g.recs.length > bst.recs.length) bst = g; }); return bst.key; })();
     var _bSel = _bAll.filter(function(g) { return g.key === _bSelKey; })[0] || null;
     var _bStkN = 0; if (_bSel) { var _bSeen = {}; _bSel.recs.forEach(function(r) { if (r.stock && !_bSeen[r.stock]) { _bSeen[r.stock] = 1; _bStkN++; } }); }
@@ -6602,10 +6612,10 @@ function EntryLogView(_ref_elv2) {
       _subTabBar(_bAll, _bSelKey, setBandSel),
       (_bSel && _bSel.recs.length)
         ? React.createElement(React.Fragment, null,
-            React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0369A1", marginBottom: 6 } }, _bSel.label,
+            React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0369A1", marginBottom: 6 } }, (_o.sigLabel ? "🎯 " + _o.sigLabel + " ・ " : "") + _bSel.label,
               React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, "（" + _bSel.recs.length + "件" + (cross ? "・銘柄" + _bStkN + "種・銘柄横断" : "") + "）")),
             _groupPanel(_bSel.recs, null, _bSel.recs, false, _bandSpanSel))
-        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この帯の記録がありません"));
+        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, (_bSel && _bSel.key === "all") ? "記録がありません" : "この帯の記録がありません"));
   };
   // 追加α母数トグル（osDistFil）を集計KPI/OS分布・損切り・未達で共有。全記録/×+未選択(既定)/〇のみ。〇=高α(基本+追加)は損切り/未達に寄るため、既定×+未選択で基本α運用の素の姿を出す 2026-07-01。
   // 素の分類フィルタ（2026-07-27 抽出）。📡シグナル総合は浮き足/その他の分割を持たないので
@@ -6807,6 +6817,15 @@ function EntryLogView(_ref_elv2) {
     if (sigSub === "band") {
       // 株価帯別を📡シグナル総合の先頭サブタブへ移設（2026-07-22i・ユーザー要望）＝全銘柄横断で同じ帯の銘柄を混ぜて帯共通αを検証。旧・全銘柄「集計」の分析軸トグル(_bandAxisBody(_v2recsAllData,true))から移動。
       _tabBody = _bandAxisBody(_v2recsAllData, true);
+    } else if (sigSub.indexOf("sig:") === 0) {
+      // 🎯 各シグナルタブ 2026-08-02: そのシグナルの記録だけで💴株価帯別と同じ分析一式（帯ピル→_groupPanel）を出す。
+      // 帯ピルは先頭に「すべて」入り＝シグナル全体を見てから帯へドリルダウンできる。選択帯(bandSel)は💴株価帯別タブと共有＝同じ帯のままシグナルを切替えて横比較できる。
+      // 母数は_sigGroupsAll＝_v2recsAllData（データ算入・全銘柄）由来で💴株価帯別と同一。複数タグの記録は各タグに算入されるのでタブの件数合計は総件数を超えうる。
+      var _stKey = sigSub.slice(4);
+      var _stGrp = _sigGroupsAll.filter(function(g) { return g.key === _stKey; })[0] || null;
+      _tabBody = _stGrp
+        ? _bandAxisBody(_stGrp.recs, true, { withAll: true, sigLabel: _stGrp.label })
+        : _sigKpiEmpty("このシグナルの記録がありません（シグナル名の変更・削除で無くなった可能性があります。上のタブから選び直してください）");
     } else if (sigSub === "stop") {
       // 🛑損切り（全銘柄）2026-07-27。銘柄別タブの🛑損切り（銘柄×シグナル母数）は存続＝両方で見る。
       // 株価帯での分割は入れない（ユーザー決定 2026-07-27）。銘柄を区別せず1つの母数として集計する。
@@ -7365,15 +7384,20 @@ function EntryLogView(_ref_elv2) {
             g.label + " (" + g.recs.length + ")" + (lowN ? " 参考" : ""));
         }))) : null,
     React.createElement("div", { style: { display: "flex", background: "#EFEBE4", borderRadius: 11, padding: 3, marginBottom: 10, gap: 2, overflowX: "auto" } },   // タブ=セグメントコントロール式（案A 2026-07-12・選択=白カード浮き・ラベルは絵文字なし）
-      (_isSigTotal ? _SIG_TABS : _tabs).map(function(kv) {
+      (_isSigTotal ? _sigTotTabs : _tabs).map(function(kv) {   // 📡シグナル総合は分析軸4つ＋区切り＋各シグナル 2026-08-02
+        if (kv[0] === _SIG_TAB_DIV) return React.createElement("div", { key: _SIG_TAB_DIV, "aria-hidden": "true",
+          style: { flexShrink: 0, width: 1, alignSelf: "stretch", margin: "3px 6px", background: "#D3CCC1", borderRadius: 1 } });   // 「分析軸｜シグナル」の視覚的な区切り
+        var _isSigTab = kv[3] === true;
+        var _sigLow = _isSigTab && kv[2] < _EL_BASE_MIN_N;   // 標本が薄いシグナルは銘柄別のシグナルピルと同じく「参考」表示
         var on = _isSigTotal ? (sigSub === kv[0]) : (view === kv[0]);
         var cnt = (!_isSigTotal && kv[0] === "miss") ? _missCnt : null;
         var _acc = _isSigTotal ? "#0F766E" : "#9A3412";
-        var _lbl = kv[1].indexOf(" ") > 0 ? kv[1].slice(kv[1].indexOf(" ") + 1) : kv[1];
+        var _lbl = _isSigTab ? (kv[1] + " (" + kv[2] + ")" + (_sigLow ? " 参考" : ""))   // シグナル名はstripCat済み＝絵文字剥がし（先頭スペース区切り）を通さない
+          : (kv[1].indexOf(" ") > 0 ? kv[1].slice(kv[1].indexOf(" ") + 1) : kv[1]);
         return React.createElement("button", { key: kv[0],
           onClick: function() { if (_isSigTotal) { setSigSub(kv[0]); } else { setView(kv[0]); } setExpKey(null); },
           style: { flexShrink: 0, padding: "6px 12px", fontSize: 11.5, fontWeight: 700, border: "none", cursor: "pointer", borderRadius: 8,
-            background: on ? "#fff" : "transparent", color: on ? _acc : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" }
+            background: on ? "#fff" : "transparent", color: on ? _acc : (_sigLow ? "#b3aca2" : "#6B6459"), boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" }
         }, _lbl + (cnt != null ? "(" + cnt + ")" : ""));
       })),
     (view === "period" && !_isAllStock && !_isSigTotal) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝期間タブ限定（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数でトグル非適用・全銘柄合算=非表示）。絞り込み中は橙で強調 2026-07-01
