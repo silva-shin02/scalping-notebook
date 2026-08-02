@@ -47,6 +47,13 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-08-02o 株価帯別モードでKPIカードの推奨αに帯基準の頻度分母が渡っていなかった（sw v311→v312）
+- ユーザー質問「KPIカードは最新の状態が反映されてる？」→ **数字の土俵はすべて追従していた**が、たどる過程で**別件の配線漏れ**を発見。
+- **追従の確認（変更なし）**: 件数＝`_addFilOf`の母数／E到達数＝`_epResolve`のjudge／**一番引っ張った損益＝`_elTotAccum`→`_elHoldFinalParts`**（app-05:4537・2026-08-02nの終値撤退修正がそのまま入る）／**損切り件数＝`_elStopStatsV2`→`_elIsStopFinal`**（app-06:336・2026-07-25eで配線済み）／**推奨基本α・推奨応用α＝`_elBaseAlphaA`→`_elBaseAlphaPick`/`_elSpecialAlphaPick`**（Σ最大・オフセット0が自動反映）。集計タブの「最終損益」KPI早見も同じ`_elTotAccum`経由。KPIカードは独自計算を持たず全部が単一源を通るので取り残しは無い。
+- **バグ（2026-07-22j以来の配線漏れ）**: 株価帯別モードでは詳細表にだけ帯基準の頻度分母(`bandSpan`=`_pbBandBizDays`)を渡していて、**KPIカード側の`_elBaseAlphaA(baRs, _ai)`は第3引数なし**＝記録全体のスパンで頻度ゲートを判定していた（分子も`_elEnteredDays`⇔`_elEnteredCells`で単位違い）。頻度ゲート`< _EL_FREQ_MAX`の通り方が変わるため、**同じ画面でKPIカードの「推奨基本α 8円」と詳細表の★が別の円**になり得た。`bandSpan`は`_groupPanel`の引数で同じスコープに居たのに未使用だった。
+- **修正**: `_elBaseAlphaA(baRs, _ai, bandSpan)` の1行。`_elBaseAlphaA`は第3引数を`_elBaseAlphaPick`と`_elSpecialAlphaPick`の両方へ流すので、KPIカードの推奨基本α・推奨応用αが同時に詳細表と同じ土俵になる。銘柄別/詳細タグ別モードは`bandSpan`未指定＝`undefined`で、受け側が`spanOverride != null`で分岐するため**従来と完全に同一**。
+- 検証: SW解除＋caches削除のうえ実ブラウザで、`_elBaseAlphaPick`/`_elSpecialAlphaPick`をスタブして`_elBaseAlphaA`の引数伝播を実測。**帯基準42を渡すと両pickへ42が伝播／未指定ならundefined（従来の記録スパン経路）**。arity=3・mounted・console errors 0。
+
 ### 2026-08-02n 最終損益の3段目以降の損切りを終値撤退方式へ追従（sw v310→v311）
 - ユーザー質問「ここでの負け平均などの損失額分析は、最新の損切り概念に従ってる？」→ **1か所だけ従っていなかった**。
 - **前提の確認（ユーザー要請「損切り件数は損切り値に達した件数という解釈？そこをまず確認して」）**: 違う。`_elIsStopFinal`＝`_elRideVals().stoppedLoss`＝**①手じまい足までに損切り値に達した ②かつその足の終値も損側** のAND（2026-07-27 終値撤退方式）。実測＝高値25でライン到達でも終値が建値より益側に戻っていれば**損切りに数えない**／ライン未達も当然数えない／2026-07-25dの修正で**期待度×で降りた後の足での接触は無視**／終値が無い記録だけ「達した事実」を優先して損切り側に倒す。app-05/06の26か所すべてがこの単一源を見ている。

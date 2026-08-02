@@ -6784,7 +6784,11 @@ function EntryLogView(_ref_elv2) {
     var os = _elOsStatsV2(_osFilRecs, _osFn), ss = _elStopStatsV2(_osFilRecs, data), pcg = _elOsPctlV2(_osFilRecs, _osFn);
     var osRaw = _elOsStatsV2(_osFilRecs, _elOsMaxAll);   // 生の最高OS（色棒＋括弧併記用）2026-07-13
     var _pcgRaw = _elOsPctlV2(_osFilRecs, _elOsMaxAll);   // α目安(7割=α)＝到達確率は選択バイアス回避のため常に生基準 2026-07-09
-    var _baA = _elBaseAlphaA(baRs, _ai);   // {pick, add}＝推奨基本α(母数×+未選択)＋推奨追加α(母数〇のみ)。KPIカードとOS分布▲マークで共用 2026-07-01
+    // 2026-08-02o 第3引数bandSpanを追加（配線漏れの修正）: 株価帯別モードでは詳細表(_elBaseAlphaDetailV2/_elTotalAlphaSectionV2)にだけ帯基準の頻度分母を渡していて、
+    //   KPIカード側は記録全体のスパンで頻度ゲートを判定していた（分子も_elEnteredDays⇔_elEnteredCellsで単位違い）。
+    //   そのため同じ画面で「KPIカードの推奨基本α」と「詳細表の★」が別の円になり得た（2026-07-22jで帯基準を入れて以来）。
+    //   銘柄別/詳細タグ別モードはbandSpan未指定＝undefinedで従来どおり（_elBaseAlphaPick側が spanOverride != null で分岐）。
+    var _baA = _elBaseAlphaA(baRs, _ai, bandSpan);   // {pick, add}＝推奨基本α(母数×+未選択)＋推奨追加α(母数〇のみ)。KPIカードとOS分布▲マークで共用 2026-07-01
     var _baPick = _baA ? _baA.pick : null, _baAdd = _baA ? _baA.add : null;
     var _baPickAlpha = (_baPick && _baPick.alpha != null) ? _baPick.alpha : null;   // OS値分布に推奨基本αを青字マーク（母数はトグル非依存の_baRecs＝推奨基本α表示と一致）
     var _baCutPick = _elCutPick(baRs, _ai);   // 推奨損切り値（母数はbaRs＝基本αと同じ・_elOsHistV2の赤マーク markVal3 用）2026-07-01
