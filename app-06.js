@@ -1683,11 +1683,13 @@ function _elRnBoardV2(recs, aiOf, holiSet) {
   var _aOff = function(off) { return function(r) { var a = aiOf(r).alpha; if (a == null) return null; return Math.max(0, a + off); }; };
   var _sumCell = function(v, w) { return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: w || 800 } }, _elPnlFmt(Math.round(v))); };
   // ---- ① EP位置スイープ（RN−3〜+3＋RN無し参考行） ----
-  var rows = [{ key: "none", label: "RN無し（素のα・下二桁のまま）", ref: true, af: _aNone, e: _elH2EvalByFn(pool, aiOf, _aNone) }];
+  // 2026-08-02h 指値同値の0円算入をα詳細表と揃える（第4引数true）。RNはEPをキリ番ちょうどに置く運用なので、
+  // 「高値がキリ番に触れただけで刺さらなかった」＝同値がとりわけ効く。到達/E成立/損切り/利確からは外し損益だけ0円算入。
+  var rows = [{ key: "none", label: "RN無し（素のα・下二桁のまま）", ref: true, af: _aNone, e: _elH2EvalByFn(pool, aiOf, _aNone, true) }];
   [-3, -2, -1, 0, 1, 2, 3].forEach(function(off) {
     var lbl = off === 0 ? "RNちょうど" : (off < 0 ? "RN−" + (-off) + "（" + (-off) + "円手前）" : "RN+" + off + "（" + off + "円超え）");
     var _f = off === 0 ? _aReal : _aOff(off);
-    rows.push({ key: "o" + off, label: lbl, cur: off === 0, af: _f, e: _elH2EvalByFn(pool, aiOf, _f) });
+    rows.push({ key: "o" + off, label: lbl, cur: off === 0, af: _f, e: _elH2EvalByFn(pool, aiOf, _f, true) });
   });
   var _gated = rows.filter(function(rw) { return rw.e.decided >= _EL_BASE_MIN_N && rw.e.h2Sum != null && rw.e.h2Sum > 0; });
   _gated.sort(function(x, y) { return (x.e.avgH2 - y.e.avgH2) || (x.e.h2Sum - y.e.h2Sum); });
@@ -1705,7 +1707,8 @@ function _elRnBoardV2(recs, aiOf, holiSet) {
       _td2(e.n + "件"),
       _td2(_elPctCell(e.eRate)),
       _td2(e.decided + "件"),
-      _td2(_elFreqCell(_span, _elEnteredDays(pool, rw.af))),
+      _td2(_elFillEqCell(e.fillEqN)),   // 同値列 2026-08-02h（α詳細表と同じ読み方）
+      _td2(_elFreqCell(_span, _elEnteredDays(pool, rw.af, aiOf))),   // 第3引数aiOf=頻度の分子からも同値を外す 2026-08-02h
       _td2(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
       _td2(e.takeRate == null ? "—" : _elPctCell(e.takeRate)),
       _td2(_sumCell(e.h2Sum)),
@@ -1715,6 +1718,9 @@ function _elRnBoardV2(recs, aiOf, holiSet) {
   var _pnlAt = function(r, a) {
     var s = r.signal, c = aiOf(r).cutLine;
     if (a == null) return null;
+    // 2026-08-02h 指値同値＝そのαでは刺さらず取引していない→null（未到達/未決着と同じ扱い）。
+    // 呼び出し側はnullを「そのαでは建っていない」として cfOnly/realOnly に振り分け、差額は (pr||0)-(pc||0) で0円算入になる＝_elH2EvalByFn(fillEqZero)と同じ考え方。
+    if (_elFillEqAt(s, r.item, a, aiOf(r).alpha)) return null;
     var rr = _epResolve(s, a);
     if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return null;
     var res = _elDynResult(s, a, c);
@@ -1743,8 +1749,8 @@ function _elRnBoardV2(recs, aiOf, holiSet) {
   pool.forEach(function(r) { var v = _elRnAdd(r.signal); (byVal[v] = byVal[v] || []).push(r); });
   var valRows = Object.keys(byVal).map(Number).sort(function(a, b) { return a - b; }).map(function(v) {
     var g = byVal[v];
-    var e = _elH2EvalByFn(g, aiOf, _aReal);
-    var ec = _elH2EvalByFn(g, aiOf, _aNone);
+    var e = _elH2EvalByFn(g, aiOf, _aReal, true);   // 2026-08-02h 同値0円算入（①スイープと同基準）
+    var ec = _elH2EvalByFn(g, aiOf, _aNone, true);
     var d = (e.h2Sum == null && ec.h2Sum == null) ? null : (e.h2Sum || 0) - (ec.h2Sum || 0);
     return React.createElement("tr", { key: "v" + v },
       _td2(React.createElement("span", { style: { fontWeight: 700, color: "#1D4ED8" } }, "+" + v + "円"), { textAlign: "left", paddingLeft: 8 }),
@@ -1758,7 +1764,7 @@ function _elRnBoardV2(recs, aiOf, holiSet) {
     React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6 } }, "母数＝RN〇の全記録（" + pool.length + "件）。EPを各位置に置き直して再判定（採用α±オフセットでEP到達〜最終損益[手じまい・○途切れ]まで同一基準で再計算）。RN無し＝RN加算を外した素のα＝EPは下二桁91〜99のまま（記録ごとに位置が違う参考行）。"),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "① EP位置スイープ 〜本当にRNちょうどでいいのか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
-      React.createElement("thead", null, React.createElement("tr", null, ["EP位置", "母数", "到達率", "E成立", "頻度", "損切り率", "利確率", "Σ最終損益", "平均"].map(function(h, i) { return _th2(h, i); }))),
+      React.createElement("thead", null, React.createElement("tr", null, ["EP位置", "母数", "到達率", "E成立", "同値", "頻度", "損切り率", "利確率", "Σ最終損益", "平均"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, rows.map(_swRow)))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4 } }, "上（手前）ほど早く入れて到達が増え、下（超え）ほど1件あたりが良くなるトレードオフ。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字の位置で平均最終損益が最大（該当なしなら★なし）。RN無しが★なら「そもそもまたぎ不要」のサイン。"),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "12px 0 4px" } }, "② RN待ちの寄与・内訳 〜そもそも採る必要があるのか〜"),
@@ -1839,7 +1845,7 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
   for (_t = 0; _t <= _EL_RN_T_MAX; _t++) {
     var _f = _alphaAtT(_t), _hit = 0;
     for (_i = 0; _i < _dists.length; _i++) { if (_dists[_i] <= _t) _hit++; }
-    rows.push({ t: _t, af: _f, hit: _hit, e: _elH2EvalByFn(pool, aiOf, _f) });
+    rows.push({ t: _t, af: _f, hit: _hit, e: _elH2EvalByFn(pool, aiOf, _f, true) });   // 2026-08-02h 同値0円算入（①EP位置スイープ・α詳細表と同基準）
   }
   // ★＝①EP位置スイープと同じ軽いゲート（E成立≥_EL_BASE_MIN_N かつ Σ黒字のうち平均最終損益 最大）。推奨基本αの4条件フルゲートは使わない
   //   ＝全T行が同じ母数・ほぼ同じ到達率/頻度になるためゲートが効かず「条件適合無し」しか出ないため。T=0が★なら「そもそもまたぎ不要」のサイン。
@@ -1862,7 +1868,8 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
       _td2(ref ? React.createElement("span", { style: { color: "#94A3B8" } }, "—") : (rw.hit + "件")),
       _td2(_elPctCell(e.eRate)),
       _td2(e.decided + "件"),
-      _td2(_elFreqCell(_span, _elEnteredDays(pool, rw.af))),
+      _td2(_elFillEqCell(e.fillEqN)),   // 同値列 2026-08-02h
+      _td2(_elFreqCell(_span, _elEnteredDays(pool, rw.af, aiOf))),   // 第3引数aiOf=頻度の分子からも同値を外す 2026-08-02h
       _td2(e.stopRate == null ? "—" : _elStopRateCell(e.stopRate)),
       _td2(e.takeRate == null ? "—" : _elPctCell(e.takeRate)),
       _td2(_sumCell(e.h2Sum)),
@@ -1877,7 +1884,7 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
   var _cum = 0, _firstNeg = null, distData = [];
   distKeys.filter(function(d) { return d <= _EL_RN_T_MAX; }).forEach(function(d) {
     var g = byDist[d];
-    var eOn = _elH2EvalByFn(g, aiOf, _alphaAtT(d)), eOff = _elH2EvalByFn(g, aiOf, _alphaAtT(0));
+    var eOn = _elH2EvalByFn(g, aiOf, _alphaAtT(d), true), eOff = _elH2EvalByFn(g, aiOf, _alphaAtT(0), true);   // 2026-08-02h 同値0円算入（主表と同基準＝相互検算が崩れないよう両側そろえる）
     var diff = (eOn.h2Sum == null && eOff.h2Sum == null) ? null : (eOn.h2Sum || 0) - (eOff.h2Sum || 0);
     if (diff != null) _cum += diff;
     if (_firstNeg == null && diff != null && diff < 0) _firstNeg = d;
@@ -1902,7 +1909,7 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
       React.createElement("span", { style: { color: "#B08968" } }, "除外＝水準線未入力 " + noLv + "件／すでに…50・…00ちょうど " + onRn + "件" + (offTier ? "／他の段 " + offTier + "件" : "") + (badPre ? "／採用αよりRN加算が大きい不整合 " + badPre + "件" : "") + "。")),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "① 閾値スイープ 〜何円手前までなら待つ価値があるのか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
-      React.createElement("thead", null, React.createElement("tr", null, ["閾値T", "該当", "到達率", "E成立", "頻度", "損切り率", "利確率", "Σ最終損益", "平均", "T=0比"].map(function(h, i) { return _th2(h, i); }))),
+      React.createElement("thead", null, React.createElement("tr", null, ["閾値T", "該当", "到達率", "E成立", "同値", "頻度", "損切り率", "利確率", "Σ最終損益", "平均", "T=0比"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, rows.map(_tRow)))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 } },
       "該当＝そのTで〇になる記録数（Tが上がるほど積み上がる）。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字のTで平均最終損益が最大（該当なしなら★なし）。T=0が★なら「そもそもRN加算不要」のサイン。RNの間隔は50円なのでTを1上げても該当は全体の約2%ずつしか増えない＝Σの差が小さく見えるため、右端の「T=0比」と下の距離別で判断する。"),
@@ -3337,7 +3344,7 @@ function _elUkiPctSweep(pool, aiOf, holiSet) {
   };
   var _span = _elBizSpanDays(pool, holiSet);   // 頻度列用（α詳細表と同基準）2026-07-18: 母数の活動営業日数（全行共通・分母固定でαごとに到達実日数だけ変わる）。holiSet省略時は土日のみ除外。
   var rows = [];
-  for (var P = 0; P <= 100; P += 10) { var _af = _mk(P); rows.push({ P: P, ev: _elH2EvalByFn(pool, aiOf, _af), entDays: _elEnteredDays(pool, _af) }); }
+  for (var P = 0; P <= 100; P += 10) { var _af = _mk(P); rows.push({ P: P, ev: _elH2EvalByFn(pool, aiOf, _af, true), entDays: _elEnteredDays(pool, _af, aiOf) }); }   // 2026-08-02h 同値0円算入＋頻度の分子からも同値を外す（α詳細表・RNボードと同基準）
   var _qual = function(x) { return x.ev.decided >= _EL_BASE_MIN_N && x.ev.h2Sum != null && x.ev.h2Sum > 0 && x.ev.score != null; };
   var _quals = rows.filter(_qual);
   var _sigOf = function(x) { return x.ev.h2Sum; }, _avgOf = function(x) { return x.ev.avgH2; }, _pOf = function(x) { return x.P; };   // 平均最終損益 最大 2026-07-15f
@@ -3378,6 +3385,7 @@ function _elUkiSweepNodeCore(sweep, cfg) {
       _elv2Td(label, { textAlign: "left", paddingLeft: 8 }),
       _elv2Td(e.decided + "件"),
       _elv2Td(e.eRate != null ? _elPctCell(e.eRate) : _dash),
+      _elv2Td(_elFillEqCell(e.fillEqN)),   // 同値列 2026-08-02h（α詳細表・RNボードと同じ読み方）
       _elv2Td(_elFreqCell(sweep.span, x.entDays)),
       _elv2Td(e.takeRate != null ? _elPctCell(e.takeRate) : _dash),
       _elv2Td(e.stopRate != null ? _elStopRateCell(e.stopRate) : _dash),
@@ -3387,7 +3395,7 @@ function _elUkiSweepNodeCore(sweep, cfg) {
   });
   return React.createElement("div", { style: { marginTop: 4 } },
     _reco,
-    _elv2Table([cfg.head, "E成立", "到達率", "頻度", "利確率", "損切り率", "最終損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"], _trs));
+    _elv2Table([cfg.head, "E成立", "到達率", "同値", "頻度", "利確率", "損切り率", "最終損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"], _trs));
 }
 function _elUkiPctSweepNode(sweep) {
   return _elUkiSweepNodeCore(sweep, { keyOf: function(x) { return x.P; }, unit: "%", head: "浮き足%", recoWord: "浮き足加算率", noneTail: "（データ不足／50%で十分の傾向）" });
@@ -3406,7 +3414,7 @@ function _elUkiValSweep(pool, aiOf, holiSet) {
   };
   var _span = _elBizSpanDays(pool, holiSet);
   var rows = [];
-  for (var X = 0; X <= _MAX; X += 1) { var _af = _mk(X); rows.push({ X: X, ev: _elH2EvalByFn(pool, aiOf, _af), entDays: _elEnteredDays(pool, _af) }); }
+  for (var X = 0; X <= _MAX; X += 1) { var _af = _mk(X); rows.push({ X: X, ev: _elH2EvalByFn(pool, aiOf, _af, true), entDays: _elEnteredDays(pool, _af, aiOf) }); }   // 2026-08-02h 同値0円算入＋頻度の分子からも同値を外す（%版と同基準）
   var _qual = function(x) { return x.ev.decided >= _EL_BASE_MIN_N && x.ev.h2Sum != null && x.ev.h2Sum > 0 && x.ev.score != null; };
   var _quals = rows.filter(_qual);
   var _sigOf = function(x) { return x.ev.h2Sum; }, _avgOf = function(x) { return x.ev.avgH2; }, _xOf = function(x) { return x.X; };
