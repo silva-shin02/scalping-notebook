@@ -1353,21 +1353,12 @@ function App() {
       color: "#9A3412",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "📖 エントリー記録帳"), React.createElement("button", {
-    onClick: function() { setShowStockHistory(true); },
-    title: "銘柄別記録",
-    style: {
-      padding: "8px 12px",
-      fontSize: 12,
-      fontWeight: 700,
-      background: "#EFF6FF",
-      border: "1.5px solid #BFDBFE",
-      borderRadius: 7,
-      cursor: "pointer",
-      color: "#1565C0",
-      minHeight: IS_TOUCH ? 44 : 36
-    }
-  }, "📊 銘柄別記録"), React.createElement("button", {
+  }, "📖 エントリー記録帳"),
+  // 2026-08-02 ホームの「📊 銘柄別記録」ボタンを撤去（ユーザー要望）。StockHistoryView自体は残す。
+  // 撤去後の入口は【ニュース一覧の記事内・銘柄チップ→onJumpToStock（app-07 NewsHistoryView）】のみ。
+  // ※下の onSelectStock（EntryLogViewへ渡している）はEntryLogView側が読んでいない死にpropなので入口にならない。
+  // ※履歴トークン"stockhistory"は戻る/進むでの復元用でURLから直接は開けない。
+  React.createElement("button", {
     onClick: function() { setShowNewsHistory(true); },
     title: "ニュース一覧（カテゴリ·サブタブごとに時系列閲覧）",
     style: {
