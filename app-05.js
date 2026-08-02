@@ -3236,6 +3236,16 @@ function _elBaseLevelAlpha(s) {
 }
 // 応用αの根拠（理由）選択肢の既定。data.custom.specialReasons でユーザーが追加/削除/改名可（改名は過去記録の根拠名も追従）。旧 custom.specialReasons から移行。
 var _DEF_SPECIAL_REASONS = ["指標線支え"];
+// 「RN補正」根拠の判定 2026-08-02（ユーザー要望「応用αの根拠がRN補正の場合はα値の下にRN補正と表示」）。
+// signal.specialReasons はユーザー定義の根拠名（配列・未設定はnull）。応用α〇の記録だけが対象＝基本α/浮き足には出さない。
+// ⚠️ 根拠マスターでこの名前を改名すると記録側のspecialReasonsは追従する（app-04 _rsnRename）がこの定数は追従しないので、
+//    改名したらここも合わせること（名前一致で判定しているため）。
+var _EL_RN_ADJ_REASON = "RN補正";
+function _elIsRnAdjReason(s) {
+  if (!s || !_elSpecialUsed(s)) return false;
+  var rs = s.specialReasons;
+  return Array.isArray(rs) && rs.indexOf(_EL_RN_ADJ_REASON) >= 0;
+}
 // 浮き足加算の欄を表示・算入する対象シグナル名の集合 2026-07-07（ユーザー決定＝両方に付ける）。
 // 2026-07-07f: 底抜け水準線OS→底抜けラインOSへ統合改名（migrateData _migSignalRename2）＝既定は1本に。
 // 後方互換: custom.ukiSignalNames(配列)があれば優先／旧custom.ukiSignalName(単一)も常に対象へ含める。下流(_elUkiYes/_elUkiAdd/記録帳の浮き足分析)はsignal.ukiUsed駆動でシグナル名非依存＝この集合はフォーム(app-05)/EPナビ(app-04)の「欄を出すか」ゲート専用。
@@ -3441,6 +3451,9 @@ function _elAlphaTypeCell(s, alpha) {
     React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),
     React.createElement("div", { style: { color: col, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, _elAlphaShown(s, alpha) + "円"),
     hasRn ? _elAlphaBreakdownNode(s, alpha) : null,
+    // 応用αの根拠が「RN補正」の記録は値（＋内訳）の下に小バッジで明示 2026-08-02。RN加算(_elRnAdd)とは別概念＝
+    // 加算そのものではなく「そのαにした理由がRN補正だった」ことを示す。色はRN内訳と同じ青系で系統を揃える。
+    _elIsRnAdjReason(s) ? React.createElement("div", { title: "応用αの根拠＝" + _EL_RN_ADJ_REASON, style: { display: "inline-block", marginTop: 1, fontSize: 8, fontWeight: 700, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 3, padding: "0 4px", lineHeight: 1.5 } }, _EL_RN_ADJ_REASON) : null,
     (s && s.lineCoexist === true) ? React.createElement("div", { title: "ライン併存（過去に設定・入力欄は廃止）", style: { display: "inline-block", marginTop: 1, fontSize: 8, fontWeight: 700, color: "#0F766E", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 3, padding: "0 4px", lineHeight: 1.5 } }, "併存") : null);   // 過去のライン併存〇の識別バッジ（欄は廃止・2026-07-16）
 }
 // 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
