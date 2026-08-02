@@ -4915,7 +4915,7 @@ function _elHold2TotPartsFixed(s, alpha, cutLine) {
 // _elHold2TotPartsFixed に退避し、その上に3段目以降を積む。**depth<=2で終わる記録（EPがOS3・OS4/OS5未入力・×/損切りで手じまい済み）は
 // _elHold2TotPartsFixed をそのまま返す＝従来と完全に同一**。呼び出し側41箇所は名前が変わるだけで配線は不変。
 // 1段ぶんの規約は _elHold2TotPartsFixed（H1→H2）と同型:
-//   保有判断が ×/損切り済/未設定 → 1段下をそのまま（手じまい済み）／その足で損切り → 1段下をそのまま（損切り＝×と同一視）
+//   保有判断が ×/損切り済/未設定 → 1段下をそのまま（手じまい済み）／その足で損切り → **その足の終値で確定してそこで打ち切り**（2026-08-02n・旧＝1段下をそのまま＝×と同一視）
 //   △ → （）外=1段下・（）内=そこまで保有した差／○ → 完全○チェーンなら（）外を自分の損益に更新・チェーンが切れていれば（）内へ
 function _elHoldFinalParts(s, alpha, cutLine) {
   var parts = _elHold2TotPartsFixed(s, alpha, cutLine);
@@ -4936,13 +4936,22 @@ function _elHoldFinalParts(s, alpha, cutLine) {
     if (!lg || (lg.h == null && lg.c == null)) break;           // 足が無い＝これ以上伸ばせない
     var exp = _epNextExpAt(s, r.epIdx + d - 1);                 // この足を保有するか（前の足の引けの判断）
     if (exp !== "○" && exp !== "△") break;                    // ×/損切り済/未設定＝ここで手じまい（1段下をそのまま）
-    if (lg.h != null && (lg.h - alpha) >= cut) break;           // この足で損切り＝×と同一視（1段下をそのまま）
+    // 【2026-08-02n 終値撤退方式へ追従（ユーザー決定）】旧＝`if (この足で損切り) break;`＝×と同一視して**1段下（前の足）の値のまま確定**していた。
+    //   しかし損切り判定(_elIsStopFinal→_elRideVals.stoppedLoss)も決済サマリー(_elRideVals.exitC)も2026-07-27に「その足の終値で撤退」へ移行済みで、
+    //   ここだけ旧規約が残っていたため、3段目以降で損切りに当たった記録が「損切（H3）と表示され損切り件数にも計上されるのに、
+    //   最終損益は前の足の値（実測例では+400円の利益）」という食い違いになり、負け平均から抜けて勝ち平均に入っていた。
+    //   → この足も保有した扱いで _elDynHoldAt(d)（＝その足の終値ベース）を採り、そのうえでループを抜ける。
+    //   main/refの振り分けは非損切りの足と同一規約（完全○チェーンなら（）外main・△でチェーンが切れていれば（）内ref）＝d<=2側(_elHold2TotPartsFixed)の作法に一致。
+    var _stopHere = (lg.h != null && (lg.h - alpha) >= cut);    // この足で損切りライン到達＝ここが手じまい足
     var hv = _elDynHoldAt(s, alpha, cut, d);
     if (hv == null) break;
-    if (exp === "○" && chain) { parts = { main: hv, ref: null }; continue; }
-    chain = false;
-    parts = (parts.main == null) ? { main: null, ref: hv }
-      : { main: parts.main, ref: ((hv - parts.main) !== 0) ? (hv - parts.main) : null };
+    if (exp === "○" && chain) { parts = { main: hv, ref: null }; }
+    else {
+      chain = false;
+      parts = (parts.main == null) ? { main: null, ref: hv }
+        : { main: parts.main, ref: ((hv - parts.main) !== 0) ? (hv - parts.main) : null };
+    }
+    if (_stopHere) break;
   }
   return parts;
 }
