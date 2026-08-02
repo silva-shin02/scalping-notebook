@@ -2030,9 +2030,12 @@ function _elBaseAlphaPickScore(recs, aiOf) {
 // 赤★(status ok)=さらに 損切り率(最終)≤_EL_BASE_MAX_STOPRATE(40%)・E成立≥_EL_BASE_MIN_N(10件)・頻度<_EL_FREQ_MAX の自信条件も満たす／青★(na)=条件を一部満たさない参考。
 // 下限を満たすα無し(相場が荒い)→黒字αのうち最も到達率が高い(最も届きやすい)αを参考(na)。黒字α皆無→件数最大を参考。次点=推奨より高い黒字αの最小値（もう一段クッション）。
 // 返り値shapeは旧版互換（score/h1win/scN/pnl等はH1基準を同αで併記・低αpickはH1参考列がnull）＋decided/takeRate/h2Sum/avgH2/h2sweep/reachFloor。旧スコア方式は_elBaseAlphaPickScoreに保存（「旧基準」チップで併記）。
-function _elBaseAlphaPick(recs, aiOf, spanOverride) {   // spanOverride: 頻度ゲートの分母（活動営業日span）を外から指定＝株価帯コンテキストで_pbBandBizDays（その帯だった営業日）を渡す。未指定は従来どおり記録スパン 2026-07-22j
+function _elBaseAlphaPick(recs, aiOf, spanOverride, poolAll) {   // spanOverride: 頻度ゲートの分母（活動営業日span）を外から指定＝株価帯コンテキストで_pbBandBizDays（その帯だった営業日）を渡す。未指定は従来どおり記録スパン 2026-07-22j
+  // poolAll（2026-08-02l ユーザー決定・分類「全記録」用）: trueで_elIsBaseAlphaPoolRecの絞り込みを外し、応用〇・浮き足〇・RN〇も母数に残す
+  //   ＝「基本/応用を問わず全記録に一律αを置いていたら」の反実仮想。ゲート・選定ロジックは基本αと完全に同じ（母数だけが違う）。
+  //   ※この呼び方で出るαは**その母数だけの参考値**で、フォーム/EPナビ/シミュへ流れる推奨基本α（poolAll未指定＝素の記録が母数）とは別物。
   if (!recs || !recs.length) return null;
-  recs = recs.filter(_elIsBaseAlphaPoolRec);
+  if (!poolAll) recs = recs.filter(_elIsBaseAlphaPoolRec);
   if (!recs.length) return null;
   aiOf = _elAnaAiOf(aiOf);   // 前提損切り値（既定15円・custom.anaCutPremise）で評価＝「損切り値が◯円である前提での推奨α」2026-07-13b
   var sweep = _EL_BASE_ALPHAS.map(function(a) { return _elBaseAlphaEval(recs, aiOf, a); });   // H1基準（5〜20・旧表示互換の参考列用）
@@ -2527,19 +2530,23 @@ function _elBaseAlphaTrendV2(props) {
   return React.createElement("div", null, toggle, body);
 }
 // 推奨基本α 詳細データ（この銘柄/グループ）2026-06-22: 推奨値が出た根拠＝結論バー＋α別の総当たり(スコア内訳付き)＋読み取り。②採用αでの母数記録の内訳テーブルは2026-06-26にユーザー要望で削除（集計値は読み取りに残す）。
-function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride) {   // spanOverride: 頻度列＋★頻度ゲートの分母を帯基準（_pbBandBizDays）に。株価帯コンテキストでピルと一致させる 2026-07-22j
-  var _A = _elBaseAlphaA(recs, aiOf, spanOverride);
-  var pick = _A ? _A.pick : _elBaseAlphaPick(recs, aiOf, spanOverride);
+function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride, poolAll) {   // spanOverride: 頻度列＋★頻度ゲートの分母を帯基準（_pbBandBizDays）に。株価帯コンテキストでピルと一致させる 2026-07-22j
+  // poolAll（2026-08-02l ユーザー決定）: 分類「全記録」用の“一律α”版＝母数から基本α絞り込み(_elIsBaseAlphaPoolRec)を外すだけで、列・ゲート・★選定は基本α表と完全に同じ（表を二重定義しない）。
+  //   応用αの併記(_elBaseAlphaA.add)と「旧基準」チップは出さない＝素の記録が母数の値と土俵が違い、並べると別物同士の比較に見えるため。
+  //   ★はこの母数だけの参考値＝フォーム/EPナビ/シミュへ流れる推奨基本α（poolAll未指定）は従来どおり素の記録が母数で不変。
+  var _A = poolAll ? null : _elBaseAlphaA(recs, aiOf, spanOverride);
+  var pick = _A ? _A.pick : _elBaseAlphaPick(recs, aiOf, spanOverride, poolAll);
   if (!pick || pick.status === "none" || (pick.alpha == null && pick.status !== "nomin")) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var _nomin = (pick.status === "nomin");   // E成立≥_EL_BASE_MIN_N件のαが1つも無い＝条件適合無し（推奨は出さず参考に総当たり表のみ表示）2026-07-14d
   var a = pick.alpha, ideal = (pick.idealAlpha != null ? pick.idealAlpha : pick.alpha), na = pick.status === "na", minN = pick.minN || _EL_BASE_MIN_N;
   var add = _A ? _A.add : null;
-  var _lg = _elBaseAlphaPickScore(recs, aiOf);   // 旧・合成スコア方式なら選ばれていた値（乖離確認チップ用 2026-07-13・旧_elBaseAlphaH2Pickバッジを置換）
+  var _lg = poolAll ? null : _elBaseAlphaPickScore(recs, aiOf);   // 旧・合成スコア方式なら選ばれていた値（乖離確認チップ用 2026-07-13・旧_elBaseAlphaH2Pickバッジを置換）。poolAll時はnull＝_elOldPickChipが自前でnullを返す 2026-08-02l
   var stopP = pick.stopRate != null ? Math.round(pick.stopRate * 100) : null;
   var winP = pick.h1win != null ? Math.round(pick.h1win * 100) : null;
   var _lbl = function(t) { return React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "10px 0 2px" } }, t); };
   var concl = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "2px 10px", background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 8, padding: "8px 12px" } },   // 基本αは青基調（nominでも警告琥珀にせず青系のまま）2026-07-14f
-    React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, "推奨基本α"),
+    React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#9A3412" } }, poolAll ? "全記録の一律α" : "推奨基本α"),
+    poolAll ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309", background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: 6, padding: "1px 5px" } }, "参考・この母数だけ") : null,   // 2026-08-02l フォームに流れる推奨基本αと取り違えないよう明示
     _nomin
       ? React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: "#0369A1" } }, "ー（条件適合無し）")
       : React.createElement("div", { style: { display: "inline-block", lineHeight: 1.05 } },
@@ -2564,10 +2571,12 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride)
       : null);
   // α別総当たりの表示は0円から（推奨対象範囲_EL_BASE_ALPHAS=5〜20・★選定は不変／0〜4円は参考行として追加表示のみ）2026-07-02→0円を追加 2026-07-03。母数は推奨基本αと同じ×+未選択（_elBaseAlphaPickが内部で〇を除外するのに揃える）。
   // 2026-07-12: 浮き足〇/RN〇の除外も_elBaseAlphaPickに完全一致させる（旧=追加α〇だけ除外で、0〜4円行・頻度・母数集計にだけ浮き足〇が混入し5〜20円行と母数がズレていた）。
-  var _baseRecs = (recs || []).filter(_elIsBaseAlphaPoolRec);
+  var _baseRecs = poolAll ? (recs || []) : (recs || []).filter(_elIsBaseAlphaPoolRec);   // poolAll=絞り込みなし＝★選定_elBaseAlphaPick(…,poolAll)と同じ母数 2026-08-02l
   // 母数内訳（⑤透明化 2026-07-13）: シグナル全体N件がどう絞られて母数になったかを表の上に明示（〇同士は重複しうるが除外判定は_baseRecsと同一）。
   var _exAddN = 0, _exUkiN = 0, _exRnN = 0;
   (recs || []).forEach(function(r) { var s = r && r.signal; if (!s) return; if (_elSpecialUsed(s)) _exAddN++; if (_elUkiYes(s)) _exUkiN++; if (_elRnYes(s)) _exRnN++; });
+  // 2026-08-02l: この内訳カウンタは長らく未描画（＝死にコード）だった。全記録モードでは「何が混ざっているか」が読み取りの前提になるので表の上に出す。応用α表の母数内訳行と同じ体裁。
+  var _mixNote = poolAll ? React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "6px 0 0" } }, "母数の内訳: 全記録 " + _baseRecs.length + "件（うち応用〇 " + _exAddN + "件・浮き足〇 " + _exUkiN + "件・RN〇 " + _exRnN + "件／除外なし・〇同士は重複しうる）") : null;
   var _baseSpan = (spanOverride != null) ? spanOverride : _elBizSpanDays(_baseRecs, holiSet);   // 頻度列（何営業日に1回）用: 母数の活動期間の営業日数（全行共通・分母は固定でαごとに到達実日数だけ変わる）2026-07-07。spanOverride=帯基準（ピルと一致）2026-07-22j
   var aiOfAna = _elAnaAiOf(aiOf);   // 表示スイープも★（pick内部でwrap済み）と同じ前提損切り値で評価 2026-07-13b
   var _lowSweep = [0, 1, 2, 3, 4].map(function(la) { return _elBaseAlphaEval(_baseRecs, aiOfAna, la); });
@@ -2627,14 +2636,15 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride)
     else otherN++;
   });
   insight = _elInsightBoxV2([
-    React.createElement("span", null, "採用α", _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS3までにEP到達し決着）。うち損切り", _elInsightEmV2(stopN + "件"), "・最終損益プラス", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（未到達）。"),
+    React.createElement("span", null, (poolAll ? "★の一律α" : "採用α"), _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS3までにEP到達し決着）。うち損切り", _elInsightEmV2(stopN + "件"), "・最終損益プラス", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（未到達）。"),
     React.createElement("span", null, "理想α＝", _elInsightEmV2("全条件（到達率" + _reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字）を満たすαのうち、Σ最終損益（累計）が最大のα"), "（到達率下限は🎯で調整可）。", _elInsightEmV2("推奨α＝理想" + _elAlphaOffTxt("円")), (_EL_ALPHA_OFFSET > 0 ? "（指値をギリギリで外さないよう理想より少し下げた実際に置く値）。" : "（指値同値は各αの評価に0円算入済み＝一律マージンを別立てで引かないので、実際に置く値＝理想）。"), "同点は平均（1件あたり）が大きい方→低α。全条件を満たすαが1つも無ければ『条件適合無し』。"),
     React.createElement("span", null, _elInsightEmV2("中央値"), "が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。", _elInsightEmV2("未達列"), "はその行が★のどの条件で落ちたかを示す（到=到達率・件=E成立・頻=頻度・損=損切り率・赤=Σ赤字）。")
-  ], { note: "この銘柄のv2・算入記録（素の記録のみ）に各αを当ててシミュレーション（前提損切り値" + _elAnaCutCur + "円＝各記録の実損切り値ではなくこの前提で評価）。E成立・利確率・損切り率(最終)・最終損益(平均/中央/Σ)・勝ち/負け平均＝最終損益(手じまい・EP/H1/H2損切り込み)基準・理想＝全条件を満たすαのうちΣ最終損益（累計）が最大のα（同点は平均が大きい方→低α）・推奨α＝理想" + _elAlphaOffTxt("円") + "。最終損益(平均/中央/Σ)と勝ち/負け平均の母数＝最終損益が確定した件数で、隣のE成立とはEP×見送り等でズレることがある。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝［0.7×(1−損切り率(最終))+0.3×利確率(最終)］＝この行の他の列と同じ最終損益（手じまい・終値撤退）基準の要約値。★選定には不使用（★＝全条件を満たすαのうちΣ最終損益が最大）。2026-08-02gに旧H1基準［H1まで・ラインに触れたら損切り］から切替＝同じ行の中でスコアだけ土俵が違い、行の優劣が入れ替わって見えていたため。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝予定EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として扱う**＝到達率・E成立・損切り率・利確率からは外し、最終損益だけ0円で母数に残す（🔁応用α換算の「無エントリー0円算入」と同規約）。したがって平均最終損益は「そのαを置いた1機会あたりの期待値（刺さらなかった分も含む）」・Σはその総額で、理想・推奨もこの土俵で選ばれる（2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
+  ], { note: (poolAll ? "**分類「全記録」の母数＝基本・応用を問わず全記録（応用〇・浮き足〇・RN〇も含む）** に各αを一律で当ててシミュレーション。加算あり（浮き足〇/RN〇）の記録も一律αに置き換わるので、この表は「加算ルールを使わず一律αだけで通していたら」の答え。★はこの母数だけの参考値で、フォーム/EPナビ/シミュへ流れる推奨基本αは分類「基本α」（素の記録が母数）の値＝ここでは変わらない。" : "この銘柄のv2・算入記録（素の記録のみ）に各αを当ててシミュレーション") + "（前提損切り値" + _elAnaCutCur + "円＝各記録の実損切り値ではなくこの前提で評価）。E成立・利確率・損切り率(最終)・最終損益(平均/中央/Σ)・勝ち/負け平均＝最終損益(手じまい・EP/H1/H2損切り込み)基準・理想＝全条件を満たすαのうちΣ最終損益（累計）が最大のα（同点は平均が大きい方→低α）・推奨α＝理想" + _elAlphaOffTxt("円") + "。最終損益(平均/中央/Σ)と勝ち/負け平均の母数＝最終損益が確定した件数で、隣のE成立とはEP×見送り等でズレることがある。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝［0.7×(1−損切り率(最終))+0.3×利確率(最終)］＝この行の他の列と同じ最終損益（手じまい・終値撤退）基準の要約値。★選定には不使用（★＝全条件を満たすαのうちΣ最終損益が最大）。2026-08-02gに旧H1基準［H1まで・ラインに触れたら損切り］から切替＝同じ行の中でスコアだけ土俵が違い、行の優劣が入れ替わって見えていたため。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝予定EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として扱う**＝到達率・E成立・損切り率・利確率からは外し、最終損益だけ0円で母数に残す（🔁応用α換算の「無エントリー0円算入」と同規約）。したがって平均最終損益は「そのαを置いた1機会あたりの期待値（刺さらなかった分も含む）」・Σはその総額で、理想・推奨もこの土俵で選ばれる（2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
   }
   return React.createElement("div", null,
     concl,
-    _elv2Table(["基本α", "E成立", "到達率", "同値", "頻度", "利確率(最終)", "損切り率(最終)", "最終損益(平均/中央/Σ)", "勝ち/負け平均", "スコア", "未達"].concat(onPick ? ["選択"] : []), sweepRows),
+    _mixNote,
+    _elv2Table([(poolAll ? "一律α" : "基本α"), "E成立", "到達率", "同値", "頻度", "利確率(最終)", "損切り率(最終)", "最終損益(平均/中央/Σ)", "勝ち/負け平均", "スコア", "未達"].concat(onPick ? ["選択"] : []), sweepRows),
     insight);
 }
 // 推奨追加α 詳細データ（この銘柄/グループ）2026-07-03: 推奨基本α詳細データ(_elBaseAlphaDetailV2)の追加α版＝結論バー＋加算値別の総当たり（基本α＋加算ごとの到達率/件数/損切り率/H1勝率/想定損益・★＝推奨）＋読み取り。母数＝追加α〇（数値根拠＝底抜け前足浮きは除外・_elAddAlphaRecoと同一）。集計タブ銘柄別パネルで追加α母数トグル〇のとき、畳んだ基本α詳細の下に表示。想定損益＝ΣH1損益（_elBaseAlphaEval.pnl＝_elSimPnlByDay.sumと同値）。
@@ -6833,6 +6843,12 @@ function EntryLogView(_ref_elv2) {
             React.createElement(_SNCollapse, { title: "🔬 推奨基本α 詳細データ（推奨値の根拠・タップで展開）", render: function() { return _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan); }); } })),
             _secH("🔬 推奨応用α 詳細データ（応用〇・手仕舞い基準）", "応用〇の記録だけを母数に、独立α値0〜20円を手仕舞い基準で評価（★＝到達率" + _EL_ANA_REACH_DEF + "%以上［無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで緩和し参考］・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_MIN_N + "件以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうちΣ最終損益（累計）最大）。母数＝応用〇（浮き足・RN除外）", _ctl("gp_baAdd", _baRecs)),
             _bodyOf("gp_baAdd", _baRecs, function(_drs) { return _elTotalAlphaSectionV2(_drs, _ai, _holiSet, null, null, bandSpan); })]
+        // 分類「全記録」のとき（2026-08-02l ユーザー指摘「全記録にしている以上、基本・応用関係なくまとめた表にすべきでは？」）:
+        //   基本α表（母数＝素の記録＝応用〇/浮き足〇/RN〇を除外）だけを出すのはトグルの意味と噛み合っていなかった＝分類の3択で全記録だけ母数がズレる唯一の分岐だった。
+        //   そこで**全記録を母数にした一律α表へ差し替える**（ユーザー決定＝差し替え・基本α表は分類「基本α」で見る）。応用α分岐が基本α表を畳んで応用α表を出すのと対称。
+        : (!_floatMode && osDistFil === "all")
+        ? [_secH("🔬 全記録の一律α 詳細データ", "分類「全記録」の母数（基本・応用を問わず全記録＝応用〇・浮き足〇・RN〇も含む）に、α0〜20円を一律で当てた総当たり。★＝この母数だけの参考値（フォーム/EPナビに流れる推奨基本αは分類「基本α」の値で不変）", _ctl("gp_ba", _baRecs)),
+            _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan, true); })]
         : [_secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αのE成立/到達率/頻度/利確率/損切り率/最終損益）", _ctl("gp_ba", _baRecs)),
             _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan); })],
       _elCard(React.createElement(_SNCollapse, { title: "詳細分析（" + (_gDet ? "累積損益・時間帯別・曜日別" : "EP位置・累積損益・α感応度・時間帯別・曜日別・期待度×/△") + "）", render: function() {   // 遅延描画 2026-06-29。⑥重複整理 2026-07-12: シグナル別集計(_gDet)ではEP位置/α感応度/×/△を外し深掘り・α値タブへ案内（同一母数の三重掲載を解消）。詳細タグ別モード(_gDet=false)は深掘りタブに同スコープが無いためフル維持。
