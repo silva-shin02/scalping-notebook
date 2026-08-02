@@ -5002,6 +5002,7 @@ function _elKabuLadderSimV2(props) {
   var _uM = useState("manual"), mode = _uM[0], setMode = _uM[1];
   var _uF = useState("no"), addFil = _uF[0], setAddFil = _uF[1];
   var _uSk = useState("__all__"), stkFil = _uSk[0], setStkFil = _uSk[1];   // 対象銘柄フィルタ（全銘柄モードのみ表示・__all__=全て・既定＝全て）2026-07-22
+  var _uBd = useState("__all__"), bandFil = _uBd[0], setBandFil = _uBd[1];   // 対象株価帯フィルタ 2026-08-02（ユーザー要望「対象を株価帯・銘柄から選べるように」）。銘柄フィルタとは独立のAND＝両方「全て」なら従来と同じ母数。銘柄別モードでも効く（同じ銘柄でも日によって帯が変わるため）
   var _uAo = useState("act"), addOn = _uAo[0], setAddOn = _uAo[1];   // 追加α〇記録への上乗せ: act=実追加α(既定)/reco=記録日時点の推奨追加α/none=なし。〇記録がシミュ対象にいる時だけピル表示 2026-07-06
   // 除外チェック（⑥ 2026-07-13）→ 2026-07-20k **浮き足〇だけに縮小**（ユーザー決定）:
   //   ・RN〇の除外は意味を失った＝除外しても保存値rnUsedの記録を母数から外すだけで、掃引αに対する動的再判定(_simRnAt)は止まらず、
@@ -5039,7 +5040,30 @@ function _elKabuLadderSimV2(props) {
   var _periodRecs = _elPSelFilter(recs, pSel);   // 2026-07-20i 年月週日カスケード選択（_elPSelFilter）。旧＝今日起点のローリング窓
   // 対象銘柄セレクタ（2026-07-22）＝全銘柄モードで銘柄を絞れる。候補＝この期間に記録がある銘柄をマスター順に（記録のある銘柄だけ・extraは末尾）。stkFil=__all__で全て。
   var _stkOpts = (function() { if (!allStock) return []; var m = {}; _periodRecs.forEach(function(r) { if (r && r.stock) m[r.stock] = 1; }); var ord = (_simData && _simData.custom && _simData.custom.stocks) ? _simData.custom.stocks : []; var out = ord.filter(function(s) { return m[s]; }); Object.keys(m).forEach(function(s) { if (out.indexOf(s) < 0) out.push(s); }); return out; })();
+  // 対象株価帯セレクタ 2026-08-02（ユーザー要望）: 帯＝日×銘柄（_pbDayBandOf・手動選択＞前日終値の自動）で💴株価帯別タブ・浮き足%の帯ピルと同一源。
+  // ⚡固有材料日は帯から外して独立グループ("mat")・前日終値も手動指定も無い日は"帯不明"("unk")。銘柄フィルタとは独立のANDで効く。
+  var _pbBoundsSim = _simData ? _pbBoundsOf(_simData.custom || {}) : [];
+  var _bandMemo = {};
+  var _bandKeyOf = function(r) {
+    if (!_simData || !r || !r.stock || !r.date) return "unk";
+    var k = r.stock + "|" + r.date;
+    if (!(k in _bandMemo)) { var bi = _pbDayBandOf(_simData, r.stock, r.date); _bandMemo[k] = bi.material ? "mat" : (bi.idx != null ? ("b" + bi.idx) : "unk"); }
+    return _bandMemo[k];
+  };
+  var _bandLabelOf = function(key) { return key === "mat" ? "⚡ 材料あり" : key === "unk" ? "帯不明" : ("💴 " + _pbBandLabel(parseInt(key.slice(1), 10), _pbBoundsSim)); };
+  // 候補＝この期間に実在する帯だけ（帯番号昇順→材料あり→帯不明）。1種類しか無いなら絞る意味が無いのでUIごと出さない。
+  var _bandOpts = (function() {
+    if (!_simData) return [];
+    var seen = {}; _periodRecs.forEach(function(r) { seen[_bandKeyOf(r)] = 1; });
+    var out = [];
+    for (var _bi3 = 0; _bi3 <= _pbBoundsSim.length; _bi3++) if (seen["b" + _bi3]) out.push("b" + _bi3);
+    if (seen.mat) out.push("mat");
+    if (seen.unk) out.push("unk");
+    return out;
+  })();
+  var _bandCntOf = function(key) { var n = 0; _periodRecs.forEach(function(r) { if (_bandKeyOf(r) === key) n++; }); return n; };
   var _stkRecs = (allStock && stkFil !== "__all__") ? _periodRecs.filter(function(r) { return r && r.stock === stkFil; }) : _periodRecs;   // 銘柄別モードは元から単一銘柄なので無効。ここで絞ると下流（pool・_stkN・_origPnl・_kbStockTable・時間かぶり・自動配分）に一律で効く
+  if (bandFil !== "__all__") _stkRecs = _stkRecs.filter(function(r) { return _bandKeyOf(r) === bandFil; });   // 株価帯の絞り込みも同じ_stkRecsに乗せる＝下流すべてに一律で効く 2026-08-02
   var pool = floatMode ? _stkRecs : (addFil === "no" ? _stkRecs.filter(function(r) { return r && !_elSpecialUsed(r.signal); }) : addFil === "yes" ? _stkRecs.filter(function(r) { return r && _elSpecialUsed(r.signal); }) : _stkRecs);
   var _poolBeforeEx = pool.length;
   if (exFlags.uki && !floatMode) pool = pool.filter(function(r) { var s = r && r.signal; return !(s && _elUkiYes(s)); });   // 2026-07-20k 浮き足〇のみ（ライン併存/RN〇の除外は撤去）。floatModeでは無効＝母数が浮き足記録のため
@@ -5185,7 +5209,7 @@ function _elKabuLadderSimV2(props) {
   var _candLabel = function(cand) { if (cand.kind === "abs") return "α" + cand.v + "円"; if (cand.kind === "adopt") return cand.x === 0 ? "採用α" : ("採用α" + (cand.x > 0 ? "+" + cand.x : cand.x)); if (cand.x === 0) return "推奨α"; return "推奨α" + (cand.x > 0 ? "+" + cand.x : cand.x); };
   var totalN = (function() { var t = _kbInt(total); if (t == null || t <= 0) return 0; return Math.max(100, Math.round(t / 100) * 100); })();
   // 自動配分の入力署名＝これが変われば結果は無効＝再度「計算する」を要求（全銘柄モードのみ）。銘柄別は_autoReady常時trueで従来の即時計算のまま。
-  var _autoSig = totalN + "|" + pool.length + "|" + _elPSelSig(pSel) + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length + "|" + (multiTrade ? 1 : 0) + "|" + (rnAuto ? 1 : 0) + "|" + stkFil;   // multiTrade/rnAutoも署名に＝切り替えたら再計算が必要 2026-07-20g→2026-07-21a
+  var _autoSig = totalN + "|" + pool.length + "|" + _elPSelSig(pSel) + "|" + addFil + "|" + (exFlags.uki ? 1 : 0) + "|" + _elAnaCutCur + "|" + (floatMode ? 1 : 0) + "|" + recoSig.length + "|" + (multiTrade ? 1 : 0) + "|" + (rnAuto ? 1 : 0) + "|" + stkFil + "|" + bandFil;   // multiTrade/rnAutoも署名に＝切り替えたら再計算が必要 2026-07-20g→2026-07-21a。bandFilも 2026-08-02（帯を切り替えたら自動配分の再計算が必要）
   var _autoReady = !allStock || !multiTrade || autoRunSig === _autoSig;   // 2026-07-20h ×は25通りで軽いのでゲートせず即時（_autoGateと条件を揃える）
   var autoRes = null;
   if (mode === "auto" && totalN > 0 && pool.length && _autoReady) {
@@ -5602,6 +5626,11 @@ function _elKabuLadderSimV2(props) {
       React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F6E56", background: "#E4EFEC", borderRadius: 5, padding: "1px 8px" } }, _stkN + "銘柄・" + pool.length + "件"),
       React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "全銘柄・全シグナルの記録に同じラダーを一律適用")) : null,
     React.createElement(_ElPeriodPicker, { value: pSel, onChange: function(s) { setPSel(s); setAutoExp(null); setMtExp(null); }, recs: recs, label: "対象期間" }), (allStock ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } }, React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "対象銘柄:"), [["__all__", "全て"]].concat(_stkOpts.map(function(s) { return [s, s]; })).map(function(kv) { return _pill(stkFil === kv[0], kv[1], function() { setStkFil(kv[0]); setAutoExp(null); setMtExp(null); }, "#0F766E"); }), React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, stkFil === "__all__" ? ("（" + _stkOpts.length + "銘柄）銘柄を選ぶと母数を絞り込みます") : ("（" + stkFil + "のみ）"))) : null),   // 2026-07-20i 年月週日カスケード（既定＝今月のみ）
+    // 対象株価帯 2026-08-02（ユーザー要望）: 銘柄と独立のAND絞り込み。帯が1種類しか無い期間ではUIごと非表示（絞る意味が無いため）。銘柄別モードでも出す＝同じ銘柄でも日によって帯が変わる。
+    (_bandOpts.length >= 2) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1" } }, "対象株価帯:"),
+      [["__all__", "全て"]].concat(_bandOpts.map(function(k) { return [k, _bandLabelOf(k) + "(" + _bandCntOf(k) + ")"]; })).map(function(kv) { return _pill(bandFil === kv[0], kv[1], function() { setBandFil(kv[0]); setAutoExp(null); setMtExp(null); }, "#0369A1"); }),
+      React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, bandFil === "__all__" ? ("帯＝日×銘柄で判定（境界 " + _pbBoundsSim.join("・") + "円）。選ぶと母数を絞り込みます") : ("（" + _bandLabelOf(bandFil) + "のみ・銘柄フィルタとAND）"))) : null,
     floatMode
       ? React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "4px 8px", marginBottom: 6 } }, "母数＝浮き足の記録（" + pool.length + "件）。浮き足〇は土台α無し＝実効α＝各記録の浮き足加算（採用加算率）＋RN自動加算のみ。※このタブでは絶対値／推奨α±X／推奨基本α値を選んでも実効αは変わりません（土台αが常に0のため）。αを掃引したいときは「採用α±X」方式を使ってください。")   // 2026-07-20d 明記（旧「浮き値÷2切捨てを上乗せ」＝加算率可変化で古く、かつ候補α＋浮き足と読めて誤解を招いた）
       : React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
