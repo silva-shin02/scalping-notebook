@@ -5770,7 +5770,8 @@ function _elKabuLadderSimV2(props) {
 // 一覧・展開明細は1行=1記録のテーブル（行タップでEntryLogCard展開）でスクロール量を削減。
 function EntryLogView(_ref_elv2) {
   var data = _ref_elv2.data, save = _ref_elv2.save, onBack = _ref_elv2.onBack,
-    onSelectDate = _ref_elv2.onSelectDate, initialEdit = _ref_elv2.initialEdit;
+    onSelectDate = _ref_elv2.onSelectDate, initialEdit = _ref_elv2.initialEdit,
+    onSelectStock = _ref_elv2.onSelectStock;   // 2026-08-02c 配線: app-08から渡っていたが受け取っていなかった（死にprop）。ホームの「📊 銘柄別記録」ボタン撤去に伴い、ここを記録帳からの入口にする。
   var custom = data.custom || {};
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
   var _uV = useState("sum"), view = _uV[0], setView = _uV[1];
@@ -7368,6 +7369,13 @@ function EntryLogView(_ref_elv2) {
         React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#1A1714", lineHeight: 1.2 } }, "エントリー記録帳"),
         React.createElement("div", { style: { fontSize: 10, color: "#9A9186", fontWeight: 700, marginTop: 1 } }, (_isSigTotal ? "シグナル総合" : _isAllStock ? "全銘柄" : _selStock) + " ・ " + filtered.length + "件")),
       React.createElement("div", { style: { marginLeft: "auto" } }),   // 2026-07-20i 期間の<select>は年月週日ピッカー（下の_periodPickerEl）へ置換。ここは右寄せ用のスペーサー
+      // 📊 銘柄別記録への導線 2026-08-02c（ユーザー要望「記録帳から入れるようにして」）: ホームのボタンを撤去した代わりの入口。
+      // 銘柄タブを選んでいるときだけ出す＝onSelectStock(銘柄)がsn_shv_stock_v1に銘柄を控えてStockHistoryViewをその銘柄で開く（app-08）。
+      // 💰損益／📡シグナル総合では銘柄が定まらないので非表示。色はホームにあった旧ボタンと同じ青系＝同じ行き先だと分かるように。
+      (onSelectStock && !_isAllStock && !_isSigTotal && _selStock)
+        ? React.createElement("button", { onClick: function() { onSelectStock(_selStock); }, title: _selStock + "の銘柄別記録を開く",
+            style: { padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "#EFF6FF", border: "1.5px solid #BFDBFE", borderRadius: 9, cursor: "pointer", color: "#1565C0", whiteSpace: "nowrap" } }, "📊 銘柄別記録")
+        : null,
       // 2026-07-20j 母数トグル「全期間/5月〜」を撤去＝4月以前を常時除外にしたので両状態が同じ結果になり、押しても何も変わらないトグルになったため。
       React.createElement("button", { onClick: function() { setEditTarget({}); }, style: { padding: "7px 13px", fontSize: 12, fontWeight: 800, background: "#1A1714", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer" } }, "＋新規")),
     // 2026-07-20i 期間の指定を年月週日カスケード選択へ置換（旧: 全期間/今週/1ヶ月…のローリング<select>＋🗓期間指定バー）。既定は全て「全て」＝全期間で、開いた時の見え方は従来と同じ。

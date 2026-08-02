@@ -47,6 +47,14 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-08-02d 記録帳のヘッダーに「📊 銘柄別記録」導線を新設（sw v300→v301）
+- ユーザー「記録帳から入れるようにして」＝08-02cでホームのボタンを撤去し入口がニュース一覧1本になったので、記録帳側に入口を作る。
+- **app-06 `EntryLogView`で`onSelectStock`を受け取るようにした**（`_ref_elv2.onSelectStock`・従来はapp-08から渡っていたのに未destructureで死にpropだった）。ヘッダー行の右端（＋新規の左）に青系ボタンを追加。
+- **銘柄タブを選んでいるときだけ表示**（`onSelectStock && !_isAllStock && !_isSigTotal && _selStock`）＝💰損益／📡シグナル総合では銘柄が定まらないので非表示。色はホームにあった旧ボタンと同じ`#EFF6FF`/`#BFDBFE`/`#1565C0`＝同じ行き先だと分かるように。
+- 動線: 押す→app-08の`onSelectStock(銘柄)`が`sn_shv_stock_v1`に銘柄を控えて`setShowEntryLog(false)`＋`setShowStockHistory(true)`→`StockHistoryView`が**mount時のuseState初期化子**（app-07.js:3992）でそのキーを読んで選択銘柄に合わせる。
+- **既知の制限（未対応）**: app-07.js:3992は`allStocks.indexOf(v) >= 0`で弾くので、**マスター(custom.stocks)に無い銘柄**（記録帳のticker listは記録側にしか無い銘柄も`extras`として拾う）でジャンプすると`allStocks[0]`にフォールバックする。通常運用の銘柄はマスターにあるので実害は想定薄。
+- 検証: 実ブラウザ（合成16記録・JX金属8件/フジクラ8件）。①💰損益タブと📡シグナル総合ではボタン非表示・銘柄タブでのみ表示を確認。②フジクラ→押す→`StockHistoryView`が開き`sn_shv_stock_v1`="フジクラ"。③JX金属で再実行→ビューの銘柄`<select>`の値が"JX金属"＝**選択銘柄が引き継がれる**。④ブラウザの戻るで記録帳へ復帰。console 0。
+
 ### 2026-08-02c ホームの「📊 銘柄別記録」ボタンを撤去（sw v299→v300）
 - ユーザー「ここの銘柄別記録ボタンは不要」。app-08 `App` のホーム見出し行から該当ボタン（`setShowStockHistory(true)`）だけを削除。state・`StockHistoryView`本体・履歴トークン`stockhistory`はすべて残す。
 - **撤去後の入口は「ニュース一覧の記事内・銘柄チップ」1本だけ**（app-07 `NewsHistoryView` の`onJumpToStock`→app-08.js:1199で`setShowStockHistory(true)`）。
