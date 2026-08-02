@@ -1270,7 +1270,7 @@ function _elAlphaCurveSectionV2(recs, aiOf) {
 var _EL_BASE_ALPHAS = (function() { var _a = []; for (var _i = 5; _i <= 20; _i++) _a.push(_i); return _a; })();
 // ★選定用の探索範囲は0〜20円（2026-07-13 到達率ベース化＝低いαも★になりうる。表示・H1参考列は従来どおり5〜20が主・0〜4は_lowSweepで参考表示）。
 var _EL_BASE_ALPHAS_FULL = (function() { var _a = []; for (var _i = 0; _i <= 20; _i++) _a.push(_i); return _a; })();
-// 推奨α＝理想α−_EL_ALPHA_OFFSET（2026-07-13 ユーザー方針・2026-07-22 オフセット1→2）: 理想αちょうどに指値すると「指値同値」でギリギリ約定しないことが多いので、オフセットぶん下げてフィルしやすくする。理想α=到達率ベースの★／推奨α=実際に置く値（フォーム/EPナビ/本日採用α/シミュへ流れる）。max(0,…)で負にしない。既定2（調整UIなし・ユーザー指定）。
+// 推奨α＝理想α−_EL_ALPHA_OFFSET（2026-07-13 ユーザー方針・2026-07-22 1→2・2026-08-02 2→1）: 理想αちょうどに指値すると「指値同値」でギリギリ約定しないことが多いので、オフセットぶん下げてフィルしやすくする。理想α=到達率ベースの★／推奨α=実際に置く値（フォーム/EPナビ/本日採用α/シミュへ流れる）。max(0,…)で負にしない。既定1（調整UIなし・ユーザー指定）。
 var _EL_ALPHA_OFFSET = 1;   // 推奨α＝理想α−この値（0未満にしない）。理想αちょうどに指値すると「指値同値」でギリギリ約定しないことが多いので下げてフィルしやすくするマージン。基本α・応用α共通。2026-07-22 1→2 → 2026-08-02 2→1（ユーザー決定＝α詳細表に「同値」列を新設し、同値リスクをαごとに数字で見られるようにしたので一律マージンを薄くする）
 // 理想α選定 2026-07-15f ユーザー方針: 前提ゲート通過候補のうち、平均最終損益（1件あたり・avgH2）が最大のα＝理想。同点は累計Σが大きい（標本が厚い）方→値が小さい方。旧・順位和方式(2026-07-15e)を置換。基本α・応用α・追加α・浮き足で共通。
 // 平均最大で最良候補を返す 2026-07-15f: cands（ゲート通過済み）のうち平均(avgOf)が最大の候補を返す。同点は累計Σ(sigOf)大→値(aOf)小。旧・順位和方式を置換（関数名_elBordaBestは互換のため据え置き）。
@@ -2068,7 +2068,7 @@ function _elBaseAlphaPick(recs, aiOf, spanOverride) {   // spanOverride: 頻度�
   var _anyEntry = full.some(function(e) { return e.entered > 0; });   // 全条件を満たすα無し→到達記録が全く無ければデータ無し(none)・到達はあるが条件適合無し(nomin)
   return { alpha: null, idealAlpha: null, score: null, stopRate: null, h1win: null, eRate: null, entered: 0, scN: 0, pnl: null, epPnl: null, stopN: null, ewin: null, status: _anyEntry ? "nomin" : "none", sweep: sweep, h2sweep: h2sweep, minN: _EL_BASE_MIN_N, decided: 0, takeRate: null, h2Sum: null, avgH2: null, reachFloor: reachFloor, alpha2: null, score2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null, h2Sum2: null };
 }
-// ===== 推奨応用α（応用〇局面）＝基本αと同じ到達率ベース＋理想−_EL_ALPHA_OFFSET（＝2・指値同値マージン 2026-07-22で1→2）＋「基本αより大きく」クランプ（2026-07-13 ユーザー承認）=====
+// ===== 推奨応用α（応用〇局面）＝基本αと同じ到達率ベース＋理想−_EL_ALPHA_OFFSET（＝1・指値同値マージン 2026-07-22で1→2、2026-08-02で2→1）＋「基本αより大きく」クランプ（2026-07-13 ユーザー承認）=====
 // 母数=応用〇（呼び出し側で浮き足〇/RN〇除外を渡す）。各α0〜20円を前提損切り値で評価し「黒字かつ到達率≥下限かつ頻度<_EL_FREQ_MAX」のうち最も高いα＝理想／推奨＝max(0,理想−_EL_ALPHA_OFFSET)。2026-07-13頻度も選定に組込。
 // minIdeal（＝基本αの理想・任意）を渡すと「応用の理想≥基本の理想+1」にクランプ＝応用α（理想・推奨とも）が基本αより大きくなる。返り値shape＝旧互換＋idealAlpha/reachFloor。
 var _EL_TOTAL_ALPHAS = (function() { var _a = []; for (var _i = 0; _i <= 20; _i++) _a.push(_i); return _a; })();
