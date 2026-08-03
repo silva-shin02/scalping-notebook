@@ -2558,6 +2558,10 @@ function NewsTab(_ref36) {
   var dragClickGuardRef = useRef(0);
   var _usDF = useState(null), _usDFS = _slicedToArray(_usDF, 2), dragFromId = _usDFS[0], setDragFromId = _usDFS[1];
   var _usDO = useState(null), _usDOS = _slicedToArray(_usDO, 2), dragOverId = _usDOS[0], setDragOverId = _usDOS[1];
+  // 2026-08-03j 横長の画像はカードを2列ぶんに広げる。縦横比はデータに持っていないので、
+  // 描画後にDOMのnaturalWidth/Heightから実測する＝以前から入っている画像にも効く。
+  var _usAR = useState({}), _usARS = _slicedToArray(_usAR, 2), imgAspects = _usARS[0], setImgAspects = _usARS[1];
+
   var _usABD = useState(false), _usABDS = _slicedToArray(_usABD, 2), addBtnDrag = _usABDS[0], setAddBtnDrag = _usABDS[1];
   // 2026-08-03e 「この記事を保存」シート。カード単位でカテゴリ・サブ・銘柄（複数可）を選ぶ。
   // 全部任意＝何も選ばずに保存だけでも通る（keep があれば保存済、中身が空なら未分類）。
@@ -2688,6 +2692,36 @@ function NewsTab(_ref36) {
       return (prev.indexOf(tg) >= 0) ? prev.filter(function(x) { return x !== tg; }) : prev.concat([tg]);
     });
   };
+  var _shownKey = shownItems.map(function(e) { return e.ni.id; }).join(",");
+  useEffect(function() {
+    var cont = newsGridRef.current;
+    if (!cont) return;
+    var cleanups = [];
+    var apply = function(id, w, h) {
+      if (!w || !h) return;
+      var r = w / h;
+      setImgAspects(function(prev) {
+        if (prev[id] === r) return prev;
+        var nx = Object.assign({}, prev); nx[id] = r; return nx;
+      });
+    };
+    var imgs = cont.querySelectorAll("[data-niid] img");
+    for (var i = 0; i < imgs.length; i++) {
+      (function(im) {
+        var card = im.closest ? im.closest("[data-niid]") : null;
+        var id = card && card.getAttribute("data-niid");
+        if (!id) return;
+        if (im.complete && im.naturalWidth) { apply(id, im.naturalWidth, im.naturalHeight); return; }
+        var onL = function() { apply(id, im.naturalWidth, im.naturalHeight); };
+        im.addEventListener("load", onL);
+        cleanups.push(function() { im.removeEventListener("load", onL); });
+      })(imgs[i]);
+    }
+    return function() { cleanups.forEach(function(f) { f(); }); };
+  }, [_shownKey]);
+  // 16:9より横長なら2列ぶん。ニュースのヘッダ画像やチャートの横長スクショが潰れて読めなくなるのを防ぐ。
+  var _WIDE_RATIO = 1.6;
+  var isWideNi = function(ni) { return (imgAspects[String(ni.id)] || 0) >= _WIDE_RATIO; };
   // 2026-08-03e 自動タグ（newsCatDefaults/newsSubCatDefaults）は廃止。タグは手で付ける。サブは保存シートで選ぶ。
   var addNews = function addNews() {
     return updCatField("newsItems", function(prev) {
@@ -3838,6 +3872,7 @@ function NewsTab(_ref36) {
             outline: (dragFromId != null && String(dragOverId) === String(ni.id) && String(dragFromId) !== String(ni.id)) ? "3px dashed #6366F1" : "none",
             outlineOffset: 2,
             opacity: String(dragFromId) === String(ni.id) ? 0.45 : 1,
+            gridColumn: isWideNi(ni) ? "span 2" : "auto",
             overflow: "hidden", transition: "background 0.4s, box-shadow 0.4s, opacity 0.15s" }
         },
           // ☰ ドラッグハンドル（タッチはこれで掴む。PCは画像を直接掴んでもよい）
