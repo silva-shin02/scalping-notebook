@@ -2510,6 +2510,19 @@ function EventsTab(_ref_evt) {
     })
   );
 }
+// 2026-08-03i ボードの並び順。ドラッグで並べ替えると、その日の全札に ord(0,1,2…) を焼き込むので以後は ord 順。
+// ord が無い札（まだ一度も並べ替えていない／並べ替えた後に足した札）は ord 付きの後ろに回り、id（＝追加時刻）の昇順で並ぶ。
+function _snNiOrderCmp(a, b) {
+  var ao = (a && typeof a.ord === "number") ? a.ord : null;
+  var bo = (b && typeof b.ord === "number") ? b.ord : null;
+  if (ao !== null && bo !== null) {
+    if (ao !== bo) return ao - bo;
+    return (Number(a.id) || 0) - (Number(b.id) || 0);
+  }
+  if (ao !== null) return -1;
+  if (bo !== null) return 1;
+  return (Number(a.id) || 0) - (Number(b.id) || 0);
+}
 function NewsTab(_ref36) {
   var dd = _ref36.dd,
     date = _ref36.date,
@@ -2539,6 +2552,12 @@ function NewsTab(_ref36) {
   
   var addBtnFileRef = useRef(null);
   var addBtnPasteRef = useRef(null);
+  // 2026-08-03i カードのドラッグ並べ替え（PC＝画像そのものを掴める／タッチ＝☰ハンドル）。
+  var newsGridRef = useRef(null);
+  var newsDragRef = useRef(null);
+  var dragClickGuardRef = useRef(0);
+  var _usDF = useState(null), _usDFS = _slicedToArray(_usDF, 2), dragFromId = _usDFS[0], setDragFromId = _usDFS[1];
+  var _usDO = useState(null), _usDOS = _slicedToArray(_usDO, 2), dragOverId = _usDOS[0], setDragOverId = _usDOS[1];
   var _usABD = useState(false), _usABDS = _slicedToArray(_usABD, 2), addBtnDrag = _usABDS[0], setAddBtnDrag = _usABDS[1];
   // 2026-08-03e 「この記事を保存」シート。カード単位でカテゴリ・サブ・銘柄（複数可）を選ぶ。
   // 全部任意＝何も選ばずに保存だけでも通る（keep があれば保存済、中身が空なら未分類）。
@@ -2641,7 +2660,7 @@ function NewsTab(_ref36) {
         out.push({ cat: c, ni: ni });
       });
     });
-    out.sort(function(a, b) { return (Number(a.ni.id) || 0) - (Number(b.ni.id) || 0); });
+    out.sort(function(a, b) { return _snNiOrderCmp(a.ni, b.ni); });
     return out;
   }, [dd]);
   // 使用中の材料タグ（件数付き）。多い順→名前順。
@@ -2781,6 +2800,105 @@ function NewsTab(_ref36) {
       });
     });
   };
+  // 2026-08-03i ドラッグ並べ替え。fromId を toId の位置へ移し、その日の全札に ord(0,1,2…) を焼き直す。
+  // カテゴリをまたいで1列に混ぜているので、カテゴリ配列の順番ではなく ord を正本にする（カテゴリのキー自体は動かさない）。
+  // クローン（同じ groupId）は同じ ord にする＝どのカテゴリに置かれていても画面上は1枚として同じ位置。
+  var reorderNiTo = function(fromId, toId) {
+    save(function(prevData) {
+      var prevDd = (prevData.trades && prevData.trades[date]) || {};
+      var prevAllCats = getAllNewsCatsData(prevDd);
+      var flat = [], seen = {};
+      Object.keys(prevAllCats).forEach(function(c) {
+        ((prevAllCats[c] && prevAllCats[c].newsItems) || []).forEach(function(n) {
+          if (!n) return;
+          var gid = n.groupId;
+          if (gid) { if (seen[gid]) return; seen[gid] = true; }
+          flat.push(n);
+        });
+      });
+      flat.sort(_snNiOrderCmp);
+      var fi = -1, ti = -1;
+      for (var i = 0; i < flat.length; i++) {
+        if (String(flat[i].id) === String(fromId)) fi = i;
+        if (String(flat[i].id) === String(toId)) ti = i;
+      }
+      if (fi < 0 || ti < 0 || fi === ti) return prevData;
+      var moved = flat.splice(fi, 1)[0];
+      flat.splice(ti, 0, moved);
+      var ordById = {}, ordByGid = {};
+      flat.forEach(function(n, i2) {
+        ordById[n.id] = i2;
+        if (n.groupId != null) ordByGid[n.groupId] = i2;
+        else ordByGid[n.id] = i2;
+      });
+      var newCats = {};
+      Object.keys(prevAllCats).forEach(function(c) {
+        var cd = prevAllCats[c];
+        var arr = (cd && cd.newsItems) || [];
+        newCats[c] = _objectSpread(_objectSpread({}, cd), {}, { newsItems: arr.map(function(n) {
+          var o = (ordById[n.id] != null) ? ordById[n.id]
+                : (n.groupId != null && ordByGid[n.groupId] != null) ? ordByGid[n.groupId] : null;
+          if (o == null || n.ord === o) return n;
+          return _objectSpread(_objectSpread({}, n), {}, { ord: o });
+        }) });
+      });
+      return _objectSpread(_objectSpread({}, prevData), {}, {
+        trades: _objectSpread(_objectSpread({}, prevData.trades), {}, _defineProperty({}, date,
+          _objectSpread(_objectSpread({}, prevDd), {}, { newsCats: newCats })))
+      });
+    });
+  };
+  // 掴んだ位置にいちばん近いカードを落とし先にする（gridなので上下左右＝中心との距離で判定）。
+  var onNewsDragStart = function(fromId, e, isTouch) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
+    var p0 = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    newsDragRef.current = { id: fromId, moved: false, x: p0.clientX, y: p0.clientY };
+    setDragFromId(fromId);
+    setDragOverId(fromId);
+    var pick = function(px, py) {
+      var cont = newsGridRef.current;
+      if (!cont) return null;
+      var cards = cont.querySelectorAll("[data-niid]");
+      var best = null, bestD = Infinity;
+      for (var i = 0; i < cards.length; i++) {
+        var r = cards[i].getBoundingClientRect();
+        var dx = px - (r.left + r.width / 2), dy = py - (r.top + r.height / 2);
+        var d = dx * dx + dy * dy;
+        if (d < bestD) { bestD = d; best = cards[i].getAttribute("data-niid"); }
+      }
+      return best;
+    };
+    var onMove = function(ev) {
+      var st = newsDragRef.current;
+      if (!st) return;
+      var pp = (ev.touches && ev.touches[0]) ? ev.touches[0] : ev;
+      if (Math.abs(pp.clientX - st.x) > 4 || Math.abs(pp.clientY - st.y) > 4) st.moved = true;
+      if (ev.cancelable) ev.preventDefault();
+      var over = pick(pp.clientX, pp.clientY);
+      if (over != null) setDragOverId(over);
+    };
+    var onEnd = function() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onEnd);
+      document.removeEventListener("touchmove", onMove, { passive: false });
+      document.removeEventListener("touchend", onEnd);
+      var st = newsDragRef.current;
+      newsDragRef.current = null;
+      setDragFromId(null);
+      // ドラッグ直後のclickで画像が開かないように少しだけ蓋をする
+      if (st && st.moved) dragClickGuardRef.current = Date.now();
+      setDragOverId(function(overId) {
+        if (st && st.moved && overId != null && String(overId) !== String(st.id)) reorderNiTo(st.id, overId);
+        return null;
+      });
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onEnd);
+    document.addEventListener("touchmove", onMove, { passive: false });
+    document.addEventListener("touchend", onEnd);
+  };
+  var dragJustHappened = function() { return (Date.now() - dragClickGuardRef.current) < 300; };
   var openKeepSheet = function(e) {
     var ni = e.ni, k = _snNiKept(ni) ? ni.keep : null;
     setKeepSheet({
@@ -3692,9 +3810,11 @@ function NewsTab(_ref36) {
           borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap" }
       }, stripCat(tc.tag) + " " + tc.n);
     })) : null,
+    // 2026-08-03i 横並びは最大3枚。列を絞ったぶん1枚あたりが広くなる＝サムネイルが大きく見える。
     React.createElement("div", {
-      style: { display: "grid", alignItems: "start", gap: 10,
-        gridTemplateColumns: "repeat(auto-fill, minmax(" + (IS_TOUCH ? 158 : 190) + "px, 1fr))" }
+      ref: newsGridRef,
+      style: { display: "grid", alignItems: "start", gap: 12, maxWidth: 1140,
+        gridTemplateColumns: "repeat(" + (IS_TOUCH ? 2 : 3) + ", minmax(0, 1fr))" }
     },
       shownItems.map(function(e, bIdx) {
         var ni = e.ni;
@@ -3709,13 +3829,28 @@ function NewsTab(_ref36) {
           key: e.cat + "_" + ni.id,
           id: "ni-card-" + ni.id,
           "data-newscard": "1",
+          "data-niid": String(ni.id),
           style: { position: "relative",
             background: highlightNiId === ni.id ? "#FEF3C7" : "#f8f7f4",
             boxShadow: highlightNiId === ni.id ? "0 0 0 3px #F59E0B" : "none",
             borderRadius: 10,
             border: kept ? "1.5px solid #F59E0B" : "1px solid #e8e5df",
-            overflow: "hidden", transition: "background 0.4s, box-shadow 0.4s" }
+            outline: (dragFromId != null && String(dragOverId) === String(ni.id) && String(dragFromId) !== String(ni.id)) ? "3px dashed #6366F1" : "none",
+            outlineOffset: 2,
+            opacity: String(dragFromId) === String(ni.id) ? 0.45 : 1,
+            overflow: "hidden", transition: "background 0.4s, box-shadow 0.4s, opacity 0.15s" }
         },
+          // ☰ ドラッグハンドル（タッチはこれで掴む。PCは画像を直接掴んでもよい）
+          React.createElement("div", {
+            onMouseDown: function(ev) { onNewsDragStart(ni.id, ev); },
+            onTouchStart: function(ev) { onNewsDragStart(ni.id, ev, true); },
+            title: "ドラッグで並べ替え",
+            style: { position: "absolute", top: 4, left: 4, width: 24, height: 24,
+              borderRadius: "50%", background: "rgba(0,0,0,0.35)", color: "#fff",
+              border: "none", fontSize: 14, cursor: "grab", fontWeight: 700,
+              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
+              touchAction: "none", userSelect: "none" }
+          }, "☰"),
           React.createElement("button", {
             onClick: function() {
               setMoveToCat(e.cat);
@@ -3751,35 +3886,46 @@ function NewsTab(_ref36) {
               border: "none", fontSize: 12, cursor: "pointer", fontWeight: 700,
               display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
           }, "✕"),
+          React.createElement("div", {
+            onMouseDown: function(ev) {
+              if (IS_TOUCH) return;
+              if (ev.button != null && ev.button !== 0) return;
+              onNewsDragStart(ni.id, ev);
+            },
+            style: { cursor: IS_TOUCH ? "default" : "grab" }
+          },
           React.createElement(ImgGrid, {
             images: imgs,
             boxed: true,
+            maxHeight: IS_TOUCH ? 300 : 420,
             onRemove: function(i) {
               return updNews(ni.id, function(n) {
                 return { images: (n.images || []).filter(function(_, j) { return j !== i; }) };
               });
             },
-            onAnnotate: function(i) { return setAnnotTarget({ nid: ni.id, idx: i }); },
+            onAnnotate: function(i) { if (dragJustHappened()) return; return setAnnotTarget({ nid: ni.id, idx: i }); },
             onEnlarge: function(i) {
               return setViewTarget({ imgs: imgs, idx: i, niIdx: bIdx,
                 onUpdate: function(i2, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images || []); a[i2] = ed; return { images: a }; }); }
               });
             },
             onUpdateImg: function(i, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images || []); a[i] = ed; return { images: a }; }); }
-          }),
+          })),
           React.createElement("div", { style: { padding: "6px 8px" } },
             ni.fromMemo ? React.createElement("div", {
               style: { fontSize: 9, fontWeight: 700, color: "#92400E", background: "#FEF3C7",
                 border: "1px solid #FDE68A", borderRadius: 4, padding: "1px 5px",
                 display: "inline-block", marginBottom: 4 }
             }, "旧メモ欄から") : null,
-            React.createElement(MemoEditableField, {
+            // 2026-08-03i 画像を持つ札に本文欄は出さない（1枚＝1記事で、画像そのものが記事なので書く場面が無い）。
+            // 画像が無い札（旧メモ由来）と、すでに本文が入っている札にだけ出す＝移行したメモの中身が見えなくならない。
+            (imgs.length === 0 || _hasText(ni.text)) ? React.createElement(MemoEditableField, {
               html: ni.text || "",
               onSave: function(h) { updNews(ni.id, { text: h }); },
               placeholder: "本文",
               autoEdit: false,
               guardOwner: "newsItemText_" + date + "_" + ni.id
-            }),
+            }) : null,
             (function() {
               if (!onJumpToStock || !allStocks || !allStocks.length) return null;
               var stockSet = {}, stockList = [];
@@ -3802,28 +3948,33 @@ function NewsTab(_ref36) {
                 }, "→ " + s);
               }));
             })(),
+            // 2026-08-03i 「タグ付け」と「記事を保存」は横並び（TagPickerのtrailingに保存ボタンを渡す）。
             React.createElement(TagPicker, _extends({
               cats: catTagPool.cats, tags: catTagPool.tags, sel: niTags,
               onToggle: function(tag) { return togNiTag(ni.id, tag); },
               onAdd: function(name, cat) { return onAddNiTag(ni.id, name, cat); }
-            }, newsPool, { tagColors: custom.tagColors || {}, label: "材料タグ", hideAddRoot: true })),
+            }, newsPool, {
+              tagColors: custom.tagColors || {}, label: "材料タグ", hideAddRoot: true,
+              addLabel: "🏷️ タグ付け",
+              trailing: React.createElement("button", {
+                onClick: function() { openKeepSheet(e); },
+                title: kept ? "保存済み（自動削除されません）。押すと分類を変えられます" : "カテゴリ・サブ・銘柄を選んで保存（全部任意）",
+                style: { flex: 1, minWidth: 0, padding: "6px 8px", fontSize: 12, fontWeight: 700,
+                  background: kept ? "#F59E0B" : "#fff", color: kept ? "#fff" : "#666",
+                  border: "1px solid " + (kept ? "#F59E0B" : "#ddd"), borderRadius: 7,
+                  cursor: "pointer", minHeight: IS_TOUCH ? 38 : 30,
+                  textAlign: "center", wordBreak: "break-word", lineHeight: 1.3 }
+              },
+                kept ? ("🔖 " + keepLabel + (kStocks.length ? " ・銘柄" + kStocks.length : ""))
+                     : "🔖 記事を保存")
+            })),
             // 2026-08-03g 「ニュース画像1枚＝記事1件」なので、画像を持つ札に貼り付け枠は出さない（2枚目を貼る場面が無い）。
             // 画像が無い札（旧メモ由来・自動削除で画像が消えた札）にだけ出し、受けるのも1枚だけ。
             imgs.length === 0 ? React.createElement(PasteZone, {
               onImage: function(img) { return updNews(ni.id, function(n) { return { images: [].concat(_toConsumableArray(n.images || []), [img]) }; }); },
               compact: true,
               single: true
-            }) : null,
-            React.createElement("button", {
-              onClick: function() { openKeepSheet(e); },
-              title: kept ? "保存済み（自動削除されません）。押すと分類を変えられます" : "カテゴリ・サブ・銘柄を選んで保存（全部任意）",
-              style: { width: "100%", marginTop: 6, padding: "6px 8px", fontSize: 11, fontWeight: 700,
-                background: kept ? "#F59E0B" : "#fff", color: kept ? "#fff" : "#666",
-                border: "1px solid " + (kept ? "#F59E0B" : "#ddd"), borderRadius: 6,
-                cursor: "pointer", minHeight: IS_TOUCH ? 38 : 30, textAlign: "left" }
-            },
-              kept ? ("\uD83D\uDD16 " + keepLabel + (kStocks.length ? " ・銘柄" + kStocks.length : ""))
-                   : "\uD83D\uDD16 この記事を保存")
+            }) : null
           )
         );
       }),

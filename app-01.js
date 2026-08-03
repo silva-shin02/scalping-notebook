@@ -621,8 +621,13 @@ function migrateData(d) {
       if (!img || typeof img !== "object") return false;
       var hasB64 = typeof img.base64 === "string" && img.base64.length > 100;
       var hasUrl = typeof img.imageUrl === "string" && img.imageUrl.length > 0;
-      var hasRef = img.base64 === "__ref__"; 
-      return hasB64 || hasUrl || hasRef;
+      var hasRef = img.base64 === "__ref__";
+      // 2026-08-03i ローカルIDBに退避済み(lk)の画像を「中身なし」と誤判定して捨てていた不具合の修正。
+      // _stStrip は base64 を (a)Storageアップロード済み(imageUrl) だけでなく (b)IDB退避済み(lk) でも null 化する(2026-06-23)。
+      // (b)の画像は imageUrl を持たないので、ここが lk を見ないと再読込のたびに記録から画像が消え、実体はIDBに孤児として残っていた。
+      // 復元は _snPreloadImages が lk から行う（app-01: "IDBローカル読み" の分岐）。Firebase未設定/アップロード完了前の再読込が該当。
+      var hasLk = !!img.lk;
+      return hasB64 || hasUrl || hasRef || hasLk;
     };
     
     if (d.charts) {
@@ -2619,7 +2624,7 @@ function _snNewsItemEmpty(ni) {
   var ks = Object.keys(ni);
   for (var i = 0; i < ks.length; i++) {
     var k = ks[i], v = ni[k];
-    if (k === "id" || k === "subCat" || k === "groupId" || k === "images") continue;
+    if (k === "id" || k === "subCat" || k === "groupId" || k === "images" || k === "ord") continue;   // ordは並び位置＝中身ではない（2026-08-03i）
     if (k === "text") { if (String(v == null ? "" : v).trim()) return false; continue; }
     if (k === "tags") { if (Array.isArray(v) && v.length) return false; continue; }
     if (v === null || v === undefined || v === false || v === "") continue;

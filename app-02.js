@@ -1052,8 +1052,11 @@ function ImgGrid(_ref15) {
     onEnlarge = _ref15.onEnlarge,
     onUpdateImg = _ref15.onUpdateImg,
     onToggleStar = _ref15.onToggleStar,
+    // 2026-08-03i サムネイルの高さ上限。未指定は従来どおり IMG_H(180)。ニュースの札はここを大きくして画像を主役にする。
+    maxHeight = _ref15.maxHeight,
     boxed = _ref15.boxed;
   if (!images || !images.length) return null;
+  var _imgMaxH = (typeof maxHeight === "number" && maxHeight > 0) ? maxHeight : IMG_H;
   return React.createElement("div", {
     style: {
       display: "flex",
@@ -1081,7 +1084,7 @@ function ImgGrid(_ref15) {
       imgStyle: boxed ? {
         maxWidth: "100%",
         height: "auto",
-        maxHeight: IMG_H,
+        maxHeight: _imgMaxH,
         borderRadius: 6,
         display: "block",
         cursor: onAnnotate ? "pointer" : "zoom-in",
@@ -2233,6 +2236,10 @@ function TagPicker(_ref17) {
     label = _ref17.label,
     hideAddRoot = _ref17.hideAddRoot,
     tagColors = _ref17.tagColors || {},
+    // 2026-08-03i addLabel=開くボタンの文言を差し替える（未指定は従来どおり）。
+    // trailing=そのボタンの右に並べるノード。ニュースの札で「タグ付け」と「記事を保存」を横並びにするために使う。
+    addLabel = _ref17.addLabel,
+    trailing = _ref17.trailing,
     onSetTagColor = _ref17.onSetTagColor;
   
   var _useCatR = useState({}),
@@ -2795,25 +2802,35 @@ function TagPicker(_ref17) {
         fontSize: 10
       }
     }, "\u2715"));
-  }))), !tagOpen && React.createElement("button", {
-    onClick: function onClick() {
-      return setTagOpen(true);
-    },
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 5,
-      padding: IS_TOUCH ? "8px 14px" : "6px 12px",
-      fontSize: 12,
-      fontWeight: 600,
-      background: "#f5f4f0",
-      border: "1.5px dashed #bbb",
-      borderRadius: 7,
-      cursor: "pointer",
-      color: "#888",
-      userSelect: "none"
-    }
-  }, "\uD83C\uDFF7\uFE0F \u30BF\u30B0\u3092\u3064\u3051\u308B"), tagOpen && React.createElement("div", {
+  }))), (function() {
+    var _trigger = !tagOpen && React.createElement("button", {
+      onClick: function onClick() {
+        return setTagOpen(true);
+      },
+      style: {
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 5,
+        padding: IS_TOUCH ? "8px 14px" : "6px 12px",
+        fontSize: 12,
+        fontWeight: 600,
+        background: "#f5f4f0",
+        border: "1.5px dashed #bbb",
+        borderRadius: 7,
+        cursor: "pointer",
+        color: "#888",
+        userSelect: "none",
+        flex: trailing ? 1 : "none",
+        minWidth: 0
+      }
+    }, addLabel || "\uD83C\uDFF7\uFE0F \u30BF\u30B0\u3092\u3064\u3051\u308B");
+    // 2026-08-03i trailing \u304C\u6765\u305F\u6642\u3060\u3051\u6A2A\u4E26\u3073\u306E\u884C\u306B\u3059\u308B\uFF1D\u4ED6\u306E\u753B\u9762\u306E\u30EC\u30A4\u30A2\u30A6\u30C8\u306F1\u30D0\u30A4\u30C8\u3082\u5909\u3048\u306A\u3044
+    if (!trailing) return _trigger;
+    return React.createElement("div", {
+      style: { display: "flex", gap: 6, alignItems: "stretch" }
+    }, _trigger, trailing);
+  })(), tagOpen && React.createElement("div", {
     onClick: function onBgClick() { setTagOpen(false); },
     style: {
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
