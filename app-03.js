@@ -2898,6 +2898,9 @@ function NewsTab(_ref36) {
   var _WIDE_RATIO = 1.6;      // これ以上で「横長」
   var _WIDE_MIN_W = 600;      // 2列(約614px)を埋められる元の大きさ
   var _TALL_RATIO = 0.95;     // これ以下で「縦長」
+  // 2026-08-03q 縦長を収める枠の縦横比（幅/高さ。1=正方形）。固定pxをやめて幅に追従させたので、
+  // 列幅が変わっても札の形は変わらない。もっと縦を出したいときだけこの値を下げる。
+  var _NEWS_BOX_R = 1;
   var _niShape = function(ni) { return imgAspects[String(ni.id)] || null; };
   var niCrop = function(ni) { var s = _niShape(ni); return (s && s.crop) ? s.crop : null; };
   // 2026-08-03m 列を切り出したら、以後の判定は「切り出した後の形」で行う。
@@ -2910,12 +2913,12 @@ function NewsTab(_ref36) {
     return { w: cw, h: s.h, r: cw / s.h };
   };
   var isWideNi = function(ni) { var s = _effShape(ni); return !!s && s.r >= _WIDE_RATIO && s.w >= _WIDE_MIN_W; };
-  // 高さ揃え(fillHeight)に乗せる条件。切り出した札は object-fit を使えず「幅で決まる高さ」になるため、
-  // 枠(約300x420)より縦長でないと下に空きが出る。そこで切り出し済みは 0.70 以下に限る。
+  // 正方形の枠(fillAspect)に収める条件。切り出した札は object-fit を使えず「幅で決まる高さ」になるが、
+  // 枠が正方形になったので比1以下なら下に空きは出ない。＝切り出し済みも通常と同じ _TALL_RATIO で判定できる。
   var isTallNi = function(ni) {
     var s = _effShape(ni);
     if (!s) return false;
-    return s.r <= (niCrop(ni) ? 0.70 : _TALL_RATIO);
+    return s.r <= _TALL_RATIO;
   };
   // 2026-08-03e 自動タグ（newsCatDefaults/newsSubCatDefaults）は廃止。タグは手で付ける。サブは保存シートで選ぶ。
   var addNews = function addNews() {
@@ -4068,6 +4071,9 @@ function NewsTab(_ref36) {
             outlineOffset: 2,
             opacity: String(dragFromId) === String(ni.id) ? 0.45 : 1,
             gridColumn: isWideNi(ni) ? "span 2" : "auto",
+            // 2026-08-03q 上端に28pxの帯を空け、☰/↪/🔗/✕ はそこに収める。
+            // 画像に重ねると記事の見出し（一番読みたい所）が隠れるため。
+            paddingTop: 28,
             overflow: "hidden", transition: "background 0.4s, box-shadow 0.4s, opacity 0.15s" }
         },
           // ☰ ドラッグハンドル（タッチはこれで掴む。PCは画像を直接掴んでもよい）
@@ -4075,9 +4081,9 @@ function NewsTab(_ref36) {
             onMouseDown: function(ev) { onNewsDragStart(ni.id, ev); },
             onTouchStart: function(ev) { onNewsDragStart(ni.id, ev, true); },
             title: "ドラッグで並べ替え",
-            style: { position: "absolute", top: 4, left: 4, width: 24, height: 24,
-              borderRadius: "50%", background: "rgba(0,0,0,0.35)", color: "#fff",
-              border: "none", fontSize: 14, cursor: "grab", fontWeight: 700,
+            style: { position: "absolute", top: 3, left: 4, width: 22, height: 22,
+              borderRadius: 5, background: "transparent", color: "#8a8478",
+              border: "none", fontSize: 13, cursor: "grab", fontWeight: 700,
               display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
               touchAction: "none", userSelect: "none" }
           }, "☰"),
@@ -4091,9 +4097,9 @@ function NewsTab(_ref36) {
               setMoveTarget({ niId: ni.id, fromCat: e.cat, fromSubCat: ni.subCat || "" });
             },
             title: "この記事を移動/複製",
-            style: { position: "absolute", top: 4, right: 30, width: 22, height: 22,
-              borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff",
-              border: "none", fontSize: 11, cursor: "pointer", fontWeight: 700,
+            style: { position: "absolute", top: 3, right: 30, width: 22, height: 22,
+              borderRadius: 5, background: "#fff", color: "#6b665c",
+              border: "1px solid #d9d5cc", fontSize: 11, cursor: "pointer", fontWeight: 700,
               display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
           }, "↪"),
           (function() {
@@ -4102,8 +4108,9 @@ function NewsTab(_ref36) {
             var locsLabel = clones.map(function(l) { return l.cat + (l.subCat ? "/" + l.subCat : ""); }).join("\n");
             return React.createElement("div", {
               title: "クローン (編集連動):\n" + locsLabel,
-              style: { position: "absolute", top: 4, right: 56, height: 22, padding: "0 6px",
-                borderRadius: 11, background: "rgba(99,102,241,0.85)", color: "#fff",
+              style: { position: "absolute", top: 3, right: 56, height: 22, padding: "0 6px",
+                borderRadius: 5, background: "#EEF2FF", color: "#4F46E5",
+                border: "1px solid #C7D2FE", boxSizing: "border-box",
                 fontSize: 10, fontWeight: 700, zIndex: 2, display: "flex",
                 alignItems: "center", justifyContent: "center", gap: 2, cursor: "help" }
             }, "\uD83D\uDD17", clones.length + 1);
@@ -4111,9 +4118,9 @@ function NewsTab(_ref36) {
           React.createElement("button", {
             onClick: function() { return delNews(ni.id); },
             title: "削除",
-            style: { position: "absolute", top: 4, right: 4, width: 22, height: 22,
-              borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff",
-              border: "none", fontSize: 12, cursor: "pointer", fontWeight: 700,
+            style: { position: "absolute", top: 3, right: 4, width: 22, height: 22,
+              borderRadius: 5, background: "#fff", color: "#DC2626",
+              border: "1px solid #EFBDBD", fontSize: 11, cursor: "pointer", fontWeight: 700,
               display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
           }, "✕"),
           React.createElement("div", {
@@ -4127,15 +4134,15 @@ function NewsTab(_ref36) {
           React.createElement(ImgGrid, {
             images: imgs,
             boxed: true,
-            // 2026-08-03k 縦長・正方形は高さを揃えてカード幅いっぱいに敷く（上端そろえ＝見出しと写真が必ず残る）。
-            //   これで「高さ上限で頭打ち→幅が痩せて左右に余白」が消え、画像が241px→302pxに広がり、行の高さも揃う。
+            // 2026-08-03q 縦長・正方形はカード幅いっぱいの「正方形の枠」に収める（上端そろえ＝見出しと写真が必ず残る）。
+            //   高さ固定(420px)だと縦に間延びしていたのを、幅に追従する縦横比に変更。行の高さは今までどおり揃う。
             //   切れるのは記事下部の本文で、そこは元々この幅では読めない。全体はクリックで拡大して見られる。
             // 横長（2列ぶんに広げた札）は幅が2倍あって潰れないので、従来どおり縦横比のまま出す。
-            fillHeight: isTallNi(ni) ? (IS_TOUCH ? 300 : 420) : null,
+            fillAspect: isTallNi(ni) ? _NEWS_BOX_R : 0,
             // 2026-08-03m 横長で列が分かれていたら左端のブロックだけを出す（無ければnull＝全体表示）。
             fillCrop: niCrop(ni),
             onImgLoad: function(el) { measureNiImg(String(ni.id), el); },
-            maxHeight: IS_TOUCH ? 300 : 420,
+            maxHeight: IS_TOUCH ? 240 : 380,
             onRemove: function(i) {
               return updNews(ni.id, function(n) {
                 return { images: (n.images || []).filter(function(_, j) { return j !== i; }) };

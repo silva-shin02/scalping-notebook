@@ -1068,13 +1068,17 @@ function ImgGrid(_ref15) {
     // 2026-08-03m fillCrop={left,width,ratio}=元画像の横方向の一部だけを切り出して見せる（比率は全て0〜1）。
     // 横長スクショで列が分かれているとき、左端のブロックだけを大きく出すのに使う。高さは全体をそのまま使う。
     fillCrop = _ref15.fillCrop,
+    // 2026-08-03q fillAspect=画像枠の縦横比(幅/高さ、1で正方形)。fillHeightの固定pxと違い枠の幅に追従するので、
+    // 列数や画面幅が変わっても形が崩れない。両方指定されたときはこちらが優先。
+    fillAspect = _ref15.fillAspect,
     onImgLoad = _ref15.onImgLoad,
     boxed = _ref15.boxed;
   if (!images || !images.length) return null;
   var _imgMaxH = (typeof maxHeight === "number" && maxHeight > 0) ? maxHeight : IMG_H;
   var _fc = (fillCrop && fillCrop.width > 0 && fillCrop.width < 1 && fillCrop.ratio > 0) ? fillCrop : null;
+  var _fa = (typeof fillAspect === "number" && fillAspect > 0) ? fillAspect : 0;
   return React.createElement("div", {
-    style: (fillHeight || _fc) ? {
+    style: (fillHeight || _fa || _fc) ? {
       display: "flex",
       flexWrap: "wrap",
       gap: 8,
@@ -1095,12 +1099,15 @@ function ImgGrid(_ref15) {
     } : null;
     return React.createElement("div", {
       key: i,
-      style: (fillHeight || _fc) ? { position: "relative", width: "100%" } : { position: "relative" }
+      style: (fillHeight || _fa || _fc) ? { position: "relative", width: "100%" } : { position: "relative" }
     }, React.createElement(ImgThumb, {
       img: img,
       onImgLoad: onImgLoad,
       // 高さ指定があればそれを優先（切り出し＋高さ揃えの併用）。無ければ切り出し後の比率で高さを決める。
-      wrapStyle: fillHeight ? {
+      wrapStyle: _fa ? {
+        aspectRatio: String(_fa), overflow: "hidden",
+        borderRadius: 6, border: "1px solid #e0ddd6", boxSizing: "border-box"
+      } : fillHeight ? {
         height: fillHeight, overflow: "hidden",
         borderRadius: 6, border: "1px solid #e0ddd6", boxSizing: "border-box"
       } : _fc ? {
@@ -1119,6 +1126,13 @@ function ImgGrid(_ref15) {
         width: (100 / _fc.width) + "%",
         marginLeft: (-_fc.left / _fc.width * 100) + "%",
         height: "auto",
+        display: "block",
+        cursor: onAnnotate ? "pointer" : "zoom-in"
+      } : _fa ? {
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        objectPosition: "center top",
         display: "block",
         cursor: onAnnotate ? "pointer" : "zoom-in"
       } : fillHeight ? ({
