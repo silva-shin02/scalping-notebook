@@ -6092,6 +6092,27 @@ function EntryLogView(_ref_elv2) {
     x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) tp++; });
     return { n: tp, rate: wn ? Math.round(tp / wn * 100) : null };
   };
+  // ===== 集計セクション共通: 母数を2026年7月以降に限定 =====
+  // 2026-08-03b ユーザー要望「今年の7月以降のみのデータにして」→ 08-03c 🎯グレード別の件数でも共用するのでここへ引き上げ。
+  // 7月に集計ルール自体が変わっている（07-09 EP/H1損益を廃し「最終損益」1列へ集約／07-27 損切りの平均額を理想値→終値撤退の実額へ）ため、
+  //   6月以前を混ぜると別基準の記録の寄せ集めになり、割合・分布として読めない。
+  // ※使うのは🏷銘柄別の損益割合／🎯グレード別の件数だけ＝合計は上の「全体損益（期間別）」（全期間）と一致しなくなる。見出し右のバッジで明示する。
+  // _elIsEmaRefPeriod（4月＝EMA参考期間を外す）と同じく、境界は動的に出さず定数で固定する（年が変わっても母数が勝手に動かないため）。
+  var _EL_SINCE = "2026-07";
+  var _EL_SINCE_LBL = "2026年7月以降";
+  var _elSinceRecs = function(rs) { return (rs || []).filter(function(r) { return r && r.date && String(r.date).slice(0, 7) >= _EL_SINCE; }); };
+  var _elSinceBadge = function() { return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 9, fontWeight: 700, color: "#C2410C", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "📅 " + _EL_SINCE_LBL + "のみ"); };
+  // 1記録の最終損益（（）外main）。集計対象外ならnull。🏷銘柄別の損益割合と🎯グレード別の件数が**同じ除外規約**
+  //   （時間かぶり除外・×見送り・main非null）を共有するための単一源 2026-08-03c。
+  //   ここを共有しているので「銘柄別の総利益件数＋総損失件数＋同値」と「グレード別の合計件数」が食い違いようがない。
+  var _elFinalPnlOf = function(r) {
+    var s = r && r.signal; if (!s) return null;
+    if (_elCollExcluded(data, r, _collScope)) return null;
+    var a = _ai(r).alpha, c = _ai(r).cutLine;
+    if (_epIsXSkip(s, a)) return null;
+    var t2 = _elHoldFinalParts(s, a, c);
+    return (t2 && t2.main != null) ? t2.main : null;
+  };
   // ===== 🏷 銘柄別の損益割合（2026-08-03 ユーザー要望「銘柄別での損益割合分析も欲しい」）=====
   // 行は固定順（毎回同じ位置で読めるよう損益順に並べ替えない）: 固定銘柄＝custom.epnStocks（EPナビ⚙表示銘柄・最大3）を1行ずつ／
   //   📅日替わり＝custom.rotatingStocks をまとめて1行（展開で中の銘柄別内訳）／その他＝どちらにも属さない銘柄（0件なら行ごと出さない）。
@@ -6100,14 +6121,6 @@ function EntryLogView(_ref_elv2) {
   //   マスターの先頭が日経平均株価なので外さないと固定3枠が1つ潰れてSBG等が押し出される（app-04側の既定計算はこの除外を持っていない）。
   //   ただし母数に日経の記録が残っていたら「その他」で数える＝どの銘柄も必ずどこかのバケツに入る＝**合計行が「全体損益（期間別）」と必ず一致する**（検算が効く）。
   var _EL_IDX_STOCK = "日経平均株価";
-  // 2026-08-03b 母数を2026年7月以降に限定（ユーザー要望「今年の7月以降のみのデータにして」）。
-  //   7月に集計ルール自体が変わっている（07-09 EP/H1損益を廃し「最終損益」1列へ集約／07-27 損切りの平均額を理想値→終値撤退の実額へ）ため、
-  //   6月以前を混ぜると銘柄ごとの総利益/総損失の内訳が別基準の記録の寄せ集めになり、割合として読めない。
-  //   ※この絞り込みはこのセクションだけ＝合計行は上の「全体損益（期間別）」（全期間）と一致しなくなる。見出し右のバッジで明示する。
-  //   _elIsEmaRefPeriod（4月＝EMA参考期間を外す）と同じく、境界は動的に出さず定数で固定する（年が変わっても母数が勝手に動かないため）。
-  var _STK_SHARE_FROM = "2026-07";
-  var _STK_SHARE_FROM_LBL = "2026年7月以降";
-  var _stkShareRecsOf = function(rs) { return (rs || []).filter(function(r) { return r && r.date && String(r.date).slice(0, 7) >= _STK_SHARE_FROM; }); };
   var _stkShareBuckets = function() {
     var rot = (custom && Array.isArray(custom.rotatingStocks)) ? custom.rotatingStocks : [];
     var fixed = (custom && Array.isArray(custom.epnStocks) && custom.epnStocks.length)
@@ -6121,13 +6134,9 @@ function EntryLogView(_ref_elv2) {
   var _stkShareAgg = function(x) {
     var gp = 0, gl = 0, gpN = 0, glN = 0;
     (x || []).forEach(function(r) {
-      var s = r && r.signal; if (!s) return;
-      if (_elCollExcluded(data, r, _collScope)) return;
-      var a = _ai(r).alpha, c = _ai(r).cutLine;
-      if (_epIsXSkip(s, a)) return;
-      var t2 = _elHoldFinalParts(s, a, c);
-      if (!t2 || t2.main == null) return;
-      if (t2.main > 0) { gp += t2.main; gpN++; } else if (t2.main < 0) { gl += t2.main; glN++; }
+      var v = _elFinalPnlOf(r);                                   // 2026-08-03c 除外規約は_elFinalPnlOfへ集約（中身は不変）
+      if (v == null) return;
+      if (v > 0) { gp += v; gpN++; } else if (v < 0) { gl += v; glN++; }
     });
     return { n: (x || []).length, tot: totOf(x), sp: stopsOf(x), wt: winTakeOf(x), gp: gp, gl: gl, gpN: gpN, glN: glN };
   };
@@ -6204,6 +6213,75 @@ function EntryLogView(_ref_elv2) {
       bar("損失の内訳（全体の総損失 " + _elPnlFmt(-_glTot) + " に占める割合）", function(g) { return Math.abs(g.a.gl); }, _glTot),
       _elv2Table(["銘柄", "件数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"], rows),
       rotDetail);
+  };
+  // ===== 🎯 グレード別の件数（月別）（2026-08-03c ユーザー要望「1か月あたりの各グレードの件数が知りたい。A+何件、A-何件みたいな感じ」）=====
+  // 表は2つ（ユーザー選択「両方」）＝「良いトレードが何件あったか」と「良い日が何日あったか」は別の話なので分ける:
+  //  ①トレード単位: 記録1件ごとの最終損益を_profitGradeFromPnl（損益スケール A+=2500円〜）で判定し月別に数える。
+  //     合計＝その月に金額が出た記録数＝🏷銘柄別の「総利益件数＋総損失件数＋D(同値)」。_elFinalPnlOf を共有しているので食い違いようがない。
+  //  ②日単位: その日の最終損益合計を同じスケールで判定し、月に何日がA+だったかを数える。
+  //     単日は days=1 ＝合計そのまま＝既存の「複数日は1日平均・単日は合計」規約（app-06の_yenN・app-05:4811）と同じ。
+  //     数えるのは記録があった日だけ＝合計＝その月の稼働日数（ノーシグナル日・全除外日は母数に入れない＝Z/DNFの列は作らない）。
+  // 実現損益スケール(_profitGradeFromPnlReal＝カレンダーの日付バッジ)は使わない（ユーザー選択）: realizedPnl がほぼ未記録で分布が作れないため。
+  var _EL_GRADES = ["A+", "A-", "B", "C", "D", "E", "F", "G-", "G+"];
+  var _gradeMonSection = function(rs) {
+    if (!rs || !rs.length) return null;
+    var recM = {}, dayM = {}, dayAcc = {};
+    rs.forEach(function(r) {
+      var v = _elFinalPnlOf(r); if (v == null) return;
+      var ds = String((r && r.date) || ""); if (!ds) return;
+      var mk = ds.slice(0, 7), mm = (recM[mk] = recM[mk] || {}), g = _profitGradeFromPnl(v, 1);
+      mm[g] = (mm[g] || 0) + 1;
+      var d = (dayAcc[ds] = dayAcc[ds] || { sum: 0, n: 0 }); d.sum += v; d.n++;
+    });
+    Object.keys(dayAcc).forEach(function(ds) {
+      var d = dayAcc[ds], mk = ds.slice(0, 7), mm = (dayM[mk] = dayM[mk] || {});
+      var g = _profitGradeFromPnl(d.sum, d.n); mm[g] = (mm[g] || 0) + 1;
+    });
+    var yms = Object.keys(recM).sort().reverse();   // 新しい月が上＝「全体損益（期間別）」の並びに合わせる
+    if (!yms.length) return null;
+    var _pct = function(n, d) { return d > 0 ? Math.round(n / d * 100) + "%" : "—"; };
+    // ヘッダは丸バッジ（_elHoldGradeBadge＝記録一覧の損益バッジと同じ見た目）＋しきい値。列の意味を凡例なしで読めるようにする。
+    var _head = [_elv2Th("月")].concat(_EL_GRADES.map(function(g) {
+      return React.createElement("th", { key: g, style: { padding: "4px 5px", borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center" } },
+        React.createElement("div", null, _elHoldGradeBadge(g)),
+        React.createElement("div", { style: { fontSize: 7.5, color: "#A79E92", fontWeight: 600, marginTop: 1 } }, _GRADE_DESC[g]));
+    })).concat([_elv2Th("合計")]);
+    // セル背景にグレード色(_GRADE_STYLE.bg＝A側=赤系/G側=緑系)を敷く＝0件は白のまま残るので分布の形がそのまま見える。
+    var _tbl = function(m, unit) {
+      var tot = {}, totN = 0;
+      var _cellsOf = function(label, g2, n) {
+        var cells = [_elv2Td(label, { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#334155" })];
+        _EL_GRADES.forEach(function(g) {
+          var c = g2[g] || 0;
+          cells.push(_elv2Td(c
+            ? React.createElement("span", null,
+                React.createElement("span", { style: { fontWeight: 700, color: "#334155" } }, c + unit),
+                React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8" } }, _pct(c, n)))
+            : React.createElement("span", { style: { color: "#CBD5E1" } }, "—"),
+            c ? { background: (_GRADE_STYLE[g] || {}).bg } : null));
+        });
+        cells.push(_elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#334155" } }, n + unit)));
+        return cells;
+      };
+      var rows = yms.map(function(ym) {
+        var g2 = m[ym] || {}, n = 0;
+        _EL_GRADES.forEach(function(g) { var c = g2[g] || 0; n += c; tot[g] = (tot[g] || 0) + c; });
+        totN += n;
+        return React.createElement.apply(null, ["tr", { key: ym }].concat(_cellsOf(ym.replace("-", "/"), g2, n)));
+      });
+      var totRow = React.createElement.apply(null, ["tr", { key: "__tot__", style: { background: "#FFF7ED", fontWeight: 700 } }].concat(_cellsOf("合計", tot, totN)));
+      return _elv2Table(_head, rows.concat([totRow]));
+    };
+    var _cap = function(t, sub) {
+      return React.createElement("div", { style: { margin: "12px 0 0" } },
+        React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#475569" } }, t),
+        React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, sub));
+    };
+    return React.createElement("div", null,
+      _cap("① トレード単位（記録1件＝1件）", "1記録の最終損益をそのままグレード判定。合計＝その月に金額が出た記録数（🏷銘柄別の 総利益件数＋総損失件数＋D）"),
+      _tbl(recM, "件"),
+      _cap("② 日単位（1日＝1件）", "その日の最終損益の合計をグレード判定。合計＝その月に記録があった日数"),
+      _tbl(dayM, "日"));
   };
   var _ovPnlTbl = function(rs, g) {
     var keyOf = function(ds) { return _granKeyOf(ds, g); };
@@ -7184,7 +7262,7 @@ function EntryLogView(_ref_elv2) {
       var _v2recsAmt = v2recs.filter(function(r) { return !_isDataOnly(data, r); });
       var _sumMonthRecs2 = _sumMonthRecs.filter(function(r) { return !_isDataOnly(data, r); });
       var _v2recsNonRef = _v2recsAmt.filter(function(r) { return !_elIsEmaRefPeriod((r.date || "").slice(0, 7), "month"); });
-      var _stkShareRecs = _stkShareRecsOf(_v2recsAmt);   // 🏷銘柄別の損益割合だけ2026年7月以降に限定 2026-08-03b
+      var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
         _sumMonthNav,
         _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
@@ -7193,11 +7271,16 @@ function EntryLogView(_ref_elv2) {
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。最終損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）"),
           _granSeg(gran, setGran, "ov_"),
           _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
-        _stkShareRecs.length ? [
+        _sinceRecs.length ? [
           _secH("🏷 銘柄別の損益割合",
-            "固定銘柄＋📅日替わり（まとめて1つ）＋その他。母数は" + _STK_SHARE_FROM_LBL + "の記録のみ（上の「全体損益（期間別）」は全期間なので合計行は一致しません）。割合は利益と損失を別々に内訳表示（純損益の構成比にすると、マイナスの銘柄があるとき負の%や100%超が出て積み上げ棒にできないため）。PF＝プロフィットファクタ＝総利益÷総損失",
-            React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 9, fontWeight: 700, color: "#C2410C", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "📅 " + _STK_SHARE_FROM_LBL + "のみ")),
-          _stkShareSection(_stkShareRecs)] : null,
+            "固定銘柄＋📅日替わり（まとめて1つ）＋その他。母数は" + _EL_SINCE_LBL + "の記録のみ（上の「全体損益（期間別）」は全期間なので合計行は一致しません）。割合は利益と損失を別々に内訳表示（純損益の構成比にすると、マイナスの銘柄があるとき負の%や100%超が出て積み上げ棒にできないため）。PF＝プロフィットファクタ＝総利益÷総損失",
+            _elSinceBadge()),
+          _stkShareSection(_sinceRecs)] : null,
+        _sinceRecs.length ? [
+          _secH("🎯 グレード別の件数（月別）",
+            "最終損益を損益スケール（A+=2500円〜／D=0円／G+=−2500円〜）でグレード判定して月ごとに数える。①記録1件ごと ②その日の合計ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ。カレンダーの日付バッジは実現損益スケール（10倍・A+=25000円〜）なので数字は一致しません",
+            _elSinceBadge()),
+          _gradeMonSection(_sinceRecs)] : null,
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
         _v2recsNonRef.length >= 2 ? [
           _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・合計行と同一基準（4月＝EMA位置ズレの参考期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNonRef, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
