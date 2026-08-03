@@ -6046,6 +6046,157 @@ function EntryLogView(_ref_elv2) {
             style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, g[1]);
         })));
   };
+  // 2026-08-03: totOf/totExOf/stopsOf/winTakeOf を _ovPnlTbl の中からこのスコープへ引き上げ（定義の中身は一切変えていない・位置だけの移動）。
+  //   理由: 🏷銘柄別の損益割合(_stkShareSection)が全く同じ集計を使うため。再実装すると「全体損益（期間別）の合計」と「銘柄別の合計」が
+  //   黙ってずれ得る（除外条件が1つでもずれると検算が崩れる）。keyOf/labelOf/_holiSet/_bizDaysIn は g に依存するので _ovPnlTbl の中に残す。
+  var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
+  // 「除外後」列の集計＝totOfの除外条件に「指値同値」(_elFillRiskRec)を足しただけ。母数・基準はtotOfと完全に同一なので同じ行で素直に比較できる 2026-07-20c
+  var totExOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
+  // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
+  // 2026-07-27 2系統に分離（ユーザー要望「シンプルに損失で手じまいした記録が見えない」）:
+  //  損切＝損切りラインに触れて損で撤退（_elIsStopFinal）／損失＝ラインには触れず期待度×等で降りたら損だった。
+  //  これで E成立母数 = 利確 + 損切 + 損失 + 同値 が閉じる（従来は「損失」がどの列にも出ていなかった）。
+  //  平均額は _elCapLossYen（損切り値ちょうどの理想値＝全期間 −1,500円固定になっていた）をやめ、
+  //  最終損益(_elHoldFinalParts.main＝利確列・最終損益列と同じ基準)の実額平均にする。終値撤退方式では
+  //  実際の損失は撤退足の終値次第で毎回変わるので、理想値では実態と乖離する。
+  var stopsOf = function(x) {
+    var sn = 0, sSum = 0, sCnt = 0, ln = 0, lSum = 0, lCnt = 0, wn = 0, evN = 0, ukN = 0;
+    x.forEach(function(r) {
+      var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine;
+      if (a == null) return;
+      var _dr = _elDynResult(s, a, c);
+      if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return;
+      wn++;
+      var _t2 = _elHoldFinalParts(s, a, c);
+      var pnl = (_t2 && _t2.main != null) ? _t2.main : null;
+      if (_elIsStopFinal(s, a, c)) { sn++; if (pnl != null) { sSum += pnl; sCnt++; } }
+      else if (pnl == null) { ukN++; }                                  // 損切り以外で金額が出せない＝撤退足の終値が未入力（2026-07-29e 見えない穴だった分を可視化）
+      else if (pnl < 0) { ln++; lSum += pnl; lCnt++; }                  // 損切り以外の負け
+      else if (pnl === 0) { evN++; }                                    // 同値＝ちょうど±0で手じまい（利確の>0・損失の<0と対称の第4バケツ 2026-07-29e）
+    });                                                                 // pnl>0 は winTakeOf が「利確」で数える
+    return { n: sn, avg: sCnt ? Math.round(sSum / sCnt) : null, rate: wn ? Math.round(sn / wn * 100) : null,
+             lossN: ln, lossAvg: lCnt ? Math.round(lSum / lCnt) : null, lossRate: wn ? Math.round(ln / wn * 100) : null,
+             wn: wn,                          // E成立母数＝到達＝利確/損切り/損失/同値の分母 2026-07-29→29c
+             evenN: evN, unkN: ukN,           // 同値／金額不明。到達＝利確＋損切＋損失＋同値＋金額不明 で閉じる 2026-07-29e
+             noCloseN: sn - sCnt };           // 損切りのうち撤退足の終値が未入力＝金額を出せない件数（件数と平均で母数が違う理由）2026-07-29
+  };
+  // 到達: EPに乗った件数 2026-07-29c（ユーザー決定「EPに乗った分でいい」）。
+  //  乗った＝①EPに到達している ②×見送りでない（judge==="ok"＝EPより手前の足で×宣言していない＝実際にエントリーした）で決着したもの
+  //  ＝右隣の利確/損切り/損失の分母（E成立母数 stopsOf().wn）そのもの。専用の集計関数は置かず wn を使い回す＝分母が食い違いようがない。
+  //   （2026-07-29の「有効な到達」＝さらに③到達足の次足期待度が×/損切り済/未設定を除く、は撤回。乗ってはいる記録なので数える）
+  //  ※スルー記録はそもそも母数rsに入っていない（表示専用の_extraRow側）ので、ここでの考慮は不要。
+  //  ※単純到達 _epReachedAt（×見送りも数える）は成立率・時間帯別など他9箇所が使うので触らない＝変更はこの表に閉じる。
+  // 利確: E成立(EP到達して決着＝損切り率と同母数wn)のうち最終損益(（）外main)>0で手じまいした件数・率 2026-07-09
+  var winTakeOf = function(x) {
+    var wn = 0, tp = 0;
+    x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) tp++; });
+    return { n: tp, rate: wn ? Math.round(tp / wn * 100) : null };
+  };
+  // ===== 🏷 銘柄別の損益割合（2026-08-03 ユーザー要望「銘柄別での損益割合分析も欲しい」）=====
+  // 行は固定順（毎回同じ位置で読めるよう損益順に並べ替えない）: 固定銘柄＝custom.epnStocks（EPナビ⚙表示銘柄・最大3）を1行ずつ／
+  //   📅日替わり＝custom.rotatingStocks をまとめて1行（展開で中の銘柄別内訳）／その他＝どちらにも属さない銘柄（0件なら行ごと出さない）。
+  // 銘柄名はハードコードしない＝設定を変えれば分析も追従する（2026-07-23に古河電工を日替わりへ足したような変更が実際に起きている）。
+  // 日経平均株価は「取引しない指数」なので**固定バケツの導出からは必ず外す**: epnStocks未設定時の既定はマスターの先頭3（app-04:4508）だが、
+  //   マスターの先頭が日経平均株価なので外さないと固定3枠が1つ潰れてSBG等が押し出される（app-04側の既定計算はこの除外を持っていない）。
+  //   ただし母数に日経の記録が残っていたら「その他」で数える＝どの銘柄も必ずどこかのバケツに入る＝**合計行が「全体損益（期間別）」と必ず一致する**（検算が効く）。
+  var _EL_IDX_STOCK = "日経平均株価";
+  var _stkShareBuckets = function() {
+    var rot = (custom && Array.isArray(custom.rotatingStocks)) ? custom.rotatingStocks : [];
+    var fixed = (custom && Array.isArray(custom.epnStocks) && custom.epnStocks.length)
+      ? custom.epnStocks.filter(function(s) { return s !== _EL_IDX_STOCK && allStocks.indexOf(s) >= 0; }).slice(0, 3)
+      : allStocks.filter(function(s) { return s !== _EL_IDX_STOCK && rot.indexOf(s) < 0; }).slice(0, 3);
+    return { fixed: fixed, rot: rot.filter(function(s) { return s !== _EL_IDX_STOCK && fixed.indexOf(s) < 0; }) };
+  };
+  // 1バケツぶんの集計。金額系は totOf（＝全体損益（期間別）と同じ_elTotAccum）をそのまま使い、総利益/総損失はその内訳になるよう
+  //   **同じ除外規約**（時間かぶり除外・×見送り・main非null）で符号分けする＝ Σ利益 ＋ Σ損失 ＝ 純損益(hold2) が必ず成立する。
+  //   件数系（到達＝E成立・利確）は stopsOf/winTakeOf をそのまま使う＝期間別表の同名列と同じ数字になる（分母が食い違いようがない）。
+  var _stkShareAgg = function(x) {
+    var gp = 0, gl = 0, gpN = 0, glN = 0;
+    (x || []).forEach(function(r) {
+      var s = r && r.signal; if (!s) return;
+      if (_elCollExcluded(data, r, _collScope)) return;
+      var a = _ai(r).alpha, c = _ai(r).cutLine;
+      if (_epIsXSkip(s, a)) return;
+      var t2 = _elHoldFinalParts(s, a, c);
+      if (!t2 || t2.main == null) return;
+      if (t2.main > 0) { gp += t2.main; gpN++; } else if (t2.main < 0) { gl += t2.main; glN++; }
+    });
+    return { n: (x || []).length, tot: totOf(x), sp: stopsOf(x), wt: winTakeOf(x), gp: gp, gl: gl, gpN: gpN, glN: glN };
+  };
+  var _STK_SHARE_COLORS = ["#0369A1", "#9A3412", "#B45309", "#0F766E", "#94A3B8"];
+  var _stkShareSection = function(rs) {
+    if (!rs || !rs.length) return null;
+    var bk = _stkShareBuckets(), fixed = bk.fixed;
+    var isRot = {}; bk.rot.forEach(function(s) { isRot[s] = 1; });
+    var groups = [], byKey = {};
+    var mk = function(key, label, color) { var g = { key: key, label: label, color: color, recs: [] }; groups.push(g); byKey[key] = g; return g; };
+    fixed.forEach(function(s, i) { mk(s, s, _STK_SHARE_COLORS[i] || "#64748B"); });
+    var gRot = mk("__rot__", "📅 日替わり", _STK_SHARE_COLORS[3]);
+    var gOther = mk("__other__", "その他", _STK_SHARE_COLORS[4]);
+    rs.forEach(function(r) {
+      var st = r && r.stock;
+      (fixed.indexOf(st) >= 0 ? byKey[st] : isRot[st] ? gRot : gOther).recs.push(r);
+    });
+    var shown = groups.filter(function(g) { return g.recs.length > 0; });
+    if (!shown.length) return null;
+    shown.forEach(function(g) { g.a = _stkShareAgg(g.recs); });
+    var all = _stkShareAgg(rs);
+    var _gpTot = all.gp, _glTot = Math.abs(all.gl);
+    var _pctS = function(v, tot) { return tot > 0 ? Math.round(v / tot * 100) + "%" : "—"; };
+    // 割合は「全体の総利益に占める割合」「全体の総損失に占める割合」を別々に出す＝どちらも0〜100%で閉じる。
+    // 純損益の構成比にしないのは、マイナス銘柄があると負の%や100%超が出て積み上げ棒にできず、読み手も直感的に読めないため。
+    var bar = function(title, valOf, tot) {
+      if (!(tot > 0)) return null;
+      var segs = shown.map(function(g) { return { label: g.label, color: g.color, v: valOf(g) }; }).filter(function(v) { return v.v > 0; });
+      return React.createElement("div", { style: { margin: "2px 0 10px" } },
+        React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#64748B", marginBottom: 3 } }, title),
+        React.createElement("div", { style: { display: "flex", height: 14, borderRadius: 7, overflow: "hidden", background: "#F1F5F9" } },
+          segs.map(function(v, i) { return React.createElement("div", { key: i, title: v.label + " " + _pctS(v.v, tot), style: { width: (v.v / tot * 100) + "%", background: v.color } }); })),
+        React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "2px 10px", marginTop: 4 } },
+          segs.map(function(v, i) {
+            return React.createElement("span", { key: i, style: { fontSize: 9.5, color: "#64748B", display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
+              React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: v.color, display: "inline-block" } }),
+              v.label + " " + _pctS(v.v, tot));
+          })));
+    };
+    var _amt = function(v) { return React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+    var _sub = function(t) { return React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8" } }, t); };
+    var cellsOf = function(label, color, a, indent) {
+      var net = a.tot.hold2, cnt = a.tot.hold2Cnt;
+      return [
+        _elv2Td(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", paddingLeft: (indent ? 10 : 0) } },
+          color ? React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: color, display: "inline-block", flexShrink: 0 } }) : null,
+          React.createElement("span", { style: { fontWeight: 700, color: "#334155" } }, label)), { textAlign: "left", paddingLeft: 8 }),
+        _elv2Td(a.n + "件"),
+        _elv2Td((a.sp.wn || 0) + "件"),
+        _elv2Td(a.wt.rate != null ? a.wt.rate + "%" : "—"),
+        _elv2Td(React.createElement("span", null, _amt(a.gp), _sub(a.gpN + "件・全体の" + _pctS(a.gp, _gpTot)))),
+        _elv2Td(React.createElement("span", null, _amt(a.gl), _sub(a.glN + "件・全体の" + _pctS(Math.abs(a.gl), _glTot)))),
+        _elv2Td(React.createElement("span", null, _amt(net), _sub("PF " + (a.gl < 0 ? (a.gp / Math.abs(a.gl)).toFixed(2) : (a.gp > 0 ? "∞" : "—"))))),
+        _elv2Td(cnt ? _amt(Math.round(net / cnt)) : "—"),
+        _elv2Td(a.tot.realCnt ? _amt(a.tot.real) : "—")
+      ];
+    };
+    var rowOf = function(g) { return React.createElement.apply(null, ["tr", { key: g.key }].concat(cellsOf(g.label, g.color, g.a))); };
+    var totRow = React.createElement.apply(null, ["tr", { key: "__tot__", style: { background: "#FFF7ED", fontWeight: 700 } }].concat(cellsOf("合計", null, all)));
+    var rows = shown.map(rowOf).concat([totRow]);
+    // 日替わりの中身（銘柄別）。1行にまとめている分どの銘柄が効いているか見えなくなるので、展開で内訳を出す。
+    var rotDetail = null;
+    if (gRot.recs.length) {
+      var byStk = {};
+      gRot.recs.forEach(function(r) { var k = r.stock || "(不明)"; (byStk[k] = byStk[k] || []).push(r); });
+      var keys = Object.keys(byStk).sort(function(x, y) { return byStk[y].length - byStk[x].length || x.localeCompare(y); });
+      rotDetail = React.createElement(_SNCollapse, { title: "📅 日替わりの内訳（" + keys.length + "銘柄・タップで展開）", render: function() {
+        return _elv2Table(["銘柄", "件数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"],
+          keys.map(function(k) { return React.createElement.apply(null, ["tr", { key: k }].concat(cellsOf(k, gRot.color, _stkShareAgg(byStk[k]), true))); }));
+      } });
+    }
+    return React.createElement("div", null,
+      bar("利益の内訳（全体の総利益 " + _elPnlFmt(_gpTot) + " に占める割合）", function(g) { return g.a.gp; }, _gpTot),
+      bar("損失の内訳（全体の総損失 " + _elPnlFmt(-_glTot) + " に占める割合）", function(g) { return Math.abs(g.a.gl); }, _glTot),
+      _elv2Table(["銘柄", "件数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"], rows),
+      rotDetail);
+  };
   var _ovPnlTbl = function(rs, g) {
     var keyOf = function(ds) { return _granKeyOf(ds, g); };
     var labelOf = function(k) { return _granLabelOf(k, g); };
@@ -6061,49 +6212,6 @@ function EntryLogView(_ref_elv2) {
       else { var mon = new Date(k + "T00:00:00"); for (var i = 0; i < 5; i++) { var d = new Date(mon.getTime() + i * 86400000); days.push(d.getFullYear() + "-" + _p2(d.getMonth() + 1) + "-" + _p2(d.getDate())); } }
       var c = 0; days.forEach(function(d) { if (d <= _today2 && _fmIsBizDay(d, _holiSet)) c++; });
       return c;
-    };
-    var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
-    // 「除外後」列の集計＝totOfの除外条件に「指値同値」(_elFillRiskRec)を足しただけ。母数・基準はtotOfと完全に同一なので同じ行で素直に比較できる 2026-07-20c
-    var totExOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
-    // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
-    // 2026-07-27 2系統に分離（ユーザー要望「シンプルに損失で手じまいした記録が見えない」）:
-    //  損切＝損切りラインに触れて損で撤退（_elIsStopFinal）／損失＝ラインには触れず期待度×等で降りたら損だった。
-    //  これで E成立母数 = 利確 + 損切 + 損失 + 同値 が閉じる（従来は「損失」がどの列にも出ていなかった）。
-    //  平均額は _elCapLossYen（損切り値ちょうどの理想値＝全期間 −1,500円固定になっていた）をやめ、
-    //  最終損益(_elHoldFinalParts.main＝利確列・最終損益列と同じ基準)の実額平均にする。終値撤退方式では
-    //  実際の損失は撤退足の終値次第で毎回変わるので、理想値では実態と乖離する。
-    var stopsOf = function(x) {
-      var sn = 0, sSum = 0, sCnt = 0, ln = 0, lSum = 0, lCnt = 0, wn = 0, evN = 0, ukN = 0;
-      x.forEach(function(r) {
-        var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine;
-        if (a == null) return;
-        var _dr = _elDynResult(s, a, c);
-        if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return;
-        wn++;
-        var _t2 = _elHoldFinalParts(s, a, c);
-        var pnl = (_t2 && _t2.main != null) ? _t2.main : null;
-        if (_elIsStopFinal(s, a, c)) { sn++; if (pnl != null) { sSum += pnl; sCnt++; } }
-        else if (pnl == null) { ukN++; }                                  // 損切り以外で金額が出せない＝撤退足の終値が未入力（2026-07-29e 見えない穴だった分を可視化）
-        else if (pnl < 0) { ln++; lSum += pnl; lCnt++; }                  // 損切り以外の負け
-        else if (pnl === 0) { evN++; }                                    // 同値＝ちょうど±0で手じまい（利確の>0・損失の<0と対称の第4バケツ 2026-07-29e）
-      });                                                                 // pnl>0 は winTakeOf が「利確」で数える
-      return { n: sn, avg: sCnt ? Math.round(sSum / sCnt) : null, rate: wn ? Math.round(sn / wn * 100) : null,
-               lossN: ln, lossAvg: lCnt ? Math.round(lSum / lCnt) : null, lossRate: wn ? Math.round(ln / wn * 100) : null,
-               wn: wn,                          // E成立母数＝到達＝利確/損切り/損失/同値の分母 2026-07-29→29c
-               evenN: evN, unkN: ukN,           // 同値／金額不明。到達＝利確＋損切＋損失＋同値＋金額不明 で閉じる 2026-07-29e
-               noCloseN: sn - sCnt };           // 損切りのうち撤退足の終値が未入力＝金額を出せない件数（件数と平均で母数が違う理由）2026-07-29
-    };
-    // 到達: EPに乗った件数 2026-07-29c（ユーザー決定「EPに乗った分でいい」）。
-    //  乗った＝①EPに到達している ②×見送りでない（judge==="ok"＝EPより手前の足で×宣言していない＝実際にエントリーした）で決着したもの
-    //  ＝右隣の利確/損切り/損失の分母（E成立母数 stopsOf().wn）そのもの。専用の集計関数は置かず wn を使い回す＝分母が食い違いようがない。
-    //   （2026-07-29の「有効な到達」＝さらに③到達足の次足期待度が×/損切り済/未設定を除く、は撤回。乗ってはいる記録なので数える）
-    //  ※スルー記録はそもそも母数rsに入っていない（表示専用の_extraRow側）ので、ここでの考慮は不要。
-    //  ※単純到達 _epReachedAt（×見送りも数える）は成立率・時間帯別など他9箇所が使うので触らない＝変更はこの表に閉じる。
-    // 利確: E成立(EP到達して決着＝損切り率と同母数wn)のうち最終損益(（）外main)>0で手じまいした件数・率 2026-07-09
-    var winTakeOf = function(x) {
-      var wn = 0, tp = 0;
-      x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) tp++; });
-      return { n: tp, rate: wn ? Math.round(tp / wn * 100) : null };
     };
     var byP = {}; rs.forEach(function(r) { var k = keyOf(r.date); (byP[k] = byP[k] || []).push(r); });
     // 展開明細だけ集計外の記録も並べる（表示専用 2026-07-20 ユーザー選択「表示だけ」）。
@@ -7076,6 +7184,9 @@ function EntryLogView(_ref_elv2) {
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。最終損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）"),
           _granSeg(gran, setGran, "ov_"),
           _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
+        _v2recsAmt.length ? [
+          _secH("🏷 銘柄別の損益割合", "固定銘柄＋📅日替わり（まとめて1つ）＋その他。母数は上の「全体損益（期間別）」と同一なので合計行が一致します。割合は利益と損失を別々に内訳表示（純損益の構成比にすると、マイナスの銘柄があるとき負の%や100%超が出て積み上げ棒にできないため）。PF＝プロフィットファクタ＝総利益÷総損失"),
+          _stkShareSection(_v2recsAmt)] : null,
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
         _v2recsNonRef.length >= 2 ? [
           _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・合計行と同一基準（4月＝EMA位置ズレの参考期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNonRef, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
