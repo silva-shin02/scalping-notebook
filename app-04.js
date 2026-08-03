@@ -2604,6 +2604,11 @@ function SettingsModal(_ref54) {
       React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 10 } }, "シグナル名の追加・改名・削除・並び替え。「✎編集」を押すと各チップに改名(✎)・削除(×)が出ます。改名すると過去の全記録・分析・EPナビ等でその名前が新しい名前へ移行します（既存の名前へ改名した場合は統合）。削除は候補リストから外すだけで、過去の記録に付いた名前は残ります。"),
       React.createElement(_EpnChipMgr, { items: signalTags, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder }));
   })() : null,
+  // 2026-08-03e ニュースの分類（カテゴリ／サブ）。日々のボードからタブを全廃したので、名前の管理はここに集約した（app-03 NewsClassSettings）。
+  _stTab === "data" && data && save ? React.createElement("div", { style: { marginBottom: 22 } },
+    React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 6 } }, "📰 ニュースの分類"),
+    React.createElement(NewsClassSettings, { data: data, save: save })
+  ) : null,
   _stTab === "maint" && React.createElement("div", { style: { marginTop: 18, paddingTop: 14, borderTop: "1px solid #eee" } },
     React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "🧹 メンテナンス"),
     (function() {   // 端末localStorage使用量メーター（事前見える化）2026-06-29。満杯になると記録の保存に失敗するので、満杯前に整理を促す。タブを開いた時だけ計測。
@@ -2629,7 +2634,7 @@ function SettingsModal(_ref54) {
           style: { width: 46, height: 25, borderRadius: 13, border: "none", cursor: "pointer", position: "relative", padding: 0, flexShrink: 0, background: _nadEnabled ? "#0EA5E9" : "#cbd5e1" }
         }, React.createElement("span", { style: { position: "absolute", top: 3, left: _nadEnabled ? 24 : 3, width: 19, height: 19, borderRadius: "50%", background: "#fff" } }))
       ),
-      React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.7, marginBottom: 10 } }, "追加してから一定期間がたったニュース画像を、起動時に自動で削除します（テキスト・タグ・記録は残ります）。各画像の鍵マーク🔒を押すと「保存済み」になり、期限を過ぎても削除されません。"),
+      React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.7, marginBottom: 10 } }, "追加してから一定期間がたったニュース画像を、起動時に自動で削除します（テキスト・タグ・記録は残ります）。ニュース欄のカードで「この記事を保存」を押した記事は、記事ごと保護されて画像も削除されません（2026-08-03に画像1枚ごとの鍵から記事単位へ変更）。"),
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, opacity: _nadEnabled ? 1 : 0.5 } },
         React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600 } }, "削除する期間"),
         React.createElement("input", { type: "text", inputMode: "numeric", value: _stNdV, disabled: !_nadEnabled,
@@ -5077,11 +5082,12 @@ function DayView(_ref57) {
         psc[newName] = psc[oldName];
         delete psc[oldName];
       }
-      // 銘柄名で保持している他のcustomも追従（2026-07-07g・従来の追従漏れ）: EPナビ表示銘柄・ニュース参照(stockSubCatRefs)・銘柄情報タブ(stockInfoTabs)
+      // 銘柄名で保持している他のcustomも追従（2026-07-07g・従来の追従漏れ）: EPナビ表示銘柄・銘柄情報タブ(stockInfoTabs)
+      // 2026-08-03e ニュース参照は custom.stockSubCatRefs（サブカテゴリ単位）を廃止し、記事の keep.stocks（記事単位）へ移した＝下の trades 走査で追従させる。
       var _rnStockKey = function(m) { if (!m || typeof m !== "object" || !(oldName in m)) return m; var n = Object.assign({}, m); if (!(newName in n)) n[newName] = n[oldName]; delete n[oldName]; return n; };
       var _pepn = Array.isArray(pc.epnStocks) ? pc.epnStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.epnStocks;
       var _prot = Array.isArray(pc.rotatingStocks) ? pc.rotatingStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.rotatingStocks;   // 日替わり属性も追従 2026-07-22
-      next.custom = Object.assign({}, pc, { stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, stockSubCatRefs: _rnStockKey(pc.stockSubCatRefs), stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
+      next.custom = Object.assign({}, pc, { stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
       
       var pch = prev.charts || {};
       var nch = {};
@@ -5098,8 +5104,28 @@ function DayView(_ref57) {
       
       var ptr = prev.trades || {};
       var ntr = {};
+      // 2026-08-03e 保存したニュース記事の紐付け銘柄（keep.stocks）も名前で持っているので一緒に付け替える。
+      var _rnKeepStocks = function(dayObj) {
+        if (!dayObj || !dayObj.newsCats || typeof dayObj.newsCats !== "object") return dayObj;
+        var nc = {}, ch = false;
+        Object.keys(dayObj.newsCats).forEach(function(c) {
+          var cd = dayObj.newsCats[c];
+          if (!cd || typeof cd !== "object" || !Array.isArray(cd.newsItems)) { nc[c] = cd; return; }
+          var icg = false;
+          var arr = cd.newsItems.map(function(nItem) {
+            var st = _snNiKeepStocks(nItem);
+            if (st.indexOf(oldName) < 0) return nItem;
+            icg = true;
+            var nx = st.map(function(s) { return s === oldName ? newName : s; });
+            nx = nx.filter(function(s, i2) { return nx.indexOf(s) === i2; });
+            return Object.assign({}, nItem, { keep: Object.assign({}, nItem.keep, { stocks: nx }) });
+          });
+          if (icg) { nc[c] = Object.assign({}, cd, { newsItems: arr }); ch = true; } else nc[c] = cd;
+        });
+        return ch ? Object.assign({}, dayObj, { newsCats: nc }) : dayObj;
+      };
       Object.keys(ptr).forEach(function(dk) {
-        var dayObj = ptr[dk];
+        var dayObj = _rnKeepStocks(ptr[dk]);
         if (!dayObj || !Array.isArray(dayObj.items)) { ntr[dk] = dayObj; return; }
         var ni = dayObj.items.map(function(it) {
           var changed = null;

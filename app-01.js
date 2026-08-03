@@ -103,10 +103,7 @@ var EMPTY = {
     signalTags: [],
     technicals: [],
     newsCategories: [].concat(DEF_NEWS_CATS),
-    newsCatDefaults: {},
-    newsSubCats: {},
-    newsSubCatDefaults: {},
-    stockSubCatRefs: {}
+    newsSubCats: {}
   }
 };
 var ST_KEY = "scalping_data_v6",
@@ -423,10 +420,7 @@ function migrateData(d) {
   if (!Array.isArray(d.custom.technicals)) d.custom.technicals = [];
   delete d.custom.techTags;
   if (!d.custom.newsCategories) d.custom.newsCategories = [].concat(DEF_NEWS_CATS);
-  if (!d.custom.newsCatDefaults || typeof d.custom.newsCatDefaults !== "object") d.custom.newsCatDefaults = {};
   if (!d.custom.newsSubCats || typeof d.custom.newsSubCats !== "object") d.custom.newsSubCats = {};
-  if (!d.custom.newsSubCatDefaults || typeof d.custom.newsSubCatDefaults !== "object") d.custom.newsSubCatDefaults = {};
-  if (!d.custom.stockSubCatRefs || typeof d.custom.stockSubCatRefs !== "object") d.custom.stockSubCatRefs = {};
   if (!d.custom.stockInfoTabs || typeof d.custom.stockInfoTabs !== "object") d.custom.stockInfoTabs = {};
   if (!d.custom.newsImgAutoDelete || typeof d.custom.newsImgAutoDelete !== "object") d.custom.newsImgAutoDelete = { enabled: true, periodDays: 7 };
   if (typeof d.custom.newsImgAutoDelete.enabled !== "boolean") d.custom.newsImgAutoDelete.enabled = true;
@@ -492,6 +486,75 @@ function migrateData(d) {
       });
     }
     d.custom._newsImgAddedAtMig = true;
+  }
+
+  // 2026-08-03e ニュース欄の再設計にともなう移行（_newsKeepMig）。カテゴリ／サブのタブを画面から全廃し、分類は「この記事を保存」した時だけ付ける方式へ。
+  // これまで「これは残す」という意思表示だったものを、記事1件の keep に一本化する。情報を失わないことが最優先。
+  //   ①画像の鍵 im.star===true / ②記事★ ni.starred===true → その記事を保存済みへ昇格。今いるカテゴリ・サブを keep.cat/keep.sub に継承（keep.stocks は空）
+  //   ③カテゴリ別メモ newsMemo / サブ別メモ subCatMemos[サブ] → 記事カードへ変換して newsItems の先頭へ。保存済みにする＝自動削除で消えない
+  //   ④自動タグ newsCatDefaults/newsSubCatDefaults と 銘柄参照 stockSubCatRefs は廃止＝customからも掃除
+  // im.star / ni.starred のフィールド自体は消さない＝旧版のまま同期してくる端末が読んでも壊れない（新コードは書き込まないだけ）。
+  // 保存形式 trades[日付].newsCats[カテゴリ].newsItems[] は変えない＝カテゴリのキーはそのまま温存（後戻りできるように）。
+  // 一回性フラグで囲わず毎回走らせる＝それ自体が冪等（昇格はkeep有りをスキップ・メモは変換後に消す）だから、
+  // 旧版のまま使っている端末から後で同期されてきたメモや鍵付き画像も、次に開いた時点で取りこぼさず拾える。
+  {
+    try {
+      var _kmPromoted = 0, _kmMemoCards = 0;
+      var _kmMk = function(cat, sub, at) {
+        return { at: (typeof at === "number" && at > 0) ? at : Date.now(), cat: cat || "", sub: sub || "", stocks: [] };
+      };
+      if (d.trades && typeof d.trades === "object") {
+        Object.keys(d.trades).forEach(function(_dt) {
+          var _dd = d.trades[_dt];
+          if (!_dd || !_dd.newsCats || typeof _dd.newsCats !== "object") return;
+          Object.keys(_dd.newsCats).forEach(function(_cat) {
+            var _cd = _dd.newsCats[_cat];
+            if (!_cd || typeof _cd !== "object") return;
+            var _subs = (d.custom.newsSubCats && Array.isArray(d.custom.newsSubCats[_cat])) ? d.custom.newsSubCats[_cat] : [];
+            // ①② 鍵付き画像を持つ記事・★付き記事 → 保存済みへ昇格
+            if (Array.isArray(_cd.newsItems)) {
+              _cd.newsItems.forEach(function(_ni) {
+                if (!_ni || typeof _ni !== "object") return;
+                if (_ni.keep && typeof _ni.keep === "object") return;
+                var _starImg = Array.isArray(_ni.images) && _ni.images.some(function(_im) { return _im && _im.star === true; });
+                if (!_starImg && _ni.starred !== true) return;
+                var _sub = (_ni.subCat && _subs.indexOf(_ni.subCat) >= 0) ? _ni.subCat : "";
+                _ni.keep = _kmMk(_cat, _sub, _ni.id);
+                _kmPromoted++;
+              });
+            }
+            // ③ メモ → 記事カード。サブ別メモのキーは "__all__"/"__none__" もありうる＝実在するサブ名のときだけ keep.sub に載せる。
+            var _kmMemos = [];
+            if (_cd.newsMemo && typeof _cd.newsMemo === "object") _kmMemos.push({ sub: "", key: "newsMemo", m: _cd.newsMemo });
+            if (_cd.subCatMemos && typeof _cd.subCatMemos === "object") {
+              Object.keys(_cd.subCatMemos).forEach(function(_sk) {
+                var _sm = _cd.subCatMemos[_sk];
+                if (!_sm || typeof _sm !== "object") return;
+                _kmMemos.push({ sub: (_subs.indexOf(_sk) >= 0) ? _sk : "", key: "subCatMemos:" + _sk, m: _sm });
+              });
+            }
+            var _kmCards = [];
+            _kmMemos.forEach(function(_e) {
+              var _txt = String((_e.m && _e.m.text) == null ? "" : _e.m.text);
+              var _imgs = (_e.m && Array.isArray(_e.m.images)) ? _e.m.images : [];
+              if (!_txt.trim() && !_imgs.length) return;
+              var _id = _snHashId(_dt + "|" + _cat + "|" + _e.key);
+              _kmCards.push({ id: _id, text: _txt, images: _imgs.slice(), tags: [], fromMemo: true, keep: _kmMk(_cat, _e.sub, _id) });
+              _kmMemoCards++;
+            });
+            if (_kmCards.length) _cd.newsItems = _kmCards.concat(Array.isArray(_cd.newsItems) ? _cd.newsItems : []);
+            delete _cd.newsMemo;
+            delete _cd.subCatMemos;
+          });
+        });
+      }
+      // ④ 廃止したcustomキーを掃除
+      delete d.custom.newsCatDefaults;
+      delete d.custom.newsSubCatDefaults;
+      delete d.custom.stockSubCatRefs;
+      if (_kmPromoted || _kmMemoCards) console.log("[migrateData] newsKeep: " + _kmPromoted + " 記事を保存済みへ昇格 / " + _kmMemoCards + " 件のメモを記事カードへ変換");
+      d.custom._newsKeepMig = true;
+    } catch(e) { console.warn("[migrateData] newsKeep error:", e); }
   }
 
 
@@ -1506,7 +1569,7 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
   
   var _LOCAL_WINS_KEYS = { cats: 1, tags: 1, marketTags: 1, stockTags: 1,
     signalTags: 1, signalDefs: 1, flowOpenTags: 1, flowMoveTags: 1,
-    newsCategories: 1, newsSubCats: 1, newsCatDefaults: 1, newsSubCatDefaults: 1, stocks: 1,
+    newsCategories: 1, newsSubCats: 1, stocks: 1,
     eventCategories: 1, materialTags: 1 };
   
   var _ALWAYS_LOCAL_WINS_KEYS = { cats: 1, tags: 1 };
@@ -2524,13 +2587,35 @@ function _snImgAddedAt(im) {
   if (typeof im.id === "number" && im.id > 1e12) return im.id;
   return 0;
 }
+// 2026-08-03e ニュース欄の再設計。分類（カテゴリ/サブ）は画面から廃止し、「この記事を保存」した時だけ記事に付ける。
+// 記事に keep:{ at, cat, sub, stocks[] } を1つだけ足す方式＝keepがあれば保存済み、中身が空(cat/sub/stocks全部なし)なら「未分類で保存」。
+// これで自動削除の保護単位が「画像1枚(im.star)」から「記事1件」に変わる＝保存した記事は本文も画像もまとめて残る。
+// 保存形式 trades[日付].newsCats[カテゴリ].newsItems[] 自体は変えない（画面だけ串刺しにする方針・後戻りできるように）。
+function _snNiKept(ni) {
+  return !!(ni && typeof ni === "object" && ni.keep && typeof ni.keep === "object");
+}
+function _snNiKeepStocks(ni) {
+  return (_snNiKept(ni) && Array.isArray(ni.keep.stocks)) ? ni.keep.stocks : [];
+}
+function _snMakeKeep(cat, sub, stocks) {
+  return { at: Date.now(), cat: cat || "", sub: sub || "", stocks: Array.isArray(stocks) ? stocks.slice() : [] };
+}
+// 移行で作る札のidは「元ネタ由来の決定的な値」にする＝端末ごとに別idの重複札が生まれない。
+// 1.5e12 は 2017-07 相当＝このアプリが存在しない時期なので、実データの id(Date.now()) とは帯が重ならない。
+function _snHashId(s) {
+  var h = 5381;
+  s = String(s == null ? "" : s);
+  for (var i = 0; i < s.length; i++) { h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; }
+  return 1500000000000 + h;
+}
 // 2026-08-03d ニュース札が「空」か判定（ユーザー要望「元画像が貼られていた欄もちゃんと消えるように・"もとはあった"かのような表示も不要」）。
 // 空＝画像0枚・本文なし・タグなし。id/subCat/groupIdは中身ではない（+で足した時点で自動的に入るメタ情報なので、残す理由にならない）。
 // **知らないフィールドに中身があったら空と見なさない**＝安全側。あとから札にフィールドが増えても、勝手に消える事故が起きない。
 function _snNewsItemEmpty(ni) {
   if (!ni || typeof ni !== "object") return false;
   if (Array.isArray(ni.images) && ni.images.length) return false;
-  if (ni.starred === true) return false;                    // ★重要マーク（app-03の記事★＝ni.starred。画像の鍵 im.star とは別物）
+  if (_snNiKept(ni)) return false;                          // 2026-08-03e 保存済み（keep）は中身が空でも枠ごと残す＝ユーザーが明示的に残すと言った札
+  if (ni.starred === true) return false;                    // 旧・記事★（app-03の記事★＝ni.starred。画像の鍵 im.star とは別物）。移行後は新規に付かないが旧端末同期分のため判定は残す
   var ks = Object.keys(ni);
   for (var i = 0; i < ks.length; i++) {
     var k = ks[i], v = ni[k];
@@ -2548,8 +2633,10 @@ function _snPruneNewsImagesCore(data, dateOk, keepImg) {
   if (!data || !data.trades) return { data: data, count: 0, emptied: 0 };
   var count = 0, emptied = 0;
   var trades = data.trades, newTrades = {}, anyChange = false;
-  var _filt = function(imgs) {
-    var kept = imgs.filter(function(im) { return keepImg(im); });
+  // 2026-08-03e keepImg は (画像, その画像を抱えている記事) で判定する＝保護の単位が記事になった。
+  // メモ(newsMemo/subCatMemos)の画像には記事が無いので ni=null を渡す（移行で記事カード化されるので通常は空だが、旧端末から後から同期される分のために経路は残す）。
+  var _filt = function(imgs, ni) {
+    var kept = imgs.filter(function(im) { return keepImg(im, ni); });
     return kept.length === imgs.length ? null : kept;
   };
   Object.keys(trades).forEach(function(date) {
@@ -2564,7 +2651,7 @@ function _snPruneNewsImagesCore(data, dateOk, keepImg) {
         var niChanged = false;
         var newNi = cd.newsItems.map(function(ni) {
           if (ni && Array.isArray(ni.images) && ni.images.length) {
-            var kept = _filt(ni.images);
+            var kept = _filt(ni.images, ni);
             if (kept) { niChanged = true; count += (ni.images.length - kept.length); return Object.assign({}, ni, { images: kept }); }
           }
           return ni;
@@ -2580,7 +2667,7 @@ function _snPruneNewsImagesCore(data, dateOk, keepImg) {
         if (niChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsItems = newNi; cdChanged = true; }
       }
       if (cd.newsMemo && Array.isArray(cd.newsMemo.images) && cd.newsMemo.images.length) {
-        var keptM = _filt(cd.newsMemo.images);
+        var keptM = _filt(cd.newsMemo.images, null);
         if (keptM) { count += (cd.newsMemo.images.length - keptM.length); if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsMemo = Object.assign({}, cd.newsMemo, { images: keptM }); cdChanged = true; }
       }
       if (cd.subCatMemos && typeof cd.subCatMemos === "object") {
@@ -2588,7 +2675,7 @@ function _snPruneNewsImagesCore(data, dateOk, keepImg) {
         Object.keys(cd.subCatMemos).forEach(function(sk) {
           var sm = cd.subCatMemos[sk];
           if (sm && Array.isArray(sm.images) && sm.images.length) {
-            var keptS = _filt(sm.images);
+            var keptS = _filt(sm.images, null);
             if (keptS) { scChanged = true; count += (sm.images.length - keptS.length); newSc[sk] = Object.assign({}, sm, { images: keptS }); return; }
           }
           newSc[sk] = sm;
@@ -2607,15 +2694,17 @@ function _snStripOldNewsImages(data, cutoff) {
   if (!data || !data.trades || !cutoff) return { data: data, count: 0, emptied: 0 };
   return _snPruneNewsImagesCore(data, function(date) {
     return /^\d{4}-\d{2}-\d{2}$/.test(date) && date < cutoff;
-  }, function(im) {
-    return !!(im && im.star === true);
+  }, function(im, ni) {
+    if (_snNiKept(ni)) return true;                         // 2026-08-03e 保存済みの記事は画像を全部残す
+    return !!(im && im.star === true);                      // 旧・画像の鍵。移行で記事のkeepへ昇格済みだが旧端末同期分のため残す
   });
 }
 function _snAutoPruneNewsImages(data, cutoffMs) {
   if (!data || !data.trades || !(cutoffMs > 0)) return { data: data, count: 0, emptied: 0 };
-  return _snPruneNewsImagesCore(data, function() { return true; }, function(im) {
+  return _snPruneNewsImagesCore(data, function() { return true; }, function(im, ni) {
+    if (_snNiKept(ni)) return true;                         // 2026-08-03e 保存済みの記事は画像を全部残す（保護の単位が画像→記事）
     if (!im || typeof im !== "object") return true;
-    if (im.star === true) return true;
+    if (im.star === true) return true;                      // 旧・画像の鍵（同上）
     var t = _snImgAddedAt(im);
     if (!t) return true;
     return t >= cutoffMs;

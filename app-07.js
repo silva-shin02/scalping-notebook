@@ -48,6 +48,19 @@ function useModalBack(open, onClose, token) {
 }
 
 
+// 2026-08-03e 「このカテゴリ／サブも拾う」(custom.shvExtraCats)の突合。分類の正本が記事の keep に移ったので keep を先に見る。
+// 旧・保存キーのカテゴリ(cat)と旧 ni.subCat も併せて見る＝移行前の記録や、旧版のまま同期してくる端末の記録も取りこぼさない。
+function _snNiCatHit(ni, cat, mainSet, pairSet) {
+  if (!ni) return false;
+  if (_snNiKept(ni)) {
+    var kc = ni.keep.cat || "", ks = ni.keep.sub || "";
+    if (kc && mainSet.has(kc)) return true;
+    if (kc && ks && pairSet.has(kc + "::" + ks)) return true;
+  }
+  if (mainSet.has(cat)) return true;
+  if (ni.subCat && pairSet.has(cat + "::" + ni.subCat)) return true;
+  return false;
+}
 function _shvIsStockNewsTag(t, stock, code) {
   if (!t || !stock) return false;
   var tn = (t.indexOf(":") >= 0) ? t.slice(t.indexOf(":") + 1) : t;
@@ -67,8 +80,6 @@ function _csCollectNewsForStock(trades, custom, stock, date, extraTags, extraCat
   var extraNameSet = new Set((extraTags || []).map(function(t) {
     return t.indexOf(":") >= 0 ? t.slice(t.indexOf(":") + 1) : t;
   }));
-  
-  var subCatRefs = (custom && custom.stockSubCatRefs && Array.isArray(custom.stockSubCatRefs[stock])) ? custom.stockSubCatRefs[stock] : [];
   
   var extraCatMainSet = new Set();
   var extraCatPairSet = new Set();
@@ -94,18 +105,13 @@ function _csCollectNewsForStock(trades, custom, stock, date, extraTags, extraCat
         return false;
       });
       
-      if (!match && ni.subCat && subCatRefs.length > 0) {
-        match = subCatRefs.some(function(r) {
-          return r && r.cat === cat && r.subCat === ni.subCat;
-        });
-      }
-      
-      if (!match) {
-        if (catMainHit) match = true;
-        else if (ni.subCat && extraCatPairSet.has(cat + "::" + ni.subCat)) match = true;
-      }
+      // 2026-08-03e 銘柄との紐付けは「サブカテゴリ単位(custom.stockSubCatRefs)」から「記事単位(keep.stocks)」へ移した。
+      // 保存シートで銘柄を選んだ記事が、その銘柄の関連ニュースとして出る。
+      if (!match && _snNiKeepStocks(ni).indexOf(stock) >= 0) match = true;
+
+      if (!match && _snNiCatHit(ni, cat, extraCatMainSet, extraCatPairSet)) match = true;
       if (match) {
-        
+
         var key = ni.groupId || ni.id;
         if (key && seenKey[key]) return;
         if (key) seenKey[key] = true;
@@ -1445,41 +1451,34 @@ function _nhvDeleteNi(saveFn, date, cat, niId) {
 }
 
 
-function _nhvAddNiToDate(saveFn, date, cat, niItem) {
-  saveFn(function(prevData) {
-    var prevDd = (prevData.trades && prevData.trades[date]) || {};
-    var prevAllCats = getAllNewsCatsData(prevDd);
-    var prevCatData = prevAllCats[cat] || { marketTags: [], newsItems: [], newsMemo: { text: "", images: [] } };
-    var prevItems = prevCatData.newsItems || [];
-    var newItems = prevItems.concat([niItem]);
-    var newCatData = Object.assign({}, prevCatData, { newsItems: newItems });
-    var newCats = Object.assign({}, prevAllCats);
-    newCats[cat] = newCatData;
-    var newDd = Object.assign({}, prevDd, { newsCats: newCats });
-    var newTrades = Object.assign({}, prevData.trades || {});
-    newTrades[date] = newDd;
-    return Object.assign({}, prevData, { trades: newTrades });
-  });
-}
+// 2026-08-03e _nhvAddNiToDate（📰一覧の「+ 今日に追加」）は削除。
+// 一覧は保存済み記事だけを並べる場所になったので、そこで新規に足しても保存前の札は出てこない＝ボタン自体が成立しない。追加は日々のニュース欄から。
 
-
-function _nhvCollectFlat(trades, cat) {
-  if (!trades || !cat) return [];
-  var out = [];
+// 2026-08-03e 保存済みライブラリの元ネタ。カテゴリごとではなく全カテゴリを串刺しで集める
+// （分類は記事の keep が持つので、保存キーのカテゴリはもう画面の分類ではない）。
+// クローン（groupId）は同じ日の中で1枚だけ出す。
+function _nhvCollectFlat(trades) {
+  if (!trades) return [];
+  var out = [], seen = {};
   Object.keys(trades).forEach(function(date) {
     var dd = trades[date];
     if (!dd) return;
     var allCats = getAllNewsCatsData(dd);
-    var cd = allCats[cat];
-    if (!cd) return;
-    var items = cd.newsItems || [];
-    items.forEach(function(ni) {
-      out.push({ date: date, ni: ni });
+    Object.keys(allCats).forEach(function(cat) {
+      var items = (allCats[cat] && allCats[cat].newsItems) || [];
+      items.forEach(function(ni) {
+        if (!ni) return;
+        var gid = ni.groupId;
+        if (gid) { var k = date + "|" + gid; if (seen[k]) return; seen[k] = true; }
+        out.push({ date: date, cat: cat, ni: ni });
+      });
     });
   });
   return out;
 }
 
+// \uD83D\uDCF0 ニュース一覧（保存済みライブラリ）。「この記事を保存」した記事だけを並べ、カテゴリと銘柄で絞り込む。
+// 分類なしで保存したものは「未分類」として絞り込める。
 function NewsHistoryView(_ref_nhv) {
   var data = _ref_nhv.data,
       save = _ref_nhv.save,
@@ -1491,56 +1490,28 @@ function NewsHistoryView(_ref_nhv) {
   var allStocks = (custom.stocks && custom.stocks.length > 0) ? custom.stocks : _DEF_STOCKS_FROZEN;
   var newsCategories = (custom.newsCategories && custom.newsCategories.length > 0) ? custom.newsCategories : _DEF_NEWS_CATS_FROZEN;
 
-  
-  var _us_nhvCat = useState(function() {
-    try {
-      var v = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}");
-      var c = v && v.nhvCat;
-      if (c && newsCategories.indexOf(c) >= 0) return c;
-    } catch(e){}
-    return newsCategories[0] || "マーケット";
-  });
-  var _us_nhvCatA = _slicedToArray(_us_nhvCat, 2),
-      selCat = _us_nhvCatA[0], setSelCat = _us_nhvCatA[1];
-  
-  if (newsCategories.indexOf(selCat) < 0) {
-    selCat = newsCategories[0] || "マーケット";
-  }
-
-  
-  var _us_nhvSub = useState(function() {
-    try {
-      var v = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}");
-      if (v && typeof v.nhvSubCatByCat === "object") return v.nhvSubCatByCat || {};
-    } catch(e){}
-    return {};
-  });
-  var _us_nhvSubA = _slicedToArray(_us_nhvSub, 2),
-      subCatByCat = _us_nhvSubA[0], setSubCatByCat = _us_nhvSubA[1];
-  var subCatsForCur = (custom.newsSubCats && Array.isArray(custom.newsSubCats[selCat])) ? custom.newsSubCats[selCat] : [];
-  var hasSubCats = subCatsForCur.length > 0;
-  var activeSubCat = subCatByCat[selCat] || "__all__";
-  if (hasSubCats && activeSubCat !== "__all__" && activeSubCat !== "__none__" && subCatsForCur.indexOf(activeSubCat) < 0) {
-    activeSubCat = "__all__";
-  }
-  var setActiveSubCat = function(sc) {
-    var nx = Object.assign({}, subCatByCat);
-    nx[selCat] = sc;
-    setSubCatByCat(nx);
+  var _lsGet = function(k, dflt) {
+    try { var v = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}"); if (v && v[k] != null) return v[k]; } catch(e){}
+    return dflt;
+  };
+  var _lsSet = function(k, v) {
     try {
       var o = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}");
-      localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({}, o, { nhvSubCatByCat: nx })));
+      o[k] = v;
+      localStorage.setItem("scalping_view_v1", JSON.stringify(o));
     } catch(e){}
   };
-  
-  useEffect(function() {
-    try {
-      var o = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}");
-      localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({}, o, { nhvCat: selCat })));
-    } catch(e){}
-  }, [selCat]);
 
-  
+  // "__all__" / "__none__"(未分類) / カテゴリ名
+  var _usC = useState(function(){ return _lsGet("nhvKeepCat", "__all__"); });
+  var _usCA = _slicedToArray(_usC, 2), selCat = _usCA[0], setSelCatRaw = _usCA[1];
+  var setSelCat = function(v) { setSelCatRaw(v); _lsSet("nhvKeepCat", v); setSelSub("__all__"); };
+  var _usSb = useState("__all__"), _usSbA = _slicedToArray(_usSb, 2), selSub = _usSbA[0], setSelSub = _usSbA[1];
+  // "__all__" / "__none__"(銘柄なし) / 銘柄名
+  var _usSt = useState(function(){ return _lsGet("nhvKeepStock", "__all__"); });
+  var _usStA = _slicedToArray(_usSt, 2), selStock = _usStA[0], setSelStockRaw = _usStA[1];
+  var setSelStock = function(v) { setSelStockRaw(v); _lsSet("nhvKeepStock", v); };
+
   var _us_nhvDF = useState(""), _us_nhvDFA = _slicedToArray(_us_nhvDF, 2),
       dateFrom = _us_nhvDFA[0], setDateFrom = _us_nhvDFA[1];
   var _us_nhvDT = useState(""), _us_nhvDTA = _slicedToArray(_us_nhvDT, 2),
@@ -1555,51 +1526,85 @@ function NewsHistoryView(_ref_nhv) {
       sortDir = _us_nhvSDA[0], setSortDir = _us_nhvSDA[1];
   var _us_nhvPO = useState(false), _us_nhvPOA = _slicedToArray(_us_nhvPO, 2),
       pinnedOnly = _us_nhvPOA[0], setPinnedOnly = _us_nhvPOA[1];
-  var _us_nhvSO = useState(false), _us_nhvSOA = _slicedToArray(_us_nhvSO, 2),
-      starredOnly = _us_nhvSOA[0], setStarredOnly = _us_nhvSOA[1];
 
-  
   var _us_nhvVT = useState(null), _us_nhvVTA = _slicedToArray(_us_nhvVT, 2),
       viewTarget = _us_nhvVTA[0], setViewTarget = _us_nhvVTA[1];
   useModalBack(viewTarget != null, function(){ setViewTarget(null); }, "nhv-view");
 
-  
   var togSelTag = function(t) {
     var n = new Set(selTags);
     if (n.has(t)) n["delete"](t); else n.add(t);
     setSelTags(n);
   };
   var clearAllFilter = function() {
-    setDateFrom(""); setDateTo(""); setKeyword(""); setSelTags(new Set()); setPinnedOnly(false); setStarredOnly(false);
+    setDateFrom(""); setDateTo(""); setKeyword(""); setSelTags(new Set()); setPinnedOnly(false);
+    setSelCat("__all__"); setSelStock("__all__");
   };
-  var hasAnyFilter = !!dateFrom || !!dateTo || (keyword || "").trim().length > 0 || selTags.size > 0 || pinnedOnly || starredOnly;
+  var hasAnyFilter = !!dateFrom || !!dateTo || (keyword || "").trim().length > 0 || selTags.size > 0 ||
+    pinnedOnly || selCat !== "__all__" || selStock !== "__all__" || selSub !== "__all__";
 
-  
-  var allFlat = useMemo(function() {
-    return _nhvCollectFlat(trades, selCat);
-  }, [trades, selCat]);
+  // 保存済みの記事だけを集める（keep があれば保存済み。中身が空なら未分類）。
+  var allKept = useMemo(function() {
+    return _nhvCollectFlat(trades).filter(function(e) { return _snNiKept(e.ni); });
+  }, [trades]);
 
-  
+  var catCounts = useMemo(function() {
+    var m = { __all__: allKept.length, __none__: 0 };
+    allKept.forEach(function(e) {
+      var c = e.ni.keep.cat || "";
+      if (!c) m.__none__ = (m.__none__ || 0) + 1;
+      else m[c] = (m[c] || 0) + 1;
+    });
+    return m;
+  }, [allKept]);
+
+  // 選択中カテゴリのサブ。カテゴリを絞っているときだけ出す。
+  var subOptions = (selCat !== "__all__" && selCat !== "__none__" && custom.newsSubCats && Array.isArray(custom.newsSubCats[selCat]))
+    ? custom.newsSubCats[selCat] : [];
+  var subCounts = useMemo(function() {
+    var m = { __all__: 0, __none__: 0 };
+    allKept.forEach(function(e) {
+      if ((e.ni.keep.cat || "") !== selCat) return;
+      m.__all__++;
+      var s = e.ni.keep.sub || "";
+      if (!s) m.__none__++; else m[s] = (m[s] || 0) + 1;
+    });
+    return m;
+  }, [allKept, selCat]);
+
+  var stockCounts = useMemo(function() {
+    var m = { __all__: allKept.length, __none__: 0 };
+    allKept.forEach(function(e) {
+      var st = _snNiKeepStocks(e.ni);
+      if (!st.length) { m.__none__ = (m.__none__ || 0) + 1; return; }
+      st.forEach(function(s) { if (s) m[s] = (m[s] || 0) + 1; });
+    });
+    return m;
+  }, [allKept]);
+  // 選択肢に出す銘柄＝登録中の銘柄＋（登録から外れたが保存記事に残っている銘柄）
+  var stockOptions = useMemo(function() {
+    var seen = {}, out = [];
+    (allStocks || []).forEach(function(s) { if (s && !seen[s]) { seen[s] = true; out.push(s); } });
+    Object.keys(stockCounts).forEach(function(s) {
+      if (s === "__all__" || s === "__none__") return;
+      if (!seen[s]) { seen[s] = true; out.push(s); }
+    });
+    return out;
+  }, [allStocks, stockCounts]);
+
   var filtered = useMemo(function() {
-    var arr = allFlat;
-    
-    if (hasSubCats) {
-      if (activeSubCat === "__none__") {
-        arr = arr.filter(function(e) {
-          return !e.ni.subCat || subCatsForCur.indexOf(e.ni.subCat) < 0;
-        });
-      } else if (activeSubCat !== "__all__") {
-        arr = arr.filter(function(e) { return e.ni.subCat === activeSubCat; });
-      }
+    var arr = allKept;
+    if (selCat === "__none__") arr = arr.filter(function(e) { return !(e.ni.keep.cat || ""); });
+    else if (selCat !== "__all__") {
+      arr = arr.filter(function(e) { return (e.ni.keep.cat || "") === selCat; });
+      if (selSub === "__none__") arr = arr.filter(function(e) { return !(e.ni.keep.sub || ""); });
+      else if (selSub !== "__all__") arr = arr.filter(function(e) { return (e.ni.keep.sub || "") === selSub; });
     }
-    
+    if (selStock === "__none__") arr = arr.filter(function(e) { return _snNiKeepStocks(e.ni).length === 0; });
+    else if (selStock !== "__all__") arr = arr.filter(function(e) { return _snNiKeepStocks(e.ni).indexOf(selStock) >= 0; });
     if (dateFrom) arr = arr.filter(function(e) { return e.date >= dateFrom; });
     if (dateTo)   arr = arr.filter(function(e) { return e.date <= dateTo; });
-    
     if (pinnedOnly) arr = arr.filter(function(e) { return !!e.ni.pinned; });
-    
-    if (starredOnly) arr = arr.filter(function(e) { return !!e.ni.starred; });
-    
     if (selTags.size > 0) {
       arr = arr.filter(function(e) {
         var tags = e.ni.tags || [];
@@ -1608,72 +1613,32 @@ function NewsHistoryView(_ref_nhv) {
         return ok;
       });
     }
-    
     var kw = (keyword || "").trim().toLowerCase();
     if (kw) {
       arr = arr.filter(function(e) {
-        var hay = ((e.ni.text || "") + " " + (e.ni.tags || []).join(" ")).toLowerCase();
+        var hay = (stripHtml(e.ni.text || "") + " " + (e.ni.tags || []).join(" ")).toLowerCase();
         return hay.indexOf(kw) >= 0;
       });
     }
-    
-    var sorted = arr.slice().sort(function(a, b) {
+    return arr.slice().sort(function(a, b) {
       if (a.date !== b.date) {
         return sortDir === "desc" ? (a.date < b.date ? 1 : -1) : (a.date < b.date ? -1 : 1);
       }
-      var ia = a.ni.id || 0, ib = b.ni.id || 0;
+      var ia = Number(a.ni.id) || 0, ib = Number(b.ni.id) || 0;
       return sortDir === "desc" ? (ib - ia) : (ia - ib);
     });
-    return sorted;
-  }, [allFlat, hasSubCats, activeSubCat, subCatsForCur, dateFrom, dateTo, pinnedOnly, starredOnly, selTags, keyword, sortDir]);
+  }, [allKept, selCat, selSub, selStock, dateFrom, dateTo, pinnedOnly, selTags, keyword, sortDir]);
 
-  
-  var _nhvCounts = useMemo(function() {
-    var pc = 0, sc = 0;
-    for (var i = 0; i < filtered.length; i++) {
-      if (filtered[i].ni.pinned) pc++;
-      if (filtered[i].ni.starred) sc++;
-    }
-    return { pinned: pc, starred: sc };
-  }, [filtered]);
   var totalCount = filtered.length;
-  var pinnedCount = _nhvCounts.pinned;
-  var starredCount = _nhvCounts.starred;
+  var pinnedCount = useMemo(function() {
+    var c = 0;
+    for (var i = 0; i < filtered.length; i++) if (filtered[i].ni.pinned) c++;
+    return c;
+  }, [filtered]);
 
-  
-  var subCatCounts = useMemo(function() {
-    var m = { __all__: allFlat.length, __none__: 0 };
-    subCatsForCur.forEach(function(sc) { m[sc] = 0; });
-    allFlat.forEach(function(e) {
-      var sc = e.ni.subCat;
-      if (!sc || subCatsForCur.indexOf(sc) < 0) m.__none__ = (m.__none__ || 0) + 1;
-      else m[sc] = (m[sc] || 0) + 1;
-    });
-    return m;
-  }, [allFlat, subCatsForCur]);
-
-  
-  var catCounts = useMemo(function() {
-    var m = {};
-    newsCategories.forEach(function(c) { m[c] = 0; });
-    Object.keys(trades).forEach(function(date) {
-      var dd = trades[date]; if (!dd) return;
-      var allCats = getAllNewsCatsData(dd);
-      Object.keys(allCats).forEach(function(c) {
-        var items = (allCats[c].newsItems || []);
-        m[c] = (m[c] || 0) + items.length;
-      });
-    });
-    return m;
-  }, [trades, newsCategories]);
-
-  
-  
   var _splitPinned = useMemo(function() {
     var pin = [], non = [];
-    filtered.forEach(function(e) {
-      if (e.ni.pinned) pin.push(e); else non.push(e);
-    });
+    filtered.forEach(function(e) { if (e.ni.pinned) pin.push(e); else non.push(e); });
     return { pinnedItems: pin, nonPinnedItems: non };
   }, [filtered]);
   var pinnedItems = _splitPinned.pinnedItems;
@@ -1690,7 +1655,6 @@ function NewsHistoryView(_ref_nhv) {
     return dates.map(function(d) { return { date: d, items: groups[d] }; });
   }, [nonPinnedItems, sortDir]);
 
-  
   var allCustomTagOptions = useMemo(function() {
     var s = new Set();
     if (custom.cats && typeof custom.cats === "object") {
@@ -1699,80 +1663,38 @@ function NewsHistoryView(_ref_nhv) {
       });
     }
     (custom.tags || []).forEach(function(t) { if (t) s.add(t); });
-    
     return Array.from(s).sort(function(a, b) { return a.localeCompare(b, "ja"); });
   }, [custom.cats, custom.tags]);
 
-  
   var pool = makeTagPoolHandlers(data, save, custom);
-  
   var catTagPool = useMemo(function() {
     return { cats: custom.cats || {}, tags: custom.tags || [] };
   }, [custom.cats, custom.tags]);
 
-  
-  var togPin = function(date, niId) {
-    _nhvUpdateNi(save, date, selCat, niId, function(n) {
-      return { pinned: !n.pinned };
-    });
+  var togPin = function(date, cat, niId) {
+    _nhvUpdateNi(save, date, cat, niId, function(n) { return { pinned: !n.pinned }; });
   };
-  
-  var togStar = function(date, niId) {
-    _nhvUpdateNi(save, date, selCat, niId, function(n) {
-      return { starred: !n.starred };
-    });
-  };
-  
-  var setNiSubCat = function(date, niId, newSubCat) {
-    if (newSubCat) {
-      _nhvUpdateNi(save, date, selCat, niId, { subCat: newSubCat });
-    } else {
-      
-      save(function(prevData) {
-        var prevDd = (prevData.trades && prevData.trades[date]) || {};
-        var prevAllCats = getAllNewsCatsData(prevDd);
-        var prevCatData = prevAllCats[selCat] || { newsItems: [] };
-        var prevItems = prevCatData.newsItems || [];
-        var newItems = prevItems.map(function(n) {
-          if (n.id !== niId) return n;
-          var nn = Object.assign({}, n);
-          delete nn.subCat;
-          return nn;
-        });
-        var newCatData = Object.assign({}, prevCatData, { newsItems: newItems });
-        var newCats = Object.assign({}, prevAllCats);
-        newCats[selCat] = newCatData;
-        var newDd = Object.assign({}, prevDd, { newsCats: newCats });
-        var newTrades = Object.assign({}, prevData.trades || {});
-        newTrades[date] = newDd;
-        return Object.assign({}, prevData, { trades: newTrades });
-      });
-    }
-  };
-  
-  var togNiTag = function(date, niId, tag) {
-    _nhvUpdateNi(save, date, selCat, niId, function(n) {
+  var togNiTag = function(date, cat, niId, tag) {
+    _nhvUpdateNi(save, date, cat, niId, function(n) {
       var t = n.tags || [];
       return { tags: t.indexOf(tag) >= 0 ? t.filter(function(x){ return x !== tag; }) : t.concat([tag]) };
     });
   };
-  
-  var addNiTag = function(date, niId, name, cat) {
+  var addNiTag = function(date, cat, niId, name, catName) {
     var nm = (name || "").trim();
     if (!nm) return;
-    var tag = cat ? (cat + ":" + nm) : ("カスタム:" + nm);
+    var tag = catName ? (catName + ":" + nm) : ("カスタム:" + nm);
     save(function(prevData) {
       var prevCustom = prevData.custom || {};
       var cur = prevCustom.cats || {};
       var nc = prevCustom;
-      if (cat) {
-        if (!(cur[cat] || []).includes(nm)) {
+      if (catName) {
+        if (!(cur[catName] || []).includes(nm)) {
           nc = Object.assign({}, prevCustom, {
-            cats: Object.assign({}, cur, _defineProperty({}, cat, (cur[cat] || []).concat([nm])))
+            cats: Object.assign({}, cur, _defineProperty({}, catName, (cur[catName] || []).concat([nm])))
           });
         }
       } else {
-        
         var customCatArr = cur["カスタム"] || [];
         if (!customCatArr.includes(nm)) {
           nc = Object.assign({}, prevCustom, {
@@ -1782,7 +1704,7 @@ function NewsHistoryView(_ref_nhv) {
       }
       var prevDd = (prevData.trades && prevData.trades[date]) || {};
       var prevAllCats = getAllNewsCatsData(prevDd);
-      var prevCatData = prevAllCats[selCat] || {};
+      var prevCatData = prevAllCats[cat] || {};
       var prevItems = prevCatData.newsItems || [];
       var newItems = prevItems.map(function(n) {
         if (n.id !== niId) return n;
@@ -1790,112 +1712,100 @@ function NewsHistoryView(_ref_nhv) {
         return Object.assign({}, n, { tags: t.indexOf(tag) >= 0 ? t : t.concat([tag]) });
       });
       var newCats = Object.assign({}, prevAllCats);
-      newCats[selCat] = Object.assign({}, prevCatData, { newsItems: newItems });
+      newCats[cat] = Object.assign({}, prevCatData, { newsItems: newItems });
       var newDd = Object.assign({}, prevDd, { newsCats: newCats });
       var newTrades = Object.assign({}, prevData.trades || {});
       newTrades[date] = newDd;
       return Object.assign({}, prevData, { custom: nc, trades: newTrades });
     });
   };
-  
-  var delNi = function(date, niId) {
+  var delNi = function(date, cat, niId) {
     window._snConfirm("このニュースを削除しますか?").then(function(_ok){ if(!_ok) return;
-    _nhvDeleteNi(save, date, selCat, niId);
+      _nhvDeleteNi(save, date, cat, niId);
     });
   };
-  
-  var addImgToNi = function(date, niId, img) {
+  // 保存をやめる＝keep ごと外す（一覧から消えるだけで、記事本体はその日のボードに残る）。
+  var unkeepNi = function(date, cat, niId) {
+    window._snConfirm("この記事の「保存」を解除しますか？\n記事自体はその日のニュース欄に残りますが、画像の自動削除の対象に戻ります。").then(function(_ok){ if(!_ok) return;
+      save(function(prevData) {
+        var prevDd = (prevData.trades && prevData.trades[date]) || {};
+        var prevAllCats = getAllNewsCatsData(prevDd);
+        var prevCatData = prevAllCats[cat] || { newsItems: [] };
+        var newItems = (prevCatData.newsItems || []).map(function(n) {
+          if (n.id !== niId || !n.keep) return n;
+          var nn = Object.assign({}, n); delete nn.keep; return nn;
+        });
+        var newCats = Object.assign({}, prevAllCats);
+        newCats[cat] = Object.assign({}, prevCatData, { newsItems: newItems });
+        var newTrades = Object.assign({}, prevData.trades || {});
+        newTrades[date] = Object.assign({}, prevDd, { newsCats: newCats });
+        return Object.assign({}, prevData, { trades: newTrades });
+      });
+    });
+  };
+  var addImgToNi = function(date, cat, niId, img) {
     if (!img) return;
-    _nhvUpdateNi(save, date, selCat, niId, function(n) {
-      return { images: (n.images || []).concat([img]) };
-    });
+    _nhvUpdateNi(save, date, cat, niId, function(n) { return { images: (n.images || []).concat([img]) }; });
   };
-  
-  var delImgFromNi = function(date, niId, idx) {
-    _nhvUpdateNi(save, date, selCat, niId, function(n) {
+  var delImgFromNi = function(date, cat, niId, idx) {
+    _nhvUpdateNi(save, date, cat, niId, function(n) {
       return { images: (n.images || []).filter(function(_, j){ return j !== idx; }) };
     });
   };
-  
-  var updImgInNi = function(date, niId, idx, ed) {
-    _nhvUpdateNi(save, date, selCat, niId, function(n) {
+  var updImgInNi = function(date, cat, niId, idx, ed) {
+    _nhvUpdateNi(save, date, cat, niId, function(n) {
       var a = (n.images || []).slice();
       a[idx] = ed;
       return { images: a };
     });
   };
 
-  
-  var todayStr = (function(){ var d=new Date(); var y=d.getFullYear(); var m=("0"+(d.getMonth()+1)).slice(-2); var dd2=("0"+d.getDate()).slice(-2); return y+"-"+m+"-"+dd2; })();
-  var addToToday = function() {
-    
-    var defaults = (custom.newsCatDefaults && Array.isArray(custom.newsCatDefaults[selCat])) ? custom.newsCatDefaults[selCat] : [];
-    var subCat = null;
-    var subDefaults = [];
-    if (hasSubCats && activeSubCat !== "__all__" && activeSubCat !== "__none__") {
-      subCat = activeSubCat;
-      var key = selCat + "::" + activeSubCat;
-      if (custom.newsSubCatDefaults && Array.isArray(custom.newsSubCatDefaults[key])) {
-        subDefaults = custom.newsSubCatDefaults[key];
-      }
-    }
-    var seen = {};
-    var mergedTags = [];
-    [].concat(defaults, subDefaults).forEach(function(t) {
-      if (t && !seen[t]) { seen[t] = true; mergedTags.push(t); }
-    });
-    var item = { id: Date.now(), text: "", images: [], tags: mergedTags };
-    if (subCat) item.subCat = subCat;
-    _nhvAddNiToDate(save, todayStr, selCat, item);
-    
-    setTimeout(function(){ try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch(e){} }, 50);
-  };
-
-  
   var pageStyle = { padding: "10px 4px 80px", maxWidth: 1080, margin: "0 auto" };
-  var btnPrimary = { padding: "8px 12px", fontSize: 13, fontWeight: 700,
-    background: "#1a1a1a", color: "#fff", border: "1.5px solid #1a1a1a",
-    borderRadius: 7, cursor: "pointer", minHeight: IS_TOUCH ? 44 : 36 };
   var btnGhost = { padding: "8px 12px", fontSize: 13, fontWeight: 700,
     background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 7,
     cursor: "pointer", minHeight: IS_TOUCH ? 44 : 36 };
+  var pill = function(on, accent) {
+    return { padding: "5px 10px", fontSize: 12, fontWeight: on ? 700 : 600,
+      background: on ? accent : "#fff", color: on ? "#fff" : "#555",
+      border: "1px solid " + (on ? accent : "#ddd"), borderRadius: 5,
+      cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 };
+  };
 
-  
-  var renderCard = function(date, ni) {
+  var renderCard = function(e) {
+    var date = e.date, cat = e.cat, ni = e.ni;
     var imgs = ni.images || [];
     var niTags = ni.tags || [];
     var cardW = IS_TOUCH ? 240 : 220;
-    
+    var kCat = ni.keep.cat || "", kSub = ni.keep.sub || "";
+    var kStocks = _snNiKeepStocks(ni);
     var stockSet = {}, stockList = [];
+    kStocks.forEach(function(s) { if (s && !stockSet[s]) { stockSet[s] = true; stockList.push(s); } });
     niTags.forEach(function(t) {
       var s = _ntExtractStockFromTag(t, allStocks);
       if (s && !stockSet[s]) { stockSet[s] = true; stockList.push(s); }
     });
     return React.createElement("div", {
-      key: date + "_" + ni.id,
+      key: date + "_" + cat + "_" + ni.id,
       style: { position: "relative", background: "#f8f7f4", borderRadius: 10,
         border: ni.pinned ? "1.5px solid #F59E0B" : "1px solid #e8e5df",
         flexShrink: 0, width: cardW, overflow: "hidden" }
     },
-      
       React.createElement("button", {
-        onClick: function(){ togPin(date, ni.id); },
+        onClick: function(){ togPin(date, cat, ni.id); },
         title: ni.pinned ? "ピン留めを外す" : "ピン留め",
         style: { position: "absolute", top: 4, left: 4, width: 24, height: 24,
           borderRadius: "50%", background: ni.pinned ? "#F59E0B" : "rgba(0,0,0,0.35)",
           color: "#fff", border: "none", fontSize: 12, cursor: "pointer", fontWeight: 700,
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
       }, ni.pinned ? "★" : "☆"),
-      
       React.createElement("button", {
-        onClick: function(){ delNi(date, ni.id); },
+        onClick: function(){ delNi(date, cat, ni.id); },
         title: "削除",
         style: { position: "absolute", top: 4, right: 4, width: 22, height: 22,
           borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff",
           border: "none", fontSize: 12, cursor: "pointer", fontWeight: 700,
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
       }, "✕"),
-      
       React.createElement("button", {
         onClick: function(){ if (onSelectDate) onSelectDate(date, "news"); },
         title: date + " のニュース欄を開く",
@@ -1904,138 +1814,123 @@ function NewsHistoryView(_ref_nhv) {
           border: "none", fontSize: 11, cursor: "pointer", fontWeight: 700,
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
       }, "↗"),
-      
       React.createElement(ImgGrid, {
         images: imgs,
-        maxHeight: 280,
         boxed: true,
-        onRemove: function(i) { delImgFromNi(date, ni.id, i); },
+        onRemove: function(i) { delImgFromNi(date, cat, ni.id, i); },
         onEnlarge: function(i) {
           setViewTarget({ imgs: imgs, idx: i,
-            onUpdate: function(i2, ed) { updImgInNi(date, ni.id, i2, ed); }
+            onUpdate: function(i2, ed) { updImgInNi(date, cat, ni.id, i2, ed); }
           });
         },
-        onUpdateImg: function(i, ed) { updImgInNi(date, ni.id, i, ed); },
-        onToggleStar: function(i) { updImgInNi(date, ni.id, i, Object.assign({}, imgs[i], { star: !(imgs[i] && imgs[i].star) })); }
+        onUpdateImg: function(i, ed) { updImgInNi(date, cat, ni.id, i, ed); }
       }),
-      
       React.createElement("div", { style: { padding: "6px 8px" } },
-        
         React.createElement("div", {
           style: { fontSize: 10, color: "#888", marginBottom: 4, fontWeight: 600 }
         }, date + " (" + DAYS_JP[new Date(date + "T00:00:00").getDay()] + ")"),
-        
-        stockList.length > 0 && onJumpToStock && React.createElement("div", {
+        React.createElement("div", {
+          style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 5 }
+        },
+          React.createElement("span", {
+            title: "保存時の分類",
+            style: { fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+              background: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }
+          }, "\uD83D\uDD16 " + (kCat ? (kCat + (kSub ? " › " + kSub : "")) : "未分類")),
+          React.createElement("button", {
+            onClick: function(){ unkeepNi(date, cat, ni.id); },
+            title: "保存を解除する",
+            style: { fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 4,
+              background: "#fff", color: "#999", border: "1px solid #ddd", cursor: "pointer" }
+          }, "解除")
+        ),
+        ni.text ? React.createElement("div", {
+          style: { fontSize: 11, color: "#444", lineHeight: 1.6, marginBottom: 5,
+            maxHeight: 96, overflow: "auto", wordBreak: "break-word" },
+          dangerouslySetInnerHTML: { __html: ni.text }
+        }) : null,
+        stockList.length > 0 && onJumpToStock ? React.createElement("div", {
           style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 5 }
         }, stockList.map(function(s) {
           return React.createElement("button", {
             key: "jmp_" + date + "_" + ni.id + "_" + s,
-            onClick: function(e){ if (e&&e.stopPropagation) e.stopPropagation(); onJumpToStock(s); },
+            onClick: function(ev){ if (ev&&ev.stopPropagation) ev.stopPropagation(); onJumpToStock(s); },
             title: s + " の銘柄記録を見る",
             style: { fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4,
               background: "#EEF2FF", color: "#4F46E5", border: "1px solid #C7D2FE",
               cursor: "pointer", whiteSpace: "nowrap" }
           }, "→ " + s);
-        })),
-        
-        hasSubCats && React.createElement("div", {
-          style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 5, fontSize: 10 }
-        },
-          React.createElement("span", { style: { color: "#999", fontWeight: 600, flexShrink: 0 } }, "📂"),
-          React.createElement("select", {
-            value: ni.subCat || "",
-            onChange: function(e) { setNiSubCat(date, ni.id, e.target.value || null); },
-            onClick: function(e) { e.stopPropagation(); },
-            style: { fontSize: 11, padding: "2px 4px", border: "1px solid #ddd",
-              borderRadius: 4, background: "#fff", color: "#444",
-              flex: 1, minWidth: 0, cursor: "pointer" }
-          },
-            React.createElement("option", { value: "" }, "(未分類)"),
-            subCatsForCur.map(function(sc) {
-              return React.createElement("option", { key: sc, value: sc }, sc);
-            })
-          )
-        ),
-        
-        React.createElement("div", {
-          style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }
-        },
-          React.createElement("button", {
-            onClick: function(e) { e.stopPropagation(); togStar(date, ni.id); },
-            title: ni.starred ? "★を外す" : "★をつける",
-            style: { padding: 0, border: "none", background: "none", cursor: "pointer",
-              fontSize: 14, lineHeight: 1, color: ni.starred ? "#E53935" : "#ccc", flexShrink: 0 }
-          }, "★")
-        ),
-        
+        })) : null,
         React.createElement(TagPicker, _extends({
           cats: catTagPool.cats, tags: catTagPool.tags, sel: niTags,
-          onToggle: function(tag) { togNiTag(date, ni.id, tag); },
-          onAdd: function(name, cat) { addNiTag(date, ni.id, name, cat); }
+          onToggle: function(tag) { togNiTag(date, cat, ni.id, tag); },
+          onAdd: function(name, c2) { addNiTag(date, cat, ni.id, name, c2); }
         }, pool, { tagColors: custom.tagColors || {}, label: "材料タグ", hideAddRoot: true })),
-        
         React.createElement(PasteZone, {
-          onImage: function(img){ addImgToNi(date, ni.id, img); },
+          onImage: function(img){ addImgToNi(date, cat, ni.id, img); },
           compact: true
         })
       )
     );
   };
 
-  
   return React.createElement("div", { style: pageStyle },
-    
     React.createElement("div", {
       style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }
     },
       React.createElement("button", { onClick: onBack, style: btnGhost }, "← 戻る"),
-      React.createElement("div", { style: { fontSize: 17, fontWeight: 700, flex: 1 } }, "📰 ニュース一覧")
+      React.createElement("div", { style: { fontSize: 17, fontWeight: 700, flex: 1 } }, "\uD83D\uDCF0 ニュース一覧（保存済み）")
     ),
-    
     React.createElement("div", {
-      style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }
-    }, newsCategories.map(function(cat) {
-      var active = cat === selCat;
-      var cnt = catCounts[cat] || 0;
-      return React.createElement("button", {
-        key: cat,
-        onClick: function(){ setSelCat(cat); },
-        style: { padding: "7px 11px", fontSize: 13, fontWeight: 700,
-          background: active ? "#1a1a1a" : "#fff",
-          color: active ? "#fff" : "#444",
-          border: active ? "1.5px solid #1a1a1a" : "1px solid #ddd",
-          borderRadius: 6, cursor: "pointer",
-          minHeight: IS_TOUCH ? 40 : 32 }
-      }, cat + " (" + cnt + ")");
-    })),
-    
-    hasSubCats && React.createElement("div", {
-      style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8,
-        paddingLeft: 6, borderLeft: "3px solid #C7D2FE" }
-    },
-      [{ key: "__all__", label: "すべて" }, { key: "__none__", label: "未分類" }]
-        .concat(subCatsForCur.map(function(sc){ return { key: sc, label: sc }; }))
-        .map(function(opt) {
-          var active = activeSubCat === opt.key;
-          var cnt = subCatCounts[opt.key] || 0;
-          return React.createElement("button", {
-            key: opt.key,
-            onClick: function(){ setActiveSubCat(opt.key); },
-            style: { padding: "5px 10px", fontSize: 12, fontWeight: 600,
-              background: active ? "#16A34A" : "#fff",
-              color: active ? "#fff" : "#555",
-              border: active ? "1.5px solid #16A34A" : "1px solid #ddd",
-              borderRadius: 5, cursor: "pointer",
-              minHeight: IS_TOUCH ? 36 : 28 }
-          }, opt.label + " (" + cnt + ")");
-        })
+      style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 10 }
+    }, "「この記事を保存」した記事だけが並びます。保存した記事は画像も自動削除されません。"),
+    React.createElement("div", { style: { marginBottom: 8 } },
+      React.createElement("div", { style: { fontSize: 11, color: "#888", fontWeight: 700, marginBottom: 4 } }, "カテゴリ"),
+      React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
+        [{ k: "__all__", la: "すべて" }, { k: "__none__", la: "未分類" }]
+          .concat(newsCategories.map(function(c){ return { k: c, la: c }; }))
+          .map(function(o) {
+            return React.createElement("button", {
+              key: "nhvc_" + o.k,
+              onClick: function(){ setSelCat(o.k); },
+              style: pill(selCat === o.k, o.k === "__none__" ? "#888" : "#1a1a1a")
+            }, o.la + " (" + (catCounts[o.k] || 0) + ")");
+          })
+      )
     ),
-    
+    subOptions.length > 0 ? React.createElement("div", { style: { marginBottom: 8, paddingLeft: 6, borderLeft: "3px solid #C7D2FE" } },
+      React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4 } },
+        [{ k: "__all__", la: "すべて" }, { k: "__none__", la: "サブなし" }]
+          .concat(subOptions.map(function(s){ return { k: s, la: s }; }))
+          .map(function(o) {
+            return React.createElement("button", {
+              key: "nhvs_" + o.k,
+              onClick: function(){ setSelSub(o.k); },
+              style: pill(selSub === o.k, "#16A34A")
+            }, o.la + " (" + (subCounts[o.k] || 0) + ")");
+          })
+      )
+    ) : null,
+    React.createElement("div", { style: { marginBottom: 10 } },
+      React.createElement("div", { style: { fontSize: 11, color: "#888", fontWeight: 700, marginBottom: 4 } }, "銘柄"),
+      React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
+        [{ k: "__all__", la: "すべて" }, { k: "__none__", la: "銘柄なし" }]
+          .concat(stockOptions.map(function(s){ return { k: s, la: s }; }))
+          .map(function(o) {
+            var cnt = stockCounts[o.k] || 0;
+            if (o.k !== "__all__" && o.k !== "__none__" && cnt === 0) return null;
+            return React.createElement("button", {
+              key: "nhvst_" + o.k,
+              onClick: function(){ setSelStock(o.k); },
+              style: pill(selStock === o.k, o.k === "__none__" ? "#888" : "#4F46E5")
+            }, o.la + " (" + cnt + ")");
+          })
+      )
+    ),
     React.createElement("div", {
       style: { background: "#fafaf7", border: "1px solid #e8e5df", borderRadius: 8,
         padding: 8, marginBottom: 10 }
     },
-      
       React.createElement("div", {
         style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }
       },
@@ -2044,7 +1939,7 @@ function NewsHistoryView(_ref_nhv) {
           value: keyword,
           onChange: function(v){ setKeyword(v); },
           debounceMs: 200,
-          placeholder: "\uD83D\uDD0D \u672C\u6587\u30FB\u30BF\u30B0\u691C\u7D22",
+          placeholder: "\uD83D\uDD0D 本文・タグ検索",
           style: { flex: 1, minWidth: 140, padding: "6px 8px", fontSize: 13,
             border: "1px solid #ddd", borderRadius: 5, minHeight: IS_TOUCH ? 36 : 30 }
         }),
@@ -2059,11 +1954,10 @@ function NewsHistoryView(_ref_nhv) {
           React.createElement("option", { value: "asc" }, "古→新")
         )
       ),
-      
       React.createElement("div", {
-        style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }
+        style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }
       },
-        React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 700 } }, "📅"),
+        React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 700 } }, "\uD83D\uDCC5"),
         React.createElement("input", {
           type: "date", value: dateFrom,
           onChange: function(e){ setDateFrom(e.target.value); },
@@ -2084,34 +1978,21 @@ function NewsHistoryView(_ref_nhv) {
             color: showTagFilter ? "#fff" : (selTags.size > 0 ? "#4338CA" : "#555"),
             border: "1px solid " + (showTagFilter ? "#6366F1" : (selTags.size > 0 ? "#C7D2FE" : "#ddd")),
             borderRadius: 5, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
-        }, "🏷️ タグ絞込" + (selTags.size > 0 ? " (" + selTags.size + ")" : "")),
+        }, "\uD83C\uDFF7️ タグ絞込" + (selTags.size > 0 ? " (" + selTags.size + ")" : "")),
         React.createElement("button", {
           onClick: function(){ setPinnedOnly(!pinnedOnly); },
-          style: { padding: "5px 10px", fontSize: 12, fontWeight: 700,
-            background: pinnedOnly ? "#F59E0B" : "#fff",
-            color: pinnedOnly ? "#fff" : "#555",
-            border: "1px solid " + (pinnedOnly ? "#F59E0B" : "#ddd"),
-            borderRadius: 5, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
+          style: pill(pinnedOnly, "#F59E0B")
         }, "★ ピンのみ"),
-        React.createElement("button", {
-          onClick: function(){ setStarredOnly(!starredOnly); },
-          style: { padding: "5px 10px", fontSize: 12, fontWeight: 700,
-            background: starredOnly ? "#E53935" : "#fff",
-            color: starredOnly ? "#fff" : "#555",
-            border: "1px solid " + (starredOnly ? "#E53935" : "#ddd"),
-            borderRadius: 5, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
-        }, "★ 星のみ" + (starredCount > 0 ? " (" + starredCount + ")" : "")),
-        hasAnyFilter && React.createElement("button", {
+        hasAnyFilter ? React.createElement("button", {
           onClick: clearAllFilter,
           style: { padding: "5px 10px", fontSize: 11, fontWeight: 600,
             background: "#fff", color: "#DC2626",
             border: "1px solid #FCA5A5", borderRadius: 5, cursor: "pointer",
             minHeight: IS_TOUCH ? 36 : 28 }
-        }, "✕ 絞込クリア")
+        }, "✕ 絞込クリア") : null
       ),
-      
-      showTagFilter && React.createElement("div", {
-        style: { borderTop: "1px solid #e8e5df", paddingTop: 6, marginTop: 4 }
+      showTagFilter ? React.createElement("div", {
+        style: { borderTop: "1px solid #e8e5df", paddingTop: 6, marginTop: 6 }
       },
         allCustomTagOptions.length === 0
           ? React.createElement("div", { style: { fontSize: 11, color: "#999", padding: 6 } }, "(タグ候補がありません)")
@@ -2129,27 +2010,16 @@ function NewsHistoryView(_ref_nhv) {
                 }, stripCat(t));
               })
             )
-      )
+      ) : null
     ),
-    
     React.createElement("div", {
       style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }
     },
       React.createElement("div", {
         style: { fontSize: 12, color: "#555", fontWeight: 600 }
-      }, "📊 " + totalCount + "件" + (pinnedCount > 0 ? " (うちピン " + pinnedCount + "件)" : "")),
-      React.createElement("div", { style: { flex: 1 } }),
-      React.createElement("button", {
-        onClick: addToToday,
-        title: "現在のカテゴリ・サブタブで今日の日付に新規ニュースを追加",
-        style: { padding: "6px 12px", fontSize: 12, fontWeight: 700,
-          background: "#1a1a1a", color: "#fff",
-          border: "1.5px solid #1a1a1a", borderRadius: 6, cursor: "pointer",
-          minHeight: IS_TOUCH ? 40 : 32 }
-      }, "+ 今日に追加")
+      }, "\uD83D\uDCCA " + totalCount + "件" + (pinnedCount > 0 ? " (うちピン " + pinnedCount + "件)" : ""))
     ),
-    
-    pinnedItems.length > 0 && React.createElement("div", {
+    pinnedItems.length > 0 ? React.createElement("div", {
       style: { marginBottom: 14 }
     },
       React.createElement("div", {
@@ -2160,18 +2030,15 @@ function NewsHistoryView(_ref_nhv) {
       React.createElement("div", {
         style: { display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch",
           gap: 10, paddingBottom: 8, alignItems: "flex-start" }
-      }, pinnedItems.map(function(e) {
-        return renderCard(e.date, e.ni);
-      }))
-    ),
-    
-    groupedByDate.length === 0 && pinnedItems.length === 0
+      }, pinnedItems.map(function(e) { return renderCard(e); }))
+    ) : null,
+    (groupedByDate.length === 0 && pinnedItems.length === 0)
       ? React.createElement("div", {
           style: { padding: 30, textAlign: "center", color: "#999", fontSize: 13,
             background: "#fafaf7", border: "1px dashed #ddd", borderRadius: 8 }
         }, hasAnyFilter
-          ? "絞込条件に一致するニュースがありません。"
-          : "このカテゴリにはまだニュースが記録されていません。")
+          ? "絞込条件に一致する保存記事がありません。"
+          : "まだ保存した記事がありません。日々のニュース欄のカードで「この記事を保存」を押すとここに残ります。")
       : groupedByDate.map(function(grp) {
           var dow = DAYS_JP[new Date(grp.date + "T00:00:00").getDay()];
           return React.createElement("div", {
@@ -2185,7 +2052,7 @@ function NewsHistoryView(_ref_nhv) {
             },
               React.createElement("div", {
                 style: { fontSize: 13, fontWeight: 700, color: "#1a1a1a" }
-              }, "📅 " + grp.date + " (" + dow + ")"),
+              }, "\uD83D\uDCC5 " + grp.date + " (" + dow + ")"),
               React.createElement("div", {
                 style: { fontSize: 11, color: "#888", fontWeight: 600 }
               }, grp.items.length + "件"),
@@ -2200,12 +2067,9 @@ function NewsHistoryView(_ref_nhv) {
             React.createElement("div", {
               style: { display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch",
                 gap: 10, paddingBottom: 8, alignItems: "flex-start" }
-            }, grp.items.map(function(e) {
-              return renderCard(e.date, e.ni);
-            }))
+            }, grp.items.map(function(e) { return renderCard(e); }))
           );
         }),
-    
     viewTarget && (function() {
       var vt = viewTarget;
       var imgs = vt.imgs || [];
@@ -2231,10 +2095,6 @@ function NewsHistoryView(_ref_nhv) {
     })()
   );
 }
-
-
-
-
 
 
 
@@ -4359,10 +4219,9 @@ function StockHistoryView(_ref_shv) {
             return false;
           });
           
-          if (!match) {
-            if (catMainHit) match = true;
-            else if (ni.subCat && extraCatPairSet.has(cat + "::" + ni.subCat)) match = true;
-          }
+          if (!match && _snNiCatHit(ni, cat, extraCatMainSet, extraCatPairSet)) match = true;
+          // 2026-08-03e 保存シートで銘柄を選んだ記事も関連ニュースとして拾う（旧 stockSubCatRefs の置き換え）
+          if (!match && _snNiKeepStocks(ni).indexOf(selStock) >= 0) match = true;
           if (match) ensure(dt).news.push({ ni: ni, cat: cat });
         });
       });
@@ -4603,8 +4462,8 @@ function StockHistoryView(_ref_shv) {
         var anyCatMatch = false;
         e.news.forEach(function(nx) {
           if (anyCatMatch) return;
-          if (selCats.has(nx.cat)) { anyCatMatch = true; return; }
-          if (nx.ni.subCat && selCats.has(nx.cat + "::" + nx.ni.subCat)) anyCatMatch = true;
+          // 2026-08-03e 分類の正本は記事の keep。旧・保存キーのカテゴリ／旧 ni.subCat も併せて見る（_snNiCatHit）。
+          if (_snNiCatHit(nx.ni, nx.cat, selCats, selCats)) anyCatMatch = true;
         });
         if (!anyCatMatch) return false;
       }

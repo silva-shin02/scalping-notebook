@@ -899,7 +899,7 @@ function App() {
         var _msg = "ニュース画像の自動削除がオンになっています。\n\n"
           + (r.count ? ("追加から" + label + "を過ぎたニュース画像 " + r.count + "枚 を削除します。\n") : "")
           + (r.emptied ? ("画像が消えて空になったニュース枠 " + r.emptied + "件 を削除します（本文・タグが入っている枠は残ります）。\n") : "")
-          + "「保存済み」にした画像は残ります。テキスト・タグ・記録は消えません。\n\n削除しますか？（設定でオフ／期間変更できます）";
+          + "「この記事を保存」した記事は、画像もまとめて残ります。テキスト・タグ・記録は消えません。\n\n削除しますか？（設定でオフ／期間変更できます）";
         window._snConfirm(_msg).then(function(_ok){
           if (!_ok) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
           localStorage.setItem("sn_news_autoprune_ack_v1", "1");
@@ -1367,7 +1367,7 @@ function App() {
   // ※履歴トークン"stockhistory"は戻る/進むでの復元用でURLから直接は開けない。
   React.createElement("button", {
     onClick: function() { setShowNewsHistory(true); },
-    title: "ニュース一覧（カテゴリ·サブタブごとに時系列閲覧）",
+    title: "ニュース一覧（「この記事を保存」した記事をカテゴリ・銘柄で絞り込み）",
     style: {
       padding: "8px 12px",
       fontSize: 12,

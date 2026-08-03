@@ -1605,119 +1605,314 @@ function _RenameRow(_ref_rr) {
     }, "\u9069\u7528")
   );
 }
-function NewsCatTabs(_ref35) {
-  var cats = _ref35.cats,
-    active = _ref35.active,
-    onSelect = _ref35.onSelect,
-    _onAdd2 = _ref35.onAdd,
-    onDel = _ref35.onDel,
-    onMgmt = _ref35.onMgmt,
-    hasData = _ref35.hasData,
-    isOrphan = _ref35.isOrphan;
-  var _useState111 = useState(null),
-    _useState112 = _slicedToArray(_useState111, 2),
-    delTarget = _useState112[0],
-    setDelTarget = _useState112[1];
-  return React.createElement("div", {
-    style: {
-      marginBottom: 12
-    }
-  }, delTarget && React.createElement(DeleteDlg, {
-    msg: "「" + delTarget + "」を一覧から外しますか？\n過去のデータは保持されます。",
-    onOk: function onOk() {
-      onDel(delTarget);
-      setDelTarget(null);
-    },
-    onCancel: function onCancel() {
-      return setDelTarget(null);
-    }
-  }), React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 5,
-      alignItems: "center",
-      overflowX: "auto",
-      paddingBottom: 6
-    }
-  }, cats.map(function (cat) {
-    var orphan = isOrphan && isOrphan(cat);
-    var isActive = active === cat;
-    return React.createElement("button", {
-      key: cat,
-      onClick: function onClick() {
-        return onSelect(cat);
+// 2026-08-03e ニュースの分類（カテゴリ／サブ）の管理。日々のボードからタブを全廃したので、
+// 追加・改名・削除・並べ替えはここ（設定画面）に集約する。記事への分類付け自体はカードの「この記事を保存」シート側。
+// 分類の正本は記事の keep{cat,sub} なので、改名／削除は keep も追従させる
+// ＝分類が黙って消えたり、存在しない名前を指したままにならないように。
+// カテゴリ名は保存キー trades[日付].newsCats[カテゴリ] でもあるので、改名時は中身も引っ越す（旧キーに残さない）。
+function _ncsMapNewsItems(prevData, fn) {
+  var newTrades = Object.assign({}, prevData.trades || {});
+  var changed = false;
+  Object.keys(newTrades).forEach(function(dt) {
+    var dd = newTrades[dt];
+    if (!dd || !dd.newsCats || typeof dd.newsCats !== "object") return;
+    var nc = {}, ddCh = false;
+    Object.keys(dd.newsCats).forEach(function(c) {
+      var cd = dd.newsCats[c];
+      if (!cd || typeof cd !== "object" || !Array.isArray(cd.newsItems)) { nc[c] = cd; return; }
+      var chg = false;
+      var arr = cd.newsItems.map(function(ni) {
+        var u = fn(ni, c);
+        if (!u || u === ni) return ni;
+        chg = true; return u;
+      });
+      if (chg) { nc[c] = Object.assign({}, cd, { newsItems: arr }); ddCh = true; } else nc[c] = cd;
+    });
+    if (ddCh) { newTrades[dt] = Object.assign({}, dd, { newsCats: nc }); changed = true; }
+  });
+  return changed ? Object.assign({}, prevData, { trades: newTrades }) : prevData;
+}
+function NewsClassSettings(_ref_ncs) {
+  var data = _ref_ncs.data, save = _ref_ncs.save;
+  var custom = (data && data.custom) || {};
+  var cats = (custom.newsCategories && custom.newsCategories.length > 0) ? custom.newsCategories : _DEF_NEWS_CATS_FROZEN;
+  var subsMap = custom.newsSubCats || {};
+  var _uOC = useState(""), _uOCS = _slicedToArray(_uOC, 2), openCat = _uOCS[0], setOpenCat = _uOCS[1];
+  var _uNC = useState(""), _uNCS = _slicedToArray(_uNC, 2), newCatName = _uNCS[0], setNewCatName = _uNCS[1];
+  var _uNS = useState(""), _uNSS = _slicedToArray(_uNS, 2), newSubName = _uNSS[0], setNewSubName = _uNSS[1];
+  var _uRN = useState(null), _uRNS = _slicedToArray(_uRN, 2), renTarget = _uRNS[0], setRenTarget = _uRNS[1];
+  var _uRV = useState(""), _uRVS = _slicedToArray(_uRV, 2), renValue = _uRVS[0], setRenValue = _uRVS[1];
+
+  // 分類ごとの「保存済み記事」件数。削除していい名前かどうかの判断材料になるので見せる。
+  var counts = useMemo(function() {
+    var byCat = {}, bySub = {};
+    var trades = (data && data.trades) || {};
+    Object.keys(trades).forEach(function(dt) {
+      var dd = trades[dt]; if (!dd) return;
+      var all = getAllNewsCatsData(dd);
+      Object.keys(all).forEach(function(c) {
+        ((all[c] && all[c].newsItems) || []).forEach(function(ni) {
+          if (!_snNiKept(ni)) return;
+          var kc = ni.keep.cat || "", ks = ni.keep.sub || "";
+          if (kc) byCat[kc] = (byCat[kc] || 0) + 1;
+          if (kc && ks) bySub[kc + "::" + ks] = (bySub[kc + "::" + ks] || 0) + 1;
+        });
+      });
+    });
+    return { cat: byCat, sub: bySub };
+  }, [data && data.trades]);
+
+  var updCustom = function(nc) {
+    save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, nc) }); });
+  };
+  var addCat = function(name) {
+    var nm = (name || "").trim();
+    if (!nm || cats.indexOf(nm) >= 0) return;
+    updCustom({ newsCategories: cats.concat([nm]) });
+  };
+  var reorderCat = function(name, dir) {
+    var i = cats.indexOf(name); if (i < 0) return;
+    var j = i + dir; if (j < 0 || j >= cats.length) return;
+    var arr = cats.slice(); var tmp = arr[j]; arr[j] = arr[i]; arr[i] = tmp;
+    updCustom({ newsCategories: arr });
+  };
+  var renameCat = function(oldName, newName) {
+    var nm = (newName || "").trim();
+    if (!nm || nm === oldName || cats.indexOf(nm) >= 0) return false;
+    save(function(prevData) {
+      var pc = prevData.custom || {};
+      var newCats = (pc.newsCategories || []).map(function(c) { return c === oldName ? nm : c; });
+      var newSubs = Object.assign({}, pc.newsSubCats || {});
+      if (newSubs[oldName] != null) { newSubs[nm] = newSubs[oldName]; delete newSubs[oldName]; }
+      // 銘柄側の「このカテゴリも拾う」指定(shvExtraCats)も名前で持っているので追従させる
+      var pec = (pc.shvExtraCats && typeof pc.shvExtraCats === "object" && !Array.isArray(pc.shvExtraCats)) ? pc.shvExtraCats : {};
+      var nec = {}, pfx = oldName + "::";
+      Object.keys(pec).forEach(function(stk) {
+        var arr = (pec[stk] || []).map(function(k) {
+          if (k === oldName) return nm;
+          if (k.indexOf(pfx) === 0) return nm + "::" + k.slice(pfx.length);
+          return k;
+        });
+        if (arr.length) nec[stk] = arr;
+      });
+      // 保存キーを引っ越す。引っ越し先に既に中身があれば上書きせず newsItems をマージ（データ消失防止）。
+      var newTrades = Object.assign({}, prevData.trades || {});
+      Object.keys(newTrades).forEach(function(dt) {
+        var dd = newTrades[dt];
+        if (!dd || !dd.newsCats || dd.newsCats[oldName] == null) return;
+        var nc = Object.assign({}, dd.newsCats);
+        if (nc[nm] != null) {
+          nc[nm] = Object.assign({}, nc[nm], { newsItems: ((nc[nm] || {}).newsItems || []).concat((nc[oldName] || {}).newsItems || []) });
+        } else nc[nm] = nc[oldName];
+        delete nc[oldName];
+        newTrades[dt] = Object.assign({}, dd, { newsCats: nc });
+      });
+      var withTrades = Object.assign({}, prevData, { trades: newTrades });
+      var withKeep = _ncsMapNewsItems(withTrades, function(ni) {
+        if (!_snNiKept(ni) || ni.keep.cat !== oldName) return null;
+        return Object.assign({}, ni, { keep: Object.assign({}, ni.keep, { cat: nm }) });
+      });
+      return Object.assign({}, withKeep, {
+        custom: Object.assign({}, pc, { newsCategories: newCats, newsSubCats: newSubs, shvExtraCats: nec })
+      });
+    });
+    return true;
+  };
+  var delCat = function(name) {
+    // 一覧から外すだけ。過去の記事本体は trades 側に残す（ボードは串刺しなので引き続き見える）。
+    // ただし keep.cat は存在しない名前を指したままになるので未分類へ戻す。
+    save(function(prevData) {
+      var pc = prevData.custom || {};
+      var ns = (pc.newsCategories || []).filter(function(c) { return c !== name; });
+      var newSubs = Object.assign({}, pc.newsSubCats || {});
+      delete newSubs[name];
+      var pec = (pc.shvExtraCats && typeof pc.shvExtraCats === "object" && !Array.isArray(pc.shvExtraCats)) ? pc.shvExtraCats : {};
+      var nec = {}, pfx = name + "::";
+      Object.keys(pec).forEach(function(stk) {
+        var arr = (pec[stk] || []).filter(function(k) { return k !== name && k.indexOf(pfx) !== 0; });
+        if (arr.length) nec[stk] = arr;
+      });
+      var withKeep = _ncsMapNewsItems(prevData, function(ni) {
+        if (!_snNiKept(ni) || ni.keep.cat !== name) return null;
+        return Object.assign({}, ni, { keep: Object.assign({}, ni.keep, { cat: "", sub: "" }) });
+      });
+      return Object.assign({}, withKeep, {
+        custom: Object.assign({}, pc, {
+          newsCategories: ns.length > 0 ? ns : [].concat(DEF_NEWS_CATS),
+          newsSubCats: newSubs, shvExtraCats: nec
+        })
+      });
+    });
+  };
+  var subsOf = function(c) { return (subsMap && Array.isArray(subsMap[c])) ? subsMap[c] : []; };
+  var addSub = function(c, name) {
+    var nm = (name || "").trim();
+    if (!c || !nm || subsOf(c).indexOf(nm) >= 0) return;
+    var ns = Object.assign({}, subsMap); ns[c] = subsOf(c).concat([nm]);
+    updCustom({ newsSubCats: ns });
+  };
+  var reorderSub = function(c, name, dir) {
+    var arr = subsOf(c).slice();
+    var i = arr.indexOf(name); if (i < 0) return;
+    var j = i + dir; if (j < 0 || j >= arr.length) return;
+    var tmp = arr[j]; arr[j] = arr[i]; arr[i] = tmp;
+    var ns = Object.assign({}, subsMap); ns[c] = arr;
+    updCustom({ newsSubCats: ns });
+  };
+  var renameSub = function(c, oldName, newName) {
+    var nm = (newName || "").trim();
+    if (!c || !nm || nm === oldName || subsOf(c).indexOf(nm) >= 0) return false;
+    save(function(prevData) {
+      var pc = prevData.custom || {};
+      var ns = Object.assign({}, pc.newsSubCats || {});
+      ns[c] = (ns[c] || []).map(function(s) { return s === oldName ? nm : s; });
+      var withKeep = _ncsMapNewsItems(prevData, function(ni, itemCat) {
+        var hitKeep = _snNiKept(ni) && ni.keep.cat === c && ni.keep.sub === oldName;
+        var hitOld = (itemCat === c && ni && ni.subCat === oldName);
+        if (!hitKeep && !hitOld) return null;
+        var nn = Object.assign({}, ni);
+        if (hitKeep) nn.keep = Object.assign({}, ni.keep, { sub: nm });
+        if (hitOld) nn.subCat = nm;
+        return nn;
+      });
+      return Object.assign({}, withKeep, { custom: Object.assign({}, pc, { newsSubCats: ns }) });
+    });
+    return true;
+  };
+  var delSub = function(c, name) {
+    save(function(prevData) {
+      var pc = prevData.custom || {};
+      var ns = Object.assign({}, pc.newsSubCats || {});
+      var arr = (ns[c] || []).filter(function(s) { return s !== name; });
+      if (arr.length === 0) delete ns[c]; else ns[c] = arr;
+      var withKeep = _ncsMapNewsItems(prevData, function(ni, itemCat) {
+        var hitKeep = _snNiKept(ni) && ni.keep.cat === c && ni.keep.sub === name;
+        var hitOld = (itemCat === c && ni && ni.subCat === name);
+        if (!hitKeep && !hitOld) return null;
+        var nn = Object.assign({}, ni);
+        if (hitKeep) nn.keep = Object.assign({}, ni.keep, { sub: "" });
+        if (hitOld) delete nn.subCat;
+        return nn;
+      });
+      return Object.assign({}, withKeep, { custom: Object.assign({}, pc, { newsSubCats: ns }) });
+    });
+  };
+
+  var miniBtn = { padding: "2px 7px", fontSize: 11, fontWeight: 700, background: "#fff",
+    color: "#555", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer" };
+  var renderRen = function(kind, c, name) {
+    return React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginTop: 5 } },
+      React.createElement(FastInput, {
+        type: "text", value: renValue, debounceMs: 0, autoFocus: true,
+        onChange: function(v) { setRenValue(v); },
+        style: { flex: 1, minWidth: 120, padding: "5px 7px", fontSize: 13, border: "1px solid #ccc", borderRadius: 5 }
+      }),
+      React.createElement("button", {
+        onClick: function() {
+          var ok = (kind === "cat") ? renameCat(name, renValue) : renameSub(c, name, renValue);
+          if (ok !== false) { setRenTarget(null); setRenValue(""); }
+        },
+        style: Object.assign({}, miniBtn, { background: "#10B981", color: "#fff", border: "1px solid #10B981" })
+      }, "決定"),
+      React.createElement("button", {
+        onClick: function() { setRenTarget(null); setRenValue(""); },
+        style: miniBtn
+      }, "やめる")
+    );
+  };
+  return React.createElement("div", null,
+    React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 8 } },
+      "ニュースは日々の画面では1つのボードに串刺しで並びます。ここの分類は「この記事を保存」した時の選択肢と、\uD83D\uDCF0ニュース一覧の絞込に使います。"),
+    cats.map(function(c, ci) {
+      var subs = subsOf(c);
+      var open = openCat === c;
+      return React.createElement("div", {
+        key: "ncs_" + c,
+        style: { border: "1px solid #e0ddd6", borderRadius: 8, marginBottom: 6, background: "#fff" }
       },
-      title: orphan ? "削除済み（データあり）" : "",
-      style: {
-        position: "relative",
-        flexShrink: 0,
-        padding: "7px 14px",
-        paddingRight: orphan ? 14 : 28,
-        fontSize: 13,
-        fontWeight: 600,
-        border: isActive ? "1.5px solid #1a1a1a" : orphan ? "1.5px dashed #aaa" : "1px solid #ccc",
-        borderRadius: 7,
-        cursor: "pointer",
-        background: isActive ? "#1a1a1a" : orphan ? "#f5f5f5" : "#fff",
-        color: isActive ? "#fff" : orphan ? "#888" : "#666",
-        whiteSpace: "nowrap",
-        minHeight: IS_TOUCH ? 40 : 32
-      }
-    }, hasData && hasData(cat) && React.createElement("span", {
-      style: {
-        position: "absolute",
-        top: 4,
-        left: 5,
-        width: 7,
-        height: 7,
-        borderRadius: "50%",
-        background: "#E53935",
-        pointerEvents: "none"
-      }
-    }), cat, orphan && React.createElement("span", {
-      style: {
-        fontSize: 10,
-        marginLeft: 4,
-        opacity: .6
-      }
-    }, "(\u524A\u9664\u6E08)"), !orphan && React.createElement("span", {
-      onClick: function onClick(e) {
-        e.stopPropagation();
-        if (onMgmt) onMgmt(cat);
-        else setDelTarget(cat);
-      },
-      title: onMgmt ? "\u3053\u306E\u30AB\u30C6\u30B4\u30EA\u3092\u7BA1\u7406 (\u30EA\u30CD\u30FC\u30E0 / \u4E26\u3073\u66FF\u3048 / \u524A\u9664)" : "\u524A\u9664",
-      style: {
-        position: "absolute",
-        top: "50%",
-        right: 6,
-        transform: "translateY(-50%)",
-        width: IS_TOUCH ? 18 : 14,
-        height: IS_TOUCH ? 18 : 14,
-        borderRadius: "50%",
-        background: "rgba(130,130,130,.3)",
-        fontSize: IS_TOUCH ? 11 : 9,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontWeight: 700,
-        userSelect: "none",
-        lineHeight: 1
-      },
-      onMouseEnter: function onMouseEnter(e) {
-        return e.currentTarget.style.background = onMgmt ? "#10B981" : "#C0392B";
-      },
-      onMouseLeave: function onMouseLeave(e) {
-        return e.currentTarget.style.background = "rgba(130,130,130,.3)";
-      }
-    }, onMgmt ? "\u2699" : "\u2715"));
-  }), React.createElement(AddBtn, {
-    onAdd: function onAdd(name) {
-      if (name && !cats.includes(name)) _onAdd2(name);
-    },
-    ph: "\u5206\u985E\u540D"
-  })));
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "7px 9px", flexWrap: "wrap" } },
+          React.createElement("button", {
+            onClick: function() { setOpenCat(open ? "" : c); setNewSubName(""); },
+            style: { flex: 1, minWidth: 120, textAlign: "left", padding: 0, border: "none", background: "none",
+              fontSize: 13, fontWeight: 700, color: "#1a1a1a", cursor: "pointer" }
+          }, (open ? "▾ " : "▸ ") + c,
+            React.createElement("span", { style: { fontSize: 11, color: "#888", fontWeight: 600, marginLeft: 6 } },
+              "保存 " + (counts.cat[c] || 0) + "件" + (subs.length ? " / サブ " + subs.length : ""))),
+          React.createElement("button", { onClick: function() { reorderCat(c, -1); }, disabled: ci === 0,
+            style: Object.assign({}, miniBtn, { opacity: ci === 0 ? 0.35 : 1 }) }, "↑"),
+          React.createElement("button", { onClick: function() { reorderCat(c, 1); }, disabled: ci === cats.length - 1,
+            style: Object.assign({}, miniBtn, { opacity: ci === cats.length - 1 ? 0.35 : 1 }) }, "↓"),
+          React.createElement("button", { onClick: function() { setRenTarget({ kind: "cat", cat: c, name: c }); setRenValue(c); },
+            style: miniBtn }, "改名"),
+          React.createElement("button", {
+            onClick: function() {
+              window._snConfirm("「" + c + "」を分類の一覧から外しますか？\n記事自体は消えません（ボードには引き続き並びます）。\nこの分類で保存していた " + (counts.cat[c] || 0) + " 件は未分類に戻ります。").then(function(ok) {
+                if (ok) delCat(c);
+              });
+            },
+            style: Object.assign({}, miniBtn, { color: "#DC2626", border: "1px solid #FCA5A5" })
+          }, "削除")
+        ),
+        renTarget && renTarget.kind === "cat" && renTarget.name === c
+          ? React.createElement("div", { style: { padding: "0 9px 9px" } }, renderRen("cat", c, c)) : null,
+        open ? React.createElement("div", { style: { padding: "0 9px 9px", borderTop: "1px dashed #e8e5df" } },
+          subs.length === 0
+            ? React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "7px 0" } }, "(サブはありません)")
+            : subs.map(function(s, si) {
+                return React.createElement("div", { key: "ncs_s_" + c + "_" + s, style: { paddingTop: 6 } },
+                  React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" } },
+                    React.createElement("span", { style: { flex: 1, minWidth: 110, fontSize: 12, color: "#444", fontWeight: 600 } },
+                      "› " + s,
+                      React.createElement("span", { style: { fontSize: 10, color: "#999", fontWeight: 600, marginLeft: 5 } },
+                        (counts.sub[c + "::" + s] || 0) + "件")),
+                    React.createElement("button", { onClick: function() { reorderSub(c, s, -1); }, disabled: si === 0,
+                      style: Object.assign({}, miniBtn, { opacity: si === 0 ? 0.35 : 1 }) }, "↑"),
+                    React.createElement("button", { onClick: function() { reorderSub(c, s, 1); }, disabled: si === subs.length - 1,
+                      style: Object.assign({}, miniBtn, { opacity: si === subs.length - 1 ? 0.35 : 1 }) }, "↓"),
+                    React.createElement("button", { onClick: function() { setRenTarget({ kind: "sub", cat: c, name: s }); setRenValue(s); },
+                      style: miniBtn }, "改名"),
+                    React.createElement("button", {
+                      onClick: function() {
+                        window._snConfirm("サブ「" + s + "」を削除しますか？\n記事自体は消えません。このサブで保存していた " + (counts.sub[c + "::" + s] || 0) + " 件はカテゴリのみの保存になります。").then(function(ok) {
+                          if (ok) delSub(c, s);
+                        });
+                      },
+                      style: Object.assign({}, miniBtn, { color: "#DC2626", border: "1px solid #FCA5A5" })
+                    }, "削除")
+                  ),
+                  renTarget && renTarget.kind === "sub" && renTarget.cat === c && renTarget.name === s
+                    ? renderRen("sub", c, s) : null
+                );
+              }),
+          React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", marginTop: 8 } },
+            React.createElement(FastInput, {
+              type: "text", value: newSubName, debounceMs: 0,
+              onChange: function(v) { setNewSubName(v); },
+              placeholder: "＋ サブを追加",
+              style: { flex: 1, minWidth: 100, padding: "5px 7px", fontSize: 12, border: "1px solid #ccc", borderRadius: 5 }
+            }),
+            React.createElement("button", {
+              onClick: function() { addSub(c, newSubName); setNewSubName(""); },
+              style: Object.assign({}, miniBtn, { background: "#1a1a1a", color: "#fff", border: "1px solid #1a1a1a" })
+            }, "追加")
+          )
+        ) : null
+      );
+    }),
+    React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center", marginTop: 8 } },
+      React.createElement(FastInput, {
+        type: "text", value: newCatName, debounceMs: 0,
+        onChange: function(v) { setNewCatName(v); },
+        placeholder: "＋ カテゴリを追加",
+        style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 5 }
+      }),
+      React.createElement("button", {
+        onClick: function() { addCat(newCatName); setNewCatName(""); },
+        style: { padding: "6px 12px", fontSize: 12, fontWeight: 700, background: "#1a1a1a",
+          color: "#fff", border: "1px solid #1a1a1a", borderRadius: 5, cursor: "pointer" }
+      }, "追加")
+    )
+  );
 }
 
 function EventsTab(_ref_evt) {
@@ -2342,28 +2537,15 @@ function NewsTab(_ref36) {
   useModalBack(annotTarget != null, function(){ setAnnotTarget(null); }, "news-annot");
   useModalBack(viewTarget != null, function(){ setViewTarget(null); }, "news-view");
   
-  var newsDragRef = useRef(null);
-  var _usND = useState(null), _usNDS = _slicedToArray(_usND, 2), dragFromIdx = _usNDS[0], setDragFromIdx = _usNDS[1];
-  var _usNI = useState(null), _usNIS = _slicedToArray(_usNI, 2), dragInsert = _usNIS[0], setDragInsert = _usNIS[1];
-  var newsContainerRef = useRef(null);
   var addBtnFileRef = useRef(null);
   var addBtnPasteRef = useRef(null);
   var _usABD = useState(false), _usABDS = _slicedToArray(_usABD, 2), addBtnDrag = _usABDS[0], setAddBtnDrag = _usABDS[1];
-  var _usSCD = useState(null), _usSCDS = _slicedToArray(_usSCD, 2), subCatDrag = _usSCDS[0], setSubCatDrag = _usSCDS[1];
-
-  var _usCDM = useState(false), _usCDMS = _slicedToArray(_usCDM, 2), catDefOpen = _usCDMS[0], setCatDefOpen = _usCDMS[1];
-  useModalBack(catDefOpen, function(){ setCatDefOpen(false); }, "news-cat-def");
-  
-  var _usSCA = useState(false), _usSCAS = _slicedToArray(_usSCA, 2), subCatAddOpen = _usSCAS[0], setSubCatAddOpen = _usSCAS[1];
-  var _usSCAN = useState(""), _usSCANS = _slicedToArray(_usSCAN, 2), subCatAddName = _usSCANS[0], setSubCatAddName = _usSCANS[1];
-  var _usSCAStk = useState({}), _usSCAStkS = _slicedToArray(_usSCAStk, 2), subCatAddStocksMap = _usSCAStkS[0], setSubCatAddStocksMap = _usSCAStkS[1];
-  useModalBack(subCatAddOpen, function(){ setSubCatAddOpen(false); }, "subcat-add");
-  var _usSCM = useState(null), _usSCMS = _slicedToArray(_usSCM, 2), subCatMgmtTarget = _usSCMS[0], setSubCatMgmtTarget = _usSCMS[1];
-  useModalBack(subCatMgmtTarget != null, function(){ setSubCatMgmtTarget(null); }, "subcat-mgmt");
-  
-  var _usCM = useState(null), _usCMS = _slicedToArray(_usCM, 2), catMgmtTarget = _usCMS[0], setCatMgmtTarget = _usCMS[1];
-  useModalBack(catMgmtTarget != null, function(){ setCatMgmtTarget(null); }, "cat-mgmt");
-  
+  // 2026-08-03e 「この記事を保存」シート。カード単位でカテゴリ・サブ・銘柄（複数可）を選ぶ。
+  // 全部任意＝何も選ばずに保存だけでも通る（keep があれば保存済、中身が空なら未分類）。
+  var _usKS = useState(null), _usKSS = _slicedToArray(_usKS, 2), keepSheet = _usKSS[0], setKeepSheet = _usKSS[1];
+  useModalBack(keepSheet != null, function(){ setKeepSheet(null); }, "news-keep-sheet");
+  // ボード上部の「使用中の材料タグ」チップ。押すとそのタグで絞り込む（複数選択＝AND）。
+  var _usBTF = useState([]), _usBTFS = _slicedToArray(_usBTF, 2), boardTagFilter = _usBTFS[0], setBoardTagFilter = _usBTFS[1];
   var _usMv = useState(null), _usMvS = _slicedToArray(_usMv, 2), moveTarget = _usMvS[0], setMoveTarget = _usMvS[1];
   var _usMvC = useState(""), _usMvCS = _slicedToArray(_usMvC, 2), moveToCat = _usMvCS[0], setMoveToCat = _usMvCS[1];
   var _usMvSc = useState(""), _usMvScS = _slicedToArray(_usMvSc, 2), moveToSubCat = _usMvScS[0], setMoveToSubCat = _usMvScS[1];
@@ -2374,103 +2556,27 @@ function NewsTab(_ref36) {
   
   var _usCT = useState([]), _usCTS = _slicedToArray(_usCT, 2), cloneTargets = _usCTS[0], setCloneTargets = _usCTS[1];
   
-  var _usCMMvM = useState(""), _usCMMvMS = _slicedToArray(_usCMMvM, 2), catMgmtMoveToMain = _usCMMvMS[0], setCatMgmtMoveToMain = _usCMMvMS[1];
-  var _usCMBT = useState(""), _usCMBTS = _slicedToArray(_usCMBT, 2), catMgmtBulkTo = _usCMBTS[0], setCatMgmtBulkTo = _usCMBTS[1];
-  var _usCMBS = useState(""), _usCMBSS = _slicedToArray(_usCMBS, 2), catMgmtBulkToSub = _usCMBSS[0], setCatMgmtBulkToSub = _usCMBSS[1];
-  
-  var _usSCBT = useState(""), _usSCBTS = _slicedToArray(_usSCBT, 2), subCatMgmtBulkTo = _usSCBTS[0], setSubCatMgmtBulkTo = _usSCBTS[1];
-  var _usSCBS2 = useState(""), _usSCBS2S = _slicedToArray(_usSCBS2, 2), subCatMgmtBulkToSub = _usSCBS2S[0], setSubCatMgmtBulkToSub = _usSCBS2S[1];
   useModalBack(moveTarget != null, function(){ setMoveTarget(null); }, "news-move");
   
   var _usDC = useState(null), _usDCS = _slicedToArray(_usDC, 2), delConfirmTarget = _usDCS[0], setDelConfirmTarget = _usDCS[1];
   useModalBack(delConfirmTarget != null, function(){ setDelConfirmTarget(null); }, "news-del-confirm");
   var newsCategories = custom.newsCategories && custom.newsCategories.length > 0 ? custom.newsCategories : _DEF_NEWS_CATS_FROZEN;
-  var _useState117 = useState(function(){
-      try {
-        var _v=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}");
-        var _c=_v.newsCat;
-        return (_c && newsCategories.includes(_c)) ? _c : (newsCategories[0] || "マーケット");
-      } catch(e){ return newsCategories[0] || "マーケット"; }
-    }),
-    _useState118 = _slicedToArray(_useState117, 2),
-    activeCat = _useState118[0],
-    setActiveCat = _useState118[1];
-  useEffect(function(){
-    try {
-      var _old=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}");
-      localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({},_old,{newsCat:activeCat})));
-    } catch(e){}
-  }, [activeCat]);
   var allCatsData = getAllNewsCatsData(dd);
   var orphanCats = Object.keys(allCatsData).filter(function (cat) {
     return !newsCategories.includes(cat) && hasCatContent(allCatsData[cat]);
   });
   var displayCats = [].concat(_toConsumableArray(newsCategories), _toConsumableArray(orphanCats));
-  var currentCat = displayCats.includes(activeCat) ? activeCat : displayCats[0] || "マーケット";
-  
-  var subCatsForCur = (custom.newsSubCats && Array.isArray(custom.newsSubCats[currentCat])) ? custom.newsSubCats[currentCat] : [];
-  var hasSubCats = subCatsForCur.length > 0;
-  
-  var _usSCs = useState(function() {
-    try {
-      var v = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}");
-      return (v && typeof v.newsSubCatByCat === "object") ? v.newsSubCatByCat : {};
-    } catch(e){ return {}; }
-  });
-  var _usSCsA = _slicedToArray(_usSCs, 2),
-    subCatByCat = _usSCsA[0],
-    setSubCatByCat = _usSCsA[1];
-  var activeSubCat = subCatByCat[currentCat] || "__all__";
-  
-  if (hasSubCats && activeSubCat !== "__all__" && activeSubCat !== "__none__" && subCatsForCur.indexOf(activeSubCat) < 0) {
-    activeSubCat = "__all__";
-  }
-  var setActiveSubCat = function(sc) {
-    var nx = Object.assign({}, subCatByCat);
-    nx[currentCat] = sc;
-    setSubCatByCat(nx);
-    try {
-      var _o = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}");
-      localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({}, _o, { newsSubCatByCat: nx })));
-    } catch(e){}
-  };
-  
+  // 2026-08-03e カテゴリは画面の概念ではなくなった（ボードは全カテゴリ串刺し）。
+  // 保存キー trades[日付].newsCats[カテゴリ] としてだけ残るので、新規カードの置き場所＝受け皿を1つ決めておく。
+  // 分類自体は記事の keep が持つので、このキーはもう意味を持たない。
+  var inboxCat = displayCats[0] || "マーケット";
   useEffect(function() {
-    if (!jumpTarget || !jumpTarget.niId || !jumpTarget.catName) return;
-    
-    if (newsCategories.indexOf(jumpTarget.catName) >= 0 ||
-        Object.keys(getAllNewsCatsData(dd)).indexOf(jumpTarget.catName) >= 0) {
-      setActiveCat(jumpTarget.catName);
-    }
-    
-    try {
-      var targetCatData = getCatData(dd, jumpTarget.catName);
-      var item = (targetCatData.newsItems || []).find(function(n) { return n && n.id === jumpTarget.niId; });
-      if (item) {
-        var itemSubCat = item.subCat || "";
-        var subCatList = (custom.newsSubCats && Array.isArray(custom.newsSubCats[jumpTarget.catName])) ? custom.newsSubCats[jumpTarget.catName] : [];
-        if (subCatList.length > 0) {
-          var nx = Object.assign({}, subCatByCat);
-          if (itemSubCat && subCatList.indexOf(itemSubCat) >= 0) {
-            nx[jumpTarget.catName] = itemSubCat;
-          } else {
-            nx[jumpTarget.catName] = "__none__";
-          }
-          setSubCatByCat(nx);
-          try {
-            var _o = JSON.parse(localStorage.getItem("scalping_view_v1") || "{}");
-            localStorage.setItem("scalping_view_v1", JSON.stringify(Object.assign({}, _o, { newsSubCatByCat: nx })));
-          } catch(e){}
-        }
-      }
-    } catch(e) {}
-    
+    if (!jumpTarget || !jumpTarget.niId) return;
+    // 2026-08-03e タブが無くなり全カテゴリを1つのボードに並べるので、カテゴリ／サブを切り替える必要がない＝ハイライトとスクロールだけ。
     setHighlightNiId(jumpTarget.niId);
-    
     if (typeof onJumpTargetConsumed === "function") onJumpTargetConsumed();
-    
   }, [jumpTarget && jumpTarget.ts]);
-  
+
   useEffect(function() {
     if (!highlightNiId) return;
     
@@ -2485,14 +2591,14 @@ function NewsTab(_ref36) {
     var t2 = setTimeout(function() { setHighlightNiId(null); }, 2000);
     return function() { clearTimeout(t1); clearTimeout(t2); };
   }, [highlightNiId]);
-  var catData = getCatData(dd, currentCat);
+  // 2026-08-03e 受け皿カテゴリへの書き込み。新規カードの追加だけが使う（既存カードの編集は id で全カテゴリを横断する）。
   var updCatField = function updCatField(k, vOrFn) {
     save(function(prevData) {
       var prevDd = prevData.trades[date] || {};
       var prevAllCats = getAllNewsCatsData(prevDd);
-      var prevCatData = prevAllCats[currentCat] || {};
+      var prevCatData = prevAllCats[inboxCat] || {};
       var v = typeof vOrFn === 'function' ? vOrFn(prevCatData[k]) : vOrFn;
-      var newCats = _objectSpread(_objectSpread({}, prevAllCats), {}, _defineProperty({}, currentCat, _objectSpread(_objectSpread({}, prevCatData), {}, _defineProperty({}, k, v))));
+      var newCats = _objectSpread(_objectSpread({}, prevAllCats), {}, _defineProperty({}, inboxCat, _objectSpread(_objectSpread({}, prevCatData), {}, _defineProperty({}, k, v))));
       return _objectSpread(_objectSpread({}, prevData), {}, {
         trades: _objectSpread(_objectSpread({}, prevData.trades), {}, _defineProperty({}, date, _objectSpread(_objectSpread({}, prevDd), {}, {
           newsCats: newCats
@@ -2520,252 +2626,61 @@ function NewsTab(_ref36) {
     }
   });
   
-  var togNewsCatDef = function(tag) {
-    var cur = (custom.newsCatDefaults && custom.newsCatDefaults[currentCat]) || [];
-    var newSet = cur.indexOf(tag) >= 0 ? cur.filter(function(t){ return t !== tag; }) : cur.concat([tag]);
-    var newDefs = Object.assign({}, custom.newsCatDefaults || {});
-    if (newSet.length === 0) delete newDefs[currentCat]; else newDefs[currentCat] = newSet;
-    updCustom({ newsCatDefaults: newDefs });
-  };
-  
-  var addSubCat = function(name) {
-    var nm = (name || "").trim();
-    if (!nm) return;
-    if (nm === "__all__" || nm === "__none__") return;
-    var cur = subCatsForCur.slice();
-    if (cur.indexOf(nm) >= 0) return;
-    cur.push(nm);
-    var newSubCats = Object.assign({}, custom.newsSubCats || {});
-    newSubCats[currentCat] = cur;
-    updCustom({ newsSubCats: newSubCats });
-  };
-  
-  var addSubCatWithStocks = function(name, stocksMap) {
-    var nm = (name || "").trim();
-    if (!nm || nm === "__all__" || nm === "__none__") return;
-    if (subCatsForCur.indexOf(nm) >= 0) return;
-    var stocksToLink = Object.keys(stocksMap || {}).filter(function(k){ return stocksMap[k]; });
-    save(function(prevData) {
-      var prevCustom = prevData.custom || {};
-      var prevSubCats = prevCustom.newsSubCats || {};
-      var curArr = (prevSubCats[currentCat] || []).slice();
-      if (curArr.indexOf(nm) < 0) curArr.push(nm);
-      var newSubCats = Object.assign({}, prevSubCats);
-      newSubCats[currentCat] = curArr;
-      
-      var prevRefs = prevCustom.stockSubCatRefs || {};
-      var newRefs = Object.assign({}, prevRefs);
-      stocksToLink.forEach(function(stk) {
-        if (stk === "日経平均株価") return;
-        var arr = (newRefs[stk] || []).slice();
-        if (!arr.some(function(r){ return r.cat === currentCat && r.subCat === nm; })) {
-          arr.push({ cat: currentCat, subCat: nm });
-        }
-        newRefs[stk] = arr;
-      });
-      return _objectSpread(_objectSpread({}, prevData), {}, {
-        custom: _objectSpread(_objectSpread({}, prevCustom), {}, {
-          newsSubCats: newSubCats,
-          stockSubCatRefs: newRefs
-        })
+  // 2026-08-03e ボード（B案・画像主役）。その日の全カテゴリの newsItems を串刺しで1本にする。
+  // クローン（groupId）は1枚だけ出す。並びは id（＝追加時刻）の昇順＝追加順。
+  // カテゴリをまたいで１列に混ぜる以上、カテゴリ配列内での手並べ替えは画面の並びと対応できないので、ドラッグ並べ替えは廃止した。
+  var boardItems = useMemo(function() {
+    var out = [], seen = {};
+    var all = getAllNewsCatsData(dd);
+    Object.keys(all).forEach(function(c) {
+      var arr = (all[c] && all[c].newsItems) || [];
+      arr.forEach(function(ni) {
+        if (!ni) return;
+        var gid = ni.groupId;
+        if (gid) { if (seen[gid]) return; seen[gid] = true; }
+        out.push({ cat: c, ni: ni });
       });
     });
-  };
-  var delSubCat = function(name) {
-    var cur = subCatsForCur.filter(function(x){ return x !== name; });
-    var newSubCats = Object.assign({}, custom.newsSubCats || {});
-    if (cur.length === 0) delete newSubCats[currentCat]; else newSubCats[currentCat] = cur;
-    
-    var newSubDefs = Object.assign({}, custom.newsSubCatDefaults || {});
-    delete newSubDefs[currentCat + "::" + name];
-    
-    var newRefs = Object.assign({}, custom.stockSubCatRefs || {});
-    Object.keys(newRefs).forEach(function(stk) {
-      var arr = (newRefs[stk] || []).filter(function(r){ return !(r && r.cat === currentCat && r.subCat === name); });
-      if (arr.length === 0) delete newRefs[stk]; else newRefs[stk] = arr;
-    });
-    
-    if (activeSubCat === name) setActiveSubCat("__all__");
-    updCustom({ newsSubCats: newSubCats, newsSubCatDefaults: newSubDefs, stockSubCatRefs: newRefs });
-  };
-  
-  var renameSubCat = function(oldName, newName) {
-    var nm = (newName || "").trim();
-    if (!nm || nm === oldName) return false;
-    if (nm === "__all__" || nm === "__none__") return false;
-    if (subCatsForCur.indexOf(nm) >= 0) return false;
-    save(function(prevData) {
-      var prevCustom = prevData.custom || {};
-      
-      var newSubCats = Object.assign({}, prevCustom.newsSubCats || {});
-      var arr = (newSubCats[currentCat] || []).map(function(x){ return x === oldName ? nm : x; });
-      newSubCats[currentCat] = arr;
-      
-      var oldKey = currentCat + "::" + oldName;
-      var newKey = currentCat + "::" + nm;
-      var newSubDefs = Object.assign({}, prevCustom.newsSubCatDefaults || {});
-      if (newSubDefs[oldKey] != null) {
-        newSubDefs[newKey] = newSubDefs[oldKey];
-        delete newSubDefs[oldKey];
-      }
-      
-      var newRefs = {};
-      Object.keys(prevCustom.stockSubCatRefs || {}).forEach(function(stk) {
-        newRefs[stk] = (prevCustom.stockSubCatRefs[stk] || []).map(function(r) {
-          if (r && r.cat === currentCat && r.subCat === oldName) return { cat: currentCat, subCat: nm };
-          return r;
-        });
-      });
-      
-      
-      
-      var newTrades = Object.assign({}, prevData.trades || {});
-      Object.keys(newTrades).forEach(function(dt) {
-        var dd = newTrades[dt];
-        if (!dd || !dd.newsCats || !dd.newsCats[currentCat]) return;
-        var ccatData = dd.newsCats[currentCat];
-        var newItems = (ccatData.newsItems || []).map(function(ni) {
-          var nn = Object.assign({}, ni);
-          if (nn.subCat === oldName) nn.subCat = nm;
-          if (nn.tags && nn.tags.indexOf(oldName) >= 0) {
-            var tagSeen = {};
-            var newT = [];
-            nn.tags.forEach(function(t) {
-              var rep = (t === oldName) ? nm : t;
-              if (!tagSeen[rep]) { tagSeen[rep] = true; newT.push(rep); }
-            });
-            nn.tags = newT;
-          }
-          return nn;
-        });
-        var newCcat = _objectSpread(_objectSpread({}, ccatData), {}, { newsItems: newItems });
-        
-        if (ccatData.subCatMemos && typeof ccatData.subCatMemos === "object" &&
-            ccatData.subCatMemos[oldName] !== undefined) {
-          var newScms = Object.assign({}, ccatData.subCatMemos);
-          if (newScms[nm] === undefined) {
-            newScms[nm] = newScms[oldName];
-          }
-          delete newScms[oldName];
-          newCcat.subCatMemos = newScms;
-        }
-        var nc = _objectSpread({}, dd.newsCats);
-        nc[currentCat] = newCcat;
-        newTrades[dt] = _objectSpread(_objectSpread({}, dd), {}, { newsCats: nc });
-      });
-      return _objectSpread(_objectSpread({}, prevData), {}, {
-        custom: _objectSpread(_objectSpread({}, prevCustom), {}, {
-          newsSubCats: newSubCats,
-          newsSubCatDefaults: newSubDefs,
-          stockSubCatRefs: newRefs
-        }),
-        trades: newTrades
-      });
-    });
-    if (activeSubCat === oldName) setActiveSubCat(nm);
-    return true;
-  };
-  var reorderSubCat = function(sc, dir) {
-    var idx = subCatsForCur.indexOf(sc);
-    if (idx < 0) return;
-    var newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= subCatsForCur.length) return;
-    var arr = subCatsForCur.slice();
-    var t = arr[newIdx]; arr[newIdx] = arr[idx]; arr[idx] = t;
-    var newSubCats = Object.assign({}, custom.newsSubCats || {});
-    newSubCats[currentCat] = arr;
-    updCustom({ newsSubCats: newSubCats });
-  };
-  
-  var togNewsSubCatDef = function(subCatName, tag) {
-    var key = currentCat + "::" + subCatName;
-    var cur = (custom.newsSubCatDefaults && custom.newsSubCatDefaults[key]) || [];
-    var newSet = cur.indexOf(tag) >= 0 ? cur.filter(function(t){ return t !== tag; }) : cur.concat([tag]);
-    var newDefs = Object.assign({}, custom.newsSubCatDefaults || {});
-    if (newSet.length === 0) delete newDefs[key]; else newDefs[key] = newSet;
-    updCustom({ newsSubCatDefaults: newDefs });
-  };
-  
-  var togStockSubCatRefForMgmt = function(stk, subCatName) {
-    if (!stk || !subCatName || stk === "日経平均株価") return;
-    save(function(prevData) {
-      var prevCustom = prevData.custom || {};
-      var prevRefs = prevCustom.stockSubCatRefs || {};
-      var arr = (prevRefs[stk] || []).slice();
-      var idx = arr.findIndex(function(r){ return r.cat === currentCat && r.subCat === subCatName; });
-      if (idx >= 0) arr.splice(idx, 1);
-      else arr.push({ cat: currentCat, subCat: subCatName });
-      var newRefs = Object.assign({}, prevRefs);
-      if (arr.length === 0) delete newRefs[stk]; else newRefs[stk] = arr;
-      return _objectSpread(_objectSpread({}, prevData), {}, {
-        custom: _objectSpread(_objectSpread({}, prevCustom), {}, { stockSubCatRefs: newRefs })
-      });
-    });
-  };
-  var allNewsItems = catData.newsItems || [];
-  
-  
-  var dedupedNewsItems = (function() {
-    var seen = {};
-    var out = [];
-    allNewsItems.forEach(function(ni) {
-      var gid = ni && ni.groupId;
-      if (gid) {
-        if (seen[gid]) return;
-        seen[gid] = true;
-      }
-      out.push(ni);
-    });
+    out.sort(function(a, b) { return (Number(a.ni.id) || 0) - (Number(b.ni.id) || 0); });
     return out;
-  })();
-  
-  var newsItems = (function() {
-    if (!hasSubCats) return dedupedNewsItems;
-    if (activeSubCat === "__all__") return dedupedNewsItems;
-    if (activeSubCat === "__none__") return allNewsItems.filter(function(ni) {
-      return !ni.subCat || subCatsForCur.indexOf(ni.subCat) < 0;
+  }, [dd]);
+  // 使用中の材料タグ（件数付き）。多い順→名前順。
+  var boardTagChips = useMemo(function() {
+    var m = {}, order = [];
+    boardItems.forEach(function(e) {
+      ((e.ni && e.ni.tags) || []).forEach(function(tg) {
+        if (!tg) return;
+        if (m[tg] == null) { m[tg] = 0; order.push(tg); }
+        m[tg]++;
+      });
     });
-    return allNewsItems.filter(function(ni) { return ni.subCat === activeSubCat; });
-  })();
-  
-  
-  
-  var _resolveAddSubCatMeta = function(subCatOverride) {
-    var defaults = (custom.newsCatDefaults && Array.isArray(custom.newsCatDefaults[currentCat])) ? custom.newsCatDefaults[currentCat] : [];
-    var subCat = null;
-    var subDefaults = [];
-    var effSubCat = (subCatOverride !== undefined && subCatOverride !== null) ? subCatOverride
-      : ((hasSubCats && activeSubCat !== "__all__" && activeSubCat !== "__none__") ? activeSubCat : null);
-    if (effSubCat) {
-      subCat = effSubCat;
-      var key = currentCat + "::" + effSubCat;
-      if (custom.newsSubCatDefaults && Array.isArray(custom.newsSubCatDefaults[key])) {
-        subDefaults = custom.newsSubCatDefaults[key];
-      }
-    }
-    
-    var seen = {};
-    var mergedTags = [];
-    [].concat(defaults, subDefaults).forEach(function(t) {
-      if (t && !seen[t]) { seen[t] = true; mergedTags.push(t); }
+    order.sort(function(a, b) { return (m[b] - m[a]) || a.localeCompare(b, "ja"); });
+    return order.map(function(tg) { return { tag: tg, n: m[tg] }; });
+  }, [boardItems]);
+  var shownItems = (boardTagFilter.length === 0) ? boardItems : boardItems.filter(function(e) {
+    var tgs = (e.ni && e.ni.tags) || [];
+    return boardTagFilter.every(function(tg) { return tgs.indexOf(tg) >= 0; });
+  });
+  // 画像ビューア／注釈のカード間送りが参照する配列（画面の並びと一致させる）
+  var newsItems = shownItems.map(function(e) { return e.ni; });
+  var keptCount = boardItems.filter(function(e) { return _snNiKept(e.ni); }).length;
+  var togBoardTag = function(tg) {
+    setBoardTagFilter(function(prev) {
+      return (prev.indexOf(tg) >= 0) ? prev.filter(function(x) { return x !== tg; }) : prev.concat([tg]);
     });
-    return { subCat: subCat, tags: mergedTags };
   };
+  // 2026-08-03e 自動タグ（newsCatDefaults/newsSubCatDefaults）は廃止。タグは手で付ける。サブは保存シートで選ぶ。
   var addNews = function addNews() {
     return updCatField("newsItems", function(prev) {
-      var meta = _resolveAddSubCatMeta();
-      var item = { id: Date.now(), text: "", images: [], tags: meta.tags };
-      if (meta.subCat) item.subCat = meta.subCat;
+      var item = { id: Date.now(), text: "", images: [], tags: [] };
       return [].concat(_toConsumableArray(prev || []), [item]);
     });
   };
-  var addNewsWithFile = function addNewsWithFile(f, subCatOverride) {
+  var addNewsWithFile = function addNewsWithFile(f) {
     fileToImg(f).then(function(img) {
       if (img) {
         updCatField("newsItems", function(prev) {
-          var meta = _resolveAddSubCatMeta(subCatOverride);
-          var item = { id: Date.now(), text: "", images: [img], tags: meta.tags };
-          if (meta.subCat) item.subCat = meta.subCat;
+          var item = { id: Date.now(), text: "", images: [img], tags: [] };
           return [].concat(_toConsumableArray(prev || []), [item]);
         });
       }
@@ -2779,27 +2694,77 @@ function NewsTab(_ref36) {
     });
   };
   
-  var setNiSubCat = function(niId, newSubCat) {
-    updCatField("newsItems", function(prev) {
-      return (prev || []).map(function(n) {
-        if (n.id !== niId) return n;
-        var nn = _objectSpread({}, n);
-        if (newSubCat) {
-          nn.subCat = newSubCat;
-        } else {
-          delete nn.subCat;
-        }
-        return nn;
+  // 2026-08-03e カードは全カテゴリ串刺しなので、削除も id で全カテゴリを横断する（旧＝現在タブのカテゴリだけを見ていた）。
+  var _delThisClone = function(id) {
+    save(function(prevData) {
+      var prevDd = (prevData.trades && prevData.trades[date]) || {};
+      var prevAllCats = getAllNewsCatsData(prevDd);
+      var newCats = {}, changed = false;
+      Object.keys(prevAllCats).forEach(function(c) {
+        var cd = prevAllCats[c];
+        var arr = (cd && cd.newsItems) || [];
+        var kept = arr.filter(function(n) { return n.id !== id; });
+        if (kept.length !== arr.length) { changed = true; newCats[c] = _objectSpread(_objectSpread({}, cd), {}, { newsItems: kept }); }
+        else newCats[c] = cd;
+      });
+      if (!changed) return prevData;
+      return _objectSpread(_objectSpread({}, prevData), {}, {
+        trades: _objectSpread(_objectSpread({}, prevData.trades), {}, _defineProperty({}, date,
+          _objectSpread(_objectSpread({}, prevDd), {}, { newsCats: newCats })))
       });
     });
   };
-  
-  var _delThisClone = function(id) {
-    return updCatField("newsItems", function(prev) {
-      return (prev || []).filter(function (n) { return n.id !== id; });
+  // 「この記事を保存」＝記事に keep を1つ足す。クローンにも同じ分類を配る（同じ記事なので）。
+  var saveNiKeep = function(niId, kCat, kSub, kStocks) {
+    save(function(prevData) {
+      return _propagateClones(prevData, niId, function(n) {
+        var at = (n.keep && typeof n.keep.at === "number" && n.keep.at > 0) ? n.keep.at : Date.now();
+        return { keep: { at: at, cat: kCat || "", sub: kSub || "", stocks: (kStocks || []).slice() } };
+      });
     });
   };
-  
+  // 保存をやめる＝keep ごと外す。_propagateClones はマージなのでフィールド削除には使えず、自前で全カテゴリを歩く。
+  var unsaveNiKeep = function(niId) {
+    save(function(prevData) {
+      var prevDd = (prevData.trades && prevData.trades[date]) || {};
+      var prevAllCats = getAllNewsCatsData(prevDd);
+      var orig = null;
+      Object.keys(prevAllCats).some(function(c) {
+        return ((prevAllCats[c] && prevAllCats[c].newsItems) || []).some(function(n) {
+          if (n.id === niId) { orig = n; return true; } return false;
+        });
+      });
+      if (!orig) return prevData;
+      var gid = orig.groupId || null;
+      var matches = function(n) {
+        if (n.id === niId) return true;
+        if (gid && (n.groupId === gid || n.id === gid)) return true;
+        return false;
+      };
+      var newCats = {}, changed = false;
+      Object.keys(prevAllCats).forEach(function(c) {
+        var cd = prevAllCats[c];
+        var arr = (cd && cd.newsItems) || [];
+        newCats[c] = _objectSpread(_objectSpread({}, cd), {}, { newsItems: arr.map(function(n) {
+          if (!matches(n) || !n.keep) return n;
+          var nn = _objectSpread({}, n); delete nn.keep; changed = true; return nn;
+        }) });
+      });
+      if (!changed) return prevData;
+      return _objectSpread(_objectSpread({}, prevData), {}, {
+        trades: _objectSpread(_objectSpread({}, prevData.trades), {}, _defineProperty({}, date,
+          _objectSpread(_objectSpread({}, prevDd), {}, { newsCats: newCats })))
+      });
+    });
+  };
+  var openKeepSheet = function(e) {
+    var ni = e.ni, k = _snNiKept(ni) ? ni.keep : null;
+    setKeepSheet({
+      niId: ni.id, cat: (k && k.cat) || "", sub: (k && k.sub) || "",
+      stocks: (k && Array.isArray(k.stocks)) ? k.stocks.slice() : [],
+      wasKept: !!k, addCat: false, catDraft: "", addSub: false, subDraft: ""
+    });
+  };
   var _delAllClones = function(id) {
     save(function(prevData) {
       var prevDd = (prevData.trades && prevData.trades[date]) || {};
@@ -3052,271 +3017,6 @@ function NewsTab(_ref36) {
         custom: _objectSpread(_objectSpread({}, prevData.custom || {}), nc)
       });
     });
-  };
-  var addNewsCat = function addNewsCat(name) {
-    return updCustom({
-      newsCategories: [].concat(_toConsumableArray(newsCategories), [name])
-    });
-  };
-  var delNewsCat = function delNewsCat(name) {
-    save(function(prevData) {
-      var prevCustom = prevData.custom || {};
-      var ns = (prevCustom.newsCategories || []).filter(function (c) {
-        return c !== name;
-      });
-      var newDefaults = Object.assign({}, prevCustom.newsCatDefaults || {});
-      delete newDefaults[name];
-      
-      var prevExtraCats = (prevCustom.shvExtraCats && typeof prevCustom.shvExtraCats === "object" && !Array.isArray(prevCustom.shvExtraCats)) ? prevCustom.shvExtraCats : {};
-      var newExtraCats = {};
-      var _delPrefix = name + "::";
-      Object.keys(prevExtraCats).forEach(function(stk) {
-        var arr = (prevExtraCats[stk] || []).filter(function(k) {
-          return k !== name && k.indexOf(_delPrefix) !== 0;
-        });
-        if (arr.length > 0) newExtraCats[stk] = arr;
-      });
-      return _objectSpread(_objectSpread({}, prevData), {}, {
-        custom: _objectSpread(_objectSpread({}, prevCustom), {}, {
-          newsCategories: ns.length > 0 ? ns : [].concat(DEF_NEWS_CATS),
-          newsCatDefaults: newDefaults,
-          shvExtraCats: newExtraCats
-        })
-      });
-    });
-  };
-  
-  var renameNewsCat = function(oldName, newName) {
-    var nm = (newName || "").trim();
-    if (!nm || nm === oldName) return false;
-    if (newsCategories.indexOf(nm) >= 0) return false; 
-    save(function(prevData) {
-      var prevCustom = prevData.custom || {};
-      
-      var newCats = (prevCustom.newsCategories || []).map(function(c){ return c === oldName ? nm : c; });
-      
-      var newCatDefs = Object.assign({}, prevCustom.newsCatDefaults || {});
-      if (newCatDefs[oldName] != null) {
-        newCatDefs[nm] = newCatDefs[oldName];
-        delete newCatDefs[oldName];
-      }
-      
-      var newSubCats = Object.assign({}, prevCustom.newsSubCats || {});
-      if (newSubCats[oldName] != null) {
-        newSubCats[nm] = newSubCats[oldName];
-        delete newSubCats[oldName];
-      }
-      
-      var newSubDefs = {};
-      Object.keys(prevCustom.newsSubCatDefaults || {}).forEach(function(k) {
-        var parts = k.split("::");
-        if (parts.length === 2 && parts[0] === oldName) {
-          newSubDefs[nm + "::" + parts[1]] = prevCustom.newsSubCatDefaults[k];
-        } else {
-          newSubDefs[k] = prevCustom.newsSubCatDefaults[k];
-        }
-      });
-      
-      var newRefs = {};
-      Object.keys(prevCustom.stockSubCatRefs || {}).forEach(function(stk) {
-        newRefs[stk] = (prevCustom.stockSubCatRefs[stk] || []).map(function(r) {
-          if (r && r.cat === oldName) return { cat: nm, subCat: r.subCat };
-          return r;
-        });
-      });
-      
-      var newTrades = Object.assign({}, prevData.trades || {});
-      Object.keys(newTrades).forEach(function(dt) {
-        var dd = newTrades[dt];
-        if (!dd || !dd.newsCats) return;
-        if (dd.newsCats[oldName] != null) {
-          var nc = Object.assign({}, dd.newsCats);
-          // 2026-07-18 改名先nmが孤児カテゴリ(=一覧から外したが当日データが残存)の場合、既存nc[nm]を無条件上書きで破棄せずnewsItemsをマージ（bulkMoveNewsData:3196と同型）＝データ消失防止
-          if (nc[nm] != null) {
-            nc[nm] = Object.assign({}, nc[nm], { newsItems: ((nc[nm] || {}).newsItems || []).concat((nc[oldName] || {}).newsItems || []) });
-          } else {
-            nc[nm] = nc[oldName];
-          }
-          delete nc[oldName];
-          newTrades[dt] = _objectSpread(_objectSpread({}, dd), {}, { newsCats: nc });
-        }
-      });
-      
-      var prevExtraCats = (prevCustom.shvExtraCats && typeof prevCustom.shvExtraCats === "object" && !Array.isArray(prevCustom.shvExtraCats)) ? prevCustom.shvExtraCats : {};
-      var newExtraCats = {};
-      var _renPrefix = oldName + "::";
-      Object.keys(prevExtraCats).forEach(function(stk) {
-        var arr = (prevExtraCats[stk] || []).map(function(k) {
-          if (k === oldName) return nm;
-          if (k.indexOf(_renPrefix) === 0) return nm + "::" + k.slice(_renPrefix.length);
-          return k;
-        });
-        if (arr.length > 0) newExtraCats[stk] = arr;
-      });
-      return _objectSpread(_objectSpread({}, prevData), {}, {
-        custom: _objectSpread(_objectSpread({}, prevCustom), {}, {
-          newsCategories: newCats,
-          newsCatDefaults: newCatDefs,
-          newsSubCats: newSubCats,
-          newsSubCatDefaults: newSubDefs,
-          stockSubCatRefs: newRefs,
-          shvExtraCats: newExtraCats
-        }),
-        trades: newTrades
-      });
-    });
-    if (activeCat === oldName) setActiveCat(nm);
-    return true;
-  };
-  var reorderNewsCat = function(cat, dir) {
-    var idx = newsCategories.indexOf(cat);
-    if (idx < 0) return;
-    var newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= newsCategories.length) return;
-    var arr = newsCategories.slice();
-    var t = arr[newIdx]; arr[newIdx] = arr[idx]; arr[idx] = t;
-    updCustom({ newsCategories: arr });
-  };
-  var moveMainCatToSubCat = function(cat, targetMainCat) {
-    if (!cat || !targetMainCat || cat === targetMainCat) return;
-    save(function(prevData) {
-      var pc = prevData.custom || {};
-      var newCats = (pc.newsCategories || []).filter(function(c) { return c !== cat; });
-      var newSubCats = Object.assign({}, pc.newsSubCats || {});
-      var targetSubs = (newSubCats[targetMainCat] || []).slice();
-      if (targetSubs.indexOf(cat) < 0) targetSubs.push(cat);
-      newSubCats[targetMainCat] = targetSubs;
-      var newCatDefs = Object.assign({}, pc.newsCatDefaults || {});
-      var newSubDefs = Object.assign({}, pc.newsSubCatDefaults || {});
-      if (newCatDefs[cat]) { newSubDefs[targetMainCat + "::" + cat] = newCatDefs[cat]; delete newCatDefs[cat]; }
-      var prevEC = pc.shvExtraCats || {}, newEC = {}, pfx = cat + "::";
-      Object.keys(prevEC).forEach(function(stk) {
-        newEC[stk] = (prevEC[stk] || []).map(function(k) {
-          if (k === cat) return targetMainCat + "::" + cat;
-          if (k.indexOf(pfx) === 0) return targetMainCat + "::" + k;
-          return k;
-        });
-      });
-
-      var newTrades = Object.assign({}, prevData.trades || {});
-      Object.keys(newTrades).forEach(function(dt) {
-        var dd2 = newTrades[dt];
-        if (!dd2 || !dd2.newsCats || !dd2.newsCats[cat]) return;
-        var fromData = dd2.newsCats[cat];
-        var nc = Object.assign({}, dd2.newsCats);
-        var toData = nc[targetMainCat] || {};
-        var movedItems = (fromData.newsItems || []).map(function(ni) { return Object.assign({}, ni, { subCat: cat }); });
-        var fm = fromData.newsMemo;
-        if (fm && ((fm.text && String(fm.text).trim()) || (fm.images && fm.images.length))) {
-          movedItems.push({ id: "nimemo_" + cat + "_" + dt, text: fm.text || "", images: (fm.images || []).slice(), subCat: cat });
-        }
-        var newToTags = (toData.marketTags || []).slice();
-        (fromData.marketTags || []).forEach(function(t) { if (newToTags.indexOf(t) < 0) newToTags.push(t); });
-        nc[targetMainCat] = Object.assign({}, toData, { newsItems: (toData.newsItems || []).concat(movedItems), marketTags: newToTags });
-        delete nc[cat];
-        newTrades[dt] = Object.assign({}, dd2, { newsCats: nc });
-      });
-      return Object.assign({}, prevData, { trades: newTrades, custom: Object.assign({}, pc, { newsCategories: newCats.length > 0 ? newCats : [].concat(DEF_NEWS_CATS), newsSubCats: newSubCats, newsCatDefaults: newCatDefs, newsSubCatDefaults: newSubDefs, shvExtraCats: newEC }) });
-    });
-  };
-  var bulkMoveNewsData = function(fromKey, toKey, fromParentCat) {
-    if (!fromKey || !toKey || fromKey === toKey) return;
-    save(function(prevData) {
-      var pc = prevData.custom || {};
-      var newTrades = Object.assign({}, prevData.trades || {});
-      Object.keys(newTrades).forEach(function(dt) {
-        var dd2 = newTrades[dt];
-        if (!dd2 || !dd2.newsCats || !dd2.newsCats[fromKey]) return;
-        var fromData = dd2.newsCats[fromKey], toData = dd2.newsCats[toKey] || {};
-        var nc = Object.assign({}, dd2.newsCats);
-        nc[toKey] = Object.assign({}, toData, { newsItems: (toData.newsItems || []).concat(fromData.newsItems || []) });
-        delete nc[fromKey];
-        newTrades[dt] = Object.assign({}, dd2, { newsCats: nc });
-      });
-      var newCats = (pc.newsCategories || []).slice();
-      var newSubCats = Object.assign({}, pc.newsSubCats || {});
-      var isMain = newCats.indexOf(fromKey) >= 0;
-      if (isMain) { newCats = newCats.filter(function(c) { return c !== fromKey; }); delete newSubCats[fromKey]; }
-      if (fromParentCat) newSubCats[fromParentCat] = (newSubCats[fromParentCat] || []).filter(function(s) { return s !== fromKey; });
-      return Object.assign({}, prevData, { custom: Object.assign({}, pc, { newsCategories: (isMain && newCats.length === 0) ? [].concat(DEF_NEWS_CATS) : newCats, newsSubCats: newSubCats }), trades: newTrades });
-    });
-  };
-  var catHasData = function catHasData(cat) {
-    return hasCatContent(getCatData(dd, cat));
-  };
-  var isOrphan = function isOrphan(cat) {
-    return orphanCats.includes(cat);
-  };
-  
-  var onNewsDragStart = function(idx, e) {
-    e.preventDefault(); e.stopPropagation();
-    var t = e.touches ? e.touches[0] : e;
-    newsDragRef.current = { idx: idx, startX: t.clientX, startY: t.clientY, moved: false };
-    setDragFromIdx(idx);
-    setDragInsert(idx);
-    var onMove = function(ev) {
-      if (!newsDragRef.current) return;
-      var p = ev.touches ? ev.touches[0] : ev;
-      newsDragRef.current.moved = true;
-      var cont = newsContainerRef.current;
-      if (!cont) return;
-      var cards = cont.querySelectorAll("[data-newscard]");
-      var px = p.clientX;
-      var best = newsDragRef.current.idx, bestDist = Infinity;
-      cards.forEach(function(card, ci) {
-        var r = card.getBoundingClientRect();
-        var mid = r.left + r.width / 2;
-        var d = Math.abs(px - mid);
-        if (d < bestDist) { bestDist = d; best = ci; }
-      });
-      
-      if (cards.length > 0) {
-        var lastR = cards[cards.length - 1].getBoundingClientRect();
-        if (px > lastR.right) best = cards.length;
-      }
-      setDragInsert(best);
-    };
-    var onEnd = function() {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onEnd);
-      document.removeEventListener("touchmove", onMove, {passive: false});
-      document.removeEventListener("touchend", onEnd);
-      if (newsDragRef.current && newsDragRef.current.moved) {
-        var from = newsDragRef.current.idx;
-        
-        var fromId = newsItems[from] && newsItems[from].id;
-        setDragInsert(function(toIdx) {
-          if (toIdx !== null && toIdx !== from && fromId != null) {
-            var targetId = (toIdx >= newsItems.length) ? null : (newsItems[toIdx] && newsItems[toIdx].id);
-            updCatField("newsItems", function(prev) {
-              if (!prev) return prev;
-              var arr = _toConsumableArray(prev);
-              var realFrom = arr.findIndex(function(n){ return n.id === fromId; });
-              if (realFrom < 0) return prev;
-              var item = arr.splice(realFrom, 1)[0];
-              var realTo;
-              if (targetId == null) {
-                realTo = arr.length;
-              } else {
-                realTo = arr.findIndex(function(n){ return n.id === targetId; });
-                if (realTo < 0) realTo = arr.length;
-              }
-              arr.splice(realTo, 0, item);
-              return arr;
-            });
-          }
-          return null;
-        });
-      } else {
-        setDragInsert(null);
-      }
-      newsDragRef.current = null;
-      setDragFromIdx(null);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onEnd);
-    document.addEventListener("touchmove", onMove, {passive: false});
-    document.addEventListener("touchend", onEnd);
   };
   var Card = {
     background: "#fff",
@@ -3646,591 +3346,165 @@ function NewsTab(_ref36) {
     )
   )),
   
-  subCatAddOpen && React.createElement("div", {
-    onClick: function() { setSubCatAddOpen(false); },
-    style: {
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-      zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 16
-    }
-  }, React.createElement("div", {
-    onClick: function(e){ e.stopPropagation(); },
-    style: {
-      background: "#fff", borderRadius: 12,
-      maxWidth: 520, width: "100%", maxHeight: "90vh",
-      display: "flex", flexDirection: "column"
-    }
-  },
-    React.createElement("div", {
-      style: {
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "12px 16px", borderBottom: "1px solid #e0ddd6", flexShrink: 0
-      }
-    },
-      React.createElement("span", {
-        style: { fontSize: 14, fontWeight: 700 }
-      }, "\uFF0B \u30B5\u30D6\u30BF\u30D6\u8FFD\u52A0\uFF08", currentCat, "\uFF09"),
-      React.createElement("button", {
-        onClick: function(){ setSubCatAddOpen(false); },
-        style: {
-          padding: "6px 14px", fontSize: 13, fontWeight: 600,
-          background: "#f5f4f0", color: "#555", border: "1px solid #ccc",
-          borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28
-        }
-      }, "\u30AD\u30E3\u30F3\u30BB\u30EB")
-    ),
-    React.createElement("div", {
-      style: { padding: "12px 16px", overflow: "auto", display: "flex", flexDirection: "column", gap: 12 }
-    },
-      
-      React.createElement("div", null,
-        React.createElement("div", {
-          style: { fontSize: 11, color: "#888", fontWeight: 600, marginBottom: 4 }
-        }, "\u30B5\u30D6\u30BF\u30D6\u540D"),
-        React.createElement(FastInput, {
-          type: "text",
-          value: subCatAddName,
-          onChange: function(v){ setSubCatAddName(v); },
-          debounceMs: 0,
-          placeholder: "\u4F8B: \u9632\u885B\u3001INPEX",
-          autoFocus: true,
-          style: {
-            width: "100%", fontSize: 14, padding: "8px 10px",
-            border: "1px solid #ccc", borderRadius: 6, boxSizing: "border-box"
-          }
-        })
-      ),
-      
-      React.createElement("div", null,
-        React.createElement("div", {
-          style: { display: "flex", alignItems: "center", marginBottom: 6 }
-        },
-          React.createElement("span", {
-            style: { fontSize: 11, color: "#888", fontWeight: 600 }
-          }, "\u7D10\u4ED8\u3051\u308B\u9298\u67C4 (\u9078\u629E\u3057\u305F\u9298\u67C4\u306E\u9298\u67C4\u8A18\u9332\u6B04\u306B\u95A2\u9023\u30CB\u30E5\u30FC\u30B9\u3068\u3057\u3066\u8868\u793A\u3055\u308C\u307E\u3059)"),
-          React.createElement("div", { style: { marginLeft: "auto", display: "flex", gap: 4 } },
-            React.createElement("button", {
-              onClick: function() {
-                var m = {};
-                (allStocks || []).forEach(function(s){ if (s !== "日経平均株価") m[s] = true; });
-                setSubCatAddStocksMap(m);
-              },
-              style: {
-                fontSize: 10, padding: "2px 7px", background: "#f5f4f0",
-                color: "#666", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer"
-              }
-            }, "\u3059\u3079\u3066\u9078\u629E"),
-            React.createElement("button", {
-              onClick: function() { setSubCatAddStocksMap({}); },
-              style: {
-                fontSize: 10, padding: "2px 7px", background: "#f5f4f0",
-                color: "#666", border: "1px solid #ddd", borderRadius: 4, cursor: "pointer"
-              }
-            }, "\u3059\u3079\u3066\u89E3\u9664")
-          )
-        ),
-        React.createElement("div", {
-          style: {
-            display: "flex", flexWrap: "wrap", gap: 5,
-            padding: 8, border: "1px solid #e0ddd6", borderRadius: 6,
-            maxHeight: 200, overflowY: "auto", background: "#fafaf7"
-          }
-        }, (allStocks || []).filter(function(s){ return s !== "日経平均株価"; }).map(function(stk) {
-          var on = !!subCatAddStocksMap[stk];
-          return React.createElement("label", {
-            key: stk,
-            style: {
-              display: "inline-flex", alignItems: "center", gap: 4,
-              padding: "4px 9px", fontSize: 12, fontWeight: on ? 700 : 500,
-              background: on ? "#10B981" : "#fff",
-              color: on ? "#fff" : "#444",
-              border: "1px solid " + (on ? "#10B981" : "#ddd"),
-              borderRadius: 5, cursor: "pointer", userSelect: "none"
-            }
-          },
-            React.createElement("input", {
-              type: "checkbox",
-              checked: on,
-              onChange: function() {
-                var nx = Object.assign({}, subCatAddStocksMap);
-                if (on) delete nx[stk]; else nx[stk] = true;
-                setSubCatAddStocksMap(nx);
-              },
-              style: { display: "none" }
-            }),
-            React.createElement("span", null, stk)
-          );
-        }))
-      ),
-      
-      (function() {
-        var nm = (subCatAddName || "").trim();
-        var dup = nm && subCatsForCur.indexOf(nm) >= 0;
-        var stockCount = Object.keys(subCatAddStocksMap).filter(function(k){ return subCatAddStocksMap[k]; }).length;
-        var canAdd = nm && !dup;
-        return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-          dup ? React.createElement("span", {
-            style: { fontSize: 11, color: "#B45309", fontWeight: 600 }
-          }, "\u26A0\uFE0F \u3053\u306E\u540D\u524D\u306E\u30B5\u30D6\u30BF\u30D6\u306F\u3059\u3067\u306B\u5B58\u5728\u3057\u307E\u3059") : null,
-          React.createElement("button", {
-            onClick: function() {
-              if (!canAdd) return;
-              addSubCatWithStocks(nm, subCatAddStocksMap);
-              setSubCatAddOpen(false);
-            },
-            disabled: !canAdd,
-            style: {
-              marginLeft: "auto", padding: "8px 18px", fontSize: 13, fontWeight: 700,
-              background: canAdd ? "#10B981" : "#ccc",
-              color: "#fff", border: "none", borderRadius: 6,
-              cursor: canAdd ? "pointer" : "not-allowed"
-            }
-          }, stockCount > 0 ? "\u8FFD\u52A0 (" + stockCount + " \u9298\u67C4\u3092\u7D10\u4ED8\u3051)" : "\u8FFD\u52A0 (\u7D10\u4ED8\u3051\u306A\u3057)")
-        );
-      })()
-    )
-  )),
-  
-  catMgmtTarget != null && (function() {
-    var cat = catMgmtTarget;
-    var orphan = orphanCats.indexOf(cat) >= 0;
-    var idx = newsCategories.indexOf(cat);
+  keepSheet != null && (function() {
+    var ks = keepSheet;
+    var subOpts = (ks.cat && custom.newsSubCats && Array.isArray(custom.newsSubCats[ks.cat])) ? custom.newsSubCats[ks.cat] : [];
+    var setKS = function(u) { setKeepSheet(function(p) { return p ? Object.assign({}, p, u) : p; }); };
+    var chip = function(on) {
+      return { padding: "5px 11px", fontSize: 12, fontWeight: on ? 700 : 500,
+        background: on ? "#1a1a1a" : "#fff", color: on ? "#fff" : "#555",
+        border: "1px solid " + (on ? "#1a1a1a" : "#ddd"), borderRadius: 999,
+        cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 34 : 26 };
+    };
+    var chipAdd = { padding: "5px 11px", fontSize: 12, fontWeight: 600, background: "#f5f4f0",
+      color: "#888", border: "1.5px dashed #bbb", borderRadius: 999, cursor: "pointer",
+      whiteSpace: "nowrap", minHeight: IS_TOUCH ? 34 : 26 };
+    var secTitle = { fontSize: 11, color: "#888", fontWeight: 700, marginBottom: 6 };
+    var wrap = { display: "flex", flexWrap: "wrap", gap: 5 };
+    var draftRow = { display: "flex", gap: 5, alignItems: "center", marginTop: 6 };
+    var draftInput = { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13,
+      border: "1px solid #ccc", borderRadius: 5, boxSizing: "border-box" };
+    var okBtn = { padding: "6px 12px", fontSize: 12, fontWeight: 700, background: "#1a1a1a",
+      color: "#fff", border: "1px solid #1a1a1a", borderRadius: 5, cursor: "pointer" };
+    var selStocks = ks.stocks || [];
     return React.createElement("div", {
-      onClick: function() { setCatMgmtTarget(null); },
-      style: {
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-        zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 16
-      }
+      onClick: function() { setKeepSheet(null); },
+      style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000,
+        display: "flex", alignItems: "flex-end", justifyContent: "center" }
     }, React.createElement("div", {
-      onClick: function(e){ e.stopPropagation(); },
-      style: {
-        background: "#fff", borderRadius: 12,
-        maxWidth: 520, width: "100%", display: "flex", flexDirection: "column"
-      }
+      onClick: function(e) { e.stopPropagation(); },
+      style: { background: "#fff", borderRadius: "14px 14px 0 0", width: "100%", maxWidth: 560,
+        maxHeight: "88vh", display: "flex", flexDirection: "column" }
     },
       React.createElement("div", {
-        style: {
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 16px", borderBottom: "1px solid #e0ddd6"
-        }
+        style: { padding: "12px 16px", borderBottom: "1px solid #e0ddd6", display: "flex",
+          alignItems: "center", gap: 8, flexShrink: 0, flexWrap: "wrap" }
       },
-        React.createElement("span", {
-          style: { fontSize: 14, fontWeight: 700 }
-        }, "\u2699 \u30AB\u30C6\u30B4\u30EA\u7BA1\u7406\uFF1A", cat),
+        React.createElement("span", { style: { fontSize: 15, fontWeight: 700 } }, "\uD83D\uDD16 この記事を保存"),
+        React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "分類は全部任意です"),
         React.createElement("button", {
-          onClick: function(){ setCatMgmtTarget(null); },
-          style: {
-            padding: "6px 14px", fontSize: 13, fontWeight: 600,
-            background: "#f5f4f0", color: "#555", border: "1px solid #ccc",
-            borderRadius: 6, cursor: "pointer"
-          }
-        }, "\u9589\u3058\u308B")
+          onClick: function() { setKeepSheet(null); },
+          style: { marginLeft: "auto", padding: "6px 14px", fontSize: 13, fontWeight: 600,
+            background: "#f5f4f0", color: "#555", border: "1px solid #ccc", borderRadius: 6,
+            cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
+        }, "キャンセル")
       ),
       React.createElement("div", {
-        style: { padding: "12px 16px", display: "flex", flexDirection: "column", gap: 16 }
+        style: { padding: "12px 16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }
       },
-        
-        !orphan && React.createElement("div", null,
-          React.createElement("div", {
-            style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" }
-          }, "\u270E \u30EA\u30CD\u30FC\u30E0"),
-          React.createElement("div", {
-            style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 }
-          }, "\u30AB\u30C6\u30B4\u30EA\u540D\u3092\u5909\u66F4\u3057\u307E\u3059\u3002\u95A2\u9023\u3059\u308B\u30B5\u30D6\u30BF\u30D6\u3001\u81EA\u52D5\u30BF\u30B0\u3001\u9298\u67C4\u53C2\u7167\u3001\u5168\u30C7\u30FC\u30BF\u306E\u30AD\u30FC\u3082\u81EA\u52D5\u3067\u8FFD\u5F93\u3055\u308C\u307E\u3059\u3002"),
-          React.createElement(_RenameRow, {
-            initialValue: cat,
-            existingNames: newsCategories.filter(function(c){ return c !== cat; }),
-            onApply: function(nm) {
-              if (renameNewsCat(cat, nm)) setCatMgmtTarget(nm);
-            }
-          })
-        ),
-        
-        !orphan && React.createElement("div", null,
-          React.createElement("div", {
-            style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" }
-          }, "\u2194 \u4E26\u3073\u66FF\u3048"),
-          React.createElement("div", {
-            style: { fontSize: 11, color: "#666", marginBottom: 8 }
-          }, "\u73FE\u5728\u306E\u4F4D\u7F6E: ", (idx + 1), " / ", newsCategories.length),
-          React.createElement("div", {
-            style: { display: "flex", gap: 8 }
-          },
+        React.createElement("div", null,
+          React.createElement("div", { style: secTitle }, "カテゴリ"),
+          React.createElement("div", { style: wrap },
+            React.createElement("button", { onClick: function() { setKS({ cat: "", sub: "" }); }, style: chip(!ks.cat) }, "なし"),
+            displayCats.map(function(c) {
+              return React.createElement("button", {
+                key: "kc_" + c,
+                onClick: function() { setKS({ cat: c, sub: "" }); },
+                style: chip(ks.cat === c)
+              }, c);
+            }),
             React.createElement("button", {
-              onClick: function(){ reorderNewsCat(cat, -1); },
-              disabled: idx <= 0,
-              style: {
-                padding: "6px 14px", fontSize: 13, fontWeight: 600,
-                background: idx > 0 ? "#fff" : "#f5f4f0",
-                color: idx > 0 ? "#555" : "#bbb",
-                border: "1px solid " + (idx > 0 ? "#ccc" : "#ddd"),
-                borderRadius: 6, cursor: idx > 0 ? "pointer" : "not-allowed"
-              }
-            }, "\u2190 \u5DE6\u3078"),
+              onClick: function() { setKS({ addCat: !ks.addCat, catDraft: "" }); },
+              style: chipAdd
+            }, "＋新規")
+          ),
+          ks.addCat ? React.createElement("div", { style: draftRow },
+            React.createElement(FastInput, {
+              type: "text", value: ks.catDraft || "", debounceMs: 0, autoFocus: true,
+              onChange: function(v) { setKS({ catDraft: v }); },
+              placeholder: "新しいカテゴリ名", style: draftInput
+            }),
             React.createElement("button", {
-              onClick: function(){ reorderNewsCat(cat, 1); },
-              disabled: idx < 0 || idx >= newsCategories.length - 1,
-              style: {
-                padding: "6px 14px", fontSize: 13, fontWeight: 600,
-                background: (idx >= 0 && idx < newsCategories.length - 1) ? "#fff" : "#f5f4f0",
-                color: (idx >= 0 && idx < newsCategories.length - 1) ? "#555" : "#bbb",
-                border: "1px solid " + ((idx >= 0 && idx < newsCategories.length - 1) ? "#ccc" : "#ddd"),
-                borderRadius: 6, cursor: (idx >= 0 && idx < newsCategories.length - 1) ? "pointer" : "not-allowed"
-              }
-            }, "\u53F3\u3078 \u2192")
-          )
-        ),
-        
-        
-        !orphan && React.createElement("div", { style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 } },
-          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "↪ 別カテゴリのサブカテゴリとして移動"),
-          React.createElement("div", { style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 } }, "「", cat, "」を選択したメインカテゴリの配下に移動します。データはそのまま引き継がれます。"),
-          React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
-            React.createElement("select", {
-              value: catMgmtMoveToMain,
-              onChange: function(e) { setCatMgmtMoveToMain(e.target.value); },
-              style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
-            },
-              React.createElement("option", { value: "" }, "移動先を選択…"),
-              newsCategories.filter(function(c) { return c !== cat; }).map(function(c) {
-                return React.createElement("option", { key: c, value: c }, c);
-              })
-            ),
-            React.createElement("button", {
-              disabled: !catMgmtMoveToMain,
               onClick: function() {
-                if (!catMgmtMoveToMain) return;
-                window._snConfirm("「" + cat + "」を「" + catMgmtMoveToMain + "」のサブカテゴリに移動しますか？").then(function(_ok){ if(!_ok) return;
-                  moveMainCatToSubCat(cat, catMgmtMoveToMain);
-                  setCatMgmtMoveToMain("");
-                  setCatMgmtTarget(null);
-                });
-              },
-              style: { padding: "6px 14px", fontSize: 13, fontWeight: 700, background: catMgmtMoveToMain ? "#EFF6FF" : "#f5f4f0", color: catMgmtMoveToMain ? "#1D4ED8" : "#bbb", border: "1px solid " + (catMgmtMoveToMain ? "#BFDBFE" : "#ddd"), borderRadius: 6, cursor: catMgmtMoveToMain ? "pointer" : "not-allowed" }
-            }, "移動")
-          )
+                var nm = String(ks.catDraft || "").trim();
+                if (!nm) return;
+                if (displayCats.indexOf(nm) < 0) updCustom({ newsCategories: newsCategories.concat([nm]) });
+                setKS({ cat: nm, sub: "", addCat: false, catDraft: "" });
+              }, style: okBtn
+            }, "追加")
+          ) : null
         ),
-        
-        React.createElement("div", { style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 } },
-          React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📦 データを別カテゴリへ一括移動"),
-          React.createElement("div", { style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 } }, "「", cat, "」内の全画像・ニュースを別カテゴリに一括移動し、このカテゴリを削除します。"),
-          React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
-            React.createElement("select", {
-              value: catMgmtBulkTo,
-              onChange: function(e) { setCatMgmtBulkTo(e.target.value); setCatMgmtBulkToSub(""); },
-              style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
-            },
-              React.createElement("option", { value: "" }, "移動先カテゴリを選択…"),
-              newsCategories.filter(function(c) { return c !== cat; }).map(function(c) {
-                return React.createElement("option", { key: c, value: c }, c);
-              })
-            )
-          ),
-          catMgmtBulkTo && ((custom.newsSubCats || {})[catMgmtBulkTo] || []).length > 0 && React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
-            React.createElement("span", { style: { fontSize: 11, color: "#666", whiteSpace: "nowrap" } }, "サブカテゴリ:"),
-            React.createElement("select", {
-              value: catMgmtBulkToSub,
-              onChange: function(e) { setCatMgmtBulkToSub(e.target.value); },
-              style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
-            },
-              React.createElement("option", { value: "" }, "(サブなし = メイン直下)"),
-              ((custom.newsSubCats || {})[catMgmtBulkTo] || []).map(function(s) {
-                return React.createElement("option", { key: s, value: s }, s);
-              })
-            )
-          ),
-          React.createElement("button", {
-            disabled: !catMgmtBulkTo,
-            onClick: function() {
-              if (!catMgmtBulkTo) return;
-              var dest = catMgmtBulkToSub || catMgmtBulkTo;
-              var destLabel = catMgmtBulkToSub ? (catMgmtBulkTo + " › " + catMgmtBulkToSub) : catMgmtBulkTo;
-              window._snConfirm("「" + cat + "」の全データを「" + destLabel + "」に移動し、「" + cat + "」を削除しますか？\nこの操作は元に戻せません。").then(function(_ok){ if(!_ok) return;
-                bulkMoveNewsData(cat, dest, null);
-                setCatMgmtBulkTo(""); setCatMgmtBulkToSub("");
-                setCatMgmtTarget(null);
-              });
-            },
-            style: { padding: "6px 14px", fontSize: 13, fontWeight: 700, background: catMgmtBulkTo ? "#FFF7ED" : "#f5f4f0", color: catMgmtBulkTo ? "#9A3412" : "#bbb", border: "1px solid " + (catMgmtBulkTo ? "#FDBA74" : "#ddd"), borderRadius: 6, cursor: catMgmtBulkTo ? "pointer" : "not-allowed" }
-          }, "📦 一括移動して削除")
-        ),        React.createElement("div", {
-          style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 }
-        },
-          React.createElement("button", {
-            onClick: function() {
-              window._snConfirm("\u300C" + cat + "\u300D\u30AB\u30C6\u30B4\u30EA\u3092\u4E00\u89A7\u304B\u3089\u5916\u3057\u307E\u3059\u304B\uFF1F\n\u904E\u53BB\u306E\u30C7\u30FC\u30BF\u306F\u4FDD\u6301\u3055\u308C\u307E\u3059\u3002").then(function(_ok){ if(!_ok) return;
-                delNewsCat(cat);
-                setCatMgmtTarget(null);
-              });
-            },
-            style: {
-              padding: "7px 16px", fontSize: 13, fontWeight: 700,
-              background: "#fff", color: "#DC2626", border: "1px solid #FCA5A5",
-              borderRadius: 6, cursor: "pointer"
-            }
-          }, "\uD83D\uDDD1 \u3053\u306E\u30AB\u30C6\u30B4\u30EA\u3092\u4E00\u89A7\u304B\u3089\u5916\u3059")
+        React.createElement("div", null,
+          React.createElement("div", { style: secTitle }, "サブ"),
+          !ks.cat
+            ? React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "(カテゴリを選ぶとサブを選べます)")
+            : React.createElement(React.Fragment, null,
+                React.createElement("div", { style: wrap },
+                  React.createElement("button", { onClick: function() { setKS({ sub: "" }); }, style: chip(!ks.sub) }, "なし"),
+                  subOpts.map(function(s) {
+                    return React.createElement("button", {
+                      key: "ksb_" + s,
+                      onClick: function() { setKS({ sub: s }); },
+                      style: chip(ks.sub === s)
+                    }, s);
+                  }),
+                  React.createElement("button", {
+                    onClick: function() { setKS({ addSub: !ks.addSub, subDraft: "" }); },
+                    style: chipAdd
+                  }, "＋新規")
+                ),
+                ks.addSub ? React.createElement("div", { style: draftRow },
+                  React.createElement(FastInput, {
+                    type: "text", value: ks.subDraft || "", debounceMs: 0, autoFocus: true,
+                    onChange: function(v) { setKS({ subDraft: v }); },
+                    placeholder: "新しいサブ名", style: draftInput
+                  }),
+                  React.createElement("button", {
+                    onClick: function() {
+                      var nm = String(ks.subDraft || "").trim();
+                      if (!nm) return;
+                      if (subOpts.indexOf(nm) < 0) {
+                        var ns = Object.assign({}, custom.newsSubCats || {});
+                        ns[ks.cat] = subOpts.concat([nm]);
+                        updCustom({ newsSubCats: ns });
+                      }
+                      setKS({ sub: nm, addSub: false, subDraft: "" });
+                    }, style: okBtn
+                  }, "追加")
+                ) : null
+              )
+        ),
+        React.createElement("div", null,
+          React.createElement("div", { style: secTitle }, "銘柄（複数選択可）"),
+          (allStocks && allStocks.length)
+            ? React.createElement("div", { style: wrap }, allStocks.map(function(s) {
+                var on = selStocks.indexOf(s) >= 0;
+                return React.createElement("button", {
+                  key: "kst_" + s,
+                  // 複数選択なので直前のstateから積む（描画時のselStocksを使うと連打で先の選択が消える）
+                  onClick: function() {
+                    setKeepSheet(function(p) {
+                      if (!p) return p;
+                      var cur = p.stocks || [];
+                      var has = cur.indexOf(s) >= 0;
+                      return Object.assign({}, p, { stocks: has ? cur.filter(function(x) { return x !== s; }) : cur.concat([s]) });
+                    });
+                  },
+                  style: chip(on)
+                }, s);
+              }))
+            : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "(銘柄が登録されていません)")
         )
+      ),
+      React.createElement("div", {
+        style: { padding: "10px 16px 14px", borderTop: "1px solid #e0ddd6", display: "flex",
+          alignItems: "center", gap: 8, flexShrink: 0 }
+      },
+        ks.wasKept ? React.createElement("button", {
+          onClick: function() { unsaveNiKeep(ks.niId); setKeepSheet(null); },
+          style: { padding: "8px 14px", fontSize: 12, fontWeight: 700, background: "#fff",
+            color: "#DC2626", border: "1px solid #FCA5A5", borderRadius: 6, cursor: "pointer",
+            minHeight: IS_TOUCH ? 40 : 32 }
+        }, "保存をやめる") : null,
+        React.createElement("button", {
+          onClick: function() { saveNiKeep(ks.niId, ks.cat, ks.sub, ks.stocks || []); setKeepSheet(null); },
+          style: { marginLeft: "auto", padding: "9px 22px", fontSize: 14, fontWeight: 700,
+            background: "#F59E0B", color: "#fff", border: "none", borderRadius: 7,
+            cursor: "pointer", minHeight: IS_TOUCH ? 44 : 36 }
+        }, ks.wasKept ? "保存を更新" : "保存")
       )
     ));
   })(),
-  
-  subCatMgmtTarget != null && React.createElement("div", {
-    onClick: function() { setSubCatMgmtTarget(null); },
-    style: {
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-      zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 16
-    }
-  }, React.createElement("div", {
-    onClick: function(e){ e.stopPropagation(); },
-    style: {
-      background: "#fff", borderRadius: 12,
-      maxWidth: 700, width: "100%", maxHeight: "90vh",
-      display: "flex", flexDirection: "column"
-    }
-  },
-    React.createElement("div", {
-      style: {
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "12px 16px", borderBottom: "1px solid #e0ddd6", flexShrink: 0
-      }
-    },
-      React.createElement("span", {
-        style: { fontSize: 14, fontWeight: 700 }
-      }, "\u2699 \u30B5\u30D6\u30BF\u30D6\u7BA1\u7406\uFF1A", currentCat, " \u203A ", subCatMgmtTarget),
-      React.createElement("button", {
-        onClick: function(){ setSubCatMgmtTarget(null); },
-        style: {
-          padding: "6px 14px", fontSize: 13, fontWeight: 600,
-          background: "#f5f4f0", color: "#555", border: "1px solid #ccc",
-          borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28
-        }
-      }, "\u9589\u3058\u308B")
-    ),
-    React.createElement("div", {
-      style: { padding: "12px 16px", overflow: "auto", display: "flex", flexDirection: "column", gap: 16 }
-    },
-      
-      React.createElement("div", null,
-        React.createElement("div", {
-          style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" }
-        }, "\u270E \u30EA\u30CD\u30FC\u30E0"),
-        React.createElement("div", {
-          style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 }
-        }, "\u30B5\u30D6\u30BF\u30D6\u540D\u3092\u5909\u66F4\u3057\u307E\u3059\u3002\u95A2\u9023\u3059\u308B\u81EA\u52D5\u30BF\u30B0\u3001\u9298\u67C4\u53C2\u7167\u3001\u30CB\u30E5\u30FC\u30B9\u306E subCat / \u30B5\u30D6\u30BF\u30D6\u540D\u30BF\u30B0\u3082\u81EA\u52D5\u8FFD\u5F93\u3055\u308C\u307E\u3059\u3002"),
-        React.createElement(_RenameRow, {
-          initialValue: subCatMgmtTarget,
-          existingNames: subCatsForCur.filter(function(s){ return s !== subCatMgmtTarget; }),
-          onApply: function(nm) {
-            if (renameSubCat(subCatMgmtTarget, nm)) setSubCatMgmtTarget(nm);
-          }
-        })
-      ),
-      
-      (function() {
-        var idx = subCatsForCur.indexOf(subCatMgmtTarget);
-        return React.createElement("div", null,
-          React.createElement("div", {
-            style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" }
-          }, "\u2194 \u4E26\u3073\u66FF\u3048"),
-          React.createElement("div", {
-            style: { fontSize: 11, color: "#666", marginBottom: 8 }
-          }, "\u73FE\u5728\u306E\u4F4D\u7F6E: ", (idx + 1), " / ", subCatsForCur.length),
-          React.createElement("div", {
-            style: { display: "flex", gap: 8 }
-          },
-            React.createElement("button", {
-              onClick: function(){ reorderSubCat(subCatMgmtTarget, -1); },
-              disabled: idx <= 0,
-              style: {
-                padding: "6px 14px", fontSize: 13, fontWeight: 600,
-                background: idx > 0 ? "#fff" : "#f5f4f0",
-                color: idx > 0 ? "#555" : "#bbb",
-                border: "1px solid " + (idx > 0 ? "#ccc" : "#ddd"),
-                borderRadius: 6, cursor: idx > 0 ? "pointer" : "not-allowed"
-              }
-            }, "\u2190 \u5DE6\u3078"),
-            React.createElement("button", {
-              onClick: function(){ reorderSubCat(subCatMgmtTarget, 1); },
-              disabled: idx < 0 || idx >= subCatsForCur.length - 1,
-              style: {
-                padding: "6px 14px", fontSize: 13, fontWeight: 600,
-                background: (idx >= 0 && idx < subCatsForCur.length - 1) ? "#fff" : "#f5f4f0",
-                color: (idx >= 0 && idx < subCatsForCur.length - 1) ? "#555" : "#bbb",
-                border: "1px solid " + ((idx >= 0 && idx < subCatsForCur.length - 1) ? "#ccc" : "#ddd"),
-                borderRadius: 6, cursor: (idx >= 0 && idx < subCatsForCur.length - 1) ? "pointer" : "not-allowed"
-              }
-            }, "\u53F3\u3078 \u2192")
-          )
-        );
-      })(),
-      
-      React.createElement("div", null,
-        React.createElement("div", {
-          style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" }
-        }, "\uD83C\uDFF7\uFE0F \u81EA\u52D5\u30BF\u30B0"),
-        React.createElement("div", {
-          style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 }
-        }, "\u3053\u306E\u30B5\u30D6\u30BF\u30D6\u3067\u65B0\u898F\u8FFD\u52A0\u3059\u308B\u30CB\u30E5\u30FC\u30B9\u306B\u3001\u9078\u629E\u3057\u305F\u30BF\u30B0\u304C\u81EA\u52D5\u4ED8\u4E0E\u3055\u308C\u307E\u3059\u3002\u30AB\u30C6\u30B4\u30EA\u306E\u81EA\u52D5\u30BF\u30B0\u306B\u8FFD\u52A0\u3055\u308C\u307E\u3059\u3002"),
-        React.createElement(TagPicker, _extends({
-          cats: custom.cats || {}, tags: custom.tags || [],
-          sel: (custom.newsSubCatDefaults && custom.newsSubCatDefaults[currentCat + "::" + subCatMgmtTarget]) || [],
-          onToggle: function(tag) { togNewsSubCatDef(subCatMgmtTarget, tag); },
-          onAdd: function(name, cat) {
-            if (cat && pool.onAdd) pool.onAdd(name, cat);
-            else if (pool.onAddLoose) pool.onAddLoose(name);
-            var fullName = cat ? (cat + ":" + name) : name;
-            togNewsSubCatDef(subCatMgmtTarget, fullName);
-          }
-        }, pool, { tagColors: custom.tagColors || {}, label: "\u81EA\u52D5\u4ED8\u4E0E\u30BF\u30B0", hideAddRoot: true }))
-      ),
-      
-      React.createElement("div", null,
-        React.createElement("div", {
-          style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" }
-        }, "\uD83D\uDD17 \u7D10\u4ED8\u3051\u9298\u67C4"),
-        React.createElement("div", {
-          style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 }
-        }, "\u9078\u629E\u3057\u305F\u9298\u67C4\u306E\u9298\u67C4\u8A18\u9332\u6B04\u306B\u3001\u3053\u306E\u30B5\u30D6\u30BF\u30D6\u306E\u30CB\u30E5\u30FC\u30B9\u304C\u95A2\u9023\u30CB\u30E5\u30FC\u30B9\u3068\u3057\u3066\u8868\u793A\u3055\u308C\u307E\u3059\u3002"),
-        React.createElement("div", {
-          style: {
-            display: "flex", flexWrap: "wrap", gap: 5,
-            padding: 8, border: "1px solid #e0ddd6", borderRadius: 6,
-            maxHeight: 240, overflowY: "auto", background: "#fafaf7"
-          }
-        }, (allStocks || []).filter(function(s){ return s !== "日経平均株価"; }).map(function(stk) {
-          var refs = (custom.stockSubCatRefs && custom.stockSubCatRefs[stk]) || [];
-          var on = refs.some(function(r){ return r.cat === currentCat && r.subCat === subCatMgmtTarget; });
-          return React.createElement("button", {
-            key: stk,
-            onClick: function() { togStockSubCatRefForMgmt(stk, subCatMgmtTarget); },
-            style: {
-              padding: "4px 9px", fontSize: 12, fontWeight: on ? 700 : 500,
-              background: on ? "#10B981" : "#fff",
-              color: on ? "#fff" : "#444",
-              border: "1px solid " + (on ? "#10B981" : "#ddd"),
-              borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap"
-            }
-          }, (on ? "\u2713 " : "") + stk);
-        }))
-      ),
-      
-      React.createElement("div", { style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 } },
-        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333" } }, "📦 データを別カテゴリへ一括移動"),
-        React.createElement("div", { style: { fontSize: 11, color: "#666", lineHeight: 1.5, marginBottom: 8 } }, "「", subCatMgmtTarget, "」内の全画像・ニュースを別カテゴリ（メイン・サブ）へ一括移動します。"),
-        React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
-          React.createElement("select", {
-            value: subCatMgmtBulkTo,
-            onChange: function(e) { setSubCatMgmtBulkTo(e.target.value); setSubCatMgmtBulkToSub(""); },
-            style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
-          },
-            React.createElement("option", { value: "" }, "移動先カテゴリを選択…"),
-            newsCategories.map(function(c) {
-              return React.createElement("option", { key: c, value: c }, c);
-            })
-          )
-        ),
-        subCatMgmtBulkTo && ((custom.newsSubCats || {})[subCatMgmtBulkTo] || []).filter(function(s) { return s !== subCatMgmtTarget; }).length > 0 && React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
-          React.createElement("span", { style: { fontSize: 11, color: "#666", whiteSpace: "nowrap" } }, "サブカテゴリ:"),
-          React.createElement("select", {
-            value: subCatMgmtBulkToSub,
-            onChange: function(e) { setSubCatMgmtBulkToSub(e.target.value); },
-            style: { flex: 1, minWidth: 120, padding: "6px 8px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6 }
-          },
-            React.createElement("option", { value: "" }, "(サブなし = メイン直下)"),
-            ((custom.newsSubCats || {})[subCatMgmtBulkTo] || []).filter(function(s) { return s !== subCatMgmtTarget; }).map(function(s) {
-              return React.createElement("option", { key: s, value: s }, s);
-            })
-          )
-        ),
-        React.createElement("button", {
-          disabled: !subCatMgmtBulkTo,
-          onClick: function() {
-            if (!subCatMgmtBulkTo) return;
-            var dest = subCatMgmtBulkToSub || subCatMgmtBulkTo;
-            var destLabel = subCatMgmtBulkToSub ? (subCatMgmtBulkTo + " › " + subCatMgmtBulkToSub) : subCatMgmtBulkTo;
-            window._snConfirm("「" + subCatMgmtTarget + "」の全データを「" + destLabel + "」に移動し、「" + subCatMgmtTarget + "」を削除しますか？\nこの操作は元に戻せません。").then(function(_ok){ if(!_ok) return;
-              bulkMoveNewsData(subCatMgmtTarget, dest, currentCat);
-              setSubCatMgmtBulkTo(""); setSubCatMgmtBulkToSub("");
-              setSubCatMgmtTarget(null);
-            });
-          },
-          style: { padding: "6px 14px", fontSize: 13, fontWeight: 700, background: subCatMgmtBulkTo ? "#FFF7ED" : "#f5f4f0", color: subCatMgmtBulkTo ? "#9A3412" : "#bbb", border: "1px solid " + (subCatMgmtBulkTo ? "#FDBA74" : "#ddd"), borderRadius: 6, cursor: subCatMgmtBulkTo ? "pointer" : "not-allowed" }
-        }, "📦 一括移動して削除")
-      ),      
-      React.createElement("div", {
-        style: { borderTop: "1px solid #f0eeea", paddingTop: 12, marginTop: 4 }
-      },
-        React.createElement("button", {
-          onClick: function() {
-            window._snConfirm("\u300C" + subCatMgmtTarget + "\u300D\u30B5\u30D6\u30BF\u30D6\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F\n\u30CB\u30E5\u30FC\u30B9\u81EA\u4F53\u306F\u6B8B\u308A\u672A\u5206\u985E\u306B\u79FB\u308A\u307E\u3059\u3002\n\u95A2\u9023\u3059\u308B\u9298\u67C4\u53C2\u7167\u3068\u81EA\u52D5\u30BF\u30B0\u8A2D\u5B9A\u3082\u524A\u9664\u3055\u308C\u307E\u3059\u3002").then(function(_ok){ if(!_ok) return;
-              delSubCat(subCatMgmtTarget);
-              setSubCatMgmtTarget(null);
-            });
-          },
-          style: {
-            padding: "7px 16px", fontSize: 13, fontWeight: 700,
-            background: "#fff", color: "#DC2626", border: "1px solid #FCA5A5",
-            borderRadius: 6, cursor: "pointer"
-          }
-        }, "\uD83D\uDDD1 \u3053\u306E\u30B5\u30D6\u30BF\u30D6\u3092\u524A\u9664")
-      )
-    )
-  )),
-  
-  catDefOpen && React.createElement("div", {
-    onClick: function() { setCatDefOpen(false); },
-    style: {
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-      zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 16
-    }
-  }, React.createElement("div", {
-    onClick: function(e){ e.stopPropagation(); },
-    style: {
-      background: "#fff", borderRadius: 12,
-      maxWidth: 700, width: "100%", maxHeight: "90vh",
-      display: "flex", flexDirection: "column"
-    }
-  },
-    React.createElement("div", {
-      style: {
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "12px 16px", borderBottom: "1px solid #e0ddd6", flexShrink: 0
-      }
-    },
-      React.createElement("span", {
-        style: { fontSize: 14, fontWeight: 700 }
-      }, "\u2699\uFE0F \u300C", currentCat, "\u300D\u306E\u81EA\u52D5\u30BF\u30B0"),
-      React.createElement("button", {
-        onClick: function(){ setCatDefOpen(false); },
-        style: {
-          padding: "6px 14px", fontSize: 13, fontWeight: 600,
-          background: "#f5f4f0", color: "#555", border: "1px solid #ccc",
-          borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28
-        }
-      }, "\u9589\u3058\u308B")
-    ),
-    React.createElement("div", {
-      style: { padding: "12px 16px", overflow: "auto" }
-    },
-      React.createElement("div", {
-        style: { fontSize: 12, color: "#666", lineHeight: 1.5, marginBottom: 12 }
-      }, "\u3053\u306E\u30AB\u30C6\u30B4\u30EA\u306B\u65B0\u898F\u8FFD\u52A0\u3059\u308B\u30CB\u30E5\u30FC\u30B9\u306B\u3001\u9078\u629E\u3057\u305F\u30BF\u30B0\u304C\u81EA\u52D5\u4ED8\u4E0E\u3055\u308C\u307E\u3059\u3002\u65E2\u5B58\u306E\u30CB\u30E5\u30FC\u30B9\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\u3002"),
-      React.createElement(TagPicker, _extends({
-        cats: custom.cats || {}, tags: custom.tags || [],
-        sel: (custom.newsCatDefaults && custom.newsCatDefaults[currentCat]) || [],
-        onToggle: togNewsCatDef,
-        onAdd: function(name, cat) {
-          if (cat && pool.onAdd) pool.onAdd(name, cat);
-          else if (pool.onAddLoose) pool.onAddLoose(name);
-          var fullName = cat ? (cat + ":" + name) : name;
-          togNewsCatDef(fullName);
-        }
-      }, pool, { tagColors: custom.tagColors || {}, label: "\u81EA\u52D5\u4ED8\u4E0E\u30BF\u30B0", hideAddRoot: true }))
-    )
-  )),
   viewTarget && function () {
     var vt = viewTarget,
       imgs = vt.imgs,
@@ -4363,409 +3637,236 @@ function NewsTab(_ref36) {
       onNextItem: nextNiIdxA !== null ? jumpToItem(nextNiIdxA) : null,
       itemNavLabel: itemNavLabelA
     });
-  }(), React.createElement(NewsCatTabs, {
-    cats: displayCats,
-    active: currentCat,
-    onSelect: setActiveCat,
-    onAdd: addNewsCat,
-    onDel: delNewsCat,
-    onMgmt: function(cat) { setCatMgmtTarget(cat); },
-    hasData: catHasData,
-    isOrphan: isOrphan
-  }),
-  
-  React.createElement("div", {
-    style: {
-      display: "flex", alignItems: "center", gap: 5,
-      marginBottom: 12, overflowX: "auto", paddingBottom: 6
-    }
-  },
-    
-    hasSubCats ? React.createElement(React.Fragment, null,
-      
-      React.createElement("button", {
-        onClick: function() { setActiveSubCat("__all__"); },
-        style: {
-          padding: "5px 10px", fontSize: 12, fontWeight: activeSubCat === "__all__" ? 700 : 500,
-          background: activeSubCat === "__all__" ? "#4F46E5" : "#fff",
-          color: activeSubCat === "__all__" ? "#fff" : "#666",
-          border: "1px solid " + (activeSubCat === "__all__" ? "#4F46E5" : "#ddd"),
-          borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0
-        }
-      }, "\u3059\u3079\u3066 (" + dedupedNewsItems.length + ")"),
-      
-      (function() {
-        var noneCount = allNewsItems.filter(function(ni) {
-          return !ni.subCat || subCatsForCur.indexOf(ni.subCat) < 0;
-        }).length;
-        return React.createElement("button", {
-          onClick: function() { setActiveSubCat("__none__"); },
-          style: {
-            padding: "5px 10px", fontSize: 12, fontWeight: activeSubCat === "__none__" ? 700 : 500,
-            background: activeSubCat === "__none__" ? "#888" : "#fff",
-            color: activeSubCat === "__none__" ? "#fff" : "#888",
-            border: "1px solid " + (activeSubCat === "__none__" ? "#888" : "#ddd"),
-            borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0
-          }
-        }, "\u672A\u5206\u985E (" + noneCount + ")");
-      })(),
-      
-      subCatsForCur.map(function(sc) {
-        var cnt = allNewsItems.filter(function(ni) { return ni.subCat === sc; }).length;
-        var on = activeSubCat === sc;
-        var dragOn = subCatDrag === sc;
+  }(),
+
+  React.createElement("div", { style: Card },
+    React.createElement("div", {
+      style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }
+    },
+      React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "\uD83D\uDCF0 ニュース"),
+      React.createElement("span", { style: { fontSize: 12, color: "#888", fontWeight: 600 } },
+        boardItems.length + "件" + (keptCount ? "　\uD83D\uDD16 保存済み " + keptCount : "")),
+      boardTagFilter.length > 0 ? React.createElement("button", {
+        onClick: function() { setBoardTagFilter([]); },
+        style: { marginLeft: "auto", padding: "3px 9px", fontSize: 11, fontWeight: 600,
+          background: "#fff", color: "#DC2626", border: "1px solid #FCA5A5",
+          borderRadius: 5, cursor: "pointer" }
+      }, "✕ 絞込クリア（" + shownItems.length + "件表示）") : null
+    ),
+    boardTagChips.length > 0 ? React.createElement("div", {
+      style: { display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10,
+        paddingBottom: 9, borderBottom: "1px dashed #e8e5df" }
+    }, boardTagChips.map(function(tc) {
+      var on = boardTagFilter.indexOf(tc.tag) >= 0;
+      var trip = _tagColorTriple((custom.tagColors || {})[tc.tag] || "#7A9CC8", on);
+      return React.createElement("button", {
+        key: "btc_" + tc.tag,
+        onClick: function() { togBoardTag(tc.tag); },
+        title: tc.tag,
+        style: { padding: "3px 10px", fontSize: 11, fontWeight: on ? 700 : 600,
+          background: trip[0], color: trip[2], border: "1px solid " + trip[1],
+          borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap" }
+      }, stripCat(tc.tag) + " " + tc.n);
+    })) : null,
+    React.createElement("div", {
+      style: { display: "grid", alignItems: "start", gap: 10,
+        gridTemplateColumns: "repeat(auto-fill, minmax(" + (IS_TOUCH ? 158 : 190) + "px, 1fr))" }
+    },
+      shownItems.map(function(e, bIdx) {
+        var ni = e.ni;
+        var imgs = ni.images || [];
+        var niTags = ni.tags || [];
+        var kept = _snNiKept(ni);
+        var kCat = kept ? (ni.keep.cat || "") : "";
+        var kSub = kept ? (ni.keep.sub || "") : "";
+        var kStocks = kept ? _snNiKeepStocks(ni) : [];
+        var keepLabel = !kept ? "" : (kCat ? (kCat + (kSub ? " › " + kSub : "")) : "未分類");
         return React.createElement("div", {
-          key: sc,
-          onDragOver: function(e) { e.preventDefault(); e.stopPropagation(); if (subCatDrag !== sc) setSubCatDrag(sc); },
-          onDragLeave: function(e) { if (e.currentTarget.contains(e.relatedTarget)) return; setSubCatDrag(function(c){ return c === sc ? null : c; }); },
-          onDrop: function(e) {
-            e.preventDefault(); e.stopPropagation(); setSubCatDrag(null);
-            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) addNewsWithFile(e.dataTransfer.files[0], sc);
-          },
-          style: { display: "inline-flex", alignItems: "stretch", flexShrink: 0,
-                   borderRadius: 6,
-                   outline: dragOn ? "2px dashed #6366F1" : "none",
-                   outlineOffset: 1,
-                   background: dragOn ? "#EEF2FF" : "transparent" }
+          key: e.cat + "_" + ni.id,
+          id: "ni-card-" + ni.id,
+          "data-newscard": "1",
+          style: { position: "relative",
+            background: highlightNiId === ni.id ? "#FEF3C7" : "#f8f7f4",
+            boxShadow: highlightNiId === ni.id ? "0 0 0 3px #F59E0B" : "none",
+            borderRadius: 10,
+            border: kept ? "1.5px solid #F59E0B" : "1px solid #e8e5df",
+            overflow: "hidden", transition: "background 0.4s, box-shadow 0.4s" }
         },
           React.createElement("button", {
-            onClick: function() { setActiveSubCat(sc); },
-            style: {
-              padding: "5px 10px", fontSize: 12, fontWeight: on ? 700 : 500,
-              background: on ? "#10B981" : "#fff",
-              color: on ? "#fff" : "#444",
-              border: "1px solid " + (on ? "#10B981" : "#ddd"),
-              borderRadius: on ? "5px 0 0 5px" : "5px",
-              borderRight: on ? "none" : "1px solid #ddd",
-              cursor: "pointer", whiteSpace: "nowrap"
-            }
-          }, sc + " (" + cnt + ")"),
-          on && React.createElement("button", {
             onClick: function() {
-              setSubCatMgmtTarget(sc);
+              setMoveToCat(e.cat);
+              setMoveToSubCat(ni.subCat || "");
+              setMoveToDate(date);
+              setMoveMode("move");
+              setCloneTargets([]);
+              setMoveTarget({ niId: ni.id, fromCat: e.cat, fromSubCat: ni.subCat || "" });
             },
-            title: "\u3053\u306E\u30B5\u30D6\u30BF\u30D6\u3092\u7BA1\u7406 (\u81EA\u52D5\u30BF\u30B0 / \u7D10\u4ED8\u3051\u9298\u67C4 / \u524A\u9664)",
-            style: {
-              padding: "5px 8px", fontSize: 12, fontWeight: 700,
-              background: "#10B981", color: "#fff",
-              border: "1px solid #10B981", borderLeft: "1px solid rgba(255,255,255,0.3)",
-              borderRadius: "0 5px 5px 0", cursor: "pointer"
-            }
-          }, "\u2699")
+            title: "この記事を移動/複製",
+            style: { position: "absolute", top: 4, right: 30, width: 22, height: 22,
+              borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff",
+              border: "none", fontSize: 11, cursor: "pointer", fontWeight: 700,
+              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
+          }, "↪"),
+          (function() {
+            var clones = _findClones(ni.id);
+            if (!clones.length) return null;
+            var locsLabel = clones.map(function(l) { return l.cat + (l.subCat ? "/" + l.subCat : ""); }).join("\n");
+            return React.createElement("div", {
+              title: "クローン (編集連動):\n" + locsLabel,
+              style: { position: "absolute", top: 4, right: 56, height: 22, padding: "0 6px",
+                borderRadius: 11, background: "rgba(99,102,241,0.85)", color: "#fff",
+                fontSize: 10, fontWeight: 700, zIndex: 2, display: "flex",
+                alignItems: "center", justifyContent: "center", gap: 2, cursor: "help" }
+            }, "\uD83D\uDD17", clones.length + 1);
+          })(),
+          React.createElement("button", {
+            onClick: function() { return delNews(ni.id); },
+            title: "削除",
+            style: { position: "absolute", top: 4, right: 4, width: 22, height: 22,
+              borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff",
+              border: "none", fontSize: 12, cursor: "pointer", fontWeight: 700,
+              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
+          }, "✕"),
+          React.createElement(ImgGrid, {
+            images: imgs,
+            boxed: true,
+            onRemove: function(i) {
+              return updNews(ni.id, function(n) {
+                return { images: (n.images || []).filter(function(_, j) { return j !== i; }) };
+              });
+            },
+            onAnnotate: function(i) { return setAnnotTarget({ nid: ni.id, idx: i }); },
+            onEnlarge: function(i) {
+              return setViewTarget({ imgs: imgs, idx: i, niIdx: bIdx,
+                onUpdate: function(i2, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images || []); a[i2] = ed; return { images: a }; }); }
+              });
+            },
+            onUpdateImg: function(i, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images || []); a[i] = ed; return { images: a }; }); }
+          }),
+          React.createElement("div", { style: { padding: "6px 8px" } },
+            ni.fromMemo ? React.createElement("div", {
+              style: { fontSize: 9, fontWeight: 700, color: "#92400E", background: "#FEF3C7",
+                border: "1px solid #FDE68A", borderRadius: 4, padding: "1px 5px",
+                display: "inline-block", marginBottom: 4 }
+            }, "旧メモ欄から") : null,
+            React.createElement(MemoEditableField, {
+              html: ni.text || "",
+              onSave: function(h) { updNews(ni.id, { text: h }); },
+              placeholder: "本文",
+              autoEdit: false,
+              guardOwner: "newsItemText_" + date + "_" + ni.id
+            }),
+            (function() {
+              if (!onJumpToStock || !allStocks || !allStocks.length) return null;
+              var stockSet = {}, stockList = [];
+              kStocks.forEach(function(s) { if (s && !stockSet[s]) { stockSet[s] = true; stockList.push(s); } });
+              niTags.forEach(function(tg) {
+                var s = _ntExtractStockFromTag(tg, allStocks);
+                if (s && !stockSet[s]) { stockSet[s] = true; stockList.push(s); }
+              });
+              if (stockList.length === 0) return null;
+              return React.createElement("div", {
+                style: { display: "flex", flexWrap: "wrap", gap: 4, margin: "5px 0" }
+              }, stockList.map(function(s) {
+                return React.createElement("button", {
+                  key: "j_" + s,
+                  onClick: function(ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); onJumpToStock(s); },
+                  title: s + " の銘柄記録を見る",
+                  style: { fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4,
+                    background: "#EEF2FF", color: "#4F46E5", border: "1px solid #C7D2FE",
+                    cursor: "pointer", whiteSpace: "nowrap" }
+                }, "→ " + s);
+              }));
+            })(),
+            React.createElement(TagPicker, _extends({
+              cats: catTagPool.cats, tags: catTagPool.tags, sel: niTags,
+              onToggle: function(tag) { return togNiTag(ni.id, tag); },
+              onAdd: function(name, cat) { return onAddNiTag(ni.id, name, cat); }
+            }, newsPool, { tagColors: custom.tagColors || {}, label: "材料タグ", hideAddRoot: true })),
+            React.createElement(PasteZone, {
+              onImage: function(img) { return updNews(ni.id, function(n) { return { images: [].concat(_toConsumableArray(n.images || []), [img]) }; }); },
+              compact: true
+            }),
+            React.createElement("button", {
+              onClick: function() { openKeepSheet(e); },
+              title: kept ? "保存済み（自動削除されません）。押すと分類を変えられます" : "カテゴリ・サブ・銘柄を選んで保存（全部任意）",
+              style: { width: "100%", marginTop: 6, padding: "6px 8px", fontSize: 11, fontWeight: 700,
+                background: kept ? "#F59E0B" : "#fff", color: kept ? "#fff" : "#666",
+                border: "1px solid " + (kept ? "#F59E0B" : "#ddd"), borderRadius: 6,
+                cursor: "pointer", minHeight: IS_TOUCH ? 38 : 30, textAlign: "left" }
+            },
+              kept ? ("\uD83D\uDD16 " + keepLabel + (kStocks.length ? " ・銘柄" + kStocks.length : ""))
+                   : "\uD83D\uDD16 この記事を保存")
+          )
         );
-      })
-    ) : null,
-    
-    React.createElement("button", {
-      onClick: function() {
-        setSubCatAddName("");
-        setSubCatAddStocksMap({});
-        setSubCatAddOpen(true);
+      }),
+      React.createElement("div", {
+        style: { display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "center", gap: 5, minHeight: 120 }
       },
-      style: {
-        padding: "5px 10px", fontSize: 12, fontWeight: 600,
-        background: "#f5f4f0", color: "#888", border: "1.5px dashed #bbb",
-        borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0
-      }
-    }, "+ \u30B5\u30D6\u30BF\u30D6")
-  ), React.createElement("div", {
-    style: Card
-  }, React.createElement("div", {
-    style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }
-  }, React.createElement("span", {
-    style: { fontSize: 15, fontWeight: 600 }
-  }, "\u4E3B\u8981\u30CB\u30E5\u30FC\u30B9\uFF08", currentCat, "\uFF09"),
-  React.createElement("button", {
-    onClick: function(){ setCatDefOpen(true); },
-    title: "\u3053\u306E\u30AB\u30C6\u30B4\u30EA\u306B\u65B0\u898F\u8FFD\u52A0\u3059\u308B\u30CB\u30E5\u30FC\u30B9\u306B\u81EA\u52D5\u4ED8\u4E0E\u3059\u308B\u30BF\u30B0\u3092\u8A2D\u5B9A",
-    style: {
-      marginLeft: "auto", padding: "3px 9px", fontSize: 11, fontWeight: 600,
-      background: "#f5f4f0", color: "#666", border: "1px solid #ddd",
-      borderRadius: 5, cursor: "pointer"
-    }
-  }, "\u2699\uFE0F \u81EA\u52D5\u30BF\u30B0" + (((custom.newsCatDefaults || {})[currentCat] || []).length > 0 ? " (" + ((custom.newsCatDefaults || {})[currentCat] || []).length + ")" : ""))),
-  React.createElement("div", {
-    ref: newsContainerRef,
-    className: "news-hscroll",
-    onWheel: function(e) {
-      if (IS_TOUCH) return;
-      
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        var el = e.currentTarget;
-        if (el.scrollWidth > el.clientWidth) {
-          el.scrollLeft += e.deltaY;
-          e.preventDefault();
-        }
-      }
-    },
-    style: { display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch",
-             gap: 10, paddingBottom: 8, alignItems: "flex-start" }
-  }, newsItems.map(function (ni, niIdx) {
-    var imgs = ni.images || [];
-    var niTags = ni.tags || [];
-    var cardW = IS_TOUCH ? 220 : 200;
-    var isDragging = dragFromIdx === niIdx;
-    var showInsertBefore = dragFromIdx !== null && dragInsert === niIdx && dragInsert !== dragFromIdx && dragInsert !== dragFromIdx + 1;
-    var showInsertAfter = dragFromIdx !== null && dragInsert === newsItems.length && niIdx === newsItems.length - 1 && dragFromIdx !== niIdx;
-    return React.createElement(React.Fragment, { key: ni.id },
-    showInsertBefore && React.createElement("div", {
-      style: { width: 4, flexShrink: 0, background: "#6366F1", borderRadius: 2, alignSelf: "stretch", minHeight: 40 }
-    }),
-    React.createElement("div", {
-      id: "ni-card-" + ni.id,
-      "data-newscard": "1",
-      style: { position: "relative",
-               background: highlightNiId === ni.id ? "#FEF3C7" : "#f8f7f4",
-               boxShadow: highlightNiId === ni.id ? "0 0 0 3px #F59E0B" : "none",
-               borderRadius: 10,
-               border: isDragging ? "2px solid #6366F1" : "1px solid #e8e5df",
-               flexShrink: 0, width: cardW, overflow: "hidden",
-               opacity: isDragging ? 0.5 : 1,
-               transition: "opacity 0.15s, background 0.4s, box-shadow 0.4s" }
-    },
-    React.createElement("div", {
-      onMouseDown: function(e) { onNewsDragStart(niIdx, e); },
-      onTouchStart: function(e) { onNewsDragStart(niIdx, e); },
-      style: { position: "absolute", top: 4, left: 4, width: 24, height: 24,
-               borderRadius: "50%", background: "rgba(0,0,0,0.35)", color: "#fff",
-               border: "none", fontSize: 14, cursor: "grab", fontWeight: 700,
-               display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
-               touchAction: "none", userSelect: "none" }
-    }, "\u2630"),
-    React.createElement("button", {
-      onClick: function() {
-        
-        setMoveToCat(currentCat);
-        setMoveToSubCat(ni.subCat || "");
-        setMoveToDate(date);
-        setMoveMode("move");
-        setCloneTargets([]);
-        setMoveTarget({ niId: ni.id, fromCat: currentCat, fromSubCat: ni.subCat || "" });
-      },
-      title: "\u3053\u306E\u8A18\u4E8B\u3092\u79FB\u52D5/\u8907\u88FD",
-      style: { position: "absolute", top: 4, right: 30, width: 22, height: 22,
-               borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff",
-               border: "none", fontSize: 11, cursor: "pointer", fontWeight: 700,
-               display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
-    }, "\u21AA"),
-    
-    (function() {
-      var clones = _findClones(ni.id);
-      if (!clones.length) return null;
-      var locsLabel = clones.map(function(l){ return l.cat + (l.subCat ? "/" + l.subCat : ""); }).join("\n");
-      return React.createElement("div", {
-        title: "\u30AF\u30ED\u30FC\u30F3 (\u7DE8\u96C6\u9023\u52D5):\n" + locsLabel,
-        style: {
-          position: "absolute", top: 4, right: 56, height: 22,
-          padding: "0 6px",
-          borderRadius: 11, background: "rgba(99,102,241,0.85)", color: "#fff",
-          fontSize: 10, fontWeight: 700, zIndex: 2,
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 2,
-          pointerEvents: "auto", cursor: "help"
-        }
-      }, "\uD83D\uDD17", clones.length + 1);
-    })(),
-    React.createElement("button", {
-      onClick: function() { return delNews(ni.id); },
-      style: { position: "absolute", top: 4, right: 4, width: 22, height: 22,
-               borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff",
-               border: "none", fontSize: 12, cursor: "pointer", fontWeight: 700,
-               display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
-    }, "\u2715"),
-    React.createElement(ImgGrid, {
-      images: imgs,
-      maxHeight: 320,
-      boxed: true,
-      onRemove: function(i) {
-        return updNews(ni.id, function(n) {
-          var newImgs = (n.images||[]).filter(function(_, j){ return j !== i; });
-          return { images: newImgs };
-        });
-      },
-      onAnnotate: function(i) { return setAnnotTarget({ nid: ni.id, idx: i }); },
-      onEnlarge: function(i) {
-        return setViewTarget({ imgs: imgs, idx: i, niIdx: niIdx,
-          onUpdate: function(i2, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images||[]); a[i2] = ed; return { images: a }; }); }
-        });
-      },
-      onUpdateImg: function(i, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images||[]); a[i] = ed; return { images: a }; }); },
-      onToggleStar: function(i) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images||[]); a[i] = Object.assign({}, a[i], { star: !(a[i] && a[i].star) }); return { images: a }; }); }
-    }),
-    React.createElement("div", {
-      style: { padding: "6px 8px" }
-    },
-    
-    (function() {
-      if (!onJumpToStock || !allStocks || !allStocks.length) return null;
-      var stockSet = {};
-      var stockList = [];
-      niTags.forEach(function(t) {
-        var s = _ntExtractStockFromTag(t, allStocks);
-        if (s && !stockSet[s]) { stockSet[s] = true; stockList.push(s); }
-      });
-      if (stockList.length === 0) return null;
-      return React.createElement("div", {
-        style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 5 }
-      }, stockList.map(function(s) {
-        return React.createElement("button", {
-          key: "j_" + s,
-          onClick: function(e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            onJumpToStock(s);
-          },
-          title: s + " \u306E\u9298\u67C4\u8A18\u9332\u3092\u898B\u308B",
-          style: {
-            fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4,
-            background: "#EEF2FF", color: "#4F46E5", border: "1px solid #C7D2FE",
-            cursor: "pointer", whiteSpace: "nowrap"
+      React.createElement("div", {
+        style: { display: "flex", alignItems: "center", justifyContent: "center" },
+        onDrop: function(e) { e.preventDefault(); setAddBtnDrag(false); if (e.dataTransfer.files[0]) addNewsWithFile(e.dataTransfer.files[0]); },
+        onDragOver: function(e) { e.preventDefault(); setAddBtnDrag(true); },
+        onDragLeave: function() { setAddBtnDrag(false); },
+        onClick: function() {
+          if (!IS_TOUCH && addBtnPasteRef.current && document.activeElement !== addBtnPasteRef.current) {
+            addBtnPasteRef.current.focus();
+            return;
           }
-        }, "\u2192 " + s);
-      }));
-    })(),
-    
-    hasSubCats && React.createElement("div", {
-      style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 5, fontSize: 10 }
-    },
-      React.createElement("span", {
-        style: { color: "#999", fontWeight: 600, flexShrink: 0 }
-      }, "\uD83D\uDCC2"),
-      React.createElement("select", {
-        value: ni.subCat || "",
-        onChange: function(e) { setNiSubCat(ni.id, e.target.value || null); },
-        onClick: function(e) { e.stopPropagation(); },
-        style: {
-          fontSize: 11, padding: "2px 4px", border: "1px solid #ddd",
-          borderRadius: 4, background: "#fff", color: "#444",
-          flex: 1, minWidth: 0, cursor: "pointer"
-        }
-      },
-        React.createElement("option", { value: "" }, "(\u672A\u5206\u985E)"),
-        subCatsForCur.map(function(sc) {
-          return React.createElement("option", { key: sc, value: sc }, sc);
-        })
-      )
-    ),
-    React.createElement("div", {
-      style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }
-    },
-      React.createElement("button", {
-        onClick: function(e) { e.stopPropagation(); updNews(ni.id, function(n) { return { starred: !n.starred }; }); },
-        title: ni.starred ? "\u2605\u3092\u5916\u3059" : "\u2605\u3092\u3064\u3051\u308B",
-        style: { padding: 0, border: "none", background: "none", cursor: "pointer",
-          fontSize: 14, lineHeight: 1, color: ni.starred ? "#E53935" : "#ccc", flexShrink: 0 }
-      }, "\u2605")
-    ),
-    React.createElement(TagPicker, _extends({
-      cats: catTagPool.cats, tags: catTagPool.tags, sel: niTags,
-      onToggle: function(tag) { return togNiTag(ni.id, tag); },
-      onAdd: function(name, cat) { return onAddNiTag(ni.id, name, cat); }
-    }, newsPool, { tagColors: custom.tagColors || {}, label: "\u6750\u6599\u30BF\u30B0", hideAddRoot: true })),
-    React.createElement(PasteZone, {
-      onImage: function(img) { return updNews(ni.id, function(n) { return { images: [].concat(_toConsumableArray(n.images || []), [img]) }; }); },
-      compact: true
-    }))),
-    showInsertAfter && React.createElement("div", {
-      style: { width: 4, flexShrink: 0, background: "#6366F1", borderRadius: 2, alignSelf: "stretch", minHeight: 40 }
-    })
-    );
-  }),
-  React.createElement("div", {
-    style: { flexShrink: 0, display: "flex", alignSelf: "stretch", alignItems: "center", justifyContent: "center", padding: "0 4px" },
-    onDrop: function(e) { e.preventDefault(); setAddBtnDrag(false); if (e.dataTransfer.files[0]) addNewsWithFile(e.dataTransfer.files[0]); },
-    onDragOver: function(e) { e.preventDefault(); setAddBtnDrag(true); },
-    onDragLeave: function() { setAddBtnDrag(false); },
-    onClick: function() {
-      
-      if (!IS_TOUCH && addBtnPasteRef.current && document.activeElement !== addBtnPasteRef.current) {
-        addBtnPasteRef.current.focus();
-        return;
-      }
-      if (addBtnFileRef.current) addBtnFileRef.current.click();
-    }
-  },
-  React.createElement("input", {
-    ref: addBtnFileRef, type: "file", accept: "image/*", style: { display: "none" },
-    onChange: function(e) { if (e.target.files[0]) { addNewsWithFile(e.target.files[0]); e.target.value = ""; } }
-  }),
-  React.createElement("div", {
-    style: { width: IS_TOUCH ? 60 : 52, height: IS_TOUCH ? 60 : 52, fontSize: 26,
-             fontWeight: 300, background: addBtnDrag ? "#EEF2FF" : "#f5f4f0",
-             border: addBtnDrag ? "2px dashed #6366F1" : "1.5px dashed #ccc",
-             borderRadius: 12, cursor: "pointer", color: addBtnDrag ? "#6366F1" : "#999",
-             display: "flex", alignItems: "center", justifyContent: "center",
-             position: "relative",
-             transition: "border-color .15s, background .15s, color .15s" }
-  }, "+",
-    
-    !IS_TOUCH && React.createElement("textarea", {
-      ref: addBtnPasteRef,
-      title: "クリックでファイル選択 / 右クリック→貼り付けやCmd+Vで画像追加",
-      onPaste: function(e) {
-        e.preventDefault();
-        var it = e.clipboardData && e.clipboardData.items || [];
-        for (var i = 0; i < it.length; i++) {
-          if (it[i].type && it[i].type.indexOf("image/") === 0) {
-            var f = it[i].getAsFile();
-            if (f) addNewsWithFile(f);
-            break;
-          }
-        }
-        if (addBtnPasteRef.current) addBtnPasteRef.current.value = "";
-      },
-      onChange: function() {
-        if (addBtnPasteRef.current) addBtnPasteRef.current.value = "";
-      },
-      onKeyDown: function(e) {
-        
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
           if (addBtnFileRef.current) addBtnFileRef.current.click();
         }
       },
-      style: {
-        position: "absolute", inset: 0, opacity: 0,
-        resize: "none", border: "none", background: "transparent",
-        width: "100%", height: "100%", cursor: "pointer", padding: 0
-      }
-    })
-  )))), React.createElement("div", {
-    style: Card
-  }, (function() {
-    
-    
-    
-    if (!hasSubCats) {
-      return React.createElement(MemoSection, {
-        memo: catData.newsMemo || { text: "", images: [] },
-        onChange: function(v) { return updCatField("newsMemo", v); },
-        guardKey: "newsMemo_" + date + "_" + currentCat
-      });
-    }
-    var _memoKey = activeSubCat;
-    var _scms = catData.subCatMemos || {};
-    var _curMemo = _scms[_memoKey] || { text: "", images: [] };
-    var _suffix = (_memoKey === "__all__") ? "すべて"
-                : (_memoKey === "__none__") ? "未分類"
-                : _memoKey;
-    var _onMemoChange = function(v) {
-      save(function(prevData) {
-        var prevDd = (prevData.trades && prevData.trades[date]) || {};
-        var prevAllCats = getAllNewsCatsData(prevDd);
-        var prevCatData = prevAllCats[currentCat] || {};
-        var prevScms = prevCatData.subCatMemos || {};
-        var newScms = Object.assign({}, prevScms);
-        newScms[_memoKey] = v;
-        var newCats = _objectSpread(_objectSpread({}, prevAllCats), {}, _defineProperty({}, currentCat, _objectSpread(_objectSpread({}, prevCatData), {}, { subCatMemos: newScms })));
-        return _objectSpread(_objectSpread({}, prevData), {}, {
-          trades: _objectSpread(_objectSpread({}, prevData.trades), {}, _defineProperty({}, date, _objectSpread(_objectSpread({}, prevDd), {}, { newsCats: newCats })))
-        });
-      });
-    };
-    return React.createElement(MemoSection, {
-      memo: _curMemo,
-      onChange: _onMemoChange,
-      titleSuffix: _suffix,
-      guardKey: "newsMemo_" + date + "_" + currentCat + "_" + _memoKey
-    });
-  })()));
+        React.createElement("input", {
+          ref: addBtnFileRef, type: "file", accept: "image/*", style: { display: "none" },
+          onChange: function(e) { if (e.target.files[0]) { addNewsWithFile(e.target.files[0]); e.target.value = ""; } }
+        }),
+        React.createElement("div", {
+          style: { width: "100%", minHeight: 110, fontSize: 26, fontWeight: 300,
+            background: addBtnDrag ? "#EEF2FF" : "#f5f4f0",
+            border: addBtnDrag ? "2px dashed #6366F1" : "1.5px dashed #ccc",
+            borderRadius: 12, cursor: "pointer", color: addBtnDrag ? "#6366F1" : "#999",
+            display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
+            transition: "border-color .15s, background .15s, color .15s" }
+        }, "+",
+          !IS_TOUCH ? React.createElement("textarea", {
+            ref: addBtnPasteRef,
+            title: "クリックでファイル選択 / 右クリック→貼り付けやCmd+Vで画像追加",
+            onPaste: function(e) {
+              e.preventDefault();
+              var it = e.clipboardData && e.clipboardData.items || [];
+              for (var i = 0; i < it.length; i++) {
+                if (it[i].type && it[i].type.indexOf("image/") === 0) {
+                  var f = it[i].getAsFile();
+                  if (f) addNewsWithFile(f);
+                  break;
+                }
+              }
+              if (addBtnPasteRef.current) addBtnPasteRef.current.value = "";
+            },
+            onChange: function() { if (addBtnPasteRef.current) addBtnPasteRef.current.value = ""; },
+            onKeyDown: function(e) {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                if (addBtnFileRef.current) addBtnFileRef.current.click();
+              }
+            },
+            style: { position: "absolute", inset: 0, opacity: 0, resize: "none", border: "none",
+              background: "transparent", width: "100%", height: "100%", cursor: "pointer", padding: 0 }
+          }) : null
+        )
+      ),
+      // 2026-08-03e 独立したメモ欄を廃止したので、文章だけの札をここから作れるようにしておく（旧メモの行き先）。
+      React.createElement("button", {
+        onClick: function() { addNews(); },
+        style: { padding: "5px 8px", fontSize: 11, fontWeight: 600, background: "#fff",
+          color: "#666", border: "1px dashed #ccc", borderRadius: 6, cursor: "pointer",
+          minHeight: IS_TOUCH ? 36 : 28 }
+      }, "＋ 本文だけの札")
+      )
+    ),
+    boardItems.length === 0 ? React.createElement("div", {
+      style: { fontSize: 12, color: "#aaa", marginTop: 10 }
+    }, "まだニュースがありません。＋ から画像を貼り付けるか「＋ 本文だけの札」で追加できます。") : null
+  ));
 }
+

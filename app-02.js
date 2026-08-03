@@ -5616,42 +5616,8 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     };
   }, [relNewsFocused]);
   
-  var _useStateSCP = useState(false), _useStateSCPS = _slicedToArray(_useStateSCP, 2),
-    scPickerOpen = _useStateSCPS[0], setScPickerOpen = _useStateSCPS[1];
-  var _useStatePC = useState(""), _useStatePCS = _slicedToArray(_useStatePC, 2),
-    pickerCat = _useStatePCS[0], setPickerCat = _useStatePCS[1];
-  var _useStatePSC = useState(""), _useStatePSCS = _slicedToArray(_useStatePSC, 2),
-    pickerSubCat = _useStatePSCS[0], setPickerSubCat = _useStatePSCS[1];
-  useModalBack(scPickerOpen, function(){ setScPickerOpen(false); }, "stock-subcat-picker");
-  
-  var stockSubCatRefs = (custom.stockSubCatRefs && Array.isArray(custom.stockSubCatRefs[stock])) ? custom.stockSubCatRefs[stock] : [];
-  var addStockSubCatRef = function(cat, subCat) {
-    if (!cat || !subCat || stock === "日経平均株価") return;
-    save(function(prevData) {
-      var prevCustom = prevData.custom || {};
-      var prevRefs = prevCustom.stockSubCatRefs || {};
-      var cur = (prevRefs[stock] || []).slice();
-      if (cur.some(function(r){ return r.cat === cat && r.subCat === subCat; })) return prevData;
-      cur.push({cat: cat, subCat: subCat});
-      var newRefs = Object.assign({}, prevRefs);
-      newRefs[stock] = cur;
-      return _objectSpread(_objectSpread({}, prevData), {}, {
-        custom: _objectSpread(_objectSpread({}, prevCustom), {}, { stockSubCatRefs: newRefs })
-      });
-    });
-  };
-  var delStockSubCatRef = function(cat, subCat) {
-    save(function(prevData) {
-      var prevCustom = prevData.custom || {};
-      var prevRefs = prevCustom.stockSubCatRefs || {};
-      var cur = (prevRefs[stock] || []).filter(function(r){ return !(r.cat === cat && r.subCat === subCat); });
-      var newRefs = Object.assign({}, prevRefs);
-      if (cur.length === 0) delete newRefs[stock]; else newRefs[stock] = cur;
-      return _objectSpread(_objectSpread({}, prevData), {}, {
-        custom: _objectSpread(_objectSpread({}, prevCustom), {}, { stockSubCatRefs: newRefs })
-      });
-    });
-  };
+  // 2026-08-03e 銘柄←→サブカテゴリの紐付け(custom.stockSubCatRefs)は廃止。紐付けは記事の keep.stocks（保存シートで選ぶ）へ移した。
+  // ここにあったピッカーのstate群と add/del は画面に出ていない死にコードだったので、キーごと削除した。
   var _csExtraTagsForStock = useMemo(function() {
     
     var fromCustom = (custom && custom.shvExtraTags && typeof custom.shvExtraTags === "object")
