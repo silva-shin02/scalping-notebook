@@ -2532,62 +2532,101 @@ function _snNewsColDebug() {
     var im = cards[i].querySelector("img");
     if (!im) { out.push({ id: cards[i].getAttribute("data-niid"), 画像: "なし" }); continue; }
     var r = _snDetectImgColumns(im);
+    var pf = null;
+    try { pf = _snColProfile(im); } catch (e2) { pf = null; }
+    var prof = "";
+    if (pf && pf !== "blocked") {
+      var gcnt = 0, k2;
+      for (k2 = 0; k2 < pf.W; k2++) if (pf.run[k2] >= _COL_GUTTER_RUN) gcnt++;
+      var top = [], step = Math.max(1, Math.round(pf.W / 24));
+      for (k2 = 0; k2 < pf.W; k2 += step) top.push(Math.round(pf.run[k2] * 99));
+      prof = "ガター列数=" + gcnt + "/" + pf.W + " 縦空白の分布=" + top.join(",");
+    }
     out.push({
       id: cards[i].getAttribute("data-niid"),
       実寸: im.naturalWidth + "x" + im.naturalHeight,
       比: (im.naturalWidth / im.naturalHeight).toFixed(2),
       src: (im.src || "").slice(0, 40),
-      結果: (r === "blocked") ? "画素を読めない(CORS汚染)" : (r ? (r.length + "ブロック 左w=" + r[0].width.toFixed(3)) : "列なし")
+      結果: (r === "blocked") ? "画素を読めない(CORS汚染)" : (r ? (r.length + "ブロック 左w=" + r[0].width.toFixed(3)) : "列なし"),
+      詳細: prof
     });
   }
   return out;
 }
+// 2026-08-03q 列の切れ目は「縦にどれだけ連続して空白が続くか」で見る。
+// 旧: 列全体の中身の平均が薄いか。これは紙面の内容量に左右されて不安定だった＝右カラムが下半分空白だと平均が下がって
+// 「ここも余白だ」と誤り、左カラムが写真とグラフで埋まっていると基準が上がって本文列を余白と誤る。
+// 目で見て「太い余白の帯」と分かるのは、上から下までつながっているから。その特徴をそのまま測る。
+// 全幅のヘッダや区切り線が横切っても、短い中断は許容して1本の帯として数える。
+function _snColProfile(imgEl) {
+  var NW = imgEl.naturalWidth, NH = imgEl.naturalHeight;
+  if (!NW || !NH) return null;
+  var W = Math.min(420, NW);
+  var H = Math.min(560, Math.max(1, Math.round(NH * (W / NW))));
+  var cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  var ctx = cv.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(imgEl, 0, 0, W, H);
+  // Storage経由(imageUrl)の画像はcanvasが汚染されて読めない。「列が無い」と区別するため blocked を返す。
+  var d;
+  try { d = ctx.getImageData(0, 0, W, H).data; }
+  catch (se) { return "blocked"; }
+  // 背景色はふちの画素の最頻色で決める（白とは限らない＝灰色地のサイトもある）
+  var bins = {}, best = null, bestN = 0, i4, key, bx, by;
+  var edge = function(x, y) {
+    i4 = (y * W + x) * 4;
+    key = ((d[i4] >> 4) << 8) | ((d[i4 + 1] >> 4) << 4) | (d[i4 + 2] >> 4);
+    bins[key] = (bins[key] || 0) + 1;
+    if (bins[key] > bestN) { bestN = bins[key]; best = [d[i4], d[i4 + 1], d[i4 + 2]]; }
+  };
+  for (bx = 0; bx < W; bx++) { edge(bx, 0); edge(bx, H - 1); }
+  for (by = 0; by < H; by++) { edge(0, by); edge(W - 1, by); }
+  if (!best) return null;
+  // サイトのヘッダは必ず全幅で入るので上端を少し外す。下端は広告や余白なのでそのまま見る。
+  var y0 = Math.floor(H * 0.08), y1 = H;
+  var rows = y1 - y0;
+  if (rows < 20) return null;
+  // 画素が背景色かどうか
+  var isBgAt = function(x, y) {
+    var p4 = (y * W + x) * 4;
+    return (Math.abs(d[p4] - best[0]) + Math.abs(d[p4 + 1] - best[1]) + Math.abs(d[p4 + 2] - best[2])) <= 45;
+  };
+  // 2026-08-03q 全幅の帯（サイトのヘッダ・区切り線・全幅の広告や写真）は縦の余白を分断するので、行ごと除外する。
+  // 「短い中断なら帯を切らない」という許容を入れると、今度は本文の行間まで空白としてつながってしまい、
+  // 本文列が丸ごと余白に見えてしまった。中断を許すのではなく、横に伸びるものを先に取り除くのが正しい。
+  var x, y, band = new Array(H), rowInk;
+  for (y = y0; y < y1; y++) {
+    rowInk = 0;
+    for (x = 0; x < W; x++) if (!isBgAt(x, y)) rowInk++;
+    band[y] = (rowInk / W) > 0.85;
+  }
+  var ink = new Array(W), run = new Array(W), n, cur, bestRun, seen;
+  for (x = 0; x < W; x++) {
+    n = 0; cur = 0; bestRun = 0; seen = 0;
+    for (y = y0; y < y1; y++) {
+      if (band[y]) continue;                 // 全幅の帯は無かったことにする（数えない・帯も切らない）
+      seen++;
+      if (isBgAt(x, y)) { cur++; if (cur > bestRun) bestRun = cur; }
+      else { n++; cur = 0; }
+    }
+    ink[x] = seen ? (n / seen) : 0;
+    run[x] = seen ? (bestRun / seen) : 0;   // 縦に連続した空白の最長割合
+  }
+  return { W: W, H: H, rows: rows, bg: best, ink: ink, run: run };
+}
+// これ以上の割合で縦に空白が続いていれば「余白の帯（ガター）」とみなす。
+// 本物のガターは上から下までほぼ通るので実測0.99。一方、本文が途中で終わる列（記事が短く下が空白）は実測0.65前後。
+// 0.62〜0.80のどこに置いても判定結果は変わらなかったので、間を広く取れる0.75にした。
+var _COL_GUTTER_RUN = 0.75;
 function _snDetectImgColumns(imgEl) {
   try {
-    var NW = imgEl.naturalWidth, NH = imgEl.naturalHeight;
-    if (!NW || !NH) return null;
-    var W = Math.min(420, NW);
-    var H = Math.min(560, Math.max(1, Math.round(NH * (W / NW))));
-    var cv = document.createElement("canvas");
-    cv.width = W; cv.height = H;
-    var ctx = cv.getContext("2d");
-    if (!ctx) return null;
-    ctx.drawImage(imgEl, 0, 0, W, H);
-    // 2026-08-03p Storage経由(imageUrl)の画像はcanvasが汚染されて読めない。「列が無い(null)」と区別できないと
-    // 呼び出し側が代替手段（CORS指定で読み直す）を取れないので、読めなかったことを "blocked" で返す。
-    var d;
-    try { d = ctx.getImageData(0, 0, W, H).data; }
-    catch (se) { return "blocked"; }
-    // 背景色はふちの画素の最頻色で決める（白とは限らない＝灰色地のサイトもある）
-    var bins = {}, best = null, bestN = 0, i4, key, bx, by;
-    var edge = function(x, y) {
-      i4 = (y * W + x) * 4;
-      key = ((d[i4] >> 4) << 8) | ((d[i4 + 1] >> 4) << 4) | (d[i4 + 2] >> 4);
-      bins[key] = (bins[key] || 0) + 1;
-      if (bins[key] > bestN) { bestN = bins[key]; best = [d[i4], d[i4 + 1], d[i4 + 2]]; }
-    };
-    for (bx = 0; bx < W; bx++) { edge(bx, 0); edge(bx, H - 1); }
-    for (by = 0; by < H; by++) { edge(0, by); edge(W - 1, by); }
-    if (!best) return null;
-    // 列ごとの「中身の濃さ」。上端はサイトのヘッダが必ず全幅で入るので少し外して見る。
-    var y0 = Math.floor(H * 0.12), y1 = Math.max(y0 + 1, Math.floor(H * 0.98));
-    var rows = y1 - y0;
-    var ink = new Array(W), x, y, n, p4;
-    for (x = 0; x < W; x++) {
-      n = 0;
-      for (y = y0; y < y1; y++) {
-        p4 = (y * W + x) * 4;
-        if (Math.abs(d[p4] - best[0]) + Math.abs(d[p4 + 1] - best[1]) + Math.abs(d[p4 + 2] - best[2]) > 45) n++;
-      }
-      ink[x] = n / rows;
-    }
-    // 本文列の水準（上寄りの中央値）を基準にする。写真1枚のように全面が濃い画像はここで弾かれる。
-    var srt = ink.slice().sort(function(a, b) { return a - b; });
-    var med = srt[Math.floor(W * 0.6)];
-    if (!(med > 0.05)) return null;
-    var thr = Math.min(0.35, Math.max(0.03, med * 0.28));
+    var pf = _snColProfile(imgEl);
+    if (pf === "blocked") return "blocked";
+    if (!pf) return null;
+    var W = pf.W, run = pf.run, x;
     var isG = new Array(W);
-    for (x = 0; x < W; x++) isG[x] = ink[x] < thr;
+    for (x = 0; x < W; x++) isG[x] = run[x] >= _COL_GUTTER_RUN;
     // 細い隙間（行間・字間）はガターにしない。細い断片（縦罫線・アイコン列）はブロックにしない。
     var MIN_GUT = Math.max(3, Math.round(W * 0.012));
     var MIN_BLOCK = Math.max(8, Math.round(W * 0.10));
@@ -2607,7 +2646,6 @@ function _snDetectImgColumns(imgEl) {
     }
     if (blocks.length < 2) return null;
     // 受け入れ条件: 1段組の記事を誤って割らないための歯止め。
-    // 左ブロックが極端に細い/太いものと、右側がほとんど無いものは「段組ではない」とみなす。
     if (blocks[0].width < 0.18 || blocks[0].width > 0.78) return null;
     if (blocks[1].width < 0.12) return null;
     return blocks;
