@@ -2710,15 +2710,8 @@ function NewsTab(_ref36) {
   // ボード上部の「使用中の材料タグ」チップ。押すとそのタグで絞り込む（複数選択＝AND）。
   var _usBTF = useState([]), _usBTFS = _slicedToArray(_usBTF, 2), boardTagFilter = _usBTFS[0], setBoardTagFilter = _usBTFS[1];
   var _usMv = useState(null), _usMvS = _slicedToArray(_usMv, 2), moveTarget = _usMvS[0], setMoveTarget = _usMvS[1];
-  var _usMvC = useState(""), _usMvCS = _slicedToArray(_usMvC, 2), moveToCat = _usMvCS[0], setMoveToCat = _usMvCS[1];
-  var _usMvSc = useState(""), _usMvScS = _slicedToArray(_usMvSc, 2), moveToSubCat = _usMvScS[0], setMoveToSubCat = _usMvScS[1];
-  
   var _usMvD = useState(date), _usMvDS = _slicedToArray(_usMvD, 2), moveToDate = _usMvDS[0], setMoveToDate = _usMvDS[1];
-  
-  var _usMvMd = useState("move"), _usMvMdS = _slicedToArray(_usMvMd, 2), moveMode = _usMvMdS[0], setMoveMode = _usMvMdS[1];
-  
-  var _usCT = useState([]), _usCTS = _slicedToArray(_usCT, 2), cloneTargets = _usCTS[0], setCloneTargets = _usCTS[1];
-  
+
   useModalBack(moveTarget != null, function(){ setMoveTarget(null); }, "news-move");
   
   var _usDC = useState(null), _usDCS = _slicedToArray(_usDC, 2), delConfirmTarget = _usDCS[0], setDelConfirmTarget = _usDCS[1];
@@ -3507,7 +3500,7 @@ function NewsTab(_ref36) {
     },
       React.createElement("span", {
         style: { fontSize: 14, fontWeight: 700 }
-      }, moveMode === "clone" ? "\uD83D\uDD17 \u8A18\u4E8B\u3092\u8907\u88FD" : "\u21AA \u8A18\u4E8B\u3092\u79FB\u52D5"),
+      }, "\uD83D\uDCC5 \u5225\u306E\u65E5\u306B\u79FB\u3059"),
       React.createElement("button", {
         onClick: function(){ setMoveTarget(null); },
         style: {
@@ -3519,39 +3512,19 @@ function NewsTab(_ref36) {
     ),
     
     React.createElement("div", {
-      style: {
-        display: "flex", borderBottom: "1px solid #e0ddd6", flexShrink: 0
-      }
-    },
-      [["move", "\u21AA \u79FB\u52D5"], ["clone", "\uD83D\uDD17 \u8907\u88FD"]].map(function(p) {
-        var k = p[0], la = p[1];
-        var on = moveMode === k;
-        return React.createElement("button", {
-          key: k,
-          onClick: function(){ setMoveMode(k); },
-          style: {
-            flex: 1, padding: "9px 12px", fontSize: 13, fontWeight: 700,
-            background: on ? "#1a1a1a" : "#fff",
-            color: on ? "#fff" : "#888",
-            border: "none", cursor: "pointer"
-          }
-        }, la);
-      })
-    ),
-    React.createElement("div", {
       style: { padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }
     },
       React.createElement("div", {
         style: { fontSize: 12, color: "#666", lineHeight: 1.5 }
       },
-        React.createElement("div", null, "\u73FE\u5728: ", date, " / ", moveTarget.fromCat, moveTarget.fromSubCat ? " \u203A " + moveTarget.fromSubCat : " \u203A (\u672A\u5206\u985E)")
+        React.createElement("div", null, "\u3044\u307E\u306E\u65E5\u4ED8: ", date)
       ),
       
-      moveMode === "move" && React.createElement(React.Fragment, null,
+      React.createElement(React.Fragment, null,
         
         React.createElement("div", {
           style: { fontSize: 11, color: "#666", lineHeight: 1.5, padding: "6px 8px", background: "#E0F2FE", borderRadius: 6, border: "1px solid #BAE6FD" }
-        }, "\uD83D\uDCCD \u8A18\u4E8B\u3092\u5225\u306E\u5834\u6240 (\u65E5\u4ED8\u30FB\u30AB\u30C6\u30B4\u30EA\u30FB\u30B5\u30D6\u30BF\u30D6) \u306B\u79FB\u3057\u307E\u3059\u3002\u5143\u306E\u5834\u6240\u304B\u3089\u306F\u6D88\u3048\u307E\u3059\u3002"),
+        }, "\uD83D\uDCC5 \u8A18\u4E8B\u3092\u5225\u306E\u65E5\u4ED8\u306B\u79FB\u3057\u307E\u3059\u3002\u5143\u306E\u65E5\u304B\u3089\u306F\u6D88\u3048\u307E\u3059\u3002\u6750\u6599\u30BF\u30B0\u3068\u4FDD\u5B58\u3057\u305F\u5206\u985E\u306F\u305D\u306E\u307E\u307E\u3067\u3059\u3002"),
         
         React.createElement("div", null,
           React.createElement("div", {
@@ -3569,55 +3542,19 @@ function NewsTab(_ref36) {
           })
         ),
         
-        React.createElement("div", null,
-          React.createElement("div", {
-            style: { fontSize: 11, color: "#888", fontWeight: 600, marginBottom: 4 }
-          }, "\u79FB\u52D5\u5148\u30E1\u30A4\u30F3\u30AB\u30C6\u30B4\u30EA"),
-          React.createElement("select", {
-            value: moveToCat,
-            onChange: function(e) {
-              var c = e.target.value;
-              setMoveToCat(c);
-              setMoveToSubCat("");
-            },
-            style: {
-              width: "100%", fontSize: 13, padding: "6px 8px",
-              border: "1px solid #ccc", borderRadius: 5, background: "#fff"
-            }
-          }, displayCats.map(function(c) {
-            return React.createElement("option", { key: c, value: c }, c);
-          }))
-        ),
-        
-        React.createElement("div", null,
-          React.createElement("div", {
-            style: { fontSize: 11, color: "#888", fontWeight: 600, marginBottom: 4 }
-          }, "\u79FB\u52D5\u5148\u30B5\u30D6\u30BF\u30D6"),
-          React.createElement("select", {
-            value: moveToSubCat,
-            onChange: function(e) { setMoveToSubCat(e.target.value); },
-            style: {
-              width: "100%", fontSize: 13, padding: "6px 8px",
-              border: "1px solid #ccc", borderRadius: 5, background: "#fff"
-            }
-          },
-            React.createElement("option", { value: "" }, "(\u672A\u5206\u985E)"),
-            ((moveToCat && custom.newsSubCats && custom.newsSubCats[moveToCat]) || []).map(function(sc) {
-              return React.createElement("option", { key: sc, value: sc }, sc);
-            })
-          )
-        ),
+        // 2026-08-03s カテゴリ/サブの移動欄は撤去。板は全カテゴリを串刺しで並べるので、移しても見た目が変わらないため。
+        // 分類の正本は保存シートの keep.cat / keep.sub 側。保存先カテゴリは移動元のまま据え置く。
         
         (function() {
-          var same = moveToDate === date && moveTarget.fromCat === moveToCat && (moveTarget.fromSubCat || "") === (moveToSubCat || "");
+          var same = moveToDate === date;
           return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
             same ? React.createElement("span", {
               style: { fontSize: 11, color: "#888" }
-            }, "\u540C\u3058\u5834\u6240\u3067\u3059") : null,
+            }, "\u540C\u3058\u65E5\u4ED8\u3067\u3059") : null,
             React.createElement("button", {
               onClick: function() {
                 if (same) { setMoveTarget(null); return; }
-                moveNewsItem(moveTarget.niId, moveTarget.fromCat, moveTarget.fromSubCat, moveToCat, moveToSubCat, moveToDate);
+                moveNewsItem(moveTarget.niId, moveTarget.fromCat, moveTarget.fromSubCat, moveTarget.fromCat, moveTarget.fromSubCat || "", moveToDate);
                 setMoveTarget(null);
               },
               disabled: same,
@@ -3632,91 +3569,10 @@ function NewsTab(_ref36) {
         })()
       ),
       
-      moveMode === "clone" && React.createElement(React.Fragment, null,
-        React.createElement("div", {
-          style: { fontSize: 11, color: "#666", lineHeight: 1.5, padding: "6px 8px", background: "#FEF3C7", borderRadius: 6, border: "1px solid #FDE68A" }
-        }, "\uD83D\uDD17 \u8907\u88FD\u3055\u308C\u305F\u8A18\u4E8B\u306F\u300C\u30AF\u30ED\u30FC\u30F3\u300D\u3068\u3057\u3066\u30EA\u30F3\u30AF\u3055\u308C\u3001\u672C\u6587\u30FB\u753B\u50CF\u30FB\u30BF\u30B0\u306E\u7DE8\u96C6\u306F\u5168\u30AF\u30ED\u30FC\u30F3\u306B\u53CD\u6620\u3055\u308C\u307E\u3059\u3002",
-          React.createElement("br", null),
-          "\u26A0\uFE0F \u8907\u88FD\u306F\u540C\u3058\u65E5\u4ED8\u5185\u306E\u307F\u3002\u5225\u306E\u65E5\u4ED8\u306B\u30B3\u30D4\u30FC\u3057\u305F\u3044\u5834\u5408\u306F\u300C\u21AA \u79FB\u52D5\u300D\u30BF\u30D6\u3067\u65E5\u4ED8\u3092\u5909\u3048\u3066\u304F\u3060\u3055\u3044\u3002"),
-        
-        React.createElement("div", null,
-          React.createElement("div", {
-            style: { fontSize: 11, color: "#888", fontWeight: 600, marginBottom: 4 }
-          }, "\u8907\u88FD\u5148 (\u8907\u6570\u9078\u629E\u53EF\u80FD)"),
-          React.createElement("div", {
-            style: {
-              border: "1px solid #ddd", borderRadius: 6, padding: 8,
-              maxHeight: 280, overflowY: "auto", background: "#fafaf8"
-            }
-          },
-            displayCats.map(function(c) {
-              var subs = (custom.newsSubCats && custom.newsSubCats[c]) || [];
-              
-              var entries = [["", c + " \u203A (\u672A\u5206\u985E)"]];
-              subs.forEach(function(sc){ entries.push([sc, c + " \u203A " + sc]); });
-              return React.createElement("div", {
-                key: c,
-                style: { marginBottom: 6 }
-              }, entries.map(function(p) {
-                var sc = p[0], la = p[1];
-                
-                var isOrig = (c === moveTarget.fromCat) && ((moveTarget.fromSubCat || "") === sc);
-                var checked = cloneTargets.some(function(t){ return t.cat === c && (t.subCat || "") === sc; });
-                return React.createElement("label", {
-                  key: c + "::" + sc,
-                  style: {
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "5px 6px", fontSize: 12,
-                    color: isOrig ? "#bbb" : "#333",
-                    cursor: isOrig ? "not-allowed" : "pointer",
-                    borderRadius: 4
-                  }
-                },
-                  React.createElement("input", {
-                    type: "checkbox",
-                    checked: checked,
-                    disabled: isOrig,
-                    onChange: function(){
-                      if (isOrig) return;
-                      setCloneTargets(function(prev) {
-                        var idx = prev.findIndex(function(t){ return t.cat === c && (t.subCat || "") === sc; });
-                        if (idx >= 0) {
-                          var nx = prev.slice(); nx.splice(idx, 1); return nx;
-                        } else {
-                          return prev.concat([{ cat: c, subCat: sc }]);
-                        }
-                      });
-                    }
-                  }),
-                  React.createElement("span", null, la),
-                  isOrig ? React.createElement("span", { style: { fontSize: 10, color: "#bbb", marginLeft: "auto" } }, "(\u73FE\u5728\u4F4D\u7F6E)") : null
-                );
-              }));
-            })
-          )
-        ),
-        
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
-          React.createElement("span", {
-            style: { fontSize: 11, color: "#888" }
-          }, cloneTargets.length, " \u4EF6\u9078\u629E\u4E2D"),
-          React.createElement("button", {
-            onClick: function() {
-              if (cloneTargets.length === 0) { setMoveTarget(null); return; }
-              cloneNewsItem(moveTarget.niId, moveTarget.fromCat, cloneTargets);
-              setCloneTargets([]);
-              setMoveTarget(null);
-            },
-            disabled: cloneTargets.length === 0,
-            style: {
-              marginLeft: "auto", padding: "8px 18px", fontSize: 13, fontWeight: 700,
-              background: cloneTargets.length === 0 ? "#ccc" : "#6366F1",
-              color: "#fff", border: "none", borderRadius: 6,
-              cursor: cloneTargets.length === 0 ? "not-allowed" : "pointer"
-            }
-          }, "\u8907\u88FD\u3059\u308B")
-        )
-      )
+      // 2026-08-03s 複製(クローン)タブは撤去。同じ日の別カテゴリへコピーする機能だが、
+      // 板もニュース履歴も groupId で1枚に間引くため、複製しても画面上は増えず🔗バッジが付くだけだった。
+      // 既存のクローンと🔗バッジ・_findClones・cloneNewsItem は残置（過去データの表示と復活のため）。
+      null
     )
   )),
   
@@ -4091,19 +3947,15 @@ function NewsTab(_ref36) {
           }, "☰"),
           React.createElement("button", {
             onClick: function() {
-              setMoveToCat(e.cat);
-              setMoveToSubCat(ni.subCat || "");
               setMoveToDate(date);
-              setMoveMode("move");
-              setCloneTargets([]);
               setMoveTarget({ niId: ni.id, fromCat: e.cat, fromSubCat: ni.subCat || "" });
             },
-            title: "この記事を移動/複製",
+            title: "この記事を別の日に移す",
             style: { position: "absolute", top: 3, right: 30, width: 22, height: 22,
               borderRadius: 5, background: "#fff", color: "#6b665c",
               border: "1px solid #d9d5cc", fontSize: 11, cursor: "pointer", fontWeight: 700,
               display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
-          }, "↪"),
+          }, "📅"),
           (function() {
             var clones = _findClones(ni.id);
             if (!clones.length) return null;
