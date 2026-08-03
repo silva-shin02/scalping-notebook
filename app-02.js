@@ -816,7 +816,9 @@ function RichTextEditor(_ref12) {
 
 function PasteZone(_ref13) {
   var onImage = _ref13.onImage,
-    compact = _ref13.compact;
+    compact = _ref13.compact,
+    // 2026-08-03g single=1枚しか受けない。ニュースは「画像1枚＝記事1件」なので、まとめて渡されても先頭だけ取る。
+    single = _ref13.single;
   var fileRef = useRef(),
     pasteRef = useRef();
   var _useState75 = useState(false),
@@ -857,6 +859,7 @@ function PasteZone(_ref13) {
       if (f && (!f.type || f.type.indexOf("image/") === 0)) fs.push(f);
     }
     if (!fs.length) return;
+    if (single) fs = fs.slice(0, 1);
     Promise.all(fs.map(function(f) {
       return Promise.resolve(fileToImg(f))["catch"](function() { return null; });
     })).then(function(imgs) {
@@ -966,7 +969,7 @@ function PasteZone(_ref13) {
     ref: fileRef,
     type: "file",
     accept: "image/*",
-    multiple: true,
+    multiple: !single,
     style: {
       display: "none"
     },

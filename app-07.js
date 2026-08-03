@@ -1866,10 +1866,12 @@ function NewsHistoryView(_ref_nhv) {
           onToggle: function(tag) { togNiTag(date, cat, ni.id, tag); },
           onAdd: function(name, c2) { addNiTag(date, cat, ni.id, name, c2); }
         }, pool, { tagColors: custom.tagColors || {}, label: "材料タグ", hideAddRoot: true })),
-        React.createElement(PasteZone, {
+        // 2026-08-03g ボードと同じ扱い。画像を持つ札には貼り付け枠を出さない（1枚＝1記事）。
+        imgs.length === 0 ? React.createElement(PasteZone, {
           onImage: function(img){ addImgToNi(date, cat, ni.id, img); },
-          compact: true
-        })
+          compact: true,
+          single: true
+        }) : null
       )
     );
   };

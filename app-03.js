@@ -3803,10 +3803,13 @@ function NewsTab(_ref36) {
               onToggle: function(tag) { return togNiTag(ni.id, tag); },
               onAdd: function(name, cat) { return onAddNiTag(ni.id, name, cat); }
             }, newsPool, { tagColors: custom.tagColors || {}, label: "材料タグ", hideAddRoot: true })),
-            React.createElement(PasteZone, {
+            // 2026-08-03g 「ニュース画像1枚＝記事1件」なので、画像を持つ札に貼り付け枠は出さない（2枚目を貼る場面が無い）。
+            // 画像が無い札（旧メモ由来・自動削除で画像が消えた札）にだけ出し、受けるのも1枚だけ。
+            imgs.length === 0 ? React.createElement(PasteZone, {
               onImage: function(img) { return updNews(ni.id, function(n) { return { images: [].concat(_toConsumableArray(n.images || []), [img]) }; }); },
-              compact: true
-            }),
+              compact: true,
+              single: true
+            }) : null,
             React.createElement("button", {
               onClick: function() { openKeepSheet(e); },
               title: kept ? "保存済み（自動削除されません）。押すと分類を変えられます" : "カテゴリ・サブ・銘柄を選んで保存（全部任意）",
