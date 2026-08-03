@@ -2699,10 +2699,10 @@ function NewsTab(_ref36) {
     var cleanups = [];
     var apply = function(id, w, h) {
       if (!w || !h) return;
-      var r = w / h;
       setImgAspects(function(prev) {
-        if (prev[id] === r) return prev;
-        var nx = Object.assign({}, prev); nx[id] = r; return nx;
+        var cur = prev[id];
+        if (cur && cur.w === w && cur.h === h) return prev;
+        var nx = Object.assign({}, prev); nx[id] = { w: w, h: h, r: w / h }; return nx;
       });
     };
     var imgs = cont.querySelectorAll("[data-niid] img");
@@ -2719,9 +2719,17 @@ function NewsTab(_ref36) {
     }
     return function() { cleanups.forEach(function(f) { f(); }); };
   }, [_shownKey]);
-  // 16:9より横長なら2列ぶん。ニュースのヘッダ画像やチャートの横長スクショが潰れて読めなくなるのを防ぐ。
-  var _WIDE_RATIO = 1.6;
-  var isWideNi = function(ni) { return (imgAspects[String(ni.id)] || 0) >= _WIDE_RATIO; };
+  // 2026-08-03k 画像の形でカードの出し方を変える。判定は実測した naturalWidth/Height。
+  //  ・横長(16:9より横長)かつ元が大きい → 2列ぶんに広げる。潰れて読めなくなるのを防ぐ。
+  //    元が小さい横長を2列にすると、拡大されずに右側が丸ごと余るだけなので幅の下限を付ける。
+  //  ・縦長 → 高さを揃えてカード幅いっぱいに敷く（上端そろえ・下をトリミング）。行の高さが揃い、左右の余白も消える。
+  //  ・正方形〜ゆるい横長 → そのままの比率。cover にすると左右が切れて記事の端が失われるため。
+  var _WIDE_RATIO = 1.6;      // これ以上で「横長」
+  var _WIDE_MIN_W = 600;      // 2列(約614px)を埋められる元の大きさ
+  var _TALL_RATIO = 0.95;     // これ以下で「縦長」
+  var _niShape = function(ni) { return imgAspects[String(ni.id)] || null; };
+  var isWideNi = function(ni) { var s = _niShape(ni); return !!s && s.r >= _WIDE_RATIO && s.w >= _WIDE_MIN_W; };
+  var isTallNi = function(ni) { var s = _niShape(ni); return !!s && s.r <= _TALL_RATIO; };
   // 2026-08-03e 自動タグ（newsCatDefaults/newsSubCatDefaults）は廃止。タグは手で付ける。サブは保存シートで選ぶ。
   var addNews = function addNews() {
     return updCatField("newsItems", function(prev) {
@@ -3932,6 +3940,11 @@ function NewsTab(_ref36) {
           React.createElement(ImgGrid, {
             images: imgs,
             boxed: true,
+            // 2026-08-03k 縦長・正方形は高さを揃えてカード幅いっぱいに敷く（上端そろえ＝見出しと写真が必ず残る）。
+            //   これで「高さ上限で頭打ち→幅が痩せて左右に余白」が消え、画像が241px→302pxに広がり、行の高さも揃う。
+            //   切れるのは記事下部の本文で、そこは元々この幅では読めない。全体はクリックで拡大して見られる。
+            // 横長（2列ぶんに広げた札）は幅が2倍あって潰れないので、従来どおり縦横比のまま出す。
+            fillHeight: isTallNi(ni) ? (IS_TOUCH ? 300 : 420) : null,
             maxHeight: IS_TOUCH ? 300 : 420,
             onRemove: function(i) {
               return updNews(ni.id, function(n) {

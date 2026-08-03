@@ -998,11 +998,15 @@ function useImgUploadStatus(id) {
 }
 
 function ImgThumb(_ref_it) {
-  var img = _ref_it.img, onClick = _ref_it.onClick, imgStyle = _ref_it.imgStyle;
+  var img = _ref_it.img, onClick = _ref_it.onClick, imgStyle = _ref_it.imgStyle,
+      // 2026-08-03k wrapFull=枠を横いっぱいに張る。中の画像を width:100% で使う（高さ揃えの一覧）ときに要る。
+      wrapFull = _ref_it.wrapFull;
   var upSt = useImgUploadStatus(img && img.id);
   var br = (imgStyle && imgStyle.borderRadius) || 5;
   return React.createElement("div", {
-    style: { position: "relative", display: "inline-block", lineHeight: 0 }
+    style: wrapFull
+      ? { position: "relative", display: "block", width: "100%", lineHeight: 0 }
+      : { position: "relative", display: "inline-block", lineHeight: 0 }
   },
     React.createElement("img", {
       src: imgSrc(img), onClick: onClick, style: imgStyle, alt: ""
@@ -1054,11 +1058,19 @@ function ImgGrid(_ref15) {
     onToggleStar = _ref15.onToggleStar,
     // 2026-08-03i サムネイルの高さ上限。未指定は従来どおり IMG_H(180)。ニュースの札はここを大きくして画像を主役にする。
     maxHeight = _ref15.maxHeight,
+    // 2026-08-03k fillHeight=画像領域の高さを固定し、カード幅いっぱいに敷き詰める（上端そろえ・はみ出す下側はトリミング）。
+    // 縦長の記事スクショが「高さ上限で頭打ち→幅が痩せて左右に余白」になるのと、行ごとに高さがバラつくのを同時に解消する。
+    fillHeight = _ref15.fillHeight,
     boxed = _ref15.boxed;
   if (!images || !images.length) return null;
   var _imgMaxH = (typeof maxHeight === "number" && maxHeight > 0) ? maxHeight : IMG_H;
   return React.createElement("div", {
-    style: {
+    style: fillHeight ? {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8,
+      margin: 0
+    } : {
       display: "flex",
       flexWrap: "wrap",
       gap: 8,
@@ -1074,14 +1086,25 @@ function ImgGrid(_ref15) {
     } : null;
     return React.createElement("div", {
       key: i,
-      style: { position: "relative" }
+      style: fillHeight ? { position: "relative", width: "100%" } : { position: "relative" }
     }, React.createElement(ImgThumb, {
       img: img,
+      wrapFull: !!fillHeight,
       onClick: function onClick() {
         if (onAnnotate) return onAnnotate(i);
         return onEnlarge && onEnlarge(i);
       },
-      imgStyle: boxed ? {
+      imgStyle: fillHeight ? {
+        width: "100%",
+        height: fillHeight,
+        objectFit: "cover",
+        objectPosition: "center top",
+        borderRadius: 6,
+        display: "block",
+        cursor: onAnnotate ? "pointer" : "zoom-in",
+        border: "1px solid #e0ddd6",
+        boxSizing: "border-box"
+      } : boxed ? {
         maxWidth: "100%",
         height: "auto",
         maxHeight: _imgMaxH,
