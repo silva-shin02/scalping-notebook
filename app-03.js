@@ -2516,14 +2516,20 @@ function EventsTab(_ref_evt) {
 // 左端のブロックだけを大きく見せたい。縦にずっと伸びる「余白の帯（ガター）」を探し、その左右をブロックとみなす。
 // 画像はcanvasへ小さく描いて読む。Storage経由(imageUrl)の画像はCORSでcanvasが汚染されて読めないことがあるので、
 // その場合はnullを返して従来どおり全体表示にフォールバックする（例外を投げない）。
-// これ以上「横長」なら列を調べる。1.25＝A4横くらいから上。縦長の記事スクショは1列なので調べない。
-var _COL_SCAN_RATIO = 1.25;
+// 2026-08-03n 列を調べる対象。実物の記事スクショは2段組でも全体はほぼ正方形（比1.07など）になるので、
+// 「横長だけ」に絞ると取りこぼす。縦長の1段組は下の受け入れ条件で弾かれるため、正方形より少しでも横なら調べる。
+var _COL_SCAN_RATIO = 0.85;
+// 横長・正方形スクショの「列」を検出する。ニュースサイトのPC表示を撮ると本文の横に別記事が並ぶので、
+// 左端のブロックだけを大きく見せたい。縦に伸びる「余白の帯（ガター）」を探し、その左右をブロックとみなす。
+// 難しいのは全幅のヘッダ・フッタ・区切りバーが縦の帯を必ず横切ること。「中身が全く無い列」を探すと実物では見つからない。
+// そこで絶対値ではなく本文列との相対で判定する＝本文列の1/4も中身が無い列はガター。
+// canvasが汚染されて画素を読めない場合（Storage経由のimageUrl等）はnullを返し、従来どおり全体表示にする。
 function _snDetectImgColumns(imgEl) {
   try {
     var NW = imgEl.naturalWidth, NH = imgEl.naturalHeight;
     if (!NW || !NH) return null;
-    var W = Math.min(400, NW);
-    var H = Math.min(400, Math.max(1, Math.round(NH * (W / NW))));
+    var W = Math.min(420, NW);
+    var H = Math.min(560, Math.max(1, Math.round(NH * (W / NW))));
     var cv = document.createElement("canvas");
     cv.width = W; cv.height = H;
     var ctx = cv.getContext("2d");
@@ -2531,7 +2537,7 @@ function _snDetectImgColumns(imgEl) {
     ctx.drawImage(imgEl, 0, 0, W, H);
     var d = ctx.getImageData(0, 0, W, H).data;
     // 背景色はふちの画素の最頻色で決める（白とは限らない＝灰色地のサイトもある）
-    var bins = {}, bx, by, i4, key, best = null, bestN = 0;
+    var bins = {}, best = null, bestN = 0, i4, key, bx, by;
     var edge = function(x, y) {
       i4 = (y * W + x) * 4;
       key = ((d[i4] >> 4) << 8) | ((d[i4 + 1] >> 4) << 4) | (d[i4 + 2] >> 4);
@@ -2541,36 +2547,48 @@ function _snDetectImgColumns(imgEl) {
     for (bx = 0; bx < W; bx++) { edge(bx, 0); edge(bx, H - 1); }
     for (by = 0; by < H; by++) { edge(0, by); edge(W - 1, by); }
     if (!best) return null;
-    // 列ごとの「中身の濃さ」＝背景と違う画素の割合
+    // 列ごとの「中身の濃さ」。上端はサイトのヘッダが必ず全幅で入るので少し外して見る。
+    var y0 = Math.floor(H * 0.12), y1 = Math.max(y0 + 1, Math.floor(H * 0.98));
+    var rows = y1 - y0;
     var ink = new Array(W), x, y, n, p4;
     for (x = 0; x < W; x++) {
       n = 0;
-      for (y = 0; y < H; y++) {
+      for (y = y0; y < y1; y++) {
         p4 = (y * W + x) * 4;
         if (Math.abs(d[p4] - best[0]) + Math.abs(d[p4 + 1] - best[1]) + Math.abs(d[p4 + 2] - best[2]) > 45) n++;
       }
-      ink[x] = n / H;
+      ink[x] = n / rows;
     }
-    // ガター＝中身がほぼ無い列が続くところ。細すぎる隙間（行間や罫線の白）は無視する。
-    var MIN_GUT = Math.max(3, Math.round(W * 0.015));
-    var EMPTY = 0.008;
-    var segs = [], s = -1;
-    for (x = 0; x < W; x++) {
-      if (ink[x] > EMPTY) { if (s < 0) s = x; }
-      else if (s >= 0) {
-        // 空白が MIN_GUT 未満なら区切らずに繋げる
-        var e = x, run = 0, k = x;
-        while (k < W && ink[k] <= EMPTY) { run++; k++; }
-        if (run >= MIN_GUT || k >= W) { segs.push([s, e]); s = -1; x = k - 1; }
-        else x = k - 1;
+    // 本文列の水準（上寄りの中央値）を基準にする。写真1枚のように全面が濃い画像はここで弾かれる。
+    var srt = ink.slice().sort(function(a, b) { return a - b; });
+    var med = srt[Math.floor(W * 0.6)];
+    if (!(med > 0.05)) return null;
+    var thr = Math.min(0.35, Math.max(0.03, med * 0.28));
+    var isG = new Array(W);
+    for (x = 0; x < W; x++) isG[x] = ink[x] < thr;
+    // 細い隙間（行間・字間）はガターにしない。細い断片（縦罫線・アイコン列）はブロックにしない。
+    var MIN_GUT = Math.max(3, Math.round(W * 0.012));
+    var MIN_BLOCK = Math.max(8, Math.round(W * 0.10));
+    var fillRuns = function(arr, val, minLen) {
+      var s = -1, i2, k;
+      for (i2 = 0; i2 <= arr.length; i2++) {
+        if (i2 < arr.length && arr[i2] === val) { if (s < 0) s = i2; }
+        else if (s >= 0) { if (i2 - s < minLen) { for (k = s; k < i2; k++) arr[k] = !val; } s = -1; }
       }
+    };
+    fillRuns(isG, true, MIN_GUT);
+    fillRuns(isG, false, MIN_BLOCK);
+    var blocks = [], s2 = -1;
+    for (x = 0; x <= W; x++) {
+      if (x < W && !isG[x]) { if (s2 < 0) s2 = x; }
+      else if (s2 >= 0) { blocks.push({ left: s2 / W, width: (x - s2) / W }); s2 = -1; }
     }
-    if (s >= 0) segs.push([s, W]);
-    // 細すぎる断片はブロックと見なさない（広告バーやアイコン列のノイズ除け）
-    var MIN_BLOCK = W * 0.10;
-    var blocks = segs.filter(function(sg) { return (sg[1] - sg[0]) >= MIN_BLOCK; });
     if (blocks.length < 2) return null;
-    return blocks.map(function(sg) { return { left: sg[0] / W, width: (sg[1] - sg[0]) / W }; });
+    // 受け入れ条件: 1段組の記事を誤って割らないための歯止め。
+    // 左ブロックが極端に細い/太いものと、右側がほとんど無いものは「段組ではない」とみなす。
+    if (blocks[0].width < 0.18 || blocks[0].width > 0.78) return null;
+    if (blocks[1].width < 0.12) return null;
+    return blocks;
   } catch (e) { return null; }
 }
 function _snNiOrderCmp(a, b) {
@@ -2810,7 +2828,13 @@ function NewsTab(_ref36) {
     return { w: cw, h: s.h, r: cw / s.h };
   };
   var isWideNi = function(ni) { var s = _effShape(ni); return !!s && s.r >= _WIDE_RATIO && s.w >= _WIDE_MIN_W; };
-  var isTallNi = function(ni) { var s = _effShape(ni); return !!s && s.r <= _TALL_RATIO && !niCrop(ni); };
+  // 高さ揃え(fillHeight)に乗せる条件。切り出した札は object-fit を使えず「幅で決まる高さ」になるため、
+  // 枠(約300x420)より縦長でないと下に空きが出る。そこで切り出し済みは 0.70 以下に限る。
+  var isTallNi = function(ni) {
+    var s = _effShape(ni);
+    if (!s) return false;
+    return s.r <= (niCrop(ni) ? 0.70 : _TALL_RATIO);
+  };
   // 2026-08-03e 自動タグ（newsCatDefaults/newsSubCatDefaults）は廃止。タグは手で付ける。サブは保存シートで選ぶ。
   var addNews = function addNews() {
     return updCatField("newsItems", function(prev) {

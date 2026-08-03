@@ -1093,7 +1093,11 @@ function ImgGrid(_ref15) {
       style: (fillHeight || _fc) ? { position: "relative", width: "100%" } : { position: "relative" }
     }, React.createElement(ImgThumb, {
       img: img,
-      wrapStyle: _fc ? {
+      // 高さ指定があればそれを優先（切り出し＋高さ揃えの併用）。無ければ切り出し後の比率で高さを決める。
+      wrapStyle: fillHeight ? {
+        height: fillHeight, overflow: "hidden",
+        borderRadius: 6, border: "1px solid #e0ddd6", boxSizing: "border-box"
+      } : _fc ? {
         aspectRatio: String(_fc.ratio), overflow: "hidden",
         borderRadius: 6, border: "1px solid #e0ddd6", boxSizing: "border-box"
       } : fillHeight ? {
