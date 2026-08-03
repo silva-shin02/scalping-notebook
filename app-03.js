@@ -2512,9 +2512,67 @@ function EventsTab(_ref_evt) {
 }
 // 2026-08-03i ボードの並び順。ドラッグで並べ替えると、その日の全札に ord(0,1,2…) を焼き込むので以後は ord 順。
 // ord が無い札（まだ一度も並べ替えていない／並べ替えた後に足した札）は ord 付きの後ろに回り、id（＝追加時刻）の昇順で並ぶ。
-// 2026-08-03l ニュース札の縦長画像を何倍に拡大して上部を見せるか。1.5＝見出しが1.5倍の大きさになり、
-// 左右は合計で約1/3が枠の外に出て切れる（記事のサイド余白から先に消える）。大きさを変えたいときはここだけ直す。
-var _NEWS_HEAD_ZOOM = 1.5;
+// 2026-08-03m 横長スクショの「列」を検出する。ニュースサイトのPC表示を撮ると本文の横に別記事や関連情報が並ぶので、
+// 左端のブロックだけを大きく見せたい。縦にずっと伸びる「余白の帯（ガター）」を探し、その左右をブロックとみなす。
+// 画像はcanvasへ小さく描いて読む。Storage経由(imageUrl)の画像はCORSでcanvasが汚染されて読めないことがあるので、
+// その場合はnullを返して従来どおり全体表示にフォールバックする（例外を投げない）。
+// これ以上「横長」なら列を調べる。1.25＝A4横くらいから上。縦長の記事スクショは1列なので調べない。
+var _COL_SCAN_RATIO = 1.25;
+function _snDetectImgColumns(imgEl) {
+  try {
+    var NW = imgEl.naturalWidth, NH = imgEl.naturalHeight;
+    if (!NW || !NH) return null;
+    var W = Math.min(400, NW);
+    var H = Math.min(400, Math.max(1, Math.round(NH * (W / NW))));
+    var cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    var ctx = cv.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(imgEl, 0, 0, W, H);
+    var d = ctx.getImageData(0, 0, W, H).data;
+    // 背景色はふちの画素の最頻色で決める（白とは限らない＝灰色地のサイトもある）
+    var bins = {}, bx, by, i4, key, best = null, bestN = 0;
+    var edge = function(x, y) {
+      i4 = (y * W + x) * 4;
+      key = ((d[i4] >> 4) << 8) | ((d[i4 + 1] >> 4) << 4) | (d[i4 + 2] >> 4);
+      bins[key] = (bins[key] || 0) + 1;
+      if (bins[key] > bestN) { bestN = bins[key]; best = [d[i4], d[i4 + 1], d[i4 + 2]]; }
+    };
+    for (bx = 0; bx < W; bx++) { edge(bx, 0); edge(bx, H - 1); }
+    for (by = 0; by < H; by++) { edge(0, by); edge(W - 1, by); }
+    if (!best) return null;
+    // 列ごとの「中身の濃さ」＝背景と違う画素の割合
+    var ink = new Array(W), x, y, n, p4;
+    for (x = 0; x < W; x++) {
+      n = 0;
+      for (y = 0; y < H; y++) {
+        p4 = (y * W + x) * 4;
+        if (Math.abs(d[p4] - best[0]) + Math.abs(d[p4 + 1] - best[1]) + Math.abs(d[p4 + 2] - best[2]) > 45) n++;
+      }
+      ink[x] = n / H;
+    }
+    // ガター＝中身がほぼ無い列が続くところ。細すぎる隙間（行間や罫線の白）は無視する。
+    var MIN_GUT = Math.max(3, Math.round(W * 0.015));
+    var EMPTY = 0.008;
+    var segs = [], s = -1;
+    for (x = 0; x < W; x++) {
+      if (ink[x] > EMPTY) { if (s < 0) s = x; }
+      else if (s >= 0) {
+        // 空白が MIN_GUT 未満なら区切らずに繋げる
+        var e = x, run = 0, k = x;
+        while (k < W && ink[k] <= EMPTY) { run++; k++; }
+        if (run >= MIN_GUT || k >= W) { segs.push([s, e]); s = -1; x = k - 1; }
+        else x = k - 1;
+      }
+    }
+    if (s >= 0) segs.push([s, W]);
+    // 細すぎる断片はブロックと見なさない（広告バーやアイコン列のノイズ除け）
+    var MIN_BLOCK = W * 0.10;
+    var blocks = segs.filter(function(sg) { return (sg[1] - sg[0]) >= MIN_BLOCK; });
+    if (blocks.length < 2) return null;
+    return blocks.map(function(sg) { return { left: sg[0] / W, width: (sg[1] - sg[0]) / W }; });
+  } catch (e) { return null; }
+}
 function _snNiOrderCmp(a, b) {
   var ao = (a && typeof a.ord === "number") ? a.ord : null;
   var bo = (b && typeof b.ord === "number") ? b.ord : null;
@@ -2700,12 +2758,22 @@ function NewsTab(_ref36) {
     var cont = newsGridRef.current;
     if (!cont) return;
     var cleanups = [];
-    var apply = function(id, w, h) {
+    var apply = function(id, im) {
+      var w = im.naturalWidth, h = im.naturalHeight;
       if (!w || !h) return;
       setImgAspects(function(prev) {
         var cur = prev[id];
         if (cur && cur.w === w && cur.h === h) return prev;
-        var nx = Object.assign({}, prev); nx[id] = { w: w, h: h, r: w / h }; return nx;
+        // 横長のときだけ列を調べる（縦長の記事スクショは1列なので調べても無駄）
+        var crop = null;
+        if (w / h >= _COL_SCAN_RATIO) {
+          var blocks = _snDetectImgColumns(im);
+          if (blocks && blocks.length >= 2) {
+            var b0 = blocks[0];
+            crop = { left: b0.left, width: b0.width, ratio: (w * b0.width) / h, blocks: blocks.length };
+          }
+        }
+        var nx = Object.assign({}, prev); nx[id] = { w: w, h: h, r: w / h, crop: crop }; return nx;
       });
     };
     var imgs = cont.querySelectorAll("[data-niid] img");
@@ -2714,8 +2782,8 @@ function NewsTab(_ref36) {
         var card = im.closest ? im.closest("[data-niid]") : null;
         var id = card && card.getAttribute("data-niid");
         if (!id) return;
-        if (im.complete && im.naturalWidth) { apply(id, im.naturalWidth, im.naturalHeight); return; }
-        var onL = function() { apply(id, im.naturalWidth, im.naturalHeight); };
+        if (im.complete && im.naturalWidth) { apply(id, im); return; }
+        var onL = function() { apply(id, im); };
         im.addEventListener("load", onL);
         cleanups.push(function() { im.removeEventListener("load", onL); });
       })(imgs[i]);
@@ -2731,8 +2799,18 @@ function NewsTab(_ref36) {
   var _WIDE_MIN_W = 600;      // 2列(約614px)を埋められる元の大きさ
   var _TALL_RATIO = 0.95;     // これ以下で「縦長」
   var _niShape = function(ni) { return imgAspects[String(ni.id)] || null; };
-  var isWideNi = function(ni) { var s = _niShape(ni); return !!s && s.r >= _WIDE_RATIO && s.w >= _WIDE_MIN_W; };
-  var isTallNi = function(ni) { var s = _niShape(ni); return !!s && s.r <= _TALL_RATIO; };
+  var niCrop = function(ni) { var s = _niShape(ni); return (s && s.crop) ? s.crop : null; };
+  // 2026-08-03m 列を切り出したら、以後の判定は「切り出した後の形」で行う。
+  // 例: 1600x700の2段組は左ブロック780x700＝比1.11になるので、2列に広げず1列で出す（それでも元の2倍に見える）。
+  var _effShape = function(ni) {
+    var s = _niShape(ni);
+    if (!s) return null;
+    if (!s.crop) return s;
+    var cw = s.w * s.crop.width;
+    return { w: cw, h: s.h, r: cw / s.h };
+  };
+  var isWideNi = function(ni) { var s = _effShape(ni); return !!s && s.r >= _WIDE_RATIO && s.w >= _WIDE_MIN_W; };
+  var isTallNi = function(ni) { var s = _effShape(ni); return !!s && s.r <= _TALL_RATIO && !niCrop(ni); };
   // 2026-08-03e 自動タグ（newsCatDefaults/newsSubCatDefaults）は廃止。タグは手で付ける。サブは保存シートで選ぶ。
   var addNews = function addNews() {
     return updCatField("newsItems", function(prev) {
@@ -3948,10 +4026,8 @@ function NewsTab(_ref36) {
             //   切れるのは記事下部の本文で、そこは元々この幅では読めない。全体はクリックで拡大して見られる。
             // 横長（2列ぶんに広げた札）は幅が2倍あって潰れないので、従来どおり縦横比のまま出す。
             fillHeight: isTallNi(ni) ? (IS_TOUCH ? 300 : 420) : null,
-            // 2026-08-03l 見出しを読める大きさにするため、縦長は 1.5倍に拡大して上部を見せる。
-            // 記事全体を302px幅に収めると元800px幅なら約38%＝見出しまで小さくなってしまう。
-            // 拡大すると左右がはみ出して切れるが、記事の識別に要るのは見出しと写真なので上端そろえで残す。
-            fillZoom: _NEWS_HEAD_ZOOM,
+            // 2026-08-03m 横長で列が分かれていたら左端のブロックだけを出す（無ければnull＝全体表示）。
+            fillCrop: niCrop(ni),
             maxHeight: IS_TOUCH ? 300 : 420,
             onRemove: function(i) {
               return updNews(ni.id, function(n) {

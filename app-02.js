@@ -1061,15 +1061,15 @@ function ImgGrid(_ref15) {
     // 2026-08-03k fillHeight=画像領域の高さを固定し、カード幅いっぱいに敷き詰める（上端そろえ・はみ出す下側はトリミング）。
     // 縦長の記事スクショが「高さ上限で頭打ち→幅が痩せて左右に余白」になるのと、行ごとに高さがバラつくのを同時に解消する。
     fillHeight = _ref15.fillHeight,
-    // 2026-08-03l fillZoom=1より大きくすると、カード幅よりさらに拡大して上部を見せる（左右ははみ出して切れる）。
-    // ニュースは見出しが読めることが第一なので、記事全体を小さく収めるより上部を大きく出す方が役に立つ。
-    fillZoom = _ref15.fillZoom,
+    // 2026-08-03m fillCrop={left,width,ratio}=元画像の横方向の一部だけを切り出して見せる（比率は全て0〜1）。
+    // 横長スクショで列が分かれているとき、左端のブロックだけを大きく出すのに使う。高さは全体をそのまま使う。
+    fillCrop = _ref15.fillCrop,
     boxed = _ref15.boxed;
   if (!images || !images.length) return null;
   var _imgMaxH = (typeof maxHeight === "number" && maxHeight > 0) ? maxHeight : IMG_H;
-  var _fz = (typeof fillZoom === "number" && fillZoom > 1) ? fillZoom : 1;
+  var _fc = (fillCrop && fillCrop.width > 0 && fillCrop.width < 1 && fillCrop.ratio > 0) ? fillCrop : null;
   return React.createElement("div", {
-    style: fillHeight ? {
+    style: (fillHeight || _fc) ? {
       display: "flex",
       flexWrap: "wrap",
       gap: 8,
@@ -1090,10 +1090,13 @@ function ImgGrid(_ref15) {
     } : null;
     return React.createElement("div", {
       key: i,
-      style: fillHeight ? { position: "relative", width: "100%" } : { position: "relative" }
+      style: (fillHeight || _fc) ? { position: "relative", width: "100%" } : { position: "relative" }
     }, React.createElement(ImgThumb, {
       img: img,
-      wrapStyle: fillHeight ? {
+      wrapStyle: _fc ? {
+        aspectRatio: String(_fc.ratio), overflow: "hidden",
+        borderRadius: 6, border: "1px solid #e0ddd6", boxSizing: "border-box"
+      } : fillHeight ? {
         height: fillHeight, overflow: "hidden",
         borderRadius: 6, border: "1px solid #e0ddd6", boxSizing: "border-box"
       } : null,
@@ -1101,14 +1104,14 @@ function ImgGrid(_ref15) {
         if (onAnnotate) return onAnnotate(i);
         return onEnlarge && onEnlarge(i);
       },
-      imgStyle: fillHeight ? (_fz > 1 ? {
-        // 拡大表示: 横幅を _fz 倍にして左上そろえ（はみ出す右側と下側が切れる）。
-        // 中央寄せにすると見出しの「先頭」から切れて何の記事か分からなくなるので、左端は必ず残す。
-        width: (_fz * 100) + "%",
+      imgStyle: _fc ? {
+        // 切り出し表示: 枠の幅が切り出し幅と一致するよう画像を拡大し、左端を左へずらして目的のブロックを出す。
+        width: (100 / _fc.width) + "%",
+        marginLeft: (-_fc.left / _fc.width * 100) + "%",
         height: "auto",
         display: "block",
         cursor: onAnnotate ? "pointer" : "zoom-in"
-      } : {
+      } : fillHeight ? ({
         width: "100%",
         height: fillHeight,
         objectFit: "cover",
