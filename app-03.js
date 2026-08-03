@@ -2523,6 +2523,25 @@ function EventsTab(_ref_evt) {
 // 難しいのは全幅のヘッダ・フッタ・区切りバーが縦の帯を必ず横切ること。「中身が全く無い列」を探すと実物では見つからない。
 // そこで絶対値ではなく本文列との相対で判定する＝本文列の1/4も中身が無い列はガター。
 // canvasが汚染されて画素を読めない場合（Storage経由のimageUrl等）はnullを返し、従来どおり全体表示にする。
+// 2026-08-03p 画面に出ているニュース札の画像を診断する。コンソールで _snNewsColDebug() と打つと、
+// 各札の実寸・画素を読めたか・列を検出できたかが分かる。実物で効かないときの切り分け用。
+function _snNewsColDebug() {
+  var out = [];
+  var cards = document.querySelectorAll("[data-niid]");
+  for (var i = 0; i < cards.length; i++) {
+    var im = cards[i].querySelector("img");
+    if (!im) { out.push({ id: cards[i].getAttribute("data-niid"), 画像: "なし" }); continue; }
+    var r = _snDetectImgColumns(im);
+    out.push({
+      id: cards[i].getAttribute("data-niid"),
+      実寸: im.naturalWidth + "x" + im.naturalHeight,
+      比: (im.naturalWidth / im.naturalHeight).toFixed(2),
+      src: (im.src || "").slice(0, 40),
+      結果: (r === "blocked") ? "画素を読めない(CORS汚染)" : (r ? (r.length + "ブロック 左w=" + r[0].width.toFixed(3)) : "列なし")
+    });
+  }
+  return out;
+}
 function _snDetectImgColumns(imgEl) {
   try {
     var NW = imgEl.naturalWidth, NH = imgEl.naturalHeight;
@@ -2534,7 +2553,11 @@ function _snDetectImgColumns(imgEl) {
     var ctx = cv.getContext("2d");
     if (!ctx) return null;
     ctx.drawImage(imgEl, 0, 0, W, H);
-    var d = ctx.getImageData(0, 0, W, H).data;
+    // 2026-08-03p Storage経由(imageUrl)の画像はcanvasが汚染されて読めない。「列が無い(null)」と区別できないと
+    // 呼び出し側が代替手段（CORS指定で読み直す）を取れないので、読めなかったことを "blocked" で返す。
+    var d;
+    try { d = ctx.getImageData(0, 0, W, H).data; }
+    catch (se) { return "blocked"; }
     // 背景色はふちの画素の最頻色で決める（白とは限らない＝灰色地のサイトもある）
     var bins = {}, best = null, bestN = 0, i4, key, bx, by;
     var edge = function(x, y) {
@@ -2634,6 +2657,7 @@ function NewsTab(_ref36) {
   var newsGridRef = useRef(null);
   var newsDragRef = useRef(null);
   var dragClickGuardRef = useRef(0);
+  var _colProbeRef = useRef({});   // 2026-08-03p CORSで読み直した画像を覚えておく（何度も取りに行かない）
   var _usDF = useState(null), _usDFS = _slicedToArray(_usDF, 2), dragFromId = _usDFS[0], setDragFromId = _usDFS[1];
   var _usDO = useState(null), _usDOS = _slicedToArray(_usDO, 2), dragOverId = _usDOS[0], setDragOverId = _usDOS[1];
   // 2026-08-03j 横長の画像はカードを2列ぶんに広げる。縦横比はデータに持っていないので、
@@ -2772,21 +2796,42 @@ function NewsTab(_ref36) {
   };
   // 2026-08-03o 画像の実寸と列構成の計測。描画後の一括走査だけでなく、<img>のonLoadからも呼ぶ。
   // 画像はIDB/Storageから後で差し込まれることがあり、一括走査のタイミングだけでは取りこぼしていた（実物で列検出が効かない原因のひとつ）。
+  var _blockToCrop = function(w, h, blocks) {
+    if (!blocks || blocks.length < 2) return null;
+    var b0 = blocks[0];
+    return { left: b0.left, width: b0.width, ratio: (w * b0.width) / h, blocks: blocks.length };
+  };
   var measureNiImg = function(id, im) {
     if (!im) return;
     var w = im.naturalWidth, h = im.naturalHeight;
     if (!w || !h) return;
+    var res = _snDetectImgColumns(im);
     setImgAspects(function(prev) {
       var cur = prev[id];
-      if (cur && cur.w === w && cur.h === h) return prev;
-      var crop = null;
-      var blocks = _snDetectImgColumns(im);
-      if (blocks && blocks.length >= 2) {
-        var b0 = blocks[0];
-        crop = { left: b0.left, width: b0.width, ratio: (w * b0.width) / h, blocks: blocks.length };
-      }
-      var nx = Object.assign({}, prev); nx[id] = { w: w, h: h, r: w / h, crop: crop }; return nx;
+      if (cur && cur.w === w && cur.h === h && !(cur.blocked && res !== "blocked")) return prev;
+      var nx = Object.assign({}, prev);
+      nx[id] = { w: w, h: h, r: w / h, crop: (res === "blocked") ? null : _blockToCrop(w, h, res),
+                 blocked: (res === "blocked") };
+      return nx;
     });
+    // 2026-08-03p 画素を読めなかった＝Storage経由でcanvasが汚染された。CORS指定の別画像で読み直す。
+    // 表示中の<img>にcrossOriginを付けると、CORSヘッダが無いサーバでは画像自体が出なくなるので、
+    // 表示は触らず裏で取り直す。取れなければ何もしない＝従来どおり全体表示のまま。
+    if (res === "blocked" && im.src && im.src.indexOf("data:") !== 0 && !_colProbeRef.current[id]) {
+      _colProbeRef.current[id] = 1;
+      var probe = new Image();
+      probe.crossOrigin = "anonymous";
+      probe.onload = function() {
+        var r2 = _snDetectImgColumns(probe);
+        if (r2 === "blocked" || !r2) return;
+        setImgAspects(function(prev) {
+          var nx = Object.assign({}, prev);
+          nx[id] = { w: w, h: h, r: w / h, crop: _blockToCrop(w, h, r2), blocked: false };
+          return nx;
+        });
+      };
+      probe.src = im.src;
+    }
   };
   var _shownKey = shownItems.map(function(e) { return e.ni.id; }).join(",");
   useEffect(function() {
