@@ -2530,7 +2530,7 @@ function _snImgAddedAt(im) {
 function _snNewsItemEmpty(ni) {
   if (!ni || typeof ni !== "object") return false;
   if (Array.isArray(ni.images) && ni.images.length) return false;
-  if (ni.star === true) return false;
+  if (ni.starred === true) return false;                    // ★重要マーク（app-03の記事★＝ni.starred。画像の鍵 im.star とは別物）
   var ks = Object.keys(ni);
   for (var i = 0; i < ks.length; i++) {
     var k = ks[i], v = ni[k];
