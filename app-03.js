@@ -2685,6 +2685,10 @@ function NewsTab(_ref36) {
       if (f && (!f.type || f.type.indexOf("image/") === 0)) files.push(f);
     }
     if (!files.length) return;
+    // 2026-08-03h 並び順は「ファイルの更新日時(lastModified)の早い順」＝スクショを撮った順＝時系列。
+    // ドロップされる順はエクスプローラの表示設定しだいで変わる（名前順にも新しい順にもなる）ので、そちらは当てにしない。
+    // 日時が同じ／取れない分は渡された順のまま（Array#sortは安定）。
+    files.sort(function(a, b) { return (a.lastModified || 0) - (b.lastModified || 0); });
     Promise.all(files.map(function(f) {
       return Promise.resolve(fileToImg(f))["catch"](function() { return null; });
     })).then(function(imgs) {

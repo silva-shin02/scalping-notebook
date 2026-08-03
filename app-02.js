@@ -859,6 +859,9 @@ function PasteZone(_ref13) {
       if (f && (!f.type || f.type.indexOf("image/") === 0)) fs.push(f);
     }
     if (!fs.length) return;
+    // 2026-08-03h まとめて渡された分はファイルの更新日時(lastModified)の早い順に足す＝撮った順に並ぶ。
+    // ドロップ順はエクスプローラの表示設定しだいなので当てにしない。日時が同じ／取れない分は渡された順のまま。
+    fs.sort(function(a, b) { return (a.lastModified || 0) - (b.lastModified || 0); });
     if (single) fs = fs.slice(0, 1);
     Promise.all(fs.map(function(f) {
       return Promise.resolve(fileToImg(f))["catch"](function() { return null; });
