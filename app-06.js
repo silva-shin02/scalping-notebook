@@ -5884,6 +5884,7 @@ function EntryLogView(_ref_elv2) {
   var _uDTM = useState("sig"), detTagMode = _uDTM[0], setDetTagMode = _uDTM[1];   // 集計タブの分析軸: "sig"=シグナル別(既定・全銘柄側は「全体」)/"det"=詳細タグ別（銘柄内・全シグナル横断）/"band"=株価帯別（日×銘柄の帯で分類・銘柄別タブ専用＝銘柄横断の帯共通分析はシグナル総合bandサブタブへ移設 2026-07-22i）2026-07-07→3値文字列化 2026-07-22
   var _uSDT = useState(null), selDetTag = _uSDT[0], setSelDetTag = _uSDT[1];   // 詳細タグ別モードの選択タグ（"セクションキー|タグ名"）
   var _uBSel = useState(null), bandSel = _uBSel[0], setBandSel = _uBSel[1];   // 株価帯別モードの選択帯キー（"b0".."bN"/"mat"=材料あり/"unk"=帯不明・null=件数最多帯に自動フォールバック）2026-07-22
+  var _uSBS = useState("__all__"), sigBSel = _uSBS[0], setSigBSel = _uSBS[1];   // 📡シグナル総合の各シグナルタブ・①底抜けピルの選択（"__all__"=すべて/"d:名前"/"__none__"=未選択）2026-08-04
   var _uSGT = useState("band"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: band(株価帯別・先頭・既定)/uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）。既定を"uki"→"band"に（移設先を前面・ユーザー決定 2026-07-22j）
   var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RN加算タブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録)/thr(閾値スイープ) 2026-07-19→2026-07-20e thr追加
   var _uRNT = useState("all"), rnTier = _uRNT[0], setRnTier = _uRNT[1];   // 閾値タブの段別トグル: all(…50/…00合算)/50(…50の段)/00(…00の段) 2026-07-20e
@@ -6893,6 +6894,7 @@ function EntryLogView(_ref_elv2) {
   };
   // opts（2026-08-02 シグナル別タブ用に拡張）: { withAll:true }=帯ピルの先頭に「すべて」（pool全件）を足す／{ sigLabel }=グループ見出しにシグナル名を前置。
   // 「すべて」は必ず最大件数になるので、bandSel=null時の「件数最多へフォールバック」がそのまま既定として効く＝追加の分岐が要らない。opts省略時は従来どおり。
+  // { bSigKey } = ①底抜けピルを帯ピルの下に足す（2026-08-04・各シグナルタブ専用）。渡さなければピルは出ず従来の描画のまま＝💴株価帯別タブは不変。
   var _bandAxisBody = function(pool, cross, opts) {
     var _o = opts || {};
     var _pbSpl = _pbSplitByBand(pool), _pbB = _pbSpl.bounds;
@@ -6903,15 +6905,44 @@ function EntryLogView(_ref_elv2) {
     // 頻度の帯基準化（2026-07-22j・ユーザー決定）: 実帯グループ（"bN"）は分母を_pbBandBizDays（その帯だった営業日）に＝本日の推奨α（帯）ピルと一致。材料あり/帯不明は帯基準の意味が無いのでundefined＝記録スパン。
     var _bandIdxSel = (_bSel && /^b\d+$/.test(_bSel.key)) ? parseInt(_bSel.key.slice(1), 10) : null;
     var _bandSpanSel = (_bandIdxSel != null && _bSel && _bSel.recs.length && typeof _pbBandBizDays === "function") ? _pbBandBizDays(data, _bandIdxSel, _bSel.recs, _buildHolidayDateSet(data.trades, custom.eventCategories)) : undefined;
+    // 2026-08-04 ①底抜けピル（opts.bSigKey を渡した各シグナルタブ専用）。帯ピルとANDで「1000円帯 × 底抜けA」まで絞れる。
+    // 底抜けは単一選択（_EL_SIG_SECS の b は multi:false）なので1記録は1バケットにしか入らず、件数の合計が母数を超えない。
+    // 選択肢はシグナル全体（pool）から作る＝帯を切り替えてもピルの並びが動かず、件数だけ変わる。0件も出す＝その帯に無いこと自体が情報。
+    var _bSecOf = function(r) { return (r && r.signal) ? (_elSigDetailSec(r.signal, _o.bSigKey).b || "") : ""; };
+    var _bSecGroups = null, _bSecSelKey = null, _bSecSel = null;
+    if (_o.bSigKey) {
+      var _cand = [], _cm = {};
+      var _addC = function(n) { if (n && !_cm[n]) { _cm[n] = 1; _cand.push(n); } };
+      var _mB = (((custom || {}).sigDetails2 || {})[_o.bSigKey] || {}).b;   // マスター候補（設定で消した過去の選択肢は下のpool走査で拾う）
+      (Array.isArray(_mB) ? _mB : []).forEach(_addC);
+      (pool || []).forEach(function(r) { _addC(_bSecOf(r)); });
+      var _inBand = _bSel ? _bSel.recs : [];
+      var _noneAll = (pool || []).filter(function(r) { return !_bSecOf(r); }).length;
+      _bSecGroups = [{ key: "__all__", label: "すべて", recs: _inBand }]
+        .concat(_cand.map(function(n) {
+          return { key: "d:" + n, label: n, recs: _inBand.filter(function(r) { return _bSecOf(r) === n; }) };
+        }))
+        .concat(_noneAll ? [{ key: "__none__", label: "未選択", recs: _inBand.filter(function(r) { return !_bSecOf(r); }) }] : []);
+      _bSecSelKey = _bSecGroups.some(function(g) { return g.key === sigBSel; }) ? sigBSel : "__all__";   // シグナルを切替えて無い選択肢になったら「すべて」へ戻す
+      _bSecSel = _bSecGroups.filter(function(g) { return g.key === _bSecSelKey; })[0] || null;
+    }
+    var _panelRecs = _bSecSel ? _bSecSel.recs : (_bSel ? _bSel.recs : []);
+    if (_bSecSel) { var _bSeen2 = {}; _bStkN = 0; _panelRecs.forEach(function(r) { if (r.stock && !_bSeen2[r.stock]) { _bSeen2[r.stock] = 1; _bStkN++; } }); }   // 見出しの銘柄種数も底抜け絞込後に合わせる
+    // 頻度の分母(_bandSpanSel)は底抜けで絞っても帯のままにする＝「この帯で、この底抜けは何営業日に1回か」を見たいため。
     return React.createElement(React.Fragment, null,
       React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + _pbB.join("・") + "円）"),
       _subTabBar(_bAll, _bSelKey, setBandSel),
-      (_bSel && _bSel.recs.length)
+      _bSecGroups ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 4px" } }, "① 底抜け＝記録フォームのシグナル詳細①（単一選択）。上の帯ピルとANDで絞り込む。") : null,
+      _bSecGroups ? _subTabBar(_bSecGroups, _bSecSelKey, setSigBSel) : null,
+      (_panelRecs && _panelRecs.length)
         ? React.createElement(React.Fragment, null,
-            React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0369A1", marginBottom: 6 } }, (_o.sigLabel ? "🎯 " + _o.sigLabel + " ・ " : "") + _bSel.label,
-              React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, "（" + _bSel.recs.length + "件" + (cross ? "・銘柄" + _bStkN + "種・銘柄横断" : "") + "）")),
-            _groupPanel(_bSel.recs, null, _bSel.recs, false, _bandSpanSel))
-        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, (_bSel && _bSel.key === "all") ? "記録がありません" : "この帯の記録がありません"));
+            React.createElement("div", { style: { fontSize: 13, fontWeight: 800, color: "#0369A1", marginBottom: 6 } },
+              (_o.sigLabel ? "🎯 " + _o.sigLabel + " ・ " : "") + _bSel.label + ((_bSecSel && _bSecSelKey !== "__all__") ? " ・ ① " + _bSecSel.label : ""),
+              React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, "（" + _panelRecs.length + "件" + (cross ? "・銘柄" + _bStkN + "種・銘柄横断" : "") + "）")),
+            _groupPanel(_panelRecs, null, _panelRecs, false, _bandSpanSel))
+        : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } },
+            (_bSecSel && _bSecSelKey !== "__all__") ? "この底抜けの記録がありません（この帯では0件）"
+              : (_bSel && _bSel.key === "all") ? "記録がありません" : "この帯の記録がありません"));
   };
   // 追加α母数トグル（osDistFil）を集計KPI/OS分布・損切り・未達で共有。全記録/×+未選択(既定)/〇のみ。〇=高α(基本+追加)は損切り/未達に寄るため、既定×+未選択で基本α運用の素の姿を出す 2026-07-01。
   // 素の分類フィルタ（2026-07-27 抽出）。📡シグナル総合は浮き足/その他の分割を持たないので
@@ -7130,7 +7161,7 @@ function EntryLogView(_ref_elv2) {
       var _stKey = sigSub.slice(4);
       var _stGrp = _sigGroupsAll.filter(function(g) { return g.key === _stKey; })[0] || null;
       _tabBody = _stGrp
-        ? _bandAxisBody(_stGrp.recs, true, { withAll: true, sigLabel: _stGrp.label })
+        ? _bandAxisBody(_stGrp.recs, true, { withAll: true, sigLabel: _stGrp.label, bSigKey: _stKey })
         : _sigKpiEmpty("このシグナルの記録がありません（シグナル名の変更・削除で無くなった可能性があります。上のタブから選び直してください）");
     } else if (sigSub === "stop") {
       // 🛑損切り（全銘柄）2026-07-27。銘柄別タブの🛑損切り（銘柄×シグナル母数）は存続＝両方で見る。
