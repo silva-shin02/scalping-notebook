@@ -4013,9 +4013,10 @@ function NewsTab(_ref36) {
     });
   }(),
 
-  React.createElement("div", { style: Card },
+  // 2026-08-03r 札を少しでも広げるため、ニュース欄だけ外枠の左右余白を詰める（他のCard使用箇所は不変）。
+  React.createElement("div", { style: _objectSpread(_objectSpread({}, Card), {}, { padding: "12px 8px" }) },
     React.createElement("div", {
-      style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }
+      style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }
     },
       React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "\uD83D\uDCF0 ニュース"),
       React.createElement("span", { style: { fontSize: 12, color: "#888", fontWeight: 600 } },
@@ -4045,7 +4046,8 @@ function NewsTab(_ref36) {
     // 2026-08-03i 横並びは最大3枚。列を絞ったぶん1枚あたりが広くなる＝サムネイルが大きく見える。
     React.createElement("div", {
       ref: newsGridRef,
-      style: { display: "grid", alignItems: "start", gap: 12, maxWidth: 1140,
+      // 2026-08-03r gapを12→8、幅の頭打ちを1140→1600へ（広い画面で1140止まりだと札が広がらないため）。
+      style: { display: "grid", alignItems: "start", gap: 8, maxWidth: 1600,
         gridTemplateColumns: "repeat(" + (IS_TOUCH ? 2 : 3) + ", minmax(0, 1fr))" }
     },
       shownItems.map(function(e, bIdx) {
@@ -4156,7 +4158,7 @@ function NewsTab(_ref36) {
             },
             onUpdateImg: function(i, ed) { updNews(ni.id, function(n) { var a = _toConsumableArray(n.images || []); a[i] = ed; return { images: a }; }); }
           })),
-          React.createElement("div", { style: { padding: "6px 8px" } },
+          React.createElement("div", { style: { padding: "4px 6px" } },
             ni.fromMemo ? React.createElement("div", {
               style: { fontSize: 9, fontWeight: 700, color: "#92400E", background: "#FEF3C7",
                 border: "1px solid #FDE68A", borderRadius: 4, padding: "1px 5px",
