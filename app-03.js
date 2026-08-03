@@ -2512,6 +2512,9 @@ function EventsTab(_ref_evt) {
 }
 // 2026-08-03i ボードの並び順。ドラッグで並べ替えると、その日の全札に ord(0,1,2…) を焼き込むので以後は ord 順。
 // ord が無い札（まだ一度も並べ替えていない／並べ替えた後に足した札）は ord 付きの後ろに回り、id（＝追加時刻）の昇順で並ぶ。
+// 2026-08-03l ニュース札の縦長画像を何倍に拡大して上部を見せるか。1.5＝見出しが1.5倍の大きさになり、
+// 左右は合計で約1/3が枠の外に出て切れる（記事のサイド余白から先に消える）。大きさを変えたいときはここだけ直す。
+var _NEWS_HEAD_ZOOM = 1.5;
 function _snNiOrderCmp(a, b) {
   var ao = (a && typeof a.ord === "number") ? a.ord : null;
   var bo = (b && typeof b.ord === "number") ? b.ord : null;
@@ -3945,6 +3948,10 @@ function NewsTab(_ref36) {
             //   切れるのは記事下部の本文で、そこは元々この幅では読めない。全体はクリックで拡大して見られる。
             // 横長（2列ぶんに広げた札）は幅が2倍あって潰れないので、従来どおり縦横比のまま出す。
             fillHeight: isTallNi(ni) ? (IS_TOUCH ? 300 : 420) : null,
+            // 2026-08-03l 見出しを読める大きさにするため、縦長は 1.5倍に拡大して上部を見せる。
+            // 記事全体を302px幅に収めると元800px幅なら約38%＝見出しまで小さくなってしまう。
+            // 拡大すると左右がはみ出して切れるが、記事の識別に要るのは見出しと写真なので上端そろえで残す。
+            fillZoom: _NEWS_HEAD_ZOOM,
             maxHeight: IS_TOUCH ? 300 : 420,
             onRemove: function(i) {
               return updNews(ni.id, function(n) {

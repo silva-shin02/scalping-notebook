@@ -999,13 +999,13 @@ function useImgUploadStatus(id) {
 
 function ImgThumb(_ref_it) {
   var img = _ref_it.img, onClick = _ref_it.onClick, imgStyle = _ref_it.imgStyle,
-      // 2026-08-03k wrapFull=枠を横いっぱいに張る。中の画像を width:100% で使う（高さ揃えの一覧）ときに要る。
-      wrapFull = _ref_it.wrapFull;
+      // 2026-08-03l wrapStyle=外枠に足すスタイル。高さ固定＋overflow:hidden で「拡大した上部だけを見せる窓」を作るのに使う。
+      wrapStyle = _ref_it.wrapStyle;
   var upSt = useImgUploadStatus(img && img.id);
   var br = (imgStyle && imgStyle.borderRadius) || 5;
   return React.createElement("div", {
-    style: wrapFull
-      ? { position: "relative", display: "block", width: "100%", lineHeight: 0 }
+    style: wrapStyle
+      ? Object.assign({ position: "relative", display: "block", width: "100%", lineHeight: 0 }, wrapStyle)
       : { position: "relative", display: "inline-block", lineHeight: 0 }
   },
     React.createElement("img", {
@@ -1061,9 +1061,13 @@ function ImgGrid(_ref15) {
     // 2026-08-03k fillHeight=画像領域の高さを固定し、カード幅いっぱいに敷き詰める（上端そろえ・はみ出す下側はトリミング）。
     // 縦長の記事スクショが「高さ上限で頭打ち→幅が痩せて左右に余白」になるのと、行ごとに高さがバラつくのを同時に解消する。
     fillHeight = _ref15.fillHeight,
+    // 2026-08-03l fillZoom=1より大きくすると、カード幅よりさらに拡大して上部を見せる（左右ははみ出して切れる）。
+    // ニュースは見出しが読めることが第一なので、記事全体を小さく収めるより上部を大きく出す方が役に立つ。
+    fillZoom = _ref15.fillZoom,
     boxed = _ref15.boxed;
   if (!images || !images.length) return null;
   var _imgMaxH = (typeof maxHeight === "number" && maxHeight > 0) ? maxHeight : IMG_H;
+  var _fz = (typeof fillZoom === "number" && fillZoom > 1) ? fillZoom : 1;
   return React.createElement("div", {
     style: fillHeight ? {
       display: "flex",
@@ -1089,22 +1093,29 @@ function ImgGrid(_ref15) {
       style: fillHeight ? { position: "relative", width: "100%" } : { position: "relative" }
     }, React.createElement(ImgThumb, {
       img: img,
-      wrapFull: !!fillHeight,
+      wrapStyle: fillHeight ? {
+        height: fillHeight, overflow: "hidden",
+        borderRadius: 6, border: "1px solid #e0ddd6", boxSizing: "border-box"
+      } : null,
       onClick: function onClick() {
         if (onAnnotate) return onAnnotate(i);
         return onEnlarge && onEnlarge(i);
       },
-      imgStyle: fillHeight ? {
+      imgStyle: fillHeight ? (_fz > 1 ? {
+        // 拡大表示: 横幅を _fz 倍にして左上そろえ（はみ出す右側と下側が切れる）。
+        // 中央寄せにすると見出しの「先頭」から切れて何の記事か分からなくなるので、左端は必ず残す。
+        width: (_fz * 100) + "%",
+        height: "auto",
+        display: "block",
+        cursor: onAnnotate ? "pointer" : "zoom-in"
+      } : {
         width: "100%",
         height: fillHeight,
         objectFit: "cover",
         objectPosition: "center top",
-        borderRadius: 6,
         display: "block",
-        cursor: onAnnotate ? "pointer" : "zoom-in",
-        border: "1px solid #e0ddd6",
-        boxSizing: "border-box"
-      } : boxed ? {
+        cursor: onAnnotate ? "pointer" : "zoom-in"
+      }) : boxed ? {
         maxWidth: "100%",
         height: "auto",
         maxHeight: _imgMaxH,
