@@ -2524,9 +2524,29 @@ function _snImgAddedAt(im) {
   if (typeof im.id === "number" && im.id > 1e12) return im.id;
   return 0;
 }
+// 2026-08-03d ニュース札が「空」か判定（ユーザー要望「元画像が貼られていた欄もちゃんと消えるように・"もとはあった"かのような表示も不要」）。
+// 空＝画像0枚・本文なし・タグなし。id/subCat/groupIdは中身ではない（+で足した時点で自動的に入るメタ情報なので、残す理由にならない）。
+// **知らないフィールドに中身があったら空と見なさない**＝安全側。あとから札にフィールドが増えても、勝手に消える事故が起きない。
+function _snNewsItemEmpty(ni) {
+  if (!ni || typeof ni !== "object") return false;
+  if (Array.isArray(ni.images) && ni.images.length) return false;
+  if (ni.star === true) return false;
+  var ks = Object.keys(ni);
+  for (var i = 0; i < ks.length; i++) {
+    var k = ks[i], v = ni[k];
+    if (k === "id" || k === "subCat" || k === "groupId" || k === "images") continue;
+    if (k === "text") { if (String(v == null ? "" : v).trim()) return false; continue; }
+    if (k === "tags") { if (Array.isArray(v) && v.length) return false; continue; }
+    if (v === null || v === undefined || v === false || v === "") continue;
+    if (Array.isArray(v) && !v.length) continue;
+    return false;
+  }
+  return true;
+}
+function _snIsPastDate(date) { return /^\d{4}-\d{2}-\d{2}$/.test(date) && date < todayStr(); }
 function _snPruneNewsImagesCore(data, dateOk, keepImg) {
-  if (!data || !data.trades) return { data: data, count: 0 };
-  var count = 0;
+  if (!data || !data.trades) return { data: data, count: 0, emptied: 0 };
+  var count = 0, emptied = 0;
   var trades = data.trades, newTrades = {}, anyChange = false;
   var _filt = function(imgs) {
     var kept = imgs.filter(function(im) { return keepImg(im); });
@@ -2549,6 +2569,14 @@ function _snPruneNewsImagesCore(data, dateOk, keepImg) {
           }
           return ni;
         });
+        // 2026-08-03d 画像が消えて空になった札は枠ごと落とす。従来はmapで札を残していたのでゴースト札（サブカテゴリ名＋☆＋「タグをつける」＋貼り付け枠だけ）が残っていた。
+        //  ①今日の日付は掃除しない＝「+で足したばかりの空カード」がその場で消えるのを防ぐ（空札を並べてから中身を入れる使い方を壊さない）。
+        //  ②既に空になっている過去分もここで一緒に回収する。過去のpruneで残ったゴーストは画像が0枚なので上のmapの条件に二度と入らず、放置すると永久に残るため。
+        //  ③件数は count（画像の枚数）と分けて emptied で返す＝設定の削除予告「N枚」の意味を変えない。
+        if (_snIsPastDate(date)) {
+          var swept = newNi.filter(function(ni) { return !_snNewsItemEmpty(ni); });
+          if (swept.length !== newNi.length) { emptied += (newNi.length - swept.length); newNi = swept; niChanged = true; }
+        }
         if (niChanged) { if (newCd === cd) newCd = Object.assign({}, cd); newCd.newsItems = newNi; cdChanged = true; }
       }
       if (cd.newsMemo && Array.isArray(cd.newsMemo.images) && cd.newsMemo.images.length) {
@@ -2573,10 +2601,10 @@ function _snPruneNewsImagesCore(data, dateOk, keepImg) {
     if (ddChanged) { anyChange = true; newTrades[date] = Object.assign({}, dd, { newsCats: newCats }); }
     else newTrades[date] = dd;
   });
-  return { data: anyChange ? Object.assign({}, data, { trades: newTrades }) : data, count: count };
+  return { data: anyChange ? Object.assign({}, data, { trades: newTrades }) : data, count: count, emptied: emptied };
 }
 function _snStripOldNewsImages(data, cutoff) {
-  if (!data || !data.trades || !cutoff) return { data: data, count: 0 };
+  if (!data || !data.trades || !cutoff) return { data: data, count: 0, emptied: 0 };
   return _snPruneNewsImagesCore(data, function(date) {
     return /^\d{4}-\d{2}-\d{2}$/.test(date) && date < cutoff;
   }, function(im) {
@@ -2584,7 +2612,7 @@ function _snStripOldNewsImages(data, cutoff) {
   });
 }
 function _snAutoPruneNewsImages(data, cutoffMs) {
-  if (!data || !data.trades || !(cutoffMs > 0)) return { data: data, count: 0 };
+  if (!data || !data.trades || !(cutoffMs > 0)) return { data: data, count: 0, emptied: 0 };
   return _snPruneNewsImagesCore(data, function() { return true; }, function(im) {
     if (!im || typeof im !== "object") return true;
     if (im.star === true) return true;

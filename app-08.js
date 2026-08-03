@@ -874,13 +874,15 @@ function App() {
       var period = (typeof na.periodDays === "number" && na.periodDays > 0) ? na.periodDays : 7;
       var cutoffMs = Date.now() - period * 86400000;
       var r = _snAutoPruneNewsImages(d, cutoffMs);
-      if (!r.count || r.data === d) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
+      // 2026-08-03d 画像0枚でも「空になった札の掃除(emptied)」だけで走らせる必要があるので count 単独判定をやめた。
+      //   過去のpruneで残ったゴースト札は画像がもう無い＝count は永久に0のままなので、旧条件だと一生掃除されなかった。
+      if ((!r.count && !r.emptied) || r.data === d) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
       var label = (period % 7 === 0) ? (period / 7 + "週間") : (period + "日");
       var firstRun = localStorage.getItem("sn_news_autoprune_ack_v1") !== "1";
       var _doPrune = function() {
       save(r.data);
       localStorage.setItem("sn_news_autoprune_day_v1", today);
-      console.log("[autoprune] removed news image refs:", r.count);
+      console.log("[autoprune] removed news image refs:", r.count, "/ swept empty cards:", r.emptied || 0);
       try {
         var _cfgNow = cfgRef.current;
         var _after = dataRef.current;
@@ -893,7 +895,12 @@ function App() {
       } catch(e3) { console.warn("[autoprune] reclaim setup error:", e3); }
       };
       if (firstRun) {
-        window._snConfirm("ニュース画像の自動削除がオンになっています。\n\n追加から" + label + "を過ぎたニュース画像 " + r.count + "枚 を削除します。\n「保存済み」にした画像は残ります。テキスト・タグ・記録は消えません。\n\n削除しますか？（設定でオフ／期間変更できます）").then(function(_ok){
+        // 2026-08-03d 画像0枚・空札だけの回でも文面が成立するよう条件分岐（旧＝常に「ニュース画像 0枚 を削除します」と出てしまう）
+        var _msg = "ニュース画像の自動削除がオンになっています。\n\n"
+          + (r.count ? ("追加から" + label + "を過ぎたニュース画像 " + r.count + "枚 を削除します。\n") : "")
+          + (r.emptied ? ("画像が消えて空になったニュース枠 " + r.emptied + "件 を削除します（本文・タグが入っている枠は残ります）。\n") : "")
+          + "「保存済み」にした画像は残ります。テキスト・タグ・記録は消えません。\n\n削除しますか？（設定でオフ／期間変更できます）";
+        window._snConfirm(_msg).then(function(_ok){
           if (!_ok) { localStorage.setItem("sn_news_autoprune_day_v1", today); return; }
           localStorage.setItem("sn_news_autoprune_ack_v1", "1");
           _doPrune();
