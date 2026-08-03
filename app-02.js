@@ -848,22 +848,39 @@ function PasteZone(_ref13) {
       return _ref14.apply(this, arguments);
     };
   }();
+  // 2026-08-03f 複数枚をまとめて受ける（旧: 最初の1枚だけ）。読み込み順に onImage を呼ぶので、貼った順に並ぶ。
+  // save は dataRef.current を見て積むので、連続で onImage を呼んでも取りこぼさない。
+  var handleFiles = function handleFiles(list) {
+    var fs = [];
+    for (var i = 0; i < (list ? list.length : 0); i++) {
+      var f = list[i];
+      if (f && (!f.type || f.type.indexOf("image/") === 0)) fs.push(f);
+    }
+    if (!fs.length) return;
+    Promise.all(fs.map(function(f) {
+      return Promise.resolve(fileToImg(f))["catch"](function() { return null; });
+    })).then(function(imgs) {
+      imgs.forEach(function(r) { if (r) onImage(r); });
+    });
+  };
   var onPaste = function onPaste(e) {
     e.preventDefault();
     var it = e.clipboardData && e.clipboardData.items || [];
+    var fs = [];
     for (var i = 0; i < it.length; i++) {
-      if (it[i].type.startsWith("image/")) {
-        handleFile(it[i].getAsFile());
-        break;
+      if (it[i].type && it[i].type.indexOf("image/") === 0) {
+        var f = it[i].getAsFile();
+        if (f) fs.push(f);
       }
     }
+    if (fs.length) handleFiles(fs);
     if (pasteRef.current) pasteRef.current.value = "";
   };
   return React.createElement("div", {
     onDrop: function onDrop(e) {
       e.preventDefault();
       setDragOn(false);
-      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+      handleFiles(e.dataTransfer.files);
     },
     onDragOver: function onDragOver(e) {
       e.preventDefault();
@@ -949,11 +966,12 @@ function PasteZone(_ref13) {
     ref: fileRef,
     type: "file",
     accept: "image/*",
+    multiple: true,
     style: {
       display: "none"
     },
     onChange: function onChange(e) {
-      if (e.target.files[0]) handleFile(e.target.files[0]);
+      if (e.target.files && e.target.files.length) { handleFiles(e.target.files); e.target.value = ""; }
     }
   }));
 }

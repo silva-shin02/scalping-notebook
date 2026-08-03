@@ -2676,16 +2676,36 @@ function NewsTab(_ref36) {
       return [].concat(_toConsumableArray(prev || []), [item]);
     });
   };
-  var addNewsWithFile = function addNewsWithFile(f) {
-    fileToImg(f).then(function(img) {
-      if (img) {
-        updCatField("newsItems", function(prev) {
-          var item = { id: Date.now(), text: "", images: [img], tags: [] };
-          return [].concat(_toConsumableArray(prev || []), [item]);
+  // 2026-08-03f まとめて追加（複数ドロップ／複数ファイル選択／複数枚の貼り付け）。1枚＝1札で並べる。
+  // 全部読み終えてから1回だけ書き込む＝同じミリ秒に複数枚できても id が衝突しない（衝突時は既存idを避けて採番）。
+  var addNewsWithFiles = function addNewsWithFiles(fileList) {
+    var files = [];
+    for (var i = 0; i < (fileList ? fileList.length : 0); i++) {
+      var f = fileList[i];
+      if (f && (!f.type || f.type.indexOf("image/") === 0)) files.push(f);
+    }
+    if (!files.length) return;
+    Promise.all(files.map(function(f) {
+      return Promise.resolve(fileToImg(f))["catch"](function() { return null; });
+    })).then(function(imgs) {
+      var ok = imgs.filter(function(x) { return x; });
+      if (!ok.length) return;
+      updCatField("newsItems", function(prev) {
+        var arr = (prev || []).slice();
+        var used = {};
+        arr.forEach(function(n) { if (n && n.id != null) used[n.id] = 1; });
+        var nid = Date.now();
+        ok.forEach(function(img) {
+          while (used[nid]) nid++;
+          used[nid] = 1;
+          arr.push({ id: nid, text: "", images: [img], tags: [] });
+          nid++;
         });
-      }
+        return arr;
+      });
     });
   };
+  var addNewsWithFile = function addNewsWithFile(f) { return addNewsWithFiles([f]); };
   var updNews = function updNews(id, uOrFn) {
     save(function(prevData) {
       return _propagateClones(prevData, id, function(n) {
@@ -3801,11 +3821,8 @@ function NewsTab(_ref36) {
         );
       }),
       React.createElement("div", {
-        style: { display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "center", gap: 5, minHeight: 120 }
-      },
-      React.createElement("div", {
-        style: { display: "flex", alignItems: "center", justifyContent: "center" },
-        onDrop: function(e) { e.preventDefault(); setAddBtnDrag(false); if (e.dataTransfer.files[0]) addNewsWithFile(e.dataTransfer.files[0]); },
+        style: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 },
+        onDrop: function(e) { e.preventDefault(); setAddBtnDrag(false); addNewsWithFiles(e.dataTransfer.files); },
         onDragOver: function(e) { e.preventDefault(); setAddBtnDrag(true); },
         onDragLeave: function() { setAddBtnDrag(false); },
         onClick: function() {
@@ -3817,8 +3834,8 @@ function NewsTab(_ref36) {
         }
       },
         React.createElement("input", {
-          ref: addBtnFileRef, type: "file", accept: "image/*", style: { display: "none" },
-          onChange: function(e) { if (e.target.files[0]) { addNewsWithFile(e.target.files[0]); e.target.value = ""; } }
+          ref: addBtnFileRef, type: "file", accept: "image/*", multiple: true, style: { display: "none" },
+          onChange: function(e) { if (e.target.files && e.target.files.length) { addNewsWithFiles(e.target.files); e.target.value = ""; } }
         }),
         React.createElement("div", {
           style: { width: "100%", minHeight: 110, fontSize: 26, fontWeight: 300,
@@ -3833,14 +3850,16 @@ function NewsTab(_ref36) {
             title: "クリックでファイル選択 / 右クリック→貼り付けやCmd+Vで画像追加",
             onPaste: function(e) {
               e.preventDefault();
+              // 2026-08-03f 貼り付けも複数枚まとめて（旧: 最初の1枚でbreakしていた）
               var it = e.clipboardData && e.clipboardData.items || [];
+              var fs = [];
               for (var i = 0; i < it.length; i++) {
                 if (it[i].type && it[i].type.indexOf("image/") === 0) {
                   var f = it[i].getAsFile();
-                  if (f) addNewsWithFile(f);
-                  break;
+                  if (f) fs.push(f);
                 }
               }
+              if (fs.length) addNewsWithFiles(fs);
               if (addBtnPasteRef.current) addBtnPasteRef.current.value = "";
             },
             onChange: function() { if (addBtnPasteRef.current) addBtnPasteRef.current.value = ""; },
@@ -3854,19 +3873,11 @@ function NewsTab(_ref36) {
               background: "transparent", width: "100%", height: "100%", cursor: "pointer", padding: 0 }
           }) : null
         )
-      ),
-      // 2026-08-03e 独立したメモ欄を廃止したので、文章だけの札をここから作れるようにしておく（旧メモの行き先）。
-      React.createElement("button", {
-        onClick: function() { addNews(); },
-        style: { padding: "5px 8px", fontSize: 11, fontWeight: 600, background: "#fff",
-          color: "#666", border: "1px dashed #ccc", borderRadius: 6, cursor: "pointer",
-          minHeight: IS_TOUCH ? 36 : 28 }
-      }, "＋ 本文だけの札")
       )
     ),
     boardItems.length === 0 ? React.createElement("div", {
       style: { fontSize: 12, color: "#aaa", marginTop: 10 }
-    }, "まだニュースがありません。＋ から画像を貼り付けるか「＋ 本文だけの札」で追加できます。") : null
+    }, "まだニュースがありません。＋ から画像を貼り付けて追加できます。") : null
   ));
 }
 
