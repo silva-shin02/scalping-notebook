@@ -2516,9 +2516,8 @@ function EventsTab(_ref_evt) {
 // 左端のブロックだけを大きく見せたい。縦にずっと伸びる「余白の帯（ガター）」を探し、その左右をブロックとみなす。
 // 画像はcanvasへ小さく描いて読む。Storage経由(imageUrl)の画像はCORSでcanvasが汚染されて読めないことがあるので、
 // その場合はnullを返して従来どおり全体表示にフォールバックする（例外を投げない）。
-// 2026-08-03n 列を調べる対象。実物の記事スクショは2段組でも全体はほぼ正方形（比1.07など）になるので、
-// 「横長だけ」に絞ると取りこぼす。縦長の1段組は下の受け入れ条件で弾かれるため、正方形より少しでも横なら調べる。
-var _COL_SCAN_RATIO = 0.85;
+// 2026-08-03o 縦横比による足切りは廃止。実物は2段組でも全体が縦長(比0.78)になることがあり、
+// 比で絞ると取りこぼす。1段組の記事は下の受け入れ条件（ブロック幅の下限・上限）で弾かれるので、全部の画像を調べる。
 // 横長・正方形スクショの「列」を検出する。ニュースサイトのPC表示を撮ると本文の横に別記事が並ぶので、
 // 左端のブロックだけを大きく見せたい。縦に伸びる「余白の帯（ガター）」を探し、その左右をブロックとみなす。
 // 難しいのは全幅のヘッダ・フッタ・区切りバーが縦の帯を必ず横切ること。「中身が全く無い列」を探すと実物では見つからない。
@@ -2771,37 +2770,37 @@ function NewsTab(_ref36) {
       return (prev.indexOf(tg) >= 0) ? prev.filter(function(x) { return x !== tg; }) : prev.concat([tg]);
     });
   };
+  // 2026-08-03o 画像の実寸と列構成の計測。描画後の一括走査だけでなく、<img>のonLoadからも呼ぶ。
+  // 画像はIDB/Storageから後で差し込まれることがあり、一括走査のタイミングだけでは取りこぼしていた（実物で列検出が効かない原因のひとつ）。
+  var measureNiImg = function(id, im) {
+    if (!im) return;
+    var w = im.naturalWidth, h = im.naturalHeight;
+    if (!w || !h) return;
+    setImgAspects(function(prev) {
+      var cur = prev[id];
+      if (cur && cur.w === w && cur.h === h) return prev;
+      var crop = null;
+      var blocks = _snDetectImgColumns(im);
+      if (blocks && blocks.length >= 2) {
+        var b0 = blocks[0];
+        crop = { left: b0.left, width: b0.width, ratio: (w * b0.width) / h, blocks: blocks.length };
+      }
+      var nx = Object.assign({}, prev); nx[id] = { w: w, h: h, r: w / h, crop: crop }; return nx;
+    });
+  };
   var _shownKey = shownItems.map(function(e) { return e.ni.id; }).join(",");
   useEffect(function() {
     var cont = newsGridRef.current;
     if (!cont) return;
     var cleanups = [];
-    var apply = function(id, im) {
-      var w = im.naturalWidth, h = im.naturalHeight;
-      if (!w || !h) return;
-      setImgAspects(function(prev) {
-        var cur = prev[id];
-        if (cur && cur.w === w && cur.h === h) return prev;
-        // 横長のときだけ列を調べる（縦長の記事スクショは1列なので調べても無駄）
-        var crop = null;
-        if (w / h >= _COL_SCAN_RATIO) {
-          var blocks = _snDetectImgColumns(im);
-          if (blocks && blocks.length >= 2) {
-            var b0 = blocks[0];
-            crop = { left: b0.left, width: b0.width, ratio: (w * b0.width) / h, blocks: blocks.length };
-          }
-        }
-        var nx = Object.assign({}, prev); nx[id] = { w: w, h: h, r: w / h, crop: crop }; return nx;
-      });
-    };
     var imgs = cont.querySelectorAll("[data-niid] img");
     for (var i = 0; i < imgs.length; i++) {
       (function(im) {
         var card = im.closest ? im.closest("[data-niid]") : null;
         var id = card && card.getAttribute("data-niid");
         if (!id) return;
-        if (im.complete && im.naturalWidth) { apply(id, im); return; }
-        var onL = function() { apply(id, im); };
+        if (im.complete && im.naturalWidth) { measureNiImg(id, im); return; }
+        var onL = function() { measureNiImg(id, im); };
         im.addEventListener("load", onL);
         cleanups.push(function() { im.removeEventListener("load", onL); });
       })(imgs[i]);
@@ -4052,6 +4051,7 @@ function NewsTab(_ref36) {
             fillHeight: isTallNi(ni) ? (IS_TOUCH ? 300 : 420) : null,
             // 2026-08-03m 横長で列が分かれていたら左端のブロックだけを出す（無ければnull＝全体表示）。
             fillCrop: niCrop(ni),
+            onImgLoad: function(el) { measureNiImg(String(ni.id), el); },
             maxHeight: IS_TOUCH ? 300 : 420,
             onRemove: function(i) {
               return updNews(ni.id, function(n) {

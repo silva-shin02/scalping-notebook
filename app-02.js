@@ -1000,7 +1000,10 @@ function useImgUploadStatus(id) {
 function ImgThumb(_ref_it) {
   var img = _ref_it.img, onClick = _ref_it.onClick, imgStyle = _ref_it.imgStyle,
       // 2026-08-03l wrapStyle=外枠に足すスタイル。高さ固定＋overflow:hidden で「拡大した上部だけを見せる窓」を作るのに使う。
-      wrapStyle = _ref_it.wrapStyle;
+      wrapStyle = _ref_it.wrapStyle,
+      // 2026-08-03o onImgLoad=読み込み完了時に<img>要素そのものを渡す。呼び出し側が実寸や画素を調べるのに使う。
+      // 画像はIDB/Storageから後で差し込まれることがあり、描画直後の走査だけでは取りこぼすのでReactのonLoadで拾う。
+      onImgLoad = _ref_it.onImgLoad;
   var upSt = useImgUploadStatus(img && img.id);
   var br = (imgStyle && imgStyle.borderRadius) || 5;
   return React.createElement("div", {
@@ -1009,7 +1012,8 @@ function ImgThumb(_ref_it) {
       : { position: "relative", display: "inline-block", lineHeight: 0 }
   },
     React.createElement("img", {
-      src: imgSrc(img), onClick: onClick, style: imgStyle, alt: ""
+      src: imgSrc(img), onClick: onClick, style: imgStyle, alt: "",
+      onLoad: onImgLoad ? function(ev) { onImgLoad(ev.target); } : null
     }),
     upSt ? React.createElement("div", {
       style: {
@@ -1064,6 +1068,7 @@ function ImgGrid(_ref15) {
     // 2026-08-03m fillCrop={left,width,ratio}=元画像の横方向の一部だけを切り出して見せる（比率は全て0〜1）。
     // 横長スクショで列が分かれているとき、左端のブロックだけを大きく出すのに使う。高さは全体をそのまま使う。
     fillCrop = _ref15.fillCrop,
+    onImgLoad = _ref15.onImgLoad,
     boxed = _ref15.boxed;
   if (!images || !images.length) return null;
   var _imgMaxH = (typeof maxHeight === "number" && maxHeight > 0) ? maxHeight : IMG_H;
@@ -1093,6 +1098,7 @@ function ImgGrid(_ref15) {
       style: (fillHeight || _fc) ? { position: "relative", width: "100%" } : { position: "relative" }
     }, React.createElement(ImgThumb, {
       img: img,
+      onImgLoad: onImgLoad,
       // 高さ指定があればそれを優先（切り出し＋高さ揃えの併用）。無ければ切り出し後の比率で高さを決める。
       wrapStyle: fillHeight ? {
         height: fillHeight, overflow: "hidden",
