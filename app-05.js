@@ -6791,7 +6791,12 @@ function EntryRecordForm(_ref_erf) {
 
   var _useStateEONO = useState(initSig.entryOsNo != null ? Number(initSig.entryOsNo) : null),
     _useStateEONOA = _slicedToArray(_useStateEONO, 2),
-    fEntryOsNo = _useStateEONOA[0], setFEntryOsNo = _useStateEONOA[1];  // 実エントリーしたOS（1〜3）
+    fEntryOsNo = _useStateEONOA[0], setFEntryOsNo = _useStateEONOA[1];  // 実エントリーしたOS（2026-08-05に1〜3→1〜5へ拡張・OS4=H1/OS5=H2）
+  // 2026-08-05 撤退（手じまい）したOS。1〜5。入より前は選べない。保存は signal.exitOsNo。
+  // 保有時間や「うち損切り」は当面これまでどおり計算上の手じまい位置から出す（実データへの切替は別途）。
+  var _useStateXONO = useState(initSig.exitOsNo != null ? Number(initSig.exitOsNo) : null),
+    _useStateXONOA = _slicedToArray(_useStateXONO, 2),
+    fExitOsNo = _useStateXONOA[0], setFExitOsNo = _useStateXONOA[1];
   var _useStateEOSS = useState(initSig.entryOsSign || null),
     _useStateEOSSA = _slicedToArray(_useStateEOSS, 2),
     fEntryOsSign = _useStateEOSSA[0], setFEntryOsSign = _useStateEOSSA[1];
@@ -7479,6 +7484,7 @@ function EntryRecordForm(_ref_erf) {
       priceIn: fEntered && fPriceIn !== "" ? fPriceIn : null,
       priceOut: fEntered && fPriceOut !== "" ? fPriceOut : null,
       entryOsNo: fEntered && fEntryOsNo != null ? fEntryOsNo : null,
+      exitOsNo: fEntered && fExitOsNo != null ? fExitOsNo : null,   // 2026-08-05 撤退足
       entryOsSign: fEntered ? (fEntryOsSign || null) : null,
       entryOsVal: fEntered && fEntryOsVal !== "" ? Number(fEntryOsVal) : null,
       exitOsSign: fEntered ? (fExitOsSign || null) : null,
@@ -9009,15 +9015,31 @@ function EntryRecordForm(_ref_erf) {
                 React.createElement("span", { style: { fontSize: 12, color: "#666" } }, "円")
               )
             ),
-            React.createElement("label", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "E-OS",
-              React.createElement("div", { style: { display: "flex", gap: 3, marginTop: 2 } },
-                [1, 2, 3].map(function(_no) {
-                  var on = fEntryOsNo === _no;
-                  return React.createElement("button", { key: _no, type: "button",
-                    onClick: function() { setFEntryOsNo(on ? null : _no); },
-                    style: { padding: "8px 12px", fontSize: 13, fontWeight: 700, borderRadius: 6, cursor: "pointer",
-                      border: "1.5px solid " + (on ? "#C0392B" : "#ddd"), background: on ? "#FCEBEB" : "#fff", color: on ? "#C0392B" : "#999" } }, _no);
-                }))
+            // 2026-08-05 E-OSを「入(Entry足)／出(Exit足)」の2段に。どちらもOS1〜5から選ぶ（OS4=H1・OS5=H2）。
+            // 出は入より前を選べない（入が未選択なら全部選べる）。入を後ろへ動かして出が前になったら出を外す。
+            // labelでなくdivにしているのは、labelの中のbuttonがクリックを二重に拾うのを避けるため。
+            React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700 } }, "E-OS",
+              [["入", fEntryOsNo, setFEntryOsNo, "#C0392B", "#FCEBEB"],
+               ["出", fExitOsNo, setFExitOsNo, "#1D4ED8", "#EFF6FF"]].map(function(_r) {
+                var _lb = _r[0], _cur = _r[1], _set = _r[2], _c = _r[3], _bg = _r[4];
+                var _isExit = (_lb === "出");
+                return React.createElement("div", { key: _lb, style: { display: "flex", alignItems: "center", gap: 3, marginTop: 2 } },
+                  React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", width: 14, flexShrink: 0 } }, _lb),
+                  [1, 2, 3, 4, 5].map(function(_no) {
+                    var on = (_cur === _no);
+                    var dis = _isExit && fEntryOsNo != null && _no < fEntryOsNo;
+                    return React.createElement("button", { key: _no, type: "button", disabled: dis,
+                      title: "OS" + _no + (_no === 4 ? "（H1）" : _no === 5 ? "（H2）" : "") + (_isExit ? " で手じまい" : " でエントリー"),
+                      onClick: function() {
+                        if (dis) return;
+                        _set(on ? null : _no);
+                        if (!_isExit && !on && fExitOsNo != null && fExitOsNo < _no) setFExitOsNo(null);
+                      },
+                      style: { padding: "6px 9px", fontSize: 12, fontWeight: 700, borderRadius: 6, cursor: dis ? "not-allowed" : "pointer",
+                        border: "1.5px solid " + (on ? _c : "#ddd"), background: on ? _bg : "#fff",
+                        color: on ? _c : (dis ? "#ddd" : "#999"), opacity: dis ? 0.5 : 1 } }, _no);
+                  }));
+              })
             )
           ),
           // 2026-08-04 価格（入り）・価格（出）は横並びにして幅を詰めた（各132px）。
