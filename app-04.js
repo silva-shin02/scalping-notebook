@@ -5184,9 +5184,9 @@ function DayView(_ref57) {
   var _trEntryAgg = useMemo(function() {
     var records = [];
     // 2026-08-04b realSum=100株換算（下段の参考値）／realSumRaw=実額（フッターの主表示・実額スケールのランク用）。
-    // 勝敗ok/ngは廃止し、利確(win+tri)/同値(even)/損失(loss+stop・うち損切りstop)を数える＝週間表の「利確/△/確定損/損切り」と同じ_elWinBucket基準。
+    // 勝敗ok/ngは廃止し、利確/同値/損失（うち損切り）を数える。2026-08-04eに判定を【実現損益の符号】へ変更（下のループのコメント参照）。
     var realSum = 0, realSumRaw = 0, realHasSh = false, ok = 0, ng = 0;
-    var cWin = 0, cTri = 0, cEven = 0, cLoss = 0, cStop = 0;
+    var cWin = 0, cEven = 0, cLoss = 0, cStop = 0;
     var _trItems = dd.items || [];
     var charts = data.charts || {};
     allStocks.forEach(function(_trStock) {
@@ -5216,12 +5216,16 @@ function DayView(_ref57) {
         var _resTr = _elDynResult(s, _epOwnAlpha(s), _cutTr);
         if (_resTr === "ok") ok++;
         else if (_resTr === "ng") ng++;
-        var _wbTr = _elWinBucket(s, _epOwnAlpha(s), _cutTr);
-        if (_wbTr === "win") cWin++;
-        else if (_wbTr === "tri") cTri++;
-        else if (_wbTr === "even") cEven++;
-        else if (_wbTr === "loss") cLoss++;
-        else if (_wbTr === "stop") cStop++;
+        // 2026-08-04e 利確/同値/損失は【実現損益の符号】で数える（ユーザー指摘「実現損益では次足期待度関係ないよ」）。
+        // 旧: _elWinBucket＝計算上の手じまい位置（_epNextExpAtの次足期待度で決まる）で判定していたため、
+        //     実現損益が-8,400円の記録が「利確」に入っていた。実際に出た金額と数え方の基準を揃える。
+        // 「うち損切り」は損切りライン到達(_elHoldIsStop)＝値が損切り値ぶん逆行したかという価格の事実だけで判定（期待度は見ない）。
+        // 実現損益が未記録の記録はどれにも数えない（損益合計にも入っていないため）。
+        if (_prTr.real != null) {
+          if (_prTr.real > 0) cWin++;
+          else if (_prTr.real === 0) cEven++;
+          else { cLoss++; if (_elHoldIsStop(s, _epOwnAlpha(s), _cutTr)) cStop++; }
+        }
         }
       });
     });
@@ -5232,7 +5236,7 @@ function DayView(_ref57) {
     });
     return { records: records, totRecords: records.filter(function(r) { return _elInclTotalAmt(data, r); }),
       realSum: realSum, realSumRaw: realSumRaw, realHasSh: realHasSh, ok: ok, ng: ng,
-      cWin: cWin, cTri: cTri, cEven: cEven, cLoss: cLoss, cStop: cStop };
+      cWin: cWin, cEven: cEven, cLoss: cLoss, cStop: cStop };
   }, [data.charts, dd.items, allStocks, date]);
   var _trEntryRecords = _trEntryAgg.records;
   var _trTotRecs = _trEntryAgg.totRecords;  // 合計額算入: 集計専用（除外記録を抜いた版）2026-06-18
@@ -5947,10 +5951,10 @@ function DayView(_ref57) {
       // 2026-08-04b 「成功/失敗 N勝N敗」→「利確N件/同値N件/損失N件（うち損切りN件）」。損益合計の下へ移動。
       // 同値(_elWinBucketのeven)は0件なら出さない。損失は確定損＋損切りの合計で、その内訳として損切り件数を括弧で添える。
       (function() {
-        var _cW = (_trEntryAgg.cWin || 0) + (_trEntryAgg.cTri || 0);
+        var _cW = _trEntryAgg.cWin || 0;
         var _cE = _trEntryAgg.cEven || 0;
-        var _cS = _trEntryAgg.cStop || 0;
-        var _cL = (_trEntryAgg.cLoss || 0) + _cS;
+        var _cL = _trEntryAgg.cLoss || 0;
+        var _cS = _trEntryAgg.cStop || 0;   // 損失の内数（損切りライン到達）
         var _num = function(n, col) { return React.createElement("span", { style: { fontWeight: 700, color: col } }, n + "件"); };
         var _parts = [React.createElement("span", { key: "w" }, "利確 ", _num(_cW, "#C0392B"))];
         if (_cE > 0) _parts.push(React.createElement("span", { key: "e" }, " / 同値 ", _num(_cE, "#D97706")));
