@@ -4330,14 +4330,35 @@ function _elGradeBadge18(grade) {
 function _elLane(child, w, align) { return React.createElement("span", { style: { display: "inline-flex", width: w, minWidth: w, justifyContent: align || "center", alignItems: "center", flexShrink: 0 } }, child); }
 function _elPnlColor(v) { return v == null ? "#ccc" : v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; }
 function _elPnlFmt(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLocaleString() + "円"; }
+// 実現損益の「実額」と「100株換算」を出す単一源 2026-08-04。
+// 実額＝取引に紐づいていれば item.pnl、無ければ保存値 signal.realizedPnl(+符号)。100株換算＝実額÷株数×100。
+// 株数(signal.shares)未入力の記録は換算しようがないので per100 は null＝表の下段を出さない（換算済みのフリをしないため）。
+// ⚠️ バッジの_profitGradeFromPnlRealは実額スケール（通常グレードの10倍・A+=25000円）なので、必ず real の方に付ける。
+function _elPer100Of(v, s) {
+  var sh = (s && Number(s.shares) > 0) ? Number(s.shares) : 0;
+  return (v == null || sh <= 0) ? null : Math.round(v / sh * 100);
+}
+function _elRealPnlPair(s, item) {
+  var v = (item && item.pnl != null) ? Number(item.pnl) : _elSignedVal(s && s.realizedPnl, s && s.realizedPnlSign);
+  if (v == null) return { real: null, per100: null, shares: 0 };
+  var sh = (s && Number(s.shares) > 0) ? Number(s.shares) : 0;
+  return { real: Math.round(v), per100: _elPer100Of(v, s), shares: sh };
+}
 // ランク+金額のレーン表示（旧: _esRPnlDisp/_trRPnlDisp/_rPnlDisp。valW=金額レーン幅・showZ=Zも表示）
-function _elRPnlDispW(v, grade, valW, showZ) {
+// 2026-08-04 sub=下段に小さく併記する100株換算額。null/未指定なら従来どおり1段＝実現損益以外の欄は不変。
+function _elRPnlDispW(v, grade, valW, showZ, sub) {
   var badge = (grade && (grade !== "Z" || showZ)) ? _elGradeBadge18(grade) : null;
   if (v == null && badge == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var val = v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—")
     : React.createElement("span", { style: { fontWeight: 600, color: _elPnlColor(v) } }, _elPnlFmt(v));
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
+  var main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
     _elLane(badge, 22), _elLane(val, valW || 72, "flex-start"));
+  if (sub == null || v == null) return main;
+  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", whiteSpace: "nowrap" } },
+    main,
+    React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", marginTop: 1 } },
+      _elLane(null, 22),
+      _elLane(React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "100株 " + _elPnlFmt(sub)), valW || 72, "flex-start")));
 }
 // 合計表示: 全体値のみ（無ければAB値）にランクを付けて表示（旧: _esRPnlDispABAll/_trRPnlDispABAll/_rPnlDispABAllPb/_rPnlDispABAllSv）
 function _elRPnlDispABAll(abV, allV, abGrade, allGrade) {
@@ -4487,10 +4508,12 @@ function _elFillRiskNode(r) {
   return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値同値");
 }
 // 合計行の共通集計: EP損益(AB込み)・H1(_elHold1TotParts)・H2(_elHoldFinalParts)・実現損益。
-// get={signal,alpha,cut,real?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
+// get={signal,alpha,cut,real?,realPair?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
+// realPair(it)→_elRealPnlPair の戻り{real,per100,shares}（null可）2026-08-04。渡すと t.real（100株換算合計＝従来値）に加えて
+// t.realRaw（実額合計＝実額スケールのグレード用）と t.realHasShares（株数入りが1件でもあるか＝下段を出すか）も埋まる。realPair指定時はrealを見ない。
 function _elTotAccum(items, get) {
   var nm = get.norm || function(it, v) { return v; };
-  var t = { real: null, realCnt: 0, plan: null, planCnt: 0, planStop: false,
+  var t = { real: null, realRaw: null, realHasShares: false, realCnt: 0, plan: null, planCnt: 0, planStop: false,
     planAB: null, planABCnt: 0, planRef: null, planRefCnt: 0, holdPlanCap: null, holdCnt: 0, holdAB: null, holdABCnt: 0,
     holdRef: null, holdRefCnt: 0, hold2: null, hold2Cnt: 0, hold2Ref: null, hold2RefCnt: 0,
     holdRaw: null, holdPlanStopDiff: false };
@@ -4500,7 +4523,15 @@ function _elTotAccum(items, get) {
     // 2026-07-18g 要審議も合計損益に算入（見送りと同じ無エントリー扱い＝×宣言が無ければ仮想損益で（）内）。旧＝ここでreturn除外していた（2026-07-14c）
     if (get.excluded && get.excluded(it)) return;
     var isAB = s.difficulty === "A" || s.difficulty === "B";
-    if (get.real) { var rv = get.real(it); if (rv != null) { t.real = (t.real || 0) + rv; t.realCnt++; } }
+    if (get.realPair) {
+      var pr = get.realPair(it);
+      if (pr && pr.real != null) {
+        t.realRaw = (t.realRaw || 0) + pr.real;
+        t.real = (t.real || 0) + (pr.per100 != null ? pr.per100 : pr.real);   // 株数未入力は換算しようがないので実額をそのまま足す（従来と同じ）
+        t.realCnt++;
+        if (pr.shares > 0) t.realHasShares = true;
+      }
+    } else if (get.real) { var rv = get.real(it); if (rv != null) { t.real = (t.real || 0) + rv; t.realCnt++; } }
     // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
     if (_epIsXSkip(s, a)) return;
     var pp = _elDynPlanned(s, a, c); var ppN = pp != null ? nm(it, pp) : null;
@@ -5357,6 +5388,7 @@ function _elCalcStats(records, data, simResolve) {
   var ok = 0, ng = 0, draw = 0, miss = 0;
   var win = 0, tri = 0, even = 0, loss = 0, stop = 0;
   var sumPnl = 0, sumPlanned = 0, sumMax = 0, sumHold = 0;
+  var sumPnlRaw = 0, realHasShares = false;   // 2026-08-04 実現損益の実額合計（sumPnlは100株換算）。バッジの_profitGradeFromPnlRealは実額スケールなのでこちらを渡す。
   var sumPlannedRef = 0, plannedRefCnt = 0;  // EP-OS△（△の確信度でエントリー）→ EP損益は（）内（参考）のみ・（）外は0（2026-06-16）
   var wins = [], losses = [];
   var plannedWins = [], plannedLosses = [];
@@ -5385,6 +5417,8 @@ function _elCalcStats(records, data, simResolve) {
       : _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign);
     if (pn != null) {
       var pnN = _per100(pn);
+      sumPnlRaw += Math.round(pn);
+      if (_sh > 0) realHasShares = true;
       sumPnl += pnN;
       if (pnN > 0) wins.push(pnN);
       else if (pnN < 0) losses.push(pnN);
@@ -5502,7 +5536,7 @@ function _elCalcStats(records, data, simResolve) {
     total: total, ok: ok, ng: ng, draw: draw, miss: miss, winPct: winPct,
     reach: win + tri + even + loss + stop, win: win, tri: tri, even: even, loss: loss, stop: stop,
     avgWin: avgWin, avgLoss: avgLoss, expected: expected,
-    sumPnl: sumPnl, sumPlanned: sumPlanned, sumMax: sumMax,
+    sumPnl: sumPnl, sumPnlRaw: sumPnlRaw, realHasShares: realHasShares, sumPlanned: sumPlanned, sumMax: sumMax,
     sumPlannedRef: plannedRefCnt > 0 ? sumPlannedRef : null, plannedRefCnt: plannedRefCnt,
     expectedPlanned: expectedPlanned, expectedMax: expectedMax,
     sumHold: holdHasData ? sumHold : null,

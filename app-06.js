@@ -3704,7 +3704,7 @@ function _elOsTradeMini(recs, aiOf, opts) {
         entered ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇") : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
       _elPnlDetailCells(s, a, c, _bb, "1px 3px", "1px 5px"),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, whiteSpace: "nowrap" } },
-        _elLane(_tradeAlphaChip(s), 26, "flex-end"), _elRPnlDispW(realPnl, gReal, 72))
+        _elLane(_tradeAlphaChip(s), 26, "flex-end"), _elRPnlDispW(realPnl, gReal, 72, false, _elPer100Of(realPnl, s)))
     );
   });
   return React.createElement(_HScrollBox, { style: { marginTop: 4 }, plain: !!(opts && opts.plain) },
@@ -6541,7 +6541,7 @@ function EntryLogView(_ref_elv2) {
           _td(React.createElement(React.Fragment, null, _elHold2AmtNode(s, a.alpha, a.cutLine), _elRideMiniNode(s, a.alpha, a.cutLine)), { background: "#FFFBF0" }),
           React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: "4px 6px", textAlign: "left", fontSize: 11, borderTop: "1px solid #f0ede8", background: "#F8FBFE" } }, _elDetailFlowStack(s, a.alpha, a.cutLine)),
           _td(_elHoldMinNode(s, a.alpha, a.cutLine))
-        ]).concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60) : _dash)]);
+        ]).concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60, false, _elPer100Of(realN, s)) : _dash)]);
       }
       body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, _collScope), _dimLbl ? { opacity: 0.6, background: "#FAFAF9", borderLeft: "3px solid #D6D3D1" } : null) }, cells));
       if (on) body.push(React.createElement("tr", { key: ek + "_c" },

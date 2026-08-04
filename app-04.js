@@ -5698,7 +5698,7 @@ function DayView(_ref57) {
       var _trRPnlFmt = _elPnlFmt;
       var _trBadge = _elGradeBadge18;
       var _trLane = _elLane;
-      var _trRPnlDisp = function(v, grade) { return _elRPnlDispW(v, grade, 72); };
+      var _trRPnlDisp = function(v, grade, sub) { return _elRPnlDispW(v, grade, 72, false, sub); };   // sub=100株換算の下段（実現損益欄だけ渡す）2026-08-04
       var _trRPnlDispABAll = _elRPnlDispABAll;
       var _trTh = function(label, extra) {
         return React.createElement("th", { style: Object.assign({ padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" }, extra || {}) }, label);
@@ -5710,13 +5710,7 @@ function DayView(_ref57) {
         alpha: function(r) { return _elAlphaInfo(r, data).alpha; },
         cut: function(r) { return _elAlphaInfo(r, data).cutLine; },
         excluded: function(r) { return _elCollExcluded(data, r); },
-        real: function(r) {
-          var s0 = r.signal, it0 = r.item;
-          var v = (it0 && it0.pnl != null) ? Number(it0.pnl) : _elSignedVal(s0.realizedPnl, s0.realizedPnlSign);
-          if (v == null) return null;
-          var sh0 = Number(s0.shares) > 0 ? Number(s0.shares) : 0;
-          return sh0 > 0 ? Math.round(v / sh0 * 100) : Math.round(v);
-        }
+        realPair: function(r) { return _elRealPnlPair(r.signal, r.item); }   // 2026-08-04 実額と100株換算を両方もらう（従来のrealは100株換算だけだった）
       });
       var _trTotReal = _trTT.real, _trTotRealCnt = _trTT.realCnt;
       var _trTotPlan = _trTT.plan, _trTotPlanCnt = _trTT.planCnt;
@@ -5737,7 +5731,7 @@ function DayView(_ref57) {
         _trTotMax = (_trTotMax || 0) + mpN; _trTotMaxCnt++;
         if (s.difficulty === "A" || s.difficulty === "B") { _trTotMaxAB = (_trTotMaxAB || 0) + mpN; _trTotMaxABCnt++; }
       });
-      var _trTotRealGrade = _trTotRealCnt > 0 ? _profitGradeFromPnlReal(_trTotReal != null ? _trTotReal : 0, _trTotRealCnt) : null;
+      var _trTotRealGrade = _trTotRealCnt > 0 ? _profitGradeFromPnlReal(_trTT.realRaw != null ? _trTT.realRaw : 0, _trTotRealCnt) : null;   // 実額スケールのグレードには実額合計 2026-08-04
       var _trTotPlanGrade = _trTotPlanCnt > 0 ? _profitGradeFromPnl(_trTotPlan != null ? _trTotPlan : 0, _trTotPlanCnt) : null;
       var _trTotMaxGrade  = _trTotMaxCnt  > 0 ? _profitGradeFromPnl(_trTotMax  != null ? _trTotMax  : 0, _trTotMaxCnt)  : null;
       var _trTotPlanGradeAB = _trTotPlanABCnt > 0 ? _profitGradeFromPnl(_trTotPlanAB != null ? _trTotPlanAB : 0, _trTotPlanABCnt) : null;
@@ -5765,7 +5759,7 @@ function DayView(_ref57) {
               React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _trTotHold2Cnt > 0 ? (function() { var _g2b = _profitGradeFromPnl(_trTotHold2 != null ? _trTotHold2 : 0, _trTotHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2b ? _trBadge(_g2b) : null, React.createElement("span", { style: { fontWeight: 600, color: _trTotHold2 > 0 ? "#C0392B" : _trTotHold2 < 0 ? "#1E8449" : "#888" } }, (_trTotHold2 > 0 ? "+" : "") + (_trTotHold2 || 0).toLocaleString() + "円")); })() : (_trTotHold2RefCnt > 0 ? null : (_trAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_trTotHold2, _trTotHold2Ref, _trTotHold2RefCnt))))),
         React.createElement("td", { style: { borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } }),
         React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "2px solid #FB923C", borderLeft: "1px solid #f0ede6", borderBottom: "1px solid #f0ede6" } },
-          _trTotRealCnt > 0 ? _trRPnlDisp(_trTotReal, _trTotRealGrade) : React.createElement("span", { style: { color: "#ccc" } }, "—")
+          _trTotRealCnt > 0 ? _trRPnlDisp(_trTT.realRaw, _trTotRealGrade, _trTT.realHasShares ? _trTotReal : null) : React.createElement("span", { style: { color: "#ccc" } }, "—")
         )
       );
       var dataRows = [];
@@ -5784,7 +5778,8 @@ function DayView(_ref57) {
         var _dynHPtr = _elDeriveHoldProfit(_hpTr, planPnlN, _dynResTr, s.holdProfit);
         var realPnlN = realPnl != null ? _p100(realPnl) : null;
         var entered = _elIsEntered(s, rIt);
-        var realGrade = (entered && realPnlN != null) ? _profitGradeFromPnlReal(realPnlN, 1) : null;
+        // 2026-08-04 実現損益は実額を主に。_profitGradeFromPnlReal は実額スケール（通常の10倍）なので換算値を渡すと1桁ずれたランクになる。
+        var realGrade = (entered && realPnl != null) ? _profitGradeFromPnlReal(realPnl, 1) : null;
         var planGrade = planPnlN != null ? _profitGradeFromPnl(planPnlN, 1) : null;
         var holdResultEl = _dynHPtr === "yes"
           ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "○")
@@ -5833,7 +5828,7 @@ function DayView(_ref57) {
               _epECell(s, _aiTr.alpha)),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
             _elPnlDetailCells(s, _aiTr.alpha, _aiTr.cutLine, "1px solid #f0ede6", "4px 6px", "1px 5px"),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trLane(_tradeAlphaChip(s), 26, "flex-end"), _trRPnlDisp(realPnlN, realGrade))
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trLane(_tradeAlphaChip(s), 26, "flex-end"), _trRPnlDisp(realPnl, realGrade, realPnlN != null && _sh > 0 ? realPnlN : null))
           )
         );
         if (rExp) {
@@ -6014,7 +6009,7 @@ function DayView(_ref57) {
         return React.createElement("th", { style: Object.assign({ padding: "1px 3px", fontWeight: 700, borderBottom: "2px solid #FB923C", textAlign: "center", fontSize: 10, lineHeight: 1.15, color: "#9A3412" }, extra || {}) }, label);
       };
       var _lane = _elLane;
-      var _rPnlDisp = function(v, grade) { return _elRPnlDispW(v, grade, 72); };
+      var _rPnlDisp = function(v, grade, sub) { return _elRPnlDispW(v, grade, 72, false, sub); };   // sub=100株換算の下段。この表の実現損益はもともと実額なので下段を足すだけ 2026-08-04
       var _sl = function() { return React.createElement("span", { style: { color: "#d6c8b8", margin: "0", fontWeight: 400 } }, "/"); };
       var _pbSlashCell = function(symObj, grade, pnl, missFlag) {
         var sym = symObj ? React.createElement("span", { style: { fontWeight: 700, color: symObj.col } }, symObj.ch) : React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -6079,6 +6074,7 @@ function DayView(_ref57) {
       };
       var subRows = [];
       var _totReal = null, _totPlan = null, _totHold = null;
+      var _totRealP100 = null, _totRealHasSh = false;   // 2026-08-04 実現損益の下段（100株換算）用。_totRealは従来どおり実額の合計。
       var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
       var _totPlanABpb = null;
       var _totPlanABCntpb = 0;
@@ -6109,7 +6105,12 @@ function DayView(_ref57) {
         var _inclTpb = amtScope ? _elInclTotalAmt(data, r) : _elInclTotal(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18。2026-07-18g 要審議も合計算入（見送りと同じ）＝_elIsReview除外を撤回。amtScope時は②データのみも除外 2026-07-22e
         var _collXpb = _elCollExcluded(data, r);  // 時間かぶり除外: 良い方はフッター合計からも全スキップ（行表示は全件のまま）2026-07-07
         if (entered && _inclTpb && !_collXpb) _totRealCnt++;
-        if (realPnl != null && _inclTpb && !_collXpb) { _totReal = (_totReal || 0) + realPnl; }
+        if (realPnl != null && _inclTpb && !_collXpb) {
+          _totReal = (_totReal || 0) + realPnl;
+          var _prPb = _elRealPnlPair(s, item);
+          _totRealP100 = (_totRealP100 || 0) + (_prPb.per100 != null ? _prPb.per100 : _prPb.real);
+          if (_prPb.shares > 0) _totRealHasSh = true;
+        }
         var _h2tpb = _elHoldFinalParts(s, _alphaRec, _cutLrec);
         if (_isXskipPb || !_inclTpb || _collXpb) {
           // EP×（×見送り）→ EP/H1/H2とも完全に算入無し（参考にも入れない）。
@@ -6184,7 +6185,7 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de" } },
             _elHoldMinNode(s, _alphaRec, _cutLrec)),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
-            _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnl, gReal))
+            _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnl, gReal, _elPer100Of(realPnl, s)))
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
@@ -6237,7 +6238,7 @@ function DayView(_ref57) {
               React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, marginRight: 1 } }, "H２："),
               _totHold2Cnt > 0 ? (function() { var _g2g = _profitGradeFromPnl(_pdAvg(_totHold2 != null ? _totHold2 : 0), _totHold2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _g2g ? _pbBadge(_g2g) : null, React.createElement("span", { style: { fontWeight: 600, color: _totHold2 > 0 ? "#C0392B" : _totHold2 < 0 ? "#1E8449" : "#888" } }, (_totHold2 > 0 ? "+" : "") + (_totHold2 || 0).toLocaleString() + "円")); })() : (_totHold2RefCnt > 0 ? null : (_pbAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_totHold2, _totHold2Ref, _totHold2RefCnt)))),
         React.createElement("td", { style: { borderTop: "2px solid #FB923C" } }),
-        React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade))
+        React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _rPnlDisp(_totReal, _totRealGrade, _totRealHasSh ? _totRealP100 : null))
       );
       var _cntCtx = function(_ctx) { return _ctx ? Object.keys(_ctx.val).filter(function(_k) { var _v = _ctx.val[_k]; return _v != null && _v !== ""; }).length : 0; };
       var _simAlphaCnt = _cntCtx(simCtx), _simCutCnt = _cntCtx(cutCtx), _simActiveCnt = _simAlphaCnt + _simCutCnt;
@@ -6356,9 +6357,13 @@ function DayView(_ref57) {
         return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 } }, g);
       };
       var _wkAmt = function(v) { return React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, (v > 0 ? "+" : "") + (v || 0).toLocaleString() + "円"); };
-      var _wkPnlCell = function(grade, sum) {
+      // sub=100株換算の下段（実現損益列だけ渡す）2026-08-04
+      var _wkPnlCell = function(grade, sum, sub) {
         if (!grade || grade === "Z" || sum == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkBadge(grade), _wkAmt(sum));
+        var main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkBadge(grade), _wkAmt(sum));
+        if (sub == null) return main;
+        return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
+          main, React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "100株 " + _elPnlFmt(sub)));
       };
       var _wkTh = function(label, extra) {
         return React.createElement("th", { style: Object.assign({ padding: "4px 3px", fontWeight: 700, borderBottom: "2px solid #ddd", textAlign: "center", fontSize: 10, lineHeight: 1.2, whiteSpace: "nowrap", color: "#555" }, extra || {}) }, label);
@@ -6443,7 +6448,7 @@ function DayView(_ref57) {
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap", justifyContent: "center" } }, React.createElement("span", { style: { display: "inline-block", fontSize: 9, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 3, padding: "0 5px", whiteSpace: "nowrap" }, title: "「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等）。この日はエントリーした銘柄が無く全銘柄が取引なしのため表示。" }, tradeTags.join("・")), _pnlNode);
           })()),
           _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _elDetailPnlStackNode(_wkRecsM, _wkAlphaOf, _wkCutOf, _wkBadge, _allMiss, _wkRowDays)),
-          _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_wkRowDays > 0 ? Math.round(_wkStM.sumPnl / _wkRowDays) : _wkStM.sumPnl, (_ent > 0 && _wkStM.sumPnl !== 0) ? _ent : 0), _ent > 0 ? _wkStM.sumPnl : null)),
+          _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_wkRowDays > 0 ? Math.round(_wkStM.sumPnlRaw / _wkRowDays) : _wkStM.sumPnlRaw, (_ent > 0 && _wkStM.sumPnlRaw !== 0) ? _ent : 0), _ent > 0 ? _wkStM.sumPnlRaw : null, (_ent > 0 && _wkStM.realHasShares) ? _wkStM.sumPnl : null)),
           React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
             (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
         );
@@ -6612,13 +6617,17 @@ function DayView(_ref57) {
       };
       var _entCnt = function(rs) { return rs.filter(function(r) { return _elIsEntered(r.signal, r.item); }).length; };
       var allRaw = _rawPnl(recs), allEnt = _entCnt(recs);
-      if (allSt.sumPnl === 0 && allEnt === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-      // ランクは表示額(per-100換算の allSt.sumPnl)で判定＝凡例・表示額・兄弟の_wkRowと一致。2026-06-20
-      var allGrade = allEnt > 0 ? _profitGradeFromPnlReal(allSt.sumPnl, allEnt) : "D";
-      return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+      if (allSt.sumPnlRaw === 0 && allEnt === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+      // 2026-08-04 実額を主に。_profitGradeFromPnlReal は実額スケール（A+=25000円）＝凡例と同じなので、実額合計で判定する。
+      // 旧: per-100換算の allSt.sumPnl を渡していたため、凡例の目盛りと1桁ずれたランクが出ていた。
+      var allGrade = allEnt > 0 ? _profitGradeFromPnlReal(allSt.sumPnlRaw, allEnt) : "D";
+      var _allMain = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
         _pbBadge(allGrade),
-        React.createElement("span", { style: { fontWeight: 600, color: _pbCol(allSt.sumPnl) } }, _pbFmt(allSt.sumPnl))
+        React.createElement("span", { style: { fontWeight: 600, color: _pbCol(allSt.sumPnlRaw) } }, _pbFmt(allSt.sumPnlRaw))
       );
+      if (!allSt.realHasShares) return _allMain;
+      return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
+        _allMain, React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "100株 " + _elPnlFmt(allSt.sumPnl)));
     };
     var _pbRow = function(label, st, isTotal, labelColor, gradeReal, gradePlanned, gradeMax, hasEntry, rowKey, tags, recs, exclN) {
       var bb = isTotal ? "2px solid #ddd" : "1px solid #e0ddd6";
