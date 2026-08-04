@@ -5848,7 +5848,7 @@ function DayView(_ref57) {
               _epECell(s, _aiTr.alpha)),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
             _elPnlDetailCells(s, _aiTr.alpha, _aiTr.cutLine, "1px solid #f0ede6", "4px 6px", "1px 5px"),
-            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trLane(_tradeAlphaChip(s), 26, "flex-end"), _trRPnlDisp(realPnl, realGrade, realPnlN != null && _sh > 0 ? realPnlN : null))
+            React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trRPnlDisp(realPnl, realGrade, realPnlN != null && _sh > 0 ? realPnlN : null))   // 2026-08-05 採用αチップはα値欄へ移設
           )
         );
         if (rExp) {
@@ -5930,8 +5930,11 @@ function DayView(_ref57) {
                 style: { fontWeight: 700, color: _trRealRaw >= 0 ? "#C0392B" : "#1E8449" }
               }, (_trRealRaw > 0 ? "+" : "") + _trRealRaw.toLocaleString() + "円"),
               _trEntryAgg.realHasSh ? React.createElement("span", {
-                style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", lineHeight: 1.2 }
-              }, "100株 " + _elPnlFmt(_trRealSum)) : null
+                style: { display: "inline-flex", alignItems: "center", gap: 3, lineHeight: 1.2 }
+              },
+                _elGradeBadge18(_profitGradeFromPnl(_trRealSum, 1)),   // 100株換算は通常スケール 2026-08-05
+                React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "100株"),
+                React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(_trRealSum) } }, _elPnlFmt(_trRealSum))) : null
             ),
             React.createElement("span", {
               title: "実現損益ランク: " + _tg + " (" + (_GRADE_DESC_REAL[_tg] || "") + ")",
@@ -6208,7 +6211,7 @@ function DayView(_ref57) {
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: bb, borderRight: "1px solid #e8e5de" } },
             _elHoldMinNode(s, _alphaRec, _cutLrec)),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: bb, whiteSpace: "nowrap" } },
-            _lane(_tradeAlphaChip(s), 26, "flex-end"), _rPnlDisp(realPnl, gReal, _elPer100Of(realPnl, s)))
+            _rPnlDisp(realPnl, gReal, _elPer100Of(realPnl, s)))
         ));
         if (rExp) {
           subRows.push(React.createElement("tr", { key: rKey + "_detail" },
@@ -6386,7 +6389,10 @@ function DayView(_ref57) {
         var main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkBadge(grade), _wkAmt(sum));
         if (sub == null) return main;
         return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
-          main, React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "100株 " + _elPnlFmt(sub)));
+          main, React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
+            _wkBadge(_profitGradeFromPnl(sub, 1)),   // 100株換算は通常スケール 2026-08-05
+            React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "100株"),
+            React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(sub) } }, _elPnlFmt(sub))));
       };
       var _wkTh = function(label, extra) {
         return React.createElement("th", { style: Object.assign({ padding: "4px 3px", fontWeight: 700, borderBottom: "2px solid #ddd", textAlign: "center", fontSize: 10, lineHeight: 1.2, whiteSpace: "nowrap", color: "#555" }, extra || {}) }, label);

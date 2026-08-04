@@ -3454,7 +3454,15 @@ function _elAlphaTypeCell(s, alpha) {
     // 応用αの根拠が「RN補正」の記録は値（＋内訳）の下に小バッジで明示 2026-08-02。RN加算(_elRnAdd)とは別概念＝
     // 加算そのものではなく「そのαにした理由がRN補正だった」ことを示す。色はRN内訳と同じ青系で系統を揃える。
     _elIsRnAdjReason(s) ? React.createElement("div", { title: "応用αの根拠＝" + _EL_RN_ADJ_REASON, style: { display: "inline-block", marginTop: 1, fontSize: 8, fontWeight: 700, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 3, padding: "0 4px", lineHeight: 1.5 } }, _EL_RN_ADJ_REASON) : null,
-    (s && s.lineCoexist === true) ? React.createElement("div", { title: "ライン併存（過去に設定・入力欄は廃止）", style: { display: "inline-block", marginTop: 1, fontSize: 8, fontWeight: 700, color: "#0F766E", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 3, padding: "0 4px", lineHeight: 1.5 } }, "併存") : null);   // 過去のライン併存〇の識別バッジ（欄は廃止・2026-07-16）
+    (s && s.lineCoexist === true) ? React.createElement("div", { title: "ライン併存（過去に設定・入力欄は廃止）", style: { display: "inline-block", marginTop: 1, fontSize: 8, fontWeight: 700, color: "#0F766E", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 3, padding: "0 4px", lineHeight: 1.5 } }, "併存") : null,   // 過去のライン併存〇の識別バッジ（欄は廃止・2026-07-16）
+    // 2026-08-05 取引時の採用α値（tradeAlpha）をα値欄へ移設（旧: 実現損益欄の小さな「α13」チップ）。
+    // 「計画したα」と「実際に建てたα」は同じ土俵の数字なので同じ欄に縦に並べる。表記は上の種別αと同じ2行方式。
+    (s && s.tradeAlpha != null) ? React.createElement("div", {
+      title: "取引時の採用α値＝実際にこのα値で建てた（上は計画側のα値）",
+      style: { marginTop: 2, paddingTop: 2, borderTop: "1px dashed #e0ddd6" }
+    },
+      React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#0369A1" } }, "採用"),
+      React.createElement("div", { style: { color: "#0369A1", fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, s.tradeAlpha + "円")) : null);
 }
 // 各記録の分足(signal.minBar)を正規化して number配列 [1]/[5]/[1,5] で返す。旧形式の単一number(1 or 5)も配列1件として扱う。2026-06-24複数選択化。
 function _minBarList(s) { if (!s || s.minBar == null) return []; var arr = Array.isArray(s.minBar) ? s.minBar : [s.minBar]; var out = []; for (var i = 0; i < arr.length; i++) { var n = Number(arr[i]); if ((n === 1 || n === 5) && out.indexOf(n) < 0) out.push(n); } out.sort(function(a, b) { return a - b; }); return out; }
@@ -4354,11 +4362,15 @@ function _elRPnlDispW(v, grade, valW, showZ, sub) {
   var main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" } },
     _elLane(badge, 22), _elLane(val, valW || 72, "flex-start"));
   if (sub == null || v == null) return main;
+  // 2026-08-05 下段（100株換算）を主表示と同じ文字サイズ・同じ色に。バッジも付ける。
+  // ⚠️ 100株換算は【通常スケール】(_profitGradeFromPnl・A+=2500円)で判定する。上段の実額は実額スケール(10倍)なので、
+  //    同じ金額でもランクは別物になる＝それぞれの土俵の凡例と一致する。単位の「100株」だけ小さい灰色で添える。
   return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", whiteSpace: "nowrap" } },
     main,
-    React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", marginTop: 1 } },
-      _elLane(null, 22),
-      _elLane(React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "100株 " + _elPnlFmt(sub)), valW || 72, "flex-start")));
+    React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", marginTop: 1 } },
+      _elLane(_elGradeBadge18(_profitGradeFromPnl(sub, 1)), 22),
+      React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "100株"),
+      React.createElement("span", { style: { fontWeight: 600, color: _elPnlColor(sub) } }, _elPnlFmt(sub))));
 }
 // 合計表示: 全体値のみ（無ければAB値）にランクを付けて表示（旧: _esRPnlDispABAll/_trRPnlDispABAll/_rPnlDispABAllPb/_rPnlDispABAllSv）
 function _elRPnlDispABAll(abV, allV, abGrade, allGrade) {
@@ -5282,8 +5294,11 @@ function _elLineCell(s, alpha, cutLine, border) {
 function _elHoldMinNode(s, alpha, cutLine) {
   var v = _elRideVals(s, alpha, cutLine);
   if (!v) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-  var m = v.exitD;
-  return React.createElement("span", { title: "EP足〜手じまい足（" + v.lbl + (v.stoppedLoss ? "・損切" : v.stopped ? "・線接触で撤退" : "") + "）＝" + m + "足・1分足換算（時間かぶり判定と同基準）", style: { display: "inline-flex", alignItems: "baseline", gap: 1, whiteSpace: "nowrap" } },
+  // 2026-08-05 保有足の数え方を【建てた足も1本と数える】に修正（ユーザー指摘「OS1で撤退したら1分、OS2で撤退したら2分では？」）。
+  // _elRideVals.exitD は EP足からの“距離”（EP足で手じまい＝0）なので、そのまま出すと1本ぶん少なかった。表示だけ+1する
+  //   ＝exitD自体は時間かぶり判定など他のロジックが使っているので触らない。
+  var m = v.exitD + 1;
+  return React.createElement("span", { title: "建てた足〜手じまい足（" + v.lbl + (v.stoppedLoss ? "・損切" : v.stopped ? "・線接触で撤退" : "") + "）＝" + m + "本・1分足換算。建てた足も1本と数える（EP足で手じまい＝1分）", style: { display: "inline-flex", alignItems: "baseline", gap: 1, whiteSpace: "nowrap" } },
     React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", fontVariantNumeric: "tabular-nums" } }, m + "分"),
     v.stoppedLoss ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, color: "#1E8449" } }, "切") : null);
 }

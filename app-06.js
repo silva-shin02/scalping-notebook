@@ -3704,7 +3704,7 @@ function _elOsTradeMini(recs, aiOf, opts) {
         entered ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇") : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
       _elPnlDetailCells(s, a, c, _bb, "1px 3px", "1px 5px"),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, whiteSpace: "nowrap" } },
-        _elLane(_tradeAlphaChip(s), 26, "flex-end"), _elRPnlDispW(realPnl, gReal, 72, false, _elPer100Of(realPnl, s)))
+        _elRPnlDispW(realPnl, gReal, 72, false, _elPer100Of(realPnl, s)))
     );
   });
   return React.createElement(_HScrollBox, { style: { marginTop: 4 }, plain: !!(opts && opts.plain) },

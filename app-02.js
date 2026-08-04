@@ -4804,7 +4804,7 @@ function EntrySignalSection(_ref_es) {
                   _elDetailFlowStack(s, _avH, _cutLH)),
                 React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   _elHoldMinNode(s, _avH, _cutLH)),
-                React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esLane(_tradeAlphaChip(s), 26, "flex-end"), _esRPnlDisp(entered ? realPnl : 0, realGrade, !entered, (entered && _sh > 0) ? realPnlN : null)),
+                React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: isCustomMode ? "1px solid #f0ede6" : "none" } }, _esRPnlDisp(entered ? realPnl : 0, realGrade, !entered, (entered && _sh > 0) ? realPnlN : null)),   // 2026-08-05 採用αチップはα値欄へ移設
                 isCustomMode ? React.createElement("td", {
                   style: { padding: "2px 4px", textAlign: "center", borderBottom: "1px solid #f0ede6" },
                   onClick: function(e) { e.stopPropagation(); }
@@ -5129,7 +5129,7 @@ function WeeklyPnlPanel(_wpp) {
         entered ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇") : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
       _elPnlDetailCells(s, a, c, _bb, "1px 3px", "1px 5px"),
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderBottom: _bb, whiteSpace: "nowrap" } },
-        _elLane(_tradeAlphaChip(s), 26, "flex-end"), _elRPnlDispW(realPnl, gReal, 72, false, _elPer100Of(realPnl, s)))
+        _elRPnlDispW(realPnl, gReal, 72, false, _elPer100Of(realPnl, s)))
     );
     if (!rExp) return _row;
     return React.createElement(React.Fragment, { key: rKey + "_f" }, _row,
@@ -5145,7 +5145,10 @@ function WeeklyPnlPanel(_wpp) {
     var _mn = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, g ? _elGradeBadge18(g) : null, React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)), refCnt > 0 ? _elHold2RefSuffix(v, ref, refCnt) : null);
     if (sub == null) return _mn;
     return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
-      _mn, React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "100株 " + _elPnlFmt(sub)));
+      _mn, React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
+        _elGradeBadge18(_profitGradeFromPnl(sub, 1)),   // 100株換算は通常スケール 2026-08-05
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "100株"),
+        React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(sub) } }, _elPnlFmt(sub))));
   };
   var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
   // 明細テーブルのフッター合計行（list 単位）
@@ -5193,7 +5196,10 @@ function WeeklyPnlPanel(_wpp) {
     var main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkBadge(grade), _wkAmt(sum));
     if (sub == null) return main;
     return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
-      main, React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "100株 " + _elPnlFmt(sub)));
+      main, React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
+        _wkBadge(_profitGradeFromPnl(sub, 1)),   // 100株換算は通常スケール 2026-08-05
+        React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "100株"),
+        React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(sub) } }, _elPnlFmt(sub))));
   };
   var _wkTh = function(label, extra) { return React.createElement("th", { style: Object.assign({ padding: "4px 3px", fontWeight: 700, borderBottom: "2px solid #ddd", textAlign: "center", fontSize: 10, lineHeight: 1.2, whiteSpace: "nowrap", color: "#555" }, extra || {}) }, label); };
   var _wkEntCnt = function(rs) { return rs.filter(function(r) { return _elIsEntered(r.signal, r.item); }).length; };
