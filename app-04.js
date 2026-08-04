@@ -5183,7 +5183,10 @@ function DayView(_ref57) {
   
   var _trEntryAgg = useMemo(function() {
     var records = [];
-    var realSum = 0, ok = 0, ng = 0;
+    // 2026-08-04b realSum=100株換算（下段の参考値）／realSumRaw=実額（フッターの主表示・実額スケールのランク用）。
+    // 勝敗ok/ngは廃止し、利確(win+tri)/同値(even)/損失(loss+stop・うち損切りstop)を数える＝週間表の「利確/△/確定損/損切り」と同じ_elWinBucket基準。
+    var realSum = 0, realSumRaw = 0, realHasSh = false, ok = 0, ng = 0;
+    var cWin = 0, cTri = 0, cEven = 0, cLoss = 0, cStop = 0;
     var _trItems = dd.items || [];
     var charts = data.charts || {};
     allStocks.forEach(function(_trStock) {
@@ -5202,13 +5205,23 @@ function DayView(_ref57) {
         if (_elInclTotalAmt(data, { date: date, stock: _trStock, signal: s })) {  // 合計額算入: 除外記録は合計/成功失敗カウントに入れない（行は表示する）2026-06-18。全銘柄横断のグランド日集計＝②データのみも除外 2026-07-22e
         // 表の合計行(_elTotAccum)と一致させる: item.pnl優先＋per-100換算。2026-06-20
         // 監査所見2（2026-07-12）: 実現損益合計にも時間かぶり除外を適用＝同タブの合計行(_elTotAccum=除外済)とフッターの不一致を解消（勝敗ok/ngは件数系なので従来どおり全件）。
-        var _it0 = item;
-        var _v0 = (_it0 && _it0.pnl != null) ? Number(_it0.pnl) : _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        if (_v0 != null && !_elCollExcludedSig(data, _trStock, date, s)) { var _sh0 = Number(s.shares) > 0 ? Number(s.shares) : 0; realSum += _sh0 > 0 ? Math.round(_v0 / _sh0 * 100) : Math.round(_v0); }
+        var _prTr = _elRealPnlPair(s, item);
+        if (_prTr.real != null && !_elCollExcludedSig(data, _trStock, date, s)) {
+          realSum += (_prTr.per100 != null ? _prTr.per100 : _prTr.real);
+          realSumRaw += _prTr.real;
+          if (_prTr.shares > 0) realHasSh = true;
+        }
         // 勝敗はライブα基準（v2/v3はresult=null保存のためEP足から導出・旧記録も全表ライブα計算方針に統一）
-        var _resTr = _elDynResult(s, _epOwnAlpha(s), _trC.cutLine != null ? Number(_trC.cutLine) : 15);
+        var _cutTr = _trC.cutLine != null ? Number(_trC.cutLine) : 15;
+        var _resTr = _elDynResult(s, _epOwnAlpha(s), _cutTr);
         if (_resTr === "ok") ok++;
         else if (_resTr === "ng") ng++;
+        var _wbTr = _elWinBucket(s, _epOwnAlpha(s), _cutTr);
+        if (_wbTr === "win") cWin++;
+        else if (_wbTr === "tri") cTri++;
+        else if (_wbTr === "even") cEven++;
+        else if (_wbTr === "loss") cLoss++;
+        else if (_wbTr === "stop") cStop++;
         }
       });
     });
@@ -5217,13 +5230,16 @@ function DayView(_ref57) {
       var tb = (b.signal && b.signal.time) || "99:99";
       return ta.localeCompare(tb);
     });
-    return { records: records, totRecords: records.filter(function(r) { return _elInclTotalAmt(data, r); }), realSum: realSum, ok: ok, ng: ng };
+    return { records: records, totRecords: records.filter(function(r) { return _elInclTotalAmt(data, r); }),
+      realSum: realSum, realSumRaw: realSumRaw, realHasSh: realHasSh, ok: ok, ng: ng,
+      cWin: cWin, cTri: cTri, cEven: cEven, cLoss: cLoss, cStop: cStop };
   }, [data.charts, dd.items, allStocks, date]);
   var _trEntryRecords = _trEntryAgg.records;
   var _trTotRecs = _trEntryAgg.totRecords;  // 合計額算入: 集計専用（除外記録を抜いた版）2026-06-18
-  var _trRealSum = _trEntryAgg.realSum;
-  var _trSuccessCount = _trEntryAgg.ok;
-  var _trFailCount = _trEntryAgg.ng;
+  var _trRealSum = _trEntryAgg.realSum;          // 100株換算（フッターの下段）
+  var _trRealRaw = _trEntryAgg.realSumRaw;       // 実額（フッターの主表示）2026-08-04b
+  // 2026-08-04b 「N勝N敗」表示を利確/同値/損失の内訳に置き換えたため _trSuccessCount/_trFailCount は撤去。
+  // 集計側の ok/ng（_elDynResult基準）は他で使うかもしれないので _trEntryAgg には残してある。
   var dow = DAYS_JP[new Date(date + "T00:00:00").getDay()];
   
   var _dvCurD = new Date(date + "T00:00:00");
@@ -5877,12 +5893,13 @@ function DayView(_ref57) {
         null
       );
     })(),
+    // 2026-08-04b 縦積みに変更: 1行目=損益合計（実額・下に100株換算）＋ランク凡例／2行目=利確/同値/損失の内訳。
     _trEntryRecords.length > 0 && React.createElement("div", {
-      style: { display: "flex", gap: 20, marginTop: 12, paddingTop: 10, borderTop: "1px solid #e0ddd6", fontSize: 14, alignItems: "center", flexWrap: "wrap" }
+      style: { display: "flex", flexDirection: "column", gap: 6, marginTop: 12, paddingTop: 10, borderTop: "1px solid #e0ddd6", fontSize: 14 }
     },
       (function() {
         var _trCount = _trTotRecs.filter(function(r){ return _elIsEntered(r.signal, r.item); }).length;
-        var _tg = _profitGradeFromPnlReal(_trRealSum, _trCount);
+        var _tg = _profitGradeFromPnlReal(_trRealRaw, _trCount);   // 実額スケールのランクには実額合計を渡す 2026-08-04b
         var _ts = _GRADE_STYLE[_tg] || _GRADE_STYLE.Z;
         var _trLegendPairs = [["A+","25000円~"],["A-","20000~24999円"],["B","10000~19999円"],["C","1~9999円"],["D","0円"],["E","-1~-9999円"],["F","-10000~-19999円"],["G-","-20000~-24999円"],["G+","-25000円~"],["Z","取引なし"]];
         var _trRenderLegendRow = function(items) {
@@ -5904,9 +5921,14 @@ function DayView(_ref57) {
         return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
             "損益合計 ",
-            React.createElement("span", {
-              style: { fontWeight: 700, color: _trRealSum >= 0 ? "#C0392B" : "#1E8449" }
-            }, (_trRealSum > 0 ? "+" : "") + _trRealSum.toLocaleString() + "円"),
+            React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start" } },
+              React.createElement("span", {
+                style: { fontWeight: 700, color: _trRealRaw >= 0 ? "#C0392B" : "#1E8449" }
+              }, (_trRealRaw > 0 ? "+" : "") + _trRealRaw.toLocaleString() + "円"),
+              _trEntryAgg.realHasSh ? React.createElement("span", {
+                style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", lineHeight: 1.2 }
+              }, "100株 " + _elPnlFmt(_trRealSum)) : null
+            ),
             React.createElement("span", {
               title: "実現損益ランク: " + _tg + " (" + (_GRADE_DESC_REAL[_tg] || "") + ")",
               style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: _ts.bg, color: _ts.color, border: "1.5px solid " + _ts.border, fontWeight: 800, fontSize: 12 }
@@ -5922,9 +5944,20 @@ function DayView(_ref57) {
           )
         );
       })(),
-      React.createElement("div", null, "成功/失敗 ", React.createElement("span", {
-        style: { fontWeight: 600 }
-      }, _trSuccessCount, "勝", _trFailCount, "敗"))
+      // 2026-08-04b 「成功/失敗 N勝N敗」→「利確N件/同値N件/損失N件（うち損切りN件）」。損益合計の下へ移動。
+      // 同値(_elWinBucketのeven)は0件なら出さない。損失は確定損＋損切りの合計で、その内訳として損切り件数を括弧で添える。
+      (function() {
+        var _cW = (_trEntryAgg.cWin || 0) + (_trEntryAgg.cTri || 0);
+        var _cE = _trEntryAgg.cEven || 0;
+        var _cS = _trEntryAgg.cStop || 0;
+        var _cL = (_trEntryAgg.cLoss || 0) + _cS;
+        var _num = function(n, col) { return React.createElement("span", { style: { fontWeight: 700, color: col } }, n + "件"); };
+        var _parts = [React.createElement("span", { key: "w" }, "利確 ", _num(_cW, "#C0392B"))];
+        if (_cE > 0) _parts.push(React.createElement("span", { key: "e" }, " / 同値 ", _num(_cE, "#D97706")));
+        _parts.push(React.createElement("span", { key: "l" }, " / 損失 ", _num(_cL, "#1E8449"),
+          _cS > 0 ? React.createElement("span", { style: { fontSize: 11, color: "#777" } }, "（うち損切り " + _cS + "件）") : null));
+        return React.createElement("div", { style: { fontSize: 13, color: "#555", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2 } }, _parts);
+      })()
     )
   ),
   
