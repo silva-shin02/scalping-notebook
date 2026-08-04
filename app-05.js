@@ -7018,6 +7018,26 @@ function EntryRecordForm(_ref_erf) {
     setFReal(String(absVal));
   }, [fPriceIn, fPriceOut, fShares, fTradeType, fEntered]);
 
+  // 2026-08-04 Entry-OS値/Exit-OS値＝「価格 − 水準線値」で自動入力（ユーザー要望）。実現損益の自動計算と同じ作り。
+  // 符号は水準線比＝価格が水準線より上なら↑(+)・下なら↓(-)・同値は符号なし。
+  // 価格か水準線が空のときは何もしない＝手入力時代の保存値を消さない（欄には保存値がそのまま出る）。
+  useEffect(function() {
+    if (!fEntered) return;
+    var lv = parseFloat(fLevelPrice);
+    if (fLevelPrice === "" || isNaN(lv)) return;
+    var _fill = function(priceStr, curSign, curVal, setSign, setVal) {
+      var p = parseFloat(priceStr);
+      if (priceStr === "" || isNaN(p)) return;
+      var d = Math.round((p - lv) * 100) / 100;
+      var s = d === 0 ? null : (d > 0 ? "+" : "-");
+      var v = String(Math.abs(d));
+      if (curSign !== s) setSign(s);
+      if (curVal !== v) setVal(v);
+    };
+    _fill(fPriceIn, fEntryOsSign, fEntryOsVal, setFEntryOsSign, setFEntryOsVal);
+    _fill(fPriceOut, fExitOsSign, fExitOsVal, setFExitOsSign, setFExitOsVal);
+  }, [fPriceIn, fPriceOut, fLevelPrice, fEntered]);
+
   
   useEffect(function() {
     // v2(EP起算): EP足の高値・確定値からEP損益/想定値幅を算出（EP=OS2/3でも正しい値・損益変化の自動選択の比較元にもなる）
@@ -9000,91 +9020,45 @@ function EntryRecordForm(_ref_erf) {
                 }))
             )
           ),
-          React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 } },
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-              React.createElement("label", { style: { fontSize: 11, color: "#666", display: "flex", flexDirection: "column", flex: 1 } }, "価格（入り）",
-                React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", marginTop: 2 } },
-                  React.createElement("input", {
-                    type: "text", inputMode: "decimal", step: "any",
-                    value: fPriceIn, onChange: function(e) { setFPriceIn(_toHankakuDecimal(e.target.value)); },
-                    placeholder: "0",
-                    style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
-                  }),
-                  _stepBtn(
-                    function() { setFPriceIn(function(v) { return String((parseFloat(v)||0) + 1); }); },
-                    function() { setFPriceIn(function(v) { return String(Math.max(0, (parseFloat(v)||0) - 1)); }); }
-                  )
-                )
-              ),
-              React.createElement("div", { style: { display: "flex", flexDirection: "column", flex: 1 } },
-                React.createElement("span", { style: { fontSize: 11, color: "#666", marginBottom: 2 } }, "Entry-OS値（水準線比）"),
-                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-                  React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid " + (fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#ccc"), borderRadius: 6, overflow: "hidden", flex: 1 } },
-                    React.createElement("button", {
-                      onClick: function() { setFEntryOsSign(fEntryOsSign === "+" ? "-" : (fEntryOsSign === "-" ? null : "+")); },
-                      style: { padding: "5px 10px", fontSize: 13, fontWeight: fEntryOsSign ? 700 : 400,
-                        border: "none", borderRight: "1px solid " + (fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#ccc"),
-                        background: fEntryOsSign === "+" ? "#FCEBEB" : fEntryOsSign === "-" ? "#EAF3DE" : "#f5f4f0",
-                        color: fEntryOsSign === "+" ? "#C0392B" : fEntryOsSign === "-" ? "#1E8449" : "#999",
-                        cursor: "pointer", minWidth: 36, flexShrink: 0 }
-                    }, fEntryOsSign === "+" ? "↑" : fEntryOsSign === "-" ? "↓" : "↕"),
+          // 2026-08-04 価格（入り）・価格（出）は横並びにして幅を詰めた（各132px）。
+          // Entry-OS値/Exit-OS値は手入力をやめ、その隣に「価格−水準線」の自動表示にした（計算は上のuseEffect・保存は従来どおりentryOsVal/exitOsVal）。
+          React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 14, marginBottom: 4, flexWrap: "wrap" } },
+            [["価格（入り）", fPriceIn, setFPriceIn, "Entry-OS", fEntryOsSign, fEntryOsVal],
+             ["価格（出）", fPriceOut, setFPriceOut, "Exit-OS", fExitOsSign, fExitOsVal]].map(function(_g) {
+              var _lb = _g[0], _pv = _g[1], _setP = _g[2], _oLb = _g[3], _oSign = _g[4], _oVal = _g[5];
+              var _col = _oSign === "+" ? "#C0392B" : _oSign === "-" ? "#1E8449" : "#999";
+              var _bg = _oSign === "+" ? "#FCEBEB" : _oSign === "-" ? "#EAF3DE" : "#f5f4f0";
+              var _has = _oVal !== "" && _oVal != null && !isNaN(Number(_oVal));
+              return React.createElement("div", { key: _lb, style: { display: "flex", alignItems: "flex-end", gap: 6 } },
+                React.createElement("label", { style: { fontSize: 11, color: "#666", display: "flex", flexDirection: "column" } }, _lb,
+                  React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", marginTop: 2, width: 132 } },
                     React.createElement("input", {
-                      type: "text", inputMode: "numeric", step: "1",
-                      value: fEntryOsVal, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFEntryOsVal(v); if ((Number(v) || 0) === 0) setFEntryOsSign(null); },
+                      type: "text", inputMode: "decimal", step: "any",
+                      value: _pv, onChange: function(e) { _setP(_toHankakuDecimal(e.target.value)); },
                       placeholder: "0",
-                      style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }
+                      style: { padding: "9px 8px", border: "none", outline: "none", background: "#fff", flex: 1, minWidth: 0, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
                     }),
                     _stepBtn(
-                      function() { _applySigned(_entryOsSignedRef, 1, "+", "-", setFEntryOsVal, setFEntryOsSign); },
-                      function() { _applySigned(_entryOsSignedRef, -1, "+", "-", setFEntryOsVal, setFEntryOsSign); }
+                      function() { _setP(function(v) { return String((parseFloat(v)||0) + 1); }); },
+                      function() { _setP(function(v) { return String(Math.max(0, (parseFloat(v)||0) - 1)); }); }
                     )
-                  ),
-                  React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
-                )
-              )
-            ),
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-              React.createElement("label", { style: { fontSize: 11, color: "#666", display: "flex", flexDirection: "column", flex: 1 } }, "価格（出）",
-                React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 6, overflow: "hidden", marginTop: 2 } },
-                  React.createElement("input", {
-                    type: "text", inputMode: "decimal", step: "any",
-                    value: fPriceOut, onChange: function(e) { setFPriceOut(_toHankakuDecimal(e.target.value)); },
-                    placeholder: "0",
-                    style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13, boxSizing: "border-box" }
-                  }),
-                  _stepBtn(
-                    function() { setFPriceOut(function(v) { return String((parseFloat(v)||0) + 1); }); },
-                    function() { setFPriceOut(function(v) { return String(Math.max(0, (parseFloat(v)||0) - 1)); }); }
                   )
+                ),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column" } },
+                  React.createElement("span", { style: { fontSize: 11, color: "#666", marginBottom: 2, display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" } }, _oLb,
+                    React.createElement("span", { title: "価格 − 水準線値で自動計算（水準線比）", style: { fontSize: 9, fontWeight: 700, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 4, padding: "0 4px" } }, "⚡自動")),
+                  React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 3 } },
+                    React.createElement("span", {
+                      style: { display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 3, width: 84, padding: "9px 8px",
+                        borderRadius: 6, border: "1px solid #e5e0d6", background: _bg, color: _col, fontSize: 13, fontWeight: 700,
+                        boxSizing: "border-box", fontVariantNumeric: "tabular-nums" }
+                    },
+                      _has ? React.createElement("span", { style: { fontSize: 12 } }, _oSign === "+" ? "↑" : _oSign === "-" ? "↓" : "↕") : null,
+                      _has ? _oVal : React.createElement("span", { style: { color: "#bbb", fontWeight: 400 } }, "—")),
+                    React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円"))
                 )
-              ),
-              React.createElement("div", { style: { display: "flex", flexDirection: "column", flex: 1 } },
-                React.createElement("span", { style: { fontSize: 11, color: "#666", marginBottom: 2 } }, "Exit-OS値（水準線比）"),
-                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-                  React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid " + (fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#ccc"), borderRadius: 6, overflow: "hidden", flex: 1 } },
-                    React.createElement("button", {
-                      onClick: function() { setFExitOsSign(fExitOsSign === "+" ? "-" : (fExitOsSign === "-" ? null : "+")); },
-                      style: { padding: "5px 10px", fontSize: 13, fontWeight: fExitOsSign ? 700 : 400,
-                        border: "none", borderRight: "1px solid " + (fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#ccc"),
-                        background: fExitOsSign === "+" ? "#FCEBEB" : fExitOsSign === "-" ? "#EAF3DE" : "#f5f4f0",
-                        color: fExitOsSign === "+" ? "#C0392B" : fExitOsSign === "-" ? "#1E8449" : "#999",
-                        cursor: "pointer", minWidth: 36, flexShrink: 0 }
-                    }, fExitOsSign === "+" ? "↑" : fExitOsSign === "-" ? "↓" : "↕"),
-                    React.createElement("input", {
-                      type: "text", inputMode: "numeric", step: "1",
-                      value: fExitOsVal, onChange: function(e) { var v = _toHankakuNum(e.target.value); setFExitOsVal(v); if ((Number(v) || 0) === 0) setFExitOsSign(null); },
-                      placeholder: "0",
-                      style: { padding: "9px 10px", border: "none", outline: "none", background: "#fff", flex: 1, textAlign: "right", fontSize: 13 }
-                    }),
-                    _stepBtn(
-                      function() { _applySigned(_exitOsSignedRef, 1, "+", "-", setFExitOsVal, setFExitOsSign); },
-                      function() { _applySigned(_exitOsSignedRef, -1, "+", "-", setFExitOsVal, setFExitOsSign); }
-                    )
-                  ),
-                  React.createElement("span", { style: { fontSize: 11, color: "#888" } }, "円")
-                )
-              )
-            )
+              );
+            })
           ),
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
             React.createElement("span", {

@@ -5676,7 +5676,7 @@ function DayView(_ref57) {
   React.createElement(EpNaviPanel, { data: data, save: save, date: date, stocks: allStocks }),
   React.createElement("div", { style: Card },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
-      React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "エントリー記録"),
+      React.createElement("span", { style: { fontSize: 15, fontWeight: 600 } }, "実エントリー記録"),
       React.createElement("div", { style: { display: "flex", gap: 6 } },
         React.createElement("button", {
           onClick: function() { try { window.open(CA_URL, "_blank", "noopener"); } catch(e){} },
@@ -5872,23 +5872,9 @@ function DayView(_ref57) {
             React.createElement("tbody", null, [totRow].concat(dataRows))
           )
         ),
-        (function() {
-          var _trVirtByStk = {};
-          var _trCutLineByStk = {};
-          _trEntryRecords.forEach(function(r) {
-            var s = r.signal;
-            if (!_trVirtByStk[r.stock]) _trVirtByStk[r.stock] = [];
-            var conf = s.osConfVal != null ? (s.osConfSign === "-" ? -(Number(s.osConfVal)) : Number(s.osConfVal)) : null;
-            // v2/v3のH1は採用αで解決した役割の足（EPの次）の値を渡す（旧記録はそのまま）
-            var _hvV = _epHoldView(s, _elAlphaInfo(r, data).alpha, false);
-            _trVirtByStk[r.stock].push({ osVal: s.osVal != null ? Number(s.osVal) : null, conf: conf, holdOsConf: _hvV.holdOsConf != null ? Number(_hvV.holdOsConf) : null, holdHighVal: _hvV.holdHighVal != null ? Number(_hvV.holdHighVal) : null, holdHighSign: _hvV.holdHighSign || null });
-            var _cTr = (data.charts || {})[r.stock + "_" + date];
-            _trCutLineByStk[r.stock] = _cTr && _cTr.cutLine != null ? _cTr.cutLine : 15;
-          });
-          if (!Object.keys(_trVirtByStk).length) return null;
-          
-          return React.createElement(VirtualAlphaCalc, { sigsByStock: _trVirtByStk, cutLineByStock: _trCutLineByStk });
-        })()
+        // 2026-08-04 「α値シミュレーション」(VirtualAlphaCalc)はこの欄から撤去（ユーザー指示・不要）。
+        // 部品(app-05 VirtualAlphaCalc)は残置＝他から呼びたくなったとき用。ここでは組み立て(_trVirtByStk)ごと削除。
+        null
       );
     })(),
     _trEntryRecords.length > 0 && React.createElement("div", {
@@ -6520,18 +6506,10 @@ function DayView(_ref57) {
       title: "📝 本日の総括",
       guardKey: "tradesSummary_" + date
     }));
-    // 簡略版「本日の推奨基本α値」: 本日の取引記録が無くても表示する（前日までの記録から推奨）2026-06-25。
-    // 本日エントリーした銘柄(_pbStks)があればそれを、無ければ前日までにv2記録のある銘柄（_pbStkOrder優先→件数順）を母数にする。
-    var _alphaBoardNoTrade = !_pbStks.length;
-    // 推奨α欄はマスター登録の全銘柄を対象に（本日取引が無い銘柄も表示）2026-06-29。日経平均株価＝指数(エントリーα対象外)は除外。本日エントリー銘柄(_pbStks)を先頭、その後にマスター順の残り（本日取引なし）。
-    var _alphaMaster = (data.custom && data.custom.stocks && data.custom.stocks.length > 0) ? data.custom.stocks : _DEF_STOCKS_FROZEN;
-    var _alphaBoardStks = _pbStks.concat(_alphaMaster.filter(function(s) { return s !== "日経平均株価" && _pbStks.indexOf(s) < 0; }));
-    var _simpleAlphaEl = _alphaBoardStks.length ? React.createElement("div", { style: Card },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#0369A1", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } }, "🎯 本日の推奨基本α値（簡略・銘柄別）",
-        React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8" } }, "再推奨＋次点／直近50件メイン")),
-      _alphaBoardNoTrade ? React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 6, padding: "4px 8px", marginBottom: 8, fontWeight: 700 } }, "本日の取引記録はまだありません。マスター登録の全銘柄について、前日までの記録から推奨を表示しています。") : null,
-      _elBaseAlphaSimpleBoardV2(data, _alphaBoardStks, date, save)) : null;
-    if (!_pbStks.length) return React.createElement(React.Fragment, null, _simpleAlphaEl, _soukatsuEl, _wkMainEl);
+    // 2026-08-04 「🎯 本日の推奨基本α値（簡略・銘柄別）」欄は撤去（ユーザー指示・不要）。組み立てごと削除＝毎レンダーの計算も走らない。
+    // 部品 _elBaseAlphaSimpleBoardV2(app-06) は残置＝記録帳側の推奨α表示は不変。
+    // 並びも変更: 今週の損益データ(_wkMainEl)を本日の損益データの直後へ移し、本日の総括(_soukatsuEl)を一番下にした。
+    if (!_pbStks.length) return React.createElement(React.Fragment, null, _wkMainEl, _soukatsuEl);
     
     // ===== 選外銘柄（その日の日替わり銘柄に選ばれなかった候補）を主表から切り出す 2026-07-29 =====
     // 判定は【銘柄レベル】＝候補プール(custom.rotatingStocks)に居て、その日のdailyStockでない銘柄。
@@ -6907,7 +6885,9 @@ function DayView(_ref57) {
         )
       )
     ) : null;
-    return React.createElement(React.Fragment, null, _pbMainEl, _pbOutEl, _simpleAlphaEl, _soukatsuEl, _wkMainEl);
+    // 2026-08-04 並び: 本日の損益データ → （選外銘柄）→ 今週の損益データ → 本日の総括（一番下）。
+    // 選外(_pbOutEl)は本日の損益データの続きの表なので、今週はその後ろ＝「本日の一式の真下」に置いた。
+    return React.createElement(React.Fragment, null, _pbMainEl, _pbOutEl, _wkMainEl, _soukatsuEl);
   })(),
 
   showForm && React.createElement(EntryRecordForm, {
