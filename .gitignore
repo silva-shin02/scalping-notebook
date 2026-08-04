@@ -1,2 +1,21 @@
+# --- Claude Code のローカル設定・作業用worktree（公開しない） ---
+.claude/
+
+# --- 作業用スクリプト・抽出メモ ---
+apply_*.py
 _patch_*.py
+_*.js
+_*.md
+_*.txt
 layout_image.svg
+
+# --- バックアップHTML（CLAUDE.md 記載のとおりローカル限定） ---
+index1.html
+index_*.html
+index(*).html
+_*.html
+
+# --- モックアップ・検証用データ ---
+mockup*.html
+mockups/
+*.csv

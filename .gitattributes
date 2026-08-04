@@ -1,0 +1,9 @@
+# 改行コードの正本
+# リポジトリ内はLFで保存し、チェックアウト時は全OSでCRLFに戻す。
+# これにより CLAUDE.md の「改行コードはCRLF」が Windows / Linux(remote) の
+# 両方で守られ、環境が変わっても差分に改行だけの変更が出なくなる。
+* text=auto eol=crlf
+
+# 画像・アイコンは変換対象外
+*.png binary
+*.ico binary
