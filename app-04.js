@@ -6841,6 +6841,27 @@ function DayView(_ref57) {
         _pbTh("タグ", { width: 120, textAlign: "left" })
       );
     };
+    // ===== 選外銘柄（本日の取引銘柄に未選択）の行 2026-07-29 =====
+    // 主表と同じ列構成。行の統計は【算入フラグを見ない】＝選外の記録は既定で includeInTotal=false が入るため
+    //   _elInclTotal でフィルタすると全行「—」になり情報がゼロになる。判断の土俵に乗せなかったスルーだけを外す。
+    // 除外列にはそのスルー件数を渡す。件 = st.total + 除外 なので、ここに不算入件数を渡すと二重計上になる。
+    // 2026-08-04d 別カードをやめ主表のtbodyへ差し込むため、定義を _pbMainEl の前へ移動（中身は不変）。
+    var _pbOutStatOf = function(recs) { return (recs || []).filter(function(r) { return !_elIsThru(r.signal); }); };
+    var _pbRealRawOf = function(recs) { var t = 0; (recs || []).forEach(function(r) { var v = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); if (v != null) t += v; }); return t; };
+    var _pbEntRawOf = function(recs) { var n = 0; (recs || []).forEach(function(r) { if (r.signal.entered === true) n++; }); return n; };
+    var _pbOutRowOf = function(label, recs, rowKey, isTotal, tags) {
+      var _oT = _pbOutStatOf(recs);
+      var _oSt = Object.assign({}, _elCalcStats(_oT, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; }), _pbDynOkNg(_oT));
+      var _oReal = _pbRealRawOf(_oT), _oEnt = _pbEntRawOf(_oT);
+      return [
+        _pbRow(label, _oSt, isTotal, "#4338CA",
+          _profitGradeFromPnlReal(_oReal, _oEnt),
+          _profitGradeFromPnl(_oSt.sumPlanned, _oSt.sumPlanned !== 0 ? _oSt.total : 0),
+          _profitGradeFromPnl(_oSt.sumMax, _oSt.sumMax !== 0 ? _oSt.total : 0),
+          _oEnt > 0, rowKey, tags || null, _oT, recs.length - _oT.length),
+        !!pnlTableExpandSet[rowKey] ? _pbExpRow(rowKey) : null
+      ];
+    };
     var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "📊 本日の損益データ",
         (function(){ var _xc = _elExclCountRecs(_pbAllRecs); return _xc > 0 ? React.createElement("span", { title: "計算・データに算入しない記録の件数", style: { fontSize: 10, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #7DD3FC", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "不算入 " + _xc + "件") : null; })(),
@@ -6875,52 +6896,26 @@ function DayView(_ref57) {
             }),
             !_pbStksMain.length ? React.createElement("tr", { key: "__nomain__" },
               React.createElement("td", { colSpan: 13, style: { padding: "10px 8px", textAlign: "center", fontSize: 11, color: "#94A3B8" } },
-                "本日の取引銘柄に指定した銘柄の記録はありません（下の「選外銘柄」を参照）")) : null
-          )
-        )
-      )
-    );
-    // ===== 選外銘柄（本日の取引銘柄に未選択）の表 2026-07-29 =====
-    // 主表と同じ列構成。行の統計は【算入フラグを見ない】＝選外の記録は既定で includeInTotal=false が入るため
-    //   _elInclTotal でフィルタすると全行「—」になり情報がゼロになる（現状の主表内の選外行がまさにその状態）。
-    //   判断の土俵に乗せなかったスルーだけを外す。
-    // 除外列にはそのスルー件数を渡す。件 = st.total + 除外 なので、ここに不算入件数を渡すと二重計上になる。
-    var _pbOutStatOf = function(recs) { return (recs || []).filter(function(r) { return !_elIsThru(r.signal); }); };
-    var _pbRealRawOf = function(recs) { var t = 0; (recs || []).forEach(function(r) { var v = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); if (v != null) t += v; }); return t; };
-    var _pbEntRawOf = function(recs) { var n = 0; (recs || []).forEach(function(r) { if (r.signal.entered === true) n++; }); return n; };
-    var _pbOutRowOf = function(label, recs, rowKey, isTotal, tags) {
-      var _oT = _pbOutStatOf(recs);
-      var _oSt = Object.assign({}, _elCalcStats(_oT, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; }), _pbDynOkNg(_oT));
-      var _oReal = _pbRealRawOf(_oT), _oEnt = _pbEntRawOf(_oT);
-      return [
-        _pbRow(label, _oSt, isTotal, "#4338CA",
-          _profitGradeFromPnlReal(_oReal, _oEnt),
-          _profitGradeFromPnl(_oSt.sumPlanned, _oSt.sumPlanned !== 0 ? _oSt.total : 0),
-          _profitGradeFromPnl(_oSt.sumMax, _oSt.sumMax !== 0 ? _oSt.total : 0),
-          _oEnt > 0, rowKey, tags || null, _oT, recs.length - _oT.length),
-        !!pnlTableExpandSet[rowKey] ? _pbExpRow(rowKey) : null
-      ];
-    };
-    var _pbOutEl = _pbStksOut.length ? React.createElement("div", { style: Object.assign({}, Card, { marginTop: 10, borderLeft: "3px solid #A5B4FC" }) },
-      React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#4338CA", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "📅 選外銘柄（本日の取引銘柄に未選択）",
-        React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#4338CA", background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, _pbOutRecs.length + "件")),
-      React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", lineHeight: 1.6, marginBottom: 8 } },
-        "候補プール（設定→📅日替わり銘柄）に入っていて、この日の「本日の取引銘柄」に指定しなかった銘柄です。数字は「選んでいたらどうだったか」の参考値で、",
-        React.createElement("b", { style: { color: "#4338CA" } }, "参考合計は上の合計と足さないでください"),
-        "。選外でも手動で合計算入にした記録は上の表に残しています（上の合計に効いているため）。除外列はスルーのみ。"),
-      React.createElement("div", { style: { overflowX: "auto" } },
-        React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 10 } },
-          React.createElement("thead", null, _pbHeadTr()),
-          React.createElement("tbody", null,
+                "本日の取引銘柄に指定した銘柄の記録はありません（下の「選外銘柄」の行を参照）")) : null,
+            // 2026-08-04d 選外銘柄は別カードをやめ、同じ表の続きに差し込む（ユーザー選択A「別枠に見えすぎ」）。
+            // 列ヘッダーを共有できるので数字が主表と縦に揃い、見出し・注記・列ヘッダーの二重表示も消える。
+            // 合計と混ざらないよう、区切り行（濃い上罫線＋淡い地色＋注記）で仕切り、行のラベル色は従来の藍色のまま。
+            _pbStksOut.length ? React.createElement("tr", { key: "__outsep__" },
+              React.createElement("td", { colSpan: 13, style: { padding: "6px 8px", borderTop: "2px solid #C7D2FE", background: "#F8FAFF", fontSize: 10, lineHeight: 1.6 } },
+                React.createElement("span", { style: { fontWeight: 700, color: "#4338CA" } }, "選外銘柄（本日の取引銘柄に未選択） " + _pbOutRecs.length + "件"),
+                React.createElement("span", { style: { color: "#94A3B8", marginLeft: 6 } },
+                  "候補プール（設定→📅日替わり銘柄）に入っていて、この日の「本日の取引銘柄」に指定しなかった銘柄。数字は「選んでいたらどうだったか」の参考値で、"),
+                React.createElement("b", { style: { color: "#4338CA" } }, "上の合計には足さないでください"),
+                React.createElement("span", { style: { color: "#94A3B8" } }, "。選外でも手動で合計算入にした記録は上の行に残しています。除外列はスルーのみ。"))) : null,
             _pbStksOut.length > 1 ? _pbOutRowOf("参考合計", _pbOutRecs, "__outtotal__", true, null) : null,
             _pbStksOut.map(function(sk) { return _pbOutRowOf(sk, _pbByStkOut[sk], "__out__" + sk, false, _pbStockTags(sk)); })
           )
         )
       )
-    ) : null;
-    // 2026-08-04 並び: 本日の損益データ → （選外銘柄）→ 今週の損益データ → 本日の総括（一番下）。
-    // 選外(_pbOutEl)は本日の損益データの続きの表なので、今週はその後ろ＝「本日の一式の真下」に置いた。
-    return React.createElement(React.Fragment, null, _pbMainEl, _pbOutEl, _wkMainEl, _soukatsuEl);
+    );
+    // 2026-08-04d 選外銘柄の独立カード(_pbOutEl)は廃止＝主表の tbody に差し込んだ（上の __outsep__ 以降）。
+    // 2026-08-04 並び: 本日の損益データ（選外の行を含む）→ 今週の損益データ → 本日の総括（一番下）。
+    return React.createElement(React.Fragment, null, _pbMainEl, _wkMainEl, _soukatsuEl);
   })(),
 
   showForm && React.createElement(EntryRecordForm, {
