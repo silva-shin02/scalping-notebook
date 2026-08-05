@@ -93,7 +93,7 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
-`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / `_dtsStepBaseNote` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / `_dtsTable` / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`
+`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / `_dtsStepBaseNote` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_DTS_W_DELTA`/`_DTS_W_TONE`** / `_dtsTable` / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`
 
 **📈 損益推移シミュレーター 2026-08-05** — 記録帳の💰損益タブ（全銘柄合算）、🧮シミュの右のタブ。前提を入れて資金・株数・生活口座・総資産の月次推移を出す。**実績の集計ではなく将来の見通し**。
 
@@ -117,6 +117,11 @@ HomeEventFormModal, App
 - **🎯グレード感度表（`_dtsSensTable`）**: 1日あたり成績だけを `_DTS_SENS`（C=500 / B=1,500 / A=2,250 / S=3,000）に差し替えて同じ前提を回し直し、期末を比較する。
   - **「◯◯株に届く月」に到達月の差 2026-08-05b**（ユーザー要望③）＝実績の本(`self`)を基準に「**5ヶ月早い**（緑）／◯ヶ月遅い（赤）／同じ（灰）」を（）で併記。**実績自体が期間内に届かない場合は差を出せない**ので「（実績では届かない）」と添えて月だけ出す。
   - 目標株数は **`_dtsReachTarget(cfg)`**＝既定1,000株。ただし**基礎取引株数がすでに1,000株以上だと全部の本が初月到達になって列が死ぬ**ので、その時は次の500株刻みへ繰り上げる。見出しにも実際の目標株数を出す。
+- **月次テーブル（`_dtsTable`）の配色と縦ぞろえ 2026-08-05w**（ユーザー要望）:
+  - **配色は株式の慣習＝増える赤／減る・出ていく緑**（`_DTS_UP` #B91C1C・`_DTS_DOWN` #047857・`_DTS_ZERO` #9CA3AF）。⚠️**`_dtsDelta` は元が緑↑・赤↓で逆だったので反転した**。記録帳の比較データ（`_elDayStockBenchV2`）が「↑赤=良い方向」なので、この表だけ逆だと同じアプリで符号の読み方が食い違う。適用先＝株数（増えた月だけ赤・**旧「↑」記号は廃止**）／生活費・積立（`_dtsOut`＝「−◯万」緑・0はグレーの素の0）／残金（`_dtsRest`）／月末取引資金の（↑◯万）。
+  - **「残金」列を生活口座の右に新設**＝`r.toCapital`（＝手取り−生活費−積立＝その月に取引資金へ残った額）。値は既に `_dtsSimulate` が持っていた（2026-08-05 に列として出したが caf8857 で（↑◯万）へ一本化した経緯あり）。合計行用に `sum.toCapital` を追加。⚠️**投入月だけ `capitalDelta` と食い違う**＝差が投入額そのもの（残金は自力で積んだ分だけ）。
+  - **数値の縦ぞろえは `_dtsAlign(main, extra, exW)`**＝セルを［数値］［**固定幅の添え物枠**］に割る。**バッジの無い行にも同じ幅の空枠を置く**のが要で、これが無いと「（↑9.1万）」「警戒」の文字数ぶん数字の右端がずれる（td を `textAlign:right` にするだけでは揃わない）。`exW` は列内で最長の添え物に合わせる＝`_DTS_W_DELTA`(62)は合計行の「（↑396.7万）」、`_DTS_W_TONE`(56)は「保証金不足」。**開始時行・合計行にも同じ空枠を入れる**（入れ忘れるとその2行だけずれる）。列追加に伴い table の `minWidth` は 780→880。
+  - 検証＝実マウントでRange計測。全10列×14行（開始時＋12ヶ月＋合計）で数値の右端が**列ごとに単一値**（例: 月末取引資金 803px×14・余力使用率 959px×14）。
 - **前提の保存**は `data.custom.dtsCfg`（💾ボタン）。既存の `stSave`→`fbPut` 経路にそのまま乗るので専用の同期実装は無い。
 - **回帰テスト**: 依頼メモ§8の12ヶ月・年間集計・境界ケース（2027-06 の 4.906→4段→1,400株）で **54 pass / 0 fail**。JScript（`cscript`）で `_dtsSimulate` を直接叩く方式。
 - **グラフは自前SVG 2026-08-05**（ユーザー要望「視覚的にわかりやすいものもほしい」）。Chart.js/recharts は**使わない**＝ビルド工程なし・`file://` 運用・SWプリキャッシュのためCDNを増やせない。ダークモードは `html.sn-dark` のCSSフィルタ（invert+hue-rotate）が全体に掛かるので **light 前提の色で描く**（個別対応は不要）。

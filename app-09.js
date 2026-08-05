@@ -198,14 +198,15 @@ function _dtsSimulate(cfg) {
   // ---- 年間（期間）集計 ----
   var sum = {
     months: n, startYm: cfg.startYm, endYm: cfg.endYm,
-    gross: 0, tax: 0, net: 0, expense: 0, toLiving: 0, injection: injTotal
+    gross: 0, tax: 0, net: 0, expense: 0, toLiving: 0, toCapital: 0, injection: injTotal
   };
   for (var i = 0; i < rows.length; i++) {
-    sum.gross    += rows[i].gross;
-    sum.tax      += rows[i].tax;
-    sum.net      += rows[i].net;
-    sum.expense  += rows[i].expense;
-    sum.toLiving += rows[i].toLiving;
+    sum.gross     += rows[i].gross;
+    sum.tax       += rows[i].tax;
+    sum.net       += rows[i].net;
+    sum.expense   += rows[i].expense;
+    sum.toLiving  += rows[i].toLiving;
+    sum.toCapital += rows[i].toCapital;   // 残金の通算＝手取り−生活費−積立。投入額は含まない（＝自力で積んだ分）2026-08-05w
   }
   var last = rows[rows.length - 1] || null;
   sum.endCapital = last ? last.capital : (+cfg.initialCapital || 0);
@@ -730,16 +731,50 @@ function _dtsCharts(res) {
   ]);
 }
 
-// （）内に先月比を出す小さな差分バッジ。上がったら緑↑・下がったら赤↓。
-// ⚠️「増える方が良い」欄にだけ使うこと。余力使用率のように**下がる方が良い**欄では色が逆になる。
+// 表の配色 2026-08-05w（ユーザー指定）＝株式の慣習どおり **増える＝赤／減る・出ていく＝緑**。
+// 記録帳の比較データ（app-06 _elDayStockBenchV2）も「↑赤=良い方向／↓緑=悪い方向」なので、
+// この表だけ緑↑・赤↓のままだと同じアプリの中で符号の読み方が逆になってしまう（2026-08-05w に反転）。
+var _DTS_UP = "#B91C1C", _DTS_DOWN = "#047857", _DTS_ZERO = "#9CA3AF";
+
+// （）内に先月比を出す小さな差分バッジ。増えたら赤↑・減ったら緑↓。
+// ⚠️「増える方が良い」欄にだけ使うこと。余力使用率のように**下がる方が良い**欄では意味が逆になる。
 function _dtsDelta(v, opts) {
   if (v == null || !isFinite(v)) return null;
-  var o = opts || {}, good = o.lowerIsBetter ? (v < 0) : (v > 0);
-  var col = (v === 0) ? "#9CA3AF" : (good ? "#047857" : "#B91C1C");
+  var o = opts || {}, up = o.lowerIsBetter ? (v < 0) : (v > 0);
+  var col = (v === 0) ? _DTS_ZERO : (up ? _DTS_UP : _DTS_DOWN);
   var arw = (v === 0) ? "±" : (v > 0 ? "↑" : "↓");
   var body = o.fmt ? o.fmt(Math.abs(v)) : _dtsFmtMan(Math.abs(v));
-  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: col, marginLeft: 3 } }, "（" + arw + body + "）");
+  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: col } }, "（" + arw + body + "）");
 }
+
+// セル内の数値の縦ぞろえ 2026-08-05w（ユーザー要望）。td を右寄せにするだけでは（↑9.1万）や「警戒」の
+// 文字数ぶん数字の右端がずれる。**添え物の枠を固定幅で必ず確保する**＝バッジの無い行にも同じ幅の空枠を
+// 置くので、列の中で数値の右端が必ず一致する。exW を省く/0 にすると素の右寄せ（添え物を持たない列）。
+// ⚠️exW は列内で最も長い添え物（合計行の「（↑396.7万）」や「保証金不足」）で決める。足りないと押し出される。
+function _dtsAlign(main, extra, exW) {
+  if (!exW) return main;
+  return React.createElement("span", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-end", gap: 3 } },
+    React.createElement("span", { style: { whiteSpace: "nowrap" } }, main),
+    React.createElement("span", { style: { minWidth: exW, textAlign: "left", whiteSpace: "nowrap" } }, extra || ""));
+}
+
+// 出ていく額（生活費・積立）は「−◯万」＋緑で揃える。0 は「−0万」だと引かれた感じが出るのでグレーの素の0。
+function _dtsOut(v) {
+  var n = +v || 0;
+  if (!(n > 0)) return React.createElement("span", { style: { color: _DTS_ZERO } }, _dtsFmtMan(0));
+  return React.createElement("span", { style: { color: _DTS_DOWN } }, "−" + _dtsFmtMan(n));
+}
+
+// 残金＝手取り−生活費−積立＝その月に取引資金へ残った額 2026-08-05w。取引資金が増える方向なので赤、
+// マイナス（取り崩した月）は出ていく方向なので緑＝生活費・積立と同じ扱いにする。
+function _dtsRest(v) {
+  var n = +v || 0;
+  var col = (n === 0) ? _DTS_ZERO : (n > 0 ? _DTS_UP : _DTS_DOWN);
+  return React.createElement("span", { style: { color: col, fontWeight: 700 } }, (n < 0 ? "−" : "") + _dtsFmtMan(Math.abs(n)));
+}
+
+// 添え物の枠幅。合計行の「（↑396.7万）」と余力使用率の「保証金不足」が列内で最長なのでそこに合わせる。
+var _DTS_W_DELTA = 62, _DTS_W_TONE = 56;
 
 function _dtsTable(res, cfg) {
   var th = function(t, tip) { return React.createElement("th", { key: t, title: tip || "", style: { padding: "4px 5px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center" } }, t); };
@@ -751,24 +786,26 @@ function _dtsTable(res, cfg) {
     td("sh", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, (+cfg.initialShares || 0).toLocaleString())),
     td("gr", dash), td("net", dash), td("ex", dash), td("tl", dash),
     td("lv", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, _dtsFmtMan(cfg.initialLiving))),
-    td("cp", React.createElement("span", { style: { fontWeight: 800, color: "#6B7280" } }, _dtsFmtMan(cfg.initialCapital))),
-    td("pu", dash), td("be", dash)
+    td("rest", dash),
+    td("cp", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: "#6B7280" } }, _dtsFmtMan(cfg.initialCapital)), null, _DTS_W_DELTA)),
+    td("pu", _dtsAlign(dash, null, _DTS_W_TONE)), td("be", dash)
   ]);
   var rows = res.rows.map(function(r, i) {
     var tone = _dtsUseTone(r.powerUse, r.shortMargin);
     var beG = (typeof _profitGradeFromPnl === "function" && r.bePerDay != null) ? _profitGradeFromPnl(Math.round(r.bePerDay), 1) : null;
     return React.createElement("tr", { key: r.ym, style: { background: tone.bg || (i % 2 ? "#FAFAFA" : "#fff") } }, [
       td("ym", React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, r.lbl), { textAlign: "left", borderLeft: r.stepUp ? "3px solid " + _DTS_SUB : "3px solid transparent" }),
-      td("sh", React.createElement("span", { style: { fontWeight: 800, color: r.stepUp ? _DTS_SUB : "#374151" } }, r.shares.toLocaleString() + (r.stepUp ? " ↑" : ""))),
+      td("sh", React.createElement("span", { style: { fontWeight: 800, color: r.stepUp ? _DTS_UP : "#374151" } }, r.shares.toLocaleString())),
       td("gr", _dtsFmtMan(r.gross)),
       td("net", _dtsFmtMan(r.net)),
-      td("ex", React.createElement("span", { style: { color: "#B45309" } }, "−" + _dtsFmtMan(r.expense))),
-      td("tl", _dtsFmtMan(r.toLiving)),
+      td("ex", _dtsOut(r.expense)),
+      td("tl", _dtsOut(r.toLiving)),
       td("lv", React.createElement("span", { style: { fontWeight: 700 } }, _dtsFmtMan(r.living))),
-      td("cp", React.createElement("span", null,
-        React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, _dtsFmtMan(r.capital)),
-        _dtsDelta(r.capitalDelta))),
-      td("pu", React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, _dtsFmtPct(r.powerUse) + (tone.lbl ? " " + tone.lbl : ""))),
+      td("rest", _dtsRest(r.toCapital)),
+      td("cp", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, _dtsFmtMan(r.capital)),
+        _dtsDelta(r.capitalDelta), _DTS_W_DELTA)),
+      td("pu", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, _dtsFmtPct(r.powerUse)),
+        tone.lbl ? React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, tone.lbl) : null, _DTS_W_TONE)),
       td("be", React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, justifyContent: "flex-end" } },
         (typeof _elHoldGradeBadge === "function" && beG) ? _elHoldGradeBadge(beG) : null,
         React.createElement("span", null, _dtsFmtYen(r.bePerDay))))
@@ -783,20 +820,21 @@ function _dtsTable(res, cfg) {
     td("sh", dash),
     td("gr", React.createElement("span", { style: { fontWeight: 800 } }, _dtsFmtMan(sm.gross))),
     td("net", React.createElement("span", { style: { fontWeight: 800 } }, _dtsFmtMan(sm.net))),
-    td("ex", React.createElement("span", { style: { fontWeight: 800, color: "#B45309" } }, "−" + _dtsFmtMan(sm.expense))),
-    td("tl", React.createElement("span", { style: { fontWeight: 800 } }, _dtsFmtMan(sm.toLiving))),
+    td("ex", React.createElement("span", { style: { fontWeight: 800 } }, _dtsOut(sm.expense))),
+    td("tl", React.createElement("span", { style: { fontWeight: 800 } }, _dtsOut(sm.toLiving))),
     td("lv", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, "期末 " + _dtsFmtMan(sm.endLiving))),
-    td("cp", React.createElement("span", null,
-      React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, "期末 " + _dtsFmtMan(sm.endCapital)),
-      _dtsDelta(sm.capitalGain))),
-    td("pu", dash), td("be", dash)
+    td("rest", React.createElement("span", { style: { fontWeight: 800 } }, _dtsRest(sm.toCapital))),
+    td("cp", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, "期末 " + _dtsFmtMan(sm.endCapital)),
+      _dtsDelta(sm.capitalGain), _DTS_W_DELTA)),
+    td("pu", _dtsAlign(dash, null, _DTS_W_TONE)), td("be", dash)
   ]);
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto", marginBottom: 8 } },
-    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 780 } },
+    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 880 } },
       React.createElement("thead", null, React.createElement("tr", null, [
         th("年月"), th("株数"), th("税引前", "税引前の月次利益＝(株数÷100)×1日あたり損益×営業日数"), th("手取り", "税引前 − 税（税額は上のサマリーカードに合計で出しています）"),
         th("生活費", "社会保険料を含む"), th("積立", "その月に生活口座へ移した額"), th("生活口座", "生活口座の月末残高"),
-        th("月末取引資金", "（）内は先月末からの増減＝手取り − 生活費 − 積立。外部資金を投入した月はその投入額も含みます"),
+        th("残金", "手取り − 生活費 − 積立 ＝ その月に取引資金へ残った額。マイナスなら取引資金を取り崩した月"),
+        th("月末取引資金", "（）内は先月末からの増減＝残金と同じ。外部資金を投入した月はその投入額も含みます"),
         th("余力使用率", "拘束額 ÷（取引資金 ÷ 委託保証金率）"), th("損益分岐/日/100株", "その月の生活費を出すのに必要な1日あたり成績（100株換算）")
       ])),
       React.createElement("tbody", null, [openRow].concat(rows)),
