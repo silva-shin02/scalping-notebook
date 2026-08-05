@@ -3523,8 +3523,15 @@ function _epResolve(s, alpha) {
     if (legs[i].h != null && legs[i].h >= alpha) { epIdx = i; break; }
   }
   if (epIdx < 0) return { epIdx: -1, ep: null, h1: null, h2: null, judge: "miss", legs: legs };
+  // 2026-08-05r ×宣言の判定を次足期待度の正本(_epNextExpAt)へ統一（ユーザー報告のバグ修正）。
+  //   旧: legs[j].exp（＝レガシーの os1Exp/os2Exp）だけを見ていた。ところが os1Exp/os2Exp は保存時に
+  //   「保存時点のEP位置」でゲートされる（_useOs2/_useOs3・app-05のフォーム保存）ため、保存時EPがOS1/OS2だと
+  //   手前足の×は nextExpN にしか残らない。その後αが変わってEPが後ろへ動くと、EPより手前になった×を
+  //   _epResolve だけが見落とし、**フォームは「E：×（見送り）」・集計は「E成立」**という食い違いが起きていた。
+  //   _epNextExpAt は ①nextExp(j+1) ②レガシー導出（待ち足は legs[j].exp）の順で読むので、
+  //   nextExpN を持たない旧記録は従来と完全に同じ値になる＝後方互換。
   var xBefore = false;
-  for (var j = 0; j < epIdx; j++) { if (legs[j].exp === "×") xBefore = true; }
+  for (var j = 0; j < epIdx; j++) { if (_epNextExpAt(s, j) === "×") xBefore = true; }
   return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: xBefore ? "x" : "ok", legs: legs };
 }
 // （旧 _epExpAt＝役割固定の期待度取得は2026-07-06fに削除＝最後の利用者だったOS連鎖セルも_epNextExpAtへ統一・全消費者が次足期待度に移行完了）
