@@ -2719,6 +2719,9 @@ function NewsTab(_ref36) {
   useModalBack(keepSheet != null, function(){ setKeepSheet(null); }, "news-keep-sheet");
   // ボード上部の「使用中の材料タグ」チップ。押すとそのタグで絞り込む（複数選択＝AND）。
   var _usBTF = useState([]), _usBTFS = _slicedToArray(_usBTF, 2), boardTagFilter = _usBTFS[0], setBoardTagFilter = _usBTFS[1];
+  // 2026-08-05 タグ付けシートを開いている札のid。「タグ付け」ボタンをカード上段の帯へ移した分、
+  // 開閉をTagPicker内部stateから親へ引き上げた（TagPicker本体は本文側に残してタグのチップだけ描かせる）。
+  var _usTagOp = useState(null), _usTagOpS = _slicedToArray(_usTagOp, 2), tagSheetNiId = _usTagOpS[0], setTagSheetNiId = _usTagOpS[1];
   var _usMv = useState(null), _usMvS = _slicedToArray(_usMv, 2), moveTarget = _usMvS[0], setMoveTarget = _usMvS[1];
   var _usMvD = useState(date), _usMvDS = _slicedToArray(_usMvD, 2), moveToDate = _usMvDS[0], setMoveToDate = _usMvDS[1];
 
@@ -3944,49 +3947,80 @@ function NewsTab(_ref36) {
             paddingTop: 28,
             overflow: "hidden", transition: "background 0.4s, box-shadow 0.4s, opacity 0.15s" }
         },
-          // ☰ ドラッグハンドル（タッチはこれで掴む。PCは画像を直接掴んでもよい）
+          // 2026-08-05 上段の帯をflex1行に組み直し、「🏷️タグ付け」「🔖記事を保存」をこの行へ移した（ユーザー要望。
+          // 旧はカード下端に大きい2ボタンを縦積みしていた）。旧実装は☰/📅/🔗/✕をそれぞれ absolute で置いていたが、
+          // 空きに可変幅のボタンを差すと🔗（クローン数・幅可変）と重なるため、行ごとflexにして重なりを構造的に無くした。
+          // 帯の高さ22pxに合わせボタンもheight22/fontSize11へ縮小（カード側のpaddingTop:28は据置）。
           React.createElement("div", {
-            onMouseDown: function(ev) { onNewsDragStart(ni.id, ev); },
-            onTouchStart: function(ev) { onNewsDragStart(ni.id, ev, true); },
-            title: "ドラッグで並べ替え",
-            style: { position: "absolute", top: 3, left: 4, width: 22, height: 22,
-              borderRadius: 5, background: "transparent", color: "#8a8478",
-              border: "none", fontSize: 13, cursor: "grab", fontWeight: 700,
-              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3,
-              touchAction: "none", userSelect: "none" }
-          }, "☰"),
-          React.createElement("button", {
-            onClick: function() {
-              setMoveToDate(date);
-              setMoveTarget({ niId: ni.id, fromCat: e.cat, fromSubCat: ni.subCat || "" });
-            },
-            title: "この記事を別の日に移す",
-            style: { position: "absolute", top: 3, right: 30, width: 22, height: 22,
-              borderRadius: 5, background: "#fff", color: "#6b665c",
-              border: "1px solid #d9d5cc", fontSize: 11, cursor: "pointer", fontWeight: 700,
-              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
-          }, "📅"),
-          (function() {
+            style: { position: "absolute", top: 3, left: 4, right: 4, height: 22,
+              display: "flex", alignItems: "stretch", gap: 4, zIndex: 3 }
+          },
+            // ☰ ドラッグハンドル（タッチはこれで掴む。PCは画像を直接掴んでもよい）
+            React.createElement("div", {
+              onMouseDown: function(ev) { onNewsDragStart(ni.id, ev); },
+              onTouchStart: function(ev) { onNewsDragStart(ni.id, ev, true); },
+              title: "ドラッグで並べ替え",
+              style: { flexShrink: 0, width: 22, height: 22,
+                borderRadius: 5, background: "transparent", color: "#8a8478",
+                border: "none", fontSize: 13, cursor: "grab", fontWeight: 700,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                touchAction: "none", userSelect: "none" }
+            }, "☰"),
+            // 🏷️ タグ付け。シートの開閉は親state(tagSheetNiId)で持つ＝TagPicker本体は本文側に残して
+            // 選択済みタグのチップだけを描かせる（チップは可変高なのでこの22pxの帯には入れられない）。
+            React.createElement("button", {
+              onClick: function() { setTagSheetNiId(ni.id); },
+              title: niTags.length ? ("材料タグ " + niTags.length + "件。押すと付け外しできます") : "材料タグを付ける",
+              style: { flex: 1, minWidth: 0, height: 22, padding: "0 6px", fontSize: 11, fontWeight: 700,
+                background: niTags.length ? "#EEF4FF" : "#fff",
+                color: niTags.length ? "#1D4ED8" : "#777",
+                border: "1px solid " + (niTags.length ? "#7A9CC8" : "#d9d5cc"), borderRadius: 5,
+                cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }
+            }, niTags.length ? ("🏷️ " + niTags.length) : "🏷️ タグ付け"),
+            // 🔖 記事を保存
+            React.createElement("button", {
+              onClick: function() { openKeepSheet(e); },
+              title: kept ? "保存済み（自動削除されません）。押すと分類を変えられます" : "カテゴリ・サブ・銘柄を選んで保存（全部任意）",
+              style: { flex: 1, minWidth: 0, height: 22, padding: "0 6px", fontSize: 11, fontWeight: 700,
+                background: kept ? "#F59E0B" : "#fff", color: kept ? "#fff" : "#777",
+                border: "1px solid " + (kept ? "#F59E0B" : "#d9d5cc"), borderRadius: 5,
+                cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }
+            }, kept ? ("🔖 " + keepLabel + (kStocks.length ? " ・銘柄" + kStocks.length : "")) : "🔖 記事を保存"),
+            (function() {
             var clones = _findClones(ni.id);
             if (!clones.length) return null;
             var locsLabel = clones.map(function(l) { return l.cat + (l.subCat ? "/" + l.subCat : ""); }).join("\n");
             return React.createElement("div", {
               title: "クローン (編集連動):\n" + locsLabel,
-              style: { position: "absolute", top: 3, right: 56, height: 22, padding: "0 6px",
+              style: { flexShrink: 0, height: 22, padding: "0 6px",
                 borderRadius: 5, background: "#EEF2FF", color: "#4F46E5",
                 border: "1px solid #C7D2FE", boxSizing: "border-box",
-                fontSize: 10, fontWeight: 700, zIndex: 2, display: "flex",
+                fontSize: 10, fontWeight: 700, display: "flex",
                 alignItems: "center", justifyContent: "center", gap: 2, cursor: "help" }
             }, "\uD83D\uDD17", clones.length + 1);
           })(),
-          React.createElement("button", {
-            onClick: function() { return delNews(ni.id); },
-            title: "削除",
-            style: { position: "absolute", top: 3, right: 4, width: 22, height: 22,
-              borderRadius: 5, background: "#fff", color: "#DC2626",
-              border: "1px solid #EFBDBD", fontSize: 11, cursor: "pointer", fontWeight: 700,
-              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2 }
-          }, "✕"),
+            React.createElement("button", {
+              onClick: function() {
+                setMoveToDate(date);
+                setMoveTarget({ niId: ni.id, fromCat: e.cat, fromSubCat: ni.subCat || "" });
+              },
+              title: "この記事を別の日に移す",
+              style: { flexShrink: 0, width: 22, height: 22,
+                borderRadius: 5, background: "#fff", color: "#6b665c",
+                border: "1px solid #d9d5cc", fontSize: 11, cursor: "pointer", fontWeight: 700,
+                display: "flex", alignItems: "center", justifyContent: "center" }
+            }, "📅"),
+            React.createElement("button", {
+              onClick: function() { return delNews(ni.id); },
+              title: "削除",
+              style: { flexShrink: 0, width: 22, height: 22,
+                borderRadius: 5, background: "#fff", color: "#DC2626",
+                border: "1px solid #EFBDBD", fontSize: 11, cursor: "pointer", fontWeight: 700,
+                display: "flex", alignItems: "center", justifyContent: "center" }
+            }, "✕")
+          ),
           React.createElement("div", {
             onMouseDown: function(ev) {
               if (IS_TOUCH) return;
@@ -4057,25 +4091,19 @@ function NewsTab(_ref36) {
                 }, "→ " + s);
               }));
             })(),
-            // 2026-08-03i 「タグ付け」と「記事を保存」は横並び（TagPickerのtrailingに保存ボタンを渡す）。
+            // 2026-08-05 「タグ付け」「記事を保存」の2ボタンはカード上段の帯へ移した
+            // （旧2026-08-03i: TagPickerのtrailingに保存ボタンを渡してカード下端で横並び）。
+            // ここに残すのは選択済みタグのチップ表示とシート本体だけ＝hideTriggerでボタンを出さず、
+            // 開閉は親のtagSheetNiIdで制御する。タグ0件ならTagPickerは何も描かない（高さも0）。
             React.createElement(TagPicker, _extends({
               cats: catTagPool.cats, tags: catTagPool.tags, sel: niTags,
               onToggle: function(tag) { return togNiTag(ni.id, tag); },
               onAdd: function(name, cat) { return onAddNiTag(ni.id, name, cat); }
             }, newsPool, {
               tagColors: custom.tagColors || {}, label: "材料タグ", hideAddRoot: true,
-              addLabel: "🏷️ タグ付け",
-              trailing: React.createElement("button", {
-                onClick: function() { openKeepSheet(e); },
-                title: kept ? "保存済み（自動削除されません）。押すと分類を変えられます" : "カテゴリ・サブ・銘柄を選んで保存（全部任意）",
-                style: { flex: 1, minWidth: 0, padding: "6px 8px", fontSize: 12, fontWeight: 700,
-                  background: kept ? "#F59E0B" : "#fff", color: kept ? "#fff" : "#666",
-                  border: "1px solid " + (kept ? "#F59E0B" : "#ddd"), borderRadius: 7,
-                  cursor: "pointer", minHeight: IS_TOUCH ? 38 : 30,
-                  textAlign: "center", wordBreak: "break-word", lineHeight: 1.3 }
-              },
-                kept ? ("🔖 " + keepLabel + (kStocks.length ? " ・銘柄" + kStocks.length : ""))
-                     : "🔖 記事を保存")
+              hideTrigger: true,
+              tagOpen: tagSheetNiId === ni.id,
+              onTagOpenChange: function(v) { setTagSheetNiId(v ? ni.id : null); }
             })),
             // 2026-08-03g 「ニュース画像1枚＝記事1件」なので、画像を持つ札に貼り付け枠は出さない（2枚目を貼る場面が無い）。
             // 画像が無い札（旧メモ由来・自動削除で画像が消えた札）にだけ出し、受けるのも1枚だけ。

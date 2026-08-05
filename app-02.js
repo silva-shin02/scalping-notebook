@@ -2301,6 +2301,12 @@ function TagPicker(_ref17) {
     // trailing=そのボタンの右に並べるノード。ニュースの札で「タグ付け」と「記事を保存」を横並びにするために使う。
     addLabel = _ref17.addLabel,
     trailing = _ref17.trailing,
+    // 2026-08-05 hideTrigger=開くボタン(と trailing)をここには出さない／tagOpen・onTagOpenChange=開閉を親に持たせる。
+    // ニュースの札で「タグ付け」ボタンをカード上段の帯へ移すために追加。選択済みタグの表示はTagPickerに残したいので、
+    // ボタンだけを親の好きな場所に置けるようにした（3つとも未指定なら従来どおり内部stateだけで動く＝他の画面は不変）。
+    hideTrigger = _ref17.hideTrigger,
+    ctrlTagOpen = _ref17.tagOpen,
+    onTagOpenChange = _ref17.onTagOpenChange,
     onSetTagColor = _ref17.onSetTagColor;
   
   var _useCatR = useState({}),
@@ -2795,8 +2801,10 @@ function TagPicker(_ref17) {
   };
   var _useState93 = useState(false),
     _useState94 = _slicedToArray(_useState93, 2),
-    tagOpen = _useState94[0],
-    setTagOpen = _useState94[1];
+    _tagOpenSelf = _useState94[0],
+    _setTagOpenSelf = _useState94[1];
+  var tagOpen = ctrlTagOpen != null ? ctrlTagOpen : _tagOpenSelf;
+  var setTagOpen = onTagOpenChange || _setTagOpenSelf;
   useModalBack(tagOpen, function(){ setTagOpen(false); }, "tag-picker");
   return React.createElement("div", {
     style: {
@@ -2864,6 +2872,7 @@ function TagPicker(_ref17) {
       }
     }, "\u2715"));
   }))), (function() {
+    if (hideTrigger) return null;   // 2026-08-05 開くボタンは親（ニュース札の上段の帯）に置くのでここには出さない
     var _trigger = !tagOpen && React.createElement("button", {
       onClick: function onClick() {
         return setTagOpen(true);
