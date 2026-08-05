@@ -85,7 +85,13 @@ function _dtsSimulate(cfg) {
   if (n > 120) return { error: "期間が長すぎます（上限120ヶ月＝10年）", rows: [], summary: null, marks: [] };
 
   var days      = Math.max(1, Math.round(+cfg.businessDays || 20));
+  // 税率は 0〜90% にクランプ 2026-08-05F。クランプが無いと 200% で手取りがマイナスになり、
+  // 「利益を出すほど資金が減る」という意味不明な推移が黙って出ていた（落ちはしないので気づけない）。
   var taxRate   = (cfg.taxRate == null || cfg.taxRate === "") ? 0.20315 : +cfg.taxRate;
+  if (!isFinite(taxRate)) taxRate = 0.20315;
+  var taxRaw    = taxRate;
+  if (taxRate < 0) taxRate = 0;
+  if (taxRate > 0.9) taxRate = 0.9;
   var perDay    = +cfg.dailyPer100 || 0;
   var stepBase  = _dtsNumOrNull(cfg.stepBase);           // null＝②の取引資金（＝開始時）から数える
   var stepAmt   = Math.max(1, +cfg.stepAmount || 250000);
@@ -118,6 +124,9 @@ function _dtsSimulate(cfg) {
   // 前提そのものの警告 2026-08-05B。**入れたのに効かない入力**を黙って捨てないための受け皿。
   // 節目(marks)は「何月に何が起きたか」の時系列なので、時点を持たない設定の警告はここに分ける。
   var warns = [];
+  if (taxRaw !== taxRate) {
+    warns.push("③の税率 " + (Math.round(taxRaw * 1000) / 10) + "% は範囲外なので " + (Math.round(taxRate * 1000) / 10) + "% として計算しています（0〜90%）。");
+  }
   // ④⑤の期間別テーブルの検算 2026-08-05D。_dtsPickByYm は「from が当月以前で最も新しい行」を採るので、
   // ⚠️期間より後ろの行は一度も選ばれない／同じ from が2行あると後ろが必ず負ける（`fi > bestIdx` の厳密比較）。
   //   どちらも黙って消えるので、入れたのに効かない行として名指しする。
@@ -257,6 +266,10 @@ function _dtsSimulate(cfg) {
       toCapital: surplus - toLiving,
       toLiving: toLiving, livingOpen: livOpen, living: living,
       capitalOpen: capOpen, capital: capital,
+      // 信用余力＝委託保証金 ÷ 委託保証金率 − 建玉金額 2026-08-05F。月初と月末で資金が違うので両方持つ
+      //（建玉 tied はその月の株数で固定なので、月内で動くのは資金の分だけ）。
+      powerOpen: (marginRt > 0) ? (capOpen / marginRt - shares * mainPrice) : null,
+      powerEnd:  (marginRt > 0) ? (capital / marginRt - shares * mainPrice) : null,
       // 先月末からの増減。投入月だけ toCapital（＝手取り−生活費−積立）と食い違う＝差が投入額そのもの。
       capitalDelta: capital - prevClose,
       total: capital + living,
@@ -775,15 +788,25 @@ function _dtsChartAssets(rows) {
   var W = 720, H = 300, pL = 58, pR = 54, pT = 30, pB = 32;
   var pw = W - pL - pR, ph = H - pT - pB, n = rows.length, i;
   var step = pw / n, barW = Math.max(2, Math.min(30, step * 0.6));
-  var maxT = 0, maxS = 0;
-  for (i = 0; i < n; i++) { if (rows[i].total > maxT) maxT = rows[i].total; if (rows[i].shares > maxS) maxS = rows[i].shares; }
+  // ⚠️minT を見るのは 2026-08-05F から。以前は 0 起点固定だったので、資金がマイナスに落ちた月は
+  //   棒の高さが 0 にクリップされて**画面から消えていた**＝いちばん見たい「破綻している月」が無表示だった。
+  var maxT = 0, maxS = 0, minT = 0;
+  for (i = 0; i < n; i++) {
+    if (rows[i].total > maxT) maxT = rows[i].total;
+    if (rows[i].shares > maxS) maxS = rows[i].shares;
+    if (rows[i].total < minT) minT = rows[i].total;
+    if (rows[i].capital < minT) minT = rows[i].capital;
+  }
   // 区切り線は**100万円ごとに実線・50万円ごとに点線**（ユーザー指定 2026-08-05）。
   // ただし期間が長く総資産が伸びると本数が増えすぎるので、実線が12本を超える時だけ 200万→500万→… と粗くする
   // （点線は常に実線の半分＝既定なら50万円）。旧 _dtsNiceMax による4分割はやめた。
   var MAJ = [1e6, 2e6, 5e6, 1e7, 2e7, 5e7, 1e8, 2e8, 5e8];
   var major = MAJ[MAJ.length - 1];
   for (i = 0; i < MAJ.length; i++) { if (Math.ceil(maxT / MAJ[i]) <= 12) { major = MAJ[i]; break; } }
-  var nMaj = Math.max(1, Math.ceil(maxT / major)), yTop = major * nMaj, minor = major / 2;
+  // 0より下にも段を取る 2026-08-05F。nMin=0（＝マイナス無し）なら従来と完全に同じ目盛りになる。
+  var nMaj = Math.max(1, Math.ceil(maxT / major));
+  var nMin = Math.ceil(Math.max(0, -minT) / major);
+  var yTop = major * nMaj, yBot = -major * nMin, ySpan = yTop - yBot, minor = major / 2;
   // 右軸（株数）は**500ごとに実線・100ごとに点線**、目盛りの数字は丸い株数だけ 2026-08-05E（ユーザー指定）。
   // 旧: _dtsNiceMax(maxS) を機械的に4等分＝2,500株なら 625 / 1,250 / 1,875 という
   //     実際には建てられない半端な株数が並び、区切り線も無かった。
@@ -793,18 +816,21 @@ function _dtsChartAssets(rows) {
   var sMaj = SPAIR[SPAIR.length - 1][0], sMin = SPAIR[SPAIR.length - 1][1];
   for (i = 0; i < SPAIR.length; i++) { if (Math.ceil(Math.max(1, maxS) / SPAIR[i][0]) <= 8) { sMaj = SPAIR[i][0]; sMin = SPAIR[i][1]; break; } }
   var nS = Math.max(1, Math.ceil(Math.max(1, maxS) / sMaj)), sTop = sMaj * nS;
-  var y = function(v) { return pT + ph - (v / yTop) * ph; };
-  var ys = function(v) { return pT + ph - (v / sTop) * ph; };
+  var y = function(v) { return pT + ph - ((v - yBot) / ySpan) * ph; };
+  var yz = y(0);
+  // 株数の軸は**金額のゼロ線と原点を揃える**＝マイナス域があるときに株数だけ下へ伸びないようにする。
+  // マイナスが無ければ yz は描画域の下端なので、従来の式と完全に一致する。
+  var ys = function(v) { return yz - (v / sTop) * (yz - pT); };
   var kids = [], g;
 
-  for (g = 0; g <= nMaj; g++) {
+  for (g = -nMin; g <= nMaj; g++) {
     var gv = major * g, gy = y(gv);
     if (g < nMaj) {
       var my = y(gv + minor);
       kids.push(React.createElement("line", { key: "gm" + g, x1: pL, y1: my, x2: pL + pw, y2: my, stroke: "#E2E0DC", strokeWidth: 1, strokeDasharray: "2 4" }));
     }
-    kids.push(React.createElement("line", { key: "g" + g, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: g === 0 ? "#CBD5E1" : "#E5E7EB", strokeWidth: 1 }));
-    kids.push(_dtsSvgText("gl" + g, pL - 6, gy + 3, _dtsFmtMan(gv), { textAnchor: "end" }));
+    kids.push(React.createElement("line", { key: "g" + g, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: g === 0 ? "#CBD5E1" : "#E5E7EB", strokeWidth: g === 0 ? 1.5 : 1 }));
+    kids.push(_dtsSvgText("gl" + g, pL - 6, gy + 3, _dtsFmtMan(gv), { textAnchor: "end", fill: g < 0 ? "#B91C1C" : "#6B7280" }));
   }
   // 右軸の区切り線。左軸のグレーの線と喧嘩しないよう、株数の色（オレンジ）を薄く敷く＝
   // 「どっちの軸の線か」が色で分かる。棒より先に描いて背面に置く。
@@ -822,8 +848,15 @@ function _dtsChartAssets(rows) {
   }
   for (i = 0; i < n; i++) {
     var r = rows[i], bx = pL + step * i + (step - barW) / 2;
-    kids.push(React.createElement("rect", { key: "bc" + i, x: bx, y: y(r.capital), width: barW, height: Math.max(0, y(0) - y(r.capital)), fill: "#93C5FD" }));
-    kids.push(React.createElement("rect", { key: "bl" + i, x: bx, y: y(r.total), width: barW, height: Math.max(0, y(r.capital) - y(r.total)), fill: "#FCD34D" }));
+    // 取引資金はゼロ線を基準に上下どちらにも伸ばす（マイナスの月は下向きの赤い棒）。
+    var yc = y(r.capital);
+    kids.push(React.createElement("rect", { key: "bc" + i, x: bx, y: Math.min(yz, yc), width: barW,
+      height: Math.max(1, Math.abs(yc - yz)), fill: r.capital < 0 ? "#FCA5A5" : "#93C5FD" }));
+    // 生活口座は取引資金の上に積む。⚠️取引資金がマイナスの月はゼロ線から積む＝
+    //   マイナスの棒の上に積むと「total」の位置に生活口座が浮いて何を見ているか分からなくなる。
+    var lBase = Math.max(0, r.capital), yl0 = y(lBase), yl1 = y(lBase + r.living);
+    kids.push(React.createElement("rect", { key: "bl" + i, x: bx, y: Math.min(yl0, yl1), width: barW,
+      height: Math.max(0, Math.abs(yl1 - yl0)), fill: "#FCD34D" }));
   }
   var d = "";
   for (i = 0; i < n; i++) {
@@ -963,11 +996,26 @@ function _dtsRest(v) {
   return React.createElement("span", { style: { color: col, fontWeight: 700 } }, (n < 0 ? "−" : "") + _dtsFmtMan(Math.abs(n)));
 }
 
-// 添え物の枠幅。合計行の「（↑396.7万）」と余力使用率の「保証金不足」が列内で最長なのでそこに合わせる。
-var _DTS_W_DELTA = 62, _DTS_W_TONE = 56;
+// 添え物の枠幅。余力使用率の「保証金不足」が列内で最長なのでそこに合わせる。
+// （_DTS_W_DELTA は「月末取引資金（↑◯万）」用だったが、2026-08-05F に（）表記を廃止したので未使用）
+var _DTS_W_TONE = 56, _DTS_W_FLOW = 48;
+
+// 「月初 → 月末」の2値セル 2026-08-05F（ユーザー指定）。取引資金と信用余力で使う。
+// ⚠️両側とも固定幅の右寄せにする＝そうしないと矢印の位置が行ごとにずれて数字が縦に揃わない。
+function _dtsFlow(a, b) {
+  return React.createElement("span", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-end", gap: 3 } },
+    React.createElement("span", { style: { minWidth: _DTS_W_FLOW, textAlign: "right", color: "#9CA3AF", fontWeight: 700 } }, a),
+    React.createElement("span", { style: { color: "#CBD5E1", fontSize: 9 } }, "→"),
+    React.createElement("span", { style: { minWidth: _DTS_W_FLOW, textAlign: "right", fontWeight: 800, color: _DTS_INK } }, b));
+}
 
 function _dtsTable(res, cfg) {
-  var th = function(t, tip) { return React.createElement("th", { key: t, title: tip || "", style: { padding: "4px 5px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center" } }, t); };
+  // t は文字列でも要素の配列でもよい（2行見出し用）。配列を渡す時は k でキーを明示する。
+  var th = function(t, tip, k) { return React.createElement("th", { key: k || t, title: tip || "", style: { padding: "4px 5px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center", lineHeight: 1.3 } }, t); };
+  var mr0 = +cfg.marginRate || 0.30;
+  // 開始時の信用余力＝委託保証金 ÷ 保証金率 − 建玉金額。行データと同じ式で出す。
+  var pw0 = (+cfg.initialCapital || 0) / mr0 - (+cfg.initialShares || 0) * (+cfg.mainPrice || 0);
+  var lastRow = res.rows[res.rows.length - 1] || null;
   var td = function(k, ch, ex) { return React.createElement("td", { key: k, style: Object.assign({ padding: "3px 5px", fontSize: 10.5, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderTop: "1px solid #F1F5F9" }, ex || {}) }, ch); };
   // 開始時の行。これが無いと1行目の「（↑〇万）」が何からの増減か画面上に起点が無い 2026-08-05。
   var dash = React.createElement("span", { style: { color: "#D1D5DB" } }, "—");
@@ -977,12 +1025,12 @@ function _dtsTable(res, cfg) {
     td("gr", dash), td("net", dash), td("ex", dash), td("tl", dash),
     td("lv", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, _dtsFmtMan(cfg.initialLiving))),
     td("rest", dash),
-    td("cp", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: "#6B7280" } }, _dtsFmtMan(cfg.initialCapital)), null, _DTS_W_DELTA)),
-    td("pu", _dtsAlign(dash, null, _DTS_W_TONE)), td("be", dash)
+    td("cp", _dtsFlow("—", _dtsFmtMan(cfg.initialCapital))),
+    td("pw", _dtsFlow("—", _dtsFmtMan(pw0))),
+    td("pu", _dtsAlign(dash, null, _DTS_W_TONE))
   ]);
   var rows = res.rows.map(function(r, i) {
     var tone = _dtsUseTone(r.powerUse, r.shortMargin);
-    var beG = (typeof _profitGradeFromPnl === "function" && r.bePerDay != null) ? _profitGradeFromPnl(Math.round(r.bePerDay), 1) : null;
     return React.createElement("tr", { key: r.ym, style: { background: tone.bg || (i % 2 ? "#FAFAFA" : "#fff") } }, [
       td("ym", React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, r.lbl), { textAlign: "left", borderLeft: r.stepUp ? "3px solid " + _DTS_SUB : "3px solid transparent" }),
       td("sh", React.createElement("span", { style: { fontWeight: 800, color: r.stepUp ? _DTS_UP : "#374151" } }, r.shares.toLocaleString())),
@@ -992,13 +1040,10 @@ function _dtsTable(res, cfg) {
       td("tl", _dtsOut(r.toLiving)),
       td("lv", React.createElement("span", { style: { fontWeight: 700 } }, _dtsFmtMan(r.living))),
       td("rest", _dtsRest(r.toCapital)),
-      td("cp", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, _dtsFmtMan(r.capital)),
-        _dtsDelta(r.capitalDelta), _DTS_W_DELTA)),
+      td("cp", _dtsFlow(_dtsFmtMan(r.capitalOpen), _dtsFmtMan(r.capital))),
+      td("pw", _dtsFlow(_dtsFmtMan(r.powerOpen), _dtsFmtMan(r.powerEnd))),
       td("pu", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, _dtsFmtPct(r.powerUse)),
-        tone.lbl ? React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, tone.lbl) : null, _DTS_W_TONE)),
-      td("be", React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, justifyContent: "flex-end" } },
-        (typeof _elHoldGradeBadge === "function" && beG) ? _elHoldGradeBadge(beG) : null,
-        React.createElement("span", null, _dtsFmtYen(r.bePerDay))))
+        tone.lbl ? React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, tone.lbl) : null, _DTS_W_TONE))
     ]);
   });
   // 合計行 2026-08-05（ユーザー要望④）。アプリの他の集計表には合計行があるのにここだけ無かった。
@@ -1014,18 +1059,22 @@ function _dtsTable(res, cfg) {
     td("tl", React.createElement("span", { style: { fontWeight: 800 } }, _dtsOut(sm.toLiving))),
     td("lv", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, "期末 " + _dtsFmtMan(sm.endLiving))),
     td("rest", React.createElement("span", { style: { fontWeight: 800 } }, _dtsRest(sm.toCapital))),
-    td("cp", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, "期末 " + _dtsFmtMan(sm.endCapital)),
-      _dtsDelta(sm.capitalGain), _DTS_W_DELTA)),
-    td("pu", _dtsAlign(dash, null, _DTS_W_TONE)), td("be", dash)
+    // 合計行は「開始時 → 期末」＝月次と同じ読み方（左が前・右が後）で通す。
+    td("cp", _dtsFlow(_dtsFmtMan(cfg.initialCapital), _dtsFmtMan(sm.endCapital))),
+    td("pw", _dtsFlow(_dtsFmtMan(pw0), _dtsFmtMan(lastRow ? lastRow.powerEnd : pw0))),
+    td("pu", _dtsAlign(dash, null, _DTS_W_TONE))
   ]);
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto", marginBottom: 8 } },
-    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 880 } },
+    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 980 } },
       React.createElement("thead", null, React.createElement("tr", null, [
         th("年月"), th("株数"), th("税引前", "税引前の月次利益＝(株数÷100)×1日あたり損益×営業日数"), th("手取り", "税引前 − 税（税額は上のサマリーカードに合計で出しています）"),
         th("生活費", "社会保険料を含む"), th("積立", "その月に生活口座へ移した額"), th("生活口座", "生活口座の月末残高"),
-        th("残金", "手取り − 生活費 − 積立 ＝ その月に取引資金へ残った額。マイナスなら取引資金を取り崩した月"),
-        th("月末取引資金", "（）内は先月末からの増減＝残金と同じ。外部資金を投入した月はその投入額も含みます"),
-        th("余力使用率", "拘束額 ÷（取引資金 ÷ 委託保証金率）"), th("損益分岐/日/100株", "その月の生活費を出すのに必要な1日あたり成績（100株換算）")
+        th([React.createElement("div", { key: "a" }, "残金"),
+            React.createElement("div", { key: "b", style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF" } }, "（取引資金組入）")],
+          "手取り − 生活費 − 積立 ＝ その月に取引資金へ組み入れた額。マイナスなら取引資金を取り崩した月", "rest"),
+        th("取引資金", "月初の資金 → 月末の資金。外部資金を投入した月は月初にその投入額が入っています"),
+        th("信用余力", "月初の余力 → 月末の余力。委託保証金 ÷ 委託保証金率 − 建玉金額"),
+        th("余力使用率", "拘束額 ÷（取引資金 ÷ 委託保証金率）")
       ])),
       React.createElement("tbody", null, [openRow].concat(rows)),
       React.createElement("tfoot", null, totRow)));
