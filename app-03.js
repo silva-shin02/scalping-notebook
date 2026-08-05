@@ -1242,7 +1242,7 @@ function StockTabs(_ref34) {
     onClick: function() { if (!touchState.current.on) onRotSelect(); },
     style: {
       position: "relative", flexShrink: 0,
-      padding: rotDayStock ? "4px 14px" : "8px 14px",
+      padding: rotDayStock ? "2px 14px" : "8px 14px",
       fontSize: 13, fontWeight: 600,
       border: rotActive ? "1.5px solid #4338CA" : "1px solid #C7D2FE",
       borderRadius: 7, cursor: "pointer",
@@ -1261,7 +1261,7 @@ function StockTabs(_ref34) {
       ? React.createElement("span", {
           style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }
         },
-          React.createElement("span", { style: { fontSize: 10, fontWeight: 600, opacity: 0.85 } }, "📅 日替わり"),
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 600, opacity: 0.85 } }, "📅 日替わり"),
           React.createElement("span", { style: { fontSize: 13, fontWeight: 700 } }, rotDayStock)
         )
       : (rotLabel || "📅 日替わり")

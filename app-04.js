@@ -6470,9 +6470,24 @@ function DayView(_ref57) {
               if (_h2p.ref != null) { _h2Ref = (_h2Ref || 0) + _h2p.ref; _h2RefCnt++; }
             });
             if (_h2Cnt === 0 && _h2RefCnt === 0) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
-            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } },
+            var _h2Main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } },
               _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_wkRowDays > 0 ? Math.round(_h2Tot / _wkRowDays) : _h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
               _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
+            // 週合計だけ、最終損益額の下に1日平均を出す（2026-08-05・ユーザー要望）。
+            // この表のグレードバッジは元々「総額÷_wkRowDays」で判定しているのに表示は総額だけだったため、
+            // 例えば総額+9,400円にA+が付いていても判定の実体（3営業日で1日平均+3,133円）が見えなかった。
+            // _wkRowDays=_elBizDaysOf＝記録の初日〜最終日の営業日数（休場除く。取引が無い中日も数える＝
+            // 記録のある日数ではない）。バッジ判定と割る数を必ず同じにするため、ここでも_wkRowDaysを使う。
+            // 日別行と_wkRowDays<=1の週は平均＝総額で同じ数字が2行並ぶだけなので出さない。
+            if (!(isTotal && _h2Cnt > 0 && _wkRowDays > 1)) return _h2Main;
+            var _h2Avg = Math.round(_h2Tot / _wkRowDays);
+            var _h2AvgG = _profitGradeFromPnl(_h2Avg, _h2Cnt);
+            return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
+              _h2Main,
+              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" }, title: "1営業日あたりの最終損益。記録の初日〜最終日の営業日数" + _wkRowDays + "日で割った額（休場日は除く。取引が無かった中日も日数に入る）。この表のグレードバッジはこの平均額で判定している。" },
+                _h2AvgG ? _wkBadge(_h2AvgG) : null,
+                React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "1日平均"),
+                React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(_h2Avg) } }, _elPnlFmt(_h2Avg))));
             })();
             if (!(tradeTags && tradeTags.length)) return _pnlNode;
             return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap", justifyContent: "center" } }, React.createElement("span", { style: { display: "inline-block", fontSize: 9, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 3, padding: "0 5px", whiteSpace: "nowrap" }, title: "「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等）。この日はエントリーした銘柄が無く全銘柄が取引なしのため表示。" }, tradeTags.join("・")), _pnlNode);
