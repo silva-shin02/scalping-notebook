@@ -162,7 +162,7 @@ function _dtsSimulate(cfg) {
   }
 
   if (inj && (injIdx == null || injIdx < sIdx || injIdx > eIdx)) {
-    warns.push("⑧の投入年月「" + (_dtsYmLbl(inj.ym) || inj.ym) + "」が期間の外なので、投入は一切反映されていません。"
+    warns.push("αの投入年月「" + (_dtsYmLbl(inj.ym) || inj.ym) + "」が期間の外なので、投入は一切反映されていません。"
       + "①の期間（" + _dtsYmLbl(cfg.startYm) + "〜" + _dtsYmLbl(cfg.endYm) + "）の中に入れてください。");
   }
 
@@ -186,7 +186,7 @@ function _dtsSimulate(cfg) {
       //   下回って無効化された時は黙って捨てず warns で知らせる（入れたのに効かない入力を作らない）。
       if (sa != null && sa > 0) {
         if (sa < prevShares) {
-          warns.push("⑧の「投入直後の株数」" + sa.toLocaleString() + "株 は、その時点の " + prevShares.toLocaleString()
+          warns.push("αの「投入直後の株数」" + sa.toLocaleString() + "株 は、その時点の " + prevShares.toLocaleString()
             + "株 より少ないので効いていません（⑥の「資金が減っても下げない」が優先）。減らす想定なら②の基礎取引株数を見直してください。");
         } else {
           shares = sa; injFloor = { ym: ym, shares: sa };
@@ -231,9 +231,17 @@ function _dtsSimulate(cfg) {
     var surplus = net - expense;
 
     // ⑤ 生活口座への積立。mode="fill"＝目標まで余剰全額 / "drip"＝定額。どちらも目標残高で頭打ち。
+    // ★2026-08-05J（ユーザー指定）: **株数が上限に達した月からは余剰を全額 生活口座へ**。
+    //   上限に張り付くと取引資金を積んでも株数が増えない＝そこから先の資金は遊ぶだけなので、
+    //   ⑤の定額/目標残高の設定より優先して全額を生活口座に寄せる（目標残高も超えて積む）。
+    //   ⚠️赤字月（surplus<0）は積み立てない＝取引資金から出る。ここを0でクリップしないと生活口座が減る。
+    var atMax = (maxSh != null && maxSh > 0 && shares >= maxSh);
     var drRow = _dtsPickByYm(cfg.drip, ym);
     var toLiving = 0, tgt = null;
-    if (drRow) {
+    if (atMax) {
+      toLiving = Math.max(0, surplus);
+      if (drRow) tgt = _dtsNumOrNull(drRow.target);
+    } else if (drRow) {
       tgt = _dtsNumOrNull(drRow.target);                                  // null＝無制限
       var room = (tgt == null) ? Infinity : Math.max(0, tgt - living);
       var lim  = (drRow.mode === "fill") ? Infinity : (+drRow.amount || 0);
@@ -266,10 +274,17 @@ function _dtsSimulate(cfg) {
       toCapital: surplus - toLiving,
       toLiving: toLiving, livingOpen: livOpen, living: living,
       capitalOpen: capOpen, capital: capital,
-      // 信用余力＝委託保証金 ÷ 委託保証金率 − 建玉金額 2026-08-05F。月初と月末で資金が違うので両方持つ
-      //（建玉 tied はその月の株数で固定なので、月内で動くのは資金の分だけ）。
-      powerOpen: (marginRt > 0) ? (capOpen / marginRt - shares * mainPrice) : null,
-      powerEnd:  (marginRt > 0) ? (capital / marginRt - shares * mainPrice) : null,
+      // 信用余力＝委託保証金 ÷ 委託保証金率＝**建てられる総枠** 2026-08-05J（ユーザー指定で定義変更）。
+      // ⚠️旧は「総枠 − 建玉＝新規に建てられる残り」だった。総枠にすると隣の余力使用率が
+      //   ちょうど 建玉 ÷ 信用余力 になるので、2列が直接つながって読める（率30%なら資金の3.33倍）。
+      powerOpen: (marginRt > 0) ? (capOpen / marginRt) : null,
+      powerEnd:  (marginRt > 0) ? (capital / marginRt) : null,
+      // 理論最大株数＝信用余力（総枠）÷ 株価 2026-08-05K（ユーザー要望）。「この資金で最大何株建てられるか」。
+      // ⚠️100株単位で切り捨てる＝端数の株は建てられないので、切り上げると実際には建てられない株数が出る。
+      //   ⑥の上限（maxShares）は掛けない＝これは**資金の天井**であって運用ルールの上限とは別物。
+      //   株価が未入力(0)だと割れないので null＝表では「—」。
+      theoOpen: (marginRt > 0 && mainPrice > 0) ? Math.floor(capOpen / marginRt / mainPrice / 100) * 100 : null,
+      theoEnd:  (marginRt > 0 && mainPrice > 0) ? Math.floor(capital / marginRt / mainPrice / 100) * 100 : null,
       // 先月末からの増減。投入月だけ toCapital（＝手取り−生活費−積立）と食い違う＝差が投入額そのもの。
       capitalDelta: capital - prevClose,
       total: capital + living,
@@ -524,72 +539,24 @@ function _dtsRow(children) {
 // 配列で渡す子要素なのでkeyを持たせる（同一行内でラベル文言は重複しない）。
 function _dtsLbl(t) { return React.createElement("span", { key: "l_" + t, style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, t); }
 
-// ⑥の下に出す注記 2026-08-05v→z。「月末の資金口座が◯万円になった次の月から」は**段数を数える起点**＝
-// その資金だった時が②の基礎取引株数、という後付けの基準点。起点が今の資金より低いと初月からいきなり段が
-// 乗るので、表を見る前にここで数字を出しておく。
-// ⚠️初月株数は _dtsSimulate の②と同じ式（floor→上限クランプ→ラチェット）で出す＝注記と本体がズレないように。
-// 開始月に⑧の投入があるとその月は②を通らない（①で指定株数へジャンプ）ので、その時は警告を出さない。
-//
-// 【2026-08-05z ⑧の起点リセットを明示】外部レビュー（simulator-step-amount-review.md §6）の指摘。
-//   ⑧で外部資金を投入すると `base`/`baseShares` が投入直後の資金・株数へ張り替わる＝**⑥の入力は捨てられる**。
-//   投入が期間の頭のほうにあると⑥の起点が結果に一切効かなくなる（実測: 起点を210万→1000万にしても出力不変）。
-//   挙動自体は正しい（張り替えないと投入額を利益と誤認して段が跳ねる）ので、**注記が実装に追いついていない
-//   だけ**と判断し、①⑧が起点を置き換えることを書く ②いま実際に使われている起点を出す、の2点で対応。
-//   ⚠️実効起点は res.summary.stepOrigin をそのまま読む＝ここで再計算すると本体とズレるので絶対に作らない。
-function _dtsStepBaseNote(cfg, res) {
+// 丸囲みのα 2026-08-05J（ユーザー指定で⑧を置き換え）。①〜⑦の連番と違って「使わなくてもいい追加の前提」
+// という位置づけを見た目で分ける。⚠️丸囲みギリシャ文字はUnicodeに無いのでCSSの円で作る（㊛のような既製文字は使えない）。
+function _dtsAlphaMark(k) {
+  return React.createElement("span", { key: k || "am", style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
+    width: 14, height: 14, borderRadius: "50%", border: "1.5px solid " + _DTS_INK, fontSize: 9.5, fontWeight: 800,
+    lineHeight: 1, marginRight: 4, verticalAlign: "-2px" } }, "α");
+}
+
+// ⑥の下に出す注記 2026-08-05J。ユーザー指定で**旧い注記（起点の説明・初月の段数・起点の置き換わり）は全廃止**し、
+// 上限到達時の振る舞いだけを書く。旧の _dtsStepBaseNote / それが読んでいた summary.stepOrigin・injFloor は未使用になった。
+// ⚠ここの文言と _dtsSimulate の⑤の atMax 分岐は対で変えること（片方だけ直すと表と説明が食い違う）。
+function _dtsMaxNote(cfg) {
   cfg = cfg || {};
-  var cap0 = +cfg.initialCapital || 0, sh0 = Math.max(0, +cfg.initialShares || 0);
-  var sb = _dtsNumOrNull(cfg.stepBase);
-  var injYm = (cfg.injection && cfg.injection.ym) ? cfg.injection.ym : "";
-  var org = (res && res.summary) ? res.summary.stepOrigin : null;
-
-  var head = "月末の資金口座がこの額だった時の株数が②の基礎取引株数（" + sh0 + "株）という意味です。ここから増えた分を数えます。"
-    + (sb == null ? ("空欄なので開始時の取引資金 " + _dtsFmtMan(cap0) + "円 が起点です。") : "");
-
-  // ①⑧が起点を置き換えること／②実際に使われている起点。⑧を使っていない時は素直に起点だけ出す。
-  // ⚠️⑧由来の起点は**円単位で出す**＝投入直後の資金はシミュの計算結果なので 2,182,488 のような端数になり、
-  //   「218.2万」と丸めると次の閾値を手で足せない（レビュー §6-3-2 の指摘そのもの）。⑥に手入力した起点は
-  //   ユーザーが打った丸い数字なので万表記のままでいい。
-  var org2 = null, orgMax = _dtsNumOrNull(cfg.maxShares);
-  var floor = (res && res.summary) ? res.summary.injFloor : null;
-  var stepAmt0 = Math.max(1, +cfg.stepAmount || 250000);
-  if (org && org.fromInjection) {
-    // 起点が空欄のケース＝⑧が起点ごと張り替える。実効起点は端数になるので円で出す。
-    var capped = (orgMax != null && orgMax > 0 && org.shares >= orgMax);
-    org2 = React.createElement("div", { style: { marginTop: 3, color: "#6D28D9", fontWeight: 700 } },
-      "起点が空欄なので、⑧の投入で起点が " + _dtsYmLbl(org.ym) + "の投入直後の "
-        + _dtsFmtYen(org.capital) + "円 ＝ " + org.shares.toLocaleString() + "株 に置き換わります。"
-        + (capped ? "すでに上限株数なのでこれ以上は増えません。"
-                  : "最初に段が上がるのは " + _dtsFmtYen(org.capital + stepAmt0) + "円 に届いた翌月です。")
-        + "（起点を入れると、投入があっても入れた額のまま動きません）");
-  } else if (org) {
-    // 起点を明示しているケース＝⑧があっても動かない。⑧の株数指定はラチェットの下限として効く。
-    // ⚠️「次に」ではなく「最初に」＝段は起点からの累積なので、2段目は起点+2刻み・3段目は起点+3刻み。
-    //   「次に段が上がるのは起点+1刻み」と書くと、1段でも進んだ後は嘘になる（2026-08-05B に文言修正）。
-    var kids = ["いま使われている起点は " + _dtsFmtMan(org.capital) + "円 ＝ " + org.shares.toLocaleString()
-      + "株。最初に段が上がるのは月末の資金が " + _dtsFmtMan(org.capital + stepAmt0) + "円 に届いた翌月です（2段目は "
-      + _dtsFmtMan(org.capital + stepAmt0 * 2) + "円、以降も同じ刻み）。"];
-    // ⚠️2026-08-05C: ここは以前「計算上の株数が◯株を超えるまではその値のまま」と書いていた＝それが
-    //   まさにユーザー報告のバグ（②の株数から数え直すので⑧で増やした分に追いつくまで段が死ぬ）だった。
-    //   基準株数を⑧の値へ乗せ替えたので、投入の翌月からは普通に段が上がる。
-    if (floor) kids.push(React.createElement("span", { key: "f", style: { color: "#6D28D9", fontWeight: 700 } },
-      "⑧で" + _dtsYmLbl(floor.ym) + "に" + floor.shares.toLocaleString() + "株へ置き直すので、"
-        + "以降はそこから月末の資金が" + _dtsFmtMan(stepAmt0) + "円増えるごとに+"
-        + Math.max(1, +cfg.stepShares || 100).toLocaleString() + "株です。"));
-    org2 = React.createElement("div", { style: { marginTop: 3 } }, kids);
-  }
-
-  var warn = null;
-  if (sb != null && cap0 > sb && !(injYm && cfg.startYm && injYm === cfg.startYm)) {
-    var stepAmt = Math.max(1, +cfg.stepAmount || 250000), stepSh = Math.max(1, +cfg.stepShares || 100);
-    var maxSh = _dtsNumOrNull(cfg.maxShares);
-    var want = sh0 + Math.floor((cap0 - sb) / stepAmt) * stepSh;
-    if (maxSh != null && maxSh > 0) want = Math.min(want, maxSh);
-    if (want > sh0) warn = "※開始時の資金が起点より " + _dtsFmtMan(cap0 - sb) + "円 多く、すでに増えた後なので、初月から " + (want - sh0) + "株 乗って " + want + "株 で始まります。";
-  }
-  return React.createElement("div", { style: { fontSize: 9, color: "#6B7280", marginTop: 4, lineHeight: 1.5 } }, head,
-    warn ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, warn) : null,
-    org2);
+  var mx = _dtsNumOrNull(cfg.maxShares);
+  var t = (mx != null && mx > 0)
+    ? ("株数が上限の " + mx.toLocaleString() + "株 に達した月からは、残金をすべて生活口座へ移します（取引資金を積んでも株数が増えないため。⑤の定額・目標残高より優先します）。")
+    : "上限が未設定なので株数は伸び続けます。上限を入れると、達した月から残金をすべて生活口座へ移します。";
+  return React.createElement("div", { style: { fontSize: 9, color: "#6B7280", marginTop: 4, lineHeight: 1.5 } }, t);
 }
 
 // ---- 本体コンポーネント --------------------------------------------------
@@ -693,7 +660,7 @@ function DaytradeProjection(props) {
         _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } }),
         _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
       ]),
-      _dtsStepBaseNote(cfg, res))),
+      _dtsMaxNote(cfg))),
     _dtsSec("⑦ 余力チェック", "拘束額＝株数×株価／必要保証金＝拘束額×保証金率", React.createElement("div", null,
       _dtsRow([
         _dtsLbl("メイン株価"), React.createElement(DtsNum, { key: "mp", value: cfg.mainPrice, width: 62, suffix: "円", step: 100, onChange: function(v) { set("mainPrice", v); } }),
@@ -706,7 +673,7 @@ function DaytradeProjection(props) {
         + _dtsFmtYen((+cfg.stepAmount || 0) - (+cfg.mainPrice || 0) * (+cfg.stepShares || 100) * (+cfg.marginRate || 0.3))
         + "円 が1段ごとのバッファの増え方です（小さいほど余力使用率が下がりません）。")
     )),
-    _dtsSec("⑧ 外部資金の投入", "使わないなら年月を空のまま", _dtsRow([
+    _dtsSec([_dtsAlphaMark("am8"), React.createElement("span", { key: "t8" }, "外部資金の投入")], "使わないなら年月を空のまま", _dtsRow([
       React.createElement(DtsYm, { key: "iy", value: (cfg.injection || {}).ym, onChange: function(v) { setInj("ym", v); } }),
       _dtsLbl("に"), React.createElement(DtsNum, { key: "ia", value: (cfg.injection || {}).amount, unit: "man", suffix: "万円", step: 5, onChange: function(v) { setInj("amount", v); } }),
       _dtsLbl("投入 → 直後の株数"), React.createElement(DtsNum, { key: "is2", value: (cfg.injection || {}).sharesAfter, width: 56, suffix: "株", step: 100, onChange: function(v) { setInj("sharesAfter", v); } })
@@ -1097,8 +1064,11 @@ function _dtsTable(res, cfg) {
   //   中身より太くなったとき、右寄せの数字だけが右へ流れて見出しから離れる＝「右寄せすぎる」の正体。
   var th = function(t, tip, k, al) { return React.createElement("th", { key: k || t, title: tip || "", style: { padding: "4px 6px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: al || "right", lineHeight: 1.3 } }, t); };
   var mr0 = +cfg.marginRate || 0.30;
-  // 開始時の信用余力＝委託保証金 ÷ 保証金率 − 建玉金額。行データと同じ式で出す。
-  var pw0 = (+cfg.initialCapital || 0) / mr0 - (+cfg.initialShares || 0) * (+cfg.mainPrice || 0);
+  // 開始時の信用余力＝委託保証金 ÷ 保証金率（総枠）。行データと同じ式で出す。
+  var pw0 = (+cfg.initialCapital || 0) / mr0;
+  var mp0 = +cfg.mainPrice || 0;
+  var th0 = mp0 > 0 ? Math.floor(pw0 / mp0 / 100) * 100 : null;
+  var shTxt = function(v) { return v == null ? "—" : v.toLocaleString(); };
   var lastRow = res.rows[res.rows.length - 1] || null;
   var td = function(k, ch, ex) { return React.createElement("td", { key: k, style: Object.assign({ padding: "3px 6px", fontSize: 10.5, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderTop: "1px solid #F1F5F9" }, ex || {}) }, ch); };
   // 開始時の行。これが無いと1行目の「（↑〇万）」が何からの増減か画面上に起点が無い 2026-08-05。
@@ -1111,6 +1081,7 @@ function _dtsTable(res, cfg) {
     td("rest", dash),
     td("cp", _dtsFlow("—", _dtsFmtMan(cfg.initialCapital))),
     td("pw", _dtsFlow("—", _dtsFmtMan(pw0))),
+    td("th", _dtsFlow("—", shTxt(th0))),
     td("pu", _dtsAlign(dash, null, _DTS_W_TONE))
   ]);
   var rows = res.rows.map(function(r, i) {
@@ -1126,6 +1097,7 @@ function _dtsTable(res, cfg) {
       td("rest", _dtsRest(r.toCapital)),
       td("cp", _dtsFlow(_dtsFmtMan(r.capitalOpen), _dtsFmtMan(r.capital))),
       td("pw", _dtsFlow(_dtsFmtMan(r.powerOpen), _dtsFmtMan(r.powerEnd))),
+      td("th", _dtsFlow(shTxt(r.theoOpen), shTxt(r.theoEnd))),
       td("pu", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, _dtsFmtPct(r.powerUse)),
         tone.lbl ? React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, tone.lbl) : null, _DTS_W_TONE))
     ]);
@@ -1146,6 +1118,7 @@ function _dtsTable(res, cfg) {
     // 合計行は「開始時 → 期末」＝月次と同じ読み方（左が前・右が後）で通す。
     td("cp", _dtsFlow(_dtsFmtMan(cfg.initialCapital), _dtsFmtMan(sm.endCapital))),
     td("pw", _dtsFlow(_dtsFmtMan(pw0), _dtsFmtMan(lastRow ? lastRow.powerEnd : pw0))),
+    td("th", _dtsFlow(shTxt(th0), shTxt(lastRow ? lastRow.theoEnd : th0))),
     td("pu", _dtsAlign(dash, null, _DTS_W_TONE))
   ]);
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto", marginBottom: 8 } },
@@ -1159,7 +1132,8 @@ function _dtsTable(res, cfg) {
             React.createElement("div", { key: "b", style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF" } }, "（取引資金組入）")],
           "手取り − 生活費 − 積立 ＝ その月に取引資金へ組み入れた額。マイナスなら取引資金を取り崩した月", "rest"),
         th("取引資金", "月初の資金 → 月末の資金。外部資金を投入した月は月初にその投入額が入っています"),
-        th("信用余力", "月初の余力 → 月末の余力。委託保証金 ÷ 委託保証金率 − 建玉金額"),
+        th("信用余力", "月初の余力 → 月末の余力。取引資金 ÷ 委託保証金率＝建てられる総枠（率30%なら資金の3.33倍）"),
+        th("理論最大株数", "信用余力 ÷ メイン株価を100株単位で切り捨てた株数＝この資金で建てられる上限。⑥の上限とは別で、資金の天井です"),
         th("余力使用率", "拘束額 ÷（取引資金 ÷ 委託保証金率）")
       ])),
       React.createElement("tbody", null, [openRow].concat(rows)),
