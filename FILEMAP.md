@@ -93,7 +93,7 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
-`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / `_dtsTable` / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`
+`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / `_dtsStepBaseNote` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / `_dtsTable` / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`
 
 **📈 損益推移シミュレーター 2026-08-05** — 記録帳の💰損益タブ（全銘柄合算）、🧮シミュの右のタブ。前提を入れて資金・株数・生活口座・総資産の月次推移を出す。**実績の集計ではなく将来の見通し**。
 
@@ -104,6 +104,9 @@ HomeEventFormModal, App
 - **収益の単位＝1日あたり円/100株換算**。アプリ既存のグレード（`_profitGradeFromPnl` S=2501〜/A=2001〜/B=1001〜/C=1〜）と同じ土俵なので、記録帳の実績をそのまま既定値にできる。月次は `1日額 × 営業日数` で内部換算する（月額で持つと実績と単位が食い違って自動入力できない）。オートフィル値は app-06.js の描画分岐（`view === "proj"`）で `_elHoldFinalParts(...).main` の合計 ÷ 記録のあった日数として作り `actual` propで渡す。**最終損益は値幅×100で既に100株換算なので株数で割り直さない**。実現損益ではなく最終損益を使うのは実現損益がほぼ未記録で母数にならないため。
 - **月次ループ①〜⑥は順序を変えると結果が変わる**（仕様として固定）。①外部資金投入 ②株数決定 ③損益 ④支出 ⑤積立 ⑥確定。
 - **株数ラダー**: `floor(max(0, 前月末capital − base) / stepAmount)` の**累積判定なので端数は自動で次段へ繰り越す**（別処理は不要）。判定は**前月末の資金**（当月の利益は含めない）。資金が減っても下げない（ラチェット）。**外部資金の投入月に `base`/`baseShares` を張り替える**＝これが無いと投入額を利益と誤認して株数が跳ねる。
+  - **起点を明示できる `cfg.stepBase` 2026-08-05v**（ユーザー要望）＝⑥の先頭「資金口座◯万円から」。`base = (stepBase != null ? stepBase : capital)`＝**未入力(null)なら従来どおり開始時の取引資金**なので保存済み `dtsCfg` は挙動不変。単位は②取引資金に合わせて**万円**（`unit:"man"`）。**⑧の投入月の張り替えは stepBase より優先**（投入は利益ではないので基準点ごと更新する）。
+  - ⚠️**stepBase は「その資金だった時が②の基礎取引株数」という後付けの基準点**＝今の資金が起点より多いと**初月からいきなり段が乗る**（130万・600株・刻み25万で起点100万なら初月700株）。驚かせないよう `_dtsStepBaseNote(cfg)` が⑥の下に初月株数を先出しする。**この注記は本体②と同じ式（floor→上限クランプ→ラチェット）で計算する**＝別式で書くと表と食い違う。開始月に⑧の投入があるとその月は②を通らない（①で指定株数へジャンプ）ので警告は出さない。
+  - ⑥の**万円欄の▲▼刻みは 1万円**（`step:1`・2026-08-05v にユーザー要望で 5→1）。株数欄は 100 のまま。
 - **社会保険料は生活費の期間別の行に足す**規約（別枠を持たない）。これで依頼メモ§8の期待値を完全再現できることを確認済み。
 - **余力使用率で行を色分け**（〜70%緑／〜85%無地／〜95%黄「警戒」／95%超 赤「危険」／バッファ<0 は「保証金不足」で最優先の赤）。株価6,500円・保証金率30%だと100株あたり必要保証金195,000円なので、刻み250,000円では**1段ごとにバッファが55,000円しか増えず使用率が90%台で高止まりする**（検算で判明）。入力欄⑦にこの差額を出している。
 - **入力欄の▲▼ 2026-08-05**（ユーザー要望）: `DtsNum` が既存の共通部品 **`_stepBtn`（app-05.js:6232）** を使う＝押しっぱなしで**350ms後に80ms間隔**の連続増減・`pointerup`/`pointercancel` で停止。app-05.js は app-09.js より先に読まれるのでそのまま呼べる。

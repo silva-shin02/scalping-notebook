@@ -69,7 +69,7 @@ function _dtsNumOrNull(v) {
 //   dailyPer100, taxRate,
 //   livingCost: [{from, amount}, ...],
 //   drip:       [{from, mode:"drip"|"fill", amount, target}, ...],
-//   stepAmount, stepShares, maxShares,
+//   stepBase, stepAmount, stepShares, maxShares,
 //   mainPrice, marginRate,
 //   injection: {ym, amount, sharesAfter}
 // }
@@ -87,6 +87,7 @@ function _dtsSimulate(cfg) {
   var days      = Math.max(1, Math.round(+cfg.businessDays || 20));
   var taxRate   = (cfg.taxRate == null || cfg.taxRate === "") ? 0.20315 : +cfg.taxRate;
   var perDay    = +cfg.dailyPer100 || 0;
+  var stepBase  = _dtsNumOrNull(cfg.stepBase);           // null＝②の取引資金（＝開始時）から数える
   var stepAmt   = Math.max(1, +cfg.stepAmount || 250000);
   var stepSh    = Math.max(1, +cfg.stepShares || 100);
   var maxSh     = _dtsNumOrNull(cfg.maxShares);          // null＝上限なし
@@ -97,9 +98,13 @@ function _dtsSimulate(cfg) {
   var living  = +cfg.initialLiving  || 0;
   var shares  = Math.max(0, +cfg.initialShares || 0);
 
-  // 株数ラダーの基準点。「開始時の取引資金から何円増えたか」で段数を数える。
-  // ⚠️外部資金の投入は利益ではないので、投入月にここを張り替えないと投入額の分だけ株数が跳ねる。
-  var base = capital, baseShares = shares;
+  // 株数ラダーの基準点。「基準の取引資金から何円増えたか」で段数を数える。
+  // cfg.stepBase＝⑥で明示した「資金口座◯円から」。未入力(null)なら従来どおり②の取引資金＝開始時の資金。
+  // ⚠️stepBaseは基礎取引株数とセットの意味＝「資金がstepBaseだった時に基礎取引株数だった」。
+  //   今の資金がstepBaseより多ければ初月からその差分の段数が乗る（後付けの基準点なので当然そうなる）。
+  // ⚠️外部資金の投入は利益ではないので、投入月にここを張り替えないと投入額の分だけ株数が跳ねる
+  //   （⑧の張り替えはstepBaseより優先＝投入後は「投入直後の資金・株数」が新しい基準点になる）。
+  var base = (stepBase != null ? stepBase : capital), baseShares = shares;
 
   var inj    = (cfg.injection && cfg.injection.ym) ? cfg.injection : null;
   var injIdx = inj ? _dtsYmToIdx(inj.ym) : null;
@@ -307,7 +312,7 @@ function _dtsInitCfg(data, actual) {
     taxRate: 0.20315,
     livingCost: [{ from: ym, amount: 100000 }],
     drip: [{ from: ym, mode: "drip", amount: 50000, target: null }],
-    stepAmount: 250000, stepShares: 100, maxShares: 3000,
+    stepBase: null, stepAmount: 250000, stepShares: 100, maxShares: 3000,
     mainPrice: 6500, marginRate: 0.30,
     injection: { ym: "", amount: 0, sharesAfter: 0 }
   };
@@ -386,6 +391,29 @@ function _dtsRow(children) {
 }
 // 配列で渡す子要素なのでkeyを持たせる（同一行内でラベル文言は重複しない）。
 function _dtsLbl(t) { return React.createElement("span", { key: "l_" + t, style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, t); }
+
+// ⑥の下に出す注記 2026-08-05v。「資金口座◯万円から」は**段数を数える起点**＝その資金だった時が②の基礎取引株数、
+// という後付けの基準点。起点が今の資金より低いと初月からいきなり段が乗るので、表を見る前にここで数字を出しておく。
+// ⚠️初月株数は _dtsSimulate の②と同じ式（floor→上限クランプ→ラチェット）で出す＝注記と本体がズレないように。
+// 開始月に⑧の投入があるとその月は②を通らない（①で指定株数へジャンプ）ので、その時は警告を出さない。
+function _dtsStepBaseNote(cfg) {
+  cfg = cfg || {};
+  var cap0 = +cfg.initialCapital || 0, sh0 = Math.max(0, +cfg.initialShares || 0);
+  var sb = _dtsNumOrNull(cfg.stepBase);
+  var injYm = (cfg.injection && cfg.injection.ym) ? cfg.injection.ym : "";
+  var head = "「資金口座◯万円」は段数を数える起点＝その資金だった時の株数が②の基礎取引株数（" + sh0 + "株）という意味です。"
+    + (sb == null ? ("空欄なので開始時の取引資金 " + _dtsFmtMan(cap0) + "円 から数えます。") : "");
+  var warn = null;
+  if (sb != null && cap0 > sb && !(injYm && cfg.startYm && injYm === cfg.startYm)) {
+    var stepAmt = Math.max(1, +cfg.stepAmount || 250000), stepSh = Math.max(1, +cfg.stepShares || 100);
+    var maxSh = _dtsNumOrNull(cfg.maxShares);
+    var want = sh0 + Math.floor((cap0 - sb) / stepAmt) * stepSh;
+    if (maxSh != null && maxSh > 0) want = Math.min(want, maxSh);
+    if (want > sh0) warn = "※起点より今の資金が " + _dtsFmtMan(cap0 - sb) + "円 多いので、初月から " + (want - sh0) + "株 乗って " + want + "株 で始まります。";
+  }
+  return React.createElement("div", { style: { fontSize: 9, color: "#6B7280", marginTop: 4, lineHeight: 1.5 } }, head,
+    warn ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, warn) : null);
+}
 
 // ---- 本体コンポーネント --------------------------------------------------
 // props: data（保存先＝data.custom.dtsCfg。既存のstSave→fbPut経路で自動同期される）
@@ -477,11 +505,14 @@ function DaytradeProjection(props) {
       }),
       React.createElement("button", { onClick: function() { addRow("drip", { from: cfg.startYm, mode: "drip", amount: 50000, target: null }); }, style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" } }, "＋ 途中で変える")
     )),
-    _dtsSec("⑥ 株数を増やすルール", "判定は前月末の取引資金・端数は次段へ繰り越し・資金が減っても下げない", _dtsRow([
-      _dtsLbl("開始時から"), React.createElement(DtsNum, { key: "sa", value: cfg.stepAmount, unit: "man", suffix: "万円", step: 5, onChange: function(v) { set("stepAmount", v); } }),
-      _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } }),
-      _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
-    ])),
+    _dtsSec("⑥ 株数を増やすルール", "判定は前月末の取引資金・端数は次段へ繰り越し・資金が減っても下げない", React.createElement("div", null,
+      _dtsRow([
+        _dtsLbl("資金口座"), React.createElement(DtsNum, { key: "sb", value: cfg.stepBase, unit: "man", suffix: "万円", placeholder: "開始時", step: 1, onChange: function(v) { set("stepBase", v); } }),
+        _dtsLbl("から"), React.createElement(DtsNum, { key: "sa", value: cfg.stepAmount, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("stepAmount", v); } }),
+        _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } }),
+        _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
+      ]),
+      _dtsStepBaseNote(cfg))),
     _dtsSec("⑦ 余力チェック", "拘束額＝株数×株価／必要保証金＝拘束額×保証金率", React.createElement("div", null,
       _dtsRow([
         _dtsLbl("メイン株価"), React.createElement(DtsNum, { key: "mp", value: cfg.mainPrice, width: 62, suffix: "円", step: 100, onChange: function(v) { set("mainPrice", v); } }),
