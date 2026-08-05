@@ -134,13 +134,16 @@ function _dtsSimulate(cfg) {
   var swCap = _dtsNumOrNull(sw.capital);
   var swIdx = sw.ym ? _dtsYmToIdx(sw.ym) : null;
   var switched = false, swStartYm = null;
-  if (swMode === "shares" && swShares == null) warns.push("⑤の切替が「株数」ですが、株数も⑥の上限も未入力なので切り替わりません。");
-  if (swMode === "capital" && swCap == null) warns.push("⑤の切替が「取引資金」ですが、金額が未入力なので切り替わりません。");
-  if (swMode === "ym" && swIdx == null) warns.push("⑤の切替が「年月」ですが、年月が未入力なので切り替わりません。");
 
   // 前提そのものの警告 2026-08-05B。**入れたのに効かない入力**を黙って捨てないための受け皿。
   // 節目(marks)は「何月に何が起きたか」の時系列なので、時点を持たない設定の警告はここに分ける。
+  // ⚠️**この宣言より前で warns.push を書かないこと** 2026-08-05N。var は巻き上げで undefined になるだけで
+  //   エラーにならず、条件が揃った時だけ「Cannot read properties of undefined (reading 'push')」で画面ごと落ちる
+  //   （実際に⑤の切替の警告3行をここより上に置いてしまい、切替を選んだ瞬間にクラッシュした）。
   var warns = [];
+  if (swMode === "shares" && swShares == null) warns.push("⑤の切替が「株数」ですが、株数も⑥の上限も未入力なので切り替わりません。");
+  if (swMode === "capital" && swCap == null) warns.push("⑤の切替が「取引資金」ですが、金額が未入力なので切り替わりません。");
+  if (swMode === "ym" && swIdx == null) warns.push("⑤の切替が「年月」ですが、年月が未入力なので切り替わりません。");
   if (taxRaw !== taxRate) {
     warns.push("③の税率 " + (Math.round(taxRaw * 1000) / 10) + "% は範囲外なので " + (Math.round(taxRate * 1000) / 10) + "% として計算しています（0〜90%）。");
   }
