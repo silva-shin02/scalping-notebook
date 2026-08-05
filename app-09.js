@@ -307,9 +307,17 @@ function _dtsInitCfg(data, actual) {
 // 数値入力。unit="man"＝円で持って万円で入出力／"pct"＝小数で持って%で入出力／既定＝そのまま。
 // 入力中は draft(生の文字列)を優先して表示する＝「1」と打った瞬間に1万円へ正規化されて
 // 続きが打てなくなるのを防ぐ。blur で draft を捨てて正規表示に戻す。
+//
+// ▲▼ボタンは既存の共通部品 _stepBtn(app-05.js:6232)を使う＝押しっぱなしで350ms後に80ms間隔の連続増減。
+// props.step は**表示単位**で渡す（unit="man" なら step:1 が1万円）。省略するとボタンを出さない＝税率・
+// 委託保証金率のような「いじらない欄」はそのまま。
+// ⚠️_stepBtn の長押しリピートは pointerdown 時点のクロージャを setInterval で呼び続けるので、
+//   props.value を直接読むと**初回の値のまま**になり1段しか進まない。最新値は vRef 経由で読むこと
+//   （app-04.js:4041 の推奨基本α欄と同じ理由・同じ対処）。onChange 側は setCfg の関数アップデータなので古くても安全。
 function DtsNum(props) {
   var _d = useState(null), draft = _d[0], setDraft = _d[1];
   var unit = props.unit || "raw";
+  var vRef = useRef(props.value); vRef.current = props.value;
   var toDisp = function(v) {
     if (v == null || v === "" || !isFinite(v)) return "";
     if (unit === "man") return String(Math.round(v / 100) / 100);
@@ -324,16 +332,29 @@ function DtsNum(props) {
     if (unit === "pct") return n / 100;
     return n;
   };
-  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+  // 表示単位の刻み → 内部単位へ。step未指定＝ボタンなし。
+  var istep = (props.step == null) ? null : (unit === "man" ? props.step * 10000 : unit === "pct" ? props.step / 100 : props.step);
+  var minV = (props.min == null) ? 0 : props.min;
+  var bump = function(dir) {
+    if (istep == null) return;
+    setDraft(null);   // 入力途中の生文字列が残っていると新しい値が画面に出ないので捨てる
+    var cur = vRef.current;
+    var base = (cur == null || cur === "" || !isFinite(cur)) ? 0 : Number(cur);
+    var nv = base + dir * istep;
+    if (minV != null && nv < minV) nv = minV;
+    props.onChange(unit === "pct" ? nv : Math.round(nv));
+  };
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + _DTS_BD, borderRadius: 5, overflow: "hidden", background: "#fff" } },
     React.createElement("input", {
       type: "text", inputMode: "decimal", placeholder: props.placeholder || "",
       value: draft != null ? draft : toDisp(props.value),
       onChange: function(e) { var s = e.target.value; setDraft(s); props.onChange(fromDisp(s)); },
       onBlur: function() { setDraft(null); },
       style: { width: props.width || 62, padding: "3px 5px", fontSize: 11.5, fontWeight: 700, textAlign: "right",
-        border: "1px solid " + _DTS_BD, borderRadius: 5, background: "#fff", color: "#1F2937", fontVariantNumeric: "tabular-nums" }
+        border: "none", outline: "none", background: "transparent", color: "#1F2937", fontVariantNumeric: "tabular-nums" }
     }),
-    props.suffix ? React.createElement("span", { style: { fontSize: 10, color: "#6B7280", fontWeight: 700 } }, props.suffix) : null);
+    props.suffix ? React.createElement("span", { style: { fontSize: 9.5, color: "#6B7280", fontWeight: 700, alignSelf: "center", padding: "0 3px", whiteSpace: "nowrap" } }, props.suffix) : null,
+    istep != null ? _stepBtn(function() { bump(1); }, function() { bump(-1); }) : null);
 }
 
 // 年月入力（YYYY-MM）。type="month" は file:// でも素直に動く。
@@ -397,16 +418,16 @@ function DaytradeProjection(props) {
     _dtsSec("① 期間", months ? "＝ " + months + "ヶ月" : null, _dtsRow([
       _dtsLbl("開始"), React.createElement(DtsYm, { key: "s", value: cfg.startYm, onChange: function(v) { set("startYm", v); } }),
       _dtsLbl("終了（月末まで）"), React.createElement(DtsYm, { key: "e", value: cfg.endYm, onChange: function(v) { set("endYm", v); } }),
-      _dtsLbl("月間営業日"), React.createElement(DtsNum, { key: "bd", value: cfg.businessDays, width: 42, suffix: "日", onChange: function(v) { set("businessDays", v); } })
+      _dtsLbl("月間営業日"), React.createElement(DtsNum, { key: "bd", value: cfg.businessDays, width: 42, suffix: "日", step: 1, min: 1, onChange: function(v) { set("businessDays", v); } })
     ])),
     _dtsSec("② 今の状態", null, _dtsRow([
-      _dtsLbl("取引資金"), React.createElement(DtsNum, { key: "ic", value: cfg.initialCapital, unit: "man", suffix: "万円", onChange: function(v) { set("initialCapital", v); } }),
-      _dtsLbl("生活口座"), React.createElement(DtsNum, { key: "il", value: cfg.initialLiving, unit: "man", suffix: "万円", onChange: function(v) { set("initialLiving", v); } }),
-      _dtsLbl("基礎取引株数"), React.createElement(DtsNum, { key: "is", value: cfg.initialShares, width: 52, suffix: "株", onChange: function(v) { set("initialShares", v); } })
+      _dtsLbl("取引資金"), React.createElement(DtsNum, { key: "ic", value: cfg.initialCapital, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("initialCapital", v); } }),
+      _dtsLbl("生活口座"), React.createElement(DtsNum, { key: "il", value: cfg.initialLiving, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("initialLiving", v); } }),
+      _dtsLbl("基礎取引株数"), React.createElement(DtsNum, { key: "is", value: cfg.initialShares, width: 52, suffix: "株", step: 100, onChange: function(v) { set("initialShares", v); } })
     ])),
     _dtsSec("③ 収益の前提", "記録帳と同じ単位（1日あたり・100株換算）", React.createElement("div", null,
       _dtsRow([
-        _dtsLbl("1日あたり"), React.createElement(DtsNum, { key: "dp", value: cfg.dailyPer100, width: 68, suffix: "円/100株", onChange: function(v) { set("dailyPer100", v); } }),
+        _dtsLbl("1日あたり"), React.createElement(DtsNum, { key: "dp", value: cfg.dailyPer100, width: 68, suffix: "円/100株", step: 100, onChange: function(v) { set("dailyPer100", v); } }),
         React.createElement("span", { key: "gb" }, badge(grade)),
         (actual && actual.perDay != null) ? React.createElement("button", {
           key: "af", onClick: function() { set("dailyPer100", Math.round(actual.perDay)); },
@@ -426,7 +447,7 @@ function DaytradeProjection(props) {
         return React.createElement("div", { key: "lc" + i, style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
           React.createElement(DtsYm, { value: r.from, width: 112, onChange: function(v) { setRow("livingCost", i, "from", v); } }),
           _dtsLbl("から 月"),
-          React.createElement(DtsNum, { value: r.amount, unit: "man", suffix: "万円", onChange: function(v) { setRow("livingCost", i, "amount", v); } }),
+          React.createElement(DtsNum, { value: r.amount, unit: "man", suffix: "万円", step: 1, onChange: function(v) { setRow("livingCost", i, "amount", v); } }),
           (cfg.livingCost.length > 1) ? React.createElement("button", { onClick: function() { delRow("livingCost", i); }, style: { fontSize: 10, color: "#B91C1C", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null);
       }),
       React.createElement("button", { onClick: function() { addRow("livingCost", { from: cfg.startYm, amount: 200000 }); }, style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" } }, "＋ 途中で変える")
@@ -440,21 +461,21 @@ function DaytradeProjection(props) {
             value: r.mode || "drip", onChange: function(e) { setRow("drip", i, "mode", e.target.value); },
             style: { fontSize: 11, fontWeight: 700, padding: "3px 4px", border: "1px solid " + _DTS_BD, borderRadius: 5, background: "#fff", color: "#1F2937" }
           }, React.createElement("option", { value: "drip" }, "定額"), React.createElement("option", { value: "fill" }, "目標まで全額")),
-          (r.mode === "fill") ? null : React.createElement(DtsNum, { value: r.amount, unit: "man", suffix: "万円/月", onChange: function(v) { setRow("drip", i, "amount", v); } }),
+          (r.mode === "fill") ? null : React.createElement(DtsNum, { value: r.amount, unit: "man", suffix: "万円/月", step: 1, onChange: function(v) { setRow("drip", i, "amount", v); } }),
           _dtsLbl("目標残高"),
-          React.createElement(DtsNum, { value: r.target, unit: "man", suffix: "万円", placeholder: "無制限", onChange: function(v) { setRow("drip", i, "target", v); } }),
+          React.createElement(DtsNum, { value: r.target, unit: "man", suffix: "万円", placeholder: "無制限", step: 5, onChange: function(v) { setRow("drip", i, "target", v); } }),
           (cfg.drip.length > 1) ? React.createElement("button", { onClick: function() { delRow("drip", i); }, style: { fontSize: 10, color: "#B91C1C", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null);
       }),
       React.createElement("button", { onClick: function() { addRow("drip", { from: cfg.startYm, mode: "drip", amount: 50000, target: null }); }, style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" } }, "＋ 途中で変える")
     )),
     _dtsSec("⑥ 株数を増やすルール", "判定は前月末の取引資金・端数は次段へ繰り越し・資金が減っても下げない", _dtsRow([
-      _dtsLbl("開始時から"), React.createElement(DtsNum, { key: "sa", value: cfg.stepAmount, unit: "man", suffix: "万円" , onChange: function(v) { set("stepAmount", v); } }),
-      _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", onChange: function(v) { set("stepShares", v); } }),
-      _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", onChange: function(v) { set("maxShares", v); } })
+      _dtsLbl("開始時から"), React.createElement(DtsNum, { key: "sa", value: cfg.stepAmount, unit: "man", suffix: "万円", step: 5, onChange: function(v) { set("stepAmount", v); } }),
+      _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } }),
+      _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
     ])),
     _dtsSec("⑦ 余力チェック", "拘束額＝株数×株価／必要保証金＝拘束額×保証金率", React.createElement("div", null,
       _dtsRow([
-        _dtsLbl("メイン株価"), React.createElement(DtsNum, { key: "mp", value: cfg.mainPrice, width: 62, suffix: "円", onChange: function(v) { set("mainPrice", v); } }),
+        _dtsLbl("メイン株価"), React.createElement(DtsNum, { key: "mp", value: cfg.mainPrice, width: 62, suffix: "円", step: 100, onChange: function(v) { set("mainPrice", v); } }),
         _dtsLbl("委託保証金率"), React.createElement(DtsNum, { key: "mr", value: cfg.marginRate, unit: "pct", width: 52, suffix: "%", onChange: function(v) { set("marginRate", v); } })
       ]),
       React.createElement("div", { style: { fontSize: 9, color: "#B45309", marginTop: 4, lineHeight: 1.5 } },
@@ -466,8 +487,8 @@ function DaytradeProjection(props) {
     )),
     _dtsSec("⑧ 外部資金の投入", "使わないなら年月を空のまま", _dtsRow([
       React.createElement(DtsYm, { key: "iy", value: (cfg.injection || {}).ym, onChange: function(v) { setInj("ym", v); } }),
-      _dtsLbl("に"), React.createElement(DtsNum, { key: "ia", value: (cfg.injection || {}).amount, unit: "man", suffix: "万円", onChange: function(v) { setInj("amount", v); } }),
-      _dtsLbl("投入 → 直後の株数"), React.createElement(DtsNum, { key: "is2", value: (cfg.injection || {}).sharesAfter, width: 56, suffix: "株", onChange: function(v) { setInj("sharesAfter", v); } })
+      _dtsLbl("に"), React.createElement(DtsNum, { key: "ia", value: (cfg.injection || {}).amount, unit: "man", suffix: "万円", step: 5, onChange: function(v) { setInj("amount", v); } }),
+      _dtsLbl("投入 → 直後の株数"), React.createElement(DtsNum, { key: "is2", value: (cfg.injection || {}).sharesAfter, width: 56, suffix: "株", step: 100, onChange: function(v) { setInj("sharesAfter", v); } })
     ]))
   );
 
