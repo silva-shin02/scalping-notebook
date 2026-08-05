@@ -6081,9 +6081,17 @@ function EntryLogView(_ref_elv2) {
   // ラベルは2026-08-05mのユーザー指示で「最終損益」「実現損益」まで短縮した
   // （指値同値列は最終損益と同じスケールなので上段に含まれる／10倍は数字を見れば分かる）。
   // しきい値は_GRADE_DESCから生成しているので、境界を変えてもここは自動追随する。
-  var _ovGradeLegend = _gradeLegendGrid(
-    [{ label: "最終損益", real: false }, { label: "実現損益", real: true }],
-    { lowerOnly: true, style: { marginLeft: "auto" } });
+  // 2026-08-05w 凡例の直下に「※グレードはすべて1日換算」を赤で出す（ユーザー要望）。
+  //   この表のグレードバッジは**全列とも合計÷営業日数で判定している**（_yenN L6037の_gv／_yenNRの（）内は
+  //   app-05 _elHold2RefSuffix でも同じ規約）。**実現損益も例外ではない**＝isRealはしきい値表を
+  //   _profitGradeFromPnlReal（10倍スケール）に切り替えるだけで、日数で割る処理は共通。
+  //   表示額は合計のままなので「+79,600円なのにS？」と誤読されやすい＝注記で明示する。
+  //   右端寄せ(marginLeft:auto)は凡例本体から外側のcolumnラッパへ移した。
+  var _ovGradeLegend = React.createElement("div",
+    { style: { marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 } },
+    _gradeLegendGrid([{ label: "最終損益", real: false }, { label: "実現損益", real: true }], { lowerOnly: true }),
+    React.createElement("div", { title: "各グレードは「その期間の合計 ÷ 営業日数（日数列）」で判定しています。表示している金額は合計なので、合計額をそのままグレード表に当てても一致しません。最終損益・同値除外損益・実現損益・（）内の参考値すべて同じ規約です",
+      style: { fontSize: 9, fontWeight: 700, color: "#C0392B", whiteSpace: "nowrap" } }, "※グレードはすべて1日換算"));
   // 2026-08-03: totOf/totExOf/stopsOf/winTakeOf を _ovPnlTbl の中からこのスコープへ引き上げ（定義の中身は一切変えていない・位置だけの移動）。
   //   理由: 🏷銘柄別の損益割合(_stkShareSection)が全く同じ集計を使うため。再実装すると「全体損益（期間別）の合計」と「銘柄別の合計」が
   //   黙ってずれ得る（除外条件が1つでもずれると検算が崩れる）。keyOf/labelOf/_holiSet/_bizDaysIn は g に依存するので _ovPnlTbl の中に残す。
