@@ -109,6 +109,7 @@ function _dtsSimulate(cfg) {
 
   for (var k = 0; k < n; k++) {
     var ym = _dtsIdxToYm(sIdx + k);
+    var prevClose = capital;   // 先月末の取引資金＝「先月比」の起点。①の投入で capital が動く前に取っておく 2026-08-05
     var capOpen = capital;   // 月初の取引資金＝バッファ・余力使用率の判定に使う（当月の利益は含めない）
     var injected = 0, stepUp = false;
 
@@ -177,6 +178,8 @@ function _dtsSimulate(cfg) {
       toCapital: surplus - toLiving,
       toLiving: toLiving, livingOpen: livOpen, living: living,
       capitalOpen: capOpen, capital: capital,
+      // 先月末からの増減。投入月だけ toCapital（＝手取り−生活費−積立）と食い違う＝差が投入額そのもの。
+      capitalDelta: capital - prevClose,
       total: capital + living,
       ownBase: capital + living - injTotal,            // 自己資金ベース＝総資産−外部資金の累計
       injected: injected, livingTarget: tgt,
@@ -477,7 +480,7 @@ function DaytradeProjection(props) {
     _dtsHeader(openIn, setOpenIn, doSave, saveMsg), inputPanel,
     _dtsSummaryCards(res, cfg),
     _dtsCharts(res),
-    _dtsTable(res),
+    _dtsTable(res, cfg),
     _dtsMarks(res),
     _dtsSensTable(cfg, res)
   );
@@ -505,14 +508,20 @@ function _dtsSummaryCards(res, cfg) {
       React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: col || _DTS_INK, fontVariantNumeric: "tabular-nums", lineHeight: 1.25 } }, val),
       sub ? React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280" } }, sub) : null);
   };
-  return React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 } }, [
-    card("期末 総資産", _dtsFmtMan(s.endTotal), _dtsYmLbl(s.endYm) + "末", "#047857"),
-    card("期末 取引資金", _dtsFmtMan(s.endCapital), "＋" + _dtsFmtMan(s.capitalGain)),
-    card("期末 生活口座", _dtsFmtMan(s.endLiving), null),
-    card("期末 株数", s.endShares.toLocaleString() + "株", (+cfg.initialShares || 0) + "株 から"),
-    card("自己資金ベース", _dtsFmtMan(s.endOwnBase), s.injection ? "外部 " + _dtsFmtMan(s.injection) + " を除く" : "外部資金なし"),
-    card("手取り合計", _dtsFmtMan(s.net), "税 " + _dtsFmtMan(s.tax) + " 控除後", "#9A3412")
-  ]);
+  // 開始時からの増減を全カードに揃えて出す（旧: 期末取引資金だけ「＋◯◯万」で不揃いだった）2026-08-05。
+  var sh0 = +cfg.initialShares || 0, liv0 = +cfg.initialLiving || 0;
+  var gain = function(v) { return (v >= 0 ? "＋" : "−") + _dtsFmtMan(Math.abs(v)); };
+  return React.createElement("div", null,
+    React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", marginBottom: 4 } },
+      _dtsYmLbl(s.startYm) + " 〜 " + _dtsYmLbl(s.endYm) + "末（" + s.months + "ヶ月）の見通し"),
+    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 } }, [
+      card("期末 総資産", _dtsFmtMan(s.endTotal), gain(s.endTotal - (+cfg.initialCapital || 0) - liv0), "#047857"),
+      card("期末 取引資金", _dtsFmtMan(s.endCapital), gain(s.capitalGain)),
+      card("期末 生活口座", _dtsFmtMan(s.endLiving), gain(s.endLiving - liv0)),
+      card("期末 株数", s.endShares.toLocaleString() + "株", (s.endShares >= sh0 ? "＋" : "−") + Math.abs(s.endShares - sh0) + "株"),
+      card("自己資金ベース", _dtsFmtMan(s.endOwnBase), s.injection ? "外部 " + _dtsFmtMan(s.injection) + " を除く" : "外部資金なし"),
+      card("手取り合計", _dtsFmtMan(s.net), "税 " + _dtsFmtMan(s.tax) + " 控除後", "#9A3412")
+    ]));
 }
 
 // ---- グラフ（自前SVG）----------------------------------------------------
@@ -635,9 +644,31 @@ function _dtsCharts(res) {
   ]);
 }
 
-function _dtsTable(res) {
+// （）内に先月比を出す小さな差分バッジ。上がったら緑↑・下がったら赤↓。
+// ⚠️「増える方が良い」欄にだけ使うこと。余力使用率のように**下がる方が良い**欄では色が逆になる。
+function _dtsDelta(v, opts) {
+  if (v == null || !isFinite(v)) return null;
+  var o = opts || {}, good = o.lowerIsBetter ? (v < 0) : (v > 0);
+  var col = (v === 0) ? "#9CA3AF" : (good ? "#047857" : "#B91C1C");
+  var arw = (v === 0) ? "±" : (v > 0 ? "↑" : "↓");
+  var body = o.fmt ? o.fmt(Math.abs(v)) : _dtsFmtMan(Math.abs(v));
+  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: col, marginLeft: 3 } }, "（" + arw + body + "）");
+}
+
+function _dtsTable(res, cfg) {
   var th = function(t, tip) { return React.createElement("th", { key: t, title: tip || "", style: { padding: "4px 5px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center" } }, t); };
   var td = function(k, ch, ex) { return React.createElement("td", { key: k, style: Object.assign({ padding: "3px 5px", fontSize: 10.5, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderTop: "1px solid #F1F5F9" }, ex || {}) }, ch); };
+  // 開始時の行。これが無いと1行目の「（↑〇万）」が何からの増減か画面上に起点が無い 2026-08-05。
+  var dash = React.createElement("span", { style: { color: "#D1D5DB" } }, "—");
+  var openRow = React.createElement("tr", { key: "__open", style: { background: "#F8FAFC" } }, [
+    td("ym", React.createElement("span", { style: { fontWeight: 800, color: "#6B7280" } }, "開始時"), { textAlign: "left", borderLeft: "3px solid transparent" }),
+    td("sh", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, (+cfg.initialShares || 0).toLocaleString())),
+    td("gr", dash), td("net", dash), td("ex", dash), td("tl", dash),
+    td("lv", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, _dtsFmtMan(cfg.initialLiving))),
+    td("tc", dash),
+    td("cp", React.createElement("span", { style: { fontWeight: 800, color: "#6B7280" } }, _dtsFmtMan(cfg.initialCapital))),
+    td("pu", dash), td("be", dash)
+  ]);
   var rows = res.rows.map(function(r, i) {
     var tone = _dtsUseTone(r.powerUse, r.shortMargin);
     var beG = (typeof _profitGradeFromPnl === "function" && r.bePerDay != null) ? _profitGradeFromPnl(Math.round(r.bePerDay), 1) : null;
@@ -650,9 +681,9 @@ function _dtsTable(res) {
       td("tl", _dtsFmtMan(r.toLiving)),
       td("lv", React.createElement("span", { style: { fontWeight: 700 } }, _dtsFmtMan(r.living))),
       td("tc", React.createElement("span", { style: { fontWeight: 700, color: r.toCapital >= 0 ? "#047857" : "#B91C1C" } }, (r.toCapital >= 0 ? "＋" : "−") + _dtsFmtMan(Math.abs(r.toCapital)))),
-      td("cp", React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, _dtsFmtMan(r.capital))),
-      td("to", React.createElement("span", { style: { fontWeight: 800, color: "#047857" } }, _dtsFmtMan(r.total))),
-      td("bf", React.createElement("span", { style: { color: r.shortMargin ? "#B91C1C" : "#374151", fontWeight: r.shortMargin ? 800 : 400 } }, _dtsFmtMan(r.buffer))),
+      td("cp", React.createElement("span", null,
+        React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, _dtsFmtMan(r.capital)),
+        _dtsDelta(r.capitalDelta))),
       td("pu", React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, _dtsFmtPct(r.powerUse) + (tone.lbl ? " " + tone.lbl : ""))),
       td("be", React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, justifyContent: "flex-end" } },
         (typeof _elHoldGradeBadge === "function" && beG) ? _elHoldGradeBadge(beG) : null,
@@ -660,15 +691,15 @@ function _dtsTable(res) {
     ]);
   });
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto", marginBottom: 8 } },
-    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 900 } },
+    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 780 } },
       React.createElement("thead", null, React.createElement("tr", null, [
         th("年月"), th("株数"), th("税引前", "税引前の月次利益＝(株数÷100)×1日あたり損益×営業日数"), th("手取り", "税引前 − 税（税額は上のサマリーカードに合計で出しています）"),
         th("生活費", "社会保険料を含む"), th("積立", "その月に生活口座へ移した額"), th("生活口座", "生活口座の月末残高"),
-        th("残額", "手取り − 生活費 − 積立 ＝ その月に取引資金へ残った額。月末取引資金の増加分そのもの"),
-        th("月末取引資金"), th("総資産", "月末取引資金 ＋ 生活口座"), th("バッファ", "月初の取引資金 − 必要保証金。マイナス＝その株数は建てられない"),
+        th("残額", "手取り − 生活費 − 積立 ＝ その月に取引資金へ残った額"),
+        th("月末取引資金", "（）内は先月末からの増減。外部資金を投入した月だけ「残額」と食い違い、その差が投入額そのものです"),
         th("余力使用率", "拘束額 ÷（取引資金 ÷ 委託保証金率）"), th("損益分岐/日/100株", "その月の生活費を出すのに必要な1日あたり成績（100株換算）")
       ])),
-      React.createElement("tbody", null, rows)));
+      React.createElement("tbody", null, [openRow].concat(rows))));
 }
 
 function _dtsMarks(res) {

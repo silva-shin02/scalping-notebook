@@ -93,7 +93,7 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
-`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsTable` / `_dtsMarks` / `_dtsSensTable`
+`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / `_dtsTable` / `_dtsMarks` / `_dtsSensTable`
 
 **📈 損益推移シミュレーター 2026-08-05** — 記録帳の💰損益タブ（全銘柄合算）、🧮シミュの右のタブ。前提を入れて資金・株数・生活口座・総資産の月次推移を出す。**実績の集計ではなく将来の見通し**。
 
@@ -110,7 +110,13 @@ HomeEventFormModal, App
   - `_dtsChartAssets` … 総資産の積み上げ棒（下=取引資金 `#93C5FD` / 上=生活口座 `#FCD34D`・左軸 万円）＋ **株数の階段線**（右軸・`#B45309`）。「資金が増える→株数が上がる」の連動を1枚で見せる。目盛りは `_dtsNiceMax`（1/2/2.5/5/10×10^n）。
   - `_dtsChartPower` … 余力使用率の折れ線。**70/85/95%の帯と破線**を敷き、点は `_dtsUseTone` と同じ色。95%超が目で拾える。
   - X軸ラベルは `Math.ceil(n/12)` 件おきに間引く（最長120ヶ月でも潰れない）。`viewBox` + `width:100%` + 親を `overflow-x:auto` ＝横スクロールで縮まない。
-- **月次テーブルの列 2026-08-05**（ユーザー指示）: **「税」列は出さない**（税額合計はサマリーカードの「手取り合計」の下に残している）。**「残額」列を生活口座の右に置く**＝`toCapital`＝`手取り − 生活費 − 積立`＝その月に取引資金へ残った額。月末取引資金の増加分そのものなので、表の途中で金額が飛ぶ理由が追える。各列の見出しに `title`（ホバー説明）を付けてある。
+- **月次テーブルの列 2026-08-05**（ユーザー指示で3回に分けて調整）。現在の11列＝`年月 / 株数 / 税引前 / 手取り / 生活費 / 積立 / 生活口座 / 残額 / 月末取引資金 / 余力使用率 / 損益分岐`。各列の見出しに `title`（ホバー説明）付き。
+  - **出さない列**: 「税」（税額合計はサマリーカード「手取り合計」の下に残存）／「総資産」（＝月末取引資金＋生活口座で両方すでに列にある＝冗長。**サマリーカードとグラフ①には残す**）／「バッファ」（余力使用率と同じことを額で言っているだけ。**保証金不足は節目の警告として残る**）。
+  - **「残額」** = `toCapital` = `手取り − 生活費 − 積立` ＝ その月に取引資金へ残った額。
+  - **「月末取引資金」に先月比** = `capitalDelta` = `capital − 先月末capital`（`_dtsDelta` で「（↑〇万）」）。**投入月だけ `toCapital` と食い違い、差が投入額そのもの**＝それ以外の月は残額と一致する。
+  - **表の先頭に「開始時」行**（薄いグレー）＝ `initialShares / initialLiving / initialCapital`。これが無いと1行目の「（↑〇万）」の起点が画面に無い。
+  - `_dtsDelta(v, {lowerIsBetter, fmt})` … （）内の差分バッジ。**「増える方が良い」欄にだけ既定で使う**。余力使用率のように下がる方が良い欄は `lowerIsBetter:true` で色が反転する。
+  - **サマリーカードは全カードに開始時からの増減を出す**（旧: 期末取引資金だけ「＋◯◯万」で不揃いだった）。カード上に「2026年8月 〜 2027年7月末（12ヶ月）の見通し」の1行。
 
 ## 変更ログ
 
