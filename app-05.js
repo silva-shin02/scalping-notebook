@@ -5630,9 +5630,9 @@ function _profitGradeFromPnlReal(pnl, enteredCount) {
 //   個々はきれいでも隣同士が潰れる（旧配色がまさにこれ）。
 var _GRADE_STYLE = {
   S: { bg: "#FADD78", color: "#5A3F00", border: "#D2A421" },   // 金（2026-08-05j 明るさ59→73へ薄く。ユーザー調整）
-  A: { bg: "#F58A8A", color: "#6E0D0D", border: "#DC6060" },
-  B: { bg: "#FFC9C9", color: "#A81C1C", border: "#EE9A9A" },
-  C: { bg: "#FFEAEA", color: "#C22B2B", border: "#F6C0C0" },
+  A: { bg: "#F8A5A5", color: "#6E0D0D", border: "#EC8F8F" },   // 2026-08-05k 利益側を1段ずつ薄く（A=39→50・B=67→74・C=86→89）
+  B: { bg: "#FFD5D5", color: "#A81C1C", border: "#F5B8B8" },
+  C: { bg: "#FFEFEF", color: "#C22B2B", border: "#F9CFCF" },
   D: { bg: "#DFDFDF", color: "#3A3A3A", border: "#B5B5B5" },
   E: { bg: "#E6F5DA", color: "#3F7A1E", border: "#C2E3A8" },
   F: { bg: "#C4E6AE", color: "#2C6115", border: "#9BCF7E" },
