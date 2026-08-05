@@ -4588,28 +4588,44 @@ function _elDetailPnlStackNode(recsM, aiAlpha, aiCut, badgeFn, allMiss, days) {
   if (!recsM || !recsM.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var t = _elTotAccum(recsM, { signal: function(r) { return r.signal; }, alpha: aiAlpha, cut: aiCut });
   // allMissFirst=EP行のみ（旧EPセルはallMiss時に計画0でもQ0優先）。H1/H2は「値があれば値・無ければ参考/Q0/—」＝旧H1・最終セルと完全一致＝詳細のH2は最終損益列と常に同値。
-  var _line = function(lbl, main, cnt, ref, refCnt, mid, allMissFirst) {
-    var body;
-    if (allMissFirst && allMiss) {
-      body = _qZeroCell();
-    } else if (main != null) {
-      var g = _profitGradeFromPnl((days && days > 0) ? Math.round(main / days) : main, cnt);
-      body = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-        g ? badgeFn(g) : null,
-        React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(main) } }, _elPnlFmt(main)),
-        _elHold2RefSuffix(main, ref, refCnt, days));
-    } else if (refCnt > 0) {
-      body = _elHold2RefSuffix(0, ref, refCnt, days);
-    } else {
-      body = allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
+  // 2026-08-05e 3行をgrid化し、（）も列として持たせて縦ぞろえする（ユーザー要望「（）内の金額なども
+  // きれいに縦ぞろえがいいな。（）自体の位置なども」）。旧は行ごとのinline-flexで（）を額の後ろに
+  // 直付けしていたため、額の桁数が違うと（の開始位置がずれていた。
+  // 列 = ラベル / バッジ / 額 / （ / 参考バッジ / 参考額 / ）。額と参考額は右寄せ。参考が1つも無ければ3列。
+  // H１行の上下罫線を途切れさせないため columnGap は 0 にして、余白はセル内のpaddingで作る。
+  var defs = [
+    { lbl: "EP：", main: (t.planCnt > 0 ? t.plan : null), cnt: t.planCnt, ref: t.planRef, refCnt: t.planRefCnt, mid: false, missFirst: true },
+    { lbl: "H１：", main: (t.holdCnt > 0 ? t.holdPlanCap : null), cnt: t.holdCnt, ref: t.holdRef, refCnt: t.holdRefCnt, mid: true, missFirst: false },
+    { lbl: "最終：", main: (t.hold2Cnt > 0 ? t.hold2 : null), cnt: t.hold2Cnt, ref: t.hold2Ref, refCnt: t.hold2RefCnt, mid: false, missFirst: false }   // 2026-07-25 「H２」→「最終」（手じまいまでに拡張＝EPの2本後で固定ではなくなったため）
+  ];
+  defs.forEach(function(d) {
+    d.q0 = !!(d.missFirst && allMiss);
+    // 旧 _elHold2RefSuffix(main, ref, refCnt) と同じ値＝main+ref。main無しの参考のみ行は旧実装どおり 0+ref。
+    d.refVal = (!d.q0 && d.refCnt > 0 && d.ref != null) ? ((d.main != null ? d.main : 0) + d.ref) : null;
+  });
+  var hasRef = defs.some(function(d) { return d.refVal != null; });
+  var _gv = function(v) { return (days && days > 0) ? Math.round(v / days) : v; };   // グレードは1日平均で判定（daysが来た時だけ）
+  var cells = [];
+  defs.forEach(function(d, i) {
+    var bd = d.mid ? { borderTop: "1px solid #e0d8c8", borderBottom: "1px solid #e0d8c8" } : {};
+    var _c = function(k, sty, child) {
+      cells.push(React.createElement("span", { key: k + i, style: Object.assign({ whiteSpace: "nowrap", padding: "1px 0" }, bd, sty) }, child));
+    };
+    _c("l", { fontSize: 9, color: "#9A3412", fontWeight: 700, textAlign: "left", paddingRight: 3 }, d.lbl);
+    if (d.q0 || (d.main == null && d.refVal == null)) {
+      _c("f", { display: "inline-flex", alignItems: "center", gridColumn: "span " + (hasRef ? 6 : 2) }, (d.q0 || allMiss) ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"));
+      return;
     }
-    return React.createElement("span", { style: Object.assign({ display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", padding: "1px 0" }, mid ? { borderTop: "1px solid #e0d8c8", borderBottom: "1px solid #e0d8c8" } : {}) },
-      React.createElement("span", { style: { fontSize: 9, color: "#9A3412", fontWeight: 700, minWidth: 26, textAlign: "left", flexShrink: 0 } }, lbl), body);
-  };
-  return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", lineHeight: 1.25, fontVariantNumeric: "tabular-nums" } },
-    _line("EP：", (t.planCnt > 0 ? t.plan : null), t.planCnt, t.planRef, t.planRefCnt, false, true),
-    _line("H１：", (t.holdCnt > 0 ? t.holdPlanCap : null), t.holdCnt, t.holdRef, t.holdRefCnt, true, false),
-    _line("最終：", (t.hold2Cnt > 0 ? t.hold2 : null), t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, false, false));   // 2026-07-25 「H２」→「最終」（手じまいまでに拡張＝EPの2本後で固定ではなくなったため）
+    _c("b", { display: "inline-flex", alignItems: "center" }, d.main == null ? null : (function() { var g = _profitGradeFromPnl(_gv(d.main), d.cnt); return g ? badgeFn(g) : null; })());
+    _c("a", { fontWeight: 700, color: _elPnlColor(d.main), justifySelf: "end" }, d.main == null ? null : _elPnlFmt(d.main));
+    if (!hasRef) return;
+    var v = d.refVal;
+    _c("p", { color: "#9CA3AF", fontWeight: 600, paddingLeft: 3 }, v == null ? null : "（");
+    _c("rb", { display: "inline-flex", alignItems: "center" }, v == null ? null : _elHoldGradeBadge(_profitGradeFromPnl(_gv(v), 1)));
+    _c("ra", { fontWeight: 600, color: _elPnlColor(v), justifySelf: "end" }, v == null ? null : _elPnlFmt(v));
+    _c("pc", { color: "#9CA3AF", fontWeight: 600 }, v == null ? null : "）");
+  });
+  return React.createElement("span", { style: { display: "inline-grid", gridTemplateColumns: hasRef ? "auto auto auto auto auto auto auto" : "auto auto auto", columnGap: 0, alignItems: "center", justifyItems: "start", lineHeight: 1.25, fontVariantNumeric: "tabular-nums" } }, cells);
 }
 // 理想α値（EP起算v2/v3対応・完全刷新 2026-06-13）: EP/H1/H2の各指標について、α候補(0〜50円1刻み)を
 // 総当たりし合計が最大になるαを返す。各候補で _elTotAccum を回す＝合計行(EP損益/H1/H2)と完全一致。

@@ -6390,29 +6390,36 @@ function DayView(_ref57) {
       // 違うとバッジも額もガタついていた。gridにすると列が揃う。
       // rows = [{ label: node|null, grade: string|null, amount: number, ref: node|null }]
       var _wkAvgLabel = React.createElement(React.Fragment, null, "1日", React.createElement("br"), "平均");   // 「1日」「平均」の2行構成（ユーザー指定）
-      var _wkRefNode = function(v) {
-        if (v == null) return null;
-        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF", fontWeight: 600, marginLeft: 2 } },
-          "（", _elHoldGradeBadge(_profitGradeFromPnl(v, 1)),
-          React.createElement("span", { style: { color: _elPnlColor(v) } }, _elPnlFmt(v)), "）");
-      };
+      // 2026-08-05e （）も列として持たせ、開き括弧・参考バッジ・参考額・閉じ括弧まで縦ぞろえする（ユーザー要望
+      // 「（）内の金額などもきれいに縦ぞろえがいいな。（）自体の位置なども」）。旧は（）を額セルの中に
+      // 差し込んでいたため、額の桁数が違うと（の開始位置がずれていた。
+      // 列 = ラベル / バッジ / 額 / （ / 参考バッジ / 参考額 / ）。額と参考額は右寄せで桁を揃える。
+      // 参考額を持つ行が1つも無ければ3列に落として余白を作らない。
+      // rows = [{ label: node|null, grade: string|null, amount: number, refAmount: number|null }]
       var _wkStack = function(rows) {
+        var hasRef = rows.some(function(r) { return r.refAmount != null; });
         var cells = [];
+        var _c = function(k, sty, child) { cells.push(React.createElement("span", { key: k, style: sty }, child)); };
         rows.forEach(function(r, i) {
-          cells.push(React.createElement("span", { key: "l" + i, style: { fontSize: 9, color: "#94A3B8", fontWeight: 700, lineHeight: 1.15, textAlign: "right", justifySelf: "end", whiteSpace: "nowrap" } }, r.label || null));
-          cells.push(React.createElement("span", { key: "b" + i, style: { display: "inline-flex", alignItems: "center" } }, r.grade ? _wkBadge(r.grade) : null));
-          cells.push(React.createElement("span", { key: "a" + i, style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-            React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(r.amount) } }, _elPnlFmt(r.amount)), r.ref || null));
+          _c("l" + i, { fontSize: 9, color: "#94A3B8", fontWeight: 700, lineHeight: 1.15, textAlign: "right", justifySelf: "end", whiteSpace: "nowrap", paddingRight: 3 }, r.label || null);
+          _c("b" + i, { display: "inline-flex", alignItems: "center" }, r.grade ? _wkBadge(r.grade) : null);
+          _c("a" + i, { fontWeight: 700, color: _elPnlColor(r.amount), justifySelf: "end", whiteSpace: "nowrap" }, _elPnlFmt(r.amount));
+          if (!hasRef) return;
+          var v = r.refAmount;
+          _c("p" + i, { color: "#9CA3AF", fontWeight: 600, paddingLeft: 3 }, v == null ? null : "（");
+          _c("rb" + i, { display: "inline-flex", alignItems: "center" }, v == null ? null : _elHoldGradeBadge(_profitGradeFromPnl(v, 1)));
+          _c("ra" + i, { fontWeight: 600, color: _elPnlColor(v), justifySelf: "end", whiteSpace: "nowrap" }, v == null ? null : _elPnlFmt(v));
+          _c("pc" + i, { color: "#9CA3AF", fontWeight: 600 }, v == null ? null : "）");
         });
-        return React.createElement("span", { style: { display: "inline-grid", gridTemplateColumns: "auto auto auto", columnGap: 3, rowGap: 2, alignItems: "center", justifyItems: "start" } }, cells);
+        return React.createElement("span", { style: { display: "inline-grid", gridTemplateColumns: hasRef ? "auto auto auto auto auto auto auto" : "auto auto auto", columnGap: 0, rowGap: 2, alignItems: "center", justifyItems: "start" } }, cells);
       };
       // 実現損益セル。sub=100株換算（株数がある時だけ）／avg=1日平均（週合計かつ複数営業日の時だけ）。
       // 最終損益と同じく、この列のバッジも「総額÷営業日数」で判定しているので平均額を出して根拠を見せる。
       var _wkPnlCell = function(grade, sum, sub, avg, avgGrade) {
         if (!grade || grade === "Z" || sum == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        var rows = [{ label: null, grade: grade, amount: sum, ref: null }];
-        if (sub != null) rows.push({ label: "100株", grade: _profitGradeFromPnl(sub, 1), amount: sub, ref: null });   // 100株換算は通常スケール 2026-08-05
-        if (avg != null) rows.push({ label: _wkAvgLabel, grade: avgGrade, amount: avg, ref: null });
+        var rows = [{ label: null, grade: grade, amount: sum, refAmount: null }];
+        if (sub != null) rows.push({ label: "100株", grade: _profitGradeFromPnl(sub, 1), amount: sub, refAmount: null });   // 100株換算は通常スケール 2026-08-05
+        if (avg != null) rows.push({ label: _wkAvgLabel, grade: avgGrade, amount: avg, refAmount: null });
         return _wkStack(rows);
       };
       var _wkTh = function(label, extra) {
@@ -6484,7 +6491,10 @@ function DayView(_ref57) {
             if (_h2Cnt === 0) return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } },
               React.createElement("span", { style: { color: "#ccc" } }, "—"), _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
             var _h2g = _profitGradeFromPnl(_wkRowDays > 0 ? Math.round(_h2Tot / _wkRowDays) : _h2Tot, _h2Cnt);
-            var _h2Rows = [{ label: null, grade: _h2g, amount: _h2Tot, ref: _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt) }];
+            // （）内＝△も保有し続けた場合の額（main+ref）。_elHold2RefSuffixが出していたのと同じ値を
+            // 素の数値で持たせ、括弧ごと_wkStackの列に流して縦ぞろえする（2026-08-05e）。
+            var _h2RefTot = (_h2RefCnt > 0 && _h2Ref != null) ? (_h2Tot + _h2Ref) : null;
+            var _h2Rows = [{ label: null, grade: _h2g, amount: _h2Tot, refAmount: _h2RefTot }];
             // 週合計だけ、最終損益額の下に1日平均を出す（2026-08-05・ユーザー要望）。
             // この表のグレードバッジは元々「総額÷_wkRowDays」で判定しているのに表示は総額だけだったため、
             // 例えば総額+9,400円にA+が付いていても判定の実体（3営業日で1日平均+3,133円）が見えなかった。
@@ -6495,8 +6505,8 @@ function DayView(_ref57) {
             // 本行に（）が出ているのに平均行だけ無い、という食い違いを無くす（ユーザー指摘）。
             if (isTotal && _wkRowDays > 1) {
               var _h2Avg = Math.round(_h2Tot / _wkRowDays);
-              var _h2AvgRef = (_h2RefCnt > 0 && _h2Ref != null) ? Math.round((_h2Tot + _h2Ref) / _wkRowDays) : null;
-              _h2Rows.push({ label: _wkAvgLabel, grade: _profitGradeFromPnl(_h2Avg, _h2Cnt), amount: _h2Avg, ref: _wkRefNode(_h2AvgRef) });
+              var _h2AvgRef = _h2RefTot != null ? Math.round(_h2RefTot / _wkRowDays) : null;
+              _h2Rows.push({ label: _wkAvgLabel, grade: _profitGradeFromPnl(_h2Avg, _h2Cnt), amount: _h2Avg, refAmount: _h2AvgRef });
             }
             return React.createElement("span", { title: isTotal && _wkRowDays > 1 ? ("1営業日あたりの最終損益。記録の初日〜最終日の営業日数" + _wkRowDays + "日で割った額（休場日は除く。取引が無かった中日も日数に入る）。この表のグレードバッジはこの平均額で判定している。") : undefined }, _wkStack(_h2Rows));
           })()),
