@@ -4498,7 +4498,10 @@ function _elCollPairNode(data, r, scope) {
     (isKeep ? "※被り有: " : "被り除外: ") + "同日" + (inf.oTime || "—") + "の" + inf.oStock + "（" + _elPnlFmt(inf.oMain) + "）とペア＝" +
     (isKeep ? "遅い方（相手・同時刻なら損益が大きい方）を合計から除外し、この記録（" + _elPnlFmt(inf.own) + "・早い方）を算入" : "この記録（" + _elPnlFmt(inf.own) + "・遅い方／同時刻なら損益が大きい方）は合計額に入れない（件数は残る）"));
 }
-// ===== 指値同値（OS値＝α値）2026-07-20 =====
+// ===== 同値除外損益（OS値＝α値）2026-07-20 =====
+// 2026-08-05u 表示名を「指値同値」→「同値除外損益」に変更（ユーザー指示）。
+//   **内部の識別子（_elFillRisk/_elFillRiskRec/_elFillRiskNode/fillEqZero/_friskN 等）は据え置き**＝
+//   リネームの巻き添えで挙動が変わる箇所を作らないため。コード内の旧称コメントも履歴として残してある。
 // 予定EP（＝水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録。
 // 例: 予定EP3961で株価も3961まで上がって下落＝EP価格に触れただけなので、実際の指値注文は約定しなかった可能性がある。
 // この記録を除いた「保守的な損益」を併記するための判定。判定基準はユーザー指定 2026-07-20:
@@ -4524,7 +4527,7 @@ function _elFillRiskCountRecs(recs) { var n = 0; (recs || []).forEach(function(r
 //   記録帳の記録一覧(app-06)／日別ページの🎯エントリー記録(app-02 EntrySignalSection)／今週の損益データ(app-02 WeeklyPnlPanel)／日別ページ 取引タブのエントリー記録・💰損益タブの記録表(app-04 DayView)。
 function _elFillRiskNode(r) {
   if (!_elFillRiskRec(r)) return null;
-  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値同値");
+  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "同値除外損益");
 }
 // 合計行の共通集計: EP損益(AB込み)・H1(_elHold1TotParts)・H2(_elHoldFinalParts)・実現損益。
 // get={signal,alpha,cut,real?,realPair?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
@@ -5635,6 +5638,12 @@ function _profitGradeFromPnlReal(pnl, enteredCount) {
 //   D(±0)は Z(取引なし) と背景ΔE 2.1 でほぼ同色だったため、少し濃い灰にして 7.6 まで離した。
 // ※ 色を変えるときは必ず「隣接ΔE」と「文字コントラスト比」の両方を測ること。淡い色を並べると
 //   個々はきれいでも隣同士が潰れる（旧配色がまさにこれ）。
+// 2026-08-05u 補助行（数字の下に小さく添える「1日平均」「100株」等）の文字色の単一源。
+//   ユーザー指摘「アプリ全体の話として、1日平均に関する文字が薄いのが気になる」。
+//   旧 #94A3B8（slate-400）は白背景でコントラスト比 約2.9:1＝9pxの小さい字だと読み取りづらかった。
+//   #475569（slate-600）は約7.4:1。太字の本数字（緑/橙/赤）とは色味も大きさも違うので、濃くしても主従は崩れない。
+//   薄くしたくなったら #64748B（slate-500・約4.8:1）へ。**ここ1か所でapp-04/app-06の全箇所が変わる**。
+var _EL_SUBNOTE_COL = "#475569";
 var _GRADE_STYLE = {
   S: { bg: "#FADD78", color: "#5A3F00", border: "#D2A421" },   // 金（2026-08-05j 明るさ59→73へ薄く。ユーザー調整）
   A: { bg: "#F8A5A5", color: "#6E0D0D", border: "#EC8F8F" },   // 2026-08-05k 利益側を1段ずつ薄く（A=39→50・B=67→74・C=86→89）

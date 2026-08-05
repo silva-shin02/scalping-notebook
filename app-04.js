@@ -6401,7 +6401,7 @@ function DayView(_ref57) {
         var cells = [];
         var _c = function(k, sty, child) { cells.push(React.createElement("span", { key: k, style: sty }, child)); };
         rows.forEach(function(r, i) {
-          _c("l" + i, { fontSize: 9, color: "#94A3B8", fontWeight: 700, lineHeight: 1.15, textAlign: "right", justifySelf: "end", whiteSpace: "nowrap", paddingRight: 3 }, r.label || null);
+          _c("l" + i, { fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 700, lineHeight: 1.15, textAlign: "right", justifySelf: "end", whiteSpace: "nowrap", paddingRight: 3 }, r.label || null);   // 2026-08-05u 薄すぎたので_EL_SUBNOTE_COLへ。このセルは「1日/平均」と「100株」の共用＝同じ列に濃淡が混ざらないよう両方まとめて濃くする
           _c("b" + i, { display: "inline-flex", alignItems: "center" }, r.grade ? _wkBadge(r.grade) : null);
           _c("a" + i, { fontWeight: 700, color: _elPnlColor(r.amount), justifySelf: "end", whiteSpace: "nowrap" }, _elPnlFmt(r.amount));
           if (!hasRef) return;
