@@ -6347,11 +6347,11 @@ function EntryLogView(_ref_elv2) {
     var _aggKeys = Object.keys(byP);   // 集計に使う期間＝算入記録がある期間のみ（従来どおり）
     var keys = _aggKeys.concat(Object.keys(_extraByP).filter(function(k) { return !byP[k]; })).sort().reverse();   // 表示用＝表示専用記録だけの期間も行にする
     if (!keys.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "v2記録なし");
-    // 2026-07-30b 横スクロール解消（ユーザー要望「幅を詰めれるのでは？」）: 表幅を決めていたのは中身ではなくヘッダの小書きだった
+    // 2026-07-30b 横スクロール解消（ユーザー要望「幅を詰めれるのでは？」）: 表幅を決めていたのはヘッダの小書きだった
     //   （thが whiteSpace:nowrap なので「○が途切れた所で手じまい・( )=△含む」等が1行で列幅を押し広げていた＝10列で約1,042px）。
-    //   小書きだけ折り返し可（_othSub: whiteSpace:normal＋maxWidth）にし、文言も短縮（詳細は各列のtitleに残す）＋左右paddingを6→4pxへ。
+    //   2026-08-05n その小書き（_othSub）自体を撤去＝見出しだけにした（ユーザー「到達や利確などの直下の注記はすべて不要」）。
+    //   説明は各列の title（ホバー）に残してあるので情報は失われない。左右paddingは4pxのまま。
     var oth = function(t) { return React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
-    var _othSub = function(txt) { return React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block", whiteSpace: "normal", maxWidth: 74, margin: "0 auto", lineHeight: 1.2 } }, txt); };
     var otd = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
     // 最終損益・実現損益とも「1日あたり平均」＝合計÷日数(営業日数)に統一 2026-07-09（旧: 実現損益は1トレード平均avgLine→ユーザー要望で1日平均に）
     // 2026-08-05f days<=1 は平均＝合計で同じ数字が2つ縦に並ぶだけなので出さない（ユーザー指摘
@@ -6418,18 +6418,12 @@ function EntryLogView(_ref_elv2) {
     var _headTr = function(gg) {
       return React.createElement("tr", { style: { background: "transparent" } },
         oth(gg === "day" ? "日" : gg === "week" ? "週" : "月"), oth("日数"), oth("件数"),
-        oth(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右隣の利確・同値・損切り・損失の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c）。下段の%は対 件数（全記録）" }, "到達",
-          _othSub("EPに乗った＝E成立"))),
-        oth(React.createElement("span", { title: "利益（最終損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確",
-          _othSub("利益で手じまい"))),
-        oth(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値",
-          _othSub("±0で手じまい"))),
-        oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの。損失＝ラインには触れず期待度×等で降りたら損だったもの。率はどちらもE成立母数（＝到達）に対する割合。平均は最終損益と同じ基準の実額。利確＋同値＋損切＋損失＝E成立母数" }, "損切り/損失",
-          _othSub("上=ライン起因／下=その他"))),
-        oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "最終損益",
-          _othSub("○途切れで手じまい ()=△"))),
-        oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済みは対象外）。上＝該当件数、下＝その記録を除いた最終損益。該当が無い期間は最終損益と同額（差額行なし）" }, "指値同値",
-          _othSub("上=件数／下=除外後"))),
+        oth(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右隣の利確・同値・損切り・損失の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c）。下段の%は対 件数（全記録）" }, "到達")),
+        oth(React.createElement("span", { title: "利益（最終損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確")),
+        oth(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値")),
+        oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの（上段）。損失＝ラインには触れず期待度×等で降りたら損だったもの（下段）。率はどちらもE成立母数（＝到達）に対する割合。平均は最終損益と同じ基準の実額。利確＋同値＋損切＋損失＝E成立母数" }, "損切り/損失")),
+        oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "最終損益")),
+        oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済みは対象外）。上＝該当件数、下＝その記録を除いた最終損益。該当が無い期間は最終損益と同額（差額行なし）" }, "指値同値")),
         oth("実現損益"));
     };
     // ドリルダウン（マトリョーシカ 2026-07-30 ユーザー要望）: 月をタップ→その月の【週別】／週をタップ→その週の【日別】／日をタップ→その日の【取引記録】。
@@ -7593,7 +7587,7 @@ function EntryLogView(_ref_elv2) {
         _secH("🟥 ヒートマップ（曜日揃え・日別・" + _mi.label + "）", "列＝曜日(月〜金)で縦に揃え、曜日ごとの傾向を見る。色の濃淡で損益（赤=利益/緑=損失）・上が古い週→下が最新週・記録の無い営業日枠は薄い空セル"),
         _elWeekdayHeatV2(_dayPer, {})];
       var _thP = function(t) { return React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
-      var _thPSub = function(txt) { return React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block", whiteSpace: "normal", maxWidth: 74, margin: "0 auto", lineHeight: 1.2 } }, txt); };   // 2026-07-30c 全体損益（期間別）の_othSubと同じ＝小書きだけ折り返して列幅を押し広げない
+      var _thPSub = function(txt) { return React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#b07050", display: "block", whiteSpace: "normal", maxWidth: 74, margin: "0 auto", lineHeight: 1.2 } }, txt); };   // 2026-07-30c 小書きだけ折り返して列幅を押し広げない。全体損益（期間別）にも同じ_othSubがあったが2026-08-05nに撤去済み＝現在はこの表だけ
       var _tdP = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
       // 日数: その期間に市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える・当日までで頭打ち）。祝日＝ユーザーが記録した祝日/休場イベント(_buildHolidayDateSet)。2026-06-22d
       var _holiSet = _buildHolidayDateSet(data.trades, custom.eventCategories);
