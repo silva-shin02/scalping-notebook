@@ -1309,6 +1309,15 @@ function _elBucketLabel(key, gran) {
 // 境界=2026-05-01（月別キーは2026-05）。g==="month"なら"YYYY-MM"、それ以外は"YYYY-MM-DD"で比較。
 function _elIsEmaRefPeriod(k, g) { return (g === "month") ? (String(k) < "2026-05") : (String(k) < "2026-05-01"); }
 
+// ===== 旧ルール期間の判定 2026-08-05o（境界の単一源）=====
+// _EL_RULE_SINCE より前＝集計ルールが変わる前の記録。全体損益（期間別）は薄く表示＋合計・平均から除外し、
+// 累積損益カーブ・連勝連敗DDも同じ母数（＝合計行と同一基準）にする。2026-08-05p でこの2つを揃えた。
+// 境界は月曜日なので、日別・週別の行の切れ目とそのまま一致する（週キー＝月曜日付）。
+// 判定は記録の日付（YYYY-MM-DD）で行う。月別キーは2026年6月が境界をまたぐため、_ovPnlTbl側でその月だけ2行に割っている。
+// EMA参考期間（_elIsEmaRefPeriod・2026-05-01より前）はこの境界に内包される＝4月・5月も自動的に旧ルール扱い。
+var _EL_RULE_SINCE = "2026-06-29";
+function _elIsOldRule(ds) { return String(ds || "") < _EL_RULE_SINCE; }
+
 // ===== 年月週日カスケード期間選択 2026-07-20i =====
 // 選択値 sel = { y:[2026,…]|null, m:["2026-07",…]|null, w:["2026-07-13",…]|null, d:["2026-07-13",…]|null }
 //   null＝その階層は「全て」（無制限）。全階層nullなら全期間＝素通し。各階層はAND（積）で効く。
@@ -6306,11 +6315,12 @@ function EntryLogView(_ref_elv2) {
     //   月別だけ2026年6月が境界をまたぐため、キーに #1(〜6/28) / #2(6/29〜) を付けて1か月を2行に割る（ユーザー選択）。
     //   降順に並べるので #1<#2 としてある＝reverse後に「6/29〜」が上・「〜6/28」が下＝新しい方が上、の並びが崩れない。
     //   ※この分割キーは_ovPnlTbl専用。共用の_granKeyOf/_granLabelOfは触らない（指値同値など他の表に波及させないため）。
-    var _RULE_SINCE = "2026-06-29";
+    //   2026-08-05p 境界そのものはトップレベルの_EL_RULE_SINCE/_elIsOldRuleへ移した（累積損益・連勝連敗DDと同じ単一源にするため）。
+    var _RULE_SINCE = _EL_RULE_SINCE;
     var _RULE_MONTH = _RULE_SINCE.slice(0, 7);
     var _RULE_PREV_LBL = (function() { var d = new Date(_RULE_SINCE + "T00:00:00"); d.setDate(d.getDate() - 1); return (d.getMonth() + 1) + "/" + d.getDate(); })();
     var _RULE_FROM_LBL = (+_RULE_SINCE.slice(5, 7)) + "/" + (+_RULE_SINCE.slice(8, 10));
-    var _isOldRec = function(ds) { return String(ds || "") < _RULE_SINCE; };
+    var _isOldRec = _elIsOldRule;
     var _keyHalf = function(k) { var s = String(k), i = s.indexOf("#"); return i < 0 ? null : s.slice(i + 1); };
     var _baseKey = function(k) { var s = String(k), i = s.indexOf("#"); return i < 0 ? s : s.slice(0, i); };
     var _keyIsOld = function(k, gg) {
@@ -7334,14 +7344,14 @@ function EntryLogView(_ref_elv2) {
   } else if (view === "sum") {
     if (_isAllStock) {
       // KPI早見だけ「今月」＝〇年〇月データ早見（←→で月移動）。「全体損益（期間別）」以降（累積・連勝連敗）は今月縛り無し＝v2recs（top期間ドロップダウン準拠）。2026-06-26。
-      // 累積損益カーブ・連勝連敗DDは4月（EMA位置ズレの参考期間）を除外＝_v2recsNonRef 2026-07-18。
-      // 2026-08-05n 注意: 期間別表の合計・平均は「2026-06-29より前を全部除外」に変わったので、ここと母数が一致しなくなった。
-      //   ユーザー指示の対象が期間別表だけだったため、この2つは従来（4月のみ除外）のまま＝見出しの「合計行と同一基準」の記述だけ外した。揃えるならここを_RULE_SINCE基準にする。
+      // 累積損益カーブ・連勝連敗DDの母数＝旧ルール期間（_EL_RULE_SINCEより前）を除外＝_v2recsNewRule。
+      // 2026-07-18は「4月のみ除外」だったが、2026-08-05oで期間別表の合計が6/29境界に変わり母数がずれたため、
+      // 2026-08-05p にユーザー指示「揃えて」でここも同じ_elIsOldRuleへ寄せた＝再び合計行と同一基準。境界の定義はトップレベルの1か所だけ。
       // 株価帯別は📡シグナル総合タブへ移設（2026-07-22i・ユーザー要望）＝全銘柄「集計」は損益ダッシュボードに専念。旧・分析軸トグル（💰全体／💴株価帯別）は撤去（銘柄別タブの株価帯別軸は存続）。
       // ②データのみ除外（本日の取引銘柄システム 2026-07-22e）: 全銘柄側（全体タブ）の合計消費側だけ候補・未指定(データのみ)を外す。分析母数(v2recs/_v2recsAll)・銘柄別タブは据置。
       var _v2recsAmt = v2recs.filter(function(r) { return !_isDataOnly(data, r); });
       var _sumMonthRecs2 = _sumMonthRecs.filter(function(r) { return !_isDataOnly(data, r); });
-      var _v2recsNonRef = _v2recsAmt.filter(function(r) { return !_elIsEmaRefPeriod((r.date || "").slice(0, 7), "month"); });
+      var _v2recsNewRule = _v2recsAmt.filter(function(r) { return !_elIsOldRule(r.date); });
       var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
         _sumMonthNav,
@@ -7362,10 +7372,10 @@ function EntryLogView(_ref_elv2) {
             _elSinceBadge()),
           _gradeMonSection(_sinceRecs)] : null,
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
-        _v2recsNonRef.length >= 2 ? [
-          _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移（4月＝EMA位置ズレの参考期間のみ除外）。※上の期間別表の合計は6/29より前を全て除外＝母数が違います"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNonRef, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
-        _v2recsNonRef.length >= 2 ? [
-          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・4月＝参考期間は除外）"), _elStreakDDSectionV2(_v2recsNonRef, _ai)] : null]);
+        _v2recsNewRule.length >= 2 ? [
+          _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・上の期間別表の合計行と同一基準（6/29より前＝旧ルール期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNewRule, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
+        _v2recsNewRule.length >= 2 ? [
+          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・6/29より前＝旧ルール期間は除外）"), _elStreakDDSectionV2(_v2recsNewRule, _ai)] : null]);
     } else {
       // 銘柄別の集計＝選択中シグナルの総合パネル（旧🎯シグナル別タブを昇格・上のシグナル軸で切替）。母数は選択中シグナル×サブタブ（前足浮き/その他）の固定母数（_selSigRecsScoped）。推奨基本α/追加αカードだけはシグナル全体（_selSigRecs）で算出＝サブタブ間で一貫。2026-07-01→前足浮き対応 2026-07-02
       // 分析軸トグル（2026-07-07）: 🎯シグナル別（従来）／🏷詳細タグ別（銘柄内・全シグナル横断で選んだ詳細タグの記録を _groupPanel で分析）。詳細タグが1件も無い銘柄ではトグル非表示＝従来どおり。
