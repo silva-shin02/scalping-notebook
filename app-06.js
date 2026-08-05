@@ -6117,15 +6117,20 @@ function EntryLogView(_ref_elv2) {
     x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) tp++; });
     return { n: tp, rate: wn ? Math.round(tp / wn * 100) : null };
   };
-  // ===== 集計セクション共通: 母数を2026年7月以降に限定 =====
+  // ===== 集計セクション共通: 母数を新ルール期間に限定 =====
   // 2026-08-03b ユーザー要望「今年の7月以降のみのデータにして」→ 08-03c 🎯グレード別の件数でも共用するのでここへ引き上げ。
-  // 7月に集計ルール自体が変わっている（07-09 EP/H1損益を廃し「最終損益」1列へ集約／07-27 損切りの平均額を理想値→終値撤退の実額へ）ため、
-  //   6月以前を混ぜると別基準の記録の寄せ集めになり、割合・分布として読めない。
-  // ※使うのは🏷銘柄別の損益割合／🎯グレード別の件数だけ＝合計は上の「全体損益（期間別）」（全期間）と一致しなくなる。見出し右のバッジで明示する。
-  // _elIsEmaRefPeriod（4月＝EMA参考期間を外す）と同じく、境界は動的に出さず定数で固定する（年が変わっても母数が勝手に動かないため）。
-  var _EL_SINCE = "2026-07";
-  var _EL_SINCE_LBL = "2026年7月以降";
-  var _elSinceRecs = function(rs) { return (rs || []).filter(function(r) { return r && r.date && String(r.date).slice(0, 7) >= _EL_SINCE; }); };
+  // 集計ルール自体が変わっている（07-09 EP/H1損益を廃し「最終損益」1列へ集約／07-27 損切りの平均額を理想値→終値撤退の実額へ）ため、
+  //   それ以前を混ぜると別基準の記録の寄せ集めになり、割合・分布として読めない。
+  // 2026-08-05s ユーザー指示「揃えて」: 独自の月単位境界（旧 _EL_SINCE="2026-07"）を廃し、
+  //   全体損益（期間別）・累積損益と同じ _EL_RULE_SINCE（2026-06-29・日単位）へ一本化した。
+  //   旧境界は「7月にルールが変わった」という理解で月頭へ丸めていたが、実際の切り替わりは6/29（月曜）＝6/29〜6/30の記録が
+  //   このセクションだけ落ちていた（実測: 全体損益の合計100件に対しここは92件＝差の8件が6/29〜）。これで母数が揃う。
+  // ※境界は動的に出さず定数で固定する（年が変わっても母数が勝手に動かないため）＝_EL_RULE_SINCEも定数。
+  var _EL_SINCE_LBL = (+_EL_RULE_SINCE.slice(0, 4)) + "年" + (+_EL_RULE_SINCE.slice(5, 7)) + "月" + (+_EL_RULE_SINCE.slice(8, 10)) + "日以降";
+  var _EL_SINCE_MONTH = _EL_RULE_SINCE.slice(0, 7);   // 境界をまたぐ月＝月別の行ラベルに「（6/29〜）」を付けて部分月と分かるようにする
+  var _EL_SINCE_FROM_LBL = (+_EL_RULE_SINCE.slice(5, 7)) + "/" + (+_EL_RULE_SINCE.slice(8, 10));
+  var _elSinceRecs = function(rs) { return (rs || []).filter(function(r) { return r && r.date && !_elIsOldRule(r.date); }); };
+  var _elSinceYmLbl = function(ym) { return String(ym).replace("-", "/") + (ym === _EL_SINCE_MONTH ? "（" + _EL_SINCE_FROM_LBL + "〜）" : ""); };
   var _elSinceBadge = function() { return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 9, fontWeight: 700, color: "#C2410C", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "📅 " + _EL_SINCE_LBL + "のみ"); };
   // 1記録の最終損益（（）外main）。集計対象外ならnull。🏷銘柄別の損益割合と🎯グレード別の件数が**同じ除外規約**
   //   （時間かぶり除外・×見送り・main非null）を共有するための単一源 2026-08-03c。
@@ -6292,7 +6297,7 @@ function EntryLogView(_ref_elv2) {
         var g2 = m[ym] || {}, n = 0;
         _EL_GRADES.forEach(function(g) { var c = g2[g] || 0; n += c; tot[g] = (tot[g] || 0) + c; });
         totN += n;
-        return React.createElement.apply(null, ["tr", { key: ym }].concat(_cellsOf(ym.replace("-", "/"), g2, n)));
+        return React.createElement.apply(null, ["tr", { key: ym }].concat(_cellsOf(_elSinceYmLbl(ym), g2, n)));   // 2026-08-05s 境界をまたぐ月は「2026/06（6/29〜）」＝部分月と分かるようにする
       });
       var totRow = React.createElement.apply(null, ["tr", { key: "__tot__", style: { background: "#FFF7ED", fontWeight: 700 } }].concat(_cellsOf("合計", tot, totN)));
       return _elv2Table(_head, rows.concat([totRow]));
@@ -7362,12 +7367,12 @@ function EntryLogView(_ref_elv2) {
           _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
         _sinceRecs.length ? [
           _secH("🏷 銘柄別の損益割合",
-            "固定銘柄＋📅日替わり（まとめて1つ）＋その他。母数は" + _EL_SINCE_LBL + "の記録のみ（上の「全体損益（期間別）」は全期間なので合計行は一致しません）。割合は利益と損失を別々に内訳表示（純損益の構成比にすると、マイナスの銘柄があるとき負の%や100%超が出て積み上げ棒にできないため）。PF＝プロフィットファクタ＝総利益÷総損失",
+            "固定銘柄＋📅日替わり（まとめて1つ）＋その他。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間（2026-08-05sで境界を統一）。割合は利益と損失を別々に内訳表示（純損益の構成比にすると、マイナスの銘柄があるとき負の%や100%超が出て積み上げ棒にできないため）。PF＝プロフィットファクタ＝総利益÷総損失",
             _elSinceBadge()),
           _stkShareSection(_sinceRecs)] : null,
         _sinceRecs.length ? [
           _secH("🎯 グレード別の件数（月別）",
-            "最終損益を損益スケール（S=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①記録1件ごと ②その日の合計ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ。カレンダーの日付バッジは実現損益スケール（10倍・S=25001円〜）なので数字は一致しません",
+            "最終損益を損益スケール（S=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①記録1件ごと ②その日の合計ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間。境界をまたぐ月は「2026/06（6/29〜）」＝その月の一部だけを数えています。カレンダーの日付バッジは実現損益スケール（10倍・S=25001円〜）なので数字は一致しません",
             _elSinceBadge()),
           _gradeMonSection(_sinceRecs)] : null,
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
