@@ -6221,13 +6221,13 @@ function EntryLogView(_ref_elv2) {
   };
   // ===== 🎯 グレード別の件数（月別）（2026-08-03c ユーザー要望「1か月あたりの各グレードの件数が知りたい。A+何件、A-何件みたいな感じ」）=====
   // 表は2つ（ユーザー選択「両方」）＝「良いトレードが何件あったか」と「良い日が何日あったか」は別の話なので分ける:
-  //  ①トレード単位: 記録1件ごとの最終損益を_profitGradeFromPnl（損益スケール A+=2501円〜）で判定し月別に数える。
+  //  ①トレード単位: 記録1件ごとの最終損益を_profitGradeFromPnl（損益スケール S=2501円〜）で判定し月別に数える。
   //     合計＝その月に金額が出た記録数＝🏷銘柄別の「総利益件数＋総損失件数＋D(同値)」。_elFinalPnlOf を共有しているので食い違いようがない。
   //  ②日単位: その日の最終損益合計を同じスケールで判定し、月に何日がA+だったかを数える。
   //     単日は days=1 ＝合計そのまま＝既存の「複数日は1日平均・単日は合計」規約（app-06の_yenN・app-05の_elHold2RefSuffix）と同じ。
   //     数えるのは記録があった日だけ＝合計＝その月の稼働日数（ノーシグナル日・全除外日は母数に入れない＝Z/DNFの列は作らない）。
   // 実現損益スケール(_profitGradeFromPnlReal＝カレンダーの日付バッジ)は使わない（ユーザー選択）: realizedPnl がほぼ未記録で分布が作れないため。
-  var _EL_GRADES = ["A+", "A-", "B", "C", "D", "E", "F", "G-", "G+"];
+  var _EL_GRADES = ["S", "A", "B", "C", "D", "E", "F", "G-", "G+"];
   var _gradeMonSection = function(rs) {
     if (!rs || !rs.length) return null;
     var recM = {}, dayM = {}, dayAcc = {};
@@ -7317,7 +7317,7 @@ function EntryLogView(_ref_elv2) {
           _stkShareSection(_sinceRecs)] : null,
         _sinceRecs.length ? [
           _secH("🎯 グレード別の件数（月別）",
-            "最終損益を損益スケール（A+=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①記録1件ごと ②その日の合計ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ。カレンダーの日付バッジは実現損益スケール（10倍・A+=25001円〜）なので数字は一致しません",
+            "最終損益を損益スケール（S=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①記録1件ごと ②その日の合計ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ。カレンダーの日付バッジは実現損益スケール（10倍・S=25001円〜）なので数字は一致しません",
             _elSinceBadge()),
           _gradeMonSection(_sinceRecs)] : null,
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,

@@ -4341,7 +4341,7 @@ function _elPnlFmt(v) { return v == null ? "—" : (v > 0 ? "+" : "") + v.toLoca
 // 実現損益の「実額」と「100株換算」を出す単一源 2026-08-04。
 // 実額＝取引に紐づいていれば item.pnl、無ければ保存値 signal.realizedPnl(+符号)。100株換算＝実額÷株数×100。
 // 株数(signal.shares)未入力の記録は換算しようがないので per100 は null＝表の下段を出さない（換算済みのフリをしないため）。
-// ⚠️ バッジの_profitGradeFromPnlRealは実額スケール（通常グレードの10倍・A+=25001円〜）なので、必ず real の方に付ける。
+// ⚠️ バッジの_profitGradeFromPnlRealは実額スケール（通常グレードの10倍・S=25001円〜）なので、必ず real の方に付ける。
 function _elPer100Of(v, s) {
   var sh = (s && Number(s.shares) > 0) ? Number(s.shares) : 0;
   return (v == null || sh <= 0) ? null : Math.round(v / sh * 100);
@@ -4363,7 +4363,7 @@ function _elRPnlDispW(v, grade, valW, showZ, sub) {
     _elLane(badge, 22), _elLane(val, valW || 72, "flex-start"));
   if (sub == null || v == null) return main;
   // 2026-08-05 下段（100株換算）を主表示と同じ文字サイズ・同じ色に。バッジも付ける。
-  // ⚠️ 100株換算は【通常スケール】(_profitGradeFromPnl・A+=2501円〜)で判定する。上段の実額は実額スケール(10倍)なので、
+  // ⚠️ 100株換算は【通常スケール】(_profitGradeFromPnl・S=2501円〜)で判定する。上段の実額は実額スケール(10倍)なので、
   //    同じ金額でもランクは別物になる＝それぞれの土俵の凡例と一致する。単位の「100株」だけ小さい灰色で添える。
   return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "stretch", whiteSpace: "nowrap" } },
     main,
@@ -5586,15 +5586,15 @@ function _elCalcStats(records, data, simResolve) {
 
 
 
-// 損益(EP/H1/H2/最終)グレード（2026-07-23 A+〜G+の9段・D=0中心に対称・両端A/Gのみ±分割）。enteredCount=0→Z(取引なし)。
+// 損益(EP/H1/H2/最終)グレード（S〜G+の9段・D=0中心に対称。2026-08-05hに最上位A+→S・A-→Aへ改名したので±が付くのはG-/G+だけ）。enteredCount=0→Z(取引なし)。
 function _profitGradeFromPnl(pnl, enteredCount) {
-  // 2026-08-05g 境界を1円ずらした（ユーザー指示「A+は2501円〜にしてそれに合わせて全部ずらす」）。
+  // 2026-08-05g 境界を1円ずらした（ユーザー指示「Sは2501円〜にしてそれに合わせて全部ずらす」）。
   // 旧: A+=2500〜 / A-=2000〜2499 / B=1000〜1999 / C=1〜999 / E=-1〜-999 / F=-1000〜-1999 / G-=-2000〜-2499 / G+=-2500〜
   // キリのいい額（2500・2000・1000とその負数）が下のグレードに入る形で統一。プラス側とマイナス側は
-  // 0を挟んで対称（A+が2501〜ならG+は-2501〜）。帯の幅は C/E が1円ぶん広がる以外そのまま。
+  // 0を挟んで対称（Sが2501〜ならG+は-2501〜）。帯の幅は C/E が1円ぶん広がる以外そのまま。
   if (!enteredCount) return "Z";
-  if (pnl >= 2501)  return "A+";
-  if (pnl >= 2001)  return "A-";
+  if (pnl >= 2501)  return "S";
+  if (pnl >= 2001)  return "A";
   if (pnl >= 1001)  return "B";
   if (pnl >= 1)     return "C";
   if (pnl === 0)    return "D";
@@ -5604,12 +5604,12 @@ function _profitGradeFromPnl(pnl, enteredCount) {
   return "G+";
 }
 
-// 実現損益グレード（2026-07-23 損益スケールの10倍・A+〜G+の9段）。enteredCount=0→Z。
+// 実現損益グレード（損益スケールのちょうど10倍・S〜G+の9段）。enteredCount=0→Z。
 function _profitGradeFromPnlReal(pnl, enteredCount) {
-  // 2026-08-05g 通常スケールと同じ考え方で1円ずらした（A+は25001円〜）。通常のちょうど10倍を維持。
+  // 2026-08-05g 通常スケールと同じ考え方で1円ずらした（Sは25001円〜）。通常のちょうど10倍を維持。
   if (!enteredCount) return "Z";
-  if (pnl >= 25001)  return "A+";
-  if (pnl >= 20001)  return "A-";
+  if (pnl >= 25001)  return "S";
+  if (pnl >= 20001)  return "A";
   if (pnl >= 10001)  return "B";
   if (pnl >= 1)      return "C";
   if (pnl === 0)     return "D";
@@ -5619,8 +5619,10 @@ function _profitGradeFromPnlReal(pnl, enteredCount) {
   return "G+";
 }
 var _GRADE_STYLE = {
-  "A+": { bg: "#F8C6C6", color: "#7F0000", border: "#EC9A9A" },
-  "A-": { bg: "#FDECEA", color: "#B71C1C", border: "#FFCDD2" },
+  // 2026-08-05h 最上位を A+ → S に改名し、金色にした（ユーザー指示）。A- → A も改名。
+  // A- は下の legacy な A と配色が完全に同じだったので、キーごと削除して A に寄せた。
+  // 「+/-」が付くのは G-/G+ だけになるが、Sを別格として際立たせる意図なので不揃いで正しい。
+  S: { bg: "#FBEBB5", color: "#6B4E00", border: "#C9971B" },
   B: { bg: "#FFEBEE", color: "#C62828", border: "#EF9A9A" },
   C: { bg: "#FFF3F3", color: "#E53935", border: "#FFCDD2" },
   D: { bg: "#F5F5F5", color: "#555",    border: "#DDD" },
@@ -5636,13 +5638,13 @@ var _GRADE_STYLE = {
 };
 
 var _GRADE_DESC = {
-  "A+": "2501円~", "A-": "2001~2500円", B: "1001~2000円", C: "1~1000円",
+  S: "2501円~", A: "2001~2500円", B: "1001~2000円", C: "1~1000円",
   D: "0円", E: "-1~-1000円", F: "-1001~-2000円", "G-": "-2001~-2500円", "G+": "-2501円~",
   Z: "取引なし", DNF: "ノーシグナル"
 };
 
 var _GRADE_DESC_REAL = {
-  "A+": "25001円~", "A-": "20001~25000円", B: "10001~20000円", C: "1~10000円",
+  S: "25001円~", A: "20001~25000円", B: "10001~20000円", C: "1~10000円",
   D: "0円", E: "-1~-10000円", F: "-10001~-20000円", "G-": "-20001~-25000円", "G+": "-25001円~",
   Z: "取引なし", DNF: "ノーシグナル"
 };
