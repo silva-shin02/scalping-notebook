@@ -5989,7 +5989,7 @@ function EntryLogView(_ref_elv2) {
   // 未達タブのバッジ件数は、選択中シグナルの母数で数える（シグナル軸の下で _missCnt を定義 2026-07-01）。
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
-    ? [["sum", "📊 集計"], ["period", "📆 期間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加
+    ? [["sum", "📊 集計"], ["period", "📆 期間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["uki", "⚡ 浮き足%"], ["rn", "🔢 RN加算"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
@@ -7808,12 +7808,9 @@ function EntryLogView(_ref_elv2) {
     }
     var _projDays = 0; for (var _pk in _projDaySet) { if (Object.prototype.hasOwnProperty.call(_projDaySet, _pk)) _projDays++; }
     var _projActual = _projDays ? { perDay: _projSum / _projDays, days: _projDays, cnt: _projCnt, sum: _projSum } : null;
+    // 2026-08-05u 青い説明ヘッダー（「損益推移シミュレーター ― 資金・株数・生活費の月次推移」＋前提の説明文）は撤去（ユーザー要望）。
+    //   タブ名を「📈 損益推移シミュレーター」に伸ばしたので見出しが二重になっていた。
     _tabBody = _cardify([
-      React.createElement("div", { key: "projh", style: { background: "#EFF6FF", border: "1px solid #BFDBFE", borderLeft: "4px solid #1E3A8A", borderRadius: 11, padding: "8px 12px", marginBottom: 6 } },
-        React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#1E3A8A" } }, "損益推移シミュレーター ― 資金・株数・生活費の月次推移"),
-        React.createElement("div", { style: { fontSize: 9.5, color: "#1D4ED8", marginTop: 3, lineHeight: 1.5 } },
-          "前提を入れると、指定した期間の取引資金・株数・生活口座・総資産の月次推移を出します。生活費はトレード利益から先に引き、余剰を生活口座へ積み立て、あふれた分が取引資金に残ります。",
-          React.createElement("span", { style: { color: "#B45309" } }, "※ここは実績の集計ではなく「これからの見通し」です。前提が変われば結果は変わります。過去の成績を将来に当てはめた計算にすぎません。"))),
       _elCard(React.createElement(DaytradeProjection, { data: data, setData: save, actual: _projActual }))
     ]);
   } else if (view === "sim") {
