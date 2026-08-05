@@ -406,15 +406,15 @@ function _dtsStepBaseNote(cfg) {
   var cap0 = +cfg.initialCapital || 0, sh0 = Math.max(0, +cfg.initialShares || 0);
   var sb = _dtsNumOrNull(cfg.stepBase);
   var injYm = (cfg.injection && cfg.injection.ym) ? cfg.injection.ym : "";
-  var head = "「資金口座◯万円」は段数を数える起点＝その資金だった時の株数が②の基礎取引株数（" + sh0 + "株）という意味です。"
-    + (sb == null ? ("空欄なので開始時の取引資金 " + _dtsFmtMan(cap0) + "円 から数えます。") : "");
+  var head = "月末の資金口座がこの額だった時の株数が②の基礎取引株数（" + sh0 + "株）という意味です。ここから増えた分を数えます。"
+    + (sb == null ? ("空欄なので開始時の取引資金 " + _dtsFmtMan(cap0) + "円 が起点です。") : "");
   var warn = null;
   if (sb != null && cap0 > sb && !(injYm && cfg.startYm && injYm === cfg.startYm)) {
     var stepAmt = Math.max(1, +cfg.stepAmount || 250000), stepSh = Math.max(1, +cfg.stepShares || 100);
     var maxSh = _dtsNumOrNull(cfg.maxShares);
     var want = sh0 + Math.floor((cap0 - sb) / stepAmt) * stepSh;
     if (maxSh != null && maxSh > 0) want = Math.min(want, maxSh);
-    if (want > sh0) warn = "※起点より今の資金が " + _dtsFmtMan(cap0 - sb) + "円 多いので、初月から " + (want - sh0) + "株 乗って " + want + "株 で始まります。";
+    if (want > sh0) warn = "※開始時の資金が起点より " + _dtsFmtMan(cap0 - sb) + "円 多く、すでに増えた後なので、初月から " + (want - sh0) + "株 乗って " + want + "株 で始まります。";
   }
   return React.createElement("div", { style: { fontSize: 9, color: "#6B7280", marginTop: 4, lineHeight: 1.5 } }, head,
     warn ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, warn) : null);
@@ -510,10 +510,14 @@ function DaytradeProjection(props) {
       }),
       React.createElement("button", { onClick: function() { addRow("drip", { from: cfg.startYm, mode: "drip", amount: 50000, target: null }); }, style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" } }, "＋ 途中で変える")
     )),
-    _dtsSec("⑥ 株数を増やすルール", "判定は前月末の取引資金・端数は次段へ繰り越し・資金が減っても下げない", React.createElement("div", null,
+    // 2026-08-05y ラベルを「月末の資金口座が◯万円になった次の月から」へ（ユーザー要望）。
+    // ⚠️これは**表記だけの変更で計算は1行も変えていない**＝元から「前月末の資金で判定→当月に反映」なので
+    //   ユーザーの言う「月末が◯万になった次の月から」と同じ規則。旧ラベル「資金口座◯万円から」だと
+    //   いつの資金で判定していつ反映されるのかが読めなかった、というだけ。
+    _dtsSec("⑥ 株数を増やすルール", "端数は次段へ繰り越し・資金が減っても下げない", React.createElement("div", null,
       _dtsRow([
-        _dtsLbl("資金口座"), React.createElement(DtsNum, { key: "sb", value: cfg.stepBase, unit: "man", suffix: "万円", placeholder: "開始時", step: 1, onChange: function(v) { set("stepBase", v); } }),
-        _dtsLbl("から"), React.createElement(DtsNum, { key: "sa", value: cfg.stepAmount, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("stepAmount", v); } }),
+        _dtsLbl("月末の資金口座が"), React.createElement(DtsNum, { key: "sb", value: cfg.stepBase, unit: "man", suffix: "万円", placeholder: "開始時", step: 1, onChange: function(v) { set("stepBase", v); } }),
+        _dtsLbl("になった次の月から"), React.createElement(DtsNum, { key: "sa", value: cfg.stepAmount, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("stepAmount", v); } }),
         _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } }),
         _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
       ]),
