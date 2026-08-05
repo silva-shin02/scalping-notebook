@@ -108,7 +108,7 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
-`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / `_dtsStepBaseNote` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / **`_dtsHitIdx` / `_dtsTipD` / `DtsChartBox`（ホバー）** / `_dtsCharts` / `_dtsDelta` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_DTS_W_DELTA`/`_DTS_W_TONE`** / `_dtsTable` / **`_dtsWarnBox`（効いていない前提の警告欄）** / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`（`_dtsSimulate` の `summary.stepOrigin` ＝段の実効起点も参照）
+`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`_dtsAlphaMark`（丸囲みα）/ `_dtsSwitchRow`（⑤の切替）** / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / **`_dtsHitIdx` / `_dtsTipD` / `DtsChartBox`（ホバー）** / `_dtsCharts` / `_dtsDelta` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_DTS_W_DELTA`/`_DTS_W_TONE`** / `_dtsTable` / **`_dtsWarnBox`（効いていない前提の警告欄）** / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`（`_dtsSimulate` の `summary.stepOrigin` ＝段の実効起点も参照）
 
 **📈 損益推移シミュレーター 2026-08-05** — 記録帳の💰損益タブ（全銘柄合算）、🧮シミュの右のタブ。前提を入れて資金・株数・生活口座・総資産の月次推移を出す。**実績の集計ではなく将来の見通し**。
 
@@ -182,6 +182,18 @@ HomeEventFormModal, App
   - **信用余力＝委託保証金 ÷ 委託保証金率 − 建玉金額**。`rows[].powerOpen`/`powerEnd` を追加＝建玉はその月の株数で固定なので、月内で動くのは資金の分だけ。検算: 資金130万・600株・株価6,500円・率30% → 130万/0.3 − 390万 = 43.3万。
   - **`_dtsFlow(a, b)`（新規）**＝「月初 → 月末」の2値セル。⚠️**両側とも固定幅の右寄せ**にする（`_DTS_W_FLOW`）＝そうしないと矢印の位置が行ごとにずれて数字が縦に揃わない。
   - `_DTS_W_DELTA` と `_dtsDelta` は（↑◯万）の廃止で**未使用**になった（関数は残置）。table の `minWidth` は 880→980。
+- **「残金を全額 生活口座へ」の切替を選べるようにした 2026-08-05L**（ユーザーと構想を詰めて決定）。2026-08-05J の「株数が⑥の上限に達したら」を一般化したもの。
+  - **`cfg.livingSwitch = {mode, shares, capital, ym}`**。mode＝`off` / `shares`（株数が◯株に達した次の月から）/ `capital`（取引資金が◯円を超えた次の月から）/ `ym`（指定の年月から）。UI は **`_dtsSwitchRow`（新規）＝⑤の中**。
+  - ⚠️**置き場所は⑤**＝これは「お金の行き先」の話。⑥（株数の話）ではない。旧版は**⑥に注記だけ置いて処理は⑤にある**という捻れだった（⑥からは注記を全撤去）。
+  - ⚠️**判定は月末の値・効き始めるのは翌月**（決定①）＝⑥の「月末に◯円になった次の月から」と作法を揃えた。**旧実装は到達した当月から効いていて食い違っていた**。実測: 10月に2,500株到達 → 10月の残金49.7万は取引資金へ入り、**11月から残金0**。
+  - ⚠️**年月指定だけはその月から**＝絶対指定なので「達した翌月」の概念が無い。
+  - ⚠️**一度成立したら戻さない**（決定②）。資金トリガーは条件を割りうるが、往復させない＝「もう十分だから生活へ回す」という意思決定なので。
+  - **目標残高は無視して積み続ける**（決定③）＝⑤の目標残高はあくまで積立の目安で役割が違う、というユーザーの整理。
+  - **株数モードの既定値は⑥の上限**（決定④）＝`shares` 空欄なら `maxShares` を使う。placeholder にも出す。
+  - 切り替わった月を🚩節目に1行（決定⑤）。実測「2027年11月 以降は残金を全額 生活口座へ（株数が 2,500株 に到達）」。
+  - ⚠️**保存済みcfgには `livingSwitch` が無い**ので `_dtsInitCfg` の saved 分岐で `{mode:"shares"}` を補う＝**直前の版と同じ挙動**になる既定。ここを `off` にすると保存済みの人だけ結果が変わる。
+  - 各モードで条件値が未入力なら warn（「切り替わりません」）。実測4モードとも意図どおり。
+- **`_dtsFlow` を縦2行へ 2026-08-05L**（ユーザー提案）。「月初 → 月末」の横並びの列が3つになり表の最小content幅が **915px** まで膨らんで横スクロールが復活したため、`月初` / `→月末` の2行に。⚠️**2行とも同じ固定幅の箱の中で右寄せ**にする＝矢印を2行目の頭に付けても数字の右端が動かないので縦ぞろえは保たれる（実測: 全11列とも右端が単一値）。最小content幅 915→**779**。
 - **信用余力を総枠へ・上限到達で全額生活口座・⑧→丸囲みα・理論最大株数 2026-08-05J/K**（ユーザー指定）。
   - **信用余力の定義変更**＝旧「総枠 − 建玉（新規に建てられる残り）」→ **新「取引資金 ÷ 委託保証金率」＝建てられる総枠**（率30%なら資金の3.33倍）。⚠️隣の余力使用率がちょうど `建玉 ÷ 信用余力` になるので2列が直接つながる。検算: 資金139.1万 → 463.7万。
   - **`_dtsMaxNote`（新規）／`_dtsStepBaseNote` は廃止**。⑥の注記はユーザー指定で全部消し、**上限到達時の振る舞い1行だけ**にした。`summary.stepOrigin`・`injFloor` は読み手が消えて未使用になった（`_dtsDelta`/`_DTS_W_DELTA` も未使用のまま残置）。

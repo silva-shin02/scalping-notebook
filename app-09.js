@@ -121,6 +121,23 @@ function _dtsSimulate(cfg) {
   var injIdx = inj ? _dtsYmToIdx(inj.ym) : null;
   var injTotal = 0;
 
+  // ★残金を全額 生活口座へ回す切替 2026-08-05L（ユーザー決定）。旧「株数が⑥の上限に達したら」を一般化したもの。
+  //   mode: off / shares（株数が◯株）/ capital（取引資金が◯円超）/ ym（指定の年月から）。
+  // ⚠️判定は**月末の値**で行い、効き始めるのは**翌月**＝⑥の「月末に◯円になった次の月から」と同じ作法に揃える
+  //   （旧実装は到達した当月から効いていて、ユーザーの言う「次の月から」と食い違っていた）。
+  // ⚠️一度成立したら**戻さない**（ユーザー決定②）。資金が減って条件を割っても取引資金へは戻さない
+  //   ＝「もう十分だから生活へ回す」という意思決定なので、一時的な減少で往復させない。
+  // ⚠️年月指定だけは絶対指定なので「達した翌月」の概念が無く、その月から効かせる。
+  var sw = cfg.livingSwitch || {};
+  var swMode = sw.mode || "off";
+  var swShares = _dtsNumOrNull(sw.shares); if (swShares == null) swShares = maxSh;   // 空欄なら⑥の上限（決定④）
+  var swCap = _dtsNumOrNull(sw.capital);
+  var swIdx = sw.ym ? _dtsYmToIdx(sw.ym) : null;
+  var switched = false, swStartYm = null;
+  if (swMode === "shares" && swShares == null) warns.push("⑤の切替が「株数」ですが、株数も⑥の上限も未入力なので切り替わりません。");
+  if (swMode === "capital" && swCap == null) warns.push("⑤の切替が「取引資金」ですが、金額が未入力なので切り替わりません。");
+  if (swMode === "ym" && swIdx == null) warns.push("⑤の切替が「年月」ですが、年月が未入力なので切り替わりません。");
+
   // 前提そのものの警告 2026-08-05B。**入れたのに効かない入力**を黙って捨てないための受け皿。
   // 節目(marks)は「何月に何が起きたか」の時系列なので、時点を持たない設定の警告はここに分ける。
   var warns = [];
@@ -231,14 +248,16 @@ function _dtsSimulate(cfg) {
     var surplus = net - expense;
 
     // ⑤ 生活口座への積立。mode="fill"＝目標まで余剰全額 / "drip"＝定額。どちらも目標残高で頭打ち。
-    // ★2026-08-05J（ユーザー指定）: **株数が上限に達した月からは余剰を全額 生活口座へ**。
-    //   上限に張り付くと取引資金を積んでも株数が増えない＝そこから先の資金は遊ぶだけなので、
-    //   ⑤の定額/目標残高の設定より優先して全額を生活口座に寄せる（目標残高も超えて積む）。
-    //   ⚠️赤字月（surplus<0）は積み立てない＝取引資金から出る。ここを0でクリップしないと生活口座が減る。
-    var atMax = (maxSh != null && maxSh > 0 && shares >= maxSh);
+    // 年月指定は絶対指定なのでこの月から効かせる（株数・資金は前月末の判定結果が switched に入っている）。
+    if (!switched && swMode === "ym" && swIdx != null && (sIdx + k) >= swIdx) switched = true;
+    if (switched && !swStartYm) swStartYm = ym;
+
+    // ★切替が成立している月は**余剰を全額 生活口座へ**（⑤の定額・目標残高より優先＝目標も超えて積む）。
+    //   ⑤はあくまで「積立の目標」で役割が違う、というのがユーザーの整理（決定③）。
+    //   ⚠️赤字月（surplus<0）は積み立てない＝取引資金から出る。0でクリップしないと生活口座が減る。
     var drRow = _dtsPickByYm(cfg.drip, ym);
     var toLiving = 0, tgt = null;
-    if (atMax) {
+    if (switched) {
       toLiving = Math.max(0, surplus);
       if (drRow) tgt = _dtsNumOrNull(drRow.target);
     } else if (drRow) {
@@ -294,6 +313,11 @@ function _dtsSimulate(cfg) {
       powerUse: powerUse, runway: runway, bePerDay: bePerDay,
       shortMargin: buffer < 0
     });
+    // 月末で切替条件を判定＝成立しても効くのは**次の月から**（このループの残りには影響しない）。
+    if (!switched) {
+      if (swMode === "shares" && swShares != null && shares >= swShares) switched = true;
+      else if (swMode === "capital" && swCap != null && capital > swCap) switched = true;
+    }
     prevShares = shares;
   }
 
@@ -367,6 +391,12 @@ function _dtsSimulate(cfg) {
       marks.push({ ym: rows[z].ym, kind: "warn", text: _dtsYmLbl(rows[z].ym) + "  🛑 取引資金がマイナス（" + _dtsFmtMan(rows[z].capital) + "円）＝この前提では資金が尽きます" });
       break;
     }
+  }
+  if (swStartYm) {
+    var swWhy = swMode === "shares" ? ("株数が " + (swShares != null ? swShares.toLocaleString() : "—") + "株 に到達")
+      : swMode === "capital" ? ("取引資金が " + _dtsFmtMan(swCap) + "円 を超過")
+      : "指定の年月";
+    marks.push({ ym: swStartYm, kind: "goal", text: _dtsYmLbl(swStartYm) + "  以降は残金を全額 生活口座へ（" + swWhy + "）" });
   }
   if (worst) marks.push({ ym: worst.ym, kind: "min", text: _dtsYmLbl(worst.ym) + "  バッファ最小 " + Math.round(worst.buffer).toLocaleString() + "円（" + worst.shares + "株）" });
   marks.sort(function(a, b) { return _dtsYmToIdx(a.ym) - _dtsYmToIdx(b.ym); });
@@ -445,6 +475,9 @@ function _dtsInitCfg(data, actual) {
     var c = {}; for (var k in saved) { if (Object.prototype.hasOwnProperty.call(saved, k)) c[k] = saved[k]; }
     if (!c.livingCost || !c.livingCost.length) c.livingCost = [{ from: c.startYm, amount: 100000 }];
     if (!c.drip || !c.drip.length) c.drip = [{ from: c.startYm, mode: "drip", amount: 50000, target: null }];
+    // 2026-08-05L に追加した項目。⚠️既存の保存済みcfgには無いので、**直前の版と同じ挙動になる既定**を入れる
+    //   （＝株数が⑥の上限に達したら切替）。ここを "off" にすると保存済みの人だけ結果が変わる。
+    if (!c.livingSwitch) c.livingSwitch = { mode: "shares", shares: null, capital: null, ym: "" };
     return c;
   }
   var ym = ((typeof todayStr === "function") ? todayStr() : "2026-08-01").slice(0, 7);
@@ -457,6 +490,7 @@ function _dtsInitCfg(data, actual) {
     drip: [{ from: ym, mode: "drip", amount: 50000, target: null }],
     stepBase: null, stepAmount: 250000, stepShares: 100, maxShares: 3000,
     mainPrice: 6500, marginRate: 0.30,
+    livingSwitch: { mode: "shares", shares: null, capital: null, ym: "" },
     injection: { ym: "", amount: 0, sharesAfter: 0 }
   };
 }
@@ -547,16 +581,33 @@ function _dtsAlphaMark(k) {
     lineHeight: 1, marginRight: 4, verticalAlign: "-2px" } }, "α");
 }
 
-// ⑥の下に出す注記 2026-08-05J。ユーザー指定で**旧い注記（起点の説明・初月の段数・起点の置き換わり）は全廃止**し、
-// 上限到達時の振る舞いだけを書く。旧の _dtsStepBaseNote / それが読んでいた summary.stepOrigin・injFloor は未使用になった。
-// ⚠ここの文言と _dtsSimulate の⑤の atMax 分岐は対で変えること（片方だけ直すと表と説明が食い違う）。
-function _dtsMaxNote(cfg) {
-  cfg = cfg || {};
+// ⑤の下に出す「残金を全額こちらへ回す切替」の行 2026-08-05L（ユーザー決定）。
+// ⚠置き場所は⑤＝これは**お金の行き先**の話で、⑥（株数の話）ではない。旧版は⑥に注記だけ置いて
+//   処理は⑤にあるという捧れだった。⑥からは注記を撤去済み。
+// ⚠ここの文言と _dtsSimulate の switched 判定は対で変えること（片方だけ直すと表と説明が食い違う）。
+function _dtsSwitchRow(cfg, setSw) {
+  var sw = cfg.livingSwitch || {}, mode = sw.mode || "off";
   var mx = _dtsNumOrNull(cfg.maxShares);
-  var t = (mx != null && mx > 0)
-    ? ("株数が上限の " + mx.toLocaleString() + "株 に達した月からは、残金をすべて生活口座へ移します（取引資金を積んでも株数が増えないため。⑤の定額・目標残高より優先します）。")
-    : "上限が未設定なので株数は伸び続けます。上限を入れると、達した月から残金をすべて生活口座へ移します。";
-  return React.createElement("div", { style: { fontSize: 9, color: "#6B7280", marginTop: 4, lineHeight: 1.5 } }, t);
+  var sel = React.createElement("select", {
+    value: mode, onChange: function(e) { setSw("mode", e.target.value); },
+    style: { fontSize: 11, fontWeight: 700, padding: "3px 4px", border: "1px solid " + _DTS_BD, borderRadius: 5, background: "#fff", color: "#1F2937" }
+  }, React.createElement("option", { value: "off" }, "使わない"),
+     React.createElement("option", { value: "shares" }, "株数が"),
+     React.createElement("option", { value: "capital" }, "取引資金が"),
+     React.createElement("option", { value: "ym" }, "年月が"));
+  var mid = mode === "shares"
+      ? [React.createElement(DtsNum, { key: "ss", value: sw.shares, width: 56, suffix: "株", placeholder: mx != null ? String(mx) : "⑥の上限", step: 100, onChange: function(v) { setSw("shares", v); } }), _dtsLbl("に達した次の月から")]
+    : mode === "capital"
+      ? [React.createElement(DtsNum, { key: "sc", value: sw.capital, unit: "man", suffix: "万円", step: 10, onChange: function(v) { setSw("capital", v); } }), _dtsLbl("を超えた次の月から")]
+    : mode === "ym"
+      ? [React.createElement(DtsYm, { key: "sy", value: sw.ym, width: 112, onChange: function(v) { setSw("ym", v); } }), _dtsLbl("から")]
+    : [];
+  return React.createElement("div", { style: { marginTop: 6, paddingTop: 6, borderTop: "1px solid " + _DTS_BD } },
+    _dtsRow([_dtsLbl("切替"), sel].concat(mid).concat(mode === "off" ? [] : [_dtsLbl("残金を全額こちらへ")])),
+    React.createElement("div", { style: { fontSize: 9, color: "#6B7280", marginTop: 4, lineHeight: 1.5 } },
+      mode === "off"
+        ? "切替を使うと、条件を満たした次の月から残金（手取り−生活費）を全額この生活口座へ回します。取引資金はそこで止まります。"
+        : "条件は月末で判定し、効き始めるのは次の月からです。一度切り替わったら、あとで条件を割っても取引資金には戻しません。切替中は上の目標残高を超えても積み続けます（目標残高はあくまで積立の目安）。"));
 }
 
 // ---- 本体コンポーネント --------------------------------------------------
@@ -572,6 +623,7 @@ function DaytradeProjection(props) {
   var clone = function(o) { var c = {}; for (var k in o) { if (Object.prototype.hasOwnProperty.call(o, k)) c[k] = o[k]; } return c; };
   var set = function(k, v) { setCfg(function(p) { var c = clone(p); c[k] = v; return c; }); };
   var setInj = function(k, v) { setCfg(function(p) { var c = clone(p); c.injection = clone(p.injection || {}); c.injection[k] = v; return c; }); };
+  var setSw = function(k, v) { setCfg(function(p) { var c = clone(p); c.livingSwitch = clone(p.livingSwitch || {}); c.livingSwitch[k] = v; return c; }); };
   var setRow = function(key, i, k, v) {
     setCfg(function(p) { var c = clone(p); var arr = (p[key] || []).slice(); arr[i] = clone(arr[i] || {}); arr[i][k] = v; c[key] = arr; return c; });
   };
@@ -647,7 +699,8 @@ function DaytradeProjection(props) {
           React.createElement(DtsNum, { value: r.target, unit: "man", suffix: "万円", placeholder: "無制限", step: 5, onChange: function(v) { setRow("drip", i, "target", v); } }),
           (cfg.drip.length > 1) ? React.createElement("button", { onClick: function() { delRow("drip", i); }, style: { fontSize: 10, color: "#B91C1C", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null);
       }),
-      React.createElement("button", { onClick: function() { addRow("drip", { from: cfg.startYm, mode: "drip", amount: 50000, target: null }); }, style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" } }, "＋ 途中で変える")
+      React.createElement("button", { onClick: function() { addRow("drip", { from: cfg.startYm, mode: "drip", amount: 50000, target: null }); }, style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" } }, "＋ 途中で変える"),
+      _dtsSwitchRow(cfg, setSw)
     )),
     // 2026-08-05y ラベルを「月末の資金口座が◯万円になった次の月から」へ（ユーザー要望）。
     // ⚠️これは**表記だけの変更で計算は1行も変えていない**＝元から「前月末の資金で判定→当月に反映」なので
@@ -660,7 +713,7 @@ function DaytradeProjection(props) {
         _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } }),
         _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
       ]),
-      _dtsMaxNote(cfg))),
+      null)),
     _dtsSec("⑦ 余力チェック", "拘束額＝株数×株価／必要保証金＝拘束額×保証金率", React.createElement("div", null,
       _dtsRow([
         _dtsLbl("メイン株価"), React.createElement(DtsNum, { key: "mp", value: cfg.mainPrice, width: 62, suffix: "円", step: 100, onChange: function(v) { set("mainPrice", v); } }),
@@ -1049,13 +1102,15 @@ function _dtsRest(v) {
 // 枠から押し出されて縦ぞろえが壊れる＝列内で最長の添え物・数字が入る幅が下限。
 var _DTS_W_TONE = 44, _DTS_W_FLOW = 41;
 
-// 「月初 → 月末」の2値セル 2026-08-05F（ユーザー指定）。取引資金と信用余力で使う。
-// ⚠️両側とも固定幅の右寄せにする＝そうしないと矢印の位置が行ごとにずれて数字が縦に揃わない。
+// 「月初 → 月末」の2値セル。**縦2行**（ユーザー提案 2026-08-05L）。
+// 旧は横並び（月初 → 月末）だったが、この形の列が3つになって表の最小幅が915pxまで膨らみ横スクロールが復活した。
+// 縦にすると1列あたり約60px縮む。⚠️2行とも**同じ固定幅の箱の中で右寄せ**にする＝矢印を2行目の頭に付けても
+//   数字の右端が動かないので、列の縦ぞろえは横並びのときと同じまま保たれる。
 function _dtsFlow(a, b) {
-  return React.createElement("span", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-end", gap: 3 } },
-    React.createElement("span", { style: { minWidth: _DTS_W_FLOW, textAlign: "right", color: "#9CA3AF", fontWeight: 700 } }, a),
-    React.createElement("span", { style: { color: "#CBD5E1", fontSize: 9 } }, "→"),
-    React.createElement("span", { style: { minWidth: _DTS_W_FLOW, textAlign: "right", fontWeight: 800, color: _DTS_INK } }, b));
+  return React.createElement("span", { style: { display: "inline-block", minWidth: _DTS_W_FLOW, textAlign: "right" } },
+    React.createElement("div", { style: { color: "#9CA3AF", fontWeight: 700, lineHeight: 1.25 } }, a),
+    React.createElement("div", { style: { fontWeight: 800, color: _DTS_INK, lineHeight: 1.25 } },
+      React.createElement("span", { style: { color: "#CBD5E1", marginRight: 2 } }, "→"), b));
 }
 
 function _dtsTable(res, cfg) {
