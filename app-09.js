@@ -563,21 +563,35 @@ function _dtsSvgText(k, tx, ty, t, ex) {
 //    「資金が増える → 株数が上がる」の連動を1枚で見せるのが狙い。
 function _dtsChartAssets(rows) {
   if (!rows || !rows.length) return null;
-  var W = 720, H = 214, pL = 50, pR = 48, pT = 12, pB = 30;
+  var W = 720, H = 300, pL = 58, pR = 54, pT = 30, pB = 32;
   var pw = W - pL - pR, ph = H - pT - pB, n = rows.length, i;
   var step = pw / n, barW = Math.max(2, Math.min(30, step * 0.6));
   var maxT = 0, maxS = 0;
   for (i = 0; i < n; i++) { if (rows[i].total > maxT) maxT = rows[i].total; if (rows[i].shares > maxS) maxS = rows[i].shares; }
-  var yTop = _dtsNiceMax(maxT), sTop = _dtsNiceMax(maxS);
+  // 区切り線は**100万円ごとに実線・50万円ごとに点線**（ユーザー指定 2026-08-05）。
+  // ただし期間が長く総資産が伸びると本数が増えすぎるので、実線が12本を超える時だけ 200万→500万→… と粗くする
+  // （点線は常に実線の半分＝既定なら50万円）。旧 _dtsNiceMax による4分割はやめた。
+  var MAJ = [1e6, 2e6, 5e6, 1e7, 2e7, 5e7, 1e8, 2e8, 5e8];
+  var major = MAJ[MAJ.length - 1];
+  for (i = 0; i < MAJ.length; i++) { if (Math.ceil(maxT / MAJ[i]) <= 12) { major = MAJ[i]; break; } }
+  var nMaj = Math.max(1, Math.ceil(maxT / major)), yTop = major * nMaj, minor = major / 2;
+  var sTop = _dtsNiceMax(maxS);
   var y = function(v) { return pT + ph - (v / yTop) * ph; };
   var ys = function(v) { return pT + ph - (v / sTop) * ph; };
   var kids = [], g;
 
-  for (g = 0; g <= 4; g++) {
-    var gv = yTop * g / 4, gy = y(gv);
-    kids.push(React.createElement("line", { key: "g" + g, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: "#E5E7EB", strokeWidth: 1 }));
-    kids.push(_dtsSvgText("gl" + g, pL - 5, gy + 3, _dtsFmtMan(gv), { textAnchor: "end" }));
-    kids.push(_dtsSvgText("gr" + g, pL + pw + 5, gy + 3, Math.round(sTop * g / 4).toLocaleString(), { textAnchor: "start", fill: "#B45309" }));
+  for (g = 0; g <= nMaj; g++) {
+    var gv = major * g, gy = y(gv);
+    if (g < nMaj) {
+      var my = y(gv + minor);
+      kids.push(React.createElement("line", { key: "gm" + g, x1: pL, y1: my, x2: pL + pw, y2: my, stroke: "#E2E0DC", strokeWidth: 1, strokeDasharray: "2 4" }));
+    }
+    kids.push(React.createElement("line", { key: "g" + g, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: g === 0 ? "#CBD5E1" : "#E5E7EB", strokeWidth: 1 }));
+    kids.push(_dtsSvgText("gl" + g, pL - 6, gy + 3, _dtsFmtMan(gv), { textAnchor: "end" }));
+  }
+  for (g = 0; g <= 4; g++) {   // 右軸（株数）は左の区切り線とは独立に4分割
+    var sv = sTop * g / 4;
+    kids.push(_dtsSvgText("gr" + g, pL + pw + 6, ys(sv) + 3, Math.round(sv).toLocaleString(), { textAnchor: "start", fill: "#B45309" }));
   }
   for (i = 0; i < n; i++) {
     var r = rows[i], bx = pL + step * i + (step - barW) / 2;
@@ -594,10 +608,12 @@ function _dtsChartAssets(rows) {
   var every = Math.ceil(n / 12);
   for (i = 0; i < n; i++) {
     if (i % every) continue;
-    kids.push(_dtsSvgText("x" + i, pL + step * i + step / 2, H - 12, _dtsXLbl(rows[i].ym), { textAnchor: "middle", fontSize: 8.5 }));
+    kids.push(_dtsSvgText("x" + i, pL + step * i + step / 2, H - 11, _dtsXLbl(rows[i].ym), { textAnchor: "middle", fontSize: 8.5 }));
   }
-  kids.push(_dtsSvgText("axL", pL - 5, pT - 2, "総資産", { textAnchor: "end", fontSize: 8.5, fill: "#1E3A8A" }));
-  kids.push(_dtsSvgText("axR", pL + pw + 5, pT - 2, "株数", { textAnchor: "start", fontSize: 8.5, fill: "#B45309" }));
+  // 軸タイトルは目盛りラベルと同じ x に置くと重なる（旧実装で「総資産」と「1,000万」が被っていた）。
+  // 上端の余白へ逃がし、左右の端に寄せる＝目盛りとは列がずれるので絶対に重ならない。
+  kids.push(_dtsSvgText("axL", 4, 13, "総資産（万円）", { textAnchor: "start", fontSize: 9, fill: "#1E3A8A" }));
+  kids.push(_dtsSvgText("axR", W - 4, 13, "株数（株）", { textAnchor: "end", fontSize: 9, fill: "#B45309" }));
   return React.createElement("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", style: { display: "block", minWidth: 460 }, role: "img" },
     React.createElement("title", null, "総資産（取引資金＋生活口座）の積み上げ棒と株数の推移"), kids);
 }
@@ -605,11 +621,11 @@ function _dtsChartAssets(rows) {
 // ② 余力使用率の折れ線。70/85/95%の帯を敷いて、危ない月が目で拾えるようにする。
 function _dtsChartPower(rows) {
   if (!rows || !rows.length) return null;
-  var W = 720, H = 158, pL = 50, pR = 48, pT = 12, pB = 30;
+  var W = 720, H = 230, pL = 58, pR = 54, pT = 26, pB = 32;
   var pw = W - pL - pR, ph = H - pT - pB, n = rows.length, i;
   var step = pw / n, maxU = 0;
   for (i = 0; i < n; i++) { if (rows[i].powerUse != null && rows[i].powerUse > maxU) maxU = rows[i].powerUse; }
-  var top = Math.max(1.0, maxU * 1.08);
+  var top = Math.max(1.0, Math.ceil(maxU / 0.25) * 0.25);   // 25%刻みで切り上げ＝目盛りがキリのいい%になる
   var y = function(v) { return pT + ph - (v / top) * ph; };
   var x = function(i2) { return pL + step * i2 + step / 2; };
   var kids = [];
@@ -619,11 +635,18 @@ function _dtsChartPower(rows) {
     kids.push(React.createElement("rect", { key: k, x: pL, y: y1, width: pw, height: y2 - y1, fill: col }));
   };
   band("b1", 0, 0.70, "#F0FDF4"); band("b2", 0.85, 0.95, "#FEFCE8"); band("b3", 0.95, top, "#FEF2F2");
+  // 目盛りは25%ごと（左）。警戒ライン70/85/95%は破線＋**右側**にラベルを置く＝左の目盛りと重ならない。
+  var nG = Math.round(top / 0.25);
+  for (i = 0; i <= nG; i++) {
+    var gv = 0.25 * i, gy = y(gv);
+    kids.push(React.createElement("line", { key: "pg" + i, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: i === 0 ? "#CBD5E1" : "#E5E7EB", strokeWidth: 1 }));
+    kids.push(_dtsSvgText("pgl" + i, pL - 6, gy + 3, Math.round(gv * 100) + "%", { textAnchor: "end" }));
+  }
   var refs = [[0.70, "#047857"], [0.85, "#A16207"], [0.95, "#B91C1C"]];
   for (i = 0; i < refs.length; i++) {
     if (refs[i][0] > top) continue;
-    kids.push(React.createElement("line", { key: "r" + i, x1: pL, y1: y(refs[i][0]), x2: pL + pw, y2: y(refs[i][0]), stroke: refs[i][1], strokeWidth: 1, strokeDasharray: "3 3", opacity: 0.7 }));
-    kids.push(_dtsSvgText("rl" + i, pL - 5, y(refs[i][0]) + 3, Math.round(refs[i][0] * 100) + "%", { textAnchor: "end", fill: refs[i][1] }));
+    kids.push(React.createElement("line", { key: "r" + i, x1: pL, y1: y(refs[i][0]), x2: pL + pw, y2: y(refs[i][0]), stroke: refs[i][1], strokeWidth: 1, strokeDasharray: "3 3", opacity: 0.75 }));
+    kids.push(_dtsSvgText("rl" + i, pL + pw + 6, y(refs[i][0]) + 3, Math.round(refs[i][0] * 100) + "%", { textAnchor: "start", fill: refs[i][1] }));
   }
   var pts = [];
   for (i = 0; i < n; i++) { if (rows[i].powerUse != null) pts.push(x(i).toFixed(1) + "," + y(rows[i].powerUse).toFixed(1)); }
@@ -636,8 +659,10 @@ function _dtsChartPower(rows) {
   var every = Math.ceil(n / 12);
   for (i = 0; i < n; i++) {
     if (i % every) continue;
-    kids.push(_dtsSvgText("x" + i, x(i), H - 12, _dtsXLbl(rows[i].ym), { textAnchor: "middle", fontSize: 8.5 }));
+    kids.push(_dtsSvgText("x" + i, x(i), H - 11, _dtsXLbl(rows[i].ym), { textAnchor: "middle", fontSize: 8.5 }));
   }
+  kids.push(_dtsSvgText("axP", 4, 13, "余力使用率", { textAnchor: "start", fontSize: 9, fill: "#1E3A8A" }));
+  kids.push(_dtsSvgText("axP2", W - 4, 13, "警戒ライン", { textAnchor: "end", fontSize: 9, fill: "#A16207" }));
   return React.createElement("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", style: { display: "block", minWidth: 460 }, role: "img" },
     React.createElement("title", null, "余力使用率の推移（70/85/95%の警戒ライン付き）"), kids);
 }
@@ -686,7 +711,6 @@ function _dtsTable(res, cfg) {
     td("sh", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, (+cfg.initialShares || 0).toLocaleString())),
     td("gr", dash), td("net", dash), td("ex", dash), td("tl", dash),
     td("lv", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, _dtsFmtMan(cfg.initialLiving))),
-    td("tc", dash),
     td("cp", React.createElement("span", { style: { fontWeight: 800, color: "#6B7280" } }, _dtsFmtMan(cfg.initialCapital))),
     td("pu", dash), td("be", dash)
   ]);
@@ -701,7 +725,6 @@ function _dtsTable(res, cfg) {
       td("ex", React.createElement("span", { style: { color: "#B45309" } }, "−" + _dtsFmtMan(r.expense))),
       td("tl", _dtsFmtMan(r.toLiving)),
       td("lv", React.createElement("span", { style: { fontWeight: 700 } }, _dtsFmtMan(r.living))),
-      td("tc", React.createElement("span", { style: { fontWeight: 700, color: r.toCapital >= 0 ? "#047857" : "#B91C1C" } }, (r.toCapital >= 0 ? "＋" : "−") + _dtsFmtMan(Math.abs(r.toCapital)))),
       td("cp", React.createElement("span", null,
         React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, _dtsFmtMan(r.capital)),
         _dtsDelta(r.capitalDelta))),
@@ -711,16 +734,33 @@ function _dtsTable(res, cfg) {
         React.createElement("span", null, _dtsFmtYen(r.bePerDay))))
     ]);
   });
+  // 合計行 2026-08-05（ユーザー要望④）。アプリの他の集計表には合計行があるのにここだけ無かった。
+  // ⚠️フロー（期間の足し算に意味がある＝税引前/手取り/生活費/積立）とストック（残高＝生活口座/取引資金）が
+  //   混在するので、ストック側は合計ではなく**期末の残高**を「期末」と明記して出す。合算すると無意味な数字になる。
+  var sm = res.summary;
+  var totRow = React.createElement("tr", { key: "__tot", style: { background: _DTS_BG, borderTop: "2px solid " + _DTS_BD } }, [
+    td("ym", React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, "合計 " + sm.months + "ヶ月"), { textAlign: "left", borderLeft: "3px solid transparent" }),
+    td("sh", dash),
+    td("gr", React.createElement("span", { style: { fontWeight: 800 } }, _dtsFmtMan(sm.gross))),
+    td("net", React.createElement("span", { style: { fontWeight: 800 } }, _dtsFmtMan(sm.net))),
+    td("ex", React.createElement("span", { style: { fontWeight: 800, color: "#B45309" } }, "−" + _dtsFmtMan(sm.expense))),
+    td("tl", React.createElement("span", { style: { fontWeight: 800 } }, _dtsFmtMan(sm.toLiving))),
+    td("lv", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, "期末 " + _dtsFmtMan(sm.endLiving))),
+    td("cp", React.createElement("span", null,
+      React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, "期末 " + _dtsFmtMan(sm.endCapital)),
+      _dtsDelta(sm.capitalGain))),
+    td("pu", dash), td("be", dash)
+  ]);
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto", marginBottom: 8 } },
     React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 780 } },
       React.createElement("thead", null, React.createElement("tr", null, [
         th("年月"), th("株数"), th("税引前", "税引前の月次利益＝(株数÷100)×1日あたり損益×営業日数"), th("手取り", "税引前 − 税（税額は上のサマリーカードに合計で出しています）"),
         th("生活費", "社会保険料を含む"), th("積立", "その月に生活口座へ移した額"), th("生活口座", "生活口座の月末残高"),
-        th("残額", "手取り − 生活費 − 積立 ＝ その月に取引資金へ残った額"),
-        th("月末取引資金", "（）内は先月末からの増減。外部資金を投入した月だけ「残額」と食い違い、その差が投入額そのものです"),
+        th("月末取引資金", "（）内は先月末からの増減＝手取り − 生活費 − 積立。外部資金を投入した月はその投入額も含みます"),
         th("余力使用率", "拘束額 ÷（取引資金 ÷ 委託保証金率）"), th("損益分岐/日/100株", "その月の生活費を出すのに必要な1日あたり成績（100株換算）")
       ])),
-      React.createElement("tbody", null, [openRow].concat(rows))));
+      React.createElement("tbody", null, [openRow].concat(rows)),
+      React.createElement("tfoot", null, totRow)));
 }
 
 function _dtsMarks(res) {
