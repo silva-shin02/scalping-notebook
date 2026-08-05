@@ -283,7 +283,12 @@ function FastInput(_props_fi) {
     if (autoResize && multiline && ref.current) _fiAutoResize(ref.current);
   });
 
-  var transformInput = _props_fi.transformInput || null;
+  // 数値欄は全角で打たれても打った瞬間に半角へ 2026-08-05x（ユーザー要望「数値入力欄はすべて自動で半角に」）。
+  // transformInput の明示指定が最優先で、無指定のとき inputMode="numeric"/"decimal" か type="number" の欄だけ
+  // _toHankaku（app-03）を既定にする。⚠️_toHankaku は**変換するだけで文字を消さない**ので入力途中でも安全
+  // （_toHankakuNum のような「数字以外を捨てる」関数を既定にすると、小数点や−を打った瞬間に消えて打てなくなる）。
+  var _fiNum = (_props_fi.inputMode === "numeric" || _props_fi.inputMode === "decimal" || _props_fi.type === "number");
+  var transformInput = _props_fi.transformInput || ((_fiNum && typeof _toHankaku === "function") ? _toHankaku : null);
   var handleInput = function(e) {
     var _fi_v = e.target.value;
     if (transformInput) {
@@ -5443,7 +5448,8 @@ function AppearanceSection(_ref_ap) {
       React.createElement("select", { value: aName, onChange: function(e) { setAName(e.target.value); }, style: { padding: "5px 7px", fontSize: 12, border: "1px solid #ccc", borderRadius: 6, minWidth: 150 } },
         React.createElement("option", { value: "" }, _nameOptions.length ? "選択…" : (aKind === "tech" ? "テクニカル未登録（⚙で追加）" : "シグナル未登録")),
         _nameOptions.map(function(nm) { return React.createElement("option", { key: nm, value: nm }, nm); })),
-      React.createElement("input", { type: "text", inputMode: "numeric", value: aTime, onChange: function(e) { setATime(e.target.value); }, placeholder: "9:35", style: { width: 64, padding: "5px 7px", fontSize: 12, border: "1px solid #ccc", borderRadius: 6 } }),
+      // 時刻欄なので数字だけに削る_toHankakuNumではなく_toHankaku＝全角「：」も半角「:」になる 2026-08-05x
+      React.createElement("input", { type: "text", inputMode: "numeric", value: aTime, onChange: function(e) { setATime(_toHankaku(e.target.value)); }, placeholder: "9:35", style: { width: 64, padding: "5px 7px", fontSize: 12, border: "1px solid #ccc", borderRadius: 6 } }),
       React.createElement("input", { type: "text", value: aMemo, onChange: function(e) { setAMemo(e.target.value); }, placeholder: "メモ", style: { flex: 1, minWidth: 120, padding: "5px 7px", fontSize: 12, border: "1px solid #ccc", borderRadius: 6 } })),
     React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
       React.createElement("button", { onClick: _submit, style: { padding: "6px 16px", fontSize: 12, fontWeight: 700, background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" } }, editId ? "更新" : "追加"),

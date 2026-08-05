@@ -4938,9 +4938,9 @@ function StockHistoryView(_ref_shv) {
         React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", whiteSpace: "nowrap" } }, "α 理想α値（目標）"),
         React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #BAE6FD", borderRadius: 5, overflow: "hidden" } },
           React.createElement("input", {
-            type: "number", inputMode: "numeric", min: "0", max: "20", step: "1",
+            type: "text", inputMode: "numeric", min: "0", max: "20", step: "1",   // type=number だと全角入力がブラウザ側で""に潰れる 2026-08-05x
             value: _stkAlpha != null ? String(_stkAlpha) : "",
-            onChange: function(e) { _saveAlpha(e.target.value); },
+            onChange: function(e) { _saveAlpha(_toHankakuNum(e.target.value)); },   // 全角→半角 2026-08-05x
             placeholder: "0〜20",
             style: { padding: "4px 8px", fontSize: 13, border: "none", outline: "none", background: "#fff",
                      width: 72, textAlign: "right", boxSizing: "border-box" }

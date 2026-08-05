@@ -5555,7 +5555,12 @@ function _elKabuLadderSimV2(props) {
   // ①方式別入力（絶対値→「α値〇円で〇株」・採用α±X→「採用α値＋〇円で〇株」等）②取引ごと損切り「(合計)α値から〇円上」③第2取引以降「第1と同じ損切りライン」トグル。手動・A/B比較の両方がこの1関数を使う。
   var _cfgStepField = function(val, onCh, inc, dec) {
     return React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff", verticalAlign: "middle" } },
-      React.createElement("input", { type: "text", inputMode: "numeric", value: val, onChange: onCh, style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
+      React.createElement("input", { type: "text", inputMode: "numeric", value: val,
+        // 全角で打たれても半角へ 2026-08-05x。呼び出し元3つ（cum/off/stop）はどれも e.target.value しか読まないので、
+        // 半角化した値だけを持つ器を渡す＝ここ1箇所で3つとも効く。**DOMのe.target.valueは書き換えない**
+        // （controlled inputなので、onChが state を更新すれば再描画で半角の値が入る＝キャレットも飛ばない）。
+        onChange: function(e) { onCh({ target: { value: _toHankakuNum(e.target.value) } }); },
+        style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
       _stepBtn(inc, dec));
   };
   var _mkRowOps = function(cRows, cSet) {
@@ -5808,7 +5813,7 @@ function _elKabuLadderSimV2(props) {
       React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700 } }, "合計"),
         React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff", verticalAlign: "middle" } },
-          React.createElement("input", { type: "text", inputMode: "numeric", value: total, onChange: function(e) { setTotal(e.target.value); setAutoExp(null); }, style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
+          React.createElement("input", { type: "text", inputMode: "numeric", value: total, onChange: function(e) { setTotal(_toHankakuNum(e.target.value)); setAutoExp(null); }, style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
           _stepBtn(function() { _stepTotal(100); }, function() { _stepTotal(-100); })),
         React.createElement("span", { style: { fontSize: 11 } }, "株（100株刻み" + (totalN ? "・実効" + totalN + "株" : "") + "）")),
       allStock

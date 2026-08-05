@@ -363,7 +363,11 @@ function DtsNum(props) {
     React.createElement("input", {
       type: "text", inputMode: "decimal", placeholder: props.placeholder || "",
       value: draft != null ? draft : toDisp(props.value),
-      onChange: function(e) { var s = e.target.value; setDraft(s); props.onChange(fromDisp(s)); },
+      // 全角で打たれても打った瞬間に半角へ 2026-08-05x（ユーザー要望）。fromDisp も内部で全角を潰すが、
+      // それは**値**だけの話で draft（画面に出る生文字列）は全角のまま残る＝blurするまで「２５」と見えていた。
+      // ⚠️_toHankakuNum ではなく _toHankaku（変換するだけで文字を消さない）を使う＝小数点や−を打った瞬間に
+      //   消えると1日あたりのマイナスや小数が打てなくなる。数字以外の切り捨ては従来どおり fromDisp が担当。
+      onChange: function(e) { var s = _toHankaku(e.target.value); setDraft(s); props.onChange(fromDisp(s)); },
       onBlur: function() { setDraft(null); },
       style: { width: props.width || 62, padding: "3px 5px", fontSize: 11.5, fontWeight: 700, textAlign: "right",
         border: "none", outline: "none", background: "transparent", color: "#1F2937", fontVariantNumeric: "tabular-nums" }

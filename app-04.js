@@ -81,7 +81,7 @@ function TradeForm(_ref37) {
   }, React.createElement("option", null, "\u7A7A\u58F2"), React.createElement("option", null, "\u8CB7\u3044"))), React.createElement("label", {
     style: L
   }, "\u640D\u76CA(\u5186)", React.createElement(FastInput, {
-    type: "number",
+    type: "text",
     inputMode: "decimal",
     value: f.pnl,
     onChange: function(v) { return u("pnl", v); },
@@ -89,12 +89,14 @@ function TradeForm(_ref37) {
   })), React.createElement("label", {
     style: L
   }, "\u4FA1\u683C(\u5165)", React.createElement(FastInput, {
+    inputMode: "decimal",
     value: f.priceIn,
     onChange: function(v) { return u("priceIn", v); },
     style: I
   })), React.createElement("label", {
     style: L
   }, "\u4FA1\u683C(\u51FA)", React.createElement(FastInput, {
+    inputMode: "decimal",
     value: f.priceOut,
     onChange: function(v) { return u("priceOut", v); },
     style: I
@@ -255,7 +257,7 @@ function TradeItemCard(_ref38) {
   }, React.createElement("option", null, "\u7A7A\u58F2"), React.createElement("option", null, "\u8CB7\u3044"))), React.createElement("label", {
     style: L
   }, "\u640D\u76CA(\u5186)", React.createElement(FastInput, {
-    type: "number",
+    type: "text",
     inputMode: "decimal",
     value: f.pnl || "",
     onChange: function(v) { return u("pnl", v); },
@@ -263,12 +265,14 @@ function TradeItemCard(_ref38) {
   })), React.createElement("label", {
     style: L
   }, "\u4FA1\u683C(\u5165)", React.createElement(FastInput, {
+    inputMode: "decimal",
     value: f.priceIn || "",
     onChange: function(v) { return u("priceIn", v); },
     style: I
   })), React.createElement("label", {
     style: L
   }, "\u4FA1\u683C(\u51FA)", React.createElement(FastInput, {
+    inputMode: "decimal",
     value: f.priceOut || "",
     onChange: function(v) { return u("priceOut", v); },
     style: I
@@ -2638,7 +2642,7 @@ function SettingsModal(_ref54) {
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, opacity: _nadEnabled ? 1 : 0.5 } },
         React.createElement("span", { style: { fontSize: 12, color: "#555", fontWeight: 600 } }, "削除する期間"),
         React.createElement("input", { type: "text", inputMode: "numeric", value: _stNdV, disabled: !_nadEnabled,
-          onChange: function(e) { _setStNdV(e.target.value); },
+          onChange: function(e) { _setStNdV(_toHankakuNum(e.target.value)); },   // 全角で打たれても半角へ 2026-08-05x
           onBlur: function() { _ndSaveDaysVal(_stNdV, _stNdU); },
           style: { width: 52, textAlign: "center", padding: "6px 8px", border: "1px solid #BAE6FD", borderRadius: 6, fontSize: 13, fontWeight: 700, color: "#0C4A6E", background: "#fff", outline: "none" } }),
         React.createElement("select", { value: _stNdU, disabled: !_nadEnabled,
@@ -6795,7 +6799,7 @@ function DayView(_ref57) {
             React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#555", whiteSpace: "nowrap" } }, "損切りライン"),
             React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #ccc", borderRadius: 5, overflow: "hidden" } },
               React.createElement("input", {
-                type: "number", inputMode: "numeric", step: "1",
+                type: "text", inputMode: "numeric", step: "1",   // type=number だと全角入力がブラウザ側で""に潰れて_toHankakuまで届かない 2026-08-05x
                 value: (function() { var _avc2 = _pbCharts[_stkOfKey + "_" + date]; return _avc2 && _avc2.cutLine != null ? String(_avc2.cutLine) : "15"; })(),
                 onChange: function(e) {
                   var v = _toHankaku(e.target.value).trim();
