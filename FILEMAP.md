@@ -108,7 +108,7 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
-`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / `_dtsStepBaseNote` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_DTS_W_DELTA`/`_DTS_W_TONE`** / `_dtsTable` / **`_dtsWarnBox`（効いていない前提の警告欄）** / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`（`_dtsSimulate` の `summary.stepOrigin` ＝段の実効起点も参照）
+`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / `_dtsStepBaseNote` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / **`_dtsHitIdx` / `_dtsTipD` / `DtsChartBox`（ホバー）** / `_dtsCharts` / `_dtsDelta` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_DTS_W_DELTA`/`_DTS_W_TONE`** / `_dtsTable` / **`_dtsWarnBox`（効いていない前提の警告欄）** / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`（`_dtsSimulate` の `summary.stepOrigin` ＝段の実効起点も参照）
 
 **📈 損益推移シミュレーター 2026-08-05** — 記録帳の💰損益タブ（全銘柄合算）、🧮シミュの右のタブ。前提を入れて資金・株数・生活口座・総資産の月次推移を出す。**実績の集計ではなく将来の見通し**。
 
@@ -182,6 +182,13 @@ HomeEventFormModal, App
   - **信用余力＝委託保証金 ÷ 委託保証金率 − 建玉金額**。`rows[].powerOpen`/`powerEnd` を追加＝建玉はその月の株数で固定なので、月内で動くのは資金の分だけ。検算: 資金130万・600株・株価6,500円・率30% → 130万/0.3 − 390万 = 43.3万。
   - **`_dtsFlow(a, b)`（新規）**＝「月初 → 月末」の2値セル。⚠️**両側とも固定幅の右寄せ**にする（`_DTS_W_FLOW`）＝そうしないと矢印の位置が行ごとにずれて数字が縦に揃わない。
   - `_DTS_W_DELTA` と `_dtsDelta` は（↑◯万）の廃止で**未使用**になった（関数は残置）。table の `minWidth` は 880→980。
+- **グラフのホバー表示 2026-08-05H**（ユーザーが4案から**案D＝2カラム**を選択）。両グラフともカーソルを合わせるとその月の内訳が出る。
+  - **`DtsChartBox`（新規コンポーネント）**＝グラフ1枚ぶんのホバー状態を持つ。`_dtsCharts` は関数呼び出しから `React.createElement(DtsChartBox, …)` に変更（hooksを使うため）。`draw` propに `_dtsChartAssets`/`_dtsChartPower` を渡す＝描画側は第2引数 `hi`（ホバー中のindex）を受けてクロスヘアと強調を足すだけ。
+  - **`_dtsHitIdx(clientX, el, n)`**＝カーソルx → 何月目か。SVGは viewBox 720 幅の100%表示なので**実寸から viewBox 座標へ戻してから**列幅で割る。⚠️`pL=58`/`pR=54`/`W=720` を両グラフと共有＝**ここの余白を変えたら当たり判定もズラす必要がある**（ズレるとカーソルと違う月が光る）。
+  - **`_dtsTipD(r)`**＝吹き出しの中身（案D）。左＝損益の引き算／右＝資金と余力／下に余力使用率。⚠️**縦を短く保つのが案D採用の理由**なので、行を足す時は列に振り分けること。投入月は「外部資金◯円を投入」を頭に出す。
+  - 吹き出しは**SVGのtextではなくHTMLの絶対配置**＝2カラムの折り返しをCSSに任せられる。⚠️`position:absolute` の親は `overflowX:auto` の**内側**に置く（外だと横スクロール時に吹き出しだけ取り残される）。
+  - 端で画面外に出ないよう寄せ方を3段階に切替（実測: 左端 `translateX(0)` / 中央 `-50%` / 右端 `-100%`）。
+  - ⚠️**検証時の注意**: Reactの状態更新は非同期なので、`mousemove` をdispatchした直後に同期でDOMを読むと前回の値が見える（一度これで「更新されない」と誤判定した）。**70ms待ってから読む**。また React は `onMouseLeave` を **`mouseout`(relatedTargetが外) から合成する**ので、`mouseleave` をdispatchしても発火しない。
 - **前提の保存**は `data.custom.dtsCfg`（💾ボタン）。既存の `stSave`→`fbPut` 経路にそのまま乗るので専用の同期実装は無い。
 - **回帰テスト**: 依頼メモ§8の12ヶ月・年間集計・境界ケース（2027-06 の 4.906→4段→1,400株）で **54 pass / 0 fail**。JScript（`cscript`）で `_dtsSimulate` を直接叩く方式。
 - **グラフは自前SVG 2026-08-05**（ユーザー要望「視覚的にわかりやすいものもほしい」）。Chart.js/recharts は**使わない**＝ビルド工程なし・`file://` 運用・SWプリキャッシュのためCDNを増やせない。ダークモードは `html.sn-dark` のCSSフィルタ（invert+hue-rotate）が全体に掛かるので **light 前提の色で描く**（個別対応は不要）。

@@ -783,7 +783,9 @@ function _dtsSvgText(k, tx, ty, t, ex) {
 
 // ① 総資産の積み上げ棒（取引資金＋生活口座）＋ 株数の階段線（右軸）。
 //    「資金が増える → 株数が上がる」の連動を1枚で見せるのが狙い。
-function _dtsChartAssets(rows) {
+// hi＝ホバー中の月index（null＝ホバー無し）2026-08-05H。当たり判定は _dtsHitIdx が同じ pL/pR/W で計算するので、
+// ⚠️ここの余白を変えたら _dtsHitIdx の定数も必ず合わせること（ズレるとカーソルと違う月が光る）。
+function _dtsChartAssets(rows, hi) {
   if (!rows || !rows.length) return null;
   var W = 720, H = 300, pL = 58, pR = 54, pT = 30, pB = 32;
   var pw = W - pL - pR, ph = H - pT - pB, n = rows.length, i;
@@ -867,12 +869,17 @@ function _dtsChartAssets(rows) {
   // 上端の余白へ逃がし、左右の端に寄せる＝目盛りとは列がずれるので絶対に重ならない。
   kids.push(_dtsSvgText("axL", 4, 13, "総資産（万円）", { textAnchor: "start", fontSize: 9, fill: "#1E3A8A" }));
   kids.push(_dtsSvgText("axR", W - 4, 13, "株数（株）", { textAnchor: "end", fontSize: 9, fill: "#B45309" }));
+  if (hi != null && rows[hi]) {
+    var hx = pL + step * hi + step / 2;
+    kids.push(React.createElement("line", { key: "hv", x1: hx, y1: pT, x2: hx, y2: pT + ph, stroke: _DTS_INK, strokeWidth: 1, strokeDasharray: "3 3", opacity: 0.5 }));
+    kids.push(React.createElement("rect", { key: "hb", x: pL + step * hi, y: pT, width: step, height: ph, fill: _DTS_INK, opacity: 0.06 }));
+  }
   return React.createElement("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", style: { display: "block", minWidth: 460 }, role: "img" },
     React.createElement("title", null, "総資産（取引資金＋生活口座）の積み上げ棒と株数の推移"), kids);
 }
 
 // ② 余力使用率の折れ線。70/85/95%の帯を敷いて、危ない月が目で拾えるようにする。
-function _dtsChartPower(rows) {
+function _dtsChartPower(rows, hi) {
   if (!rows || !rows.length) return null;
   var W = 720, H = 230, pL = 58, pR = 54, pT = 26, pB = 32;
   var pw = W - pL - pR, ph = H - pT - pB, n = rows.length, i;
@@ -916,6 +923,10 @@ function _dtsChartPower(rows) {
   }
   kids.push(_dtsSvgText("axP", 4, 13, "余力使用率", { textAnchor: "start", fontSize: 9, fill: "#1E3A8A" }));
   kids.push(_dtsSvgText("axP2", W - 4, 13, "警戒ライン", { textAnchor: "end", fontSize: 9, fill: "#A16207" }));
+  if (hi != null && rows[hi]) {
+    kids.push(React.createElement("line", { key: "hv", x1: x(hi), y1: pT, x2: x(hi), y2: pT + ph, stroke: _DTS_INK, strokeWidth: 1, strokeDasharray: "3 3", opacity: 0.5 }));
+    if (rows[hi].powerUse != null) kids.push(React.createElement("circle", { key: "hp", cx: x(hi), cy: y(rows[hi].powerUse), r: 4.5, fill: "none", stroke: _DTS_INK, strokeWidth: 2 }));
+  }
   return React.createElement("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", style: { display: "block", minWidth: 460 }, role: "img" },
     React.createElement("title", null, "余力使用率の推移（70/85/95%の警戒ライン付き）"), kids);
 }
@@ -928,18 +939,94 @@ function _dtsLegend(items) {
     }));
 }
 
-function _dtsCharts(res) {
-  var box = function(k, title, note, svg, legend) {
-    return React.createElement("div", { key: k, style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", padding: "7px 10px 4px", marginBottom: 6 } },
-      React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, marginBottom: 2 } }, title,
-        React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280", marginLeft: 6 } }, note)),
-      React.createElement("div", { style: { overflowX: "auto" } }, svg), legend);
+// カーソルのx座標 → 何月目か 2026-08-05H。SVGは viewBox 720 幅の 100% 表示なので、
+// 実寸(rect.width)から viewBox 座標へ戻してから列幅で割る。⚠️pL/pR/W は両グラフ共通の値と一致必須。
+function _dtsHitIdx(clientX, el, n) {
+  if (!el || !n) return null;
+  var r = el.getBoundingClientRect(); if (!r.width) return null;
+  var vx = (clientX - r.left) / r.width * 720;
+  var pL = 58, pw = 720 - 58 - 54;
+  var i = Math.floor((vx - pL) / (pw / n));
+  if (i < 0) i = 0; if (i > n - 1) i = n - 1;
+  return i;
+}
+
+// ホバー時の吹き出し（案D＝2カラム。ユーザー選択 2026-08-05H）。
+// 左＝損益の引き算／右＝資金と余力。⚠️縦を短く保つのが選定理由なので、行を足すときは列に振り分けること。
+function _dtsTipD(r) {
+  var lbl = function(t) { return React.createElement("span", { style: { color: "#6B7280" } }, t); };
+  var row = function(k, t, v, col) {
+    return React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 8, padding: "1px 0" } },
+      lbl(t), React.createElement("span", { style: { fontWeight: col ? 800 : 700, color: col || "#1F2937" } }, v));
   };
+  var head = function(t) { return React.createElement("div", { style: { fontSize: 9, color: "#9CA3AF", fontWeight: 700, marginBottom: 2 } }, t); };
+  var pair = function(k, t, a, b) {
+    return React.createElement("div", { key: k, style: { marginBottom: 3 } },
+      React.createElement("div", { style: { color: "#6B7280" } }, t),
+      React.createElement("div", null, _dtsFmtMan(a), React.createElement("span", { style: { color: "#CBD5E1", margin: "0 3px" } }, "→"),
+        React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, _dtsFmtMan(b))));
+  };
+  var tone = _dtsUseTone(r.powerUse, r.shortMargin);
+  return React.createElement("div", { style: { fontSize: 10.5, fontVariantNumeric: "tabular-nums", lineHeight: 1.5 } },
+    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 5 } },
+      React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: _DTS_INK } }, r.lbl),
+      React.createElement("span", { style: { fontWeight: 800, color: r.stepUp ? _DTS_UP : "#374151" } }, r.shares.toLocaleString() + "株")),
+    r.injected ? React.createElement("div", { style: { color: "#6D28D9", fontWeight: 800, marginBottom: 4 } }, "外部資金 " + _dtsFmtMan(r.injected) + "円を投入") : null,
+    React.createElement("div", { style: { display: "flex", gap: 14 } },
+      React.createElement("div", { style: { minWidth: 96 } }, head("損益"),
+        row("g", "税引前", _dtsFmtMan(r.gross)),
+        row("n", "手取り", _dtsFmtMan(r.net)),
+        row("e", "生活費", r.expense ? "−" + _dtsFmtMan(r.expense) : _dtsFmtMan(0), r.expense ? _DTS_DOWN : "#9CA3AF"),
+        row("t", "積立", r.toLiving ? "−" + _dtsFmtMan(r.toLiving) : _dtsFmtMan(0), r.toLiving ? _DTS_DOWN : "#9CA3AF"),
+        row("r", "残金", (r.toCapital < 0 ? "−" : "") + _dtsFmtMan(Math.abs(r.toCapital)), r.toCapital < 0 ? _DTS_DOWN : _DTS_UP)),
+      React.createElement("div", { style: { minWidth: 108 } }, head("資金"),
+        pair("cp", "取引資金", r.capitalOpen, r.capital),
+        pair("pw", "信用余力", r.powerOpen, r.powerEnd),
+        React.createElement("div", null, React.createElement("div", { style: { color: "#6B7280" } }, "生活口座"),
+          React.createElement("div", { style: { fontWeight: 800 } }, _dtsFmtMan(r.living))))),
+    React.createElement("div", { style: { marginTop: 4, paddingTop: 4, borderTop: "1px solid #F1F5F9", display: "flex", justifyContent: "space-between", gap: 8 } },
+      lbl("余力使用率"),
+      React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, _dtsFmtPct(r.powerUse) + (tone.lbl ? " " + tone.lbl : ""))));
+}
+
+// グラフ1枚＝ホバー状態を持つ小さなコンポーネント 2026-08-05H。
+// 吹き出しはSVGのtextではなく**HTMLの絶対配置**で出す＝2カラムの折り返しをCSSに任せられる。
+// ⚠️position:absolute の親は overflowX:auto の内側に置く＝外に置くと横スクロール時に吹き出しだけ取り残される。
+function DtsChartBox(props) {
+  var _h = useState(null), hi = _h[0], setHi = _h[1];
+  var ref = useRef(null);
+  var rows = props.rows, n = rows.length;
+  var move = function(cx) { setHi(_dtsHitIdx(cx, ref.current, n)); };
+  var pw = 720 - 58 - 54, step = pw / n;
+  var fx = (hi == null) ? 0 : (58 + step * hi + step / 2) / 720;
+  // 端で画面外へはみ出さないよう寄せ方を3段階に切り替える。
+  var tf = fx < 0.28 ? "translateX(0)" : (fx > 0.72 ? "translateX(-100%)" : "translateX(-50%)");
+  return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", padding: "7px 10px 4px", marginBottom: 6 } },
+    React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, marginBottom: 2 } }, props.title,
+      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280", marginLeft: 6 } }, props.note)),
+    React.createElement("div", { style: { overflowX: "auto" } },
+      React.createElement("div", { ref: ref, style: { position: "relative", minWidth: 460 },
+        onMouseMove: function(e) { move(e.clientX); },
+        onMouseLeave: function() { setHi(null); },
+        onTouchStart: function(e) { if (e.touches && e.touches[0]) move(e.touches[0].clientX); },
+        onTouchMove: function(e) { if (e.touches && e.touches[0]) move(e.touches[0].clientX); }
+      },
+        props.draw(rows, hi),
+        (hi != null && rows[hi]) ? React.createElement("div", {
+          style: { position: "absolute", left: (fx * 100) + "%", top: 6, transform: tf, pointerEvents: "none",
+            background: "#fff", border: "1px solid " + _DTS_BD, borderRadius: 8, padding: "7px 9px",
+            boxShadow: "0 2px 8px rgba(0,0,0,.12)", zIndex: 2, whiteSpace: "nowrap" } }, _dtsTipD(rows[hi])) : null)),
+    props.legend);
+}
+
+function _dtsCharts(res) {
   return React.createElement("div", null, [
-    box("ca", "📊 総資産と株数の推移", "棒＝総資産の内訳（左軸・万円）／線＝株数（右軸・株）", _dtsChartAssets(res.rows),
-      _dtsLegend([["取引資金", "#93C5FD"], ["生活口座", "#FCD34D"], ["株数", "#B45309"]])),
-    box("cp", "📉 余力使用率", "拘束額 ÷（取引資金 ÷ 保証金率）。95%超は1回の負けで詰む水準", _dtsChartPower(res.rows),
-      _dtsLegend([["〜70% 余裕", "#DCFCE7"], ["85〜95% 警戒", "#FEF9C3"], ["95%〜 危険", "#FEE2E2"]]))
+    React.createElement(DtsChartBox, { key: "ca", rows: res.rows, draw: _dtsChartAssets,
+      title: "📊 総資産と株数の推移", note: "棒＝総資産の内訳（左軸・万円）／線＝株数（右軸・株）　カーソルを合わせるとその月の内訳が出ます",
+      legend: _dtsLegend([["取引資金", "#93C5FD"], ["生活口座", "#FCD34D"], ["株数", "#B45309"]]) }),
+    React.createElement(DtsChartBox, { key: "cp", rows: res.rows, draw: _dtsChartPower,
+      title: "📉 余力使用率", note: "拘束額 ÷（取引資金 ÷ 保証金率）。95%超は1回の負けで詰む水準",
+      legend: _dtsLegend([["〜70% 余裕", "#DCFCE7"], ["85〜95% 警戒", "#FEF9C3"], ["95%〜 危険", "#FEE2E2"]]) })
   ]);
 }
 
