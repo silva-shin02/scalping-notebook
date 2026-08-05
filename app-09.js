@@ -1078,7 +1078,9 @@ function _dtsRest(v) {
 
 // 添え物の枠幅。余力使用率の「保証金不足」が列内で最長なのでそこに合わせる。
 // （_DTS_W_DELTA は「月末取引資金（↑◯万）」用だったが、2026-08-05F に（）表記を廃止したので未使用）
-var _DTS_W_TONE = 56, _DTS_W_FLOW = 48;
+// 2026-08-05I に幅を詰めた（横スクロールを消すため）。⚠️これ以上詰めると「保証金不足」「266.8万」が
+// 枠から押し出されて縦ぞろえが壊れる＝列内で最長の添え物・数字が入る幅が下限。
+var _DTS_W_TONE = 44, _DTS_W_FLOW = 41;
 
 // 「月初 → 月末」の2値セル 2026-08-05F（ユーザー指定）。取引資金と信用余力で使う。
 // ⚠️両側とも固定幅の右寄せにする＝そうしないと矢印の位置が行ごとにずれて数字が縦に揃わない。
@@ -1091,12 +1093,14 @@ function _dtsFlow(a, b) {
 
 function _dtsTable(res, cfg) {
   // t は文字列でも要素の配列でもよい（2行見出し用）。配列を渡す時は k でキーを明示する。
-  var th = function(t, tip, k) { return React.createElement("th", { key: k || t, title: tip || "", style: { padding: "4px 5px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center", lineHeight: 1.3 } }, t); };
+  // ⚠️見出しは**中身と同じ右寄せ**にする 2026-08-05I。中央寄せだと、表が枠幅いっぱいに広がって列が
+  //   中身より太くなったとき、右寄せの数字だけが右へ流れて見出しから離れる＝「右寄せすぎる」の正体。
+  var th = function(t, tip, k, al) { return React.createElement("th", { key: k || t, title: tip || "", style: { padding: "4px 6px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: al || "right", lineHeight: 1.3 } }, t); };
   var mr0 = +cfg.marginRate || 0.30;
   // 開始時の信用余力＝委託保証金 ÷ 保証金率 − 建玉金額。行データと同じ式で出す。
   var pw0 = (+cfg.initialCapital || 0) / mr0 - (+cfg.initialShares || 0) * (+cfg.mainPrice || 0);
   var lastRow = res.rows[res.rows.length - 1] || null;
-  var td = function(k, ch, ex) { return React.createElement("td", { key: k, style: Object.assign({ padding: "3px 5px", fontSize: 10.5, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderTop: "1px solid #F1F5F9" }, ex || {}) }, ch); };
+  var td = function(k, ch, ex) { return React.createElement("td", { key: k, style: Object.assign({ padding: "3px 6px", fontSize: 10.5, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderTop: "1px solid #F1F5F9" }, ex || {}) }, ch); };
   // 開始時の行。これが無いと1行目の「（↑〇万）」が何からの増減か画面上に起点が無い 2026-08-05。
   var dash = React.createElement("span", { style: { color: "#D1D5DB" } }, "—");
   var openRow = React.createElement("tr", { key: "__open", style: { background: "#F8FAFC" } }, [
@@ -1145,9 +1149,11 @@ function _dtsTable(res, cfg) {
     td("pu", _dtsAlign(dash, null, _DTS_W_TONE))
   ]);
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto", marginBottom: 8 } },
-    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 980 } },
+    // ⚠️minWidth は**実測した最小content幅**に合わせる 2026-08-05I。980 は根拠なく置いた値で、
+    //   実際の最小は 775 だったため 980 が横スクロールを強制していた（枠が980未満だと必ずはみ出す）。
+    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 700 } },
       React.createElement("thead", null, React.createElement("tr", null, [
-        th("年月"), th("株数"), th("税引前", "税引前の月次利益＝(株数÷100)×1日あたり損益×営業日数"), th("手取り", "税引前 − 税（税額は上のサマリーカードに合計で出しています）"),
+        th("年月", "", "ym", "left"), th("株数"), th("税引前", "税引前の月次利益＝(株数÷100)×1日あたり損益×営業日数"), th("手取り", "税引前 − 税（税額は上のサマリーカードに合計で出しています）"),
         th("生活費", "社会保険料を含む"), th("積立", "その月に生活口座へ移した額"), th("生活口座", "生活口座の月末残高"),
         th([React.createElement("div", { key: "a" }, "残金"),
             React.createElement("div", { key: "b", style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF" } }, "（取引資金組入）")],
