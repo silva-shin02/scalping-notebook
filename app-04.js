@@ -6469,7 +6469,6 @@ function DayView(_ref57) {
           _td(st.miss || "0", { color: "#6B7280" }),
           _td(_exclN || "0", { color: "#0284C7", fontWeight: (_exclN || 0) > 0 ? 700 : 400 }),
           _td((function() {
-            var _pnlNode = (function() {
             if (_allExcl) return _elNotInclBadge();
             if (!recs || recs.length === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
             var _h2Tot = null, _h2Cnt = 0, _h2Ref = null, _h2RefCnt = 0;
