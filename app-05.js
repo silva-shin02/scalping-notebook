@@ -5629,7 +5629,7 @@ function _profitGradeFromPnlReal(pnl, enteredCount) {
 // ※ 色を変えるときは必ず「隣接ΔE」と「文字コントラスト比」の両方を測ること。淡い色を並べると
 //   個々はきれいでも隣同士が潰れる（旧配色がまさにこれ）。
 var _GRADE_STYLE = {
-  S: { bg: "#F5C518", color: "#4A3300", border: "#B8901A" },   // 金
+  S: { bg: "#FADD78", color: "#5A3F00", border: "#D2A421" },   // 金（2026-08-05j 明るさ59→73へ薄く。ユーザー調整）
   A: { bg: "#F58A8A", color: "#6E0D0D", border: "#DC6060" },
   B: { bg: "#FFC9C9", color: "#A81C1C", border: "#EE9A9A" },
   C: { bg: "#FFEAEA", color: "#C22B2B", border: "#F6C0C0" },
