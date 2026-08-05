@@ -832,18 +832,11 @@ function _dtsChartAssets(rows) {
     kids.push(React.createElement("line", { key: "g" + g, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: g === 0 ? "#CBD5E1" : "#E5E7EB", strokeWidth: g === 0 ? 1.5 : 1 }));
     kids.push(_dtsSvgText("gl" + g, pL - 6, gy + 3, _dtsFmtMan(gv), { textAnchor: "end", fill: g < 0 ? "#B91C1C" : "#6B7280" }));
   }
-  // 右軸の区切り線。左軸のグレーの線と喧嘩しないよう、株数の色（オレンジ）を薄く敷く＝
-  // 「どっちの軸の線か」が色で分かる。棒より先に描いて背面に置く。
-  for (g = 0; g <= nS * (sMaj / sMin); g++) {
-    var mv = sMin * g; if (mv > sTop) break;
-    if (mv % sMaj === 0) continue;   // 実線を引く高さはここでは飛ばす（下のループで引く）
-    kids.push(React.createElement("line", { key: "sm" + g, x1: pL, y1: ys(mv), x2: pL + pw, y2: ys(mv),
-      stroke: "#B45309", strokeWidth: 1, strokeDasharray: "2 4", opacity: 0.18 }));
-  }
+  // 右軸は**目盛りの数字だけで区切り線は引かない** 2026-08-05G（ユーザー指定）。
+  // 2026-08-05E で 100点線/500実線 を入れたが、左軸のグレーの線と二重になって画面が線だらけになった。
+  // 刻みの選び方（SPAIR）は数字を丸く保つために残す＝625株のような目盛りに戻さないため。
   for (g = 0; g <= nS; g++) {
     var sv = sMaj * g;
-    if (g > 0) kids.push(React.createElement("line", { key: "sM" + g, x1: pL, y1: ys(sv), x2: pL + pw, y2: ys(sv),
-      stroke: "#B45309", strokeWidth: 1, opacity: 0.3 }));
     kids.push(_dtsSvgText("gr" + g, pL + pw + 6, ys(sv) + 3, sv.toLocaleString(), { textAnchor: "start", fill: "#B45309" }));
   }
   for (i = 0; i < n; i++) {
