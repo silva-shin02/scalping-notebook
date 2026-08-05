@@ -109,6 +109,7 @@ function _dtsSimulate(cfg) {
   // 出せない」＝入力欄側で再計算すると本体とズレるので、**張り替えた本人がここで記録して summary で返す**。
   // fromInjection=true なら「⑥の入力ではなく⑧の投入直後の資金・株数が起点」という意味。
   var origin = { ym: cfg.startYm, capital: base, shares: baseShares, fromInjection: false };
+  var injFloor = null;   // ⑧が「投入直後の株数」を明示した時の下限（ラチェットで効く）2026-08-05A
 
   var inj    = (cfg.injection && cfg.injection.ym) ? cfg.injection : null;
   var injIdx = inj ? _dtsYmToIdx(inj.ym) : null;
@@ -128,9 +129,16 @@ function _dtsSimulate(cfg) {
       capital += injected;
       injTotal += injected;
       var sa = _dtsNumOrNull(inj.sharesAfter);
-      if (sa != null && sa > 0) shares = sa;
-      base = capital; baseShares = shares;   // ★基準点の張り替え
-      origin = { ym: ym, capital: base, shares: baseShares, fromInjection: true };
+      if (sa != null && sa > 0) { shares = sa; injFloor = { ym: ym, shares: sa }; }
+      // ★基準点の張り替え。**⑥で起点を明示している時は張り替えない** 2026-08-05A（ユーザー指摘）。
+      //   起点は「口座がこの額になったら」という**絶対の水準**なので、投入で勝手にズラすと⑥に何を入れても
+      //   結果が変わらなくなる（実測: 起点210万でも999万でも株数推移が同一＝完全なデッドインプット）。
+      // ⚠️起点が空欄の時だけ従来どおり張り替える＝空欄は「開始時の資金が暗黙の起点」なので、
+      //   張り替えないと投入額を「トレードで増えた分」と誤認して段が跳ねる（+70万＝3.5段＝+350株の幽霊）。
+      // ⚠️⑧の「投入直後の株数」は baseShares に焼かない＝焼くと「すでに稼いだ段」と二重計上になる
+      //   （例: 起点210万・300万で1,000株の時に投入して1,200株指定 → 8段ぶんが上乗せされ2,000株に飛ぶ）。
+      //   代わりに②のラチェット shares = max(want, prevShares) が下限として受け止める。
+      if (stepBase == null) { base = capital; baseShares = shares; origin = { ym: ym, capital: base, shares: baseShares, fromInjection: true }; }
       capOpen = capital;
     } else {
       // ② 株数の決定。判定に使う capital は**前月末の値**（当月の利益は含めない）。
@@ -219,7 +227,8 @@ function _dtsSimulate(cfg) {
   sum.endTotal   = sum.endCapital + sum.endLiving;
   sum.endOwnBase = sum.endTotal - injTotal;
   sum.endShares  = last ? last.shares : (+cfg.initialShares || 0);
-  sum.stepOrigin = origin;   // 段の起点（⑧で張り替わった後の実効値）2026-08-05z
+  sum.stepOrigin = origin;   // 段の起点（起点が空欄なら⑧で張り替わった後の実効値）2026-08-05z
+  sum.injFloor   = injFloor;  // ⑧が指定した「投入直後の株数」＝ラチェットの下限 2026-08-05A
   sum.capitalGain = sum.endCapital - (+cfg.initialCapital || 0);
   // 1日あたり成績のグレード（app-05.js）。前提値がどの帯かを画面に出すため。
   sum.grade = (typeof _profitGradeFromPnl === "function")
@@ -430,16 +439,25 @@ function _dtsStepBaseNote(cfg, res) {
   //   「218.2万」と丸めると次の閾値を手で足せない（レビュー §6-3-2 の指摘そのもの）。⑥に手入力した起点は
   //   ユーザーが打った丸い数字なので万表記のままでいい。
   var org2 = null, orgMax = _dtsNumOrNull(cfg.maxShares);
+  var floor = (res && res.summary) ? res.summary.injFloor : null;
+  var stepAmt0 = Math.max(1, +cfg.stepAmount || 250000);
   if (org && org.fromInjection) {
+    // 起点が空欄のケース＝⑧が起点ごと張り替える。実効起点は端数になるので円で出す。
     var capped = (orgMax != null && orgMax > 0 && org.shares >= orgMax);
     org2 = React.createElement("div", { style: { marginTop: 3, color: "#6D28D9", fontWeight: 700 } },
-      "⑧の投入があるので、" + _dtsYmLbl(org.ym) + "以降の起点は投入直後の "
-        + _dtsFmtYen(org.capital) + "円 ＝ " + org.shares.toLocaleString() + "株 に置き換わります（⑥のこの欄が効くのはそれまでの月だけ）。"
+      "起点が空欄なので、⑧の投入で起点が " + _dtsYmLbl(org.ym) + "の投入直後の "
+        + _dtsFmtYen(org.capital) + "円 ＝ " + org.shares.toLocaleString() + "株 に置き換わります。"
         + (capped ? "すでに上限株数なのでこれ以上は増えません。"
-                  : "次に段が上がるのは " + _dtsFmtYen(org.capital + Math.max(1, +cfg.stepAmount || 250000)) + "円 に届いた翌月です。"));
+                  : "次に段が上がるのは " + _dtsFmtYen(org.capital + stepAmt0) + "円 に届いた翌月です。")
+        + "（起点を入れると、投入があっても入れた額のまま動きません）");
   } else if (org) {
-    org2 = React.createElement("div", { style: { marginTop: 3 } },
-      "いま使われている起点は " + _dtsFmtMan(org.capital) + "円 ＝ " + org.shares.toLocaleString() + "株 です。");
+    // 起点を明示しているケース＝⑧があっても動かない。⑧の株数指定はラチェットの下限として効く。
+    var kids = ["いま使われている起点は " + _dtsFmtMan(org.capital) + "円 ＝ " + org.shares.toLocaleString()
+      + "株。次に段が上がるのは月末の資金が " + _dtsFmtMan(org.capital + stepAmt0) + "円 に届いた翌月です。"];
+    if (floor) kids.push(React.createElement("span", { key: "f", style: { color: "#6D28D9", fontWeight: 700 } },
+      "⑧で" + _dtsYmLbl(floor.ym) + "に" + floor.shares.toLocaleString() + "株へ増やし、株数は下げないルールなので、"
+        + "計算上の株数が" + floor.shares.toLocaleString() + "株を超えるまではその値のままです。"));
+    org2 = React.createElement("div", { style: { marginTop: 3 } }, kids);
   }
 
   var warn = null;
