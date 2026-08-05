@@ -4669,15 +4669,32 @@ function _elMemoPerfSectionV2(recs, aiOf) {
 
 // 連勝連敗・最大ドローダウン（記録帳・集計タブ／2026-06-14）: 時系列でのストリークと最大DDを数値化。
 // 実現損益（実トレード）を主軸に、EP損益（理論）のDDも併記。損切り回避志向のための損失管理指標。aiOf(r)→{alpha,cutLine}。
-function _elStreakDDSectionV2(recs, aiOf) {
+function _elStreakDDSectionV2(recs, aiOf, data) {
   var v2 = (recs || []).filter(function(r) { return _epIsV2(r.signal); });
   if (v2.length < 2) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "8px 0" } }, "記録が2件以上で表示されます");
   var sorted = v2.slice().sort(function(a, b) { return ((a.date || "") + (a.signal.time || "")).localeCompare((b.date || "") + (b.signal.time || "")); });
   function _ddOf(seq) {
-    var cum = 0, peak = 0, maxdd = 0, from = null, to = null, peakDate = null;
+    // 2026-08-05x peakDateの初期値を「最初の記録の日付」にした。旧＝null。
+    //   初手が負けで累積が一度も0を超えないと peak=0(初期値)のまま＝peakDateがnullで、
+    //   **DDの金額は出るのに期間(from〜to)だけ空**になっていた（読み取り文が「−8,400円（）」と空カッコ、
+    //   カードの小書きも「実現損益の記録待ち」と出て、記録があるのに無いように見えていた）。
+    //   累積0のピークは「最初の記録の時点」なので、その日付を起点に使うのが実態に合う。
+    var cum = 0, peak = 0, maxdd = 0, from = null, to = null, peakDate = (seq && seq.length) ? seq[0].date : null;
     seq.forEach(function(o) { cum += o.pnl; if (cum > peak) { peak = cum; peakDate = o.date; } var dd = peak - cum; if (dd > maxdd) { maxdd = dd; from = peakDate; to = o.date; } });
     return { dd: maxdd, from: from, to: to, final: cum };
   }
+  // 2026-08-05x DDの1日平均（ユーザー要望「DDについては1日平均も下に表示して」）。
+  //   割る数は _elBizDaysOf(v2, data)＝この母数のスパンの営業日数＝**他の欄の「1日平均」と同じ割り方**
+  //   （全体損益の_bizDaysIn／KPI「1日あたり損益」と揃える＝同じ画面で分母が食い違わない）。
+  //   色は_EL_SUBNOTE_COL＝アプリ全体の「1日平均」と同じ濃さ（カード小書きの#aaaのままだと今回濃くした他所と揃わない）。
+  var _ddDays = _elBizDaysOf(v2, data);
+  var _ddSub = function(txt, dd) {
+    var avg = (_ddDays > 0 && dd) ? Math.round(dd / _ddDays) : null;
+    return React.createElement(React.Fragment, null,
+      React.createElement("div", null, txt),
+      avg ? React.createElement("div", { title: "最大DD " + Math.round(dd).toLocaleString() + "円 ÷ この母数の営業日数 " + _ddDays + "日。他の欄の「1日平均」と同じ割り方です",
+        style: { color: _EL_SUBNOTE_COL, fontWeight: 700, marginTop: 1 } }, "1日平均−" + avg.toLocaleString() + "円") : null);
+  };
   var realSeq = []; sorted.forEach(function(r) { var s = r.signal; if (_elIsEntered(s, r.item)) { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) realSeq.push({ date: r.date, pnl: rv }); } });
   var maxW = 0, maxL = 0, curW = 0, curL = 0;
   realSeq.forEach(function(o) { if (o.pnl > 0) { curW++; curL = 0; if (curW > maxW) maxW = curW; } else if (o.pnl < 0) { curL++; curW = 0; if (curL > maxL) maxL = curL; } });
@@ -4691,12 +4708,18 @@ function _elStreakDDSectionV2(recs, aiOf) {
     _elv2Card("現在", curTxt, curType === "win" ? "#C0392B" : curType === "loss" ? "#1E8449" : "#888", "実現損益ベース"),
     _elv2Card("最大連勝", maxW ? maxW + "連勝" : "—", "#C0392B", realSeq.length + "トレード中"),
     _elv2Card("最大連敗", maxL ? maxL + "連敗" : "—", "#1E8449", realSeq.length + "トレード中"),
-    _elv2Card("最大DD(実現)", ddR.dd ? "−" + Math.round(ddR.dd).toLocaleString() + "円" : (realSeq.length ? "0円" : "—"), ddR.dd ? "#1E8449" : "#bbb", ddR.from ? ddR.from.slice(5) + "〜" + ddR.to.slice(5) : "実現損益の記録待ち"),
-    _elv2Card("最大DD(EP損益)", ddE.dd ? "−" + Math.round(ddE.dd).toLocaleString() + "円" : "0円", ddE.dd ? "#1E8449" : "#bbb", ddE.from ? ddE.from.slice(5) + "〜" + ddE.to.slice(5) : "理論値")
+    // 2026-08-05x 小書きは「期間 ＋ 1日平均」の2行に。DD=0のときは「ドローダウンなし」＝記録が有るのに
+    //   「実現損益の記録待ち」と出ていた誤表示を解消（この文言は realSeq が空のときだけ正しい）。
+    _elv2Card("最大DD(実現)", ddR.dd ? "−" + Math.round(ddR.dd).toLocaleString() + "円" : (realSeq.length ? "0円" : "—"), ddR.dd ? "#1E8449" : "#bbb",
+      _ddSub(realSeq.length ? (ddR.from ? ddR.from.slice(5) + "〜" + ddR.to.slice(5) : "ドローダウンなし") : "実現損益の記録待ち", ddR.dd)),
+    _elv2Card("最大DD(EP損益)", ddE.dd ? "−" + Math.round(ddE.dd).toLocaleString() + "円" : "0円", ddE.dd ? "#1E8449" : "#bbb",
+      _ddSub(ddE.from ? ddE.from.slice(5) + "〜" + ddE.to.slice(5) : "理論値", ddE.dd))
   ]);
   var items = [];
   if (maxL >= 3) items.push(React.createElement("span", null, "最大連敗は", _elInsightEmV2(maxL + "回", "#1E8449"), "。連敗時の枚数・ルールの再確認を。"));
-  if (ddR.dd) items.push(React.createElement("span", null, "実現損益の最大ドローダウンは", _elInsightEmV2("−" + Math.round(ddR.dd).toLocaleString() + "円", "#1E8449"), "（" + (ddR.from ? ddR.from + "〜" + ddR.to : "") + "）。"));
+  // 2026-08-05x 期間が取れないときにカッコだけ「（）」と空で出ていたので、カッコごと出さない。1日平均も併記。
+  if (ddR.dd) items.push(React.createElement("span", null, "実現損益の最大ドローダウンは", _elInsightEmV2("−" + Math.round(ddR.dd).toLocaleString() + "円", "#1E8449"),
+    (ddR.from ? "（" + ddR.from + "〜" + ddR.to + "）" : "") + (_ddDays > 0 ? "＝1日平均−" + Math.round(ddR.dd / _ddDays).toLocaleString() + "円" : "") + "。"));
   else if (epSeq.length && ddE.dd) items.push(React.createElement("span", null, "実トレードのDDは記録待ち。EP損益（理論）の最大DDは", _elInsightEmV2("−" + Math.round(ddE.dd).toLocaleString() + "円", "#1E8449"), "。"));
   if (curType === "loss" && curStreak >= 2) items.push(React.createElement("span", null, "現在", _elInsightEmV2(curStreak + "連敗中", "#1E8449"), "＝無理に取り返さず基準を満たす場面を待つ局面。"));
   return React.createElement("div", null, cards, items.length ? _elInsightBoxV2(items, { note: "連勝連敗・最大DD(実現)は実エントリーの実現損益（記録順）。最大DD(EP損益)は全E成立記録のEP損益累積の山→谷の最大下落（採用α基準）。" }) : null);
@@ -7400,7 +7423,7 @@ function EntryLogView(_ref_elv2) {
         _v2recsNewRule.length >= 2 ? [
           _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・上の期間別表の合計行と同一基準（6/29より前＝旧ルール期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNewRule, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
         _v2recsNewRule.length >= 2 ? [
-          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・6/29より前＝旧ルール期間は除外）"), _elStreakDDSectionV2(_v2recsNewRule, _ai)] : null]);
+          _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・6/29より前＝旧ルール期間は除外）。DDの下段は1日平均＝最大DD÷この母数の営業日数"), _elStreakDDSectionV2(_v2recsNewRule, _ai, data)] : null]);   // 2026-08-05x 第3引数data＝1日平均の営業日数(_elBizDaysOf)算出用
     } else {
       // 銘柄別の集計＝選択中シグナルの総合パネル（旧🎯シグナル別タブを昇格・上のシグナル軸で切替）。母数は選択中シグナル×サブタブ（前足浮き/その他）の固定母数（_selSigRecsScoped）。推奨基本α/追加αカードだけはシグナル全体（_selSigRecs）で算出＝サブタブ間で一貫。2026-07-01→前足浮き対応 2026-07-02
       // 分析軸トグル（2026-07-07）: 🎯シグナル別（従来）／🏷詳細タグ別（銘柄内・全シグナル横断で選んだ詳細タグの記録を _groupPanel で分析）。詳細タグが1件も無い銘柄ではトグル非表示＝従来どおり。
