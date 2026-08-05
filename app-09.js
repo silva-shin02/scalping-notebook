@@ -105,6 +105,10 @@ function _dtsSimulate(cfg) {
   // ⚠️外部資金の投入は利益ではないので、投入月にここを張り替えないと投入額の分だけ株数が跳ねる
   //   （⑧の張り替えはstepBaseより優先＝投入後は「投入直後の資金・株数」が新しい基準点になる）。
   var base = (stepBase != null ? stepBase : capital), baseShares = shares;
+  // いま実際に使われている起点 2026-08-05z。⑧の投入で張り替わった後の値は「その月までシミュを回さないと
+  // 出せない」＝入力欄側で再計算すると本体とズレるので、**張り替えた本人がここで記録して summary で返す**。
+  // fromInjection=true なら「⑥の入力ではなく⑧の投入直後の資金・株数が起点」という意味。
+  var origin = { ym: cfg.startYm, capital: base, shares: baseShares, fromInjection: false };
 
   var inj    = (cfg.injection && cfg.injection.ym) ? cfg.injection : null;
   var injIdx = inj ? _dtsYmToIdx(inj.ym) : null;
@@ -126,6 +130,7 @@ function _dtsSimulate(cfg) {
       var sa = _dtsNumOrNull(inj.sharesAfter);
       if (sa != null && sa > 0) shares = sa;
       base = capital; baseShares = shares;   // ★基準点の張り替え
+      origin = { ym: ym, capital: base, shares: baseShares, fromInjection: true };
       capOpen = capital;
     } else {
       // ② 株数の決定。判定に使う capital は**前月末の値**（当月の利益は含めない）。
@@ -214,6 +219,7 @@ function _dtsSimulate(cfg) {
   sum.endTotal   = sum.endCapital + sum.endLiving;
   sum.endOwnBase = sum.endTotal - injTotal;
   sum.endShares  = last ? last.shares : (+cfg.initialShares || 0);
+  sum.stepOrigin = origin;   // 段の起点（⑧で張り替わった後の実効値）2026-08-05z
   sum.capitalGain = sum.endCapital - (+cfg.initialCapital || 0);
   // 1日あたり成績のグレード（app-05.js）。前提値がどの帯かを画面に出すため。
   sum.grade = (typeof _profitGradeFromPnl === "function")
@@ -397,17 +403,45 @@ function _dtsRow(children) {
 // 配列で渡す子要素なのでkeyを持たせる（同一行内でラベル文言は重複しない）。
 function _dtsLbl(t) { return React.createElement("span", { key: "l_" + t, style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, t); }
 
-// ⑥の下に出す注記 2026-08-05v。「資金口座◯万円から」は**段数を数える起点**＝その資金だった時が②の基礎取引株数、
-// という後付けの基準点。起点が今の資金より低いと初月からいきなり段が乗るので、表を見る前にここで数字を出しておく。
+// ⑥の下に出す注記 2026-08-05v→z。「月末の資金口座が◯万円になった次の月から」は**段数を数える起点**＝
+// その資金だった時が②の基礎取引株数、という後付けの基準点。起点が今の資金より低いと初月からいきなり段が
+// 乗るので、表を見る前にここで数字を出しておく。
 // ⚠️初月株数は _dtsSimulate の②と同じ式（floor→上限クランプ→ラチェット）で出す＝注記と本体がズレないように。
 // 開始月に⑧の投入があるとその月は②を通らない（①で指定株数へジャンプ）ので、その時は警告を出さない。
-function _dtsStepBaseNote(cfg) {
+//
+// 【2026-08-05z ⑧の起点リセットを明示】外部レビュー（simulator-step-amount-review.md §6）の指摘。
+//   ⑧で外部資金を投入すると `base`/`baseShares` が投入直後の資金・株数へ張り替わる＝**⑥の入力は捨てられる**。
+//   投入が期間の頭のほうにあると⑥の起点が結果に一切効かなくなる（実測: 起点を210万→1000万にしても出力不変）。
+//   挙動自体は正しい（張り替えないと投入額を利益と誤認して段が跳ねる）ので、**注記が実装に追いついていない
+//   だけ**と判断し、①⑧が起点を置き換えることを書く ②いま実際に使われている起点を出す、の2点で対応。
+//   ⚠️実効起点は res.summary.stepOrigin をそのまま読む＝ここで再計算すると本体とズレるので絶対に作らない。
+function _dtsStepBaseNote(cfg, res) {
   cfg = cfg || {};
   var cap0 = +cfg.initialCapital || 0, sh0 = Math.max(0, +cfg.initialShares || 0);
   var sb = _dtsNumOrNull(cfg.stepBase);
   var injYm = (cfg.injection && cfg.injection.ym) ? cfg.injection.ym : "";
+  var org = (res && res.summary) ? res.summary.stepOrigin : null;
+
   var head = "月末の資金口座がこの額だった時の株数が②の基礎取引株数（" + sh0 + "株）という意味です。ここから増えた分を数えます。"
     + (sb == null ? ("空欄なので開始時の取引資金 " + _dtsFmtMan(cap0) + "円 が起点です。") : "");
+
+  // ①⑧が起点を置き換えること／②実際に使われている起点。⑧を使っていない時は素直に起点だけ出す。
+  // ⚠️⑧由来の起点は**円単位で出す**＝投入直後の資金はシミュの計算結果なので 2,182,488 のような端数になり、
+  //   「218.2万」と丸めると次の閾値を手で足せない（レビュー §6-3-2 の指摘そのもの）。⑥に手入力した起点は
+  //   ユーザーが打った丸い数字なので万表記のままでいい。
+  var org2 = null, orgMax = _dtsNumOrNull(cfg.maxShares);
+  if (org && org.fromInjection) {
+    var capped = (orgMax != null && orgMax > 0 && org.shares >= orgMax);
+    org2 = React.createElement("div", { style: { marginTop: 3, color: "#6D28D9", fontWeight: 700 } },
+      "⑧の投入があるので、" + _dtsYmLbl(org.ym) + "以降の起点は投入直後の "
+        + _dtsFmtYen(org.capital) + "円 ＝ " + org.shares.toLocaleString() + "株 に置き換わります（⑥のこの欄が効くのはそれまでの月だけ）。"
+        + (capped ? "すでに上限株数なのでこれ以上は増えません。"
+                  : "次に段が上がるのは " + _dtsFmtYen(org.capital + Math.max(1, +cfg.stepAmount || 250000)) + "円 に届いた翌月です。"));
+  } else if (org) {
+    org2 = React.createElement("div", { style: { marginTop: 3 } },
+      "いま使われている起点は " + _dtsFmtMan(org.capital) + "円 ＝ " + org.shares.toLocaleString() + "株 です。");
+  }
+
   var warn = null;
   if (sb != null && cap0 > sb && !(injYm && cfg.startYm && injYm === cfg.startYm)) {
     var stepAmt = Math.max(1, +cfg.stepAmount || 250000), stepSh = Math.max(1, +cfg.stepShares || 100);
@@ -417,7 +451,8 @@ function _dtsStepBaseNote(cfg) {
     if (want > sh0) warn = "※開始時の資金が起点より " + _dtsFmtMan(cap0 - sb) + "円 多く、すでに増えた後なので、初月から " + (want - sh0) + "株 乗って " + want + "株 で始まります。";
   }
   return React.createElement("div", { style: { fontSize: 9, color: "#6B7280", marginTop: 4, lineHeight: 1.5 } }, head,
-    warn ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, warn) : null);
+    warn ? React.createElement("span", { style: { color: "#B45309", fontWeight: 700 } }, warn) : null,
+    org2);
 }
 
 // ---- 本体コンポーネント --------------------------------------------------
@@ -521,7 +556,7 @@ function DaytradeProjection(props) {
         _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } }),
         _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
       ]),
-      _dtsStepBaseNote(cfg))),
+      _dtsStepBaseNote(cfg, res))),
     _dtsSec("⑦ 余力チェック", "拘束額＝株数×株価／必要保証金＝拘束額×保証金率", React.createElement("div", null,
       _dtsRow([
         _dtsLbl("メイン株価"), React.createElement(DtsNum, { key: "mp", value: cfg.mainPrice, width: 62, suffix: "円", step: 100, onChange: function(v) { set("mainPrice", v); } }),

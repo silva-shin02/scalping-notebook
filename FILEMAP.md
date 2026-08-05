@@ -108,7 +108,7 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
-`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / `_dtsStepBaseNote` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_DTS_W_DELTA`/`_DTS_W_TONE`** / `_dtsTable` / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`
+`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / `_dtsStepBaseNote` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_DTS_W_DELTA`/`_DTS_W_TONE`** / `_dtsTable` / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`（`_dtsSimulate` の `summary.stepOrigin` ＝段の実効起点も参照）
 
 **📈 損益推移シミュレーター 2026-08-05** — 記録帳の💰損益タブ（全銘柄合算）、🧮シミュの右のタブ。前提を入れて資金・株数・生活口座・総資産の月次推移を出す。**実績の集計ではなく将来の見通し**。
 
@@ -119,6 +119,12 @@ HomeEventFormModal, App
 - **収益の単位＝1日あたり円/100株換算**。アプリ既存のグレード（`_profitGradeFromPnl` S=2501〜/A=2001〜/B=1001〜/C=1〜）と同じ土俵なので、記録帳の実績をそのまま既定値にできる。月次は `1日額 × 営業日数` で内部換算する（月額で持つと実績と単位が食い違って自動入力できない）。オートフィル値は app-06.js の描画分岐（`view === "proj"`）で `_elHoldFinalParts(...).main` の合計 ÷ 記録のあった日数として作り `actual` propで渡す。**最終損益は値幅×100で既に100株換算なので株数で割り直さない**。実現損益ではなく最終損益を使うのは実現損益がほぼ未記録で母数にならないため。
 - **月次ループ①〜⑥は順序を変えると結果が変わる**（仕様として固定）。①外部資金投入 ②株数決定 ③損益 ④支出 ⑤積立 ⑥確定。
 - **株数ラダー**: `floor(max(0, 前月末capital − base) / stepAmount)` の**累積判定なので端数は自動で次段へ繰り越す**（別処理は不要）。判定は**前月末の資金**（当月の利益は含めない）。資金が減っても下げない（ラチェット）。**外部資金の投入月に `base`/`baseShares` を張り替える**＝これが無いと投入額を利益と誤認して株数が跳ねる。
+  - **⑧の起点リセットを注記に明示＋実効起点を表示 2026-08-05z**（外部レビュー `simulator-step-amount-review.md` §6・§9-A の指摘）。**⑧で外部資金を投入すると `base`/`baseShares` が投入直後の資金・株数へ張り替わり、⑥に入れた起点は捨てられる**。投入が期間の前半にあると⑥の起点が結果に一切効かなくなる（**実測: 起点を210万→1,000万にしても出力が1ビットも変わらない**＝実質デッドインプット）。挙動自体は正しい（張り替えないと投入額を利益と誤認して段が跳ねる。レビューの設定では+70万＝3.5段＝+350株の幽霊が乗る）ので**注記が実装に追いついていないだけ**と判断し、計算は一切変えずに表示だけ直した。
+    - `_dtsSimulate` が `sum.stepOrigin = {ym, capital, shares, fromInjection}` を返す。⚠️**張り替えた本人（①の投入分岐）が記録する**＝投入直後の資金はその月までシミュを回さないと出ないので、入力欄側で再計算すると本体とズレる。`_dtsStepBaseNote(cfg, res)` はこれを読むだけで**絶対に自前計算しない**。
+    - ⚠️**⑧由来の起点は円単位で出す**（`_dtsFmtYen`）。投入直後の資金は計算結果なので `2,182,488円` のような端数になり、「218.2万」と丸めると次の閾値を手で足せない（レビュー §6-3-2 の指摘そのもの）。⑥に手入力した起点は丸い数字なので万表記のまま。
+    - 投入直後がすでに上限株数なら「次に段が上がるのは…」ではなく「すでに上限株数なのでこれ以上は増えません」。
+    - 検証: レビューの16ヶ月設定で `stepOrigin.capital === 2182488`／1段目の閾値 `2382488` がレビューの手検算と一致。期末577.66万・株数推移とも**変更前と完全一致**（回帰なし）。
+  - ⚠️**2段飛びは「余剰が刻みの2倍あるから」ではない**（レビュー §7-1 の原因説明は誤り）。段は `floor((前月末資金 − 起点) / 刻み)` の**累積**なので、**端数の繰り越しが境界を2本またぐと1段ぶんの増加でも2段上がる**。実測: 2027/03末→04月は生の段数 3.853→5.175（資金増加は26.44万＝**1.32段ぶん**）で 1,300→1,500株。刻み額をどう変えても防げず、止めたいなら「月あたり段数の上限」を別に持つしかない。
   - **⑥のラベルを「月末の資金口座が◯万円になった次の月から◯万円増えるごとに」へ 2026-08-05y**（ユーザー要望）。⚠️**表記だけの変更で計算は1行も変えていない**＝元から「前月末の資金で判定→当月に反映」なのでユーザーの言う規則と同一。実測で確認済み（起点210万・刻み25万・基礎600株で 8月末210万→9月末236万→**10月に700株**）。旧ラベル「資金口座◯万円から」はいつの資金で判定していつ反映されるかが読めなかった、というだけ。セクション副題からも「判定は前月末の取引資金」を落とした（ラベルが言っているので二重）。
   - **起点を明示できる `cfg.stepBase` 2026-08-05v**（ユーザー要望）＝⑥の先頭「資金口座◯万円から」。`base = (stepBase != null ? stepBase : capital)`＝**未入力(null)なら従来どおり開始時の取引資金**なので保存済み `dtsCfg` は挙動不変。単位は②取引資金に合わせて**万円**（`unit:"man"`）。**⑧の投入月の張り替えは stepBase より優先**（投入は利益ではないので基準点ごと更新する）。
   - ⚠️**stepBase は「その資金だった時が②の基礎取引株数」という後付けの基準点**＝今の資金が起点より多いと**初月からいきなり段が乗る**（130万・600株・刻み25万で起点100万なら初月700株）。驚かせないよう `_dtsStepBaseNote(cfg)` が⑥の下に初月株数を先出しする。**この注記は本体②と同じ式（floor→上限クランプ→ラチェット）で計算する**＝別式で書くと表と食い違う。開始月に⑧の投入があるとその月は②を通らない（①で指定株数へジャンプ）ので警告は出さない。
