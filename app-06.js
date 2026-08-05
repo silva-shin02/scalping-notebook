@@ -6042,15 +6042,24 @@ function EntryLogView(_ref_elv2) {
     return (mon.getMonth() + 1) + "/" + mon.getDate() + "〜" + (fri.getMonth() + 1) + "/" + fri.getDate();
   };
   // 日別/週別/月別の切替セグメント（全体損益・指値同値で共用）2026-07-20
-  var _granSeg = function(cur, setFn, keyPfx) {
-    return React.createElement("div", { style: { display: "flex", marginBottom: 8 } },
-      React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
+  // trailing=セグメントの右に置くノード（2026-08-05l 全体損益にグレード凡例を出すために追加。
+  // 未指定なら従来どおりセグメントだけ＝他の呼び出しは不変）。右端寄せはmarginLeft:autoで行う。
+  var _granSeg = function(cur, setFn, keyPfx, trailing) {
+    return React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 } },
+      React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2, flexShrink: 0 } },
         [["day", "日別"], ["week", "週別"], ["month", "月別"]].map(function(g) {
           var on = (cur === "custom" ? "week" : cur) === g[0];
           return React.createElement("button", { key: keyPfx + g[0], onClick: function() { setFn(g[0]); },
             style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, g[1]);
-        })));
+        })),
+      trailing || null);
   };
+  // 全体損益（期間別）の右上に出すグレード凡例。この表は列によってスケールが違う
+  // （最終損益・指値同値＝損益スケール／実現損益＝その10倍）ので2段で出す。
+  // しきい値は_GRADE_DESCから生成しているので、境界を変えてもここは自動追随する。
+  var _ovGradeLegend = React.createElement("div", { style: { marginLeft: "auto", textAlign: "left", maxWidth: 560 } },
+    _gradeLegendNode(false, { lowerOnly: true, label: "最終・指値同値" }),
+    _gradeLegendNode(true, { lowerOnly: true, label: "実現損益(10倍)", style: { marginTop: 2 } }));
   // 2026-08-03: totOf/totExOf/stopsOf/winTakeOf を _ovPnlTbl の中からこのスコープへ引き上げ（定義の中身は一切変えていない・位置だけの移動）。
   //   理由: 🏷銘柄別の損益割合(_stkShareSection)が全く同じ集計を使うため。再実装すると「全体損益（期間別）の合計」と「銘柄別の合計」が
   //   黙ってずれ得る（除外条件が1つでもずれると検算が崩れる）。keyOf/labelOf/_holiSet/_bizDaysIn は g に依存するので _ovPnlTbl の中に残す。
@@ -7308,7 +7317,7 @@ function EntryLogView(_ref_elv2) {
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
         [
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。最終損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）"),
-          _granSeg(gran, setGran, "ov_"),
+          _granSeg(gran, setGran, "ov_", _ovGradeLegend),
           _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
         _sinceRecs.length ? [
           _secH("🏷 銘柄別の損益割合",
