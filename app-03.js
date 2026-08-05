@@ -4115,8 +4115,12 @@ function NewsTab(_ref36) {
           )
         );
       }),
+      // 2026-08-05b 「＋」枠を同じ行の札と同じ高さにする（ユーザー指摘「縦幅が狭いでしょ」）。
+      // グリッド側が alignItems:"start"（札は中身なりの高さで上揃え）なので、この枠だけ alignSelf:"stretch" で
+      // 行の高さいっぱいに伸ばし、中の点線ボックスも alignItems:"stretch" で追従させる。
+      // ＋が1枚だけで行を独占する場合は伸びる相手がいないので従来どおり minHeight:120 の高さになる。
       React.createElement("div", {
-        style: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 },
+        style: { display: "flex", alignItems: "stretch", justifyContent: "center", minHeight: 120, alignSelf: "stretch" },
         onDrop: function(e) { e.preventDefault(); setAddBtnDrag(false); addNewsWithFiles(e.dataTransfer.files); },
         onDragOver: function(e) { e.preventDefault(); setAddBtnDrag(true); },
         onDragLeave: function() { setAddBtnDrag(false); },

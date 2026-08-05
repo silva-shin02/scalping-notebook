@@ -5880,7 +5880,7 @@ function DayView(_ref57) {
                 _trTh("銘柄"),
                 _trTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
                 _trTh("α値", { width: "1%" }),
-                _trTh("損切り", { width: "1%" }),
+                _trTh("損切", { width: "1%" }),
                 _trTh("ライン", { width: "1%" }),
                 _trTh("E", { width: "1%" }),
                 _trTh("取引", { width: 1, padding: "4px 2px" }),
@@ -6286,7 +6286,7 @@ function DayView(_ref57) {
               _rTh("時間", { width: 44 }),
               _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
               _rTh("α値", { width: 32 }),
-              _rTh("損切り", { width: 34 }),
+              _rTh("損切", { width: 34 }),
               _rTh("ライン", { width: 1 }),
               _rTh("E", { width: 26 }),
               _rTh("取引", { width: 26 }),
@@ -6383,17 +6383,37 @@ function DayView(_ref57) {
         var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
         return React.createElement("span", { title: g, style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: gs.bg, color: gs.color, border: "1.5px solid " + gs.border, fontWeight: 800, fontSize: 10, marginRight: 3, flexShrink: 0 } }, g);
       };
-      var _wkAmt = function(v) { return React.createElement("span", { style: { fontWeight: 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, (v > 0 ? "+" : "") + (v || 0).toLocaleString() + "円"); };
       // sub=100株換算の下段（実現損益列だけ渡す）2026-08-04
-      var _wkPnlCell = function(grade, sum, sub) {
+      // 2026-08-05b ラベル／グレードバッジ／額を3列gridで縦ぞろえするセル（ユーザー要望
+      // 「1日平均 A+ 3367円 みたいな並び」「グレードバッジ・額がきれいに縦ぞろいするように」）。
+      // 旧は補助行を [バッジ][ラベル][額] の順でinline-flexに並べていたため、行ごとにラベル幅が
+      // 違うとバッジも額もガタついていた。gridにすると列が揃う。
+      // rows = [{ label: node|null, grade: string|null, amount: number, ref: node|null }]
+      var _wkAvgLabel = React.createElement(React.Fragment, null, "1日", React.createElement("br"), "平均");   // 「1日」「平均」の2行構成（ユーザー指定）
+      var _wkRefNode = function(v) {
+        if (v == null) return null;
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", color: "#9CA3AF", fontWeight: 600, marginLeft: 2 } },
+          "（", _elHoldGradeBadge(_profitGradeFromPnl(v, 1)),
+          React.createElement("span", { style: { color: _elPnlColor(v) } }, _elPnlFmt(v)), "）");
+      };
+      var _wkStack = function(rows) {
+        var cells = [];
+        rows.forEach(function(r, i) {
+          cells.push(React.createElement("span", { key: "l" + i, style: { fontSize: 9, color: "#94A3B8", fontWeight: 700, lineHeight: 1.15, textAlign: "right", justifySelf: "end", whiteSpace: "nowrap" } }, r.label || null));
+          cells.push(React.createElement("span", { key: "b" + i, style: { display: "inline-flex", alignItems: "center" } }, r.grade ? _wkBadge(r.grade) : null));
+          cells.push(React.createElement("span", { key: "a" + i, style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+            React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(r.amount) } }, _elPnlFmt(r.amount)), r.ref || null));
+        });
+        return React.createElement("span", { style: { display: "inline-grid", gridTemplateColumns: "auto auto auto", columnGap: 3, rowGap: 2, alignItems: "center", justifyItems: "start" } }, cells);
+      };
+      // 実現損益セル。sub=100株換算（株数がある時だけ）／avg=1日平均（週合計かつ複数営業日の時だけ）。
+      // 最終損益と同じく、この列のバッジも「総額÷営業日数」で判定しているので平均額を出して根拠を見せる。
+      var _wkPnlCell = function(grade, sum, sub, avg, avgGrade) {
         if (!grade || grade === "Z" || sum == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-        var main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _wkBadge(grade), _wkAmt(sum));
-        if (sub == null) return main;
-        return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
-          main, React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
-            _wkBadge(_profitGradeFromPnl(sub, 1)),   // 100株換算は通常スケール 2026-08-05
-            React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "100株"),
-            React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(sub) } }, _elPnlFmt(sub))));
+        var rows = [{ label: null, grade: grade, amount: sum, ref: null }];
+        if (sub != null) rows.push({ label: "100株", grade: _profitGradeFromPnl(sub, 1), amount: sub, ref: null });   // 100株換算は通常スケール 2026-08-05
+        if (avg != null) rows.push({ label: _wkAvgLabel, grade: avgGrade, amount: avg, ref: null });
+        return _wkStack(rows);
       };
       var _wkTh = function(label, extra) {
         return React.createElement("th", { style: Object.assign({ padding: "4px 3px", fontWeight: 700, borderBottom: "2px solid #ddd", textAlign: "center", fontSize: 10, lineHeight: 1.2, whiteSpace: "nowrap", color: "#555" }, extra || {}) }, label);
@@ -6403,20 +6423,11 @@ function DayView(_ref57) {
         var a = rs.map(function(r) { return r.signal.osVal; }).filter(function(v) { return v != null && v !== ""; }).map(Number);
         return a.length ? Math.round(a.reduce(function(x, y) { return x + y; }, 0) / a.length * 10) / 10 : null;
       };
-      var _wkTags = function(rs) {
-        var seen = {}, out = [], ckSeen = {};
-        rs.forEach(function(r) {
-          var ck = r.stock + "_" + r.date;
-          if (ckSeen[ck]) return; ckSeen[ck] = 1;
-          var c = _pbCharts[ck] || {};
-          [].concat(c.chartShapeTags || [], c.stockTags || []).forEach(function(t) {
-            var st = stripCat(t);
-            if (st && !seen[st]) { seen[st] = 1; out.push(st); }
-          });
-        });
-        return out.slice(0, 6);
-      };
-      var _wkRow = function(label, labelColor, recs, isTotal, rowKey, tradeTags) {
+      // 2026-08-05b タグ列は撤去（ユーザー要望「週間データ・月間データについてはタグ欄は不要」）。
+      // 集約していた_wkTagsも呼び出し元が無くなったので削除した（本日の損益データのタグ列は据置）。
+      // 2026-08-05b 第6引数tradeTags（「ノーシグナル／有効シグナルなし」を最終損益欄に出すチップ）は
+      // ユーザー要望「最終損益欄にノーシグナルなどの表記は不要」で撤去。集約元の_wdTradeTagsごと削除した。
+      var _wkRow = function(label, labelColor, recs, isTotal, rowKey) {
         // 合計額算入: 除外記録(includeInTotal===false)はサマリ集計から外す。明細展開(_wkExpRow)は全件のまま。2026-06-18
         // 今週テーブルの各行（週合計・日別）は全銘柄横断のグランド集計＝②データのみ（候補で未指定）も除外 2026-07-22e（銘柄別のα推奨は_wkGroupsで別途・据置）。
         // 2026-07-29 除外件数を「合計から外れた記録すべて」に拡張。旧実装は _elIsExcluded（不算入/スルー）だけを
@@ -6470,32 +6481,37 @@ function DayView(_ref57) {
               if (_h2p.ref != null) { _h2Ref = (_h2Ref || 0) + _h2p.ref; _h2RefCnt++; }
             });
             if (_h2Cnt === 0 && _h2RefCnt === 0) return _allMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—");
-            var _h2Main = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } },
-              _h2Cnt > 0 ? (function() { var _h2g = _profitGradeFromPnl(_wkRowDays > 0 ? Math.round(_h2Tot / _wkRowDays) : _h2Tot, _h2Cnt); return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _h2g ? _wkBadge(_h2g) : null, React.createElement("span", { style: { fontWeight: 700, color: _h2Tot > 0 ? "#C0392B" : _h2Tot < 0 ? "#1E8449" : "#888" } }, (_h2Tot > 0 ? "+" : "") + _h2Tot.toLocaleString() + "円")); })() : (_h2RefCnt > 0 ? React.createElement("span", { style: { color: "#ccc" } }, "—") : null),
-              _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
+            // 本体0件で参考(（）内)だけある行は、旧実装どおり「— （…）」の1行で出す（gridは額が必須なので通さない）。
+            if (_h2Cnt === 0) return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap" } },
+              React.createElement("span", { style: { color: "#ccc" } }, "—"), _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt));
+            var _h2g = _profitGradeFromPnl(_wkRowDays > 0 ? Math.round(_h2Tot / _wkRowDays) : _h2Tot, _h2Cnt);
+            var _h2Rows = [{ label: null, grade: _h2g, amount: _h2Tot, ref: _elHold2RefSuffix(_h2Tot, _h2Ref, _h2RefCnt) }];
             // 週合計だけ、最終損益額の下に1日平均を出す（2026-08-05・ユーザー要望）。
             // この表のグレードバッジは元々「総額÷_wkRowDays」で判定しているのに表示は総額だけだったため、
             // 例えば総額+9,400円にA+が付いていても判定の実体（3営業日で1日平均+3,133円）が見えなかった。
             // _wkRowDays=_elBizDaysOf＝記録の初日〜最終日の営業日数（休場除く。取引が無い中日も数える＝
             // 記録のある日数ではない）。バッジ判定と割る数を必ず同じにするため、ここでも_wkRowDaysを使う。
             // 日別行と_wkRowDays<=1の週は平均＝総額で同じ数字が2行並ぶだけなので出さない。
-            if (!(isTotal && _h2Cnt > 0 && _wkRowDays > 1)) return _h2Main;
-            var _h2Avg = Math.round(_h2Tot / _wkRowDays);
-            var _h2AvgG = _profitGradeFromPnl(_h2Avg, _h2Cnt);
-            return React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", whiteSpace: "nowrap" } },
-              _h2Main,
-              React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" }, title: "1営業日あたりの最終損益。記録の初日〜最終日の営業日数" + _wkRowDays + "日で割った額（休場日は除く。取引が無かった中日も日数に入る）。この表のグレードバッジはこの平均額で判定している。" },
-                _h2AvgG ? _wkBadge(_h2AvgG) : null,
-                React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "1日平均"),
-                React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(_h2Avg) } }, _elPnlFmt(_h2Avg))));
-            })();
-            if (!(tradeTags && tradeTags.length)) return _pnlNode;
-            return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap", justifyContent: "center" } }, React.createElement("span", { style: { display: "inline-block", fontSize: 9, fontWeight: 700, color: "#64748B", background: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: 3, padding: "0 5px", whiteSpace: "nowrap" }, title: "「取引」カテゴリのタグ（ノーシグナル／有効シグナルなし等）。この日はエントリーした銘柄が無く全銘柄が取引なしのため表示。" }, tradeTags.join("・")), _pnlNode);
+            // 2026-08-05b （）内の参考額（△も保有し続けた場合）も同じ日数で割って平均行に添える＝
+            // 本行に（）が出ているのに平均行だけ無い、という食い違いを無くす（ユーザー指摘）。
+            if (isTotal && _wkRowDays > 1) {
+              var _h2Avg = Math.round(_h2Tot / _wkRowDays);
+              var _h2AvgRef = (_h2RefCnt > 0 && _h2Ref != null) ? Math.round((_h2Tot + _h2Ref) / _wkRowDays) : null;
+              _h2Rows.push({ label: _wkAvgLabel, grade: _profitGradeFromPnl(_h2Avg, _h2Cnt), amount: _h2Avg, ref: _wkRefNode(_h2AvgRef) });
+            }
+            return React.createElement("span", { title: isTotal && _wkRowDays > 1 ? ("1営業日あたりの最終損益。記録の初日〜最終日の営業日数" + _wkRowDays + "日で割った額（休場日は除く。取引が無かった中日も日数に入る）。この表のグレードバッジはこの平均額で判定している。") : undefined }, _wkStack(_h2Rows));
           })()),
           _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _elDetailPnlStackNode(_wkRecsM, _wkAlphaOf, _wkCutOf, _wkBadge, _allMiss, _wkRowDays)),
-          _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : _wkPnlCell(_profitGradeFromPnlReal(_wkRowDays > 0 ? Math.round(_wkStM.sumPnlRaw / _wkRowDays) : _wkStM.sumPnlRaw, (_ent > 0 && _wkStM.sumPnlRaw !== 0) ? _ent : 0), _ent > 0 ? _wkStM.sumPnlRaw : null, (_ent > 0 && _wkStM.realHasShares) ? _wkStM.sumPnl : null)),
-          React.createElement("td", { style: { padding: "4px 6px", borderBottom: bb, borderTop: bt } },
-            (function() { var tg = _wkTags(recs); return tg.length ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2 } }, tg.map(function(t, i) { return React.createElement("span", { key: i, style: { display: "inline-block", padding: "1px 5px", fontSize: 9, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 3, border: "1px solid #FB923C", whiteSpace: "nowrap" } }, stripCat(t)); })) : null; })())
+          _td(_allExcl ? React.createElement("span", { style: { color: "#ccc" } }, "—") : (function() {
+            var _rvRaw = _ent > 0 ? _wkStM.sumPnlRaw : null;
+            var _rvAvg = (isTotal && _wkRowDays > 1 && _rvRaw != null) ? Math.round(_rvRaw / _wkRowDays) : null;
+            return _wkPnlCell(
+              _profitGradeFromPnlReal(_wkRowDays > 0 ? Math.round(_wkStM.sumPnlRaw / _wkRowDays) : _wkStM.sumPnlRaw, (_ent > 0 && _wkStM.sumPnlRaw !== 0) ? _ent : 0),
+              _rvRaw,
+              (_ent > 0 && _wkStM.realHasShares) ? _wkStM.sumPnl : null,
+              _rvAvg,
+              _rvAvg != null ? _profitGradeFromPnlReal(_rvAvg, _ent) : null);
+          })())
         );
       };
       // 週: 銘柄別グルーピング + 推奨基本α値（5〜20円・1円刻み）計算
@@ -6532,8 +6548,8 @@ function DayView(_ref57) {
             React.createElement("thead", null,
               React.createElement("tr", { style: { background: "#f5f4f0" } },
                 _wkTh("曜日", { textAlign: "left" }), _wkTh("件"),
-                _wkTh(React.createElement("span", { style: { color: "#374151" }, title: "EPに到達した件数＝利確＋△＋確定損＋損切りの合計。件＝到達＋未達＋除外" }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
-                _wkTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "最終損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／最終損益を縦積み。最終＝○が続く限り手じまい足まで保有した損益＝最終損益列と同値" }, "詳細損益")), _wkTh("実現損益"), _wkTh("タグ", { textAlign: "left" })
+                _wkTh(React.createElement("span", { style: { color: "#374151" }, title: "EPに到達した件数＝利確＋△＋確損＋損切の合計。件＝到達＋未達＋除外" }, "到達")), _wkTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確")), _wkTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△")), _wkTh(React.createElement("span", { style: { color: "#DC2626" }, title: "確定損" }, "確損")), _wkTh(React.createElement("span", { style: { color: "#7F1D1D" }, title: "損切り" }, "損切")), _wkTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達")), _wkTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）" }, "除外")),
+                _wkTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２結果損益と同一基準" }, "最終損益")), _wkTh(React.createElement("span", { title: "EP損益（○のみ）／H1損益／最終損益を縦積み。最終＝○が続く限り手じまい足まで保有した損益＝最終損益列と同値" }, "詳細損益")), _wkTh("実現損益")
               )
             ),
             React.createElement("tbody", null,
@@ -6545,11 +6561,8 @@ function DayView(_ref57) {
                   var _dobj = new Date(_wd + "T00:00:00");
                   var _lbl = React.createElement(React.Fragment, null, _DOWJP[_dobj.getDay()] + " " + _wd.slice(5).replace("-", "/"), _wkHoli[_wd] ? React.createElement("span", { title: "休場日（祝日・休場）", style: { marginLeft: 4, fontSize: 9, fontWeight: 700, color: "#7C3AED", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 3, padding: "0 3px", verticalAlign: "middle" } }, "休") : null);
                   var _rk = "wk_" + _wd;
-                  var _wdTradeTags = [];   // その日の全銘柄の「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）を集約＝ノーシグナルの銘柄はrecsに無いのでcharts直参照 2026-07-23
-                  // 取引タグは「その日エントリーした銘柄が1つも無い＝全銘柄が取引なし」の日だけ表示（集約表なので1銘柄でも取引があれば誤解を招く）2026-07-24
-                  if (_wkEntCnt(_wkByDay[_wd]) === 0) allStocks.forEach(function(_stk) { var _cc = _pbCharts[_stk + "_" + _wd]; if (_cc && Array.isArray(_cc.chartShapeTags)) _cc.chartShapeTags.forEach(function(_t) { if (_t.indexOf("取引:") === 0) { var _s = stripCat(_t); if (_wdTradeTags.indexOf(_s) < 0) _wdTradeTags.push(_s); } }); });
                   return [
-                    _wkRow(_lbl, null, _wkByDay[_wd], false, _rk, _wdTradeTags),
+                    _wkRow(_lbl, null, _wkByDay[_wd], false, _rk),
                     !!pnlTableExpandSet[_rk] ? _wkExpRow(_wkByDay[_wd], _rk) : null
                   ];
                 })
@@ -6857,8 +6870,8 @@ function DayView(_ref57) {
         _pbTh(React.createElement("span", { style: { color: "#374151" } }, "到達"), { width: 36 }),
         _pbTh(React.createElement("span", { style: { color: "#1E8449" } }, "利確"), { width: 36 }),
         _pbTh(React.createElement("span", { style: { color: "#D97706" }, title: "最終損益が±0（トントン）" }, "△"), { width: 28 }),
-        _pbTh(React.createElement("span", { style: { color: "#DC2626" } }, "確定損"), { width: 42 }),
-        _pbTh(React.createElement("span", { style: { color: "#7F1D1D" } }, "損切り"), { width: 42 }),
+        _pbTh(React.createElement("span", { style: { color: "#DC2626" }, title: "確定損" }, "確損"), { width: 42 }),
+        _pbTh(React.createElement("span", { style: { color: "#7F1D1D" }, title: "損切り" }, "損切"), { width: 42 }),
         _pbTh(React.createElement("span", { style: { color: "#6B7280" } }, "未達"), { width: 40 }),
         _pbTh(React.createElement("span", { style: { color: "#0284C7" }, title: "不算入＋スルー（集計に算入しない記録）。選外銘柄表ではスルーのみ" }, "除外"), { width: 40 }),
         _pbTh(React.createElement("span", { title: "○が途切れた所（×/△/損切り）で手じまいした最終PnL＝（）外。（）内=△も保有し続けた場合。旧H２損益と同一基準（100株換算）" }, "最終損益", React.createElement("span", { style: { fontWeight: 400, fontSize: 8, color: "#999", display: "block", whiteSpace: "normal", maxWidth: 76, margin: "0 auto", lineHeight: 1.2 } }, "○途切れで手じまい ()=△")), { width: 100 }),
