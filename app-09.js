@@ -254,13 +254,22 @@ function _dtsSensitivity(cfg) {
     var r = _dtsSimulate(c2);
     if (!r.error) out.push({ key: s.key, lbl: s.lbl, perDay: s.perDay, self: false, res: r });
   }
-  // 目標株数（例:1000株）に届く月を各本で拾う。比較表の1列に使う。
+  // 目標株数に届く月を各本で拾う。比較表の1列に使う。
+  var tgt = _dtsReachTarget(cfg);
   for (i = 0; i < out.length; i++) {
     var rs = out[i].res.rows, hit = null;
-    for (var j = 0; j < rs.length; j++) { if (rs[j].shares >= 1000) { hit = rs[j].ym; break; } }
-    out[i].reach1000 = hit;
+    for (var j = 0; j < rs.length; j++) { if (rs[j].shares >= tgt) { hit = rs[j].ym; break; } }
+    out[i].reachYm = hit; out[i].reachTarget = tgt;
   }
   return out;
+}
+
+// 「◯◯株に届く月」の目標株数。既定1,000株だが、基礎取引株数がすでに1,000以上だと
+// 全部の本が初月到達になって列が死ぬので、その時は次の500株刻みを目標にする 2026-08-05b。
+function _dtsReachTarget(cfg) {
+  var s0 = +cfg.initialShares || 0;
+  if (s0 < 1000) return 1000;
+  return Math.ceil((s0 + 1) / 500) * 500;
 }
 
 // ---- 表示ヘルパー --------------------------------------------------------
@@ -778,14 +787,33 @@ function _dtsMarks(res) {
 function _dtsSensTable(cfg, base) {
   var list = _dtsSensitivity(cfg);
   if (!list.length) return null;
-  var th = function(t) { return React.createElement("th", { key: t, style: { padding: "4px 6px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center" } }, t); };
+  var th = function(t, tip) { return React.createElement("th", { key: t, title: tip || "", style: { padding: "4px 6px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center" } }, t); };
   var td = function(k, ch, ex) { return React.createElement("td", { key: k, style: Object.assign({ padding: "4px 6px", fontSize: 11, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderTop: "1px solid #F1F5F9" }, ex || {}) }, ch); };
   var mine = base.summary.endTotal;
+  // 到達月の差 2026-08-05b（ユーザー要望③）＝「Aに乗れば◯ヶ月早い」まで出す。
+  // 基準は実績の本(self)。実績が期間内に届かない場合は差を出せないので、その旨を添えて月だけ出す。
+  var tgt = list[0] ? list[0].reachTarget : 1000;
+  var baseYm = null;
+  for (var bi = 0; bi < list.length; bi++) { if (list[bi].self) { baseYm = list[bi].reachYm; break; } }
+  var baseIdx = baseYm ? _dtsYmToIdx(baseYm) : null;
+  var reachCell = function(o) {
+    if (!o.reachYm) return React.createElement("span", { style: { color: "#9CA3AF" } }, "期間内に届かない");
+    var lbl = React.createElement("span", { style: { fontWeight: 700 } }, _dtsYmLbl(o.reachYm));
+    if (o.self) return lbl;
+    if (baseIdx == null) return React.createElement("span", null, lbl,
+      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#047857", marginLeft: 3 } }, "（実績では届かない）"));
+    var d = _dtsYmToIdx(o.reachYm) - baseIdx;
+    var col = d === 0 ? "#9CA3AF" : (d < 0 ? "#047857" : "#B91C1C");
+    var tag = d === 0 ? "同じ" : (d < 0 ? Math.abs(d) + "ヶ月早い" : d + "ヶ月遅い");
+    return React.createElement("span", null, lbl,
+      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: col, marginLeft: 3 } }, "（" + tag + "）"));
+  };
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto" } },
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, padding: "7px 10px 4px" } }, "🎯 グレード感度",
       React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280", marginLeft: 6 } }, "1日あたり成績だけを差し替えて同じ前提を回し直した結果")),
     React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 620 } },
-      React.createElement("thead", null, React.createElement("tr", null, [th("前提"), th("期末 総資産"), th("今との差"), th("期末 株数"), th("手取り合計"), th("1,000株に届く月")])),
+      React.createElement("thead", null, React.createElement("tr", null, [th("前提"), th("期末 総資産"), th("今との差"), th("期末 株数"), th("手取り合計"),
+        th(tgt.toLocaleString() + "株に届く月", "（）内は実績の前提と比べて何ヶ月早い／遅いか。基礎取引株数が1,000株以上のときは目標を次の500株刻みに繰り上げます")])),
       React.createElement("tbody", null, list.map(function(o) {
         var s = o.res.summary, diff = s.endTotal - mine;
         var g = (typeof _profitGradeFromPnl === "function") ? _profitGradeFromPnl(Math.round(o.perDay), 1) : null;
@@ -798,7 +826,7 @@ function _dtsSensTable(cfg, base) {
             : React.createElement("span", { style: { fontWeight: 700, color: diff >= 0 ? "#047857" : "#B91C1C" } }, (diff >= 0 ? "＋" : "−") + _dtsFmtMan(Math.abs(diff)))),
           td("s", s.endShares.toLocaleString() + "株"),
           td("n", _dtsFmtMan(s.net)),
-          td("r", o.reach1000 ? _dtsYmLbl(o.reach1000) : React.createElement("span", { style: { color: "#9CA3AF" } }, "期間内に届かない"))
+          td("r", reachCell(o))
         ]);
       }))));
 }

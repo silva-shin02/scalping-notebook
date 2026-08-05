@@ -93,7 +93,7 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
-`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / `_dtsTable` / `_dtsMarks` / `_dtsSensTable`
+`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsDelta` / `_dtsTable` / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`
 
 **📈 損益推移シミュレーター 2026-08-05** — 記録帳の💰損益タブ（全銘柄合算）、🧮シミュの右のタブ。前提を入れて資金・株数・生活口座・総資産の月次推移を出す。**実績の集計ではなく将来の見通し**。
 
@@ -109,6 +109,9 @@ HomeEventFormModal, App
   - **`props.step` は表示単位で渡す**（`unit:"man"` なら `step:1` が1万円）。内部で `×10000` して円に直す。**`step` 省略＝ボタンを出さない**＝「いじらない欄」の意思表示。現在ボタンが無いのは**税率**と**委託保証金率**の2つだけ。
   - 刻み（ユーザー指定）: ①月間営業日 `1` ／ ②取引資金・生活口座 `1`(万円)・基礎取引株数 `100` ／ ③1日あたり `100`(円) ／ ④生活費 `1`(万円) ／ ⑤積立 `1`・目標残高 `5`(万円) ／ ⑥刻み額 `5`(万円)・株数と上限 `100` ／ ⑦メイン株価 `100`(円) ／ ⑧投入額 `5`(万円)・直後の株数 `100`。
   - `min` 既定0（`min:1` は月間営業日だけ）。空欄（無制限）から▲を押すと0起点で1段ぶん入る。
+- **🎯グレード感度表（`_dtsSensTable`）**: 1日あたり成績だけを `_DTS_SENS`（C=500 / B=1,500 / A=2,250 / S=3,000）に差し替えて同じ前提を回し直し、期末を比較する。
+  - **「◯◯株に届く月」に到達月の差 2026-08-05b**（ユーザー要望③）＝実績の本(`self`)を基準に「**5ヶ月早い**（緑）／◯ヶ月遅い（赤）／同じ（灰）」を（）で併記。**実績自体が期間内に届かない場合は差を出せない**ので「（実績では届かない）」と添えて月だけ出す。
+  - 目標株数は **`_dtsReachTarget(cfg)`**＝既定1,000株。ただし**基礎取引株数がすでに1,000株以上だと全部の本が初月到達になって列が死ぬ**ので、その時は次の500株刻みへ繰り上げる。見出しにも実際の目標株数を出す。
 - **前提の保存**は `data.custom.dtsCfg`（💾ボタン）。既存の `stSave`→`fbPut` 経路にそのまま乗るので専用の同期実装は無い。
 - **回帰テスト**: 依頼メモ§8の12ヶ月・年間集計・境界ケース（2027-06 の 4.906→4段→1,400株）で **54 pass / 0 fail**。JScript（`cscript`）で `_dtsSimulate` を直接叩く方式。
 - **グラフは自前SVG 2026-08-05**（ユーザー要望「視覚的にわかりやすいものもほしい」）。Chart.js/recharts は**使わない**＝ビルド工程なし・`file://` 運用・SWプリキャッシュのためCDNを増やせない。ダークモードは `html.sn-dark` のCSSフィルタ（invert+hue-rotate）が全体に掛かるので **light 前提の色で描く**（個別対応は不要）。
