@@ -6006,11 +6006,15 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { fontSize: 19, fontWeight: 800, color: color || "#1A1714", lineHeight: 1.1, whiteSpace: "nowrap", letterSpacing: "-0.01em" } }, val),
       sub ? React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginTop: 2 } }, sub) : null);
   };
-  var _yenN = function(v, cnt, days) {
+  // 2026-08-05g isReal=実現損益スケール(10倍)で判定する。既定(未指定)は従来どおり通常スケール。
+  // 【直したこと】実現損益の集計セルがこの関数を通常スケールのまま使っており、同じ -6,000円 が
+  // 今週の損益データ(app-04・実額スケール)では E なのに、全体損益（期間別）では G+ と食い違っていた。
+  // 記録1件ごとの実現損益(app-06:3691/6548)は元から_profitGradeFromPnlRealなので、集計側をそちらへ揃える。
+  var _yenN = function(v, cnt, days, isReal) {
     if (cnt === 0 || v == null) return _dash;
     var _gv = (days && days > 0) ? Math.round(v / days) : v;   // days指定＝複数日合計は1日平均でグレード判定（表示は合計）2026-07-23
     return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, justifyContent: "center", whiteSpace: "nowrap" } },
-      _elHoldGradeBadge(_profitGradeFromPnl(_gv, 1)),
+      _elHoldGradeBadge(isReal ? _profitGradeFromPnlReal(_gv, 1) : _profitGradeFromPnl(_gv, 1)),
       React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)));
   };
   // 金額＋（）内の○△参考値。EP/H1/H2の合計表示で「△を本算入(（）外)していたら」の○△合計を（Ⓐ+9,900円）で併記（2026-06-16: ×と未設定は算入も参考も無し）。
@@ -6217,10 +6221,10 @@ function EntryLogView(_ref_elv2) {
   };
   // ===== 🎯 グレード別の件数（月別）（2026-08-03c ユーザー要望「1か月あたりの各グレードの件数が知りたい。A+何件、A-何件みたいな感じ」）=====
   // 表は2つ（ユーザー選択「両方」）＝「良いトレードが何件あったか」と「良い日が何日あったか」は別の話なので分ける:
-  //  ①トレード単位: 記録1件ごとの最終損益を_profitGradeFromPnl（損益スケール A+=2500円〜）で判定し月別に数える。
+  //  ①トレード単位: 記録1件ごとの最終損益を_profitGradeFromPnl（損益スケール A+=2501円〜）で判定し月別に数える。
   //     合計＝その月に金額が出た記録数＝🏷銘柄別の「総利益件数＋総損失件数＋D(同値)」。_elFinalPnlOf を共有しているので食い違いようがない。
   //  ②日単位: その日の最終損益合計を同じスケールで判定し、月に何日がA+だったかを数える。
-  //     単日は days=1 ＝合計そのまま＝既存の「複数日は1日平均・単日は合計」規約（app-06の_yenN・app-05:4811）と同じ。
+  //     単日は days=1 ＝合計そのまま＝既存の「複数日は1日平均・単日は合計」規約（app-06の_yenN・app-05の_elHold2RefSuffix）と同じ。
   //     数えるのは記録があった日だけ＝合計＝その月の稼働日数（ノーシグナル日・全除外日は母数に入れない＝Z/DNFの列は作らない）。
   // 実現損益スケール(_profitGradeFromPnlReal＝カレンダーの日付バッジ)は使わない（ユーザー選択）: realizedPnl がほぼ未記録で分布が作れないため。
   var _EL_GRADES = ["A+", "A-", "B", "C", "D", "E", "F", "G-", "G+"];
@@ -6348,7 +6352,7 @@ function EntryLogView(_ref_elv2) {
     var avgCntLine = function(cnt, days, gg) { if (!days || (gg || g) === "day" || !cnt) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };   // !cnt＝0件(スルーのみの期間)は「1日平均0件」が冗長なので出さない 2026-07-20b。gg=入れ子の段の粒度 2026-07-30
     var cntCell = function(cnt, days, ex, gg) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", null, cnt + "件"), avgCntLine(cnt, days, gg)), ex); };
     var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt, days), avgDayLine(v, days)), ex); };   // days渡し＝1日平均でグレード判定 2026-07-23
-    var realCell = function(v, cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt, days), avgDayLine(v, days)), ex); };
+    var realCell = function(v, cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt, days, true), avgDayLine(v, days)), ex); };   // true=実現損益スケール 2026-08-05g
     // 2026-07-27 2段化: 上段=損切（ラインに触れて損で撤退）／下段=損失（それ以外の負け）。列幅を増やさずに両方出す。
     // note: 件数と平均で母数が違うときの理由書き（終値未入力＝金額を出せない件数）2026-07-29
     var _stopGrp = function(lbl, n, rate, avg, col, sep, note) {
@@ -6606,7 +6610,7 @@ function EntryLogView(_ref_elv2) {
         _td(recs.length ? React.createElement("span", { style: { fontWeight: 700, color: reach / recs.length >= 0.6 ? "#1E8449" : "#B45309" } }, Math.round(reach / recs.length * 100) + "%") : _dash),
         _td(_elStopCellV2(ss)),
         _td(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _yenN(t.hold2, t.hold2Cnt), _elHold2RefSuffix(t.hold2, t.hold2Ref, t.hold2RefCnt))),
-        _td(_yenN(t.real, t.realCnt))
+        _td(_yenN(t.real, t.realCnt, null, true))
       ]);
       rows.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: { background: on ? "#FFF7ED" : "transparent", cursor: "pointer" } }, cells));
       if (on) rows.push(React.createElement("tr", { key: ek + "_d" },
@@ -6658,7 +6662,7 @@ function EntryLogView(_ref_elv2) {
       _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _elBizDaysOf(rs, data)), null, t.hold2Cnt + "件・○途切れで手じまい"),
       _kpiCard("損切り", (ss && ss.any || 0) + "回", ss && ss.any > 0 ? "#1E8449" : "#bbb", ss && ss.rate != null ? "率" + ss.rate + "%（想" + ss.plan + "・H1 " + ss.h1 + "・H2 " + ss.h2 + "）" : null),
       _kpiCard("×見送り", x + "件", x > 0 ? "#1E8449" : "#bbb", "×宣言後の到達"),
-      _kpiCard("実現損益", _yenN(t.real, t.realCnt, _elBizDaysOf(rs, data)), null, t.realCnt + "件"),
+      _kpiCard("実現損益", _yenN(t.real, t.realCnt, _elBizDaysOf(rs, data), true), null, t.realCnt + "件"),
       _kpiCard("1日あたり損益", _perDay != null ? (_elPnlFmt(_perDay) + "/日") : "—", _perDay != null ? _elPnlColor(_perDay) : "#bbb", "手じまい基準・" + _entDays + "日エントリー")
     ].filter(Boolean)));
   };
@@ -7313,7 +7317,7 @@ function EntryLogView(_ref_elv2) {
           _stkShareSection(_sinceRecs)] : null,
         _sinceRecs.length ? [
           _secH("🎯 グレード別の件数（月別）",
-            "最終損益を損益スケール（A+=2500円〜／D=0円／G+=−2500円〜）でグレード判定して月ごとに数える。①記録1件ごと ②その日の合計ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ。カレンダーの日付バッジは実現損益スケール（10倍・A+=25000円〜）なので数字は一致しません",
+            "最終損益を損益スケール（A+=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①記録1件ごと ②その日の合計ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ。カレンダーの日付バッジは実現損益スケール（10倍・A+=25001円〜）なので数字は一致しません",
             _elSinceBadge()),
           _gradeMonSection(_sinceRecs)] : null,
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
@@ -7517,7 +7521,7 @@ function EntryLogView(_ref_elv2) {
         var _pkDays = _elBizDaysOf(rs, data);
         return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
           _kpiCard("件数", rs.length + "件", "#333", (function() { var _cn = _elCollExclCountRecs(data, rs, _collScope); return _cn > 0 ? "被り除外" + _cn + "件" : null; })()),
-          _kpiCard("実現損益", _yenN(t.real, t.realCnt, _pkDays), null, t.realCnt + "件"),
+          _kpiCard("実現損益", _yenN(t.real, t.realCnt, _pkDays, true), null, t.realCnt + "件"),
           _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _pkDays), null, t.hold2Cnt + "件・○途切れで手じまい"),
           _kpiCard("利確", rr.takeRate != null ? rr.take + "件・" + rr.takeRate + "%" : "—", rr.takeRate != null ? (rr.takeRate >= 50 ? "#1E8449" : "#B45309") : "#0369A1", "利益で手じまい／E成立" + (rr.ok + rr.ng + rr.draw) + "件"),
           _kpiCard("見切り率", rr.soft + "%", rr.soft > 0 ? "#B45309" : "#bbb"),
@@ -7615,7 +7619,7 @@ function EntryLogView(_ref_elv2) {
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 }),
           _tdP(rr.soft + "%", { color: rr.soft > 0 ? "#B45309" : "#bbb", fontWeight: rr.soft > 0 ? 700 : 400 }),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn), (dn > 1 && t.hold2 != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.hold2 / dn) >= 0 ? "+" : "") + Math.round(t.hold2 / dn).toLocaleString()) : null)),   // 2026-08-05f dn<=1は平均＝合計で冗長なので出さない（_ovPnlTblのavgDayLineと同じ規約）
-          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(t.real, t.realCnt, dn), (dn > 1 && t.real != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.real / dn) >= 0 ? "+" : "") + Math.round(t.real / dn).toLocaleString()) : null))));   // 2026-08-05f dn<=1は平均＝合計で冗長なので出さない
+          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(t.real, t.realCnt, dn, true), (dn > 1 && t.real != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#94A3B8", fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.real / dn) >= 0 ? "+" : "") + Math.round(t.real / dn).toLocaleString()) : null))));   // 2026-08-05f dn<=1は平均＝合計で冗長なので出さない
         if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
       });
       return _cardify([

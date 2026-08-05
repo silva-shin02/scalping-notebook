@@ -5906,7 +5906,7 @@ function DayView(_ref57) {
         var _trCount = _trTotRecs.filter(function(r){ return _elIsEntered(r.signal, r.item); }).length;
         var _tg = _profitGradeFromPnlReal(_trRealRaw, _trCount);   // 実額スケールのランクには実額合計を渡す 2026-08-04b
         var _ts = _GRADE_STYLE[_tg] || _GRADE_STYLE.Z;
-        var _trLegendPairs = [["A+","25000円~"],["A-","20000~24999円"],["B","10000~19999円"],["C","1~9999円"],["D","0円"],["E","-1~-9999円"],["F","-10000~-19999円"],["G-","-20000~-24999円"],["G+","-25000円~"],["Z","取引なし"]];
+        var _trLegendPairs = [["A+","25001円~"],["A-","20001~25000円"],["B","10001~20000円"],["C","1~10000円"],["D","0円"],["E","-1~-10000円"],["F","-10001~-20000円"],["G-","-20001~-25000円"],["G+","-25001円~"],["Z","取引なし"]];
         var _trRenderLegendRow = function(items) {
           return React.createElement("div", { style: { display: "flex", gap: "3px 8px", flexWrap: "wrap" } },
             items.map(function(pair) {
@@ -6677,7 +6677,7 @@ function DayView(_ref57) {
       var _entCnt = function(rs) { return rs.filter(function(r) { return _elIsEntered(r.signal, r.item); }).length; };
       var allRaw = _rawPnl(recs), allEnt = _entCnt(recs);
       if (allSt.sumPnlRaw === 0 && allEnt === 0) return React.createElement("span", { style: { color: "#ccc" } }, "—");
-      // 2026-08-04 実額を主に。_profitGradeFromPnlReal は実額スケール（A+=25000円）＝凡例と同じなので、実額合計で判定する。
+      // 2026-08-04 実額を主に。_profitGradeFromPnlReal は実額スケール（A+=25001円〜）＝凡例と同じなので、実額合計で判定する。
       // 旧: per-100換算の allSt.sumPnl を渡していたため、凡例の目盛りと1桁ずれたランクが出ていた。
       var allGrade = allEnt > 0 ? _profitGradeFromPnlReal(allSt.sumPnlRaw, allEnt) : "D";
       var _allMain = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
@@ -6863,8 +6863,8 @@ function DayView(_ref57) {
         );
       };
       return React.createElement("div", { style: { background: "#f9f8f5", border: "1px solid #e8e5de", borderRadius: 6, padding: "5px 8px", marginBottom: 8, fontSize: 9 } },
-        mkRow("実現損益", { "A+":"25000+", "A-":"20000～24999", B:"10000～19999", C:"1～9999", D:"0", E:"-1～-9999", F:"-10000～-19999", "G-":"-20000～-24999", "G+":"-25000-" }),
-        mkRow("損益（EP/H1/H2/最終）", { "A+":"2500+", "A-":"2000～2499", B:"1000～1999", C:"1～999", D:"0", E:"-1～-999", F:"-1000～-1999", "G-":"-2000～-2499", "G+":"-2500-" })
+        mkRow("実現損益", { "A+":"25001+", "A-":"20001～25000", B:"10001～20000", C:"1～10000", D:"0", E:"-1～-10000", F:"-10001～-20000", "G-":"-20001～-25000", "G+":"-25001-" }),
+        mkRow("損益（EP/H1/H2/最終）", { "A+":"2501+", "A-":"2001～2500", B:"1001～2000", C:"1～1000", D:"0", E:"-1～-1000", F:"-1001～-2000", "G-":"-2001～-2500", "G+":"-2501-" })
       );
     })();
     
