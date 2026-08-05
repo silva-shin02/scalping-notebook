@@ -6479,10 +6479,9 @@ function EntryLogView(_ref_elv2) {
       ks.forEach(function(k) {
         var x = _by[k] || [], _extraRow = _exBy[k] || [];   // x=算入記録（表示専用だけの期間は空配列）／_extraRow=集計に入らない表示専用の記録
         var t = totOf(x), st = stopsOf(x), dn = _bizDaysIn(k, gg), path = pfx + k, on = !!ovExp[path], nxt = _NEXT_GRAN[gg];
-        var _old = _keyIsOld(k, gg);   // 2026-08-05n 旧ルール期間＝薄く＋合計・平均から除外
+        var _old = _keyIsOld(k, gg);   // 2026-08-05n 旧ルール期間＝薄く＋合計・平均から除外。2026-08-05q「旧ルール」バッジは撤去（ユーザー指示）＝薄さだけで示す。理由は見出しの説明文と合計行の「※6/29〜のみ」に残る
         out.push(React.createElement("tr", { key: path, onClick: function() { setOvExp(function(prev) { var n = Object.assign({}, prev); if (n[path]) delete n[path]; else n[path] = true; return n; }); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent", opacity: _old ? 0.42 : 1 } },
           otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k, gg), _elEmaRefNote(_elIsEmaRefPeriod(k, gg)),
-            _old ? React.createElement("span", { title: _RULE_FROM_LBL + "（" + _RULE_SINCE + "）より前は集計ルールが違うため、薄く表示して合計・平均には算入していません。行の中の数字はその期間だけの実績として従来どおり出しています", style: { fontSize: 8.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 4px", marginLeft: 4, whiteSpace: "nowrap" } }, "旧ルール") : null,
             (!x.length && _extraRow.length) ? React.createElement("span", { title: "この期間は集計に入る記録が無く、表示専用の記録だけがあります（" + _extraBrk(_extraRow) + "・集計は全て—）", style: { fontSize: 8.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 4px", marginLeft: 4, whiteSpace: "nowrap" } },
               _extraRow.every(function(r) { return _elIsThru(r.signal); }) ? "スルーのみ" : "算入記録なし") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           otd(dn + "日", { fontWeight: 600, color: "#555" }),
