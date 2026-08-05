@@ -5900,6 +5900,16 @@ function EntryLogView(_ref_elv2) {
   var _uUKB = useState("all"), ukiBand = _uUKB[0], setUkiBand = _uUKB[1];   // ⚡浮き足%タブの株価帯フィルタ（"all"=従来の全銘柄共通・既定／"b0".."bN"／"mat"／"unk"）。KPI早見・加算率ボード・記録一覧の3つ全部に効く 2026-07-25
   var _uUKS = useState("ana"), ukiSub = _uUKS[0], setUkiSub = _uUKS[1];   // ⚡浮き足%タブ内の入れ子サブタブ: ana(分析)/list(記録一覧) 2026-07-19
   // 2026-07-20j 分析母数トグル anaJul/setAnaJul（「全期間/5月〜」）を撤去＝_anaRecsで4月以前を常時除外にしたため両状態が同結果になり無意味になった。
+  // 2026-08-05t 分析母数トグル（ユーザー要望「シグナル分析についても6月29日以降のみで見れる機能がほしい」）。
+  //   既定false＝全期間＝**従来の見え方を1件も変えない**。ONで新ルール期間（_EL_RULE_SINCE＝2026-06-29〜）だけに絞る。
+  //   効く先は「分析の根」_v2recsAllData と 🧮全銘柄一括シミュの2つだけ（ユーザー選択「分析タブだけ」）＝
+  //   💰損益の集計表（全体損益・KPI早見・累積損益）は対象外。あちらは旧ルール行を薄く残して比較できる仕様なので、
+  //   ここで根ごと落とすとその行が消えて競合する。
+  var _uSNO = useState(false), sinceOnly = _uSNO[0], setSinceOnly = _uSNO[1];
+  // トグル適用ヘルパー。_elSinceRecs(:6128付近)は**この行より後ろ**で var に関数を代入しているため、
+  //   先に走る_v2recsAllData(:5948付近)からは undefined で呼べない。トップレベル関数宣言で巻き上げ済みの
+  //   _elIsOldRule を直接使うことで定義順の問題を回避する（境界の正本は_EL_RULE_SINCEのまま＝二重定義しない）。
+  var _sinceCut = function(rs) { return sinceOnly ? (rs || []).filter(function(r) { return r && r.date && !_elIsOldRule(r.date); }) : (rs || []); };
   var _selSty = { padding: "5px 8px", fontSize: 11, border: "1px solid #ddd", borderRadius: 5, background: "#fff", color: "#333" };
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _ai = function(r) { return _elAlphaInfo(r, data); };
@@ -5945,7 +5955,10 @@ function EntryLogView(_ref_elv2) {
   // _v2recsAll=銘柄/期間で絞ったv2算入記録（追加α〇/×/未選択は混在）＝推奨基本α/追加αタブはこれを使い全体トグルと独立。
   var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal); });
   // 分析母数の根（計算/データ分離 2026-07-22f）: 分析パネル（銘柄別軸_sigGroupsAll・浮き足/RNボード・株価帯別）は_elInclData（データ算入）で絞る＝「計算off/データon」の記録も分析に残す/「計算on/データoff」は分析から外す。合計損益ダッシュボード（_ovPnlTbl/KPI早見/期間タブ/累積）は_v2recsAll（_elInclTotal）のまま。未設定は_elInclTotalに追従＝分割前と一致。
-  var _v2recsAllData = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclData(r.signal); });
+  // 2026-08-05t _sinceCut＝分析母数トグル。ここが分析の根なので、📡シグナル総合の全サブタブ・銘柄別の
+  //   集計/α値/損切り/未達/深掘り/株価帯別・シグナルピルの件数・_missCnt・銘柄タブのシミュ（_selSigRecs経由）・
+  //   推奨α（基本α★/応用α）までが一括で追随する＝トグルの配線はこの1か所で足りる。OFF時は素通し＝従来と同一。
+  var _v2recsAllData = _sinceCut(filtered).filter(function(r) { return _epIsV2(r.signal) && _elInclData(r.signal); });
   // v2recs=全体トグル（追加α 全部/〇/×/未選択）で絞った分析母数。集計・損益・OS値・損切り・シグナル別等の分析タブが従う 2026-06-24。
   var v2recs = (addAlphaFil === "all") ? _v2recsAll : _v2recsAll.filter(function(r) { return addAlphaFil === "yes" ? _elSpecialUsed(r.signal) : !_elSpecialUsed(r.signal); });   // 2状態化 2026-07-13: yes=応用あり／no=応用なし（旧×+未選択を統合）
   // 旧記録件数は算入フラグと独立に数える（除外した新形式記録を「旧記録」に混ぜない）。2026-06-18
@@ -7705,12 +7718,16 @@ function EntryLogView(_ref_elv2) {
     // 🧮 全銘柄一括シミュ 2026-07-20f（💰損益タブ・期間の右）: 銘柄を問わず全記録に同じラダーを当てる。母数＝_v2recsAll（全銘柄・全シグナルのv2算入記録）＝シグナル選択も内訳(浮き足/その他)タブも持たない＝文字どおり一括。浮き足は除外チェックで扱う。
     // baseRecs＝allRecs（全銘柄・全期間）を渡し、コンポーネント側が**銘柄ごとに**推奨αを算出する（銘柄別シミュの baseRecs=allRecs.filter(その銘柄) と同じ母数を銘柄数ぶん持つ形）。
     // scopeStock=null＝時間かぶり除外は銘柄横断＝💰損益タブの他の集計と同じ線引き（銘柄別タブだけが同一銘柄内限定）。
-    _tabBody = _v2recsAll.length ? _cardify([
+    // 2026-08-05t シミュも分析母数トグルに揃える（ユーザー指示「シミュもそろえる」）。母数が_v2recsAll＝計算算入系なので
+    //   分析の根(_v2recsAllData)の絞りが効かない＝ここで明示的に_sinceCutを掛ける。baseRecs（銘柄ごとの推奨α算出元）も
+    //   揃えないと「母数は6/29以降なのに推奨αは全期間で算出」というちぐはぐになるので同じく絞る。
+    var _simAllRecs = _sinceCut(_v2recsAll), _simAllBase = _sinceCut(allRecs);
+    _tabBody = _simAllRecs.length ? _cardify([
       React.createElement("div", { style: { background: "#F0FDFA", border: "1px solid #99F6E4", borderLeft: "4px solid #0F766E", borderRadius: 11, padding: "8px 12px", marginBottom: 6 } },
         React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#0F766E" } }, "株数シミュ ― 全銘柄一括の空売りバックテスト"),
         React.createElement("div", { style: { fontSize: 9.5, color: "#0F6E56", marginTop: 3, lineHeight: 1.5 } }, "同じラダーを全銘柄・全シグナルに一律で適用したら通算いくらだったか。推奨α系の方式は各記録が自分の銘柄の推奨αを使います（銘柄をまたいで平均しません）。",
           React.createElement("span", { style: { color: "#B45309" } }, "※銘柄別タブのシミュとは母数が違うので合計は一致しません＝あちらは選択中シグナルのみが母数、時間かぶり除外も同一銘柄内だけ。こちらは全シグナル・銘柄をまたいだ被りも除外します。"))),   // 2026-07-20h 「銘柄別タブのシミュを合算した値と一致します」は誤りだったので訂正（母数の定義が3点で異なる）
-      _elCard(React.createElement(_elKabuLadderSimV2, { recs: _v2recsAll, baseRecs: allRecs, aiOf: _ai, data: data, scopeStock: null, allStock: true }))])
+      _elCard(React.createElement(_elKabuLadderSimV2, { recs: _simAllRecs, baseRecs: _simAllBase, aiOf: _ai, data: data, scopeStock: null, allStock: true }))])
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "EP起算（v2）の記録がありません");
   } else if (view === "sim") {
     // 🧮 シミュタブ 2026-07-03: 株数シミュ（建て株数ラダーの空売りバックテスト）をα値タブ④から独立タブへ昇格（ユーザー決定＝案A・深掘りの右）。シミュ母数＝内訳スコープ（前足浮き/その他）・推奨αの算出は銘柄全体（全シグナル）＝日別ページ/記録フォームと一致 2026-07-03t（旧: baseRecs=_selSigRecsでシグナル別→値ズレのため銘柄全体へ）。
@@ -7720,7 +7737,9 @@ function EntryLogView(_ref_elv2) {
       _elCard(_detCtlRow("sim", _selSigRecsScoped),
       _detBody("sim", _selSigRecsScoped, function(_drsRaw) {
         var _drs = _drsRaw.filter(function(r) { return _elInclTotal(r.signal); });   // シミュ＝損益のwhat-if＝計算算入(money)母数（分析根_v2recsAllData由来のデータonを除外・敵対レビューFinding1修正 2026-07-22f）
-        return _drs.length ? React.createElement(_elKabuLadderSimV2, { recs: _drs, baseRecs: (_isAllStock ? _selSigRecs : allRecs.filter(function(r) { return r && r.stock === _selStock; })), aiOf: _ai, floatMode: _floatMode, data: data, scopeStock: _collScope })
+        // 2026-08-05t recs側は_selSigRecsScoped＝_v2recsAllData由来なので既に追随済み。baseRecs（この銘柄の推奨α算出元）は
+        //   allRecs直参照で根を通らないため、ここだけ_sinceCutを掛けて母数と推奨αの基準を揃える。
+        return _drs.length ? React.createElement(_elKabuLadderSimV2, { recs: _drs, baseRecs: (_isAllStock ? _selSigRecs : _sinceCut(allRecs).filter(function(r) { return r && r.stock === _selStock; })), aiOf: _ai, floatMode: _floatMode, data: data, scopeStock: _collScope })
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この詳細に該当する記録がありません");
       }))])
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sigAxisGroups.length ? "このシグナルのEP起算（v2）記録がありません" : "EP起算（v2）の記録がありません");
@@ -7763,6 +7782,20 @@ function EntryLogView(_ref_elv2) {
     // 母数は_anaRecs（4月以前を除外済み）＝ピッカーの件数表示も同じ母数で数える。
     React.createElement(_ElPeriodPicker, { value: pSel, onChange: function(s) { setPSel(s); setExpKey(null); setPerExp(null); }, recs: _anaRecs, label: "期間" }),
     React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", margin: "0 2px 7px", lineHeight: 1.4 } }, "※ 2026年4月以前はEMAの位置に間違いがあったため、記録帳の集計・分析・一覧すべてから除外しています（5月以降が正）。"),
+    // 2026-08-05t 分析母数トグル。💰損益タブ（全銘柄）では_v2recsAllDataを使わない＝押しても何も変わらないので出さない。
+    //   ただし🧮全銘柄一括シミュだけは💰損益タブにあって絞る対象なので view==="sim" のときは出す。
+    (_isSigTotal || !_isAllStock || view === "sim") ? React.createElement("div", { style: { margin: "0 2px 8px" } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: "#0F766E", letterSpacing: ".04em" } }, "分析の母数"),
+        React.createElement("div", { style: { display: "flex", background: "#F1EEE8", borderRadius: 9, padding: 2, gap: 2 } },
+          [[false, "全期間"], [true, _EL_SINCE_FROM_LBL + "以降のみ"]].map(function(kv) {
+            var on = sinceOnly === kv[0];
+            return React.createElement("button", { key: String(kv[0]), onClick: function() { setSinceOnly(kv[0]); setExpKey(null); },
+              style: { padding: "3px 12px", fontSize: 10.5, fontWeight: 700, border: "none", borderRadius: 7, cursor: "pointer", whiteSpace: "nowrap",
+                background: on ? "#0F766E" : "transparent", color: on ? "#fff" : "#6B6459" } }, kv[1]);
+          }))),
+      sinceOnly ? React.createElement("div", { style: { fontSize: 9, color: "#0F6E56", marginTop: 4, lineHeight: 1.45 } },
+        "※ 分析の母数だけを" + _EL_SINCE_LBL + "に絞っています（シグナルの件数・推奨α・シミュも追随）。上の銘柄ピルの件数と💰損益の集計表は全期間のままなので数が食い違って見えます。期間の指定と併用すると両方の条件で絞られます。") : null) : null,
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", marginBottom: 6 } },
       React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view !== "sum" && view !== "period" && view !== "sim") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった
         style: { flexShrink: 0, padding: "6px 15px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
