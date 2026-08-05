@@ -6055,11 +6055,13 @@ function EntryLogView(_ref_elv2) {
       trailing || null);
   };
   // 全体損益（期間別）の右上に出すグレード凡例。この表は列によってスケールが違う
-  // （最終損益・指値同値＝損益スケール／実現損益＝その10倍）ので2段で出す。
+  // （最終損益・指値同値＝損益スケール／実現損益＝その10倍）ので2段で出す必要がある。
+  // ラベルは2026-08-05mのユーザー指示で「最終損益」「実現損益」まで短縮した
+  // （指値同値列は最終損益と同じスケールなので上段に含まれる／10倍は数字を見れば分かる）。
   // しきい値は_GRADE_DESCから生成しているので、境界を変えてもここは自動追随する。
-  var _ovGradeLegend = React.createElement("div", { style: { marginLeft: "auto", textAlign: "left", maxWidth: 560 } },
-    _gradeLegendNode(false, { lowerOnly: true, label: "最終・指値同値" }),
-    _gradeLegendNode(true, { lowerOnly: true, label: "実現損益(10倍)", style: { marginTop: 2 } }));
+  var _ovGradeLegend = _gradeLegendGrid(
+    [{ label: "最終損益", real: false }, { label: "実現損益", real: true }],
+    { lowerOnly: true, style: { marginLeft: "auto" } });
   // 2026-08-03: totOf/totExOf/stopsOf/winTakeOf を _ovPnlTbl の中からこのスコープへ引き上げ（定義の中身は一切変えていない・位置だけの移動）。
   //   理由: 🏷銘柄別の損益割合(_stkShareSection)が全く同じ集計を使うため。再実装すると「全体損益（期間別）の合計」と「銘柄別の合計」が
   //   黙ってずれ得る（除外条件が1つでもずれると検算が崩れる）。keyOf/labelOf/_holiSet/_bizDaysIn は g に依存するので _ovPnlTbl の中に残す。

@@ -5663,30 +5663,39 @@ function _qMissCell(size) {
 }
 // その集計行の全記録がE基準未達(全miss)の場合のセル表示「Ⓠ ー円」（Qをランク風に〇で囲む）。
 // 全記録E基準未達（取引不成立）のセル。2026-07-23 QをZ（取引なし）に統合＝「Z ー円」。
-// 2026-08-05l グレード凡例のノード。**_GRADE_DESC / _GRADE_DESC_REAL から生成する**ので、
+// 2026-08-05l グレード凡例。**_GRADE_DESC / _GRADE_DESC_REAL から生成する**ので、
 // しきい値を新たに二重持ちしない（既存の凡例はベタ書きが6か所あり、変更のたびに追随が要る）。
-// real=true で実現損益スケール(10倍)。lowerOnly=true なら「S 2501~」のように下限だけ出して幅を詰める。
-// 置き場所が狭いとき用に、レンジ全文はtitle属性へ入れてホバーで読めるようにしてある。
-function _gradeLegendNode(real, opts) {
+// 2026-08-05m 複数スケールを並べたとき列がずれたので、**「ラベル＋9段」を1つのgridに入れて縦ぞろえ**する。
+//   行ごとに別のflexにすると、桁数の違い（2501~ と 25001~）でA以降のバッジが右へずれていく。
+//   grid化すると各段が同じ列に入り、列幅は広い方（実現損益）に合わせて自動で決まる。
+// rows = [{ label: "最終損益", real: false }, ...]。lowerOnly=trueで下限だけ出して幅を詰める。
+// 置き場所が狭いので、レンジ全文はtitle属性へ入れてホバーで読めるようにしてある。
+function _gradeLegendGrid(rows, opts) {
   var o = opts || {};
-  var desc = real ? _GRADE_DESC_REAL : _GRADE_DESC;
   var order = ["S", "A", "B", "C", "D", "E", "F", "G-", "G+"];
-  return React.createElement("div", {
-    style: Object.assign({ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "2px 7px", fontSize: 9, color: "#8a8478", lineHeight: 1.3 }, o.style || {})
-  },
-    o.label ? React.createElement("span", { style: { fontWeight: 700, color: "#6B6459" } }, o.label) : null,
-    order.map(function(g) {
+  var cells = [];
+  (rows || []).forEach(function(r, ri) {
+    cells.push(React.createElement("span", { key: "lb" + ri,
+      style: { fontWeight: 700, color: "#6B6459", whiteSpace: "nowrap", paddingRight: 3 } }, r.label || ""));
+    var desc = r.real ? _GRADE_DESC_REAL : _GRADE_DESC;
+    order.forEach(function(g) {
       var gs = _GRADE_STYLE[g] || _GRADE_STYLE.Z;
       var full = desc[g] || "";
       // lowerOnly: 「2001~2500円」「2501円~」のどちらの書式でも下限だけ残す（円は落として桁を揃える）
       var txt = o.lowerOnly ? full.replace(/円/g, "").replace(/~.*$/, "~") : full;
-      return React.createElement("span", { key: "lg_" + g, title: g + "：" + full,
+      cells.push(React.createElement("span", { key: "c" + ri + "_" + g, title: g + "：" + full,
         style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" } },
         React.createElement("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: 13, height: 13, borderRadius: "50%", background: gs.bg, color: gs.color,
           border: "1px solid " + gs.border, fontWeight: 800, fontSize: 8, flexShrink: 0 } }, g),
-        React.createElement("span", null, txt));
-    }));
+        React.createElement("span", null, txt)));
+    });
+  });
+  return React.createElement("div", {
+    style: Object.assign({ display: "inline-grid", gridTemplateColumns: "auto repeat(9, auto)",
+      columnGap: 7, rowGap: 2, alignItems: "center", justifyItems: "start",
+      fontSize: 9, color: "#8a8478", lineHeight: 1.3 }, o.style || {})
+  }, cells);
 }
 function _qZeroCell(size) {
   var sz = size || 16;
