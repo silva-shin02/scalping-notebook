@@ -6118,9 +6118,27 @@ function EntryLogView(_ref_elv2) {
   // 2026-08-03: totOf/totExOf/stopsOf/winTakeOf を _ovPnlTbl の中からこのスコープへ引き上げ（定義の中身は一切変えていない・位置だけの移動）。
   //   理由: 🏷銘柄別の損益割合(_stkShareSection)が全く同じ集計を使うため。再実装すると「全体損益（期間別）の合計」と「銘柄別の合計」が
   //   黙ってずれ得る（除外条件が1つでもずれると検算が崩れる）。keyOf/labelOf/_holiSet/_bizDaysIn は g に依存するので _ovPnlTbl の中に残す。
-  var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
+  // 2026-08-05y 実現損益を real: → realPair: 経路へ（ユーザー要望「実現損益の下段を1日平均額(100株換算)にしてグレードバッジを付けたい」）。
+  //   realPairを渡すと _elTotAccum が **t.real＝100株換算合計 / t.realRaw＝実額合計 / t.realHasShares** を同時に埋める。
+  //   換算は**記録ごとに行ってから積算**（app-05 L4553-4556）なので、株数が違う記録が混ざっても正しい＝合計を株数で割る誤りを回避済み。
+  //   ⚠ t.real の意味が「実額」から「100株換算」に変わる。実額が要る所は t.realRaw を見ること（🏷銘柄別の損益割合＝L6268）。
+  //   ⚠ _elRealPnlPair は item.pnl を signal.realizedPnl より優先する。両方あって値が違う記録では実額が動く＝取引テーブル側と揃う方向。
+  var _realPairOf = function(r) { return _elIsEntered(r.signal, r.item) ? _elRealPnlPair(r.signal, r.item) : null; };
+  var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, realPair: _realPairOf }); };
   // 「除外後」列の集計＝totOfの除外条件に「指値同値」(_elFillRiskRec)を足しただけ。母数・基準はtotOfと完全に同一なので同じ行で素直に比較できる 2026-07-20c
-  var totExOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
+  var totExOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); }, realPair: _realPairOf }); };
+  // 株数未入力（実現損益はあるが株数が無い）件数。_elTotAccum は換算できない記録の**実額をそのまま100株換算側に足す**ので、
+  //   混ざると下段が過大に出る。共通部(_elTotAccum)は触らない方針（ユーザー選択＝他表への波及ゼロ）なので、ここで件数を数えて小書きで警告する。
+  //   除外条件は totOf と同じものを書く（片方だけ変えると件数と金額の母数がずれるので、変更時は必ず両方直すこと）。
+  var _noShareN = function(x) {
+    var n = 0;
+    (x || []).forEach(function(r) {
+      if (!r || !r.signal || _elCollExcluded(data, r, _collScope)) return;
+      var pr = _realPairOf(r);
+      if (pr && pr.real != null && !(pr.shares > 0)) n++;
+    });
+    return n;
+  };
   // 損切り: E成立(取引できた)記録のうち 想定orH1orH2で損切りした件数・平均損切り額(キャップ=−損切り値×100)・損切り率(E成立分母)＝_elStopStatsV2/時間帯別と同基準 2026-06-27。
   // 2026-07-27 2系統に分離（ユーザー要望「シンプルに損失で手じまいした記録が見えない」）:
   //  損切＝損切りラインに触れて損で撤退（_elIsStopFinal）／損失＝ラインには触れず期待度×等で降りたら損だった。
@@ -6265,7 +6283,7 @@ function EntryLogView(_ref_elv2) {
         _elv2Td(React.createElement("span", null, _amt(a.gl), _sub(a.glN + "件・全体の" + _pctS(Math.abs(a.gl), _glTot)))),
         _elv2Td(React.createElement("span", null, _amt(net), _sub("PF " + (a.gl < 0 ? (a.gp / Math.abs(a.gl)).toFixed(2) : (a.gp > 0 ? "∞" : "—"))))),
         _elv2Td(cnt ? _amt(Math.round(net / cnt)) : "—"),
-        _elv2Td(a.tot.realCnt ? _amt(a.tot.real) : "—")
+        _elv2Td(a.tot.realCnt ? _amt(a.tot.realRaw) : "—")   // 2026-08-05y totOfをrealPair経路へ変えたので t.real は100株換算・実額は t.realRaw。この列は実額のまま維持（ユーザー選択）＝見た目不変
       ];
     };
     var rowOf = function(g) { return React.createElement.apply(null, ["tr", { key: g.key }].concat(cellsOf(g.label, g.color, g.a))); };
@@ -6452,7 +6470,23 @@ function EntryLogView(_ref_elv2) {
     var avgCntLine = function(cnt, days, gg) { if (!days || (gg || g) === "day" || !cnt) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };   // 2026-08-05u色は_EL_SUBNOTE_COL。!cnt＝0件(スルーのみの期間)は「1日平均0件」が冗長なので出さない 2026-07-20b。gg=入れ子の段の粒度 2026-07-30
     var cntCell = function(cnt, days, ex, gg) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", null, cnt + "件"), avgCntLine(cnt, days, gg)), ex); };
     var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt, days), avgDayLine(v, days)), ex); };   // days渡し＝1日平均でグレード判定 2026-07-23
-    var realCell = function(v, cnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(v, cnt, days, true), avgDayLine(v, days)), ex); };   // true=実現損益スケール 2026-08-05g
+    // 実現損益セル 2026-08-05y（ユーザー要望）: 上下2段でそれぞれ別の土俵。
+    //   上段＝実額（t.realRaw）＋バッジ。判定は実額÷営業日数を**実額スケール(10倍)**で（従来と同じ）。
+    //   下段＝100株換算（t.real）÷営業日数 ＋バッジ。判定は**通常スケール**＝最終損益と同じ土俵。
+    //   1000株ちょうどなら2つのランクは一致する。**ズレたら「株数を張ったから金額が出ただけ」と読める**のが狙い。
+    //   days<=1（日別など）は割っても同じ値なので、ラベルを「1日平均」ではなく「100株」にして冗長さを避ける。
+    var realCell = function(t, days, ex, noShare) {
+      var v = t.realRaw, cnt = t.realCnt;
+      if (!cnt || v == null) return otd(_dash, ex);
+      var p100 = (t.real != null && days && days > 0) ? Math.round(t.real / days) : null;
+      return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+        _yenN(v, cnt, days, true),
+        p100 != null ? React.createElement("span", { title: "実現損益を1件ずつ100株換算（損益÷株数×100）して合計し、営業日数" + days + "日で割った額。バッジは最終損益と同じ通常スケール（S=2501円〜）＝上段の実額バッジ（10倍スケール）とは土俵が違います",
+          style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", marginTop: 1 } },
+          _elHoldGradeBadge(_profitGradeFromPnl(p100, 1)),
+          React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _EL_SUBNOTE_COL } }, (days > 1 ? "1日平均" : "100株") + (p100 >= 0 ? "+" : "") + p100.toLocaleString())) : null,
+        noShare ? React.createElement("span", { title: "株数が未入力の記録は100株換算ができないため、実額のまま下段の合計に足されています（1000株の実額が100株換算値に混ざる＝下段が過大に出ます）。株数を入れれば解消します", style: { fontSize: 8.5, fontWeight: 700, color: "#B45309" } }, "株数未入力" + noShare + "件を含む") : null), ex);
+    };
     // 2026-07-27 2段化: 上段=損切（ラインに触れて損で撤退）／下段=損失（それ以外の負け）。列幅を増やさずに両方出す。
     // note: 件数と平均で母数が違うときの理由書き（終値未入力＝金額を出せない件数）2026-07-29
     var _stopGrp = function(lbl, n, rate, avg, col, sep, note) {
@@ -6541,7 +6575,7 @@ function EntryLogView(_ref_elv2) {
           stopCell(st),
           pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
           friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x), dn),
-          realCell(t.real, t.realCnt, dn)));
+          realCell(t, dn, null, _noShareN(x))));
         if (!on) return;
         out.push(React.createElement("tr", { key: path + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
           nxt
@@ -6583,7 +6617,7 @@ function EntryLogView(_ref_elv2) {
       stopCell(_ovTotStops, bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
       friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
-      realCell(tt.real, tt.realCnt, _ovTotDays, bt));
+      realCell(tt, _ovTotDays, bt, _noShareN(rsInc)));
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, _headTr(g)),   // 2026-07-30 入れ子の表と共用（_headTr）
