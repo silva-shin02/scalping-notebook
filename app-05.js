@@ -5618,20 +5618,27 @@ function _profitGradeFromPnlReal(pnl, enteredCount) {
   if (pnl >= -25000) return "G-";
   return "G+";
 }
+// 2026-08-05h 最上位を A+ → S に改名（A- → A も）。A- は legacy な A と配色が同じだったのでキーごと削除して A に寄せた。
+//   「+/-」が付くのは G-/G+ だけになるが、Sを別格として際立たせる意図なので不揃いで正しい。
+// 2026-08-05i 配色を総入れ替え（ユーザー指摘「AとBの色の違いが分かりづらい」「もっときれいな金色」）。
+//   旧配色は隣接色のΔE(CIE76)が A/B=2.8・E/F=2.9・B/C=3.9 と、いずれも「ほぼ判別不能」の水準だった
+//   （ΔE 2.3未満で見分けがつかない）。原因は利益側3段・損失側2段が全部ほぼ同じ淡さで、
+//   明るさが単調に並んでいなかったこと。C→B→A と E→F→G-→G+ が段階的に濃くなる並びへ作り直した。
+//   実測: 隣接背景ΔEの最小 2.8→8.4、文字コントラスト比の最小 3.8→4.6（WCAG AA 4.5をクリア）。
+//   D(±0)は Z(取引なし) と背景ΔE 2.1 でほぼ同色だったため、少し濃い灰にして 7.6 まで離した。
+// ※ 色を変えるときは必ず「隣接ΔE」と「文字コントラスト比」の両方を測ること。淡い色を並べると
+//   個々はきれいでも隣同士が潰れる（旧配色がまさにこれ）。
 var _GRADE_STYLE = {
-  // 2026-08-05h 最上位を A+ → S に改名し、金色にした（ユーザー指示）。A- → A も改名。
-  // A- は下の legacy な A と配色が完全に同じだったので、キーごと削除して A に寄せた。
-  // 「+/-」が付くのは G-/G+ だけになるが、Sを別格として際立たせる意図なので不揃いで正しい。
-  S: { bg: "#FBEBB5", color: "#6B4E00", border: "#C9971B" },
-  B: { bg: "#FFEBEE", color: "#C62828", border: "#EF9A9A" },
-  C: { bg: "#FFF3F3", color: "#E53935", border: "#FFCDD2" },
-  D: { bg: "#F5F5F5", color: "#555",    border: "#DDD" },
-  E: { bg: "#F1F8E9", color: "#558B2F", border: "#AED581" },
-  F: { bg: "#E8F5E9", color: "#2E7D32", border: "#A5D6A7" },
-  "G-": { bg: "#C8E6C9", color: "#1B5E20", border: "#81C784" },
-  "G+": { bg: "#A5D6A7", color: "#0B3D0B", border: "#66BB6A" },
-  A: { bg: "#FDECEA", color: "#B71C1C", border: "#FFCDD2" },
-  G: { bg: "#C8E6C9", color: "#1B5E20", border: "#81C784" },
+  S: { bg: "#F5C518", color: "#4A3300", border: "#B8901A" },   // 金
+  A: { bg: "#F58A8A", color: "#6E0D0D", border: "#DC6060" },
+  B: { bg: "#FFC9C9", color: "#A81C1C", border: "#EE9A9A" },
+  C: { bg: "#FFEAEA", color: "#C22B2B", border: "#F6C0C0" },
+  D: { bg: "#DFDFDF", color: "#3A3A3A", border: "#B5B5B5" },
+  E: { bg: "#E6F5DA", color: "#3F7A1E", border: "#C2E3A8" },
+  F: { bg: "#C4E6AE", color: "#2C6115", border: "#9BCF7E" },
+  "G-": { bg: "#93CE79", color: "#17400C", border: "#6FB253" },
+  "G+": { bg: "#62B24A", color: "#0A2A05", border: "#479130" },
+  G: { bg: "#93CE79", color: "#17400C", border: "#6FB253" },   // legacy（G-に追随）
   Z: { bg: "#f5f4f0", color: "#888",    border: "#ddd" },
   Q: { bg: "#f5f4f0", color: "#888",    border: "#ddd" },
   DNF: { bg: "#f5f4f0", color: "#888",  border: "#ddd" }
