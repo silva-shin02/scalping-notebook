@@ -99,11 +99,11 @@ function _dtsSimulate(cfg) {
   var shares  = Math.max(0, +cfg.initialShares || 0);
 
   // 株数ラダーの基準点。「基準の取引資金から何円増えたか」で段数を数える。
-  // cfg.stepBase＝⑥で明示した「資金口座◯円から」。未入力(null)なら従来どおり②の取引資金＝開始時の資金。
+  // cfg.stepBase＝⑥で明示した「月末の資金口座が◯円になったら」。未入力(null)なら②の取引資金＝開始時の資金。
   // ⚠️stepBaseは基礎取引株数とセットの意味＝「資金がstepBaseだった時に基礎取引株数だった」。
   //   今の資金がstepBaseより多ければ初月からその差分の段数が乗る（後付けの基準点なので当然そうなる）。
-  // ⚠️外部資金の投入は利益ではないので、投入月にここを張り替えないと投入額の分だけ株数が跳ねる
-  //   （⑧の張り替えはstepBaseより優先＝投入後は「投入直後の資金・株数」が新しい基準点になる）。
+  // ⚠️⑧の投入との関係は2026-08-05Aで反転した＝**stepBaseを明示している時は⑧が起点を張り替えない**。
+  //   詳細は①の分岐のコメントを見ること（ここに二重に書くと片方だけ古くなる）。
   var base = (stepBase != null ? stepBase : capital), baseShares = shares;
   // いま実際に使われている起点 2026-08-05z。⑧の投入で張り替わった後の値は「その月までシミュを回さないと
   // 出せない」＝入力欄側で再計算すると本体とズレるので、**張り替えた本人がここで記録して summary で返す**。
@@ -114,6 +114,14 @@ function _dtsSimulate(cfg) {
   var inj    = (cfg.injection && cfg.injection.ym) ? cfg.injection : null;
   var injIdx = inj ? _dtsYmToIdx(inj.ym) : null;
   var injTotal = 0;
+
+  // 前提そのものの警告 2026-08-05B。**入れたのに効かない入力**を黙って捨てないための受け皿。
+  // 節目(marks)は「何月に何が起きたか」の時系列なので、時点を持たない設定の警告はここに分ける。
+  var warns = [];
+  if (inj && (injIdx == null || injIdx < sIdx || injIdx > eIdx)) {
+    warns.push("⑧の投入年月「" + (_dtsYmLbl(inj.ym) || inj.ym) + "」が期間の外なので、投入は一切反映されていません。"
+      + "①の期間（" + _dtsYmLbl(cfg.startYm) + "〜" + _dtsYmLbl(cfg.endYm) + "）の中に入れてください。");
+  }
 
   var rows = [], prevShares = shares;
 
@@ -129,7 +137,26 @@ function _dtsSimulate(cfg) {
       capital += injected;
       injTotal += injected;
       var sa = _dtsNumOrNull(inj.sharesAfter);
-      if (sa != null && sa > 0) { shares = sa; injFloor = { ym: ym, shares: sa }; }
+      // ⚠️2026-08-05B: ここは以前 shares = sa の**素の代入**だった＝指定株数が今より少ないと投入月だけ
+      //   株数が落ち、翌月には②のラチェットで跳ね上がる（実測: 1,500→700→1,700）。⑥の「資金が減っても
+      //   下げない」に真っ向から反するうえ、1ヶ月だけ凹むシナリオは誰も意図しない。ラチェットを掛ける。
+      //   下回って無効化された時は黙って捨てず warns で知らせる（入れたのに効かない入力を作らない）。
+      if (sa != null && sa > 0) {
+        if (sa < prevShares) {
+          warns.push("⑧の「投入直後の株数」" + sa.toLocaleString() + "株 は、その時点の " + prevShares.toLocaleString()
+            + "株 より少ないので効いていません（⑥の「資金が減っても下げない」が優先）。減らす想定なら②の基礎取引株数を見直してください。");
+        } else {
+          shares = sa; injFloor = { ym: ym, shares: sa };
+          // ★2026-08-05C（ユーザー報告「上がるべきところで上がらない」）。⑧で株数を置き直したら、
+          //   **段の基準株数もそこへ乗せ替える**。これが無いとラダーは②の基礎取引株数から数え続けるので、
+          //   ⑧で増やした分に計算が追いつくまで段が全部潰れる＝実測で 218万→310万（4.5段ぶん）が丸ごと死に、
+          //   1,000株のまま8ヶ月動かなかった。
+          // ⚠️そのとき「投入直後にすでに乗っている段」を引いておく＝引かないと同じ段を二重に数えて跳ねる
+          //   （起点210万・資金370万で1,200株指定なら、8段ぶん＝+800株が上乗せされて2,000株に飛ぶ）。
+          //   base（＝⑥に入れた額）は動かさないので、注記に出す起点はユーザーが打った数字のまま。
+          if (stepBase != null) baseShares = sa - Math.floor(Math.max(0, capital - base) / stepAmt) * stepSh;
+        }
+      }
       // ★基準点の張り替え。**⑥で起点を明示している時は張り替えない** 2026-08-05A（ユーザー指摘）。
       //   起点は「口座がこの額になったら」という**絶対の水準**なので、投入で勝手にズラすと⑥に何を入れても
       //   結果が変わらなくなる（実測: 起点210万でも999万でも株数推移が同一＝完全なデッドインプット）。
@@ -221,6 +248,17 @@ function _dtsSimulate(cfg) {
     sum.toLiving  += rows[i].toLiving;
     sum.toCapital += rows[i].toCapital;   // 残金の通算＝手取り−生活費−積立。投入額は含まない（＝自力で積んだ分）2026-08-05w
   }
+  // 「目標まで全額」＋目標残高が空欄＝**上限なしで余剰を全部この口座へ**＝取引資金が一切増えず株数も伸びない。
+  // 画面の placeholder が「無制限」なので害が無さそうに見えるが、fillと組むと事実上の資金凍結になる 2026-08-05B。
+  // （実測: 資金300万のまま6ヶ月・生活口座だけ55万→228万）。定額(drip)なら額で頭打ちなので対象外。
+  for (var w = 0; w < (cfg.drip || []).length; w++) {
+    var dw = cfg.drip[w];
+    if (dw && dw.mode === "fill" && _dtsNumOrNull(dw.target) == null) {
+      warns.push("⑤の" + (_dtsYmLbl(dw.from) || "") + "からの積立が「目標まで全額」なのに目標残高が空欄です。"
+        + "余剰が全額そのまま生活口座へ行くので、取引資金が増えず株数も伸びません。目標残高を入れてください。");
+    }
+  }
+
   var last = rows[rows.length - 1] || null;
   sum.endCapital = last ? last.capital : (+cfg.initialCapital || 0);
   sum.endLiving  = last ? last.living  : (+cfg.initialLiving  || 0);
@@ -229,6 +267,7 @@ function _dtsSimulate(cfg) {
   sum.endShares  = last ? last.shares : (+cfg.initialShares || 0);
   sum.stepOrigin = origin;   // 段の起点（起点が空欄なら⑧で張り替わった後の実効値）2026-08-05z
   sum.injFloor   = injFloor;  // ⑧が指定した「投入直後の株数」＝ラチェットの下限 2026-08-05A
+  sum.warnings   = warns;     // 前提そのものの警告（入れたのに効かない入力）2026-08-05B
   sum.capitalGain = sum.endCapital - (+cfg.initialCapital || 0);
   // 1日あたり成績のグレード（app-05.js）。前提値がどの帯かを画面に出すため。
   sum.grade = (typeof _profitGradeFromPnl === "function")
@@ -267,7 +306,10 @@ var _DTS_SENS = [
 function _dtsSensitivity(cfg) {
   var out = [], i;
   var mine = _dtsSimulate(cfg);
-  if (!mine.error) out.push({ key: "now", lbl: "実績 " + Math.round(+cfg.dailyPer100 || 0).toLocaleString() + "円/日", perDay: +cfg.dailyPer100 || 0, self: true, res: mine });
+  // ⚠️ここは cfg.dailyPer100＝**③に入っている前提値**であって実績ではない 2026-08-05B。
+  //   保守的に実績より低く置くのが普通（例: 実績2,731に対して前提2,000）なので、
+  //   「実績 2,000円/日」と出すと事実と違う数字を実績として提示することになる。
+  if (!mine.error) out.push({ key: "now", lbl: "今の前提 " + Math.round(+cfg.dailyPer100 || 0).toLocaleString() + "円/日", perDay: +cfg.dailyPer100 || 0, self: true, res: mine });
   for (i = 0; i < _DTS_SENS.length; i++) {
     var s = _DTS_SENS[i];
     var c2 = {}; for (var k in cfg) { if (Object.prototype.hasOwnProperty.call(cfg, k)) c2[k] = cfg[k]; }
@@ -297,7 +339,13 @@ function _dtsReachTarget(cfg) {
 // 表示は万円・小数第1位まで（依頼メモ§7）。内部計算は円のまま丸めない。
 var _DTS_INK = "#1E3A8A", _DTS_SUB = "#3B82F6", _DTS_BG = "#EFF6FF", _DTS_BD = "#BFDBFE";
 function _dtsFmtYen(v) { if (v == null || !isFinite(v)) return "—"; return Math.round(v).toLocaleString(); }
-function _dtsFmtMan(v) { if (v == null || !isFinite(v)) return "—"; return (Math.round(v / 1000) / 10).toLocaleString() + "万"; }
+// マイナスは全角「−」で出す 2026-08-05B。_dtsOut/_dtsRest が全角の「−◯万」を出すので、素の負値だけ
+// 半角ハイフンの「-100万」になって同じ表の中で符号の見た目が2種類あった。
+function _dtsFmtMan(v) {
+  if (v == null || !isFinite(v)) return "—";
+  var s = (Math.round(Math.abs(v) / 1000) / 10).toLocaleString() + "万";
+  return (v < 0 ? "−" : "") + s;
+}
 function _dtsFmtPct(v) { if (v == null || !isFinite(v)) return "—"; return (Math.round(v * 1000) / 10) + "%"; }
 
 // 余力使用率で行を色分け（ユーザー決定 2026-08-05）。保証金不足（バッファ<0）は最優先で赤。
@@ -448,15 +496,22 @@ function _dtsStepBaseNote(cfg, res) {
       "起点が空欄なので、⑧の投入で起点が " + _dtsYmLbl(org.ym) + "の投入直後の "
         + _dtsFmtYen(org.capital) + "円 ＝ " + org.shares.toLocaleString() + "株 に置き換わります。"
         + (capped ? "すでに上限株数なのでこれ以上は増えません。"
-                  : "次に段が上がるのは " + _dtsFmtYen(org.capital + stepAmt0) + "円 に届いた翌月です。")
+                  : "最初に段が上がるのは " + _dtsFmtYen(org.capital + stepAmt0) + "円 に届いた翌月です。")
         + "（起点を入れると、投入があっても入れた額のまま動きません）");
   } else if (org) {
     // 起点を明示しているケース＝⑧があっても動かない。⑧の株数指定はラチェットの下限として効く。
+    // ⚠️「次に」ではなく「最初に」＝段は起点からの累積なので、2段目は起点+2刻み・3段目は起点+3刻み。
+    //   「次に段が上がるのは起点+1刻み」と書くと、1段でも進んだ後は嘘になる（2026-08-05B に文言修正）。
     var kids = ["いま使われている起点は " + _dtsFmtMan(org.capital) + "円 ＝ " + org.shares.toLocaleString()
-      + "株。次に段が上がるのは月末の資金が " + _dtsFmtMan(org.capital + stepAmt0) + "円 に届いた翌月です。"];
+      + "株。最初に段が上がるのは月末の資金が " + _dtsFmtMan(org.capital + stepAmt0) + "円 に届いた翌月です（2段目は "
+      + _dtsFmtMan(org.capital + stepAmt0 * 2) + "円、以降も同じ刻み）。"];
+    // ⚠️2026-08-05C: ここは以前「計算上の株数が◯株を超えるまではその値のまま」と書いていた＝それが
+    //   まさにユーザー報告のバグ（②の株数から数え直すので⑧で増やした分に追いつくまで段が死ぬ）だった。
+    //   基準株数を⑧の値へ乗せ替えたので、投入の翌月からは普通に段が上がる。
     if (floor) kids.push(React.createElement("span", { key: "f", style: { color: "#6D28D9", fontWeight: 700 } },
-      "⑧で" + _dtsYmLbl(floor.ym) + "に" + floor.shares.toLocaleString() + "株へ増やし、株数は下げないルールなので、"
-        + "計算上の株数が" + floor.shares.toLocaleString() + "株を超えるまではその値のままです。"));
+      "⑧で" + _dtsYmLbl(floor.ym) + "に" + floor.shares.toLocaleString() + "株へ置き直すので、"
+        + "以降はそこから月末の資金が" + _dtsFmtMan(stepAmt0) + "円増えるごとに+"
+        + Math.max(1, +cfg.stepShares || 100).toLocaleString() + "株です。"));
     org2 = React.createElement("div", { style: { marginTop: 3 } }, kids);
   }
 
@@ -601,6 +656,7 @@ function DaytradeProjection(props) {
 
   return React.createElement("div", null,
     _dtsHeader(openIn, setOpenIn, doSave, saveMsg), inputPanel,
+    _dtsWarnBox(res),
     _dtsSummaryCards(res, cfg),
     _dtsCharts(res),
     _dtsTable(res, cfg),
@@ -820,9 +876,13 @@ function _dtsAlign(main, extra, exW) {
 }
 
 // 出ていく額（生活費・積立）は「−◯万」＋緑で揃える。0 は「−0万」だと引かれた感じが出るのでグレーの素の0。
+// ⚠️2026-08-05B: 以前は `!(n > 0)` で0も負も一緒くたにグレーの「0万」を出していた＝生活費に −10万 と
+//   打つと**表は0万なのに計算は−10万で回る**（残金が10万増える）＝表が計算に嘘をつく状態だった。
+//   負は「＋◯万」＝出ていくどころか入ってくる、として赤で出す（符号の向きが逆なので色も逆）。
 function _dtsOut(v) {
   var n = +v || 0;
-  if (!(n > 0)) return React.createElement("span", { style: { color: _DTS_ZERO } }, _dtsFmtMan(0));
+  if (n === 0) return React.createElement("span", { style: { color: _DTS_ZERO } }, _dtsFmtMan(0));
+  if (n < 0) return React.createElement("span", { style: { color: _DTS_UP } }, "＋" + _dtsFmtMan(-n));
   return React.createElement("span", { style: { color: _DTS_DOWN } }, "−" + _dtsFmtMan(n));
 }
 
@@ -902,6 +962,18 @@ function _dtsTable(res, cfg) {
       React.createElement("tfoot", null, totRow)));
 }
 
+// 前提そのものの警告 2026-08-05B。**入れたのに1円も効いていない入力**を必ず画面に出すための欄。
+// 節目(marks)は時系列の出来事なので分けてある。警告が無い時は何も描かない。
+function _dtsWarnBox(res) {
+  var ws = (res && res.summary && res.summary.warnings) || [];
+  if (!ws.length) return null;
+  return React.createElement("div", { style: { border: "1px solid #FDE68A", background: "#FFFBEB", borderRadius: 9, padding: "7px 10px", marginBottom: 8 } },
+    React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#B45309", marginBottom: 3 } }, "⚠️ 効いていない前提"),
+    ws.map(function(t, i) {
+      return React.createElement("div", { key: i, style: { fontSize: 10, fontWeight: 700, color: "#92400E", lineHeight: 1.6 } }, "・" + t);
+    }));
+}
+
 function _dtsMarks(res) {
   if (!res.marks.length) return null;
   var col = { step: "#1D4ED8", inject: "#7C3AED", goal: "#047857", cost: "#B45309", warn: "#B91C1C", min: "#6B7280" };
@@ -921,7 +993,7 @@ function _dtsSensTable(cfg, base) {
   var td = function(k, ch, ex) { return React.createElement("td", { key: k, style: Object.assign({ padding: "4px 6px", fontSize: 11, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderTop: "1px solid #F1F5F9" }, ex || {}) }, ch); };
   var mine = base.summary.endTotal;
   // 到達月の差 2026-08-05b（ユーザー要望③）＝「Aに乗れば◯ヶ月早い」まで出す。
-  // 基準は実績の本(self)。実績が期間内に届かない場合は差を出せないので、その旨を添えて月だけ出す。
+  // 基準は「今の前提」の本(self)。それが期間内に届かない場合は差を出せないので、その旨を添えて月だけ出す。
   var tgt = list[0] ? list[0].reachTarget : 1000;
   var baseYm = null;
   for (var bi = 0; bi < list.length; bi++) { if (list[bi].self) { baseYm = list[bi].reachYm; break; } }
@@ -931,7 +1003,7 @@ function _dtsSensTable(cfg, base) {
     var lbl = React.createElement("span", { style: { fontWeight: 700 } }, _dtsYmLbl(o.reachYm));
     if (o.self) return lbl;
     if (baseIdx == null) return React.createElement("span", null, lbl,
-      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#047857", marginLeft: 3 } }, "（実績では届かない）"));
+      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#047857", marginLeft: 3 } }, "（今の前提では届かない）"));
     var d = _dtsYmToIdx(o.reachYm) - baseIdx;
     var col = d === 0 ? "#9CA3AF" : (d < 0 ? "#047857" : "#B91C1C");
     var tag = d === 0 ? "同じ" : (d < 0 ? Math.abs(d) + "ヶ月早い" : d + "ヶ月遅い");
@@ -952,8 +1024,9 @@ function _dtsSensTable(cfg, base) {
             (typeof _elHoldGradeBadge === "function" && g) ? _elHoldGradeBadge(g) : null,
             React.createElement("span", { style: { fontWeight: o.self ? 800 : 700, color: o.self ? _DTS_INK : "#374151" } }, o.lbl)), { textAlign: "left" }),
           td("t", React.createElement("span", { style: { fontWeight: 800, color: "#047857" } }, _dtsFmtMan(s.endTotal))),
-          td("d", o.self ? React.createElement("span", { style: { color: "#9CA3AF" } }, "—")
-            : React.createElement("span", { style: { fontWeight: 700, color: diff >= 0 ? "#047857" : "#B91C1C" } }, (diff >= 0 ? "＋" : "−") + _dtsFmtMan(Math.abs(diff)))),
+          // 色は月次表と同じ慣習に揃える＝増える赤／減る緑 2026-08-05B（すぐ上の表と逆だった）
+          td("d", o.self ? React.createElement("span", { style: { color: _DTS_ZERO } }, "—")
+            : React.createElement("span", { style: { fontWeight: 700, color: diff === 0 ? _DTS_ZERO : (diff > 0 ? _DTS_UP : _DTS_DOWN) } }, (diff >= 0 ? "＋" : "−") + _dtsFmtMan(Math.abs(diff)))),
           td("s", s.endShares.toLocaleString() + "株"),
           td("n", _dtsFmtMan(s.net)),
           td("r", reachCell(o))
