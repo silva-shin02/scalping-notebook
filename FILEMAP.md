@@ -541,7 +541,7 @@ HomeEventFormModal, App
 ### 2026-07-22d 日替わりを「本日の取引銘柄」per-day化＋タブを外国市場の右に固定（①・sw v230→v231）
 - **概念変更**: 「日替わり銘柄」＝1日1つ実際に取引する銘柄を指定（`data.dailyStock[日付]`・trades/foreignMarkets同型のtop-levelマップ＝汎用マージで同期）。`custom.rotatingStocks` は「候補プール」に役割変更。以前の集約チップ切替（v229）を置換。
 - **helpers（app-04・_PbDayBandBar直前）**: `_dailyStockGet(data,date)`／`_dailyStockSet(save,date,stock)`。
-- **タブ配置（app-03 StockTabs）**: 📅日替わりタブを**外国市場ボタンの右に固定**（旧位置＝銘柄マップの後から移動）。`onRotSelect` があれば常時表示。ラベルは新prop`rotLabel`（=📅 銘柄名/📅 日替わり）。
+- **タブ配置（app-03 StockTabs）**: 📅日替わりタブを**外国市場ボタンの右に固定**（旧位置＝銘柄マップの後から移動）。`onRotSelect` があれば常時表示。ラベルは`rotLabel`（常に「📅 日替わり」）＋**`rotDayStock`（2026-08-05追加）**。`rotDayStock`が非空なら**2段表示**（1段目=見出し「📅 日替わり」fontSize10・2段目=銘柄名fontSize13/700）、空なら`rotLabel`の1行のみ。旧仕様は`rotLabel`自体を「📅 銘柄名」に差し替えていたため見出しが消え、どのタブか分からなくなっていた（app-03:1237-1268 / 受け渡しはapp-04:5630）。2段時はpadding上下を8→4に詰めて他タブと高さを揃える（実測38px対37px）。
 - **DayView（app-04）**: `rotTabActive`（fmActiveと並列の明示state）＋`rotViewStock`（タブ内の表示銘柄・指定とは別）。`dayStock=_dailyStockGet`、`dispStock=rotTabActive?_rotView:activeStock`（フル表示に渡す銘柄）。`activeStock` は候補プールを除いた固定銘柄優先に。旧`_rotChipBar`→**`_rotPickerBar`**（「📅 本日の取引銘柄」バー＝候補を「銘柄名（件数）」で並べ、名前タップ=表示/記録切替 setRotViewStock、各チップの**指定●**=dailyStock[date]に指定（赤●・合計算入）、＋でその場追加）。
 - **中身**: rotTabActive時は`_rotPickerBar`＋**固定銘柄と同じフル表示**（_PbDayBandBar/早見表/日足/ChartSection/bench を`dispStock`で描画）。StockTabsの`active`は(fmActive||rotTabActive)で空、onSelectでrotTabActive解除。
 - **記録件数**: `_rotRecCount(stk)=charts[stk_date].signals.length`。候補チップに（件数）表示。

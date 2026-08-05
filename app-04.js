@@ -5627,7 +5627,8 @@ function DayView(_ref57) {
     hasFmData: hasFmData,
     rotStocks: rotStocks,
     rotActive: rotTabActive,
-    rotLabel: dayStock ? ("📅 " + dayStock) : "📅 日替わり",
+    rotLabel: "📅 日替わり",
+    rotDayStock: dayStock || "",
     onRotSelect: function() { setRotTabActive(true); setFmActive(false); },
     rotHasData: dayStock ? stockHasData(dayStock) : rotStocks.some(stockHasData)
   }),

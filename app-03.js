@@ -1115,7 +1115,8 @@ function StockTabs(_ref34) {
     rotActive = _ref34.rotActive,
     rotLabel = _ref34.rotLabel,
     onRotSelect = _ref34.onRotSelect,
-    rotHasData = _ref34.rotHasData;
+    rotHasData = _ref34.rotHasData,
+    rotDayStock = _ref34.rotDayStock;
   var _useState105 = useState(null),
     _useState106 = _slicedToArray(_useState105, 2),
     drag = _useState106[0],
@@ -1233,13 +1234,15 @@ function StockTabs(_ref34) {
     }),
     "🌏 外国市場"
   ),
-  // 📅日替わりタブ（per-day 2026-07-22d）: 外国市場の右に固定。その日の本日の取引銘柄(dailyStock[date])1つを表示。ラベルrotLabel(=📅 銘柄名/📅 日替わり)。常時表示(onRotSelect提供時)。
+  // 📅日替わりタブ（per-day 2026-07-22d）: 外国市場の右に固定。その日の本日の取引銘柄(dailyStock[date])1つを表示。常時表示(onRotSelect提供時)。
+  // 銘柄が選ばれている間は見出し「📅 日替わり」を残したまま銘柄名を2段目に出す（rotDayStock 2026-08-05・ユーザー要望）。
+  // 従来は見出しごと銘柄名に置き換わっていて、どのタブなのか分からなくなっていた。未選択時はrotLabelの1行のみ。
   onRotSelect ? React.createElement("button", {
     key: "__rot__",
     onClick: function() { if (!touchState.current.on) onRotSelect(); },
     style: {
       position: "relative", flexShrink: 0,
-      padding: "8px 14px",
+      padding: rotDayStock ? "4px 14px" : "8px 14px",
       fontSize: 13, fontWeight: 600,
       border: rotActive ? "1.5px solid #4338CA" : "1px solid #C7D2FE",
       borderRadius: 7, cursor: "pointer",
@@ -1254,7 +1257,14 @@ function StockTabs(_ref34) {
       style: { position: "absolute", top: 4, left: 5, width: 7, height: 7,
         borderRadius: "50%", background: "#E53935", pointerEvents: "none" }
     }),
-    rotLabel || "📅 日替わり"
+    rotDayStock
+      ? React.createElement("span", {
+          style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }
+        },
+          React.createElement("span", { style: { fontSize: 10, fontWeight: 600, opacity: 0.85 } }, "📅 日替わり"),
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 700 } }, rotDayStock)
+        )
+      : (rotLabel || "📅 日替わり")
   ) : null,
   stocks.map(function (s, i) {
     return React.createElement("button", {
