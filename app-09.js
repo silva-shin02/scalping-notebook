@@ -255,10 +255,13 @@ function _dtsSimulate(cfg) {
     // ★切替が成立している月は**余剰を全額 生活口座へ**（⑤の定額・目標残高より優先＝目標も超えて積む）。
     //   ⑤はあくまで「積立の目標」で役割が違う、というのがユーザーの整理（決定③）。
     //   ⚠️赤字月（surplus<0）は積み立てない＝取引資金から出る。0でクリップしないと生活口座が減る。
+    // ⚠️切替中の移動は toLiving（＝⑤の積立）とは**別の入れ物**に入れる 2026-08-05M（ユーザー指定）。
+    //   これは⑤の積立ルールで動いた金ではないので、表の「積立」欄には出さず「残金（生）」として出す。
+    //   金の流れ（生活口座が増え、取引資金が止まる）は同じで、内訳の呼び分けだけが変わる。
     var drRow = _dtsPickByYm(cfg.drip, ym);
-    var toLiving = 0, tgt = null;
+    var toLiving = 0, toLivingSw = 0, tgt = null;
     if (switched) {
-      toLiving = Math.max(0, surplus);
+      toLivingSw = Math.max(0, surplus);
       if (drRow) tgt = _dtsNumOrNull(drRow.target);
     } else if (drRow) {
       tgt = _dtsNumOrNull(drRow.target);                                  // null＝無制限
@@ -268,10 +271,11 @@ function _dtsSimulate(cfg) {
       if (!(toLiving > 0)) toLiving = 0;                                  // 赤字月は積み立てない（0でクリップ）
     }
 
-    // ⑥ 確定
+    // ⑥ 確定。⚠️生活口座へ入る額は「⑤の積立」＋「切替による全額移動」の**合計**。
+    //   取引資金に残るのはその残り＝切替中は 0（赤字月はマイナスのまま取引資金から出る）。
     var livOpen = living;
-    living  += toLiving;
-    capital += surplus - toLiving;
+    living  += toLiving + toLivingSw;
+    capital += surplus - toLiving - toLivingSw;
 
     // ---- 派生指標 ----
     var tied     = shares * mainPrice;                 // 拘束額
@@ -290,8 +294,9 @@ function _dtsSimulate(cfg) {
       expense: expense, surplus: surplus,
       // 残額＝手取り − 生活費 − 積立 ＝ その月に取引資金へ残った額（月末取引資金の増加分そのもの）。
       // 表で 手取り→生活費→積立→生活口座 と来て月末取引資金が急に伸びる理由が見えないので列に出す 2026-08-05。
-      toCapital: surplus - toLiving,
-      toLiving: toLiving, livingOpen: livOpen, living: living,
+      toCapital: surplus - toLiving - toLivingSw,
+      toLiving: toLiving, toLivingSwitch: toLivingSw, switched: switched,
+      livingOpen: livOpen, living: living,
       capitalOpen: capOpen, capital: capital,
       // 信用余力＝委託保証金 ÷ 委託保証金率＝**建てられる総枠** 2026-08-05J（ユーザー指定で定義変更）。
       // ⚠️旧は「総枠 − 建玉＝新規に建てられる残り」だった。総枠にすると隣の余力使用率が
@@ -324,7 +329,7 @@ function _dtsSimulate(cfg) {
   // ---- 年間（期間）集計 ----
   var sum = {
     months: n, startYm: cfg.startYm, endYm: cfg.endYm,
-    gross: 0, tax: 0, net: 0, expense: 0, toLiving: 0, toCapital: 0, injection: injTotal
+    gross: 0, tax: 0, net: 0, expense: 0, toLiving: 0, toLivingSwitch: 0, toCapital: 0, injection: injTotal
   };
   for (var i = 0; i < rows.length; i++) {
     sum.gross     += rows[i].gross;
@@ -332,6 +337,7 @@ function _dtsSimulate(cfg) {
     sum.net       += rows[i].net;
     sum.expense   += rows[i].expense;
     sum.toLiving  += rows[i].toLiving;
+    sum.toLivingSwitch += rows[i].toLivingSwitch;   // 切替で生活口座へ回した通算（⑤の積立とは別勘定）2026-08-05M
     sum.toCapital += rows[i].toCapital;   // 残金の通算＝手取り−生活費−積立。投入額は含まない（＝自力で積んだ分）2026-08-05w
   }
   // 「目標まで全額」＋目標残高が空欄＝**上限なしで余剰を全部この口座へ**＝取引資金が一切増えず株数も伸びない。
@@ -997,8 +1003,11 @@ function _dtsTipD(r) {
         row("g", "税引前", _dtsFmtMan(r.gross)),
         row("n", "手取り", _dtsFmtMan(r.net)),
         row("e", "生活費", r.expense ? "−" + _dtsFmtMan(r.expense) : _dtsFmtMan(0), r.expense ? _DTS_DOWN : "#9CA3AF"),
-        row("t", "積立", r.toLiving ? "−" + _dtsFmtMan(r.toLiving) : _dtsFmtMan(0), r.toLiving ? _DTS_DOWN : "#9CA3AF"),
-        row("r", "残金", (r.toCapital < 0 ? "−" : "") + _dtsFmtMan(Math.abs(r.toCapital)), r.toCapital < 0 ? _DTS_DOWN : _DTS_UP)),
+        // 切替中は⑤の積立が動かないので「—」、残金は行き先の「（生）」付き＝表と同じ読み方に揃える。
+        row("t", "積立", r.toLivingSwitch > 0 ? "—" : (r.toLiving ? "−" + _dtsFmtMan(r.toLiving) : _dtsFmtMan(0)), r.toLivingSwitch > 0 ? "#9CA3AF" : (r.toLiving ? _DTS_DOWN : "#9CA3AF")),
+        row("r", "残金", r.toLivingSwitch > 0 ? (_dtsFmtMan(r.toLivingSwitch) + "（生）")
+          : ((r.toCapital < 0 ? "−" : "") + _dtsFmtMan(Math.abs(r.toCapital))),
+          r.toLivingSwitch > 0 ? _DTS_DOWN : (r.toCapital < 0 ? _DTS_DOWN : _DTS_UP))),
       React.createElement("div", { style: { minWidth: 108 } }, head("資金"),
         pair("cp", "取引資金", r.capitalOpen, r.capital),
         pair("pw", "信用余力", r.powerOpen, r.powerEnd),
@@ -1090,7 +1099,11 @@ function _dtsOut(v) {
 
 // 残金＝手取り−生活費−積立＝その月に取引資金へ残った額 2026-08-05w。取引資金が増える方向なので赤、
 // マイナス（取り崩した月）は出ていく方向なので緑＝生活費・積立と同じ扱いにする。
-function _dtsRest(v) {
+// sw＝切替で生活口座へ回った額 2026-08-05M。その月は取引資金に1円も残らないので、**行き先を「（生）」で示す**。
+// ⚠️色は緑＝取引資金から出ていく向き（生活費・積立と同じ）。赤にすると取引資金が増えたように読める。
+function _dtsRest(v, sw) {
+  if (sw > 0) return React.createElement("span", { style: { color: _DTS_DOWN, fontWeight: 700 } },
+    _dtsFmtMan(sw), React.createElement("span", { style: { fontSize: 9, marginLeft: 1 } }, "（生）"));
   var n = +v || 0;
   var col = (n === 0) ? _DTS_ZERO : (n > 0 ? _DTS_UP : _DTS_DOWN);
   return React.createElement("span", { style: { color: col, fontWeight: 700 } }, (n < 0 ? "−" : "") + _dtsFmtMan(Math.abs(n)));
@@ -1147,9 +1160,10 @@ function _dtsTable(res, cfg) {
       td("gr", _dtsFmtMan(r.gross)),
       td("net", _dtsFmtMan(r.net)),
       td("ex", _dtsOut(r.expense)),
-      td("tl", _dtsOut(r.toLiving)),
+      // 切替中は⑤の積立ルールが動いていないので積立欄は「—」＝0円と「そもそも動いていない」を区別する。
+      td("tl", r.toLivingSwitch > 0 ? dash : _dtsOut(r.toLiving)),
       td("lv", React.createElement("span", { style: { fontWeight: 700 } }, _dtsFmtMan(r.living))),
-      td("rest", _dtsRest(r.toCapital)),
+      td("rest", _dtsRest(r.toCapital, r.toLivingSwitch)),
       td("cp", _dtsFlow(_dtsFmtMan(r.capitalOpen), _dtsFmtMan(r.capital))),
       td("pw", _dtsFlow(_dtsFmtMan(r.powerOpen), _dtsFmtMan(r.powerEnd))),
       td("th", _dtsFlow(shTxt(r.theoOpen), shTxt(r.theoEnd))),
@@ -1169,7 +1183,9 @@ function _dtsTable(res, cfg) {
     td("ex", React.createElement("span", { style: { fontWeight: 800 } }, _dtsOut(sm.expense))),
     td("tl", React.createElement("span", { style: { fontWeight: 800 } }, _dtsOut(sm.toLiving))),
     td("lv", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, "期末 " + _dtsFmtMan(sm.endLiving))),
-    td("rest", React.createElement("span", { style: { fontWeight: 800 } }, _dtsRest(sm.toCapital))),
+    // ⚠️合計の残金は「取引資金へ残った通算＋切替で生活口座へ回した通算」＝各月の残金欄の足し算。
+    //   片方だけ足すと列の縦の合計と合わなくなる。
+    td("rest", React.createElement("span", { style: { fontWeight: 800 } }, _dtsRest(sm.toCapital + sm.toLivingSwitch))),
     // 合計行は「開始時 → 期末」＝月次と同じ読み方（左が前・右が後）で通す。
     td("cp", _dtsFlow(_dtsFmtMan(cfg.initialCapital), _dtsFmtMan(sm.endCapital))),
     td("pw", _dtsFlow(_dtsFmtMan(pw0), _dtsFmtMan(lastRow ? lastRow.powerEnd : pw0))),
@@ -1185,7 +1201,7 @@ function _dtsTable(res, cfg) {
         th("生活費", "社会保険料を含む"), th("積立", "その月に生活口座へ移した額"), th("生活口座", "生活口座の月末残高"),
         th([React.createElement("div", { key: "a" }, "残金"),
             React.createElement("div", { key: "b", style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF" } }, "（取引資金組入）")],
-          "手取り − 生活費 − 積立 ＝ その月に取引資金へ組み入れた額。マイナスなら取引資金を取り崩した月", "rest"),
+          "手取り − 生活費 − 積立 ＝ その月に取引資金へ組み入れた額。マイナスなら取引資金を取り崩した月。（生）は⑤の切替で生活口座へ回した月", "rest"),
         th("取引資金", "月初の資金 → 月末の資金。外部資金を投入した月は月初にその投入額が入っています"),
         th("信用余力", "月初の余力 → 月末の余力。取引資金 ÷ 委託保証金率＝建てられる総枠（率30%なら資金の3.33倍）"),
         th("理論最大株数", "信用余力 ÷ メイン株価を100株単位で切り捨てた株数＝この資金で建てられる上限。⑥の上限とは別で、資金の天井です"),
