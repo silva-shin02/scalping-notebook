@@ -118,6 +118,40 @@ function _dtsSimulate(cfg) {
   // 前提そのものの警告 2026-08-05B。**入れたのに効かない入力**を黙って捨てないための受け皿。
   // 節目(marks)は「何月に何が起きたか」の時系列なので、時点を持たない設定の警告はここに分ける。
   var warns = [];
+  // ④⑤の期間別テーブルの検算 2026-08-05D。_dtsPickByYm は「from が当月以前で最も新しい行」を採るので、
+  // ⚠️期間より後ろの行は一度も選ばれない／同じ from が2行あると後ろが必ず負ける（`fi > bestIdx` の厳密比較）。
+  //   どちらも黙って消えるので、入れたのに効かない行として名指しする。
+  var _chkRows = function(arr, lbl) {
+    var seen = {}, i, r, fi;
+    for (i = 0; i < (arr || []).length; i++) {
+      r = arr[i]; if (!r || !r.from) continue;
+      fi = _dtsYmToIdx(r.from);
+      if (fi == null) continue;
+      if (fi > eIdx) warns.push(lbl + "の「" + _dtsYmLbl(r.from) + "から」の行は期間の終わり（" + _dtsYmLbl(cfg.endYm) + "）より後なので、一度も使われていません。");
+      if (seen[fi]) warns.push(lbl + "に「" + _dtsYmLbl(r.from) + "から」の行が2つ以上あります。先に書いたほうだけが使われ、あとの行は無視されます。");
+      seen[fi] = 1;
+    }
+    // ⚠️「最初の行が開始月より後＝それまで0円」は警告にしない 2026-08-05D。
+    //   「積立は11月から始める」は正当な設定で、実際にユーザーの前提がそれ（①9月開始・⑤11月から）。
+    //   意図どおりの設定を「効いていない前提」欄に出すと狼少年になり、本物の警告まで読まれなくなる。
+  };
+  _chkRows(cfg.livingCost, "④生活費");
+  _chkRows(cfg.drip, "⑤積立");
+
+  // 「0を入れたのに既定値で計算される」＝`+cfg.X || 既定` のイディオムの副作用。入力欄の表示と計算が食い違う
+  // ので黙って通さない（0で割れないため既定に戻す挙動自体は維持する）2026-08-05D。
+  if (cfg.stepAmount != null && cfg.stepAmount !== "" && +cfg.stepAmount === 0) {
+    warns.push("⑥の刻み額が 0円 です。0円では段を数えられないので " + _dtsFmtYen(stepAmt) + "円 として計算しています。");
+  }
+  if (cfg.marginRate != null && cfg.marginRate !== "" && +cfg.marginRate === 0) {
+    warns.push("⑦の委託保証金率が 0% です。0%では余力を計算できないので " + Math.round(marginRt * 100) + "% として計算しています。");
+  }
+  // 上限株数が今の株数より小さいと、ラチェット（下げない）が勝って上限が一度も効かない。
+  if (maxSh != null && maxSh > 0 && maxSh < shares) {
+    warns.push("⑥の上限 " + maxSh.toLocaleString() + "株 は②の基礎取引株数 " + shares.toLocaleString()
+      + "株 より小さいので効いていません（「資金が減っても下げない」が優先で、株を減らしはしません）。");
+  }
+
   if (inj && (injIdx == null || injIdx < sIdx || injIdx > eIdx)) {
     warns.push("⑧の投入年月「" + (_dtsYmLbl(inj.ym) || inj.ym) + "」が期間の外なので、投入は一切反映されていません。"
       + "①の期間（" + _dtsYmLbl(cfg.startYm) + "〜" + _dtsYmLbl(cfg.endYm) + "）の中に入れてください。");
@@ -286,8 +320,25 @@ function _dtsSimulate(cfg) {
       seenTargetHit = true;
       marks.push({ ym: r.ym, kind: "goal", text: _dtsYmLbl(r.ym) + "  生活口座が目標 " + Math.round(r.livingTarget).toLocaleString() + "円に到達 → 以降は全額が取引資金へ" });
     }
-    if (r.shortMargin) marks.push({ ym: r.ym, kind: "warn", text: _dtsYmLbl(r.ym) + "  ⚠ 保証金不足 " + Math.round(-r.buffer).toLocaleString() + "円（" + r.shares + "株を建てられない）" });
     if (!worst || r.buffer < worst.buffer) worst = r;
+  }
+  // 保証金不足は月ごとに1行出すと連続した時に節目が埋まる（実測10行）ので**連続した区間を1行にまとめる**
+  // 2026-08-05D。金額は区間で最も不足した月の値を出す＝いちばん厳しい所が分かればいい。
+  for (var s0 = 0; s0 < rows.length; s0++) {
+    if (!rows[s0].shortMargin) continue;
+    var e0 = s0, deep = rows[s0];
+    while (e0 + 1 < rows.length && rows[e0 + 1].shortMargin) { e0++; if (rows[e0].buffer < deep.buffer) deep = rows[e0]; }
+    marks.push({ ym: rows[s0].ym, kind: "warn",
+      text: _dtsYmLbl(rows[s0].ym) + (e0 > s0 ? "〜" + _dtsYmLbl(rows[e0].ym) + "（" + (e0 - s0 + 1) + "ヶ月）" : "")
+        + "  ⚠ 保証金不足 最大 " + Math.round(-deep.buffer).toLocaleString() + "円（" + deep.shares + "株を建てられない）" });
+    s0 = e0;
+  }
+  // 取引資金がマイナスに落ちる月＝この前提では資金が尽きる。保証金不足より重いので別に出す 2026-08-05D。
+  for (var z = 0; z < rows.length; z++) {
+    if (rows[z].capital < 0) {
+      marks.push({ ym: rows[z].ym, kind: "warn", text: _dtsYmLbl(rows[z].ym) + "  🛑 取引資金がマイナス（" + _dtsFmtMan(rows[z].capital) + "円）＝この前提では資金が尽きます" });
+      break;
+    }
   }
   if (worst) marks.push({ ym: worst.ym, kind: "min", text: _dtsYmLbl(worst.ym) + "  バッファ最小 " + Math.round(worst.buffer).toLocaleString() + "円（" + worst.shares + "株）" });
   marks.sort(function(a, b) { return _dtsYmToIdx(a.ym) - _dtsYmToIdx(b.ym); });
@@ -733,7 +784,15 @@ function _dtsChartAssets(rows) {
   var major = MAJ[MAJ.length - 1];
   for (i = 0; i < MAJ.length; i++) { if (Math.ceil(maxT / MAJ[i]) <= 12) { major = MAJ[i]; break; } }
   var nMaj = Math.max(1, Math.ceil(maxT / major)), yTop = major * nMaj, minor = major / 2;
-  var sTop = _dtsNiceMax(maxS);
+  // 右軸（株数）は**500ごとに実線・100ごとに点線**、目盛りの数字は丸い株数だけ 2026-08-05E（ユーザー指定）。
+  // 旧: _dtsNiceMax(maxS) を機械的に4等分＝2,500株なら 625 / 1,250 / 1,875 という
+  //     実際には建てられない半端な株数が並び、区切り線も無かった。
+  // ⚠️株数が数万株まで伸びると100刻みの点線が数百本になるので、実線が8本以内に収まる組を選んで繰り上げる
+  //   （組で持つのは 2000/400 のような半端な点線刻みを作らないため）。左軸のMAJ配列と同じ考え方。
+  var SPAIR = [[500, 100], [1000, 200], [2000, 500], [5000, 1000], [10000, 2000], [50000, 10000], [100000, 20000]];
+  var sMaj = SPAIR[SPAIR.length - 1][0], sMin = SPAIR[SPAIR.length - 1][1];
+  for (i = 0; i < SPAIR.length; i++) { if (Math.ceil(Math.max(1, maxS) / SPAIR[i][0]) <= 8) { sMaj = SPAIR[i][0]; sMin = SPAIR[i][1]; break; } }
+  var nS = Math.max(1, Math.ceil(Math.max(1, maxS) / sMaj)), sTop = sMaj * nS;
   var y = function(v) { return pT + ph - (v / yTop) * ph; };
   var ys = function(v) { return pT + ph - (v / sTop) * ph; };
   var kids = [], g;
@@ -747,9 +806,19 @@ function _dtsChartAssets(rows) {
     kids.push(React.createElement("line", { key: "g" + g, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: g === 0 ? "#CBD5E1" : "#E5E7EB", strokeWidth: 1 }));
     kids.push(_dtsSvgText("gl" + g, pL - 6, gy + 3, _dtsFmtMan(gv), { textAnchor: "end" }));
   }
-  for (g = 0; g <= 4; g++) {   // 右軸（株数）は左の区切り線とは独立に4分割
-    var sv = sTop * g / 4;
-    kids.push(_dtsSvgText("gr" + g, pL + pw + 6, ys(sv) + 3, Math.round(sv).toLocaleString(), { textAnchor: "start", fill: "#B45309" }));
+  // 右軸の区切り線。左軸のグレーの線と喧嘩しないよう、株数の色（オレンジ）を薄く敷く＝
+  // 「どっちの軸の線か」が色で分かる。棒より先に描いて背面に置く。
+  for (g = 0; g <= nS * (sMaj / sMin); g++) {
+    var mv = sMin * g; if (mv > sTop) break;
+    if (mv % sMaj === 0) continue;   // 実線を引く高さはここでは飛ばす（下のループで引く）
+    kids.push(React.createElement("line", { key: "sm" + g, x1: pL, y1: ys(mv), x2: pL + pw, y2: ys(mv),
+      stroke: "#B45309", strokeWidth: 1, strokeDasharray: "2 4", opacity: 0.18 }));
+  }
+  for (g = 0; g <= nS; g++) {
+    var sv = sMaj * g;
+    if (g > 0) kids.push(React.createElement("line", { key: "sM" + g, x1: pL, y1: ys(sv), x2: pL + pw, y2: ys(sv),
+      stroke: "#B45309", strokeWidth: 1, opacity: 0.3 }));
+    kids.push(_dtsSvgText("gr" + g, pL + pw + 6, ys(sv) + 3, sv.toLocaleString(), { textAnchor: "start", fill: "#B45309" }));
   }
   for (i = 0; i < n; i++) {
     var r = rows[i], bx = pL + step * i + (step - barW) / 2;
