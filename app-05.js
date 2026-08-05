@@ -4502,6 +4502,8 @@ function _elCollPairNode(data, r, scope) {
 // 2026-08-05u 表示名を「指値同値」→「同値除外損益」に変更（ユーザー指示）。
 //   **内部の識別子（_elFillRisk/_elFillRiskRec/_elFillRiskNode/fillEqZero/_friskN 等）は据え置き**＝
 //   リネームの巻き添えで挙動が変わる箇所を作らないため。コード内の旧称コメントも履歴として残してある。
+//   2026-08-05v **明細行の小バッジ(_elFillRiskNode)だけは「指値同値」のまま**（ユーザー判断「小バッジは従来通りでいいや」）。
+//   ＝列見出し・セクション見出し・KPI副文言・説明文の4系統が「同値除外損益」、1記録に付く印だけ旧称、という住み分け。
 // 予定EP（＝水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録。
 // 例: 予定EP3961で株価も3961まで上がって下落＝EP価格に触れただけなので、実際の指値注文は約定しなかった可能性がある。
 // この記録を除いた「保守的な損益」を併記するための判定。判定基準はユーザー指定 2026-07-20:
@@ -4527,7 +4529,7 @@ function _elFillRiskCountRecs(recs) { var n = 0; (recs || []).forEach(function(r
 //   記録帳の記録一覧(app-06)／日別ページの🎯エントリー記録(app-02 EntrySignalSection)／今週の損益データ(app-02 WeeklyPnlPanel)／日別ページ 取引タブのエントリー記録・💰損益タブの記録表(app-04 DayView)。
 function _elFillRiskNode(r) {
   if (!_elFillRiskRec(r)) return null;
-  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "同値除外損益");
+  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値同値");   // 2026-08-05v ここだけ旧称のまま（ユーザー判断）。列/セクションは「同値除外損益」だが、この小バッジは1記録に付く印＝損益そのものではないため
 }
 // 合計行の共通集計: EP損益(AB込み)・H1(_elHold1TotParts)・H2(_elHoldFinalParts)・実現損益。
 // get={signal,alpha,cut,real?,realPair?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
