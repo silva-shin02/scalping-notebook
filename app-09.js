@@ -172,6 +172,9 @@ function _dtsSimulate(cfg) {
       shares: shares, stepUp: stepUp,
       gross: gross, tax: tax, net: net,
       expense: expense, surplus: surplus,
+      // 残額＝手取り − 生活費 − 積立 ＝ その月に取引資金へ残った額（月末取引資金の増加分そのもの）。
+      // 表で 手取り→生活費→積立→生活口座 と来て月末取引資金が急に伸びる理由が見えないので列に出す 2026-08-05。
+      toCapital: surplus - toLiving,
       toLiving: toLiving, livingOpen: livOpen, living: living,
       capitalOpen: capOpen, capital: capital,
       total: capital + living,
@@ -473,6 +476,7 @@ function DaytradeProjection(props) {
   return React.createElement("div", null,
     _dtsHeader(openIn, setOpenIn, doSave, saveMsg), inputPanel,
     _dtsSummaryCards(res, cfg),
+    _dtsCharts(res),
     _dtsTable(res),
     _dtsMarks(res),
     _dtsSensTable(cfg, res)
@@ -511,8 +515,128 @@ function _dtsSummaryCards(res, cfg) {
   ]);
 }
 
+// ---- グラフ（自前SVG）----------------------------------------------------
+// Chart.js / recharts は入れない＝ビルド工程なし・file:// 運用・SWプリキャッシュのためCDNを増やせない。
+// ダークモードは html.sn-dark のCSSフィルタ（invert+hue-rotate）が全体に掛かるので、ここは light 前提の色で描く。
+function _dtsNiceMax(v) {
+  if (!v || !isFinite(v) || v <= 0) return 1;
+  var mag = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)), nn = v / mag;
+  var st = nn <= 1 ? 1 : nn <= 2 ? 2 : nn <= 2.5 ? 2.5 : nn <= 5 ? 5 : 10;
+  return st * mag;
+}
+function _dtsXLbl(ym) { return ym.slice(2).replace("-", "/"); }
+function _dtsSvgText(k, tx, ty, t, ex) {
+  return React.createElement("text", Object.assign({ key: k, x: tx, y: ty, fontSize: 9, fill: "#6B7280", fontWeight: 700 }, ex || {}), t);
+}
+
+// ① 総資産の積み上げ棒（取引資金＋生活口座）＋ 株数の階段線（右軸）。
+//    「資金が増える → 株数が上がる」の連動を1枚で見せるのが狙い。
+function _dtsChartAssets(rows) {
+  if (!rows || !rows.length) return null;
+  var W = 720, H = 214, pL = 50, pR = 48, pT = 12, pB = 30;
+  var pw = W - pL - pR, ph = H - pT - pB, n = rows.length, i;
+  var step = pw / n, barW = Math.max(2, Math.min(30, step * 0.6));
+  var maxT = 0, maxS = 0;
+  for (i = 0; i < n; i++) { if (rows[i].total > maxT) maxT = rows[i].total; if (rows[i].shares > maxS) maxS = rows[i].shares; }
+  var yTop = _dtsNiceMax(maxT), sTop = _dtsNiceMax(maxS);
+  var y = function(v) { return pT + ph - (v / yTop) * ph; };
+  var ys = function(v) { return pT + ph - (v / sTop) * ph; };
+  var kids = [], g;
+
+  for (g = 0; g <= 4; g++) {
+    var gv = yTop * g / 4, gy = y(gv);
+    kids.push(React.createElement("line", { key: "g" + g, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: "#E5E7EB", strokeWidth: 1 }));
+    kids.push(_dtsSvgText("gl" + g, pL - 5, gy + 3, _dtsFmtMan(gv), { textAnchor: "end" }));
+    kids.push(_dtsSvgText("gr" + g, pL + pw + 5, gy + 3, Math.round(sTop * g / 4).toLocaleString(), { textAnchor: "start", fill: "#B45309" }));
+  }
+  for (i = 0; i < n; i++) {
+    var r = rows[i], bx = pL + step * i + (step - barW) / 2;
+    kids.push(React.createElement("rect", { key: "bc" + i, x: bx, y: y(r.capital), width: barW, height: Math.max(0, y(0) - y(r.capital)), fill: "#93C5FD" }));
+    kids.push(React.createElement("rect", { key: "bl" + i, x: bx, y: y(r.total), width: barW, height: Math.max(0, y(r.capital) - y(r.total)), fill: "#FCD34D" }));
+  }
+  var d = "";
+  for (i = 0; i < n; i++) {
+    var x0 = pL + step * i, x1 = pL + step * (i + 1), yy = ys(rows[i].shares);
+    d += (i === 0 ? "M" : "L") + x0.toFixed(1) + " " + yy.toFixed(1) + "L" + x1.toFixed(1) + " " + yy.toFixed(1);
+  }
+  kids.push(React.createElement("path", { key: "sh", d: d, fill: "none", stroke: "#B45309", strokeWidth: 2 }));
+
+  var every = Math.ceil(n / 12);
+  for (i = 0; i < n; i++) {
+    if (i % every) continue;
+    kids.push(_dtsSvgText("x" + i, pL + step * i + step / 2, H - 12, _dtsXLbl(rows[i].ym), { textAnchor: "middle", fontSize: 8.5 }));
+  }
+  kids.push(_dtsSvgText("axL", pL - 5, pT - 2, "総資産", { textAnchor: "end", fontSize: 8.5, fill: "#1E3A8A" }));
+  kids.push(_dtsSvgText("axR", pL + pw + 5, pT - 2, "株数", { textAnchor: "start", fontSize: 8.5, fill: "#B45309" }));
+  return React.createElement("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", style: { display: "block", minWidth: 460 }, role: "img" },
+    React.createElement("title", null, "総資産（取引資金＋生活口座）の積み上げ棒と株数の推移"), kids);
+}
+
+// ② 余力使用率の折れ線。70/85/95%の帯を敷いて、危ない月が目で拾えるようにする。
+function _dtsChartPower(rows) {
+  if (!rows || !rows.length) return null;
+  var W = 720, H = 158, pL = 50, pR = 48, pT = 12, pB = 30;
+  var pw = W - pL - pR, ph = H - pT - pB, n = rows.length, i;
+  var step = pw / n, maxU = 0;
+  for (i = 0; i < n; i++) { if (rows[i].powerUse != null && rows[i].powerUse > maxU) maxU = rows[i].powerUse; }
+  var top = Math.max(1.0, maxU * 1.08);
+  var y = function(v) { return pT + ph - (v / top) * ph; };
+  var x = function(i2) { return pL + step * i2 + step / 2; };
+  var kids = [];
+  var band = function(k, lo, hi, col) {
+    var y1 = y(Math.min(hi, top)), y2 = y(lo);
+    if (y2 <= y1) return;
+    kids.push(React.createElement("rect", { key: k, x: pL, y: y1, width: pw, height: y2 - y1, fill: col }));
+  };
+  band("b1", 0, 0.70, "#F0FDF4"); band("b2", 0.85, 0.95, "#FEFCE8"); band("b3", 0.95, top, "#FEF2F2");
+  var refs = [[0.70, "#047857"], [0.85, "#A16207"], [0.95, "#B91C1C"]];
+  for (i = 0; i < refs.length; i++) {
+    if (refs[i][0] > top) continue;
+    kids.push(React.createElement("line", { key: "r" + i, x1: pL, y1: y(refs[i][0]), x2: pL + pw, y2: y(refs[i][0]), stroke: refs[i][1], strokeWidth: 1, strokeDasharray: "3 3", opacity: 0.7 }));
+    kids.push(_dtsSvgText("rl" + i, pL - 5, y(refs[i][0]) + 3, Math.round(refs[i][0] * 100) + "%", { textAnchor: "end", fill: refs[i][1] }));
+  }
+  var pts = [];
+  for (i = 0; i < n; i++) { if (rows[i].powerUse != null) pts.push(x(i).toFixed(1) + "," + y(rows[i].powerUse).toFixed(1)); }
+  kids.push(React.createElement("polyline", { key: "ln", points: pts.join(" "), fill: "none", stroke: "#1E3A8A", strokeWidth: 2 }));
+  for (i = 0; i < n; i++) {
+    var r = rows[i]; if (r.powerUse == null) continue;
+    var tone = _dtsUseTone(r.powerUse, r.shortMargin);
+    kids.push(React.createElement("circle", { key: "p" + i, cx: x(i), cy: y(r.powerUse), r: n > 40 ? 1.6 : 2.8, fill: tone.ink || "#1E3A8A" }));
+  }
+  var every = Math.ceil(n / 12);
+  for (i = 0; i < n; i++) {
+    if (i % every) continue;
+    kids.push(_dtsSvgText("x" + i, x(i), H - 12, _dtsXLbl(rows[i].ym), { textAnchor: "middle", fontSize: 8.5 }));
+  }
+  return React.createElement("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", style: { display: "block", minWidth: 460 }, role: "img" },
+    React.createElement("title", null, "余力使用率の推移（70/85/95%の警戒ライン付き）"), kids);
+}
+
+function _dtsLegend(items) {
+  return React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, fontSize: 9, fontWeight: 700, color: "#6B7280", marginTop: 2 } },
+    items.map(function(it) {
+      return React.createElement("span", { key: it[0], style: { display: "inline-flex", alignItems: "center", gap: 3 } },
+        React.createElement("span", { style: { width: 9, height: 9, borderRadius: 2, background: it[1], display: "inline-block" } }), it[0]);
+    }));
+}
+
+function _dtsCharts(res) {
+  var box = function(k, title, note, svg, legend) {
+    return React.createElement("div", { key: k, style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", padding: "7px 10px 4px", marginBottom: 6 } },
+      React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, marginBottom: 2 } }, title,
+        React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280", marginLeft: 6 } }, note)),
+      React.createElement("div", { style: { overflowX: "auto" } }, svg), legend);
+  };
+  return React.createElement("div", null, [
+    box("ca", "📊 総資産と株数の推移", "棒＝総資産の内訳（左軸・万円）／線＝株数（右軸・株）", _dtsChartAssets(res.rows),
+      _dtsLegend([["取引資金", "#93C5FD"], ["生活口座", "#FCD34D"], ["株数", "#B45309"]])),
+    box("cp", "📉 余力使用率", "拘束額 ÷（取引資金 ÷ 保証金率）。95%超は1回の負けで詰む水準", _dtsChartPower(res.rows),
+      _dtsLegend([["〜70% 余裕", "#DCFCE7"], ["85〜95% 警戒", "#FEF9C3"], ["95%〜 危険", "#FEE2E2"]]))
+  ]);
+}
+
 function _dtsTable(res) {
-  var th = function(t, w) { return React.createElement("th", { key: t, style: { padding: "4px 5px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center", minWidth: w || 0 } }, t); };
+  var th = function(t, tip) { return React.createElement("th", { key: t, title: tip || "", style: { padding: "4px 5px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center" } }, t); };
   var td = function(k, ch, ex) { return React.createElement("td", { key: k, style: Object.assign({ padding: "3px 5px", fontSize: 10.5, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderTop: "1px solid #F1F5F9" }, ex || {}) }, ch); };
   var rows = res.rows.map(function(r, i) {
     var tone = _dtsUseTone(r.powerUse, r.shortMargin);
@@ -521,11 +645,11 @@ function _dtsTable(res) {
       td("ym", React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, r.lbl), { textAlign: "left", borderLeft: r.stepUp ? "3px solid " + _DTS_SUB : "3px solid transparent" }),
       td("sh", React.createElement("span", { style: { fontWeight: 800, color: r.stepUp ? _DTS_SUB : "#374151" } }, r.shares.toLocaleString() + (r.stepUp ? " ↑" : ""))),
       td("gr", _dtsFmtMan(r.gross)),
-      td("tx", React.createElement("span", { style: { color: "#9CA3AF" } }, "−" + _dtsFmtMan(r.tax))),
       td("net", _dtsFmtMan(r.net)),
       td("ex", React.createElement("span", { style: { color: "#B45309" } }, "−" + _dtsFmtMan(r.expense))),
       td("tl", _dtsFmtMan(r.toLiving)),
       td("lv", React.createElement("span", { style: { fontWeight: 700 } }, _dtsFmtMan(r.living))),
+      td("tc", React.createElement("span", { style: { fontWeight: 700, color: r.toCapital >= 0 ? "#047857" : "#B91C1C" } }, (r.toCapital >= 0 ? "＋" : "−") + _dtsFmtMan(Math.abs(r.toCapital)))),
       td("cp", React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, _dtsFmtMan(r.capital))),
       td("to", React.createElement("span", { style: { fontWeight: 800, color: "#047857" } }, _dtsFmtMan(r.total))),
       td("bf", React.createElement("span", { style: { color: r.shortMargin ? "#B91C1C" : "#374151", fontWeight: r.shortMargin ? 800 : 400 } }, _dtsFmtMan(r.buffer))),
@@ -538,7 +662,11 @@ function _dtsTable(res) {
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto", marginBottom: 8 } },
     React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 900 } },
       React.createElement("thead", null, React.createElement("tr", null, [
-        th("年月"), th("株数"), th("税引前"), th("税"), th("手取り"), th("生活費"), th("積立"), th("生活口座"), th("月末取引資金"), th("総資産"), th("バッファ"), th("余力使用率"), th("損益分岐/日/100株")
+        th("年月"), th("株数"), th("税引前", "税引前の月次利益＝(株数÷100)×1日あたり損益×営業日数"), th("手取り", "税引前 − 税（税額は上のサマリーカードに合計で出しています）"),
+        th("生活費", "社会保険料を含む"), th("積立", "その月に生活口座へ移した額"), th("生活口座", "生活口座の月末残高"),
+        th("残額", "手取り − 生活費 − 積立 ＝ その月に取引資金へ残った額。月末取引資金の増加分そのもの"),
+        th("月末取引資金"), th("総資産", "月末取引資金 ＋ 生活口座"), th("バッファ", "月初の取引資金 − 必要保証金。マイナス＝その株数は建てられない"),
+        th("余力使用率", "拘束額 ÷（取引資金 ÷ 委託保証金率）"), th("損益分岐/日/100株", "その月の生活費を出すのに必要な1日あたり成績（100株換算）")
       ])),
       React.createElement("tbody", null, rows)));
 }

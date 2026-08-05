@@ -93,7 +93,7 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
-`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsTable` / `_dtsMarks` / `_dtsSensTable`
+`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / `_dtsCharts` / `_dtsTable` / `_dtsMarks` / `_dtsSensTable`
 
 **📈 損益推移シミュレーター 2026-08-05** — 記録帳の💰損益タブ（全銘柄合算）、🧮シミュの右のタブ。前提を入れて資金・株数・生活口座・総資産の月次推移を出す。**実績の集計ではなく将来の見通し**。
 
@@ -106,7 +106,11 @@ HomeEventFormModal, App
 - **余力使用率で行を色分け**（〜70%緑／〜85%無地／〜95%黄「警戒」／95%超 赤「危険」／バッファ<0 は「保証金不足」で最優先の赤）。株価6,500円・保証金率30%だと100株あたり必要保証金195,000円なので、刻み250,000円では**1段ごとにバッファが55,000円しか増えず使用率が90%台で高止まりする**（検算で判明）。入力欄⑦にこの差額を出している。
 - **前提の保存**は `data.custom.dtsCfg`（💾ボタン）。既存の `stSave`→`fbPut` 経路にそのまま乗るので専用の同期実装は無い。
 - **回帰テスト**: 依頼メモ§8の12ヶ月・年間集計・境界ケース（2027-06 の 4.906→4段→1,400株）で **54 pass / 0 fail**。JScript（`cscript`）で `_dtsSimulate` を直接叩く方式。
-- グラフライブラリ（Chart.js/recharts）は**使わない**＝ビルド工程なし・`file://` 運用・SWプリキャッシュのため。図が要るなら自前SVG。
+- **グラフは自前SVG 2026-08-05**（ユーザー要望「視覚的にわかりやすいものもほしい」）。Chart.js/recharts は**使わない**＝ビルド工程なし・`file://` 運用・SWプリキャッシュのためCDNを増やせない。ダークモードは `html.sn-dark` のCSSフィルタ（invert+hue-rotate）が全体に掛かるので **light 前提の色で描く**（個別対応は不要）。
+  - `_dtsChartAssets` … 総資産の積み上げ棒（下=取引資金 `#93C5FD` / 上=生活口座 `#FCD34D`・左軸 万円）＋ **株数の階段線**（右軸・`#B45309`）。「資金が増える→株数が上がる」の連動を1枚で見せる。目盛りは `_dtsNiceMax`（1/2/2.5/5/10×10^n）。
+  - `_dtsChartPower` … 余力使用率の折れ線。**70/85/95%の帯と破線**を敷き、点は `_dtsUseTone` と同じ色。95%超が目で拾える。
+  - X軸ラベルは `Math.ceil(n/12)` 件おきに間引く（最長120ヶ月でも潰れない）。`viewBox` + `width:100%` + 親を `overflow-x:auto` ＝横スクロールで縮まない。
+- **月次テーブルの列 2026-08-05**（ユーザー指示）: **「税」列は出さない**（税額合計はサマリーカードの「手取り合計」の下に残している）。**「残額」列を生活口座の右に置く**＝`toCapital`＝`手取り − 生活費 − 積立`＝その月に取引資金へ残った額。月末取引資金の増加分そのものなので、表の途中で金額が飛ぶ理由が追える。各列の見出しに `title`（ホバー説明）を付けてある。
 
 ## 変更ログ
 
