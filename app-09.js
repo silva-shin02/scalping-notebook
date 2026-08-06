@@ -153,6 +153,20 @@ function _dtsSimulate(cfg) {
   //   取引資金だけ初月から凍結して株数も伸びない」という二重の壊れ方をしていた（実測: 資金134.1万で12ヶ月固定）。
   var maxShRaw  = _dtsNumOrNull(cfg.maxShares);
   var maxSh     = (maxShRaw != null && maxShRaw > 0) ? maxShRaw : null;   // null＝上限なし
+  // ⑥の方式 2026-08-06J（ユーザー相談「〇円増えたら、より 余力使用率が90%を超えない範囲で最大数のほうがよいか」）。
+  //   "amount"（既定・従来）＝資金が◯円増えるごとに◯株。"power"＝毎月「余力使用率が目標を超えない最大株数」。
+  // ⚠️既存の保存済みcfgには stepMode が無いので、**未設定は必ず "amount"**（＝従来と1円も変わらない）。
+  // ⚠️従来方式は実測すると「余力95%を上限に最大枚数」と**ビット単位で同じ結果**になる（刻み20万・株価6,500円・保証金率30%）。
+  //   90%を保つのに必要な資金は 100株あたり price*100*rate/0.90 円で、刻み額がそれより小さいと段ごとに余力が上がっていく。
+  var stepMode  = (cfg.stepMode === "power") ? "power" : "amount";
+  var tgtUseRaw = (cfg.targetUse == null || cfg.targetUse === "") ? 0.90 : +cfg.targetUse;
+  var tgtUse    = tgtUseRaw;
+  if (!isFinite(tgtUse) || tgtUse <= 0) tgtUse = 0.90;
+  if (tgtUse > 1) tgtUse = 1;   // 100%超＝保証金を超えて建てる指定なので受け付けない（1.0で頭打ち）
+  // 方式Bで「資金が減った月は株数も下げるか」。既定は false＝**下げない**（このシミュ全体の規約に合わせる）。
+  // ⚠️下げない場合、資金が減ると余力使用率は目標を超える＝方式Bの看板どおりにはならない。超えた月は月次表の色と
+  //   ⚠️欄で分かるようにする（黙って目標を割らない）。
+  var stepDown  = (cfg.stepDown === true);
   // ⚠️株価・保証金率は0以下だと余力の計算そのものが成り立たない 2026-08-06。株価は0（＝未入力）へ寄せ、
   //   保証金率は税率と同じ作法で「0%超〜100%」にクランプする。旧は負値がそのまま通り、月次は全部「—」なのに
   //   開始時行と合計行だけ「信用余力 −433万・理論最大株数 −700株」が出ていた。
@@ -249,11 +263,23 @@ function _dtsSimulate(cfg) {
   if (daysRaw != null && Math.round(daysRaw) !== days) {
     warns.push("①の月間営業日 " + daysRaw + "日 では計算できないので " + days + "日 として計算しています。");
   }
-  if (stepAmtRaw != null && !(stepAmtRaw > 0)) {
+  // ⚠️方式B（余力ベース）では刻み額・増える株数・起点を一切見ない＝この2本を出すとノイズになる 2026-08-06J。
+  if (stepMode === "amount" && stepAmtRaw != null && !(stepAmtRaw > 0)) {
     warns.push("⑥の刻み額が " + _dtsFmtYen(stepAmtRaw) + "円 です。0円以下では段を数えられないので " + _dtsFmtYen(stepAmt) + "円 として計算しています。");
   }
-  if (stepShRaw != null && !(stepShRaw > 0)) {
+  if (stepMode === "amount" && stepShRaw != null && !(stepShRaw > 0)) {
     warns.push("⑥の「増えるごとに」の株数が " + stepShRaw.toLocaleString() + "株 です。0株以下では段を上げられないので " + stepSh.toLocaleString() + "株 として計算しています。");
+  }
+  if (stepMode === "power") {
+    if (tgtUseRaw !== tgtUse) {
+      warns.push("⑥の目標余力使用率 " + (Math.round(tgtUseRaw * 1000) / 10) + "% は範囲外なので " + (Math.round(tgtUse * 1000) / 10) + "% として計算しています（0%超〜100%）。");
+    }
+    // 株価が無いと目標から株数を逆算できない＝株数が増えなくなる。黙って固定されると原因が分からない。
+    // ⚠️ここで「◯株のまま」と具体数を書かないこと＝⑧の「投入直後の株数」はこの分岐を通らず株数を置き換えるので、
+    //   期末が指定株数になり**警告の数字と表の数字が食い違う**（実測: 警告は600株と言い、表は1,000株で終わる）。
+    if (!mgnOk) {
+      warns.push("⑥が「余力使用率から逆算」ですが、⑦のメイン株価が無いので株数を計算できません。株数は増えません（⑧で投入直後の株数を指定している場合、その月だけは変わります）。");
+    }
   }
   if (mgnRaw !== marginRt) {
     warns.push("⑦の委託保証金率 " + (Math.round(mgnRaw * 1000) / 10) + "% は範囲外なので " + (Math.round(marginRt * 1000) / 10) + "% として計算しています（0%超〜100%）。");
@@ -332,10 +358,21 @@ function _dtsSimulate(cfg) {
     //   判定元を capital → prevClose に変えたので、投入額が当月の段に混ざる心配なく投入月も②を通せる。
     //   非投入月では prevClose === capital なので、この変更で従来の結果は1円も動かない。
     if (!jumped) {
-      var steps = Math.floor(Math.max(0, prevClose - base) / stepAmt);
-      var want = baseShares + steps * stepSh;
+      var want;
+      if (stepMode === "power") {
+        // 方式B＝余力使用率が目標を超えない最大株数。余力使用率＝株数×株価×保証金率÷月初資金 なので
+        //   株数 ≦ 目標 × 月初資金 ÷（株価×保証金率）。100株未満は建てられないので切り捨てる。
+        // ⚠️判定は**月初資金(capOpen)**＝⑦の余力使用率と同じ分母。方式Aの prevClose とは基準が違う
+        //   （方式Aは「前月末にいくら貯まったか」、方式Bは「今いくら担保にできるか」なので、それぞれ正しい）。
+        // ⚠️株価が無いと計算できない＝**株数を据え置く**（0にすると損益まで消えて前提が別物になる）。
+        want = mgnOk ? (Math.floor(tgtUse * capOpen / (mainPrice * marginRt) / 100) * 100) : prevShares;
+      } else {
+        var steps = Math.floor(Math.max(0, prevClose - base) / stepAmt);
+        want = baseShares + steps * stepSh;
+      }
       if (maxSh != null && maxSh > 0) want = Math.min(want, maxSh);
-      shares = Math.max(want, prevShares);   // ラチェット＝資金が減っても株数は下げない
+      // ラチェット＝資金が減っても株数は下げない。方式Bで stepDown を選んだ時だけ下げる（0未満にはしない）。
+      shares = (stepMode === "power" && stepDown) ? Math.max(0, want) : Math.max(want, prevShares);
     }
     // ★基準点の張り替えは**②の判定が済んでから**（先にやると当月の段が消える）。
     // ⚠️2026-08-06B: 旧は無条件に `base = capital; baseShares = shares;` だったので、投入直前に貯まっていた
@@ -439,6 +476,25 @@ function _dtsSimulate(cfg) {
     prevShares = shares;
   }
 
+  // 方式Bで目標を超えた月を名指しする 2026-08-06J。超える原因は2つ:
+  //   ①「資金が減っても株数を下げない」で資金だけ減った月 ②⑧の「投入直後の株数」が目標を無視して株数を置く月。
+  // ⚠️`!stepDown` で囲まないこと＝「下げる」を選んでいても②は起きるので、囲むと**⑧由来の超過が黙って通る**
+  //   （実測: 目標85%・下げる で ⑧が1,000株を指定 → 余力92% まで出るのに警告ゼロだった）。
+  // ⚠️月次表の色（90%〜警戒）だけでは目標を80%等にした人に何も出ないので、**目標との比較**で別に出す。
+  // ⚠️warns.push は sum.warnings への代入より前に済ませること（あとから push しても参照は同じなので映るが、
+  //   「代入したあとに足す」を許すと読み手が追えなくなる）。
+  if (stepMode === "power") {
+    var _ovN = 0, _ovMax = 0, _tgtP = Math.round(tgtUse * 1000) / 10;
+    for (var v = 0; v < rows.length; v++) {
+      if (rows[v].powerUse == null) continue;
+      if (Math.round(rows[v].powerUse * 1000) / 10 > _tgtP) { _ovN++; if (rows[v].powerUse > _ovMax) _ovMax = rows[v].powerUse; }
+    }
+    if (_ovN) {
+      warns.push("⑥の目標 " + _tgtP + "% を超えた月が " + _ovN + "ヶ月あります（最大 " + _dtsFmtPct(_ovMax) + "）。"
+        + (stepDown ? "⑧で「投入直後の株数」を指定した月は目標より多く建てます。" : "「資金が減っても株数を下げない」ため、資金が減った月は目標を超えます（⑥の「資金が減ったら株数も下げる」で解消できます）。⑧で株数を直接指定した月も超えます。"));
+    }
+  }
+
   // ---- 年間（期間）集計 ----
   var sum = {
     months: n, startYm: cfg.startYm, endYm: cfg.endYm,
@@ -479,7 +535,8 @@ function _dtsSimulate(cfg) {
   // 実際に計算へ使った値 2026-08-06。⚠️入力欄の注記（⑦の「1段ごとのバッファの増え方」など）も
   //   cfg の生値ではなくこちらを使うこと＝クランプ・既定値差し替えの結果と画面の説明を一致させるため。
   sum.eff = { days: days, taxRate: taxRate, stepAmount: stepAmt, stepShares: stepSh,
-    mainPrice: mainPrice, marginRate: marginRt, marginOk: mgnOk };
+    mainPrice: mainPrice, marginRate: marginRt, marginOk: mgnOk,
+    stepMode: stepMode, targetUse: tgtUse, stepDown: stepDown };
 
   // ---- 節目の抽出 ----
   var marks = [], seenTargetHit = false, worst = null;
@@ -631,6 +688,9 @@ function _dtsDefaultCfg(actual) {
     livingCost: [{ from: ym, amount: 100000 }],
     drip: [{ from: ym, mode: "drip", amount: 50000, target: null }],
     stepBase: null, stepAmount: 250000, stepShares: 100, maxShares: 3000,
+    // ⑥の方式 2026-08-06J。⚠️既定は必ず "amount"（従来の方式）＝**保存済みcfgを持つ人の結果を1円も動かさない**。
+    //   targetUse/stepDown は方式Bを選んだ時だけ効くので、既定値が入っていても従来の計算には一切影響しない。
+    stepMode: "amount", targetUse: 0.90, stepDown: false,
     mainPrice: 6500, marginRate: 0.30,
     // 2026-08-05L に追加した項目。⚠️既存の保存済みcfgには無いので、**直前の版と同じ挙動になる既定**を入れる
     //   （＝株数が⑥の上限に達したら切替）。ここを "off" にすると保存済みの人だけ結果が変わる。
@@ -888,6 +948,39 @@ function DaytradeProjection(props) {
     }
     return best;
   };
+  // ⑥の方式と注記 2026-08-06J。⚠️注記は cfg の生値ではなく eff（＝実際に計算へ使った値）で組む。
+  var _isPow = (cfg.stepMode === "power");
+  var _mpOk = eff ? eff.marginOk : false;
+  var _need100 = _mpOk ? (eff.mainPrice * 100 * eff.marginRate) : null;   // 100株の必要保証金
+  var _noteSty = { fontSize: 9.5, fontWeight: 700, color: "#6B7280", lineHeight: 1.6, marginTop: 3 };
+  var _stepNote = React.createElement("div", { style: _noteSty },
+    !_mpOk ? "⑦のメイン株価を入れると、この方式で余力使用率がどう動くかをここに出します。"
+    : _isPow
+      ? ("株価 " + _dtsFmtYen(eff.mainPrice) + "円・保証金率 " + (Math.round(eff.marginRate * 1000) / 10) + "% だと、100株の必要保証金は "
+        + _dtsFmtYen(_need100) + "円。目標 " + (Math.round(eff.targetUse * 1000) / 10) + "% を保つには 100株あたり "
+        + _dtsFmtYen(_need100 / eff.targetUse) + "円 の取引資金が要ります（この額が貯まるたびに100株増える動きになります）。"
+        + (eff.stepDown ? "" : "「資金が減ったら下げる」は入れていないので、減った月は目標を超えます。"))
+      // ★方式Aで最も効く注記 2026-08-06J: 刻み額が「1段ぶんの必要保証金」より小さいと、段を上げるたび余力が上がっていく。
+      //   ユーザーの前提（刻み20万・株価6,500円・率30%）は実測で 90%→94.5%（この期間）まで上がり、90%警戒ラインの意味が薄れていた。
+      // ⚠️`必要保証金 ÷ 刻み額` は**資金が増え続けた先の到達点（漸近値）**であって、この期間で実際に出る最大ではない。
+      //   実測では漸近97.5%に対し期間内の最大は94.5%。片方だけ書くともう片方と食い違って見えるので**両方**出す。
+      : (function() {
+          var need1 = eff.mainPrice * eff.stepShares * eff.marginRate;   // 1段ぶんの必要保証金
+          var asym = need1 / eff.stepAmount;                             // 続けた先の到達点
+          var keep90 = need1 / 0.90;                                     // 到達点を90%にする刻み額
+          var obs = _dtsScore(res);                                      // この期間で実際に出た最大（表の余力使用率と同じ丸め）
+          return React.createElement(React.Fragment, null,
+            "この株価だと" + eff.stepShares.toLocaleString() + "株増やすごとに必要保証金が " + _dtsFmtYen(need1)
+              + "円 増えます。刻み額 " + _dtsFmtYen(eff.stepAmount) + "円 との差 " + _dtsFmtYen(eff.stepAmount - need1)
+              + "円 が1段ごとのバッファの増え方です。",
+            React.createElement("span", { style: { display: "block", color: asym > 0.90 ? "#B45309" : "#047857" } },
+              asym > 0.90
+                ? ("このまま段を上げ続けると余力使用率は " + _dtsFmtPct(asym) + " へ近づきます（この期間の最大は "
+                   + (obs ? obs.maxUse + "%" : "—") + "）。到達点を90%で止めたいなら刻み額は " + _dtsFmtYen(keep90) + "円です。")
+                : ("刻み額のほうが1段ぶんの必要保証金より大きいので、段を上げるほど余力使用率は下がります（到達点 " + _dtsFmtPct(asym)
+                   + "・この期間の最大は " + (obs ? obs.maxUse + "%" : "—") + "）。")));
+        })());
+
   var _addRowBtn = function(key, mk) {
     var nf = _dtsNextFrom(cfg[key], cfg.startYm, cfg.endYm), prev = _lastRowOf(key);
     return React.createElement("button", {
@@ -977,14 +1070,31 @@ function DaytradeProjection(props) {
     // ⚠️これは**表記だけの変更で計算は1行も変えていない**＝元から「前月末の資金で判定→当月に反映」なので
     //   ユーザーの言う「月末が◯万になった次の月から」と同じ規則。旧ラベル「資金口座◯万円から」だと
     //   いつの資金で判定していつ反映されるのかが読めなかった、というだけ。
-    _dtsSec("⑥ 株数を増やすルール", "端数は次段へ繰り越し・資金が減っても下げない", React.createElement("div", null,
+    _dtsSec("⑥ 株数を増やすルール", _isPow ? "毎月の余力使用率から逆算" : "端数は次段へ繰り越し・資金が減っても下げない", React.createElement("div", null,
       _dtsRow([
+        _dtsLbl("方式"),
+        React.createElement("select", {
+          key: "sm", value: _isPow ? "power" : "amount",
+          onChange: function(e) { set("stepMode", e.target.value); },
+          style: { fontSize: 11, fontWeight: 700, padding: "3px 4px", border: "1px solid " + _DTS_BD, borderRadius: 5, background: "#fff", color: "#1F2937" }
+        },
+          React.createElement("option", { value: "amount" }, "資金が◯円増えるごとに◯株"),
+          React.createElement("option", { value: "power" }, "余力使用率が◯%を超えない最大株数"))
+      ]),
+      _isPow ? _dtsRow([
+        _dtsLbl("毎月 余力使用率が"), React.createElement(DtsNum, { key: "tu", value: cfg.targetUse, unit: "pct", width: 52, suffix: "%", onChange: function(v) { set("targetUse", v); } }),
+        _dtsLbl("を超えない最大株数（100株単位）"),
+        _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } }),
+        React.createElement("label", { key: "sd", style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 700, color: "#4B5563", cursor: "pointer" } },
+          React.createElement("input", { type: "checkbox", checked: cfg.stepDown === true, onChange: function(e) { set("stepDown", e.target.checked); } }),
+          "資金が減ったら株数も下げる")
+      ]) : _dtsRow([
         _dtsLbl("月末の資金口座が"), React.createElement(DtsNum, { key: "sb", value: cfg.stepBase, unit: "man", suffix: "万円", placeholder: "開始時", step: 1, onChange: function(v) { set("stepBase", v); } }),
         _dtsLbl("になった次の月から"), React.createElement(DtsNum, { key: "sa", value: cfg.stepAmount, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("stepAmount", v); } }),
         _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } }),
         _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
       ]),
-      null)),
+      _stepNote)),
     _dtsSec("⑦ 余力チェック", "拘束額＝株数×株価／必要保証金＝拘束額×保証金率", React.createElement("div", null,
       _dtsRow([
         _dtsLbl("メイン株価"), React.createElement(DtsNum, { key: "mp", value: cfg.mainPrice, width: 62, suffix: "円", step: 100, onChange: function(v) { set("mainPrice", v); } }),
@@ -993,14 +1103,14 @@ function DaytradeProjection(props) {
       // ⚠️注記は cfg の生値ではなく eff（＝実際に計算へ使った値）で組む 2026-08-06。
       //   旧は cfg 直読みだったので、⑥の刻み額を空欄にすると「刻み額 —円 との差 -195,000円」と出るのに
       //   シミュ本体は既定の250,000円で回っている、という**説明と計算の食い違い**が起きていた。
+      // ⚠️2026-08-06J: 「1段ごとのバッファの増え方」の説明は**⑥へ移した**（刻み額を打つ欄の真下で読めるべきなので）。
+      //   ここに残すと同じ話が2箇所に出て、片方だけ古くなる。ここは⑦だけの話＝100株あたりいくら要るか、に絞る。
       React.createElement("div", { style: { fontSize: 9, color: "#B45309", marginTop: 4, lineHeight: 1.5 } },
         (eff && eff.marginOk)
-          ? ("この株価だと" + eff.stepShares.toLocaleString() + "株増やすごとに必要保証金が "
-            + _dtsFmtYen(eff.mainPrice * eff.stepShares * eff.marginRate)
-            + "円 増えます。刻み額 " + _dtsFmtYen(eff.stepAmount) + "円 との差 "
-            + _dtsFmtYen(eff.stepAmount - eff.mainPrice * eff.stepShares * eff.marginRate)
-            + "円 が1段ごとのバッファの増え方です（小さいほど余力使用率が下がりません）。")
-          : "メイン株価を入れると、1段ごとに必要保証金がいくら増えるか（＝余力使用率がどれだけ下がりにくいか）をここに出します。")
+          ? ("この設定だと 100株あたりの必要保証金は " + _dtsFmtYen(eff.mainPrice * 100 * eff.marginRate)
+            + "円（＝株価 " + _dtsFmtYen(eff.mainPrice) + "円 × 100株 × " + (Math.round(eff.marginRate * 1000) / 10) + "%）。"
+            + "取引資金の " + (Math.round(1 / eff.marginRate * 100) / 100) + "倍 まで建てられる計算です。株数の増やし方は⑥で決めます。")
+          : "メイン株価を入れると、100株あたりの必要保証金と建てられる上限をここに出します。")
     )),
     _dtsSec([_dtsAlphaMark("am8"), React.createElement("span", { key: "t8" }, "外部資金の投入")], "使わないなら年月を空のまま", _dtsRow([
       React.createElement(DtsYm, { key: "iy", value: (cfg.injection || {}).ym, onChange: function(v) { setInj("ym", v); } }),
@@ -1633,18 +1743,24 @@ function _dtsLeverDefs(cfg, base) {
   var sIdx = _dtsYmToIdx(cfg.startYm), eIdx = _dtsYmToIdx(cfg.endYm);
   var inj = cfg.injection || {}, hasInj = (+inj.amount || 0) > 0 && !!inj.ym;
   var drip = (cfg.drip || []), oneDrip = drip.length === 1;   // 期間別が複数行ある時はどの行を動かすか決められないので触らない
-  out.push({ id: "stepAmount", kind: "struct", sec: "⑥", label: "刻み額", path: { kind: "top", key: "stepAmount" },
-    cur: eff.stepAmount, values: _dtsRange(50000, 500000, 10000),
-    fmt: function(v) { return _dtsFmtMan(v) + "円ごと"; } });
-  out.push({ id: "stepShares", kind: "struct", sec: "⑥", label: "増えるごとの株数", path: { kind: "top", key: "stepShares" },
-    cur: eff.stepShares, values: [100, 200, 300, 400, 500],
-    fmt: function(v) { return v.toLocaleString() + "株ずつ"; } });
+  // ⚠️方式B（余力ベース）では刻み額・増える株数・段の起点を**engineが一切見ない** 2026-08-06J。
+  //   総当たりに入れると「動かしても結果が同じ」＝提案は出ないが、無駄に3本×100通り回るだけなので外す。
+  // ★目標余力使用率（targetUse）は総当たりに入れない。⑤の積立と同じで**リスクの方針**であって最適化する変数ではない。
+  //   安全条件が「95%未満」なので、入れると必ず「94%まで上げろ」と出る＝安全条件を自分で緩める循環した助言になる。
+  if (eff.stepMode !== "power") {
+    out.push({ id: "stepAmount", kind: "struct", sec: "⑥", label: "刻み額", path: { kind: "top", key: "stepAmount" },
+      cur: eff.stepAmount, values: _dtsRange(50000, 500000, 10000),
+      fmt: function(v) { return _dtsFmtMan(v) + "円ごと"; } });
+    out.push({ id: "stepShares", kind: "struct", sec: "⑥", label: "増えるごとの株数", path: { kind: "top", key: "stepShares" },
+      cur: eff.stepShares, values: [100, 200, 300, 400, 500],
+      fmt: function(v) { return v.toLocaleString() + "株ずつ"; } });
+    out.push({ id: "stepBase", kind: "struct", sec: "⑥", label: "段の起点", path: { kind: "top", key: "stepBase" },
+      cur: _dtsNumOrNull(cfg.stepBase), values: [null].concat(_dtsRange(1000000, 5000000, 100000)),
+      fmt: function(v) { return v == null ? "②の取引資金から" : _dtsFmtMan(v) + "円になったら"; } });
+  }
   out.push({ id: "maxShares", kind: "struct", sec: "⑥", label: "上限株数", path: { kind: "top", key: "maxShares" },
     cur: _dtsNumOrNull(cfg.maxShares), values: [null].concat(_dtsRange(500, 6000, 500)),
     fmt: function(v) { return v == null ? "上限なし" : v.toLocaleString() + "株"; } });
-  out.push({ id: "stepBase", kind: "struct", sec: "⑥", label: "段の起点", path: { kind: "top", key: "stepBase" },
-    cur: _dtsNumOrNull(cfg.stepBase), values: [null].concat(_dtsRange(1000000, 5000000, 100000)),
-    fmt: function(v) { return v == null ? "②の取引資金から" : _dtsFmtMan(v) + "円になったら"; } });
   if (hasInj && sIdx != null && eIdx != null) {
     var ys = [], q;
     for (q = sIdx; q <= eIdx; q++) ys.push(_dtsIdxToYm(q));
