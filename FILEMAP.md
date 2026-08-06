@@ -108,7 +108,9 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
-`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`_dtsAlphaMark`（丸囲みα）/ `_dtsSwitchRow`（⑤の切替）** / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsNiceMax` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / **`_dtsHitIdx` / `_dtsTipD` / `DtsChartBox`（ホバー）** / `_dtsCharts` / `_dtsDelta` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_DTS_W_DELTA`/`_DTS_W_TONE`** / `_dtsTable` / **`_dtsWarnBox`（効いていない前提の警告欄）** / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`（`_dtsSimulate` の `summary.stepOrigin` ＝段の実効起点も参照）
+`_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`_dtsAlphaMark`（丸囲みα）/ `_dtsSwitchRow`（⑤の切替）** / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / **`_dtsHitIdx` / `_dtsTipD` / `DtsChartBox`（ホバー）** / `_dtsCharts` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_dtsFlow` / `_DTS_W_TONE`/`_DTS_W_FLOW`** / `_dtsTable` / **`_dtsWarnBox`（効いていない前提の警告欄）** / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`
+
+⚠️ **この索引は 2026-08-06 の点検で実体に合わせた**。以前ここに載っていた `_dtsNiceMax` / `_dtsDelta` / `_DTS_W_DELTA` は**存在しない**（前2つは削除・最後は元から宣言が無くコメント内の言及だけだった）。同じく `_dtsStepBaseNote` / `_dtsMaxNote` も**廃止済みで実体は無い**（下の 2026-08-05L・2026-08-05z の記述は当時の履歴）。`summary.stepOrigin` / `summary.injFloor` / `summary.grade` も読み手が無いまま残っていたので削除した。
 
 **📈 損益推移シミュレーター 2026-08-05** — 記録帳の💰損益タブ（全銘柄合算）、🧮シミュの右のタブ。前提を入れて資金・株数・生活口座・総資産の月次推移を出す。**実績の集計ではなく将来の見通し**。
 
@@ -236,6 +238,22 @@ HomeEventFormModal, App
   - **表の先頭に「開始時」行**（薄いグレー）＝ `initialShares / initialLiving / initialCapital`。これが無いと1行目の「（↑〇万）」の起点が画面に無い。
   - `_dtsDelta(v, {lowerIsBetter, fmt})` … （）内の差分バッジ。**「増える方が良い」欄にだけ既定で使う**。余力使用率のように下がる方が良い欄は `lowerIsBetter:true` で色が反転する。
   - **サマリーカードは全カードに開始時からの増減を出す**（旧: 期末取引資金だけ「＋◯◯万」で不揃いだった）。カード上に「2026年8月 〜 2027年7月末（12ヶ月）の見通し」の1行。
+
+- **全面点検の中・軽微修正 2026-08-06**（ユーザー依頼「不具合や疑問点を徹底的に洗い出して」→「中・軽微はすべて直して」）。重大9件と要確認3件は**未着手のまま残っている**（下の「未修正で残っている重大」参照）。
+  - **入力の生値と実効値を対で持つ**: `daysRaw`/`stepAmtRaw`/`stepShRaw`/`mainPriceRaw`/`mgnRaw` を実効値の隣に置き、**食い違ったら必ず `warns` に出す**。⑥刻み額は 0だけでなく**負も既定値へ**（旧 `Math.max(1, +x || 250000)` は負値だと刻み1円になり株数が 4.5e51 株まで飛んだ）。⑦保証金率は税率と同じ作法で **0%超〜100% にクランプ**。
+  - **`summary.eff` / `summary.start` を新設**。⑦の注記・表の開始時行/合計行は**必ずこちらを読む**＝cfg 直読みだと「刻み額 —円 との差 −195,000円」（本体は25万で計算）や、②に −500 と打った時に開始時行だけ「−500株」といった食い違いが出る。
+  - **`mgnOk`（株価>0 かつ 保証金率>0）**を導入し、成り立たない時は拘束額・必要保証金・バッファ・余力使用率・理論最大株数を **0ではなく null**（表は「—」）。⚠️0を返すと余力使用率が全月0%で `_dtsUseTone` が緑の「余裕」を出し、株価の入れ忘れが「安全な前提」に見える。
+  - **②の判定元を `capital` → `prevClose`（前月末）へ**。同値なので通常月の結果は1円も動かないが、これで**投入月も②を通せる**ようになり、αの「直後の株数」が空欄の月に段を取りこぼさなくなった。基準点の張り替えは②の**後**へ移動（先にやると当月の段が消える）。
+  - 警告の追加: ⑤切替の年月が期間外／④⑤の行の年月が空・不正／⑥上限が0以下（＝上限なし扱い）・②と同値／①営業日と⑥刻み株数の0以下。
+  - 表示: 積立欄の「—」判定を `toLivingSwitch>0` → **`switched`**（切替中の赤字月だけ「0万」に戻っていた）／合計行の残金を「取引資金組入」と「＋◯万（生）」に**割って**表示／節目の初月の段を「開始時株数 → 新株数」に（旧は「700 → 700株」）／株価未入力時は「バッファ最小」の節目を出さない。
+  - グラフ: x軸ラベルを**最終月から逆向きに間引く**（120ヶ月で右端9ヶ月が無名だった）／棒の実頂点でも `maxT` を取る（資金マイナス月に生活口座の棒が軸を突き抜けた）／余力使用率が計算できない月で**折れ線を切る**（黙ってまたいでいた）／マイナス月があるとき凡例に `#FCA5A5` を追加／`onTouchEnd`・`onTouchCancel` で吹き出しを消す。右軸の `SPAIR`（実線/点線の組）は線を引かなくなって点線側が死んでいたので **`SMAJ`（単純配列）** へ。
+  - 感度表: 到達目標を②の入力ではなく**シミュ1行目の株数**から決める／③が代表値ちょうど（500/1500/2250/3000）の時に**同一内容の行が2本並ぶ**のを抑止／到達月の（）を中立色に（左隣の「今との差」と赤の意味が反転していた）／ヘッダのツールチップ「実績の前提」→「今の前提」。
+  - `DtsNum`: **空欄から▼を押しても0を作らない**（⑤の目標残高＝無制限 が 0＝積立しない に反転し、「生活口座が目標 0円に到達」の節目まで出ていた）。
+  - `DaytradeProjection`: `useEffect` で**未編集の間だけ**、同期で後から届いた `data.custom.dtsCfg` を取り込む（旧は `useState` の遅延初期化なので初回マウントの data しか見なかった）。編集したら `dirtyRef` が立って取り込まない。
+  - 削除: `_dtsNiceMax` / `_dtsDelta`（呼び出しゼロ）、行データの `capitalDelta`/`ownBase`/`runway`/`bePerDay`/`tied`/`needMargin`/`livingOpen`/`surplus`、`summary.stepOrigin`/`injFloor`/`grade`（いずれも読み手なし）。`_dtsFmtYen` の負値は全角「−」に統一。
+  - **回帰確認**: 既定前提・「⑥起点明示＋α投入」・「⑤切替(取引資金)」の3本で期末資金/生活口座/株数/節目が**1円も動かないこと**をブラウザ上で `_dtsSimulate` を実行して確認済み。描画6ケース×7関数のスモークも通過。
+
+- **⚠️未修正で残っている重大（2026-08-06 時点）**: ①1日あたりが負だと `tax` も負になり損失が20.3%小さく出る（`gross>0` のガードが無い）／②αの投入で `base = capital` が段の端数を捨てるので投入したほうが株数が伸びない／③⑥の上限0が「上限なし」と「切替しきい値0株」の二重解釈になり資金が初月から凍結（警告は 2026-08-06 に追加済み）／④⑤切替中でも「以降は全額が取引資金へ」の節目が出る／⑤年月が空のまま💾保存すると `_dtsInitCfg` のオール・オア・ナッシング分岐で保存済み前提が既定値へ戻る／⑥⑦ app-06.js のタブ遷移（銘柄ピルで本文が空・💰損益ピルのガードに `"proj"` が無い）／⑧グラフの目盛り本数に上限が無い／⑨感度表が保証金不足を伏せる。
 
 ## 変更ログ
 

@@ -17,10 +17,15 @@
 | `index.html` | HTML骨組み＋`<style>`＋Firebase CDN＋SW登録＋末尾の `<script src>` 群（約4KB） | スタイル/構造のみ |
 | `vendor.js` | React / ReactDOM / Babelヘルパー | **触らない** |
 | `app-01.js`〜`app-08.js` | アプリ本体（コンポーネント・ロジック） | ここを編集 |
+| `app-09.js` | 📈 損益推移シミュレーター（2026-08-05に新規追加。分割前コードには対応部分なし） | ここを編集 |
 | `FILEMAP.md` | **どのファイルにどの関数/コンポーネントがあるか**の対応表（正本の索引） | 定義追加時に更新 |
 
-読み込み順は `index.html` 末尾の `<script src>` で固定：`vendor.js → app-01.js → … → app-08.js`。
-全 `app-*.js` を連結すると分割前のコードとバイト一致する（トップレベル文の境界でのみ分割）。
+読み込み順は `index.html` 末尾の `<script src>` で固定：
+`vendor.js → app-01 … app-06 → **app-09** → app-07 → app-08`。
+**app-09.js だけ番号順ではない**＝app-05.js の `_profitGradeFromPnl`/`_elHoldGradeBadge`/`_stepBtn` を使うので app-05 より後、
+app-08.js の `render()` が即実行なのでそれより前、という2つの制約から app-06 の直後に置いている。
+`app-01.js`〜`app-08.js` を連結すると分割前のコードとバイト一致する（トップレベル文の境界でのみ分割）。
+**app-09.js は新規なので連結の対象外**。
 
 ## 機能 → ファイル クイックマップ（詳細はFILEMAP.md / Grepで確認）
 
@@ -32,6 +37,7 @@
 - **エントリー記録帳の集計・一覧（EntryStatsSummary / EntryLogView。「結果別平均OS値」等の分析欄もここ）**: `app-06.js`
 - **日足チャート・ニュース履歴・総括履歴・銘柄情報タブ・銘柄履歴**: `app-07.js`
 - **ホーム予定モーダル・ルートコンポーネント(App)・描画開始(render)**: `app-08.js`
+- **📈 損益推移シミュレーター（DaytradeProjection / 計算コア `_dtsSimulate`。💰損益タブ→🧮シミュの右）**: `app-09.js`
 
 ## 編集の進め方（トークン節約の方針）
 
