@@ -1027,7 +1027,10 @@ function _dtsTrigCells(r, onSet, opts) {
         : trig === "capitalBelow"
           ? React.createElement(DtsNum, { key: "tv", value: r.capitalBelow, unit: "man", suffix: "万円以下", step: 10, onChange: function(v) { onSet("capitalBelow", v); } })
           : React.createElement(DtsYm, { key: "tv", value: r.from, width: 112, onChange: function(v) { onSet("from", v); } }),
-    React.createElement("span", { key: "tl", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, trig === "ym" ? "から" : "になったら")
+    // ⚠️年月のときの助詞は表ごとに違う 2026-08-06T（ユーザー指摘）。③④⑤⑦は「◯月**から**（その値が続く）」だが、
+    //   αの投入は**その月に1回だけ起きる出来事**なので「から」だと毎月入れ続けるように読める。opts.ymLabel で差し替える。
+    React.createElement("span", { key: "tl", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } },
+      trig === "ym" ? ((opts && opts.ymLabel) || "から") : "になったら")
   ];
 }
 
@@ -1484,7 +1487,7 @@ function DaytradeProjection(props) {
     //   条件を満たした行を全部その月に実行する（最後の1行を選ぶのではない）。一度成立した行は二度と発動しない。
     _dtsSec([_dtsAlphaMark("am8"), React.createElement("span", { key: "t8" }, "外部資金の投入")], "使わないなら行を消す（🗑）", React.createElement("div", null,
       (cfg.injections || []).length
-        ? _rowsEditor("injections", { below: true, minRows: 0 }, function(r, i) {
+        ? _rowsEditor("injections", { below: true, minRows: 0, ymLabel: "に" }, function(r, i) {
             // 2026-08-06R: 「直後の株数」欄は廃止（ユーザー指定）。株数は⑥のルールだけで決まる。
             return [React.createElement(DtsNum, { key: "a", value: r.amount, unit: "man", suffix: "万円", step: 5, onChange: function(v) { setRow("injections", i, "amount", v); } }),
               React.createElement("span", { key: "l", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "投入")];
