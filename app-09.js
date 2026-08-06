@@ -555,14 +555,23 @@ function _dtsFmtMan(v) {
 }
 function _dtsFmtPct(v) { if (v == null || !isFinite(v)) return "—"; return (Math.round(v * 1000) / 10) + "%"; }
 
-// 余力使用率で行を色分け（ユーザー決定 2026-08-05）。保証金不足（バッファ<0）は最優先で赤。
-// 検算で分かったとおり刻み250,000円・株価6,500円だと90%台が続くので、危険域を目で拾えるようにする。
+// 余力使用率で行を色分け（ユーザー決定 2026-08-05／境界は 2026-08-06D に更新）。
+// 保証金不足（バッファ<0）は最優先で赤。刻み250,000円・株価6,500円だと**90%台が延々と続く**ので、
+// 警戒を85%に置くとほぼ全行が黄色になって帯として機能しなかった＝90%へ上げて「本当に詰む手前」だけを塗る。
 function _dtsUseTone(u, shortMargin) {
   if (shortMargin) return { bg: "#FEE2E2", ink: "#991B1B", lbl: "保証金不足" };
   if (u == null) return { bg: null, ink: null, lbl: "" };
-  if (u > 0.95) return { bg: "#FEF2F2", ink: "#B91C1C", lbl: "危険" };
-  if (u > 0.85) return { bg: "#FEFCE8", ink: "#A16207", lbl: "警戒" };
-  if (u > 0.70) return { bg: null, ink: null, lbl: "" };
+  // 2026-08-06D（ユーザー指定）: 警戒を **85% → 90%** へ。危険は据置で 95%〜。
+  // ⚠️判定は生の u ではなく**画面に出るのと同じ丸め（小数第1位の%）**で行う。生値で比べると、
+  //   600株・株価6,500円・資金130万の月が 3,900,000 ÷ (1,300,000÷0.3) = 0.8999999999999999 になり、
+  //   表には _dtsFmtPct が「90%」と出しているのに帯だけ無地、という**表示と色の食い違い**が起きる
+  //   （割り算の丸め誤差なので珍しくない）。境界を跨ぐ値ほど目につくので、必ず表示値に揃えること。
+  // ⚠️境界は `>=` にしてラベルの「◯〜◯%」と一致させる＝ちょうど90.0%/95.0%がどちらの帯にも入らない、
+  //   という読みのズレを作らない（余裕の「〜70%」だけは 70.0% を含める側なので `> 70` のまま）。
+  var p = Math.round(u * 1000) / 10;
+  if (p >= 95) return { bg: "#FEF2F2", ink: "#B91C1C", lbl: "危険" };
+  if (p >= 90) return { bg: "#FEFCE8", ink: "#A16207", lbl: "警戒" };
+  if (p > 70) return { bg: null, ink: null, lbl: "" };
   return { bg: "#F0FDF4", ink: "#047857", lbl: "余裕" };
 }
 
@@ -1081,7 +1090,7 @@ function _dtsChartAssets(rows, hi) {
     React.createElement("title", null, "総資産（取引資金＋生活口座）の積み上げ棒と株数の推移"), kids);
 }
 
-// ② 余力使用率の折れ線。70/85/95%の帯を敷いて、危ない月が目で拾えるようにする。
+// ② 余力使用率の折れ線。70/90/95%の帯を敷いて、危ない月が目で拾えるようにする（2026-08-06D に 85→90）。
 function _dtsChartPower(rows, hi) {
   if (!rows || !rows.length) return null;
   var W = 720, H = 230, pL = 58, pR = 54, pT = 26, pB = 32;
@@ -1103,15 +1112,16 @@ function _dtsChartPower(rows, hi) {
     if (y2 <= y1) return;
     kids.push(React.createElement("rect", { key: k, x: pL, y: y1, width: pw, height: y2 - y1, fill: col }));
   };
-  band("b1", 0, 0.70, "#F0FDF4"); band("b2", 0.85, 0.95, "#FEFCE8"); band("b3", 0.95, top, "#FEF2F2");
-  // 目盛りは25%ごと（左）。警戒ライン70/85/95%は破線＋**右側**にラベルを置く＝左の目盛りと重ならない。
+  band("b1", 0, 0.70, "#F0FDF4"); band("b2", 0.90, 0.95, "#FEFCE8"); band("b3", 0.95, top, "#FEF2F2");
+  // 目盛りは25%ごと（左）。警戒ライン70/90/95%は破線＋**右側**にラベルを置く＝左の目盛りと重ならない。
+  // ⚠️帯・破線・_dtsUseTone・凡例の4箇所は**必ず同じ数字**にすること（片方だけ直すと表とグラフで色が食い違う）。
   var nG = Math.round(top / 0.25);
   for (i = 0; i <= nG; i++) {
     var gv = 0.25 * i, gy = y(gv);
     kids.push(React.createElement("line", { key: "pg" + i, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: i === 0 ? "#CBD5E1" : "#E5E7EB", strokeWidth: 1 }));
     kids.push(_dtsSvgText("pgl" + i, pL - 6, gy + 3, Math.round(gv * 100) + "%", { textAnchor: "end" }));
   }
-  var refs = [[0.70, "#047857"], [0.85, "#A16207"], [0.95, "#B91C1C"]];
+  var refs = [[0.70, "#047857"], [0.90, "#A16207"], [0.95, "#B91C1C"]];
   for (i = 0; i < refs.length; i++) {
     if (refs[i][0] > top) continue;
     kids.push(React.createElement("line", { key: "r" + i, x1: pL, y1: y(refs[i][0]), x2: pL + pw, y2: y(refs[i][0]), stroke: refs[i][1], strokeWidth: 1, strokeDasharray: "3 3", opacity: 0.75 }));
@@ -1149,7 +1159,7 @@ function _dtsChartPower(rows, hi) {
     if (rows[hi].powerUse != null) kids.push(React.createElement("circle", { key: "hp", cx: x(hi), cy: y(rows[hi].powerUse), r: 4.5, fill: "none", stroke: _DTS_INK, strokeWidth: 2 }));
   }
   return React.createElement("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", style: { display: "block", minWidth: 460 }, role: "img" },
-    React.createElement("title", null, "余力使用率の推移（70/85/95%の警戒ライン付き）"), kids);
+    React.createElement("title", null, "余力使用率の推移（70/90/95%の警戒ライン付き）"), kids);
 }
 
 function _dtsLegend(items) {
@@ -1264,7 +1274,7 @@ function _dtsCharts(res) {
       legend: _dtsLegend(lgA) }),
     React.createElement(DtsChartBox, { key: "cp", rows: res.rows, draw: _dtsChartPower,
       title: "📉 余力使用率", note: "拘束額 ÷（取引資金 ÷ 保証金率）。95%超は1回の負けで詰む水準",
-      legend: _dtsLegend([["〜70% 余裕", "#DCFCE7"], ["85〜95% 警戒", "#FEF9C3"], ["95%〜 危険", "#FEE2E2"]]) })
+      legend: _dtsLegend([["〜70% 余裕", "#DCFCE7"], ["90〜95% 警戒", "#FEF9C3"], ["95%〜 危険", "#FEE2E2"]]) })
   ]);
 }
 
