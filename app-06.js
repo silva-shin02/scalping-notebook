@@ -5934,6 +5934,7 @@ function EntryLogView(_ref_elv2) {
   //   💰損益の集計表（全体損益・KPI早見・累積損益）は対象外。あちらは旧ルール行を薄く残して比較できる仕様なので、
   //   ここで根ごと落とすとその行が消えて競合する。
   var _uSNO = useState(false), sinceOnly = _uSNO[0], setSinceOnly = _uSNO[1];
+  var _uRSO = useState(false), rotShareOpen = _uRSO[0], setRotShareOpen = _uRSO[1];   // 🏷銘柄別の損益割合＝「📅 日替わり」行の▶で内訳（銘柄別）を表の中に開くか 2026-08-06G
   // トグル適用ヘルパー。_elSinceRecs(:6128付近)は**この行より後ろ**で var に関数を代入しているため、
   //   先に走る_v2recsAllData(:5948付近)からは undefined で呼べない。トップレベル関数宣言で巻き上げ済みの
   //   _elIsOldRule を直接使うことで定義順の問題を回避する（境界の正本は_EL_RULE_SINCEのまま＝二重定義しない）。
@@ -6275,12 +6276,21 @@ function EntryLogView(_ref_elv2) {
     };
     var _amt = function(v) { return React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
     var _sub = function(t) { return React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8" } }, t); };
-    var cellsOf = function(label, color, a, indent) {
+    // tgl（2026-08-06G）: 行そのものを開閉ボタンにする（旧＝表の下に別枠の_SNCollapseを置いていた）。{open,n,onClick}。
+    var cellsOf = function(label, color, a, indent, tgl) {
       var net = a.tot.hold2, cnt = a.tot.hold2Cnt;
       return [
-        _elv2Td(React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", paddingLeft: (indent ? 10 : 0) } },
+        _elv2Td(React.createElement("span", {
+          onClick: tgl ? tgl.onClick : null,   // ▶だけだと表の中では的が小さいので、銘柄名まで含めて開閉できるようにする（見た目は変えない）
+          title: tgl ? ((tgl.open ? "内訳を閉じる" : "内訳を開く") + "（" + tgl.n + "銘柄）") : null,
+          style: { display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", paddingLeft: (indent ? 10 : 0), cursor: tgl ? "pointer" : null }
+        },
+          tgl ? React.createElement("span", {
+            style: { padding: "2px 3px", marginRight: 1, fontSize: 9, lineHeight: 1, color: "#64748B", flexShrink: 0 }
+          }, tgl.open ? "▼" : "▶") : null,
           color ? React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: color, display: "inline-block", flexShrink: 0 } }) : null,
-          React.createElement("span", { style: { fontWeight: 700, color: "#334155" } }, label)), { textAlign: "left", paddingLeft: 8 }),
+          React.createElement("span", { style: { fontWeight: 700, color: "#334155" } }, label),
+          tgl ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 600 } }, tgl.n + "銘柄") : null), { textAlign: "left", paddingLeft: 8 }),
         _elv2Td(a.n + "件"),
         _elv2Td((a.sp.wn || 0) + "件"),
         _elv2Td(a.wt.rate != null ? a.wt.rate + "%" : "—"),
@@ -6293,23 +6303,31 @@ function EntryLogView(_ref_elv2) {
     };
     var rowOf = function(g) { return React.createElement.apply(null, ["tr", { key: g.key }].concat(cellsOf(g.label, g.color, g.a))); };
     var totRow = React.createElement.apply(null, ["tr", { key: "__tot__", style: { background: "#FFF7ED", fontWeight: 700 } }].concat(cellsOf("合計", null, all)));
-    var rows = shown.map(rowOf).concat([totRow]);
-    // 日替わりの中身（銘柄別）。1行にまとめている分どの銘柄が効いているか見えなくなるので、展開で内訳を出す。
-    var rotDetail = null;
+    // 日替わりの中身（銘柄別）。1行にまとめている分どの銘柄が効いているか見えなくなるので、
+    //   「📅 日替わり」行の▶で**同じ表の中に**内訳行を差し込む（2026-08-06G ユーザー要望。旧＝表の下に別枠の_SNCollapse）。
+    //   内訳行は cellsOf(indent=true) ＝親行と同じ列・同じ計算なので、内訳の合計が親行と食い違いようがない。
+    var _rotByStk = null, _rotKeys = [];
     if (gRot.recs.length) {
-      var byStk = {};
-      gRot.recs.forEach(function(r) { var k = r.stock || "(不明)"; (byStk[k] = byStk[k] || []).push(r); });
-      var keys = Object.keys(byStk).sort(function(x, y) { return byStk[y].length - byStk[x].length || x.localeCompare(y); });
-      rotDetail = React.createElement(_SNCollapse, { title: "📅 日替わりの内訳（" + keys.length + "銘柄・タップで展開）", render: function() {
-        return _elv2Table(["銘柄", "件数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"],
-          keys.map(function(k) { return React.createElement.apply(null, ["tr", { key: k }].concat(cellsOf(k, gRot.color, _stkShareAgg(byStk[k]), true))); }));
-      } });
+      _rotByStk = {};
+      gRot.recs.forEach(function(r) { var k = r.stock || "(不明)"; (_rotByStk[k] = _rotByStk[k] || []).push(r); });
+      _rotKeys = Object.keys(_rotByStk).sort(function(x, y) { return _rotByStk[y].length - _rotByStk[x].length || x.localeCompare(y); });
     }
+    var rows = [];
+    shown.forEach(function(g) {
+      if (g.key !== "__rot__" || !_rotKeys.length) { rows.push(rowOf(g)); return; }
+      rows.push(React.createElement.apply(null, ["tr", { key: g.key }].concat(
+        cellsOf(g.label, g.color, g.a, false, { open: rotShareOpen, n: _rotKeys.length, onClick: function() { setRotShareOpen(!rotShareOpen); } }))));
+      if (!rotShareOpen) return;
+      _rotKeys.forEach(function(k) {
+        rows.push(React.createElement.apply(null, ["tr", { key: "__rot_" + k, style: { background: "#FAFAF9" } }].concat(
+          cellsOf(k, g.color, _stkShareAgg(_rotByStk[k]), true))));
+      });
+    });
+    rows.push(totRow);
     return React.createElement("div", null,
       bar("利益の内訳（全体の総利益 " + _elPnlFmt(_gpTot) + " に占める割合）", function(g) { return g.a.gp; }, _gpTot),
       bar("損失の内訳（全体の総損失 " + _elPnlFmt(-_glTot) + " に占める割合）", function(g) { return Math.abs(g.a.gl); }, _glTot),
-      _elv2Table(["銘柄", "件数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"], rows),
-      rotDetail);
+      _elv2Table(["銘柄", "件数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"], rows));
   };
   // ===== 🎯 グレード別の件数（月別）（2026-08-03c ユーザー要望「1か月あたりの各グレードの件数が知りたい。A+何件、A-何件みたいな感じ」）=====
   // 表は2つ（ユーザー選択「両方」）＝「良いトレードが何件あったか」と「良い日が何日あったか」は別の話なので分ける:
