@@ -1326,12 +1326,17 @@ function DaytradeProjection(props) {
               var c = clone(p); var arr = (p.perDayRows || []).slice();
               arr[0] = Object.assign({}, arr[0] || { trig: "ym", from: p.startYm }, { amount: pv });
               c.perDayRows = arr; c.dailyPer100 = pv;
-              c.businessDays = Math.max(1, Math.round(actual.daysPerMon || 20));
               return c;
             });
           },
           style: { fontSize: 10, fontWeight: 800, color: "#fff", background: _DTS_SUB, border: "none", borderRadius: 6, padding: "4px 9px", cursor: "pointer" }
-        }, "🔄 実績を入れる（" + _dtsFmtYen(actual.perDay) + "円/日 × 月" + Math.max(1, Math.round(actual.daysPerMon || 20)) + "日）") : null,
+        // ★①の月間営業日は触らない 2026-08-06Q（ユーザー指定「実績ボタンの日数は既存の日数に合わせて」）。
+        //   ラベルにも**今①に入っている日数**を出す＝押した結果と表示が一致する。
+        //   ⚠️2026-08-06B に「実績の記録日数を①へ入れる」挙動を足したのを、ここで撤回している。理由は
+        //   ①が「これから何日トレードするつもりか」の計画値だから。実績の記録日数（過去に何日記録したか）で
+        //   上書きすると、計画を打ち直すたびにボタンが勝手に戻す。**ただし食い違いは危険なので下の注記で必ず出す**
+        //   （実績が月14.8日なのに①が20日なら月次は約1.35倍に膨らむ＝2026-08-06B が潰した問題そのもの）。
+        }, "🔄 実績を入れる（" + _dtsFmtYen(actual.perDay) + "円/日 × 月" + (eff ? eff.days : 20) + "日）") : null,
         _dtsLbl("税率"), React.createElement(DtsNum, { key: "tx", value: cfg.taxRate, unit: "pct", width: 56, suffix: "%", step: 0.1, min: 0, max: 0.9, onChange: function(v) { set("taxRate", v); } })
       ]),
       React.createElement("div", { style: { fontSize: 9, color: "#6B7280", marginTop: 4, lineHeight: 1.5 } },
@@ -1344,8 +1349,24 @@ function DaytradeProjection(props) {
             + "母数は" + (actual.sinceOnly ? "集計ルール統一後の記録" : "全期間の記録") + "。")
           : "実績を出せる記録がありません。手入力してください。",
         React.createElement("span", { style: { display: "block", color: "#B45309" } },
-          "月次は 1日あたり × ①の月間営業日 で内部換算します（先頭行なら " + _dtsFmtYen(_dtsHeadAmt(cfg.perDayRows, 0) * (eff ? eff.days : 20)) + "円/月/100株）。"
-          + "分母は「記録のあった日数」なので、取引しない営業日があるなら①も実際のトレード日数に合わせてください（上のボタンは両方まとめて入れます）。"))
+          "月次は 1日あたり × ①の月間営業日 で内部換算します（先頭行なら " + _dtsFmtYen(_dtsHeadAmt(cfg.perDayRows, 0) * (eff ? eff.days : 20)) + "円/月/100株）。"),
+        // ★①を上書きしなくなった代わりに、食い違いを必ず見せる 2026-08-06Q。
+        //   実績の1日あたりは「記録のあった日数」で割った値なので、①がそれより多いとその比率だけ月次が膨らむ。
+        //   ⚠️これを出さないと 2026-08-06B で潰した「月2.5日しか記録が無いのに×20日で回る」問題が黙って戻る。
+        (function() {
+          if (!actual || actual.perDay == null || !actual.daysPerMon) return null;
+          var d1 = Math.round(actual.daysPerMon * 10) / 10, d2 = (eff ? eff.days : 20);
+          if (Math.abs(d1 - d2) < 0.5) {
+            return React.createElement("span", { style: { display: "block", color: "#047857" } },
+              "①の月間営業日（" + d2 + "日）は実績の月あたり記録日数（" + d1 + "日）とほぼ同じです。");
+          }
+          var rt = Math.round(d2 / d1 * 100) / 100;
+          return React.createElement("span", { style: { display: "block", color: "#B91C1C", fontWeight: 800 } },
+            "⚠ 実績は月あたり " + d1 + "日 の記録から出した1日あたりですが、①の月間営業日は " + d2 + "日 です。"
+            + "このまま回すと月次が実績ペースの約" + rt + "倍になります。"
+            + (d2 > d1 ? "①を実際のトレード日数に合わせるか、これから" + d2 + "日トレードする前提だと納得したうえで使ってください。"
+                       : "①のほうが少ないので、実績より控えめな見積もりになります。"));
+        })())
     )),
     _dtsSec("④ 生活費", "社会保険料もここに足す（別枠は持たない）",
       _rowsEditor("livingCost", {}, function(r, i) {
