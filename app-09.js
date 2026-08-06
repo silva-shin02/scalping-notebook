@@ -396,7 +396,7 @@ function _dtsSimulate(cfg) {
   _chkRows(cfg.drip, "⑤積立");
   _chkRows(cfg.perDayRows, "③1日あたり");
   _chkRows(cfg.priceRows, "⑦メイン株価");
-  _chkRows(cfg.injections, "⑧外部資金");
+  _chkRows(cfg.injections, "α外部資金");
 
   // 「0や負を入れたのに既定値で計算される」＝`+cfg.X || 既定` のイディオムの副作用。入力欄の表示と計算が
   // 食い違うので黙って通さない（0で割れないため既定に戻す挙動自体は維持する）2026-08-05D／2026-08-06に負値まで拡張。
@@ -446,7 +446,7 @@ function _dtsSimulate(cfg) {
     if (!qr || (qr.trig && qr.trig !== "ym")) continue;
     var qidx = qr.from ? _dtsYmToIdx(qr.from) : null;
     if (qidx == null || qidx < sIdx || qidx > eIdx) {
-      warns.push("⑧の投入年月「" + ((qr.from ? _dtsYmLbl(qr.from) : "") || "未入力") + "」が期間の外なので、その投入は反映されていません。"
+      warns.push("αの投入年月「" + ((qr.from ? _dtsYmLbl(qr.from) : "") || "未入力") + "」が期間の外なので、その投入は反映されていません。"
         + "①の期間（" + _dtsYmLbl(cfg.startYm) + "〜" + _dtsYmLbl(cfg.endYm) + "）の中に入れてください。");
     }
   }
@@ -492,7 +492,7 @@ function _dtsSimulate(cfg) {
       //   下回って無効化された時は黙って捨てず warns で知らせる（入れたのに効かない入力を作らない）。
       if (sa != null && sa > 0) {
         if (sa < prevShares) {
-          warns.push("⑧の「投入直後の株数」" + sa.toLocaleString() + "株 は、その時点の " + prevShares.toLocaleString()
+          warns.push("αの「投入直後の株数」" + sa.toLocaleString() + "株 は、その時点の " + prevShares.toLocaleString()
             + "株 より少ないので効いていません（⑥の「資金が減っても下げない」が優先）。減らす想定なら②の基礎取引株数を見直してください。");
         } else {
           shares = sa; jumped = true;
@@ -690,7 +690,7 @@ function _dtsSimulate(cfg) {
     }
     if (_ovN) {
       warns.push("⑥の目標 " + _tgtP + "% を超えた月が " + _ovN + "ヶ月あります（最大 " + _dtsFmtPct(_ovMax) + "）。"
-        + (stepDown ? "⑧で「投入直後の株数」を指定した月は目標より多く建てます。" : "「資金が減っても株数を下げない」ため、資金が減った月は目標を超えます（⑥の「資金が減ったら株数も下げる」で解消できます）。⑧で株数を直接指定した月も超えます。"));
+        + (stepDown ? "αで「投入直後の株数」を指定した月は目標より多く建てます。" : "「資金が減っても株数を下げない」ため、資金が減った月は目標を超えます（⑥の「資金が減ったら株数も下げる」で解消できます）。αで株数を直接指定した月も超えます。"));
     }
   }
 
@@ -741,7 +741,7 @@ function _dtsSimulate(cfg) {
   _chkUnused(cfg.livingCost, lcAct, lcUsed, "④生活費");
   _chkUnused(cfg.perDayRows, perDayAct, perDayUsed, "③1日あたり");
   _chkUnused(cfg.priceRows, priceAct, priceUsed, "⑦メイン株価");
-  _chkUnused(cfg.injections, injAct, null, "⑧外部資金");
+  _chkUnused(cfg.injections, injAct, null, "α外部資金");
 
   var last = rows[rows.length - 1] || null;
   sum.endCapital = last ? last.capital : (+cfg.initialCapital || 0);
@@ -759,7 +759,10 @@ function _dtsSimulate(cfg) {
   //   cfg の生値ではなくこちらを使うこと＝クランプ・既定値差し替えの結果と画面の説明を一致させるため。
   sum.eff = { days: days, taxRate: taxRate, stepAmount: stepAmt, stepShares: stepSh,
     mainPrice: mainPrice, marginRate: marginRt, marginOk: mgnOk,
-    stepMode: stepMode, targetUse: tgtUse, stepDown: stepDown };
+    stepMode: stepMode, targetUse: tgtUse, stepDown: stepDown,
+    // ⚠️maxMode/maxMultiple も eff に載せる 2026-08-06P。🔧調整案が「どちらの上限を振るか」をこれで分岐するので、
+    //   載せ忘れると eff.maxMode が undefined になり、倍率方式でも常に株数側を振る＝死んだ総当たりに戻る。
+    maxMode: maxMode, maxMultiple: maxMul };
 
   // ---- 節目の抽出 ----
   var marks = [], seenTargetHit = false, worst = null;
@@ -771,6 +774,16 @@ function _dtsSimulate(cfg) {
     if (r.stepUp && !r.injected) marks.push({ ym: r.ym, kind: "step", text: _dtsYmLbl(r.ym) + "  株数 " + (j > 0 ? rows[j - 1].shares : initShares) + " → " + r.shares + "株" });
     if (j === 0 || r.expense !== rows[j - 1].expense) {
       if (j > 0) marks.push({ ym: r.ym, kind: "cost", text: _dtsYmLbl(r.ym) + "  生活費 " + Math.round(rows[j - 1].expense).toLocaleString() + " → " + Math.round(r.expense).toLocaleString() + "円" });
+    }
+    // ③1日あたり・⑦メイン株価が切り替わった月 2026-08-06P。
+    // ⚠️期間別テーブルにした（2026-08-06M）のに**切り替わったことが画面のどこにも出ていなかった**＝
+    //   行を足しても「何も変わっていない」ように見える最大の原因。生活費と同じ作法で節目に出す。
+    //   特に⑦は方式Aだと株数・損益に影響しない（余力の列だけが動く）ので、ここに出ないと本当に無反応に見える。
+    if (j > 0 && r.perDay !== rows[j - 1].perDay) {
+      marks.push({ ym: r.ym, kind: "cost", text: _dtsYmLbl(r.ym) + "  1日あたり " + Math.round(rows[j - 1].perDay).toLocaleString() + " → " + Math.round(r.perDay).toLocaleString() + "円/100株" });
+    }
+    if (j > 0 && r.price !== rows[j - 1].price) {
+      marks.push({ ym: r.ym, kind: "cost", text: _dtsYmLbl(r.ym) + "  メイン株価 " + Math.round(rows[j - 1].price).toLocaleString() + " → " + Math.round(r.price).toLocaleString() + "円" });
     }
     // ⚠️切替中は出さない 2026-08-06B。旧は r.switched を見ていなかったので、切替（残金を全額 生活口座へ）が
     //   効いている最中でも「生活口座が目標◯円に到達 → **以降は全額が取引資金へ**」を緑で出していた。
@@ -1415,9 +1428,17 @@ function DaytradeProjection(props) {
       //   ここに残すと同じ話が2箇所に出て、片方だけ古くなる。ここは⑦だけの話＝100株あたりいくら要るか、に絞る。
       React.createElement("div", { style: { fontSize: 9, color: "#B45309", marginTop: 4, lineHeight: 1.5 } },
         (eff && eff.marginOk)
-          ? ("この設定だと 100株あたりの必要保証金は " + _dtsFmtYen(eff.mainPrice * 100 * eff.marginRate)
-            + "円（＝株価 " + _dtsFmtYen(eff.mainPrice) + "円 × 100株 × " + (Math.round(eff.marginRate * 1000) / 10) + "%）。"
-            + "取引資金の " + (Math.round(1 / eff.marginRate * 100) / 100) + "倍 まで建てられる計算です。株数の増やし方は⑥で決めます。")
+          ? React.createElement(React.Fragment, null,
+              "この設定だと 100株あたりの必要保証金は " + _dtsFmtYen(eff.mainPrice * 100 * eff.marginRate)
+                + "円（＝株価 " + _dtsFmtYen(eff.mainPrice) + "円 × 100株 × " + (Math.round(eff.marginRate * 1000) / 10) + "%）。"
+                + "取引資金の " + (Math.round(1 / eff.marginRate * 100) / 100) + "倍 まで建てられる計算です。",
+              // ★方式Aでは株価が株数を1株も動かさない 2026-08-06P（ユーザー報告「入力しても何も変化しない」の正体）。
+              //   株価は余力チェックの列（拘束額・余力使用率・理論最大株数）だけに効く。黙っていると
+              //   「株価を変えたのに総資産も株数も動かない＝壊れている」と読める。
+              React.createElement("span", { style: { display: "block", color: (eff.stepMode === "power" || eff.maxMode === "multiple") ? "#047857" : "#B45309" } },
+                (eff.stepMode === "power" || eff.maxMode === "multiple")
+                  ? "⑥が株価を使う設定なので、株価を変えると株数・損益も動きます。"
+                  : "⑥が「資金が◯円増えるごとに◯株」なので、株価を変えても株数と損益は動きません（余力使用率・理論最大株数の列だけが動きます）。株価に株数を追従させたいなら、⑥の方式を「余力使用率から逆算」にするか、上限を「取引資金の◯倍まで」にしてください。"))
           : "メイン株価を入れると、100株あたりの必要保証金と建てられる上限をここに出します。")
     )),
     // ⑧は複数行＋条件つき 2026-08-06M。⚠️他の表と違い「状態」ではなく**その月に1回だけ起きる出来事**なので、
@@ -2079,7 +2100,6 @@ function _dtsRange(from, to, step) { var a = [], v; for (v = from; v <= to; v +=
 //   「今と同じ設定」が候補に無く、差の基準がズレる。
 function _dtsLeverDefs(cfg, base) {
   var out = [], eff = base.summary.eff;
-  var sIdx = _dtsYmToIdx(cfg.startYm), eIdx = _dtsYmToIdx(cfg.endYm);
   // ⑧は複数行になった 2026-08-06M。総当たりは**1行だけ・年月指定のとき**に限る（複数行あるとどれを動かすか
   //   決められないし、条件つきの行は「年月をずらす」という提案自体が成り立たない）。
   var injs = _dtsNormCfg(cfg).injections;
@@ -2101,17 +2121,22 @@ function _dtsLeverDefs(cfg, base) {
       cur: _dtsNumOrNull(cfg.stepBase), values: [null].concat(_dtsRange(1000000, 5000000, 100000)),
       fmt: function(v) { return v == null ? "②の取引資金から" : _dtsFmtMan(v) + "円になったら"; } });
   }
-  out.push({ id: "maxShares", kind: "struct", sec: "⑥", label: "上限株数", path: { kind: "top", key: "maxShares" },
-    cur: _dtsNumOrNull(cfg.maxShares), values: [null].concat(_dtsRange(500, 6000, 500)),
-    fmt: function(v) { return v == null ? "上限なし" : v.toLocaleString() + "株"; } });
-  if (hasInj && sIdx != null && eIdx != null) {
-    var ys = [], q;
-    for (q = sIdx; q <= eIdx; q++) ys.push(_dtsIdxToYm(q));
-    // ⚠️適用先は injections[0]（配列）2026-08-06M。旧の cfg.injection へ書くと _dtsNormCfg が
-    //   injections を優先するため**提案を適用しても何も変わらない**。
-    out.push({ id: "injYm", kind: "struct", sec: "⑧", label: "投入の年月", path: { kind: "row", arr: "injections", i: 0, key: "from" },
-      cur: inj.from, values: ys, fmt: function(v) { return _dtsYmLbl(v); } });
-    out.push({ id: "injShares", kind: "struct", sec: "⑧", label: "投入直後の株数", path: { kind: "row", arr: "injections", i: 0, key: "sharesAfter" },
+  // ⑥の上限は**方式に合わせて振る対象を変える** 2026-08-06P。maxMode が "multiple" のとき maxShares を
+  //   振っても engine が見ないので、100通り回して必ず「提案なし」になる死んだ総当たりだった。
+  if (eff.maxMode === "multiple") {
+    out.push({ id: "maxMultiple", kind: "struct", sec: "⑥", label: "上限の倍率", path: { kind: "top", key: "maxMultiple" },
+      cur: _dtsNumOrNull(cfg.maxMultiple), values: _dtsRange(10, 40, 1).map(function(v) { return v / 10; }),
+      fmt: function(v) { return v == null ? "—" : (Math.round(v * 10) / 10) + "倍まで"; } });
+  } else {
+    out.push({ id: "maxShares", kind: "struct", sec: "⑥", label: "上限株数", path: { kind: "top", key: "maxShares" },
+      cur: _dtsNumOrNull(cfg.maxShares), values: [null].concat(_dtsRange(500, 6000, 500)),
+      fmt: function(v) { return v == null ? "上限なし" : v.toLocaleString() + "株"; } });
+  }
+  // ★⑧の「投入の年月」は総当たりから外した 2026-08-06P（ユーザー指定「投入の年月に関する提案は不要」）。
+  //   外部資金をいつ入れられるかは資金繰りの都合で決まるので、シミュが「1ヶ月早めれば＋◯万」と言っても
+  //   実行できるとは限らない＝⑤の積立と同じで「決められる設定」ではない。金額・直後の株数だけ残す。
+  if (hasInj) {
+    out.push({ id: "injShares", kind: "struct", sec: "α", label: "投入直後の株数", path: { kind: "row", arr: "injections", i: 0, key: "sharesAfter" },
       cur: _dtsNumOrNull(inj.sharesAfter) || 0, values: [0].concat(_dtsRange(100, 4000, 100)),
       fmt: function(v) { return v ? v.toLocaleString() + "株" : "指定なし"; } });
   }
@@ -2207,7 +2232,14 @@ function _dtsAdvice(cfg) {
   if ((cfg.livingSwitch || {}).mode && cfg.livingSwitch.mode !== "off") {
     same(function(c) { c.livingSwitch = { mode: "off" }; }, "⑤の切替（残金を全額 生活口座へ）は、外しても期末が1円も変わりません。");
   }
-  if (_dtsNumOrNull(cfg.maxShares) != null) {
+  // ⚠️上限の方式が「取引資金の◯倍まで」の時に maxShares を外す検査をしてはいけない 2026-08-06P。
+  //   engine が maxShares を見ないので必ず「変わらない」＝**使っていない設定を「効いていない」と誤って断言する**。
+  //   方式ごとに、実際に使われているほうだけを検査する。
+  if (base0.summary.eff.maxMode === "multiple") {
+    if (_dtsNumOrNull(cfg.maxMultiple) != null) {
+      same(function(c) { c.maxMode = "shares"; c.maxShares = null; }, "⑥の上限（取引資金の◯倍まで）は、外しても期末が1円も変わりません（期間内に上限へ届いていません）。");
+    }
+  } else if (_dtsNumOrNull(cfg.maxShares) != null) {
     same(function(c) { c.maxShares = null; }, "⑥の上限株数は、外しても期末が1円も変わりません（期間内に上限へ届いていません）。");
   }
   // ⚠️配列側(injections)を触ること 2026-08-06M。cfg.injection を空にしても _dtsNormCfg が injections を
@@ -2215,7 +2247,7 @@ function _dtsAdvice(cfg) {
   var _injs = _dtsNormCfg(cfg).injections;
   if (_injs.length === 1 && _dtsNumOrNull(_injs[0].sharesAfter)) {
     same(function(c) { c.injections = [Object.assign({}, _injs[0], { sharesAfter: null })]; },
-      "⑧の「投入直後の株数」は、空にしても期末が1円も変わりません（⑥の段だけで同じ株数に届いています）。");
+      "αの「投入直後の株数」は、空にしても期末が1円も変わりません（⑥の段だけで同じ株数に届いています）。");
   }
   return { base: base, props: props, tradeoffs: tradeoffs, chosen: chosen, combo: accSc, breakEven: breakEven, inert: inert };
 }
