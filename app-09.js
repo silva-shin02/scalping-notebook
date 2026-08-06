@@ -746,6 +746,7 @@ function DaytradeProjection(props) {
   var cfg = _c[0], setCfg = _c[1];
   var _o = useState(true), openIn = _o[0], setOpenIn = _o[1];
   var _s = useState(""), saveMsg = _s[0], setSaveMsg = _s[1];
+  var _a = useState(true), openAdv = _a[0], setOpenAdv = _a[1];   // 🔧調整案の開閉 2026-08-06H
 
   // 触ったかどうか 2026-08-06。cfg は useState の遅延初期化なので**初回マウントの data しか見ない**＝
   // 別デバイスで保存した前提が同期で後から届いても、タブを開き直すまで反映されなかった。
@@ -781,6 +782,23 @@ function DaytradeProjection(props) {
   };
 
   var res = _dtsSimulate(cfg);
+  // 🔧調整案 2026-08-06H。総当たりで200本以上シミュを回すので、**cfgが変わった時だけ**計算する。
+  // ⚠️useMemo の依存に cfg（オブジェクト）を直接置かない＝ setCfg は毎回新しい参照を返すので、
+  //   入力欄を1文字打つたびに全部回し直しになる。中身の署名（JSON）で比べること。
+  // ⚠️**この行は下の `if (res.error) return` より前に置く**＝フックは早期returnの後ろに置けない
+  //   （エラーの有無でフックの数が変わり、期間を空にした瞬間にReactが落ちる）。_dtsAdvice はエラー時 null を返す。
+  // ⚠️閉じている間は計算しない＝1回62ms（実測）を入力の1文字ごとに払わない。開いている時だけ回す。
+  var cfgKey = JSON.stringify(cfg);
+  var adv = useMemo(function() { return openAdv ? _dtsAdvice(cfg) : null; }, [cfgKey, openAdv]);
+  // 提案の適用。⚠️評価に使った _dtsSetPath をそのまま通す＝「押したら提案と違う結果になった」を作らない。
+  var applyProp = function(p) { edit(function(prev) { return _dtsSetPath(_dtsCfgClone(prev), p.path, p.value); }); };
+  var applyProps = function(list) {
+    edit(function(prev) {
+      var c = _dtsCfgClone(prev);
+      for (var i = 0; i < (list || []).length; i++) c = _dtsSetPath(c, list[i].path, list[i].value);
+      return c;
+    });
+  };
   // 実際に計算へ使った値（クランプ・既定値差し替え後）。入力欄の注記はこちらを見る 2026-08-06。
   // ⚠️期間エラーの時は summary が無いので null＝注記側でフォールバックすること。
   var eff = res.summary ? res.summary.eff : null;
@@ -916,6 +934,7 @@ function DaytradeProjection(props) {
     _dtsCharts(res),
     _dtsTable(res, cfg),
     _dtsMarks(res),
+    _dtsAdviceBox(adv, applyProp, applyProps, openAdv, setOpenAdv),
     _dtsSensTable(cfg, res)
   );
 }
@@ -1462,6 +1481,290 @@ function _dtsSensRisk(res) {
     if (negYm == null && res.rows[i].capital < 0) negYm = res.rows[i].ym;
   }
   return { shortMonths: sm, negYm: negYm };
+}
+
+// ===== 🔧 調整案（2026-08-06H ユーザー要望「この前提であればここはこうするのが最もいい、という機能」）=====
+// やっていることは総当たり。**入力を1つだけ動かして _dtsSimulate を回し直し、期末総資産を比べる**だけ。
+// ⚠️相場の予測でも投資助言でもない＝入力した前提の中での算術。③の1日あたりが外れれば結論ごと外れる。
+//
+// ★安全条件を必ず掛ける（_DTS_SAFE_USE）＝「保証金不足0ヶ月・余力使用率の最大が95%未満」。
+//   ⚠️総資産だけで最大を採ると**必ず限界レバレッジに寄る**（実測: 刻み額15万で+89万だが余力108%＝
+//   保証金不足5ヶ月＝現実には建てられない）。それは提案ではなく罠なので既定は安全条件つきにし、
+//   条件を外した時の最大は「危険を許せば」として別に併記する＝隠さない。
+// ★提案は2種類に分ける（混ぜると誤読する）。
+//   - struct（構造）: ⑥のラダーと⑧の投入＝**モデルの外に代償が無い**設定。ここは素直に「こうしたほうがいい」。
+//   - alloc（配分）: ⑤の積立＝生活口座と取引資金のどちらに置くか。モデルは取引資金に置くほうを**必ず**good と言う。
+//     現金の余裕が持つ価値がこのモデルに1円も写っていないからで、最適化ではなく**トレードオフの値段**でしかない。
+//     なので合わせ技には入れず「参考」として額だけ出す（＝「積立をやめろ」とは言わない）。
+// ★生活費(④)は総当たりの対象にすらしない。減らせば増えるのが自明で情報量がゼロなうえ、
+//   生活の設計は「前提」であって最適化する変数ではない（金額の感度は④を直接いじれば表で見られる）。
+// ★⑦のメイン株価が未入力だと**安全条件そのものが成立しない**（余力使用率が全月nullで
+//   「危険0ヶ月・保証金不足0ヶ月」＝何でも安全に見える）。その状態で最大化すると限界レバレッジを
+//   安全だと言って勧めることになるので、提案を出さずに株価の入力を促す。
+// ★③の1日あたりも対象にしない。これは**決められる設定ではなく現実についての仮定**なので、
+//   最適化ではなく「どれだけ外れたら結論が変わるか」（下の頑健性）で扱う。
+var _DTS_SAFE_USE = 95;   // 月次表の「危険」と同じ境界＝画面の色と提案の判断を一致させる
+
+// 1本のシミュ結果を1行のスコアに畳む。⚠️余力使用率は _dtsUseTone と同じ丸め（小数第1位の%）で比べる＝
+//   生値で比べると表には「95%」と出ているのに提案側だけ安全扱い、という食い違いが出る。
+function _dtsScore(res) {
+  if (!res || res.error || !res.summary) return null;
+  var maxUse = 0, shortM = 0, dangM = 0, negYm = null, i, r, pu;
+  for (i = 0; i < res.rows.length; i++) {
+    r = res.rows[i];
+    if (r.powerUse != null) {
+      pu = Math.round(r.powerUse * 1000) / 10;
+      if (pu > maxUse) maxUse = pu;
+      if (pu >= _DTS_SAFE_USE) dangM++;
+    }
+    if (r.shortMargin) shortM++;
+    if (negYm == null && r.capital < 0) negYm = r.ym;
+  }
+  return { total: res.summary.endTotal, capital: res.summary.endCapital, shares: res.summary.endShares,
+    maxUse: maxUse, shortMonths: shortM, dangerMonths: dangM, negYm: negYm,
+    safe: (shortM === 0 && dangM === 0 && negYm == null) };
+}
+function _dtsCfgClone(cfg) { return JSON.parse(JSON.stringify(cfg || {})); }
+// 提案の適用先。UI の「適用」ボタンもここを通す＝提案の評価と適用で経路が割れない（＝押したら別の結果、を作らない）。
+function _dtsSetPath(c, path, v) {
+  if (!path) return c;
+  if (path.kind === "top") c[path.key] = v;
+  else if (path.kind === "inj") { c.injection = Object.assign({}, c.injection || {}); c.injection[path.key] = v; }
+  else if (path.kind === "sw") { c.livingSwitch = Object.assign({}, c.livingSwitch || {}); c.livingSwitch[path.key] = v; }
+  else if (path.kind === "row") {
+    var a = (c[path.arr] || []).slice();
+    a[path.i] = Object.assign({}, a[path.i] || {}); a[path.i][path.key] = v; c[path.arr] = a;
+  }
+  return c;
+}
+function _dtsRange(from, to, step) { var a = [], v; for (v = from; v <= to; v += step) a.push(v); return a; }
+
+// 総当たりする入力の一覧。⚠️候補に**今の値を必ず混ぜる**＝今の値が刻みから外れていると
+//   「今と同じ設定」が候補に無く、差の基準がズレる。
+function _dtsLeverDefs(cfg, base) {
+  var out = [], eff = base.summary.eff;
+  var sIdx = _dtsYmToIdx(cfg.startYm), eIdx = _dtsYmToIdx(cfg.endYm);
+  var inj = cfg.injection || {}, hasInj = (+inj.amount || 0) > 0 && !!inj.ym;
+  var drip = (cfg.drip || []), oneDrip = drip.length === 1;   // 期間別が複数行ある時はどの行を動かすか決められないので触らない
+  out.push({ id: "stepAmount", kind: "struct", sec: "⑥", label: "刻み額", path: { kind: "top", key: "stepAmount" },
+    cur: eff.stepAmount, values: _dtsRange(50000, 500000, 10000),
+    fmt: function(v) { return _dtsFmtMan(v) + "円ごと"; } });
+  out.push({ id: "stepShares", kind: "struct", sec: "⑥", label: "増えるごとの株数", path: { kind: "top", key: "stepShares" },
+    cur: eff.stepShares, values: [100, 200, 300, 400, 500],
+    fmt: function(v) { return v.toLocaleString() + "株ずつ"; } });
+  out.push({ id: "maxShares", kind: "struct", sec: "⑥", label: "上限株数", path: { kind: "top", key: "maxShares" },
+    cur: _dtsNumOrNull(cfg.maxShares), values: [null].concat(_dtsRange(500, 6000, 500)),
+    fmt: function(v) { return v == null ? "上限なし" : v.toLocaleString() + "株"; } });
+  out.push({ id: "stepBase", kind: "struct", sec: "⑥", label: "段の起点", path: { kind: "top", key: "stepBase" },
+    cur: _dtsNumOrNull(cfg.stepBase), values: [null].concat(_dtsRange(1000000, 5000000, 100000)),
+    fmt: function(v) { return v == null ? "②の取引資金から" : _dtsFmtMan(v) + "円になったら"; } });
+  if (hasInj && sIdx != null && eIdx != null) {
+    var ys = [], q;
+    for (q = sIdx; q <= eIdx; q++) ys.push(_dtsIdxToYm(q));
+    out.push({ id: "injYm", kind: "struct", sec: "⑧", label: "投入の年月", path: { kind: "inj", key: "ym" },
+      cur: inj.ym, values: ys, fmt: function(v) { return _dtsYmLbl(v); } });
+    out.push({ id: "injShares", kind: "struct", sec: "⑧", label: "投入直後の株数", path: { kind: "inj", key: "sharesAfter" },
+      cur: _dtsNumOrNull(inj.sharesAfter) || 0, values: [0].concat(_dtsRange(100, 4000, 100)),
+      fmt: function(v) { return v ? v.toLocaleString() + "株" : "指定なし"; } });
+  }
+  if (oneDrip) {
+    out.push({ id: "dripAmt", kind: "alloc", sec: "⑤", label: "積立の額", path: { kind: "row", arr: "drip", i: 0, key: "amount" },
+      cur: +drip[0].amount || 0, values: _dtsRange(0, 300000, 10000),
+      fmt: function(v) { return _dtsFmtMan(v) + "円/月"; } });
+    out.push({ id: "dripTgt", kind: "alloc", sec: "⑤", label: "積立の目標残高", path: { kind: "row", arr: "drip", i: 0, key: "target" },
+      cur: _dtsNumOrNull(drip[0].target), values: [null].concat(_dtsRange(100000, 3000000, 100000)),
+      fmt: function(v) { return v == null ? "無制限" : _dtsFmtMan(v) + "円"; } });
+  }
+  for (var i = 0; i < out.length; i++) {
+    var L = out[i], has = false;
+    for (var j = 0; j < L.values.length; j++) if (L.values[j] === L.cur) { has = true; break; }
+    if (!has) L.values = [L.cur].concat(L.values);
+  }
+  return out;
+}
+
+// 1本ぶんの総当たり。安全条件を満たす中の最大(best)と、条件を無視した最大(bestAny)を両方返す。
+function _dtsSweep(cfg, lever) {
+  var best = null, bestAny = null, i, c, sc, v;
+  for (i = 0; i < lever.values.length; i++) {
+    v = lever.values[i];
+    c = _dtsSetPath(_dtsCfgClone(cfg), lever.path, v);
+    sc = _dtsScore(_dtsSimulate(c));
+    if (!sc) continue;
+    if (!bestAny || sc.total > bestAny.sc.total) bestAny = { v: v, sc: sc };
+    // 同額なら余力使用率が低いほうを採る＝同じ結果なら安全な設定を勧める
+    if (sc.safe && (!best || sc.total > best.sc.total || (sc.total === best.sc.total && sc.maxUse < best.sc.maxUse))) best = { v: v, sc: sc };
+  }
+  return { best: best, bestAny: bestAny };
+}
+
+var _DTS_ADV_MIN = 10000;   // 1万円未満の差は提案しない（丸め誤差同然の差を「改善」と言わない）
+function _dtsAdvice(cfg) {
+  var base0 = _dtsSimulate(cfg);
+  var base = _dtsScore(base0);
+  if (!base) return null;
+  // ⑦の株価が無いと安全条件が成立しない＝何を勧めても「安全」と表示されてしまうので、提案そのものを出さない。
+  if (!base0.summary.eff.marginOk) {
+    return { base: base, noMargin: true, props: [], tradeoffs: [], chosen: [], combo: base, breakEven: null, inert: [] };
+  }
+  var levers = _dtsLeverDefs(cfg, base0), props = [], tradeoffs = [], i;
+  for (i = 0; i < levers.length; i++) {
+    var L = levers[i], sw = _dtsSweep(cfg, L);
+    if (!sw.best) continue;
+    if (sw.best.v === L.cur) continue;
+    if (sw.best.sc.total <= base.total + _DTS_ADV_MIN) continue;
+    (L.kind === "alloc" ? tradeoffs : props).push({ id: L.id, kind: L.kind, sec: L.sec, label: L.label, path: L.path,
+      curText: L.fmt(L.cur), newText: L.fmt(sw.best.v), value: sw.best.v,
+      gain: sw.best.sc.total - base.total, sc: sw.best.sc,
+      // 危険を許せばもっと伸びる場合だけ添える（隠さないが、勧めはしない）
+      risky: (sw.bestAny && sw.bestAny.sc.total > sw.best.sc.total + _DTS_ADV_MIN)
+        ? { text: L.fmt(sw.bestAny.v), gain: sw.bestAny.sc.total - base.total, sc: sw.bestAny.sc } : null });
+  }
+  props.sort(function(a, b) { return b.gain - a.gain; });
+  tradeoffs.sort(function(a, b) { return b.gain - a.gain; });
+
+  // ★合わせ技は「個別の差を足す」のではなく**入れるたびに回し直す**（相互作用があるので足し算は成り立たない）。
+  //   実測: 上限株数を単体で足すと余力95.1%＝危険1ヶ月に振れ、次の積立の提案を足すと94.9%へ戻る。
+  //   安全条件を保ったまま総資産が増える提案だけを、効く順に貪欲に採る＝結果は必ず安全側に閉じる。
+  var acc = _dtsCfgClone(cfg), accSc = base, chosen = [];
+  for (i = 0; i < props.length; i++) {
+    var c2 = _dtsSetPath(_dtsCfgClone(acc), props[i].path, props[i].value);
+    var s2 = _dtsScore(_dtsSimulate(c2));
+    if (s2 && s2.safe && s2.total > accSc.total + _DTS_ADV_MIN) { acc = c2; accSc = s2; chosen.push(props[i]); }
+  }
+
+  // 頑健性＝この調整で得た幅は、③の1日あたりが何%下振れすると消えるか。
+  // ⚠️「+127万も増える」だけを見せると、前提そのものが外れる可能性が視界から消える。同じ画面に必ず出す。
+  var breakEven = null;
+  if (chosen.length && accSc.total > base.total) {
+    var per = +cfg.dailyPer100 || 0;
+    var at = function(rt) { var c3 = _dtsCfgClone(acc); c3.dailyPer100 = per * rt; var s3 = _dtsScore(_dtsSimulate(c3)); return s3 ? s3.total : -Infinity; };
+    if (at(0.3) > base.total) breakEven = { ratio: 0.3, beyond: true };   // −70%でもまだ上回る＝下限まで探索しても交点なし
+    else {
+      var lo = 0.3, hi = 1.0, mid, k;
+      for (k = 0; k < 40; k++) { mid = (lo + hi) / 2; if (at(mid) > base.total) hi = mid; else lo = mid; }
+      breakEven = { ratio: hi, beyond: false };
+    }
+  }
+
+  // 「外しても結果が1円も変わらない設定」＝入れた意味が無い設定を名指しする。
+  // ⚠️総資産だけでなく**期末取引資金と期末株数まで**一致した時だけ言う。総資産だけで判定すると、
+  //   ⑤の切替のように「総額は同じで取引資金と生活口座の内訳だけ変わる」設定を「効いていない」と誤って断言する。
+  var inert = [];
+  var same = function(mod, txt) {
+    var c4 = _dtsCfgClone(cfg); mod(c4);
+    var s4 = _dtsScore(_dtsSimulate(c4));
+    if (s4 && s4.total === base.total && s4.capital === base.capital && s4.shares === base.shares) inert.push(txt);
+  };
+  if ((cfg.livingSwitch || {}).mode && cfg.livingSwitch.mode !== "off") {
+    same(function(c) { c.livingSwitch = { mode: "off" }; }, "⑤の切替（残金を全額 生活口座へ）は、外しても期末が1円も変わりません。");
+  }
+  if (_dtsNumOrNull(cfg.maxShares) != null) {
+    same(function(c) { c.maxShares = null; }, "⑥の上限株数は、外しても期末が1円も変わりません（期間内に上限へ届いていません）。");
+  }
+  if ((cfg.injection || {}).ym && _dtsNumOrNull(cfg.injection.sharesAfter)) {
+    same(function(c) { c.injection = Object.assign({}, c.injection, { sharesAfter: 0 }); }, "⑧の「投入直後の株数」は、空にしても期末が1円も変わりません（⑥の段だけで同じ株数に届いています）。");
+  }
+  return { base: base, props: props, tradeoffs: tradeoffs, chosen: chosen, combo: accSc, breakEven: breakEven, inert: inert };
+}
+
+// 🔧 調整案のパネル。提案ごとに「適用」・まとめて適用のボタンを出す（押すと入力欄がその値に置き換わる）。
+// ⚠️adv は**閉じている間 null**（計算を省いているため）。null で早期returnすると見出しごと消えて二度と開けない。
+//   見出しは adv に依存しないので必ず先に組み、中身だけを adv の有無で出し分けること。
+function _dtsAdviceBox(adv, onApply, onApplyAll, open, setOpen) {
+  var head = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: open ? 6 : 0 } },
+    React.createElement("button", {
+      onClick: function() { setOpen(!open); },
+      style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, background: "transparent", border: "none", padding: 0, cursor: "pointer" }
+    }, (open ? "▼" : "▶") + " 🔧 調整案"),
+    React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280" } },
+      "入力を1つずつ動かして回し直した総当たり。相場の予測ではなく、入れた前提の中での算術です"),
+    React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#047857", background: "#F0FDF4", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 6px" } },
+      "安全条件つき｜保証金不足0ヶ月・余力使用率" + _DTS_SAFE_USE + "%未満"));
+  var shell = function(ch, bd, bg) {
+    return React.createElement("div", { style: { border: "1px solid " + (bd || _DTS_BD), borderRadius: 9, background: bg || "#fff", padding: "7px 10px", marginBottom: 8 } }, head, ch);
+  };
+  if (!open) return shell(null);
+  if (!adv) return shell(React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, color: "#6B7280" } }, "前提を計算できないので調整案は出せません。"));
+
+  var money = function(v) { return React.createElement("span", { style: { fontWeight: 800, color: v > 0 ? _DTS_UP : (v < 0 ? _DTS_DOWN : _DTS_ZERO) } }, (v >= 0 ? "＋" : "−") + _dtsFmtMan(Math.abs(v))); };
+  var body = [];
+
+  // 株価が無いと余力使用率が全月「—」＝安全条件が判定できない。何を出しても「安全」に見えるので提案を出さない。
+  if (adv.noMargin) {
+    return shell(React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, color: "#92400E", lineHeight: 1.7 } },
+      "⑦のメイン株価が入っていないので、調整案は出せません。余力使用率が全月「—」になり、"
+      + "どんな株数でも「保証金不足0ヶ月・危険0ヶ月」＝安全だと判定されてしまうためです（実際には建てられない株数を勧めることになります）。"),
+      "#FDE68A", "#FFFBEB");
+  }
+
+  // 提案1行。showChosen=false（参考枠）では「合わせ技には未採用」を出さない＝そもそも採用対象ではないため。
+  var rowOf = function(p, showChosen) {
+    var chosen = false;
+    for (var q = 0; q < adv.chosen.length; q++) if (adv.chosen[q].id === p.id) { chosen = true; break; }
+    return React.createElement("div", { key: p.id, style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", padding: "4px 0", borderTop: "1px solid #F1F5F9" } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: _DTS_SUB, minWidth: 16 } }, p.sec),
+      React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#374151" } }, p.label),
+      React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#9CA3AF", fontVariantNumeric: "tabular-nums" } }, p.curText),
+      React.createElement("span", { style: { fontSize: 10, color: "#9CA3AF" } }, "→"),
+      React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, fontVariantNumeric: "tabular-nums" } }, p.newText),
+      money(p.gain),
+      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280" } }, "余力最大 " + p.sc.maxUse + "%"),
+      (showChosen && !chosen) ? React.createElement("span", { title: "単体では効きますが、上の合わせ技に足すと総資産が増えないか、安全条件を割るので外しています", style: { fontSize: 9, fontWeight: 700, color: "#B45309" } }, "※合わせ技には未採用") : null,
+      p.risky ? React.createElement("span", { title: "保証金不足や余力95%以上を許した場合の最大です。実際にはその株数を建てられない月が出るので勧めません", style: { fontSize: 9, fontWeight: 700, color: "#B91C1C" } },
+        "危険を許せば " + p.risky.text + " で＋" + _dtsFmtMan(p.risky.gain) + "（余力" + p.risky.sc.maxUse + "%"
+        + (p.risky.sc.shortMonths ? "・保証金不足" + p.risky.sc.shortMonths + "ヶ月" : "") + "）") : null,
+      React.createElement("button", {
+        onClick: function() { onApply(p); },
+        style: { marginLeft: "auto", fontSize: 10, fontWeight: 800, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "2px 9px", cursor: "pointer" }
+      }, "適用"));
+  };
+
+  if (!adv.props.length) {
+    body.push(React.createElement("div", { key: "none", style: { fontSize: 10.5, fontWeight: 700, color: "#047857", lineHeight: 1.7 } },
+      "この安全条件のもとでは、⑥⑧のどれを1つ動かしても期末総資産は今より増えませんでした。今の前提がこの条件での上限に近い、ということです。"));
+  } else {
+    if (adv.chosen.length) {
+      var g = adv.combo.total - adv.base.total;
+      body.push(React.createElement("div", { key: "combo", style: { border: "1px solid #A7F3D0", background: "#F0FDF4", borderRadius: 8, padding: "6px 9px", marginBottom: 6 } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+          React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: "#065F46" } }, "合わせ技（下の" + adv.chosen.length + "件をまとめて）"),
+          React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#065F46", fontVariantNumeric: "tabular-nums" } },
+            _dtsFmtMan(adv.base.total) + "円 → " + _dtsFmtMan(adv.combo.total) + "円"),
+          money(g),
+          React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#047857" } },
+            "株数 " + adv.combo.shares.toLocaleString() + "株・余力最大 " + adv.combo.maxUse + "%"),
+          React.createElement("button", {
+            onClick: function() { onApplyAll(adv.chosen); },
+            style: { marginLeft: "auto", fontSize: 10, fontWeight: 800, color: "#fff", background: "#047857", border: "none", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }
+          }, "まとめて適用")),
+        // ⚠️「増える」だけを見せない＝前提が外れる幅を必ず同じ枠に出す。
+        adv.breakEven ? React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#92400E", marginTop: 4, lineHeight: 1.6 } },
+          adv.breakEven.beyond
+            ? "※ ③の1日あたりが7割まで下振れしても、この調整をしたほうが今の前提より上でした。"
+            : ("※ ただし ③の1日あたりが " + Math.round((1 - adv.breakEven.ratio) * 100) + "% 下振れすると、この＋"
+               + _dtsFmtMan(g) + "円 は消えて今の前提と同じ水準に戻ります（＝構造をいじって得られる幅より、③が当たるかどうかのほうが大きい）。")) : null));
+    }
+    body.push(React.createElement("div", { key: "list" }, adv.props.map(function(p) { return rowOf(p, true); })));
+  }
+  // ⑤の積立は「最適化」ではなく**トレードオフの値段**なので、合わせ技から外して別枠に置く。
+  // ここを提案に混ぜると、モデルに写っていない「現金の余裕の価値」を0と見なして「積立をやめろ」と言うことになる。
+  if (adv.tradeoffs && adv.tradeoffs.length) {
+    body.push(React.createElement("div", { key: "trade", style: { marginTop: 7, paddingTop: 5, borderTop: "1px solid " + _DTS_BD } },
+      React.createElement("div", { style: { fontSize: 10, fontWeight: 800, color: "#B45309", marginBottom: 1 } }, "参考｜取っておく現金の値段（提案ではありません）"),
+      React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#92400E", lineHeight: 1.6, marginBottom: 2 } },
+        "⑤の積立を減らすほど期末は増えます。ただしこのシミュには「生活口座に現金がある安心」の価値が1円も入っていないので、"
+        + "常に「減らしたほうがいい」としか出ません。合わせ技には入れず、削った場合にいくら変わるかだけ出します。"),
+      adv.tradeoffs.map(function(p) { return rowOf(p, false); })));
+  }
+  if (adv.inert.length) {
+    body.push(React.createElement("div", { key: "inert", style: { marginTop: 6, paddingTop: 5, borderTop: "1px solid #F1F5F9" } },
+      React.createElement("div", { style: { fontSize: 10, fontWeight: 800, color: "#6B7280", marginBottom: 2 } }, "入れても結果が変わっていない設定"),
+      adv.inert.map(function(t, i) {
+        return React.createElement("div", { key: i, style: { fontSize: 10, fontWeight: 700, color: "#6B7280", lineHeight: 1.6 } }, "・" + t);
+      })));
+  }
+  return shell(React.createElement("div", null, body));
 }
 
 // グレード感度＝1日あたり成績だけ差し替えて回し直した比較表。
