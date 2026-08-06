@@ -5668,7 +5668,37 @@ function _elKabuLadderSimV2(props) {
     recs2.sort(function(x, y) { var dx = (x.r.date || "") + (x.s.time || ""), dy = (y.r.date || "") + (y.s.time || ""); return dx < dy ? 1 : dx > dy ? -1 : 0; });
     var aSum = cA.calc.sum, aRef = cA.calc.sumRef, bSum = cB.calc.sum, bRef = cB.calc.sumRef;
     var diff = bSum - aSum, diffRef = (bRef || 0) - (aRef || 0);
-    var _mCell = function(row) { return _mtSimCell({ noBuild: row.noBuild, cfgPnl: row.recPnl, cfgRef: row.recRef, cells: row.cells }); };
+    // ===== 設定セルの「実現最高／余裕」小書き 2026-08-06b（ユーザー要望「実際の記録の最高OS値が見えないと分からない」）=====
+    // 余裕＝**OS1〜3の最高値**(_elOsMaxAll・α非依存)− その段の実効α。
+    //   +6円＝6円ぶん余裕をもって到達／0円＝**指値同値**（予定EPにちょうど触れただけ）／−4円＝4円足りず未到達。
+    // ⚠️基準は OS1〜5 の生の最高(_epOsMaxRawAll)ではなく **OS1〜3**。_epResolve の到達判定が先頭3本しか見ない（`Math.min(3, legs.length)`）ので、
+    //   αが届くかどうかの天井はOS1〜3の最高値。ここを揃えることで **余裕0円 ⟺ 指値同値** が厳密に一致する（オプション「指値同値は建てない」の判定母数 _elOsMaxAll と同じ）。
+    //   「最高OS」列（_epOsMaxChainNode＝実現最高（生の最高）・OS1〜5）とは基準が違うので、余裕の値と列の数字は引き算で合わないことがある＝titleで明記している。
+    //   段が複数（複数回の取引）なら段ごとに"/"で並べる＝上の金額の内訳と同じ順（_saOfがα昇順・重複除去）。
+    // 実現最高(_elOsMaxCapped)は**αで変わる**（EP位置が動くと手じまい足も動く）ので設定ごとに出す。
+    //   ただし採用α基準の「最高OS」列と同値なら出さない＝**差が出た設定だけ光る**（_epOsMaxChainNodeが（）内を差のある時だけ出すのと同じ方針）。
+    // 建たなかった行（未到達・×見送り等）は従来どおりチップだけ＝ユーザー指定「未達はそのままでいい」。
+    var _cmpOsSub = function(s, cells, capAdopt) {
+      var raw = _elOsMaxAll(s), as = _saOf(cells);   // raw＝OS1〜3の最高値（到達判定の天井）
+      if (raw == null || !as.length) return null;
+      var _uniq = function(arr) { var o = []; arr.forEach(function(v) { if (v != null && o.indexOf(v) < 0) o.push(v); }); return o; };
+      var caps = _uniq(as.map(function(a) { return _elOsMaxCapped(s, a); }));
+      var showCap = caps.length && !(caps.length === 1 && capAdopt != null && caps[0] === capAdopt);
+      var rooms = _uniq(as.map(function(a) { return raw - a; }));
+      return React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, whiteSpace: "nowrap", marginTop: 1, lineHeight: 1.3 } },
+        showCap ? React.createElement("span", { title: "この設定の実効αでの実現最高（EP足〜手じまい足の高値の最大）。採用α基準の「最高OS」列と値が違うときだけ表示＝αを動かした結果、手じまい位置が変わった記録。", style: { color: "#94A3B8", marginRight: 4 } }, "実現最高 " + caps.join("/") + "・") : null,   // 「・」で区切る＝5pxのmarginだけだとコピペ/読み上げで「9余裕」と繋がって読める
+        React.createElement("span", { title: "余裕＝OS1〜3の最高値（" + raw + "円）− この設定の実効α（" + as.join("/") + "円）。EP到達の判定はOS1〜3しか見ないので、αが届く天井はこの値。0円＝予定EPにちょうど触れただけ＝指値同値／マイナス＝その段はαに届いていない。※左の「最高OS」列は手じまいまでの実現最高（OS1〜5）なので基準が違い、引き算では合わないことがある。" },
+          React.createElement("span", { style: { color: "#94A3B8" } }, "余裕 "),
+          rooms.map(function(v, i) {
+            return React.createElement("span", { key: i, style: { color: v > 0 ? "#64748B" : (v === 0 ? "#0F6E56" : "#B45309"), fontWeight: 800 } }, (i ? "/" : "") + (v > 0 ? "+" : "") + v);
+          }),
+          React.createElement("span", { style: { color: "#94A3B8" } }, "円")));
+    };
+    var _mCell = function(row, s, capAdopt) {
+      var main = _mtSimCell({ noBuild: row.noBuild, cfgPnl: row.recPnl, cfgRef: row.recRef, cells: row.cells });
+      var sub = row.noBuild ? null : _cmpOsSub(s, row.cells, capAdopt);
+      return sub ? React.createElement("div", null, main, sub) : main;
+    };
     var brows = [];
     recs2.forEach(function(m) {
       var key = "cmp" + m.oi, open = cmpExp === key;
@@ -5676,27 +5706,29 @@ function _elKabuLadderSimV2(props) {
       var dA = (m.rA.recPnl == null && m.rB.recPnl == null) ? null : ((m.rB.recPnl || 0) - (m.rA.recPnl || 0));   // 差額＝設定B−設定A（片側—は0円扱い・両方—なら—）
       var dRef = (m.rB.recRef || 0) - (m.rA.recRef || 0);
       var adoptA = aiOf(m.r).alpha;
+      var _capAdopt = _elOsMaxCapped(m.s, adoptA), _osNode = _epOsMaxChainNode(m.s, adoptA);   // 2026-08-06b 採用α基準＝手動ラダーのマスター表のOS連鎖列(_epOsChainCell(s,採用α))と同じ基準＝値が突き合わせられる
       brows.push(React.createElement("tr", { key: key, onClick: function() { setCmpExp(open ? null : key); }, style: { cursor: "pointer", background: open ? "#F0FDFA" : "transparent" } },
         _mtTd(dstr), _mtTd(React.createElement("span", { style: { color: "#334155", fontWeight: 700, fontSize: 10.5, whiteSpace: "nowrap" } }, adoptA != null ? (adoptA + "円") : "—"), "center"),
-        _mtTd(_mCell(m.rA), "center"), _mtTd(_mCell(m.rB), "center", true), _mtTd(_mtPnlNode2(dA, dRef), "right"),
+        _mtTd(_osNode || React.createElement("span", { style: { color: "#ccc" } }, "—"), "center"),   // 2026-08-06b 最高OS＝採用α基準の実現最高（（）内＝打ち切り無しの生の最高値）。記録の実像なので設定に依らず全行に出す
+        _mtTd(_mCell(m.rA, m.s, _capAdopt), "center"), _mtTd(_mCell(m.rB, m.s, _capAdopt), "center", true), _mtTd(_mtPnlNode2(dA, dRef), "right"),
         _mtTd(React.createElement("span", { style: { color: "#0F766E", fontSize: 9 } }, open ? "▲" : "▼"), "center")));
       if (open) {
         var saA = _saOf(m.rA.cells), saB = _saOf(m.rB.cells);
         var scA = _scOf(m.rA.cells, m.r), scB = _scOf(m.rB.cells, m.r);
-        brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 6, style: { padding: "6px 10px", background: "#FBFEFD", borderBottom: "1px solid #eee", fontSize: 9.5, lineHeight: 1.6 } },
+        brows.push(React.createElement("tr", { key: key + "_d" }, React.createElement("td", { colSpan: 7, style: { padding: "6px 10px", background: "#FBFEFD", borderBottom: "1px solid #eee", fontSize: 9.5, lineHeight: 1.6 } },   // 2026-08-06b 最高OS列ぶん 6→7
           React.createElement("div", { style: { marginBottom: 3 } }, React.createElement("b", { style: { color: "#0F6E56" } }, "設定A"), React.createElement("span", { style: { color: "#64748b", margin: "0 4px" } }, "α" + (saA.length ? saA.map(function(v) { return v + "円"; }).join("/") : "—") + "・損切りEP+" + (scA.length ? scA.join("/") : "—") + "円："), _mtTierNodes(m.rA.cells)),
           React.createElement("div", null, React.createElement("b", { style: { color: "#0C447C" } }, "設定B"), React.createElement("span", { style: { color: "#64748b", margin: "0 4px" } }, "α" + (saB.length ? saB.map(function(v) { return v + "円"; }).join("/") : "—") + "・損切りEP+" + (scB.length ? scB.join("/") : "—") + "円："), _mtTierNodes(m.rB.cells)))));
       }
     });
     var _sumRow = React.createElement("tr", { style: { background: "#E1F5EE" } },
-      React.createElement("td", { colSpan: 2, style: { padding: "4px 6px", fontSize: 10, fontWeight: 700, color: "#0F766E", whiteSpace: "nowrap" } }, "合計（" + recs2.length + "件）"),
+      React.createElement("td", { colSpan: 3, style: { padding: "4px 6px", fontSize: 10, fontWeight: 700, color: "#0F766E", whiteSpace: "nowrap" } }, "合計（" + recs2.length + "件）"),   // 2026-08-06b 最高OS列ぶん 2→3
       _mtTd(_mtPnlNode2(aSum, aRef), "center"), _mtTd(_mtPnlNode2(bSum, bRef), "center", true), _mtTd(_mtPnlNode2(diff, diffRef), "right"), React.createElement("td", null));
     return React.createElement("div", { style: { marginTop: 8 } },
       _cmpBar(aSum, aRef, bSum, bRef),
       React.createElement("div", { style: { overflowX: "auto", border: "0.5px solid #e8e3d8", borderTop: "none", borderRadius: "0 0 10px 10px" } },
-        React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 520 } },
+        React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 600 } },   // 2026-08-06b 最高OS列ぶん 520→600
           React.createElement("thead", null, React.createElement("tr", { style: { background: "#F0FDFA", color: "#0F766E" } },
-            _mtTh("日付"), _mtTh("採用α", "center"), _mtTh("設定A", "center"), _mtTh("設定B", "center", true), _mtTh("差額(B−A)", "right"), _mtTh(""))),
+            _mtTh("日付"), _mtTh("採用α", "center"), _mtTh("最高OS", "center"), _mtTh("設定A", "center"), _mtTh("設定B", "center", true), _mtTh("差額(B−A)", "right"), _mtTh(""))),
           React.createElement("tbody", null, brows),
           React.createElement("tfoot", null, _sumRow))));
   };
