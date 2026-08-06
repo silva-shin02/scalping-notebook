@@ -54,6 +54,51 @@ function _dtsPickByYm(rows, ym) {
   return best;
 }
 
+// 期間別テーブル（④生活費・⑤積立）の「＋途中で変える」で足す行の年月 2026-08-06I。
+// ⚠️旧は `from: cfg.startYm`（＝期間の開始月）だった。これは2通りに壊れる:
+//   1. 1行目が開始月のまま（既定の前提はまさにこれ）だと**年月が重複**し、_dtsPickByYm は先に書いた行しか採らないので
+//      足した行は金額を何に変えても一切効かない＝「押しても何も変わらない」。
+//   2. 重複しない場合でも、足した行が**期間の先頭**に入る＝「途中で変える」と言いながら最初の数ヶ月に効く（意図と逆）。
+// 正しくは「今ある行のうち最も遅い月の翌月」。埋まっていて空きが無い時は null＝ボタンを押させない。
+function _dtsNextFrom(rows, startYm, endYm) {
+  var eIdx = _dtsYmToIdx(endYm), best = null;
+  for (var i = 0; i < (rows || []).length; i++) {
+    var r = rows[i];
+    var fi = (r && r.from) ? _dtsYmToIdx(r.from) : null;
+    if (fi != null && (best == null || fi > best)) best = fi;
+  }
+  if (best == null) return startYm || null;
+  if (eIdx != null && best >= eIdx) return null;   // 最後の月まで行がある＝足す先が無い
+  return _dtsIdxToYm(best + 1);
+}
+// 表示は年月順に並べ替える（配列の順は変えない）。⚠️setRow/delRow は**元の添字**を使うので、
+//   並べ替えた配列の添字を渡すと別の行を書き換える。必ず {r, i} の組で持ち回ること。
+function _dtsOrderedRows(rows) {
+  var a = [];
+  for (var i = 0; i < (rows || []).length; i++) a.push({ r: rows[i], i: i });
+  a.sort(function(x, y) {
+    var xi = (x.r && x.r.from) ? _dtsYmToIdx(x.r.from) : null, yi = (y.r && y.r.from) ? _dtsYmToIdx(y.r.from) : null;
+    if (xi == null && yi == null) return x.i - y.i;
+    if (xi == null) return 1;      // 年月が空の行は末尾（一度も使われないので目立つ位置に置かない）
+    if (yi == null) return -1;
+    return (xi - yi) || (x.i - y.i);   // 同じ年月なら元の順＝先に書いたほう（実際に使われるほう）が上
+  });
+  return a;
+}
+// 同じ年月の行のうち「影になって一度も使われない」行に true。_dtsPickByYm が先に書いた行を採るので、
+// 配列で後ろにある同year-monthの行が影になる。⚠️効いていない前提 欄だけでなく行そのものにも出すため。
+function _dtsShadowedRows(rows) {
+  var seen = {}, out = [];
+  for (var i = 0; i < (rows || []).length; i++) {
+    var r = rows[i];
+    var fi = (r && r.from) ? _dtsYmToIdx(r.from) : null;
+    if (fi == null) { out[i] = false; continue; }
+    out[i] = !!seen[fi];
+    seen[fi] = true;
+  }
+  return out;
+}
+
 // 空欄を「未設定(null)」として読む。0 と 空欄 を区別したい項目（目標残高・株数上限）に使う。
 // "" / null / undefined / NaN → null。それ以外は数値。
 function _dtsNumOrNull(v) {
@@ -819,6 +864,41 @@ function DaytradeProjection(props) {
     setSaveMsg("保存しました"); setTimeout(function() { setSaveMsg(""); }, 1800);
   };
 
+  // ---- 期間別テーブル（④⑤）の行まわり 2026-08-06I ----
+  // 「＋途中で変える」は**今ある行の最も遅い月の翌月**を入れる（旧＝期間の開始月＝重複して効かない）。
+  // 空きが無い時はボタンを押させない＝押せたのに何も起きない、を作らない。
+  var _lcDead = _dtsShadowedRows(cfg.livingCost), _drDead = _dtsShadowedRows(cfg.drip);
+  var _rowSty = function(dead) {
+    return { display: "flex", alignItems: "center", gap: 6, marginBottom: 4,
+      background: dead ? "#FEF2F2" : null, border: dead ? "1px solid #FCA5A5" : null,
+      borderRadius: dead ? 6 : null, padding: dead ? "3px 5px" : null, opacity: dead ? 0.75 : 1 };
+  };
+  // ⚠️影になった行は⚠️欄（画面のずっと上）だけでなく**その行自体**にも出す＝間違えた場所で気づけるように。
+  var _deadNote = React.createElement("span", { key: "dead", title: "同じ年月の行が上にあります。先に書いたほうだけが使われるので、この行は一度も使われません。年月を変えるか、この行を消してください。",
+    style: { fontSize: 9, fontWeight: 800, color: "#B91C1C", whiteSpace: "nowrap" } }, "⚠ この行は使われません（年月が重複）");
+  // 足す行は**今efectiveな行の値を引き継ぐ**（年月だけ変える）2026-08-06I。
+  // ⚠️旧は生活費20万・積立5万の固定値だった＝今の設定と偶然一致すると押しても何も変わらず、
+  //   一致しないと押しただけで結果が飛ぶ。どちらも「押した結果」が読めない。
+  //   引き継ぎなら「押した直後は必ず変化なし → 変えた欄のぶんだけ動く」で挙動が一定になる。
+  var _lastRowOf = function(key) {
+    var rows = cfg[key] || [], best = null, bi = -1;
+    for (var i = 0; i < rows.length; i++) {
+      var fi = (rows[i] && rows[i].from) ? _dtsYmToIdx(rows[i].from) : null;
+      if (fi != null && fi > bi) { bi = fi; best = rows[i]; }
+    }
+    return best;
+  };
+  var _addRowBtn = function(key, mk) {
+    var nf = _dtsNextFrom(cfg[key], cfg.startYm, cfg.endYm), prev = _lastRowOf(key);
+    return React.createElement("button", {
+      onClick: nf ? function() { addRow(key, mk(nf, prev)); } : null,
+      disabled: !nf,
+      title: nf ? ("「" + _dtsYmLbl(nf) + "から」の行を足します") : "①の終了月まで行が埋まっているので、これ以上は足せません（終了を延ばすか、既存の行の年月を早めてください）",
+      style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD,
+        borderRadius: 6, padding: "3px 8px", cursor: nf ? "pointer" : "not-allowed", opacity: nf ? 1 : 0.45 }
+    }, "＋ 途中で変える" + (nf ? "（" + _dtsYmLbl(nf) + "〜）" : ""));
+  };
+
   // ---- 入力パネル ----
   var inputPanel = !openIn ? null : React.createElement("div", null,
     _dtsSec("① 期間", months ? "＝ " + months + "ヶ月" : null, _dtsRow([
@@ -860,18 +940,21 @@ function DaytradeProjection(props) {
           + "分母は「記録のあった日数」なので、取引しない営業日があるなら①も実際のトレード日数に合わせてください（上のボタンは両方まとめて入れます）。"))
     )),
     _dtsSec("④ 生活費", "社会保険料もここに足す（別枠は持たない）", React.createElement("div", null,
-      (cfg.livingCost || []).map(function(r, i) {
-        return React.createElement("div", { key: "lc" + i, style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
+      _dtsOrderedRows(cfg.livingCost).map(function(o) {
+        var r = o.r, i = o.i, dead = _lcDead[i];
+        return React.createElement("div", { key: "lc" + i, style: _rowSty(dead) },
           React.createElement(DtsYm, { value: r.from, width: 112, onChange: function(v) { setRow("livingCost", i, "from", v); } }),
           _dtsLbl("から 月"),
           React.createElement(DtsNum, { value: r.amount, unit: "man", suffix: "万円", step: 1, onChange: function(v) { setRow("livingCost", i, "amount", v); } }),
+          dead ? _deadNote : null,
           (cfg.livingCost.length > 1) ? React.createElement("button", { onClick: function() { delRow("livingCost", i); }, style: { fontSize: 10, color: "#B91C1C", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null);
       }),
-      React.createElement("button", { onClick: function() { addRow("livingCost", { from: cfg.startYm, amount: 200000 }); }, style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" } }, "＋ 途中で変える")
+      _addRowBtn("livingCost", function(ym, prev) { return { from: ym, amount: prev ? (+prev.amount || 0) : 200000 }; })
     )),
     _dtsSec("⑤ 生活口座への積立", "目標残高に達すると積立が止まり、以降は全額が取引資金へ", React.createElement("div", null,
-      (cfg.drip || []).map(function(r, i) {
-        return React.createElement("div", { key: "dr" + i, style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" } },
+      _dtsOrderedRows(cfg.drip).map(function(o) {
+        var r = o.r, i = o.i, dead = _drDead[i];
+        return React.createElement("div", { key: "dr" + i, style: Object.assign({ flexWrap: "wrap" }, _rowSty(dead)) },
           React.createElement(DtsYm, { value: r.from, width: 112, onChange: function(v) { setRow("drip", i, "from", v); } }),
           _dtsLbl("から"),
           React.createElement("select", {
@@ -881,9 +964,13 @@ function DaytradeProjection(props) {
           (r.mode === "fill") ? null : React.createElement(DtsNum, { value: r.amount, unit: "man", suffix: "万円/月", step: 1, onChange: function(v) { setRow("drip", i, "amount", v); } }),
           _dtsLbl("目標残高"),
           React.createElement(DtsNum, { value: r.target, unit: "man", suffix: "万円", placeholder: "無制限", step: 5, onChange: function(v) { setRow("drip", i, "target", v); } }),
+          dead ? _deadNote : null,
           (cfg.drip.length > 1) ? React.createElement("button", { onClick: function() { delRow("drip", i); }, style: { fontSize: 10, color: "#B91C1C", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null);
       }),
-      React.createElement("button", { onClick: function() { addRow("drip", { from: cfg.startYm, mode: "drip", amount: 50000, target: null }); }, style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" } }, "＋ 途中で変える"),
+      _addRowBtn("drip", function(ym, prev) {
+        return prev ? { from: ym, mode: prev.mode || "drip", amount: +prev.amount || 0, target: _dtsNumOrNull(prev.target) }
+                    : { from: ym, mode: "drip", amount: 50000, target: null };
+      }),
       _dtsSwitchRow(cfg, setSw)
     )),
     // 2026-08-05y ラベルを「月末の資金口座が◯万円になった次の月から」へ（ユーザー要望）。
