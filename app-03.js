@@ -1238,7 +1238,7 @@ function StockTabs(_ref34) {
   // 📅日替わりタブ（per-day 2026-07-22d）: 外国市場の右に固定。その日の本日の取引銘柄(dailyStock[date])を表示。常時表示(onRotSelect提供時)。
   // 銘柄が選ばれている間は見出し「📅 日替わり」を残したまま銘柄名を2段目に出す（rotDayStock 2026-08-05・ユーザー要望）。
   // 従来は見出しごと銘柄名に置き換わっていて、どのタブなのか分からなくなっていた。未選択時はrotLabelの1行のみ。
-  // 複数指定（2026-08-06）: 2段目は親が作ったラベル（「A・B」／3つ以上は「A・B 他N」）。見出し側にも銘柄数（2以上のとき）を出す。
+  // 複数指定（2026-08-06）: 2段目は親が作ったラベル（「A・B」／3つ以上は「A・B 他N」）。1段目は2銘柄以上のとき「📅 日替わり（N）」＝選んだ数（ユーザー指定 2026-08-06F）。
   onRotSelect ? React.createElement("button", {
     key: "__rot__",
     onClick: function() { if (!touchState.current.on) onRotSelect(); },
@@ -1263,7 +1263,7 @@ function StockTabs(_ref34) {
       ? React.createElement("span", {
           style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 }
         },
-          React.createElement("span", { style: { fontSize: 13, fontWeight: 600, opacity: 0.85 } }, "📅 日替わり", (rotDayCount > 1) ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, marginLeft: 3 } }, "×" + rotDayCount) : null),
+          React.createElement("span", { style: { fontSize: 13, fontWeight: 600, opacity: 0.85 } }, "📅 日替わり" + ((rotDayCount > 1) ? ("（" + rotDayCount + "）") : "")),
           React.createElement("span", { style: { fontSize: 13, fontWeight: 700 } }, rotDayStock)
         )
       : (rotLabel || "📅 日替わり")
