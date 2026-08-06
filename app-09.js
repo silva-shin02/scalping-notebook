@@ -77,6 +77,10 @@ function _dtsActivate(rows, act, idx, shares, capOpen) {
     } else if (t === "capital") {
       var tc = _dtsNumOrNull(r.capital);
       if (tc != null && capOpen >= tc) act[i] = idx;
+    } else if (t === "capitalBelow") {
+      // ⑧の追加入金用 2026-08-06M＝「資金が◯円を下回ったら」。他の条件と向きが逆なのでここだけ <=。
+      var cb = _dtsNumOrNull(r.capitalBelow);
+      if (cb != null && capOpen <= cb) act[i] = idx;
     } else {
       var fi = r.from ? _dtsYmToIdx(r.from) : null;
       if (fi != null && fi <= idx) act[i] = fi;
@@ -102,7 +106,53 @@ function _dtsTrigLabel(r) {
   var t = (r && r.trig) || "ym";
   if (t === "shares") { var s = _dtsNumOrNull(r.shares); return "月初取引株数が " + (s == null ? "—" : s.toLocaleString()) + "株以上"; }
   if (t === "capital") { var c = _dtsNumOrNull(r.capital); return "月初取引資金が " + (c == null ? "—" : _dtsFmtMan(c)) + "円以上"; }
+  if (t === "capitalBelow") { var cb = _dtsNumOrNull(r.capitalBelow); return "月初取引資金が " + (cb == null ? "—" : _dtsFmtMan(cb)) + "円以下"; }
   return (_dtsYmLbl(r && r.from) || "—") + "から";
+}
+// 条件の値そのもの（空かどうかの検査・並べ替えのキーに使う）。
+function _dtsTrigVal(r) {
+  var t = (r && r.trig) || "ym";
+  if (t === "shares") return _dtsNumOrNull(r.shares);
+  if (t === "capital") return _dtsNumOrNull(r.capital);
+  if (t === "capitalBelow") return _dtsNumOrNull(r.capitalBelow);
+  return (r && r.from) ? _dtsYmToIdx(r.from) : null;
+}
+
+// ===== 前提の正規化 2026-08-06M =====
+// ③1日あたり・⑦メイン株価・⑧外部資金を「1つの値」から**期間別テーブル**へ広げた（ユーザー要望）。
+// ⚠️保存済みcfgは古い形（スカラー／単数の injection）なので、読むたびにここで配列へ寄せる。
+//   逆に保存側は**古いキーも書き続ける**（dailyPer100 / mainPrice / injection）＝旧版の端末が読んでも
+//   先頭行の値で従来どおり動く。dailyStock を複数化した時と同じ後方互換の作法。
+// ⚠️ここは**純粋な変換だけ**にすること。既定値の判断（0以下を既定に戻す等）は _dtsSimulate 側の責務で、
+//   両方でやると「どちらが効いたのか」が追えなくなる。
+function _dtsNormCfg(cfg) {
+  var c = cfg || {}, out = {}, k;
+  for (k in c) { if (Object.prototype.hasOwnProperty.call(c, k)) out[k] = c[k]; }
+  if (!(Array.isArray(c.perDayRows) && c.perDayRows.length)) {
+    out.perDayRows = [{ trig: "ym", from: c.startYm || "", amount: +c.dailyPer100 || 0 }];
+  }
+  if (!(Array.isArray(c.priceRows) && c.priceRows.length)) {
+    out.priceRows = [{ trig: "ym", from: c.startYm || "", amount: _dtsNumOrNull(c.mainPrice) }];
+  }
+  if (!(Array.isArray(c.injections) && c.injections.length)) {
+    var oi = c.injection;
+    out.injections = (oi && oi.ym) ? [{ trig: "ym", from: oi.ym, amount: +oi.amount || 0, sharesAfter: _dtsNumOrNull(oi.sharesAfter) }] : [];
+  }
+  if (!Array.isArray(out.livingCost)) out.livingCost = [];
+  if (!Array.isArray(out.drip)) out.drip = [];
+  return out;
+}
+// テーブルの「その月に効いている値」。行が無い／未入力なら fallback。
+function _dtsRowAmt(rows, act, fallback) {
+  var i = _dtsPickActIdx(rows, act);
+  if (i < 0) return fallback;
+  var v = _dtsNumOrNull(rows[i].amount);
+  return (v == null) ? fallback : v;
+}
+// テーブルの代表値＝配列の先頭行（UIも先頭行を主たる欄として出す）。警告・注記用で、計算には使わない。
+function _dtsHeadAmt(rows, fallback) {
+  var v = _dtsNumOrNull(((rows && rows[0]) || {}).amount);
+  return (v == null) ? fallback : v;
 }
 
 // 期間別テーブル（④生活費・⑤積立）の「＋途中で変える」で足す行の年月 2026-08-06I。
@@ -191,7 +241,9 @@ function _dtsNumOrNull(v) {
 // 返り値 { error, rows[], summary, marks[] }。
 // ⚠️月次ループの①〜⑥は**順序を変えると結果が変わる**。仕様として固定。
 function _dtsSimulate(cfg) {
-  cfg = cfg || {};
+  // ⚠️必ず先に正規化する 2026-08-06M＝古い形（スカラーのdailyPer100/mainPrice・単数のinjection）で
+  //   保存されたcfgでも、以降は perDayRows/priceRows/injections の配列だけを見ればよくなる。
+  cfg = _dtsNormCfg(cfg);
   var sIdx = _dtsYmToIdx(cfg.startYm), eIdx = _dtsYmToIdx(cfg.endYm);
   if (sIdx == null) return { error: "開始年月が未入力です", rows: [], summary: null, marks: [] };
   if (eIdx == null) return { error: "終了年月が未入力です", rows: [], summary: null, marks: [] };
@@ -210,7 +262,9 @@ function _dtsSimulate(cfg) {
   var taxRaw    = taxRate;
   if (taxRate < 0) taxRate = 0;
   if (taxRate > 0.9) taxRate = 0.9;
-  var perDay    = +cfg.dailyPer100 || 0;
+  // ③1日あたり・⑦株価は**期間別テーブル**（2026-08-06M）。ここで持つのは警告と eff（注記）用の「代表値＝先頭行」だけ。
+  // ⚠️月ごとの実効値はループの中の perDayM / priceM。**ループ内でこの2つの変数を使わないこと**（月ごとに変わるので）。
+  var perDay    = _dtsHeadAmt(cfg.perDayRows, 0);
   var stepBase  = _dtsNumOrNull(cfg.stepBase);           // null＝②の取引資金（＝開始時）から数える
   // ⚠️0以下は既定値へ戻す 2026-08-06。旧 `Math.max(1, +cfg.stepAmount || 250000)` は**負値だと刻みが1円**になり、
   //   段数が青天井で株数が 4.5e51 株まで飛んでいた（⑥の上限が空欄だと何も止めない）。0を既定に戻す旧挙動は維持。
@@ -223,6 +277,11 @@ function _dtsSimulate(cfg) {
   //   取引資金だけ初月から凍結して株数も伸びない」という二重の壊れ方をしていた（実測: 資金134.1万で12ヶ月固定）。
   var maxShRaw  = _dtsNumOrNull(cfg.maxShares);
   var maxSh     = (maxShRaw != null && maxShRaw > 0) ? maxShRaw : null;   // null＝上限なし
+  // ⑥の上限の方式 2026-08-06M: "shares"（既定・従来＝◯株）／"multiple"（取引資金の◯倍まで＝拘束額ベース）。
+  // ⚠️"multiple" は月ごとに上限が動く（資金が増えれば上限も上がる）ので、ループの中で毎月出し直す。
+  var maxMode   = (cfg.maxMode === "multiple") ? "multiple" : "shares";
+  var maxMulRaw = _dtsNumOrNull(cfg.maxMultiple);
+  var maxMul    = (maxMulRaw != null && maxMulRaw > 0) ? maxMulRaw : null;
   // ⑥の方式 2026-08-06J（ユーザー相談「〇円増えたら、より 余力使用率が90%を超えない範囲で最大数のほうがよいか」）。
   //   "amount"（既定・従来）＝資金が◯円増えるごとに◯株。"power"＝毎月「余力使用率が目標を超えない最大株数」。
   // ⚠️既存の保存済みcfgには stepMode が無いので、**未設定は必ず "amount"**（＝従来と1円も変わらない）。
@@ -240,7 +299,7 @@ function _dtsSimulate(cfg) {
   // ⚠️株価・保証金率は0以下だと余力の計算そのものが成り立たない 2026-08-06。株価は0（＝未入力）へ寄せ、
   //   保証金率は税率と同じ作法で「0%超〜100%」にクランプする。旧は負値がそのまま通り、月次は全部「—」なのに
   //   開始時行と合計行だけ「信用余力 −433万・理論最大株数 −700株」が出ていた。
-  var mainPriceRaw = _dtsNumOrNull(cfg.mainPrice);
+  var mainPriceRaw = _dtsHeadAmt(cfg.priceRows, null);
   var mainPrice = (mainPriceRaw != null && mainPriceRaw > 0) ? mainPriceRaw : 0;
   var mgnRaw    = (cfg.marginRate == null || cfg.marginRate === "") ? 0.30 : +cfg.marginRate;
   var marginRt  = mgnRaw;
@@ -264,8 +323,7 @@ function _dtsSimulate(cfg) {
   var base = (stepBase != null ? stepBase : capital), baseShares = shares;
   var initShares = shares;   // 開始時の株数＝節目の「600 → 700株」の左側に使う（初月に段が上がる時の起点）2026-08-06
 
-  var inj    = (cfg.injection && cfg.injection.ym) ? cfg.injection : null;
-  var injIdx = inj ? _dtsYmToIdx(inj.ym) : null;
+  // ⑧は cfg.injections（複数行・条件つき）が正 2026-08-06M。単数の cfg.injection は _dtsNormCfg が変換済み。
   var injTotal = 0;
 
   // ★残金を全額 生活口座へ回す切替 2026-08-05L（ユーザー決定）。旧「株数が⑥の上限に達したら」を一般化したもの。
@@ -317,9 +375,9 @@ function _dtsSimulate(cfg) {
       // ⚠️「年月が空の行があります」が必ず出る＝入れた瞬間に狼少年になるので、条件行は別に検査する。
       var _t = r.trig || "ym";
       if (_t !== "ym") {
-        var _th = (_t === "shares") ? _dtsNumOrNull(r.shares) : _dtsNumOrNull(r.capital);
-        if (_th == null) warns.push(lbl + "に「" + (_t === "shares" ? "月初取引株数" : "月初取引資金") + "が◯以上」の行がありますが、数値が空なので一度も発動しません。");
-        else if (_th <= 0) warns.push(lbl + "の「" + _dtsTrigLabel(r) + "」は開始月から必ず成立します（0以下のため）。");
+        var _th = _dtsTrigVal(r);
+        if (_th == null) warns.push(lbl + "に条件つきの行がありますが、条件の数値が空なので一度も発動しません。");
+        else if (_th <= 0 && _t !== "capitalBelow") warns.push(lbl + "の「" + _dtsTrigLabel(r) + "」は開始月から必ず成立します（0以下のため）。");
         continue;
       }
       // 年月が空／年月として読めない行は _dtsPickByYm(49行)が黙って飛ばす＝入れたのに一度も使われない 2026-08-06。
@@ -336,6 +394,9 @@ function _dtsSimulate(cfg) {
   };
   _chkRows(cfg.livingCost, "④生活費");
   _chkRows(cfg.drip, "⑤積立");
+  _chkRows(cfg.perDayRows, "③1日あたり");
+  _chkRows(cfg.priceRows, "⑦メイン株価");
+  _chkRows(cfg.injections, "⑧外部資金");
 
   // 「0や負を入れたのに既定値で計算される」＝`+cfg.X || 既定` のイディオムの副作用。入力欄の表示と計算が
   // 食い違うので黙って通さない（0で割れないため既定に戻す挙動自体は維持する）2026-08-05D／2026-08-06に負値まで拡張。
@@ -378,14 +439,25 @@ function _dtsSimulate(cfg) {
       + "株 より小さいので効いていません（「資金が減っても下げない」が優先で、株を減らしはしません）。");
   }
 
-  if (inj && (injIdx == null || injIdx < sIdx || injIdx > eIdx)) {
-    warns.push("αの投入年月「" + (_dtsYmLbl(inj.ym) || inj.ym) + "」が期間の外なので、投入は一切反映されていません。"
-      + "①の期間（" + _dtsYmLbl(cfg.startYm) + "〜" + _dtsYmLbl(cfg.endYm) + "）の中に入れてください。");
+  // ⑧の年月が期間の外＝投入が一度も起きない 2026-08-06M（複数行に対応）。条件つきの行は期間外という概念が
+  // 無いので、ここは年月の行だけ見る（届かない条件の行はループ後に「一度も届かない」で拾う）。
+  for (var qi = 0; qi < cfg.injections.length; qi++) {
+    var qr = cfg.injections[qi];
+    if (!qr || (qr.trig && qr.trig !== "ym")) continue;
+    var qidx = qr.from ? _dtsYmToIdx(qr.from) : null;
+    if (qidx == null || qidx < sIdx || qidx > eIdx) {
+      warns.push("⑧の投入年月「" + ((qr.from ? _dtsYmLbl(qr.from) : "") || "未入力") + "」が期間の外なので、その投入は反映されていません。"
+        + "①の期間（" + _dtsYmLbl(cfg.startYm) + "〜" + _dtsYmLbl(cfg.endYm) + "）の中に入れてください。");
+    }
   }
 
   var rows = [], prevShares = shares;
-  var dripAct = [];    // ⑤各行が発動した月index（未発動はnull）。ループ内で _dtsActivate が埋める 2026-08-06L
-  var dripUsed = [];   // ⑤各行が「実際にその月の積立として選ばれた」か。発動しても他の行に負け続ける行を拾うため
+  // 期間別テーブルごとの「発動した月index」。ループ内で _dtsActivate が埋める 2026-08-06L／M
+  var dripAct = [], dripUsed = [];       // ⑤積立（used＝実際に選ばれたか。発動しても他の行に負け続ける行を拾う）
+  var lcAct = [], lcUsed = [];           // ④生活費
+  var perDayAct = [], perDayUsed = [];   // ③1日あたり
+  var priceAct = [], priceUsed = [];     // ⑦メイン株価
+  var injAct = [];                       // ⑧外部資金（こちらは「当月に発動した行を全部」実行する＝usedは不要）
 
   for (var k = 0; k < n; k++) {
     var ym = _dtsIdxToYm(sIdx + k);
@@ -393,21 +465,34 @@ function _dtsSimulate(cfg) {
     var capOpen = capital;   // 月初の取引資金＝バッファ・余力使用率の判定に使う（当月の利益は含めない）
     var injected = 0, stepUp = false;
 
-    var isInjMonth = (injIdx != null && injIdx === sIdx + k), jumped = false;
+    // ① 外部資金の投入 2026-08-06M: **複数行＋条件つき**（年月／月初株数／月初資金が◯円以上／◯円以下）。
+    // ⚠️⑤の積立と違い、投入は「状態」ではなく**その月に1回だけ起きる出来事**。だから
+    //   「発動済みのうち最後の1行を選ぶ」のではなく「**当月に発動した行を全部**」実行する。
+    // ⚠️条件の判定は投入を足す**前**の資金で行う（「資金が◯円を下回ったら入れる」が、入れた直後の資金で
+    //   判定されて成立しなくなる、という自己矛盾を避ける）。株数は前月末の株数。
+    _dtsActivate(cfg.injections, injAct, sIdx + k, prevShares, capital);
+    var _saWant = null;
+    for (var ii = 0; ii < cfg.injections.length; ii++) {
+      if (injAct[ii] !== sIdx + k) continue;
+      var _ir = cfg.injections[ii];
+      injected += (+_ir.amount || 0);
+      var _isa = _dtsNumOrNull(_ir.sharesAfter);
+      if (_isa != null && _isa > 0 && (_saWant == null || _isa > _saWant)) _saWant = _isa;   // 同月に複数なら大きいほうを採る
+    }
+    var isInjMonth = (injected !== 0 || _saWant != null), jumped = false;
 
-    // ① 外部資金の投入（該当月のみ）。**「投入直後の株数」を指定した時だけ**②をスキップして指定株数へジャンプする。
+    // **「投入直後の株数」を指定した時だけ**②をスキップして指定株数へジャンプする。
     if (isInjMonth) {
-      injected = +inj.amount || 0;
       capital += injected;
       injTotal += injected;
-      var sa = _dtsNumOrNull(inj.sharesAfter);
+      var sa = _saWant;
       // ⚠️2026-08-05B: ここは以前 shares = sa の**素の代入**だった＝指定株数が今より少ないと投入月だけ
       //   株数が落ち、翌月には②のラチェットで跳ね上がる（実測: 1,500→700→1,700）。⑥の「資金が減っても
       //   下げない」に真っ向から反するうえ、1ヶ月だけ凹むシナリオは誰も意図しない。ラチェットを掛ける。
       //   下回って無効化された時は黙って捨てず warns で知らせる（入れたのに効かない入力を作らない）。
       if (sa != null && sa > 0) {
         if (sa < prevShares) {
-          warns.push("αの「投入直後の株数」" + sa.toLocaleString() + "株 は、その時点の " + prevShares.toLocaleString()
+          warns.push("⑧の「投入直後の株数」" + sa.toLocaleString() + "株 は、その時点の " + prevShares.toLocaleString()
             + "株 より少ないので効いていません（⑥の「資金が減っても下げない」が優先）。減らす想定なら②の基礎取引株数を見直してください。");
         } else {
           shares = sa; jumped = true;
@@ -438,6 +523,20 @@ function _dtsSimulate(cfg) {
     //   その月だけ段が上がらなかった（本来昇段する月に投入を重ねると1ヶ月ぶん取りこぼす）。
     //   判定元を capital → prevClose に変えたので、投入額が当月の段に混ざる心配なく投入月も②を通せる。
     //   非投入月では prevClose === capital なので、この変更で従来の結果は1円も動かない。
+    // ⑦ メイン株価も期間別テーブル 2026-08-06M。⚠️株数を決める**前**に確定させること＝方式B（余力から逆算）と
+    //   上限の「資金の◯倍」が株価を使うので、あとから決めると当月だけ古い株価で計算される。
+    _dtsActivate(cfg.priceRows, priceAct, sIdx + k, prevShares, capOpen);
+    var _prI = _dtsPickActIdx(cfg.priceRows, priceAct);
+    if (_prI >= 0) priceUsed[_prI] = true;
+    var priceM = _dtsRowAmt(cfg.priceRows, priceAct, 0);
+    if (!(priceM > 0)) priceM = 0;
+    var mgnOkM = (priceM > 0 && marginRt > 0);
+    // ⑥の上限。"multiple"＝取引資金の◯倍まで（拘束額ベース）＝月初資金で毎月動く。100株単位で切り捨て。
+    var maxShM = maxSh;
+    if (maxMode === "multiple") {
+      maxShM = (maxMul != null && priceM > 0) ? (Math.floor(capOpen * maxMul / priceM / 100) * 100) : null;
+    }
+
     if (!jumped) {
       var want;
       if (stepMode === "power") {
@@ -446,12 +545,12 @@ function _dtsSimulate(cfg) {
         // ⚠️判定は**月初資金(capOpen)**＝⑦の余力使用率と同じ分母。方式Aの prevClose とは基準が違う
         //   （方式Aは「前月末にいくら貯まったか」、方式Bは「今いくら担保にできるか」なので、それぞれ正しい）。
         // ⚠️株価が無いと計算できない＝**株数を据え置く**（0にすると損益まで消えて前提が別物になる）。
-        want = mgnOk ? (Math.floor(tgtUse * capOpen / (mainPrice * marginRt) / 100) * 100) : prevShares;
+        want = mgnOkM ? (Math.floor(tgtUse * capOpen / (priceM * marginRt) / 100) * 100) : prevShares;
       } else {
         var steps = Math.floor(Math.max(0, prevClose - base) / stepAmt);
         want = baseShares + steps * stepSh;
       }
-      if (maxSh != null && maxSh > 0) want = Math.min(want, maxSh);
+      if (maxShM != null && maxShM > 0) want = Math.min(want, maxShM);
       // ラチェット＝資金が減っても株数は下げない。方式Bで stepDown を選んだ時だけ下げる（0未満にはしない）。
       shares = (stepMode === "power" && stepDown) ? Math.max(0, want) : Math.max(want, prevShares);
     }
@@ -475,12 +574,22 @@ function _dtsSimulate(cfg) {
     //   実測: 1日 −2,000円で 税引前 −24.0万 なのに手取り −19.1万。負けの前提が丸ごと2割楽観的になり、
     //   月末取引資金・期末総資産・🛑資金が尽きる月まで全部が甘い方向へずれる。
     //   （損益通算・繰越控除は「他に十分な利益がある」前提の話で、この単月モデルには乗らない）
-    var gross = (shares / 100) * perDay * days;
+    // ③1日あたりも期間別テーブル 2026-08-06M。⚠️活性化は**当月の株数が決まったあと**＝「株数が◯株以上なら
+    //   1日あたり◯円」という**逓減**を書けるようにするため（枚数を増やすと100株あたりの取れ高が落ちる、を表現できる）。
+    _dtsActivate(cfg.perDayRows, perDayAct, sIdx + k, shares, capOpen);
+    var _pdI = _dtsPickActIdx(cfg.perDayRows, perDayAct);
+    if (_pdI >= 0) perDayUsed[_pdI] = true;
+    var perDayM = _dtsRowAmt(cfg.perDayRows, perDayAct, 0);
+    var gross = (shares / 100) * perDayM * days;
     var tax   = (gross > 0) ? gross * taxRate : 0;
     var net   = gross - tax;
 
     // ④ 支出。社会保険料は「生活費の期間別の行」に含める規約（別枠を持たない）。
-    var lcRow   = _dtsPickByYm(cfg.livingCost, ym);
+    // 2026-08-06M: ⑤と同じ条件つきテーブルへ（年月／月初株数／月初資金）。
+    _dtsActivate(cfg.livingCost, lcAct, sIdx + k, shares, capOpen);
+    var _lcI = _dtsPickActIdx(cfg.livingCost, lcAct);
+    if (_lcI >= 0) lcUsed[_lcI] = true;
+    var lcRow   = (_lcI >= 0) ? cfg.livingCost[_lcI] : null;
     var expense = lcRow ? (+lcRow.amount || 0) : 0;
     var surplus = net - expense;
 
@@ -523,10 +632,12 @@ function _dtsSimulate(cfg) {
     // ⚠️mgnOk（＝株価>0 かつ 保証金率>0）でない時は 0 ではなく null を返す 2026-08-06。
     //   0 を返すと余力使用率が全月0%になり _dtsUseTone が緑の「余裕」を出す＝株価を入れ忘れただけなのに
     //   「安全な前提」に見えてしまう。null なら表もグラフも「—」になり、⚠️欄に理由が出る。
-    var tied     = mgnOk ? (shares * mainPrice) : null;      // 拘束額
-    var needMgn  = mgnOk ? (tied * marginRt) : null;         // 必要保証金
-    var buffer   = mgnOk ? (capOpen - needMgn) : null;       // マイナス＝その株数は資金的に建てられない
-    var powerUse = (mgnOk && capOpen > 0) ? tied / (capOpen / marginRt) : null;   // 余力使用率
+    // ⚠️mgnOk（前提全体）ではなく mgnOkM（**その月の**株価）で判定する 2026-08-06M＝株価を期間別にしたので、
+    //   月によって計算できたりできなかったりする。
+    var tied     = mgnOkM ? (shares * priceM) : null;        // 拘束額
+    var needMgn  = mgnOkM ? (tied * marginRt) : null;        // 必要保証金
+    var buffer   = mgnOkM ? (capOpen - needMgn) : null;      // マイナス＝その株数は資金的に建てられない
+    var powerUse = (mgnOkM && capOpen > 0) ? tied / (capOpen / marginRt) : null;   // 余力使用率
 
     rows.push({
       ym: ym, lbl: _dtsYmLbl(ym),
@@ -548,8 +659,9 @@ function _dtsSimulate(cfg) {
       // ⚠️100株単位で切り捨てる＝端数の株は建てられないので、切り上げると実際には建てられない株数が出る。
       //   ⑥の上限（maxShares）は掛けない＝これは**資金の天井**であって運用ルールの上限とは別物。
       //   株価が未入力(0)だと割れないので null＝表では「—」。
-      theoOpen: mgnOk ? Math.floor(capOpen / marginRt / mainPrice / 100) * 100 : null,
-      theoEnd:  mgnOk ? Math.floor(capital / marginRt / mainPrice / 100) * 100 : null,
+      theoOpen: mgnOkM ? Math.floor(capOpen / marginRt / priceM / 100) * 100 : null,
+      theoEnd:  mgnOkM ? Math.floor(capital / marginRt / priceM / 100) * 100 : null,
+      price: priceM, perDay: perDayM,   // その月に効いた③⑦（表のツールチップ・検算用）2026-08-06M
       total: capital + living,
       injected: injected, livingTarget: tgt,
       buffer: buffer, powerUse: powerUse,
@@ -605,24 +717,31 @@ function _dtsSimulate(cfg) {
       warns.push("⑤の「" + _dtsTrigLabel(dw) + "」の積立が「目標まで全額」なのに目標残高が空欄です。"
         + "余剰が全額そのまま生活口座へ行くので、取引資金が増えず株数も伸びません。目標残高を入れてください。");
     }
-    if (!dw) continue;
-    var _dtrig = dw.trig || "ym";
-    // ①条件つきの行が期間内に一度も成立しなかった＝入れたのに効かない 2026-08-06L。
-    // ⚠️年月の行は _chkRows が「期間の終わりより後」で拾うので、ここは条件行だけ見る（二重に出さない）。
-    if ((_dtrig === "shares" || _dtrig === "capital") && dripAct[w] == null) {
-      var _dth = (_dtrig === "shares") ? _dtsNumOrNull(dw.shares) : _dtsNumOrNull(dw.capital);
-      if (_dth != null && _dth > 0) {
-        warns.push("⑤の「" + _dtsTrigLabel(dw) + "」は期間内に一度も届かないので、この行は使われていません。");
+  }
+  // 「入れたのに効かない行」の検査 2026-08-06L→Mで全テーブルへ一般化。
+  //   ①条件つきの行が期間内に一度も成立しなかった（年月の行は _chkRows が「期間の終わりより後」で拾うので対象外＝二重に出さない）
+  //   ②成立はしたが、他の行に隠れて一度も使われなかった（used付きのテーブルのみ＝⑧のような「その月に実行する」表には無い概念）
+  // ⚠️②を出さないと「条件を足したのに結果が1円も動かない」が黙って起きる。実測: 既存の「2026-11から」がある状態で
+  //   「1,000株以上」を足すと株数が1,000に届くのがちょうど2026-11なので同着負けして無反応になる。
+  //   _dtsShadowedRows（画面の赤い行）は同じ方式で完全に同じ条件の行しか拾えないので、方式をまたぐ隠れはここでしか気づけない。
+  var _chkUnused = function(rows, act, used, lbl) {
+    for (var q = 0; q < (rows || []).length; q++) {
+      var r = rows[q]; if (!r) continue;
+      var t = r.trig || "ym";
+      if (t === "ym") continue;
+      var v = _dtsTrigVal(r);
+      if (v == null) continue;                                   // 未入力は _chkRows が出す
+      if (act[q] == null) warns.push(lbl + "の「" + _dtsTrigLabel(r) + "」は期間内に一度も成立しないので、この行は使われていません。");
+      else if (used && !used[q] && rows.length > 1) {
+        warns.push(lbl + "の「" + _dtsTrigLabel(r) + "」は成立していますが、同じ月かそれより後に成立した別の行が使われるため、一度も適用されていません。条件をずらすか、この行を消してください。");
       }
     }
-    // ②成立はしたが、他の行に隠れて一度も使われなかった行 2026-08-06L。
-    // ⚠️これを出さないと「条件を足したのに結果が1円も動かない」が黙って起きる（同着で先に書いた行に負ける等）。
-    //   _dtsShadowedRows（画面の赤い行）は**同じ方式で完全に同じ条件**の行しか拾えないので、方式をまたぐ
-    //   隠れ（年月の行と株数の行が同じ月に成立した等）はここでしか気づけない。
-    else if (dripAct[w] != null && !dripUsed[w] && (cfg.drip || []).length > 1) {
-      warns.push("⑤の「" + _dtsTrigLabel(dw) + "」は成立していますが、同じ月かそれより後に成立した別の行が使われるため、一度も適用されていません。条件をずらすか、この行を消してください。");
-    }
-  }
+  };
+  _chkUnused(cfg.drip, dripAct, dripUsed, "⑤積立");
+  _chkUnused(cfg.livingCost, lcAct, lcUsed, "④生活費");
+  _chkUnused(cfg.perDayRows, perDayAct, perDayUsed, "③1日あたり");
+  _chkUnused(cfg.priceRows, priceAct, priceUsed, "⑦メイン株価");
+  _chkUnused(cfg.injections, injAct, null, "⑧外部資金");
 
   var last = rows[rows.length - 1] || null;
   sum.endCapital = last ? last.capital : (+cfg.initialCapital || 0);
@@ -703,22 +822,38 @@ var _DTS_SENS = [
   { key: "A", perDay: 2250, lbl: "A  2,250円/日" },
   { key: "S", perDay: 3000, lbl: "S  3,000円/日" }
 ];
+// ③の1日あたりを丸ごと差し替える／倍率を掛ける 2026-08-06M。
+// ⚠️期間別テーブルにしたので **cfg.dailyPer100 を書き換えるだけでは効かない**（_dtsNormCfg が
+//   perDayRows を優先するため）。感度表・頑健性はここを通すこと。旧キーも一緒に更新しておく。
+function _dtsSetPerDayAll(cfg, v) {
+  var c = _dtsNormCfg(_dtsCfgClone(cfg));
+  c.perDayRows = c.perDayRows.map(function(r) { return Object.assign({}, r, { amount: v }); });
+  c.dailyPer100 = v;
+  return c;
+}
+function _dtsScalePerDay(cfg, ratio) {
+  var c = _dtsNormCfg(_dtsCfgClone(cfg));
+  c.perDayRows = c.perDayRows.map(function(r) { return Object.assign({}, r, { amount: (_dtsNumOrNull(r.amount) || 0) * ratio }); });
+  c.dailyPer100 = (_dtsHeadAmt(c.perDayRows, 0));
+  return c;
+}
 function _dtsSensitivity(cfg) {
   var out = [], i;
   var mine = _dtsSimulate(cfg);
+  var head = _dtsHeadAmt(_dtsNormCfg(cfg).perDayRows, 0);   // 表示・比較の基準＝先頭行 2026-08-06M
   // ⚠️ここは cfg.dailyPer100＝**③に入っている前提値**であって実績ではない 2026-08-05B。
   //   保守的に実績より低く置くのが普通（例: 実績2,731に対して前提2,000）なので、
   //   「実績 2,000円/日」と出すと事実と違う数字を実績として提示することになる。
-  if (!mine.error) out.push({ key: "now", lbl: "今の前提 " + Math.round(+cfg.dailyPer100 || 0).toLocaleString() + "円/日", perDay: +cfg.dailyPer100 || 0, self: true, res: mine });
+  if (!mine.error) out.push({ key: "now", lbl: "今の前提 " + Math.round(head).toLocaleString() + "円/日", perDay: head, self: true, res: mine });
   for (i = 0; i < _DTS_SENS.length; i++) {
     var s = _DTS_SENS[i];
     // ⚠️③が代表値（500/1500/2250/3000）とちょうど同じ時は、self と1文字も違わない行が2本並ぶ 2026-08-06。
     //   「今との差 ＋0万」「（同じ）」が灰色で出るだけで、なぜ2行あるのか画面から読めないので飛ばす
     //   （どのグレードかは self 行のバッジで分かる）。
-    if (Math.round(+cfg.dailyPer100 || 0) === s.perDay) continue;
-    var c2 = {}; for (var k in cfg) { if (Object.prototype.hasOwnProperty.call(cfg, k)) c2[k] = cfg[k]; }
-    c2.dailyPer100 = s.perDay;
-    var r = _dtsSimulate(c2);
+    if (Math.round(head) === s.perDay) continue;
+    // ⚠️期間別テーブルなので**全行を差し替える** 2026-08-06M（旧は c2.dailyPer100 に代入するだけで、
+    //   perDayRows がある前提では1円も効かなかった＝比較表が全部同じ数字になる）。
+    var r = _dtsSimulate(_dtsSetPerDayAll(cfg, s.perDay));
     if (!r.error) out.push({ key: s.key, lbl: s.lbl, perDay: s.perDay, self: false, res: r });
   }
   // 目標株数に届く月を各本で拾う。比較表の1列に使う。
@@ -795,6 +930,7 @@ function _dtsDefaultCfg(actual) {
     // ⑥の方式 2026-08-06J。⚠️既定は必ず "amount"（従来の方式）＝**保存済みcfgを持つ人の結果を1円も動かさない**。
     //   targetUse/stepDown は方式Bを選んだ時だけ効くので、既定値が入っていても従来の計算には一切影響しない。
     stepMode: "amount", targetUse: 0.90, stepDown: false,
+    maxMode: "shares", maxMultiple: 3,   // ⑥の上限の方式 2026-08-06M（既定は従来の「◯株まで」）
     mainPrice: 6500, marginRate: 0.30,
     // 2026-08-05L に追加した項目。⚠️既存の保存済みcfgには無いので、**直前の版と同じ挙動になる既定**を入れる
     //   （＝株数が⑥の上限に達したら切替）。ここを "off" にすると保存済みの人だけ結果が変わる。
@@ -810,10 +946,22 @@ function _dtsDefaultCfg(actual) {
 //   いまは「保存にあるキーはそのまま採用し、無いキーだけ既定で埋める」マージにしてある。
 //   ⚠️`saved[k] != null` のような条件でふるいに掛けないこと＝`stepBase:null`(＝開始時)や
 //     `maxShares:null`(＝無制限) は**意味のある null** なので、既定値で塗り替えると設定が化ける。
+// 保存する形。⚠️期間別テーブル化（2026-08-06M）で正は perDayRows/priceRows/injections になったが、
+//   **旧キー(dailyPer100/mainPrice/injection)も先頭行から作って一緒に書く**＝まだ旧JSを掴んでいる端末が
+//   読んでも先頭行の値で従来どおり動く（dailyStock を複数化した時と同じ後方互換の作法）。
+function _dtsForSave(cfg) {
+  var c = _dtsNormCfg(cfg);
+  c.dailyPer100 = _dtsHeadAmt(c.perDayRows, 0);
+  c.mainPrice = _dtsHeadAmt(c.priceRows, 0);
+  var i0 = c.injections[0];
+  c.injection = i0 ? { ym: (i0.trig || "ym") === "ym" ? (i0.from || "") : "", amount: +i0.amount || 0, sharesAfter: _dtsNumOrNull(i0.sharesAfter) }
+                   : { ym: "", amount: 0, sharesAfter: 0 };
+  return c;
+}
 function _dtsInitCfg(data, actual) {
   var d = _dtsDefaultCfg(actual);
   var saved = data && data.custom && data.custom.dtsCfg;
-  if (!saved) return d;
+  if (!saved) return _dtsNormCfg(d);
   var c = {}, k;
   for (k in d) { if (Object.prototype.hasOwnProperty.call(d, k)) c[k] = d[k]; }
   for (k in saved) { if (Object.prototype.hasOwnProperty.call(saved, k)) c[k] = saved[k]; }
@@ -823,7 +971,9 @@ function _dtsInitCfg(data, actual) {
   if (!c.livingCost || !c.livingCost.length) c.livingCost = [{ from: c.startYm, amount: 100000 }];
   if (!c.drip || !c.drip.length) c.drip = [{ from: c.startYm, mode: "drip", amount: 50000, target: null }];
   if (!c.livingSwitch) c.livingSwitch = { mode: "shares", shares: null, capital: null, ym: "" };
-  return c;
+  // ⚠️最後に正規化する 2026-08-06M＝保存が旧形式（スカラー）でも、UI 側は必ず配列を編集する形にそろえる。
+  //   ここで寄せておかないと「⑦に行が無いので何も出ない」「③の行が編集できない」といった空表示になる。
+  return _dtsNormCfg(c);
 }
 
 // 数値入力。unit="man"＝円で持って万円で入出力／"pct"＝小数で持って%で入出力／既定＝そのまま。
@@ -908,6 +1058,31 @@ function DtsYm(props) {
   });
 }
 
+// 期間別テーブルの「条件」部分（方式セレクタ＋しきい値の欄＋「から/になったら」）。5つの表で使い回す 2026-08-06M。
+// ⚠️方式を変えても他方式の値は消さない＝戻した時に打ち直しにならない（cfgに from/shares/capital を並存させる）。
+var _DTS_SEL_STY = { fontSize: 11, fontWeight: 700, padding: "3px 4px", border: "1px solid " + _DTS_BD, borderRadius: 5, background: "#fff", color: "#1F2937" };
+function _dtsTrigCells(r, onSet, opts) {
+  var trig = (r && r.trig) || "ym", o = opts || {};
+  var ops = [
+    React.createElement("option", { key: "ym", value: "ym" }, "◯年◯月から"),
+    React.createElement("option", { key: "shares", value: "shares" }, "月初取引株数が◯株以上"),
+    React.createElement("option", { key: "capital", value: "capital" }, "月初取引資金が◯円以上")
+  ];
+  // ⑧の追加入金だけは「下回ったら」が要る（他の表は上向きの条件しか意味を持たない）。
+  if (o.below) ops.push(React.createElement("option", { key: "capitalBelow", value: "capitalBelow" }, "月初取引資金が◯円以下"));
+  return [
+    React.createElement("select", { key: "trig", value: trig, onChange: function(e) { onSet("trig", e.target.value); }, style: _DTS_SEL_STY }, ops),
+    trig === "shares"
+      ? React.createElement(DtsNum, { key: "tv", value: r.shares, width: 60, suffix: "株以上", step: 100, onChange: function(v) { onSet("shares", v); } })
+      : trig === "capital"
+        ? React.createElement(DtsNum, { key: "tv", value: r.capital, unit: "man", suffix: "万円以上", step: 10, onChange: function(v) { onSet("capital", v); } })
+        : trig === "capitalBelow"
+          ? React.createElement(DtsNum, { key: "tv", value: r.capitalBelow, unit: "man", suffix: "万円以下", step: 10, onChange: function(v) { onSet("capitalBelow", v); } })
+          : React.createElement(DtsYm, { key: "tv", value: r.from, width: 112, onChange: function(v) { onSet("from", v); } }),
+    React.createElement("span", { key: "tl", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, trig === "ym" ? "から" : "になったら")
+  ];
+}
+
 function _dtsSec(title, note, body) {
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, padding: "7px 9px", background: "#fff", marginBottom: 6 } },
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, marginBottom: 5 } }, title,
@@ -984,7 +1159,7 @@ function DaytradeProjection(props) {
   var set = function(k, v) { edit(function(p) { var c = clone(p); c[k] = v; return c; }); };
   // 複数キーを1回で入れる（オートフィルが 1日あたり と ①営業日 をセットで置くため）2026-08-06B。
   var setMany = function(o) { edit(function(p) { var c = clone(p); for (var k in o) { if (Object.prototype.hasOwnProperty.call(o, k)) c[k] = o[k]; } return c; }); };
-  var setInj = function(k, v) { edit(function(p) { var c = clone(p); c.injection = clone(p.injection || {}); c.injection[k] = v; return c; }); };
+  // 2026-08-06M: setInj（単数 cfg.injection 用）は廃止＝⑧は injections 配列を setRow/addRow/delRow で編集する。
   var setSw = function(k, v) { edit(function(p) { var c = clone(p); c.livingSwitch = clone(p.livingSwitch || {}); c.livingSwitch[k] = v; return c; }); };
   var setRow = function(key, i, k, v) {
     edit(function(p) { var c = clone(p); var arr = (p[key] || []).slice(); arr[i] = clone(arr[i] || {}); arr[i][k] = v; c[key] = arr; return c; });
@@ -996,9 +1171,33 @@ function DaytradeProjection(props) {
   var delRow = function(key, i) {
     edit(function(p) {
       var c = clone(p); var arr = (p[key] || []).slice(); arr.splice(i, 1);
-      if (!arr.length) arr = [key === "drip" ? { from: p.startYm, mode: "drip", amount: 50000, target: null } : { from: p.startYm, amount: 0 }];
+      // ⚠️空になった時の穴埋めは key ごとに形が違う。⑧だけは**空を許す**（投入しない、が正当な設定なので）。
+      if (!arr.length && key !== "injections") {
+        arr = [key === "drip" ? { from: p.startYm, mode: "drip", amount: 50000, target: null } : { from: p.startYm, amount: 0 }];
+      }
       c[key] = arr; return c;
     });
+  };
+
+  var autoRef = useRef(null);
+
+  // 期間別テーブルの共通エディタ 2026-08-06M。③④⑤⑦⑧の5つが同じ形（条件＋中身＋🗑＋＋ボタン）なので1本にまとめる。
+  //   cells(r, i) がその表固有の中身（金額・目標残高など）を返す。opts.below で⑧の「◯円以下」を出す。
+  var _rowsEditor = function(key, opts, cells, mkTmpl) {
+    var rows = cfg[key] || [], dead = _dtsShadowedRows(rows), o = opts || {};
+    return React.createElement("div", null,
+      _dtsOrderedRows(rows).map(function(ord) {
+        var r = ord.r, i = ord.i;
+        var onSet = function(k, v) { setRow(key, i, k, v); };
+        return React.createElement("div", { key: key + i, style: Object.assign({ flexWrap: "wrap" }, _rowSty(dead[i])) },
+          _dtsTrigCells(r, onSet, o).concat(cells(r, i)).concat([
+            dead[i] ? _deadNote : null,
+            (rows.length > (o.minRows == null ? 1 : o.minRows))
+              ? React.createElement("button", { key: "del", onClick: function() { delRow(key, i); },
+                  style: { fontSize: 10, color: "#B91C1C", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null
+          ]));
+      }),
+      _addRowBtn(key, mkTmpl));
   };
 
   var res = _dtsSimulate(cfg);
@@ -1010,6 +1209,30 @@ function DaytradeProjection(props) {
   // ⚠️閉じている間は計算しない＝1回62ms（実測）を入力の1文字ごとに払わない。開いている時だけ回す。
   var cfgKey = JSON.stringify(cfg);
   var adv = useMemo(function() { return openAdv ? _dtsAdvice(cfg) : null; }, [cfgKey, openAdv]);
+
+  // ===== 自動保存 2026-08-06M（ユーザー要望「そもそも自動保存してほしい」）=====
+  // 入力が止まって1.2秒で data.custom.dtsCfg へ書く。書き込み先は💾と同じなので保存・同期の経路は増えない。
+  // ⚠️**必ず `var res = _dtsSimulate(cfg)` より後に置く**＝依存配列で res.error を読むので、前に置くと
+  //   「Cannot read properties of undefined (reading 'error')」で画面ごと落ちる（実際にやらかした）。
+  //   同時に `if (res.error) return` より**前**でもあること（フックは早期returnの後ろに置けない）。
+  // ⚠️エラー中は保存しない（期間を空にした瞬間に壊れたcfgで上書きされ、復元できなくなる）。💾と同じ規約。
+  // ⚠️保存済みと同じ内容なら書かない＝setData→stSave→fbPut が無駄に走らないようにする。
+  // ⚠️debounce しないと1文字ごとにFirebaseへ書きに行く。タイマーはアンマウント時に必ず捨てる。
+  var _saveSig = JSON.stringify(_dtsForSave(cfg));
+  useEffect(function() {
+    if (!dirtyRef.current || typeof setData !== "function") return;
+    if (res.error) return;
+    if (_saveSig === savedKey) { setSaveMsg(""); return; }
+    setSaveMsg("保存中…");
+    if (autoRef.current) clearTimeout(autoRef.current);
+    autoRef.current = setTimeout(function() {
+      autoRef.current = null;
+      setData(function(d) { var nd = clone(d || {}); nd.custom = clone(nd.custom || {}); nd.custom.dtsCfg = JSON.parse(_saveSig); return nd; });
+      setSaveMsg("✓ 自動保存しました");
+      setTimeout(function() { setSaveMsg(""); }, 1600);
+    }, 1200);
+    return function() { if (autoRef.current) { clearTimeout(autoRef.current); autoRef.current = null; } };
+  }, [_saveSig, savedKey, res.error]);
   // 提案の適用。⚠️評価に使った _dtsSetPath をそのまま通す＝「押したら提案と違う結果になった」を作らない。
   var applyProp = function(p) { edit(function(prev) { return _dtsSetPath(_dtsCfgClone(prev), p.path, p.value); }); };
   var applyProps = function(list) {
@@ -1023,7 +1246,7 @@ function DaytradeProjection(props) {
   // ⚠️期間エラーの時は summary が無いので null＝注記側でフォールバックすること。
   var eff = res.summary ? res.summary.eff : null;
   var months = _dtsMonthCount(cfg.startYm, cfg.endYm);
-  var grade = (typeof _profitGradeFromPnl === "function") ? _profitGradeFromPnl(Math.round(+cfg.dailyPer100 || 0), 1) : null;
+  // グレードバッジは③の**行ごと**に出すようになった 2026-08-06M（期間別テーブル化）ので、ここでの一括計算は廃止。
   var badge = function(g) { return (typeof _elHoldGradeBadge === "function" && g) ? _elHoldGradeBadge(g) : null; };
 
   // 前提の保存（プリセット）。data.custom へ書けば既存の保存・同期経路にそのまま乗る。
@@ -1034,7 +1257,7 @@ function DaytradeProjection(props) {
     //   _dtsInitCfg 側もマージにしたので二重の保険になる（上書き済みは復元できないのでここで止めるのが本命）。
     if (res.error) { setSaveMsg("⚠ " + res.error + "（保存していません）"); setTimeout(function() { setSaveMsg(""); }, 2800); return; }
     setData(function(d) {
-      var nd = clone(d || {}); nd.custom = clone(nd.custom || {}); nd.custom.dtsCfg = cfg; return nd;
+      var nd = clone(d || {}); nd.custom = clone(nd.custom || {}); nd.custom.dtsCfg = _dtsForSave(cfg); return nd;
     });
     setSaveMsg("保存しました"); setTimeout(function() { setSaveMsg(""); }, 1800);
   };
@@ -1042,7 +1265,7 @@ function DaytradeProjection(props) {
   // ---- 期間別テーブル（④⑤）の行まわり 2026-08-06I ----
   // 「＋途中で変える」は**今ある行の最も遅い月の翌月**を入れる（旧＝期間の開始月＝重複して効かない）。
   // 空きが無い時はボタンを押させない＝押せたのに何も起きない、を作らない。
-  var _lcDead = _dtsShadowedRows(cfg.livingCost), _drDead = _dtsShadowedRows(cfg.drip);
+  // 影になった行の判定は _rowsEditor が表ごとに出す 2026-08-06M（旧の _lcDead/_drDead は廃止）。
   var _rowSty = function(dead) {
     return { display: "flex", alignItems: "center", gap: 6, marginBottom: 4,
       background: dead ? "#FEF2F2" : null, border: dead ? "1px solid #FCA5A5" : null,
@@ -1120,15 +1343,30 @@ function DaytradeProjection(props) {
       _dtsLbl("基礎取引株数"), React.createElement(DtsNum, { key: "is", value: cfg.initialShares, width: 52, suffix: "株", step: 100, onChange: function(v) { set("initialShares", v); } })
     ])),
     _dtsSec("③ 収益の前提", "記録帳と同じ単位（1日あたり・100株換算）", React.createElement("div", null,
+      // 1日あたりは期間別テーブル 2026-08-06M。★「月初取引株数が◯株以上なら◯円」で**逓減**が書ける
+      //   （枚数を増やすと100株あたりの取れ高が落ちる、という現実をユーザーが前提として置けるようにした）。
+      _rowsEditor("perDayRows", {}, function(r, i) {
+        var g = (typeof _profitGradeFromPnl === "function") ? _profitGradeFromPnl(Math.round(_dtsNumOrNull(r.amount) || 0), 1) : null;
+        return [React.createElement("span", { key: "l", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "1日あたり"),
+          React.createElement(DtsNum, { key: "a", value: r.amount, width: 68, suffix: "円/100株", step: 100, onChange: function(v) { setRow("perDayRows", i, "amount", v); } }),
+          React.createElement("span", { key: "g" }, badge(g))];
+      }, function(ym, prev) { return { trig: "ym", from: ym, amount: prev ? (+prev.amount || 0) : 2000 }; }),
       _dtsRow([
-        _dtsLbl("1日あたり"), React.createElement(DtsNum, { key: "dp", value: cfg.dailyPer100, width: 68, suffix: "円/100株", step: 100, onChange: function(v) { set("dailyPer100", v); } }),
-        React.createElement("span", { key: "gb" }, badge(grade)),
         // ⚠️1日あたりと**①の月間営業日**をセットで入れる 2026-08-06B。actual.perDay の分母は
         //   「記録のあった日数」であって営業日数ではないので、①が20日のままだと月10日しか記録が無い人の
         //   月次が約2倍に膨らむ（実測: 実績2,730円/日・56日/22ヶ月＝月2.5日 なのに ×20日 で回っていた）。
+        // ⚠️2026-08-06M: 期間別にしたので**先頭行の額**へ入れる（＋①営業日）。dailyPer100 も一緒に更新して
+        //   おかないと、旧版の端末が読んだ時に古い値のまま動く（後方互換のため両方書く）。
         (actual && actual.perDay != null) ? React.createElement("button", {
           key: "af", onClick: function() {
-            setMany({ dailyPer100: Math.round(actual.perDay), businessDays: Math.max(1, Math.round(actual.daysPerMon || 20)) });
+            var pv = Math.round(actual.perDay);
+            edit(function(p) {
+              var c = clone(p); var arr = (p.perDayRows || []).slice();
+              arr[0] = Object.assign({}, arr[0] || { trig: "ym", from: p.startYm }, { amount: pv });
+              c.perDayRows = arr; c.dailyPer100 = pv;
+              c.businessDays = Math.max(1, Math.round(actual.daysPerMon || 20));
+              return c;
+            });
           },
           style: { fontSize: 10, fontWeight: 800, color: "#fff", background: _DTS_SUB, border: "none", borderRadius: 6, padding: "4px 9px", cursor: "pointer" }
         }, "🔄 実績を入れる（" + _dtsFmtYen(actual.perDay) + "円/日 × 月" + Math.max(1, Math.round(actual.daysPerMon || 20)) + "日）") : null,
@@ -1144,50 +1382,24 @@ function DaytradeProjection(props) {
             + "母数は" + (actual.sinceOnly ? "集計ルール統一後の記録" : "全期間の記録") + "。")
           : "実績を出せる記録がありません。手入力してください。",
         React.createElement("span", { style: { display: "block", color: "#B45309" } },
-          "月次は 1日あたり × ①の月間営業日 で内部換算します（" + _dtsFmtYen((+cfg.dailyPer100 || 0) * (eff ? eff.days : 20)) + "円/月/100株）。"
+          "月次は 1日あたり × ①の月間営業日 で内部換算します（先頭行なら " + _dtsFmtYen(_dtsHeadAmt(cfg.perDayRows, 0) * (eff ? eff.days : 20)) + "円/月/100株）。"
           + "分母は「記録のあった日数」なので、取引しない営業日があるなら①も実際のトレード日数に合わせてください（上のボタンは両方まとめて入れます）。"))
     )),
-    _dtsSec("④ 生活費", "社会保険料もここに足す（別枠は持たない）", React.createElement("div", null,
-      _dtsOrderedRows(cfg.livingCost).map(function(o) {
-        var r = o.r, i = o.i, dead = _lcDead[i];
-        return React.createElement("div", { key: "lc" + i, style: _rowSty(dead) },
-          React.createElement(DtsYm, { value: r.from, width: 112, onChange: function(v) { setRow("livingCost", i, "from", v); } }),
-          _dtsLbl("から 月"),
-          React.createElement(DtsNum, { value: r.amount, unit: "man", suffix: "万円", step: 1, onChange: function(v) { setRow("livingCost", i, "amount", v); } }),
-          dead ? _deadNote : null,
-          (cfg.livingCost.length > 1) ? React.createElement("button", { onClick: function() { delRow("livingCost", i); }, style: { fontSize: 10, color: "#B91C1C", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null);
-      }),
-      _addRowBtn("livingCost", function(ym, prev) { return { from: ym, amount: prev ? (+prev.amount || 0) : 200000 }; })
-    )),
+    _dtsSec("④ 生活費", "社会保険料もここに足す（別枠は持たない）",
+      _rowsEditor("livingCost", {}, function(r, i) {
+        return [React.createElement("span", { key: "l", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "月"),
+          React.createElement(DtsNum, { key: "a", value: r.amount, unit: "man", suffix: "万円", step: 1, onChange: function(v) { setRow("livingCost", i, "amount", v); } })];
+      }, function(ym, prev) { return { from: ym, amount: prev ? (+prev.amount || 0) : 200000 }; })),
     _dtsSec("⑤ 生活口座への積立", "目標残高に達すると積立が止まり、以降は全額が取引資金へ", React.createElement("div", null,
-      _dtsOrderedRows(cfg.drip).map(function(o) {
-        var r = o.r, i = o.i, dead = _drDead[i], trig = r.trig || "ym";
-        return React.createElement("div", { key: "dr" + i, style: Object.assign({ flexWrap: "wrap" }, _rowSty(dead)) },
-          // 発動条件の方式 2026-08-06L。⚠️方式を変えても他方式の値は消さない＝戻した時に打ち直しにならない。
-          React.createElement("select", {
-            value: trig, onChange: function(e) { setRow("drip", i, "trig", e.target.value); },
-            style: { fontSize: 11, fontWeight: 700, padding: "3px 4px", border: "1px solid " + _DTS_BD, borderRadius: 5, background: "#fff", color: "#1F2937" }
-          },
-            React.createElement("option", { value: "ym" }, "◯年◯月から"),
-            React.createElement("option", { value: "shares" }, "月初取引株数が◯株以上"),
-            React.createElement("option", { value: "capital" }, "月初取引資金が◯円以上")),
-          trig === "shares"
-            ? React.createElement(DtsNum, { value: r.shares, width: 60, suffix: "株以上", step: 100, onChange: function(v) { setRow("drip", i, "shares", v); } })
-            : trig === "capital"
-              ? React.createElement(DtsNum, { value: r.capital, unit: "man", suffix: "万円以上", step: 10, onChange: function(v) { setRow("drip", i, "capital", v); } })
-              : React.createElement(DtsYm, { value: r.from, width: 112, onChange: function(v) { setRow("drip", i, "from", v); } }),
-          _dtsLbl(trig === "ym" ? "から" : "になったら"),
-          React.createElement("select", {
-            value: r.mode || "drip", onChange: function(e) { setRow("drip", i, "mode", e.target.value); },
-            style: { fontSize: 11, fontWeight: 700, padding: "3px 4px", border: "1px solid " + _DTS_BD, borderRadius: 5, background: "#fff", color: "#1F2937" }
-          }, React.createElement("option", { value: "drip" }, "定額"), React.createElement("option", { value: "fill" }, "目標まで全額")),
-          (r.mode === "fill") ? null : React.createElement(DtsNum, { value: r.amount, unit: "man", suffix: "万円/月", step: 1, onChange: function(v) { setRow("drip", i, "amount", v); } }),
-          _dtsLbl("目標残高"),
-          React.createElement(DtsNum, { value: r.target, unit: "man", suffix: "万円", placeholder: "無制限", step: 5, onChange: function(v) { setRow("drip", i, "target", v); } }),
-          dead ? _deadNote : null,
-          (cfg.drip.length > 1) ? React.createElement("button", { onClick: function() { delRow("drip", i); }, style: { fontSize: 10, color: "#B91C1C", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null);
-      }),
-      _addRowBtn("drip", function(ym, prev) {
+      _rowsEditor("drip", {}, function(r, i) {
+        return [
+          React.createElement("select", { key: "m", value: r.mode || "drip", onChange: function(e) { setRow("drip", i, "mode", e.target.value); }, style: _DTS_SEL_STY },
+            React.createElement("option", { value: "drip" }, "定額"), React.createElement("option", { value: "fill" }, "目標まで全額")),
+          (r.mode === "fill") ? null : React.createElement(DtsNum, { key: "a", value: r.amount, unit: "man", suffix: "万円/月", step: 1, onChange: function(v) { setRow("drip", i, "amount", v); } }),
+          React.createElement("span", { key: "tl", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "目標残高"),
+          React.createElement(DtsNum, { key: "t", value: r.target, unit: "man", suffix: "万円", placeholder: "無制限", step: 5, onChange: function(v) { setRow("drip", i, "target", v); } })
+        ];
+      }, function(ym, prev) {
         return prev ? { from: ym, mode: prev.mode || "drip", amount: +prev.amount || 0, target: _dtsNumOrNull(prev.target) }
                     : { from: ym, mode: "drip", amount: 50000, target: null };
       }),
@@ -1218,22 +1430,35 @@ function DaytradeProjection(props) {
         //   min/max は内部単位＝5%〜100%（0%は計算不能・100%超は保証金を超えて建てる指定なので止める）。
         _dtsLbl("毎月 余力使用率が"), React.createElement(DtsNum, { key: "tu", value: cfg.targetUse, unit: "pct", width: 52, suffix: "%", step: 1, min: 0.05, max: 1, onChange: function(v) { set("targetUse", v); } }),
         _dtsLbl("を超えない最大株数（100株単位）"),
-        _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } }),
         React.createElement("label", { key: "sd", style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 700, color: "#4B5563", cursor: "pointer" } },
           React.createElement("input", { type: "checkbox", checked: cfg.stepDown === true, onChange: function(e) { set("stepDown", e.target.checked); } }),
           "資金が減ったら株数も下げる")
       ]) : _dtsRow([
         _dtsLbl("月末の資金口座が"), React.createElement(DtsNum, { key: "sb", value: cfg.stepBase, unit: "man", suffix: "万円", placeholder: "開始時", step: 1, onChange: function(v) { set("stepBase", v); } }),
         _dtsLbl("になった次の月から"), React.createElement(DtsNum, { key: "sa", value: cfg.stepAmount, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("stepAmount", v); } }),
-        _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } }),
-        _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
+        _dtsLbl("増えるごとに"), React.createElement(DtsNum, { key: "ss", value: cfg.stepShares, width: 46, suffix: "株", step: 100, onChange: function(v) { set("stepShares", v); } })
+      ]),
+      // 上限の方式 2026-08-06M。方式A/Bどちらでも効く共通の天井なので、上の分岐の外に出して1行にした。
+      _dtsRow([
+        _dtsLbl("上限の方式"),
+        React.createElement("select", { key: "mm", value: (cfg.maxMode === "multiple") ? "multiple" : "shares",
+          onChange: function(e) { set("maxMode", e.target.value); }, style: _DTS_SEL_STY },
+          React.createElement("option", { value: "shares" }, "◯株まで"),
+          React.createElement("option", { value: "multiple" }, "取引資金の◯倍まで")),
+        (cfg.maxMode === "multiple")
+          ? React.createElement(DtsNum, { key: "mv", value: cfg.maxMultiple, width: 46, suffix: "倍", step: 0.1, min: 0.1, onChange: function(v) { set("maxMultiple", v); } })
+          : React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } })
       ]),
       _stepNote)),
     _dtsSec("⑦ 余力チェック", "拘束額＝株数×株価／必要保証金＝拘束額×保証金率", React.createElement("div", null,
       _dtsRow([
-        _dtsLbl("メイン株価"), React.createElement(DtsNum, { key: "mp", value: cfg.mainPrice, width: 62, suffix: "円", step: 100, onChange: function(v) { set("mainPrice", v); } }),
         _dtsLbl("委託保証金率"), React.createElement(DtsNum, { key: "mr", value: cfg.marginRate, unit: "pct", width: 52, suffix: "%", step: 1, min: 0.01, max: 1, onChange: function(v) { set("marginRate", v); } })
       ]),
+      // メイン株価は期間別テーブル 2026-08-06M（「2027-04から8,000円」のような前提を置けるようにした）。
+      _rowsEditor("priceRows", {}, function(r, i) {
+        return [React.createElement("span", { key: "l", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "メイン株価"),
+          React.createElement(DtsNum, { key: "a", value: r.amount, width: 62, suffix: "円", step: 100, onChange: function(v) { setRow("priceRows", i, "amount", v); } })];
+      }, function(ym, prev) { return { from: ym, amount: prev ? (+prev.amount || 0) : 6500 }; }),
       // ⚠️注記は cfg の生値ではなく eff（＝実際に計算へ使った値）で組む 2026-08-06。
       //   旧は cfg 直読みだったので、⑥の刻み額を空欄にすると「刻み額 —円 との差 -195,000円」と出るのに
       //   シミュ本体は既定の250,000円で回っている、という**説明と計算の食い違い**が起きていた。
@@ -1246,11 +1471,22 @@ function DaytradeProjection(props) {
             + "取引資金の " + (Math.round(1 / eff.marginRate * 100) / 100) + "倍 まで建てられる計算です。株数の増やし方は⑥で決めます。")
           : "メイン株価を入れると、100株あたりの必要保証金と建てられる上限をここに出します。")
     )),
-    _dtsSec([_dtsAlphaMark("am8"), React.createElement("span", { key: "t8" }, "外部資金の投入")], "使わないなら年月を空のまま", _dtsRow([
-      React.createElement(DtsYm, { key: "iy", value: (cfg.injection || {}).ym, onChange: function(v) { setInj("ym", v); } }),
-      _dtsLbl("に"), React.createElement(DtsNum, { key: "ia", value: (cfg.injection || {}).amount, unit: "man", suffix: "万円", step: 5, onChange: function(v) { setInj("amount", v); } }),
-      _dtsLbl("投入 → 直後の株数"), React.createElement(DtsNum, { key: "is2", value: (cfg.injection || {}).sharesAfter, width: 56, suffix: "株", step: 100, onChange: function(v) { setInj("sharesAfter", v); } })
-    ]))
+    // ⑧は複数行＋条件つき 2026-08-06M。⚠️他の表と違い「状態」ではなく**その月に1回だけ起きる出来事**なので、
+    //   条件を満たした行を全部その月に実行する（最後の1行を選ぶのではない）。一度成立した行は二度と発動しない。
+    _dtsSec([_dtsAlphaMark("am8"), React.createElement("span", { key: "t8" }, "外部資金の投入")], "使わないなら行を消す（🗑）", React.createElement("div", null,
+      (cfg.injections || []).length
+        ? _rowsEditor("injections", { below: true, minRows: 0 }, function(r, i) {
+            return [React.createElement(DtsNum, { key: "a", value: r.amount, unit: "man", suffix: "万円", step: 5, onChange: function(v) { setRow("injections", i, "amount", v); } }),
+              React.createElement("span", { key: "l", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "投入 → 直後の株数"),
+              React.createElement(DtsNum, { key: "s", value: r.sharesAfter, width: 56, suffix: "株", placeholder: "指定なし", step: 100, onChange: function(v) { setRow("injections", i, "sharesAfter", v); } })];
+          }, function(ym, prev) { return { trig: "ym", from: ym, amount: prev ? (+prev.amount || 0) : 500000, sharesAfter: null }; })
+        : React.createElement("button", {
+            onClick: function() { addRow("injections", { trig: "ym", from: cfg.startYm, amount: 500000, sharesAfter: null }); },
+            style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" }
+          }, "＋ 投入を追加"),
+      React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", lineHeight: 1.6, marginTop: 3 } },
+        "条件を満たした行はその月に1回だけ実行され、同じ行が二度発動することはありません（「資金が◯円以下になったら」は最初に下回った月だけ）。同じ月に複数の行が成立したら金額は合算し、直後の株数はいちばん大きい指定を使います。")
+    ))
   );
 
   if (res.error) {
@@ -1875,7 +2111,11 @@ function _dtsRange(from, to, step) { var a = [], v; for (v = from; v <= to; v +=
 function _dtsLeverDefs(cfg, base) {
   var out = [], eff = base.summary.eff;
   var sIdx = _dtsYmToIdx(cfg.startYm), eIdx = _dtsYmToIdx(cfg.endYm);
-  var inj = cfg.injection || {}, hasInj = (+inj.amount || 0) > 0 && !!inj.ym;
+  // ⑧は複数行になった 2026-08-06M。総当たりは**1行だけ・年月指定のとき**に限る（複数行あるとどれを動かすか
+  //   決められないし、条件つきの行は「年月をずらす」という提案自体が成り立たない）。
+  var injs = _dtsNormCfg(cfg).injections;
+  var inj = (injs.length === 1 && (injs[0].trig || "ym") === "ym") ? injs[0] : {};
+  var hasInj = (+inj.amount || 0) > 0 && !!inj.from;
   var drip = (cfg.drip || []), oneDrip = drip.length === 1;   // 期間別が複数行ある時はどの行を動かすか決められないので触らない
   // ⚠️方式B（余力ベース）では刻み額・増える株数・段の起点を**engineが一切見ない** 2026-08-06J。
   //   総当たりに入れると「動かしても結果が同じ」＝提案は出ないが、無駄に3本×100通り回るだけなので外す。
@@ -1898,9 +2138,11 @@ function _dtsLeverDefs(cfg, base) {
   if (hasInj && sIdx != null && eIdx != null) {
     var ys = [], q;
     for (q = sIdx; q <= eIdx; q++) ys.push(_dtsIdxToYm(q));
-    out.push({ id: "injYm", kind: "struct", sec: "⑧", label: "投入の年月", path: { kind: "inj", key: "ym" },
-      cur: inj.ym, values: ys, fmt: function(v) { return _dtsYmLbl(v); } });
-    out.push({ id: "injShares", kind: "struct", sec: "⑧", label: "投入直後の株数", path: { kind: "inj", key: "sharesAfter" },
+    // ⚠️適用先は injections[0]（配列）2026-08-06M。旧の cfg.injection へ書くと _dtsNormCfg が
+    //   injections を優先するため**提案を適用しても何も変わらない**。
+    out.push({ id: "injYm", kind: "struct", sec: "⑧", label: "投入の年月", path: { kind: "row", arr: "injections", i: 0, key: "from" },
+      cur: inj.from, values: ys, fmt: function(v) { return _dtsYmLbl(v); } });
+    out.push({ id: "injShares", kind: "struct", sec: "⑧", label: "投入直後の株数", path: { kind: "row", arr: "injections", i: 0, key: "sharesAfter" },
       cur: _dtsNumOrNull(inj.sharesAfter) || 0, values: [0].concat(_dtsRange(100, 4000, 100)),
       fmt: function(v) { return v ? v.toLocaleString() + "株" : "指定なし"; } });
   }
@@ -1974,8 +2216,8 @@ function _dtsAdvice(cfg) {
   // ⚠️「+127万も増える」だけを見せると、前提そのものが外れる可能性が視界から消える。同じ画面に必ず出す。
   var breakEven = null;
   if (chosen.length && accSc.total > base.total) {
-    var per = +cfg.dailyPer100 || 0;
-    var at = function(rt) { var c3 = _dtsCfgClone(acc); c3.dailyPer100 = per * rt; var s3 = _dtsScore(_dtsSimulate(c3)); return s3 ? s3.total : -Infinity; };
+    // ⚠️期間別テーブルなので全行に倍率を掛ける 2026-08-06M（dailyPer100 への代入だけでは効かない）。
+    var at = function(rt) { var s3 = _dtsScore(_dtsSimulate(_dtsScalePerDay(acc, rt))); return s3 ? s3.total : -Infinity; };
     if (at(0.3) > base.total) breakEven = { ratio: 0.3, beyond: true };   // −70%でもまだ上回る＝下限まで探索しても交点なし
     else {
       var lo = 0.3, hi = 1.0, mid, k;
@@ -1999,8 +2241,12 @@ function _dtsAdvice(cfg) {
   if (_dtsNumOrNull(cfg.maxShares) != null) {
     same(function(c) { c.maxShares = null; }, "⑥の上限株数は、外しても期末が1円も変わりません（期間内に上限へ届いていません）。");
   }
-  if ((cfg.injection || {}).ym && _dtsNumOrNull(cfg.injection.sharesAfter)) {
-    same(function(c) { c.injection = Object.assign({}, c.injection, { sharesAfter: 0 }); }, "⑧の「投入直後の株数」は、空にしても期末が1円も変わりません（⑥の段だけで同じ株数に届いています）。");
+  // ⚠️配列側(injections)を触ること 2026-08-06M。cfg.injection を空にしても _dtsNormCfg が injections を
+  //   優先するので、判定が常に「変わらない」になって誤った断言をする。
+  var _injs = _dtsNormCfg(cfg).injections;
+  if (_injs.length === 1 && _dtsNumOrNull(_injs[0].sharesAfter)) {
+    same(function(c) { c.injections = [Object.assign({}, _injs[0], { sharesAfter: null })]; },
+      "⑧の「投入直後の株数」は、空にしても期末が1円も変わりません（⑥の段だけで同じ株数に届いています）。");
   }
   return { base: base, props: props, tradeoffs: tradeoffs, chosen: chosen, combo: accSc, breakEven: breakEven, inert: inert };
 }
