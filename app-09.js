@@ -439,6 +439,16 @@ function _dtsSimulate(cfg) {
       + "株 より小さいので効いていません（「資金が減っても下げない」が優先で、株を減らしはしません）。");
   }
 
+  // ★旧データに残っている「投入直後の株数」は 2026-08-06R でもう使っていない。黙って無視すると
+  //   保存済みの前提の期末が理由なく変わるので必ず知らせる（次に何か入力して自動保存されると消える）。
+  for (var qs = 0; qs < cfg.injections.length; qs++) {
+    if (_dtsNumOrNull(cfg.injections[qs].sharesAfter)) {
+      warns.push("αの「投入直後の株数」は廃止しました（株数は⑥のルールだけで決まります）。保存に残っている "
+        + _dtsNumOrNull(cfg.injections[qs].sharesAfter).toLocaleString() + "株 は計算に使っていないので、"
+        + "その株数にしたいなら②の基礎取引株数と⑥の起点・刻み額で表してください。");
+      break;
+    }
+  }
   // ⑧の年月が期間の外＝投入が一度も起きない 2026-08-06M（複数行に対応）。条件つきの行は期間外という概念が
   // 無いので、ここは年月の行だけ見る（届かない条件の行はループ後に「一度も届かない」で拾う）。
   for (var qi = 0; qi < cfg.injections.length; qi++) {
@@ -471,50 +481,23 @@ function _dtsSimulate(cfg) {
     // ⚠️条件の判定は投入を足す**前**の資金で行う（「資金が◯円を下回ったら入れる」が、入れた直後の資金で
     //   判定されて成立しなくなる、という自己矛盾を避ける）。株数は前月末の株数。
     _dtsActivate(cfg.injections, injAct, sIdx + k, prevShares, capital);
-    var _saWant = null;
     for (var ii = 0; ii < cfg.injections.length; ii++) {
       if (injAct[ii] !== sIdx + k) continue;
-      var _ir = cfg.injections[ii];
-      injected += (+_ir.amount || 0);
-      var _isa = _dtsNumOrNull(_ir.sharesAfter);
-      if (_isa != null && _isa > 0 && (_saWant == null || _isa > _saWant)) _saWant = _isa;   // 同月に複数なら大きいほうを採る
+      injected += (+cfg.injections[ii].amount || 0);
     }
-    var isInjMonth = (injected !== 0 || _saWant != null), jumped = false;
+    var isInjMonth = (injected !== 0);
 
-    // **「投入直後の株数」を指定した時だけ**②をスキップして指定株数へジャンプする。
+    // ★「投入直後の株数」(sharesAfter) は 2026-08-06R に廃止した（ユーザー指定）。
+    //   株数を決めるルールは⑥ただ1つにする＝αは資金を足すだけで、株数は⑥が資金から決める。
+    //   これで 2026-08-05B/C・2026-08-06B で積み上げてきた「ジャンプ時の段の基準の乗せ替え」
+    //   （baseShares の引き算・二重計上の回避）が丸ごと不要になった。
+    // ⚠️旧データに残っている sharesAfter は _dtsSimulate では一切見ない。ただし黙って無視すると
+    //   保存済みの前提の期末が理由なく変わるので、下の警告で「もう使っていない」と必ず出す。
     if (isInjMonth) {
       capital += injected;
       injTotal += injected;
-      var sa = _saWant;
-      // ⚠️2026-08-05B: ここは以前 shares = sa の**素の代入**だった＝指定株数が今より少ないと投入月だけ
-      //   株数が落ち、翌月には②のラチェットで跳ね上がる（実測: 1,500→700→1,700）。⑥の「資金が減っても
-      //   下げない」に真っ向から反するうえ、1ヶ月だけ凹むシナリオは誰も意図しない。ラチェットを掛ける。
-      //   下回って無効化された時は黙って捨てず warns で知らせる（入れたのに効かない入力を作らない）。
-      if (sa != null && sa > 0) {
-        if (sa < prevShares) {
-          warns.push("αの「投入直後の株数」" + sa.toLocaleString() + "株 は、その時点の " + prevShares.toLocaleString()
-            + "株 より少ないので効いていません（⑥の「資金が減っても下げない」が優先）。減らす想定なら②の基礎取引株数を見直してください。");
-        } else {
-          shares = sa; jumped = true;
-          // ★2026-08-05C（ユーザー報告「上がるべきところで上がらない」）。⑧で株数を置き直したら、
-          //   **段の基準株数もそこへ乗せ替える**。これが無いとラダーは②の基礎取引株数から数え続けるので、
-          //   ⑧で増やした分に計算が追いつくまで段が全部潰れる＝実測で 218万→310万（4.5段ぶん）が丸ごと死に、
-          //   1,000株のまま8ヶ月動かなかった。
-          // ⚠️そのとき「投入直後にすでに乗っている段」を引いておく＝引かないと同じ段を二重に数えて跳ねる
-          //   （起点210万・資金370万で1,200株指定なら、8段ぶん＝+800株が上乗せされて2,000株に飛ぶ）。
-          //   base（＝⑥に入れた額）は動かさないので、注記に出す起点はユーザーが打った数字のまま。
-          if (stepBase != null) baseShares = sa - Math.floor(Math.max(0, capital - base) / stepAmt) * stepSh;
-        }
-      }
-      // ★基準点の張り替え。**⑥で起点を明示している時は張り替えない** 2026-08-05A（ユーザー指摘）。
-      //   起点は「口座がこの額になったら」という**絶対の水準**なので、投入で勝手にズラすと⑥に何を入れても
-      //   結果が変わらなくなる（実測: 起点210万でも999万でも株数推移が同一＝完全なデッドインプット）。
-      // ⚠️起点が空欄の時だけ従来どおり張り替える＝空欄は「開始時の資金が暗黙の起点」なので、
-      //   張り替えないと投入額を「トレードで増えた分」と誤認して段が跳ねる（+70万＝3.5段＝+350株の幽霊）。
-      // ⚠️起点が空欄の時は base と baseShares を**セットで**張り替える＝「この資金の時にこの株数だった」という
-      //   組で持つので二重計上にはならない。起点を明示している時だけ base を動かさず、代わりに 267行で
-      //   baseShares 側から「投入直後にすでに乗っている段」を引く（そこで引かないと同じ段を二重に数える）。
       capOpen = capital;
+      // ⚠️起点(base)の張り替えは**株数の判定が済んでから**。ここでやると当月の段が消える（下の 544行付近）。
     }
 
     // ② 株数の決定。判定に使うのは**前月末の資金**(prevClose)＝当月の利益も、当月に入れた外部資金も含めない。
@@ -537,7 +520,7 @@ function _dtsSimulate(cfg) {
       maxShM = (maxMul != null && priceM > 0) ? (Math.floor(capOpen * maxMul / priceM / 100) * 100) : null;
     }
 
-    if (!jumped) {
+    {
       var want;
       if (stepMode === "power") {
         // 方式B＝余力使用率が目標を超えない最大株数。余力使用率＝株数×株価×保証金率÷月初資金 なので
@@ -558,14 +541,11 @@ function _dtsSimulate(cfg) {
     // ⚠️2026-08-06B: 旧は無条件に `base = capital; baseShares = shares;` だったので、投入直前に貯まっていた
     //   「次段までの端数」（最大 stepAmount−1円＝既定24.9万）が毎回消えていた。実測で 2027-03に100万を
     //   投入すると期末が 800株 → **600株**（昇段ゼロ）＝入れないほうが株数が伸びる、という逆転が起きていた。
-    //   直し方は⑧で株数を置き直したかどうかで分かれる:
-    //   - 置き直した(jumped): 「この資金でこの株数」という**新しいペア**が成立するので起点ごと乗せ替える。
-    //   - 置き直していない: 株数は変わっていないので、起点を**投入額ぶん平行移動するだけ**にして
-    //     (capital − base) ＝ 積み上げた端数をそのまま保つ。baseShares は動かさない（動かすと二重計上）。
-    if (isInjMonth && stepBase == null) {
-      if (jumped) { base = capital; baseShares = shares; }
-      else { base = base + injected; }
-    }
+    // ★起点を**投入額ぶん平行移動するだけ**にして (capital − base) ＝ 積み上げた端数をそのまま保つ。
+    //   baseShares は動かさない（動かすと二重計上）。⑥で起点を明示している時は絶対の水準なので触らない
+    //   （2026-08-05A・触ると⑥に何を入れても結果が変わらないデッドインプットになる）。
+    // 2026-08-06R: sharesAfter の廃止で「置き直した(jumped)」の分岐が消え、平行移動の1本だけになった。
+    if (isInjMonth && stepBase == null) base = base + injected;
     stepUp = (shares > prevShares);
 
     // ③ 損益（税引前 → 税 → 手取り）
@@ -915,9 +895,15 @@ function _dtsForSave(cfg) {
   var c = _dtsNormCfg(cfg);
   c.dailyPer100 = _dtsHeadAmt(c.perDayRows, 0);
   c.mainPrice = _dtsHeadAmt(c.priceRows, 0);
-  var i0 = c.injections[0];
-  c.injection = i0 ? { ym: (i0.trig || "ym") === "ym" ? (i0.from || "") : "", amount: +i0.amount || 0, sharesAfter: _dtsNumOrNull(i0.sharesAfter) }
-                   : { ym: "", amount: 0, sharesAfter: 0 };
+  // ⚠️sharesAfter は 2026-08-06R に廃止＝**保存時に落とす**（残すと⚠️欄の「廃止しました」が永久に出続ける）。
+  //   旧版の端末向けの互換キーにも 0 を書く＝旧版で開いてもジャンプしない＝新しい挙動と一致する。
+  c.injections = c.injections.map(function(r) {
+    var o = {}; for (var k2 in r) { if (Object.prototype.hasOwnProperty.call(r, k2) && k2 !== "sharesAfter") o[k2] = r[k2]; }
+    return o;
+  });
+  var i0b = c.injections[0];
+  c.injection = i0b ? { ym: (i0b.trig || "ym") === "ym" ? (i0b.from || "") : "", amount: +i0b.amount || 0, sharesAfter: 0 }
+                    : { ym: "", amount: 0, sharesAfter: 0 };
   return c;
 }
 function _dtsInitCfg(data, actual) {
@@ -1397,7 +1383,10 @@ function DaytradeProjection(props) {
     // ⚠️これは**表記だけの変更で計算は1行も変えていない**＝元から「前月末の資金で判定→当月に反映」なので
     //   ユーザーの言う「月末が◯万になった次の月から」と同じ規則。旧ラベル「資金口座◯万円から」だと
     //   いつの資金で判定していつ反映されるのかが読めなかった、というだけ。
-    _dtsSec("⑥ 株数を増やすルール", _isPow ? "毎月の余力使用率から逆算" : "端数は次段へ繰り越し・資金が減っても下げない", React.createElement("div", null,
+    // 見出しは「株数を増やすルール」→**「取引株数のルール」** 2026-08-06R（ユーザー指摘）。
+    // ⚠️方式B＋「資金が減ったら下げる」では株数が**減る**し、上限は増やす話ではない。さらに
+    //   αの「投入直後の株数」を廃止したので、⑥が株数を決める唯一の場所になった。「増やす」は実体と合わない。
+    _dtsSec("⑥ 取引株数のルール", _isPow ? "毎月の余力使用率から逆算" : "端数は次段へ繰り越し・資金が減っても下げない", React.createElement("div", null,
       _dtsRow([
         _dtsLbl("方式"),
         React.createElement("select", {
@@ -1467,12 +1456,12 @@ function DaytradeProjection(props) {
     _dtsSec([_dtsAlphaMark("am8"), React.createElement("span", { key: "t8" }, "外部資金の投入")], "使わないなら行を消す（🗑）", React.createElement("div", null,
       (cfg.injections || []).length
         ? _rowsEditor("injections", { below: true, minRows: 0 }, function(r, i) {
+            // 2026-08-06R: 「直後の株数」欄は廃止（ユーザー指定）。株数は⑥のルールだけで決まる。
             return [React.createElement(DtsNum, { key: "a", value: r.amount, unit: "man", suffix: "万円", step: 5, onChange: function(v) { setRow("injections", i, "amount", v); } }),
-              React.createElement("span", { key: "l", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "投入 → 直後の株数"),
-              React.createElement(DtsNum, { key: "s", value: r.sharesAfter, width: 56, suffix: "株", placeholder: "指定なし", step: 100, onChange: function(v) { setRow("injections", i, "sharesAfter", v); } })];
-          }, function(ym, prev) { return { trig: "ym", from: ym, amount: prev ? (+prev.amount || 0) : 500000, sharesAfter: null }; })
+              React.createElement("span", { key: "l", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "投入")];
+          }, function(ym, prev) { return { trig: "ym", from: ym, amount: prev ? (+prev.amount || 0) : 500000 }; })
         : React.createElement("button", {
-            onClick: function() { addRow("injections", { trig: "ym", from: cfg.startYm, amount: 500000, sharesAfter: null }); },
+            onClick: function() { addRow("injections", { trig: "ym", from: cfg.startYm, amount: 500000 }); },
             style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" }
           }, "＋ 投入を追加"),
       React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", lineHeight: 1.6, marginTop: 3 } },
@@ -2156,11 +2145,8 @@ function _dtsLeverDefs(cfg, base) {
   // ★⑧の「投入の年月」は総当たりから外した 2026-08-06P（ユーザー指定「投入の年月に関する提案は不要」）。
   //   外部資金をいつ入れられるかは資金繰りの都合で決まるので、シミュが「1ヶ月早めれば＋◯万」と言っても
   //   実行できるとは限らない＝⑤の積立と同じで「決められる設定」ではない。金額・直後の株数だけ残す。
-  if (hasInj) {
-    out.push({ id: "injShares", kind: "struct", sec: "α", label: "投入直後の株数", path: { kind: "row", arr: "injections", i: 0, key: "sharesAfter" },
-      cur: _dtsNumOrNull(inj.sharesAfter) || 0, values: [0].concat(_dtsRange(100, 4000, 100)),
-      fmt: function(v) { return v ? v.toLocaleString() + "株" : "指定なし"; } });
-  }
+  // 2026-08-06R: 「投入直後の株数」を廃止したので、αに振れる設定が無くなった（金額と年月は上のとおり対象外）。
+  //   hasInj は⑤⑧の他の判定で使うので残す。
   if (oneDrip) {
     out.push({ id: "dripAmt", kind: "alloc", sec: "⑤", label: "積立の額", path: { kind: "row", arr: "drip", i: 0, key: "amount" },
       cur: +drip[0].amount || 0, values: _dtsRange(0, 300000, 10000),
@@ -2265,11 +2251,7 @@ function _dtsAdvice(cfg) {
   }
   // ⚠️配列側(injections)を触ること 2026-08-06M。cfg.injection を空にしても _dtsNormCfg が injections を
   //   優先するので、判定が常に「変わらない」になって誤った断言をする。
-  var _injs = _dtsNormCfg(cfg).injections;
-  if (_injs.length === 1 && _dtsNumOrNull(_injs[0].sharesAfter)) {
-    same(function(c) { c.injections = [Object.assign({}, _injs[0], { sharesAfter: null })]; },
-      "αの「投入直後の株数」は、空にしても期末が1円も変わりません（⑥の段だけで同じ株数に届いています）。");
-  }
+  // 2026-08-06R: αの「投入直後の株数」は廃止したので検査対象から外した。
   return { base: base, props: props, tradeoffs: tradeoffs, chosen: chosen, combo: accSc, breakEven: breakEven, inert: inert };
 }
 
