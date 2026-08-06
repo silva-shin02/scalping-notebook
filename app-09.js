@@ -1031,6 +1031,26 @@ function _dtsTrigCells(r, onSet, opts) {
   ];
 }
 
+// ②の下に出す「推奨株数」 2026-08-06S。②の取引資金で余力使用率が90%以下に収まる最大の株数（100株単位）。
+// ⚠️eff（＝実際に計算へ使った値）から株価・保証金率を取る。cfg 直読みだとクランプ前の値で計算して
+//   画面の説明と月次表が食い違う（このファイルで何度も踏んでいる罠）。
+var _DTS_REC_USE = 0.90;
+function _dtsRecShares(cfg, eff) {
+  var cap = +cfg.initialCapital || 0;
+  var ok = eff && eff.marginOk && cap > 0;
+  var sty = { fontSize: 11, fontWeight: 800, marginTop: 4, color: ok ? "#B91C1C" : "#9CA3AF" };
+  if (!ok) {
+    return React.createElement("div", { style: sty },
+      "推奨株数：—（" + (!(cap > 0) ? "②の取引資金" : "⑦のメイン株価と委託保証金率") + "を入れると計算します）");
+  }
+  var n = Math.floor(_DTS_REC_USE * cap / (eff.mainPrice * eff.marginRate) / 100) * 100;
+  return React.createElement("div", { style: sty },
+    "推奨株数：" + n.toLocaleString() + "株",
+    React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", marginLeft: 6 } },
+      "取引資金 " + _dtsFmtMan(cap) + "円で余力使用率が" + Math.round(_DTS_REC_USE * 100) + "%以下に収まる最大（株価 "
+      + _dtsFmtYen(eff.mainPrice) + "円・保証金率 " + (Math.round(eff.marginRate * 1000) / 10) + "%・100株単位）"));
+}
+
 function _dtsSec(title, note, body) {
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, padding: "7px 9px", background: "#fff", marginBottom: 6 } },
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, marginBottom: 5 } }, title,
@@ -1285,11 +1305,20 @@ function DaytradeProjection(props) {
       _dtsLbl("終了（月末まで）"), React.createElement(DtsYm, { key: "e", value: cfg.endYm, onChange: function(v) { set("endYm", v); } }),
       _dtsLbl("月間営業日"), React.createElement(DtsNum, { key: "bd", value: cfg.businessDays, width: 42, suffix: "日", step: 1, min: 1, onChange: function(v) { set("businessDays", v); } })
     ])),
-    _dtsSec("② 今の状態", null, _dtsRow([
-      _dtsLbl("取引資金"), React.createElement(DtsNum, { key: "ic", value: cfg.initialCapital, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("initialCapital", v); } }),
-      _dtsLbl("生活口座"), React.createElement(DtsNum, { key: "il", value: cfg.initialLiving, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("initialLiving", v); } }),
-      _dtsLbl("基礎取引株数"), React.createElement(DtsNum, { key: "is", value: cfg.initialShares, width: 52, suffix: "株", step: 100, onChange: function(v) { set("initialShares", v); } })
-    ])),
+    _dtsSec("② 今の状態", null, React.createElement("div", null,
+      _dtsRow([
+        _dtsLbl("取引資金"), React.createElement(DtsNum, { key: "ic", value: cfg.initialCapital, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("initialCapital", v); } }),
+        _dtsLbl("生活口座"), React.createElement(DtsNum, { key: "il", value: cfg.initialLiving, unit: "man", suffix: "万円", step: 1, onChange: function(v) { set("initialLiving", v); } }),
+        _dtsLbl("基礎取引株数"), React.createElement(DtsNum, { key: "is", value: cfg.initialShares, width: 52, suffix: "株", step: 100, onChange: function(v) { set("initialShares", v); } })
+      ]),
+      // 推奨株数 2026-08-06S（ユーザー要望）＝②の取引資金で**余力使用率が90%以下に収まる最大の株数**。
+      //   株数 ≦ 0.90 × 取引資金 ÷（メイン株価 × 委託保証金率）を100株単位で切り捨て。
+      // ⚠️90%は**この表示だけの固定値**（ユーザー指定）。⑥方式Bの「目標余力使用率」とは別物なので、
+      //   目標を85%等にしてもここは90%のまま＝両方を見比べられる。混同しないようラベルに90%と書く。
+      // ⚠️株価か保証金率が無いと計算できない。0株と出すと「建てられない」の意味になってしまうので、
+      //   計算できない時は赤字にせず灰色で理由を出す。
+      _dtsRecShares(cfg, eff)
+    )),
     _dtsSec("③ 収益の前提", "記録帳と同じ単位（1日あたり・100株換算）", React.createElement("div", null,
       // 1日あたりは期間別テーブル 2026-08-06M。★「月初取引株数が◯株以上なら◯円」で**逓減**が書ける
       //   （枚数を増やすと100株あたりの取れ高が落ちる、という現実をユーザーが前提として置けるようにした）。
