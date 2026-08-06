@@ -1632,10 +1632,16 @@ function _dtsChartAssets(rows, hi) {
 // ② 余力使用率の折れ線。70/90/95%の帯を敷いて、危ない月が目で拾えるようにする（2026-08-06D に 85→90）。
 function _dtsChartPower(rows, hi) {
   if (!rows || !rows.length) return null;
-  var W = 720, H = 230, pL = 58, pR = 54, pT = 26, pB = 32;
+  // ⚠️縦を 230→300 に広げた 2026-08-06O（ユーザー報告「90%と95%が近すぎてつぶれて見えない」）。
+  //   旧は描画域 172px・縦軸0〜100%だったので **5ポイント＝8.6px** しかなく、90/95の破線がくっついていた。
+  var W = 720, H = 300, pL = 58, pR = 54, pT = 26, pB = 32;
   var pw = W - pL - pR, ph = H - pT - pB, n = rows.length, i;
-  var step = pw / n, maxU = 0;
-  for (i = 0; i < n; i++) { if (rows[i].powerUse != null && rows[i].powerUse > maxU) maxU = rows[i].powerUse; }
+  var step = pw / n, maxU = 0, minU = Infinity;
+  for (i = 0; i < n; i++) {
+    if (rows[i].powerUse == null) continue;
+    if (rows[i].powerUse > maxU) maxU = rows[i].powerUse;
+    if (rows[i].powerUse < minU) minU = rows[i].powerUse;
+  }
   // ⚠️上端は 200% で頭打ちにする 2026-08-06B。月初の取引資金が0に近い月があると、分子の株数はラチェットで
   //   縮まないので powerUse が数千%まで発散する。旧はクランプが無く、実測で 上端3,000%・目盛り121本・
   //   緑帯4.0px/黄帯0.57px まで潰れて「どの月が危ないか」が全く読めなくなっていた（25%刻みで切り上げるのは
@@ -1643,26 +1649,42 @@ function _dtsChartPower(rows, hi) {
   var CAP = 2.0;
   var rawTop = Math.max(1.0, Math.ceil(maxU / 0.25) * 0.25);
   var top = Math.min(CAP, rawTop), clipped = rawTop > top;
-  var y = function(v) { return pT + ph - (Math.min(v, top) / top) * ph; };
+  // ★縦軸の下端 2026-08-06O。実際の余力使用率は 70〜95% の狭い所に固まるのに 0% から描いていたので、
+  //   画面の7割が誰も通らない空白で、肝心の 90/95% の差が潰れていた。データが十分高い所に居る時だけ
+  //   下端を切り上げる（10%刻みで、最小値の5ポイント下）。
+  // ⚠️軸を0から始めないので、**切り上げた時は軸ラベルにその旨を必ず出す**（下のaxP）＝黙って
+  //   ゼロ基準でないグラフにしない。データが低い所まで来る前提では従来どおり0から描く。
+  var bot = 0;
+  if (isFinite(minU) && minU >= 0.55) bot = Math.max(0, Math.floor((minU - 0.05) / 0.10) * 0.10);
+  var span = Math.max(0.1, top - bot);
+  var y = function(v) { return pT + ph - ((Math.max(bot, Math.min(v, top)) - bot) / span) * ph; };
   var x = function(i2) { return pL + step * i2 + step / 2; };
   var kids = [];
   var band = function(k, lo, hi, col) {
-    var y1 = y(Math.min(hi, top)), y2 = y(lo);
+    var y1 = y(Math.min(hi, top)), y2 = y(Math.max(lo, bot));
     if (y2 <= y1) return;
     kids.push(React.createElement("rect", { key: k, x: pL, y: y1, width: pw, height: y2 - y1, fill: col }));
   };
   band("b1", 0, 0.70, "#F0FDF4"); band("b2", 0.90, 0.95, "#FEFCE8"); band("b3", 0.95, top, "#FEF2F2");
-  // 目盛りは25%ごと（左）。警戒ライン70/90/95%は破線＋**右側**にラベルを置く＝左の目盛りと重ならない。
+  // 目盛りは幅に応じて 5/10/25% 刻み（左）。警戒ライン70/90/95%は破線＋**右側**にラベルを置く＝左の目盛りと重ならない。
+  // ⚠️刻みを幅で切り替えるのは、下端を上げた時に25%刻みだと線が2〜3本しか出ず目盛りとして機能しないため。
   // ⚠️帯・破線・_dtsUseTone・凡例の4箇所は**必ず同じ数字**にすること（片方だけ直すと表とグラフで色が食い違う）。
-  var nG = Math.round(top / 0.25);
+  var gstep = span <= 0.25 ? 0.05 : (span <= 0.6 ? 0.10 : 0.25);
+  // ⚠️目盛りは**刻みの倍数に揃える**（bot から数え始めない）2026-08-06O。bot=80%・刻み25%だと
+  //   80/105/130/155… という誰も読めない端数の目盛りになる（実測）。倍数に揃えれば 100/125/150…。
+  var g0 = Math.ceil((bot - 1e-9) / gstep) * gstep;
+  var nG = Math.floor((top - g0) / gstep + 1e-9);
   for (i = 0; i <= nG; i++) {
-    var gv = 0.25 * i, gy = y(gv);
-    kids.push(React.createElement("line", { key: "pg" + i, x1: pL, y1: gy, x2: pL + pw, y2: gy, stroke: i === 0 ? "#CBD5E1" : "#E5E7EB", strokeWidth: 1 }));
+    var gv = g0 + gstep * i, gy = y(gv);
+    // 0%の線だけ濃くする＝ゼロ基準の目印。下端を切り上げている時はゼロ線が無いので全部同じ薄さにする。
+    kids.push(React.createElement("line", { key: "pg" + i, x1: pL, y1: gy, x2: pL + pw, y2: gy,
+      stroke: (bot === 0 && i === 0) ? "#CBD5E1" : "#E5E7EB", strokeWidth: 1 }));
     kids.push(_dtsSvgText("pgl" + i, pL - 6, gy + 3, Math.round(gv * 100) + "%", { textAnchor: "end" }));
   }
   var refs = [[0.70, "#047857"], [0.90, "#A16207"], [0.95, "#B91C1C"]];
   for (i = 0; i < refs.length; i++) {
-    if (refs[i][0] > top) continue;
+    // ⚠️下端より下の警戒ラインは描かない＝描くと軸の一番下に貼り付いて「70%が下端」と誤読させる。
+    if (refs[i][0] > top || refs[i][0] < bot) continue;
     kids.push(React.createElement("line", { key: "r" + i, x1: pL, y1: y(refs[i][0]), x2: pL + pw, y2: y(refs[i][0]), stroke: refs[i][1], strokeWidth: 1, strokeDasharray: "3 3", opacity: 0.75 }));
     kids.push(_dtsSvgText("rl" + i, pL + pw + 6, y(refs[i][0]) + 3, Math.round(refs[i][0] * 100) + "%", { textAnchor: "start", fill: refs[i][1] }));
   }
@@ -1690,7 +1712,9 @@ function _dtsChartPower(rows, hi) {
   for (i = n - 1; i >= 0; i -= every) {
     kids.push(_dtsSvgText("x" + i, x(i), H - 11, _dtsXLbl(rows[i].ym), { textAnchor: "middle", fontSize: 8.5 }));
   }
-  kids.push(_dtsSvgText("axP", 4, 13, "余力使用率", { textAnchor: "start", fontSize: 9, fill: "#1E3A8A" }));
+  // ⚠️0から描いていない時は必ず明記する 2026-08-06O（黙ってゼロ基準でないグラフにしない）。
+  kids.push(_dtsSvgText("axP", 4, 13, bot > 0 ? ("余力使用率（縦軸は" + Math.round(bot * 100) + "%から）") : "余力使用率",
+    { textAnchor: "start", fontSize: 9, fill: "#1E3A8A" }));
   kids.push(_dtsSvgText("axP2", W - 4, 13, clipped ? "警戒ライン（●は200%超）" : "警戒ライン",
     { textAnchor: "end", fontSize: 9, fill: clipped ? "#B91C1C" : "#A16207" }));
   if (hi != null && rows[hi]) {
