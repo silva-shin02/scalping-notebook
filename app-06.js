@@ -5397,6 +5397,9 @@ function _elKabuLadderSimV2(props) {
     return React.createElement("span", { title: nb === "unreached" ? "掃引αにOS1〜3で届かなかった（αを下げれば拾える可能性）" : nb === "x" ? "×見送り宣言の後にαへ到達＝実際には降りているので建てない" : nb === "noalpha" ? "この取引のαが出せない（推奨α不明／採用α未入力）" : nb === "fillEq" ? "実効αがOS高値の最大とちょうど一致＝予定EPに触れただけで指値が約定しなかった可能性（オプション「指値同値は建てない」がON）" : "有効な取引行が無い（株数0・方式未選択）",
       style: { fontSize: 9, fontWeight: 700, color: k[2], background: k[3], border: "1px solid " + k[4], borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap" } }, k[1]);
   };
+  // 建たなかった段の理由ラベル 2026-08-06d（ユーザー要望「0（∵指値同値）+〇 みたいに。未達も同様」）。
+  // 旧＝建たなかった段は「—」だけで、なぜ0なのかがセルから読めなかった（展開行を開かないと分からない）。
+  var _SIM_SKIP_JA = { fillEq: "指値同値", unreached: "未達", x: "×見送り", noalpha: "α不明", indet: "判定不可" };
   var _mtSimCell = function(m) {
     if (m.noBuild) return _mtNoBuildChip(m.noBuild);
     if (m.cfgPnl == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");   // （）外が無い記録（全未成立・EP△のみ等）
@@ -5406,29 +5409,49 @@ function _elKabuLadderSimV2(props) {
       var built = c.ev.built && !c.ev.indet;
       var mn = (built && c.ev.main100 != null) ? Math.round(c.ev.main100 * c.t.add / 100) : null;
       var rf = (built && c.ev.ref100 != null) ? Math.round(c.ev.ref100 * c.t.add / 100) : 0;
-      items.push({ a: (c.ev && c.ev.a != null) ? c.ev.a : null, m: mn, r: rf });
+      var sk = built ? null : ((c.ev.built && c.ev.indet) ? "indet" : (c.ev.skip || null));   // 建たなかった理由（段ごと）
+      items.push({ a: (c.ev && c.ev.a != null) ? c.ev.a : null, m: mn, r: rf, sk: sk });
     });
     var merged = [];
     items.forEach(function(it) {
       var f = null;
       for (var k = 0; k < merged.length; k++) { if (merged[k].a != null && it.a != null && merged[k].a === it.a) { f = merged[k]; break; } }
-      if (f) { f.m = (f.m == null && it.m == null) ? null : ((f.m || 0) + (it.m || 0)); f.r = (f.r || 0) + (it.r || 0); }
-      else merged.push({ a: it.a, m: it.m, r: it.r });
+      if (f) { f.m = (f.m == null && it.m == null) ? null : ((f.m || 0) + (it.m || 0)); f.r = (f.r || 0) + (it.r || 0); f.sk = f.sk || it.sk; }   // 同αの段は評価も同じ＝理由も一致する
+      else merged.push({ a: it.a, m: it.m, r: it.r, sk: it.sk });
     });
     merged.sort(function(x, y) { return ((x.a == null ? Infinity : x.a) - (y.a == null ? Infinity : y.a)); });
     var multi = merged.length >= 2;
     var sumMain = m.cfgPnl, sumIncl = (m.cfgPnl || 0) + (m.cfgRef || 0);
-    var _parts = function(getVal, sep) { var out = []; merged.forEach(function(it, i) { if (i) out.push(React.createElement("span", { key: "s" + i, style: { color: "#d8d8d8", margin: "0 1px" } }, "/")); out.push(getVal(it, i)); }); return out; };
+    // 区切りは「＋」2026-08-06d（旧「/」）＝内訳が足し算だと読めるように。
+    // 2段目以降が負の段は区切りを「−」にして値は絶対値で出す（＝「-600円＋-800円」ではなく「-600円−800円」）。
+    // valOf＝その段の値（null＝建たなかった段＝常に＋区切り）。先頭項は符号つきのまま＝合計と同じ読み方になる。
+    var _absFmt = function(v) { var s = _elPnlFmt(Math.abs(v)); return s.charAt(0) === "+" ? s.slice(1) : s; };
+    var _parts = function(getVal, valOf) {
+      var out = [];
+      merged.forEach(function(it, i) {
+        if (i) { var v = valOf ? valOf(it) : null; out.push(React.createElement("span", { key: "s" + i, style: { color: "#b8c2cc", margin: "0 2px" } }, (v != null && v < 0) ? "−" : "＋")); }
+        out.push(getVal(it, i));
+      });
+      return out;
+    };
+    // 建たなかった段は「0（∵理由）」＝その段の寄与が0円であることと、なぜ0なのかを同時に出す
+    var _skipNode = function(sk, i) {
+      return React.createElement("span", { key: i, style: { whiteSpace: "nowrap" }, title: sk === "fillEq" ? "実効αがOS高値の最大とちょうど一致＝予定EPに触れただけ（オプション「指値同値は建てない」がON）" : sk === "unreached" ? "この段の実効αにOS1〜3で届かなかった" : sk === "x" ? "×見送り宣言の後にαへ到達＝実際には降りている" : sk === "noalpha" ? "この段のαが出せない（推奨α不明／採用α未入力）" : "損益を判定できない段（（）外が無い）" },
+        React.createElement("span", { style: { color: "#94a3b8" } }, "0"),
+        React.createElement("span", { style: { color: "#b9c2cc", fontSize: "0.8em" } }, "（∵" + (_SIM_SKIP_JA[sk] || "—") + "）"));
+    };
     // 上段（）外: 内訳 = 合計（合計は少し大きく・符号色）
     var topKids = [];
-    if (multi) { topKids = topKids.concat(_parts(function(it, i) { return it.m == null ? React.createElement("span", { key: i, style: { color: "#bbb" } }, "—") : React.createElement("span", { key: i, style: { color: _elPnlColor(it.m) } }, _elPnlFmt(it.m)); })); topKids.push(React.createElement("span", { key: "eq", style: { color: "#94a3b8", margin: "0 3px" } }, "=")); }
+    if (multi) { topKids = topKids.concat(_parts(function(it, i) { return it.m == null ? _skipNode(it.sk, i) : React.createElement("span", { key: i, style: { color: _elPnlColor(it.m) } }, (i > 0 && it.m < 0) ? _absFmt(it.m) : _elPnlFmt(it.m)); }, function(it) { return it.m; })); topKids.push(React.createElement("span", { key: "eq", style: { color: "#94a3b8", margin: "0 3px" } }, "＝")); }
     topKids.push(React.createElement("b", { key: "sum", style: { color: _elPnlColor(sumMain), fontSize: _SIM_SUM_FS } }, _elPnlFmt(sumMain)));
     var topRow = React.createElement("div", { style: { whiteSpace: "nowrap" } }, topKids);
     // ref皆無なら（）内は（）外と同値＝出さない
     if (!merged.some(function(it) { return it.r; })) return React.createElement("div", { style: { lineHeight: 1.35, display: "inline-block" } }, topRow);
     // 下段（）内: （内訳 ＝ 合計）を丸括弧で囲む・グレー
     var botKids = [React.createElement("span", { key: "lp", style: { color: "#999" } }, "（")];
-    if (multi) { botKids = botKids.concat(_parts(function(it, i) { var incl = (it.m == null && !it.r) ? null : ((it.m || 0) + (it.r || 0)); return incl == null ? React.createElement("span", { key: i, style: { color: "#ccc" } }, "—") : React.createElement("span", { key: i, style: { color: "#999" } }, _elPnlFmt(incl)); })); botKids.push(React.createElement("span", { key: "beq", style: { color: "#bbb", margin: "0 3px" } }, "＝")); }
+    // 2026-08-06d 下段は「0」だけ＝理由は上段に出ているので繰り返さない（（）内は参考額なので密度を上げない）
+    var _inclOf = function(it) { return (it.m == null && !it.r) ? null : ((it.m || 0) + (it.r || 0)); };
+    if (multi) { botKids = botKids.concat(_parts(function(it, i) { var incl = _inclOf(it); return incl == null ? React.createElement("span", { key: i, style: { color: "#bbb" } }, "0") : React.createElement("span", { key: i, style: { color: "#999" } }, (i > 0 && incl < 0) ? _absFmt(incl) : _elPnlFmt(incl)); }, _inclOf)); botKids.push(React.createElement("span", { key: "beq", style: { color: "#bbb", margin: "0 3px" } }, "＝")); }
     botKids.push(React.createElement("b", { key: "bsum", style: { color: "#777", fontSize: _SIM_SUM_FS } }, _elPnlFmt(sumIncl)));
     botKids.push(React.createElement("span", { key: "rp", style: { color: "#999" } }, "）"));
     var botRow = React.createElement("div", { style: { whiteSpace: "nowrap", borderTop: "1px dotted #cbd5e1", marginTop: 1, paddingTop: 1 }, title: "（）内＝○△を含む参考額（△・損切り済ぶんの差分を上乗せした値）" }, botKids);
@@ -5734,8 +5757,9 @@ function _elKabuLadderSimV2(props) {
       _cmpBar(aSum, aRef, bSum, bRef),
       React.createElement("div", { style: { overflowX: "auto", border: "0.5px solid #e8e3d8", borderTop: "none", borderRadius: "0 0 10px 10px" } },
         React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 600 } },   // 2026-08-06b 最高OS列ぶん 520→600
+          // 2026-08-06d 列見出しは「最高OS」→「OS最高値」（ユーザーの呼び方に合わせる）
           React.createElement("thead", null, React.createElement("tr", { style: { background: "#F0FDFA", color: "#0F766E" } },
-            _mtTh("日付"), _mtTh("採用α", "center"), _mtTh("最高OS", "center"), _mtTh("設定A", "center"), _mtTh("設定B", "center", true), _mtTh("差額(B−A)", "right"), _mtTh(""))),
+            _mtTh("日付"), _mtTh("採用α", "center"), _mtTh("OS最高値", "center"), _mtTh("設定A", "center"), _mtTh("設定B", "center", true), _mtTh("差額(B−A)", "right"), _mtTh(""))),
           React.createElement("tbody", null, brows),
           React.createElement("tfoot", null, _sumRow))));
   };
