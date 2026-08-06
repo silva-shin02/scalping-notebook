@@ -1492,7 +1492,10 @@ function _dtsSensTable(cfg, base) {
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto" } },
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, padding: "7px 10px 4px" } }, "🎯 グレード感度",
       React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280", marginLeft: 6 } }, "1日あたり成績だけを差し替えて同じ前提を回し直した結果")),
-    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 760 } },
+    // ⚠️minWidth は**実測した最小content幅**に合わせる（月次表 2026-08-05I と同じ規約）。2026-08-06C に
+    //   「注意」列を足した時に根拠なく 620→760 と置いたが、実測の必要幅は最大 655px（危険表示が最長になる
+    //   前提で622px・通常で655px）だったので、760 は約100px ぶん横スクロールを余計に強制していた。
+    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 660 } },
       React.createElement("thead", null, React.createElement("tr", null, [th("前提"), th("期末 総資産"), th("今との差"), th("期末 株数"), th("手取り合計"),
         th("注意", "その前提で回したときに保証金不足になる月数と、取引資金がマイナスへ落ちる月。期末の金額だけでは見えない危険をここに出します"),
         // ⚠️「実績の前提」ではなく「今の前提」 2026-08-06。基準は③に入っている入力値で回した self 行であって
