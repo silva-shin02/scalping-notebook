@@ -5108,7 +5108,7 @@ function _elKabuLadderSimV2(props) {
   var _uRwA = useState([{ method: "adopt", off: "0", cum: "100", stop: "15", stopSame: false, addMethod: "act", addOff: "" }]), rowsA = _uRwA[0], setRowsA = _uRwA[1];
   var _uRwB = useState([{ method: "adopt", off: "0", cum: "100", stop: "15", stopSame: false, addMethod: "act", addOff: "" }]), rowsB = _uRwB[0], setRowsB = _uRwB[1];
   var _uCmpX = useState(null), cmpExp = _uCmpX[0], setCmpExp = _uCmpX[1];   // A/B比較マスター表の行展開キー
-  var _kbSan = function(v) { return String(v == null ? "" : v).replace(/[０-９]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }).replace(/[ー−―‐]/g, "-").replace(/[^0-9\-]/g, ""); };
+  var _kbSan = function(v) { return String(v == null ? "" : v).replace(/[０-９]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }).replace(/[ー−―‐－]/g, "-").replace(/[^0-9\-]/g, ""); };   // 2026-08-06c 全角ハイフン－(U+FF0D)を追加＝日本語IMEの全角入力で打つマイナスがこれ。全角数字の範囲[０-９]はFF10〜FF19なので重複しない
   var _kbInt = function(v) { var t = _kbSan(v); if (t === "" || t === "-") return null; var n = parseInt(t, 10); return isNaN(n) ? null : n; };
   // 対象取引を期間で絞り込み（記録日基準・本日=当日/相対=今日からN遡り以降/全期間=無制限）2026-07-03q。推奨α(baseRecs/recoOf)は各記録日の履歴で別途算出＝ここでは絞らない。
   var _periodRecs = _elPSelFilter(recs, pSel);   // 2026-07-20i 年月週日カスケード選択（_elPSelFilter）。旧＝今日起点のローリング窓
@@ -5583,13 +5583,20 @@ function _elKabuLadderSimV2(props) {
   };
   // ===== 取引行エディタ（手動ラダー／A/B比較 共通）2026-07-24 =====
   // ①方式別入力（絶対値→「α値〇円で〇株」・採用α±X→「採用α値＋〇円で〇株」等）②取引ごと損切り「(合計)α値から〇円上」③第2取引以降「第1と同じ損切りライン」トグル。手動・A/B比較の両方がこの1関数を使う。
-  var _cfgStepField = function(val, onCh, inc, dec) {
+  // 先頭のマイナスだけ残す半角化 2026-08-06c。_kbSan は「-」を保つが位置も個数も見ないので（"1-2"→"1-2"）ここで1個の先頭マイナスに正規化する。
+  // 入力途中の "-" 単体はそのまま通す＝消すとマイナスが打てない（_kbInt("-")はnull＝±0扱いなので計算側は安全）。
+  var _kbSanSigned = function(v) { var t = _kbSan(v); var neg = t.charAt(0) === "-"; t = t.replace(/-/g, ""); return (neg ? "-" : "") + t; };
+  var _cfgStepField = function(val, onCh, inc, dec, allowNeg) {
     return React.createElement("div", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid #ddd", borderRadius: 5, overflow: "hidden", background: "#fff", verticalAlign: "middle" } },
       React.createElement("input", { type: "text", inputMode: "numeric", value: val,
         // 全角で打たれても半角へ 2026-08-05x。呼び出し元3つ（cum/off/stop）はどれも e.target.value しか読まないので、
         // 半角化した値だけを持つ器を渡す＝ここ1箇所で3つとも効く。**DOMのe.target.valueは書き換えない**
         // （controlled inputなので、onChが state を更新すれば再描画で半角の値が入る＝キャレットも飛ばない）。
-        onChange: function(e) { onCh({ target: { value: _toHankakuNum(e.target.value) } }); },
+        // ⚠️allowNeg 2026-08-06c: _toHankakuNum は末尾で /[^0-9]/g を捨てる＝**マイナスも消える**。
+        //   推奨α±X／採用α±X の「±」はマイナス側も正規の入力（▼ボタンの stepOff は method!=="abs" なら負を許すし、
+        //   自動配分の候補にも r-1〜r-5・a-1〜a-5 がある）なのに、タイプすると "-3"→"3" になって**符号が反転した設定で計算されていた**。
+        //   株数(cum)・損切り(stop) は負を許さない（stepCum/stepStop が0クランプ）ので従来どおり数字だけに削る。
+        onChange: function(e) { onCh({ target: { value: (allowNeg ? _kbSanSigned : _toHankakuNum)(e.target.value) } }); },
         style: Object.assign({}, _inpSty, { border: "none", borderRadius: 0 }) }),
       _stepBtn(inc, dec));
   };
@@ -5624,7 +5631,7 @@ function _elKabuLadderSimV2(props) {
     else {
       var _negOff = (m !== "abs" && _kbInt(rw.off) != null && _kbInt(rw.off) < 0);   // 採用α−X/推奨α−X＝マイナスは「＋」を出さない（−は入力欄側で表示・＋−の二重表示回避）2026-07-24
       var _pfx = m === "abs" ? "α値" : m === "adopt" ? ("採用α値" + (_negOff ? "" : "＋")) : ("推奨α" + (_negOff ? "" : "＋"));   // ① 方式別の入力ラベル（±X両対応）
-      var _offF = _cfgStepField(rw.off, function(e) { o.upd(i, { off: e.target.value }); }, function() { o.stepOff(i, 1); }, function() { o.stepOff(i, -1); });
+      var _offF = _cfgStepField(rw.off, function(e) { o.upd(i, { off: e.target.value }); }, function() { o.stepOff(i, 1); }, function() { o.stepOff(i, -1); }, m !== "abs");   // 2026-08-06c 第5引数＝マイナス許可。stepOff の 0クランプ条件（method==="abs"のみ）と揃える
       _inputPart = React.createElement(React.Fragment, null, React.createElement("span", { style: { fontSize: 10.5, whiteSpace: "nowrap" } }, _pfx), _offF, React.createElement("span", { style: { fontSize: 10.5 } }, "円で"), _cumF, React.createElement("span", { style: { fontSize: 10.5 } }, "株"));
     }
     var _stopPart = null;
