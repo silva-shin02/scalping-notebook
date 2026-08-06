@@ -7811,8 +7811,16 @@ function EntryLogView(_ref_elv2) {
       var _pa = _ai(_pr), _pt = _elHoldFinalParts(_pr.signal, _pa.alpha, _pa.cutLine);
       if (_pt && _pt.main != null) { _projSum += _pt.main; _projCnt++; if (_pr.date) _projDaySet[_pr.date] = 1; }
     }
-    var _projDays = 0; for (var _pk in _projDaySet) { if (Object.prototype.hasOwnProperty.call(_projDaySet, _pk)) _projDays++; }
-    var _projActual = _projDays ? { perDay: _projSum / _projDays, days: _projDays, cnt: _projCnt, sum: _projSum } : null;
+    var _projDays = 0, _projMonSet = {}; for (var _pk in _projDaySet) { if (Object.prototype.hasOwnProperty.call(_projDaySet, _pk)) { _projDays++; _projMonSet[String(_pk).slice(0, 7)] = 1; } }
+    var _projMons = 0; for (var _pm in _projMonSet) { if (Object.prototype.hasOwnProperty.call(_projMonSet, _pm)) _projMons++; }
+    // 2026-08-06B ⚠️perDay の分母は**記録のあった日数**であって営業日数ではない（変数名も注記も「営業日数」と
+    //   書いていたが実体は違った）。シミュ側は 1日あたり × ①月間営業日 で月次にするので、月10日しか
+    //   記録が無い人がオートフィルを押すと月次が約2倍に膨らむ。そこで「1ヶ月あたり何日記録があったか」
+    //   (daysPerMon) も渡し、オートフィルで①の営業日も実績に合わせて置き換える。
+    //   sinceOnly は注記の「母数」の書き分け用＝📈タブでは母数トグルを出していないので、実際にどちらで
+    //   集計したのかをシミュ側の注記に正しく書くために渡す。
+    var _projActual = _projDays ? { perDay: _projSum / _projDays, days: _projDays, cnt: _projCnt, sum: _projSum,
+      mons: _projMons, daysPerMon: _projMons ? (_projDays / _projMons) : _projDays, sinceOnly: !!sinceOnly } : null;
     // 2026-08-05u 青い説明ヘッダー（「損益推移シミュレーター ― 資金・株数・生活費の月次推移」＋前提の説明文）は撤去（ユーザー要望）。
     //   タブ名を「📈 損益推移シミュレーター」に伸ばしたので見出しが二重になっていた。
     _tabBody = _cardify([
@@ -7844,6 +7852,12 @@ function EntryLogView(_ref_elv2) {
                 return _msRecs.length ? _elMissSectionV2(_msRecs, _ai, true) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この母数に該当する記録がありません（トグルを切替）");
               })])
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）"));
+  } else {
+    // 2026-08-06B ⚠️**最終else（保険）**。ここまで全部の分岐が外れると _tabBody は undefined のまま描かれ、
+    //   本文が丸ごと真っ白になる（実際 view="proj" のまま銘柄ピルを押すとこの状態に落ちていた）。
+    //   各遷移側でも view を戻すようにしたが、全銘柄タブ専用のビューを今後足した時に同じ穴を作らない受け皿。
+    _tabBody = React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } },
+      "このタブはこの表示では使えません。上の「💰 損益」に戻すか、別のタブを選んでください。");
   }
 
   // 2026-07-20i 旧「🗓 期間指定」バー（_rngISty/_rngBtn/_rngBar と rngFrom/rngTo state）は年月週日カスケード選択(_ElPeriodPicker)へ統合したため撤去。
@@ -7886,17 +7900,20 @@ function EntryLogView(_ref_elv2) {
       sinceOnly ? React.createElement("div", { style: { fontSize: 9, color: "#0F6E56", marginTop: 4, lineHeight: 1.45 } },
         "※ 分析の母数だけを" + _EL_SINCE_LBL + "に絞っています（シグナルの件数・推奨α・シミュも追随）。上の銘柄ピルの件数と💰損益の集計表は全期間のままなので数が食い違って見えます。期間の指定と併用すると両方の条件で絞られます。") : null) : null,
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", marginBottom: 6 } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view !== "sum" && view !== "period" && view !== "sim") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view !== "sum" && view !== "period" && view !== "sim" && view !== "proj") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった。2026-08-06B "proj"（📈損益推移シミュレーター 2026-08-05）で**まったく同じ更新漏れを再発**させていたので追加。⚠️_tabs(5997)の全銘柄タブに項目を足したら必ずこの許可リストも足すこと
         style: { flexShrink: 0, padding: "6px 15px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1A1714" : "#E0DAD1"), background: _isAllStock ? "#1A1714" : "#fff", color: _isAllStock ? "#fff" : "#6B6459" } },
         "💰 損益 (" + _periodRecs.length + ")"),
-      React.createElement("button", { key: "__sigtotalbtn__", onClick: function() { setStockFil(_SIG_TOTAL); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); },
+      React.createElement("button", { key: "__sigtotalbtn__", onClick: function() { setStockFil(_SIG_TOTAL); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj") setView("sum"); },   // 2026-08-06B 銘柄ピルと同じ理由で proj から抜ける（📡シグナル総合でも _isAllStock は false）
         style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isSigTotal ? "#0F766E" : "#E0DAD1"), background: _isSigTotal ? "#0F766E" : "#fff", color: _isSigTotal ? "#fff" : "#6B6459" } },
         "📡 シグナル総合"),
       _tickerList.length ? _tickerList.map(function(s) {
         var on = _selStock === s;
-        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setDetTagMode("sig"); setSelDetTag(null); },
+        // 2026-08-06B ⚠️`proj`（📈損益推移シミュレーター）は全銘柄タブ専用（本文の分岐は `view==="proj" && _isAllStock` だけ）。
+        //   銘柄を選ぶと _isAllStock が false になり、if/elseチェーンに最終elseが無いので _tabBody が undefined ＝
+        //   **本文が丸ごと真っ白**になっていた（タブ行にも proj が出ないのでどこも選択されていない状態）。集計へ戻す。
+        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj") setView("sum"); },
           style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
             border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
