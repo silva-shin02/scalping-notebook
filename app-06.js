@@ -1326,12 +1326,17 @@ function _elIsOldRule(ds) { return String(ds || "") < _EL_RULE_SINCE; }
 //   こちらは_elBucketKey（ローカルgetter）だけを使うので同じ穴を踏まない。
 var _EL_PSEL_Y0 = 2026;   // 選択肢に出す最初の年（記録の開始年）
 var _EL_PSEL_LV = ["y", "m", "w", "d"];
-function _elPSelAll() { return { y: null, m: null, w: null, d: null }; }
-function _elPSelIsAll(sel) { return !sel || (!sel.y && !sel.m && !sel.w && !sel.d); }
-function _elPSelThisMonth() { var t = todayStr(); return { y: [Number(t.slice(0, 4))], m: [t.slice(0, 7)], w: null, d: null }; }   // シミュの既定＝今月のみ（週日は全て）
+function _elPSelAll() { return { y: null, m: null, w: null, d: null, since: false }; }
+function _elPSelIsAll(sel) { return !sel || (!sel.y && !sel.m && !sel.w && !sel.d && !sel.since); }
+function _elPSelThisMonth() { var t = todayStr(); return { y: [Number(t.slice(0, 4))], m: [t.slice(0, 7)], w: null, d: null, since: false }; }   // 今月のみ（週日は全て）※2026-08-06e シミュの既定は_elPSelSinceへ移行
+// 「6/29以降」2026-08-06e（ユーザー指定＝シミュの既定）。新ルール期間(_EL_RULE_SINCE)だけに絞るプリセット。
+// 年の選択とは**排他**＝年行の [全て][6/29以降][2026] は三択（6/29以降を選ぶと y はクリア／年を選ぶと since はクリア）。
+// **下限ではなく初期値**（ユーザー決定）＝「全て」や「5月」を押せば6月以前も見られる。
+function _elPSelSince() { return { y: null, m: null, w: null, d: null, since: true }; }
 // 上位階層を変えたら下位はリセット＝下位の選択（週/日）が範囲外を指したまま残るのを防ぐ。
+// since は月/週/日へ絞り込んでも維持する（「6/29以降 ▸ 6月」＝6/29〜6/30 が正しく出る）。年行だけは呼び出し側で明示的に落とす。
 function _elPSelSet(sel, lvl, val) {
-  var s = { y: sel.y, m: sel.m, w: sel.w, d: sel.d };
+  var s = { y: sel.y, m: sel.m, w: sel.w, d: sel.d, since: !!sel.since };
   s[lvl] = (val && val.length) ? val : null;
   for (var j = _EL_PSEL_LV.indexOf(lvl) + 1; j < _EL_PSEL_LV.length; j++) s[_EL_PSEL_LV[j]] = null;
   return s;
@@ -1349,6 +1354,7 @@ function _elPSelMatch(sel, date) {
   // 旧: 選択肢から隠すだけだったため、月チップに5〜7月しか出ないのに「全て」では4月が通り、見た目と実態が食い違っていた。
   // ⚠️この一行により4月の記録は記録帳から一切見えなくなる（🗂記録一覧含む）＝「算入しない」の徹底。
   if (_elIsEmaRefPeriod(date)) return false;
+  if (sel.since && _elIsOldRule(date)) return false;   // 2026-08-06e 「6/29以降」プリセット＝新ルール期間(_EL_RULE_SINCE)だけ。境界の正本は_EL_RULE_SINCEのまま（二重定義しない）
   if (sel.y && sel.y.indexOf(Number(date.slice(0, 4))) < 0) return false;
   if (sel.m && sel.m.indexOf(date.slice(0, 7)) < 0) return false;
   if (sel.w && sel.w.indexOf(_elBucketKey(date, "week")) < 0) return false;
@@ -1359,14 +1365,20 @@ function _elPSelMatch(sel, date) {
 function _elPSelFilter(recs, sel) {
   return (recs || []).filter(function(r) { return _elPSelMatch(sel, r && r.date); });
 }
-function _elPSelSig(sel) { return _elPSelIsAll(sel) ? "all" : (_EL_PSEL_LV.map(function(k) { return sel[k] ? sel[k].join(",") : "*"; }).join("|")); }   // 署名（_autoSig等の再計算判定用）
+function _elPSelSig(sel) { return _elPSelIsAll(sel) ? "all" : ((sel.since ? "S|" : "") + _EL_PSEL_LV.map(function(k) { return sel[k] ? sel[k].join(",") : "*"; }).join("|")); }   // 署名（_autoSig等の再計算判定用）。2026-08-06e since も含める＝切り替えたら自動配分の再計算が要る
 // 選択肢の列挙＋各期間の件数。年=2026〜今年／月=1月〜今月（未来は出さない・EMA修正前は隠す）／週=選択中の月に1日でも重なる月曜週／日=選択中の週(無ければ月)の平日で今日まで。
 function _elPSelOpts(recs, sel) {
   var t = todayStr(), curY = Number(t.slice(0, 4)), curM = Number(t.slice(5, 7));
+  // 2026-08-06e 「6/29以降」プリセット中は月/週/日の件数を新ルール期間だけで数える
+  //   （そうしないと「6月 64」と出るのに実際は8件しか対象にならず、チップの数字が嘘になる）。
+  // ⚠️年だけは**絞る前**の件数で数える＝年チップは since と排他（押すと since が外れる）ので、
+  //   絞った件数を出すと「2026 7」と書いてあるのに押したら10件、という食い違いになる。
+  var _raw = recs || [];
+  var _use = (sel && sel.since) ? _raw.filter(function(r) { return r && r.date && !_elIsOldRule(r.date); }) : _raw;
   var cy = {}, cm = {}, cw = {}, cd = {};
-  (recs || []).forEach(function(r) {
+  _raw.forEach(function(r) { var dt = r && r.date; if (dt) cy[dt.slice(0, 4)] = (cy[dt.slice(0, 4)] || 0) + 1; });
+  _use.forEach(function(r) {
     var dt = r && r.date; if (!dt) return;
-    cy[dt.slice(0, 4)] = (cy[dt.slice(0, 4)] || 0) + 1;
     cm[dt.slice(0, 7)] = (cm[dt.slice(0, 7)] || 0) + 1;
     var wk = _elBucketKey(dt, "week"); cw[wk] = (cw[wk] || 0) + 1;
     cd[dt] = (cd[dt] || 0) + 1;
@@ -1381,6 +1393,7 @@ function _elPSelOpts(recs, sel) {
     for (var m = 1; m <= last; m++) {
       var k = yy + "-" + _p2(m);
       if (_elIsEmaRefPeriod(k, "month")) continue;   // 2026年1〜4月は選択肢に出さない（EMA修正前＝算入しない）
+      if (sel && sel.since && k < _EL_RULE_SINCE.slice(0, 7)) continue;   // 2026-08-06e 6/29以降プリセット中は5月以前を出さない（0件チップが並ぶだけ）
       months.push({ key: k, label: (multiY ? (yy + "/") : "") + m + "月", n: cm[k] || 0 });
     }
   });
@@ -1392,6 +1405,7 @@ function _elPSelOpts(recs, sel) {
       var ds = mk + "-" + _p2(dd);
       if (ds > t) break;
       if (_elIsEmaRefPeriod(ds)) continue;
+      if (sel && sel.since && _elIsOldRule(ds)) continue;   // 2026-08-06e 6/28以前の週は出さない（6/29の週は6/29〜だけで拾われる）
       var wk = _elBucketKey(ds, "week");
       if (wSeen[wk]) continue;
       wSeen[wk] = 1;
@@ -1402,6 +1416,7 @@ function _elPSelOpts(recs, sel) {
   var days = [], dSeen = {};
   var _pushDay = function(ds) {
     if (ds > t || dSeen[ds] || _elIsEmaRefPeriod(ds)) return;
+    if (sel && sel.since && _elIsOldRule(ds)) return;   // 2026-08-06e
     var dw = new Date(ds + "T00:00:00").getDay();
     if (dw === 0 || dw === 6) return;   // 土日は市場が休みで記録が存在しないので選択肢に出さない
     dSeen[ds] = 1;
@@ -1432,7 +1447,9 @@ function _elPSelSummary(sel, opts) {
     if (arr.length === 1) { var f = null; (list || []).forEach(function(o) { if (String(o.key) === String(arr[0])) f = o; }); return (f ? f.label : String(arr[0])) + (suf || ""); }
     return arr.length + "件選択";
   };
-  return _lb(opts.years, sel.y, "全年", "年") + " ▸ " + _lb(opts.months, sel.m, "全月") + " ▸ " + _lb(opts.weeks, sel.w, "全週") + " ▸ " + _lb(opts.days, sel.d, "全日");
+  // 2026-08-06e since中は先頭を「6/29以降」に（年は選べていないので「全年」だと6月以前も入っているように読める）
+  var _head = (sel.since && !(sel.y && sel.y.length)) ? (Number(_EL_RULE_SINCE.slice(5, 7)) + "/" + Number(_EL_RULE_SINCE.slice(8, 10)) + "以降") : _lb(opts.years, sel.y, "全年", "年");
+  return _head + " ▸ " + _lb(opts.months, sel.m, "全月") + " ▸ " + _lb(opts.weeks, sel.w, "全週") + " ▸ " + _lb(opts.days, sel.d, "全日");
 }
 // UI本体（案B: 折りたたみサマリー＋変更▾で4段チップ展開）。props: value(sel) / onChange(sel) / recs(件数表示の母数) / label
 function _ElPeriodPicker(props) {
@@ -1446,15 +1463,22 @@ function _ElPeriodPicker(props) {
         border: "1px solid " + (on ? "#0F766E" : "#ddd"), background: on ? "#0F766E" : "#fff", color: on ? "#fff" : (dim ? "#C4C0B8" : "#666") } },
       txt, (n != null) ? React.createElement("span", { style: { fontSize: 8.5, marginLeft: 4, opacity: 0.75 } }, n) : null);
   };
+  // 2026-08-06e 年の行だけ [全て][6/29以降][2026] の三択。「6/29以降」は年選択と排他なので、
+  //   年チップ／年の「全て」を押したら since を必ず落とす（両方立っていると「2026年かつ6/29以降」になって三択に見えなくなる）。
+  var _sinceN = _elPSelFilter(recs, _elPSelSince()).length;
+  var _sinceLbl = Number(_EL_RULE_SINCE.slice(5, 7)) + "/" + Number(_EL_RULE_SINCE.slice(8, 10)) + "以降";
   var _row = function(lvl, lbl, list) {
-    var cur = sel[lvl];
+    var cur = sel[lvl], isY = (lvl === "y");
+    var _clrS = function(s) { return isY ? Object.assign({}, s, { since: false }) : s; };
+    var kids = [_chip(!cur && !(isY && sel.since), "全て", null, false, function() { onSet(_clrS(_elPSelSet(sel, lvl, null))); }, "__all__")];
+    if (isY) kids.push(_chip(!!sel.since, _sinceLbl, _sinceN, _sinceN === 0, function() { onSet(_elPSelSince()); }, "__since__"));
     return React.createElement("div", { key: lvl, style: { display: "flex", gap: 5, alignItems: "flex-start", flexWrap: "nowrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E", minWidth: 20, paddingTop: 4, flexShrink: 0 } }, lbl),
       React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", flex: 1 } },
-        [_chip(!cur, "全て", null, false, function() { onSet(_elPSelSet(sel, lvl, null)); }, "__all__")].concat(
+        kids.concat(
           list.map(function(o) {
             var on = !!cur && cur.some(function(v) { return String(v) === String(o.key); });
-            return _chip(on, o.label, o.n, o.n === 0, function() { onSet(_elPSelToggle(sel, lvl, o.key)); }, String(o.key));
+            return _chip(on, o.label, o.n, o.n === 0, function() { onSet(_clrS(_elPSelToggle(sel, lvl, o.key))); }, String(o.key));
           }))));
   };
   return React.createElement("div", { style: { marginBottom: 8 } },
@@ -5069,7 +5093,7 @@ function _elKabuLadderSimV2(props) {
   var allStock = !!props.allStock;
   var _simData = props.data || null, _simCollScope = props.scopeStock;   // 時間かぶり除外用（2026-07-20b）＝他のP&L集計(_elTotAccum の excluded)と同じ線引きをシミュにも適用。data未渡しなら従来どおり無効
   var _uM = useState("manual"), mode = _uM[0], setMode = _uM[1];
-  var _uF = useState("no"), addFil = _uF[0], setAddFil = _uF[1];
+  var _uF = useState("all"), addFil = _uF[0], setAddFil = _uF[1];   // 2026-08-06e 既定を「基本α」→「全記録」へ（ユーザー指定）。※浮き足〇は下の除外オプションが既定ONなので、全記録＝基本α＋応用α（浮き足〇は除外されたまま）
   var _uSk = useState("__all__"), stkFil = _uSk[0], setStkFil = _uSk[1];   // 対象銘柄フィルタ（全銘柄モードのみ表示・__all__=全て・既定＝全て）2026-07-22
   var _uBd = useState("__all__"), bandFil = _uBd[0], setBandFil = _uBd[1];   // 対象株価帯フィルタ 2026-08-02（ユーザー要望「対象を株価帯・銘柄から選べるように」）。銘柄フィルタとは独立のAND＝両方「全て」なら従来と同じ母数。銘柄別モードでも効く（同じ銘柄でも日によって帯が変わるため）
   var _uAo = useState("act"), addOn = _uAo[0], setAddOn = _uAo[1];   // 追加α〇記録への上乗せ: act=実追加α(既定)/reco=記録日時点の推奨追加α/none=なし。〇記録がシミュ対象にいる時だけピル表示 2026-07-06
@@ -5080,16 +5104,17 @@ function _elKabuLadderSimV2(props) {
   // 既定＝浮き足〇を除外（floatModeでは浮き足除外は無効＝母数が浮き足記録のため）。
   var _uEx = useState({ uki: true }), exFlags = _uEx[0], setExFlags = _uEx[1];
   // 「指値同値は建てない」2026-08-06（ユーザー要望・オプションセクション）: 実効αがOS高値の最大とちょうど一致した段を建てない＝予定EPに触れただけで指値が約定しなかった可能性を潰した保守的な合計。
-  //   既定OFF＝従来の数字を勝手に変えない。ONにしても母数（件数）は減らず、その段だけ建たない（記録の理由チップが「指値同値」になる）。
+  //   2026-08-06e 既定ONへ（ユーザー指定）。ONでも母数（件数）は減らず、その段だけ建たない（記録の理由チップが「指値同値」になる）。
   //   ⚠️浮き足〇の除外（記録単位・保存値）と違い**掃引αで動的に判定**する＝RN自動加算と同じ思想。RN〇除外が「保存値で母数を削るだけで動的判定は止まらない」誤解を招いて撤去された轍を踏まないため。
-  var _uFq = useState(false), fillEqEx = _uFq[0], setFillEqEx = _uFq[1];
+  var _uFq = useState(true), fillEqEx = _uFq[0], setFillEqEx = _uFq[1];
   var _uOpt = useState(true), optOpen = _uOpt[0], setOptOpen = _uOpt[1];   // オプションセクションの開閉（既定＝開く／閉じても要約行で現在の設定が読める）
   // RN自動加算トグル 2026-07-21a（ユーザー要望＝既定ONで戻す）: ONなら掃引αの予定EP下二桁が41-49/91-99のとき…50/…00まで自動で乗せる（記録フォーム/EPナビと同じ）。
   //   全方式（絶対値・推奨α系）に一律。OFFなら入力αがそのまま効く（下二桁に依らず建つ/建たないが安定）。採用α±X系はRNが採用αに内包済みなので対象外（別経路_adoptOf）。
   var _uRnA = useState(true), rnAuto = _uRnA[0], setRnAuto = _uRnA[1];
   // 2026-07-20i 対象期間を年月週日カスケード選択へ置換（旧: 本日/1週/1月/3月/6月/1年/全期間のローリング）。
-  // 既定＝今月のみ（週日は「全て」）＝ユーザー選択。記録帳の外側バーは既定「全期間」なので、こちらだけ今月に寄せている点に注意。
-  var _uPd = useState(_elPSelThisMonth), pSel = _uPd[0], setPSel = _uPd[1];
+  // 2026-08-06e 既定＝「6/29以降すべて」（旧: 今月のみ）。記録帳の外側バー（分析の母数トグル）は既定「全期間」のままなので、
+  //   こちらだけ新ルール期間に寄せている点に注意。**外側トグルを既定ONにすると記録帳の全タブの見え方が変わる**ので触っていない。
+  var _uPd = useState(_elPSelSince), pSel = _uPd[0], setPSel = _uPd[1];   // 2026-08-06e 既定を「今月のみ」→「6/29以降すべて」へ（ユーザー指定）。下限ではなく初期値＝年行の[全て]や[5月]で6月以前も見られる
   var _uRw = useState([{ method: "adopt", off: "0", cum: "", stop: "15", stopSame: false, addMethod: "act", addOff: "" }]), rows = _uRw[0], setRows = _uRw[1];   // 2026-07-20g 初期1行（既定＝「複数回の取引」×＝1回だけ建てる）。〇に切り替えた時に第2取引の空行を足す（旧: 初期2行）   // 取引ごとに入力方式(method)＋追加α方式(addMethod/addOff)を持つ 2026-07-03→2026-07-06追加α取引ごと化。初期は基本α未選択・追加αは実追加α(act)既定（触らなければ実際の追加αを反映＝シミュ=従来で差額0・×+未選択母数では実追加α=0で従来値不変）
   var _uAP = useState(false), addPicker = _uAP[0], setAddPicker = _uAP[1];   // 取引追加時の入力方式ピッカー表示 2026-07-03
   // 「複数回の取引 〇×」2026-07-20g（ユーザー要望＝そもそも分割するかを最初に選ぶ）。既定×＝1回だけ建てる。
