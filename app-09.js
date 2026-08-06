@@ -928,11 +928,14 @@ function _dtsHeader(openIn, setOpenIn, doSave, saveMsg) {
 // 期末のサマリーカード。まず結論の数字だけ先に見せる。
 function _dtsSummaryCards(res, cfg) {
   var s = res.summary;
-  var card = function(lbl, val, sub, col) {
+  // sub＝開始時からの増減（全カード共通）／sub2＝その下に出す小さな但し書き 2026-08-06C。
+  // ⚠️sub は必ず増減で埋める＝1枚だけ別の意味の文字が入ると、カードの3行目の読み方が揃わなくなる。
+  var card = function(lbl, val, sub, col, sub2) {
     return React.createElement("div", { key: lbl, style: { flex: "1 1 118px", minWidth: 108, border: "1px solid " + _DTS_BD, borderRadius: 9, padding: "6px 8px", background: "#fff" } },
       React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280" } }, lbl),
       React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: col || _DTS_INK, fontVariantNumeric: "tabular-nums", lineHeight: 1.25 } }, val),
-      sub ? React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280" } }, sub) : null);
+      sub ? React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280" } }, sub) : null,
+      sub2 ? React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF", lineHeight: 1.35 } }, sub2) : null);
   };
   // 開始時からの増減を全カードに揃えて出す（旧: 期末取引資金だけ「＋◯◯万」で不揃いだった）2026-08-05。
   // ⚠️開始時の値は cfg 直読みではなく summary.start を使う 2026-08-06＝②に負や空欄を入れた時に
@@ -944,11 +947,17 @@ function _dtsSummaryCards(res, cfg) {
     React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", marginBottom: 4 } },
       _dtsYmLbl(s.startYm) + " 〜 " + _dtsYmLbl(s.endYm) + "末（" + s.months + "ヶ月）の見通し"),
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 } }, [
-      card("期末 総資産", _dtsFmtMan(s.endTotal), gain(s.endTotal - st0.capital - liv0), "#047857"),
+      // ⚠️総資産の増減には⑧で入れた外部資金が**含まれる** 2026-08-06C（ユーザー決定③）。旧はいちばん目立つ
+      //   緑の「＋◯万」が投入込みで大きく出るだけで、「トレードでいくら増えたか」を示す数字が画面のどこにも
+      //   無かった。ここに内訳の但し書きを添え、隣の自己資金ベースに**トレード由来だけの増減**を出す。
+      card("期末 総資産", _dtsFmtMan(s.endTotal), gain(s.endTotal - st0.capital - liv0), "#047857",
+        s.injection ? "うち外部資金 " + _dtsFmtMan(s.injection) : null),
       card("期末 取引資金", _dtsFmtMan(s.endCapital), gain(s.capitalGain)),
       card("期末 生活口座", _dtsFmtMan(s.endLiving), gain(s.endLiving - liv0)),
       card("期末 株数", s.endShares.toLocaleString() + "株", (s.endShares >= sh0 ? "＋" : "−") + Math.abs(s.endShares - sh0) + "株"),
-      card("自己資金ベース", _dtsFmtMan(s.endOwnBase), s.injection ? "外部 " + _dtsFmtMan(s.injection) + " を除く" : "外部資金なし"),
+      // 自己資金ベース＝総資産−外部資金の累計。増減がここに出ると**それがトレードで増やした額そのもの**になる。
+      card("自己資金ベース", _dtsFmtMan(s.endOwnBase), gain(s.endOwnBase - st0.capital - liv0), null,
+        s.injection ? "外部 " + _dtsFmtMan(s.injection) + " を除く" : "外部資金なし"),
       card("手取り合計", _dtsFmtMan(s.net), "税 " + _dtsFmtMan(s.tax) + " 控除後", "#9A3412")
     ]));
 }
