@@ -814,69 +814,18 @@ function _dtsSimulate(cfg) {
   return { error: null, rows: rows, summary: sum, marks: marks };
 }
 
-// グレード感度＝1日あたり成績だけを差し替えて同じ前提を回し直す。
-// 「今のまま続けたら」と「1つ上のグレードに乗ったら」の差を金額で見せるための比較表用。
-var _DTS_SENS = [
-  { key: "C", perDay: 500,  lbl: "C  500円/日" },
-  { key: "B", perDay: 1500, lbl: "B  1,500円/日" },
-  { key: "A", perDay: 2250, lbl: "A  2,250円/日" },
-  { key: "S", perDay: 3000, lbl: "S  3,000円/日" }
-];
-// ③の1日あたりを丸ごと差し替える／倍率を掛ける 2026-08-06M。
+// ③の1日あたりに倍率を掛ける 2026-08-06M。🔧調整案の頑健性（何%下振れすると調整の効果が消えるか）で使う。
 // ⚠️期間別テーブルにしたので **cfg.dailyPer100 を書き換えるだけでは効かない**（_dtsNormCfg が
-//   perDayRows を優先するため）。感度表・頑健性はここを通すこと。旧キーも一緒に更新しておく。
-function _dtsSetPerDayAll(cfg, v) {
-  var c = _dtsNormCfg(_dtsCfgClone(cfg));
-  c.perDayRows = c.perDayRows.map(function(r) { return Object.assign({}, r, { amount: v }); });
-  c.dailyPer100 = v;
-  return c;
-}
+//   perDayRows を優先するため）。必ずここを通すこと。旧キーも一緒に更新しておく。
+// 2026-08-06N: グレード感度（_DTS_SENS/_dtsSetPerDayAll/_dtsSensitivity/_dtsReachTarget/_dtsSensRisk/
+//   _dtsSensTable）はユーザー指定で撤去した。🔧調整案が同じ「前提を振って比べる」役割を安全条件つきで
+//   担っているため役目が重複していた。倍率版のこれだけ残す。
 function _dtsScalePerDay(cfg, ratio) {
   var c = _dtsNormCfg(_dtsCfgClone(cfg));
   c.perDayRows = c.perDayRows.map(function(r) { return Object.assign({}, r, { amount: (_dtsNumOrNull(r.amount) || 0) * ratio }); });
   c.dailyPer100 = (_dtsHeadAmt(c.perDayRows, 0));
   return c;
 }
-function _dtsSensitivity(cfg) {
-  var out = [], i;
-  var mine = _dtsSimulate(cfg);
-  var head = _dtsHeadAmt(_dtsNormCfg(cfg).perDayRows, 0);   // 表示・比較の基準＝先頭行 2026-08-06M
-  // ⚠️ここは cfg.dailyPer100＝**③に入っている前提値**であって実績ではない 2026-08-05B。
-  //   保守的に実績より低く置くのが普通（例: 実績2,731に対して前提2,000）なので、
-  //   「実績 2,000円/日」と出すと事実と違う数字を実績として提示することになる。
-  if (!mine.error) out.push({ key: "now", lbl: "今の前提 " + Math.round(head).toLocaleString() + "円/日", perDay: head, self: true, res: mine });
-  for (i = 0; i < _DTS_SENS.length; i++) {
-    var s = _DTS_SENS[i];
-    // ⚠️③が代表値（500/1500/2250/3000）とちょうど同じ時は、self と1文字も違わない行が2本並ぶ 2026-08-06。
-    //   「今との差 ＋0万」「（同じ）」が灰色で出るだけで、なぜ2行あるのか画面から読めないので飛ばす
-    //   （どのグレードかは self 行のバッジで分かる）。
-    if (Math.round(head) === s.perDay) continue;
-    // ⚠️期間別テーブルなので**全行を差し替える** 2026-08-06M（旧は c2.dailyPer100 に代入するだけで、
-    //   perDayRows がある前提では1円も効かなかった＝比較表が全部同じ数字になる）。
-    var r = _dtsSimulate(_dtsSetPerDayAll(cfg, s.perDay));
-    if (!r.error) out.push({ key: s.key, lbl: s.lbl, perDay: s.perDay, self: false, res: r });
-  }
-  // 目標株数に届く月を各本で拾う。比較表の1列に使う。
-  // ⚠️目標は②の入力ではなく**実際の1行目の株数**から決める 2026-08-06。⑥の起点を今の資金より小さくしたり
-  //   αで初月から株数を上げたりすると、②が600のままでも1行目が1,000株になり、5本とも初月到達＝列が死ぬ。
-  var tgt = _dtsReachTarget({ initialShares: (mine.rows && mine.rows[0]) ? mine.rows[0].shares : (+cfg.initialShares || 0) });
-  for (i = 0; i < out.length; i++) {
-    var rs = out[i].res.rows, hit = null;
-    for (var j = 0; j < rs.length; j++) { if (rs[j].shares >= tgt) { hit = rs[j].ym; break; } }
-    out[i].reachYm = hit; out[i].reachTarget = tgt;
-  }
-  return out;
-}
-
-// 「◯◯株に届く月」の目標株数。既定1,000株だが、**シミュ1行目の株数**がすでに1,000以上だと
-// 全部の本が初月到達になって列が死ぬので、その時は次の500株刻みを目標にする 2026-08-05b／2026-08-06。
-// ⚠️呼び出し側が {initialShares: 実際の1行目の株数} を渡す＝②の入力値そのものではない。
-function _dtsReachTarget(cfg) {
-  var s0 = +cfg.initialShares || 0;
-  if (s0 < 1000) return 1000;
-  return Math.ceil((s0 + 1) / 500) * 500;
-}
-
 // ---- 表示ヘルパー --------------------------------------------------------
 // 表示は万円・小数第1位まで（依頼メモ§7）。内部計算は円のまま丸めない。
 var _DTS_INK = "#1E3A8A", _DTS_SUB = "#3B82F6", _DTS_BG = "#EFF6FF", _DTS_BD = "#BFDBFE";
@@ -1501,8 +1450,12 @@ function DaytradeProjection(props) {
     _dtsCharts(res),
     _dtsTable(res, cfg),
     _dtsMarks(res),
-    _dtsAdviceBox(adv, applyProp, applyProps, openAdv, setOpenAdv),
-    _dtsSensTable(cfg, res)
+    // 📉余力使用率は🔧調整案の直前 2026-08-06N（ユーザー指定）。提案は「余力95%未満」を安全条件に選んでいるので、
+    // 根拠のグラフがすぐ上にあると読みがつながる。
+    _dtsChartPowerBox(res),
+    _dtsAdviceBox(adv, applyProp, applyProps, openAdv, setOpenAdv)
+    // 🎯グレード感度は 2026-08-06N に撤去（ユーザー指定「不要」）。🔧調整案が同じ「前提を振って比べる」役割を
+    // 安全条件つきで担っているので、1日あたりだけ4段階に振る表は役目が重複していた。
   );
 }
 
@@ -1854,14 +1807,18 @@ function _dtsCharts(res) {
   var lgA = [["取引資金", "#93C5FD"]]
     .concat(hasNeg ? [["取引資金（マイナス）", "#FCA5A5"]] : [])
     .concat([["生活口座", "#FCD34D"], ["株数", "#B45309"]]);
-  return React.createElement("div", null, [
-    React.createElement(DtsChartBox, { key: "ca", rows: res.rows, draw: _dtsChartAssets,
-      title: "📊 総資産と株数の推移", note: "棒＝総資産の内訳（左軸・万円）／線＝株数（右軸・株）　カーソルを合わせるとその月の内訳が出ます",
-      legend: _dtsLegend(lgA) }),
-    React.createElement(DtsChartBox, { key: "cp", rows: res.rows, draw: _dtsChartPower,
-      title: "📉 余力使用率", note: "拘束額 ÷（取引資金 ÷ 保証金率）。95%超は1回の負けで詰む水準",
-      legend: _dtsLegend([["〜70% 余裕", "#DCFCE7"], ["90〜95% 警戒", "#FEF9C3"], ["95%〜 危険", "#FEE2E2"]]) })
-  ]);
+  return React.createElement(DtsChartBox, { rows: res.rows, draw: _dtsChartAssets,
+    title: "📊 総資産と株数の推移", note: "棒＝総資産の内訳（左軸・万円）／線＝株数（右軸・株）　カーソルを合わせるとその月の内訳が出ます",
+    legend: _dtsLegend(lgA) });
+}
+// 📉余力使用率だけ別関数にした 2026-08-06N（ユーザー要望「調整案セクションの上に移動して」）。
+// ⚠️_dtsCharts に同居させたままだと総資産グラフと必ず一緒に動くので、置き場所を変えるには分けるしかない。
+//   ここは「🔧調整案の直前」に置く＝提案が安全条件（余力95%未満）で選ばれているので、根拠のグラフが
+//   すぐ上にあると読みがつながる。
+function _dtsChartPowerBox(res) {
+  return React.createElement(DtsChartBox, { rows: res.rows, draw: _dtsChartPower,
+    title: "📉 余力使用率", note: "拘束額 ÷（取引資金 ÷ 保証金率）。95%超は1回の負けで詰む水準",
+    legend: _dtsLegend([["〜70% 余裕", "#DCFCE7"], ["90〜95% 警戒", "#FEF9C3"], ["95%〜 危険", "#FEE2E2"]]) });
 }
 
 // 表の配色 2026-08-05w（ユーザー指定）＝株式の慣習どおり **増える＝赤／減る・出ていく＝緑**。
@@ -2036,18 +1993,6 @@ function _dtsMarks(res) {
     res.marks.map(function(m, i) {
       return React.createElement("div", { key: i, style: { fontSize: 10.5, fontWeight: 700, color: col[m.kind] || "#374151", lineHeight: 1.7 } }, m.text);
     }));
-}
-
-// 感度表の各本の「危険」を拾う 2026-08-06B。旧は期末総資産・期末株数・手取り合計しか出していなかったので、
-// 「Sに乗れば＋320万」の裏で全月保証金不足だったり途中で資金が尽きていても、表からは一切分からなかった
-// ＝比較表が**楽観方向にだけ**誤る。行データは shortMargin と capital<0 を既に持っているので拾うだけ。
-function _dtsSensRisk(res) {
-  var sm = 0, negYm = null, i;
-  for (i = 0; i < res.rows.length; i++) {
-    if (res.rows[i].shortMargin) sm++;
-    if (negYm == null && res.rows[i].capital < 0) negYm = res.rows[i].ym;
-  }
-  return { shortMonths: sm, negYm: negYm };
 }
 
 // ===== 🔧 調整案（2026-08-06H ユーザー要望「この前提であればここはこうするのが最もいい、という機能」）=====
@@ -2348,70 +2293,4 @@ function _dtsAdviceBox(adv, onApply, onApplyAll, open, setOpen) {
       })));
   }
   return shell(React.createElement("div", null, body));
-}
-
-// グレード感度＝1日あたり成績だけ差し替えて回し直した比較表。
-// 「今のまま」と「1つ上のグレードに乗ったら」の差を期末の金額で見せる。
-function _dtsSensTable(cfg, base) {
-  var list = _dtsSensitivity(cfg);
-  if (!list.length) return null;
-  var th = function(t, tip) { return React.createElement("th", { key: t, title: tip || "", style: { padding: "4px 6px", fontSize: 9.5, fontWeight: 800, color: "#6B7280", borderBottom: "1px solid " + _DTS_BD, whiteSpace: "nowrap", textAlign: "center" } }, t); };
-  var td = function(k, ch, ex) { return React.createElement("td", { key: k, style: Object.assign({ padding: "4px 6px", fontSize: 11, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", borderTop: "1px solid #F1F5F9" }, ex || {}) }, ch); };
-  var mine = base.summary.endTotal;
-  // 到達月の差 2026-08-05b（ユーザー要望③）＝「Aに乗れば◯ヶ月早い」まで出す。
-  // 基準は「今の前提」の本(self)。それが期間内に届かない場合は差を出せないので、その旨を添えて月だけ出す。
-  var tgt = list[0] ? list[0].reachTarget : 1000;
-  var baseYm = null;
-  for (var bi = 0; bi < list.length; bi++) { if (list[bi].self) { baseYm = list[bi].reachYm; break; } }
-  var baseIdx = baseYm ? _dtsYmToIdx(baseYm) : null;
-  var reachCell = function(o) {
-    if (!o.reachYm) return React.createElement("span", { style: { color: "#9CA3AF" } }, "期間内に届かない");
-    var lbl = React.createElement("span", { style: { fontWeight: 700 } }, _dtsYmLbl(o.reachYm));
-    if (o.self) return lbl;
-    if (baseIdx == null) return React.createElement("span", null, lbl,
-      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#047857", marginLeft: 3 } }, "（今の前提では届かない）"));
-    var d = _dtsYmToIdx(o.reachYm) - baseIdx;
-    // ⚠️色は中立のグレー固定 2026-08-06。この表の配色は左隣の「今との差」が _DTS_UP(赤)＝増える／
-    //   _DTS_DOWN(緑)＝減る、という**符号**の慣習なのに、到達月は「早い＝良い＝緑／遅い＝悪い＝赤」で
-    //   赤の意味が反転していた。同じ行で赤が良し悪しの両方を指すので、ここは文字だけで伝える。
-    var tag = d === 0 ? "同じ" : (d < 0 ? Math.abs(d) + "ヶ月早い" : d + "ヶ月遅い");
-    return React.createElement("span", null, lbl,
-      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280", marginLeft: 3 } }, "（" + tag + "）"));
-  };
-  // 期末の金額だけ並べると「上のグレードに乗れば良いことしかない」に見えるので、危険を同じ行に出す 2026-08-06B。
-  var riskCell = function(rs) {
-    var rk = _dtsSensRisk(rs);
-    if (rk.negYm) return React.createElement("span", { style: { fontWeight: 800, color: "#B91C1C" } }, "🛑 " + _dtsYmLbl(rk.negYm) + "に資金が尽きる");
-    if (rk.shortMonths) return React.createElement("span", { style: { fontWeight: 700, color: "#B91C1C" } }, "⚠ 保証金不足 " + rk.shortMonths + "ヶ月");
-    return React.createElement("span", { style: { color: "#9CA3AF" } }, "—");
-  };
-  return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto" } },
-    React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: _DTS_INK, padding: "7px 10px 4px" } }, "🎯 グレード感度",
-      React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280", marginLeft: 6 } }, "1日あたり成績だけを差し替えて同じ前提を回し直した結果")),
-    // ⚠️minWidth は**実測した最小content幅**に合わせる（月次表 2026-08-05I と同じ規約）。2026-08-06C に
-    //   「注意」列を足した時に根拠なく 620→760 と置いたが、実測の必要幅は最大 655px（危険表示が最長になる
-    //   前提で622px・通常で655px）だったので、760 は約100px ぶん横スクロールを余計に強制していた。
-    React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 660 } },
-      React.createElement("thead", null, React.createElement("tr", null, [th("前提"), th("期末 総資産"), th("今との差"), th("期末 株数"), th("手取り合計"),
-        th("注意", "その前提で回したときに保証金不足になる月数と、取引資金がマイナスへ落ちる月。期末の金額だけでは見えない危険をここに出します"),
-        // ⚠️「実績の前提」ではなく「今の前提」 2026-08-06。基準は③に入っている入力値で回した self 行であって
-        //   記録帳の実績ではない（行ラベルは 2026-08-05B に直したのに、この title だけ旧文言が残っていた）。
-        th(tgt.toLocaleString() + "株に届く月", "（）内は今の前提（③に入れた1日あたり）と比べて何ヶ月早い／遅いか。シミュ1行目の株数が1,000株以上のときは目標を次の500株刻みに繰り上げます")])),
-      React.createElement("tbody", null, list.map(function(o) {
-        var s = o.res.summary, diff = s.endTotal - mine;
-        var g = (typeof _profitGradeFromPnl === "function") ? _profitGradeFromPnl(Math.round(o.perDay), 1) : null;
-        return React.createElement("tr", { key: o.key, style: { background: o.self ? _DTS_BG : "#fff" } }, [
-          td("l", React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
-            (typeof _elHoldGradeBadge === "function" && g) ? _elHoldGradeBadge(g) : null,
-            React.createElement("span", { style: { fontWeight: o.self ? 800 : 700, color: o.self ? _DTS_INK : "#374151" } }, o.lbl)), { textAlign: "left" }),
-          td("t", React.createElement("span", { style: { fontWeight: 800, color: "#047857" } }, _dtsFmtMan(s.endTotal))),
-          // 色は月次表と同じ慣習に揃える＝増える赤／減る緑 2026-08-05B（すぐ上の表と逆だった）
-          td("d", o.self ? React.createElement("span", { style: { color: _DTS_ZERO } }, "—")
-            : React.createElement("span", { style: { fontWeight: 700, color: diff === 0 ? _DTS_ZERO : (diff > 0 ? _DTS_UP : _DTS_DOWN) } }, (diff >= 0 ? "＋" : "−") + _dtsFmtMan(Math.abs(diff)))),
-          td("s", s.endShares.toLocaleString() + "株"),
-          td("n", _dtsFmtMan(s.net)),
-          td("k", riskCell(o.res), { textAlign: "left" }),
-          td("r", reachCell(o))
-        ]);
-      }))));
 }

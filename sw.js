@@ -3,7 +3,7 @@
 //    2回目以降はオフラインでも起動できるようにする。（app-09.js は損益推移シミュレーター 2026-08-05。
 //    index.html では app-06.js の直後に読む＝app-08.js の render() より前でないと未定義になる）
 // 2) Firebase Storage の画像も従来どおりキャッシュして課金を削減する。
-var APP_CACHE = "sn-app-v400";
+var APP_CACHE = "sn-app-v401";
 var IMG_CACHE = "sn-images-v1";
 var FB_STORAGE_HOST = "firebasestorage.googleapis.com";
 var GSTATIC_HOST = "gstatic.com";
