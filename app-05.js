@@ -3135,9 +3135,7 @@ function _isDataOnly(data, r) {
   if (r.signal.includeInTotal != null) return false;
   var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
   if (!r.stock || pool.indexOf(r.stock) < 0) return false;   // 候補プール外（固定銘柄）＝従来通り
-  var _dsMap = (data && data.dailyStock) || {};
-  var _ds = (r.date && _dsMap[r.date]) || "";
-  return r.stock !== _ds;   // 指定銘柄と違う候補＝データのみ。未指定日(_ds="")は候補すべてがデータのみ＝合計除外（2026-07-23 ユーザー選択B＝旧2026-07-22iの未指定日カーブアウトを撤回・指定銘柄本人のみ算入）
+  return !_dailyStockHas(data, r.date, r.stock);   // その日の指定銘柄（複数可 2026-08-06・_dailyStockHasで正規化）でない候補＝データのみ。未指定日は候補すべてがデータのみ＝合計除外（2026-07-23 ユーザー選択B＝旧2026-07-22iの未指定日カーブアウトを撤回・指定銘柄のみ算入）
 }
 // 合計額算入（金額版）: 従来の_elInclTotal（スルー/手動不算入）に加え、②データのみ（候補で未指定）も合計から外す。
 // グランド/銘柄横断の合計を出す消費側だけで使う（銘柄別の自タブ・分析母数は_elInclTotalのまま）。dataとr（.stock/.date/.signalを持つ記録）を渡す。
@@ -6876,8 +6874,7 @@ function EntryRecordForm(_ref_erf) {
   var _indDataOnlyCand = (function() {
     var pool = (data && data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
     if (!fStock || pool.indexOf(fStock) < 0) return false;
-    var _dsInd = (data && data.dailyStock && fDate) ? (data.dailyStock[fDate] || "") : "";
-    return fStock !== _dsInd;   // 候補で「その日の指定銘柄でない」→データのみ（合計算入OFF既定）。未指定日は_dsInd=""なので候補は全てOFF既定（2026-07-23 ユーザー選択B＝_isDataOnlyと対称に未指定日カーブアウトを撤回）。指定銘柄本人のみON既定
+    return !_dailyStockHas(data, fDate, fStock);   // 候補で「その日の指定銘柄（複数可 2026-08-06）でない」→データのみ（合計算入OFF既定）。未指定日は候補すべてOFF既定（2026-07-23 ユーザー選択B＝_isDataOnlyと対称に未指定日カーブアウトを撤回）。指定銘柄のみON既定
   })();
   var _useStateINC = useState(initSig.includeInTotal != null ? (initSig.includeInTotal !== false) : (_indDataOnlyCand ? false : true)),
     _useStateINCA = _slicedToArray(_useStateINC, 2),

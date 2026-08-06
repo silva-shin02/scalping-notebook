@@ -278,6 +278,21 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-08-06E 日替わり銘柄を1日に複数指定できるように（sw v391→v392）
+- ユーザー要望「日替わり銘柄の選定は複数できるようにしたい。合計算入なども考えて」。`data.dailyStock[日付]` が **1銘柄＝文字列／2銘柄以上＝配列** の2形を取る。
+- **保存形を1形に統一しなかった理由**: 常に配列にすると、まだ旧JSを掴んでいる端末（SW更新前）が `m[date]` を文字列比較する経路（`_isDataOnly`）で**全候補がデータのみに落ちて合計から消える**。1銘柄の日を文字列のまま書けば旧版でも従来どおり動く＝**壊れるのは旧版が表現できない「複数指定した日」だけ**に閉じ込められる。書き込みの正規化は `_dsWrite`（0件=キー削除／1件=文字列／2件以上=配列）1箇所だけ。
+- **helpers（app-04・`_epnRotGet`の直前）**: `_dailyStockList(data,date)`＝**必ずここを通して配列に正規化**（文字列/配列/空を吸収・重複と空文字を除去）。`_dailyStockHas(data,date,stock)`＝**算入判定はこれ**。`_dailyStockGet`＝先頭1つ（表示の既定値専用に降格）。`_dailyStockLabel(list,max)`＝「A・B」／3つ以上は「A・B 他N」。`_dailyStockToggle(save,date,stock)`＝●の追加/削除。`_dailyStockSet(save,date,stocks)`＝文字列でも配列でも受ける。
+  - ⚠️**生の `data.dailyStock[date]` を文字列比較しない**。配列の日が必ず不一致になり、指定した銘柄が丸ごと合計から消える。旧コードの比較箇所は全部潰した（app-05 `_isDataOnly`/`_indDataOnlyCand`・app-04 `_pbIsRotOut`）。
+  - `_dailyStockList` は `data.dailyStock` のオブジェクト参照でキャッシュする（`_dsListCache`・`_pbBandPoolCache`と同じ方式）。`_isDataOnly` は記録ごとに呼ばれるので毎回配列を作らない。**返り値は共有なので呼び出し側で破壊的変更をしない**（`_dailyStockToggle` は `slice()` してから触る）。
+- **合計算入の追従（新規）**: 記録フォーム（app-05:7607）は保存時に `signal.includeInTotal` を**必ず明示保存**する。つまり**後から2銘柄目を指定しても、その銘柄の既存記録は合計に入ってこない**（解除しても残る）。複数指定だと「先に記録→あとで指定」が普通に起きるので、●の切替時に食い違う記録を数えて確認ダイアログで揃える。
+  - `_dsNeedsSync(s,on)`／`_dsSyncCount(data,date,stock,on)`／`_dailyStockSyncTotals(save,date,stock,on)`（app-04・`_dailyStockToggle`直後）。
+  - 触るのは **ON時=`includeInTotal===false` ／ OFF時=`includeInTotal===true`** だけ。⚠️**未設定(null)の旧記録には明示falseを書かない**＝`_isDataOnly` の自動判定が指定に追従するので、書くと逆に追従を殺す。スルー(`passThrough`)・手動オーバーライド(`totalOverride`)・データ算入OFFの記録も対象外。
+  - 対象0件なら**ダイアログを出さずに黙って切替**（指定してから記録する通常の流れでは今までどおり）。切替自体は先に確定し、ダイアログは記録を揃えるかだけを聞く＝キャンセルの意味が「指定は変わったが記録はそのまま」で読める。
+- **UI（app-04 `_rotPickerBar`）**: `designated` が `dayStocks.indexOf(s)>=0` になり、●は**チップごとの独立トグル**（従来は単一ラジオ相当）。右端の注記は「● SUMCO・古河電工＝本日の取引銘柄（合計算入）／2銘柄」。
+- **タブ（app-03 StockTabs）**: `rotDayStock` は親が作った**ラベル文字列**を受ける（意味が「銘柄名」→「表示ラベル」に変わった）。`rotDayCount`（新規prop）が2以上なら見出しに `×2` を付ける。実測幅=1銘柄103px／2銘柄143px／4銘柄167px・**高さは37pxのまま**で他タブと揃う。
+- **改名の追従（app-04 `handleRenameStock`）**: `dailyStock` の値が配列でも要素ごとに付け替え＋重複解消（同じ日に旧名と新名が両方入っていた場合に1つへ畳む）。1件に減ったら文字列へ戻す。
+- **検証**: ブラウザハーネス（vendor+app-01〜06,09を読ませて直接叩く）で **43件全pass**＝正規化8／保存形8／キャッシュ3／ラベル4／`_isDataOnly`・`_elInclTotalAmt` 9（旧形式の文字列・未指定日・明示フラグ優先を含む）／追従8／改名3。StockTabsは実マウントして4パターンの描画と実測幅を確認。
+
 ### 2026-08-05y 実現損益の下段を「100株換算の1日平均＋グレードバッジ」に（sw v362→v363）
 - ユーザー要望「実現損益は、損益額の下を1日平均額（100株換算）にしてグレードバッジを付けて」＋確認3点（上段は据置で**バッジ2つ並べる**／株数未入力は**共通部を触らず**警告のみ／🏷銘柄別の実現損益列は**実額のまま**）。
 - **`totOf`/`totExOf` を `real:` → `realPair:` 経路へ**。`_elTotAccum`（app-05 L4550）が **`t.real`＝100株換算合計／`t.realRaw`＝実額合計／`t.realHasShares`** を同時に埋める。
@@ -988,7 +1003,7 @@ HomeEventFormModal, App
 
 ### 2026-07-22d 日替わりを「本日の取引銘柄」per-day化＋タブを外国市場の右に固定（①・sw v230→v231）
 - **概念変更**: 「日替わり銘柄」＝1日1つ実際に取引する銘柄を指定（`data.dailyStock[日付]`・trades/foreignMarkets同型のtop-levelマップ＝汎用マージで同期）。`custom.rotatingStocks` は「候補プール」に役割変更。以前の集約チップ切替（v229）を置換。
-- **helpers（app-04・_PbDayBandBar直前）**: `_dailyStockGet(data,date)`／`_dailyStockSet(save,date,stock)`。
+- **helpers（app-04・_PbDayBandBar直前）**: `_dailyStockGet(data,date)`／`_dailyStockSet(save,date,stock)`。→**2026-08-06E に複数指定へ拡張**（`_dailyStockList`/`_dailyStockHas`/`_dailyStockToggle` 等。下の変更ログ参照）。
 - **タブ配置（app-03 StockTabs）**: 📅日替わりタブを**外国市場ボタンの右に固定**（旧位置＝銘柄マップの後から移動）。`onRotSelect` があれば常時表示。ラベルは`rotLabel`（常に「📅 日替わり」）＋**`rotDayStock`（2026-08-05追加）**。`rotDayStock`が非空なら**2段表示**（1段目=見出し「📅 日替わり」・2段目=銘柄名。**文字サイズは両段とも13pxで同一**＝2026-08-05のユーザー指示。太さのみ600/700で差をつける）、空なら`rotLabel`の1行のみ。旧仕様は`rotLabel`自体を「📅 銘柄名」に差し替えていたため見出しが消え、どのタブか分からなくなっていた（app-03:1237-1268 / 受け渡しはapp-04:5630）。2段時はpadding上下を8→2pxに詰めて**他タブと同じ37px**に揃う（border1px×2込みで実測調整）。
 - **DayView（app-04）**: `rotTabActive`（fmActiveと並列の明示state）＋`rotViewStock`（タブ内の表示銘柄・指定とは別）。`dayStock=_dailyStockGet`、`dispStock=rotTabActive?_rotView:activeStock`（フル表示に渡す銘柄）。`activeStock` は候補プールを除いた固定銘柄優先に。旧`_rotChipBar`→**`_rotPickerBar`**（「📅 本日の取引銘柄」バー＝候補を「銘柄名（件数）」で並べ、名前タップ=表示/記録切替 setRotViewStock、各チップの**指定●**=dailyStock[date]に指定（赤●・合計算入）、＋でその場追加）。
 - **中身**: rotTabActive時は`_rotPickerBar`＋**固定銘柄と同じフル表示**（_PbDayBandBar/早見表/日足/ChartSection/bench を`dispStock`で描画）。StockTabsの`active`は(fmActive||rotTabActive)で空、onSelectでrotTabActive解除。

@@ -3561,14 +3561,80 @@ function _pbDayMaterialSet(save, stock, date, on) {
     return Object.assign({}, prev, { charts: charts });
   });
 }
-// 本日の取引銘柄（per-day 2026-07-22d）: その日に「実際に取引した1銘柄」を指定＝data.dailyStock[日付]（候補プール=custom.rotatingStocks）。trades/foreignMarketsと同じ日付キーのtop-levelマップ＝汎用マージで同期。
+// 本日の取引銘柄（per-day 2026-07-22d／複数指定 2026-08-06）: その日に「実際に取引した銘柄」を指定＝data.dailyStock[日付]（候補プール=custom.rotatingStocks）。trades/foreignMarketsと同じ日付キーのtop-levelマップ＝汎用マージで同期。
 // 指定銘柄＝合計＋分析に算入。候補で未指定の記録＝データのみ（合計除外・分析は残す）。固定銘柄は従来通り。
-function _dailyStockGet(data, date) { var m = (data && data.dailyStock) || {}; return (date && m[date]) || ""; }
-function _dailyStockSet(save, date, stock) {
+// 値の形（2026-08-06）: 1銘柄=文字列（旧形式のまま＝後方互換）／2銘柄以上=配列。旧版アプリで開いても1銘柄の日は従来通り動く。
+// 読み出しは必ず _dailyStockList / _dailyStockHas を通す（生の m[日付] を文字列比較すると配列の日が全て不一致＝データのみに落ちる）。
+var _dsListCache = { map: null, out: {} };
+function _dailyStockList(data, date) {
+  var m = (data && data.dailyStock) || null;
+  if (_dsListCache.map !== m) _dsListCache = { map: m, out: {} };   // dailyStockマップの差し替え（保存/同期）でキャッシュ全捨て
+  var _k = date || "";
+  if (Object.prototype.hasOwnProperty.call(_dsListCache.out, _k)) return _dsListCache.out[_k];
+  var v = (m && date) ? m[date] : null;
+  var src = (v == null || v === "") ? [] : (Array.isArray(v) ? v : [v]);
+  var out = [];
+  src.forEach(function(s) { var n = (s == null) ? "" : String(s); if (n && out.indexOf(n) < 0) out.push(n); });
+  _dsListCache.out[_k] = out;
+  return out;   // 返り値は共有＝呼び出し側で破壊的変更をしない（変更時は slice() する）
+}
+function _dailyStockHas(data, date, stock) { return !!stock && _dailyStockList(data, date).indexOf(stock) >= 0; }
+function _dailyStockGet(data, date) { return _dailyStockList(data, date)[0] || ""; }   // 先頭1つ（表示の既定値用。算入判定には使わない＝必ず_dailyStockHas）
+// タブ等の狭い場所向けラベル: 「A・B」／3つ以上は「A・B 他N」。
+function _dailyStockLabel(list, max) {
+  var a = list || [], n = (max == null) ? 2 : max;
+  if (!a.length) return "";
+  return (a.length <= n) ? a.join("・") : (a.slice(0, n).join("・") + " 他" + (a.length - n));
+}
+// 保存形の正規化はここに集約: 0件=キー削除／1件=文字列／2件以上=配列。
+function _dsWrite(m, date, list) {
+  var a = (list || []).filter(function(s) { return !!s; });
+  if (!a.length) delete m[date]; else m[date] = (a.length === 1) ? a[0] : a;
+  return m;
+}
+function _dailyStockSet(save, date, stocks) {
   save(function(prev) {
-    var m = Object.assign({}, prev.dailyStock || {});
-    if (stock) m[date] = stock; else delete m[date];
-    return Object.assign({}, prev, { dailyStock: m });
+    return Object.assign({}, prev, { dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, Array.isArray(stocks) ? stocks : (stocks ? [stocks] : [])) });
+  });
+}
+// 指定のトグル（複数指定 2026-08-06）: 既に指定済みなら外す・未指定なら足す。
+function _dailyStockToggle(save, date, stock) {
+  if (!stock) return;
+  save(function(prev) {
+    var cur = _dailyStockList(prev, date).slice();
+    var i = cur.indexOf(stock);
+    if (i >= 0) cur.splice(i, 1); else cur.push(stock);
+    return Object.assign({}, prev, { dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, cur) });
+  });
+}
+// 指定●の切替に「その日のその銘柄の記録」の合計算入を追従させる（複数指定 2026-08-06）。
+// 記録フォーム(app-05)は保存時に signal.includeInTotal を必ず明示保存する＝後から指定を変えても既存記録は付いてこない
+// →「2銘柄目を後から指定したのに合計に入らない」「解除したのに残る」。切替時に対象件数を数えて確認ダイアログで揃える。
+// 触るのは明示フラグが指定と食い違う記録だけ: ON時=includeInTotal===false／OFF時=includeInTotal===true。
+// 未設定(null)の旧記録は _isDataOnly の自動判定が指定に追従するのでそのまま（明示falseを書くと逆に自動追従を殺す）。
+// 対象外: スルー(passThrough)・手動オーバーライド(totalOverride)・データ算入OFF（分析からも外した記録）。
+function _dsNeedsSync(s, on) {
+  if (!s || s.passThrough === true || s.totalOverride === "in" || s.totalOverride === "out") return false;
+  if (s.includeInData === false) return false;
+  return on ? (s.includeInTotal === false) : (s.includeInTotal === true);
+}
+function _dsSyncCount(data, date, stock, on) {
+  var c = ((data && data.charts) || {})[stock + "_" + date];
+  var sigs = (c && Array.isArray(c.signals)) ? c.signals : [];
+  var n = 0;
+  sigs.forEach(function(s) { if (_dsNeedsSync(s, on)) n++; });
+  return n;
+}
+function _dailyStockSyncTotals(save, date, stock, on) {
+  save(function(prev) {
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date, c = charts[ck];
+    if (!c || !Array.isArray(c.signals)) return prev;
+    var hit = false;
+    var ns = c.signals.map(function(s) { if (!_dsNeedsSync(s, on)) return s; hit = true; return Object.assign({}, s, { includeInTotal: !!on }); });
+    if (!hit) return prev;
+    charts[ck] = Object.assign({}, c, { signals: ns });
+    return Object.assign({}, prev, { charts: charts });
   });
 }
 // EPナビの日替わり列の「表示銘柄」（端末ローカル・per-date 2026-07-22i）: dailyStock（合計算入の指定）とは別で、EPナビでどの候補のEPを計算・早見するかの表示選択だけ。既定は指定銘柄。Firebase同期しない＝localStorage（ユーザー決定＝▽は表示切替のみ・指定は変えない）。
@@ -4518,8 +4584,8 @@ function EpNaviPanel(_refEPN) {
   // 日替わり列（📅・右端 2026-07-22i・ユーザー要望）: custom.rotatingStocks＝候補プール（マスター実在のみ・日経＋固定表示銘柄は除外＝二重表示回避）。見出しの▽で1銘柄を選び右端の列に表示（表示のみ＝指定dailyStock/合計算入は変えない）。
   var rotStocks = (Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : []).filter(function(s) { return _epnAllStocks.indexOf(s) >= 0 && s !== "日経平均株価" && epnStocks.indexOf(s) < 0; });
   var _hasRot = rotStocks.length > 0;
-  var _dayStock = _dailyStockGet(data, date);   // その日の指定銘柄（合計算入）。▽の既定表示に使う（指定は変えない）
-  var _rotDefault = (_dayStock && rotStocks.indexOf(_dayStock) >= 0) ? _dayStock : (rotStocks[0] || "");
+  var _dayStocks = _dailyStockList(data, date);   // その日の指定銘柄（複数可 2026-08-06・合計算入）。▽の既定表示に使う（指定は変えない）
+  var _rotDefault = (function() { for (var _i = 0; _i < _dayStocks.length; _i++) { if (rotStocks.indexOf(_dayStocks[_i]) >= 0) return _dayStocks[_i]; } return rotStocks[0] || ""; })();   // 指定銘柄のうち日替わり列に出せる先頭→無ければ候補先頭
   var _epnStockToggle = function(st) {
     var cur = epnStocks.slice();
     var i = cur.indexOf(st);
@@ -4949,8 +5015,9 @@ function DayView(_ref57) {
   }, [tab]);
   var _regStocks = allStocks.filter(function(s) { return s !== "日経平均株価" && rotStocks.indexOf(s) < 0; });   // 通常タブに出る固定銘柄（日経・候補プールを除く）2026-07-22d
   var activeStock = (allStocks.includes(cs) && rotStocks.indexOf(cs) < 0) ? cs : (_regStocks[0] || allStocks[0] || "");
-  var dayStock = _dailyStockGet(data, date);   // その日の本日の取引銘柄（指定・赤マーク・合計算入）
-  var _rotView = (rotViewStock && rotStocks.indexOf(rotViewStock) >= 0) ? rotViewStock : (dayStock || rotStocks[0] || "");   // タブ内の表示銘柄（指定優先→候補先頭）
+  var dayStocks = _dailyStockList(data, date);   // その日の本日の取引銘柄（複数可 2026-08-06・指定・赤マーク・合計算入）
+  var dayStock = dayStocks[0] || "";   // 表示の既定に使う先頭1つ（指定かどうかの判定は dayStocks.indexOf で行う）
+  var _rotView = (rotViewStock && rotStocks.indexOf(rotViewStock) >= 0) ? rotViewStock : (dayStock || rotStocks[0] || "");   // タブ内の表示銘柄（指定の先頭優先→候補先頭）
   var dispStock = rotTabActive ? _rotView : activeStock;   // フル表示に渡す銘柄（タブ時=表示中の候補／通常時=固定銘柄）
   useEffect(function () {
     return setWeekOffset(0);
@@ -5144,8 +5211,15 @@ function DayView(_ref57) {
       next.trades = ntr;
       // 本日の取引銘柄（②データのみ除外 2026-07-22e）: data.dailyStock は値が銘柄名＝改名追従しないと、指定した銘柄の記録が「候補で未指定」＝データのみ扱いに落ちてグランド合計から消える（指定●も外れる）。値をoldName→newNameへ付替。
       if (prev.dailyStock && typeof prev.dailyStock === "object") {
-        var _nds = {};
-        Object.keys(prev.dailyStock).forEach(function(_dsk) { _nds[_dsk] = (prev.dailyStock[_dsk] === oldName) ? newName : prev.dailyStock[_dsk]; });
+        var _nds = {};   // 複数指定（配列）も要素ごとに付替＋重複解消 2026-08-06
+        Object.keys(prev.dailyStock).forEach(function(_dsk) {
+          var _dv = prev.dailyStock[_dsk];
+          if (Array.isArray(_dv)) {
+            var _na = [];
+            _dv.forEach(function(s) { var n = (s === oldName) ? newName : s; if (n && _na.indexOf(n) < 0) _na.push(n); });
+            _nds[_dsk] = (_na.length === 1) ? _na[0] : _na;
+          } else _nds[_dsk] = (_dv === oldName) ? newName : _dv;
+        });
         next.dailyStock = _nds;
       }
       return next;
@@ -5308,7 +5382,7 @@ function DayView(_ref57) {
     React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#4338CA", whiteSpace: "nowrap" } }, "📅 本日の取引銘柄"),
     _rotSorted.map(function(s) {
       var viewing = _rotView === s;
-      var designated = dayStock === s;
+      var designated = dayStocks.indexOf(s) >= 0;   // 複数指定可（●は各チップ独立のトグル）2026-08-06
       var cnt = _rotRecCount(s);
       return React.createElement("span", { key: s, style: { display: "inline-flex", alignItems: "center", borderRadius: 14, border: "1px solid " + (viewing ? "#4338CA" : "#E0DAD1"), background: viewing ? "#EEF2FF" : "#fff", overflow: "hidden" } },
         React.createElement("button", {
@@ -5317,8 +5391,17 @@ function DayView(_ref57) {
           style: { padding: "5px 8px 5px 10px", fontSize: 12, fontWeight: 600, border: "none", background: "transparent", color: viewing ? "#3730A3" : "#6B6459", cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 36 : 28 }
         }, s, cnt > 0 ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（" + cnt + "）") : (_rotHasTradeTag(s) ? React.createElement("span", { title: "ノーシグナル等（取引0件）", style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（0）") : null)),
         React.createElement("button", {
-          onClick: function() { _dailyStockSet(save, date, designated ? "" : s); },
-          title: designated ? "本日の取引銘柄の指定を解除" : "この銘柄を本日の取引銘柄に指定（合計に算入・赤マーク）",
+          onClick: function() {
+            var _on = !designated;
+            var _n = _dsSyncCount(data, date, s, _on);   // 指定と食い違う既存記録（合計算入）の件数
+            _dailyStockToggle(save, date, s);
+            if (!_n) return;
+            window._snConfirm(_on
+              ? ("「" + s + "」を本日の取引銘柄に指定しました。\nこの日の記録 " + _n + " 件は合計算入がOFFのままです。\nまとめてONにしますか？")
+              : ("「" + s + "」の指定を解除しました。\nこの日の記録 " + _n + " 件は合計算入がONのままです。\nまとめて合計から外しますか？")
+            ).then(function(_ok) { if (_ok) _dailyStockSyncTotals(save, date, s, _on); });
+          },
+          title: designated ? "本日の取引銘柄の指定を解除" : "この銘柄を本日の取引銘柄に指定（合計に算入・赤マーク／複数指定できます）",
           style: { padding: "5px 8px", fontSize: 11, border: "none", borderLeft: "1px solid " + (viewing ? "#C7D2FE" : "#EEE"), background: designated ? "#E53935" : "transparent", color: designated ? "#fff" : "#CBD5E1", cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
         }, "●"));
     }),
@@ -5355,7 +5438,7 @@ function DayView(_ref57) {
         onClick: function() { setRotAddOpen(false); setRotAddVal(""); },
         style: { padding: "5px 8px", fontSize: 11, background: "#fff", color: "#888", border: "1px solid #ccc", borderRadius: 6, cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
       }, "✕")),
-    React.createElement("span", { style: { marginLeft: "auto", fontSize: 9, color: "#94A3B8", whiteSpace: "nowrap" } }, dayStock ? ("● " + dayStock + "＝本日の取引銘柄（合計算入）") : "●で本日の取引銘柄を指定（未指定の候補はデータのみ）")
+    React.createElement("span", { style: { marginLeft: "auto", fontSize: 9, color: "#94A3B8", whiteSpace: "nowrap" } }, dayStocks.length ? ("● " + dayStocks.join("・") + "＝本日の取引銘柄（合計算入）" + (dayStocks.length > 1 ? ("／" + dayStocks.length + "銘柄") : "")) : "●で本日の取引銘柄を指定（複数可・未指定の候補はデータのみ）")
   );
   var RedDot = function RedDot() {
     return React.createElement("span", {
@@ -5632,9 +5715,10 @@ function DayView(_ref57) {
     rotStocks: rotStocks,
     rotActive: rotTabActive,
     rotLabel: "📅 日替わり",
-    rotDayStock: dayStock || "",
+    rotDayStock: _dailyStockLabel(dayStocks, 2),   // 複数指定は「A・B」／3つ以上は「A・B 他N」2026-08-06
+    rotDayCount: dayStocks.length,
     onRotSelect: function() { setRotTabActive(true); setFmActive(false); },
-    rotHasData: dayStock ? stockHasData(dayStock) : rotStocks.some(stockHasData)
+    rotHasData: dayStocks.length ? dayStocks.some(stockHasData) : rotStocks.some(stockHasData)
   }),
   fmActive
     ? React.createElement(React.Fragment, null,
@@ -6604,8 +6688,8 @@ function DayView(_ref57) {
     // ただし手動で合計算入にした記録（includeInTotal=true / totalOverride:"in"）は合計に効いているので主表側へ残す
     //   ＝「主表の合計＝主表に見えている行」が常に成立する（ユーザー選択 2026-07-29）。
     var _pbRotPool = (data.custom && Array.isArray(data.custom.rotatingStocks)) ? data.custom.rotatingStocks : [];
-    var _pbDayStk = (data.dailyStock || {})[date] || "";
-    var _pbIsRotOut = function(stk) { return _pbRotPool.indexOf(stk) >= 0 && stk !== _pbDayStk; };
+    var _pbDayStks = _dailyStockList(data, date);   // その日の指定銘柄（複数可 2026-08-06）
+    var _pbIsRotOut = function(stk) { return _pbRotPool.indexOf(stk) >= 0 && _pbDayStks.indexOf(stk) < 0; };
     var _pbOutOf = function(r) { return _pbIsRotOut(r.stock) && !_elInclTotalAmt(data, r); };
     var _pbByStkMain = {}, _pbByStkOut = {};
     _pbStks.forEach(function(sk) {
