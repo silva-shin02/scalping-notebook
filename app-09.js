@@ -728,7 +728,12 @@ function _dtsInitCfg(data, actual) {
 //
 // ▲▼ボタンは既存の共通部品 _stepBtn(app-05.js:6232)を使う＝押しっぱなしで350ms後に80ms間隔の連続増減。
 // props.step は**表示単位**で渡す（unit="man" なら step:1 が1万円）。省略するとボタンを出さない＝税率・
-// 委託保証金率のような「いじらない欄」はそのまま。
+// 委託保証金率のような「一度決めたら動かさない欄」はそのまま。
+// ⚠️「動かす欄」に step を渡し忘れるとボタンが**黙って出ない**（エラーも出ない）。2026-08-06K に⑥の
+//   目標余力使用率で実際にやらかした＝すぐ上の委託保証金率の書き方をコピーしたため。新しい数値欄を足したら
+//   「これは押して増減させる欄か」を必ず確認すること。
+// props.min / props.max は**内部単位**（unit="pct" なら 0.9 が90%）。⚠️表示単位の step と単位が違うので注意。
+//   どちらも ▲▼ の行き先だけを縛る＝直接打った値は縛らない（打ち込みの制限は _dtsSimulate 側のクランプ＋警告が担当）。
 // ⚠️_stepBtn の長押しリピートは pointerdown 時点のクロージャを setInterval で呼び続けるので、
 //   props.value を直接読むと**初回の値のまま**になり1段しか進まない。最新値は vRef 経由で読むこと
 //   （app-04.js:4041 の推奨基本α欄と同じ理由・同じ対処）。onChange 側は setCfg の関数アップデータなので古くても安全。
@@ -753,6 +758,7 @@ function DtsNum(props) {
   // 表示単位の刻み → 内部単位へ。step未指定＝ボタンなし。
   var istep = (props.step == null) ? null : (unit === "man" ? props.step * 10000 : unit === "pct" ? props.step / 100 : props.step);
   var minV = (props.min == null) ? 0 : props.min;
+  var maxV = (props.max == null) ? null : props.max;
   var bump = function(dir) {
     if (istep == null) return;
     var cur = vRef.current;
@@ -765,6 +771,10 @@ function DtsNum(props) {
     var base = empty ? 0 : Number(cur);
     var nv = base + dir * istep;
     if (minV != null && nv < minV) nv = minV;
+    if (maxV != null && nv > maxV) nv = maxV;
+    // ⚠️pct は丸めずに渡すと 0.9+0.01 が 0.9099999999999999 になり、表示(toDisp)が「91」でも
+    //   保存値は端数付きになる。内部単位の刻みで丸めて、打った値と保存値を一致させる 2026-08-06K。
+    if (unit === "pct") nv = Math.round(nv / istep) * istep;
     props.onChange(unit === "pct" ? nv : Math.round(nv));
   };
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "stretch", border: "1px solid " + _DTS_BD, borderRadius: 5, overflow: "hidden", background: "#fff" } },
@@ -1082,7 +1092,9 @@ function DaytradeProjection(props) {
           React.createElement("option", { value: "power" }, "余力使用率が◯%を超えない最大株数"))
       ]),
       _isPow ? _dtsRow([
-        _dtsLbl("毎月 余力使用率が"), React.createElement(DtsNum, { key: "tu", value: cfg.targetUse, unit: "pct", width: 52, suffix: "%", onChange: function(v) { set("targetUse", v); } }),
+        // ⚠️step を渡さないと▲▼が出ない。ここは 85/90/95 と動かして比べる欄なので必ず付ける（2026-08-06K）。
+        //   min/max は内部単位＝5%〜100%（0%は計算不能・100%超は保証金を超えて建てる指定なので止める）。
+        _dtsLbl("毎月 余力使用率が"), React.createElement(DtsNum, { key: "tu", value: cfg.targetUse, unit: "pct", width: 52, suffix: "%", step: 1, min: 0.05, max: 1, onChange: function(v) { set("targetUse", v); } }),
         _dtsLbl("を超えない最大株数（100株単位）"),
         _dtsLbl("上限"), React.createElement(DtsNum, { key: "ms", value: cfg.maxShares, width: 56, suffix: "株", placeholder: "無制限", step: 100, onChange: function(v) { set("maxShares", v); } }),
         React.createElement("label", { key: "sd", style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 700, color: "#4B5563", cursor: "pointer" } },
