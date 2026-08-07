@@ -4510,6 +4510,9 @@ function _elCollPairNode(data, r, scope) {
 // 実エントリー済み（_elIsEntered＝実際に約定した証拠）は対象外＝仮想損益（見送り等のシミュレーション値）にだけ効かせる。
 // 時間かぶり(_elCollisionExcludedSet)と違い「記録単体で完結する判定」なのでセット構築もmemoも不要（毎回の再計算が安い）。
 // 配線は時間かぶりと同じ線引き＝「表示総計」のみ。α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
+// ⚠️これは**この関数(_elFillRisk)の配線の話**。「α総当たり表は指値同値を無視している」という意味ではない 2026-08-07。
+//   α詳細表は掃引αごとに判定し直す専用版 _elFillEqAt(app-06:1697) を使い、2026-08-02eで評価へ昇格済み＝
+//   到達/E成立/利確/損切り/勝ち負け平均からは外し、**最終損益だけ0円で母数に残す**（_elH2EvalByFn の第4引数 fillEqZero・app-06:1667）。
 function _elFillRisk(s, item) {
   if (!s) return false;
   if (_elIsEntered(s, item)) return false;

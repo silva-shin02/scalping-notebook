@@ -2228,7 +2228,11 @@ function _elTotalAlphaSectionV2(recs, aiOf, holiSet, onPick, curSel, spanOverrid
   return React.createElement("div", null,
     concl,
     React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "8px 0 0" } }, "母数の内訳: 応用〇 " + _yesN + "件 → 浮き足〇 " + _exUki + "件・RN〇 " + _exRn + "件を除外 → " + pool.length + "件"),
-    _lbl("応用α別の総当たり（0〜20円・淡色＝全条件未達／「理想」＝全条件（到達率" + reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字）を満たすαのうちΣ最終損益（累計）が最大のα（基本α+1以上）／★＝推奨＝理想" + _elAlphaOffTxt("円") + "／全条件を満たすαが無ければ条件適合無し／前提損切り値" + _elAnaCutCur + "円で評価／頻度＝数字が小さいほど高頻度）"),
+    // 2026-08-07 ユーザー指示で注記を2点だけに削減（旧: 0〜20円・淡色＝全条件未達・「理想」の全条件・★＝推奨＝理想・条件適合無し・頻度の読み方まで並べていた）。
+    // ⚠️「指値同値は合計不算入」**ではない**。この表は _elH2EvalByFn(fillEqZero=true) で回っており（app-06:2123）、
+    //   同値の記録は最終損益に**0円で算入**され母数(h2Cnt)にも残る（app-06:1667）。外れるのは 到達率・E成立・利確・損切り・勝ち/負け平均のほう。
+    //   だから文言も「合計不算入」ではなく「0円で算入」にしてある＝表の数字と説明を食い違わせない。
+    _lbl("前提損切り値" + _elAnaCutCur + "円で評価／指値同値は最終損益に0円で算入（到達率・E成立・利確・損切りからは除外）"),
     _elv2Table(["応用α", "E成立", "到達率", "同値", "頻度", "利確", "損切り", "最終損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"].concat(onPick ? ["選択"] : []), rows),   // 2026-08-02m 「未達」撤去・利確/損切りは件数＋率
     insight);
 }
