@@ -6356,9 +6356,12 @@ function EntryLogView(_ref_elv2) {
   // 1記録の最終損益（（）外main）。集計対象外ならnull。🏷銘柄別の損益割合と🎯グレード別の件数が**同じ除外規約**
   //   （時間かぶり除外・×見送り・main非null）を共有するための単一源 2026-08-03c。
   //   ここを共有しているので「銘柄別の総利益件数＋総損失件数＋同値」と「グレード別の合計件数」が食い違いようがない。
-  var _elFinalPnlOf = function(r) {
+  //   第2引数 ignoreColl=true で**時間かぶり除外だけを外した**同じ判定を返す（他の条件は完全に同一）。
+  //   用途は🏷銘柄別の「被り除外N件」小書き＝「被りが無ければ金額列に入っていたはずの件数」を数えるためだけ。
+  //   条件を別に書き起こすと本体と黙ってずれるので、必ずこのフラグ経由で数えること（2026-08-07）。
+  var _elFinalPnlOf = function(r, ignoreColl) {
     var s = r && r.signal; if (!s) return null;
-    if (_elCollExcluded(data, r, _collScope)) return null;
+    if (!ignoreColl && _elCollExcluded(data, r, _collScope)) return null;
     var a = _ai(r).alpha, c = _ai(r).cutLine;
     if (_epIsXSkip(s, a)) return null;
     var t2 = _elHoldFinalParts(s, a, c);
@@ -6382,14 +6385,24 @@ function EntryLogView(_ref_elv2) {
   // 1バケツぶんの集計。金額系は totOf（＝全体損益（期間別）と同じ_elTotAccum）をそのまま使い、総利益/総損失はその内訳になるよう
   //   **同じ除外規約**（時間かぶり除外・×見送り・main非null）で符号分けする＝ Σ利益 ＋ Σ損失 ＝ 純損益(hold2) が必ず成立する。
   //   件数系（到達＝E成立・利確）は stopsOf/winTakeOf をそのまま使う＝期間別表の同名列と同じ数字になる（分母が食い違いようがない）。
+  //   collX（2026-08-07）＝金額列が時間かぶりで落とした件数。件数/到達/勝率は被り除外しない規約（アプリ全体で共通）なので、
+  //     出さないと「到達15件なのに総利益12件＋総損失2件＝14件」の差の正体が画面から読めない（同値・金額不明と混ざる）。
+  //     数え方は _elFinalPnlOf(r,true)＝被り除外だけ外した同じ判定＝「被りが無ければ金額列に入っていた」件数そのもの。
+  //   days（2026-08-07）＝そのバケツに記録があった日数（重複なし）。件数だけだと日替わりの「選ばれた日が少ないだけ」と
+  //     「毎日やって少ない」の区別が付かず、固定銘柄と勝率・1件平均を並べたときに選定バイアスが見えない。
   var _stkShareAgg = function(x) {
-    var gp = 0, gl = 0, gpN = 0, glN = 0;
+    var gp = 0, gl = 0, gpN = 0, glN = 0, cx = 0, dset = {};
     (x || []).forEach(function(r) {
+      if (r && r.date) dset[r.date] = 1;
       var v = _elFinalPnlOf(r);                                   // 2026-08-03c 除外規約は_elFinalPnlOfへ集約（中身は不変）
-      if (v == null) return;
+      if (v == null) {
+        if (_elCollExcluded(data, r, _collScope) && _elFinalPnlOf(r, true) != null) cx++;
+        return;
+      }
       if (v > 0) { gp += v; gpN++; } else if (v < 0) { gl += v; glN++; }
     });
-    return { n: (x || []).length, tot: totOf(x), sp: stopsOf(x), wt: winTakeOf(x), gp: gp, gl: gl, gpN: gpN, glN: glN };
+    return { n: (x || []).length, tot: totOf(x), sp: stopsOf(x), wt: winTakeOf(x), gp: gp, gl: gl, gpN: gpN, glN: glN,
+             collX: cx, days: Object.keys(dset).length };
   };
   var _STK_SHARE_COLORS = ["#0369A1", "#9A3412", "#B45309", "#0F766E", "#94A3B8"];
   var _stkShareSection = function(rs) {
@@ -6429,8 +6442,23 @@ function EntryLogView(_ref_elv2) {
     };
     var _amt = function(v) { return React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
     var _sub = function(t) { return React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8" } }, t); };
+    // 選定日数（2026-08-07）: 日替わり行だけに出す「その銘柄が『本日の取引銘柄』に選ばれた日数」。
+    //   母数は _allDates＝この表の期間で記録があった日（＝合計行の日数列と同じ）。記録が残らなかった選定日も数えるので
+    //   「選定5日・記録3日」のような差がそのまま見える＝件数の少なさが『選ばれていない』のか『選ばれたのに取れていない』のかを分けられる。
+    //   固定銘柄は毎日見ている＝選定という概念が無いので出さない（nullで渡す）。
+    var _allDates = {};
+    rs.forEach(function(r) { if (r && r.date) _allDates[r.date] = 1; });
+    _allDates = Object.keys(_allDates);
+    var _selDaysOf = function(list) {
+      if (!list || !list.length) return null;
+      var n = 0;
+      _allDates.forEach(function(d) {
+        for (var i = 0; i < list.length; i++) { if (_dailyStockHas(data, d, list[i])) { n++; return; } }
+      });
+      return n;
+    };
     // tgl（2026-08-06G）: 行そのものを開閉ボタンにする（旧＝表の下に別枠の_SNCollapseを置いていた）。{open,n,onClick}。
-    var cellsOf = function(label, color, a, indent, tgl) {
+    var cellsOf = function(label, color, a, indent, tgl, sel) {
       var net = a.tot.hold2, cnt = a.tot.hold2Cnt;
       return [
         _elv2Td(React.createElement("span", {
@@ -6444,7 +6472,14 @@ function EntryLogView(_ref_elv2) {
           color ? React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: color, display: "inline-block", flexShrink: 0 } }) : null,
           React.createElement("span", { style: { fontWeight: 700, color: "#334155" } }, label),
           tgl ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 600 } }, tgl.n + "銘柄") : null), { textAlign: "left", paddingLeft: 8 }),
-        _elv2Td(a.n + "件"),
+        // 件数の下に「被り除外N件」＝右の金額列（総利益/総損失/純損益/1件平均）だけがこのN件を落としている、という注記。
+        //   到達・勝率は被り除外しない規約なので、これが無いと到達と総利益件数＋総損失件数の差が読めない（2026-08-07）。
+        _elv2Td(React.createElement("span", {
+          title: a.collX ? ("この" + a.n + "件のうち" + a.collX + "件は時間かぶり（早い方の保有中に入った遅い方）で、総利益・総損失・純損益・1件平均・実現損益から除外されています。件数・到達・勝率は除外していません（アプリ共通の規約）") : null
+        }, a.n + "件", a.collX ? _sub("被り除外 " + a.collX + "件") : null)),
+        _elv2Td(React.createElement("span", {
+          title: sel != null ? ("記録があった日数。うちこの銘柄が「本日の取引銘柄」に選ばれた日は" + sel + "日（選ばれた日だけ取引しているので、常時見ている固定銘柄と勝率・1件平均をそのまま比べると日替わり側が有利に出ます）") : "記録があった日数（重複なし）"
+        }, a.days + "日", sel != null ? _sub("選定 " + sel + "日") : null)),
         _elv2Td((a.sp.wn || 0) + "件"),
         _elv2Td(a.wt.rate != null ? a.wt.rate + "%" : "—"),
         _elv2Td(React.createElement("span", null, _amt(a.gp), _sub(a.gpN + "件・全体の" + _pctS(a.gp, _gpTot)))),
@@ -6469,24 +6504,25 @@ function EntryLogView(_ref_elv2) {
     shown.forEach(function(g) {
       if (g.key !== "__rot__" || !_rotKeys.length) { rows.push(rowOf(g)); return; }
       rows.push(React.createElement.apply(null, ["tr", { key: g.key }].concat(
-        cellsOf(g.label, g.color, g.a, false, { open: rotShareOpen, n: _rotKeys.length, onClick: function() { setRotShareOpen(!rotShareOpen); } }))));
+        cellsOf(g.label, g.color, g.a, false, { open: rotShareOpen, n: _rotKeys.length, onClick: function() { setRotShareOpen(!rotShareOpen); } }, _selDaysOf(bk.rot)))));
       if (!rotShareOpen) return;
       _rotKeys.forEach(function(k) {
         rows.push(React.createElement.apply(null, ["tr", { key: "__rot_" + k, style: { background: "#FAFAF9" } }].concat(
-          cellsOf(k, g.color, _stkShareAgg(_rotByStk[k]), true))));
+          cellsOf(k, g.color, _stkShareAgg(_rotByStk[k]), true, null, _selDaysOf([k])))));
       });
     });
     rows.push(totRow);
     return React.createElement("div", null,
       bar("利益の内訳（全体の総利益 " + _elPnlFmt(_gpTot) + " に占める割合）", function(g) { return g.a.gp; }, _gpTot),
       bar("損失の内訳（全体の総損失 " + _elPnlFmt(-_glTot) + " に占める割合）", function(g) { return Math.abs(g.a.gl); }, _glTot),
-      _elv2Table(["銘柄", "件数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"], rows));
+      _elv2Table(["銘柄", "件数", "日数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"], rows));
   };
   // ===== 🎯 グレード別の件数（月別）（2026-08-03c ユーザー要望「1か月あたりの各グレードの件数が知りたい。A+何件、A-何件みたいな感じ」）=====
   // 表は2つ（ユーザー選択「両方」）＝「良いトレードが何件あったか」と「良い日が何日あったか」は別の話なので分ける:
-  //  ①トレード単位: 記録1件ごとの最終損益を_profitGradeFromPnl（損益スケール S=2501円〜）で判定し月別に数える。
+  //  ※表示順は2026-08-07に「①日単位／②トレード単位」へ入れ替え済み（ユーザー指示）。以下の①②は説明の便宜上の番号ではなく画面の番号に合わせてある。
+  //  ②トレード単位: 記録1件ごとの最終損益を_profitGradeFromPnl（損益スケール S=2501円〜）で判定し月別に数える。
   //     合計＝その月に金額が出た記録数＝🏷銘柄別の「総利益件数＋総損失件数＋D(同値)」。_elFinalPnlOf を共有しているので食い違いようがない。
-  //  ②日単位: その日の最終損益合計を同じスケールで判定し、月に何日がA+だったかを数える。
+  //  ①日単位: その日の最終損益合計を同じスケールで判定し、月に何日がA+だったかを数える。
   //     単日は days=1 ＝合計そのまま＝既存の「複数日は1日平均・単日は合計」規約（app-06の_yenN・app-05の_elHold2RefSuffix）と同じ。
   //     数えるのは記録があった日だけ＝合計＝その月の稼働日数（ノーシグナル日・全除外日は母数に入れない＝Z/DNFの列は作らない）。
   // 実現損益スケール(_profitGradeFromPnlReal＝カレンダーの日付バッジ)は使わない（ユーザー選択）: realizedPnl がほぼ未記録で分布が作れないため。
@@ -6545,11 +6581,12 @@ function EntryLogView(_ref_elv2) {
         React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#475569" } }, t),
         React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, sub));
     };
+    // 2026-08-07 ユーザー指示で日単位を①・トレード単位を②へ入れ替え（表の中身・計算は一切変えていない・並び順だけ）。
     return React.createElement("div", null,
-      _cap("① トレード単位（記録1件＝1件）", "1記録の最終損益をそのままグレード判定。合計＝その月に金額が出た記録数（🏷銘柄別の 総利益件数＋総損失件数＋D）"),
-      _tbl(recM, "件"),
-      _cap("② 日単位（1日＝1件）", "その日の最終損益の合計をグレード判定。合計＝その月に記録があった日数"),
-      _tbl(dayM, "日"));
+      _cap("① 日単位（1日＝1件）", "その日の最終損益の合計をグレード判定。合計＝その月に記録があった日数"),
+      _tbl(dayM, "日"),
+      _cap("② トレード単位（記録1件＝1件）", "1記録の最終損益をそのままグレード判定。合計＝その月に金額が出た記録数（🏷銘柄別の 総利益件数＋総損失件数＋D）"),
+      _tbl(recM, "件"));
   };
   var _ovPnlTbl = function(rs, g) {
     // 2026-08-05n 旧ルール期間（_RULE_SINCE より前）は「薄く表示＋合計・平均に算入しない」（ユーザー指示
@@ -7621,12 +7658,12 @@ function EntryLogView(_ref_elv2) {
           _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
         _sinceRecs.length ? [
           _secH("🏷 銘柄別の損益割合",
-            "固定銘柄＋📅日替わり（まとめて1つ）＋その他。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間（2026-08-05sで境界を統一）。割合は利益と損失を別々に内訳表示（純損益の構成比にすると、マイナスの銘柄があるとき負の%や100%超が出て積み上げ棒にできないため）。PF＝プロフィットファクタ＝総利益÷総損失",
+            "固定銘柄＋📅日替わり（まとめて1つ）＋その他。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間（2026-08-05sで境界を統一）。割合は利益と損失を別々に内訳表示（純損益の構成比にすると、マイナスの銘柄があるとき負の%や100%超が出て積み上げ棒にできないため）。PF＝プロフィットファクタ＝総利益÷総損失。⚠️金額列（総利益・総損失・純損益・1件平均・実現損益）は時間かぶりの遅い方を除外しますが、件数・到達・勝率は除外しません＝件数欄の「被り除外N件」がその差です。日替わりの「選定N日」はその銘柄が本日の取引銘柄に選ばれた日数＝選ばれた日だけ取引しているので、常時見ている固定銘柄と勝率・1件平均をそのまま比べると日替わり側が有利に出ます",
             _elSinceBadge()),
           _stkShareSection(_sinceRecs)] : null,
         _sinceRecs.length ? [
           _secH("🎯 グレード別の件数（月別）",
-            "最終損益を損益スケール（S=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①記録1件ごと ②その日の合計ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間。境界をまたぐ月は「2026/06（6/29〜）」＝その月の一部だけを数えています。カレンダーの日付バッジは実現損益スケール（10倍・S=25001円〜）なので数字は一致しません",
+            "最終損益を損益スケール（S=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①その日の合計ごと ②記録1件ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間。境界をまたぐ月は「2026/06（6/29〜）」＝その月の一部だけを数えています。カレンダーの日付バッジは実現損益スケール（10倍・S=25001円〜）なので数字は一致しません",
             _elSinceBadge()),
           _gradeMonSection(_sinceRecs)] : null,
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
