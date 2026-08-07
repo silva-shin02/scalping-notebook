@@ -4154,10 +4154,13 @@ function _EpnAddSection(_p) {
         onBlur: function() { var n = (addStr === "" || isNaN(Number(addStr))) ? 0 : Math.max(0, Number(addStr)); if (n !== (Number(e.special) || 0)) _p.onValue(n); },
         style: { width: 38, padding: "2px 5px", fontSize: 11, fontWeight: 700, color: "#B91C1C", border: "1px solid #CBD5E1", borderRadius: 5, background: "#fff", textAlign: "right", boxSizing: "border-box", outline: "none" } }),
       React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円"),
-      _stepBtn(function() { _stepAdd(1); }, function() { _stepAdd(-1); })) : null,
-    specialUsed ? React.createElement("div", null,
-      React.createElement("div", { style: { fontSize: 8.5, color: reco ? "#9A3412" : "#94A3B8", marginTop: 2 } },
-        reco ? (reco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + reco.v + "円")) : "推奨応用α データ無し（手動入力）")) : null);   // 2026-08-07 値が出ているときの内訳（銘柄全体・n=・手動変更可）はユーザー指示で撤去。値が無い理由（条件適合無し/データ無し）は残す
+      _stepBtn(function() { _stepAdd(1); }, function() { _stepAdd(-1); }),
+      // 推奨応用αは独立行から入力欄の右へ移設＋「推奨：〇円」へ短縮（2026-08-07 ユーザー指示）。値が出ている時だけ nowrap＝狭い列でも「推奨：1円」で割れない／理由書き（長い）は折り返させる。
+      (function() {
+        var _hasV = !!(reco && !reco.nomin);
+        var _t = reco ? (reco.nomin ? "推奨：ー（条件適合無し）" : ("推奨：" + reco.v + "円")) : "推奨：データ無し（手動入力）";
+        return React.createElement("span", { style: { fontSize: 8.5, color: reco ? "#9A3412" : "#94A3B8", whiteSpace: _hasV ? "nowrap" : "normal" } }, _t);
+      })()) : null);
 }
 // 早見カードのRN加算インライン編集（2026-07-08h）: 〇×ボタン→〇のとき数値入力（円・そのまま加算）。値入力はローカルstate（onBlur確定＝1文字ごとの全体保存を避ける）。根拠なし＝追加αより単純。
 function _EpnRnSection(_p) {
@@ -4808,7 +4811,8 @@ function EpNaviPanel(_refEPN) {
         React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums" } }, "EP " + e.ep + "円"),
         e.b ? React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#475569" } }, e.b) : null),   // ③底抜けをEP価格の右に同サイズで表示（プレーン・底抜けライン欄のみ復活 2026-07-24）
       React.createElement("div", { style: { fontSize: 9, color: subColor } }, _isUkiCard ? ("起点" + e.level + "＋α" + alphaSum + "（" + bk + "）") : ("起点" + e.level + (e.uki ? "＋浮" + e.uki : "") + "＋α" + (alphaSum - (Number(e.uki) || 0)) + "（" + bk + "）")),
-      e.src ? React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8", marginTop: 1 } }, "（" + e.src + "）") : null, _inlineEditor);
+      // 基本αの出所行「（本日の採用α値）」「（銘柄全体）」等はユーザー指示で非表示 2026-08-07。保存データ側の e.src は従来どおり記録している（表示だけの撤去＝出したくなればここを戻すだけ）。
+      _inlineEditor);
   };
   // 早見（上段: 銘柄ヘッダー＋EPカード）と計算フォーム（下段: _EpnCalcForm常設）を銘柄列ごとにグリッドで2段整列（案A 2026-07-08）。
   // 「＋計算」ボタンは廃止＝フォームは常時表示。gridの自動配置で前半n個=上段・後半n個=下段となり、フォームの上端が列間で揃う。
