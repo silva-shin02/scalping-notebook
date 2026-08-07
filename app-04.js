@@ -4617,6 +4617,18 @@ function EpNaviPanel(_refEPN) {
   var _hasRot2 = _hasRot && !!_rotSel2;   // 候補が2件以上ある時だけ2列目を出す（1件しかない日に同じ銘柄を2列並べない）
   var _delTimerRef = useRef(null);
   var _stkDragRef = useRef(null), _stkMovedRef = useRef(false);
+  // 列の折返し（2026-08-07）: 横スクロールを出さないため、入る列数を実測して段組みにする。枠の実幅をResizeObserverで拾う（初回描画前はwindow幅から概算）。
+  var _wrapRef = useRef(null);
+  var _uBoxW = useState(0), _boxW = _uBoxW[0], setBoxW = _uBoxW[1];
+  useEffect(function() {
+    var el = _wrapRef.current;
+    if (!el) return;
+    var upd = function() { var w = el.clientWidth || 0; setBoxW(function(p) { return Math.abs(p - w) < 2 ? p : w; }); };   // 1px未満の揺れで再描画しない
+    upd();
+    if (typeof ResizeObserver !== "undefined") { var ro = new ResizeObserver(upd); ro.observe(el); return function() { ro.disconnect(); }; }
+    window.addEventListener("resize", upd);
+    return function() { window.removeEventListener("resize", upd); };
+  }, []);
   useEffect(function() { return function() { if (_delTimerRef.current) clearTimeout(_delTimerRef.current); }; }, []);
   // 各列フォームのAPI（loadForEdit/onDeleted）をrefマップで保持＝カードタップ編集読込・削除通知を命令的に連携（再レンダー不要）。
   var _formApisRef = useRef({});
@@ -4843,11 +4855,23 @@ function EpNaviPanel(_refEPN) {
   if (_hasRot) { _topAll.push(_rotColTop(0, _rotSel, setRotSelRaw, _rotSel2, setRotSelRaw2)); _formAll.push(_rotColForm(0, _rotSel)); }
   if (_hasRot2) { _topAll.push(_rotColTop(1, _rotSel2, setRotSelRaw2, _rotSel, setRotSelRaw)); _formAll.push(_rotColForm(1, _rotSel2)); }
   var _colN = epnStocks.length + (_hasRot ? 1 : 0) + (_hasRot2 ? 1 : 0);
-  var savedView = _colN
-    ? React.createElement("div", { style: { overflowX: "auto", paddingBottom: 2 } },
-        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + _colN + ", minmax(200px, 1fr))", gap: 8, alignItems: "stretch" } },
-          _topAll.concat(_formAll)))
-    : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", padding: "4px 0" } }, "「⚙表示銘柄」から銘柄を選ぶと、銘柄ごとの早見と計算フォームが並びます");
+  // 段組み（2026-08-07）: 列を1行に詰め込むと横スクロールになるので、枠幅に入る列数で折り返す。段ごとに独立したグリッド＝上段(早見)/下段(計算フォーム)の2行構成と「フォームの上端が揃う」性質は段の中で保たれる。
+  // 段数を先に決めてから均等割り（例: 5列で4列しか入らない→4+1ではなく3+2）。列は minmax(0,1fr)＝入る幅まで縮むので、どの幅でも横スクロールにならない。
+  var _EPN_COL_MIN = 200, _EPN_GAP = 8;
+  var _availW = _boxW || ((typeof window !== "undefined" && window.innerWidth) ? window.innerWidth - 44 : 1000);   // 初回描画（計測前）はwindow幅から概算＝一瞬だけ違う段数で出るのを防ぐ
+  var _fitPerRow = Math.max(1, Math.floor((_availW + _EPN_GAP) / (_EPN_COL_MIN + _EPN_GAP)));
+  var _rowsN = Math.max(1, Math.ceil(_colN / _fitPerRow));
+  var _perRow = Math.max(1, Math.ceil(_colN / _rowsN));
+  var _bands = [];
+  for (var _bi = 0; _bi < _colN; _bi += _perRow) {
+    var _bt = _topAll.slice(_bi, _bi + _perRow), _bf = _formAll.slice(_bi, _bi + _perRow);
+    // 最終段が欠ける場合も列幅を上の段と揃えるため、上段側を空セルで_perRowまで埋める（埋めないとグリッドの自動配置がズレてフォームが上段に回り込む）。
+    while (_bt.length < _perRow) _bt.push(React.createElement("div", { key: "epnpad" + _bi + "_" + _bt.length }));
+    _bands.push(React.createElement("div", { key: "epnband" + _bi, style: { display: "grid", gridTemplateColumns: "repeat(" + _perRow + ", minmax(0, 1fr))", gap: _EPN_GAP, alignItems: "stretch", marginTop: _bi ? 10 : 0, paddingTop: _bi ? 8 : 0, borderTop: _bi ? "1px dashed #DBEAFE" : null } },
+      _bt.concat(_bf)));
+  }
+  var savedView = React.createElement("div", { ref: _wrapRef, style: { overflowX: "auto", paddingBottom: 2 } },
+    _colN ? _bands : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", padding: "4px 0" } }, "「⚙表示銘柄」から銘柄を選ぶと、銘柄ごとの早見と計算フォームが並びます"));
   var _stockPicker = showStockPicker ? React.createElement("div", { style: { marginBottom: 8, padding: "6px 8px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: 6 } },
     React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#64748B", marginBottom: 4 } }, "表示銘柄（最大" + _EPN_MAX_STOCKS + "・ドラッグで並び替え・タップで外す）"),
     React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", minHeight: 26 } },
