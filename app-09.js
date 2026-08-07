@@ -2049,31 +2049,74 @@ function _dtsTable(res, cfg) {
         tone.lbl ? React.createElement("span", { style: { fontWeight: 800, color: tone.ink || "#374151" } }, tone.lbl) : null, _DTS_W_TONE))
     ]);
   });
-  // 合計行 2026-08-05（ユーザー要望④）。アプリの他の集計表には合計行があるのにここだけ無かった。
-  // ⚠️フロー（期間の足し算に意味がある＝税引前/手取り/生活費/積立）とストック（残高＝生活口座/取引資金）が
-  //   混在するので、ストック側は合計ではなく**期末の残高**を「期末」と明記して出す。合算すると無意味な数字になる。
+  // 期末推定行 2026-08-07（ユーザー要望）。旧＝合計行（2026-08-05）＝フロー列が期間の縦計だった。
+  // 「16ヶ月でいくら積み上がったか」より「期末時点でどの水準に到達しているか」の方が意思決定に使えるため、
+  //   フロー列を**最終月×12＝年換算（ランレート）**に、ストック列を**期末残高**に統一した。
+  // ⚠️年換算は「期末の株数・営業日数がそのまま1年続いたら」の水準であって、**その年に実際に稼いだ額ではない**。
+  //   営業日数は月次で共通(eff.days)・税率も一定なので ×12 は行データと整合する（月ごとに日数が変わる実装なら不可）。
+  //   実績が要る場面のために、直近12ヶ月の実績と期間通算を各セルの title に併記してある。
+  // ⚠️旧・合計行にしか無かった通算値（税引前/生活費/積立/残金）は画面から消えるので title に必ず残すこと。
+  //   手取り合計と税は上のサマリーカード「手取り合計」に元から出ているので、そこは重複しない。
   var sm = res.summary;
+  // lastRow が無い（期間0など）ときも行の形を保つためのフォールバック。式は開始時行と同じ値に落とす。
+  var LR = lastRow || { gross: 0, net: 0, expense: 0, toLiving: 0, toCapital: 0, toLivingSwitch: 0,
+                        shares: st.shares, living: st.living, capital: st.capital, powerEnd: pw0, theoEnd: th0, powerUse: null, shortMargin: false };
+  var yr = function(v) { return (+v || 0) * 12; };
+  // 直近12ヶ月の実績（期間が12ヶ月以上のときだけ）。年換算との差＝まだ伸びている途中か、頭打ちかが分かる。
+  var t12 = null;
+  if (res.rows.length >= 12) {
+    t12 = { gross: 0, net: 0, expense: 0, toLiving: 0, rest: 0 };
+    for (var _t = res.rows.length - 12; _t < res.rows.length; _t++) {
+      var _tr = res.rows[_t];
+      t12.gross += _tr.gross; t12.net += _tr.net; t12.expense += _tr.expense;
+      t12.toLiving += _tr.toLiving; t12.rest += _tr.toCapital + _tr.toLivingSwitch;
+    }
+  }
+  // 年換算セル＝上段に値・下段に「年換算」。ストック列(_dtsFlow)が元から2行なので行の高さは変わらない。
+  var yCell = function(node, tip) {
+    return React.createElement("span", { title: tip || "" },
+      React.createElement("div", { style: { fontWeight: 800, lineHeight: 1.25 } }, node),
+      React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF", lineHeight: 1.2 } }, "年換算"));
+  };
+  // 期末残高セル。_dtsFlow と同じ固定幅の箱に入れて右端を揃える（1値になっても列の縦ぞろえを崩さない）。
+  var eCell = function(node, tip, wide) {
+    return React.createElement("span", { title: tip || "", style: wide ? { display: "inline-block", minWidth: _DTS_W_FLOW, textAlign: "right" } : null },
+      React.createElement("div", { style: { fontWeight: 800, color: _DTS_INK, lineHeight: 1.25 } }, node),
+      React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF", lineHeight: 1.2 } }, "期末"));
+  };
+  var _sumTip = function(lbl, tot, t12v) {
+    return "／" + lbl + "の通算（" + sm.months + "ヶ月）は " + _dtsFmtMan(tot) + (t12v != null ? "／直近12ヶ月の実績は " + _dtsFmtMan(t12v) : "");
+  };
+  var eTone = _dtsUseTone(LR.powerUse, LR.shortMargin);
+  // 生活費カバー率＝手取り年収 ÷ 年間生活費。「生活費の何倍を稼げている状態か」＝続けられるかの目安。
+  var _cov = (LR.expense > 0 && LR.net > 0) ? (LR.net / LR.expense) : null;
   var totRow = React.createElement("tr", { key: "__tot", style: { background: _DTS_BG, borderTop: "2px solid " + _DTS_BD } }, [
-    td("ym", React.createElement("span", { style: { fontWeight: 800, color: _DTS_INK } }, "合計 " + sm.months + "ヶ月"), { textAlign: "left", borderLeft: "3px solid transparent" }),
-    td("sh", dash),
-    td("gr", React.createElement("span", { style: { fontWeight: 800 } }, _dtsFmtMan(sm.gross))),
-    td("net", React.createElement("span", { style: { fontWeight: 800 } }, _dtsFmtMan(sm.net))),
-    td("ex", React.createElement("span", { style: { fontWeight: 800 } }, _dtsOut(sm.expense))),
-    td("tl", React.createElement("span", { style: { fontWeight: 800 } }, _dtsOut(sm.toLiving))),
-    td("lv", React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, "期末 " + _dtsFmtMan(sm.endLiving))),
-    // ⚠️合計の残金は「取引資金へ残った通算」と「切替で生活口座へ回した通算」を**内訳に割って**出す 2026-08-06。
-    //   旧は2つを足して赤（＝増える＝取引資金組入）1個で出していたので、列見出しが「残金（取引資金組入）」
-    //   である以上、生活口座へ行った分まで取引資金に入ったように読めた。2つの和＝列の縦計、の関係は保つ。
-    td("rest", sm.toLivingSwitch > 0
-      ? React.createElement("span", null,
-          React.createElement("span", { style: { fontWeight: 800 } }, _dtsRest(sm.toCapital, 0)),
-          React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _DTS_DOWN, marginLeft: 3 } }, "＋" + _dtsFmtMan(sm.toLivingSwitch) + "（生）"))
-      : React.createElement("span", { style: { fontWeight: 800 } }, _dtsRest(sm.toCapital, 0))),
-    // 合計行は「開始時 → 期末」＝月次と同じ読み方（左が前・右が後）で通す。
-    td("cp", _dtsFlow(_dtsFmtMan(st.capital), _dtsFmtMan(sm.endCapital))),
-    td("pw", _dtsFlow(_dtsFmtMan(pw0), _dtsFmtMan(lastRow ? lastRow.powerEnd : pw0))),
-    td("th", _dtsFlow(shTxt(th0), shTxt(lastRow ? lastRow.theoEnd : th0))),
-    td("pu", _dtsAlign(dash, null, _DTS_W_TONE))
+    td("ym", React.createElement("span", { title: "期末時点に到達している水準。フロー列（税引前〜残金）は最終月を12倍した年換算、ストック列（生活口座・取引資金・信用余力・理論最大株数・余力使用率）は期末の値です" },
+      React.createElement("div", { style: { fontWeight: 800, color: _DTS_INK, lineHeight: 1.25 } }, "期末推定"),
+      React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF", lineHeight: 1.2 } }, _dtsYmLbl(sm.endYm) + "末")),
+      { textAlign: "left", borderLeft: "3px solid transparent" }),
+    td("sh", eCell(React.createElement("span", { style: { color: "#374151" } }, LR.shares.toLocaleString()),
+      "期末の保有株数。右の理論最大株数との差＝資金の天井までの余裕です")),
+    td("gr", yCell(_dtsFmtMan(yr(LR.gross)),
+      "推定年収（税引前）＝ 最終月 " + _dtsFmtMan(LR.gross) + " × 12ヶ月" + _sumTip("税引前", sm.gross, t12 ? t12.gross : null))),
+    td("net", yCell(_dtsFmtMan(yr(LR.net)),
+      "推定年収（手取り）＝ 最終月 " + _dtsFmtMan(LR.net) + " × 12ヶ月"
+      + (_cov != null ? "。年間生活費 " + _dtsFmtMan(yr(LR.expense)) + " の " + (Math.round(_cov * 10) / 10) + "倍です" : "")
+      + _sumTip("手取り", sm.net, t12 ? t12.net : null))),
+    td("ex", yCell(_dtsOut(yr(LR.expense)),
+      "年間生活費＝ 最終月 " + _dtsFmtMan(LR.expense) + " × 12ヶ月" + _sumTip("生活費", sm.expense, t12 ? t12.expense : null))),
+    td("tl", LR.switched ? dash : yCell(_dtsOut(yr(LR.toLiving)),
+      "年間積立＝ 最終月 " + _dtsFmtMan(LR.toLiving) + " × 12ヶ月" + _sumTip("積立", sm.toLiving, t12 ? t12.toLiving : null))),
+    td("lv", eCell(React.createElement("span", { style: { color: "#374151" } }, _dtsFmtMan(sm.endLiving)), "期末の生活口座残高")),
+    td("rest", yCell(_dtsRest(yr(LR.toCapital), yr(LR.toLivingSwitch)),
+      "年間の残金＝ 最終月 " + _dtsFmtMan(LR.toLivingSwitch > 0 ? LR.toLivingSwitch : LR.toCapital) + " × 12ヶ月"
+      + _sumTip("残金", sm.toCapital + sm.toLivingSwitch, t12 ? t12.rest : null))),
+    td("cp", eCell(_dtsFmtMan(sm.endCapital), "期末の取引資金（開始時 " + _dtsFmtMan(st.capital) + " → 期末 " + _dtsFmtMan(sm.endCapital) + "）", true)),
+    td("pw", eCell(_dtsFmtMan(LR.powerEnd), "期末の信用余力（開始時 " + _dtsFmtMan(pw0) + " → 期末 " + _dtsFmtMan(LR.powerEnd) + "）", true)),
+    td("th", eCell(shTxt(LR.theoEnd), "期末の理論最大株数（開始時 " + shTxt(th0) + " → 期末 " + shTxt(LR.theoEnd) + "）。実際の保有は左の株数 " + LR.shares.toLocaleString() + " 株", true)),
+    td("pu", _dtsAlign(React.createElement("span", { style: { fontWeight: 800, color: eTone.ink || _DTS_INK }, title: "期末（最終月）の余力使用率" },
+      LR.powerUse == null ? "—" : _dtsFmtPct(LR.powerUse)),
+      eTone.lbl ? React.createElement("span", { style: { fontWeight: 800, color: eTone.ink } }, eTone.lbl) : null, _DTS_W_TONE))
   ]);
   return React.createElement("div", { style: { border: "1px solid " + _DTS_BD, borderRadius: 9, background: "#fff", overflowX: "auto", marginBottom: 8 } },
     // ⚠️minWidth は**実測した最小content幅**に合わせる 2026-08-05I。980 は根拠なく置いた値で、
