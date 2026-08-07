@@ -4446,7 +4446,7 @@ function _EpnCalcForm(_p) {
   // 「応用α 詳細データ表」ポップアップ（基本αの下のボタン→ 2026-07-13）: 記録帳と同じ_elTotalAlphaSectionV2（＝推奨合計α＝応用αの実体・母数は追加α〇[浮き/RN除外]）を、この銘柄のv2記録（この日より前＝_epnCascade.all）でオーバーレイ表示。本移行後は正式な応用α表に自動で切替わる。
   var _spModal = null;   // 旧・応用α詳細ポップアップは開くボタンが撤去され到達不能（setShowSpTable(true)の呼出無し）＝死コードのため本体を削除。「表を参照」は_ElDayAlphaPairに集約済み 2026-07-22j
   return React.createElement("div", { ref: _rootRef, style: { minWidth: 0, boxSizing: "border-box", background: _editing ? "#FFFBEB" : "#fff", border: _editing ? "2px solid #F59E0B" : "1px solid #BFDBFE", borderRadius: 8, padding: _editing ? 7 : 8 } },
-    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6 } },
+    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" } },   // 列が狭いと「計算：…」と銘柄名が切れてどの列か分からなくなるので、入らなければ↺リセットを下段へ折り返す 2026-08-07
       React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: _editing ? "#B45309" : "#1D4ED8", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (_editing ? "✎ 編集：" : "計算：") + stock),
       React.createElement("button", { type: "button", onClick: _resetForm, title: "計算内容をリセット（シグナル/α/水準線などを初期化）",
         style: { flexShrink: 0, padding: "3px 9px", fontSize: 10.5, fontWeight: 700, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 30 : 22 } }, "↺ リセット")),
@@ -4857,7 +4857,7 @@ function EpNaviPanel(_refEPN) {
   var _colN = epnStocks.length + (_hasRot ? 1 : 0) + (_hasRot2 ? 1 : 0);
   // 段組み（2026-08-07）: 列を1行に詰め込むと横スクロールになるので、枠幅に入る列数で折り返す。段ごとに独立したグリッド＝上段(早見)/下段(計算フォーム)の2行構成と「フォームの上端が揃う」性質は段の中で保たれる。
   // 段数を先に決めてから均等割り（例: 5列で4列しか入らない→4+1ではなく3+2）。列は minmax(0,1fr)＝入る幅まで縮むので、どの幅でも横スクロールにならない。
-  var _EPN_COL_MIN = 200, _EPN_GAP = 8;
+  var _EPN_COL_MIN = 140, _EPN_GAP = 8;   // 1列の下限（2026-08-07 横並び優先で200→140）: iPad縦(枠781px)でも5列が横に並ぶ値。これを上げると早く折り返す＝1列は広いが段が増える。
   var _availW = _boxW || ((typeof window !== "undefined" && window.innerWidth) ? window.innerWidth - 44 : 1000);   // 初回描画（計測前）はwindow幅から概算＝一瞬だけ違う段数で出るのを防ぐ
   var _fitPerRow = Math.max(1, Math.floor((_availW + _EPN_GAP) / (_EPN_COL_MIN + _EPN_GAP)));
   var _rowsN = Math.max(1, Math.ceil(_colN / _fitPerRow));
@@ -4870,7 +4870,9 @@ function EpNaviPanel(_refEPN) {
     _bands.push(React.createElement("div", { key: "epnband" + _bi, style: { display: "grid", gridTemplateColumns: "repeat(" + _perRow + ", minmax(0, 1fr))", gap: _EPN_GAP, alignItems: "stretch", marginTop: _bi ? 10 : 0, paddingTop: _bi ? 8 : 0, borderTop: _bi ? "1px dashed #DBEAFE" : null } },
       _bt.concat(_bf)));
   }
-  var savedView = React.createElement("div", { ref: _wrapRef, style: { overflowX: "auto", paddingBottom: 2 } },
+  // overflowX は hidden（2026-08-07）: 列が minmax(0,1fr) ＋段組みなので、グリッドが枠より広くなることは無い。
+  // auto のままだと、ぴったり収まった時でも小数の丸めで scrollWidth が1px大きくなり、**15pxのスクロールバーが出て縦を食う**（1024pxで実測）。
+  var savedView = React.createElement("div", { ref: _wrapRef, style: { overflowX: "hidden", paddingBottom: 2 } },
     _colN ? _bands : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", padding: "4px 0" } }, "「⚙表示銘柄」から銘柄を選ぶと、銘柄ごとの早見と計算フォームが並びます"));
   var _stockPicker = showStockPicker ? React.createElement("div", { style: { marginBottom: 8, padding: "6px 8px", background: "#fff", border: "1px solid #E2E8F0", borderRadius: 6 } },
     React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#64748B", marginBottom: 4 } }, "表示銘柄（最大" + _EPN_MAX_STOCKS + "・ドラッグで並び替え・タップで外す）"),
