@@ -2051,8 +2051,13 @@ function _dtsTable(res, cfg) {
   });
   // 期末推定行 2026-08-07（ユーザー要望）。旧＝合計行（2026-08-05）＝フロー列が期間の縦計だった。
   // 「16ヶ月でいくら積み上がったか」より「期末時点でどの水準に到達しているか」の方が意思決定に使えるため、
-  //   フロー列を**最終月×12＝年換算（ランレート）**に、ストック列を**期末残高**に統一した。
-  // ⚠️年換算は「期末の株数・営業日数がそのまま1年続いたら」の水準であって、**その年に実際に稼いだ額ではない**。
+  //   通算をやめて**期末（最終月）基準**に統一した。単位は列で分かれる（数字の下に必ずラベルを出す）:
+  //     税引前・手取り＝最終月×12の**推定年収**（ユーザー要望が「推定年収（手取りも）」なので、この2列だけ年換算）
+  //     生活費・積立・残金＝**最終月そのものの額**（月額）
+  //     生活口座・取引資金・信用余力・理論最大株数・余力使用率＝**期末の値**
+  // ⚠️2026-08-07: 当初は生活費・積立・残金も×12していたが撤回。最終月−25万の年換算−300万が旧・合計行の
+  //   通算−295万とほぼ同じ桁になり、「まだ合計のままだ」と誤読された＝年換算する必然性も無い列だった。
+  // ⚠️年収換算は「期末の株数・営業日数がそのまま1年続いたら」の水準であって、**その年に実際に稼いだ額ではない**。
   //   営業日数は月次で共通(eff.days)・税率も一定なので ×12 は行データと整合する（月ごとに日数が変わる実装なら不可）。
   //   実績が要る場面のために、直近12ヶ月の実績と期間通算を各セルの title に併記してある。
   // ⚠️旧・合計行にしか無かった通算値（税引前/生活費/積立/残金）は画面から消えるので title に必ず残すこと。
@@ -2072,11 +2077,16 @@ function _dtsTable(res, cfg) {
       t12.toLiving += _tr.toLiving; t12.rest += _tr.toCapital + _tr.toLivingSwitch;
     }
   }
-  // 年換算セル＝上段に値・下段に「年換算」。ストック列(_dtsFlow)が元から2行なので行の高さは変わらない。
-  var yCell = function(node, tip) {
+  // フロー列のセル＝上段に値・下段に単位ラベル。ストック列(_dtsFlow)が元から2行なので行の高さは変わらない。
+  // ⚠️lbl は必ず渡すこと 2026-08-07。この行は**列によって単位が違う**（税引前/手取り＝年収換算・生活費/積立/残金＝月額）
+  //   ので、ラベルが無いと「年換算した生活費」と「生活費の通算」が同じ桁に出て見分けられない
+  //   （実測: 最終月−25万の年換算−300万 と 16ヶ月の通算−295万 がほぼ同じ数字になり、合計のままだと誤読された）。
+  // extra＝さらに下段（税引前の「1日◯円」用）。渡した列だけ3行になる。
+  var yCell = function(node, tip, extra, lbl) {
     return React.createElement("span", { title: tip || "" },
       React.createElement("div", { style: { fontWeight: 800, lineHeight: 1.25 } }, node),
-      React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF", lineHeight: 1.2 } }, "年換算"));
+      React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF", lineHeight: 1.2 } }, lbl || "年収換算"),
+      extra ? React.createElement("div", { style: { fontSize: 8.5, fontWeight: 800, color: "#6B7280", lineHeight: 1.2, whiteSpace: "nowrap" } }, extra) : null);
   };
   // 期末残高セル。_dtsFlow と同じ固定幅の箱に入れて右端を揃える（1値になっても列の縦ぞろえを崩さない）。
   var eCell = function(node, tip, wide) {
@@ -2090,27 +2100,39 @@ function _dtsTable(res, cfg) {
   var eTone = _dtsUseTone(LR.powerUse, LR.shortMargin);
   // 生活費カバー率＝手取り年収 ÷ 年間生活費。「生活費の何倍を稼げている状態か」＝続けられるかの目安。
   var _cov = (LR.expense > 0 && LR.net > 0) ? (LR.net / LR.expense) : null;
+  // 期末に「1日あたりいくら取る計算か」2026-08-07（ユーザー要望）。年収780万のような数字は現実感が薄いが、
+  //   「期末には毎日32,500円取る前提」と並ぶと前提の無理が一目で分かる＝このシミュで一番危ないのは前提の過大。
+  // ⚠️株数×①の1日あたり損益で**再計算しない**。⑥の上限や資金の天井で株数が抑えられた月があると再計算値は
+  //   行データとずれるので、必ず**その行の税引前 ÷ 営業日数**で出す＝表に出ている月次と必ず整合する。
+  // 単位は円のまま（万に丸めると 3.25万→3.3万 で1日あたりの精度が落ちる）。①の入力欄も円/100株なので単位が揃う。
+  var _perDay = (ef.days > 0 && isFinite(LR.gross)) ? (LR.gross / ef.days) : null;
+  var _perDayTxt = (_perDay == null) ? null : ("1日 " + Math.round(_perDay).toLocaleString() + "円");
   var totRow = React.createElement("tr", { key: "__tot", style: { background: _DTS_BG, borderTop: "2px solid " + _DTS_BD } }, [
-    td("ym", React.createElement("span", { title: "期末時点に到達している水準。フロー列（税引前〜残金）は最終月を12倍した年換算、ストック列（生活口座・取引資金・信用余力・理論最大株数・余力使用率）は期末の値です" },
+    td("ym", React.createElement("span", { title: "期末時点に到達している水準。税引前・手取りは最終月を12倍した推定年収（年収換算）、生活費・積立・残金は最終月そのものの額（月額）、生活口座・取引資金・信用余力・理論最大株数・余力使用率は期末の値です。各列の数字の下に単位を出しています" },
       React.createElement("div", { style: { fontWeight: 800, color: _DTS_INK, lineHeight: 1.25 } }, "期末推定"),
       React.createElement("div", { style: { fontSize: 8.5, fontWeight: 700, color: "#9CA3AF", lineHeight: 1.2 } }, _dtsYmLbl(sm.endYm) + "末")),
       { textAlign: "left", borderLeft: "3px solid transparent" }),
     td("sh", eCell(React.createElement("span", { style: { color: "#374151" } }, LR.shares.toLocaleString()),
       "期末の保有株数。右の理論最大株数との差＝資金の天井までの余裕です")),
     td("gr", yCell(_dtsFmtMan(yr(LR.gross)),
-      "推定年収（税引前）＝ 最終月 " + _dtsFmtMan(LR.gross) + " × 12ヶ月" + _sumTip("税引前", sm.gross, t12 ? t12.gross : null))),
+      "推定年収（税引前）＝ 最終月 " + _dtsFmtMan(LR.gross) + " × 12ヶ月"
+      + (_perDayTxt ? "。期末の " + LR.shares.toLocaleString() + "株 で 1日あたり " + Math.round(_perDay).toLocaleString() + "円（月" + ef.days + "営業日）を取り続ける前提です" : "")
+      + _sumTip("税引前", sm.gross, t12 ? t12.gross : null), _perDayTxt)),
     td("net", yCell(_dtsFmtMan(yr(LR.net)),
       "推定年収（手取り）＝ 最終月 " + _dtsFmtMan(LR.net) + " × 12ヶ月"
       + (_cov != null ? "。年間生活費 " + _dtsFmtMan(yr(LR.expense)) + " の " + (Math.round(_cov * 10) / 10) + "倍です" : "")
       + _sumTip("手取り", sm.net, t12 ? t12.net : null))),
-    td("ex", yCell(_dtsOut(yr(LR.expense)),
-      "年間生活費＝ 最終月 " + _dtsFmtMan(LR.expense) + " × 12ヶ月" + _sumTip("生活費", sm.expense, t12 ? t12.expense : null))),
-    td("tl", LR.switched ? dash : yCell(_dtsOut(yr(LR.toLiving)),
-      "年間積立＝ 最終月 " + _dtsFmtMan(LR.toLiving) + " × 12ヶ月" + _sumTip("積立", sm.toLiving, t12 ? t12.toLiving : null))),
+    // 生活費・積立・残金は**期末の月そのものの額**（月額）2026-08-07。年換算(×12)にしていたが、
+    //   ①ユーザーの求めは「期末時点でのその月の計算」 ②年換算値が旧・合計行とほぼ同じ桁になり合計と誤読される、の2点で撤回。
+    //   年収は税引前/手取りの2列で出ているので、ここまで年換算する必要がない。
+    td("ex", yCell(_dtsOut(LR.expense),
+      "期末（最終月）の生活費" + _sumTip("生活費", sm.expense, t12 ? t12.expense : null), null, "月額")),
+    td("tl", LR.switched ? dash : yCell(_dtsOut(LR.toLiving),
+      "期末（最終月）の積立" + _sumTip("積立", sm.toLiving, t12 ? t12.toLiving : null), null, "月額")),
     td("lv", eCell(React.createElement("span", { style: { color: "#374151" } }, _dtsFmtMan(sm.endLiving)), "期末の生活口座残高")),
-    td("rest", yCell(_dtsRest(yr(LR.toCapital), yr(LR.toLivingSwitch)),
-      "年間の残金＝ 最終月 " + _dtsFmtMan(LR.toLivingSwitch > 0 ? LR.toLivingSwitch : LR.toCapital) + " × 12ヶ月"
-      + _sumTip("残金", sm.toCapital + sm.toLivingSwitch, t12 ? t12.rest : null))),
+    td("rest", yCell(_dtsRest(LR.toCapital, LR.toLivingSwitch),
+      "期末（最終月）の残金＝ 手取り − 生活費 − 積立"
+      + _sumTip("残金", sm.toCapital + sm.toLivingSwitch, t12 ? t12.rest : null), null, "月額")),
     td("cp", eCell(_dtsFmtMan(sm.endCapital), "期末の取引資金（開始時 " + _dtsFmtMan(st.capital) + " → 期末 " + _dtsFmtMan(sm.endCapital) + "）", true)),
     td("pw", eCell(_dtsFmtMan(LR.powerEnd), "期末の信用余力（開始時 " + _dtsFmtMan(pw0) + " → 期末 " + _dtsFmtMan(LR.powerEnd) + "）", true)),
     td("th", eCell(shTxt(LR.theoEnd), "期末の理論最大株数（開始時 " + shTxt(th0) + " → 期末 " + shTxt(LR.theoEnd) + "）。実際の保有は左の株数 " + LR.shares.toLocaleString() + " 株", true)),
