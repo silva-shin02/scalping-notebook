@@ -3638,9 +3638,11 @@ function _dailyStockSyncTotals(save, date, stock, on) {
   });
 }
 // EPナビの日替わり列の「表示銘柄」（端末ローカル・per-date 2026-07-22i）: dailyStock（合計算入の指定）とは別で、EPナビでどの候補のEPを計算・早見するかの表示選択だけ。既定は指定銘柄。Firebase同期しない＝localStorage（ユーザー決定＝▽は表示切替のみ・指定は変えない）。
+// 2026-08-07 日替わり列を2つに: slot（0=1列目・1=2列目）を追加。slot=0は旧キー（日付そのもの）のままで既存の選択を引き継ぐ。slot=1は "日付#2" キー。
 var _EPN_ROT_LS = "scalping_epn_rot_v1";
-function _epnRotGet(date) { try { var m = JSON.parse(localStorage.getItem(_EPN_ROT_LS) || "{}"); return (date && m[date]) || ""; } catch (_e) { return ""; } }
-function _epnRotSet(date, stock) { try { var m = JSON.parse(localStorage.getItem(_EPN_ROT_LS) || "{}"); if (stock) m[date] = stock; else delete m[date]; localStorage.setItem(_EPN_ROT_LS, JSON.stringify(m)); } catch (_e) {} }
+function _epnRotKey(date, slot) { return (Number(slot) || 0) > 0 ? (date + "#" + ((Number(slot) || 0) + 1)) : date; }
+function _epnRotGet(date, slot) { try { var m = JSON.parse(localStorage.getItem(_EPN_ROT_LS) || "{}"); return (date && m[_epnRotKey(date, slot)]) || ""; } catch (_e) { return ""; } }
+function _epnRotSet(date, stock, slot) { try { var m = JSON.parse(localStorage.getItem(_EPN_ROT_LS) || "{}"); var k = _epnRotKey(date, slot); if (stock) m[k] = stock; else delete m[k]; localStorage.setItem(_EPN_ROT_LS, JSON.stringify(m)); } catch (_e) {} }
 // ===== 株価帯の推奨α（第2弾 2026-07-22f）=====
 // _pbBandPoolFor: 指定した株価帯idxと同じ帯だった全記録（銘柄横断・beforeDateより前・データ算入・v2・材料日は帯から除外）。各(stock,date)の帯は_pbDayBandOfで動的判定（手動＞前日終値）。chartsごとに(bandIdx,before)キーでメモ化。
 var _pbBandPoolCache = { charts: null, bsig: null, out: {} };
@@ -4601,9 +4603,18 @@ function EpNaviPanel(_refEPN) {
   var _useStateEPNsp = useState(false), _useStateEPNspA = _slicedToArray(_useStateEPNsp, 2), showStockPicker = _useStateEPNspA[0], setShowStockPicker = _useStateEPNspA[1];
   var _useStateEPNso = useState(null), _useStateEPNsoA = _slicedToArray(_useStateEPNso, 2), _stkOrd = _useStateEPNsoA[0], setStkOrd = _useStateEPNsoA[1];
   // 旧 tableStock state は削除（_tableModal を死コード化＝未使用・表参照は_ElDayAlphaPairへ集約）2026-07-22j
-  var _uRotSel = useState(""), rotSelRaw = _uRotSel[0], setRotSelRaw = _uRotSel[1];   // 日替わり列の表示銘柄（端末ローカル・表示のみ）2026-07-22i
-  useEffect(function() { setRotSelRaw(_epnRotGet(date)); }, [date]);   // 日付ごとにlocalStorageの表示選択を読込（未設定/失効時は下の_rotSelで指定銘柄→候補先頭にフォールバック）
+  var _uRotSel = useState(""), rotSelRaw = _uRotSel[0], setRotSelRaw = _uRotSel[1];   // 日替わり列1の表示銘柄（端末ローカル・表示のみ）2026-07-22i
+  var _uRotSel2 = useState(""), rotSelRaw2 = _uRotSel2[0], setRotSelRaw2 = _uRotSel2[1];   // 日替わり列2（2列化 2026-08-07）
+  useEffect(function() { setRotSelRaw(_epnRotGet(date, 0)); setRotSelRaw2(_epnRotGet(date, 1)); }, [date]);   // 日付ごとにlocalStorageの表示選択を読込（未設定/失効時は下の_rotSel/_rotSel2で指定銘柄→候補先頭にフォールバック）
   var _rotSel = (rotSelRaw && rotStocks.indexOf(rotSelRaw) >= 0) ? rotSelRaw : _rotDefault;
+  // 2列目の既定（2026-08-07）＝その日の指定銘柄のうち1列目に出ていない先頭→無ければ候補のうち1列目以外の先頭。指定が複数ある日（2026-08-06〜）は自動で2銘柄が並ぶ。
+  var _rotDefault2 = (function() {
+    for (var _i2 = 0; _i2 < _dayStocks.length; _i2++) { if (_dayStocks[_i2] !== _rotSel && rotStocks.indexOf(_dayStocks[_i2]) >= 0) return _dayStocks[_i2]; }
+    for (var _j2 = 0; _j2 < rotStocks.length; _j2++) { if (rotStocks[_j2] !== _rotSel) return rotStocks[_j2]; }
+    return "";
+  })();
+  var _rotSel2 = (rotSelRaw2 && rotSelRaw2 !== _rotSel && rotStocks.indexOf(rotSelRaw2) >= 0) ? rotSelRaw2 : _rotDefault2;
+  var _hasRot2 = _hasRot && !!_rotSel2;   // 候補が2件以上ある時だけ2列目を出す（1件しかない日に同じ銘柄を2列並べない）
   var _delTimerRef = useRef(null);
   var _stkDragRef = useRef(null), _stkMovedRef = useRef(false);
   useEffect(function() { return function() { if (_delTimerRef.current) clearTimeout(_delTimerRef.current); }; }, []);
@@ -4801,23 +4812,37 @@ function EpNaviPanel(_refEPN) {
   var _cellsForm = epnStocks.map(function(st) {
     return React.createElement(_EpnCalcForm, { key: "epnf_" + st, data: data, save: save, date: date, stock: st, dayAlpha: _epnDayAlphaGet(data, st, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, st, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing });
   });
-  // 日替わり列（📅・右端 2026-07-22i）: 見出しは候補銘柄の▽（表示切替のみ・既定は指定銘柄）。選んだ銘柄で本日採用α値/早見カード/計算フォームが固定銘柄と全く同じに動く。列は固定銘柄の右端に1つ追加。
-  var _rotCards = (_hasRot && _rotSel) ? (savedByStock.map[_rotSel] || []) : [];
-  var _rotTop = _hasRot ? React.createElement("div", { key: "epncrot", style: { minWidth: 0, borderLeft: "2px solid #A5B4FC", paddingLeft: 6 } },
-    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, background: "#EEF2FF", borderRadius: 5, padding: "3px 5px", marginBottom: 5 } },
-      React.createElement("span", { title: "日替わり銘柄（その日の取引銘柄を候補から選択・表示のみ）", style: { fontSize: 12, whiteSpace: "nowrap" } }, "📅"),
-      React.createElement("select", { value: _rotSel, onChange: function(ev) { var v = ev.target.value; setRotSelRaw(v); _epnRotSet(date, v); },
-        style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#3730A3", background: "#fff", border: "1px solid #C7D2FE", borderRadius: 4, padding: "3px 4px", boxSizing: "border-box", minHeight: IS_TOUCH ? 30 : 24 } },
-        rotStocks.map(function(s) { var _c = data.charts[s + "_" + date]; var cnt = (_c && Array.isArray(_c.signals)) ? _c.signals.length : 0; return React.createElement("option", { key: s, value: s }, s + (cnt ? "（" + cnt + "）" : "")); }))),
-    _rotSel ? React.createElement(React.Fragment, null,
-      React.createElement(_ElDayAlphaPair, { key: "epndarot_" + _rotSel, data: data, save: save, date: date, stock: _rotSel, stacked: true }),
-      _rotCards.map(function(e) { return _renderCard(_rotSel, e); }),
-      _rotCards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"))
-      : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "center", padding: "6px 0" } }, "候補を選択")) : null;
-  var _rotForm = (_hasRot && _rotSel) ? React.createElement(_EpnCalcForm, { key: "epnfrot_" + _rotSel, data: data, save: save, date: date, stock: _rotSel, dayAlpha: _epnDayAlphaGet(data, _rotSel, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, _rotSel, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing }) : (_hasRot ? React.createElement("div", { key: "epnfrot_empty" }) : null);
-  var _topAll = _hasRot ? _cellsTop.concat([_rotTop]) : _cellsTop;
-  var _formAll = _hasRot ? _cellsForm.concat([_rotForm]) : _cellsForm;
-  var _colN = epnStocks.length + (_hasRot ? 1 : 0);
+  // 日替わり列（📅・右端 2026-07-22i→2列 2026-08-07）: 見出しは候補銘柄の▽（表示切替のみ・既定は指定銘柄）。選んだ銘柄で本日採用α値/早見カード/計算フォームが固定銘柄と全く同じに動く。列は固定銘柄の右端に最大2つ追加。
+  // otherは「もう一方の日替わり列の銘柄」＝▽の選択肢から外す。同じ銘柄が2列に出ると_formApisRef/_editingMap（銘柄名キー）が衝突して編集・削除が片方に飛ぶため、選べないようにして防ぐ。
+  var _rotColTop = function(slot, sel, setRaw, other, setOtherRaw) {
+    var _cards = sel ? (savedByStock.map[sel] || []) : [];
+    var _opts = rotStocks.filter(function(s) { return s !== other; });
+    return React.createElement("div", { key: "epncrot" + slot, style: { minWidth: 0, borderLeft: "2px solid #A5B4FC", paddingLeft: 6 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, background: "#EEF2FF", borderRadius: 5, padding: "3px 5px", marginBottom: 5 } },
+        React.createElement("span", { title: "日替わり銘柄（その日の取引銘柄を候補から選択・表示のみ）", style: { fontSize: 12, whiteSpace: "nowrap" } }, "📅"),
+        React.createElement("select", { value: sel, onChange: function(ev) {
+            var v = ev.target.value; setRaw(v); _epnRotSet(date, v, slot);
+            // もう一方の列が未選択（既定追従）のままだと、こちらを変えた拍子に既定の計算結果が動いて一緒に銘柄が変わってしまう＝いま出ている銘柄で固定する（2026-08-07）。
+            var _oSlot = slot ? 0 : 1;
+            if (other && !_epnRotGet(date, _oSlot)) { setOtherRaw(other); _epnRotSet(date, other, _oSlot); }
+          },
+          style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#3730A3", background: "#fff", border: "1px solid #C7D2FE", borderRadius: 4, padding: "3px 4px", boxSizing: "border-box", minHeight: IS_TOUCH ? 30 : 24 } },
+          _opts.map(function(s) { var _c = data.charts[s + "_" + date]; var cnt = (_c && Array.isArray(_c.signals)) ? _c.signals.length : 0; return React.createElement("option", { key: s, value: s }, s + (cnt ? "（" + cnt + "）" : "")); }))),
+      sel ? React.createElement(React.Fragment, null,
+        React.createElement(_ElDayAlphaPair, { key: "epndarot" + slot + "_" + sel, data: data, save: save, date: date, stock: sel, stacked: true }),
+        _cards.map(function(e) { return _renderCard(sel, e); }),
+        _cards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"))
+        : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "center", padding: "6px 0" } }, "候補を選択"));
+  };
+  var _rotColForm = function(slot, sel) {
+    return sel
+      ? React.createElement(_EpnCalcForm, { key: "epnfrot" + slot + "_" + sel, data: data, save: save, date: date, stock: sel, dayAlpha: _epnDayAlphaGet(data, sel, date), daySpecialAlpha: _epnDaySpecialAlphaGet(data, sel, date), signalTags: signalTags, reasonsMaster: reasonsMaster, register: _regForm, onEditing: _onFormEditing })
+      : React.createElement("div", { key: "epnfrot" + slot + "_empty" });
+  };
+  var _topAll = _cellsTop.slice(), _formAll = _cellsForm.slice();
+  if (_hasRot) { _topAll.push(_rotColTop(0, _rotSel, setRotSelRaw, _rotSel2, setRotSelRaw2)); _formAll.push(_rotColForm(0, _rotSel)); }
+  if (_hasRot2) { _topAll.push(_rotColTop(1, _rotSel2, setRotSelRaw2, _rotSel, setRotSelRaw)); _formAll.push(_rotColForm(1, _rotSel2)); }
+  var _colN = epnStocks.length + (_hasRot ? 1 : 0) + (_hasRot2 ? 1 : 0);
   var savedView = _colN
     ? React.createElement("div", { style: { overflowX: "auto", paddingBottom: 2 } },
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + _colN + ", minmax(200px, 1fr))", gap: 8, alignItems: "stretch" } },
