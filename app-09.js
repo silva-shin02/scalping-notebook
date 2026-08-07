@@ -190,6 +190,13 @@ function _dtsOrderedRows(rows) {
     return (r && r.from) ? _dtsYmToIdx(r.from) : null;
   };
   a.sort(function(x, y) {
+    // 「入力中」（_draft＝＋途中で変えるで足した直後・未確定）は常に一番下に固定する 2026-08-07。
+    // ⚠️並び順のキーは trig と入力値そのもの＝**打鍵のたびに変わる**。固定しないと「3000」を打つ途中の
+    //   「3」「30」で行が上下に飛び回り、入力欄からフォーカスが外れたように見える（ユーザー報告）。
+    //   確定を押して _draft が外れた時点で、初めて下の通常ルールで並ぶ。
+    var xd = (x.r && x.r._draft) ? 1 : 0, yd = (y.r && y.r._draft) ? 1 : 0;
+    if (xd !== yd) return xd - yd;
+    if (xd) return x.i - y.i;   // 入力中どうしは足した順
     var xg = grp[(x.r && x.r.trig) || "ym"], yg = grp[(y.r && y.r.trig) || "ym"];
     if (xg !== yg) return xg - yg;
     var xk = keyOf(x.r), yk = keyOf(y.r);
@@ -893,6 +900,17 @@ function _dtsDefaultCfg(actual) {
 //   読んでも先頭行の値で従来どおり動く（dailyStock を複数化した時と同じ後方互換の作法）。
 function _dtsForSave(cfg) {
   var c = _dtsNormCfg(cfg);
+  // UI専用フラグ _draft（＝入力中でまだ確定していない行）は保存しない 2026-08-07。
+  // ⚠️残すと (1) 次に開いた時までオレンジの「入力中」が居座る (2)「確定」を押しただけで自動保存の署名が変わり
+  //   Firebaseへ無駄な書き込みが走る。落としておけば確定は純粋に画面だけの操作になる。
+  ["perDayRows", "livingCost", "drip", "priceRows", "injections"].forEach(function(rk) {
+    if (!Array.isArray(c[rk])) return;
+    c[rk] = c[rk].map(function(r) {
+      if (!r || !Object.prototype.hasOwnProperty.call(r, "_draft")) return r;
+      var o = {}; for (var k3 in r) { if (Object.prototype.hasOwnProperty.call(r, k3) && k3 !== "_draft") o[k3] = r[k3]; }
+      return o;
+    });
+  });
   c.dailyPer100 = _dtsHeadAmt(c.perDayRows, 0);
   c.mainPrice = _dtsHeadAmt(c.priceRows, 0);
   // ⚠️sharesAfter は 2026-08-06R に廃止＝**保存時に落とす**（残すと⚠️欄の「廃止しました」が永久に出続ける）。
@@ -1159,10 +1177,17 @@ function DaytradeProjection(props) {
     return React.createElement("div", null,
       _dtsOrderedRows(rows).map(function(ord) {
         var r = ord.r, i = ord.i;
+        var draft = !!(r && r._draft);
         var onSet = function(k, v) { setRow(key, i, k, v); };
-        return React.createElement("div", { key: key + i, style: Object.assign({ flexWrap: "wrap" }, _rowSty(dead[i])) },
+        return React.createElement("div", { key: key + i, style: Object.assign({ flexWrap: "wrap" }, _rowSty(dead[i] && !draft, draft)) },
           _dtsTrigCells(r, onSet, o).concat(cells(r, i)).concat([
-            dead[i] ? _deadNote : null,
+            // 入力中は「使われません」を出さない＝足した直後は前の行のコピーで必ず重複するので、毎回出る＝読まれない警告になる。確定した時点で判定する。
+            (dead[i] && !draft) ? _deadNote : null,
+            draft ? _draftNote : null,
+            draft ? React.createElement("button", { key: "ok", onClick: function() { setRow(key, i, "_draft", null); },
+                title: "この行の入力を確定して、年月や条件の順に並び替えます",
+                style: { fontSize: 10, fontWeight: 800, color: "#fff", background: "#B45309", border: "1px solid #B45309",
+                  borderRadius: 6, padding: "2px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "確定") : null,
             (rows.length > (o.minRows == null ? 1 : o.minRows))
               ? React.createElement("button", { key: "del", onClick: function() { delRow(key, i); },
                   style: { fontSize: 10, color: "#B91C1C", background: "none", border: "none", cursor: "pointer" } }, "🗑") : null
@@ -1237,11 +1262,19 @@ function DaytradeProjection(props) {
   // 「＋途中で変える」は**今ある行の最も遅い月の翌月**を入れる（旧＝期間の開始月＝重複して効かない）。
   // 空きが無い時はボタンを押させない＝押せたのに何も起きない、を作らない。
   // 影になった行の判定は _rowsEditor が表ごとに出す 2026-08-06M（旧の _lcDead/_drDead は廃止）。
-  var _rowSty = function(dead) {
+  // draft＝入力中（＋途中で変えるで足した直後・未確定）はオレンジ。dead（重複で使われない）の赤より優先する
+  //   ＝足した直後は前の行のコピーなので必ず重複する＝両方出すと赤が常に点いていて意味を失う 2026-08-07。
+  var _rowSty = function(dead, draft) {
+    if (draft) {
+      return { display: "flex", alignItems: "center", gap: 6, marginBottom: 4,
+        background: "#FFF7ED", border: "1.5px solid #F59E0B", borderRadius: 6, padding: "3px 5px", opacity: 1 };
+    }
     return { display: "flex", alignItems: "center", gap: 6, marginBottom: 4,
       background: dead ? "#FEF2F2" : null, border: dead ? "1px solid #FCA5A5" : null,
       borderRadius: dead ? 6 : null, padding: dead ? "3px 5px" : null, opacity: dead ? 0.75 : 1 };
   };
+  var _draftNote = React.createElement("span", { key: "draft", title: "足したばかりの行です。入力中は一番下に固定していて、並び順は動きません。「確定」を押すと年月や条件の順に並び替わります。",
+    style: { fontSize: 9, fontWeight: 800, color: "#B45309", whiteSpace: "nowrap" } }, "✎ 入力中");
   // ⚠️影になった行は⚠️欄（画面のずっと上）だけでなく**その行自体**にも出す＝間違えた場所で気づけるように。
   var _deadNote = React.createElement("span", { key: "dead", title: "同じ年月の行が上にあります。先に書いたほうだけが使われるので、この行は一度も使われません。年月を変えるか、この行を消してください。",
     style: { fontSize: 9, fontWeight: 800, color: "#B91C1C", whiteSpace: "nowrap" } }, "⚠ この行は使われません（年月が重複）");
@@ -1293,7 +1326,8 @@ function DaytradeProjection(props) {
   var _addRowBtn = function(key, mk) {
     var nf = _dtsNextFrom(cfg[key], cfg.startYm, cfg.endYm), prev = _lastRowOf(key);
     return React.createElement("button", {
-      onClick: nf ? function() { addRow(key, mk(nf, prev)); } : null,
+      // _draft:true＝足した行は「入力中」で一番下に固定（確定を押すまで並び替えない）2026-08-07
+      onClick: nf ? function() { addRow(key, Object.assign({}, mk(nf, prev), { _draft: true })); } : null,
       disabled: !nf,
       title: nf ? ("「" + _dtsYmLbl(nf) + "から」の行を足します") : "①の終了月まで行が埋まっているので、これ以上は足せません（終了を延ばすか、既存の行の年月を早めてください）",
       style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD,
@@ -1493,7 +1527,7 @@ function DaytradeProjection(props) {
               React.createElement("span", { key: "l", style: { fontSize: 10.5, fontWeight: 700, color: "#4B5563" } }, "投入")];
           }, function(ym, prev) { return { trig: "ym", from: ym, amount: prev ? (+prev.amount || 0) : 500000 }; })
         : React.createElement("button", {
-            onClick: function() { addRow("injections", { trig: "ym", from: cfg.startYm, amount: 500000 }); },
+            onClick: function() { addRow("injections", { trig: "ym", from: cfg.startYm, amount: 500000, _draft: true }); },   // 1本目も「入力中」で足す＝＋ボタンの経路によって見え方が変わらないように 2026-08-07
             style: { fontSize: 10, fontWeight: 700, color: _DTS_INK, background: _DTS_BG, border: "1px solid " + _DTS_BD, borderRadius: 6, padding: "3px 8px", cursor: "pointer" }
           }, "＋ 投入を追加"),
       React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", lineHeight: 1.6, marginTop: 3 } },
