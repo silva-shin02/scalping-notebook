@@ -4085,7 +4085,7 @@ function _EpnChipMgr(_p) {
             (!isOrphan) ? React.createElement("button", { type: "button", title: "候補から削除（過去の記録は残る）", onClick: function() { if (movedRef.current) { movedRef.current = false; return; } if (_p.onDelete) _p.onDelete(nm); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×") : null
           ) : null);
       }),
-      React.createElement("button", { type: "button", onClick: function() { if (addOpen) { setAddOpen(false); return; } valRef.current = ""; setInpVal(""); setRenOld(null); setAddOpen(true); }, style: { padding: "3px 8px", fontSize: 10, fontWeight: 600, border: addOpen ? "1px solid #0369A1" : "1px dashed #bbb", background: addOpen ? "#EFF6FF" : "#fff", color: addOpen ? "#0369A1" : "#888", borderRadius: 5, cursor: "pointer" } }, addOpen ? "✕" : "＋追加"),
+      _p.noAdd ? null : React.createElement("button", { type: "button", onClick: function() { if (addOpen) { setAddOpen(false); return; } valRef.current = ""; setInpVal(""); setRenOld(null); setAddOpen(true); }, style: { padding: "3px 8px", fontSize: 10, fontWeight: 600, border: addOpen ? "1px solid #0369A1" : "1px dashed #bbb", background: addOpen ? "#EFF6FF" : "#fff", color: addOpen ? "#0369A1" : "#888", borderRadius: 5, cursor: "pointer" } }, addOpen ? "✕" : "＋追加"),   // noAdd＝この欄では新規追加させない（2026-08-07 EPナビ計算フォームの②シグナル）。✎編集での改名/削除/並替は残す
       (master.length || orphans.length) ? React.createElement("button", { type: "button", onClick: function() { setEdit(!edit); setAddOpen(false); setRenOld(null); }, title: "名前変更・削除モード（✎改名・×削除・ドラッグで並び替え）", style: { padding: "3px 7px", fontSize: 9, fontWeight: 700, border: "1px solid " + (edit ? "#B91C1C" : "#ddd"), background: edit ? "#FEF2F2" : "#fff", color: edit ? "#B91C1C" : "#999", borderRadius: 5, cursor: "pointer" } }, edit ? "完了" : "✎編集") : null),
     (addOpen || renOld != null) ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 5, alignItems: "center", flexWrap: "wrap" } },
       renOld != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700 } }, "『" + renOld + "』を改名:") : null,
@@ -4157,7 +4157,7 @@ function _EpnAddSection(_p) {
       _stepBtn(function() { _stepAdd(1); }, function() { _stepAdd(-1); })) : null,
     specialUsed ? React.createElement("div", null,
       React.createElement("div", { style: { fontSize: 8.5, color: reco ? "#9A3412" : "#94A3B8", marginTop: 2 } },
-        reco ? (reco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + reco.v + "円" + (reco.byReason ? "（選択根拠・n=" + reco.n + "・手動変更可）" : reco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + reco.n + "・手動変更可）" : "（銘柄全体・n=" + reco.n + "・手動変更可）"))) : "推奨応用α データ無し（手動入力）")) : null);
+        reco ? (reco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + reco.v + "円")) : "推奨応用α データ無し（手動入力）")) : null);   // 2026-08-07 値が出ているときの内訳（銘柄全体・n=・手動変更可）はユーザー指示で撤去。値が無い理由（条件適合無し/データ無し）は残す
 }
 // 早見カードのRN加算インライン編集（2026-07-08h）: 〇×ボタン→〇のとき数値入力（円・そのまま加算）。値入力はローカルstate（onBlur確定＝1文字ごとの全体保存を避ける）。根拠なし＝追加αより単純。
 function _EpnRnSection(_p) {
@@ -4435,8 +4435,8 @@ function _EpnCalcForm(_p) {
       React.createElement("span", { style: { color: "#94A3B8", fontSize: 8.5 } }, "（n=" + p.n + "）"),
       autoPick.key === key ? React.createElement("span", { style: { color: "#B91C1C", fontSize: 8.5, fontWeight: 800, marginLeft: 2 } }, "★採用") : null);
   };
-  var _mgmtHead = function(num, text) {
-    return React.createElement("span", null, _nl(num, text), React.createElement("span", { style: { fontSize: 8, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "＋追加・✎編集・ドラッグで並び替え"));
+  var _mgmtHead = function(num, text, noAdd) {   // noAdd＝「＋追加」を出さない欄（2026-08-07 ②シグナル）。案内文からも「＋追加・」を落とす。
+    return React.createElement("span", null, _nl(num, text), React.createElement("span", { style: { fontSize: 8, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, (noAdd ? "" : "＋追加・") + "✎編集・ドラッグで並び替え"));
   };
   // ③〜⑤の畳み中要約（案A 2026-07-10）: 選択済みの詳細をトグル行に圧縮表示＝畳んでいても入力済みが分かる。
   var _detSummary = [nSelK ? "起:" + nSelK : null, nSelF.length ? "特×" + nSelF.length : null, nLineCoexist ? "併存○" : null].filter(Boolean).join("・");   // ③底抜けは畳みの外＝要約からは除外 2026-07-13
@@ -4453,20 +4453,17 @@ function _EpnCalcForm(_p) {
     editId ? React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 6, padding: "4px 8px", background: "#FEF9C3", border: "1px solid #FDE68A", borderRadius: 6, flexWrap: "wrap" } },
       React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#92400E" } }, "✎ 保存済みEPを編集中（保存で上書き）"),
       React.createElement("button", { type: "button", onClick: _resetForm, style: { padding: "2px 8px", fontSize: 10, fontWeight: 700, border: "1px solid #FDBA74", background: "#fff", color: "#9A3412", borderRadius: 5, cursor: "pointer" } }, "編集をやめる")) : null,
+    // ①基準分足（2026-08-07 ユーザー指示で排他選択へ）: 旧は1と5の複数選択トグルだった。以後は押した方だけが選択＝ラジオ相当（選択中を押しても外れない＝必ずどちらか1つ）。説明文も撤去。
     _lrow(_nl("①", "基準分足"), React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
       ["1", "5"].map(function(_mb) {
         var on = nMinBars.indexOf(_mb) >= 0;
-        return React.createElement("button", { key: _mb, type: "button", onClick: function() { setNMinBars(function(p) { return p.indexOf(_mb) >= 0 ? p.filter(function(x) { return x !== _mb; }) : p.concat([_mb]); }); },
+        return React.createElement("button", { key: _mb, type: "button", onClick: function() { setNMinBars([_mb]); },
           style: { minWidth: 36, padding: "4px 12px", fontSize: 13, fontWeight: 800, border: on ? "1.5px solid #166534" : "1px solid #ddd", background: on ? "#EAF7EE" : "#fff", color: on ? "#166534" : "#888", borderRadius: 6, cursor: "pointer" } }, _mb);
-      }),
-      React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "分足（両方選択可・5分は早見で緑）"))),
-    _lrow(_mgmtHead("②", "シグナル"), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: nTag ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),
+      }))),
+    _lrow(_mgmtHead("②", "シグナル", true), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: nTag ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", noAdd: true, onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),   // noAdd 2026-08-07: ここからのシグナル新規追加は廃止（②のマスターは記録フォーム/設定側で管理）
     nTag ? _lrow(_mgmtHead("③", "底抜け"), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "底抜け名（例: 前日安値）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは②シグナルの直下に常時表示（底抜けライン欄のみ復活 2026-07-24）
-    React.createElement("div", { title: "記録フォームと同じ段階フォールバック（詳細別→シグナル別→銘柄全体・直近50→100→全期間の件数窓・この日より前の記録のみ・応用〇/浮き足〇は母数から除外）。★＝EP計算に採用中の段。データ不足＝件数フロア未満（仮＝参考値）", style: { background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6, padding: "4px 7px", marginBottom: 7 } },
-      React.createElement("div", { style: { fontSize: 9, fontWeight: 800, color: "#94A3B8", marginBottom: 1 } }, "推奨基本α"),
-      nTag ? _pickLine("sig", "シグナル別", sig) : null,
-      _pickLine("stk", "銘柄全体", stk),
-      (!det && !nTag) ? React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1" } }, "シグナルを選ぶと絞った推奨が出ます") : null),
+    // 「推奨基本α」の灰色枠（シグナル別/銘柄全体のn付き内訳＋★採用）はユーザー指示で撤去 2026-08-07。
+    // ⚠️表示だけの撤去＝推奨基本αの計算(_epnCascade/autoPick)も、それを既定値に使う採用α欄も無改修。_pickLine は未使用になるが保持（無害）。
     _lrow("水準線", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
       React.createElement("input", { type: "text", inputMode: "decimal", value: nLevel, placeholder: "—",
         onChange: function(e) { setNLevel(_toHankakuDecimal(e.target.value)); }, style: Object.assign({}, _inpStyle, { width: 72 }) }),
@@ -4555,7 +4552,7 @@ function _EpnCalcForm(_p) {
         : React.createElement("button", { type: "button", onClick: function() { setNRnAuto(true); }, title: "自動判定に戻す",
             style: { fontSize: 9, fontWeight: 700, color: "#B45309", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 自動に戻す"))),
     React.createElement("div", { style: { margin: "8px 0 6px", padding: "7px 6px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, textAlign: "center" } },
-      React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 800 } }, "予定EP "),
+      React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 800 } }, "EP "),
       React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(epV) : "—"),
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8" } }, "円"),
       effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, (nUkiUsed === "○")
@@ -4563,10 +4560,10 @@ function _EpnCalcForm(_p) {
         : ("合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : "")))
         : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? "記録が無い銘柄は基本αを手入力" : "水準線を入力")),
     React.createElement("div", { style: { margin: "0 0 6px", padding: "6px 6px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, textAlign: "center" } },   // 予定損切りライン＝予定EP＋損切り値（逆行したら撤退する価格の目安＝引き金であって約定値ではない・触れた足の終値で撤退）2026-07-18／2026-07-29 終値撤退方式へ文言追従
-      React.createElement("span", { style: { fontSize: 10, color: "#B91C1C", fontWeight: 800 } }, "予定損切りライン "),
+      React.createElement("span", { style: { fontSize: 10, color: "#B91C1C", fontWeight: 800 } }, "損切りライン "),
       React.createElement("span", { style: { fontSize: 17, fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(Math.round((epV + _epnCutLine) * 100) / 100) : "—"),
       React.createElement("span", { style: { fontSize: 10, color: "#B91C1C" } }, "円"),
-      epV != null ? React.createElement("div", { style: { fontSize: 9, color: "#EF4444", marginTop: 1 } }, "予定EP" + epV + "＋損切り" + _epnCutLine) : null),
+      epV != null ? React.createElement("div", { style: { fontSize: 9, color: "#EF4444", marginTop: 1 } }, "EP" + epV + "＋損切り" + _epnCutLine) : null),
     React.createElement("button", { type: "button", onClick: doSave, disabled: epV == null,
       style: { width: "100%", padding: "7px 0", fontSize: 12, fontWeight: 800, background: epV != null ? (editId ? "#B45309" : "#1D4ED8") : "#E2E8F0", color: epV != null ? "#fff" : "#94A3B8", border: "none", borderRadius: 6, cursor: epV != null ? "pointer" : "default", minHeight: IS_TOUCH ? 38 : 28 } }, editId ? "💾 更新保存" : "💾 保存（早見に追加）"), _spModal);
 }
@@ -4771,7 +4768,8 @@ function EpNaviPanel(_refEPN) {
     var _applied = _isUkiCard ? (e.ukiSpecial === true) : (e.specialUsed === true);   // 応用α相当か（浮き足カードは浮応＝応用扱い）2026-07-24
     var epColor = isDone ? C.main : (_applied ? "#B91C1C" : "#1D4ED8");   // EP数字の色＝採用α: 基本α=青/応用α=赤（分足に依らず・済=灰）2026-07-24
     var subColor = C.sub;   // 起点行は分足色のまま（EP数字だけでαを示す）2026-07-24
-    var mbBadge = (has5 || has1) ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, borderRadius: 3, padding: "0 3px", marginRight: 3, color: C.bc, background: C.bbg, border: "0.5px solid " + C.bd } }, mb.join("・") + "分") : null;
+    // 2026-08-07: 列が狭いとバッジの中で「1」「分」が縦に割れていた＝nowrap＋flexShrink:0で必ず横一列に。
+    var mbBadge = (has5 || has1) ? React.createElement("span", { style: { fontSize: 8, fontWeight: 800, borderRadius: 3, padding: "0 3px", marginRight: 3, color: C.bc, background: C.bbg, border: "0.5px solid " + C.bd, whiteSpace: "nowrap", flexShrink: 0 } }, mb.join("・") + "分") : null;
     var _isEditingThis = _editingMap[st] === e.id;
     var _cand = (custom.sigDetails2 || {})[e.tag] || {};
     var _candK = Array.isArray(_cand.k) ? _cand.k.slice() : [];
@@ -4793,7 +4791,6 @@ function EpNaviPanel(_refEPN) {
     return React.createElement("div", { key: e.id, style: { border: "1px solid " + C.bd, borderRadius: 6, padding: "5px 7px", background: C.bg, marginBottom: 5, opacity: isDone ? 0.72 : 1 } },
       React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 } },
         React.createElement("span", { style: { display: "flex", alignItems: "center", minWidth: 0, flex: 1 } }, mbBadge,
-          e.tag ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.tag) : null,
           hasSpecial ? React.createElement("span", { style: { fontSize: 8.5, fontWeight: 800, color: isDone ? "#94A3B8" : "#DC2626", marginLeft: 3 } }, "応") : null),
         React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 3, flexShrink: 0 } },
           _isEditingThis
@@ -4805,6 +4802,8 @@ function EpNaviPanel(_refEPN) {
             style: { padding: "1px 6px", fontSize: 9.5, fontWeight: 800, lineHeight: 1.5, border: isDone ? "1.5px solid #64748B" : "1px solid #CBD5E1", background: isDone ? "#64748B" : "#fff", color: isDone ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, "済"),
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDel(st, e.id); }, title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",
             style: { padding: "1px 6px", fontSize: armed ? 9 : 11, fontWeight: 800, lineHeight: 1.5, border: armed ? "1.5px solid #DC2626" : "1px solid " + C.bd, background: armed ? "#DC2626" : "#fff", color: armed ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, armed ? "削除?" : "×"))),
+      // シグナル名は分足バッジと同じ行から独立させて全文表示（2026-08-07）: ボタンと同居していると狭い列で「指標…」と省略されて何のシグナルか分からなかった。長い名前は折り返す。
+      e.tag ? React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", lineHeight: 1.3, marginTop: 1, wordBreak: "break-all" } }, e.tag) : null,
       React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", lineHeight: 1.25 } },
         React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums" } }, "EP " + e.ep + "円"),
         e.b ? React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#475569" } }, e.b) : null),   // ③底抜けをEP価格の右に同サイズで表示（プレーン・底抜けライン欄のみ復活 2026-07-24）
