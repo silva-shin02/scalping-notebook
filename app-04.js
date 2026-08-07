@@ -3815,6 +3815,7 @@ function _ElDayAlphaPair(_p) {
   var data = _p.data, save = _p.save, date = _p.date, stock = _p.stock, stacked = _p.stacked;   // stacked=true＝縦積み（EPナビの狭い列用）2026-07-13
   var _m = useState(null), modal = _m[0], setModal = _m[1];   // null | "base" | "special"
   var _ts = useState("band"), tblScope = _ts[0], setTblScope = _ts[1];   // 表を参照の母数: "band"=株価帯別（既定・この銘柄の本日の帯と同じ帯だった全記録）/"stock"=銘柄別。帯不明/材料日は銘柄別へフォールバック 2026-07-22i
+  var _tso = useState(false), tblSince = _tso[0], setTblSince = _tso[1];   // 表を参照の期間: false=全期間（既定＝従来の見え方を1件も変えない）/true=6/29以降のみ（集計ルール変更後）2026-08-07
   var recs = useMemo(function() {
     if (!stock) return [];
     return _elStockRecsBefore(data, stock, date);
@@ -3866,14 +3867,27 @@ function _ElDayAlphaPair(_p) {
     var _bandPool = _bandIdx != null ? _pbBandPoolFor(data, _bandIdx, date) : [];
     var _bandOk = _bandPool.length > 0;
     var _useBand = (tblScope === "band") && _bandOk;
-    var _pool = _useBand ? _bandPool : recs;
-    var _bandSpan = _useBand ? _pbBandBizDays(data, _bandIdx, _bandPool, _hs) : undefined;   // 帯選択時は頻度分母を帯基準に＝_PbDayBandReco/記録帳帯パネルと一致（銘柄別時はundefined＝記録スパン）2026-07-22j
+    // 「6/29以降のみ」トグル（2026-08-07）: 境界の正本は app-06 の _EL_RULE_SINCE / _elIsOldRule。app-06はapp-04より後に読まれるが、
+    // ここは描画時（全script読込後）にしか走らないので参照できる。万一未定義ならトグル自体を出さない＝境界をapp-04側に二重定義しない。
+    var _sinceOk = (typeof _elIsOldRule === "function" && typeof _EL_RULE_SINCE === "string");
+    var _sinceLbl = _sinceOk ? (Number(_EL_RULE_SINCE.slice(5, 7)) + "/" + Number(_EL_RULE_SINCE.slice(8, 10)) + "以降のみ") : "";
+    var _useSince = tblSince && _sinceOk;
+    var _poolAll = _useBand ? _bandPool : recs;
+    var _pool = _useSince ? _poolAll.filter(function(r) { return r && !_elIsOldRule(r.date); }) : _poolAll;
+    var _bandSpan = _useBand ? _pbBandBizDays(data, _bandIdx, _pool, _hs) : undefined;   // 帯選択時は頻度分母を帯基準に＝_PbDayBandReco/記録帳帯パネルと一致（銘柄別時はundefined＝記録スパン）2026-07-22j。2026-08-07: 絞込後の_poolを渡す＝頻度の分母も同じ期間で数える（母数だけ減って頻度が据置＝過少表示になるのを防ぐ）
     var _bandLbl = _bandIdx != null ? _pbBandLabel(_bandIdx, _bandInfo.bounds) : null;
     var _scopeBtn = function(k, lbl, dis) {
       var on = (k === "band") ? _useBand : !_useBand;
       return React.createElement("button", { type: "button", disabled: dis, onClick: function() { if (!dis) setTblScope(k); },
         style: { padding: "3px 11px", fontSize: 10.5, fontWeight: 700, borderRadius: 12, cursor: dis ? "default" : "pointer", whiteSpace: "nowrap", opacity: dis ? 0.4 : 1, minHeight: IS_TOUCH ? 28 : 22,
           border: "1px solid " + (on ? "#0369A1" : "#E0DAD1"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#6B6459" } }, lbl);
+    };
+    // 期間トグル（2026-08-07）: 母数トグルと同じピル型。色を茶（#9A3412）に変えて「母数」の行と見分けやすくする。
+    var _sinceBtn = function(v, lbl) {
+      var on = (_useSince === v);
+      return React.createElement("button", { type: "button", onClick: function() { setTblSince(v); },
+        style: { padding: "3px 11px", fontSize: 10.5, fontWeight: 700, borderRadius: 12, cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 28 : 22,
+          border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } }, lbl);
     };
     return React.createElement("div", { onClick: function() { setModal(null); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
       React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } },
@@ -3884,7 +3898,15 @@ function _ElDayAlphaPair(_p) {
           React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#64748B", whiteSpace: "nowrap" } }, "母数:"),
           _scopeBtn("band", "💴 株価帯別" + (_bandLbl ? "（" + _bandLbl + "）" : ""), !_bandOk),
           _scopeBtn("stock", "🏷 銘柄別（" + stock + "）", false),
-          React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } }, _useBand ? ("同じ帯だった全銘柄・前日まで・" + _pool.length + "件") : (tblScope === "band" && !_bandOk ? (_bandIdx == null ? "この日は株価帯が未判定/材料日のため銘柄別で表示" : ("株価帯" + (_bandLbl || "") + "の前日までの記録が0件のため銘柄別で表示")) : (stock + "・前日まで全期間")))),
+          React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } }, _useBand ? ("同じ帯だった全銘柄・前日まで・" + _pool.length + "件") : (tblScope === "band" && !_bandOk ? (_bandIdx == null ? "この日は株価帯が未判定/材料日のため銘柄別で表示" : ("株価帯" + (_bandLbl || "") + "の前日までの記録が0件のため銘柄別で表示")) : (stock + "・前日まで")))),
+        // 期間の行（2026-08-07 ユーザー要望）: 集計ルールが変わった_EL_RULE_SINCE以降だけに絞る。既定は全期間＝従来の見え方のまま。
+        // 絞ると推奨値・全行・母数の内訳・頻度まで_pool経由でまとめて追従する（_elBaseAlphaDetailV2/_elTotalAlphaSectionV2はpoolだけを見るため）。
+        _sinceOk ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
+          React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#64748B", whiteSpace: "nowrap" } }, "期間:"),
+          _sinceBtn(false, "全期間"),
+          _sinceBtn(true, "🗓 " + _sinceLbl),
+          React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8" } },
+            _useSince ? ("集計ルール変更後だけ・" + _pool.length + "件（全期間なら" + _poolAll.length + "件）") : (_poolAll.length + "件"))) : null,
         React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "行をタップすると本日の採用" + (isBase ? "基本α" : "応用α") + "値に取り込みます"),
         isBase
           ? _elBaseAlphaDetailV2(_pool, aiOf, _hs, function(av) { _epnDayAlphaSet(save, stock, date, av); setModal(null); }, curEff, _bandSpan)
