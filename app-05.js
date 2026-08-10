@@ -4498,7 +4498,7 @@ function _elCollPairNode(data, r, scope) {
 }
 // ===== 同値除外損益（OS値＝α値）2026-07-20 =====
 // 2026-08-05u 表示名を「指値同値」→「同値除外損益」に変更（ユーザー指示）。
-//   **内部の識別子（_elFillRisk/_elFillRiskRec/_elFillRiskNode/fillEqZero/_friskN 等）は据え置き**＝
+//   **内部の識別子（_elFillRisk/_elFillRiskRec/_elFillRiskNode/_friskN 等）は据え置き**＝
 //   リネームの巻き添えで挙動が変わる箇所を作らないため。コード内の旧称コメントも履歴として残してある。
 //   2026-08-05v **明細行の小バッジ(_elFillRiskNode)だけは「指値同値」のまま**（ユーザー判断「小バッジは従来通りでいいや」）。
 //   ＝列見出し・セクション見出し・KPI副文言・説明文の4系統が「同値除外損益」、1記録に付く印だけ旧称、という住み分け。
@@ -4511,8 +4511,9 @@ function _elCollPairNode(data, r, scope) {
 // 時間かぶり(_elCollisionExcludedSet)と違い「記録単体で完結する判定」なのでセット構築もmemoも不要（毎回の再計算が安い）。
 // 配線は時間かぶりと同じ線引き＝「表示総計」のみ。α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
 // ⚠️これは**この関数(_elFillRisk)の配線の話**。「α総当たり表は指値同値を無視している」という意味ではない 2026-08-07。
-//   α詳細表は掃引αごとに判定し直す専用版 _elFillEqAt(app-06:1697) を使い、2026-08-02eで評価へ昇格済み＝
-//   到達/E成立/利確/損切り/勝ち負け平均からは外し、**最終損益だけ0円で母数に残す**（_elH2EvalByFn の第4引数 fillEqZero・app-06:1667）。
+//   α詳細表は掃引αごとに判定し直す専用版 _elFillEqAt(app-06) を使い、2026-08-02eで評価へ昇格済み。
+//   2026-08-10 ユーザー決定で**全列除外**へ＝到達/E成立/利確/損切り/最終損益(平均・中央・Σ)/勝ち負け平均のどの母数にも入れず、
+//   件数だけ「同値」列に出す（_elH2EvalByFn の第4引数 fillEqSkip・app-06）。旧2026-08-02e〜09は最終損益にだけ0円算入だった。
 function _elFillRisk(s, item) {
   if (!s) return false;
   if (_elIsEntered(s, item)) return false;
