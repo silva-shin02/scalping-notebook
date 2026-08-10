@@ -1065,11 +1065,26 @@ function _dtsRecShares(cfg, eff) {
       "推奨株数：—（" + (!(cap > 0) ? "②の取引資金" : "⑦のメイン株価と委託保証金率") + "を入れると計算します）");
   }
   var n = Math.floor(_DTS_REC_USE * cap / (eff.mainPrice * eff.marginRate) / 100) * 100;
+  // 推奨株数を建てたときに**実際に何%使うか** 2026-08-07（ユーザー要望）。
+  // ⚠️90%は「これ以下に収める」という上限であって、推奨株数がちょうど90%になるとは限らない。
+  //   100株単位で切り捨てる（Math.floor(.../100)*100）ので、端数が落ちたぶん実際の使用率は90%を下回る。
+  //   例: 資金140万・株価7,000円・保証率30% → ちょうど600株＝90.0%／資金150万なら642.8…→600株＝84.0%。
+  //   「90%以下の最大」とだけ書いてあると常に90%だと読めてしまうので、実値を必ず並べて出す。
+  // 式は月次表の余力使用率（拘束額 ÷（取引資金 ÷ 保証金率））と同じ＝表と同じ数字が出る。
+  var power = cap / eff.marginRate;      // 信用余力（建てられる総枠）
+  var lock  = n * eff.mainPrice;         // 推奨株数を建てたときの拘束額
+  var use   = (power > 0) ? (lock / power) : null;
   return React.createElement("div", { style: sty },
     "推奨株数：" + n.toLocaleString() + "株",
-    React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", marginLeft: 6 } },
+    React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: "#B45309", marginLeft: 8 },
+      title: "推奨株数を建てたときに信用余力の何%を使うか。100株単位で切り捨てるので、上限の" + Math.round(_DTS_REC_USE * 100) + "%ちょうどになるとは限りません" },
+      "余力使用率 " + _dtsFmtPct(use)),
+    React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", marginTop: 2 } },
       "取引資金 " + _dtsFmtMan(cap) + "円で余力使用率が" + Math.round(_DTS_REC_USE * 100) + "%以下に収まる最大（株価 "
-      + _dtsFmtYen(eff.mainPrice) + "円・保証金率 " + (Math.round(eff.marginRate * 1000) / 10) + "%・100株単位）"));
+      + _dtsFmtYen(eff.mainPrice) + "円・保証金率 " + (Math.round(eff.marginRate * 1000) / 10) + "%・100株単位）"),
+    React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", marginTop: 1 } },
+      "信用余力 " + _dtsFmtMan(power) + "円（取引資金 ÷ 保証金率）／拘束額 " + _dtsFmtMan(lock) + "円（"
+      + n.toLocaleString() + "株 × " + _dtsFmtYen(eff.mainPrice) + "円）＝ " + _dtsFmtPct(use)));
 }
 
 function _dtsSec(title, note, body) {
@@ -1383,42 +1398,34 @@ function DaytradeProjection(props) {
           },
           style: { fontSize: 10, fontWeight: 800, color: "#fff", background: _DTS_SUB, border: "none", borderRadius: 6, padding: "4px 9px", cursor: "pointer" }
         // ★①の月間営業日は触らない 2026-08-06Q（ユーザー指定「実績ボタンの日数は既存の日数に合わせて」）。
-        //   ラベルにも**今①に入っている日数**を出す＝押した結果と表示が一致する。
         //   ⚠️2026-08-06B に「実績の記録日数を①へ入れる」挙動を足したのを、ここで撤回している。理由は
         //   ①が「これから何日トレードするつもりか」の計画値だから。実績の記録日数（過去に何日記録したか）で
-        //   上書きすると、計画を打ち直すたびにボタンが勝手に戻す。**ただし食い違いは危険なので下の注記で必ず出す**
-        //   （実績が月14.8日なのに①が20日なら月次は約1.35倍に膨らむ＝2026-08-06B が潰した問題そのもの）。
-        }, "🔄 実績を入れる（" + _dtsFmtYen(actual.perDay) + "円/日 × 月" + (eff ? eff.days : 20) + "日）") : null,
+        //   上書きすると、計画を打ち直すたびにボタンが勝手に戻す。
+        // 2026-08-07 ユーザー指定でラベルから「（◯円/日 × 月◯日）」を外し、ボタンの下の行へ移した。
+        }, "🔄 実績を入れる") : null,
         _dtsLbl("税率"), React.createElement(DtsNum, { key: "tx", value: cfg.taxRate, unit: "pct", width: 56, suffix: "%", step: 0.1, min: 0, max: 0.9, onChange: function(v) { set("taxRate", v); } })
       ]),
-      React.createElement("div", { style: { fontSize: 9, color: "#6B7280", marginTop: 4, lineHeight: 1.5 } },
-        // ⚠️2026-08-06B: 旧は「÷ 営業日数」「母数は集計ルール統一後の記録のみ」と書いていたが、実体は
-        //   ①分母＝記録のあった日数（app-06.js の _projActual）②母数は「分析の母数」トグル次第（📈タブでは
-        //   トグルを出していないので既定の全期間）。どちらも事実と違ったので実体に合わせた。
-        actual && actual.perDay != null
-          ? ("実績＝最終損益の合計 ÷ 記録のあった日数（" + actual.cnt + "件 / " + actual.days + "日"
+      // 2026-08-07 ユーザー指定で③の注記を全撤去（旧＝実績の算出式・月次の内部換算・①との日数食い違い警告の3本）。
+      //   残すのは**ボタンから外した「◯円/日 × 月◯日」だけ**。
+      // ⚠️撤去した3本のうち「①との日数食い違い」は 2026-08-06B/Q で2度作り直した実害のある警告
+      //   （実績が月15.3日なのに①が20日だと月次が約1.31倍に膨らむ）なので、消さずに **title へ退避**してある。
+      //   画面から消しただけで判定ロジックは生きている＝ホバーすれば従来と同じ内容が出る。
+      (actual && actual.perDay != null) ? React.createElement("div", {
+        style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", marginTop: 4 },
+        title: (function() {
+          var t = "実績＝最終損益の合計 ÷ 記録のあった日数（" + actual.cnt + "件 / " + actual.days + "日"
             + (actual.mons ? " / " + actual.mons + "ヶ月＝月あたり " + (Math.round((actual.daysPerMon || 0) * 10) / 10) + "日" : "") + "）。"
-            + "母数は" + (actual.sinceOnly ? "集計ルール統一後の記録" : "全期間の記録") + "。")
-          : "実績を出せる記録がありません。手入力してください。",
-        React.createElement("span", { style: { display: "block", color: "#B45309" } },
-          "月次は 1日あたり × ①の月間営業日 で内部換算します（先頭行なら " + _dtsFmtYen(_dtsHeadAmt(cfg.perDayRows, 0) * (eff ? eff.days : 20)) + "円/月/100株）。"),
-        // ★①を上書きしなくなった代わりに、食い違いを必ず見せる 2026-08-06Q。
-        //   実績の1日あたりは「記録のあった日数」で割った値なので、①がそれより多いとその比率だけ月次が膨らむ。
-        //   ⚠️これを出さないと 2026-08-06B で潰した「月2.5日しか記録が無いのに×20日で回る」問題が黙って戻る。
-        (function() {
-          if (!actual || actual.perDay == null || !actual.daysPerMon) return null;
+            + "母数は" + (actual.sinceOnly ? "集計ルール統一後の記録" : "全期間の記録") + "。"
+            + "月次は 1日あたり × ①の月間営業日 で内部換算します（先頭行なら "
+            + _dtsFmtYen(_dtsHeadAmt(cfg.perDayRows, 0) * (eff ? eff.days : 20)) + "円/月/100株）。";
+          if (!actual.daysPerMon) return t;
           var d1 = Math.round(actual.daysPerMon * 10) / 10, d2 = (eff ? eff.days : 20);
-          if (Math.abs(d1 - d2) < 0.5) {
-            return React.createElement("span", { style: { display: "block", color: "#047857" } },
-              "①の月間営業日（" + d2 + "日）は実績の月あたり記録日数（" + d1 + "日）とほぼ同じです。");
-          }
+          if (Math.abs(d1 - d2) < 0.5) return t + "①の月間営業日（" + d2 + "日）は実績の月あたり記録日数（" + d1 + "日）とほぼ同じです。";
           var rt = Math.round(d2 / d1 * 100) / 100;
-          return React.createElement("span", { style: { display: "block", color: "#B91C1C", fontWeight: 800 } },
-            "⚠ 実績は月あたり " + d1 + "日 の記録から出した1日あたりですが、①の月間営業日は " + d2 + "日 です。"
-            + "このまま回すと月次が実績ペースの約" + rt + "倍になります。"
-            + (d2 > d1 ? "①を実際のトレード日数に合わせるか、これから" + d2 + "日トレードする前提だと納得したうえで使ってください。"
-                       : "①のほうが少ないので、実績より控えめな見積もりになります。"));
-        })())
+          return t + "⚠ 実績は月あたり " + d1 + "日 の記録から出した1日あたりですが、①の月間営業日は " + d2 + "日 です。"
+            + "このまま回すと月次が実績ペースの約" + rt + "倍になります。";
+        })()
+      }, _dtsFmtYen(actual.perDay) + "円/日 × 月" + (eff ? eff.days : 20) + "日") : null
     )),
     _dtsSec("④ 生活費", "社会保険料もここに足す（別枠は持たない）",
       _rowsEditor("livingCost", {}, function(r, i) {
