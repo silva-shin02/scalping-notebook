@@ -7970,20 +7970,25 @@ function EntryLogView(_ref_elv2) {
       var _mwCore = function(rs) {
         var theo = 0, realM = 0, n = 0;                               // ①②③の同一母数（実エントリー＆実現損益あり＆最終損益あり）
         var realAll = 0, realAllCnt = 0;                              // 実現損益が入っている実エントリー全件（表2の実現損益列と同じ母数）
-        var entered = 0, skip = 0, thru = 0, review = 0, skipNoMemo = 0;
+        var entered = 0, skip = 0, skipMiss = 0, thru = 0, review = 0, skipNoMemo = 0;
         var skipCost = 0, skipCostN = 0, skipGood = 0, skipBad = 0;   // ④見送りコスト（＋=取っていれば儲かった=機会損失／−=見送って正解）
         var dayset = {};
         rs.forEach(function(r) {
           var s = r.signal, item = r.item;
           if (r.date) dayset[r.date] = 1;
+          var _aa = _ai(r);
           var isEnt = _elIsEntered(s, item);
           // 4状態の内訳は除外(被り)に関係なく数える＝「その期間に何回どう判断したか」の記録なので
           if (_elIsThru(s)) thru++;
           else if (_elIsReview(s)) review++;
           else if (isEnt) entered++;
-          else { skip++; if (!String(s.skipMemo || "").trim()) skipNoMemo++; }
+          else if (_epReachedAt(s, _aa.alpha)) { skip++; if (!String(s.skipMemo || "").trim()) skipNoMemo++; }
+          // 2026-08-12 見送りを「未達を除く見送り(skip)」と「未達(skipMiss)」に分ける。フォームの既定が見送りなので、
+          //   EPに届かなかった記録も他の状態を選ばなければ全部ここに落ちてくる＝混ぜると「入れたのに入らなかった」判断の件数が読めない。
+          //   ④見送りコストは最終損益が出せる記録だけを見る（未達はfin=nullなので元から入らない）＝金額側は分離前後で不変。
+          else skipMiss++;
           if (_elCollExcluded(data, r, _collScope)) return;           // 金額は表2・💰損益タブと同じく被り除外を効かせる
-          var _aa = _ai(r), fp = _elHoldFinalParts(s, _aa.alpha, _aa.cutLine);
+          var fp = _elHoldFinalParts(s, _aa.alpha, _aa.cutLine);
           var fin = (fp && fp.main != null) ? fp.main : null;         // ×見送り(_epIsXSkip)はここでnull＝完全に不算入
           if (isEnt) {
             var rv = _mwRealOf(r);
@@ -7998,7 +8003,7 @@ function EntryLogView(_ref_elv2) {
           }
         });
         return { theo: theo, realM: realM, diff: theo - realM, n: n, realAll: realAll, realAllCnt: realAllCnt,
-          entered: entered, skip: skip, thru: thru, review: review, skipNoMemo: skipNoMemo,
+          entered: entered, skip: skip, skipMiss: skipMiss, thru: thru, review: review, skipNoMemo: skipNoMemo,
           skipCost: skipCost, skipCostN: skipCostN, skipGood: skipGood, skipBad: skipBad,
           activeDays: Object.keys(dayset).length };
       };
@@ -8064,7 +8069,8 @@ function EntryLogView(_ref_elv2) {
         var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), dn = _bizDaysIn(k), on = perExp === k;
         var _reach = rr.ok + rr.ng + rr.draw;
         var c = _mwCoreBy[k];
-        // 件数の割合は「その期間の総記録数」に対する率＝あり/見送り/スルー/要審議で必ず100%になる（どれか1つに必ず入る）2026-08-12
+        // 件数の割合は「その期間の総記録数」に対する率。⚠️2026-08-12に見送りから未達を分離したので、
+        //   実エントリー＋見送り＋要審議 の3つを足しても100%にはならない（差＝見送りの中の未達＋スルー分）。
         var _pct = function(v) { return rs.length ? Math.round(v / rs.length * 100) + "%" : null; };
         var _cntCell = function(v, col, sub, ttl) {
           if (!v) return React.createElement("span", { style: { color: "#ccc" } }, "—");
@@ -8079,8 +8085,15 @@ function EntryLogView(_ref_elv2) {
             React.createElement("span", { style: { fontWeight: 700, color: "#555" } }, c.activeDays + "日"),
             dn ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(c.activeDays / dn * 100) + "%") : null)),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700 } }, rs.length + "件"), _avgCntLine2(rs.length, dn))),
-          _tdP(_cntCell(c.entered, "#9A3412", null, "実エントリー＝実際に約定した記録")),
-          _tdP(_cntCell(c.skip, "#2563EB", c.skipNoMemo ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B91C1C" } }, "理由なし" + c.skipNoMemo) : null, "見送り＝実エントリー4択で「あり/スルー/要審議」のどれでもない記録。⚠️EPに到達しなかった記録（未達）も、他の状態を選んでいなければここに入ります。理由なし＝2026-08-12（理由の必須化）より前に付けた記録")),
+          _tdP(_cntCell(c.entered, "#9A3412", null, "実エントリー＝実際に約定した記録。割合は総記録数に対する率")),
+          // 見送り＝「EPに到達したのに入らなかった」件数だけを主数字にし、EPに届かなかったぶんは「＋未達N」で下に分けて出す 2026-08-12。
+          //   主数字＋未達＝実エントリー4択でいう見送りの総数。理由なしは主数字（本当の見送り）の中で数える＝埋めるべき記録の数。
+          _tdP((c.skip || c.skipMiss) ? React.createElement("span", { title: "見送り＝EPに到達したのに入らなかった記録（実エントリー4択で「あり/スルー/要審議」のどれでもないもの）。EPに届かなかったぶんは下の「＋未達」に分けており、この件数には含めていません。理由なし＝見送り理由が空の件数（2026-08-12の必須化より前に付けた記録）", style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+            React.createElement("span", { style: { fontWeight: 700, color: "#2563EB" } }, c.skip + "件"),
+            React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, _pct(c.skip)),
+            c.skipMiss ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B45309" } }, "＋未達" + c.skipMiss) : null,
+            c.skipNoMemo ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B91C1C" } }, "理由なし" + c.skipNoMemo) : null)
+            : React.createElement("span", { style: { color: "#ccc" } }, "—")),
           // ⚠️スルー(passThrough)はこのタブの母数(v2recs→_elInclData)から常に除外されるため、ここに出しても必ず0になる。
           //   なので列は要審議だけにしている（スルーの件数は💰損益タブ側で見る）2026-08-12
           _tdP(_cntCell(c.review, "#DB2777", null, "要審議＝判断を保留した記録。見送りと同じく合計損益・分析母数に算入されます（スルーは分析母数から常に除外されるためこのタブには出ません）")),
@@ -8126,11 +8139,11 @@ function EntryLogView(_ref_elv2) {
               _thP(React.createElement("span", { title: "市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える・当日までで頭打ち）" }, "日数")),
               _thP(React.createElement("span", { title: "実際に記録を付けた日数と、営業日数に対する率＝出勤率" }, "稼働")),
               _thP("件数"),
-              _thP(React.createElement("span", { title: "実エントリー＝実際に約定した記録。割合は総記録数に対する率（あり/見送り/スルー/要審議で合計100%）" }, "実エントリー")),
-              _thP(React.createElement("span", { title: "見送り＝実エントリー4択で「あり/スルー/要審議」のどれでもない記録（無エントリーだが仮想損益で合計・分析に算入）。⚠️未達の記録も他の状態を選んでいなければここに入ります。金額は左の表の④見送りコスト" }, "見送り")),
+              _thP(React.createElement("span", { title: "実エントリー＝実際に約定した記録。割合は総記録数に対する率" }, "実エントリー")),
+              _thP(React.createElement("span", { title: "見送り＝EPに到達したのに入らなかった記録＝「入れたのに入らなかった」判断の件数（無エントリーだが仮想損益で合計・分析に算入）。EPに届かなかったぶんは「＋未達」で分けて出しており、この件数には含めていません。金額は左の表の④見送りコスト" }, "見送り")),
               _thP(React.createElement("span", { title: "要審議＝判断を保留した記録。見送りと同じく合計損益・分析母数に算入されます。※スルーは分析母数から常に除外されるためこのタブには出ません（💰損益タブで確認）" }, "要審議")),
               _thP(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右の利確・損切り率・見切り率の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c・全体損益（期間別）と同基準）" }, "到達")),
-              _thP(React.createElement("span", { title: "未達＝EP（α）に到達しなかった記録。到達と足しても総記録数にはなりません（×見送りがどちらにも入らないため）" }, "未達")),
+              _thP(React.createElement("span", { title: "未達＝EP（α）に到達しなかった記録。⚠️こちらは4状態に関係なく全部数えるので、見送り列の「＋未達」（見送り状態のものだけ）より多くなることがあります。到達と足しても総記録数にはなりません（×見送りがどちらにも入らないため）" }, "未達")),
               _thP(React.createElement("span", { title: "利益（最終損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確")),
               _thP(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・見切り（<0）のどちらにも入らない第4のバケツ（2026-07-29e・全体損益（期間別）と同基準）" }, "同値")),
               _thP("損切り率"), _thP("見切り率"),
