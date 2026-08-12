@@ -6059,11 +6059,14 @@ function EntryLogView(_ref_elv2) {
   var _uD = useState(null), selDate = _uD[0], setSelDate = _uD[1];   // setSelDateは銘柄/損益ボタンのリセットで使用（selDate値は未使用＝旧カレンダー名残）
   var _uSG = useState(null), selSig = _uSG[0], setSelSig = _uSG[1];
   var _uGr = useState("week"), gran = _uGr[0], setGran = _uGr[1];
-  var _uCF = useState(""), cFrom = _uCF[0], setCFrom = _uCF[1];
-  var _uCT = useState(""), cTo = _uCT[0], setCTo = _uCT[1];
+  // 2026-08-12 cFrom/cTo（旧・期間タブの「指定期間」レンジ）は月間・週間タブへの作り替えで不要になったため撤去。
   var _uPE = useState(null), perExp = _uPE[0], setPerExp = _uPE[1];
   var _uOvE = useState({}), ovExp = _uOvE[0], setOvExp = _uOvE[1];   // 損益タブ「損益（期間別）」表の期間行展開 2026-06-22d→2026-07-30 ドリルダウン化: {パス文字列:true} のマップ（例 "2026-07"→"2026-07>2026-07-27"→"…>2026-07-30"）＝親を開いたまま子・孫を開ける
   var _uChM = useState("h2"), chartMet = _uChM[0], setChartMet = _uChM[1];   // 期間ビューのグラフ指標（実現/手じまい）2026-07-09 EP/H1廃止・既定=手じまい
+  // 月間・週間タブの粒度 2026-08-12。⚠️**gran(L6061)とは別state**にすること。granは💰損益タブの「全体損益（期間別）」
+  //   の日別/週別/月別セグメント(_granSeg L7666)と共有しているので、こちらを月間/週間の2択に狭めると
+  //   損益タブで日別を選んだあと月間タブに来たとき gran="day" が残って壊れる。
+  var _uMwG = useState("month"), mwGran = _uMwG[0], setMwGran = _uMwG[1];
   var _uSM = useState("month"), sumMode = _uSM[0], setSumMode = _uSM[1];   // 銘柄別 集計タブの今月/全期間トグル（既定=今月）2026-06-22
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
   var _uAA = useState("all"), addAlphaFil = _uAA[0], setAddAlphaFil = _uAA[1];   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
@@ -6157,8 +6160,8 @@ function EntryLogView(_ref_elv2) {
   // 未達タブのバッジ件数は、選択中シグナルの母数で数える（シグナル軸の下で _missCnt を定義 2026-07-01）。
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
-    ? [["sum", "📊 集計"], ["period", "📆 期間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加
-    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["period", "📆 期間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
+    ? [["sum", "📊 集計"], ["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
+    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["uki", "⚡ 浮き足%"], ["rn", "🔢 RN加算"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
   // 日付だけ新しい順・各日付の中は時間が早い順（2段ソート）2026-07-27 ユーザー指定＝「新しい日から見て、その日は朝から順に読む」。
@@ -6184,7 +6187,7 @@ function EntryLogView(_ref_elv2) {
   var _secH = function(t, sub, right) {   // right=見出し右端の追加コントロール（詳細スコープのプルダウン等）2026-07-08e。data-elsech=カード化の区切りマーカー（_cardify 2026-07-12）
     // 追加α分析トグルが効いている時だけ、各セクション見出しに現在の絞り込みをバッジで明示（スクロールで見出しが目に入っても「今どの母数か」が分かる）。
     // トグルは期間タブ限定に変更（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数）なので、バッジも期間タブでのみ表示 2026-07-01。
-    var _fb = (addAlphaFil !== "all" && view === "period" && !_isAllStock)
+    var _fb = (addAlphaFil !== "all" && view === "mw" && !_isAllStock)
       ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 9, fontWeight: 700, color: "#C2410C", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 4, padding: "1px 6px", marginLeft: 6, verticalAlign: "middle", whiteSpace: "nowrap" } }, "🔍 " + (addAlphaFil === "yes" ? "応用α" : "基本α") + "のみ")
       : null;
     return React.createElement("div", { "data-elsech": 1, style: { margin: "2px 0 8px" } },
@@ -7850,18 +7853,27 @@ function EntryLogView(_ref_elv2) {
         return _stRecs.length ? _elStopTabSectionV2(_stRecs, _ai, data, true, { expKey: expKey, setExpKey: setExpKey, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate }) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この母数に該当する記録がありません（トグルを切替）");
       })])
       : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）");
-  } else if (view === "period") {
-    // ②データのみ除外（2026-07-22e）: 全体タブ（全銘柄横断）の期間集計だけ候補・未指定(データのみ)を外す。銘柄別タブ（この銘柄の自データ＝自行相当）は据置＝v2recsのまま。件数/勝敗/損益とも一貫して除外。
+  } else if (view === "mw") {
+    // ②データのみ除外（2026-07-22e）: 全体タブ（全銘柄横断）の集計だけ候補・未指定(データのみ)を外す。銘柄別タブ（この銘柄の自データ＝自行相当）は据置＝v2recsのまま。件数/勝敗/損益とも一貫して除外。
     var _perRecs = _isAllStock ? v2recs.filter(function(r) { return !_isDataOnly(data, r); }) : v2recs;
-    _tabBody = React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, "🎯 期間タブはこの銘柄の全シグナル合算（時系列の俯瞰）。上のシグナル軸の選択では絞り込まれません。"), _elWeeklyTargetSummaryV2(_perRecs, _ai, data, _collScope), (function() {
+    _tabBody = React.createElement(React.Fragment, null, React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, "🎯 月間・週間タブはこの銘柄の全シグナル合算（時系列の俯瞰）。上のシグナル軸の選択では絞り込まれません。"), _elWeeklyTargetSummaryV2(_perRecs, _ai, data, _collScope), (function() {
+      // 2026-08-12 旧「📆 期間」タブ（日別/週別/月別/指定期間）を月間・週間の2択へ作り替え。
+      //   グラフ（損益バー＋利確・累積カーブ・曜日ヒートマップ）と行タップの詳細ドリルダウンは**そのまま引き継ぐ**（ユーザー指定「捨てない」）。
+      //   ⚠️ 以下の_keyOf/_labelOf/_bizDaysIn/グラフは旧コードをそのまま流用しているので、ローカルの gran に mwGran を束ねて読み替える。
+      //      外側の gran（L6061）は💰損益タブと共有なので触らない。
+      var gran = mwGran;
       var _granBtns = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
         React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
-          [["day", "日別"], ["week", "週別"], ["month", "月別"], ["custom", "指定期間"]].map(function(g) {
+          [["month", "📅 月間"], ["week", "🗓 週間"]].map(function(g) {
             var on = gran === g[0];
-            return React.createElement("button", { key: g[0], onClick: function() { setGran(g[0]); setPerExp(null); },
+            return React.createElement("button", { key: g[0], onClick: function() { setMwGran(g[0]); setPerExp(null); },
               style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, g[1]);
           })));
-      var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; } }); };
+      // 2026-08-12 実現損益の取り出しを_elRealPnlPair（item.pnl優先→無ければsignal.realizedPnl）へ統一。
+      //   旧はsignal.realizedPnlだけを見ており、取引に紐づいた記録で💰損益タブ（_realPairOf経由）と数字がずれ得た。
+      //   下の月間・週間コア(_mwCore)も同じ_elRealPnlPairを使う＝**この表の実現損益と①②③が必ず同じ母数**になる。
+      var _mwRealOf = function(r) { if (!_elIsEntered(r.signal, r.item)) return null; var pr = _elRealPnlPair(r.signal, r.item); return pr ? pr.real : null; };
+      var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: _mwRealOf }); };
       // 2026-07-29e even/unk を追加（全体損益（期間別）stopsOf の evenN/unkN と同じ判定・同じ優先順＝2表で同じ数になる）:
       //   even＝最終損益ちょうど±0（利確>0・見切り<0のどちらにも入らない第4バケツ）／unk＝損切り以外で撤退足の終値が未入力＝金額を出せない記録。
       var _ratesOf = function(rs) {
@@ -7890,22 +7902,13 @@ function EntryLogView(_ref_elv2) {
           _secH("🚫 次足期待度×（見送り）の分析"), _elXSkipSectionV2(rs, _ai),
           _secH("🔺 次足期待度△（ホールド）の分析"), _elTriangleHoldSectionV2(rs, _ai));
       };
-      if (gran === "custom") {
-        var _crecs = _perRecs.filter(function(r) { return (!cFrom || r.date >= cFrom) && (!cTo || r.date <= cTo); });
-        var _dInput = function(val, setFn, label) { return React.createElement("label", { style: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#555" } }, label, React.createElement("input", { type: "date", value: val, onChange: function(e) { setFn(e.target.value); }, style: { padding: "4px 6px", fontSize: 12, border: "1px solid #ddd", borderRadius: 5 } })); };
-        return _cardify([
-          _secH("📆 期間集計", "粒度を選択。指定期間は開始・終了日で絞り込み（v2記録のみ）"), _granBtns,
-          React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } }, _dInput(cFrom, setCFrom, "開始 "), _dInput(cTo, setCTo, "終了 "), React.createElement("span", { style: { fontSize: 11, color: "#888" } }, _crecs.length + "件")),
-          (cFrom || cTo) ? (_crecs.length ? [_periodKpi(_crecs), _detailOf(_crecs)] : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この期間に記録なし")) : React.createElement("div", { style: { color: "#aaa", textAlign: "center", padding: "14px 0", fontSize: 12, border: "1px dashed #e0ddd6", borderRadius: 10 } }, "開始日・終了日を選ぶと、その期間の合計損益と詳細分析が表示されます")]);
-      }
+      // 2026-08-12 旧「指定期間(custom)」ブランチは削除（月間/週間の2択になったので到達しない）。cFrom/cToのstateも撤去。
       var _keyOf = function(ds) {
-        if (gran === "day") return ds;
         if (gran === "month") return ds.slice(0, 7);
         var d = new Date(ds + "T00:00:00"); var mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
         return mon.getFullYear() + "-" + ("0" + (mon.getMonth() + 1)).slice(-2) + "-" + ("0" + mon.getDate()).slice(-2);
       };
       var _labelOf = function(k) {
-        if (gran === "day") return k.slice(5) + "(" + _dow(k) + ")";
         if (gran === "month") return k.replace("-", "/");
         var mon = new Date(k + "T00:00:00"); var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
         return (mon.getMonth() + 1) + "/" + mon.getDate() + "〜" + (fri.getMonth() + 1) + "/" + fri.getDate();
@@ -7913,7 +7916,7 @@ function EntryLogView(_ref_elv2) {
       var _byP = {};
       _perRecs.forEach(function(r) { var k = _keyOf(r.date); (_byP[k] = _byP[k] || []).push(r); });
       var _keys = Object.keys(_byP).sort().reverse();
-      if (!_keys.length) return _cardify([_secH("📆 期間集計"), _granBtns, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし")]);
+      if (!_keys.length) return _cardify([_secH("📅 月間・週間"), _granBtns, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし")]);
       var _chartKeys = _keys.slice().reverse();
       var _metInfo = { real: { label: "実現損益", get: function(t) { return t.real || 0; } }, h2: { label: "最終損益", get: function(t) { return t.hold2 || 0; } } };
       var _mi = _metInfo[chartMet] || _metInfo.h2;   // 旧plan/h1選択の残存stateは手じまいへフォールバック 2026-07-09
@@ -7942,16 +7945,117 @@ function EntryLogView(_ref_elv2) {
       var _holiSet = _buildHolidayDateSet(data.trades, custom.eventCategories);
       var _today2 = todayStr();
       var _p2 = function(nn) { return ("0" + nn).slice(-2); };
-      var _bizDaysIn = function(k) {
+      var _daysListIn = function(k) {
         var days = [];
-        if (gran === "day") { days = [k]; }
-        else if (gran === "month") { var y = +k.slice(0, 4), m = +k.slice(5, 7), last = new Date(y, m, 0).getDate(); for (var dd = 1; dd <= last; dd++) days.push(k + "-" + _p2(dd)); }
+        if (gran === "month") { var y = +k.slice(0, 4), m = +k.slice(5, 7), last = new Date(y, m, 0).getDate(); for (var dd = 1; dd <= last; dd++) days.push(k + "-" + _p2(dd)); }
         else { var mon = new Date(k + "T00:00:00"); for (var i = 0; i < 5; i++) { var d = new Date(mon.getTime() + i * 86400000); days.push(d.getFullYear() + "-" + _p2(d.getMonth() + 1) + "-" + _p2(d.getDate())); } }
-        var c = 0; days.forEach(function(d) { if (d <= _today2 && _fmIsBizDay(d, _holiSet)) c++; });
+        return days;
+      };
+      var _bizDaysIn = function(k) {
+        var c = 0; _daysListIn(k).forEach(function(d) { if (d <= _today2 && _fmIsBizDay(d, _holiSet)) c++; });
         return c;
       };
-      // 件数の下の「（1日平均〇件）」＝件数÷日数。割り切れれば整数・端数は小数第1位まで。日別は各行=1日で冗長なので非表示 2026-07-19（全体損益・期間別の_ovPnlTblと同扱い）。
-      var _avgCntLine2 = function(cnt, days) { if (!days || gran === "day" || cnt == null) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };
+      // 件数の下の「（1日平均〇件）」＝件数÷日数。割り切れれば整数・端数は小数第1位まで。2026-07-19（全体損益・期間別の_ovPnlTblと同扱い）。
+      var _avgCntLine2 = function(cnt, days) { if (!days || cnt == null) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };
+      // ===== 月間・週間の分析コア 2026-08-12 =====
+      // ⚠️**実現損益と最終損益をそのまま引き算してはいけない**。単位も母数も違う:
+      //   ・単位: 最終損益＝(α−終値)×**100株**の仮想値／実現損益＝実額（株数入り）。→ 最終損益に「基礎株数÷100」を掛けて揃える。
+      //   ・母数: 最終損益には**見送り・要審議の仮想損益も入っている**が、実現損益は実エントリー分だけ。
+      //           1列の差にすると「執行のロス」と「そもそも入っていない分」が混ざって読めなくなる。
+      //   なので ①理論値／②実績／③執行ロス は「実エントリー済み＆実現損益あり＆最終損益が出せる」記録だけの**同一母数**で出し、
+      //   見送りぶんは ④見送りコスト として完全に別列にする。
+      // 換算は**記録ごとに_mulOfを引いてから積算**する＝週が月をまたいでも各記録が自分の月の株数で換算される。
+      var _mulOf = function(r) { return _snShareMul(data, r.date); };
+      var _ymOfKey = function(k) { return gran === "month" ? k : k.slice(0, 7); };   // 週間キー(月曜の日付)→その週の初日が属する月＝表示上の代表株数
+      var _mwCore = function(rs) {
+        var theo = 0, realM = 0, n = 0;                               // ①②③の同一母数（実エントリー＆実現損益あり＆最終損益あり）
+        var realAll = 0, realAllCnt = 0;                              // 実現損益が入っている実エントリー全件（表2の実現損益列と同じ母数）
+        var entered = 0, skip = 0, thru = 0, review = 0, skipNoMemo = 0;
+        var skipCost = 0, skipCostN = 0, skipGood = 0, skipBad = 0;   // ④見送りコスト（＋=取っていれば儲かった=機会損失／−=見送って正解）
+        var dayset = {};
+        rs.forEach(function(r) {
+          var s = r.signal, item = r.item;
+          if (r.date) dayset[r.date] = 1;
+          var isEnt = _elIsEntered(s, item);
+          // 4状態の内訳は除外(被り)に関係なく数える＝「その期間に何回どう判断したか」の記録なので
+          if (_elIsThru(s)) thru++;
+          else if (_elIsReview(s)) review++;
+          else if (isEnt) entered++;
+          else { skip++; if (!String(s.skipMemo || "").trim()) skipNoMemo++; }
+          if (_elCollExcluded(data, r, _collScope)) return;           // 金額は表2・💰損益タブと同じく被り除外を効かせる
+          var _aa = _ai(r), fp = _elHoldFinalParts(s, _aa.alpha, _aa.cutLine);
+          var fin = (fp && fp.main != null) ? fp.main : null;         // ×見送り(_epIsXSkip)はここでnull＝完全に不算入
+          if (isEnt) {
+            var rv = _mwRealOf(r);
+            if (rv != null) {
+              realAll += rv; realAllCnt++;
+              if (fin != null) { theo += Math.round(fin * _mulOf(r)); realM += rv; n++; }
+            }
+          } else if (_snIsSkipRec(s, item) && fin != null) {
+            var v = Math.round(fin * _mulOf(r));
+            skipCost += v; skipCostN++;
+            if (v > 0) skipBad++; else if (v < 0) skipGood++;         // v===0は正解/誤りどちらにも数えない
+          }
+        });
+        return { theo: theo, realM: realM, diff: theo - realM, n: n, realAll: realAll, realAllCnt: realAllCnt,
+          entered: entered, skip: skip, thru: thru, review: review, skipNoMemo: skipNoMemo,
+          skipCost: skipCost, skipCostN: skipCostN, skipGood: skipGood, skipBad: skipBad,
+          activeDays: Object.keys(dayset).length };
+      };
+      var _mwCoreBy = {}; _keys.forEach(function(k) { _mwCoreBy[k] = _mwCore(_byP[k]); });
+      var _mwYen = function(v, cnt) {
+        if (!cnt || v == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+        return React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v));
+      };
+      var _mwSub = function(t, col) { return React.createElement("span", { style: { display: "block", fontSize: 9, color: col || _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.15 } }, t); };
+      // 基礎取引株数の設定（月間タブでだけ編集可・保存は custom.baseShares={"2026-08":600,...} 全端末同期）。
+      // 週間タブは「その週の初日が属する月」の値を読み取り専用で出す＝設定箇所を2つに増やさない（換算自体は記録ごとなので月またぎでも正しい）。
+      var _setBaseShares = function(ym, nv) {
+        save(function(prev) {
+          var m = Object.assign({}, (prev.custom || {}).baseShares || {});
+          if (nv == null || !(nv > 0)) delete m[ym]; else m[ym] = Math.round(nv);
+          return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { baseShares: m }) });
+        });
+      };
+      var _sharesCell = function(k) {
+        var ym = _ymOfKey(k);
+        var setv = Number(((data.custom || {}).baseShares || {})[ym]);
+        var cur = _snBaseShares(data, ym);
+        if (gran !== "month") {
+          return React.createElement("span", { title: "週の基礎株数は月（" + ym.replace("-", "/") + "）の設定を読んでいます。設定は月間タブで。週が月をまたぐ場合も、換算は記録ごとに「その記録の月」の株数で行っているので合計は正しく出ます", style: { fontSize: 10.5, fontWeight: 700, color: setv > 0 ? "#0369A1" : "#bbb" } }, cur.toLocaleString() + "株", setv > 0 ? null : _mwSub("既定"));
+        }
+        var _b = function(lbl, d) { return React.createElement("button", { type: "button", onClick: function(e) { e.stopPropagation(); _setBaseShares(ym, cur + d); }, style: { padding: "0 5px", fontSize: 9, fontWeight: 800, lineHeight: 1.4, border: "1px solid #BAE6FD", borderRadius: 3, background: "#fff", color: "#0369A1", cursor: "pointer" } }, lbl); };
+        return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
+          React.createElement("input", { type: "text", inputMode: "numeric", value: setv > 0 ? String(setv) : "", placeholder: String(_SN_BASE_SHARES_DEF),
+            title: "この月の基礎取引株数。グレードのしきい値が「株数÷100」倍になります（例 600株ならSは1日15,001円〜）。空欄＝既定" + _SN_BASE_SHARES_DEF + "株＝従来の実現損益グレードと同じ",
+            onClick: function(e) { e.stopPropagation(); },
+            onChange: function(e) { var v = _toHankakuNum(e.target.value); _setBaseShares(ym, v === "" ? null : parseInt(v, 10)); },
+            style: { width: 56, padding: "2px 4px", fontSize: 11, textAlign: "right", border: "1px solid " + (setv > 0 ? "#7DD3FC" : "#E4DFD7"), borderRadius: 4, fontVariantNumeric: "tabular-nums" } }),
+          React.createElement("span", { style: { fontSize: 9, color: "#9A9186" } }, "株"),
+          React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _b("↑", 100), _b("↓", -100)));
+      };
+      // ===== 表1: 金額（基礎取引株数で単位をそろえた ①理論値／②実績／③執行ロス／④見送りコスト）=====
+      var _mwMoneyRows = _keys.map(function(k, i) {
+        var c = _mwCoreBy[k], dn = _bizDaysIn(k), sh = _snBaseShares(data, _ymOfKey(k));
+        var prev = _keys[i + 1] ? _mwCoreBy[_keys[i + 1]] : null;   // _keysは新しい順なので1つ後ろ＝前の期間
+        var _dPct = (c.n && c.theo !== 0) ? Math.round(c.realM / c.theo * 100) : null;   // 歩留まり（実績÷理論値）
+        var _rate = c.entered ? Math.round(c.realAllCnt / c.entered * 100) : null;
+        var _grade = _profitGradeFromPnlScaled(dn > 0 ? Math.round(c.realAll / dn) : c.realAll, c.realAllCnt, sh);
+        var _mom = (prev && prev.realAllCnt && c.realAllCnt) ? (c.realAll - prev.realAll) : null;
+        return React.createElement("tr", { key: k },
+          _tdP(React.createElement("span", null, _labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, gran))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
+          _tdP(_sharesCell(k)),
+          _tdP(React.createElement("span", null, _mwYen(c.theo, c.n), c.n ? _mwSub(c.n + "件") : null)),
+          _tdP(React.createElement("span", null, _mwYen(c.realAll, c.realAllCnt),
+            c.realAllCnt ? _mwSub(c.realAllCnt + "/" + c.entered + "件" + (_rate != null ? "・" + _rate + "%" : ""), (_rate != null && _rate < 80) ? "#B45309" : null) : null)),
+          _tdP(React.createElement("span", null, c.n ? React.createElement("span", { style: { fontWeight: 700, color: c.diff > 0 ? "#1E8449" : (c.diff < 0 ? "#C0392B" : "#888") } }, (c.diff > 0 ? "−" : c.diff < 0 ? "+" : "") + Math.abs(c.diff).toLocaleString() + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—"),
+            (_dPct != null) ? _mwSub("歩留まり" + _dPct + "%") : null)),
+          _tdP(React.createElement("span", null, _mwYen(c.skipCost, c.skipCostN),
+            c.skipCostN ? _mwSub("正解" + c.skipGood + "／機会損失" + c.skipBad + "件") : null)),
+          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+            _elHoldGradeBadge(_grade), dn > 0 ? _mwSub("1日" + (Math.round(c.realAll / dn) >= 0 ? "+" : "") + Math.round(c.realAll / dn).toLocaleString()) : null)),
+          _tdP(_mom == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(_mom) } }, (_mom > 0 ? "+" : "") + _mom.toLocaleString() + "円")));
+      });
       var _rows = [];
       _keys.forEach(function(k) {
         // 2026-07-29c 到達＝EPに乗った件数（全体損益（期間別）_ovPnlTbl と同基準）＝この表のE成立母数 rr.ok+rr.ng+rr.draw そのもの。
@@ -7959,11 +8063,30 @@ function EntryLogView(_ref_elv2) {
         //   旧: rs.length - rr.miss（単純到達＝×見送りも数える）→ 2026-07-29の有効到達（③到達足の次足期待度で絞る）→ 本方式。
         var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), dn = _bizDaysIn(k), on = perExp === k;
         var _reach = rr.ok + rr.ng + rr.draw;
+        var c = _mwCoreBy[k];
+        // 件数の割合は「その期間の総記録数」に対する率＝あり/見送り/スルー/要審議で必ず100%になる（どれか1つに必ず入る）2026-08-12
+        var _pct = function(v) { return rs.length ? Math.round(v / rs.length * 100) + "%" : null; };
+        var _cntCell = function(v, col, sub, ttl) {
+          if (!v) return React.createElement("span", { style: { color: "#ccc" } }, "—");
+          return React.createElement("span", { title: ttl || null, style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+            React.createElement("span", { style: { fontWeight: 700, color: col } }, v + "件"),
+            React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, _pct(v)), sub || null);
+        };
         _rows.push(React.createElement("tr", { key: k, onClick: function() { setPerExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
           _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, gran))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           _tdP(dn + "日", { fontWeight: 600, color: "#555" }),
+          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+            React.createElement("span", { style: { fontWeight: 700, color: "#555" } }, c.activeDays + "日"),
+            dn ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(c.activeDays / dn * 100) + "%") : null)),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700 } }, rs.length + "件"), _avgCntLine2(rs.length, dn))),
-          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, _reach + "件"), rs.length ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(_reach / rs.length * 100) + "%") : null, (dn && gran !== "day" && _reach) ? (function() { var r1 = Math.round(_reach / dn * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); })() : null)),   // 到達の1日平均（2行）2026-07-24
+          _tdP(_cntCell(c.entered, "#9A3412", null, "実エントリー＝実際に約定した記録")),
+          _tdP(_cntCell(c.skip, "#2563EB", c.skipNoMemo ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#B91C1C" } }, "理由なし" + c.skipNoMemo) : null, "見送り＝実エントリー4択で「あり/スルー/要審議」のどれでもない記録。⚠️EPに到達しなかった記録（未達）も、他の状態を選んでいなければここに入ります。理由なし＝2026-08-12（理由の必須化）より前に付けた記録")),
+          // ⚠️スルー(passThrough)はこのタブの母数(v2recs→_elInclData)から常に除外されるため、ここに出しても必ず0になる。
+          //   なので列は要審議だけにしている（スルーの件数は💰損益タブ側で見る）2026-08-12
+          _tdP(_cntCell(c.review, "#DB2777", null, "要審議＝判断を保留した記録。見送りと同じく合計損益・分析母数に算入されます（スルーは分析母数から常に除外されるためこのタブには出ません）")),
+          _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, _reach + "件"), rs.length ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(_reach / rs.length * 100) + "%") : null, (dn && _reach) ? (function() { var r1 = Math.round(_reach / dn * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); })() : null)),   // 到達の1日平均（2行）2026-07-24
+          // 未達＝EP（α）に一度も到達しなかった記録。母数は総記録数（到達列と足しても総数にはならない＝×見送りが両方から漏れるため）2026-08-12
+          _tdP(_cntCell(rr.miss, "#B45309", null, "未達＝EP（α）に到達しなかった記録。割合は総記録数に対する率")),
           _tdP(rr.takeRate != null ? React.createElement("span", { style: { fontWeight: 700, color: rr.takeRate >= 50 ? "#1E8449" : "#B45309" } }, rr.take + "件・" + rr.takeRate + "%") : React.createElement("span", { style: { color: "#bbb" } }, "—")),
           // 同値（利確の右・2026-07-29e 全体損益（期間別）と同じ位置・同じ中身）。0件かつ金額不明0なら「—」。
           _tdP((rr.even || rr.unk) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
@@ -7974,16 +8097,40 @@ function EntryLogView(_ref_elv2) {
           _tdP(rr.soft + "%", { color: rr.soft > 0 ? "#B45309" : "#bbb", fontWeight: rr.soft > 0 ? 700 : 400 }),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn), (dn > 1 && t.hold2 != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.hold2 / dn) >= 0 ? "+" : "") + Math.round(t.hold2 / dn).toLocaleString()) : null)),   // 2026-08-05f dn<=1は平均＝合計で冗長なので出さない（_ovPnlTblのavgDayLineと同じ規約）
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(t.real, t.realCnt, dn, true), (dn > 1 && t.real != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.real / dn) >= 0 ? "+" : "") + Math.round(t.real / dn).toLocaleString()) : null))));   // 2026-08-05f dn<=1は平均＝合計で冗長なので出さない
-        if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
+        if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 15, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
       });
+      var _unitLbl = gran === "month" ? "月" : "週";
       return _cardify([
-        _secH("📆 期間集計（" + (gran === "day" ? "日別" : gran === "week" ? "週別" : "月別") + "・新しい順）", "行タップでその期間の詳細分析（シグナル成功度・時間帯傾向・EP位置）"), _granBtns,
+        // 表1（金額）: 単位と母数をそろえた ①理論値／②実績／③執行ロス／④見送りコスト。この表が月間・週間タブの主役 2026-08-12
+        _secH("💴 " + _unitLbl + "間の損益（基礎取引株数で単位をそろえた比較）",
+          "※「理論値」は最終損益（100株の仮想値）に基礎取引株数を掛けたもの、「実績」は実額。基礎取引株数は" + (gran === "month" ? "この表の欄に直接入力できます（空欄＝既定" + _SN_BASE_SHARES_DEF + "株＝従来のグレードと同じ）" : "月間タブで設定します") + "。グレードは1日換算（合計÷日数）で判定しています"), _granBtns,
+        _elCard(React.createElement(_HScrollBox, null,
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
+            React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
+              _thP(_unitLbl),
+              _thP(React.createElement("span", { title: "その月の基礎取引株数。グレードのしきい値が「株数÷100」倍になります（例 600株ならSは1日15,001円〜・100株なら2,501円〜）。空欄＝既定" + _SN_BASE_SHARES_DEF + "株で、これは従来の実現損益グレードと完全に同じしきい値です" }, "基礎取引株数")),
+              _thP(React.createElement("span", { title: "①理論値＝実エントリーした記録の最終損益（＝○が途切れた所で手じまい・100株の仮想値）に基礎取引株数を掛けた額。ルール通りに執行できていたら取れていたはずの額です。換算は記録ごとにその記録の月の株数で行っています" }, "①理論値")),
+              _thP(React.createElement("span", { title: "②実績＝実際に約定した実現損益の実額。下段は「実現損益が入力されている件数／実エントリー件数」。ここが低いと右の執行ロスは一部の記録しか見ていないことになります" }, "②実績")),
+              _thP(React.createElement("span", { title: "③執行ロス＝①−②。⚠️実エントリー済み・実現損益あり・最終損益が出せる記録**だけ**の同一母数で計算しています（母数がずれると「執行のロス」と「そもそも入っていない分」が混ざるため）。スリッページや手じまいタイミングのズレがここに出ます。歩留まり＝実績÷理論値" }, "③執行ロス")),
+              _thP(React.createElement("span", { title: "④見送りコスト＝見送った記録の最終損益に基礎取引株数を掛けた額。プラス＝取っていれば儲かった（機会損失）／マイナス＝見送って正解。①②③とは別母数です（見送りは実エントリーしていないので実現損益が無い）" }, "④見送りコスト")),
+              _thP(React.createElement("span", { title: "②実績（実現損益）を1日換算（合計÷日数）してから、その" + (gran === "month" ? "月" : "週の初日が属する月") + "の基礎取引株数のしきい値で判定したグレード" }, "グレード")),
+              _thP(React.createElement("span", { title: "1つ前の" + _unitLbl + "の②実績との差額。両方に実現損益があるときだけ出します" }, "前" + _unitLbl + "比")))),
+            React.createElement("tbody", null, _mwMoneyRows)))),
+        // 表2（件数・行動）＋グラフ。旧「📆 期間集計」の表とグラフをそのまま引き継ぎ、行動の内訳（実エントリー/見送り/スルー・要審議/未達/稼働）を追加した 2026-08-12
+        _secH("📊 " + _unitLbl + "間の件数と行動（新しい順）", "行タップでその" + _unitLbl + "の詳細分析（シグナル成功度・時間帯傾向・EP位置・見送り/ホールドの分析）"),
         _charts,
         _elCard(React.createElement(_HScrollBox, null,
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
-              _thP(gran === "day" ? "日" : gran === "week" ? "週" : "月"), _thP("日数"), _thP("件数"),
+              _thP(_unitLbl),
+              _thP(React.createElement("span", { title: "市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える・当日までで頭打ち）" }, "日数")),
+              _thP(React.createElement("span", { title: "実際に記録を付けた日数と、営業日数に対する率＝出勤率" }, "稼働")),
+              _thP("件数"),
+              _thP(React.createElement("span", { title: "実エントリー＝実際に約定した記録。割合は総記録数に対する率（あり/見送り/スルー/要審議で合計100%）" }, "実エントリー")),
+              _thP(React.createElement("span", { title: "見送り＝実エントリー4択で「あり/スルー/要審議」のどれでもない記録（無エントリーだが仮想損益で合計・分析に算入）。⚠️未達の記録も他の状態を選んでいなければここに入ります。金額は左の表の④見送りコスト" }, "見送り")),
+              _thP(React.createElement("span", { title: "要審議＝判断を保留した記録。見送りと同じく合計損益・分析母数に算入されます。※スルーは分析母数から常に除外されるためこのタブには出ません（💰損益タブで確認）" }, "要審議")),
               _thP(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右の利確・損切り率・見切り率の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c・全体損益（期間別）と同基準）" }, "到達")),
+              _thP(React.createElement("span", { title: "未達＝EP（α）に到達しなかった記録。到達と足しても総記録数にはなりません（×見送りがどちらにも入らないため）" }, "未達")),
               _thP(React.createElement("span", { title: "利益（最終損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確")),
               _thP(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・見切り（<0）のどちらにも入らない第4のバケツ（2026-07-29e・全体損益（期間別）と同基準）" }, "同値")),
               _thP("損切り率"), _thP("見切り率"),
@@ -8117,7 +8264,7 @@ function EntryLogView(_ref_elv2) {
       sinceOnly ? React.createElement("div", { style: { fontSize: 9, color: "#0F6E56", marginTop: 4, lineHeight: 1.45 } },
         "※ 分析の母数だけを" + _EL_SINCE_LBL + "に絞っています（シグナルの件数・推奨α・シミュも追随）。上の銘柄ピルの件数と💰損益の集計表は全期間のままなので数が食い違って見えます。期間の指定と併用すると両方の条件で絞られます。") : null) : null,
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", marginBottom: 6 } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view !== "sum" && view !== "period" && view !== "sim" && view !== "proj") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった。2026-08-06B "proj"（📈損益推移シミュレーター 2026-08-05）で**まったく同じ更新漏れを再発**させていたので追加。⚠️_tabs(5997)の全銘柄タブに項目を足したら必ずこの許可リストも足すこと
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view !== "sum" && view !== "mw" && view !== "sim" && view !== "proj") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった。2026-08-06B "proj"（📈損益推移シミュレーター 2026-08-05）で**まったく同じ更新漏れを再発**させていたので追加。⚠️_tabs(5997)の全銘柄タブに項目を足したら必ずこの許可リストも足すこと
         style: { flexShrink: 0, padding: "6px 15px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1A1714" : "#E0DAD1"), background: _isAllStock ? "#1A1714" : "#fff", color: _isAllStock ? "#fff" : "#6B6459" } },
         "💰 損益 (" + _periodRecs.length + ")"),
@@ -8172,7 +8319,7 @@ function EntryLogView(_ref_elv2) {
             background: on ? "#fff" : "transparent", color: on ? _acc : (_sigLow ? "#b3aca2" : "#6B6459"), boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" }
         }, _lbl + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    (view === "period" && !_isAllStock && !_isSigTotal) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝期間タブ限定（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数でトグル非適用・全銘柄合算=非表示）。絞り込み中は橙で強調 2026-07-01
+    (view === "mw" && !_isAllStock && !_isSigTotal) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝期間タブ限定（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数でトグル非適用・全銘柄合算=非表示）。絞り込み中は橙で強調 2026-07-01
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "分類:"),
       [["all", "全記録"], ["no", "基本α"], ["yes", "応用α"]].map(function(kv) {
         var on = addAlphaFil === kv[0];

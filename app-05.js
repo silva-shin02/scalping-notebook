@@ -5632,6 +5632,40 @@ function _profitGradeFromPnlReal(pnl, enteredCount) {
   if (pnl >= -25000) return "G-";
   return "G+";
 }
+// ===== 月ごとの基礎取引株数 2026-08-12（ユーザー要望「その月の基礎取引株数でグレードを決める」）=====
+// 保存は custom.baseShares = {"2026-08":600,...}（全端末同期）。**未設定の月は_SN_BASE_SHARES_DEF＝現状維持**。
+// 1000株にしてあるのは、従来の_profitGradeFromPnlReal（通常スケールの10倍・S=25001円〜）と数字が完全に一致するから＝
+// 株数を入れるまで見え方は1ミリも変わらない。入れた月だけしきい値が動く。
+var _SN_BASE_SHARES_DEF = 1000;
+function _snBaseShares(data, ym) {
+  var m = data && data.custom ? data.custom.baseShares : null;
+  var v = (m && ym) ? Number(m[ym]) : NaN;
+  return (v > 0) ? v : _SN_BASE_SHARES_DEF;
+}
+// 記録1件ぶんの株数倍率（その記録の日付が属する月の基礎株数÷100）。
+// ⚠️**記録ごとに引く**こと＝週が月をまたいでも各記録が自分の月の株数で換算される。週合計を後から1つの株数で割ると月境界で狂う。
+function _snShareMul(data, date) { return _snBaseShares(data, (date || "").slice(0, 7)) / 100; }
+// 「見送り」記録か 2026-08-12＝実エントリー4択のうち あり/スルー/要審議 のどれでもない既定状態（フォームの判定式と同じ）。
+// 無エントリーだが合計損益・分析母数には仮想損益で算入される＝×見送り(_epIsXSkip・足の×宣言)とは別物。混同しないこと。
+function _snIsSkipRec(s, item) { return !!(s && !_elIsEntered(s, item) && s.passThrough !== true && s.review !== true); }
+// 基礎取引株数スケールのグレード 2026-08-12: しきい値を「株数÷100」倍する。S〜G+の9段・enteredCount=0→Z。
+// ⚠️境界は「キリのいい額は下のグレードに入る」（2026-08-05gの規約）を株数倍したもの＝600株なら S は **15001円〜**。
+//   2501×6=15006 ではない。2501の「+1」は2500ちょうどをAに落とすためのオフセットなので、倍するのは2500の方＝2500×6+1。
+//   こうすると shares=100 で_profitGradeFromPnl・shares=1000 で_profitGradeFromPnlReal と完全一致する（検算が効く）。
+// 使用は月間・週間テーブル（app-06）だけ。アプリ全体の_profitGradeFromPnlRealは触っていない＝他画面の見え方は不変。
+function _profitGradeFromPnlScaled(pnl, enteredCount, shares) {
+  if (!enteredCount) return "Z";
+  var m = (Number(shares) > 0 ? Number(shares) : _SN_BASE_SHARES_DEF) / 100;
+  if (pnl >= 2500 * m + 1) return "S";
+  if (pnl >= 2000 * m + 1) return "A";
+  if (pnl >= 1000 * m + 1) return "B";
+  if (pnl >= 1)            return "C";
+  if (pnl === 0)           return "D";
+  if (pnl >= -1000 * m)    return "E";
+  if (pnl >= -2000 * m)    return "F";
+  if (pnl >= -2500 * m)    return "G-";
+  return "G+";
+}
 // 2026-08-05h 最上位を A+ → S に改名（A- → A も）。A- は legacy な A と配色が同じだったのでキーごと削除して A に寄せた。
 //   「+/-」が付くのは G-/G+ だけになるが、Sを別格として際立たせる意図なので不揃いで正しい。
 // 2026-08-05i 配色を総入れ替え（ユーザー指摘「AとBの色の違いが分かりづらい」「もっときれいな金色」）。
@@ -6418,6 +6452,13 @@ function EntryRecordForm(_ref_erf) {
   var _useStateRVM = useState(initSig.reviewMemo || ""),
     _useStateRVMA = _slicedToArray(_useStateRVM, 2),
     fReviewMemo = _useStateRVMA[0], setFReviewMemo = _useStateRVMA[1];
+  // 見送りの理由（2026-08-12 ユーザー要望「見送りを選択した場合、理由を強制テキスト入力させる」）。
+  // スルー(thruMemo)・要審議(reviewMemo)には根拠メモがあったのに見送りだけ無かったので同じ形で新設＝signal.skipMemo。
+  // ⚠️必須にするのは**新規保存のときだけ**（handleSaveの_vm）。既存の見送り記録は全部が理由なしなので、
+  //   編集でも必須にすると「昔の記録を開いて別項目を直す→保存できない」になって詰む。
+  var _useStateSKM = useState(initSig.skipMemo || ""),
+    _useStateSKMA = _slicedToArray(_useStateSKM, 2),
+    fSkipMemo = _useStateSKMA[0], setFSkipMemo = _useStateSKMA[1];
   // シグナル詳細（3セクション化 2026-07-07c）: 選択タグごとに {b:①底抜け(単一), k:②起点(単一), f:[③その他特徴...](複数)}・任意。signal.sigDetail={タグ名:{b,k,f}}。
   // 候補はcustom.sigDetails2={タグ名:{b,k,f}}（タグに無ければ旧custom.sigDetails[タグ]を各セクションへ複製表示）。
   // 旧記録(sigDetail[t]=文字列/フラット配列)は③その他特徴(f)として読み込む（_elSigDetailSec・ユーザー決定 2026-07-07）＝保存すると新形式{f:[...]}に置き換わる。
@@ -7539,6 +7580,9 @@ function EntryRecordForm(_ref_erf) {
         if (!fHold2Exp) _vm.push("次足期待度（" + (_fBarsV[_ef.epIdx + 1] ? _fBarsV[_ef.epIdx + 1].name : "H1足") + "・H2保有）");
       }
       if (fEntered && fReal === "") _vm.push("実現損益");
+      // 見送りの理由は必須 2026-08-12。ただし**新規(!isEdit)のときだけ**＝既存の見送り記録（全部が理由なし）を開いて
+      // 別の項目を直すときに保存を塞がないため。埋まっていない既存記録は記録一覧の「理由未記入」バッジで拾える。
+      if (!isEdit && !fEntered && fThru !== true && fReview !== true && !String(fSkipMemo || "").trim()) _vm.push("見送りの理由");
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (_ef.epIdx >= 0 && _hEmpty && _hConfirmed !== true) {
         window._snConfirm("H1/H2が未入力のままです。このまま保存しますか？\n（表ではー表示・H損益は集計から除外されます）").then(function(_ok){ if(_ok) handleSave(true); });
@@ -7571,6 +7615,8 @@ function EntryRecordForm(_ref_erf) {
       thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,
       review: fReview === true ? true : null,
       reviewMemo: (fReview === true && fReviewMemo) ? fReviewMemo : null,
+      // 見送り＝あり/スルー/要審議のどれでもない既定状態。他の3つに切り替えたら理由は落とす（thruMemo/reviewMemoと同じ規約）2026-08-12
+      skipMemo: (!fEntered && fThru !== true && fReview !== true && fSkipMemo) ? fSkipMemo : null,
       result: fResult,
       memo: initSig.memo || "", 
       time: fTime || "",
@@ -9034,6 +9080,23 @@ function EntryRecordForm(_ref_erf) {
           }, label);
         })
       ),
+      // 見送りの理由（2026-08-12）: 見送り＝あり/スルー/要審議のどれでもない既定状態のときだけ出す。
+      // 新規記録では必須（handleSaveで弾く）・既存記録の編集では任意＝昔の理由なし記録を開いても保存できなくならない。
+      (!fEntered && fThru !== true && fReview !== true) ? React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#1E40AF", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "6px 9px" } },
+          "見送り＝合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入）。" + (isEdit ? "" : "新規記録では理由の入力が必須です。")),
+        React.createElement("div", { style: SH_ }, "見送りの理由",
+          isEdit ? null : React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須")),
+        React.createElement(FastInput, {
+          multiline: true,
+          autoResize: true,
+          value: fSkipMemo,
+          onChange: function(v) { setFSkipMemo(v); },
+          placeholder: "なぜ入らなかったか（記録帳の月間・週間タブで「見送りコスト」として集計されます）",
+          rows: 2,
+          style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56, marginBottom: 8 })
+        })
+      ) : null,
       fThru ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#6B7280", background: "#F5F5F4", border: "1px solid #D6D3D1", borderRadius: 6, padding: "6px 9px" } },
           "スルー＝この記録は合計額・データ分析に算入されません（下の算入チェックに関わらず）。一覧では灰色表示になります。"),
@@ -9343,6 +9406,11 @@ function EntryLogCard(_ref_elc) {
         s.alphaMemo ? React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "αメモ"), s.alphaMemo) : null,
         s.thruMemo ? React.createElement("div", { style: { fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, marginRight: 3 } }, "スルー根拠"), s.thruMemo) : null,
         s.reviewMemo ? React.createElement("div", { style: { fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } }, React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, marginRight: 3 } }, "審議根拠"), s.reviewMemo) : null,
+        // 見送りの理由 2026-08-12。理由が無い見送り記録＝2026-08-12より前に付けた記録なので、赤字の「理由未記入」で拾えるようにする
+        // （新規では必須にしたが既存は素通しなので、後からまとめて埋めるための目印）。
+        _snIsSkipRec(s, item) ? (s.skipMemo
+          ? React.createElement("div", { style: { fontSize: 11, color: "#1E40AF", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #93C5FD" } }, React.createElement("span", { style: { color: "#2563EB", fontWeight: 700, marginRight: 3 } }, "見送り理由"), s.skipMemo)
+          : React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#B91C1C" } }, "見送り理由 未記入")) : null,
         s.rationale ? React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale) : null,
         s.reflection ? React.createElement("div", { style: { fontSize: 11, color: "#777", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection) : null
       ),

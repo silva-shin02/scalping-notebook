@@ -1270,7 +1270,7 @@ function SearchView(_ref45) {
         return k.replace(/_\d{4}-\d{2}-\d{2}$/, "");
       })), _toConsumableArray(chartArr.flatMap(function (c) {
         return (c && c.signals || []).flatMap(function(s) {
-          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", s.reviewMemo || "", s.tradeType || ""].concat(_sigDetailNames(s));
+          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", s.reviewMemo || "", s.skipMemo || "", s.tradeType || ""].concat(_sigDetailNames(s));
         });
       }))).join(" ").toLowerCase();
       if (!hay.includes(kw)) return false;
@@ -1408,7 +1408,7 @@ function SearchView(_ref45) {
       })) return "charts";
       if (chartArr.some(function (c) {
         return c && (c.signals || []).some(function(s) {
-          return (s.rationale || "").toLowerCase().includes(kw) || (s.reflection || "").toLowerCase().includes(kw) || (s.thruMemo || "").toLowerCase().includes(kw) || (s.reviewMemo || "").toLowerCase().includes(kw) || (s.tradeType || "").toLowerCase().includes(kw);
+          return (s.rationale || "").toLowerCase().includes(kw) || (s.reflection || "").toLowerCase().includes(kw) || (s.thruMemo || "").toLowerCase().includes(kw) || (s.reviewMemo || "").toLowerCase().includes(kw) || (s.skipMemo || "").toLowerCase().includes(kw) || (s.tradeType || "").toLowerCase().includes(kw);
         });
       })) return "charts";
       if ((dd.items || []).some(function (t) {
