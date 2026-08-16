@@ -78,6 +78,13 @@ Calendar, EventCategoryManagementModal, _hdRecentRecords, _hdEnteredOnly, _hdTag
 
 **【要審議 2026-07-14c】** 実エントリー第4状態＝_elIsReview(s)（signal.review===true）。要審議=無エントリー扱い（entered:false・realizedPnl等はentered条件でnull＝実現損益なし）＝合計損益に不算入だが、スルー（_elInclTotalで分析からも除外）と違い**_elInclTotalは通過する**ので分析母数（α推奨_elBaseAlphaEval/OS/reach/損切り率/件数/シグナル別）には算入。合計（仮想最終損益含む）からの除外は**_elTotAccum**（先頭で`if(_elIsReview(s))return`）と**_elCumPnlSectionV2**（累積・recsからreview除外）の2箇所＝見送りは仮想損益として合計に入るが要審議は入らない点が機能的差分。保存=signal.review（true/null）/signal.reviewMemo（要審議根拠メモ・スルーのthruMemoと同型・handleSaveで保存）。EntryRecordForm=実エントリー4択（あり/見送り/スルー/**要審議**）＝要審議ボタン（選択時#DB2777）/選択チップ/根拠メモ欄をピンク（#FCE7F3/#9D174D/#FBCFE8）・fReview/fReviewMemo state。表示適用先=EntryLogCard（状態チップ「要審議」ピンク・memo「審議根拠」ピンク左ライン）・コンパクト実エントリー列「審」ピンク（app-02×2/app-04/app-06のスルー「ス」の右）・SearchView(app-04)検索対象にreviewMemo追加。migrateData不要（review無記録は_elIsReview=falseで従来どおり・後方互換）。sw v147。
 
+**【記録フォームのα詳細データ表に「6/29以降のみ」トグル 2026-08-12c】app-05.js `EntryRecordForm`**
+- 場所＝α値見出しの「📊 詳細表」ポップアップ（`_alTblModal`）。従来は母数が **前日まで全期間 固定**（`_alTblRecs = _elStockRecsBefore(data, fStock, fDate)`）で、記録帳側にある「6/29以降」プリセット（`_elPSelSince`）に相当する絞り込みが無かった。
+- state=`_alTblSince`(bool)。フィルタは `_alSinceCut`＝**境界の正本は app-06 の `_elIsOldRule`(`_EL_RULE_SINCE`=2026-06-29)** を呼ぶだけ（日付比較を再実装しない）。ラベルの「6/29」も `_EL_RULE_SINCE` から生成（`_alSinceMD`）＝境界を動かしても文言が取り残されない。
+- 株価帯別プール・銘柄別プールの**両方**に効く。頻度列の分母(`_alBandSpan`=`_pbBandBizDays`)も絞った後のプールで数える＝頻度がずれない。
+- ⚠️**既定は false（全期間）から変えないこと。** この表の★推奨は `_elBaseAlphaA.pick` で母数から計算し直すので、母数を絞るとフォームに自動入力される基本α（`_defBaseA`＝`_refBaseAlpha.all`＝前日まで全期間）と★が食い違う。「詳細表と同一母数・同一関数なので★が完全一致」というユーザー指示を既定では守り、絞るのは閲覧操作のときだけ。絞っている間は赤字で「★はこの母数で再計算＝自動入力のαとは一致しない」と出す。開くたび false に戻す（`_tblBtn` の onClick）。
+- ⚠️`_alBandOk`（帯プールが使えるか＝銘柄別への自動フォールバック判定）は**絞る前**の帯プールで決める。絞って0件になっただけで銘柄別へ飛ばすと、押した覚えがないのに母数が変わって見える。
+
 **【月ごとの基礎取引株数＋見送りの理由 2026-08-12】app-05.js に追加（定義はいずれも `_profitGradeFromPnlReal` の直後）**
 - `_SN_BASE_SHARES_DEF`(=1000) / `_snBaseShares(data, ym)` / `_snShareMul(data, date)` … 月ごとの基礎取引株数。保存は **`custom.baseShares = {"2026-08":600,…}`**（全端末同期）。**未設定の月は1000株**＝従来の `_profitGradeFromPnlReal`（通常スケールの10倍・S=25001円〜）と数字が完全に一致するので、入れるまで見え方は変わらない。`_snShareMul` は「その月の株数÷100」＝**記録1件ごとに引く**こと（週が月をまたいでも各記録が自分の月の株数で換算される。週合計を後から1つの株数で割ると月境界で狂う）。
 - `_profitGradeFromPnlScaled(pnl, cnt, shares)` … しきい値を「株数÷100」倍したグレード。⚠️境界は**2500×倍率+1**（「キリのいい額は下のグレードに入る」2026-08-05gの規約を株数倍したもの）＝600株なら S は **15001円〜**（2501×6=15006 ではない）。shares=100 で `_profitGradeFromPnl`・shares=1000 で `_profitGradeFromPnlReal` と全境界一致することをブラウザで検算済み。**使うのは app-06 の月間・週間タブだけ**＝アプリ全体の `_profitGradeFromPnlReal` は無改修なので他画面の見え方は不変。

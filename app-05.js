@@ -6812,6 +6812,12 @@ function EntryRecordForm(_ref_erf) {
   var _uAlScope = useState("all"), _alTblScope = _uAlScope[0], _setAlTblScope = _uAlScope[1];
   // 詳細表ポップアップの母数種類（2026-07-23 ユーザー要望＝「表を参照」_ElDayAlphaPairと対称）: "band"=株価帯別（この銘柄の本日の帯と同じ帯だった全記録・銘柄横断）/"stock"=銘柄別（既存の全体/シグナルのサブトグル）。帯不明/材料日はstockへ自動フォールバック。開くたびbandへ戻す。
   var _uAlPool = useState("band"), _alTblPool = _uAlPool[0], _setAlTblPool = _uAlPool[1];
+  // 詳細表ポップアップの期間 2026-08-12c（ユーザー要望「6/29以降のみに絞ったデータが見たい」）: false=前日まで全期間（既定）/ true=_EL_RULE_SINCE(2026-06-29)以降のみ。
+  // ⚠️**既定を「6/29以降」にしてはいけない**。この表の★推奨は_elBaseAlphaA.pickで母数から計算し直すので、母数を絞ると
+  //   フォームに自動入力される基本α（_defBaseA＝_refBaseAlpha.all＝前日まで全期間）と★が食い違う。
+  //   「詳細表と同一母数・同一関数なので★が完全一致」(L6804のユーザー指示)を既定では守り、絞るのは閲覧操作のときだけにする。
+  //   絞っている間は「★はこの母数で再計算＝自動入力のαとは一致しない」旨を赤字で出す。開くたびfalseへ戻す。
+  var _uAlSince = useState(false), _alTblSince = _uAlSince[0], _setAlTblSince = _uAlSince[1];
   // （基本αの自動入力useEffectは_refSigAlpha定義の直後へ移動 2026-07-07c＝詳細別→シグナル別→銘柄全体の段階フォールバック値_autoBaseAを使うため。_defBaseAは銘柄全体段として温存）
   // 推奨追加α（追加α〇の記録だけを母数に「基本αから何円足すと損切り↓H1利益↑だったか」）2026-06-22→2026-06-27: 表示・自動入力している推奨基本αと同じ件数窓(_defBaseWin)から取る＝「合計」＝画面の基本α＋推奨追加α が一致（旧: 全期間窓固定で、表示する基本α(直近50件)と窓・起点が食い違っていた）。
   var _refAddAlpha = (_defBaseWin && _defBaseWin.add) ? _defBaseWin.add : null;
@@ -8283,7 +8289,7 @@ function EntryRecordForm(_ref_erf) {
         var _line = function(sp) { return "（直近期間別参考　25件：" + _winStr(_rb && _rb.w1, sp) + "　50件：" + _winStr(_rb && _rb.m1, sp) + "　100件：" + _winStr(_rb && _rb.m3, sp) + "）"; };
         var _sub = { fontSize: 10, color: "#94A3B8", fontWeight: 600, marginLeft: 2, marginBottom: 3 };
         var _rowFlex = { display: "flex", alignItems: "baseline", gap: 4, flexWrap: "wrap" };
-        var _tblBtn = function(kind, color, bd) { return React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblPool("band"); _setAlTblModal(kind); }, title: "詳細データ表を表示（株価帯別／銘柄別・全体／この記録のシグナルを閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"); };
+        var _tblBtn = function(kind, color, bd) { return React.createElement("button", { type: "button", onClick: function() { _setAlTblScope("all"); _setAlTblPool("band"); _setAlTblSince(false); _setAlTblModal(kind); }, title: "詳細データ表を表示（株価帯別／銘柄別・全体／この記録のシグナル・全期間／6/29以降のみ を閲覧）", style: { marginLeft: "auto", alignSelf: "center", fontSize: 10, fontWeight: 700, color: color, background: "#fff", border: "1px solid " + bd, borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" } }, "📊 詳細表"); };
         // 詳細表ポップアップ（2026-07-14c→2026-07-23 株価帯別トグル追加）: 最上段＝母数種類トグル（💴株価帯別／🏷銘柄別・既定=株価帯別）。銘柄別のときだけ下段に既存の全体／この記録のシグナルのサブトグルを出す。帯不明/材料日は帯プール無し→銘柄別へ自動フォールバック（閲覧のみ）。
         var _alPrimaryTag = (fTags && fTags.length) ? fTags[0] : null;   // トグル「この記録のシグナル」＝最初のタグ 2026-07-14c
         // 株価帯別プール（app-04の_ElDayAlphaPairと同一ロジック＝この銘柄の本日の帯と同じ帯だった全記録・銘柄横断・前日まで・データ算入。頻度分母は帯基準_pbBandBizDays）2026-07-23
@@ -8291,10 +8297,15 @@ function EntryRecordForm(_ref_erf) {
         var _alBandIdx = (_alBandInfo && !_alBandInfo.material && _alBandInfo.idx != null) ? _alBandInfo.idx : null;
         var _alBandPool = _alBandIdx != null ? _pbBandPoolFor(data, _alBandIdx, fDate) : [];
         var _alBandOk = _alBandPool.length > 0;
+        // ⚠️_alBandOk（帯プールが使えるか＝銘柄別への自動フォールバック判定）は**絞る前の帯プール**で決める。
+        //   絞った結果0件になっただけで銘柄別へ飛ばすと、トグルを押した覚えがないのに母数が変わって見える。0件は0件と出す。
         var _alUseBand = (_alTblPool === "band") && _alBandOk;
         var _alBandLbl = _alBandIdx != null ? _pbBandLabel(_alBandIdx, _alBandInfo.bounds) : null;
-        var _alBandSpan = _alUseBand ? _pbBandBizDays(data, _alBandIdx, _alBandPool, _alTblHoli) : undefined;   // 帯選択時のみ頻度分母を帯基準に（銘柄別時はundefined＝記録スパン）
-        var _alScopeRecs = _alUseBand ? _alBandPool : _baRecsForScope(_alTblScope);
+        // 6/29以降フィルタ 2026-08-12c。境界の正本は app-06 の _elIsOldRule（_EL_RULE_SINCE=2026-06-29）＝ここで日付比較を再実装しない。
+        var _alSinceCut = function(rs) { return _alTblSince ? (rs || []).filter(function(r) { return r && !_elIsOldRule(r.date); }) : (rs || []); };
+        var _alBandPoolF = _alSinceCut(_alBandPool);
+        var _alBandSpan = _alUseBand ? _pbBandBizDays(data, _alBandIdx, _alBandPoolF, _alTblHoli) : undefined;   // 帯選択時のみ頻度分母を帯基準に（銘柄別時はundefined＝記録スパン）。絞ったら分母も絞った母数で数える＝頻度列がずれない
+        var _alScopeRecs = _alUseBand ? _alBandPoolF : _alSinceCut(_baRecsForScope(_alTblScope));
         var _alScopeLabel = (_alTblScope === "all") ? "全体（全シグナル）" : ("「" + _alTblScope + "」");
         var _alPoolBtn = function(k, lbl, dis) {
           var on = (k === "band") ? _alUseBand : !_alUseBand;
@@ -8309,19 +8320,38 @@ function EntryRecordForm(_ref_erf) {
         var _scopeToggle = (!_alUseBand) ? React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 8, padding: 3, gap: 3, flexWrap: "wrap" } },
           React.createElement("button", { key: "__all", type: "button", onClick: function() { _setAlTblScope("all"); }, style: _scopeBtnStyle(_alTblScope === "all") }, "全体"),
           _alPrimaryTag ? React.createElement("button", { key: "__sig", type: "button", onClick: function() { _setAlTblScope(_alPrimaryTag); }, style: _scopeBtnStyle(_alTblScope === _alPrimaryTag) }, "この記録のシグナル") : null) : null;
-        var _alNote = _alUseBand ? ("同じ帯だった全銘柄・前日まで・" + _alScopeRecs.length + "件")
+        // ラベルの日付も境界の単一源(_EL_RULE_SINCE)から作る＝境界を動かしたときに文言だけ取り残されないように。ゼロ埋めは落とす（6/29であって06/29ではない）。
+        var _alSinceMD = (+_EL_RULE_SINCE.slice(5, 7)) + "/" + (+_EL_RULE_SINCE.slice(8, 10));
+        var _alPeriodLbl = _alTblSince ? (_alSinceMD + "以降のみ") : "全期間";
+        var _alNote = (_alUseBand ? ("同じ帯だった全銘柄・前日まで・" + _alScopeRecs.length + "件")
           : ((_alTblPool === "band" && !_alBandOk) ? (_alBandIdx == null ? "この日は株価帯が未判定/材料日のため銘柄別で表示" : ("株価帯" + (_alBandLbl || "") + "の前日までの記録が0件のため銘柄別で表示"))
-            : ("この銘柄・" + _alScopeLabel + "・前日まで全期間"));
+            : ("この銘柄・" + _alScopeLabel + "・前日まで" + (_alTblSince ? "" : "全期間"))))
+          + (_alTblSince ? "・" + _alSinceMD + "以降のみ（" + _alScopeRecs.length + "件）" : "");
+        // 期間トグル 2026-08-12c。記録帳の期間ピッカーの「6/29以降」プリセットと同じ境界（_elIsOldRule）を、この閲覧ポップアップにも出す。
+        var _alSinceBtn = function(on, lbl) {
+          return React.createElement("button", { type: "button", onClick: function() { _setAlTblSince(on); },
+            style: { padding: "3px 11px", fontSize: 10.5, fontWeight: 700, borderRadius: 12, cursor: "pointer", whiteSpace: "nowrap", minHeight: IS_TOUCH ? 28 : 22,
+              border: "1px solid " + (_alTblSince === on ? "#0F766E" : "#E0DAD1"), background: _alTblSince === on ? "#0F766E" : "#fff", color: _alTblSince === on ? "#fff" : "#6B6459" } }, lbl);
+        };
+        var _alSinceToggle = React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+          _alSinceBtn(false, "全期間"), _alSinceBtn(true, "🗓 " + _alSinceMD + "以降のみ"));
+        // 絞っている間の注意。★推奨は母数から計算し直すので、フォームに自動入力された基本α（前日まで全期間で算出）とは一致しなくなる。
+        var _alSinceWarn = _alTblSince ? React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: "#B91C1C", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 5, padding: "4px 7px", marginBottom: 6 } },
+          "⚠ " + _alSinceMD + "以降だけで★推奨を計算し直しています。フォームに自動入力された基本α（前日まで全期間で算出）とは一致しません（この表は閲覧のみなので、フォームの値は変わりません）") : null;
         var _modalEl = _alTblModal ? React.createElement("div", { onClick: function() { _setAlTblModal(null); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
           React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } },
-              React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: _alTblModal === "base" ? "#0369A1" : "#9A3412" } }, (_alTblModal === "base" ? "🔬 推奨基本α 詳細データ" : "🔬 推奨応用α 詳細データ") + (_alUseBand ? ("（株価帯別" + (_alBandLbl ? "・" + _alBandLbl : "") + "・銘柄横断・前日まで）") : ("（" + (fStock || "—") + "・前日まで全期間）"))),
+              React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: _alTblModal === "base" ? "#0369A1" : "#9A3412" } }, (_alTblModal === "base" ? "🔬 推奨基本α 詳細データ" : "🔬 推奨応用α 詳細データ") + (_alUseBand ? ("（株価帯別" + (_alBandLbl ? "・" + _alBandLbl : "") + "・銘柄横断・前日まで・" + _alPeriodLbl + "）") : ("（" + (fStock || "—") + "・前日まで・" + _alPeriodLbl + "）"))),
               React.createElement("button", { type: "button", onClick: function() { _setAlTblModal(null); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")),
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
               React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "母数"),
               _alPoolToggle,
               _scopeToggle),
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
+              React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "期間"),
+              _alSinceToggle),
             React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "記録帳の分析と同じ表。母数＝" + _alNote + "（閲覧のみ）"),
+            _alSinceWarn,
             _alScopeRecs.length
               ? (_alTblModal === "base"
                   ? _elBaseAlphaDetailV2(_alScopeRecs, function(r) { return _elAlphaInfo(r, data); }, _alTblHoli, undefined, undefined, _alBandSpan)
