@@ -6927,11 +6927,7 @@ function EntryRecordForm(_ref_erf) {
     if (!fStock || pool.indexOf(fStock) < 0) return false;
     return !_dailyStockHas(data, fDate, fStock);   // 候補で「その日の指定銘柄（複数可 2026-08-06）でない」→データのみ（合計算入OFF既定）。未指定日は候補すべてOFF既定（2026-07-23 ユーザー選択B＝_isDataOnlyと対称に未指定日カーブアウトを撤回）。指定銘柄のみON既定
   })();
-  // 見送り理由を必須にするか 2026-08-12b（ユーザー要望「日替わり銘柄のうち選定外のものは入力不要に」）。
-  // 選定外＝_indDataOnlyCand（候補プールの銘柄で、その日の「本日の取引銘柄」に選ばれていない）＝そもそも張り付いて見ていた日ではないので、
-  // 「なぜ入らなかったか」を毎回書かせても「選定外」としか書きようがない＝必須から外す。合計算入OFF既定なのと同じ理由。
-  // 必須は「新規」かつ「選定外でない」ときだけ（既存記録の編集を塞がない規約は2026-08-12のまま）。
-  var _skipMemoReq = !isEdit && !_indDataOnlyCand;
+  // ※見送り理由の必須判定 _skipMemoReq は EP位置(_fEpIdxLive)も見るので、その導出の直後に置いてある（下方を検索）。
   var _useStateINC = useState(initSig.includeInTotal != null ? (initSig.includeInTotal !== false) : (_indDataOnlyCand ? false : true)),
     _useStateINCA = _slicedToArray(_useStateINC, 2),
     fIncl = _useStateINCA[0], setFIncl = _useStateINCA[1];
@@ -7102,6 +7098,19 @@ function EntryRecordForm(_ref_erf) {
   var _fEpIdxLive = _epFormState ? _epFormState.epIdx : -1;
   var fHoldExp = _fEpIdxLive >= 0 ? (fNxs[_fEpIdxLive] || null) : null;
   var fHold2Exp = _fEpIdxLive >= 0 ? (fNxs[_fEpIdxLive + 1] || null) : null;
+
+  // ===== 見送り理由(skipMemo)を必須にするか＝単一源 2026-08-12 =====
+  // バリデーション(handleSaveの_vm)とUI(必須バッジ・案内文)の両方がこれを見る＝片方だけ直して食い違うのを防ぐ。
+  // 必須にするのは次の3つを全部満たすときだけ:
+  //   ①新規(!isEdit) … 既存の見送り記録は全部が理由なしなので、編集でも必須にすると「昔の記録を開いて別項目を直す→保存できない」になる。
+  //   ②選定外でない(!_indDataOnlyCand) 2026-08-12b … 日替わり銘柄の候補で、その日の「本日の取引銘柄」でないもの。
+  //      そもそも張り付いて見ていた日ではないので「選定外」としか書きようがない。合計算入OFF既定と同じ判定を流用。
+  //   ③EPに到達している(_fEpIdxLive >= 0) 2026-08-12d … 未達＝α（EP）に届かず入りようが無かった記録。
+  //      「入れたのに入らなかった」判断ではないので理由を書かせる意味がない。判定は_epReachedAt(保存済み記録側)と同義＝epIdx>=0。
+  //      ※×見送り（EPには到達したがEPより手前の足で×宣言）は未達ではない＝到達扱いなので必須のまま（自分で降りると決めた記録なので理由が要る）。
+  var _skipMemoReq = !isEdit && !_indDataOnlyCand && _fEpIdxLive >= 0;
+  // 必須でないとき、なぜ任意なのかを画面に出すためのラベル（編集時は理由を出さない＝既存記録では常に任意なので説明不要）。
+  var _skipOptReason = (_skipMemoReq || isEdit) ? null : (_indDataOnlyCand ? "選定外" : (_fEpIdxLive < 0 ? "未達" : null));
 
   // v2(EP起算)はE判定ベース: miss=E未達or×見送り。損切り判定はEP足高値基準。
   var _fMiss = (isV2Form && _epFormState) ? (_epFormState.judge === "miss" || _epFormState.judge === "x")
@@ -7591,10 +7600,8 @@ function EntryRecordForm(_ref_erf) {
         if (!fHold2Exp) _vm.push("次足期待度（" + (_fBarsV[_ef.epIdx + 1] ? _fBarsV[_ef.epIdx + 1].name : "H1足") + "・H2保有）");
       }
       if (fEntered && fReal === "") _vm.push("実現損益");
-      // 見送りの理由は必須 2026-08-12。ただし_skipMemoReq＝**新規(!isEdit)かつ選定外でない**ときだけ。
-      //   ・新規限定＝既存の見送り記録（全部が理由なし）を開いて別の項目を直すときに保存を塞がないため。
-      //   ・選定外（日替わり銘柄の候補で、その日の指定銘柄でない）を外すのは 2026-08-12b。
-      //   埋まっていない記録は記録一覧の「見送り理由 未記入」バッジで拾える。
+      // 見送りの理由は必須。条件は _skipMemoReq（新規／選定外でない／EP到達）＝単一源なのでここには書かない（定義の側を読むこと）。
+      // 埋まっていない記録は記録一覧の「見送り理由 未記入」バッジで拾える。
       if (_skipMemoReq && !fEntered && fThru !== true && fReview !== true && !String(fSkipMemo || "").trim()) _vm.push("見送りの理由");
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (_ef.epIdx >= 0 && _hEmpty && _hConfirmed !== true) {
@@ -9122,10 +9129,12 @@ function EntryRecordForm(_ref_erf) {
       (!fEntered && fThru !== true && fReview !== true) ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#1E40AF", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "6px 9px" } },
           "見送り＝合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入）。"
-            + (_skipMemoReq ? "新規記録では理由の入力が必須です。" : (!isEdit && _indDataOnlyCand ? "この銘柄はこの日の選定外（日替わり銘柄の候補）なので、理由の入力は任意です。" : ""))),
+            + (_skipMemoReq ? "新規記録では理由の入力が必須です。"
+              : (_skipOptReason === "選定外" ? "この銘柄はこの日の選定外（日替わり銘柄の候補）なので、理由の入力は任意です。"
+                : (_skipOptReason === "未達" ? "この記録は未達（α＝EPに到達していない）＝入りようが無かったので、理由の入力は任意です。" : "")))),
         React.createElement("div", { style: SH_ }, "見送りの理由",
           _skipMemoReq ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須")
-            : ((!isEdit && _indDataOnlyCand) ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700, marginLeft: 5, fontSize: 10 } }, "任意（選定外）") : null)),
+            : (_skipOptReason ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700, marginLeft: 5, fontSize: 10 } }, "任意（" + _skipOptReason + "）") : null)),
         React.createElement(FastInput, {
           multiline: true,
           autoResize: true,
@@ -9447,9 +9456,11 @@ function EntryLogCard(_ref_elc) {
         s.reviewMemo ? React.createElement("div", { style: { fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } }, React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, marginRight: 3 } }, "審議根拠"), s.reviewMemo) : null,
         // 見送りの理由 2026-08-12。理由が無い見送り記録＝2026-08-12より前に付けた記録なので、赤字の「理由未記入」で拾えるようにする
         // （新規では必須にしたが既存は素通しなので、後からまとめて埋めるための目印）。
+        // ⚠️「未記入」を出すのは**EPに到達している記録だけ** 2026-08-12d。未達はフォーム側でも必須から外した（入りようが無かった＝書く意味がない）ので、
+        //   ここで赤字を出すと「埋めなければいけない記録」の目印として使えなくなる（未達は毎日出るので赤だらけになる）。理由が書いてあれば未達でも表示する。
         _snIsSkipRec(s, item) ? (s.skipMemo
           ? React.createElement("div", { style: { fontSize: 11, color: "#1E40AF", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #93C5FD" } }, React.createElement("span", { style: { color: "#2563EB", fontWeight: 700, marginRight: 3 } }, "見送り理由"), s.skipMemo)
-          : React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#B91C1C" } }, "見送り理由 未記入")) : null,
+          : (_epReachedAt(s, _alpElc) ? React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#B91C1C" } }, "見送り理由 未記入") : null)) : null,
         s.rationale ? React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale) : null,
         s.reflection ? React.createElement("div", { style: { fontSize: 11, color: "#777", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection) : null
       ),
