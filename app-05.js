@@ -6921,6 +6921,11 @@ function EntryRecordForm(_ref_erf) {
     if (!fStock || pool.indexOf(fStock) < 0) return false;
     return !_dailyStockHas(data, fDate, fStock);   // 候補で「その日の指定銘柄（複数可 2026-08-06）でない」→データのみ（合計算入OFF既定）。未指定日は候補すべてOFF既定（2026-07-23 ユーザー選択B＝_isDataOnlyと対称に未指定日カーブアウトを撤回）。指定銘柄のみON既定
   })();
+  // 見送り理由を必須にするか 2026-08-12b（ユーザー要望「日替わり銘柄のうち選定外のものは入力不要に」）。
+  // 選定外＝_indDataOnlyCand（候補プールの銘柄で、その日の「本日の取引銘柄」に選ばれていない）＝そもそも張り付いて見ていた日ではないので、
+  // 「なぜ入らなかったか」を毎回書かせても「選定外」としか書きようがない＝必須から外す。合計算入OFF既定なのと同じ理由。
+  // 必須は「新規」かつ「選定外でない」ときだけ（既存記録の編集を塞がない規約は2026-08-12のまま）。
+  var _skipMemoReq = !isEdit && !_indDataOnlyCand;
   var _useStateINC = useState(initSig.includeInTotal != null ? (initSig.includeInTotal !== false) : (_indDataOnlyCand ? false : true)),
     _useStateINCA = _slicedToArray(_useStateINC, 2),
     fIncl = _useStateINCA[0], setFIncl = _useStateINCA[1];
@@ -7580,9 +7585,11 @@ function EntryRecordForm(_ref_erf) {
         if (!fHold2Exp) _vm.push("次足期待度（" + (_fBarsV[_ef.epIdx + 1] ? _fBarsV[_ef.epIdx + 1].name : "H1足") + "・H2保有）");
       }
       if (fEntered && fReal === "") _vm.push("実現損益");
-      // 見送りの理由は必須 2026-08-12。ただし**新規(!isEdit)のときだけ**＝既存の見送り記録（全部が理由なし）を開いて
-      // 別の項目を直すときに保存を塞がないため。埋まっていない既存記録は記録一覧の「理由未記入」バッジで拾える。
-      if (!isEdit && !fEntered && fThru !== true && fReview !== true && !String(fSkipMemo || "").trim()) _vm.push("見送りの理由");
+      // 見送りの理由は必須 2026-08-12。ただし_skipMemoReq＝**新規(!isEdit)かつ選定外でない**ときだけ。
+      //   ・新規限定＝既存の見送り記録（全部が理由なし）を開いて別の項目を直すときに保存を塞がないため。
+      //   ・選定外（日替わり銘柄の候補で、その日の指定銘柄でない）を外すのは 2026-08-12b。
+      //   埋まっていない記録は記録一覧の「見送り理由 未記入」バッジで拾える。
+      if (_skipMemoReq && !fEntered && fThru !== true && fReview !== true && !String(fSkipMemo || "").trim()) _vm.push("見送りの理由");
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (_ef.epIdx >= 0 && _hEmpty && _hConfirmed !== true) {
         window._snConfirm("H1/H2が未入力のままです。このまま保存しますか？\n（表ではー表示・H損益は集計から除外されます）").then(function(_ok){ if(_ok) handleSave(true); });
@@ -9081,12 +9088,14 @@ function EntryRecordForm(_ref_erf) {
         })
       ),
       // 見送りの理由（2026-08-12）: 見送り＝あり/スルー/要審議のどれでもない既定状態のときだけ出す。
-      // 新規記録では必須（handleSaveで弾く）・既存記録の編集では任意＝昔の理由なし記録を開いても保存できなくならない。
+      // 必須は_skipMemoReq（新規かつ選定外でない）のときだけ＝編集と、日替わり銘柄の選定外は任意。
       (!fEntered && fThru !== true && fReview !== true) ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#1E40AF", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "6px 9px" } },
-          "見送り＝合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入）。" + (isEdit ? "" : "新規記録では理由の入力が必須です。")),
+          "見送り＝合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入）。"
+            + (_skipMemoReq ? "新規記録では理由の入力が必須です。" : (!isEdit && _indDataOnlyCand ? "この銘柄はこの日の選定外（日替わり銘柄の候補）なので、理由の入力は任意です。" : ""))),
         React.createElement("div", { style: SH_ }, "見送りの理由",
-          isEdit ? null : React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須")),
+          _skipMemoReq ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須")
+            : ((!isEdit && _indDataOnlyCand) ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700, marginLeft: 5, fontSize: 10 } }, "任意（選定外）") : null)),
         React.createElement(FastInput, {
           multiline: true,
           autoResize: true,
