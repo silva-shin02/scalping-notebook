@@ -279,7 +279,25 @@ function Calendar(_ref60) {
           }
         }, "+")
       ),
-      
+
+      // 実現損益の行 2026-08-17g（ユーザー要望・案B）: 日付行の【下】に1行足す。実額と100株換算を両方出す。
+      //   ⚠️出すのは**実現損益が入っている日だけ**＝大半の日は従来と1ピクセルも変わらない（縦を食わない）。
+      //   上の行の金額は想定損益（記録から計算した値・見送りの仮想も含む）。この行だけが「実際に約定した額」。
+      //   桁は上の行と同じ丸め方（1万円以上は 12.3k）＝同じセル内で表記が食い違わない。100株換算は（）で従属を示す。
+      (function() {
+        var _gd = gradeByDate[key];
+        if (!_gd || _gd.real == null) return null;
+        var _k = function(v) { return (v > 0 ? "+" : "") + ((v >= 10000 || v <= -10000) ? ((Math.round(v / 100) / 10) + "k") : v.toLocaleString()); };
+        return React.createElement("div", {
+          title: "実現損益（実際に約定した額）\n実額 " + _snYen(_gd.realRaw) + "\n100株換算 " + _snYen(_gd.real) + "\n※上の金額は想定損益（記録から計算した値）です",
+          style: { fontSize: 9, fontWeight: 700, lineHeight: 1.2, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
+        },
+          React.createElement("span", { style: { color: "#94A3B8", marginRight: 2 } }, "実"),
+          React.createElement("span", { style: { color: _snPnlCol(_gd.realRaw) } }, _k(_gd.realRaw)),
+          React.createElement("span", { style: { color: "#B9B3AA", marginLeft: 3, fontWeight: 600 } },
+            "(100株", React.createElement("span", { style: { color: _snPnlCol(_gd.real), marginLeft: 2 } }, _k(_gd.real)), ")"));
+      })(),
+
       hasEvents && React.createElement("div", {
         style: { display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }
       },
