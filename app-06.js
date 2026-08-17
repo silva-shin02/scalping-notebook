@@ -1528,6 +1528,22 @@ function _ElAnaCutCtl(props) {
     React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _btn("↑", 1), _btn("↓", -1)),
     React.createElement("span", { style: { fontSize: 8.5, color: "#B45309" } }, "推奨α分析（基本/追加・フォーム/EPナビ/シミュの推奨含む）はこの損切り値を前提に評価・既定" + _EL_ANA_CUT_DEF + "円"));
 }
+// RN加算の閾値Tのステッパー 2026-08-17e（🎚閾値スイープの上に設置・保存は custom.rnThreshold＝全端末同期）。
+// T＝RN加算“前”EPの下二桁から直近のキリ番までの距離の上限。表示は「T円以内」と実バンド（50−T〜49／100−T〜99）を併記＝
+//   数字だけだと下二桁のどこが対象なのか読めないため。T=0はRN加算を使わない（バンド無し）。
+// 正本の定義と自動判定の実体は app-05 の _elRnT / _elRnBandsAt / _elRnAutoAt。ここはその設定UIに徹する。
+function _ElRnThrCtl(props) {
+  var v = _elRnT(props.data), save = props.save;
+  var _set = function(nv) { if (nv < 0) nv = 0; if (nv > 49) nv = 49; save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { rnThreshold: nv }) }); }); };
+  var _btn = function(lbl, d) { return React.createElement("button", { type: "button", onClick: function() { _set(v + d); }, style: { padding: "0 7px", fontSize: 10, fontWeight: 800, lineHeight: 1.5, border: "1px solid #99F6E4", borderRadius: 4, background: "#fff", color: "#0F766E", cursor: "pointer" } }, lbl); };
+  return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 7, padding: "3px 9px", whiteSpace: "nowrap" } },
+    React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "🎚 RN加算の閾値"),
+    React.createElement("b", { style: { fontSize: 14, color: "#0F766E", fontVariantNumeric: "tabular-nums" } }, v > 0 ? (v + "円以内") : "使わない"),
+    React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _btn("↑", 1), _btn("↓", -1)),
+    React.createElement("span", { style: { fontSize: 8.5, color: "#0F766E" } },
+      v > 0 ? ("下二桁 " + (50 - v) + "〜49 →…50／" + (100 - v) + "〜99 →…00 を自動で〇。既定" + _EL_RN_T_DEF + "円")
+            : ("RN加算を自動でつけない（既定は" + _EL_RN_T_DEF + "円）")));
+}
 // ===== 到達率の下限（2026-07-13 ユーザー指定）＝基本α★の付け方＝「この到達率以上・黒字を満たすαのうちΣ想定損益（累計）が最大のα（2026-08-02k）を理想とし推奨＝理想−_EL_ALPHA_OFFSET（＝0・実質は理想と同値）」 =====
 // 既定70%（2026-07-14e 60→50→2026-07-15j 50→60→2026-07-22f 60→70 ユーザー要望「推奨条件に到達率70%以上を加えて」）・10刻みで調整可・custom.anaReachFloorに保存（全端末同期）。同期は_elAlphaInfo(app-05)内で_elAnaCutと並んで実施。基本α★(_elBaseAlphaPick)＋応用α★(_elSpecialAlphaPick)の両方が全条件ゲートでこの到達率下限を使用。※目標到達率を満たすαが1つも無い時は_EL_ANA_REACH_FLOOR2(50%)まで引き下げて参考(na/青★)選定（2026-07-15j）。
 var _EL_ANA_REACH_DEF = 70;
@@ -1869,7 +1885,7 @@ function _elRnThrPool(recs, aiOf, tier) {
 }
 function _tierName(t) { return t === "50" ? "…50の段（下二桁1〜49）のみ" : (t === "00" ? "…00の段（下二桁51〜99）のみ" : "…50/…00 合算"); }   // 段別トグルの表示名（注記と空状態で共用）2026-07-20h
 // 母数＝水準線値入り かつ RN前EPが…50/…00ちょうどでない記録（ちょうど＝どのTでも動かないので除外）。tier: "all"／"50"／"00"。
-function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
+function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier, save) {   // save 2026-08-17e: ★行の「このTを採用」で custom.rnThreshold を書くため
   var _tier = tier || "all";
   var _th2 = function(t, k) { return React.createElement("th", { key: k, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
   var _td2 = function(c, ex) { return React.createElement("td", { style: Object.assign({ padding: "5px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #F0EDE7", fontVariantNumeric: "tabular-nums" }, ex || {}) }, c); };
@@ -1905,7 +1921,10 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
   var _star = _gated.length ? _gated[_gated.length - 1] : null;
   var _base = rows[0].e.h2Sum;
   var _tRow = function(rw) {
-    var e = rw.e, thin = e.decided < _EL_BASE_MIN_N, out = rw.t >= 10, cur = rw.t === 9, ref = rw.t === 0;
+    // 2026-08-17e 「現行」は設定値(_elRnTCur・custom.rnThreshold)を見る。旧＝`rw.t === 9` 決め打ちで、
+    //   閾値を変えても「現行」バッジが9のまま残り、どのTで運用しているのか画面から読めなくなっていた。
+    //   out（現行バンド外）も同じく設定値基準へ＝Tを上げたら「バンド外」の線もついてくる。
+    var e = rw.e, thin = e.decided < _EL_BASE_MIN_N, out = rw.t > _elRnTCur, cur = rw.t === _elRnTCur, ref = rw.t === 0;
     var isStar = _star && _star.t === rw.t;
     var diff = (e.h2Sum == null || _base == null) ? null : (e.h2Sum - _base);
     return React.createElement("tr", { key: "t" + rw.t, style: { background: cur ? "#FEF3C7" : (isStar ? "#E1F5EE" : "transparent") } },
@@ -1914,6 +1933,15 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
         ref ? "T=0 またぎ無し" : ("T=" + rw.t + "（" + rw.t + "円以内）"),
         cur ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#9A3412", background: "#FFEDD5", border: "1px solid #FDBA74", borderRadius: 8, padding: "0 6px", marginLeft: 5, verticalAlign: "middle" } }, "現行") : null,
         out ? React.createElement("span", { style: { fontSize: 8.5, color: "#888780", marginLeft: 4 } }, "現行バンド外") : null,
+        // ★のTが現行と違うときだけ「このTを採用」を出す 2026-08-17e＝分析結果をその場で運用に反映できる導線。
+        //   押すと custom.rnThreshold が変わり、記録フォーム/EPナビの自動判定バンドが 50−T〜49／100−T〜99 に切り替わる。
+        //   保存済み記録の rnVal は書き換えない＝実績の損益は動かない（変わるのは「これから建てる分」と候補一覧の判定）。
+        (isStar && save && rw.t !== _elRnTCur) ? React.createElement("button", {
+          type: "button",
+          onClick: function() { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { rnThreshold: rw.t }) }); }); },
+          title: "RN加算の自動判定を「キリ番まで" + rw.t + "円以内」に切り替える（現行 " + _elRnTCur + "円）。過去記録の保存値は書き換えません",
+          style: { fontSize: 9, fontWeight: 800, color: "#fff", background: "#0F766E", border: "none", borderRadius: 5, padding: "2px 7px", marginLeft: 6, cursor: "pointer", verticalAlign: "middle" }
+        }, "このTを採用") : null,
         ref ? React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", marginLeft: 4 } }, "参考") : null,
         thin ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 3, fontWeight: 700 } }, "（仮）") : null), { textAlign: "left", paddingLeft: 8 }),
       _td2(ref ? React.createElement("span", { style: { color: "#94A3B8" } }, "—") : (rw.hit + "件")),
@@ -1970,7 +1998,7 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
       React.createElement("tbody", null, distRows))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 } },
       "距離dの記録はT=dでちょうど〇になるので、差を1円手前から積み上げた「累計差」は主表の同じTの「T=0比」と一致する（ズレていたら実装バグ）。最初に差がマイナスへ転じた距離の1つ手前が、Σ想定損益を最大にするT。"
-      + "⚠️①の★は『平均』想定損益が最大のTなので、この2つはしばしば違うTを指す（Tを上げるほどEPが深くなり到達が減る＝残った少数の強い記録だけで平均が上がるため、★は深いTへ寄りやすい）。総額を積みたいならこの累計差、1件あたりの質を見たいなら★。★のTが極端に少ないE成立で選ばれていないか件数列も確認。" + (farN ? "距離" + (_EL_RN_T_MAX + 1) + "円以上 " + farN + "件は表示範囲外（どのTでも〇にならない）。" : "")));
+      + "①の★も同じ『Σ想定損益が最大』で選んでいるので、この2つは基本的に同じTを指す（2026-08-02kにΣ基準へ統一）。食い違うときは★側のゲート（E成立" + _EL_BASE_MIN_N + "件以上・Σ黒字）で弾かれた行があるサイン＝そのTは母数が薄いので累計差だけで決めないこと。★のTが極端に少ないE成立で選ばれていないか件数列も確認。" + (farN ? "距離" + (_EL_RN_T_MAX + 1) + "円以上 " + farN + "件は表示範囲外（どのTでも〇にならない）。" : "")));
 }
 // 日数セルの共通描画 2026-08-12e（ユーザー要望「その月・週の全体営業日数も出したい」）。
 // 上段=done＝**今日までに**市場が開いた営業日数。1日平均・1日換算グレードの分母はこちらのまま（進行中の月を月末基準で割ると平均が過小に出るため）。
@@ -2556,7 +2584,7 @@ function _elBaseAlphaSummary(recs, aiOf) {
   if (!pick || pick.status === "none" || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var na = pick.status === "na";
   var minN = pick.minN || _EL_BASE_MIN_N;
-  var noteSub = "★（2026-07-13新基準）＝到達率" + Math.round(pick.reachFloor * 100) + "%以上・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・頻度" + _EL_FREQ_MAX + "営業日/回未満・E成立" + _EL_BASE_N_PREF + "件以上（無ければ" + _EL_BASE_MIN_N + "件に自動緩和）・黒字のαの中で平均想定損益（手じまい・1件あたり）が最大のα。同点はE成立多→低α。該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考（青★）。★赤＝条件充足／★青＝参考。5〜20円1円刻み";
+  var noteSub = "★（2026-07-13新基準）＝到達率" + Math.round(pick.reachFloor * 100) + "%以上・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・頻度" + _EL_FREQ_MAX + "営業日/回未満・E成立" + _EL_BASE_N_PREF + "件以上（無ければ" + _EL_BASE_MIN_N + "件に自動緩和）・黒字のαの中でΣ想定損益（手じまい・累計）が最大のα。同点は平均（1件あたり）が大きい方→さらに同点なら低α。該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考（青★）。★赤＝条件充足／★青＝参考。5〜20円1円刻み";
   var _h2s = pick.h2sweep || [];
   var sweepRows = _h2s.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var on = e.a === pick.alpha;
@@ -3001,7 +3029,7 @@ function _elBaseAlphaPeriodBlockV2(data, stock, refDate, save) {
   return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨α値（" + stock + "）"),
     (save && typeof _ElDayAlphaPair === "function") ? React.createElement("div", { style: { marginBottom: 6 } }, React.createElement(_ElDayAlphaPair, { data: data, save: save, date: refDate, stock: stock })) : null,   // 本日の採用α値（基本α+応用α）＝見出し直下 2026-07-13 task3
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で「到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(手じまい)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字」を満たすαの中で平均想定損益（手じまい・1件あたり）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考）。基本αは応用α〇・浮き足〇・RN〇以外（応用なし）が母数。試算損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・応用α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。「応用α」＝応用α〇の記録だけを母数に、応用局面で採用する独立α値（0〜20円）を手じまい基準で評価した推奨（★＝到達率" + _EL_ANA_REACH_DEF + "%・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立条件でΣ想定損益（累計）最大）。次点（2番目の候補）は基本α・応用αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で「到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(手じまい)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字」を満たすαの中でΣ想定損益（手じまい・累計）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考）。基本αは応用α〇・浮き足〇・RN〇以外（応用なし）が母数。試算損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・応用α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。「応用α」＝応用α〇の記録だけを母数に、応用局面で採用する独立α値（0〜20円）を手じまい基準で評価した推奨（★＝到達率" + _EL_ANA_REACH_DEF + "%・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立条件でΣ想定損益（累計）最大）。次点（2番目の候補）は基本α・応用αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
     React.createElement(_ElRecoAlphaDetail, { recs: recs, aiOf: aiOf, holiSet: _buildHolidayDateSet((data || {}).trades, ((data || {}).custom || {}).eventCategories) }));   // 2026-07-13 期間別表→取引/記録帳と同じ基本↔応用トグル付き総当たり詳細表(常時展開)。期間別は_ElRecoAlphaDetail内の「直近参考」サブ行で残す。
 }
 // DayView「チャート」タブで早見表の下に出す推奨αブロック（2026-06-24）。各銘柄テーブル(ChartSection)の_elBaseAlphaPeriodBlockV2と同等に充実＝説明文＋本日行付き期間表(_elBaseAlphaPeriodTableV2＝基本αに追加αの└サブ行も内包)。さらに「今日の推奨◯円」の大見出し(headNode)を併載＝いいとこ取り 2026-06-24c（2026-07-01 追加α独立テーブル(_elAddAlphaPeriodTableV2)を廃し基本α表へ統合・最上位見出しを🎯推奨α値に改称）。
@@ -3039,7 +3067,7 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
   return React.createElement("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", marginBottom: 6 } }, "🎯 推奨α値（" + refDate + "）"),
     headNode,
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 8, marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で「到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(手じまい)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字」を満たすαの中で平均想定損益（手じまい・1件あたり）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考）。基本αは応用α〇・浮き足〇・RN〇以外（応用なし）が母数。試算損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・応用α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。「応用α」＝応用α〇の記録だけを母数に、応用局面で採用する独立α値（0〜20円）を手じまい基準で評価した推奨（★＝到達率" + _EL_ANA_REACH_DEF + "%・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立条件でΣ想定損益（累計）最大）。次点（2番目の候補）は基本α・応用αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 8, marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で「到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(手じまい)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字」を満たすαの中でΣ想定損益（手じまい・累計）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考）。基本αは応用α〇・浮き足〇・RN〇以外（応用なし）が母数。試算損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・応用α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。「応用α」＝応用α〇の記録だけを母数に、応用局面で採用する独立α値（0〜20円）を手じまい基準で評価した推奨（★＝到達率" + _EL_ANA_REACH_DEF + "%・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立条件でΣ想定損益（累計）最大）。次点（2番目の候補）は基本α・応用αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
     _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 
@@ -7574,8 +7602,10 @@ function EntryLogView(_ref_elv2) {
       var _rnBody = (rnSub === "thr")
         ? _cardify([
             _secH("🎚 RNは何円手前から〇にすべきか（全銘柄共通）", "※想定損益（手じまい）基準。RN×の記録も含む全記録の反実仮想＝「RNまでの距離≤T円なら〇」のTを0〜" + _EL_RN_T_MAX + "でスイープ。①閾値スイープ ②距離別の限界寄与。母数はRN〇に限らない（③RN距離別＝実績の内訳とは別物）"),
-            React.createElement("div", { key: "rntier", style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _rnTierToggle(rnTier, setRnTier)),
-            _elRnThresholdBoardV2(_v2recsAllData, _ai, _sigHoliSet, rnTier)])
+            // 2026-08-17e 閾値ステッパーを段別トグルの左に置く＝**分析している画面のそのままの位置で運用値を変えられる**（前提損切り値のステッパーと同じ思想）。
+            React.createElement("div", { key: "rntier", style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 6px" } },
+              React.createElement(_ElRnThrCtl, { data: data, save: save }), _rnTierToggle(rnTier, setRnTier)),
+            _elRnThresholdBoardV2(_v2recsAllData, _ai, _sigHoliSet, rnTier, save)])
         : (rnSub === "list")
         ? _cardify([
             _secH("🗂 RN〇の記録一覧（全銘柄）", "上の分析の母数そのもの＝RN加算〇の全記録。行タップで明細カード・カードタップで編集フォーム"),

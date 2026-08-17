@@ -3159,20 +3159,29 @@ function _elRnAdd(s) { if (!_elRnYes(s)) return 0; var v = Number(s.rnVal); retu
 // ⚠️判定は必ずRN加算“前”のEPに対して行う: 予定EP＝水準線＋採用α で採用αにRNが含まれるため、RN込みEPで判定すると循環する。
 // バンド＝41-49→…50／91-99→…00。40・90は含めない（距離10はバンド内で最も高い授業料なのに得るものは同じ「RNちょうど」1個。
 //   しかも…40/…90はそれ自体10円刻みのキリ番＝費用対効果が最悪。ユーザー決定 2026-07-20）。③RN距離別データを見て後から調整できるよう定数で外出し。
-var _EL_RN_BANDS = [{ from: 41, to: 49, target: 50 }, { from: 91, to: 99, target: 100 }];
+// 2026-08-17e 閾値Tを設定で変えられるように（ユーザー要望「RNに何円近いところから適用すべきか」）。
+// 旧＝`[{41-49→50},{91-99→100}]` のハードコード＝距離9固定で、🎚閾値スイープの★が別のTを指しても**運用に反映する手段が無かった**。
+// T＝RN加算“前”EPの下二桁から直近のキリ番（…50/…00）までの距離の上限。**T=9 で従来と完全に一致**（41-49／91-99）。T=0＝RN加算を使わない。
+// 正本＝`custom.rnThreshold`。前提損切り値(_elAnaCutCur・app-06)と同じ作法でモジュール変数へ同期する＝同期は _elAlphaInfo 内（全画面のaiOf構築が必ず通る単一地点）。
+// ⚠️Tを変えると**過去記録の判定結果も変わる**（候補一覧・閾値ボードの「該当」列）。保存済みの rnVal 自体は書き換わらない＝実績の損益は動かない。
+var _EL_RN_T_DEF = 9;
+var _elRnTCur = _EL_RN_T_DEF;
+function _elRnT(data) { var v = data && data.custom ? data.custom.rnThreshold : null; var n = Number(v); return (v != null && v !== "" && isFinite(n) && n >= 0 && n <= 49) ? Math.round(n) : _EL_RN_T_DEF; }
+function _elRnBandsAt(T) { var t = (T == null) ? _elRnTCur : T; if (!(t > 0)) return []; return [{ from: 50 - t, to: 49, target: 50 }, { from: 100 - t, to: 99, target: 100 }]; }
 // 予定EP価格 → 加算額。null＝判定不可（価格が数値でない＝水準線未入力など）／0＝対象外（自動×）／>0＝RN加算額。
-function _elRnAutoAt(epPre) {
+function _elRnAutoAt(epPre, T) {   // T省略＝現在の設定値(_elRnTCur)
   if (epPre == null || epPre === "" || isNaN(Number(epPre))) return null;
   var last2 = ((Math.round(Number(epPre)) % 100) + 100) % 100;   // 円単位で下二桁（負値・小数も安全に）
-  for (var i = 0; i < _EL_RN_BANDS.length; i++) { var b = _EL_RN_BANDS[i]; if (last2 >= b.from && last2 <= b.to) return b.target - last2; }
+  var _bands = _elRnBandsAt(T);
+  for (var i = 0; i < _bands.length; i++) { var b = _bands[i]; if (last2 >= b.from && last2 <= b.to) return b.target - last2; }
   return 0;
 }
 // 水準線値 ＋ RN前α から判定。水準線未入力／α不明は null＝判定不可（呼び出し側で「RN無しで建てる＋件数を可視化」等を決める）。
-function _elRnAutoFrom(levelPrice, preAlpha) {
+function _elRnAutoFrom(levelPrice, preAlpha, T) {
   var lv = (levelPrice != null && levelPrice !== "" && !isNaN(Number(levelPrice))) ? Number(levelPrice) : null;
   var a = (preAlpha != null && preAlpha !== "" && !isNaN(Number(preAlpha))) ? Number(preAlpha) : null;
   if (lv == null || a == null) return null;
-  return _elRnAutoAt(lv + a);
+  return _elRnAutoAt(lv + a, T);
 }
 // 既存記録の「RN加算“前”EP」＝水準線 ＋（採用α − 実RN加算）。渡すalphaは採用α（RN込み）＝ここでRN分を引き戻すのでRN〇/×どちらの記録でも使える。
 // null＝判定不可（水準線未入力／α不明）。候補一覧・閾値スイープが共通で使う単一源 2026-07-20e。
@@ -3184,8 +3193,8 @@ function _elRnPreEpOfRec(s, alpha) {
   return lv + (a - _elRnAdd(s));
 }
 // 既存記録から判定（候補一覧・分析用）。2026-07-20e _elRnPreEpOfRec へ委譲＝「RN前EP」の算出式を単一源化（結果は従来と同一）。
-function _elRnAutoOfRec(s, alpha) {
-  return _elRnAutoAt(_elRnPreEpOfRec(s, alpha));
+function _elRnAutoOfRec(s, alpha, T) {
+  return _elRnAutoAt(_elRnPreEpOfRec(s, alpha), T);
 }
 // ===== RN加算閾値スイープ（「−何円から〇にすべきか」分析の単一源）2026-07-20e =====
 // 運用の自動判定はバンド固定（距離1〜9）だが、分析では距離の上限Tを1件ずつ振って成績を比べる。距離＝RN加算“前”EPの下二桁から直近のキリ番（…50／…00）までの円数。
@@ -3408,6 +3417,7 @@ function _gradeAlpha(difficulty) {
 }
 var _elHoliMemo = { d: undefined, set: null };   // 頻度ゲート用の休場日カレンダーのメモ 2026-07-15g: _buildHolidayDateSetは重いのでdata参照ごとに1回だけ構築（_elAlphaInfoは毎レコード呼ばれるため）。
 function _elAlphaInfo(r, data) {
+  _elRnTCur = _elRnT(data);   // RN加算の閾値T（custom.rnThreshold・既定9）のモジュール同期 2026-08-17e。前提損切り値と同じ理由でここに置く＝全画面のaiOf構築が必ず通る単一地点
   if (typeof _elAnaCut === "function") _elAnaCutCur = _elAnaCut(data);   // 前提損切り値のモジュール同期（2026-07-13b）: 全画面のaiOfはここを通るため、推奨α分析(app-06のpick群)が常に最新のcustom.anaCutPremiseを読める
   if (data && typeof _buildHolidayDateSet === "function") { if (_elHoliMemo.d !== data) { _elHoliMemo.d = data; _elHoliMemo.set = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories); } _elHoliCur = _elHoliMemo.set; }   // 頻度ゲートの休場日カレンダー同期 2026-07-15g: 選定の_freqOkが表示の頻度列と同じ「祝日も除外」で評価するため（土日のみだと祝日ぶんゲート頻度が高く出て4円等を誤除外）。dataごとにメモ。
   if (typeof _elAnaReach === "function") _elAnaReachCur = _elAnaReach(data);   // 到達率下限のモジュール同期（2026-07-13）: 基本α★(_elBaseAlphaPick)が最新のcustom.anaReachFloorを読める
