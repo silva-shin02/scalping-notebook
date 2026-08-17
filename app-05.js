@@ -3137,6 +3137,16 @@ function _elFilterData(recs) { return (recs || []).filter(function(r) { return _
 // 合計採用α(signal.alphaVal)＝基本α＋浮き足加算＋追加α（保存時に畳み込み済み＝下流の損益/EP計算は無改修で正）。
 // 旧方式「追加α〇＋根拠=底抜け前足浮き＋数値(addAlphaReasonVal)」はmigrateData(_migUkiAlpha・app-01)で本フィールドへ自動移行済み。
 // 母数の扱い: 推奨基本αからは追加α〇と同様に除外(_elBaseAlphaPick)・推奨追加αからも除外(_elHasNumReason=浮き足判定に載せ替え・app-06)。
+// ===== 浮き足加算の入力欄を新規記録から引退 2026-08-17c（ユーザー決定）=====
+// 浮き足の役割は「応用α＋根拠」へ統合したので、新しく浮き足〇の記録は作らない。
+// ⚠️**読み取り・表示・分析は一切変えていない**＝過去の浮き足〇記録は今までどおり:
+//    「浮き基本/浮き応用」ラベル・α内訳・記録帳の浮き足ブロック(_elUkiPctSweep/_elUkiValSweep)・
+//    基本α母数からの除外(_elIsBaseAlphaPoolRec)が全部そのまま効く。数字は1つも動かない。
+// ⚠️**既に浮き足〇の記録を編集するときは欄を出す**。隠すと保存時に ukiUsed/ukiVal が黙って落ちて、
+//    そのαがなぜその値だったのかが消える（採用α alphaVal は保存済みなので損益は壊れないが内訳が失われる）。
+// 戻すときは _UKI_INPUT_RETIRED を false にするだけ（app-05 の _showUki / app-04 の showUki が両方これを見ている）。
+var _UKI_INPUT_RETIRED = true;
+function _elUkiInputVisible(hasUki) { return !_UKI_INPUT_RETIRED || !!hasUki; }
 function _elUkiYes(s) { return !!s && s.ukiUsed === true; }
 function _elUkiVal(s) { if (!s || s.ukiVal == null || s.ukiVal === "" || isNaN(Number(s.ukiVal))) return null; return Number(s.ukiVal); }
 function _elUkiAdd(s) { if (!_elUkiYes(s)) return 0; var v = _elUkiVal(s); if (v == null || v <= 0) return 0; var pct = (s && s.ukiPct != null && !isNaN(Number(s.ukiPct))) ? Number(s.ukiPct) : 50; return Math.floor(v * pct / 100); }   // 実効加算＝floor(浮き値×加算率/100)。ukiPct=使った加算率(%)・既定50=半額（旧記録はukiPct無し→50%で従来と一致）2026-07-12
@@ -7181,7 +7191,10 @@ function EntryRecordForm(_ref_erf) {
   var _fSpecialA = (fSpecialAlpha !== "" && !isNaN(Number(fSpecialAlpha))) ? Number(fSpecialAlpha) : ((!isEdit && _spDefault != null) ? _spDefault : _fBaseAInput);   // 応用α入力（新規＝その日の採用応用α値のみ・無ければ基本α入力＝推奨応用αフォールバック廃止 2026-07-23）
   var _fBaseLevel = (fAlphaKind === "special") ? _fSpecialA : _fBaseAInput;   // base-levelα正本（採用α選択で切替）
   // 浮き足加算α値（2026-07-03→2026-07-07で対象を複数化）: 全シグナルで欄を表示・算入可（2026-07-07 旧＝底抜け系のみ_elUkiSignalNames→拡大）。〇のとき入力値(前足浮き値)×採用加算率（推奨%・既定50%・07-12d）を切捨て加算。
-  var _showUki = true;  // 浮き足加算は全シグナルで表示・入力可（2026-07-07 底抜け系限定の_elUkiSignalNamesゲートを解除）
+  // 2026-08-17c 引退（_UKI_INPUT_RETIRED）。**編集中の記録が既に浮き足〇なら出す**＝編集開始時の initSig で判定する。
+  //   ⚠️ライブの fUkiUsed で判定してはいけない＝編集中に×へ倒した瞬間に欄が消えて〇へ戻せなくなる。
+  //   旧: `true` 決め打ち（2026-07-07 に底抜け系限定の_elUkiSignalNamesゲートを解除した名残）。
+  var _showUki = _elUkiInputVisible(_elUkiYes(initSig));
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨(reco)/次点(runnerUp)を算出（_elUkiPctSweep）。fUkiPct=""は自動=推奨(無ければ50%)。加算=floor(浮き値×採用%/100)。2026-07-12
   var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, fDate, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null, fStock); }, [data, fDate, fUkiSpecial, fUkiReasons, fStock]);   // 2026-07-14g 浮き足基本/応用のタグ別プール推奨（応用は選択根拠で絞る・薄ければ全応用）。2026-07-25 fStockを渡して株価帯優先（帯が薄ければ全銘柄へフォールバック）
   var _effUkiPct = _elUkiEffPct(fUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
@@ -8338,7 +8351,14 @@ function EntryRecordForm(_ref_erf) {
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
         React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "採用α値（基本α or 応用α）＋浮き足加算＋RN加算＝合計α値（水準線比）。この合計αを水準線値に足したものが予定EP。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
+      // 2026-08-17c 説明文を実挙動へ追従。旧文は「（基本α or 応用α）＋浮き足加算＋RN加算」＝**2026-07-14g の浮き足専用α化より前の仕様**で、
+      //   浮き足を基本/応用の上乗せとして説明していた。実際は _elBaseLevelAlpha が浮き足〇で0を返す＝基本α・応用αは合計に入らない（app-05:7191/7829も同じ排他）。
+      //   浮き足の状態で出し分ける＝そのとき効いている式だけを見せる（両方書くと結局どちらが今なのか分からない）。
+      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } },
+        (_showUki && fUkiUsed === "○")
+          ? "合計α値（水準線比）＝ 浮き足加算 ＋ RN加算。⚠️浮き足〇のあいだは基本α・応用αを使わない（浮き足専用α）。"
+          : "合計α値（水準線比）＝（基本α or 応用α）＋ RN加算。",
+        "この合計αを水準線値に足したものが予定EP。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
       React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
         _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
         (function() {

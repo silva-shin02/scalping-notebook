@@ -4294,7 +4294,12 @@ function _EpnCalcForm(_p) {
   var _autoBase = followReco ? (autoPick.a != null ? autoPick.a : null) : _stkBase;
   var _baseDefault = dayAlpha != null ? dayAlpha : _autoBase;
   var _baseSrc = (dayAlpha != null) ? "本日の採用α値" : (followReco ? autoPick.src : ((stk && stk.alpha != null) ? (stk.ok ? "銘柄全体" : "銘柄全体（仮）") : autoPick.src));   // 保存EPのsrc表記＝実際に採用した既定の出所
-  var showUki = true;   // 浮き足加算は全シグナルで表示・入力可（記録フォームと同じ_showUki=true。旧＝底抜け系のみ_elUkiSignalNamesゲート→2026-07-13解除・推奨/次点/手入力%は従来どおり適用）
+  // 2026-08-17c 引退（_UKI_INPUT_RETIRED・app-05）。EPナビの計算フォームは銘柄ごとに使い回す常設フォームで
+  //   記録フォームの initSig にあたる「編集開始時の値」を持たないため、**入力欄に値が残っているか**で判定する。
+  //   既存の浮き足カードをタップすると setNUkiVal/setNUkiPrev に値が入る（L4366）ので欄が出る。
+  //   ×へ倒しても値は残るので欄は消えない＝〇へ戻せる。新規は reset(L4338)で全部""になるので隠れる。
+  //   旧: `true` 決め打ち（記録フォームと同じ_showUki=true。旧＝底抜け系のみ_elUkiSignalNamesゲート→2026-07-13解除）
+  var showUki = _elUkiInputVisible(nUkiUsed === "○" || nUkiVal !== "" || nUkiPrev !== "");   // 欄が出ている間の推奨%/次点/手入力%の挙動は従来どおり
   var baseV = (nBase !== "" && !isNaN(Number(nBase))) ? Number(nBase) : _baseDefault;
   // 推奨応用α（応用〇の記録から算出・浮き足/RN除外）。根拠を選ぶとその根拠を持つ記録に絞る。共有ヘルパー_epnSpecialRecoFrom（早見カードと同一）。
   var specialReco = _epnSpecialRecoFrom(casc, nSpecialReasons);
