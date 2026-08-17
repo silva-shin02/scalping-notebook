@@ -47,7 +47,7 @@ function Calendar(_ref60) {
   
   var eventsByDate = useMemo(function() {
     var m = {};
-    if (!data || !data.trades) return m;
+    if (!data || !data.trades) { _snAddAutoHolidayEvents(m, data); return m; }
     Object.keys(data.trades).forEach(function(dt) {
       var dd = data.trades[dt];
       if (!dd || !Array.isArray(dd.events)) return;
@@ -82,6 +82,7 @@ function Calendar(_ref60) {
       if (!mm) return -1; 
       return parseInt(mm[1], 10) * 60 + parseInt(mm[2], 10);
     };
+    _snAddAutoHolidayEvents(m, data);   // 手入力イベントを集めた後に足す＝同じ日に手入力の祝日があれば自動ぶんは出さない 2026-08-12f
     Object.keys(m).forEach(function(dt) {
       m[dt].sort(function(a, b) {
         var ta = _timeKey(a), tb = _timeKey(b);

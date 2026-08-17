@@ -1972,6 +1972,19 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
       "距離dの記録はT=dでちょうど〇になるので、差を1円手前から積み上げた「累計差」は主表の同じTの「T=0比」と一致する（ズレていたら実装バグ）。最初に差がマイナスへ転じた距離の1つ手前が、Σ最終損益を最大にするT。"
       + "⚠️①の★は『平均』最終損益が最大のTなので、この2つはしばしば違うTを指す（Tを上げるほどEPが深くなり到達が減る＝残った少数の強い記録だけで平均が上がるため、★は深いTへ寄りやすい）。総額を積みたいならこの累計差、1件あたりの質を見たいなら★。★のTが極端に少ないE成立で選ばれていないか件数列も確認。" + (farN ? "距離" + (_EL_RN_T_MAX + 1) + "円以上 " + farN + "件は表示範囲外（どのTでも〇にならない）。" : "")));
 }
+// 日数セルの共通描画 2026-08-12e（ユーザー要望「その月・週の全体営業日数も出したい」）。
+// 上段=done＝**今日までに**市場が開いた営業日数。1日平均・1日換算グレードの分母はこちらのまま（進行中の月を月末基準で割ると平均が過小に出るため）。
+// 下段=full＝その期間**全体**の営業日数（未来ぶんも含む・祝日/休場は除く）。
+// ⚠️2段になるのは full>done のとき＝進行中の期間だけ。終わった期間は同じ数字が2つ並ぶだけなので1段のままにする。
+// 全体損益（期間別）(_ovPnlTbl) と 月間・週間タブ の日数列で共用＝2か所で見た目と規約がずれないように。
+function _elBizDaysCell(done, full) {
+  if (!(full > done)) return React.createElement("span", { style: { fontWeight: 600, color: "#555" } }, done + "日");
+  return React.createElement("span", { title: "上＝今日までに市場が開いた営業日数（件数やグレードの「1日平均」「1日換算」はこちらで割っています）／下＝この期間全体の営業日数（土日と、記録済みの祝日・休場を除いた日数）",
+    style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+    React.createElement("span", { style: { fontWeight: 700, color: "#555" } }, done + "日"),
+    React.createElement("span", { style: { display: "block", alignSelf: "stretch", borderTop: "1px solid #D6D3D1", margin: "2px 0" } }),
+    React.createElement("span", { style: { fontWeight: 700, color: "#9A9186", fontSize: 10 } }, full + "日"));
+}
 // 「何営業日に1日エントリーできたか」用 2026-07-07（ユーザー要望・全営業日ベース）: 母数の活動期間（初回〜直近の記録日）の営業日数。holiSet省略時は土日のみ除外・渡せば祝日も除外（_fmIsBizDay app-03）。validOf(r)=母数に含めるか（推奨α算出不能などの除外・省略時は全記録）。
 function _elBizSpanDays(recs, holiSet, validOf) {
   var minD = null, maxD = null;
@@ -6633,14 +6646,16 @@ function EntryLogView(_ref_elv2) {
     var _holiSet = _buildHolidayDateSet(data.trades, custom.eventCategories);
     var _today2 = todayStr();
     var _p2 = function(nn) { return ("0" + nn).slice(-2); };
-    var _bizDaysIn = function(k, gg) {
+    // full=true で「当日までで頭打ち」を外す＝その期間**全体**の営業日数（未来ぶんも含む）2026-08-12e。
+    // ⚠️既定(full省略)の値は従来どおり＝1日平均・1日換算グレードの分母は一切変えない。表示に1行足すだけ。
+    var _bizDaysIn = function(k, gg, full) {
       var _g = gg || g;   // 2026-07-30 ドリルダウン: 入れ子の段はその段の粒度で数える（省略時＝表の粒度）
       var days = [], _k = _baseKey(k), _half = _keyHalf(k);   // 2026-08-05n 割った月は自分の側の営業日だけ数える＝2行の日数を足すと元の月の日数に戻る
       if (_g === "day") { days = [_k]; }
       else if (_g === "month") { var y = +_k.slice(0, 4), m = +_k.slice(5, 7), last = new Date(y, m, 0).getDate(); for (var dd = 1; dd <= last; dd++) days.push(_k + "-" + _p2(dd)); }
       else { var mon = new Date(_k + "T00:00:00"); for (var i = 0; i < 5; i++) { var d = new Date(mon.getTime() + i * 86400000); days.push(d.getFullYear() + "-" + _p2(d.getMonth() + 1) + "-" + _p2(d.getDate())); } }
       var c = 0; days.forEach(function(d) {
-        if (d > _today2 || !_fmIsBizDay(d, _holiSet)) return;
+        if ((!full && d > _today2) || !_fmIsBizDay(d, _holiSet)) return;
         if (_half === "1" && !_isOldRec(d)) return;
         if (_half === "2" && _isOldRec(d)) return;
         c++;
@@ -6786,13 +6801,13 @@ function EntryLogView(_ref_elv2) {
       var out = [];
       ks.forEach(function(k) {
         var x = _by[k] || [], _extraRow = _exBy[k] || [];   // x=算入記録（表示専用だけの期間は空配列）／_extraRow=集計に入らない表示専用の記録
-        var t = totOf(x), st = stopsOf(x), dn = _bizDaysIn(k, gg), path = pfx + k, on = !!ovExp[path], nxt = _NEXT_GRAN[gg];
+        var t = totOf(x), st = stopsOf(x), dn = _bizDaysIn(k, gg), dnF = _bizDaysIn(k, gg, true), path = pfx + k, on = !!ovExp[path], nxt = _NEXT_GRAN[gg];
         var _old = _keyIsOld(k, gg);   // 2026-08-05n 旧ルール期間＝薄く＋合計・平均から除外。2026-08-05q「旧ルール」バッジは撤去（ユーザー指示）＝薄さだけで示す。理由は見出しの説明文と合計行の「※6/29〜のみ」に残る
         out.push(React.createElement("tr", { key: path, onClick: function() { setOvExp(function(prev) { var n = Object.assign({}, prev); if (n[path]) delete n[path]; else n[path] = true; return n; }); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent", opacity: _old ? 0.42 : 1 } },
           otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k, gg), _elEmaRefNote(_elIsEmaRefPeriod(k, gg)),
             (!x.length && _extraRow.length) ? React.createElement("span", { title: "この期間は集計に入る記録が無く、表示専用の記録だけがあります（" + _extraBrk(_extraRow) + "・集計は全て—）", style: { fontSize: 8.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 4px", marginLeft: 4, whiteSpace: "nowrap" } },
               _extraRow.every(function(r) { return _elIsThru(r.signal); }) ? "スルーのみ" : "算入記録なし") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
-          otd(dn + "日", { fontWeight: 600, color: "#555" }),
+          otd(_elBizDaysCell(dn, dnF), { fontWeight: 600, color: "#555" }),
           cntCell(x.length, dn, { fontWeight: 700 }, gg),
           reachCell(st.wn, x.length, dn, null, gg),
           winTakeCell(winTakeOf(x)),
@@ -6831,10 +6846,11 @@ function EntryLogView(_ref_elv2) {
     var _hasRef = _aggKeys.some(_isRefKey);
     var tt = totOf(rsInc), bt = { borderTop: "2px solid #FB923C" };
     var _ovTotStops = stopsOf(rsInc);   // 到達セル（＝E成立母数wn）と損切りセルで使い回す（2回計算しない）2026-07-29→29c
+    var _ovTotDaysFull = _aggKeys.reduce(function(s, k) { return _isRefKey(k) ? s : s + _bizDaysIn(k, null, true); }, 0);   // 合計行の下段＝各期間の「全体営業日数」の総和 2026-08-12e（上段=_ovTotDaysは従来どおり当日まで＝1日平均の分母）
     var _ovTotDays = _aggKeys.reduce(function(s, k) { return _isRefKey(k) ? s : s + _bizDaysIn(k); }, 0);   // 集計用キーのみ＝スルーだけの期間の営業日は合計日数に加算しない（1日平均を従来値のまま保つ）2026-07-20b
     var totRow = React.createElement("tr", { key: "__ovtot__", style: { background: "#FFF7ED" } },
       otd(React.createElement("span", null, "合計", _hasRef ? React.createElement("span", { title: _RULE_SINCE + "（" + _RULE_FROM_LBL + "）より前は集計ルールが違うため、合計・平均から除外しています（薄い行がそれ）。4月はEMA位置ズレの参考期間でもあります", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※" + _RULE_FROM_LBL + "〜のみ") : null), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
-      otd(_ovTotDays + "日", Object.assign({ fontWeight: 700, color: "#555" }, bt)),
+      otd(_elBizDaysCell(_ovTotDays, _ovTotDaysFull), Object.assign({ fontWeight: 700, color: "#555" }, bt)),
       cntCell(rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       reachCell(_ovTotStops.wn, rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
@@ -7951,8 +7967,9 @@ function EntryLogView(_ref_elv2) {
         else { var mon = new Date(k + "T00:00:00"); for (var i = 0; i < 5; i++) { var d = new Date(mon.getTime() + i * 86400000); days.push(d.getFullYear() + "-" + _p2(d.getMonth() + 1) + "-" + _p2(d.getDate())); } }
         return days;
       };
-      var _bizDaysIn = function(k) {
-        var c = 0; _daysListIn(k).forEach(function(d) { if (d <= _today2 && _fmIsBizDay(d, _holiSet)) c++; });
+      // full=true で「当日までで頭打ち」を外す＝その月/週**全体**の営業日数 2026-08-12e。既定の値（1日平均・グレードの分母）は不変。
+      var _bizDaysIn = function(k, full) {
+        var c = 0; _daysListIn(k).forEach(function(d) { if ((full || d <= _today2) && _fmIsBizDay(d, _holiSet)) c++; });
         return c;
       };
       // 件数の下の「（1日平均〇件）」＝件数÷日数。割り切れれば整数・端数は小数第1位まで。2026-07-19（全体損益・期間別の_ovPnlTblと同扱い）。
@@ -8066,7 +8083,7 @@ function EntryLogView(_ref_elv2) {
         // 2026-07-29c 到達＝EPに乗った件数（全体損益（期間別）_ovPnlTbl と同基準）＝この表のE成立母数 rr.ok+rr.ng+rr.draw そのもの。
         //   利確率・損切り率・見切り率の分母(_ratesOfの_d)と同じ値を使い回す＝分母が食い違いようがない。
         //   旧: rs.length - rr.miss（単純到達＝×見送りも数える）→ 2026-07-29の有効到達（③到達足の次足期待度で絞る）→ 本方式。
-        var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), dn = _bizDaysIn(k), on = perExp === k;
+        var rs = _byP[k], t = _periodTot(rs), rr = _ratesOf(rs), dn = _bizDaysIn(k), dnF = _bizDaysIn(k, true), on = perExp === k;
         var _reach = rr.ok + rr.ng + rr.draw;
         var c = _mwCoreBy[k];
         // 件数の割合は「その期間の総記録数」に対する率。⚠️2026-08-12に見送りから未達を分離したので、
@@ -8080,7 +8097,7 @@ function EntryLogView(_ref_elv2) {
         };
         _rows.push(React.createElement("tr", { key: k, onClick: function() { setPerExp(on ? null : k); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent" } },
           _tdP(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), _labelOf(k), _elEmaRefNote(_elIsEmaRefPeriod(k, gran))), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
-          _tdP(dn + "日", { fontWeight: 600, color: "#555" }),
+          _tdP(_elBizDaysCell(dn, dnF), { fontWeight: 600, color: "#555" }),
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
             React.createElement("span", { style: { fontWeight: 700, color: "#555" } }, c.activeDays + "日"),
             dn ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(c.activeDays / dn * 100) + "%") : null)),
@@ -8136,7 +8153,7 @@ function EntryLogView(_ref_elv2) {
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
               _thP(_unitLbl),
-              _thP(React.createElement("span", { title: "市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える・当日までで頭打ち）" }, "日数")),
+              _thP(React.createElement("span", { title: "市場が開いていた営業日数（平日かつ非祝日・記録の有無に関係なく数える）。進行中の期間は2段になり、上＝今日まで（件数やグレードの「1日平均」「1日換算」はこちらで割っています）／下＝その期間全体" }, "日数")),
               _thP(React.createElement("span", { title: "実際に記録を付けた日数と、営業日数に対する率＝出勤率" }, "稼働")),
               _thP("件数"),
               _thP(React.createElement("span", { title: "実エントリー＝実際に約定した記録。割合は総記録数に対する率" }, "実エントリー")),

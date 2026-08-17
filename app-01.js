@@ -343,10 +343,122 @@ function getEventCategoryName(ev, eventCategories) {
 
 
 
+// ===== 日本の祝日＋東証の年末年始休場を「計算で」出す 2026-08-12f =====
+// ユーザー要望「カレンダーに自動で日本の祝日＝休場日を入力してくれない？」への回答＝**外部APIは使わない**。
+// このアプリは file:// でも動く前提（オフライン・CSP/CORSの制約あり）なので、祝日法のルールをそのまま実装して計算する。
+// これで過去も未来も同じ精度で出る＝「来月の営業日数」も正しく数えられる（手入力を待たなくていい）。
+// ⚠️実装しているのは**2022年以降の現行ルール**だけ。それ以前は祝日法の内容が違う（体育の日→スポーツの日の改称2020・
+//   2020/2021の五輪移動・山の日の新設2016・天皇誕生日の移動2019 など）ので、2022未満は空を返して黙って間違えないようにする。
+// ⚠️春分/秋分の近似式は概ね1980〜2099年で有効。
+var _SN_JPH_CACHE = {};
+function _snJpMarketHolidays(year) {
+  var Y = Number(year);
+  if (!(Y >= 2022) || Y > 2099) return {};
+  if (_SN_JPH_CACHE[Y]) return _SN_JPH_CACHE[Y];
+  var p2 = function(n) { return ("0" + n).slice(-2); };
+  var key = function(m, d) { return Y + "-" + p2(m) + "-" + p2(d); };
+  var h = {};
+  var add = function(m, d, name) { h[key(m, d)] = name; };
+  // 第nth月曜の日付（ハッピーマンデー用）。getDay()=0(日)〜6(土)。
+  var nthMon = function(m, nth) { var first = new Date(Y, m - 1, 1); return 1 + ((1 - first.getDay() + 7) % 7) + (nth - 1) * 7; };
+  // 春分・秋分（国立天文台の暦要項に合わせた慣用の近似式）
+  var eq = function(base) { return Math.floor(base + 0.242194 * (Y - 1980) - Math.floor((Y - 1980) / 4)); };
+  add(1, 1, "元日");
+  add(1, nthMon(1, 2), "成人の日");
+  add(2, 11, "建国記念の日");
+  add(2, 23, "天皇誕生日");
+  add(3, eq(20.8431), "春分の日");
+  add(4, 29, "昭和の日");
+  add(5, 3, "憲法記念日");
+  add(5, 4, "みどりの日");
+  add(5, 5, "こどもの日");
+  add(7, nthMon(7, 3), "海の日");
+  add(8, 11, "山の日");
+  add(9, nthMon(9, 3), "敬老の日");
+  add(9, eq(23.2488), "秋分の日");
+  add(10, nthMon(10, 2), "スポーツの日");
+  add(11, 3, "文化の日");
+  add(11, 23, "勤労感謝の日");
+  // 国民の休日＝前後を祝日に挟まれた平日（2026年の9/22がこれ＝敬老の日9/21と秋分の日9/23に挟まれる）。
+  // ⚠️振替休日より**先に**判定する（祝日法の順序）。日曜は対象外。
+  var dOf = function(ds) { return new Date(ds + "T00:00:00"); };
+  var ks = Object.keys(h).sort();
+  ks.forEach(function(ds) {
+    var nx = new Date(dOf(ds).getTime() + 2 * 86400000);
+    var mid = new Date(dOf(ds).getTime() + 86400000);
+    var midK = mid.getFullYear() + "-" + p2(mid.getMonth() + 1) + "-" + p2(mid.getDate());
+    var nxK = nx.getFullYear() + "-" + p2(nx.getMonth() + 1) + "-" + p2(nx.getDate());
+    if (!h[midK] && h[nxK] && mid.getDay() !== 0) h[midK] = "国民の休日";
+  });
+  // 振替休日＝祝日が日曜のとき、その後で最初に祝日でない日。
+  Object.keys(h).sort().forEach(function(ds) {
+    var d = dOf(ds);
+    if (d.getDay() !== 0) return;
+    for (var i = 1; i <= 7; i++) {
+      var n = new Date(d.getTime() + i * 86400000);
+      var nk = n.getFullYear() + "-" + p2(n.getMonth() + 1) + "-" + p2(n.getDate());
+      if (!h[nk]) { h[nk] = "振替休日"; break; }
+    }
+  });
+  // 東証の年末年始休業（祝日ではないが市場は閉まる）。1/1は元日で既に入っている。
+  add(1, 2, "休場（年始）");
+  add(1, 3, "休場（年始）");
+  add(12, 31, "休場（年末）");
+  _SN_JPH_CACHE[Y] = h;
+  return h;
+}
+// 日付文字列(YYYY-MM-DD)→祝日/休場の名前。該当なしはnull。土日はここでは見ない（_fmIsBizDayが別途落とす）。
+function _snJpHolidayName(ds) {
+  if (!ds || ds.length < 10) return null;
+  var h = _snJpMarketHolidays(+ds.slice(0, 4));
+  return h[ds] || null;
+}
+// カレンダー(app-05 Calendar)の eventsByDate に、計算した祝日・休場を**表示用の合成イベント**として足す 2026-08-12f。
+// ⚠️**data.trades には一切書き込まない**。理由: ①ユーザーの記録を勝手に太らせない（Firebase同期の容量にも乗らない）
+//   ②年が変わっても勝手に正しくなる ③ルールを直せば過去の表示も一斉に直る ④手入力と二重に出さない。
+//   合成イベントは id が "__jph_" 始まり・_auto:true。カレンダーのイベント札はクリック不可（セル全体が日付リンク）なので編集経路から触られない。
+// 同じ日に手入力の祝日/休場イベントがあれば自動ぶんは出さない＝ユーザーの記録を優先（重複表示を防ぐ）。
+// 営業日数側(_buildHolidayDateSet)にも同じ計算結果が入るので、カレンダーの表示と日数列が必ず一致する。
+function _snAddAutoHolidayEvents(m, data) {
+  if (!m) return m;
+  var cats = (data && data.custom && data.custom.eventCategories) || null;
+  var holidayIds = { evcat_holiday: true };
+  if (Array.isArray(cats)) cats.forEach(function(c) {
+    if (!c || !c.id) return;
+    var nm = c.name || "";
+    if (c.id === "evcat_holiday" || nm.indexOf("祝日") >= 0 || nm.indexOf("休場") >= 0) holidayIds[c.id] = true;
+  });
+  var hasManualHoliday = function(ds) {
+    var arr = m[ds];
+    if (!arr || !arr.length) return false;
+    for (var i = 0; i < arr.length; i++) { var ev = arr[i]; if (ev && !ev._auto && ev.categoryId && holidayIds[ev.categoryId]) return true; }
+    return false;
+  };
+  var ty = new Date().getFullYear();
+  for (var y = ty - 3; y <= ty + 3; y++) {
+    var h = _snJpMarketHolidays(y);
+    Object.keys(h).forEach(function(ds) {
+      if (hasManualHoliday(ds)) return;
+      var ev = { id: "__jph_" + ds, title: "🎌 " + h[ds], allDay: true, categoryId: "evcat_holiday", _auto: true };
+      if (!m[ds]) m[ds] = [];
+      m[ds].unshift(ev);   // 終日イベントなので先頭（並べ替えでも allDay は先頭に来る）
+    });
+  }
+  return m;
+}
+
 function _buildHolidayDateSet(trades, eventCategories) {
   var s = {};
+  // 計算で出した祝日・休場を先に入れる 2026-08-12f。手入力のイベントは後から重ねる＝**手入力が消えることはない**（和集合）。
+  // 年の範囲＝記録のある年 ∪ (今年-1 … 今年+2)。未来側を広めに取るのは「来月・来年の営業日数」を数えられるようにするため。
+  (function() {
+    var yrs = {}, ty = new Date().getFullYear();
+    for (var y = ty - 1; y <= ty + 2; y++) yrs[y] = true;
+    if (trades && typeof trades === "object") Object.keys(trades).forEach(function(dt) { if (dt && dt.length >= 4) yrs[+dt.slice(0, 4)] = true; });
+    Object.keys(yrs).forEach(function(y) { var h = _snJpMarketHolidays(+y); Object.keys(h).forEach(function(k) { s[k] = true; }); });
+  })();
   if (!trades || typeof trades !== "object") return s;
-  
+
   var holidayIds = {};
   if (Array.isArray(eventCategories)) {
     eventCategories.forEach(function(c) {

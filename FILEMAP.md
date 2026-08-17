@@ -78,6 +78,21 @@ Calendar, EventCategoryManagementModal, _hdRecentRecords, _hdEnteredOnly, _hdTag
 
 **【要審議 2026-07-14c】** 実エントリー第4状態＝_elIsReview(s)（signal.review===true）。要審議=無エントリー扱い（entered:false・realizedPnl等はentered条件でnull＝実現損益なし）＝合計損益に不算入だが、スルー（_elInclTotalで分析からも除外）と違い**_elInclTotalは通過する**ので分析母数（α推奨_elBaseAlphaEval/OS/reach/損切り率/件数/シグナル別）には算入。合計（仮想最終損益含む）からの除外は**_elTotAccum**（先頭で`if(_elIsReview(s))return`）と**_elCumPnlSectionV2**（累積・recsからreview除外）の2箇所＝見送りは仮想損益として合計に入るが要審議は入らない点が機能的差分。保存=signal.review（true/null）/signal.reviewMemo（要審議根拠メモ・スルーのthruMemoと同型・handleSaveで保存）。EntryRecordForm=実エントリー4択（あり/見送り/スルー/**要審議**）＝要審議ボタン（選択時#DB2777）/選択チップ/根拠メモ欄をピンク（#FCE7F3/#9D174D/#FBCFE8）・fReview/fReviewMemo state。表示適用先=EntryLogCard（状態チップ「要審議」ピンク・memo「審議根拠」ピンク左ライン）・コンパクト実エントリー列「審」ピンク（app-02×2/app-04/app-06のスルー「ス」の右）・SearchView(app-04)検索対象にreviewMemo追加。migrateData不要（review無記録は_elIsReview=falseで従来どおり・後方互換）。sw v147。
 
+**【日数列に「その期間全体の営業日数」を併記 2026-08-12e】app-06.js `_elBizDaysCell`（トップレベル・`_elBizSpanDays` の直前）**
+- 上段＝**今日までに**市場が開いた営業日数（従来値）。⚠️**1日平均・1日換算グレードの分母はこちらのまま**＝進行中の月を月末基準で割ると平均が過小に出るので触らない。下段＝その期間**全体**の営業日数（未来ぶん含む）。
+- ⚠️2段になるのは `full > done` のとき＝**進行中の期間だけ**。終わった期間は同じ数字が2つ並ぶだけなので1段のまま。
+- 実装は各表の `_bizDaysIn` に `full` 引数を足しただけ（`d > _today2` の頭打ちを外す）。**全体損益（期間別）(`_ovPnlTbl`・行と合計行の両方)** と **月間・週間タブ** の日数列で `_elBizDaysCell` を共用＝2か所で見た目と規約がずれない。
+- この数字が正しいには未来の祝日が分かっている必要がある → 同日の `_snJpMarketHolidays`（下）とセットの機能。
+
+**【日本の祝日＝休場日を計算で自動化 2026-08-12f】app-01.js（`_buildHolidayDateSet` の直前に追加）**
+- `_SN_JPH_CACHE` / `_snJpMarketHolidays(year)` / `_snJpHolidayName(ds)` / `_snAddAutoHolidayEvents(m, data)`。
+- **外部APIは使わない**＝このアプリは file:// でも動く前提（オフライン・CSP/CORS）。祝日法のルールをそのまま実装して計算する。過去も未来も同じ精度で出るので「来月の営業日数」も手入力を待たずに正しく数えられる。
+- 実装は固定日＋ハッピーマンデー（成人1月第2月/海7月第3月/敬老9月第3月/スポーツ10月第2月）＋春分秋分の近似式＋**国民の休日**（祝日に挟まれた平日・振替休日より先に判定）＋**振替休日**（日曜の祝日→次の非祝日）＋東証の年末年始休場（1/2・1/3・12/31）。
+- ⚠️**2022年未満は空を返す**＝それ以前はルールが違う（体育の日→スポーツの日2020・五輪移動2020/2021・山の日新設2016・天皇誕生日移動2019）。黙って間違えないための意図的なガード。春分秋分の近似式は概ね1980〜2099年で有効。
+- **`_buildHolidayDateSet` が計算結果を先に入れてから手入力イベントを重ねる（和集合）**＝手入力が消えることはない。年の範囲＝記録のある年 ∪ (今年-1…今年+2)。これで全画面の営業日数・頻度・1日平均が自動で正しくなる。
+- **カレンダー表示**（app-05 `Calendar` の `eventsByDate`）は `_snAddAutoHolidayEvents` で**表示用の合成イベント**を足すだけ。⚠️**`data.trades` には一切書き込まない**（記録を太らせない／Firebase同期に乗せない／年が変わっても勝手に正しくなる／ルール修正が過去にも一斉に効く）。合成は `id` が `"__jph_"` 始まり・`_auto:true`・`categoryId:"evcat_holiday"`・タイトルは `🎌 <名前>`。**手入力の祝日/休場イベントがある日は自動ぶんを出さない**（重複回避・ユーザーの記録を優先）。カレンダーのイベント札はクリック不可（セル全体が日付リンク）なので編集経路から触られない。
+- 検算（2026年）: 成人1/12・春分3/20・憲法記念日5/3が日曜→振替休日**5/6**（5/4みどり・5/5こどもを飛ばす）・海の日7/20・山の日8/11・敬老9/21＋**国民の休日9/22**＋秋分9/23・スポーツ10/12。営業日数は 8月=**20日**／7月=22日／9月=19日。
+
 **【記録フォームのα詳細データ表に「6/29以降のみ」トグル 2026-08-12c】app-05.js `EntryRecordForm`**
 - 場所＝α値見出しの「📊 詳細表」ポップアップ（`_alTblModal`）。従来は母数が **前日まで全期間 固定**（`_alTblRecs = _elStockRecsBefore(data, fStock, fDate)`）で、記録帳側にある「6/29以降」プリセット（`_elPSelSince`）に相当する絞り込みが無かった。
 - state=`_alTblSince`(bool)。フィルタは `_alSinceCut`＝**境界の正本は app-06 の `_elIsOldRule`(`_EL_RULE_SINCE`=2026-06-29)** を呼ぶだけ（日付比較を再実装しない）。ラベルの「6/29」も `_EL_RULE_SINCE` から生成（`_alSinceMD`）＝境界を動かしても文言が取り残されない。
