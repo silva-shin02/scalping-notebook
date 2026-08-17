@@ -5504,7 +5504,10 @@ function DayView(_ref57) {
       if (Math.abs(t.clientX - _rotTS.current.startX) > 8 || Math.abs(t.clientY - _rotTS.current.startY) > 8) clearTimeout(_rotTS.current.timer);
       return;   // まだ掴んでいない＝画面スクロールを邪魔しない
     }
-    e.preventDefault();
+    // ⚠️ここで e.preventDefault() を呼んではいけない。Reactは touchmove を**passiveリスナ**で張るので
+    //   「Unable to preventDefault inside passive event listener invocation」がコンソールに出るだけで効かない
+    //   （app-02のシグナルタグ並び替えは今もこれを踏んでいる）。スクロール止めは掴み手の touchAction:"none" 側でやる＝
+    //   タッチはその掴み手の上で始まるので、そのジェスチャの間ブラウザはパンしない。
     var el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
     while (el) { if (el.dataset && el.dataset.rotI != null) { _setRotOver(parseInt(el.dataset.rotI, 10)); break; } el = el.parentElement; }
   };
@@ -5531,8 +5534,14 @@ function DayView(_ref57) {
         onDrop: function(e) { e.preventDefault(); _rotMove(_rotDragRef.current, si); _rotDragRef.current = null; _setRotOver(null); },
         onDragEnd: function() { _rotDragRef.current = null; _setRotOver(null); },
         onTouchStart: function(e) { _rotTStart(e, si); },
-        title: "ドラッグで並び替え（スマホは長押し）",
-        style: { display: "inline-flex", alignItems: "center", borderRadius: 14, border: "1px solid " + (viewing ? "#4338CA" : "#E0DAD1"), background: viewing ? "#EEF2FF" : "#fff", overflow: "hidden", outline: _over ? "2px solid #6366F1" : "none", outlineOffset: _over ? 1 : 0, cursor: _rotSorted.length > 1 ? "grab" : "default" } },
+        style: { display: "inline-flex", alignItems: "center", borderRadius: 14, border: "1px solid " + (viewing ? "#4338CA" : "#E0DAD1"), background: viewing ? "#EEF2FF" : "#fff", overflow: "hidden", outline: _over ? "2px solid #6366F1" : "none", outlineOffset: _over ? 1 : 0 } },
+        // 掴み手（⠿）2026-08-17d: チップの中身は銘柄名ボタンと●ボタンで**埋まっている**ので、掴める余白が実質ない。
+        //   とくにスマホは _rotTStart が BUTTON 上の長押しを弾く（タップを奪わないため）＝この掴み手が無いと発動しない。
+        //   touchAction:"none" で長押し中のスクロールを止める。1銘柄しか無いときは並べ替えようが無いので出さない。
+        _rotSorted.length > 1 ? React.createElement("span", {
+          title: "ドラッグで並び替え（スマホは長押し）",
+          style: { display: "inline-flex", alignItems: "center", alignSelf: "stretch", padding: "0 2px 0 5px", fontSize: 10, lineHeight: 1, color: viewing ? "#A5B4FC" : "#D6D0C6", cursor: "grab", flexShrink: 0, touchAction: "none", userSelect: "none" }
+        }, "⠿") : null,
         React.createElement("button", {
           onClick: function() { setRotViewStock(s); },
           title: "表示・記録に切替",
