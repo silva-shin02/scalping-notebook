@@ -1007,30 +1007,14 @@ function App() {
     setSelTab("news");
   };
   
+  // 2026-08-17 ホームの月次チップを最終損益（100株換算）基準へ。
+  //   旧＝ signal.realizedPnl だけを見ていた＝実現損益がほぼ未記録のこのデータでは過去月でもほぼ0円で出ており、
+  //   さらに item.pnl（取引テーブル側の損益）も拾っていなかった。集計は _snMonthPnlAgg / _snDailyPnlMap（app-05）へ一本化＝
+  //   カレンダーの日次バッジ・📊今月の損益パネル・このチップの3か所が同じ1つの関数を見る＝数字が食い違いようがない。
+  //   戻り値: final/finalCnt/win/loss/even（最終損益）・real/realRaw/realCnt（実現損益）・cnt（エントリー件数）・bizTotal/bizDone（営業日数）ほか。
   var _mAgg = useMemo(function() {
-    var out = { mPnl: 0, mCnt: 0, mW: 0 };
-    if (!data || !data.charts) return out;
-    var mpKey = cY + "-" + String(cM + 1).padStart(2, "0");
-    Object.keys(data.charts).forEach(function(ck) {
-      var parts = ck.split("_");
-      var dt = parts[parts.length - 1];
-      if (!dt || !dt.startsWith(mpKey)) return;
-      var c = data.charts[ck];
-      if (!c || !Array.isArray(c.signals)) return;
-      c.signals.forEach(function(sig) {
-        var s = _compatSignal(sig);
-        if (!_elInclTotalAmt(data, { stock: ck.slice(0, ck.lastIndexOf("_")), date: dt, signal: s })) return;   // ホーム月次損益は全銘柄横断のグランド＝②データのみも除外 2026-07-22e
-        if (_elCollExcludedSig(data, ck.slice(0, ck.lastIndexOf("_")), dt, s)) return;  // 時間かぶり除外（良い方）2026-07-07
-        if (!_elIsEntered(s, null)) return;
-        var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        var p = v != null ? v : 0;
-        out.mPnl += p;
-        out.mCnt += 1;
-        if (p > 0) out.mW += 1;
-      });
-    });
-    return out;
-  }, [data && data.charts, cY, cM]);
+    return _snMonthPnlAgg(data, cY, cM);
+  }, [data, cY, cM]);
   if (loading) return React.createElement("div", {
     style: {
       display: "flex",
@@ -1042,7 +1026,36 @@ function App() {
     }
   }, "\u8AAD\u307F\u8FBC\u307F\u4E2D...");
   var mp = cY + "-" + String(cM + 1).padStart(2, "0");
-  var mPnl = _mAgg.mPnl, mCnt = _mAgg.mCnt, mW = _mAgg.mW;
+  // ホームの4チップ（2026-08-17）。上段＝主値／下段＝小書き。全て _mAgg の1つの戻り値から出す。
+  //   「1日あたり」の分母は経過営業日 bizDone（当月は途中なので全体で割ると過少に出る）。過去月は bizDone=bizTotal。
+  //   下段にグレードバッジを付けるのは「1日あたり」だけ。月の合計額に通常スケール（S=2501円〜）を当てても全部Sになって意味が無いため。
+  var _mIsCurMonth = (cY === new Date().getFullYear() && cM === new Date().getMonth());
+  var _mPerDay = _mAgg.bizDone > 0 ? Math.round(_mAgg.final / _mAgg.bizDone) : null;
+  var _mWinPct = _mAgg.finalCnt > 0 ? Math.round(_mAgg.win / _mAgg.finalCnt * 100) : null;
+  var _mRealTxt = _mAgg.realCnt > 0
+    ? (_snYen(_mAgg.real) + "（100株換算・" + _mAgg.realCnt + "件 / 実額 " + _snYen(_mAgg.realRaw) + "）")
+    : "未記録";
+  var _homeChips = [
+    { la: "損益", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
+      sub: _mPerDay != null ? ("1日 " + _snYen(_mPerDay)) : null,
+      subGrade: _mPerDay != null ? _profitGradeFromPnl(_mPerDay, _mAgg.finalCnt) : null,
+      title: "最終損益の合計（100株換算）。記録帳・💰全体損益と同じ基準です"
+        + "\n母数 " + _mAgg.finalCnt + "件 / 記録のあった日 " + _mAgg.tradedDays + "日"
+        + "\n実現損益 " + _mRealTxt
+        + (_mPerDay != null ? ("\n1日あたり " + _snYen(_mPerDay) + " ＝ 最終損益 ÷ 経過営業日 " + _mAgg.bizDone + "日") : "") },
+    { la: "取引", v: _mAgg.cnt + "件", c: "#1a1a1a",
+      sub: _mAgg.bizDone > 0 ? ("1日 " + (Math.round(_mAgg.cnt / _mAgg.bizDone * 10) / 10) + "件") : null,
+      title: "エントリーした件数。損益の母数（最終損益のある記録）は " + _mAgg.finalCnt + "件です"
+        + "\n見送りの記録も損益には算入されるため、2つの件数は一致しません" },
+    { la: "勝率", v: _mWinPct != null ? (_mWinPct + "%") : "—", c: "#1a1a1a",
+      sub: _mAgg.finalCnt > 0 ? (_mAgg.win + "勝" + _mAgg.loss + "敗") : null,
+      title: "最終損益がプラスの件数 ÷ 最終損益のある件数（" + _mAgg.win + "/" + _mAgg.finalCnt + "）"
+        + (_mAgg.even ? ("\n同値 " + _mAgg.even + "件は分母に含みます") : "") },
+    { la: "営業日", v: _mIsCurMonth ? (_mAgg.bizDone + "/" + _mAgg.bizTotal + "日") : (_mAgg.bizTotal + "日"), c: "#1a1a1a",
+      sub: _mIsCurMonth ? ("残" + Math.max(0, _mAgg.bizTotal - _mAgg.bizDone) + "日") : null,
+      title: "この月の営業日数（土日と祝日・休場を除いた日数）。祝日はカレンダーの紫バッジと同じ計算結果を使っています"
+        + (_mIsCurMonth ? ("\n経過 " + _mAgg.bizDone + "日 / 全体 " + _mAgg.bizTotal + "日") : "") }
+  ];
   var _snSyncTxt = _snLastSync ? ("最終同期 " + _snLastSync.getHours() + ":" + String(_snLastSync.getMinutes()).padStart(2, "0")) : (cfg.fbUrl ? "未同期" : "");
   var fbBadge = cfg.fbUrl ? React.createElement("span", {
     title: (_snOnline ? "" : "オフライン中（接続が戻ると自動同期）。") + _snSyncTxt,
@@ -1299,7 +1312,21 @@ function App() {
       padding: "0 2px",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "\u00BB"), React.createElement("button", {
+  }, "\u00BB"), React.createElement("span", {
+    title: "\u3053\u306E\u6708\u306E\u55B6\u696D\u65E5\u6570\uFF08\u571F\u65E5\u3068\u795D\u65E5\u30FB\u4F11\u5834\u3092\u9664\u3044\u305F\u65E5\u6570\uFF09\u3002\u795D\u65E5\u306F\u30AB\u30EC\u30F3\u30C0\u30FC\u306E\u7D2B\u30D0\u30C3\u30B8\u3068\u540C\u3058\u8A08\u7B97\u7D50\u679C\u3092\u4F7F\u3063\u3066\u3044\u307E\u3059"
+      + (_mIsCurMonth ? ("\n\u7D4C\u904E " + _mAgg.bizDone + "\u65E5 / \u5168\u4F53 " + _mAgg.bizTotal + "\u65E5 / \u6B8B\u308A " + Math.max(0, _mAgg.bizTotal - _mAgg.bizDone) + "\u65E5") : ""),
+    style: {
+      marginLeft: 8,
+      padding: "3px 8px",
+      fontSize: 10.5,
+      fontWeight: 700,
+      background: "#F5F3FF",
+      color: "#5B21B6",
+      border: "1px solid #DDD6FE",
+      borderRadius: 6,
+      whiteSpace: "nowrap"
+    }
+  }, _snBizDaysLabel(_mAgg, cY, cM)), React.createElement("button", {
     onClick: goToday,
     style: {
       marginLeft: 8,
@@ -1320,18 +1347,16 @@ function App() {
       alignItems: "center",
       flexWrap: "wrap"
     }
-  }, [["損益", (mPnl > 0 ? "+" : "") + mPnl.toLocaleString() + "円", mPnl >= 0 ? "#C0392B" : "#1E8449"], ["取引", mCnt + "件", "#1a1a1a"], ["勝率", mCnt > 0 ? Math.round(mW / mCnt * 100) + "%" : "—", "#1a1a1a"]].map(function (_ref72) {
-    var _ref73 = _slicedToArray(_ref72, 3),
-      la = _ref73[0],
-      v = _ref73[1],
-      c = _ref73[2];
+  }, _homeChips.map(function (ch) {
     return React.createElement("div", {
-      key: la,
+      key: ch.la,
+      title: ch.title,
       style: {
         background: "#f5f4f0",
         borderRadius: 8,
-        padding: "6px 10px",
-        textAlign: "center"
+        padding: "5px 10px",
+        textAlign: "center",
+        minWidth: 54
       }
     }, React.createElement("div", {
       style: {
@@ -1339,13 +1364,27 @@ function App() {
         color: "#999",
         fontWeight: 600
       }
-    }, la), React.createElement("div", {
+    }, ch.la), React.createElement("div", {
       style: {
         fontSize: 13,
         fontWeight: 700,
-        color: c
+        color: ch.c
       }
-    }, v));
+    }, ch.v), React.createElement("div", {
+      style: {
+        fontSize: 9,
+        color: "#888",
+        fontWeight: 700,
+        lineHeight: 1.3,
+        marginTop: 1,
+        minHeight: 12,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 1,
+        whiteSpace: "nowrap"
+      }
+    }, ch.subGrade ? _elHoldGradeBadge(ch.subGrade) : null, ch.sub || " "));
   }), React.createElement("button", {
     onClick: function() { setShowEntryLog(true); },
     title: "エントリー記録帳",

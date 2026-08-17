@@ -97,33 +97,23 @@ function Calendar(_ref60) {
     return m;
   }, [data && data.trades]);
   
+  // 2026-08-17 日次バッジを最終損益（100株換算）基準へ。旧＝signal.realizedPnlだけを見ていたので、
+  //   実現損益が未記録の日は「エントリーしたのに0円・グレードD」で出ていた（item.pnlも拾っていなかった）。
+  //   集計は_snDailyPnlMapへ一本化＝ホームの4チップ・📊今月の損益パネルと必ず同じ数字になる。
+  //   グレードも実額スケール(_profitGradeFromPnlReal)→通常スケール(_profitGradeFromPnl)へ。最終損益は100株換算なので帯が10倍ずれていた。
   var gradeByDate = useMemo(function() {
-    var m = {};
-    if (!data || !data.charts) return m;
-    Object.keys(data.charts).forEach(function(ck) {
-      
-      var parts = ck.split("_");
-      var dt = parts[parts.length - 1];
-      if (!dt || !/^\d{4}-\d{2}-\d{2}$/.test(dt)) return;
-      var c = data.charts[ck];
-      if (!c || !Array.isArray(c.signals)) return;
-      c.signals.forEach(function(sig) {
-        var s = _compatSignal(sig);
-        if (!_elInclTotalAmt(data, { stock: ck.slice(0, ck.lastIndexOf("_")), date: dt, signal: s })) return;   // カレンダー日次損益は全銘柄横断のグランド＝②データのみも除外 2026-07-22e
-        if (_elCollExcludedSig(data, ck.slice(0, ck.lastIndexOf("_")), dt, s)) return;
-        if (!_elIsEntered(s, null)) return;
-        if (!m[dt]) m[dt] = { sum: 0, count: 0 };
-        var v = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
-        m[dt].sum += (v != null ? v : 0);
-        m[dt].count += 1;
-      });
-    });
-    var result = {};
+    var m = _snDailyPnlMap(data), result = {};
     Object.keys(m).forEach(function(dt) {
-      result[dt] = { grade: _profitGradeFromPnlReal(m[dt].sum, m[dt].count), sum: m[dt].sum };
+      var e = m[dt];
+      if (e.final == null) return;
+      result[dt] = { grade: _profitGradeFromPnl(e.final, e.finalCnt), sum: e.final, cnt: e.finalCnt,
+        real: e.realCnt > 0 ? e.real : null, realRaw: e.realCnt > 0 ? e.realRaw : null };
     });
     return result;
-  }, [data && data.charts]);
+  }, [data]);
+  var monthAgg = useMemo(function() {
+    return _snMonthPnlAgg(data, year, month);
+  }, [data, year, month]);
   
   var calHolidaySet = useMemo(function() {
     return _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories);
@@ -225,7 +215,8 @@ function Calendar(_ref60) {
                 : _s.toLocaleString());
               return React.createElement(React.Fragment, null,
                 React.createElement("span", {
-                  title: "損益グレード: " + _gd.grade + " (" + (_GRADE_DESC_REAL[_gd.grade] || "") + ")\n合計: " + (_s > 0 ? "+" : "") + _s.toLocaleString() + "円",
+                  title: "最終損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n最終損益: " + _snYen(_s) + "（100株換算・" + _gd.cnt + "件）"
+                    + (_gd.real != null ? "\n実現損益: " + _snYen(_gd.real) + "（100株換算 / 実額 " + _snYen(_gd.realRaw) + "）" : "\n実現損益: 未記録"),
                   style: {
                     display: "inline-flex", alignItems: "center", justifyContent: "center",
                     width: 16, height: 16, borderRadius: "50%",
@@ -365,19 +356,7 @@ function Calendar(_ref60) {
     date: hovered,
     data: data,
     save: save
-  })) : React.createElement("div", {
-    style: {
-      marginTop: 12,
-      border: "2px dashed #e0ddd6",
-      borderRadius: 12,
-      padding: "28px 16px",
-      textAlign: "center",
-      color: "#ccc",
-      fontSize: 12,
-      lineHeight: 2,
-      background: "#fafaf8"
-    }
-  }, "\uD83D\uDCC5", React.createElement("br", null), "\u65E5\u4ED8\u306B\u30AB\u30FC\u30BD\u30EB\u3092\u5408\u308F\u305B\u308B\u3068\u8A73\u7D30\u8868\u793A", React.createElement("br", null), "\u30AF\u30EA\u30C3\u30AF\u3059\u308B\u3068\u3053\u306E\u65E5\u306E\u5168\u60C5\u5831\u3092\u8868\u793A"));
+  })) : React.createElement(_SnMonthPnlPanel, { agg: monthAgg, year: year, month: month }));   // 2026-08-17 \u672A\u30DB\u30D0\u30FC\u6642\u306E\u67A0\u3092\uD83D\uDCCA\u4ECA\u6708\u306E\u640D\u76CA\u65E9\u898B\u3078\uFF08\u65E7\uFF1D\u300C\u65E5\u4ED8\u306B\u30AB\u30FC\u30BD\u30EB\u3092\u2026\u300D\u306E\u6848\u5185\u3060\u3051\u306E\u6B7B\u306B\u30B9\u30DA\u30FC\u30B9\uFF09\u3002\u30DB\u30D0\u30FC\u6642\u306ECalendarPreview\u306F\u4E0D\u5909
 
   
   var bottomSheet = tapped && ReactDOM.createPortal(React.createElement("div", {
@@ -5029,6 +5008,193 @@ function _elHoldFinalParts(s, alpha, cutLine) {
   }
   return parts;
 }
+
+// ===== 日別損益マップ（ホーム/カレンダー/早見パネルの単一源）2026-08-17 =====
+// 【なぜ作ったか】ホームの月次チップ(_mAgg)とカレンダーの日次バッジ(gradeByDate)が、それぞれ独自に
+//   `signal.realizedPnl` **だけ**を集計していた。実現損益はほぼ未記録なので両方ともほぼ0円で出ており、
+//   さらに `item.pnl`（取引テーブル側の損益）も拾っていなかった＝アプリ内でここだけ基準が違っていた。
+// 【基準】記録帳・💰全体損益と同じ「最終損益」_elHoldFinalParts(...).main。**単位は元から100株換算**なので
+//   換算処理は不要（グレードは通常スケール _profitGradeFromPnl＝S:2501円〜。実額スケールの_profitGradeFromPnlRealと混ぜないこと）。
+// 【除外規約】_elFinalPnlOf（app-06 L6387）と完全に同一: データ算入外(_elInclTotalAmt)・時間かぶり除外(_elCollExcluded)・
+//   EP×見送り(_epIsXSkip)。ここを変えると記録帳の🏷銘柄別/🎯グレード別と黙ってずれるので、直すときは両方直すこと。
+// 【実現損益】real(100株換算)/realRaw(実額)を別建てで持つ＝早見パネルの併記用。_elRealPnlPairと同じ規約（item.pnl優先）。
+// 【キャッシュ】単一スロット・data参照の同一性判定（_epnCollectSignals app-04 L3376 と同じ手口）。
+//   dataはsaveで必ず新オブジェクトになる＝参照が変われば自動失効。純粋関数なので結果は不変。
+//   ホーム(app-08)とカレンダー(app-05)が同じ描画で2回呼ぶため、これが無いと全チャート走査が毎回2回走る。
+var _snDpmCacheIn = null, _snDpmCacheOut = null;
+function _snDailyPnlMap(data) {
+  if (data && _snDpmCacheIn === data) return _snDpmCacheOut;
+  var out = {};
+  if (data && data.charts) {
+    _elCollectAllSignals(data).forEach(function(r) {
+      var s = r.signal;
+      if (!s || !r.date) return;
+      if (!_elInclTotalAmt(data, r)) return;
+      if (_elCollExcluded(data, r)) return;
+      var o = out[r.date] || (out[r.date] = { final: null, finalCnt: 0, win: 0, loss: 0, even: 0,
+        real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0 });
+      var ai = _elAlphaInfo(r, data);
+      if (!_epIsXSkip(s, ai.alpha)) {
+        var fp = _elHoldFinalParts(s, ai.alpha, ai.cutLine);
+        if (fp && fp.main != null) {
+          o.final = (o.final || 0) + fp.main;
+          o.finalCnt++;
+          if (fp.main > 0) o.win++; else if (fp.main < 0) o.loss++; else o.even++;
+        }
+      }
+      if (_elIsEntered(s, r.item)) {
+        o.cnt++;
+        var pr = _elRealPnlPair(s, r.item);
+        if (pr.real != null) {
+          o.realRaw = (o.realRaw || 0) + pr.real;
+          o.real = (o.real || 0) + (pr.per100 != null ? pr.per100 : pr.real);   // 株数未入力は換算しようがないので実額をそのまま足す（_elTotAccumと同じ）
+          o.realCnt++;
+          if (pr.shares > 0) o.realHasShares = true;
+        }
+      }
+    });
+  }
+  if (data) { _snDpmCacheIn = data; _snDpmCacheOut = out; }
+  return out;
+}
+
+// 月の集計＋営業日数。ヘッダの「12/20営業日」・チップの「1日あたり」・早見パネルが**全部この1つの戻り値**を見る＝分母が食い違わない。
+// bizTotal＝その月**全体**の営業日数（未来ぶんも含む）／bizDone＝当日までの営業日数（過去月=bizTotal・未来月=0）。
+//   「1日あたり」の分母は bizDone（当月は途中なので全体で割ると過少に出る）。全体損益の_bizDaysIn(k,gg,full)と同じ考え方。
+// 営業日の判定は _fmIsBizDay＋_buildHolidayDateSet＝カレンダーの祝日バッジと同じセットなので、表示が食い違いようがない。
+function _snMonthPnlAgg(data, year, month) {
+  var dayMap = _snDailyPnlMap(data);
+  var holi = _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories);
+  var today = todayStr();
+  var last = new Date(year, month + 1, 0).getDate();
+  var o = { final: 0, finalCnt: 0, win: 0, loss: 0, even: 0, real: 0, realRaw: 0, realCnt: 0, realHasShares: false,
+    cnt: 0, bizTotal: 0, bizDone: 0, tradedDays: 0, best: null, worst: null, maxDD: 0, series: [] };
+  var cum = 0, peak = 0;
+  for (var d = 1; d <= last; d++) {
+    var ds = dateFmt(year, month, d);
+    if (_fmIsBizDay(ds, holi)) { o.bizTotal++; if (ds <= today) o.bizDone++; }
+    var e = dayMap[ds];
+    if (!e) continue;
+    o.cnt += e.cnt;
+    if (e.realCnt) {
+      o.realRaw += e.realRaw; o.real += e.real; o.realCnt += e.realCnt;
+      if (e.realHasShares) o.realHasShares = true;
+    }
+    if (e.final == null) continue;
+    o.final += e.final; o.finalCnt += e.finalCnt;
+    o.win += e.win; o.loss += e.loss; o.even += e.even;
+    o.tradedDays++;
+    cum += e.final;
+    if (cum > peak) peak = cum;
+    if (peak - cum > o.maxDD) o.maxDD = peak - cum;
+    o.series.push({ date: ds, day: d, pnl: e.final, cum: cum });
+    if (o.best == null || e.final > o.best.pnl) o.best = { date: ds, day: d, pnl: e.final };
+    if (o.worst == null || e.final < o.worst.pnl) o.worst = { date: ds, day: d, pnl: e.final };
+  }
+  return o;
+}
+
+// 「12/20営業日」（当月＝経過/全体）／「20営業日」（過去・未来月）。ヘッダのピルと早見パネルの見出しで同じ文言を使うための単一源。
+function _snBizDaysLabel(agg, year, month) {
+  var now = new Date();
+  var isCur = (year === now.getFullYear() && month === now.getMonth());
+  return isCur ? (agg.bizDone + "/" + agg.bizTotal + "営業日") : (agg.bizTotal + "営業日");
+}
+
+function _snYen(v) { return (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "円"; }
+function _snPnlCol(v) { return v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888"; }
+
+// 累積損益のスパークライン。0ラインを破線で入れる＝プラス圏/マイナス圏がひと目で分かる。
+// preserveAspectRatio="none"＝横は枠いっぱいに伸ばす（日数が月ごとに違っても幅が揃う）。
+function _snSparkline(series, w, h) {
+  if (!series || series.length < 2) return null;
+  var vals = series.map(function(p) { return p.cum; }).concat([0]);
+  var mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals);
+  var span = (mx - mn) || 1;
+  var xAt = function(i) { return (i / (series.length - 1)) * (w - 2) + 1; };
+  var yAt = function(v) { return h - 1 - ((v - mn) / span) * (h - 2); };
+  var last = series[series.length - 1].cum;
+  return React.createElement("svg", {
+    width: "100%", height: h, viewBox: "0 0 " + w + " " + h, preserveAspectRatio: "none", style: { display: "block" }
+  },
+    React.createElement("line", { x1: 0, y1: yAt(0), x2: w, y2: yAt(0), stroke: "#ddd", strokeWidth: 1, strokeDasharray: "3 2" }),
+    React.createElement("polyline", { points: series.map(function(p, i) { return xAt(i) + "," + yAt(p.cum); }).join(" "),
+      fill: "none", stroke: _snPnlCol(last), strokeWidth: 1.6, strokeLinejoin: "round" }),
+    React.createElement("circle", { cx: xAt(series.length - 1), cy: yAt(last), r: 2.4, fill: _snPnlCol(last) })
+  );
+}
+
+// 📊 今月の損益 早見パネル（2026-08-17 ユーザー要望「同画面のどこかに損益に関する情報を早見したい」）。
+// 置き場所はカレンダー下の**日別詳細プレビュー枠の「未ホバー時」**＝今まで「日付にカーソルを合わせると…」だけ出ていた死にスペース。
+//   日付にカーソルを乗せれば従来どおり CalendarPreview に差し替わる＝既存の挙動は一切失っていない。
+// ⚠️この枠は !IS_TOUCH（PCのみ）。スマホでも損益を見たい場合はホームの4チップ（app-08）が受け持つ。
+// 数値は全て _snMonthPnlAgg の1つの戻り値から出す＝ヘッダのピル/チップと必ず一致する。
+function _SnMonthPnlPanel(_refSnMp) {
+  var agg = _refSnMp.agg, year = _refSnMp.year, month = _refSnMp.month;
+  var perDay = agg.bizDone > 0 ? Math.round(agg.final / agg.bizDone) : null;
+  var winPct = agg.finalCnt > 0 ? Math.round(agg.win / agg.finalCnt * 100) : null;
+  var ttl = year + "年" + (month + 1) + "月";
+  var _cell = function(label, valNode, subNode, title) {
+    return React.createElement("div", { key: label, title: title || undefined, style: { minWidth: 0 } },
+      React.createElement("div", { style: { fontSize: 10, color: "#999", fontWeight: 700, marginBottom: 2 } }, label),
+      React.createElement("div", { style: { fontSize: 17, fontWeight: 700, lineHeight: 1.2, display: "flex", alignItems: "center", gap: 3 } }, valNode),
+      React.createElement("div", { style: { fontSize: 10, color: "#888", fontWeight: 600, marginTop: 2 } }, subNode || " "));
+  };
+  var _amt = function(v) { return React.createElement("span", { style: { color: _snPnlCol(v) } }, _snYen(v)); };
+  return React.createElement("div", {
+    style: { marginTop: 12, background: "#fff", border: "1px solid #e0ddd6", borderRadius: 12, padding: "13px 16px 11px" }
+  },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 } },
+      React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#1a1a1a" } }, "📊 " + ttl + "の損益"),
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#4338CA", background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 4, padding: "1px 6px" } },
+        _snBizDaysLabel(agg, year, month)),
+      React.createElement("span", { title: "記録帳・💰全体損益と同じ基準です。実現損益（実際に約定した額）ではなく、記録から出した最終損益（100株換算）を主に出しています",
+        style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "1px 6px" } },
+        "基準: 最終損益・100株換算")
+    ),
+    agg.finalCnt === 0 && agg.cnt === 0
+      ? React.createElement("div", { style: { fontSize: 11, color: "#bbb", padding: "10px 0", textAlign: "center" } }, ttl + "の記録はまだありません")
+      : React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(128px,1fr))", gap: 12, alignItems: "start" } },
+          _cell("最終損益", _amt(agg.final),
+            agg.finalCnt + "件 / " + agg.tradedDays + "日",
+            "最終損益の合計（100株換算）。母数 " + agg.finalCnt + "件・記録のあった日 " + agg.tradedDays + "日"),
+          _cell("1日あたり",
+            perDay == null ? React.createElement("span", { style: { color: "#bbb" } }, "—")
+              : React.createElement(React.Fragment, null, _elHoldGradeBadge(_profitGradeFromPnl(perDay, agg.finalCnt)), _amt(perDay)),
+            perDay == null ? "経過営業日なし" : ("経過 " + agg.bizDone + "営業日で割った額"),
+            "最終損益 " + _snYen(agg.final) + " ÷ 経過営業日 " + agg.bizDone + "日。記録の無かった日も分母に入れています（他の欄の「1日平均」と同じ割り方）"),
+          _cell("実現損益",
+            agg.realCnt > 0 ? _amt(agg.real) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
+            agg.realCnt > 0 ? (agg.realCnt + "件 / 実額 " + _snYen(agg.realRaw)) : "未記録",
+            agg.realCnt > 0
+              ? ("実際に約定した損益。上段は100株換算 " + _snYen(agg.real) + "、下段が実額 " + _snYen(agg.realRaw) + "（" + agg.realCnt + "件）"
+                + (agg.realHasShares ? "" : "\n⚠ 株数が入っていない記録があります（換算できないぶんは実額のまま足しています）"))
+              : "この月は実現損益が1件も入っていません。上の最終損益は記録から出した値です"),
+          _cell("勝率",
+            winPct == null ? React.createElement("span", { style: { color: "#bbb" } }, "—")
+              : React.createElement("span", { style: { color: "#1a1a1a" } }, winPct + "%"),
+            agg.win + "勝" + agg.loss + "敗" + (agg.even ? " / 同値" + agg.even : ""),
+            "最終損益がプラスの件数 ÷ 最終損益のある件数（同値は分母に含む）"),
+          _cell("最大DD",
+            agg.maxDD > 0 ? React.createElement("span", { style: { color: "#1E8449" } }, "−" + Math.round(agg.maxDD).toLocaleString() + "円")
+              : React.createElement("span", { style: { color: "#bbb" } }, "—"),
+            agg.bizDone > 0 && agg.maxDD > 0 ? ("1日平均−" + Math.round(agg.maxDD / agg.bizDone).toLocaleString() + "円") : null,
+            "日次の累積損益が高値から下げた最大幅（この月の中だけで計算）")
+        ),
+        agg.series.length >= 2 && React.createElement("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px dashed #eee" } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 9.5, color: "#999", fontWeight: 600, marginBottom: 3 } },
+            React.createElement("span", null, "累積損益の推移"),
+            React.createElement("span", null,
+              "最高 ", React.createElement("span", { style: { color: "#C0392B" } }, _snYen(agg.best.pnl) + "(" + (month + 1) + "/" + agg.best.day + ")"),
+              "  最悪 ", React.createElement("span", { style: { color: "#1E8449" } }, _snYen(agg.worst.pnl) + "(" + (month + 1) + "/" + agg.worst.day + ")"))),
+          _snSparkline(agg.series, 300, 34))
+      ),
+    React.createElement("div", { style: { marginTop: 9, fontSize: 10, color: "#ccc", textAlign: "center" } },
+      "日付にカーソルを合わせるとその日の詳細 / クリックでこの日の全情報")
+  );
+}
+
 function _elHoldSumBoth(sumH1, sumH2, refH2, refCnt, allMiss, refH1, refCntH1) {
   // allMiss=その集計が全記録E基準未達(全miss)→H1/H2とも「Q 0」表示・参考合計は出さない。
   var _f = function(v) { return allMiss ? _qZeroCell() : (v == null ? React.createElement("span", { style: { color: "#ccc" } }, "—") : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v))); };
