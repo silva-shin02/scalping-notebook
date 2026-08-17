@@ -1036,8 +1036,8 @@ function App() {
   var _mRealTxt = _mAgg.realCnt > 0
     ? (_snYen(_mAgg.real) + "（100株換算・" + _mAgg.realCnt + "件 / 実額 " + _snYen(_mAgg.realRaw) + "）")
     : "未記録";
-  // 3段目(sub2)を持つチップが1つでもあれば全チップの最低高さを上げる 2026-08-17f。実測: 2段=56px / 3段=68px。
-  var _mChipMinH = 56;
+  // 3段目(sub2)を持つチップが1つでもあれば全チップの最低高さを上げる 2026-08-17f。2026-08-17i に主値18px・小書き11pxへ拡大したので 70/88（旧56/68）。
+  var _mChipMinH = 70;
   var _homeChips = [
     { la: "損益", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
       sub: _mPerDay != null ? ("1日 " + _snYen(_mPerDay)) : null,
@@ -1074,7 +1074,7 @@ function App() {
       title: "この月の営業日数（土日と祝日・休場を除いた日数）。祝日はカレンダーの紫バッジと同じ計算結果を使っています"
         + (_mIsCurMonth ? ("\n経過 " + _mAgg.bizDone + "日 / 全体 " + _mAgg.bizTotal + "日") : "") }
   ];
-  _homeChips.forEach(function(ch) { if (ch.sub2) _mChipMinH = 68; });
+  _homeChips.forEach(function(ch) { if (ch.sub2) _mChipMinH = 88; });
   var _snSyncTxt = _snLastSync ? ("最終同期 " + _snLastSync.getHours() + ":" + String(_snLastSync.getMinutes()).padStart(2, "0")) : (cfg.fbUrl ? "未同期" : "");
   var fbBadge = cfg.fbUrl ? React.createElement("span", {
     title: (_snOnline ? "" : "オフライン中（接続が戻ると自動同期）。") + _snSyncTxt,
@@ -1128,6 +1128,34 @@ function App() {
     },
     onChange: importData
   }));
+
+  // 2026-08-17i ヘッダ上段の右端に寄せるツール群（ユーザー要望「検索・設定・同期済を今日ボタンの右に右寄せ」）。
+  //   旧＝KPIチップと同じ行の末尾に並んでいて、チップが増えるたび折り返して⚙と🔥だけが2段目に落ちていた。
+  //   月ナビ行の最後に marginLeft:"auto" で入れる＝チップの数に影響されない固定位置になる。
+  var _snHeadTools = React.createElement("div", {
+    key: "headtools",
+    style: { display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexShrink: 0 }
+  },
+    React.createElement("button", {
+      onClick: function() { setShowSearch(true); },
+      title: "検索",
+      style: {
+        padding: "6px 11px", fontSize: 13, fontWeight: 600,
+        background: "#EEF2FF", border: "1.5px solid #C7D2FE", borderRadius: 7,
+        cursor: "pointer", color: "#4338CA", minHeight: IS_TOUCH ? 40 : 32
+      }
+    }, "🔍"),
+    React.createElement("button", {
+      onClick: function() { setShowSettings(true); },
+      title: "設定",
+      style: {
+        padding: "6px 10px", fontSize: 16,
+        background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 7,
+        cursor: "pointer", minHeight: IS_TOUCH ? 40 : 32
+      }
+    }, "⚙️"),
+    fbBadge);
+
   return React.createElement("div", {
     style: {
       fontFamily: "-apple-system,'Helvetica Neue',sans-serif",
@@ -1266,7 +1294,7 @@ function App() {
       flexWrap: "wrap",
       gap: 8
     }
-  }, React.createElement("div", null, React.createElement("div", {
+  }, React.createElement("div", { style: { flex: "1 1 100%" } }, React.createElement("div", {
     style: {
       fontSize: 10,
       color: "#999",
@@ -1359,10 +1387,10 @@ function App() {
       cursor: "pointer",
       minHeight: IS_TOUCH ? 36 : 26
     }
-  }, "\u4ECA\u65E5"))), React.createElement("div", {
+  }, "\u4ECA\u65E5"), _snHeadTools)), React.createElement("div", {
     style: {
       display: "flex",
-      gap: 6,
+      gap: 8,
       alignItems: "center",
       flexWrap: "wrap"
     }
@@ -1372,10 +1400,10 @@ function App() {
       title: ch.title,
       style: {
         background: "#f5f4f0",
-        borderRadius: 8,
-        padding: "5px 8px",
+        borderRadius: 9,
+        padding: "8px 12px",
         textAlign: "center",
-        minWidth: 50,
+        minWidth: 62,
         // 2026-08-17f 実現チップだけ3段になるので全チップに同じ最低高さを与える＝行の高さが揃う。
         //   親のalignItemsをstretchにする手は使えない（同じflex行に記録帳などのボタンが並んでいて一緒に伸びてしまうため）。
         //   高さは3段目が実在するときだけ上げる＝実現が「—／未記録」の月に全チップが無駄に高くならない。
@@ -1387,24 +1415,26 @@ function App() {
       }
     }, React.createElement("div", {
       style: {
-        fontSize: 10,
-        color: "#999",
-        fontWeight: 600
+        fontSize: 11,
+        color: "#8A8578",
+        fontWeight: 700,
+        letterSpacing: 0.3
       }
     }, ch.la), React.createElement("div", {
       style: {
-        fontSize: 13,
-        fontWeight: 700,
+        fontSize: 18,
+        fontWeight: 800,
+        lineHeight: 1.25,
         color: ch.c
       }
     }, ch.v), React.createElement("div", {
       style: {
-        fontSize: 9,
-        color: "#888",
+        fontSize: 11,
+        color: "#5F5E5A",
         fontWeight: 700,
-        lineHeight: 1.3,
-        marginTop: 1,
-        minHeight: 12,
+        lineHeight: 1.35,
+        marginTop: 2,
+        minHeight: 14,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1413,10 +1443,10 @@ function App() {
       }
     }, ch.subGrade ? _elHoldGradeBadge(ch.subGrade) : null, ch.sub || " "), ch.sub2 ? React.createElement("div", {
       style: {
-        fontSize: 9,
-        color: "#888",
+        fontSize: 11,
+        color: "#5F5E5A",
         fontWeight: 700,
-        lineHeight: 1.3,
+        lineHeight: 1.35,
         whiteSpace: "nowrap"
       }
     }, ch.sub2) : null);
@@ -1481,35 +1511,7 @@ function App() {
       color: "#fff",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "＋ 予定"), React.createElement("button", {
-    onClick: function onClick() {
-      return setShowSearch(true);
-    },
-    style: {
-      padding: "8px 12px",
-      fontSize: 13,
-      fontWeight: 600,
-      background: "#EEF2FF",
-      border: "1.5px solid #C7D2FE",
-      borderRadius: 7,
-      cursor: "pointer",
-      color: "#4338CA",
-      minHeight: IS_TOUCH ? 44 : 36
-    }
-  }, "🔍"), React.createElement("button", {
-    onClick: function onClick() {
-      return setShowSettings(true);
-    },
-    style: {
-      padding: "8px 11px",
-      fontSize: 17,
-      background: "#f5f4f0",
-      border: "1px solid #ddd",
-      borderRadius: 7,
-      cursor: "pointer",
-      minHeight: IS_TOUCH ? 44 : 36
-    }
-  }, "⚙️"), fbBadge)), showSearch ? React.createElement(SearchView, {
+  }, "＋ 予定"))), showSearch ? React.createElement(SearchView, {
     data: data,
     save: save,
     onSelectDate: function onSelectDate(d, tab) {
