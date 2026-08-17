@@ -97,10 +97,10 @@ function Calendar(_ref60) {
     return m;
   }, [data && data.trades]);
   
-  // 2026-08-17 日次バッジを最終損益（100株換算）基準へ。旧＝signal.realizedPnlだけを見ていたので、
+  // 2026-08-17 日次バッジを想定損益（100株換算）基準へ。旧＝signal.realizedPnlだけを見ていたので、
   //   実現損益が未記録の日は「エントリーしたのに0円・グレードD」で出ていた（item.pnlも拾っていなかった）。
   //   集計は_snDailyPnlMapへ一本化＝ホームの4チップ・📊今月の損益パネルと必ず同じ数字になる。
-  //   グレードも実額スケール(_profitGradeFromPnlReal)→通常スケール(_profitGradeFromPnl)へ。最終損益は100株換算なので帯が10倍ずれていた。
+  //   グレードも実額スケール(_profitGradeFromPnlReal)→通常スケール(_profitGradeFromPnl)へ。想定損益は100株換算なので帯が10倍ずれていた。
   var gradeByDate = useMemo(function() {
     var m = _snDailyPnlMap(data), result = {};
     Object.keys(m).forEach(function(dt) {
@@ -215,7 +215,7 @@ function Calendar(_ref60) {
                 : _s.toLocaleString());
               return React.createElement(React.Fragment, null,
                 React.createElement("span", {
-                  title: "最終損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n最終損益: " + _snYen(_s) + "（100株換算・" + _gd.cnt + "件）"
+                  title: "想定損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n想定損益: " + _snYen(_s) + "（100株換算・" + _gd.cnt + "件）"
                     + (_gd.real != null ? "\n実現損益: " + _snYen(_gd.real) + "（100株換算 / 実額 " + _snYen(_gd.realRaw) + "）" : "\n実現損益: 未記録"),
                   style: {
                     display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -3569,7 +3569,7 @@ function _epAsTraded(s) {
 //   ○/△/未設定は算入。期待度＝EP前の待ち足はα到達期待(os1Exp/os2Exp)・EP後の保有足はH期待(holdExp/hold2Exp)・
 //   OS3で待ち足扱い(未達等)は欄なし＝未設定→算入。算入足が無ければnull。旧記録(非v2)はOS1(osVal)をそのまま。
 //   alpha未指定時は記録固有の採用α(_epOwnAlpha)でEP位置を決める。OS値の中央/平均はこの値を記録ぶん集めて算出。
-// 2026-07-25f 実現OSもOS1〜5へ拡張（最終損益・実現最高・保有時間と同じ手じまい足まで見る）: EPがOS2/OS3にずれた記録やH3/H4まで保有した記録で、
+// 2026-07-25f 実現OSもOS1〜5へ拡張（想定損益・実現最高・保有時間と同じ手じまい足まで見る）: EPがOS2/OS3にずれた記録やH3/H4まで保有した記録で、
 //   実際に到達した足の高値がOS1〜3の外にあると母数から抜けていた。打ち切り規則（保有しない足は算入しない）は不変＝**手じまい足までの最高値**。
 //   ※アウトカム盲目の_elOsMaxAll（α到達確率・α目安・指値同値の母数）はEPがOS1〜3でしか成立しない性質上OS1〜3のままで正しい（変更しない）。
 function _elOsMaxFiltered(s, alpha) {
@@ -3661,7 +3661,7 @@ function _epHoldLadder(s, alpha, cutLine) {
     items.push({ idx: i, depth: depth, role: depth === 0 ? "EP" : ("H" + depth), leg: lg, pnl: pnl, isStop: stopDepth === depth, afterStop: stopDepth >= 0 && stopDepth < depth });
     if (pnl != null) { finalPnl = pnl; if (maxPnl == null || pnl > maxPnl) { maxPnl = pnl; maxDepth = depth; } }
   }
-  // 撤退済みなら最終損益は撤退足の確定値で固定する。旧実装は高値から必ず算出できたので暗黙に成立していたが、
+  // 撤退済みなら想定損益は撤退足の確定値で固定する。旧実装は高値から必ず算出できたので暗黙に成立していたが、
   // 終値ベースでは撤退足に終値が無いと null になり、明示しないと撤退前の含み益が最終値として残ってしまう。
   if (stopDepth >= 0) finalPnl = stopPnl;
   // 2026-07-29 旧方式（ラインに触れた瞬間に約定）の損益 stopLinePnl と、その算出用の stopHigh を撤去。
@@ -3930,7 +3930,7 @@ function _elDynHold2(s, alpha, cutLine) {
   }
   return _elDynHold(_h2s, alpha, cutLine);
 }
-// 【損切り判定の単一源】手じまいまでに損切りしたか＝**最終損益と同じ基準** 2026-07-25d。
+// 【損切り判定の単一源】手じまいまでに損切りしたか＝**想定損益と同じ基準** 2026-07-25d。
 // 旧＝`_elPlanIsStop || _elHoldIsStop || _elHoldIsStop2` は「EP/H1/H2の足のどれかが損切り値に触れたか」で、
 //   **手じまいより後の足で触れた場合も損切りに数えていた**（ユーザー指摘の実例: 次×でH1で降りたのに、その先のOS3の高値が損切り値を超えていたため損切り1件になっていた）。
 // 判定は_elRideVals＝「期待度の手じまい足」と「損切り足」の早い方（表示側は2026-07-16に修正済み・ここで集計側も同じ源に統一）。
@@ -3961,7 +3961,7 @@ function _elHas2Data(s, alpha) {
   return !!(s.hold2HighVal != null || s.hold2Width != null || s.hold2OsConf != null || s.hold2Pnl != null);
 }
 // ===== 手じまいまで（H2固定→N段カスケード）2026-07-25 =====
-// ユーザー要望「最終損益欄、H2までにするのではなく手じまいまでにできる？」。旧モデルは EP→H1→H2 の2段固定で、
+// ユーザー要望「想定損益欄、H2までにするのではなく手じまいまでにできる？」。旧モデルは EP→H1→H2 の2段固定で、
 // EPがOS1/OS2の記録は次足期待度が○のまま続いても H2（EPの2本後）で打ち切っていた。フォームは nextExp1〜4（保有判断4回ぶん）と
 // OS1〜OS5 を保存済みなので、○が続く限り最後の足まで伸ばせる。**EPがOS3の記録は上限2＝従来と完全に同じ**。
 // depth d ＝ EPから d 本後の足（0=EP足）。足iの保有判断は _epNextExpAt(s, i-1)（有効域 x=0〜3）。
@@ -4064,7 +4064,7 @@ function _elHoldMaxHighCell(s) {
 // 実現結果: "miss"(E未達=OS・H1ともα未達でノートレード) / "stop"(想定orH1orH2で損切り) / "profit" / "loss" / "zero" / null。
 // 利益/損失は結果損益（H2データあり＆H2成立ならH2、無ければH1）で判定。
 // 2026-07-25b: 手じまいがH2より後まで伸びた記録は「手じまい足の損益」で判定し、H2より後の損切りも"stop"に含める
-//   （最終損益_elHoldFinalParts・保有時間_elRideVals と同じ手じまい足に揃える）。**exitD<=2の記録は従来と完全に同一**。
+//   （想定損益_elHoldFinalParts・保有時間_elRideVals と同じ手じまい足に揃える）。**exitD<=2の記録は従来と完全に同一**。
 function _elRealizedOutcome(s, alpha, cutLine) {
   if (!s) return null;
   if (_epIsV2(s) && alpha != null) {
@@ -4073,7 +4073,7 @@ function _elRealizedOutcome(s, alpha, cutLine) {
   }
   if (_elH2Miss(s, alpha)) return "miss";
   var _rvO = (_epIsV2(s) && alpha != null) ? _elRideVals(s, alpha, cutLine) : null;   // 手じまい足（利益/損失の判定足）2026-07-25b
-  if (_elIsStopFinal(s, alpha, cutLine)) return "stop";   // 2026-07-25d 損切りは最終損益と同じ基準（手じまいより後の足の損切りは数えない）
+  if (_elIsStopFinal(s, alpha, cutLine)) return "stop";   // 2026-07-25d 損切りは想定損益と同じ基準（手じまいより後の足の損切りは数えない）
   var res = (_elHas2Data(s, alpha) && !_elH2Miss(s, alpha)) ? _elDynHold2(s, alpha, cutLine) : _elDynHold(s, alpha, cutLine);
   if (_rvO && _rvO.exitD >= 3) { var _resN = _elDynHoldAt(s, alpha, cutLine, _rvO.exitD); if (_resN != null) res = _resN; }   // 手じまいがH2より後＝その足の損益で利益/損失を判定 2026-07-25b
   if (res == null) return null;
@@ -4133,7 +4133,7 @@ function _epOsChainCell(s, alpha, cutLine) {
   var legs, epIdx = -1, judge = null;
   if (_epIsV2(s)) {
     // 2026-07-25b: 既定はOS1〜3（従来）。**実際に手じまい足がOS3より後まで伸びた記録だけ**その足まで表示＝H３/H４行・実現最高と足並みを揃える。
-    //   保有していない足は出さない（_elRideVals.exitD＝最終損益と同じ手じまい足）。E未達/×見送り/旧記録は従来どおり3本。
+    //   保有していない足は出さない（_elRideVals.exitD＝想定損益と同じ手じまい足）。E未達/×見送り/旧記録は従来どおり3本。
     var _rv = (alpha != null) ? _elRideVals(s, alpha, cutLine) : null;   // cutLine未指定は_elRideVals内で既定15
     var _showN = 3;
     if (_rv) { var _rr0 = _epResolve(s, alpha); if (_rr0 && _rr0.epIdx >= 0) _showN = Math.max(3, _rr0.epIdx + _rv.exitD + 1); }
@@ -4381,7 +4381,7 @@ function _elDeriveHoldProfit(hp, pp, res, fallback) {
 // ===== #2 時間かぶりの合計除外 2026-07-07 [[project_scalping_total_pnl_system #2]] =====
 // かぶり＝同一日・全銘柄のv2算入記録を時刻昇順に並べ、遅い方のシグナル時刻が早い方の手じまい足の時刻以内（＝早い方の保有[EP〜手じまい]に遅い方のシグナルが入った）なら「上限2個の貪欲ペアリング」でペア化 2026-07-16（旧＝隣接5分以内）
 // （例 9:31/9:34/9:39/9:42/9:47 → {9:31,9:34}{9:39,9:42}{9:47}）。残す方の選定 2026-07-08 ユーザー指示:
-// 「時刻が異なれば早い方(=ペアの先頭)を残す（損益に依らず＝リアルタイムで先に入った方）／同時刻(分が同じ)のときだけ（）外最終損益
+// 「時刻が異なれば早い方(=ペアの先頭)を残す（損益に依らず＝リアルタイムで先に入った方）／同時刻(分が同じ)のときだけ（）外想定損益
 // (_elHoldFinalPartsのmain・採用α/採用損切り)が小さい方を残す（同額は先を残す）」＝残さない方（遅い方／同時刻なら損益大）を合計額から除外。どちらかmain無しのペアは除外なし・単独記録は除外なし。
 // 母数＝v2(_epIsV2)かつ算入(_elInclTotal)・時刻無しは対象外。返り値 {excluded:{key:1}, marked:{key:1}}＝除外keyと「※被り有」（残した側）key。
 // data.charts参照でmemo化（保存でchartsの識別が変わると再計算）。配線は「表示総計」のみ＝α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
@@ -4457,11 +4457,11 @@ function _elCollExclCountRecs(data, recs, scope) { var n = 0; (recs || []).forEa
 // 明細行用の時間かぶり小バッジ（残した側＝早い方「※被り有」・除外された側＝遅い方「被り除外」灰色。対象外はnull）2026-07-07両側可視化→07-08 早い方を残す方式に変更。
 function _elCollMarkNode(data, r, scope) {
   if (_elCollMarked(data, r, scope)) {
-    return React.createElement("div", { title: "時間被り: 同一日で、早い方の保有時間（EP〜手じまい）に遅い方のシグナルが入ったペア。早い方（同時刻なら（）外最終損益が小さい方）だけを合計に算入し、もう片方は除外。この記録＝残した側（件数は両方残る）",
+    return React.createElement("div", { title: "時間被り: 同一日で、早い方の保有時間（EP〜手じまい）に遅い方のシグナルが入ったペア。早い方（同時刻なら（）外想定損益が小さい方）だけを合計に算入し、もう片方は除外。この記録＝残した側（件数は両方残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "※被り有");
   }
   if (_elCollExcluded(data, r, scope)) {
-    return React.createElement("div", { title: "時間被り: 同一日で、早い方の保有時間（EP〜手じまい）に遅い方のシグナルが入ったペア。この記録は除外側＝遅い方（同時刻なら（）外最終損益が大きい方）＝損益は合計額に入れない（件数は残る）",
+    return React.createElement("div", { title: "時間被り: 同一日で、早い方の保有時間（EP〜手じまい）に遅い方のシグナルが入ったペア。この記録は除外側＝遅い方（同時刻なら（）外想定損益が大きい方）＝損益は合計額に入れない（件数は残る）",
       style: { marginTop: 1, fontSize: 8, fontWeight: 800, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 3, padding: "0 3px", display: "inline-block", whiteSpace: "nowrap", lineHeight: 1.5 } }, "被り除外");
   }
   return null;
@@ -4492,8 +4492,8 @@ function _elCollPairNode(data, r, scope) {
 // 配線は時間かぶりと同じ線引き＝「表示総計」のみ。α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
 // ⚠️これは**この関数(_elFillRisk)の配線の話**。「α総当たり表は指値同値を無視している」という意味ではない 2026-08-07。
 //   α詳細表は掃引αごとに判定し直す専用版 _elFillEqAt(app-06) を使い、2026-08-02eで評価へ昇格済み。
-//   2026-08-10 ユーザー決定で**全列除外**へ＝到達/E成立/利確/損切り/最終損益(平均・中央・Σ)/勝ち負け平均のどの母数にも入れず、
-//   件数だけ「同値」列に出す（_elH2EvalByFn の第4引数 fillEqSkip・app-06）。旧2026-08-02e〜09は最終損益にだけ0円算入だった。
+//   2026-08-10 ユーザー決定で**全列除外**へ＝到達/E成立/利確/損切り/想定損益(平均・中央・Σ)/勝ち負け平均のどの母数にも入れず、
+//   件数だけ「同値」列に出す（_elH2EvalByFn の第4引数 fillEqSkip・app-06）。旧2026-08-02e〜09は想定損益にだけ0円算入だった。
 function _elFillRisk(s, item) {
   if (!s) return false;
   if (_elIsEntered(s, item)) return false;
@@ -4577,11 +4577,11 @@ function _elTotAccum(items, get) {
   });
   return t;
 }
-// 詳細損益セル（EP/H1/最終の縦積み・（）外main＋（）内=△参考）。本日/今週/銘柄別今週の3表で共用＝_elTotAccumで全表と同一基準。recsMは被り除外後の記録・aiAlpha(r)/aiCut(r)=採用α/損切り・badgeFn(grade)=グレードバッジ・allMiss=全E未達でQ0。最終行＝最終損益列と同値。2026-07-10（2026-07-25「H２」→「最終」＝手じまいまでに拡張）。
+// 詳細損益セル（EP/H1/最終の縦積み・（）外main＋（）内=△参考）。本日/今週/銘柄別今週の3表で共用＝_elTotAccumで全表と同一基準。recsMは被り除外後の記録・aiAlpha(r)/aiCut(r)=採用α/損切り・badgeFn(grade)=グレードバッジ・allMiss=全E未達でQ0。最終行＝想定損益列と同値。2026-07-10（2026-07-25「H２」→「最終」＝手じまいまでに拡張）。
 function _elDetailPnlStackNode(recsM, aiAlpha, aiCut, badgeFn, allMiss, days) {
   if (!recsM || !recsM.length) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var t = _elTotAccum(recsM, { signal: function(r) { return r.signal; }, alpha: aiAlpha, cut: aiCut });
-  // allMissFirst=EP行のみ（旧EPセルはallMiss時に計画0でもQ0優先）。H1/H2は「値があれば値・無ければ参考/Q0/—」＝旧H1・最終セルと完全一致＝詳細のH2は最終損益列と常に同値。
+  // allMissFirst=EP行のみ（旧EPセルはallMiss時に計画0でもQ0優先）。H1/H2は「値があれば値・無ければ参考/Q0/—」＝旧H1・最終セルと完全一致＝詳細のH2は想定損益列と常に同値。
   // 2026-08-05e 3行をgrid化し、（）も列として持たせて縦ぞろえする（ユーザー要望「（）内の金額なども
   // きれいに縦ぞろえがいいな。（）自体の位置なども」）。旧は行ごとのinline-flexで（）を額の後ろに
   // 直付けしていたため、額の桁数が違うと（の開始位置がずれていた。
@@ -4964,7 +4964,7 @@ function _elHold2TotPartsFixed(s, alpha, cutLine) {
   if (_base == null) return { main: null, ref: hv };
   return { main: _base, ref: (hv != null && (hv - _base) !== 0) ? (hv - _base) : null };
 }
-// 【最終損益＝手じまいまで】2026-07-25: 表・合計・分析すべての「最終損益」正本。旧 _elHold2TotParts（EP→H1→H2の2段固定）を
+// 【想定損益＝手じまいまで】2026-07-25: 表・合計・分析すべての「想定損益」正本。旧 _elHold2TotParts（EP→H1→H2の2段固定）を
 // _elHold2TotPartsFixed に退避し、その上に3段目以降を積む。**depth<=2で終わる記録（EPがOS3・OS4/OS5未入力・×/損切りで手じまい済み）は
 // _elHold2TotPartsFixed をそのまま返す＝従来と完全に同一**。呼び出し側41箇所は名前が変わるだけで配線は不変。
 // 1段ぶんの規約は _elHold2TotPartsFixed（H1→H2）と同型:
@@ -4992,7 +4992,7 @@ function _elHoldFinalParts(s, alpha, cutLine) {
     // 【2026-08-02n 終値撤退方式へ追従（ユーザー決定）】旧＝`if (この足で損切り) break;`＝×と同一視して**1段下（前の足）の値のまま確定**していた。
     //   しかし損切り判定(_elIsStopFinal→_elRideVals.stoppedLoss)も決済サマリー(_elRideVals.exitC)も2026-07-27に「その足の終値で撤退」へ移行済みで、
     //   ここだけ旧規約が残っていたため、3段目以降で損切りに当たった記録が「損切（H3）と表示され損切り件数にも計上されるのに、
-    //   最終損益は前の足の値（実測例では+400円の利益）」という食い違いになり、負け平均から抜けて勝ち平均に入っていた。
+    //   想定損益は前の足の値（実測例では+400円の利益）」という食い違いになり、負け平均から抜けて勝ち平均に入っていた。
     //   → この足も保有した扱いで _elDynHoldAt(d)（＝その足の終値ベース）を採り、そのうえでループを抜ける。
     //   main/refの振り分けは非損切りの足と同一規約（完全○チェーンなら（）外main・△でチェーンが切れていれば（）内ref）＝d<=2側(_elHold2TotPartsFixed)の作法に一致。
     var _stopHere = (lg.h != null && (lg.h - alpha) >= cut);    // この足で損切りライン到達＝ここが手じまい足
@@ -5013,7 +5013,7 @@ function _elHoldFinalParts(s, alpha, cutLine) {
 // 【なぜ作ったか】ホームの月次チップ(_mAgg)とカレンダーの日次バッジ(gradeByDate)が、それぞれ独自に
 //   `signal.realizedPnl` **だけ**を集計していた。実現損益はほぼ未記録なので両方ともほぼ0円で出ており、
 //   さらに `item.pnl`（取引テーブル側の損益）も拾っていなかった＝アプリ内でここだけ基準が違っていた。
-// 【基準】記録帳・💰全体損益と同じ「最終損益」_elHoldFinalParts(...).main。**単位は元から100株換算**なので
+// 【基準】記録帳・💰全体損益と同じ「想定損益」_elHoldFinalParts(...).main。**単位は元から100株換算**なので
 //   換算処理は不要（グレードは通常スケール _profitGradeFromPnl＝S:2501円〜。実額スケールの_profitGradeFromPnlRealと混ぜないこと）。
 // 【除外規約】_elFinalPnlOf（app-06 L6387）と完全に同一: データ算入外(_elInclTotalAmt)・時間かぶり除外(_elCollExcluded)・
 //   EP×見送り(_epIsXSkip)。ここを変えると記録帳の🏷銘柄別/🎯グレード別と黙ってずれるので、直すときは両方直すこと。
@@ -5148,34 +5148,34 @@ function _SnMonthPnlPanel(_refSnMp) {
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#1a1a1a" } }, "📊 " + ttl + "の損益"),
       React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#4338CA", background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 4, padding: "1px 6px" } },
         _snBizDaysLabel(agg, year, month)),
-      React.createElement("span", { title: "記録帳・💰全体損益と同じ基準です。実現損益（実際に約定した額）ではなく、記録から出した最終損益（100株換算）を主に出しています",
+      React.createElement("span", { title: "記録帳・💰全体損益と同じ基準です。実現損益（実際に約定した額）ではなく、記録から出した想定損益（100株換算）を主に出しています",
         style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "1px 6px" } },
-        "基準: 最終損益・100株換算")
+        "基準: 想定損益・100株換算")
     ),
     agg.finalCnt === 0 && agg.cnt === 0
       ? React.createElement("div", { style: { fontSize: 11, color: "#bbb", padding: "10px 0", textAlign: "center" } }, ttl + "の記録はまだありません")
       : React.createElement(React.Fragment, null,
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(128px,1fr))", gap: 12, alignItems: "start" } },
-          _cell("最終損益", _amt(agg.final),
+          _cell("想定損益", _amt(agg.final),
             agg.finalCnt + "件 / " + agg.tradedDays + "日",
-            "最終損益の合計（100株換算）。母数 " + agg.finalCnt + "件・記録のあった日 " + agg.tradedDays + "日"),
+            "想定損益の合計（100株換算）。母数 " + agg.finalCnt + "件・記録のあった日 " + agg.tradedDays + "日"),
           _cell("1日あたり",
             perDay == null ? React.createElement("span", { style: { color: "#bbb" } }, "—")
               : React.createElement(React.Fragment, null, _elHoldGradeBadge(_profitGradeFromPnl(perDay, agg.finalCnt)), _amt(perDay)),
             perDay == null ? "経過営業日なし" : ("経過 " + agg.bizDone + "営業日で割った額"),
-            "最終損益 " + _snYen(agg.final) + " ÷ 経過営業日 " + agg.bizDone + "日。記録の無かった日も分母に入れています（他の欄の「1日平均」と同じ割り方）"),
+            "想定損益 " + _snYen(agg.final) + " ÷ 経過営業日 " + agg.bizDone + "日。記録の無かった日も分母に入れています（他の欄の「1日平均」と同じ割り方）"),
           _cell("実現損益",
             agg.realCnt > 0 ? _amt(agg.real) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
             agg.realCnt > 0 ? (agg.realCnt + "件 / 実額 " + _snYen(agg.realRaw)) : "未記録",
             agg.realCnt > 0
               ? ("実際に約定した損益。上段は100株換算 " + _snYen(agg.real) + "、下段が実額 " + _snYen(agg.realRaw) + "（" + agg.realCnt + "件）"
                 + (agg.realHasShares ? "" : "\n⚠ 株数が入っていない記録があります（換算できないぶんは実額のまま足しています）"))
-              : "この月は実現損益が1件も入っていません。上の最終損益は記録から出した値です"),
+              : "この月は実現損益が1件も入っていません。上の想定損益は記録から出した値です"),
           _cell("勝率",
             winPct == null ? React.createElement("span", { style: { color: "#bbb" } }, "—")
               : React.createElement("span", { style: { color: "#1a1a1a" } }, winPct + "%"),
             agg.win + "勝" + agg.loss + "敗" + (agg.even ? " / 同値" + agg.even : ""),
-            "最終損益がプラスの件数 ÷ 最終損益のある件数（同値は分母に含む）"),
+            "想定損益がプラスの件数 ÷ 想定損益のある件数（同値は分母に含む）"),
           _cell("最大DD",
             agg.maxDD > 0 ? React.createElement("span", { style: { color: "#1E8449" } }, "−" + Math.round(agg.maxDD).toLocaleString() + "円")
               : React.createElement("span", { style: { color: "#bbb" } }, "—"),
@@ -5327,7 +5327,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
     // H2○でもH1=△ or EP△でチェーンが切れていれば参考(level1)で（）囲み。合計(_elHoldFinalParts)の（）内計算と一致。
     rows.push(_row("h2", "H２", h2exp, p2, (hexp === "×" || hexp === "損切り済" || exp === "×") ? 2 : ((exp === "△" || exp === "損切り済" || hexp === "△" || _epTriH2) ? 1 : 0), true));
   }
-  // 2026-07-25 H3・H4行（最終損益を手じまいまで伸ばしたので内訳も伸ばす）: **その足まで実際に保有した記録だけ**行を足す＝
+  // 2026-07-25 H3・H4行（想定損益を手じまいまで伸ばしたので内訳も伸ばす）: **その足まで実際に保有した記録だけ**行を足す＝
   //   1段前の保有判断が○/△かつ足がある場合のみ。×/損切り済/未設定で降りた記録・EPがOS3の記録は1行も増えない（従来と同じ見た目）。
   var _maxDS = _elHoldMaxDepth(s, alpha);
   if (!_h2miss && !_h2StopDone && _maxDS >= 3 && alpha != null) {
@@ -5373,7 +5373,7 @@ function _elHoldTd2(s, alpha, cutLine, tdStyle, capNote) {
 }
 // 明細の「詳細損益」セル(1記録): EP(_epPnlCell)を上段・H1/H2(_elHoldStackInner)を下段に縦積み＝旧EP損益列＋H損益列を1セルに統合 2026-07-10。miss/×見送り分岐は_elHoldTd2と同一（矢印つき明細を維持）。
 // ④ 決済サマリー行（2026-07-13 ユーザー承認・案A最下段）: 「最高↑18 → 決済↓3（H2）」＝EP足から手仕舞い足までの高値の最大（どこまで逆行したか）と、
-// 最終損益(_elHoldFinalParts.main)と同じ手仕舞い足の確定値。損切り記録は「最高↑26 → 損切（H1）」。手仕舞い足＝損切り足／非損切りは次足期待度○のみ次足へ（H2まで）。
+// 想定損益(_elHoldFinalParts.main)と同じ手仕舞い足の確定値。損切り記録は「最高↑26 → 損切（H1）」。手仕舞い足＝損切り足／非損切りは次足期待度○のみ次足へ（H2まで）。
 // E成立(judge ok)のv2記録のみ・それ以外はnull（行を出さない）。
 // 決済サマリーの素の値（最高値mx・手仕舞い足の確定値exitC・損切りstopped・足ラベルlbl）を返す共通ヘルパー。_elRideSummaryNode（詳細表示）と_elRideMiniNode（簡易表示）が共用。
 function _elRideVals(s, alpha, cutLine) {
@@ -5384,12 +5384,12 @@ function _elRideVals(s, alpha, cutLine) {
   var legs = _epLegs(s);
   // 手じまい足＝「次足期待度で降りる足(_expD)」と「損切り足(_stopD)」の“早い方”。2026-07-16修正:
   //  旧実装は損切り判定を無条件で優先していたため、期待度×より後の足で損切りが検出されると手じまいがそこまで伸び、
-  //  最高(mx)/確定(exitC)に期待度×以降の足が混入して最終損益額(_elHoldFinalParts)・打ち切り最高値(_elOsMaxCapped)と食い違っていた。
+  //  最高(mx)/確定(exitC)に期待度×以降の足が混入して想定損益額(_elHoldFinalParts)・打ち切り最高値(_elOsMaxCapped)と食い違っていた。
   //  損切りは期待度手じまいより後には起こり得ないので_expDでキャップする。△(中間)は継続扱い＝×/損切り済/未設定のみで降りる（_elOsMaxCapped/_elHoldFinalPartsと同規約）。
   var _cutExp = function(e) { return e === "×" || e === "損切り済" || !e; };
   var _h1e = _epNextExpAt(s, r.epIdx), _h2e = _epNextExpAt(s, r.epIdx + 1);
   var _expD = _cutExp(_h1e) ? 0 : _cutExp(_h2e) ? 1 : 2;   // 期待度ベースの手じまい足
-  // 2026-07-25 H2固定→N段: H2まで○/△で続いていれば、○/△が続く限り最後の足まで手じまいを伸ばす（最終損益_elHoldFinalPartsと同じ深さ）。
+  // 2026-07-25 H2固定→N段: H2まで○/△で続いていれば、○/△が続く限り最後の足まで手じまいを伸ばす（想定損益_elHoldFinalPartsと同じ深さ）。
   var _maxD = _elHoldMaxDepth(s, alpha);
   if (_expD === 2) { for (var _dd = 3; _dd <= _maxD; _dd++) { if (_cutExp(_epNextExpAt(s, r.epIdx + _dd - 1))) break; _expD = _dd; } }
   var _sp = _elPlanIsStop(s, alpha, cut);
@@ -5428,7 +5428,7 @@ function _elRideSummaryNode(s, alpha, cutLine) {
           _epSignedNode(v.exitC, "ec"),
           React.createElement("span", { style: { fontSize: 9, color: "#9CA3AF" } }, "（" + v.lbl + "）")));
 }
-// 最終損益セル本体の下に出す簡易版（2026-07-13 ユーザー要望）: 手じまいまでの最高値→手じまい時点の確定値を「↑17→↓23」の矢印＋数値のみで表示。E成立(judge ok)のv2記録のみ（それ以外はnull＝非表示）。
+// 想定損益セル本体の下に出す簡易版（2026-07-13 ユーザー要望）: 手じまいまでの最高値→手じまい時点の確定値を「↑17→↓23」の矢印＋数値のみで表示。E成立(judge ok)のv2記録のみ（それ以外はnull＝非表示）。
 function _elRideMiniNode(s, alpha, cutLine) {
   var v = _elRideVals(s, alpha, cutLine);
   if (!v) return null;
@@ -5556,10 +5556,10 @@ function _elDetailFlowStack(s, alpha, cutLine) {
   // 2026-07-09: OS足取り(_epOsChainCell)を詳細損益セルの最上段に統合（旧・独立OS列を廃止＝案A）。EP行の上に点線区切りで重ねる。
   // 2026-07-09f: ブロック全体を左寄せ（中央寄せの左右余白を除去）＝幅stretch時の無駄な余白を減らす。フォントは通常サイズ(セル継承=11)に戻す（列に余白があるため縮小不要）。
   var _osTop = React.createElement("div", { style: { display: "flex", justifyContent: "flex-start", padding: "0 0 2px", marginBottom: 2, borderBottom: "1px dashed #d8cbb8", whiteSpace: "nowrap" } }, _epOsChainCell(s, alpha, cutLine));
-  // 2026-07-13 「最高↑→決済↓」行(_elRideSummaryNode)は最終損益欄(_elRideMiniNode)に移設したため削除。
+  // 2026-07-13 「最高↑→決済↓」行(_elRideSummaryNode)は想定損益欄(_elRideMiniNode)に移設したため削除。
   return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.3 } }, _osTop, _epRow, _hPart);
 }
-// 記録表の「最終損益」セル＋「OS・損益詳細」セル(colSpan2)の共通td枠(2026-07-14 系統2小抽出)。セル内容(_elHold2AmtNode/_elRideMiniNode/_elDetailFlowStack)は既に共有・td枠だけが各表で重複していたので集約。border/padは表ごとに異なる(app-02/06=_bb・"1px 3px"／app-04=#f0ede6・"4px 6px")ため引数化＝各呼出は従来と同一バイトを渡す。Fragmentなので<tr>内で従来の2td並びと同一DOM。
+// 記録表の「想定損益」セル＋「OS・損益詳細」セル(colSpan2)の共通td枠(2026-07-14 系統2小抽出)。セル内容(_elHold2AmtNode/_elRideMiniNode/_elDetailFlowStack)は既に共有・td枠だけが各表で重複していたので集約。border/padは表ごとに異なる(app-02/06=_bb・"1px 3px"／app-04=#f0ede6・"4px 6px")ため引数化＝各呼出は従来と同一バイトを渡す。Fragmentなので<tr>内で従来の2td並びと同一DOM。
 function _elPnlDetailCells(s, alpha, cutLine, border, pad1, pad2) {
   // 2026-07-16 「保有」td追加（EP〜手じまい保有時間・_elHoldMinNode）＝この共通セルを使う表（週明細/取引タブ/OSミニ明細）は自動で3セル構成になる。ヘッダー側thは各表で追加。
   return React.createElement(React.Fragment, null,
@@ -5567,7 +5567,7 @@ function _elPnlDetailCells(s, alpha, cutLine, border, pad1, pad2) {
     React.createElement("td", { key: "dtl", colSpan: 2, style: { padding: pad2, textAlign: "left", fontSize: 11, borderBottom: border, borderRight: border, background: "#F8FBFE" } }, _elDetailFlowStack(s, alpha, cutLine)),
     React.createElement("td", { key: "hld", style: { padding: pad1, textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: border, borderRight: border } }, _elHoldMinNode(s, alpha, cutLine)));
 }
-// 明細の「最終損益」セル(1記録): その記録の手じまい(_elHoldFinalParts.main)をランク+額+（）内=△で表示＝集計の最終損益列と同基準。2026-07-10。
+// 明細の「想定損益」セル(1記録): その記録の手じまい(_elHoldFinalParts.main)をランク+額+（）内=△で表示＝集計の想定損益列と同基準。2026-07-10。
 function _elHold2AmtNode(s, alpha, cutLine) {
   var p = _elHoldFinalParts(s, alpha, cutLine);
   if (p.main == null) return (p.ref != null)
@@ -5889,7 +5889,7 @@ function _qMissCell(size) {
 // 2026-08-05m 複数スケールを並べたとき列がずれたので、**「ラベル＋9段」を1つのgridに入れて縦ぞろえ**する。
 //   行ごとに別のflexにすると、桁数の違い（2501~ と 25001~）でA以降のバッジが右へずれていく。
 //   grid化すると各段が同じ列に入り、列幅は広い方（実現損益）に合わせて自動で決まる。
-// rows = [{ label: "最終損益", real: false }, ...]。lowerOnly=trueで下限だけ出して幅を詰める。
+// rows = [{ label: "想定損益", real: false }, ...]。lowerOnly=trueで下限だけ出して幅を詰める。
 // 置き場所が狭いので、レンジ全文はtitle属性へ入れてホバーで読めるようにしてある。
 function _gradeLegendGrid(rows, opts) {
   var o = opts || {};
@@ -5935,7 +5935,7 @@ function _dnfBadge(label) {
     style: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "1px 6px", borderRadius: 4,
       background: "#f5f4f0", color: "#888", border: "1px solid #ddd", fontWeight: 800, fontSize: 9.5, letterSpacing: "0.3px", whiteSpace: "nowrap", flexShrink: 0 } }, "DNF");
 }
-// 「取引」カテゴリタグ日のマーカー（早見表/損益データ表の最終損益欄で共用 2026-07-23）: ノーシグナル→DNFピル / それ以外(有効シグナルなし等)→Z（取引なし）丸バッジ。タグ名はtooltip。無ければnull。
+// 「取引」カテゴリタグ日のマーカー（早見表/損益データ表の想定損益欄で共用 2026-07-23）: ノーシグナル→DNFピル / それ以外(有効シグナルなし等)→Z（取引なし）丸バッジ。タグ名はtooltip。無ければnull。
 function _elTradeTagMarker(c) {
   var tags = (c && Array.isArray(c.chartShapeTags)) ? c.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }) : [];
   if (!tags.length) return null;
@@ -8423,7 +8423,7 @@ function EntryRecordForm(_ref_erf) {
             ) : null
           );
         })(),
-        _ukiTblOpen ? React.createElement("div", { onClick: function() { _setUkiTblOpen(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setUkiTblOpen(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると最終損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝" + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!fDate || r.date < fDate); }), function(r) { return _elAlphaInfo(r, data); }, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null, _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories)))) : null) : null,
+        _ukiTblOpen ? React.createElement("div", { onClick: function() { _setUkiTblOpen(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setUkiTblOpen(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると想定損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝" + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!fDate || r.date < fDate); }), function(r) { return _elAlphaInfo(r, data); }, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null, _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories)))) : null) : null,
       (fUkiUsed !== "○") ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "採用α値"),
         React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3 } },
@@ -8855,7 +8855,7 @@ function EntryRecordForm(_ref_erf) {
         (function() {
           if (!_refCutPick) return null;
           var p = _refCutPick;
-          return React.createElement("span", { title: "実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（この銘柄の前日までの算入記録から）。バッジ＝最終損益（手じまい）基準で同じ選定をした並走値（デュアル評価 2026-07-12）", style: { fontSize: 11, fontWeight: 600, color: "#7F1D1D", whiteSpace: "nowrap" } },
+          return React.createElement("span", { title: "実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（この銘柄の前日までの算入記録から）。バッジ＝想定損益（手じまい）基準で同じ選定をした並走値（デュアル評価 2026-07-12）", style: { fontSize: 11, fontWeight: 600, color: "#7F1D1D", whiteSpace: "nowrap" } },
             "推奨損切り：", React.createElement("span", { style: { fontWeight: 800 } }, p.cut + "円"),
             p.status === "na"
               ? React.createElement("span", { style: { color: "#B45309", marginLeft: 3, fontSize: 10 } }, "（参考）")
@@ -9543,7 +9543,7 @@ function EntryLogCard(_ref_elc) {
     ? { alpha: Number(_ref_elc.alpha), cutLine: (_ref_elc.cutLine != null ? Number(_ref_elc.cutLine) : 15) }
     : (_ref_elc.data ? _elAlphaInfo(record, _ref_elc.data) : null);
   // 2026-07-16 カード刷新（案B 右パネル型）: 旧v1形式チップ(OS値/確定値/結果/EP損益/H1/H2)を廃し、表の最新式と同じ
-  // 最終損益(_elHold2AmtNode)＋OS・損益詳細(_elDetailFlowStack)を右パネルに集約。旧planPnl/holdPnl/_dispResult/_dispHPは不要化。
+  // 想定損益(_elHold2AmtNode)＋OS・損益詳細(_elDetailFlowStack)を右パネルに集約。旧planPnl/holdPnl/_dispResult/_dispHPは不要化。
   var _alpElc = _elcAi ? _elcAi.alpha : null;
   var _cutElc = (_elcAi && _elcAi.cutLine != null) ? _elcAi.cutLine : 15;
 
@@ -9634,7 +9634,7 @@ function EntryLogCard(_ref_elc) {
 
       React.createElement("div", { style: { flex: "0 1 auto", maxWidth: "100%", background: "#FFFBF5", border: "1px solid #F0E6D2", borderRadius: 6, padding: "6px 10px", display: "flex", flexDirection: "column", gap: 3, overflowX: "auto" } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-          React.createElement("span", { style: { fontSize: 9, color: "#B08968", fontWeight: 700, flexShrink: 0 } }, "最終損益"),
+          React.createElement("span", { style: { fontSize: 9, color: "#B08968", fontWeight: 700, flexShrink: 0 } }, "想定損益"),
           React.createElement("span", { style: { fontSize: 13 } }, _elHold2AmtNode(s, _alpElc, _cutElc)),
           _elRideMiniNode(s, _alpElc, _cutElc),
           _elRideVals(s, _alpElc, _cutElc) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "baseline", gap: 2 } },

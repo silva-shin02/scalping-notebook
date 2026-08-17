@@ -680,7 +680,7 @@ function _elEpPosSectionV2(recs, aiOf) {
   var tbl = React.createElement(_HScrollBox, { style: { marginTop: 8 } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
-        _thE("EP位置"), _thE("件数"), _thE("OS値"), _thE("E後の勝率"), _thE("最終損益"), _thE("見切り率"), _thE("損切り率"))),
+        _thE("EP位置"), _thE("件数"), _thE("OS値"), _thE("E後の勝率"), _thE("想定損益"), _thE("見切り率"), _thE("損切り率"))),
       React.createElement("tbody", null, ["ep0", "ep1", "ep2"].map(function(k, i) {
         var d = _EL_EPPOS_DEFS[i], o = st[k];
         return React.createElement("tr", { key: k },
@@ -702,9 +702,9 @@ function _elEpPosSectionV2(recs, aiOf) {
       items.push(React.createElement("span", null, "損切り率は OS1成立=", _elInsightEmV2(r0 + "%"), "・OS2/3成立=", _elInsightEmV2(rw + "%"), rw > r0 ? "。遅い到達ほど損切りになりやすい傾向。" : "。待ってからの成立でも損切りは増えていない。"));
     }
     var hbest = null;
-    // 読み取りの基準を表と同じ最終損益(h2)へ統一（旧=H1基準で表とズレていた・監査F4 2026-07-12）
+    // 読み取りの基準を表と同じ想定損益(h2)へ統一（旧=H1基準で表とズレていた・監査F4 2026-07-12）
     ["ep0", "ep1", "ep2"].forEach(function(k, i) { var o = st[k]; if (o.h2Cnt && (hbest == null || o.h2 / o.h2Cnt > hbest.v)) hbest = { v: o.h2 / o.h2Cnt, i: i }; });
-    if (hbest) items.push(React.createElement("span", null, "1件あたりの最終損益が最も良いのは", _elInsightEmV2(["EP=OS1", "EP=OS2", "EP=OS3"][hbest.i]), "（平均", _elInsightEmV2(Math.round(hbest.v).toLocaleString() + "円"), "）。"));
+    if (hbest) items.push(React.createElement("span", null, "1件あたりの想定損益が最も良いのは", _elInsightEmV2(["EP=OS1", "EP=OS2", "EP=OS3"][hbest.i]), "（平均", _elInsightEmV2(Math.round(hbest.v).toLocaleString() + "円"), "）。"));
     // 勝率の傾向
     var wbest = null;
     ["ep0", "ep1", "ep2"].forEach(function(k, i) { var o = st[k]; var t = o.ok + o.ng; if (t && (wbest == null || o.ok / t > wbest.v)) wbest = { v: o.ok / t, i: i, t: t }; });
@@ -1197,7 +1197,7 @@ function _elWeekdayHeatV2(days, opts) {
   });
   return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "auto repeat(5, 1fr)", gap: 4 } }, kids);
 }
-// 累積損益（記録順）: 最終損益/実現の累積線。寄与は合計行と同一基準（手じまい=_elHoldFinalParts.main）。2026-07-09 EP/H1系列を廃止＝最終損益に集約。
+// 累積損益（記録順）: 想定損益/実現の累積線。寄与は合計行と同一基準（手じまい=_elHoldFinalParts.main）。2026-07-09 EP/H1系列を廃止＝想定損益に集約。
 function _elCumPnlSectionV2(props) {
   var recs = props.recs, aiOf = props.aiOf;
   // 時間かぶり除外: dataが渡された場合は良い方を累積から抜く＝合計行と同一基準を維持。scopeStock指定時は同一銘柄内のみ（銘柄別ビュー）2026-07-08
@@ -1231,12 +1231,12 @@ function _elCumPnlSectionV2(props) {
   var _stp = Math.max(1, Math.ceil(xTicks.length / 6));
   xTicks = xTicks.filter(function(_x, ti) { return ti % _stp === 0; });
   var chart = _elLineChartV2([
-    { label: "最終損益", color: "#D97706", pts: pH2 },
+    { label: "想定損益", color: "#D97706", pts: pH2 },
     { label: "実現損益", color: "#7C3AED", pts: pReal }
   ], { height: 300, targetTicks: 10, xTicks: xTicks, xLabels: xLabels, hoverIdx: hoverIdx, onHover: function(idx) { setHoverIdx(idx); } });
   return React.createElement("div", null, sel, chart);
 }
-// α感応度カーブ: α=0〜20円の各値で全記録を再計算した最終損益（＝旧H2・（）外）の合計。読み取りに手じまい最大α。2026-07-09 EP/H1系列を廃止＝最終損益に集約。
+// α感応度カーブ: α=0〜20円の各値で全記録を再計算した想定損益（＝旧H2・（）外）の合計。読み取りに手じまい最大α。2026-07-09 EP/H1系列を廃止＝想定損益に集約。
 function _elAlphaCurveSectionV2(recs, aiOf) {
   if (!recs || !recs.length) return null;
   var pH2 = [], xTicks = [];
@@ -1252,12 +1252,12 @@ function _elAlphaCurveSectionV2(recs, aiOf) {
   var b2 = 0;
   pH2.forEach(function(v, i) { if (v > pH2[b2]) b2 = i; });
   var chart = _elLineChartV2([
-    { label: "最終損益", color: "#D97706", pts: pH2 }
+    { label: "想定損益", color: "#D97706", pts: pH2 }
   ], { xTicks: xTicks, height: 200 });
   return React.createElement("div", null, chart,
     _elInsightBoxV2([
-      React.createElement("span", null, "最終損益の合計が最大になるのは", _elInsightEmV2("α=" + b2 + "円"), "（", _elInsightEmV2(_elPnlFmt(pH2[b2])), "）。")
-    ], { note: "損切り値は各記録の採用値・最終損益＝期待度○が途切れた所で手じまい（（）外・旧H2損益と同一基準）" }));
+      React.createElement("span", null, "想定損益の合計が最大になるのは", _elInsightEmV2("α=" + b2 + "円"), "（", _elInsightEmV2(_elPnlFmt(pH2[b2])), "）。")
+    ], { note: "損切り値は各記録の採用値・想定損益＝期待度○が途切れた所で手じまい（（）外・旧H2損益と同一基準）" }));
 }
 
 // ===== 推奨基本α値【条件再設計 2026-06-22／ユーザー方針】=====
@@ -1276,11 +1276,11 @@ var _EL_BASE_ALPHAS_FULL = (function() { var _a = []; for (var _i = 0; _i <= 20;
 //   ②オフセット>0だと「最良と判定したα(理想)」と「実際に置くα(推奨)」がズレる、だった。
 //   ⚠️2026-08-10 の全列除外（fillEqSkip）で①の前提は消えた＝平均/Σは「実際に約定した取引だけ」の値になり、刺さりにくさは同値列の件数にしか表れない。
 //   それでも0のままなのは②が残るため。マージンを復活させるかどうかは数字を見てからのユーザー判断＝ここでは値を変えていない。
-//   理想α=Σ最終損益ベースの★／推奨α=実際に置く値（フォーム/EPナビ/本日採用α/シミュへ流れる）。max(0,…)で負にしない。
+//   理想α=Σ想定損益ベースの★／推奨α=実際に置く値（フォーム/EPナビ/本日採用α/シミュへ流れる）。max(0,…)で負にしない。
 var _EL_ALPHA_OFFSET = 0;   // 推奨α＝理想α−この値（0未満にしない）。2026-07-22 1→2 → 2026-08-02 2→1 → 2026-08-02k 1→0（ユーザー決定）。2026-08-10 の同値・全列除外でも据え置き（上のコメント②が理由）。基本α・応用α共通。1以上に戻せば表示の「−N円」注記も自動で復活する。
 // 表示用: 「推奨＝理想−N円」注記の断片。オフセット0（＝推奨と理想が一致）なら空文字を返し注記そのものを出さない 2026-08-02k。unitは"円"等の後置文字（省略可）。
 function _elAlphaOffTxt(unit) { return _EL_ALPHA_OFFSET > 0 ? ("−" + _EL_ALPHA_OFFSET + (unit || "")) : ""; }
-// 理想α選定 2026-08-02k ユーザー方針【平均重視→累計重視へ変更】: 前提ゲート通過候補のうち、Σ最終損益（累計・h2Sum）が最大のα＝理想。同点は平均（1件あたり・avgH2）が大きい方→値が小さい方。
+// 理想α選定 2026-08-02k ユーザー方針【平均重視→累計重視へ変更】: 前提ゲート通過候補のうち、Σ想定損益（累計・h2Sum）が最大のα＝理想。同点は平均（1件あたり・avgH2）が大きい方→値が小さい方。
 //   旧＝平均最大(2026-07-15f)／その前＝順位和(2026-07-15e)。基本α・応用α・追加α・浮き足%・RN加算で共通（全スイープ統一・ユーザー決定）。
 // Σ最大で最良候補を返す 2026-08-02k: cands（ゲート通過済み）のうち累計(sigOf)が最大の候補を返す。同点は平均(avgOf)大→値(aOf)小。
 //   Σと平均は連動しない（未到達はh2Cntから落ちる＝高αほど件数が減る）ので、Σ主軸の理想αは平均主軸より低め＝件数を取る方向に出る。関数名_elBordaBestは互換のため据え置き。
@@ -1528,7 +1528,7 @@ function _ElAnaCutCtl(props) {
     React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _btn("↑", 1), _btn("↓", -1)),
     React.createElement("span", { style: { fontSize: 8.5, color: "#B45309" } }, "推奨α分析（基本/追加・フォーム/EPナビ/シミュの推奨含む）はこの損切り値を前提に評価・既定" + _EL_ANA_CUT_DEF + "円"));
 }
-// ===== 到達率の下限（2026-07-13 ユーザー指定）＝基本α★の付け方＝「この到達率以上・黒字を満たすαのうちΣ最終損益（累計）が最大のα（2026-08-02k）を理想とし推奨＝理想−_EL_ALPHA_OFFSET（＝0・実質は理想と同値）」 =====
+// ===== 到達率の下限（2026-07-13 ユーザー指定）＝基本α★の付け方＝「この到達率以上・黒字を満たすαのうちΣ想定損益（累計）が最大のα（2026-08-02k）を理想とし推奨＝理想−_EL_ALPHA_OFFSET（＝0・実質は理想と同値）」 =====
 // 既定70%（2026-07-14e 60→50→2026-07-15j 50→60→2026-07-22f 60→70 ユーザー要望「推奨条件に到達率70%以上を加えて」）・10刻みで調整可・custom.anaReachFloorに保存（全端末同期）。同期は_elAlphaInfo(app-05)内で_elAnaCutと並んで実施。基本α★(_elBaseAlphaPick)＋応用α★(_elSpecialAlphaPick)の両方が全条件ゲートでこの到達率下限を使用。※目標到達率を満たすαが1つも無い時は_EL_ANA_REACH_FLOOR2(50%)まで引き下げて参考(na/青★)選定（2026-07-15j）。
 var _EL_ANA_REACH_DEF = 70;
 var _EL_ANA_REACH_FLOOR2 = 50;   // 到達率フォールバックの下限（2026-07-15j ユーザー要望）: 目標到達率で該当αが無い時ここまで引き下げて再選定＝参考(na/青★)。これ以下には下げない安全網。基本α/応用α共通。
@@ -1543,7 +1543,7 @@ function _ElAnaReachCtl(props) {
     React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1" } }, "🎯 到達率の下限"),
     React.createElement("b", { style: { fontSize: 14, color: "#0369A1", fontVariantNumeric: "tabular-nums" } }, v + "%"),
     React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", gap: 1 } }, _btn("↑", 10), _btn("↓", -10)),
-    React.createElement("span", { style: { fontSize: 8.5, color: "#0369A1" } }, "基本αの理想＝この到達率以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうちΣ最終損益（累計）が最大のα／推奨＝理想" + _elAlphaOffTxt("円") + "・既定" + _EL_ANA_REACH_DEF + "%（満たすαが無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで引き下げて参考=青★）"));
+    React.createElement("span", { style: { fontSize: 8.5, color: "#0369A1" } }, "基本αの理想＝この到達率以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうちΣ想定損益（累計）が最大のα／推奨＝理想" + _elAlphaOffTxt("円") + "・既定" + _EL_ANA_REACH_DEF + "%（満たすαが無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで引き下げて参考=青★）"));
 }
 // ===== 根拠別 推奨応用αの下限（2026-07-13 ユーザー指定）＝根拠で絞った母数のプール件数（その根拠の応用〇記録数＝画面のn=・EP到達/判定は問わない）がこの数以上のときだけ「根拠別」を採用。未満は銘柄全体の応用αへフォールバック =====
 // 既定15件・custom.specialMinDecidedに保存（全端末同期）。同期は_elAlphaInfo(app-05)内。対象＝EPナビ/早見の根拠別推奨応用α（_epnSpecialRecoFrom app-04）のみ。記録フォームの推奨応用αは元々銘柄全体母数なので対象外。
@@ -1647,20 +1647,20 @@ function _elAlphaEvalByFn(recs, aiOf, alphaOf) {
   var score = scN > 0 ? (_EL_BASE_W_STOP * (1 - stopRate) + _EL_BASE_W_H1 * h1win) : null;
   return { a: null, pnl: hasPnl ? pnl : null, epPnl: hasEp ? epPnl : null, stopN: stopN, epStopN: epStopN, n: n, entered: entered, eRate: n > 0 ? entered / n : 0, hasPnl: hasPnl, hasEp: hasEp, wOk: wOk, wNg: wNg, wDr: wDr, decided: decided, ewin: decided > 0 ? wOk / decided : 0, scN: scN, stopH1N: stopH1N, h1WinN: h1WinN, stopRate: stopRate, h1win: h1win, score: score };
 }
-// 最終損益(H2)ベースの反実仮想エバリュエータ 2026-07-12: alphaOf(r)→そのレコードの総合α（null=母数外）。_elAlphaEvalByFn(H1版)の最終損益版＝到達(entered)/E成立(decided)/損切り率/利確率(最終損益>0)/想定損益(Σ最終損益h2Sum)/平均(avgH2)/スコアを返す。損益は取引・銘柄別記録と同一基準(_elHoldFinalParts.main=（）外最終損益)。損切り率・利確率の分母＝E成立(_elDynResult ok/ng/draw)。スコア＝0.7×(1−損切り率)+0.3×利確率。浮き足加算率スイープ(_elUkiPctSweep)で使用。
+// 想定損益(H2)ベースの反実仮想エバリュエータ 2026-07-12: alphaOf(r)→そのレコードの総合α（null=母数外）。_elAlphaEvalByFn(H1版)の想定損益版＝到達(entered)/E成立(decided)/損切り率/利確率(想定損益>0)/試算損益(Σ想定損益h2Sum)/平均(avgH2)/スコアを返す。損益は取引・銘柄別記録と同一基準(_elHoldFinalParts.main=（）外想定損益)。損切り率・利確率の分母＝E成立(_elDynResult ok/ng/draw)。スコア＝0.7×(1−損切り率)+0.3×利確率。浮き足加算率スイープ(_elUkiPctSweep)で使用。
 // fillEqSkip（2026-08-02e「0円算入」で導入 → 2026-08-10 ユーザー決定で**全列から除外**へ変更）: 指値同値（掃引αがOS1〜3高値の
 //   最大とちょうど一致＝予定EPに触れただけで上抜けていない）を「そのαなら指値が刺さらず取引していない」として扱う。
-//   到達(entered)・E成立(decided)・損切り/利確に加えて**最終損益(平均/中央/Σ)・勝ち/負け平均からも外す**
+//   到達(entered)・E成立(decided)・損切り/利確に加えて**想定損益(平均/中央/Σ)・勝ち/負け平均からも外す**
 //   ＝どの列の母数にも入れない。件数だけ fillEqN に数えて「同値」列に出す。
-//   旧仕様（2026-08-02e〜2026-08-09）は最終損益だけ0円で母数(h2Cnt/h2Vals)に残していたが、
+//   旧仕様（2026-08-02e〜2026-08-09）は想定損益だけ0円で母数(h2Cnt/h2Vals)に残していたが、
 //   「平均/中央/Σには入るが勝ち/負け平均には入らない」と列で扱いが割れて読みにくい、というユーザー判断で全列除外に統一。
-//   数値の影響: Σ最終損益は不変（0円を足していただけ）／平均は分母が fillEqN 件減るぶん**上がる**／中央値は0が抜けるぶん動く。
+//   数値の影響: Σ想定損益は不変（0円を足していただけ）／平均は分母が fillEqN 件減るぶん**上がる**／中央値は0が抜けるぶん動く。
 //   ★選定の第1キーはΣなので理想・推奨は基本的に不変（同点時の第2キー＝平均だけ入れ替わりうる）。
 //   未指定(falsy)なら除外自体をしない＝同値も約定扱い（従来どおり）。
 function _elH2EvalByFn(recs, aiOf, alphaOf, fillEqSkip) {
   var n = 0, entered = 0, decided = 0, stopN = 0, takeN = 0, h2Sum = 0, h2Cnt = 0, fillEqN = 0;
   // 2026-07-16e 追加: medH2(中央値)・avgWin/avgLoss(勝ち/負け平均)を既存1パス内で収集＝プール再走査なし（α毎のsortが1回増えるだけ）。
-  // 母数は平均/Σと同じ h2Cnt（_elHoldFinalParts.main が非null＝最終損益が確定した件数）＝decided と一致しないことがある（EP×見送り・H2未達で main=null）。
+  // 母数は平均/Σと同じ h2Cnt（_elHoldFinalParts.main が非null＝想定損益が確定した件数）＝decided と一致しないことがある（EP×見送り・H2未達で main=null）。
   // 2026-08-10 以降は同値も h2Cnt に入らない＝**h2Cnt === takeN + lossN が常に成立**（旧: 同値ぶん h2Cnt のほうが多かった）。
   var h2Vals = [], winSum = 0, lossSum = 0, lossN = 0;
   (recs || []).forEach(function(r) {
@@ -1669,8 +1669,8 @@ function _elH2EvalByFn(recs, aiOf, alphaOf, fillEqSkip) {
     var _aiR = aiOf(r);
     var c = _aiR.cutLine;
     n++;
-    // 指値同値＝そのαでは約定していない扱い（到達/E成立/損切り/利確/最終損益＝どの列の母数にも入れない）2026-08-10
-    // 件数だけ fillEqN に数えて「同値」列に出す。旧2026-08-02eは h2Cnt++/h2Vals.push(0) で最終損益にだけ0円算入していたが、
+    // 指値同値＝そのαでは約定していない扱い（到達/E成立/損切り/利確/想定損益＝どの列の母数にも入れない）2026-08-10
+    // 件数だけ fillEqN に数えて「同値」列に出す。旧2026-08-02eは h2Cnt++/h2Vals.push(0) で想定損益にだけ0円算入していたが、
     //   列によって同値の入る/入らないが割れるのが分かりにくいというユーザー判断で全列除外へ統一（h2Cnt＝takeN+lossN が常に成立するようになる）。
     if (fillEqSkip && _elFillEqAt(s, r.item, a, _aiR.alpha)) { fillEqN++; return; }
     var rr = _epResolve(s, a);
@@ -1699,8 +1699,8 @@ function _elH2EvalByFn(recs, aiOf, alphaOf, fillEqSkip) {
 // ＝実際の指値が約定しなかった可能性がある。株数シミュの_fillEqN(app-06)と同じ規約で、
 //   「その記録の採用αと掃引αが一致し、かつ実際に約定している(_elIsEntered)」ケースは約定した証拠があるので数えない。
 // 2026-08-02e 表示専用から**評価へ昇格**（ユーザー決定）: α詳細表2つ（基本α・応用α）では同値を「そのαなら取引していない」として扱う。
-// 2026-08-10 その扱いを**全列除外**に統一（ユーザー決定）＝到達(entered)・E成立(decided)・損切り/利確に加えて最終損益(平均/中央/Σ)・
-//   勝ち/負け平均の母数からも外す＝_elH2EvalByFnの第4引数fillEqSkip。旧2026-08-02e〜09は最終損益だけ0円算入だった。
+// 2026-08-10 その扱いを**全列除外**に統一（ユーザー決定）＝到達(entered)・E成立(decided)・損切り/利確に加えて想定損益(平均/中央/Σ)・
+//   勝ち/負け平均の母数からも外す＝_elH2EvalByFnの第4引数fillEqSkip。旧2026-08-02e〜09は想定損益だけ0円算入だった。
 // 現在は第4引数trueの呼び出し（α詳細表2つ・RNボード①②③・浮き足%スイープ・RN加算値スイープ）すべてがこの全列除外で揃っている。
 // 単一記録がその掃引αで「指値同値」か。_elH2EvalByFn(fillEqSkip)と同値列の単一源＝二重定義しない。
 function _elFillEqAt(s, item, a, adoptA) {
@@ -1717,9 +1717,9 @@ function _elFillEqCell(n) {
 }
 // ===== RN加算の分析ボード（シグナル総合「🔢RN」・2026-07-16d 全面刷新）=====
 // RN加算＝EPの下二桁が90台(91〜99・90ちょうどは除く)のとき、RN加算(rnVal=100−下二桁)でEPをRNちょうど(例5391〜99→5400)に乗せる運用。
-// 母数=渡されたv2算入記録のうちRN〇(signal.rnUsed・_elRnYes)。最終損益(手じまい)基準(_elH2EvalByFn)。
+// 母数=渡されたv2算入記録のうちRN〇(signal.rnUsed・_elRnYes)。想定損益(手じまい)基準(_elH2EvalByFn)。
 // ①EP位置スイープ＝EPをRN−3〜RN+3の各位置に置き直して再判定（採用α+オフセット）＋RN無し(素のα=採用α−RN値)の参考行。「本当にRNちょうどでいいのか」。
-//   ★＝E成立≥_EL_BASE_MIN_N かつ Σ黒字 の候補でΣ最終損益（累計）が最大＝2026-08-02k 累計重視（浮き足%ボードと同流儀・薄いうちは全行（仮））。現行=RNちょうど行は琥珀ハイライト。RN無しが★を取ることもある＝そもそも不要のサイン。
+//   ★＝E成立≥_EL_BASE_MIN_N かつ Σ黒字 の候補でΣ想定損益（累計）が最大＝2026-08-02k 累計重視（浮き足%ボードと同流儀・薄いうちは全行（仮））。現行=RNちょうど行は琥珀ハイライト。RN無しが★を取ることもある＝そもそも不要のサイン。
 // ②寄与の内訳＝現実−RN無しの差を「両方成立の値幅改善」「RN待ちで入れなかった取引の仮想損益（負=待って正解）」に分解＋記録ごとの得/損/同件数。「そもそも採る必要があるのか」。
 // ③RN距離別＝rnVal別に Σ現実/ΣRN無し/寄与。近い距離(+1〜3)は誤差か・遠い距離(+7〜9)でも待つ価値があるか。
 // ※旧「RN込みvsRN無し2行表」「RN加算値別(現実のみ)」は①③に吸収＝撤去(2026-07-16d)。RN×側との比較は「RN加算状況だったか」のフラグが記録に無く不可能＝出さない。
@@ -1812,12 +1812,12 @@ function _elRnBoardV2(recs, aiOf, holiSet) {
       _td2(_sumCell(d)));
   });
   return React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6 } }, "母数＝RN〇の全記録（" + pool.length + "件）。EPを各位置に置き直して再判定（採用α±オフセットでEP到達〜最終損益[手じまい・○途切れ]まで同一基準で再計算）。RN無し＝RN加算を外した素のα＝EPは下二桁91〜99のまま（記録ごとに位置が違う参考行）。"),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6 } }, "母数＝RN〇の全記録（" + pool.length + "件）。EPを各位置に置き直して再判定（採用α±オフセットでEP到達〜想定損益[手じまい・○途切れ]まで同一基準で再計算）。RN無し＝RN加算を外した素のα＝EPは下二桁91〜99のまま（記録ごとに位置が違う参考行）。"),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "① EP位置スイープ 〜本当にRNちょうどでいいのか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
-      React.createElement("thead", null, React.createElement("tr", null, ["EP位置", "母数", "到達率", "E成立", "同値", "頻度", "損切り率", "利確率", "Σ最終損益", "平均"].map(function(h, i) { return _th2(h, i); }))),
+      React.createElement("thead", null, React.createElement("tr", null, ["EP位置", "母数", "到達率", "E成立", "同値", "頻度", "損切り率", "利確率", "Σ想定損益", "平均"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, rows.map(_swRow)))),
-    React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4 } }, "上（手前）ほど早く入れて到達が増え、下（超え）ほど1件あたりが良くなるトレードオフ。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字の位置でΣ最終損益（累計）が最大（該当なしなら★なし）。RN無しが★なら「そもそもまたぎ不要」のサイン。"),
+    React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4 } }, "上（手前）ほど早く入れて到達が増え、下（超え）ほど1件あたりが良くなるトレードオフ。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字の位置でΣ想定損益（累計）が最大（該当なしなら★なし）。RN無しが★なら「そもそもまたぎ不要」のサイン。"),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "12px 0 4px" } }, "② RN待ちの寄与・内訳 〜そもそも採る必要があるのか〜"),
     React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
       _statCard("両方成立した取引（" + bothN + "件）", bothN ? bothDiff : null, "RN値ぶんエントリーが有利になった値幅改善（判定変化の影響含む）"),
@@ -1898,7 +1898,7 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
     for (_i = 0; _i < _dists.length; _i++) { if (_dists[_i] <= _t) _hit++; }
     rows.push({ t: _t, af: _f, hit: _hit, e: _elH2EvalByFn(pool, aiOf, _f, true) });   // 2026-08-02h 同値は全列除外（①EP位置スイープ・α詳細表と同基準）2026-08-10
   }
-  // ★＝①EP位置スイープと同じ軽いゲート（E成立≥_EL_BASE_MIN_N かつ Σ黒字のうちΣ最終損益（累計）最大 2026-08-02k）。推奨基本αの4条件フルゲートは使わない
+  // ★＝①EP位置スイープと同じ軽いゲート（E成立≥_EL_BASE_MIN_N かつ Σ黒字のうちΣ想定損益（累計）最大 2026-08-02k）。推奨基本αの4条件フルゲートは使わない
   //   ＝全T行が同じ母数・ほぼ同じ到達率/頻度になるためゲートが効かず「条件適合無し」しか出ないため。T=0が★なら「そもそもまたぎ不要」のサイン。
   var _gated = rows.filter(function(rw) { return rw.e.decided >= _EL_BASE_MIN_N && rw.e.h2Sum != null && rw.e.h2Sum > 0; });
   _gated.sort(function(x, y) { return (x.e.h2Sum - y.e.h2Sum) || (x.e.avgH2 - y.e.avgH2); });   // 2026-08-02k 累計重視へ（Σ最大→同点は平均大）＝_elBordaBestと同じ並び。昇順ソートの末尾が★
@@ -1956,21 +1956,21 @@ function _elRnThresholdBoardV2(recs, aiOf, holiSet, tier) {
   var _tierLbl = _tierName(_tier);
   return React.createElement("div", null,
     React.createElement("div", { style: { fontSize: 9.5, color: "#A79E92", marginBottom: 6, lineHeight: 1.5 } },
-      "母数＝水準線値入りの記録 " + pool.length + "件（RN〇 " + rnYesN + "／RN× " + (pool.length - rnYesN) + "・" + _tierLbl + "）。RN加算“前”のEP（水準線＋基底α＋浮き足加算）の下二桁から直近のキリ番までの距離を測り、距離≤T円なら〇にするルールで採用αを組み直して再判定（EP到達〜最終損益[手じまい・○途切れ]まで推奨α系と同一基準）。",
+      "母数＝水準線値入りの記録 " + pool.length + "件（RN〇 " + rnYesN + "／RN× " + (pool.length - rnYesN) + "・" + _tierLbl + "）。RN加算“前”のEP（水準線＋基底α＋浮き足加算）の下二桁から直近のキリ番までの距離を測り、距離≤T円なら〇にするルールで採用αを組み直して再判定（EP到達〜想定損益[手じまい・○途切れ]まで推奨α系と同一基準）。",
       React.createElement("span", { style: { color: "#B08968" } }, "除外＝水準線未入力 " + noLv + "件／すでに…50・…00ちょうど " + onRn + "件" + (offTier ? "／他の段 " + offTier + "件" : "") + (badPre ? "／採用αよりRN加算が大きい不整合 " + badPre + "件" : "") + "。")),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "2px 0 4px" } }, "① 閾値スイープ 〜何円手前までなら待つ価値があるのか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
-      React.createElement("thead", null, React.createElement("tr", null, ["閾値T", "該当", "到達率", "E成立", "同値", "頻度", "損切り率", "利確率", "Σ最終損益", "平均", "T=0比"].map(function(h, i) { return _th2(h, i); }))),
+      React.createElement("thead", null, React.createElement("tr", null, ["閾値T", "該当", "到達率", "E成立", "同値", "頻度", "損切り率", "利確率", "Σ想定損益", "平均", "T=0比"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, rows.map(_tRow)))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 } },
-      "該当＝そのTで〇になる記録数（Tが上がるほど積み上がる）。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字のTでΣ最終損益（累計）が最大（該当なしなら★なし）。T=0が★なら「そもそもRN加算不要」のサイン。RNの間隔は50円なのでTを1上げても該当は全体の約2%ずつしか増えない＝Σの差が小さく見えるため、右端の「T=0比」と下の距離別で判断する。"),
+      "該当＝そのTで〇になる記録数（Tが上がるほど積み上がる）。★＝E成立" + _EL_BASE_MIN_N + "件以上かつΣ黒字のTでΣ想定損益（累計）が最大（該当なしなら★なし）。T=0が★なら「そもそもRN加算不要」のサイン。RNの間隔は50円なのでTを1上げても該当は全体の約2%ずつしか増えない＝Σの差が小さく見えるため、右端の「T=0比」と下の距離別で判断する。"),
     React.createElement("div", { style: { fontSize: 10.5, fontWeight: 800, color: "#0F766E", margin: "12px 0 4px" } }, "② 距離別の限界寄与 〜どこで符号が反転するか〜"),
     React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", null, ["RNまでの距離", "件数", "またぐΣ", "またがないΣ", "差", "累計差"].map(function(h, i) { return _th2(h, i); }))),
       React.createElement("tbody", null, distRows))),
     React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8", marginTop: 4, lineHeight: 1.5 } },
-      "距離dの記録はT=dでちょうど〇になるので、差を1円手前から積み上げた「累計差」は主表の同じTの「T=0比」と一致する（ズレていたら実装バグ）。最初に差がマイナスへ転じた距離の1つ手前が、Σ最終損益を最大にするT。"
-      + "⚠️①の★は『平均』最終損益が最大のTなので、この2つはしばしば違うTを指す（Tを上げるほどEPが深くなり到達が減る＝残った少数の強い記録だけで平均が上がるため、★は深いTへ寄りやすい）。総額を積みたいならこの累計差、1件あたりの質を見たいなら★。★のTが極端に少ないE成立で選ばれていないか件数列も確認。" + (farN ? "距離" + (_EL_RN_T_MAX + 1) + "円以上 " + farN + "件は表示範囲外（どのTでも〇にならない）。" : "")));
+      "距離dの記録はT=dでちょうど〇になるので、差を1円手前から積み上げた「累計差」は主表の同じTの「T=0比」と一致する（ズレていたら実装バグ）。最初に差がマイナスへ転じた距離の1つ手前が、Σ想定損益を最大にするT。"
+      + "⚠️①の★は『平均』想定損益が最大のTなので、この2つはしばしば違うTを指す（Tを上げるほどEPが深くなり到達が減る＝残った少数の強い記録だけで平均が上がるため、★は深いTへ寄りやすい）。総額を積みたいならこの累計差、1件あたりの質を見たいなら★。★のTが極端に少ないE成立で選ばれていないか件数列も確認。" + (farN ? "距離" + (_EL_RN_T_MAX + 1) + "円以上 " + farN + "件は表示範囲外（どのTでも〇にならない）。" : "")));
 }
 // 日数セルの共通描画 2026-08-12e（ユーザー要望「その月・週の全体営業日数も出したい」）。
 // 上段=done＝**今日までに**市場が開いた営業日数。1日平均・1日換算グレードの分母はこちらのまま（進行中の月を月末基準で割ると平均が過小に出るため）。
@@ -2046,7 +2046,7 @@ function _elReco2Node(text, fontSize, color) {
 // 推奨基本α(5〜20)を選定【2026-06-22c】: 件数フロア＝最大件数(scN)×_EL_BASE_MIN_FRAC（最低_EL_BASE_MIN_N件）かつ 到達率≥_EL_BASE_MIN_ERATE のαから、合成スコア(0.7×(1−損切り率)+0.3×H1勝率)が最大。
 // 高αは到達率が下がり標本が薄い「いいとこ取り(選抜バイアスでスコア上振れ)」になるため、件数フロア＋到達率フロアで薄い高α・約定しにくい高αを除外＝厚く約定しやすい標本の中で最良のαを選ぶ。同点は件数最大→低α。フロア皆無なら件数(scN)最大のαを参考(status="na")・entered皆無は"none"。
 // 返り値 { alpha, score, stopRate, h1win, eRate, entered, scN, pnl, epPnl, stopN, ewin, status('ok'|'na'|'none'), sweep, minN(=採用した件数フロア) }。
-// 旧・合成スコア方式の選定（〜2026-07-12の_elBaseAlphaPick本体）。2026-07-13に★基準を「条件式＋Σ最終損益」へ刷新した際、
+// 旧・合成スコア方式の選定（〜2026-07-12の_elBaseAlphaPick本体）。2026-07-13に★基準を「条件式＋Σ想定損益」へ刷新した際、
 // 乖離確認用の「旧基準」チップ（結論バー/KPIカード）のために保存。ロジックは刷新前と同一（0.7×損切り回避+0.3×H1勝率・H1基準）。
 function _elBaseAlphaPickScore(recs, aiOf) {
   if (!recs || !recs.length) return null;
@@ -2062,7 +2062,7 @@ function _elBaseAlphaPickScore(recs, aiOf) {
   var floorN = Math.max(_EL_BASE_MIN_N, Math.round(maxScN * _EL_BASE_MIN_FRAC));
   var _ret = function(p, status) { return { alpha: p.a, score: p.score, stopRate: p.stopRate, h1win: p.h1win, eRate: p.eRate, entered: p.entered, scN: p.scN, pnl: p.pnl, epPnl: p.epPnl, stopN: p.stopN, ewin: p.ewin, status: status, sweep: sweep, minN: floorN, alpha2: null, score2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null }; };
   // 件数フロア＋到達率フロア(_EL_BASE_MIN_ERATE)を満たすαの中で合成スコア最大（薄い高α・約定しにくい高αを母数から外す）。同点は件数の多い＝信頼できる方→低α。
-  // 【2026-06-26 A】候補に「想定損益(累計ΣH1)>0」を追加＝赤字αは推奨しない。スコアは率(損切り回避/H1勝率)だけで金額を見ないため、損切りに当たらず小負けを重ねるαが上位に来るのを防ぐ。黒字αが皆無なら下のフォールバック(件数最大・参考)へ。
+  // 【2026-06-26 A】候補に「試算損益(累計ΣH1)>0」を追加＝赤字αは推奨しない。スコアは率(損切り回避/H1勝率)だけで金額を見ないため、損切りに当たらず小負けを重ねるαが上位に来るのを防ぐ。黒字αが皆無なら下のフォールバック(件数最大・参考)へ。
   var cand = sweep.filter(function(e) { return e.scN >= floorN && e.eRate != null && e.eRate >= _EL_BASE_MIN_ERATE && e.score != null && e.pnl != null && e.pnl > 0; });
   if (cand.length) {
     cand.sort(function(x, y) { return (x.score - y.score) || (x.scN - y.scN) || (y.a - x.a); });   // 昇順→末尾が最良（スコア最大・同点は件数最大→低α）
@@ -2081,8 +2081,8 @@ function _elBaseAlphaPickScore(recs, aiOf) {
   withEntry.sort(function(x, y) { return (x.scN - y.scN) || (x.a - y.a); });
   return _ret(withEntry[withEntry.length - 1], "na");
 }
-// ★選定【2026-07-13 到達率ベースに全面刷新・ユーザー承認】: 母数=素の記録（追加α〇/浮き足〇/RN〇除外・従来どおり）。各α(0〜20円)を最終損益(手じまい)基準 _elH2EvalByFn で評価し、
-// 「黒字(Σ最終損益>0)かつ 到達率≥下限(_elAnaReachCur%・既定70・10刻み調整可)かつ 頻度<_EL_FREQ_MAX」のαのうち【Σ最終損益（累計）が最大のα】を理想α（2026-08-02k 累計重視へ変更・同点は平均大→低α。旧＝平均最大2026-07-15f／その前＝最も高いα）。全滅時は到達率下限を引き下げて緩和(na)。
+// ★選定【2026-07-13 到達率ベースに全面刷新・ユーザー承認】: 母数=素の記録（追加α〇/浮き足〇/RN〇除外・従来どおり）。各α(0〜20円)を想定損益(手じまい)基準 _elH2EvalByFn で評価し、
+// 「黒字(Σ想定損益>0)かつ 到達率≥下限(_elAnaReachCur%・既定70・10刻み調整可)かつ 頻度<_EL_FREQ_MAX」のαのうち【Σ想定損益（累計）が最大のα】を理想α（2026-08-02k 累計重視へ変更・同点は平均大→低α。旧＝平均最大2026-07-15f／その前＝最も高いα）。全滅時は到達率下限を引き下げて緩和(na)。
 // 推奨α＝max(0,理想−_EL_ALPHA_OFFSET)。オフセットは2026-08-02kで0＝推奨と理想は一致（理想と実際に置く値をズラさない方針。同値は2026-08-10に全列の母数から除外＝件数は「同値」列で読む）。返り値.alpha＝推奨・消費者へ流れる／.idealAlpha＝理想。stats・★は推奨αのもの。
 // 赤★(status ok)=さらに 損切り率(最終)≤_EL_BASE_MAX_STOPRATE(40%)・E成立≥_EL_BASE_MIN_N(10件)・頻度<_EL_FREQ_MAX の自信条件も満たす／青★(na)=条件を一部満たさない参考。
 // 下限を満たすα無し(相場が荒い)→黒字αのうち最も到達率が高い(最も届きやすい)αを参考(na)。黒字α皆無→件数最大を参考。次点=推奨より高い黒字αの最小値（もう一段クッション）。
@@ -2119,7 +2119,7 @@ function _elBaseAlphaPick(recs, aiOf, spanOverride, poolAll) {   // spanOverride
   var _confAt = function(rf) { return function(e) { return e.entered > 0 && e.h2Sum != null && e.h2Sum > 0 && e.eRate != null && e.eRate >= rf && e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && _minOk(e) && _freqOk(e.a); }; };
   var okCands = full.filter(_confAt(reachFloor));
   if (okCands.length) {
-    var _best = _elBordaBest(okCands, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // Σ最終損益（累計）最大 2026-08-02k（旧＝平均最大）
+    var _best = _elBordaBest(okCands, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // Σ想定損益（累計）最大 2026-08-02k（旧＝平均最大）
     return _finish(_best, "ok");   // 理想＝Σ最大／推奨＝理想−_EL_ALPHA_OFFSET（指値フィルマージン）
   }
   // 到達率フォールバック 2026-07-15j: 目標到達率で該当αが無ければ_EL_ANA_REACH_FLOOR2(50%)まで引き下げて再選定＝参考(na/青★)。reachFloorも引き下げた値にして表示・淡色を50%基準に。
@@ -2128,7 +2128,7 @@ function _elBaseAlphaPick(recs, aiOf, spanOverride, poolAll) {   // spanOverride
     var okLo = full.filter(_confAt(_rf2));
     if (okLo.length) {
       reachFloor = _rf2;
-      var _bestLo = _elBordaBest(okLo, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // Σ最終損益（累計）最大（50%引き下げ）
+      var _bestLo = _elBordaBest(okLo, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // Σ想定損益（累計）最大（50%引き下げ）
       return _finish(_bestLo, "na");   // 到達率50%に引き下げた参考(青★)
     }
   }
@@ -2136,7 +2136,7 @@ function _elBaseAlphaPick(recs, aiOf, spanOverride, poolAll) {   // spanOverride
   return { alpha: null, idealAlpha: null, score: null, stopRate: null, h1win: null, eRate: null, entered: 0, scN: 0, pnl: null, epPnl: null, stopN: null, ewin: null, status: _anyEntry ? "nomin" : "none", sweep: sweep, h2sweep: h2sweep, minN: _EL_BASE_MIN_N, decided: 0, takeRate: null, h2Sum: null, avgH2: null, reachFloor: reachFloor, alpha2: null, score2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null, h2Sum2: null };
 }
 // ===== 推奨応用α（応用〇局面）＝基本αと同じ到達率ベース＋理想−_EL_ALPHA_OFFSET（＝0・指値同値マージンは2026-08-02kで撤廃 1→2→1→0）＋「基本αより大きく」クランプ（2026-07-13 ユーザー承認）=====
-// 母数=応用〇（呼び出し側で浮き足〇/RN〇除外を渡す）。各α0〜20円を前提損切り値で評価し「黒字かつ到達率≥下限かつ頻度<_EL_FREQ_MAX」のうちΣ最終損益（累計）が最大のα＝理想（2026-08-02k 累計重視・基本αと同基準）／推奨＝max(0,理想−_EL_ALPHA_OFFSET)。
+// 母数=応用〇（呼び出し側で浮き足〇/RN〇除外を渡す）。各α0〜20円を前提損切り値で評価し「黒字かつ到達率≥下限かつ頻度<_EL_FREQ_MAX」のうちΣ想定損益（累計）が最大のα＝理想（2026-08-02k 累計重視・基本αと同基準）／推奨＝max(0,理想−_EL_ALPHA_OFFSET)。
 // minIdeal（＝基本αの理想・任意）を渡すと「応用の理想≥基本の理想+1」にクランプ＝応用α（理想・推奨とも）が基本αより大きくなる。返り値shape＝旧互換＋idealAlpha/reachFloor。
 var _EL_TOTAL_ALPHAS = (function() { var _a = []; for (var _i = 0; _i <= 20; _i++) _a.push(_i); return _a; })();
 function _elSpecialAlphaPick(pool, aiOf, minIdeal, spanOverride) {   // spanOverride: 頻度ゲートの分母（帯基準_pbBandBizDays）。未指定は記録スパン 2026-07-22j
@@ -2163,7 +2163,7 @@ function _elSpecialAlphaPick(pool, aiOf, minIdeal, spanOverride) {   // spanOver
   var _confAt = function(rf) { return function(e) { return e.entered > 0 && e.h2Sum != null && e.h2Sum > 0 && e.eRate != null && e.eRate >= rf && e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && _minOk(e) && _freqOk(e.a); }; };
   var okCands = sweep.filter(_confAt(reachFloor));
   if (okCands.length) {
-    var _best = _elBordaBest(okCands, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // Σ最終損益（累計）最大 2026-08-02k（旧＝平均最大）
+    var _best = _elBordaBest(okCands, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // Σ想定損益（累計）最大 2026-08-02k（旧＝平均最大）
     return _finish(_best, "ok");   // 理想＝Σ最大／推奨＝理想−_EL_ALPHA_OFFSET（クランプは_finishで温存）
   }
   // 到達率フォールバック 2026-07-15j: 目標到達率で該当αが無ければ_EL_ANA_REACH_FLOOR2(50%)まで引き下げて再選定＝参考(na/青★)。クランプは_finishで温存。
@@ -2172,7 +2172,7 @@ function _elSpecialAlphaPick(pool, aiOf, minIdeal, spanOverride) {   // spanOver
     var okLo = sweep.filter(_confAt(_rf2));
     if (okLo.length) {
       reachFloor = _rf2;
-      var _bestLo = _elBordaBest(okLo, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // Σ最終損益（累計）最大（50%引き下げ）
+      var _bestLo = _elBordaBest(okLo, function(e) { return e.h2Sum; }, function(e) { return e.avgH2; }, function(e) { return e.a; });   // Σ想定損益（累計）最大（50%引き下げ）
       return _finish(_bestLo, "na");   // 到達率50%に引き下げた参考(青★)
     }
   }
@@ -2204,7 +2204,7 @@ function _elTotalAlphaSectionV2(recs, aiOf, holiSet, onPick, curSel, spanOverrid
           _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 20, na ? "#B45309" : "#9A3412")),
     _nomin ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412" } }, "全条件（到達率" + reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満）を満たす応用αが1つも無いため推奨を出せません（下表は参考）") : null,
     _nomin ? null : React.createElement("span", { style: { fontSize: 11, color: "#555" } },
-      "平均最終損益 ", React.createElement("b", { style: { color: _elPnlColor(pick.avgH2) } }, pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—"),
+      "平均想定損益 ", React.createElement("b", { style: { color: _elPnlColor(pick.avgH2) } }, pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—"),
       React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（Σ" + (pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—") + "）"),
       "／損切り率(最終) ", React.createElement("b", null, _pctS(pick.stopRate)),
       "／利確率 ", React.createElement("b", null, _pctS(pick.takeRate)),
@@ -2224,7 +2224,7 @@ function _elTotalAlphaSectionV2(recs, aiOf, holiSet, onPick, curSel, spanOverrid
     if (!(e.decided != null && e.decided >= _EL_BASE_MIN_N)) _ng.push(["件", "E成立が下限" + _EL_BASE_MIN_N + "件未満"]);
     if (!(_freqVal != null && _freqVal < _EL_FREQ_MAX)) _ng.push(["頻", "頻度が" + _EL_FREQ_MAX + "営業日/回以上（低頻度すぎ）"]);
     if (!(e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE)) _ng.push(["損", "損切り率(最終)が上限" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%超"]);
-    if (!(e.h2Sum != null && e.h2Sum > 0)) _ng.push(["赤", "Σ最終損益が赤字（または損益なし）"]);
+    if (!(e.h2Sum != null && e.h2Sum > 0)) _ng.push(["赤", "Σ想定損益が赤字（または損益なし）"]);
     var pass = !_ng.length;
     var _isCur = !!(onPick && curSel != null && e.a === curSel);
     var _cells = [
@@ -2244,18 +2244,18 @@ function _elTotalAlphaSectionV2(recs, aiOf, holiSet, onPick, curSel, spanOverrid
     return React.createElement.apply(null, ["tr", { key: e.a, title: (_ng.length ? ("未達: " + _ng.map(function(g) { return g[1]; }).join(" / ")) : "★の全最低条件を満たす"), onClick: onPick ? function() { onPick(e.a); } : null, style: { background: on ? "#FFF7ED" : (_isCur ? "#FEF3C7" : "transparent"), opacity: pass ? 1 : 0.65, cursor: onPick ? "pointer" : "default" } }].concat(_cells));
   });
   var insight = _nomin ? null : _elInsightBoxV2([
-    React.createElement("span", null, "応用〇で採用する独立α値の", _elInsightEmV2("理想は応用α " + ideal + "円"), "、", _elInsightEmV2("推奨は " + a + "円" + (_elAlphaOffTxt("") ? "（理想" + _elAlphaOffTxt("") + "）" : "")), "（Σ最終損益 ", _elInsightEmV2(pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—"), "・平均最終損益 ", _elInsightEmV2(pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—"), "・損切り率(最終) ",_elInsightEmV2(_pctS(pick.stopRate)), "・E成立 ", _elInsightEmV2((pick.decided || 0) + "件"), "）。"),
+    React.createElement("span", null, "応用〇で採用する独立α値の", _elInsightEmV2("理想は応用α " + ideal + "円"), "、", _elInsightEmV2("推奨は " + a + "円" + (_elAlphaOffTxt("") ? "（理想" + _elAlphaOffTxt("") + "）" : "")), "（Σ想定損益 ", _elInsightEmV2(pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—"), "・平均想定損益 ", _elInsightEmV2(pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—"), "・損切り率(最終) ",_elInsightEmV2(_pctS(pick.stopRate)), "・E成立 ", _elInsightEmV2((pick.decided || 0) + "件"), "）。"),
     React.createElement("span", { style: { color: "#64748B" } }, "応用αは基本αより大きくクランプ。通常局面の推奨基本αは①基本αゾーン。")
-  ], { note: "母数＝応用〇（浮き足〇・RN〇除外）。各応用α0〜20円を前提損切り値" + _elAnaCutCur + "円で評価。理想＝黒字・到達率" + reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・頻度" + _EL_FREQ_MAX + "未満を満たすαのうち、Σ最終損益（累計）が最大のα（基本αより大きくクランプ）／推奨＝理想" + _elAlphaOffTxt("円") + "。同点は平均（1件あたり）が大きい方→低α。フォーム/EPナビの推奨応用αと同じ算出（銘柄全体母数）。中央値が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。淡色の行は★の最低条件のどれかを満たさない行で、どの条件で落ちたかは行にカーソルを合わせると出る（2026-08-02mに「未達」列から行ツールチップへ移設）。利確・損切りの各列は「件数 率」の並び（分母＝E成立）。最終損益(平均/中央/Σ)の母数＝最終損益が確定した件数でE成立とはズレることがある。**同値はどの列の母数にも入れない**＝到達率・E成立・利確・損切り・最終損益(平均/中央/Σ)・勝ち/負け平均のすべてから外す（2026-08-10 ユーザー決定。旧2026-08-02eは最終損益にだけ0円で算入していたので、平均・中央値だけ同値ぶん分母が多かった）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝旧H1基準の参考値［0.7×(1−H1損切り率)+0.3×H1勝率］＝★選定には不使用（H1勝率・平均H1損益の列は最終損益と重複のため2026-07-16に削除・列構成は基本α詳細表と同一）。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝予定EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として全列の母数から外す**（2026-08-10）。Σ最終損益は旧仕様（0円算入）と同額・平均は分母が同値ぶん減るので上がる。したがって平均最終損益は「そのαで実際に約定した1件あたりの実力」であって、刺さらなかった機会のぶんは価格に入っていない＝その頻度は同値列の件数のほうで読む。理想・推奨はΣ最大で選ぶので同値の扱いを変えても基本的に動かない（同点時の第2キー＝平均だけ入れ替わりうる・2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
+  ], { note: "母数＝応用〇（浮き足〇・RN〇除外）。各応用α0〜20円を前提損切り値" + _elAnaCutCur + "円で評価。理想＝黒字・到達率" + reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・頻度" + _EL_FREQ_MAX + "未満を満たすαのうち、Σ想定損益（累計）が最大のα（基本αより大きくクランプ）／推奨＝理想" + _elAlphaOffTxt("円") + "。同点は平均（1件あたり）が大きい方→低α。フォーム/EPナビの推奨応用αと同じ算出（銘柄全体母数）。中央値が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。淡色の行は★の最低条件のどれかを満たさない行で、どの条件で落ちたかは行にカーソルを合わせると出る（2026-08-02mに「未達」列から行ツールチップへ移設）。利確・損切りの各列は「件数 率」の並び（分母＝E成立）。想定損益(平均/中央/Σ)の母数＝想定損益が確定した件数でE成立とはズレることがある。**同値はどの列の母数にも入れない**＝到達率・E成立・利確・損切り・想定損益(平均/中央/Σ)・勝ち/負け平均のすべてから外す（2026-08-10 ユーザー決定。旧2026-08-02eは想定損益にだけ0円で算入していたので、平均・中央値だけ同値ぶん分母が多かった）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝旧H1基準の参考値［0.7×(1−H1損切り率)+0.3×H1勝率］＝★選定には不使用（H1勝率・平均H1損益の列は想定損益と重複のため2026-07-16に削除・列構成は基本α詳細表と同一）。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝予定EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として全列の母数から外す**（2026-08-10）。Σ想定損益は旧仕様（0円算入）と同額・平均は分母が同値ぶん減るので上がる。したがって平均想定損益は「そのαで実際に約定した1件あたりの実力」であって、刺さらなかった機会のぶんは価格に入っていない＝その頻度は同値列の件数のほうで読む。理想・推奨はΣ最大で選ぶので同値の扱いを変えても基本的に動かない（同点時の第2キー＝平均だけ入れ替わりうる・2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
   return React.createElement("div", null,
     concl,
     React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", margin: "8px 0 0" } }, "母数の内訳: 応用〇 " + _yesN + "件 → 浮き足〇 " + _exUki + "件・RN〇 " + _exRn + "件を除外 → " + pool.length + "件"),
     // 2026-08-07 ユーザー指示で注記を2点だけに削減（旧: 0〜20円・淡色＝全条件未達・「理想」の全条件・★＝推奨＝理想・条件適合無し・頻度の読み方まで並べていた）。
-    // 2026-08-10 ユーザー決定で「最終損益に0円で算入」→**全列から除外**へ。この表は _elH2EvalByFn(fillEqSkip=true) で回っており（app-06:2132）、
-    //   同値の記録は h2Cnt/h2Vals にも入らない（app-06:1675）＝到達率・E成立・利確・損切り・最終損益(平均/中央/Σ)・勝ち/負け平均のどれにも入らない。
+    // 2026-08-10 ユーザー決定で「想定損益に0円で算入」→**全列から除外**へ。この表は _elH2EvalByFn(fillEqSkip=true) で回っており（app-06:2132）、
+    //   同値の記録は h2Cnt/h2Vals にも入らない（app-06:1675）＝到達率・E成立・利確・損切り・想定損益(平均/中央/Σ)・勝ち/負け平均のどれにも入らない。
     //   Σは旧仕様と同額（0円を足していただけ）／平均は分母が減って上がる。件数は「同値」列にだけ出る。
     _lbl("前提損切り値" + _elAnaCutCur + "円で評価／指値同値はどの列の母数にも入れない（そのαでは取引していない扱い・件数は「同値」列のみ）"),
-    _elv2Table(["応用α", "E成立", "到達率", "同値", "頻度", "利確", "損切り", "最終損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"].concat(onPick ? ["選択"] : []), rows),   // 2026-08-02m 「未達」撤去・利確/損切りは件数＋率
+    _elv2Table(["応用α", "E成立", "到達率", "同値", "頻度", "利確", "損切り", "想定損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"].concat(onPick ? ["選択"] : []), rows),   // 2026-08-02m 「未達」撤去・利確/損切りは件数＋率
     insight);
 }
 // 推奨α★ノード（2026-07-13c ユーザー指定）: 濃い字（条件を満たす＝status ok）の推奨は赤★、薄い字（条件緩和の参考＝status na）の推奨は青★。詳細データ表の★セルで共用。
@@ -2282,7 +2282,7 @@ function _elAddAlphaRecoScore(recs, aiOf, baseAlpha) {
     var sim = _elSimPnlByDay(recs, aiOf, tot);
     evals.push({ add: add, total: tot, e: e, sim: sim, pnl: (sim && sim.sum != null) ? sim.sum : null });
   }
-  // 黒字(想定損益>0)かつ標本フロア scN≥_EL_BASE_MIN_N を満たす加算（黒字は全段共通の必須条件＝赤字の上乗せは推奨しない・1〜2件の偶然も除外）。evalsはadd昇順なのでこの並びも昇順。
+  // 黒字(試算損益>0)かつ標本フロア scN≥_EL_BASE_MIN_N を満たす加算（黒字は全段共通の必須条件＝赤字の上乗せは推奨しない・1〜2件の偶然も除外）。evalsはadd昇順なのでこの並びも昇順。
   var black = evals.filter(function(x) { return x.e.scN >= _EL_BASE_MIN_N && x.pnl != null && x.pnl > 0; });
   // 損切り回避の優先順で段階選抜（ユーザー方針 2026-06-29d／到達率フロア追加 2026-06-30）: 第1=損切り0%かつ到達率≥_EL_ADD_MIN_ERATE→最小加算／第2=損切り≤_EL_ADD_STOPRATE_2(30%)かつ到達率≥_EL_ADD_MIN_ERATE→最小加算／第3(最後の砦)=それも無ければ黒字の中で損切り率が最も低いもの（同率は最小加算・到達率フロアは課さない）。
   var pool, p;
@@ -2300,8 +2300,8 @@ function _elAddAlphaRecoScore(recs, aiOf, baseAlpha) {
     add2: p2 ? p2.add : null, total2: p2 ? p2.total : null, stopRate2: g ? g.stopRate : null, h1win2: g ? g.h1win : null, eRate2: g ? g.eRate : null, scN2: g ? g.scN : null, pnl2: g ? g.pnl : null, sim2: g ? g.sim : null };
 }
 // ===== 推奨追加α【2026-07-13 全面刷新・ユーザー承認】＝日付別カウンターファクタル =====
-// 「各記録日の推奨基本α(recoFn(r.date))＋加算X円で入っていたら手仕舞い(最終損益)でどうだったか」をX=0〜_EL_ADD_SWEEP_MAX(10円)でスイープ。
-// X=0円＝足さない（その日の推奨基本αのまま）＝基準行。選定＝追加α条件式（到達率≥50%[_EL_BASE_MIN_ERATE]・損切り率(手じまい)≤40%[_EL_BASE_MAX_STOPRATE]・E成立≥件数条件・黒字）の中で平均最終損益（1件あたり）最大（同点はE成立多→小さいX）。
+// 「各記録日の推奨基本α(recoFn(r.date))＋加算X円で入っていたら手仕舞い(想定損益)でどうだったか」をX=0〜_EL_ADD_SWEEP_MAX(10円)でスイープ。
+// X=0円＝足さない（その日の推奨基本αのまま）＝基準行。選定＝追加α条件式（到達率≥50%[_EL_BASE_MIN_ERATE]・損切り率(手じまい)≤40%[_EL_BASE_MAX_STOPRATE]・E成立≥件数条件・黒字）の中で平均想定損益（1件あたり）最大（同点はE成立多→小さいX）。
 // 該当なしは頻度ゲートを外して緩和(status na=参考)。★がX=0なら「追加αは足さない方が良い」＝improved:false＋zeroBest:true（KPI/ゾーンヘッドが専用文言・フォーム/EPナビは従来どおり推奨無し扱い）。
 // 返り値は旧_elAddAlphaReco互換 {add,total,improved,stopRate,h1win,eRate,scN,pnl,sim,add2,...}＋新fields {zeroBest,status,minN,nBase,decided,takeRate,h2Sum,avgH2,h2Sum2,sweepDate}。
 // stopRate/takeRate/h2Sum/decided/eRate＝手じまい基準(_elH2EvalByFn)・h1win/scN/pnl＝H1基準の参考(_elAlphaEvalByFn)。recoFn未算出の記録(履歴不足)は母数外。
@@ -2332,7 +2332,7 @@ function _elAddAlphaPickDate(pool, aiOf, recoFn, baseAlpha) {
       stopRate: null, takeRate: null, h2Sum: null, avgH2: null, decided: sweep[0].h2.decided || 0, eRate: null, h1win: null, scN: 0, pnl: null, sim: null,
       add2: null, total2: null, stopRate2: null, h1win2: null, eRate2: null, scN2: null, pnl2: null, h2Sum2: null, sim2: null, sweepDate: sweep };
   }
-  var _sigOf = function(row) { return row.h2.h2Sum; }, _avgOf = function(row) { return row.h2.avgH2; }, _xOf = function(row) { return row.X; };   // Σ最終損益（累計）最大 2026-08-02k（旧＝平均最大2026-07-15f・その前＝順位和）
+  var _sigOf = function(row) { return row.h2.h2Sum; }, _avgOf = function(row) { return row.h2.avgH2; }, _xOf = function(row) { return row.X; };   // Σ想定損益（累計）最大 2026-08-02k（旧＝平均最大2026-07-15f・その前＝順位和）
   var picked = _elBordaBest(sel.cand, _sigOf, _avgOf, _xOf);
   var larger = sel.cand.filter(function(row) { return row.X > picked.X; });   // 次点＝pickedより大きい加算Xの中で平均最大
   var p2 = larger.length ? _elBordaBest(larger, _sigOf, _avgOf, _xOf) : null;
@@ -2427,8 +2427,8 @@ function _elCutEval(recs, aiOf, cut) {
     var ai = aiOf(r), alpha = ai.alpha; if (alpha == null) return;
     var rr = _epResolve(s, alpha);
     if (!(rr && rr.epIdx >= 0 && rr.epIdx <= 2)) return;   // OS1〜3でEP到達のみ
-    // 2026-07-25f H1基準→**最終損益（手じまいまで）基準**へ（ユーザー指示）: 旧は_elDynHold（H1まで保有）＋EP/H1足の損切り判定で、
-    //   アプリの主指標（最終損益）と推奨損切りの選定基準が食い違っていた。母数ゲートも_elDynResultの決着判定へ統一（旧・並走pickと同型）。
+    // 2026-07-25f H1基準→**想定損益（手じまいまで）基準**へ（ユーザー指示）: 旧は_elDynHold（H1まで保有）＋EP/H1足の損切り判定で、
+    //   アプリの主指標（想定損益）と推奨損切りの選定基準が食い違っていた。母数ゲートも_elDynResultの決着判定へ統一（旧・並走pickと同型）。
     var _res = _elDynResult(s, alpha, cut);
     if (!(_res === "ok" || _res === "ng" || _res === "draw")) return;   // 決着しない記録は母数外
     var t2 = _elHoldFinalParts(s, alpha, cut);
@@ -2501,7 +2501,7 @@ function _elGateBadges(ngs) {
   return React.createElement("span", { style: { display: "inline-flex", gap: 2, justifyContent: "center", whiteSpace: "nowrap" } },
     ngs.map(function(g, i) { return React.createElement("span", { key: i, title: g[1], style: { display: "inline-block", padding: "0 4px", borderRadius: 3, fontSize: 9, fontWeight: 700, background: "#FCEBEB", color: "#A32D2D", border: "1px solid #F09595" } }, g[0]); }));
 }
-// 「最終損益(平均/中央/Σ)」セル: 平均[太字]／中央[9px・同色]／Σ[8.5pxグレー]の3段。h2=_elH2EvalByFnの返り値。
+// 「想定損益(平均/中央/Σ)」セル: 平均[太字]／中央[9px・同色]／Σ[8.5pxグレー]の3段。h2=_elH2EvalByFnの返り値。
 // 中央値の追加理由（2026-07-16e）: ★選定が損益額の一点張り（2026-07-16e当時は平均avgH2最大／2026-08-02k以降はΣ最大）なので、その平均が1件の大勝ちで作られていないかを検算する手段がこれまで表に無かった。
 function _elH2AmtCell(h2) {
   if (!h2 || h2.avgH2 == null) return React.createElement("span", { style: { color: "#bbb" } }, "—");
@@ -2540,14 +2540,14 @@ function _elBaseAlphaTrendBody(recs, aiOf, gran) {
       _elv2Td(p.stopRate == null ? "—" : _elStopRateCell(p.stopRate)),
       _elv2Td(p.takeRate == null ? "—" : _elPctCell(p.takeRate)),
       _elv2Td(p.avgH2 == null ? "—" : React.createElement("div", { style: { lineHeight: 1.15 } }, React.createElement("b", { style: { color: _elPnlColor(p.avgH2) } }, _elPnlFmt(Math.round(p.avgH2))), React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8" } }, "Σ" + (p.h2Sum != null ? _elPnlFmt(Math.round(p.h2Sum)) : "—")))),
-      _elv2Td((p.decided != null ? p.decided : 0) + "件"));   // 新基準（最終損益ベース・平均主軸）の統計に統一 2026-07-13
+      _elv2Td((p.decided != null ? p.decided : 0) + "件"));   // 新基準（想定損益ベース・平均主軸）の統計に統一 2026-07-13
   });
   var first = buckets[0], last = buckets[buckets.length - 1];
   var insight = (buckets.length >= 2) ? _elInsightBoxV2([
     React.createElement("span", null, "〜", _elInsightEmV2(first.label), "の推奨基本αは", _elInsightEmV2(first.pick.alpha + "円"), "、直近の", _elInsightEmV2(last.label), "は", _elInsightEmV2(last.pick.alpha + "円"), "。"),
     (last.pick.alpha !== first.pick.alpha) ? React.createElement("span", null, "最近は", _elInsightEmV2((last.pick.alpha > first.pick.alpha ? "高め" : "低め") + "（" + (last.pick.alpha > first.pick.alpha ? "+" : "") + (last.pick.alpha - first.pick.alpha) + "円）"), "の傾向。") : null
-  ].filter(Boolean), { note: "各期間で「黒字・到達率が下限(既定" + _EL_ANA_REACH_DEF + "%)以上・頻度" + _EL_FREQ_MAX + "未満を満たすαのうちΣ最終損益（累計）が最大のα＝理想、推奨＝理想" + _elAlphaOffTxt("円") + "」（2026-08-02k Σ最大・手じまいベース・前提損切り値" + _elAnaCutCur + "円で評価）。件数が少ない期間も参考(橙「参考」)で表示。0〜20円。件数が少ない期間は振れやすい" }) : null;
-  return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "損切り率(最終)", "利確率", "最終損益(平均/Σ)", "E成立"], rows), insight);
+  ].filter(Boolean), { note: "各期間で「黒字・到達率が下限(既定" + _EL_ANA_REACH_DEF + "%)以上・頻度" + _EL_FREQ_MAX + "未満を満たすαのうちΣ想定損益（累計）が最大のα＝理想、推奨＝理想" + _elAlphaOffTxt("円") + "」（2026-08-02k Σ最大・手じまいベース・前提損切り値" + _elAnaCutCur + "円で評価）。件数が少ない期間も参考(橙「参考」)で表示。0〜20円。件数が少ない期間は振れやすい" }) : null;
+  return React.createElement("div", null, chart, _elv2Table(["期間", "推奨基本α", "損切り率(最終)", "利確率", "想定損益(平均/Σ)", "E成立"], rows), insight);
 }
 // 推奨基本αの「期間まとめ」: 1つの推奨値＋追加α＋α別の 損切り率(H1)/H1勝率/スコア 早見表（★=推奨）＋読み取り。2026-06-22再設計。
 function _elBaseAlphaSummary(recs, aiOf) {
@@ -2556,7 +2556,7 @@ function _elBaseAlphaSummary(recs, aiOf) {
   if (!pick || pick.status === "none" || pick.alpha == null) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
   var na = pick.status === "na";
   var minN = pick.minN || _EL_BASE_MIN_N;
-  var noteSub = "★（2026-07-13新基準）＝到達率" + Math.round(pick.reachFloor * 100) + "%以上・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・頻度" + _EL_FREQ_MAX + "営業日/回未満・E成立" + _EL_BASE_N_PREF + "件以上（無ければ" + _EL_BASE_MIN_N + "件に自動緩和）・黒字のαの中で平均最終損益（手じまい・1件あたり）が最大のα。同点はE成立多→低α。該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考（青★）。★赤＝条件充足／★青＝参考。5〜20円1円刻み";
+  var noteSub = "★（2026-07-13新基準）＝到達率" + Math.round(pick.reachFloor * 100) + "%以上・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・頻度" + _EL_FREQ_MAX + "営業日/回未満・E成立" + _EL_BASE_N_PREF + "件以上（無ければ" + _EL_BASE_MIN_N + "件に自動緩和）・黒字のαの中で平均想定損益（手じまい・1件あたり）が最大のα。同点はE成立多→低α。該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考（青★）。★赤＝条件充足／★青＝参考。5〜20円1円刻み";
   var _h2s = pick.h2sweep || [];
   var sweepRows = _h2s.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var on = e.a === pick.alpha;
@@ -2569,22 +2569,22 @@ function _elBaseAlphaSummary(recs, aiOf) {
       _elv2Td(e.decided + "件"),
       _elv2Td(e.avgH2 == null ? "—" : React.createElement("div", { style: { lineHeight: 1.15 } }, React.createElement("b", { style: { color: _elPnlColor(e.avgH2) } }, _elPnlFmt(Math.round(e.avgH2))), React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8" } }, "Σ" + _elPnlFmt(Math.round(e.h2Sum))))));
   });
-  var _sweepHead = ["基本α", "到達率", "損切り率(最終)", "利確率(最終)", "E成立", "最終損益(平均/Σ)"];
+  var _sweepHead = ["基本α", "到達率", "損切り率(最終)", "利確率(最終)", "E成立", "想定損益(平均/Σ)"];
   var stopP = pick.stopRate != null ? Math.round(pick.stopRate * 100) : null;
   var takeP = pick.takeRate != null ? Math.round(pick.takeRate * 100) : null;
   var cards = _elv2CardRow([
-    _elv2Card("推奨基本α", React.createElement(React.Fragment, null, React.createElement("span", { style: { color: na ? "#B45309" : "#0369A1" } }, pick.alpha + "円"), _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 15, na ? "#B45309" : "#0369A1")), na ? "#B45309" : "#0369A1", na ? "条件緩和の参考" : "Σ最終損益 最大"),
+    _elv2Card("推奨基本α", React.createElement(React.Fragment, null, React.createElement("span", { style: { color: na ? "#B45309" : "#0369A1" } }, pick.alpha + "円"), _elReco2Node(pick.alpha2 != null ? (pick.alpha2 + "円") : null, 15, na ? "#B45309" : "#0369A1")), na ? "#B45309" : "#0369A1", na ? "条件緩和の参考" : "Σ想定損益 最大"),
     _elv2Card("損切り率(最終)", stopP != null ? stopP + "%" : "—", stopP != null ? (stopP <= 20 ? "#1E8449" : stopP <= 40 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
     _elv2Card("利確率(最終)", takeP != null ? takeP + "%" : "—", takeP != null ? (takeP >= 70 ? "#1E8449" : takeP >= 50 ? "#B45309" : "#C0392B") : "#333", "推奨αで"),
-    _elv2Card("平均最終損益", pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—", _elPnlColor(pick.avgH2), "1件あたり・Σ" + (pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—")),
+    _elv2Card("平均想定損益", pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—", _elPnlColor(pick.avgH2), "1件あたり・Σ" + (pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—")),
     _elv2Card("EP到達率", _elPctCell(pick.eRate), null),
     _elv2Card("E成立", (pick.decided != null ? pick.decided : 0) + "件", null, "勝敗判定できたE")
   ]);
   var banner = na ? React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 6, padding: "5px 8px", marginBottom: 6 } }, "⚠ 到達率下限以上を保てるαが無い、または自信条件（損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満）を満たさず → 参考のα " + pick.alpha + "円 を青★で表示（信頼度低）") : null;
   return React.createElement("div", null, banner, cards,
-    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "α別の 到達率・損切り率(最終)・利確率・E成立・最終損益(平均/Σ)（理想＝到達率下限以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・頻度" + _EL_FREQ_MAX + "未満を満たすαのうちΣ最終損益（累計）が最大のα／★＝推奨＝理想" + _elAlphaOffTxt("") + "・淡色は最低条件（到達率・損切り率・E成立・頻度<5・黒字）のどれかを満たさない・前提損切り値" + _elAnaCutCur + "円）"),
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "8px 0 2px" } }, "α別の 到達率・損切り率(最終)・利確率・E成立・想定損益(平均/Σ)（理想＝到達率下限以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・頻度" + _EL_FREQ_MAX + "未満を満たすαのうちΣ想定損益（累計）が最大のα／★＝推奨＝理想" + _elAlphaOffTxt("") + "・淡色は最低条件（到達率・損切り率・E成立・頻度<5・黒字）のどれかを満たさない・前提損切り値" + _elAnaCutCur + "円）"),
     _elv2Table(_sweepHead, sweepRows),
-    _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（", (na ? "条件緩和の参考" : ("平均最終損益" + (pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—") + "・損切り率" + (stopP != null ? stopP + "%" : "—") + "・利確率" + (takeP != null ? takeP + "%" : "—"))), "）。", "（応用αは「② 応用α」タブで）")], { note: noteSub }));
+    _elInsightBoxV2([React.createElement("span", null, "推奨基本αは", _elInsightEmV2(pick.alpha + "円"), "（", (na ? "条件緩和の参考" : ("平均想定損益" + (pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—") + "・損切り率" + (stopP != null ? stopP + "%" : "—") + "・利確率" + (takeP != null ? takeP + "%" : "—"))), "）。", "（応用αは「② 応用α」タブで）")], { note: noteSub }));
 }
 // 🎯 推奨基本α値: 週別/月別/期間まとめを切替（ステートフル・既定=週別）。日別は廃止（1シグナルだと1件/日で参考だらけ）。件数が少ない期間も参考(na)で表示。2026-07-01
 function _elBaseAlphaTrendV2(props) {
@@ -2628,7 +2628,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride,
       : na
       ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B45309" } }, "参考値（青★）：自信条件（損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "営業日/回未満）を満たさない、または到達率" + Math.round((pick.reachFloor != null ? pick.reachFloor : (_EL_ANA_REACH_DEF / 100)) * 100) + "%以上のαが無く緩和（E成立 " + (pick.decided != null ? pick.decided : 0) + "件）")
       : React.createElement("span", { style: { fontSize: 11, color: "#555" } },
-          "平均最終損益 ", React.createElement("b", { style: { color: _elPnlColor(pick.avgH2) } }, pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—"),
+          "平均想定損益 ", React.createElement("b", { style: { color: _elPnlColor(pick.avgH2) } }, pick.avgH2 != null ? _elPnlFmt(Math.round(pick.avgH2)) : "—"),
           React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（Σ" + (pick.h2Sum != null ? _elPnlFmt(Math.round(pick.h2Sum)) : "—") + "）"),
           "／損切り率(最終) ", React.createElement("b", null, stopP != null ? stopP + "%" : "—"),
           "／利確率 ", React.createElement("b", null, pick.takeRate != null ? Math.round(pick.takeRate * 100) + "%" : "—"),
@@ -2653,7 +2653,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride,
   var _dispSweep = _lowSweep.concat(pick.sweep);   // [0..4]（表示のみ）＋[5..20]（H1参考列）＝昇順
   var _reachFloor = pick.reachFloor != null ? pick.reachFloor : (_EL_ANA_REACH_DEF / 100);   // 淡色判定の到達率下限（★選定と同一・2026-07-13）
   var _reachP = Math.round(_reachFloor * 100);
-  var _h2ByA = {};   // 最終損益デュアル列（利確率(最終)/最終損益・承認① 2026-07-12）: 表示各αの最終基準評価を母数一致(_baseRecs)で並走
+  var _h2ByA = {};   // 想定損益デュアル列（利確率(最終)/想定損益・承認① 2026-07-12）: 表示各αの最終基準評価を母数一致(_baseRecs)で並走
   _dispSweep.forEach(function(e) { _h2ByA[e.a] = _elH2EvalByFn(_baseRecs, aiOfAna, function() { return e.a; }, true); });   // 第4引数true=指値同値を0円算入（2026-08-02e）＝★選定(_elBaseAlphaPick)と同じ土俵で表示する
   var sweepRows = _dispSweep.filter(function(e) { return e.entered > 0; }).map(function(e) {
     var _h2r = _h2ByA[e.a];
@@ -2667,7 +2667,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride,
     if (!(_h2r && _h2r.decided != null && _h2r.decided >= _EL_BASE_MIN_N)) _ng.push(["件", "E成立が下限" + _EL_BASE_MIN_N + "件未満"]);
     if (!(_freqVal != null && _freqVal < _EL_FREQ_MAX)) _ng.push(["頻", "頻度が" + _EL_FREQ_MAX + "営業日/回以上（低頻度すぎ）"]);
     if (!(_h2r && _h2r.stopRate != null && _h2r.stopRate <= _EL_BASE_MAX_STOPRATE)) _ng.push(["損", "損切り率(最終)が上限" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%超"]);
-    if (!(_h2r && _h2r.h2Sum != null && _h2r.h2Sum > 0)) _ng.push(["赤", "Σ最終損益が赤字（または損益なし）"]);
+    if (!(_h2r && _h2r.h2Sum != null && _h2r.h2Sum > 0)) _ng.push(["赤", "Σ想定損益が赤字（または損益なし）"]);
     var pass = !_ng.length;
     var _isCur = !!(onPick && curSel != null && e.a === curSel);   // EPナビ「表を参照」ポップアップで現在の採用α値を青ハイライト 2026-07-13d
     var _cells = [
@@ -2695,7 +2695,7 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride,
     var s = r.signal; if (!s) return;
     var c = aiOfAna(r).cutLine, rr = _epResolve(s, a), epIdx = rr ? rr.epIdx : -1;   // 前提損切り値で判定（★と同一）2026-07-13b
     if (!(epIdx >= 0 && epIdx <= 2)) { offN++; return; }   // OS1〜3以外（未到達）は対象外
-    // 2026-07-25f H1基準→最終損益基準へ（表の★ゲートは元から最終基準_elH2EvalByFnなので、この文章だけH1で食い違っていた）。
+    // 2026-07-25f H1基準→想定損益基準へ（表の★ゲートは元から最終基準_elH2EvalByFnなので、この文章だけH1で食い違っていた）。
     var _resI = _elDynResult(s, a, c);
     if (!(_resI === "ok" || _resI === "ng" || _resI === "draw")) return;   // 決着しない記録は母数外
     var _t2I = _elHoldFinalParts(s, a, c);
@@ -2706,18 +2706,18 @@ function _elBaseAlphaDetailV2(recs, aiOf, holiSet, onPick, curSel, spanOverride,
     else otherN++;
   });
   insight = _elInsightBoxV2([
-    React.createElement("span", null, (poolAll ? "★の一律α" : "採用α"), _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS3までにEP到達し決着）。うち損切り", _elInsightEmV2(stopN + "件"), "・最終損益プラス", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（未到達）。"),
-    React.createElement("span", null, "理想α＝", _elInsightEmV2("全条件（到達率" + _reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字）を満たすαのうち、Σ最終損益（累計）が最大のα"), "（到達率下限は🎯で調整可）。", _elInsightEmV2("推奨α＝理想" + _elAlphaOffTxt("円")), (_EL_ALPHA_OFFSET > 0 ? "（指値をギリギリで外さないよう理想より少し下げた実際に置く値）。" : "（最良と判定したαと実際に置くαをズラさない方針＝一律マージンは引かない。同値はどの列の母数にも入れず、件数だけ「同値」列に出る）。"), "同点は平均（1件あたり）が大きい方→低α。全条件を満たすαが1つも無ければ『条件適合無し』。"),
+    React.createElement("span", null, (poolAll ? "★の一律α" : "採用α"), _elInsightEmV2(a + "円"), "の母数は", _elInsightEmV2(scN + "件"), "（OS3までにEP到達し決着）。うち損切り", _elInsightEmV2(stopN + "件"), "・想定損益プラス", _elInsightEmV2(winN + "件"), "・その他", _elInsightEmV2(otherN + "件"), "、対象外", _elInsightEmV2(offN + "件"), "（未到達）。"),
+    React.createElement("span", null, "理想α＝", _elInsightEmV2("全条件（到達率" + _reachP + "%以上・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字）を満たすαのうち、Σ想定損益（累計）が最大のα"), "（到達率下限は🎯で調整可）。", _elInsightEmV2("推奨α＝理想" + _elAlphaOffTxt("円")), (_EL_ALPHA_OFFSET > 0 ? "（指値をギリギリで外さないよう理想より少し下げた実際に置く値）。" : "（最良と判定したαと実際に置くαをズラさない方針＝一律マージンは引かない。同値はどの列の母数にも入れず、件数だけ「同値」列に出る）。"), "同点は平均（1件あたり）が大きい方→低α。全条件を満たすαが1つも無ければ『条件適合無し』。"),
     React.createElement("span", null, _elInsightEmV2("中央値"), "が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。", _elInsightEmV2("淡色の行"), "は★の最低条件のどれかを満たさない行で、どの条件で落ちたかは行にカーソルを合わせると出る（2026-08-02mに「未達」列から行ツールチップへ移設）。", _elInsightEmV2("利確・損切り"), "の各列は「件数 率」の並び（率の分母＝E成立）。")
-  ], { note: (poolAll ? "**分類「全記録」の母数＝基本・応用を問わず全記録（応用〇・浮き足〇・RN〇も含む）** に各αを一律で当ててシミュレーション。加算あり（浮き足〇/RN〇）の記録も一律αに置き換わるので、この表は「加算ルールを使わず一律αだけで通していたら」の答え。★はこの母数だけの参考値で、フォーム/EPナビ/シミュへ流れる推奨基本αは分類「基本α」（素の記録が母数）の値＝ここでは変わらない。" : "この銘柄のv2・算入記録（素の記録のみ）に各αを当ててシミュレーション") + "（前提損切り値" + _elAnaCutCur + "円＝各記録の実損切り値ではなくこの前提で評価）。E成立・利確率・損切り率(最終)・最終損益(平均/中央/Σ)・勝ち/負け平均＝最終損益(手じまい・EP/H1/H2損切り込み)基準・理想＝全条件を満たすαのうちΣ最終損益（累計）が最大のα（同点は平均が大きい方→低α）・推奨α＝理想" + _elAlphaOffTxt("円") + "。最終損益(平均/中央/Σ)の母数＝最終損益が確定した件数で、隣のE成立とはEP×見送り等でズレることがある。**同値はどの列の母数にも入れない**＝到達率・E成立・利確・損切り・最終損益(平均/中央/Σ)・勝ち/負け平均のすべてから外す（2026-08-10 ユーザー決定。旧2026-08-02eは最終損益にだけ0円で算入していたので、平均・中央値だけ同値ぶん分母が多かった）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝［0.7×(1−損切り率(最終))+0.3×利確率(最終)］＝この行の他の列と同じ最終損益（手じまい・終値撤退）基準の要約値。★選定には不使用（★＝全条件を満たすαのうちΣ最終損益が最大）。2026-08-02gに旧H1基準［H1まで・ラインに触れたら損切り］から切替＝同じ行の中でスコアだけ土俵が違い、行の優劣が入れ替わって見えていたため。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝予定EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として全列の母数から外す**（2026-08-10）。Σ最終損益は旧仕様（0円算入）と同額・平均は分母が同値ぶん減るので上がる。したがって平均最終損益は「そのαで実際に約定した1件あたりの実力」であって、刺さらなかった機会のぶんは価格に入っていない＝その頻度は同値列の件数のほうで読む。理想・推奨はΣ最大で選ぶので同値の扱いを変えても基本的に動かない（同点時の第2キー＝平均だけ入れ替わりうる・2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
+  ], { note: (poolAll ? "**分類「全記録」の母数＝基本・応用を問わず全記録（応用〇・浮き足〇・RN〇も含む）** に各αを一律で当ててシミュレーション。加算あり（浮き足〇/RN〇）の記録も一律αに置き換わるので、この表は「加算ルールを使わず一律αだけで通していたら」の答え。★はこの母数だけの参考値で、フォーム/EPナビ/シミュへ流れる推奨基本αは分類「基本α」（素の記録が母数）の値＝ここでは変わらない。" : "この銘柄のv2・算入記録（素の記録のみ）に各αを当ててシミュレーション") + "（前提損切り値" + _elAnaCutCur + "円＝各記録の実損切り値ではなくこの前提で評価）。E成立・利確率・損切り率(最終)・想定損益(平均/中央/Σ)・勝ち/負け平均＝想定損益(手じまい・EP/H1/H2損切り込み)基準・理想＝全条件を満たすαのうちΣ想定損益（累計）が最大のα（同点は平均が大きい方→低α）・推奨α＝理想" + _elAlphaOffTxt("円") + "。想定損益(平均/中央/Σ)の母数＝想定損益が確定した件数で、隣のE成立とはEP×見送り等でズレることがある。**同値はどの列の母数にも入れない**＝到達率・E成立・利確・損切り・想定損益(平均/中央/Σ)・勝ち/負け平均のすべてから外す（2026-08-10 ユーザー決定。旧2026-08-02eは想定損益にだけ0円で算入していたので、平均・中央値だけ同値ぶん分母が多かった）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち／0円のトントンは負け側）。スコア＝［0.7×(1−損切り率(最終))+0.3×利確率(最終)］＝この行の他の列と同じ想定損益（手じまい・終値撤退）基準の要約値。★選定には不使用（★＝全条件を満たすαのうちΣ想定損益が最大）。2026-08-02gに旧H1基準［H1まで・ラインに触れたら損切り］から切替＝同じ行の中でスコアだけ土俵が違い、行の優劣が入れ替わって見えていたため。同値列＝そのαがOS1〜3高値の最大とちょうど一致した件数（＝予定EPに触れただけで一度も上抜けていない＝指値が刺さらなかった可能性・実際に約定済みの記録は除く）。**同値は「そのαなら取引していない」として全列の母数から外す**（2026-08-10）。Σ想定損益は旧仕様（0円算入）と同額・平均は分母が同値ぶん減るので上がる。したがって平均想定損益は「そのαで実際に約定した1件あたりの実力」であって、刺さらなかった機会のぶんは価格に入っていない＝その頻度は同値列の件数のほうで読む。理想・推奨はΣ最大で選ぶので同値の扱いを変えても基本的に動かない（同点時の第2キー＝平均だけ入れ替わりうる・2026-08-02k 選定基準はΣ最大＝累計重視）。頻度列（到達実日数）からも同値を外しているので、同値だけの日は「到達した日」に数えない＝★の頻度ゲートと同じ値。" });
   }
   return React.createElement("div", null,
     concl,
     _mixNote,
-    _elv2Table([(poolAll ? "一律α" : "基本α"), "E成立", "到達率", "同値", "頻度", "利確", "損切り", "最終損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"].concat(onPick ? ["選択"] : []), sweepRows),   // 2026-08-02m 「未達」撤去・利確/損切りは件数＋率
+    _elv2Table([(poolAll ? "一律α" : "基本α"), "E成立", "到達率", "同値", "頻度", "利確", "損切り", "想定損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"].concat(onPick ? ["選択"] : []), sweepRows),   // 2026-08-02m 「未達」撤去・利確/損切りは件数＋率
     insight);
 }
-// 推奨追加α 詳細データ（この銘柄/グループ）2026-07-03: 推奨基本α詳細データ(_elBaseAlphaDetailV2)の追加α版＝結論バー＋加算値別の総当たり（基本α＋加算ごとの到達率/件数/損切り率/H1勝率/想定損益・★＝推奨）＋読み取り。母数＝追加α〇（数値根拠＝底抜け前足浮きは除外・_elAddAlphaRecoと同一）。集計タブ銘柄別パネルで追加α母数トグル〇のとき、畳んだ基本α詳細の下に表示。想定損益＝ΣH1損益（_elBaseAlphaEval.pnl＝_elSimPnlByDay.sumと同値）。
+// 推奨追加α 詳細データ（この銘柄/グループ）2026-07-03: 推奨基本α詳細データ(_elBaseAlphaDetailV2)の追加α版＝結論バー＋加算値別の総当たり（基本α＋加算ごとの到達率/件数/損切り率/H1勝率/試算損益・★＝推奨）＋読み取り。母数＝追加α〇（数値根拠＝底抜け前足浮きは除外・_elAddAlphaRecoと同一）。集計タブ銘柄別パネルで追加α母数トグル〇のとき、畳んだ基本α詳細の下に表示。試算損益＝ΣH1損益（_elBaseAlphaEval.pnl＝_elSimPnlByDay.sumと同値）。
 // 【未配線・2026-07-16e 明記】この関数はどこからも呼ばれていない（呼出0件＝定義とコメント参照のみ）。2026-07-13f の応用α移行で配線を外したまま「当面残置」になっている（FILEMAP.md:77）。
 // ＝ここの列・文言を直しても画面には一切出ない。復活させるなら基本α詳細表(_elBaseAlphaDetailV2)と列を揃えること。専用の _elAddAlphaPickDate/_elAddAlphaRecoScore も同様に未配線。
 function _elAddAlphaDetailV2(recs, aiOf, holiSet, fullRecs) {
@@ -2753,7 +2753,7 @@ function _elAddAlphaDetailV2(recs, aiOf, holiSet, fullRecs) {
     na ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#B45309" } }, "参考値（青★・損切り率" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下かつ頻度" + _EL_FREQ_MAX + "営業日/回未満の加算が無く、頻度条件を外して選定）") : null,   // 2026-07-16e: 損切り率のリテラル20%を定数参照に（実ゲートは_EL_BASE_MAX_STOPRATE＝40%）＋naの実体は頻度ゲート解除なので文言も実装に合わせた
     _hasPick
       ? React.createElement("span", { style: { fontSize: 11, color: "#555" } },
-          "平均最終損益 ", React.createElement("b", { style: { color: _elPnlColor(add.avgH2) } }, add.avgH2 != null ? _elPnlFmt(Math.round(add.avgH2)) : "—"),
+          "平均想定損益 ", React.createElement("b", { style: { color: _elPnlColor(add.avgH2) } }, add.avgH2 != null ? _elPnlFmt(Math.round(add.avgH2)) : "—"),
           React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "（Σ" + (add.h2Sum != null ? _elPnlFmt(Math.round(add.h2Sum)) : "—") + "）"),
           "／損切り率(最終) ", React.createElement("b", null, _pctS(add.stopRate)),
           "／利確率 ", React.createElement("b", null, _pctS(add.takeRate)),
@@ -2777,14 +2777,14 @@ function _elAddAlphaDetailV2(recs, aiOf, holiSet, fullRecs) {
       _elv2Td(x.e.h1win == null ? "—" : _elPctCell(x.e.h1win)),
       _elv2Td((function() { var _p = x.e.pnl; return _p == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(Math.round(_p)), fontWeight: 700 } }, _elPnlFmt(Math.round(_p))); })()));
   });
-  // 主表（2026-07-13刷新・ユーザー承認）: 日付別カウンターファクタル＝「各記録日の推奨基本α＋加算X円(0〜10)で入っていたら手仕舞い(最終損益)でどうだったか」。
+  // 主表（2026-07-13刷新・ユーザー承認）: 日付別カウンターファクタル＝「各記録日の推奨基本α＋加算X円(0〜10)で入っていたら手仕舞い(想定損益)でどうだったか」。
   // 行データは_elAddAlphaPickDateのsweepDateを流用（★・結論バーと完全一致）。0円行＝足さなかった場合＝基準行。
   var _dsSpan = _elBizSpanDays(addPool, holiSet, function(r) { return recoFn(r.date) != null; });
   var _dateRows = (add && add.sweepDate ? add.sweepDate : []).filter(function(row) { return row.h2.entered > 0 || row.X === 0; }).map(function(row) {
     var e = row.h2;
     var on = _hasPick && row.X === add.add;
     var pass = e.decided >= minN && e.eRate != null && e.eRate >= _EL_BASE_MIN_ERATE && e.stopRate != null && e.stopRate <= _EL_BASE_MAX_STOPRATE && e.h2Sum != null && e.h2Sum > 0;
-    // 2026-07-16e: 基本α/応用α詳細表に合わせ H1勝率・平均H1損益を削除（最終損益と重複）＋列順を E成立→到達率／利確率→損切り率 に＋中央値・勝ち/負け平均を追加。
+    // 2026-07-16e: 基本α/応用α詳細表に合わせ H1勝率・平均H1損益を削除（想定損益と重複）＋列順を E成立→到達率／利確率→損切り率 に＋中央値・勝ち/負け平均を追加。
     // 「未達」列は入れない＝この表の pass(上行)は★選定(_elAddAlphaPickDate)と別系統のゲート（到達率は固定_EL_BASE_MIN_ERATE・頻度ゲート無し）なので、バッジにすると★と矛盾して見える。
     return React.createElement("tr", { key: row.X, style: { background: on ? "#FFF7ED" : "transparent", opacity: pass ? 1 : 0.4 } },
       _elv2Td(React.createElement("span", { style: { fontWeight: on ? 800 : 600, color: row.X === 0 ? "#64748B" : "#9A3412", whiteSpace: "nowrap" } }, "+" + row.X + "円" + (row.X === 0 ? "（足さない）" : ""), on ? _elStarNode(add.status) : null), { textAlign: "left", paddingLeft: 8 }),
@@ -2799,23 +2799,23 @@ function _elAddAlphaDetailV2(recs, aiOf, holiSet, fullRecs) {
   var _zeroRow = (add && add.sweepDate && add.sweepDate[0]) ? add.sweepDate[0].h2 : null;
   var insight = _elInsightBoxV2([
     _hasPick
-      ? React.createElement("span", null, "各記録日の推奨基本αに", _elInsightEmV2("+" + add.add + "円" + (_zero ? "（＝足さない）" : "")), "が最良（平均最終損益 ", _elInsightEmV2(add.avgH2 != null ? _elPnlFmt(Math.round(add.avgH2)) : "—"), "・損切り率(最終) ", _elInsightEmV2(_pctS(add.stopRate)), "・E成立 ", _elInsightEmV2((add.decided || 0) + "件"), "）。")
+      ? React.createElement("span", null, "各記録日の推奨基本αに", _elInsightEmV2("+" + add.add + "円" + (_zero ? "（＝足さない）" : "")), "が最良（平均想定損益 ", _elInsightEmV2(add.avgH2 != null ? _elPnlFmt(Math.round(add.avgH2)) : "—"), "・損切り率(最終) ", _elInsightEmV2(_pctS(add.stopRate)), "・E成立 ", _elInsightEmV2((add.decided || 0) + "件"), "）。")
       : React.createElement("span", null, "条件（到達率" + Math.round(_EL_BASE_MIN_ERATE * 100) + "%・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE_2 * 100) + "%以下まで緩和・E成立" + _EL_BASE_MIN_N + "件・黒字）を満たす加算が無く", _elInsightEmV2("推奨無し"), "。"),   // 2026-07-16e: リテラルを定数参照に（この関数から手書き閾値を一掃）
     (_hasPick && !_zero && _zeroRow && _zeroRow.avgH2 != null && add.avgH2 != null)
-      ? React.createElement("span", null, "足さなかった場合（+0円）の平均最終損益は", _elInsightEmV2(_elPnlFmt(Math.round(_zeroRow.avgH2))), "＝上乗せの効果は1件あたり", _elInsightEmV2(_elPnlFmt(Math.round(add.avgH2 - _zeroRow.avgH2)), (add.avgH2 - _zeroRow.avgH2) >= 0 ? "#C0392B" : "#1E8449"), "。")
+      ? React.createElement("span", null, "足さなかった場合（+0円）の平均想定損益は", _elInsightEmV2(_elPnlFmt(Math.round(_zeroRow.avgH2))), "＝上乗せの効果は1件あたり", _elInsightEmV2(_elPnlFmt(Math.round(add.avgH2 - _zeroRow.avgH2)), (add.avgH2 - _zeroRow.avgH2) >= 0 ? "#C0392B" : "#1E8449"), "。")
       : null
-  ], { note: "母数＝追加α〇（浮き足〇・RN〇除外）。主表＝各記録に「その記録日時点の推奨基本α（前日までの直近50→100件→全期間・現在の★基準で再計算）＋加算X円」を当て、手じまい（最終損益・EP/H1/H2損切り込み）で評価する反実仮想。★＝到達率" + Math.round(_EL_BASE_MIN_ERATE * 100) + "%以上・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_N_PREF + "件（無ければ" + _EL_BASE_MIN_N + "件に緩和）・黒字の中で平均最終損益（1件あたり）最大＝基本αと同じ条件式。中央値が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち）。参考表＝旧方式（現在の推奨基本α" + base + "円を土台に一様加算・H1基準）。" });
+  ], { note: "母数＝追加α〇（浮き足〇・RN〇除外）。主表＝各記録に「その記録日時点の推奨基本α（前日までの直近50→100件→全期間・現在の★基準で再計算）＋加算X円」を当て、手じまい（想定損益・EP/H1/H2損切り込み）で評価する反実仮想。★＝到達率" + Math.round(_EL_BASE_MIN_ERATE * 100) + "%以上・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_N_PREF + "件（無ければ" + _EL_BASE_MIN_N + "件に緩和）・黒字の中で平均想定損益（1件あたり）最大＝基本αと同じ条件式。中央値が平均から大きく下なら、その平均は少数の大勝ちで作られている（＝毎回は取れない）。勝ち/負けの境界は利確率と同じ（プラス＝勝ち）。参考表＝旧方式（現在の推奨基本α" + base + "円を土台に一様加算・H1基準）。" });
   return React.createElement("div", null,
     concl,
     _uzuLine,
     _lbl("日付別カウンターファクタル（主表）: 各記録日の推奨基本α＋加算X円で入っていたら手仕舞いでどうだったか（0円＝足さない・★赤＝条件を満たす推奨／★青＝条件緩和の参考推奨・淡色＝条件[到達" + Math.round(_EL_BASE_MIN_ERATE * 100) + "%・損切り(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + minN + "件・黒字]を満たさない加算／前提損切り値" + _elAnaCutCur + "円で評価／頻度＝数字が小さいほど高頻度）"),
-    _dateRows.length ? _elv2Table(["追加α", "E成立", "到達率", "頻度", "利確率(最終)", "損切り率(最終)", "最終損益(平均/中央/Σ)", "勝ち/負け平均"], _dateRows) : React.createElement("div", { style: { fontSize: 10.5, color: "#bbb", padding: "4px 0" } }, "推奨基本αが算出できる記録がありません（履歴不足）"),
+    _dateRows.length ? _elv2Table(["追加α", "E成立", "到達率", "頻度", "利確率(最終)", "損切り率(最終)", "想定損益(平均/中央/Σ)", "勝ち/負け平均"], _dateRows) : React.createElement("div", { style: { fontSize: 10.5, color: "#bbb", padding: "4px 0" } }, "推奨基本αが算出できる記録がありません（履歴不足）"),
     _lbl("（参考）現在の推奨基本α" + base + "円＋加算の固定スイープ（＋1〜" + _EL_BASE_ADD_MAX + "円・H1基準・旧方式＝記録日に依らず今の推奨基本αを土台に一様加算・★なし）"),
-    _elv2Table(["追加α", "合計α", "到達率", "有効件数", "損切り率(H1接触)", "H1勝率", "想定損益"], addRows),
+    _elv2Table(["追加α", "合計α", "到達率", "有効件数", "損切り率(H1接触)", "H1勝率", "試算損益"], addRows),
     insight);
 }
 // 推奨基本α表（銘柄/期間グループ別）: groups=[{label,recs}]・cutFn(r)→損切り値。各グループの推奨基本α(_elBaseAlphaPick・5〜20・
-// 全条件ゲート＋Σ最終損益（累計）最大・該当なしは到達率50%緩和)を1値表示＋損切り率/H1勝率の小書き＋追加α目安。旧 _elIdealAlphaTableV2(EP/H1/H2別・0〜50)を置換 2026-06-21→条件再設計 2026-06-22→選定は合成スコア→平均最終損益へ(コメント更新 2026-07-22j)。
+// 全条件ゲート＋Σ想定損益（累計）最大・該当なしは到達率50%緩和)を1値表示＋損切り率/H1勝率の小書き＋追加α目安。旧 _elIdealAlphaTableV2(EP/H1/H2別・0〜50)を置換 2026-06-21→条件再設計 2026-06-22→選定は合成スコア→平均想定損益へ(コメント更新 2026-07-22j)。
 function _elBaseAlphaTableV2(groups, cutFn) {
   var _cf = cutFn || function() { return 10; };
   var aiOf = function(r) { return { cutLine: _cf(r) }; };
@@ -2871,8 +2871,8 @@ function _elPeriodLabelNode(pd) {
     pd.label,
     React.createElement("span", { style: { fontSize: 8, fontWeight: 700, color: "#0369A1", background: "#fff", border: "1px solid #93C5FD", borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "おすすめ"));
 }
-// 指定αを母数recに一律適用したH1想定損益（_elBaseAlphaEvalのpnlと同基準＝OS1〜3でEP到達しH1損益が判定できる記録のΣ_elDynHold）と、その記録の異なる営業日数。
-// 「1営業日あたり」＝Σ想定損益÷エントリー成立日数（記録の無い日・ノーシグナル日は母数に入らず自然に除外）。返り値 { sum, n, days, avg } 2026-06-24。
+// 指定αを母数recに一律適用したH1試算損益（_elBaseAlphaEvalのpnlと同基準＝OS1〜3でEP到達しH1損益が判定できる記録のΣ_elDynHold）と、その記録の異なる営業日数。
+// 「1営業日あたり」＝Σ試算損益÷エントリー成立日数（記録の無い日・ノーシグナル日は母数に入らず自然に除外）。返り値 { sum, n, days, avg } 2026-06-24。
 function _elSimPnlByDay(recs, aiOf, alpha) {
   if (alpha == null) return { sum: null, n: 0, days: 0, avg: null };
   var sum = 0, n = 0, has = false, dmap = {};
@@ -2889,11 +2889,11 @@ function _elSimPnlByDay(recs, aiOf, alpha) {
   var days = 0; for (var k in dmap) { if (dmap.hasOwnProperty(k)) days++; }
   return { sum: has ? sum : null, n: n, days: days, avg: (has && days > 0) ? sum / days : null };
 }
-// 想定損益セル: 上段「+X円/日」（1営業日あたり平均）＋下段「1件 +Z円」（1件あたり期待損益＝想定損益÷件数・件数/頻度に左右されず窓間で比較しやすい）2026-06-27（旧: 下段は期間累計）。データ無しは—。利益=赤/損=緑（当アプリ慣習）。
+// 試算損益セル: 上段「+X円/日」（1営業日あたり平均）＋下段「1件 +Z円」（1件あたり期待損益＝試算損益÷件数・件数/頻度に左右されず窓間で比較しやすい）2026-06-27（旧: 下段は期間累計）。データ無しは—。利益=赤/損=緑（当アプリ慣習）。
 function _elSimPnlCell(sim) {
   if (!sim || sim.sum == null || sim.days <= 0) return React.createElement("span", { style: { color: "#bbb" } }, "—");
   var avg = Math.round(sim.avg);
-  var per = (sim.n > 0) ? Math.round(sim.sum / sim.n) : null;   // 1件あたり期待損益（想定損益÷件数）2026-06-27
+  var per = (sim.n > 0) ? Math.round(sim.sum / sim.n) : null;   // 1件あたり期待損益（試算損益÷件数）2026-06-27
   return React.createElement("span", { style: { whiteSpace: "nowrap", lineHeight: 1.3, display: "inline-block" } },
     React.createElement("span", { style: { fontWeight: 800, fontSize: 12, color: _elPnlColor(avg) } }, _elPnlFmt(avg) + "/日"),
     React.createElement("br", null),
@@ -2911,7 +2911,7 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
     var A = _elBaseAlphaA(pd.recs, aiOf);
     var pk = A ? A.pick : null;
     var add = A ? A.add : null;
-    var basePool = pd.recs.filter(_elIsBaseAlphaPoolRec);   // 想定損益の母数も推奨基本α(_elBaseAlphaPick)と同じ三重除外に揃える 2026-07-13
+    var basePool = pd.recs.filter(_elIsBaseAlphaPoolRec);   // 試算損益の母数も推奨基本α(_elBaseAlphaPick)と同じ三重除外に揃える 2026-07-13
     var alphaCell, simBase = null;
     if (!pk || pk.alpha == null) alphaCell = dash;
     else {
@@ -2934,7 +2934,7 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
       _elv2Td(pk && pk.eRate != null ? _elPctCell(pk.eRate) : dash, _cEx),
       _elv2Td((pk && pk.scN != null ? pk.scN : 0) + "件", _cEx),
       _elv2Td(_elSimPnlCell(simBase), _cEx)));
-    // 推奨追加α（└サブ行・基本αに足した時の損切り率〜想定損益も並べる）2026-06-30。母数は追加α〇プール＝基本行(×・未選択)とは別母集団。
+    // 推奨追加α（└サブ行・基本αに足した時の損切り率〜試算損益も並べる）2026-06-30。母数は追加α〇プール＝基本行(×・未選択)とは別母集団。
     if (add) {
       var _dadd = { borderTop: "1px dashed #FDBA74" };
       rows.push(React.createElement("tr", { key: "a" + i },
@@ -2951,10 +2951,10 @@ function _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
     }
     // 次点（基本α・追加αとも）は主行にインライン「（次点：X円）」で併記＝専用の└次点行は廃止 2026-07-01。次点の個別成績列は非表示（主のαの成績のみ）。
   });
-  return _elv2Table(["期間", "推奨基本α", "推奨損切り", "損切り率", "H1勝率", "到達率", "有効件数", "想定損益(1日/1件)"], rows);
+  return _elv2Table(["期間", "推奨基本α", "推奨損切り", "損切り率", "H1勝率", "到達率", "有効件数", "試算損益(1日/1件)"], rows);
 }
-// 推奨追加α値の期間別表（母数＝追加α〇の記録だけ＝基本α表とは別プール）2026-06-24→24g。各期間で「基本α＋推奨追加α」を〇記録に当てた 損切り率/H1勝率/到達率/件数/想定損益。
-// 推奨追加α＝_elBaseAlphaA().add（基本αに足して損切りを避けH1黒字にできる最小加算＝想定損益はプラス・改善無しは「推奨無し」）。次点は点線区切りで1行追加。〇記録の無い期間は—。
+// 推奨追加α値の期間別表（母数＝追加α〇の記録だけ＝基本α表とは別プール）2026-06-24→24g。各期間で「基本α＋推奨追加α」を〇記録に当てた 損切り率/H1勝率/到達率/件数/試算損益。
+// 推奨追加α＝_elBaseAlphaA().add（基本αに足して損切りを避けH1黒字にできる最小加算＝試算損益はプラス・改善無しは「推奨無し」）。次点は点線区切りで1行追加。〇記録の無い期間は—。
 function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
   var W = _elPeriodWindows(recs, refDate, includeToday);
   if (!W.hasAny) return React.createElement("div", { style: { fontSize: 11, color: "#aaa", padding: "4px 0" } }, "データ無し");
@@ -2990,7 +2990,7 @@ function _elAddAlphaPeriodTableV2(recs, aiOf, refDate, includeToday) {
       _elv2Td((_has && add.avgH2 != null) ? React.createElement("div", { style: { lineHeight: 1.15 } }, React.createElement("b", { style: { color: _elPnlColor(add.avgH2) } }, _elPnlFmt(Math.round(add.avgH2))), React.createElement("div", { style: { fontSize: 8.5, color: "#94A3B8" } }, "Σ" + (add.h2Sum != null ? _elPnlFmt(Math.round(add.h2Sum)) : "—"))) : dash, _cEx)));
     // 次点は主行にインライン「（次点：+X円）」で併記＝専用の└次点行は廃止 2026-07-01。次点の個別成績列は非表示。
   });
-  return _elv2Table(["期間", "推奨追加α", "損切り率(最終)", "利確率(最終)", "到達率", "E成立", "最終損益(平均/Σ)"], rows);
+  return _elv2Table(["期間", "推奨追加α", "損切り率(最終)", "利確率(最終)", "到達率", "E成立", "想定損益(平均/Σ)"], rows);
 }
 
 // 銘柄ごとの「α 推奨α値（{stock}・期間別）」ブロック（見出し＋説明＋期間別表_elBaseAlphaPeriodTableV2＝基本αに追加αの└サブ行も内包）。ChartSection(app-02)と取引テーブルの本日損益データ(app-04)で共用＝同じ見た目に統一 2026-06-24（2026-07-01 追加α独立テーブルを廃し基本α表へ統合・見出しを推奨α値に改称）。
@@ -3001,7 +3001,7 @@ function _elBaseAlphaPeriodBlockV2(data, stock, refDate, save) {
   return React.createElement("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "α 推奨α値（" + stock + "）"),
     (save && typeof _ElDayAlphaPair === "function") ? React.createElement("div", { style: { marginBottom: 6 } }, React.createElement(_ElDayAlphaPair, { data: data, save: save, date: refDate, stock: stock })) : null,   // 本日の採用α値（基本α+応用α）＝見出し直下 2026-07-13 task3
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で「到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(手じまい)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字」を満たすαの中で平均最終損益（手じまい・1件あたり）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考）。基本αは応用α〇・浮き足〇・RN〇以外（応用なし）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・応用α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。「応用α」＝応用α〇の記録だけを母数に、応用局面で採用する独立α値（0〜20円）を手じまい基準で評価した推奨（★＝到達率" + _EL_ANA_REACH_DEF + "%・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立条件でΣ最終損益（累計）最大）。次点（2番目の候補）は基本α・応用αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で「到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(手じまい)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字」を満たすαの中で平均想定損益（手じまい・1件あたり）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考）。基本αは応用α〇・浮き足〇・RN〇以外（応用なし）が母数。試算損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・応用α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。「応用α」＝応用α〇の記録だけを母数に、応用局面で採用する独立α値（0〜20円）を手じまい基準で評価した推奨（★＝到達率" + _EL_ANA_REACH_DEF + "%・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立条件でΣ想定損益（累計）最大）。次点（2番目の候補）は基本α・応用αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
     React.createElement(_ElRecoAlphaDetail, { recs: recs, aiOf: aiOf, holiSet: _buildHolidayDateSet((data || {}).trades, ((data || {}).custom || {}).eventCategories) }));   // 2026-07-13 期間別表→取引/記録帳と同じ基本↔応用トグル付き総当たり詳細表(常時展開)。期間別は_ElRecoAlphaDetail内の「直近参考」サブ行で残す。
 }
 // DayView「チャート」タブで早見表の下に出す推奨αブロック（2026-06-24）。各銘柄テーブル(ChartSection)の_elBaseAlphaPeriodBlockV2と同等に充実＝説明文＋本日行付き期間表(_elBaseAlphaPeriodTableV2＝基本αに追加αの└サブ行も内包)。さらに「今日の推奨◯円」の大見出し(headNode)を併載＝いいとこ取り 2026-06-24c（2026-07-01 追加α独立テーブル(_elAddAlphaPeriodTableV2)を廃し基本α表へ統合・最上位見出しを🎯推奨α値に改称）。
@@ -3039,7 +3039,7 @@ function _elBaseAlphaDayBlockV2(recs, aiOf, refDate) {
   return React.createElement("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#F0F9FF", border: "1px solid #BAE6FD" } },
     React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#0369A1", marginBottom: 6 } }, "🎯 推奨α値（" + refDate + "）"),
     headNode,
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 8, marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で「到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(手じまい)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字」を満たすαの中で平均最終損益（手じまい・1件あたり）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考）。基本αは応用α〇・浮き足〇・RN〇以外（応用なし）が母数。想定損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・応用α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。「応用α」＝応用α〇の記録だけを母数に、応用局面で採用する独立α値（0〜20円）を手じまい基準で評価した推奨（★＝到達率" + _EL_ANA_REACH_DEF + "%・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立条件でΣ最終損益（累計）最大）。次点（2番目の候補）は基本α・応用αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginTop: 8, marginBottom: 6 } }, "この銘柄の記録を期間別（本日/直近25件/50件/100件/全期間）に集計。本日＝" + refDate + "当日の記録、それ以外は前日まで（当日を含めない）。各期間で「到達率" + _EL_ANA_REACH_DEF + "%以上・損切り率(手じまい)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立≥" + _EL_BASE_MIN_N + "件・頻度" + _EL_FREQ_MAX + "未満・黒字」を満たすαの中で平均想定損益（手じまい・1件あたり）が最大のα（該当なしは到達率" + _EL_ANA_REACH_FLOOR2 + "%へ緩和して参考）。基本αは応用α〇・浮き足〇・RN〇以外（応用なし）が母数。試算損益＝推奨基本αをこの母数に当てたH1損益の『1営業日あたり平均／期間累計（営業日数）』＝記録の無い日・ノーシグナル日（エントリー成立なし）は除外。「推奨損切り」＝実現H1損益をほぼ維持できる範囲で最小（タイト）の損切り値（10〜30円・応用α〇も含む全記録が母数。基本αとは別軸の損切り最適化）。「応用α」＝応用α〇の記録だけを母数に、応用局面で採用する独立α値（0〜20円）を手じまい基準で評価した推奨（★＝到達率" + _EL_ANA_REACH_DEF + "%・損切り率(最終)≤" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%・E成立条件でΣ想定損益（累計）最大）。次点（2番目の候補）は基本α・応用αとも各行にインライン「（次点：X円）」で併記＝専用行は無し。"),
     _elBaseAlphaPeriodTableV2(recs, aiOf, refDate, true));
 }
 
@@ -3061,7 +3061,7 @@ function _elStocksWithV2Before(data, refDate, orderHint) {
 }
 // 簡略版「本日の推奨基本α値」ボード（取引タブ・本日の総括の直前）2026-06-25。各銘柄の前日までの移動窓（直近25件/50件/100件/全期間）で
 // 推奨基本α・推奨応用α（いずれも再推奨＋次点）を出す。前日まで全期間をメイン（大きく・2026-07-13ユーザー要望＝詳細データ表と同母数）、直近25/50/100件はサブ行（小さく・参考）。
-// 指標（損切り率/勝率/想定損益）は出さずα値だけのシンプル表示＝詳細は各銘柄テーブル(ChartSection)の期間別表(_elBaseAlphaPeriodBlockV2)で（取引タブの重複フル版は2026-06-26削除）。
+// 指標（損切り率/勝率/試算損益）は出さずα値だけのシンプル表示＝詳細は各銘柄テーブル(ChartSection)の期間別表(_elBaseAlphaPeriodBlockV2)で（取引タブの重複フル版は2026-06-26削除）。
 // data・stocks(本日エントリーした銘柄=_pbStks)・refDate(基準日=本日。各窓は当日を含めない前日まで=_elPeriodWindows(...,false))。
 // 本日の推奨基本α値ボードの銘柄カード（2026-07-13）: 簡略ボード（body）＋「▼この銘柄の詳細データ表」トグルで記録帳と同じ_elBaseAlphaDetailV2をインライン展開。母数＝メイン直近50件（前日まで）＝ボードの推奨基本αと同一なので★が一致。
 function _ElBaseAlphaBoardCard(_p) {
@@ -3219,7 +3219,7 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate, save) {
     return React.createElement(_ElBaseAlphaBoardCard, { key: si, stock: stock, recs: W.periods[3].recs, aiOf: aiOf, holiSet: holiSet, body: _body });
   });
   return React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録で集計（当日は含めない）。前日まで全期間をメインに、直近25/50/100件はサブ参考（詳細データ表・EPナビ・記録フォームと同じ母数）。各値は再推奨（次点）。基本α＝応用なし・浮き足〇以外が母数、応用α＝応用〇記録（浮き足〇除く）だけが母数・基本αより大きくクランプ、推奨損切り＝実現H1損益をほぼ維持できる最小（タイト）の損切り値（15〜30円・応用α含む全記録が母数）。「📊本日の記録との乖離」は当日の記録1件ごとに、到達した最高OSが採用α（通常＝推奨基本α／応用〇＝推奨応用α／さらに浮き足・RN〇は＋その記録の上乗せ）からどれだけ離れたか（到達−採用α）。損切り率・勝率・想定損益などの詳細は銘柄別・期間別の詳細表を参照。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#64748B", marginBottom: 8 } }, "前日までの記録で集計（当日は含めない）。前日まで全期間をメインに、直近25/50/100件はサブ参考（詳細データ表・EPナビ・記録フォームと同じ母数）。各値は再推奨（次点）。基本α＝応用なし・浮き足〇以外が母数、応用α＝応用〇記録（浮き足〇除く）だけが母数・基本αより大きくクランプ、推奨損切り＝実現H1損益をほぼ維持できる最小（タイト）の損切り値（15〜30円・応用α含む全記録が母数）。「📊本日の記録との乖離」は当日の記録1件ごとに、到達した最高OSが採用α（通常＝推奨基本α／応用〇＝推奨応用α／さらに浮き足・RN〇は＋その記録の上乗せ）からどれだけ離れたか（到達−採用α）。損切り率・勝率・試算損益などの詳細は銘柄別・期間別の詳細表を参照。"),
     cards);
 }
 
@@ -3245,7 +3245,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
   var _addOf = function(s) { var v = _num(s.addAlphaVal); if (v == null) { var a = _num(s.alphaVal), b = _num(s.baseAlphaVal); v = (a != null && b != null) ? (a - b) : null; } return v; };
   var _enteredAt = function(s, a) { var rr = _epResolve(s, a); return !!(rr && rr.judge === "ok"); };
   var _h1At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var h = _elDynHold(s, a, cut); return h == null ? 0 : h; };
-  var _h2At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var t = _elHoldFinalParts(s, a, cut); return (t && t.main != null) ? t.main : 0; };   // 手じまい（最終損益・（）外）基準 2026-07-13
+  var _h2At = function(s, a, cut) { if (a == null || !_enteredAt(s, a)) return 0; var t = _elHoldFinalParts(s, a, cut); return (t && t.main != null) ? t.main : 0; };   // 手じまい（想定損益・（）外）基準 2026-07-13
   var _stopAt = function(s, a, cut) { return _enteredAt(s, a) && (_elIsStopFinal(s, a, cut)); };   // H2損切りも含む（手じまい基準）2026-07-13
 
   // 効果計算（採用α=基本+追加 vs 基本αだけ・手じまい基準 2026-07-13＝旧H1比較を置換。変数名h1A/h1Bは互換のため据え置き）
@@ -3293,7 +3293,7 @@ function _elAddAlphaSectionV2(recs, aiOf, data) {
           same > 0 ? React.createElement("span", null, " ", _elInsightEmV2(same + "件"), "は足さなくても同じ。") : null,
           lose > 0 ? React.createElement("span", null, " ", _elInsightEmV2(lose + "件"), "は裏目（足さない方が良かった）。") : null,
           savedStop > 0 ? React.createElement("span", null, " うち ", _elInsightEmV2(savedStop + "件"), "は基本αなら損切りだったのを回避。") : null)
-      ], { note: "各追加α〇記録で『実際の採用α（基本＋追加）の手じまい損益（最終損益・EP/H1/H2損切り込み）』と『基本αだけだった場合の手じまい損益』を、同じ値動き・同じ損切り値で比較（未達＝取引なし＝0円・2026-07-13にH1基準から手じまい基準へ変更）。差の合計＝追加αの判断が生んだ損益。" })
+      ], { note: "各追加α〇記録で『実際の採用α（基本＋追加）の手じまい損益（想定損益・EP/H1/H2損切り込み）』と『基本αだけだった場合の手じまい損益』を、同じ値動き・同じ損切り値で比較（未達＝取引なし＝0円・2026-07-13にH1基準から手じまい基準へ変更）。差の合計＝追加αの判断が生んだ損益。" })
     );
   }
 
@@ -3350,12 +3350,12 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
     secH("🔻 浮き足の記録（採用α・推奨α・OS・乖離の一覧）"),
     _ukiScopeTgl,
     React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "浮き足" + (_ukiSp ? "応用" : "基本") + "〇（浮き値入り）の記録がまだありません"));
-  // 浮き足加算率スイープ 2026-07-12: 採用α（基本＋追加＋RN）は実績のまま浮き足加算だけをP=0〜100%(10刻み)で振り、最終損益(H2)で評価。全銘柄版(シグナル総合)と同じ_elUkiPctSweepに統一（旧「基本α＋浮き足%・ΣH1最大」から刷新）。母数=浮き値>0の浮き足〇記録。
+  // 浮き足加算率スイープ 2026-07-12: 採用α（基本＋追加＋RN）は実績のまま浮き足加算だけをP=0〜100%(10刻み)で振り、想定損益(H2)で評価。全銘柄版(シグナル総合)と同じ_elUkiPctSweepに統一（旧「基本α＋浮き足%・ΣH1最大」から刷新）。母数=浮き値>0の浮き足〇記録。
   var _ukiPool = floatRecs.filter(function(r) { var f = _elUkiVal(r.signal); return f != null && f > 0; });
   var _ukiHoli = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories);
   var _sweep = _ukiPool.length ? _elUkiPctSweep(_ukiPool, aiOf, _ukiHoli) : null;
   var simNode = _sweep ? React.createElement("div", { style: { marginTop: 8 } },
-    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "0 0 2px" } }, "📐 浮き足の何%を加算すると最適か（浮き足〇＝α＝浮き足加算＋RN・浮き足%だけ振り・最終損益で評価・★＝スコア最大＝現行の推奨%）"),
+    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "0 0 2px" } }, "📐 浮き足の何%を加算すると最適か（浮き足〇＝α＝浮き足加算＋RN・浮き足%だけ振り・想定損益で評価・★＝スコア最大＝現行の推奨%）"),
     _elUkiPctSweepNode(_sweep),
     _elUkiValBoardBlock(_ukiPool, aiOf, _ukiHoli)) : null;
   // ===== 2段テーブル（案B・2026-07-01刷新）: 1記録＝現実(採用したα)／推奨(推奨どおりのα)の上下2段。列＝日付(＋記録ボタン)/種別/基本α/追加α/合計α/OS/乖離度。 =====
@@ -3418,7 +3418,7 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
     _floatTable,
     simNode);
 }
-// 浮き足加算率スイープ 2026-07-12: 採用α（基本＋追加＋RN）は実績のまま、浮き足加算だけをP=0〜100%(10刻み)で振り、最終損益で評価。alphaOf(r)=（採用α−現行浮き足加算floor(v/2)）＋floor(浮き値×P/100)＝P=50%で現行(半額)に一致＝実績と同値。母数poolは呼び出し側で浮き足〇&浮き値>0に絞る。best=件数(E成立)≥_EL_BASE_MIN_N&想定損益>0でスコア最大。シグナル総合タブ(全銘柄)＋シグナル別「浮き足」サブタブ(_elFloatReasonSectionV2)で共用。
+// 浮き足加算率スイープ 2026-07-12: 採用α（基本＋追加＋RN）は実績のまま、浮き足加算だけをP=0〜100%(10刻み)で振り、想定損益で評価。alphaOf(r)=（採用α−現行浮き足加算floor(v/2)）＋floor(浮き値×P/100)＝P=50%で現行(半額)に一致＝実績と同値。母数poolは呼び出し側で浮き足〇&浮き値>0に絞る。best=件数(E成立)≥_EL_BASE_MIN_N&試算損益>0でスコア最大。シグナル総合タブ(全銘柄)＋シグナル別「浮き足」サブタブ(_elFloatReasonSectionV2)で共用。
 function _elUkiPctSweep(pool, aiOf, holiSet) {
   var _mk = function(P) {
     return function(r) {
@@ -3434,7 +3434,7 @@ function _elUkiPctSweep(pool, aiOf, holiSet) {
   for (var P = 0; P <= 100; P += 10) { var _af = _mk(P); rows.push({ P: P, ev: _elH2EvalByFn(pool, aiOf, _af, true), entDays: _elEnteredDays(pool, _af, aiOf) }); }   // 2026-08-02h 同値は全列除外＋頻度の分子からも同値を外す（α詳細表・RNボードと同基準）2026-08-10
   var _qual = function(x) { return x.ev.decided >= _EL_BASE_MIN_N && x.ev.h2Sum != null && x.ev.h2Sum > 0 && x.ev.score != null; };
   var _quals = rows.filter(_qual);
-  var _sigOf = function(x) { return x.ev.h2Sum; }, _avgOf = function(x) { return x.ev.avgH2; }, _pOf = function(x) { return x.P; };   // Σ最終損益（累計）最大 2026-08-02k（旧＝平均最大）
+  var _sigOf = function(x) { return x.ev.h2Sum; }, _avgOf = function(x) { return x.ev.avgH2; }, _pOf = function(x) { return x.P; };   // Σ想定損益（累計）最大 2026-08-02k（旧＝平均最大）
   var best = _elBordaBest(_quals, _sigOf, _avgOf, _pOf);
   var _rest = _quals.filter(function(x) { return !best || x.P !== best.P; });   // 次点＝best以外で平均最大
   var runnerUp = _rest.length ? _elBordaBest(_rest, _sigOf, _avgOf, _pOf) : null;
@@ -3452,7 +3452,7 @@ function _elUkiRecoPcts(data, refDate) {
   var sweep = _elUkiPctSweep(pool, function(r) { return _elAlphaInfo(r, data); });
   return { reco: sweep.best ? sweep.best.P : null, runnerUp: sweep.runnerUp ? sweep.runnerUp.P : null, n: pool.length };
 }
-// 浮き足加算率スイープの推奨バー＋表を描画 2026-07-12→2026-07-18 α詳細表(_elBaseAlphaDetailV2)と同じ列立てに刷新。列＝浮き足%/E成立/到達率/頻度/利確率/損切り率/最終損益(平均/中央/Σ)/勝ち負け平均/スコア。★推奨＝最良（フォーム自動入力に使う値）・次点も表示・件数_EL_BASE_MIN_N未満は薄字「参考」。頻度はsweep.span(活動営業日)÷行のentDays(到達実日数)。
+// 浮き足加算率スイープの推奨バー＋表を描画 2026-07-12→2026-07-18 α詳細表(_elBaseAlphaDetailV2)と同じ列立てに刷新。列＝浮き足%/E成立/到達率/頻度/利確率/損切り率/想定損益(平均/中央/Σ)/勝ち負け平均/スコア。★推奨＝最良（フォーム自動入力に使う値）・次点も表示・件数_EL_BASE_MIN_N未満は薄字「参考」。頻度はsweep.span(活動営業日)÷行のentDays(到達実日数)。
 // 2026-07-18: %版/円版で共有する描画コア。cfg.keyOf(行→P or X)・cfg.unit("%"/"円")・cfg.head(第1列見出し)・cfg.recoWord(推奨バー語)・cfg.noneTail(推奨無し時の末尾)。列立て/スタイル/ロジックは%版と完全等価。
 function _elUkiSweepNodeCore(sweep, cfg) {
   var rows = sweep.rows, best = sweep.best, runnerUp = sweep.runnerUp, _k = cfg.keyOf, _u = cfg.unit;
@@ -3460,9 +3460,9 @@ function _elUkiSweepNodeCore(sweep, cfg) {
   var _reco = React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: best ? "#0369A1" : "#94A3B8" } },
     best
       ? React.createElement("span", null, "推奨 " + cfg.recoWord + " ", React.createElement("span", { style: { fontSize: 16, fontWeight: 800 } }, _k(best) + _u),
-          "（損切り" + Math.round((best.ev.stopRate || 0) * 100) + "%・利確" + Math.round((best.ev.takeRate || 0) * 100) + "%・想定損益計" + _elPnlFmt(Math.round(best.ev.h2Sum)) + "・" + best.ev.decided + "件）",
+          "（損切り" + Math.round((best.ev.stopRate || 0) * 100) + "%・利確" + Math.round((best.ev.takeRate || 0) * 100) + "%・試算損益計" + _elPnlFmt(Math.round(best.ev.h2Sum)) + "・" + best.ev.decided + "件）",
           runnerUp ? React.createElement("span", { style: { color: "#64748B", fontWeight: 600 } }, "　｜　次点 " + _k(runnerUp) + _u + "（スコア" + Math.round(runnerUp.ev.score * 100) + "）") : null)
-      : "推奨：件数" + _EL_BASE_MIN_N + "以上で想定損益プラスの" + cfg.recoWord + "は出ていません" + (cfg.noneTail || "（データ不足）"));
+      : "推奨：件数" + _EL_BASE_MIN_N + "以上で試算損益プラスの" + cfg.recoWord + "は出ていません" + (cfg.noneTail || "（データ不足）"));
   var _trs = rows.map(function(x) {
     var e = x.ev, isBest = !!(best && _k(x) === _k(best)), isRunner = !!(runnerUp && _k(x) === _k(runnerUp)), low = e.decided < _EL_BASE_MIN_N;
     var bg = isBest ? "#FEF3C7" : (isRunner ? "#EFF6FF" : null);
@@ -3482,12 +3482,12 @@ function _elUkiSweepNodeCore(sweep, cfg) {
   });
   return React.createElement("div", { style: { marginTop: 4 } },
     _reco,
-    _elv2Table([cfg.head, "E成立", "到達率", "同値", "頻度", "利確率", "損切り率", "最終損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"], _trs));
+    _elv2Table([cfg.head, "E成立", "到達率", "同値", "頻度", "利確率", "損切り率", "想定損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"], _trs));
 }
 function _elUkiPctSweepNode(sweep) {
   return _elUkiSweepNodeCore(sweep, { keyOf: function(x) { return x.P; }, unit: "%", head: "浮き足%", recoWord: "浮き足加算率", noneTail: "（データ不足／50%で十分の傾向）" });
 }
-// 浮き足α値（円）版スイープ 2026-07-18: 加算率%でなく浮き足α値=固定X円(0〜20)を全記録に上乗せして最終損益で評価＝基本α詳細表(_elBaseAlphaDetailV2)と同じ「円」の土俵。実効α=(採用α−現在の浮き足加算)+X（%版_elUkiPctSweepのuv*P/100をXへ置換）。母数/評価/★選定は%版と同一（推奨は表示のみ・フォーム自動入力は%版が正本）。
+// 浮き足α値（円）版スイープ 2026-07-18: 加算率%でなく浮き足α値=固定X円(0〜20)を全記録に上乗せして想定損益で評価＝基本α詳細表(_elBaseAlphaDetailV2)と同じ「円」の土俵。実効α=(採用α−現在の浮き足加算)+X（%版_elUkiPctSweepのuv*P/100をXへ置換）。母数/評価/★選定は%版と同一（推奨は表示のみ・フォーム自動入力は%版が正本）。
 function _elUkiValSweep(pool, aiOf, holiSet) {
   var _MAX = 20;   // 基本α詳細表(_elBaseAlphaDetailV2)と同レンジ（0〜20円・1円刻み）
   var _mk = function(X) {
@@ -3518,7 +3518,7 @@ function _elUkiValBoardBlock(pool, aiOf, holiSet) {
   return React.createElement("div", { style: { marginTop: 14, borderTop: "1px dashed #D6E7D2", paddingTop: 10 } },
     React.createElement("div", { style: { fontSize: 11, color: "#15803D", fontWeight: 700, marginBottom: 4 } }, "⚡ 浮き足α値（円）で見る＝基本αと同じ土俵"),
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 8, padding: "8px 10px" } },
-      "上の%表と同じ母数を、浮き足の加算を『固定X円』（0〜20円・1円刻み）に振り直して最終損益で評価。%は記録ごとに加算円が変わるのに対し、こちらは全記録に同じ円を上乗せ＝基本α詳細表と同じ見方。★＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大の浮き足α値（表示のみ・フォームの自動入力は%が正本）。"),
+      "上の%表と同じ母数を、浮き足の加算を『固定X円』（0〜20円・1円刻み）に振り直して想定損益で評価。%は記録ごとに加算円が変わるのに対し、こちらは全記録に同じ円を上乗せ＝基本α詳細表と同じ見方。★＝件数（E成立）" + _EL_BASE_MIN_N + "以上で試算損益プラスの中でスコア最大の浮き足α値（表示のみ・フォームの自動入力は%が正本）。"),
     _elUkiValSweepNode(_elUkiValSweep(pool, aiOf, holiSet)));
 }
 // 全銘柄共通の浮き足加算率最適化ボード（シグナル総合タブ）2026-07-12。母数=全銘柄の浮き足〇・浮き値>0のv2記録。
@@ -3528,7 +3528,7 @@ function _elUkiPctBoardV2(recs, aiOf, holiSet) {
   var sweep = _elUkiPctSweep(pool, aiOf, holiSet);
   return React.createElement(React.Fragment, null,
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px" } },
-      "母数＝全銘柄の浮き足〇記録 " + pool.length + "件（浮き値あり）。各記録は実際に使った加算率で採用αに畳み込み済み。ここでは浮き足の加算だけを0〜100%（10刻み）で振り直して最終損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大＝新規記録の浮き足加算の自動入力に使う推奨率（次点も表示）。"),
+      "母数＝全銘柄の浮き足〇記録 " + pool.length + "件（浮き値あり）。各記録は実際に使った加算率で採用αに畳み込み済み。ここでは浮き足の加算だけを0〜100%（10刻み）で振り直して想定損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で試算損益プラスの中でスコア最大＝新規記録の浮き足加算の自動入力に使う推奨率（次点も表示）。"),
     _elUkiPctSweepNode(sweep),
     _elUkiValBoardBlock(pool, aiOf, holiSet));
 }
@@ -3545,7 +3545,7 @@ function _elUkiPctBoardScoped(recs, aiOf, mode, reasons, holiSet) {
   var sweep = _elUkiPctSweep(pool, aiOf, holiSet);
   return React.createElement(React.Fragment, null,
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px" } },
-      "母数＝" + (_sp ? "浮き足応用" : "浮き足基本") + (byReason ? "（選択根拠）" : "") + "〇の記録 " + pool.length + "件（浮き値あり）。加算率を0〜100%（10刻み）で振り直し最終損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で想定損益プラスの中でスコア最大＝" + (_sp ? "浮き足応用" : "浮き足基本") + "加算率の推奨（次点も表示）。"),
+      "母数＝" + (_sp ? "浮き足応用" : "浮き足基本") + (byReason ? "（選択根拠）" : "") + "〇の記録 " + pool.length + "件（浮き値あり）。加算率を0〜100%（10刻み）で振り直し想定損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で試算損益プラスの中でスコア最大＝" + (_sp ? "浮き足応用" : "浮き足基本") + "加算率の推奨（次点も表示）。"),
     _elUkiPctSweepNode(sweep),
     _elUkiValBoardBlock(pool, aiOf, holiSet));
 }
@@ -3611,7 +3611,7 @@ function _elUkiAltBandLabel(i) {
 // 換算後の採用α＝応用α（帯別）＋RN加算（ユーザー選択＝RNは浮き足でも上乗せする規約なので条件を揃える）。浮き足加算は使わない。
 function _elUkiAltAlpha(s) { var b = _elUkiAltBandOf(s); return b ? (b.alpha + _elRnAdd(s)) : null; }
 // そのαでのエントリー不成立の理由（null＝成立して（）外が立った）。2026-07-27
-// 最終損益の（）外(main)がnullになるのは ①×見送り（スルー宣言がEP足より前）②α未達（EP不成立）③（）外が立たない△エントリー の3つ。
+// 想定損益の（）外(main)がnullになるのは ①×見送り（スルー宣言がEP足より前）②α未達（EP不成立）③（）外が立たない△エントリー の3つ。
 // ①②は「そのαなら取引しなかった」、③は（）外＝0の規約（_elTotAccumと同じ）＝いずれも（）外への寄与は0円。
 function _elUkiAltWhy(s, a, mainV) {
   if (a == null || mainV != null) return null;
@@ -3619,7 +3619,7 @@ function _elUkiAltWhy(s, a, mainV) {
   if (_elH2Miss(s, a)) return "未達";
   return "△のみ";
 }
-// 1記録の換算結果 {band, altA, curA, cut, cur(実際の最終損益main), alt(換算の最終損益main), curWhy/altWhy, diff}。
+// 1記録の換算結果 {band, altA, curA, cut, cur(実際の想定損益main), alt(換算の想定損益main), curWhy/altWhy, diff}。
 // 2026-07-27（ユーザー決定）: 片側が不成立でも0円として差額に算入＝「αを下げたから取れていた取引」が集計から消えないようにする。
 //   旧＝mainがnullなら行ごと換算不可（差額—・合計から除外）→ 応用α換算の効果そのものが落ちていた。
 //   真の換算不可はα不明（帯不明＝水準線未入力）だけ＝cur/altがnullになるのはその時のみ。
@@ -3769,7 +3769,7 @@ function _elOsTradeMini(recs, aiOf, opts) {
   return React.createElement(_HScrollBox, { style: { marginTop: 4 }, plain: !!(opts && opts.plain) },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
-        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("α値", { width: 34 }), _th("損切", { width: 34 }), _th("ライン", { width: 1 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("最終損益・詳細", { width: 84 }),
+        _th("日付", { width: 50 }), _th("時間", { width: 42 }), _th("シグナル"), _th("α値", { width: 34 }), _th("損切", { width: 34 }), _th("ライン", { width: 1 }), _th("E", { width: 24 }), _th("取引", { width: 26 }), _th("想定損益・詳細", { width: 84 }),
         React.createElement("th", { colSpan: 2, style: { padding: "2px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", textAlign: "center", fontSize: 10, color: "#9A9186", whiteSpace: "nowrap" } }, "OS・損益詳細"),
         _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: 30 }), _th("実現損益", { width: 80 }))),
       React.createElement("tbody", null, rows)));
@@ -3944,7 +3944,7 @@ function _elWeeklyTargetSummaryV2(recs, aiOf, dataOpt, scopeStock) {
   var _pnl = function(v) { return React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: 800 } }, _elPnlFmt(Math.round(v))); };
   var _th = function(label, ex) { return React.createElement("th", { style: Object.assign({ padding: "4px 8px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", textAlign: "center", fontSize: 11, color: "#9A9186", whiteSpace: "nowrap" }, ex || {}) }, label); };
   var _td = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 8px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
-  var bases = [{ key: "re", label: "実現損益(100株)" }, { key: "h2", label: "最終損益" }];
+  var bases = [{ key: "re", label: "実現損益(100株)" }, { key: "h2", label: "想定損益" }];
   var _pnlLite = function(v) { return React.createElement("span", { style: { color: _elPnlColor(v), fontWeight: 600, fontSize: 10 } }, "≈" + _elPnlFmt(Math.round(v))); };
   var sumRows = bases.map(function(b) {
     var perDay = S.days > 0 ? S[b.key] / S.days : 0;
@@ -3974,11 +3974,11 @@ function _elWeeklyTargetSummaryV2(recs, aiOf, dataOpt, scopeStock) {
   var weekTable = React.createElement(_HScrollBox, null,
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
       React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
-        _th("週（月〜金）", { textAlign: "left", paddingLeft: 10, color: "#555", borderBottomColor: "#ddd" }), _th("取引日", { color: "#555", borderBottomColor: "#ddd" }), _th("実現損益", { color: "#555", borderBottomColor: "#ddd" }), _th("最終損益", { color: "#555", borderBottomColor: "#ddd" }))),
+        _th("週（月〜金）", { textAlign: "left", paddingLeft: 10, color: "#555", borderBottomColor: "#ddd" }), _th("取引日", { color: "#555", borderBottomColor: "#ddd" }), _th("実現損益", { color: "#555", borderBottomColor: "#ddd" }), _th("想定損益", { color: "#555", borderBottomColor: "#ddd" }))),
       React.createElement("tbody", null, wkRows)));
   return React.createElement("div", { style: { marginBottom: 14, padding: "10px 12px", border: "1px solid #FB923C", borderRadius: 8, background: "#FFFCF8" } },
     React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#9A3412", marginBottom: 2 } }, "📅 週間サマリー（目標 1日 " + TARGET.toLocaleString() + "円／100株換算）"),
-    React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginBottom: 8 } }, "全 " + S.days + "取引日 / " + W + "週。平均は1取引日あたり（Σ損益÷取引日）＝休場・祝日に依存しない。5営業日換算/週＝1日平均×5の目安。達成率＝1日の損益が2,500円以上だった割合（達成日÷取引日）。達成日数/週＝達成率×5の換算。実現損益＝確定損益を100株換算（損益÷株数×100・E成立分）／最終損益＝期待度○が途切れた所で手じまい（（）外＝○のみ・旧H2損益と同一基準）・採用α基準・既に100株換算。週別表は各週の実額。上の期間フィルタに連動。"),
+    React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", marginBottom: 8 } }, "全 " + S.days + "取引日 / " + W + "週。平均は1取引日あたり（Σ損益÷取引日）＝休場・祝日に依存しない。5営業日換算/週＝1日平均×5の目安。達成率＝1日の損益が2,500円以上だった割合（達成日÷取引日）。達成日数/週＝達成率×5の換算。実現損益＝確定損益を100株換算（損益÷株数×100・E成立分）／想定損益＝期待度○が途切れた所で手じまい（（）外＝○のみ・旧H2損益と同一基準）・採用α基準・既に100株換算。週別表は各週の実額。上の期間フィルタに連動。"),
     summaryTable,
     weekTable);
 }
@@ -4046,7 +4046,7 @@ function _elDayStockBenchV2(_ref) {
   var mk = function(recs) {
     var st = _elPeriodStatsV2(recs, aiOf);
     if (!st) return null;
-    var ba = _elBaseAlphaPick(recs, aiOf);            // 推奨基本α（平均最終損益・単一 ※旧コメント「合成スコア」は誤り 2026-07-22j）
+    var ba = _elBaseAlphaPick(recs, aiOf);            // 推奨基本α（平均想定損益・単一 ※旧コメント「合成スコア」は誤り 2026-07-22j）
     st.baseAlpha = (ba && ba.alpha != null && ba.status !== "none") ? ba.alpha : null;
     return st;
   };
@@ -4072,7 +4072,7 @@ function _elDayStockBenchV2(_ref) {
     { key: "reach", label: "E到達率", cell: function(st) { return pct(st.reach, st.cnt); }, dir: "up", num: function(st) { return st.cnt ? st.reach / st.cnt : null; } },
     { key: "stop", label: "損切り率", cell: function(st) { return pct(st.stop, st.ok + st.ng + st.draw); }, dir: "down", num: function(st) { var d = st.ok + st.ng + st.draw; return d ? st.stop / d : null; } },
     { key: "win", label: "E後の勝率", cell: function(st) { return pct(st.ok, st.ok + st.ng + st.draw); }, dir: "up", num: function(st) { var d = st.ok + st.ng + st.draw; return d ? st.ok / d : null; } },
-    { key: "h2", label: "最終損益", cell: function(st) { return pnlMT(st.h2Avg, st.h2Sum, st.h2Cnt); }, dir: "up", num: function(st) { return st.h2Avg; } },
+    { key: "h2", label: "想定損益", cell: function(st) { return pnlMT(st.h2Avg, st.h2Sum, st.h2Cnt); }, dir: "up", num: function(st) { return st.h2Avg; } },
     { key: "real", label: "実現損益", cell: function(st) { return pnlMT(st.realAvg, st.realSum, st.realCnt); }, dir: "up", num: function(st) { return st.realAvg; } }
   ];
   var EPS = { os: 0.5, base: 0.5, reach: 0.03, stop: 0.03, win: 0.03, h2: 50, real: 50 };
@@ -4229,7 +4229,7 @@ function _elStopMaeSectionV2(entered, aiOf) {
       _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, o.lbl + "・" + o.exitD + "分")),
       _elv2Td(React.createElement("b", { style: { color: _elPnlColor(o.pnl) } }, _elPnlFmt(o.pnl != null ? Math.round(o.pnl) : null))));
   };
-  var detTbl = _elv2Table(["日付", "銘柄", "α/損切", "逆行(円)", "損切りまで", "手じまい", "最終損益(100株)"], top.map(_detRow));
+  var detTbl = _elv2Table(["日付", "銘柄", "α/損切", "逆行(円)", "損切りまで", "手じまい", "想定損益(100株)"], top.map(_detRow));
   var nearN = rows.filter(function(o) { return o.margin <= 2; }).length;
   var items = [
     React.createElement("span", null, "損切りを免れた", _elInsightEmV2(rows.length + "件"), "の逆行は平均", _elInsightEmV2(meanMae + "円"), "・中央", _elInsightEmV2(medMae + "円"), "・最悪", _elInsightEmV2(maxMae + "円", "#C0392B"), "。"),
@@ -4247,7 +4247,7 @@ function _elStopMaeSectionV2(entered, aiOf) {
     React.createElement("div", { style: { marginTop: 10 } },
       React.createElement(_SNCollapse, { title: "📋 個別（逆行の深い順・" + rows.length + "件）", render: function() { return React.createElement("div", { style: { maxHeight: 320, overflowY: "auto" } }, detTbl); } })),
     React.createElement("div", { style: { marginTop: 8 } },
-      _elInsightBoxV2(items, { note: "対象＝E成立(judge ok)のEP起算v2記録のうち、採用α・採用損切り値で**損切りラインに触れずに済んだ**もの（" + rows.length + "件／ライン接触 " + stopN + "件）。逆行＝EP足〜手じまい足の高値の最大 − α（水準線比の円・100株換算ではない・**損益ではないので深いほど赤**）。手じまい足＝次足期待度×/未設定で降りた足＝記録表の「最終損益・詳細」「保有」列と同基準。※上の「損切り回数」カードとこの「ライン接触 " + stopN + "件」は基準が違う（カードは終値撤退方式で**損で撤退したものだけ**を数えるので、触れても撤退足の終値が利益側なら損切りに数えない。こちらは触れた時点で母数から外す＝触れた記録はそこで撤退しており逆行の物差しが頭打ちになるため。なお期待度×で先に降りた後の接触は両方とも対象外＝『免れた』側）ため一致しないことがある。損切りになった記録は下の『📐 損切りの上振れ』が担当（そちらの超過幅は全足の非キャップ最高値基準＝母数も物差しも別）。「詰められる下限」はこの標本の実績値＝将来これを超える逆行が出る可能性は排除できない。" })));
+      _elInsightBoxV2(items, { note: "対象＝E成立(judge ok)のEP起算v2記録のうち、採用α・採用損切り値で**損切りラインに触れずに済んだ**もの（" + rows.length + "件／ライン接触 " + stopN + "件）。逆行＝EP足〜手じまい足の高値の最大 − α（水準線比の円・100株換算ではない・**損益ではないので深いほど赤**）。手じまい足＝次足期待度×/未設定で降りた足＝記録表の「想定損益・詳細」「保有」列と同基準。※上の「損切り回数」カードとこの「ライン接触 " + stopN + "件」は基準が違う（カードは終値撤退方式で**損で撤退したものだけ**を数えるので、触れても撤退足の終値が利益側なら損切りに数えない。こちらは触れた時点で母数から外す＝触れた記録はそこで撤退しており逆行の物差しが頭打ちになるため。なお期待度×で先に降りた後の接触は両方とも対象外＝『免れた』側）ため一致しないことがある。損切りになった記録は下の『📐 損切りの上振れ』が担当（そちらの超過幅は全足の非キャップ最高値基準＝母数も物差しも別）。「詰められる下限」はこの標本の実績値＝将来これを超える逆行が出る可能性は排除できない。" })));
 }
 // recCtx={expKey,setExpKey,onEdit,onGoDate}（2026-07-27追加）: この関数はモジュールスコープで記録帳の state に触れないため、
 // 行タップ→明細カード展開に必要なものを呼び出し側から渡す。_elFloatReasonSectionV2 と同じ作法。未指定なら展開なし。
@@ -4355,7 +4355,7 @@ function _elStopOvershootSectionV2(recs, aiOf, data, recCtx) {
 
 // ===== 損切りの分析（記録帳・銘柄別タブ「🛑損切り」／2026-06-22）=====
 // エントリー成立(E成立=judge"ok")記録の損切りを多角的に分析。recs=対象v2記録・aiOf=α情報・data。
-// ①損切りサマリー ②損切り値(cutLine)別シミュ＝全記録に同じ損切り値を当てた損切り回数/率・最終損益（★=最終損益最大の損切り値＝意思決定表・2026-07-09 EP/H1列廃止） ③損切りの上振れ・早すぎ検証(_elStopOvershootSectionV2を移設) ④シグナル別の損切り率。
+// ①損切りサマリー ②損切り値(cutLine)別シミュ＝全記録に同じ損切り値を当てた損切り回数/率・想定損益（★=想定損益最大の損切り値＝意思決定表・2026-07-09 EP/H1列廃止） ③損切りの上振れ・早すぎ検証(_elStopOvershootSectionV2を移設) ④シグナル別の損切り率。
 function _elStopTabSectionV2(recs, aiOf, data, hideSig, recCtx) {
   aiOf = aiOf || function(r) { return _elAlphaInfo(r, data); };
   var BIG = 99999;
@@ -4408,7 +4408,7 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig, recCtx) {
   // 2026-07-16f: 各損切り値での「生存側の逆行」を併記＝その損切り値がどれだけ余裕を持って生き残らせているか。
   // 最悪逆行は cut が広いほど単調非減少になるはず（広い＝生存者が増える＝より深い逆行が母数に入る）＝逆転したらバグの検算になる。
   var simM = cuts.map(function(C) { return _elMaeStats(entered, aiOf, C); });
-  var simTbl = _elv2Table(["損切り値", "損切り回数", "損切り率", "最終損益", "平均逆行", "最悪逆行"], sim.map(function(x, i) {
+  var simTbl = _elv2Table(["損切り値", "損切り回数", "損切り率", "想定損益", "平均逆行", "最悪逆行"], sim.map(function(x, i) {
     return React.createElement("tr", { key: x.cut, style: i === bestI ? { background: "#FEF3C7" } : null },
       _elv2Td(React.createElement("span", null, x.cut + "円", i === bestI ? React.createElement("span", { style: { fontSize: 9, color: "#B45309", fontWeight: 800, marginLeft: 4 } }, "★手じまい最大") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
       _elv2Td(x.sN + "回"),
@@ -4499,7 +4499,7 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig, recCtx) {
   var worstSig = sigArr.filter(function(x) { return x.tot >= 2 && x.stop > 0; })[0];
   var insight = _elInsightBoxV2([
     React.createElement("span", null, "E成立 ", _elInsightEmV2(entered.length + "件"), " のうち損切り ", _elInsightEmV2(enteredStopN + "件（" + stopRate + "%）"), "・損失合計 ", _elInsightEmV2(_elPnlFmt(Math.round(lossTotal))), "。"),
-    React.createElement("span", null, "損切り値を ", _elInsightEmV2(best.cut + "円"), " にすると最終損益が最大（", _elInsightEmV2(_elPnlFmt(Math.round(best.h2))), "・損切り率 ", _elInsightEmV2(Math.round(best.rate * 100) + "%"), "）。狭め＝損切り増・浅い損失／広め＝損切り減・大きい損失のトレードオフ。"),
+    React.createElement("span", null, "損切り値を ", _elInsightEmV2(best.cut + "円"), " にすると想定損益が最大（", _elInsightEmV2(_elPnlFmt(Math.round(best.h2))), "・損切り率 ", _elInsightEmV2(Math.round(best.rate * 100) + "%"), "）。狭め＝損切り増・浅い損失／広め＝損切り減・大きい損失のトレードオフ。"),
     savedArr.length ? React.createElement("span", null, "損切りした記録を損切りせず保有していたら合計 ", _elInsightEmV2(_elPnlFmt(Math.round(savedTotal)), savedTotal > 0 ? "#B45309" : "#1E8449"), " の差（プラス＝我慢した方が良かった／マイナス＝損切りが正解）。詳細は下の「上振れ」分析。") : null,
     worstSig ? React.createElement("span", null, "損切り率が高いシグナルは ", _elInsightEmV2("「" + stripCat(worstSig.tag) + "」（" + Math.round(worstSig.rate * 100) + "%・" + worstSig.stop + "/" + worstSig.tot + "件）"), "。") : null,
     xDecided ? React.createElement("span", null, "事前の×見送りは ", _elInsightEmV2(xRecs.length + "件"), "・正解率 ", _elInsightEmV2(xAcc + "%"), "（損失回避 ", _elInsightEmV2(xAvoidCnt + "件"), "／機会損失 ", _elInsightEmV2(xMissCnt + "件"), "）＝", _elInsightEmV2(xAcc >= 50 ? "損切りを避ける×判断は機能している" : "×判断はやや保守的（利益も逃している）"), "。") : null
@@ -4511,7 +4511,7 @@ function _elStopTabSectionV2(recs, aiOf, data, hideSig, recCtx) {
       React.createElement(_SNCollapse, { title: "📋 対象記録（E成立 " + entered.length + "件・タップで展開）", render: function() {
         return React.createElement("div", { style: { maxHeight: 320, overflowY: "auto" } }, _elOsTradeMini(entered, aiOf, { plain: true }));
       } })),
-    _h("🎚 損切り値の最適化（損切り値別シミュ）", "※全記録に同じ損切り値を当てたときの損切り回数・最終損益（★=最終損益が最大）。逆行＝その損切り値で生き残った取引が踏まれた深さ＝損切り値との差が余裕。損益色は赤=利益だが、逆行は損益ではなく深いほど悪い（赤=損切りに肉薄）"),
+    _h("🎚 損切り値の最適化（損切り値別シミュ）", "※全記録に同じ損切り値を当てたときの損切り回数・想定損益（★=想定損益が最大）。逆行＝その損切り値で生き残った取引が踏まれた深さ＝損切り値との差が余裕。損益色は赤=利益だが、逆行は損益ではなく深いほど悪い（赤=損切りに肉薄）"),
     simTbl,
     _h("📉 逆行（MAE）＝損切りを免れた取引は何円踏まれたか", "※対象＝採用損切り値で損切りにならなかった取引。最悪逆行＋1円がその損切り値を詰められる下限（この母数では損切り率も生存側の損益も変わらない。ただし終値撤退方式では損切り組の額は撤退足の終値次第なので、縮むとは限らない）"),
     _elStopMaeSectionV2(entered, aiOf),
@@ -5027,8 +5027,8 @@ function _elKabuRecoBaseFn(baseRecs, aiOf) {
   return fn;
 }
 // 1段（1建値）の評価。α<0は0にクランプ・cutLine未設定は10（※他所の既定は15＝_elPlanIsStop等。実際にはaiOf/_simCutOfが必ず数値を返すので到達しない）。
-// 【2026-07-20b】損益は記録表/損益データ欄の「最終損益」と同一の期待度別算入（_elHoldFinalParts＝（）外main/（）内ref）に統一。
-//  旧＝_elHold1TotParts（H1基準）だったが、アプリ全体が2026-07-09〜07-13で最終損益へ移行し推奨α選定(_elBaseAlphaPick)も最終損益基準なのに、シミュだけH1で採点していた＝H2まで持った勝ちを取りこぼす構造的なズレだったため切替。
+// 【2026-07-20b】損益は記録表/損益データ欄の「想定損益」と同一の期待度別算入（_elHoldFinalParts＝（）外main/（）内ref）に統一。
+//  旧＝_elHold1TotParts（H1基準）だったが、アプリ全体が2026-07-09〜07-13で想定損益へ移行し推奨α選定(_elBaseAlphaPick)も想定損益基準なのに、シミュだけH1で採点していた＝H2まで持った勝ちを取りこぼす構造的なズレだったため切替。
 //  main100=（）外／ref100=（）内差分（△・損切り済のみ）。pnl100はmain100の別名（既存の（）外消費箇所と互換）。
 // 返り値 { built, skip('unreached'|'x'|'noalpha'|'fillEq'|null), pnl100/main100/ref100(100株換算・判定不可はnull), stop, indet, a(実効α) }。
 // touchA（省略可・2026-08-06 オプション「指値同値は建てない」）= その記録の「触れただけα」= round(_elOsMaxAll)。実効αがこれとちょうど一致する段は約定しなかった可能性が高いので建てない（skip:'fillEq'）。
@@ -5043,7 +5043,7 @@ function _elKabuTierEval(s, a, cut, touchA) {
   if (rr.judge !== "ok") return { built: false, skip: "x", pnl100: null, main100: null, ref100: null, stop: false, indet: false, a: _a };
   if (touchA != null && _a === touchA) return { built: false, skip: "fillEq", pnl100: null, main100: null, ref100: null, stop: false, indet: false, a: _a };   // 2026-08-06 指値同値＝予定EPに触れただけ。×見送り/未到達の後に置く＝それらの理由を上書きしない（本来なら建っていた段だけがfillEqになる）
   var stop = _elIsStopFinal(s, _a, _cl);   // 2026-07-25e 損益(_elHoldFinalParts)が手じまい基準なのにフラグだけEP/H1足だったので統一
-  var parts = _elHoldFinalParts(s, _a, _cl);   // { main:（）外, ref:（）内差分 } ＝最終損益（手じまい・○が途切れた所で手仕舞い）＝記録表/損益データ欄の「最終損益」と同一基準。2026-07-20b にH1(_elHold1TotParts)から切替＝アプリ全体(07-09〜07-13で最終損益へ移行)・推奨α選定(_elBaseAlphaPick=_elH2EvalByFn)と基準を統一。α可変でも正しい（内部で_epResolve(s,alpha)を引く）
+  var parts = _elHoldFinalParts(s, _a, _cl);   // { main:（）外, ref:（）内差分 } ＝想定損益（手じまい・○が途切れた所で手仕舞い）＝記録表/損益データ欄の「想定損益」と同一基準。2026-07-20b にH1(_elHold1TotParts)から切替＝アプリ全体(07-09〜07-13で想定損益へ移行)・推奨α選定(_elBaseAlphaPick=_elH2EvalByFn)と基準を統一。α可変でも正しい（内部で_epResolve(s,alpha)を引く）
   if (parts.main == null && parts.ref == null) return { built: true, skip: null, pnl100: null, main100: null, ref100: null, stop: stop, indet: true, a: _a };
   return { built: true, skip: null, pnl100: parts.main, main100: parts.main, ref100: parts.ref, stop: stop, indet: false, a: _a };
 }
@@ -5512,7 +5512,7 @@ function _elKabuLadderSimV2(props) {
   var _kbConvParts = function(r, nSh) {
     var s = r && r.signal; if (!s) return { main: null, ref: null };
     var _cai = aiOf(r);
-    var p = _elHoldFinalParts(s, _cai.alpha, _cai.cutLine);   // 最終損益（手じまい）＝記録表の「最終損益」列と同一関数。2026-07-20b にH1から切替＝「従来」列が記録表と同じ数字になる
+    var p = _elHoldFinalParts(s, _cai.alpha, _cai.cutLine);   // 想定損益（手じまい）＝記録表の「想定損益」列と同一関数。2026-07-20b にH1から切替＝「従来」列が記録表と同じ数字になる
     return { main: p.main != null ? Math.round(p.main * nSh / 100) : null, ref: p.ref != null ? Math.round(p.ref * nSh / 100) : null };
   };
   var _kbConvSums = function(nSh) { var m = 0, rf = 0; pool.forEach(function(r) { var p = _kbConvParts(r, nSh); if (p.main != null) m += p.main; if (p.ref != null) rf += p.ref; }); return { sum: Math.round(m), sumRef: Math.round(rf) }; };
@@ -6048,7 +6048,7 @@ function _elKabuLadderSimV2(props) {
     _targetList,
     _multiToggle,
     _modeToggle,
-    React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝最終損益（期待度○が途切れた所で手じまい・_elHoldFinalParts）＝記録表/損益データ欄の「最終損益」列・推奨α選定と完全に同一基準（2026-07-20bにH1基準から切替）／損切り＝「シミュ損切」列の値で取引ごと独立（手動ラダーで『推奨基本α値+X円』を設定するとその記録日時点の推奨基本α+X＝橙字・空欄や推奨α不明・自動配分は各記録の実際の損切り値＝灰字）／×見送り・判定不可の取引は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※（）外/（）内は記録表と同じ方式（（）内＝△・損切り済ぶんの参考差分）。金額の（括弧内）＝（）内合計（○△を含む参考額）。従来列＝記録表の「最終損益」（採用α・100株当たり）を総株数に単純按分した値＝同じ記録・同じαなら記録表と一致する（シミュの取引構成・第1/第2取引とは無関係）。シミュ列の下段＝取引ごとの内訳（（）外・建たなかった取引は—）。※時間かぶり（保有時間の重なり）の記録は他のP&L集計と同じく早い方だけを残して除外。"),
+    React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 8px" } }, "手仕舞い＝想定損益（期待度○が途切れた所で手じまい・_elHoldFinalParts）＝記録表/損益データ欄の「想定損益」列・推奨α選定と完全に同一基準（2026-07-20bにH1基準から切替）／損切り＝「シミュ損切」列の値で取引ごと独立（手動ラダーで『推奨基本α値+X円』を設定するとその記録日時点の推奨基本α+X＝橙字・空欄や推奨α不明・自動配分は各記録の実際の損切り値＝灰字）／×見送り・判定不可の取引は建てない（既存シミュと同じ母数ルール）。損益は空売り・100株換算×株数按分。※（）外/（）内は記録表と同じ方式（（）内＝△・損切り済ぶんの参考差分）。金額の（括弧内）＝（）内合計（○△を含む参考額）。従来列＝記録表の「想定損益」（採用α・100株当たり）を総株数に単純按分した値＝同じ記録・同じαなら記録表と一致する（シミュの取引構成・第1/第2取引とは無関係）。シミュ列の下段＝取引ごとの内訳（（）外・建たなかった取引は—）。※時間かぶり（保有時間の重なり）の記録は他のP&L集計と同じく早い方だけを残して除外。"),
     body);
 }
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
@@ -6255,7 +6255,7 @@ function EntryLogView(_ref_elv2) {
       _yenN(v, cnt, days),
       React.createElement("span", { style: { fontSize: 11, fontWeight: 600, lineHeight: 1.2 } }, suf));
   };
-  // 損益（期間別）テーブル＝全銘柄合算をday/week/monthで集計。各損益セルに合計＋平均を併記・損切り(件数/平均額/率)列・行タップでその期間の取引記録を展開。「損益」タブの集計ビュー頭 2026-06-22d。損益基準は_elTotAccum（取引/銘柄別記録と同一）。2026-07-09 EP損益/H1損益列を廃し「最終損益」1列に集約（＝旧H2損益・_elHoldFinalPartsの（）外=○が途切れた所で手じまい/（）内=△含む・値は不変）。
+  // 損益（期間別）テーブル＝全銘柄合算をday/week/monthで集計。各損益セルに合計＋平均を併記・損切り(件数/平均額/率)列・行タップでその期間の取引記録を展開。「損益」タブの集計ビュー頭 2026-06-22d。損益基準は_elTotAccum（取引/銘柄別記録と同一）。2026-07-09 EP損益/H1損益列を廃し「想定損益」1列に集約（＝旧H2損益・_elHoldFinalPartsの（）外=○が途切れた所で手じまい/（）内=△含む・値は不変）。
   // 期間キー/ラベル（日別=日付・週別=月曜起点の5営業日・月別=YYYY-MM）2026-07-20に共通化。
   // 「全体損益（期間別）」(_ovPnlTbl)と「指値同値」(_fillRiskSection)の日別/週別/月別で同じ区切りを使う＝二重実装しない。
   var _granKeyOf = function(ds, g) {
@@ -6284,9 +6284,9 @@ function EntryLogView(_ref_elv2) {
       trailing || null);
   };
   // 全体損益（期間別）の右上に出すグレード凡例。この表は列によってスケールが違う
-  // （最終損益・指値同値＝損益スケール／実現損益＝その10倍）ので2段で出す必要がある。
-  // ラベルは2026-08-05mのユーザー指示で「最終損益」「実現損益」まで短縮した
-  // （指値同値列は最終損益と同じスケールなので上段に含まれる／10倍は数字を見れば分かる）。
+  // （想定損益・指値同値＝損益スケール／実現損益＝その10倍）ので2段で出す必要がある。
+  // ラベルは2026-08-05mのユーザー指示で「想定損益」「実現損益」まで短縮した
+  // （指値同値列は想定損益と同じスケールなので上段に含まれる／10倍は数字を見れば分かる）。
   // しきい値は_GRADE_DESCから生成しているので、境界を変えてもここは自動追随する。
   // 2026-08-05w 凡例の直下に「※グレードはすべて1日換算」を赤で出す（ユーザー要望）。
   //   この表のグレードバッジは**全列とも合計÷営業日数で判定している**（_yenN L6037の_gv／_yenNRの（）内は
@@ -6296,8 +6296,8 @@ function EntryLogView(_ref_elv2) {
   //   右端寄せ(marginLeft:auto)は凡例本体から外側のcolumnラッパへ移した。
   var _ovGradeLegend = React.createElement("div",
     { style: { marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 } },
-    _gradeLegendGrid([{ label: "最終損益", real: false }, { label: "実現損益", real: true }], { lowerOnly: true }),
-    React.createElement("div", { title: "各グレードは「その期間の合計 ÷ 営業日数（日数列）」で判定しています。表示している金額は合計なので、合計額をそのままグレード表に当てても一致しません。最終損益・同値除外損益・実現損益・（）内の参考値すべて同じ規約です",
+    _gradeLegendGrid([{ label: "想定損益", real: false }, { label: "実現損益", real: true }], { lowerOnly: true }),
+    React.createElement("div", { title: "各グレードは「その期間の合計 ÷ 営業日数（日数列）」で判定しています。表示している金額は合計なので、合計額をそのままグレード表に当てても一致しません。想定損益・同値除外損益・実現損益・（）内の参考値すべて同じ規約です",
       style: { fontSize: 9, fontWeight: 700, color: "#C0392B", whiteSpace: "nowrap" } }, "※グレードはすべて1日換算"));
   // 2026-08-03: totOf/totExOf/stopsOf/winTakeOf を _ovPnlTbl の中からこのスコープへ引き上げ（定義の中身は一切変えていない・位置だけの移動）。
   //   理由: 🏷銘柄別の損益割合(_stkShareSection)が全く同じ集計を使うため。再実装すると「全体損益（期間別）の合計」と「銘柄別の合計」が
@@ -6328,7 +6328,7 @@ function EntryLogView(_ref_elv2) {
   //  損切＝損切りラインに触れて損で撤退（_elIsStopFinal）／損失＝ラインには触れず期待度×等で降りたら損だった。
   //  これで E成立母数 = 利確 + 損切 + 損失 + 同値 が閉じる（従来は「損失」がどの列にも出ていなかった）。
   //  平均額は _elCapLossYen（損切り値ちょうどの理想値＝全期間 −1,500円固定になっていた）をやめ、
-  //  最終損益(_elHoldFinalParts.main＝利確列・最終損益列と同じ基準)の実額平均にする。終値撤退方式では
+  //  想定損益(_elHoldFinalParts.main＝利確列・想定損益列と同じ基準)の実額平均にする。終値撤退方式では
   //  実際の損失は撤退足の終値次第で毎回変わるので、理想値では実態と乖離する。
   var stopsOf = function(x) {
     var sn = 0, sSum = 0, sCnt = 0, ln = 0, lSum = 0, lCnt = 0, wn = 0, evN = 0, ukN = 0;
@@ -6357,7 +6357,7 @@ function EntryLogView(_ref_elv2) {
   //   （2026-07-29の「有効な到達」＝さらに③到達足の次足期待度が×/損切り済/未設定を除く、は撤回。乗ってはいる記録なので数える）
   //  ※スルー記録はそもそも母数rsに入っていない（表示専用の_extraRow側）ので、ここでの考慮は不要。
   //  ※単純到達 _epReachedAt（×見送りも数える）は成立率・時間帯別など他9箇所が使うので触らない＝変更はこの表に閉じる。
-  // 利確: E成立(EP到達して決着＝損切り率と同母数wn)のうち最終損益(（）外main)>0で手じまいした件数・率 2026-07-09
+  // 利確: E成立(EP到達して決着＝損切り率と同母数wn)のうち想定損益(（）外main)>0で手じまいした件数・率 2026-07-09
   var winTakeOf = function(x) {
     var wn = 0, tp = 0;
     x.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; if (a == null) return; var _dr = _elDynResult(s, a, c); if (!(_dr === "ok" || _dr === "ng" || _dr === "draw")) return; wn++; var _t2 = _elHoldFinalParts(s, a, c); if (_t2 && _t2.main != null && _t2.main > 0) tp++; });
@@ -6365,7 +6365,7 @@ function EntryLogView(_ref_elv2) {
   };
   // ===== 集計セクション共通: 母数を新ルール期間に限定 =====
   // 2026-08-03b ユーザー要望「今年の7月以降のみのデータにして」→ 08-03c 🎯グレード別の件数でも共用するのでここへ引き上げ。
-  // 集計ルール自体が変わっている（07-09 EP/H1損益を廃し「最終損益」1列へ集約／07-27 損切りの平均額を理想値→終値撤退の実額へ）ため、
+  // 集計ルール自体が変わっている（07-09 EP/H1損益を廃し「想定損益」1列へ集約／07-27 損切りの平均額を理想値→終値撤退の実額へ）ため、
   //   それ以前を混ぜると別基準の記録の寄せ集めになり、割合・分布として読めない。
   // 2026-08-05s ユーザー指示「揃えて」: 独自の月単位境界（旧 _EL_SINCE="2026-07"）を廃し、
   //   全体損益（期間別）・累積損益と同じ _EL_RULE_SINCE（2026-06-29・日単位）へ一本化した。
@@ -6378,7 +6378,7 @@ function EntryLogView(_ref_elv2) {
   var _elSinceRecs = function(rs) { return (rs || []).filter(function(r) { return r && r.date && !_elIsOldRule(r.date); }); };
   var _elSinceYmLbl = function(ym) { return String(ym).replace("-", "/") + (ym === _EL_SINCE_MONTH ? "（" + _EL_SINCE_FROM_LBL + "〜）" : ""); };
   var _elSinceBadge = function() { return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", fontSize: 9, fontWeight: 700, color: "#C2410C", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "📅 " + _EL_SINCE_LBL + "のみ"); };
-  // 1記録の最終損益（（）外main）。集計対象外ならnull。🏷銘柄別の損益割合と🎯グレード別の件数が**同じ除外規約**
+  // 1記録の想定損益（（）外main）。集計対象外ならnull。🏷銘柄別の損益割合と🎯グレード別の件数が**同じ除外規約**
   //   （時間かぶり除外・×見送り・main非null）を共有するための単一源 2026-08-03c。
   //   ここを共有しているので「銘柄別の総利益件数＋総損失件数＋同値」と「グレード別の合計件数」が食い違いようがない。
   //   第2引数 ignoreColl=true で**時間かぶり除外だけを外した**同じ判定を返す（他の条件は完全に同一）。
@@ -6545,9 +6545,9 @@ function EntryLogView(_ref_elv2) {
   // ===== 🎯 グレード別の件数（月別）（2026-08-03c ユーザー要望「1か月あたりの各グレードの件数が知りたい。A+何件、A-何件みたいな感じ」）=====
   // 表は2つ（ユーザー選択「両方」）＝「良いトレードが何件あったか」と「良い日が何日あったか」は別の話なので分ける:
   //  ※表示順は2026-08-07に「①日単位／②トレード単位」へ入れ替え済み（ユーザー指示）。以下の①②は説明の便宜上の番号ではなく画面の番号に合わせてある。
-  //  ②トレード単位: 記録1件ごとの最終損益を_profitGradeFromPnl（損益スケール S=2501円〜）で判定し月別に数える。
+  //  ②トレード単位: 記録1件ごとの想定損益を_profitGradeFromPnl（損益スケール S=2501円〜）で判定し月別に数える。
   //     合計＝その月に金額が出た記録数＝🏷銘柄別の「総利益件数＋総損失件数＋D(同値)」。_elFinalPnlOf を共有しているので食い違いようがない。
-  //  ①日単位: その日の最終損益合計を同じスケールで判定し、月に何日がA+だったかを数える。
+  //  ①日単位: その日の想定損益合計を同じスケールで判定し、月に何日がA+だったかを数える。
   //     単日は days=1 ＝合計そのまま＝既存の「複数日は1日平均・単日は合計」規約（app-06の_yenN・app-05の_elHold2RefSuffix）と同じ。
   //     数えるのは記録があった日だけ＝合計＝その月の稼働日数（ノーシグナル日・全除外日は母数に入れない＝Z/DNFの列は作らない）。
   // 実現損益スケール(_profitGradeFromPnlReal＝カレンダーの日付バッジ)は使わない（ユーザー選択）: realizedPnl がほぼ未記録で分布が作れないため。
@@ -6608,9 +6608,9 @@ function EntryLogView(_ref_elv2) {
     };
     // 2026-08-07 ユーザー指示で日単位を①・トレード単位を②へ入れ替え（表の中身・計算は一切変えていない・並び順だけ）。
     return React.createElement("div", null,
-      _cap("① 日単位（1日＝1件）", "その日の最終損益の合計をグレード判定。合計＝その月に記録があった日数"),
+      _cap("① 日単位（1日＝1件）", "その日の想定損益の合計をグレード判定。合計＝その月に記録があった日数"),
       _tbl(dayM, "日"),
-      _cap("② トレード単位（記録1件＝1件）", "1記録の最終損益をそのままグレード判定。合計＝その月に金額が出た記録数（🏷銘柄別の 総利益件数＋総損失件数＋D）"),
+      _cap("② トレード単位（記録1件＝1件）", "1記録の想定損益をそのままグレード判定。合計＝その月に金額が出た記録数（🏷銘柄別の 総利益件数＋総損失件数＋D）"),
       _tbl(recM, "件"));
   };
   var _ovPnlTbl = function(rs, g) {
@@ -6670,7 +6670,7 @@ function EntryLogView(_ref_elv2) {
     // （集計外だけの期間の営業日を合計日数に足すと1日平均が動いてしまうため、ここを分けるのが要）。
     // 2026-07-27 スルー限定→「対象期間の全記録」へ拡張（ユーザー要望「不算入記録だろうが表示してくれ」）。
     //   表示専用＝filtered − rs（＝集計母数に入らなかった記録すべて）＝スルー／不算入(includeInTotal=false)／②データのみ／旧記録(非v2)／母数トグルで外れた記録。
-    //   母数rsは一切触らない＝件数/到達/利確/損切り/最終損益/実現/1日平均/合計行は不変（「表示だけ」の据置方針そのまま）。
+    //   母数rsは一切触らない＝件数/到達/利確/損切り/想定損益/実現/1日平均/合計行は不変（「表示だけ」の据置方針そのまま）。
     //   行の色分け＝スルー(灰)/不算入(水色)は_recTableの_elRowStyleWithCollが自動。それ以外は_recTableの第5引数(dimOf)に_extraLblを渡して淡色＋バッジで出す。
     var _extraLbl = function(r) {
       var s = r && r.signal;
@@ -6700,7 +6700,7 @@ function EntryLogView(_ref_elv2) {
     //   説明は各列の title（ホバー）に残してあるので情報は失われない。左右paddingは4pxのまま。
     var oth = function(t) { return React.createElement("th", { style: { padding: "5px 4px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, t); };
     var otd = function(ch, ex) { return React.createElement("td", { style: Object.assign({ padding: "4px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" }, ex || {}) }, ch); };
-    // 最終損益・実現損益とも「1日あたり平均」＝合計÷日数(営業日数)に統一 2026-07-09（旧: 実現損益は1トレード平均avgLine→ユーザー要望で1日平均に）
+    // 想定損益・実現損益とも「1日あたり平均」＝合計÷日数(営業日数)に統一 2026-07-09（旧: 実現損益は1トレード平均avgLine→ユーザー要望で1日平均に）
     // 2026-08-05f days<=1 は平均＝合計で同じ数字が2つ縦に並ぶだけなので出さない（ユーザー指摘
     // 「日別での1日平均額の表示は不要では？」）。粒度(g==="day")ではなく日数で判定しているので、
     // ①日別の各行は消える ②休場続きで1営業日しかない週/月の行も消える ③合計行(_ovTotDays＝
@@ -6712,7 +6712,7 @@ function EntryLogView(_ref_elv2) {
     var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt, days), avgDayLine(v, days)), ex); };   // days渡し＝1日平均でグレード判定 2026-07-23
     // 実現損益セル 2026-08-05y（ユーザー要望）: 上下2段でそれぞれ別の土俵。
     //   上段＝実額（t.realRaw）＋バッジ。判定は実額÷営業日数を**実額スケール(10倍)**で（従来と同じ）。
-    //   下段＝100株換算（t.real）÷営業日数 ＋バッジ。判定は**通常スケール**＝最終損益と同じ土俵。
+    //   下段＝100株換算（t.real）÷営業日数 ＋バッジ。判定は**通常スケール**＝想定損益と同じ土俵。
     //   1000株ちょうどなら2つのランクは一致する。**ズレたら「株数を張ったから金額が出ただけ」と読める**のが狙い。
     //   days<=1（日別など）は割っても同じ値なので、ラベルを「1日平均」ではなく「100株」にして冗長さを避ける。
     var realCell = function(t, days, ex, noShare) {
@@ -6721,7 +6721,7 @@ function EntryLogView(_ref_elv2) {
       var p100 = (t.real != null && days && days > 0) ? Math.round(t.real / days) : null;
       return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
         _yenN(v, cnt, days, true),
-        p100 != null ? React.createElement("span", { title: "実現損益を1件ずつ100株換算（損益÷株数×100）して合計し、営業日数" + days + "日で割った額。バッジは最終損益と同じ通常スケール（S=2501円〜）＝上段の実額バッジ（10倍スケール）とは土俵が違います",
+        p100 != null ? React.createElement("span", { title: "実現損益を1件ずつ100株換算（損益÷株数×100）して合計し、営業日数" + days + "日で割った額。バッジは想定損益と同じ通常スケール（S=2501円〜）＝上段の実額バッジ（10倍スケール）とは土俵が違います",
           style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", marginTop: 1 } },
           _elHoldGradeBadge(_profitGradeFromPnl(p100, 1)),
           React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _EL_SUBNOTE_COL } }, (days > 1 ? "1日平均" : "100株") + (p100 >= 0 ? "+" : "") + p100.toLocaleString())) : null,
@@ -6749,26 +6749,26 @@ function EntryLogView(_ref_elv2) {
       React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, rn + "件"),
       tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(rn / tot * 100) + "%") : null,
       reachAvg2(rn, days, gg)), ex); };
-    // 同値セル（利確の右・2026-07-29e ユーザー要望）: 最終損益がちょうど±0で手じまいした件数・率（対E成立）。
+    // 同値セル（利確の右・2026-07-29e ユーザー要望）: 想定損益がちょうど±0で手じまいした件数・率（対E成立）。
     //   到達＝利確＋損切＋損失＋同値 の4バケツが閉じるための最後の1つ＝これが無いと「到達54なのに44+3+5=52」と数が合わなく見える。
     //   金額不明（損切り以外で撤退足の終値が未入力＝どのバケツにも入れられない）が有れば小書きで併記＝差の残りもここで説明が付く。
     var evenCell = function(st, ex) {
       if (!st || (!st.evenN && !st.unkN)) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
       return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
         st.evenN ? React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, st.evenN + "件" + (st.wn ? "・" + Math.round(st.evenN / st.wn * 100) + "%" : "")) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
-        st.unkN ? React.createElement("span", { title: "損切り以外で撤退足の終値が未入力＝最終損益を出せない記録。利確・損切り・損失・同値のどれにも入れられないため、ここに件数だけ出しています（終値を入れれば該当のバケツに入ります）", style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "金額不明" + st.unkN + "件") : null), ex);
+        st.unkN ? React.createElement("span", { title: "損切り以外で撤退足の終値が未入力＝想定損益を出せない記録。利確・損切り・損失・同値のどれにも入れられないため、ここに件数だけ出しています（終値を入れれば該当のバケツに入ります）", style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "金額不明" + st.unkN + "件") : null), ex);
     };
     // 利確セル: 利益で手じまいした件数・率（旧勝率の位置・色分けは勝率と同じ緑/橙）2026-07-09
     var winTakeCell = function(wt, ex) {
       if (!wt || wt.rate == null) return otd(React.createElement("span", { style: { color: "#bbb" } }, "—"), ex);
       return otd(React.createElement("span", { style: { fontWeight: 700, color: wt.rate >= 50 ? "#1E8449" : "#B45309" } }, wt.n + "件・" + wt.rate + "%"), ex);
     };
-    // 指値同値セル（最終損益の右・件数と除外後損益を1欄に統合 2026-07-20d ユーザー指示）:
+    // 指値同値セル（想定損益の右・件数と除外後損益を1欄に統合 2026-07-20d ユーザー指示）:
     // 上＝該当件数（OS高値の最大＝採用α値＝予定EPを一度も上抜けなかった記録＝指値が約定しなかった可能性）＋対 件数の率、
-    // 下＝その記録を除いた最終損益（除外後）。差額は小書きで併記（0＝該当無しのときは出さない＝最終損益と同額が一目で分かる）。
+    // 下＝その記録を除いた想定損益（除外後）。差額は小書きで併記（0＝該当無しのときは出さない＝想定損益と同額が一目で分かる）。
     // さらにその下に1日平均（除外後の金額÷営業日数・他の損益列と同じavgDayLine）2026-07-20f ユーザー指示。
-    // 該当0件でも除外後の金額は出す＝最終損益と同額であることを示すため（列全体が「—」だと欠測と紛らわしい）。
-    // 段の順: 件数(＋率) → 除外後の最終損益 → 差額 → 1日平均。
+    // 該当0件でも除外後の金額は出す＝想定損益と同額であることを示すため（列全体が「—」だと欠測と紛らわしい）。
+    // 段の順: 件数(＋率) → 除外後の想定損益 → 差額 → 1日平均。
     var friskCell = function(n, tot, a, b, days, ex) {
       var df = (a.hold2 != null && b.hold2 != null) ? (b.hold2 - a.hold2) : null;
       return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
@@ -6784,11 +6784,11 @@ function EntryLogView(_ref_elv2) {
         //   合計行の日数（＝1日平均の分母）は列を消しても分かるよう、合計セルの下に小さく添える（下の totRow）。
         oth(gg === "day" ? "日" : gg === "week" ? "週" : "月"), (gg === "day" ? null : oth("日数")), oth("件数"),
         oth(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右隣の利確・同値・損切り・損失の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c）。下段の%は対 件数（全記録）" }, "到達")),
-        oth(React.createElement("span", { title: "利益（最終損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確")),
-        oth(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値")),
-        oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの（上段）。損失＝ラインには触れず期待度×等で降りたら損だったもの（下段）。率はどちらもE成立母数（＝到達）に対する割合。平均は最終損益と同じ基準の実額。利確＋同値＋損切＋損失＝E成立母数" }, "損切り/損失")),
-        oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "最終損益")),
-        oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済みは対象外）。上＝該当件数、下＝その記録を除いた最終損益。該当が無い期間は最終損益と同額（差額行なし）" }, "同値除外損益")),
+        oth(React.createElement("span", { title: "利益（想定損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確")),
+        oth(React.createElement("span", { title: "想定損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値")),
+        oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの（上段）。損失＝ラインには触れず期待度×等で降りたら損だったもの（下段）。率はどちらもE成立母数（＝到達）に対する割合。平均は想定損益と同じ基準の実額。利確＋同値＋損切＋損失＝E成立母数" }, "損切り/損失")),
+        oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "想定損益")),
+        oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済みは対象外）。上＝該当件数、下＝その記録を除いた想定損益。該当が無い期間は想定損益と同額（差額行なし）" }, "同値除外損益")),
         oth("実現損益"));
     };
     // ドリルダウン（マトリョーシカ 2026-07-30 ユーザー要望）: 月をタップ→その月の【週別】／週をタップ→その週の【日別】／日をタップ→その日の【取引記録】。
@@ -6935,7 +6935,7 @@ function EntryLogView(_ref_elv2) {
     var head = mode === "day"
       ? [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("OS"), _th("E"), _th("OS帯"), _th("H中最高値"), _th("実現結果")]
       : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("α値"), _th("損切り"), _th("ライン"), _th("E"), _th("取引"),
-         _th("最終損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有")), _th("実現損益")];
+         _th("想定損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有")), _th("実現損益")];
     return React.createElement(React.Fragment, null,
       recs.length > 1 ? _recSortBar() : null,   // 1件の表にトグルを出しても意味がないので2件以上だけ
       React.createElement(_HScrollBox, null,
@@ -6995,7 +6995,7 @@ function EntryLogView(_ref_elv2) {
     });
     var head = [_th(headLabel, { textAlign: "left", paddingLeft: 8 }), _th("件")];
     if (withOsStats) head = head.concat([_th("OS1平均"), _th("OS分布")]);
-    head = head.concat([_th("E成立率"), _th("損切り"), _th("最終損益"), _th("実現損益")]);
+    head = head.concat([_th("E成立率"), _th("損切り"), _th("想定損益"), _th("実現損益")]);
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } }, head)),
@@ -7035,7 +7035,7 @@ function EntryLogView(_ref_elv2) {
       _freqCard,
       _kpiCard("E到達率", reach != null ? reach + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
       _kpiCard("E後の勝率", _ewin != null ? _ewin + "%" : "—", _ewin != null ? (_ewin >= 50 ? "#1E8449" : "#B45309") : "#bbb", "勝" + _wOk + "・負" + _wNg + (_wDr ? "・分" + _wDr : "") + "／E成立" + _ewinD + "件"),
-      _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _elBizDaysOf(rs, data)), null, t.hold2Cnt + "件・○途切れで手じまい"),
+      _kpiCard("想定損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _elBizDaysOf(rs, data)), null, t.hold2Cnt + "件・○途切れで手じまい"),
       _kpiCard("損切り", (ss && ss.any || 0) + "回", ss && ss.any > 0 ? "#1E8449" : "#bbb", ss && ss.rate != null ? "率" + ss.rate + "%（想" + ss.plan + "・H1 " + ss.h1 + "・H2 " + ss.h2 + "）" : null),
       _kpiCard("×見送り", x + "件", x > 0 ? "#1E8449" : "#bbb", "×宣言後の到達"),
       _kpiCard("実現損益", _yenN(t.real, t.realCnt, _elBizDaysOf(rs, data), true), null, t.realCnt + "件"),
@@ -7072,7 +7072,7 @@ function EntryLogView(_ref_elv2) {
       _secH("🎯 同値除外損益（OS値＝α値）", "※ 予定EP（水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 } },
         _cell("該当件数", _riskRecs.length + "件", _riskRecs.length > 0 ? "#0F6E56" : "#bbb", "OS高値の最大＝採用α値"),
-        _cell("通常の最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _frDays), null, t.hold2Cnt + "件"),
+        _cell("通常の想定損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _frDays), null, t.hold2Cnt + "件"),
         _cell("除外後", _yenNR(t2.hold2, t2.hold2Cnt, t2.hold2Ref, t2.hold2RefCnt, _frDays), null, t2.hold2Cnt + "件"),
         _cell("差額", _diff == null ? _dash : _elPnlFmt(_diff), _diff == null ? "#bbb" : _elPnlColor(_diff), "刺さらなければ失う分")),
       // 日別/週別/月別の内訳はここに持たず「全体損益（期間別）」の指値同値列＋除外後列に統合（2026-07-20c ユーザー選択）。
@@ -7120,7 +7120,7 @@ function EntryLogView(_ref_elv2) {
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
-          _th("α値", { textAlign: "left", paddingLeft: 8 }), _th("成立率"), _th("損切り"), _th("最終損益"))),
+          _th("α値", { textAlign: "left", paddingLeft: 8 }), _th("成立率"), _th("損切り"), _th("想定損益"))),
         React.createElement("tbody", null, rows.map(function(x) {
           var i2 = x.t.hold2Cnt > 0 && x.t.hold2 === b2 && b2 > -Infinity;
           var _amt = function(v, c, hot, ref, refCnt) {
@@ -7412,7 +7412,7 @@ function EntryLogView(_ref_elv2) {
     _osFilRecs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") { x++; var _xv = _osFn(r.signal); if (_xv != null && !isNaN(_xv)) _osXVals.push(_xv); } else if (j === "miss") miss++; });
     // KPIカード（ユーザー指定6項目・件数/E到達/一番引っ張った損益/損切り件数は追加α母数トグルに連動 2026-07-01）: 件数／E到達数（到達率）／一番引っ張った損益／損切り件数（損切り率）／推奨基本α（次点も）／推奨追加α（次点も）。
     var _reach = ok + x, _reachRate = _osFilRecs.length ? Math.round(_reach / _osFilRecs.length * 100) : 0;
-    // デュアル評価（承認① 2026-07-12）: 最終損益基準の並走pick＋4月混入バッジ（承認③）。実母数（浮き足/RN/追加α除外）でバッジ件数を出す。
+    // デュアル評価（承認① 2026-07-12）: 想定損益基準の並走pick＋4月混入バッジ（承認③）。実母数（浮き足/RN/追加α除外）でバッジ件数を出す。
     var _baBasePool = (baRs || []).filter(_elIsBaseAlphaPoolRec);
     var _baAddPool = (baRs || []).filter(_elIsSpecialAlphaPoolRec);
     var _baLg = _elBaseAlphaPickScore(baRs, _ai);   // 旧スコア基準の値（乖離確認チップ・旧_elBaseAlphaH2Pickバッジを置換 2026-07-13）
@@ -7459,13 +7459,13 @@ function EntryLogView(_ref_elv2) {
       React.createElement("div", { style: { margin: "2px 0 8px", display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save }), React.createElement(_ElSpecialMinCtl, { data: data, save: save })),   // 前提損切り値＋到達率下限＋根拠別応用α下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
       _gDet ? _detCtlRow("gp_kpi", recs) : null,
       _bodyOf("gp_kpi", recs, function(_drs, _dv) { return _kpiOs(_drs, _detFilterBy(_dv, _baRecs)); }),
-      // 指値同値（OS値＝α値）2026-07-20。母数は上のKPI（_kpiOs）と同じ _addFilOf(recs) ＝「通常の最終損益」がKPIの最終損益と一致する。
+      // 指値同値（OS値＝α値）2026-07-20。母数は上のKPI（_kpiOs）と同じ _addFilOf(recs) ＝「通常の想定損益」がKPIの想定損益と一致する。
       _fillRiskSection(_addFilOf(recs), "この分析パネルの母数（v2記録のみ・上の母数トグル準拠）"),
       // 追加α母数トグル〇のとき: 推奨基本α詳細は畳んで（要約はKPIカードに常時表示）、代わりに推奨追加α詳細（加算値別の総当たり）をフル表示。×/全記録・前足浮きタブは従来どおり基本α詳細をフル表示。2026-07-03
       (!_floatMode && osDistFil === "yes")
         ? [_elCard(_gDet ? _detCtlRow("gp_ba", _baRecs) : null,
             React.createElement(_SNCollapse, { title: "🔬 推奨基本α 詳細データ（推奨値の根拠・タップで展開）", render: function() { return _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan); }); } })),
-            _secH("🔬 推奨応用α 詳細データ（応用〇・手仕舞い基準）", "応用〇の記録だけを母数に、独立α値0〜20円を手仕舞い基準で評価（★＝到達率" + _EL_ANA_REACH_DEF + "%以上［無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで緩和し参考］・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_MIN_N + "件以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうちΣ最終損益（累計）最大）。母数＝応用〇（浮き足・RN除外）", _ctl("gp_baAdd", _baRecs)),
+            _secH("🔬 推奨応用α 詳細データ（応用〇・手仕舞い基準）", "応用〇の記録だけを母数に、独立α値0〜20円を手仕舞い基準で評価（★＝到達率" + _EL_ANA_REACH_DEF + "%以上［無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで緩和し参考］・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_MIN_N + "件以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうちΣ想定損益（累計）最大）。母数＝応用〇（浮き足・RN除外）", _ctl("gp_baAdd", _baRecs)),
             _bodyOf("gp_baAdd", _baRecs, function(_drs) { return _elTotalAlphaSectionV2(_drs, _ai, _holiSet, null, null, bandSpan); })]
         // 分類「全記録」のとき（2026-08-02l ユーザー指摘「全記録にしている以上、基本・応用関係なくまとめた表にすべきでは？」）:
         //   基本α表（母数＝素の記録＝応用〇/浮き足〇/RN〇を除外）だけを出すのはトグルの意味と噛み合っていなかった＝分類の3択で全記録だけ母数がズレる唯一の分岐だった。
@@ -7473,7 +7473,7 @@ function EntryLogView(_ref_elv2) {
         : (!_floatMode && osDistFil === "all")
         ? [_secH("🔬 全記録の一律α 詳細データ", "分類「全記録」の母数（基本・応用を問わず全記録＝応用〇・浮き足〇・RN〇も含む）に、α0〜20円を一律で当てた総当たり。★＝この母数だけの参考値（フォーム/EPナビに流れる推奨基本αは分類「基本α」の値で不変）", _ctl("gp_ba", _baRecs)),
             _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan, true); })]
-        : [_secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αのE成立/到達率/頻度/利確率/損切り率/最終損益）", _ctl("gp_ba", _baRecs)),
+        : [_secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αのE成立/到達率/頻度/利確率/損切り率/想定損益）", _ctl("gp_ba", _baRecs)),
             _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan); })],
       _elCard(React.createElement(_SNCollapse, { title: "詳細分析（" + (_gDet ? "累積損益・時間帯別・曜日別" : "EP位置・累積損益・α感応度・時間帯別・曜日別・期待度×/△") + "）", render: function() {   // 遅延描画 2026-06-29。⑥重複整理 2026-07-12: シグナル別集計(_gDet)ではEP位置/α感応度/×/△を外し深掘り・α値タブへ案内（同一母数の三重掲載を解消）。詳細タグ別モード(_gDet=false)は深掘りタブに同スコープが無いためフル維持。
         var _jumpBtn = function(lbl, fn) { return React.createElement("button", { type: "button", onClick: fn, style: { padding: "2px 10px", fontSize: 10, fontWeight: 700, border: "1px solid #CBD5E1", background: "#fff", color: "#334155", borderRadius: 8, cursor: "pointer", marginLeft: 6 } }, lbl); };
@@ -7573,7 +7573,7 @@ function EntryLogView(_ref_elv2) {
       var _rnThrN = (rnSub === "thr") ? _elRnThrPool(_v2recsAllData, _ai, rnTier).pool.length : null;
       var _rnBody = (rnSub === "thr")
         ? _cardify([
-            _secH("🎚 RNは何円手前から〇にすべきか（全銘柄共通）", "※最終損益（手じまい）基準。RN×の記録も含む全記録の反実仮想＝「RNまでの距離≤T円なら〇」のTを0〜" + _EL_RN_T_MAX + "でスイープ。①閾値スイープ ②距離別の限界寄与。母数はRN〇に限らない（③RN距離別＝実績の内訳とは別物）"),
+            _secH("🎚 RNは何円手前から〇にすべきか（全銘柄共通）", "※想定損益（手じまい）基準。RN×の記録も含む全記録の反実仮想＝「RNまでの距離≤T円なら〇」のTを0〜" + _EL_RN_T_MAX + "でスイープ。①閾値スイープ ②距離別の限界寄与。母数はRN〇に限らない（③RN距離別＝実績の内訳とは別物）"),
             React.createElement("div", { key: "rntier", style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _rnTierToggle(rnTier, setRnTier)),
             _elRnThresholdBoardV2(_v2recsAllData, _ai, _sigHoliSet, rnTier)])
         : (rnSub === "list")
@@ -7585,9 +7585,9 @@ function EntryLogView(_ref_elv2) {
               _secH("🎯 RN加算候補の記録一覧（全銘柄・全記録）", "※RN加算×だが予定EPの下2桁が41〜49／91〜99の記録＝50/00のキリ番をまたげた可能性。自動判定と同じ範囲（…40/…90は距離10で費用対効果が悪いため対象外）。スルー・要審議・合計除外も含む全記録が対象。予定EP＝水準線値＋採用α（ライン列に表示）"),
               _rnCandRecs.length ? _recTable(_rnCandRecs, "full", "rncand_") : _sigKpiEmpty("該当する候補記録がありません（RN加算×かつ予定EP下2桁41〜49/91〜99・水準線値入りの記録が対象）")])
           : _cardify([
-              _sigKpiHead("📊 KPI早見｜RN〇の全記録（" + _sigRnPool.length + "件・採用αはRN加算込み・最終損益基準）"),
+              _sigKpiHead("📊 KPI早見｜RN〇の全記録（" + _sigRnPool.length + "件・採用αはRN加算込み・想定損益基準）"),
               _sigRnPool.length ? _kpiBlockOf(_sigRnPool, _sigHoliSet) : _sigKpiEmpty("RN加算〇の記録がまだありません"),
-              _secH("🔢 RN加算の分析（全銘柄共通）", "※最終損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAllData, _ai, _sigHoliSet)]);
+              _secH("🔢 RN加算の分析（全銘柄共通）", "※想定損益（手じまい）基準。①EP位置スイープ（RN−3〜+3・RN無し）②寄与の内訳 ③RN距離別。件数が薄いうちは（仮）表示"), _elRnBoardV2(_v2recsAllData, _ai, _sigHoliSet)]);
       _tabBody = React.createElement(React.Fragment, null,
         _sigInnerBar([["ana", "分析", _sigRnPool.length], ["list", "記録一覧", _rnListRecs.length], ["cand", "候補記録", _rnCandRecs.length], ["thr", "閾値", _rnThrN == null ? "—" : _rnThrN]], rnSub, setRnSub),
         _rnBody);
@@ -7645,19 +7645,19 @@ function EntryLogView(_ref_elv2) {
         _elv2Td(_altT.n ? _altDiff(_altT.diff) : _altDiff(null))));
       var _ukiBody = (ukiSub === "alt")
         ? _cardify([
-            _secH("🔁 応用α換算（" + _ukiScopeLbl + "）", "※ 浮き足%を使わず「株価帯別の応用α＋RN加算」を採用αにしていたら各取引がどうなっていたかを再計算。帯は記録の水準線価格で判定（〜" + _EL_UKI_ALT_BANDS[0].max + "=" + _EL_UKI_ALT_BANDS[0].a + "円／" + (_EL_UKI_ALT_BANDS[0].max + 1) + "〜" + _EL_UKI_ALT_BANDS[1].max + "=" + _EL_UKI_ALT_BANDS[1].a + "円／" + (_EL_UKI_ALT_BANDS[1].max + 1) + "〜=" + _EL_UKI_ALT_BANDS[2].a + "円）。損切り値は記録の採用値のまま。損益は最終損益（手じまいまで）の（）外。エントリー不成立（α未達・スルー・（）外なしの△）は「そのαなら取引しなかった＝0円」として両側とも算入＝差額は全件で計算。水準線未入力（帯不明）の記録だけ換算不可"),
+            _secH("🔁 応用α換算（" + _ukiScopeLbl + "）", "※ 浮き足%を使わず「株価帯別の応用α＋RN加算」を採用αにしていたら各取引がどうなっていたかを再計算。帯は記録の水準線価格で判定（〜" + _EL_UKI_ALT_BANDS[0].max + "=" + _EL_UKI_ALT_BANDS[0].a + "円／" + (_EL_UKI_ALT_BANDS[0].max + 1) + "〜" + _EL_UKI_ALT_BANDS[1].max + "=" + _EL_UKI_ALT_BANDS[1].a + "円／" + (_EL_UKI_ALT_BANDS[1].max + 1) + "〜=" + _EL_UKI_ALT_BANDS[2].a + "円）。損切り値は記録の採用値のまま。損益は想定損益（手じまいまで）の（）外。エントリー不成立（α未達・スルー・（）外なしの△）は「そのαなら取引しなかった＝0円」として両側とも算入＝差額は全件で計算。水準線未入力（帯不明）の記録だけ換算不可"),
             _elv2CardRow([
               _elv2Card("浮き足%（実際）", _altT.n ? _altAmt(_altT.cur) : _altAmt(null), null, _altT.n + "件の合計" + (_altT.ne ? "（無エントリー0円 " + _altT.ne + "件込み）" : "")),
               _elv2Card("応用α換算", _altT.n ? _altAmt(_altT.alt) : _altAmt(null), null, "同じ母数で再計算"),
               _elv2Card("差額（換算−実際）", _altT.n ? _altDiff(_altT.diff) : _altDiff(null), null, _altT.n ? ("1件あたり " + Math.round(_altT.diff / _altT.n).toLocaleString() + "円") : null)]),
             (_altRows.length > 1 ? _recSortBar() : null),   // 記録一覧と同じ並び順トグル（_elv2Table製なので_recTableの自動表示に乗らない）2026-07-27
-            _elv2Table(["日付・時刻", "銘柄", "シグナル", "水準線（株価帯）", "実際の採用α", "換算α", "最終損益（実際）", "最終損益（換算）", "差額"], _altBodyRows)])
+            _elv2Table(["日付・時刻", "銘柄", "シグナル", "水準線（株価帯）", "実際の採用α", "換算α", "想定損益（実際）", "想定損益（換算）", "差額"], _altBodyRows)])
         : (ukiSub === "list")
         ? _cardify([
             _secH("🗂 浮き足〇の記録一覧（" + _ukiScopeLbl + "）", "上の分析の母数そのもの＝浮き足〇（浮き値あり）の記録。行タップで明細カード・カードタップで編集フォーム"),
             _recTable(_ukiListRecs, "full", "ukitab_")])
         : _cardify([
-            _sigKpiHead("📊 KPI早見｜浮き足〇の記録（" + _ukiScopeLbl + "・" + _ukiRecs.length + "件・採用αは浮き足加算込み・最終損益基準）"),
+            _sigKpiHead("📊 KPI早見｜浮き足〇の記録（" + _ukiScopeLbl + "・" + _ukiRecs.length + "件・採用αは浮き足加算込み・想定損益基準）"),
             _ukiRecs.length ? _kpiBlockOf(_ukiRecs, _sigHoliSet) : _sigKpiEmpty("浮き足〇（浮き値あり）の記録がまだありません"),
             _secH("⚡ 浮き足加算率の最適化（" + (_ukiBandGrp ? _ukiScopeLbl + "・銘柄横断" : "全銘柄共通") + "）"),
             React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _ukiScopeToggle(ukiAnaSp, setUkiAnaSp)),
@@ -7685,7 +7685,7 @@ function EntryLogView(_ref_elv2) {
         _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
         [
-          _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。最終損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）。6/29より前は集計ルールが違うため薄く表示し、合計・平均には算入していません（月別の2026/06は〜6/28と6/29〜の2行に分けています）"),
+          _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。想定損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）。6/29より前は集計ルールが違うため薄く表示し、合計・平均には算入していません（月別の2026/06は〜6/28と6/29〜の2行に分けています）"),
           _granSeg(gran, setGran, "ov_", _ovGradeLegend),
           _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
         _sinceRecs.length ? [
@@ -7695,12 +7695,12 @@ function EntryLogView(_ref_elv2) {
           _stkShareSection(_sinceRecs)] : null,
         _sinceRecs.length ? [
           _secH("🎯 グレード別の件数（月別）",
-            "最終損益を損益スケール（S=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①その日の合計ごと ②記録1件ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間。境界をまたぐ月は「2026/06（6/29〜）」＝その月の一部だけを数えています。カレンダーの日付バッジは実現損益スケール（10倍・S=25001円〜）なので数字は一致しません",
+            "想定損益を損益スケール（S=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①その日の合計ごと ②記録1件ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間。境界をまたぐ月は「2026/06（6/29〜）」＝その月の一部だけを数えています。カレンダーの日付バッジは実現損益スケール（10倍・S=25001円〜）なので数字は一致しません",
             _elSinceBadge()),
           _gradeMonSection(_sinceRecs)] : null,
         _v2recsAmt.length ? _fillRiskSection(_v2recsAmt) : null,
         _v2recsNewRule.length >= 2 ? [
-          _secH("📈 累積損益（記録順）", "最終損益/実現損益の累積推移・上の期間別表の合計行と同一基準（6/29より前＝旧ルール期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNewRule, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
+          _secH("📈 累積損益（記録順）", "想定損益/実現損益の累積推移・上の期間別表の合計行と同一基準（6/29より前＝旧ルール期間は除外）"), React.createElement(_elCumPnlSectionV2, { recs: _v2recsNewRule, aiOf: _ai, data: data, scopeStock: _collScope })] : null,
         _v2recsNewRule.length >= 2 ? [
           _secH("📉 連勝連敗・最大ドローダウン", "実現損益のストリークと最大DD（損失管理・6/29より前＝旧ルール期間は除外）。DDの下段は1日平均＝最大DD÷この母数の営業日数"), _elStreakDDSectionV2(_v2recsNewRule, _ai, data)] : null]);   // 2026-08-05x 第3引数data＝1日平均の営業日数(_elBizDaysOf)算出用
     } else {
@@ -7835,7 +7835,7 @@ function EntryLogView(_ref_elv2) {
           _alZoneHead("#0369A1", "#F0F9FF", "#BAE6FD", "基本αゾーン ― まず取る土台（最低限とる利幅）", _alBaseSum),
           _secH("🎯 成立率の目安（OS値→α分位）", "OS値（OS1〜3最高）の分位から、各成立率に対応するαの目安。基本αを決める前の“α候補レンジ”。分位は" + (_floatMode ? "浮き足" : "その他") + "の母数（" + _alReasonRecsScoped.length + "件" + (_reasonSel !== "all" ? "・根拠「" + _reasonLabel + "」" : "") + "）", _detCtl("al_pctl", _alReasonRecsScoped)),
           _detBody("al_pctl", _alReasonRecsScoped, function(_drs) { return _elOsAlphaPctlTableV2(_drs); }),
-          _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αのE成立/到達率/頻度/利確率/損切り率/最終損益）。基本αはシグナル共通母数で算出" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」で絞込）" : ""), _detCtl("al_baD", _alReasonRecsFull)),
+          _secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αのE成立/到達率/頻度/利確率/損切り率/想定損益）。基本αはシグナル共通母数で算出" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」で絞込）" : ""), _detCtl("al_baD", _alReasonRecsFull)),
           _detBody("al_baD", _alReasonRecsFull, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _alHoliSet); })];
       } else if (_alSel === "add") {
         // 前足浮きタブ＝底抜け前足浮き（数値根拠）専用の追加α分析（前足浮き値の何%を追加αにすべきか）。その他タブ＝通常の追加α分析。
@@ -7848,12 +7848,12 @@ function EntryLogView(_ref_elv2) {
                   || React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "浮き足〇（浮き値入り）の記録がありません"));
               }))]
           : [_alZoneHead("#9A3412", "#FFF7ED", "#FED7AA", "応用αゾーン" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」）" : ""), _alAddSum),
-              _secH("🔬 推奨応用α 詳細データ（応用〇・手仕舞い基準）", "応用〇の記録だけを母数に、独立α値0〜20円を前提損切り値で一律に当て手仕舞いで評価（★＝到達率" + _EL_ANA_REACH_DEF + "%以上［無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで緩和し参考］・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_MIN_N + "件以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうち平均最終損益（1件あたり）最大）。母数＝応用〇（浮き足・RN除外）" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」で絞込）" : ""), _detCtl("al_totA", _alReasonRecsFull)),
+              _secH("🔬 推奨応用α 詳細データ（応用〇・手仕舞い基準）", "応用〇の記録だけを母数に、独立α値0〜20円を前提損切り値で一律に当て手仕舞いで評価（★＝到達率" + _EL_ANA_REACH_DEF + "%以上［無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで緩和し参考］・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_MIN_N + "件以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうち平均想定損益（1件あたり）最大）。母数＝応用〇（浮き足・RN除外）" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」で絞込）" : ""), _detCtl("al_totA", _alReasonRecsFull)),
               _detBody("al_totA", _alReasonRecsFull, function(_drs) { return _elTotalAlphaSectionV2(_drs, _ai, _alHoliSet); })];
       } else {
         _alBody = [
           _alZoneHead("#64748B", "#F8FAFC", "#E2E8F0", "共通ツール ― 基本/追加に依らないα全体の検証" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」）" : ""), null),
-          _alphaTable ? [_secH("🎯 α意思決定表", "※実効α基準＝記録の採用α（浮き足/応用/RN込み）を一様にそのαへ置換して再計算（0〜20円・損切り値は各記録の採用値・★＝最終損益（手じまい）が最大のα）", _detCtl("al_tbl", _alReasonRecsScoped)),
+          _alphaTable ? [_secH("🎯 α意思決定表", "※実効α基準＝記録の採用α（浮き足/応用/RN込み）を一様にそのαへ置換して再計算（0〜20円・損切り値は各記録の採用値・★＝想定損益（手じまい）が最大のα）", _detCtl("al_tbl", _alReasonRecsScoped)),
             _detBody("al_tbl", _alReasonRecsScoped, function(_drs, _dv) { var _tb = (_dv === "all") ? _alphaTable : _alphaTableFn(_drs); return _tb || React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 11 } }, "この母数で表を作れる記録がありません"); })] : null,
           _secH("📉 α感応度カーブ", "※実効α基準＝採用α（浮き足/応用/RN込み）を一様置換。この母数（" + (_floatMode ? "浮き足" : "その他") + "）をα=0〜20円で再計算した合計の推移（意思決定表のグラフ版）", _detCtl("al_curve", _alReasonRecsScoped)),
           _detBody("al_curve", _alReasonRecsScoped, function(_drs) { return _elAlphaCurveSectionV2(_drs, _ai); })];
@@ -7895,9 +7895,9 @@ function EntryLogView(_ref_elv2) {
       var _mwRealOf = function(r) { if (!_elIsEntered(r.signal, r.item)) return null; var pr = _elRealPnlPair(r.signal, r.item); return pr ? pr.real : null; };
       var _periodTot = function(rs) { return _elTotAccum(rs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, real: _mwRealOf }); };
       // 2026-07-29e even/unk を追加（全体損益（期間別）stopsOf の evenN/unkN と同じ判定・同じ優先順＝2表で同じ数になる）:
-      //   even＝最終損益ちょうど±0（利確>0・見切り<0のどちらにも入らない第4バケツ）／unk＝損切り以外で撤退足の終値が未入力＝金額を出せない記録。
+      //   even＝想定損益ちょうど±0（利確>0・見切り<0のどちらにも入らない第4バケツ）／unk＝損切り以外で撤退足の終値が未入力＝金額を出せない記録。
       var _ratesOf = function(rs) {
-        var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0, draw = 0, take = 0, even = 0, unk = 0;   // take=利確(E成立かつ最終損益>0で手じまい) 2026-07-09
+        var ok = 0, ng = 0, miss = 0, stop = 0, soft = 0, draw = 0, take = 0, even = 0, unk = 0;   // take=利確(E成立かつ想定損益>0で手じまい) 2026-07-09
         rs.forEach(function(r) { var s = r.signal, a = _ai(r).alpha, c = _ai(r).cutLine; var res = _elDynResult(s, a, c); var _dec = (res === "ok" || res === "ng" || res === "draw"); if (res === "ok") ok++; else if (res === "ng") ng++; else if (res === "draw") draw++; if (!_epReachedAt(s, a)) miss++; var isStop = _elIsStopFinal(s, a, c); if (isStop) stop++; else if (res === "ng") soft++; if (_dec) { var _t2 = _elHoldFinalParts(s, a, c); var _m = (_t2 && _t2.main != null) ? _t2.main : null; if (_m != null && _m > 0) take++; if (!isStop) { if (_m == null) unk++; else if (_m === 0) even++; } } });
         var _d = ok + ng + draw;
         return { ok: ok, ng: ng, miss: miss, draw: draw, n: rs.length, win: _d ? Math.round(ok / _d * 100) : null, soft: _d ? Math.round(soft / _d * 100) : 0, stop: _d ? Math.round(stop / _d * 100) : 0, take: take, takeRate: _d ? Math.round(take / _d * 100) : null,
@@ -7909,7 +7909,7 @@ function EntryLogView(_ref_elv2) {
         return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, marginBottom: 10 } },
           _kpiCard("件数", rs.length + "件", "#333", (function() { var _cn = _elCollExclCountRecs(data, rs, _collScope); return _cn > 0 ? "被り除外" + _cn + "件" : null; })()),
           _kpiCard("実現損益", _yenN(t.real, t.realCnt, _pkDays, true), null, t.realCnt + "件"),
-          _kpiCard("最終損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _pkDays), null, t.hold2Cnt + "件・○途切れで手じまい"),
+          _kpiCard("想定損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _pkDays), null, t.hold2Cnt + "件・○途切れで手じまい"),
           _kpiCard("利確", rr.takeRate != null ? rr.take + "件・" + rr.takeRate + "%" : "—", rr.takeRate != null ? (rr.takeRate >= 50 ? "#1E8449" : "#B45309") : "#0369A1", "利益で手じまい／E成立" + (rr.ok + rr.ng + rr.draw) + "件"),
           _kpiCard("見切り率", rr.soft + "%", rr.soft > 0 ? "#B45309" : "#bbb"),
           _kpiCard("損切り率", rr.stop + "%", rr.stop > 0 ? "#1E8449" : "#bbb"));
@@ -7938,23 +7938,23 @@ function EntryLogView(_ref_elv2) {
       var _keys = Object.keys(_byP).sort().reverse();
       if (!_keys.length) return _cardify([_secH("📅 月間・週間"), _granBtns, React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "v2記録なし")]);
       var _chartKeys = _keys.slice().reverse();
-      var _metInfo = { real: { label: "実現損益", get: function(t) { return t.real || 0; } }, h2: { label: "最終損益", get: function(t) { return t.hold2 || 0; } } };
+      var _metInfo = { real: { label: "実現損益", get: function(t) { return t.real || 0; } }, h2: { label: "想定損益", get: function(t) { return t.hold2 || 0; } } };
       var _mi = _metInfo[chartMet] || _metInfo.h2;   // 旧plan/h1選択の残存stateは手じまいへフォールバック 2026-07-09
       var _xt = [], _step = Math.max(1, Math.ceil(_chartKeys.length / 6));
-      var _per = _chartKeys.map(function(k, i) { var t = _periodTot(_byP[k]), rr = _ratesOf(_byP[k]); if (i % _step === 0 || i === _chartKeys.length - 1) _xt.push({ i: i, label: _labelOf(k) }); return { label: _labelOf(k), value: _mi.get(t), win: rr.takeRate }; });   // 破線=利確(最終損益>0)に統一 2026-07-09
+      var _per = _chartKeys.map(function(k, i) { var t = _periodTot(_byP[k]), rr = _ratesOf(_byP[k]); if (i % _step === 0 || i === _chartKeys.length - 1) _xt.push({ i: i, label: _labelOf(k) }); return { label: _labelOf(k), value: _mi.get(t), win: rr.takeRate }; });   // 破線=利確(想定損益>0)に統一 2026-07-09
       var _cum = [], _cs = 0; _per.forEach(function(p) { _cs += p.value; _cum.push(_cs); });
       var _dayBy = {}; _perRecs.forEach(function(r) { (_dayBy[r.date] = _dayBy[r.date] || []).push(r); });
       var _dayPer = Object.keys(_dayBy).map(function(dk) { var t = _periodTot(_dayBy[dk]); return { date: dk, value: _mi.get(t) }; });
       var _metBtns = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", marginBottom: 8 } },
         React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
-          [["real", "実現損益"], ["h2", "最終損益"]].map(function(m) {
+          [["real", "実現損益"], ["h2", "想定損益"]].map(function(m) {
             var on = chartMet === m[0] || (m[0] === "h2" && !_metInfo[chartMet]);
             return React.createElement("button", { key: m[0], onClick: function() { setChartMet(m[0]); }, style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, m[1]);
           })));
       var _cumChart = _chartKeys.length >= 2 ? _elLineChartV2([{ label: "累積" + _mi.label, color: "#C0392B", pts: _cum }], { xTicks: _xt }) : null;
       var _charts = [
         _metBtns,
-        _secH("📊 損益バー＋利確（" + _mi.label + "）", "各期間の損益を上下バー（赤=利益/緑=損失）＋利確率(最終損益>0)を破線(右軸)で重ねる"),
+        _secH("📊 損益バー＋利確（" + _mi.label + "）", "各期間の損益を上下バー（赤=利益/緑=損失）＋利確率(想定損益>0)を破線(右軸)で重ねる"),
         _elBarChartV2(_per, { winLabel: "利確(右軸)" }),
         _cumChart ? [_secH("📈 累積損益カーブ（" + _mi.label + "）", "右肩上がりなら勝ち越し（資産曲線）"), _cumChart] : null,
         _secH("🟥 ヒートマップ（曜日揃え・日別・" + _mi.label + "）", "列＝曜日(月〜金)で縦に揃え、曜日ごとの傾向を見る。色の濃淡で損益（赤=利益/緑=損失）・上が古い週→下が最新週・記録の無い営業日枠は薄い空セル"),
@@ -7979,17 +7979,17 @@ function EntryLogView(_ref_elv2) {
       // 件数の下の「（1日平均〇件）」＝件数÷日数。割り切れれば整数・端数は小数第1位まで。2026-07-19（全体損益・期間別の_ovPnlTblと同扱い）。
       var _avgCntLine2 = function(cnt, days) { if (!days || cnt == null) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };
       // ===== 月間・週間の分析コア 2026-08-12 =====
-      // ⚠️**実現損益と最終損益をそのまま引き算してはいけない**。単位も母数も違う:
-      //   ・単位: 最終損益＝(α−終値)×**100株**の仮想値／実現損益＝実額（株数入り）。→ 最終損益に「基礎株数÷100」を掛けて揃える。
-      //   ・母数: 最終損益には**見送り・要審議の仮想損益も入っている**が、実現損益は実エントリー分だけ。
+      // ⚠️**実現損益と想定損益をそのまま引き算してはいけない**。単位も母数も違う:
+      //   ・単位: 想定損益＝(α−終値)×**100株**の仮想値／実現損益＝実額（株数入り）。→ 想定損益に「基礎株数÷100」を掛けて揃える。
+      //   ・母数: 想定損益には**見送り・要審議の仮想損益も入っている**が、実現損益は実エントリー分だけ。
       //           1列の差にすると「執行のロス」と「そもそも入っていない分」が混ざって読めなくなる。
-      //   なので ①理論値／②実績／③執行ロス は「実エントリー済み＆実現損益あり＆最終損益が出せる」記録だけの**同一母数**で出し、
+      //   なので ①理論値／②実績／③執行ロス は「実エントリー済み＆実現損益あり＆想定損益が出せる」記録だけの**同一母数**で出し、
       //   見送りぶんは ④見送りコスト として完全に別列にする。
       // 換算は**記録ごとに_mulOfを引いてから積算**する＝週が月をまたいでも各記録が自分の月の株数で換算される。
       var _mulOf = function(r) { return _snShareMul(data, r.date); };
       var _ymOfKey = function(k) { return gran === "month" ? k : k.slice(0, 7); };   // 週間キー(月曜の日付)→その週の初日が属する月＝表示上の代表株数
       var _mwCore = function(rs) {
-        var theo = 0, realM = 0, n = 0;                               // ①②③の同一母数（実エントリー＆実現損益あり＆最終損益あり）
+        var theo = 0, realM = 0, n = 0;                               // ①②③の同一母数（実エントリー＆実現損益あり＆想定損益あり）
         var realAll = 0, realAllCnt = 0;                              // 実現損益が入っている実エントリー全件（表2の実現損益列と同じ母数）
         var entered = 0, skip = 0, skipMiss = 0, thru = 0, review = 0, skipNoMemo = 0;
         var skipCost = 0, skipCostN = 0, skipGood = 0, skipBad = 0;   // ④見送りコスト（＋=取っていれば儲かった=機会損失／−=見送って正解）
@@ -8006,7 +8006,7 @@ function EntryLogView(_ref_elv2) {
           else if (_epReachedAt(s, _aa.alpha)) { skip++; if (!String(s.skipMemo || "").trim()) skipNoMemo++; }
           // 2026-08-12 見送りを「未達を除く見送り(skip)」と「未達(skipMiss)」に分ける。フォームの既定が見送りなので、
           //   EPに届かなかった記録も他の状態を選ばなければ全部ここに落ちてくる＝混ぜると「入れたのに入らなかった」判断の件数が読めない。
-          //   ④見送りコストは最終損益が出せる記録だけを見る（未達はfin=nullなので元から入らない）＝金額側は分離前後で不変。
+          //   ④見送りコストは想定損益が出せる記録だけを見る（未達はfin=nullなので元から入らない）＝金額側は分離前後で不変。
           else skipMiss++;
           if (_elCollExcluded(data, r, _collScope)) return;           // 金額は表2・💰損益タブと同じく被り除外を効かせる
           var fp = _elHoldFinalParts(s, _aa.alpha, _aa.cutLine);
@@ -8125,7 +8125,7 @@ function EntryLogView(_ref_elv2) {
           // 同値（利確の右・2026-07-29e 全体損益（期間別）と同じ位置・同じ中身）。0件かつ金額不明0なら「—」。
           _tdP((rr.even || rr.unk) ? React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
             rr.even ? React.createElement("span", { style: { fontWeight: 700, color: "#6B7280" } }, rr.even + "件" + (rr.evenRate != null ? "・" + rr.evenRate + "%" : "")) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
-            rr.unk ? React.createElement("span", { title: "損切り以外で撤退足の終値が未入力＝最終損益を出せない記録。利確・同値・損切り・見切りのどれにも入れられないため件数だけ出しています（終値を入れれば該当のバケツに入ります）", style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "金額不明" + rr.unk + "件") : null)
+            rr.unk ? React.createElement("span", { title: "損切り以外で撤退足の終値が未入力＝想定損益を出せない記録。利確・同値・損切り・見切りのどれにも入れられないため件数だけ出しています（終値を入れれば該当のバケツに入ります）", style: { fontSize: 9, color: "#B45309", fontWeight: 700 } }, "金額不明" + rr.unk + "件") : null)
             : React.createElement("span", { style: { color: "#bbb" } }, "—")),
           _tdP(rr.stop + "%", { color: rr.stop > 0 ? "#1E8449" : "#bbb", fontWeight: rr.stop > 0 ? 700 : 400 }),
           _tdP(rr.soft + "%", { color: rr.soft > 0 ? "#B45309" : "#bbb", fontWeight: rr.soft > 0 ? 700 : 400 }),
@@ -8137,16 +8137,16 @@ function EntryLogView(_ref_elv2) {
       return _cardify([
         // 表1（金額）: 単位と母数をそろえた ①理論値／②実績／③執行ロス／④見送りコスト。この表が月間・週間タブの主役 2026-08-12
         _secH("💴 " + _unitLbl + "間の損益（基礎取引株数で単位をそろえた比較）",
-          "※「理論値」は最終損益（100株の仮想値）に基礎取引株数を掛けたもの、「実績」は実額。基礎取引株数は" + (gran === "month" ? "この表の欄に直接入力できます（空欄＝既定" + _SN_BASE_SHARES_DEF + "株＝従来のグレードと同じ）" : "月間タブで設定します") + "。グレードは1日換算（合計÷日数）で判定しています"), _granBtns,
+          "※「理論値」は想定損益（100株の仮想値）に基礎取引株数を掛けたもの、「実績」は実額。基礎取引株数は" + (gran === "month" ? "この表の欄に直接入力できます（空欄＝既定" + _SN_BASE_SHARES_DEF + "株＝従来のグレードと同じ）" : "月間タブで設定します") + "。グレードは1日換算（合計÷日数）で判定しています"), _granBtns,
         _elCard(React.createElement(_HScrollBox, null,
           React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
             React.createElement("thead", null, React.createElement("tr", { style: { background: "transparent" } },
               _thP(_unitLbl),
               _thP(React.createElement("span", { title: "その月の基礎取引株数。グレードのしきい値が「株数÷100」倍になります（例 600株ならSは1日15,001円〜・100株なら2,501円〜）。空欄＝既定" + _SN_BASE_SHARES_DEF + "株で、これは従来の実現損益グレードと完全に同じしきい値です" }, "基礎取引株数")),
-              _thP(React.createElement("span", { title: "①理論値＝実エントリーした記録の最終損益（＝○が途切れた所で手じまい・100株の仮想値）に基礎取引株数を掛けた額。ルール通りに執行できていたら取れていたはずの額です。換算は記録ごとにその記録の月の株数で行っています" }, "①理論値")),
+              _thP(React.createElement("span", { title: "①理論値＝実エントリーした記録の想定損益（＝○が途切れた所で手じまい・100株の仮想値）に基礎取引株数を掛けた額。ルール通りに執行できていたら取れていたはずの額です。換算は記録ごとにその記録の月の株数で行っています" }, "①理論値")),
               _thP(React.createElement("span", { title: "②実績＝実際に約定した実現損益の実額。下段は「実現損益が入力されている件数／実エントリー件数」。ここが低いと右の執行ロスは一部の記録しか見ていないことになります" }, "②実績")),
-              _thP(React.createElement("span", { title: "③執行ロス＝①−②。⚠️実エントリー済み・実現損益あり・最終損益が出せる記録**だけ**の同一母数で計算しています（母数がずれると「執行のロス」と「そもそも入っていない分」が混ざるため）。スリッページや手じまいタイミングのズレがここに出ます。歩留まり＝実績÷理論値" }, "③執行ロス")),
-              _thP(React.createElement("span", { title: "④見送りコスト＝見送った記録の最終損益に基礎取引株数を掛けた額。プラス＝取っていれば儲かった（機会損失）／マイナス＝見送って正解。①②③とは別母数です（見送りは実エントリーしていないので実現損益が無い）" }, "④見送りコスト")),
+              _thP(React.createElement("span", { title: "③執行ロス＝①−②。⚠️実エントリー済み・実現損益あり・想定損益が出せる記録**だけ**の同一母数で計算しています（母数がずれると「執行のロス」と「そもそも入っていない分」が混ざるため）。スリッページや手じまいタイミングのズレがここに出ます。歩留まり＝実績÷理論値" }, "③執行ロス")),
+              _thP(React.createElement("span", { title: "④見送りコスト＝見送った記録の想定損益に基礎取引株数を掛けた額。プラス＝取っていれば儲かった（機会損失）／マイナス＝見送って正解。①②③とは別母数です（見送りは実エントリーしていないので実現損益が無い）" }, "④見送りコスト")),
               _thP(React.createElement("span", { title: "②実績（実現損益）を1日換算（合計÷日数）してから、その" + (gran === "month" ? "月" : "週の初日が属する月") + "の基礎取引株数のしきい値で判定したグレード" }, "グレード")),
               _thP(React.createElement("span", { title: "1つ前の" + _unitLbl + "の②実績との差額。両方に実現損益があるときだけ出します" }, "前" + _unitLbl + "比")))),
             React.createElement("tbody", null, _mwMoneyRows)))),
@@ -8165,10 +8165,10 @@ function EntryLogView(_ref_elv2) {
               _thP(React.createElement("span", { title: "要審議＝判断を保留した記録。見送りと同じく合計損益・分析母数に算入されます。※スルーは分析母数から常に除外されるためこのタブには出ません（💰損益タブで確認）" }, "要審議")),
               _thP(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右の利確・損切り率・見切り率の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c・全体損益（期間別）と同基準）" }, "到達")),
               _thP(React.createElement("span", { title: "未達＝EP（α）に到達しなかった記録。⚠️こちらは4状態に関係なく全部数えるので、見送り列の「＋未達」（見送り状態のものだけ）より多くなることがあります。到達と足しても総記録数にはなりません（×見送りがどちらにも入らないため）" }, "未達")),
-              _thP(React.createElement("span", { title: "利益（最終損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確")),
-              _thP(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・見切り（<0）のどちらにも入らない第4のバケツ（2026-07-29e・全体損益（期間別）と同基準）" }, "同値")),
+              _thP(React.createElement("span", { title: "利益（想定損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確")),
+              _thP(React.createElement("span", { title: "想定損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・見切り（<0）のどちらにも入らない第4のバケツ（2026-07-29e・全体損益（期間別）と同基準）" }, "同値")),
               _thP("損切り率"), _thP("見切り率"),
-              _thP("最終損益"), _thP("実現損益"))),
+              _thP("想定損益"), _thP("実現損益"))),
             React.createElement("tbody", null, _rows))))]);
     })());
   } else if (view === "deep") {
@@ -8200,8 +8200,8 @@ function EntryLogView(_ref_elv2) {
   } else if (view === "proj" && _isAllStock) {
     // 📈 損益推移シミュレーター 2026-08-05（💰損益タブ・🧮シミュの右）: 本体は app-09.js の DaytradeProjection。
     // ここでやるのは「収益の前提のオートフィル値」を作って渡すことだけ＝月次シミュ自体は前提の入力だけで完結する（記録に依存しない）。
-    // 実績＝最終損益(_elHoldFinalParts.main)の合計 ÷ 記録のあった日数。最終損益は値幅×100で**既に100株換算**なので
-    // 株数で割り直さない。実現損益ではなく最終損益を使うのは、実現損益がほぼ未記録で母数にならないため。
+    // 実績＝想定損益(_elHoldFinalParts.main)の合計 ÷ 記録のあった日数。想定損益は値幅×100で**既に100株換算**なので
+    // 株数で割り直さない。実現損益ではなく想定損益を使うのは、実現損益がほぼ未記録で母数にならないため。
     // 母数は_sinceCut(_v2recsAll)＝全銘柄・全シグナルの計算算入記録をルール統一後に絞ったもの＝🧮シミュと同じ線引き。
     var _projRecs = _sinceCut(_v2recsAll), _projSum = 0, _projCnt = 0, _projDaySet = {};
     for (var _pi = 0; _pi < _projRecs.length; _pi++) {

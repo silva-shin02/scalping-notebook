@@ -1413,7 +1413,7 @@ function DaytradeProjection(props) {
       (actual && actual.perDay != null) ? React.createElement("div", {
         style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", marginTop: 4 },
         title: (function() {
-          var t = "実績＝最終損益の合計 ÷ 記録のあった日数（" + actual.cnt + "件 / " + actual.days + "日"
+          var t = "実績＝想定損益の合計 ÷ 記録のあった日数（" + actual.cnt + "件 / " + actual.days + "日"
             + (actual.mons ? " / " + actual.mons + "ヶ月＝月あたり " + (Math.round((actual.daysPerMon || 0) * 10) / 10) + "日" : "") + "）。"
             + "母数は" + (actual.sinceOnly ? "集計ルール統一後の記録" : "全期間の記録") + "。"
             + "月次は 1日あたり × ①の月間営業日 で内部換算します（先頭行なら "

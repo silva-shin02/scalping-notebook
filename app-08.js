@@ -1007,11 +1007,11 @@ function App() {
     setSelTab("news");
   };
   
-  // 2026-08-17 ホームの月次チップを最終損益（100株換算）基準へ。
+  // 2026-08-17 ホームの月次チップを想定損益（100株換算）基準へ。
   //   旧＝ signal.realizedPnl だけを見ていた＝実現損益がほぼ未記録のこのデータでは過去月でもほぼ0円で出ており、
   //   さらに item.pnl（取引テーブル側の損益）も拾っていなかった。集計は _snMonthPnlAgg / _snDailyPnlMap（app-05）へ一本化＝
   //   カレンダーの日次バッジ・📊今月の損益パネル・このチップの3か所が同じ1つの関数を見る＝数字が食い違いようがない。
-  //   戻り値: final/finalCnt/win/loss/even（最終損益）・real/realRaw/realCnt（実現損益）・cnt（エントリー件数）・bizTotal/bizDone（営業日数）ほか。
+  //   戻り値: final/finalCnt/win/loss/even（想定損益）・real/realRaw/realCnt（実現損益）・cnt（エントリー件数）・bizTotal/bizDone（営業日数）ほか。
   var _mAgg = useMemo(function() {
     return _snMonthPnlAgg(data, cY, cM);
   }, [data, cY, cM]);
@@ -1039,17 +1039,25 @@ function App() {
     { la: "損益", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
       sub: _mPerDay != null ? ("1日 " + _snYen(_mPerDay)) : null,
       subGrade: _mPerDay != null ? _profitGradeFromPnl(_mPerDay, _mAgg.finalCnt) : null,
-      title: "最終損益の合計（100株換算）。記録帳・💰全体損益と同じ基準です"
+      title: "想定損益の合計（100株換算）。記録帳・💰全体損益と同じ基準です"
         + "\n母数 " + _mAgg.finalCnt + "件 / 記録のあった日 " + _mAgg.tradedDays + "日"
         + "\n実現損益 " + _mRealTxt
-        + (_mPerDay != null ? ("\n1日あたり " + _snYen(_mPerDay) + " ＝ 最終損益 ÷ 経過営業日 " + _mAgg.bizDone + "日") : "") },
+        + (_mPerDay != null ? ("\n1日あたり " + _snYen(_mPerDay) + " ＝ 想定損益 ÷ 経過営業日 " + _mAgg.bizDone + "日") : "") },
+    // 2026-08-17b 実現損益を独立チップへ（ユーザー要望）。見送りの仮想損益も入る想定損益と違い、これだけが「実際に約定した額」。
+    //   主値＝100株換算（他の欄と単位を揃える）／下段＝実額。エントリー件数が少ない月ほど2つの差が大きく出る。
+    { la: "実現", v: _mAgg.realCnt > 0 ? _snYen(_mAgg.real) : "—", c: _mAgg.realCnt > 0 ? _snPnlCol(_mAgg.real) : "#bbb",
+      sub: _mAgg.realCnt > 0 ? ("実額 " + _snYen(_mAgg.realRaw)) : "未記録",
+      title: _mAgg.realCnt > 0
+        ? ("実際に約定した損益。上段は100株換算 " + _snYen(_mAgg.real) + "、下段が実額 " + _snYen(_mAgg.realRaw) + "（" + _mAgg.realCnt + "件）"
+          + (_mAgg.realHasShares ? "" : "\n⚠ 株数が入っていない記録があります（換算できないぶんは実額のまま足しています）"))
+        : "この月は実現損益が1件も入っていません。左の損益は記録から計算した値です" },
     { la: "取引", v: _mAgg.cnt + "件", c: "#1a1a1a",
       sub: _mAgg.bizDone > 0 ? ("1日 " + (Math.round(_mAgg.cnt / _mAgg.bizDone * 10) / 10) + "件") : null,
-      title: "エントリーした件数。損益の母数（最終損益のある記録）は " + _mAgg.finalCnt + "件です"
+      title: "エントリーした件数。損益の母数（想定損益のある記録）は " + _mAgg.finalCnt + "件です"
         + "\n見送りの記録も損益には算入されるため、2つの件数は一致しません" },
     { la: "勝率", v: _mWinPct != null ? (_mWinPct + "%") : "—", c: "#1a1a1a",
       sub: _mAgg.finalCnt > 0 ? (_mAgg.win + "勝" + _mAgg.loss + "敗") : null,
-      title: "最終損益がプラスの件数 ÷ 最終損益のある件数（" + _mAgg.win + "/" + _mAgg.finalCnt + "）"
+      title: "想定損益がプラスの件数 ÷ 想定損益のある件数（" + _mAgg.win + "/" + _mAgg.finalCnt + "）"
         + (_mAgg.even ? ("\n同値 " + _mAgg.even + "件は分母に含みます") : "") },
     { la: "営業日", v: _mIsCurMonth ? (_mAgg.bizDone + "/" + _mAgg.bizTotal + "日") : (_mAgg.bizTotal + "日"), c: "#1a1a1a",
       sub: _mIsCurMonth ? ("残" + Math.max(0, _mAgg.bizTotal - _mAgg.bizDone) + "日") : null,
@@ -1354,9 +1362,9 @@ function App() {
       style: {
         background: "#f5f4f0",
         borderRadius: 8,
-        padding: "5px 10px",
+        padding: "5px 8px",
         textAlign: "center",
-        minWidth: 54
+        minWidth: 50
       }
     }, React.createElement("div", {
       style: {
