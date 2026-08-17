@@ -1934,7 +1934,9 @@ function EventsTab(_ref_evt) {
       allStocks = _ref_evt.allStocks,
       custom = _ref_evt.custom,
       data = _ref_evt.data;
-  var events = getDayEvents(dd);
+  // 2026-08-12h date/data を渡して、計算した祝日・休場を合成イベントとして先頭に出す（カレンダーのマス目と同じ内容）。
+  // ⚠️合成イベント（id が "__jph_" 始まり・_auto:true）は編集・削除できない＝下の編集UIは _auto を弾くこと。
+  var events = getDayEvents(dd, date, data);
   
   var weekDates = useMemo(function() {
     var d = new Date(date + "T00:00:00");
@@ -1957,8 +1959,8 @@ function EventsTab(_ref_evt) {
     var result = [];
     weekDates.forEach(function(d) {
       var dayData = (data.trades && data.trades[d]) || {};
-      var dayEvs = (Array.isArray(dayData.events) ? dayData.events : []).filter(function(e){ return e && !e._deleted; });
-      dayEvs.forEach(function(ev) { result.push({ date: d, ev: ev }); });
+      // 2026-08-12h getDayEvents に date/data を渡す＝今週の一覧にも自動の祝日・休場が出る（この日の予定欄と同じ内容にそろえる）。
+      getDayEvents(dayData, d, data).forEach(function(ev) { result.push({ date: d, ev: ev }); });
     });
     result.sort(function(a, b) {
       if (a.date !== b.date) return a.date.localeCompare(b.date);
@@ -2005,6 +2007,10 @@ function EventsTab(_ref_evt) {
     setEditId("new");
   };
   var openEdit = function(ev, evDate) {
+    // 自動生成の祝日・休場は編集不可 2026-08-12h。data.trades に実体が無いので、編集して保存すると
+    // 「__jph_…」というidの偽イベントが記録に混入する（しかも翌年からは自動ぶんと二重になる）。ここで止める。
+    // 内容を変えたい/消したい場合は、同じ日に手入力の祝日イベントを作れば自動ぶんは出なくなる（_snHasManualHoliday）。
+    if (ev && ev._auto) return;
     var d = evDate || date;
     var initHtml = ev.contentHtml || "";
     if (!initHtml && ev.content) {
@@ -2142,12 +2148,13 @@ function EventsTab(_ref_evt) {
               return React.createElement("div", {
                 key: d + "_" + ev.id,
                 onClick: function() { openEdit(ev, d); },
+                title: ev._auto ? "日本の祝日・東証の休場日から自動で出しています（記録には保存されないので編集・削除はできません）" : null,
                 style: {
                   display: "flex", alignItems: "stretch", gap: 8,
                   padding: "8px 10px",
-                  background: isToday ? "#F0FDF4" : "#fff",
+                  background: isToday ? "#F0FDF4" : (ev._auto ? "#FAFAF9" : "#fff"),
                   borderTop: idx > 0 ? "1px solid #F0F0F0" : "none",
-                  cursor: "pointer"
+                  cursor: ev._auto ? "default" : "pointer"   // 2026-08-12h 自動ぶんは編集不可
                 }
               },
                 React.createElement("div", {
@@ -2197,11 +2204,12 @@ function EventsTab(_ref_evt) {
         return React.createElement("div", {
           key: ev.id,
           onClick: function(){ openEdit(ev); },
+          title: ev._auto ? "日本の祝日・東証の休場日から自動で出しています（記録には保存されないので編集・削除はできません）。内容を変えたい場合は同じ日に「祝日・休場」の予定を手で作ってください＝自動ぶんは出なくなります" : null,
           style: {
             display: "flex", alignItems: "stretch", gap: 10,
-            padding: "10px 12px", background: "#fff",
-            border: "1px solid #e0ddd6", borderRadius: 8,
-            cursor: "pointer"
+            padding: "10px 12px", background: ev._auto ? "#FAFAF9" : "#fff",
+            border: "1px solid " + (ev._auto ? "#e7e5e4" : "#e0ddd6"), borderRadius: 8,
+            cursor: ev._auto ? "default" : "pointer"   // 2026-08-12h 自動ぶんは編集不可なので手のひらカーソルにしない
           }
         },
           React.createElement("div", {

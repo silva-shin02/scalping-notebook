@@ -308,16 +308,22 @@ function hasCatContent(cd) {
   return false;
 }
 
-function getDayEvents(dd) {
-  if (!dd || !Array.isArray(dd.events)) return [];
-  var arr = dd.events.filter(function(e) { return e && !e._deleted; });
+// date（YYYY-MM-DD）を渡すと、計算した祝日・休場を**表示用の合成イベント**として先頭に足す 2026-08-12h。
+// 2026-08-12fではカレンダーのマス目(app-05 Calendar の eventsByDate)にしか出しておらず、日ページの予定欄に出ていなかった（ユーザー指摘）。
+// ⚠️dateを渡さない呼び出しは従来どおり＝保存・編集系のコードが合成イベントを掴まないようにするための既定。
+// 合成の判定・重複回避は _snAddAutoHolidayEvents と同じ規約（同日に手入力の祝日イベントがあれば出さない）。
+function getDayEvents(dd, date, data) {
+  var arr = (dd && Array.isArray(dd.events)) ? dd.events.filter(function(e) { return e && !e._deleted; }) : [];
   arr.sort(function(a, b) {
     var ta = (a && a.startTime) || (a && a.allDay ? "" : "99:99");
     var tb = (b && b.startTime) || (b && b.allDay ? "" : "99:99");
     if (ta === tb) return 0;
     return ta < tb ? -1 : 1;
   });
-  return arr;
+  if (!date) return arr;
+  var ev = _snAutoHolidayEvent(date);
+  if (!ev || _snHasManualHoliday(arr, _snHolidayCatIds(data))) return arr;
+  return [ev].concat(arr);
 }
 function hasEventsContent(dd) {
   if (!dd || !Array.isArray(dd.events)) return false;
@@ -419,29 +425,38 @@ function _snJpHolidayName(ds) {
 //   合成イベントは id が "__jph_" 始まり・_auto:true。カレンダーのイベント札はクリック不可（セル全体が日付リンク）なので編集経路から触られない。
 // 同じ日に手入力の祝日/休場イベントがあれば自動ぶんは出さない＝ユーザーの記録を優先（重複表示を防ぐ）。
 // 営業日数側(_buildHolidayDateSet)にも同じ計算結果が入るので、カレンダーの表示と日数列が必ず一致する。
-function _snAddAutoHolidayEvents(m, data) {
-  if (!m) return m;
+// 「祝日/休場」として扱うイベントカテゴリのid集合（_buildHolidayDateSet と同じ判定規約）。
+function _snHolidayCatIds(data) {
+  var ids = { evcat_holiday: true };
   var cats = (data && data.custom && data.custom.eventCategories) || null;
-  var holidayIds = { evcat_holiday: true };
   if (Array.isArray(cats)) cats.forEach(function(c) {
     if (!c || !c.id) return;
     var nm = c.name || "";
-    if (c.id === "evcat_holiday" || nm.indexOf("祝日") >= 0 || nm.indexOf("休場") >= 0) holidayIds[c.id] = true;
+    if (c.id === "evcat_holiday" || nm.indexOf("祝日") >= 0 || nm.indexOf("休場") >= 0) ids[c.id] = true;
   });
-  var hasManualHoliday = function(ds) {
-    var arr = m[ds];
-    if (!arr || !arr.length) return false;
-    for (var i = 0; i < arr.length; i++) { var ev = arr[i]; if (ev && !ev._auto && ev.categoryId && holidayIds[ev.categoryId]) return true; }
-    return false;
-  };
+  return ids;
+}
+// その日のイベント配列に「手入力の」祝日/休場があるか（合成_autoは数えない）＝あれば自動ぶんは出さない＝ユーザーの記録を優先。
+function _snHasManualHoliday(arr, catIds) {
+  if (!arr || !arr.length) return false;
+  for (var i = 0; i < arr.length; i++) { var ev = arr[i]; if (ev && !ev._auto && ev.categoryId && catIds[ev.categoryId]) return true; }
+  return false;
+}
+// 1日ぶんの合成イベント（祝日でなければnull）。idは "__jph_" 始まり・_auto:true が目印。
+function _snAutoHolidayEvent(ds) {
+  var nm = _snJpHolidayName(ds);
+  return nm ? { id: "__jph_" + ds, title: "🎌 " + nm, allDay: true, categoryId: "evcat_holiday", _auto: true } : null;
+}
+function _snAddAutoHolidayEvents(m, data) {
+  if (!m) return m;
+  var catIds = _snHolidayCatIds(data);
   var ty = new Date().getFullYear();
   for (var y = ty - 3; y <= ty + 3; y++) {
     var h = _snJpMarketHolidays(y);
     Object.keys(h).forEach(function(ds) {
-      if (hasManualHoliday(ds)) return;
-      var ev = { id: "__jph_" + ds, title: "🎌 " + h[ds], allDay: true, categoryId: "evcat_holiday", _auto: true };
+      if (_snHasManualHoliday(m[ds], catIds)) return;
       if (!m[ds]) m[ds] = [];
-      m[ds].unshift(ev);   // 終日イベントなので先頭（並べ替えでも allDay は先頭に来る）
+      m[ds].unshift(_snAutoHolidayEvent(ds));   // 終日イベントなので先頭（並べ替えでも allDay は先頭に来る）
     });
   }
   return m;
