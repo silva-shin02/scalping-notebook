@@ -1031,10 +1031,13 @@ function App() {
   //   下段にグレードバッジを付けるのは「1日あたり」だけ。月の合計額に通常スケール（S=2501円〜）を当てても全部Sになって意味が無いため。
   var _mIsCurMonth = (cY === new Date().getFullYear() && cM === new Date().getMonth());
   var _mPerDay = _mAgg.bizDone > 0 ? Math.round(_mAgg.final / _mAgg.bizDone) : null;
+  var _mRealPerDay = (_mAgg.bizDone > 0 && _mAgg.realCnt > 0) ? Math.round(_mAgg.realRaw / _mAgg.bizDone) : null;   // 実現の1日あたりは**実額**基準 2026-08-17f（チップ主値と単位を揃える）
   var _mWinPct = _mAgg.finalCnt > 0 ? Math.round(_mAgg.win / _mAgg.finalCnt * 100) : null;
   var _mRealTxt = _mAgg.realCnt > 0
     ? (_snYen(_mAgg.real) + "（100株換算・" + _mAgg.realCnt + "件 / 実額 " + _snYen(_mAgg.realRaw) + "）")
     : "未記録";
+  // 3段目(sub2)を持つチップが1つでもあれば全チップの最低高さを上げる 2026-08-17f。実測: 2段=56px / 3段=68px。
+  var _mChipMinH = 56;
   var _homeChips = [
     { la: "損益", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
       sub: _mPerDay != null ? ("1日 " + _snYen(_mPerDay)) : null,
@@ -1044,11 +1047,18 @@ function App() {
         + "\n実現損益 " + _mRealTxt
         + (_mPerDay != null ? ("\n1日あたり " + _snYen(_mPerDay) + " ＝ 想定損益 ÷ 経過営業日 " + _mAgg.bizDone + "日") : "") },
     // 2026-08-17b 実現損益を独立チップへ（ユーザー要望）。見送りの仮想損益も入る想定損益と違い、これだけが「実際に約定した額」。
-    //   主値＝100株換算（他の欄と単位を揃える）／下段＝実額。エントリー件数が少ない月ほど2つの差が大きく出る。
-    { la: "実現", v: _mAgg.realCnt > 0 ? _snYen(_mAgg.real) : "—", c: _mAgg.realCnt > 0 ? _snPnlCol(_mAgg.real) : "#bbb",
-      sub: _mAgg.realCnt > 0 ? ("実額 " + _snYen(_mAgg.realRaw)) : "未記録",
+    // 2026-08-17f 3段化（ユーザー要望「実額を上・100株換算を下・1営業日換算も」）:
+    //   主値＝**実額**（実際に動いたお金＝一番知りたい額）／2段目＝100株換算（他の欄と単位を揃えた比較用）／3段目＝1日あたり。
+    //   ⚠️1日あたりは**実額基準**（主値と単位を揃える）。損益チップの「1日」は想定損益＝100株換算基準なので、2つは単位が違う。
+    //   分母はどちらも経過営業日(bizDone)で共通＝日数の取り方だけは食い違わない。
+    { la: "実現", v: _mAgg.realCnt > 0 ? _snYen(_mAgg.realRaw) : "—", c: _mAgg.realCnt > 0 ? _snPnlCol(_mAgg.realRaw) : "#bbb",
+      sub: _mAgg.realCnt > 0 ? ("100株 " + _snYen(_mAgg.real)) : "未記録",
+      sub2: (_mAgg.realCnt > 0 && _mRealPerDay != null) ? ("1日 " + _snYen(_mRealPerDay)) : null,
       title: _mAgg.realCnt > 0
-        ? ("実際に約定した損益。上段は100株換算 " + _snYen(_mAgg.real) + "、下段が実額 " + _snYen(_mAgg.realRaw) + "（" + _mAgg.realCnt + "件）"
+        ? ("実際に約定した損益（" + _mAgg.realCnt + "件）"
+          + "\n上段＝実額 " + _snYen(_mAgg.realRaw) + "（実際に動いたお金）"
+          + "\n中段＝100株換算 " + _snYen(_mAgg.real) + "（株数の違いをならした比較用）"
+          + (_mRealPerDay != null ? ("\n下段＝1日あたり " + _snYen(_mRealPerDay) + " ＝ 実額 ÷ 経過営業日 " + _mAgg.bizDone + "日") : "")
           + (_mAgg.realHasShares ? "" : "\n⚠ 株数が入っていない記録があります（換算できないぶんは実額のまま足しています）"))
         : "この月は実現損益が1件も入っていません。左の損益は記録から計算した値です" },
     { la: "取引", v: _mAgg.cnt + "件", c: "#1a1a1a",
@@ -1064,6 +1074,7 @@ function App() {
       title: "この月の営業日数（土日と祝日・休場を除いた日数）。祝日はカレンダーの紫バッジと同じ計算結果を使っています"
         + (_mIsCurMonth ? ("\n経過 " + _mAgg.bizDone + "日 / 全体 " + _mAgg.bizTotal + "日") : "") }
   ];
+  _homeChips.forEach(function(ch) { if (ch.sub2) _mChipMinH = 68; });
   var _snSyncTxt = _snLastSync ? ("最終同期 " + _snLastSync.getHours() + ":" + String(_snLastSync.getMinutes()).padStart(2, "0")) : (cfg.fbUrl ? "未同期" : "");
   var fbBadge = cfg.fbUrl ? React.createElement("span", {
     title: (_snOnline ? "" : "オフライン中（接続が戻ると自動同期）。") + _snSyncTxt,
@@ -1364,7 +1375,15 @@ function App() {
         borderRadius: 8,
         padding: "5px 8px",
         textAlign: "center",
-        minWidth: 50
+        minWidth: 50,
+        // 2026-08-17f 実現チップだけ3段になるので全チップに同じ最低高さを与える＝行の高さが揃う。
+        //   親のalignItemsをstretchにする手は使えない（同じflex行に記録帳などのボタンが並んでいて一緒に伸びてしまうため）。
+        //   高さは3段目が実在するときだけ上げる＝実現が「—／未記録」の月に全チップが無駄に高くならない。
+        minHeight: _mChipMinH,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        boxSizing: "border-box"
       }
     }, React.createElement("div", {
       style: {
@@ -1392,7 +1411,15 @@ function App() {
         gap: 1,
         whiteSpace: "nowrap"
       }
-    }, ch.subGrade ? _elHoldGradeBadge(ch.subGrade) : null, ch.sub || " "));
+    }, ch.subGrade ? _elHoldGradeBadge(ch.subGrade) : null, ch.sub || " "), ch.sub2 ? React.createElement("div", {
+      style: {
+        fontSize: 9,
+        color: "#888",
+        fontWeight: 700,
+        lineHeight: 1.3,
+        whiteSpace: "nowrap"
+      }
+    }, ch.sub2) : null);
   }), React.createElement("button", {
     onClick: function() { setShowEntryLog(true); },
     title: "エントリー記録帳",
