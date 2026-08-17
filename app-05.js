@@ -4359,6 +4359,15 @@ function _elPer100Of(v, s) {
   var sh = (s && Number(s.shares) > 0) ? Number(s.shares) : 0;
   return (v == null || sh <= 0) ? null : Math.round(v / sh * 100);
 }
+// signal.itemId から取引アイテムを引く 2026-08-17j。_elCollectAllSignals が内部でやっている同じ引き当てを、
+// recラッパーを持たない呼び出し（チャートのグレード計算など）から使えるように単独関数化した。
+function _elItemOfSig(data, date, s) {
+  if (!data || !s || s.itemId == null || !date) return null;
+  var dd = (data.trades || {})[date];
+  if (!dd || !Array.isArray(dd.items)) return null;
+  for (var i = 0; i < dd.items.length; i++) { if (String(dd.items[i].id) === String(s.itemId)) return dd.items[i]; }
+  return null;
+}
 function _elRealPnlPair(s, item) {
   var v = (item && item.pnl != null) ? Number(item.pnl) : _elSignedVal(s && s.realizedPnl, s && s.realizedPnlSign);
   if (v == null) return { real: null, per100: null, shares: 0 };
@@ -5095,8 +5104,11 @@ function _snMonthPnlAgg(data, year, month) {
   var holi = _buildHolidayDateSet(data && data.trades, data && data.custom && data.custom.eventCategories);
   var today = todayStr();
   var last = new Date(year, month + 1, 0).getDate();
+  // oldRuleCnt 2026-08-17j: この月に含まれる**旧ルール期間**（_EL_RULE_SINCE より前）の記録件数。
+  //   記録帳の💰全体損益は旧ルール期間を薄く表示して合計・平均から外している(_keyIsOld)が、
+  //   ホーム側は月をそのまま見る場所なので**除外はせず「含んでいる」と明示する**（ユーザー判断 2026-08-17）。
   var o = { final: 0, finalCnt: 0, win: 0, loss: 0, even: 0, real: 0, realRaw: 0, realCnt: 0, realHasShares: false,
-    cnt: 0, bizTotal: 0, bizDone: 0, tradedDays: 0, best: null, worst: null, maxDD: 0, series: [] };
+    cnt: 0, bizTotal: 0, bizDone: 0, tradedDays: 0, best: null, worst: null, maxDD: 0, series: [], oldRuleCnt: 0 };
   var cum = 0, peak = 0;
   for (var d = 1; d <= last; d++) {
     var ds = dateFmt(year, month, d);
@@ -5104,6 +5116,7 @@ function _snMonthPnlAgg(data, year, month) {
     var e = dayMap[ds];
     if (!e) continue;
     o.cnt += e.cnt;
+    if (typeof _elIsOldRule === "function" && _elIsOldRule(ds)) o.oldRuleCnt += (e.finalCnt || 0);
     if (e.realCnt) {
       o.realRaw += e.realRaw; o.real += e.real; o.realCnt += e.realCnt;
       if (e.realHasShares) o.realHasShares = true;
@@ -5178,7 +5191,12 @@ function _SnMonthPnlPanel(_refSnMp) {
         _snBizDaysLabel(agg, year, month)),
       React.createElement("span", { title: "記録帳・💰全体損益と同じ基準です。実現損益（実際に約定した額）ではなく、記録から出した想定損益（100株換算）を主に出しています",
         style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "1px 6px" } },
-        "基準: 想定損益・100株換算")
+        "基準: 想定損益・100株換算"),
+      // 旧ルール期間を含む月の明示 2026-08-17j。記録帳側は薄く表示して合計から外しているが、ここでは外さずに注意書きだけ出す。
+      agg.oldRuleCnt > 0 ? React.createElement("span", {
+        title: "この月には集計ルールが変わる前（" + (typeof _EL_RULE_SINCE === "string" ? _EL_RULE_SINCE : "2026-06-29") + "より前）の記録が " + agg.oldRuleCnt + "件 含まれています。\n記録帳の💰全体損益ではこの期間を薄く表示して合計・平均から外しているため、そちらとは数字が一致しません。",
+        style: { fontSize: 9.5, fontWeight: 700, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 4, padding: "1px 6px" } },
+        "⚠️ 旧ルールの記録 " + agg.oldRuleCnt + "件を含む") : null
     ),
     agg.finalCnt === 0 && agg.cnt === 0
       ? React.createElement("div", { style: { fontSize: 11, color: "#bbb", padding: "10px 0", textAlign: "center" } }, ttl + "の記録はまだありません")
@@ -5998,7 +6016,9 @@ function _elAllMissRow(recs, alphaOf, cutOf) {
 // _elCalcStats の結果から全miss(E基準未達)集計かを判定（statsの想定/H1/H2合計と同じαで算出済み）。
 function _elStatAllMiss(st) { return !!st && st.total > 0 && st.miss === st.total; }
 
-function _elCalcChartGrades(signals, alpha, cutLine, exclFn) {
+function _elCalcChartGrades(signals, alpha, cutLine, exclFn, itemOf) {
+  // itemOf(signal)→取引アイテム 2026-08-17j。実現損益を _elRealPnlPair（item.pnl 優先）で出すために追加。
+  // 省略時は従来どおり signal.realizedPnl だけを見る＝呼び出し側を直さなくても壊れない。
   var _fixedA = alpha != null;  // α固定指定。null=各記録の採用α値(signal.alphaVal)で実計算
   // exclFn(compat済signal)→true＝時間かぶり除外（良い方）＝金額もCntも全スキップ（早見表/カレンダーの呼び出し側で配線）2026-07-07
   var _c = (cutLine != null ? cutLine : 15);
@@ -6023,9 +6043,10 @@ function _elCalcChartGrades(signals, alpha, cutLine, exclFn) {
     var _isX = _epIsXSkip(s, _aSig);  // E×（×見送り）→本合計に算入せず参考(ref)へ。allMiss判定からも除外。
     if (!_isX && _elDynResult(s, _aSig, _c) === "miss") _missCnt++;
     if (!_isX && _elH2Miss(s, _aSig)) _h2MissCnt++;
-    if (_elIsEntered(s, null)) {
+    var _cgIt = itemOf ? itemOf(s) : null;
+    if (_elIsEntered(s, _cgIt)) {
       realCount++;
-      var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+      var rv = _elRealPnlPair(s, _cgIt).real;
       if (rv != null) realSum += rv;
     }
     if (_isX) {

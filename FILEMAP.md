@@ -343,6 +343,36 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-08-17J 実現損益の読み方を全画面で統一＋旧ルール期間の明示（app-02/04/05/06/08 / sw v443→v444）
+- ユーザー依頼「アプリ全体で修正すべき点は無いか」→ 監査して見つけた2件を修正。
+- **① `item.pnl` の取りこぼし 9か所を `_elRealPnlPair` へ統一**。正本は `_elRealPnlPair(s, item)`＝**item.pnl 優先**、無ければ `signal.realizedPnl`。
+  | 直した場所 | 画面 |
+  |---|---|
+  | app-06 `_elCumPnlSectionV2` | 📈 累積損益（記録順） |
+  | app-06 `_elStreakDDSectionV2` | 📉 連勝連敗・最大ドローダウン |
+  | app-06 `_elMemoPerfSectionV2`（2か所） | 📝 メモ×成績 |
+  | app-06 `_elPeriodStatsV2` | 期間別の統計 |
+  | app-06 `EntryLogView` | 記録帳の一覧 |
+  | app-04 `DayView` | 日別ページの合計額算入 |
+  | app-02 `EntrySignalSection` | 記録カード |
+  | app-05 `_elCalcChartGrades` | チャートのグレード |
+  - ⚠️`_elPeriodStatsV2` は条件も直した。旧＝`_elIsEntered(...) && s.realizedPnl != null && s.realizedPnl !== ""` で、**取引テーブルにだけ損益がある記録が丸ごと落ちていた**。
+  - `_elCalcChartGrades(signals, alpha, cutLine, exclFn)` は rec ラッパーを持たないので **第5引数 `itemOf(signal)` を新設**（省略時は従来動作＝呼び出し側を直さなくても壊れない）。app-04 の呼び出し2か所に配線。
+  - 引き当てには **`_elItemOfSig(data, date, s)`** を新設（app-05・`_elRealPnlPair` の直前）＝`_elCollectAllSignals` が内部でやっている itemId 引き当てを単独関数化。
+  - 残った8か所の `_elSignedVal(s.realizedPnl…)` は**すべて item.pnl を先に見ている正しい形**＝規約が1つに揃った。
+- **② 旧ルール期間（`_EL_RULE_SINCE`＝2026-06-29 より前）の明示**。記録帳の💰全体損益は `_keyIsOld` で薄く表示して合計・平均から外しているが、ホーム側は同じ区別をしていなかった。
+  - **除外はせず注意書きだけ出す**（ユーザー判断＝「ホームは月を素直に見る場所なので、黙って消すより言うほうが親切」）。
+  - `_snMonthPnlAgg` に `oldRuleCnt` を追加 → 📊今月の損益パネルの見出しに `⚠️ 旧ルールの記録 N件を含む` バッジ／ホームの損益チップの tooltip にも1行。
+- 検証: 新しいタブで console 0・`eval(src)` で app-02/04/05/06/08 とも構文OK。
+  | 確認 | 結果 |
+  |---|---|
+  | `item.pnl=7000` だけ持つ記録（signal側の実現損益なし・200株） | 実現チップが **実額 +7,000円 / 100株 +3,500円 / 1日 +700円**＝**旧実装では0円だった記録を拾えた** |
+  | 2026年6月（旧ルール期間の記録1件） | パネルに `⚠️ 旧ルールの記録 1件を含む`／損益チップの tooltip にも注意書き |
+  | 2026年7月・8月 | バッジは出ない |
+  | 記録帳を開く | クラッシュなし・従来どおり描画 |
+- **監査で問題が無かったもの（推測ではなく実測）**: `sw.js` の APP_SHELL と index.html の script は一致（vendor＋app-01〜09）／`_buildHolidayDateSet` は **0.016ms/回**・19回でも0.29msで性能問題ではない／`_elTotAccum` の `t.hold2` は `_elHoldFinalParts(...).main`＝ホームと同じ関数で基準は揃っている／`debugger` の残留0件。
+- **未対応で残したもの**: `console.log` が59件（app-01:17 / app-05:13 / app-07:3 / app-08:26）。Firebase同期の追跡など**有用なものが混ざっている**ため一律削除は危険＝消すなら1件ずつ判断が要る。
+
 ### 2026-08-17I ヘッダ整理（検索/設定/同期を上段右端へ）＋KPIチップ拡大（app-08 / sw v442→v443）
 - ユーザー要望「検索・設定・同期済を今日ボタンの右に右寄せ」「その分KPIの縦幅と数字を大きく」「1日換算の文字が金額より小さくて薄いのを解消」。
 - **`_snHeadTools`**（🔍/⚙️/同期バッジ）を新設し、月ナビ行の末尾に `marginLeft: "auto"` で差し込む。左ブロックに `flex: "1 1 100%"` を与えて**1行を占有**させ、KPIチップ行が必ず次の行に落ちるようにした。

@@ -1222,7 +1222,7 @@ function _elCumPnlSectionV2(props) {
     var s = r.signal, ai = aiOf(r);
     var h2p = _elHoldFinalParts(s, ai.alpha, ai.cutLine);
     if (h2p.main != null) c2 += h2p.main;
-    var rv = _elIsEntered(s, r.item) ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null;
+    var rv = _elIsEntered(s, r.item) ? _elRealPnlPair(s, r.item).real : null;   // 2026-08-17j 実現損益は _elRealPnlPair 経由（item.pnl 優先）へ統一。旧＝signal.realizedPnl 直読みで取引テーブル側の損益を取りこぼしていた
     if (rv != null) cr += rv;
     pH2.push(c2); pReal.push(cr);
     xLabels.push((r.date || "") + (s.time ? (" " + s.time) : ""));
@@ -4019,7 +4019,7 @@ function _elPeriodStatsV2(recs, aiOf) {
     var ai = aiOf(r);
     var nv = _elOsMaxFiltered(s); if (nv != null) osv.push(nv);  // OS中央値＝実現OS（×/損切りで打ち切り＝ホールドで降りた足以降を除外・記録の採用α基準）2026-07-09（旧: _elOsMaxAllの生最高値。未判定の当日記録は×無し→実現＝生に一致）
     cnt++;
-    if (_elIsEntered(s, r.item) && s.realizedPnl != null && s.realizedPnl !== "") { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) { realSum += rv; realCnt++; } }   // 実現損益はE成立(エントリー)分のみ＝他の全実現損益集計と統一 2026-06-24i
+    if (_elIsEntered(s, r.item)) { var rv = _elRealPnlPair(s, r.item).real; if (rv != null) { realSum += rv; realCnt++; } }   // 2026-08-17j item.pnl 優先へ。旧はここで s.realizedPnl の有無も条件にしていたので、取引テーブルにだけ損益がある記録が丸ごと落ちていた   // 実現損益はE成立(エントリー)分のみ＝他の全実現損益集計と統一 2026-06-24i
     if (_epReachedAt(s, ai.alpha)) reach++;
     var rr = _epResolve(s, ai.alpha);
     if (rr && rr.judge === "ok") {
@@ -4707,7 +4707,7 @@ function _elMemoPerfSectionV2(recs, aiOf) {
       var h1 = _elHold1TotParts(s, ai.alpha, ai.cutLine); if (h1.main != null) { g.h1 += h1.main; g.h1Cnt++; g.h1Arr.push(h1.main); }
       if (isStop) g.stop++;
     }
-    if (_elIsEntered(s, r.item)) { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) { if (rv > 0) { g.realWin++; g.realDec++; } else if (rv < 0) g.realDec++; } }
+    if (_elIsEntered(s, r.item)) { var rv = _elRealPnlPair(s, r.item).real; if (rv != null) { if (rv > 0) { g.realWin++; g.realDec++; } else if (rv < 0) g.realDec++; } }
   });
   var _row = function(label, g) {
     return React.createElement("tr", { key: label },
@@ -4727,7 +4727,7 @@ function _elMemoPerfSectionV2(recs, aiOf) {
   v2.forEach(function(r) {
     var s = r.signal, ai = aiOf(r), rr = _epResolve(s, ai.alpha), lost = false;
     if (rr && rr.judge === "ok") { var pv = _elDynPlanned(s, ai.alpha, ai.cutLine); if (_elIsStopFinal(s, ai.alpha, ai.cutLine) || (pv != null && pv < 0)) lost = true; }   // 2026-07-25e 損切り判定を手じまい基準へ
-    if (_elIsEntered(s, r.item)) { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null && rv < 0) lost = true; }
+    if (_elIsEntered(s, r.item)) { var rv = _elRealPnlPair(s, r.item).real; if (rv != null && rv < 0) lost = true; }
     if (!lost || !_has(s)) return; lossN++;
     var txt = _memoText(s); _EL_MEMO_KW.forEach(function(kw) { if (txt.indexOf(kw) >= 0) kwCnt[kw] = (kwCnt[kw] || 0) + 1; });
   });
@@ -4773,7 +4773,7 @@ function _elStreakDDSectionV2(recs, aiOf, data) {
       avg ? React.createElement("div", { title: "最大DD " + Math.round(dd).toLocaleString() + "円 ÷ この母数の営業日数 " + _ddDays + "日。他の欄の「1日平均」と同じ割り方です",
         style: { color: _EL_SUBNOTE_COL, fontWeight: 700, marginTop: 1 } }, "1日平均−" + avg.toLocaleString() + "円") : null);
   };
-  var realSeq = []; sorted.forEach(function(r) { var s = r.signal; if (_elIsEntered(s, r.item)) { var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign); if (rv != null) realSeq.push({ date: r.date, pnl: rv }); } });
+  var realSeq = []; sorted.forEach(function(r) { var s = r.signal; if (_elIsEntered(s, r.item)) { var rv = _elRealPnlPair(s, r.item).real; if (rv != null) realSeq.push({ date: r.date, pnl: rv }); } });
   var maxW = 0, maxL = 0, curW = 0, curL = 0;
   realSeq.forEach(function(o) { if (o.pnl > 0) { curW++; curL = 0; if (curW > maxW) maxW = curW; } else if (o.pnl < 0) { curL++; curW = 0; if (curL > maxL) maxL = curL; } });
   var curStreak = 0, curType = null;
@@ -6935,7 +6935,7 @@ function EntryLogView(_ref_elv2) {
         ]);
       } else {
         var entered = _elIsEntered(s, r.item);
-        var realN = entered ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null;
+        var realN = entered ? _elRealPnlPair(s, r.item).real : null;   // 2026-08-17j 実現損益は _elRealPnlPair 経由（item.pnl 優先）へ統一。旧＝signal.realizedPnl 直読みで取引テーブル側の損益を取りこぼしていた
         var _sigParts = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(_t) { return _elTagDisp(s, _t); }).concat(s.isCustomTag ? [s.customTagText || "(その他)"] : []);
         cells = cells.concat([
           _td(_elSigCell(s, "flex-start"), { textAlign: "left" }),

@@ -4305,7 +4305,7 @@ function EntrySignalSection(_ref_es) {
 
     if (_elIsEntered(s, r.item)) {
       _esEnteredCount++;
-      var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+      var rv = _elRealPnlPair(s, r.item).real;   // 2026-08-17j 実現損益は _elRealPnlPair 経由（item.pnl 優先）へ統一。旧＝signal.realizedPnl 直読みで取引テーブル側の損益を取りこぼしていた
       if (rv != null) { _esRealSum += rv; _esHasReal = true; }   // realized は「合計(実額)」バッジ＝_profitGradeFromPnlReal で実額判定するため非換算のまま
     }
 

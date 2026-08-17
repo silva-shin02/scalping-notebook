@@ -3294,7 +3294,8 @@ function StockQuickRefTable(_props_qrt) {
               var _ttMark = _elTradeTagMarker(c2);   // 取引カテゴリタグ日: ノーシグナル→DNFピル / 有効シグナルなし等→Z（取引なし）2026-07-23
               if (_ttMark) return _ttMark;
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 15;
-              var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
+              var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); },
+                function(_sg) { return _elItemOfSig(data, d, _sg); });
               if (_g.allMissH) return _qZeroCell();
               if (_g.hold2Sum == null) return (_g.hold2RefCnt > 0)
                 ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } }, _elHold2RefSuffix(_g.hold2Sum, _g.hold2RefSum, _g.hold2RefCnt))
@@ -3308,7 +3309,8 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               var _cutR = c2.cutLine != null ? Number(c2.cutLine) : 15;
-              var _gR = _elCalcChartGrades(c2.signals, null, _cutR, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); });
+              var _gR = _elCalcChartGrades(c2.signals, null, _cutR, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); },
+                function(_sg) { return _elItemOfSig(data, d, _sg); });
               if (_gR.real === "Z") return React.createElement("span", { style: { fontSize: 11, color: "#ccc" } }, "—");
               return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
                 _qrMkBadge(_gR.real), _qrAmtSpan(_gR.realSum, "円"));
@@ -6562,7 +6564,7 @@ function DayView(_ref57) {
         if (!_pbByStk[stk]) { _pbByStk[stk] = []; _pbRealByStk[stk] = 0; _pbEntByStk[stk] = 0; }
         _pbByStk[stk].push({ date: date, stock: stk, signal: s, item: item });
         if (_elInclTotal(s)) {  // 合計額算入: 除外記録は実現損益/エントリー数スカラーに加えない（行表示は全件）2026-06-18
-          var rv = _elSignedVal(s.realizedPnl, s.realizedPnlSign);
+          var rv = _elRealPnlPair(s, item).real;   // 2026-08-17j 実現損益は _elRealPnlPair 経由（item.pnl 優先）へ統一。旧＝signal.realizedPnl 直読みで取引テーブル側の損益を取りこぼしていた
           if (rv != null) _pbRealByStk[stk] += rv;
           if (s.entered === true) _pbEntByStk[stk]++;
         }
