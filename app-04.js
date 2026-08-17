@@ -4978,6 +4978,15 @@ function DayView(_ref57) {
   var rotStocks = (Array.isArray(custom.rotatingStocks) ? custom.rotatingStocks : []).filter(function(s) { return allStocks.indexOf(s) >= 0 && s !== "日経平均株価"; });
   var _uRotAdd = useState(false), rotAddOpen = _uRotAdd[0], setRotAddOpen = _uRotAdd[1];
   var _uRotVal = useState(""), rotAddVal = _uRotVal[0], setRotAddVal = _uRotVal[1];
+  // 「本日の取引銘柄」チップのドラッグ並び替え 2026-08-17d（ユーザー要望）。
+  // 並び順の正本＝**custom.rotStockOrder**（銘柄名の配列）。候補プールの所属を持つ custom.rotatingStocks とは**別のキー**にしている:
+  //   ①プールへの追加/削除（設定・＋ボタン）と並びを混ぜない ②EPナビの日替わり列(app-04:4614)はプール順のままで影響を受けない
+  //   ③未設定ならフォールバックして従来の並び（銘柄コード昇順→名前順）＝一度もドラッグしていなければ見た目は変わらない。
+  // 作法はシグナルタグのチップ並び替え（app-02 looseDragRef/looseTStart 一式）と同じ:
+  //   PC＝HTML5 drag ／ スマホ＝300ms長押しで掴む（掴む前に8px動いたら通常スクロール扱いでキャンセル）。
+  var _rotDragRef = useRef(null);
+  var _uRotOver = useState(null), _rotOver = _uRotOver[0], _setRotOver = _uRotOver[1];
+  var _rotTS = useRef({ on: false, startX: 0, startY: 0, timer: null });
   var _uRotTab = useState(false), rotTabActive = _uRotTab[0], setRotTabActive = _uRotTab[1];   // 📅日替わりタブ(per-day)が選択中か。fmActiveと並列の明示フラグ 2026-07-22d
   var _uRotView = useState(""), rotViewStock = _uRotView[0], setRotViewStock = _uRotView[1];   // タブ内で表示/記録中の候補銘柄（指定=dailyStockとは別。表示切替用）
   var _useState139 = useState(function(){
@@ -5239,7 +5248,8 @@ function DayView(_ref57) {
       var _rnStockKey = function(m) { if (!m || typeof m !== "object" || !(oldName in m)) return m; var n = Object.assign({}, m); if (!(newName in n)) n[newName] = n[oldName]; delete n[oldName]; return n; };
       var _pepn = Array.isArray(pc.epnStocks) ? pc.epnStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.epnStocks;
       var _prot = Array.isArray(pc.rotatingStocks) ? pc.rotatingStocks.map(function(s) { return s === oldName ? newName : s; }) : pc.rotatingStocks;   // 日替わり属性も追従 2026-07-22
-      next.custom = Object.assign({}, pc, { stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
+      var _prord = Array.isArray(pc.rotStockOrder) ? pc.rotStockOrder.map(function(s) { return s === oldName ? newName : s; }) : pc.rotStockOrder;   // 手動並び順も追従 2026-08-17d（追従しないと改名した銘柄だけ並びの末尾へ飛ぶ）
+      next.custom = Object.assign({}, pc, { stocks: ps, stockCodes: psc, epnStocks: _pepn, rotatingStocks: _prot, rotStockOrder: _prord, stockInfoTabs: _rnStockKey(pc.stockInfoTabs) });
       
       var pch = prev.charts || {};
       var nch = {};
@@ -5458,14 +5468,71 @@ function DayView(_ref57) {
   var _rotRecCount = function(stk) { var c = data.charts[stk + "_" + date]; return (c && c.signals) ? c.signals.length : 0; };
   var _rotHasTradeTag = function(stk) { var c = data.charts[stk + "_" + date]; return !!(c && Array.isArray(c.chartShapeTags) && c.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }).length); };   // 「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）が付いた銘柄＝取引0件を（0）で明示 2026-07-23
   var _rotCodeOf = function(stk) { var c = (custom.stockCodes || {})[stk]; var n = (c != null && c !== "") ? parseInt(String(c).replace(/\D/g, ""), 10) : NaN; return isNaN(n) ? Infinity : n; };   // 銘柄コード（数値）・未登録は末尾 2026-07-24
-  var _rotSorted = rotStocks.slice().sort(function(a, b) { var ca = _rotCodeOf(a), cb = _rotCodeOf(b); if (ca !== cb) return ca - cb; return a < b ? -1 : a > b ? 1 : 0; });   // 本日の取引銘柄チップを銘柄コード昇順で左から並べる（同/無コードは名前順）2026-07-24
-  var _rotPickerBar = React.createElement("div", { style: { background: "#fff", border: "1px solid #E0E7FF", borderRadius: 13, padding: "8px 12px", margin: "0 0 10px", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+  var _rotAuto = rotStocks.slice().sort(function(a, b) { var ca = _rotCodeOf(a), cb = _rotCodeOf(b); if (ca !== cb) return ca - cb; return a < b ? -1 : a > b ? 1 : 0; });   // 従来の自動順＝銘柄コード昇順（同/無コードは名前順）2026-07-24。ドラッグ未使用時のフォールバック
+  // 手動順（custom.rotStockOrder）が最優先 2026-08-17d。プールに居ない名前（削除・改名漏れ）は捨て、
+  //   手動順に載っていない銘柄（＋で足した直後など）は自動順のまま末尾へ足す＝新しい銘柄が消えない。
+  //   重複は先勝ちで潰す（同じkeyで2回描画するとReactが壊れるため）。
+  var _rotOrder = (custom && Array.isArray(custom.rotStockOrder)) ? custom.rotStockOrder : null;
+  var _rotSorted = (function() {
+    if (!_rotOrder) return _rotAuto;
+    var seen = {}, out = [];
+    _rotOrder.forEach(function(s) { if (rotStocks.indexOf(s) >= 0 && !seen[s]) { seen[s] = 1; out.push(s); } });
+    _rotAuto.forEach(function(s) { if (!seen[s]) { seen[s] = 1; out.push(s); } });
+    return out;
+  })();
+  // 並び替えの実処理（PC/スマホ共通）。**画面に見えている並び(_rotSorted)を土台に差し込んで丸ごと保存する**＝
+  //   自動順からの初回ドラッグでも、そのとき見えていた順がそのまま手動順の出発点になる（順番が飛ばない）。
+  var _rotMove = function(from, to) {
+    if (from == null || to == null || from === to) return;
+    var arr = _rotSorted.slice();
+    var it = arr.splice(from, 1)[0];
+    if (it == null) return;
+    arr.splice(to, 0, it);
+    save(function(prev) {
+      var pc = prev.custom || {};
+      return Object.assign({}, prev, { custom: Object.assign({}, pc, { rotStockOrder: arr }) });
+    });
+  };
+  var _rotTStart = function(e, si) {
+    if (["INPUT", "TEXTAREA", "BUTTON"].indexOf(e.target.tagName) >= 0) return;   // チップ内のボタン（銘柄名・●）は通常タップのまま＝長押しで掴むのは枠の部分
+    _rotTS.current = { on: false, startX: e.touches[0].clientX, startY: e.touches[0].clientY,
+      timer: setTimeout(function() { _rotTS.current.on = true; _rotDragRef.current = si; }, 300) };
+  };
+  var _rotTMove = function(e) {
+    if (!_rotTS.current.on) {
+      var t = e.touches[0];
+      if (Math.abs(t.clientX - _rotTS.current.startX) > 8 || Math.abs(t.clientY - _rotTS.current.startY) > 8) clearTimeout(_rotTS.current.timer);
+      return;   // まだ掴んでいない＝画面スクロールを邪魔しない
+    }
+    e.preventDefault();
+    var el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+    while (el) { if (el.dataset && el.dataset.rotI != null) { _setRotOver(parseInt(el.dataset.rotI, 10)); break; } el = el.parentElement; }
+  };
+  var _rotTEnd = function() {
+    clearTimeout(_rotTS.current.timer);
+    if (_rotTS.current.on) _rotMove(_rotDragRef.current, _rotOver);
+    _rotTS.current.on = false; _rotDragRef.current = null; _setRotOver(null);
+  };
+  var _rotPickerBar = React.createElement("div", {
+    onTouchMove: _rotTMove, onTouchEnd: _rotTEnd, onTouchCancel: _rotTEnd,   // 長押しドラッグの追従・確定はバー全体で受ける（指がチップから外れても拾えるように）2026-08-17d
+    style: { background: "#fff", border: "1px solid #E0E7FF", borderRadius: 13, padding: "8px 12px", margin: "0 0 10px", boxShadow: "0 1px 2px rgba(0,0,0,.03)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
     React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#4338CA", whiteSpace: "nowrap" } }, "📅 本日の取引銘柄"),
-    _rotSorted.map(function(s) {
+    _rotSorted.map(function(s, si) {
       var viewing = _rotView === s;
       var designated = dayStocks.indexOf(s) >= 0;   // 複数指定可（●は各チップ独立のトグル）2026-08-06
       var cnt = _rotRecCount(s);
-      return React.createElement("span", { key: s, style: { display: "inline-flex", alignItems: "center", borderRadius: 14, border: "1px solid " + (viewing ? "#4338CA" : "#E0DAD1"), background: viewing ? "#EEF2FF" : "#fff", overflow: "hidden" } },
+      var _over = _rotOver === si;   // 落とす先のハイライト
+      return React.createElement("span", {
+        key: s,
+        "data-rot-i": si,                            // 長押しドラッグ中に elementFromPoint から拾う添字 2026-08-17d
+        draggable: _rotSorted.length > 1,
+        onDragStart: function() { _rotDragRef.current = si; },
+        onDragOver: function(e) { e.preventDefault(); _setRotOver(si); },
+        onDrop: function(e) { e.preventDefault(); _rotMove(_rotDragRef.current, si); _rotDragRef.current = null; _setRotOver(null); },
+        onDragEnd: function() { _rotDragRef.current = null; _setRotOver(null); },
+        onTouchStart: function(e) { _rotTStart(e, si); },
+        title: "ドラッグで並び替え（スマホは長押し）",
+        style: { display: "inline-flex", alignItems: "center", borderRadius: 14, border: "1px solid " + (viewing ? "#4338CA" : "#E0DAD1"), background: viewing ? "#EEF2FF" : "#fff", overflow: "hidden", outline: _over ? "2px solid #6366F1" : "none", outlineOffset: _over ? 1 : 0, cursor: _rotSorted.length > 1 ? "grab" : "default" } },
         React.createElement("button", {
           onClick: function() { setRotViewStock(s); },
           title: "表示・記録に切替",
