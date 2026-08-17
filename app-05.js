@@ -164,6 +164,10 @@ function Calendar(_ref60) {
     var isHov = !IS_TOUCH && hovered === key;
     var isTap = tapped === key;
     var isToday = key === today;
+    // 2026-08-17h セルのレイアウト刷新（案A+C・「損益は上」）: ①背景を損益で淡く着色（_SN_HEAT）
+    //   ②日付行から金額を追い出し、その下の【損益帯】に想定・実現・100株換算をまとめる＝日付行が空くぶん予定バーが1件多く入る。
+    var _gd = gradeByDate[key];
+    var _heat = _gd ? (_SN_HEAT[_gd.grade] || null) : null;
     return React.createElement("div", {
       key: "c" + i,
       className: "cal-cell",
@@ -177,8 +181,11 @@ function Calendar(_ref60) {
       },
       style: {
         position: "relative",
-        background: isHov ? "#F0F4FF" : isTap ? "#EEF2FF" : isToday ? "#E0F4FF" : "#fff",
+        // ヒートマップはホバー/タップより弱い＝操作中の反応を潰さない。今日は背景を取り合わないよう**内側リング**で示す
+        //   （旧: 今日は背景#E0F4FF。ヒートマップと同時には出せないため、記録のある今日は色が消えていた）
+        background: isHov ? "#F0F4FF" : isTap ? "#EEF2FF" : (_heat || (isToday ? "#E0F4FF" : "#fff")),
         border: "1px solid " + (isHov ? "#6366F1" : isTap ? "#6366F1" : isToday ? "#7DBFDC" : "#e0ddd6"),
+        boxShadow: (isToday && !isHov && !isTap && _heat) ? "inset 0 0 0 2px #7DBFDC" : "none",
         borderRadius: 8,
         padding: "4px 4px 4px 4px",
         cursor: "pointer",
@@ -205,50 +212,20 @@ function Calendar(_ref60) {
               color: monDow === 6 ? "#C0392B" : monDow === 5 ? "#2874A6" : "#1a1a1a"
             }
           }, d),
-          (function() {
-            var _gd = gradeByDate[key];
-            if (_gd) {
-              var _gs = _GRADE_STYLE[_gd.grade] || _GRADE_STYLE.Z;
-              var _s = _gd.sum;
-              var _sDisp = (_s > 0 ? "+" : "") + (_s >= 10000 || _s <= -10000
-                ? (Math.round(_s / 100) / 10) + "k"
-                : _s.toLocaleString());
-              return React.createElement(React.Fragment, null,
-                React.createElement("span", {
-                  title: "想定損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n想定損益: " + _snYen(_s) + "（100株換算・" + _gd.cnt + "件）"
-                    + (_gd.real != null ? "\n実現損益: " + _snYen(_gd.real) + "（100株換算 / 実額 " + _snYen(_gd.realRaw) + "）" : "\n実現損益: 未記録"),
-                  style: {
-                    display: "inline-flex", alignItems: "center", justifyContent: "center",
-                    width: 16, height: 16, borderRadius: "50%",
-                    background: _gs.bg, color: _gs.color,
-                    border: "1.5px solid " + _gs.border,
-                    fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0
-                  }
-                }, _gd.grade),
-                React.createElement("span", {
-                  style: {
-                    fontSize: 9, fontWeight: 700, color: _s >= 0 ? "#C0392B" : "#1E8449",
-                    lineHeight: 1, whiteSpace: "nowrap"
-                  }
-                }, _sDisp)
-              );
-            }
-            
-            if (monDow < 5 && !calHolidaySet[key] && key <= today) {
-              var _zs = _GRADE_STYLE.Z;
-              return React.createElement("span", {
-                title: "取引なし",
-                style: {
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  width: 16, height: 16, borderRadius: "50%",
-                  background: _zs.bg, color: _zs.color,
-                  border: "1.5px solid " + _zs.border,
-                  fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0
-                }
-              }, "Z");
-            }
-            return null;
-          })(),
+          // 記録が無い営業日のZバッジだけ日付行に残す（この日は損益帯そのものが出ないため）
+          (!_gd && monDow < 5 && !calHolidaySet[key] && key <= today) ? (function() {
+            var _zs = _GRADE_STYLE.Z;
+            return React.createElement("span", {
+              title: "取引なし",
+              style: {
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: 16, height: 16, borderRadius: "50%",
+                background: _zs.bg, color: _zs.color,
+                border: "1.5px solid " + _zs.border,
+                fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0
+              }
+            }, "Z");
+          })() : null,
           (function() { var _xc = _elDayExclCount(data, key); return _xc > 0 ? _elExclDot(_xc, { width: 8, height: 8 }) : null; })(),
           (function() { var _cc = _elDayCollCount(data, key); return _cc > 0 ? _elCollDot(_cc, { width: 8, height: 8 }) : null; })()
         ),
@@ -267,7 +244,7 @@ function Calendar(_ref60) {
               categoryId: (eventCategories[0] && eventCategories[0].id) || ""
             });
           },
-          title: "\u3053\u306E\u65E5\u306B\u4E88\u5B9A\u3092\u8FFD\u52A0",
+          title: "この日に予定を追加",
           style: {
             width: 18, height: 18, borderRadius: "50%",
             background: isHov ? "#6366F1" : "rgba(99,102,241,0.18)",
@@ -280,28 +257,41 @@ function Calendar(_ref60) {
         }, "+")
       ),
 
-      // 実現損益の行 2026-08-17g（ユーザー要望・案B）: 日付行の【下】に1行足す。実額と100株換算を両方出す。
-      //   ⚠️出すのは**実現損益が入っている日だけ**＝大半の日は従来と1ピクセルも変わらない（縦を食わない）。
-      //   上の行の金額は想定損益（記録から計算した値・見送りの仮想も含む）。この行だけが「実際に約定した額」。
-      //   桁は上の行と同じ丸め方（1万円以上は 12.3k）＝同じセル内で表記が食い違わない。100株換算は（）で従属を示す。
-      (function() {
-        var _gd = gradeByDate[key];
-        if (!_gd || _gd.real == null) return null;
+      // 【損益帯】2026-08-17h: グレード・想定損益・実現(実額)・100株換算を1行にまとめてセル上部へ固定（ユーザー決定「損益は上」）。
+      //   日付行から金額を追い出したので予定バーが1件ぶん多く入る。**記録のある日だけ**出す＝無い日は縦を1pxも食わない。
+      //   ⚠️金額の丸めは k 表記で統一（1万円以上）。背景のヒートマップと同じ _gd.grade を見ているので、色と数字が食い違わない。
+      //   ⚠️想定損益＝記録から計算した値（見送りの仮想も含む）。「実」だけが実際に約定した額。
+      _gd ? (function() {
+        var _gs = _GRADE_STYLE[_gd.grade] || _GRADE_STYLE.Z;
         var _k = function(v) { return (v > 0 ? "+" : "") + ((v >= 10000 || v <= -10000) ? ((Math.round(v / 100) / 10) + "k") : v.toLocaleString()); };
         return React.createElement("div", {
-          title: "実現損益（実際に約定した額）\n実額 " + _snYen(_gd.realRaw) + "\n100株換算 " + _snYen(_gd.real) + "\n※上の金額は想定損益（記録から計算した値）です",
-          style: { fontSize: 9, fontWeight: 700, lineHeight: 1.2, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
+          title: "想定損益グレード: " + _gd.grade + " (" + (_GRADE_DESC[_gd.grade] || "") + ")\n想定損益: " + _snYen(_gd.sum) + "（100株換算・" + _gd.cnt + "件）"
+            + (_gd.real != null ? "\n実現損益: 実額 " + _snYen(_gd.realRaw) + " / 100株換算 " + _snYen(_gd.real) : "\n実現損益: 未記録"),
+          style: { display: "flex", alignItems: "center", gap: 3, marginTop: 1, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden" }
         },
-          React.createElement("span", { style: { color: "#94A3B8", marginRight: 2 } }, "実"),
-          React.createElement("span", { style: { color: _snPnlCol(_gd.realRaw) } }, _k(_gd.realRaw)),
-          React.createElement("span", { style: { color: "#B9B3AA", marginLeft: 3, fontWeight: 600 } },
-            "(100株", React.createElement("span", { style: { color: _snPnlCol(_gd.real), marginLeft: 2 } }, _k(_gd.real)), ")"));
-      })(),
+          React.createElement("span", {
+            style: {
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 16, height: 16, borderRadius: "50%",
+              background: _gs.bg, color: _gs.color,
+              border: "1.5px solid " + _gs.border,
+              fontWeight: 800, fontSize: 10, lineHeight: 1, flexShrink: 0
+            }
+          }, _gd.grade),
+          React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: _snPnlCol(_gd.sum), flexShrink: 0 } }, _k(_gd.sum)),
+          _gd.real != null ? React.createElement(React.Fragment, null,
+            React.createElement("span", { style: { fontSize: 8.5, color: "#94A3B8", fontWeight: 700, marginLeft: 2, flexShrink: 0 } }, "実"),
+            React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _snPnlCol(_gd.realRaw), flexShrink: 0 } }, _k(_gd.realRaw)),
+            React.createElement("span", { style: { fontSize: 8, color: "#B9B3AA", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" } },
+              "(100株", React.createElement("span", { style: { color: _snPnlCol(_gd.real), marginLeft: 1 } }, _k(_gd.real)), ")")) : null);
+      })() : null,
 
       hasEvents && React.createElement("div", {
         style: { display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }
       },
-        dayEvents.slice(0, 4).map(function(ev, ei) {
+        // 2026-08-17h 4→5件。日付行から金額を損益帯へ移して1行ぶん空いたので上限を上げた（実測: 損益帯あり＋予定5件でも130pxに収まる）。
+        //   ⚠️これは**縦の空きではなく件数の上限**なので、レイアウトを詰めただけでは自動で増えない。ここを直さないと空いたぶんが無駄になる。
+        dayEvents.slice(0, 5).map(function(ev, ei) {
           
           
           var label = ev.title || (ev.contentHtml ? stripHtml(ev.contentHtml) : (ev.content || "(\u7121\u984C)"));
@@ -318,9 +308,9 @@ function Calendar(_ref60) {
             title: (ev.title || "") + (prefix ? " (" + prefix.trim() + ")" : "")
           }, prefix + label);
         }),
-        dayEvents.length > 4 && React.createElement("div", {
+        dayEvents.length > 5 && React.createElement("div", {
           style: { fontSize: 9, color: "#6366F1", fontWeight: 600 }
-        }, "+", dayEvents.length - 4, " \u4EF6")
+        }, "+", dayEvents.length - 5, " \u4EF6")
       )
     );
   })), React.createElement("div", {
@@ -5887,6 +5877,16 @@ function _profitGradeFromPnlScaled(pnl, enteredCount, shares) {
 //   #475569（slate-600）は約7.4:1。太字の本数字（緑/橙/赤）とは色味も大きさも違うので、濃くしても主従は崩れない。
 //   薄くしたくなったら #64748B（slate-500・約4.8:1）へ。**ここ1か所でapp-04/app-06の全箇所が変わる**。
 var _EL_SUBNOTE_COL = "#475569";
+// セル背景のヒートマップ色 2026-08-17h（ユーザー決定・案A+C）: 想定損益グレードに対応する**ごく淡い**背景。
+// カレンダーを月単位で眺めたときに「どのあたりで稼いで、どのあたりで削られたか」が数字を読まずに分かるようにするため。
+// ⚠️予定バー（決算=赤/SQ=緑/祝日=紫）の上に敷くので、彩度は _GRADE_STYLE より2段階以上落としてある。濃くするとバーの色と competing になる。
+// Z（営業日なのに取引なし）は着色しない＝「記録が無い」ことを白で示す。
+var _SN_HEAT = {
+  "S": "#FFEDE8", "A": "#FFF2EE", "B": "#FFF6F3", "C": "#FFFAF8",
+  "D": "#FAFAF8",
+  "E": "#F8FCF9", "F": "#F3FAF5", "G-": "#EEF8F1", "G+": "#E9F6ED",
+  "Z": null
+};
 var _GRADE_STYLE = {
   S: { bg: "#FADD78", color: "#5A3F00", border: "#D2A421" },   // 金（2026-08-05j 明るさ59→73へ薄く。ユーザー調整）
   A: { bg: "#F8A5A5", color: "#6E0D0D", border: "#EC8F8F" },   // 2026-08-05k 利益側を1段ずつ薄く（A=39→50・B=67→74・C=86→89）
