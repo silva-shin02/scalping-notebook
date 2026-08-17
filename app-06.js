@@ -6780,7 +6780,9 @@ function EntryLogView(_ref_elv2) {
     // ヘッダ行（外側の表と入れ子の表で共用 2026-07-30）: 先頭列の見出しだけ段の粒度で変わる。
     var _headTr = function(gg) {
       return React.createElement("tr", { style: { background: "transparent" } },
-        oth(gg === "day" ? "日" : gg === "week" ? "週" : "月"), oth("日数"), oth("件数"),
+        // 日別は日数列を出さない 2026-08-12g（ユーザー指摘「日別では日数欄は不要では？」）＝どの行も必ず「1日」で情報が無い。
+        //   合計行の日数（＝1日平均の分母）は列を消しても分かるよう、合計セルの下に小さく添える（下の totRow）。
+        oth(gg === "day" ? "日" : gg === "week" ? "週" : "月"), (gg === "day" ? null : oth("日数")), oth("件数"),
         oth(React.createElement("span", { title: "EPに乗った件数＝①EPに到達し ②×見送り（EPより手前の足で×宣言）でなく、勝敗が決着したもの。右隣の利確・同値・損切り・損失の分母（E成立母数）と同じ数です。×宣言後に到達した記録・スルーは数えません（2026-07-29c）。下段の%は対 件数（全記録）" }, "到達")),
         oth(React.createElement("span", { title: "利益（最終損益>0）で手じまいした件数と、E成立母数（＝到達）に対する率" }, "利確")),
         oth(React.createElement("span", { title: "最終損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値")),
@@ -6807,7 +6809,7 @@ function EntryLogView(_ref_elv2) {
           otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k, gg), _elEmaRefNote(_elIsEmaRefPeriod(k, gg)),
             (!x.length && _extraRow.length) ? React.createElement("span", { title: "この期間は集計に入る記録が無く、表示専用の記録だけがあります（" + _extraBrk(_extraRow) + "・集計は全て—）", style: { fontSize: 8.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 4px", marginLeft: 4, whiteSpace: "nowrap" } },
               _extraRow.every(function(r) { return _elIsThru(r.signal); }) ? "スルーのみ" : "算入記録なし") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
-          otd(_elBizDaysCell(dn, dnF), { fontWeight: 600, color: "#555" }),
+          (gg === "day" ? null : otd(_elBizDaysCell(dn, dnF), { fontWeight: 600, color: "#555" })),   // 日別は日数列ごと非表示 2026-08-12g（全行「1日」で情報が無い）
           cntCell(x.length, dn, { fontWeight: 700 }, gg),
           reachCell(st.wn, x.length, dn, null, gg),
           winTakeCell(winTakeOf(x)),
@@ -6817,7 +6819,7 @@ function EntryLogView(_ref_elv2) {
           friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x), dn),
           realCell(t, dn, null, _noShareN(x))));
         if (!on) return;
-        out.push(React.createElement("tr", { key: path + "_d" }, React.createElement("td", { colSpan: 10, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
+        out.push(React.createElement("tr", { key: path + "_d" }, React.createElement("td", { colSpan: gg === "day" ? 9 : 10, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },   // 日別は日数列が無いので1つ減らす 2026-08-12g
           nxt
             // まだ下の段がある＝1段細かい期間表を入れ子で出す（列は同じ・行タップでさらに下へ）
             ? React.createElement(React.Fragment, null,
@@ -6849,8 +6851,10 @@ function EntryLogView(_ref_elv2) {
     var _ovTotDaysFull = _aggKeys.reduce(function(s, k) { return _isRefKey(k) ? s : s + _bizDaysIn(k, null, true); }, 0);   // 合計行の下段＝各期間の「全体営業日数」の総和 2026-08-12e（上段=_ovTotDaysは従来どおり当日まで＝1日平均の分母）
     var _ovTotDays = _aggKeys.reduce(function(s, k) { return _isRefKey(k) ? s : s + _bizDaysIn(k); }, 0);   // 集計用キーのみ＝スルーだけの期間の営業日は合計日数に加算しない（1日平均を従来値のまま保つ）2026-07-20b
     var totRow = React.createElement("tr", { key: "__ovtot__", style: { background: "#FFF7ED" } },
-      otd(React.createElement("span", null, "合計", _hasRef ? React.createElement("span", { title: _RULE_SINCE + "（" + _RULE_FROM_LBL + "）より前は集計ルールが違うため、合計・平均から除外しています（薄い行がそれ）。4月はEMA位置ズレの参考期間でもあります", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※" + _RULE_FROM_LBL + "〜のみ") : null), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
-      otd(_elBizDaysCell(_ovTotDays, _ovTotDaysFull), Object.assign({ fontWeight: 700, color: "#555" }, bt)),
+      otd(React.createElement("span", null, "合計", _hasRef ? React.createElement("span", { title: _RULE_SINCE + "（" + _RULE_FROM_LBL + "）より前は集計ルールが違うため、合計・平均から除外しています（薄い行がそれ）。4月はEMA位置ズレの参考期間でもあります", style: { fontSize: 8.5, color: "#B45309", fontWeight: 700, marginLeft: 4, whiteSpace: "nowrap" } }, "※" + _RULE_FROM_LBL + "〜のみ") : null,
+        // 日別は日数列を消しているので、合計の営業日数（＝この行の「1日平均」の分母）だけここに小さく残す 2026-08-12g
+        (g === "day" ? React.createElement("span", { title: "この合計の営業日数＝右の「1日平均」はこの日数で割っています" + (_ovTotDaysFull > _ovTotDays ? "。／の右はこの期間全体の営業日数（今日より先も含む）" : ""), style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, _ovTotDays + "日" + (_ovTotDaysFull > _ovTotDays ? "／全" + _ovTotDaysFull + "日" : "")) : null)), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
+      (g === "day" ? null : otd(_elBizDaysCell(_ovTotDays, _ovTotDaysFull), Object.assign({ fontWeight: 700, color: "#555" }, bt))),   // 日別は日数列を出さない 2026-08-12g（合計の日数は上の合計セルに小さく添えてある）
       cntCell(rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       reachCell(_ovTotStops.wn, rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
