@@ -8033,7 +8033,8 @@ function EntryLogView(_ref_elv2) {
           if (_elIsThru(s)) thru++;
           else if (_elIsReview(s)) review++;
           else if (isEnt) entered++;
-          else if (_epReachedAt(s, _aa.alpha)) { skip++; if (!String(s.skipMemo || "").trim()) skipNoMemo++; }
+          // 2026-08-18 「理由なし」は _snSkipHasReason（app-05）で判定＝選択肢(skipReasons)だけの記録を理由なしに数えない。
+          else if (_epReachedAt(s, _aa.alpha)) { skip++; if (!_snSkipHasReason(s)) skipNoMemo++; }
           // 2026-08-12 見送りを「未達を除く見送り(skip)」と「未達(skipMiss)」に分ける。フォームの既定が見送りなので、
           //   EPに届かなかった記録も他の状態を選ばなければ全部ここに落ちてくる＝混ぜると「入れたのに入らなかった」判断の件数が読めない。
           //   ④見送りコストは想定損益が出せる記録だけを見る（未達はfin=nullなので元から入らない）＝金額側は分離前後で不変。
