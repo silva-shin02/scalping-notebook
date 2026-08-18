@@ -169,6 +169,11 @@ _EL_OSC_BANDS（OS連鎖分析用OS帯=下落/0〜4/5〜9/10〜14/15〜19/20円�
   - `_elKabuRecoBaseFn` が「その日より前」だけで算出するので **look-ahead 無し**。損切り値は記録の採用値のまま両側に使う＝αだけの比較。
   - 片側がエントリー不成立でも**0円で両側に算入**（2026-07-27の🔁応用α換算と同規約）。真の比較不可は推奨基本αが出ない日だけで、その行は `opacity:0.45` で薄くし合計から除く。
   - ⚠️旧 `_elAddAlphaSectionV2`（app-06:3267）の「🎯 足して正解だったか」は **2026-07-13以降どこからも呼ばれていないデッドコード**。今回も復活させていないので、似た機能を探すときに間違えて拾わないこと。
+  - **2026-08-18e 📡シグナル総合にも設置**（`_SIG_TABS` の `["spn","🩹 補正要否"]`）。母数＝全銘柄の応用〇プール・根拠セレクタは `alphaReasonFil` をα値タブと共有。⚠️こちらは第6引数 `byStock=true` で呼ぶ＝**recoFnを銘柄ごとに作る**（全銘柄を1母数にすると混合基本αとの比較になり反実仮想が壊れる）。
+
+- **app-04.js 日替わり銘柄の前日引き継ぎ 2026-08-18**: `_dsSeedMark` / `_dsTodayStr` / `_dailyStockPrevList` / `_dsShouldSeed` / `_dsSeedFromPrev`（`_dailyStockToggle` の直後）＋ `DayView` の `useEffect(...,[date])`。今日以降の日を開いたとき、未選定なら**その日より前で選定のある直近日**の選定を既定として入れる。
+  - ⚠️**過去日は絶対に触らない**。`dailyStock` は合計損益の算入判定の正本なので、遡ると過去の合計が変わる。
+  - ⚠️印は `data.dailyStockSeed[日付]=1`（新しいトップレベルのマップ・汎用マージで同期）。**自動で入れたときと手で指定/解除したときの両方**で立てる＝全部外した日を開き直しても復活しない（`_dsWrite` は0件でキーを消すので `dailyStock` だけでは「未選定」と「全部外した」が区別できない）。
 
 ## app-07.js (元 L31105-36524)
 useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に見て旧cat/ni.subCatも併用 2026-08-03e）**, _shvIsStockNewsTag, _csCollectNewsForStock, _ntExtractStockFromTag, _aggregateBarsToDaily, ChartSectionDailyCandle, _parseDailyCsv, _bizDaysBetween, _dcVerifiedStocks, _dcSaveCsvToFb, _dcLoadCsvUploadedAt, _dcLoadCsvFromFb, _dcCacheLoad, _dcCacheSave, _calcEMA, _pickPriceStep, DailyCandleChart, _nhvUpdateNi, _nhvDeleteNi, _nhvCollectFlat, NewsHistoryView, _shvCollectFlat, _shvCollectSoukatsu, _shvTogPin, _shvAppendToToday, _SummaryCard, SummaryHistoryView, SI_DEFAULT_TAB_NAMES, SI_TEMPLATE_TAB_NAMES, _siFormatRelTime, _siGetTabs, _siSetTabs, _siGetTabContent, _siUpdateTabContent, _siAddTab, _siDelTab, _siRenameTab, _siReorderTab, _siCopyFromOtherStock, StockInfoTabsManagementModal, _renderUnsavedDialog, MemoEditableField, StockInfoSection, StockHistoryView
@@ -364,6 +369,24 @@ HomeEventFormModal, App
   - **回帰**: 既定前提・⑥起点明示＋α投入・⑤切替(取引資金) の3本が**1円も動かない**ことを確認。14ケース×8描画関数=112件のスモークも例外ゼロ。⚠️`doSave` の保存経路だけは `setData→stSave→fbPut` で**実データがFirebaseへ書かれる**ので実アプリでは叩いていない（ガードは `res` 定義(774) → `doSave`(783) → early return(788) → `setData`(789) の順序をコードで確認）。
 
 ## 変更ログ
+
+### 2026-08-18e 「🩹 補正要否」を📡シグナル総合にも追加（app-06 / sw v447→v448）
+- ユーザー要望「さっきのα値タブの件はシグナル総合でも見えるようにして」。`_SIG_TABS` に `["spn","🩹 補正要否"]` を追加（🛑損切りの右・⚡浮き足%の左）。
+- 母数＝全銘柄の応用〇プール（`_v2recsAllData.filter(_elIsSpecialAlphaPoolRec)`）＝α値タブの `_alAddPool` と同じ判定。
+- 根拠セレクタは**α値タブと同じ state（`alphaReasonFil`）を共有**＝タブを行き来しても選んだ根拠が続く。候補と件数はこのタブの母数（全銘柄）から作り直す。
+- ⚠️**`_elSpNeedSectionV2` に第6引数 `byStock` を追加**し、シグナル総合では `true` で呼ぶ＝**recoFn（その日の推奨基本α）を銘柄ごとに作る**。全銘柄を1母数にすると「銘柄をまたいで混ぜた推奨基本α」との比較になり、誰も使っていない値が相手になって反実仮想が壊れる。既存のα値タブからの呼び出しは引数を足していないので `byStock=false`＝従来どおり単一母数。
+- 確認: 銘柄AAA/BBBで推奨基本αが違うスタブを与え、**recoFnが銘柄ごとに1つずつ作られること**と、各記録が自分の銘柄の基本αと比較されることを検証（+1,500 / −2,000 → 合計 −500）。
+
+### 2026-08-18d 日替わり銘柄: 新しい日は前日の選定を既定にする（app-04 / sw v447→v448）
+- ユーザー要望「新しい日からは、デフォルトで前日に選択されていた銘柄が選択されているように」。
+- 新設: `_dsSeedMark` / `_dsTodayStr` / `_dailyStockPrevList` / `_dsShouldSeed` / `_dsSeedFromPrev`（app-04・`_dailyStockToggle` の直後）＋ `DayView` に `useEffect(..., [date])` を1つ。
+- ⚠️**適用は今日以降の日だけ**（ユーザー決定）。`dailyStock` は**合計損益の算入判定の正本**なので、過去日に遡って埋めると**過去の合計損益が変わる**（候補プールの銘柄にその日の記録があれば算入されるため）。過去日は一切触らない。
+- ⚠️**「前日」＝暦の前日ではなく「その日より前で選定のある直近日」**。暦の前日だと土日祝を挟む月曜が必ず空になり機能しない。
+- ⚠️**引き継ぎは1日1回きり**。印は新しいトップレベルのマップ `data.dailyStockSeed[日付]=1` で、**①自動で入れたとき ②ユーザーが手で指定/解除したとき**の両方で立てる（`_dailyStockToggle`/`_dailyStockSet` にも追記）。
+  - これが無いと「その日の指定を全部外す→開き直す→また入る」になる。`_dsWrite` は0件でキーごと消すので、`dailyStock` だけでは**「まだ選んでいない日」と「全部外した日」が区別できない**のが理由。
+  - 新キーは top-level なので同期は汎用マージ（`_mergeRemoteMeta`）に乗る＝`dailyStock`/`foreignMarkets` と同じ扱い。
+- ⚠️`_dsSeedFromPrev` は **`save` の中でもう一度 `_dsShouldSeed` を判定**する。effectの依存は `[date]` だけで `data` が古い可能性があるため、prev基準の再判定が最後の砦（条件を満たさなければ `prev` をそのまま返す＝保存も走らない）。
+- 確認: 14ケースの単体テスト（今日/過去日/未来日・選定済み・フラグ済み・直近なし・土日跨ぎ・より近い日の優先・未来日の選定を拾わない・実行後の値とフラグ・全部外すとキーが消える・**開き直しても復活しない**・手で触った日は対象外）。
 
 ### 2026-08-18c 「🩹 補正は必要だったか」を応用αタブに新設（app-06 / sw v446→v447）
 - ユーザー質問「底つきラインというシグナルの分析に、底つきライン補正がそもそも必要だったかという分析はすでにある？」→ **無かった**ので新設。根拠セレクタ連動。
