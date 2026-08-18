@@ -3663,6 +3663,89 @@ function _elUkiAltRow(r, aiOf) {
     curWhy: _elUkiAltWhy(s, curA, curM), altWhy: _elUkiAltWhy(s, altA, altM),
     diff: (cur != null && alt != null) ? (alt - cur) : null };
 }
+// ===== 🩹 補正は必要だったか（応用α vs その日の推奨基本α）2026-08-18 ユーザー要望 =====
+// 「根拠を付けて基本αから外した（＝補正した）記録について、そもそもその補正は必要だったのか」を記録ごとの反実仮想で出す。
+// 各記録に ①実際の採用α（＝応用α）と ②その日の推奨基本α を両方当てて想定損益（手じまい）を再計算し、差額を積む。
+//   ⚠️**符号は「補正の効果」＝実際(応用α) − 補正なし(基本α)**。プラス＝補正して正解／マイナス＝基本αのままの方が良かった。
+//   ⚠️`_elUkiAltRow` の diff は逆向き（alt − cur＝換算したらどう変わるか）。並べて読むときに取り違えないこと。
+// 損切り値は記録の採用値のまま両側に使う＝αだけを差し替えた比較になる（🔁応用α換算と同じ規約）。
+// 片側がエントリー不成立（α未達・スルー・（）外なしの△）でも0円として両側に算入＝「αを下げていたら取れていた取引」が
+//   集計から消えないようにする（2026-07-27にユーザー決定した🔁応用α換算と同じ扱い）。真の換算不可は推奨基本αが出ない日だけ。
+function _elSpAltRow(r, aiOf, recoFn) {
+  var s = r && r.signal; if (!s) return null;
+  var ai = aiOf(r), curA = ai.alpha, cut = ai.cutLine;
+  var baseA = (typeof recoFn === "function") ? recoFn(r.date) : null;   // その日の推奨基本α（look-ahead無し＝_elKabuRecoBaseFnは「その日より前」の記録だけで算出）
+  // RN加算は補正の有無に関わらず乗る規約なので条件を揃えて足す（_elUkiAltAlphaと同じ考え方）。
+  //   現在の母数(_elIsSpecialAlphaPoolRec)はRN×限定なので実質0だが、母数を広げたときに壊れないようにしておく。
+  var altA = (baseA != null) ? (baseA + _elRnAdd(s)) : null;
+  var curM = (curA != null) ? _elHoldFinalParts(s, curA, cut).main : null;
+  var altM = (altA != null) ? _elHoldFinalParts(s, altA, cut).main : null;
+  var cur = (curA != null) ? (curM != null ? curM : 0) : null;
+  var alt = (altA != null) ? (altM != null ? altM : 0) : null;
+  return { r: r, s: s, baseA: baseA, altA: altA, curA: curA, cut: cut, cur: cur, alt: alt,
+    curWhy: _elUkiAltWhy(s, curA, curM), altWhy: _elUkiAltWhy(s, altA, altM),
+    diff: (cur != null && alt != null) ? (cur - alt) : null };
+}
+// 上の行ビルダーを使ったセクション本体。pool=**呼び出し側で根拠セレクタを通した応用〇プール**（根拠「◯◯」だけの効果が見られる＝この機能の主目的）。
+// fullRecs=recoFnを作る母数＝**根拠で絞らないシグナル全体**（基本α履歴は根拠に依らない・α値タブの既存規約 app-06:7805 と同じ）。
+// poolが空 or 全件で推奨基本αが出ない場合は null を返す＝根拠を持たないシグナルのタブには何も出ない。
+function _elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel) {
+  if (!pool || !pool.length) return null;
+  var recoFn = _elRecoFnCached((fullRecs && fullRecs.length) ? fullRecs : pool, aiOf);
+  var rows = pool.slice().sort(function(a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); })   // 新しい順
+    .map(function(r) { return _elSpAltRow(r, aiOf, recoFn); }).filter(Boolean);
+  var T = { cur: 0, alt: 0, diff: 0, n: 0, skip: 0, ne: 0, win: 0, lose: 0, same: 0 };
+  rows.forEach(function(o) {
+    if (o.cur == null || o.alt == null) { T.skip++; return; }
+    T.n++; T.cur += o.cur; T.alt += o.alt; T.diff += o.diff;
+    if (o.curWhy || o.altWhy) T.ne++;
+    if (o.diff > 0) T.win++; else if (o.diff < 0) T.lose++; else T.same++;
+  });
+  if (!T.n) return null;
+  var _amt = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+    : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+  var _amtWhy = function(v, why) {
+    if (v == null || !why) return _amt(v);
+    return React.createElement("span", null,
+      React.createElement("span", { style: { fontWeight: 700, color: "#b5b0a8" } }, "0円"),
+      React.createElement("span", { style: { display: "block", fontSize: 9, fontWeight: 700, color: "#c4bfb6" } }, why));
+  };
+  var _diffN = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+    : React.createElement("span", { style: { fontWeight: 800, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "円"); };
+  // 判定＝差額合計の符号だけで言い切る（母数が薄いときは下の件数内訳を見てもらう）。
+  var _vd = T.diff > 0 ? { t: "補正して正解", c: "#C0392B", bg: "#FCEBEB", b: "#F5C6C6" }
+    : T.diff < 0 ? { t: "補正しない方が良かった", c: "#1E8449", bg: "#EAF3DE", b: "#C2E3A8" }
+    : { t: "差なし", c: "#888", bg: "#F5F4F0", b: "#E0DAD1" };
+  var _bodyRows = rows.map(function(o, i) {
+    // diff==null＝推奨基本αが出ずに比較不可＝合計に入らない行なので薄く落とす（0円と「—」が並んで算入済みに見えるのを防ぐ）。
+    return React.createElement("tr", { key: "spn" + i, style: { opacity: (o.diff == null) ? 0.45 : 1,
+      background: (o.diff != null && o.diff > 0) ? "#FFF7F5" : (o.diff != null && o.diff < 0) ? "#F4FBF5" : "transparent" } },
+      _elv2Td(o.r.date.slice(5).replace("-", "/") + (o.s.time ? " " + o.s.time : ""), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, o.r.stock)),
+      _elv2Td(_elSigCell(o.s, "center"), { minWidth: 60 }),
+      _elv2Td(o.curA != null ? React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, o.curA + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+      _elv2Td(o.altA != null ? React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, o.altA + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+      _elv2Td(_amtWhy(o.cur, o.curWhy)),
+      _elv2Td(_amtWhy(o.alt, o.altWhy)),
+      _elv2Td(_diffN(o.diff)));
+  });
+  _bodyRows.push(React.createElement("tr", { key: "spntot", style: { background: "#FFFBF0", borderTop: "2px solid #FB923C" } },
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, "合計"), { textAlign: "left", paddingLeft: 8 }),
+    _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#666" } }, T.n + "件" + (T.ne ? "（うち無エントリー0円算入 " + T.ne + "件）" : "") + (T.skip ? "（推奨基本α無しで比較不可 " + T.skip + "件除く）" : "")), { colSpan: 4 }),
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(T.cur))),
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(T.alt))),
+    _elv2Td(_diffN(T.diff))));
+  return React.createElement(React.Fragment, null,
+    secH("🩹 補正は必要だったか" + (reasonLabel ? "（根拠「" + reasonLabel + "」）" : ""),
+      "※ 応用α〇の記録に「その日の推奨基本αのままにしていたら」を当て直した反実仮想。推奨基本αは**その日より前の記録だけ**から算出（look-ahead無し）で、母数は根拠で絞らないこのシグナル全体＝基本α履歴は根拠に依らない。損切り値は記録の採用値のまま両側に使うのでαだけの比較になる。損益は想定損益（手じまいまで）の（）外。エントリー不成立（α未達・スルー・（）外なしの△）は「そのαなら取引しなかった＝0円」として両側とも算入。差額＝実際（応用α）−補正なし（基本α）で、プラスなら補正して正解"),
+    _elv2CardRow([
+      _elv2Card("実際（応用α）", _amt(T.cur), null, T.n + "件の合計" + (T.ne ? "（無エントリー0円 " + T.ne + "件込み）" : "")),
+      _elv2Card("補正なし（基本α）", _amt(T.alt), null, "同じ母数で再計算"),
+      _elv2Card("補正の効果（実際−補正なし）", _diffN(T.diff), null, "1件あたり " + Math.round(T.diff / T.n).toLocaleString() + "円"),
+      _elv2Card("判定", React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: _vd.c, background: _vd.bg, border: "1px solid " + _vd.b, borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" } }, _vd.t), null,
+        "得した " + T.win + "件 / 損した " + T.lose + "件 / 同じ " + T.same + "件")]),
+    _elv2Table(["日付・時刻", "銘柄", "シグナル", "実際の採用α", "補正なし（基本α）", "想定損益（実際）", "想定損益（補正なし）", "補正の効果"], _bodyRows));
+}
 // 浮き足加算率ボードの基本/応用スコープ切替トグル（フォームの浮き足[浮き基本|浮き応用]と同スタイル）2026-07-18。sp=true→応用。onSet(boolean)で切替。分析ボード(シグナル総合/シグナル別)を_elUkiPctBoardScopedのmodeに連動させる。
 function _ukiScopeToggle(sp, onSet) {
   return React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },
@@ -7879,7 +7962,11 @@ function EntryLogView(_ref_elv2) {
               }))]
           : [_alZoneHead("#9A3412", "#FFF7ED", "#FED7AA", "応用αゾーン" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」）" : ""), _alAddSum),
               _secH("🔬 推奨応用α 詳細データ（応用〇・手仕舞い基準）", "応用〇の記録だけを母数に、独立α値0〜20円を前提損切り値で一律に当て手仕舞いで評価（★＝到達率" + _EL_ANA_REACH_DEF + "%以上［無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで緩和し参考］・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_MIN_N + "件以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうち平均想定損益（1件あたり）最大）。母数＝応用〇（浮き足・RN除外）" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」で絞込）" : ""), _detCtl("al_totA", _alReasonRecsFull)),
-              _detBody("al_totA", _alReasonRecsFull, function(_drs) { return _elTotalAlphaSectionV2(_drs, _ai, _alHoliSet); })];
+              _detBody("al_totA", _alReasonRecsFull, function(_drs) { return _elTotalAlphaSectionV2(_drs, _ai, _alHoliSet); }),
+              // 🩹 補正は必要だったか 2026-08-18（ユーザー要望）: 根拠セレクタ連動＝上の根拠バーで選んだ根拠だけの効果が出る。
+              //   母数は推奨応用αと同じ _alAddPool（根拠フィルタ後の応用〇・浮き足/RN除外）＝同じ画面で母数が食い違わない。
+              //   recoFn用の母数は _selSigRecs（根拠で絞らないシグナル全体）＝基本α履歴は根拠に依らない。
+              _elSpNeedSectionV2(_alAddPool, _ai, _selSigRecs, _secH, _reasonSel !== "all" ? _reasonLabel : null)];
       } else {
         _alBody = [
           _alZoneHead("#64748B", "#F8FAFC", "#E2E8F0", "共通ツール ― 基本/追加に依らないα全体の検証" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」）" : ""), null),

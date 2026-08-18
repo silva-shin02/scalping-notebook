@@ -163,6 +163,13 @@ _EL_OSC_BANDS（OS連鎖分析用OS帯=下落/0〜4/5〜9/10〜14/15〜19/20円�
 
 - **app-06.js 🗓 期間指定（カレンダー）2026-07-12（EntryLogView）**: 上部の期間セレクトに新オプション `range`（🗓 期間指定）を追加。新state `rngFrom`/`rngTo`（"YYYY-MM-DD"・空=最古から/今日まで）。`_periodRecs` を `period==="range"` のとき日付範囲でフィルタ（それ以外は従来通り `_elFilterPeriod`）＝ v2recs→シグナル軸→全分析タブ（集計/📊OS値の分析/α値/損切り/未達/期間/深掘り/シミュ）の母数がその期間に追随。UIは `_rngBar`（月ピッカー`input[type=month]`＝選ぶと1日〜末日／開始日・終了日`input[type=date]`／プリセット 今月・先月・今日まで・クリア／右端に「開始〜終了・N件」）。※全銘柄合算の集計タブ「〇年〇月データ早見」は従来通り期間セレクト非依存（_stockAllV2ベース）。
 
+- **app-06.js 🩹 補正は必要だったか 2026-08-18（α値タブ→② 応用α の末尾・根拠セレクタ連動）**: `_elSpAltRow(r, aiOf, recoFn)`（1記録ぶんの反実仮想行）＋ `_elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel)`（セクション本体）。応用α〇の記録に「その日の推奨基本αのままにしていたら」を当て直し、想定損益（手じまい）の差額を記録ごとに出して合計・判定・件数内訳を表示する。**型は `🔁 応用α換算`（`_elUkiAltRow`）の流用**。
+  - ⚠️**符号は「補正の効果」＝実際(応用α) − 補正なし(基本α)**（プラス＝補正して正解）。**`_elUkiAltRow` の diff は逆向き（alt − cur）** なので取り違えないこと。
+  - 母数＝`_alAddPool`（**根拠セレクタ通過後**の応用〇・浮き足/RN除外＝推奨応用αと同じ母数）。recoFn の母数＝`_selSigRecs`（根拠で絞らないシグナル全体＝基本α履歴は根拠に依らない・既存規約 app-06:7805）。
+  - `_elKabuRecoBaseFn` が「その日より前」だけで算出するので **look-ahead 無し**。損切り値は記録の採用値のまま両側に使う＝αだけの比較。
+  - 片側がエントリー不成立でも**0円で両側に算入**（2026-07-27の🔁応用α換算と同規約）。真の比較不可は推奨基本αが出ない日だけで、その行は `opacity:0.45` で薄くし合計から除く。
+  - ⚠️旧 `_elAddAlphaSectionV2`（app-06:3267）の「🎯 足して正解だったか」は **2026-07-13以降どこからも呼ばれていないデッドコード**。今回も復活させていないので、似た機能を探すときに間違えて拾わないこと。
+
 ## app-07.js (元 L31105-36524)
 useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に見て旧cat/ni.subCatも併用 2026-08-03e）**, _shvIsStockNewsTag, _csCollectNewsForStock, _ntExtractStockFromTag, _aggregateBarsToDaily, ChartSectionDailyCandle, _parseDailyCsv, _bizDaysBetween, _dcVerifiedStocks, _dcSaveCsvToFb, _dcLoadCsvUploadedAt, _dcLoadCsvFromFb, _dcCacheLoad, _dcCacheSave, _calcEMA, _pickPriceStep, DailyCandleChart, _nhvUpdateNi, _nhvDeleteNi, _nhvCollectFlat, NewsHistoryView, _shvCollectFlat, _shvCollectSoukatsu, _shvTogPin, _shvAppendToToday, _SummaryCard, SummaryHistoryView, SI_DEFAULT_TAB_NAMES, SI_TEMPLATE_TAB_NAMES, _siFormatRelTime, _siGetTabs, _siSetTabs, _siGetTabContent, _siUpdateTabContent, _siAddTab, _siDelTab, _siRenameTab, _siReorderTab, _siCopyFromOtherStock, StockInfoTabsManagementModal, _renderUnsavedDialog, MemoEditableField, StockInfoSection, StockHistoryView
 **2026-08-03e NewsHistoryView を保存済みライブラリに**
@@ -357,6 +364,17 @@ HomeEventFormModal, App
   - **回帰**: 既定前提・⑥起点明示＋α投入・⑤切替(取引資金) の3本が**1円も動かない**ことを確認。14ケース×8描画関数=112件のスモークも例外ゼロ。⚠️`doSave` の保存経路だけは `setData→stSave→fbPut` で**実データがFirebaseへ書かれる**ので実アプリでは叩いていない（ガードは `res` 定義(774) → `doSave`(783) → early return(788) → `setData`(789) の順序をコードで確認）。
 
 ## 変更ログ
+
+### 2026-08-18c 「🩹 補正は必要だったか」を応用αタブに新設（app-06 / sw v446→v447）
+- ユーザー質問「底つきラインというシグナルの分析に、底つきライン補正がそもそも必要だったかという分析はすでにある？」→ **無かった**ので新設。根拠セレクタ連動。
+- ⚠️**かつて近いものがあったが死んでいた**: `_elAddAlphaSectionV2`（app-06:3267）の「②効果検証＝🎯 足して正解だったか（採用α=基本+追加 vs 基本αだけ の反実仮想）」。2026-07-13に応用αタブが日付別方式＋根拠セレクタへ刷新された際に**呼び出しが外れ、定義だけ残っている**（今回も未参照のまま。応用αが「基本α＋増分」から独立α値に変わって比較の意味が変わったのが実質的な理由と読める）。
+- 新設したもの: `_elSpAltRow(r, aiOf, recoFn)`（1記録の反実仮想行）＋ `_elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel)`（セクション本体）。**型は `🔁 応用α換算`（`_elUkiAltRow`・2026-07-25g）をそのまま流用**。
+- 中身: 応用α〇の記録に「その日の推奨基本αのままにしていたら」を当て直し、記録ごとに想定損益（手じまい）の差額を出して合計＋判定（補正して正解／補正しない方が良かった／差なし）＋件数内訳（得した/損した/同じ）。
+- ⚠️**符号は「補正の効果」＝実際(応用α) − 補正なし(基本α)**（プラス＝補正して正解）。**`_elUkiAltRow` の diff は逆向き（alt − cur）**なので、並べて読むとき取り違えないこと。
+- 母数: `_alAddPool`＝**根拠セレクタを通した**応用〇プール（浮き足/RN除外）＝推奨応用αと同じ母数なので画面内で食い違わない。recoFn の母数は `_selSigRecs`（根拠で絞らないシグナル全体）＝基本α履歴は根拠に依らない（既存規約 app-06:7805 と同じ）。
+- `_elKabuRecoBaseFn` は「その日より前」の記録だけで算出＝**look-ahead無し**。損切り値は記録の採用値のまま両側に使う＝αだけの比較になる。
+- 片側がエントリー不成立（α未達/スルー/（）外なしの△）でも**0円として両側に算入**＝「αを下げていたら取れていた取引」が集計から消えない（2026-07-27に🔁応用α換算で決めた扱いと同じ）。真の比較不可は**推奨基本αが出ない日だけ**で、その行は薄く落として合計から除く。
+- 確認: 依存（`_elHoldFinalParts`/`_elUkiAltWhy`/`_elRecoFnCached`）をスタブした単体テストで、差額の符号・0円算入・比較不可のskip・合計・判定・件数内訳・新しい順ソート・空プールでnullを検証。
 
 ### 2026-08-18b 見送り理由を「選択肢＋詳細」の2段構成へ（app-04/05/06 / sw v445→v446）
 - ユーザー要望「新規エントリー記録画面の見送り記録の理由欄を、選択肢（追加・名前変更・削除・ドラッグ入れ替え）と詳細（文章・システムは既存のもの）の2段構成に」。
