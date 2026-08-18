@@ -170,6 +170,15 @@ HomeEventFormModal, App
 
 **【ホームヘッダの月次表示 2026-08-17】`App` 内: `_mAgg`＝`_snMonthPnlAgg(data,cY,cM)`（app-05）を呼ぶだけに縮小（旧＝data.chartsを自前走査して`realizedPnl`だけ合計していた）／`_homeChips`＝4チップの定義配列（損益・取引・勝率・**営業日**。各チップ `{la,v,c,sub,subGrade,title}` の2段構成で、下段の小書きは「1日あたり」＝**経過営業日 `bizDone` で割る**。グレードバッジは1日あたりにだけ付ける＝月の合計額に通常スケールを当てても全部Sになるため）／月見出し行の `»` と `今日` ボタンの**間**に営業日数ピル（`_snBizDaysLabel`）。
 
+**【ホームヘッダの配置 2026-08-18】`App` 内: KPIチップ行と入口ボタンを**別コンテナに分離**（旧＝同じ `flexWrap` 行に同居）。外側は `{flex:"1 1 100%"}` だけの素の入れ物で、中に2行を縦に積む。
+- ①**チップ行**＝`{display:"grid", gridTemplateColumns:…, gap:8, alignItems:"stretch"}`（`_homeChips` 5枚）。**flexではなくgrid**＝列が伸縮して常に全幅を埋めるので、右余白が出ず折り返しも起きない。
+  - 列指定は `IS_TOUCH ? "repeat(auto-fit,minmax(130px,1fr))" : "minmax(0,1.25fr) minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)"`。損益・実現だけ1.25倍幅。
+  - ⚠️**`minmax(0,…)` を外してはいけない**。`1fr` の既定は `minmax(auto,1fr)` で列が中身の最小幅より縮まず、狭い窓でヘッダごと横にはみ出す。
+  - ⚠️タッチ端末を `auto-fit` にしているのは、iPad縦で5列に潰さず2〜3列へ折り返させるため。
+- ②**ボタン行**＝`{display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", marginTop:8}`。記録帳・ニュース一覧・メモ·アイディア一覧を左、**`＋予定` にだけ `marginLeft:"auto"`** を付けて右端へ隔離（唯一の「作る」操作なので押し間違い防止）。
+- ⚠️`_mChipMinH`（チップ高さの決め打ち）は**廃止**。行が独立して `alignItems:"stretch"` が使えるようになり、いちばん背の高いチップに他が自動で揃うため。
+- 実測（幅700〜1920pxで確認）: チップは**常に1段・グリッド幅＝利用可能幅ちょうど（右余白0px）・横スクロールなし**。`＋予定` の右端はグリッドの右端とpx単位で一致する。
+
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
 `_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`_dtsAlphaMark`（丸囲みα）/ `_dtsSwitchRow`（⑤の切替）** / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / **`_dtsHitIdx` / `_dtsTipD` / `DtsChartBox`（ホバー）** / `_dtsCharts` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_dtsFlow` / `_DTS_W_TONE`/`_DTS_W_FLOW`** / `_dtsTable` / **`_dtsWarnBox`（効いていない前提の警告欄）** / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`
 
@@ -342,6 +351,30 @@ HomeEventFormModal, App
   - **回帰**: 既定前提・⑥起点明示＋α投入・⑤切替(取引資金) の3本が**1円も動かない**ことを確認。14ケース×8描画関数=112件のスモークも例外ゼロ。⚠️`doSave` の保存経路だけは `setData→stSave→fbPut` で**実データがFirebaseへ書かれる**ので実アプリでは叩いていない（ガードは `res` 定義(774) → `doSave`(783) → early return(788) → `setData`(789) の順序をコードで確認）。
 
 ## 変更ログ
+
+### 2026-08-18 ホームヘッダのKPIを全幅グリッド化＋入口ボタンを独立行へ（app-08 / sw v444→v445）
+- ユーザー依頼「PCでのここのレイアウトが気になる。いい配置案を画像つきでいくつか示して」→ 4案を提示し**案D（全幅グリッド）を採用**。
+- **原因は1つ**＝KPIチップ（見る数字）と入口ボタン（押すもの）が同じ `flexWrap` 行に同居していたこと。ここから3症状が同時に出ていた。
+
+  | 症状 | 中身 |
+  |---|---|
+  | 折り返しが幅任せ | どのボタンが2行目に落ちるかがウィンドウ幅で変わる（PCで「メモ·アイディア一覧」「＋予定」だけが落ちていた） |
+  | 行の重心が合わない | 88pxのチップと36pxのボタンが `alignItems:"center"` で並ぶ |
+  | 右が余る | 行が内容幅で止まるので、広い画面ほど空く |
+
+- **直し方**＝チップを**flexからgridへ**変えて全幅に伸ばし、ボタンは独立した1行へ下ろした。上段（月ナビ＋🔍⚙️🔥）は元から `marginLeft:"auto"` で右端固定だったので**無変更**。
+- ⚠️**副産物として `_mChipMinH` を廃止できた**。「親の alignItems を stretch にする手は使えない（同じflex行にボタンが並んでいて一緒に伸びてしまう）」という旧コメントの制約が、行を分けたことで消えたため。
+- 実測（変更前後を同条件で比較。幅700〜1920pxで確認）:
+
+  | 画面幅 | 変更前 | 変更後 |
+  |---|---|---|
+  | 900px | ヘッダ210px・9個中7個が1行目（2個は折り返し）・**右余白152px** | ヘッダ210px・**右余白0px**・折り返しなし |
+  | 1100px | ヘッダ166px・全部1行・**右余白113px** | ヘッダ**210px（+44px）**・右余白0px |
+  | 1280px | ヘッダ166px・**右余白293px** | ヘッダ210px（+44px）・右余白0px |
+  | 1440px | ヘッダ166px・**右余白453px** | ヘッダ210px（+44px）・右余白0px |
+
+- ⚠️**縦は「同じか+44px」でトレードオフがある**。折り返しが起きている幅（＝ユーザーのスクショの状態）では高さ同じで右余白だけ消えるが、**折り返しが起きない広い幅では、ボタンを独立行に下ろしたぶん44px高くなる**。案Dは「右余白ゼロ・折り返しゼロ」を縦44pxで買う選択。縦を詰めたいだけなら案B（左右分割）のほうが効く。
+- チップ高さは全5枚が自動で揃う（`alignItems:"stretch"`）。横スクロールは全幅で発生しないことを確認済み。
 
 ### 2026-08-17J 実現損益の読み方を全画面で統一＋旧ルール期間の明示（app-02/04/05/06/08 / sw v443→v444）
 - ユーザー依頼「アプリ全体で修正すべき点は無いか」→ 監査して見つけた2件を修正。
