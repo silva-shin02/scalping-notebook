@@ -6135,7 +6135,7 @@ function DayView(_ref57) {
               React.createElement("div", null,
                 React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                 s.time || "—", _minBarBadge(s)),
-              _epIncompleteMark(s), _elCollMarkNode(data, r), _elFillRiskNode(r),
+              _epIncompleteMark(s), _elCollMarkNode(data, r), _elCollPickNode(data, r, save), _elFillRiskNode(r),
               (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()   // 2026-07-29 選外(データのみ)も無印にしない
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
@@ -6400,6 +6400,7 @@ function DayView(_ref57) {
         );
       };
       var subRows = [];
+      var _pbSeenGrp = {};   // 選抜グループの見出し行を1組につき1回だけ出すための既出フラグ 2026-08-19
       var _totReal = null, _totPlan = null, _totHold = null;
       var _totRealP100 = null, _totRealHasSh = false;   // 2026-08-04 実現損益の下段（100株換算）用。_totRealは従来どおり実額の合計。
       var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
@@ -6413,6 +6414,28 @@ function DayView(_ref57) {
         var rKey = r.stock + "_" + (r.signal.id || r.signal.time || "");
         var rExp = !!pnlRecordExpandSet[rKey];
         var s = r.signal;
+        // 時間かぶりグループの見出し行（案B 2026-08-19）: どれとどれが同じ枠を奪い合っているか＋いま何が算入されているかを常時表示。
+        // 並びが銘柄順のときはメンバーが散るので「最初に出会ったところ」に1回だけ出す。
+        (function() {
+          var _cg = _elCollGroupOf(data, r);
+          if (!_cg) return;
+          var _cgId = _cg.date + "#" + _cg.members[0];
+          if (_pbSeenGrp[_cgId]) return;
+          _pbSeenGrp[_cgId] = 1;
+          var _cgPend = !_cg.picked, _cgPick = null;
+          for (var _ci = 0; _ci < _cg.list.length; _ci++) { if (_cg.list[_ci].key === _cg.picked) { _cgPick = _cg.list[_ci]; break; } }
+          subRows.push(React.createElement("tr", { key: "cgrp_" + _cgId, "data-sn-coll-pend": _cgPend ? "1" : null },
+            React.createElement("td", { colSpan: 99, style: { padding: "3px 8px", textAlign: "left", fontSize: 10, fontWeight: 800,
+              background: _cgPend ? "#FEF2F2" : "#FEF6E7", color: _cgPend ? "#B91C1C" : "#92400E",
+              borderTop: "1px solid " + (_cgPend ? "#FBD5D5" : "#F2DFBC"), borderBottom: "1px solid " + (_cgPend ? "#FBD5D5" : "#F2DFBC") } },
+              "⏱ " + (_cg.list[0].time || "—") + " の時間かぶり",
+              React.createElement("span", { style: { fontWeight: 700, color: "#A8916B", marginLeft: 6 } }, _cg.members.length + "件"),
+              React.createElement("span", { style: { display: "inline-block", marginLeft: 8, fontSize: 10, fontWeight: 800, background: "#fff",
+                border: "1px solid " + (_cgPend ? "#FCA5A5" : "#86EFAC"), color: _cgPend ? "#B91C1C" : "#166534", borderRadius: 5, padding: "1px 7px" } },
+                _cgPend ? "要選択 ── 1件を選んでください" : ("算入 ● " + (_cgPick ? _cgPick.stock : "—") + " " + _elPnlFmt(_cgPick ? _cgPick.main : null)))
+            )
+          ));
+        })();
         var item = r.item;
         var realPnl = (item && item.pnl != null) ? Number(item.pnl)
           : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
@@ -6489,7 +6512,7 @@ function DayView(_ref57) {
             cutCtx ? _renderSimCutInput(r, cutCtx) : null),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             React.createElement("div", null, s.time || "—", _minBarBadge(s)),
-            _epIncompleteMark(s), _elCollMarkNode(data, r), _elFillRiskNode(r),
+            _epIncompleteMark(s), _elCollMarkNode(data, r), _elCollPickNode(data, r, save), _elFillRiskNode(r),
             (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()),   // 2026-07-29 選外(データのみ)も無印にしない
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
             _elSigCell(s, "center")),
@@ -6570,6 +6593,23 @@ function DayView(_ref57) {
       var _cntCtx = function(_ctx) { return _ctx ? Object.keys(_ctx.val).filter(function(_k) { var _v = _ctx.val[_k]; return _v != null && _v !== ""; }).length : 0; };
       var _simAlphaCnt = _cntCtx(simCtx), _simCutCnt = _cntCtx(cutCtx), _simActiveCnt = _simAlphaCnt + _simCutCnt;
       return React.createElement("div", { style: { overflowX: "auto" } },
+        // 選抜待ちの警告バー（層3 2026-08-19）: 表が長い日でも気づけるように先頭に出す。全部選び終われば消える。
+        (function() {
+          var _pw = _elCollPendingGroupCount(data, expRecs);
+          if (!_pw) return null;
+          return React.createElement("div", { key: "collwarn", style: { display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap",
+            padding: "6px 10px", background: "#FEF2F2", border: "1px solid #FBD5D5", borderRadius: 6, marginBottom: 4,
+            fontSize: 11, fontWeight: 800, color: "#B91C1C" } },
+            React.createElement("span", null, "⚠ 選抜待ち " + _pw + "組 ── 時間かぶりの記録が合計に入っていません"),
+            React.createElement("button", { onClick: function(e) {
+                if (e && e.stopPropagation) e.stopPropagation();
+                var _t = document.querySelectorAll('[data-sn-coll-pend="1"]');
+                if (_t && _t.length && _t[0].scrollIntoView) _t[0].scrollIntoView({ block: "center" });
+              },
+              style: { marginLeft: "auto", fontSize: 10.5, fontWeight: 800, color: "#fff", background: "#DC2626",
+                border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer" } }, "選ぶ →")
+          );
+        })(),
         (simCtx || cutCtx) ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", whiteSpace: "nowrap", flexWrap: "wrap" } },
           _simActiveCnt > 0
             ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#0369A1" } }, "シミュ中: α " + _simAlphaCnt + "件 / 損切り " + _simCutCnt + "件")
@@ -6598,7 +6638,15 @@ function DayView(_ref57) {
           ),
           React.createElement("tbody", null, subRows),
           React.createElement("tfoot", null, totRow)
-        )
+        ),
+        // 層1の可視化 2026-08-19: 未選択の組は合計から外してあるので、合計のすぐ下で「まだ確定していない」ことを言う。
+        (function() {
+          var _pw2 = _elCollPendingGroupCount(data, expRecs);
+          if (!_pw2) return null;
+          return React.createElement("div", { key: "collpendfoot", style: { padding: "4px 10px", background: "#FEF2F2",
+            border: "1px solid #FBD5D5", borderRadius: 6, marginTop: 4, fontSize: 10.5, fontWeight: 800, color: "#B91C1C" } },
+            "⚠ 上の合計は未確定です ── 選抜待ち " + _pw2 + "組ぶんの記録を合計に入れていません（1件ずつ〇で選ぶと確定します）");
+        })()
       );
     };
     var _pbItems = dd.items || [];

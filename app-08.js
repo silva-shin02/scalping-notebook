@@ -861,6 +861,25 @@ function App() {
     } catch(e) { console.warn("[cleanup] nikkei chart cleanup error:", e); }
   }, []);
 
+  // 時間かぶりの「手動選抜」への移行（案あ 2026-08-19 ユーザー決定）:
+  //   自動選抜を廃止したので、何もしないと**過去の記録が全部「選抜待ち」**になり、かぶりのあった日の合計が
+  //   カレンダー・ホーム月次まで遡って未確定になってしまう。そこで初回に一度だけ、旧ルール
+  //   （早い方／同時刻なら（）外想定損益が小さい方・未達は後回し）で既存グループの選抜を確定させ data.collPick に保存する。
+  //   以後は新しく出来たグループだけが「未選択」で始まる。確定させた選抜は明細表の〇でいつでも選び直せる。
+  //   Firebaseで後から履歴が増えた場合にも埋まるよう、collPickInit が立つまで data 更新のたびに再試行する
+  //   （選抜済みグループには触らないので何度走らせても同じ＝冪等）。
+  useEffect(function() {
+    try {
+      var d = dataRef.current;
+      if (!d || d.collPickInit) return;
+      if (!d.charts || !Object.keys(d.charts).length) return;
+      var _pick = _elCollMigrateAllPicks(d);
+      var _n = _pick ? (Object.keys(_pick).length - Object.keys(d.collPick || {}).length) : 0;
+      save(Object.assign({}, d, _pick ? { collPick: _pick, collPickInit: 1 } : { collPickInit: 1 }));
+      console.log("[collPick] migrated: " + _n + " group(s) auto-selected");
+    } catch(e) { console.warn("[collPick] migration error:", e); }
+  }, [data]);
+
   useEffect(function() {
     try {
       var d = dataRef.current;
