@@ -7049,7 +7049,7 @@ function EntryLogView(_ref_elv2) {
           _td(_elHoldMinNode(s, a.alpha, a.cutLine))
         ]).concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60, false, _elPer100Of(realN, s)) : _dash)]);
       }
-      body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, _collScope), _dimLbl ? { opacity: 0.6, background: "#FAFAF9", borderLeft: "3px solid #D6D3D1" } : null) }, cells));
+      body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, _collScope), _dimLbl ? { opacity: 0.6, backgroundColor: "#FAFAF9", borderLeft: "3px solid #D6D3D1" } : null) }, cells));
       if (on) body.push(React.createElement("tr", { key: ek + "_c" },
         React.createElement("td", { colSpan: colN, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
           React.createElement(EntryLogCard, { record: r, data: data, collScope: _collScope, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate }))));

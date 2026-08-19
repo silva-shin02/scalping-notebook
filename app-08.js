@@ -861,24 +861,27 @@ function App() {
     } catch(e) { console.warn("[cleanup] nikkei chart cleanup error:", e); }
   }, []);
 
-  // 時間かぶりの「手動選抜」への移行（案あ 2026-08-19 ユーザー決定）:
+  // 時間かぶりの「手動選抜」への移行（案あ 2026-08-19 → 2026-08-19b で方式変更）:
   //   自動選抜を廃止したので、何もしないと**過去の記録が全部「選抜待ち」**になり、かぶりのあった日の合計が
-  //   カレンダー・ホーム月次まで遡って未確定になってしまう。そこで初回に一度だけ、旧ルール
-  //   （早い方／同時刻なら（）外想定損益が小さい方・未達は後回し）で既存グループの選抜を確定させ data.collPick に保存する。
-  //   以後は新しく出来たグループだけが「未選択」で始まる。確定させた選抜は明細表の〇でいつでも選び直せる。
-  //   Firebaseで後から履歴が増えた場合にも埋まるよう、collPickInit が立つまで data 更新のたびに再試行する
-  //   （選抜済みグループには触らないので何度走らせても同じ＝冪等）。
+  //   カレンダー・ホーム月次まで遡って未確定になる。
+  //   当初は全グループの選抜を起動時に一括書き込みしていたが、次の3つの問題があったので**境界日を1つ持つだけ**に変えた:
+  //     ①起動直後の無条件 save() が fbInitialLoad と競合する。初期ロードが debounce(3秒)を超えると
+  //       古いローカルスナップショットが fbPut（meta.json の全書き換え・CAS無し）でリモートを上書きしうる＝他端末の記録が飛ぶ。
+  //     ②初期ロードの .then は移行前に捕まえた ld からマージするので、移行結果が捨てられ二度手間になる。
+  //     ③一度フラグを立てると、後から同期で届いた古い履歴が二度と自動確定されず、恒久的に合計から消える。
+  //   collPickSince（日付）より前のグループは _elCollisionExcludedSet が**その場で**旧ルール確定するので、
+  //   書き込みはこの1フィールドだけで済み、後から履歴が増えても正しく確定される。
   useEffect(function() {
     try {
       var d = dataRef.current;
-      if (!d || d.collPickInit) return;
-      if (!d.charts || !Object.keys(d.charts).length) return;
-      var _pick = _elCollMigrateAllPicks(d);
-      var _n = _pick ? (Object.keys(_pick).length - Object.keys(d.collPick || {}).length) : 0;
-      save(Object.assign({}, d, _pick ? { collPick: _pick, collPickInit: 1 } : { collPickInit: 1 }));
-      console.log("[collPick] migrated: " + _n + " group(s) auto-selected");
-    } catch(e) { console.warn("[collPick] migration error:", e); }
-  }, [data]);
+      if (!d || d.collPickSince) return;
+      var _c = cfgRef.current;
+      if (_c && _c.fbUrl && _c.fbPaused === false && fbStatus !== "ok") return;   // 初期ロードが片付くまで書かない（①②の回避）
+      var _t = todayStr();
+      save(Object.assign({}, d, { collPickSince: _t }));
+      console.log("[collPick] since=" + _t + " (これより前の時間かぶりは旧ルールで自動確定)");
+    } catch(e) { console.warn("[collPick] init error:", e); }
+  }, [data, fbStatus]);
 
   useEffect(function() {
     try {

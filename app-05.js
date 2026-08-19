@@ -4435,8 +4435,18 @@ function _elDeriveHoldProfit(hp, pp, res, fallback) {
 var _elCollMemo = {};
 var _EL_COLL_EMPTY_PICK = {};
 function _elCollKey(stock, date, s) { return stock + "|" + date + "|" + ((s && s.id != null && s.id !== "") ? String(s.id) : (((s && s.time) || "") + "|" + ((s && (s.tag || "")) || ""))); }
-// 選抜の保存先＝data.collPick { <_elCollKey>: 1 }。通常データなのでFirebase同期にそのまま載る＝他端末でも同じ選抜になる 2026-08-19。
+// 選抜の保存先＝data.collPick { <グループID>: <選抜されたkey> } 2026-08-19b。
+// ⚠️**1グループ1エントリ**にしてあるのは同期のため。旧案の { key:1 } フラット集合だと選び直しが「delete＋add」になるが、
+//   _mergeRemoteMeta(app-01)は入れ子オブジェクトに _v が無いと rv===undefined を out[key]=lv に落とす＝**削除が伝播しない**。
+//   結果、端末Aの旧選抜と端末Bの新選抜が和集合になり、「先にソートされる方」が勝って**選び直しが黙って元に戻る**。
+//   gidキーなら選び直しは同じキーの**上書き**（primitiveは _mergeRemoteMeta が return remote で伝播する）＝削除が要らない。
+// gidは (scope, 日付, 先頭メンバーkey) から作る。メンバーが増減してgidがずれた場合に備え、解決時は
+// 「collPickの**値**として現れているメンバー」も拾う（_pickValsの逆引き）＝取りこぼしても選抜が消えない。
+function _elCollGid(scopeStock, date, firstKey) { return (scopeStock || "") + "\u0001" + date + "#" + firstKey; }
 function _elCollPickMap(data) { return (data && data.collPick) || _EL_COLL_EMPTY_PICK; }
+// 自動確定の境界日。この日より**前**の日付のグループは、手動選抜が無ければ旧ルールで自動確定して扱う（移行案あ）。
+// これを日付で持つことで、Firebaseから後から古い履歴が届いても正しく自動確定される（一括書き込みの移行処理が不要になる）。
+function _elCollPickSince(data) { return (data && data.collPickSince) || null; }
 // ===== 時間かぶり＝「同じ枠を奪い合う記録のグループ」＋どれを算入するかの手動選抜 2026-08-19 全面改訂（ユーザー決定）=====
 // 旧実装からの変更点は2つ。
 //  ①旧は arr を **2件ずつ(i += 2)** に区切ってペアにしていた。そのため同時刻に4件並ぶと {1,2}{3,4} の2組に割れ、
@@ -4447,7 +4457,7 @@ function _elCollPickMap(data) { return (data && data.collPick) || _EL_COLL_EMPTY
 //  ②旧は残す方をアプリが自動決定していた。→ **手動選抜(data.collPick)が正本**。自動選抜はしない。
 //    未選択のグループは「選抜待ち」＝**グループ全員を合計から外す**（excludedに入れる）。
 //    こうすると合計が過大にも過少にもならず、「まだ確定していない」ことだけが伝わる。
-//    既存データは初回に一度だけ自動選抜で確定させる（_elCollMigrateAllPicks＝移行案あ）ので、過去の日が未確定にはならない。
+//    既存データは data.collPickSince（境界日）より前を旧ルールでその場確定するので、過去の日が未確定にはならない（移行案あ）。
 // 母数＝v2(_epIsV2)かつ算入(_elInclTotal)・時刻無しは対象外。
 // **未達(main無し)も選抜対象に含む**（選べば0円＝「この枠は実質ノートレード」の意思表示）2026-08-19 ユーザー決定。
 // 返り値 {excluded, marked, pending, na, info, groups, groupOf}:
@@ -4461,9 +4471,12 @@ function _elCollisionExcludedSet(data, scopeStock) {
   var _dsRef = (data && data.dailyStock) || null;
   var _poolRef = (data && data.custom && data.custom.rotatingStocks) || null;
   var _pickRef = _elCollPickMap(data);   // 選抜が変われば再計算（memoキーに含める）
+  var _since = _elCollPickSince(data);
   var _mk = scopeStock || "";
   var _m = _elCollMemo[_mk];
-  if (_m && _m.charts === charts && _m.ds === _dsRef && _m.pool === _poolRef && _m.pick === _pickRef) return _m.set;
+  if (_m && _m.charts === charts && _m.ds === _dsRef && _m.pool === _poolRef && _m.pick === _pickRef && _m.since === _since) return _m.set;
+  var _pickVals = {};   // gidずれ対策の逆引き: 選抜されたkeyの集合
+  for (var _pk in _pickRef) { if (_pickRef.hasOwnProperty(_pk)) _pickVals[_pickRef[_pk]] = 1; }
   var _toMin = function(t) { if (!t) return null; var m = String(t).match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; };
   var byDay = {};
   Object.keys(charts).forEach(function(ck) {
@@ -4482,7 +4495,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
       var _own = _epOwnAlpha(s);
       var _rv = _elRideVals(s, _own, cut);   // 手じまい足（EP起算の本数）2026-07-16
       var _exMin = (_rv && _rv.exitIdx != null) ? (mn + _rv.exitIdx) : mn;   // 手じまい足の時刻＝シグナル時刻＋手じまい足index。未達(_rv=null)は建玉が無いので自分の時刻のまま＝枠を伸ばさない
-      (byDay[date] = byDay[date] || []).push({ key: _elCollKey(stock, date, s), stock: stock, time: s.time || "", min: mn, exitMin: _exMin, main: _elHoldFinalParts(s, _own, cut).main });
+      (byDay[date] = byDay[date] || []).push({ key: _elCollKey(stock, date, s), stock: stock, time: s.time || "", min: mn, exitMin: _exMin, hasEp: !!_rv, main: _elHoldFinalParts(s, _own, cut).main });
     });
   });
   var excluded = {}, marked = {}, info = {}, pending = {}, na = {}, groups = {}, groupOf = {};
@@ -4494,14 +4507,25 @@ function _elCollisionExcludedSet(data, scopeStock) {
       var list = [arr[i]], end = arr[i].exitMin, j = i + 1;
       while (j < arr.length && arr[j].min <= end) { list.push(arr[j]); if (arr[j].exitMin > end) end = arr[j].exitMin; j++; }
       i = j;
-      for (var q = 0; q < list.length; q++) { if (list[q].main == null) na[list[q].key] = 1; }
+      // main無しは2種類あるので区別する。"miss"＝EP未到達＝真の未達（選べば枠は0円）。
+      // "ref"＝EPには到達したが（）外の想定損益が無い（_elHold2TotPartsFixedが{main:null,ref:X}を返すケース）。
+      // 後者を「未達・0円」と説明すると嘘になる（（）内参考値は従来どおり集計される）ので表示を分ける。
+      for (var q = 0; q < list.length; q++) { if (list[q].main == null) na[list[q].key] = list[q].hasEp ? "ref" : "miss"; }
       if (list.length < 2) continue;   // 単独＝奪い合いが無いので選抜も除外も不要（従来どおり）
-      var gid = d + "#" + list[0].key;
+      var gid = _elCollGid(scopeStock, d, list[0].key);
       var picked = null;
-      for (var p = 0; p < list.length; p++) { if (_pickRef[list[p].key]) { picked = list[p]; break; } }
+      var _pv = _pickRef[gid];
+      for (var p = 0; p < list.length; p++) { if (list[p].key === _pv) { picked = list[p]; break; } }
+      if (!picked) { for (var p2 = 0; p2 < list.length; p2++) { if (_pickVals[list[p2].key]) { picked = list[p2]; break; } } }   // gidずれの取りこぼしを拾う
+      // 手動選抜が無いとき自動確定するのは次の2つ。どちらでもなければ「選抜待ち」＝合計から外す。
+      //  ①銘柄別scope: 選抜UI（ラジオ）は全銘柄横断のグループにしか出ないので、銘柄別スコープ固有のグループは
+      //    そのままだと**どこからも選べない**まま永久に合計から消える。手動選抜は横断側の1本に任せ、こちらは常に自動確定する。
+      //  ②境界日より前の日付: 移行案あ＝過去の記録が一斉に選抜待ちにならないようにする。
+      var _auto = !picked && (scopeStock || (_since && d < _since));
+      if (_auto) { var _ak = _elCollAutoPickKey(list); for (var p3 = 0; p3 < list.length; p3++) { if (list[p3].key === _ak) { picked = list[p3]; break; } } }
       var members = list.map(function(m) { return m.key; });
       members.forEach(function(k) { groupOf[k] = gid; });
-      groups[gid] = { date: d, members: members, list: list, picked: picked ? picked.key : null };
+      groups[gid] = { gid: gid, date: d, members: members, list: list, picked: picked ? picked.key : null, auto: !!_auto };
       if (!picked) {
         // 層1: 選抜待ちのグループは全員を合計から外す。件数/到達/勝率は従来どおり残る（被り除外と同じ規約）。
         list.forEach(function(m) { pending[m.key] = 1; excluded[m.key] = 1; info[m.key] = { role: "pending", own: m.main, n: list.length }; });
@@ -4519,7 +4543,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
     }
   });
   var _set = { excluded: excluded, marked: marked, pending: pending, na: na, info: info, groups: groups, groupOf: groupOf };
-  _elCollMemo[_mk] = { charts: charts, ds: _dsRef, pool: _poolRef, pick: _pickRef, set: _set };
+  _elCollMemo[_mk] = { charts: charts, ds: _dsRef, pool: _poolRef, pick: _pickRef, since: _since, set: _set };
   return _set;
 }
 // r={stock,date,signal} が合計から外れているか／選抜された側（※被り有）か。
@@ -4528,8 +4552,10 @@ function _elCollExcluded(data, r, scope) { return !!(r && r.signal && _elCollisi
 function _elCollMarked(data, r, scope) { return !!(r && r.signal && _elCollisionExcludedSet(data, scope).marked[_elCollKey(r.stock, r.date, r.signal)]); }
 // 選抜待ち（＝未選択グループの一員）。excludedにも入っているので合計からは既に外れている 2026-08-19。
 function _elCollPending(data, r, scope) { return !!(r && r.signal && _elCollisionExcludedSet(data, scope).pending[_elCollKey(r.stock, r.date, r.signal)]); }
-// 未達（EP未到達＝建玉なし）。選抜対象には含むが、選ぶとその枠は0円になる 2026-08-19。
+// （）外の想定損益を持たない記録。選抜対象には含む 2026-08-19。
 function _elCollNa(data, r, scope) { return !!(r && r.signal && _elCollisionExcludedSet(data, scope).na[_elCollKey(r.stock, r.date, r.signal)]); }
+// その種別。"miss"＝EP未到達＝未達／"ref"＝EP到達済みだが（）外損益なし／null＝該当なし 2026-08-19b。
+function _elCollNaKind(data, r, scope) { return (r && r.signal && _elCollisionExcludedSet(data, scope).na[_elCollKey(r.stock, r.date, r.signal)]) || null; }
 // この記録が属する選抜グループ（単独記録＝奪い合い無しならnull）。
 function _elCollGroupOf(data, r, scope) {
   if (!r || !r.signal) return null;
@@ -4538,9 +4564,10 @@ function _elCollGroupOf(data, r, scope) {
 }
 // signal直渡し版（recラッパーが無いループ用: カレンダー月次/日別ランク・検索日カード・早見表等）。scope省略=全銘柄横断。
 function _elCollExcludedSig(data, stock, date, s, scope) { return !!(s && _elCollisionExcludedSet(data, scope).excluded[_elCollKey(stock, date, s)]); }
-function _elCollPendingSig(data, stock, date, s, scope) { return !!(s && _elCollisionExcludedSet(data, scope).pending[_elCollKey(stock, date, s)]); }
-// recs配列中の「被り除外」該当件数（KPI等の可視化用）。**選抜済グループで落とした分のみ**＝選抜待ちは_elCollPendingGroupCountで別に数える 2026-08-19。
-function _elCollExclCountRecs(data, recs, scope) { var n = 0; (recs || []).forEach(function(r) { if (_elCollExcluded(data, r, scope) && !_elCollPending(data, r, scope)) n++; }); return n; }
+// recs配列中の「合計から落ちた」件数（KPI等の可視化用）。選抜待ちも**数に含める** 2026-08-19b。
+// ⚠️一度は選抜待ちを除いて数えていたが、警告バーを持たないビュー（記録帳KPI・銘柄タブ等）で
+//   「被り除外0件」と出るのに金額だけ消える＝無言の欠損になるため差し戻した。組数は_elCollPendingGroupCountで別に出す。
+function _elCollExclCountRecs(data, recs, scope) { var n = 0; (recs || []).forEach(function(r) { if (_elCollExcluded(data, r, scope)) n++; }); return n; }
 // recs配列に含まれる「選抜待ち」の**組数**（件数ではない）。警告バー/合計欄の注記用 2026-08-19。
 function _elCollPendingGroupCount(data, recs, scope) {
   var st = _elCollisionExcludedSet(data, scope), seen = {}, n = 0;
@@ -4558,58 +4585,48 @@ function _elCollSetPick(save, data, r, scope) {
   if (!save || !r || !r.signal) return;
   var key = _elCollKey(r.stock, r.date, r.signal);
   var g = _elCollGroupOf(data, r, scope);
+  if (!g) return;
   save(function(prev) {
     var pick = Object.assign({}, (prev && prev.collPick) || {});
-    if (g) g.members.forEach(function(k) { delete pick[k]; });
-    pick[key] = 1;
+    // gidがずれて残った古いエントリ（値がこのグループのメンバー）を掃除してから、gidキーを上書きする。
+    // 通常の選び直しは delete を伴わない**上書き**になるので、_mergeRemoteMeta の削除非伝播に引っかからない。
+    var mem = {};
+    g.members.forEach(function(k) { mem[k] = 1; });
+    Object.keys(pick).forEach(function(gk) { if (mem[pick[gk]]) delete pick[gk]; });
+    pick[g.gid] = key;
     return Object.assign({}, prev, { collPick: pick });
   });
 }
 // 移行用（案あ 2026-08-19 ユーザー決定）: 旧ルール準拠の自動選抜＝「早い方／同時刻なら（）外想定損益が小さい方（未達は後回し）」。
 function _elCollAutoPickKey(list) {
   if (!list || !list.length) return null;
-  var t0 = list[0].min, best = null;   // listはmin昇順
-  for (var i = 0; i < list.length && list[i].min === t0; i++) {
-    var m = list[i];
+  // ⚠️母数はまず「想定損益を持つ記録」に絞る。ここを絞らずに最早分だけで選ぶと、グループ先頭が未達だった場合に
+  //   未達が枠を取り、同じグループの実損益（例: +8,000円）が丸ごと合計から消える。
+  //   旧実装は main無しが絡むペアを除外対象にしなかった＝金額を落とさなかったので、これは退行になる。
+  var pool = [];
+  for (var q = 0; q < list.length; q++) { if (list[q].main != null) pool.push(list[q]); }
+  if (!pool.length) pool = list;   // 全員未達ならその中から
+  var t0 = pool[0].min, best = null;   // listはmin昇順なのでpoolも昇順
+  for (var i = 0; i < pool.length && pool[i].min === t0; i++) {
+    var m = pool[i];
     if (!best) { best = m; continue; }
-    if (best.main == null && m.main != null) { best = m; continue; }   // 実トレードを未達より優先
-    if (m.main != null && best.main != null && m.main < best.main) best = m;
+    if (m.main != null && best.main != null && m.main < best.main) best = m;   // 同時刻は（）外想定損益が小さい方
   }
-  return best ? best.key : list[0].key;
-}
-// 既存データの未選択グループを一括で自動確定（初回移行）。横断scopeと銘柄別scopeの両方のグループを埋めるので、
-// どのビューを開いても「過去分がいきなり選抜待ちになる」ことがない。変更が無ければnullを返す。
-function _elCollMigrateAllPicks(data) {
-  var charts = (data && data.charts) || {};
-  var scopes = [null], seen = {};
-  Object.keys(charts).forEach(function(k) { var i = k.lastIndexOf("_"); if (i > 0) { var st = k.slice(0, i); if (!seen[st]) { seen[st] = 1; scopes.push(st); } } });
-  var pick = Object.assign({}, _elCollPickMap(data)), changed = false;
-  for (var si = 0; si < scopes.length; si++) {
-    var tmp = { charts: charts, dailyStock: data && data.dailyStock, custom: data && data.custom, collPick: pick };
-    var st2 = _elCollisionExcludedSet(tmp, scopes[si]);
-    var gids = Object.keys(st2.groups), add = null;
-    for (var gi = 0; gi < gids.length; gi++) {
-      var g = st2.groups[gids[gi]];
-      if (g.picked) continue;
-      var k2 = _elCollAutoPickKey(g.list);
-      if (!k2) continue;
-      if (!add) add = Object.assign({}, pick);
-      add[k2] = 1;
-    }
-    if (add) { pick = add; changed = true; }
-  }
-  return changed ? pick : null;
+  return best ? best.key : pool[0].key;
 }
 // 選抜ラジオ〇（選択中＝赤丸／選抜待ち＝赤リング／未達＝破線の輪郭）。単独記録・saveが無い読み取り専用の呼び出しはnull 2026-08-19。
 function _elCollPickNode(data, r, save, scope) {
   if (!save || !_elCollGroupOf(data, r, scope)) return null;
   var on = _elCollMarked(data, r, scope);
   var pend = _elCollPending(data, r, scope);
-  var isNa = _elCollNa(data, r, scope);
+  var _nk2 = _elCollNaKind(data, r, scope), isNa = !!_nk2;
   var _go = function(e) { if (e && e.stopPropagation) e.stopPropagation(); _elCollSetPick(save, data, r, scope); };
   return React.createElement("span", {
     role: "radio", "aria-checked": on ? "true" : "false", tabIndex: 0,
-    title: on ? "この記録を合計に算入中（押すと選び直せます）" : (isNa ? "未達。選ぶとこの枠は0円として確定します" : "この記録を合計に算入する"),
+    title: on ? "この記録を合計に算入中（押すと選び直せます）"
+      : (_nk2 === "miss" ? "未達。選ぶとこの枠は0円として確定します"
+      : _nk2 === "ref" ? "（）外の想定損益が無い記録。選ぶとこの枠の（）外合計は0円になります"
+      : "この記録を合計に算入する"),
     onClick: _go,
     onKeyDown: function(e) { if (e && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); _go(e); } },
     style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 15, height: 15, borderRadius: "50%",
@@ -4643,9 +4660,13 @@ function _elCollMarkNode(data, r, scope, opts) {
     _bs.push(_mk("d", "被り除外", "#6D28D9", "#F5F3FF", "#C4B5FD",
       "時間かぶり" + _n + "件のうち別の記録が選抜されているため、この記録は合計額に入れない（件数は残ります）"));
   }
-  if (_elCollNa(data, r, scope)) {
+  var _nk = _elCollNaKind(data, r, scope);
+  if (_nk === "miss") {
     _bs.push(_mk("n", "未達", "#64748B", "#F1F5F9", "#CBD5E1",
       "未達（EPに到達せず建玉なし）。選抜はできますが、選ぶとこの枠は0円として確定します"));
+  } else if (_nk === "ref") {
+    _bs.push(_mk("n", "想定なし", "#64748B", "#F1F5F9", "#CBD5E1",
+      "EPには到達しているが（）外の想定損益が無い記録。選抜はできますが、選ぶとこの枠の（）外合計は0円になります（（）内の参考値は従来どおり集計されます）"));
   }
   return _bs.length ? React.createElement("div", { style: { marginTop: 1 } }, _bs) : null;
 }
