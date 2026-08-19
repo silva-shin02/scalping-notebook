@@ -6135,7 +6135,7 @@ function DayView(_ref57) {
               React.createElement("div", null,
                 React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                 s.time || "—", _minBarBadge(s)),
-              _epIncompleteMark(s), _elCollMarkNode(data, r), _elCollPickNode(data, r, save), _elFillRiskNode(r),
+              _epIncompleteMark(s), _elCollMarkNode(data, r, null, _EL_COLL_HIDE_KEEP), _elCollPickNode(data, r, save), _elFillRiskNode(r),
               (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()   // 2026-07-29 選外(データのみ)も無印にしない
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
@@ -6401,6 +6401,7 @@ function DayView(_ref57) {
       };
       var subRows = [];
       var _pbSeenGrp = {};   // 選抜グループの見出し行を1組につき1回だけ出すための既出フラグ 2026-08-19
+      var _pwGrp = _elCollPendingGroupCount(data, expRecs);   // 選抜待ちの組数。警告バーと合計下の注記で使い回す（同一描画中に変わらない）
       var _totReal = null, _totPlan = null, _totHold = null;
       var _totRealP100 = null, _totRealHasSh = false;   // 2026-08-04 実現損益の下段（100株換算）用。_totRealは従来どおり実額の合計。
       var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
@@ -6419,7 +6420,7 @@ function DayView(_ref57) {
         (function() {
           var _cg = _elCollGroupOf(data, r);
           if (!_cg) return;
-          var _cgId = _cg.date + "#" + _cg.members[0];
+          var _cgId = _cg.gid;
           if (_pbSeenGrp[_cgId]) return;
           _pbSeenGrp[_cgId] = 1;
           var _cgPend = !_cg.picked, _cgPick = null;
@@ -6512,7 +6513,7 @@ function DayView(_ref57) {
             cutCtx ? _renderSimCutInput(r, cutCtx) : null),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             React.createElement("div", null, s.time || "—", _minBarBadge(s)),
-            _epIncompleteMark(s), _elCollMarkNode(data, r), _elCollPickNode(data, r, save), _elFillRiskNode(r),
+            _epIncompleteMark(s), _elCollMarkNode(data, r, null, _EL_COLL_HIDE_KEEP), _elCollPickNode(data, r, save), _elFillRiskNode(r),
             (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()),   // 2026-07-29 選外(データのみ)も無印にしない
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
             _elSigCell(s, "center")),
@@ -6592,10 +6593,10 @@ function DayView(_ref57) {
       );
       var _cntCtx = function(_ctx) { return _ctx ? Object.keys(_ctx.val).filter(function(_k) { var _v = _ctx.val[_k]; return _v != null && _v !== ""; }).length : 0; };
       var _simAlphaCnt = _cntCtx(simCtx), _simCutCnt = _cntCtx(cutCtx), _simActiveCnt = _simAlphaCnt + _simCutCnt;
-      return React.createElement("div", { style: { overflowX: "auto" } },
+      return React.createElement("div", { style: { overflowX: "auto" }, "data-sn-pnltable": "1" },
         // 選抜待ちの警告バー（層3 2026-08-19）: 表が長い日でも気づけるように先頭に出す。全部選び終われば消える。
         (function() {
-          var _pw = _elCollPendingGroupCount(data, expRecs);
+          var _pw = _pwGrp;
           if (!_pw) return null;
           return React.createElement("div", { key: "collwarn", style: { display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap",
             padding: "6px 10px", background: "#FEF2F2", border: "1px solid #FBD5D5", borderRadius: 6, marginBottom: 4,
@@ -6603,7 +6604,9 @@ function DayView(_ref57) {
             React.createElement("span", null, "⚠ 選抜待ち " + _pw + "組 ── 時間かぶりの記録が合計に入っていません"),
             React.createElement("button", { onClick: function(e) {
                 if (e && e.stopPropagation) e.stopPropagation();
-                var _t = document.querySelectorAll('[data-sn-coll-pend="1"]');
+                // この表の中だけを探す。document全体だと、本日/今週など複数の表が出ているときに別の表へ飛んでしまう。
+                var _rt = (e && e.currentTarget && e.currentTarget.closest) ? e.currentTarget.closest('[data-sn-pnltable="1"]') : null;
+                var _t = (_rt || document).querySelectorAll('[data-sn-coll-pend="1"]');
                 if (_t && _t.length && _t[0].scrollIntoView) _t[0].scrollIntoView({ block: "center" });
               },
               style: { marginLeft: "auto", fontSize: 10.5, fontWeight: 800, color: "#fff", background: "#DC2626",
@@ -6641,7 +6644,7 @@ function DayView(_ref57) {
         ),
         // 層1の可視化 2026-08-19: 未選択の組は合計から外してあるので、合計のすぐ下で「まだ確定していない」ことを言う。
         (function() {
-          var _pw2 = _elCollPendingGroupCount(data, expRecs);
+          var _pw2 = _pwGrp;
           if (!_pw2) return null;
           return React.createElement("div", { key: "collpendfoot", style: { padding: "4px 10px", background: "#FEF2F2",
             border: "1px solid #FBD5D5", borderRadius: 6, marginTop: 4, fontSize: 10.5, fontWeight: 800, color: "#B91C1C" } },
