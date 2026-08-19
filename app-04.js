@@ -1270,7 +1270,8 @@ function SearchView(_ref45) {
         return k.replace(/_\d{4}-\d{2}-\d{2}$/, "");
       })), _toConsumableArray(chartArr.flatMap(function (c) {
         return (c && c.signals || []).flatMap(function(s) {
-          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", s.reviewMemo || "", s.skipMemo || "", s.tradeType || ""].concat(_sigDetailNames(s));
+          // skipReasons＝見送り理由の選択肢（2026-08-18の2段構成）。詳細(skipMemo)と同じく検索対象にする。
+          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", s.reviewMemo || "", s.skipMemo || "", s.tradeType || ""].concat(Array.isArray(s.skipReasons) ? s.skipReasons.filter(Boolean) : []).concat(_sigDetailNames(s));
         });
       }))).join(" ").toLowerCase();
       if (!hay.includes(kw)) return false;
@@ -1408,7 +1409,7 @@ function SearchView(_ref45) {
       })) return "charts";
       if (chartArr.some(function (c) {
         return c && (c.signals || []).some(function(s) {
-          return (s.rationale || "").toLowerCase().includes(kw) || (s.reflection || "").toLowerCase().includes(kw) || (s.thruMemo || "").toLowerCase().includes(kw) || (s.reviewMemo || "").toLowerCase().includes(kw) || (s.skipMemo || "").toLowerCase().includes(kw) || (s.tradeType || "").toLowerCase().includes(kw);
+          return (s.rationale || "").toLowerCase().includes(kw) || (s.reflection || "").toLowerCase().includes(kw) || (s.thruMemo || "").toLowerCase().includes(kw) || (s.reviewMemo || "").toLowerCase().includes(kw) || (s.skipMemo || "").toLowerCase().includes(kw) || (Array.isArray(s.skipReasons) && s.skipReasons.some(function(_r) { return String(_r || "").toLowerCase().includes(kw); })) || (s.tradeType || "").toLowerCase().includes(kw);
         });
       })) return "charts";
       if ((dd.items || []).some(function (t) {
@@ -3596,7 +3597,10 @@ function _dsWrite(m, date, list) {
 }
 function _dailyStockSet(save, date, stocks) {
   save(function(prev) {
-    return Object.assign({}, prev, { dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, Array.isArray(stocks) ? stocks : (stocks ? [stocks] : [])) });
+    return Object.assign({}, prev, {
+      dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, Array.isArray(stocks) ? stocks : (stocks ? [stocks] : [])),
+      dailyStockSeed: _dsSeedMark(prev, date)   // 明示的に設定した日も自動引き継ぎの対象外にする（_dailyStockToggleと同じ規約）
+    });
   });
 }
 // 指定のトグル（複数指定 2026-08-06）: 既に指定済みなら外す・未指定なら足す。
@@ -3606,7 +3610,51 @@ function _dailyStockToggle(save, date, stock) {
     var cur = _dailyStockList(prev, date).slice();
     var i = cur.indexOf(stock);
     if (i >= 0) cur.splice(i, 1); else cur.push(stock);
-    return Object.assign({}, prev, { dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, cur) });
+    return Object.assign({}, prev, {
+      dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, cur),
+      dailyStockSeed: _dsSeedMark(prev, date)   // 手で触った日は以後もう自動引き継ぎしない（下の規約を参照）
+    });
+  });
+}
+// ===== 前日の選定を引き継ぐ 2026-08-18（ユーザー要望「新しい日からはデフォルトで前日に選択されていた銘柄が選択されているように」）=====
+// ⚠️適用は**今日以降の日だけ**（ユーザー決定）。過去日は絶対に触らない。dailyStock は合計損益の算入判定の正本なので、
+//   遡って埋めると**過去の合計損益が変わる**（候補プールの銘柄にその日の記録があれば算入されてしまう）。
+// ⚠️「前日」＝暦の前日ではなく**その日より前で選定のある直近日**。暦の前日だと土日祝を挟む月曜が必ず空になり機能しない。
+// ⚠️引き継ぎは**1日につき1回きり**。data.dailyStockSeed[日付]=1 が「この日はもう自動で入れない」の印で、
+//   ①自動で入れたとき ②ユーザーが手で指定/解除したとき の両方で立てる。
+//   これが無いと「その日の指定を全部外す→開き直す→また入る」になる＝_dsWriteは0件でキーごと消すので、
+//   dailyStock だけでは「まだ選んでいない日」と「全部外した日」が区別できないため。
+function _dsSeedMark(prev, date) {
+  var o = Object.assign({}, (prev && prev.dailyStockSeed) || {});
+  o[date] = 1;
+  return o;
+}
+function _dsTodayStr() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+// その日より前で「本日の取引銘柄」が入っている最も近い日の選定（無ければ空配列）。日付キーはYYYY-MM-DDなので文字列比較で足りる。
+function _dailyStockPrevList(data, date) {
+  var m = (data && data.dailyStock) || null;
+  if (!m || !date) return [];
+  var best = "";
+  for (var k in m) { if (k < date && k > best && _dailyStockList(data, k).length) best = k; }
+  return best ? _dailyStockList(data, best) : [];
+}
+function _dsShouldSeed(data, date) {
+  if (!date || date < _dsTodayStr()) return false;                                 // 今日以降だけ
+  if (data && data.dailyStockSeed && data.dailyStockSeed[date]) return false;      // 自動済み or 手で触った日
+  if (_dailyStockList(data, date).length) return false;                            // 既に選定がある
+  return _dailyStockPrevList(data, date).length > 0;
+}
+// 実行。⚠️save の中で**もう一度**判定する＝呼び出し側のdataは古い可能性があり（同期やeffectの多重発火）、
+//   ここが最後の砦。prev基準で条件を満たさなければ何もしない（prevをそのまま返す＝保存も走らない）。
+function _dsSeedFromPrev(save, date) {
+  save(function(prev) {
+    if (!_dsShouldSeed(prev, date)) return prev;
+    var list = _dailyStockPrevList(prev, date);
+    if (!list.length) return prev;
+    return Object.assign({}, prev, {
+      dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, list),
+      dailyStockSeed: _dsSeedMark(prev, date)
+    });
   });
 }
 // 指定●の切替に「その日のその銘柄の記録」の合計算入を追従させる（複数指定 2026-08-06）。
@@ -4543,7 +4591,7 @@ function _EpnCalcForm(_p) {
         nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D", whiteSpace: "nowrap", background: "#EAF3DE", borderRadius: 5, padding: "2px 7px" } }, "浮き " + ((nUkiVal !== "" && !isNaN(Number(nUkiVal))) ? Number(nUkiVal) : 0) + "円") : null,
         nUkiUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#14532D" } }, "→ +" + ukiAddV + "円") : null
       ) : null,
-      (nUkiUsed === "○" && _epnUkiTbl) ? React.createElement("div", { onClick: function() { _setEpnUkiTbl(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると想定損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝" + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!date || r.date < date); }), function(r) { return _elAlphaInfo(r, data); }, nUkiSpecial ? "special" : "basic", null, _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories)))) : null)) : null,
+      (nUkiUsed === "○" && _epnUkiTbl) ? React.createElement("div", { onClick: function() { _setEpnUkiTbl(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算 詳細データ（円・全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足の加算を固定X円（0〜20円）に振り直すと想定損益が良かったか。★＝スコア最大の浮き足α値＝" + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!date || r.date < date); }), function(r) { return _elAlphaInfo(r, data); }, nUkiSpecial ? "special" : "basic", null, _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories)))) : null)) : null,
     // ⑤ライン併存ルール欄は廃止（2026-07-16）＝新規EPで〇にできない。過去の lineCoexist は保存のまま（記録一覧の「併存」バッジ_elAlphaTypeCellで識別・基本α自動1入力も廃止）。
     // 採用α（基本α/応用α セレクタ・記録フォームと同じ 2026-07-13・旧「基本α入力＋📊応用α詳細ボタン＋応用α〇×」を統合。応用α詳細表は上「本日の採用α値」の応用α『表を参照』で代替）
     (nUkiUsed !== "○") ? _lrow("採用α", React.createElement("div", null,
@@ -5111,6 +5159,11 @@ function DayView(_ref57) {
   var dayStock = dayStocks[0] || "";   // 表示の既定に使う先頭1つ（指定かどうかの判定は dayStocks.indexOf で行う）
   var _rotView = (rotViewStock && rotStocks.indexOf(rotViewStock) >= 0) ? rotViewStock : (dayStock || rotStocks[0] || "");   // タブ内の表示銘柄（指定の先頭優先→候補先頭）
   var dispStock = rotTabActive ? _rotView : activeStock;   // フル表示に渡す銘柄（タブ時=表示中の候補／通常時=固定銘柄）
+  // 前日の選定を引き継ぐ 2026-08-18: 今日以降の日を開いたとき、未選定なら直近の選定を既定として入れる（1日1回きり・過去日は触らない）。
+  // 依存は[date]だけ＝「日を開いたとき」の1回。dataが古くても_dsSeedFromPrevがsave内で再判定するので取りこぼし/二重書きにならない。
+  useEffect(function() {
+    if (_dsShouldSeed(data, date)) _dsSeedFromPrev(save, date);
+  }, [date]);
   useEffect(function () {
     return setWeekOffset(0);
   }, [activeStock]);

@@ -5861,6 +5861,21 @@ function _snShareMul(data, date) { return _snBaseShares(data, (date || "").slice
 // 「見送り」記録か 2026-08-12＝実エントリー4択のうち あり/スルー/要審議 のどれでもない既定状態（フォームの判定式と同じ）。
 // 無エントリーだが合計損益・分析母数には仮想損益で算入される＝×見送り(_epIsXSkip・足の×宣言)とは別物。混同しないこと。
 function _snIsSkipRec(s, item) { return !!(s && !_elIsEntered(s, item) && s.passThrough !== true && s.review !== true); }
+// ===== 見送り理由の2段構成 2026-08-18（ユーザー要望「選択肢＋詳細の2段に」）=====
+// ①選択肢＝signal.skipReasons[]（複数選択可）／②詳細＝signal.skipMemo（文章・従来のまま）。
+// 選択肢のマスターは data.custom.skipReasons（追加/改名/削除/並べ替え可・全端末同期）。既定は下の定数。
+// ⚠️マスターを改名すると過去記録の skipReasons も一括追従する（フォームの _renameSkipR）。この定数は追従しないので、
+//   ここに書いた名前で分岐する処理を足さないこと（名前一致で判定するコードを作らない）。
+var _DEF_SKIP_REASONS = ["見逃し", "エントリー迷い", "市場見れず"];
+// 見送り記録に理由が入っているか＝単一源。**選択肢と詳細のどちらかがあれば「理由あり」**。
+// ⚠️skipMemo だけを見てはいけない。2段構成の既定運用は「選択肢をタップするだけ・詳細は特殊な回だけ書く」なので、
+//   従来どおり skipMemo だけで判定すると、ちゃんと分類してある記録が軒並み「未記入」に数えられる。
+// 呼び出し元: EntryLogCard の赤字「見送り理由 未記入」(app-05)・記録帳の「理由なし」件数(app-06 skipNoMemo)。
+function _snSkipHasReason(s) {
+  if (!s) return false;
+  if (Array.isArray(s.skipReasons) && s.skipReasons.filter(Boolean).length > 0) return true;
+  return !!String(s.skipMemo || "").trim();
+}
 // 基礎取引株数スケールのグレード 2026-08-12: しきい値を「株数÷100」倍する。S〜G+の9段・enteredCount=0→Z。
 // ⚠️境界は「キリのいい額は下のグレードに入る」（2026-08-05gの規約）を株数倍したもの＝600株なら S は **15001円〜**。
 //   2501×6=15006 ではない。2501の「+1」は2500ちょうどをAに落とすためのオフセットなので、倍するのは2500の方＝2500×6+1。
@@ -6685,6 +6700,26 @@ function EntryRecordForm(_ref_erf) {
   var _useStateSKM = useState(initSig.skipMemo || ""),
     _useStateSKMA = _slicedToArray(_useStateSKM, 2),
     fSkipMemo = _useStateSKMA[0], setFSkipMemo = _useStateSKMA[1];
+  // 2026-08-18 見送り理由の①選択肢（複数選択可・signal.skipReasons[]）。②詳細は上の fSkipMemo（従来のまま）。
+  // ⚠️保存済みの名前がマスターから消えていても**選択状態は落とさない**（過去記録を開いて別項目を直すだけで理由が消える事故を防ぐ）。
+  //   マスターに無い名前は下のUIで「マスター外」チップとして選択済みのまま出す。
+  var _useStateSKR = useState(Array.isArray(initSig.skipReasons) ? initSig.skipReasons.filter(Boolean) : []),
+    _useStateSKRA = _slicedToArray(_useStateSKR, 2),
+    fSkipReasons = _useStateSKRA[0], setFSkipReasons = _useStateSKRA[1];
+  // 選択肢マスターの管理UI（追加/改名/削除/ドラッグ並べ替え）＝応用αの根拠選択肢(fRsnOrder/fRsnInput)と同方式。
+  //   window.prompt はiPad(standalone)で無反応なのでインライン入力にしている（2026-07-06e と同じ理由）。
+  var _useStateSKMG = useState(false),
+    _useStateSKMGA = _slicedToArray(_useStateSKMG, 2),
+    fSkipRsnMgr = _useStateSKMGA[0], setFSkipRsnMgr = _useStateSKMGA[1];
+  var _useStateSKO = useState(null),
+    _useStateSKOA = _slicedToArray(_useStateSKO, 2),
+    fSkipRsnOrder = _useStateSKOA[0], setFSkipRsnOrder = _useStateSKOA[1];
+  var _skipRsnDragRef = useRef(null);
+  var _skipRsnMovedRef = useRef(false);
+  var _useStateSKI = useState(null),
+    _useStateSKIA = _slicedToArray(_useStateSKI, 2),
+    fSkipRsnInput = _useStateSKIA[0], setFSkipRsnInput = _useStateSKIA[1];
+  var _skipRsnValRef = useRef("");
   // シグナル詳細（3セクション化 2026-07-07c）: 選択タグごとに {b:①底抜け(単一), k:②起点(単一), f:[③その他特徴...](複数)}・任意。signal.sigDetail={タグ名:{b,k,f}}。
   // 候補はcustom.sigDetails2={タグ名:{b,k,f}}（タグに無ければ旧custom.sigDetails[タグ]を各セクションへ複製表示）。
   // 旧記録(sigDetail[t]=文字列/フラット配列)は③その他特徴(f)として読み込む（_elSigDetailSec・ユーザー決定 2026-07-07）＝保存すると新形式{f:[...]}に置き換わる。
@@ -7831,7 +7866,10 @@ function EntryRecordForm(_ref_erf) {
       if (fEntered && fReal === "") _vm.push("実現損益");
       // 見送りの理由は必須。条件は _skipMemoReq（新規／選定外でない／EP到達）＝単一源なのでここには書かない（定義の側を読むこと）。
       // 埋まっていない記録は記録一覧の「見送り理由 未記入」バッジで拾える。
-      if (_skipMemoReq && !fEntered && fThru !== true && fReview !== true && !String(fSkipMemo || "").trim()) _vm.push("見送りの理由");
+      // 2026-08-18 2段構成化にともない、必須の対象は**①選択肢**（②詳細の文章は任意）。
+      //   よくある理由は選択肢をタップするだけで済ませ、特殊な回だけ詳細を書く運用にするため。
+      //   選択肢に無い理由のときは、その場で「＋追加」して選べる（UI側）。
+      if (_skipMemoReq && !fEntered && fThru !== true && fReview !== true && (fSkipReasons || []).filter(Boolean).length === 0) _vm.push("見送りの理由（選択肢）");
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (_ef.epIdx >= 0 && _hEmpty && _hConfirmed !== true) {
         window._snConfirm("H1/H2が未入力のままです。このまま保存しますか？\n（表ではー表示・H損益は集計から除外されます）").then(function(_ok){ if(_ok) handleSave(true); });
@@ -7866,6 +7904,8 @@ function EntryRecordForm(_ref_erf) {
       reviewMemo: (fReview === true && fReviewMemo) ? fReviewMemo : null,
       // 見送り＝あり/スルー/要審議のどれでもない既定状態。他の3つに切り替えたら理由は落とす（thruMemo/reviewMemoと同じ規約）2026-08-12
       skipMemo: (!fEntered && fThru !== true && fReview !== true && fSkipMemo) ? fSkipMemo : null,
+      // 見送り理由の選択肢 2026-08-18。見送り以外（あり/スルー/要審議）に切り替えたら null＝skipMemo と同じ扱い。
+      skipReasons: (!fEntered && fThru !== true && fReview !== true && (fSkipReasons || []).filter(Boolean).length) ? fSkipReasons.filter(Boolean) : null,
       result: fResult,
       memo: initSig.memo || "", 
       time: fTime || "",
@@ -8492,7 +8532,7 @@ function EntryRecordForm(_ref_erf) {
             ) : null
           );
         })(),
-        _ukiTblOpen ? React.createElement("div", { onClick: function() { _setUkiTblOpen(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算率 詳細データ（全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setUkiTblOpen(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足に入力した値の何％を加算すると想定損益が良かったか（0〜100%・10刻み）。★＝推奨加算率＝" + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!fDate || r.date < fDate); }), function(r) { return _elAlphaInfo(r, data); }, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null, _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories)))) : null) : null,
+        _ukiTblOpen ? React.createElement("div", { onClick: function() { _setUkiTblOpen(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算 詳細データ（円・全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setUkiTblOpen(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足の加算を固定X円（0〜20円）に振り直すと想定損益が良かったか。★＝スコア最大の浮き足α値＝" + (fUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!fDate || r.date < fDate); }), function(r) { return _elAlphaInfo(r, data); }, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null, _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories)))) : null) : null,
       (fUkiUsed !== "○") ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#64748B" } }, "採用α値"),
         React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3 } },
@@ -9365,18 +9405,180 @@ function EntryRecordForm(_ref_erf) {
       (!fEntered && fThru !== true && fReview !== true) ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#1E40AF", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "6px 9px" } },
           "見送り＝合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入）。"
-            + (_skipMemoReq ? "新規記録では理由の入力が必須です。"
+            + (_skipMemoReq ? "新規記録では理由（選択肢）の選択が必須です。詳細の文章は任意です。"
               : (_skipOptReason === "選定外" ? "この銘柄はこの日の選定外（日替わり銘柄の候補）なので、理由の入力は任意です。"
                 : (_skipOptReason === "未達" ? "この記録は未達（α＝EPに到達していない）＝入りようが無かったので、理由の入力は任意です。" : "")))),
         React.createElement("div", { style: SH_ }, "見送りの理由",
           _skipMemoReq ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須")
-            : (_skipOptReason ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700, marginLeft: 5, fontSize: 10 } }, "任意（" + _skipOptReason + "）") : null)),
+            : (_skipOptReason ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700, marginLeft: 5, fontSize: 10 } }, "任意（" + _skipOptReason + "）") : null),
+          React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます")),
+        // ①選択肢（マスター＝custom.skipReasons）。追加/改名/削除/ドラッグ並べ替えは応用αの根拠選択肢と同方式 2026-08-18。
+        (function() {
+          var _skRsnM = (data && data.custom && Array.isArray(data.custom.skipReasons)) ? data.custom.skipReasons : _DEF_SKIP_REASONS;
+          var _skRsns = (fSkipRsnOrder && fSkipRsnOrder.list) ? fSkipRsnOrder.list : _skRsnM;   // ドラッグ中は並びプレビュー
+          // 保存済みだがマスターに無い名前＝マスターから消された後の記録。**選択状態を落とさない**ために末尾へ別枠で出す。
+          var _skOrphans = (fSkipReasons || []).filter(function(x) { return x && _skRsns.indexOf(x) < 0; });
+          var _addSkipR = function(nm) {
+            nm = (nm || "").trim(); if (!nm) return;
+            save(function(prev) {
+              var cur = (prev.custom && Array.isArray(prev.custom.skipReasons)) ? prev.custom.skipReasons : _DEF_SKIP_REASONS.slice();
+              if (cur.indexOf(nm) >= 0) return prev;
+              return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { skipReasons: cur.concat([nm]) }) });
+            });
+            // 追加したものはそのまま選択状態にする＝「追加→もう一度タップして選ぶ」の二度手間を無くす。
+            setFSkipReasons(function(p) { return (p || []).indexOf(nm) >= 0 ? p : (p || []).concat([nm]); });
+          };
+          var _delSkipR = function(nm) {
+            save(function(prev) {
+              var cur = (prev.custom && Array.isArray(prev.custom.skipReasons)) ? prev.custom.skipReasons : _DEF_SKIP_REASONS.slice();
+              return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { skipReasons: cur.filter(function(x) { return x !== nm; }) }) });
+            });
+            setFSkipReasons(function(p) { return (p || []).filter(function(x) { return x !== nm; }); });
+          };
+          // 改名: マスターの名前を変え、過去記録(全charts.signalsのskipReasons[])も一括追従。既存名への改名は「統合」(dedupe)。
+          var _renameSkipR = function(oldNm, newNm) {
+            newNm = (newNm || "").trim();
+            if (!newNm || newNm === oldNm) return;
+            save(function(prev) {
+              var cur = (prev.custom && Array.isArray(prev.custom.skipReasons)) ? prev.custom.skipReasons : _DEF_SKIP_REASONS.slice();
+              var _rnM = cur.map(function(x) { return x === oldNm ? newNm : x; });
+              var newMaster = _rnM.filter(function(x, i) { return x && _rnM.indexOf(x) === i; });
+              var charts = prev.charts || {}, newCharts = {};
+              Object.keys(charts).forEach(function(ck) {
+                var c = charts[ck];
+                if (!c || !Array.isArray(c.signals)) { newCharts[ck] = c; return; }
+                var changed = false;
+                var sigs = c.signals.map(function(s) {
+                  if (!s || !Array.isArray(s.skipReasons) || s.skipReasons.indexOf(oldNm) < 0) return s;
+                  var _rl = s.skipReasons.map(function(x) { return x === oldNm ? newNm : x; });
+                  changed = true;
+                  return Object.assign({}, s, { skipReasons: _rl.filter(function(x, i) { return x && _rl.indexOf(x) === i; }) });
+                });
+                newCharts[ck] = changed ? Object.assign({}, c, { signals: sigs }) : c;
+              });
+              return Object.assign({}, prev, {
+                custom: Object.assign({}, prev.custom || {}, { skipReasons: newMaster }),
+                charts: newCharts
+              });
+            });
+            setFSkipReasons(function(p) {
+              var _n = (p || []).map(function(x) { return x === oldNm ? newNm : x; });
+              return _n.filter(function(x, i) { return x && _n.indexOf(x) === i; });
+            });
+          };
+          var _skOptBtn = function(label, sel, onClick, dashed, title) {
+            return React.createElement("button", { type: "button", onClick: onClick, title: title || null,
+              style: { padding: "3px 9px", fontSize: 11, fontWeight: sel ? 800 : 600,
+                border: sel ? "2px solid #1D4ED8" : (dashed ? "1px dashed #bbb" : "1px solid #ddd"),
+                background: sel ? "#EFF6FF" : "#fff", color: sel ? "#1D4ED8" : "#666",
+                borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } }, label);
+          };
+          return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 } },
+            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 } },
+              _skRsns.map(function(rsn) {
+                var on = (fSkipReasons || []).indexOf(rsn) >= 0;
+                var _d0 = _skipRsnDragRef.current;
+                var _dragging = !!(_d0 && _d0.started && _d0.name === rsn);
+                return React.createElement("span", { key: rsn, "data-skiprsn": rsn,
+                  // ⚠️data属性は応用αの根拠チップ(data-rsn)と**別名**にすること。同じ画面に両方出るので、同名だと掴んだチップが混線する。
+                  onPointerDown: function(e) {
+                    // setPointerCaptureはドラッグ開始まで呼ばない＝タップ時にclickがretargetされ内側buttonのonClickが発火しない不具合の回避（2026-07-06gと同じ）。
+                    _skipRsnDragRef.current = { name: rsn, sx: e.clientX, sy: e.clientY, started: false, list: null };
+                  },
+                  onPointerMove: function(e) {
+                    var d = _skipRsnDragRef.current;
+                    if (!d || d.name !== rsn) return;
+                    if (!d.started) {
+                      if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
+                      d.started = true;
+                      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e0) {}
+                      d.list = _skRsnM.slice();
+                      _skipRsnMovedRef.current = true;
+                      setFSkipRsnOrder({ list: d.list.slice() });
+                      return;
+                    }
+                    var el = document.elementFromPoint(e.clientX, e.clientY);
+                    var chip = (el && el.closest) ? el.closest("[data-skiprsn]") : null;
+                    if (!chip) return;
+                    var over = chip.getAttribute("data-skiprsn");
+                    if (!over || over === d.name) return;
+                    var lst = d.list.slice();
+                    var fi = lst.indexOf(d.name), ti = lst.indexOf(over);
+                    if (fi < 0 || ti < 0 || fi === ti) return;
+                    lst.splice(fi, 1); lst.splice(ti, 0, d.name);
+                    d.list = lst;
+                    setFSkipRsnOrder({ list: lst.slice() });
+                  },
+                  onPointerUp: function() {
+                    var d = _skipRsnDragRef.current;
+                    _skipRsnDragRef.current = null;
+                    if (d && d.started && d.list) {
+                      var _fin = d.list.slice();
+                      save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { skipReasons: _fin }) }); });
+                      setTimeout(function() { _skipRsnMovedRef.current = false; }, 0);
+                    }
+                    setFSkipRsnOrder(null);
+                  },
+                  onPointerCancel: function() { _skipRsnDragRef.current = null; _skipRsnMovedRef.current = false; setFSkipRsnOrder(null); },
+                  style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none",
+                    boxShadow: _dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null,
+                    transform: _dragging ? "scale(1.06)" : null,
+                    opacity: _dragging ? 0.9 : null } },
+                  _skOptBtn(rsn, on, function() {
+                    if (_skipRsnMovedRef.current) { _skipRsnMovedRef.current = false; return; }   // ドラッグ直後のclickは選択に変換しない
+                    setFSkipReasons(on ? (fSkipReasons || []).filter(function(x) { return x !== rsn; }) : (fSkipReasons || []).concat([rsn]));
+                  }, false, null),
+                  fSkipRsnMgr ? React.createElement(React.Fragment, null,
+                    React.createElement("button", { type: "button", title: "この選択肢の名前を変更（過去の記録の理由名も一括変更）", onClick: function() { if (_skipRsnMovedRef.current) { _skipRsnMovedRef.current = false; return; } _skipRsnValRef.current = rsn; setFSkipRsnInput({ old: rsn, val: rsn }); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "✎"),
+                    React.createElement("button", { type: "button", title: "この選択肢を削除（過去の記録に付いた理由名はそのまま残ります）", onClick: function() { if (_skipRsnMovedRef.current) { _skipRsnMovedRef.current = false; return; } setFSkipRsnInput(null); _delSkipR(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×")
+                  ) : null);
+              }),
+              // マスターから消された名前が付いている記録＝選択済みのまま出す（点線枠）。タップで外せるが並べ替え・改名の対象にはしない。
+              _skOrphans.map(function(rsn) {
+                return _skOptBtn(rsn + "（一覧外）", true, function() {
+                  setFSkipReasons((fSkipReasons || []).filter(function(x) { return x !== rsn; }));
+                }, true, "選択肢の一覧には無い名前です（この記録に保存されています）。外すとこの記録から消えます");
+              }),
+              (function() {
+                var _open = !!(fSkipRsnInput && fSkipRsnInput.old == null);
+                return React.createElement("button", { type: "button", title: "見送り理由の選択肢を追加（その場で入力・追加したものはこの記録にも選択されます）", onClick: function() {
+                  if (_open) { setFSkipRsnInput(null); return; }
+                  _skipRsnValRef.current = "";
+                  setFSkipRsnInput({ val: "" });
+                }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: _open ? "1px solid #0369A1" : "1px solid #ddd", background: _open ? "#EFF6FF" : "#fff", color: "#0369A1", borderRadius: 5, cursor: "pointer" } }, _open ? "✕ 閉じる" : "＋ 追加");
+              })(),
+              React.createElement("button", { type: "button", title: "選択肢の名前変更・削除モード（✎で改名・×で削除）。並べ替えはチップを長押しドラッグ", onClick: function() { setFSkipRsnMgr(!fSkipRsnMgr); setFSkipRsnInput(null); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid " + (fSkipRsnMgr ? "#B91C1C" : "#ddd"), background: fSkipRsnMgr ? "#FEF2F2" : "#fff", color: fSkipRsnMgr ? "#B91C1C" : "#888", borderRadius: 5, cursor: "pointer" } }, fSkipRsnMgr ? "完了" : "✎ 編集")
+            ),
+            fSkipRsnInput ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 2, alignItems: "center", flexWrap: "wrap" } },
+              fSkipRsnInput.old != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "『" + fSkipRsnInput.old + "』を改名:") : null,
+              React.createElement(FastInput, {
+                type: "text",
+                value: fSkipRsnInput.val || "",
+                onChange: function(v) { _skipRsnValRef.current = v; setFSkipRsnInput(function(p) { return p ? Object.assign({}, p, { val: v }) : p; }); },
+                placeholder: fSkipRsnInput.old != null ? "新しい名前" : "新しい見送り理由の選択肢",
+                style: { flex: 1, minWidth: 120, padding: "6px 9px", fontSize: 12, border: "1px solid #93C5FD", borderRadius: 6, background: "#fff", boxSizing: "border-box" }
+              }),
+              React.createElement("button", { type: "button", onClick: function() {
+                _fiFlushAll();
+                var _nm = (_skipRsnValRef.current || "").trim();
+                if (!_nm) return;
+                if (fSkipRsnInput.old != null) _renameSkipR(fSkipRsnInput.old, _nm); else _addSkipR(_nm);
+                _skipRsnValRef.current = "";
+                setFSkipRsnInput(null);
+              }, style: { padding: "6px 14px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" } }, fSkipRsnInput.old != null ? "変更" : "追加"),
+              React.createElement("button", { type: "button", onClick: function() { _skipRsnValRef.current = ""; setFSkipRsnInput(null); }, style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "✕")
+            ) : null
+          );
+        })(),
+        // ②詳細（文章）＝従来の skipMemo。必須は選択肢の側に移ったのでここは常に任意。
+        React.createElement("div", { style: SH_ }, "詳細",
+          React.createElement("span", { style: { color: "#6B7280", fontWeight: 700, marginLeft: 5, fontSize: 10 } }, "任意")),
         React.createElement(FastInput, {
           multiline: true,
           autoResize: true,
           value: fSkipMemo,
           onChange: function(v) { setFSkipMemo(v); },
-          placeholder: "なぜ入らなかったか（記録帳の月間・週間タブで「見送りコスト」として集計されます）",
+          placeholder: "選択肢だけで足りないときに書く（記録帳の月間・週間タブで「見送りコスト」として集計されます）",
           rows: 2,
           style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56, marginBottom: 8 })
         })
@@ -9694,8 +9896,18 @@ function EntryLogCard(_ref_elc) {
         // （新規では必須にしたが既存は素通しなので、後からまとめて埋めるための目印）。
         // ⚠️「未記入」を出すのは**EPに到達している記録だけ** 2026-08-12d。未達はフォーム側でも必須から外した（入りようが無かった＝書く意味がない）ので、
         //   ここで赤字を出すと「埋めなければいけない記録」の目印として使えなくなる（未達は毎日出るので赤だらけになる）。理由が書いてあれば未達でも表示する。
-        _snIsSkipRec(s, item) ? (s.skipMemo
-          ? React.createElement("div", { style: { fontSize: 11, color: "#1E40AF", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #93C5FD" } }, React.createElement("span", { style: { color: "#2563EB", fontWeight: 700, marginRight: 3 } }, "見送り理由"), s.skipMemo)
+        // 2026-08-18 2段構成化: ①選択肢(skipReasons[])をバッジで、②詳細(skipMemo)を従来どおり本文で出す。
+        //   「未記入」の判定は _snSkipHasReason（選択肢と詳細のどちらかがあれば理由あり）＝選択肢だけの記録を赤字にしない。
+        _snIsSkipRec(s, item) ? (_snSkipHasReason(s)
+          ? React.createElement("div", { style: { paddingLeft: 6, borderLeft: "2px solid #93C5FD", display: "flex", flexDirection: "column", gap: 2 } },
+              (Array.isArray(s.skipReasons) && s.skipReasons.filter(Boolean).length) ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 3 } },
+                React.createElement("span", { style: { fontSize: 11, color: "#2563EB", fontWeight: 700, marginRight: 1 } }, "見送り理由"),
+                s.skipReasons.filter(Boolean).map(function(_r) {
+                  return React.createElement("span", { key: _r, style: { fontSize: 10, fontWeight: 700, color: "#1D4ED8", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, _r);
+                })) : null,
+              s.skipMemo ? React.createElement("div", { style: { fontSize: 11, color: "#1E40AF", lineHeight: 1.5, whiteSpace: "pre-wrap" } },
+                (Array.isArray(s.skipReasons) && s.skipReasons.filter(Boolean).length) ? null : React.createElement("span", { style: { color: "#2563EB", fontWeight: 700, marginRight: 3 } }, "見送り理由"),
+                s.skipMemo) : null)
           : (_epReachedAt(s, _alpElc) ? React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#B91C1C" } }, "見送り理由 未記入") : null)) : null,
         s.rationale ? React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, "根拠: " + s.rationale) : null,
         s.reflection ? React.createElement("div", { style: { fontSize: 11, color: "#777", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #e0ddd6" } }, s.reflection) : null

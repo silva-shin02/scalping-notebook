@@ -123,7 +123,13 @@ Calendar, EventCategoryManagementModal, _hdRecentRecords, _hdEnteredOnly, _hdTag
 - `_SN_BASE_SHARES_DEF`(=1000) / `_snBaseShares(data, ym)` / `_snShareMul(data, date)` … 月ごとの基礎取引株数。保存は **`custom.baseShares = {"2026-08":600,…}`**（全端末同期）。**未設定の月は1000株**＝従来の `_profitGradeFromPnlReal`（通常スケールの10倍・S=25001円〜）と数字が完全に一致するので、入れるまで見え方は変わらない。`_snShareMul` は「その月の株数÷100」＝**記録1件ごとに引く**こと（週が月をまたいでも各記録が自分の月の株数で換算される。週合計を後から1つの株数で割ると月境界で狂う）。
 - `_profitGradeFromPnlScaled(pnl, cnt, shares)` … しきい値を「株数÷100」倍したグレード。⚠️境界は**2500×倍率+1**（「キリのいい額は下のグレードに入る」2026-08-05gの規約を株数倍したもの）＝600株なら S は **15001円〜**（2501×6=15006 ではない）。shares=100 で `_profitGradeFromPnl`・shares=1000 で `_profitGradeFromPnlReal` と全境界一致することをブラウザで検算済み。**使うのは app-06 の月間・週間タブだけ**＝アプリ全体の `_profitGradeFromPnlReal` は無改修なので他画面の見え方は不変。
 - `_snIsSkipRec(s, item)` … 「見送り」記録か＝実エントリー4択で あり/スルー/要審議 のどれでもない既定状態。⚠️**×見送り(`_epIsXSkip`＝足の×宣言)とは別物**。⚠️**EP未達の記録も他の状態を選んでいなければここに入る**（フォームの既定が見送りのため）。
-- **見送りの理由 `signal.skipMemo`** … スルー(`thruMemo`)・要審議(`reviewMemo`)と同じ形（`FastInput` multiline+autoResize）。state=`fSkipMemo`・保存はフォーム保存の `reviewMemo` の隣・表示は `EntryLogCard` の審議根拠の下（理由が無い見送りは赤字「見送り理由 未記入」）。検索対象にも追加（app-04 L1273/L1411）。
+- `_DEF_SKIP_REASONS` / `_snSkipHasReason(s)` … 見送り理由の選択肢の既定配列と、「理由あり」判定の単一源（2026-08-18・`_snIsSkipRec` の直後に定義）。詳細は次項。
+- **見送りの理由**（2026-08-18 に**2段構成**化）… ①**選択肢 `signal.skipReasons[]`（複数選択可）**＋②**詳細 `signal.skipMemo`（文章）**。表示は `EntryLogCard` の審議根拠の下（①はバッジ・②は本文）。検索対象は両方（app-04 L1273/L1411）。
+  - **選択肢マスターは `data.custom.skipReasons`**（既定＝`_DEF_SKIP_REASONS = ["見逃し","エントリー迷い","市場見れず"]`）。追加/改名/削除/ドラッグ並べ替えが**フォーム内で**でき、応用αの根拠選択肢（`custom.specialReasons`）と同方式。state=`fSkipReasons`（選択値）/`fSkipRsnMgr`（✎編集モード）/`fSkipRsnOrder`（ドラッグ中の並びプレビュー）/`fSkipRsnInput`（インライン追加・改名）＋ref `_skipRsnDragRef`/`_skipRsnMovedRef`/`_skipRsnValRef`。
+  - ⚠️**チップの `data-skiprsn` は応用α根拠の `data-rsn` と別名にしてある**。同じ画面に両方出るので、同名にすると `closest("[data-...]")` で掴んだチップが混線する。
+  - ⚠️**改名は過去記録の `skipReasons` も一括追従**（`_renameSkipR`・既存名への改名は統合＝dedupe）。削除はマスターから消すだけで**過去記録に付いた名前は残る**。残った名前は編集時に「〇〇（一覧外）」の点線チップで選択済みのまま出す＝別項目を直すだけで理由が消える事故を防ぐ。
+  - **「理由あり」の判定は `_snSkipHasReason(s)`（app-05・単一源）＝選択肢と詳細のどちらかがあればtrue**。⚠️`skipMemo` だけを見てはいけない（既定運用は「選択肢をタップするだけ」なので、分類済みの記録が軒並み「未記入」に数えられる）。呼び出し元は `EntryLogCard` の赤字「見送り理由 未記入」と app-06 の「理由なし」件数(`skipNoMemo`)。
+  - **必須の対象は①選択肢だけ**（②詳細は常に任意）。2026-08-18のユーザー決定。選択肢に無い理由のときは「＋追加」でその場に足せる（追加したものは自動で選択される）。
   - **必須判定は `_skipMemoReq = !isEdit && !_indDataOnlyCand && _fEpIdxLive >= 0`（単一源）**。バリデーション(`handleSave` の `_vm`)とUI（必須バッジ・案内文）の両方がこれを見る＝片方だけ直して食い違うのを防ぐ。**定義は `_fEpIdxLive`（EP位置のライブ導出）の直後**＝EP位置を見るので `_indDataOnlyCand` の場所には置けない。任意のときの理由ラベルは `_skipOptReason`（"選定外"/"未達"/null）。
   - **新規限定(`!isEdit`)** … 既存の見送り記録は全部が理由なしなので、編集でも必須にすると「昔の記録を開いて別項目を直す→保存できない」になる。
   - **選定外を除外(`!_indDataOnlyCand`) 2026-08-12b**（ユーザー要望「日替わり銘柄のうち選定外のものは入力不要に」）… 選定外＝`custom.rotatingStocks` の銘柄で、その日の「本日の取引銘柄」(`dailyStock[日]`・判定は `_dailyStockHas`)に選ばれていないもの。そもそも張り付いて見ていた日ではないので「選定外」としか書きようがない。**合計算入OFF既定(`_indDataOnlyCand`)と同じ判定を使い回している**＝候補の扱いがフォーム内で1本になる。
@@ -157,6 +163,18 @@ _EL_OSC_BANDS（OS連鎖分析用OS帯=下落/0〜4/5〜9/10〜14/15〜19/20円�
 
 - **app-06.js 🗓 期間指定（カレンダー）2026-07-12（EntryLogView）**: 上部の期間セレクトに新オプション `range`（🗓 期間指定）を追加。新state `rngFrom`/`rngTo`（"YYYY-MM-DD"・空=最古から/今日まで）。`_periodRecs` を `period==="range"` のとき日付範囲でフィルタ（それ以外は従来通り `_elFilterPeriod`）＝ v2recs→シグナル軸→全分析タブ（集計/📊OS値の分析/α値/損切り/未達/期間/深掘り/シミュ）の母数がその期間に追随。UIは `_rngBar`（月ピッカー`input[type=month]`＝選ぶと1日〜末日／開始日・終了日`input[type=date]`／プリセット 今月・先月・今日まで・クリア／右端に「開始〜終了・N件」）。※全銘柄合算の集計タブ「〇年〇月データ早見」は従来通り期間セレクト非依存（_stockAllV2ベース）。
 
+- **app-06.js 🩹 補正は必要だったか 2026-08-18（α値タブ→② 応用α の末尾・根拠セレクタ連動）**: `_elSpAltRow(r, aiOf, recoFn)`（1記録ぶんの反実仮想行）＋ `_elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel)`（セクション本体）。応用α〇の記録に「その日の推奨基本αのままにしていたら」を当て直し、想定損益（手じまい）の差額を記録ごとに出して合計・判定・件数内訳を表示する。**型は `🔁 応用α換算`（`_elUkiAltRow`）の流用**。
+  - ⚠️**符号は「補正の効果」＝実際(応用α) − 補正なし(基本α)**（プラス＝補正して正解）。**`_elUkiAltRow` の diff は逆向き（alt − cur）** なので取り違えないこと。
+  - 母数＝`_alAddPool`（**根拠セレクタ通過後**の応用〇・浮き足/RN除外＝推奨応用αと同じ母数）。recoFn の母数＝`_selSigRecs`（根拠で絞らないシグナル全体＝基本α履歴は根拠に依らない・既存規約 app-06:7805）。
+  - `_elKabuRecoBaseFn` が「その日より前」だけで算出するので **look-ahead 無し**。損切り値は記録の採用値のまま両側に使う＝αだけの比較。
+  - 片側がエントリー不成立でも**0円で両側に算入**（2026-07-27の🔁応用α換算と同規約）。真の比較不可は推奨基本αが出ない日だけで、その行は `opacity:0.45` で薄くし合計から除く。
+  - ⚠️旧 `_elAddAlphaSectionV2`（app-06:3267）の「🎯 足して正解だったか」は **2026-07-13以降どこからも呼ばれていないデッドコード**。今回も復活させていないので、似た機能を探すときに間違えて拾わないこと。
+  - **2026-08-18e 📡シグナル総合にも設置**（`_SIG_TABS` の `["spn","🩹 補正要否"]`）。母数＝全銘柄の応用〇プール・根拠セレクタは `alphaReasonFil` をα値タブと共有。⚠️こちらは第6引数 `byStock=true` で呼ぶ＝**recoFnを銘柄ごとに作る**（全銘柄を1母数にすると混合基本αとの比較になり反実仮想が壊れる）。
+
+- **app-04.js 日替わり銘柄の前日引き継ぎ 2026-08-18**: `_dsSeedMark` / `_dsTodayStr` / `_dailyStockPrevList` / `_dsShouldSeed` / `_dsSeedFromPrev`（`_dailyStockToggle` の直後）＋ `DayView` の `useEffect(...,[date])`。今日以降の日を開いたとき、未選定なら**その日より前で選定のある直近日**の選定を既定として入れる。
+  - ⚠️**過去日は絶対に触らない**。`dailyStock` は合計損益の算入判定の正本なので、遡ると過去の合計が変わる。
+  - ⚠️印は `data.dailyStockSeed[日付]=1`（新しいトップレベルのマップ・汎用マージで同期）。**自動で入れたときと手で指定/解除したときの両方**で立てる＝全部外した日を開き直しても復活しない（`_dsWrite` は0件でキーを消すので `dailyStock` だけでは「未選定」と「全部外した」が区別できない）。
+
 ## app-07.js (元 L31105-36524)
 useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に見て旧cat/ni.subCatも併用 2026-08-03e）**, _shvIsStockNewsTag, _csCollectNewsForStock, _ntExtractStockFromTag, _aggregateBarsToDaily, ChartSectionDailyCandle, _parseDailyCsv, _bizDaysBetween, _dcVerifiedStocks, _dcSaveCsvToFb, _dcLoadCsvUploadedAt, _dcLoadCsvFromFb, _dcCacheLoad, _dcCacheSave, _calcEMA, _pickPriceStep, DailyCandleChart, _nhvUpdateNi, _nhvDeleteNi, _nhvCollectFlat, NewsHistoryView, _shvCollectFlat, _shvCollectSoukatsu, _shvTogPin, _shvAppendToToday, _SummaryCard, SummaryHistoryView, SI_DEFAULT_TAB_NAMES, SI_TEMPLATE_TAB_NAMES, _siFormatRelTime, _siGetTabs, _siSetTabs, _siGetTabContent, _siUpdateTabContent, _siAddTab, _siDelTab, _siRenameTab, _siReorderTab, _siCopyFromOtherStock, StockInfoTabsManagementModal, _renderUnsavedDialog, MemoEditableField, StockInfoSection, StockHistoryView
 **2026-08-03e NewsHistoryView を保存済みライブラリに**
@@ -169,6 +187,15 @@ useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に
 HomeEventFormModal, App
 
 **【ホームヘッダの月次表示 2026-08-17】`App` 内: `_mAgg`＝`_snMonthPnlAgg(data,cY,cM)`（app-05）を呼ぶだけに縮小（旧＝data.chartsを自前走査して`realizedPnl`だけ合計していた）／`_homeChips`＝4チップの定義配列（損益・取引・勝率・**営業日**。各チップ `{la,v,c,sub,subGrade,title}` の2段構成で、下段の小書きは「1日あたり」＝**経過営業日 `bizDone` で割る**。グレードバッジは1日あたりにだけ付ける＝月の合計額に通常スケールを当てても全部Sになるため）／月見出し行の `»` と `今日` ボタンの**間**に営業日数ピル（`_snBizDaysLabel`）。
+
+**【ホームヘッダの配置 2026-08-18】`App` 内: KPIチップ行と入口ボタンを**別コンテナに分離**（旧＝同じ `flexWrap` 行に同居）。外側は `{flex:"1 1 100%"}` だけの素の入れ物で、中に2行を縦に積む。
+- ①**チップ行**＝`{display:"grid", gridTemplateColumns:…, gap:8, alignItems:"stretch"}`（`_homeChips` 5枚）。**flexではなくgrid**＝列が伸縮して常に全幅を埋めるので、右余白が出ず折り返しも起きない。
+  - 列指定は `IS_TOUCH ? "repeat(auto-fit,minmax(130px,1fr))" : "minmax(0,1.25fr) minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)"`。損益・実現だけ1.25倍幅。
+  - ⚠️**`minmax(0,…)` を外してはいけない**。`1fr` の既定は `minmax(auto,1fr)` で列が中身の最小幅より縮まず、狭い窓でヘッダごと横にはみ出す。
+  - ⚠️タッチ端末を `auto-fit` にしているのは、iPad縦で5列に潰さず2〜3列へ折り返させるため。
+- ②**ボタン行**＝`{display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", marginTop:8}`。記録帳・ニュース一覧・メモ·アイディア一覧を左、**`＋予定` にだけ `marginLeft:"auto"`** を付けて右端へ隔離（唯一の「作る」操作なので押し間違い防止）。
+- ⚠️`_mChipMinH`（チップ高さの決め打ち）は**廃止**。行が独立して `alignItems:"stretch"` が使えるようになり、いちばん背の高いチップに他が自動で揃うため。
+- 実測（幅700〜1920pxで確認）: チップは**常に1段・グリッド幅＝利用可能幅ちょうど（右余白0px）・横スクロールなし**。`＋予定` の右端はグリッドの右端とpx単位で一致する。
 
 ## app-09.js（新規 2026-08-05・分割前コードには対応部分なし）
 `_dtsYmToIdx` / `_dtsIdxToYm` / `_dtsYmLbl` / `_dtsMonthCount` / `_dtsPickByYm` / `_dtsNumOrNull` / **`_dtsSimulate`（計算コア）** / `_DTS_SENS` / `_dtsSensitivity` / `_dtsFmtYen` / `_dtsFmtMan` / `_dtsFmtPct` / `_dtsUseTone` / `_dtsInitCfg` / `DtsNum` / `DtsYm` / `_dtsSec` / `_dtsRow` / `_dtsLbl` / **`_dtsAlphaMark`（丸囲みα）/ `_dtsSwitchRow`（⑤の切替）** / **`DaytradeProjection`（UI本体）** / `_dtsHeader` / `_dtsSummaryCards` / `_dtsXLbl` / `_dtsSvgText` / **`_dtsChartAssets` / `_dtsChartPower`（自前SVGグラフ）** / `_dtsLegend` / **`_dtsHitIdx` / `_dtsTipD` / `DtsChartBox`（ホバー）** / `_dtsCharts` / **`_DTS_UP`/`_DTS_DOWN`/`_DTS_ZERO`（表の配色）/ `_dtsAlign` / `_dtsOut` / `_dtsRest` / `_dtsFlow` / `_DTS_W_TONE`/`_DTS_W_FLOW`** / `_dtsTable` / **`_dtsWarnBox`（効いていない前提の警告欄）** / `_dtsMarks` / `_dtsReachTarget` / `_dtsSensTable`
@@ -343,6 +370,84 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-08-18f 浮き足の「%テーブル」を全撤去（app-04/05/06 / sw v448→v449）
+- ユーザー要望「浮足％テーブルはもう不要」。撤去範囲は**%テーブルだけ**（ユーザー選択）＝タブや他のブロックは残す。
+- 消したのは**描画4か所**: ①📡シグナル総合→⚡浮き足 ②銘柄タブ→シグナル別→浮き足（`_elFloatReasonSectionV2`）③記録フォームの📊モーダル ④EPナビの📊モーダル。③④は `_elUkiPctBoardScoped` 経由なので実質2関数の修正で足りる。
+- 実体ごと削除した関数2つ:
+  - `_elUkiPctSweepNode`（%テーブルの描画）… 撤去後どこからも呼ばれなくなったため。
+  - `_elUkiPctBoardV2`（全銘柄共通の%ボード）… **2026-07-18に `_elUkiPctBoardScoped` へ置き換わって以降すでにデッド**で、中身は%テーブルを描くだけだった。
+- ⚠️**`_elUkiPctSweep`（計算側）は残してある**。フォーム/EPナビの推奨%（`_elUkiRecoPcts` / `_elUkiRecoPctsScoped`）と、シグナル別2段テーブルの推奨%(`bestP`)がこの値を使う。**「表が無い＝%の仕組みも無い」ではない**ので消さないこと。浮き足加算の自動入力は無傷。
+- ⚠️共通描画の `_elUkiSweepNodeCore` は**円版（`_elUkiValSweepNode`）が使い続ける**ので存置。
+- 残るのは**円建てブロック（`_elUkiValBoardBlock`）**で、これが浮き足加算の唯一の最適化表になった。説明文の「上の%表と同じ母数」という参照は外した。
+- 表示の辻褄合わせ: サブタブ名「⚡ 浮き足%」→**「⚡ 浮き足」**、見出し「⚡ 浮き足加算率の最適化」→**「⚡ 浮き足加算の最適化（円）」**、フォーム/EPナビのモーダル題「加算率 詳細データ」→**「加算 詳細データ（円）」**と説明文も円建てへ差し替え。
+- ⚠️**⚡浮き足タブそのものは残っている**＝中の `🔁 応用α換算`（FILEMAPに「残すべき」と判断が記録されている）と KPI早見・記録一覧は無傷。
+
+### 2026-08-18e 「🩹 補正要否」を📡シグナル総合にも追加（app-06 / sw v447→v448）
+- ユーザー要望「さっきのα値タブの件はシグナル総合でも見えるようにして」。`_SIG_TABS` に `["spn","🩹 補正要否"]` を追加（🛑損切りの右・⚡浮き足%の左）。
+- 母数＝全銘柄の応用〇プール（`_v2recsAllData.filter(_elIsSpecialAlphaPoolRec)`）＝α値タブの `_alAddPool` と同じ判定。
+- 根拠セレクタは**α値タブと同じ state（`alphaReasonFil`）を共有**＝タブを行き来しても選んだ根拠が続く。候補と件数はこのタブの母数（全銘柄）から作り直す。
+- ⚠️**`_elSpNeedSectionV2` に第6引数 `byStock` を追加**し、シグナル総合では `true` で呼ぶ＝**recoFn（その日の推奨基本α）を銘柄ごとに作る**。全銘柄を1母数にすると「銘柄をまたいで混ぜた推奨基本α」との比較になり、誰も使っていない値が相手になって反実仮想が壊れる。既存のα値タブからの呼び出しは引数を足していないので `byStock=false`＝従来どおり単一母数。
+- 確認: 銘柄AAA/BBBで推奨基本αが違うスタブを与え、**recoFnが銘柄ごとに1つずつ作られること**と、各記録が自分の銘柄の基本αと比較されることを検証（+1,500 / −2,000 → 合計 −500）。
+
+### 2026-08-18d 日替わり銘柄: 新しい日は前日の選定を既定にする（app-04 / sw v447→v448）
+- ユーザー要望「新しい日からは、デフォルトで前日に選択されていた銘柄が選択されているように」。
+- 新設: `_dsSeedMark` / `_dsTodayStr` / `_dailyStockPrevList` / `_dsShouldSeed` / `_dsSeedFromPrev`（app-04・`_dailyStockToggle` の直後）＋ `DayView` に `useEffect(..., [date])` を1つ。
+- ⚠️**適用は今日以降の日だけ**（ユーザー決定）。`dailyStock` は**合計損益の算入判定の正本**なので、過去日に遡って埋めると**過去の合計損益が変わる**（候補プールの銘柄にその日の記録があれば算入されるため）。過去日は一切触らない。
+- ⚠️**「前日」＝暦の前日ではなく「その日より前で選定のある直近日」**。暦の前日だと土日祝を挟む月曜が必ず空になり機能しない。
+- ⚠️**引き継ぎは1日1回きり**。印は新しいトップレベルのマップ `data.dailyStockSeed[日付]=1` で、**①自動で入れたとき ②ユーザーが手で指定/解除したとき**の両方で立てる（`_dailyStockToggle`/`_dailyStockSet` にも追記）。
+  - これが無いと「その日の指定を全部外す→開き直す→また入る」になる。`_dsWrite` は0件でキーごと消すので、`dailyStock` だけでは**「まだ選んでいない日」と「全部外した日」が区別できない**のが理由。
+  - 新キーは top-level なので同期は汎用マージ（`_mergeRemoteMeta`）に乗る＝`dailyStock`/`foreignMarkets` と同じ扱い。
+- ⚠️`_dsSeedFromPrev` は **`save` の中でもう一度 `_dsShouldSeed` を判定**する。effectの依存は `[date]` だけで `data` が古い可能性があるため、prev基準の再判定が最後の砦（条件を満たさなければ `prev` をそのまま返す＝保存も走らない）。
+- 確認: 14ケースの単体テスト（今日/過去日/未来日・選定済み・フラグ済み・直近なし・土日跨ぎ・より近い日の優先・未来日の選定を拾わない・実行後の値とフラグ・全部外すとキーが消える・**開き直しても復活しない**・手で触った日は対象外）。
+
+### 2026-08-18c 「🩹 補正は必要だったか」を応用αタブに新設（app-06 / sw v446→v447）
+- ユーザー質問「底つきラインというシグナルの分析に、底つきライン補正がそもそも必要だったかという分析はすでにある？」→ **無かった**ので新設。根拠セレクタ連動。
+- ⚠️**かつて近いものがあったが死んでいた**: `_elAddAlphaSectionV2`（app-06:3267）の「②効果検証＝🎯 足して正解だったか（採用α=基本+追加 vs 基本αだけ の反実仮想）」。2026-07-13に応用αタブが日付別方式＋根拠セレクタへ刷新された際に**呼び出しが外れ、定義だけ残っている**（今回も未参照のまま。応用αが「基本α＋増分」から独立α値に変わって比較の意味が変わったのが実質的な理由と読める）。
+- 新設したもの: `_elSpAltRow(r, aiOf, recoFn)`（1記録の反実仮想行）＋ `_elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel)`（セクション本体）。**型は `🔁 応用α換算`（`_elUkiAltRow`・2026-07-25g）をそのまま流用**。
+- 中身: 応用α〇の記録に「その日の推奨基本αのままにしていたら」を当て直し、記録ごとに想定損益（手じまい）の差額を出して合計＋判定（補正して正解／補正しない方が良かった／差なし）＋件数内訳（得した/損した/同じ）。
+- ⚠️**符号は「補正の効果」＝実際(応用α) − 補正なし(基本α)**（プラス＝補正して正解）。**`_elUkiAltRow` の diff は逆向き（alt − cur）**なので、並べて読むとき取り違えないこと。
+- 母数: `_alAddPool`＝**根拠セレクタを通した**応用〇プール（浮き足/RN除外）＝推奨応用αと同じ母数なので画面内で食い違わない。recoFn の母数は `_selSigRecs`（根拠で絞らないシグナル全体）＝基本α履歴は根拠に依らない（既存規約 app-06:7805 と同じ）。
+- `_elKabuRecoBaseFn` は「その日より前」の記録だけで算出＝**look-ahead無し**。損切り値は記録の採用値のまま両側に使う＝αだけの比較になる。
+- 片側がエントリー不成立（α未達/スルー/（）外なしの△）でも**0円として両側に算入**＝「αを下げていたら取れていた取引」が集計から消えない（2026-07-27に🔁応用α換算で決めた扱いと同じ）。真の比較不可は**推奨基本αが出ない日だけ**で、その行は薄く落として合計から除く。
+- 確認: 依存（`_elHoldFinalParts`/`_elUkiAltWhy`/`_elRecoFnCached`）をスタブした単体テストで、差額の符号・0円算入・比較不可のskip・合計・判定・件数内訳・新しい順ソート・空プールでnullを検証。
+
+### 2026-08-18b 見送り理由を「選択肢＋詳細」の2段構成へ（app-04/05/06 / sw v445→v446）
+- ユーザー要望「新規エントリー記録画面の見送り記録の理由欄を、選択肢（追加・名前変更・削除・ドラッグ入れ替え）と詳細（文章・システムは既存のもの）の2段構成に」。
+- **①選択肢** `signal.skipReasons[]`（**複数選択**）＋**②詳細** `signal.skipMemo`（従来の `FastInput` をそのまま流用＝「システムは既存のもの」）。
+- 選択肢マスターは `data.custom.skipReasons`。既定は `_DEF_SKIP_REASONS = ["見逃し","エントリー迷い","市場見れず"]`（ユーザー指定）。
+- **管理UI（追加/改名/削除/ドラッグ並べ替え）は応用αの根拠選択肢（`custom.specialReasons`・2026-07-06e）をそのまま型として流用**。`window.prompt` がiPad(standalone)で無反応な件も同じ理由でインライン入力にしてある。
+- **必須の対象は①選択肢だけに変更**（②詳細は常に任意）。ユーザー決定「選択肢が必須・詳細は任意」。よくある理由はタップだけで済み、特殊な回だけ文章を書く運用になる。
+  - ⚠️`_skipMemoReq`（新規／選定外でない／EP到達）という**必須の条件そのものは無変更**。変わったのは「何が埋まっていれば満たすか」だけ。
+- ⚠️**`_snSkipHasReason(s)` を新設して「理由あり」判定を単一源化**。`skipMemo` だけを見る旧判定のままだと、**選択肢だけ付けた記録が軒並み「未記入」に数えられる**（既定運用がタップだけなので大半がそうなる）。`EntryLogCard` の赤字「見送り理由 未記入」と app-06 の `skipNoMemo`（理由なし件数）の両方をこれに寄せた。
+- ⚠️**改名は過去記録の `skipReasons` も一括追従**（既存名への改名は統合＝dedupe）。**削除はマスターから消すだけで過去記録の名前は残す**＝残った名前は編集時に「〇〇（一覧外）」の点線チップで選択済みのまま出す（別項目を直すだけで理由が消える事故を防ぐ）。
+- ⚠️チップの `data-skiprsn` は応用α根拠の `data-rsn` と**別名**。同じ画面に両方出るので、同名だと `closest()` で掴んだチップが混線する。
+- 検索対象に `skipReasons` を追加（app-04 L1273/L1411）。
+- 確認: `EntryRecordForm` を直接マウントするテストページで、複数選択／追加（追加したものが自動選択される）／改名（選択状態が追従）／削除（選択も外れる）／ドラッグ並べ替え（並びが保存され、ドラッグで選択がトグルしない）を実操作で確認。`_snSkipHasReason` は8ケースの真理値表で確認。JSエラーなし。
+
+### 2026-08-18 ホームヘッダのKPIを全幅グリッド化＋入口ボタンを独立行へ（app-08 / sw v444→v445）
+- ユーザー依頼「PCでのここのレイアウトが気になる。いい配置案を画像つきでいくつか示して」→ 4案を提示し**案D（全幅グリッド）を採用**。
+- **原因は1つ**＝KPIチップ（見る数字）と入口ボタン（押すもの）が同じ `flexWrap` 行に同居していたこと。ここから3症状が同時に出ていた。
+
+  | 症状 | 中身 |
+  |---|---|
+  | 折り返しが幅任せ | どのボタンが2行目に落ちるかがウィンドウ幅で変わる（PCで「メモ·アイディア一覧」「＋予定」だけが落ちていた） |
+  | 行の重心が合わない | 88pxのチップと36pxのボタンが `alignItems:"center"` で並ぶ |
+  | 右が余る | 行が内容幅で止まるので、広い画面ほど空く |
+
+- **直し方**＝チップを**flexからgridへ**変えて全幅に伸ばし、ボタンは独立した1行へ下ろした。上段（月ナビ＋🔍⚙️🔥）は元から `marginLeft:"auto"` で右端固定だったので**無変更**。
+- ⚠️**副産物として `_mChipMinH` を廃止できた**。「親の alignItems を stretch にする手は使えない（同じflex行にボタンが並んでいて一緒に伸びてしまう）」という旧コメントの制約が、行を分けたことで消えたため。
+- 実測（変更前後を同条件で比較。幅700〜1920pxで確認）:
+
+  | 画面幅 | 変更前 | 変更後 |
+  |---|---|---|
+  | 900px | ヘッダ210px・9個中7個が1行目（2個は折り返し）・**右余白152px** | ヘッダ210px・**右余白0px**・折り返しなし |
+  | 1100px | ヘッダ166px・全部1行・**右余白113px** | ヘッダ**210px（+44px）**・右余白0px |
+  | 1280px | ヘッダ166px・**右余白293px** | ヘッダ210px（+44px）・右余白0px |
+  | 1440px | ヘッダ166px・**右余白453px** | ヘッダ210px（+44px）・右余白0px |
+
+- ⚠️**縦は「同じか+44px」でトレードオフがある**。折り返しが起きている幅（＝ユーザーのスクショの状態）では高さ同じで右余白だけ消えるが、**折り返しが起きない広い幅では、ボタンを独立行に下ろしたぶん44px高くなる**。案Dは「右余白ゼロ・折り返しゼロ」を縦44pxで買う選択。縦を詰めたいだけなら案B（左右分割）のほうが効く。
+- チップ高さは全5枚が自動で揃う（`alignItems:"stretch"`）。横スクロールは全幅で発生しないことを確認済み。
+
 ### 2026-08-17J 実現損益の読み方を全画面で統一＋旧ルール期間の明示（app-02/04/05/06/08 / sw v443→v444）
 - ユーザー依頼「アプリ全体で修正すべき点は無いか」→ 監査して見つけた2件を修正。
 - **① `item.pnl` の取りこぼし 9か所を `_elRealPnlPair` へ統一**。正本は `_elRealPnlPair(s, item)`＝**item.pnl 優先**、無ければ `signal.realizedPnl`。
@@ -461,6 +566,7 @@ HomeEventFormModal, App
   - **`signal.realizedPnl` 直読みで `item.pnl` を取りこぼす箇所が10件残っている**（ホームで直したのと同じ系統）。正本は `_elRealPnlPair`（item.pnl優先）。
     app-04:6363/6565・app-05:6000/9561・app-06:1225/3994/4682/4702/**4748(連勝連敗・最大DD)**/6910。実現損益がほぼ未記録なので現状の見た目の被害は小さいが、取引テーブル側に損益を入れると食い違う。
   - ⚡浮き足%タブは**残すべき**。サブタブ🔁応用α換算が「浮き足%を使わず株価帯別の応用α＋RN加算にしていたら」の差額を全件再計算する＝**2026-08-17Cの引退判断の答え合わせがここでできる**。
+    - 📌 2026-08-18f 追記: **タブは残っている**（名称のみ「⚡ 浮き足%」→「⚡ 浮き足」）。この日に撤去したのは**中の%テーブルだけ**で、🔁応用α換算はそのまま＝上の「残すべき」理由は生きている。
   - 指値同値（2026-08-10A）・浮き足専用α化（2026-07-14g）・想定損益への改名（2026-08-17B）は**書き換え漏れなし**を実測で確認。
 - **RN閾値を設定で可変に（app-05）**: 旧 `_EL_RN_BANDS`（41-49/91-99のハードコード）を撤去し `_EL_RN_T_DEF=9` / `_elRnTCur` / `_elRnT(data)` / `_elRnBandsAt(T)` へ。正本は `custom.rnThreshold`。
   - `_elRnAutoAt(epPre, T)` / `_elRnAutoFrom(lv, preA, T)` / `_elRnAutoOfRec(s, a, T)` に T を追加（省略＝現在の設定値）。

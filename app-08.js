@@ -1036,8 +1036,6 @@ function App() {
   var _mRealTxt = _mAgg.realCnt > 0
     ? (_snYen(_mAgg.real) + "（100株換算・" + _mAgg.realCnt + "件 / 実額 " + _snYen(_mAgg.realRaw) + "）")
     : "未記録";
-  // 3段目(sub2)を持つチップが1つでもあれば全チップの最低高さを上げる 2026-08-17f。2026-08-17i に主値18px・小書き11pxへ拡大したので 70/88（旧56/68）。
-  var _mChipMinH = 70;
   var _homeChips = [
     { la: "損益", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
       sub: _mPerDay != null ? ("1日 " + _snYen(_mPerDay)) : null,
@@ -1075,7 +1073,6 @@ function App() {
       title: "この月の営業日数（土日と祝日・休場を除いた日数）。祝日はカレンダーの紫バッジと同じ計算結果を使っています"
         + (_mIsCurMonth ? ("\n経過 " + _mAgg.bizDone + "日 / 全体 " + _mAgg.bizTotal + "日") : "") }
   ];
-  _homeChips.forEach(function(ch) { if (ch.sub2) _mChipMinH = 88; });
   var _snSyncTxt = _snLastSync ? ("最終同期 " + _snLastSync.getHours() + ":" + String(_snLastSync.getMinutes()).padStart(2, "0")) : (cfg.fbUrl ? "未同期" : "");
   var fbBadge = cfg.fbUrl ? React.createElement("span", {
     title: (_snOnline ? "" : "オフライン中（接続が戻ると自動同期）。") + _snSyncTxt,
@@ -1388,12 +1385,28 @@ function App() {
       cursor: "pointer",
       minHeight: IS_TOUCH ? 36 : 26
     }
-  }, "\u4ECA\u65E5"), _snHeadTools)), React.createElement("div", {
+  }, "\u4ECA\u65E5"), _snHeadTools)),
+  // 2026-08-18 KPIチップ（見る数字）とボタン（押す入口）を別コンテナへ分離した（配置案D）。
+  //   旧＝両者が同じ flex-wrap 行に同居していて、次の3つが同時に起きていた:
+  //   (1) どのボタンが2行目へ落ちるかがウィンドウ幅で変わる（PCで「メモ·アイディア一覧」「＋予定」だけが落ちていた）
+  //   (2) 88pxのチップと36pxのボタンが alignItems:"center" で並び、行の重心が合わない
+  //   (3) 右側が大きく余る。
+  //   チップは flex をやめて grid で全幅に伸ばす＝右余白が消え、幅が変わっても列が伸縮するだけで折り返しが起きない。
+  React.createElement("div", {
+    style: { flex: "1 1 100%" }
+  }, React.createElement("div", {
+    key: "kpis",
     style: {
-      display: "flex",
+      display: "grid",
+      // 損益・実現だけ1.25倍幅＝いちばん見る2つに重みを付ける。
+      //   ⚠️minmax(0,..) を噛ませるのは、fr の既定が minmax(auto,..) で列が中身の最小幅より縮まず、
+      //   狭い窓でヘッダごと横にはみ出すため。0 を下限にすると列が素直に縮む。
+      //   タッチ端末は auto-fit＝幅が足りなければ2〜3列へ自動で折り返す（iPad縦で5列に潰れない）。
+      gridTemplateColumns: IS_TOUCH
+        ? "repeat(auto-fit,minmax(130px,1fr))"
+        : "minmax(0,1.25fr) minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
       gap: 8,
-      alignItems: "center",
-      flexWrap: "wrap"
+      alignItems: "stretch"
     }
   }, _homeChips.map(function (ch) {
     return React.createElement("div", {
@@ -1405,10 +1418,8 @@ function App() {
         padding: "8px 12px",
         textAlign: "center",
         minWidth: 62,
-        // 2026-08-17f 実現チップだけ3段になるので全チップに同じ最低高さを与える＝行の高さが揃う。
-        //   親のalignItemsをstretchにする手は使えない（同じflex行に記録帳などのボタンが並んでいて一緒に伸びてしまうため）。
-        //   高さは3段目が実在するときだけ上げる＝実現が「—／未記録」の月に全チップが無駄に高くならない。
-        minHeight: _mChipMinH,
+        // 2026-08-18 高さの決め打ち(_mChipMinH)は廃止。チップ行が独立したので親の alignItems:"stretch" が使えるようになり、
+        //   いちばん背の高いチップ（3段になる実現）に他が自動で揃う＝実現が「—／未記録」の月は行ごと低くなる。
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -1451,7 +1462,18 @@ function App() {
         whiteSpace: "nowrap"
       }
     }, ch.sub2) : null);
-  }), React.createElement("button", {
+  })),
+  // 入口ボタンは独立した1行。左の3つは「見る」入口、右端の ＋予定 だけが「作る」操作なので離して置く（押し間違い防止）。
+  React.createElement("div", {
+    key: "acts",
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      flexWrap: "wrap",
+      marginTop: 8
+    }
+  }, React.createElement("button", {
     onClick: function() { setShowEntryLog(true); },
     title: "エントリー記録帳",
     style: {
@@ -1502,6 +1524,7 @@ function App() {
     onClick: function() { setShowHomeEventForm(true); },
     title: "予定を追加",
     style: {
+      marginLeft: "auto",
       padding: "8px 14px",
       fontSize: 12,
       fontWeight: 700,
@@ -1512,7 +1535,7 @@ function App() {
       color: "#fff",
       minHeight: IS_TOUCH ? 44 : 36
     }
-  }, "＋ 予定"))), showSearch ? React.createElement(SearchView, {
+  }, "＋ 予定")))), showSearch ? React.createElement(SearchView, {
     data: data,
     save: save,
     onSelectDate: function onSelectDate(d, tab) {

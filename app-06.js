@@ -3382,9 +3382,9 @@ function _elFloatReasonSectionV2(recs, aiOf, data, secH, basePick, recCtx) {
   var _ukiPool = floatRecs.filter(function(r) { var f = _elUkiVal(r.signal); return f != null && f > 0; });
   var _ukiHoli = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories);
   var _sweep = _ukiPool.length ? _elUkiPctSweep(_ukiPool, aiOf, _ukiHoli) : null;
+  // 2026-08-18 %テーブル(_elUkiPctSweepNode)と見出しは撤去（ユーザー要望「浮足％テーブルはもう不要」）。円建てブロックは残す。
+  // ⚠️`_sweep` の**計算そのものは消さない**＝すぐ下の2段テーブルの推奨%(bestP)がこの値を使う。消したのは表示だけ。
   var simNode = _sweep ? React.createElement("div", { style: { marginTop: 8 } },
-    React.createElement("div", { style: { fontSize: 10, fontWeight: 700, color: "#9A3412", margin: "0 0 2px" } }, "📐 浮き足の何%を加算すると最適か（浮き足〇＝α＝浮き足加算＋RN・浮き足%だけ振り・想定損益で評価・★＝スコア最大＝現行の推奨%）"),
-    _elUkiPctSweepNode(_sweep),
     _elUkiValBoardBlock(_ukiPool, aiOf, _ukiHoli)) : null;
   // ===== 2段テーブル（案B・2026-07-01刷新）: 1記録＝現実(採用したα)／推奨(推奨どおりのα)の上下2段。列＝日付(＋記録ボタン)/種別/基本α/追加α/合計α/OS/乖離度。 =====
   var recoBase = (basePick && basePick.alpha != null && basePick.status !== "none") ? basePick.alpha : null;   // 推奨基本α（シグナル単一値・_elBaseAlphaPick由来）
@@ -3512,9 +3512,11 @@ function _elUkiSweepNodeCore(sweep, cfg) {
     _reco,
     _elv2Table([cfg.head, "E成立", "到達率", "同値", "頻度", "利確率", "損切り率", "想定損益(平均/中央/Σ)", "勝ち/負け平均", "スコア"], _trs));
 }
-function _elUkiPctSweepNode(sweep) {
-  return _elUkiSweepNodeCore(sweep, { keyOf: function(x) { return x.P; }, unit: "%", head: "浮き足%", recoWord: "浮き足加算率", noneTail: "（データ不足／50%で十分の傾向）" });
-}
+// ⚠️旧 `_elUkiPctSweepNode`（浮き足%テーブルの描画）は **2026-08-18に削除**（ユーザー要望「浮足％テーブルはもう不要」）。
+//   描画だけを担う関数で、撤去後はどこからも呼ばれなくなったため実体ごと落とした。
+//   ⚠️**計算側の `_elUkiPctSweep` は残っている**＝フォーム/EPナビの推奨%（`_elUkiRecoPcts`/`_elUkiRecoPctsScoped`）と
+//   シグナル別2段テーブルの推奨%(bestP)がこの値を使う。「表が無い＝%の仕組みも無い」ではないので消さないこと。
+//   共通描画の `_elUkiSweepNodeCore` は円版（`_elUkiValSweepNode`）が使い続けるので存置。
 // 浮き足α値（円）版スイープ 2026-07-18: 加算率%でなく浮き足α値=固定X円(0〜20)を全記録に上乗せして想定損益で評価＝基本α詳細表(_elBaseAlphaDetailV2)と同じ「円」の土俵。実効α=(採用α−現在の浮き足加算)+X（%版_elUkiPctSweepのuv*P/100をXへ置換）。母数/評価/★選定は%版と同一（推奨は表示のみ・フォーム自動入力は%版が正本）。
 function _elUkiValSweep(pool, aiOf, holiSet) {
   var _MAX = 20;   // 基本α詳細表(_elBaseAlphaDetailV2)と同レンジ（0〜20円・1円刻み）
@@ -3541,25 +3543,18 @@ function _elUkiValSweep(pool, aiOf, holiSet) {
 function _elUkiValSweepNode(sweep) {
   return _elUkiSweepNodeCore(sweep, { keyOf: function(x) { return x.X; }, unit: "円", head: "浮き足α値", recoWord: "浮き足α値" });
 }
-// 浮き足α値（円）版ブロック（%表の下に併記）2026-07-18: 見出し＋説明＋_elUkiValSweepNode。%表がある全箇所（シグナル総合_elUkiPctBoardV2・シグナル別_elFloatReasonSectionV2・フォーム/EPナビ📊_elUkiPctBoardScoped）で共用。poolは呼び出し側で浮き足〇&浮き値>0に絞り済み（%表と同母数）。
+// 浮き足α値（円）版ブロック 2026-07-18: 見出し＋説明＋_elUkiValSweepNode。シグナル別_elFloatReasonSectionV2・フォーム/EPナビ📊_elUkiPctBoardScoped で共用。
+// poolは呼び出し側で浮き足〇&浮き値>0に絞り済み。2026-08-18に%テーブルを撤去したので**これが浮き足加算の唯一の最適化表**になった（説明文からも「上の%表」の参照を外してある）。
 function _elUkiValBoardBlock(pool, aiOf, holiSet) {
   return React.createElement("div", { style: { marginTop: 14, borderTop: "1px dashed #D6E7D2", paddingTop: 10 } },
     React.createElement("div", { style: { fontSize: 11, color: "#15803D", fontWeight: 700, marginBottom: 4 } }, "⚡ 浮き足α値（円）で見る＝基本αと同じ土俵"),
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 8, padding: "8px 10px" } },
-      "上の%表と同じ母数を、浮き足の加算を『固定X円』（0〜20円・1円刻み）に振り直して想定損益で評価。%は記録ごとに加算円が変わるのに対し、こちらは全記録に同じ円を上乗せ＝基本α詳細表と同じ見方。★＝件数（E成立）" + _EL_BASE_MIN_N + "以上で試算損益プラスの中でスコア最大の浮き足α値（表示のみ・フォームの自動入力は%が正本）。"),
+      "浮き足〇（浮き値あり）の記録を、浮き足の加算を『固定X円』（0〜20円・1円刻み）に振り直して想定損益で評価。実運用の%は記録ごとに加算円が変わるのに対し、こちらは全記録に同じ円を上乗せ＝基本α詳細表と同じ見方。★＝件数（E成立）" + _EL_BASE_MIN_N + "以上で試算損益プラスの中でスコア最大の浮き足α値（表示のみ・フォームの自動入力は%が正本）。"),
     _elUkiValSweepNode(_elUkiValSweep(pool, aiOf, holiSet)));
 }
-// 全銘柄共通の浮き足加算率最適化ボード（シグナル総合タブ）2026-07-12。母数=全銘柄の浮き足〇・浮き値>0のv2記録。
-function _elUkiPctBoardV2(recs, aiOf, holiSet) {
-  var pool = (recs || []).filter(function(r) { return r && r.signal && _epIsV2(r.signal) && _elInclData(r.signal) && _elUkiYes(r.signal) && _elUkiVal(r.signal) != null && _elUkiVal(r.signal) > 0; });   // 浮き足分析＝データ算入 2026-07-22f
-  if (!pool.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "浮き足〇（浮き値あり）の記録がまだありません");
-  var sweep = _elUkiPctSweep(pool, aiOf, holiSet);
-  return React.createElement(React.Fragment, null,
-    React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px" } },
-      "母数＝全銘柄の浮き足〇記録 " + pool.length + "件（浮き値あり）。各記録は実際に使った加算率で採用αに畳み込み済み。ここでは浮き足の加算だけを0〜100%（10刻み）で振り直して想定損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で試算損益プラスの中でスコア最大＝新規記録の浮き足加算の自動入力に使う推奨率（次点も表示）。"),
-    _elUkiPctSweepNode(sweep),
-    _elUkiValBoardBlock(pool, aiOf, holiSet));
-}
+// ⚠️旧 `_elUkiPctBoardV2`（全銘柄共通の浮き足加算率ボード・2026-07-12）は **2026-08-18に削除**。
+//   2026-07-18に _elUkiPctBoardScoped（浮基本/浮応用のプール別）へ置き換わって以降どこからも呼ばれておらず、
+//   中身は撤去対象の%テーブルを描くだけだったため。%テーブル自体の廃止と同時に実体ごと落とした。
 // 浮き足の基本/応用プール別 加算率ボード（詳細表）2026-07-14g: 母数＝浮き足〇&浮き値>0&算入&v2 のうち mode で基本(応用フラグ無)/応用(応用フラグ有)に分岐。各プールに%スイープ(_elUkiPctSweep)を当て推奨%を出す＝基本α/応用αのタグ別プールと同じ発想。※フォーム📊詳細表ボタンから開く（配線は第2弾）。
 function _elUkiPctBoardScoped(recs, aiOf, mode, reasons, holiSet) {
   var _sp = mode === "special";
@@ -3570,11 +3565,12 @@ function _elUkiPctBoardScoped(recs, aiOf, mode, reasons, holiSet) {
     if (byR.length >= _EL_BASE_MIN_N) { pool = byR; byReason = true; }
   }
   if (!pool.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sp ? "浮き足応用〇（浮き値あり）の記録がまだありません" : "浮き足基本〇（浮き値あり）の記録がまだありません");
-  var sweep = _elUkiPctSweep(pool, aiOf, holiSet);
+  // 2026-08-18 %テーブル(_elUkiPctSweepNode)と%の説明文は撤去（ユーザー要望）。円建てブロックだけ残す。
+  // ⚠️ここでは_elUkiPctSweepの呼び出しごと消してある（表示専用だったので他に読み手が居ない）。
+  //   **推奨%の計算は別経路**＝_elUkiRecoPcts/_elUkiRecoPctsScopedが自前で_elUkiPctSweepを呼ぶので、フォーム/EPナビの自動入力は無傷。
   return React.createElement(React.Fragment, null,
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", lineHeight: 1.6, marginBottom: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, padding: "8px 10px" } },
-      "母数＝" + (_sp ? "浮き足応用" : "浮き足基本") + (byReason ? "（選択根拠）" : "") + "〇の記録 " + pool.length + "件（浮き値あり）。加算率を0〜100%（10刻み）で振り直し想定損益で評価。★推奨＝件数（E成立）" + _EL_BASE_MIN_N + "以上で試算損益プラスの中でスコア最大＝" + (_sp ? "浮き足応用" : "浮き足基本") + "加算率の推奨（次点も表示）。"),
-    _elUkiPctSweepNode(sweep),
+      "母数＝" + (_sp ? "浮き足応用" : "浮き足基本") + (byReason ? "（選択根拠）" : "") + "〇の記録 " + pool.length + "件（浮き値あり）。"),
     _elUkiValBoardBlock(pool, aiOf, holiSet));
 }
 // フォーム/EPナビ向け: 全銘柄の浮き足(基本 or 応用)記録(refDate=記録日前日まで)から推奨加算率(reco)/次点(runnerUp)を算出 2026-07-14g。データ不足は{reco:null}。_elUkiRecoPctsのmode分岐版。
@@ -3662,6 +3658,104 @@ function _elUkiAltRow(r, aiOf) {
   return { r: r, s: s, band: b, altA: altA, curA: curA, cut: cut, cur: cur, alt: alt,
     curWhy: _elUkiAltWhy(s, curA, curM), altWhy: _elUkiAltWhy(s, altA, altM),
     diff: (cur != null && alt != null) ? (alt - cur) : null };
+}
+// ===== 🩹 補正は必要だったか（応用α vs その日の推奨基本α）2026-08-18 ユーザー要望 =====
+// 「根拠を付けて基本αから外した（＝補正した）記録について、そもそもその補正は必要だったのか」を記録ごとの反実仮想で出す。
+// 各記録に ①実際の採用α（＝応用α）と ②その日の推奨基本α を両方当てて想定損益（手じまい）を再計算し、差額を積む。
+//   ⚠️**符号は「補正の効果」＝実際(応用α) − 補正なし(基本α)**。プラス＝補正して正解／マイナス＝基本αのままの方が良かった。
+//   ⚠️`_elUkiAltRow` の diff は逆向き（alt − cur＝換算したらどう変わるか）。並べて読むときに取り違えないこと。
+// 損切り値は記録の採用値のまま両側に使う＝αだけを差し替えた比較になる（🔁応用α換算と同じ規約）。
+// 片側がエントリー不成立（α未達・スルー・（）外なしの△）でも0円として両側に算入＝「αを下げていたら取れていた取引」が
+//   集計から消えないようにする（2026-07-27にユーザー決定した🔁応用α換算と同じ扱い）。真の換算不可は推奨基本αが出ない日だけ。
+function _elSpAltRow(r, aiOf, recoFn) {
+  var s = r && r.signal; if (!s) return null;
+  var ai = aiOf(r), curA = ai.alpha, cut = ai.cutLine;
+  var baseA = (typeof recoFn === "function") ? recoFn(r.date) : null;   // その日の推奨基本α（look-ahead無し＝_elKabuRecoBaseFnは「その日より前」の記録だけで算出）
+  // RN加算は補正の有無に関わらず乗る規約なので条件を揃えて足す（_elUkiAltAlphaと同じ考え方）。
+  //   現在の母数(_elIsSpecialAlphaPoolRec)はRN×限定なので実質0だが、母数を広げたときに壊れないようにしておく。
+  var altA = (baseA != null) ? (baseA + _elRnAdd(s)) : null;
+  var curM = (curA != null) ? _elHoldFinalParts(s, curA, cut).main : null;
+  var altM = (altA != null) ? _elHoldFinalParts(s, altA, cut).main : null;
+  var cur = (curA != null) ? (curM != null ? curM : 0) : null;
+  var alt = (altA != null) ? (altM != null ? altM : 0) : null;
+  return { r: r, s: s, baseA: baseA, altA: altA, curA: curA, cut: cut, cur: cur, alt: alt,
+    curWhy: _elUkiAltWhy(s, curA, curM), altWhy: _elUkiAltWhy(s, altA, altM),
+    diff: (cur != null && alt != null) ? (cur - alt) : null };
+}
+// 上の行ビルダーを使ったセクション本体。pool=**呼び出し側で根拠セレクタを通した応用〇プール**（根拠「◯◯」だけの効果が見られる＝この機能の主目的）。
+// fullRecs=recoFnを作る母数＝**根拠で絞らないシグナル全体**（基本α履歴は根拠に依らない・α値タブの既存規約 app-06:7805 と同じ）。
+// poolが空 or 全件で推奨基本αが出ない場合は null を返す＝根拠を持たないシグナルのタブには何も出ない。
+// byStock=true（📡シグナル総合＝全銘柄横断で呼ぶとき）は **recoFnを銘柄ごとに作る**。
+//   ⚠️全銘柄を1つの母数にすると、誰も使っていない「銘柄をまたいで混ぜた推奨基本α」との比較になって反実仮想が壊れる。
+//   推奨基本αは銘柄ごとの履歴から出る値（フォーム/日別ページの「今日の推奨」と同じ）なので、銘柄で分けて当てる。
+function _elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel, byStock) {
+  if (!pool || !pool.length) return null;
+  var recoOf;
+  if (byStock) {
+    var _fnBy = {}, _recsBy = {};
+    (fullRecs || []).forEach(function(r) { if (!r || !r.stock) return; (_recsBy[r.stock] = _recsBy[r.stock] || []).push(r); });
+    recoOf = function(r) {
+      var st = r && r.stock; if (!st) return null;
+      if (!_fnBy[st]) _fnBy[st] = _elRecoFnCached(_recsBy[st] || [], aiOf);
+      return _fnBy[st];
+    };
+  } else {
+    var _one = _elRecoFnCached((fullRecs && fullRecs.length) ? fullRecs : pool, aiOf);
+    recoOf = function() { return _one; };
+  }
+  var rows = pool.slice().sort(function(a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); })   // 新しい順
+    .map(function(r) { return _elSpAltRow(r, aiOf, recoOf(r)); }).filter(Boolean);
+  var T = { cur: 0, alt: 0, diff: 0, n: 0, skip: 0, ne: 0, win: 0, lose: 0, same: 0 };
+  rows.forEach(function(o) {
+    if (o.cur == null || o.alt == null) { T.skip++; return; }
+    T.n++; T.cur += o.cur; T.alt += o.alt; T.diff += o.diff;
+    if (o.curWhy || o.altWhy) T.ne++;
+    if (o.diff > 0) T.win++; else if (o.diff < 0) T.lose++; else T.same++;
+  });
+  if (!T.n) return null;
+  var _amt = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+    : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+  var _amtWhy = function(v, why) {
+    if (v == null || !why) return _amt(v);
+    return React.createElement("span", null,
+      React.createElement("span", { style: { fontWeight: 700, color: "#b5b0a8" } }, "0円"),
+      React.createElement("span", { style: { display: "block", fontSize: 9, fontWeight: 700, color: "#c4bfb6" } }, why));
+  };
+  var _diffN = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+    : React.createElement("span", { style: { fontWeight: 800, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "円"); };
+  // 判定＝差額合計の符号だけで言い切る（母数が薄いときは下の件数内訳を見てもらう）。
+  var _vd = T.diff > 0 ? { t: "補正して正解", c: "#C0392B", bg: "#FCEBEB", b: "#F5C6C6" }
+    : T.diff < 0 ? { t: "補正しない方が良かった", c: "#1E8449", bg: "#EAF3DE", b: "#C2E3A8" }
+    : { t: "差なし", c: "#888", bg: "#F5F4F0", b: "#E0DAD1" };
+  var _bodyRows = rows.map(function(o, i) {
+    // diff==null＝推奨基本αが出ずに比較不可＝合計に入らない行なので薄く落とす（0円と「—」が並んで算入済みに見えるのを防ぐ）。
+    return React.createElement("tr", { key: "spn" + i, style: { opacity: (o.diff == null) ? 0.45 : 1,
+      background: (o.diff != null && o.diff > 0) ? "#FFF7F5" : (o.diff != null && o.diff < 0) ? "#F4FBF5" : "transparent" } },
+      _elv2Td(o.r.date.slice(5).replace("-", "/") + (o.s.time ? " " + o.s.time : ""), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, o.r.stock)),
+      _elv2Td(_elSigCell(o.s, "center"), { minWidth: 60 }),
+      _elv2Td(o.curA != null ? React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, o.curA + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+      _elv2Td(o.altA != null ? React.createElement("span", { style: { fontWeight: 700, color: "#0369A1" } }, o.altA + "円") : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+      _elv2Td(_amtWhy(o.cur, o.curWhy)),
+      _elv2Td(_amtWhy(o.alt, o.altWhy)),
+      _elv2Td(_diffN(o.diff)));
+  });
+  _bodyRows.push(React.createElement("tr", { key: "spntot", style: { background: "#FFFBF0", borderTop: "2px solid #FB923C" } },
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, "合計"), { textAlign: "left", paddingLeft: 8 }),
+    _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#666" } }, T.n + "件" + (T.ne ? "（うち無エントリー0円算入 " + T.ne + "件）" : "") + (T.skip ? "（推奨基本α無しで比較不可 " + T.skip + "件除く）" : "")), { colSpan: 4 }),
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(T.cur))),
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(T.alt))),
+    _elv2Td(_diffN(T.diff))));
+  return React.createElement(React.Fragment, null,
+    secH("🩹 補正は必要だったか" + (reasonLabel ? "（根拠「" + reasonLabel + "」）" : ""),
+      "※ 応用α〇の記録に「その日の推奨基本αのままにしていたら」を当て直した反実仮想。推奨基本αは**その日より前の記録だけ**から算出（look-ahead無し）で、母数は根拠で絞らないこのシグナル全体＝基本α履歴は根拠に依らない。損切り値は記録の採用値のまま両側に使うのでαだけの比較になる。損益は想定損益（手じまいまで）の（）外。エントリー不成立（α未達・スルー・（）外なしの△）は「そのαなら取引しなかった＝0円」として両側とも算入。差額＝実際（応用α）−補正なし（基本α）で、プラスなら補正して正解"),
+    _elv2CardRow([
+      _elv2Card("実際（応用α）", _amt(T.cur), null, T.n + "件の合計" + (T.ne ? "（無エントリー0円 " + T.ne + "件込み）" : "")),
+      _elv2Card("補正なし（基本α）", _amt(T.alt), null, "同じ母数で再計算"),
+      _elv2Card("補正の効果（実際−補正なし）", _diffN(T.diff), null, "1件あたり " + Math.round(T.diff / T.n).toLocaleString() + "円"),
+      _elv2Card("判定", React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: _vd.c, background: _vd.bg, border: "1px solid " + _vd.b, borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" } }, _vd.t), null,
+        "得した " + T.win + "件 / 損した " + T.lose + "件 / 同じ " + T.same + "件")]),
+    _elv2Table(["日付・時刻", "銘柄", "シグナル", "実際の採用α", "補正なし（基本α）", "想定損益（実際）", "想定損益（補正なし）", "補正の効果"], _bodyRows));
 }
 // 浮き足加算率ボードの基本/応用スコープ切替トグル（フォームの浮き足[浮き基本|浮き応用]と同スタイル）2026-07-18。sp=true→応用。onSet(boolean)で切替。分析ボード(シグナル総合/シグナル別)を_elUkiPctBoardScopedのmodeに連動させる。
 function _ukiScopeToggle(sp, onSet) {
@@ -6203,7 +6297,7 @@ function EntryLogView(_ref_elv2) {
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
-  var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["uki", "⚡ 浮き足%"], ["rn", "🔢 RN加算"]];   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
+  var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["spn", "🩹 補正要否"], ["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]];   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
   // 日付だけ新しい順・各日付の中は時間が早い順（2段ソート）2026-07-27 ユーザー指定＝「新しい日から見て、その日は朝から順に読む」。
   // 日付＋時刻を繋げた文字列の単純降順にすると日内まで逆順になるので、日付と時刻を分けて比較するのが要。
@@ -7585,6 +7679,38 @@ function EntryLogView(_ref_elv2) {
         _stRecsSig.length
           ? _elStopTabSectionV2(_stRecsSig, _ai, data, false, { expKey: expKey, setExpKey: setExpKey, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate })
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この母数に該当する記録がありません（分類トグルを切替）")]);
+    } else if (sigSub === "spn") {
+      // 🩹 補正は必要だったか（全銘柄横断）2026-08-18: α値タブ（銘柄×シグナル母数）と同じ分析を全銘柄でまとめて見る。
+      //   母数＝全銘柄の応用〇プール（浮き足/RN除外）＝α値タブの _alAddPool と同じ判定(_elIsSpecialAlphaPoolRec)。
+      //   根拠セレクタは**α値タブと同じstate(alphaReasonFil)を共有**＝タブを行き来しても選んだ根拠が続く。
+      //   ⚠️recoFnは byStock=true で銘柄ごとに作る（全銘柄を1母数にすると、誰も使っていない「銘柄をまたいで混ぜた推奨基本α」との比較になる）。
+      var _spnAll = _v2recsAllData.filter(_elIsSpecialAlphaPoolRec);
+      var _spnReasonsOf = function(s) { return (Array.isArray(s.specialReasons) ? s.specialReasons.filter(Boolean) : (s.addAlphaReason ? [s.addAlphaReason] : [])); };
+      var _spnCount = {}, _spnOrder = [], _spnNone = 0;
+      _spnAll.forEach(function(r) { var rs = _spnReasonsOf(r.signal); if (!rs.length) { _spnNone++; return; } rs.forEach(function(rn) { if (_spnCount[rn] == null) { _spnCount[rn] = 0; _spnOrder.push(rn); } _spnCount[rn]++; }); });
+      var _spnNames = _spnOrder.sort(function(a, b) { return _spnCount[b] - _spnCount[a]; });
+      var _spnSel = ((_spnNames.indexOf(alphaReasonFil) >= 0) || (alphaReasonFil === "__none__" && _spnNone > 0)) ? alphaReasonFil : "all";
+      var _spnPool = (_spnSel === "all") ? _spnAll
+        : (_spnSel === "__none__") ? _spnAll.filter(function(r) { return _spnReasonsOf(r.signal).length === 0; })
+        : _spnAll.filter(function(r) { return _spnReasonsOf(r.signal).indexOf(_spnSel) >= 0; });
+      var _spnBar = null;
+      if (_spnNames.length) {
+        var _spnOpts = [{ k: "all", label: "全体", n: _spnAll.length }];
+        _spnNames.forEach(function(rn) { _spnOpts.push({ k: rn, label: rn, n: _spnCount[rn] }); });
+        if (_spnNone > 0) _spnOpts.push({ k: "__none__", label: "根拠なし", n: _spnNone });
+        _spnBar = React.createElement("div", { key: "spnbar", style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
+          React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1" } }, "根拠:"),
+          _spnOpts.map(function(o) {
+            var on = _spnSel === o.k;
+            return React.createElement("button", { key: o.k, onClick: function() { setAlphaReasonFil(o.k); setExpKey(null); },
+              style: { padding: "3px 12px", fontSize: 10.5, fontWeight: 700, borderRadius: 13, cursor: "pointer", border: "1px solid " + (on ? "#0369A1" : "#E0DAD1"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#6B6459" } }, o.label + "（" + o.n + "）");
+          }),
+          React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "全銘柄の応用〇記録を根拠で絞込（α値タブの根拠セレクタと選択を共有）"));
+      }
+      _tabBody = _cardify([
+        _spnBar,
+        _elSpNeedSectionV2(_spnPool, _ai, _v2recsAllData, _secH, (_spnSel === "all") ? null : (_spnSel === "__none__" ? "根拠なし" : _spnSel), true)
+          || React.createElement("div", { key: "spnempty", style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "応用α〇（浮き足・RN除く）の記録がありません。または、比較に使う推奨基本αが出る日がまだありません")]);
     } else if (sigSub === "rn") {
       var _rnListRecs = _v2recsAllData.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateAsc);   // 分析（データ算入）2026-07-22f
       // RN加算候補＝RN加算×だが予定EP（水準線値＋採用α）の下2桁がバンド内の記録（＝50/00のキリ番をまたげた可能性）。
@@ -7689,7 +7815,7 @@ function EntryLogView(_ref_elv2) {
         : _cardify([
             _sigKpiHead("📊 KPI早見｜浮き足〇の記録（" + _ukiScopeLbl + "・" + _ukiRecs.length + "件・採用αは浮き足加算込み・想定損益基準）"),
             _ukiRecs.length ? _kpiBlockOf(_ukiRecs, _sigHoliSet) : _sigKpiEmpty("浮き足〇（浮き値あり）の記録がまだありません"),
-            _secH("⚡ 浮き足加算率の最適化（" + (_ukiBandGrp ? _ukiScopeLbl + "・銘柄横断" : "全銘柄共通") + "）"),
+            _secH("⚡ 浮き足加算の最適化（円・" + (_ukiBandGrp ? _ukiScopeLbl + "・銘柄横断" : "全銘柄共通") + "）"),   // 2026-08-18 %テーブル撤去で中身が円建てだけになったので見出しも「加算率」→「加算（円）」へ
             React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _ukiScopeToggle(ukiAnaSp, setUkiAnaSp)),
             _elUkiPctBoardScoped(_ukiRecs, _ai, ukiAnaSp ? "special" : "basic", null, _sigHoliSet)]);   // 2026-07-18 浮き足加算率を浮基本/浮応用のプール別に最適化（上のトグル連動）。旧: _elUkiPctBoardV2（基本/応用混在1プール）。時間帯(tod)/曜日(dow)サブタブは2026-07-16撤去
       _tabBody = React.createElement(React.Fragment, null,
@@ -7879,7 +8005,11 @@ function EntryLogView(_ref_elv2) {
               }))]
           : [_alZoneHead("#9A3412", "#FFF7ED", "#FED7AA", "応用αゾーン" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」）" : ""), _alAddSum),
               _secH("🔬 推奨応用α 詳細データ（応用〇・手仕舞い基準）", "応用〇の記録だけを母数に、独立α値0〜20円を前提損切り値で一律に当て手仕舞いで評価（★＝到達率" + _EL_ANA_REACH_DEF + "%以上［無ければ" + _EL_ANA_REACH_FLOOR2 + "%まで緩和し参考］・損切り率(最終)" + Math.round(_EL_BASE_MAX_STOPRATE * 100) + "%以下・E成立" + _EL_BASE_MIN_N + "件以上・頻度" + _EL_FREQ_MAX + "未満・黒字を満たすαのうち平均想定損益（1件あたり）最大）。母数＝応用〇（浮き足・RN除外）" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」で絞込）" : ""), _detCtl("al_totA", _alReasonRecsFull)),
-              _detBody("al_totA", _alReasonRecsFull, function(_drs) { return _elTotalAlphaSectionV2(_drs, _ai, _alHoliSet); })];
+              _detBody("al_totA", _alReasonRecsFull, function(_drs) { return _elTotalAlphaSectionV2(_drs, _ai, _alHoliSet); }),
+              // 🩹 補正は必要だったか 2026-08-18（ユーザー要望）: 根拠セレクタ連動＝上の根拠バーで選んだ根拠だけの効果が出る。
+              //   母数は推奨応用αと同じ _alAddPool（根拠フィルタ後の応用〇・浮き足/RN除外）＝同じ画面で母数が食い違わない。
+              //   recoFn用の母数は _selSigRecs（根拠で絞らないシグナル全体）＝基本α履歴は根拠に依らない。
+              _elSpNeedSectionV2(_alAddPool, _ai, _selSigRecs, _secH, _reasonSel !== "all" ? _reasonLabel : null)];
       } else {
         _alBody = [
           _alZoneHead("#64748B", "#F8FAFC", "#E2E8F0", "共通ツール ― 基本/追加に依らないα全体の検証" + (_reasonSel !== "all" ? "（根拠「" + _reasonLabel + "」）" : ""), null),
@@ -8033,7 +8163,8 @@ function EntryLogView(_ref_elv2) {
           if (_elIsThru(s)) thru++;
           else if (_elIsReview(s)) review++;
           else if (isEnt) entered++;
-          else if (_epReachedAt(s, _aa.alpha)) { skip++; if (!String(s.skipMemo || "").trim()) skipNoMemo++; }
+          // 2026-08-18 「理由なし」は _snSkipHasReason（app-05）で判定＝選択肢(skipReasons)だけの記録を理由なしに数えない。
+          else if (_epReachedAt(s, _aa.alpha)) { skip++; if (!_snSkipHasReason(s)) skipNoMemo++; }
           // 2026-08-12 見送りを「未達を除く見送り(skip)」と「未達(skipMiss)」に分ける。フォームの既定が見送りなので、
           //   EPに届かなかった記録も他の状態を選ばなければ全部ここに落ちてくる＝混ぜると「入れたのに入らなかった」判断の件数が読めない。
           //   ④見送りコストは想定損益が出せる記録だけを見る（未達はfin=nullなので元から入らない）＝金額側は分離前後で不変。
