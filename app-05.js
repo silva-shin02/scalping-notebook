@@ -4621,7 +4621,10 @@ function _elCollPickNode(data, r, save, scope) {
 // 明細行用の時間かぶり小バッジ。選抜待ち＝赤「未選択」／選抜された側＝「※被り有」／落ちた側＝「被り除外」。
 // 未達（EP未到達＝建玉なし）はグレーの「未達」を**併記**する（案4 2026-08-19）＝選べるが特別、が文字でも分かるように。
 // 単独記録（奪い合い無し）はnull。2026-07-07両側可視化→07-08 早い方を残す方式→2026-08-19 手動選抜へ。
-function _elCollMarkNode(data, r, scope) {
+// opts.hideKeep=true で「※被り有」を出さない。選抜ラジオ〇とグループ見出し（算入 ● 銘柄名）がある表では
+// 選抜済みであることが二重に伝わるため（2026-08-19 ユーザー指示「選抜された記録は※被り有と表記しなくていい」）。
+var _EL_COLL_HIDE_KEEP = { hideKeep: true };
+function _elCollMarkNode(data, r, scope, opts) {
   var _g = _elCollGroupOf(data, r, scope);
   if (!_g) return null;
   var _n = _g.members.length, _bs = [];
@@ -4634,7 +4637,7 @@ function _elCollMarkNode(data, r, scope) {
     _bs.push(_mk("p", "未選択", "#B91C1C", "#FEF2F2", "#FCA5A5",
       "選抜待ち: 同じ枠を奪い合う記録が" + _n + "件あります。1件選ぶまで、この組は全員が合計に入りません（件数は残ります）"));
   } else if (_elCollMarked(data, r, scope)) {
-    _bs.push(_mk("k", "※被り有", "#B45309", "#FEF3C7", "#FCD34D",
+    if (!(opts && opts.hideKeep)) _bs.push(_mk("k", "※被り有", "#B45309", "#FEF3C7", "#FCD34D",
       "時間かぶり" + _n + "件のうち、この記録を算入に選抜しています。ほかは合計から除外（件数は残ります）"));
   } else if (_elCollExcluded(data, r, scope)) {
     _bs.push(_mk("d", "被り除外", "#6D28D9", "#F5F3FF", "#C4B5FD",

@@ -6135,7 +6135,7 @@ function DayView(_ref57) {
               React.createElement("div", null,
                 React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                 s.time || "—", _minBarBadge(s)),
-              _epIncompleteMark(s), _elCollMarkNode(data, r), _elCollPickNode(data, r, save), _elFillRiskNode(r),
+              _epIncompleteMark(s), _elCollMarkNode(data, r, null, _EL_COLL_HIDE_KEEP), _elCollPickNode(data, r, save), _elFillRiskNode(r),
               (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()   // 2026-07-29 選外(データのみ)も無印にしない
             ),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", color: "#9A3412" } }, r.stock),
@@ -6512,7 +6512,7 @@ function DayView(_ref57) {
             cutCtx ? _renderSimCutInput(r, cutCtx) : null),
           React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", whiteSpace: "nowrap", width: "1%", color: "#666" } },
             React.createElement("div", null, s.time || "—", _minBarBadge(s)),
-            _epIncompleteMark(s), _elCollMarkNode(data, r), _elCollPickNode(data, r, save), _elFillRiskNode(r),
+            _epIncompleteMark(s), _elCollMarkNode(data, r, null, _EL_COLL_HIDE_KEEP), _elCollPickNode(data, r, save), _elFillRiskNode(r),
             (function() { var _ob = _elOutOfTotalBadge(data, r); return _ob ? React.createElement("div", { style: { marginTop: 1 } }, _ob) : null; })()),   // 2026-07-29 選外(データのみ)も無印にしない
           React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: bb, borderRight: "1px solid #e8e5de", color: "#555", minWidth: 60 } },
             _elSigCell(s, "center")),
