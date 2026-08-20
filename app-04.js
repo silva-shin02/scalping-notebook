@@ -4908,14 +4908,24 @@ function EpNaviPanel(_refEPN) {
   // otherは「もう一方の日替わり列の銘柄」＝▽の選択肢から外す。同じ銘柄が2列に出ると_formApisRef/_editingMap（銘柄名キー）が衝突して編集・削除が片方に飛ぶため、選べないようにして防ぐ。
   var _rotColTop = function(slot, sel, setRaw, other, setOtherRaw) {
     var _cards = sel ? (savedByStock.map[sel] || []) : [];
-    var _opts = rotStocks.filter(function(s) { return s !== other; });
+    // 候補は**絞らない**（2026-08-19b）。以前は相方の列に出ている銘柄を除いていたが、そのせいで
+    // 「古河電工の欄にSUMCOが出ない／SUMCOの欄に古河電工が出ない」＝2列の中身を入れ替えられなかった。
+    // 重複表示は下のonChangeで「相方の銘柄を選んだら入れ替える」ことで防ぐ。
+    var _opts = rotStocks;
     return React.createElement("div", { key: "epncrot" + slot, style: { minWidth: 0, borderLeft: "2px solid #A5B4FC", paddingLeft: 6 } },
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, background: "#EEF2FF", borderRadius: 5, padding: "3px 5px", marginBottom: 5 } },
         React.createElement("span", { title: "日替わり銘柄（その日の取引銘柄を候補から選択・表示のみ）", style: { fontSize: 12, whiteSpace: "nowrap" } }, "📅"),
         React.createElement("select", { value: sel, onChange: function(ev) {
-            var v = ev.target.value; setRaw(v); _epnRotSet(date, v, slot);
-            // もう一方の列が未選択（既定追従）のままだと、こちらを変えた拍子に既定の計算結果が動いて一緒に銘柄が変わってしまう＝いま出ている銘柄で固定する（2026-08-07）。
+            var v = ev.target.value;
             var _oSlot = slot ? 0 : 1;
+            if (other && v === other) {
+              // 相方の列に出ている銘柄を選んだ＝2列を入れ替える。相方にはこちらのいまの銘柄を移す（同じ銘柄が2列に並ぶのを防ぐ）。
+              setRaw(v); _epnRotSet(date, v, slot);
+              setOtherRaw(sel); _epnRotSet(date, sel, _oSlot);
+              return;
+            }
+            setRaw(v); _epnRotSet(date, v, slot);
+            // もう一方の列が未選択（既定追従）のままだと、こちらを変えた拍子に既定の計算結果が動いて一緒に銘柄が変わってしまう＝いま出ている銘柄で固定する（2026-08-07）。
             if (other && !_epnRotGet(date, _oSlot)) { setOtherRaw(other); _epnRotSet(date, other, _oSlot); }
           },
           style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#3730A3", background: "#fff", border: "1px solid #C7D2FE", borderRadius: 4, padding: "3px 4px", boxSizing: "border-box", minHeight: IS_TOUCH ? 30 : 24 } },
