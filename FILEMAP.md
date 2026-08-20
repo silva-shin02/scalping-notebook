@@ -177,6 +177,8 @@ _EL_OSC_BANDS（OS連鎖分析用OS帯=下落/0〜4/5〜9/10〜14/15〜19/20円�
   - ⚠️**過去日は絶対に触らない**。`dailyStock` は合計損益の算入判定の正本なので、遡ると過去の合計が変わる。
   - ⚠️印は `data.dailyStockSeed[日付]=1`（新しいトップレベルのマップ・汎用マージで同期）。**自動で入れたときと手で指定/解除したときの両方**で立てる＝全部外した日を開き直しても復活しない（`_dsWrite` は0件でキーを消すので `dailyStock` だけでは「未選定」と「全部外した」が区別できない）。
 
+**📥 確定値で入るべきか 2026-08-20**: `_EL_CE_NOTE`（見出し下の※注記・両設置場所で共用）, `_EL_CE_SKIPLBL`（母数外の理由ラベル low/noconf/noep/noamt/shift）, `_elConfEntRow(r, aiOf)`（1記録の比較行＝EP足の確定値を建値にαを差し替えて`_elHoldFinalParts`を再計算。返り値 {a,c,gain(①),cur,alt,diff,d2(②),curStop,altStop,skip}）, `_elConfEntAgg(rows, withLow)`（集計。withLow=確定値<EPの行を「確定値方式では見送り0円」として両側に算入。**内訳①②とcore/coreNは確定値≥EPの行だけ**）, `_ElConfEntSection`（セクション本体・母数トグルを持つのでコンポーネント。props recs/aiOf/**secH（nullなら見出しを出さずトグルだけ右寄せ＝🔬深掘りのように外側で`_secH`を出す場合）**/title?）。**設置＝📡シグナル総合の新サブタブ「📥 確定待ち」（`sigSub==="ce"`）と、銘柄タブ→🔬深掘りの「📍 EP位置の分析」の直後（`dp_ce`）の2か所**。詳細は変更ログ 2026-08-20 を参照。
+
 ## app-07.js (元 L31105-36524)
 useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に見て旧cat/ni.subCatも併用 2026-08-03e）**, _shvIsStockNewsTag, _csCollectNewsForStock, _ntExtractStockFromTag, _aggregateBarsToDaily, ChartSectionDailyCandle, _parseDailyCsv, _bizDaysBetween, _dcVerifiedStocks, _dcSaveCsvToFb, _dcLoadCsvUploadedAt, _dcLoadCsvFromFb, _dcCacheLoad, _dcCacheSave, _calcEMA, _pickPriceStep, DailyCandleChart, _nhvUpdateNi, _nhvDeleteNi, _nhvCollectFlat, NewsHistoryView, _shvCollectFlat, _shvCollectSoukatsu, _shvTogPin, _shvAppendToToday, _SummaryCard, SummaryHistoryView, SI_DEFAULT_TAB_NAMES, SI_TEMPLATE_TAB_NAMES, _siFormatRelTime, _siGetTabs, _siSetTabs, _siGetTabContent, _siUpdateTabContent, _siAddTab, _siDelTab, _siRenameTab, _siReorderTab, _siCopyFromOtherStock, StockInfoTabsManagementModal, _renderUnsavedDialog, MemoEditableField, StockInfoSection, StockHistoryView
 **2026-08-03e NewsHistoryView を保存済みライブラリに**
@@ -371,6 +373,27 @@ HomeEventFormModal, App
   - **回帰**: 既定前提・⑥起点明示＋α投入・⑤切替(取引資金) の3本が**1円も動かない**ことを確認。14ケース×8描画関数=112件のスモークも例外ゼロ。⚠️`doSave` の保存経路だけは `setData→stSave→fbPut` で**実データがFirebaseへ書かれる**ので実アプリでは叩いていない（ガードは `res` 定義(774) → `doSave`(783) → early return(788) → `setData`(789) の順序をコードで確認）。
 
 ## 変更ログ
+
+### 2026-08-20 「📥 確定値で入るべきか」を新設（app-06 / sw v452→v453）
+- ユーザー要望「エントリー記録帳の中に、確定値で入ったほうがいいのか、という分析が欲しい。※確定値がEPより低い記録は算入外」。
+- 新設: `_EL_CE_NOTE` / `_EL_CE_SKIPLBL` / `_elConfEntRow` / `_elConfEntAgg` / `_ElConfEntSection`（app-06・`_elSpNeedSectionV2` の直後）。
+- **設置は2か所**（型は 2026-08-18e の「🩹 補正要否をシグナル総合にも」と同じ）:
+  - **📡シグナル総合 → 新サブタブ「📥 確定待ち」**（`_SIG_TABS` の💴株価帯別の右）。母数＝分類トグルを通した `_v2recsAllData`（全銘柄）。
+  - **銘柄タブ → 🔬深掘り**（「📍 EP位置の分析」の直後・「🎯 計画EP vs 実エントリーの乖離」の手前＝EP位置→入り方→執行の並び）。`_detCtl`/`_detBody`（詳細スコープ）に乗せる。
+- **モデル＝「αを確定値に差し替えて `_elHoldFinalParts` をもう一度回す」だけ**。建値がα→EP足の確定値へ動くと**損切りラインも建値からの距離(cut)ぶん一緒に上へずれる**ので、これで規約が丸ごと再利用できる（🔁応用α換算・🩹補正要否と同じ反実仮想の型）。
+  - ⚠️**αを確定値へ上げてもEP足は動かない**＝手前の足は高値<α≤確定値で条件を満たさず、EP足自身は高値≥確定値。それでも `_epResolve(確定値)` の epIdx/judge が元と一致するか毎回確かめ、ズレたら母数から外す（`skip:"shift"`）。**高値<確定値という入力事故の検知にもなっている**（実際、実装中の単体テストでこの分岐が誤ったテストデータを捕まえた）。
+  - ⚠️**EP足の引けで次足期待度が×＝その場で降りる記録は、確定値エントリーだと建値=決済値で0円**になる。「確定値を見た時点で×と判断＝そもそも入らない」と同額なので特別扱いは不要。
+- 母数（ユーザー指定の「確定値がEPより低い記録は算入外」を既定に）: `skip` は5種＝`low`(確定値<採用α)／`noconf`(確定値 未記録)／`noep`(E不成立＝未達・×見送り)／`noamt`(両方式とも（）外に損益が乗らない＝△確信度エントリー等)／`shift`(EP足がズレる)。
+  - ⚠️**`noamt` を「0円で算入」しない**のがポイント。cur/altが揃って0になるだけなのに①の内訳だけ動いて **①＋②＝差額 の恒等式が壊れる**。🔁応用α換算の「片側不成立は0円算入」は"片側"だけ落ちる話なので、ここには当てはまらない。
+- **差の内訳（この機能の肝）**: diff＝(確定値方式−現行) を必ず割り切れる2つに分解する。
+  - **①入値の改善 = (確定値−α)×100**（母数の中では常に0以上）。
+  - **②降り方の変化 = diff−①**。同じ足で降りるかぎり**必ず0**で、損切りラインが上へずれて手じまい足が変わった記録だけが乗る。
+  - ⚠️`_elConfEntAgg` の `core`/`coreN` は「確定値≥EPの行だけ」の合計＝**①＋②と突き合わせるのはこちら**（`diff` は乗り換えモードで見送り行も含むため別物）。
+- **母数トグル**（見出し右）: 既定「確定値≥EPのみ」＝ユーザー指定の純粋な入値比較／「戻った分も算入」＝確定値がEPを割った記録を**確定値方式では見送り(0円)**として両側に算入＝方式を丸ごと乗り換えたら通算いくらか。
+  - 既定モードでも読み取り欄に乗り換え時の通算を出す（`TS = _elConfEntAgg(rows, true)`）＝**「算入外にした分は現行なら取れていた利益」という選抜バイアスを画面から隠さない**ため。
+- ⚠️**`stopMade`（新たに損切りになる）は構造上ほぼ起きない**＝確定値≥αなら損切りラインは必ず上へずれるので `altStop ⊆ curStop`。保険として計上だけしてある（`_elIsStopFinal` の規約が変わった時の検知用）。
+- ⚠️**`_secH` の ※注記は素のテキストしか出さない**＝`**強調**` を書くと記号がそのまま画面に出る（既存の🩹補正要否がそうなっている）。文面は `_EL_CE_NOTE` に1本化し、シグナル総合（コンポーネント内の`secH`）と🔬深掘り（外側の`_secH`）の両方から同じ定数を渡している。**🔬深掘りの説明文は※で始まらないと1文字も表示されない**ので注意。
+- 確認: 実ファイル（app-01〜06）をnodeに読み込ませ、合成のscheme:3記録で **11ケース**（EP足×で0円／同じ足で降りる＝diff=①・②=0／損切り回避で②が効く／`low`／`noep`／確定値=αちょうどの境界／`noconf`／高値<確定値の`shift`／×宣言後の到達／△確信度の`noamt`／EP=OS2）＋集計2モード＋**恒等式 `cur+diff===alt` と `gain+d2===core`** ＋描画（母数あり/空/全件E不成立 × secHあり/なし）を検証。
 
 ### 2026-08-19c EPナビ日替わり列の銘柄が入れ替えられない問題（app-04 / sw v451→v452）
 - ユーザー報告「古河電工の欄でSUMCOが表示されず、SUMCOのところで古河電工が表示されない」。

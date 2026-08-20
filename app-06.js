@@ -3757,6 +3757,196 @@ function _elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel, byStock) {
         "得した " + T.win + "件 / 損した " + T.lose + "件 / 同じ " + T.same + "件")]),
     _elv2Table(["日付・時刻", "銘柄", "シグナル", "実際の採用α", "補正なし（基本α）", "想定損益（実際）", "想定損益（補正なし）", "補正の効果"], _bodyRows));
 }
+// ===== 📥 確定値で入るべきか（EP約定 vs 確定値エントリー）2026-08-20 ユーザー要望 =====
+// 問い＝「αのラインに触れた瞬間に約定する今のやり方より、その足が確定するのを待って“確定値（終値）”で入った方が良いのか」。
+// 【モデル】確定値エントリー＝**EP足の確定値を建値にして、そこから先は現行とまったく同じ規約で降りる**。
+//   建値がα→確定値へ動くと**損切りラインも建値からの距離(cut)ぶん一緒に上へずれる**ので、実装は
+//   「αを確定値に差し替えて既存の正本 _elHoldFinalParts をもう一度回す」だけで足りる（🔁応用α換算・🩹補正要否と同じ反実仮想の型）。
+//   ⚠️**αを確定値へ上げてもEP足は動かない**＝手前の足は高値<α≤確定値なので条件を満たさず、EP足自身は高値≥確定値。
+//     それでも念のため _epResolve(確定値) の epIdx/judge が元と一致するか確かめ、ズレたら母数から外す（高値<確定値という入力事故の受け皿）。
+//   ⚠️EP足の引けで次足期待度が×＝その場で降りる記録は、確定値エントリーだと建値=決済値で**0円**になる。
+//     これは「確定値を見た時点で×と判断＝そもそも入らない」と同額なので、方式の比較として辻褄が合う（特別扱い不要）。
+// 【母数】ユーザー指定「**確定値がEPより低い記録は算入外**」＝EP足の確定値 < 採用α は既定の合計から外す（一覧には薄く残す）。
+//   確定値の未記録・E不成立（未達/×見送り）・**両方式とも（）外に損益が乗らない記録（△確信度エントリー等）**も比較にならないので除外。
+//   ⚠️（）外に乗らない記録を「0円で算入」しないのは、cur/altが揃って0になり①②の内訳だけが動いて内訳が壊れるから
+//     （🔁応用α換算の「片側不成立は0円算入」は"片側"だけ落ちる話なので、ここには当てはまらない）。
+//   時間かぶり除外は掛けていない（🩹補正要否と同じ規約）。
+// 【差の内訳】diff =（確定値方式 − 現行）を必ず2つに割り切れる形で持つ:
+//   ①入値の改善 = (確定値 − α)×100 … 母数の中では常に0以上。ラインより高い位置で売れた分。
+//   ②降り方の変化 = diff − ① … **損切りラインが上へずれて手じまい足が変わった分だけ**が出る（同じ足で降りるなら必ず0）。
+// 見出し下の ※注記（_secH は「※で始まる文字列」だけ描くので、この定数を両方の設置場所から渡して文面を1本にする）。
+// ⚠️_secH は素のテキストしか出さない＝**強調**のようなマークダウンは記号がそのまま画面に出るので書かないこと。
+var _EL_CE_NOTE = "※ αのラインに触れた瞬間に約定する現行に対し、「EP足の確定値（終値）を建値にして、そこから先は同じ規約で降りた場合」を1記録ずつ当て直した反実仮想。建値が上がるぶん損切りラインも同じだけ上へずれる（損切り幅は記録の採用値のまま＝建値だけを差し替えた比較）。損益は想定損益（手じまいまで）の（）外。確定値がEP（＝採用α）より低い記録は算入外（ユーザー指定）。確定値の未記録・E不成立（未達／×見送り）・両方式とも（）外に損益が乗らない記録（△確信度エントリー等）も比較にならないので母数から外す。時間かぶり除外は掛けていない（🩹補正要否と同じ）";
+var _EL_CE_SKIPLBL = { low: "算入外（確定値がEPより低い）", noconf: "確定値 未記録", noep: "E不成立", noamt: "（）外に損益なし", shift: "EP足がズレる" };
+// 1記録の比較行。skip!=null＝母数外（理由は _EL_CE_SKIPLBL）。skip==="low" の行だけは cur/gain を持つ＝「戻った分も算入」モードで使う。
+function _elConfEntRow(r, aiOf) {
+  var s = r && r.signal; if (!s || !_epIsV2(s)) return null;
+  var ai = (aiOf ? aiOf(r) : null) || {}, a = ai.alpha, cut = ai.cutLine;
+  if (a == null) return null;
+  var rp = _epResolve(s, a);
+  if (!rp || rp.judge !== "ok" || rp.epIdx < 0 || !rp.ep) return { r: r, s: s, a: a, cut: cut, skip: "noep" };
+  var c = rp.ep.c;
+  if (c == null) return { r: r, s: s, a: a, cut: cut, skip: "noconf" };
+  var curP = _elHoldFinalParts(s, a, cut).main;
+  if (curP == null) return { r: r, s: s, a: a, cut: cut, c: c, skip: "noamt" };
+  var gain = Math.round((c - a) * 100);   // ①入値の改善（100株換算・想定損益と同じ単位）
+  if (c < a) return { r: r, s: s, a: a, cut: cut, c: c, gain: gain, cur: curP, skip: "low" };
+  var rp2 = _epResolve(s, c);
+  if (!rp2 || rp2.judge !== "ok" || rp2.epIdx !== rp.epIdx) return { r: r, s: s, a: a, cut: cut, c: c, gain: gain, cur: curP, skip: "shift" };
+  var altP = _elHoldFinalParts(s, c, cut).main;
+  if (altP == null) return { r: r, s: s, a: a, cut: cut, c: c, gain: gain, cur: curP, skip: "noamt" };
+  return { r: r, s: s, a: a, cut: cut, c: c, gain: gain, cur: curP, alt: altP, diff: altP - curP, d2: (altP - curP) - gain,
+    curStop: _elIsStopFinal(s, a, cut), altStop: _elIsStopFinal(s, c, cut), skip: null };
+}
+// 集計。withLow=true＝「戻った記録も算入」モード＝確定値<EPの記録を**確定値方式では見送り(0円)**として両側に算入する。
+//   ⚠️内訳(①gain/②d2)は withLow でも**確定値≥EPの行だけ**を積む（見送り扱いの行に入値の改善は無い）。
+//   その内訳と突き合わせる合計は core（＝確定値≥EPの行のdiff合計）で、全体の diff とは別に持つ。
+function _elConfEntAgg(rows, withLow) {
+  var T = { n: 0, cur: 0, alt: 0, diff: 0, win: 0, lose: 0, same: 0, gain: 0, d2: 0, core: 0, coreN: 0,
+    ep: 0, low: 0, lowCur: 0, noconf: 0, noep: 0, noamt: 0, shift: 0, gapSum: 0,
+    curStop: 0, stopSaved: 0, stopMade: 0 };
+  (rows || []).forEach(function(o) {
+    if (!o) return;
+    if (o.skip === "noep") { T.noep++; return; }
+    T.ep++;                                                     // E成立＝比較の入口に立った記録
+    if (o.skip === "noconf") { T.noconf++; return; }
+    if (o.skip === "noamt") { T.noamt++; return; }
+    if (o.skip === "shift") { T.shift++; return; }
+    if (o.skip === "low") {
+      T.low++; T.lowCur += o.cur;
+      if (!withLow) return;
+      var _d = 0 - o.cur;                                       // 確定値方式では見送り＝0円
+      T.n++; T.cur += o.cur; T.diff += _d;
+      if (_d > 0) T.win++; else if (_d < 0) T.lose++; else T.same++;
+      return;
+    }
+    T.n++; T.cur += o.cur; T.alt += o.alt; T.diff += o.diff;
+    T.core += o.diff; T.coreN++; T.gain += o.gain; T.d2 += o.d2; T.gapSum += (o.c - o.a);
+    if (o.curStop) T.curStop++;
+    if (o.curStop && !o.altStop) T.stopSaved++;
+    if (!o.curStop && o.altStop) T.stopMade++;   // ⚠️母数の中では確定値≥αなので損切りラインは必ず上へずれる＝構造上ほぼ起きない（保険の計上・_elIsStopFinalの規約が変わった時の検知用）
+    if (o.diff > 0) T.win++; else if (o.diff < 0) T.lose++; else T.same++;
+  });
+  return T;
+}
+// セクション本体（母数トグルを持つのでコンポーネント）。props: recs（v2の分析母数）/ aiOf / secH（EntryLogView内の見出し関数）/ title?（見出しの後ろに付ける母数名）。
+// 母数が作れない（E成立0件など）ときは null を返す＝呼び出し側が空メッセージを出す。
+function _ElConfEntSection(props) {
+  var recs = props.recs || [], aiOf = props.aiOf, secH = props.secH;
+  var _wl = useState(false), withLow = _wl[0], setWithLow = _wl[1];
+  var rows = recs.slice().sort(function(a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); })   // 新しい順
+    .map(function(r) { return _elConfEntRow(r, aiOf); }).filter(Boolean);
+  // 両モードぶん集計しておき、表示中でない方を TO（もう一方の母数の数字）として常に出す。
+  // ⚠️既定モード（算入外）でも「丸ごと乗り換えたら」の通算を必ず画面に出すのが要点＝
+  //   算入外にした記録は現行なら取れていた利益なので、そこを隠すと選抜バイアスで確定値方式が良く見える。
+  var TA = _elConfEntAgg(rows, false), TB = _elConfEntAgg(rows, true);
+  var T = withLow ? TB : TA, TO = withLow ? TA : TB;
+  var _amt = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+    : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+  var _diffN = function(v, big) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+    : React.createElement("span", { style: { fontWeight: big ? 800 : 700, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "円"); };
+  var _per = T.n ? Math.round(T.diff / T.n) : 0;
+  var _gapAvg = T.coreN ? (T.gapSum / T.coreN) : 0;
+  var _vd = T.diff > 0 ? { t: "確定値で入る方が良い", c: "#C0392B", bg: "#FCEBEB", b: "#F5C6C6" }
+    : T.diff < 0 ? { t: "EP（ライン）で入る方が良い", c: "#1E8449", bg: "#EAF3DE", b: "#C2E3A8" }
+    : { t: "差なし", c: "#888", bg: "#F5F4F0", b: "#E0DAD1" };
+  // 母数トグル（浮き足の[浮き基本|浮き応用]と同じセグメント）。既定＝ユーザー指定の「確定値≥EPのみ」。
+  var _modeBar = React.createElement("span", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2, verticalAlign: "middle" } },
+    [[false, "確定値≥EPのみ", "ユーザー指定の母数。確定値がEPより低い記録は算入外＝純粋な入値の比較"],
+     [true, "戻った分も算入", "確定値がEPを割った記録を「確定値方式なら見送り＝0円」として両側に算入＝方式を丸ごと乗り換えたら通算いくらか"]].map(function(o) {
+      var on = withLow === o[0];
+      return React.createElement("button", { key: String(o[0]), type: "button", onClick: function() { setWithLow(o[0]); }, title: o[2],
+        style: { padding: "3px 11px", fontSize: 11, fontWeight: on ? 800 : 600, borderRadius: 5, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#0369A1" : "#6B6459", boxShadow: on ? "0 1px 2px rgba(0,0,0,.1)" : "none" } }, o[1]);
+    }));
+  // 読み取り
+  var _ins = [];
+  _ins.push(React.createElement("span", null, "確定値エントリーは同じ母数（", T.n, "件）で ",
+    _elInsightEmV2((T.diff > 0 ? "+" : "") + Math.round(T.diff).toLocaleString() + "円", T.diff > 0 ? "#C0392B" : T.diff < 0 ? "#1E8449" : "#92400E"),
+    "（1件あたり ", (_per > 0 ? "+" : "") + _per.toLocaleString(), "円）。", _elInsightEmV2(_vd.t, _vd.c), "。"));
+  if (T.coreN) {
+    _ins.push(React.createElement("span", null, "内訳は ", _elInsightEmV2("①入値の改善 " + (T.gain > 0 ? "+" : "") + Math.round(T.gain).toLocaleString() + "円"),
+      " ＋ ", _elInsightEmV2("②降り方の変化 " + (T.d2 > 0 ? "+" : "") + Math.round(T.d2).toLocaleString() + "円", T.d2 < 0 ? "#1E8449" : "#92400E"),
+      "（合計 " + (T.core > 0 ? "+" : "") + Math.round(T.core).toLocaleString() + "円）。平均でラインより ",
+      _elInsightEmV2(_gapAvg.toFixed(1) + "円"), " 高い位置から入れている",
+      T.d2 < 0 ? "が、建値と一緒に損切りラインも上へずれるため、現行なら切れていた記録を持ち続けて取り返せていない" : (T.d2 > 0 ? "うえ、損切りラインが上へずれたぶんも味方している" : ""), "。"));
+  }
+  if (T.curStop) {
+    _ins.push(React.createElement("span", null, "現行で損切りだった ", _elInsightEmV2(T.curStop + "件"), " のうち ",
+      _elInsightEmV2(T.stopSaved + "件", T.stopSaved ? "#C0392B" : "#92400E"), " は確定値エントリーなら損切りにならない",
+      T.stopMade ? "（逆に " + T.stopMade + "件 が新たに損切りになる）" : "", "。"));
+  }
+  if (T.low) {
+    var _lowN = T.low, _lowCur = T.lowCur;
+    _ins.push(React.createElement("span", null, "確定値がEPを割って", withLow ? "「見送り」扱いにした" : "算入外にした", " ", _elInsightEmV2(_lowN + "件"),
+      " は、現行なら合計 ", _elInsightEmV2((_lowCur > 0 ? "+" : "") + Math.round(_lowCur).toLocaleString() + "円", _elPnlColor(_lowCur)),
+      "（1件あたり " + (_lowN ? ((_lowCur > 0 ? "+" : "") + Math.round(_lowCur / _lowN).toLocaleString()) : 0) + "円）。",
+      withLow ? "この見送り分を含めた通算が上の差額。" : React.createElement("span", null, "この方式に丸ごと乗り換えるとこの分は取れなくなるので、通算は ",
+        _elInsightEmV2((TO.diff > 0 ? "+" : "") + Math.round(TO.diff).toLocaleString() + "円", TO.diff > 0 ? "#C0392B" : "#1E8449"),
+        "（右上のトグル「戻った分も算入」）。")));
+  }
+  // 明細（母数外のうち、ユーザーの規約に直接かかわる low / noconf だけ薄く残す。E不成立・（）外なし・足ズレは件数のみ）
+  var _shown = rows.filter(function(o) { return !o.skip || o.skip === "low" || o.skip === "noconf"; });
+  var _bodyRows = _shown.map(function(o, i) {
+    var live = !o.skip || (o.skip === "low" && withLow);
+    var d = o.skip ? (o.skip === "low" && withLow ? (0 - o.cur) : null) : o.diff;
+    return React.createElement("tr", { key: "ce" + i, style: { opacity: live ? 1 : 0.45,
+      background: (d != null && d > 0) ? "#FFF7F5" : (d != null && d < 0) ? "#F4FBF5" : "transparent" } },
+      _elv2Td(o.r.date.slice(5).replace("-", "/") + (o.s.time ? " " + o.s.time : ""), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, o.r.stock)),
+      _elv2Td(_elSigCell(o.s, "center"), { minWidth: 60 }),
+      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, o.a + "円")),
+      _elv2Td(o.c != null ? _epSignedNode(o.c, "c") : React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#c4bfb6" } }, "未記録")),
+      _elv2Td(o.skip ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#c4bfb6" } },
+          (o.skip === "low" && withLow) ? "見送り（確定値がEPより低い）" : _EL_CE_SKIPLBL[o.skip])
+        : React.createElement("span", null, _diffN(o.gain),
+            React.createElement("span", { style: { display: "block", fontSize: 9, color: "#aaa" } }, "値幅 " + ((o.c - o.a) > 0 ? "+" : "") + (o.c - o.a) + "円"))),
+      _elv2Td(o.cur != null ? _amt(o.cur) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+      _elv2Td(o.skip
+        ? ((o.skip === "low" && withLow)   // 0円は「算入した見送り」の意味なので、算入外モードでは出さない（薄いだけだと算入済みに見える）
+            ? React.createElement("span", null, React.createElement("span", { style: { fontWeight: 700, color: "#b5b0a8" } }, "0円"),
+                React.createElement("span", { style: { display: "block", fontSize: 9, fontWeight: 700, color: "#c4bfb6" } }, "見送り"))
+            : React.createElement("span", { style: { color: "#ccc" } }, "—"))
+        : React.createElement("span", null, _amt(o.alt),
+            (o.curStop !== o.altStop) ? React.createElement("span", { style: { display: "block", fontSize: 9, fontWeight: 700, color: o.curStop ? "#C0392B" : "#1E8449" } }, o.curStop ? "損切り回避" : "新たに損切り") : null)),
+      _elv2Td(React.createElement("span", null, _diffN(d),
+        (!o.skip && o.d2 !== 0) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#aaa" } }, "降り方 " + (o.d2 > 0 ? "+" : "") + Math.round(o.d2).toLocaleString() + "円") : null)));
+  });
+  _bodyRows.push(React.createElement("tr", { key: "cetot", style: { background: "#FFFBF0", borderTop: "2px solid #FB923C" } },
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, "合計"), { textAlign: "left", paddingLeft: 8 }),
+    _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#666" } }, T.n + "件")),
+    _elv2Td(null), _elv2Td(null), _elv2Td(null),
+    _elv2Td(React.createElement("span", null, React.createElement("span", { style: { fontWeight: 800 } }, _diffN(T.gain)),
+      (withLow && T.low) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#aaa" } }, "≥EPの" + T.coreN + "件分") : null)),
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(T.cur))),
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(T.alt))),
+    _elv2Td(_diffN(T.diff, true))));
+  var _exTxt = [T.low ? "確定値がEPより低い " + T.low + "件" : null, T.noconf ? "確定値 未記録 " + T.noconf + "件" : null,
+    T.noamt ? "（）外に損益が乗らない " + T.noamt + "件" : null, T.shift ? "EP足がズレる " + T.shift + "件" : null].filter(Boolean).join("・");
+  var _head = secH
+    ? secH("📥 確定値で入るべきか" + (props.title ? "（" + props.title + "）" : ""), _EL_CE_NOTE,
+      _modeBar)
+    : React.createElement("div", { style: { display: "flex", justifyContent: "flex-end", margin: "0 0 6px" } }, _modeBar);
+  if (!T.ep) return React.createElement(React.Fragment, null, _head,
+    React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "E成立（採用αに到達してエントリーが立った）記録がありません"));
+  return React.createElement(React.Fragment, null,
+    _head,
+    _elv2CardRow([
+      _elv2Card("現行（EPで約定）", _amt(T.cur), null, T.n + "件の合計"),
+      _elv2Card("確定値で入った場合", _amt(T.alt), null, withLow ? "見送り" + T.low + "件を0円で算入" : "同じ母数で再計算"),
+      _elv2Card("差額（確定値 − 現行）", _diffN(T.diff, true), null, "1件あたり " + (_per > 0 ? "+" : "") + _per.toLocaleString() + "円"),
+      _elv2Card("判定", React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: _vd.c, background: _vd.bg, border: "1px solid " + _vd.b, borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" } }, _vd.t), null,
+        "得した " + T.win + "件 / 損した " + T.lose + "件 / 同じ " + T.same + "件")]),
+    _elv2CardRow([
+      _elv2Card("①入値の改善", _diffN(T.gain), null, "平均でラインより " + _gapAvg.toFixed(1) + "円 高い位置（" + T.coreN + "件）"),
+      _elv2Card("②降り方の変化", _diffN(T.d2), null, "損切り " + T.curStop + "件 → " + (T.curStop - T.stopSaved + T.stopMade) + "件" + (T.stopSaved ? "（回避 " + T.stopSaved + "件）" : "")),
+      T.low ? _elv2Card(withLow ? "確定値≥EPだけなら" : "丸ごと乗り換えたら", _diffN(TO.diff), null,
+        withLow ? ("見送り " + T.low + "件を除いた比較") : ("見送りになる " + T.low + "件（現行 " + _elPnlFmt(T.lowCur) + "）込みの通算"))
+        : null,
+      _elv2Card("母数", React.createElement("span", { style: { fontWeight: 800 } }, T.n + "件"), null,
+        "E成立 " + T.ep + "件中" + (_exTxt ? "／" + _exTxt + " を除外" : "") + (T.noep ? "（E不成立 " + T.noep + "件は対象外）" : ""))]),
+    _elInsightBoxV2(_ins, { note: "①＋② = 確定値≥EPの " + T.coreN + "件ぶんの差額（" + (T.core > 0 ? "+" : "") + Math.round(T.core).toLocaleString() + "円）。②は同じ足で降りるかぎり必ず0で、損切りラインが上へずれて手じまい足が変わった記録だけが乗る" }),
+    _elv2Table(["日付・時刻", "銘柄", "シグナル", "採用α", "EP足の確定値", "①入値の改善", "想定損益（現行）", "想定損益（確定値）", "差額"], _bodyRows));
+}
 // 浮き足加算率ボードの基本/応用スコープ切替トグル（フォームの浮き足[浮き基本|浮き応用]と同スタイル）2026-07-18。sp=true→応用。onSet(boolean)で切替。分析ボード(シグナル総合/シグナル別)を_elUkiPctBoardScopedのmodeに連動させる。
 function _ukiScopeToggle(sp, onSet) {
   return React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 7, padding: 2, gap: 2 } },
@@ -6297,7 +6487,7 @@ function EntryLogView(_ref_elv2) {
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
-  var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["spn", "🩹 補正要否"], ["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]];   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
+  var _SIG_TABS = [["band", "💴 株価帯別"], ["ce", "📥 確定待ち"], ["stop", "🛑 損切り"], ["spn", "🩹 補正要否"], ["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]];   // 2026-08-20 「📥 確定待ち」（＝確定値で入るべきか）を💴株価帯別の右に追加＝入り方(確定待ち)→降り方(🛑損切り)→α補正(🩹補正要否)の並び。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
   // 日付だけ新しい順・各日付の中は時間が早い順（2段ソート）2026-07-27 ユーザー指定＝「新しい日から見て、その日は朝から順に読む」。
   // 日付＋時刻を繋げた文字列の単純降順にすると日内まで逆順になるので、日付と時刻を分けて比較するのが要。
@@ -7669,6 +7859,14 @@ function EntryLogView(_ref_elv2) {
       _tabBody = _stGrp
         ? _bandAxisBody(_stGrp.recs, true, { withAll: true, sigLabel: _stGrp.label, bSigKey: _stKey })
         : _sigKpiEmpty("このシグナルの記録がありません（シグナル名の変更・削除で無くなった可能性があります。上のタブから選び直してください）");
+    } else if (sigSub === "ce") {
+      // 📥 確定値で入るべきか（全銘柄横断）2026-08-20: ラインに触れた瞬間の約定 vs その足の確定値での約定。
+      //   母数＝分類トグルを通した全銘柄のv2データ算入記録。**銘柄をまたいでも壊れない**＝比較はα・確定値とも1記録の中で完結し、
+      //   🩹補正要否のような「銘柄横断で混ぜると壊れる外部基準（推奨基本α）」を持たないため（byStock相当の分岐が要らない）。
+      var _ceRecsSig = _addFilPure(_v2recsAllData);
+      _tabBody = _cardify([
+        _addFilBarPure(),
+        React.createElement(_ElConfEntSection, { key: "ce", recs: _ceRecsSig, aiOf: _ai, secH: _secH, title: "全銘柄" })]);
     } else if (sigSub === "stop") {
       // 🛑損切り（全銘柄）2026-07-27。銘柄別タブの🛑損切り（銘柄×シグナル母数）は存続＝両方で見る。
       // 株価帯での分割は入れない（ユーザー決定 2026-07-27）。銘柄を区別せず1つの母数として集計する。
@@ -8340,6 +8538,7 @@ function EntryLogView(_ref_elv2) {
       _secH("🚫 次足期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）。集計タブから移設", _detCtl("dp_x", _selSigRecsScoped)), _detBody("dp_x", _selSigRecsScoped, function(_drs) { return _elXSkipSectionV2(_drs, _ai); }),
       _secH("🔺 次足期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）。集計タブから移設", _detCtl("dp_tri", _selSigRecsScoped)), _detBody("dp_tri", _selSigRecsScoped, function(_drs) { return _elTriangleHoldSectionV2(_drs, _ai); }),
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）とEP位置別の成績。集計タブから移設", _detCtl("dp_ep", _selSigRecsScoped)), _detBody("dp_ep", _selSigRecsScoped, function(_drs) { return _elEpPosSectionV2(_drs, _ai); }),
+      _secH("📥 確定値で入るべきか", _EL_CE_NOTE, _detCtl("dp_ce", _selSigRecsScoped)), _detBody("dp_ce", _selSigRecsScoped, function(_drs) { return React.createElement(_ElConfEntSection, { recs: _drs, aiOf: _ai, secH: null }); }),
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）", _detCtl("dp_exec", _selSigRecsScoped)), _detBody("dp_exec", _selSigRecsScoped, function(_drs) { return _elExecGapSectionV2(_drs, _ai); }),
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）", _detCtl("dp_memo", _selSigRecsScoped)), _detBody("dp_memo", _selSigRecsScoped, function(_drs) { return _elMemoPerfSectionV2(_drs, _ai); })
     ]) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）");
