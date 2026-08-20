@@ -177,7 +177,7 @@ _EL_OSC_BANDS（OS連鎖分析用OS帯=下落/0〜4/5〜9/10〜14/15〜19/20円�
   - ⚠️**過去日は絶対に触らない**。`dailyStock` は合計損益の算入判定の正本なので、遡ると過去の合計が変わる。
   - ⚠️印は `data.dailyStockSeed[日付]=1`（新しいトップレベルのマップ・汎用マージで同期）。**自動で入れたときと手で指定/解除したときの両方**で立てる＝全部外した日を開き直しても復活しない（`_dsWrite` は0件でキーを消すので `dailyStock` だけでは「未選定」と「全部外した」が区別できない）。
 
-**📥 確定値で入るべきか 2026-08-20**: `_EL_CE_NOTE`（見出し下の※注記・両設置場所で共用）, `_EL_CE_SKIPLBL`（母数外の理由ラベル low/noconf/noep/noamt/shift）, `_elConfEntRow(r, aiOf)`（1記録の比較行＝EP足の確定値を建値にαを差し替えて`_elHoldFinalParts`を再計算。返り値 {a,c,gain(①),cur,alt,diff,d2(②),curStop,altStop,skip}）, `_elConfEntAgg(rows, withLow)`（集計。withLow=確定値<EPの行を「確定値方式では見送り0円」として両側に算入。**内訳①②とcore/coreNは確定値≥EPの行だけ**）, `_ElConfEntSection`（セクション本体・母数トグルを持つのでコンポーネント。props recs/aiOf/**secH（nullなら見出しを出さずトグルだけ右寄せ＝🔬深掘りのように外側で`_secH`を出す場合）**/title?）。**設置＝📡シグナル総合の新サブタブ「📥 確定待ち」（`sigSub==="ce"`）と、銘柄タブ→🔬深掘りの「📍 EP位置の分析」の直後（`dp_ce`）の2か所**。詳細は変更ログ 2026-08-20 を参照。
+**📥 確定値で入るべきか 2026-08-20 / 2026-08-20b**: `_EL_CE_NOTE`（見出し下の※注記）, `_EL_CE_SKIPLBL`（母数外の理由ラベル low/noconf/noep/noamt/shift/**fillEq**）, `_elConfEntRow(r, aiOf)`（1記録の比較行＝EP足の確定値を建値にαを差し替えて`_elHoldFinalParts`を再計算。返り値 {a,c,gain(①),cur,alt,diff,d2(②),curStop,altStop,skip}）, `_elConfEntAgg(rows, withLow)`（集計。withLow=確定値<EPの行を「確定値方式では見送り0円」として両側に算入。**内訳①②とcore/coreNは確定値≥EPの行だけ**）, `_ElConfEntSection`（セクション本体・母数トグルを持つのでコンポーネント。props recs/aiOf/secH/th/**recTable**/title?）。**設置＝💰損益タブ（全銘柄合算）の新タブ「📥 確定待ち」（`view==="ce" && _isAllStock`・📊集計の右）の1か所**。記録一覧は**標準の損益テーブル `_recTable("full")` に比較4列を差し込んだもの**（`extra` 引数・`at:10`＝想定損益・詳細の直後）。詳細は変更ログ 2026-08-20b を参照。
 
 ## app-07.js (元 L31105-36524)
 useModalBack, **_snNiCatHit（shvExtraCatsの突合。keep.cat/keep.subを先に見て旧cat/ni.subCatも併用 2026-08-03e）**, _shvIsStockNewsTag, _csCollectNewsForStock, _ntExtractStockFromTag, _aggregateBarsToDaily, ChartSectionDailyCandle, _parseDailyCsv, _bizDaysBetween, _dcVerifiedStocks, _dcSaveCsvToFb, _dcLoadCsvUploadedAt, _dcLoadCsvFromFb, _dcCacheLoad, _dcCacheSave, _calcEMA, _pickPriceStep, DailyCandleChart, _nhvUpdateNi, _nhvDeleteNi, _nhvCollectFlat, NewsHistoryView, _shvCollectFlat, _shvCollectSoukatsu, _shvTogPin, _shvAppendToToday, _SummaryCard, SummaryHistoryView, SI_DEFAULT_TAB_NAMES, SI_TEMPLATE_TAB_NAMES, _siFormatRelTime, _siGetTabs, _siSetTabs, _siGetTabContent, _siUpdateTabContent, _siAddTab, _siDelTab, _siRenameTab, _siReorderTab, _siCopyFromOtherStock, StockInfoTabsManagementModal, _renderUnsavedDialog, MemoEditableField, StockInfoSection, StockHistoryView
@@ -373,6 +373,25 @@ HomeEventFormModal, App
   - **回帰**: 既定前提・⑥起点明示＋α投入・⑤切替(取引資金) の3本が**1円も動かない**ことを確認。14ケース×8描画関数=112件のスモークも例外ゼロ。⚠️`doSave` の保存経路だけは `setData→stSave→fbPut` で**実データがFirebaseへ書かれる**ので実アプリでは叩いていない（ガードは `res` 定義(774) → `doSave`(783) → early return(788) → `setData`(789) の順序をコードで確認）。
 
 ## 変更ログ
+
+### 2026-08-20b 「📥 確定値で入るべきか」を詰め直し（app-06 / sw v453→v454）
+- 2026-08-20 の初版を**ユーザーに確認せず判断で決め切って実装した**ので、決め打ちしていた箇所を洗い出して確認を取り、4点を反映した。**「構想を詰めよう」は詰める相談の合図であって、実装してよいという意味ではない**（同じことを繰り返さないこと）。
+- ユーザーの質問「そもそもエントリーできた記録に絞ってる？」への回答＝**E成立（`_epResolve.judge==="ok" && epIdx>=0`）だけ**。未達・×見送りは `skip:"noep"` で母数外（件数だけ画面に出る）。この質問で下の①②の取りこぼしが見つかった。
+- **①指値同値を母数から除外**（ユーザー決定）。`_elFillEqAt(s, r.item, a, a)` が真なら `skip:"fillEq"`。2026-08-10A で「指値同値＝そのαでは取引していない扱い＝全列の母数から除外」に統一済みだったのに、初版だけ普通のEP約定として数えていた。
+  - ⚠️**判定そのものは動かない**。指値同値ならEP足の高値＝αなので確定値≤α＝差額はプラスになりえず、`low`（算入外）か差額0にしかならないため。効くのは**「丸ごと乗り換えたら」の通算**＝刺さっていないかもしれない取引の想定損益を「乗り換えると失う分」に数えなくなる（乗り換えコストの過大計上が消える）。
+  - 実エントリー済み（約定の証拠あり）は `_elFillEqAt` 自身が対象外にするので、そのまま母数に残る。
+- **②損切りラインの前提＝建値と一緒に上へずれる**（ユーザー決定・初版のまま）。損切り幅は建値からの距離という読み。「水準線基準で据え置き（α+cutの絶対ライン）」も選択肢として出したが不採用。
+- **③第2モード＝見送り0円で算入**（ユーザー決定・初版のまま）。「その確定値でも入る」案は不採用。⚠️そちらを選ぶ場合、**αを下げるとEP足が前の足へ動くので `_elHoldFinalParts` の差し替えでは実装できず別計算が要る**（採否が変わったら注意）。
+- **④配置を1か所へ集約**（ユーザー決定「損益テーブル（＝💰損益タブ）でいいのでは？」）。**📡シグナル総合の `_SIG_TABS` から `ce` を撤去・🔬深掘りのセクションも撤去**し、**💰損益タブ（全銘柄合算 `_tabs`）の📊集計の右**へ新タブ `["ce","📥 確定待ち"]` として移した。
+  - ⚠️**全銘柄タブ専用ビューを足したら遷移ガード3か所も必ず直す**（本文 app-06:8683 に既存の警告あり）。💰損益ピルの許可リスト・📡シグナル総合ピル・銘柄ピルの `if (view === "proj") setView("sum")` に `ce` を追加。抜けると銘柄ピルを押した時に最終elseへ落ちて本文が真っ白になる（`proj` で2回やった事故と同じ）。
+  - 母数＝`v2recs.filter(!_isDataOnly && !_elIsOldRule)`＝**「💰 全体損益（期間別）」の合計行・「📈 累積損益」と同じ線引き**。置き場所が損益タブなので、「現行（EPで約定）」の合計が同じタブの他の数字と地続きになるようにした。
+- **記録一覧を標準の損益テーブルへ差し替え**（ユーザー指摘「比較のために必要な情報が少ない」）。自前の9列テーブルを捨て、`_recTable("full")` に比較4列（EP確定値／①入値／想定損益(確定値)／差額）を差し込む形にした。
+  - **`_recTable` に第6引数 `extra = {head, cells, at}` を新設**。`at` 省略なら右端・`at:10` で「想定損益・詳細」の直後に splice する。**初版は右端に足したが、肝心の差額が横スクロールの外に出ていた**ので `at:10` にして現行の損益と横並びにした。
+  - ⚠️`head` と `cells` は**同じindexでspliceするので要素数を揃える**こと。⚠️**展開行の `colSpan`(colN) にも追加列数を足す**こと（足さないと明細カードが表より狭くなる）。`extra` 省略時は完全に従来どおり＝**他8か所の呼び出しは無変更**（実測でヘッダ13列・colSpan14のまま不変を確認）。
+  - これで OS連鎖（各足の 高値(確定値) と ↑EP）／手じまい（最高↑17→決済↓23）／**行タップでの記録カード展開（チャート画像・メモ・編集導線）**／並び順トグル／被り・不算入・指値同値バッジが全部そのまま乗る＝ユーザーが「必ず出したい」と挙げた3点をすべて満たす。
+  - 母数外の行は `dimOf`（淡色＋グレーのバッジ）に理由を出させ、**セル側では繰り返さない**（同じ文言が2か所に出て列幅を潰していた）。
+  - ⚠️行データの引き当ては**セル関数の中で `_elConfEntRow` を呼び直している**。`_recTable` の並べ替え後にレコードから行を引く必要があるが、このコードベースは `Map` を1つも使っていないため（文字列キーだと同一銘柄・同一時刻・id無しで衝突しうる）。純関数なので再計算しても結果は同じ・表示中の行数ぶんしか走らない。
+- 確認: 単体テストを**13ケース**へ拡張（指値同値→`fillEq`／指値同値でも実エントリー済みなら母数に残る、を追加）＋集計2モード＋恒等式2本＋描画。実ブラウザで①💰損益タブに新タブが出る②比較4列が想定損益の右に入り横スクロール無しで読める③既存の記録一覧はヘッダ13列・colSpan14のまま不変④確定待ち側はヘッダ18列・colSpan18で記録カードが開く⑤🔬深掘りから消えている⑥銘柄ピルに遷移しても白画面にならない、を確認。**JSエラーなし**。
 
 ### 2026-08-20 「📥 確定値で入るべきか」を新設（app-06 / sw v452→v453）
 - ユーザー要望「エントリー記録帳の中に、確定値で入ったほうがいいのか、という分析が欲しい。※確定値がEPより低い記録は算入外」。

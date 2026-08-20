@@ -3777,7 +3777,7 @@ function _elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel, byStock) {
 // 見出し下の ※注記（_secH は「※で始まる文字列」だけ描くので、この定数を両方の設置場所から渡して文面を1本にする）。
 // ⚠️_secH は素のテキストしか出さない＝**強調**のようなマークダウンは記号がそのまま画面に出るので書かないこと。
 var _EL_CE_NOTE = "※ αのラインに触れた瞬間に約定する現行に対し、「EP足の確定値（終値）を建値にして、そこから先は同じ規約で降りた場合」を1記録ずつ当て直した反実仮想。建値が上がるぶん損切りラインも同じだけ上へずれる（損切り幅は記録の採用値のまま＝建値だけを差し替えた比較）。損益は想定損益（手じまいまで）の（）外。確定値がEP（＝採用α）より低い記録は算入外（ユーザー指定）。確定値の未記録・E不成立（未達／×見送り）・両方式とも（）外に損益が乗らない記録（△確信度エントリー等）も比較にならないので母数から外す。時間かぶり除外は掛けていない（🩹補正要否と同じ）";
-var _EL_CE_SKIPLBL = { low: "算入外（確定値がEPより低い）", noconf: "確定値 未記録", noep: "E不成立", noamt: "（）外に損益なし", shift: "EP足がズレる" };
+var _EL_CE_SKIPLBL = { low: "算入外（確定値がEPより低い）", noconf: "確定値 未記録", noep: "E不成立", noamt: "（）外に損益なし", shift: "EP足がズレる", fillEq: "指値同値（未約定の疑い）" };
 // 1記録の比較行。skip!=null＝母数外（理由は _EL_CE_SKIPLBL）。skip==="low" の行だけは cur/gain を持つ＝「戻った分も算入」モードで使う。
 function _elConfEntRow(r, aiOf) {
   var s = r && r.signal; if (!s || !_epIsV2(s)) return null;
@@ -3785,6 +3785,12 @@ function _elConfEntRow(r, aiOf) {
   if (a == null) return null;
   var rp = _epResolve(s, a);
   if (!rp || rp.judge !== "ok" || rp.epIdx < 0 || !rp.ep) return { r: r, s: s, a: a, cut: cut, skip: "noep" };
+  // 指値同値（OS最高値＝採用αちょうど＝指値が刺さっていない可能性）は母数から外す 2026-08-20b（ユーザー決定）。
+  //   2026-08-10A で「指値同値＝そのαでは取引していない扱い＝全列の母数から除外」に統一済みなので、そこへ揃える。
+  //   ⚠️指値同値ならEP足の高値＝αなので確定値≤α＝差額はプラスになりえない。よって**判定そのものは動かない**が、
+  //   刺さっていないかもしれない取引の想定損益を「乗り換えると失う分」に数えなくなる＝乗り換え時の通算が過大に出なくなる。
+  //   実エントリー済み（約定の証拠あり）は _elFillEqAt が自分で対象外にする。
+  if (_elFillEqAt(s, r.item, a, a)) return { r: r, s: s, a: a, cut: cut, c: rp.ep.c, skip: "fillEq" };
   var c = rp.ep.c;
   if (c == null) return { r: r, s: s, a: a, cut: cut, skip: "noconf" };
   var curP = _elHoldFinalParts(s, a, cut).main;
@@ -3803,12 +3809,13 @@ function _elConfEntRow(r, aiOf) {
 //   その内訳と突き合わせる合計は core（＝確定値≥EPの行のdiff合計）で、全体の diff とは別に持つ。
 function _elConfEntAgg(rows, withLow) {
   var T = { n: 0, cur: 0, alt: 0, diff: 0, win: 0, lose: 0, same: 0, gain: 0, d2: 0, core: 0, coreN: 0,
-    ep: 0, low: 0, lowCur: 0, noconf: 0, noep: 0, noamt: 0, shift: 0, gapSum: 0,
+    ep: 0, low: 0, lowCur: 0, noconf: 0, noep: 0, noamt: 0, shift: 0, fillEq: 0, gapSum: 0,
     curStop: 0, stopSaved: 0, stopMade: 0 };
   (rows || []).forEach(function(o) {
     if (!o) return;
     if (o.skip === "noep") { T.noep++; return; }
     T.ep++;                                                     // E成立＝比較の入口に立った記録
+    if (o.skip === "fillEq") { T.fillEq++; return; }
     if (o.skip === "noconf") { T.noconf++; return; }
     if (o.skip === "noamt") { T.noamt++; return; }
     if (o.skip === "shift") { T.shift++; return; }
@@ -3833,6 +3840,7 @@ function _elConfEntAgg(rows, withLow) {
 // 母数が作れない（E成立0件など）ときは null を返す＝呼び出し側が空メッセージを出す。
 function _ElConfEntSection(props) {
   var recs = props.recs || [], aiOf = props.aiOf, secH = props.secH;
+  var _TH = props.th || _elv2Th;   // 追加列の見出しは _recTable 本体と同じ _th を使う（幅・余白が揃う）。未指定なら共通小物へフォールバック
   var _wl = useState(false), withLow = _wl[0], setWithLow = _wl[1];
   var rows = recs.slice().sort(function(a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); })   // 新しい順
     .map(function(r) { return _elConfEntRow(r, aiOf); }).filter(Boolean);
@@ -3884,44 +3892,47 @@ function _ElConfEntSection(props) {
         _elInsightEmV2((TO.diff > 0 ? "+" : "") + Math.round(TO.diff).toLocaleString() + "円", TO.diff > 0 ? "#C0392B" : "#1E8449"),
         "（右上のトグル「戻った分も算入」）。")));
   }
-  // 明細（母数外のうち、ユーザーの規約に直接かかわる low / noconf だけ薄く残す。E不成立・（）外なし・足ズレは件数のみ）
-  var _shown = rows.filter(function(o) { return !o.skip || o.skip === "low" || o.skip === "noconf"; });
-  var _bodyRows = _shown.map(function(o, i) {
+  // ===== 明細一覧 2026-08-20b（ユーザー決定）: 自前の表をやめ、記録帳の標準の損益テーブル（_recTable "full"）に比較4列を足す形へ。
+  //   これで OS連鎖（各足の 高値(確定値) と ↑EP・_elDetailFlowStack の最上段）／手じまい（最高↑17→決済↓23・_elRideMiniNode）／
+  //   行タップでの記録カード展開（チャート画像・メモ・編集導線）／並び順トグル／被り・不算入・指値同値バッジが全部そのまま乗る。
+  //   ⚠️_recTable は EntryLogView 内のローカル関数なので props で受け取る（recTable 未指定なら一覧は出さない＝カードと読み取りだけ）。
+  //   ⚠️行データは _recTable の並べ替え後に引き当てる必要があるが、レコードをキーにできる Map をこのコードベースは使っていないので
+  //     セル関数の中で _elConfEntRow をもう一度呼ぶ（純関数・α解決と想定損益の再計算のみ）。表示中の行数ぶんしか走らない。
+  var _listRecs = rows.filter(function(o) { return o.skip !== "noep"; }).map(function(o) { return o.r; });
+  var _ceHead = [
+    _TH(React.createElement("span", { title: "EP足の確定値（水準線比）。これを建値にしたのが「確定値エントリー」" }, "EP確定値")),
+    _TH(React.createElement("span", { title: "①入値の改善＝(確定値−採用α)×100株。ラインより高い位置で売れた分" }, "①入値")),
+    _TH(React.createElement("span", { title: "EP足の確定値を建値にして、そこから先は同じ規約で降りた場合の想定損益" }, "想定損益(確定値)")),
+    _TH(React.createElement("span", { title: "確定値エントリー − 現行。下段は②降り方の変化（損切りラインが上へずれて手じまい足が変わった分）" }, "差額"))];
+  var _ceCells = function(r) {
+    var o = _elConfEntRow(r, aiOf);
+    if (!o) return [_elv2Td(null), _elv2Td(null), _elv2Td(null), _elv2Td(null)];
     var live = !o.skip || (o.skip === "low" && withLow);
-    var d = o.skip ? (o.skip === "low" && withLow ? (0 - o.cur) : null) : o.diff;
-    return React.createElement("tr", { key: "ce" + i, style: { opacity: live ? 1 : 0.45,
-      background: (d != null && d > 0) ? "#FFF7F5" : (d != null && d < 0) ? "#F4FBF5" : "transparent" } },
-      _elv2Td(o.r.date.slice(5).replace("-", "/") + (o.s.time ? " " + o.s.time : ""), { textAlign: "left", paddingLeft: 8 }),
-      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, o.r.stock)),
-      _elv2Td(_elSigCell(o.s, "center"), { minWidth: 60 }),
-      _elv2Td(React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, o.a + "円")),
-      _elv2Td(o.c != null ? _epSignedNode(o.c, "c") : React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#c4bfb6" } }, "未記録")),
-      _elv2Td(o.skip ? React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#c4bfb6" } },
-          (o.skip === "low" && withLow) ? "見送り（確定値がEPより低い）" : _EL_CE_SKIPLBL[o.skip])
-        : React.createElement("span", null, _diffN(o.gain),
-            React.createElement("span", { style: { display: "block", fontSize: 9, color: "#aaa" } }, "値幅 " + ((o.c - o.a) > 0 ? "+" : "") + (o.c - o.a) + "円"))),
-      _elv2Td(o.cur != null ? _amt(o.cur) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+    var d = o.skip ? ((o.skip === "low" && withLow) ? (0 - o.cur) : null) : o.diff;
+    var _sub = function(t, col) { return React.createElement("span", { style: { display: "block", fontSize: 9, fontWeight: 700, color: col || "#aaa" } }, t); };
+    return [
+      _elv2Td(o.c != null ? _epSignedNode(o.c, "c") : React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#c4bfb6" } }, "未記録"), { background: live ? "#FFFBF0" : null }),
+      _elv2Td(o.skip ? React.createElement("span", { style: { color: "#ccc" } }, "—")   // 母数外の理由は日付の下のグレーバッジ（dimOf）が出すので、ここで繰り返さない
+        : React.createElement("span", null, _diffN(o.gain), _sub("値幅 " + ((o.c - o.a) > 0 ? "+" : "") + (o.c - o.a) + "円")), { background: live ? "#FFFBF0" : null }),
       _elv2Td(o.skip
-        ? ((o.skip === "low" && withLow)   // 0円は「算入した見送り」の意味なので、算入外モードでは出さない（薄いだけだと算入済みに見える）
-            ? React.createElement("span", null, React.createElement("span", { style: { fontWeight: 700, color: "#b5b0a8" } }, "0円"),
-                React.createElement("span", { style: { display: "block", fontSize: 9, fontWeight: 700, color: "#c4bfb6" } }, "見送り"))
+        ? ((o.skip === "low" && withLow)
+            ? React.createElement("span", null, React.createElement("span", { style: { fontWeight: 700, color: "#b5b0a8" } }, "0円"), _sub("見送り", "#c4bfb6"))
             : React.createElement("span", { style: { color: "#ccc" } }, "—"))
         : React.createElement("span", null, _amt(o.alt),
-            (o.curStop !== o.altStop) ? React.createElement("span", { style: { display: "block", fontSize: 9, fontWeight: 700, color: o.curStop ? "#C0392B" : "#1E8449" } }, o.curStop ? "損切り回避" : "新たに損切り") : null)),
-      _elv2Td(React.createElement("span", null, _diffN(d),
-        (!o.skip && o.d2 !== 0) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#aaa" } }, "降り方 " + (o.d2 > 0 ? "+" : "") + Math.round(o.d2).toLocaleString() + "円") : null)));
-  });
-  _bodyRows.push(React.createElement("tr", { key: "cetot", style: { background: "#FFFBF0", borderTop: "2px solid #FB923C" } },
-    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, "合計"), { textAlign: "left", paddingLeft: 8 }),
-    _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#666" } }, T.n + "件")),
-    _elv2Td(null), _elv2Td(null), _elv2Td(null),
-    _elv2Td(React.createElement("span", null, React.createElement("span", { style: { fontWeight: 800 } }, _diffN(T.gain)),
-      (withLow && T.low) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#aaa" } }, "≥EPの" + T.coreN + "件分") : null)),
-    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(T.cur))),
-    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(T.alt))),
-    _elv2Td(_diffN(T.diff, true))));
+            (o.curStop !== o.altStop) ? _sub(o.curStop ? "損切り回避" : "新たに損切り", o.curStop ? "#C0392B" : "#1E8449") : null), { background: live ? "#FFFBF0" : null }),
+      _elv2Td(React.createElement("span", null, _diffN(d, true),
+        (!o.skip && o.d2 !== 0) ? _sub("降り方 " + (o.d2 > 0 ? "+" : "") + Math.round(o.d2).toLocaleString() + "円") : null), { background: live ? "#FFFBF0" : null })];
+  };
+  // 母数外の行は _recTable の dimOf（淡色＋グレーのバッジ）に乗せる＝算入済みの行と一目で分かれる。
+  var _ceDim = function(r) {
+    var o = _elConfEntRow(r, aiOf);
+    if (!o || !o.skip) return null;
+    if (o.skip === "low" && withLow) return null;   // このモードでは見送り0円として算入している＝薄くしない
+    return _EL_CE_SKIPLBL[o.skip];
+  };
   var _exTxt = [T.low ? "確定値がEPより低い " + T.low + "件" : null, T.noconf ? "確定値 未記録 " + T.noconf + "件" : null,
-    T.noamt ? "（）外に損益が乗らない " + T.noamt + "件" : null, T.shift ? "EP足がズレる " + T.shift + "件" : null].filter(Boolean).join("・");
+    T.noamt ? "（）外に損益が乗らない " + T.noamt + "件" : null, T.shift ? "EP足がズレる " + T.shift + "件" : null,
+    T.fillEq ? "指値同値 " + T.fillEq + "件" : null].filter(Boolean).join("・");
   var _head = secH
     ? secH("📥 確定値で入るべきか" + (props.title ? "（" + props.title + "）" : ""), _EL_CE_NOTE,
       _modeBar)
@@ -3945,7 +3956,12 @@ function _ElConfEntSection(props) {
       _elv2Card("母数", React.createElement("span", { style: { fontWeight: 800 } }, T.n + "件"), null,
         "E成立 " + T.ep + "件中" + (_exTxt ? "／" + _exTxt + " を除外" : "") + (T.noep ? "（E不成立 " + T.noep + "件は対象外）" : ""))]),
     _elInsightBoxV2(_ins, { note: "①＋② = 確定値≥EPの " + T.coreN + "件ぶんの差額（" + (T.core > 0 ? "+" : "") + Math.round(T.core).toLocaleString() + "円）。②は同じ足で降りるかぎり必ず0で、損切りラインが上へずれて手じまい足が変わった記録だけが乗る" }),
-    _elv2Table(["日付・時刻", "銘柄", "シグナル", "採用α", "EP足の確定値", "①入値の改善", "想定損益（現行）", "想定損益（確定値）", "差額"], _bodyRows));
+    props.recTable
+      ? React.createElement("div", { style: { marginTop: 8 } },
+          React.createElement("div", { style: { fontSize: 10, color: "#9A9186", fontWeight: 700, marginBottom: 4 } },
+            "🗂 記録一覧（行タップで明細カード）― 「想定損益・詳細」の右4列がこの分析の比較。薄い行は母数外"),
+          props.recTable(_listRecs, "full", "ce_", null, _ceDim, { head: _ceHead, cells: _ceCells, at: 10 }))
+      : null);
 }
 // 浮き足加算率ボードの基本/応用スコープ切替トグル（フォームの浮き足[浮き基本|浮き応用]と同スタイル）2026-07-18。sp=true→応用。onSet(boolean)で切替。分析ボード(シグナル総合/シグナル別)を_elUkiPctBoardScopedのmodeに連動させる。
 function _ukiScopeToggle(sp, onSet) {
@@ -6485,9 +6501,9 @@ function EntryLogView(_ref_elv2) {
   // 未達タブのバッジ件数は、選択中シグナルの母数で数える（シグナル軸の下で _missCnt を定義 2026-07-01）。
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
-    ? [["sum", "📊 集計"], ["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
+    ? [["sum", "📊 集計"], ["ce", "📥 確定待ち"], ["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
-  var _SIG_TABS = [["band", "💴 株価帯別"], ["ce", "📥 確定待ち"], ["stop", "🛑 損切り"], ["spn", "🩹 補正要否"], ["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]];   // 2026-08-20 「📥 確定待ち」（＝確定値で入るべきか）を💴株価帯別の右に追加＝入り方(確定待ち)→降り方(🛑損切り)→α補正(🩹補正要否)の並び。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
+  var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["spn", "🩹 補正要否"], ["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]];   // 2026-08-20b 「📥 確定待ち」はここに一度置いたが、ユーザー決定で💰損益タブ（_tabsの全銘柄側）へ移設した。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
   // 日付だけ新しい順・各日付の中は時間が早い順（2段ソート）2026-07-27 ユーザー指定＝「新しい日から見て、その日は朝から順に読む」。
   // 日付＋時刻を繋げた文字列の単純降順にすると日内まで逆順になるので、日付と時刻を分けて比較するのが要。
@@ -7188,13 +7204,20 @@ function EntryLogView(_ref_elv2) {
   // ===== 記録テーブル（mode "day"=日別の簡易列 / "full"=一覧・展開明細の詳細列）。行タップで明細カード =====
   // dimOf(r)＝表示専用（集計に入らない）記録のラベルを返す任意関数 2026-07-27。返した行は淡色＋グレーのバッジで出す。
   // スルー/不算入は_elNotInclBadge＋_elRowStyleWithCollが元から色分けするので、それ以外（データのみ/旧記録など）だけを拾う。
-  var _recTable = function(recs, mode, keyPfx, limit, dimOf) {
+  // extra＝{head:[thノード…], cells:function(r){return [tdノード…]}, at:差し込み位置} の任意の追加列 2026-08-20b（📥確定待ちの比較4列用）。
+  //   at 省略なら右端。at=10 は full の「想定損益・詳細」の直後＝現行の損益とその比較が横並びになる位置
+  //   （full の並び: 0日付/1時間/2銘柄/3シグナル/4α値/5損切り/6ライン/7E/8取引/9想定損益・詳細/10OS・損益詳細/11保有/12実現損益）。
+  //   ⚠️head と cells は同じ index で splice するので**要素数を必ず揃える**こと。
+  //   省略時は完全に従来どおりなので、他の呼び出し8か所には一切影響しない。
+  //   ⚠️展開行のcolSpan(colN)にも足すこと。足さないと明細カードが表の幅より狭くなる。
+  var _recTable = function(recs, mode, keyPfx, limit, dimOf, extra) {
     if (!recs.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "10px 0", fontSize: 12 } }, "記録なし");
     // 並び順は_recTableが一手に引き受ける（全一覧で共通・呼び出し側の.sort(_byDateAsc)は残っていても二度手間なだけで無害）2026-07-27。
     // limitより先に並べ替える＝「新しい順の先頭N件」になる（旧: 昇順の先頭N件をそのまま切っていた）。
     var _sorted = _recSorted(recs);
     var shown = (limit && _sorted.length > limit) ? _sorted.slice(0, limit) : _sorted;
-    var colN = mode === "day" ? 8 : 14;   // full: 2026-07-16 損切り・保有列追加で11→13／2026-07-18 ライン列追加で13→14
+    var _exN = (extra && extra.head) ? extra.head.length : 0;
+    var colN = (mode === "day" ? 8 : 14) + _exN;   // full: 2026-07-16 損切り・保有列追加で11→13／2026-07-18 ライン列追加で13→14
     var body = [];
     shown.forEach(function(r) {
       var s = r.signal, a = _ai(r);
@@ -7239,6 +7262,11 @@ function EntryLogView(_ref_elv2) {
           _td(_elHoldMinNode(s, a.alpha, a.cutLine))
         ]).concat([_td(entered ? _elRPnlDispW(realN, realN != null ? _profitGradeFromPnlReal(realN, 1) : null, 60, false, _elPer100Of(realN, s)) : _dash)]);
       }
+      if (extra && extra.cells) {
+        var _exC = extra.cells(r) || [];
+        if (extra.at != null) { var _cp = cells.slice(); _cp.splice.apply(_cp, [extra.at, 0].concat(_exC)); cells = _cp; }
+        else cells = cells.concat(_exC);
+      }
       body.push(React.createElement("tr", { key: ek, onClick: function() { setExpKey(on ? null : ek); }, style: Object.assign({ background: on ? "#FFF7ED" : "transparent", cursor: "pointer" }, _elRowStyleWithColl(data, r, _collScope), _dimLbl ? { opacity: 0.6, backgroundColor: "#FAFAF9", borderLeft: "3px solid #D6D3D1" } : null) }, cells));
       if (on) body.push(React.createElement("tr", { key: ek + "_c" },
         React.createElement("td", { colSpan: colN, style: { padding: "4px 8px 8px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },
@@ -7248,6 +7276,10 @@ function EntryLogView(_ref_elv2) {
       ? [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("OS"), _th("E"), _th("OS帯"), _th("H中最高値"), _th("実現結果")]
       : [_th("日付", { textAlign: "left", paddingLeft: 8 }), _th("時間"), _th("銘柄"), _th("シグナル", { textAlign: "left" }), _th("α値"), _th("損切り"), _th("ライン"), _th("E"), _th("取引"),
          _th("想定損益・詳細"), React.createElement("th", { key: "hh", colSpan: 2, style: { padding: "5px 6px", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A9186" } }, "OS・損益詳細"), _th(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有")), _th("実現損益")];
+    if (_exN) {
+      if (extra.at != null) head.splice.apply(head, [extra.at, 0].concat(extra.head));
+      else head = head.concat(extra.head);
+    }
     return React.createElement(React.Fragment, null,
       recs.length > 1 ? _recSortBar() : null,   // 1件の表にトグルを出しても意味がないので2件以上だけ
       React.createElement(_HScrollBox, null,
@@ -7859,14 +7891,6 @@ function EntryLogView(_ref_elv2) {
       _tabBody = _stGrp
         ? _bandAxisBody(_stGrp.recs, true, { withAll: true, sigLabel: _stGrp.label, bSigKey: _stKey })
         : _sigKpiEmpty("このシグナルの記録がありません（シグナル名の変更・削除で無くなった可能性があります。上のタブから選び直してください）");
-    } else if (sigSub === "ce") {
-      // 📥 確定値で入るべきか（全銘柄横断）2026-08-20: ラインに触れた瞬間の約定 vs その足の確定値での約定。
-      //   母数＝分類トグルを通した全銘柄のv2データ算入記録。**銘柄をまたいでも壊れない**＝比較はα・確定値とも1記録の中で完結し、
-      //   🩹補正要否のような「銘柄横断で混ぜると壊れる外部基準（推奨基本α）」を持たないため（byStock相当の分岐が要らない）。
-      var _ceRecsSig = _addFilPure(_v2recsAllData);
-      _tabBody = _cardify([
-        _addFilBarPure(),
-        React.createElement(_ElConfEntSection, { key: "ce", recs: _ceRecsSig, aiOf: _ai, secH: _secH, title: "全銘柄" })]);
     } else if (sigSub === "stop") {
       // 🛑損切り（全銘柄）2026-07-27。銘柄別タブの🛑損切り（銘柄×シグナル母数）は存続＝両方で見る。
       // 株価帯での分割は入れない（ユーザー決定 2026-07-27）。銘柄を区別せず1つの母数として集計する。
@@ -8538,10 +8562,17 @@ function EntryLogView(_ref_elv2) {
       _secH("🚫 次足期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）。集計タブから移設", _detCtl("dp_x", _selSigRecsScoped)), _detBody("dp_x", _selSigRecsScoped, function(_drs) { return _elXSkipSectionV2(_drs, _ai); }),
       _secH("🔺 次足期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）。集計タブから移設", _detCtl("dp_tri", _selSigRecsScoped)), _detBody("dp_tri", _selSigRecsScoped, function(_drs) { return _elTriangleHoldSectionV2(_drs, _ai); }),
       _secH("📍 EP位置の分析", "EPがどの足で成立したか（採用α基準）とEP位置別の成績。集計タブから移設", _detCtl("dp_ep", _selSigRecsScoped)), _detBody("dp_ep", _selSigRecsScoped, function(_drs) { return _elEpPosSectionV2(_drs, _ai); }),
-      _secH("📥 確定値で入るべきか", _EL_CE_NOTE, _detCtl("dp_ce", _selSigRecsScoped)), _detBody("dp_ce", _selSigRecsScoped, function(_drs) { return React.createElement(_ElConfEntSection, { recs: _drs, aiOf: _ai, secH: null }); }),
       _secH("🎯 計画EP vs 実エントリーの乖離", "計画したEP/αに対し実際の建玉・取引αがどれだけズレたか（執行の質・規律）", _detCtl("dp_exec", _selSigRecsScoped)), _detBody("dp_exec", _selSigRecsScoped, function(_drs) { return _elExecGapSectionV2(_drs, _ai); }),
       _secH("📝 メモ×成績", "根拠/反省を書いた記録ほど勝てているか＋負けた記録の頻出キーワード（敗因）", _detCtl("dp_memo", _selSigRecsScoped)), _detBody("dp_memo", _selSigRecsScoped, function(_drs) { return _elMemoPerfSectionV2(_drs, _ai); })
     ]) : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _floatMode ? "このシグナルに浮き足の記録がありません（「その他」タブへ）" : "このシグナルの「その他」記録がありません（「浮き足」タブへ）");
+  } else if (view === "ce" && _isAllStock) {
+    // 📥 確定待ち（💰損益タブ・📊集計の右）2026-08-20b: 配置はユーザー決定＝「損益テーブル（＝💰損益タブ）でいいのでは」。
+    //   一度 📡シグナル総合のサブタブと 🔬深掘りのセクションに置いたが、両方撤去してここ1か所に集約した。
+    //   母数＝「💰 全体損益（期間別）」の合計行・「📈 累積損益」と同じ線引き（_v2recsAmt から旧ルール期間を除いたもの）＝
+    //   「現行（EPで約定）」の合計がこのタブの他の数字と地続きになる。data のみ除外・6/29より前の除外もそちらに合わせている。
+    var _ceRecs = v2recs.filter(function(r) { return !_isDataOnly(data, r) && !_elIsOldRule(r.date); });
+    _tabBody = _cardify([
+      React.createElement(_ElConfEntSection, { key: "ce", recs: _ceRecs, aiOf: _ai, secH: _secH, th: _th, title: "全銘柄", recTable: _recTable })]);
   } else if (view === "sim" && _isAllStock) {
     // 🧮 全銘柄一括シミュ 2026-07-20f（💰損益タブ・期間の右）: 銘柄を問わず全記録に同じラダーを当てる。母数＝_v2recsAll（全銘柄・全シグナルのv2算入記録）＝シグナル選択も内訳(浮き足/その他)タブも持たない＝文字どおり一括。浮き足は除外チェックで扱う。
     // baseRecs＝allRecs（全銘柄・全期間）を渡し、コンポーネント側が**銘柄ごとに**推奨αを算出する（銘柄別シミュの baseRecs=allRecs.filter(その銘柄) と同じ母数を銘柄数ぶん持つ形）。
@@ -8658,11 +8689,11 @@ function EntryLogView(_ref_elv2) {
       sinceOnly ? React.createElement("div", { style: { fontSize: 9, color: "#0F6E56", marginTop: 4, lineHeight: 1.45 } },
         "※ 分析の母数だけを" + _EL_SINCE_LBL + "に絞っています（シグナルの件数・推奨α・シミュも追随）。上の銘柄ピルの件数と💰損益の集計表は全期間のままなので数が食い違って見えます。期間の指定と併用すると両方の条件で絞られます。") : null) : null,
     React.createElement("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "2px 0 6px", marginBottom: 6 } },
-      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view !== "sum" && view !== "mw" && view !== "sim" && view !== "proj") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった。2026-08-06B "proj"（📈損益推移シミュレーター 2026-08-05）で**まったく同じ更新漏れを再発**させていたので追加。⚠️_tabs(5997)の全銘柄タブに項目を足したら必ずこの許可リストも足すこと
+      React.createElement("button", { key: "__allbtn__", onClick: function() { setStockFil(_ALL_STOCK); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view !== "sum" && view !== "mw" && view !== "sim" && view !== "proj" && view !== "ce") setView("sum"); },   // 2026-07-20h "sim"を追加＝全銘柄タブに🧮シミュを新設(07-20f)した際にこのガードを更新し忘れ、銘柄タブでシミュを開いてから💰損益を押すと集計へ飛ばされて新タブに入れなかった。2026-08-06B "proj"（📈損益推移シミュレーター 2026-08-05）で**まったく同じ更新漏れを再発**させていたので追加。⚠️_tabs(5997)の全銘柄タブに項目を足したら必ずこの許可リストも足すこと
         style: { flexShrink: 0, padding: "6px 15px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isAllStock ? "#1A1714" : "#E0DAD1"), background: _isAllStock ? "#1A1714" : "#fff", color: _isAllStock ? "#fff" : "#6B6459" } },
         "💰 損益 (" + _periodRecs.length + ")"),
-      React.createElement("button", { key: "__sigtotalbtn__", onClick: function() { setStockFil(_SIG_TOTAL); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj") setView("sum"); },   // 2026-08-06B 銘柄ピルと同じ理由で proj から抜ける（📡シグナル総合でも _isAllStock は false）
+      React.createElement("button", { key: "__sigtotalbtn__", onClick: function() { setStockFil(_SIG_TOTAL); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setAddAlphaFil("all"); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj" || view === "ce") setView("sum"); },   // 2026-08-06B 銘柄ピルと同じ理由で proj から抜ける（2026-08-20b ce＝📥確定待ちも全銘柄タブ専用なので同じ扱い）（📡シグナル総合でも _isAllStock は false）
         style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
           border: "1px solid " + (_isSigTotal ? "#0F766E" : "#E0DAD1"), background: _isSigTotal ? "#0F766E" : "#fff", color: _isSigTotal ? "#fff" : "#6B6459" } },
         "📡 シグナル総合"),
@@ -8671,7 +8702,7 @@ function EntryLogView(_ref_elv2) {
         // 2026-08-06B ⚠️`proj`（📈損益推移シミュレーター）は全銘柄タブ専用（本文の分岐は `view==="proj" && _isAllStock` だけ）。
         //   銘柄を選ぶと _isAllStock が false になり、if/elseチェーンに最終elseが無いので _tabBody が undefined ＝
         //   **本文が丸ごと真っ白**になっていた（タブ行にも proj が出ないのでどこも選択されていない状態）。集計へ戻す。
-        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj") setView("sum"); },
+        return React.createElement("button", { key: s, onClick: function() { setStockFil(s); setExpKey(null); setSelDate(null); setSelSig(null); setFloatSub("other"); setDetScopes({}); setPerExp(null); setDetTagMode("sig"); setSelDetTag(null); if (view === "proj" || view === "ce") setView("sum"); },
           style: { flexShrink: 0, padding: "6px 13px", fontSize: 12, fontWeight: 800, borderRadius: 15, cursor: "pointer", whiteSpace: "nowrap",
             border: "1px solid " + (on ? "#9A3412" : "#E0DAD1"), background: on ? "#9A3412" : "#fff", color: on ? "#fff" : "#6B6459" } },
           s + " (" + (_cntByStock[s] || 0) + ")");
