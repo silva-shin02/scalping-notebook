@@ -374,6 +374,21 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-08-24 EPナビ「本日の採用α値」を前営業日から引き継ぐ（app-04 / sw v454→v455）
+- ユーザー要望「初期状態は前営業日に入力された数値が引き継がれるようにして」。新しい営業日を開くと基本α/応用αの欄が空で、EPナビの銘柄ぶん毎回入れ直しになっていた。
+- 新設: `_epnDaySeeded` / `_epnDayAlphaPrev` / `_epnDayShouldSeed` / `_epnDaySeedFromPrev`（app-04・`_epnDaySpecialAlphaSet` の直後）＋ `_ElDayAlphaPair` に `useEffect(..., [stock, date])` を1つ。**型は 2026-08-18d（日替わり銘柄は前日の選定を既定にする）をそのまま流用**。
+- ⚠️**「表示だけ引き継ぐ」ではなく実際に保存する**（ユーザーに説明のうえ実装）。`_epnDayAlphaGet` が null のままだと「未設定＝推奨αに追従」の既存規約が生きるので、**画面に見えている数字と、記録フォーム（app-05 `_dayBaseA`/`_daySpecialA`）やEPナビの計算（app-04 `_dayA`/`_dayB`/`_daySp`）が実際に使う値が食い違う**。実測でも計算フォームの「合計α値2円＝基2・本日採用α」まで通っていることを確認した。
+- ⚠️**適用は今日以降の日だけ**（ユーザー決定）。この値は記録フォームの採用αの初期値にも流れるので、過去日を遡って埋めると「あとからその日に記録を足したときの採用α」が勝手に変わる＝2026-08-18d とまったく同じ理由。
+- ⚠️**「前営業日」＝暦の前日ではなく、その銘柄でその日より前に入力のある直近日**。暦の前日だと土日祝を挟む月曜が必ず空になり機能しない。
+- ⚠️**引き継ぎは1銘柄1日につき1回きり**。印は **`charts[銘柄_日付].epNaviDaySeed=1`**で、①自動で入れたとき ②ユーザーが手で入力/クリアしたとき（`_epnDayAlphaSet`/`_epnDaySpecialAlphaSet` に追記）の両方で立てる。
+  - これが無いと「引き継がれた値を消す→開き直す→また入る」になり、**その日だけ推奨αに任せる**ことができない（ユーザー決定＝空欄に戻したらその日は空欄のまま）。
+  - 印を `charts` に置いたのは `epNaviDayAlpha` と同じオブジェクトだから＝**Firebase同期も既存の charts マージにそのまま乗る**。2026-08-18d の `dailyStockSeed` はトップレベルの新キーで `_mergeRemoteMeta` 側の考慮が要ったが、ここは不要。`_stStrip` は base64 しか触らないのでローカル保存でも落ちない。
+- ⚠️**基本αと応用αはそれぞれ独立に直近日を探す**。片方だけ入れた日があっても、もう片方が巻き添えで飛ばないようにするため。
+- ⚠️`_epnDayAlphaPrev` のキー走査は接頭辞一致だけでなく**残りがちょうど `YYYY-MM-DD` の形か**まで見る。銘柄名にアンダースコアが入りうるので、`"AAA"` で `"AAA_X_2026-08-20"`（別銘柄 `AAA_X`）を拾わないため。
+- ⚠️effectの依存は `[stock, date]` だけ（`data` では回さない）。判定の最終確認は `_epnDaySeedFromPrev` の `save(function(prev){...})` の中＝**同じ日に5列が同時マウントしても二重に走らない**（`prev` 基準で条件を満たさなければ `prev` をそのまま返す＝保存も走らない）。
+- 配線は `_ElDayAlphaPair` の1か所で足りる＝EPナビの**固定列も日替わり列も同じコンポーネント**を通るため（app-04:4900 / 4934）。
+- 確認: 実ファイルをnodeへ読み込ませた**11ケース**（直近日から引き継ぐ／基本・応用が別の日／過去日は触らない／未来日は入る／既存値を上書きしない／**手で空欄に戻したら復活しない**／引き継ぎ元なしなら印も立てない／銘柄をまたがない・アンダースコア銘柄で誤爆しない／二重実行しても同じ／0円も引き継ぐ／signals等を壊さない）。実ブラウザでも①引き継ぎが入り計算フォームまで流れる②手で消す→リロードで復活しない③過去日には一切書かれない、を確認。**JSエラーなし**。
+
 ### 2026-08-20b 「📥 確定値で入るべきか」を詰め直し（app-06 / sw v453→v454）
 - 2026-08-20 の初版を**ユーザーに確認せず判断で決め切って実装した**ので、決め打ちしていた箇所を洗い出して確認を取り、4点を反映した。**「構想を詰めよう」は詰める相談の合図であって、実装してよいという意味ではない**（同じことを繰り返さないこと）。
 - ユーザーの質問「そもそもエントリーできた記録に絞ってる？」への回答＝**E成立（`_epResolve.judge==="ok" && epIdx>=0`）だけ**。未達・×見送りは `skip:"noep"` で母数外（件数だけ画面に出る）。この質問で下の①②の取りこぼしが見つかった。
@@ -1908,6 +1923,8 @@ HomeEventFormModal, App
 ### 2026-07-21d 日別ページに「本日の採用α」欄＋記録フォームα既定のdayAlpha化＋EPナビ応用α対称化＋浮き足応用%の下限（sw v223→v224）
 ユーザー要望3件＋敵対的レビュー修正。(1)要望1: 取引タブ「エントリー記録」見出し直下に既存部品 _ElDayAlphaPair(基本α+応用α本日採用値・stock=activeStock) を配置・📖記録帳ボタン削除(他タブ5135/5215に導線残る・app-04:5250/5243)。(2)要望2: 記録フォーム(EntryRecordForm)の基本α/応用α既定を「本日の採用α値(charts[stock_date].epNaviDayAlpha/epNaviDaySpecialAlpha)→無ければ従来推奨」に(_baDefault/_spDefault・新規のみ!isEditゲート・見出しの推奨表示は_autoBaseAのまま=履歴推奨・dayAlpha採用時は欄に出所ラベル)。(3)要望3: 浮き足応用の推奨%を必ず基本%より大きく(同値不可・10%刻み→基本+10以上へクランプ・_elUkiPctPickScopedのspecialでbasicを再帰取得しfloor=basic+10・runnerUp重複はnull・app-06:3494)。
 - **レビュー修正(Workflow4観点→10 confirmed・誤検出1棄却)**: A[回帰]dayAlpha時に基本α母数スコープ切替(_applyBaScope)が自動useEffectで巻き戻りデッドコントロール化→ _baTouchedRef.current=(_dayBaseA!=null) で手動上書き扱い(app-05:6427)。B[要望連携の核心]＋追加の初期銘柄がallStocks[0](日経=指数)で見出し下α欄(activeStock)と食い違う→ activeStock優先(app-04:6497)。E[副作用]編集時にdayAlphaが既定に混入し得る→ _fBaseAInput/_fSpecialA/入力value を!isEditゲート(app-05)。C[非対称→対称化]EPナビ計算フォームが応用day-alphaを無視していた→ daySpecialAlpha配線(app-04:4396)＋_EpnCalcForm内daySpecialAlpha(3851直後)＋specialVフォールバックに手入力＞本日応用α＞推奨＞baseVで優先(3862)。D[二重表示]EPナビ版(各銘柄カラム)と見出し下版(activeStock)のα欄同居=値連動・意図通り・据置。F[UX]見出し履歴推奨と欄dayAlphaの食い違い→ dayAlpha採用時に「本日の採用α値/応用α値」出所ラベル(app-05・青/茶)。
+**📥 本日の採用α値の前営業日引き継ぎ 2026-08-24**: `_epnDaySeeded` / `_epnDayAlphaPrev(data,stock,date,field)` / `_epnDayShouldSeed` / `_epnDaySeedFromPrev(save,stock,date)`（app-04・`_epnDaySpecialAlphaSet` の直後）＋ `_ElDayAlphaPair` に `useEffect(...,[stock,date])` を1つ。印は **`charts[銘柄_日付].epNaviDaySeed=1`**（`_epnDayAlphaSet`/`_epnDaySpecialAlphaSet` も立てる）。詳細は変更ログ 2026-08-24 を参照。
+
 - データ: charts[stock_date].epNaviDayAlpha(基本)/epNaviDaySpecialAlpha(応用)・get/set=_epnDayAlphaGet/Set・_epnDaySpecialAlphaGet/Set(app-04:3381-3407)。共通部品_ElDayAlphaPair(app-04:3410)。記録フォームはdayAlphaを読むだけ(編集は_ElDayAlphaPairのみ)。
 - 検証: 全ファイル構文OK・EntryRecordForm新規で基本α17/応用α22＋出所ラベル・_elUkiPctPickScoped特殊クランプ(基本30→応用生20が40・生70は据置・runnerUp重複null)を実マウント/関数で確認。A/B/C(EPナビ応用α)は構文＋コード＋mount(実データはユーザー実機)。sw v223→**v224**。
 

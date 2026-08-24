@@ -3453,7 +3453,7 @@ function _epnDayAlphaSet(save, stock, date, val) {
   save(function(prev) {
     var charts = Object.assign({}, prev.charts || {});
     var ck = stock + "_" + date;
-    charts[ck] = Object.assign({}, charts[ck] || {}, { epNaviDayAlpha: (val == null ? null : val) });
+    charts[ck] = Object.assign({}, charts[ck] || {}, { epNaviDayAlpha: (val == null ? null : val), epNaviDaySeed: 1 });   // epNaviDaySeed＝前日引き継ぎの「この日はもう自動で入れない」印 2026-08-24。手で入力/クリアした時点で立てる＝消した値が開き直しで復活しない
     return Object.assign({}, prev, { charts: charts });
   });
 }
@@ -3467,7 +3467,66 @@ function _epnDaySpecialAlphaSet(save, stock, date, val) {
   save(function(prev) {
     var charts = Object.assign({}, prev.charts || {});
     var ck = stock + "_" + date;
-    charts[ck] = Object.assign({}, charts[ck] || {}, { epNaviDaySpecialAlpha: (val == null ? null : val) });
+    charts[ck] = Object.assign({}, charts[ck] || {}, { epNaviDaySpecialAlpha: (val == null ? null : val), epNaviDaySeed: 1 });   // 印は基本α/応用αで共通 2026-08-24（_epnDayAlphaSet と同じ理由）
+    return Object.assign({}, prev, { charts: charts });
+  });
+}
+// ===== 「本日の採用α値」を前営業日から引き継ぐ 2026-08-24（ユーザー要望）=====
+// 新しい営業日を開くと基本α/応用αの欄が空で、EPナビの銘柄ぶん毎回入れ直しになっていた。
+// その銘柄で直近に入力があった日の値を、その日の初期値として入れる。
+// ⚠️**表示だけ引き継ぐのではなく実際に保存する**。_epnDayAlphaGet が null のままだと「未設定＝推奨αに追従」の規約が生きるので、
+//   画面に見えている数字と、記録フォーム(app-05 _dayBaseA/_daySpecialA)やEPナビの計算(app-04 _dayA/_dayB/_daySp)が実際に使う値が食い違う。
+// ⚠️適用は**今日以降の日だけ**（ユーザー決定）。この値は記録フォームの採用αの初期値にも流れるため、過去日を遡って埋めると
+//   「あとからその日に記録を足したときの採用α」が勝手に変わる（2026-08-18d の日替わり銘柄とまったく同じ判断）。
+// ⚠️「前営業日」＝暦の前日ではなく**その銘柄でその日より前に入力のある直近日**。暦の前日だと土日祝を挟む月曜が必ず空になり機能しない。
+// ⚠️引き継ぎは**1銘柄1日につき1回きり**。印は charts[銘柄_日付].epNaviDaySeed=1 で、①自動で入れたとき
+//   ②ユーザーが手で入力/クリアしたとき（_epnDayAlphaSet/_epnDaySpecialAlphaSet）の両方で立てる。
+//   これが無いと「引き継がれた値を消す→開き直す→また入る」になり、**その日だけ推奨αに任せる**ことができない。
+//   印を charts に置くのは epNaviDayAlpha と同じオブジェクトだから＝Firebase同期も既存の charts マージにそのまま乗る
+//   （2026-08-18d の dailyStockSeed はトップレベルの新キーだったので _mergeRemoteMeta 側の考慮が要ったが、ここは不要）。
+// ⚠️基本αと応用αは**それぞれ独立に直近日を探す**。片方だけ入れた日があっても、もう片方が巻き添えで飛ばないようにするため。
+function _epnDaySeeded(data, stock, date) {
+  var c = ((data && data.charts) || {})[stock + "_" + date];
+  return !!(c && c.epNaviDaySeed);
+}
+// その銘柄で date より前の、指定フィールドに値が入っている最も近い日の値（無ければ null）。日付キーはYYYY-MM-DDなので文字列比較で足りる。
+// ⚠️キーは「銘柄_日付」。銘柄名にアンダースコアが入りうるので、接頭辞一致だけでなく**残りがちょうど日付の形か**まで見る
+//   （"AAA" で "AAA_X_2026-08-20"（別銘柄 AAA_X）を拾わないため）。
+function _epnDayAlphaPrev(data, stock, date, field) {
+  var charts = (data && data.charts) || {};
+  if (!stock || !date) return null;
+  var pfx = stock + "_", best = "", bestV = null;
+  for (var k in charts) {
+    if (k.indexOf(pfx) !== 0) continue;
+    var d = k.slice(pfx.length);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d >= date || d <= best) continue;
+    var v = charts[k] ? charts[k][field] : null;
+    if (v == null || v === "" || isNaN(Number(v))) continue;
+    best = d; bestV = Number(v);
+  }
+  return bestV;
+}
+function _epnDayShouldSeed(data, stock, date) {
+  if (!stock || !date || date < _dsTodayStr()) return false;                       // 今日以降だけ（日付は_dsTodayStr＝端末ローカル基準・2026-08-18dと共通）
+  if (_epnDaySeeded(data, stock, date)) return false;                              // 自動で入れ済み or 手で触った日
+  if (_epnDayAlphaGet(data, stock, date) != null) return false;                    // 既に値がある（印より前の記録＝後方互換）
+  if (_epnDaySpecialAlphaGet(data, stock, date) != null) return false;
+  return _epnDayAlphaPrev(data, stock, date, "epNaviDayAlpha") != null
+    || _epnDayAlphaPrev(data, stock, date, "epNaviDaySpecialAlpha") != null;
+}
+// 実行。⚠️save の中で**もう一度**判定する＝呼び出し側の data は古い可能性があり（同期・effectの多重発火・同じ日に複数銘柄の
+//   列が同時にマウントされる）、ここが最後の砦。prev基準で条件を満たさなければ prev をそのまま返す＝保存も走らない。
+function _epnDaySeedFromPrev(save, stock, date) {
+  save(function(prev) {
+    if (!_epnDayShouldSeed(prev, stock, date)) return prev;
+    var b = _epnDayAlphaPrev(prev, stock, date, "epNaviDayAlpha");
+    var sp = _epnDayAlphaPrev(prev, stock, date, "epNaviDaySpecialAlpha");
+    if (b == null && sp == null) return prev;
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date, add = { epNaviDaySeed: 1 };
+    if (b != null) add.epNaviDayAlpha = b;
+    if (sp != null) add.epNaviDaySpecialAlpha = sp;
+    charts[ck] = Object.assign({}, charts[ck] || {}, add);
     return Object.assign({}, prev, { charts: charts });
   });
 }
@@ -3864,6 +3923,10 @@ function _PbDayBandReco(_p) {
 function _ElDayAlphaPair(_p) {
   var data = _p.data, save = _p.save, date = _p.date, stock = _p.stock, stacked = _p.stacked;   // stacked=true＝縦積み（EPナビの狭い列用）2026-07-13
   var _m = useState(null), modal = _m[0], setModal = _m[1];   // null | "base" | "special"
+  // 前営業日からの引き継ぎ 2026-08-24: この欄が出る＝その銘柄×日付を見た瞬間に1回だけ判定する。
+  // 依存を [stock, date] だけにしているのは data の更新で回さないため（判定の最終確認は _epnDaySeedFromPrev の save 内）。
+  // EPナビの固定列も日替わり列もこのコンポーネント経由なので、配線はここ1か所で足りる。
+  useEffect(function() { if (stock && date) _epnDaySeedFromPrev(save, stock, date); }, [stock, date]);
   var _ts = useState("band"), tblScope = _ts[0], setTblScope = _ts[1];   // 表を参照の母数: "band"=株価帯別（既定・この銘柄の本日の帯と同じ帯だった全記録）/"stock"=銘柄別。帯不明/材料日は銘柄別へフォールバック 2026-07-22i
   var _tso = useState(false), tblSince = _tso[0], setTblSince = _tso[1];   // 表を参照の期間: false=全期間（既定＝従来の見え方を1件も変えない）/true=6/29以降のみ（集計ルール変更後）2026-08-07
   var recs = useMemo(function() {
