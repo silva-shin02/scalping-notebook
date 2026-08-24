@@ -7548,10 +7548,20 @@ function EntryRecordForm(_ref_erf) {
   //      そもそも張り付いて見ていた日ではないので「選定外」としか書きようがない。合計算入OFF既定と同じ判定を流用。
   //   ③EPに到達している(_fEpIdxLive >= 0) 2026-08-12d … 未達＝α（EP）に届かず入りようが無かった記録。
   //      「入れたのに入らなかった」判断ではないので理由を書かせる意味がない。判定は_epReachedAt(保存済み記録側)と同義＝epIdx>=0。
-  //      ※×見送り（EPには到達したがEPより手前の足で×宣言）は未達ではない＝到達扱いなので必須のまま（自分で降りると決めた記録なので理由が要る）。
-  var _skipMemoReq = !isEdit && !_indDataOnlyCand && _fEpIdxLive >= 0;
+  //   ④×宣言していない(!_fXSkipLive) 2026-08-24（ユーザー決定・②③に追加）… E：×＝EPには到達したがEPより手前の足で×を出した記録。
+  //      2026-08-12d は「自分で降りると決めたのだから理由が要る」として必須のままにしていた（旧注記をここで置き換え）が、実際には3点かみ合っていない:
+  //      (a) 選択肢（見逃し/エントリー迷い/市場見れず/EPミス）は全部「入りそこねた」系で、**意図して降りた**記録に当たるものが無い
+  //          ＝実態と違う「見逃し」を付けさせることになる。
+  //      (b) 月間・週間タブの見送り件数(app-06 skip)は_epReachedAtで数えるので×見送りもそこに入るが、その列の定義は
+  //          「EPに到達したのに入らなかった＝**入れたのに入らなかった**判断」。×宣言は「入らないと決めた」なので別物。
+  //          しかも金額側は_elHoldFinalPartsが×見送り(_epIsXSkip)でnullを返す＝**件数だけ乗って金額は0**という非対称になっている。
+  //      (c) 「なぜ降りたか」は次足期待度×そのものが記録で、🔬深掘りの「🚫 次足期待度×（見送り）の分析」が別建てで扱っている。
+  //      ⚠️任意にするだけ＝書きたいときは書ける。**保存済み記録の扱いも集計側も一切変えていない**（変えたのはこの必須判定だけ）。
+  var _fXSkipLive = !!(isV2Form && _epFormState && _epFormState.judge === "x");   // 旧記録(非v2)はjudgeを持たない＝従来どおり必須
+  var _skipMemoReq = !isEdit && !_indDataOnlyCand && _fEpIdxLive >= 0 && !_fXSkipLive;
   // 必須でないとき、なぜ任意なのかを画面に出すためのラベル（編集時は理由を出さない＝既存記録では常に任意なので説明不要）。
-  var _skipOptReason = (_skipMemoReq || isEdit) ? null : (_indDataOnlyCand ? "選定外" : (_fEpIdxLive < 0 ? "未達" : null));
+  // 未達(_fEpIdxLive<0)と×宣言は排他（未達ならjudgeは"miss"）なので、この順に並べても競合しない。
+  var _skipOptReason = (_skipMemoReq || isEdit) ? null : (_indDataOnlyCand ? "選定外" : (_fEpIdxLive < 0 ? "未達" : (_fXSkipLive ? "×宣言" : null)));
 
   // v2(EP起算)はE判定ベース: miss=E未達or×見送り。損切り判定はEP足高値基準。
   var _fMiss = (isV2Form && _epFormState) ? (_epFormState.judge === "miss" || _epFormState.judge === "x")
@@ -9584,7 +9594,8 @@ function EntryRecordForm(_ref_erf) {
           "見送り＝合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入）。"
             + (_skipMemoReq ? "新規記録では理由（選択肢）の選択が必須です。詳細の文章は任意です。"
               : (_skipOptReason === "選定外" ? "この銘柄はこの日の選定外（日替わり銘柄の候補）なので、理由の入力は任意です。"
-                : (_skipOptReason === "未達" ? "この記録は未達（α＝EPに到達していない）＝入りようが無かったので、理由の入力は任意です。" : "")))),
+                : (_skipOptReason === "未達" ? "この記録は未達（α＝EPに到達していない）＝入りようが無かったので、理由の入力は任意です。"
+                  : (_skipOptReason === "×宣言" ? "この記録はEPより手前の足で×を出している（E：×＝集計上ノートレード）＝降りると決めた理由は次足期待度×そのものなので、理由の入力は任意です。" : ""))))),
         React.createElement("div", { style: SH_ }, "見送りの理由",
           _skipMemoReq ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須")
             : (_skipOptReason ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700, marginLeft: 5, fontSize: 10 } }, "任意（" + _skipOptReason + "）") : null),
