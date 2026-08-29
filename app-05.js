@@ -6044,6 +6044,29 @@ function _snIsSkipRec(s, item) { return !!(s && !_elIsEntered(s, item) && s.pass
 // ⚠️マスターを改名すると過去記録の skipReasons も一括追従する（フォームの _renameSkipR）。この定数は追従しないので、
 //   ここに書いた名前で分岐する処理を足さないこと（名前一致で判定するコードを作らない）。
 var _DEF_SKIP_REASONS = ["見逃し", "エントリー迷い", "市場見れず"];
+// ===== 見送り理由の予約タグ「未達」 2026-08-24c（ユーザー要望）=====
+// 「未達」＝α（EP）に到達しなかったという**事実**であって、見逃し等のようなユーザーの分類ではない。
+// なので選択肢マスター(custom.skipReasons)には入れず、次のように扱う（ユーザー決定＝自動の固定タグ）:
+//   ・未達の見送り記録に**自動で付く**／高値を直してEP到達に変わったら**自動で外れる**＝完全な派生値。
+//   ・フォームでは選択済みの固定チップとして出し、**手では外せない**。
+//   ・マスターに入れないので、改名・削除されて自動付与が名前を見失う余地が無い（追加/改名でこの名前は弾く）。
+// ⚠️集計側(app-06)は skipReasons を _snSkipHasReason（理由あり/なしの判定）でしか見ておらず、理由別の内訳表は存在しない。
+//   しかもその「理由なし」件数は _epReachedAt が真の記録しか数えない＝**未達記録は元から対象外**。
+//   よってこのタグを足しても集計の数字は1つも動かない（効くのはフォーム・記録カードのバッジ・検索の3つ）。
+var _EL_SKIP_MISS = "未達";
+// その記録に「未達」タグが付くべきか＝見送り（あり/スルー/要審議のどれでもない）かつ 採用αに未到達。
+// ⚠️_epOwnAlpha は difficulty 未設定でも 10 を返す＝αがnullになることは無いので、判定不能で漏れる記録は無い。
+function _snSkipMissWant(s) {
+  if (!s) return false;
+  if (s.entered === true || s.passThrough === true || s.review === true) return false;
+  return !_epReachedAt(s, _epOwnAlpha(s));
+}
+// 保存する skipReasons を組み立てる（予約タグを先頭・重複除去）。フォームの保存と移行(_migSkipMissTag・app-01)の両方がこれを使う＝単一源。
+function _snSkipReasonsWith(list, want) {
+  var out = want ? [_EL_SKIP_MISS] : [];
+  (list || []).forEach(function(x) { if (x && x !== _EL_SKIP_MISS && out.indexOf(x) < 0) out.push(x); });
+  return out;
+}
 // 見送り記録に理由が入っているか＝単一源。**選択肢と詳細のどちらかがあれば「理由あり」**。
 // ⚠️skipMemo だけを見てはいけない。2段構成の既定運用は「選択肢をタップするだけ・詳細は特殊な回だけ書く」なので、
 //   従来どおり skipMemo だけで判定すると、ちゃんと分類してある記録が軒並み「未記入」に数えられる。
@@ -6880,7 +6903,9 @@ function EntryRecordForm(_ref_erf) {
   // 2026-08-18 見送り理由の①選択肢（複数選択可・signal.skipReasons[]）。②詳細は上の fSkipMemo（従来のまま）。
   // ⚠️保存済みの名前がマスターから消えていても**選択状態は落とさない**（過去記録を開いて別項目を直すだけで理由が消える事故を防ぐ）。
   //   マスターに無い名前は下のUIで「マスター外」チップとして選択済みのまま出す。
-  var _useStateSKR = useState(Array.isArray(initSig.skipReasons) ? initSig.skipReasons.filter(Boolean) : []),
+  // ⚠️予約タグ(_EL_SKIP_MISS)はstateに入れない＝**stateは「ユーザーが選んだ理由」だけ**を持ち、未達は保存時に派生で足す。
+  //   入れてしまうと「マスターに無い名前」＝マスター外チップとして出てしまい、手で外せる普通の選択肢に見えてしまう。
+  var _useStateSKR = useState(Array.isArray(initSig.skipReasons) ? initSig.skipReasons.filter(function(x) { return x && x !== _EL_SKIP_MISS; }) : []),
     _useStateSKRA = _slicedToArray(_useStateSKR, 2),
     fSkipReasons = _useStateSKRA[0], setFSkipReasons = _useStateSKRA[1];
   // 選択肢マスターの管理UI（追加/改名/削除/ドラッグ並べ替え）＝応用αの根拠選択肢(fRsnOrder/fRsnInput)と同方式。
@@ -8092,7 +8117,9 @@ function EntryRecordForm(_ref_erf) {
       // 見送り＝あり/スルー/要審議のどれでもない既定状態。他の3つに切り替えたら理由は落とす（thruMemo/reviewMemoと同じ規約）2026-08-12
       skipMemo: (!fEntered && fThru !== true && fReview !== true && fSkipMemo) ? fSkipMemo : null,
       // 見送り理由の選択肢 2026-08-18。見送り以外（あり/スルー/要審議）に切り替えたら null＝skipMemo と同じ扱い。
-      skipReasons: (!fEntered && fThru !== true && fReview !== true && (fSkipReasons || []).filter(Boolean).length) ? fSkipReasons.filter(Boolean) : null,
+      // 2026-08-24c 未達の予約タグを派生で足す（_snSkipReasonsWith が単一源）。見送り以外へ切り替えたら従来どおり null。
+      skipReasons: (function() { if (fEntered || fThru === true || fReview === true) return null;
+        var _sr = _snSkipReasonsWith(fSkipReasons, _fEpIdxLive < 0); return _sr.length ? _sr : null; })(),
       result: fResult,
       memo: initSig.memo || "", 
       time: fTime || "",
@@ -9605,9 +9632,10 @@ function EntryRecordForm(_ref_erf) {
           var _skRsnM = (data && data.custom && Array.isArray(data.custom.skipReasons)) ? data.custom.skipReasons : _DEF_SKIP_REASONS;
           var _skRsns = (fSkipRsnOrder && fSkipRsnOrder.list) ? fSkipRsnOrder.list : _skRsnM;   // ドラッグ中は並びプレビュー
           // 保存済みだがマスターに無い名前＝マスターから消された後の記録。**選択状態を落とさない**ために末尾へ別枠で出す。
-          var _skOrphans = (fSkipReasons || []).filter(function(x) { return x && _skRsns.indexOf(x) < 0; });
+          var _skOrphans = (fSkipReasons || []).filter(function(x) { return x && x !== _EL_SKIP_MISS && _skRsns.indexOf(x) < 0; });   // 予約タグは固定チップで別に出すのでここには出さない
           var _addSkipR = function(nm) {
             nm = (nm || "").trim(); if (!nm) return;
+            if (nm === _EL_SKIP_MISS) { alert("「" + _EL_SKIP_MISS + "」は自動で付く予約の理由なので、選択肢には追加できません。"); return; }
             save(function(prev) {
               var cur = (prev.custom && Array.isArray(prev.custom.skipReasons)) ? prev.custom.skipReasons : _DEF_SKIP_REASONS.slice();
               if (cur.indexOf(nm) >= 0) return prev;
@@ -9627,6 +9655,7 @@ function EntryRecordForm(_ref_erf) {
           var _renameSkipR = function(oldNm, newNm) {
             newNm = (newNm || "").trim();
             if (!newNm || newNm === oldNm) return;
+            if (newNm === _EL_SKIP_MISS) { alert("「" + _EL_SKIP_MISS + "」は自動で付く予約の理由なので、この名前には変更できません。"); return; }
             save(function(prev) {
               var cur = (prev.custom && Array.isArray(prev.custom.skipReasons)) ? prev.custom.skipReasons : _DEF_SKIP_REASONS.slice();
               var _rnM = cur.map(function(x) { return x === oldNm ? newNm : x; });
@@ -9663,6 +9692,13 @@ function EntryRecordForm(_ref_erf) {
           };
           return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 } },
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 } },
+              // 予約タグ「未達」2026-08-24c: 未達のときだけ、選択済み・クリック不可の固定チップとして先頭に出す。
+              // 手で外せないのは「事実」だから＝高値を直してEP到達に変われば、このチップは自動で消える。
+              (_fEpIdxLive < 0) ? React.createElement("span", { key: "__miss__",
+                title: "α（EP）に到達しなかったという事実なので自動で付きます。手では外せません（高値を直してEP到達に変われば自動で消えます）",
+                style: { display: "inline-flex", alignItems: "center", gap: 3, padding: IS_TOUCH ? "5px 9px" : "3px 8px", fontSize: 11, fontWeight: 800,
+                  border: "2px solid #6D28D9", background: "#F5F3FF", color: "#6D28D9", borderRadius: 5, lineHeight: 1.3, cursor: "default" } },
+                React.createElement("span", { style: { fontSize: 9 } }, "🔒"), _EL_SKIP_MISS) : null,
               _skRsns.map(function(rsn) {
                 var on = (fSkipReasons || []).indexOf(rsn) >= 0;
                 var _d0 = _skipRsnDragRef.current;

@@ -965,6 +965,37 @@ function migrateData(d) {
     } catch(e) { console.warn("[migrateData] epScheme3 error:", e); }
   }
 
+  // 見送り理由の予約タグ「未達」の付け外し（_migSkipMissTag 2026-08-24c・ユーザー要望「過去の記録についても」）。
+  // 「未達」はα（EP）に到達しなかったという事実＝完全な派生値なので、**一回性フラグを置かず条件ベースで毎回そろえる**。
+  //   フラグ方式だと、まだ更新していない端末やこの移行より後に同期で降ってきた記録が未達タグ無しのまま取り残される。
+  // 付けるだけでなく**外しもする**＝「見送りでない」「EPに到達した」記録に付いていたら取る。これでタグが嘘をつかない。
+  // ⚠️判定は _snSkipMissWant（app-05）＝フォームの保存と同じ単一源。_epOwnAlpha は difficulty 未設定でも 10 を返すのでαはnullにならない。
+  // ⚠️app-05 の関数を使うので typeof でガードする。migrateData の呼び出しは stLoad / Firebaseマージ / インポートの3経路で、
+  //   どれも全ファイル読み込み後の実行だが、読み込み順が変わっても落ちないようにしておく。
+  // ⚠️**1件も変わらなければ d を触らない**＝無駄な保存・同期を起こさない（毎回走る移行なのでここが重要）。
+  if (typeof _snSkipMissWant === "function" && typeof _snSkipReasonsWith === "function") {
+    try {
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var cc = d.charts[ck];
+          if (!cc || !Array.isArray(cc.signals)) return;
+          var _chg = false;
+          var _next = cc.signals.map(function(s) {
+            if (!s) return s;
+            var cur = Array.isArray(s.skipReasons) ? s.skipReasons.filter(Boolean) : [];
+            var has = cur.indexOf(_EL_SKIP_MISS) >= 0;
+            var want = _snSkipMissWant(s);
+            if (has === want) return s;
+            var out = _snSkipReasonsWith(cur, want);
+            _chg = true;
+            return Object.assign({}, s, { skipReasons: out.length ? out : null });
+          });
+          if (_chg) cc.signals = _next;
+        });
+      }
+    } catch(e) { console.warn("[migrateData] skipMissTag error:", e); }
+  }
+
   // 分足(minBar)未設定の既存記録を既定[1]（1分足）に補完（2026-06-24）。minBar欄は再導入が新しく過去記録は未設定のため、
   // 有効な分足(1/5)を持たない記録を全て[1]に。既設定（[1]/[5]/[1,5]・旧single number）は不変。冪等（_migMinBarDefault1）。
   if (!d._migMinBarDefault1) {
