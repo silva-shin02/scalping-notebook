@@ -1724,6 +1724,11 @@ function _elFillEqAt(s, item, a, adoptA) {
   var os = _elOsMaxAll(s); if (os == null) return false;
   if (Math.round(Number(os)) !== Math.round(Number(a))) return false;
   if (_elIsEntered(s, item) && adoptA != null && Math.round(Number(adoptA)) === Math.round(Number(a))) return false;
+  // ⚠️×見送りは対象外 2026-08-31（実績版_elFillRiskと同じ理由＝×宣言後は指値を出していない）。
+  //   αが動けばEP位置＝「×宣言がEPより前か」も変わるので、採用αではなく**掃引α**で判定し直す（_epIsXSkipが_epResolve(s,a)を呼ぶ）。
+  //   これで×見送りは「同値かどうか」で扱いが割れなくなる＝os≠αの×見送りと同じ経路（到達には数え、_elDynResultが"miss"なのでE成立・損益の母数からは外れる）へ揃う。
+  //   ⚠️_elH2EvalByFn はこの判定を_epResolveより**手前**で使うので、ここでfalseを返すぶん entered(到達) が増え fillEqN(同値) が減る。
+  if (_epIsXSkip(s, a)) return false;
   return true;
 }
 // 「同値」列のセル。0件は薄いダッシュ（大半の行は0なので目立たせない）・1件以上は指値同値バッジ(_elFillRiskNode)と同じ緑系。
@@ -7137,7 +7142,7 @@ function EntryLogView(_ref_elv2) {
         oth(React.createElement("span", { title: "想定損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値")),
         oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの（上段）。損失＝ラインには触れず期待度×等で降りたら損だったもの（下段）。率はどちらもE成立母数（＝到達）に対する割合。平均は想定損益と同じ基準の実額。利確＋同値＋損切＋損失＝E成立母数" }, "損切り/損失")),
         oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "想定損益")),
-        oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済みは対象外）。上＝該当件数、下＝その記録を除いた想定損益。該当が無い期間は想定損益と同額（差額行なし）" }, "同値除外損益")),
+        oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済み・×見送りは対象外）。上＝該当件数、下＝その記録を除いた想定損益。該当が無い期間は想定損益と同額（差額行なし）" }, "同値除外損益")),
         oth("実現損益"));
     };
     // ドリルダウン（マトリョーシカ 2026-07-30 ユーザー要望）: 月をタップ→その月の【週別】／週をタップ→その週の【日別】／日をタップ→その日の【取引記録】。
