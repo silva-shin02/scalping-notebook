@@ -7036,14 +7036,32 @@ function EntryLogView(_ref_elv2) {
     var avgDayLine = function(v, days) { if (!days || days <= 1 || v == null) return null; var a = Math.round(v / days); return React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (a >= 0 ? "+" : "") + a.toLocaleString()); };
     // 件数の下の「（1日平均〇件）」＝件数÷日数(営業日数)。割り切れれば整数・端数は小数第1位まで（四捨五入後に整数化されれば整数表示）。日別(g==="day")は各行=1日で件数と同値になり冗長なので非表示 2026-07-19。
     var avgCntLine = function(cnt, days, gg) { if (!days || (gg || g) === "day" || !cnt) return null; var r1 = Math.round(cnt / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, "（1日平均" + disp + "件）"); };   // 2026-08-05u色は_EL_SUBNOTE_COL。!cnt＝0件(スルーのみの期間)は「1日平均0件」が冗長なので出さない 2026-07-20b。gg=入れ子の段の粒度 2026-07-30
-    var cntCell = function(cnt, days, ex, gg) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", null, cnt + "件"), avgCntLine(cnt, days, gg)), ex); };
-    var pnlCell = function(v, cnt, ref, refCnt, days, ex) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt, days), avgDayLine(v, days)), ex); };   // days渡し＝1日平均でグレード判定 2026-07-23
+    // 月換算（合計行だけ）2026-08-31 ユーザー要望「合計のところに月当たり換算も表示して」。
+    // 1か月＝_MO_BIZ(20)営業日の固定換算＝合計÷営業日数×20（ユーザー選択）。実カレンダーの月営業日数で割らないのは、
+    // 集計期間に含まれる月の長短・祝日の多寡で換算値が揺れると「このペースなら月いくら」の目安として読めなくなるため
+    // （月間・週間タブの「5営業日換算/週＝1日平均×5」と同じ発想）。
+    // ⚠️各期間行には出さない＝月別行に「月換算」が並ぶとその月の実績と紛らわしいので合計行限定（各セルの mo 引数）。
+    // ⚠️グレードバッジは付けない＝凡例「※グレードはすべて1日換算」のとおり判定は1日平均のままにする。
+    // ⚠️丸めた1日平均×20ではなく生の比から出す＝147件/44日×20は67件（3.3×20=66ではない）。tooltipに式を書いてあるのはこのため。
+    // ⚠️1日平均の行は日別トグル時に消える（avgCntLine/reachAvg2 が g==="day" で null）が、月換算は粒度に関わらず出す。
+    //   件数欄が「35件／月換算25件」と1日平均を挟まずに並ぶが、割った日数は合計セルの下に出ている（_ovTotDays）ので式は追える。
+    // ⚠️分母 _ovTotDays は粒度で変わる＝日別は記録のある日だけ、週別/月別はその週/月まるごとの営業日を数える（従来からの仕様）。
+    //   実測例: 同じ記録35件で 日別28日 / 週別43日 / 月別42日。合計額（35件・-3,500円）はどの粒度でも同じだが、1日平均と月換算はトグルで動く。
+    //   月換算に粒度非依存の分母を別途用意しなかったのは、同じ欄の1日平均と違う日数で割った値が縦に並ぶ方が読めなくなるため。
+    //   月換算は常に「その欄の1日平均×20」＝欄の中で辻褄が合う側を優先した。
+    var _MO_BIZ = 20;
+    var _moSty = { display: "block", fontSize: 9, color: "#9A3412", fontWeight: 700, lineHeight: 1.1 };
+    var _moTip = function(days, note) { return "1か月＝" + _MO_BIZ + "営業日として換算した目安（合計 ÷ 営業日数" + days + "日 × " + _MO_BIZ + "営業日）。この" + days + "営業日ぶんのペースが1か月続いた場合の値で、1か月まるごと記録した実額ではありません" + (note ? "。" + note : ""); };
+    var _moAmtLine = function(v, days, note) { if (!days || days <= 0 || v == null) return null; var m = Math.round(v / days * _MO_BIZ); return React.createElement("span", { title: _moTip(days, note), style: _moSty }, "月換算" + (m >= 0 ? "+" : "") + m.toLocaleString()); };
+    var _moCntLine = function(cnt, days, note) { if (!days || days <= 0 || !cnt) return null; var m = Math.round(cnt / days * _MO_BIZ); return React.createElement("span", { title: _moTip(days, note), style: _moSty }, "月換算" + m.toLocaleString() + "件"); };
+    var cntCell = function(cnt, days, ex, gg, mo) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, React.createElement("span", null, cnt + "件"), avgCntLine(cnt, days, gg), mo ? _moCntLine(cnt, days) : null), ex); };
+    var pnlCell = function(v, cnt, ref, refCnt, days, ex, mo) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenNR(v, cnt, ref, refCnt, days), avgDayLine(v, days), mo ? _moAmtLine(v, days) : null), ex); };   // days渡し＝1日平均でグレード判定 2026-07-23
     // 実現損益セル 2026-08-05y（ユーザー要望）: 上下2段でそれぞれ別の土俵。
     //   上段＝実額（t.realRaw）＋バッジ。判定は実額÷営業日数を**実額スケール(10倍)**で（従来と同じ）。
     //   下段＝100株換算（t.real）÷営業日数 ＋バッジ。判定は**通常スケール**＝想定損益と同じ土俵。
     //   1000株ちょうどなら2つのランクは一致する。**ズレたら「株数を張ったから金額が出ただけ」と読める**のが狙い。
     //   days<=1（日別など）は割っても同じ値なので、ラベルを「1日平均」ではなく「100株」にして冗長さを避ける。
-    var realCell = function(t, days, ex, noShare) {
+    var realCell = function(t, days, ex, noShare, mo) {
       var v = t.realRaw, cnt = t.realCnt;
       if (!cnt || v == null) return otd(_dash, ex);
       var p100 = (t.real != null && days && days > 0) ? Math.round(t.real / days) : null;
@@ -7053,6 +7071,7 @@ function EntryLogView(_ref_elv2) {
           style: { display: "inline-flex", alignItems: "center", gap: 2, whiteSpace: "nowrap", marginTop: 1 } },
           _elHoldGradeBadge(_profitGradeFromPnl(p100, 1)),
           React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: _EL_SUBNOTE_COL } }, (days > 1 ? "1日平均" : "100株") + (p100 >= 0 ? "+" : "") + p100.toLocaleString())) : null,
+        (mo && p100 != null) ? _moAmtLine(t.real, days, "基準は上段の実額ではなく下段の100株換算（実現損益÷株数×100の合計）です") : null,
         noShare ? React.createElement("span", { title: "株数が未入力の記録は100株換算ができないため、実額のまま下段の合計に足されています（1000株の実額が100株換算値に混ざる＝下段が過大に出ます）。株数を入れれば解消します", style: { fontSize: 8.5, fontWeight: 700, color: "#B45309" } }, "株数未入力" + noShare + "件を含む") : null), ex);
     };
     // 2026-07-27 2段化: 上段=損切（ラインに触れて損で撤退）／下段=損失（それ以外の負け）。列幅を増やさずに両方出す。
@@ -7073,10 +7092,11 @@ function EntryLogView(_ref_elv2) {
     // 到達セル: EPに乗った件数（主・2026-07-29cにE成立母数と同値へ）＋到達率（対 件数=全記録・小書き）＋1日平均（到達÷営業日数・欄が狭いので「1日平均」「〇件」の2行）2026-07-24。日別(g==="day")は各行=1日で冗長・0件は非表示（avgCntLineと同扱い）。
     var reachAvg2 = function(rn, days, gg) { if (!days || (gg || g) === "day" || !rn) return null; var r1 = Math.round(rn / days * 10) / 10; var disp = (r1 === Math.round(r1)) ? String(Math.round(r1)) : r1.toFixed(1); return React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1, textAlign: "center", marginTop: 1 } }, React.createElement("span", { style: { display: "block" } }, "1日平均"), React.createElement("span", { style: { display: "block" } }, disp + "件")); };
     // 2026-07-29 に併記していた「E成立◯件」の小書きは 2026-07-29c で撤去＝到達＝E成立母数になり常に同数＝冗長になったため。
-    var reachCell = function(rn, tot, days, ex, gg) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
+    var reachCell = function(rn, tot, days, ex, gg, mo) { return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } },
       React.createElement("span", { style: { fontWeight: 700, color: "#9A3412" } }, rn + "件"),
       tot ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, Math.round(rn / tot * 100) + "%") : null,
-      reachAvg2(rn, days, gg)), ex); };
+      reachAvg2(rn, days, gg),
+      mo ? _moCntLine(rn, days, "EPに乗った（E成立）件数が基準です") : null), ex); };
     // 同値セル（利確の右・2026-07-29e ユーザー要望）: 想定損益がちょうど±0で手じまいした件数・率（対E成立）。
     //   到達＝利確＋損切＋損失＋同値 の4バケツが閉じるための最後の1つ＝これが無いと「到達54なのに44+3+5=52」と数が合わなく見える。
     //   金額不明（損切り以外で撤退足の終値が未入力＝どのバケツにも入れられない）が有れば小書きで併記＝差の残りもここで説明が付く。
@@ -7097,13 +7117,14 @@ function EntryLogView(_ref_elv2) {
     // さらにその下に1日平均（除外後の金額÷営業日数・他の損益列と同じavgDayLine）2026-07-20f ユーザー指示。
     // 該当0件でも除外後の金額は出す＝想定損益と同額であることを示すため（列全体が「—」だと欠測と紛らわしい）。
     // 段の順: 件数(＋率) → 除外後の想定損益 → 差額 → 1日平均。
-    var friskCell = function(n, tot, a, b, days, ex) {
+    var friskCell = function(n, tot, a, b, days, ex, mo) {
       var df = (a.hold2 != null && b.hold2 != null) ? (b.hold2 - a.hold2) : null;
       return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
         React.createElement("span", { style: { fontWeight: 800, color: n ? "#0F6E56" : "#bbb" } }, n + "件", (n && tot) ? React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", marginLeft: 3 } }, Math.round(n / tot * 100) + "%") : null),
         React.createElement("span", { style: { marginTop: 1 } }, _yenNR(b.hold2, b.hold2Cnt, b.hold2Ref, b.hold2RefCnt, days)),
         (df != null && df !== 0) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: "#0F6E56", fontWeight: 700, lineHeight: 1.1 } }, "差額" + (df >= 0 ? "+" : "") + df.toLocaleString()) : null,
-        avgDayLine(b.hold2, days)), ex);
+        avgDayLine(b.hold2, days),
+        mo ? _moAmtLine(b.hold2, days, "基準は同値除外後の想定損益です") : null), ex);
     };
     // ヘッダ行（外側の表と入れ子の表で共用 2026-07-30）: 先頭列の見出しだけ段の粒度で変わる。
     var _headTr = function(gg) {
@@ -7183,14 +7204,14 @@ function EntryLogView(_ref_elv2) {
         // 日別は日数列を消しているので、合計の営業日数（＝この行の「1日平均」の分母）だけここに小さく残す 2026-08-12g
         (g === "day" ? React.createElement("span", { title: "この合計の営業日数＝右の「1日平均」はこの日数で割っています" + (_ovTotDaysFull > _ovTotDays ? "。／の右はこの期間全体の営業日数（今日より先も含む）" : ""), style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, _ovTotDays + "日" + (_ovTotDaysFull > _ovTotDays ? "／全" + _ovTotDaysFull + "日" : "")) : null)), Object.assign({ textAlign: "left", paddingLeft: 8, fontWeight: 800, color: "#555" }, bt)),
       (g === "day" ? null : otd(_elBizDaysCell(_ovTotDays, _ovTotDaysFull), Object.assign({ fontWeight: 700, color: "#555" }, bt))),   // 日別は日数列を出さない 2026-08-12g（合計の日数は上の合計セルに小さく添えてある）
-      cntCell(rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
-      reachCell(_ovTotStops.wn, rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
+      cntCell(rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt), null, true),
+      reachCell(_ovTotStops.wn, rsInc.length, _ovTotDays, Object.assign({ fontWeight: 800 }, bt), null, true),
       winTakeCell(winTakeOf(rsInc), Object.assign({ fontWeight: 800 }, bt)),
       evenCell(_ovTotStops, Object.assign({ fontWeight: 800 }, bt)),
       stopCell(_ovTotStops, bt),
-      pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt),
-      friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt)),
-      realCell(tt, _ovTotDays, bt, _noShareN(rsInc)));
+      pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt, true),
+      friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt), true),
+      realCell(tt, _ovTotDays, bt, _noShareN(rsInc), true));
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
         React.createElement("thead", null, _headTr(g)),   // 2026-07-30 入れ子の表と共用（_headTr）
@@ -8063,7 +8084,7 @@ function EntryLogView(_ref_elv2) {
         _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
         [
-          _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。想定損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）。6/29より前は集計ルールが違うため薄く表示し、合計・平均には算入していません（月別の2026/06は〜6/28と6/29〜の2行に分けています）"),
+          _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。想定損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）。6/29より前は集計ルールが違うため薄く表示し、合計・平均には算入していません（月別の2026/06は〜6/28と6/29〜の2行に分けています）。合計行の「月換算」は1か月＝20営業日として引き伸ばした目安（合計÷営業日数×20）で、実額ではありません"),
           _granSeg(gran, setGran, "ov_", _ovGradeLegend),
           _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
         _sinceRecs.length ? [
