@@ -4702,6 +4702,13 @@ function _elCollPairNode(data, r, scope) {
 //   _elOsMaxAll（OS1〜3高値の最大・アウトカム盲目）=== _epOwnAlpha（採用α）の「ちょうど一致」。
 //   後の足でEPを上抜けた記録は「刺さった」とみなして対象外＝OS最大がαを超えていれば対象外。
 // 実エントリー済み（_elIsEntered＝実際に約定した証拠）は対象外＝仮想損益（見送り等のシミュレーション値）にだけ効かせる。
+// ⚠️**×見送り（judge="x"＝EPより手前の足で期待度×を宣言した記録）も対象外** 2026-08-31
+//   （ユーザー指摘「これ、指値同値ではないのでは？ EPに到達した時点で期待度が×だよ」）。理由は2つ:
+//   ①×を宣言した時点で指値は出していない＝「EP価格に触れただけで約定しなかったかも」という懸念自体が成り立たない。
+//   ②_elTotAccum が `if (_epIsXSkip(s, a)) return;` で×見送りを想定損益へ一切算入しない＝除外しても**差額は必ず0円**。
+//     それでいて「同値」列の件数だけが増えるので、除外の効き目を過大に見せていた。
+//   判定は _epIsXSkip（＝_epResolve の judge）。⚠️os===α を確かめた**後**に呼ぶ＝_epResolve の再計算を該当記録だけに限定するため。
+//   ※os===α なら必ずEPには到達している（h>=α のレグが在る）＝ここに来る judge は "ok" か "x" の2択で "miss" は有り得ない。
 // 時間かぶり(_elCollisionExcludedSet)と違い「記録単体で完結する判定」なのでセット構築もmemoも不要（毎回の再計算が安い）。
 // 配線は時間かぶりと同じ線引き＝「表示総計」のみ。α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
 // ⚠️これは**この関数(_elFillRisk)の配線の話**。「α総当たり表は指値同値を無視している」という意味ではない 2026-08-07。
@@ -4715,7 +4722,8 @@ function _elFillRisk(s, item) {
   if (_real != null) return false;
   var a = _epOwnAlpha(s), os = _elOsMaxAll(s);
   if (a == null || os == null) return false;
-  return Number(os) === Number(a);
+  if (Number(os) !== Number(a)) return false;
+  return !_epIsXSkip(s, a);   // ×見送り＝指値を出していないので対象外 2026-08-31
 }
 // r={stock,date,signal,item} 版と件数版（KPI/セクション表示用）。
 function _elFillRiskRec(r) { return !!(r && r.signal && _elFillRisk(r.signal, r.item)); }
