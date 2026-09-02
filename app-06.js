@@ -7431,36 +7431,54 @@ function EntryLogView(_ref_elv2) {
 
   // ===== 集計タブ: KPIブロック（任意の記録集合から算出。今月/全期間で共用）+ α意思決定表(_alphaTable) =====
   var _kpiBlockOf = function(rs, _freqHoli) {
+    // 2026-09-02 指値同値（_elFillRiskRec）を**全カードの分子から外す**（ユーザー決定「カード全体」）。
+    // 旧＝時間かぶりしか除外せず、想定損益も到達率も同値込み。一方その下の①EP位置スイープ/③RN距離別/④中大別は
+    //   2026-08-10 の全列除外（_elH2EvalByFn の fillEqSkip）なので、同じ画面で E到達率52%（KPI）と42%（ボード）が並び、
+    //   どちらが本当か読めなかった。差は同値ぶんちょうど。
+    // ⚠️規約はボードに合わせる＝**同値は「母数」には残し、到達/E成立/損益/損切り/頻度の分子から外す**（_elH2EvalByFn が
+    //   n++ してから fillEqSkip で return しているのと同じ）。なので「件数」カードだけは rs.length のまま。
+    // 実現損益は影響なし＝_elFillRisk が _elIsEntered／実現損益あり／×見送り を先に弾くので、同値該当は実現損益を持たない。
+    // ⚠️判定は実績版 _elFillRisk（app-05）を使う＝明細の「指値同値」バッジ・🎯同値除外損益セクションと同じ集合になる。
+    //   ボード側の掃引版 _elFillEqAt(app-06) とは、採用αで突き合わせても**2ケースだけ結果が割れる**（総当たり48通り中5通りで確認 2026-09-02）:
+    //     ①実現損益あり かつ _elIsEntered が false … _elFillRisk は「約定した証拠あり」で対象外、_elFillEqAt は _elIsEntered しか見ないので同値扱い。
+    //       （_elFillEqAt のコメントは「約定した証拠があるので数えない」と書いているので、実現損益を見ていないのは取りこぼしに見える）
+    //     ②OS値/αが小数 … _elFillEqAt は Math.round して比較、_elFillRisk は Number のまま比較（100.4 と 100 で割れる）。
+    //   ⚠️この食い違いは元からある（明細バッジとボードが今も違う集合を指している）＝この改修で作ったものではない。
+    //   どちらかへ寄せるならボードの数字が動くので、別途ユーザー判断が要る。ここでは明細バッジ側にそろえている。
+    var _fqN = _elFillRiskCountRecs(rs);
+    var _rsE = _fqN ? rs.filter(function(r) { return !_elFillRiskRec(r); }) : rs;   // 0件なら元配列を使い回す＝従来と完全に同じ経路
     var n = rs.length, ok = 0, x = 0, miss = 0;
-    rs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
+    _rsE.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
     var t = _elTotAccum(rs, {
       signal: function(r) { return r.signal; },
       alpha: function(r) { return _ai(r).alpha; },
       cut: function(r) { return _ai(r).cutLine; },
-      excluded: function(r) { return _elCollExcluded(data, r, _collScope); },
+      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); },   // 2026-09-02 同値も除外（実現損益は同値該当が元から持たないので不変）
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
-    var ss = _elStopStatsV2(rs, data), reach = n ? Math.round((ok + x) / n * 100) : null;
+    var ss = _elStopStatsV2(_rsE, data), reach = n ? Math.round((ok + x) / n * 100) : null;   // reach の分母は n（=同値込みの母数）のまま＝ボードの eRate=entered/n と同じ
     // E後の勝率（実トレード=ok/ng/draw母数・_elEwinCellと同じ ok/(ok+ng+draw)）と、1営業日あたりH1損益（ΣH1÷エントリー日数）2026-06-26
     var _wOk = 0, _wNg = 0, _wDr = 0, _daySet = {};
-    rs.forEach(function(r) { var ai = _ai(r), res = _elDynResult(r.signal, ai.alpha, ai.cutLine); if (res === "ok" || res === "ng" || res === "draw") { if (res === "ok") _wOk++; else if (res === "ng") _wNg++; else _wDr++; if (r.date) _daySet[r.date] = 1; } });
+    _rsE.forEach(function(r) { var ai = _ai(r), res = _elDynResult(r.signal, ai.alpha, ai.cutLine); if (res === "ok" || res === "ng" || res === "draw") { if (res === "ok") _wOk++; else if (res === "ng") _wNg++; else _wDr++; if (r.date) _daySet[r.date] = 1; } });
     var _ewinD = _wOk + _wNg + _wDr, _ewin = _ewinD ? Math.round(_wOk / _ewinD * 100) : null;
     var _entDays = 0; for (var _dk in _daySet) { if (_daySet.hasOwnProperty(_dk)) _entDays++; }
     var _perDay = (_entDays > 0 && t.hold2 != null) ? Math.round(t.hold2 / _entDays) : null;   // 2026-07-09 H1基準→手じまい基準
     var _collXN = _elCollExclCountRecs(data, rs, _collScope);
-    var _friskN = _elFillRiskCountRecs(rs);   // 指値同値（OS値＝α値）の該当件数＝件数カードの副文言に併記 2026-07-20
+    // 2026-09-02 旧 _friskN は _fqN（関数先頭）に統合＝同じ _elFillRiskCountRecs の二重呼び出しを解消。
     // シグナル総合タブのKPI早見だけ頻度カードを足す（8枚→9枚・3×3）2026-07-18。_freqHoli未指定（集計タブ）は従来の8枚(4×2)のまま。頻度＝母数の活動営業日÷採用αでEP到達した実日数。
     var _freqCard = null, _gridN = 4;
     if (_freqHoli) {
-      var _fSpan = _elBizSpanDays(rs, _freqHoli), _fEnt = _elEnteredDays(rs, function(r) { return _ai(r).alpha; });
+      var _fSpan = _elBizSpanDays(rs, _freqHoli), _fEnt = _elEnteredDays(_rsE, function(r) { return _ai(r).alpha; });   // 分母(活動営業日)は母数の期間＝rs のまま／分子(到達日)は同値を外した_rsE 2026-09-02
       var _fR = (_fSpan > 0 && _fEnt > 0) ? _fSpan / _fEnt : null, _fNum = _fR == null ? null : (_fR < 10 ? (Math.round(_fR * 10) / 10) : Math.round(_fR));
       _freqCard = _kpiCard("頻度", _fNum == null ? "—" : ("" + _fNum), _fNum == null ? "#bbb" : "#0369A1", _fNum == null ? "到達日なし" : ("営業日に1回・到達" + _fEnt + "日/活動" + _fSpan + "営業日"));
       _gridN = 3;
     }
     return React.createElement.apply(null, ["div", { style: { display: "grid", gridTemplateColumns: "repeat(" + _gridN + ", minmax(0, 1fr))", gap: 8 } }].concat([
-      _kpiCard("件数", n + "件", "#333", "v2記録のみ" + (_collXN > 0 ? "・被り除外" + _collXN + "件" : "") + (_friskN > 0 ? "・同値除外損益" + _friskN + "件" : "")),
+      // 2026-09-02 副文言を実態へ。旧「同値除外損益N件」は🎯同値除外損益セクションの該当件数を出していただけで、
+      //   このカード群の数字からは抜けていなかった＝「N件除外済み」と読めてしまっていた。今は本当に抜いている。
+      _kpiCard("件数", n + "件", "#333", "v2記録のみ" + (_collXN > 0 ? "・被り除外" + _collXN + "件" : "") + (_fqN > 0 ? "・うち同値" + _fqN + "件は各カードの母数から除外" : "")),
       _freqCard,
-      _kpiCard("E到達率", reach != null ? reach + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss),
+      _kpiCard("E到達率", reach != null ? reach + "%" : "—", "#0369A1", "○" + ok + "・×" + x + "・未達" + miss + (_fqN > 0 ? "・同値" + _fqN : "")),   // 2026-09-02 同値を併記＝○+×+未達+同値 が件数カードのnと一致する
       _kpiCard("E後の勝率", _ewin != null ? _ewin + "%" : "—", _ewin != null ? (_ewin >= 50 ? "#1E8449" : "#B45309") : "#bbb", "勝" + _wOk + "・負" + _wNg + (_wDr ? "・分" + _wDr : "") + "／E成立" + _ewinD + "件"),
       _kpiCard("想定損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _elBizDaysOf(rs, data)), null, t.hold2Cnt + "件・○途切れで手じまい"),
       _kpiCard("損切り", (ss && ss.any || 0) + "回", ss && ss.any > 0 ? "#1E8449" : "#bbb", ss && ss.rate != null ? "率" + ss.rate + "%（想" + ss.plan + "・H1 " + ss.h1 + "・H2 " + ss.h2 + "）" : null),
