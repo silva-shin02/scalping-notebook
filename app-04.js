@@ -4040,7 +4040,7 @@ function _epnBaseLevelOf(it) { if (it && (it.ukiUsed === true || (Number(it.uki)
 function _epnComputeEp(level, baseLevel, uki, rn) { return Math.round(((Number(level) || 0) + (Number(baseLevel) || 0) + (Number(uki) || 0) + (Number(rn) || 0)) * 100) / 100; }
 // RN加算の自動再判定（早見カード用・2026-07-30 ユーザー指摘「早見で基本α→応用αに切り替えたときもRN加算は自動でやってくれる？」）。
 // 早見カードのインライン編集（採用αの切替・基本α/応用α値・③④/ライン併存）はEPを組み直すのに rn を据え置いていたため、
-// 切替後の予定EPが…41〜49/…91〜99でもRNが乗らず（逆に対象外になっても乗ったまま）＝計算フォームの自動判定と食い違っていた。
+// 切替後の予定EPが中RN/大RNのバンド内でもRNが乗らず（逆に対象外になっても乗ったまま）＝計算フォームの自動判定と食い違っていた。
 // 判定本体は記録フォーム/計算フォームと同じ単一源 _elRnAutoFrom(app-05)＝RN“前”EP（水準線＋base-levelα＋浮き足加算）で判定＝循環しない。
 // it.rnAuto === false（＝カードでRNを手動操作した）だけ据え置き。未設定＝自動（エントリー記録の _migRnAutoOn と同じ扱い）。
 // 水準線が無い(≤0)／判定不可(null)は現状維持。変化が無ければ同じ参照を返す＝無駄な保存をしない。
@@ -4318,9 +4318,9 @@ function _EpnRnSection(_p) {
     rnUsed ? React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円") : null,
     // 自動判定の状態（2026-07-30）: 自動中は淡いラベル・手動で触った後は「↺自動」ボタンで復帰（計算フォームの表示と対）。
     (e.rnAuto === false)
-      ? React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "RN加算の自動判定に戻す（予定EPの下二桁41〜49→…50／91〜99→…00）",
+      ? React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "RN加算の自動判定に戻す（予定EPの下二桁が中RNバンド→…50／大RNバンド→…00＝100・1000台。閾値は種別ごとに設定）",
           style: { padding: "0 5px", fontSize: 8.5, fontWeight: 800, color: "#0F766E", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 4, cursor: "pointer", lineHeight: 1.7, whiteSpace: "nowrap" } }, "↺自動")
-      : React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "自動判定ON: 採用α（基本α/応用α）や詳細を変えると、予定EPの下二桁41〜49→…50／91〜99→…00 になるようRN加算を自動で乗せ直します。〇×か数値に触ると手動に切り替わります。タップすると今すぐ再判定（この変更より前に作ったカード用）",
+      : React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "自動判定ON: 採用α（基本α/応用α）や詳細を変えると、予定EPの下二桁が中RNバンド→…50／大RNバンド→…00（100・1000台）になるようRN加算を自動で乗せ直します。〇×か数値に触ると手動に切り替わります。タップすると今すぐ再判定（この変更より前に作ったカード用）",
           style: { padding: 0, fontSize: 8.5, color: "#94A3B8", fontWeight: 700, whiteSpace: "nowrap", background: "none", border: "none", cursor: "pointer" } }, "自動"));
 }
 // ===== EPナビ 列ごとの独立計算フォーム（2026-07-08 案A: 2段整列）=====
@@ -4431,6 +4431,9 @@ function _EpnCalcForm(_p) {
   // RN加算自動判定 2026-07-20b（記録フォームと同じ挙動）: RN前α＝浮き足〇なら浮き足加算のみ／通常は基底α＋浮き足加算。RNは含めない＝予定EPが循環しないように。
   var _nRnPre = (nUkiUsed === "○") ? ukiAddV : ((_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV) : null);
   var _nRnAutoAdd = _elRnAutoFrom(nLevel, _nRnPre);   // null=判定不可（水準線未入力/基底α未確定） / 0=対象外(自動×) / >0=加算額
+  // RN種別 2026-09-02（記録フォームと対称）: RN加算“前”EPの下二桁から中RN(…50)／大RN(…00＝100・1000台)を都度導出。保存はしない。
+  var _nRnPreEp = (nLevel != null && nLevel !== "" && !isNaN(Number(nLevel)) && _nRnPre != null && !isNaN(Number(_nRnPre))) ? (Number(nLevel) + Number(_nRnPre)) : null;
+  var _nRnKind = _elRnTierAt(_nRnPreEp), _nRnKindI = _elRnKindInfo(_nRnKind);
   // 底抜け前足−底抜けライン（水準線nLevel）＝浮き値を自動計算しnUkiValへ（記録フォームと対称）。前足orライン未入力なら据え置き＝過去記録の保存値を維持。2026-07-21
   useEffect(function() {
     if (nUkiUsed !== "○") return;
@@ -4682,16 +4685,16 @@ function _EpnCalcForm(_p) {
         React.createElement("div", { style: { marginTop: 4 } },
           React.createElement("div", { style: { fontSize: 9.5, color: specialReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
             specialReco ? (specialReco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : specialReco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）" : "（銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）"))) : "推奨応用α データ無し（空欄＝基本α）"))) : null)) : null,
-    _lrow("RN加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RN加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
+    _lrow(_nRnKindI ? _nRnKindI.label + "加算" : "RN加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RN加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
       _oxBtns(nRnUsed, function(v) { setNRnAuto(false); setNRnUsed(v); if (v === "○" && nRnVal === "") setNRnVal("5"); }),   // 手動操作＝自動判定を止める 2026-07-20b
       nRnUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nRnVal, placeholder: "5",
         onChange: function(e) { setNRnAuto(false); var v = _toHankakuNum(e.target.value); if (v === "") { setNRnVal(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setNRnVal(String(n)); }, style: Object.assign({}, _inpStyle, { width: 48 }) }) : null,
       nRnUsed === "○" ? _stepBtn(function() { setNRnAuto(false); setNRnVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + 1; if (n > 50) n = 50; return String(n); }); }, function() { setNRnAuto(false); setNRnVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base - 1; if (n < 0) n = 0; return String(n); }); }) : null,
-      nRnUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#1D4ED8" } }, "→ +" + rnAddV + "円") : null,
+      nRnUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#1D4ED8" } }, "→ +" + rnAddV + "円" + (_nRnKindI ? ("（" + _nRnKindI.target + "）") : "")) : null,
       // 2026-07-20b 自動判定の状態（記録フォームと同じ挙動）。自動中＝バッジ／手動中＝「↺自動」で復帰。
       nRnAuto
-        ? React.createElement("span", { title: "予定EP（水準線＋基底α＋浮き足加算）の下二桁が41〜49／91〜99なら自動で〇にして…50/…00ちょうどまで加算します。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
-            _nRnAutoAdd == null ? "自動：水準線値待ち" : (_nRnAutoAdd > 0 ? "自動判定中" : "自動判定中（対象外）"))
+        ? React.createElement("span", { title: "予定EP（水準線＋基底α＋浮き足加算）の下二桁が、中RNは 50−T〜49（→…50）・大RNは 100−T〜99（→…00＝100・1000台）なら自動で〇にして、そのキリ番ちょうどまで加算します。閾値Tは中RN・大RNで別々に設定できます（🔢RN加算タブ→閾値）。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
+            _nRnAutoAdd == null ? "自動：水準線値待ち" : (_nRnAutoAdd > 0 ? ("自動判定中" + (_nRnKindI ? ("・" + _nRnKindI.label) : "")) : "自動判定中（対象外）"))
         : React.createElement("button", { type: "button", onClick: function() { setNRnAuto(true); }, title: "自動判定に戻す",
             style: { fontSize: 9, fontWeight: 700, color: "#B45309", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 自動に戻す"))),
     React.createElement("div", { style: { margin: "8px 0 6px", padding: "7px 6px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, textAlign: "center" } },
