@@ -397,6 +397,38 @@ HomeEventFormModal, App
 
 ## 変更ログ
 
+### 2026-09-02c 🩹補正要否を底つきラインタブへ移設＋中RN/大RN別を新設（app-06 / sw v461→v462）
+
+ユーザー指示「この補正は底つきラインというシグナルでしか使わないので、底つきラインの分析ページ内に組み込んで。また、中RN・大RNに分けてほしい」。
+
+**⚠️用語の衝突に注意（このリポジトリで「中RN/大RN」は2つある）**
+
+| | 出どころ | 段階 | 使う所 |
+|---|---|---|---|
+| **①底抜け詳細（手入力）** | `signal.sigDetail[タグ].b`（記録フォームで単一選択・マスターは`custom.sigDetails2[タグ].b`） | 中RN / 大RN / **特大RN** | 🩹補正要否の段別（この項） |
+| **RN加算の種別（自動導出）** | 予定EPの下二桁（`_elRnKindOfRec`・app-05） | 中RN(…50) / 大RN(…00) の2段階 | 🔢RN加算タブ（2026-09-02の項） |
+
+言葉が同じで**別物**。色は揃えてあるが出どころが違う。`_elSpnBTierOf` と `_elRnKindOfRec` を取り違えないこと。
+
+| 論点 | 決定（ユーザー） |
+|---|---|
+| 置き場所 | **底つきラインタブだけに置き、独立タブ「🩹補正要否」は撤去** |
+| 分ける軸 | **①底抜け詳細（手入力）** で分ける（自動導出のRN種別ではない） |
+| 特大RN | **大RNにまとめて2行**（大RN行の副文で「大RN n件・特大RN m件」の内訳を出し情報は落とさない） |
+| 見せ方 | **ピル追従＋種別別の比較表**（🔢RN加算タブの④と同じ思想） |
+
+- **新規（app-06・`_elSpAltRow`の直前）**: `_SPN_DEFAULT_SIGNALS`(=["底つきライン"]) / `_elSpnSignalNames(custom)` / `_elSpnIsTargetSig(custom,sigKey,sigLabel)`（浮き足の`_UKI_DEFAULT_SIGNALS`と同じ作法＝既定は定数・`custom.spnSignalNames`で差し替え可＝**改名してもコード修正なしで追従できる**。sigKey＝カテゴリ接頭辞つきの生タグ／sigLabel＝stripCat済みのどちらで一致してもよい）。
+- **新規**: `_EL_SPN_TIERS`（mid/big のラベル・色）／`_elSpnBTierOf(bName)`／`_elSpnBTierOfRec(r,sigKey)`。判定は「RNを含む選択肢だけ対象」→「特大→big」→「大→big」→「中→mid」の順。**`"特大RN"`は`"大"`も含むので特大を先に見るのが要**。RN系でない①底抜け（肉薄足・底抜け直後など）は`null`＝「その他」行へ。
+- **切り出し**: `_elSpNeedRecoOf(fullRecs,aiOf,byStock)`（その日の推奨基本αを作る単一源）と `_elSpNeedTotals(rows)`（合計の集計規約）。`_elSpNeedSectionV2` を両方へ寄せ、🔎ボードと**同じ作り方・同じ規約**で計算する。⚠️byStock=false時に旧は「fullRecsが空ならpool」だったので、切り出し後も同じになるよう呼び出し側で`(fullRecs&&fullRecs.length)?fullRecs:pool`を渡している。
+- **新規セクション**: `_elSpnTierBoardV2(recs,aiOf,fullRecs,sigKey,secH)`＝🔎中RN／大RN別の補正効果。行＝中RN／大RN（特大RN含む）／その他・未選択。**行の件数合計が母数と一致する**（消えた件が出ない）。合計行に「推奨基本α無しで比較不可 N件」も出す。
+- **UI（`_bandAxisBody`）**: `_o.bSigKey` が対象シグナルのタブでだけ、`_groupPanel` の下に区切り線つきで 根拠セレクタ → 🔎中RN/大RN別ボード → 🩹補正要否の明細 を出す。
+  - **母数の流れ＝帯ピル → 根拠セレクタ →（明細だけ）①底抜けピル**。🔎ボードは①底抜けで絞らない（それ自体が①底抜けで分ける表なので、絞ると1行しか出ない）。
+  - 根拠セレクタは `_spnCtx(baseRecs)` として`_bandAxisBody`の手前に共通化。stateは従来どおり **α値タブと同じ `alphaReasonFil` を共有**。
+- **撤去**: `_SIG_TABS` から `["spn","🩹 補正要否"]` を削除し、`sigSub === "spn"` ブランチ（32行）を削除。銘柄タブ→📐α値→応用αゾーンにある `_elSpNeedSectionV2` は**存続**（そちらは銘柄×シグナル母数）。
+- ⚠️**数字が旧タブと変わりうる**: 旧タブは recoFn の母数に `_v2recsAllData`（その銘柄の**全シグナル**）を使っていた。移設先ではそのシグナルの記録に揃える＝α値タブ（銘柄×シグナル）と同じ土俵になる。
+
+- **検証**: `node --check` OK。headless Chromium で `_elSpnBTierOf` の全マスター値（中RN/大RN/特大RN/肉薄足/底抜け直後/DB形成後/空/null）、特大→大の合流、RN以外を拾わないこと、`_elSpnIsTargetSig` の既定と`custom`差し替え、段別グルーピングの件数一致（中2/大2/その他2＝母数6）を確認。`_elSpnTierBoardV2` を実データ有り・空プールの両方で実描画（空はnull＝何も出さない）。アプリ全体の読み込みでコンソールエラーなし。
+
 ### 2026-09-02b KPI早見の全カードを「指値同値 除外」にそろえる（app-06 / sw v460→v461）
 
 ユーザー指摘「こういうところでの想定損益は、指値同値は不算入にしてる？」から。調べたところ**同じ画面で基準が3つに割れていた**。
