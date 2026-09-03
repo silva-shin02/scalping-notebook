@@ -3729,6 +3729,67 @@ function _elUkiAltRow(r, aiOf) {
 // 損切り値は記録の採用値のまま両側に使う＝αだけを差し替えた比較になる（🔁応用α換算と同じ規約）。
 // 片側がエントリー不成立（α未達・スルー・（）外なしの△）でも0円として両側に算入＝「αを下げていたら取れていた取引」が
 //   集計から消えないようにする（2026-07-27にユーザー決定した🔁応用α換算と同じ扱い）。真の換算不可は推奨基本αが出ない日だけ。
+// ===== 🩹補正要否の対象シグナルとRN段階 2026-09-02（ユーザー指示「この補正は底つきラインでしか使わない」）=====
+// 旧＝📡シグナル総合の独立タブ「🩹補正要否」で全シグナルの応用α〇をまとめて出していた。
+// ユーザー決定でタブを撤去し、**対象シグナルのタブ（底つきライン）の中だけ**に置く。
+// 浮き足の _UKI_DEFAULT_SIGNALS（app-05）と同じ作法＝既定を定数で持ち custom で差し替え可能にする
+//   ＝シグナル名を改名しても custom.spnSignalNames を直せば追従できる（定数の書き換え＝コード修正を強いない）。
+var _SPN_DEFAULT_SIGNALS = ["底つきライン"];
+function _elSpnSignalNames(custom) {
+  var a = (custom && Array.isArray(custom.spnSignalNames) && custom.spnSignalNames.length) ? custom.spnSignalNames : _SPN_DEFAULT_SIGNALS;
+  return a.slice();
+}
+// sigKey＝_buildSigGroupsのkey（カテゴリ接頭辞つきの生タグ）／sigLabel＝stripCat済みの表示名。どちらで一致してもよい。
+function _elSpnIsTargetSig(custom, sigKey, sigLabel) {
+  if (!sigKey && !sigLabel) return false;
+  var names = _elSpnSignalNames(custom);
+  var lbl = (sigLabel != null) ? sigLabel : ((typeof stripCat === "function") ? stripCat(sigKey) : sigKey);
+  for (var i = 0; i < names.length; i++) { if (names[i] === sigKey || names[i] === lbl) return true; }
+  return false;
+}
+// ①底抜け詳細（signal.sigDetail[タグ].b＝記録フォームで手入力した単一選択）のRN段階。"mid"＝中RN／"big"＝大RN／null＝RN系でない選択肢・未選択。
+// ⚠️**RN加算の種別（_elRnKindOfRec・app-05）とは別物**。あちらは予定EPの下二桁から自動導出、こちらはユーザーが記録ごとに選んだ手入力値。
+//   言葉（中RN/大RN）が同じなので取り違えないこと。色は揃えてあるが出どころが違う。
+// 「特大RN」は大RNに合流させる（ユーザー決定 2026-09-02＝2行にする）。大RN行の内訳で 大RN/特大RN の件数を併記して情報は落とさない。
+var _EL_SPN_TIERS = {
+  mid: { key: "mid", label: "中RN", color: "#0F766E", bg: "#F0FDFA", bd: "#99F6E4" },
+  big: { key: "big", label: "大RN", color: "#9A3412", bg: "#FFF7ED", bd: "#FDBA74" }
+};
+function _elSpnBTierOf(bName) {
+  if (!bName) return null;
+  var s = String(bName);
+  if (s.indexOf("RN") < 0) return null;      // RN系の選択肢だけを対象＝肉薄足/底抜け直後などは「その他」へ
+  if (s.indexOf("特大") >= 0) return "big";   // 特大RN → 大RNへ合流（判定順が要＝"特大RN"は"大"も含むので先に見る）
+  if (s.indexOf("大") >= 0) return "big";
+  if (s.indexOf("中") >= 0) return "mid";
+  return null;
+}
+function _elSpnBTierOfRec(r, sigKey) { return (r && r.signal) ? _elSpnBTierOf(_elSigDetailSec(r.signal, sigKey).b) : null; }
+// recoFn（その日の推奨基本α）の作り手。_elSpNeedSectionV2 と 🔎中RN/大RN別ボードで同じ母数・同じ作り方を使うための単一源 2026-09-02。
+function _elSpNeedRecoOf(fullRecs, aiOf, byStock) {
+  if (byStock) {
+    var _fnBy = {}, _recsBy = {};
+    (fullRecs || []).forEach(function(r) { if (!r || !r.stock) return; (_recsBy[r.stock] = _recsBy[r.stock] || []).push(r); });
+    return function(r) {
+      var st = r && r.stock; if (!st) return null;
+      if (!_fnBy[st]) _fnBy[st] = _elRecoFnCached(_recsBy[st] || [], aiOf);
+      return _fnBy[st];
+    };
+  }
+  var _one = _elRecoFnCached((fullRecs && fullRecs.length) ? fullRecs : [], aiOf);
+  return function() { return _one; };
+}
+// 行配列 → 合計。_elSpNeedSectionV2 と 🔎ボードで同じ集計規約（差額がnull＝推奨基本α無しは合計に入れない）を使う 2026-09-02。
+function _elSpNeedTotals(rows) {
+  var T = { cur: 0, alt: 0, diff: 0, n: 0, skip: 0, ne: 0, win: 0, lose: 0, same: 0 };
+  (rows || []).forEach(function(o) {
+    if (!o || o.cur == null || o.alt == null) { T.skip++; return; }
+    T.n++; T.cur += o.cur; T.alt += o.alt; T.diff += o.diff;
+    if (o.curWhy || o.altWhy) T.ne++;
+    if (o.diff > 0) T.win++; else if (o.diff < 0) T.lose++; else T.same++;
+  });
+  return T;
+}
 function _elSpAltRow(r, aiOf, recoFn) {
   var s = r && r.signal; if (!s) return null;
   var ai = aiOf(r), curA = ai.alpha, cut = ai.cutLine;
@@ -3752,28 +3813,12 @@ function _elSpAltRow(r, aiOf, recoFn) {
 //   推奨基本αは銘柄ごとの履歴から出る値（フォーム/日別ページの「今日の推奨」と同じ）なので、銘柄で分けて当てる。
 function _elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel, byStock) {
   if (!pool || !pool.length) return null;
-  var recoOf;
-  if (byStock) {
-    var _fnBy = {}, _recsBy = {};
-    (fullRecs || []).forEach(function(r) { if (!r || !r.stock) return; (_recsBy[r.stock] = _recsBy[r.stock] || []).push(r); });
-    recoOf = function(r) {
-      var st = r && r.stock; if (!st) return null;
-      if (!_fnBy[st]) _fnBy[st] = _elRecoFnCached(_recsBy[st] || [], aiOf);
-      return _fnBy[st];
-    };
-  } else {
-    var _one = _elRecoFnCached((fullRecs && fullRecs.length) ? fullRecs : pool, aiOf);
-    recoOf = function() { return _one; };
-  }
+  // 2026-09-02 recoOf/合計は _elSpNeedRecoOf / _elSpNeedTotals へ切り出し（🔎中RN/大RN別ボードと同じ作り方・同じ集計規約を使うため）。
+  // ⚠️byStock=false のとき、旧は fullRecs が空なら pool を母数にしていた。切り出し後も同じになるよう呼び出し側で fullRecs を渡す。
+  var recoOf = _elSpNeedRecoOf((fullRecs && fullRecs.length) ? fullRecs : pool, aiOf, byStock);
   var rows = pool.slice().sort(function(a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); })   // 新しい順
     .map(function(r) { return _elSpAltRow(r, aiOf, recoOf(r)); }).filter(Boolean);
-  var T = { cur: 0, alt: 0, diff: 0, n: 0, skip: 0, ne: 0, win: 0, lose: 0, same: 0 };
-  rows.forEach(function(o) {
-    if (o.cur == null || o.alt == null) { T.skip++; return; }
-    T.n++; T.cur += o.cur; T.alt += o.alt; T.diff += o.diff;
-    if (o.curWhy || o.altWhy) T.ne++;
-    if (o.diff > 0) T.win++; else if (o.diff < 0) T.lose++; else T.same++;
-  });
+  var T = _elSpNeedTotals(rows);
   if (!T.n) return null;
   var _amt = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
     : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
@@ -3818,6 +3863,74 @@ function _elSpNeedSectionV2(pool, aiOf, fullRecs, secH, reasonLabel, byStock) {
       _elv2Card("判定", React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: _vd.c, background: _vd.bg, border: "1px solid " + _vd.b, borderRadius: 6, padding: "2px 8px", whiteSpace: "nowrap" } }, _vd.t), null,
         "得した " + T.win + "件 / 損した " + T.lose + "件 / 同じ " + T.same + "件")]),
     _elv2Table(["日付・時刻", "銘柄", "シグナル", "実際の採用α", "補正なし（基本α）", "想定損益（実際）", "想定損益（補正なし）", "補正の効果"], _bodyRows));
+}
+// ===== 🔎 中RN／大RN 別の補正効果 2026-09-02（ユーザー要望「中RN・大RNに分けてほしい」）=====
+// 上の🩹補正要否と同じ反実仮想（実際の応用α vs その日の推奨基本α）を、①底抜け詳細のRN段階ごとに分けて並べる。
+// **①底抜けピルで絞る前**を母数にする＝ピルを押し直さずに中と大を見比べられる（🔢RN加算タブの④中RN/大RN別表と同じ思想）。
+//   ただし帯ピルと根拠セレクタは効かせる＝呼び出し側が絞ったrecsをそのまま母数にする（画面内で母数が食い違わない）。
+// 「特大RN」は大RNへ合流（ユーザー決定＝2行）。大RN行の副文で 大RN/特大RN の内訳件数を出して情報は落とさない。
+// RN系でない①底抜け・未選択は「その他・未選択」行にまとめる＝**行の件数合計が母数と一致する**（どこに消えたか分からない件が出ない）。
+function _elSpnTierBoardV2(recs, aiOf, fullRecs, sigKey, secH) {
+  var pool = (recs || []).filter(_elIsSpecialAlphaPoolRec);
+  if (!pool.length) return null;
+  var recoOf = _elSpNeedRecoOf(fullRecs, aiOf, true);   // 銘柄横断のタブなので推奨基本αは必ず銘柄ごとに作る
+  var by = { mid: [], big: [], other: [] }, bigSub = {}, otherSub = {};
+  pool.forEach(function(r) {
+    var b = (r && r.signal) ? (_elSigDetailSec(r.signal, sigKey).b || "") : "";
+    var t = _elSpnBTierOf(b) || "other";
+    by[t].push(r);
+    var _k = b || "未選択";
+    if (t === "big") bigSub[_k] = (bigSub[_k] || 0) + 1; else if (t === "other") otherSub[_k] = (otherSub[_k] || 0) + 1;
+  });
+  var _subTxt = function(m) {
+    var ks = Object.keys(m); if (!ks.length) return null;
+    ks.sort(function(a, b) { return m[b] - m[a]; });
+    return ks.map(function(k) { return k + " " + m[k] + "件"; }).join("・");
+  };
+  var _amt = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+    : React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+  var _diffN = function(v) { return (v == null) ? React.createElement("span", { style: { color: "#ccc" } }, "—")
+    : React.createElement("span", { style: { fontWeight: 800, color: v > 0 ? "#C0392B" : v < 0 ? "#1E8449" : "#888" } }, (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "円"); };
+  var _vdOf = function(d) { return d > 0 ? { t: "補正して正解", c: "#C0392B", bg: "#FCEBEB", b: "#F5C6C6" }
+    : d < 0 ? { t: "補正しない方が良かった", c: "#1E8449", bg: "#EAF3DE", b: "#C2E3A8" }
+    : { t: "差なし", c: "#888", bg: "#F5F4F0", b: "#E0DAD1" }; };
+  var _defs = [
+    { key: "mid", label: _EL_SPN_TIERS.mid.label, ki: _EL_SPN_TIERS.mid, sub: null },
+    { key: "big", label: _EL_SPN_TIERS.big.label + "（特大RN含む）", ki: _EL_SPN_TIERS.big, sub: _subTxt(bigSub) },
+    { key: "other", label: "その他・未選択", ki: null, sub: _subTxt(otherSub) }
+  ];
+  var _bodyRows = [], _grand = { n: 0, cur: 0, alt: 0, diff: 0, skip: 0 }, _shown = 0;
+  _defs.forEach(function(d) {
+    var g = by[d.key]; if (!g.length) return;
+    _shown++;
+    var T = _elSpNeedTotals(g.map(function(r) { return _elSpAltRow(r, aiOf, recoOf(r)); }).filter(Boolean));
+    _grand.n += T.n; _grand.cur += T.cur; _grand.alt += T.alt; _grand.diff += T.diff; _grand.skip += T.skip;
+    var _vd = _vdOf(T.diff), _thin = T.n < _EL_BASE_MIN_N;
+    _bodyRows.push(React.createElement("tr", { key: "spt" + d.key },
+      _elv2Td(React.createElement("div", { style: { lineHeight: 1.2 } },
+        React.createElement("span", { style: { fontWeight: 800, color: d.ki ? d.ki.color : "#94A3B8" } }, d.label),
+        _thin ? React.createElement("span", { style: { fontSize: 8, color: "#B45309", marginLeft: 4, fontWeight: 700 } }, "（仮）") : null,
+        d.sub ? React.createElement("div", { style: { fontSize: 9, color: "#A79E92", fontWeight: 600 } }, d.sub) : null), { textAlign: "left", paddingLeft: 8 }),
+      _elv2Td(g.length + "件"),
+      _elv2Td(_amt(T.n ? T.cur : null)),
+      _elv2Td(_amt(T.n ? T.alt : null)),
+      _elv2Td(_diffN(T.n ? T.diff : null)),
+      _elv2Td(T.n ? React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: _vd.c, background: _vd.bg, border: "1px solid " + _vd.b, borderRadius: 6, padding: "1px 7px", whiteSpace: "nowrap" } }, _vd.t) : React.createElement("span", { style: { color: "#ccc" } }, "—")),
+      _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#666" } }, "得" + T.win + " / 損" + T.lose + " / 同" + T.same + (T.skip ? "（比較不可" + T.skip + "）" : "")))));
+  });
+  if (!_shown) return null;
+  _bodyRows.push(React.createElement("tr", { key: "sptot", style: { background: "#FFFBF0", borderTop: "2px solid #FB923C" } },
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, "合計"), { textAlign: "left", paddingLeft: 8 }),
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, pool.length + "件")),
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(_grand.n ? _grand.cur : null))),
+    _elv2Td(React.createElement("span", { style: { fontWeight: 800 } }, _amt(_grand.n ? _grand.alt : null))),
+    _elv2Td(_diffN(_grand.n ? _grand.diff : null)),
+    _elv2Td(React.createElement("span", { style: { fontSize: 10, color: "#666" } }, _grand.n + "件で比較")),
+    _elv2Td(_grand.skip ? React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "推奨基本α無しで比較不可 " + _grand.skip + "件") : React.createElement("span", { style: { color: "#ccc" } }, "—"))));
+  return React.createElement(React.Fragment, null,
+    secH("🔎 中RN／大RN 別の補正効果",
+      "※ ①底抜け詳細（記録フォームで選ぶ手入力値）でRN段階に分けた同じ反実仮想。特大RNは大RNに合流（内訳は行の下に併記）。**下の①底抜けピルでは絞らない**＝押し直さずに中と大を見比べられる（帯ピルと根拠セレクタは効く）。件数が" + _EL_BASE_MIN_N + "件未満は（仮）"),
+    _elv2Table(["RN段階（①底抜け）", "件数", "実際（応用α）", "補正なし（基本α）", "補正の効果", "判定", "内訳"], _bodyRows));
 }
 // ===== 📥 確定値で入るべきか（EP約定 vs 確定値エントリー）2026-08-20 ユーザー要望 =====
 // 問い＝「αのラインに触れた瞬間に約定する今のやり方より、その足が確定するのを待って“確定値（終値）”で入った方が良いのか」。
@@ -6565,7 +6678,8 @@ function EntryLogView(_ref_elv2) {
   var _tabs = _isAllStock
     ? [["sum", "📊 集計"], ["ce", "📥 確定待ち"], ["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
     : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
-  var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["spn", "🩹 補正要否"], ["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]];   // 2026-08-20b 「📥 確定待ち」はここに一度置いたが、ユーザー決定で💰損益タブ（_tabsの全銘柄側）へ移設した。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
+  // 2026-09-02 「🩹 補正要否」タブを撤去＝対象シグナル（既定「底つきライン」・_SPN_DEFAULT_SIGNALS）のタブ内へ移設（ユーザー指示「この補正は底つきラインでしか使わない」）。
+  var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]];   // 2026-08-20b 「📥 確定待ち」はここに一度置いたが、ユーザー決定で💰損益タブ（_tabsの全銘柄側）へ移設した。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
   // 日付だけ新しい順・各日付の中は時間が早い順（2段ソート）2026-07-27 ユーザー指定＝「新しい日から見て、その日は朝から順に読む」。
   // 日付＋時刻を繋げた文字列の単純降順にすると日内まで逆順になるので、日付と時刻を分けて比較するのが要。
@@ -7724,6 +7838,35 @@ function EntryLogView(_ref_elv2) {
   // opts（2026-08-02 シグナル別タブ用に拡張）: { withAll:true }=帯ピルの先頭に「すべて」（pool全件）を足す／{ sigLabel }=グループ見出しにシグナル名を前置。
   // 「すべて」は必ず最大件数になるので、bandSel=null時の「件数最多へフォールバック」がそのまま既定として効く＝追加の分岐が要らない。opts省略時は従来どおり。
   // { bSigKey } = ①底抜けピルを帯ピルの下に足す（2026-08-04・各シグナルタブ専用）。渡さなければピルは出ず従来の描画のまま＝💴株価帯別タブは不変。
+  // 🩹補正要否の根拠セレクタ＋プール構築 2026-09-02（旧・独立タブ「🩹補正要否」から移設して共通化）。
+  // baseRecs＝この画面で既に絞ったあとの記録（対象シグナル×株価帯）。ここから応用α〇プール(_elIsSpecialAlphaPoolRec＝浮き足/RN除く)を作り、根拠で絞る。
+  // stateは **α値タブと同じ alphaReasonFil を共有**＝タブを行き来しても選んだ根拠が続く（旧タブの規約をそのまま維持）。
+  var _spnCtx = function(baseRecs) {
+    var all = (baseRecs || []).filter(_elIsSpecialAlphaPoolRec);
+    var reasonsOf = function(s) { return (Array.isArray(s.specialReasons) ? s.specialReasons.filter(Boolean) : (s.addAlphaReason ? [s.addAlphaReason] : [])); };
+    var cnt = {}, ord = [], none = 0;
+    all.forEach(function(r) { var rs = reasonsOf(r.signal); if (!rs.length) { none++; return; } rs.forEach(function(rn) { if (cnt[rn] == null) { cnt[rn] = 0; ord.push(rn); } cnt[rn]++; }); });
+    var names = ord.sort(function(a, b) { return cnt[b] - cnt[a]; });
+    var sel = ((names.indexOf(alphaReasonFil) >= 0) || (alphaReasonFil === "__none__" && none > 0)) ? alphaReasonFil : "all";
+    var pool = (sel === "all") ? all
+      : (sel === "__none__") ? all.filter(function(r) { return reasonsOf(r.signal).length === 0; })
+      : all.filter(function(r) { return reasonsOf(r.signal).indexOf(sel) >= 0; });
+    var bar = null;
+    if (names.length) {
+      var opts = [{ k: "all", label: "全体", n: all.length }];
+      names.forEach(function(rn) { opts.push({ k: rn, label: rn, n: cnt[rn] }); });
+      if (none > 0) opts.push({ k: "__none__", label: "根拠なし", n: none });
+      bar = React.createElement("div", { key: "spnbar", style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1" } }, "根拠:"),
+        opts.map(function(o) {
+          var on = sel === o.k;
+          return React.createElement("button", { key: o.k, onClick: function() { setAlphaReasonFil(o.k); setExpKey(null); },
+            style: { padding: "3px 12px", fontSize: 10.5, fontWeight: 700, borderRadius: 13, cursor: "pointer", border: "1px solid " + (on ? "#0369A1" : "#E0DAD1"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#6B6459" } }, o.label + "（" + o.n + "）");
+        }),
+        React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "このシグナルの応用〇記録を根拠で絞込（α値タブの根拠セレクタと選択を共有）"));
+    }
+    return { all: all, pool: pool, sel: sel, bar: bar, label: (sel === "all") ? null : (sel === "__none__" ? "根拠なし" : sel) };
+  };
   var _bandAxisBody = function(pool, cross, opts) {
     var _o = opts || {};
     var _pbSpl = _pbSplitByBand(pool), _pbB = _pbSpl.bounds;
@@ -7771,7 +7914,27 @@ function EntryLogView(_ref_elv2) {
             _groupPanel(_panelRecs, null, _panelRecs, false, _bandSpanSel))
         : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } },
             (_bSecSel && _bSecSelKey !== "__all__") ? "この底抜けの記録がありません（この帯では0件）"
-              : (_bSel && _bSel.key === "all") ? "記録がありません" : "この帯の記録がありません"));
+              : (_bSel && _bSel.key === "all") ? "記録がありません" : "この帯の記録がありません"),
+      // 🩹 補正は必要だったか 2026-09-02（旧・独立タブ「🩹補正要否」から移設）: 対象シグナル(_elSpnIsTargetSig＝既定「底つきライン」)のタブでだけ出す。
+      //   母数の流れ＝**帯ピル → 根拠セレクタ → （明細だけ）①底抜けピル**。
+      //   🔎中RN/大RN別ボードは①底抜けで絞らない（それ自体が①底抜けで分ける表なので、絞ると1行しか出なくなる）。
+      //   recoFn（その日の推奨基本α）の母数は帯も根拠も①底抜けも掛けない**このシグナルの全記録(pool)**＝基本α履歴は絞り込みに依らない（旧タブ/α値タブと同じ規約）。
+      //   ⚠️旧タブは recoFn の母数に _v2recsAllData（その銘柄の全シグナル）を使っていた。ここではシグナル単位に揃える＝α値タブ（銘柄×シグナル）と同じ土俵になり、数字は旧タブと変わりうる。
+      (_o.bSigKey && _elSpnIsTargetSig(custom, _o.bSigKey, _o.sigLabel)) ? (function() {
+        var _scBase = _bSel ? _bSel.recs : [];
+        var _sc = _spnCtx(_scBase);
+        if (!_sc.all.length) return React.createElement("div", { key: "spnnone", style: { marginTop: 18, paddingTop: 14, borderTop: "2px solid #F0E6D2", color: "#bbb", textAlign: "center", fontSize: 12 } },
+          "🩹 補正要否: 応用α〇（浮き足・RN除く）の記録がこの帯にありません");
+        var _spnDetail = (_bSecSelKey == null || _bSecSelKey === "__all__") ? _sc.pool
+          : (_bSecSelKey === "__none__") ? _sc.pool.filter(function(r) { return !_bSecOf(r); })
+          : _sc.pool.filter(function(r) { return _bSecOf(r) === _bSecSelKey.slice(2); });
+        return React.createElement("div", { key: "spnblk", style: { marginTop: 18, paddingTop: 14, borderTop: "2px solid #F0E6D2" } },
+          _sc.bar,
+          _elSpnTierBoardV2(_sc.pool, _ai, pool, _o.bSigKey, _secH),
+          _elSpNeedSectionV2(_spnDetail, _ai, pool, _secH, _sc.label, true)
+            || React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } },
+                 "この絞り込みでは明細を出せません（応用α〇が0件、または比較に使う推奨基本αが出る日がまだありません）"));
+      })() : null);
   };
   // 追加α母数トグル（osDistFil）を集計KPI/OS分布・損切り・未達で共有。全記録/×+未選択(既定)/〇のみ。〇=高α(基本+追加)は損切り/未達に寄るため、既定×+未選択で基本α運用の素の姿を出す 2026-07-01。
   // 素の分類フィルタ（2026-07-27 抽出）。📡シグナル総合は浮き足/その他の分割を持たないので
@@ -8004,38 +8167,6 @@ function EntryLogView(_ref_elv2) {
         _stRecsSig.length
           ? _elStopTabSectionV2(_stRecsSig, _ai, data, false, { expKey: expKey, setExpKey: setExpKey, onEdit: function(rec) { setEditTarget(rec); }, onGoDate: onSelectDate })
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "この母数に該当する記録がありません（分類トグルを切替）")]);
-    } else if (sigSub === "spn") {
-      // 🩹 補正は必要だったか（全銘柄横断）2026-08-18: α値タブ（銘柄×シグナル母数）と同じ分析を全銘柄でまとめて見る。
-      //   母数＝全銘柄の応用〇プール（浮き足/RN除外）＝α値タブの _alAddPool と同じ判定(_elIsSpecialAlphaPoolRec)。
-      //   根拠セレクタは**α値タブと同じstate(alphaReasonFil)を共有**＝タブを行き来しても選んだ根拠が続く。
-      //   ⚠️recoFnは byStock=true で銘柄ごとに作る（全銘柄を1母数にすると、誰も使っていない「銘柄をまたいで混ぜた推奨基本α」との比較になる）。
-      var _spnAll = _v2recsAllData.filter(_elIsSpecialAlphaPoolRec);
-      var _spnReasonsOf = function(s) { return (Array.isArray(s.specialReasons) ? s.specialReasons.filter(Boolean) : (s.addAlphaReason ? [s.addAlphaReason] : [])); };
-      var _spnCount = {}, _spnOrder = [], _spnNone = 0;
-      _spnAll.forEach(function(r) { var rs = _spnReasonsOf(r.signal); if (!rs.length) { _spnNone++; return; } rs.forEach(function(rn) { if (_spnCount[rn] == null) { _spnCount[rn] = 0; _spnOrder.push(rn); } _spnCount[rn]++; }); });
-      var _spnNames = _spnOrder.sort(function(a, b) { return _spnCount[b] - _spnCount[a]; });
-      var _spnSel = ((_spnNames.indexOf(alphaReasonFil) >= 0) || (alphaReasonFil === "__none__" && _spnNone > 0)) ? alphaReasonFil : "all";
-      var _spnPool = (_spnSel === "all") ? _spnAll
-        : (_spnSel === "__none__") ? _spnAll.filter(function(r) { return _spnReasonsOf(r.signal).length === 0; })
-        : _spnAll.filter(function(r) { return _spnReasonsOf(r.signal).indexOf(_spnSel) >= 0; });
-      var _spnBar = null;
-      if (_spnNames.length) {
-        var _spnOpts = [{ k: "all", label: "全体", n: _spnAll.length }];
-        _spnNames.forEach(function(rn) { _spnOpts.push({ k: rn, label: rn, n: _spnCount[rn] }); });
-        if (_spnNone > 0) _spnOpts.push({ k: "__none__", label: "根拠なし", n: _spnNone });
-        _spnBar = React.createElement("div", { key: "spnbar", style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
-          React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1" } }, "根拠:"),
-          _spnOpts.map(function(o) {
-            var on = _spnSel === o.k;
-            return React.createElement("button", { key: o.k, onClick: function() { setAlphaReasonFil(o.k); setExpKey(null); },
-              style: { padding: "3px 12px", fontSize: 10.5, fontWeight: 700, borderRadius: 13, cursor: "pointer", border: "1px solid " + (on ? "#0369A1" : "#E0DAD1"), background: on ? "#0369A1" : "#fff", color: on ? "#fff" : "#6B6459" } }, o.label + "（" + o.n + "）");
-          }),
-          React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "全銘柄の応用〇記録を根拠で絞込（α値タブの根拠セレクタと選択を共有）"));
-      }
-      _tabBody = _cardify([
-        _spnBar,
-        _elSpNeedSectionV2(_spnPool, _ai, _v2recsAllData, _secH, (_spnSel === "all") ? null : (_spnSel === "__none__" ? "根拠なし" : _spnSel), true)
-          || React.createElement("div", { key: "spnempty", style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, "応用α〇（浮き足・RN除く）の記録がありません。または、比較に使う推奨基本αが出る日がまだありません")]);
     } else if (sigSub === "rn") {
       var _rnListRecs = _v2recsAllData.filter(function(r) { return r && _elRnYes(r.signal); }).slice().sort(_byDateAsc);   // 分析（データ算入）2026-07-22f
       // RN加算候補＝RN加算×だが予定EP（水準線値＋採用α）の下2桁がバンド内の記録（＝50/00のキリ番をまたげた可能性）。
