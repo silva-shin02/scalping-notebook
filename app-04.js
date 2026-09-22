@@ -3482,7 +3482,7 @@ function _epnDayAlphaSet(save, stock, date, val) {
   save(function(prev) {
     var charts = Object.assign({}, prev.charts || {});
     var ck = stock + "_" + date;
-    charts[ck] = Object.assign({}, charts[ck] || {}, { epNaviDayAlpha: (val == null ? null : val) });
+    charts[ck] = Object.assign({}, charts[ck] || {}, { epNaviDayAlpha: (val == null ? null : val), epNaviDaySeed: 1 });   // epNaviDaySeed＝前日引き継ぎの「この日はもう自動で入れない」印 2026-08-24。手で入力/クリアした時点で立てる＝消した値が開き直しで復活しない
     return Object.assign({}, prev, { charts: charts });
   });
 }
@@ -3496,7 +3496,66 @@ function _epnDaySpecialAlphaSet(save, stock, date, val) {
   save(function(prev) {
     var charts = Object.assign({}, prev.charts || {});
     var ck = stock + "_" + date;
-    charts[ck] = Object.assign({}, charts[ck] || {}, { epNaviDaySpecialAlpha: (val == null ? null : val) });
+    charts[ck] = Object.assign({}, charts[ck] || {}, { epNaviDaySpecialAlpha: (val == null ? null : val), epNaviDaySeed: 1 });   // 印は基本α/応用αで共通 2026-08-24（_epnDayAlphaSet と同じ理由）
+    return Object.assign({}, prev, { charts: charts });
+  });
+}
+// ===== 「本日の採用α値」を前営業日から引き継ぐ 2026-08-24（ユーザー要望）=====
+// 新しい営業日を開くと基本α/応用αの欄が空で、EPナビの銘柄ぶん毎回入れ直しになっていた。
+// その銘柄で直近に入力があった日の値を、その日の初期値として入れる。
+// ⚠️**表示だけ引き継ぐのではなく実際に保存する**。_epnDayAlphaGet が null のままだと「未設定＝推奨αに追従」の規約が生きるので、
+//   画面に見えている数字と、記録フォーム(app-05 _dayBaseA/_daySpecialA)やEPナビの計算(app-04 _dayA/_dayB/_daySp)が実際に使う値が食い違う。
+// ⚠️適用は**今日以降の日だけ**（ユーザー決定）。この値は記録フォームの採用αの初期値にも流れるため、過去日を遡って埋めると
+//   「あとからその日に記録を足したときの採用α」が勝手に変わる（2026-08-18d の日替わり銘柄とまったく同じ判断）。
+// ⚠️「前営業日」＝暦の前日ではなく**その銘柄でその日より前に入力のある直近日**。暦の前日だと土日祝を挟む月曜が必ず空になり機能しない。
+// ⚠️引き継ぎは**1銘柄1日につき1回きり**。印は charts[銘柄_日付].epNaviDaySeed=1 で、①自動で入れたとき
+//   ②ユーザーが手で入力/クリアしたとき（_epnDayAlphaSet/_epnDaySpecialAlphaSet）の両方で立てる。
+//   これが無いと「引き継がれた値を消す→開き直す→また入る」になり、**その日だけ推奨αに任せる**ことができない。
+//   印を charts に置くのは epNaviDayAlpha と同じオブジェクトだから＝Firebase同期も既存の charts マージにそのまま乗る
+//   （2026-08-18d の dailyStockSeed はトップレベルの新キーだったので _mergeRemoteMeta 側の考慮が要ったが、ここは不要）。
+// ⚠️基本αと応用αは**それぞれ独立に直近日を探す**。片方だけ入れた日があっても、もう片方が巻き添えで飛ばないようにするため。
+function _epnDaySeeded(data, stock, date) {
+  var c = ((data && data.charts) || {})[stock + "_" + date];
+  return !!(c && c.epNaviDaySeed);
+}
+// その銘柄で date より前の、指定フィールドに値が入っている最も近い日の値（無ければ null）。日付キーはYYYY-MM-DDなので文字列比較で足りる。
+// ⚠️キーは「銘柄_日付」。銘柄名にアンダースコアが入りうるので、接頭辞一致だけでなく**残りがちょうど日付の形か**まで見る
+//   （"AAA" で "AAA_X_2026-08-20"（別銘柄 AAA_X）を拾わないため）。
+function _epnDayAlphaPrev(data, stock, date, field) {
+  var charts = (data && data.charts) || {};
+  if (!stock || !date) return null;
+  var pfx = stock + "_", best = "", bestV = null;
+  for (var k in charts) {
+    if (k.indexOf(pfx) !== 0) continue;
+    var d = k.slice(pfx.length);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d >= date || d <= best) continue;
+    var v = charts[k] ? charts[k][field] : null;
+    if (v == null || v === "" || isNaN(Number(v))) continue;
+    best = d; bestV = Number(v);
+  }
+  return bestV;
+}
+function _epnDayShouldSeed(data, stock, date) {
+  if (!stock || !date || date < _dsTodayStr()) return false;                       // 今日以降だけ（日付は_dsTodayStr＝端末ローカル基準・2026-08-18dと共通）
+  if (_epnDaySeeded(data, stock, date)) return false;                              // 自動で入れ済み or 手で触った日
+  if (_epnDayAlphaGet(data, stock, date) != null) return false;                    // 既に値がある（印より前の記録＝後方互換）
+  if (_epnDaySpecialAlphaGet(data, stock, date) != null) return false;
+  return _epnDayAlphaPrev(data, stock, date, "epNaviDayAlpha") != null
+    || _epnDayAlphaPrev(data, stock, date, "epNaviDaySpecialAlpha") != null;
+}
+// 実行。⚠️save の中で**もう一度**判定する＝呼び出し側の data は古い可能性があり（同期・effectの多重発火・同じ日に複数銘柄の
+//   列が同時にマウントされる）、ここが最後の砦。prev基準で条件を満たさなければ prev をそのまま返す＝保存も走らない。
+function _epnDaySeedFromPrev(save, stock, date) {
+  save(function(prev) {
+    if (!_epnDayShouldSeed(prev, stock, date)) return prev;
+    var b = _epnDayAlphaPrev(prev, stock, date, "epNaviDayAlpha");
+    var sp = _epnDayAlphaPrev(prev, stock, date, "epNaviDaySpecialAlpha");
+    if (b == null && sp == null) return prev;
+    var charts = Object.assign({}, prev.charts || {});
+    var ck = stock + "_" + date, add = { epNaviDaySeed: 1 };
+    if (b != null) add.epNaviDayAlpha = b;
+    if (sp != null) add.epNaviDaySpecialAlpha = sp;
+    charts[ck] = Object.assign({}, charts[ck] || {}, add);
     return Object.assign({}, prev, { charts: charts });
   });
 }
@@ -3893,6 +3952,10 @@ function _PbDayBandReco(_p) {
 function _ElDayAlphaPair(_p) {
   var data = _p.data, save = _p.save, date = _p.date, stock = _p.stock, stacked = _p.stacked;   // stacked=true＝縦積み（EPナビの狭い列用）2026-07-13
   var _m = useState(null), modal = _m[0], setModal = _m[1];   // null | "base" | "special"
+  // 前営業日からの引き継ぎ 2026-08-24: この欄が出る＝その銘柄×日付を見た瞬間に1回だけ判定する。
+  // 依存を [stock, date] だけにしているのは data の更新で回さないため（判定の最終確認は _epnDaySeedFromPrev の save 内）。
+  // EPナビの固定列も日替わり列もこのコンポーネント経由なので、配線はここ1か所で足りる。
+  useEffect(function() { if (stock && date) _epnDaySeedFromPrev(save, stock, date); }, [stock, date]);
   var _ts = useState("band"), tblScope = _ts[0], setTblScope = _ts[1];   // 表を参照の母数: "band"=株価帯別（既定・この銘柄の本日の帯と同じ帯だった全記録）/"stock"=銘柄別。帯不明/材料日は銘柄別へフォールバック 2026-07-22i
   var _tso = useState(false), tblSince = _tso[0], setTblSince = _tso[1];   // 表を参照の期間: false=全期間（既定＝従来の見え方を1件も変えない）/true=6/29以降のみ（集計ルール変更後）2026-08-07
   var recs = useMemo(function() {
@@ -4006,7 +4069,7 @@ function _epnBaseLevelOf(it) { if (it && (it.ukiUsed === true || (Number(it.uki)
 function _epnComputeEp(level, baseLevel, uki, rn) { return Math.round(((Number(level) || 0) + (Number(baseLevel) || 0) + (Number(uki) || 0) + (Number(rn) || 0)) * 100) / 100; }
 // RN加算の自動再判定（早見カード用・2026-07-30 ユーザー指摘「早見で基本α→応用αに切り替えたときもRN加算は自動でやってくれる？」）。
 // 早見カードのインライン編集（採用αの切替・基本α/応用α値・③④/ライン併存）はEPを組み直すのに rn を据え置いていたため、
-// 切替後の予定EPが…41〜49/…91〜99でもRNが乗らず（逆に対象外になっても乗ったまま）＝計算フォームの自動判定と食い違っていた。
+// 切替後の予定EPが中RN/大RNのバンド内でもRNが乗らず（逆に対象外になっても乗ったまま）＝計算フォームの自動判定と食い違っていた。
 // 判定本体は記録フォーム/計算フォームと同じ単一源 _elRnAutoFrom(app-05)＝RN“前”EP（水準線＋base-levelα＋浮き足加算）で判定＝循環しない。
 // it.rnAuto === false（＝カードでRNを手動操作した）だけ据え置き。未設定＝自動（エントリー記録の _migRnAutoOn と同じ扱い）。
 // 水準線が無い(≤0)／判定不可(null)は現状維持。変化が無ければ同じ参照を返す＝無駄な保存をしない。
@@ -4284,9 +4347,9 @@ function _EpnRnSection(_p) {
     rnUsed ? React.createElement("span", { style: { fontSize: 9, color: "#64748B" } }, "円") : null,
     // 自動判定の状態（2026-07-30）: 自動中は淡いラベル・手動で触った後は「↺自動」ボタンで復帰（計算フォームの表示と対）。
     (e.rnAuto === false)
-      ? React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "RN加算の自動判定に戻す（予定EPの下二桁41〜49→…50／91〜99→…00）",
+      ? React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "RN加算の自動判定に戻す（予定EPの下二桁が中RNバンド→…50／大RNバンド→…00＝100・1000台。閾値は種別ごとに設定）",
           style: { padding: "0 5px", fontSize: 8.5, fontWeight: 800, color: "#0F766E", background: "#F0FDFA", border: "1px solid #99F6E4", borderRadius: 4, cursor: "pointer", lineHeight: 1.7, whiteSpace: "nowrap" } }, "↺自動")
-      : React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "自動判定ON: 採用α（基本α/応用α）や詳細を変えると、予定EPの下二桁41〜49→…50／91〜99→…00 になるようRN加算を自動で乗せ直します。〇×か数値に触ると手動に切り替わります。タップすると今すぐ再判定（この変更より前に作ったカード用）",
+      : React.createElement("button", { type: "button", onClick: function() { _p.onAuto(); }, title: "自動判定ON: 採用α（基本α/応用α）や詳細を変えると、予定EPの下二桁が中RNバンド→…50／大RNバンド→…00（100・1000台）になるようRN加算を自動で乗せ直します。〇×か数値に触ると手動に切り替わります。タップすると今すぐ再判定（この変更より前に作ったカード用）",
           style: { padding: 0, fontSize: 8.5, color: "#94A3B8", fontWeight: 700, whiteSpace: "nowrap", background: "none", border: "none", cursor: "pointer" } }, "自動"));
 }
 // ===== EPナビ 列ごとの独立計算フォーム（2026-07-08 案A: 2段整列）=====
@@ -4397,6 +4460,9 @@ function _EpnCalcForm(_p) {
   // RN加算自動判定 2026-07-20b（記録フォームと同じ挙動）: RN前α＝浮き足〇なら浮き足加算のみ／通常は基底α＋浮き足加算。RNは含めない＝予定EPが循環しないように。
   var _nRnPre = (nUkiUsed === "○") ? ukiAddV : ((_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV) : null);
   var _nRnAutoAdd = _elRnAutoFrom(nLevel, _nRnPre);   // null=判定不可（水準線未入力/基底α未確定） / 0=対象外(自動×) / >0=加算額
+  // RN種別 2026-09-02（記録フォームと対称）: RN加算“前”EPの下二桁から中RN(…50)／大RN(…00＝100・1000台)を都度導出。保存はしない。
+  var _nRnPreEp = (nLevel != null && nLevel !== "" && !isNaN(Number(nLevel)) && _nRnPre != null && !isNaN(Number(_nRnPre))) ? (Number(nLevel) + Number(_nRnPre)) : null;
+  var _nRnKind = _elRnTierAt(_nRnPreEp), _nRnKindI = _elRnKindInfo(_nRnKind);
   // 底抜け前足−底抜けライン（水準線nLevel）＝浮き値を自動計算しnUkiValへ（記録フォームと対称）。前足orライン未入力なら据え置き＝過去記録の保存値を維持。2026-07-21
   useEffect(function() {
     if (nUkiUsed !== "○") return;
@@ -4648,16 +4714,16 @@ function _EpnCalcForm(_p) {
         React.createElement("div", { style: { marginTop: 4 } },
           React.createElement("div", { style: { fontSize: 9.5, color: specialReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
             specialReco ? (specialReco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : specialReco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）" : "（銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）"))) : "推奨応用α データ無し（空欄＝基本α）"))) : null)) : null,
-    _lrow("RN加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RN加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
+    _lrow(_nRnKindI ? _nRnKindI.label + "加算" : "RN加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RN加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
       _oxBtns(nRnUsed, function(v) { setNRnAuto(false); setNRnUsed(v); if (v === "○" && nRnVal === "") setNRnVal("5"); }),   // 手動操作＝自動判定を止める 2026-07-20b
       nRnUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nRnVal, placeholder: "5",
         onChange: function(e) { setNRnAuto(false); var v = _toHankakuNum(e.target.value); if (v === "") { setNRnVal(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setNRnVal(String(n)); }, style: Object.assign({}, _inpStyle, { width: 48 }) }) : null,
       nRnUsed === "○" ? _stepBtn(function() { setNRnAuto(false); setNRnVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + 1; if (n > 50) n = 50; return String(n); }); }, function() { setNRnAuto(false); setNRnVal(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base - 1; if (n < 0) n = 0; return String(n); }); }) : null,
-      nRnUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#1D4ED8" } }, "→ +" + rnAddV + "円") : null,
+      nRnUsed === "○" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#1D4ED8" } }, "→ +" + rnAddV + "円" + (_nRnKindI ? ("（" + _nRnKindI.target + "）") : "")) : null,
       // 2026-07-20b 自動判定の状態（記録フォームと同じ挙動）。自動中＝バッジ／手動中＝「↺自動」で復帰。
       nRnAuto
-        ? React.createElement("span", { title: "予定EP（水準線＋基底α＋浮き足加算）の下二桁が41〜49／91〜99なら自動で〇にして…50/…00ちょうどまで加算します。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
-            _nRnAutoAdd == null ? "自動：水準線値待ち" : (_nRnAutoAdd > 0 ? "自動判定中" : "自動判定中（対象外）"))
+        ? React.createElement("span", { title: "予定EP（水準線＋基底α＋浮き足加算）の下二桁が、中RNは 50−T〜49（→…50）・大RNは 100−T〜99（→…00＝100・1000台）なら自動で〇にして、そのキリ番ちょうどまで加算します。閾値Tは中RN・大RNで別々に設定できます（🔢RN加算タブ→閾値）。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
+            _nRnAutoAdd == null ? "自動：水準線値待ち" : (_nRnAutoAdd > 0 ? ("自動判定中" + (_nRnKindI ? ("・" + _nRnKindI.label) : "")) : "自動判定中（対象外）"))
         : React.createElement("button", { type: "button", onClick: function() { setNRnAuto(true); }, title: "自動判定に戻す",
             style: { fontSize: 9, fontWeight: 700, color: "#B45309", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 自動に戻す"))),
     React.createElement("div", { style: { margin: "8px 0 6px", padding: "7px 6px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, textAlign: "center" } },

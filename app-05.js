@@ -3165,31 +3165,58 @@ function _elRnAdd(s) { if (!_elRnYes(s)) return 0; var v = Number(s.rnVal); retu
 // ===== RN加算自動判定 2026-07-20b（記録フォーム/EPナビの自動セット・シミュの動的再判定・候補一覧が共通で使う単一源）=====
 // 予定EP（水準線 ＋ RN加算“前”のα＝基底α＋浮き足加算）の下二桁がキリ番の手前バンドに入っていれば、そのキリ番ちょうどに乗せる加算額を返す。
 // ⚠️判定は必ずRN加算“前”のEPに対して行う: 予定EP＝水準線＋採用α で採用αにRNが含まれるため、RN込みEPで判定すると循環する。
-// バンド＝41-49→…50／91-99→…00。40・90は含めない（距離10はバンド内で最も高い授業料なのに得るものは同じ「RNちょうど」1個。
+// バンド＝（50−T中）〜49→…50【中RN】／（100−T大）〜99→…00【大RN・100/1000台】。既定T=9＝41-49／91-99で、40・90は含めない（距離10はバンド内で最も高い授業料なのに得るものは同じ「RNちょうど」1個。
 //   しかも…40/…90はそれ自体10円刻みのキリ番＝費用対効果が最悪。ユーザー決定 2026-07-20）。③RN距離別データを見て後から調整できるよう定数で外出し。
 // 2026-08-17e 閾値Tを設定で変えられるように（ユーザー要望「RNに何円近いところから適用すべきか」）。
 // 旧＝`[{41-49→50},{91-99→100}]` のハードコード＝距離9固定で、🎚閾値スイープの★が別のTを指しても**運用に反映する手段が無かった**。
 // T＝RN加算“前”EPの下二桁から直近のキリ番（…50/…00）までの距離の上限。**T=9 で従来と完全に一致**（41-49／91-99）。T=0＝RN加算を使わない。
+// 2026-09-02: Tは中RN(…50)／大RN(…00)で別々になった（下の _elRnTMid/_elRnTBig）。中9・大9が既定＝分ける前と同じ判定。
 // 正本＝`custom.rnThreshold`。前提損切り値(_elAnaCutCur・app-06)と同じ作法でモジュール変数へ同期する＝同期は _elAlphaInfo 内（全画面のaiOf構築が必ず通る単一地点）。
 // ⚠️Tを変えると**過去記録の判定結果も変わる**（候補一覧・閾値ボードの「該当」列）。保存済みの rnVal 自体は書き換わらない＝実績の損益は動かない。
 var _EL_RN_T_DEF = 9;
-var _elRnTCur = _EL_RN_T_DEF;
-function _elRnT(data) { var v = data && data.custom ? data.custom.rnThreshold : null; var n = Number(v); return (v != null && v !== "" && isFinite(n) && n >= 0 && n <= 49) ? Math.round(n) : _EL_RN_T_DEF; }
-function _elRnBandsAt(T) { var t = (T == null) ? _elRnTCur : T; if (!(t > 0)) return []; return [{ from: 50 - t, to: 49, target: 50 }, { from: 100 - t, to: 99, target: 100 }]; }
+// ===== 中RN（…50）／大RN（…00）の種別 2026-09-02（ユーザー要望「50台は中RN加算、100・1000台は大RN加算に分けたい」）=====
+// 種別キーは _elRnTierAt の戻り値と同じ "50"＝中RN（下二桁1〜49・…50へ寄せる）／"00"＝大RN（下二桁51〜99・…100へ寄せる）。
+// 1000台（…000）は下二桁が00なので大RNに含まれる＝2段階（ユーザー決定 2026-09-02）。
+// 種別は保存しない＝RN加算“前”EPの下二桁から都度導出（ユーザー決定）。よって migrateData の移行処理は不要で、過去記録も自動で中／大に分類される。
+// 保存済みの rnVal（加算額）は一切書き換えない＝過去の損益は動かない。水準線未入力の記録は種別不明(null)。
+var _EL_RN_KINDS = {
+  "50": { key: "50", label: "中RN", short: "中", target: "…50", color: "#0F766E", bg: "#F0FDFA", bd: "#99F6E4" },
+  "00": { key: "00", label: "大RN", short: "大", target: "…00", color: "#9A3412", bg: "#FFF7ED", bd: "#FDBA74" }
+};
+function _elRnKindInfo(tier) { return (tier && _EL_RN_KINDS[tier]) || null; }
+function _elRnKindLabel(tier) { var k = _elRnKindInfo(tier); return k ? k.label : null; }
+// 閾値Tは中／大で別々に持つ 2026-09-02。正本＝`custom.rnThresholdMid` / `custom.rnThresholdBig`。
+// 未設定のときは旧の単一設定 `custom.rnThreshold` を両方が引き継ぐ（ユーザー決定）＝旧値をT以外にいじっていても挙動が変わらない。
+// 旧値も無ければ _EL_RN_T_DEF(9)＝中9・大9＝分ける前と完全に同じ判定結果。
+var _elRnTMidCur = _EL_RN_T_DEF;
+var _elRnTBigCur = _EL_RN_T_DEF;
+function _elRnTVal(v, fb) { var n = Number(v); return (v != null && v !== "" && isFinite(n) && n >= 0 && n <= 49) ? Math.round(n) : fb; }
+function _elRnTLegacy(data) { return _elRnTVal(data && data.custom ? data.custom.rnThreshold : null, _EL_RN_T_DEF); }
+function _elRnTMid(data) { return _elRnTVal(data && data.custom ? data.custom.rnThresholdMid : null, _elRnTLegacy(data)); }
+function _elRnTBig(data) { return _elRnTVal(data && data.custom ? data.custom.rnThresholdBig : null, _elRnTLegacy(data)); }
+function _elRnTOf(data, tier) { return (tier === "00") ? _elRnTBig(data) : _elRnTMid(data); }
+function _elRnTCurOf(tier) { return (tier === "00") ? _elRnTBigCur : _elRnTMidCur; }
+// 中と大の担当範囲は重ならない（下二桁1〜49は必ず中、51〜99は必ず大）＝大RNが近い…50を飛び越えることはない（ユーザー決定）。よってTは各0〜49。
+function _elRnBandsAt(Tmid, Tbig) {
+  var tm = (Tmid == null) ? _elRnTMidCur : Number(Tmid), tb = (Tbig == null) ? _elRnTBigCur : Number(Tbig), out = [];
+  if (tm > 0) out.push({ from: 50 - tm, to: 49, target: 50, tier: "50" });
+  if (tb > 0) out.push({ from: 100 - tb, to: 99, target: 100, tier: "00" });
+  return out;
+}
 // 予定EP価格 → 加算額。null＝判定不可（価格が数値でない＝水準線未入力など）／0＝対象外（自動×）／>0＝RN加算額。
-function _elRnAutoAt(epPre, T) {   // T省略＝現在の設定値(_elRnTCur)
+function _elRnAutoAt(epPre, Tmid, Tbig) {   // T省略＝現在の設定値(_elRnTMidCur/_elRnTBigCur)
   if (epPre == null || epPre === "" || isNaN(Number(epPre))) return null;
   var last2 = ((Math.round(Number(epPre)) % 100) + 100) % 100;   // 円単位で下二桁（負値・小数も安全に）
-  var _bands = _elRnBandsAt(T);
+  var _bands = _elRnBandsAt(Tmid, Tbig);
   for (var i = 0; i < _bands.length; i++) { var b = _bands[i]; if (last2 >= b.from && last2 <= b.to) return b.target - last2; }
   return 0;
 }
 // 水準線値 ＋ RN前α から判定。水準線未入力／α不明は null＝判定不可（呼び出し側で「RN無しで建てる＋件数を可視化」等を決める）。
-function _elRnAutoFrom(levelPrice, preAlpha, T) {
+function _elRnAutoFrom(levelPrice, preAlpha, Tmid, Tbig) {
   var lv = (levelPrice != null && levelPrice !== "" && !isNaN(Number(levelPrice))) ? Number(levelPrice) : null;
   var a = (preAlpha != null && preAlpha !== "" && !isNaN(Number(preAlpha))) ? Number(preAlpha) : null;
   if (lv == null || a == null) return null;
-  return _elRnAutoAt(lv + a, T);
+  return _elRnAutoAt(lv + a, Tmid, Tbig);
 }
 // 既存記録の「RN加算“前”EP」＝水準線 ＋（採用α − 実RN加算）。渡すalphaは採用α（RN込み）＝ここでRN分を引き戻すのでRN〇/×どちらの記録でも使える。
 // null＝判定不可（水準線未入力／α不明）。候補一覧・閾値スイープが共通で使う単一源 2026-07-20e。
@@ -3201,9 +3228,13 @@ function _elRnPreEpOfRec(s, alpha) {
   return lv + (a - _elRnAdd(s));
 }
 // 既存記録から判定（候補一覧・分析用）。2026-07-20e _elRnPreEpOfRec へ委譲＝「RN前EP」の算出式を単一源化（結果は従来と同一）。
-function _elRnAutoOfRec(s, alpha, T) {
-  return _elRnAutoAt(_elRnPreEpOfRec(s, alpha), T);
+function _elRnAutoOfRec(s, alpha, Tmid, Tbig) {
+  return _elRnAutoAt(_elRnPreEpOfRec(s, alpha), Tmid, Tbig);
 }
+// 既存記録の RN種別（"50"＝中RN／"00"＝大RN／null＝判定不可・ちょうどキリ番）2026-09-02。
+// RN〇／×どちらの記録にも使える（_elRnPreEpOfRec がRN分を引き戻すため）＝候補記録も「中／大どちらの候補か」を出せる。
+function _elRnKindOfRec(s, alpha) { return _elRnTierAt(_elRnPreEpOfRec(s, alpha)); }
+function _elRnKindLabelOfRec(s, alpha) { return _elRnKindLabel(_elRnKindOfRec(s, alpha)); }
 // ===== RN加算閾値スイープ（「−何円から〇にすべきか」分析の単一源）2026-07-20e =====
 // 運用の自動判定はバンド固定（距離1〜9）だが、分析では距離の上限Tを1件ずつ振って成績を比べる。距離＝RN加算“前”EPの下二桁から直近のキリ番（…50／…00）までの円数。
 // 直近キリ番までの距離。1〜49／0＝すでに…50・…00ちょうど（どのTでも動かない＝閾値分析の母数外）／null＝判定不可。
@@ -3219,7 +3250,8 @@ function _elRnTierAt(epPre) {
   if (d == null || d <= 0) return null;
   return ((((Math.round(Number(epPre)) % 100) + 100) % 100) < 50) ? "50" : "00";
 }
-// 閾値T（距離≤T円なら〇にする）でのRN加算額。0＝対象外／>0＝加算額／null＝判定不可。T=9で現行バンド(41-49/91-99)と完全一致・T≥10で…40／…90も含む。
+// 閾値T（距離≤T円なら〇にする）でのRN加算額。0＝対象外／>0＝加算額／null＝判定不可。T=9で既定バンド(41-49/91-99)と完全一致・T≥10で…40／…90も含む。
+// ⚠️ここは距離だけを見る＝中RN/大RNの区別をしない（スイープ分析用。種別ごとに見たいときは呼び出し側が _elRnTierAt で母数を絞る）。運用の自動判定は種別ごとにTを分ける _elRnAutoAt が正本。
 function _elRnAddAtT(epPre, T) {
   var d = _elRnDistAt(epPre);
   if (d == null) return null;
@@ -3504,7 +3536,7 @@ function _gradeAlpha(difficulty) {
 }
 var _elHoliMemo = { d: undefined, set: null };   // 頻度ゲート用の休場日カレンダーのメモ 2026-07-15g: _buildHolidayDateSetは重いのでdata参照ごとに1回だけ構築（_elAlphaInfoは毎レコード呼ばれるため）。
 function _elAlphaInfo(r, data) {
-  _elRnTCur = _elRnT(data);   // RN加算の閾値T（custom.rnThreshold・既定9）のモジュール同期 2026-08-17e。前提損切り値と同じ理由でここに置く＝全画面のaiOf構築が必ず通る単一地点
+  _elRnTMidCur = _elRnTMid(data); _elRnTBigCur = _elRnTBig(data);   // RN加算の閾値T（中＝custom.rnThresholdMid／大＝custom.rnThresholdBig・未設定は旧custom.rnThreshold→既定9）のモジュール同期 2026-08-17e／2026-09-02 中大分割。前提損切り値と同じ理由でここに置く＝全画面のaiOf構築が必ず通る単一地点
   if (typeof _elAnaCut === "function") _elAnaCutCur = _elAnaCut(data);   // 前提損切り値のモジュール同期（2026-07-13b）: 全画面のaiOfはここを通るため、推奨α分析(app-06のpick群)が常に最新のcustom.anaCutPremiseを読める
   if (data && typeof _buildHolidayDateSet === "function") { if (_elHoliMemo.d !== data) { _elHoliMemo.d = data; _elHoliMemo.set = _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories); } _elHoliCur = _elHoliMemo.set; }   // 頻度ゲートの休場日カレンダー同期 2026-07-15g: 選定の_freqOkが表示の頻度列と同じ「祝日も除外」で評価するため（土日のみだと祝日ぶんゲート頻度が高く出て4円等を誤除外）。dataごとにメモ。
   if (typeof _elAnaReach === "function") _elAnaReachCur = _elAnaReach(data);   // 到達率下限のモジュール同期（2026-07-13）: 基本α★(_elBaseAlphaPick)が最新のcustom.anaReachFloorを読める
@@ -4773,6 +4805,13 @@ function _elCollPairNode(data, r, scope) {
 //   _elOsMaxAll（OS1〜3高値の最大・アウトカム盲目）=== _epOwnAlpha（採用α）の「ちょうど一致」。
 //   後の足でEPを上抜けた記録は「刺さった」とみなして対象外＝OS最大がαを超えていれば対象外。
 // 実エントリー済み（_elIsEntered＝実際に約定した証拠）は対象外＝仮想損益（見送り等のシミュレーション値）にだけ効かせる。
+// ⚠️**×見送り（judge="x"＝EPより手前の足で期待度×を宣言した記録）も対象外** 2026-08-31
+//   （ユーザー指摘「これ、指値同値ではないのでは？ EPに到達した時点で期待度が×だよ」）。理由は2つ:
+//   ①×を宣言した時点で指値は出していない＝「EP価格に触れただけで約定しなかったかも」という懸念自体が成り立たない。
+//   ②_elTotAccum が `if (_epIsXSkip(s, a)) return;` で×見送りを想定損益へ一切算入しない＝除外しても**差額は必ず0円**。
+//     それでいて「同値」列の件数だけが増えるので、除外の効き目を過大に見せていた。
+//   判定は _epIsXSkip（＝_epResolve の judge）。⚠️os===α を確かめた**後**に呼ぶ＝_epResolve の再計算を該当記録だけに限定するため。
+//   ※os===α なら必ずEPには到達している（h>=α のレグが在る）＝ここに来る judge は "ok" か "x" の2択で "miss" は有り得ない。
 // 時間かぶり(_elCollisionExcludedSet)と違い「記録単体で完結する判定」なのでセット構築もmemoも不要（毎回の再計算が安い）。
 // 配線は時間かぶりと同じ線引き＝「表示総計」のみ。α総当たり/理想α系(_elIdealAlphaV2/_elBaseAlphaEval等)には付けない。
 // ⚠️これは**この関数(_elFillRisk)の配線の話**。「α総当たり表は指値同値を無視している」という意味ではない 2026-08-07。
@@ -4786,7 +4825,8 @@ function _elFillRisk(s, item) {
   if (_real != null) return false;
   var a = _epOwnAlpha(s), os = _elOsMaxAll(s);
   if (a == null || os == null) return false;
-  return Number(os) === Number(a);
+  if (Number(os) !== Number(a)) return false;
+  return !_epIsXSkip(s, a);   // ×見送り＝指値を出していないので対象外 2026-08-31
 }
 // r={stock,date,signal,item} 版と件数版（KPI/セクション表示用）。
 function _elFillRiskRec(r) { return !!(r && r.signal && _elFillRisk(r.signal, r.item)); }
@@ -6120,6 +6160,29 @@ function _snIsSkipRec(s, item) { return !!(s && !_elIsEntered(s, item) && s.pass
 // ⚠️マスターを改名すると過去記録の skipReasons も一括追従する（フォームの _renameSkipR）。この定数は追従しないので、
 //   ここに書いた名前で分岐する処理を足さないこと（名前一致で判定するコードを作らない）。
 var _DEF_SKIP_REASONS = ["見逃し", "エントリー迷い", "市場見れず"];
+// ===== 見送り理由の予約タグ「未達」 2026-08-24c（ユーザー要望）=====
+// 「未達」＝α（EP）に到達しなかったという**事実**であって、見逃し等のようなユーザーの分類ではない。
+// なので選択肢マスター(custom.skipReasons)には入れず、次のように扱う（ユーザー決定＝自動の固定タグ）:
+//   ・未達の見送り記録に**自動で付く**／高値を直してEP到達に変わったら**自動で外れる**＝完全な派生値。
+//   ・フォームでは選択済みの固定チップとして出し、**手では外せない**。
+//   ・マスターに入れないので、改名・削除されて自動付与が名前を見失う余地が無い（追加/改名でこの名前は弾く）。
+// ⚠️集計側(app-06)は skipReasons を _snSkipHasReason（理由あり/なしの判定）でしか見ておらず、理由別の内訳表は存在しない。
+//   しかもその「理由なし」件数は _epReachedAt が真の記録しか数えない＝**未達記録は元から対象外**。
+//   よってこのタグを足しても集計の数字は1つも動かない（効くのはフォーム・記録カードのバッジ・検索の3つ）。
+var _EL_SKIP_MISS = "未達";
+// その記録に「未達」タグが付くべきか＝見送り（あり/スルー/要審議のどれでもない）かつ 採用αに未到達。
+// ⚠️_epOwnAlpha は difficulty 未設定でも 10 を返す＝αがnullになることは無いので、判定不能で漏れる記録は無い。
+function _snSkipMissWant(s) {
+  if (!s) return false;
+  if (s.entered === true || s.passThrough === true || s.review === true) return false;
+  return !_epReachedAt(s, _epOwnAlpha(s));
+}
+// 保存する skipReasons を組み立てる（予約タグを先頭・重複除去）。フォームの保存と移行(_migSkipMissTag・app-01)の両方がこれを使う＝単一源。
+function _snSkipReasonsWith(list, want) {
+  var out = want ? [_EL_SKIP_MISS] : [];
+  (list || []).forEach(function(x) { if (x && x !== _EL_SKIP_MISS && out.indexOf(x) < 0) out.push(x); });
+  return out;
+}
 // 見送り記録に理由が入っているか＝単一源。**選択肢と詳細のどちらかがあれば「理由あり」**。
 // ⚠️skipMemo だけを見てはいけない。2段構成の既定運用は「選択肢をタップするだけ・詳細は特殊な回だけ書く」なので、
 //   従来どおり skipMemo だけで判定すると、ちゃんと分類してある記録が軒並み「未記入」に数えられる。
@@ -6963,7 +7026,9 @@ function EntryRecordForm(_ref_erf) {
   // 2026-08-18 見送り理由の①選択肢（複数選択可・signal.skipReasons[]）。②詳細は上の fSkipMemo（従来のまま）。
   // ⚠️保存済みの名前がマスターから消えていても**選択状態は落とさない**（過去記録を開いて別項目を直すだけで理由が消える事故を防ぐ）。
   //   マスターに無い名前は下のUIで「マスター外」チップとして選択済みのまま出す。
-  var _useStateSKR = useState(Array.isArray(initSig.skipReasons) ? initSig.skipReasons.filter(Boolean) : []),
+  // ⚠️予約タグ(_EL_SKIP_MISS)はstateに入れない＝**stateは「ユーザーが選んだ理由」だけ**を持ち、未達は保存時に派生で足す。
+  //   入れてしまうと「マスターに無い名前」＝マスター外チップとして出てしまい、手で外せる普通の選択肢に見えてしまう。
+  var _useStateSKR = useState(Array.isArray(initSig.skipReasons) ? initSig.skipReasons.filter(function(x) { return x && x !== _EL_SKIP_MISS; }) : []),
     _useStateSKRA = _slicedToArray(_useStateSKR, 2),
     fSkipReasons = _useStateSKRA[0], setFSkipReasons = _useStateSKRA[1];
   // 選択肢マスターの管理UI（追加/改名/削除/ドラッグ並べ替え）＝応用αの根拠選択肢(fRsnOrder/fRsnInput)と同方式。
@@ -7262,7 +7327,7 @@ function EntryRecordForm(_ref_erf) {
   var _useStateRNV = useState(initSig.rnVal != null ? String(initSig.rnVal) : ""),
     _useStateRNVA = _slicedToArray(_useStateRNV, 2),
     fRnVal = _useStateRNVA[0], setFRnVal = _useStateRNVA[1];
-  // RN加算自動判定（2026-07-20b）: 予定EP（水準線＋RN前α）の下二桁が41-49/91-99なら自動で〇＋50/00までの加算額をセット・外れたら自動×。
+  // RN加算自動判定（2026-07-20b）: 予定EP（水準線＋RN前α）の下二桁が中RN/大RNのバンド内なら自動で〇＋…50/…00までの加算額をセット・外れたら自動×。
   // rnAuto=false は「手動で上書き済み＝自動を止める」印。〇×か数値に触った瞬間falseになり、「↺自動」でtrueへ戻す。
   // 2026-07-29 ユーザー指示で既存記録も自動へ: 未設定（rnAuto無しの旧記録）＝自動＝新規と同じ扱い。明示的な false（手動で倒して保存した記録）だけ手動を維持。
   // 旧記録への rnAuto:true 付与は migrateData(_migRnAutoOn・app-01)が担当＝ここは「未設定なら自動」のフォールバック。旧仕様＝isEdit時は初期値false固定（過去記録を開いてもRNが書き換わらない）は撤回。
@@ -7550,6 +7615,9 @@ function EntryRecordForm(_ref_erf) {
   // RN前α＝基底α＋浮き足加算（RNは含めない＝予定EPにRNが入ると判定が循環するため）。null＝水準線未入力で判定不可＝現状維持＋ヒント表示。
   var _fRnPre = (fUkiUsed === "○" ? 0 : _fBaseLevel) + _fUkiAdd;
   var _fRnAutoAdd = _elRnAutoFrom(fLevelPrice, _fRnPre);   // null=判定不可 / 0=対象外(自動×) / >0=加算額
+  // RN種別 2026-09-02: RN加算“前”EPの下二桁から中RN(…50)／大RN(…00＝100・1000台)を都度導出（保存はしない）。null＝水準線未入力・ちょうどキリ番で判定不可。
+  var _fRnPreEp = (fLevelPrice !== "" && fLevelPrice != null && !isNaN(Number(fLevelPrice)) && !isNaN(_fRnPre)) ? (Number(fLevelPrice) + _fRnPre) : null;
+  var _fRnKind = _elRnTierAt(_fRnPreEp), _fRnKindI = _elRnKindInfo(_fRnKind);
   // 水準線値の入力ボックス（2026-07-20b）: 「分足」欄の右と「OS」見出しの右の2箇所に置く共通部品。
   // 同じ state(fLevelPrice/setFLevelPrice) を見るので、どちらで打っても相互に自動反映される（同期処理は不要）。
   // 見た目・挙動を1箇所に集約＝2つが食い違わない（同一UIの二重実装はreplace_all事故の元・[[reference_scalping_edit_gotchas]]）。
@@ -7631,10 +7699,20 @@ function EntryRecordForm(_ref_erf) {
   //      そもそも張り付いて見ていた日ではないので「選定外」としか書きようがない。合計算入OFF既定と同じ判定を流用。
   //   ③EPに到達している(_fEpIdxLive >= 0) 2026-08-12d … 未達＝α（EP）に届かず入りようが無かった記録。
   //      「入れたのに入らなかった」判断ではないので理由を書かせる意味がない。判定は_epReachedAt(保存済み記録側)と同義＝epIdx>=0。
-  //      ※×見送り（EPには到達したがEPより手前の足で×宣言）は未達ではない＝到達扱いなので必須のまま（自分で降りると決めた記録なので理由が要る）。
-  var _skipMemoReq = !isEdit && !_indDataOnlyCand && _fEpIdxLive >= 0;
+  //   ④×宣言していない(!_fXSkipLive) 2026-08-24（ユーザー決定・②③に追加）… E：×＝EPには到達したがEPより手前の足で×を出した記録。
+  //      2026-08-12d は「自分で降りると決めたのだから理由が要る」として必須のままにしていた（旧注記をここで置き換え）が、実際には3点かみ合っていない:
+  //      (a) 選択肢（見逃し/エントリー迷い/市場見れず/EPミス）は全部「入りそこねた」系で、**意図して降りた**記録に当たるものが無い
+  //          ＝実態と違う「見逃し」を付けさせることになる。
+  //      (b) 月間・週間タブの見送り件数(app-06 skip)は_epReachedAtで数えるので×見送りもそこに入るが、その列の定義は
+  //          「EPに到達したのに入らなかった＝**入れたのに入らなかった**判断」。×宣言は「入らないと決めた」なので別物。
+  //          しかも金額側は_elHoldFinalPartsが×見送り(_epIsXSkip)でnullを返す＝**件数だけ乗って金額は0**という非対称になっている。
+  //      (c) 「なぜ降りたか」は次足期待度×そのものが記録で、🔬深掘りの「🚫 次足期待度×（見送り）の分析」が別建てで扱っている。
+  //      ⚠️任意にするだけ＝書きたいときは書ける。**保存済み記録の扱いも集計側も一切変えていない**（変えたのはこの必須判定だけ）。
+  var _fXSkipLive = !!(isV2Form && _epFormState && _epFormState.judge === "x");   // 旧記録(非v2)はjudgeを持たない＝従来どおり必須
+  var _skipMemoReq = !isEdit && !_indDataOnlyCand && _fEpIdxLive >= 0 && !_fXSkipLive;
   // 必須でないとき、なぜ任意なのかを画面に出すためのラベル（編集時は理由を出さない＝既存記録では常に任意なので説明不要）。
-  var _skipOptReason = (_skipMemoReq || isEdit) ? null : (_indDataOnlyCand ? "選定外" : (_fEpIdxLive < 0 ? "未達" : null));
+  // 未達(_fEpIdxLive<0)と×宣言は排他（未達ならjudgeは"miss"）なので、この順に並べても競合しない。
+  var _skipOptReason = (_skipMemoReq || isEdit) ? null : (_indDataOnlyCand ? "選定外" : (_fEpIdxLive < 0 ? "未達" : (_fXSkipLive ? "×宣言" : null)));
 
   // v2(EP起算)はE判定ベース: miss=E未達or×見送り。損切り判定はEP足高値基準。
   var _fMiss = (isV2Form && _epFormState) ? (_epFormState.judge === "miss" || _epFormState.judge === "x")
@@ -8165,7 +8243,9 @@ function EntryRecordForm(_ref_erf) {
       // 見送り＝あり/スルー/要審議のどれでもない既定状態。他の3つに切り替えたら理由は落とす（thruMemo/reviewMemoと同じ規約）2026-08-12
       skipMemo: (!fEntered && fThru !== true && fReview !== true && fSkipMemo) ? fSkipMemo : null,
       // 見送り理由の選択肢 2026-08-18。見送り以外（あり/スルー/要審議）に切り替えたら null＝skipMemo と同じ扱い。
-      skipReasons: (!fEntered && fThru !== true && fReview !== true && (fSkipReasons || []).filter(Boolean).length) ? fSkipReasons.filter(Boolean) : null,
+      // 2026-08-24c 未達の予約タグを派生で足す（_snSkipReasonsWith が単一源）。見送り以外へ切り替えたら従来どおり null。
+      skipReasons: (function() { if (fEntered || fThru === true || fReview === true) return null;
+        var _sr = _snSkipReasonsWith(fSkipReasons, _fEpIdxLive < 0); return _sr.length ? _sr : null; })(),
       result: fResult,
       memo: initSig.memo || "", 
       time: fTime || "",
@@ -9164,6 +9244,9 @@ function EntryRecordForm(_ref_erf) {
           style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", border: "1px solid #BFDBFE", fontSize: 12, flexWrap: "wrap" }
         },
           React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "RN加算"),
+          // 2026-09-02 中RN(…50)／大RN(…00)のどちらを狙っているかのバッジ。種別はRN前EPの下二桁から都度導出＝保存しない。
+          _fRnKindI ? React.createElement("span", { title: "RN加算“前”の予定EP " + _fRnPreEp + "円 → 直近のキリ番は " + _fRnKindI.target + "（" + _fRnKindI.label + "）。中RN＝下二桁1〜49／大RN＝51〜99（…00＝100・1000台）。閾値は種別ごとに設定できます（🔢RN加算タブ→閾値）",
+            style: { fontSize: 9.5, fontWeight: 800, color: _fRnKindI.color, background: _fRnKindI.bg, border: "1px solid " + _fRnKindI.bd, borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } }, _fRnKindI.label) : null,
           React.createElement("div", { style: { display: "inline-flex", gap: 4 } },
             [["○", "○", "要", "#C0392B", "#FCEBEB"], ["×", "×", "不要", "#1E8449", "#EAF3DE"]].map(function(kv) {
               var on = fRnUsed === kv[0];
@@ -9185,11 +9268,11 @@ function EntryRecordForm(_ref_erf) {
             _stepBtn(function() { _stepRV(1); }, function() { _stepRV(-1); })
           ) : null,
           _rnOn ? React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "円") : null,
-          _rnOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#1D4ED8", whiteSpace: "nowrap" } }, "→ ＋" + _rnAddShown + "円を加算") : null,
+          _rnOn ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#1D4ED8", whiteSpace: "nowrap" } }, "→ ＋" + _rnAddShown + "円を加算" + (_fRnKindI ? ("（" + _fRnKindI.target + "へ）") : "")) : null,
           // 2026-07-20b 自動判定の状態表示。自動中＝バッジ／手動上書き中＝「↺自動」ボタンで復帰。水準線未入力は判定不可のヒント。
           fRnAuto
-            ? React.createElement("span", { title: "予定EP（水準線＋基底α＋浮き足加算）の下二桁が41〜49／91〜99なら自動で〇にして…50/…00ちょうどまで加算します。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9.5, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
-                _fRnAutoAdd == null ? "自動判定：水準線値を入力すると効きます" : (_fRnAutoAdd > 0 ? "自動判定中" : "自動判定中（対象外）"))
+            ? React.createElement("span", { title: "予定EP（水準線＋基底α＋浮き足加算）の下二桁が、中RNは 50−T〜49（→…50）・大RNは 100−T〜99（→…00＝100・1000台）なら自動で〇にして、そのキリ番ちょうどまで加算します。閾値Tは中RN・大RNで別々に設定できます（🔢RN加算タブ→閾値）。〇×か数値を手で変えると自動は止まります。", style: { fontSize: 9.5, fontWeight: 700, color: "#1D4ED8", background: "#DBEAFE", border: "1px solid #93C5FD", borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } },
+                _fRnAutoAdd == null ? "自動判定：水準線値を入力すると効きます" : (_fRnAutoAdd > 0 ? ("自動判定中" + (_fRnKindI ? ("・" + _fRnKindI.label) : "")) : "自動判定中（対象外）"))
             : React.createElement("button", { type: "button", onClick: function() { setFRnAuto(true); },
                 title: "自動判定に戻す（予定EPの下二桁から〇×と加算値を自動でセットし直します）",
                 style: { fontSize: 9.5, fontWeight: 700, color: "#B45309", background: "#FFF7ED", border: "1px solid #FDBA74", borderRadius: 5, padding: "1px 7px", cursor: "pointer", whiteSpace: "nowrap" } }, "↺ 自動に戻す（手動中）"),
@@ -9706,7 +9789,8 @@ function EntryRecordForm(_ref_erf) {
           "見送り＝合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入）。"
             + (_skipMemoReq ? "新規記録では理由（選択肢）の選択が必須です。詳細の文章は任意です。"
               : (_skipOptReason === "選定外" ? "この銘柄はこの日の選定外（日替わり銘柄の候補）なので、理由の入力は任意です。"
-                : (_skipOptReason === "未達" ? "この記録は未達（α＝EPに到達していない）＝入りようが無かったので、理由の入力は任意です。" : "")))),
+                : (_skipOptReason === "未達" ? "この記録は未達（α＝EPに到達していない）＝入りようが無かったので、理由の入力は任意です。"
+                  : (_skipOptReason === "×宣言" ? "この記録はEPより手前の足で×を出している（E：×＝集計上ノートレード）＝降りると決めた理由は次足期待度×そのものなので、理由の入力は任意です。" : ""))))),
         React.createElement("div", { style: SH_ }, "見送りの理由",
           _skipMemoReq ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須")
             : (_skipOptReason ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700, marginLeft: 5, fontSize: 10 } }, "任意（" + _skipOptReason + "）") : null),
@@ -9716,9 +9800,10 @@ function EntryRecordForm(_ref_erf) {
           var _skRsnM = (data && data.custom && Array.isArray(data.custom.skipReasons)) ? data.custom.skipReasons : _DEF_SKIP_REASONS;
           var _skRsns = (fSkipRsnOrder && fSkipRsnOrder.list) ? fSkipRsnOrder.list : _skRsnM;   // ドラッグ中は並びプレビュー
           // 保存済みだがマスターに無い名前＝マスターから消された後の記録。**選択状態を落とさない**ために末尾へ別枠で出す。
-          var _skOrphans = (fSkipReasons || []).filter(function(x) { return x && _skRsns.indexOf(x) < 0; });
+          var _skOrphans = (fSkipReasons || []).filter(function(x) { return x && x !== _EL_SKIP_MISS && _skRsns.indexOf(x) < 0; });   // 予約タグは固定チップで別に出すのでここには出さない
           var _addSkipR = function(nm) {
             nm = (nm || "").trim(); if (!nm) return;
+            if (nm === _EL_SKIP_MISS) { alert("「" + _EL_SKIP_MISS + "」は自動で付く予約の理由なので、選択肢には追加できません。"); return; }
             save(function(prev) {
               var cur = (prev.custom && Array.isArray(prev.custom.skipReasons)) ? prev.custom.skipReasons : _DEF_SKIP_REASONS.slice();
               if (cur.indexOf(nm) >= 0) return prev;
@@ -9738,6 +9823,7 @@ function EntryRecordForm(_ref_erf) {
           var _renameSkipR = function(oldNm, newNm) {
             newNm = (newNm || "").trim();
             if (!newNm || newNm === oldNm) return;
+            if (newNm === _EL_SKIP_MISS) { alert("「" + _EL_SKIP_MISS + "」は自動で付く予約の理由なので、この名前には変更できません。"); return; }
             save(function(prev) {
               var cur = (prev.custom && Array.isArray(prev.custom.skipReasons)) ? prev.custom.skipReasons : _DEF_SKIP_REASONS.slice();
               var _rnM = cur.map(function(x) { return x === oldNm ? newNm : x; });
@@ -9774,6 +9860,13 @@ function EntryRecordForm(_ref_erf) {
           };
           return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 } },
             React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 } },
+              // 予約タグ「未達」2026-08-24c: 未達のときだけ、選択済み・クリック不可の固定チップとして先頭に出す。
+              // 手で外せないのは「事実」だから＝高値を直してEP到達に変われば、このチップは自動で消える。
+              (_fEpIdxLive < 0) ? React.createElement("span", { key: "__miss__",
+                title: "α（EP）に到達しなかったという事実なので自動で付きます。手では外せません（高値を直してEP到達に変われば自動で消えます）",
+                style: { display: "inline-flex", alignItems: "center", gap: 3, padding: IS_TOUCH ? "5px 9px" : "3px 8px", fontSize: 11, fontWeight: 800,
+                  border: "2px solid #6D28D9", background: "#F5F3FF", color: "#6D28D9", borderRadius: 5, lineHeight: 1.3, cursor: "default" } },
+                React.createElement("span", { style: { fontSize: 9 } }, "🔒"), _EL_SKIP_MISS) : null,
               _skRsns.map(function(rsn) {
                 var on = (fSkipReasons || []).indexOf(rsn) >= 0;
                 var _d0 = _skipRsnDragRef.current;
