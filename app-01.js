@@ -101,6 +101,7 @@ var EMPTY = {
     flowOpenTags: [],
     flowMoveTags: [],
     signalTags: [],
+    provSignalTags: [],
     technicals: [],
     newsCategories: [].concat(DEF_NEWS_CATS),
     newsSubCats: {}
@@ -544,6 +545,8 @@ function migrateData(d) {
   if (!d.custom.flowOpenTags) d.custom.flowOpenTags = [];
   if (!d.custom.flowMoveTags) d.custom.flowMoveTags = [];
   if (!d.custom.signalTags) d.custom.signalTags = d.custom.techTags || [];
+  // 仮シグナル（シグナルではあるが合計に算入しないジャンル）のタグ名 2026-09-22。通常シグナル(signalTags)とは別リストで排他。
+  if (!d.custom.provSignalTags) d.custom.provSignalTags = [];
   if (!Array.isArray(d.custom.technicals)) d.custom.technicals = [];
   delete d.custom.techTags;
   if (!d.custom.newsCategories) d.custom.newsCategories = [].concat(DEF_NEWS_CATS);
@@ -1700,7 +1703,7 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
   
   
   var _LOCAL_WINS_KEYS = { cats: 1, tags: 1, marketTags: 1, stockTags: 1,
-    signalTags: 1, signalDefs: 1, flowOpenTags: 1, flowMoveTags: 1,
+    signalTags: 1, provSignalTags: 1, signalDefs: 1, flowOpenTags: 1, flowMoveTags: 1,
     newsCategories: 1, newsSubCats: 1, stocks: 1,
     eventCategories: 1, materialTags: 1 };
   

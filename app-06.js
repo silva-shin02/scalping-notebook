@@ -6508,6 +6508,7 @@ function EntryLogView(_ref_elv2) {
   //   条件を別に書き起こすと本体と黙ってずれるので、必ずこのフラグ経由で数えること（2026-08-07）。
   var _elFinalPnlOf = function(r, ignoreColl) {
     var s = r && r.signal; if (!s) return null;
+    if (_elIsProvisional(s)) return null;   // 仮シグナルは金額に入れない 2026-09-22（ignoreCollでも外す＝被りとは別の理由なので）
     if (!ignoreColl && _elCollExcluded(data, r, _collScope)) return null;
     var a = _ai(r).alpha, c = _ai(r).cutLine;
     if (_epIsXSkip(s, a)) return null;
@@ -7204,7 +7205,9 @@ function EntryLogView(_ref_elv2) {
   };
   // 旧_sumStockContent（銘柄別集計本体の未使用ヘルパー）は死関数だったので削除。復活させる場合はrsが_elInclTotal系母数で来る点に注意（分析母数は_elInclData）2026-07-22j
   // 集計「今月」: 銘柄スコープ（全銘柄合算では全銘柄）の全期間v2記録（top期間ドロップダウンに依存しない）からその月のみ抽出。月は←→で移動・既定は当月。全銘柄合算の集計タブは常に今月（2026-06-26）。
-  var _stockAllV2 = _anaRecs.filter(function(r) { return (_isAllStock || r.stock === _selStock) && _epIsV2(r.signal) && _elInclTotal(r.signal) && (addAlphaFil === "all" || (addAlphaFil === "yes" ? _elSpecialUsed(r.signal) : !_elSpecialUsed(r.signal))); });   // 母数トグル追従（2状態化 2026-07-13: yes=応用あり/no=応用なし）
+  // 仮シグナルは金額母数(_elInclTotal)からは外れるが、件数・到達・勝率には残す規約なので、ここでは母数に戻す 2026-09-22。
+  // 金額側は _elTotAccum / _elFinalPnlOf が仮を弾くので、ここに入れても金額には影響しない。
+  var _stockAllV2 = _anaRecs.filter(function(r) { return (_isAllStock || r.stock === _selStock) && _epIsV2(r.signal) && (_elInclTotal(r.signal) || _elIsProvisional(r.signal)) && (addAlphaFil === "all" || (addAlphaFil === "yes" ? _elSpecialUsed(r.signal) : !_elSpecialUsed(r.signal))); });   // 母数トグル追従（2状態化 2026-07-13: yes=応用あり/no=応用なし）
   var _curSumYM = sumYM || (function() { var d = new Date(); return { y: d.getFullYear(), m: d.getMonth() + 1 }; })();
   var _sumMonthRecs = _stockAllV2.filter(function(r) { var p = (r.date || "").split("-"); return (+p[0]) === _curSumYM.y && (+p[1]) === _curSumYM.m; });
   var _sumMonthIsRef = _elIsEmaRefPeriod(_curSumYM.y + "-" + ("0" + _curSumYM.m).slice(-2), "month");   // 選択月が4月（EMA位置ズレの参考期間）ならKPI早見に「※参考」バッジ 2026-07-18

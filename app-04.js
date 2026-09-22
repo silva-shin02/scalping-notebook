@@ -2604,10 +2604,39 @@ function SettingsModal(_ref54) {
     var _sigDelete = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : []; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: cur.filter(function(x) { return x !== nm; }) }) }); }); };
     var _sigReorder = function(list) { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: list.slice() }) }); }); };
     var _sigRename = function(oldNm, newNm) { save(function(prev) { return _elSignalRenameData(prev, oldNm, newNm); }); };
+    // 仮シグナル 2026-09-22: 実体は custom.provSignalTags。改名は通常と同じ _sigRename（記録側のタグも追従する）でよい。
+    var provTags = (data.custom && Array.isArray(data.custom.provSignalTags)) ? data.custom.provSignalTags : [];
+    var _provAdd = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.provSignalTags)) ? prev.custom.provSignalTags : []; if (cur.indexOf(nm) >= 0) return prev; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { provSignalTags: cur.concat([nm]) }) }); }); };
+    var _provDelete = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.provSignalTags)) ? prev.custom.provSignalTags : []; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { provSignalTags: cur.filter(function(x) { return x !== nm; }) }) }); }); };
+    var _provReorder = function(list) { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { provSignalTags: list.slice() }) }); }); };
+    var _provPromote = function(nm) {
+      var _n = _elProvPromoteCount(data, nm);
+      window._snConfirm("「" + nm + "」を通常シグナルへ昇格します。\n\n該当する過去の記録 " + _n + "件が合計に算入されるようになり、その日の合計・カレンダー・月次の金額が変わります。\n\n昇格しますか？")
+        .then(function(_ok) { if (!_ok) return; save(function(prev) { return _elProvPromoteData(prev, nm); }); });
+    };
     return React.createElement("div", { style: { marginBottom: 22 } },
       React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 6 } }, "📡 シグナル管理"),
       React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 10 } }, "シグナル名の追加・改名・削除・並び替え。「✎編集」を押すと各チップに改名(✎)・削除(×)が出ます。改名すると過去の全記録・分析・EPナビ等でその名前が新しい名前へ移行します（既存の名前へ改名した場合は統合）。削除は候補リストから外すだけで、過去の記録に付いた名前は残ります。"),
-      React.createElement(_EpnChipMgr, { items: signalTags, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder }));
+      React.createElement(_EpnChipMgr, { items: signalTags, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder }),
+      // ── 仮シグナル管理 2026-09-22 ──
+      // 「シグナルではあるが合計に算入しない」ジャンル。通常シグナルとは別リスト(custom.provSignalTags)で、記録フォームでは下段に並ぶ。
+      React.createElement("div", { style: { marginTop: 18, paddingTop: 14, borderTop: "1px dashed #E2E8F0" } },
+        React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#15803D", marginBottom: 6 } }, "🌱 仮シグナル管理"),
+        React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 10 } },
+          "試している最中のシグナル。記録フォームでは通常シグナルの下段に並び、選ぶと合計損益から外れます（件数・到達・勝率と分析には残ります）。通常シグナルとは同時に選べません。"),
+        React.createElement(_EpnChipMgr, { items: provTags, accent: { b: "#16A34A", bg: "#DCFCE7", c: "#15803D" }, addPh: "仮シグナル名", onAdd: _provAdd, onRename: _sigRename, onDelete: _provDelete, onReorder: _provReorder }),
+        provTags.length ? React.createElement("div", { style: { marginTop: 12 } },
+          React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#555", marginBottom: 6 } },
+            "通常シグナルへ昇格", React.createElement("span", { style: { fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, "使えると分かったものを通常へ移します。そのタグの過去記録も合計に算入されるようになります。")),
+          React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+            provTags.map(function(_pt) {
+              return React.createElement("button", {
+                key: "promo_" + _pt,
+                onClick: function() { _provPromote(_pt); },
+                style: { padding: "5px 10px", fontSize: 11.5, fontWeight: 700, color: "#15803D", background: "#fff",
+                  border: "1px solid #86EFAC", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }
+              }, _pt, React.createElement("span", { style: { color: "#94A3B8", marginLeft: 6 } }, "→ 通常へ"));
+            }))) : null));
   })() : null,
   // 2026-08-03e ニュースの分類（カテゴリ／サブ）。日々のボードからタブを全廃したので、名前の管理はここに集約した（app-03 NewsClassSettings）。
   _stTab === "data" && data && save ? React.createElement("div", { style: { marginBottom: 22 } },

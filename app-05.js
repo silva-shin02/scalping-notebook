@@ -3268,6 +3268,73 @@ function _elIsExcluded(s) { return !!(s && (s.includeInTotal === false || s.pass
 function _elIsThru(s) { return !!(s && s.passThrough === true); }
 // 要審議判定（実エントリー第4状態 2026-07-14c）: 無エントリー扱い。2026-07-18gで合計損益にも算入（見送りと同じ＝×宣言が無ければ仮想損益で（）内）。スルーと違い分析母数(_elInclTotal)にも算入。見た目はピンク。
 function _elIsReview(s) { return !!(s && s.review === true); }
+// ===== 仮シグナル（シグナルではあるが合計に算入しないジャンル）2026-09-22 ユーザー決定 =====
+// マスターは custom.provSignalTags（通常の custom.signalTags とは別リスト・排他）。
+// 記録側は保存時に includeInTotal=false / includeInData=true / provisional=true を立てる＝
+// **新しい除外チャネルは作らず、既存の「金額母数(_elInclTotal)／分析母数(_elInclData)」の分離にそのまま乗せる**。
+//   ・_elInclTotal が false → 金額から外れる。時間かぶりの母数も _elInclTotal/_elInclTotalAmt で絞られているので
+//     **枠を占有しない**＝同時刻に通常シグナルがあればそちらが普通に算入される（従来の時間かぶりルールのまま）。
+//   ・_elInclData が true → 分析母数に残る＝件数・到達・勝率は従来どおり数える（アプリ全体の規約に一致）。
+// provisional フラグは表示（緑の「仮」バッジ）と昇格時の対象特定にだけ使い、算入判定そのものには使わない。
+function _elProvTags(data) { var c = (data && data.custom) || {}; return Array.isArray(c.provSignalTags) ? c.provSignalTags : []; }
+function _elIsProvisional(s) { return !!(s && s.provisional === true); }
+// タグ名が仮シグナルか。フォームの排他判定用。
+function _elIsProvTag(data, t) { return !!t && _elProvTags(data).indexOf(t) >= 0; }
+// 昇格（仮→通常）2026-09-22 ユーザー決定: タグを provSignalTags から signalTags へ移し、
+// そのタグを使っていた過去記録の算入フラグも解除する＝**過去の合計も算入に変わる**（ユーザー指定）。
+// ⚠️仮タグを複数持つ記録は「全部昇格して初めて」算入に変わる。1つでも仮が残っていれば仮のまま＝
+//   通常タグと仮タグが混ざった記録を作らない（フォーム側の排他と辻褄を合わせる）。
+// ⚠️算入に変わった記録は _elInclTotal を通るようになるので**時間かぶりの母数に入る**。
+//   過去日は collPickSince より前なので自動確定され選抜待ちは出ないが、その日の合計は変わりうる（従来の時間かぶりルールどおり）。
+// 手で「不算入」にしていた記録（provisional が立っていない）は触らない。
+function _elProvPromoteData(prev, nm) {
+  var custom = Object.assign({}, (prev && prev.custom) || {});
+  var prov = (Array.isArray(custom.provSignalTags) ? custom.provSignalTags : []).filter(function(t) { return t !== nm; });
+  var sig = (Array.isArray(custom.signalTags) ? custom.signalTags : []).slice();
+  if (sig.indexOf(nm) < 0) sig.push(nm);
+  custom.provSignalTags = prov;
+  custom.signalTags = sig;
+  var charts = Object.assign({}, (prev && prev.charts) || {});
+  Object.keys(charts).forEach(function(ck) {
+    var c = charts[ck];
+    if (!c || !Array.isArray(c.signals)) return;
+    var hit = false;
+    var ns = c.signals.map(function(sg) {
+      if (!sg || sg.provisional !== true) return sg;
+      var tags = (Array.isArray(sg.tags) && sg.tags.length) ? sg.tags : (sg.tag ? [sg.tag] : []);
+      if (tags.indexOf(nm) < 0) return sg;
+      if (tags.some(function(t) { return prov.indexOf(t) >= 0; })) return sg;   // まだ仮タグが残っている＝仮のまま
+      hit = true;
+      return Object.assign({}, sg, { provisional: null, includeInTotal: true, includeInData: true });
+    });
+    if (hit) charts[ck] = Object.assign({}, c, { signals: ns });
+  });
+  return Object.assign({}, prev, { custom: custom, charts: charts });
+}
+// 昇格したときに算入へ変わる記録の件数（確認ダイアログで件数を出すため）。
+function _elProvPromoteCount(prev, nm) {
+  var prov = (Array.isArray(prev && prev.custom && prev.custom.provSignalTags) ? prev.custom.provSignalTags : []).filter(function(t) { return t !== nm; });
+  var charts = (prev && prev.charts) || {}, n = 0;
+  Object.keys(charts).forEach(function(ck) {
+    var c = charts[ck];
+    if (!c || !Array.isArray(c.signals)) return;
+    c.signals.forEach(function(sg) {
+      if (!sg || sg.provisional !== true) return;
+      var tags = (Array.isArray(sg.tags) && sg.tags.length) ? sg.tags : (sg.tag ? [sg.tag] : []);
+      if (tags.indexOf(nm) < 0) return;
+      if (tags.some(function(t) { return prov.indexOf(t) >= 0; })) return;
+      n++;
+    });
+  });
+  return n;
+}
+// 明細行/カード用の緑バッジ。既存の不算入(水色)・スルー(灰)・要審議(ピンク)・被り除外(紫)と色が重ならないようにしている。
+function _elProvBadge(extra) {
+  return React.createElement("span", { title: "仮シグナル: 合計損益には算入しません（件数・到達・勝率と分析母数には残ります）",
+    style: Object.assign({ display: "inline-block", fontSize: 9, fontWeight: 800, color: "#15803D",
+      background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: 3, padding: "0 4px",
+      whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" }, extra || {}) }, "仮");
+}
 // 「不算入」水色バッジ（行/カードに付ける）。
 function _elNotInclBadge(extra, s) {
   var _thru = _elIsThru(s);
@@ -3284,6 +3351,7 @@ function _elNotInclBadge(extra, s) {
 function _elOutOfTotalBadge(data, r) {
   var s = r && r.signal;
   if (!s) return null;
+  if (_elIsProvisional(s)) return _elProvBadge();
   if (_elIsExcluded(s)) return _elNotInclBadge(null, s);
   if (_isDataOnly(data, r)) return React.createElement("span", {
     title: "その日の「本日の取引銘柄」に指定しなかった候補銘柄の記録＝データのみ（分析母数には残すが合計からは外す）",
@@ -3295,6 +3363,9 @@ function _elOutOfTotalBadge(data, r) {
 // 不算入行に重ねるstyle（淡色＋水色の左ライン＋淡い水色背景）。既存rowスタイルへ Object.assign で合成。
 function _elNotInclRowStyle(s) {
   if (_elIsThru(s)) return { opacity: 0.6, background: "#F5F5F4", borderLeft: "3px solid #9CA3AF" };
+  // 仮シグナルは includeInTotal=false なので、先に見ないと下の不算入(水色)に吸われる。
+  // 分析母数には残る＝読む対象なので、スルー/不算入と違って**文字は薄くしない**（opacityを掛けない）。
+  if (_elIsProvisional(s)) return { background: "#F0FDF4", borderLeft: "3px solid #4ADE80" };
   return _elIsExcluded(s) ? { opacity: 0.65, background: "#EFF8FF", borderLeft: "3px solid #38BDF8" } : null;   // 不算入行の文字＝α詳細表の参考行と同じ0.65（2026-07-23 ユーザー要望・スルーは0.6据置）
 }
 // 行スタイル統合版（2026-07-08）: スルー(灰)/不算入(水色)に加え、時間かぶりで除外された記録（良い方）を薄紫で行全体色分け。
@@ -4741,6 +4812,11 @@ function _elTotAccum(items, get) {
     var s = get.signal(it), a = get.alpha(it), c = get.cut(it);
     if (!s) return;
     // 2026-07-18g 要審議も合計損益に算入（見送りと同じ無エントリー扱い＝×宣言が無ければ仮想損益で（）内）。旧＝ここでreturn除外していた（2026-07-14c）
+    // 仮シグナルは金額に入れない 2026-09-22。ここで止めるのは、母数の作り方が呼び出し元ごとに違うため
+    // （_elInclTotal由来のプールもあれば _elInclData由来＝分析母数のプールもある）。1箇所で保証しないと
+    // 分析母数から金額を出しているKPI（📡シグナル総合のRN/浮き足など）に仮の金額が漏れる。
+    // 既存記録には provisional が無いので、この行で既存の数字は変わらない。
+    if (_elIsProvisional(s)) return;
     if (get.excluded && get.excluded(it)) return;
     var isAB = s.difficulty === "A" || s.difficulty === "B";
     if (get.realPair) {
@@ -6514,6 +6590,7 @@ function _elSignalRenameData(prev, oldNm, newNm) {
   };
   var custom = Object.assign({}, prev.custom || {});
   if (Array.isArray(custom.signalTags)) custom.signalTags = _rnList(custom.signalTags);
+  if (Array.isArray(custom.provSignalTags)) custom.provSignalTags = _rnList(custom.provSignalTags);   // 仮シグナルも改名に追従 2026-09-22
   if (Array.isArray(custom.ukiSignalNames)) custom.ukiSignalNames = _rnList(custom.ukiSignalNames);
   if (custom.ukiSignalName === oldNm) custom.ukiSignalName = newNm;
   custom.sigDetails = _renameKey(custom.sigDetails, _mergeArr);
@@ -6796,6 +6873,9 @@ function EntryRecordForm(_ref_erf) {
   var custom = data.custom || {};
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
   var signalTags = custom.signalTags || [];
+  // 仮シグナル 2026-09-22: 通常シグナルとは別リストで、チップ欄の下段に並ぶ。通常/カスタムとは排他。
+  var provTags = Array.isArray(custom.provSignalTags) ? custom.provSignalTags : [];
+  var _isProvT = function(t) { return provTags.indexOf(t) >= 0; };
   var isEdit = !!(initial && initial.signal);
   // 二重送信ガード: 新規記録の保存中に保存ボタンを連打しても重複作成しない。2026-06-20
   var _savingRef = useRef(false);
@@ -6843,6 +6923,9 @@ function EntryRecordForm(_ref_erf) {
   var _useStateE9 = useState(initSig.tags ? initSig.tags : (initSig.tag && initSig.tag !== "__custom__" ? [initSig.tag] : [])),
     _useStateE10 = _slicedToArray(_useStateE9, 2),
     fTags = _useStateE10[0], setFTags = _useStateE10[1];
+  // いま仮シグナルを選んでいるか＝保存時に算入フラグを強制する。
+  // ⚠️fTags は上の useState で代入されるので、**この行より前に置くと var 巻き上げで undefined.some() になる**。
+  var _fIsProv = fTags.some(_isProvT);
   var _useStateE11 = useState(initSig.customTagText || ""),
     _useStateE12 = _slicedToArray(_useStateE11, 2),
     fCustomText = _useStateE12[0], setFCustomText = _useStateE12[1];
@@ -8120,8 +8203,12 @@ function EntryRecordForm(_ref_erf) {
 
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
       alphaMemo: fAlphaMemo || null,
-      includeInTotal: fIncl,
-      includeInData: fInclData,   // データ算入（合計算入と分離 2026-07-22f）
+      // 仮シグナルは算入フラグを強制する 2026-09-22: 合計(金額)からは外し、分析母数には残す。
+      // 新しい除外チャネルを作らず既存の2フラグに乗せているので、金額を見る全ビューと
+      // 時間かぶりの母数(_elInclTotal/_elInclTotalAmt由来)が無改修で追従する＝枠も占有しない。
+      includeInTotal: _fIsProv ? false : fIncl,
+      includeInData: _fIsProv ? true : fInclData,   // データ算入（合計算入と分離 2026-07-22f）
+      provisional: _fIsProv ? true : null,          // 表示（緑の「仮」バッジ）と昇格時の対象特定用。算入判定そのものには使わない
       plannedPnl: fPlan !== "" ? Number(fPlan) : null,
       plannedPnlSign: fPlanSign,
       maxPnl: fMax !== "" ? Number(fMax) : null,
@@ -8302,11 +8389,16 @@ function EntryRecordForm(_ref_erf) {
 
       React.createElement("div", { style: SH_ }, "🎯 エントリーシグナル"),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } },
-        signalTags.concat(fTags.filter(function(_o) { return signalTags.indexOf(_o) < 0; })).map(function(t) {
+        signalTags.concat(fTags.filter(function(_o) { return signalTags.indexOf(_o) < 0 && !_isProvT(_o); })).map(function(t) {
+          // 孤児タグ（マスターから消えたタグ）の一覧から**仮タグは除く**＝下段に出るので上段で「✕削除」扱いにしない。
           var on = fTags.includes(t);
           return React.createElement("button", {
             key: t,
-            onClick: function() { setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.concat([t]); }); },
+            onClick: function() {
+              // 排他: 通常シグナルを付けたら、選択中の仮シグナルとカスタムタグは外す。
+              setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.filter(function(x) { return !_isProvT(x); }).concat([t]); });
+              if (!on) setFIsCustom(false);
+            },
             style: {
               padding: "6px 10px", fontSize: 12, fontWeight: 600,
               border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
@@ -8320,7 +8412,11 @@ function EntryRecordForm(_ref_erf) {
           var on = fIsCustom;
           return React.createElement("button", {
             key: "__custom__",
-            onClick: function() { setFIsCustom(!on); },
+            onClick: function() {
+              // 排他: カスタムタグを付けたら仮シグナルの選択を外す。
+              if (!on) setFTags(function(prev) { return prev.filter(function(x) { return !_isProvT(x); }); });
+              setFIsCustom(!on);
+            },
             style: {
               padding: "6px 10px", fontSize: 12, fontWeight: 600,
               border: on ? "1.5px solid #6366F1" : "1px solid #ddd",
@@ -8331,6 +8427,32 @@ function EntryRecordForm(_ref_erf) {
           }, "＋ その他");
         })()
       ),
+      // ── 仮シグナル（下段）2026-09-22 ──
+      // 通常シグナルの下に独立した行として並べる。合計損益には入らないが件数・到達・勝率と分析母数には残るジャンル。
+      // 仮タグが1つも登録されていなければ行ごと出さない＝使っていない人の画面を変えない。
+      provTags.length ? React.createElement("div", { style: { marginBottom: 6 } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
+          React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D", background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "仮シグナル"),
+          React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "合計損益には算入しません（件数・到達・勝率と分析には残ります）")),
+        React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+          provTags.map(function(t) {
+            var on = fTags.includes(t);
+            return React.createElement("button", {
+              key: "prov_" + t,
+              onClick: function() {
+                // 排他: 仮シグナルを付けたら通常シグナルとカスタムタグは外す。仮同士は複数選べる。
+                setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.filter(_isProvT).concat([t]); });
+                if (!on) setFIsCustom(false);
+              },
+              style: {
+                padding: "6px 10px", fontSize: 12, fontWeight: 600,
+                border: on ? "1.5px solid #22C55E" : "1px solid #ddd",
+                background: on ? "#DCFCE7" : "#fff",
+                color: on ? "#15803D" : "#555",
+                borderRadius: 6, cursor: "pointer"
+              }
+            }, t);
+          }))) : null,
       fTags.length ? React.createElement("div", { style: { marginBottom: 6 } },
         // シグナル詳細（3セクション化 2026-07-07c・案A縦積み）: 選択中の各シグナルの直下に①底抜け(単一)/②起点(単一)/③その他特徴(複数)のチップ行を表示。再タップ解除・任意（未選択=分析では「未分類」）。
         // 候補はセクション別custom.sigDetails2[タグ]={b,k,f}（タグに無ければ旧custom.sigDetails[タグ]を各セクションへ複製表示）。追加/改名/削除/並び替えの書き込みは_writeSec経由でsigDetails2のみ（旧キーは旧端末互換のため凍結）。
@@ -9935,12 +10057,16 @@ function EntryRecordForm(_ref_erf) {
 
 
       React.createElement("div", { style: { marginTop: 16 } },
+        _fIsProv ? React.createElement("div", { style: { fontSize: 10.5, fontWeight: 700, color: "#15803D", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 5, padding: "4px 8px", marginBottom: 6, lineHeight: 1.45 } },
+          "仮シグナルを選択中です。合計損益には算入せず、件数・到達・勝率と分析には残します（下の切替は固定）。") : null,
         React.createElement("div", { style: { fontSize: 10.5, color: "#94A3B8", fontWeight: 700, marginBottom: 6, lineHeight: 1.4 } }, "合計算入＝損益の合計に／データ算入＝分析（α値・OS値・推奨α・勝率等）に、それぞれ算入するか。※候補銘柄（日替わり）でその日「本日の取引銘柄」でない記録は、合計算入ONのままでも自動でグランド合計から外れます（分析には残る）。"),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
-          [["calc", fIncl, setFIncl, "合計算入", "合計損益に算入"], ["data", fInclData, setFInclData, "データ算入", "分析に算入"]].map(function(_c2) {
+          // 仮シグナル選択中は算入が強制される（合計=×／データ=○）ので、実値ではなく強制後の値を出し、押しても動かないことを見た目で示す 2026-09-22。
+          [["calc", _fIsProv ? false : fIncl, setFIncl, "合計算入", "合計損益に算入"], ["data", _fIsProv ? true : fInclData, setFInclData, "データ算入", "分析に算入"]].map(function(_c2) {
             var _cOn = _c2[1];
             return React.createElement("div", { key: _c2[0],
-              onClick: (function(_setF) { return function() { _setF(function(v) { return !v; }); }; })(_c2[2]),
+              onClick: _fIsProv ? null : (function(_setF) { return function() { _setF(function(v) { return !v; }); }; })(_c2[2]),
+              title: _fIsProv ? "仮シグナルを選んでいる間は固定されます（合計には算入せず、分析には残す）" : null,
               style: { flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "11px 13px", borderRadius: 8, cursor: "pointer", userSelect: "none",
                 border: "1px solid " + (_cOn ? "#A9DFBF" : "#e0e0e0"), background: _cOn ? "#EAF3DE" : "#f5f5f5" } },
               React.createElement("span", { style: { width: 22, height: 22, borderRadius: 5, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
