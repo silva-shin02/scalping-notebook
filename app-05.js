@@ -6989,6 +6989,38 @@ function EntryRecordForm(_ref_erf) {
   // いま仮シグナルを選んでいるか＝保存時に算入フラグを強制する。
   // ⚠️fTags は上の useState で代入されるので、**この行より前に置くと var 巻き上げで undefined.some() になる**。
   var _fIsProv = fTags.some(_isProvT);
+  // シグナル名をこの場で追加して、そのまま選択する 2026-09-22b（ユーザー要望）。
+  // 従来はマスター管理が設定画面にしか無く、記録中に思いついたシグナルを足すには一度フォームを閉じる必要があった。
+  // とくに仮シグナルは「試しに使ってみる」のが性格なので、ここから足せないと存在にすら気づけない。
+  // ⚠️通常と仮で同じ名前は許さない（同じタグ名が両方のリストにあると排他が壊れ、算入判定が名前で決まらなくなる）。
+  //   既にあるときはエラーにせず、その既存タグを選択するだけにする。
+  var _addSigTag = function(isProv) {
+    var _ask = isProv ? "追加する仮シグナル名（合計損益には算入しません）" : "追加するシグナル名";
+    window._snPrompt(_ask, "").then(function(v) {
+      var nm = (v == null) ? "" : String(v).normalize("NFC").trim();
+      if (!nm) return;
+      var _inSig = signalTags.indexOf(nm) >= 0, _inProv = provTags.indexOf(nm) >= 0;
+      var _pick = function(asProv) {
+        // 排他: 仮を足したら通常を外す／通常を足したら仮とカスタムを外す。
+        setFTags(function(prev) { return prev.indexOf(nm) >= 0 ? prev : (asProv ? prev.filter(_isProvT) : prev.filter(function(x) { return !_isProvT(x); })).concat([nm]); });
+        setFIsCustom(false);
+      };
+      if (_inSig || _inProv) {
+        window._snAlert("「" + nm + "」は既に" + (_inProv ? "仮シグナル" : "シグナル") + "にあります。選択しました。");
+        _pick(_inProv);
+        return;
+      }
+      var _key = isProv ? "provSignalTags" : "signalTags";
+      save(function(prev) {
+        var _c = Object.assign({}, prev.custom || {});
+        var cur = Array.isArray(_c[_key]) ? _c[_key] : [];
+        if (cur.indexOf(nm) >= 0) return prev;
+        _c[_key] = cur.concat([nm]);
+        return Object.assign({}, prev, { custom: _c });
+      });
+      _pick(isProv);
+    });
+  };
   var _useStateE11 = useState(initSig.customTagText || ""),
     _useStateE12 = _slicedToArray(_useStateE11, 2),
     fCustomText = _useStateE12[0], setFCustomText = _useStateE12[1];
@@ -8505,12 +8537,22 @@ function EntryRecordForm(_ref_erf) {
               borderRadius: 6, cursor: "pointer"
             }
           }, "＋ その他");
-        })()
+        })(),
+        // シグナル名をその場でマスターに追加する 2026-09-22b。「＋ その他」（この記録限りのカスタムタグ）とは別物。
+        React.createElement("button", {
+          key: "__addsig__",
+          onClick: function() { _addSigTag(false); },
+          title: "シグナル名を追加します（設定のシグナル管理にも反映されます）",
+          style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, border: "1px dashed #FB923C",
+            background: "#fff", color: "#C2410C", borderRadius: 6, cursor: "pointer" }
+        }, "＋ シグナル追加")
       ),
       // ── 仮シグナル（下段）2026-09-22 ──
       // 通常シグナルの下に独立した行として並べる。合計損益には入らないが件数・到達・勝率と分析母数には残るジャンル。
-      // 仮タグが1つも登録されていなければ行ごと出さない＝使っていない人の画面を変えない。
-      provTags.length ? React.createElement("div", { style: { marginBottom: 6 } },
+      // 2026-09-22b 当初は「1件も登録が無ければ行ごと出さない」にしていたが、それだとこのフォームから
+      // 仮シグナルの存在に気づけず、登録画面（設定）にも辿り着けなかった。常時表示に変更し、
+      // 未登録のときは見出しと「＋ 仮シグナル追加」だけが出る＝1行ぶんの軽さで入口になる。
+      React.createElement("div", { style: { marginBottom: 6 } },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
           React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D", background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "仮シグナル"),
           React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "合計損益には算入しません（件数・到達・勝率と分析には残ります）")),
@@ -8532,7 +8574,14 @@ function EntryRecordForm(_ref_erf) {
                 borderRadius: 6, cursor: "pointer"
               }
             }, t);
-          }))) : null,
+          }),
+          React.createElement("button", {
+            key: "__addprov__",
+            onClick: function() { _addSigTag(true); },
+            title: "仮シグナル名を追加します（設定の仮シグナル管理にも反映されます）",
+            style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, border: "1px dashed #22C55E",
+              background: "#fff", color: "#15803D", borderRadius: 6, cursor: "pointer" }
+          }, "＋ 仮シグナル追加"))),
       fTags.length ? React.createElement("div", { style: { marginBottom: 6 } },
         // シグナル詳細（3セクション化 2026-07-07c・案A縦積み）: 選択中の各シグナルの直下に①底抜け(単一)/②起点(単一)/③その他特徴(複数)のチップ行を表示。再タップ解除・任意（未選択=分析では「未分類」）。
         // 候補はセクション別custom.sigDetails2[タグ]={b,k,f}（タグに無ければ旧custom.sigDetails[タグ]を各セクションへ複製表示）。追加/改名/削除/並び替えの書き込みは_writeSec経由でsigDetails2のみ（旧キーは旧端末互換のため凍結）。
