@@ -8686,13 +8686,17 @@ function EntryRecordForm(_ref_erf) {
               var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0; }));   // 選択済みのマスター外(孤児)も末尾に表示
               return React.createElement("div", { key: _sc.key, style: { margin: "2px 0 6px" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 } },
-                  React.createElement("span", {
-                    onClick: _rnMode ? function() { _renameSigSec(_dt, _sc); } : null,
-                    title: _rnMode ? "このシグナルだけのセクション名を変更します" : null,
-                    style: { fontSize: 10, color: _rnMode ? "#0369A1" : "#B45309", fontWeight: 700,
-                      cursor: _rnMode ? "pointer" : "default",
-                      border: _rnMode ? "1px dashed #0EA5E9" : "1px solid transparent", borderRadius: 4, padding: _rnMode ? "0 4px" : 0 } }, _sc.label,
+                  // セクション名はシグナルごとに変えられる。2026-09-28b まで「✎ 名前変更」モード中だけ見出しを押せる作りだったが、
+                  // モードの裏に隠れていて気づけなかった（仮シグナル行を条件付き表示にしたときと同じ失敗）。
+                  // 常時見える小さな ✎ を置き、モード無しで直接変えられるようにした 2026-09-28c。
+                  React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label,
                     React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? "（複数可）" : "（1つまで）")),
+                  React.createElement("button", {
+                    onClick: function() { _renameSigSec(_dt, _sc); },
+                    title: "「" + _dt + "」の" + _sc.num + "セクション名を変更します（このシグナルだけ・過去の記録の中身は変わりません）",
+                    style: { fontSize: 9, fontWeight: 700, lineHeight: 1.4, padding: "0 4px", marginLeft: -2,
+                      border: "1px solid #E7D9C4", background: "#fff", color: "#A8977C", borderRadius: 4, cursor: "pointer" }
+                  }, "✎"),
                   React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
                     React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", fontWeight: 600 } }, "分足"),
                     React.createElement("span", { style: { display: "inline-flex", border: "1px solid #B9DCC5", borderRadius: 6, overflow: "hidden" } },
