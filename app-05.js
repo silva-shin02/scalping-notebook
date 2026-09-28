@@ -6584,7 +6584,21 @@ function _elTagLabel(s) {
 // 後方互換: 旧記録は sigDetail[t]=文字列（単一）/フラット配列（複数）＝③その他特徴(f)として読む（ユーザー決定 2026-07-07）。
 // _elSigDetailSec がセクション読み取りの正本・_elSigDetailList は全セクションをフラット配列へ正規化（詳細サブタブ等の従来読者用＝名前ベースの集計は不変）。
 // 表示(_elTagDisp)は「タグ（底:X・起:Y・特徴名...）」。分析のグループ化(_elTagEntries)は素のタグ名のまま＝シグナル全体の集計・名寄せは不変。
-var _EL_SIG_SECS = [{ key: "b", label: "① 底抜け", multi: false }, { key: "k", label: "② 起点", multi: false }, { key: "f", label: "③ その他", multi: true }];   // 2026-07-08g「その他特徴」→「その他」（記録フォーム/分析の見出し共通・「特徴」削除）
+var _EL_SIG_SECS = [{ key: "b", num: "①", name: "底抜け", label: "① 底抜け", multi: false }, { key: "k", num: "②", name: "起点", label: "② 起点", multi: false }, { key: "f", num: "③", name: "その他", label: "③ その他", multi: true }];
+// セクション名はシグナルごとに変えられる 2026-09-28（ユーザー要望「シグナルによって詳細の内容が変わるようにしたい」）。
+// 正本は custom.sigSecLabels = { <シグナル名>: { b:"区切りライン", k:"起点", f:"その他" } }。未設定のキーは上の既定に落ちる。
+// ⚠️**セクションの数と key/multi は共通のまま**（記録側 sigDetail は {b,k,f} 固定なので、ここを可変にすると過去記録が読めなくなる）。変わるのは表示名だけ。
+// ⚠️app-06 の詳細別集計は全シグナル横断の集計なので、シグナルが特定できない＝既定名のまま出る。
+function _elSigSecs(data, tag) {
+  var m = (data && data.custom && data.custom.sigSecLabels) || null;
+  var o = (m && tag) ? m[tag] : null;
+  if (!o) return _EL_SIG_SECS;
+  return _EL_SIG_SECS.map(function(sc) {
+    var nm = o[sc.key];
+    nm = (nm == null) ? "" : String(nm).trim();
+    return nm ? { key: sc.key, num: sc.num, name: nm, label: sc.num + " " + nm, multi: sc.multi } : sc;
+  });
+}
 function _elSigDetailSec(s, t) {
   var _v = (s && s.sigDetail && typeof s.sigDetail === "object") ? s.sigDetail[t] : null;
   if (_v == null) return { b: null, k: null, f: [] };
@@ -6658,6 +6672,7 @@ function _elSignalRenameData(prev, oldNm, newNm) {
   if (custom.ukiSignalName === oldNm) custom.ukiSignalName = newNm;
   custom.sigDetails = _renameKey(custom.sigDetails, _mergeArr);
   custom.sigDetails2 = _renameKey(custom.sigDetails2, _mergeSec);
+  custom.sigSecLabels = _renameKey(custom.sigSecLabels, function(nw, od) { return Object.assign({}, od || {}, nw || {}); });   // セクション名もシグナル改名に追従 2026-09-28
   var charts = prev.charts || {}, nCharts = {};
   Object.keys(charts).forEach(function(ck) {
     var c = charts[ck];
@@ -7019,6 +7034,52 @@ function EntryRecordForm(_ref_erf) {
         return Object.assign({}, prev, { custom: _c });
       });
       _pick(isProv);
+    });
+  };
+  // シグナル名の変更 2026-09-28（ユーザー要望）。
+  // ⚠️**新旧で別シグナルにしない**のが要件。記録側の tag/tags/sigDetailキー・各マスターをまとめて
+  //   書き換える _elSignalRenameData（設定のシグナル管理と同じ処理）に通すので、過去記録もそのまま追従する。
+  //   ここで custom.signalTags だけ差し替えると、過去記録が旧名のまま孤児タグになって別シグナル扱いになる。
+  // ⚠️通常↔仮をまたぐ改名は拒否する。同じ名前が両方のリストに乗ると排他が壊れ、合計に入るかが名前で決まらなくなる。
+  // 同じ種別内の既存名へ変えるのは「統合」として許す（_elSignalRenameData が記録ごと統合・重複除去してくれる）。
+  var _uRnM = useState(false), _rnMode = _uRnM[0], _setRnMode = _uRnM[1];
+  var _renameSigTag = function(t, isProv) {
+    window._snPrompt("シグナル名を変更（過去の記録もこの名前に変わります）", t).then(function(v) {
+      var nm = (v == null) ? "" : String(v).normalize("NFC").trim();
+      if (!nm || nm === t) return;
+      var _other = isProv ? signalTags : provTags;
+      if (_other.indexOf(nm) >= 0) {
+        window._snAlert("「" + nm + "」は" + (isProv ? "通常シグナル" : "仮シグナル") + "にあります。通常と仮で同じ名前は使えません。");
+        return;
+      }
+      var _same = (isProv ? provTags : signalTags).indexOf(nm) >= 0;
+      var _go = function() {
+        save(function(prev) { return _elSignalRenameData(prev, t, nm); });
+        // フォーム側の選択・詳細もタグ名をキーにしているので、ここで付け替えないと旧名のまま取り残される。
+        setFTags(function(prev) { var o = []; prev.forEach(function(x) { var y = (x === t) ? nm : x; if (o.indexOf(y) < 0) o.push(y); }); return o; });
+        var _rekey = function(setter) { setter(function(prev) { if (!prev || !prev[t]) return prev; var n = Object.assign({}, prev); n[nm] = n[nm] || n[t]; delete n[t]; return n; }); };
+        _rekey(setFSigDetail);
+        _rekey(setFSecBar);
+      };
+      if (_same) { window._snConfirm("「" + t + "」を既存の「" + nm + "」に統合します。両方の記録が「" + nm + "」になります。よろしいですか？").then(function(ok) { if (ok) _go(); }); return; }
+      _go();
+    });
+  };
+  // 詳細セクション名の変更（このシグナルだけ）2026-09-28。記録側の sigDetail は {b,k,f} のキーで持っているので、
+  // 表示名を変えても過去記録の中身はそのまま読める＝別セクション扱いにはならない。
+  var _renameSigSec = function(tag, sc) {
+    window._snPrompt("「" + tag + "」の" + sc.num + "セクション名", sc.name).then(function(v) {
+      var nm = (v == null) ? "" : String(v).trim();
+      if (nm === sc.name) return;
+      save(function(prev) {
+        var _c = Object.assign({}, prev.custom || {});
+        var _m = Object.assign({}, _c.sigSecLabels || {});
+        var _o = Object.assign({}, _m[tag] || {});
+        if (nm) _o[sc.key] = nm; else delete _o[sc.key];   // 空で確定＝既定名に戻す
+        if (Object.keys(_o).length) _m[tag] = _o; else delete _m[tag];
+        _c.sigSecLabels = _m;
+        return Object.assign({}, prev, { custom: _c });
+      });
     });
   };
   var _useStateE11 = useState(initSig.customTagText || ""),
@@ -8499,7 +8560,16 @@ function EntryRecordForm(_ref_erf) {
         _lvPriceBox("lv_mb")   // 2026-07-20b 分足欄の右に水準線値欄（下のOS見出し右の欄と同じ部品・同じstate＝相互に自動反映）。早い段階で入れておくとRN加算自動判定が効く
       ),
 
-      React.createElement("div", { style: SH_ }, "🎯 エントリーシグナル"),
+      React.createElement("div", { style: Object.assign({}, SH_, { display: "flex", alignItems: "center", gap: 8 }) },
+        React.createElement("span", null, "🎯 エントリーシグナル"),
+        React.createElement("button", {
+          onClick: function() { _setRnMode(function(v) { return !v; }); },
+          title: "チップを押すとシグナル名を変更できます（過去の記録もその名前に変わります）",
+          style: { fontSize: 10, fontWeight: 700, letterSpacing: 0, textTransform: "none", padding: "2px 8px", borderRadius: 5, cursor: "pointer",
+            border: "1px solid " + (_rnMode ? "#0EA5E9" : "#ddd"), background: _rnMode ? "#E0F2FE" : "#fff", color: _rnMode ? "#0369A1" : "#777" } },
+          _rnMode ? "✎ 名前変更中（押して終了）" : "✎ 名前変更"),
+        _rnMode ? React.createElement("span", { style: { fontSize: 10, fontWeight: 600, letterSpacing: 0, textTransform: "none", color: "#0369A1" } },
+          "名前を変えたいシグナルを押してください") : null),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } },
         signalTags.concat(fTags.filter(function(_o) { return signalTags.indexOf(_o) < 0 && !_isProvT(_o); })).map(function(t) {
           // 孤児タグ（マスターから消えたタグ）の一覧から**仮タグは除く**＝下段に出るので上段で「✕削除」扱いにしない。
@@ -8507,13 +8577,15 @@ function EntryRecordForm(_ref_erf) {
           return React.createElement("button", {
             key: t,
             onClick: function() {
+              // 名前変更モード中は選択ではなく改名。マスターに無い孤児タグは改名対象にしない（消す対象なので）。
+              if (_rnMode) { if (signalTags.indexOf(t) >= 0) _renameSigTag(t, false); return; }
               // 排他: 通常シグナルを付けたら、選択中の仮シグナルとカスタムタグは外す。
               setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.filter(function(x) { return !_isProvT(x); }).concat([t]); });
               if (!on) setFIsCustom(false);
             },
             style: {
               padding: "6px 10px", fontSize: 12, fontWeight: 600,
-              border: on ? "1.5px solid #FB923C" : "1px solid #ddd",
+              border: _rnMode && signalTags.indexOf(t) >= 0 ? "1.5px dashed #0EA5E9" : (on ? "1.5px solid #FB923C" : "1px solid #ddd"),
               background: on ? "#FFEDD5" : "#fff",
               color: on ? "#9A3412" : "#555",
               borderRadius: 6, cursor: "pointer"
@@ -8562,13 +8634,14 @@ function EntryRecordForm(_ref_erf) {
             return React.createElement("button", {
               key: "prov_" + t,
               onClick: function() {
+                if (_rnMode) { _renameSigTag(t, true); return; }
                 // 排他: 仮シグナルを付けたら通常シグナルとカスタムタグは外す。仮同士は複数選べる。
                 setFTags(function(prev) { return on ? prev.filter(function(x) { return x !== t; }) : prev.filter(_isProvT).concat([t]); });
                 if (!on) setFIsCustom(false);
               },
               style: {
                 padding: "6px 10px", fontSize: 12, fontWeight: 600,
-                border: on ? "1.5px solid #22C55E" : "1px solid #ddd",
+                border: _rnMode ? "1.5px dashed #0EA5E9" : (on ? "1.5px solid #22C55E" : "1px solid #ddd"),
                 background: on ? "#DCFCE7" : "#fff",
                 color: on ? "#15803D" : "#555",
                 borderRadius: 6, cursor: "pointer"
@@ -8606,14 +8679,19 @@ function EntryRecordForm(_ref_erf) {
           return React.createElement("div", { key: "det_" + _dt, style: { margin: "0 0 6px 12px", padding: "7px 9px", borderLeft: "2px solid #FDBA74", background: "#FFFBF5" } },
             React.createElement("div", { style: { fontSize: 11, color: "#9A3412", fontWeight: 700, marginBottom: 5 } }, "└ " + _dt + " の詳細（任意）",
               React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 6 } }, "チップをドラッグで並び替え（同セクション内）")),
-            _EL_SIG_SECS.map(function(_sc) {
+            _elSigSecs(data, _dt).map(function(_sc) {
               var _cands0 = _m2[_sc.key];
               var _cands = (fDetOrder && fDetOrder.tag === _dt && fDetOrder.sec === _sc.key) ? fDetOrder.list : _cands0;
               var _curArr = _sc.multi ? (_curSec.f || []) : (_curSec[_sc.key] ? [_curSec[_sc.key]] : []);
               var _list = _cands.concat(_curArr.filter(function(_x) { return _cands.indexOf(_x) < 0; }));   // 選択済みのマスター外(孤児)も末尾に表示
               return React.createElement("div", { key: _sc.key, style: { margin: "2px 0 6px" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 3 } },
-                  React.createElement("span", { style: { fontSize: 10, color: "#B45309", fontWeight: 700 } }, _sc.label,
+                  React.createElement("span", {
+                    onClick: _rnMode ? function() { _renameSigSec(_dt, _sc); } : null,
+                    title: _rnMode ? "このシグナルだけのセクション名を変更します" : null,
+                    style: { fontSize: 10, color: _rnMode ? "#0369A1" : "#B45309", fontWeight: 700,
+                      cursor: _rnMode ? "pointer" : "default",
+                      border: _rnMode ? "1px dashed #0EA5E9" : "1px solid transparent", borderRadius: 4, padding: _rnMode ? "0 4px" : 0 } }, _sc.label,
                     React.createElement("span", { style: { fontSize: 9, color: "#C4B5A4", fontWeight: 600, marginLeft: 4 } }, _sc.multi ? "（複数可）" : "（1つまで）")),
                   React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3 } },
                     React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", fontWeight: 600 } }, "分足"),

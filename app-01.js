@@ -102,6 +102,7 @@ var EMPTY = {
     flowMoveTags: [],
     signalTags: [],
     provSignalTags: [],
+    sigSecLabels: {},
     technicals: [],
     newsCategories: [].concat(DEF_NEWS_CATS),
     newsSubCats: {}
@@ -547,6 +548,13 @@ function migrateData(d) {
   if (!d.custom.signalTags) d.custom.signalTags = d.custom.techTags || [];
   // 仮シグナル（シグナルではあるが合計に算入しないジャンル）のタグ名 2026-09-22。通常シグナル(signalTags)とは別リストで排他。
   if (!d.custom.provSignalTags) d.custom.provSignalTags = [];
+  // 詳細セクション名のシグナル別上書き 2026-09-28。未設定キーは _EL_SIG_SECS の既定に落ちる。
+  if (!d.custom.sigSecLabels) d.custom.sigSecLabels = {};
+  // 【一回性 _sigSecSeed1】ユーザー指定の初期値。以後は画面から自由に変えられるので、消しても復活しないようフラグで1回だけ。
+  if (!d.custom._sigSecSeed1) {
+    if (!d.custom.sigSecLabels["区切り売りポイントOS"]) d.custom.sigSecLabels["区切り売りポイントOS"] = { b: "区切りライン", k: "起点", f: "その他" };
+    d.custom._sigSecSeed1 = 1;
+  }
   if (!Array.isArray(d.custom.technicals)) d.custom.technicals = [];
   delete d.custom.techTags;
   if (!d.custom.newsCategories) d.custom.newsCategories = [].concat(DEF_NEWS_CATS);
