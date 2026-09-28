@@ -550,11 +550,23 @@ function migrateData(d) {
   if (!d.custom.provSignalTags) d.custom.provSignalTags = [];
   // 詳細セクション名のシグナル別上書き 2026-09-28。未設定キーは _EL_SIG_SECS の既定に落ちる。
   if (!d.custom.sigSecLabels) d.custom.sigSecLabels = {};
-  // 【一回性 _sigSecSeed1】ユーザー指定の初期値。以後は画面から自由に変えられるので、消しても復活しないようフラグで1回だけ。
-  if (!d.custom._sigSecSeed1) {
-    if (!d.custom.sigSecLabels["区切り売りポイントOS"]) d.custom.sigSecLabels["区切り売りポイントOS"] = { b: "区切りライン", k: "起点", f: "その他" };
-    d.custom._sigSecSeed1 = 1;
-  }
+  // ユーザー指定の初期値。**シグナル単位で1回だけ**適用する（_sigSecSeeded に適用済みを記録）。
+  // 一律フラグ1つだと、後から別シグナルの初期値を足すときにフラグを増やす羽目になり、
+  // しかもフラグを上げ直すと利用者が変更済みのラベルまで巻き戻る。シグナル単位なら足すだけで済む。
+  // 既に設定があるシグナルは上書きしない＝画面で変えた内容が復活で潰れることはない。
+  var _SIG_SEC_SEED = {
+    "区切り売りポイントOS": { b: "区切りライン", k: "起点", f: "その他" },
+    "大VAP": { b: "VAPカテゴリ", k: "起点", f: "その他" }
+  };
+  var _seeded = d.custom._sigSecSeeded || {};
+  // 旧 _sigSecSeed1（2026-09-28の一律フラグ）からの移行: 既に走っている環境は最初のシグナルを適用済みとみなす。
+  if (d.custom._sigSecSeed1 && !_seeded["区切り売りポイントOS"]) _seeded["区切り売りポイントOS"] = 1;
+  Object.keys(_SIG_SEC_SEED).forEach(function(_sn) {
+    if (_seeded[_sn]) return;
+    if (!d.custom.sigSecLabels[_sn]) d.custom.sigSecLabels[_sn] = _SIG_SEC_SEED[_sn];
+    _seeded[_sn] = 1;
+  });
+  d.custom._sigSecSeeded = _seeded;
   if (!Array.isArray(d.custom.technicals)) d.custom.technicals = [];
   delete d.custom.techTags;
   if (!d.custom.newsCategories) d.custom.newsCategories = [].concat(DEF_NEWS_CATS);
