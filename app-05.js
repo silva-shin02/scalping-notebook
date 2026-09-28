@@ -7065,6 +7065,36 @@ function EntryRecordForm(_ref_erf) {
       _go();
     });
   };
+  // シグナルの削除 2026-09-28d（ユーザー要望「シグナルは同画面からも消去できるようにして」）。
+  // ⚠️設定画面の削除と**同じ意味**にそろえる＝マスター（一覧）から消すだけで、過去の記録に付いたタグは残す。
+  //   記録からも消したい場合はシグナル欄の下の「プール外の削除済みシグナルを全記録から一括除去」を使う（既存動線）。
+  //   ここで記録まで消すと、設定から消した場合と挙動が食い違ううえ、取り返しがつかない。
+  var _cntRecsWithTag = function(t) {
+    var n = 0;
+    _elCollectAllSignals(data).forEach(function(r) {
+      var sg = r && r.signal; if (!sg) return;
+      var ts = (sg.tags && sg.tags.length) ? sg.tags : (sg.tag && sg.tag !== "__custom__" ? [sg.tag] : []);
+      if (ts.indexOf(t) >= 0) n++;
+    });
+    return n;
+  };
+  var _delSigTag = function(t, isProv) {
+    var _n = _cntRecsWithTag(t);
+    window._snConfirm("「" + t + "」を" + (isProv ? "仮シグナル" : "シグナル") + "の一覧から削除します。\n\n"
+      + (_n ? ("この名前が付いた過去の記録 " + _n + "件はそのまま残ります（記録からも消すには、シグナル欄の下にある「プール外の削除済みシグナルを全記録から一括除去」を使ってください）。\n\n") : "")
+      + "削除しますか？").then(function(ok) {
+      if (!ok) return;
+      var _key = isProv ? "provSignalTags" : "signalTags";
+      save(function(prev) {
+        var _c = Object.assign({}, prev.custom || {});
+        var cur = Array.isArray(_c[_key]) ? _c[_key] : [];
+        _c[_key] = cur.filter(function(x) { return x !== t; });
+        if (_c.sigSecLabels && _c.sigSecLabels[t]) { var _m = Object.assign({}, _c.sigSecLabels); delete _m[t]; _c.sigSecLabels = _m; }   // セクション名の設定も道連れ
+        return Object.assign({}, prev, { custom: _c });
+      });
+      setFTags(function(prev) { return prev.filter(function(x) { return x !== t; }); });   // 編集中の記録で選択していたら外す
+    });
+  };
   // 詳細セクション名の変更（このシグナルだけ）2026-09-28。記録側の sigDetail は {b,k,f} のキーで持っているので、
   // 表示名を変えても過去記録の中身はそのまま読める＝別セクション扱いにはならない。
   var _renameSigSec = function(tag, sc) {
@@ -8564,17 +8594,17 @@ function EntryRecordForm(_ref_erf) {
         React.createElement("span", null, "🎯 エントリーシグナル"),
         React.createElement("button", {
           onClick: function() { _setRnMode(function(v) { return !v; }); },
-          title: "チップを押すとシグナル名を変更できます（過去の記録もその名前に変わります）",
+          title: "チップを押すと名前変更、右の✕で一覧から削除できます（名前変更は過去の記録にも反映されます）",
           style: { fontSize: 10, fontWeight: 700, letterSpacing: 0, textTransform: "none", padding: "2px 8px", borderRadius: 5, cursor: "pointer",
             border: "1px solid " + (_rnMode ? "#0EA5E9" : "#ddd"), background: _rnMode ? "#E0F2FE" : "#fff", color: _rnMode ? "#0369A1" : "#777" } },
-          _rnMode ? "✎ 名前変更中（押して終了）" : "✎ 名前変更"),
+          _rnMode ? "✎ 編集中（押して終了）" : "✎ 名前変更・削除"),
         _rnMode ? React.createElement("span", { style: { fontSize: 10, fontWeight: 600, letterSpacing: 0, textTransform: "none", color: "#0369A1" } },
-          "名前を変えたいシグナルを押してください") : null),
+          "シグナルを押すと名前変更／右の✕で一覧から削除") : null),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } },
         signalTags.concat(fTags.filter(function(_o) { return signalTags.indexOf(_o) < 0 && !_isProvT(_o); })).map(function(t) {
           // 孤児タグ（マスターから消えたタグ）の一覧から**仮タグは除く**＝下段に出るので上段で「✕削除」扱いにしない。
           var on = fTags.includes(t);
-          return React.createElement("button", {
+          var _chip = React.createElement("button", {
             key: t,
             onClick: function() {
               // 名前変更モード中は選択ではなく改名。マスターに無い孤児タグは改名対象にしない（消す対象なので）。
@@ -8591,6 +8621,15 @@ function EntryRecordForm(_ref_erf) {
               borderRadius: 6, cursor: "pointer"
             }
           }, signalTags.indexOf(t) < 0 ? React.createElement("span", null, t, React.createElement("span", { style: { color: "#B91C1C", fontWeight: 800, marginLeft: 4 } }, "✕削除")) : t);
+          // 編集中はチップの右に削除ボタンを並べる（マスターにあるタグだけ＝孤児タグはここでは消さない）。
+          if (!_rnMode || signalTags.indexOf(t) < 0) return _chip;
+          return React.createElement("span", { key: "w_" + t, style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+            _chip,
+            React.createElement("button", {
+              onClick: function() { _delSigTag(t, false); },
+              title: "「" + t + "」をシグナル一覧から削除します",
+              style: { padding: "5px 7px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 6, cursor: "pointer" }
+            }, "✕"));
         }),
         (function() {
           var on = fIsCustom;
@@ -8631,7 +8670,7 @@ function EntryRecordForm(_ref_erf) {
         React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
           provTags.map(function(t) {
             var on = fTags.includes(t);
-            return React.createElement("button", {
+            var _chip = React.createElement("button", {
               key: "prov_" + t,
               onClick: function() {
                 if (_rnMode) { _renameSigTag(t, true); return; }
@@ -8647,6 +8686,14 @@ function EntryRecordForm(_ref_erf) {
                 borderRadius: 6, cursor: "pointer"
               }
             }, t);
+            if (!_rnMode) return _chip;
+            return React.createElement("span", { key: "wp_" + t, style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+              _chip,
+              React.createElement("button", {
+                onClick: function() { _delSigTag(t, true); },
+                title: "「" + t + "」を仮シグナル一覧から削除します",
+                style: { padding: "5px 7px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 6, cursor: "pointer" }
+              }, "✕"));
           }),
           React.createElement("button", {
             key: "__addprov__",
@@ -8907,7 +8954,9 @@ function EntryRecordForm(_ref_erf) {
         _elCollectAllSignals(data).forEach(function(r) {
           var s = r && r.signal; if (!s) return;
           var ts = (s.tags && s.tags.length) ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []);
-          ts.forEach(function(t) { if (t && signalTags.indexOf(t) < 0) _oc[t] = (_oc[t] || 0) + 1; });
+          // ⚠️2026-09-28d 修正: 仮シグナルのタグは custom.provSignalTags にあって signalTags には無いので、
+          //   ここで除外しないと「プール外の削除済みシグナル」に数えられ、一括除去で記録から消えてしまう（データ消失）。
+          ts.forEach(function(t) { if (t && signalTags.indexOf(t) < 0 && !_isProvT(t)) _oc[t] = (_oc[t] || 0) + 1; });
         });
         var _ot = Object.keys(_oc);
         if (!_ot.length) return null;
