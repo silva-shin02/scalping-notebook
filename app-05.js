@@ -7078,6 +7078,23 @@ function EntryRecordForm(_ref_erf) {
     });
     return n;
   };
+  // 仮シグナルの昇格（通常へ）2026-09-29（ユーザー要望「新規エントリー記録画面などでもできるようにしたい」）。
+  // 設定→🌱仮シグナル管理の「→ 通常へ」と**同じ _elProvPromoteData** を使う＝入口が増えても挙動は1本。
+  // ⚠️過去記録の算入フラグが外れるので、その日の合計・カレンダー・月次の金額が変わる。件数を出して確認する。
+  // ⚠️編集中の記録で仮を複数選んでいた場合、昇格した1つだけ残して他の仮は選択から外す。
+  //   そうしないと「通常タグ＋仮タグ」が混ざった選択になり、排他の前提（_fIsProv で算入を決める）が崩れる。
+  var _promoteSigTag = function(t) {
+    var _n = _elProvPromoteCount(data, t);
+    var _mix = fTags.indexOf(t) >= 0 && fTags.some(function(x) { return x !== t && _isProvT(x); });
+    window._snConfirm("「" + t + "」を通常シグナルへ昇格します。\n\n"
+      + (_n ? ("該当する過去の記録 " + _n + "件が合計に算入されるようになり、その日の合計・カレンダー・月次の金額が変わります。\n\n") : "")
+      + (_mix ? "この記録で選択中のほかの仮シグナルは選択から外れます。\n\n" : "")
+      + "昇格しますか？").then(function(ok) {
+      if (!ok) return;
+      save(function(prev) { return _elProvPromoteData(prev, t); });
+      setFTags(function(prev) { return prev.filter(function(x) { return x === t || !_isProvT(x); }); });
+    });
+  };
   var _delSigTag = function(t, isProv) {
     var _n = _cntRecsWithTag(t);
     window._snConfirm("「" + t + "」を" + (isProv ? "仮シグナル" : "シグナル") + "の一覧から削除します。\n\n"
@@ -8594,12 +8611,12 @@ function EntryRecordForm(_ref_erf) {
         React.createElement("span", null, "🎯 エントリーシグナル"),
         React.createElement("button", {
           onClick: function() { _setRnMode(function(v) { return !v; }); },
-          title: "チップを押すと名前変更、右の✕で一覧から削除できます（名前変更は過去の記録にも反映されます）",
+          title: "シグナルの名前変更・削除・昇格（仮→通常）ができます",
           style: { fontSize: 10, fontWeight: 700, letterSpacing: 0, textTransform: "none", padding: "2px 8px", borderRadius: 5, cursor: "pointer",
             border: "1px solid " + (_rnMode ? "#0EA5E9" : "#ddd"), background: _rnMode ? "#E0F2FE" : "#fff", color: _rnMode ? "#0369A1" : "#777" } },
-          _rnMode ? "✎ 編集中（押して終了）" : "✎ 名前変更・削除"),
+          _rnMode ? "✎ 編集中（押して終了）" : "✎ 編集"),
         _rnMode ? React.createElement("span", { style: { fontSize: 10, fontWeight: 600, letterSpacing: 0, textTransform: "none", color: "#0369A1" } },
-          "シグナルを押すと名前変更／右の✕で一覧から削除") : null),
+          "シグナルを押す＝名前変更／✕＝一覧から削除／⬆＝仮を通常へ昇格") : null),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } },
         signalTags.concat(fTags.filter(function(_o) { return signalTags.indexOf(_o) < 0 && !_isProvT(_o); })).map(function(t) {
           // 孤児タグ（マスターから消えたタグ）の一覧から**仮タグは除く**＝下段に出るので上段で「✕削除」扱いにしない。
@@ -8690,6 +8707,11 @@ function EntryRecordForm(_ref_erf) {
             return React.createElement("span", { key: "wp_" + t, style: { display: "inline-flex", alignItems: "center", gap: 2 } },
               _chip,
               React.createElement("button", {
+                onClick: function() { _promoteSigTag(t); },
+                title: "「" + t + "」を通常シグナルへ昇格します（このタグの過去記録も合計に算入されるようになります）",
+                style: { padding: "5px 7px", fontSize: 11, fontWeight: 800, border: "1px solid #86EFAC", background: "#F0FDF4", color: "#15803D", borderRadius: 6, cursor: "pointer" }
+              }, "⬆"),              React.createElement("button", {
+
                 onClick: function() { _delSigTag(t, true); },
                 title: "「" + t + "」を仮シグナル一覧から削除します",
                 style: { padding: "5px 7px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 6, cursor: "pointer" }
