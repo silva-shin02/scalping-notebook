@@ -134,7 +134,13 @@ function _dtsNormCfg(cfg) {
   if (!(Array.isArray(c.priceRows) && c.priceRows.length)) {
     out.priceRows = [{ trig: "ym", from: c.startYm || "", amount: _dtsNumOrNull(c.mainPrice) }];
   }
-  if (!(Array.isArray(c.injections) && c.injections.length)) {
+  // ⚠️2026-09-30 修正: 判定は「配列かどうか」だけにする。**length を見てはいけない**。
+  //   ⑧外部資金は「1行も無い＝投入しない」が正当な設定（delRowも⑧だけ空を許している）。
+  //   length で見ると 🗑 で全部消して injections:[] にした状態が「未設定」と誤認され、
+  //   旧形式(cfg.injection)から**消したはずの投入が復活**する＝画面上は行が消えているのに結果が変わらない。
+  //   ③perDayRows / ⑦priceRows は delRow が空になった時に必ず1行を埋め戻すので空配列にならず、
+  //   そちらは「空ならスカラーから移行」のままでよい（旧データの移行経路として必要）。
+  if (!Array.isArray(c.injections)) {
     var oi = c.injection;
     out.injections = (oi && oi.ym) ? [{ trig: "ym", from: oi.ym, amount: +oi.amount || 0, sharesAfter: _dtsNumOrNull(oi.sharesAfter) }] : [];
   }
