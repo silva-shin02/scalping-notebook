@@ -4776,17 +4776,11 @@ function EpNaviPanel(_refEPN) {
   var _useStateEPNso = useState(null), _useStateEPNsoA = _slicedToArray(_useStateEPNso, 2), _stkOrd = _useStateEPNsoA[0], setStkOrd = _useStateEPNsoA[1];
   // 旧 tableStock state は削除（_tableModal を死コード化＝未使用・表参照は_ElDayAlphaPairへ集約）2026-07-22j
   var _uRotSel = useState(""), rotSelRaw = _uRotSel[0], setRotSelRaw = _uRotSel[1];   // 日替わり列1の表示銘柄（端末ローカル・表示のみ）2026-07-22i
-  var _uRotSel2 = useState(""), rotSelRaw2 = _uRotSel2[0], setRotSelRaw2 = _uRotSel2[1];   // 日替わり列2（2列化 2026-08-07）
-  useEffect(function() { setRotSelRaw(_epnRotGet(date, 0)); setRotSelRaw2(_epnRotGet(date, 1)); }, [date]);   // 日付ごとにlocalStorageの表示選択を読込（未設定/失効時は下の_rotSel/_rotSel2で指定銘柄→候補先頭にフォールバック）
+  // 日替わり列は**1列だけ**（2026-09-30 ユーザー指定「日替わり銘柄は1つだけ選択できるようにして」）。
+  // 2026-08-07に2列化していたが、1日に選ぶ日替わり銘柄は1つという運用に戻した。
+  // localStorage の slot 1 に残る値は読まないだけで消さない（2列に戻す判断があっても拾えるように）。
+  useEffect(function() { setRotSelRaw(_epnRotGet(date, 0)); }, [date]);   // 日付ごとにlocalStorageの表示選択を読込（未設定/失効時は下の_rotSelで既定へフォールバック）
   var _rotSel = (rotSelRaw && rotStocks.indexOf(rotSelRaw) >= 0) ? rotSelRaw : _rotDefault;
-  // 2列目の既定（2026-08-07）＝その日の指定銘柄のうち1列目に出ていない先頭→無ければ候補のうち1列目以外の先頭。指定が複数ある日（2026-08-06〜）は自動で2銘柄が並ぶ。
-  var _rotDefault2 = (function() {
-    for (var _i2 = 0; _i2 < _dayStocks.length; _i2++) { if (_dayStocks[_i2] !== _rotSel && rotStocks.indexOf(_dayStocks[_i2]) >= 0) return _dayStocks[_i2]; }
-    for (var _j2 = 0; _j2 < rotStocks.length; _j2++) { if (rotStocks[_j2] !== _rotSel) return rotStocks[_j2]; }
-    return "";
-  })();
-  var _rotSel2 = (rotSelRaw2 && rotSelRaw2 !== _rotSel && rotStocks.indexOf(rotSelRaw2) >= 0) ? rotSelRaw2 : _rotDefault2;
-  var _hasRot2 = _hasRot && !!_rotSel2;   // 候補が2件以上ある時だけ2列目を出す（1件しかない日に同じ銘柄を2列並べない）
   var _delTimerRef = useRef(null);
   var _stkDragRef = useRef(null), _stkMovedRef = useRef(false);
   // 列の折返し（2026-08-07）: 横スクロールを出さないため、入る列数を実測して段組みにする。枠の実幅をResizeObserverで拾う（初回描画前はwindow幅から概算）。
@@ -5037,9 +5031,10 @@ function EpNaviPanel(_refEPN) {
       : React.createElement("div", { key: "epnfrot" + slot + "_empty" });
   };
   var _topAll = _cellsTop.slice(), _formAll = _cellsForm.slice();
-  if (_hasRot) { _topAll.push(_rotColTop(0, _rotSel, setRotSelRaw, _rotSel2, setRotSelRaw2)); _formAll.push(_rotColForm(0, _rotSel)); }
-  if (_hasRot2) { _topAll.push(_rotColTop(1, _rotSel2, setRotSelRaw2, _rotSel, setRotSelRaw)); _formAll.push(_rotColForm(1, _rotSel2)); }
-  var _colN = epnStocks.length + (_hasRot ? 1 : 0) + (_hasRot2 ? 1 : 0);
+  // 1列だけ描く。other に "" を渡すので候補は絞られず（全銘柄が出る）、相方との入れ替え処理も走らない。
+  // _rotColTop 自体は2列時代の引数のまま残してある＝2列に戻すなら slot 1 を push するだけで復帰できる。
+  if (_hasRot) { _topAll.push(_rotColTop(0, _rotSel, setRotSelRaw, "", function() {})); _formAll.push(_rotColForm(0, _rotSel)); }
+  var _colN = epnStocks.length + (_hasRot ? 1 : 0);
   // 段組み（2026-08-07）: 列を1行に詰め込むと横スクロールになるので、枠幅に入る列数で折り返す。段ごとに独立したグリッド＝上段(早見)/下段(計算フォーム)の2行構成と「フォームの上端が揃う」性質は段の中で保たれる。
   // 段数を先に決めてから均等割り（例: 5列で4列しか入らない→4+1ではなく3+2）。列は minmax(0,1fr)＝入る幅まで縮むので、どの幅でも横スクロールにならない。
   var _EPN_COL_MIN = 140, _EPN_GAP = 8;   // 1列の下限（2026-08-07 横並び優先で200→140）: iPad縦(枠781px)でも5列が横に並ぶ値。これを上げると早く折り返す＝1列は広いが段が増える。
