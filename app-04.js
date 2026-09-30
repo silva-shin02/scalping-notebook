@@ -3691,13 +3691,16 @@ function _dailyStockSet(save, date, stocks) {
     });
   });
 }
-// 指定のトグル（複数指定 2026-08-06）: 既に指定済みなら外す・未指定なら足す。
+// 指定のトグル。**単一選択**（2026-09-30 ユーザー指定「日替わり銘柄は1つだけ選択できるようにして」）。
+// 2026-08-06に複数指定へ広げていたが、1日に取引する日替わり銘柄は1つという運用に戻した。
+// 押し直し＝解除／別の銘柄を押す＝置き換え。保存形（_dsWrite）と読み出し（_dailyStockList）は配列のまま＝
+// 過去の日に2銘柄以上が入っているデータはそのまま読める（遡って書き換えない）。
 function _dailyStockToggle(save, date, stock) {
   if (!stock) return;
   save(function(prev) {
     var cur = _dailyStockList(prev, date).slice();
     var i = cur.indexOf(stock);
-    if (i >= 0) cur.splice(i, 1); else cur.push(stock);
+    cur = (i >= 0) ? [] : [stock];   // 単一選択: 足すのではなく置き換える
     return Object.assign({}, prev, {
       dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, cur),
       dailyStockSeed: _dsSeedMark(prev, date)   // 手で触った日は以後もう自動引き継ぎしない（下の規約を参照）
@@ -3737,7 +3740,7 @@ function _dsShouldSeed(data, date) {
 function _dsSeedFromPrev(save, date) {
   save(function(prev) {
     if (!_dsShouldSeed(prev, date)) return prev;
-    var list = _dailyStockPrevList(prev, date);
+    var list = _dailyStockPrevList(prev, date).slice(0, 1);   // 単一選択なので先頭1件だけ引き継ぐ（過去日に2件以上ある場合の保険）2026-09-30
     if (!list.length) return prev;
     return Object.assign({}, prev, {
       dailyStock: _dsWrite(Object.assign({}, prev.dailyStock || {}), date, list),
@@ -5705,15 +5708,28 @@ function DayView(_ref57) {
         React.createElement("button", {
           onClick: function() {
             var _on = !designated;
+            // 単一選択（2026-09-30）: ONにすると、それまで指定されていた銘柄は自動的に解除される。
+            // ⚠️押し出された側の記録も合計算入を揃えないと「指定していないのに合計へ入ったまま」になるので、
+            //   新しく指定した銘柄とまとめて1つの確認ダイアログで扱う。
+            var _drop = _on ? _dailyStockList(data, date).filter(function(x) { return x !== s; }) : [];
             var _n = _dsSyncCount(data, date, s, _on);   // 指定と食い違う既存記録（合計算入）の件数
+            var _dn = _drop.map(function(x) { return { s: x, n: _dsSyncCount(data, date, x, false) }; })
+                           .filter(function(o) { return o.n > 0; });
             _dailyStockToggle(save, date, s);
-            if (!_n) return;
-            window._snConfirm(_on
-              ? ("「" + s + "」を本日の取引銘柄に指定しました。\nこの日の記録 " + _n + " 件は合計算入がOFFのままです。\nまとめてONにしますか？")
-              : ("「" + s + "」の指定を解除しました。\nこの日の記録 " + _n + " 件は合計算入がONのままです。\nまとめて合計から外しますか？")
-            ).then(function(_ok) { if (_ok) _dailyStockSyncTotals(save, date, s, _on); });
+            if (!_n && !_dn.length) return;
+            var _msg = _on
+              ? ("「" + s + "」を本日の取引銘柄に指定しました。" + (_drop.length ? "（「" + _drop.join("・") + "」の指定は解除されます）" : "") + "\n\n")
+              : ("「" + s + "」の指定を解除しました。\n\n");
+            if (_n) _msg += "・「" + s + "」の記録 " + _n + " 件は合計算入が" + (_on ? "OFF" : "ON") + "のままです。\n";
+            _dn.forEach(function(o) { _msg += "・「" + o.s + "」の記録 " + o.n + " 件は合計算入がONのままです。\n"; });
+            _msg += "\nまとめて指定に合わせますか？";
+            window._snConfirm(_msg).then(function(_ok) {
+              if (!_ok) return;
+              if (_n) _dailyStockSyncTotals(save, date, s, _on);
+              _dn.forEach(function(o) { _dailyStockSyncTotals(save, date, o.s, false); });
+            });
           },
-          title: designated ? "本日の取引銘柄の指定を解除" : "この銘柄を本日の取引銘柄に指定（合計に算入・赤マーク／複数指定できます）",
+          title: designated ? "本日の取引銘柄の指定を解除" : "この銘柄を本日の取引銘柄に指定（合計に算入・赤マーク／1日1銘柄・押すと前の指定は外れます）",
           style: { padding: "5px 8px", fontSize: 11, border: "none", borderLeft: "1px solid " + (viewing ? "#C7D2FE" : "#EEE"), background: designated ? "#E53935" : "transparent", color: designated ? "#fff" : "#CBD5E1", cursor: "pointer", minHeight: IS_TOUCH ? 36 : 28 }
         }, "●"));
     }),
