@@ -2595,6 +2595,11 @@ function SettingsModal(_ref54) {
               background: on ? "#EEF2FF" : "#fff", color: on ? "#4338CA" : "#666" } },
             (on ? "📅 " : "") + s);
         })),
+      React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #E2E8F0" } },
+        React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "💰 合計損益に算入する銘柄"),
+        React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 8 } },
+          "日別・週間・月間の合計金額に足す銘柄を選びます。件数・到達・勝率と分析の母数は全銘柄のままです。1つも選ばなければ全銘柄を算入します。"),
+        React.createElement(_elAmtStockPicker, { data: data, save: save })),
       React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "📅＝日替わり指定中。常設（JX金属・フジクラ・SBG等）はそのまま個別タブに残します。")
     );
   })() : null,
@@ -7013,6 +7018,7 @@ function DayView(_ref57) {
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" } },
           _wkNavBtn("←", function() { setWkWeekOffset(function(o) { return o - 1; }); }),
           React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#333" } }, "📅 今週の損益データ"),
+          React.createElement(_elAmtStockPicker, { data: data, save: save, compact: true }),   // 算入銘柄をこの場で変えられる 2026-10-01
           _wkNavBtn("→", function() { setWkWeekOffset(function(o) { return o + 1; }); }),
           wkWeekOffset !== 0 ? React.createElement("button", { onClick: function() { setWkWeekOffset(0); }, style: { padding: "2px 8px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", border: "1px solid #FB923C", borderRadius: 6, cursor: "pointer", color: "#9A3412" } }, "今週へ") : null,
           (function(){ var _xc = _elExclCountRecs(_wkAllRecs); return _xc > 0 ? React.createElement("span", { title: "計算・データに算入しない記録の件数", style: { fontSize: 10, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #7DD3FC", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "不算入 " + _xc + "件") : null; })(),

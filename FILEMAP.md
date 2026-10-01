@@ -87,6 +87,8 @@ Calendar, EventCategoryManagementModal, _hdRecentRecords, _hdEnteredOnly, _hdTag
 
 **【詳細セクション名のシグナル別化 2026-09-28】新規=`_elSigSecs(data,tag)`／改訂=`_EL_SIG_SECS`（`num`/`name`を追加）／データキー=`custom.sigSecLabels` `custom._sigSecSeeded`（app-01。旧 `_sigSecSeed1` からは自動移行）**。`custom.sigSecLabels = { <シグナル名>: { b,k,f } }` で詳細セクションの表示名をシグナルごとに上書きする（未設定キーは既定へフォールバック）。⚠️**セクションの数と `key`/`multi` は共通のまま**＝記録側 `sigDetail` は `{b,k,f}` 固定なので、ここを可変にすると過去記録が読めなくなる。変わるのは表示名だけ。⚠️app-06 の詳細別集計は**全シグナル横断**なのでシグナルが特定できず既定名のまま。改名時は `_elSignalRenameData` が `sigSecLabels` のキーも追従させる。
 
+**【合計損益に算入する銘柄 2026-10-01】新規=`_elAmtStocksSet` `_elAmtStockOk` `_elAmtRecOk` `_elAmtStockPicker`／変数=`_EL_AMT_STOCKS`（app-05）／データキー=`custom.amtStocks` `custom._amtStocksSeed1`（app-01・`_LOCAL_WINS_KEYS`にも追加）**。合計**金額**に足す銘柄を絞る。既定は `["フジクラ","SBG"]`（migrateDataで1回だけシード）。**空配列＝全銘柄算入**。⚠️件数・到達・勝率・分析母数は**全銘柄のまま**（金額だけ外す規約）。⚠️配線は**金額の単一源2つ**＝`_elTotAccum`(app-05) と `_elFinalPnlOf`(app-06)、加えて `_snDailyPnlMap`(app-05)。`_elTotAccum` は `data` を受け取らないので、`_EL_AMT_STOCKS` へ写して読む。写すのは **app-08 の App 本体（レンダー時・同期）**＝`data` は App 自身の state なので子は常に最新を見る（`useEffect` だと1描画ぶん古い）。未設定(null)は全銘柄算入にフォールバック＝配線漏れでも「金額が丸ごと消える」側に倒れない。
+
 **【仮シグナル 2026-09-22】新規=`_elProvTags` `_elIsProvisional` `_elIsProvTag` `_elProvBadge` `_elProvPromoteData` `_elProvPromoteCount`（app-05）／データキー=`custom.provSignalTags`（app-01 EMPTY・migrateData・`_LOCAL_WINS_KEYS`）**。「シグナルではあるが合計に算入しないジャンル」。マスターは通常の`custom.signalTags`とは**別リスト**で、記録フォームのチップ欄では下段に並び、通常シグナル／カスタムタグとは**排他**（仮同士は複数可）。⚠️**新しい除外チャネルは作っていない**＝保存時に `includeInTotal:false` / `includeInData:true` / `provisional:true` を立て、既存の「金額母数(`_elInclTotal`)／分析母数(`_elInclData`)」の分離にそのまま乗せている。そのため金額を見る全ビューと時間かぶりの母数（`_elInclTotal`/`_elInclTotalAmt`由来）が無改修で追従し、**枠も占有しない**。金額の漏れ止めは `_elTotAccum`(app-05) と `_elFinalPnlOf`(app-06) の2箇所に1行ずつ（母数の作り方が呼び出し元ごとに違い、分析母数から金額を出すKPIがあるため）。件数側は `_stockAllV2`(app-06) に仮を戻している。
 **【RN加算を 中RN(…50)／大RN(…00＝100・1000台) に分割 2026-09-02】app-05 `_elRnAdd` の直後**
 - 新規=`_EL_RN_KINDS`（種別マスター: キー `"50"`＝中RN／`"00"`＝大RN。label/short/target/color/bg/bd）／`_elRnKindInfo(tier)`／`_elRnKindLabel(tier)`／`_elRnKindOfRec(s,alpha)`／`_elRnKindLabelOfRec(s,alpha)`。**種別は保存しない**＝RN加算“前”EPの下二桁から都度導出（既存の `_elRnTierAt` が同じキーを返すのでそれに委譲）。よって `migrateData` の移行処理は無く、過去記録も自動で中／大に分類される。保存済みの `rnVal` は書き換えないので**過去の損益は動かない**。
@@ -399,6 +401,20 @@ HomeEventFormModal, App
   - **回帰**: 既定前提・⑥起点明示＋α投入・⑤切替(取引資金) の3本が**1円も動かない**ことを確認。14ケース×8描画関数=112件のスモークも例外ゼロ。⚠️`doSave` の保存経路だけは `setData→stSave→fbPut` で**実データがFirebaseへ書かれる**ので実アプリでは叩いていない（ガードは `res` 定義(774) → `doSave`(783) → early return(788) → `setData`(789) の順序をコードで確認）。
 
 ## 変更ログ
+
+### 2026-10-01 合計損益に算入する銘柄を選べるように（app-01/04/05/06/08 / sw v472→v473）
+- ユーザー要望「週間・月間の合計損益に算入する銘柄を選択できるようにして。デフはフジクラ・SBGのみ」。
+- 決定事項: ①効かせる先は**今週の損益データ／ホーム月次・カレンダー／記録帳の期間別の全部** ②**日別にも効かせる**（整合重視＝日別を足せば週間に一致する）
+  ③**金額だけ外す**（件数・到達・勝率は全銘柄のまま）④UIは設定＋合計欄の両方から変えられる。
+- ⚠️配線は**金額の単一源**に入れた。`_elTotAccum`(app-05)・`_elFinalPnlOf`(app-06)・`_snDailyPnlMap`(app-05) の3か所。
+  `_elTotAccum` の呼び出しは15か所あり、うち**5か所は `excluded:` 述語を持たない**ので、呼び出し元に足して回ると必ず漏れる
+  （仮シグナルで実際に「分析母数から金額を出すKPI」へ漏れた）。単一源で止めるのが確実。
+- ⚠️`_elTotAccum` は `data` を受け取らないので `_EL_AMT_STOCKS` へ写す。写すのは **app-08 の App 本体（レンダー時・同期）**。
+  `data` は App 自身の state なので、変われば必ず App が再描画される＝子が `_elTotAccum` を呼ぶ時点で常に最新。
+  `useEffect` で書くと1描画ぶん古い値で金額が出る。
+- ⚠️**空配列＝全銘柄算入**。未設定(null)も同じ。配線漏れや誤操作で「金額が丸ごと消える」側には倒さない。
+- ⚠️**既存ユーザーも初回に既定（フジクラ・SBG）が入る**＝これまでの全銘柄合計から数字が変わる。消しても復活しないよう `_amtStocksSeed1` で1回だけ。
+- UIは `_elAmtStockPicker`（閉じている間は「算入: フジクラ・SBG ✎」の1行）を、設定→📊データ・銘柄 と 📅今週の損益データの見出し横に置いた。
 
 ### 2026-09-30c 損益推移シミュ: 外部資金を消しても結果が変わらないバグ修正（app-09 / sw v471→v472）
 - ユーザー報告「損益推移シミュレーターが、詳細の内容を変えても変わらない。外部資金のやつとか」「追加していた外部資金を消しても変わらない」。

@@ -210,6 +210,9 @@ function HomeEventFormModal(_p_hef) {
 }
 
 function App() {
+  // 算入銘柄フィルタの受け渡し 2026-10-01。金額の単一源 _elTotAccum(app-05) は data を受け取らないので、
+  // ここ（App本体＝レンダー時・同期）で写す。data は App 自身の state なので、変われば必ずここを通る＝子は常に最新を見る。
+  // ⚠️useEffect で書くと1描画ぶん古い値で金額が出る（effectは描画後に走る）ので、**レンダー時に書くこと**。
   var _useState151 = useState(stLoad()),
     _useState152 = _slicedToArray(_useState151, 2),
     data = _useState152[0],
@@ -222,6 +225,7 @@ function App() {
     _useState156 = _slicedToArray(_useState155, 2),
     loading = _useState156[0],
     setLoading = _useState156[1];
+  _elAmtStocksSet(data && data.custom && data.custom.amtStocks);   // 算入銘柄フィルタを金額の単一源へ渡す（上のコメント参照）2026-10-01
   // 旧: 数値根拠名の_EL_NUM_REASON同期（2026-06-24i）は浮き足フィールド化（signal.ukiUsed 2026-07-03）で廃止＝_elHasNumReason(app-06)はsignal.ukiUsedを直接判定。
   var _useState157 = useState(function(){
       try { var _v=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}"); return _v.sel||null; } catch(e){ return null; }

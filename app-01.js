@@ -103,6 +103,7 @@ var EMPTY = {
     signalTags: [],
     provSignalTags: [],
     sigSecLabels: {},
+    amtStocks: [],
     technicals: [],
     newsCategories: [].concat(DEF_NEWS_CATS),
     newsSubCats: {}
@@ -550,6 +551,15 @@ function migrateData(d) {
   if (!d.custom.provSignalTags) d.custom.provSignalTags = [];
   // 詳細セクション名のシグナル別上書き 2026-09-28。未設定キーは _EL_SIG_SECS の既定に落ちる。
   if (!d.custom.sigSecLabels) d.custom.sigSecLabels = {};
+  // 合計損益に算入する銘柄 2026-10-01（ユーザー要望「週間・月間の合計損益に算入する銘柄を選択できるようにして。デフはフジクラ・SBGのみ」）。
+  // ⚠️**空配列＝全銘柄算入**（未選択＝絞り込み無し）。全部外したい、という指定はできないが、
+  //   取りこぼしで「金額が丸ごと消える」事故よりは安全側に倒す。
+  if (!Array.isArray(d.custom.amtStocks)) d.custom.amtStocks = [];
+  // 初期値は1回だけ入れる（消しても復活しない）。既存ユーザーも初回に既定が入る＝今までの全銘柄合計から変わる点に注意。
+  if (!d.custom._amtStocksSeed1) {
+    if (!d.custom.amtStocks.length) d.custom.amtStocks = ["フジクラ", "SBG"];
+    d.custom._amtStocksSeed1 = 1;
+  }
   // ユーザー指定の初期値。**シグナル単位で1回だけ**適用する（_sigSecSeeded に適用済みを記録）。
   // 一律フラグ1つだと、後から別シグナルの初期値を足すときにフラグを増やす羽目になり、
   // しかもフラグを上げ直すと利用者が変更済みのラベルまで巻き戻る。シグナル単位なら足すだけで済む。
@@ -1754,7 +1764,7 @@ function _mergeRemoteMeta(local, remote, _parentLocalNewer) {
   
   
   var _LOCAL_WINS_KEYS = { cats: 1, tags: 1, marketTags: 1, stockTags: 1,
-    signalTags: 1, provSignalTags: 1, signalDefs: 1, flowOpenTags: 1, flowMoveTags: 1,
+    signalTags: 1, provSignalTags: 1, amtStocks: 1, signalDefs: 1, flowOpenTags: 1, flowMoveTags: 1,
     newsCategories: 1, newsSubCats: 1, stocks: 1,
     eventCategories: 1, materialTags: 1 };
   
