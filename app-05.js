@@ -3106,6 +3106,57 @@ function _elIsEntered(s, item) {
 // 合計額算入フラグ: signal.includeInTotal===false の記録だけを「合計額・データ分析」から除外する。
 // undefined/null/未設定(旧記録)は算入=true として扱う（後方互換・既定は算入）。
 // _elIsEntered(=実際にエントリーしたかE成立)とは別概念。一覧/カレンダー/検索の表示には影響させない。2026-06-18
+// ===== 合計損益に算入する銘柄 2026-10-01（ユーザー決定）=====
+// 「週間・月間（＋日別も・整合重視）の合計金額は、選んだ銘柄だけ足す」。件数・到達・勝率・分析母数は従来どおり全銘柄。
+// 正本は custom.amtStocks（Firebase同期に載る通常データ）。**空配列＝全銘柄算入**＝絞り込み無し。
+// ⚠️なぜモジュール変数に写すか: 金額の単一源 _elTotAccum(items, get) は **data を受け取らない**。
+//   呼び出し元15か所の get に data を足して回ると、1か所でも漏らした瞬間そこだけ金額が素通りする
+//   （仮シグナルで実際に「分析母数から金額を出すKPI」へ漏れた）。単一源で止めるのが確実。
+// ⚠️書き込みは app-08 の App 本体（レンダー時・同期）。data は App 自身の state なので、
+//   data が変わる＝App が必ず再描画される＝子が _elTotAccum を呼ぶ時点で常に最新。effect で書くと1描画ぶん古い値を使う。
+// ⚠️未設定(null)は**全銘柄算入**へフォールバック＝配線漏れがあっても「金額が丸ごと消える」側には倒れない。
+var _EL_AMT_STOCKS = null;
+function _elAmtStocksSet(list) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; }
+function _elAmtStockOk(stock) { return !_EL_AMT_STOCKS || !stock || _EL_AMT_STOCKS.indexOf(stock) >= 0; }
+// rec版（r.stock を見る）。stockが分からない呼び出しは true＝除外しない。
+function _elAmtRecOk(r) { return !r || !r.stock || _elAmtStockOk(r.stock); }
+// 算入銘柄の選択UI 2026-10-01。設定と各合計欄で同じ部品を使い回す（＝どこから変えても同じ正本 custom.amtStocks を書く）。
+// 閉じている間は「算入: フジクラ・SBG ✎」の1行だけ＝合計欄に置いても邪魔にならない。押すと銘柄チップが開く。
+function _elAmtStockPicker(props) {
+  var data = props.data, save = props.save, compact = !!props.compact;
+  var custom = (data && data.custom) || {};
+  var all = (custom.stocks && custom.stocks.length) ? custom.stocks : _DEF_STOCKS_FROZEN;
+  var sel = Array.isArray(custom.amtStocks) ? custom.amtStocks : [];
+  var _u = useState(false), open = _u[0], setOpen = _u[1];
+  var _lbl = sel.length ? sel.join("・") : "全銘柄";
+  var _toggle = function(st) {
+    save(function(prev) {
+      var _c = Object.assign({}, prev.custom || {});
+      var cur = Array.isArray(_c.amtStocks) ? _c.amtStocks.slice() : [];
+      var i = cur.indexOf(st);
+      if (i >= 0) cur.splice(i, 1); else cur.push(st);
+      _c.amtStocks = cur;
+      return Object.assign({}, prev, { custom: _c });
+    });
+  };
+  return React.createElement("div", { style: { margin: compact ? "2px 0" : "6px 0" } },
+    React.createElement("button", {
+      onClick: function() { setOpen(function(v) { return !v; }); },
+      title: "合計損益に算入する銘柄を選びます（件数・到達・勝率と分析は全銘柄のまま）",
+      style: { fontSize: compact ? 10 : 11, fontWeight: 700, color: "#0369A1", background: "#F0F9FF",
+        border: "1px solid #BAE6FD", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" }
+    }, "算入: " + _lbl + " ✎"),
+    open ? React.createElement("div", { style: { marginTop: 4, padding: "6px 8px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6 } },
+      React.createElement("div", { style: { fontSize: 10, color: "#64748B", fontWeight: 600, marginBottom: 5, lineHeight: 1.5 } },
+        "合計金額に足す銘柄を選びます。件数・到達・勝率・分析の母数は全銘柄のままです。1つも選ばなければ全銘柄を算入します。"),
+      React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
+        all.map(function(st) {
+          var on = sel.indexOf(st) >= 0;
+          return React.createElement("button", { key: st, onClick: function() { _toggle(st); },
+            style: { fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6, cursor: "pointer",
+              border: on ? "1.5px solid #0EA5E9" : "1px solid #ddd", background: on ? "#E0F2FE" : "#fff", color: on ? "#0369A1" : "#666" } }, st);
+        }))) : null);
+}
 function _elInclTotal(s) { return !s || (s.includeInTotal !== false && s.passThrough !== true); }   // スルー(passThrough=true)は算入チェックに関わらず常に不算入 2026-07-06
 // recs配列([{signal,...}])から算入対象だけを残すヘルパー（分析/合計用。表示用には使わない）。
 function _elFilterIncl(recs) { return (recs || []).filter(function(r) { return _elInclTotal(r && r.signal); }); }
@@ -4856,6 +4907,9 @@ function _elTotAccum(items, get) {
     // （_elInclTotal由来のプールもあれば _elInclData由来＝分析母数のプールもある）。1箇所で保証しないと
     // 分析母数から金額を出しているKPI（📡シグナル総合のRN/浮き足など）に仮の金額が漏れる。
     // 既存記録には provisional が無いので、この行で既存の数字は変わらない。
+    // 算入銘柄フィルタ 2026-10-01: 選外の銘柄は金額に入れない。件数系は呼び出し元が recs をそのまま使うので影響しない。
+    // it.stock が無い呼び出し（銘柄が決まらない集計）は素通し＝過剰除外を避ける。
+    if (it && it.stock && !_elAmtStockOk(it.stock)) return;
     if (_elIsProvisional(s)) return;
     if (get.excluded && get.excluded(it)) return;
     var isAB = s.difficulty === "A" || s.difficulty === "B";
@@ -5360,6 +5414,7 @@ function _snDailyPnlMap(data) {
       var s = r.signal;
       if (!s || !r.date) return;
       if (!_elInclTotalAmt(data, r)) return;
+      if (!_elAmtRecOk(r)) return;   // 算入銘柄フィルタ 2026-10-01（ホーム月次・カレンダー・📊早見はここが単一源）
       if (_elCollExcluded(data, r)) return;
       var o = out[r.date] || (out[r.date] = { final: null, finalCnt: 0, win: 0, loss: 0, even: 0,
         real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0 });

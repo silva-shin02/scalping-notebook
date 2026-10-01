@@ -6891,6 +6891,7 @@ function EntryLogView(_ref_elv2) {
   var _elFinalPnlOf = function(r, ignoreColl) {
     var s = r && r.signal; if (!s) return null;
     if (_elIsProvisional(s)) return null;   // 仮シグナルは金額に入れない 2026-09-22（ignoreCollでも外す＝被りとは別の理由なので）
+    if (!_elAmtRecOk(r)) return null;       // 算入銘柄フィルタ 2026-10-01（金額の単一源なのでここでも止める）
     if (!ignoreColl && _elCollExcluded(data, r, _collScope)) return null;
     var a = _ai(r).alpha, c = _ai(r).cutLine;
     if (_epIsXSkip(s, a)) return null;
