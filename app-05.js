@@ -3116,10 +3116,20 @@ function _elIsEntered(s, item) {
 //   data が変わる＝App が必ず再描画される＝子が _elTotAccum を呼ぶ時点で常に最新。effect で書くと1描画ぶん古い値を使う。
 // ⚠️未設定(null)は**全銘柄算入**へフォールバック＝配線漏れがあっても「金額が丸ごと消える」側には倒れない。
 var _EL_AMT_STOCKS = null;
+// ⚠️**この日より前の記録には効かせない** 2026-10-01b（ユーザー指定「8月以降のみにして」）。
+//   初版は全期間に遡って効かせたので、過去の週間・月間・カレンダーの金額が一斉に変わっていた。
+//   集計ルールの境界 _EL_RULE_SINCE(=2026-06-29・app-06) とは**別物**なので、専用の定数を持つ。
+//   日付が分からない呼び出しも除外しない＝「金額が丸ごと消える」側には倒さない。
+var _EL_AMT_SINCE = "2026-08-01";
 function _elAmtStocksSet(list) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; }
-function _elAmtStockOk(stock) { return !_EL_AMT_STOCKS || !stock || _EL_AMT_STOCKS.indexOf(stock) >= 0; }
-// rec版（r.stock を見る）。stockが分からない呼び出しは true＝除外しない。
-function _elAmtRecOk(r) { return !r || !r.stock || _elAmtStockOk(r.stock); }
+function _elAmtStockOk(stock, date) {
+  if (!_EL_AMT_STOCKS || !stock) return true;
+  if (!date || String(date) < _EL_AMT_SINCE) return true;   // 境界より前は従来どおり全銘柄算入
+  return _EL_AMT_STOCKS.indexOf(stock) >= 0;
+}
+// rec版（r.stock / r.date を見る）。stockや日付が分からない呼び出しは true＝除外しない。
+function _elAmtRecOk(r) { return !r || !r.stock || _elAmtStockOk(r.stock, r.date); }
+function _elAmtSinceLbl() { return (+_EL_AMT_SINCE.slice(0, 4)) + "年" + (+_EL_AMT_SINCE.slice(5, 7)) + "月"; }
 // 算入銘柄の選択UI 2026-10-01。設定と各合計欄で同じ部品を使い回す（＝どこから変えても同じ正本 custom.amtStocks を書く）。
 // 閉じている間は「算入: フジクラ・SBG ✎」の1行だけ＝合計欄に置いても邪魔にならない。押すと銘柄チップが開く。
 function _elAmtStockPicker(props) {
@@ -3142,13 +3152,14 @@ function _elAmtStockPicker(props) {
   return React.createElement("div", { style: { margin: compact ? "2px 0" : "6px 0" } },
     React.createElement("button", {
       onClick: function() { setOpen(function(v) { return !v; }); },
-      title: "合計損益に算入する銘柄を選びます（件数・到達・勝率と分析は全銘柄のまま）",
+      title: "合計損益に算入する銘柄を選びます（件数・到達・勝率と分析は全銘柄のまま／" + _elAmtSinceLbl() + "以降の記録にだけ効きます）",
       style: { fontSize: compact ? 10 : 11, fontWeight: 700, color: "#0369A1", background: "#F0F9FF",
         border: "1px solid #BAE6FD", borderRadius: 5, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" }
     }, "算入: " + _lbl + " ✎"),
     open ? React.createElement("div", { style: { marginTop: 4, padding: "6px 8px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 6 } },
       React.createElement("div", { style: { fontSize: 10, color: "#64748B", fontWeight: 600, marginBottom: 5, lineHeight: 1.5 } },
-        "合計金額に足す銘柄を選びます。件数・到達・勝率・分析の母数は全銘柄のままです。1つも選ばなければ全銘柄を算入します。"),
+        "合計金額に足す銘柄を選びます。件数・到達・勝率・分析の母数は全銘柄のままです。1つも選ばなければ全銘柄を算入します。" +
+        "（" + _elAmtSinceLbl() + "以降の記録にだけ効きます。それより前は従来どおり全銘柄）"),
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 5 } },
         all.map(function(st) {
           var on = sel.indexOf(st) >= 0;
@@ -4909,7 +4920,7 @@ function _elTotAccum(items, get) {
     // 既存記録には provisional が無いので、この行で既存の数字は変わらない。
     // 算入銘柄フィルタ 2026-10-01: 選外の銘柄は金額に入れない。件数系は呼び出し元が recs をそのまま使うので影響しない。
     // it.stock が無い呼び出し（銘柄が決まらない集計）は素通し＝過剰除外を避ける。
-    if (it && it.stock && !_elAmtStockOk(it.stock)) return;
+    if (it && it.stock && !_elAmtStockOk(it.stock, it.date)) return;
     if (_elIsProvisional(s)) return;
     if (get.excluded && get.excluded(it)) return;
     var isAB = s.difficulty === "A" || s.difficulty === "B";
