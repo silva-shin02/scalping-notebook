@@ -87,7 +87,7 @@ Calendar, EventCategoryManagementModal, _hdRecentRecords, _hdEnteredOnly, _hdTag
 
 **【詳細セクション名のシグナル別化 2026-09-28】新規=`_elSigSecs(data,tag)`／改訂=`_EL_SIG_SECS`（`num`/`name`を追加）／データキー=`custom.sigSecLabels` `custom._sigSecSeeded`（app-01。旧 `_sigSecSeed1` からは自動移行）**。`custom.sigSecLabels = { <シグナル名>: { b,k,f } }` で詳細セクションの表示名をシグナルごとに上書きする（未設定キーは既定へフォールバック）。⚠️**セクションの数と `key`/`multi` は共通のまま**＝記録側 `sigDetail` は `{b,k,f}` 固定なので、ここを可変にすると過去記録が読めなくなる。変わるのは表示名だけ。⚠️app-06 の詳細別集計は**全シグナル横断**なのでシグナルが特定できず既定名のまま。改名時は `_elSignalRenameData` が `sigSecLabels` のキーも追従させる。
 
-**【合計損益に算入する銘柄 2026-10-01】新規=`_elAmtStocksSet` `_elAmtStockOk` `_elAmtRecOk` `_elAmtStockPicker`／変数=`_EL_AMT_STOCKS`（app-05）／データキー=`custom.amtStocks` `custom._amtStocksSeed1`（app-01・`_LOCAL_WINS_KEYS`にも追加）**。合計**金額**に足す銘柄を絞る。既定は `["フジクラ","SBG"]`（migrateDataで1回だけシード）。**空配列＝全銘柄算入**。⚠️件数・到達・勝率・分析母数は**全銘柄のまま**（金額だけ外す規約）。⚠️配線は**金額の単一源2つ**＝`_elTotAccum`(app-05) と `_elFinalPnlOf`(app-06)、加えて `_snDailyPnlMap`(app-05)。`_elTotAccum` は `data` を受け取らないので、`_EL_AMT_STOCKS` へ写して読む。写すのは **app-08 の App 本体（レンダー時・同期）**＝`data` は App 自身の state なので子は常に最新を見る（`useEffect` だと1描画ぶん古い）。未設定(null)は全銘柄算入にフォールバック＝配線漏れでも「金額が丸ごと消える」側に倒れない。
+**【合計損益に算入する銘柄 2026-10-01】新規=`_elAmtStocksSet` `_elAmtStockOk(stock,date)` `_elAmtRecOk` `_elAmtSinceLbl` `_elAmtStockPicker`／定数=`_EL_AMT_SINCE`（="2026-08-01"・**この日より前には効かせない**／集計ルール境界 `_EL_RULE_SINCE`(2026-06-29) とは別物）／変数=`_EL_AMT_STOCKS`（app-05）／データキー=`custom.amtStocks` `custom._amtStocksSeed1`（app-01・`_LOCAL_WINS_KEYS`にも追加）**。合計**金額**に足す銘柄を絞る。既定は `["フジクラ","SBG"]`（migrateDataで1回だけシード）。**空配列＝全銘柄算入**。⚠️件数・到達・勝率・分析母数は**全銘柄のまま**（金額だけ外す規約）。⚠️配線は**金額の単一源2つ**＝`_elTotAccum`(app-05) と `_elFinalPnlOf`(app-06)、加えて `_snDailyPnlMap`(app-05)。`_elTotAccum` は `data` を受け取らないので、`_EL_AMT_STOCKS` へ写して読む。写すのは **app-08 の App 本体（レンダー時・同期）**＝`data` は App 自身の state なので子は常に最新を見る（`useEffect` だと1描画ぶん古い）。未設定(null)は全銘柄算入にフォールバック＝配線漏れでも「金額が丸ごと消える」側に倒れない。
 
 **【仮シグナル 2026-09-22】新規=`_elProvTags` `_elIsProvisional` `_elIsProvTag` `_elProvBadge` `_elProvPromoteData` `_elProvPromoteCount`（app-05）／データキー=`custom.provSignalTags`（app-01 EMPTY・migrateData・`_LOCAL_WINS_KEYS`）**。「シグナルではあるが合計に算入しないジャンル」。マスターは通常の`custom.signalTags`とは**別リスト**で、記録フォームのチップ欄では下段に並び、通常シグナル／カスタムタグとは**排他**（仮同士は複数可）。⚠️**新しい除外チャネルは作っていない**＝保存時に `includeInTotal:false` / `includeInData:true` / `provisional:true` を立て、既存の「金額母数(`_elInclTotal`)／分析母数(`_elInclData`)」の分離にそのまま乗せている。そのため金額を見る全ビューと時間かぶりの母数（`_elInclTotal`/`_elInclTotalAmt`由来）が無改修で追従し、**枠も占有しない**。金額の漏れ止めは `_elTotAccum`(app-05) と `_elFinalPnlOf`(app-06) の2箇所に1行ずつ（母数の作り方が呼び出し元ごとに違い、分析母数から金額を出すKPIがあるため）。件数側は `_stockAllV2`(app-06) に仮を戻している。
 **【RN加算を 中RN(…50)／大RN(…00＝100・1000台) に分割 2026-09-02】app-05 `_elRnAdd` の直後**
@@ -401,6 +401,14 @@ HomeEventFormModal, App
   - **回帰**: 既定前提・⑥起点明示＋α投入・⑤切替(取引資金) の3本が**1円も動かない**ことを確認。14ケース×8描画関数=112件のスモークも例外ゼロ。⚠️`doSave` の保存経路だけは `setData→stSave→fbPut` で**実データがFirebaseへ書かれる**ので実アプリでは叩いていない（ガードは `res` 定義(774) → `doSave`(783) → early return(788) → `setData`(789) の順序をコードで確認）。
 
 ## 変更ログ
+
+### 2026-10-01b 算入銘柄フィルタを8月以降だけに限定（app-04/05 / sw v473→v474）
+- ユーザー指定「8月以降のみにして」。初版（v473）は**全期間に遡って**効かせたので、過去の週間・月間・カレンダーの金額が一斉に変わっていた。
+- 新設 `_EL_AMT_SINCE = "2026-08-01"`。`_elAmtStockOk(stock, date)` が日付を見て、**境界より前は従来どおり全銘柄算入**。
+- ⚠️集計ルールの境界 `_EL_RULE_SINCE`(=2026-06-29・app-06) とは**別物**。あちらは「集計ルールが変わる前の記録」の線引きで、用途が違うので専用定数にした。
+- ⚠️**日付が分からない呼び出しは素通し**（除外しない）。境界のどちら側か判定できないので、「金額が丸ごと消える」側には倒さない。
+- 設定とピッカーの説明文にも「2026年8月以降の記録にだけ効きます」を明記（`_elAmtSinceLbl`）。
+- 実測: 7/31のフジクラ+JX金属=2000円（全算入）／8/1・9/15は1000円（JX除外）／日付なしは1000円（素通し）。
 
 ### 2026-10-01 合計損益に算入する銘柄を選べるように（app-01/04/05/06/08 / sw v472→v473）
 - ユーザー要望「週間・月間の合計損益に算入する銘柄を選択できるようにして。デフはフジクラ・SBGのみ」。

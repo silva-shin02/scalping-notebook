@@ -2598,7 +2598,8 @@ function SettingsModal(_ref54) {
       React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #E2E8F0" } },
         React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#0369A1", marginBottom: 4 } }, "💰 合計損益に算入する銘柄"),
         React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 8 } },
-          "日別・週間・月間の合計金額に足す銘柄を選びます。件数・到達・勝率と分析の母数は全銘柄のままです。1つも選ばなければ全銘柄を算入します。"),
+          "日別・週間・月間の合計金額に足す銘柄を選びます。件数・到達・勝率と分析の母数は全銘柄のままです。1つも選ばなければ全銘柄を算入します。" +
+          "なお、この絞り込みは" + _elAmtSinceLbl() + "以降の記録にだけ効きます（それより前は従来どおり全銘柄を算入）。"),
         React.createElement(_elAmtStockPicker, { data: data, save: save })),
       React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "📅＝日替わり指定中。常設（JX金属・フジクラ・SBG等）はそのまま個別タブに残します。")
     );
