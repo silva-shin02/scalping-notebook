@@ -565,6 +565,11 @@ function migrateData(d) {
     if (d.custom.amtStocks.length && d.custom.amtStocks.indexOf("JX金属") < 0) d.custom.amtStocks = d.custom.amtStocks.concat(["JX金属"]);
     d.custom._amtStocksSeed2 = 1;
   }
+  // 2026-10-04 ユーザー指定「日替わり銘柄も追加（結局4銘柄）」。擬似銘柄「📅日替わり」(_EL_AMT_ROT・app-05)を1回だけ足す。
+  if (!d.custom._amtStocksSeed3) {
+    if (d.custom.amtStocks.length && d.custom.amtStocks.indexOf("\uD83D\uDCC5\u65E5\u66FF\u308F\u308A") < 0) d.custom.amtStocks = d.custom.amtStocks.concat(["\uD83D\uDCC5\u65E5\u66FF\u308F\u308A"]);
+    d.custom._amtStocksSeed3 = 1;
+  }
   // ユーザー指定の初期値。**シグナル単位で1回だけ**適用する（_sigSecSeeded に適用済みを記録）。
   // 一律フラグ1つだと、後から別シグナルの初期値を足すときにフラグを増やす羽目になり、
   // しかもフラグを上げ直すと利用者が変更済みのラベルまで巻き戻る。シグナル単位なら足すだけで済む。
