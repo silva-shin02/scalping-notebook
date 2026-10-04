@@ -657,17 +657,34 @@ function migrateData(d) {
     d.custom._alphaPerRecordMig = true;
   }
 
-  // 2026-10-04 VAP値移行（ユーザー指定「8/20以降は、α値欄に入力していた数値をそのままVAP値に」）: 8/20以降で vapVal が無い記録に vapVal=alphaVal（合計α値＝予定EPの土台）を入れる。
-  //   alphaVal は書き換えない＝EP・損益は不変。条件ベース＝冪等（他端末から旧記録が同期されてきても次回の読み込みで埋まる）。
+  // 2026-10-04 VAP値移行（ユーザー指定「8/20以降は、基本α・応用αの数値のみをVAP値に」）。
+  //   8/20以降の記録: VAP値 ＝ 基本α（応用α〇なら応用α）の数値のみ。RN加算・浮き足加算は無くす（alphaVal=baseAlphaVal=vapVal に揃え、rn/uki/応用フラグを下ろす）＝EP・損益は変わる。
+  //   旧値は s._vapMig に退避（戻せるように）。浮き足〇の記録は土台α（基本/応用）が無い＝VAP未設定のまま（alphaValも触らない）。
+  //   すでにVAP値が手入力/フォーム保存されている記録（RN・浮き足の寄与が無い）はそのまま。条件ベースで冪等（s._vapMig の有無で二重適用を防ぐ）。
   //   日付は chart キー "<銘柄>_<YYYY-MM-DD>" の末尾10文字。_VAP_SINCE(app-05)と同じ 2026-08-20。
   if (d.charts && typeof d.charts === "object") {
+    var _vnum = function(v) { return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : null; };
     Object.keys(d.charts).forEach(function(_ck) {
       var _vc = d.charts[_ck], _vd = _ck.slice(-10);
       if (!_vc || !Array.isArray(_vc.signals) || _vd < "2026-08-20") return;
       _vc.signals.forEach(function(s) {
-        if (!s || (s.vapVal != null && s.vapVal !== "")) return;
-        if (s.alphaVal == null || s.alphaVal === "" || isNaN(Number(s.alphaVal))) return;
-        s.vapVal = Number(s.alphaVal);
+        if (!s || s._vapMig) return;
+        var _al = _vnum(s.alphaVal), _vp = _vnum(s.vapVal);
+        var _uki = s.ukiUsed === true, _rn = s.rnUsed === true && (_vnum(s.rnVal) || 0) > 0;
+        var _hasAdd = _uki || _rn;
+        if (_vp != null && !(_hasAdd && _al != null && _vp === _al)) return;   // 手入力/フォーム保存のVAP（加算の寄与なし）はそのまま
+        if (_uki) {   // 土台αが無い＝VAP未設定（以前の自動コピー値だけ消す）
+          if (_vp != null) { s._vapMig = { vapVal: s.vapVal }; s.vapVal = null; }
+          return;
+        }
+        var _base = (s.specialUsed === true && _vnum(s.specialAlpha) != null) ? _vnum(s.specialAlpha) : (_vnum(s.baseAlphaVal) != null ? _vnum(s.baseAlphaVal) : (_al != null ? _al - (_rn ? _vnum(s.rnVal) : 0) : null));
+        if (_base == null) return;
+        if (_hasAdd || (_al != null && _al !== _base)) {
+          s._vapMig = { alphaVal: s.alphaVal, baseAlphaVal: s.baseAlphaVal, rnUsed: s.rnUsed, rnVal: s.rnVal, specialUsed: s.specialUsed, vapVal: s.vapVal };
+          s.alphaVal = _base; s.baseAlphaVal = _base;
+          s.rnUsed = false; s.rnVal = null; s.specialUsed = false;
+        }
+        s.vapVal = _base;
       });
     });
   }

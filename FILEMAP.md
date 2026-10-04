@@ -3075,3 +3075,5 @@ HomeEventFormModal, App
 - 【指値同値の件数・仮想損益の表示 2026-10-04】`_elFillRisk` を検出用に復活（同値は未約定=missで金額に入らない）。`_elFillEqLoose(fn)`/`_EP_EQ_LOOSE` で一時的に同値を到達扱いにして `_elFillEqPnl`(約定していたら想定損益)・`_elFillEqStats`(件数と合計)を出す。表示＝ホーム「指値同値」チップ(app-08)・📊パネル・日別/週の帯 `_elFillEqFootNode`・記録帳「同値除外損益」の「約定していたら」。`_snDailyPnlMap`/`_snMonthPnlAgg` に eqCnt/eqPnl/eqPnlCnt（finalEx は廃止）。
 
 - 【8/20以降の既存記録へ vapVal=alphaVal を補完 2026-10-04】migrateData(app-01・_alphaPerRecordMig直後)。条件ベースで冪等。alphaVal は不変＝EP・損益は変わらない。
+
+- 【8/20以降のVAP値＝基本α/応用αの数値のみ 2026-10-04】migrateData(app-01)。vapVal・alphaVal・baseAlphaVal を土台α（応用〇なら応用α）に揃え、rn/応用フラグを下ろす（旧値は `s._vapMig` に退避）。浮き足〇の記録は土台αが無いのでVAP未設定。手入力済みVAPは不変。冪等。※EP・損益は変わる。
