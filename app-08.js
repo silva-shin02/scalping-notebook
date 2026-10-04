@@ -1066,7 +1066,9 @@ function App() {
     { la: "損益", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
       sub: _mPerDay != null ? ("1日 " + _snYen(_mPerDay)) : null,
       subGrade: _mPerDay != null ? _profitGradeFromPnl(_mPerDay, _mAgg.finalCnt) : null,
+      sub2: _mAgg.eqCnt > 0 ? ("\u6307\u5024\u9664\u5916 " + _snYen(_mAgg.finalEx)) : null,
       title: "想定損益の合計（100株換算）。記録帳・💰全体損益と同じ基準です"
+        + (_mAgg.eqCnt > 0 ? ("\n指値除外 " + _snYen(_mAgg.finalEx) + "（指値同値 " + _mAgg.eqCnt + "件を除いた保守的な想定損益・差額 " + _snYen(_mAgg.finalEx - _mAgg.final) + "）") : "")
         + "\n母数 " + _mAgg.finalCnt + "件 / 記録のあった日 " + _mAgg.tradedDays + "日"
         + "\n実現損益 " + _mRealTxt
         + (_mAgg.oldRuleCnt > 0 ? ("\n⚠️ 集計ルールが変わる前の記録を " + _mAgg.oldRuleCnt + "件 含みます（記録帳の全体損益ではこの期間を合計から外しているため数字が一致しません）") : "")

@@ -5469,13 +5469,14 @@ function _snDailyPnlMap(data) {
       if (!_epIsV2(s)) return;
       if (_elCollExcluded(data, r)) return;
       var o = out[r.date] || (out[r.date] = { final: null, finalCnt: 0, win: 0, loss: 0, even: 0,
-        real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0 });
+        real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0, finalEx: null, eqCnt: 0 });
       var ai = _elAlphaInfo(r, data);
       if (!_epIsXSkip(s, ai.alpha)) {
         var fp = _elHoldFinalParts(s, ai.alpha, ai.cutLine);
         if (fp && fp.main != null) {
           o.final = (o.final || 0) + fp.main;
           o.finalCnt++;
+          if (_elFillRiskRec(r)) o.eqCnt++; else o.finalEx = (o.finalEx || 0) + fp.main;   // 指値同値を除いた損益 2026-10-04
           if (fp.main > 0) o.win++; else if (fp.main < 0) o.loss++; else o.even++;
         }
       }
@@ -5508,7 +5509,7 @@ function _snMonthPnlAgg(data, year, month) {
   //   記録帳の💰全体損益は旧ルール期間を薄く表示して合計・平均から外している(_keyIsOld)が、
   //   ホーム側は月をそのまま見る場所なので**除外はせず「含んでいる」と明示する**（ユーザー判断 2026-08-17）。
   var o = { final: 0, finalCnt: 0, win: 0, loss: 0, even: 0, real: 0, realRaw: 0, realCnt: 0, realHasShares: false,
-    cnt: 0, bizTotal: 0, bizDone: 0, tradedDays: 0, best: null, worst: null, maxDD: 0, series: [], oldRuleCnt: 0 };
+    cnt: 0, finalEx: 0, eqCnt: 0, bizTotal: 0, bizDone: 0, tradedDays: 0, best: null, worst: null, maxDD: 0, series: [], oldRuleCnt: 0 };
   var cum = 0, peak = 0;
   for (var d = 1; d <= last; d++) {
     var ds = dateFmt(year, month, d);
@@ -5523,6 +5524,7 @@ function _snMonthPnlAgg(data, year, month) {
     }
     if (e.final == null) continue;
     o.final += e.final; o.finalCnt += e.finalCnt;
+    o.finalEx += (e.finalEx || 0); o.eqCnt += (e.eqCnt || 0);
     o.win += e.win; o.loss += e.loss; o.even += e.even;
     o.tradedDays++;
     cum += e.final;
