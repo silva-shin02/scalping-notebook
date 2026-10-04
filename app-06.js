@@ -8302,11 +8302,40 @@ function EntryLogView(_ref_elv2) {
       var _v2recsAmt = v2recs.filter(function(r) { return !_isDataOnly(data, r); });
       var _sumMonthRecs2 = _sumMonthRecs.filter(function(r) { return !_isDataOnly(data, r); });
       var _v2recsNewRule = _v2recsAmt.filter(function(r) { return !_elIsOldRule(r.date); });
+      // 旧記録（非v2＝schemeなし）の可視化 2026-10-04。記録帳は _v2recsAll の段階で _epIsV2 をかけているので、
+      //   旧記録は損益・分析のどこにも出てこない。oldCnt は数えていたが**どこにも表示していなかった**ため、
+      //   「カレンダーと記録帳で月合計が違う」原因が画面から追えなかった（ユーザー指摘 2026-10-04）。
+      //   2026-10-04 でカレンダー側も _epIsV2 で揃えたので、この帯は「どこにも入っていない記録」の告知になる。
+      //   金額は「仮に算入したらいくらか」＝他の金額フィルタ（算入/データのみ/被り/算入銘柄）は同じかけ方で揃える。
+      var _oldRecs = filtered.filter(function(r) { return !_epIsV2(r.signal) && _elInclTotal(r.signal) && !_isDataOnly(data, r); });
+      var _oldRecNote = (function() {
+        if (!_oldRecs.length) return null;
+        var _ot = _elTotAccum(_oldRecs, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); } });
+        var _by = {};
+        _oldRecs.forEach(function(r) { var k = (r.date || "").slice(0, 7); (_by[k] || (_by[k] = [])).push(r); });
+        var _mons = Object.keys(_by).sort().reverse();
+        return React.createElement("div", { key: "oldrecnote", style: { padding: "7px 11px", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#92400E", lineHeight: 1.5 } },
+          React.createElement("div", { style: { fontWeight: 800, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+            React.createElement("span", null, "⚠ 旧記録 " + _oldRecs.length + "件 はどの集計にも入っていません"),
+            (_ot.hold2 != null) ? React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(_ot.hold2), background: "#fff", border: "1px solid #FCD34D", borderRadius: 5, padding: "1px 7px", fontVariantNumeric: "tabular-nums" } }, "想定損益 " + _elPnlFmt(_ot.hold2)) : null),
+          React.createElement("div", { style: { marginTop: 3, fontWeight: 600 } },
+            "「旧記録」＝ＥＰ起算方式（OS１〜５）へ移行できていない記録です。OS値が未入力だったため、" +
+            "2026-06-13の自動変換が飛ばしたものです（自動変換は1回きりなので、後から同期で入ってきた記録も残ります）。" +
+            "該当記録を開いてOS値を入れて保存し直すと、通常の記録として集計に入ります。"),
+          React.createElement("div", { style: { marginTop: 4, display: "flex", gap: 5, flexWrap: "wrap" } },
+            _mons.map(function(m) {
+              var _l = _by[m];
+              return React.createElement("span", { key: "om_" + m, title: _l.map(function(r) { return (r.date || "").slice(5) + " " + r.stock + " " + ((r.signal && r.signal.time) || ""); }).join("\n"),
+                style: { fontSize: 10, fontWeight: 700, background: "#fff", border: "1px solid #FCD34D", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap" } },
+                m.replace("-", "/") + " " + _l.length + "件");
+            })));
+      })();
       var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
         _sumMonthNav,
         _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
+        _oldRecNote,
         [
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。想定損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）。6/29より前は集計ルールが違うため薄く表示し、合計・平均には算入していません（月別の2026/06は〜6/28と6/29〜の2行に分けています）。合計行の「月換算」は1か月＝20営業日として引き伸ばした目安（合計÷営業日数×20）で、実額ではありません"),
           _granSeg(gran, setGran, "ov_", _ovGradeLegend),

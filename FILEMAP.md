@@ -87,6 +87,8 @@ Calendar, EventCategoryManagementModal, _hdRecentRecords, _hdEnteredOnly, _hdTag
 
 **【詳細セクション名のシグナル別化 2026-09-28】新規=`_elSigSecs(data,tag)`／改訂=`_EL_SIG_SECS`（`num`/`name`を追加）／データキー=`custom.sigSecLabels` `custom._sigSecSeeded`（app-01。旧 `_sigSecSeed1` からは自動移行）**。`custom.sigSecLabels = { <シグナル名>: { b,k,f } }` で詳細セクションの表示名をシグナルごとに上書きする（未設定キーは既定へフォールバック）。⚠️**セクションの数と `key`/`multi` は共通のまま**＝記録側 `sigDetail` は `{b,k,f}` 固定なので、ここを可変にすると過去記録が読めなくなる。変わるのは表示名だけ。⚠️app-06 の詳細別集計は**全シグナル横断**なのでシグナルが特定できず既定名のまま。改名時は `_elSignalRenameData` が `sigSecLabels` のキーも追従させる。
 
+**【同値除外損益の注記ノード 2026-10-04】新規=`_elFillEqFootNode(recsM, aiAlpha, aiCut, days)`（app-05・`_elFillRiskNode` の直後）。合計行の直下に出す横1本の帯＝「🎯 同値除外後の想定損益＋額＋指値同値N件を除外＋差額」。`recsM` は**その合計行に実際に入っている記録**（算入フィルタ＋時間かぶり除外後）を渡すこと。基準は `_elTotAccum` ＝想定損益列と同じ単一源。該当0件なら `null`（案B＝該当記録がある日だけ表示・ユーザー指定 2026-10-04）。配線＝`EntrySignalSection`/`WeeklyPnlPanel`(app-02)・`_pnlDetailTableEl`(app-04)の3経路。⚠️取引テーブルには出さない＝母数が `entered===true` だけで `_elFillRisk` が永久に0件を返すため**
+
 **【合計損益に算入する銘柄 2026-10-01】新規=`_elAmtStocksSet` `_elAmtStockOk(stock,date)` `_elAmtRecOk` `_elAmtSinceLbl` `_elAmtStockPicker`／定数=`_EL_AMT_SINCE`（="2026-08-01"・**この日より前には効かせない**／集計ルール境界 `_EL_RULE_SINCE`(2026-06-29) とは別物）／変数=`_EL_AMT_STOCKS`（app-05）／データキー=`custom.amtStocks` `custom._amtStocksSeed1`（app-01・`_LOCAL_WINS_KEYS`にも追加）**。合計**金額**に足す銘柄を絞る。既定は `["フジクラ","SBG"]`（migrateDataで1回だけシード）。**空配列＝全銘柄算入**。⚠️件数・到達・勝率・分析母数は**全銘柄のまま**（金額だけ外す規約）。⚠️配線は**金額の単一源2つ**＝`_elTotAccum`(app-05) と `_elFinalPnlOf`(app-06)、加えて `_snDailyPnlMap`(app-05)。`_elTotAccum` は `data` を受け取らないので、`_EL_AMT_STOCKS` へ写して読む。写すのは **app-08 の App 本体（レンダー時・同期）**＝`data` は App 自身の state なので子は常に最新を見る（`useEffect` だと1描画ぶん古い）。未設定(null)は全銘柄算入にフォールバック＝配線漏れでも「金額が丸ごと消える」側に倒れない。
 
 **【仮シグナル 2026-09-22】新規=`_elProvTags` `_elIsProvisional` `_elIsProvTag` `_elProvBadge` `_elProvPromoteData` `_elProvPromoteCount`（app-05）／データキー=`custom.provSignalTags`（app-01 EMPTY・migrateData・`_LOCAL_WINS_KEYS`）**。「シグナルではあるが合計に算入しないジャンル」。マスターは通常の`custom.signalTags`とは**別リスト**で、記録フォームのチップ欄では下段に並び、通常シグナル／カスタムタグとは**排他**（仮同士は複数可）。⚠️**新しい除外チャネルは作っていない**＝保存時に `includeInTotal:false` / `includeInData:true` / `provisional:true` を立て、既存の「金額母数(`_elInclTotal`)／分析母数(`_elInclData`)」の分離にそのまま乗せている。そのため金額を見る全ビューと時間かぶりの母数（`_elInclTotal`/`_elInclTotalAmt`由来）が無改修で追従し、**枠も占有しない**。金額の漏れ止めは `_elTotAccum`(app-05) と `_elFinalPnlOf`(app-06) の2箇所に1行ずつ（母数の作り方が呼び出し元ごとに違い、分析母数から金額を出すKPIがあるため）。件数側は `_stockAllV2`(app-06) に仮を戻している。
@@ -401,6 +403,33 @@ HomeEventFormModal, App
   - **回帰**: 既定前提・⑥起点明示＋α投入・⑤切替(取引資金) の3本が**1円も動かない**ことを確認。14ケース×8描画関数=112件のスモークも例外ゼロ。⚠️`doSave` の保存経路だけは `setData→stSave→fbPut` で**実データがFirebaseへ書かれる**ので実アプリでは叩いていない（ガードは `res` 定義(774) → `doSave`(783) → early return(788) → `setData`(789) の順序をコードで確認）。
 
 ## 変更ログ
+
+### 2026-10-04b カレンダーと記録帳で月合計が食い違う不整合の修正＋同値除外損益を日別ページにも（app-02/04/05/06 / sw v475→v476）
+
+ユーザー指摘「9月の合計額違わない？」（カレンダー +47,700円 vs 記録帳 +41,000円）。
+
+**原因＝旧記録（非v2＝`scheme` が付いていない記録）**。記録帳は `_v2recsAll` の段階で `_epIsV2` を掛けて丸ごと除外しているのに、
+カレンダー・ホーム月次・📊今月の損益パネルの単一源 `_snDailyPnlMap`(app-05) だけが拾っていた。
+ランダム差分テスト40試行で、両者の食い違いは**この1要因だけ**であることを確認（他は0件）。
+
+- `_snDailyPnlMap` に `if (!_epIsV2(s)) return;` を追加＝ユーザー選択で記録帳側に揃えた。修正後は40試行すべて差0円。
+- 旧記録は `oldCnt`(app-06:6675) で**数えてはいたがどこにも表示していなかった**ため、差の正体が画面から追えなかった。
+  💰全体損益（期間別）の上に `_oldRecNote`（旧記録N件・想定損益・月別内訳チップ・titleに日付/銘柄/時間）を追加。
+- 旧記録が生まれる経路: 2026-06-13の `_migEpScheme3` は `osVal` 未入力の記録を変換対象外にしており、
+  かつ `_migEpScheme3` フラグは1回きり＝後から同期で入ってきた旧形式記録も変換されない。
+  記録フォームは `isV2Form = true` 固定なので**新規には発生しない**。該当記録を開いてOS値を入れ直せば通常記録に戻る。
+
+**算入銘柄フィルタ(2026-10-01)の取りこぼしも同時に修正**。`_elTotAccum`/`_snDailyPnlMap` には入れてあったが、
+本日/今週の損益データは `_elCalcStats` 系＋手書きループの別経路で金額を積むため、選外銘柄の金額だけ残っていた
+（同じ日にカレンダー200円／日別ページ400円）。`_pnlDetailTableEl` の `_amtOkPb`（合計ループより**前**に宣言＝var巻き上げ対策）、
+`_pbAllRecsT`、`_wkRow` の3か所に `_elAmtRecOk` を追加し、📊本日の損益データの見出しに「算入外 N件」バッジを追加。
+
+**同値除外損益を日別ページにも（案B＝該当記録がある日だけ表示・ユーザー指定）**。
+共通ノード `_elFillEqFootNode(recsM, aiAlpha, aiCut, days)`(app-05) を新設し、合計行の直下に
+「🎯 同値除外後の想定損益 ＋額＋指値同値N件を除外＋差額」の帯を出す。該当0件なら `null`＝出さない。
+配線＝🎯エントリー記録(app-02 EntrySignalSection)／今週の損益データ(app-02 WeeklyPnlPanel)／
+本日・今週の損益データ(app-04 `_pnlDetailTableEl`)の3経路。
+⚠️**取引テーブルには出さない**＝あちらの母数は `entered===true` の記録だけで、`_elFillRisk` が先頭で `_elIsEntered` を弾くため永久に0件。
 
 ### 2026-10-04 金額計算の全体監査＋データのみが一部KPIに混入する不整合の修正（app-06 / sw v474→v475）
 - ユーザー指摘「エントリー記録帳内での合計額計算がおかしい気がする。アプリ全体で整合性がとれているかチェックして」。
