@@ -3089,3 +3089,5 @@ HomeEventFormModal, App
 - 【ホームと記録帳の合計不一致の原因 2026-10-04】`_snDailyPnlMap`(app-05)が仮シグナル(`_elIsProvisional`)を除外していなかった（記録帳 `_elTotAccum` は除外）。includeInTotal=true の仮記録があるとホーム/カレンダーだけ金額に入る。同一ロジックの突き合わせ(乱数データ12通りでホーム月次=記録帳の月別)で一致を確認。
 
 - 【1日平均を（）内でも 2026-10-04】app-06 `avgDayLine(v, days, incl)`（期間別表 pnlCell）と銘柄別表の想定損益セルで「1日平均+X（+Y）」。
+
+- 【シグナル別のVAP値分析 2026-10-04】app-06: `_vapRowsOf(pool, aiOf)`（追加0〜+10の再判定＋★best/参考ref・`_vapBoardV2`と共用）、`_VapSigBoard`（コンポーネント。上段＝シグナル別比較表〔±0の約定率/損益/平均・損益最大の追加(★=確定10件以上／未満は「参考」)・余地中央〕、行タップでそのシグナルだけの`_vapBoardV2`に切替）。配線＝①💰損益/銘柄別の「📐 VAP値」タブ（`_buildSigGroups(_vp)`でシグナル分け）②📡シグナル総合に「📐 VAP値」サブタブ（`sigSub==='vap'`・`_SIG_TABS`先頭・8/20以降の枠のみ・旧枠へ切替時は`band`へ戻す）。同値は未約定（`_epHit`）のまま。複数タグの記録は各タグに算入。
