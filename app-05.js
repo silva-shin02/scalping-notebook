@@ -3121,11 +3121,16 @@ var _EL_AMT_STOCKS = null;
 //   集計ルールの境界 _EL_RULE_SINCE(=2026-06-29・app-06) とは**別物**なので、専用の定数を持つ。
 //   日付が分からない呼び出しも除外しない＝「金額が丸ごと消える」側には倒さない。
 var _EL_AMT_SINCE = "2026-08-01";
-function _elAmtStocksSet(list) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; }
+// 2026-10-04 ユーザー指定「合計算入銘柄に日替わり銘柄も追加」。擬似銘柄 _EL_AMT_ROT を選ぶと、日替わり候補プール(custom.rotatingStocks)の銘柄をまとめて算入。
+//   ただし『その日の指定銘柄だけ』は従来どおり _isDataOnly(_elInclTotalAmt) 側が判定する＝指定されていない日の候補は算入されない。
+var _EL_AMT_ROT = "\uD83D\uDCC5\u65E5\u66FF\u308F\u308A";
+var _EL_AMT_POOL = null;
+function _elAmtStocksSet(list, pool) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; _EL_AMT_POOL = Array.isArray(pool) ? pool : null; }
 function _elAmtStockOk(stock, date) {
   if (!_EL_AMT_STOCKS || !stock) return true;
   if (!date || String(date) < _EL_AMT_SINCE) return true;   // 境界より前は従来どおり全銘柄算入
-  return _EL_AMT_STOCKS.indexOf(stock) >= 0;
+  if (_EL_AMT_STOCKS.indexOf(stock) >= 0) return true;
+  return !!(_EL_AMT_POOL && _EL_AMT_POOL.indexOf(stock) >= 0 && _EL_AMT_STOCKS.indexOf(_EL_AMT_ROT) >= 0);
 }
 // rec版（r.stock / r.date を見る）。stockや日付が分からない呼び出しは true＝除外しない。
 function _elAmtRecOk(r) { return !r || !r.stock || _elAmtStockOk(r.stock, r.date); }
@@ -3135,7 +3140,7 @@ function _elAmtSinceLbl() { return (+_EL_AMT_SINCE.slice(0, 4)) + "年" + (+_EL_
 function _elAmtStockPicker(props) {
   var data = props.data, save = props.save, compact = !!props.compact;
   var custom = (data && data.custom) || {};
-  var all = (custom.stocks && custom.stocks.length) ? custom.stocks : _DEF_STOCKS_FROZEN;
+  var all = ((custom.stocks && custom.stocks.length) ? custom.stocks : _DEF_STOCKS_FROZEN).concat([_EL_AMT_ROT]);
   var sel = Array.isArray(custom.amtStocks) ? custom.amtStocks : [];
   var _u = useState(false), open = _u[0], setOpen = _u[1];
   var _lbl = sel.length ? sel.join("・") : "全銘柄";
