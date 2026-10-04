@@ -657,6 +657,21 @@ function migrateData(d) {
     d.custom._alphaPerRecordMig = true;
   }
 
+  // 2026-10-04 VAP値移行（ユーザー指定「8/20以降は、α値欄に入力していた数値をそのままVAP値に」）: 8/20以降で vapVal が無い記録に vapVal=alphaVal（合計α値＝予定EPの土台）を入れる。
+  //   alphaVal は書き換えない＝EP・損益は不変。条件ベース＝冪等（他端末から旧記録が同期されてきても次回の読み込みで埋まる）。
+  //   日付は chart キー "<銘柄>_<YYYY-MM-DD>" の末尾10文字。_VAP_SINCE(app-05)と同じ 2026-08-20。
+  if (d.charts && typeof d.charts === "object") {
+    Object.keys(d.charts).forEach(function(_ck) {
+      var _vc = d.charts[_ck], _vd = _ck.slice(-10);
+      if (!_vc || !Array.isArray(_vc.signals) || _vd < "2026-08-20") return;
+      _vc.signals.forEach(function(s) {
+        if (!s || (s.vapVal != null && s.vapVal !== "")) return;
+        if (s.alphaVal == null || s.alphaVal === "" || isNaN(Number(s.alphaVal))) return;
+        s.vapVal = Number(s.alphaVal);
+      });
+    });
+  }
+
   if (!d.custom._newsImgAddedAtMig) {
     if (d.trades && typeof d.trades === "object") {
       var _bfNowTs = Date.now();
