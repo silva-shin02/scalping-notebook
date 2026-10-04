@@ -3134,6 +3134,15 @@ function _elAmtStockOk(stock, date) {
 }
 // rec版（r.stock / r.date を見る）。stockや日付が分からない呼び出しは true＝除外しない。
 function _elAmtRecOk(r) { return !r || !r.stock || _elAmtStockOk(r.stock, r.date); }
+// ===== VAP値（α値の後継）2026-10-04 ユーザー決定 =====
+// 8/20以降の記録は「α値」ではなく「VAP値」（チャートの出来高価格帯から読んで手入力）。EP＝水準線値＋VAP値。基本/応用・浮き足加算・RN加算は無し。
+// 保存＝signal.vapVal（新項目）。**同時に alphaVal=baseAlphaVal=vapVal も書く**＝下流の損益/EP計算(_epOwnAlpha＝alphaVal)は無改修でVAP基準になる（共通化）。
+// 8/20より前の記録は従来のα基準のまま。8/20〜8/31のうち vapVal 未入力のものは「VAP未設定」＝記録帳の分析対象外（入れ直した記録から対象）。
+var _VAP_SINCE = "2026-08-20";
+function _vapWorld(date) { return !!date && String(date) >= _VAP_SINCE; }
+function _vapOf(s) { return (s && s.vapVal != null && s.vapVal !== "" && !isNaN(Number(s.vapVal))) ? Number(s.vapVal) : null; }
+// 記録帳の分析母数に入れてよいか: 8/20より前は対象外／8/20以降は vapVal 入力済みのみ
+function _vapAnalysisOk(r) { return !!(r && r.signal && _vapWorld(r.date) && _vapOf(r.signal) != null); }
 function _elAmtSinceLbl() { return (+_EL_AMT_SINCE.slice(0, 4)) + "年" + (+_EL_AMT_SINCE.slice(5, 7)) + "月"; }
 // 算入銘柄の選択UI 2026-10-01。設定と各合計欄で同じ部品を使い回す（＝どこから変えても同じ正本 custom.amtStocks を書く）。
 // 閉じている間は「算入: フジクラ・SBG ✎」の1行だけ＝合計欄に置いても邪魔にならない。押すと銘柄チップが開く。
@@ -7489,6 +7498,10 @@ function EntryRecordForm(_ref_erf) {
   var _useStateBA = useState(initSig.baseAlphaVal != null ? String(initSig.baseAlphaVal) : (initSig.alphaVal != null ? String(initSig.alphaVal) : "")),
     _useStateBAA = _slicedToArray(_useStateBA, 2),
     fBaseAlpha = _useStateBAA[0], setFBaseAlpha = _useStateBAA[1];
+  // VAP値（8/20以降の記録のα値の後継 2026-10-04）: 手入力のみ。signal.vapVal に保存。
+  var _useStateVAP = useState(initSig.vapVal != null ? String(initSig.vapVal) : ""),
+    _useStateVAPA = _slicedToArray(_useStateVAP, 2),
+    fVap = _useStateVAPA[0], setFVap = _useStateVAPA[1];
   // ライン併存ルール（〇×独立欄 2026-07-08g）: signal.lineCoexist(boolean)。〇で基本α欄へ1を自動入力（下のeffect）。新規=×（false）。旧「併存ライン/ライン併存」チップ検知はmigrateDataで本フラグへ移行。
   var _useStateLC = useState(initSig.lineCoexist === true),
     _useStateLCA = _slicedToArray(_useStateLC, 2),
@@ -7861,10 +7874,12 @@ function EntryRecordForm(_ref_erf) {
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨(reco)/次点(runnerUp)を算出（_elUkiPctSweep）。fUkiPct=""は自動=推奨(無ければ50%)。加算=floor(浮き値×採用%/100)。2026-07-12
   var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, fDate, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null, fStock); }, [data, fDate, fUkiSpecial, fUkiReasons, fStock]);   // 2026-07-14g 浮き足基本/応用のタグ別プール推奨（応用は選択根拠で絞る・薄ければ全応用）。2026-07-25 fStockを渡して株価帯優先（帯が薄ければ全銘柄へフォールバック）
   var _effUkiPct = _elUkiEffPct(fUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
-  var _fUkiAdd = _elUkiAddVal(_showUki && fUkiUsed === "○", fUkiVal, _effUkiPct);   // 2026-07-14 共通化
+  var _vapMode = _vapWorld(fDate);   // 8/20以降＝α値でなくVAP値で入力（浮き足・RN・基本/応用は無し）2026-10-04
+  var _fVapA = (fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) : ((isEdit && initSig.alphaVal != null && !isNaN(Number(initSig.alphaVal))) ? Number(initSig.alphaVal) : 0);   // 未入力は0（編集で旧α記録を開いた場合は旧αを据え置き＝vapVal未設定のまま）
+  var _fUkiAdd = _vapMode ? 0 : _elUkiAddVal(_showUki && fUkiUsed === "○", fUkiVal, _effUkiPct);   // 2026-07-14 共通化
   // RN加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
-  var _fRnAdd = _elRnAddVal(fRnUsed === "○", fRnVal);   // 2026-07-14 共通化
-  var _fAlpha = (fUkiUsed === "○" ? 0 : _fBaseLevel) + _fUkiAdd + _fRnAdd;   // 2026-07-14g 浮き足〇＝土台α不使用＝採用α＝浮き足加算＋RN のみ（基本α/応用αは通常時のみ）
+  var _fRnAdd = _vapMode ? 0 : _elRnAddVal(fRnUsed === "○", fRnVal);   // 2026-07-14 共通化
+  var _fAlpha = _vapMode ? _fVapA : ((fUkiUsed === "○" ? 0 : _fBaseLevel) + _fUkiAdd + _fRnAdd);   // 2026-07-14g 浮き足〇＝土台α不使用＝採用α＝浮き足加算＋RN のみ（基本α/応用αは通常時のみ）
   // RN加算自動判定 2026-07-20b（_fBaseLevel/_fUkiAdd の定義後でないと undefined を掴むのでこの位置）。
   // RN前α＝基底α＋浮き足加算（RNは含めない＝予定EPにRNが入ると判定が循環するため）。null＝水準線未入力で判定不可＝現状維持＋ヒント表示。
   var _fRnPre = (fUkiUsed === "○" ? 0 : _fBaseLevel) + _fUkiAdd;
@@ -8518,21 +8533,22 @@ function EntryRecordForm(_ref_erf) {
       exitOsVal: fEntered && fExitOsVal !== "" ? Number(fExitOsVal) : null,
       shares: fEntered && fShares !== "" ? (parseInt(fShares) || null) : null,
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
-      baseAlphaVal: fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null,
+      baseAlphaVal: _vapMode ? _fAlpha : (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null),
+      vapVal: (_vapMode && fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) : null,   // VAP値（8/20以降）。alphaVal にも同値を書く＝下流の計算は無改修
       lineCoexist: fLineCoexist,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
       minBar: (fMinBars && fMinBars.length) ? fMinBars.map(Number).sort(function(_a, _b) { return _a - _b; }) : null,
-      specialUsed: (fUkiUsed === "○") ? false : (fAlphaKind === "special"),   // 浮き足〇＝土台α（基本α/応用α）不使用 2026-07-14g
-      specialAlpha: (fUkiUsed !== "○" && fAlphaKind === "special") ? _fSpecialA : null,
-      specialReasons: (fUkiUsed !== "○" && fAlphaKind === "special") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
-      ukiUsed: _showUki ? (fUkiUsed === "○") : null,
-      ukiVal: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Number(fUkiVal) : null,
-      ukiPrevBar: (_showUki && fUkiUsed === "○" && fUkiPrev !== "" && !isNaN(Number(fUkiPrev))) ? Number(fUkiPrev) : null,   // 底抜け前足の価格（内訳・差額計算の復元用）2026-07-21
-      ukiPct: (_showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? _effUkiPct : null,   // 使った加算率(%)。_elUkiAddが復元に使用 2026-07-12
-      ukiSpecial: (_showUki && fUkiUsed === "○") ? (fUkiSpecial === true) : null,   // 浮き足応用フラグ 2026-07-14g
-      ukiReasons: (_showUki && fUkiUsed === "○" && fUkiSpecial === true) ? (function() { var _a = (fUkiReasons || []).filter(function(x) { return x; }); return _a.length ? _a : null; })() : null,
-      rnUsed: fRnUsed === "○",
-      rnVal: (fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : null,
+      specialUsed: (_vapMode || fUkiUsed === "○") ? false : (fAlphaKind === "special"),   // 浮き足〇＝土台α（基本α/応用α）不使用 2026-07-14g
+      specialAlpha: (!_vapMode && fUkiUsed !== "○" && fAlphaKind === "special") ? _fSpecialA : null,
+      specialReasons: (!_vapMode && fUkiUsed !== "○" && fAlphaKind === "special") ? (function() { var _arr = (fAddReasons || []).slice(); var _o = fOtherOn ? (fAddReasonOther || "").trim() : ""; if (_o) _arr.push(_o); return _arr.length ? _arr : null; })() : null,
+      ukiUsed: _vapMode ? false : (_showUki ? (fUkiUsed === "○") : null),
+      ukiVal: (!_vapMode && _showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? Number(fUkiVal) : null,
+      ukiPrevBar: (!_vapMode && _showUki && fUkiUsed === "○" && fUkiPrev !== "" && !isNaN(Number(fUkiPrev))) ? Number(fUkiPrev) : null,   // 底抜け前足の価格（内訳・差額計算の復元用）2026-07-21
+      ukiPct: (!_vapMode && _showUki && fUkiUsed === "○" && fUkiVal !== "" && !isNaN(Number(fUkiVal))) ? _effUkiPct : null,   // 使った加算率(%)。_elUkiAddが復元に使用 2026-07-12
+      ukiSpecial: (!_vapMode && _showUki && fUkiUsed === "○") ? (fUkiSpecial === true) : null,   // 浮き足応用フラグ 2026-07-14g
+      ukiReasons: (!_vapMode && _showUki && fUkiUsed === "○" && fUkiSpecial === true) ? (function() { var _a = (fUkiReasons || []).filter(function(x) { return x; }); return _a.length ? _a : null; })() : null,
+      rnUsed: _vapMode ? false : fRnUsed === "○",
+      rnVal: (!_vapMode && fRnUsed === "○" && fRnVal !== "" && !isNaN(Number(fRnVal))) ? Number(fRnVal) : null,
       rnAuto: fRnAuto,   // 2026-07-20b RN加算自動判定が有効か（false=手動で上書き済み）。編集で開き直したときに自動が勝手に上書きしないための印
 
       alphaVal: !isNaN(_fAlpha) ? _fAlpha : null,
@@ -9134,16 +9150,31 @@ function EntryRecordForm(_ref_erf) {
       }),
       
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 14, marginBottom: 4 } },
-        React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, "α値")),
+        React.createElement("span", { style: { fontSize: 11, color: "#999", fontWeight: 700, letterSpacing: 1 } }, _vapMode ? "VAP値" : "α値")),
       // 2026-08-17c 説明文を実挙動へ追従。旧文は「（基本α or 応用α）＋浮き足加算＋RN加算」＝**2026-07-14g の浮き足専用α化より前の仕様**で、
       //   浮き足を基本/応用の上乗せとして説明していた。実際は _elBaseLevelAlpha が浮き足〇で0を返す＝基本α・応用αは合計に入らない（app-05:7191/7829も同じ排他）。
       //   浮き足の状態で出し分ける＝そのとき効いている式だけを見せる（両方書くと結局どちらが今なのか分からない）。
-      React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } },
+      _vapMode ? React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } }, "VAP値（水準線比・円）＝チャート上の出来高価格帯から読んだ値。予定EP＝水準線値＋VAP値。基本/応用α・浮き足加算・RN加算はありません。") : React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 6 } },
         (_showUki && fUkiUsed === "○")
           ? "合計α値（水準線比）＝ 浮き足加算 ＋ RN加算。⚠️浮き足〇のあいだは基本α・応用αを使わない（浮き足専用α）。"
           : "合計α値（水準線比）＝（基本α or 応用α）＋ RN加算。",
         "この合計αを水準線値に足したものが予定EP。基本αの初期値＝詳細別→シグナル別→銘柄全体の順でデータ十分な推奨基本α（★の段）"),
-      React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } },
+      React.createElement.apply(React, ["div", { style: { display: "flex", flexDirection: "column", gap: 7, marginBottom: 8 } }].concat(_vapMode ? [(function() {
+        var _setVP = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFVap(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setFVap(String(n)); };
+        var _stepVP = function(delta) { setFVap(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
+        var _lvP = parseFloat(fLevelPrice);
+        var _epTxt = (fLevelPrice === "" || isNaN(_lvP) || fVap === "") ? "\u2014" : String(Math.round((_lvP + Number(fVap)) * 100) / 100);
+        return React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
+          React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F5F3FF", border: "1px solid #DDD6FE", fontSize: 12 } },
+            React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "VAP\u5024"),
+            React.createElement("div", { style: { display: "flex", alignItems: "stretch", border: "1px solid #DDD6FE", borderRadius: 4, overflow: "hidden" } },
+              React.createElement("input", { type: "text", inputMode: "numeric", value: fVap, onChange: function(e) { _setVP(e.target.value); }, placeholder: "\u30FC",
+                style: { padding: "3px 6px", fontSize: 13, fontWeight: 800, color: "#4C1D95", border: "none", outline: "none", background: "#fff", width: 64, textAlign: "right", boxSizing: "border-box" } }),
+              _stepBtn(function() { _stepVP(1); }, function() { _stepVP(-1); })),
+            React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "\u5186"),
+            (isEdit && fVap === "") ? React.createElement("span", { title: "8/20\u4ee5\u964d\u306e\u8a18\u9332\u3067VAP\u5024\u304c\u672a\u5165\u529b\u3002\u5165\u308c\u76f4\u3059\u307e\u3067\u8a18\u9332\u5e33\u306e\u5206\u6790\u5bfe\u8c61\u5916\u3067\u3059", style: { fontSize: 9.5, fontWeight: 700, color: "#B45309", background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "VAP\u672a\u8a2d\u5b9a") : null),
+          React.createElement("span", { title: "\u6c34\u6e96\u7dda\u5024\uff0bVAP\u5024\uff1d\u4e88\u5b9a\u30a8\u30f3\u30c8\u30ea\u30fc\u4fa1\u683c", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "\u2192 \u4e88\u5b9aEP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, _epTxt), "\u5186"));
+      })()] : [
         _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
         (function() {
           // 浮き足加算（2026-07-14f α値セクションに復帰＝RN加算欄の上）。〇×→〇で底抜け前足とライン（水準線）を入力し差額（＝浮き値・ukiPrevBar/ukiVal）×採用加算率（推奨%・既定50%）で切捨て加算し合計α値へ上乗せ。データは従来どおりsignal.ukiUsed/ukiVal(+ukiPct)・alphaValへ畳み込み（保存/EP/損益/分析は不変）。
@@ -9615,8 +9646,8 @@ function EntryRecordForm(_ref_erf) {
                 _fRnAdd > 0 ? React.createElement("span", null, " ＋ RN ", React.createElement("span", { style: { color: "#1D4ED8", fontWeight: 700 } }, _fRnAdd)) : null),
           React.createElement("span", { title: "水準線＋合計α値（基本/応用＋浮き足＋RN）＝実際のエントリー予定価格。", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap", marginLeft: 4 } }, "→ 予定EP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, (function() { var _lv = parseFloat(fLevelPrice); if (fLevelPrice === "" || isNaN(_lv)) return "—"; return String(Math.round((_lv + (isNaN(_fAlpha) ? 0 : _fAlpha)) * 100) / 100); })()), "円")
         );
-      })(),
-      React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
+      })()],
+      [React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
       (function() {
         var _ckC = fStock + "_" + fDate;
         var _cdC = data.charts && data.charts[_ckC];
@@ -9667,10 +9698,10 @@ function EntryRecordForm(_ref_erf) {
             p.status === "na"
               ? React.createElement("span", { style: { color: "#B45309", marginLeft: 3, fontSize: 10 } }, "（参考）")
               : React.createElement("span", { style: { color: "#94A3B8", marginLeft: 3, fontSize: 10 } }, "（H1平均" + (p.mean != null ? (p.mean >= 0 ? "+" : "") + Math.round(p.mean) : "—") + "円・損切" + (p.stopRate != null ? Math.round(p.stopRate * 100) : "—") + "%・" + (p.n || 0) + "件）"));
-        })())
-      ),
+        })())]
+      )),
       React.createElement("div", { style: { marginBottom: 8 } },
-        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, "αメモ"),
+        React.createElement("div", { style: { fontSize: 12, color: "#666", fontWeight: 600, marginBottom: 4 } }, _vapMode ? "VAPメモ" : "αメモ"),
         React.createElement(FastInput, { multiline: true, autoResize: true, value: fAlphaMemo, onChange: function(v) { setFAlphaMemo(v); }, placeholder: "", rows: 2, style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 44 }) })
       ),
 

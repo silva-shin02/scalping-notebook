@@ -1745,6 +1745,85 @@ function _elFillEqCell(n) {
   if (!n) return React.createElement("span", { style: { color: "#d4cec5" } }, "—");
   return React.createElement("span", { style: { fontWeight: 700, color: "#0F6E56" } }, n + "件");
 }
+// ===== VAP分析ボード（α詳細表の後継）2026-10-04 =====
+// 8/20以降の記録は α値でなく VAP値（EP＝水準線＋VAP値）。ここは「VAPからさらに何円追加（上乗せ）して指すべきか」を見る表。
+// ①追加円数ごとの表: 各記録のEPを VAP+k円（k=0〜10・1円刻み）に置き直して再判定＝_elH2EvalByFn（α詳細表と同じエンジン・同値は全列除外）。
+//   ★＝合計損益(Σ想定損益)が最大の行。想定損益が確定した件数(h2Cnt)が10件未満の行には付けない（ユーザー決定）。
+// ②記録ごとの余地: 約定した記録（OS最大がEPを上抜けた＝同値は約定と見なさない・×見送りは除く）について、
+//   「あと何円上げても約定したか」＝ 余地 = ceil(OS最大 − VAP) − 1（整数円）。未約定の記録は分析から除外。
+// 母数 = 呼び出し側が渡した「VAP入力済み・算入・被り除外後」の記録。aiOf(r)→{cutLine,...}（損切りラインの取得に使う）。
+var _VAP_STAR_MIN = 10;
+function _vapMargin(s) {
+  var vap = _vapOf(s); if (vap == null) return null;
+  var os = _elOsMaxAll(s); if (os == null) return null;
+  if (!(Number(os) > vap)) return null;                 // 上抜けていない（同値含む）＝約定と見なさない
+  if (_epIsXSkip(s, vap)) return null;                  // ×見送りは指値を出していない
+  return Math.max(0, Math.ceil(Number(os) - vap) - 1);
+}
+function _vapBoardV2(recs, aiOf, onEdit) {
+  var pool = (recs || []).filter(function(r) { return r && r.signal && _vapOf(r.signal) != null; });
+  var box = { padding: "7px 11px", borderRadius: 8, marginBottom: 8, fontSize: 11 };
+  if (!pool.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "VAP値が入力済みの記録がありません（8/20以降の記録にVAP値を入れると分析に入ります）");
+  var rows = [];
+  for (var k = 0; k <= 10; k++) {
+    (function(kk) { rows.push({ k: kk, e: _elH2EvalByFn(pool, aiOf, function(r) { return _vapOf(r.signal) + kk; }, true) }); })(k);
+  }
+  var best = null;
+  rows.forEach(function(x) { if (x.e.h2Cnt >= _VAP_STAR_MIN && x.e.h2Sum != null && (best == null || x.e.h2Sum > best.e.h2Sum)) best = x; });
+  var th = function(txt, i) { return React.createElement("th", { key: "th" + i, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", fontSize: 10, textAlign: "right", whiteSpace: "nowrap", color: "#555" } }, txt); };
+  var td = function(node, i, extra) { return React.createElement("td", { key: "td" + i, style: Object.assign({ padding: "3px 6px", textAlign: "right", fontSize: 11, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }, extra || {}) }, node); };
+  var pct = function(v) { return v == null ? "\u2014" : Math.round(v * 100) + "%"; };
+  var table = React.createElement("div", { style: { overflowX: "auto" } },
+    React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+      React.createElement("thead", null, React.createElement("tr", null,
+        ["\u8ffd\u52a0", "EP\uff08VAP+\u8ffd\u52a0\uff09", "\u4ef6\u6570", "\u7d04\u5b9a\u7387", "\u540c\u5024", "\u5408\u8a08\u640d\u76ca", "\u5e73\u5747", "\u4e2d\u592e\u5024", "\u52dd\u7387", "\u640d\u5207\u308a\u7387", ""].map(th))),
+      React.createElement("tbody", null, rows.map(function(x) {
+        var e = x.e, isBest = best && best.k === x.k;
+        var c = 0;
+        return React.createElement("tr", { key: "r" + x.k, style: { background: isBest ? "#FEF9C3" : (x.k === 0 ? "#F5F3FF" : "transparent"), borderBottom: "1px solid #eee" } },
+          td(x.k === 0 ? "\u00b10" : "+" + x.k + "\u5186", c++, { fontWeight: 800, textAlign: "left" }),
+          td("VAP" + (x.k ? "+" + x.k : ""), c++, { color: "#64748B" }),
+          td(e.n + "\u4ef6", c++),
+          td(e.entered + "/" + e.n + "\uff08" + pct(e.eRate) + "\uff09", c++),
+          td(_elFillEqCell(e.fillEqN), c++),
+          td(React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(e.h2Sum) } }, _elPnlFmt(e.h2Sum)), c++),
+          td(e.avgH2 == null ? "\u2014" : React.createElement("span", { style: { color: _elPnlColor(e.avgH2) } }, _elPnlFmt(Math.round(e.avgH2))), c++),
+          td(e.medH2 == null ? "\u2014" : React.createElement("span", { style: { color: _elPnlColor(e.medH2) } }, _elPnlFmt(Math.round(e.medH2))), c++),
+          td(pct(e.takeRate), c++),
+          td(pct(e.stopRate), c++),
+          td(isBest ? React.createElement("span", { title: "\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u304c\u78ba\u5b9a\u3057\u305f\u4ef6\u6570" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09", style: { color: "#CA8A04", fontWeight: 800 } }, "\u2605\u63a8\u5968") : "", c++));
+      }))));
+  // 記録ごとの余地
+  var ms = [];
+  pool.forEach(function(r) { var m = _vapMargin(r.signal); if (m != null) ms.push({ r: r, m: m }); });
+  var vals = ms.map(function(x) { return x.m; }).sort(function(a, b) { return a - b; });
+  var avg = vals.length ? vals.reduce(function(a, b) { return a + b; }, 0) / vals.length : null;
+  var med = null; if (vals.length) { var mi = (vals.length - 1) / 2; med = (vals.length % 2) ? vals[mi] : (vals[Math.floor(mi)] + vals[Math.ceil(mi)]) / 2; }
+  var dist = []; for (var d = 0; d <= 10; d++) dist.push(0);
+  vals.forEach(function(v) { dist[Math.min(10, v)]++; });
+  var distBar = React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 } }, dist.map(function(n, i) {
+    return React.createElement("span", { key: "d" + i, style: { fontSize: 10, fontWeight: 700, background: "#fff", border: "1px solid #DDD6FE", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap", color: n ? "#5B21B6" : "#bbb" } }, (i === 10 ? "10+" : "+" + i) + "\u5186: " + n + "\u4ef6");
+  }));
+  var list = ms.slice().sort(function(a, b) { return (b.r.date + (b.r.signal.time || "")).localeCompare(a.r.date + (a.r.signal.time || "")); }).slice(0, 60);
+  var listEl = React.createElement("div", { style: { marginTop: 6, maxHeight: 260, overflowY: "auto", border: "1px solid #eee", borderRadius: 6 } },
+    list.map(function(x, i) {
+      var s = x.r.signal;
+      return React.createElement("div", { key: "m" + i, onClick: onEdit ? function() { onEdit(x.r); } : undefined, style: { display: "flex", gap: 8, alignItems: "center", padding: "3px 8px", fontSize: 11, borderBottom: "1px solid #f3f3f3", cursor: onEdit ? "pointer" : "default" } },
+        React.createElement("span", { style: { color: "#888", minWidth: 40 } }, (x.r.date || "").slice(5)),
+        React.createElement("span", { style: { minWidth: 70, fontWeight: 700 } }, x.r.stock),
+        React.createElement("span", { style: { color: "#888", minWidth: 40 } }, s.time || ""),
+        React.createElement("span", { style: { color: "#64748B" } }, "VAP " + _vapOf(s) + " / OS\u6700\u5927 " + _elOsMaxAll(s)),
+        React.createElement("span", { style: { marginLeft: "auto", fontWeight: 800, color: "#5B21B6" } }, "\u4f59\u5730 +" + x.m + "\u5186"));
+    }));
+  return React.createElement("div", null,
+    React.createElement("div", { style: Object.assign({ background: "#F5F3FF", border: "1px solid #DDD6FE", color: "#5B21B6", lineHeight: 1.5 }, box) },
+      "EP\uff1d\u6c34\u6e96\u7dda\uff0bVAP\u5024\u3002\u5404\u8a18\u9332\u306eEP\u3092VAP\u304b\u3089\u300c\u8ffd\u52a0\u300d\u5186\u3060\u3051\u4e0a\u3052\u3066\u6307\u3057\u76f4\u3057\u305f\u3068\u3057\u3066\u518d\u5224\u5b9a\u3002\u540c\u5024\uff08OS\u6700\u5927\uff1dEP\uff09\u306f\u7d04\u5b9a\u3057\u3066\u3044\u306a\u3044\u6271\u3044\u3067\u5168\u5217\u9664\u5916\u3002\u2605\u306f\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u78ba\u5b9a" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09\u3002\u6bcd\u6570 " + pool.length + "\u4ef6\u3002"),
+    table,
+    React.createElement("div", { style: { marginTop: 12, fontSize: 12, fontWeight: 800, color: "#333" } }, "\u8a18\u9332\u3054\u3068\u306e\u4f59\u5730\uff08\u3042\u3068\u4f55\u5186\u4e0a\u3052\u3066\u3082\u7d04\u5b9a\u3057\u305f\u304b\uff09"),
+    React.createElement("div", { style: { fontSize: 10, color: "#888", margin: "2px 0" } }, "\u7d04\u5b9a\u3057\u305f\u8a18\u9332\uff08OS\u6700\u5927\u304cEP\u3092\u4e0a\u629c\u3051\uff09\u306e\u307f\u3002\u4f59\u5730\uff1dceil(OS\u6700\u5927\u2212VAP)\u22121\u3002\u7d04\u5b9a\u4ef6\u6570 " + ms.length + "/" + pool.length + "\u4ef6\u30fb\u5e73\u5747 " + (avg == null ? "\u2014" : (Math.round(avg * 10) / 10) + "\u5186") + "\u30fb\u4e2d\u592e\u5024 " + (med == null ? "\u2014" : med + "\u5186")),
+    distBar,
+    ms.length ? listEl : null);
+}
 // ===== RN加算の分析ボード（シグナル総合「🔢RN」・2026-07-16d 全面刷新）=====
 // RN加算＝EPの下二桁がキリ番の手前バンドのとき、RN加算(rnVal=キリ番−下二桁)でEPをキリ番ちょうどに乗せる運用。2026-09-02 中RN(…50)／大RN(…00＝100・1000台)の2種別。
 // 母数=渡されたv2算入記録のうちRN〇(signal.rnUsed・_elRnYes)。想定損益(手じまい)基準(_elH2EvalByFn)。
@@ -6656,19 +6735,20 @@ function EntryLogView(_ref_elv2) {
   // 2026-07-20j EMA修正前（2026年4月以前）を記録帳全体から常に除外＝ユーザー選択「算入しない」の徹底。
   // ここを根元にするのは_periodRecsだけでなく_stockAllV2（KPI早見の月カード・期間ピッカーに依存しない別経路 6111）も同じ母数にするため＝片方だけ4月が残る不整合を防ぐ。
   // 旧: 母数トグル「5月〜」(anaJul)で任意にON/OFFしていたが、常時除外になったのでトグルは撤去（常にONと同義）。顔ぶれ(_tickerList)は固定のまま。
-  var _anaRecs = allRecs.filter(function(r) { return !_elIsEmaRefPeriod((r && r.date) || ""); });
+  // 2026-10-04 VAP値への移行: 8/20より前の記録は記録帳から外す（一覧にも出さない・ユーザー決定）。_vapWorld＝app-05。
+  var _anaRecs = allRecs.filter(function(r) { return !_elIsEmaRefPeriod((r && r.date) || "") && _vapWorld((r && r.date) || ""); });
   var _periodRecs = _elPSelFilter(_anaRecs, pSel);   // 2026-07-20i 年月週日カスケード選択（_elPSelFilter＝ローカル基準・_elBucketKey準拠）。旧_elFilterPeriod経路は廃止
   // 銘柄タブのバッジ件数: 選択期間内・銘柄未限定の記録数（顔ぶれは固定、件数だけ期間連動）
   var _cntByStock = (function() { var m = {}; _periodRecs.forEach(function(r) { if (r.stock) m[r.stock] = (m[r.stock] || 0) + 1; }); return m; })();
   var filtered = (_isAllStock || _isSigTotal) ? _periodRecs : _periodRecs.filter(function(r) { return r.stock === _selStock; });
   // 合計額算入: includeInTotal===false の記録は集計/分析の母集団から除外（一覧 filtered は全件のまま）。2026-06-18
   // _v2recsAll=銘柄/期間で絞ったv2算入記録（追加α〇/×/未選択は混在）＝推奨基本α/追加αタブはこれを使い全体トグルと独立。
-  var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal); });
+  var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal) && _vapOf(r.signal) != null; });   // VAP値が未入力の記録(8/20〜)は分析対象外 2026-10-04
   // 分析母数の根（計算/データ分離 2026-07-22f）: 分析パネル（銘柄別軸_sigGroupsAll・浮き足/RNボード・株価帯別）は_elInclData（データ算入）で絞る＝「計算off/データon」の記録も分析に残す/「計算on/データoff」は分析から外す。合計損益ダッシュボード（_ovPnlTbl/KPI早見/期間タブ/累積）は_v2recsAll（_elInclTotal）のまま。未設定は_elInclTotalに追従＝分割前と一致。
   // 2026-08-05t _sinceCut＝分析母数トグル。ここが分析の根なので、📡シグナル総合の全サブタブ・銘柄別の
   //   集計/α値/損切り/未達/深掘り/株価帯別・シグナルピルの件数・_missCnt・銘柄タブのシミュ（_selSigRecs経由）・
   //   推奨α（基本α★/応用α）までが一括で追随する＝トグルの配線はこの1か所で足りる。OFF時は素通し＝従来と同一。
-  var _v2recsAllData = _sinceCut(filtered).filter(function(r) { return _epIsV2(r.signal) && _elInclData(r.signal); });
+  var _v2recsAllData = _sinceCut(filtered).filter(function(r) { return _epIsV2(r.signal) && _elInclData(r.signal) && _vapOf(r.signal) != null; });
   // v2recs=全体トグル（追加α 全部/〇/×/未選択）で絞った分析母数。集計・損益・OS値・損切り・シグナル別等の分析タブが従う 2026-06-24。
   var v2recs = (addAlphaFil === "all") ? _v2recsAll : _v2recsAll.filter(function(r) { return addAlphaFil === "yes" ? _elSpecialUsed(r.signal) : !_elSpecialUsed(r.signal); });   // 2状態化 2026-07-13: yes=応用あり／no=応用なし（旧×+未選択を統合）
   // 旧記録件数は算入フラグと独立に数える（除外した新形式記録を「旧記録」に混ぜない）。2026-06-18
@@ -6676,8 +6756,8 @@ function EntryLogView(_ref_elv2) {
   // 未達タブのバッジ件数は、選択中シグナルの母数で数える（シグナル軸の下で _missCnt を定義 2026-07-01）。
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
-    ? [["sum", "📊 集計"], ["ce", "📥 確定待ち"], ["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
-    : [["sum", "📊 集計"], ["alpha", "📐 α値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
+    ? [["sum", "📊 集計"], ["ce", "📥 確定待ち"], ["alpha", "📐 VAP値"], ["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
+    : [["sum", "📊 集計"], ["alpha", "📐 VAP値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   // 2026-09-02 「🩹 補正要否」タブを撤去＝対象シグナル（既定「底つきライン」・_SPN_DEFAULT_SIGNALS）のタブ内へ移設（ユーザー指示「この補正は底つきラインでしか使わない」）。
   var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]];   // 2026-08-20b 「📥 確定待ち」はここに一度置いたが、ユーザー決定で💰損益タブ（_tabsの全銘柄側）へ移設した。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
@@ -8330,12 +8410,19 @@ function EntryLogView(_ref_elv2) {
                 m.replace("-", "/") + " " + _l.length + "件");
             })));
       })();
+      var _vapUnset = filtered.filter(function(r) { return _epIsV2(r.signal) && _vapOf(r.signal) == null; });
+      var _vapNote = _vapUnset.length ? React.createElement("div", { key: "vapnote", style: { padding: "7px 11px", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#5B21B6", lineHeight: 1.5 } },
+        React.createElement("div", { style: { fontWeight: 800 } }, "⚠ VAP未設定 " + _vapUnset.length + "件 は分析に入っていません"),
+        React.createElement("div", { style: { marginTop: 3, fontWeight: 600 } }, "8/20以降はα値の代わりにVAP値で分析します。該当記録を開いてVAP値を入れ直して保存すると、分析に入ります。"),
+        React.createElement("div", { style: { marginTop: 4, display: "flex", gap: 5, flexWrap: "wrap" } },
+          _vapUnset.slice(0, 40).map(function(r, i) { return React.createElement("span", { key: "vu_" + i, style: { fontSize: 10, fontWeight: 700, background: "#fff", border: "1px solid #DDD6FE", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap" } }, (r.date || "").slice(5) + " " + r.stock + " " + ((r.signal && r.signal.time) || "")); }))) : null;
       var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
         _sumMonthNav,
         _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
         _oldRecNote,
+        _vapNote,
         [
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。想定損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）。6/29より前は集計ルールが違うため薄く表示し、合計・平均には算入していません（月別の2026/06は〜6/28と6/29〜の2行に分けています）。合計行の「月換算」は1か月＝20営業日として引き伸ばした目安（合計÷営業日数×20）で、実額ではありません"),
           _granSeg(gran, setGran, "ov_", _ovGradeLegend),
@@ -8401,7 +8488,11 @@ function EntryLogView(_ref_elv2) {
       }
     }
   } else if (view === "alpha") {
-    if (!_selSigRecs.length) {
+    if (true) {   // 2026-10-04 α値タブはVAP分析ボードに置換（旧α分析は下に残置＝到達しない）
+      _tabBody = _cardify([
+        _secH("📐 VAP値の分析", "8/20以降の記録。EP＝水準線＋VAP値。VAPから追加円数ごとの損益と、記録ごとの余地"),
+        _vapBoardV2(_v2recsAll.filter(function(r) { return !_elCollExcluded(data, r, _collScope); }), _ai, function(rec) { setEditTarget(rec); })]);
+    } else if (!_selSigRecs.length) {
       _tabBody = React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sigAxisGroups.length ? "このシグナルのEP起算（v2）記録がありません" : "EP起算（v2）の記録がありません");
     } else {
       // α値タブ＝タブ内サブタブ式（2026-06-29）: 基本α(青)/追加α(茶橙)/共通ツール(グレー)を別画面に分離し「ごっちゃ」を解消。母数は選択中シグナルの固定母数（_selSigRecs・トグル非依存）2026-07-01。
