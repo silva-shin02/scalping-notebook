@@ -7569,7 +7569,7 @@ function EntryLogView(_ref_elv2) {
       signal: function(r) { return r.signal; },
       alpha: function(r) { return _ai(r).alpha; },
       cut: function(r) { return _ai(r).cutLine; },
-      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); },   // 2026-09-02 同値も除外（実現損益は同値該当が元から持たないので不変）
+      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r) || _isDataOnly(data, r); },   // 2026-10-04 データのみも除外／2026-09-02 同値も除外（実現損益は同値該当が元から持たないので不変）
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
     var ss = _elStopStatsV2(_rsE, data), reach = n ? Math.round((ok + x) / n * 100) : null;   // reach の分母は n（=同値込みの母数）のまま＝ボードの eRate=entered/n と同じ
@@ -7607,12 +7607,17 @@ function EntryLogView(_ref_elv2) {
   // 一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある記録。
   // 集計器（exFill=false:通常／true:指値リスク除外）＝セクションの4カード用。通常側は既存KPIと同じ配線
   // （時間かぶり除外あり）なので、除外後は「そこに指値リスク分を足しただけ」＝2値は必ず同じ母数・同じ基準で比較できる。
+  // ⚠️2026-10-04 監査で見つけた不整合の修正: 除外に _isDataOnly を足した。
+  //   母数が _v2recsAllData（分析母数＝_elInclData）由来の呼び出しがあり、_elInclData は _isDataOnly を見ないので、
+  //   「データのみ（候補銘柄だがその日に取引銘柄として指定しなかった記録）」の金額がこのセクションにだけ入っていた。
+  //   記録帳の全体損益（期間別）・日別・ホーム月次はいずれも除外しているので、ここだけ数字が大きく出ていた。
+  //   規約は「金額だけ外す」なので excluded（金額の分子）に足す＝件数 rs.length や到達率はこれまでどおり。
   var _friskTotOf = function(x, exFill) {
     return _elTotAccum(x, {
       signal: function(r) { return r.signal; },
       alpha: function(r) { return _ai(r).alpha; },
       cut: function(r) { return _ai(r).cutLine; },
-      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || (exFill && _elFillRiskRec(r)); }
+      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || (exFill && _elFillRiskRec(r)) || _isDataOnly(data, r); }   // データのみも除外 2026-10-04
     });
   };
   var _fillRiskSection = function(rs, scopeNote) {
