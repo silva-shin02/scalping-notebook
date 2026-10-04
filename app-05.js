@@ -3707,13 +3707,25 @@ function _epLegs(s) {
 // judge: "ok"=E成立 / "x"=×宣言後の到達(見送り・参考扱い=集計上ノートレード) / "miss"=E未達。
 //   ×宣言＝EPより手前のOSが×（xBefore）。EP足＝エントリーした足なのでEP-OS自身の×はありえない＝EP（OS1含む）は無条件算入。
 // 役割はαから導出: αシミュでEP位置が動いてもh1/h2は配列位置で追従（不足足はnull）。
+// EP到達の判定 2026-10-04（ユーザー決定「EPとOS値が同値の場合、そもそもエントリーできていないことにしたい」）。
+//   足の高値 h が EP(alpha) を**上抜けた**ときだけ到達（h > alpha）。ちょうど同値＝指値に触れただけ＝未約定＝到達せず。
+//   例外＝実エントリー済み(s.entered===true)で、αがその記録自身の採用α(_epOwnAlpha)のとき＝約定した証拠があるので同値でも到達（従来の指値同値の例外と同じ）。
+//   ⚠️EP位置を数える箇所はここへ揃える（_epResolve／記録時EP位置 recEp の算出3か所）。旧式(非v2)の >= 判定は対象外。
+function _epHit(s, h, alpha) {
+  if (h == null || alpha == null) return false;
+  var H = Number(h), A = Number(alpha);
+  if (isNaN(H) || isNaN(A)) return false;
+  if (H > A) return true;
+  if (H < A) return false;
+  return !!(s && s.entered === true && A === _epOwnAlpha(s));
+}
 function _epResolve(s, alpha) {
   if (!_epIsV2(s) || alpha == null) return null;
   var legs = _epLegs(s);
   if (!legs.length) return null;
   var epIdx = -1;
   for (var i = 0; i < Math.min(3, legs.length); i++) {
-    if (legs[i].h != null && legs[i].h >= alpha) { epIdx = i; break; }
+    if (_epHit(s, legs[i].h, alpha)) { epIdx = i; break; }
   }
   if (epIdx < 0) return { epIdx: -1, ep: null, h1: null, h2: null, judge: "miss", legs: legs };
   // 2026-08-05r ×宣言の判定を次足期待度の正本(_epNextExpAt)へ統一（ユーザー報告のバグ修正）。
@@ -3737,7 +3749,7 @@ function _epNextExpAt(s, x) {
   var nv = s["nextExp" + (x + 1)];
   if (nv != null && nv !== "") return nv;
   var legs = _epLegs(s), a0 = _epOwnAlpha(s), recEp = -1;
-  if (a0 != null) { for (var k = 0; k < Math.min(3, legs.length); k++) { if (legs[k].h != null && legs[k].h >= a0) { recEp = k; break; } } }
+  if (a0 != null) { for (var k = 0; k < Math.min(3, legs.length); k++) { if (_epHit(s, legs[k].h, a0)) { recEp = k; break; } } }
   if (recEp >= 0) {
     if (x === recEp) return s.holdExp || null;
     if (x === recEp + 1) return s.hold2Exp || null;
@@ -3774,7 +3786,7 @@ function _epAsTraded(s) {
   var v = Object.assign({}, s, { os1Exp: null, os2Exp: null });
   // 次足期待度(正本)も待ち足分を除去 2026-07-06e: ×宣言は記録時EPより前の足にあるので、そのnextExpNだけnull化（EP足以降=保有判断は温存）。EP不明(未到達等)はos1/os2に合わせ先頭2足。
   var legs = _epLegs(s), a0 = _epOwnAlpha(s), recEp = -1;
-  if (a0 != null) { for (var k = 0; k < Math.min(3, legs.length); k++) { if (legs[k].h != null && legs[k].h >= a0) { recEp = k; break; } } }
+  if (a0 != null) { for (var k = 0; k < Math.min(3, legs.length); k++) { if (_epHit(s, legs[k].h, a0)) { recEp = k; break; } } }
   var upto = recEp >= 0 ? recEp : 2;
   for (var x = 0; x < upto; x++) v["nextExp" + (x + 1)] = null;
   return v;
@@ -4373,7 +4385,7 @@ function _epOsChainCell(s, alpha, cutLine) {
   var _dispEx = [], _autoEx = [];
   if (_epIsV2(s)) {
     var _a0c = _epOwnAlpha(s), _recEpC = -1;
-    if (_a0c != null) { for (var kk = 0; kk < Math.min(3, legs.length); kk++) { if (legs[kk].h != null && legs[kk].h >= _a0c) { _recEpC = kk; break; } } }
+    if (_a0c != null) { for (var kk = 0; kk < Math.min(3, legs.length); kk++) { if (_epHit(s, legs[kk].h, _a0c)) { _recEpC = kk; break; } } }
     legs.forEach(function(o, i) {
       var ex = _epNextExpAt(s, i), auto = false;
       if (ex == null) {
@@ -4895,6 +4907,9 @@ function _elCollPairNode(data, r, scope) {
 //   2026-08-10 ユーザー決定で**全列除外**へ＝到達/E成立/利確/損切り/想定損益(平均・中央・Σ)/勝ち負け平均のどの母数にも入れず、
 //   件数だけ「同値」列に出す（_elH2EvalByFn の第4引数 fillEqSkip・app-06）。旧2026-08-02e〜09は想定損益にだけ0円算入だった。
 function _elFillRisk(s, item) {
+  // 2026-10-04 無効化: 「OS最大＝EP」は _epResolve(_epHit) の時点で未約定(miss)になった＝全集計から自然に外れる。
+  //   別建ての「指値同値」除外は二重になるだけなので常に false（バッジ・除外後の帯・ホームの指値除外チップは該当0件で出なくなる）。
+  if (true) return false;
   if (!s) return false;
   if (_elIsEntered(s, item)) return false;
   var _real = (item && item.pnl != null) ? Number(item.pnl) : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);

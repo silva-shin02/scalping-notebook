@@ -3069,3 +3069,5 @@ HomeEventFormModal, App
   - EPナビ(app-04): `_epnVap` で浮き足・RN・応用αを0扱い（基本α欄＝VAP値）。UIラベルは未改称。
 
 - 【指値除外のグレードバッジ・大型表示 2026-10-04】ホーム(app-08)に「指値除外」チップ（`_mExPerDay`・グレード＝1日あたり・損益/実現/指値除外は `big` で文字大・列幅1.4fr）。📊早見パネル(`_SnMonthPnlPanel`・app-05)に「指値除外」セル。記録帳の表の同値除外列は元から `_yenN` でバッジ付き。
+
+- 【EP＝OS同値は未約定 2026-10-04】`_epHit(s,h,alpha)`(app-05・_epResolveの直前)＝足の高値がEPを**上抜けた**ときだけ到達（同値は到達せず＝miss）。実エントリー済み(s.entered)かつ記録自身の採用αのときだけ同値でも到達。EP位置を数える4か所(_epResolve/_epNextExpAt/_epAsTraded/app-05:4376付近)を揃えた。これに伴い `_elFillRisk` は常にfalse（指値同値バッジ・除外後の帯・ホームの指値除外チップは出なくなる）。
