@@ -576,6 +576,14 @@ function migrateData(d) {
     d.custom.amtStocks = [];
     d.custom._amtStocksSeed4 = 1;
   }
+  // 2026-10-04 ユーザー指示「JX金属は日替わりでなく固定銘柄（フジクラと同じ）」。日替わり候補(rotatingStocks)から1回だけ外す。
+  //   後から設定で日替わりに入れ直せばそれは尊重する（フラグで再実行しない）。
+  if (!d.custom._jxFixedSeed1) {
+    if (Array.isArray(d.custom.rotatingStocks) && d.custom.rotatingStocks.indexOf("JX金属") >= 0) {
+      d.custom.rotatingStocks = d.custom.rotatingStocks.filter(function(s) { return s !== "JX金属"; });
+    }
+    d.custom._jxFixedSeed1 = 1;
+  }
   // ユーザー指定の初期値。**シグナル単位で1回だけ**適用する（_sigSecSeeded に適用済みを記録）。
   // 一律フラグ1つだと、後から別シグナルの初期値を足すときにフラグを増やす羽目になり、
   // しかもフラグを上げ直すと利用者が変更済みのラベルまで巻き戻る。シグナル単位なら足すだけで済む。
