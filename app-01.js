@@ -557,7 +557,7 @@ function migrateData(d) {
   if (!Array.isArray(d.custom.amtStocks)) d.custom.amtStocks = [];
   // 初期値は1回だけ入れる（消しても復活しない）。既存ユーザーも初回に既定が入る＝今までの全銘柄合計から変わる点に注意。
   if (!d.custom._amtStocksSeed1) {
-    if (!d.custom.amtStocks.length) d.custom.amtStocks = ["フジクラ", "SBG"];
+    // 2026-10-04 既定の絞り込み（フジクラ・SBG）は取りやめ＝空配列（全銘柄算入）のまま。
     d.custom._amtStocksSeed1 = 1;
   }
   // 2026-10-04 ユーザー指定「合計算入銘柄にJX金属を追加」。既存の選択へ1回だけ足す（消しても復活しない）。空配列＝全銘柄算入なので触らない。
@@ -569,6 +569,20 @@ function migrateData(d) {
   if (!d.custom._amtStocksSeed3) {
     if (d.custom.amtStocks.length && d.custom.amtStocks.indexOf("\uD83D\uDCC5\u65E5\u66FF\u308F\u308A") < 0) d.custom.amtStocks = d.custom.amtStocks.concat(["\uD83D\uDCC5\u65E5\u66FF\u308F\u308A"]);
     d.custom._amtStocksSeed3 = 1;
+  }
+  // 2026-10-04 ユーザー指示「9月以降の合計算入はフジクラ・SBGのみ、を取りやめ」。保存済みの絞り込みを1回だけ解除（空配列＝全銘柄算入）。
+  //   Seed2/3 は追記のみなので、この解除より前に走っても結果は空に戻る。設定から選び直せばその選択は残る。
+  if (!d.custom._amtStocksSeed4) {
+    d.custom.amtStocks = [];
+    d.custom._amtStocksSeed4 = 1;
+  }
+  // 2026-10-04 ユーザー指示「JX金属は日替わりでなく固定銘柄（フジクラと同じ）」。日替わり候補(rotatingStocks)から1回だけ外す。
+  //   後から設定で日替わりに入れ直せばそれは尊重する（フラグで再実行しない）。
+  if (!d.custom._jxFixedSeed1) {
+    if (Array.isArray(d.custom.rotatingStocks) && d.custom.rotatingStocks.indexOf("JX金属") >= 0) {
+      d.custom.rotatingStocks = d.custom.rotatingStocks.filter(function(s) { return s !== "JX金属"; });
+    }
+    d.custom._jxFixedSeed1 = 1;
   }
   // ユーザー指定の初期値。**シグナル単位で1回だけ**適用する（_sigSecSeeded に適用済みを記録）。
   // 一律フラグ1つだと、後から別シグナルの初期値を足すときにフラグを増やす羽目になり、

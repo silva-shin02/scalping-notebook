@@ -3057,3 +3057,7 @@ HomeEventFormModal, App
 - 【ホーム損益チップの指値除外 2026-10-04】`_snDailyPnlMap`/`_snMonthPnlAgg`(app-05) に `finalEx`(指値同値を除いた想定損益)/`eqCnt`(除外件数)を追加。app-08 の「損益」チップ sub2 に「指値除外 ±X円」を表示（該当0件の月は非表示）。
 
 - 【算入銘柄に「📅日替わり」擬似銘柄 2026-10-04】`_EL_AMT_ROT`(app-05)を custom.amtStocks に入れると rotatingStocks の銘柄をまとめて算入（指定日だけは従来どおり _isDataOnly が判定）。移行は app-01 `_amtStocksSeed3`。
+
+- 【算入銘柄の絞り込みを取りやめ 2026-10-04】既定のフジクラ・SBG絞り込みを廃止し、app-01 `_amtStocksSeed4` で保存済みの amtStocks を1回だけ空（全銘柄算入）へ。絞り込み機能自体（設定のピッカー）は残す。
+
+- 【JX金属を固定銘柄へ戻す 2026-10-04】app-01 `_jxFixedSeed1` で custom.rotatingStocks から JX金属 を1回だけ除去（日替わりタブ→個別タブ）。
