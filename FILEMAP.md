@@ -3071,3 +3071,5 @@ HomeEventFormModal, App
 - 【指値除外のグレードバッジ・大型表示 2026-10-04】ホーム(app-08)に「指値除外」チップ（`_mExPerDay`・グレード＝1日あたり・損益/実現/指値除外は `big` で文字大・列幅1.4fr）。📊早見パネル(`_SnMonthPnlPanel`・app-05)に「指値除外」セル。記録帳の表の同値除外列は元から `_yenN` でバッジ付き。
 
 - 【EP＝OS同値は未約定 2026-10-04】`_epHit(s,h,alpha)`(app-05・_epResolveの直前)＝足の高値がEPを**上抜けた**ときだけ到達（同値は到達せず＝miss）。実エントリー済み(s.entered)かつ記録自身の採用αのときだけ同値でも到達。EP位置を数える4か所(_epResolve/_epNextExpAt/_epAsTraded/app-05:4376付近)を揃えた。これに伴い `_elFillRisk` は常にfalse（指値同値バッジ・除外後の帯・ホームの指値除外チップは出なくなる）。
+
+- 【指値同値の件数・仮想損益の表示 2026-10-04】`_elFillRisk` を検出用に復活（同値は未約定=missで金額に入らない）。`_elFillEqLoose(fn)`/`_EP_EQ_LOOSE` で一時的に同値を到達扱いにして `_elFillEqPnl`(約定していたら想定損益)・`_elFillEqStats`(件数と合計)を出す。表示＝ホーム「指値同値」チップ(app-08)・📊パネル・日別/週の帯 `_elFillEqFootNode`・記録帳「同値除外損益」の「約定していたら」。`_snDailyPnlMap`/`_snMonthPnlAgg` に eqCnt/eqPnl/eqPnlCnt（finalEx は廃止）。
