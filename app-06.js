@@ -1835,8 +1835,33 @@ function _vapBoardV2(recs, aiOf, onEdit) {
 // 上段＝シグナルごとの比較表（±0の成績と、追加円数0〜+10のうちΣ想定損益が最大の行）。行タップでそのシグナルだけの _vapBoardV2 に切替／「全シグナル」で戻る。
 // groups＝[{key,label,recs}]（呼び出し側の_buildSigGroups。複数タグの記録は各タグに算入＝件数合計は総件数を超えうる）。recs＝全シグナル合算の母数。
 // ★は確定件数10件以上の行のみ（_vapBoardV2と同じ規約）。10件に満たないシグナルは「参考」を付けて灰色表示（件数が薄いうちは偶然に引きずられる）。
+// 比較軸 2026-10-04: axes＝[{name,groups:[{key,label,recs}]}]。軸が2つ以上あれば表の上に「分け方」ピルで切替（切替時は絞り込みを解除）。
+//   銘柄別＝記録の銘柄で分割（2銘柄以上のときだけ）／時間帯別＝既存の時間帯別（_elTimeOfDaySectionV2）と同じ区切り（寄り〜9:15／9:16〜9:30／9:31〜10:00／10:01〜＋時刻なし・時刻はsignal.time）。
+//   時間帯は2区分以上に分かれるときだけ軸に出す（1区分だけなら全体と同じで意味がない）。sigGroups＝シグナル軸の groups（null/空なら出さない）。
+var _VAP_TIME_DEFS = [["b1", "寄り〜9:15", -1, 555], ["b2", "9:16〜9:30", 555, 570], ["b3", "9:31〜10:00", 570, 600], ["b4", "10:01〜", 600, 99999]];
+function _vapTimeMin(t) { if (!t) return null; var m = String(t).match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; }
+function _vapAxes(recs, sigGroups) {
+  var axes = [];
+  if (sigGroups && sigGroups.length) axes.push({ name: "シグナル", groups: sigGroups });
+  var bySt = {}; (recs || []).forEach(function(r) { (bySt[r.stock] = bySt[r.stock] || []).push(r); });
+  var stKeys = Object.keys(bySt).sort(function(a, b) { return bySt[b].length - bySt[a].length; });
+  if (stKeys.length >= 2) axes.push({ name: "銘柄", groups: stKeys.map(function(k) { return { key: k, label: k, recs: bySt[k] }; }) });
+  var byT = {}; (recs || []).forEach(function(r) {
+    var mn = _vapTimeMin(r.signal && r.signal.time), k = "none";
+    if (mn != null) { for (var i = 0; i < _VAP_TIME_DEFS.length; i++) { if (mn > _VAP_TIME_DEFS[i][2] && mn <= _VAP_TIME_DEFS[i][3]) { k = _VAP_TIME_DEFS[i][0]; break; } } }
+    (byT[k] = byT[k] || []).push(r);
+  });
+  var tg = _VAP_TIME_DEFS.map(function(d) { return byT[d[0]] ? { key: "t:" + d[0], label: d[1], recs: byT[d[0]] } : null; }).filter(Boolean);
+  if (byT.none) tg.push({ key: "t:none", label: "時刻なし", recs: byT.none });
+  if (tg.length >= 2) axes.push({ name: "時間帯", groups: tg });
+  return axes;
+}
 function _VapSigBoard(props) {
-  var recs = props.recs || [], aiOf = props.aiOf, onEdit = props.onEdit, groups = props.groups || [], ax = props.axis || "シグナル";   // axis＝比較の軸名（既定シグナル／シグナル別タブ内では銘柄）
+  var recs = props.recs || [], aiOf = props.aiOf, onEdit = props.onEdit;
+  var axes = props.axes || [{ name: props.axis || "シグナル", groups: props.groups || [] }];
+  var _ua = useState(0), axI = _ua[0], setAxI = _ua[1];
+  var _ax = axes[Math.min(axI, Math.max(0, axes.length - 1))] || { name: "シグナル", groups: [] };
+  var ax = _ax.name, groups = _ax.groups || [];
   var _u = useState("__all__"), sel = _u[0], setSel = _u[1];
   var selGrp = groups.filter(function(g) { return g.key === sel; })[0] || null;
   var cur = selGrp ? selGrp.recs : recs;
@@ -1871,6 +1896,13 @@ function _VapSigBoard(props) {
         [ax, "件数", "±0 約定率", "±0 合計損益", "±0 平均", "損益最大の追加", "その合計損益", "その平均", "その約定率", "余地中央"].map(th))),
       React.createElement("tbody", null, body)));
   return React.createElement("div", null,
+    axes.length > 1 ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" } },
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#5B21B6" } }, "分け方:"),
+      axes.map(function(a, i) {
+        var on = axes[Math.min(axI, axes.length - 1)] === a;
+        return React.createElement("button", { key: a.name, type: "button", onClick: function() { setAxI(i); setSel("__all__"); },
+          style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap", border: "1px solid " + (on ? "#5B21B6" : "#DDD6FE"), background: on ? "#5B21B6" : "#fff", color: on ? "#fff" : "#5B21B6" } }, a.name + "別");
+      })) : null,
     React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#333", marginBottom: 2 } }, ax + "別の比較"),
     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4, lineHeight: 1.5 } },
       "行をタップすると、その" + ax + "だけの追加円数表（下）に切り替わります。「損益最大の追加」＝追加0〜+10円のうち合計損益が最大の行（\u2605＝確定10件以上／参考＝10件未満で偶然に左右されやすい）。" + (ax === "シグナル" ? "複数タグの記録は各タグに入るので件数合計は総件数を超えることがあります。" : "")),
@@ -8310,8 +8342,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       // 📐VAP値（シグナル別）2026-10-04: 全銘柄の母数（銘柄タブのVAP値と同じ絞り込み＝VAP入力済み・被り除外後）をシグナルごとに比較。
       var _vpAll = _v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, null); });
       _tabBody = _cardify([
-        _secH("📐 VAP値の分析（シグナル別・全銘柄）", "8/20以降の記録。シグナルごとにVAPからの追加円数を比較。同値（OS最大＝EP）は未約定"),
-        React.createElement(_VapSigBoard, { key: "vapsig", recs: _vpAll, aiOf: _ai, groups: _buildSigGroups(_vpAll), onEdit: function(rec) { setEditTarget(rec); } })]);
+        _secH("📐 VAP値の分析（全銘柄・シグナル／銘柄／時間帯別）", "8/20以降の記録。「分け方」でシグナル・銘柄・時間帯ごとにVAPからの追加円数を比較。同値（OS最大＝EP）は未約定"),
+        React.createElement(_VapSigBoard, { key: "vapsig", recs: _vpAll, aiOf: _ai, axes: _vapAxes(_vpAll, _buildSigGroups(_vpAll)), onEdit: function(rec) { setEditTarget(rec); } })]);
     } else if (sigSub === "band") {
       // 株価帯別を📡シグナル総合の先頭サブタブへ移設（2026-07-22i・ユーザー要望）＝全銘柄横断で同じ帯の銘柄を混ぜて帯共通αを検証。旧・全銘柄「集計」の分析軸トグル(_bandAxisBody(_v2recsAllData,true))から移動。
       _tabBody = _bandAxisBody(_v2recsAllData, true);
@@ -8324,15 +8356,13 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       // 2026-10-04 シグナルタブ内を「💴株価帯別／📐VAP値」の2枚に（8/20以降の枠のみ）。VAP値＝このシグナルの記録を銘柄別に比較（_VapSigBoardのaxis="銘柄"）。
       var _stVap = (!legacy && _stGrp) ? _stGrp.recs.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, null); }) : [];
       var _stBandBody = _stGrp ? _bandAxisBody(_stGrp.recs, true, { withAll: true, sigLabel: _stGrp.label, bSigKey: _stKey }) : null;
-      var _stByStock = {}; _stVap.forEach(function(r) { (_stByStock[r.stock] = _stByStock[r.stock] || []).push(r); });
-      var _stStockGroups = Object.keys(_stByStock).sort(function(a, b) { return _stByStock[b].length - _stByStock[a].length; }).map(function(k) { return { key: k, label: k, recs: _stByStock[k] }; });
       _tabBody = _stGrp
         ? (legacy ? _stBandBody : React.createElement(React.Fragment, null,
             _sigInnerBar([["band", "💴 株価帯別", _stGrp.recs.length], ["vap", "📐 VAP値", _stVap.length]], sigInner, setSigInner),
             sigInner === "vap"
               ? _cardify([
-                  _secH("📐 VAP値の分析（" + _stGrp.label + "・銘柄別）", "8/20以降・このシグナルの記録。銘柄ごとにVAPからの追加円数を比較。同値（OS最大＝EP）は未約定"),
-                  React.createElement(_VapSigBoard, { key: "vapst" + _stKey, recs: _stVap, aiOf: _ai, groups: _stStockGroups, axis: "銘柄", onEdit: function(rec) { setEditTarget(rec); } })])
+                  _secH("📐 VAP値の分析（" + _stGrp.label + "・銘柄／時間帯別）", "8/20以降・このシグナルの記録。「分け方」で銘柄・時間帯ごとにVAPからの追加円数を比較。同値（OS最大＝EP）は未約定"),
+                  React.createElement(_VapSigBoard, { key: "vapst" + _stKey, recs: _stVap, aiOf: _ai, axes: _vapAxes(_stVap, null), onEdit: function(rec) { setEditTarget(rec); } })])
               : _stBandBody))
         : _sigKpiEmpty("このシグナルの記録がありません（シグナル名の変更・削除で無くなった可能性があります。上のタブから選び直してください）");
     } else if (sigSub === "stop") {
@@ -8590,7 +8620,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       _tabBody = _cardify([
         _secH("📐 VAP値の分析", "8/20以降の記録。EP＝水準線＋VAP値。VAPから追加円数ごとの損益と、記録ごとの余地"),
         (function() { var _vp = _v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, _collScope); });
-          return React.createElement(_VapSigBoard, { key: "vap" + (_collScope || ""), recs: _vp, aiOf: _ai, groups: _buildSigGroups(_vp), onEdit: function(rec) { setEditTarget(rec); } }); })()]);
+          return React.createElement(_VapSigBoard, { key: "vap" + (_collScope || ""), recs: _vp, aiOf: _ai, axes: _vapAxes(_vp, _buildSigGroups(_vp)), onEdit: function(rec) { setEditTarget(rec); } }); })()]);
     } else if (!_selSigRecs.length) {
       _tabBody = React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sigAxisGroups.length ? "このシグナルのEP起算（v2）記録がありません" : "EP起算（v2）の記録がありません");
     } else {
