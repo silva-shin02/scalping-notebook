@@ -1058,27 +1058,37 @@ function App() {
   var _mIsCurMonth = (cY === new Date().getFullYear() && cM === new Date().getMonth());
   var _mPerDay = _mAgg.bizDone > 0 ? Math.round(_mAgg.final / _mAgg.bizDone) : null;
   var _mRealPerDay = (_mAgg.bizDone > 0 && _mAgg.realCnt > 0) ? Math.round(_mAgg.realRaw / _mAgg.bizDone) : null;   // 実現の1日あたりは**実額**基準 2026-08-17f（チップ主値と単位を揃える）
+  var _mExPerDay = (_mAgg.bizDone > 0 && _mAgg.eqCnt > 0) ? Math.round(_mAgg.finalEx / _mAgg.bizDone) : null;
   var _mWinPct = _mAgg.finalCnt > 0 ? Math.round(_mAgg.win / _mAgg.finalCnt * 100) : null;
   var _mRealTxt = _mAgg.realCnt > 0
     ? (_snYen(_mAgg.real) + "（100株換算・" + _mAgg.realCnt + "件 / 実額 " + _snYen(_mAgg.realRaw) + "）")
     : "未記録";
   var _homeChips = [
     { la: "損益", v: _snYen(_mAgg.final), c: _snPnlCol(_mAgg.final),
+      big: true,
       sub: _mPerDay != null ? ("1日 " + _snYen(_mPerDay)) : null,
       subGrade: _mPerDay != null ? _profitGradeFromPnl(_mPerDay, _mAgg.finalCnt) : null,
-      sub2: _mAgg.eqCnt > 0 ? ("\u6307\u5024\u9664\u5916 " + _snYen(_mAgg.finalEx)) : null,
       title: "想定損益の合計（100株換算）。記録帳・💰全体損益と同じ基準です"
         + (_mAgg.eqCnt > 0 ? ("\n指値除外 " + _snYen(_mAgg.finalEx) + "（指値同値 " + _mAgg.eqCnt + "件を除いた保守的な想定損益・差額 " + _snYen(_mAgg.finalEx - _mAgg.final) + "）") : "")
         + "\n母数 " + _mAgg.finalCnt + "件 / 記録のあった日 " + _mAgg.tradedDays + "日"
         + "\n実現損益 " + _mRealTxt
         + (_mAgg.oldRuleCnt > 0 ? ("\n⚠️ 集計ルールが変わる前の記録を " + _mAgg.oldRuleCnt + "件 含みます（記録帳の全体損益ではこの期間を合計から外しているため数字が一致しません）") : "")
         + (_mPerDay != null ? ("\n1日あたり " + _snYen(_mPerDay) + " ＝ 想定損益 ÷ 経過営業日 " + _mAgg.bizDone + "日") : "") },
+    // 指値除外チップ 2026-10-04（ユーザー指定「指値除外額にもグレードバッジ・大きめに」）。指値同値の記録を除いた保守的な想定損益。
+    //   該当0件の月は出さない。1日あたりは損益チップと同じ分母(bizDone)・同じ通常スケールのグレード。
+    _mAgg.eqCnt > 0 ? { la: "指値除外", big: true, v: _snYen(_mAgg.finalEx), c: _snPnlCol(_mAgg.finalEx),
+      sub: _mExPerDay != null ? ("1日 " + _snYen(_mExPerDay)) : null,
+      subGrade: _mExPerDay != null ? _profitGradeFromPnl(_mExPerDay, _mAgg.finalCnt - _mAgg.eqCnt) : null,
+      sub2: "同値" + _mAgg.eqCnt + "件を除外",
+      title: "指値同値（OS最大＝採用α/VAPちょうど＝予定EPに触れただけで約定しなかった可能性）" + _mAgg.eqCnt + "件を除いた想定損益（100株換算）"
+        + "\n差額 " + _snYen(_mAgg.finalEx - _mAgg.final) + "（損益チップ " + _snYen(_mAgg.final) + " との差）"
+        + (_mExPerDay != null ? ("\n1日あたり " + _snYen(_mExPerDay) + " ＝ 指値除外 ÷ 経過営業日 " + _mAgg.bizDone + "日") : "") } : null,
     // 2026-08-17b 実現損益を独立チップへ（ユーザー要望）。見送りの仮想損益も入る想定損益と違い、これだけが「実際に約定した額」。
     // 2026-08-17f 3段化（ユーザー要望「実額を上・100株換算を下・1営業日換算も」）:
     //   主値＝**実額**（実際に動いたお金＝一番知りたい額）／2段目＝100株換算（他の欄と単位を揃えた比較用）／3段目＝1日あたり。
     //   ⚠️1日あたりは**実額基準**（主値と単位を揃える）。損益チップの「1日」は想定損益＝100株換算基準なので、2つは単位が違う。
     //   分母はどちらも経過営業日(bizDone)で共通＝日数の取り方だけは食い違わない。
-    { la: "実現", v: _mAgg.realCnt > 0 ? _snYen(_mAgg.realRaw) : "—", c: _mAgg.realCnt > 0 ? _snPnlCol(_mAgg.realRaw) : "#bbb",
+    { la: "実現", big: true, v: _mAgg.realCnt > 0 ? _snYen(_mAgg.realRaw) : "—", c: _mAgg.realCnt > 0 ? _snPnlCol(_mAgg.realRaw) : "#bbb",
       sub: _mAgg.realCnt > 0 ? ("100株 " + _snYen(_mAgg.real)) : "未記録",
       sub2: (_mAgg.realCnt > 0 && _mRealPerDay != null) ? ("1日 " + _snYen(_mRealPerDay)) : null,
       title: _mAgg.realCnt > 0
@@ -1432,11 +1442,11 @@ function App() {
       //   タッチ端末は auto-fit＝幅が足りなければ2〜3列へ自動で折り返す（iPad縦で5列に潰れない）。
       gridTemplateColumns: IS_TOUCH
         ? "repeat(auto-fit,minmax(130px,1fr))"
-        : "minmax(0,1.25fr) minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)",
+        : _homeChips.filter(Boolean).map(function (ch) { return ch.big ? "minmax(0,1.4fr)" : "minmax(0,1fr)"; }).join(" "),   // 損益・指値除外は大きめ(big)＝列も広く 2026-10-04
       gap: 8,
       alignItems: "stretch"
     }
-  }, _homeChips.map(function (ch) {
+  }, _homeChips.filter(Boolean).map(function (ch) {
     return React.createElement("div", {
       key: ch.la,
       title: ch.title,
@@ -1462,7 +1472,7 @@ function App() {
       }
     }, ch.la), React.createElement("div", {
       style: {
-        fontSize: 18,
+        fontSize: ch.big ? 23 : 18,
         fontWeight: 800,
         lineHeight: 1.25,
         color: ch.c
