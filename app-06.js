@@ -1747,12 +1747,15 @@ function _elFillEqCell(n) {
 }
 // ===== VAP分析ボード（α詳細表の後継）2026-10-04 =====
 // 8/20以降の記録は α値でなく VAP値（EP＝水準線＋VAP値）。ここは「VAPからさらに何円追加（上乗せ）して指すべきか」を見る表。
-// ①追加円数ごとの表: 各記録のEPを VAP+k円（k=0〜10・1円刻み）に置き直して再判定＝_elH2EvalByFn（α詳細表と同じエンジン・同値は全列除外）。
+// ①追加円数ごとの表: 各記録のEPを VAP+k円（k=−3〜+10・1円刻み＝2026-10-04 マイナス側3円を追加）に置き直して再判定＝_elH2EvalByFn（α詳細表と同じエンジン・同値は全列除外）。
 //   ★＝合計損益(Σ想定損益)が最大の行。想定損益が確定した件数(h2Cnt)が10件未満の行には付けない（ユーザー決定）。
 // ②記録ごとの余地: 約定した記録（OS最大がEPを上抜けた＝同値は約定と見なさない・×見送りは除く）について、
 //   「あと何円上げても約定したか」＝ 余地 = ceil(OS最大 − VAP) − 1（整数円）。未約定の記録は分析から除外。
 // 母数 = 呼び出し側が渡した「VAP入力済み・算入・被り除外後」の記録。aiOf(r)→{cutLine,...}（損切りラインの取得に使う）。
 var _VAP_STAR_MIN = 10;
+var _VAP_K_MIN = -3;   // 追加円数の下限（VAPより3円まで安く指す側も見る）2026-10-04
+function _vapKLabel(k) { return k === 0 ? "\u00b10" : (k > 0 ? "+" : "") + k + "\u5186"; }   // ±0／+3円／-3円
+function _vapZeroRow(rows) { for (var i = 0; i < rows.length; i++) { if (rows[i].k === 0) return rows[i]; } return rows[0]; }
 function _vapMargin(s) {
   var vap = _vapOf(s); if (vap == null) return null;
   var os = _elOsMaxAll(s); if (os == null) return null;
@@ -1760,16 +1763,17 @@ function _vapMargin(s) {
   if (_epIsXSkip(s, vap)) return null;                  // ×見送りは指値を出していない
   return Math.max(0, Math.ceil(Number(os) - vap) - 1);
 }
-// 追加円数0〜+10の各行を再判定（_vapBoardV2とシグナル別比較表で共用＝計算は1本）。best＝★（確定件数>=_VAP_STAR_MIN の行のうちΣ最大）／ref＝件数不問のΣ最大（薄い母数の参考表示用）。
+// 追加円数−3〜+10の各行を再判定（_vapBoardV2とシグナル別比較表で共用＝計算は1本）。best＝★（確定件数>=_VAP_STAR_MIN の行のうちΣ最大）／ref＝件数不問のΣ最大（薄い母数の参考表示用）。
 function _vapRowsOf(pool, aiOf) {
   var rows = [], best = null, ref = null;
-  for (var k = 0; k <= 10; k++) {
+  for (var k = _VAP_K_MIN; k <= 10; k++) {
     (function(kk) { rows.push({ k: kk, e: _elH2EvalByFn(pool, aiOf, function(r) { return _vapOf(r.signal) + kk; }, false) }); })(k);
   }
   rows.forEach(function(x) {
     if (x.e.h2Sum == null) return;
-    if (x.e.h2Cnt >= _VAP_STAR_MIN && (best == null || x.e.h2Sum > best.e.h2Sum)) best = x;
-    if (ref == null || x.e.h2Sum > ref.e.h2Sum) ref = x;
+    var _better = function(o) { return o == null || x.e.h2Sum > o.e.h2Sum || (x.e.h2Sum === o.e.h2Sum && Math.abs(x.k) < Math.abs(o.k)); };   // 同点はVAPに近い行を採る
+    if (x.e.h2Cnt >= _VAP_STAR_MIN && _better(best)) best = x;
+    if (_better(ref)) ref = x;
   });
   return { rows: rows, best: best, ref: ref };
 }
@@ -1789,8 +1793,8 @@ function _vapBoardV2(recs, aiOf, onEdit) {
         var e = x.e, isBest = best && best.k === x.k;
         var c = 0;
         return React.createElement("tr", { key: "r" + x.k, style: { background: isBest ? "#FEF9C3" : (x.k === 0 ? "#F5F3FF" : "transparent"), borderBottom: "1px solid #eee" } },
-          td(x.k === 0 ? "\u00b10" : "+" + x.k + "\u5186", c++, { fontWeight: 800, textAlign: "left" }),
-          td("VAP" + (x.k ? "+" + x.k : ""), c++, { color: "#64748B" }),
+          td(_vapKLabel(x.k), c++, { fontWeight: 800, textAlign: "left" }),
+          td("VAP" + (x.k ? (x.k > 0 ? "+" : "") + x.k : ""), c++, { color: "#64748B" }),
           td(e.n + "\u4ef6", c++),
           td(e.entered + "/" + e.n + "\uff08" + pct(e.eRate) + "\uff09", c++),
           td(React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(e.h2Sum) } }, _elPnlFmt(e.h2Sum)), c++),
@@ -1824,7 +1828,7 @@ function _vapBoardV2(recs, aiOf, onEdit) {
     }));
   return React.createElement("div", null,
     React.createElement("div", { style: Object.assign({ background: "#F5F3FF", border: "1px solid #DDD6FE", color: "#5B21B6", lineHeight: 1.5 }, box) },
-      "EP\uff1d\u6c34\u6e96\u7dda\uff0bVAP\u5024\u3002\u5404\u8a18\u9332\u306eEP\u3092VAP\u304b\u3089\u300c\u8ffd\u52a0\u300d\u5186\u3060\u3051\u4e0a\u3052\u3066\u6307\u3057\u76f4\u3057\u305f\u3068\u3057\u3066\u518d\u5224\u5b9a\u3002\u540c\u5024\uff08OS\u6700\u5927\uff1dEP\uff09\u306f\u672a\u7d04\u5b9a\uff08\u4e0a\u629c\u3051\u305f\u3068\u304d\u3060\u3051\u7d04\u5b9a\uff09\u3002\u2605\u306f\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u78ba\u5b9a" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09\u3002\u6bcd\u6570 " + pool.length + "\u4ef6\u3002"),
+      "EP\uff1d\u6c34\u6e96\u7dda\uff0bVAP\u5024\u3002\u5404\u8a18\u9332\u306eEP\u3092VAP\u304b\u3089\u300c\u8ffd\u52a0\u300d\u5186\u3060\u3051\u4e0a\u3052\uff08\u30de\u30a4\u30ca\u30b9\u306f\u4e0b\u3052\uff09\u3066\u6307\u3057\u76f4\u3057\u305f\u3068\u3057\u3066\u518d\u5224\u5b9a\u3002\u540c\u5024\uff08OS\u6700\u5927\uff1dEP\uff09\u306f\u672a\u7d04\u5b9a\uff08\u4e0a\u629c\u3051\u305f\u3068\u304d\u3060\u3051\u7d04\u5b9a\uff09\u3002\u2605\u306f\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u78ba\u5b9a" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09\u3002\u6bcd\u6570 " + pool.length + "\u4ef6\u3002"),
     table,
     React.createElement("div", { style: { marginTop: 12, fontSize: 12, fontWeight: 800, color: "#333" } }, "\u8a18\u9332\u3054\u3068\u306e\u4f59\u5730\uff08\u3042\u3068\u4f55\u5186\u4e0a\u3052\u3066\u3082\u7d04\u5b9a\u3057\u305f\u304b\uff09"),
     React.createElement("div", { style: { fontSize: 10, color: "#888", margin: "2px 0" } }, "\u7d04\u5b9a\u3057\u305f\u8a18\u9332\uff08OS\u6700\u5927\u304cEP\u3092\u4e0a\u629c\u3051\uff09\u306e\u307f\u3002\u4f59\u5730\uff1dceil(OS\u6700\u5927\u2212VAP)\u22121\u3002\u7d04\u5b9a\u4ef6\u6570 " + ms.length + "/" + pool.length + "\u4ef6\u30fb\u5e73\u5747 " + (avg == null ? "\u2014" : (Math.round(avg * 10) / 10) + "\u5186") + "\u30fb\u4e2d\u592e\u5024 " + (med == null ? "\u2014" : med + "\u5186")),
@@ -1832,7 +1836,7 @@ function _vapBoardV2(recs, aiOf, onEdit) {
     ms.length ? listEl : null);
 }
 // ===== VAP分析ボード（シグナル別）2026-10-04 =====
-// 上段＝シグナルごとの比較表（±0の成績と、追加円数0〜+10のうちΣ想定損益が最大の行）。行タップでそのシグナルだけの _vapBoardV2 に切替／「全シグナル」で戻る。
+// 上段＝シグナルごとの比較表（±0の成績と、追加円数−3〜+10のうちΣ想定損益が最大の行）。行タップでそのシグナルだけの _vapBoardV2 に切替／「全シグナル」で戻る。
 // groups＝[{key,label,recs}]（呼び出し側の_buildSigGroups。複数タグの記録は各タグに算入＝件数合計は総件数を超えうる）。recs＝全シグナル合算の母数。
 // ★は確定件数10件以上の行のみ（_vapBoardV2と同じ規約）。10件に満たないシグナルは「参考」を付けて灰色表示（件数が薄いうちは偶然に引きずられる）。
 // 比較軸 2026-10-04: axes＝[{name,groups:[{key,label,recs}]}]。軸が2つ以上あれば表の上に「分け方」ピルで切替（切替時は絞り込みを解除）。
@@ -1871,7 +1875,7 @@ function _VapSigBoard(props) {
   var line = function(key, label, rs, isAll) {
     var pool = rs.filter(function(r) { return r && r.signal && _vapOf(r.signal) != null; });
     if (!pool.length) return null;
-    var rr = _vapRowsOf(pool, aiOf), z = rr.rows[0].e, pick = rr.best || rr.ref, isRef = !rr.best;
+    var rr = _vapRowsOf(pool, aiOf), z = _vapZeroRow(rr.rows).e, pick = rr.best || rr.ref, isRef = !rr.best;
     var vals = []; pool.forEach(function(r) { var m = _vapMargin(r.signal); if (m != null) vals.push(m); });
     vals.sort(function(a, b) { return a - b; });
     var med = null; if (vals.length) { var mi = (vals.length - 1) / 2; med = (vals.length % 2) ? vals[mi] : (vals[Math.floor(mi)] + vals[Math.ceil(mi)]) / 2; }
@@ -1883,7 +1887,7 @@ function _VapSigBoard(props) {
       td(z.entered + "/" + z.n + "（" + pct(z.eRate) + "）"),
       td(pnl(z.h2Sum)),
       td(z.avgH2 == null ? "\u2014" : pnl(z.avgH2, 400)),
-      td(pick ? React.createElement("span", { style: { fontWeight: 800, color: isRef ? "#94A3B8" : "#CA8A04" } }, (pick.k ? "+" + pick.k : "\u00b10") + "円" + (isRef ? " 参考" : " \u2605")) : "\u2014"),
+      td(pick ? React.createElement("span", { style: { fontWeight: 800, color: isRef ? "#94A3B8" : "#CA8A04" } }, _vapKLabel(pick.k) + (isRef ? " 参考" : " \u2605")) : "\u2014"),
       td(pick ? pnl(pick.e.h2Sum) : "\u2014"),
       td(pick && pick.e.avgH2 != null ? pnl(pick.e.avgH2, 400) : "\u2014"),
       td(pick ? pick.e.entered + "/" + pick.e.n + "（" + pct(pick.e.eRate) + "）" : "\u2014"),
@@ -1905,7 +1909,7 @@ function _VapSigBoard(props) {
       })) : null,
     React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#333", marginBottom: 2 } }, ax + "別の比較"),
     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4, lineHeight: 1.5 } },
-      "行をタップすると、その" + ax + "だけの追加円数表（下）に切り替わります。「損益最大の追加」＝追加0〜+10円のうち合計損益が最大の行（\u2605＝確定10件以上／参考＝10件未満で偶然に左右されやすい）。" + (ax === "シグナル" ? "複数タグの記録は各タグに入るので件数合計は総件数を超えることがあります。" : "")),
+      "行をタップすると、その" + ax + "だけの追加円数表（下）に切り替わります。「損益最大の追加」＝追加−3〜+10円のうち合計損益が最大の行（\u2605＝確定10件以上／参考＝10件未満で偶然に左右されやすい）。" + (ax === "シグナル" ? "複数タグの記録は各タグに入るので件数合計は総件数を超えることがあります。" : "")),
     table,
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "14px 0 6px", flexWrap: "wrap" } },
       React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#5B21B6" } }, "表示中: " + (selGrp ? selGrp.label + "（" + selGrp.recs.length + "件）" : "全" + ax)),
