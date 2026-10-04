@@ -3087,3 +3087,5 @@ HomeEventFormModal, App
 - 【記録帳を2枠に 2026-10-04】`EntryLogView`(app-06)は薄いラッパー（`legacy` state・描画中だけ `_EP_EQ_LOOSE=legacy`）＋本体 `EntryLogViewBody(props, legacy, setLegacy)`。📗8/20以降＝VAP/同値は未約定、📘8/19以前＝旧システム（α値タブ・EP=OS同値も到達・同値除外損益の列/セクション/除外あり）。`_anaRecs`/`_v2recsAll`/`_v2recsAllData`/タブ/列は legacy で分岐。`_elCollMemo` に loose をキー追加。⚠️子コンポーネントの自前再計算（明細カード等）は新判定。
 
 - 【ホームと記録帳の合計不一致の原因 2026-10-04】`_snDailyPnlMap`(app-05)が仮シグナル(`_elIsProvisional`)を除外していなかった（記録帳 `_elTotAccum` は除外）。includeInTotal=true の仮記録があるとホーム/カレンダーだけ金額に入る。同一ロジックの突き合わせ(乱数データ12通りでホーム月次=記録帳の月別)で一致を確認。
+
+- 【1日平均を（）内でも 2026-10-04】app-06 `avgDayLine(v, days, incl)`（期間別表 pnlCell）と銘柄別表の想定損益セルで「1日平均+X（+Y）」。
