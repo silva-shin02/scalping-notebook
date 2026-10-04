@@ -5507,6 +5507,7 @@ function _snDailyPnlMap(data) {
       var s = r.signal;
       if (!s || !r.date) return;
       if (!_elInclTotalAmt(data, r)) return;
+      if (_elIsProvisional(s)) return;   // 仮シグナルは金額に入れない（記録帳 _elTotAccum と同じ）2026-10-04。includeInTotal が true の仮記録があるとホームだけ金額に入っていた
       if (!_elAmtRecOk(r)) return;   // 算入銘柄フィルタ 2026-10-01（ホーム月次・カレンダー・📊早見はここが単一源）
       // 旧記録（schemeなし＝ＥＰ起算方式へ移行できていない記録）を除外 2026-10-04。
       // 記録帳は最初から _epIsV2 で丸ごと外している（件数カードの「v2記録のみ」）のに、
