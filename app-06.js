@@ -1766,7 +1766,7 @@ function _vapBoardV2(recs, aiOf, onEdit) {
   if (!pool.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "VAP値が入力済みの記録がありません（8/20以降の記録にVAP値を入れると分析に入ります）");
   var rows = [];
   for (var k = 0; k <= 10; k++) {
-    (function(kk) { rows.push({ k: kk, e: _elH2EvalByFn(pool, aiOf, function(r) { return _vapOf(r.signal) + kk; }, true) }); })(k);
+    (function(kk) { rows.push({ k: kk, e: _elH2EvalByFn(pool, aiOf, function(r) { return _vapOf(r.signal) + kk; }, false) }); })(k);
   }
   var best = null;
   rows.forEach(function(x) { if (x.e.h2Cnt >= _VAP_STAR_MIN && x.e.h2Sum != null && (best == null || x.e.h2Sum > best.e.h2Sum)) best = x; });
@@ -1776,7 +1776,7 @@ function _vapBoardV2(recs, aiOf, onEdit) {
   var table = React.createElement("div", { style: { overflowX: "auto" } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
       React.createElement("thead", null, React.createElement("tr", null,
-        ["\u8ffd\u52a0", "EP\uff08VAP+\u8ffd\u52a0\uff09", "\u4ef6\u6570", "\u7d04\u5b9a\u7387", "\u540c\u5024", "\u5408\u8a08\u640d\u76ca", "\u5e73\u5747", "\u4e2d\u592e\u5024", "\u52dd\u7387", "\u640d\u5207\u308a\u7387", ""].map(th))),
+        ["\u8ffd\u52a0", "EP\uff08VAP+\u8ffd\u52a0\uff09", "\u4ef6\u6570", "\u7d04\u5b9a\u7387", "\u5408\u8a08\u640d\u76ca", "\u5e73\u5747", "\u4e2d\u592e\u5024", "\u52dd\u7387", "\u640d\u5207\u308a\u7387", ""].map(th))),
       React.createElement("tbody", null, rows.map(function(x) {
         var e = x.e, isBest = best && best.k === x.k;
         var c = 0;
@@ -1785,7 +1785,6 @@ function _vapBoardV2(recs, aiOf, onEdit) {
           td("VAP" + (x.k ? "+" + x.k : ""), c++, { color: "#64748B" }),
           td(e.n + "\u4ef6", c++),
           td(e.entered + "/" + e.n + "\uff08" + pct(e.eRate) + "\uff09", c++),
-          td(_elFillEqCell(e.fillEqN), c++),
           td(React.createElement("span", { style: { fontWeight: 800, color: _elPnlColor(e.h2Sum) } }, _elPnlFmt(e.h2Sum)), c++),
           td(e.avgH2 == null ? "\u2014" : React.createElement("span", { style: { color: _elPnlColor(e.avgH2) } }, _elPnlFmt(Math.round(e.avgH2))), c++),
           td(e.medH2 == null ? "\u2014" : React.createElement("span", { style: { color: _elPnlColor(e.medH2) } }, _elPnlFmt(Math.round(e.medH2))), c++),
@@ -1817,7 +1816,7 @@ function _vapBoardV2(recs, aiOf, onEdit) {
     }));
   return React.createElement("div", null,
     React.createElement("div", { style: Object.assign({ background: "#F5F3FF", border: "1px solid #DDD6FE", color: "#5B21B6", lineHeight: 1.5 }, box) },
-      "EP\uff1d\u6c34\u6e96\u7dda\uff0bVAP\u5024\u3002\u5404\u8a18\u9332\u306eEP\u3092VAP\u304b\u3089\u300c\u8ffd\u52a0\u300d\u5186\u3060\u3051\u4e0a\u3052\u3066\u6307\u3057\u76f4\u3057\u305f\u3068\u3057\u3066\u518d\u5224\u5b9a\u3002\u540c\u5024\uff08OS\u6700\u5927\uff1dEP\uff09\u306f\u7d04\u5b9a\u3057\u3066\u3044\u306a\u3044\u6271\u3044\u3067\u5168\u5217\u9664\u5916\u3002\u2605\u306f\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u78ba\u5b9a" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09\u3002\u6bcd\u6570 " + pool.length + "\u4ef6\u3002"),
+      "EP\uff1d\u6c34\u6e96\u7dda\uff0bVAP\u5024\u3002\u5404\u8a18\u9332\u306eEP\u3092VAP\u304b\u3089\u300c\u8ffd\u52a0\u300d\u5186\u3060\u3051\u4e0a\u3052\u3066\u6307\u3057\u76f4\u3057\u305f\u3068\u3057\u3066\u518d\u5224\u5b9a\u3002\u540c\u5024\uff08OS\u6700\u5927\uff1dEP\uff09\u306f\u672a\u7d04\u5b9a\uff08\u4e0a\u629c\u3051\u305f\u3068\u304d\u3060\u3051\u7d04\u5b9a\uff09\u3002\u2605\u306f\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u78ba\u5b9a" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09\u3002\u6bcd\u6570 " + pool.length + "\u4ef6\u3002"),
     table,
     React.createElement("div", { style: { marginTop: 12, fontSize: 12, fontWeight: 800, color: "#333" } }, "\u8a18\u9332\u3054\u3068\u306e\u4f59\u5730\uff08\u3042\u3068\u4f55\u5186\u4e0a\u3052\u3066\u3082\u7d04\u5b9a\u3057\u305f\u304b\uff09"),
     React.createElement("div", { style: { fontSize: 10, color: "#888", margin: "2px 0" } }, "\u7d04\u5b9a\u3057\u305f\u8a18\u9332\uff08OS\u6700\u5927\u304cEP\u3092\u4e0a\u629c\u3051\uff09\u306e\u307f\u3002\u4f59\u5730\uff1dceil(OS\u6700\u5927\u2212VAP)\u22121\u3002\u7d04\u5b9a\u4ef6\u6570 " + ms.length + "/" + pool.length + "\u4ef6\u30fb\u5e73\u5747 " + (avg == null ? "\u2014" : (Math.round(avg * 10) / 10) + "\u5186") + "\u30fb\u4e2d\u592e\u5024 " + (med == null ? "\u2014" : med + "\u5186")),
@@ -6737,14 +6736,14 @@ function EntryLogView(_ref_elv2) {
   // 旧: 母数トグル「5月〜」(anaJul)で任意にON/OFFしていたが、常時除外になったのでトグルは撤去（常にONと同義）。顔ぶれ(_tickerList)は固定のまま。
   // 2026-10-04 VAP値への移行: 8/20より前の記録は「分析」(_v2recsAllData・VAP値タブ)からだけ外す。損益の表・合計には従来どおり残す
   //   （一度「記録帳から非表示」にしたら過去の合計額が消えたとの指摘で戻した）。_vapWorld＝app-05。
-  var _anaRecs = allRecs.filter(function(r) { return !_elIsEmaRefPeriod((r && r.date) || ""); });
+  var _anaRecs = allRecs.filter(function(r) { return !_elIsEmaRefPeriod((r && r.date) || "") && _vapWorld((r && r.date) || ""); });   // 2026-10-04 やはり8/20より前は記録帳に出さない（ユーザー決定）
   var _periodRecs = _elPSelFilter(_anaRecs, pSel);   // 2026-07-20i 年月週日カスケード選択（_elPSelFilter＝ローカル基準・_elBucketKey準拠）。旧_elFilterPeriod経路は廃止
   // 銘柄タブのバッジ件数: 選択期間内・銘柄未限定の記録数（顔ぶれは固定、件数だけ期間連動）
   var _cntByStock = (function() { var m = {}; _periodRecs.forEach(function(r) { if (r.stock) m[r.stock] = (m[r.stock] || 0) + 1; }); return m; })();
   var filtered = (_isAllStock || _isSigTotal) ? _periodRecs : _periodRecs.filter(function(r) { return r.stock === _selStock; });
   // 合計額算入: includeInTotal===false の記録は集計/分析の母集団から除外（一覧 filtered は全件のまま）。2026-06-18
   // _v2recsAll=銘柄/期間で絞ったv2算入記録（追加α〇/×/未選択は混在）＝推奨基本α/追加αタブはこれを使い全体トグルと独立。
-  var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal) && (!_vapWorld(r.date) || _vapOf(r.signal) != null); });   // VAP値が未入力の記録(8/20〜)は金額・分析に入れない 2026-10-04（8/20より前は従来どおり）
+  var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal) && _vapOf(r.signal) != null; });   // VAP値が未入力の記録(8/20〜)は金額・分析に入れない 2026-10-04
   // 分析母数の根（計算/データ分離 2026-07-22f）: 分析パネル（銘柄別軸_sigGroupsAll・浮き足/RNボード・株価帯別）は_elInclData（データ算入）で絞る＝「計算off/データon」の記録も分析に残す/「計算on/データoff」は分析から外す。合計損益ダッシュボード（_ovPnlTbl/KPI早見/期間タブ/累積）は_v2recsAll（_elInclTotal）のまま。未設定は_elInclTotalに追従＝分割前と一致。
   // 2026-08-05t _sinceCut＝分析母数トグル。ここが分析の根なので、📡シグナル総合の全サブタブ・銘柄別の
   //   集計/α値/損切り/未達/深掘り/株価帯別・シグナルピルの件数・_missCnt・銘柄タブのシミュ（_selSigRecs経由）・
@@ -7396,7 +7395,6 @@ function EntryLogView(_ref_elv2) {
         oth(React.createElement("span", { title: "想定損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値")),
         oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの（上段）。損失＝ラインには触れず期待度×等で降りたら損だったもの（下段）。率はどちらもE成立母数（＝到達）に対する割合。平均は想定損益と同じ基準の実額。利確＋同値＋損切＋損失＝E成立母数" }, "損切り/損失")),
         oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "想定損益")),
-        oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済み・×見送りは対象外）。上＝該当件数、下＝その記録を除いた想定損益。該当が無い期間は想定損益と同額（差額行なし）" }, "同値除外損益")),
         oth("実現損益"));
     };
     // ドリルダウン（マトリョーシカ 2026-07-30 ユーザー要望）: 月をタップ→その月の【週別】／週をタップ→その週の【日別】／日をタップ→その日の【取引記録】。
@@ -7424,10 +7422,9 @@ function EntryLogView(_ref_elv2) {
           evenCell(st),
           stopCell(st),
           pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
-          friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x), dn),
           realCell(t, dn, null, _noShareN(x))));
         if (!on) return;
-        out.push(React.createElement("tr", { key: path + "_d" }, React.createElement("td", { colSpan: gg === "day" ? 9 : 10, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },   // 日別は日数列が無いので1つ減らす 2026-08-12g
+        out.push(React.createElement("tr", { key: path + "_d" }, React.createElement("td", { colSpan: gg === "day" ? 8 : 9, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },   // 日別は日数列が無いので1つ減らす 2026-08-12g
           nxt
             // まだ下の段がある＝1段細かい期間表を入れ子で出す（列は同じ・行タップでさらに下へ）
             ? React.createElement(React.Fragment, null,
@@ -7469,7 +7466,6 @@ function EntryLogView(_ref_elv2) {
       evenCell(_ovTotStops, Object.assign({ fontWeight: 800 }, bt)),
       stopCell(_ovTotStops, bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt, true),
-      friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt), true),
       realCell(tt, _ovTotDays, bt, _noShareN(rsInc), true));
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
@@ -7642,7 +7638,7 @@ function EntryLogView(_ref_elv2) {
     //     ②OS値/αが小数 … _elFillEqAt は Math.round して比較、_elFillRisk は Number のまま比較（100.4 と 100 で割れる）。
     //   ⚠️この食い違いは元からある（明細バッジとボードが今も違う集合を指している）＝この改修で作ったものではない。
     //   どちらかへ寄せるならボードの数字が動くので、別途ユーザー判断が要る。ここでは明細バッジ側にそろえている。
-    var _fqN = _elFillRiskCountRecs(rs);
+    var _fqN = 0;   // 2026-10-04 同値は未約定(miss)になったので別建ての除外はしない（件数カードの注記も出さない）
     var _rsE = _fqN ? rs.filter(function(r) { return !_elFillRiskRec(r); }) : rs;   // 0件なら元配列を使い回す＝従来と完全に同じ経路
     var n = rs.length, ok = 0, x = 0, miss = 0;
     _rsE.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
@@ -7650,7 +7646,7 @@ function EntryLogView(_ref_elv2) {
       signal: function(r) { return r.signal; },
       alpha: function(r) { return _ai(r).alpha; },
       cut: function(r) { return _ai(r).cutLine; },
-      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r) || _isDataOnly(data, r); },   // 2026-10-04 データのみも除外／2026-09-02 同値も除外（実現損益は同値該当が元から持たないので不変）
+      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _isDataOnly(data, r); },   // 2026-10-04 データのみも除外／2026-09-02 同値も除外（実現損益は同値該当が元から持たないので不変）
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
     var ss = _elStopStatsV2(_rsE, data), reach = n ? Math.round((ok + x) / n * 100) : null;   // reach の分母は n（=同値込みの母数）のまま＝ボードの eRate=entered/n と同じ
@@ -7702,6 +7698,7 @@ function EntryLogView(_ref_elv2) {
     });
   };
   var _fillRiskSection = function(rs, scopeNote) {
+    if (true) return null;   // 2026-10-04 記録帳の「同値除外損益」セクションを廃止（同値は未約定＝未達として扱う。件数・仮想損益はホーム/日別ページに表示）
     var _riskRecs = (rs || []).filter(_elFillRiskRec);
     var t = _friskTotOf(rs, false), t2 = _friskTotOf(rs, true);
     var _frDays = _elBizDaysOf(rs, data);
