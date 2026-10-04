@@ -1058,7 +1058,8 @@ function App() {
   var _mIsCurMonth = (cY === new Date().getFullYear() && cM === new Date().getMonth());
   var _mPerDay = _mAgg.bizDone > 0 ? Math.round(_mAgg.final / _mAgg.bizDone) : null;
   var _mRealPerDay = (_mAgg.bizDone > 0 && _mAgg.realCnt > 0) ? Math.round(_mAgg.realRaw / _mAgg.bizDone) : null;   // 実現の1日あたりは**実額**基準 2026-08-17f（チップ主値と単位を揃える）
-  var _mEqPerDay = (_mAgg.bizDone > 0 && _mAgg.eqPnlCnt > 0) ? Math.round(_mAgg.eqPnl / _mAgg.bizDone) : null;
+  var _mEqTot = _mAgg.final + _mAgg.eqPnl;   // 指値同値の仮想損益を足した合計（同値分だけの1日平均は出さない・合計に対して出す）
+  var _mEqTotPerDay = (_mAgg.bizDone > 0 && _mAgg.eqPnlCnt > 0) ? Math.round(_mEqTot / _mAgg.bizDone) : null;
   var _mWinPct = _mAgg.finalCnt > 0 ? Math.round(_mAgg.win / _mAgg.finalCnt * 100) : null;
   var _mRealTxt = _mAgg.realCnt > 0
     ? (_snYen(_mAgg.real) + "（100株換算・" + _mAgg.realCnt + "件 / 実額 " + _snYen(_mAgg.realRaw) + "）")
@@ -1077,12 +1078,14 @@ function App() {
     // 指値同値チップ 2026-10-04（ユーザー指定「指値同値記録が何件あったか・何円になっていたか」）。EPとOS最大がちょうど同値＝未約定扱いで損益に入らない記録の件数と、
     //   「もし約定していたら」の想定損益。該当0件の月は出さない。バッジは損益チップと同じ通常スケール・1日あたり（÷bizDone）。
     _mAgg.eqCnt > 0 ? { la: "指値同値", big: true, v: _mAgg.eqPnlCnt > 0 ? _snYen(_mAgg.eqPnl) : "—", c: _mAgg.eqPnlCnt > 0 ? _snPnlCol(_mAgg.eqPnl) : "#bbb",
-      sub: _mEqPerDay != null ? ("1日 " + _snYen(_mEqPerDay)) : null,
-      subGrade: _mEqPerDay != null ? _profitGradeFromPnl(_mEqPerDay, _mAgg.eqPnlCnt) : null,
-      sub2: _mAgg.eqCnt + "件・未約定扱い",
+      sub: _mAgg.eqPnlCnt > 0 ? ("合計 " + _snYen(_mEqTot)) : null,
+      sub2: _mEqTotPerDay != null ? ("1日 " + _snYen(_mEqTotPerDay)) : null,
+      sub2Grade: _mEqTotPerDay != null ? _profitGradeFromPnl(_mEqTotPerDay, _mAgg.finalCnt + _mAgg.eqPnlCnt) : null,
+      sub3: _mAgg.eqCnt + "件・未約定扱い",
       title: "EP＝OS最大（ちょうど同値）の記録 " + _mAgg.eqCnt + "件。予定EPに触れただけで上抜けなかったので未約定として損益に入れていません"
-        + "\n金額は『もし約定していたら』の想定損益（100株換算）の合計 " + (_mAgg.eqPnlCnt > 0 ? _snYen(_mAgg.eqPnl) : "（確定した記録なし）")
-        + (_mEqPerDay != null ? ("\n1日あたり " + _snYen(_mEqPerDay) + " ＝ ÷ 経過営業日 " + _mAgg.bizDone + "日") : "") } : null,
+        + "\n上段＝『もし約定していたら』の想定損益（100株換算）の合計 " + (_mAgg.eqPnlCnt > 0 ? _snYen(_mAgg.eqPnl) : "（確定した記録なし）")
+        + "\n合計＝損益 " + _snYen(_mAgg.final) + " ＋ 同値分 " + _snYen(_mAgg.eqPnl) + " ＝ " + _snYen(_mEqTot)
+        + (_mEqTotPerDay != null ? ("\n1日あたり " + _snYen(_mEqTotPerDay) + " ＝ 合計 ÷ 経過営業日 " + _mAgg.bizDone + "日（同値分だけの1日平均は出しません）") : "") } : null,
     // 2026-08-17b 実現損益を独立チップへ（ユーザー要望）。見送りの仮想損益も入る想定損益と違い、これだけが「実際に約定した額」。
     // 2026-08-17f 3段化（ユーザー要望「実額を上・100株換算を下・1営業日換算も」）:
     //   主値＝**実額**（実際に動いたお金＝一番知りたい額）／2段目＝100株換算（他の欄と単位を揃えた比較用）／3段目＝1日あたり。
@@ -1497,9 +1500,21 @@ function App() {
         color: "#5F5E5A",
         fontWeight: 700,
         lineHeight: 1.35,
+        whiteSpace: "nowrap",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 1
+      }
+    }, ch.sub2Grade ? _elHoldGradeBadge(ch.sub2Grade) : null, ch.sub2) : null, ch.sub3 ? React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: "#8A8578",
+        fontWeight: 700,
+        lineHeight: 1.35,
         whiteSpace: "nowrap"
       }
-    }, ch.sub2) : null);
+    }, ch.sub3) : null);
   })),
   // 入口ボタンは独立した1行。左の3つは「見る」入口、右端の ＋予定 だけが「作る」操作なので離して置く（押し間違い防止）。
   React.createElement("div", {
