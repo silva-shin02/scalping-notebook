@@ -560,6 +560,11 @@ function migrateData(d) {
     if (!d.custom.amtStocks.length) d.custom.amtStocks = ["フジクラ", "SBG"];
     d.custom._amtStocksSeed1 = 1;
   }
+  // 2026-10-04 ユーザー指定「合計算入銘柄にJX金属を追加」。既存の選択へ1回だけ足す（消しても復活しない）。空配列＝全銘柄算入なので触らない。
+  if (!d.custom._amtStocksSeed2) {
+    if (d.custom.amtStocks.length && d.custom.amtStocks.indexOf("JX金属") < 0) d.custom.amtStocks = d.custom.amtStocks.concat(["JX金属"]);
+    d.custom._amtStocksSeed2 = 1;
+  }
   // ユーザー指定の初期値。**シグナル単位で1回だけ**適用する（_sigSecSeeded に適用済みを記録）。
   // 一律フラグ1つだと、後から別シグナルの初期値を足すときにフラグを増やす羽目になり、
   // しかもフラグを上げ直すと利用者が変更済みのラベルまで巻き戻る。シグナル単位なら足すだけで済む。
