@@ -4674,7 +4674,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
   var _since = _elCollPickSince(data);
   var _mk = scopeStock || "";
   var _m = _elCollMemo[_mk];
-  if (_m && _m.charts === charts && _m.ds === _dsRef && _m.pool === _poolRef && _m.pick === _pickRef && _m.since === _since) return _m.set;
+  if (_m && _m.charts === charts && _m.ds === _dsRef && _m.pool === _poolRef && _m.pick === _pickRef && _m.since === _since && _m.loose === _EP_EQ_LOOSE) return _m.set;
   var _pickVals = {};   // gidずれ対策の逆引き: 選抜されたkeyの集合
   for (var _pk in _pickRef) { if (_pickRef.hasOwnProperty(_pk)) _pickVals[_pickRef[_pk]] = 1; }
   var _toMin = function(t) { if (!t) return null; var m = String(t).match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/); return m ? (Number(m[1]) * 60 + Number(m[2])) : null; };
@@ -4743,7 +4743,7 @@ function _elCollisionExcludedSet(data, scopeStock) {
     }
   });
   var _set = { excluded: excluded, marked: marked, pending: pending, na: na, info: info, groups: groups, groupOf: groupOf };
-  _elCollMemo[_mk] = { charts: charts, ds: _dsRef, pool: _poolRef, pick: _pickRef, since: _since, set: _set };
+  _elCollMemo[_mk] = { charts: charts, ds: _dsRef, pool: _poolRef, pick: _pickRef, since: _since, loose: _EP_EQ_LOOSE, set: _set };
   return _set;
 }
 // r={stock,date,signal} が合計から外れているか／選抜された側（※被り有）か。

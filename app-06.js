@@ -6635,7 +6635,16 @@ function _elKabuLadderSimV2(props) {
 // === エントリー記録帳（EP起算方式対応・タブ式 2026-06-12）===
 // タブ: 集計(KPI+OS値の分析+EP位置+累積損益+連勝連敗最大DD+時間帯+曜日別+×見送り+△ホールド)/α値(推奨基本α詳細_elBaseAlphaDetailV2+α意思決定表+α感応度カーブ・2026-06-22)/期間/カレンダー/シグナル別/OS連鎖/深掘り(最適ホールド本数+期待度キャリブレーション+執行乖離+メモ×成績)/出現/一覧。集計系はv2記録のみ・一覧タブは旧記録も表示。
 // 一覧・展開明細は1行=1記録のテーブル（行タップでEntryLogCard展開）でスクロール量を削減。
-function EntryLogView(_ref_elv2) {
+// 2026-10-04 記録帳は2枠: 8/20以降＝新システム(VAP値・同値は未約定)／8/19以前＝旧システム(α値・同値除外)。
+//   旧システム枠の間だけ _EP_EQ_LOOSE=true（足の高値＝EPでも到達＝従来の >= 判定）にして、従来の数字をそのまま再現する。描画中だけ立てて必ず戻す。
+//   ⚠️明細カード等「子コンポーネントが自分で再描画する計算」は新判定（同値＝未到達）になる＝同値の記録のカード内だけ旧と食い違いうる。
+function EntryLogView(props) {
+  var _lgS = useState(false), legacy = _lgS[0], setLegacy = _lgS[1];
+  var _prevLoose = _EP_EQ_LOOSE;
+  _EP_EQ_LOOSE = legacy;
+  try { return EntryLogViewBody(props, legacy, setLegacy); } finally { _EP_EQ_LOOSE = _prevLoose; }
+}
+function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var data = _ref_elv2.data, save = _ref_elv2.save, onBack = _ref_elv2.onBack,
     onSelectDate = _ref_elv2.onSelectDate, initialEdit = _ref_elv2.initialEdit,
     onSelectStock = _ref_elv2.onSelectStock;   // 2026-08-02c 配線: app-08から渡っていたが受け取っていなかった（死にprop）。ホームの「📊 銘柄別記録」ボタン撤去に伴い、ここを記録帳からの入口にする。
@@ -6736,19 +6745,19 @@ function EntryLogView(_ref_elv2) {
   // 旧: 母数トグル「5月〜」(anaJul)で任意にON/OFFしていたが、常時除外になったのでトグルは撤去（常にONと同義）。顔ぶれ(_tickerList)は固定のまま。
   // 2026-10-04 VAP値への移行: 8/20より前の記録は「分析」(_v2recsAllData・VAP値タブ)からだけ外す。損益の表・合計には従来どおり残す
   //   （一度「記録帳から非表示」にしたら過去の合計額が消えたとの指摘で戻した）。_vapWorld＝app-05。
-  var _anaRecs = allRecs.filter(function(r) { return !_elIsEmaRefPeriod((r && r.date) || "") && _vapWorld((r && r.date) || ""); });   // 2026-10-04 やはり8/20より前は記録帳に出さない（ユーザー決定）
+  var _anaRecs = allRecs.filter(function(r) { return !_elIsEmaRefPeriod((r && r.date) || "") && (legacy ? !_vapWorld((r && r.date) || "") : _vapWorld((r && r.date) || "")); });   // 2026-10-04 8/20以降(新:VAP)と8/19以前(旧システム枠)を別枠で表示（ユーザー決定）
   var _periodRecs = _elPSelFilter(_anaRecs, pSel);   // 2026-07-20i 年月週日カスケード選択（_elPSelFilter＝ローカル基準・_elBucketKey準拠）。旧_elFilterPeriod経路は廃止
   // 銘柄タブのバッジ件数: 選択期間内・銘柄未限定の記録数（顔ぶれは固定、件数だけ期間連動）
   var _cntByStock = (function() { var m = {}; _periodRecs.forEach(function(r) { if (r.stock) m[r.stock] = (m[r.stock] || 0) + 1; }); return m; })();
   var filtered = (_isAllStock || _isSigTotal) ? _periodRecs : _periodRecs.filter(function(r) { return r.stock === _selStock; });
   // 合計額算入: includeInTotal===false の記録は集計/分析の母集団から除外（一覧 filtered は全件のまま）。2026-06-18
   // _v2recsAll=銘柄/期間で絞ったv2算入記録（追加α〇/×/未選択は混在）＝推奨基本α/追加αタブはこれを使い全体トグルと独立。
-  var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal) && _vapOf(r.signal) != null; });   // VAP値が未入力の記録(8/20〜)は金額・分析に入れない 2026-10-04
+  var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal) && (legacy || _vapOf(r.signal) != null); });   // VAP値が未入力の記録(8/20〜)は金額・分析に入れない 2026-10-04（旧システム枠は対象外）
   // 分析母数の根（計算/データ分離 2026-07-22f）: 分析パネル（銘柄別軸_sigGroupsAll・浮き足/RNボード・株価帯別）は_elInclData（データ算入）で絞る＝「計算off/データon」の記録も分析に残す/「計算on/データoff」は分析から外す。合計損益ダッシュボード（_ovPnlTbl/KPI早見/期間タブ/累積）は_v2recsAll（_elInclTotal）のまま。未設定は_elInclTotalに追従＝分割前と一致。
   // 2026-08-05t _sinceCut＝分析母数トグル。ここが分析の根なので、📡シグナル総合の全サブタブ・銘柄別の
   //   集計/α値/損切り/未達/深掘り/株価帯別・シグナルピルの件数・_missCnt・銘柄タブのシミュ（_selSigRecs経由）・
   //   推奨α（基本α★/応用α）までが一括で追随する＝トグルの配線はこの1か所で足りる。OFF時は素通し＝従来と同一。
-  var _v2recsAllData = _sinceCut(filtered).filter(function(r) { return _epIsV2(r.signal) && _elInclData(r.signal) && _vapAnalysisOk(r); });   // 分析の根: 8/20以降でVAP入力済みのみ
+  var _v2recsAllData = _sinceCut(filtered).filter(function(r) { return _epIsV2(r.signal) && _elInclData(r.signal) && (legacy || _vapAnalysisOk(r)); });   // 分析の根: 8/20以降でVAP入力済みのみ
   // v2recs=全体トグル（追加α 全部/〇/×/未選択）で絞った分析母数。集計・損益・OS値・損切り・シグナル別等の分析タブが従う 2026-06-24。
   var v2recs = (addAlphaFil === "all") ? _v2recsAll : _v2recsAll.filter(function(r) { return addAlphaFil === "yes" ? _elSpecialUsed(r.signal) : !_elSpecialUsed(r.signal); });   // 2状態化 2026-07-13: yes=応用あり／no=応用なし（旧×+未選択を統合）
   // 旧記録件数は算入フラグと独立に数える（除外した新形式記録を「旧記録」に混ぜない）。2026-06-18
@@ -6756,8 +6765,8 @@ function EntryLogView(_ref_elv2) {
   // 未達タブのバッジ件数は、選択中シグナルの母数で数える（シグナル軸の下で _missCnt を定義 2026-07-01）。
   // 記録帳のサブタブ集合は表示中ピルで出し分け: 全銘柄合算「💰損益」は集計/期間のみ・各銘柄タブはフル分析タブ＋未達（銘柄別＝全項目を分析する方針）。2026-06-22
   var _tabs = _isAllStock
-    ? [["sum", "📊 集計"], ["ce", "📥 確定待ち"], ["alpha", "📐 VAP値"], ["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]]   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
-    : [["sum", "📊 集計"], ["alpha", "📐 VAP値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
+    ? [["sum", "📊 集計"], ["ce", "📥 確定待ち"]].concat(legacy ? [] : [["alpha", "📐 VAP値"]]).concat([["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]])   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
+    : [["sum", "📊 集計"], ["alpha", legacy ? "📐 α値" : "📐 VAP値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   // 2026-09-02 「🩹 補正要否」タブを撤去＝対象シグナル（既定「底つきライン」・_SPN_DEFAULT_SIGNALS）のタブ内へ移設（ユーザー指示「この補正は底つきラインでしか使わない」）。
   var _SIG_TABS = [["band", "💴 株価帯別"], ["stop", "🛑 損切り"], ["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]];   // 2026-08-20b 「📥 確定待ち」はここに一度置いたが、ユーザー決定で💰損益タブ（_tabsの全銘柄側）へ移設した。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
@@ -7395,6 +7404,7 @@ function EntryLogView(_ref_elv2) {
         oth(React.createElement("span", { title: "想定損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値")),
         oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの（上段）。損失＝ラインには触れず期待度×等で降りたら損だったもの（下段）。率はどちらもE成立母数（＝到達）に対する割合。平均は想定損益と同じ基準の実額。利確＋同値＋損切＋損失＝E成立母数" }, "損切り/損失")),
         oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "想定損益")),
+        (legacy ? oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済み・×見送りは対象外）。上＝該当件数、下＝その記録を除いた想定損益。該当が無い期間は想定損益と同額（差額行なし）" }, "同値除外損益")) : null),
         oth("実現損益"));
     };
     // ドリルダウン（マトリョーシカ 2026-07-30 ユーザー要望）: 月をタップ→その月の【週別】／週をタップ→その週の【日別】／日をタップ→その日の【取引記録】。
@@ -7422,9 +7432,10 @@ function EntryLogView(_ref_elv2) {
           evenCell(st),
           stopCell(st),
           pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
+          legacy ? friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x), dn) : null,
           realCell(t, dn, null, _noShareN(x))));
         if (!on) return;
-        out.push(React.createElement("tr", { key: path + "_d" }, React.createElement("td", { colSpan: gg === "day" ? 8 : 9, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },   // 日別は日数列が無いので1つ減らす 2026-08-12g
+        out.push(React.createElement("tr", { key: path + "_d" }, React.createElement("td", { colSpan: (gg === "day" ? 8 : 9) + (legacy ? 1 : 0), style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },   // 日別は日数列が無いので1つ減らす 2026-08-12g
           nxt
             // まだ下の段がある＝1段細かい期間表を入れ子で出す（列は同じ・行タップでさらに下へ）
             ? React.createElement(React.Fragment, null,
@@ -7466,6 +7477,7 @@ function EntryLogView(_ref_elv2) {
       evenCell(_ovTotStops, Object.assign({ fontWeight: 800 }, bt)),
       stopCell(_ovTotStops, bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt, true),
+      legacy ? friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt), true) : null,
       realCell(tt, _ovTotDays, bt, _noShareN(rsInc), true));
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
@@ -7638,7 +7650,7 @@ function EntryLogView(_ref_elv2) {
     //     ②OS値/αが小数 … _elFillEqAt は Math.round して比較、_elFillRisk は Number のまま比較（100.4 と 100 で割れる）。
     //   ⚠️この食い違いは元からある（明細バッジとボードが今も違う集合を指している）＝この改修で作ったものではない。
     //   どちらかへ寄せるならボードの数字が動くので、別途ユーザー判断が要る。ここでは明細バッジ側にそろえている。
-    var _fqN = 0;   // 2026-10-04 同値は未約定(miss)になったので別建ての除外はしない（件数カードの注記も出さない）
+    var _fqN = legacy ? _elFillRiskCountRecs(rs) : 0;   // 新システム(8/20以降)は同値＝未約定(miss)で別建ての除外をしない。旧システム枠だけ従来どおり
     var _rsE = _fqN ? rs.filter(function(r) { return !_elFillRiskRec(r); }) : rs;   // 0件なら元配列を使い回す＝従来と完全に同じ経路
     var n = rs.length, ok = 0, x = 0, miss = 0;
     _rsE.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") x++; else if (j === "miss") miss++; });
@@ -7646,7 +7658,7 @@ function EntryLogView(_ref_elv2) {
       signal: function(r) { return r.signal; },
       alpha: function(r) { return _ai(r).alpha; },
       cut: function(r) { return _ai(r).cutLine; },
-      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _isDataOnly(data, r); },   // 2026-10-04 データのみも除外／2026-09-02 同値も除外（実現損益は同値該当が元から持たないので不変）
+      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || (legacy && _elFillRiskRec(r)) || _isDataOnly(data, r); },   // 2026-10-04 データのみも除外／2026-09-02 同値も除外（実現損益は同値該当が元から持たないので不変）
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
     var ss = _elStopStatsV2(_rsE, data), reach = n ? Math.round((ok + x) / n * 100) : null;   // reach の分母は n（=同値込みの母数）のまま＝ボードの eRate=entered/n と同じ
@@ -7698,7 +7710,7 @@ function EntryLogView(_ref_elv2) {
     });
   };
   var _fillRiskSection = function(rs, scopeNote) {
-    if (true) return null;   // 2026-10-04 記録帳の「同値除外損益」セクションを廃止（同値は未約定＝未達として扱う。件数・仮想損益はホーム/日別ページに表示）
+    if (!legacy) return null;   // 2026-10-04 新システム(8/20以降)では「同値除外損益」セクションを出さない（同値は未約定＝未達）。旧システム枠(〜8/19)でだけ従来どおり
     var _riskRecs = (rs || []).filter(_elFillRiskRec);
     var t = _friskTotOf(rs, false), t2 = _friskTotOf(rs, true);
     var _frDays = _elBizDaysOf(rs, data);
@@ -8497,7 +8509,7 @@ function EntryLogView(_ref_elv2) {
       }
     }
   } else if (view === "alpha") {
-    if (true) {   // 2026-10-04 α値タブはVAP分析ボードに置換（旧α分析は下に残置＝到達しない）
+    if (!legacy) {   // 2026-10-04 新システム(8/20以降)ではα値タブをVAP分析ボードに置換。旧システム枠(〜8/19)は従来のα分析
       _tabBody = _cardify([
         _secH("📐 VAP値の分析", "8/20以降の記録。EP＝水準線＋VAP値。VAPから追加円数ごとの損益と、記録ごとの余地"),
         _vapBoardV2(_v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, _collScope); }), _ai, function(rec) { setEditTarget(rec); })]);
@@ -9046,6 +9058,15 @@ function EntryLogView(_ref_elv2) {
       React.createElement("button", { onClick: function() { setEditTarget({}); }, style: { padding: "7px 13px", fontSize: 12, fontWeight: 800, background: "#1A1714", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer" } }, "＋新規")),
     // 2026-07-20i 期間の指定を年月週日カスケード選択へ置換（旧: 全期間/今週/1ヶ月…のローリング<select>＋🗓期間指定バー）。既定は全て「全て」＝全期間で、開いた時の見え方は従来と同じ。
     // 母数は_anaRecs（4月以前を除外済み）＝ピッカーの件数表示も同じ母数で数える。
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 2px 8px" } },
+      React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: "#5B21B6", letterSpacing: ".04em" } }, "システム"),
+      React.createElement("div", { style: { display: "flex", background: "#F1EEE8", borderRadius: 9, padding: 2, gap: 2 } },
+        [[false, "📗 8/20以降（VAP値）"], [true, "📘 8/19以前（旧システム・α値）"]].map(function(kv) {
+          var on = legacy === kv[0];
+          return React.createElement("button", { key: String(kv[0]), onClick: function() { setLegacy(kv[0]); setExpKey(null); setPerExp(null); setPSel(_elPSelAll); setSelSig(null); },
+            style: { padding: "3px 12px", fontSize: 10.5, fontWeight: 700, border: "none", borderRadius: 7, cursor: "pointer", whiteSpace: "nowrap", background: on ? "#fff" : "transparent", color: on ? "#1A1714" : "#8A8578", boxShadow: on ? "0 1px 2px rgba(0,0,0,.12)" : "none" } }, kv[1]);
+        })),
+      legacy ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E", fontWeight: 600 } }, "旧システム＝α値（基本/応用＋浮き足＋RN）・EP＝OS同値も到達・同値除外損益あり。8/19以前の記録のみ") : null),
     React.createElement(_ElPeriodPicker, { value: pSel, onChange: function(s) { setPSel(s); setExpKey(null); setPerExp(null); }, recs: _anaRecs, label: "期間" }),
     React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", margin: "0 2px 7px", lineHeight: 1.4 } }, "※ 2026年4月以前はEMAの位置に間違いがあったため、記録帳の集計・分析・一覧すべてから除外しています（5月以降が正）。"),
     // 2026-08-05t 分析母数トグル。💰損益タブ（全銘柄）では_v2recsAllDataを使わない＝押しても何も変わらないので出さない。
