@@ -5509,6 +5509,7 @@ function _snDailyPnlMap(data) {
       // 両者の食い違いはこの1要因だけであることを確認済み。ユーザー選択で記録帳側に揃えた。
       // 除外した分は記録帳の「旧記録」帯（_oldRecNote・app-06）で件数と金額を見せる。
       if (!_epIsV2(s)) return;
+      if (_vapWorld(r.date) && _vapOf(s) == null) return;   // 8/20以降でVAP値が未入力の記録は記録帳(_v2recsAll)と同じく金額に入れない 2026-10-04（合計が食い違っていた）
       if (_elCollExcluded(data, r)) return;
       var o = out[r.date] || (out[r.date] = { final: null, finalCnt: 0, win: 0, loss: 0, even: 0,
         real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0, eqCnt: 0, eqPnl: 0, eqPnlCnt: 0 });
@@ -5622,7 +5623,8 @@ function _SnMonthPnlPanel(_refSnMp) {
   var agg = _refSnMp.agg, year = _refSnMp.year, month = _refSnMp.month;
   var perDay = agg.bizDone > 0 ? Math.round(agg.final / agg.bizDone) : null;
   var winPct = agg.finalCnt > 0 ? Math.round(agg.win / agg.finalCnt * 100) : null;
-  var eqPerDay = (agg.bizDone > 0 && agg.eqPnlCnt > 0) ? Math.round(agg.eqPnl / agg.bizDone) : null;   // 指値同値の仮想損益の1日あたり
+  var eqTot = agg.final + agg.eqPnl;   // 指値同値の仮想損益を足した合計。1日あたりはこの合計に対して出す（同値分だけの1日平均は出さない）
+  var eqPerDay = (agg.bizDone > 0 && agg.eqPnlCnt > 0) ? Math.round(eqTot / agg.bizDone) : null;
   var ttl = year + "年" + (month + 1) + "月";
   var _cell = function(label, valNode, subNode, title) {
     return React.createElement("div", { key: label, title: title || undefined, style: { minWidth: 0 } },
@@ -5655,9 +5657,9 @@ function _SnMonthPnlPanel(_refSnMp) {
             agg.finalCnt + "件 / " + agg.tradedDays + "日",
             "想定損益の合計（100株換算）。母数 " + agg.finalCnt + "件・記録のあった日 " + agg.tradedDays + "日"),
           agg.eqCnt > 0 ? _cell("指値同値",
-            agg.eqPnlCnt > 0 ? React.createElement(React.Fragment, null, (eqPerDay != null) ? _elHoldGradeBadge(_profitGradeFromPnl(eqPerDay, agg.eqPnlCnt)) : null, _amt(agg.eqPnl)) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
-            agg.eqCnt + "件" + (eqPerDay != null ? " / 1日 " + _snYen(eqPerDay) : "") + " / 未約定扱い",
-            "OS最大＝採用α/VAPちょうど＝予定EPに触れただけで上抜けなかった記録 " + agg.eqCnt + "件。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益（手じまい基準・100株換算）の合計です。バッジは1日あたり（÷経過営業日）で判定") : null,
+            agg.eqPnlCnt > 0 ? _amt(agg.eqPnl) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
+            React.createElement(React.Fragment, null, agg.eqCnt + "件・未約定扱い" + (agg.eqPnlCnt > 0 ? " / 合計 " + _snYen(eqTot) : "") + " ", (eqPerDay != null) ? _elHoldGradeBadge(_profitGradeFromPnl(eqPerDay, agg.finalCnt + agg.eqPnlCnt)) : null, (eqPerDay != null) ? "1日 " + _snYen(eqPerDay) : null),
+            "OS最大＝採用α/VAPちょうど＝予定EPに触れただけで上抜けなかった記録 " + agg.eqCnt + "件。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益（手じまい基準・100株換算）の合計です。合計＝想定損益＋この金額。バッジと1日あたりは合計を経過営業日で割った額（同値分だけの1日平均は出しません）") : null,
           _cell("1日あたり",
             perDay == null ? React.createElement("span", { style: { color: "#bbb" } }, "—")
               : React.createElement(React.Fragment, null, _elHoldGradeBadge(_profitGradeFromPnl(perDay, agg.finalCnt)), _amt(perDay)),

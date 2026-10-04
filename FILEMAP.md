@@ -3077,3 +3077,5 @@ HomeEventFormModal, App
 - 【8/20以降の既存記録へ vapVal=alphaVal を補完 2026-10-04】migrateData(app-01・_alphaPerRecordMig直後)。条件ベースで冪等。alphaVal は不変＝EP・損益は変わらない。
 
 - 【8/20以降のVAP値＝基本α/応用αの数値のみ 2026-10-04】migrateData(app-01)。vapVal・alphaVal・baseAlphaVal を土台α（応用〇なら応用α）に揃え、rn/応用フラグを下ろす（旧値は `s._vapMig` に退避）。浮き足〇の記録は土台αが無いのでVAP未設定。手入力済みVAPは不変。冪等。※EP・損益は変わる。
+
+- 【ホーム/カレンダーも8/20以降のVAP未設定を金額から除外 2026-10-04】`_snDailyPnlMap`(app-05)。記録帳(_v2recsAll)と合計を一致させる。ホーム「指値同値」チップ・📊パネルは「同値分の金額／合計(損益＋同値分)／合計の1日あたり(バッジ)」の構成に変更（同値分だけの1日平均は出さない）。
