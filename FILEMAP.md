@@ -3063,3 +3063,7 @@ HomeEventFormModal, App
 - 【JX金属を固定銘柄へ戻す 2026-10-04】app-01 `_jxFixedSeed1` で custom.rotatingStocks から JX金属 を1回だけ除去（日替わりタブ→個別タブ）。
 
 - 【日替わり銘柄の既定=SUMCO 2026-10-04】`_dailyStockList`(app-04)が、9/1以降で指定もseed印も無い日に SUMCO を返す（`_DS_DEFAULT_STOCK`/`_DS_DEFAULT_SINCE`・読み出し側の既定で dailyStock には書かない）。生の指定は `_dailyStockRaw`。app-01 `_sumcoRotSeed1` でSUMCOを候補プールへ1回追加。
+
+- 【VAP値（α値の後継・8/20以降）2026-10-04】`_VAP_SINCE`/`_vapWorld(date)`/`_vapOf(s)`/`_vapAnalysisOk(r)`(app-05・AMT定数の直後)。**保存は `vapVal` に加え `alphaVal=baseAlphaVal=vapVal` も書く**＝下流のEP/損益計算(`_epOwnAlpha`＝alphaVal)は無改修でVAP基準になる。記録フォーム(app-05 EntryRecordForm)は `_vapMode=_vapWorld(fDate)` で α欄を VAP欄（`fVap`）に差し替え、浮き足/RN/基本応用は保存時に無効化。8/20より前の記録は従来のα基準のまま。
+  - 記録帳(app-06): `_anaRecs` で8/20より前を非表示、`_v2recsAll`/`_v2recsAllData` で vapVal 未入力を分析外（集計タブに「VAP未設定 N件」帯 `_vapNote`）。「📐 VAP値」タブ（旧α値タブを置換）= `_vapBoardV2(recs, aiOf, onEdit)`（追加円数0〜+10の表＝`_elH2EvalByFn` 同値全列除外・★＝Σ最大かつ想定損益確定10件以上／記録ごとの余地 `_vapMargin`）。旧αタブ本体は `if (true)` の else 側に残置（到達しない）。
+  - EPナビ(app-04): `_epnVap` で浮き足・RN・応用αを0扱い（基本α欄＝VAP値）。UIラベルは未改称。

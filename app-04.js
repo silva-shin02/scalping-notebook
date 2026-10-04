@@ -4463,7 +4463,8 @@ function _EpnCalcForm(_p) {
   var baseV = (nBase !== "" && !isNaN(Number(nBase))) ? Number(nBase) : _baseDefault;
   // 推奨応用α（応用〇の記録から算出・浮き足/RN除外）。根拠を選ぶとその根拠を持つ記録に絞る。共有ヘルパー_epnSpecialRecoFrom（早見カードと同一）。
   var specialReco = _epnSpecialRecoFrom(casc, nSpecialReasons);
-  var specialV = (nSpecialUsed === "○") ? ((nSpecialAlpha !== "" && !isNaN(Number(nSpecialAlpha))) ? Number(nSpecialAlpha) : (daySpecialAlpha != null ? daySpecialAlpha : (specialReco && specialReco.v != null ? specialReco.v : (baseV != null ? baseV : 0)))) : null;   // 手入力＞本日の採用応用α値＞推奨応用α＞基本α 2026-07-21
+  var _epnVap = _vapWorld(date);   // 8/20以降＝α値→VAP値（EP＝水準線＋VAP。基本/応用・浮き足加算・RN加算は無し）2026-10-04。基本α欄の値をVAP値として使う
+  var specialV = (!_epnVap && nSpecialUsed === "○") ? ((nSpecialAlpha !== "" && !isNaN(Number(nSpecialAlpha))) ? Number(nSpecialAlpha) : (daySpecialAlpha != null ? daySpecialAlpha : (specialReco && specialReco.v != null ? specialReco.v : (baseV != null ? baseV : 0)))) : null;   // 手入力＞本日の採用応用α値＞推奨応用α＞基本α 2026-07-21
   var _epnBaseLevel = (specialV != null) ? specialV : baseV;   // base-levelα＝応用〇なら応用α、通常は基本α（場中版の採用α選択）
   // 浮き足加算率: 記録日前日までの全銘柄浮き足〇記録から推奨/次点（_elUkiPctSweep）。nUkiPct=""は自動=推奨(無ければ50%)。2026-07-12
   var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, date, nUkiSpecial ? "special" : "basic", null, stock); }, [data, date, nUkiSpecial, stock]);   // 2026-07-14g 浮基本/浮応用でプールを分けて推奨%（記録フォームと同じ）。2026-07-25 stockを渡して株価帯優先（帯が薄ければ全銘柄へフォールバック）
@@ -4473,8 +4474,8 @@ function _EpnCalcForm(_p) {
   var _ukiCustAct = !_ukiRecoAct && !_ukiRunAct;
   var _setNUkiPct = function(val) { var v = _toHankakuNum(val); if (v === "") { setNUkiPct(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 100) n = 100; if (n < 0) n = 0; setNUkiPct(String(n)); };
   var _stepNUkiPct = _elMkPctStepper(setNUkiPct);   // 手入力の↑↓: 空欄→50・以降±10（2026-07-14 共通化）
-  var ukiAddV = _elUkiAddVal(showUki && nUkiUsed === "○", nUkiVal, _effUkiPct);   // 2026-07-14 共通化
-  var rnAddV = _elRnAddVal(nRnUsed === "○", nRnVal);   // RN加算（そのまま加算・全シグナル 2026-07-08h→2026-07-14共通化）
+  var ukiAddV = _epnVap ? 0 : _elUkiAddVal(showUki && nUkiUsed === "○", nUkiVal, _effUkiPct);   // 2026-07-14 共通化
+  var rnAddV = _epnVap ? 0 : _elRnAddVal(nRnUsed === "○", nRnVal);   // RN加算（そのまま加算・全シグナル 2026-07-08h→2026-07-14共通化）
   // RN加算自動判定 2026-07-20b（記録フォームと同じ挙動）: RN前α＝浮き足〇なら浮き足加算のみ／通常は基底α＋浮き足加算。RNは含めない＝予定EPが循環しないように。
   var _nRnPre = (nUkiUsed === "○") ? ukiAddV : ((_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV) : null);
   var _nRnAutoAdd = _elRnAutoFrom(nLevel, _nRnPre);   // null=判定不可（水準線未入力/基底α未確定） / 0=対象外(自動×) / >0=加算額
@@ -4497,7 +4498,7 @@ function _EpnCalcForm(_p) {
     var _wv = _nRnAutoAdd > 0 ? String(_nRnAutoAdd) : "";
     if (nRnVal !== _wv) setNRnVal(_wv);
   }, [nRnAuto, _nRnAutoAdd, nRnUsed, nRnVal]);
-  var effA = (nUkiUsed === "○") ? (ukiAddV + rnAddV) : ((_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV + rnAddV) : null);   // 2026-07-14g 浮き足〇＝土台α不使用（採用α＝浮き足加算＋RN）
+  var effA = (!_epnVap && nUkiUsed === "○") ? (ukiAddV + rnAddV) : ((_epnBaseLevel != null) ? (_epnBaseLevel + ukiAddV + rnAddV) : null);   // 2026-07-14g 浮き足〇＝土台α不使用（採用α＝浮き足加算＋RN）
   var levelN = (nLevel !== "" && !isNaN(parseFloat(nLevel))) ? parseFloat(nLevel) : null;
   var epV = (levelN != null && effA != null) ? Math.round((levelN + effA) * 100) / 100 : null;
   var _epnCutLine = (function() { var _ck = stock + "_" + date; var _cd = data.charts && data.charts[_ck]; return (_cd != null && _cd.cutLine != null) ? Number(_cd.cutLine) : 15; })();   // 予定損切りライン用の損切り値（水準線比・既定15）2026-07-18
