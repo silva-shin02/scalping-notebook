@@ -7488,6 +7488,22 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         avgDayLine(b.hold2, days),
         mo ? _moAmtLine(b.hold2, days, "基準は同値除外後の想定損益です") : null), ex);
     };
+    // 新システム(8/20以降)の「指値同値込み」列 2026-10-04（ユーザー指示「指値同値を含んだ場合の額なども表示」）。
+    //   同値(OS最大＝EP)は未約定なので想定損益の金額には入らない。ここでは「もし約定していたら」の仮想損益(_elFillEqStats＝_elFillEqPnl＝ホーム/日別帯と同じ単一源)を
+    //   同値分として出し、想定損益(t.hold2)に足した「同値込み合計」と1日平均を並べる。該当0件は「—」（想定損益と同額のため）。
+    //   母数は想定損益列と同じ（時間かぶり除外後）。（）内の参考額は同値分のrefを持たないので足さない（合計は（）外main同士）。
+    var _eqOfRecs = function(x) { return _elFillEqStats((x || []).filter(function(r) { return !_elCollExcluded(data, r, _collScope); }), function(r) { return _ai(r).alpha; }, function(r) { return _ai(r).cutLine; }); };
+    var eqCell = function(x, t, days, ex, mo) {
+      var q = _eqOfRecs(x);
+      if (!q.n) return otd(_dash, ex);
+      var tot = (t.hold2Cnt || q.cnt) ? (t.hold2 || 0) + q.sum : null;
+      return otd(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.2 } },
+        React.createElement("span", { style: { fontWeight: 800, color: "#0F6E56" } }, q.n + "件", x.length ? React.createElement("span", { style: { fontSize: 9, fontWeight: 600, color: "#94A3B8", marginLeft: 3 } }, Math.round(q.n / x.length * 100) + "%") : null),
+        React.createElement("span", { title: "同値の記録がもし約定していたらの想定損益（手じまい基準）。確定した" + q.cnt + "件の合計", style: { fontSize: 10, fontWeight: 700, color: q.cnt ? _elPnlColor(q.sum) : "#bbb" } }, q.cnt ? "同値分" + _elPnlFmt(Math.round(q.sum)) : (q.n + "件とも金額不明")),
+        React.createElement("span", { style: { marginTop: 1 } }, _yenN(tot, (t.hold2Cnt || 0) + q.cnt, days)),
+        avgDayLine(tot, days),
+        mo ? _moAmtLine(tot, days, "基準は同値込みの想定損益です") : null), ex);
+    };
     // ヘッダ行（外側の表と入れ子の表で共用 2026-07-30）: 先頭列の見出しだけ段の粒度で変わる。
     var _headTr = function(gg) {
       return React.createElement("tr", { style: { background: "transparent" } },
@@ -7499,7 +7515,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         oth(React.createElement("span", { title: "想定損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・損失（<0）のどちらにも入らない第4のバケツで、これを出すと 到達＝利確＋同値＋損切＋損失 で件数が閉じます（2026-07-29e）" }, "同値")),
         oth(React.createElement("span", { title: "損切＝損切りラインに触れてその足の終値で撤退し、損だったもの（上段）。損失＝ラインには触れず期待度×等で降りたら損だったもの（下段）。率はどちらもE成立母数（＝到達）に対する割合。平均は想定損益と同じ基準の実額。利確＋同値＋損切＋損失＝E成立母数" }, "損切り/損失")),
         oth(React.createElement("span", { title: "期待度○が途切れた所（×/△/損切り）で手じまいした損益＝（）外。（）内=△も保有し続けた場合。旧H2損益と同一基準" }, "想定損益")),
-        (legacy ? oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済み・×見送りは対象外）。上＝該当件数、下＝その記録を除いた想定損益。該当が無い期間は想定損益と同額（差額行なし）" }, "同値除外損益")) : null),
+        (legacy ? oth(React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定EPを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある（実エントリー済み・×見送りは対象外）。上＝該当件数、下＝その記録を除いた想定損益。該当が無い期間は想定損益と同額（差額行なし）" }, "同値除外損益")) : oth(React.createElement("span", { title: "OS高値の最大が予定EPとちょうど一致＝上抜けず未約定の記録（想定損益の金額には入りません）。上＝該当件数、中＝もし約定していたらの想定損益（同値分・手じまい基準）、下＝想定損益に同値分を足した合計（同値込み）と1日平均。（）内の参考額（△も保有）は同値込みの対象外。実エントリー済み・×見送りは対象外" }, "指値同値込み"))),
         oth("実現損益"));
     };
     // ドリルダウン（マトリョーシカ 2026-07-30 ユーザー要望）: 月をタップ→その月の【週別】／週をタップ→その週の【日別】／日をタップ→その日の【取引記録】。
@@ -7527,10 +7543,10 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           evenCell(st),
           stopCell(st),
           pnlCell(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, dn),
-          legacy ? friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x), dn) : null,
+          legacy ? friskCell(_elFillRiskCountRecs(x), x.length, t, totExOf(x), dn) : eqCell(x, t, dn),
           realCell(t, dn, null, _noShareN(x))));
         if (!on) return;
-        out.push(React.createElement("tr", { key: path + "_d" }, React.createElement("td", { colSpan: (gg === "day" ? 8 : 9) + (legacy ? 1 : 0), style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },   // 日別は日数列が無いので1つ減らす 2026-08-12g
+        out.push(React.createElement("tr", { key: path + "_d" }, React.createElement("td", { colSpan: (gg === "day" ? 8 : 9) + 1, style: { padding: "4px 6px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } },   // 日別は日数列が無いので1つ減らす 2026-08-12g
           nxt
             // まだ下の段がある＝1段細かい期間表を入れ子で出す（列は同じ・行タップでさらに下へ）
             ? React.createElement(React.Fragment, null,
@@ -7572,7 +7588,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       evenCell(_ovTotStops, Object.assign({ fontWeight: 800 }, bt)),
       stopCell(_ovTotStops, bt),
       pnlCell(tt.hold2, tt.hold2Cnt, tt.hold2Ref, tt.hold2RefCnt, _ovTotDays, bt, true),
-      legacy ? friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt), true) : null,
+      legacy ? friskCell(_elFillRiskCountRecs(rsInc), rsInc.length, tt, totExOf(rsInc), _ovTotDays, Object.assign({ fontWeight: 800 }, bt), true) : eqCell(rsInc, tt, _ovTotDays, bt, true),
       realCell(tt, _ovTotDays, bt, _noShareN(rsInc), true));
     return React.createElement(_HScrollBox, null,
       React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 11 } },
