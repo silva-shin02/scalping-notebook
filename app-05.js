@@ -3711,13 +3711,16 @@ function _epLegs(s) {
 //   足の高値 h が EP(alpha) を**上抜けた**ときだけ到達（h > alpha）。ちょうど同値＝指値に触れただけ＝未約定＝到達せず。
 //   例外＝実エントリー済み(s.entered===true)で、αがその記録自身の採用α(_epOwnAlpha)のとき＝約定した証拠があるので同値でも到達（従来の指値同値の例外と同じ）。
 //   ⚠️EP位置を数える箇所はここへ揃える（_epResolve／記録時EP位置 recEp の算出3か所）。旧式(非v2)の >= 判定は対象外。
+// _EP_EQ_LOOSE＝「もし同値でも約定していたら」の仮想計算用の一時フラグ（_elFillEqLoose の中だけtrue）。指値同値の件数・仮想損益の表示専用。
+var _EP_EQ_LOOSE = false;
+function _elFillEqLoose(fn) { var _prev = _EP_EQ_LOOSE; _EP_EQ_LOOSE = true; try { return fn(); } finally { _EP_EQ_LOOSE = _prev; } }
 function _epHit(s, h, alpha) {
   if (h == null || alpha == null) return false;
   var H = Number(h), A = Number(alpha);
   if (isNaN(H) || isNaN(A)) return false;
   if (H > A) return true;
   if (H < A) return false;
-  return !!(s && s.entered === true && A === _epOwnAlpha(s));
+  return _EP_EQ_LOOSE || !!(s && s.entered === true && A === _epOwnAlpha(s));
 }
 function _epResolve(s, alpha) {
   if (!_epIsV2(s) || alpha == null) return null;
@@ -4907,9 +4910,8 @@ function _elCollPairNode(data, r, scope) {
 //   2026-08-10 ユーザー決定で**全列除外**へ＝到達/E成立/利確/損切り/想定損益(平均・中央・Σ)/勝ち負け平均のどの母数にも入れず、
 //   件数だけ「同値」列に出す（_elH2EvalByFn の第4引数 fillEqSkip・app-06）。旧2026-08-02e〜09は想定損益にだけ0円算入だった。
 function _elFillRisk(s, item) {
-  // 2026-10-04 無効化: 「OS最大＝EP」は _epResolve(_epHit) の時点で未約定(miss)になった＝全集計から自然に外れる。
-  //   別建ての「指値同値」除外は二重になるだけなので常に false（バッジ・除外後の帯・ホームの指値除外チップは該当0件で出なくなる）。
-  if (true) return false;
+  // 2026-10-04 「OS最大＝EP」は _epResolve(_epHit) の時点で未約定(miss)になり、金額は全集計に入らない。
+  //   この関数は「その同値に該当した記録」を数える・印を付ける・仮想損益(_elFillEqPnl)を出すための検出に役割を変えた（ユーザー指定「何件・何円だったか表示」）。
   if (!s) return false;
   if (_elIsEntered(s, item)) return false;
   var _real = (item && item.pnl != null) ? Number(item.pnl) : (s.realizedPnl != null ? _elSignedVal(s.realizedPnl, s.realizedPnlSign) : null);
@@ -4917,7 +4919,23 @@ function _elFillRisk(s, item) {
   var a = _epOwnAlpha(s), os = _elOsMaxAll(s);
   if (a == null || os == null) return false;
   if (Number(os) !== Number(a)) return false;
-  return !_epIsXSkip(s, a);   // ×見送り＝指値を出していないので対象外 2026-08-31
+  return !_elFillEqLoose(function() { return _epIsXSkip(s, a); });   // ×見送り＝指値を出していないので対象外 2026-08-31（同値でも到達と見なす仮想判定で×を見る）
+}
+// 同値に該当した記録を「もし約定していたら」の想定損益（手じまい基準・（）外main）。該当しない/確定しないなら null。表示専用。
+function _elFillEqPnl(s, alpha, cutLine) {
+  var fp = _elFillEqLoose(function() { return _elHoldFinalParts(s, alpha, cutLine); });
+  return (fp && fp.main != null) ? fp.main : null;
+}
+// 該当記録の件数と仮想損益の合計。getAlpha(r)/getCut(r) は _elTotAccum の alpha/cut と同じ getter。{n, sum, cnt}（cnt＝仮想損益が確定した件数）
+function _elFillEqStats(recs, getAlpha, getCut) {
+  var o = { n: 0, sum: 0, cnt: 0 };
+  (recs || []).forEach(function(r) {
+    if (!_elFillRiskRec(r)) return;
+    o.n++;
+    var p = _elFillEqPnl(r.signal, getAlpha(r), getCut(r));
+    if (p != null) { o.sum += p; o.cnt++; }
+  });
+  return o;
 }
 // r={stock,date,signal,item} 版と件数版（KPI/セクション表示用）。
 function _elFillRiskRec(r) { return !!(r && r.signal && _elFillRisk(r.signal, r.item)); }
@@ -4937,31 +4955,26 @@ function _elFillRiskNode(r) {
 // ⚠️**取引テーブルには出さない**＝あちらの母数は entered===true の記録だけで、
 //   _elFillRisk が先頭で _elIsEntered を弾くので永久に0件。出しても常に同額の帯が増えるだけ。
 function _elFillEqFootNode(recsM, aiAlpha, aiCut, days) {
-  var _n = _elFillRiskCountRecs(recsM);
-  if (!_n) return null;
-  var _sg = function(r) { return r.signal; };
-  var _a = _elTotAccum(recsM, { signal: _sg, alpha: aiAlpha, cut: aiCut });
-  var _b = _elTotAccum(recsM, { signal: _sg, alpha: aiAlpha, cut: aiCut, excluded: _elFillRiskRec });
-  var _df = (_a.hold2 != null && _b.hold2 != null) ? (_b.hold2 - _a.hold2) : null;
+  // 2026-10-04 役割変更: 同値は未約定(miss)として金額に入らなくなったので、帯は「該当N件・約定していたら±X円（未算入）」を見せる。
+  var _st = _elFillEqStats(recsM, aiAlpha, aiCut);
+  if (!_st.n) return null;
   var _pill = function(txt, k) { return React.createElement("span", { key: k, style: { fontSize: 9.5, fontWeight: 700, color: "#0F6E56", background: "#fff", border: "1px solid #9FDCC4", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, txt); };
   var _amt = null;
-  if (_b.hold2Cnt > 0) {
-    var _gv = (days && days > 0) ? Math.round((_b.hold2 || 0) / days) : (_b.hold2 || 0);
-    var _g = _profitGradeFromPnl(_gv, _b.hold2Cnt);
+  if (_st.cnt > 0) {
+    var _gv = (days && days > 0) ? Math.round(_st.sum / days) : _st.sum;
+    var _g = _profitGradeFromPnl(_gv, _st.cnt);
     _amt = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
       _g ? _elGradeBadge18(_g) : null,
-      React.createElement("span", { style: { fontWeight: 800, fontSize: 11.5, color: _elPnlColor(_b.hold2), fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(_b.hold2)));
+      React.createElement("span", { style: { fontWeight: 800, fontSize: 11.5, color: _elPnlColor(_st.sum), fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(_st.sum)));
   } else {
     _amt = React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, "—");
   }
   return React.createElement("div", { key: "fqfoot", style: { display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap",
     padding: "4px 10px", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 6, marginTop: 4,
     fontSize: 10.5, fontWeight: 800, color: "#0F6E56" } },
-    React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定ＥＰを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある。それを除いた保守的な想定損益。記録帳の「同値除外損益」列と同基準" }, "🎯 同値除外後の想定損益"),
-    _amt, _elHold2RefSuffix(_b.hold2, _b.hold2Ref, _b.hold2RefCnt),
-    _pill("指値同値 " + _n + "件を除外", "n"),
-    (_df != null && _df !== 0) ? _pill("差額 " + (_df > 0 ? "+" : "") + _df.toLocaleString() + "円", "d") : null
-  );
+    React.createElement("span", { title: "EP＝OS最大（ちょうど同値）＝予定EPに触れただけで上抜けなかった記録。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益の合計" }, "🎯 指値同値 約定していたら"),
+    _amt,
+    _pill(_st.n + "件・未約定扱い", "n"));
 }
 // 合計行の共通集計: EP損益(AB込み)・H1(_elHold1TotParts)・H2(_elHoldFinalParts)・実現損益。
 // get={signal,alpha,cut,real?,realPair?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
@@ -5498,14 +5511,18 @@ function _snDailyPnlMap(data) {
       if (!_epIsV2(s)) return;
       if (_elCollExcluded(data, r)) return;
       var o = out[r.date] || (out[r.date] = { final: null, finalCnt: 0, win: 0, loss: 0, even: 0,
-        real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0, finalEx: null, eqCnt: 0 });
+        real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0, eqCnt: 0, eqPnl: 0, eqPnlCnt: 0 });
       var ai = _elAlphaInfo(r, data);
+      if (_elFillRiskRec(r)) {   // 指値同値＝未約定として金額に入らない記録の件数と「約定していたら」の仮想損益 2026-10-04
+        o.eqCnt++;
+        var _eqp = _elFillEqPnl(s, ai.alpha, ai.cutLine);
+        if (_eqp != null) { o.eqPnl += _eqp; o.eqPnlCnt++; }
+      }
       if (!_epIsXSkip(s, ai.alpha)) {
         var fp = _elHoldFinalParts(s, ai.alpha, ai.cutLine);
         if (fp && fp.main != null) {
           o.final = (o.final || 0) + fp.main;
           o.finalCnt++;
-          if (_elFillRiskRec(r)) o.eqCnt++; else o.finalEx = (o.finalEx || 0) + fp.main;   // 指値同値を除いた損益 2026-10-04
           if (fp.main > 0) o.win++; else if (fp.main < 0) o.loss++; else o.even++;
         }
       }
@@ -5538,7 +5555,7 @@ function _snMonthPnlAgg(data, year, month) {
   //   記録帳の💰全体損益は旧ルール期間を薄く表示して合計・平均から外している(_keyIsOld)が、
   //   ホーム側は月をそのまま見る場所なので**除外はせず「含んでいる」と明示する**（ユーザー判断 2026-08-17）。
   var o = { final: 0, finalCnt: 0, win: 0, loss: 0, even: 0, real: 0, realRaw: 0, realCnt: 0, realHasShares: false,
-    cnt: 0, finalEx: 0, eqCnt: 0, bizTotal: 0, bizDone: 0, tradedDays: 0, best: null, worst: null, maxDD: 0, series: [], oldRuleCnt: 0 };
+    cnt: 0, eqCnt: 0, eqPnl: 0, eqPnlCnt: 0, bizTotal: 0, bizDone: 0, tradedDays: 0, best: null, worst: null, maxDD: 0, series: [], oldRuleCnt: 0 };
   var cum = 0, peak = 0;
   for (var d = 1; d <= last; d++) {
     var ds = dateFmt(year, month, d);
@@ -5546,6 +5563,7 @@ function _snMonthPnlAgg(data, year, month) {
     var e = dayMap[ds];
     if (!e) continue;
     o.cnt += e.cnt;
+    o.eqCnt += (e.eqCnt || 0); o.eqPnl += (e.eqPnl || 0); o.eqPnlCnt += (e.eqPnlCnt || 0);   // 指値同値の件数と仮想損益（final の有無に関わらず数える）
     if (typeof _elIsOldRule === "function" && _elIsOldRule(ds)) o.oldRuleCnt += (e.finalCnt || 0);
     if (e.realCnt) {
       o.realRaw += e.realRaw; o.real += e.real; o.realCnt += e.realCnt;
@@ -5553,7 +5571,6 @@ function _snMonthPnlAgg(data, year, month) {
     }
     if (e.final == null) continue;
     o.final += e.final; o.finalCnt += e.finalCnt;
-    o.finalEx += (e.finalEx || 0); o.eqCnt += (e.eqCnt || 0);
     o.win += e.win; o.loss += e.loss; o.even += e.even;
     o.tradedDays++;
     cum += e.final;
@@ -5605,8 +5622,7 @@ function _SnMonthPnlPanel(_refSnMp) {
   var agg = _refSnMp.agg, year = _refSnMp.year, month = _refSnMp.month;
   var perDay = agg.bizDone > 0 ? Math.round(agg.final / agg.bizDone) : null;
   var winPct = agg.finalCnt > 0 ? Math.round(agg.win / agg.finalCnt * 100) : null;
-  var exCnt = agg.finalCnt - (agg.eqCnt || 0);   // 指値除外の母数＝想定損益のある件数から同値を引いた件数
-  var exPerDay = (agg.bizDone > 0 && agg.eqCnt > 0) ? Math.round(agg.finalEx / agg.bizDone) : null;
+  var eqPerDay = (agg.bizDone > 0 && agg.eqPnlCnt > 0) ? Math.round(agg.eqPnl / agg.bizDone) : null;   // 指値同値の仮想損益の1日あたり
   var ttl = year + "年" + (month + 1) + "月";
   var _cell = function(label, valNode, subNode, title) {
     return React.createElement("div", { key: label, title: title || undefined, style: { minWidth: 0 } },
@@ -5638,10 +5654,10 @@ function _SnMonthPnlPanel(_refSnMp) {
           _cell("想定損益", _amt(agg.final),
             agg.finalCnt + "件 / " + agg.tradedDays + "日",
             "想定損益の合計（100株換算）。母数 " + agg.finalCnt + "件・記録のあった日 " + agg.tradedDays + "日"),
-          agg.eqCnt > 0 ? _cell("指値除外",
-            React.createElement(React.Fragment, null, (exPerDay != null) ? _elHoldGradeBadge(_profitGradeFromPnl(exPerDay, exCnt)) : null, _amt(agg.finalEx)),
-            exCnt + "件 / 同値" + agg.eqCnt + "件除外" + (exPerDay != null ? " / 1日 " + _snYen(exPerDay) : ""),
-            "指値同値（OS最大＝採用α/VAPちょうど＝予定EPに触れただけ）" + agg.eqCnt + "件を除いた保守的な想定損益。差額 " + _snYen(agg.finalEx - agg.final) + "。バッジは1日あたり（÷経過営業日）で判定") : null,
+          agg.eqCnt > 0 ? _cell("指値同値",
+            agg.eqPnlCnt > 0 ? React.createElement(React.Fragment, null, (eqPerDay != null) ? _elHoldGradeBadge(_profitGradeFromPnl(eqPerDay, agg.eqPnlCnt)) : null, _amt(agg.eqPnl)) : React.createElement("span", { style: { color: "#bbb" } }, "—"),
+            agg.eqCnt + "件" + (eqPerDay != null ? " / 1日 " + _snYen(eqPerDay) : "") + " / 未約定扱い",
+            "OS最大＝採用α/VAPちょうど＝予定EPに触れただけで上抜けなかった記録 " + agg.eqCnt + "件。未約定として想定損益には入れていません。金額は『もし約定していたら』の想定損益（手じまい基準・100株換算）の合計です。バッジは1日あたり（÷経過営業日）で判定") : null,
           _cell("1日あたり",
             perDay == null ? React.createElement("span", { style: { color: "#bbb" } }, "—")
               : React.createElement(React.Fragment, null, _elHoldGradeBadge(_profitGradeFromPnl(perDay, agg.finalCnt)), _amt(perDay)),

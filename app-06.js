@@ -7705,6 +7705,8 @@ function EntryLogView(_ref_elv2) {
     var t = _friskTotOf(rs, false), t2 = _friskTotOf(rs, true);
     var _frDays = _elBizDaysOf(rs, data);
     var _diff = (t.hold2 != null && t2.hold2 != null) ? (t2.hold2 - t.hold2) : null;
+    // 2026-10-04 同値は未約定(miss)で金額に入らない＝除外の前後差は常に0。かわりに「もし約定していたら」の仮想損益を見せる。
+    var _eqSt = _elFillEqStats(rs.filter(function(r) { return !_elCollExcluded(data, r, _collScope) && !_isDataOnly(data, r); }), function(r) { return _ai(r).alpha; }, function(r) { return _ai(r).cutLine; });
     var _cell = function(label, val, color, sub) {
       return React.createElement("div", { key: label },
         React.createElement("div", { style: { fontSize: 10, color: "#9A9186", fontWeight: 700, marginBottom: 3 } }, label),
@@ -7717,10 +7719,10 @@ function EntryLogView(_ref_elv2) {
     return [
       _secH("🎯 同値除外損益（OS値＝α値）", "※ 予定EP（水準線＋採用α）にちょうど到達しただけで一度も上抜けなかった記録＝実際の指値が約定しなかった可能性がある。実エントリー済み（実現損益あり）は約定した証拠につき対象外。母数＝" + (scopeNote || "上の期間選択（v2記録のみ）") + "・時間かぶり除外は通常側にも適用済み", _btn),
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 } },
-        _cell("該当件数", _riskRecs.length + "件", _riskRecs.length > 0 ? "#0F6E56" : "#bbb", "OS高値の最大＝採用α値"),
+        _cell("該当件数", _riskRecs.length + "件", _riskRecs.length > 0 ? "#0F6E56" : "#bbb", "OS高値の最大＝EP（未約定扱い）"),
         _cell("通常の想定損益", _yenNR(t.hold2, t.hold2Cnt, t.hold2Ref, t.hold2RefCnt, _frDays), null, t.hold2Cnt + "件"),
         _cell("除外後", _yenNR(t2.hold2, t2.hold2Cnt, t2.hold2Ref, t2.hold2RefCnt, _frDays), null, t2.hold2Cnt + "件"),
-        _cell("差額", _diff == null ? _dash : _elPnlFmt(_diff), _diff == null ? "#bbb" : _elPnlColor(_diff), "刺さらなければ失う分")),
+        _cell("約定していたら", _eqSt.cnt > 0 ? _elPnlFmt(_eqSt.sum) : _dash, _eqSt.cnt > 0 ? _elPnlColor(_eqSt.sum) : "#bbb", "同値" + _eqSt.n + "件の仮想損益（" + _eqSt.cnt + "件確定・未算入）")),
       // 日別/週別/月別の内訳はここに持たず「全体損益（期間別）」の指値同値列＋除外後列に統合（2026-07-20c ユーザー選択）。
       // 元表に載せることで1日平均が自動で付き、件数/指値同値/粒度トグルの二重持ちも解消。ここは一目での件数確認と対象記録の確認に絞る。
       (riskOpen && _riskRecs.length) ? _recTable(_riskRecs.slice().sort(_byDateAsc), "full", "frisk_") : null
