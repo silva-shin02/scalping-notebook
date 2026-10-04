@@ -111,6 +111,11 @@ function Calendar(_ref60) {
     });
     return result;
   }, [data]);
+  var vapUnsetByDate = useMemo(function() {   // VAP未設定の記録がある日（カレンダーに⚡印）2026-10-04
+    var m = _snDailyPnlMap(data), r = {};
+    Object.keys(m).forEach(function(dt) { if (m[dt].vapUnset) r[dt] = { n: m[dt].vapUnset, uki: m[dt].vapUnsetUki || 0 }; });
+    return r;
+  }, [data]);
   var monthAgg = useMemo(function() {
     return _snMonthPnlAgg(data, year, month);
   }, [data, year, month]);
@@ -227,7 +232,8 @@ function Calendar(_ref60) {
             }, "Z");
           })() : null,
           (function() { var _xc = _elDayExclCount(data, key); return _xc > 0 ? _elExclDot(_xc, { width: 8, height: 8 }) : null; })(),
-          (function() { var _cc = _elDayCollCount(data, key); return _cc > 0 ? _elCollDot(_cc, { width: 8, height: 8 }) : null; })()
+          (function() { var _cc = _elDayCollCount(data, key); return _cc > 0 ? _elCollDot(_cc, { width: 8, height: 8 }) : null; })(),
+          vapUnsetByDate[key] ? React.createElement("span", { title: "VAP未設定の記録が " + vapUnsetByDate[key].n + "件" + (vapUnsetByDate[key].uki ? "（うち浮き足加算〇 " + vapUnsetByDate[key].uki + "件）" : "") + "あります。金額に入っていません。日別ページで開いてVAP値を入れてください", style: { fontSize: 10, lineHeight: 1, cursor: "help" } }, "⚡") : null
         ),
         React.createElement("button", {
           onClick: function(e) {
@@ -5509,7 +5515,11 @@ function _snDailyPnlMap(data) {
       // 両者の食い違いはこの1要因だけであることを確認済み。ユーザー選択で記録帳側に揃えた。
       // 除外した分は記録帳の「旧記録」帯（_oldRecNote・app-06）で件数と金額を見せる。
       if (!_epIsV2(s)) return;
-      if (_vapWorld(r.date) && _vapOf(s) == null) return;   // 8/20以降でVAP値が未入力の記録は記録帳(_v2recsAll)と同じく金額に入れない 2026-10-04（合計が食い違っていた）
+      if (_vapWorld(r.date) && _vapOf(s) == null) {   // 8/20以降でVAP値が未入力の記録は記録帳(_v2recsAll)と同じく金額に入れない 2026-10-04（合計が食い違っていた）
+        var _uo = out[r.date] || (out[r.date] = { final: null, finalCnt: 0, win: 0, loss: 0, even: 0, real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0, eqCnt: 0, eqPnl: 0, eqPnlCnt: 0 });
+        _uo.vapUnset = (_uo.vapUnset || 0) + 1; if (_elUkiYes(s)) _uo.vapUnsetUki = (_uo.vapUnsetUki || 0) + 1;   // カレンダーの⚡印用
+        return;
+      }
       if (_elCollExcluded(data, r)) return;
       var o = out[r.date] || (out[r.date] = { final: null, finalCnt: 0, win: 0, loss: 0, even: 0,
         real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0, eqCnt: 0, eqPnl: 0, eqPnlCnt: 0 });

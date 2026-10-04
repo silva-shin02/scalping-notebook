@@ -6735,20 +6735,21 @@ function EntryLogView(_ref_elv2) {
   // 2026-07-20j EMA修正前（2026年4月以前）を記録帳全体から常に除外＝ユーザー選択「算入しない」の徹底。
   // ここを根元にするのは_periodRecsだけでなく_stockAllV2（KPI早見の月カード・期間ピッカーに依存しない別経路 6111）も同じ母数にするため＝片方だけ4月が残る不整合を防ぐ。
   // 旧: 母数トグル「5月〜」(anaJul)で任意にON/OFFしていたが、常時除外になったのでトグルは撤去（常にONと同義）。顔ぶれ(_tickerList)は固定のまま。
-  // 2026-10-04 VAP値への移行: 8/20より前の記録は記録帳から外す（一覧にも出さない・ユーザー決定）。_vapWorld＝app-05。
-  var _anaRecs = allRecs.filter(function(r) { return !_elIsEmaRefPeriod((r && r.date) || "") && _vapWorld((r && r.date) || ""); });
+  // 2026-10-04 VAP値への移行: 8/20より前の記録は「分析」(_v2recsAllData・VAP値タブ)からだけ外す。損益の表・合計には従来どおり残す
+  //   （一度「記録帳から非表示」にしたら過去の合計額が消えたとの指摘で戻した）。_vapWorld＝app-05。
+  var _anaRecs = allRecs.filter(function(r) { return !_elIsEmaRefPeriod((r && r.date) || ""); });
   var _periodRecs = _elPSelFilter(_anaRecs, pSel);   // 2026-07-20i 年月週日カスケード選択（_elPSelFilter＝ローカル基準・_elBucketKey準拠）。旧_elFilterPeriod経路は廃止
   // 銘柄タブのバッジ件数: 選択期間内・銘柄未限定の記録数（顔ぶれは固定、件数だけ期間連動）
   var _cntByStock = (function() { var m = {}; _periodRecs.forEach(function(r) { if (r.stock) m[r.stock] = (m[r.stock] || 0) + 1; }); return m; })();
   var filtered = (_isAllStock || _isSigTotal) ? _periodRecs : _periodRecs.filter(function(r) { return r.stock === _selStock; });
   // 合計額算入: includeInTotal===false の記録は集計/分析の母集団から除外（一覧 filtered は全件のまま）。2026-06-18
   // _v2recsAll=銘柄/期間で絞ったv2算入記録（追加α〇/×/未選択は混在）＝推奨基本α/追加αタブはこれを使い全体トグルと独立。
-  var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal) && _vapOf(r.signal) != null; });   // VAP値が未入力の記録(8/20〜)は分析対象外 2026-10-04
+  var _v2recsAll = filtered.filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal) && (!_vapWorld(r.date) || _vapOf(r.signal) != null); });   // VAP値が未入力の記録(8/20〜)は金額・分析に入れない 2026-10-04（8/20より前は従来どおり）
   // 分析母数の根（計算/データ分離 2026-07-22f）: 分析パネル（銘柄別軸_sigGroupsAll・浮き足/RNボード・株価帯別）は_elInclData（データ算入）で絞る＝「計算off/データon」の記録も分析に残す/「計算on/データoff」は分析から外す。合計損益ダッシュボード（_ovPnlTbl/KPI早見/期間タブ/累積）は_v2recsAll（_elInclTotal）のまま。未設定は_elInclTotalに追従＝分割前と一致。
   // 2026-08-05t _sinceCut＝分析母数トグル。ここが分析の根なので、📡シグナル総合の全サブタブ・銘柄別の
   //   集計/α値/損切り/未達/深掘り/株価帯別・シグナルピルの件数・_missCnt・銘柄タブのシミュ（_selSigRecs経由）・
   //   推奨α（基本α★/応用α）までが一括で追随する＝トグルの配線はこの1か所で足りる。OFF時は素通し＝従来と同一。
-  var _v2recsAllData = _sinceCut(filtered).filter(function(r) { return _epIsV2(r.signal) && _elInclData(r.signal) && _vapOf(r.signal) != null; });
+  var _v2recsAllData = _sinceCut(filtered).filter(function(r) { return _epIsV2(r.signal) && _elInclData(r.signal) && _vapAnalysisOk(r); });   // 分析の根: 8/20以降でVAP入力済みのみ
   // v2recs=全体トグル（追加α 全部/〇/×/未選択）で絞った分析母数。集計・損益・OS値・損切り・シグナル別等の分析タブが従う 2026-06-24。
   var v2recs = (addAlphaFil === "all") ? _v2recsAll : _v2recsAll.filter(function(r) { return addAlphaFil === "yes" ? _elSpecialUsed(r.signal) : !_elSpecialUsed(r.signal); });   // 2状態化 2026-07-13: yes=応用あり／no=応用なし（旧×+未選択を統合）
   // 旧記録件数は算入フラグと独立に数える（除外した新形式記録を「旧記録」に混ぜない）。2026-06-18
@@ -8412,12 +8413,21 @@ function EntryLogView(_ref_elv2) {
                 m.replace("-", "/") + " " + _l.length + "件");
             })));
       })();
-      var _vapUnset = filtered.filter(function(r) { return _epIsV2(r.signal) && _vapOf(r.signal) == null; });
+      var _vapUnset = filtered.filter(function(r) { return _epIsV2(r.signal) && _vapWorld(r.date) && _vapOf(r.signal) == null; });
+      // VAP未設定の記録の場所 2026-10-04（ユーザー指定「浮き足加算〇になった記録がどこにあるかわかるように」）。
+      //   理由の内訳（浮き足〇＝土台の基本/応用αが無い／α値自体が未入力）を出し、各記録は押すと編集フォームが開く。日付は新しい順。
+      //   金額はホーム/カレンダー/記録帳の合計に入っていない（浮き足〇のα値はVAPに引き継げないため）。
+      var _vapUkiN = _vapUnset.filter(function(r) { return _elUkiYes(r.signal); }).length;
       var _vapNote = _vapUnset.length ? React.createElement("div", { key: "vapnote", style: { padding: "7px 11px", background: "#F5F3FF", border: "1px solid #DDD6FE", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#5B21B6", lineHeight: 1.5 } },
-        React.createElement("div", { style: { fontWeight: 800 } }, "⚠ VAP未設定 " + _vapUnset.length + "件 は分析に入っていません"),
-        React.createElement("div", { style: { marginTop: 3, fontWeight: 600 } }, "8/20以降はα値の代わりにVAP値で分析します。該当記録を開いてVAP値を入れ直して保存すると、分析に入ります。"),
+        React.createElement("div", { style: { fontWeight: 800 } }, "⚠ VAP未設定 " + _vapUnset.length + "件" + (_vapUkiN ? "（うち浮き足加算〇 " + _vapUkiN + "件）" : "") + " は金額・分析に入っていません"),
+        React.createElement("div", { style: { marginTop: 3, fontWeight: 600 } }, "8/20以降はα値の代わりにVAP値で集計します。浮き足加算〇の記録は土台の基本α／応用αが無いためVAPを引き継げません。下の記録を押して開き、VAP値を入れて保存すると金額・分析に入ります。"),
         React.createElement("div", { style: { marginTop: 4, display: "flex", gap: 5, flexWrap: "wrap" } },
-          _vapUnset.slice(0, 40).map(function(r, i) { return React.createElement("span", { key: "vu_" + i, style: { fontSize: 10, fontWeight: 700, background: "#fff", border: "1px solid #DDD6FE", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap" } }, (r.date || "").slice(5) + " " + r.stock + " " + ((r.signal && r.signal.time) || "")); }))) : null;
+          _vapUnset.slice().sort(_byDateDescTimeAsc).map(function(r, i) {
+            var _uk = _elUkiYes(r.signal);
+            return React.createElement("button", { key: "vu_" + i, type: "button", onClick: function() { setEditTarget(r); }, title: "押すと編集フォームを開きます",
+              style: { fontSize: 10, fontWeight: 700, background: _uk ? "#ECFDF5" : "#fff", border: "1px solid " + (_uk ? "#86EFAC" : "#DDD6FE"), borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap", cursor: "pointer", color: "#5B21B6" } },
+              (r.date || "").slice(5) + " " + r.stock + " " + ((r.signal && r.signal.time) || "") + (_uk ? " ⚡浮き足" : ""));
+          }))) : null;
       var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
         _sumMonthNav,
@@ -8493,7 +8503,7 @@ function EntryLogView(_ref_elv2) {
     if (true) {   // 2026-10-04 α値タブはVAP分析ボードに置換（旧α分析は下に残置＝到達しない）
       _tabBody = _cardify([
         _secH("📐 VAP値の分析", "8/20以降の記録。EP＝水準線＋VAP値。VAPから追加円数ごとの損益と、記録ごとの余地"),
-        _vapBoardV2(_v2recsAll.filter(function(r) { return !_elCollExcluded(data, r, _collScope); }), _ai, function(rec) { setEditTarget(rec); })]);
+        _vapBoardV2(_v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, _collScope); }), _ai, function(rec) { setEditTarget(rec); })]);
     } else if (!_selSigRecs.length) {
       _tabBody = React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sigAxisGroups.length ? "このシグナルのEP起算（v2）記録がありません" : "EP起算（v2）の記録がありません");
     } else {
