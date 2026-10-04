@@ -1836,7 +1836,7 @@ function _vapBoardV2(recs, aiOf, onEdit) {
 // groups＝[{key,label,recs}]（呼び出し側の_buildSigGroups。複数タグの記録は各タグに算入＝件数合計は総件数を超えうる）。recs＝全シグナル合算の母数。
 // ★は確定件数10件以上の行のみ（_vapBoardV2と同じ規約）。10件に満たないシグナルは「参考」を付けて灰色表示（件数が薄いうちは偶然に引きずられる）。
 function _VapSigBoard(props) {
-  var recs = props.recs || [], aiOf = props.aiOf, onEdit = props.onEdit, groups = props.groups || [];
+  var recs = props.recs || [], aiOf = props.aiOf, onEdit = props.onEdit, groups = props.groups || [], ax = props.axis || "シグナル";   // axis＝比較の軸名（既定シグナル／シグナル別タブ内では銘柄）
   var _u = useState("__all__"), sel = _u[0], setSel = _u[1];
   var selGrp = groups.filter(function(g) { return g.key === sel; })[0] || null;
   var cur = selGrp ? selGrp.recs : recs;
@@ -1864,20 +1864,20 @@ function _VapSigBoard(props) {
       td(pick ? pick.e.entered + "/" + pick.e.n + "（" + pct(pick.e.eRate) + "）" : "\u2014"),
       td(med == null ? "\u2014" : "+" + med + "円"));
   };
-  var body = [line("__all__", "全シグナル", recs, true)].concat(groups.map(function(g) { return line(g.key, g.label, g.recs, false); })).filter(Boolean);
+  var body = [line("__all__", "全" + ax, recs, true)].concat(groups.map(function(g) { return line(g.key, g.label, g.recs, false); })).filter(Boolean);
   var table = React.createElement("div", { style: { overflowX: "auto" } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
       React.createElement("thead", null, React.createElement("tr", null,
-        ["シグナル", "件数", "±0 約定率", "±0 合計損益", "±0 平均", "損益最大の追加", "その合計損益", "その平均", "その約定率", "余地中央"].map(th))),
+        [ax, "件数", "±0 約定率", "±0 合計損益", "±0 平均", "損益最大の追加", "その合計損益", "その平均", "その約定率", "余地中央"].map(th))),
       React.createElement("tbody", null, body)));
   return React.createElement("div", null,
-    React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#333", marginBottom: 2 } }, "シグナル別の比較"),
+    React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#333", marginBottom: 2 } }, ax + "別の比較"),
     React.createElement("div", { style: { fontSize: 10, color: "#888", marginBottom: 4, lineHeight: 1.5 } },
-      "行をタップすると、そのシグナルだけの追加円数表（下）に切り替わります。「損益最大の追加」＝追加0〜+10円のうち合計損益が最大の行（\u2605＝確定10件以上／参考＝10件未満で偶然に左右されやすい）。複数タグの記録は各タグに入るので件数合計は総件数を超えることがあります。"),
+      "行をタップすると、その" + ax + "だけの追加円数表（下）に切り替わります。「損益最大の追加」＝追加0〜+10円のうち合計損益が最大の行（\u2605＝確定10件以上／参考＝10件未満で偶然に左右されやすい）。" + (ax === "シグナル" ? "複数タグの記録は各タグに入るので件数合計は総件数を超えることがあります。" : "")),
     table,
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "14px 0 6px", flexWrap: "wrap" } },
-      React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#5B21B6" } }, "表示中: " + (selGrp ? selGrp.label + "（" + selGrp.recs.length + "件）" : "全シグナル")),
-      selGrp ? React.createElement("button", { type: "button", onClick: function() { setSel("__all__"); }, style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid #DDD6FE", background: "#fff", color: "#5B21B6" } }, "全シグナルに戻す") : null),
+      React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#5B21B6" } }, "表示中: " + (selGrp ? selGrp.label + "（" + selGrp.recs.length + "件）" : "全" + ax)),
+      selGrp ? React.createElement("button", { type: "button", onClick: function() { setSel("__all__"); }, style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid #DDD6FE", background: "#fff", color: "#5B21B6" } }, "全" + ax + "に戻す") : null),
     _vapBoardV2(cur, aiOf, onEdit));
 }
 // ===== RN加算の分析ボード（シグナル総合「🔢RN」・2026-07-16d 全面刷新）=====
@@ -6747,6 +6747,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _uSDT = useState(null), selDetTag = _uSDT[0], setSelDetTag = _uSDT[1];   // 詳細タグ別モードの選択タグ（"セクションキー|タグ名"）
   var _uBSel = useState(null), bandSel = _uBSel[0], setBandSel = _uBSel[1];   // 株価帯別モードの選択帯キー（"b0".."bN"/"mat"=材料あり/"unk"=帯不明・null=件数最多帯に自動フォールバック）2026-07-22
   var _uSBS = useState("__all__"), sigBSel = _uSBS[0], setSigBSel = _uSBS[1];   // 📡シグナル総合の各シグナルタブ・①底抜けピルの選択（"__all__"=すべて/"d:名前"/"__none__"=未選択）2026-08-04
+  var _uSGI = useState("band"), sigInner = _uSGI[0], setSigInner = _uSGI[1];   // 各シグナルタブ内の 💴株価帯別／📐VAP値（銘柄別）切替 2026-10-04
   var _uSGT = useState("band"), sigSub = _uSGT[0], setSigSub = _uSGT[1];   // 📡シグナル総合ピルのサブタブ: band(株価帯別・先頭・既定)/uki(浮き足%)/rn(RN) 2026-07-12（tod/dowは2026-07-16撤去）。既定を"uki"→"band"に（移設先を前面・ユーザー決定 2026-07-22j）
   var _uRNS = useState("ana"), rnSub = _uRNS[0], setRnSub = _uRNS[1];   // 🔢RN加算タブ内の入れ子サブタブ: ana(分析)/list(記録一覧)/cand(候補記録)/thr(閾値スイープ) 2026-07-19→2026-07-20e thr追加
   var _uRNT = useState("all"), rnTier = _uRNT[0], setRnTier = _uRNT[1];   // RN種別トグル: all(合算)/50(中RN…50)/00(大RN…00＝100・1000台) 2026-07-20e／2026-09-02 分析タブと閾値タブで共有
@@ -8320,8 +8321,19 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       // 母数は_sigGroupsAll＝_v2recsAllData（データ算入・全銘柄）由来で💴株価帯別と同一。複数タグの記録は各タグに算入されるのでタブの件数合計は総件数を超えうる。
       var _stKey = sigSub.slice(4);
       var _stGrp = _sigGroupsAll.filter(function(g) { return g.key === _stKey; })[0] || null;
+      // 2026-10-04 シグナルタブ内を「💴株価帯別／📐VAP値」の2枚に（8/20以降の枠のみ）。VAP値＝このシグナルの記録を銘柄別に比較（_VapSigBoardのaxis="銘柄"）。
+      var _stVap = (!legacy && _stGrp) ? _stGrp.recs.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, null); }) : [];
+      var _stBandBody = _stGrp ? _bandAxisBody(_stGrp.recs, true, { withAll: true, sigLabel: _stGrp.label, bSigKey: _stKey }) : null;
+      var _stByStock = {}; _stVap.forEach(function(r) { (_stByStock[r.stock] = _stByStock[r.stock] || []).push(r); });
+      var _stStockGroups = Object.keys(_stByStock).sort(function(a, b) { return _stByStock[b].length - _stByStock[a].length; }).map(function(k) { return { key: k, label: k, recs: _stByStock[k] }; });
       _tabBody = _stGrp
-        ? _bandAxisBody(_stGrp.recs, true, { withAll: true, sigLabel: _stGrp.label, bSigKey: _stKey })
+        ? (legacy ? _stBandBody : React.createElement(React.Fragment, null,
+            _sigInnerBar([["band", "💴 株価帯別", _stGrp.recs.length], ["vap", "📐 VAP値", _stVap.length]], sigInner, setSigInner),
+            sigInner === "vap"
+              ? _cardify([
+                  _secH("📐 VAP値の分析（" + _stGrp.label + "・銘柄別）", "8/20以降・このシグナルの記録。銘柄ごとにVAPからの追加円数を比較。同値（OS最大＝EP）は未約定"),
+                  React.createElement(_VapSigBoard, { key: "vapst" + _stKey, recs: _stVap, aiOf: _ai, groups: _stStockGroups, axis: "銘柄", onEdit: function(rec) { setEditTarget(rec); } })])
+              : _stBandBody))
         : _sigKpiEmpty("このシグナルの記録がありません（シグナル名の変更・削除で無くなった可能性があります。上のタブから選び直してください）");
     } else if (sigSub === "stop") {
       // 🛑損切り（全銘柄）2026-07-27。銘柄別タブの🛑損切り（銘柄×シグナル母数）は存続＝両方で見る。

@@ -3091,3 +3091,5 @@ HomeEventFormModal, App
 - 【1日平均を（）内でも 2026-10-04】app-06 `avgDayLine(v, days, incl)`（期間別表 pnlCell）と銘柄別表の想定損益セルで「1日平均+X（+Y）」。
 
 - 【シグナル別のVAP値分析 2026-10-04】app-06: `_vapRowsOf(pool, aiOf)`（追加0〜+10の再判定＋★best/参考ref・`_vapBoardV2`と共用）、`_VapSigBoard`（コンポーネント。上段＝シグナル別比較表〔±0の約定率/損益/平均・損益最大の追加(★=確定10件以上／未満は「参考」)・余地中央〕、行タップでそのシグナルだけの`_vapBoardV2`に切替）。配線＝①💰損益/銘柄別の「📐 VAP値」タブ（`_buildSigGroups(_vp)`でシグナル分け）②📡シグナル総合に「📐 VAP値」サブタブ（`sigSub==='vap'`・`_SIG_TABS`先頭・8/20以降の枠のみ・旧枠へ切替時は`band`へ戻す）。同値は未約定（`_epHit`）のまま。複数タグの記録は各タグに算入。
+
+- 【シグナルタブ内にもVAP値（銘柄別）2026-10-04】app-06: 📡シグナル総合の各シグナルタブ(`sig:`)を「💴株価帯別／📐VAP値」の2枚に（`sigInner` state・`_sigInnerBar`・8/20以降の枠のみ）。VAP値＝そのシグナルの記録を銘柄別に比較（`_VapSigBoard` に `axis="銘柄"` を追加・既定は"シグナル"）。
