@@ -584,6 +584,14 @@ function migrateData(d) {
     }
     d.custom._jxFixedSeed1 = 1;
   }
+  // 2026-10-04 日替わり銘柄の既定をSUMCOに（9/1以降・読み出し側の既定 _DS_DEFAULT_STOCK・app-04）。既定が効くには候補プールにSUMCOが要るので、マスターに実在すれば1回だけ追加。
+  if (!d.custom._sumcoRotSeed1) {
+    if (Array.isArray(d.custom.stocks) && d.custom.stocks.indexOf("SUMCO") >= 0) {
+      var _scRot = Array.isArray(d.custom.rotatingStocks) ? d.custom.rotatingStocks.slice() : [];
+      if (_scRot.indexOf("SUMCO") < 0) { _scRot.push("SUMCO"); d.custom.rotatingStocks = _scRot; }
+    }
+    d.custom._sumcoRotSeed1 = 1;
+  }
   // ユーザー指定の初期値。**シグナル単位で1回だけ**適用する（_sigSecSeeded に適用済みを記録）。
   // 一律フラグ1つだと、後から別シグナルの初期値を足すときにフラグを増やす羽目になり、
   // しかもフラグを上げ直すと利用者が変更済みのラベルまで巻き戻る。シグナル単位なら足すだけで済む。

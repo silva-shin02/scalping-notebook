@@ -3061,3 +3061,5 @@ HomeEventFormModal, App
 - 【算入銘柄の絞り込みを取りやめ 2026-10-04】既定のフジクラ・SBG絞り込みを廃止し、app-01 `_amtStocksSeed4` で保存済みの amtStocks を1回だけ空（全銘柄算入）へ。絞り込み機能自体（設定のピッカー）は残す。
 
 - 【JX金属を固定銘柄へ戻す 2026-10-04】app-01 `_jxFixedSeed1` で custom.rotatingStocks から JX金属 を1回だけ除去（日替わりタブ→個別タブ）。
+
+- 【日替わり銘柄の既定=SUMCO 2026-10-04】`_dailyStockList`(app-04)が、9/1以降で指定もseed印も無い日に SUMCO を返す（`_DS_DEFAULT_STOCK`/`_DS_DEFAULT_SINCE`・読み出し側の既定で dailyStock には書かない）。生の指定は `_dailyStockRaw`。app-01 `_sumcoRotSeed1` でSUMCOを候補プールへ1回追加。

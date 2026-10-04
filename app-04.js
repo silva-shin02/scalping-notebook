@@ -3662,16 +3662,25 @@ function _pbDayMaterialSet(save, stock, date, on) {
 // 指定銘柄＝合計＋分析に算入。候補で未指定の記録＝データのみ（合計除外・分析は残す）。固定銘柄は従来通り。
 // 値の形（2026-08-06）: 1銘柄=文字列（旧形式のまま＝後方互換）／2銘柄以上=配列。旧版アプリで開いても1銘柄の日は従来通り動く。
 // 読み出しは必ず _dailyStockList / _dailyStockHas を通す（生の m[日付] を文字列比較すると配列の日が全て不一致＝データのみに落ちる）。
-var _dsListCache = { map: null, out: {} };
-function _dailyStockList(data, date) {
-  var m = (data && data.dailyStock) || null;
-  if (_dsListCache.map !== m) _dsListCache = { map: m, out: {} };   // dailyStockマップの差し替え（保存/同期）でキャッシュ全捨て
-  var _k = date || "";
-  if (Object.prototype.hasOwnProperty.call(_dsListCache.out, _k)) return _dsListCache.out[_k];
-  var v = (m && date) ? m[date] : null;
+// 既定の日替わり銘柄 2026-10-04（ユーザー指定「9月1日以降の日替わり銘柄のデフォルトはSUMCO。既存のも」）。
+//   9/1以降で『指定が無く、手で触られてもいない日（dailyStockSeed無し）』は SUMCO を指定済みとして読む。**読み出し側の既定**なので dailyStock には書かない
+//   ＝既存の日にも遡って効く／手で全部外した日（seedの印あり）と、別銘柄を明示した日は尊重。候補プールに SUMCO が居るときだけ効かせる。
+var _DS_DEFAULT_STOCK = "SUMCO", _DS_DEFAULT_SINCE = "2026-09-01";
+var _dsListCache = { map: null, seed: null, pool: null, out: {} };
+function _dailyStockRaw(data, date) {
+  var v = (data && data.dailyStock && date) ? data.dailyStock[date] : null;
   var src = (v == null || v === "") ? [] : (Array.isArray(v) ? v : [v]);
   var out = [];
   src.forEach(function(s) { var n = (s == null) ? "" : String(s); if (n && out.indexOf(n) < 0) out.push(n); });
+  return out;
+}
+function _dailyStockList(data, date) {
+  var m = (data && data.dailyStock) || null, sd = (data && data.dailyStockSeed) || null, pl = (data && data.custom && data.custom.rotatingStocks) || null;
+  if (_dsListCache.map !== m || _dsListCache.seed !== sd || _dsListCache.pool !== pl) _dsListCache = { map: m, seed: sd, pool: pl, out: {} };   // dailyStockマップの差し替え（保存/同期）でキャッシュ全捨て
+  var _k = date || "";
+  if (Object.prototype.hasOwnProperty.call(_dsListCache.out, _k)) return _dsListCache.out[_k];
+  var out = _dailyStockRaw(data, date);
+  if (!out.length && date && String(date) >= _DS_DEFAULT_SINCE && !(sd && sd[date]) && pl && pl.indexOf(_DS_DEFAULT_STOCK) >= 0) out = [_DS_DEFAULT_STOCK];
   _dsListCache.out[_k] = out;
   return out;   // 返り値は共有＝呼び出し側で破壊的変更をしない（変更時は slice() する）
 }
@@ -3732,13 +3741,13 @@ function _dailyStockPrevList(data, date) {
   var m = (data && data.dailyStock) || null;
   if (!m || !date) return [];
   var best = "";
-  for (var k in m) { if (k < date && k > best && _dailyStockList(data, k).length) best = k; }
+  for (var k in m) { if (k < date && k > best && _dailyStockRaw(data, k).length) best = k; }
   return best ? _dailyStockList(data, best) : [];
 }
 function _dsShouldSeed(data, date) {
   if (!date || date < _dsTodayStr()) return false;                                 // 今日以降だけ
   if (data && data.dailyStockSeed && data.dailyStockSeed[date]) return false;      // 自動済み or 手で触った日
-  if (_dailyStockList(data, date).length) return false;                            // 既に選定がある
+  if (_dailyStockRaw(data, date).length) return false;                             // 既に選定がある（既定SUMCOは含めない＝生の指定だけ見る）
   return _dailyStockPrevList(data, date).length > 0;
 }
 // 実行。⚠️save の中で**もう一度**判定する＝呼び出し側のdataは古い可能性があり（同期やeffectの多重発火）、
