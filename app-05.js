@@ -5590,6 +5590,8 @@ function _SnMonthPnlPanel(_refSnMp) {
   var agg = _refSnMp.agg, year = _refSnMp.year, month = _refSnMp.month;
   var perDay = agg.bizDone > 0 ? Math.round(agg.final / agg.bizDone) : null;
   var winPct = agg.finalCnt > 0 ? Math.round(agg.win / agg.finalCnt * 100) : null;
+  var exCnt = agg.finalCnt - (agg.eqCnt || 0);   // 指値除外の母数＝想定損益のある件数から同値を引いた件数
+  var exPerDay = (agg.bizDone > 0 && agg.eqCnt > 0) ? Math.round(agg.finalEx / agg.bizDone) : null;
   var ttl = year + "年" + (month + 1) + "月";
   var _cell = function(label, valNode, subNode, title) {
     return React.createElement("div", { key: label, title: title || undefined, style: { minWidth: 0 } },
@@ -5621,6 +5623,10 @@ function _SnMonthPnlPanel(_refSnMp) {
           _cell("想定損益", _amt(agg.final),
             agg.finalCnt + "件 / " + agg.tradedDays + "日",
             "想定損益の合計（100株換算）。母数 " + agg.finalCnt + "件・記録のあった日 " + agg.tradedDays + "日"),
+          agg.eqCnt > 0 ? _cell("指値除外",
+            React.createElement(React.Fragment, null, (exPerDay != null) ? _elHoldGradeBadge(_profitGradeFromPnl(exPerDay, exCnt)) : null, _amt(agg.finalEx)),
+            exCnt + "件 / 同値" + agg.eqCnt + "件除外" + (exPerDay != null ? " / 1日 " + _snYen(exPerDay) : ""),
+            "指値同値（OS最大＝採用α/VAPちょうど＝予定EPに触れただけ）" + agg.eqCnt + "件を除いた保守的な想定損益。差額 " + _snYen(agg.finalEx - agg.final) + "。バッジは1日あたり（÷経過営業日）で判定") : null,
           _cell("1日あたり",
             perDay == null ? React.createElement("span", { style: { color: "#bbb" } }, "—")
               : React.createElement(React.Fragment, null, _elHoldGradeBadge(_profitGradeFromPnl(perDay, agg.finalCnt)), _amt(perDay)),
