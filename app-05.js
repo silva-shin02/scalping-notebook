@@ -4900,6 +4900,40 @@ function _elFillRiskNode(r) {
   if (!_elFillRiskRec(r)) return null;
   return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値同値");   // 2026-08-05v ここだけ旧称のまま（ユーザー判断）。列/セクションは「同値除外損益」だが、この小バッジは1記録に付く印＝損益そのものではないため
 }
+// 同値除外損益の注記（案B、2026-10-04 ユーザー指定「該当記録がある日だけ表示」）。合計行のすぐ下に置く帯。
+// recsM = その合計行に**実際に入っている記録**（算入フィルタ済み・時間かぶり除外済み）。aiAlpha/aiCut は合計行と同じ getter。
+// 基準は _elTotAccum ＝想定損益列と同じ単一源なので、差額はそのまま「同値を除いたらいくら変わるか」になる。
+// 0件なら null＝該当が無い日には出さない（案A「いつも表示」を採らない理由＝毎日「0件」の帯が並んでノイズになる）。
+// 件数は recsM 基準＝**金額が実際に動く記録だけ**を数える。記録帳の「同値除外損益」列も同基準にそろえてある 2026-10-04。
+// ⚠️**取引テーブルには出さない**＝あちらの母数は entered===true の記録だけで、
+//   _elFillRisk が先頭で _elIsEntered を弾くので永久に0件。出しても常に同額の帯が増えるだけ。
+function _elFillEqFootNode(recsM, aiAlpha, aiCut, days) {
+  var _n = _elFillRiskCountRecs(recsM);
+  if (!_n) return null;
+  var _sg = function(r) { return r.signal; };
+  var _a = _elTotAccum(recsM, { signal: _sg, alpha: aiAlpha, cut: aiCut });
+  var _b = _elTotAccum(recsM, { signal: _sg, alpha: aiAlpha, cut: aiCut, excluded: _elFillRiskRec });
+  var _df = (_a.hold2 != null && _b.hold2 != null) ? (_b.hold2 - _a.hold2) : null;
+  var _pill = function(txt, k) { return React.createElement("span", { key: k, style: { fontSize: 9.5, fontWeight: 700, color: "#0F6E56", background: "#fff", border: "1px solid #9FDCC4", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, txt); };
+  var _amt = null;
+  if (_b.hold2Cnt > 0) {
+    var _gv = (days && days > 0) ? Math.round((_b.hold2 || 0) / days) : (_b.hold2 || 0);
+    var _g = _profitGradeFromPnl(_gv, _b.hold2Cnt);
+    _amt = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+      _g ? _elGradeBadge18(_g) : null,
+      React.createElement("span", { style: { fontWeight: 800, fontSize: 11.5, color: _elPnlColor(_b.hold2), fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(_b.hold2)));
+  } else {
+    _amt = React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, "—");
+  }
+  return React.createElement("div", { key: "fqfoot", style: { display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap",
+    padding: "4px 10px", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 6, marginTop: 4,
+    fontSize: 10.5, fontWeight: 800, color: "#0F6E56" } },
+    React.createElement("span", { title: "OS高値の最大が採用α値とちょうど一致＝予定ＥＰを一度も上抜けなかった記録＝実際の指値注文は約定しなかった可能性がある。それを除いた保守的な想定損益。記録帳の「同値除外損益」列と同基準" }, "🎯 同値除外後の想定損益"),
+    _amt, _elHold2RefSuffix(_b.hold2, _b.hold2Ref, _b.hold2RefCnt),
+    _pill("指値同値 " + _n + "件を除外", "n"),
+    (_df != null && _df !== 0) ? _pill("差額 " + (_df > 0 ? "+" : "") + _df.toLocaleString() + "円", "d") : null
+  );
+}
 // 合計行の共通集計: EP損益(AB込み)・H1(_elHold1TotParts)・H2(_elHoldFinalParts)・実現損益。
 // get={signal,alpha,cut,real?,realPair?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
 // realPair(it)→_elRealPnlPair の戻り{real,per100,shares}（null可）2026-08-04。渡すと t.real（100株換算合計＝従来値）に加えて
@@ -5426,6 +5460,13 @@ function _snDailyPnlMap(data) {
       if (!s || !r.date) return;
       if (!_elInclTotalAmt(data, r)) return;
       if (!_elAmtRecOk(r)) return;   // 算入銘柄フィルタ 2026-10-01（ホーム月次・カレンダー・📊早見はここが単一源）
+      // 旧記録（schemeなし＝ＥＰ起算方式へ移行できていない記録）を除外 2026-10-04。
+      // 記録帳は最初から _epIsV2 で丸ごと外している（件数カードの「v2記録のみ」）のに、
+      // こちらだけ拾っていたため、同じ月でカレンダーと記録帳の合計が合わなかった
+      // （ユーザー指摘 2026-10-04「9月の合計額違わない？」）。ランダム差分テスト40試行で、
+      // 両者の食い違いはこの1要因だけであることを確認済み。ユーザー選択で記録帳側に揃えた。
+      // 除外した分は記録帳の「旧記録」帯（_oldRecNote・app-06）で件数と金額を見せる。
+      if (!_epIsV2(s)) return;
       if (_elCollExcluded(data, r)) return;
       var o = out[r.date] || (out[r.date] = { final: null, finalCnt: 0, win: 0, loss: 0, even: 0,
         real: null, realRaw: null, realCnt: 0, realHasShares: false, cnt: 0 });

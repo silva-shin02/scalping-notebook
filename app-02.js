@@ -4642,6 +4642,8 @@ function EntrySignalSection(_ref_es) {
           : (_esTotHold2RefCnt > 0 ? null : (_esAllMiss ? _qZeroCell() : React.createElement("span", { style: { color: "#ccc" } }, "—"))), _elHold2RefSuffix(_esTotHold2, _esTotHold2Ref, _esTotHold2RefCnt))
       )
     ) : null,
+    // 同値除外損益の注記（案B 2026-10-04 ユーザー指定「該当記録がある日だけ表示」）。母数は上の合計ループ(4375付近)と同じ式。
+    records.length > 0 ? _elFillEqFootNode(_recsForTot.filter(function(r) { return !_elCollExcluded(data, r, stock); }), function(_r) { return _esAlpha(_r.signal); }, function(_r) { return _esCut(_r.signal); }, 0) : null,
     records.length === 0
       ? React.createElement("div", {
           style: {
@@ -5181,6 +5183,11 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, borderTop: "2px solid #FB923C", whiteSpace: "nowrap" } }, _lblTot("実現損益"), _amtCell(_t.realRaw, _t.realCnt, null, 0, true, _allMiss, _totDays, _t.realHasShares ? _t.real : null))
     );
   };
+  // 同値除外損益の注記（案B 2026-10-04）。母数は合計行と同じ _listM（算入済み・時間かぶり除外済み）。
+  var _fqFootFor = function(_list) {
+    var _l = (_list || []).filter(function(r) { return _elInclTotal(r.signal) && !_elCollExcluded(data, r, stock); });
+    return _elFillEqFootNode(_l, _alphaOf, _cutOf, _elBizDaysOf(_l, data));
+  };
   // 明細テーブル全体（list 単位。サマリー行の展開時に表示）
   var _detailTableFor = function(_list) {
     return React.createElement("div", { style: { overflowX: "auto" } },
@@ -5194,7 +5201,8 @@ function WeeklyPnlPanel(_wpp) {
           _rTh("実現損益", { width: 82 }))),
         React.createElement("tbody", null, _detailRowsFor(_list)),
         React.createElement("tfoot", null, _detailTotRowFor(_list))
-      )
+      ),
+      _fqFootFor(_list)
     );
   };
   // ===== 日別サマリー（取引テーブルの今週欄と同形：曜日ごとに折りたたみ）=====

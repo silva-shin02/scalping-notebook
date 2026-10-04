@@ -6524,6 +6524,14 @@ function DayView(_ref57) {
       var subRows = [];
       var _pbSeenGrp = {};   // 選抜グループの見出し行を1組につき1回だけ出すための既出フラグ 2026-08-19
       var _pwGrp = _elCollPendingGroupCount(data, expRecs);   // 選抜待ちの組数。警告バーと合計下の注記で使い回す（同一描画中に変わらない）
+      //   合計行に実際に入っている記録だけ（算入フィルタ＋時間かぶり除外後）。上のループの _inclTpb/_collXpb と同じ式。
+      // 金額に算入するかの判定（この表の単一源）。amtScope=true＝全銘柄横断のグランド合計（本日の総計・今週）。
+      // 算入銘柄フィルタ(_elAmtRecOk)を足した 2026-10-04：この表は合計を**手書きループ**で積んでおり、
+      //   金額の単一源 _elTotAccum(app-05) を通らないため、選外銘柄の金額だけここに残っていた。
+      //   カレンダー(_snDailyPnlMap)・記録帳(_elTotAccum)は既に除外済みで、同じ日に2つの額が出ていた。
+      //   銘柄別展開(amtScope=false)はその銘柄自身の表なので従来どおり除外しない。
+      // ⚠️**合計ループより前に置くこと**＝var は巻き上げで名前だけ先にできて値は undefined なので、下に置くとループが落ちる。
+      var _amtOkPb = function(r) { return amtScope ? (_elInclTotalAmt(data, r) && _elAmtRecOk(r)) : _elInclTotal(r.signal); };
       var _totReal = null, _totPlan = null, _totHold = null;
       var _totRealP100 = null, _totRealHasSh = false;   // 2026-08-04 実現損益の下段（100株換算）用。_totRealは従来どおり実額の合計。
       var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
@@ -6575,7 +6583,7 @@ function DayView(_ref57) {
         var isMiss = _dispResExp === "miss";
         var bb = "1px solid #e8e5de";
         var _isXskipPb = _epIsXSkip(s, _alphaRec);  // E×（×見送り）→ 本合計に算入せず参考(ref)へ
-        var _inclTpb = amtScope ? _elInclTotalAmt(data, r) : _elInclTotal(s);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18。2026-07-18g 要審議も合計算入（見送りと同じ）＝_elIsReview除外を撤回。amtScope時は②データのみも除外 2026-07-22e
+        var _inclTpb = _amtOkPb(r);  // 合計額算入: false の記録は合計から除外（行は表示し編集可）2026-06-18。2026-07-18g 要審議も合計算入（見送りと同じ）＝_elIsReview除外を撤回。amtScope時は②データのみと算入外銘柄も除外（_amtOkPb・上で定義）
         var _collXpb = _elCollExcluded(data, r);  // 時間かぶり除外: 良い方はフッター合計からも全スキップ（行表示は全件のまま）2026-07-07
         if (entered && _inclTpb && !_collXpb) _totRealCnt++;
         if (realPnl != null && _inclTpb && !_collXpb) {
@@ -6674,6 +6682,8 @@ function DayView(_ref57) {
         }
       });
       var _pbTotDays = _elBizDaysOf(expRecs, data);
+      // 同値除外損益の注記（案B 2026-10-04 ユーザー指定「該当記録がある日だけ表示」）用の母数＝
+      var _fqRecsM = expRecs.filter(function(r) { return _amtOkPb(r) && !_elCollExcluded(data, r); });
       var _pdAvg = function(_x) { return _pbTotDays > 0 ? Math.round(_x / _pbTotDays) : _x; };
       var _totRealGrade = _totRealCnt > 0 ? _profitGradeFromPnlReal(_pdAvg(_totReal != null ? _totReal : 0), _totRealCnt) : null;
       var _totPlanGrade = _totPlanCnt > 0 ? _profitGradeFromPnl(_pdAvg(_totPlan != null ? _totPlan : 0), _totPlanCnt) : null;
@@ -6693,7 +6703,7 @@ function DayView(_ref57) {
         );
       };
       var _lblTot = function(t) { return React.createElement("div", { style: { fontSize: 8, fontWeight: 700, color: "#9A3412", marginBottom: 1, lineHeight: 1.1 } }, t); };
-      var _pbAllMiss = _elAllMissRow(expRecs.filter(function(r) { return amtScope ? _elInclTotalAmt(data, r) : _elInclTotal(r.signal); }), alphaOf, cutOf);
+      var _pbAllMiss = _elAllMissRow(expRecs.filter(_amtOkPb), alphaOf, cutOf);
       var totRow = React.createElement("tr", { key: "__subtot__", style: { background: "#FFF7ED" } },
         React.createElement("td", { colSpan: 2, style: { padding: "1px 6px", textAlign: "left", fontWeight: 700, fontSize: 11, borderTop: "2px solid #FB923C", color: "#555", whiteSpace: "nowrap" } }, "合計"),
         React.createElement("td", { colSpan: 7, style: { borderTop: "2px solid #FB923C" } }),
@@ -6771,7 +6781,8 @@ function DayView(_ref57) {
           return React.createElement("div", { key: "collpendfoot", style: { padding: "4px 10px", background: "#FEF2F2",
             border: "1px solid #FBD5D5", borderRadius: 6, marginTop: 4, fontSize: 10.5, fontWeight: 800, color: "#B91C1C" } },
             "⚠ 上の合計は未確定です ── 選抜待ち " + _pw2 + "組ぶんの記録を合計に入れていません（1件ずつ〇で選ぶと確定します）");
-        })()
+        })(),
+        _elFillEqFootNode(_fqRecsM, alphaOf, cutOf, _pbTotDays)   // 同値除外損益の注記（該当記録が無い日は null）2026-10-04
       );
     };
     var _pbItems = dd.items || [];
@@ -6916,8 +6927,11 @@ function DayView(_ref57) {
         //   _isDataOnly 側でしか落ちない（app-05.js:3135 で両者は排他）ため、件数からも除外列からも黙って消えていた。
         //   件 = st.total + _exclN なので、ここを揃えると「件＝生の記録数」「除外＝合計に入らなかった内訳」が復活する。
         var _wkAllRecs = recs || [];
-        var _exclN = _wkAllRecs.filter(function(r) { return !_elInclTotalAmt(data, r); }).length;  // 合計から外れた記録があれば青点を出す
-        recs = _wkAllRecs.filter(function(r) { return _elInclTotalAmt(data, r); });
+        //   2026-10-04 算入銘柄フィルタ(_elAmtRecOk)もここで落とす。週間・月間の合計損益に算入する
+        //   銘柄を選べる機能（2026-10-01）は金額の単一源 _elTotAccum に入れてあるが、この表は
+        //   _elCalcStats 系の別経路なので通らず、「週合計」だけ選外銘柄を含んだ額が出ていた。
+        var _exclN = _wkAllRecs.filter(function(r) { return !_elInclTotalAmt(data, r) || !_elAmtRecOk(r); }).length;  // 合計から外れた記録があれば青点を出す
+        recs = _wkAllRecs.filter(function(r) { return _elInclTotalAmt(data, r) && _elAmtRecOk(r); });
         var st = _elCalcStats(recs, data);
         // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_wkRecsM＝被り除外後・件数系(st/件/到達等)はrecsのまま 2026-07-07
         var _wkRecsM = recs.filter(function(r) { return !_elCollExcluded(data, r); });   // 金額集計母数＝時間かぶり除外のみ（2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）
@@ -7103,7 +7117,7 @@ function DayView(_ref57) {
     _pbRowRecs["__outtotal__"] = _pbOutRecs;
     // 合計額算入: 統計/合計は除外記録を抜いた _pbAllRecsT で計算（明細・行表示は _pbAllRecs/_pbByStkMain の全件のまま）2026-06-18。
     // 本日「合計」行は全銘柄横断のグランド集計＝②データのみ（候補で未指定）も除外 2026-07-22e。
-    var _pbAllRecsT = _pbAllRecs.filter(function(r) { return _elInclTotalAmt(data, r); });
+    var _pbAllRecsT = _pbAllRecs.filter(function(r) { return _elInclTotalAmt(data, r) && _elAmtRecOk(r); });   // 算入銘柄フィルタ 2026-10-04：グランド「合計」行をカレンダー・記録帳と同じ母数にする（銘柄別行はその銘柄自身なので従来どおり）
     // 実現損益/エントリー数のグランド積上げも_pbAllRecsT（②データのみ除外済）から再計算＝銘柄別スカラーの単純合算だと候補銘柄が混入するため（override差も正しく反映）2026-07-22e。
     var _pbAllReal = 0, _pbAllEnt = 0;
     _pbAllRecsT.forEach(function(r) {
@@ -7387,7 +7401,8 @@ function DayView(_ref57) {
     var _pbMainEl = React.createElement("div", { style: Object.assign({}, Card, { marginTop: 0, borderTop: "none", borderRadius: "0 0 8px 8px", paddingTop: 10 }) },
       React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#333", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } }, "📊 本日の損益データ",
         (function(){ var _xc = _elExclCountRecs(_pbAllRecs); return _xc > 0 ? React.createElement("span", { title: "計算・データに算入しない記録の件数", style: { fontSize: 10, fontWeight: 700, color: "#0284C7", background: "#E0F2FE", border: "1px solid #7DD3FC", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "不算入 " + _xc + "件") : null; })(),
-        (function(){ var _cc = _elCollExclCountRecs(data, _pbAllRecs); return _cc > 0 ? React.createElement("span", { title: "時間かぶりで合計から除外した記録の件数（同日5分以内ペアの遅い方／同時刻なら損益が大きい方・件数系には残る）", style: { fontSize: 10, fontWeight: 700, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "被り除外 " + _cc + "件") : null; })()),
+        (function(){ var _cc = _elCollExclCountRecs(data, _pbAllRecs); return _cc > 0 ? React.createElement("span", { title: "時間かぶりで合計から除外した記録の件数（同日5分以内ペアの遅い方／同時刻なら損益が大きい方・件数系には残る）", style: { fontSize: 10, fontWeight: 700, color: "#6D28D9", background: "#F5F3FF", border: "1px solid #C4B5FD", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "被り除外 " + _cc + "件") : null; })(),
+        (function(){ var _an = _pbAllRecs.filter(function(r) { return !_elAmtRecOk(r); }).length; return _an > 0 ? React.createElement("span", { title: "「合計損益に算入する銘柄」の選外なので合計額に入れていない記録の件数（" + _elAmtSinceLbl() + "以降に適用・設定で変更できます）", style: { fontSize: 10, fontWeight: 700, color: "#B45309", background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "\u7b97\u5165\u5916 " + _an + "\u4ef6") : null; })()),
       _pbGradeLegend,
       _pbAllRecs.length ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, margin: "2px 0 8px", flexWrap: "wrap" } }, _bulkIdealCtrl(_pbAllRecs, simAlpha, setSimAlpha, _pbRecKey, _pbCutOf)) : null,
       React.createElement("div", { style: { overflowX: "auto" } },
