@@ -3327,7 +3327,7 @@ function StockQuickRefTable(_props_qrt) {
             }, (function() {
               // 想定損益＝期待度○が途切れた所で手じまい（（）外・旧H2損益と同一基準・（）内=△含む）。EP損益/H1損益列を集約 2026-07-09。
               if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
-              var _ttMark = _elTradeTagMarker(c2);   // 取引カテゴリタグ日: ノーシグナル→DNFピル / 有効シグナルなし等→Z（取引なし）2026-07-23
+              var _ttMark = (c2.signals && c2.signals.length) ? null : _elTradeTagMarker(c2);   // 記録がある日はタグ(Z/DNF)でなく記録の損益を出す 2026-10-05（タグが残っていても金額が隠れない）。取引カテゴリタグ日: ノーシグナル→DNFピル / 有効シグナルなし等→Z（取引なし）2026-07-23
               if (_ttMark) return _ttMark;
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 15;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); },

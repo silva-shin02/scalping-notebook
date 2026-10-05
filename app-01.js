@@ -126,6 +126,39 @@ function todayStr() {
 function stripCat(t) {
   return t.replace(/^[^:]+:/, "");
 }
+// 「ノーシグナル」「有効シグナルなし」（取引カテゴリのタグ）は"その日の銘柄に記録が無い"印。記録（charts[銘柄_日付].signals）が追加されたら自動で外す 2026-10-05
+//   （ユーザー指示「有効シグナルなし・ノーシグナルタグがつけられていても、記録が追加されたら自動で外れるように」）。
+//   タグの形は "取引:ノーシグナル"（カテゴリ接頭辞つき）。他の取引カテゴリタグ・他カテゴリのタグには触れない。
+var _NOSIG_TAG_NAMES = ["\u30CE\u30FC\u30B7\u30B0\u30CA\u30EB", "\u6709\u52B9\u30B7\u30B0\u30CA\u30EB\u306A\u3057"];   // ノーシグナル／有効シグナルなし
+function _isNoSignalTag(t) {
+  var s = String(t == null ? "" : t), i = s.indexOf(":");
+  if (i < 0) return false;
+  return s.slice(0, i) === "\u53D6\u5F15" && _NOSIG_TAG_NAMES.indexOf(s.slice(i + 1)) >= 0;   // 取引:
+}
+// charts から、記録があるのに付いているノーシグナル系タグを外した新しい charts を返す（変更が無ければ同じ参照）。
+// onlyAdded=true（保存時）: prevCharts と比べて記録の件数が**増えた**日だけ対象＝後から手で付け直したタグは消さない。
+// onlyAdded=false（移行時）: 記録がある日すべて。
+function _clearNoSigTags(charts, prevCharts, onlyAdded) {
+  if (!charts || typeof charts !== "object") return charts;
+  var out = charts, copied = false;
+  Object.keys(charts).forEach(function(k) {
+    var c = charts[k];
+    if (!c || !Array.isArray(c.chartShapeTags) || !c.chartShapeTags.length) return;
+    var n = Array.isArray(c.signals) ? c.signals.length : 0;
+    if (!n) return;
+    if (onlyAdded) {
+      var pc = prevCharts ? prevCharts[k] : null;
+      if (pc === c) return;
+      var pn = (pc && Array.isArray(pc.signals)) ? pc.signals.length : 0;
+      if (n <= pn) return;
+    }
+    var kept = c.chartShapeTags.filter(function(t) { return !_isNoSignalTag(t); });
+    if (kept.length === c.chartShapeTags.length) return;
+    if (!copied) { out = Object.assign({}, charts); copied = true; }
+    out[k] = Object.assign({}, c, { chartShapeTags: kept });
+  });
+  return out;
+}
 function stripHtml(h) {
   try {
     var d = document.createElement('div');
@@ -1432,6 +1465,11 @@ function migrateData(d) {
         d._migJxPastDaily = true;
       } else if (d._migJxRotating) { d._migJxPastDaily = true; }   // JX金属が候補に居ない（ユーザーが固定へ戻した/マスターに無い）＝何もしないで完了扱い
     } catch(e) { console.warn("[migrateData] jx-past-daily error:", e); }
+  }
+  // 既に「ノーシグナル／有効シグナルなし」タグと記録が同居している日を一度だけ整理（_migNoSigTagClean 2026-10-05）。以後は保存時(_clearNoSigTags・app-08 save)が記録追加のたびに外す。
+  if (!d._migNoSigTagClean) {
+    try { if (d.charts) d.charts = _clearNoSigTags(d.charts, null, false); d._migNoSigTagClean = true; }
+    catch(e) { console.warn("[migrateData] nosig-tag-clean error:", e); }
   }
   // RN加算の自動判定を既存記録にも有効化（_migRnAutoOn 2026-07-29・ユーザー指示「自動になっていないものは自動に」）: 全記録 charts[*].signals の signal.rnAuto を true にする。
   // 2026-07-20b の当初決定「既存記録は自動を止める（開いてもRNが書き換わらない）」の撤回。以後は過去記録を編集フォーム/EPナビで開くと自動判定が効き、保存時にRN〇×と加算額が現行ルール（下二桁41-49→…50／91-99→…00）へ揃う。
