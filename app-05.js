@@ -4968,18 +4968,29 @@ function _elFillRiskNode(r) {
 // 件数は recsM 基準＝**金額が実際に動く記録だけ**を数える。記録帳の「同値除外損益」列も同基準にそろえてある 2026-10-04。
 // ⚠️**取引テーブルには出さない**＝あちらの母数は entered===true の記録だけで、
 //   _elFillRisk が先頭で _elIsEntered を弾くので永久に0件。出しても常に同額の帯が増えるだけ。
-function _elFillEqFootNode(recsM, aiAlpha, aiCut, days) {
+function _elFillEqFootNode(recsM, aiAlpha, aiCut, days, base) {
   // 2026-10-04 役割変更: 同値は未約定(miss)として金額に入らなくなったので、帯は「該当N件・約定していたら±X円（未算入）」を見せる。
+  // 2026-10-05 ユーザー指示「もともとの記録との合計額を表示して」: 帯の金額は**同値分だけでなく、元の合計に同値分を足した合計**（（）内＝△も保有した場合の合計も同様）。同値分単体は小書きで併記。
+  //   base＝{sum,cnt,ref,refCnt}（呼び出し側が合計行に出している想定損益(（）外)と（）内の差分）。省略時は recsM から _elTotAccum で算出（合計行と同じ単一源）。
   var _st = _elFillEqStats(recsM, aiAlpha, aiCut);
   if (!_st.n) return null;
+  var _b = base || (function() {
+    var t = _elTotAccum(recsM, { signal: function(r) { return r.signal; }, alpha: aiAlpha, cut: aiCut });
+    return { sum: t.hold2, cnt: t.hold2Cnt, ref: t.hold2Ref, refCnt: t.hold2RefCnt };
+  })();
   var _pill = function(txt, k) { return React.createElement("span", { key: k, style: { fontSize: 9.5, fontWeight: 700, color: "#0F6E56", background: "#fff", border: "1px solid #9FDCC4", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, txt); };
   var _amt = null;
   if (_st.cnt > 0) {
-    var _gv = (days && days > 0) ? Math.round(_st.sum / days) : _st.sum;
-    var _g = _profitGradeFromPnl(_gv, _st.cnt);
-    _amt = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
-      _g ? _elGradeBadge18(_g) : null,
-      React.createElement("span", { style: { fontWeight: 800, fontSize: 11.5, color: _elPnlColor(_st.sum), fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(_st.sum)));
+    var _tot = (_b.sum || 0) + _st.sum, _totCnt = (_b.cnt || 0) + _st.cnt;
+    var _gv = (days && days > 0) ? Math.round(_tot / days) : _tot;
+    var _g = _profitGradeFromPnl(_gv, _totCnt);
+    _amt = React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" } },
+      React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: "#0F6E56" } }, "合計"),
+      React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } },
+        _g ? _elGradeBadge18(_g) : null,
+        React.createElement("span", { style: { fontWeight: 800, fontSize: 11.5, color: _elPnlColor(_tot), fontVariantNumeric: "tabular-nums" } }, _elPnlFmt(_tot)),
+        _elHold2RefSuffix(_tot, _b.ref, _b.refCnt, days)),
+      React.createElement("span", { title: "同値の記録がもし約定していたらの想定損益（手じまい基準）。上の合計に足したものが左の合計です", style: { fontSize: 9.5, fontWeight: 700, color: "#6B7280" } }, "（同値分 " + _elPnlFmt(Math.round(_st.sum)) + "）"));
   } else {
     _amt = React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700 } }, "—");
   }

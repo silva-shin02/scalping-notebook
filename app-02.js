@@ -4643,7 +4643,7 @@ function EntrySignalSection(_ref_es) {
       )
     ) : null,
     // 同値除外損益の注記（案B 2026-10-04 ユーザー指定「該当記録がある日だけ表示」）。母数は上の合計ループ(4375付近)と同じ式。
-    records.length > 0 ? _elFillEqFootNode(_recsForTot.filter(function(r) { return !_elCollExcluded(data, r, stock); }), function(_r) { return _esAlpha(_r.signal); }, function(_r) { return _esCut(_r.signal); }, 0) : null,
+    records.length > 0 ? _elFillEqFootNode(_recsForTot.filter(function(r) { return !_elCollExcluded(data, r, stock); }), function(_r) { return _esAlpha(_r.signal); }, function(_r) { return _esCut(_r.signal); }, 0, { sum: _esTotHold2, cnt: _esTotHold2Cnt, ref: _esTotHold2Ref, refCnt: _esTotHold2RefCnt }) : null,   // 2026-10-05 帯の金額＝合計行の想定損益＋同値分
     records.length === 0
       ? React.createElement("div", {
           style: {
