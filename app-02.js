@@ -4555,7 +4555,7 @@ function EntrySignalSection(_ref_es) {
     ),
 
     // 本日の採用α値欄（基本α+応用α・EPナビ/記録帳と同一部品_ElDayAlphaPair）2026-07-21: 旧📖記録帳ボタンの位置＝見出し直下へ
-    (save && stock && typeof _ElDayAlphaPair === "function") ? React.createElement("div", { style: { marginBottom: 10 } },
+    (save && stock && !_vapWorld(date) && typeof _ElDayAlphaPair === "function") ? React.createElement("div", { style: { marginBottom: 10 } },   // VAP日(8/20以降)は基本α/応用αの採用α値欄を出さない（VAP値は記録ごとに入力）2026-10-05
       React.createElement(_ElDayAlphaPair, { data: data, save: save, date: date, stock: stock })) : null,
 
     records.length === 0 && React.createElement("div", { style: { marginBottom: 8 } },
@@ -4857,7 +4857,7 @@ function EntrySignalSection(_ref_es) {
                 React.createElement("tr", null,
                   _esTh("時間", { textAlign: "left", width: 50 }),
                   _esTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-                  _esTh("α値", { width: 36 }),
+                  _esTh(_vapWorld(date) ? "VAP値" : "α値", { width: 36 }),
                   _esTh("損切", { width: 34 }),
                   _esTh("ライン", { width: 1 }),
                   _esTh("E", { width: 28 }),
@@ -5194,7 +5194,7 @@ function WeeklyPnlPanel(_wpp) {
       React.createElement("table", { style: { borderCollapse: "collapse", width: "auto", fontSize: 10 } },
         React.createElement("thead", null, React.createElement("tr", { style: { background: "#FFF7ED" } },
           _rTh("", { width: 20 }), _rTh("日付", { width: 52 }), _rTh("時間", { width: 44 }), _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-          _rTh("α値", { width: 32 }), _rTh("損切", { width: 34 }), _rTh("ライン", { width: 1 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
+          _rTh((_list && _list.length && _list.every(function(_lr) { return _vapWorld(_lr.date); })) ? "VAP値" : "α値", { width: 32 }), _rTh("損切", { width: 34 }), _rTh("ライン", { width: 1 }), _rTh("E", { width: 26 }), _rTh("取引", { width: 26 }),
           _rTh("想定損益・詳細", { width: 84 }),
           React.createElement("th", { colSpan: 2, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #FB923C", whiteSpace: "nowrap", textAlign: "center", fontSize: 10, color: "#9A3412" } }, "OS・損益詳細"),
           _rTh(React.createElement("span", { title: "EP足〜手じまい足の保有時間（1分足換算・時間かぶり判定と同基準）" }, "保有"), { width: 30 }),
@@ -6157,6 +6157,7 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     // 本日エントリーが無い日でも、この銘柄の前日までの履歴（v2・算入）があれば「α 推奨α値」ブロック（本日の採用α値＋α詳細データ表）を既定表示する 2026-07-18。
     // 母数は前日まで全期間なので当日の記録有無に依存しない（DayViewの_elBaseAlphaDayBlockV2と同じ「前日まで or 本日」ガードに揃える）。前日まで・当日とも記録ゼロの銘柄だけ非表示。
     var _iaSigs = Array.isArray(cd.signals) ? cd.signals : [];
+    if (_vapWorld(date)) return null;   // VAP日(8/20以降)は推奨α/基本α/応用αのブロックを出さない 2026-10-05
     if (!_elStockRecsBefore(data, stock, date).length && !_iaSigs.length) return null;
     return _elBaseAlphaPeriodBlockV2(data, stock, date, save);
   })(),

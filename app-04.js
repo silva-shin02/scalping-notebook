@@ -3933,6 +3933,7 @@ function _PbDayBandReco(_p) {
     var fr = (span > 0 && ent > 0) ? span / ent : null;
     return { pool: pool, base: (A && A.pick && A.pick.alpha != null) ? A.pick.alpha : null, sp: (A && A.add && A.add.alpha != null) ? A.add.alpha : null, freq: fr == null ? null : (fr < 10 ? Math.round(fr * 10) / 10 : Math.round(fr)), span: span, ent: ent, n: pool.length };
   }, [data, stock, date, bandIdx]);
+  if (_vapWorld(date)) return null;   // VAP日(8/20以降)は株価帯の推奨基本α/応用αを出さない 2026-10-05
   if (bandIdx == null) {
     return React.createElement("div", { style: { borderTop: "1px dashed #EFE9DF", paddingTop: 8 } },
       React.createElement("span", { style: { fontSize: 9.5, color: "#94A3B8" } }, (info && info.material) ? "⚡ 材料あり日＝株価帯の推奨αは対象外（材料日専用）" : "株価帯が未判定のため推奨αは出せません（前日終値なし）"));
@@ -4446,20 +4447,21 @@ function _EpnCalcForm(_p) {
     return { a: _cp.alpha, key: _cp.key, src: _cp.src, ok: _cp.ok };
   })();
   // 本日の採用α値（見出し下欄・_EpnDayAlphaField）が設定されていれば基本αの既定に採用＝「上で一度決めれば下の計算が従う」。未設定はnull＝従来どおりautoPick（シグナル別に絞れる）。手入力nBaseは常に最優先。2026-07-13d
+  var _epnVap = _vapWorld(date);   // （早い位置で定義＝基本αの既定にも使う）8/20以降＝VAP値入力。推奨α/基本・応用/浮き足/RNは無し
   var dayAlpha = (_p.dayAlpha != null && !isNaN(Number(_p.dayAlpha))) ? Number(_p.dayAlpha) : null;
   var daySpecialAlpha = (_p.daySpecialAlpha != null && !isNaN(Number(_p.daySpecialAlpha))) ? Number(_p.daySpecialAlpha) : null;   // 本日の採用応用α値（epNaviDaySpecialAlpha）＝応用α既定に優先採用 2026-07-21（基本αのdayAlphaと対称・記録フォームと揃える）
   // 「詳細で更新」トグル（custom.epnFollowReco・既定false=固定 2026-07-13）: OFF＝②③④の詳細を選んでも基本αの既定を動かさず、本日の採用α値→無ければ銘柄全体(stk・詳細非依存)の推奨で固定（ユーザー「一度止めたい・本日の採用α値で固定」）。ON＝従来の詳細別→シグナル別→銘柄全体の追従。手入力nBaseは常に最優先。
   var followReco = !!(data && data.custom && data.custom.epnFollowReco);
   var _stkBase = (stk && stk.alpha != null) ? stk.alpha : (autoPick.a != null ? autoPick.a : null);   // 銘柄全体（詳細非依存）＝固定時の既定
   var _autoBase = followReco ? (autoPick.a != null ? autoPick.a : null) : _stkBase;
-  var _baseDefault = dayAlpha != null ? dayAlpha : _autoBase;
+  var _baseDefault = _epnVap ? null : (dayAlpha != null ? dayAlpha : _autoBase);   // VAP日は推奨αで補完しない（VAP値は手入力）2026-10-05
   var _baseSrc = (dayAlpha != null) ? "本日の採用α値" : (followReco ? autoPick.src : ((stk && stk.alpha != null) ? (stk.ok ? "銘柄全体" : "銘柄全体（仮）") : autoPick.src));   // 保存EPのsrc表記＝実際に採用した既定の出所
   // 2026-08-17c 引退（_UKI_INPUT_RETIRED・app-05）。EPナビの計算フォームは銘柄ごとに使い回す常設フォームで
   //   記録フォームの initSig にあたる「編集開始時の値」を持たないため、**入力欄に値が残っているか**で判定する。
   //   既存の浮き足カードをタップすると setNUkiVal/setNUkiPrev に値が入る（L4366）ので欄が出る。
   //   ×へ倒しても値は残るので欄は消えない＝〇へ戻せる。新規は reset(L4338)で全部""になるので隠れる。
   //   旧: `true` 決め打ち（記録フォームと同じ_showUki=true。旧＝底抜け系のみ_elUkiSignalNamesゲート→2026-07-13解除）
-  var showUki = _elUkiInputVisible(nUkiUsed === "○" || nUkiVal !== "" || nUkiPrev !== "");   // 欄が出ている間の推奨%/次点/手入力%の挙動は従来どおり
+  var showUki = !_epnVap && _elUkiInputVisible(nUkiUsed === "○" || nUkiVal !== "" || nUkiPrev !== "");   // 欄が出ている間の推奨%/次点/手入力%の挙動は従来どおり
   var baseV = (nBase !== "" && !isNaN(Number(nBase))) ? Number(nBase) : _baseDefault;
   // 推奨応用α（応用〇の記録から算出・浮き足/RN除外）。根拠を選ぶとその根拠を持つ記録に絞る。共有ヘルパー_epnSpecialRecoFrom（早見カードと同一）。
   var specialReco = _epnSpecialRecoFrom(casc, nSpecialReasons);
@@ -4708,7 +4710,14 @@ function _EpnCalcForm(_p) {
       (nUkiUsed === "○" && _epnUkiTbl) ? React.createElement("div", { onClick: function() { _setEpnUkiTbl(false); }, style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 10001, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } }, React.createElement("div", { onClick: function(e) { e.stopPropagation(); }, style: { background: "#fff", borderRadius: 10, padding: 14, maxWidth: 760, width: "100%", maxHeight: "88vh", overflowY: "auto" } }, React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 } }, React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#15803D" } }, "⚡ " + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "加算 詳細データ（円・全銘柄・前日まで）"), React.createElement("button", { type: "button", onClick: function() { _setEpnUkiTbl(false); }, style: { fontSize: 12, fontWeight: 700, border: "1px solid #ddd", borderRadius: 6, background: "#f5f4f0", padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" } }, "閉じる")), React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginBottom: 6 } }, "浮き足の加算を固定X円（0〜20円）に振り直すと想定損益が良かったか。★＝スコア最大の浮き足α値＝" + (nUkiSpecial ? "浮き足応用" : "浮き足基本") + "の記録が母数（全銘柄・前日まで）。"), _elUkiPctBoardScoped(_elCollectAllSignals(data).filter(function(r) { return r && (!date || r.date < date); }), function(r) { return _elAlphaInfo(r, data); }, nUkiSpecial ? "special" : "basic", null, _buildHolidayDateSet(data.trades, (data.custom || {}).eventCategories)))) : null)) : null,
     // ⑤ライン併存ルール欄は廃止（2026-07-16）＝新規EPで〇にできない。過去の lineCoexist は保存のまま（記録一覧の「併存」バッジ_elAlphaTypeCellで識別・基本α自動1入力も廃止）。
     // 採用α（基本α/応用α セレクタ・記録フォームと同じ 2026-07-13・旧「基本α入力＋📊応用α詳細ボタン＋応用α〇×」を統合。応用α詳細表は上「本日の採用α値」の応用α『表を参照』で代替）
-    (nUkiUsed !== "○") ? _lrow("採用α", React.createElement("div", null,
+    _epnVap ? _lrow("VAP値", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },   // VAP日(8/20以降): 基本α/応用αの別は無い 2026-10-05
+      React.createElement("input", { type: "text", inputMode: "numeric", value: nBase, placeholder: "—",
+        onChange: function(e) { var v = _toHankakuNum(e.target.value); if (v === "" || !isNaN(Number(v))) setNBase(v); }, style: _inpStyle }),
+      React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "円"),
+      _stepBtn(function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; return String(Math.min(50, b + 1)); }); },
+        function() { setNBase(function(prev) { var b = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; return String(Math.max(0, b - 1)); }); }),
+      React.createElement("span", { style: { fontSize: 9, color: "#94A3B8" } }, "チャートの出来高価格帯から読んだ値"))) : null,
+    (!_epnVap && nUkiUsed !== "○") ? _lrow("採用α", React.createElement("div", null,
       React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3, marginBottom: 5 } },
         [["base", "基本α", "#0369A1"], ["special", "応用α", "#9A3412"]].map(function(_kk) {
           var _on = (_kk[0] === "special") === (nSpecialUsed === "○");
@@ -4733,7 +4742,7 @@ function _EpnCalcForm(_p) {
         React.createElement("div", { style: { marginTop: 4 } },
           React.createElement("div", { style: { fontSize: 9.5, color: specialReco ? "#9A3412" : "#94A3B8", marginTop: 3 } },
             specialReco ? (specialReco.nomin ? "推奨応用α ー（条件適合無し）" : ("推奨応用α " + specialReco.v + "円" + (specialReco.byReason ? "（選択根拠・n=" + specialReco.n + "・空欄＝自動採用）" : specialReco.fellBack ? "（根拠別はデータ不足→銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）" : "（銘柄全体・n=" + specialReco.n + "・空欄＝自動採用）"))) : "推奨応用α データ無し（空欄＝基本α）"))) : null)) : null,
-    _lrow(_nRnKindI ? _nRnKindI.label + "加算" : "RN加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RN加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
+    _epnVap ? null : _lrow(_nRnKindI ? _nRnKindI.label + "加算" : "RN加算", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },   // RN加算欄（浮き足加算の下＝α加算系の最後・予定EPの直前）2026-07-08h。〇で入力値をそのまま実効αに加算。
       _oxBtns(nRnUsed, function(v) { setNRnAuto(false); setNRnUsed(v); if (v === "○" && nRnVal === "") setNRnVal("5"); }),   // 手動操作＝自動判定を止める 2026-07-20b
       nRnUsed === "○" ? React.createElement("input", { type: "text", inputMode: "numeric", value: nRnVal, placeholder: "5",
         onChange: function(e) { setNRnAuto(false); var v = _toHankakuNum(e.target.value); if (v === "") { setNRnVal(""); return; } var n = Number(v); if (isNaN(n)) return; if (n > 50) n = 50; if (n < 0) n = 0; setNRnVal(String(n)); }, style: Object.assign({}, _inpStyle, { width: 48 }) }) : null,
@@ -4749,10 +4758,10 @@ function _EpnCalcForm(_p) {
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 800 } }, "EP "),
       React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: "#1E3A8A", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(epV) : "—"),
       React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8" } }, "円"),
-      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, (nUkiUsed === "○")
+      effA != null ? React.createElement("div", { style: { fontSize: 9, color: "#3B82F6", marginTop: 1 } }, _epnVap ? ("VAP値" + effA + "円") : (nUkiUsed === "○")
         ? ("合計α値" + effA + "円＝" + (nUkiSpecial ? "浮応" : "浮") + ukiAddV + (rnAddV ? "＋RN" + rnAddV : "") + "（浮き足〇＝基本α/応用α無し）")
         : ("合計α値" + effA + "円＝" + (specialV != null ? ("応用" + specialV) : ("基" + (baseV != null ? baseV : 0))) + (ukiAddV ? "＋浮" + ukiAddV : "") + (rnAddV ? "＋RN" + rnAddV : "") + (nBase === "" && specialV == null ? (dayAlpha != null ? "・本日採用α" : (autoPick.src ? "・推奨" + autoPick.src : "")) : "")))
-        : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? "記録が無い銘柄は基本αを手入力" : "水準線を入力")),
+        : React.createElement("div", { style: { fontSize: 9, color: "#94A3B8", marginTop: 1 } }, baseV == null ? (_epnVap ? "VAP値を入力" : "記録が無い銘柄は基本αを手入力") : "水準線を入力")),
     React.createElement("div", { style: { margin: "0 0 6px", padding: "6px 6px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, textAlign: "center" } },   // 予定損切りライン＝予定EP＋損切り値（逆行したら撤退する価格の目安＝引き金であって約定値ではない・触れた足の終値で撤退）2026-07-18／2026-07-29 終値撤退方式へ文言追従
       React.createElement("span", { style: { fontSize: 10, color: "#B91C1C", fontWeight: 800 } }, "損切りライン "),
       React.createElement("span", { style: { fontSize: 17, fontWeight: 800, color: "#991B1B", fontVariantNumeric: "tabular-nums" } }, epV != null ? String(Math.round((epV + _epnCutLine) * 100) / 100) : "—"),
@@ -4969,7 +4978,7 @@ function EpNaviPanel(_refEPN) {
       ? React.createElement("div", { style: { fontSize: 8.5, color: "#B45309", marginTop: 4, fontWeight: 700 } }, "✎ 下の計算フォームで編集中（💾保存で確定）")
       : React.createElement("div", { style: { marginTop: 4, paddingTop: 4, borderTop: "1px dashed " + C.bd, display: "flex", flexDirection: "column", gap: 3 } },
           // ライン併存ルール（早見カード）欄は廃止（2026-07-16）＝新規EPで〇にできない。過去の識別は記録一覧の「併存」バッジ（_elAlphaTypeCell）。onSetLineCoexistは未使用となるが保持（無害）。
-          _isUkiCard ? null : React.createElement(_EpnAddSection, { data: data, save: save, date: date, stock: st, item: e, reasonsMaster: reasonsMaster,
+          (_isUkiCard || _vapWorld(date)) ? null : React.createElement(_EpnAddSection, { data: data, save: save, date: date, stock: st, item: e, reasonsMaster: reasonsMaster,
             onUsed: function(u) { onSetSpecialUsed(st, e, u); },
             onValue: function(n) { onSetSpecial(st, e, n); },
             onBase: function(n) { onSetBase(st, e, n); },
@@ -5005,7 +5014,7 @@ function EpNaviPanel(_refEPN) {
     var _cards = savedByStock.map[st] || [];
     return React.createElement("div", { key: "epnc_" + st, style: { minWidth: 0 } },
       React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#1E3A8A", background: "#DBEAFE", borderRadius: 5, padding: "3px 7px", marginBottom: 5, textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, st),
-      React.createElement(_ElDayAlphaPair, { key: "epnda_" + st, data: data, save: save, date: date, stock: st, stacked: true }),
+      _vapWorld(date) ? null : React.createElement(_ElDayAlphaPair, { key: "epnda_" + st, data: data, save: save, date: date, stock: st, stacked: true }),   // VAP日は基本α/応用αの採用α値欄を出さない 2026-10-05
       _cards.map(function(e) { return _renderCard(st, e); }),
       _cards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"));
   });
@@ -5039,7 +5048,7 @@ function EpNaviPanel(_refEPN) {
           style: { flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: "#3730A3", background: "#fff", border: "1px solid #C7D2FE", borderRadius: 4, padding: "3px 4px", boxSizing: "border-box", minHeight: IS_TOUCH ? 30 : 24 } },
           _opts.map(function(s) { var _c = data.charts[s + "_" + date]; var cnt = (_c && Array.isArray(_c.signals)) ? _c.signals.length : 0; return React.createElement("option", { key: s, value: s }, s + (cnt ? "（" + cnt + "）" : "")); }))),
       sel ? React.createElement(React.Fragment, null,
-        React.createElement(_ElDayAlphaPair, { key: "epndarot" + slot + "_" + sel, data: data, save: save, date: date, stock: sel, stacked: true }),
+        _vapWorld(date) ? null : React.createElement(_ElDayAlphaPair, { key: "epndarot" + slot + "_" + sel, data: data, save: save, date: date, stock: sel, stacked: true }),
         _cards.map(function(e) { return _renderCard(sel, e); }),
         _cards.length ? null : React.createElement("div", { style: { fontSize: 9, color: "#CBD5E1", textAlign: "center", padding: "1px 0 4px" } }, "EPなし"))
         : React.createElement("div", { style: { fontSize: 10, color: "#94A3B8", textAlign: "center", padding: "6px 0" } }, "候補を選択"));
@@ -5141,6 +5150,7 @@ function DayView(_ref57) {
     cfg = _ref57.cfg,
     initialTab = _ref57.initialTab,
     onOpenEntryLog = _ref57.onOpenEntryLog;
+  _EL_UI_VAP = _vapWorld(date);   // 日別ページのVAP日(8/20以降)は「α」表記をVAPに（EPとの差チップ・α値セルのラベル）。表記だけ 2026-10-05。App描画ごとに _elAmtStocksSet でfalseへ戻る
   var custom = data.custom || EMPTY.custom;
   var allStocks = custom.stocks && custom.stocks.length > 0 ? custom.stocks : _DEF_STOCKS_FROZEN;
   // 日替わり銘柄（📅タブ 2026-07-22→per-day 2026-07-22d）: custom.rotatingStocks＝候補プール（マスター実在のみ・日経除く）。改名はhandleRenameStockで追従・削除は実在フィルタで自然に無効化。外国市場の右に固定した1タブ。
@@ -6125,7 +6135,7 @@ function DayView(_ref57) {
       }
       _safeSetTab("news");
     }
-  })), React.createElement(_elDayStockBenchV2, { data: data, date: date, stock: dispStock }))), tab === "trades" && React.createElement("div", null,
+  })), (_vapWorld(date) ? null : React.createElement(_elDayStockBenchV2, { data: data, date: date, stock: dispStock })))), tab === "trades" && React.createElement("div", null,
   React.createElement(EpNaviPanel, { data: data, save: save, date: date, stocks: allStocks }),
   React.createElement("div", { style: Card },
     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
@@ -6311,7 +6321,7 @@ function DayView(_ref57) {
                 _trTh("時間", { textAlign: "left" }),
                 _trTh("銘柄"),
                 _trTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-                _trTh("α値", { width: "1%" }),
+                _trTh(_elAW() + "値", { width: "1%" }),
                 _trTh("損切", { width: "1%" }),
                 _trTh("ライン", { width: "1%" }),
                 _trTh("E", { width: "1%" }),
@@ -6770,7 +6780,7 @@ function DayView(_ref57) {
               _rTh("銘柄", { width: 52 }),
               _rTh("時間", { width: 44 }),
               _rTh("シグナル", { width: 1, whiteSpace: "nowrap" }),
-              _rTh("α値", { width: 32 }),
+              _rTh(_elAW() + "値", { width: 32 }),
               _rTh("損切", { width: 34 }),
               _rTh("ライン", { width: 1 }),
               _rTh("E", { width: 26 }),
@@ -7205,7 +7215,7 @@ function DayView(_ref57) {
           rowKey ? React.createElement("span", { style: { marginRight: 4, color: "#F97316", fontSize: 10 } }, isExp ? "▼" : "▶") : null,
           label,
           (exclN > 0) ? _elExclDot(exclN, { marginLeft: 5, verticalAlign: "middle" }) : null,
-          !isTotal && React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, "α:各記録"),
+          !isTotal && React.createElement("div", { style: { fontSize: 9, fontWeight: 400, color: "#0369A1", marginTop: 1 } }, (_EL_UI_VAP ? "VAP:各記録" : "α:各記録")),
           isExp ? React.createElement("button", {
             onClick: function(e) { e.stopPropagation(); setPnlTableExpandSet(function(prev) { var n = Object.assign({}, prev); delete n[keyRef]; return n; }); },
             style: { marginLeft: 6, fontSize: 10, padding: "1px 5px", background: "#f5f4f0", border: "1px solid #ddd", borderRadius: 3, cursor: "pointer", color: "#666", lineHeight: 1.3, verticalAlign: "middle" }
