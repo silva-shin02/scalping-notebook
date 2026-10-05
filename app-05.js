@@ -3134,7 +3134,12 @@ var _EL_AMT_POOL = null;
 // 記録帳の銘柄タブ表示中だけtrue（EntryLogViewBody が描画ごとに設定）＝その銘柄自身の損益は算入銘柄フィルタを掛けずに出す 2026-10-05（ユーザー指示「選定外銘柄でも想定損益などは表示」）。
 //   ⚠️効くのは _elTotAccum の金額だけ。_elAmtStockOk/_elAmtRecOk（ホーム・カレンダー・日別の合計）は見ない＝キャッシュ(_snDailyPnlMap)を汚さない。App描画ごとの _elAmtStocksSet で必ずfalseへ戻る。
 var _EL_AMT_BYPASS = false;
-function _elAmtStocksSet(list, pool) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; _EL_AMT_POOL = Array.isArray(pool) ? pool : null; _EL_AMT_BYPASS = false; }
+// 記録帳のVAP枠(8/20以降)を描画中だけtrue（EntryLogViewBody が描画ごとに設定）＝EPとの差チップ等の「α」をVAP表記にする 2026-10-05（ユーザー指示「VAP枠ではVAP表記に統一」）。
+//   App描画ごとの _elAmtStocksSet でfalseへ戻る＝記録帳を出たら日別ページ等は従来表記。⚠️表記だけ。計算には使わない。
+var _EL_UI_VAP = false;
+function _elAW() { return _EL_UI_VAP ? "VAP" : "α"; }
+function _elBasisW() { return _EL_UI_VAP ? "VAP基準" : "採用α基準"; }
+function _elAmtStocksSet(list, pool) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; _EL_AMT_POOL = Array.isArray(pool) ? pool : null; _EL_AMT_BYPASS = false; _EL_UI_VAP = false; }
 function _elAmtStockOk(stock, date) {
   if (!_EL_AMT_STOCKS || !stock) return true;
   if (!date || String(date) < _EL_AMT_SINCE) return true;   // 境界より前は従来どおり全銘柄算入
@@ -3650,7 +3655,7 @@ function _elAlphaTypeCell(s, alpha) {
   var hasRn = _elRnAdd(s) > 0;   // 「計」＝RN加算が乗って値が合計（種別α＋RN）になったときだけ。浮き足のみ/RN無しは値＝種別αそのものなので種別ラベル 2026-07-18b
   var _label = hasRn ? "計" : (_isUki ? (sp ? "浮き応用" : "浮き基本") : (sp ? "応用" : "基本"));   // RN>0＝「計」＋内訳（基/応/浮 ＋RN）。RN無し＝種別ラベル（基本/応用/浮き基本/浮き応用）・内訳なし。
   return React.createElement("div", { style: { lineHeight: 1.2 } },
-    React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),
+    _EL_UI_VAP ? null : React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),   // VAP枠(8/20以降)に基本/応用/浮き足の種別は無い 2026-10-05
     React.createElement("div", { style: { color: col, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, _elAlphaShown(s, alpha) + "円"),
     hasRn ? _elAlphaBreakdownNode(s, alpha) : null,
     // 応用αの根拠が「RN補正」の記録は値（＋内訳）の下に小バッジで明示 2026-08-02。RN加算(_elRnAdd)とは別概念＝
@@ -4516,8 +4521,8 @@ function _epPnlCell(s, alpha, cutLine, pnlDisp) {
     var _ew = alpha - epc, _ewAbs = Math.abs(_ew);
     nodes.push(React.createElement("span", { key: "sl1", style: { color: "#ddd", margin: "0 2px" } }, "/"));
     nodes.push(_ew === 0
-      ? React.createElement("span", { key: "ew", style: { color: "#888" } }, "α0")
-      : React.createElement("span", { key: "ew", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: 700 } }, "α" + (_ew > 0 ? "↓" : "↑") + _ewAbs));
+      ? React.createElement("span", { key: "ew", style: { color: "#888" } }, _elAW() + "0")
+      : React.createElement("span", { key: "ew", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: 700 } }, _elAW() + (_ew > 0 ? "↓" : "↑") + _ewAbs));
   }
   nodes.push(React.createElement("span", { key: "sl2", style: { color: "#ddd", margin: "0 2px" } }, "/"));
   nodes.push(React.createElement("span", { key: "rs" }, _resEl));
@@ -5185,7 +5190,7 @@ function _elHoldStopDetail(hs, alpha) {
     var _hcf = hs.holdWidthSign === "-" ? Number(hs.holdWidth) : hs.holdWidthSign === "+" ? -Number(hs.holdWidth) : 0;
     var _ewH = alpha - _hcf, _ewHAbs = Math.abs(_ewH);
     nodes.push(React.createElement("span", { key: "a2", style: { color: "#ccc", margin: "0 1px" } }, "/"));
-    nodes.push(_ewH === 0 ? React.createElement("span", { key: "aw", style: { color: "#888" } }, "α0") : React.createElement("span", { key: "aw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs));
+    nodes.push(_ewH === 0 ? React.createElement("span", { key: "aw", style: { color: "#888" } }, _elAW() + "0") : React.createElement("span", { key: "aw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, _elAW() + (_ewH > 0 ? "↓" : "↑") + _ewHAbs));
   }
   if (!nodes.length) return null;
   return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", flexWrap: "nowrap", opacity: 0.6, fontSize: 9 } },
@@ -5244,8 +5249,8 @@ function _elHoldFlow(s, alpha, cutLine, isH2, noWrap) {
     var _ewHAbs = Math.abs(_ewH);
     nodes.push(React.createElement("span", { key: "a2", style: { color: "#ccc", margin: "0 2px" } }, "/"));
     nodes.push(_ewH === 0
-      ? React.createElement("span", { key: "aw", style: { color: "#888" } }, "α0")
-      : React.createElement("span", { key: "aw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs));
+      ? React.createElement("span", { key: "aw", style: { color: "#888" } }, _elAW() + "0")
+      : React.createElement("span", { key: "aw", style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, _elAW() + (_ewH > 0 ? "↓" : "↑") + _ewHAbs));
   }
   var holdPnl = _h2missFlow ? null : ((alpha != null) ? (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine)) : _elSignedVal(hs.holdPnl, hs.holdPnlSign));
   var planPnl = (alpha != null) ? _elDynPlanned(s, alpha, cutLine) : _elSignedVal(s.plannedPnl, s.plannedPnlSign);
@@ -5739,7 +5744,7 @@ function _elHoldParts(s, alpha, cutLine, isH2, depth) {
   if (alpha != null && hs.holdWidth != null) {
     var _hcf = hs.holdWidthSign === "-" ? Number(hs.holdWidth) : hs.holdWidthSign === "+" ? -Number(hs.holdWidth) : 0;
     var _ewH = alpha - _hcf, _ewHAbs = Math.abs(_ewH);
-    acmp = _ewH === 0 ? React.createElement("span", { style: { color: "#888" } }, "α0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs);
+    acmp = _ewH === 0 ? React.createElement("span", { style: { color: "#888" } }, _elAW() + "0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, _elAW() + (_ewH > 0 ? "↓" : "↑") + _ewHAbs);
   }
   var _h2missP = (isH2 || _deep) && _elH2Miss(s, alpha);  // 想定もH1もE基準未達 → 損益をQ ー円に固定（縦積み表）。
   var holdPnl = _h2missP ? null : ((alpha != null) ? (_deep ? _elDynHoldAt(s, alpha, cutLine, _d) : (isH2 ? _elDynHold2(s, alpha, cutLine) : _elDynHold(hs, alpha, cutLine))) : _elSignedVal(hs.holdPnl, hs.holdPnlSign));
@@ -5818,7 +5823,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
     if (hs && alpha != null && hs.holdWidth != null) {
       var _hcf = hs.holdWidthSign === "-" ? Number(hs.holdWidth) : hs.holdWidthSign === "+" ? -Number(hs.holdWidth) : 0;
       var _ewH = alpha - _hcf, _ewHAbs = Math.abs(_ewH);
-      _ac = _ewH === 0 ? React.createElement("span", { style: { color: "#888" } }, "α0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, "α" + (_ewH > 0 ? "↓" : "↑") + _ewHAbs);
+      _ac = _ewH === 0 ? React.createElement("span", { style: { color: "#888" } }, _elAW() + "0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewHAbs, _ewH < 0), fontWeight: 700 } }, _elAW() + (_ewH > 0 ? "↓" : "↑") + _ewHAbs);
     }
     var _xLoss = React.createElement("span", { style: { color: "#C0392B", fontWeight: 800 } }, "×");
     return _row(rk, lblNode, _xLoss, { high: _hi, width: _wd, acmp: _ac, pnl: _elHoldStopAmtNode(amount) }, 2, topB);
@@ -6029,7 +6034,7 @@ function _elEpAlignedRow(s, alpha, cutLine) {
   var pnl = _elDynPlanned(s, alpha, cutLine);
   var _high = eph != null ? React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", fontWeight: 700, color: _vcol(Math.abs(eph), eph >= 0) } }, (eph < 0 ? "↓" : "↑") + Math.abs(eph)) : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _acmp = null;
-  if (epc != null) { var _ew = alpha - epc, _ewAbs = Math.abs(_ew); _acmp = _ew === 0 ? React.createElement("span", { style: { color: "#888" } }, "α0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: 700 } }, "α" + (_ew > 0 ? "↓" : "↑") + _ewAbs); }
+  if (epc != null) { var _ew = alpha - epc, _ewAbs = Math.abs(_ew); _acmp = _ew === 0 ? React.createElement("span", { style: { color: "#888" } }, _elAW() + "0") : React.createElement("span", { style: { fontVariantNumeric: "tabular-nums", color: _vcol(_ewAbs, _ew < 0), fontWeight: 700 } }, _elAW() + (_ew > 0 ? "↓" : "↑") + _ewAbs); }
   var _resEl = res === "ok" ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700 } }, "○")
     : res === "ng" ? React.createElement("span", { style: { color: "#1E8449", fontWeight: 700 } }, "×")
     : res === "draw" ? React.createElement("span", { style: { color: "#6B7280", fontWeight: 700 } }, "△")
