@@ -2601,7 +2601,7 @@ function SettingsModal(_ref54) {
           "日別・週間・月間の合計金額に足す銘柄を選びます。件数・到達・勝率と分析の母数は全銘柄のままです。1つも選ばなければ全銘柄を算入します。" +
           "なお、この絞り込みは" + _elAmtSinceLbl() + "以降の記録にだけ効きます（それより前は従来どおり全銘柄を算入）。"),
         React.createElement(_elAmtStockPicker, { data: data, save: save })),
-      React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "📅＝日替わり指定中。常設（JX金属・フジクラ・SBG等）はそのまま個別タブに残します。")
+      React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "📅＝日替わり指定中。常設（フジクラ・SBG等）はそのまま個別タブに残します。")
     );
   })() : null,
   _stTab === "data" && data && save ? (function() {
