@@ -1398,10 +1398,7 @@ function migrateData(d) {
   }
   // JX金属を固定タブから外して日替わり候補(custom.rotatingStocks)へ（_migJxRotating 2026-10-05・ユーザー指示「JX金属を固定タブから外して日替わり候補にしたい」）。
   //   2026-10-04 に「日替わりでなく固定」へ寄せた（_jxFixedSeed1）のを戻す。一回性フラグで冪等＝後からUIで固定に戻しても再実行しない。
-  //   ⚠️候補プールの銘柄は「その日の本日の取引銘柄に指定されていない記録＝データのみ（合計除外）」になる（_isDataOnly・app-05）＝遡って過去の合計が変わる。
-  //   そこで金額の算入絞り込み(_EL_AMT_SINCE=2026-08-01)より前の日だけ、JX金属の記録がある日を dailyStock に指定して**過去の合計を不変**に保つ。
-  //   8/1以降は合計算入銘柄(amtStocks)の絞り込みで既にJX金属の金額は合計外＝この移行でも変わらない（指定した日だけ📅日替わりとして算入される）。
-  //   EPナビの固定表示(epnStocks)からも外す（古河電工の移行と同じ作法）。マスター(custom.stocks)に実在するときだけ動く。
+  //   候補へ追加＋EPナビの固定表示(epnStocks)から除去（古河電工の移行と同じ作法）。マスター(custom.stocks)に実在するときだけ動く。
   if (!d._migJxRotating) {
     try {
       var _jxC = d.custom;
@@ -1409,19 +1406,32 @@ function migrateData(d) {
         var _jxRot = Array.isArray(_jxC.rotatingStocks) ? _jxC.rotatingStocks.slice() : [];
         if (_jxRot.indexOf("JX金属") < 0) { _jxRot.push("JX金属"); _jxC.rotatingStocks = _jxRot; }
         if (Array.isArray(_jxC.epnStocks) && _jxC.epnStocks.indexOf("JX金属") >= 0) _jxC.epnStocks = _jxC.epnStocks.filter(function(s) { return s !== "JX金属"; });
-        var _jxDs = (d.dailyStock && typeof d.dailyStock === "object") ? d.dailyStock : {}, _jxN = 0;
-        Object.keys(d.charts || {}).forEach(function(ck) {
-          var i = ck.lastIndexOf("_"); if (i < 0) return;
-          var st = ck.slice(0, i), dt = ck.slice(i + 1), c = d.charts[ck];
-          if (st !== "JX金属" || dt >= "2026-08-01" || !c || !Array.isArray(c.signals) || !c.signals.length) return;
-          var v = _jxDs[dt], cur = (v == null || v === "") ? [] : (Array.isArray(v) ? v.slice() : [v]);
-          if (cur.indexOf("JX金属") >= 0) return;
-          cur.push("JX金属"); _jxDs[dt] = (cur.length === 1) ? cur[0] : cur; _jxN++;   // 保存形は _dsWrite と同じ（1件=文字列／2件以上=配列）
-        });
-        if (_jxN) d.dailyStock = _jxDs;
       }
       d._migJxRotating = true;
     } catch(e) { console.warn("[migrateData] jx-rotating error:", e); }
+  }
+  // 上の移行の続き（_migJxPastDaily 2026-10-05・基準日は **8/20**＝VAP新システムの開始日／ユーザー指摘「8/20が基準でしょ」。初版は8/1で切っていた）。
+  //   ⚠️候補プールの銘柄は「本日の取引銘柄に未指定の記録＝データのみ（合計除外）」になり（_isDataOnly・app-05）過去の合計が遡って変わる。
+  //   そこで 8/20 より前（旧システム＝全銘柄算入の期間）でJX金属の記録がある日だけ dailyStock に JX金属 を指定して過去の合計を不変に保つ。
+  //   8/20以降は合計算入銘柄(amtStocks・_EL_AMT_SINCE=8/20)の絞り込みでJX金属の金額は合計外＝この移行でも変わらない（指定した日だけ📅日替わりとして算入）。
+  //   旧版(8/1境界)を既に適用済みの端末も、8/1〜8/19の分をここで補う（既に指定済みの日は触らない＝冪等）。候補に居ない/マスターに無いときは何もしない。
+  if (!d._migJxPastDaily) {
+    try {
+      var _jpC = d.custom;
+      if (_jpC && Array.isArray(_jpC.stocks) && _jpC.stocks.indexOf("JX金属") >= 0 && Array.isArray(_jpC.rotatingStocks) && _jpC.rotatingStocks.indexOf("JX金属") >= 0) {
+        var _jpDs = (d.dailyStock && typeof d.dailyStock === "object") ? d.dailyStock : {}, _jpN = 0;
+        Object.keys(d.charts || {}).forEach(function(ck) {
+          var i = ck.lastIndexOf("_"); if (i < 0) return;
+          var st = ck.slice(0, i), dt = ck.slice(i + 1), c = d.charts[ck];
+          if (st !== "JX金属" || dt >= "2026-08-20" || !c || !Array.isArray(c.signals) || !c.signals.length) return;
+          var v = _jpDs[dt], cur = (v == null || v === "") ? [] : (Array.isArray(v) ? v.slice() : [v]);
+          if (cur.indexOf("JX金属") >= 0) return;
+          cur.push("JX金属"); _jpDs[dt] = (cur.length === 1) ? cur[0] : cur; _jpN++;   // 保存形は _dsWrite と同じ（1件=文字列／2件以上=配列）
+        });
+        if (_jpN) d.dailyStock = _jpDs;
+        d._migJxPastDaily = true;
+      } else if (d._migJxRotating) { d._migJxPastDaily = true; }   // JX金属が候補に居ない（ユーザーが固定へ戻した/マスターに無い）＝何もしないで完了扱い
+    } catch(e) { console.warn("[migrateData] jx-past-daily error:", e); }
   }
   // RN加算の自動判定を既存記録にも有効化（_migRnAutoOn 2026-07-29・ユーザー指示「自動になっていないものは自動に」）: 全記録 charts[*].signals の signal.rnAuto を true にする。
   // 2026-07-20b の当初決定「既存記録は自動を止める（開いてもRNが書き換わらない）」の撤回。以後は過去記録を編集フォーム/EPナビで開くと自動判定が効き、保存時にRN〇×と加算額が現行ルール（下二桁41-49→…50／91-99→…00）へ揃う。

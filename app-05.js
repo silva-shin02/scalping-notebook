@@ -3126,7 +3126,7 @@ var _EL_AMT_STOCKS = null;
 //   初版は全期間に遡って効かせたので、過去の週間・月間・カレンダーの金額が一斉に変わっていた。
 //   集計ルールの境界 _EL_RULE_SINCE(=2026-06-29・app-06) とは**別物**なので、専用の定数を持つ。
 //   日付が分からない呼び出しも除外しない＝「金額が丸ごと消える」側には倒さない。
-var _EL_AMT_SINCE = "2026-08-01";
+var _EL_AMT_SINCE = "2026-08-20";   // 2026-10-05 8/1→8/20（ユーザー指摘「8/20が基準」＝VAP値の新システム開始日 _VAP_SINCE と同じ。8/19以前は旧システム枠で従来どおり全銘柄算入）
 // 2026-10-04 ユーザー指定「合計算入銘柄に日替わり銘柄も追加」。擬似銘柄 _EL_AMT_ROT を選ぶと、日替わり候補プール(custom.rotatingStocks)の銘柄をまとめて算入。
 //   ただし『その日の指定銘柄だけ』は従来どおり _isDataOnly(_elInclTotalAmt) 側が判定する＝指定されていない日の候補は算入されない。
 var _EL_AMT_ROT = "\uD83D\uDCC5\u65E5\u66FF\u308F\u308A";
@@ -3149,7 +3149,7 @@ function _vapWorld(date) { return !!date && String(date) >= _VAP_SINCE; }
 function _vapOf(s) { return (s && s.vapVal != null && s.vapVal !== "" && !isNaN(Number(s.vapVal))) ? Number(s.vapVal) : null; }
 // 記録帳の分析母数に入れてよいか: 8/20より前は対象外／8/20以降は vapVal 入力済みのみ
 function _vapAnalysisOk(r) { return !!(r && r.signal && _vapWorld(r.date) && _vapOf(r.signal) != null); }
-function _elAmtSinceLbl() { return (+_EL_AMT_SINCE.slice(0, 4)) + "年" + (+_EL_AMT_SINCE.slice(5, 7)) + "月"; }
+function _elAmtSinceLbl() { return (+_EL_AMT_SINCE.slice(0, 4)) + "年" + (+_EL_AMT_SINCE.slice(5, 7)) + "月" + (+_EL_AMT_SINCE.slice(8, 10)) + "日"; }
 // 算入銘柄の選択UI 2026-10-01。設定と各合計欄で同じ部品を使い回す（＝どこから変えても同じ正本 custom.amtStocks を書く）。
 // 閉じている間は「算入: フジクラ・SBG ✎」の1行だけ＝合計欄に置いても邪魔にならない。押すと銘柄チップが開く。
 function _elAmtStockPicker(props) {
