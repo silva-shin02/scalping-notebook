@@ -6831,6 +6831,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _isSigTotal = stockFil === _SIG_TOTAL;
   var _selStock = (stockFil === _ALL_STOCK || (stockFil && _tickerList.indexOf(stockFil) >= 0)) ? stockFil : _ALL_STOCK;
   var _isAllStock = !_isSigTotal && _selStock === _ALL_STOCK;
+  _EL_AMT_BYPASS = !(_isAllStock || _isSigTotal);   // 銘柄タブは自銘柄の損益＝算入銘柄フィルタを外す（選定外でも想定損益を表示）2026-10-05。全体/📡シグナル総合は従来どおり合計用のフィルタ
   // 時間かぶり除外のスコープ 2026-07-08: 全体タブ＝null（全銘柄横断＝従来）／銘柄タブ＝その銘柄（同一銘柄内の被りだけ除外＝別銘柄との時間かぶりでは落とさない）。
   // EntryLogView内の被り除外呼び出しは全てこの_collScopeを渡す＝タブに応じて母数が切り替わる。
   var _collScope = (_isAllStock || _isSigTotal) ? null : _selStock;
@@ -6995,9 +6996,10 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   //   ⚠ t.real の意味が「実額」から「100株換算」に変わる。実額が要る所は t.realRaw を見ること（🏷銘柄別の損益割合＝L6268）。
   //   ⚠ _elRealPnlPair は item.pnl を signal.realizedPnl より優先する。両方あって値が違う記録では実額が動く＝取引テーブル側と揃う方向。
   var _realPairOf = function(r) { return _elIsEntered(r.signal, r.item) ? _elRealPnlPair(r.signal, r.item) : null; };
-  var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, realPair: _realPairOf }); };
+  var _amtBypass = false;   // 「選定外の記録」参考表の描画中だけtrue＝算入銘柄フィルタを外して金額を出す（合計表には絶対に立てない）2026-10-05
+  var totOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope); }, realPair: _realPairOf, ignoreAmt: _amtBypass }); };
   // 「除外後」列の集計＝totOfの除外条件に「指値同値」(_elFillRiskRec)を足しただけ。母数・基準はtotOfと完全に同一なので同じ行で素直に比較できる 2026-07-20c
-  var totExOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); }, realPair: _realPairOf }); };
+  var totExOf = function(x) { return _elTotAccum(x, { signal: function(r) { return r.signal; }, alpha: function(r) { return _ai(r).alpha; }, cut: function(r) { return _ai(r).cutLine; }, excluded: function(r) { return _elCollExcluded(data, r, _collScope) || _elFillRiskRec(r); }, realPair: _realPairOf, ignoreAmt: _amtBypass }); };
   // 株数未入力（実現損益はあるが株数が無い）件数。_elTotAccum は換算できない記録の**実額をそのまま100株換算側に足す**ので、
   //   混ざると下段が過大に出る。共通部(_elTotAccum)は触らない方針（ユーザー選択＝他表への波及ゼロ）なので、ここで件数を数えて小書きで警告する。
   //   除外条件は totOf と同じものを書く（片方だけ変えると件数と金額の母数がずれるので、変更時は必ず両方直すこと）。
@@ -7302,7 +7304,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       _cap("② トレード単位（記録1件＝1件）", "1記録の想定損益をそのままグレード判定。合計＝その月に金額が出た記録数（🏷銘柄別の 総利益件数＋総損失件数＋D）"),
       _tbl(recM, "件"));
   };
-  var _ovPnlTbl = function(rs, g) {
+  var _ovPnlTbl = function(rs, g, opts) {   // opts.noExtra=表示専用行を作らない／opts.pfx=行展開キーの接頭辞（参考表を別の表として開閉するため）2026-10-05
     // 2026-08-05n 旧ルール期間（_RULE_SINCE より前）は「薄く表示＋合計・平均に算入しない」（ユーザー指示
     //   「4月～6月は薄くして、合計行にも算入しないで。日別・週別についても同様。※6/29～は除く」）。
     //   判定の正本は記録の日付そのもの（_isOldRec）。_RULE_SINCE が月曜なので、日別・週別は境界がそのまま行の切れ目になる。
@@ -7377,7 +7379,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     };
     var _extraByP = {};
     filtered.forEach(function(r) {
-      if (!r || !r.date || !r.signal || rs.indexOf(r) >= 0) return;   // rsに居る＝算入記録＝byP側で出る
+      if ((opts && opts.noExtra) || !r || !r.date || !r.signal || rs.indexOf(r) >= 0) return;   // rsに居る＝算入記録＝byP側で出る
       var _kt = keyOf(r.date); (_extraByP[_kt] = _extraByP[_kt] || []).push(r);
     });
     var _aggKeys = Object.keys(byP);   // 集計に使う期間＝算入記録がある期間のみ（従来どおり）
@@ -7566,7 +7568,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     };
     var _extraAll = [];
     Object.keys(_extraByP).forEach(function(k) { _extraAll = _extraAll.concat(_extraByP[k]); });
-    var rows = _lvlRows(g, rs, _extraAll, "");
+    var rows = _lvlRows(g, rs, _extraAll, (opts && opts.pfx) || "");
     // 合計・平均は旧ルール期間（_RULE_SINCE より前）を除外。行自体は上に薄く表示し、集計だけ除く。件数・日数・到達/利確/損切り率・1日平均も旧ルールを抜いた母数で算出 2026-07-18→2026-08-05n
     //   2026-08-05n 境界を「4月（_elIsEmaRefPeriod）」から「2026-06-29より前」へ拡大（ユーザー指示）。旧ルールは新ルールを内包するので4月・5月も従来どおり除外される。
     //   除外判定は記録の日付そのもの（_isOldRec）＝割った月の「6/29〜」側だけが合計に入る＝日別/週別/月別のどれで見ても合計が同じ数字になる。
@@ -7769,7 +7771,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       signal: function(r) { return r.signal; },
       alpha: function(r) { return _ai(r).alpha; },
       cut: function(r) { return _ai(r).cutLine; },
-      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || (legacy && _elFillRiskRec(r)) || _isDataOnly(data, r); },   // 2026-10-04 データのみも除外／2026-09-02 同値も除外（実現損益は同値該当が元から持たないので不変）
+      excluded: function(r) { return _elCollExcluded(data, r, _collScope) || (legacy && _elFillRiskRec(r)) || ((_isAllStock || _isSigTotal) && _isDataOnly(data, r)); },   // 2026-10-04 データのみも除外（2026-10-05 銘柄タブでは外す＝選定外でも想定損益を表示）／2026-09-02 同値も除外（実現損益は同値該当が元から持たないので不変）
       real: function(r) { return _elIsEntered(r.signal, r.item) ? _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign) : null; }
     });
     var ss = _elStopStatsV2(_rsE, data), reach = n ? Math.round((ok + x) / n * 100) : null;   // reach の分母は n（=同値込みの母数）のまま＝ボードの eRate=entered/n と同じ
@@ -8577,6 +8579,18 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。想定損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）。6/29より前は集計ルールが違うため薄く表示し、合計・平均には算入していません（月別の2026/06は〜6/28と6/29〜の2行に分けています）。合計行の「月換算」は1か月＝20営業日として引き伸ばした目安（合計÷営業日数×20）で、実額ではありません"),
           _granSeg(gran, setGran, "ov_", _ovGradeLegend),
           _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
+        // 選定外の記録の参考表示 2026-10-05（ユーザー指示「選定外銘柄でも想定損益などは表示」・表示場所＝期間別表／合計は今のまま別建て／指標＝想定損益・到達・利確・損切り）。
+        //   選定外＝日替わり候補でその日に指定していない記録(データのみ)＋合計算入銘柄に選んでいない銘柄(8/20以降)。上の合計・1日平均・グレードには一切入らない。
+        //   同じ期間別表を母数だけ差し替えて再利用（列の定義が二重にならない）。金額は算入銘柄フィルタを外して出す(_amtBypass)。行展開キーは別接頭辞。
+        (function() {
+          var _outRecs = v2recs.filter(function(r) { return _isDataOnly(data, r) || !_elAmtRecOk(r); });
+          if (!_outRecs.length) return null;
+          var _tbl; _amtBypass = true;
+          try { _tbl = _ovPnlTbl(_outRecs, gran === "custom" ? "week" : gran, { noExtra: true, pfx: "out>" }); } finally { _amtBypass = false; }
+          return [
+            _secH("🗂 選定外の記録（参考・合計には入りません）", "日替わりで指定しなかった候補銘柄／合計算入銘柄に選んでいない銘柄の記録（" + _outRecs.length + "件）。想定損益・到達・利確・損切りを別建てで表示。上の「全体損益」の合計・1日平均・グレードには含まれません"),
+            _tbl];
+        })(),
         _sinceRecs.length ? [
           _secH("🏷 銘柄別の損益割合",
             "固定銘柄＋📅日替わり（まとめて1つ）＋その他。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間（2026-08-05sで境界を統一）。割合は利益と損失を別々に内訳表示（純損益の構成比にすると、マイナスの銘柄があるとき負の%や100%超が出て積み上げ棒にできないため）。PF＝プロフィットファクタ＝総利益÷総損失。⚠️金額列（総利益・総損失・純損益・1件平均・実現損益）は時間かぶりの遅い方を除外しますが、件数・到達・勝率は除外しません＝件数欄の「被り除外N件」がその差です。日替わりの「選定N日」はその銘柄が本日の取引銘柄に選ばれた日数＝選ばれた日だけ取引しているので、常時見ている固定銘柄と勝率・1件平均をそのまま比べると日替わり側が有利に出ます",

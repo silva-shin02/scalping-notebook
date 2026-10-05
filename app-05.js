@@ -3131,7 +3131,10 @@ var _EL_AMT_SINCE = "2026-08-20";   // 2026-10-05 8/1→8/20（ユーザー指�
 //   ただし『その日の指定銘柄だけ』は従来どおり _isDataOnly(_elInclTotalAmt) 側が判定する＝指定されていない日の候補は算入されない。
 var _EL_AMT_ROT = "\uD83D\uDCC5\u65E5\u66FF\u308F\u308A";
 var _EL_AMT_POOL = null;
-function _elAmtStocksSet(list, pool) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; _EL_AMT_POOL = Array.isArray(pool) ? pool : null; }
+// 記録帳の銘柄タブ表示中だけtrue（EntryLogViewBody が描画ごとに設定）＝その銘柄自身の損益は算入銘柄フィルタを掛けずに出す 2026-10-05（ユーザー指示「選定外銘柄でも想定損益などは表示」）。
+//   ⚠️効くのは _elTotAccum の金額だけ。_elAmtStockOk/_elAmtRecOk（ホーム・カレンダー・日別の合計）は見ない＝キャッシュ(_snDailyPnlMap)を汚さない。App描画ごとの _elAmtStocksSet で必ずfalseへ戻る。
+var _EL_AMT_BYPASS = false;
+function _elAmtStocksSet(list, pool) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; _EL_AMT_POOL = Array.isArray(pool) ? pool : null; _EL_AMT_BYPASS = false; }
 function _elAmtStockOk(stock, date) {
   if (!_EL_AMT_STOCKS || !stock) return true;
   if (!date || String(date) < _EL_AMT_SINCE) return true;   // 境界より前は従来どおり全銘柄算入
@@ -5002,7 +5005,8 @@ function _elTotAccum(items, get) {
     // 既存記録には provisional が無いので、この行で既存の数字は変わらない。
     // 算入銘柄フィルタ 2026-10-01: 選外の銘柄は金額に入れない。件数系は呼び出し元が recs をそのまま使うので影響しない。
     // it.stock が無い呼び出し（銘柄が決まらない集計）は素通し＝過剰除外を避ける。
-    if (it && it.stock && !_elAmtStockOk(it.stock, it.date)) return;
+    // get.ignoreAmt=true なら算入銘柄フィルタを外す（銘柄タブの自銘柄の損益・「選定外の記録」の参考表示用 2026-10-05）。合計を出す呼び出しには付けないこと。
+    if (!get.ignoreAmt && !_EL_AMT_BYPASS && it && it.stock && !_elAmtStockOk(it.stock, it.date)) return;
     if (_elIsProvisional(s)) return;
     if (get.excluded && get.excluded(it)) return;
     var isAB = s.difficulty === "A" || s.difficulty === "B";
