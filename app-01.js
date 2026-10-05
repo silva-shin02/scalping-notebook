@@ -576,6 +576,13 @@ function migrateData(d) {
     d.custom.amtStocks = [];
     d.custom._amtStocksSeed4 = 1;
   }
+  // 2026-10-05 ユーザー指示「JX金属を固定で出すのをやめ、日替わり銘柄・フジクラ・SBGの3つにして」。合計算入銘柄を3つに1回だけ設定（以後は設定/各合計欄の「算入」で変えれば尊重）。
+  //   JX金属は選択から外れる＝2026-08-01以降のJX金属の金額は合計に入らない（件数・到達・勝率・分析の母数は全銘柄のまま・銘柄タブも残る）。
+  //   📅日替わり＝候補プール(rotatingStocks)の銘柄のうち、その日に指定された銘柄だけが算入される。
+  if (!d.custom._amtStocksSeed5) {
+    d.custom.amtStocks = ["フジクラ", "SBG", "\uD83D\uDCC5\u65E5\u66FF\u308F\u308A"];
+    d.custom._amtStocksSeed5 = 1;
+  }
   // 2026-10-04 ユーザー指示「JX金属は日替わりでなく固定銘柄（フジクラと同じ）」。日替わり候補(rotatingStocks)から1回だけ外す。
   //   後から設定で日替わりに入れ直せばそれは尊重する（フラグで再実行しない）。
   if (!d.custom._jxFixedSeed1) {
