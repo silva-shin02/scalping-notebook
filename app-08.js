@@ -709,6 +709,8 @@ function App() {
       window._snFbFlushPending = false;
     }
     var d = typeof dOrFn === 'function' ? dOrFn(dataRef.current) : dOrFn;
+    // 記録が追加された日の「ノーシグナル／有効シグナルなし」タグを自動で外す 2026-10-05（_clearNoSigTags・app-01）。変更が無ければ d は同じ参照のまま。
+    if (d && d.charts && dataRef.current) { var _nsCh = _clearNoSigTags(d.charts, dataRef.current.charts, true); if (_nsCh !== d.charts) d = _objectSpread(_objectSpread({}, d), {}, { charts: _nsCh }); }
     
     d = _objectSpread(_objectSpread({}, d), {}, { _v: Date.now() });
     setData(d);
