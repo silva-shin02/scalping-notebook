@@ -3497,6 +3497,8 @@ function _elRowStyleWithColl(data, r, scope) {
   var st = _elNotInclRowStyle(r && r.signal);
   if (st) return st;
   if (r && r.signal && _elIsReview(r.signal)) return { background: "#FCE7F3", borderLeft: "3px solid #EC4899" };
+  // 指値同値（未約定・合計外）＝灰色＋斜線 2026-10-05。background を先に置き backgroundImage を後から重ねる（順序を逆にするとショートハンドに消される）
+  if (_elEqRow(r)) return { background: "#F3F4F6", backgroundImage: "repeating-linear-gradient(45deg,#E5E7EB 0 4px,transparent 4px 10px)", borderLeft: "3px solid #5DCAA5" };
   if (!data) return null;
   // 未達（建玉なし）は斜線ハッチを重ねる＝「枠はあるが中身が無い」ことを背景でも示す（案4 2026-08-19）。
   // backgroundを先に置きbackgroundImageを後から重ねる順序を守る（逆にすると背景ショートハンドに消される）。
@@ -4478,6 +4480,7 @@ function _epECell(s, alpha) {
   else j = s.osVal == null ? null : (_elH2Miss(s, alpha) ? "miss" : "ok");
   var _jn = j === "ok" ? React.createElement("span", { style: { fontWeight: 800, color: "#C0392B", fontSize: 13 } }, "○")
     : j === "x" ? React.createElement("span", { style: { fontWeight: 800, color: "#1E8449", fontSize: 13 } }, "×")
+    : (j === "miss" && _elEqSelf(s, alpha)) ? React.createElement("span", { title: "指値同値＝OS最大がEPとちょうど同値（上抜けず未約定）", style: { fontSize: 10, fontWeight: 800, color: "#0F6E56", whiteSpace: "nowrap" } }, "同値")
     : j === "miss" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7C3AED", whiteSpace: "nowrap" } }, "未達")
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _diff = (j === "ok" || j === "x" || j === "miss") ? _epEpDiffNode(s, alpha) : null;
@@ -4954,12 +4957,33 @@ function _elFillEqStats(recs, getAlpha, getCut) {
 // r={stock,date,signal,item} 版と件数版（KPI/セクション表示用）。
 function _elFillRiskRec(r) { return !!(r && r.signal && _elFillRisk(r.signal, r.item)); }
 function _elFillRiskCountRecs(recs) { var n = 0; (recs || []).forEach(function(r) { if (_elFillRiskRec(r)) n++; }); return n; }
+// ===== 指値同値の記録行の見せ方 2026-10-05（ユーザー相談の結果）=====
+// 指値同値＝OS最大がEPとちょうど同値＝未約定。金額には入らないが、「もし約定していたら」を同値行にも出す:
+//   ①E欄＝「同値」（旧: 未達）②想定損益＝仮約定の金額＋グレードを浅い破線枠＋「参考」ラベル ③OS・損益詳細(EP/H1/H2)＝仮約定で計算して薄く
+//   ④行全体＝灰色＋斜線 ⑤時間セルの左に「合計外」バッジ。合計・1日平均・グレード集計には従来どおり入らない（_elFillEqLoose内の表示専用計算）。
+// 判定は記録単体(s, 採用α)で行う＝item(取引)を持たない描画部品(_epECell等)からも呼べるようにするため。α総当たりなど採用α以外のαで呼ばれたときは対象外。
+//   ⚠️旧システム枠(記録帳8/19以前・_EP_EQ_LOOSE=true)は同値も到達＝対象外。
+function _elEqSelf(s, alpha) {
+  if (_EP_EQ_LOOSE || !s || alpha == null || alpha === "") return false;
+  if (Number(alpha) !== Number(_epOwnAlpha(s))) return false;
+  return _elFillRisk(s, null);
+}
+function _elEqRow(r) { return !_EP_EQ_LOOSE && !!(r && r.signal && _elFillRiskRec(r)); }
+// 仮約定の金額セル用の枠: 浅い破線＋「参考」ラベル（実際の想定損益と一目で区別）
+function _elEqRefBox(node) {
+  return React.createElement("div", { title: "指値同値＝未約定。『もし約定していたら』の想定損益（参考）。合計には入っていません", style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15,
+    border: "1px dashed #5DCAA5", borderRadius: 6, padding: "1px 5px", background: "#F0FDFA" } },
+    React.createElement("span", { style: { fontSize: 8, fontWeight: 800, color: "#0F6E56", letterSpacing: "0.5px" } }, "参考"),
+    React.createElement("span", { style: { opacity: 0.85 } }, node));
+}
 // 明細行用の小バッジ（該当記録に「指値同値」）。対象外はnull。
 // 配線＝記録の明細表5つ全部（時間セルの被り除外バッジ_elCollMarkNodeの直後に同じ並びで置く）2026-07-25 ユーザー指示「この表でも指値同値は表示されるようにして」:
 //   記録帳の記録一覧(app-06)／日別ページの🎯エントリー記録(app-02 EntrySignalSection)／今週の損益データ(app-02 WeeklyPnlPanel)／日別ページ 取引タブのエントリー記録・💰損益タブの記録表(app-04 DayView)。
 function _elFillRiskNode(r) {
   if (!_elFillRiskRec(r)) return null;
-  return React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値同値");   // 2026-08-05v ここだけ旧称のまま（ユーザー判断）。列/セクションは「同値除外損益」だが、この小バッジは1記録に付く印＝損益そのものではないため
+  return React.createElement(React.Fragment, null,
+    React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px solid #5DCAA5", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "指値同値"),
+    _EP_EQ_LOOSE ? null : React.createElement("span", { title: "未約定のため合計・平均・グレードには入っていません", style: { fontSize: 9, fontWeight: 800, color: "#fff", background: "#6B7280", borderRadius: 4, padding: "1px 4px", marginLeft: 3, whiteSpace: "nowrap" } }, "合計外"));
 }
 // 同値除外損益の注記（案B、2026-10-04 ユーザー指定「該当記録がある日だけ表示」）。合計行のすぐ下に置く帯。
 // recsM = その合計行に**実際に入っている記録**（算入フィルタ済み・時間かぶり除外済み）。aiAlpha/aiCut は合計行と同じ getter。
@@ -5962,6 +5986,7 @@ function _elRideSummaryNode(s, alpha, cutLine) {
 }
 // 想定損益セル本体の下に出す簡易版（2026-07-13 ユーザー要望）: 手じまいまでの最高値→手じまい時点の確定値を「↑17→↓23」の矢印＋数値のみで表示。E成立(judge ok)のv2記録のみ（それ以外はnull＝非表示）。
 function _elRideMiniNode(s, alpha, cutLine) {
+  if (_elEqSelf(s, alpha)) return React.createElement("div", { style: { opacity: 0.6 } }, _elFillEqLoose(function() { return _elRideMiniNode(s, alpha, cutLine); }));
   var v = _elRideVals(s, alpha, cutLine);
   if (!v) return null;
   return React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "center", gap: 2, whiteSpace: "nowrap", fontSize: 10, marginTop: 1 } },
@@ -6074,6 +6099,7 @@ function _elEpAlignedRow(s, alpha, cutLine) {
   return React.createElement("div", { style: { borderBottom: "1px solid #e0d8c8" } }, _tbl);
 }
 function _elDetailFlowStack(s, alpha, cutLine) {
+  if (_elEqSelf(s, alpha)) return React.createElement("div", { title: "指値同値＝未約定。以下は『もし約定していたら』の参考表示（合計には入っていません）", style: { opacity: 0.6 } }, _elFillEqLoose(function() { return _elDetailFlowStack(s, alpha, cutLine); }));
   // 2026-07-13 EP行をH1/H2と同じ桁にそろえる(_elEpAlignedRow)。miss/×見送りはnull→従来のインラインEP行にフォールバック。
   var _epRow = _elEpAlignedRow(s, alpha, cutLine) || React.createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "flex-start", gap: 3, padding: "0 0 1px", borderBottom: "1px solid #e0d8c8", whiteSpace: "nowrap" } },
     React.createElement("span", { style: { fontSize: 9, color: "#999", fontWeight: 700, flexShrink: 0 } }, "EP"),
@@ -6101,6 +6127,7 @@ function _elPnlDetailCells(s, alpha, cutLine, border, pad1, pad2) {
 }
 // 明細の「想定損益」セル(1記録): その記録の手じまい(_elHoldFinalParts.main)をランク+額+（）内=△で表示＝集計の想定損益列と同基準。2026-07-10。
 function _elHold2AmtNode(s, alpha, cutLine) {
+  if (_elEqSelf(s, alpha)) return _elEqRefBox(_elFillEqLoose(function() { return _elHold2AmtNode(s, alpha, cutLine); }));   // 指値同値＝仮約定の金額を参考表示 2026-10-05
   var p = _elHoldFinalParts(s, alpha, cutLine);
   if (p.main == null) return (p.ref != null)
     ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" } }, _elHold2RefSuffix(0, p.ref, 1))
