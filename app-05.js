@@ -3137,7 +3137,7 @@ var _EL_AMT_BYPASS = false;
 // 記録帳のVAP枠(8/20以降)を描画中だけtrue（EntryLogViewBody が描画ごとに設定）＝EPとの差チップ等の「α」をVAP表記にする 2026-10-05（ユーザー指示「VAP枠ではVAP表記に統一」）。
 //   App描画ごとの _elAmtStocksSet でfalseへ戻る＝記録帳を出たら日別ページ等は従来表記。⚠️表記だけ。計算には使わない。
 var _EL_UI_VAP = false;
-function _elAW() { return _EL_UI_VAP ? "VAP" : "α"; }
+function _elAW(s) { return (_EL_UI_VAP || (s && _vapOf(s) != null)) ? "VAP" : "α"; }   // sを渡せばその記録のVAP有無で判定（VAP値入力済み＝8/20以降の記録）
 function _elBasisW() { return _EL_UI_VAP ? "VAP基準" : "採用α基準"; }
 function _elAmtStocksSet(list, pool) { _EL_AMT_STOCKS = (Array.isArray(list) && list.length) ? list : null; _EL_AMT_POOL = Array.isArray(pool) ? pool : null; _EL_AMT_BYPASS = false; _EL_UI_VAP = false; }
 function _elAmtStockOk(stock, date) {
@@ -3655,7 +3655,7 @@ function _elAlphaTypeCell(s, alpha) {
   var hasRn = _elRnAdd(s) > 0;   // 「計」＝RN加算が乗って値が合計（種別α＋RN）になったときだけ。浮き足のみ/RN無しは値＝種別αそのものなので種別ラベル 2026-07-18b
   var _label = hasRn ? "計" : (_isUki ? (sp ? "浮き応用" : "浮き基本") : (sp ? "応用" : "基本"));   // RN>0＝「計」＋内訳（基/応/浮 ＋RN）。RN無し＝種別ラベル（基本/応用/浮き基本/浮き応用）・内訳なし。
   return React.createElement("div", { style: { lineHeight: 1.2 } },
-    _EL_UI_VAP ? null : React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),   // VAP枠(8/20以降)に基本/応用/浮き足の種別は無い 2026-10-05
+    (_EL_UI_VAP || _vapOf(s) != null) ? null : React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),   // VAP枠(8/20以降)に基本/応用/浮き足の種別は無い 2026-10-05
     React.createElement("div", { style: { color: col, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, _elAlphaShown(s, alpha) + "円"),
     hasRn ? _elAlphaBreakdownNode(s, alpha) : null,
     // 応用αの根拠が「RN補正」の記録は値（＋内訳）の下に小バッジで明示 2026-08-02。RN加算(_elRnAdd)とは別概念＝
