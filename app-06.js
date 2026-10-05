@@ -3448,7 +3448,7 @@ function _elBaseAlphaSimpleBoardV2(data, stocks, refDate, save) {
       var _onTopSub = function() { return onTop > 0 ? React.createElement("div", { style: { fontSize: 8.5, color: "#16A34A", fontWeight: 700 } }, (uki > 0 ? "浮" + uki : "") + (rnv > 0 ? ((uki > 0 ? "+" : "") + "RN" + rnv) : "")) : null; };
       devRows.push(React.createElement("tr", { key: ri + "r" },
         _dvTdSpan(s.time || "—", Object.assign({ color: "#64748B", fontWeight: 700 }, _top || {})),
-        _dvTdSpan(_regBadge(yes, isUki), _top || {}),
+        _dvTdSpan(_vapWorld(r.date) ? "" : _regBadge(yes, isUki), _top || {}),   // VAP枠(8/20以降)に基本/応用の区分は無い 2026-10-05
         _dvTd("現実", Object.assign({ color: "#64748B", fontWeight: 700 }, _top || {})),
         _dvTd(base != null ? (base + "円") : "—", _top || {}),
         _dvTd(onTop > 0 ? React.createElement("span", null, "+" + onTop + "円", _onTopSub()) : "—", Object.assign({ color: onTop > 0 ? "#9A3412" : "#cbd5e1" }, _top || {})),
@@ -6765,13 +6765,13 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _uMwG = useState("month"), mwGran = _uMwG[0], setMwGran = _uMwG[1];
   var _uSM = useState("month"), sumMode = _uSM[0], setSumMode = _uSM[1];   // 銘柄別 集計タブの今月/全期間トグル（既定=今月）2026-06-22
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
-  var _uAA = useState("all"), addAlphaFil = _uAA[0], setAddAlphaFil = _uAA[1];   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
+  var _uAA = useState("all"), _addAlphaFilRaw = _uAA[0], setAddAlphaFil = _uAA[1], addAlphaFil = legacy ? _addAlphaFilRaw : "all";   // 2026-10-05 VAP枠(8/20以降)に基本/応用の概念は無い（ユーザー指示）＝分類は常に「全記録」・トグルも出さない。   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
   var _uSO = useState("desc"), recOrder = _uSO[0], setRecOrder = _uSO[1];   // 記録一覧の並び順 2026-07-27（ユーザー指定）: "desc"=日付が新しい順（既定）／"asc"=古い順。どちらでも各日付の中は時間が早い順。全一覧で共通の1つの状態＝どこで切り替えても全部に効く
   var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値同値」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
-  var _uOsF = useState("no"), osDistFil = _uOsF[0], setOsDistFil = _uOsF[1];   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
+  var _uOsF = useState("no"), _osDistFilRaw = _uOsF[0], setOsDistFil = _uOsF[1], osDistFil = legacy ? _osDistFilRaw : "no";   // VAP枠は常に"no"（VAP記録は応用を持たない＝全記録と同じ母数・トグル非表示）2026-10-05   // 追加α母数トグル: 全記録(all)/基本α母数=×+未選択(no・既定)/追加α〇のみ(yes)。集計KPI・OS分布・損切り・未達で共有。既定×+未選択＝〇(高α)混入で損切り率/未達率が上振れするのを回避 2026-07-01
   // OS値分布の基準トグルは2026-07-13に廃止（ユーザー承認③）＝実現OS(白枠・統計/棒クリックの主基準)と生の最高OS(色棒)をヒストグラムに同時表示（案A重ね棒・濃淡逆）。α目安(7割=α)は従来どおり生固定。
   var _osValFn = function(s) { return _elOsMaxFiltered(s); };   // OS値分布の主基準＝実現OS（×/損切りで打ち切り）。生(_elOsMaxAll)は各所でrawVals/併記として追加 2026-07-13
   var osValMode = "real", setOsValMode = null;   // 互換用の残置（消費側の分岐は撤去済み・シグネチャ互換のため）
@@ -8170,6 +8170,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   };
   // 分類トグルバーの素の形（2026-07-27 抽出）。📡シグナル総合から浮き足分岐を挟まずに使う。
   var _addFilBarPure = function() {
+    if (!legacy) return null;   // VAP枠に基本/応用の分類は無い 2026-10-05
     return React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "分類:"),
       [["all", "全記録"], ["no", "基本α"], ["yes", "応用α"]].map(function(kv) {
@@ -8227,7 +8228,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     var _osRedMark = null, _osRedLabel = null;
     if (_baCutVal != null) {
       if ((_floatMode || osDistFil === "yes") && _baAdd && _baAdd.alpha != null) { _osRedMark = _baAdd.alpha + _baCutVal; _osRedLabel = "推奨応用α＋損切り値"; }
-      else if (!_floatMode && osDistFil === "no" && _baPickAlpha != null) { _osRedMark = _baPickAlpha + _baCutVal; _osRedLabel = "推奨基本α＋損切り値"; }
+      else if (!_floatMode && osDistFil === "no" && _baPickAlpha != null) { _osRedMark = _baPickAlpha + _baCutVal; _osRedLabel = legacy ? "推奨基本α＋損切り値" : "推奨α＋損切り値"; }
     }
     var ok = 0, x = 0, miss = 0, _osXVals = [];
     _osFilRecs.forEach(function(r) { var rr = _epResolve(r.signal, _ai(r).alpha), j = rr ? rr.judge : null; if (j === "ok") ok++; else if (j === "x") { x++; var _xv = _osFn(r.signal); if (_xv != null && !isNaN(_xv)) _osXVals.push(_xv); } else if (j === "miss") miss++; });
@@ -8239,12 +8240,13 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     var _baLg = _elBaseAlphaPickScore(baRs, _ai);   // 旧スコア基準の値（乖離確認チップ・旧_elBaseAlphaH2Pickバッジを置換 2026-07-13）
     var _baAddLg = null;   // 応用α化 2026-07-13: 旧基準（増分方式）チップは廃止＝応用αは独立値のため旧基準の比較対象なし
     var _kpiBase = (function() {
-      if (!_baPick || _baPick.alpha == null) return _kpiCard("推奨基本α値", "—", "#94A3B8", "データ不足");
+      if (!_baPick || _baPick.alpha == null) return _kpiCard(legacy ? "推奨基本α値" : "推奨α値", "—", "#94A3B8", "データ不足");
       var na = _baPick.status === "na";
       var sub = React.createElement("span", null, (_baPick.alpha2 != null) ? ("次点 " + _baPick.alpha2 + "円") : (na ? "条件緩和の参考値" : "次点なし"), _elOldPickChip(_baPick.alpha, _baLg ? _baLg.alpha : null), _elPreEmaBadge(_baBasePool));
-      return _kpiCard("推奨基本α値", _baPick.alpha + "円" + (na ? "（参考）" : ""), na ? "#B45309" : "#0369A1", sub);
+      return _kpiCard(legacy ? "推奨基本α値" : "推奨α値", _baPick.alpha + "円" + (na ? "（参考）" : ""), na ? "#B45309" : "#0369A1", sub);
     })();
     var _kpiAdd = (function() {
+      if (!legacy) return null;   // VAP枠に応用αは無い 2026-10-05
       if (!_baAdd || _baAdd.status === "none") return _kpiCard("推奨応用α値", "—", "#94A3B8", _baAdd ? "推奨無し（条件を満たすαなし）" : "応用〇の記録なし");
       var _addNa = _baAdd.status === "na";
       var sub = React.createElement("span", null, (_baAdd.alpha2 != null) ? ("次点 " + _baAdd.alpha2 + "円") : (_addNa ? "条件緩和の参考値" : "次点なし"), _elPreEmaBadge(_baAddPool));
@@ -8260,7 +8262,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         _kpiAdd),
       _osAll ? React.createElement("div", { style: { background: "#fff", border: "1px solid #ECE7DE", borderRadius: 13, padding: "12px 14px", marginBottom: 12, boxShadow: "0 1px 2px rgba(0,0,0,.03)" } },
           React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412", marginBottom: 4 } }, "OS値分布（OS1〜3最高・1円刻み）"),
-          React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 6 } }, _floatMode ? "母数＝浮き足〇の記録" :("母数は上の「分類」トグルに連動（" + (osDistFil === "no" ? "基本α" : osDistFil === "yes" ? "応用α" : "全記録") + "）。▲推奨基本αの母数はここからさらに浮き足〇/RN〇を除いたもの")),
+          React.createElement("div", { style: { fontSize: 9.5, color: "#aaa", marginBottom: 6 } }, _floatMode ? "母数＝浮き足〇の記録" : (!legacy ? "母数＝このシグナルの全記録（VAP入力済み）" : ("母数は上の「分類」トグルに連動（" + (osDistFil === "no" ? "基本α" : osDistFil === "yes" ? "応用α" : "全記録") + "）。▲推奨基本αの母数はここからさらに浮き足〇/RN〇を除いたもの"))),
           os ? React.createElement(React.Fragment, null,
             React.createElement("div", { style: { display: "flex", gap: "4px 16px", flexWrap: "wrap", fontSize: 12, color: "#555", marginBottom: 7, alignItems: "baseline" } },
               React.createElement("span", null, "中央 ", React.createElement("b", { style: { color: "#9A3412", fontSize: 15 } }, os.med + "円"), (osRaw ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", marginLeft: 2 } }, "（生" + osRaw.med + "円）") : null), (pcg && pcg.skewRight) ? React.createElement("span", { title: "平均が大きいOS値に上振れ。典型値は中央値で読むのが安全。", style: { display: "inline-block", fontSize: 8, fontWeight: 800, color: "#fff", background: "#B45309", borderRadius: 3, padding: "0 4px", marginLeft: 4 } }, "右偏") : null),
@@ -8277,7 +8279,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     };
     return _cardify([
       _addFilBar(),
-      React.createElement("div", { style: { margin: "2px 0 8px", display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save }), React.createElement(_ElSpecialMinCtl, { data: data, save: save })),   // 前提損切り値＋到達率下限＋根拠別応用α下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
+      React.createElement("div", { style: { margin: "2px 0 8px", display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save }), legacy ? React.createElement(_ElSpecialMinCtl, { data: data, save: save }) : null),   // 前提損切り値＋到達率下限＋根拠別応用α下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
       _gDet ? _detCtlRow("gp_kpi", recs) : null,
       _bodyOf("gp_kpi", recs, function(_drs, _dv) { return _kpiOs(_drs, _detFilterBy(_dv, _baRecs)); }),
       // 指値同値（OS値＝α値）2026-07-20。母数は上のKPI（_kpiOs）と同じ _addFilOf(recs) ＝「通常の想定損益」がKPIの想定損益と一致する。
@@ -8294,7 +8296,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         : (!_floatMode && osDistFil === "all")
         ? [_secH("🔬 全記録の一律α 詳細データ", "分類「全記録」の母数（基本・応用を問わず全記録＝応用〇・浮き足〇・RN〇も含む）に、α0〜20円を一律で当てた総当たり。★＝この母数だけの参考値（フォーム/EPナビに流れる推奨基本αは分類「基本α」の値で不変）", _ctl("gp_ba", _baRecs)),
             _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan, true); })]
-        : [_secH("🔬 推奨基本α 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αのE成立/到達率/頻度/利確率/損切り率/想定損益）", _ctl("gp_ba", _baRecs)),
+        : [_secH(legacy ? "🔬 推奨基本α 詳細データ" : "🔬 α別の総当たり 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αのE成立/到達率/頻度/利確率/損切り率/想定損益）", _ctl("gp_ba", _baRecs)),
             _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan); })],
       _elCard(React.createElement(_SNCollapse, { title: "詳細分析（" + (_gDet ? "累積損益・時間帯別・曜日別" : "EP位置・累積損益・α感応度・時間帯別・曜日別・期待度×/△") + "）", render: function() {   // 遅延描画 2026-06-29。⑥重複整理 2026-07-12: シグナル別集計(_gDet)ではEP位置/α感応度/×/△を外し深掘り・α値タブへ案内（同一母数の三重掲載を解消）。詳細タグ別モード(_gDet=false)は深掘りタブに同スコープが無いためフル維持。
         var _jumpBtn = function(lbl, fn) { return React.createElement("button", { type: "button", onClick: fn, style: { padding: "2px 10px", fontSize: 10, fontWeight: 700, border: "1px solid #CBD5E1", background: "#fff", color: "#334155", borderRadius: 8, cursor: "pointer", marginLeft: 6 } }, lbl); };
@@ -8313,7 +8315,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
             _secH("🚫 次足期待度×（見送り）の分析", "このグループの×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）", _ctl("gp_x", recs)), _bodyOf("gp_x", recs, function(_drs) { return _elXSkipSectionV2(_addFilOf(_drs), _ai); }),
             _secH("🔺 次足期待度△（ホールド）の分析", "△で保有したH1/H2を本算入(（）外算入)していたらの損益と、△保有の是非（活きた＝1段下より伸長／裏目＝1段下で手仕舞いが正解）", _ctl("gp_tri", recs)), _bodyOf("gp_tri", recs, function(_drs) { return _elTriangleHoldSectionV2(_addFilOf(_drs), _ai); })));
       } })),
-      _secH("🗂 記録一覧（行タップで明細・分類トグルに連動）", null, _ctl("gp_recs", recs)), _addFilBar(),
+      _secH(legacy ? "🗂 記録一覧（行タップで明細・分類トグルに連動）" : "🗂 記録一覧（行タップで明細）", null, _ctl("gp_recs", recs)), _addFilBar(),
       _bodyOf("gp_recs", recs, function(_drs, _dv) {
         var _fr = _addFilOf(_drs);
         return React.createElement(React.Fragment, null,
@@ -8756,7 +8758,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       }
       _tabBody = _cardify([
         _alphaPills,
-        React.createElement("div", { style: { marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save }), React.createElement(_ElSpecialMinCtl, { data: data, save: save })),   // 前提損切り値＋到達率下限＋根拠別応用α下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
+        React.createElement("div", { style: { marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 6 } }, React.createElement(_ElAnaCutCtl, { data: data, save: save }), React.createElement(_ElAnaReachCtl, { data: data, save: save }), legacy ? React.createElement(_ElSpecialMinCtl, { data: data, save: save }) : null),   // 前提損切り値＋到達率下限＋根拠別応用α下限ステッパー（推奨α分析の前提・2026-07-13b/2026-07-13）
         _alReasonBar,
         _alBody]);
     }
@@ -9070,7 +9072,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     })());
   } else if (view === "deep") {
     _tabBody = _selSigRecsScoped.length ? _cardify([
-      React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, "ℹ 深掘りは" + (_floatMode ? "浮き足" : "その他") + "の全記録（応用あり＋応用なし）を各記録の採用α基準で分析（本数最適化・EP位置・執行の学習が目的）。応用α〇は採用αが高いため損切り率は高め・未達で母数から抜けやすい点に注意。基本α/応用αの分離は集計/損切り/未達タブの「分類」トグルで。"),
+      React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, (legacy ? "ℹ 深掘りは" + (_floatMode ? "浮き足" : "その他") + "の全記録（応用あり＋応用なし）を各記録の採用α基準で分析（本数最適化・EP位置・執行の学習が目的）。応用α〇は採用αが高いため損切り率は高め・未達で母数から抜けやすい点に注意。基本α/応用αの分離は集計/損切り/未達タブの「分類」トグルで。" : "ℹ 深掘りはこのシグナルの全記録を各記録のVAP値（採用α）基準で分析（本数最適化・EP位置・執行の学習が目的）。")),
       _secH("⏳ 最適ホールド本数", "EPから何本持つのが最も期待値が高いか（深さ別の平均損益・ライン接触率・EP比改善率）", _detCtl("dp_hold", _selSigRecsScoped)), _detBody("dp_hold", _selSigRecsScoped, function(_drs) { return _elHoldDepthSectionV2(_drs, _ai); }),
       _secH("🎯 次足期待度キャリブレーション", "事前のH期待が実結果とどれだけ一致したか（予想は当たっているか過信か）", _detCtl("dp_calib", _selSigRecsScoped)), _detBody("dp_calib", _selSigRecsScoped, function(_drs) { return _elExpCalibSectionV2(_drs, _ai); }),
       _secH("🚫 次足期待度×（見送り）の分析", "×見送りを取引していたらの損益と、見送り判断の精度（損失回避＝正解／機会損失＝逃した利益）。集計タブから移設", _detCtl("dp_x", _selSigRecsScoped)), _detBody("dp_x", _selSigRecsScoped, function(_drs) { return _elXSkipSectionV2(_drs, _ai); }),
@@ -9267,7 +9269,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
             background: on ? "#fff" : "transparent", color: on ? _acc : (_sigLow ? "#b3aca2" : "#6B6459"), boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" }
         }, _lbl + (cnt != null ? "(" + cnt + ")" : ""));
       })),
-    (view === "mw" && !_isAllStock && !_isSigTotal) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝期間タブ限定（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数でトグル非適用・全銘柄合算=非表示）。絞り込み中は橙で強調 2026-07-01
+    (legacy && view === "mw" && !_isAllStock && !_isSigTotal) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 5, padding: "6px 9px", borderRadius: 8, background: addAlphaFil !== "all" ? "#FFF7ED" : "#fff", border: "1px solid " + (addAlphaFil !== "all" ? "#FB923C" : "#f0ede8"), boxShadow: "0 2px 4px -2px rgba(0,0,0,0.12)" } },   // 追加α分析トグル＝期間タブ限定（集計/α値/損切り/未達/深掘りはシグナル軸の固定母数でトグル非適用・全銘柄合算=非表示）。絞り込み中は橙で強調 2026-07-01
       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#9A3412" } }, "分類:"),
       [["all", "全記録"], ["no", "基本α"], ["yes", "応用α"]].map(function(kv) {
         var on = addAlphaFil === kv[0];
