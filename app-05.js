@@ -3654,6 +3654,8 @@ function _elAlphaTypeCell(s, alpha) {
   var _isUki = _elUkiYes(s);
   var sp = _isUki ? _elUkiSpecialUsed(s) : _elSpecialUsed(s);
   var col = _isUki ? "#15803D" : (sp ? "#DC2626" : "#0369A1");
+  // VAP値（8/20以降）の色 2026-10-07（ユーザー指示「0円は青・1円以上は赤」）。基本/応用の色分けは無いので値だけで決める。
+  if (!_isUki && (_EL_UI_VAP || _vapOf(s) != null)) col = (Number(alpha) >= 1) ? "#DC2626" : "#0369A1";
   var hasRn = _elRnAdd(s) > 0;   // 「計」＝RN加算が乗って値が合計（種別α＋RN）になったときだけ。浮き足のみ/RN無しは値＝種別αそのものなので種別ラベル 2026-07-18b
   var _label = hasRn ? "計" : (_isUki ? (sp ? "浮き応用" : "浮き基本") : (sp ? "応用" : "基本"));   // RN>0＝「計」＋内訳（基/応/浮 ＋RN）。RN無し＝種別ラベル（基本/応用/浮き基本/浮き応用）・内訳なし。
   return React.createElement("div", { style: { lineHeight: 1.2 } },
