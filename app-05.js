@@ -4734,9 +4734,13 @@ function _elCollisionExcludedSet(data, scopeStock) {
       //  ②境界日より前の日付: 移行案あ＝過去の記録が一斉に選抜待ちにならないようにする。
       var _auto = !picked && (scopeStock || (_since && d < _since));
       if (_auto) { var _ak = _elCollAutoPickKey(list); for (var p3 = 0; p3 < list.length; p3++) { if (list[p3].key === _ak) { picked = list[p3]; break; } } }
+      // 手動選抜が無ければ銘柄の優先順位で自動的に算入 2026-10-07（ユーザー指示「被り除外はSBG→フジクラ→その他の銘柄の順に優先的に自動で算入」）。
+      //   以前は未選択のグループが「選抜待ち」＝全員が合計から外れていた。手動選抜(data.collPick)は従来どおり最優先＝ラジオ〇で選び直せばそちらが勝つ。
+      var _autoPri = false;
+      if (!picked) { var _pk0 = _elCollPriorityPickKey(list); for (var p4 = 0; p4 < list.length; p4++) { if (list[p4].key === _pk0) { picked = list[p4]; _autoPri = true; break; } } }
       var members = list.map(function(m) { return m.key; });
       members.forEach(function(k) { groupOf[k] = gid; });
-      groups[gid] = { gid: gid, date: d, members: members, list: list, picked: picked ? picked.key : null, auto: !!_auto };
+      groups[gid] = { gid: gid, date: d, members: members, list: list, picked: picked ? picked.key : null, auto: !!_auto, autoPri: _autoPri };
       if (!picked) {
         // 層1: 選抜待ちのグループは全員を合計から外す。件数/到達/勝率は従来どおり残る（被り除外と同じ規約）。
         list.forEach(function(m) { pending[m.key] = 1; excluded[m.key] = 1; info[m.key] = { role: "pending", own: m.main, n: list.length }; });
@@ -4808,6 +4812,21 @@ function _elCollSetPick(save, data, r, scope) {
     return Object.assign({}, prev, { collPick: pick });
   });
 }
+// 被り除外の既定の優先順位（手動選抜が無いグループで自動的に算入する銘柄の順）2026-10-07。上ほど優先・載っていない銘柄は最後（その中では早い時刻）。
+var _EL_COLL_PRIORITY = ["SBG", "フジクラ"];
+function _elCollPriorityRank(stock) { var i = _EL_COLL_PRIORITY.indexOf(stock); return i < 0 ? _EL_COLL_PRIORITY.length : i; }
+// 優先順位で1件を選ぶ。まず「想定損益を持つ記録（実際に建玉を持った記録）」に絞る＝優先銘柄が未達（建玉なし）のときに、
+//   その枠が0円で確定して他銘柄の実損益が消えるのを避ける（_elCollAutoPickKey と同じ考え方）。全員が想定損益なしなら全員から選ぶ。
+//   同順位は早い時刻（listはmin昇順）。
+function _elCollPriorityPickKey(list) {
+  if (!list || !list.length) return null;
+  var pool = [];
+  for (var q = 0; q < list.length; q++) { if (list[q].main != null) pool.push(list[q]); }
+  if (!pool.length) pool = list;
+  var best = pool[0];
+  for (var i = 1; i < pool.length; i++) { if (_elCollPriorityRank(pool[i].stock) < _elCollPriorityRank(best.stock)) best = pool[i]; }
+  return best.key;
+}
 // 移行用（案あ 2026-08-19 ユーザー決定）: 旧ルール準拠の自動選抜＝「早い方／同時刻なら（）外想定損益が小さい方（未達は後回し）」。
 function _elCollAutoPickKey(list) {
   if (!list || !list.length) return null;
@@ -4834,7 +4853,7 @@ function _elCollPickNode(data, r, save, scope) {
   var _go = function(e) { if (e && e.stopPropagation) e.stopPropagation(); _elCollSetPick(save, data, r, scope); };
   return React.createElement("span", {
     role: "radio", "aria-checked": on ? "true" : "false", tabIndex: 0,
-    title: on ? "この記録を合計に算入中（押すと選び直せます）"
+    title: on ? (((_elCollGroupOf(data, r, scope) || {}).autoPri) ? "優先順位（SBG→フジクラ→その他）で自動的に合計に算入中（押すと選び直せます）" : "この記録を合計に算入中（押すと選び直せます）")
       : (_nk2 === "miss" ? "未達。選ぶとこの枠は0円として確定します"
       : _nk2 === "ref" ? "（）外の想定損益が無い記録。選ぶとこの枠の（）外合計は0円になります"
       : "この記録を合計に算入する"),
