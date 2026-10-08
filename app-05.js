@@ -8560,7 +8560,8 @@ function EntryRecordForm(_ref_erf) {
       var _ef = _epFormState;
       if (fTags.length === 0 && !fIsCustom) _vm.push("シグナル");
       if (_ef.alpha == null || isNaN(_ef.alpha)) _vm.push("合計α値");
-      if (_vapMode && fVap === "") _vm.push("VAP値");   // 8/20以降はVAP値が必須 2026-10-08。旧: 空欄は計算上0円に倒れる(_fVapA)ので上の合計α値チェックをすり抜け、VAP未設定のまま保存できていた
+      if (_vapMode && fVap === "") _vm.push("VAP値");   // （続き）
+      if (_vapMode && (fLevelPrice === "" || isNaN(parseFloat(fLevelPrice)))) _vm.push("水準線（予定EP＝水準線＋VAP値）");   // 予定EPが出せない記録を作らない 2026-10-08（ユーザー指示「EPも必須」）
       if (!fTime) _vm.push("時間");
       if (_ef.o1 == null) _vm.push("OS1高値");
       if (fOsConfVal === "") _vm.push("OS1確定値");
