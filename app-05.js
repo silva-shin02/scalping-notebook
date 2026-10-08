@@ -7628,7 +7628,7 @@ function EntryRecordForm(_ref_erf) {
     _useStateBAA = _slicedToArray(_useStateBA, 2),
     fBaseAlpha = _useStateBAA[0], setFBaseAlpha = _useStateBAA[1];
   // VAP値（8/20以降の記録のα値の後継 2026-10-04）: 手入力のみ。signal.vapVal に保存。
-  var _useStateVAP = useState(initSig.vapVal != null ? String(initSig.vapVal) : ""),
+  var _useStateVAP = useState(initSig.vapVal != null ? String(initSig.vapVal) : (isEdit ? "" : "0")),   // 新規記録のVAP値は既定0円 2026-10-08（ユーザー指示）。編集で未入力(VAP未設定)の記録は空のまま＝入れ直してもらう
     _useStateVAPA = _slicedToArray(_useStateVAP, 2),
     fVap = _useStateVAPA[0], setFVap = _useStateVAPA[1];
   // ライン併存ルール（〇×独立欄 2026-07-08g）: signal.lineCoexist(boolean)。〇で基本α欄へ1を自動入力（下のeffect）。新規=×（false）。旧「併存ライン/ライン併存」チップ検知はmigrateDataで本フラグへ移行。
@@ -8560,6 +8560,7 @@ function EntryRecordForm(_ref_erf) {
       var _ef = _epFormState;
       if (fTags.length === 0 && !fIsCustom) _vm.push("シグナル");
       if (_ef.alpha == null || isNaN(_ef.alpha)) _vm.push("合計α値");
+      if (_vapMode && fVap === "") _vm.push("VAP値");   // 8/20以降はVAP値が必須 2026-10-08。旧: 空欄は計算上0円に倒れる(_fVapA)ので上の合計α値チェックをすり抜け、VAP未設定のまま保存できていた
       if (!fTime) _vm.push("時間");
       if (_ef.o1 == null) _vm.push("OS1高値");
       if (fOsConfVal === "") _vm.push("OS1確定値");
