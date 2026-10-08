@@ -3217,7 +3217,17 @@ function _isDataOnly(data, r) {
 }
 // 合計額算入（金額版）: 従来の_elInclTotal（スルー/手動不算入）に加え、②データのみ（候補で未指定）も合計から外す。
 // グランド/銘柄横断の合計を出す消費側だけで使う（銘柄別の自タブ・分析母数は_elInclTotalのまま）。dataとr（.stock/.date/.signalを持つ記録）を渡す。
-function _elInclTotalAmt(data, r) { return _elInclTotal(r && r.signal) && !_isDataOnly(data, r); }
+// VAP未設定（8/20以降のv2記録でVAP値が未入力）＝金額・分析に入れない（記録帳 `_v2recsAll`・ホーム/カレンダー `_snDailyPnlMap` と同じ規約）。
+//   2026-10-08 ユーザー指摘「エントリー記録表とカレンダーで合計額が違う」: 日別ページ側がこの除外を持たず、VAP未設定の記録（例: 浮き足〇の旧記録）の金額を合計に入れていた。
+//   日別ページの合計も同じ規約へ揃える。行は消さずに「VAP未設定」バッジ(_elVapUnsetBadge)で理由を出す。
+function _elVapUnsetSig(s) { return !!(s && _epIsV2(s) && _vapOf(s) == null); }
+function _elVapUnsetRec(r) { return !!(r && r.date && r.signal && _vapWorld(r.date) && _elVapUnsetSig(r.signal)); }
+function _elVapUnsetBadge() {
+  return React.createElement("span", { title: "8/20以降の記録でVAP値が未入力のため、合計・分析に入れていません（VAP値を入力すると算入されます）",
+    style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 3, padding: "0 4px",
+      whiteSpace: "nowrap", lineHeight: 1.5, verticalAlign: "middle" } }, "VAP未設定");
+}
+function _elInclTotalAmt(data, r) { return _elInclTotal(r && r.signal) && !_isDataOnly(data, r) && !_elVapUnsetRec(r); }
 // ===== データ算入フラグ（計算算入と分離 2026-07-22f）=====
 // signal.includeInData===false の記録を「分析母数（α値/OS値/推奨α/勝率/頻度・株価帯別等）」から除外する。合計損益（計算算入）は _elInclTotal が別に制御。
 // 未設定（旧記録・includeInData==null）は includeInTotal に追従＝移行不要（既存で「計算・データ算入」チェックを外していた記録→分析からも外れる／付けていた記録→分析にも入る、を自動再現）。
@@ -3475,6 +3485,7 @@ function _elOutOfTotalBadge(data, r) {
   if (!s) return null;
   if (_elIsProvisional(s)) return _elProvBadge();
   if (_elIsExcluded(s)) return _elNotInclBadge(null, s);
+  if (_elVapUnsetRec(r)) return _elVapUnsetBadge();
   if (_isDataOnly(data, r)) return React.createElement("span", {
     title: "その日の「本日の取引銘柄」に指定しなかった候補銘柄の記録＝データのみ（分析母数には残すが合計からは外す）",
     style: { display: "inline-block", fontSize: 9, fontWeight: 800, color: "#4338CA",
