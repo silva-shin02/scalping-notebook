@@ -4086,7 +4086,7 @@ function EntrySignalSection(_ref_es) {
     });
   }, [signals, trades, date, stock]);
   // 合計額算入: 集計/合計用は除外記録(includeInTotal===false)を抜いた版。表示(tblItems/sortedRecs)は records の全件のまま。2026-06-18
-  var _recsForTot = records.filter(function(r) { return _elInclTotal(r.signal); });   // 2026-07-18g 要審議も合計に算入（見送りと同じ）＝_elIsReview除外を撤回（旧2026-07-14f）。_elTotAccum:app-05:4226と同基準
+  var _recsForTot = records.filter(function(r) { return _elInclTotal(r.signal) && !(_vapWorld(date) && _elVapUnsetSig(r.signal)); });   // 2026-10-08 VAP未設定は合計に入れない（カレンダー/記録帳と同じ）   // 2026-07-18g 要審議も合計に算入（見送りと同じ）＝_elIsReview除外を撤回（旧2026-07-14f）。_elTotAccum:app-05:4226と同基準
 
 
   var _esRecKey = function(r) { return (r.signal && r.signal.id) || ""; };
@@ -4795,7 +4795,7 @@ function EntrySignalSection(_ref_es) {
                     React.createElement("span", { style: { marginRight: 3, color: "#F97316", fontSize: 9 } }, rExp ? "▼" : "▶"),
                     s.time || "—", _minBarBadge(s)),
                   _epIncompleteMark(s), _elCollMarkNode(data, r, stock), _elFillRiskNode(r),
-                  _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : null
+                  _elIsExcluded(s) ? React.createElement("div", { style: { marginTop: 1 } }, _elNotInclBadge(null, s)) : ((_vapWorld(date) && _elVapUnsetSig(s)) ? React.createElement("div", { style: { marginTop: 1 } }, _elVapUnsetBadge()) : null)
                 ),
                 React.createElement("td", { style: { padding: "1px 4px", fontSize: 11, borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } },
                   _elSigCell(s, "flex-start")),
@@ -5170,7 +5170,7 @@ function WeeklyPnlPanel(_wpp) {
   // 明細テーブルのフッター合計行（list 単位）
   var _detailTotRowFor = function(_list) {
     // 合計額算入: フッター合計は除外記録を抜く（明細行 _detailRowsFor は全件のまま表示）2026-06-18
-    _list = (_list || []).filter(function(r) { return _elInclTotal(r.signal); });
+    _list = (_list || []).filter(function(r) { return _elInclTotal(r.signal) && !_elVapUnsetRec(r); });
     var _t = _elTotAccum(_list, { signal: function(r) { return r.signal; }, alpha: _alphaOf, cut: _cutOf, excluded: function(r) { return _elCollExcluded(data, r, stock); }, realPair: function(r) { return _elIsEntered(r.signal, r.item) ? _elRealPnlPair(r.signal, r.item) : null; } });   // 2026-08-04 実額と100株換算の両方（t.realRaw=実額・t.real=100株換算）
     var _allMiss = _elAllMissRow(_list, _alphaOf, _cutOf);
     var _listM = _list.filter(function(r) { return !_elCollExcluded(data, r, stock); });   // 時間かぶり除外後＝OS・損益詳細(EP/H1/H2)の集計は姉妹の最新式サマリーと同じ_recsM方式 2026-07-13
@@ -5185,7 +5185,7 @@ function WeeklyPnlPanel(_wpp) {
   };
   // 同値除外損益の注記（案B 2026-10-04）。母数は合計行と同じ _listM（算入済み・時間かぶり除外済み）。
   var _fqFootFor = function(_list) {
-    var _l = (_list || []).filter(function(r) { return _elInclTotal(r.signal) && !_elCollExcluded(data, r, stock); });
+    var _l = (_list || []).filter(function(r) { return _elInclTotal(r.signal) && !_elVapUnsetRec(r) && !_elCollExcluded(data, r, stock); });
     return _elFillEqFootNode(_l, _alphaOf, _cutOf, _elBizDaysOf(_l, data));
   };
   // 明細テーブル全体（list 単位。サマリー行の展開時に表示）
@@ -5237,7 +5237,7 @@ function WeeklyPnlPanel(_wpp) {
   var _sumRow = function(label, labelColor, recs, isTotal, rowKey) {
     // 合計額算入: 除外記録(includeInTotal===false)はサマリ集計から外す。明細展開(_expRowFor→_detailTableFor)は全件のまま。2026-06-18
     var _exclN = (recs || []).filter(function(r) { return _elIsExcluded(r.signal); }).length;
-    recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal); });
+    recs = (recs || []).filter(function(r) { return _elInclTotal(r.signal) && !_elVapUnsetRec(r); });
     var st = _elCalcStats(recs, data);
     // 時間かぶり除外: 金額集計(EP/H1/H2/実現)は_recsM＝被り除外後・件数系(st/件/到達等)はrecsのまま。銘柄別ビュー＝同一銘柄内のみ 2026-07-08
     var _recsM = recs.filter(function(r) { return !_elCollExcluded(data, r, stock); });   // 金額集計母数＝時間かぶり除外のみ（2026-07-18g 要審議も算入＝見送りと同じ・_elIsReview除外を撤回）

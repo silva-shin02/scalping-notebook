@@ -6551,7 +6551,7 @@ function DayView(_ref57) {
       //   カレンダー(_snDailyPnlMap)・記録帳(_elTotAccum)は既に除外済みで、同じ日に2つの額が出ていた。
       //   銘柄別展開(amtScope=false)はその銘柄自身の表なので従来どおり除外しない。
       // ⚠️**合計ループより前に置くこと**＝var は巻き上げで名前だけ先にできて値は undefined なので、下に置くとループが落ちる。
-      var _amtOkPb = function(r) { return amtScope ? (_elInclTotalAmt(data, r) && _elAmtRecOk(r)) : _elInclTotal(r.signal); };
+      var _amtOkPb = function(r) { return amtScope ? (_elInclTotalAmt(data, r) && _elAmtRecOk(r)) : (_elInclTotal(r.signal) && !_elVapUnsetRec(r)); };
       var _totReal = null, _totPlan = null, _totHold = null;
       var _totRealP100 = null, _totRealHasSh = false;   // 2026-08-04 実現損益の下段（100株換算）用。_totRealは従来どおり実額の合計。
       var _totRealCnt = 0, _totPlanCnt = 0, _totHoldCnt = 0;
@@ -6820,7 +6820,7 @@ function DayView(_ref57) {
         }
         if (!_pbByStk[stk]) { _pbByStk[stk] = []; _pbRealByStk[stk] = 0; _pbEntByStk[stk] = 0; }
         _pbByStk[stk].push({ date: date, stock: stk, signal: s, item: item });
-        if (_elInclTotal(s)) {  // 合計額算入: 除外記録は実現損益/エントリー数スカラーに加えない（行表示は全件）2026-06-18
+        if (_elInclTotal(s) && !(_vapWorld(date) && _elVapUnsetSig(s))) {  // 合計額算入: 除外記録は実現損益/エントリー数スカラーに加えない（VAP未設定も 2026-10-08）（行表示は全件）2026-06-18
           var rv = _elRealPnlPair(s, item).real;   // 2026-08-17j 実現損益は _elRealPnlPair 経由（item.pnl 優先）へ統一。旧＝signal.realizedPnl 直読みで取引テーブル側の損益を取りこぼしていた
           if (rv != null) _pbRealByStk[stk] += rv;
           if (s.entered === true) _pbEntByStk[stk]++;
@@ -7123,8 +7123,8 @@ function DayView(_ref57) {
     // 銘柄別の実現損益/エントリー数をバケット単位で出し直す。1銘柄が主表と選外表に割れた場合に
     // 銘柄スカラー(_pbRealByStk/_pbEntByStk=全記録ぶん)を使うと主表側へ選外分が混じるため。
     // 割れていない銘柄では従来値と完全一致する（同じ_elInclTotalフィルタ・同じ記録）。
-    var _pbRealOf = function(recs) { var t = 0; (recs || []).forEach(function(r) { if (_elInclTotal(r.signal)) { var v = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); if (v != null) t += v; } }); return t; };
-    var _pbEntOf = function(recs) { var n = 0; (recs || []).forEach(function(r) { if (_elInclTotal(r.signal) && r.signal.entered === true) n++; }); return n; };
+    var _pbRealOf = function(recs) { var t = 0; (recs || []).forEach(function(r) { if (_elInclTotal(r.signal) && !_elVapUnsetRec(r)) { var v = _elSignedVal(r.signal.realizedPnl, r.signal.realizedPnlSign); if (v != null) t += v; } }); return t; };
+    var _pbEntOf = function(recs) { var n = 0; (recs || []).forEach(function(r) { if (_elInclTotal(r.signal) && !_elVapUnsetRec(r) && r.signal.entered === true) n++; }); return n; };
     // 行キー→記録の対応（明細展開_pbExpRow用）。選外表の行は "__out__"+銘柄 で主表と別キーにする
     // ＝同じ銘柄が両表に出ても展開状態(pnlTableExpandSet)が連動しない。
     var _pbRowRecs = {};
@@ -7439,7 +7439,7 @@ function DayView(_ref57) {
             ] : null,
             _pbStksMain.map(function(sk) {
               var _skRecs = _pbByStkMain[sk];   // 2026-07-29 選外ぶんを除いた主表側の記録
-              var _skT = _skRecs.filter(function(r) { return _elInclTotal(r.signal); });  // 合計額算入: 統計用（明細展開_pbExpRowは全件）2026-06-18
+              var _skT = _skRecs.filter(function(r) { return _elInclTotal(r.signal) && !_elVapUnsetRec(r); });  // 合計額算入: 統計用（明細展開_pbExpRowは全件）2026-06-18
               var skSt = Object.assign({}, _elCalcStats(_skT, data, function(r) { return { alpha: _pbAlphaOf(r), cutLine: _pbCutOf(r) }; }), _pbDynOkNg(_skT));
               var _skReal = _pbRealOf(_skRecs), _skEnt = _pbEntOf(_skRecs);
               return [
