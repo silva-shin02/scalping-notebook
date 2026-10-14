@@ -6120,16 +6120,16 @@ var chartSrc = chartImgs.length ? imgSrc(chartImgs[0]) : null;
     onPatternSearch: function(){ setPatOpen(true); }
   }), stock === "日経平均株価" && React.createElement(NikkeiPriceChart, {
     data: data, onSelectDate: onSelectDate, highlightDate: date
-  }), React.createElement(TagPicker, _extends({
-    cats: custom.chartShapeCats || {},
-    tags: custom.chartShapeTags || [],
-    sel: cd.chartShapeTags || [],
-    onToggle: togSTag,
-    onAdd: onAddSTag
-  }, pool, {
-    label: "\u30C1\u30E3\u30FC\u30C8\u5F62\u72B6\u30BF\u30B0",
-    hideAddRoot: true
-  })),
+  }), React.createElement(SnCaTagSection, {   // 2026-10-14: タグは CA で付けて表示のみ（旧 TagPicker=SNでのタグ付けは廃止）。SN の旧タグは×で削除できる
+    stock: stock,
+    date: date,
+    cfg: cfg,
+    oldTags: [].concat(cd.chartShapeTags || [], cd.stockTags || []),
+    onRemoveOld: function(t) {
+      if ((cd.chartShapeTags || []).indexOf(t) >= 0) togSTag(t);
+      else upd("stockTags", (cd.stockTags || []).filter(function(x) { return x !== t; }));
+    }
+  }),
   React.createElement("div", {
     style: { marginTop: 8 }
   },

@@ -1010,14 +1010,15 @@ function CalendarPreview(_ref40) {
         borderRadius: 5,
         cursor: "pointer"
       }
-    }, "\u270E\uFE0F")), c && (((c.stockTags && c.stockTags.length || c.chartShapeTags && c.chartShapeTags.length) > 0) || (c.chartShapeTags && c.chartShapeTags.length > 0)) && React.createElement("div", {
+    }, "\u270E\uFE0F")), ((c && (((c.stockTags && c.stockTags.length || c.chartShapeTags && c.chartShapeTags.length) > 0) || (c.chartShapeTags && c.chartShapeTags.length > 0))) || _caTagsOf(s, date).length > 0) && React.createElement("div", {
       style: {
         display: "flex",
         flexWrap: "wrap",
         gap: 2,
         marginBottom: 4
       }
-    }, [].concat(_toConsumableArray(c.chartShapeTags || []), _toConsumableArray(c.stockTags || [])).map(function (t) {
+    }, _caTagsOf(s, date).map(function (t) { return _caTagChip(t, "ca_" + t.id); }),   // 2026-10-14: CA のタグを先頭に
+    [].concat(_toConsumableArray(c && c.chartShapeTags || []), _toConsumableArray(c && c.stockTags || [])).map(function (t) {
       return React.createElement("span", {
         key: t,
         style: {
@@ -1238,6 +1239,7 @@ function SearchView(_ref45) {
       var m = k.match(/(\d{4}-\d{2}-\d{2})$/);
       if (m) s.add(m[1]);
     });
+    _caTagDates().forEach(function (d) { s.add(d); });   // 2026-10-14: CA のタグだけの日も
     return Array.from(s).sort().reverse();
   }();
   var results = keyword || selTags.length > 0 ? allDates.filter(function (date) {
@@ -1259,7 +1261,7 @@ function SearchView(_ref45) {
     });
     var allS = chartArr.flatMap(function (c) {
       return c && c.stockTags || [];
-    });
+    }).concat(_caTagStrsOnDate(date));   // 2026-10-14: CA のタグも絞り込み・検索の対象
     if (keyword) {
       var kw = keyword.toLowerCase();
       var hay = [dd.summary || ""].concat(_toConsumableArray(allNewsText), _toConsumableArray((dd.items || []).map(function (t) {
@@ -1370,7 +1372,7 @@ function SearchView(_ref45) {
           };
           if (chartArr.some(function (c) {
             return c && (c.stockTags || []).includes(tag);
-          })) return {
+          }) || _caTagStrsOnDate(date).includes(tag)) return {
             v: "charts"
           };
         },
@@ -1433,6 +1435,7 @@ function SearchView(_ref45) {
       return allDataTagsSet.add(t);
     });
   });
+  _caTagAllStrs().forEach(function (t) { allDataTagsSet.add(t); });   // 2026-10-14: CA のタグも絞り込み候補に
   var poolTagsSet = new Set();
   Object.entries(custom.cats || {}).forEach(function (_ref48) {
     var _ref49 = _slicedToArray(_ref48, 2),
@@ -3326,8 +3329,8 @@ function StockQuickRefTable(_props_qrt) {
               style: { padding: "6px 7px", whiteSpace: "nowrap", borderRight: "1px solid #efece7" }
             }, (function() {
               // 想定損益＝期待度○が途切れた所で手じまい（（）外・旧H2損益と同一基準・（）内=△含む）。EP損益/H1損益列を集約 2026-07-09。
-              if (!c2 || isHoliday) return React.createElement("span", { style: { color: "#ddd" } }, "—");
-              var _ttMark = (c2.signals && c2.signals.length) ? null : _elTradeTagMarker(c2);   // 記録がある日はタグ(Z/DNF)でなく記録の損益を出す 2026-10-05（タグが残っていても金額が隠れない）。取引カテゴリタグ日: ノーシグナル→DNFピル / 有効シグナルなし等→Z（取引なし）2026-07-23
+              if (isHoliday || (!c2 && !_elTradeTagMarker(null, activeStock, d))) return React.createElement("span", { style: { color: "#ddd" } }, "—");
+              var _ttMark = (c2 && c2.signals && c2.signals.length) ? null : _elTradeTagMarker(c2, activeStock, d);   // 2026-10-14: CA の取引タグも   // 記録がある日はタグ(Z/DNF)でなく記録の損益を出す 2026-10-05（タグが残っていても金額が隠れない）。取引カテゴリタグ日: ノーシグナル→DNFピル / 有効シグナルなし等→Z（取引なし）2026-07-23
               if (_ttMark) return _ttMark;
               var _cutA = c2.cutLine != null ? Number(c2.cutLine) : 15;
               var _g = _elCalcChartGrades(c2.signals, null, _cutA, function(_sg) { return _elCollExcludedSig(data, activeStock, d, _sg, activeStock); },
@@ -3358,7 +3361,8 @@ function StockQuickRefTable(_props_qrt) {
               var _dayEvents = ((data.trades && data.trades[d] && data.trades[d].events) || []).filter(function(e){ return e && !e._deleted; });
               var _tags = [].concat(_toConsumableArray((c2 && c2.chartShapeTags) || []),
                                     _toConsumableArray((c2 && c2.stockTags) || [])).slice(0, 8);
-              var _hasContent = _dayEvents.length > 0 || _tags.length > 0;
+              var _caT = _caTagsOf(activeStock, d);   // 2026-10-14: CA のタグ（SN の旧タグと並べる）
+              var _hasContent = _dayEvents.length > 0 || _tags.length > 0 || _caT.length > 0;
               if (!_hasContent) return React.createElement("span", { style: { color: "#ddd" } }, "—");
               return React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" } },
                 _dayEvents.map(function(ev, ei) {
@@ -3373,6 +3377,7 @@ function StockQuickRefTable(_props_qrt) {
                       maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
                   }, "📅 " + _prefix + _evTitle);
                 }),
+                _caT.map(function(t) { return _caTagChip(t, "ca_" + t.id, { sm: true, margin: "1px" }); }),
                 _tags.map(function(t) {
                   return React.createElement("span", {
                     key: t,
@@ -5650,7 +5655,7 @@ function DayView(_ref57) {
   var hasChartData = allStocks.some(stockHasData) || hasFmData;
   // 「本日の取引銘柄」バー（📅日替わりタブ最上部 2026-07-22d）: 候補プール(rotStocks)を「銘柄名（件数）」で並べる。名前タップ=表示/記録の切替(setRotViewStock)。各チップの指定●=その日の本日の取引銘柄に指定(dailyStock[date]・赤マーク・合計算入)。未指定の候補の記録はデータのみ(合計除外・分析は残す)。＋でその場追加(候補プール＋マスターへ)。
   var _rotRecCount = function(stk) { var c = data.charts[stk + "_" + date]; return (c && c.signals) ? c.signals.length : 0; };
-  var _rotHasTradeTag = function(stk) { var c = data.charts[stk + "_" + date]; return !!(c && Array.isArray(c.chartShapeTags) && c.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }).length); };   // 「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）が付いた銘柄＝取引0件を（0）で明示 2026-07-23
+  var _rotHasTradeTag = function(stk) { var c = data.charts[stk + "_" + date]; return !!(c && Array.isArray(c.chartShapeTags) && c.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }).length) || _caTagsOf(stk, date).some(function(t) { return t.trade; }); };   // 2026-10-14: CA の取引タグも   // 「取引」カテゴリタグ（ノーシグナル/有効シグナルなし等）が付いた銘柄＝取引0件を（0）で明示 2026-07-23
   var _rotCodeOf = function(stk) { var c = (custom.stockCodes || {})[stk]; var n = (c != null && c !== "") ? parseInt(String(c).replace(/\D/g, ""), 10) : NaN; return isNaN(n) ? Infinity : n; };   // 銘柄コード（数値）・未登録は末尾 2026-07-24
   var _rotAuto = rotStocks.slice().sort(function(a, b) { var ca = _rotCodeOf(a), cb = _rotCodeOf(b); if (ca !== cb) return ca - cb; return a < b ? -1 : a > b ? 1 : 0; });   // 従来の自動順＝銘柄コード昇順（同/無コードは名前順）2026-07-24。ドラッグ未使用時のフォールバック
   // 手動順（custom.rotStockOrder）が最優先 2026-08-17d。プールに居ない名前（削除・改名漏れ）は捨て、
@@ -7352,7 +7357,9 @@ function DayView(_ref57) {
     };
     var _pbStockTags = function(stk) {
       var c = _pbCharts[stk + "_" + date] || {};
-      return [].concat(c.chartShapeTags || [], c.stockTags || []).map(stripCat);
+      var _o = [].concat(c.chartShapeTags || [], c.stockTags || []).map(stripCat);
+      _caTagsOf(stk, date).forEach(function(t) { if (_o.indexOf(t.name) < 0) _o.push(t.name); });   // 2026-10-14: CA のタグも
+      return _o;
     };
     var _pbGradeLegend = (function() {
       var grades = ["S","A","B","C","D","E","F","G-","G+"];
