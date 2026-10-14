@@ -1483,8 +1483,9 @@ function migrateData(d) {
         var cut = (c.cutLine != null) ? c.cutLine : 15;
         c.signals.forEach(function(s) {
           if (!s || s.stopHold === true || !_epIsV2(s)) return;
+          if (_epIsTriEntry(s, _epOwnAlpha(s))) return;   // △確信度エントリー（EPは参考扱い）は触らない（（）内の参考額が変わるため）
           var bi = _elStopBarIdx(s, cut);
-          if (bi >= 0) s["nextExp" + (bi + 1)] = "\u00D7";
+          if (bi >= 0 && _epNextExpAt(s, bi) === "\u25CB") s["nextExp" + (bi + 1)] = "\u00D7";   // ○だけ×へ（△/空欄/×は触らない＝△確信度の参考額（）内などが変わらない）
           s.stopHold = true;
         });
       });
