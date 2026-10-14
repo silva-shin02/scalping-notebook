@@ -4084,6 +4084,16 @@ function _elOsMaxCapped(s, alpha) {
 //   損切りの判定を持つ全リーフ（_epHoldLadder/_elDynResult/_elWinBucket/_elDynHold/_elPlanIsStop/_elHoldIsStop/_elHoldIsStop2/_elHoldIsStopAt/_elHoldFinalParts/_elRideVals/明細スタック）が
 //   「(高値−α)≧損切り値」にこれを足す＝どこで撤退するかの正本(_elRideVals・_elHoldFinalParts)が同じ結果になる。継続したあとの撤退足は従来どおり期待度(×/損切り済/未設定)か次の損切り足で決まる。
 function _elStopHold(s, absIdx) { return !!(s && s.stopHold === true && absIdx != null && absIdx >= 0 && absIdx <= 3 && _epNextExpAt(s, absIdx) === "○"); }
+// 損切りラインに最初に触れる足（絶対レグindex 0..3）。採用α=記録自身のα。EP未達/×見送り/v2以外は-1。
+// 既存記録の「損切り足の次足期待度」を×に寄せる既定値（フォーム編集ロード・migrateData _migStopHoldDefault）の判定源。
+function _elStopBarIdx(s, cut) {
+  if (!s || !_epIsV2(s)) return -1;
+  var a = _epOwnAlpha(s); if (a == null || isNaN(a)) return -1;
+  var r = _epResolve(s, a); if (!r || r.epIdx < 0 || r.judge !== "ok") return -1;
+  var legs = _epLegs(s), c = cut != null ? Number(cut) : 15;
+  for (var i = r.epIdx; i <= 3 && i < legs.length; i++) { var h = legs[i] && legs[i].h; if (h != null && (h - a) >= c) return i; }
+  return -1;
+}
 // EP→以降の足を順にホールドした場合の損益ラダー（OS1〜5対応）。各足で「ここで手仕舞いした損益」と損切り発生を返す。
 // 損切り: EP以降で高値−α≧cutに達した最初の足。以降は損切り額で固定。未達の足は確定値で手仕舞い損益(α−確定値)*100。
 // 返り値 {epIdx, items:[{idx,depth,role,leg,pnl,isStop,afterStop}], stopDepth(-1=損切りなし), maxPnl, maxDepth, finalPnl}。
@@ -7769,7 +7779,8 @@ function EntryRecordForm(_ref_erf) {
   // === EP起算方式: OS足 state（OS1=既存osVal/osConf流用・OS2/3はscheme:2取り込み変換(_initHold)経由）===
   // 次足期待度（足固定・index0..3=OS1..OS4）2026-07-06: 旧 到達期待(os1/2/3Exp)・H1期待(holdExp)・H2期待(hold2Exp)を「その足の引けの判断」1本に統一。
   // 編集ロードは_epNextExpAt（新フィールドnextExp1〜4優先→レガシー導出）＝EP（α）が変わっても入力値は足に残る。OS5は次足が無いのでスロット無し。
-  var _useStateNxs = useState(function() { return [_epNextExpAt(initSig, 0), _epNextExpAt(initSig, 1), _epNextExpAt(initSig, 2), _epNextExpAt(initSig, 3)]; }),
+  var _stopAutoIdx = (isEdit && initSig.stopHold !== true) ? _elStopBarIdx(initSig, (function() { var _c0 = data.charts && data.charts[initial.stock + "_" + initial.date]; return (_c0 && _c0.cutLine != null) ? _c0.cutLine : 15; })()) : -1;   // 既存記録(目印なし)の損切り足＝次足期待度を×で開く（○へ変えて保存すると以後は持ち続ける）
+  var _useStateNxs = useState(function() { var _nx0 = [_epNextExpAt(initSig, 0), _epNextExpAt(initSig, 1), _epNextExpAt(initSig, 2), _epNextExpAt(initSig, 3)]; if (_stopAutoIdx >= 0) _nx0[_stopAutoIdx] = "×"; return _nx0; }),
     fNxs = _useStateNxs[0], setFNxs = _useStateNxs[1];
   var _setNx = function(i, v) { setFNxs(function(prev) { var n = prev.slice(); n[i] = v; return n; }); };
   var _useStateO2H = useState(_initHold.os2High != null ? String(_initHold.os2High) : ""), fOs2High = _useStateO2H[0], setFOs2High = _useStateO2H[1];
@@ -8809,7 +8820,7 @@ function EntryRecordForm(_ref_erf) {
     var _ntf = function(t) { return (typeof t === "string") ? t.normalize("NFC").trim() : t; };   // 保存tagはNFC+trim正規化＝空白/全半角/合成文字差でシグナルが記録帳で別グループに割れる/改名がスルーされるのを防ぐ 2026-07-10
     var sig = {
       id: isEdit ? initSig.id : _sigId(),
-      stopHold: isEdit ? (initSig.stopHold === true ? true : undefined) : true,   // 損切りライン接触でも次足期待度○なら持ち続ける（新規記録のみ・既存は従来通り）
+      stopHold: isEdit ? ((initSig.stopHold === true || _stopAutoIdx >= 0) ? true : undefined) : true,   // 損切りライン接触でも次足期待度○なら持ち続ける（新規記録のみ・既存は従来通り）
       tag: fTags.length > 0 ? _ntf(fTags[0]) : (fIsCustom ? "__custom__" : ""),
       tags: fTags.map(_ntf),
       sigDetail: (function() {
