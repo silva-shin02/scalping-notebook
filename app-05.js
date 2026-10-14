@@ -8316,8 +8316,11 @@ function EntryRecordForm(_ref_erf) {
   // v2(EP起算)はE判定ベース: miss=E未達or×見送り。損切り判定はEP足高値基準。
   var _fMiss = (isV2Form && _epFormState) ? (_epFormState.judge === "miss" || _epFormState.judge === "x")
     : (_fAlpha != null && Number(fOsVal) >= 0 && Number(fOsVal) < _fAlpha);
+  // 損切りライン接触でもその足の次足期待度が○なら持ち続ける（stopHold・新規記録と目印済み記録のみ）→「損切り済」ロック/自動選択の対象外。×・△は従来どおり損切り済。
+  var _fStopHoldOn = !isEdit || initSig.stopHold === true || _stopAutoIdx >= 0;
+  var _fNxHold = function(abs) { return !!(_fStopHoldOn && isV2Form && abs != null && abs >= 0 && abs <= 3 && fNxs[abs] === "\u25CB"); };
   var _fPlanStopNow = (isV2Form && _epFormState)
-    ? (_epFormState.judge === "ok" && _epFormState.epHigh != null && _fAlpha != null && (_epFormState.epHigh - _fAlpha) >= _fCutLine)
+    ? (_epFormState.judge === "ok" && _epFormState.epHigh != null && _fAlpha != null && (_epFormState.epHigh - _fAlpha) >= _fCutLine && !_fNxHold(_epFormState.epIdx))
     : (Number(fOsVal) > 0 && _fAlpha != null && (Number(fOsVal) - _fAlpha) >= _fCutLine);
   // OS1〜5固定欄（scheme:3）: ミラー同期は廃止。hold*/hold2*欄=常に4・5本目の実データ。
   // フォーム状態を仮想signal化し、H1/H2のプレビュー損益・損切り判定は共通ヘルパー（表と同一基準）で算出する。
@@ -8344,7 +8347,7 @@ function EntryRecordForm(_ref_erf) {
     if (e < 0) return null;
     return i === e ? "EP" : i === e + 1 ? "H1" : i === e + 2 ? "H2" : null;
   };
-  var _fH1StopNow = !!(_fEpRes && _fEpRes.judge === "ok" && _fEpRes.h1 && _fEpRes.h1.h != null && _fAlpha != null && (_fEpRes.h1.h - _fAlpha) >= _fCutLine);
+  var _fH1StopNow = !!(_fEpRes && _fEpRes.judge === "ok" && _fEpRes.h1 && _fEpRes.h1.h != null && _fAlpha != null && (_fEpRes.h1.h - _fAlpha) >= _fCutLine && !_fNxHold(_epFormState ? _epFormState.epIdx + 1 : -1));
   var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
   // H1までE基準未達でもHold2期待度欄・Hold2欄は表示して入力可能にする（表側は _elH2Miss が従来どおり「ー（H１までE基準未達）」表示）
   // E未達(OS1〜3でα未到達)が確定したらHold1/2欄ごと非表示（ノートレード=H足は存在しない・保存も不要）。
