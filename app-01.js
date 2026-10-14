@@ -1471,6 +1471,25 @@ function migrateData(d) {
     try { if (d.charts) d.charts = _clearNoSigTags(d.charts, null, false); d._migNoSigTagClean = true; }
     catch(e) { console.warn("[migrateData] nosig-tag-clean error:", e); }
   }
+  // 既存記録（VAP枠＝8/20以降）の「損切り足の次足期待度」を×に寄せ、以後は○へ変えれば持ち続ける対象にする（_migStopHoldDefault 2026-10-14）。
+  //   従来も損切り足は期待度に関係なく撤退していた＝×にしても損益・損切り率は不変（表示を実態に揃えるだけ）。signal.stopHold=true を付けて以後の○を有効化。
+  //   条件ベース（stopHold未設定の記録だけ・冪等）。旧システム(〜8/19)はαが分析ごとに変わるので対象外（フォームで開いた記録だけ個別に同じ扱い）。
+  //   app-05 の _elStopBarIdx が未ロードなら何もしない（次回に回す）。
+  try {
+    if (typeof _elStopBarIdx === "function" && d.charts && typeof d.charts === "object") {
+      Object.keys(d.charts).forEach(function(ck) {
+        var i = ck.lastIndexOf("_"); if (i < 0 || ck.slice(i + 1) < "2026-08-20") return;
+        var c = d.charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+        var cut = (c.cutLine != null) ? c.cutLine : 15;
+        c.signals.forEach(function(s) {
+          if (!s || s.stopHold === true || !_epIsV2(s)) return;
+          var bi = _elStopBarIdx(s, cut);
+          if (bi >= 0) s["nextExp" + (bi + 1)] = "\u00D7";
+          s.stopHold = true;
+        });
+      });
+    }
+  } catch(e) { console.warn("[migrateData] stop-hold-default error:", e); }
   // RN加算の自動判定を既存記録にも有効化（_migRnAutoOn 2026-07-29・ユーザー指示「自動になっていないものは自動に」）: 全記録 charts[*].signals の signal.rnAuto を true にする。
   // 2026-07-20b の当初決定「既存記録は自動を止める（開いてもRNが書き換わらない）」の撤回。以後は過去記録を編集フォーム/EPナビで開くと自動判定が効き、保存時にRN〇×と加算額が現行ルール（下二桁41-49→…50／91-99→…00）へ揃う。
   // rn/rnUsed/rnVal/alphaVal/ep は移行では一切書き換えない＝開いて保存し直すまで過去の損益・分析は不変。
