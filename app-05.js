@@ -4090,6 +4090,7 @@ function _elStopBarIdx(s, cut) {
   if (!s || !_epIsV2(s)) return -1;
   var a = _epOwnAlpha(s); if (a == null || isNaN(a)) return -1;
   var r = _epResolve(s, a); if (!r || r.epIdx < 0 || r.judge !== "ok") return -1;
+  if (_epIsTriEntry(s, a)) return -1;   // △確信度エントリー（EPは参考扱い）は対象外＝（）内の参考額が変わらないように
   var legs = _epLegs(s), c = cut != null ? Number(cut) : 15;
   for (var i = r.epIdx; i <= 3 && i < legs.length; i++) { var h = legs[i] && legs[i].h; if (h != null && (h - a) >= c) return i; }
   return -1;
@@ -7780,7 +7781,7 @@ function EntryRecordForm(_ref_erf) {
   // 次足期待度（足固定・index0..3=OS1..OS4）2026-07-06: 旧 到達期待(os1/2/3Exp)・H1期待(holdExp)・H2期待(hold2Exp)を「その足の引けの判断」1本に統一。
   // 編集ロードは_epNextExpAt（新フィールドnextExp1〜4優先→レガシー導出）＝EP（α）が変わっても入力値は足に残る。OS5は次足が無いのでスロット無し。
   var _stopAutoIdx = (isEdit && initSig.stopHold !== true) ? _elStopBarIdx(initSig, (function() { var _c0 = data.charts && data.charts[initial.stock + "_" + initial.date]; return (_c0 && _c0.cutLine != null) ? _c0.cutLine : 15; })()) : -1;   // 既存記録(目印なし)の損切り足＝次足期待度を×で開く（○へ変えて保存すると以後は持ち続ける）
-  var _useStateNxs = useState(function() { var _nx0 = [_epNextExpAt(initSig, 0), _epNextExpAt(initSig, 1), _epNextExpAt(initSig, 2), _epNextExpAt(initSig, 3)]; if (_stopAutoIdx >= 0) _nx0[_stopAutoIdx] = "×"; return _nx0; }),
+  var _useStateNxs = useState(function() { var _nx0 = [_epNextExpAt(initSig, 0), _epNextExpAt(initSig, 1), _epNextExpAt(initSig, 2), _epNextExpAt(initSig, 3)]; if (_stopAutoIdx >= 0 && _nx0[_stopAutoIdx] === "○") _nx0[_stopAutoIdx] = "×"; return _nx0; }),
     fNxs = _useStateNxs[0], setFNxs = _useStateNxs[1];
   var _setNx = function(i, v) { setFNxs(function(prev) { var n = prev.slice(); n[i] = v; return n; }); };
   var _useStateO2H = useState(_initHold.os2High != null ? String(_initHold.os2High) : ""), fOs2High = _useStateO2H[0], setFOs2High = _useStateO2H[1];
