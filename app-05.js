@@ -8325,6 +8325,7 @@ function EntryRecordForm(_ref_erf) {
   // OS1〜5固定欄（scheme:3）: ミラー同期は廃止。hold*/hold2*欄=常に4・5本目の実データ。
   // フォーム状態を仮想signal化し、H1/H2のプレビュー損益・損切り判定は共通ヘルパー（表と同一基準）で算出する。
   var _fVSig = {
+    stopHold: _fStopHoldOn ? true : undefined,   // 損切り接触でも次足期待度○なら持ち続ける（保存後の表と同じ判定に揃える）
     scheme: 3, alphaVal: _fAlpha, difficulty: fDifficulty || null,
     osVal: (fOsVal !== "" && !isNaN(Number(fOsVal))) ? Number(fOsVal) : null,
     osConfVal: (fOsConfVal !== "" && !isNaN(Number(fOsConfVal))) ? Number(fOsConfVal) : null, osConfSign: fOsConfSign || null,
