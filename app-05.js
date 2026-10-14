@@ -4078,6 +4078,12 @@ function _elOsMaxCapped(s, alpha) {
   }
   return max;
 }
+// 損切りラインに触れても、その足の次足期待度が○なら持ち続ける 2026-10-14（ユーザー指示。**新規記録のみ**＝既存記録は従来どおり）。
+//   対象は signal.stopHold===true の記録（新規保存時に付く・既存記録には無い＝従来の「触れた足の終値で撤退」のまま）。
+//   absIdx＝足の絶対index（0=OS1）。次足期待度(_epNextExpAt)が有効なのは0〜3（OS5には次足が無い＝触れたらそこで撤退）。○のみ継続扱い（△は従来どおり撤退）。
+//   損切りの判定を持つ全リーフ（_epHoldLadder/_elDynResult/_elWinBucket/_elDynHold/_elPlanIsStop/_elHoldIsStop/_elHoldIsStop2/_elHoldIsStopAt/_elHoldFinalParts/_elRideVals/明細スタック）が
+//   「(高値−α)≧損切り値」にこれを足す＝どこで撤退するかの正本(_elRideVals・_elHoldFinalParts)が同じ結果になる。継続したあとの撤退足は従来どおり期待度(×/損切り済/未設定)か次の損切り足で決まる。
+function _elStopHold(s, absIdx) { return !!(s && s.stopHold === true && absIdx != null && absIdx >= 0 && absIdx <= 3 && _epNextExpAt(s, absIdx) === "○"); }
 // EP→以降の足を順にホールドした場合の損益ラダー（OS1〜5対応）。各足で「ここで手仕舞いした損益」と損切り発生を返す。
 // 損切り: EP以降で高値−α≧cutに達した最初の足。以降は損切り額で固定。未達の足は確定値で手仕舞い損益(α−確定値)*100。
 // 返り値 {epIdx, items:[{idx,depth,role,leg,pnl,isStop,afterStop}], stopDepth(-1=損切りなし), maxPnl, maxDepth, finalPnl}。
@@ -4094,7 +4100,7 @@ function _epHoldLadder(s, alpha, cutLine) {
     // 触れた足はその足の確定値(終値)まで持って撤退する。高値は撤退のトリガーであって約定値ではないので、
     // 損益は他の足と同じ (α−終値)×100株。終値が利益側に戻っていれば利益で撤退＝損切りではない
     // （損切りかどうかの判定は _elRideVals.stoppedLoss / _elIsStopFinal 側）。
-    if (stopDepth < 0 && lg.h != null && (lg.h - alpha) >= cut) {
+    if (stopDepth < 0 && lg.h != null && (lg.h - alpha) >= cut && !_elStopHold(s, i)) {
       stopDepth = depth;
       stopPnl = (lg.c != null) ? Math.round((alpha - lg.c) * 100) : null;
     }
@@ -4138,7 +4144,7 @@ function _elDynResult(s, alpha, cutLine) {
       //   終値が不明なときだけライン接触の事実を優先して負けへ倒す＝_elRideVals.stoppedLoss(app-05.js) の
       //   「exitC==null ならライン接触を優先」と同じ倒し方で、保守側の挙動は維持する。
       if (_rv2.ep.c != null) return _rv2.ep.c < alpha ? "ok" : _rv2.ep.c === alpha ? "draw" : "ng";
-      if ((_rv2.ep.h - alpha) >= cutLine) return "ng";
+      if ((_rv2.ep.h - alpha) >= cutLine && !_elStopHold(s, _rv2.epIdx)) return "ng";
       return s.result;
     }
   }
@@ -4188,7 +4194,7 @@ function _elWinBucket(s, alpha, cutLine) {
     }
     // 2026-07-27 終値撤退方式: ラインに触れた足はその足の確定値で撤退＝その終値を到達点として採用してから抜ける。
     // 旧実装は終値を採らずに break し無条件で "stop" を返していた（＝触れたら必ず損切り扱い）。
-    if (o.h != null && (o.h - alpha) >= cut) { stopped = true; if (o.c != null) exitC = o.c; break; }
+    if (o.h != null && (o.h - alpha) >= cut && !_elStopHold(s, i)) { stopped = true; if (o.c != null) exitC = o.c; break; }
     if (o.c != null) exitC = o.c;
   }
   if (stopped && exitC == null) return "stop";   // 撤退足の終値が無く損益を出せない＝ライン接触の事実を優先
@@ -4226,7 +4232,7 @@ function _elDynHold(s, alpha, cutLine) {
       // 2026-07-27 終値撤退方式: EP足でラインに触れたらEP足の終値で撤退＝H1へは進まない。
       // H1足はラインに触れても触れなくても「H1の終値」なので、旧実装のH1損切り分岐は最終行に吸収される。
       // 旧実装はH1の損切りを先に見ていたためEP足で撤退済みでもH1の損失を返していた（順序も同時に是正）。
-      if (_rh2.ep.h != null && (_rh2.ep.h - alpha) >= cutLine) return _rh2.ep.c != null ? Math.round((alpha - _rh2.ep.c) * 100) : null;
+      if (_rh2.ep.h != null && (_rh2.ep.h - alpha) >= cutLine && !_elStopHold(s, _rh2.epIdx)) return _rh2.ep.c != null ? Math.round((alpha - _rh2.ep.c) * 100) : null;
       return (_h1l && _h1l.c != null) ? Math.round((alpha - _h1l.c) * 100) : null;
     }
   }
@@ -4268,7 +4274,7 @@ function _elPlanIsStop(s, alpha, cutLine) {
   if (_epIsV2(s)) {
     if (alpha == null) return false;
     var _rs2 = _epResolve(s, alpha);
-    return !!(_rs2 && _rs2.judge === "ok" && (_rs2.ep.h - alpha) >= (cutLine != null ? cutLine : 15));
+    return !!(_rs2 && _rs2.judge === "ok" && (_rs2.ep.h - alpha) >= (cutLine != null ? cutLine : 15) && !_elStopHold(s, _rs2.epIdx));
   }
   return alpha != null && s.osVal != null && (Number(s.osVal) - alpha) >= (cutLine != null ? cutLine : 15);
 }
@@ -4278,8 +4284,8 @@ function _elHoldIsStop(s, alpha, cutLine) {
   if (_epIsV2(s)) {
     var _rt2 = _epResolve(s, alpha);
     if (!_rt2 || _rt2.judge !== "ok") return false;
-    if ((_rt2.ep.h - alpha) >= _cl) return true;
-    if (_rt2.h1 && _rt2.h1.h != null && (_rt2.h1.h - alpha) >= _cl) return true;
+    if ((_rt2.ep.h - alpha) >= _cl && !_elStopHold(s, _rt2.epIdx)) return true;
+    if (_rt2.h1 && _rt2.h1.h != null && (_rt2.h1.h - alpha) >= _cl && !_elStopHold(s, _rt2.epIdx + 1)) return true;
     return false;
   }
   if (s.holdHighSign === "-" && s.holdHighVal != null && (Number(s.holdHighVal) - alpha) >= _cl) return true;
@@ -4388,7 +4394,7 @@ function _elHoldIsStop2(s, alpha, cutLine) {
   if (_epIsV2(s)) {
     if (alpha == null) return false;
     var _r32 = _epResolve(s, alpha);
-    return !!(_r32 && _r32.judge === "ok" && _r32.h2 && _r32.h2.h != null && (_r32.h2.h - alpha) >= (cutLine != null ? cutLine : 15));
+    return !!(_r32 && _r32.judge === "ok" && _r32.h2 && _r32.h2.h != null && (_r32.h2.h - alpha) >= (cutLine != null ? cutLine : 15) && !_elStopHold(s, _r32.epIdx + 2));
   }
   return _elHoldIsStop(_h2sig(s), alpha, cutLine);
 }
@@ -4420,7 +4426,7 @@ function _elHoldIsStopAt(s, alpha, cutLine, d) {
   var r = _epResolve(s, alpha);
   if (!r || r.judge !== "ok") return false;
   var cut = cutLine != null ? cutLine : 15;
-  for (var k = 0; k <= d; k++) { var lg = r.legs[r.epIdx + k]; if (lg && lg.h != null && (lg.h - alpha) >= cut) return true; }
+  for (var k = 0; k <= d; k++) { var lg = r.legs[r.epIdx + k]; if (lg && lg.h != null && (lg.h - alpha) >= cut && !_elStopHold(s, r.epIdx + k)) return true; }
   return false;
 }
 // depth d で手じまいした場合の損益。d<=1→_elDynHold／d===2→_elDynHold2 に委譲＝従来の正本と完全一致（新規はd>=3のみ）。
@@ -5730,7 +5736,7 @@ function _elHoldFinalParts(s, alpha, cutLine) {
     //   想定損益は前の足の値（実測例では+400円の利益）」という食い違いになり、負け平均から抜けて勝ち平均に入っていた。
     //   → この足も保有した扱いで _elDynHoldAt(d)（＝その足の終値ベース）を採り、そのうえでループを抜ける。
     //   main/refの振り分けは非損切りの足と同一規約（完全○チェーンなら（）外main・△でチェーンが切れていれば（）内ref）＝d<=2側(_elHold2TotPartsFixed)の作法に一致。
-    var _stopHere = (lg.h != null && (lg.h - alpha) >= cut);    // この足で損切りライン到達＝ここが手じまい足
+    var _stopHere = (lg.h != null && (lg.h - alpha) >= cut && !_elStopHold(s, r.epIdx + d));    // この足で損切りライン到達＝ここが手じまい足（期待度○で持ち続ける新規記録は除く）
     var hv = _elDynHoldAt(s, alpha, cut, d);
     if (hv == null) break;
     if (exp === "○" && chain) { parts = { main: hv, ref: null }; }
@@ -6117,7 +6123,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
         var _peNode = React.createElement("span", { style: { color: _expCol[_peS] || "#666" } }, _peS);
         rows.push(_row("h" + _dS, _lblS, _peNode, _pS, (_peS === "○" && _chainS) ? 0 : 1, true));
         if (_peS !== "○") _chainS = false;
-        if (_lgS2.h != null && (_lgS2.h - alpha) >= _cutS) break;   // この足で損切り＝ここで手じまい
+        if (_lgS2.h != null && (_lgS2.h - alpha) >= _cutS && !_elStopHold(s, _rS.epIdx + _dS)) break;   // この足で損切り＝ここで手じまい
       }
     }
   }
@@ -6166,7 +6172,7 @@ function _elRideVals(s, alpha, cutLine) {
   var _s1 = !_sp && _elHoldIsStop(s, alpha, cut);
   var _s2 = !_sp && !_s1 && _elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cut);
   var _stopD = _sp ? 0 : _s1 ? 1 : _s2 ? 2 : null;   // 損切り足（無ければnull）
-  if (_stopD == null) { for (var _sd = 3; _sd <= _maxD; _sd++) { var _lgS = legs[r.epIdx + _sd]; if (_lgS && _lgS.h != null && (_lgS.h - alpha) >= cut) { _stopD = _sd; break; } } }   // 2026-07-25 3段目以降の損切り足
+  if (_stopD == null) { for (var _sd = 3; _sd <= _maxD; _sd++) { var _lgS = legs[r.epIdx + _sd]; if (_lgS && _lgS.h != null && (_lgS.h - alpha) >= cut && !_elStopHold(s, r.epIdx + _sd)) { _stopD = _sd; break; } } }   // 2026-07-25 3段目以降の損切り足
   var exitD, stopped;
   if (_stopD != null && _stopD <= _expD) { exitD = _stopD; stopped = true; }   // 期待度手じまいまでに損切り→損切り足で確定
   else { exitD = _expD; stopped = false; }                                     // 期待度×/損切り済/未設定で手じまい（以降の損切りは発生しない）
@@ -8803,6 +8809,7 @@ function EntryRecordForm(_ref_erf) {
     var _ntf = function(t) { return (typeof t === "string") ? t.normalize("NFC").trim() : t; };   // 保存tagはNFC+trim正規化＝空白/全半角/合成文字差でシグナルが記録帳で別グループに割れる/改名がスルーされるのを防ぐ 2026-07-10
     var sig = {
       id: isEdit ? initSig.id : _sigId(),
+      stopHold: isEdit ? (initSig.stopHold === true ? true : undefined) : true,   // 損切りライン接触でも次足期待度○なら持ち続ける（新規記録のみ・既存は従来通り）
       tag: fTags.length > 0 ? _ntf(fTags[0]) : (fIsCustom ? "__custom__" : ""),
       tags: fTags.map(_ntf),
       sigDetail: (function() {
