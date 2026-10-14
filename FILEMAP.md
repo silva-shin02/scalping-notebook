@@ -3143,3 +3143,5 @@ HomeEventFormModal, App
 - 【VAP値の既定0円と必須チェック 2026-10-08】app-05 `EntryRecordForm`：①新規記録のVAP値(`fVap`)の初期値を **"0"**（編集で未入力のVAP未設定記録は空のまま）。②保存時の未入力チェック(`handleSave`の`_vm`)に **「VAP値」** を追加（`_vapMode && fVap===""`）。旧は空欄が計算上0円に倒れる(`_fVapA`)ため既存の「合計α値」チェックをすり抜け、警告なしでVAP未設定のまま保存できていた（日別ページとカレンダーの合計不一致の一因）。メモ欄以外の入力漏れは「未入力の項目があります。項目：…」のダイアログで保存不可（既存の仕組み）。
 
 - 【予定EP（水準線）を必須に 2026-10-08】app-05 `EntryRecordForm.handleSave` の未入力チェック(`_vm`)に **「水準線（予定EP＝水準線＋VAP値）」** を追加（VAP枠＝8/20以降のみ・`_vapMode && 水準線が空/非数`）。EPは水準線＋VAP値で決まるので、水準線が空だと予定EPが「—」になる記録ができていた。旧システム(〜8/19)の編集は対象外（水準線の無い旧記録を開いて保存できなくならないように）。
+
+- 【損切りライン接触でも次足期待度○なら持ち続ける（新規記録のみ） 2026-10-14】app-05 `_elStopHold(s, absIdx)`（`signal.stopHold===true` かつ `_epNextExpAt(s,absIdx)==='○'`、absIdx=0..3）を新設し、損切りライン接触判定の全箇所（`_epHoldLadder`/`_elDynResult`/`_elWinBucket`/`_elDynHold`/`_elPlanIsStop`/`_elHoldIsStop`/`_elHoldIsStop2`/`_elHoldIsStopAt`/`_elHoldFinalParts`の`_stopHere`/`_elHoldStackInner`/`_elRideVals`の3足目以降）に `&& !_elStopHold(...)` を追加。`EntryRecordForm.handleSave` は新規保存時のみ `stopHold:true` を付け、編集時は元のフラグを維持。フラグ無しの既存記録は従来通り（接触足の終値で撤退）。△は従来通り撤退、OS5など次足が無い足も撤退。
