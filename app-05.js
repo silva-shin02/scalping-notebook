@@ -1307,6 +1307,188 @@ function _caFilterByStockDate(metaList, caTicker, date, code) {
 
 
 
+// ===== CA タグ → SN 表示（2026-10-14・ユーザー指示「CAでつけたタグを SN に自動で反映」）=====
+// タグは CA（Chart Annotator）で付け、SN は読むだけ（SN からは付け外ししない）。SN 自身の旧タグ(chartShapeTags/stockTags)は
+//   CA のタグと並べて表示し、チャート詳細の「SN の旧タグ」で×で消せる。新しく SN でタグを付ける UI は廃止。
+// 読み込み元：Firebase（chart-annotator-drafts=メタ / ca-chart-tags=チャートID→{tagIds} / ca-tag-defs={defs} / ca-tag-cats={cats}）。
+//   足りない分は同じオリジンの CA の localStorage（ca_meta_v1 / ca_chart_tag_map_v1 / ca_chart_tag_defs_v1 / ca_chart_tag_cats_v1）で補う。
+// 照合：CA チャートの ticker/日付 → SN の「銘柄_日付」（_caFilterByStockDate と同じ規則・銘柄は custom.stockCodes + DEFAULT_STOCK_MAP）。
+// 文字列表現："カテゴリ名:タグ名"（カテゴリ無し=タグ名のみ）。
+//   「取引」扱い＝CA のカテゴリ名が「取引」／SN の取引カテゴリ(custom.chartShapeCats["取引"])にある名前／ノーシグナル・有効シグナルなし
+//   → "取引:タグ名" にして、DNF/Z（_elTradeTagMarker）と本日の取引銘柄バーの判定に効かせる。
+// 再描画：読み込みで中身が変わったら window "sn_ca_tags_loaded" を飛ばし、_caTagVer を進める（App が受けて再描画）。
+var _caTagRaw = null, _caTagRawAt = 0, _caTagLoading = null, _caTagSig = "", _caTagVer = 0;
+var _caTagCustom = null;
+var _caTagIdxCache = { raw: null, custom: null, idx: null };
+var CA_TAG_TTL = 30 * 1000;
+var _CA_TAG_TRADE_CAT = "取引";   // 取引
+function _caTagSetCustom(custom) { _caTagCustom = custom || null; }
+function _caTagLocalRaw() {
+  try {
+    var metas = JSON.parse(localStorage.getItem("ca_meta_v1") || "[]");
+    var map = JSON.parse(localStorage.getItem("ca_chart_tag_map_v1") || "{}");
+    var defs = JSON.parse(localStorage.getItem("ca_chart_tag_defs_v1") || "[]");
+    var cats = JSON.parse(localStorage.getItem("ca_chart_tag_cats_v1") || "[]");
+    if (!Array.isArray(metas) || !map || typeof map !== "object") return null;
+    return { metas: metas, map: map, defs: Array.isArray(defs) ? defs : [], cats: Array.isArray(cats) ? cats : [] };
+  } catch (e) { return null; }
+}
+function _caTagFetchFb(cfg) {
+  var base = cfg.fbUrl.replace(/\/$/, ""), auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
+  var get = function(p) {
+    return fetch(base + p + ".json" + auth).then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  };
+  return Promise.all([_caFetchMeta(cfg, false), get("/ca-chart-tags"), get("/ca-tag-defs"), get("/ca-tag-cats")]).then(function(r) {
+    var map = {}, t = r[1] || {};
+    Object.keys(t).forEach(function(id) { var v = t[id]; if (v && Array.isArray(v.tagIds) && v.tagIds.length) map[id] = v.tagIds; });
+    return { metas: (r[0] || []).slice(), map: map,
+      defs: (r[2] && Array.isArray(r[2].defs)) ? r[2].defs : [],
+      cats: (r[3] && Array.isArray(r[3].cats)) ? r[3].cats : [] };
+  });
+}
+// 読み込み（30秒以内の再要求はキャッシュ）。force=true で必ず取り直す。
+function _caTagsRefresh(cfg, force) {
+  if (!force && _caTagRaw && Date.now() - _caTagRawAt < CA_TAG_TTL) return Promise.resolve(_caTagRaw);
+  if (_caTagLoading) return _caTagLoading;
+  var fbP = (cfg && cfg.fbUrl)
+    ? _caTagFetchFb(cfg).catch(function(e) { try { console.warn("[CA tags] firebase failed:", e); } catch (_) {} return null; })
+    : Promise.resolve(null);
+  _caTagLoading = fbP.then(function(fb) {
+    var loc = _caTagLocalRaw(), raw = fb;
+    if (!raw) raw = loc;
+    else if (loc) {
+      if (!raw.defs.length) raw.defs = loc.defs;
+      if (!raw.cats.length) raw.cats = loc.cats;
+      if (!Object.keys(raw.map).length) raw.map = loc.map;
+      var ids = {};
+      raw.metas.forEach(function(m) { if (m) ids[m.id] = 1; });
+      loc.metas.forEach(function(m) { if (m && m.id && !ids[m.id]) raw.metas.push(m); });
+    }
+    _caTagLoading = null;
+    _caTagRawAt = Date.now();
+    if (raw) {
+      var sig = "";
+      try { sig = JSON.stringify([raw.map, raw.defs, raw.cats, raw.metas.length]); } catch (e) {}
+      _caTagRaw = raw;
+      if (sig !== _caTagSig) {
+        _caTagSig = sig; _caTagVer++;
+        try { window.dispatchEvent(new Event("sn_ca_tags_loaded")); } catch (e) {}
+      }
+    }
+    return _caTagRaw;
+  }, function() { _caTagLoading = null; return _caTagRaw; });
+  return _caTagLoading;
+}
+function _caTagIdx() {
+  var raw = _caTagRaw, custom = _caTagCustom, c = _caTagIdxCache;
+  if (!raw) return null;
+  if (c.raw === raw && c.custom === custom && c.idx) return c.idx;
+  var catName = {};
+  raw.cats.forEach(function(x) { if (x && x.id) catName[x.id] = x.name || ""; });
+  var defById = {}, defOrder = {};
+  raw.defs.forEach(function(d, i) { if (d && d.id) { defById[d.id] = d; defOrder[d.id] = i; } });
+  var tradeNames = {};
+  ((custom && custom.chartShapeCats && custom.chartShapeCats[_CA_TAG_TRADE_CAT]) || []).forEach(function(n) { tradeNames[n] = 1; });
+  _NOSIG_TAG_NAMES.forEach(function(n) { tradeNames[n] = 1; });
+  var stocks = {};
+  Object.keys((custom && custom.stockCodes) || {}).forEach(function(s) { stocks[s] = 1; });
+  Object.keys(DEFAULT_STOCK_MAP).forEach(function(s) { stocks[s] = 1; });
+  var stockList = Object.keys(stocks).map(function(s) { return { stock: s, info: _caGetStockInfo(s, custom) }; })
+    .filter(function(x) { return x.info && (x.info.caTicker || x.info.code); });
+  var byKey = {}, byDate = {}, byStock = {}, all = {};
+  raw.metas.forEach(function(m) {
+    var ids = m && raw.map[m.id];
+    if (!ids || !ids.length) return;
+    var date = _caResolveDate(m);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    var tags = [];
+    ids.forEach(function(id) {
+      var d = defById[id];
+      if (!d || !d.name) return;
+      var cn = (d.catId && catName[d.catId]) || "";
+      var trade = cn === _CA_TAG_TRADE_CAT || !!tradeNames[d.name];
+      tags.push({ id: id, name: d.name, color: d.color || "#6366F1", trade: trade,
+        s: trade ? _CA_TAG_TRADE_CAT + ":" + d.name : (cn ? cn + ":" + d.name : d.name) });
+    });
+    if (!tags.length) return;
+    stockList.forEach(function(x) {
+      if (!_caFilterByStockDate([m], x.info.caTicker, date, x.info.code).length) return;
+      var arr = byKey[x.stock + "_" + date] || (byKey[x.stock + "_" + date] = []);
+      tags.forEach(function(t) { if (!arr.some(function(a) { return a.id === t.id; })) arr.push(t); });
+      var bd = byDate[date] || (byDate[date] = {}), bs = byStock[x.stock] || (byStock[x.stock] = {});
+      tags.forEach(function(t) { bd[t.s] = 1; bs[t.s] = t; all[t.s] = 1; });
+    });
+  });
+  Object.keys(byKey).forEach(function(k) {
+    byKey[k].sort(function(a, b) { return (defOrder[a.id] || 0) - (defOrder[b.id] || 0); });
+  });
+  var idx = { byKey: byKey, byDate: byDate, byStock: byStock, all: all };
+  _caTagIdxCache = { raw: raw, custom: custom, idx: idx };
+  return idx;
+}
+// 銘柄_日付 の CA タグ [{id,name,color,trade,s}]
+function _caTagsOf(stock, date) { var idx = _caTagIdx(); return (idx && idx.byKey[stock + "_" + date]) || []; }
+// 銘柄_日付 の CA タグ文字列 ["カテゴリ:名前", ...]
+function _caTagStrs(stock, date) { return _caTagsOf(stock, date).map(function(t) { return t.s; }); }
+// その日（全銘柄）の CA タグ文字列
+function _caTagStrsOnDate(date) { var idx = _caTagIdx(); return idx && idx.byDate[date] ? Object.keys(idx.byDate[date]) : []; }
+// CA タグの付いている日付
+function _caTagDates() { var idx = _caTagIdx(); return idx ? Object.keys(idx.byDate) : []; }
+// 全 CA タグ文字列
+function _caTagAllStrs() { var idx = _caTagIdx(); return idx ? Object.keys(idx.all) : []; }
+// その銘柄に付いたことのある CA タグ [{s,name,color,...}]（振り返りの絞り込み候補）
+function _caTagsOfStock(stock) {
+  var idx = _caTagIdx(), m = idx && idx.byStock[stock];
+  return m ? Object.keys(m).map(function(k) { return m[k]; }) : [];
+}
+// CA タグのチップ（CA と同じ「タグ色の地に白字」）
+function _caTagChip(t, key, opt) {
+  opt = opt || {};
+  return React.createElement("span", { key: key, title: "CA で付けたタグ" + (t.trade ? "（取引）" : ""),
+    onClick: opt.onClick,
+    style: { display: "inline-block", padding: opt.sm ? "1px 6px" : "2px 7px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+      background: t.color, color: "#fff", margin: opt.margin || 0, whiteSpace: "nowrap",
+      cursor: opt.onClick ? "pointer" : "default",
+      outline: opt.on ? "2px solid #4338CA" : "none", opacity: (opt.on === false) ? 0.55 : 1 } }, t.name);
+}
+// チャート詳細のタグ欄（旧 TagPicker の置き換え）。CA のタグ（読み取り専用）＋ SN の旧タグ（×で削除）。
+//   ChartSection は React.memo なので、自分で "sn_ca_tags_loaded" を受けて再描画する。
+function SnCaTagSection(props) {
+  var _u = useState(_caTagVer), setV = _u[1];
+  useEffect(function() {
+    var on = function() { setV(_caTagVer); };
+    window.addEventListener("sn_ca_tags_loaded", on);
+    _caTagsRefresh(props.cfg, false);
+    return function() { window.removeEventListener("sn_ca_tags_loaded", on); };
+  }, []);
+  var caTags = _caTagsOf(props.stock, props.date);
+  var oldTags = props.oldTags || [];
+  var head = { fontSize: 13, color: "#888", fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 };
+  return React.createElement("div", { style: { marginTop: 8 } },
+    React.createElement("div", { style: head }, "🏷️ タグ（CA で付けたもの）",
+      React.createElement("button", { title: "CA のタグを読み直す",
+        onClick: function() { _caTagsRefresh(props.cfg, true); },
+        style: { border: "1px solid #ddd", background: "#fff", color: "#888", borderRadius: 5, fontSize: 11, padding: "0 6px", cursor: "pointer" } }, "↻")),
+    caTags.length
+      ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4 } },
+          caTags.map(function(t) { return _caTagChip(t, t.id); }))
+      : React.createElement("div", { style: { fontSize: 11, color: "#aaa" } }, "なし（タグは CA のエディタで付けます）"),
+    oldTags.length > 0 && React.createElement("div", { style: { marginTop: 8 } },
+      React.createElement("div", { style: { fontSize: 11, color: "#999", fontWeight: 600, marginBottom: 4 } }, "SN の旧タグ（× で削除）"),
+      React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4 } },
+        oldTags.map(function(t) {
+          return React.createElement("span", { key: t,
+            style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 4px 2px 7px", borderRadius: 4, fontSize: 10, fontWeight: 600,
+              background: "#EEF4FF", color: "#1a1a1a", border: "1px solid #7A9CC8" } },
+            stripCat(t),
+            React.createElement("button", { title: "この旧タグを削除",
+              onClick: function() { if (props.onRemoveOld) props.onRemoveOld(t); },
+              style: { border: "none", background: "transparent", color: "#888", fontSize: 12, lineHeight: 1, padding: "0 2px", cursor: "pointer" } }, "×"));
+        })))
+  );
+}
+
+
 var _caDraftInFlight = {};
 
 
@@ -6575,8 +6757,10 @@ function _dnfBadge(label) {
       background: "#f5f4f0", color: "#888", border: "1px solid #ddd", fontWeight: 800, fontSize: 9.5, letterSpacing: "0.3px", whiteSpace: "nowrap", flexShrink: 0 } }, "DNF");
 }
 // 「取引」カテゴリタグ日のマーカー（早見表/損益データ表の想定損益欄で共用 2026-07-23）: ノーシグナル→DNFピル / それ以外(有効シグナルなし等)→Z（取引なし）丸バッジ。タグ名はtooltip。無ければnull。
-function _elTradeTagMarker(c) {
+//   2026-10-14: stock/date を渡すと CA で付けた「取引」タグ（_caTagsOf の trade）も見る。c が無くても CA タグだけで出せる。
+function _elTradeTagMarker(c, stock, date) {
   var tags = (c && Array.isArray(c.chartShapeTags)) ? c.chartShapeTags.filter(function(t) { return t.indexOf("取引:") === 0; }) : [];
+  if (stock && date) _caTagsOf(stock, date).forEach(function(t) { if (t.trade && tags.indexOf(t.s) < 0) tags.push(t.s); });
   if (!tags.length) return null;
   var names = tags.map(function(t) { return stripCat(t); });
   var title = names.join("・");

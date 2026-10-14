@@ -4443,6 +4443,7 @@ function StockHistoryView(_ref_shv) {
           (e.chart.chartShapeTags || []).forEach(function(t){ entryTags.add(t); });
           (e.chart.stockTags || []).forEach(function(t){ entryTags.add(t); });
         }
+        _caTagStrs(selStock, e.date).forEach(function(t){ entryTags.add(t); });   // 2026-10-14: CA のタグも
         e.news.forEach(function(nx) {
           (nx.ni.tags || []).forEach(function(t){ entryTags.add(t); });
         });
@@ -4487,7 +4488,7 @@ function StockHistoryView(_ref_shv) {
       }
       return true;
     });
-  }, [allEntries, dateFrom, dateTo, selTags, selCats, keyword]);
+  }, [allEntries, dateFrom, dateTo, selTags, selCats, keyword, _caTagVer]);
   var togTag = function(t) {
     var ns = new Set(selTags);
     if (ns.has(t)) ns["delete"](t); else ns.add(t);
@@ -5076,6 +5077,16 @@ function StockHistoryView(_ref_shv) {
   label: ""
           }, wrappedPool))
         ),
+        /* 2026-10-14: CA で付けたタグで絞込（この銘柄に付いたことのある CA タグ。タップで選択/解除） */
+        _caTagsOfStock(selStock).length > 0 && React.createElement("div", { style: { marginBottom: 8 } },
+          React.createElement("div", {
+            style: { fontSize: 11, color: "#666", fontWeight: 700, marginBottom: 4 }
+          }, "CA のタグで絞込 (いずれかを含む)"),
+          React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 4 } },
+            _caTagsOfStock(selStock).map(function(t) {
+              return _caTagChip(t, "caf_" + t.s, { on: selTags.has(t.s), onClick: function() { togTag(t.s); } });
+            }))
+        ),
         
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
           React.createElement("span", { style: { fontSize: 11, color: "#666", fontWeight: 700, minWidth: 40 } }, "検索"),
@@ -5212,6 +5223,9 @@ function StockHistoryView(_ref_shv) {
                 style: { fontSize: 11, color: "#555", marginBottom: 3, cursor: "pointer" },
                 onClick: function(){ onSelectDate && onSelectDate(e.date, "trades"); }
               }, "🌐 地合い: " + c.macroLocal),
+              _caTagsOf(selStock, e.date).length > 0 &&   // 2026-10-14: CA のタグ（SN の旧タグと並べる）
+                React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 3 } },
+                  _caTagsOf(selStock, e.date).map(function(t) { return _caTagChip(t, "ca_" + t.id, { sm: true }); })),
               (c.chartShapeTags || c.stockTags) &&
                 [].concat(c.chartShapeTags || [], c.stockTags || []).length > 0 &&
                 React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 3 } },
