@@ -2347,7 +2347,8 @@ function SettingsModal(_ref54) {
   )),
   ), null,
 
-  false && React.createElement("div", {
+  // 2026-10-17 再表示（以前は false で非表示だった）＋日別・種類別の内訳。Firebase の無料枠超過の原因を端末側で追えるように。
+  _stTab === "sync" && React.createElement("div", {
     style: { marginBottom: 20, padding: "12px 14px", background: "#f5f4f0", borderRadius: 10, border: "1px solid #e8e5df" }
   },
   React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 10 } },
@@ -2379,7 +2380,31 @@ function SettingsModal(_ref54) {
       React.createElement("div", { style: { fontSize: 11, color: "#999", marginTop: 10, lineHeight: 1.8, borderTop: "1px solid #e0e0e0", paddingTop: 8 } },
         "\u30DD\u30FC\u30EA\u30F3\u30B0: " + (u.polls || 0) + "\u56DE\u3000DB PUT: " + (u.puts || 0) + "\u56DE",
         React.createElement("br", null),
-        "\u26A0 80%\u3067\u8B66\u544A\u3000\u26D4 90%\u3067\u540C\u671F\u81EA\u52D5\u505C\u6B62"),
+        "⚠ 80%・90%で警告（同期は止めない）。この端末の値（他の端末の分は含まない）"),
+      // 日別・種類別の内訳（直近7日・ダウンロードのみ）2026-10-17
+      (function() {
+        var all = (typeof _fbDailyGet === "function") ? _fbDailyGet() : {};
+        var days = Object.keys(all).sort().reverse().slice(0, 7);
+        if (!days.length) return React.createElement("div", { style: { fontSize: 11, color: "#999", marginTop: 8 } }, "日別の内訳：まだ記録がありません（2026-10-17以降の通信から記録）");
+        var th = { padding: "3px 6px", fontSize: 10, color: "#888", fontWeight: 700, textAlign: "left", borderBottom: "1px solid #e0e0e0", whiteSpace: "nowrap" };
+        var td = { padding: "3px 6px", fontSize: 11, borderBottom: "1px solid #eee", verticalAlign: "top" };
+        return React.createElement("div", { style: { marginTop: 10 } },
+          React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 4 } }, "日別の内訳（ダウンロード・直近7日）"),
+          React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+            React.createElement("thead", null, React.createElement("tr", null,
+              React.createElement("th", { style: th }, "日付"), React.createElement("th", { style: Object.assign({}, th, { textAlign: "right" }) }, "合計"), React.createElement("th", { style: th }, "内訳（多い順）"))),
+            React.createElement("tbody", null, days.map(function(day) {
+              var o = all[day] || {}, ks = Object.keys(o).sort(function(a, b) { return (o[b][1] || 0) - (o[a][1] || 0); });
+              var tot = ks.reduce(function(sm, k) { return sm + (o[k][1] || 0); }, 0);
+              return React.createElement("tr", { key: day },
+                React.createElement("td", { style: Object.assign({}, td, { whiteSpace: "nowrap" }) }, day.slice(5).replace("-", "/")),
+                React.createElement("td", { style: Object.assign({}, td, { textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }) }, _fbUsageFormat(tot)),
+                React.createElement("td", { style: td }, ks.map(function(k) {
+                  return React.createElement("span", { key: k, style: { display: "inline-block", marginRight: 8, whiteSpace: "nowrap" } },
+                    k + " ", React.createElement("b", null, _fbUsageFormat(o[k][1] || 0)), React.createElement("span", { style: { color: "#999" } }, "（" + o[k][0] + "回）"));
+                })));
+            }))));
+      })(),
       React.createElement("button", {
         onClick: function() {
           window._snConfirm("\u4ECA\u6708\u306E\u901A\u4FE1\u91CF\u30AB\u30A6\u30F3\u30BF\u30FC\u3092\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3059\u304B\uFF1F").then(function(_ok){ if(!_ok) return;
