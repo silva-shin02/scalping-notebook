@@ -181,7 +181,9 @@ function ChartSectionDailyCandle(_p_csdc) {
     var info = _caGetStockInfo(stock, custom);
     var code = (info && info.code) || "";
     if (!code) { setStatus("no-code"); return; }
-    var cached = _dcCacheLoad(code);
+    var _alive = true;   // 2026-10-17 キャッシュをIndexedDBへ（非同期）。読み終わる前に銘柄が変わったら捨てる
+    _dcCacheGetAsync(code).then(function(cached) {
+    if (!_alive) return;
     if (cached && cached.csv) {
       setBars(_parseDailyCsv(cached.csv));
       setStatus("loaded");
@@ -203,20 +205,24 @@ function ChartSectionDailyCandle(_p_csdc) {
         });
       };
       if (cached && ourAt > 0) {
+        // 更新確認は1時間に1回（銘柄履歴と同じ）。この effect は同期でデータが更新されるたび（custom の参照が変わるたび）に走るため 2026-10-17
+        if (Date.now() - (_dcVerifiedStocks[code] || 0) < 3600000) return;
         _dcLoadCsvUploadedAt(cfg, code).then(function(remoteAt) {
           if (remoteAt > 0 && remoteAt <= ourAt) {
-            
+            _dcVerifiedStocks[code] = Date.now();
             return;
           }
           
-          return _doFullCsvFetch();
+          return _doFullCsvFetch().then(function() { _dcVerifiedStocks[code] = Date.now(); });
         }).catch(function(){});
       } else {
-        _doFullCsvFetch().catch(function(){});
+        _doFullCsvFetch().then(function() { _dcVerifiedStocks[code] = Date.now(); }).catch(function(){});
       }
     } else if (!cached) {
       setStatus("no-data");
     }
+    });
+    return function() { _alive = false; };
   }, [stock, custom, cfg]);
   
   useEffect(function() {
@@ -590,7 +596,7 @@ function _dcLoadCsvUploadedAt(cfg, stockCode) {
   var auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
   return fetch(base + auth).then(function(r) {
     if (!r.ok) throw new Error("HTTP " + r.status);
-    return r.json();
+    return _fbJsonTracked(r, "日足CSV（更新確認）");
   }).then(function(j) {
     return typeof j === "number" ? j : 0;
   }).catch(function() { return 0; });
@@ -603,7 +609,7 @@ function _dcLoadCsvFromFb(cfg, stockCode) {
   var auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
   return fetch(base + auth).then(function(r) {
     if (!r.ok) throw new Error("HTTP " + r.status);
-    return r.json();
+    return _fbJsonTracked(r, "日足CSV");
   }).then(function(j) {
     return j ? { csv: j.csv || "", uploadedAt: j.uploadedAt || 0 } : null;
   }).catch(function(e) {
@@ -619,13 +625,32 @@ function _dcCacheLoad(stockCode) {
     return s ? JSON.parse(s) : null;
   } catch(e) { return null; }
 }
+// 日足CSVのキャッシュ 2026-10-17: localStorage → IndexedDB（キー "dccsv_<コード>"）＋メモリ。
+//   旧＝localStorageはアプリ本体のデータと同じ枠（約5MB）で、満杯だと保存に失敗しても何も出ず、日足欄を開くたびにCSVを丸ごと再取得していた
+//   （Firebase の Realtime Database ダウンロードの無料枠超過の一因になり得る）。旧キー sn_dc_csv_v1_<コード> は初回に読んでIDBへ移し、消す。
+var _dcMem = {};
+function _dcIdbWait() {
+  if (_snIdbReady) return Promise.resolve(true);
+  return new Promise(function(res) {
+    var n = 0, t = setInterval(function() { n++; if (_snIdbReady || n >= 40) { clearInterval(t); res(_snIdbReady); } }, 50);
+  });
+}
+function _dcCacheGetAsync(stockCode) {
+  if (!stockCode) return Promise.resolve(null);
+  if (_dcMem[stockCode]) return Promise.resolve(_dcMem[stockCode]);
+  return _dcIdbWait().then(function() { return snIdbGet("dccsv_" + stockCode); }).then(function(v) {
+    if (v && v.csv) { _dcMem[stockCode] = v; return v; }
+    var ls = _dcCacheLoad(stockCode);
+    if (ls && ls.csv) { _dcCacheSave(stockCode, ls.csv, ls.uploadedAt); return _dcMem[stockCode]; }
+    return null;
+  }, function() { return _dcCacheLoad(stockCode); });
+}
 function _dcCacheSave(stockCode, csv, uploadedAt) {
   if (!stockCode) return;
-  try {
-    localStorage.setItem("sn_dc_csv_v1_" + stockCode, JSON.stringify({
-      csv: csv, uploadedAt: uploadedAt || Date.now()
-    }));
-  } catch(e){}
+  var o = { csv: csv, uploadedAt: uploadedAt || Date.now() };
+  _dcMem[stockCode] = o;
+  try { snIdbSet("dccsv_" + stockCode, o); } catch(e){}
+  if (_snIdbReady) { try { localStorage.removeItem("sn_dc_csv_v1_" + stockCode); } catch(e){} }   // IDBが使えないときは旧キーを残す（次回も読める）
 }
 
 
@@ -4105,7 +4130,9 @@ function StockHistoryView(_ref_shv) {
       return;
     }
     
-    var cached = _dcCacheLoad(code);
+    var _alive = true;   // 2026-10-17 キャッシュをIndexedDBへ（非同期）
+    _dcCacheGetAsync(code).then(function(cached) {
+    if (!_alive) return;
     if (cached && cached.csv) {
       var bars = _parseDailyCsv(cached.csv);
       setDcBars(bars);
@@ -4152,6 +4179,8 @@ function StockHistoryView(_ref_shv) {
     } else if (!cached) {
       setDcStatus("no-cfg");
     }
+    });
+    return function() { _alive = false; };
   }, [selStock, custom, cfg]);
   
   var allEntries = useMemo(function() {

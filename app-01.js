@@ -1713,6 +1713,7 @@ function _fbUsageSave(u) {
 }
 
 window.addEventListener("beforeunload", _fbUsageFlush);
+window.addEventListener("beforeunload", function() { _fbDailyFlush(); });
 document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") _fbUsageFlush(); });
 function _fbUsageFormat(bytes) {
   if (bytes < 1024) return bytes + " B";
@@ -1736,7 +1737,31 @@ var _fbAutoPauseCb = null;
 
 function _fbSetAutoPauseCb(cb) { _fbAutoPauseCb = cb; }
 
-function _fbTrack(cat, bytes) {
+// 日別・種類別の内訳（ダウンロードのみ・この端末の値）2026-10-17。{ "YYYY-MM-DD": { 種類: [回数, バイト] } }・直近35日。
+//   設定＞同期の「Firebase通信量モニター」で表示する。種類（src）は呼び出し側が渡す（無ければ「その他」）。
+var _FB_DAILY_KEY = "sn_fb_usage_daily_v1", _fbDailyCache = null, _fbDailyTimer = null;
+function _fbDailyGet() {
+  if (_fbDailyCache) return _fbDailyCache;
+  try { _fbDailyCache = JSON.parse(localStorage.getItem(_FB_DAILY_KEY) || "{}") || {}; } catch (e) { _fbDailyCache = {}; }
+  return _fbDailyCache;
+}
+function _fbDailyFlush() {
+  if (!_fbDailyCache) return;
+  try {
+    var days = Object.keys(_fbDailyCache).sort();
+    while (days.length > 35) delete _fbDailyCache[days.shift()];
+    localStorage.setItem(_FB_DAILY_KEY, JSON.stringify(_fbDailyCache));
+  } catch (e) {}
+}
+function _fbDailyAdd(src, bytes) {
+  var d = new Date(), day = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  var all = _fbDailyGet(), o = all[day] || (all[day] = {}), e = o[src] || (o[src] = [0, 0]);
+  e[0]++; e[1] += (bytes || 0);
+  clearTimeout(_fbDailyTimer);
+  _fbDailyTimer = setTimeout(_fbDailyFlush, 2000);
+}
+function _fbTrack(cat, bytes, src) {
+  if (cat === "db_dl" || cat === "st_dl") { try { _fbDailyAdd(src || (cat === "st_dl" ? "画像（Storage）" : "その他"), bytes); } catch (e) {} }
   var u = _fbUsageGet();
   u[cat] = (u[cat] || 0) + (bytes || 0);
   
@@ -1751,9 +1776,9 @@ function _fbTrack(cat, bytes) {
 
 // fetch応答をJSONで読みつつ、受信した文字数をDBダウンロードとして計上する（CA関連の取得用）2026-10-17。
 //   旧＝r.json() で読んでいて _fbTrack を通らず、設定画面の使用量表示にCAの取得分が出ていなかった。
-function _fbJsonTracked(r) {
+function _fbJsonTracked(r, src) {
   return r.text().then(function(t) {
-    try { _fbTrack("db_dl", t ? t.length : 0); } catch (e) {}
+    try { _fbTrack("db_dl", t ? t.length : 0, src); } catch (e) {}
     return t ? JSON.parse(t) : null;
   });
 }
@@ -2003,7 +2028,7 @@ function fbGet(cfg) {
   var dataUrl = _makeFbDataUrl(cfg);  
   if (!metaUrl) return Promise.resolve(null);
   function _parse(txt) {
-    try { _fbTrack("db_dl", txt ? txt.length : 0); } catch(e){}
+    try { _fbTrack("db_dl", txt ? txt.length : 0, "同期（全件）"); } catch(e){}
     var d = null;
     try { d = txt ? JSON.parse(txt) : null; } catch(e) { d = null; }
     if (d === null || d === undefined) return "EMPTY";
@@ -2171,7 +2196,7 @@ function _fbPollV() {
           return r.json();
         case 4:
           v = _ctx.v;
-          _fbTrack("db_dl", 13); 
+          _fbTrack("db_dl", 13, "同期（版数確認）"); 
           return _ctx.a(2, typeof v === "number" ? v : null);
         case 5:
           _ctx.p = 5;
@@ -2241,7 +2266,7 @@ function fbGetDiff(cfg, localData, remoteV) {
   function _getJson(path) {
     return fetch(base + path + auth)
       .then(function(r) { if (!r.ok) return null; return r.text(); })
-      .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0); } catch(e) {} var o = null; try { o = t ? JSON.parse(t) : null; } catch(e) { o = null; } return o; });
+      .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0, "同期（署名一覧）"); } catch(e) {} var o = null; try { o = t ? JSON.parse(t) : null; } catch(e) { o = null; } return o; });
   }
   // 署名マップ取得: 新形式 _svc(サブキー粒度)を優先、無ければ旧 _sv(セクション粒度)。
   function _fetchSig() {
@@ -2311,7 +2336,7 @@ function fbGetDiff(cfg, localData, remoteV) {
     return Promise.all(fetches.map(function(f) {
       return fetch(base + f.url + auth)
         .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status + " " + f.url); return r.text(); })
-        .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0); } catch(e) {} return { f: f, v: t ? JSON.parse(t) : null }; });
+        .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0, "同期（差分）"); } catch(e) {} return { f: f, v: t ? JSON.parse(t) : null }; });
     })).then(function(parts) {
       for (var pi = 0; pi < parts.length; pi++) {
         var pp = parts[pi];

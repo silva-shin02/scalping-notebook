@@ -1211,11 +1211,11 @@ function _caOpen(code, date, draftId) {
 
 var _caMetaCache = { data: null, at: 0, err: null };
 var _caMetaInFlight = null; 
-var CA_META_TTL = 30 * 1000; 
-
+// CA下書き一覧（/chart-annotator-drafts を丸ごと）の取得。2026-10-17: 一度読めたらアプリを閉じるまで使い回し、forceRefresh（各欄の↻）でだけ取り直す。
+//   旧＝30秒キャッシュで、日別ページのCAチャート欄・日足・銘柄履歴などを開くたびに一覧を丸ごと再取得していた（Realtime Database ダウンロードの無料枠超過の一因）。
 function _caFetchMeta(cfg, forceRefresh) {
   var now = Date.now();
-  if (!forceRefresh && _caMetaCache.data && (now - _caMetaCache.at) < CA_META_TTL) {
+  if (!forceRefresh && _caMetaCache.data) {
     return Promise.resolve(_caMetaCache.data);
   }
   
@@ -1230,7 +1230,7 @@ function _caFetchMeta(cfg, forceRefresh) {
   var p = fetch(base + ".json" + auth)
     .then(function(r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
-      return _fbJsonTracked(r);
+      return _fbJsonTracked(r, "CA下書き一覧");
     })
     .then(function(j) {
       if (!j || typeof j !== "object") {
@@ -1332,12 +1332,12 @@ function _caTagLocalRaw() {
     return { metas: metas, map: map, defs: Array.isArray(defs) ? defs : [], cats: Array.isArray(cats) ? cats : [] };
   } catch (e) { return null; }
 }
-function _caTagFetchFb(cfg) {
+function _caTagFetchFb(cfg, force) {
   var base = cfg.fbUrl.replace(/\/$/, ""), auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
   var get = function(p) {
-    return fetch(base + p + ".json" + auth).then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r); });
+    return fetch(base + p + ".json" + auth).then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r, "CAタグ"); });
   };
-  return Promise.all([_caFetchMeta(cfg, false), get("/ca-chart-tags"), get("/ca-tag-defs"), get("/ca-tag-cats")]).then(function(r) {
+  return Promise.all([_caFetchMeta(cfg, !!force), get("/ca-chart-tags"), get("/ca-tag-defs"), get("/ca-tag-cats")]).then(function(r) {
     var map = {}, t = r[1] || {};
     Object.keys(t).forEach(function(id) { var v = t[id]; if (v && Array.isArray(v.tagIds) && v.tagIds.length) map[id] = v.tagIds; });
     return { metas: (r[0] || []).slice(), map: map,
@@ -1352,7 +1352,7 @@ function _caTagsRefresh(cfg, force) {
   if (!force && _caTagRaw) return Promise.resolve(_caTagRaw);
   if (_caTagLoading) return _caTagLoading;
   var fbP = (cfg && cfg.fbUrl)
-    ? _caTagFetchFb(cfg).catch(function(e) { try { console.warn("[CA tags] firebase failed:", e); } catch (_) {} return null; })
+    ? _caTagFetchFb(cfg, force).catch(function(e) { try { console.warn("[CA tags] firebase failed:", e); } catch (_) {} return null; })
     : Promise.resolve(null);
   _caTagLoading = fbP.then(function(fb) {
     var loc = _caTagLocalRaw(), raw = fb;
@@ -1518,7 +1518,7 @@ function _caFetchDraftData(cfg, draftId, forceRefresh) {
     return fetch(base + "/" + encodeURIComponent(draftId) + ".json" + auth)
       .then(function(r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
-        return _fbJsonTracked(r);
+        return _fbJsonTracked(r, "CA下書きデータ");
       })
       .then(function(data) {
         if (!data) return null;
@@ -1890,7 +1890,7 @@ function _simLoadFeature(cfg, draftId) {
     var base = cfg.fbUrl.replace(/\/$/, "") + "/chart-annotator-drafts-features";
     var auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
     return fetch(base + "/" + encodeURIComponent(draftId) + ".json" + auth)
-      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r); })
+      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r, "類似検索の特徴量"); })
       .then(function(j) {
         if (j) {
           _simFeatureMemCache[draftId] = j;
@@ -1904,7 +1904,7 @@ function _simLoadFeature(cfg, draftId) {
     var base2 = cfg.fbUrl.replace(/\/$/, "") + "/chart-annotator-drafts-features";
     var auth2 = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
     return fetch(base2 + "/" + encodeURIComponent(draftId) + ".json" + auth2)
-      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r); })
+      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r, "類似検索の特徴量"); })
       .then(function(j) { if (j) _simFeatureMemCache[draftId] = j; return j; })
       .catch(function() { return null; });
   });
@@ -1938,7 +1938,7 @@ function _simBulkLoadAllFeatures(cfg) {
   var base = cfg.fbUrl.replace(/\/$/, "") + "/chart-annotator-drafts-features";
   var auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
   _simBulkFeaturesPromise = fetch(base + ".json" + auth)
-    .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r); })
+    .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r, "類似検索の特徴量"); })
     .then(function(j) {
       if (j && typeof j === "object") {
         Object.keys(j).forEach(function(id) {
