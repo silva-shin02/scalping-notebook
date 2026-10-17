@@ -4042,10 +4042,38 @@ function _elCeInfo(s, alpha, cutLine) {
   var a = _elHoldFinalParts(s, alpha, cutLine).main, b = _elHoldFinalParts(base, alpha, cutLine).main;
   return { ce: r.ce, skipIdx: r.skipIdx, epIdx: r.epIdx, px: r.ce ? r.px : null, diff: (a || 0) - (b || 0) };
 }
-// 記録一覧の目印「5分確定」＋α約定比の差額。
+// 「時刻が確定足」の記録か（既存記録を含む・一覧の目印/絞り込み/記録帳の一覧帯用）2026-10-17b。
+//   判定足＝このαで最初にα値を上抜けた足（OS1〜3・確定足で入らない規約は無視）。その足の時刻（OS1＋足番号分）が分の1の位4/9、またはチェック欄で付けた足なら対象。
+//   checked＝チェック済み（ceOnを持ち、その足が確定足扱い）＝計算も終値約定。未チェックは計算はα値約定のまま。
+function _elCeCand(s, alpha) {
+  if (!s || !_epIsV2(s) || alpha == null) return null;
+  var legs = _epLegs(s), k0 = -1;
+  for (var i = 0; i < Math.min(3, legs.length); i++) { if (_epHit(s, legs[i].h, alpha)) { k0 = i; break; } }
+  if (k0 < 0) return null;
+  var on = _epCeOn(s) && _epCeBar(s, k0);
+  if (!on && !_epCeTimeBar(s.time, k0)) return null;
+  return { k0: k0, checked: on, time: _epCeTimeAt(s.time, k0) };
+}
+// 未チェックの対象記録に「チェックを付けたら」の想定損益の差（付けた場合 − 今）。
+function _elCeCandDiff(s, alpha, cutLine) {
+  var c = _elCeCand(s, alpha);
+  if (!c || c.checked) return null;
+  var sim = Object.assign({}, s, { ceOn: true, ceIdx: c.k0 });
+  return (_elHoldFinalParts(sim, alpha, cutLine).main || 0) - (_elHoldFinalParts(s, alpha, cutLine).main || 0);
+}
+// 記録一覧の目印「5分確定」＋α約定比の差額。未チェックの対象記録は薄い「5分確定（未）」＋付けたら±円。
 function _elCeBadge(s, alpha, cutLine) {
   var ci = _elCeInfo(s, alpha, cutLine != null ? cutLine : 15);
-  if (!ci) return null;
+  if (!ci) {
+    var _cd = _elCeCand(s, alpha);
+    if (!_cd || _cd.checked) return null;
+    var _ud = cutLine != null ? _elCeCandDiff(s, alpha, cutLine) : null;
+    return React.createElement("span", {
+      title: "5分足確定足の時刻（OS" + (_cd.k0 + 1) + "＝" + _cd.time + "）だがチェックなし＝α値で約定した計算のまま。" + (_ud != null ? "チェックを付けると想定損益が " + (_ud > 0 ? "+" : "") + _ud.toLocaleString() + "円 変わる。" : "") + "編集でチェックを付けられます。",
+      style: { display: "inline-flex", alignItems: "center", gap: 2, fontSize: 9, fontWeight: 700, color: "#67B7C7", background: "#fff", border: "1px dashed #A5F3FC", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 }
+    }, "5分確定（未）",
+      _ud != null ? React.createElement("span", { style: { color: _ud > 0 ? "#E08A80" : _ud < 0 ? "#6FB58A" : "#aaa" } }, (_ud > 0 ? "+" : _ud < 0 ? "−" : "±") + Math.abs(_ud).toLocaleString()) : null);
+  }
   var d = ci.diff;
   if (cutLine == null) return React.createElement("span", { title: ci.ce ? "5分足確定足：EP足の終値で約定" : "5分足確定足：終値がα以下のためその足では入らず", style: { fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#ECFEFF", border: "1px solid #67E8F9", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, ci.ce ? "5分確定" : "5分確定・入らず");   // 損切り値が分からない表では差額を出さない
   return React.createElement("span", {

@@ -6792,7 +6792,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
   var _uAA = useState("all"), _addAlphaFilRaw = _uAA[0], setAddAlphaFil = _uAA[1], addAlphaFil = legacy ? _addAlphaFilRaw : "all";   // 2026-10-05 VAP枠(8/20以降)に基本/応用の概念は無い（ユーザー指示）＝分類は常に「全記録」・トグルも出さない。   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
-  var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
+  var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];
+  var _uCeF = useState("all"), ceFil = _uCeF[0], setCeFil = _uCeF[1];   // 🗂記録一覧の5分足確定足の絞り込み（all/ce＝時刻が確定足の記録すべて/un＝そのうち未チェック・表示のみ）2026-10-17b   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
   var _uSO = useState("desc"), recOrder = _uSO[0], setRecOrder = _uSO[1];   // 記録一覧の並び順 2026-07-27（ユーザー指定）: "desc"=日付が新しい順（既定）／"asc"=古い順。どちらでも各日付の中は時間が早い順。全一覧で共通の1つの状態＝どこで切り替えても全部に効く
   var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値同値」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
@@ -8359,7 +8360,15 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           (function(){
             var _cn = _elCollExclCountRecs(data, _fr, _collScope);
             var _rvN = _fr.filter(function(r){ return r.signal && _elIsReview(r.signal); }).length;   // この銘柄・このビューの要審議件数 2026-07-18g
-            if (_cn <= 0 && _rvN <= 0) return null;
+            var _ceAll = _fr.filter(function(r){ return r.signal && _elCeCand(r.signal, _ai(r).alpha); });   // 時刻が確定足の記録 2026-10-17b
+            var _ceUn = _ceAll.filter(function(r){ return !_elCeCand(r.signal, _ai(r).alpha).checked; }).length;
+            var _ceSeg = (_ceAll.length || ceFil !== "all") ? React.createElement("span", { style: { display: "inline-flex", border: "1px solid #67E8F9", borderRadius: 10, overflow: "hidden" } },
+              [["all", "全て"], ["ce", "5分確定（" + _ceAll.length + "）"], ["un", "未チェック（" + _ceUn + "）"]].map(function(o) {
+                var _on = ceFil === o[0];
+                return React.createElement("button", { key: o[0], type: "button", onClick: function(){ setCeFil(o[0]); },
+                  style: { padding: "3px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none", background: _on ? "#0E7490" : "#ECFEFF", color: _on ? "#fff" : "#0E7490" } }, o[1]);
+              })) : null;
+            if (_cn <= 0 && _rvN <= 0 && !_ceSeg) return null;
             return React.createElement("div", { style: { marginBottom: 6, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 } },
               _cn > 0 ? React.createElement("button", { type: "button", onClick: function(){ setCollOnly(!collOnly); },
                 style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (collOnly ? "#6D28D9" : "#C4B5FD"), background: collOnly ? "#6D28D9" : "#F5F3FF", color: collOnly ? "#fff" : "#6D28D9" } },
@@ -8368,9 +8377,10 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
                 style: { padding: "3px 11px", fontSize: 11, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "1px solid " + (reviewOnly ? "#BE185D" : "#FBCFE8"), background: reviewOnly ? "#DB2777" : "#FDF2F8", color: reviewOnly ? "#fff" : "#BE185D" } },
                 (reviewOnly ? "✓ " : "") + "要審議のみ（" + _rvN + "件）") : null,
               collOnly ? React.createElement("span", { style: { fontSize: 10, color: "#6D28D9", fontWeight: 700 } }, "時間かぶりで合計から除外した記録だけ表示中（タップで解除）") : null,
-              reviewOnly ? React.createElement("span", { style: { fontSize: 10, color: "#BE185D", fontWeight: 700 } }, "要審議（審）の記録だけ表示中（タップで解除・行タップで明細→編集）") : null);
+              reviewOnly ? React.createElement("span", { style: { fontSize: 10, color: "#BE185D", fontWeight: 700 } }, "要審議（審）の記録だけ表示中（タップで解除・行タップで明細→編集）") : null,
+              _ceSeg);
           })(),
-          _recTable((function(){ var _sh = _fr; if (collOnly) _sh = _sh.filter(function(r){ return _elCollExcluded(data, r, _collScope); }); if (reviewOnly) _sh = _sh.filter(function(r){ return r.signal && _elIsReview(r.signal); }); return _sh; })().slice().sort(_byDateAsc), "full", "gp_" + (_dv === "all" ? "" : _dv + "_")));
+          _recTable((function(){ var _sh = _fr; if (collOnly) _sh = _sh.filter(function(r){ return _elCollExcluded(data, r, _collScope); }); if (reviewOnly) _sh = _sh.filter(function(r){ return r.signal && _elIsReview(r.signal); }); if (ceFil !== "all") _sh = _sh.filter(function(r){ var _c = r.signal && _elCeCand(r.signal, _ai(r).alpha); return !!_c && (ceFil === "ce" || !_c.checked); }); return _sh; })().slice().sort(_byDateAsc), "full", "gp_" + (_dv === "all" ? "" : _dv + "_")));
       })]);
   };
 
@@ -8617,7 +8627,11 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           return o;
         };
         var _m = _agg(_sumMonthRecs2), _all = _agg(_v2recsAmt);
-        if (!_all.n) return null;
+        // 時刻が確定足の記録すべて（既存記録を含む・期間フィルタ内）。新しい順・チェック済みは濃い色/未チェックは薄い色・押すと編集フォーム。
+        var _cands = v2recs.map(function(r) { var _a = _ai(r), c = _elCeCand(r.signal, _a.alpha); return c ? { r: r, c: c, a: _a } : null; }).filter(Boolean)
+          .sort(function(x, y) { return _byDateDescTimeAsc(x.r, y.r); });
+        if (!_all.n && !_cands.length) return null;
+        var _unN = _cands.filter(function(x) { return !x.c.checked; }).length;
         var _part = function(lbl, o) {
           return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
             React.createElement("span", { style: { color: "#64748B" } }, lbl),
@@ -8627,9 +8641,22 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
             React.createElement("b", { style: { color: _elPnlColor(o.diff) } }, (o.diff > 0 ? "+" : "") + o.diff.toLocaleString() + "円"));
         };
         return React.createElement("div", { key: "cenote", title: "5分足確定足：α値に届いた足が5分足の確定足なら、その足の終値でエントリーした扱い（試行）。α約定比＝想定損益の「確定足エントリー − α値で約定した場合」の差の合計。", style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "5px 11px", background: "#ECFEFF", border: "1px solid #A5F3FC", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#155E75", fontWeight: 600 } },
-          React.createElement("span", { style: { fontWeight: 800 } }, "5分確定"),
-          _part(_curSumYM.m + "月", _m),
-          _part("累計", _all));
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", width: "100%" } },
+            React.createElement("span", { style: { fontWeight: 800 } }, "5分確定"),
+            _part(_curSumYM.m + "月", _m),
+            _part("累計", _all),
+            _cands.length ? React.createElement("span", { style: { fontSize: 10, color: "#64748B" } }, "時刻が確定足の記録 " + _cands.length + "件（未チェック " + _unN + "件）") : null),
+          _cands.length ? React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", width: "100%" } },
+            _cands.map(function(x, i) {
+              var r = x.r, on = x.c.checked;
+              var d = on ? (function() { var ci = _elCeInfo(r.signal, x.a.alpha, x.a.cutLine); return ci ? ci.diff : null; })() : _elCeCandDiff(r.signal, x.a.alpha, x.a.cutLine);
+              return React.createElement("button", { key: "ce_" + i, type: "button", onClick: function() { setEditTarget(r); },
+                title: (on ? "チェック済み（終値で約定）" : "未チェック（α値で約定の計算のまま）") + "・押すと編集フォームを開きます",
+                style: { fontSize: 10, fontWeight: 700, cursor: "pointer", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap",
+                  background: on ? "#CFFAFE" : "#fff", color: on ? "#155E75" : "#67B7C7", border: "1px " + (on ? "solid #22D3EE" : "dashed #A5F3FC") } },
+                (r.date || "").slice(5) + " " + r.stock + " OS" + (x.c.k0 + 1) + "=" + (x.c.time || "") + (on ? "" : "（未）"),
+                d != null ? React.createElement("span", { style: { marginLeft: 4, color: on ? _elPnlColor(d) : (d > 0 ? "#E08A80" : d < 0 ? "#6FB58A" : "#aaa") } }, (d > 0 ? "+" : d < 0 ? "−" : "±") + Math.abs(d).toLocaleString()) : null);
+            })) : null);
       })();
       var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
