@@ -8629,7 +8629,7 @@ function EntryRecordForm(_ref_erf) {
     if (wSign == null) { setFPlanSign(null); setFPlan("0"); return; }
     var planAmt = Math.round(Math.abs(width) * 100);
     setFPlanSign(planAmt === 0 ? null : wSign); setFPlan(String(planAmt));
-  }, [fStock, fDate, data, _fAlpha, _fCutLine, fOsConfSign, fOsConfVal, fOsVal, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign]);
+  }, [fStock, fDate, data, _fAlpha, _fCutLine, fOsConfSign, fOsConfVal, fOsVal, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign, fCeOn, fTime]);   // 5分足確定足（約定値＝終値）が変わったら再計算 2026-10-17
 
   
   
@@ -8669,7 +8669,7 @@ function EntryRecordForm(_ref_erf) {
     if (confSigned < av) { setFResult("ok"); return; }
     if (confSigned === av) { setFResult("draw"); return; }
     setFResult("ng");
-  }, [fStock, fDate, data, _fAlpha, _fCutLine, fOsVal, fOsConfSign, fOsConfVal, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign]);
+  }, [fStock, fDate, data, _fAlpha, _fCutLine, fOsVal, fOsConfSign, fOsConfVal, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign, fCeOn, fTime]);   // 5分足確定足（約定値＝終値）が変わったら再計算 2026-10-17
 
   
   useEffect(function() {
@@ -8749,7 +8749,8 @@ function EntryRecordForm(_ref_erf) {
     setFHoldPnlVal(String(Math.abs(Math.round(_result))));
   }, [fStock, fDate, data, _fAlpha, _fCutLine, fHoldWidthSign, fHoldWidthVal, fHoldHighSign, fHoldHighVal, fResult,
       fOsVal, fOsConfVal, fOsConfSign, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign,
-      fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal]);
+      fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal,
+      fCeOn, fTime, fNxs]);   // 5分足確定足・次足期待度（損切り持ち続け stopHold）が変わったら再計算 2026-10-17
 
   
   useEffect(function() {
@@ -8798,7 +8799,7 @@ function EntryRecordForm(_ref_erf) {
     } else if (sPlan < 0 && sHold > 0) {
       setFHoldProfit("yes");
     }
-  }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign, fOsVal, _fAlpha, _fCutLine, fHoldHighSign, fHoldHighVal, fHoldExp]);
+  }, [fResult, fPlan, fPlanSign, fHoldPnlVal, fHoldPnlSign, fOsVal, _fAlpha, _fCutLine, fHoldHighSign, fHoldHighVal, fHoldExp, _fPlanStopNow]);   // _fPlanStopNow: 本体で使うのに未登録だった 2026-10-17
 
   // === Hold2(H2) 自動計算（H1と同一ロジック） ===
   useEffect(function() {
@@ -8847,7 +8848,8 @@ function EntryRecordForm(_ref_erf) {
     setFHold2PnlSign(_result === 0 ? null : (_result > 0 ? "+" : "-"));
     setFHold2PnlVal(String(Math.abs(Math.round(_result))));
   }, [fStock, fDate, data, _fAlpha, _fCutLine, fHold2WidthSign, fHold2WidthVal, fHold2HighSign, fHold2HighVal, fResult, fOsVal, fHoldHighSign, fHoldHighVal,
-      fOsConfVal, fOsConfSign, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign, fHoldWidthSign, fHoldWidthVal]);
+      fOsConfVal, fOsConfSign, fOs2High, fOs2HighSign, fOs2Conf, fOs2ConfSign, fOs3High, fOs3HighSign, fOs3Conf, fOs3ConfSign, fHoldWidthSign, fHoldWidthVal,
+      fCeOn, fTime, fNxs]);   // 同上 2026-10-17
 
   useEffect(function() {
     // EP損益 or H1の結果損益が損切りの間は損益変化も「損切り済(stop)」を自動選択。
@@ -8885,7 +8887,7 @@ function EntryRecordForm(_ref_erf) {
     } else if (sBase < 0 && sHold > 0) {
       setFHold2Profit("yes");
     }
-  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign, fOsVal, fResult, fHoldHighSign, fHoldHighVal, fHold2HighSign, fHold2HighVal, _fAlpha, _fCutLine, _fPlanStopNow, fHold2Exp]);
+  }, [fHoldPnlVal, fHoldPnlSign, fHold2PnlVal, fHold2PnlSign, fOsVal, fResult, fHoldHighSign, fHoldHighVal, fHold2HighSign, fHold2HighVal, _fAlpha, _fCutLine, _fPlanStopNow, fHold2Exp, _fH1StopNow]);   // _fH1StopNow: 本体で使うのに未登録だった 2026-10-17
 
   // 期待度（H1/H2）の「損切り済」自動選択は廃止し手動選択に変更（表側の「損切」表示はライブα計算で従来どおり）。
 
