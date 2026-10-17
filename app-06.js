@@ -8661,38 +8661,42 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       })();
       // スルーの理由別の件数 2026-10-17（ユーザー要望）。期間フィルタ内のスルー記録（合計・分析には入らない）を理由ごとに数える。複数選択なので合計は件数より多くなり得る。
       //   押すとその理由の記録を新しい順にボタンで並べる（押すと編集フォーム）。理由なし＝選択肢の無いスルー（2026-10-17より前の記録など）。
-      var _thruNote = (function() {
-        var _th = filtered.filter(function(r) { return r.signal && r.signal.passThrough === true; });
+      // 2026-10-17b 要審議も同じ帯を出すため関数化（_rsnNoteOf）。o: {k, flag, sigKey, masterKey, defs, title, unit}
+      var _rsnNoteOf = function(o) {
+        var _th = filtered.filter(function(r) { return r.signal && r.signal[o.flag] === true; });
         if (!_th.length) return null;
         var _cnt = {}, _ord = [], _none = [];
-        var _mst = (data.custom && Array.isArray(data.custom.thruReasons)) ? data.custom.thruReasons : _DEF_THRU_REASONS;
+        var _mst = (data.custom && Array.isArray(data.custom[o.masterKey])) ? data.custom[o.masterKey] : o.defs;
         _mst.forEach(function(n) { _cnt[n] = []; _ord.push(n); });
         _th.forEach(function(r) {
-          var l = Array.isArray(r.signal.thruReasons) ? r.signal.thruReasons.filter(Boolean) : [];
+          var l = Array.isArray(r.signal[o.sigKey]) ? r.signal[o.sigKey].filter(Boolean) : [];
           if (!l.length) { _none.push(r); return; }
           l.forEach(function(n) { if (!_cnt[n]) { _cnt[n] = []; _ord.push(n); } _cnt[n].push(r); });
         });
         var _chip = function(key, label, rs) {
-          var on = thruOpen === key;
-          return React.createElement("button", { key: "th_" + key, type: "button", disabled: !rs.length, onClick: function() { setThruOpen(on ? null : key); },
+          var on = thruOpen === o.k + ":" + key;
+          return React.createElement("button", { key: o.k + "_c_" + key, type: "button", disabled: !rs.length, onClick: function() { setThruOpen(on ? null : o.k + ":" + key); },
             style: { fontSize: 10, fontWeight: 700, cursor: rs.length ? "pointer" : "default", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap",
               background: on ? "#4B5563" : "#fff", color: on ? "#fff" : (rs.length ? "#374151" : "#bbb"), border: "1px solid " + (on ? "#4B5563" : "#D1D5DB") } },
             label + " " + rs.length + "件");
         };
-        var _openRs = thruOpen == null ? null : (thruOpen === "__none__" ? _none : (_cnt[thruOpen] || []));
-        return React.createElement("div", { key: "thrunote", style: { padding: "5px 11px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#374151", fontWeight: 600 } },
+        var _op = (thruOpen && thruOpen.indexOf(o.k + ":") === 0) ? thruOpen.slice(o.k.length + 1) : null;
+        var _openRs = _op == null ? null : (_op === "__none__" ? _none : (_cnt[_op] || []));
+        return React.createElement("div", { key: o.k + "note", style: { padding: "5px 11px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#374151", fontWeight: 600 } },
           React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
-            React.createElement("span", { style: { fontWeight: 800 } }, "スルー理由"),
-            React.createElement("span", { style: { fontSize: 10, color: "#6B7280" } }, "（スルー " + _th.length + "件・複数選択あり）"),
+            React.createElement("span", { style: { fontWeight: 800 } }, o.title),
+            React.createElement("span", { style: { fontSize: 10, color: "#6B7280" } }, "（" + o.unit + " " + _th.length + "件・複数選択あり）"),
             _ord.map(function(n) { return _chip(n, n, _cnt[n]); }),
             _none.length ? _chip("__none__", "理由なし", _none) : null),
           (_openRs && _openRs.length) ? React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 } },
             _openRs.slice().sort(_byDateDescTimeAsc).map(function(r, i) {
-              return React.createElement("button", { key: "thr_" + i, type: "button", onClick: function() { setEditTarget(r); }, title: "押すと編集フォームを開きます",
+              return React.createElement("button", { key: o.k + "_r_" + i, type: "button", onClick: function() { setEditTarget(r); }, title: "押すと編集フォームを開きます",
                 style: { fontSize: 10, fontWeight: 700, cursor: "pointer", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap", background: "#fff", color: "#4B5563", border: "1px solid #D1D5DB" } },
                 (r.date || "").slice(5) + " " + r.stock + " " + ((r.signal && r.signal.time) || ""));
             })) : null);
-      })();
+      };
+      var _thruNote = _rsnNoteOf({ k: "thru", flag: "passThrough", sigKey: "thruReasons", masterKey: "thruReasons", defs: _DEF_THRU_REASONS, title: "スルー理由", unit: "スルー" });
+      var _reviewNote = _rsnNoteOf({ k: "review", flag: "review", sigKey: "reviewReasons", masterKey: "reviewReasons", defs: _DEF_REVIEW_REASONS, title: "要審議の理由", unit: "要審議" });
       var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
         _sumMonthNav,
@@ -8700,6 +8704,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
         _ceNote,
         _thruNote,
+        _reviewNote,
         _oldRecNote,
         _vapNote,
         [

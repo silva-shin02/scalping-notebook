@@ -1273,7 +1273,7 @@ function SearchView(_ref45) {
       })), _toConsumableArray(chartArr.flatMap(function (c) {
         return (c && c.signals || []).flatMap(function(s) {
           // skipReasons＝見送り理由の選択肢（2026-08-18の2段構成）。詳細(skipMemo)と同じく検索対象にする。
-          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", (Array.isArray(s.thruReasons) ? s.thruReasons.join(" ") : ""), s.reviewMemo || "", s.skipMemo || "", s.tradeType || ""].concat(Array.isArray(s.skipReasons) ? s.skipReasons.filter(Boolean) : []).concat(_sigDetailNames(s));
+          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", (Array.isArray(s.thruReasons) ? s.thruReasons.join(" ") : ""), s.reviewMemo || "", (Array.isArray(s.reviewReasons) ? s.reviewReasons.join(" ") : ""), s.skipMemo || "", s.tradeType || ""].concat(Array.isArray(s.skipReasons) ? s.skipReasons.filter(Boolean) : []).concat(_sigDetailNames(s));
         });
       }))).join(" ").toLowerCase();
       if (!hay.includes(kw)) return false;
@@ -1411,7 +1411,7 @@ function SearchView(_ref45) {
       })) return "charts";
       if (chartArr.some(function (c) {
         return c && (c.signals || []).some(function(s) {
-          return (s.rationale || "").toLowerCase().includes(kw) || (s.reflection || "").toLowerCase().includes(kw) || (s.thruMemo || "").toLowerCase().includes(kw) || (Array.isArray(s.thruReasons) ? s.thruReasons.join(" ") : "").toLowerCase().includes(kw) || (s.reviewMemo || "").toLowerCase().includes(kw) || (s.skipMemo || "").toLowerCase().includes(kw) || (Array.isArray(s.skipReasons) && s.skipReasons.some(function(_r) { return String(_r || "").toLowerCase().includes(kw); })) || (s.tradeType || "").toLowerCase().includes(kw);
+          return (s.rationale || "").toLowerCase().includes(kw) || (s.reflection || "").toLowerCase().includes(kw) || (s.thruMemo || "").toLowerCase().includes(kw) || (Array.isArray(s.thruReasons) ? s.thruReasons.join(" ") : "").toLowerCase().includes(kw) || (Array.isArray(s.reviewReasons) ? s.reviewReasons.join(" ") : "").toLowerCase().includes(kw) || (s.reviewMemo || "").toLowerCase().includes(kw) || (s.skipMemo || "").toLowerCase().includes(kw) || (Array.isArray(s.skipReasons) && s.skipReasons.some(function(_r) { return String(_r || "").toLowerCase().includes(kw); })) || (s.tradeType || "").toLowerCase().includes(kw);
         });
       })) return "charts";
       if ((dd.items || []).some(function (t) {
