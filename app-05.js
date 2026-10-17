@@ -6756,6 +6756,122 @@ function _snIsSkipRec(s, item) { return !!(s && !_elIsEntered(s, item) && s.pass
 // ⚠️マスターを改名すると過去記録の skipReasons も一括追従する（フォームの _renameSkipR）。この定数は追従しないので、
 //   ここに書いた名前で分岐する処理を足さないこと（名前一致で判定するコードを作らない）。
 var _DEF_SKIP_REASONS = ["見逃し", "エントリー迷い", "市場見れず"];
+// ===== スルーの理由（選択肢）2026-10-17（ユーザー要望「スルーの根拠を文章→選択肢に・追加/改名/並べ替え/削除」）=====
+// ①選択肢＝signal.thruReasons[]（複数選択可）。マスターは data.custom.thruReasons（全端末同期）。既定は下の定数（ユーザー指定）。
+// 旧 signal.thruMemo（文章）は入力欄を廃止＝既存記録の文章は表示だけ残す（フォーム・記録カード）。新規の記録には付かない。
+var _DEF_THRU_REASONS = ["5分足確定足", "EMAの並び", "指標線支え"];
+// 選択肢チップの共通部品（追加・改名・削除・ドラッグ並べ替え）2026-10-17。見送り理由のフォーム内実装と同じ操作感で、スルー理由に使う。
+//   props: data, save, masterKey（custom のキー）, defaults, sigKey（signal のキー＝改名を過去記録へ一括追従）, value[], onChange(list), noun（表示名）
+//   ⚠️改名は全 charts[*].signals[*][sigKey] にも反映（既存名への改名は統合）。削除は選択肢から外すだけ＝過去記録の名前は残り、フォームでは「（一覧外）」で出る。
+function _SnReasonPicker(props) {
+  var data = props.data, save = props.save, mk = props.masterKey, sk = props.sigKey, noun = props.noun || "理由";
+  var value = props.value || [], onChange = props.onChange;
+  var _u1 = useState(false), mgr = _u1[0], setMgr = _u1[1];
+  var _u2 = useState(null), order = _u2[0], setOrder = _u2[1];
+  var _u3 = useState(null), inp = _u3[0], setInp = _u3[1];
+  var dragRef = useRef(null), movedRef = useRef(false), valRef = useRef("");
+  var master = (data && data.custom && Array.isArray(data.custom[mk])) ? data.custom[mk] : props.defaults;
+  var list = (order && order.list) ? order.list : master;
+  var orphans = value.filter(function(x) { return x && list.indexOf(x) < 0; });
+  var curOf = function(prev) { return (prev.custom && Array.isArray(prev.custom[mk])) ? prev.custom[mk] : props.defaults.slice(); };
+  var setMaster = function(prev, arr) { var c = Object.assign({}, prev.custom || {}); c[mk] = arr; return Object.assign({}, prev, { custom: c }); };
+  var add = function(nm) {
+    nm = (nm || "").trim(); if (!nm) return;
+    save(function(prev) { var cur = curOf(prev); return cur.indexOf(nm) >= 0 ? prev : setMaster(prev, cur.concat([nm])); });
+    if (value.indexOf(nm) < 0) onChange(value.concat([nm]));   // 追加したものはこの記録で選択済みに
+  };
+  var del = function(nm) {
+    save(function(prev) { return setMaster(prev, curOf(prev).filter(function(x) { return x !== nm; })); });
+    onChange(value.filter(function(x) { return x !== nm; }));
+  };
+  var rename = function(oldNm, newNm) {
+    newNm = (newNm || "").trim(); if (!newNm || newNm === oldNm) return;
+    var dd = function(a) { return a.filter(function(x, i) { return x && a.indexOf(x) === i; }); };
+    save(function(prev) {
+      var nm = dd(curOf(prev).map(function(x) { return x === oldNm ? newNm : x; }));
+      var charts = prev.charts || {}, nc = {};
+      Object.keys(charts).forEach(function(ck) {
+        var c = charts[ck];
+        if (!c || !Array.isArray(c.signals)) { nc[ck] = c; return; }
+        var ch = false;
+        var sigs = c.signals.map(function(sg) {
+          if (!sg || !Array.isArray(sg[sk]) || sg[sk].indexOf(oldNm) < 0) return sg;
+          ch = true; var o = Object.assign({}, sg); o[sk] = dd(sg[sk].map(function(x) { return x === oldNm ? newNm : x; })); return o;
+        });
+        nc[ck] = ch ? Object.assign({}, c, { signals: sigs }) : c;
+      });
+      return Object.assign({}, setMaster(prev, nm), { charts: nc });
+    });
+    onChange(dd(value.map(function(x) { return x === oldNm ? newNm : x; })));
+  };
+  var optBtn = function(label, sel, onClick, dashed, title) {
+    return React.createElement("button", { type: "button", onClick: onClick, title: title || null,
+      style: { padding: "3px 9px", fontSize: 11, fontWeight: sel ? 800 : 600,
+        border: sel ? "2px solid #1D4ED8" : (dashed ? "1px dashed #bbb" : "1px solid #ddd"),
+        background: sel ? "#EFF6FF" : "#fff", color: sel ? "#1D4ED8" : "#666", borderRadius: 5, cursor: "pointer", lineHeight: 1.3 } }, label);
+  };
+  var attr = "data-rsnpk-" + mk;
+  return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 } },
+    React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4 } },
+      list.map(function(rsn) {
+        var on = value.indexOf(rsn) >= 0, d0 = dragRef.current, dragging = !!(d0 && d0.started && d0.name === rsn);
+        var pr = { key: rsn,
+          onPointerDown: function(e) { dragRef.current = { name: rsn, sx: e.clientX, sy: e.clientY, started: false, list: null }; },
+          onPointerMove: function(e) {
+            var d = dragRef.current; if (!d || d.name !== rsn) return;
+            if (!d.started) {
+              if (Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) < 7) return;
+              d.started = true; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_e) {}
+              d.list = master.slice(); movedRef.current = true; setOrder({ list: d.list.slice() }); return;
+            }
+            var el = document.elementFromPoint(e.clientX, e.clientY), chip = (el && el.closest) ? el.closest("[" + attr + "]") : null;
+            if (!chip) return;
+            var over = chip.getAttribute(attr); if (!over || over === d.name) return;
+            var l = d.list.slice(), fi = l.indexOf(d.name), ti = l.indexOf(over); if (fi < 0 || ti < 0 || fi === ti) return;
+            l.splice(fi, 1); l.splice(ti, 0, d.name); d.list = l; setOrder({ list: l.slice() });
+          },
+          onPointerUp: function() {
+            var d = dragRef.current; dragRef.current = null;
+            if (d && d.started && d.list) { var fin = d.list.slice(); save(function(prev) { return setMaster(prev, fin); }); setTimeout(function() { movedRef.current = false; }, 0); }
+            setOrder(null);
+          },
+          onPointerCancel: function() { dragRef.current = null; movedRef.current = false; setOrder(null); },
+          style: { display: "inline-flex", alignItems: "center", gap: 1, touchAction: "none", boxShadow: dragging ? "0 2px 8px rgba(0,0,0,0.3)" : null, transform: dragging ? "scale(1.06)" : null, opacity: dragging ? 0.9 : null } };
+        pr[attr] = rsn;
+        return React.createElement("span", pr,
+          optBtn(rsn, on, function() {
+            if (movedRef.current) { movedRef.current = false; return; }   // ドラッグ直後のclickは選択に変換しない
+            onChange(on ? value.filter(function(x) { return x !== rsn; }) : value.concat([rsn]));
+          }, false, null),
+          mgr ? React.createElement(React.Fragment, null,
+            React.createElement("button", { type: "button", title: "この選択肢の名前を変更（過去の記録の" + noun + "も一括変更）", onClick: function() { if (movedRef.current) { movedRef.current = false; return; } valRef.current = rsn; setInp({ old: rsn, val: rsn }); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #93C5FD", background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, cursor: "pointer" } }, "✎"),
+            React.createElement("button", { type: "button", title: "この選択肢を削除（過去の記録に付いた" + noun + "はそのまま残ります）", onClick: function() { if (movedRef.current) { movedRef.current = false; return; } setInp(null); del(rsn); }, style: { padding: "1px 5px", fontSize: 11, fontWeight: 800, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", borderRadius: 4, cursor: "pointer" } }, "×")
+          ) : null);
+      }),
+      orphans.map(function(rsn) {
+        return React.createElement(React.Fragment, { key: "o_" + rsn }, optBtn(rsn + "（一覧外）", true, function() { onChange(value.filter(function(x) { return x !== rsn; })); }, true, "選択肢の一覧には無い名前です（この記録に保存されています）。外すとこの記録から消えます"));
+      }),
+      React.createElement("button", { type: "button", title: noun + "の選択肢を追加（その場で入力・追加したものはこの記録にも選択されます）", onClick: function() {
+        if (inp && inp.old == null) { setInp(null); return; }
+        valRef.current = ""; setInp({ val: "" });
+      }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: (inp && inp.old == null) ? "1px solid #0369A1" : "1px solid #ddd", background: (inp && inp.old == null) ? "#EFF6FF" : "#fff", color: "#0369A1", borderRadius: 5, cursor: "pointer" } }, "＋ 追加"),
+      React.createElement("button", { type: "button", title: "選択肢の名前変更・削除モード（✎で改名・×で削除）。並べ替えはチップを長押しドラッグ", onClick: function() { setMgr(!mgr); setInp(null); }, style: { padding: "3px 8px", fontSize: 11, fontWeight: 700, border: "1px solid " + (mgr ? "#B91C1C" : "#ddd"), background: mgr ? "#FEF2F2" : "#fff", color: mgr ? "#B91C1C" : "#888", borderRadius: 5, cursor: "pointer" } }, mgr ? "完了" : "✎ 編集")
+    ),
+    inp ? React.createElement("div", { style: { display: "flex", gap: 5, marginTop: 2, alignItems: "center", flexWrap: "wrap" } },
+      inp.old != null ? React.createElement("span", { style: { fontSize: 10, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "『" + inp.old + "』を改名:") : null,
+      React.createElement(FastInput, { type: "text", value: inp.val || "",
+        onChange: function(v) { valRef.current = v; setInp(function(p) { return p ? Object.assign({}, p, { val: v }) : p; }); },
+        placeholder: inp.old != null ? "新しい名前" : ("新しい" + noun + "の選択肢"),
+        style: { flex: 1, minWidth: 120, padding: "6px 9px", fontSize: 12, border: "1px solid #93C5FD", borderRadius: 6, background: "#fff", boxSizing: "border-box" } }),
+      React.createElement("button", { type: "button", onClick: function() {
+        _fiFlushAll();
+        var nm = (valRef.current || "").trim(); if (!nm) return;
+        if (inp.old != null) rename(inp.old, nm); else add(nm);
+        valRef.current = ""; setInp(null);
+      }, style: { padding: "6px 14px", fontSize: 12, fontWeight: 700, background: "#0369A1", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" } }, inp.old != null ? "変更" : "追加"),
+      React.createElement("button", { type: "button", onClick: function() { valRef.current = ""; setInp(null); }, style: { padding: "6px 10px", fontSize: 12, fontWeight: 700, background: "#fff", color: "#888", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer" } }, "✕")
+    ) : null);
+}
 // ===== 見送り理由の予約タグ「未達」 2026-08-24c（ユーザー要望）=====
 // 「未達」＝α（EP）に到達しなかったという**事実**であって、見逃し等のようなユーザーの分類ではない。
 // なので選択肢マスター(custom.skipReasons)には入れず、次のように扱う（ユーザー決定＝自動の固定タグ）:
@@ -7744,6 +7860,9 @@ function EntryRecordForm(_ref_erf) {
     _useStateTHRA = _slicedToArray(_useStateTHR, 2),
     fThru = _useStateTHRA[0], setFThru = _useStateTHRA[1];
   // スルーの根拠メモ（2026-07-06c）: スルー選択時のみ表示・signal.thruMemoに保存（反省・メモ欄と同システム=FastInput multiline+autoResize）。
+  // スルーの理由（選択肢）2026-10-17: signal.thruReasons[]。文章の thruMemo は入力欄を廃止（既存記録の文章は表示のみ・保存時もそのまま残す）。
+  var _useStateTHR = useState(Array.isArray(initSig.thruReasons) ? initSig.thruReasons.slice() : []),
+    fThruReasons = _useStateTHR[0], setFThruReasons = _useStateTHR[1];
   var _useStateTHM = useState(initSig.thruMemo || ""),
     _useStateTHMA = _slicedToArray(_useStateTHM, 2),
     fThruMemo = _useStateTHMA[0], setFThruMemo = _useStateTHMA[1];
@@ -8987,6 +9106,7 @@ function EntryRecordForm(_ref_erf) {
       //   よくある理由は選択肢をタップするだけで済ませ、特殊な回だけ詳細を書く運用にするため。
       //   選択肢に無い理由のときは、その場で「＋追加」して選べる（UI側）。
       if (_skipMemoReq && !fEntered && fThru !== true && fReview !== true && (fSkipReasons || []).filter(Boolean).length === 0) _vm.push("見送りの理由（選択肢）");
+      if (!isEdit && fThru === true && (fThruReasons || []).filter(Boolean).length === 0) _vm.push("スルーの理由（選択肢）");   // 新規のスルーは必須 2026-10-17
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (_ef.epIdx >= 0 && _hEmpty && _hConfirmed !== true) {
         window._snConfirm("H1/H2が未入力のままです。このまま保存しますか？\n（表ではー表示・H損益は集計から除外されます）").then(function(_ok){ if(_ok) handleSave(true); });
@@ -9017,7 +9137,8 @@ function EntryRecordForm(_ref_erf) {
         return _any ? _o : null;
       })(),
       passThrough: fThru === true ? true : null,
-      thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,
+      thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,   // 旧・文章の根拠（入力欄は廃止＝既存記録の値をそのまま保持）
+      thruReasons: (fThru === true && (fThruReasons || []).filter(Boolean).length) ? (fThruReasons || []).filter(Boolean) : null,   // スルーの理由（選択肢）2026-10-17
       review: fReview === true ? true : null,
       reviewMemo: (fReview === true && fReviewMemo) ? fReviewMemo : null,
       // 見送り＝あり/スルー/要審議のどれでもない既定状態。他の3つに切り替えたら理由は落とす（thruMemo/reviewMemoと同じ規約）2026-08-12
@@ -10876,16 +10997,14 @@ function EntryRecordForm(_ref_erf) {
       fThru ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#6B7280", background: "#F5F5F4", border: "1px solid #D6D3D1", borderRadius: 6, padding: "6px 9px" } },
           "スルー＝この記録は合計額・データ分析に算入されません（下の算入チェックに関わらず）。一覧では灰色表示になります。"),
-        React.createElement("div", { style: SH_ }, "スルーの根拠メモ"),
-        React.createElement(FastInput, {
-          multiline: true,
-          autoResize: true,
-          value: fThruMemo,
-          onChange: function(v) { setFThruMemo(v); },
-          placeholder: "",
-          rows: 2,
-          style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56, marginBottom: 8 })
-        })
+        React.createElement("div", { style: SH_ }, "スルーの理由",
+          !isEdit ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須") : null,
+          React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます")),
+        React.createElement(_SnReasonPicker, { data: data, save: save, masterKey: "thruReasons", defaults: _DEF_THRU_REASONS, sigKey: "thruReasons", noun: "スルー理由",
+          value: fThruReasons, onChange: function(l) { setFThruReasons(l); } }),
+        // 旧・文章の根拠（入力欄は2026-10-17に廃止）＝既存記録に入っている分だけ表示
+        fThruMemo ? React.createElement("div", { style: { marginBottom: 8, fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", padding: "5px 8px", borderLeft: "2px solid #D6D3D1", background: "#FAFAF9" } },
+          React.createElement("span", { style: { fontWeight: 700, marginRight: 4 } }, "以前の根拠メモ（表示のみ）:"), fThruMemo) : null
       ) : null,
       fReview ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 6, padding: "6px 9px" } },
@@ -11184,6 +11303,10 @@ function EntryLogCard(_ref_elc) {
           s.holdMemo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H１メモ"), s.holdMemo) : null,
           s.hold2Memo ? React.createElement("div", { style: { fontSize: 10, color: "#777", lineHeight: 1.4, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "H２メモ"), s.hold2Memo) : null) : null,
         s.alphaMemo ? React.createElement("div", { style: { fontSize: 11, color: "#555", lineHeight: 1.5, whiteSpace: "pre-wrap" } }, React.createElement("span", { style: { color: "#aaa", fontWeight: 700, marginRight: 3 } }, "αメモ"), s.alphaMemo) : null,
+        // スルーの理由（選択肢）2026-10-17
+        (s.passThrough === true && Array.isArray(s.thruReasons) && s.thruReasons.length) ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } },
+          React.createElement("span", { style: { fontSize: 11, color: "#9CA3AF", fontWeight: 700, marginRight: 1 } }, "スルー理由"),
+          s.thruReasons.map(function(t) { return React.createElement("span", { key: t, style: { fontSize: 10, fontWeight: 700, color: "#4B5563", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 6px", lineHeight: 1.6 } }, t); })) : null,
         s.thruMemo ? React.createElement("div", { style: { fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, marginRight: 3 } }, "スルー根拠"), s.thruMemo) : null,
         s.reviewMemo ? React.createElement("div", { style: { fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } }, React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, marginRight: 3 } }, "審議根拠"), s.reviewMemo) : null,
         // 見送りの理由 2026-08-12。理由が無い見送り記録＝2026-08-12より前に付けた記録なので、赤字の「理由未記入」で拾えるようにする
