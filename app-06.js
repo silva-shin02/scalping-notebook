@@ -6793,7 +6793,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _uAA = useState("all"), _addAlphaFilRaw = _uAA[0], setAddAlphaFil = _uAA[1], addAlphaFil = legacy ? _addAlphaFilRaw : "all";   // 2026-10-05 VAP枠(8/20以降)に基本/応用の概念は無い（ユーザー指示）＝分類は常に「全記録」・トグルも出さない。   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
   var _uCO = useState(false), collOnly = _uCO[0], setCollOnly = _uCO[1];   // 🗂記録一覧の「被り除外のみ」絞り込み（表示のみ・集計/KPIは不変）2026-07-08
   var _uRO = useState(false), reviewOnly = _uRO[0], setReviewOnly = _uRO[1];
-  var _uCeF = useState("all"), ceFil = _uCeF[0], setCeFil = _uCeF[1];   // 🗂記録一覧の5分足確定足の絞り込み（all/ce＝時刻が確定足の記録すべて/un＝そのうち未チェック・表示のみ）2026-10-17b   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
+  var _uCeF = useState("all"), ceFil = _uCeF[0], setCeFil = _uCeF[1];
+  var _uThO = useState(null), thruOpen = _uThO[0], setThruOpen = _uThO[1];   // サマリーの「スルー理由」帯で開いている理由（その理由の記録をボタンで並べる）2026-10-17   // 🗂記録一覧の5分足確定足の絞り込み（all/ce＝時刻が確定足の記録すべて/un＝そのうち未チェック・表示のみ）2026-10-17b   // 🗂記録一覧の「要審議のみ」絞り込み（表示のみ・集計/KPIは不変・行タップで明細→編集）2026-07-18g
   var _uSO = useState("desc"), recOrder = _uSO[0], setRecOrder = _uSO[1];   // 記録一覧の並び順 2026-07-27（ユーザー指定）: "desc"=日付が新しい順（既定）／"asc"=古い順。どちらでも各日付の中は時間が早い順。全一覧で共通の1つの状態＝どこで切り替えても全部に効く
   var _uFR = useState(false), riskOpen = _uFR[0], setRiskOpen = _uFR[1];   // 「指値同値」セクションの該当記録リスト開閉（表示のみ・集計は不変）2026-07-20
   var _uAlS = useState("base"), alphaSub = _uAlS[0], setAlphaSub = _uAlS[1];   // α値タブのサブタブ: 基本α(base)/追加α(add)/共通ツール(tools) 2026-06-29（タブ内サブタブ式＝基本αと追加αを別画面に分離）
@@ -8658,12 +8659,47 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
                 d != null ? React.createElement("span", { style: { marginLeft: 4, color: on ? _elPnlColor(d) : (d > 0 ? "#E08A80" : d < 0 ? "#6FB58A" : "#aaa") } }, (d > 0 ? "+" : d < 0 ? "−" : "±") + Math.abs(d).toLocaleString()) : null);
             })) : null);
       })();
+      // スルーの理由別の件数 2026-10-17（ユーザー要望）。期間フィルタ内のスルー記録（合計・分析には入らない）を理由ごとに数える。複数選択なので合計は件数より多くなり得る。
+      //   押すとその理由の記録を新しい順にボタンで並べる（押すと編集フォーム）。理由なし＝選択肢の無いスルー（2026-10-17より前の記録など）。
+      var _thruNote = (function() {
+        var _th = filtered.filter(function(r) { return r.signal && r.signal.passThrough === true; });
+        if (!_th.length) return null;
+        var _cnt = {}, _ord = [], _none = [];
+        var _mst = (data.custom && Array.isArray(data.custom.thruReasons)) ? data.custom.thruReasons : _DEF_THRU_REASONS;
+        _mst.forEach(function(n) { _cnt[n] = []; _ord.push(n); });
+        _th.forEach(function(r) {
+          var l = Array.isArray(r.signal.thruReasons) ? r.signal.thruReasons.filter(Boolean) : [];
+          if (!l.length) { _none.push(r); return; }
+          l.forEach(function(n) { if (!_cnt[n]) { _cnt[n] = []; _ord.push(n); } _cnt[n].push(r); });
+        });
+        var _chip = function(key, label, rs) {
+          var on = thruOpen === key;
+          return React.createElement("button", { key: "th_" + key, type: "button", disabled: !rs.length, onClick: function() { setThruOpen(on ? null : key); },
+            style: { fontSize: 10, fontWeight: 700, cursor: rs.length ? "pointer" : "default", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap",
+              background: on ? "#4B5563" : "#fff", color: on ? "#fff" : (rs.length ? "#374151" : "#bbb"), border: "1px solid " + (on ? "#4B5563" : "#D1D5DB") } },
+            label + " " + rs.length + "件");
+        };
+        var _openRs = thruOpen == null ? null : (thruOpen === "__none__" ? _none : (_cnt[thruOpen] || []));
+        return React.createElement("div", { key: "thrunote", style: { padding: "5px 11px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#374151", fontWeight: 600 } },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+            React.createElement("span", { style: { fontWeight: 800 } }, "スルー理由"),
+            React.createElement("span", { style: { fontSize: 10, color: "#6B7280" } }, "（スルー " + _th.length + "件・複数選択あり）"),
+            _ord.map(function(n) { return _chip(n, n, _cnt[n]); }),
+            _none.length ? _chip("__none__", "理由なし", _none) : null),
+          (_openRs && _openRs.length) ? React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 } },
+            _openRs.slice().sort(_byDateDescTimeAsc).map(function(r, i) {
+              return React.createElement("button", { key: "thr_" + i, type: "button", onClick: function() { setEditTarget(r); }, title: "押すと編集フォームを開きます",
+                style: { fontSize: 10, fontWeight: 700, cursor: "pointer", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap", background: "#fff", color: "#4B5563", border: "1px solid #D1D5DB" } },
+                (r.date || "").slice(5) + " " + r.stock + " " + ((r.signal && r.signal.time) || ""));
+            })) : null);
+      })();
       var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
         _sumMonthNav,
         _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
         _ceNote,
+        _thruNote,
         _oldRecNote,
         _vapNote,
         [
