@@ -6762,7 +6762,8 @@ var _DEF_SKIP_REASONS = ["見逃し", "エントリー迷い", "市場見れず"
 var _DEF_THRU_REASONS = ["5分足確定足", "EMAの並び", "指標線支え"];
 // 要審議の理由（選択肢）2026-10-17: スルーと同じ方式で signal.reviewReasons[]／マスター data.custom.reviewReasons（スルーとは別の一覧）。既定は空（ユーザー指定）。
 //   旧 signal.reviewMemo（文章）は入力欄を廃止＝既存記録の文章は表示だけ残す。
-var _DEF_REVIEW_REASONS = [];
+//   既定 2026-10-17b（ユーザー指定）＝正当性・テクニカル不十分。⚠️custom.reviewReasons を一度でも保存した端末データ（追加/改名/削除/並べ替え）では既定は使われない。
+var _DEF_REVIEW_REASONS = ["正当性", "テクニカル不十分"];
 // 選択肢チップの共通部品（追加・改名・削除・ドラッグ並べ替え）2026-10-17。見送り理由のフォーム内実装と同じ操作感で、スルー理由に使う。
 //   props: data, save, masterKey（custom のキー）, defaults, sigKey（signal のキー＝改名を過去記録へ一括追従）, value[], onChange(list), noun（表示名）
 //   ⚠️改名は全 charts[*].signals[*][sigKey] にも反映（既存名への改名は統合）。削除は選択肢から外すだけ＝過去記録の名前は残り、フォームでは「（一覧外）」で出る。
