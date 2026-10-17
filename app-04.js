@@ -6293,7 +6293,7 @@ function DayView(_ref57) {
               _elCutValNode(_aiTr.cutLine)),
             _elLineCell(s, _aiTr.alpha, _aiTr.cutLine, "1px solid #f0ede6"),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6", width: "1%" } },
-              _epECell(s, _aiTr.alpha)),
+              _epECell(s, _aiTr.alpha, _aiTr.cutLine)),
             React.createElement("td", { style: { padding: "4px 6px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6", borderRight: "1px solid #f0ede6" } }, entLabel),
             _elPnlDetailCells(s, _aiTr.alpha, _aiTr.cutLine, "1px solid #f0ede6", "4px 6px", "1px 5px"),
             React.createElement("td", { style: { padding: "4px 6px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid #f0ede6" } }, _trRPnlDisp(realPnl, realGrade, realPnlN != null && _sh > 0 ? realPnlN : null))   // 2026-08-05 採用αチップはα値欄へ移設
