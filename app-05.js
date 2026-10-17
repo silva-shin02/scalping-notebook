@@ -1230,7 +1230,7 @@ function _caFetchMeta(cfg, forceRefresh) {
   var p = fetch(base + ".json" + auth)
     .then(function(r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
+      return _fbJsonTracked(r);
     })
     .then(function(j) {
       if (!j || typeof j !== "object") {
@@ -1320,7 +1320,6 @@ function _caFilterByStockDate(metaList, caTicker, date, code) {
 var _caTagRaw = null, _caTagRawAt = 0, _caTagLoading = null, _caTagSig = "", _caTagVer = 0;
 var _caTagCustom = null;
 var _caTagIdxCache = { raw: null, custom: null, idx: null };
-var CA_TAG_TTL = 30 * 1000;
 var _CA_TAG_TRADE_CAT = "取引";   // 取引
 function _caTagSetCustom(custom) { _caTagCustom = custom || null; }
 function _caTagLocalRaw() {
@@ -1336,7 +1335,7 @@ function _caTagLocalRaw() {
 function _caTagFetchFb(cfg) {
   var base = cfg.fbUrl.replace(/\/$/, ""), auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
   var get = function(p) {
-    return fetch(base + p + ".json" + auth).then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+    return fetch(base + p + ".json" + auth).then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r); });
   };
   return Promise.all([_caFetchMeta(cfg, false), get("/ca-chart-tags"), get("/ca-tag-defs"), get("/ca-tag-cats")]).then(function(r) {
     var map = {}, t = r[1] || {};
@@ -1346,9 +1345,11 @@ function _caTagFetchFb(cfg) {
       cats: (r[3] && Array.isArray(r[3].cats)) ? r[3].cats : [] };
   });
 }
-// 読み込み（30秒以内の再要求はキャッシュ）。force=true で必ず取り直す。
+// 読み込み。一度読めたら force=true（起動時・タグ欄の↻）まで取り直さない。
+// 2026-10-17 Firebase の Realtime Database ダウンロードが無料枠を超えた日が出た原因: 旧＝30秒キャッシュで、画面に戻るたび（focus/visibilitychange）
+//   ＋チャート詳細を開くたびに /chart-annotator-drafts（CA下書きの一覧）ほか4か所を丸ごと再取得していた。→ 起動時＋↻だけに。
 function _caTagsRefresh(cfg, force) {
-  if (!force && _caTagRaw && Date.now() - _caTagRawAt < CA_TAG_TTL) return Promise.resolve(_caTagRaw);
+  if (!force && _caTagRaw) return Promise.resolve(_caTagRaw);
   if (_caTagLoading) return _caTagLoading;
   var fbP = (cfg && cfg.fbUrl)
     ? _caTagFetchFb(cfg).catch(function(e) { try { console.warn("[CA tags] firebase failed:", e); } catch (_) {} return null; })
@@ -1517,7 +1518,7 @@ function _caFetchDraftData(cfg, draftId, forceRefresh) {
     return fetch(base + "/" + encodeURIComponent(draftId) + ".json" + auth)
       .then(function(r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
+        return _fbJsonTracked(r);
       })
       .then(function(data) {
         if (!data) return null;
@@ -1889,7 +1890,7 @@ function _simLoadFeature(cfg, draftId) {
     var base = cfg.fbUrl.replace(/\/$/, "") + "/chart-annotator-drafts-features";
     var auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
     return fetch(base + "/" + encodeURIComponent(draftId) + ".json" + auth)
-      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r); })
       .then(function(j) {
         if (j) {
           _simFeatureMemCache[draftId] = j;
@@ -1903,7 +1904,7 @@ function _simLoadFeature(cfg, draftId) {
     var base2 = cfg.fbUrl.replace(/\/$/, "") + "/chart-annotator-drafts-features";
     var auth2 = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
     return fetch(base2 + "/" + encodeURIComponent(draftId) + ".json" + auth2)
-      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r); })
       .then(function(j) { if (j) _simFeatureMemCache[draftId] = j; return j; })
       .catch(function() { return null; });
   });
@@ -1937,7 +1938,7 @@ function _simBulkLoadAllFeatures(cfg) {
   var base = cfg.fbUrl.replace(/\/$/, "") + "/chart-annotator-drafts-features";
   var auth = cfg.fbSecret ? ("?auth=" + encodeURIComponent(cfg.fbSecret)) : "";
   _simBulkFeaturesPromise = fetch(base + ".json" + auth)
-    .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return _fbJsonTracked(r); })
     .then(function(j) {
       if (j && typeof j === "object") {
         Object.keys(j).forEach(function(id) {
