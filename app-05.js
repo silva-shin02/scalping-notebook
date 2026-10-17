@@ -6760,6 +6760,9 @@ var _DEF_SKIP_REASONS = ["見逃し", "エントリー迷い", "市場見れず"
 // ①選択肢＝signal.thruReasons[]（複数選択可）。マスターは data.custom.thruReasons（全端末同期）。既定は下の定数（ユーザー指定）。
 // 旧 signal.thruMemo（文章）は入力欄を廃止＝既存記録の文章は表示だけ残す（フォーム・記録カード）。新規の記録には付かない。
 var _DEF_THRU_REASONS = ["5分足確定足", "EMAの並び", "指標線支え"];
+// 要審議の理由（選択肢）2026-10-17: スルーと同じ方式で signal.reviewReasons[]／マスター data.custom.reviewReasons（スルーとは別の一覧）。既定は空（ユーザー指定）。
+//   旧 signal.reviewMemo（文章）は入力欄を廃止＝既存記録の文章は表示だけ残す。
+var _DEF_REVIEW_REASONS = [];
 // 選択肢チップの共通部品（追加・改名・削除・ドラッグ並べ替え）2026-10-17。見送り理由のフォーム内実装と同じ操作感で、スルー理由に使う。
 //   props: data, save, masterKey（custom のキー）, defaults, sigKey（signal のキー＝改名を過去記録へ一括追従）, value[], onChange(list), noun（表示名）
 //   ⚠️改名は全 charts[*].signals[*][sigKey] にも反映（既存名への改名は統合）。削除は選択肢から外すだけ＝過去記録の名前は残り、フォームでは「（一覧外）」で出る。
@@ -7870,6 +7873,8 @@ function EntryRecordForm(_ref_erf) {
   var _useStateRVW = useState(initSig.review === true),
     _useStateRVWA = _slicedToArray(_useStateRVW, 2),
     fReview = _useStateRVWA[0], setFReview = _useStateRVWA[1];
+  var _useStateRVR = useState(Array.isArray(initSig.reviewReasons) ? initSig.reviewReasons.slice() : []),   // 要審議の理由（選択肢）2026-10-17
+    fReviewReasons = _useStateRVR[0], setFReviewReasons = _useStateRVR[1];
   var _useStateRVM = useState(initSig.reviewMemo || ""),
     _useStateRVMA = _slicedToArray(_useStateRVM, 2),
     fReviewMemo = _useStateRVMA[0], setFReviewMemo = _useStateRVMA[1];
@@ -9107,6 +9112,7 @@ function EntryRecordForm(_ref_erf) {
       //   選択肢に無い理由のときは、その場で「＋追加」して選べる（UI側）。
       if (_skipMemoReq && !fEntered && fThru !== true && fReview !== true && (fSkipReasons || []).filter(Boolean).length === 0) _vm.push("見送りの理由（選択肢）");
       if (!isEdit && fThru === true && (fThruReasons || []).filter(Boolean).length === 0) _vm.push("スルーの理由（選択肢）");   // 新規のスルーは必須 2026-10-17
+      if (!isEdit && fReview === true && (fReviewReasons || []).filter(Boolean).length === 0) _vm.push("要審議の理由（選択肢）");   // 新規の要審議も必須 2026-10-17
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (_ef.epIdx >= 0 && _hEmpty && _hConfirmed !== true) {
         window._snConfirm("H1/H2が未入力のままです。このまま保存しますか？\n（表ではー表示・H損益は集計から除外されます）").then(function(_ok){ if(_ok) handleSave(true); });
@@ -9140,7 +9146,8 @@ function EntryRecordForm(_ref_erf) {
       thruMemo: (fThru === true && fThruMemo) ? fThruMemo : null,   // 旧・文章の根拠（入力欄は廃止＝既存記録の値をそのまま保持）
       thruReasons: (fThru === true && (fThruReasons || []).filter(Boolean).length) ? (fThruReasons || []).filter(Boolean) : null,   // スルーの理由（選択肢）2026-10-17
       review: fReview === true ? true : null,
-      reviewMemo: (fReview === true && fReviewMemo) ? fReviewMemo : null,
+      reviewMemo: (fReview === true && fReviewMemo) ? fReviewMemo : null,   // 旧・文章の根拠（入力欄は廃止＝既存記録の値をそのまま保持）
+      reviewReasons: (fReview === true && (fReviewReasons || []).filter(Boolean).length) ? (fReviewReasons || []).filter(Boolean) : null,   // 要審議の理由（選択肢）2026-10-17
       // 見送り＝あり/スルー/要審議のどれでもない既定状態。他の3つに切り替えたら理由は落とす（thruMemo/reviewMemoと同じ規約）2026-08-12
       skipMemo: (!fEntered && fThru !== true && fReview !== true && fSkipMemo) ? fSkipMemo : null,
       // 見送り理由の選択肢 2026-08-18。見送り以外（あり/スルー/要審議）に切り替えたら null＝skipMemo と同じ扱い。
@@ -11009,16 +11016,14 @@ function EntryRecordForm(_ref_erf) {
       fReview ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 6, padding: "6px 9px" } },
           "要審議＝判断を保留する記録。見送りと同じく合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入・一覧ではピンク表示で区別）。"),
-        React.createElement("div", { style: SH_ }, "要審議の根拠メモ"),
-        React.createElement(FastInput, {
-          multiline: true,
-          autoResize: true,
-          value: fReviewMemo,
-          onChange: function(v) { setFReviewMemo(v); },
-          placeholder: "",
-          rows: 2,
-          style: Object.assign({}, I, { fontFamily: "inherit", resize: "none", overflow: "hidden", minHeight: 56, marginBottom: 8 })
-        })
+        React.createElement("div", { style: SH_ }, "要審議の理由",
+          !isEdit ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須") : null,
+          React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます")),
+        React.createElement(_SnReasonPicker, { data: data, save: save, masterKey: "reviewReasons", defaults: _DEF_REVIEW_REASONS, sigKey: "reviewReasons", noun: "要審議の理由",
+          value: fReviewReasons, onChange: function(l) { setFReviewReasons(l); } }),
+        // 旧・文章の根拠（入力欄は2026-10-17に廃止）＝既存記録に入っている分だけ表示
+        fReviewMemo ? React.createElement("div", { style: { marginBottom: 8, fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", padding: "5px 8px", borderLeft: "2px solid #F9A8D4", background: "#FDF2F8" } },
+          React.createElement("span", { style: { fontWeight: 700, marginRight: 4 } }, "以前の根拠メモ（表示のみ）:"), fReviewMemo) : null
       ) : null,
       fEntered && React.createElement("div", { style: { marginBottom: 8, padding: "8px 10px", borderRadius: 6, background: "#FBF2D5", border: "1px solid #E5C76B" } },
 
@@ -11308,6 +11313,10 @@ function EntryLogCard(_ref_elc) {
           React.createElement("span", { style: { fontSize: 11, color: "#9CA3AF", fontWeight: 700, marginRight: 1 } }, "スルー理由"),
           s.thruReasons.map(function(t) { return React.createElement("span", { key: t, style: { fontSize: 10, fontWeight: 700, color: "#4B5563", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 6px", lineHeight: 1.6 } }, t); })) : null,
         s.thruMemo ? React.createElement("div", { style: { fontSize: 11, color: "#6B7280", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #9CA3AF" } }, React.createElement("span", { style: { color: "#9CA3AF", fontWeight: 700, marginRight: 3 } }, "スルー根拠"), s.thruMemo) : null,
+        // 要審議の理由（選択肢）2026-10-17
+        (s.review === true && Array.isArray(s.reviewReasons) && s.reviewReasons.length) ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } },
+          React.createElement("span", { style: { fontSize: 11, color: "#DB2777", fontWeight: 700, marginRight: 1 } }, "審議理由"),
+          s.reviewReasons.map(function(t) { return React.createElement("span", { key: t, style: { fontSize: 10, fontWeight: 700, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 4, padding: "0 6px", lineHeight: 1.6 } }, t); })) : null,
         s.reviewMemo ? React.createElement("div", { style: { fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } }, React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, marginRight: 3 } }, "審議根拠"), s.reviewMemo) : null,
         // 見送りの理由 2026-08-12。理由が無い見送り記録＝2026-08-12より前に付けた記録なので、赤字の「理由未記入」で拾えるようにする
         // （新規では必須にしたが既存は素通しなので、後からまとめて埋めるための目印）。
