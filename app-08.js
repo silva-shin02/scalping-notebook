@@ -269,21 +269,17 @@ function App() {
     return function() { window.removeEventListener("online", _on); window.removeEventListener("offline", _off); };
   }, []);
   useEffect(function() { if (fbStatus === "ok") { try { _setSnLastSync(new Date()); } catch (e) {} } }, [fbStatus]);
-  // CA のタグを読み込む（2026-10-14・_caTagsRefresh は app-05）。起動時＋Firebase 設定が変わったとき＋画面に戻ったとき（30秒キャッシュ）。
+  // CA のタグを読み込む（2026-10-14・_caTagsRefresh は app-05）。起動時＋Firebase 設定が変わったときだけ（あとはタグ欄の↻）。
+  // 2026-10-17 画面に戻ったとき（focus/visibilitychange）の再取得を撤去＝CA下書き一覧を丸ごと取り直してDBダウンロードの無料枠を超えていた。
   // 中身が変わったら "sn_ca_tags_loaded" が来るので App ごと再描画（表示・絞り込み・DNF/Z 判定に反映）。custom はレンダー時に渡す（下の _caTagSetCustom）。
   _caTagSetCustom(data && data.custom);
   var _uCaTagV = useState(0), _setCaTagV = _uCaTagV[1];
   useEffect(function() {
     var onLoaded = function() { _setCaTagV(function(v) { return v + 1; }); };
-    var onBack = function() { if (document.visibilityState === "visible") _caTagsRefresh(cfg, false); };
     window.addEventListener("sn_ca_tags_loaded", onLoaded);
-    document.addEventListener("visibilitychange", onBack);
-    window.addEventListener("focus", onBack);
     _caTagsRefresh(cfg, true);
     return function() {
       window.removeEventListener("sn_ca_tags_loaded", onLoaded);
-      document.removeEventListener("visibilitychange", onBack);
-      window.removeEventListener("focus", onBack);
     };
   }, [cfg && cfg.fbUrl, cfg && cfg.fbSecret]);
 

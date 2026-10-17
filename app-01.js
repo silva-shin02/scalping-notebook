@@ -1749,6 +1749,14 @@ function _fbTrack(cat, bytes) {
   _fbCheckLimits(u);
 }
 
+// fetch応答をJSONで読みつつ、受信した文字数をDBダウンロードとして計上する（CA関連の取得用）2026-10-17。
+//   旧＝r.json() で読んでいて _fbTrack を通らず、設定画面の使用量表示にCAの取得分が出ていなかった。
+function _fbJsonTracked(r) {
+  return r.text().then(function(t) {
+    try { _fbTrack("db_dl", t ? t.length : 0); } catch (e) {}
+    return t ? JSON.parse(t) : null;
+  });
+}
 function _fbCheckLimits(u) {
   var checks = [
     { key: "db_dl", val: u.db_dl, free: _FB_FREE.db_dl, label: "DB\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9" },
