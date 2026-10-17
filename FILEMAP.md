@@ -3153,3 +3153,10 @@ HomeEventFormModal, App
 - 【フォームのH1/H2結果損益にも stopHold を反映 2026-10-14】app-05 `EntryRecordForm` の `_fVSig`（フォーム状態の仮想signal）に `stopHold: _fStopHoldOn` を追加。損切り接触＋次足期待度○のとき、H1/H2の結果損益（`_elDynHold` 系）が保存後の表と同じく持ち続けた値になる（従来はEPの値のまま＝例: EP+300円のままでH1が+900円にならなかった）。
 
 - 【既存記録の×化移行を安全側に修正 2026-10-14】app-01 `migrateData`（損切り足×化）は **△確信度エントリー(`_epIsTriEntry`)を対象外**、かつ **実効の次足期待度(`_epNextExpAt`)が○のときだけ×**へ変更（△/空欄/×は触らない）。app-05 `_elStopBarIdx` も△確信度エントリーは-1。理由: 旧記録を無作為3000件で移行前後比較したところ、△確信度の（）内参考額が変わる例があったため。修正後は想定損益・撤退足・勝敗区分・損切り判定・参考額が全件一致。
+
+- 【5分足確定足エントリー（試行） 2026-10-17・sw v521】α値に届いた足が5分足の確定足（1分足の時刻の分の1の位が4か9＝10:14/10:19…）なら、その足の**確定値（終値）でエントリー**した扱いにする。終値がα以下（同値も）ならその足では入らず、次の足からは通常どおり（αを上抜けたらα値で約定・手前の足の次足期待度×/△の規約も同じ）。OS3で入らなければ未達。
+  - 保存: `signal.ceOn`（チェック欄の値・**booleanを持つ記録＝導入後の記録**だけが対象＝旧記録は一切不変）・`signal.ceIdx`（チェック欄が指していた足＝α値に届いた最初の足 0..2）。
+  - 判定（app-05）: `_epCeOn(s)` / `_epCeTimeBar(time,k)`（OS1の時刻＋k分の分%5===4）/ `_epCeBar(s,k)`（k===ceIdx ならチェック欄の値＝手動優先・それ以外は時刻ルール＝推奨α/VAP等のα試算でもEP足が動けば時刻で判定）。`_epResolve` が `px`（約定値）・`ce`・`skipIdx` を返す。
+  - 損益: `_epCeView(s,α)`＝約定値基準の仮の記録（EP足以降の足を(終値−α)だけ下げ、EP足の高値はα+0.01＝接触は次の足から・入らなかった確定足の高値はα−0.01）。`_elDynResult/_elWinBucket/_elDynPlanned/_elDynHold/_elDynHold2/_elDynHoldAt/_elPlanIsStop/_elHoldIsStop(2/At)/_epHoldLadder/_elHoldFinalParts` の先頭で通す（通常の記録はそのまま返る＝無作為48,000通りで変更前と一致）。表示系の中の接触判定は `_epStopTouch(s,α,absIdx,cut)`（`_elHoldStackInner`/`_elRideVals`）。`_elRideVals.stoppedLoss` は約定値と比べる。**表示用のOS高値・決済値は元の記録から取る**（仮の記録を表示に使わない）。
+  - 表示: `_elCeInfo(s,α,cut)`（diff＝想定損益の「確定足エントリー − α値約定」）・`_elCeBadge`（一覧の「5分確定」/「5分確定・入らず」＋差額。`_epECell(s,α,cutLine)` に第3引数を足し、cutLineを渡した表だけ差額を出す）・`_epCeTimeAt`。記録帳サマリー（app-06 `EntryLogViewBody` の `_ceNote`）に「5分確定 今月/累計 n件・α約定比 ±円」（合計表と同じ除外・0件なら非表示）。
+  - フォーム（`EntryRecordForm`）: state `fCeOn`・`_fCeActive`（新規は常に／既存は値を持つか付けたときだけ保存）。`_epFormState` が同じ規約で `k0/ce/skipIdx/px` を返し、EP損益・結果・損切りロック・H1損切り判定は `px` 基準。新規は時刻かα到達足が変わるたびに自動判定（手動切替は次の変更まで有効）。OS見出し行の下にチェック欄＋実EP（終値）・終値基準の損切りライン・α約定比。E判定チップは「E：○（EP=OSn・終値）」。

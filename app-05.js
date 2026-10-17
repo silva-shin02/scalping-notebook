@@ -3933,15 +3933,38 @@ function _epHit(s, h, alpha) {
   if (H < A) return false;
   return _EP_EQ_LOOSE || !!(s && s.entered === true && A === _epOwnAlpha(s));
 }
+// ===== 5分足確定足エントリー（試行）2026-10-17 =====
+// 記録フォームの「5分足確定足」チェック。α値に届いた足が5分足の確定足（1分足の時刻の分の1の位が4か9＝10:14/10:19…）なら、
+//   その足の確定値(終値)でエントリーしたことにする。終値がα以下（＝α値より安く売る・同値も）ならその足では入らず、次の足からは通常どおり（αを上抜けたらα値で約定）。
+// 保存: signal.ceOn(true/false＝チェック欄の値)・signal.ceIdx(チェック欄が指していた足0..2)。**ceOnがbooleanの記録＝導入後の記録**だけが対象（旧記録は一切変わらない）。
+// 足kが確定足か: k===ceIdx ならチェック欄の値（手動優先）／それ以外は時刻ルール（signal.time＝OS1の1分足の時刻＋k分）。時刻なし＝確定足なし。
+// 損益: 約定値＝終値・損切りライン＝終値＋損切り値・接触はEP足の次の足から。計算は _epCeView（約定値を基準に足をずらした仮の記録）で既存の正本関数に通す。
+function _epCeOn(s) { return !!(s && !s._ceV && typeof s.ceOn === "boolean"); }
+function _epCeTimeBar(time, k) {
+  var m = /^(\d{1,2}):(\d{2})/.exec(time || "");
+  if (!m) return false;
+  return ((Number(m[2]) + k) % 5) === 4;
+}
+function _epCeBar(s, k) {
+  if (s.ceIdx === k) return s.ceOn === true;
+  return _epCeTimeBar(s.time, k);
+}
 function _epResolve(s, alpha) {
   if (!_epIsV2(s) || alpha == null) return null;
   var legs = _epLegs(s);
   if (!legs.length) return null;
-  var epIdx = -1;
+  var epIdx = -1, px = alpha, ce = false, skipIdx = -1, _ceOk = _epCeOn(s);
   for (var i = 0; i < Math.min(3, legs.length); i++) {
-    if (_epHit(s, legs[i].h, alpha)) { epIdx = i; break; }
+    if (_epHit(s, legs[i].h, alpha)) {
+      if (_ceOk && _epCeBar(s, i)) {
+        var _cc = legs[i].c;
+        if (_cc != null && !(Number(_cc) > Number(alpha))) { skipIdx = i; continue; }   // 確定足の終値がα以下＝その足では入らない
+        if (_cc != null) { ce = true; px = Number(_cc); }                                // 終値未入力は従来どおりα値で約定（保存時は必須）
+      }
+      epIdx = i; break;
+    }
   }
-  if (epIdx < 0) return { epIdx: -1, ep: null, h1: null, h2: null, judge: "miss", legs: legs };
+  if (epIdx < 0) return { epIdx: -1, ep: null, h1: null, h2: null, judge: "miss", legs: legs, px: null, ce: false, skipIdx: skipIdx };
   // 2026-08-05r ×宣言の判定を次足期待度の正本(_epNextExpAt)へ統一（ユーザー報告のバグ修正）。
   //   旧: legs[j].exp（＝レガシーの os1Exp/os2Exp）だけを見ていた。ところが os1Exp/os2Exp は保存時に
   //   「保存時点のEP位置」でゲートされる（_useOs2/_useOs3・app-05のフォーム保存）ため、保存時EPがOS1/OS2だと
@@ -3951,7 +3974,86 @@ function _epResolve(s, alpha) {
   //   nextExpN を持たない旧記録は従来と完全に同じ値になる＝後方互換。
   var xBefore = false;
   for (var j = 0; j < epIdx; j++) { if (_epNextExpAt(s, j) === "×") xBefore = true; }
-  return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: xBefore ? "x" : "ok", legs: legs };
+  return { epIdx: epIdx, ep: legs[epIdx], h1: legs[epIdx + 1] || null, h2: legs[epIdx + 2] || null, judge: xBefore ? "x" : "ok", legs: legs, px: px, ce: ce, skipIdx: skipIdx };
+}
+// 確定足エントリーの仮の記録（損益・損切りの正本関数に渡す用）。約定値(終値)とαの差dだけEP足以降の足を下げる＝(α−終値')=(約定値−終値)・(高値'−α)=(高値−約定値)。
+//   EP足の高値はα+0.01（到達はするが損切りに触れない＝接触は次の足から）・入らなかった確定足の高値はα−0.01（到達しない）。
+//   ceOn を外した記録なので二重に変換されない（_ceV）。表示用の値（OS高値・決済値など）は元の記録 s から取ること。
+var _EP_CE_CACHE = (typeof WeakMap !== "undefined") ? new WeakMap() : null;
+function _epCeWriteLeg(v, lg) {
+  var h = lg.h, c = lg.c;
+  var pos = function(x) { return x == null ? null : Math.abs(x); };
+  if (lg.role === "os1") { v.osVal = h; v.osConfVal = pos(c); v.osConfSign = c == null ? null : (c < 0 ? "-" : "+"); }
+  else if (lg.role === "os2" || lg.role === "os3") {
+    var k = lg.role;
+    v[k + "High"] = pos(h); v[k + "HighSign"] = h == null ? null : (h < 0 ? "-" : "+");
+    v[k + "Conf"] = pos(c); v[k + "ConfSign"] = c == null ? null : (c < 0 ? "-" : "+");
+  }
+  else if (lg.role === "h1" || lg.role === "h2") {
+    var p = lg.role === "h1" ? "hold" : "hold2";
+    v[p + "HighVal"] = pos(h); v[p + "HighSign"] = h == null ? null : (h < 0 ? "+" : "-");
+    v[p + "Width"] = pos(c); v[p + "WidthSign"] = c == null ? null : (c < 0 ? "+" : "-");
+  }
+}
+function _epCeView(s, alpha) {
+  if (!_epCeOn(s) || alpha == null || !_epIsV2(s)) return s;
+  var A = Number(alpha);
+  if (isNaN(A)) return s;
+  var key = (_EP_EQ_LOOSE ? "L" : "") + A;
+  var m = _EP_CE_CACHE ? _EP_CE_CACHE.get(s) : null;
+  if (m && Object.prototype.hasOwnProperty.call(m, key)) return m[key];
+  var r = _epResolve(s, A), v = s;
+  if (r && (r.ce || r.skipIdx >= 0)) {
+    var d = r.ce ? (r.px - A) : 0;
+    v = Object.assign({}, s, { _ceV: true, _ceD: d });
+    r.legs.forEach(function(lg, i) {
+      var h = lg.h, c = lg.c;
+      if (i === r.skipIdx) h = A - 0.01;
+      else if (r.ce && i >= r.epIdx) {
+        if (h != null) h = h - d;
+        if (c != null) c = c - d;
+        if (i === r.epIdx) h = A + 0.01;
+      }
+      _epCeWriteLeg(v, { h: h, c: c, role: lg.role });
+    });
+  }
+  if (_EP_CE_CACHE) { if (!m) { m = {}; _EP_CE_CACHE.set(s, m); } m[key] = v; }
+  return v;
+}
+// 足absIdxが損切りラインに触れたか（確定足エントリー対応・期待度○で持ち続ける stopHold も考慮）。表示系の関数の中の接触判定用。
+function _epStopTouch(s, alpha, absIdx, cut) {
+  var lg = _epLegs(_epCeView(s, alpha))[absIdx];
+  return !!(lg && lg.h != null && (lg.h - alpha) >= cut && !_elStopHold(s, absIdx));
+}
+// OS1の時刻＋k分（"HH:MM"）。時刻なしはnull。
+function _epCeTimeAt(time, k) {
+  var m = /^(\d{1,2}):(\d{2})/.exec(time || "");
+  if (!m) return null;
+  var t = Number(m[1]) * 60 + Number(m[2]) + (k || 0);
+  return String(Math.floor(t / 60) % 24).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+}
+// 確定足エントリーが効いた記録の情報（このαで終値約定 or 確定足で入らなかった）。効いていなければnull。
+//   diff＝想定損益（_elHoldFinalParts.main）の「確定足エントリー − α値約定（チェックなし）」。入らなかった側は0円として比べる。
+function _elCeInfo(s, alpha, cutLine) {
+  if (!_epCeOn(s) || alpha == null) return null;
+  var r = _epResolve(s, alpha);
+  if (!r || (!r.ce && r.skipIdx < 0)) return null;
+  var base = Object.assign({}, s, { ceOn: undefined });
+  var a = _elHoldFinalParts(s, alpha, cutLine).main, b = _elHoldFinalParts(base, alpha, cutLine).main;
+  return { ce: r.ce, skipIdx: r.skipIdx, epIdx: r.epIdx, px: r.ce ? r.px : null, diff: (a || 0) - (b || 0) };
+}
+// 記録一覧の目印「5分確定」＋α約定比の差額。
+function _elCeBadge(s, alpha, cutLine) {
+  var ci = _elCeInfo(s, alpha, cutLine != null ? cutLine : 15);
+  if (!ci) return null;
+  var d = ci.diff;
+  if (cutLine == null) return React.createElement("span", { title: ci.ce ? "5分足確定足：EP足の終値で約定" : "5分足確定足：終値がα以下のためその足では入らず", style: { fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#ECFEFF", border: "1px solid #67E8F9", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, ci.ce ? "5分確定" : "5分確定・入らず");   // 損切り値が分からない表では差額を出さない
+  return React.createElement("span", {
+    title: ci.ce ? ("5分足確定足：EP足（OS" + (ci.epIdx + 1) + "）の終値で約定。α値約定と比べた想定損益の差 " + (d > 0 ? "+" : "") + d.toLocaleString() + "円")
+      : ("5分足確定足：OS" + (ci.skipIdx + 1) + "の終値がα以下のためその足では入らず。α値約定と比べた想定損益の差 " + (d > 0 ? "+" : "") + d.toLocaleString() + "円"),
+    style: { display: "inline-flex", alignItems: "center", gap: 2, fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#ECFEFF", border: "1px solid #67E8F9", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 }
+  }, ci.ce ? "5分確定" : "5分確定・入らず",
+    React.createElement("span", { style: { fontWeight: 700, color: d > 0 ? "#C0392B" : d < 0 ? "#1E8449" : "#888" } }, (d > 0 ? "+" : d < 0 ? "−" : "±") + Math.abs(d).toLocaleString()));
 }
 // （旧 _epExpAt＝役割固定の期待度取得は2026-07-06fに削除＝最後の利用者だったOS連鎖セルも_epNextExpAtへ統一・全消費者が次足期待度に移行完了）
 // 次足期待度（2026-07-06 統一・正本）: 足x(0=OS1〜3=OS4)の「引け」で下した“次の足へ継続するか”の判断（○=継続/△=中間/×=この足で降りる=見送り・手仕舞い/損切り済=旧データ値）。
@@ -4091,7 +4193,7 @@ function _elStopBarIdx(s, cut) {
   var a = _epOwnAlpha(s); if (a == null || isNaN(a)) return -1;
   var r = _epResolve(s, a); if (!r || r.epIdx < 0 || r.judge !== "ok") return -1;
   if (_epIsTriEntry(s, a)) return -1;   // △確信度エントリー（EPは参考扱い）は対象外＝（）内の参考額が変わらないように
-  var legs = _epLegs(s), c = cut != null ? Number(cut) : 15;
+  var legs = _epLegs(_epCeView(s, a)), c = cut != null ? Number(cut) : 15;   // 確定足エントリーは約定値基準
   for (var i = r.epIdx; i <= 3 && i < legs.length; i++) { var h = legs[i] && legs[i].h; if (h != null && (h - a) >= c) return i; }
   return -1;
 }
@@ -4100,6 +4202,7 @@ function _elStopBarIdx(s, cut) {
 // 返り値 {epIdx, items:[{idx,depth,role,leg,pnl,isStop,afterStop}], stopDepth(-1=損切りなし), maxPnl, maxDepth, finalPnl}。
 // E成立(judge"ok")のv2記録のみ。×見送り/未達/旧記録はnull。
 function _epHoldLadder(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (!_epIsV2(s) || alpha == null) return null;
   var r = _epResolve(s, alpha);
   if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
@@ -4144,6 +4247,7 @@ function _elRuleHoldPnl(s, alpha) {
   return last;
 }
 function _elDynResult(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _rv2 = _epResolve(s, alpha);
     if (_rv2) {
@@ -4173,6 +4277,7 @@ function _elDynResult(s, alpha, cutLine) {
 // 〇△×の「×の前まで乗る」で各記録の勝敗内訳を返す。返り値: "miss"|"stop"|"loss"|"even"|"win"|"tri"(△が絡む勝ち)。
 // ×/損切り済の足の手前まで乗り(○/△/未設定は乗る)、到達点の確定値損益と△有無で振り分ける。EP前の到達△も「△が絡む」に含める。
 function _elWinBucket(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   var base = _elDynResult(s, alpha, cutLine);
   if (base === "miss") return "miss";
   var cut = cutLine != null ? cutLine : 15;
@@ -4216,6 +4321,7 @@ function _elWinBucket(s, alpha, cutLine) {
   return hasTri ? "tri" : "win";
 }
 function _elDynPlanned(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _rp2 = _epResolve(s, alpha);
     if (_rp2) {
@@ -4235,6 +4341,7 @@ function _elDynPlanned(s, alpha, cutLine) {
   return pp;
 }
 function _elDynHold(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _rh2 = _epResolve(s, alpha);
     if (_rh2) {
@@ -4282,6 +4389,7 @@ function _elDynHoldNoStop(s, alpha) {
 }
 
 function _elPlanIsStop(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s)) {
     if (alpha == null) return false;
     var _rs2 = _epResolve(s, alpha);
@@ -4290,6 +4398,7 @@ function _elPlanIsStop(s, alpha, cutLine) {
   return alpha != null && s.osVal != null && (Number(s.osVal) - alpha) >= (cutLine != null ? cutLine : 15);
 }
 function _elHoldIsStop(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (alpha == null) return false;
   var _cl = cutLine != null ? cutLine : 15;
   if (_epIsV2(s)) {
@@ -4368,6 +4477,7 @@ function _epHoldView(s, alpha, isH2, depth) {
   return v;
 }
 function _elDynHold2(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _r22 = _epResolve(s, alpha);
     if (!_r22 || _r22.judge !== "ok") return null;
@@ -4402,6 +4512,7 @@ function _elIsStopFinal(s, alpha, cutLine) {
     || (_elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cutLine));
 }
 function _elHoldIsStop2(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s)) {
     if (alpha == null) return false;
     var _r32 = _epResolve(s, alpha);
@@ -4432,6 +4543,7 @@ function _elHoldMaxDepth(s, alpha) {
 }
 // depth d までのどこかで損切りに当たったか。d<=1 は _elHoldIsStop（EP/H1）へ委譲＝従来と同値。
 function _elHoldIsStopAt(s, alpha, cutLine, d) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (d <= 1) return _elHoldIsStop(s, alpha, cutLine);
   if (!_epIsV2(s) || alpha == null) return false;
   var r = _epResolve(s, alpha);
@@ -4443,6 +4555,7 @@ function _elHoldIsStopAt(s, alpha, cutLine, d) {
 // depth d で手じまいした場合の損益。d<=1→_elDynHold／d===2→_elDynHold2 に委譲＝従来の正本と完全一致（新規はd>=3のみ）。
 // d>=3 の規約は _elDynHold2 と同型: 手前の足で既に損切り済みなら損切りルール非適用（確定値ベース）・この足で損切りなら損切り額。
 function _elDynHoldAt(s, alpha, cutLine, d) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (d <= 1) return _elDynHold(s, alpha, cutLine);
   if (d === 2) return _elDynHold2(s, alpha, cutLine);
   if (!_epIsV2(s) || alpha == null) return null;
@@ -4685,7 +4798,7 @@ function _epEpDiffNode(s, alpha) {
   var col = d > 0 ? "#C0392B" : d < 0 ? "#1E8449" : "#888";
   return React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col, lineHeight: 1.1, marginTop: 1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } }, "（" + sign + Math.abs(d) + "）");
 }
-function _epECell(s, alpha) {
+function _epECell(s, alpha, cutLine) {
   if (!s || alpha == null) return React.createElement("span", { style: { color: "#ccc" } }, "—");
   var j;
   if (_epIsV2(s)) { var _re = _epResolve(s, alpha); j = _re ? _re.judge : null; }
@@ -4696,8 +4809,9 @@ function _epECell(s, alpha) {
     : j === "miss" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7C3AED", whiteSpace: "nowrap" } }, "未達")
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _diff = (j === "ok" || j === "x" || j === "miss") ? _epEpDiffNode(s, alpha) : null;
-  if (!_diff) return _jn;
-  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 } }, _jn, _diff);
+  var _ceB = _elCeBadge(s, alpha, cutLine);   // 5分足確定足エントリーの目印（cutLineを渡した表だけα約定比の差額も出す）
+  if (!_diff && !_ceB) return _jn;
+  return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 } }, _jn, _diff, _ceB);
 }
 // EP損益欄: 旧「OS値・確定値・α値比値幅・結果/EP損益」を1セルに統合。「高値→確定値/α比/結果・損益」。
 // pnlDisp=損益表示ノード(各表のランク付き表示を注入・nullなら内蔵表示)。
@@ -5723,6 +5837,7 @@ function _elHold2TotPartsFixed(s, alpha, cutLine) {
 //   保有判断が ×/損切り済/未設定 → 1段下をそのまま（手じまい済み）／その足で損切り → **その足の終値で確定してそこで打ち切り**（2026-08-02n・旧＝1段下をそのまま＝×と同一視）
 //   △ → （）外=1段下・（）内=そこまで保有した差／○ → 完全○チェーンなら（）外を自分の損益に更新・チェーンが切れていれば（）内へ
 function _elHoldFinalParts(s, alpha, cutLine) {
+  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   var parts = _elHold2TotPartsFixed(s, alpha, cutLine);
   if (!s || !_epIsV2(s) || alpha == null) return parts;
   var maxD = _elHoldMaxDepth(s, alpha);
@@ -6134,7 +6249,7 @@ function _elHoldStackInner(s, alpha, cutLine) {
         var _peNode = React.createElement("span", { style: { color: _expCol[_peS] || "#666" } }, _peS);
         rows.push(_row("h" + _dS, _lblS, _peNode, _pS, (_peS === "○" && _chainS) ? 0 : 1, true));
         if (_peS !== "○") _chainS = false;
-        if (_lgS2.h != null && (_lgS2.h - alpha) >= _cutS && !_elStopHold(s, _rS.epIdx + _dS)) break;   // この足で損切り＝ここで手じまい
+        if (_epStopTouch(s, alpha, _rS.epIdx + _dS, _cutS)) break;   // この足で損切り＝ここで手じまい
       }
     }
   }
@@ -6183,7 +6298,7 @@ function _elRideVals(s, alpha, cutLine) {
   var _s1 = !_sp && _elHoldIsStop(s, alpha, cut);
   var _s2 = !_sp && !_s1 && _elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cut);
   var _stopD = _sp ? 0 : _s1 ? 1 : _s2 ? 2 : null;   // 損切り足（無ければnull）
-  if (_stopD == null) { for (var _sd = 3; _sd <= _maxD; _sd++) { var _lgS = legs[r.epIdx + _sd]; if (_lgS && _lgS.h != null && (_lgS.h - alpha) >= cut && !_elStopHold(s, r.epIdx + _sd)) { _stopD = _sd; break; } } }   // 2026-07-25 3段目以降の損切り足
+  if (_stopD == null) { for (var _sd = 3; _sd <= _maxD; _sd++) { if (_epStopTouch(s, alpha, r.epIdx + _sd, cut)) { _stopD = _sd; break; } } }   // 2026-07-25 3段目以降の損切り足
   var exitD, stopped;
   if (_stopD != null && _stopD <= _expD) { exitD = _stopD; stopped = true; }   // 期待度手じまいまでに損切り→損切り足で確定
   else { exitD = _expD; stopped = false; }                                     // 期待度×/損切り済/未設定で手じまい（以降の損切りは発生しない）
@@ -6197,7 +6312,8 @@ function _elRideVals(s, alpha, cutLine) {
   // 2026-07-27 終値撤退方式: stopped＝損切りラインに触れた（＝撤退トリガーが引かれた）。
   // 撤退はその足の終値なので、損切り扱いになるのは終値が損側（終値>α＝(α−終値)<0）のときだけ。
   // 終値不明は判定できないので、ラインに触れた事実を優先して損切り扱いにする（旧方式と同じ側に倒す）。
-  var stoppedLoss = !!(stopped && (exitC == null || (alpha != null && exitC > alpha)));
+  var _px = (r.ce && r.px != null) ? r.px : alpha;   // 確定足エントリーは終値が約定値
+  var stoppedLoss = !!(stopped && (exitC == null || (_px != null && exitC > _px)));
   return { mx: mx, exitC: exitC, stopped: stopped, stoppedLoss: stoppedLoss, lbl: lbl, epIdx: r.epIdx, exitD: exitD, exitIdx: r.epIdx + exitD };   // exitIdx=手じまい足の0基点レグindex（OS1=0）＝時間かぶり除外の手じまい時刻算出用 2026-07-16
 }
 function _elRideSummaryNode(s, alpha, cutLine) {
@@ -8263,6 +8379,11 @@ function EntryRecordForm(_ref_erf) {
     return (_cd != null && _cd.cutLine != null) ? _cd.cutLine : 15;
   })();
   // === EP起算方式: フォーム状態からEP位置・E判定をライブ導出（OS1高値=常に↑正・OS2/3は符号付き）===
+  // 5分足確定足エントリー（試行）2026-10-17: チェック欄の値。新規は時刻（OS1の1分足）とα到達足から自動判定（下のeffect）・手動でも切替可。
+  //   保存するか（＝導入後の記録として扱うか）: 新規は常に／既存はもともと値を持つか、ここで付けたときだけ（旧記録は触らなければ一切変わらない）。
+  var _useStateCE = useState(isEdit ? initSig.ceOn === true : false),
+    fCeOn = _useStateCE[0], setFCeOn = _useStateCE[1];
+  var _fCeActive = !isEdit || typeof initSig.ceOn === "boolean" || fCeOn;
   var _epFormState = (function() {
     if (!isV2Form) return null;
     var _av = _fAlpha;
@@ -8272,9 +8393,22 @@ function EntryRecordForm(_ref_erf) {
     var _o1R = _av != null && _o1 != null && _o1 >= _av;
     var _o2R = _av != null && _o2 != null && _o2 >= _av;
     var _o3R = _av != null && _o3 != null && _o3 >= _av;
-    var epIdx = _o1R ? 0 : _o2R ? 1 : _o3R ? 2 : -1;
-    var showOs2 = _av != null && _o1 != null && !_o1R;
-    var showOs3 = showOs2 && _o2 != null && !_o2R;
+    var _cOf = function(v, sg) { return (v !== "" && !isNaN(Number(v))) ? (sg === "-" ? -Number(v) : Number(v)) : null; };
+    var _cs = [_cOf(fOsConfVal, fOsConfSign), _cOf(fOs2Conf, fOs2ConfSign), _cOf(fOs3Conf, fOs3ConfSign)];
+    var _rs = [_o1R, _o2R, _o3R];
+    var k0 = _o1R ? 0 : _o2R ? 1 : _o3R ? 2 : -1;   // α値に届いた最初の足（チェック欄が指す足）
+    // 確定足（k0はチェック欄・他は時刻ルール）で終値がα以下ならその足では入らず次の足へ（_epResolveと同じ規約）。
+    var epIdx = -1, ce = false, skipIdx = -1;
+    for (var _ki = 0; _ki < 3; _ki++) {
+      if (!_rs[_ki]) continue;
+      if (_fCeActive && (_ki === k0 ? fCeOn : _epCeTimeBar(fTime, _ki))) {
+        if (_cs[_ki] != null && !(_cs[_ki] > _av)) { skipIdx = _ki; continue; }
+        if (_cs[_ki] != null) ce = true;
+      }
+      epIdx = _ki; break;
+    }
+    var showOs2 = _av != null && _o1 != null && epIdx !== 0;
+    var showOs3 = showOs2 && _o2 != null && epIdx !== 1;
     var judge = epIdx === 0 ? "ok"
       : epIdx === 1 ? (fNxs[0] === "×" ? "x" : "ok")
       : epIdx === 2 ? ((fNxs[0] === "×" || fNxs[1] === "×") ? "x" : "ok")
@@ -8282,8 +8416,15 @@ function EntryRecordForm(_ref_erf) {
     var epHigh = epIdx === 0 ? _o1 : epIdx === 1 ? _o2 : epIdx === 2 ? _o3 : null;
     var _ecr = epIdx === 0 ? [fOsConfVal, fOsConfSign] : epIdx === 1 ? [fOs2Conf, fOs2ConfSign] : epIdx === 2 ? [fOs3Conf, fOs3ConfSign] : null;
     var epConf = (_ecr && _ecr[0] !== "" && !isNaN(Number(_ecr[0]))) ? (_ecr[1] === "-" ? -Number(_ecr[0]) : Number(_ecr[0])) : null;
-    return { alpha: _av, o1: _o1, o2: _o2, o3: _o3, epIdx: epIdx, judge: judge, showOs2: showOs2, showOs3: showOs3, epHigh: epHigh, epConf: epConf };
+    var px = (ce && epConf != null) ? epConf : _av;   // 約定値（確定足エントリーは終値）
+    return { alpha: _av, o1: _o1, o2: _o2, o3: _o3, epIdx: epIdx, judge: judge, showOs2: showOs2, showOs3: showOs3, epHigh: epHigh, epConf: epConf, k0: k0, ce: ce, skipIdx: skipIdx, px: px };
   })();
+  var _fK0 = _epFormState ? _epFormState.k0 : -1;
+  // 新規記録: 時刻かα到達足が変わるたびに自動判定し直す（EP足の時刻＝OS1の時刻＋足番号分・分の1の位が4か9）。手動の切替はその後の変更まで有効。
+  useEffect(function() {
+    if (isEdit) return;
+    setFCeOn(_fK0 >= 0 && _epCeTimeBar(fTime, _fK0));
+  }, [fTime, _fK0]);
   // 旧名互換の導出値（次足期待度fNxsを現在のEP位置で解決）2026-07-06: fOs1Exp/fOs2Exp=OS1/OS2スロットの生値（保存はEP位置でゲート）・fHoldExp/fHold2Exp=EP足/EP+1足の引けの判断（=旧H1期待/H2期待）。
   // state直読みだった既存コード（プレビュー_fVSig・保存・損益変化効果・非表示バッジ・バリデーション）はこの導出値で無改修に動く。
   var fOs1Exp = fNxs[0] || null, fOs2Exp = fNxs[1] || null;
@@ -8321,12 +8462,13 @@ function EntryRecordForm(_ref_erf) {
   var _fStopHoldOn = !isEdit || initSig.stopHold === true || _stopAutoIdx >= 0;
   var _fNxHold = function(abs) { return !!(_fStopHoldOn && isV2Form && abs != null && abs >= 0 && abs <= 3 && fNxs[abs] === "\u25CB"); };
   var _fPlanStopNow = (isV2Form && _epFormState)
-    ? (_epFormState.judge === "ok" && _epFormState.epHigh != null && _fAlpha != null && (_epFormState.epHigh - _fAlpha) >= _fCutLine && !_fNxHold(_epFormState.epIdx))
+    ? (_epFormState.judge === "ok" && !_epFormState.ce && _epFormState.epHigh != null && _fAlpha != null && (_epFormState.epHigh - _fAlpha) >= _fCutLine && !_fNxHold(_epFormState.epIdx))   // 確定足エントリーはEP足で損切りしない（接触は次の足から）
     : (Number(fOsVal) > 0 && _fAlpha != null && (Number(fOsVal) - _fAlpha) >= _fCutLine);
   // OS1〜5固定欄（scheme:3）: ミラー同期は廃止。hold*/hold2*欄=常に4・5本目の実データ。
   // フォーム状態を仮想signal化し、H1/H2のプレビュー損益・損切り判定は共通ヘルパー（表と同一基準）で算出する。
   var _fVSig = {
     stopHold: _fStopHoldOn ? true : undefined,   // 損切り接触でも次足期待度○なら持ち続ける（保存後の表と同じ判定に揃える）
+    ceOn: _fCeActive ? !!fCeOn : undefined, ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null, time: fTime || "",   // 5分足確定足エントリー（保存値と同じ）
     scheme: 3, alphaVal: _fAlpha, difficulty: fDifficulty || null,
     osVal: (fOsVal !== "" && !isNaN(Number(fOsVal))) ? Number(fOsVal) : null,
     osConfVal: (fOsConfVal !== "" && !isNaN(Number(fOsConfVal))) ? Number(fOsConfVal) : null, osConfSign: fOsConfSign || null,
@@ -8349,7 +8491,7 @@ function EntryRecordForm(_ref_erf) {
     if (e < 0) return null;
     return i === e ? "EP" : i === e + 1 ? "H1" : i === e + 2 ? "H2" : null;
   };
-  var _fH1StopNow = !!(_fEpRes && _fEpRes.judge === "ok" && _fEpRes.h1 && _fEpRes.h1.h != null && _fAlpha != null && (_fEpRes.h1.h - _fAlpha) >= _fCutLine && !_fNxHold(_epFormState ? _epFormState.epIdx + 1 : -1));
+  var _fH1StopNow = !!(_fEpRes && _fEpRes.judge === "ok" && _fEpRes.h1 && _fEpRes.h1.h != null && _fAlpha != null && (_fEpRes.h1.h - _fEpRes.px) >= _fCutLine && !_fNxHold(_epFormState ? _epFormState.epIdx + 1 : -1));
   var _fHoldHighOverA = (_fAlpha != null && fHoldHighSign === "-" && fHoldHighVal !== "" && (Number(fHoldHighVal) || 0) >= _fAlpha);
   // H1までE基準未達でもHold2期待度欄・Hold2欄は表示して入力可能にする（表側は _elH2Miss が従来どおり「ー（H１までE基準未達）」表示）
   // E未達(OS1〜3でα未到達)が確定したらHold1/2欄ごと非表示（ノートレード=H足は存在しない・保存も不要）。
@@ -8429,7 +8571,7 @@ function EntryRecordForm(_ref_erf) {
         }
         setFEstWidthSign(null); setFEstWidthVal(""); return;
       }
-      var _we = _efp.alpha - _efp.epConf;
+      var _we = _efp.px - _efp.epConf;   // 確定足エントリーは約定値＝終値（EP損益0）
       var _ws = _we === 0 ? null : (_we > 0 ? "+" : "-");
       setFEstWidthSign(_ws); setFEstWidthVal(String(Math.abs(_we)));
       if (_ws == null) { setFPlanSign(null); setFPlan("0"); return; }
@@ -8478,7 +8620,7 @@ function EntryRecordForm(_ref_erf) {
         //   終値が未入力のときだけライン接触の事実を優先して ng へ倒す（_elRideVals.stoppedLoss と同じ倒し方）。
         var _dfr = _efr.epHigh - _efr.alpha;
         if (_efr.epConf == null) { if (_dfr >= _fCutLine) setFResult("ng"); return; }
-        setFResult(_efr.epConf < _efr.alpha ? "ok" : _efr.epConf === _efr.alpha ? "draw" : "ng");
+        setFResult(_efr.epConf < _efr.px ? "ok" : _efr.epConf === _efr.px ? "draw" : "ng");
       }
       return;
     }
@@ -8856,6 +8998,8 @@ function EntryRecordForm(_ref_erf) {
       result: fResult,
       memo: initSig.memo || "", 
       time: fTime || "",
+      ceOn: _fCeActive ? !!fCeOn : undefined,   // 5分足確定足エントリー（試行）2026-10-17: boolean＝導入後の記録（試算でも時刻ルールが効く）
+      ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null,   // チェック欄が指していた足（α値に届いた最初の足・0=OS1）
       isCustomTag: fIsCustom,
       customTagText: fIsCustom ? _ntf(fCustomText) : "",
       rationale: fRationale,
@@ -10128,7 +10272,7 @@ function EntryRecordForm(_ref_erf) {
         };
         var _eChip = (function() {
           var j = _ef.judge;
-          if (j === "ok") return React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#C0392B", background: "#FCEBEB", border: "1px solid #C0392B", borderRadius: 5, padding: "2px 8px" } }, "E：○（EP=OS" + (_ef.epIdx + 1) + "）");
+          if (j === "ok") return React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#C0392B", background: "#FCEBEB", border: "1px solid #C0392B", borderRadius: 5, padding: "2px 8px" } }, "E：○（EP=OS" + (_ef.epIdx + 1) + (_ef.ce ? "・終値" : "") + "）");
           if (j === "x") return React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#B45309", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 5, padding: "2px 8px" } }, "E：×　∵次足期待度×");
           if (j === "miss") return React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#7C3AED", background: "#F5F3FF", border: "1px solid #7C3AED", borderRadius: 5, padding: "2px 8px" } }, "E：未達（3本以内にα値到達なし）");
           return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#999", background: "#f5f4f0", borderRadius: 5, padding: "2px 8px" } }, "E：判定待ち");
@@ -10141,7 +10285,8 @@ function EntryRecordForm(_ref_erf) {
           //   旧式。_elDynPlanned が「旧実装の分岐は廃止」として捨てた式）を使っていたため、入力中にこの欄が出す額と
           //   保存後に表・集計が出す額（撤退足の終値ベース）が必ず食い違っていた。終値(epConf)基準に一本化する。
           //   終値が未入力のときだけ、旧式を保守的なフォールバックとして残す（_elRideVals と同じ倒し方）。
-          var _pnl = (_ef.epConf != null) ? Math.round((_ef.alpha - _ef.epConf) * 100) : (_df >= _cl ? -Math.round(_df * 100) : null);
+          var _pnl = (_ef.epConf != null) ? Math.round((_ef.px - _ef.epConf) * 100) : (_df >= _cl ? -Math.round(_df * 100) : null);
+          if (_ef.ce) _df = 0;   // 確定足エントリー＝EP足では損切りしない
           if (_pnl == null) return null;
           return React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: _pnl > 0 ? "#C0392B" : _pnl < 0 ? "#1E8449" : "#888" } },
             "EP損益 " + (_pnl > 0 ? "+" : "") + _pnl.toLocaleString() + "円" + ((_df >= _cl && _pnl < 0) ? "（損切り）" : ""));   // 損切り＝ラインに触れて【かつ】損。触れても終値が利益側なら付けない
@@ -10171,6 +10316,43 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("span", { style: { fontSize: 9, color: "#FCA5A5", fontWeight: 700 } }, "損切り" + String(_fCutLine != null ? _fCutLine : 15))
             )
           ),
+          // 5分足確定足エントリー（試行）2026-10-17: α値に届いた足が5分足の確定足なら、その足の終値でエントリーした扱い。
+          (function() {
+            var _k0 = _ef.k0 != null ? _ef.k0 : -1;
+            var _tAt = _k0 >= 0 ? _epCeTimeAt(fTime, _k0) : null;
+            var _autoOn = _k0 >= 0 && _epCeTimeBar(fTime, _k0);
+            var _lv = parseFloat(fLevelPrice), _hasLv = fLevelPrice !== "" && !isNaN(_lv);
+            var _pxTxt = function(rel) { return _hasLv ? String(Math.round((_lv + rel) * 100) / 100) : ("水準線" + (rel >= 0 ? "+" : "") + rel); };
+            var _cl = _fCutLine != null ? _fCutLine : 15;
+            var _ciNode = null;
+            if (_ef.ce && _ef.epConf != null) {
+              var _ci = _elCeInfo(_fVSig, _fAlpha, _fCutLine);
+              var _dv = _ci ? _ci.diff : null;
+              _ciNode = [
+                React.createElement("span", { key: "px", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#ECFEFF", border: "1px solid #67E8F9" } },
+                  React.createElement("span", { style: { color: "#0E7490", fontWeight: 700 } }, "実EP（終値）"),
+                  React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#155E75", fontVariantNumeric: "tabular-nums" } }, _pxTxt(_ef.epConf))),
+                React.createElement("span", { key: "sl", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "#FEF2F2", border: "1px solid #FECACA" } },
+                  React.createElement("span", { style: { color: "#B91C1C", fontWeight: 700 } }, "損切りライン（終値基準）"),
+                  React.createElement("span", { style: { fontSize: 12, fontWeight: 800, color: "#7F1D1D", fontVariantNumeric: "tabular-nums" } }, _pxTxt(_ef.epConf + _cl))),
+                _dv != null ? React.createElement("span", { key: "df", title: "想定損益の差（終値エントリー − α値で約定した場合）", style: { fontWeight: 700, color: _dv > 0 ? "#C0392B" : _dv < 0 ? "#1E8449" : "#888" } },
+                  "α約定比 " + (_dv > 0 ? "+" : _dv < 0 ? "−" : "±") + Math.abs(_dv).toLocaleString() + "円") : null
+              ];
+            } else if (_ef.skipIdx != null && _ef.skipIdx >= 0) {
+              var _ci2 = _elCeInfo(_fVSig, _fAlpha, _fCutLine);
+              _ciNode = [
+                React.createElement("span", { key: "sk", style: { color: "#B45309", fontWeight: 700 } }, "OS" + (_ef.skipIdx + 1) + "の終値がα以下 → この足では入らず（次の足からα値で約定）"),
+                (_ci2 && _ci2.diff != null) ? React.createElement("span", { key: "df", style: { fontWeight: 700, color: _ci2.diff > 0 ? "#C0392B" : _ci2.diff < 0 ? "#1E8449" : "#888" } },
+                  "α約定比 " + (_ci2.diff > 0 ? "+" : _ci2.diff < 0 ? "−" : "±") + Math.abs(_ci2.diff).toLocaleString() + "円") : null
+              ];
+            }
+            return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 4px 2px", fontSize: 11 } },
+              React.createElement("label", { title: "α値に届いた足が5分足の確定足（1分足の時刻の分の1の位が4か9）なら、その足の終値でエントリーした扱いにする（試行）。終値がα以下ならその足では入らない。", style: { display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", fontWeight: 700, color: fCeOn ? "#0E7490" : "#475569" } },
+                React.createElement("input", { type: "checkbox", checked: !!fCeOn, onChange: function(e) { setFCeOn(e.target.checked); } }),
+                "5分足確定足"),
+              _tAt ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, (isEdit ? "" : (_autoOn ? "自動○：" : "自動×：")) + "OS" + (_k0 + 1) + "＝" + _tAt) : null,
+              _ciNode);
+          })(),
           React.createElement("div", { style: { fontSize: 10, color: "#64748B", fontWeight: 600, margin: "0 0 6px 2px", lineHeight: 1.4 } }, "※5分足の場合、EPまでは5分足基準、EPからは1分足基準"),
           React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFBF5" } },
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto" } },
@@ -10291,7 +10473,7 @@ function EntryRecordForm(_ref_erf) {
             var _dfV2 = _epFormState.epHigh - _fAlpha;
             // 2026-07-29 上のEPチップと同じく終値(epConf)基準へ一本化。旧式 -(高値−α)×100 は
             //   ラインで約定する前提で、保存後の表・集計（撤退足の終値ベース）と必ずズレていた。
-            _pvV2 = (_epFormState.epConf != null) ? Math.round((_fAlpha - _epFormState.epConf) * 100) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100) : null);
+            _pvV2 = (_epFormState.epConf != null) ? Math.round((_epFormState.px - _epFormState.epConf) * 100) : (_dfV2 >= _fCutLine ? -Math.round(_dfV2 * 100) : null);
           }
           var _sgnP = _useV2P ? (_pvV2 == null ? null : _pvV2 > 0 ? "+" : _pvV2 < 0 ? "-" : null) : fPlanSign;
           var _txtP = _useV2P
@@ -10941,7 +11123,7 @@ function EntryLogCard(_ref_elc) {
       _elcAi && _elcAi.alpha != null ? _elAlphaBreakdownNode(s, _elcAi.alpha) : null,
       _elcAi && _elcAi.alpha != null ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" } },
         React.createElement("span", { style: { fontSize: 9, color: "#aaa", fontWeight: 700 } }, "E"),
-        _epECell(s, _elcAi.alpha)) : null
+        _epECell(s, _elcAi.alpha, _elcAi.cutLine)) : null
     ),
     (function() {   // 詳細タグ（底/起/特徴）＝明細表のシグナル欄2行表示(_elSigCell)とカードを対称に 2026-07-07
       var _dTags = (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : []));

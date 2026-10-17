@@ -4455,7 +4455,7 @@ function _elOsTradeMini(recs, aiOf, opts) {
       React.createElement("td", { style: { padding: "1px 3px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } },
         _elCutValNode(c)),
       _elLineCell(s, a, c, _bb),
-      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _epECell(s, a)),
+      React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 11, whiteSpace: "nowrap", borderBottom: _bb, borderRight: _bb } }, _epECell(s, a, c)),
       React.createElement("td", { style: { padding: "1px 4px", textAlign: "center", fontSize: 10, borderBottom: _bb, borderRight: _bb, whiteSpace: "nowrap" } },
         entered ? React.createElement("span", { style: { color: "#2E7D32", fontWeight: 700, fontSize: 14 } }, "〇") : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 14 } }, "×")),
       _elPnlDetailCells(s, a, c, _bb, "1px 3px", "1px 5px"),
@@ -7662,7 +7662,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         var _ovd = _elOsMaxAll(s); var _bkey = (_ovd != null) ? _elOsBucketKey(_ovd, false) : null;
         cells = cells.concat([
           _td(_epOsChainCell(s, a.alpha, a.cutLine)),
-          _td(_epECell(s, a.alpha)),
+          _td(_epECell(s, a.alpha, a.cutLine)),
           _td(_bkey != null ? React.createElement("span", { style: { display: "inline-block", padding: "1px 6px", borderRadius: 8, fontSize: 9, fontWeight: 700, color: "#fff", background: _elOsBucketColor(_bkey), whiteSpace: "nowrap" } }, _elOsBucketLabel(_bkey)) : _dash),
           _td(_elHoldMaxHighCell(s)),
           _td(_elOutcomeCell(s, a.alpha, a.cutLine))
@@ -7676,7 +7676,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           _td(_elAlphaTypeCell(s, a.alpha), { background: _elSpecialUsed(s) ? "#FEF3C7" : null }),
           _td(_elCutValNode(a.cutLine)),
           _td(_elLineInner(s, a.alpha, a.cutLine), { padding: "1px 2px", width: "1%" }),
-          _td(_epECell(s, a.alpha)),
+          _td(_epECell(s, a.alpha, a.cutLine)),
           _td(entered
             ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "〇")
             : _elIsThru(s)
@@ -8603,11 +8603,40 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
               style: { fontSize: 10, fontWeight: 700, background: _uk ? "#ECFDF5" : "#fff", border: "1px solid " + (_uk ? "#86EFAC" : "#DDD6FE"), borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap", cursor: "pointer", color: "#5B21B6" } },
               (r.date || "").slice(5) + " " + r.stock + " " + ((r.signal && r.signal.time) || "") + (_uk ? " ⚡浮き足" : ""));
           }))) : null;
+      // 5分足確定足エントリー（試行）2026-10-17: 終値約定／確定足で入らなかった記録の件数と、α値約定と比べた想定損益の差の合計（今月・累計）。
+      //   母数は合計表と同じ除外（算入外・データのみ・被り除外・仮シグナル・算入銘柄）。0件なら出さない。
+      var _ceNote = (function() {
+        var _agg = function(rs) {
+          var o = { n: 0, ce: 0, skip: 0, diff: 0 };
+          (rs || []).forEach(function(r) {
+            if (!r || !r.signal || !_elInclTotal(r.signal) || _elIsProvisional(r.signal) || !_elAmtRecOk(r) || _elCollExcluded(data, r, _collScope)) return;
+            var _a = _ai(r), ci = _elCeInfo(r.signal, _a.alpha, _a.cutLine);
+            if (!ci) return;
+            o.n++; if (ci.ce) o.ce++; else o.skip++; o.diff += ci.diff;
+          });
+          return o;
+        };
+        var _m = _agg(_sumMonthRecs2), _all = _agg(_v2recsAmt);
+        if (!_all.n) return null;
+        var _part = function(lbl, o) {
+          return React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
+            React.createElement("span", { style: { color: "#64748B" } }, lbl),
+            React.createElement("b", null, o.n + "件"),
+            o.skip ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "（うち入らず" + o.skip + "）") : null,
+            React.createElement("span", { style: { color: "#64748B" } }, "α約定比"),
+            React.createElement("b", { style: { color: _elPnlColor(o.diff) } }, (o.diff > 0 ? "+" : "") + o.diff.toLocaleString() + "円"));
+        };
+        return React.createElement("div", { key: "cenote", title: "5分足確定足：α値に届いた足が5分足の確定足なら、その足の終値でエントリーした扱い（試行）。α約定比＝想定損益の「確定足エントリー − α値で約定した場合」の差の合計。", style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "5px 11px", background: "#ECFEFF", border: "1px solid #A5F3FC", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#155E75", fontWeight: 600 } },
+          React.createElement("span", { style: { fontWeight: 800 } }, "5分確定"),
+          _part(_curSumYM.m + "月", _m),
+          _part("累計", _all));
+      })();
       var _sinceRecs = _elSinceRecs(_v2recsAmt);   // 🏷銘柄別の損益割合／🎯グレード別の件数だけ2026年7月以降に限定 2026-08-03b→08-03c
       _tabBody = _cardify([
         _sumMonthNav,
         _sumMonthRecs2.length ? _kpiBlockOf(_sumMonthRecs2)
           : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } }, _curSumYM.y + "年" + _curSumYM.m + "月の記録はありません（←→で月を移動）"),
+        _ceNote,
         _oldRecNote,
         _vapNote,
         [
