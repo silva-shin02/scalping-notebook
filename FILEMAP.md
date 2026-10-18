@@ -3078,7 +3078,7 @@ HomeEventFormModal, App
 
 - 【日替わり銘柄の既定=SUMCO 2026-10-04】`_dailyStockList`(app-04)が、9/1以降で指定もseed印も無い日に SUMCO を返す（`_DS_DEFAULT_STOCK`/`_DS_DEFAULT_SINCE`・読み出し側の既定で dailyStock には書かない）。生の指定は `_dailyStockRaw`。app-01 `_sumcoRotSeed1` でSUMCOを候補プールへ1回追加。
 
-- 【VAP値（α値の後継・8/20以降）2026-10-04】`_VAP_SINCE`/`_vapWorld(date)`/`_vapOf(s)`/`_vapAnalysisOk(r)`(app-05・AMT定数の直後)。**保存は `vapVal` に加え `alphaVal=baseAlphaVal=vapVal` も書く**＝下流のEP/損益計算(`_epOwnAlpha`＝alphaVal)は無改修でVAP基準になる。記録フォーム(app-05 EntryRecordForm)は `_vapMode=_vapWorld(fDate)` で α欄を VAP欄（`fVap`）に差し替え、浮き足/RN/基本応用は保存時に無効化。8/20より前の記録は従来のα基準のまま。
+- 【VAP値（α値の後継・8/20以降）2026-10-04】`_VAP_SINCE`/`_vapPrevLbl()`(開始前日のM/D)/`_vapWorld(date)`/`_vapOf(s)`/`_vapAnalysisOk(r)`(app-05・AMT定数の直後)。**保存は `vapVal` に加え `alphaVal=baseAlphaVal=vapVal` も書く**＝下流のEP/損益計算(`_epOwnAlpha`＝alphaVal)は無改修でVAP基準になる。記録フォーム(app-05 EntryRecordForm)は `_vapMode=_vapWorld(fDate)` で α欄を VAP欄（`fVap`）に差し替え、浮き足/RN/基本応用は保存時に無効化。8/20より前の記録は従来のα基準のまま。
   - 記録帳(app-06): `_anaRecs` で8/20より前を非表示、`_v2recsAll`/`_v2recsAllData` で vapVal 未入力を分析外（集計タブに「VAP未設定 N件」帯 `_vapNote`）。「📐 VAP値」タブ（旧α値タブを置換）= `_vapBoardV2(recs, aiOf, onEdit)`（追加円数0〜+10の表＝`_elH2EvalByFn` 同値全列除外・★＝Σ最大かつ想定損益確定10件以上／記録ごとの余地 `_vapMargin`）。旧αタブ本体は `if (true)` の else 側に残置（到達しない）。
   - EPナビ(app-04): `_epnVap` で浮き足・RN・応用αを0扱い（基本α欄＝VAP値）。UIラベルは未改称。
 
@@ -3168,3 +3168,4 @@ HomeEventFormModal, App
 - 【要審議の根拠も選択肢に 2026-10-17g・sw v527】スルーと同じ方式: signal.reviewReasons[]／マスター data.custom.reviewReasons（スルーとは別一覧・既定は空＝app-05 `_DEF_REVIEW_REASONS`）。`EntryRecordForm` の state `fReviewReasons`・`_SnReasonPicker` を使用・旧「要審議の根拠メモ」入力欄は廃止（既存の reviewMemo は表示のみ・保存時も保持）・新規の要審議は理由必須。記録カードに「審議理由」チップ、検索（app-04 2か所）に reviewReasons。app-06 サマリーの帯は `_rsnNoteOf(o)` に関数化し、`_thruNote`／`_reviewNote` の2本（開いている理由は state `thruOpen`＝"thru:名前"/"review:名前"）。
 - 【要審議の理由の既定 2026-10-17h・sw v528】app-05 `_DEF_REVIEW_REASONS` を空→["正当性","テクニカル不十分"]（ユーザー指定）。custom.reviewReasons が保存済みならそちらが優先（既定は使われない）。
 - 【スルーと要審議の併用 2026-10-18・sw v529】`EntryRecordForm` の実エントリー4択で、スルー／要審議は押すたびにオン/オフ（両方可）・あり／見送りを押すと両方外れる・両方外すと見送り。集計はスルー優先（passThrough=true が _elInclTotal/_elInclData で常に不算入＝既存の判定のまま）。要審議の説明文は併用時に「スルー優先で不算入」に切替。app-05 `_elThruLbl(s)`＝表の取引列のスルー表示（併用は「ス・審」）を app-02×2/app-04/app-06 の4か所で使用。記録カードのバッジは「スルー＋要審議」。行の色はスルーの灰色（_elNotInclRowStyle が先）。
+- 【全体損益（期間別）のVAP切替月を合算 2026-10-18】記録帳VAP枠(!legacy)の💰損益「全体損益（期間別）」だけ、8/1〜8/19の記録(`_preVapRecs`・app-06 view==="sum")を `_v2recsAmt` に足して `_ovPnlTbl(…, { preVap: true })`。8月行のラベル下に「〜8/19 α／8/20〜 VAP」。金額は現行判定（同値＝未約定＝ホーム/カレンダーと同じ）。KPI早見・累積・旧システム枠の表は従来どおり。
