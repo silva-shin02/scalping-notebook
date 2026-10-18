@@ -6757,7 +6757,8 @@ function _snBaseShares(data, ym) {
 function _snShareMul(data, date) { return _snBaseShares(data, (date || "").slice(0, 7)) / 100; }
 // 「見送り」記録か 2026-08-12＝実エントリー4択のうち あり/スルー/要審議 のどれでもない既定状態（フォームの判定式と同じ）。
 // 無エントリーだが合計損益・分析母数には仮想損益で算入される＝×見送り(_epIsXSkip・足の×宣言)とは別物。混同しないこと。
-function _snIsSkipRec(s, item) { return !!(s && !_elIsEntered(s, item) && s.passThrough !== true && s.review !== true); }
+// 2026-10-18 見送り＋要審議の併用（signal.reviewSkip＝要審議に見送りも付いている）も見送りとして扱う＝見送り理由の表示・未達タグの対象。表示・集計の区分は要審議のまま。
+function _snIsSkipRec(s, item) { return !!(s && !_elIsEntered(s, item) && s.passThrough !== true && (s.review !== true || s.reviewSkip === true)); }
 // ===== 見送り理由の2段構成 2026-08-18（ユーザー要望「選択肢＋詳細の2段に」）=====
 // ①選択肢＝signal.skipReasons[]（複数選択可）／②詳細＝signal.skipMemo（文章・従来のまま）。
 // 選択肢のマスターは data.custom.skipReasons（追加/改名/削除/並べ替え可・全端末同期）。既定は下の定数。
@@ -6898,7 +6899,7 @@ var _EL_SKIP_MISS = "未達";
 // ⚠️_epOwnAlpha は difficulty 未設定でも 10 を返す＝αがnullになることは無いので、判定不能で漏れる記録は無い。
 function _snSkipMissWant(s) {
   if (!s) return false;
-  if (s.entered === true || s.passThrough === true || s.review === true) return false;
+  if (s.entered === true || s.passThrough === true || (s.review === true && s.reviewSkip !== true)) return false;   // 見送り＋要審議も見送りとして未達タグの対象 2026-10-18
   return !_epReachedAt(s, _epOwnAlpha(s));
 }
 // 保存する skipReasons を組み立てる（予約タグを先頭・重複除去）。フォームの保存と移行(_migSkipMissTag・app-01)の両方がこれを使う＝単一源。
@@ -7882,6 +7883,8 @@ function EntryRecordForm(_ref_erf) {
   var _useStateRVW = useState(initSig.review === true),
     _useStateRVWA = _slicedToArray(_useStateRVW, 2),
     fReview = _useStateRVWA[0], setFReview = _useStateRVWA[1];
+  var _useStateRVS = useState(initSig.review === true && initSig.passThrough !== true && initSig.reviewSkip === true),   // 要審議に見送りも併用しているか（signal.reviewSkip）2026-10-18
+    fRevSkip = _useStateRVS[0], setFRevSkip = _useStateRVS[1];
   var _useStateRVR = useState(Array.isArray(initSig.reviewReasons) ? initSig.reviewReasons.slice() : []),   // 要審議の理由（選択肢）2026-10-17
     fReviewReasons = _useStateRVR[0], setFReviewReasons = _useStateRVR[1];
   var _useStateRVM = useState(initSig.reviewMemo || ""),
@@ -8612,6 +8615,8 @@ function EntryRecordForm(_ref_erf) {
   //      (c) 「なぜ降りたか」は次足期待度×そのものが記録で、🔬深掘りの「🚫 次足期待度×（見送り）の分析」が別建てで扱っている。
   //      ⚠️任意にするだけ＝書きたいときは書ける。**保存済み記録の扱いも集計側も一切変えていない**（変えたのはこの必須判定だけ）。
   var _fXSkipLive = !!(isV2Form && _epFormState && _epFormState.judge === "x");   // 旧記録(非v2)はjudgeを持たない＝従来どおり必須
+  // 見送りが点いているか 2026-10-18＝あり/スルーでなく、要審議なら見送り併用(fRevSkip)のとき。見送り理由欄・必須・保存の判定はこれが単一源。
+  var _fSkipOn = !fEntered && fThru !== true && (fReview !== true || fRevSkip === true);
   var _skipMemoReq = !isEdit && !_indDataOnlyCand && _fEpIdxLive >= 0 && !_fXSkipLive;
   // 必須でないとき、なぜ任意なのかを画面に出すためのラベル（編集時は理由を出さない＝既存記録では常に任意なので説明不要）。
   // 未達(_fEpIdxLive<0)と×宣言は排他（未達ならjudgeは"miss"）なので、この順に並べても競合しない。
@@ -9119,7 +9124,7 @@ function EntryRecordForm(_ref_erf) {
       // 2026-08-18 2段構成化にともない、必須の対象は**①選択肢**（②詳細の文章は任意）。
       //   よくある理由は選択肢をタップするだけで済ませ、特殊な回だけ詳細を書く運用にするため。
       //   選択肢に無い理由のときは、その場で「＋追加」して選べる（UI側）。
-      if (_skipMemoReq && !fEntered && fThru !== true && fReview !== true && (fSkipReasons || []).filter(Boolean).length === 0) _vm.push("見送りの理由（選択肢）");
+      if (_skipMemoReq && _fSkipOn && (fSkipReasons || []).filter(Boolean).length === 0) _vm.push("見送りの理由（選択肢）");
       if (!isEdit && fThru === true && (fThruReasons || []).filter(Boolean).length === 0) _vm.push("スルーの理由（選択肢）");   // 新規のスルーは必須 2026-10-17
       if (!isEdit && fReview === true && (fReviewReasons || []).filter(Boolean).length === 0) _vm.push("要審議の理由（選択肢）");   // 新規の要審議も必須 2026-10-17
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
@@ -9157,11 +9162,12 @@ function EntryRecordForm(_ref_erf) {
       review: fReview === true ? true : null,
       reviewMemo: (fReview === true && fReviewMemo) ? fReviewMemo : null,   // 旧・文章の根拠（入力欄は廃止＝既存記録の値をそのまま保持）
       reviewReasons: (fReview === true && (fReviewReasons || []).filter(Boolean).length) ? (fReviewReasons || []).filter(Boolean) : null,   // 要審議の理由（選択肢）2026-10-17
+      reviewSkip: (fReview === true && _fSkipOn) ? true : null,   // 見送り＋要審議の併用 2026-10-18（集計・一覧の表示は要審議のまま）
       // 見送り＝あり/スルー/要審議のどれでもない既定状態。他の3つに切り替えたら理由は落とす（thruMemo/reviewMemoと同じ規約）2026-08-12
-      skipMemo: (!fEntered && fThru !== true && fReview !== true && fSkipMemo) ? fSkipMemo : null,
+      skipMemo: (_fSkipOn && fSkipMemo) ? fSkipMemo : null,
       // 見送り理由の選択肢 2026-08-18。見送り以外（あり/スルー/要審議）に切り替えたら null＝skipMemo と同じ扱い。
       // 2026-08-24c 未達の予約タグを派生で足す（_snSkipReasonsWith が単一源）。見送り以外へ切り替えたら従来どおり null。
-      skipReasons: (function() { if (fEntered || fThru === true || fReview === true) return null;
+      skipReasons: (function() { if (!_fSkipOn) return null;
         var _sr = _snSkipReasonsWith(fSkipReasons, _fEpIdxLive < 0); return _sr.length ? _sr : null; })(),
       result: fResult,
       memo: initSig.memo || "", 
@@ -10794,7 +10800,8 @@ function EntryRecordForm(_ref_erf) {
         // 4択（2026-07-06→2026-07-14c 要審議追加）: あり/見送り/スルー/要審議。スルー=entered:false＋passThrough:true＝常に不算入（灰色・分析からも除外）。要審議=entered:false＋review:true＝無エントリー・2026-07-18gで合計にも算入（見送りと同じ）・分析母数にも算入（ピンク）。
         [["あり", "y"], ["見送り", "n"], ["スルー", "t"], ["要審議", "r"]].map(function(kv) {
           var label = kv[0], mode = kv[1];
-          var on = mode === "y" ? (fEntered && !fThru && !fReview) : (mode === "n" ? (!fEntered && !fThru && !fReview) : (mode === "t" ? fThru === true : fReview === true));
+          var on = mode === "y" ? (fEntered && !fThru && !fReview) : (mode === "n" ? _fSkipOn : (mode === "t" ? fThru === true : fReview === true));
+          // 2026-10-18b 見送りと要審議も同時に付けられる（ユーザー要望）＝要審議が点いている間は見送りも押すたびにオン/オフ（fRevSkip）。見送りが点いた状態で要審議を押すと見送りは残る。
           // 2026-10-18 スルーと要審議は同時に付けられる（ユーザー要望）＝この2つは押すたびにオン/オフ。あり・見送りを押すと両方外れる。両方外すと見送り。集計はスルー優先（不算入）。
           var thruSel = mode === "t" && on;
           var reviewSel = mode === "r" && on;
@@ -10805,10 +10812,13 @@ function EntryRecordForm(_ref_erf) {
               var _thNext = mode === "t" ? !fThru : (mode === "r" ? fThru : false);   // 押した後のスルー状態（要審議を押してもスルーは維持）
               if (_thNext && !fThru) { setFIncl(false); setFInclData(false); }
               else if (!_thNext && fThru) { setFIncl(_indDataOnlyCand ? false : true); setFInclData(true); }
-              if (mode === "y") { setFEntered(true); setFThru(false); setFReview(false); }
-              else if (mode === "n") { setFEntered(false); setFThru(false); setFReview(false); setFItemId(null); }
-              else if (mode === "t") { setFEntered(false); setFThru(!fThru); setFItemId(null); }
-              else { setFEntered(false); setFReview(!fReview); setFItemId(null); }
+              if (mode === "y") { setFEntered(true); setFThru(false); setFReview(false); setFRevSkip(false); }
+              else if (mode === "n") {
+                if (fReview && !fThru) setFRevSkip(!fRevSkip);   // 要審議と併用中はオン/オフ（外すと要審議だけ）
+                else { setFEntered(false); setFThru(false); setFReview(false); setFRevSkip(false); setFItemId(null); }
+              }
+              else if (mode === "t") { setFEntered(false); setFThru(!fThru); setFRevSkip(false); setFItemId(null); }
+              else { setFRevSkip(!fReview && _fSkipOn); setFEntered(false); setFReview(!fReview); setFItemId(null); }   // 見送りが点いていたら要審議を付けても見送りを残す
             },
             title: mode === "t" ? "シグナルは出たが判断の土俵に乗せなかった記録＝合計・データ分析に算入しない（一覧では灰色表示）" : (mode === "r" ? "判断を保留する記録＝見送りと同じく合計損益・データ分析に算入する（一覧ではピンク表示で区別）" : null),
             style: {
@@ -10823,7 +10833,7 @@ function EntryRecordForm(_ref_erf) {
       ),
       // 見送りの理由（2026-08-12）: 見送り＝あり/スルー/要審議のどれでもない既定状態のときだけ出す。
       // 必須は_skipMemoReq（新規かつ選定外でない）のときだけ＝編集と、日替わり銘柄の選定外は任意。
-      (!fEntered && fThru !== true && fReview !== true) ? React.createElement(React.Fragment, null,
+      _fSkipOn ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#1E40AF", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "6px 9px" } },
           "見送り＝合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入）。"
             + (_skipMemoReq ? "新規記録では理由（選択肢）の選択が必須です。詳細の文章は任意です。"
@@ -11029,6 +11039,7 @@ function EntryRecordForm(_ref_erf) {
       fReview ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 6, padding: "6px 9px" } },
           fThru ? "要審議（スルーと併用）＝スルーも選んでいるので、合計損益・データ分析には算入されません（スルー優先・一覧は灰色＋「審」）。"
+            : fRevSkip ? "要審議（見送りと併用）＝見送りの記録として理由も残しつつ、判断を保留する記録。合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入・一覧ではピンク表示＋「審」）。"
             : "要審議＝判断を保留する記録。見送りと同じく合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入・一覧ではピンク表示で区別）。"),
         React.createElement("div", { style: SH_ }, "要審議の理由",
           !isEdit ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須") : null,
