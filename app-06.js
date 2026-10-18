@@ -7682,7 +7682,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           _td(entered
             ? React.createElement("span", { style: { color: "#C0392B", fontWeight: 700, fontSize: 13 } }, "〇")
             : _elIsThru(s)
-              ? React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス")
+              ? _elThruLbl(s)
               : _elIsReview(s)
                 ? React.createElement("span", { title: "要審議", style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審")
                 : React.createElement("span", { style: { color: "#999", fontWeight: 700, fontSize: 13 } }, "×")),
