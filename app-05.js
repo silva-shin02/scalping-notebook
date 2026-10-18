@@ -3583,6 +3583,14 @@ function _elIsExcluded(s) { return !!(s && (s.includeInTotal === false || s.pass
 function _elIsThru(s) { return !!(s && s.passThrough === true); }
 // 要審議判定（実エントリー第4状態 2026-07-14c）: 無エントリー扱い。2026-07-18gで合計損益にも算入（見送りと同じ＝×宣言が無ければ仮想損益で（）内）。スルーと違い分析母数(_elInclTotal)にも算入。見た目はピンク。
 function _elIsReview(s) { return !!(s && s.review === true); }
+// 表の「取引」列のスルー表示 2026-10-18: スルーと要審議は同時に付けられる（集計はスルー優先＝不算入）。両方なら「ス・審」。
+function _elThruLbl(s) {
+  var th = React.createElement("span", { title: "スルー", style: { color: "#6B7280", fontWeight: 700, fontSize: 11 } }, "ス");
+  if (!_elIsReview(s)) return th;
+  return React.createElement("span", { title: "スルー＋要審議（集計はスルー扱い＝合計・分析に入らない）", style: { whiteSpace: "nowrap" } }, th,
+    React.createElement("span", { style: { color: "#9CA3AF", fontSize: 9 } }, "・"),
+    React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, fontSize: 11 } }, "審"));
+}
 // ===== 仮シグナル（シグナルではあるが合計に算入しないジャンル）2026-09-22 ユーザー決定 =====
 // マスターは custom.provSignalTags（通常の custom.signalTags とは別リスト・排他）。
 // 記録側は保存時に includeInTotal=false / includeInData=true / provisional=true を立てる＝
@@ -10787,16 +10795,20 @@ function EntryRecordForm(_ref_erf) {
         [["あり", "y"], ["見送り", "n"], ["スルー", "t"], ["要審議", "r"]].map(function(kv) {
           var label = kv[0], mode = kv[1];
           var on = mode === "y" ? (fEntered && !fThru && !fReview) : (mode === "n" ? (!fEntered && !fThru && !fReview) : (mode === "t" ? fThru === true : fReview === true));
+          // 2026-10-18 スルーと要審議は同時に付けられる（ユーザー要望）＝この2つは押すたびにオン/オフ。あり・見送りを押すと両方外れる。両方外すと見送り。集計はスルー優先（不算入）。
           var thruSel = mode === "t" && on;
           var reviewSel = mode === "r" && on;
           return React.createElement("button", {
             key: label,
             onClick: function() {
               // スルー選択で下の算入チェック（合計算入・データ算入）を自動で外す＝スルーは合計・分析とも常に不算入なので見た目も合わせる（ユーザー要望 2026-07-22g）。スルーから他へ戻すときは既定（候補ならデータのみ＝合計OFF/データON、それ以外はON/ON）へ復帰＝あり記録を誤って除外したまま保存しないように。
-              if (mode === "t") { setFIncl(false); setFInclData(false); }
-              else if (fThru) { setFIncl(_indDataOnlyCand ? false : true); setFInclData(true); }
+              var _thNext = mode === "t" ? !fThru : (mode === "r" ? fThru : false);   // 押した後のスルー状態（要審議を押してもスルーは維持）
+              if (_thNext && !fThru) { setFIncl(false); setFInclData(false); }
+              else if (!_thNext && fThru) { setFIncl(_indDataOnlyCand ? false : true); setFInclData(true); }
               if (mode === "y") { setFEntered(true); setFThru(false); setFReview(false); }
-              else { setFEntered(false); setFThru(mode === "t"); setFReview(mode === "r"); setFItemId(null); }
+              else if (mode === "n") { setFEntered(false); setFThru(false); setFReview(false); setFItemId(null); }
+              else if (mode === "t") { setFEntered(false); setFThru(!fThru); setFItemId(null); }
+              else { setFEntered(false); setFReview(!fReview); setFItemId(null); }
             },
             title: mode === "t" ? "シグナルは出たが判断の土俵に乗せなかった記録＝合計・データ分析に算入しない（一覧では灰色表示）" : (mode === "r" ? "判断を保留する記録＝見送りと同じく合計損益・データ分析に算入する（一覧ではピンク表示で区別）" : null),
             style: {
@@ -11016,7 +11028,8 @@ function EntryRecordForm(_ref_erf) {
       ) : null,
       fReview ? React.createElement(React.Fragment, null,
         React.createElement("div", { style: { marginBottom: 8, fontSize: 11, fontWeight: 600, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 6, padding: "6px 9px" } },
-          "要審議＝判断を保留する記録。見送りと同じく合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入・一覧ではピンク表示で区別）。"),
+          fThru ? "要審議（スルーと併用）＝スルーも選んでいるので、合計損益・データ分析には算入されません（スルー優先・一覧は灰色＋「審」）。"
+            : "要審議＝判断を保留する記録。見送りと同じく合計損益・データ分析に算入されます（無エントリーなので仮想損益で算入・一覧ではピンク表示で区別）。"),
         React.createElement("div", { style: SH_ }, "要審議の理由",
           !isEdit ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須") : null,
           React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます")),
@@ -11266,7 +11279,7 @@ function EntryLogCard(_ref_elc) {
 
     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6 } },
       s.tradeType && React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 700, background: s.tradeType === "空売" ? "#FCEBEB" : "#EAF3DE", color: s.tradeType === "空売" ? "#C0392B" : "#1E8449", borderRadius: 4, border: "1px solid " + (s.tradeType === "空売" ? "#F5C6CB" : "#A9DFBF") } }, s.tradeType),
-      React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: entered ? "#E8F5E9" : (_elIsThru(s) ? "#E5E7EB" : (_elIsReview(s) ? "#FCE7F3" : "#f5f4f0")), color: entered ? "#2E7D32" : (_elIsThru(s) ? "#4B5563" : (_elIsReview(s) ? "#9D174D" : "#888")), borderRadius: 4, border: "1px solid " + (entered ? "#A9DFBF" : (_elIsThru(s) ? "#9CA3AF" : (_elIsReview(s) ? "#F9A8D4" : "#ddd"))) } }, entered ? "実エントリー" : (_elIsThru(s) ? "スルー" : (_elIsReview(s) ? "要審議" : "見送り"))),
+      React.createElement("span", { style: { padding: "1px 5px", fontSize: 10, fontWeight: 600, background: entered ? "#E8F5E9" : (_elIsThru(s) ? "#E5E7EB" : (_elIsReview(s) ? "#FCE7F3" : "#f5f4f0")), color: entered ? "#2E7D32" : (_elIsThru(s) ? "#4B5563" : (_elIsReview(s) ? "#9D174D" : "#888")), borderRadius: 4, border: "1px solid " + (entered ? "#A9DFBF" : (_elIsThru(s) ? "#9CA3AF" : (_elIsReview(s) ? "#F9A8D4" : "#ddd"))) } }, entered ? "実エントリー" : (_elIsThru(s) ? (_elIsReview(s) ? "スルー＋要審議" : "スルー") : (_elIsReview(s) ? "要審議" : "見送り"))),
       (s.tags && s.tags.length > 0 ? s.tags : (s.tag && s.tag !== "__custom__" ? [s.tag] : [])).map(function(t) {
         return React.createElement("span", { key: t, style: { padding: "1px 7px", fontSize: 11, fontWeight: 600, background: "#FFEDD5", color: "#9A3412", borderRadius: 5, border: "1px solid #FB923C" } }, t);   // 詳細は下の詳細タグ行に一本化（旧_elTagDispの括弧併記は二重表示だった）2026-07-16
       }),
