@@ -6823,7 +6823,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   //   💰損益の集計表（全体損益・KPI早見・累積損益）は対象外。あちらは旧ルール行を薄く残して比較できる仕様なので、
   //   ここで根ごと落とすとその行が消えて競合する。
   var _uSNO = useState(false), sinceOnly = _uSNO[0], setSinceOnly = _uSNO[1];
-  var _uRSO = useState(false), rotShareOpen = _uRSO[0], setRotShareOpen = _uRSO[1];   // 🏷銘柄別の損益割合＝「📅 日替わり」行の▶で内訳（銘柄別）を表の中に開くか 2026-08-06G
+  var _uRSO = useState({}), rotShareOpen = _uRSO[0], setRotShareOpen = _uRSO[1];   // 🏷銘柄別の損益割合＝「📅 日替わり」行の▶で内訳（銘柄別）を表の中に開くか 2026-08-06G。2026-10-18 月別表示にしたので月キーごとのオブジェクト {ym: true}
   // トグル適用ヘルパー。_elSinceRecs(:6128付近)は**この行より後ろ**で var に関数を代入しているため、
   //   先に走る_v2recsAllData(:5948付近)からは undefined で呼べない。トップレベル関数宣言で巻き上げ済みの
   //   _elIsOldRule を直接使うことで定義順の問題を回避する（境界の正本は_EL_RULE_SINCEのまま＝二重定義しない）。
@@ -7149,7 +7149,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
              collX: cx, days: Object.keys(dset).length };
   };
   var _STK_SHARE_COLORS = ["#0369A1", "#9A3412", "#B45309", "#0F766E", "#94A3B8"];
-  var _stkShareSection = function(rs) {
+  var _stkShareSection = function(rs, rsoKey) {   // rsoKey＝日替わり内訳の開閉キー（月別表示 2026-10-18）
     if (!rs || !rs.length) return null;
     var bk = _stkShareBuckets(), fixed = bk.fixed;
     var isRot = {}; bk.rot.forEach(function(s) { isRot[s] = 1; });
@@ -7244,12 +7244,13 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       gRot.recs.forEach(function(r) { var k = r.stock || "(不明)"; (_rotByStk[k] = _rotByStk[k] || []).push(r); });
       _rotKeys = Object.keys(_rotByStk).sort(function(x, y) { return _rotByStk[y].length - _rotByStk[x].length || x.localeCompare(y); });
     }
+    var _rsoOn = !!(rotShareOpen && rotShareOpen[rsoKey]);
     var rows = [];
     shown.forEach(function(g) {
       if (g.key !== "__rot__" || !_rotKeys.length) { rows.push(rowOf(g)); return; }
       rows.push(React.createElement.apply(null, ["tr", { key: g.key }].concat(
-        cellsOf(g.label, g.color, g.a, false, { open: rotShareOpen, n: _rotKeys.length, onClick: function() { setRotShareOpen(!rotShareOpen); } }, _selDaysOf(bk.rot)))));
-      if (!rotShareOpen) return;
+        cellsOf(g.label, g.color, g.a, false, { open: _rsoOn, n: _rotKeys.length, onClick: function() { setRotShareOpen(function(p) { var n = Object.assign({}, p); if (n[rsoKey]) delete n[rsoKey]; else n[rsoKey] = true; return n; }); } }, _selDaysOf(bk.rot)))));
+      if (!_rsoOn) return;
       _rotKeys.forEach(function(k) {
         rows.push(React.createElement.apply(null, ["tr", { key: "__rot_" + k, style: { background: "#FAFAF9" } }].concat(
           cellsOf(k, g.color, _stkShareAgg(_rotByStk[k]), true, null, _selDaysOf([k])))));
@@ -7260,6 +7261,22 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       bar("利益の内訳（全体の総利益 " + _elPnlFmt(_gpTot) + " に占める割合）", function(g) { return g.a.gp; }, _gpTot),
       bar("損失の内訳（全体の総損失 " + _elPnlFmt(-_glTot) + " に占める割合）", function(g) { return Math.abs(g.a.gl); }, _glTot),
       _elv2Table(["銘柄", "件数", "日数", "到達", "勝率", "総利益（内訳）", "総損失（内訳）", "純損益", "1件平均", "実現損益"], rows));
+  };
+  // 🏷銘柄別の損益割合を月別に縦に並べる 2026-10-18（ユーザー選択「月別のみ・全部開く」＝全期間の表は出さない）。新しい月が上。
+  //   VAP枠の切替月(8月)は全体損益（期間別）と同じく8/19以前(_preVapRecs)も合算＝月の合計行が期間別表の月行と一致する。
+  var _stkShareMonths = function(rs) {
+    var byM = {};
+    (rs || []).forEach(function(r) { if (r && r.date) (byM[r.date.slice(0, 7)] = byM[r.date.slice(0, 7)] || []).push(r); });
+    var yms = Object.keys(byM).sort().reverse();
+    if (!yms.length) return null;
+    return yms.map(function(ym) {
+      var _mix = !legacy && ym === _VAP_SINCE.slice(0, 7) && byM[ym].some(function(r) { return !_vapWorld(r.date); });
+      return React.createElement("div", { key: "stkm_" + ym, style: { marginTop: 10 } },
+        React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#9A3412", borderBottom: "1px solid #FED7AA", paddingBottom: 2, marginBottom: 6 } },
+          _elSinceYmLbl(ym),
+          _mix ? React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: "#6B7280", marginLeft: 6 } }, "〜" + _vapPrevLbl() + " α／" + (+_VAP_SINCE.slice(5, 7)) + "/" + (+_VAP_SINCE.slice(8, 10)) + "〜 VAP") : null),
+        _stkShareSection(byM[ym], ym));
+    });
   };
   // ===== 🎯 グレード別の件数（月別）（2026-08-03c ユーザー要望「1か月あたりの各グレードの件数が知りたい。A+何件、A-何件みたいな感じ」）=====
   // 表は2つ（ユーザー選択「両方」）＝「良いトレードが何件あったか」と「良い日が何日あったか」は別の話なので分ける:
@@ -8738,7 +8755,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           _secH("🏷 銘柄別の損益割合",
             "固定銘柄＋📅日替わり（まとめて1つ）＋その他。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間（2026-08-05sで境界を統一）。割合は利益と損失を別々に内訳表示（純損益の構成比にすると、マイナスの銘柄があるとき負の%や100%超が出て積み上げ棒にできないため）。PF＝プロフィットファクタ＝総利益÷総損失。⚠️金額列（総利益・総損失・純損益・1件平均・実現損益）は時間かぶりの遅い方を除外しますが、件数・到達・勝率は除外しません＝件数欄の「被り除外N件」がその差です。日替わりの「選定N日」はその銘柄が本日の取引銘柄に選ばれた日数＝選ばれた日だけ取引しているので、常時見ている固定銘柄と勝率・1件平均をそのまま比べると日替わり側が有利に出ます",
             _elSinceBadge()),
-          _stkShareSection(_sinceRecs)] : null,
+          _stkShareMonths(_sinceRecs.concat(_preVapRecs))] : null,
         _sinceRecs.length ? [
           _secH("🎯 グレード別の件数（月別）",
             "想定損益を損益スケール（S=2501円〜／D=0円／G+=−2501円〜）でグレード判定して月ごとに数える。①その日の合計ごと ②記録1件ごと の2表。母数は" + _EL_SINCE_LBL + "の記録のみ＝上の「全体損益（期間別）」の合計行と同じ期間。境界をまたぐ月は「2026/06（6/29〜）」＝その月の一部だけを数えています。カレンダーの日付バッジは実現損益スケール（10倍・S=25001円〜）なので数字は一致しません",
