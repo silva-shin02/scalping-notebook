@@ -7564,6 +7564,10 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         var _old = _keyIsOld(k, gg);   // 2026-08-05n 旧ルール期間＝薄く＋合計・平均から除外。2026-08-05q「旧ルール」バッジは撤去（ユーザー指示）＝薄さだけで示す。理由は見出しの説明文と合計行の「※6/29〜のみ」に残る
         out.push(React.createElement("tr", { key: path, onClick: function() { setOvExp(function(prev) { var n = Object.assign({}, prev); if (n[path]) delete n[path]; else n[path] = true; return n; }); }, style: { cursor: "pointer", background: on ? "#FFF7ED" : "transparent", opacity: _old ? 0.42 : 1 } },
           otd(React.createElement("span", null, React.createElement("span", { style: { color: "#F97316", marginRight: 3, fontSize: 9 } }, on ? "▼" : "▶"), labelOf(k, gg), _elEmaRefNote(_elIsEmaRefPeriod(k, gg)),
+            // 2026-10-18 VAP枠の切替月（8月）は8/19以前の記録も合算している（opts.preVap）＝内訳を小さく注記
+            (opts && opts.preVap && (gg || g) === "month" && String(k) === _VAP_SINCE.slice(0, 7) && x.some(function(r) { return !_vapWorld(r.date); }))
+              ? React.createElement("span", { title: "この月はα値→VAP値の切替月なので、" + _VAP_SINCE + "より前（α値）の記録も合算しています（金額はホーム/カレンダーと同じ計算＝同値は未約定）", style: { display: "block", fontSize: 8.5, fontWeight: 700, color: "#6B7280", whiteSpace: "nowrap" } },
+                  "〜" + _vapPrevLbl() + " α／" + (+_VAP_SINCE.slice(5, 7)) + "/" + (+_VAP_SINCE.slice(8, 10)) + "〜 VAP") : null,
             (!x.length && _extraRow.length) ? React.createElement("span", { title: "この期間は集計に入る記録が無く、表示専用の記録だけがあります（" + _extraBrk(_extraRow) + "・集計は全て—）", style: { fontSize: 8.5, fontWeight: 700, color: "#6B7280", background: "#F3F4F6", border: "1px solid #D1D5DB", borderRadius: 4, padding: "0 4px", marginLeft: 4, whiteSpace: "nowrap" } },
               _extraRow.every(function(r) { return _elIsThru(r.signal); }) ? "スルーのみ" : "算入記録なし") : null), { textAlign: "left", paddingLeft: 8, fontWeight: 700, color: "#9A3412" }),
           (gg === "day" ? null : otd(_elBizDaysCell(dn, dnF), { fontWeight: 600, color: "#555" })),   // 日別は日数列ごと非表示 2026-08-12g（全行「1日」で情報が無い）
@@ -8570,6 +8574,13 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       // ②データのみ除外（本日の取引銘柄システム 2026-07-22e）: 全銘柄側（全体タブ）の合計消費側だけ候補・未指定(データのみ)を外す。分析母数(v2recs/_v2recsAll)・銘柄別タブは据置。
       var _v2recsAmt = v2recs.filter(function(r) { return !_isDataOnly(data, r); });
       var _sumMonthRecs2 = _sumMonthRecs.filter(function(r) { return !_isDataOnly(data, r); });
+      // 2026-10-18 VAP枠の切替月（8月）の8/19以前の記録（ユーザー指示「8月はちゃんと合計して表示」）。全体損益（期間別）の表だけに足す＝
+      //   月別の8月行・合計行（日別/週別ではその期間の行）。母数の絞り方は_v2recsAmtと同じ（期間ピッカー・算入・データのみ）、旧システム枠の記録なのでVAP未入力でも落とさない。
+      //   金額は現在の判定（同値＝未約定）＝ホーム/カレンダーと同じ計算。旧システム枠（legacy）の表は従来どおり。
+      var _preVapRecs = legacy ? [] : _elPSelFilter(allRecs.filter(function(r) {
+        var d = (r && r.date) || "";
+        return d >= _VAP_SINCE.slice(0, 7) + "-01" && d < _VAP_SINCE && !_elIsEmaRefPeriod(d);
+      }), pSel).filter(function(r) { return _epIsV2(r.signal) && _elInclTotal(r.signal) && !_isDataOnly(data, r); });
       var _v2recsNewRule = _v2recsAmt.filter(function(r) { return !_elIsOldRule(r.date); });
       // 旧記録（非v2＝schemeなし）の可視化 2026-10-04。記録帳は _v2recsAll の段階で _epIsV2 をかけているので、
       //   旧記録は損益・分析のどこにも出てこない。oldCnt は数えていたが**どこにも表示していなかった**ため、
@@ -8710,7 +8721,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         [
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。想定損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）。6/29より前は集計ルールが違うため薄く表示し、合計・平均には算入していません（月別の2026/06は〜6/28と6/29〜の2行に分けています）。合計行の「月換算」は1か月＝20営業日として引き伸ばした目安（合計÷営業日数×20）で、実額ではありません"),
           _granSeg(gran, setGran, "ov_", _ovGradeLegend),
-          _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran)],
+          legacy ? _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran) : _ovPnlTbl(_v2recsAmt.concat(_preVapRecs), gran === "custom" ? "week" : gran, { preVap: true })],
         // 選定外の記録の参考表示 2026-10-05（ユーザー指示「選定外銘柄でも想定損益などは表示」・表示場所＝期間別表／合計は今のまま別建て／指標＝想定損益・到達・利確・損切り）。
         //   選定外＝日替わり候補でその日に指定していない記録(データのみ)＋合計算入銘柄に選んでいない銘柄(8/20以降)。上の合計・1日平均・グレードには一切入らない。
         //   同じ期間別表を母数だけ差し替えて再利用（列の定義が二重にならない）。金額は算入銘柄フィルタを外して出す(_amtBypass)。行展開キーは別接頭辞。

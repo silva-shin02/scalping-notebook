@@ -3336,6 +3336,7 @@ function _elAmtRecOk(r) { return !r || !r.stock || _elAmtStockOk(r.stock, r.date
 // 保存＝signal.vapVal（新項目）。**同時に alphaVal=baseAlphaVal=vapVal も書く**＝下流の損益/EP計算(_epOwnAlpha＝alphaVal)は無改修でVAP基準になる（共通化）。
 // 8/20より前の記録は従来のα基準のまま。8/20〜8/31のうち vapVal 未入力のものは「VAP未設定」＝記録帳の分析対象外（入れ直した記録から対象）。
 var _VAP_SINCE = "2026-08-20";
+function _vapPrevLbl() { var d = new Date(_VAP_SINCE + "T00:00:00"); d.setDate(d.getDate() - 1); return (d.getMonth() + 1) + "/" + d.getDate(); }   // VAP開始の前日のM/D表記（"8/19"）2026-10-18
 function _vapWorld(date) { return !!date && String(date) >= _VAP_SINCE; }
 function _vapOf(s) { return (s && s.vapVal != null && s.vapVal !== "" && !isNaN(Number(s.vapVal))) ? Number(s.vapVal) : null; }
 // 記録帳の分析母数に入れてよいか: 8/20より前は対象外／8/20以降は vapVal 入力済みのみ
