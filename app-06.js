@@ -9062,7 +9062,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
               realAll += rv; realAllCnt++;
               if (fin != null) { theo += Math.round(fin * _mulOf(r)); realM += rv; n++; }
             }
-          } else if (_snIsSkipRec(s, item) && fin != null) {
+          } else if (_snIsSkipRec(s, item) && !_elIsReview(s) && fin != null) {   // 見送り＋要審議(2026-10-18)は内訳どおり要審議側＝見送りコストに入れない
             var v = Math.round(fin * _mulOf(r));
             skipCost += v; skipCostN++;
             if (v > 0) skipBad++; else if (v < 0) skipGood++;         // v===0は正解/誤りどちらにも数えない
