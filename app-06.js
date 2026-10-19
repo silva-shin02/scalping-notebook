@@ -874,15 +874,19 @@ function _elSignalSuccessTableV2(recs, aiOf) {
 // 期待度×（×見送り）の分析: ×宣言後にα到達したが取引を見送った記録について、もし取引していたらのEP/H1損益と、
 // 見送り判断の精度（取引EPがマイナス=損失回避=正解／プラス=機会損失=逃した利益）をシグナル別に集計。
 // aiOf=記録→{alpha,cutLine}。『取引していたら』は_epAsTradedの仮想エントリー＝各表の（）参考値と同基準。
+// ×見送りの行（取引していたらのEP/H1損益）。セクションと月の成績表(_mwReport)で共用 2026-10-19。
+function _elXSkipRowsV2(recs, aiOf) {
+  return (recs || []).filter(function(r) { return _epIsXSkip(r.signal, aiOf(r).alpha); }).map(function(r) {
+    var s = r.signal, ai = aiOf(r), tr = _epAsTraded(s);
+    return { r: r, s: s, ep: _elDynPlanned(tr, ai.alpha, ai.cutLine), h1: _elDynHold(tr, ai.alpha, ai.cutLine) };
+  });
+}
 function _elXSkipSectionV2(recs, aiOf) {
   var all = recs || [];
   var xs = all.filter(function(r) { return _epIsXSkip(r.signal, aiOf(r).alpha); });
   if (!xs.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "10px 0" } }, "×見送り（期待度×・宣言後に" + (_EL_UI_VAP ? "EP" : "α") + "到達）の記録はありません");
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
-  var rows = xs.map(function(r) {
-    var s = r.signal, ai = aiOf(r), tr = _epAsTraded(s);
-    return { r: r, s: s, ep: _elDynPlanned(tr, ai.alpha, ai.cutLine), h1: _elDynHold(tr, ai.alpha, ai.cutLine) };
-  });
+  var rows = _elXSkipRowsV2(xs, aiOf);
   var sumEp = 0, epCnt = 0, sumH1 = 0, h1Cnt = 0, missCnt = 0, missSum = 0, avoidCnt = 0, avoidSum = 0;
   rows.forEach(function(o) {
     if (o.ep != null) { sumEp += o.ep; epCnt++; if (o.ep > 0) { missCnt++; missSum += o.ep; } else if (o.ep < 0) { avoidCnt++; avoidSum += o.ep; } }
@@ -946,10 +950,10 @@ function _elXSkipSectionV2(recs, aiOf) {
 // △ホールド分析（2026-06-16）: 期待度△のH1/H2ホールド記録について、本算入していたら（=△足の実損益）と
 // 1段下フォールバック（H1△→EP損益・H2△→H1損益）の差＝（）内への参考寄与を集計し、△で保有/算入した判断の精度を見る。
 // delta>0=保有が活きた（伸ばせた）／delta<0=裏目（1段下で手仕舞いが正解）。×見送り分析(_elXSkipSectionV2)の△版。aiOf(r)→{alpha,cutLine}。
-function _elTriangleHoldSectionV2(recs, aiOf) {
-  var all = recs || [];
+// △ホールドの行（own＝△で持った損益／base＝1段下で手じまい／delta）。セクションと月の成績表(_mwReport)で共用 2026-10-19。
+function _elTriRowsV2(recs, aiOf) {
   var rows = [];
-  all.forEach(function(r) {
+  (recs || []).forEach(function(r) {
     var s = r.signal, ai = aiOf(r);
     if (_epIsXSkip(s, ai.alpha) || _elH2Miss(s, ai.alpha)) return;
     if (s.holdExp === "△") {
@@ -967,6 +971,11 @@ function _elTriangleHoldSectionV2(recs, aiOf) {
       if (own2 != null && base2 != null) rows.push({ s: s, leg: "H2", own: own2, base: base2, delta: own2 - base2 });
     }
   });
+  return rows;
+}
+function _elTriangleHoldSectionV2(recs, aiOf) {
+  var all = recs || [];
+  var rows = _elTriRowsV2(all, aiOf);
   if (!rows.length) return React.createElement("div", { style: { color: "#bbb", fontSize: 12, padding: "10px 0" } }, "期待度△のホールド記録はありません");
   var _dash = React.createElement("span", { style: { color: "#ccc" } }, "—");
   var sumDelta = 0, win = 0, lose = 0, h1c = 0, h2c = 0;
@@ -6553,6 +6562,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   //   の日別/週別/月別セグメント(_granSeg L7666)と共有しているので、こちらを月間/週間の2択に狭めると
   //   損益タブで日別を選んだあと月間タブに来たとき gran="day" が残って壊れる。
   var _uMwG = useState("month"), mwGran = _uMwG[0], setMwGran = _uMwG[1];
+  var _uMwS = useState(null), mwSel = _uMwS[0], setMwSel = _uMwS[1];   // 📅月間・週間の成績表で表示中の期間キー（null＝最新）2026-10-19
   var _uSM = useState("month"), sumMode = _uSM[0], setSumMode = _uSM[1];   // 銘柄別 集計タブの今月/全期間トグル（既定=今月）2026-06-22
   var _uSY = useState(null), sumYM = _uSY[0], setSumYM = _uSY[1];        // 集計「今月」の対象年月 {y,m}（null=当月）2026-06-22
   var _uAA = useState("all"), _addAlphaFilRaw = _uAA[0], setAddAlphaFil = _uAA[1], addAlphaFil = legacy ? _addAlphaFilRaw : "all";   // 2026-10-05 VAP枠(8/20以降)に基本/応用の概念は無い（ユーザー指示）＝分類は常に「全記録」・トグルも出さない。   // 記録帳全体トグル: 追加α 全部(all)/〇(yes)/×(no)/未選択(unset)で分析を絞る 2026-06-24（推奨基本α/追加αタブは _v2recsAll を使い独立）
@@ -8744,7 +8754,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
         React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 10, padding: 3, gap: 2 } },
           [["month", "📅 月間"], ["week", "🗓 週間"]].map(function(g) {
             var on = gran === g[0];
-            return React.createElement("button", { key: g[0], onClick: function() { setMwGran(g[0]); setPerExp(null); },
+            return React.createElement("button", { key: g[0], onClick: function() { setMwGran(g[0]); setPerExp(null); setMwSel(null); },
               style: { padding: "5px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer", border: "none", background: on ? "#fff" : "transparent", color: on ? "#9A3412" : "#6B6459", boxShadow: on ? "0 1px 3px rgba(0,0,0,.1)" : "none", whiteSpace: "nowrap" } }, g[1]);
           })));
       // 2026-08-12 実現損益の取り出しを_elRealPnlPair（item.pnl優先→無ければsignal.realizedPnl）へ統一。
@@ -8992,8 +9002,123 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           _tdP(React.createElement("span", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.15 } }, _yenN(t.real, t.realCnt, dn, true), (dn > 1 && t.real != null) ? React.createElement("span", { style: { display: "block", fontSize: 9, color: _EL_SUBNOTE_COL, fontWeight: 600, lineHeight: 1.1 } }, "1日平均" + (Math.round(t.real / dn) >= 0 ? "+" : "") + Math.round(t.real / dn).toLocaleString()) : null))));   // 2026-08-05f dn<=1は平均＝合計で冗長なので出さない
         if (on) _rows.push(React.createElement("tr", { key: k + "_d" }, React.createElement("td", { colSpan: 15, style: { padding: "6px 8px 10px", background: "#FFFCF8", borderBottom: "2px solid #FB923C" } }, _detailOf(rs))));
       });
+      // ===== 📋 月（週）の成績表 2026-10-19（ユーザー決定「月別分析を刷新＝成績＋改善点」・数字のみ・コメントなし）=====
+      //   ①成績サマリー＋前期間比 ②どこで稼ぎ・どこで損したか（シグナル/銘柄/時間帯/曜日/地合い・損益順・前期間差）③判断の精度（見送り・×・△・スルー/要審議）④今の運用（同値・確定待ち・VAP補正・VAP★）。
+      //   母数＝_perRecs（全体損益（期間別）と同じ＝データのみ除外）・金額は_periodTot（時間かぶり除外）。←→で期間移動（初期＝最新）。既存のグラフ・表は下の折りたたみへ。
+      var _mwReport = function() {
+        var ki = Math.max(0, mwSel ? _keys.indexOf(mwSel) : 0), k = _keys[ki], prevK = _keys[ki + 1] || null;
+        var rs = _byP[k] || [], prs = prevK ? (_byP[prevK] || []) : [];
+        var _uL = gran === "month" ? "月" : "週", _pL = "前" + _uL;
+        var t = _periodTot(rs), rr = _ratesOf(rs), days = _elBizDaysOf(rs, data);
+        var pt = prs.length ? _periodTot(prs) : null, prr = prs.length ? _ratesOf(prs) : null, pdays = prs.length ? _elBizDaysOf(prs, data) : 0;
+        var _avg = function(tt, d) { return (tt && tt.hold2Cnt) ? Math.round(tt.hold2 / (d || 1)) : null; };   // 営業日0（祝日だけの記録など）は合計そのまま＝全体損益の規約と同じ
+        var _reach = function(x) { return x && x.n ? Math.round((x.ok + x.ng + x.draw) / x.n * 100) : null; };
+        var _dl = function(cur, prv, unit, goodUp) {   // 前期間差（↑↓）。unit="円"|"pt"|"件"
+          if (cur == null || prv == null) return null;
+          var d = cur - prv; if (!d) return React.createElement("span", { style: { fontSize: 9.5, color: "#94A3B8" } }, _pL + "±0");
+          var good = goodUp === false ? d < 0 : d > 0;
+          return React.createElement("span", { style: { fontSize: 9.5, fontWeight: 700, color: good ? "#C0392B" : "#1E8449" } }, _pL + (d > 0 ? "↑+" : "↓−") + Math.abs(d).toLocaleString() + unit);
+        };
+        var _card = function(label, val, sub, delta) {
+          return React.createElement("div", { key: label, style: { flex: "1 1 120px", minWidth: 110, background: "#fff", border: "1px solid #EEE9E1", borderRadius: 10, padding: "8px 10px" } },
+            React.createElement("div", { style: { fontSize: 10, color: "#9A9186", fontWeight: 700 } }, label),
+            React.createElement("div", { style: { fontSize: 15, fontWeight: 800, lineHeight: 1.3 } }, val),
+            sub ? React.createElement("div", { style: { fontSize: 9.5, color: "#94A3B8" } }, sub) : null,
+            delta);
+        };
+        var _yen = function(v) { return v == null ? "—" : React.createElement("span", { style: { color: _elPnlColor(v) } }, _elPnlFmt(v)); };
+        var avg = _avg(t, days), pavg = _avg(pt, pdays), grade = avg != null ? _profitGradeFromPnl(avg, 1) : null;
+        var nav = React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, margin: "4px 0 8px" } },
+          React.createElement("button", { type: "button", disabled: ki >= _keys.length - 1, onClick: function() { setMwSel(_keys[ki + 1]); }, style: { padding: "3px 12px", fontSize: 14, borderRadius: 8, border: "1px solid #E4DFD7", background: "#fff", cursor: ki >= _keys.length - 1 ? "default" : "pointer", opacity: ki >= _keys.length - 1 ? 0.3 : 1 } }, "<"),
+          React.createElement("span", { style: { fontSize: 15, fontWeight: 800, color: "#9A3412", minWidth: 120, textAlign: "center" } }, _labelOf(k)),
+          React.createElement("button", { type: "button", disabled: ki <= 0, onClick: function() { setMwSel(_keys[ki - 1]); }, style: { padding: "3px 12px", fontSize: 14, borderRadius: 8, border: "1px solid #E4DFD7", background: "#fff", cursor: ki <= 0 ? "default" : "pointer", opacity: ki <= 0 ? 0.3 : 1 } }, ">"));
+        // ①成績サマリー
+        var sum = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 } },
+          _card("想定損益", React.createElement("span", null, grade ? _elHoldGradeBadge(grade) : null, " ", _yen(t.hold2Cnt ? t.hold2 : null)), t.hold2Cnt + "件・" + days + "日", _dl(t.hold2Cnt ? t.hold2 : null, pt && pt.hold2Cnt ? pt.hold2 : null, "円")),
+          _card("1日平均", _yen(avg), "グレードはこの値で判定", _dl(avg, pavg, "円")),
+          _card("件数", rs.length + "件", null, _dl(rs.length, prs.length || null, "件")),
+          _card("到達率", _reach(rr) != null ? _reach(rr) + "%" : "—", "E成立 " + (rr.ok + rr.ng + rr.draw) + "件", _dl(_reach(rr), _reach(prr), "pt")),
+          _card("利確率", rr.takeRate != null ? rr.takeRate + "%" : "—", rr.take + "件", _dl(rr.takeRate, prr ? prr.takeRate : null, "pt")),
+          _card("損切り率", rr.stop + "%", null, _dl(rr.stop, prr ? prr.stop : null, "pt", false)),
+          _card("実現損益", _yen(t.realCnt ? t.real : null), t.realCnt + "件", _dl(t.realCnt ? t.real : null, pt && pt.realCnt ? pt.real : null, "円")));
+        // ②どこで稼ぎ・どこで損したか
+        var _DOW = ["日", "月", "火", "水", "木", "金", "土"];
+        var _axes = [
+          ["sig", "シグナル", function(r) { var s = r.signal; var tg = (Array.isArray(s.tags) && s.tags.length) ? s.tags : (s.tag ? [s.tag] : []); return tg.length ? tg : ["（なし）"]; }],
+          ["stk", "銘柄", function(r) { return [r.stock || "（不明）"]; }],
+          ["tod", "時間帯", function(r) { var m = _vapTimeMin(r.signal.time); if (m == null) return ["時刻なし"]; for (var i = 0; i < _VAP_TIME_DEFS.length; i++) { var d = _VAP_TIME_DEFS[i]; if (m > d[2] && m <= d[3]) return [d[1]]; } return ["時刻なし"]; }],
+          ["dow", "曜日", function(r) { return [_DOW[new Date(r.date + "T00:00:00").getDay()] + "曜"]; }],
+          ["mkt", "地合い", function(r) { var c = data.charts && data.charts[r.stock + "_" + r.date]; return [(c && c.macroLocal) || "未設定"]; }]];
+        var _grp = function(list, fn) { var m = {}; list.forEach(function(r) { fn(r).forEach(function(g) { (m[g] = m[g] || []).push(r); }); }); return m; };
+        var _thS = { padding: "4px 6px", fontSize: 10, color: "#9A9186", fontWeight: 700, borderBottom: "1px solid #E4DFD7", whiteSpace: "nowrap", textAlign: "right" };
+        var _tdS = { padding: "3px 6px", fontSize: 11, whiteSpace: "nowrap", textAlign: "right", borderTop: "1px solid #f0ede8", fontVariantNumeric: "tabular-nums" };
+        var axisTbl = function(ax) {
+          var g = _grp(rs, ax[2]), pg = _grp(prs, ax[2]);
+          var rows = Object.keys(g).map(function(name) {
+            var x = g[name], tt = _periodTot(x), r2 = _ratesOf(x), px = pg[name], ptt = px ? _periodTot(px) : null;
+            return { name: name, n: x.length, sum: tt.hold2Cnt ? tt.hold2 : null, cnt: tt.hold2Cnt, take: r2.takeRate, prev: (ptt && ptt.hold2Cnt) ? ptt.hold2 : null };
+          }).sort(function(a, b) { return (b.sum == null ? -1e15 : b.sum) - (a.sum == null ? -1e15 : a.sum); });
+          return React.createElement("div", { key: ax[0], style: { flex: "1 1 300px", minWidth: 0 } },
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "#9A3412", margin: "6px 0 2px" } }, ax[1] + "別"),
+            React.createElement(_HScrollBox, null, React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
+              React.createElement("thead", null, React.createElement("tr", null,
+                React.createElement("th", { style: Object.assign({}, _thS, { textAlign: "left" }) }, ax[1]),
+                React.createElement("th", { style: _thS }, "件数"), React.createElement("th", { style: _thS }, "想定損益"),
+                React.createElement("th", { style: _thS }, "利確率"), React.createElement("th", { style: _thS }, _pL + "差"))),
+              React.createElement("tbody", null, rows.map(function(o) {
+                var thin = o.n < 3, d = (o.sum != null && o.prev != null) ? o.sum - o.prev : null;
+                return React.createElement("tr", { key: o.name, style: { opacity: thin ? 0.45 : 1 }, title: thin ? "件数3件未満（参考）" : null },
+                  React.createElement("td", { style: Object.assign({}, _tdS, { textAlign: "left", fontWeight: 700, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }) }, o.name),
+                  React.createElement("td", { style: _tdS }, o.n + "件"),
+                  React.createElement("td", { style: Object.assign({}, _tdS, { fontWeight: 800 }) }, _yen(o.sum)),
+                  React.createElement("td", { style: _tdS }, o.take != null ? o.take + "%" : "—"),
+                  React.createElement("td", { style: _tdS }, d == null ? (o.prev == null && o.sum != null ? React.createElement("span", { style: { color: "#94A3B8", fontSize: 10 } }, "新規") : "—") : _yen(d)));
+              })))));
+        };
+        // ③判断の精度
+        var skipRs = rs.filter(function(r) { return _snIsSkipRec(r.signal, r.item) && !_elIsReview(r.signal); });
+        var sk = { n: 0, sum: 0, good: 0, bad: 0 };
+        skipRs.forEach(function(r) { if (_elCollExcluded(data, r, _collScope)) return; var a = _ai(r), fp = _elHoldFinalParts(r.signal, a.alpha, a.cutLine); if (!fp || fp.main == null) return; sk.n++; sk.sum += fp.main; if (fp.main > 0) sk.bad++; else if (fp.main < 0) sk.good++; });
+        var xr = _elXSkipRowsV2(rs, _ai), xs = { n: xr.length, avoid: 0, miss: 0 };
+        xr.forEach(function(o) { if (o.ep == null) return; if (o.ep < 0) xs.avoid++; else if (o.ep > 0) xs.miss++; });
+        var tr = _elTriRowsV2(rs, _ai), ts = { n: tr.length, win: 0, lose: 0, sum: 0 };
+        tr.forEach(function(o) { ts.sum += o.delta; if (o.delta > 0) ts.win++; else if (o.delta < 0) ts.lose++; });
+        var _inK = function(r) { return r && r.date && _keyOf(r.date) === k; };
+        var thruRs = filtered.filter(function(r) { return _inK(r) && r.signal && _elIsThru(r.signal); });
+        var revRs = rs.filter(function(r) { return _elIsReview(r.signal); });
+        var _rsnTop = function(list, key) { var m = {}; list.forEach(function(r) { (Array.isArray(r.signal[key]) ? r.signal[key] : []).forEach(function(n) { if (n) m[n] = (m[n] || 0) + 1; }); }); return Object.keys(m).sort(function(a, b) { return m[b] - m[a]; }).slice(0, 3).map(function(n) { return n + " " + m[n]; }).join("・"); };
+        var _pctS = function(a, b) { return b ? Math.round(a / b * 100) + "%" : "—"; };
+        var judge = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+          _card("見送り（取っていれば）", _yen(sk.n ? sk.sum : null), sk.n + "件・正解" + sk.good + "／機会損失" + sk.bad, null),
+          _card("×見送りの正解率", _pctS(xs.avoid, xs.avoid + xs.miss), xs.n + "件・回避" + xs.avoid + "／逃した" + xs.miss, null),
+          _card("△保持の是非", _yen(ts.n ? ts.sum : null), ts.n + "件・活きた" + ts.win + "／裏目" + ts.lose, null),
+          _card("スルー", thruRs.length + "件", _rsnTop(thruRs, "thruReasons") || null, null),
+          _card("要審議", revRs.length + "件", _rsnTop(revRs, "reviewReasons") || null, null));
+        // ④今の運用
+        var eq = _elFillEqStats(rs.filter(function(r) { return !_elCollExcluded(data, r, _collScope); }), function(r) { return _ai(r).alpha; }, function(r) { return _ai(r).cutLine; });
+        var ce = { n: 0, skip: 0, diff: 0 };
+        rs.forEach(function(r) { if (_elCollExcluded(data, r, _collScope)) return; var a = _ai(r), ci = _elCeInfo(r.signal, a.alpha, a.cutLine); if (!ci) return; ce.n++; if (!ci.ce) ce.skip++; ce.diff += ci.diff; });
+        var va = { n: 0, diff: 0 };
+        rs.forEach(function(r) { var s = r.signal; if (_vapAdjOf(s) === 0 || _vapOf(s) == null || _elCollExcluded(data, r, _collScope)) return; var c = _ai(r).cutLine; var p1 = _elHoldFinalParts(s, _epOwnAlpha(s), c), p0 = _elHoldFinalParts(s, _vapOf(s), c); va.n++; va.diff += ((p1 && p1.main) || 0) - ((p0 && p0.main) || 0); });
+        var vstar = null;
+        if (!legacy) { var _vpool = rs.filter(function(r) { return _vapAnalysisOk(r) && _vapPoolOk(r.signal) && !_elCollExcluded(data, r, _collScope); }); if (_vpool.length) { var _vr = _vapRowsOf(_vpool, _ai); var _vb = _vr.best || _vr.ref; if (_vb) vstar = { k: _vb.k, ref: !_vr.best, sum: _vb.e.h2Sum, n: _vpool.length }; } }
+        var ops = React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+          _card("指値同値（未約定）", eq.n + "件", eq.cnt ? React.createElement("span", null, "約定していたら ", _yen(eq.sum)) : null, null),
+          _card("確定待ち", ce.n + "件", ce.n ? React.createElement("span", null, "α約定比 ", _yen(ce.diff), ce.skip ? "・入らず" + ce.skip : "") : null, null),
+          legacy ? null : _card("VAP補正の効果", va.n ? _yen(va.diff) : "—", va.n + "件（補正なしと比べた差）", null),
+          legacy ? null : _card("この" + _uL + "のVAP★", vstar ? _vapKLabel(vstar.k) + (vstar.ref ? "（参考）" : "") : "—", vstar ? vstar.n + "件・合計" + _elPnlFmt(Math.round(vstar.sum || 0)) : null, null));
+        var _sub = function(txt) { return React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "#333", margin: "12px 0 4px" } }, txt); };
+        return [
+          _secH("📋 " + _uL + "の成績表", "←→で" + _uL + "を移動。" + _pL + "差つき。金額は全体損益（期間別）と同じ母数（時間かぶり除外後）"),
+          nav,
+          _sub("成績サマリー"), sum,
+          _sub("どこで稼ぎ・どこで損したか（想定損益の多い順・3件未満は薄く）"),
+          React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "4px 14px" } }, _axes.map(axisTbl)),
+          _sub("判断の精度"), judge,
+          _sub("今の運用"), ops];
+      };
       var _unitLbl = gran === "month" ? "月" : "週";
-      return _cardify([
+      return _cardify([_mwReport(), _elCard(React.createElement(_SNCollapse, { title: "詳しいデータ（" + _unitLbl + "間の損益・件数と行動・グラフ）", render: function() { return _cardify([
         // 表1（金額）: 単位と母数をそろえた ①理論値／②実績／③執行ロス／④見送りコスト。この表が月間・週間タブの主役 2026-08-12
         _secH("💴 " + _unitLbl + "間の損益（基礎取引株数で単位をそろえた比較）",
           "※「理論値」は想定損益（100株の仮想値）に基礎取引株数を掛けたもの、「実績」は実額。基礎取引株数は" + (gran === "month" ? "この表の欄に直接入力できます（空欄＝既定" + _SN_BASE_SHARES_DEF + "株＝従来のグレードと同じ）" : "月間タブで設定します") + "。グレードは1日換算（合計÷日数）で判定しています"), _granBtns,
@@ -9028,7 +9153,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
               _thP(React.createElement("span", { title: "想定損益がちょうど±0で手じまいした件数（対E成立）。利確（>0）・見切り（<0）のどちらにも入らない第4のバケツ（2026-07-29e・全体損益（期間別）と同基準）" }, "同値")),
               _thP("損切り率"), _thP("見切り率"),
               _thP("想定損益"), _thP("実現損益"))),
-            React.createElement("tbody", null, _rows))))]);
+            React.createElement("tbody", null, _rows))))]); } }))]);
     })());
   } else if (view === "deep") {
     _tabBody = _selSigRecsScoped.length ? _cardify([
