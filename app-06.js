@@ -1262,7 +1262,7 @@ function _elAlphaCurveSectionV2(recs, aiOf) {
 
 // VAP感応度カーブ（VAP枠用）2026-10-05: 各記録のEPをVAP＋k円（k=−3〜+10）に置き直して再計算した想定損益（（）外）の合計。_elAlphaCurveSectionV2 のVAP版＝一律αでなく「記録ごとのVAP値＋追加円数」。
 function _elVapCurveSectionV2(recs, aiOf) {
-  var pool = (recs || []).filter(function(r) { return r && r.signal && _vapOf(r.signal) != null; });
+  var pool = (recs || []).filter(function(r) { return r && r.signal && _vapPoolOk(r.signal); });
   if (!pool.length) return null;
   var pH2 = [], xTicks = [], ks = [];
   for (var k = _VAP_K_MIN; k <= 10; k++) {
@@ -1801,7 +1801,7 @@ function _vapRowsOf(pool, aiOf) {
   return { rows: rows, best: best, ref: ref };
 }
 function _vapBoardV2(recs, aiOf, onEdit) {
-  var pool = (recs || []).filter(function(r) { return r && r.signal && _vapOf(r.signal) != null; });
+  var pool = (recs || []).filter(function(r) { return r && r.signal && _vapPoolOk(r.signal); });
   var box = { padding: "7px 11px", borderRadius: 8, marginBottom: 8, fontSize: 11 };
   if (!pool.length) return React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, "VAP値が入力済みの記録がありません（8/20以降の記録にVAP値を入れると分析に入ります）");
   var _rb = _vapRowsOf(pool, aiOf), rows = _rb.rows, best = _rb.best;
@@ -1896,7 +1896,7 @@ function _VapSigBoard(props) {
   var th = function(txt, i) { return React.createElement("th", { key: "h" + i, style: { padding: "4px 6px", fontWeight: 700, borderBottom: "2px solid #ddd", fontSize: 10, textAlign: i === 0 ? "left" : "right", whiteSpace: "nowrap", color: "#555" } }, txt); };
   var pnl = function(v, w) { return v == null ? "\u2014" : React.createElement("span", { style: { fontWeight: w || 700, color: _elPnlColor(v) } }, _elPnlFmt(Math.round(v))); };
   var line = function(key, label, rs, isAll) {
-    var pool = rs.filter(function(r) { return r && r.signal && _vapOf(r.signal) != null; });
+    var pool = rs.filter(function(r) { return r && r.signal && _vapPoolOk(r.signal); });
     if (!pool.length) return null;
     var rr = _vapRowsOf(pool, aiOf), z = _vapZeroRow(rr.rows).e, pick = rr.best || rr.ref, isRef = !rr.best;
     var vals = []; pool.forEach(function(r) { var m = _vapMargin(r.signal); if (m != null) vals.push(m); });
@@ -6652,6 +6652,21 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _isSigTotal = stockFil === _SIG_TOTAL;
   var _selStock = (stockFil === _ALL_STOCK || (stockFil && _tickerList.indexOf(stockFil) >= 0)) ? stockFil : _ALL_STOCK;
   var _isAllStock = !_isSigTotal && _selStock === _ALL_STOCK;
+  var _uVnz = useState(false), vapNz = _uVnz[0], setVapNz = _uVnz[1];   // VAP分析の母数を VAP≠0円 の記録だけにするか 2026-10-19
+  _VAP_NZ = !legacy && vapNz;
+  // VAP分析の母数切替バー（全記録／VAP≠0のみ）。rs＝そのセクションの母数（VAP＝0円の件数を出すため）。
+  var _vapNzBar = function(rs) {
+    var z = (rs || []).filter(function(r) { return r && r.signal && _vapOf(r.signal) === 0; }).length;
+    return React.createElement("div", { key: "vapnz", style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 8px" } },
+      React.createElement("span", { style: { display: "inline-flex", border: "1px solid #DDD6FE", borderRadius: 14, overflow: "hidden" } },
+        [[false, "全記録"], [true, "VAP≠0円のみ"]].map(function(o) {
+          var on = vapNz === o[0];
+          return React.createElement("button", { key: String(o[0]), type: "button", onClick: function() { setVapNz(o[0]); },
+            style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none", background: on ? "#5B21B6" : "#fff", color: on ? "#fff" : "#5B21B6" } }, o[1]);
+        })),
+      React.createElement("span", { style: { fontSize: 10, color: "#6B7280", fontWeight: 600 } },
+        vapNz ? ("VAP＝0円の記録 " + z + "件を除いて分析中") : ("VAP＝0円の記録 " + z + "件を含む")));
+  };
   _EL_UI_VAP = !legacy;   // VAP枠の表記（EPとの差チップ等の「α」→「VAP」）。表記だけ 2026-10-05
   _EL_AMT_BYPASS = !(_isAllStock || _isSigTotal);   // 銘柄タブは自銘柄の損益＝算入銘柄フィルタを外す（選定外でも想定損益を表示）2026-10-05。全体/📡シグナル総合は従来どおり合計用のフィルタ
   // 時間かぶり除外のスコープ 2026-07-08: 全体タブ＝null（全銘柄横断＝従来）／銘柄タブ＝その銘柄（同一銘柄内の被りだけ除外＝別銘柄との時間かぶりでは落とさない）。
@@ -8087,7 +8102,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     var _baAddLg = null;   // 応用α化 2026-07-13: 旧基準（増分方式）チップは廃止＝応用αは独立値のため旧基準の比較対象なし
     var _kpiBase = (function() {
       if (!legacy) {   // VAP枠: 推奨α値(一律α総当たり)の代わりに「VAP＋追加円数」のΣ想定損益が最大の追加円数を出す 2026-10-05
-        var _vr = _vapRowsOf((baRs || []).filter(function(r) { return r && r.signal && _vapOf(r.signal) != null; }), _ai), _vp = _vr.best || _vr.ref;
+        var _vr = _vapRowsOf((baRs || []).filter(function(r) { return r && r.signal && _vapPoolOk(r.signal); }), _ai), _vp = _vr.best || _vr.ref;
         if (!_vp) return _kpiCard("損益最大の追加", "—", "#94A3B8", "データ不足");
         return _kpiCard("損益最大の追加", _vapKLabel(_vp.k) + (_vr.best ? "" : "（参考）"), _vr.best ? "#0369A1" : "#B45309", React.createElement("span", null, "VAP" + (_vp.k > 0 ? "+" : "") + (_vp.k || "") + "・合計" + _elPnlFmt(Math.round(_vp.e.h2Sum))));
       }
@@ -8149,6 +8164,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
             _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan, true); })]
         : (!legacy
           ? [_secH("🔬 VAP＋追加円数 詳細データ", "各記録のEPをVAPから追加円数だけ動かして再判定（−3〜+10円）。★＝合計損益最大（想定損益確定10件以上）", _ctl("gp_ba", _baRecs)),
+              _vapNzBar(_baRecs),
               _bodyOf("gp_ba", _baRecs, function(_drs) { return _vapBoardV2(_drs, _ai, function(rec) { setEditTarget(rec); }); })]
           : [_secH(legacy ? "🔬 推奨基本α 詳細データ" : "🔬 α別の総当たり 詳細データ", "推奨値が出た根拠＝α別の総当たり（各αのE成立/到達率/頻度/利確率/損切り率/想定損益）", _ctl("gp_ba", _baRecs)),
             _bodyOf("gp_ba", _baRecs, function(_drs) { return _elBaseAlphaDetailV2(_drs, _ai, _holiSet, null, null, bandSpan); })]),
@@ -8227,6 +8243,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       var _vpAll = _v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, null); });
       _tabBody = _cardify([
         _secH("📐 VAP値の分析（全銘柄・シグナル／銘柄／時間帯別）", "8/20以降の記録。「分け方」でシグナル・銘柄・時間帯ごとにVAPからの追加円数を比較。同値（OS最大＝EP）は未約定"),
+        _vapNzBar(_vpAll),
         React.createElement(_VapSigBoard, { key: "vapsig", recs: _vpAll, aiOf: _ai, axes: _vapAxes(_vpAll, _buildSigGroups(_vpAll)), onEdit: function(rec) { setEditTarget(rec); } })]);
     } else if (sigSub === "band") {
       // 株価帯別を📡シグナル総合の先頭サブタブへ移設（2026-07-22i・ユーザー要望）＝全銘柄横断で同じ帯の銘柄を混ぜて帯共通αを検証。旧・全銘柄「集計」の分析軸トグル(_bandAxisBody(_v2recsAllData,true))から移動。
@@ -8246,6 +8263,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
             sigInner === "vap"
               ? _cardify([
                   _secH("📐 VAP値の分析（" + _stGrp.label + "・銘柄／時間帯別）", "8/20以降・このシグナルの記録。「分け方」で銘柄・時間帯ごとにVAPからの追加円数を比較。同値（OS最大＝EP）は未約定"),
+                  _vapNzBar(_stVap),
                   React.createElement(_VapSigBoard, { key: "vapst" + _stKey, recs: _stVap, aiOf: _ai, axes: _vapAxes(_stVap, null), onEdit: function(rec) { setEditTarget(rec); } })])
               : _stBandBody))
         : _sigKpiEmpty("このシグナルの記録がありません（シグナル名の変更・削除で無くなった可能性があります。上のタブから選び直してください）");
@@ -8610,7 +8628,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       _tabBody = _cardify([
         _secH("📐 VAP値の分析", "8/20以降の記録。EP＝水準線＋VAP値。VAPから追加円数ごとの損益と、記録ごとの余地"),
         (function() { var _vp = _v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, _collScope); });
-          return React.createElement(_VapSigBoard, { key: "vap" + (_collScope || ""), recs: _vp, aiOf: _ai, axes: _vapAxes(_vp, _buildSigGroups(_vp)), onEdit: function(rec) { setEditTarget(rec); } }); })()]);
+          return React.createElement(React.Fragment, null, _vapNzBar(_vp), React.createElement(_VapSigBoard, { key: "vap" + (_collScope || ""), recs: _vp, aiOf: _ai, axes: _vapAxes(_vp, _buildSigGroups(_vp)), onEdit: function(rec) { setEditTarget(rec); } })); })()]);
     } else if (!_selSigRecs.length) {
       _tabBody = React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sigAxisGroups.length ? "このシグナルのEP起算（v2）記録がありません" : "EP起算（v2）の記録がありません");
     } else {
