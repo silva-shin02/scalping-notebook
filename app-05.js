@@ -5390,6 +5390,25 @@ function _elFillEqFootNode(recsM, aiAlpha, aiCut, days, base) {
     _amt,
     _pill(_st.n + "件・未約定扱い", "n"));
 }
+// 1日1セル用の小さな同値表示 2026-10-19（日別ページの銘柄早見表・ユーザー要望「早見表にも同値指値を」）。
+//   「同値N件 参考±X円」＝その日の算入記録（_elCalcChartGradesと同じ絞り＝_elInclTotal・時間かぶり除外）のうち指値同値（未約定）の件数と、
+//   もし約定していたらの想定損益（_elFillEqPnl＝帯_elFillEqFootNodeと同じ単一源）。合計・グレードには入れない。0件ならnull。
+function _elFillEqMiniNode(signals, cutLine, exclFn, itemOf) {
+  var n = 0, sum = 0, cnt = 0, _c = cutLine != null ? cutLine : 15;
+  (signals || []).filter(function(sig) { return _elInclTotal(sig); }).forEach(function(sig) {
+    var s = _compatSignal(sig);
+    if (exclFn && exclFn(s)) return;
+    if (!_elFillRisk(s, itemOf ? itemOf(s) : null)) return;
+    n++;
+    var p = _elFillEqPnl(s, _epOwnAlpha(s), _c);
+    if (p != null) { sum += p; cnt++; }
+  });
+  if (!n) return null;
+  return React.createElement("span", { title: "指値同値＝OS最大が予定EPとちょうど同値＝未約定。想定損益・グレードには入っていません。金額は『もし約定していたら』の想定損益（参考）",
+    style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 9.5, fontWeight: 700, color: "#0F6E56", background: "#E1F5EE", border: "1px dashed #5DCAA5", borderRadius: 4, padding: "0 5px", whiteSpace: "nowrap", lineHeight: 1.6 } },
+    "同値" + n + "件",
+    cnt ? React.createElement("span", { style: { color: _elPnlColor(sum) } }, "参考" + _elPnlFmt(sum)) : null);
+}
 // 合計行の共通集計: EP損益(AB込み)・H1(_elHold1TotParts)・H2(_elHoldFinalParts)・実現損益。
 // get={signal,alpha,cut,real?,realPair?,norm?,excluded?}。norm=値の正規化（株数→100株換算等・省略時そのまま）。excluded=時間かぶり除外（表示総計のみ配線・trueの記録は金額もCntも全スキップ）。
 // realPair(it)→_elRealPnlPair の戻り{real,per100,shares}（null可）2026-08-04。渡すと t.real（100株換算合計＝従来値）に加えて
