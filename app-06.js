@@ -8629,7 +8629,9 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       _tabBody = _cardify([
         _secH("📐 VAP値の分析", "8/20以降の記録。EP＝水準線＋VAP値。VAPから追加円数ごとの損益と、記録ごとの余地"),
         (function() { var _vp = _v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, _collScope); });
-          return React.createElement(React.Fragment, null, _vapNzBar(_vp), React.createElement(_VapSigBoard, { key: "vap" + (_collScope || ""), recs: _vp, aiOf: _ai, axes: _vapAxes(_vp, _buildSigGroups(_vp)), onEdit: function(rec) { setEditTarget(rec); } })); })()]);
+          // VAP補正の一括反映 2026-10-19（★＝全記録・今の絞りでの損益最大の追加円数を初期値に）
+          var _sugg = null; if (_isAllStock) { var _rrS = _vapRowsOf(_vp.filter(function(r) { return _vapPoolOk(r.signal); }), _ai); var _bS = _rrS.best || _rrS.ref; _sugg = _bS ? _bS.k : null; }
+          return React.createElement(React.Fragment, null, _isAllStock ? React.createElement(_VapAdjPanel, { key: "vapadj" + (_sugg == null ? "" : _sugg), data: data, save: save, suggest: _sugg }) : null, _vapNzBar(_vp), React.createElement(_VapSigBoard, { key: "vap" + (_collScope || ""), recs: _vp, aiOf: _ai, axes: _vapAxes(_vp, _buildSigGroups(_vp)), onEdit: function(rec) { setEditTarget(rec); } })); })()]);
     } else if (!_selSigRecs.length) {
       _tabBody = React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "20px 0", fontSize: 12 } }, _sigAxisGroups.length ? "このシグナルのEP起算（v2）記録がありません" : "EP起算（v2）の記録がありません");
     } else {
