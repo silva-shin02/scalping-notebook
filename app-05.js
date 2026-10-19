@@ -3344,6 +3344,102 @@ function _vapOf(s) { return (s && s.vapVal != null && s.vapVal !== "" && !isNaN(
 //   "all"＝全記録／"nz"＝VAP≠0円のみ／"z"＝VAP＝0円のみ。記録帳(EntryLogViewBody)が描画のたびに立てる＝_EL_UI_VAP と同じ流儀。金額の合計には効かない（分析の母数だけ）。
 var _VAP_FIL = "all";
 function _vapPoolOk(s) { var v = _vapOf(s); return v != null && (_VAP_FIL === "nz" ? v !== 0 : (_VAP_FIL === "z" ? v === 0 : true)); }
+// ===== VAP補正 2026-10-19（ユーザー決定「VAP値−1円がベストなので既存記録に反映」）=====
+// signal.vapVal＝チャートから読んだVAP値（そのまま残す・分析の起点）／signal.vapAdj＝当てた補正（円・例−1）／alphaVal=baseAlphaVal＝読み値＋補正＝採用VAP（EP・損益はこれで計算）。
+// signal.vapAdjBatch＝一括反映で付けた補正（元に戻すの対象）。設定 data.custom.vapAdj＝全体の補正値（新規フォームの初期値）。
+// 一括反映の対象＝8/20以降・VAP入力済み・実エントリー以外（実際に約定した記録は当時のEPのまま）。手で補正を付けた記録（vapAdjBatchなし）は触らない。
+function _vapAdjOf(s) { return (s && s.vapAdj != null && s.vapAdj !== "" && !isNaN(Number(s.vapAdj))) ? Number(s.vapAdj) : 0; }
+function _vapAdjSetting(data) { var v = data && data.custom && data.custom.vapAdj; return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : 0; }
+function _vapAdjTargets(data) {
+  var out = { tgt: [], entered: 0, manual: 0, batched: 0 };
+  _elCollectAllSignals(data).forEach(function(r) {
+    var s = r && r.signal;
+    if (!s || !_vapWorld(r.date) || _vapOf(s) == null) return;
+    if (s.vapAdjBatch === true) out.batched++;
+    if (_elIsEntered(s, _elItemOfSig(data, r.date, s))) { out.entered++; return; }
+    if (_vapAdjOf(s) !== 0 && s.vapAdjBatch !== true) { out.manual++; return; }
+    out.tgt.push(r);
+  });
+  return out;
+}
+// 反映前後の想定損益（（）外main）の合計。合計表の除外（算入外・時間かぶり等）までは掛けない＝対象記録そのものの差。
+function _vapAdjPreview(data, adj) {
+  var T = _vapAdjTargets(data), now = 0, aft = 0, nowN = 0, aftN = 0, chg = 0;
+  T.tgt.forEach(function(r) {
+    var s = r.signal, c = data.charts && data.charts[r.stock + "_" + r.date], cut = (c && c.cutLine != null) ? Number(c.cutLine) : 15;
+    var a0 = _epOwnAlpha(s), a1 = _vapOf(s) + adj;
+    if (a0 !== a1) chg++;
+    var p0 = _elHoldFinalParts(s, a0, cut), p1 = _elHoldFinalParts(s, a1, cut);
+    if (p0 && p0.main != null) { now += p0.main; nowN++; }
+    if (p1 && p1.main != null) { aft += p1.main; aftN++; }
+  });
+  return { n: T.tgt.length, chg: chg, entered: T.entered, manual: T.manual, batched: T.batched, now: now, aft: aft, nowN: nowN, aftN: aftN };
+}
+// 一括反映（adj）／元に戻す（undo=true＝vapAdjBatchの記録の補正を外す）。custom.vapAdj も揃える（戻す＝0）。
+function _vapAdjApply(prev, adj, undo) {
+  var keys = {};
+  if (!undo) _vapAdjTargets(prev).tgt.forEach(function(r) { keys[r.stock + "_" + r.date + "|" + (r.signal.id || "")] = 1; });
+  var charts = Object.assign({}, prev.charts || {});
+  Object.keys(charts).forEach(function(ck) {
+    var c = charts[ck];
+    if (!c || !Array.isArray(c.signals)) return;
+    var chg = false;
+    var sigs = c.signals.map(function(s) {
+      if (!s) return s;
+      var v = _vapOf(s);
+      if (undo) {
+        if (s.vapAdjBatch !== true || v == null) return s;
+        chg = true;
+        return Object.assign({}, s, { vapAdj: null, vapAdjBatch: null, alphaVal: v, baseAlphaVal: v });
+      }
+      if (!keys[ck + "|" + (s.id || "")] || v == null) return s;
+      chg = true;
+      return Object.assign({}, s, { vapAdj: adj !== 0 ? adj : null, vapAdjBatch: adj !== 0 ? true : null, alphaVal: v + adj, baseAlphaVal: v + adj });
+    });
+    if (chg) charts[ck] = Object.assign({}, c, { signals: sigs });
+  });
+  return Object.assign({}, prev, { charts: charts, custom: Object.assign({}, prev.custom || {}, { vapAdj: undo ? 0 : adj }) });
+}
+// 確認ダイアログ（アプリ内ダイアログ _snConfirm を優先＝iPadのホーム画面起動でも出る）
+function _vapAdjAsk(msg, fn) { var p = (typeof window._snConfirm === "function") ? window._snConfirm(msg) : Promise.resolve(window.confirm(msg)); p.then(function(ok) { if (ok) fn(); }); }
+// 一括反映パネル（設定・記録帳のVAP分析で共用）。props: data, save, suggest（★の追加円数・任意）
+function _VapAdjPanel(props) {
+  var data = props.data, save = props.save;
+  var _u = useState(props.suggest != null ? props.suggest : _vapAdjSetting(data)), adj = _u[0], setAdj = _u[1];
+  var _o = useState(false), open = _o[0], setOpen = _o[1];
+  var cur = _vapAdjSetting(data);
+  var pv = open ? _vapAdjPreview(data, adj) : null;
+  var _fmt = function(v) { return (v > 0 ? "+" : "") + v + "円"; };
+  var _btnS = function(bg, bd, col) { return { padding: "4px 12px", fontSize: 11, fontWeight: 800, borderRadius: 6, cursor: "pointer", border: "1px solid " + bd, background: bg, color: col }; };
+  return React.createElement("div", { style: { border: "1px solid #FDE68A", background: "#FFFBEB", borderRadius: 8, padding: "8px 11px", margin: "6px 0 10px", fontSize: 11, color: "#78350F" } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+      React.createElement("span", { style: { fontWeight: 800 } }, "🔧 VAP補正"),
+      React.createElement("span", null, "今の設定 " + _fmt(cur)),
+      React.createElement("button", { type: "button", onClick: function() { setOpen(!open); }, style: _btnS("#fff", "#FCD34D", "#92400E") }, open ? "閉じる" : "既存記録に反映…"),
+      props.suggest != null ? React.createElement("span", { style: { fontSize: 10, color: "#A16207" } }, "★ " + _fmt(props.suggest) + "（読み値からの追加円数）") : null),
+    open ? React.createElement("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" } },
+        React.createElement("span", { style: { fontWeight: 700 } }, "補正値"),
+        React.createElement("button", { type: "button", onClick: function() { setAdj(adj - 1); }, style: _btnS("#fff", "#FCD34D", "#92400E") }, "−"),
+        React.createElement("b", { style: { fontSize: 13, minWidth: 40, textAlign: "center" } }, _fmt(adj)),
+        React.createElement("button", { type: "button", onClick: function() { setAdj(adj + 1); }, style: _btnS("#fff", "#FCD34D", "#92400E") }, "＋")),
+      React.createElement("div", { style: { lineHeight: 1.6 } },
+        "対象 " + pv.n + "件（うち採用VAPが変わる " + pv.chg + "件）・実エントリー " + pv.entered + "件は対象外" + (pv.manual ? "・手で補正した " + pv.manual + "件も対象外" : ""),
+        React.createElement("br"),
+        "対象の想定損益合計： ", React.createElement("b", { style: { color: _elPnlColor(pv.now) } }, _elPnlFmt(pv.now)), "（" + pv.nowN + "件）→ ",
+        React.createElement("b", { style: { color: _elPnlColor(pv.aft) } }, _elPnlFmt(pv.aft)), "（" + pv.aftN + "件）",
+        React.createElement("b", { style: { marginLeft: 6, color: _elPnlColor(pv.aft - pv.now) } }, "差 " + _elPnlFmt(pv.aft - pv.now))),
+      React.createElement("div", { style: { fontSize: 10, color: "#A16207" } }, "読んだVAP値は残し、採用VAP（EP）＝読み値＋補正にします。設定の補正値も " + _fmt(adj) + " にして、新規記録の初期値にします。合計表の除外（時間かぶり等）前の差です。"),
+      React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+        React.createElement("button", { type: "button", disabled: !pv.n, onClick: function() {
+          _vapAdjAsk(pv.n + "件の記録に VAP補正 " + _fmt(adj) + " を反映します。よろしいですか？（「反映を元に戻す」で戻せます）", function() {
+            save(function(prev) { return _vapAdjApply(prev, adj, false); }); setOpen(false); });
+        }, style: _btnS("#F59E0B", "#D97706", "#fff") }, "既存記録に反映（" + pv.n + "件）"),
+        pv.batched ? React.createElement("button", { type: "button", onClick: function() {
+          _vapAdjAsk("一括反映した " + pv.batched + "件の補正を外し、採用VAP＝読み値に戻します。設定の補正値も0円にします。よろしいですか？", function() {
+            save(function(prev) { return _vapAdjApply(prev, 0, true); }); setOpen(false); });
+        }, style: _btnS("#fff", "#D97706", "#B45309") }, "反映を元に戻す（" + pv.batched + "件）") : null)) : null);
+}
 function _vapAnalysisOk(r) { return !!(r && r.signal && _vapWorld(r.date) && _vapOf(r.signal) != null); }
 function _elAmtSinceLbl() { return (+_EL_AMT_SINCE.slice(0, 4)) + "年" + (+_EL_AMT_SINCE.slice(5, 7)) + "月" + (+_EL_AMT_SINCE.slice(8, 10)) + "日"; }
 // 算入銘柄の選択UI 2026-10-01。設定と各合計欄で同じ部品を使い回す（＝どこから変えても同じ正本 custom.amtStocks を書く）。
@@ -3868,6 +3964,9 @@ function _elAlphaTypeCell(s, alpha) {
   return React.createElement("div", { style: { lineHeight: 1.2 } },
     (_EL_UI_VAP || _vapOf(s) != null) ? null : React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: col } }, _label),   // VAP枠(8/20以降)に基本/応用/浮き足の種別は無い 2026-10-05
     React.createElement("div", { style: { color: col, fontWeight: 600, fontVariantNumeric: "tabular-nums" } }, _elAlphaShown(s, alpha) + "円"),
+    // VAP補正の内訳（読み値・補正）2026-10-19。採用VAP（＝alpha）を表示している行だけ＝試算で別のαを渡したときは出さない。
+    (_vapAdjOf(s) !== 0 && _vapOf(s) != null && Number(alpha) === _epOwnAlpha(s)) ? React.createElement("div", { title: "読んだVAP値 " + _vapOf(s) + "円 に補正 " + _vapAdjOf(s) + "円 を当てた採用VAP", style: { fontSize: 9, color: "#94A3B8", fontWeight: 600, whiteSpace: "nowrap" } },
+      "（読" + _vapOf(s) + "・" + (_vapAdjOf(s) > 0 ? "+" : "") + _vapAdjOf(s) + "）") : null,
     hasRn ? _elAlphaBreakdownNode(s, alpha) : null,
     // 応用αの根拠が「RN補正」の記録は値（＋内訳）の下に小バッジで明示 2026-08-02。RN加算(_elRnAdd)とは別概念＝
     // 加算そのものではなく「そのαにした理由がRN補正だった」ことを示す。色はRN内訳と同じ青系で系統を揃える。
@@ -8123,6 +8222,8 @@ function EntryRecordForm(_ref_erf) {
   var _useStateVAP = useState(initSig.vapVal != null ? String(initSig.vapVal) : (isEdit ? "" : "0")),   // 新規記録のVAP値は既定0円 2026-10-08（ユーザー指示）。編集で未入力(VAP未設定)の記録は空のまま＝入れ直してもらう
     _useStateVAPA = _slicedToArray(_useStateVAP, 2),
     fVap = _useStateVAPA[0], setFVap = _useStateVAPA[1];
+  // VAP補正 2026-10-19: 新規＝設定の補正値（custom.vapAdj）／編集＝その記録の補正（未反映の記録は0のまま＝開いただけで補正は付かない）。採用VAP＝読み値(fVap)＋補正。
+  var _useStateVADJ = useState(isEdit ? _vapAdjOf(initSig) : _vapAdjSetting(data)), fVapAdj = _useStateVADJ[0], setFVapAdj = _useStateVADJ[1];
   // ライン併存ルール（〇×独立欄 2026-07-08g）: signal.lineCoexist(boolean)。〇で基本α欄へ1を自動入力（下のeffect）。新規=×（false）。旧「併存ライン/ライン併存」チップ検知はmigrateDataで本フラグへ移行。
   var _useStateLC = useState(initSig.lineCoexist === true),
     _useStateLCA = _slicedToArray(_useStateLC, 2),
@@ -8496,7 +8597,7 @@ function EntryRecordForm(_ref_erf) {
   var _ukiReco = useMemo(function() { return _elUkiPctPickScoped(data, fDate, fUkiSpecial ? "special" : "basic", fUkiSpecial ? fUkiReasons : null, fStock); }, [data, fDate, fUkiSpecial, fUkiReasons, fStock]);   // 2026-07-14g 浮き足基本/応用のタグ別プール推奨（応用は選択根拠で絞る・薄ければ全応用）。2026-07-25 fStockを渡して株価帯優先（帯が薄ければ全銘柄へフォールバック）
   var _effUkiPct = _elUkiEffPct(fUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
   var _vapMode = _vapWorld(fDate);   // 8/20以降＝α値でなくVAP値で入力（浮き足・RN・基本/応用は無し）2026-10-04
-  var _fVapA = (fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) : ((isEdit && initSig.alphaVal != null && !isNaN(Number(initSig.alphaVal))) ? Number(initSig.alphaVal) : 0);   // 未入力は0（編集で旧α記録を開いた場合は旧αを据え置き＝vapVal未設定のまま）
+  var _fVapA = (fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) + (fVapAdj || 0) : ((isEdit && initSig.alphaVal != null && !isNaN(Number(initSig.alphaVal))) ? Number(initSig.alphaVal) : 0);   // 未入力は0（編集で旧α記録を開いた場合は旧αを据え置き＝vapVal未設定のまま）
   var _fUkiAdd = _vapMode ? 0 : _elUkiAddVal(_showUki && fUkiUsed === "○", fUkiVal, _effUkiPct);   // 2026-07-14 共通化
   // RN加算は「〇」のとき入力値をそのまま加算（第5要素 2026-07-08h・÷2等の計算なし）。×なら0。
   var _fRnAdd = _vapMode ? 0 : _elRnAddVal(fRnUsed === "○", fRnVal);   // 2026-07-14 共通化
@@ -9199,7 +9300,9 @@ function EntryRecordForm(_ref_erf) {
       shares: fEntered && fShares !== "" ? (parseInt(fShares) || null) : null,
       tradeAlpha: fEntered && fTradeAlpha !== "" && !isNaN(Number(fTradeAlpha)) ? Number(fTradeAlpha) : null,
       baseAlphaVal: _vapMode ? _fAlpha : (fBaseAlpha !== "" && !isNaN(Number(fBaseAlpha)) ? Number(fBaseAlpha) : null),
-      vapVal: (_vapMode && fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) : null,   // VAP値（8/20以降）。alphaVal にも同値を書く＝下流の計算は無改修
+      vapVal: (_vapMode && fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) : null,
+      vapAdj: (_vapMode && fVap !== "" && fVapAdj) ? fVapAdj : null,   // VAP補正（採用VAP＝vapVal＋vapAdj＝alphaVal）2026-10-19
+      vapAdjBatch: (_vapMode && fVapAdj && initSig.vapAdjBatch === true && fVapAdj === _vapAdjOf(initSig)) ? true : null,   // 一括反映の印は補正を変えなければ引き継ぐ   // VAP値（8/20以降）。alphaVal にも同値を書く＝下流の計算は無改修
       lineCoexist: fLineCoexist,
       levelPrice: fLevelPrice !== "" && !isNaN(Number(fLevelPrice)) ? Number(fLevelPrice) : null,
       minBar: (fMinBars && fMinBars.length) ? fMinBars.map(Number).sort(function(_a, _b) { return _a - _b; }) : null,
@@ -9828,7 +9931,7 @@ function EntryRecordForm(_ref_erf) {
         var _setVP = function(val) { var _v = _toHankakuNum(val); if (_v === "") { setFVap(""); return; } var n = Number(_v); if (isNaN(n)) return; if (n > 999) n = 999; if (n < 0) n = 0; setFVap(String(n)); };
         var _stepVP = function(delta) { setFVap(function(prev) { var base = (prev !== "" && !isNaN(Number(prev))) ? Number(prev) : 0; var n = base + delta; if (n > 999) n = 999; if (n < 0) n = 0; return String(n); }); };
         var _lvP = parseFloat(fLevelPrice);
-        var _epTxt = (fLevelPrice === "" || isNaN(_lvP) || fVap === "") ? "\u2014" : String(Math.round((_lvP + Number(fVap)) * 100) / 100);
+        var _epTxt = (fLevelPrice === "" || isNaN(_lvP) || fVap === "") ? "\u2014" : String(Math.round((_lvP + _fVapA) * 100) / 100);   // 予定EP＝水準線＋採用VAP（読み値＋補正）
         return React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },
           React.createElement("div", { style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 6, background: "#F5F3FF", border: "1px solid #DDD6FE", fontSize: 12 } },
             React.createElement("span", { style: { color: "#555", fontWeight: 600 } }, "VAP\u5024"),
@@ -9838,11 +9941,18 @@ function EntryRecordForm(_ref_erf) {
               _stepBtn(function() { _stepVP(1); }, function() { _stepVP(-1); })),
             React.createElement("span", { style: { fontSize: 12, color: "#64748B" } }, "\u5186"),
             (isEdit && fVap === "") ? React.createElement("span", { title: "8/20\u4ee5\u964d\u306e\u8a18\u9332\u3067VAP\u5024\u304c\u672a\u5165\u529b\u3002\u5165\u308c\u76f4\u3059\u307e\u3067\u8a18\u9332\u5e33\u306e\u5206\u6790\u5bfe\u8c61\u5916\u3067\u3059", style: { fontSize: 9.5, fontWeight: 700, color: "#B45309", background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 4, padding: "1px 6px", whiteSpace: "nowrap" } }, "VAP\u672a\u8a2d\u5b9a") : null),
+          // VAP補正 2026-10-19: 読んだVAP値に足す補正（設定 custom.vapAdj が新規の初期値）。採用VAP＝読み値＋補正＝予定EPの計算に使う。
+          React.createElement("div", { title: "読んだVAP値に足す補正（円）。採用VAP＝読み値＋補正。初期値は設定のVAP補正。この記録だけ変えることもできます", style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: fVapAdj ? "#FFFBEB" : "#F8FAFC", border: "1px solid " + (fVapAdj ? "#FCD34D" : "#E2E8F0"), fontSize: 11 } },
+            React.createElement("span", { style: { color: "#92400E", fontWeight: 700 } }, "補正"),
+            React.createElement("button", { type: "button", onClick: function() { setFVapAdj((fVapAdj || 0) - 1); }, style: { padding: "0 6px", fontSize: 12, fontWeight: 800, border: "1px solid #FCD34D", background: "#fff", color: "#92400E", borderRadius: 4, cursor: "pointer" } }, "−"),
+            React.createElement("b", { style: { minWidth: 30, textAlign: "center", color: fVapAdj ? "#B45309" : "#94A3B8" } }, (fVapAdj > 0 ? "+" : "") + (fVapAdj || 0) + "円"),
+            React.createElement("button", { type: "button", onClick: function() { setFVapAdj((fVapAdj || 0) + 1); }, style: { padding: "0 6px", fontSize: 12, fontWeight: 800, border: "1px solid #FCD34D", background: "#fff", color: "#92400E", borderRadius: 4, cursor: "pointer" } }, "＋"),
+            fVap !== "" ? React.createElement("span", { style: { color: "#4C1D95", fontWeight: 700, whiteSpace: "nowrap" } }, "→ 採用VAP " + _fVapA + "円") : null),
           React.createElement("span", { title: "\u6c34\u6e96\u7dda\u5024\uff0bVAP\u5024\uff1d\u4e88\u5b9a\u30a8\u30f3\u30c8\u30ea\u30fc\u4fa1\u683c", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "\u2192 \u4e88\u5b9aEP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, _epTxt), "\u5186"));
       })(),
       // VAP分析（記録帳の「🔬 VAP＋追加円数 詳細データ」と同じ表）2026-10-19 ユーザー要望。開いたときだけ計算する。
       //   母数＝記録帳のVAP分析と同じ絞り（v2・合計算入・8/20以降でVAP入力済み・時間かぶり除外）から、編集中の記録自身を除いたもの。
-      //   ★の行の「＋k円を足す」で 今のVAP値＋k円 を入力欄へ（追加円数は各記録のVAPからの差なので、今の値に足すのが同じ意味）。
+      //   ★の行のボタンで補正をk円に（追加円数は各記録の読んだVAPからの差＝補正そのもの）2026-10-19。
       (function() {
         var _btn = React.createElement("button", { type: "button", onClick: function() { setFVapAnaOpen(!fVapAnaOpen); },
           style: { alignSelf: "flex-start", padding: "3px 12px", fontSize: 11, fontWeight: 700, borderRadius: 14, cursor: "pointer", border: "1px solid #DDD6FE", background: fVapAnaOpen ? "#5B21B6" : "#F5F3FF", color: fVapAnaOpen ? "#fff" : "#5B21B6" } },
@@ -9874,7 +9984,8 @@ function EntryRecordForm(_ref_erf) {
           _board = (typeof _vapBoardV2 === "function") ? _vapBoardV2(_recs, _ai2, null) : null;
         } finally { _VAP_FIL = _prevFil; }
         var _cur = (fVap !== "" && !isNaN(Number(fVap))) ? Number(fVap) : null;
-        var _apply = (_best && _best.k !== 0 && _cur != null) ? Math.max(0, Math.min(999, _cur + _best.k)) : null;
+        // 2026-10-19 VAP補正の導入にともない「足す」は補正をk円にする（追加円数＝読み値からの差＝補正そのもの）。読み値は変えない。
+        var _apply = (_best && _cur != null && _best.k !== (fVapAdj || 0)) ? _cur + _best.k : null;
         return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
           _btn,
           React.createElement("div", { style: { border: "1px solid #DDD6FE", borderRadius: 8, padding: "8px 10px", background: "#FCFBFF", display: "flex", flexDirection: "column", gap: 6 } },
@@ -9884,11 +9995,11 @@ function EntryRecordForm(_ref_erf) {
             _best ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 11 } },
               React.createElement("span", { style: { fontWeight: 800, color: _best.ref ? "#94A3B8" : "#CA8A04" } }, "損益最大の追加 " + _vapKLabel(_best.k) + (_best.ref ? "（参考＝確定10件未満）" : " ★")),
               _best.sum != null ? React.createElement("span", { style: { fontWeight: 700, color: _elPnlColor(_best.sum) } }, "合計" + _elPnlFmt(Math.round(_best.sum))) : null,
-              _apply != null ? React.createElement("button", { type: "button", onClick: function() { setFVap(String(_apply)); },
-                title: "今のVAP値 " + _cur + "円 に " + _vapKLabel(_best.k) + " を足して入力欄へ",
+              _apply != null ? React.createElement("button", { type: "button", onClick: function() { setFVapAdj(_best.k); },
+                title: "補正を " + _vapKLabel(_best.k) + " にする（読んだVAP値 " + _cur + "円 はそのまま）",
                 style: { padding: "2px 10px", fontSize: 11, fontWeight: 800, borderRadius: 6, cursor: "pointer", border: "1px solid #CA8A04", background: "#FEF9C3", color: "#854D0E" } },
-                _vapKLabel(_best.k) + "を足す → VAP " + _apply + "円")
-                : (_best.k !== 0 && _cur == null ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "VAP値を入れると「足す」ボタンが出ます") : null)) : null,
+                "補正を" + _vapKLabel(_best.k) + "に → 採用VAP " + _apply + "円")
+                : (_cur == null ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8" } }, "VAP値を入れると補正ボタンが出ます") : null)) : null,
             _board));
       })()] : [
         _showUki ? React.createElement("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 } },

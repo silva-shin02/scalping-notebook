@@ -2629,6 +2629,12 @@ function SettingsModal(_ref54) {
           "日別・週間・月間の合計金額に足す銘柄を選びます。件数・到達・勝率と分析の母数は全銘柄のままです。1つも選ばなければ全銘柄を算入します。" +
           "なお、この絞り込みは" + _elAmtSinceLbl() + "以降の記録にだけ効きます（それより前は従来どおり全銘柄を算入）。"),
         React.createElement(_elAmtStockPicker, { data: data, save: save })),
+      // VAP補正 2026-10-19: 全体の補正値（新規記録の初期値）と既存記録への一括反映・元に戻す
+      React.createElement("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed #E2E8F0" } },
+        React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#B45309", marginBottom: 4 } }, "🔧 VAP補正"),
+        React.createElement("div", { style: { fontSize: 11, color: "#888", lineHeight: 1.6, marginBottom: 4 } },
+          "読んだVAP値に足す補正（円）。採用VAP（予定EP）＝読み値＋補正。新規記録の初期値になります。既存記録への反映は実エントリー以外の8/20以降の記録が対象です。"),
+        React.createElement(_VapAdjPanel, { data: data, save: save })),
       React.createElement("div", { style: { fontSize: 10, color: "#999", marginTop: 6 } }, "📅＝日替わり指定中。常設（フジクラ・SBG等）はそのまま個別タブに残します。")
     );
   })() : null,
