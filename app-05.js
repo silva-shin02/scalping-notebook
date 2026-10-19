@@ -3340,10 +3340,10 @@ function _vapPrevLbl() { var d = new Date(_VAP_SINCE + "T00:00:00"); d.setDate(d
 function _vapWorld(date) { return !!date && String(date) >= _VAP_SINCE; }
 function _vapOf(s) { return (s && s.vapVal != null && s.vapVal !== "" && !isNaN(Number(s.vapVal))) ? Number(s.vapVal) : null; }
 // 記録帳の分析母数に入れてよいか: 8/20より前は対象外／8/20以降は vapVal 入力済みのみ
-// VAP分析（追加円数表・感応度カーブ・シグナル別比較・損益最大の追加）の母数で VAP＝0円の記録を外すか 2026-10-19（記録帳の切替・ユーザー要望）。
-//   記録帳(EntryLogViewBody)が描画のたびに立てる＝_EL_UI_VAP と同じ流儀。金額の合計には効かない（分析の母数だけ）。
-var _VAP_NZ = false;
-function _vapPoolOk(s) { var v = _vapOf(s); return v != null && !(_VAP_NZ && v === 0); }
+// VAP分析（追加円数表・感応度カーブ・シグナル別比較・損益最大の追加）の母数の絞り 2026-10-19（記録帳の切替・ユーザー要望）。
+//   "all"＝全記録／"nz"＝VAP≠0円のみ／"z"＝VAP＝0円のみ。記録帳(EntryLogViewBody)が描画のたびに立てる＝_EL_UI_VAP と同じ流儀。金額の合計には効かない（分析の母数だけ）。
+var _VAP_FIL = "all";
+function _vapPoolOk(s) { var v = _vapOf(s); return v != null && (_VAP_FIL === "nz" ? v !== 0 : (_VAP_FIL === "z" ? v === 0 : true)); }
 function _vapAnalysisOk(r) { return !!(r && r.signal && _vapWorld(r.date) && _vapOf(r.signal) != null); }
 function _elAmtSinceLbl() { return (+_EL_AMT_SINCE.slice(0, 4)) + "年" + (+_EL_AMT_SINCE.slice(5, 7)) + "月" + (+_EL_AMT_SINCE.slice(8, 10)) + "日"; }
 // 算入銘柄の選択UI 2026-10-01。設定と各合計欄で同じ部品を使い回す（＝どこから変えても同じ正本 custom.amtStocks を書く）。
