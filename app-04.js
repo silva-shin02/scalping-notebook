@@ -1273,7 +1273,7 @@ function SearchView(_ref45) {
       })), _toConsumableArray(chartArr.flatMap(function (c) {
         return (c && c.signals || []).flatMap(function(s) {
           // skipReasons＝見送り理由の選択肢（2026-08-18の2段構成）。詳細(skipMemo)と同じく検索対象にする。
-          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", (Array.isArray(s.thruReasons) ? s.thruReasons.join(" ") : ""), s.reviewMemo || "", (Array.isArray(s.reviewReasons) ? s.reviewReasons.join(" ") : ""), s.skipMemo || "", s.tradeType || ""].concat(Array.isArray(s.skipReasons) ? s.skipReasons.filter(Boolean) : []).concat(_sigDetailNames(s));
+          return [s.tag || "", s.customTagText || "", s.rationale || "", s.reflection || "", s.thruMemo || "", (Array.isArray(s.thruReasons) ? s.thruReasons.join(" ") : ""), s.reviewMemo || "", (Array.isArray(s.reviewReasons) ? s.reviewReasons.join(" ") : ""), (s.ceOn === true && Array.isArray(s.ceReasons) ? s.ceReasons.join(" ") : ""), s.skipMemo || "", s.tradeType || ""].concat(Array.isArray(s.skipReasons) ? s.skipReasons.filter(Boolean) : []).concat(_sigDetailNames(s));
         });
       }))).join(" ").toLowerCase();
       if (!hay.includes(kw)) return false;

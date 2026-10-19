@@ -3943,22 +3943,16 @@ function _epHit(s, h, alpha) {
   if (H < A) return false;
   return _EP_EQ_LOOSE || !!(s && s.entered === true && A === _epOwnAlpha(s));
 }
-// ===== 5分足確定足エントリー（試行）2026-10-17 =====
-// 記録フォームの「5分足確定足」チェック。α値に届いた足が5分足の確定足（1分足の時刻の分の1の位が4か9＝10:14/10:19…）なら、
+// ===== 確定待ちエントリー（旧「5分足確定足」2026-10-17 → 2026-10-19 改称・手動のみ）=====
+// 記録フォームの「確定待ち」チェック。α値に届いた最初の足がOS足の確定を待つべき足なら（手動で付ける・理由は signal.ceReasons[]）、
 //   その足の確定値(終値)でエントリーしたことにする。終値がα以下（＝α値より安く売る・同値も）ならその足では入らず、次の足からは通常どおり（αを上抜けたらα値で約定）。
 // 保存: signal.ceOn(true/false＝チェック欄の値)・signal.ceIdx(チェック欄が指していた足0..2)。**ceOnがbooleanの記録＝導入後の記録**だけが対象（旧記録は一切変わらない）。
-// 足kが確定足か: k===ceIdx ならチェック欄の値（手動優先）／それ以外は時刻ルール（signal.time＝OS1の1分足の時刻＋k分）。時刻なし＝確定足なし。
+// 足kが確定待ちか: k===ceIdx かつ ceOn===true のときだけ（2026-10-19 時刻ルールは廃止）。
 // 損益: 約定値＝終値・損切りライン＝終値＋損切り値・接触はEP足の次の足から。計算は _epCeView（約定値を基準に足をずらした仮の記録）で既存の正本関数に通す。
 function _epCeOn(s) { return !!(s && !s._ceV && typeof s.ceOn === "boolean"); }
-function _epCeTimeBar(time, k) {
-  var m = /^(\d{1,2}):(\d{2})/.exec(time || "");
-  if (!m) return false;
-  return ((Number(m[2]) + k) % 5) === 4;
-}
-function _epCeBar(s, k) {
-  if (s.ceIdx === k) return s.ceOn === true;
-  return _epCeTimeBar(s.time, k);
-}
+// 2026-10-19 「確定待ち」へ改称・手動化（ユーザー決定）: 時刻ルール（分の1の位が4/9）は廃止＝チェック欄で付けた足（ceIdx）だけが確定待ち。
+//   α試算でα値に届く足が動いても、その足がceIdxでなければα値約定（記録そのものの金額は従来どおり）。
+function _epCeBar(s, k) { return s.ceIdx === k && s.ceOn === true; }
 function _epResolve(s, alpha) {
   if (!_epIsV2(s) || alpha == null) return null;
   var legs = _epLegs(s);
@@ -4055,42 +4049,26 @@ function _elCeInfo(s, alpha, cutLine) {
 // 「時刻が確定足」の記録か（既存記録を含む・一覧の目印/絞り込み/記録帳の一覧帯用）2026-10-17b。
 //   判定足＝このαで最初にα値を上抜けた足（OS1〜3・確定足で入らない規約は無視）。その足の時刻（OS1＋足番号分）が分の1の位4/9、またはチェック欄で付けた足なら対象。
 //   checked＝チェック済み（ceOnを持ち、その足が確定足扱い）＝計算も終値約定。未チェックは計算はα値約定のまま。
+//   2026-10-19 確定待ち（手動のみ）: チェック欄で付けた記録だけ＝checkedは常にtrue（時刻だけの「未チェック」候補は廃止）。
 function _elCeCand(s, alpha) {
   if (!s || !_epIsV2(s) || alpha == null) return null;
   var legs = _epLegs(s), k0 = -1;
   for (var i = 0; i < Math.min(3, legs.length); i++) { if (_epHit(s, legs[i].h, alpha)) { k0 = i; break; } }
   if (k0 < 0) return null;
-  var on = _epCeOn(s) && _epCeBar(s, k0);
-  if (!on && !_epCeTimeBar(s.time, k0)) return null;
-  return { k0: k0, checked: on, time: _epCeTimeAt(s.time, k0) };
+  if (!(_epCeOn(s) && _epCeBar(s, k0))) return null;
+  return { k0: k0, checked: true, time: _epCeTimeAt(s.time, k0) };
 }
-// 未チェックの対象記録に「チェックを付けたら」の想定損益の差（付けた場合 − 今）。
-function _elCeCandDiff(s, alpha, cutLine) {
-  var c = _elCeCand(s, alpha);
-  if (!c || c.checked) return null;
-  var sim = Object.assign({}, s, { ceOn: true, ceIdx: c.k0 });
-  return (_elHoldFinalParts(sim, alpha, cutLine).main || 0) - (_elHoldFinalParts(s, alpha, cutLine).main || 0);
-}
-// 記録一覧の目印「5分確定」＋α約定比の差額。未チェックの対象記録は薄い「5分確定（未）」＋付けたら±円。
+// 記録一覧の目印「確定待ち」＋α約定比の差額 2026-10-19（旧「5分確定」）。
 function _elCeBadge(s, alpha, cutLine) {
   var ci = _elCeInfo(s, alpha, cutLine != null ? cutLine : 15);
-  if (!ci) {
-    var _cd = _elCeCand(s, alpha);
-    if (!_cd || _cd.checked) return null;
-    var _ud = cutLine != null ? _elCeCandDiff(s, alpha, cutLine) : null;
-    return React.createElement("span", {
-      title: "5分足確定足の時刻（OS" + (_cd.k0 + 1) + "＝" + _cd.time + "）だがチェックなし＝α値で約定した計算のまま。" + (_ud != null ? "チェックを付けると想定損益が " + (_ud > 0 ? "+" : "") + _ud.toLocaleString() + "円 変わる。" : "") + "編集でチェックを付けられます。",
-      style: { display: "inline-flex", alignItems: "center", gap: 2, fontSize: 9, fontWeight: 700, color: "#67B7C7", background: "#fff", border: "1px dashed #A5F3FC", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 }
-    }, "5分確定（未）",
-      _ud != null ? React.createElement("span", { style: { color: _ud > 0 ? "#E08A80" : _ud < 0 ? "#6FB58A" : "#aaa" } }, (_ud > 0 ? "+" : _ud < 0 ? "−" : "±") + Math.abs(_ud).toLocaleString()) : null);
-  }
+  if (!ci) return null;
   var d = ci.diff;
-  if (cutLine == null) return React.createElement("span", { title: ci.ce ? "5分足確定足：EP足の終値で約定" : "5分足確定足：終値がα以下のためその足では入らず", style: { fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#ECFEFF", border: "1px solid #67E8F9", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, ci.ce ? "5分確定" : "5分確定・入らず");   // 損切り値が分からない表では差額を出さない
+  if (cutLine == null) return React.createElement("span", { title: ci.ce ? "確定待ち：EP足の終値で約定" : "確定待ち：終値がα以下のためその足では入らず", style: { fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#ECFEFF", border: "1px solid #67E8F9", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 } }, ci.ce ? "5分確定" : "5分確定・入らず");   // 損切り値が分からない表では差額を出さない
   return React.createElement("span", {
-    title: ci.ce ? ("5分足確定足：EP足（OS" + (ci.epIdx + 1) + "）の終値で約定。α値約定と比べた想定損益の差 " + (d > 0 ? "+" : "") + d.toLocaleString() + "円")
-      : ("5分足確定足：OS" + (ci.skipIdx + 1) + "の終値がα以下のためその足では入らず。α値約定と比べた想定損益の差 " + (d > 0 ? "+" : "") + d.toLocaleString() + "円"),
+    title: ci.ce ? ("確定待ち：EP足（OS" + (ci.epIdx + 1) + "）の終値で約定。α値約定と比べた想定損益の差 " + (d > 0 ? "+" : "") + d.toLocaleString() + "円")
+      : ("確定待ち：OS" + (ci.skipIdx + 1) + "の終値がα以下のためその足では入らず。α値約定と比べた想定損益の差 " + (d > 0 ? "+" : "") + d.toLocaleString() + "円"),
     style: { display: "inline-flex", alignItems: "center", gap: 2, fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#ECFEFF", border: "1px solid #67E8F9", borderRadius: 4, padding: "0 4px", whiteSpace: "nowrap", lineHeight: 1.5 }
-  }, ci.ce ? "5分確定" : "5分確定・入らず",
+  }, ci.ce ? "確定待ち" : "確定待ち・入らず",
     React.createElement("span", { style: { fontWeight: 700, color: d > 0 ? "#C0392B" : d < 0 ? "#1E8449" : "#888" } }, (d > 0 ? "+" : d < 0 ? "−" : "±") + Math.abs(d).toLocaleString()));
 }
 // （旧 _epExpAt＝役割固定の期待度取得は2026-07-06fに削除＝最後の利用者だったOS連鎖セルも_epNextExpAtへ統一・全消費者が次足期待度に移行完了）
@@ -4240,7 +4218,7 @@ function _elStopBarIdx(s, cut) {
 // 返り値 {epIdx, items:[{idx,depth,role,leg,pnl,isStop,afterStop}], stopDepth(-1=損切りなし), maxPnl, maxDepth, finalPnl}。
 // E成立(judge"ok")のv2記録のみ。×見送り/未達/旧記録はnull。
 function _epHoldLadder(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (!_epIsV2(s) || alpha == null) return null;
   var r = _epResolve(s, alpha);
   if (!r || r.epIdx < 0 || r.judge !== "ok") return null;
@@ -4285,7 +4263,7 @@ function _elRuleHoldPnl(s, alpha) {
   return last;
 }
 function _elDynResult(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _rv2 = _epResolve(s, alpha);
     if (_rv2) {
@@ -4315,7 +4293,7 @@ function _elDynResult(s, alpha, cutLine) {
 // 〇△×の「×の前まで乗る」で各記録の勝敗内訳を返す。返り値: "miss"|"stop"|"loss"|"even"|"win"|"tri"(△が絡む勝ち)。
 // ×/損切り済の足の手前まで乗り(○/△/未設定は乗る)、到達点の確定値損益と△有無で振り分ける。EP前の到達△も「△が絡む」に含める。
 function _elWinBucket(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   var base = _elDynResult(s, alpha, cutLine);
   if (base === "miss") return "miss";
   var cut = cutLine != null ? cutLine : 15;
@@ -4359,7 +4337,7 @@ function _elWinBucket(s, alpha, cutLine) {
   return hasTri ? "tri" : "win";
 }
 function _elDynPlanned(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _rp2 = _epResolve(s, alpha);
     if (_rp2) {
@@ -4379,7 +4357,7 @@ function _elDynPlanned(s, alpha, cutLine) {
   return pp;
 }
 function _elDynHold(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _rh2 = _epResolve(s, alpha);
     if (_rh2) {
@@ -4427,7 +4405,7 @@ function _elDynHoldNoStop(s, alpha) {
 }
 
 function _elPlanIsStop(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s)) {
     if (alpha == null) return false;
     var _rs2 = _epResolve(s, alpha);
@@ -4436,7 +4414,7 @@ function _elPlanIsStop(s, alpha, cutLine) {
   return alpha != null && s.osVal != null && (Number(s.osVal) - alpha) >= (cutLine != null ? cutLine : 15);
 }
 function _elHoldIsStop(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (alpha == null) return false;
   var _cl = cutLine != null ? cutLine : 15;
   if (_epIsV2(s)) {
@@ -4515,7 +4493,7 @@ function _epHoldView(s, alpha, isH2, depth) {
   return v;
 }
 function _elDynHold2(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s) && alpha != null) {
     var _r22 = _epResolve(s, alpha);
     if (!_r22 || _r22.judge !== "ok") return null;
@@ -4550,7 +4528,7 @@ function _elIsStopFinal(s, alpha, cutLine) {
     || (_elHas2Data(s, alpha) && !_elH2Miss(s, alpha) && _elHoldIsStop2(s, alpha, cutLine));
 }
 function _elHoldIsStop2(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (_epIsV2(s)) {
     if (alpha == null) return false;
     var _r32 = _epResolve(s, alpha);
@@ -4581,7 +4559,7 @@ function _elHoldMaxDepth(s, alpha) {
 }
 // depth d までのどこかで損切りに当たったか。d<=1 は _elHoldIsStop（EP/H1）へ委譲＝従来と同値。
 function _elHoldIsStopAt(s, alpha, cutLine, d) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (d <= 1) return _elHoldIsStop(s, alpha, cutLine);
   if (!_epIsV2(s) || alpha == null) return false;
   var r = _epResolve(s, alpha);
@@ -4593,7 +4571,7 @@ function _elHoldIsStopAt(s, alpha, cutLine, d) {
 // depth d で手じまいした場合の損益。d<=1→_elDynHold／d===2→_elDynHold2 に委譲＝従来の正本と完全一致（新規はd>=3のみ）。
 // d>=3 の規約は _elDynHold2 と同型: 手前の足で既に損切り済みなら損切りルール非適用（確定値ベース）・この足で損切りなら損切り額。
 function _elDynHoldAt(s, alpha, cutLine, d) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   if (d <= 1) return _elDynHold(s, alpha, cutLine);
   if (d === 2) return _elDynHold2(s, alpha, cutLine);
   if (!_epIsV2(s) || alpha == null) return null;
@@ -4847,7 +4825,7 @@ function _epECell(s, alpha, cutLine) {
     : j === "miss" ? React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#7C3AED", whiteSpace: "nowrap" } }, "未達")
     : React.createElement("span", { style: { color: "#ccc" } }, "—");
   var _diff = (j === "ok" || j === "x" || j === "miss") ? _epEpDiffNode(s, alpha) : null;
-  var _ceB = _elCeBadge(s, alpha, cutLine);   // 5分足確定足エントリーの目印（cutLineを渡した表だけα約定比の差額も出す）
+  var _ceB = _elCeBadge(s, alpha, cutLine);   // 確定待ちの目印（cutLineを渡した表だけα約定比の差額も出す）
   if (!_diff && !_ceB) return _jn;
   return React.createElement("div", { style: { display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 } }, _jn, _diff, _ceB);
 }
@@ -5875,7 +5853,7 @@ function _elHold2TotPartsFixed(s, alpha, cutLine) {
 //   保有判断が ×/損切り済/未設定 → 1段下をそのまま（手じまい済み）／その足で損切り → **その足の終値で確定してそこで打ち切り**（2026-08-02n・旧＝1段下をそのまま＝×と同一視）
 //   △ → （）外=1段下・（）内=そこまで保有した差／○ → 完全○チェーンなら（）外を自分の損益に更新・チェーンが切れていれば（）内へ
 function _elHoldFinalParts(s, alpha, cutLine) {
-  s = _epCeView(s, alpha);   // 5分足確定足エントリー＝約定値基準の仮の記録（通常の記録はそのまま）
+  s = _epCeView(s, alpha);   // 確定待ちエントリー＝約定値基準の仮の記録（通常の記録はそのまま）
   var parts = _elHold2TotPartsFixed(s, alpha, cutLine);
   if (!s || !_epIsV2(s) || alpha == null) return parts;
   var maxD = _elHoldMaxDepth(s, alpha);
@@ -6774,6 +6752,9 @@ var _DEF_THRU_REASONS = ["5分足確定足", "EMAの並び", "指標線支え"];
 //   旧 signal.reviewMemo（文章）は入力欄を廃止＝既存記録の文章は表示だけ残す。
 //   既定 2026-10-17b（ユーザー指定）＝正当性・テクニカル不十分。⚠️custom.reviewReasons を一度でも保存した端末データ（追加/改名/削除/並べ替え）では既定は使われない。
 var _DEF_REVIEW_REASONS = ["正当性", "テクニカル不十分"];
+// 確定待ちの理由（選択肢）2026-10-19: signal.ceReasons[]／マスター data.custom.ceReasons。既定は下の定数（ユーザー指定）。
+//   旧「5分足確定足」チェックの記録は移行(_migCeReasons1・app-01)でこの理由を付けて引き継ぐ。
+var _DEF_CE_REASONS = ["5分足確定足"];
 // 選択肢チップの共通部品（追加・改名・削除・ドラッグ並べ替え）2026-10-17。見送り理由のフォーム内実装と同じ操作感で、スルー理由に使う。
 //   props: data, save, masterKey（custom のキー）, defaults, sigKey（signal のキー＝改名を過去記録へ一括追従）, value[], onChange(list), noun（表示名）
 //   ⚠️改名は全 charts[*].signals[*][sigKey] にも反映（既存名への改名は統合）。削除は選択肢から外すだけ＝過去記録の名前は残り、フォームでは「（一覧外）」で出る。
@@ -8545,11 +8526,13 @@ function EntryRecordForm(_ref_erf) {
     return (_cd != null && _cd.cutLine != null) ? _cd.cutLine : 15;
   })();
   // === EP起算方式: フォーム状態からEP位置・E判定をライブ導出（OS1高値=常に↑正・OS2/3は符号付き）===
-  // 5分足確定足エントリー（試行）2026-10-17: チェック欄の値。新規は時刻（OS1の1分足）とα到達足から自動判定（下のeffect）・手動でも切替可。
+  // 確定待ち（旧5分足確定足 2026-10-17→2026-10-19）: チェック欄の値。手動のみ（新規の初期値はオフ）。
   //   保存するか（＝導入後の記録として扱うか）: 新規は常に／既存はもともと値を持つか、ここで付けたときだけ（旧記録は触らなければ一切変わらない）。
   var _useStateCE = useState(isEdit ? initSig.ceOn === true : false),
     fCeOn = _useStateCE[0], setFCeOn = _useStateCE[1];
   var _fCeActive = !isEdit || typeof initSig.ceOn === "boolean" || fCeOn;
+  var _useStateCER = useState(Array.isArray(initSig.ceReasons) ? initSig.ceReasons.slice() : []),   // 確定待ちの理由（選択肢）2026-10-19
+    fCeReasons = _useStateCER[0], setFCeReasons = _useStateCER[1];
   var _epFormState = (function() {
     if (!isV2Form) return null;
     var _av = _fAlpha;
@@ -8563,11 +8546,11 @@ function EntryRecordForm(_ref_erf) {
     var _cs = [_cOf(fOsConfVal, fOsConfSign), _cOf(fOs2Conf, fOs2ConfSign), _cOf(fOs3Conf, fOs3ConfSign)];
     var _rs = [_o1R, _o2R, _o3R];
     var k0 = _o1R ? 0 : _o2R ? 1 : _o3R ? 2 : -1;   // α値に届いた最初の足（チェック欄が指す足）
-    // 確定足（k0はチェック欄・他は時刻ルール）で終値がα以下ならその足では入らず次の足へ（_epResolveと同じ規約）。
+    // 確定待ちの足（k0・チェック欄）で終値がα以下ならその足では入らず次の足へ（_epResolveと同じ規約）。
     var epIdx = -1, ce = false, skipIdx = -1;
     for (var _ki = 0; _ki < 3; _ki++) {
       if (!_rs[_ki]) continue;
-      if (_fCeActive && (_ki === k0 ? fCeOn : _epCeTimeBar(fTime, _ki))) {
+      if (_fCeActive && _ki === k0 && fCeOn) {   // 確定待ちはチェック欄の足（k0）だけ 2026-10-19
         if (_cs[_ki] != null && !(_cs[_ki] > _av)) { skipIdx = _ki; continue; }
         if (_cs[_ki] != null) ce = true;
       }
@@ -8586,11 +8569,7 @@ function EntryRecordForm(_ref_erf) {
     return { alpha: _av, o1: _o1, o2: _o2, o3: _o3, epIdx: epIdx, judge: judge, showOs2: showOs2, showOs3: showOs3, epHigh: epHigh, epConf: epConf, k0: k0, ce: ce, skipIdx: skipIdx, px: px };
   })();
   var _fK0 = _epFormState ? _epFormState.k0 : -1;
-  // 新規記録: 時刻かα到達足が変わるたびに自動判定し直す（EP足の時刻＝OS1の時刻＋足番号分・分の1の位が4か9）。手動の切替はその後の変更まで有効。
-  useEffect(function() {
-    if (isEdit) return;
-    setFCeOn(_fK0 >= 0 && _epCeTimeBar(fTime, _fK0));
-  }, [fTime, _fK0]);
+  // 2026-10-19 確定待ちは手動のみ＝時刻による自動判定（旧・新規記録のeffect）は撤去。新規の初期値はオフ。
   // 旧名互換の導出値（次足期待度fNxsを現在のEP位置で解決）2026-07-06: fOs1Exp/fOs2Exp=OS1/OS2スロットの生値（保存はEP位置でゲート）・fHoldExp/fHold2Exp=EP足/EP+1足の引けの判断（=旧H1期待/H2期待）。
   // state直読みだった既存コード（プレビュー_fVSig・保存・損益変化効果・非表示バッジ・バリデーション）はこの導出値で無改修に動く。
   var fOs1Exp = fNxs[0] || null, fOs2Exp = fNxs[1] || null;
@@ -9127,6 +9106,7 @@ function EntryRecordForm(_ref_erf) {
       //   選択肢に無い理由のときは、その場で「＋追加」して選べる（UI側）。
       if (_skipMemoReq && _fSkipOn && (fSkipReasons || []).filter(Boolean).length === 0) _vm.push("見送りの理由（選択肢）");
       if (!isEdit && fThru === true && (fThruReasons || []).filter(Boolean).length === 0) _vm.push("スルーの理由（選択肢）");   // 新規のスルーは必須 2026-10-17
+      if (!isEdit && fCeOn && _fK0 >= 0 && (fCeReasons || []).filter(Boolean).length === 0) _vm.push("確定待ちの理由（選択肢）");   // 新規の確定待ちは必須 2026-10-19
       if (!isEdit && fReview === true && (fReviewReasons || []).filter(Boolean).length === 0) _vm.push("要審議の理由（選択肢）");   // 新規の要審議も必須 2026-10-17
       if (_vm.length) { window._snAlert("未入力の項目があります。\n項目：" + _vm.join("、")); return; }
       if (_ef.epIdx >= 0 && _hEmpty && _hConfirmed !== true) {
@@ -9173,8 +9153,9 @@ function EntryRecordForm(_ref_erf) {
       result: fResult,
       memo: initSig.memo || "", 
       time: fTime || "",
-      ceOn: _fCeActive ? !!fCeOn : undefined,   // 5分足確定足エントリー（試行）2026-10-17: boolean＝導入後の記録（試算でも時刻ルールが効く）
+      ceOn: _fCeActive ? !!fCeOn : undefined,   // 確定待ち（旧5分足確定足 2026-10-17→10-19改称・手動のみ）: boolean＝導入後の記録
       ceIdx: (_fCeActive && _fK0 >= 0) ? _fK0 : null,   // チェック欄が指していた足（α値に届いた最初の足・0=OS1）
+      ceReasons: (fCeOn && (fCeReasons || []).filter(Boolean).length) ? (fCeReasons || []).filter(Boolean) : null,   // 確定待ちの理由（選択肢）2026-10-19
       isCustomTag: fIsCustom,
       customTagText: fIsCustom ? _ntf(fCustomText) : "",
       rationale: fRationale,
@@ -10491,11 +10472,10 @@ function EntryRecordForm(_ref_erf) {
               React.createElement("span", { style: { fontSize: 9, color: "#FCA5A5", fontWeight: 700 } }, "損切り" + String(_fCutLine != null ? _fCutLine : 15))
             )
           ),
-          // 5分足確定足エントリー（試行）2026-10-17: α値に届いた足が5分足の確定足なら、その足の終値でエントリーした扱い。
+          // 確定待ち（旧5分足確定足 2026-10-17→2026-10-19改称・手動のみ）: α値に届いた最初の足のOS足の確定を待つ＝その足の終値でエントリーした扱い。
           (function() {
             var _k0 = _ef.k0 != null ? _ef.k0 : -1;
             var _tAt = _k0 >= 0 ? _epCeTimeAt(fTime, _k0) : null;
-            var _autoOn = _k0 >= 0 && _epCeTimeBar(fTime, _k0);
             var _lv = parseFloat(fLevelPrice), _hasLv = fLevelPrice !== "" && !isNaN(_lv);
             var _pxTxt = function(rel) { return _hasLv ? String(Math.round((_lv + rel) * 100) / 100) : ("水準線" + (rel >= 0 ? "+" : "") + rel); };
             var _cl = _fCutLine != null ? _fCutLine : 15;
@@ -10522,12 +10502,19 @@ function EntryRecordForm(_ref_erf) {
               ];
             }
             return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 4px 2px", fontSize: 11 } },
-              React.createElement("label", { title: "α値に届いた足が5分足の確定足（1分足の時刻の分の1の位が4か9）なら、その足の終値でエントリーした扱いにする（試行）。終値がα以下ならその足では入らない。", style: { display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", fontWeight: 700, color: fCeOn ? "#0E7490" : "#475569" } },
+              React.createElement("label", { title: "α値に届いた足（OS足）の確定を待つべき足なら付ける＝その足の終値でエントリーした扱いにする。終値がα以下ならその足では入らず、次の足からは通常どおり（α値で約定）。", style: { display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", fontWeight: 700, color: fCeOn ? "#0E7490" : "#475569" } },
                 React.createElement("input", { type: "checkbox", checked: !!fCeOn, onChange: function(e) { setFCeOn(e.target.checked); } }),
-                "5分足確定足"),
-              _tAt ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, (isEdit ? "" : (_autoOn ? "自動○：" : "自動×：")) + "OS" + (_k0 + 1) + "＝" + _tAt) : null,
+                "確定待ち"),
+              _k0 >= 0 ? React.createElement("span", { style: { fontSize: 10, color: "#94A3B8", fontWeight: 600 } }, "OS" + (_k0 + 1) + (_tAt ? "＝" + _tAt : "")) : null,
               _ciNode);
           })(),
+          // 確定待ちの理由（選択肢）2026-10-19: チェックを付けたときだけ。新規は必須（スルー・要審議の理由と同じ規約）。
+          (fCeOn && _ef.k0 != null && _ef.k0 >= 0) ? React.createElement("div", { style: { margin: "0 0 6px 2px" } },
+            React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "#0E7490", marginBottom: 3 } }, "確定待ちの理由",
+              !isEdit ? React.createElement("span", { style: { color: "#DC2626", fontWeight: 800, marginLeft: 5, fontSize: 10 } }, "必須") : null,
+              React.createElement("span", { style: { color: "#6B7280", fontWeight: 600, marginLeft: 6, fontSize: 10 } }, "複数選択できます")),
+            React.createElement(_SnReasonPicker, { data: data, save: save, masterKey: "ceReasons", defaults: _DEF_CE_REASONS, sigKey: "ceReasons", noun: "確定待ちの理由",
+              value: fCeReasons, onChange: function(l) { setFCeReasons(l); } })) : null,
           React.createElement("div", { style: { fontSize: 10, color: "#64748B", fontWeight: 600, margin: "0 0 6px 2px", lineHeight: 1.4 } }, "※5分足の場合、EPまでは5分足基準、EPからは1分足基準"),
           React.createElement("div", { style: { marginTop: 0, marginBottom: 8, padding: "8px 10px", border: "1px solid #FDBA74", borderRadius: 8, background: "#FFFBF5" } },
           React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "stretch", overflowX: "auto" } },
@@ -11343,6 +11330,10 @@ function EntryLogCard(_ref_elc) {
         (s.review === true && Array.isArray(s.reviewReasons) && s.reviewReasons.length) ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } },
           React.createElement("span", { style: { fontSize: 11, color: "#DB2777", fontWeight: 700, marginRight: 1 } }, "審議理由"),
           s.reviewReasons.map(function(t) { return React.createElement("span", { key: t, style: { fontSize: 10, fontWeight: 700, color: "#9D174D", background: "#FDF2F8", border: "1px solid #FBCFE8", borderRadius: 4, padding: "0 6px", lineHeight: 1.6 } }, t); })) : null,
+        // 確定待ちの理由 2026-10-19
+        (s.ceOn === true && Array.isArray(s.ceReasons) && s.ceReasons.length) ? React.createElement("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, paddingLeft: 6, borderLeft: "2px solid #67E8F9" } },
+          React.createElement("span", { style: { fontSize: 11, color: "#0E7490", fontWeight: 700, marginRight: 1 } }, "確定待ち理由"),
+          s.ceReasons.map(function(t) { return React.createElement("span", { key: t, style: { fontSize: 10, fontWeight: 700, color: "#155E75", background: "#ECFEFF", border: "1px solid #A5F3FC", borderRadius: 4, padding: "0 6px", lineHeight: 1.6 } }, t); })) : null,
         s.reviewMemo ? React.createElement("div", { style: { fontSize: 11, color: "#9D174D", lineHeight: 1.5, whiteSpace: "pre-wrap", paddingLeft: 6, borderLeft: "2px solid #F9A8D4" } }, React.createElement("span", { style: { color: "#DB2777", fontWeight: 700, marginRight: 3 } }, "審議根拠"), s.reviewMemo) : null,
         // 見送りの理由 2026-08-12。理由が無い見送り記録＝2026-08-12より前に付けた記録なので、赤字の「理由未記入」で拾えるようにする
         // （新規では必須にしたが既存は素通しなので、後からまとめて埋めるための目印）。
