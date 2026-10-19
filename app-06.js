@@ -6652,20 +6652,21 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _isSigTotal = stockFil === _SIG_TOTAL;
   var _selStock = (stockFil === _ALL_STOCK || (stockFil && _tickerList.indexOf(stockFil) >= 0)) ? stockFil : _ALL_STOCK;
   var _isAllStock = !_isSigTotal && _selStock === _ALL_STOCK;
-  var _uVnz = useState(false), vapNz = _uVnz[0], setVapNz = _uVnz[1];   // VAP分析の母数を VAP≠0円 の記録だけにするか 2026-10-19
-  _VAP_NZ = !legacy && vapNz;
-  // VAP分析の母数切替バー（全記録／VAP≠0のみ）。rs＝そのセクションの母数（VAP＝0円の件数を出すため）。
+  var _uVnz = useState("all"), vapFil = _uVnz[0], setVapFil = _uVnz[1];   // VAP分析の母数 all/nz(VAP≠0円)/z(VAP＝0円) 2026-10-19
+  _VAP_FIL = legacy ? "all" : vapFil;
+  // VAP分析の母数切替バー（全記録／VAP≠0円のみ／VAP＝0円のみ）。rs＝そのセクションの母数（件数を出すため）。
   var _vapNzBar = function(rs) {
     var z = (rs || []).filter(function(r) { return r && r.signal && _vapOf(r.signal) === 0; }).length;
+    var nz = (rs || []).filter(function(r) { return r && r.signal && _vapOf(r.signal) != null && _vapOf(r.signal) !== 0; }).length;
     return React.createElement("div", { key: "vapnz", style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 8px" } },
       React.createElement("span", { style: { display: "inline-flex", border: "1px solid #DDD6FE", borderRadius: 14, overflow: "hidden" } },
-        [[false, "全記録"], [true, "VAP≠0円のみ"]].map(function(o) {
-          var on = vapNz === o[0];
-          return React.createElement("button", { key: String(o[0]), type: "button", onClick: function() { setVapNz(o[0]); },
+        [["all", "全記録（" + (z + nz) + "）"], ["nz", "VAP≠0円のみ（" + nz + "）"], ["z", "VAP＝0円のみ（" + z + "）"]].map(function(o) {
+          var on = vapFil === o[0];
+          return React.createElement("button", { key: o[0], type: "button", onClick: function() { setVapFil(o[0]); },
             style: { padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none", background: on ? "#5B21B6" : "#fff", color: on ? "#fff" : "#5B21B6" } }, o[1]);
         })),
-      React.createElement("span", { style: { fontSize: 10, color: "#6B7280", fontWeight: 600 } },
-        vapNz ? ("VAP＝0円の記録 " + z + "件を除いて分析中") : ("VAP＝0円の記録 " + z + "件を含む")));
+      vapFil !== "all" ? React.createElement("span", { style: { fontSize: 10, color: "#6B7280", fontWeight: 600 } },
+        vapFil === "nz" ? "VAP＝0円の記録を除いて分析中" : "VAP＝0円の記録だけで分析中") : null);
   };
   _EL_UI_VAP = !legacy;   // VAP枠の表記（EPとの差チップ等の「α」→「VAP」）。表記だけ 2026-10-05
   _EL_AMT_BYPASS = !(_isAllStock || _isSigTotal);   // 銘柄タブは自銘柄の損益＝算入銘柄フィルタを外す（選定外でも想定損益を表示）2026-10-05。全体/📡シグナル総合は従来どおり合計用のフィルタ
