@@ -1772,7 +1772,7 @@ function _elFillEqCell(n) {
 // 8/20以降の記録は α値でなく VAP値（EP＝水準線＋VAP値）。ここは「VAPからさらに何円追加（上乗せ）して指すべきか」を見る表。
 // ①追加円数ごとの表: 各記録のEPを VAP+k円（k=−3〜+10・1円刻み＝2026-10-04 マイナス側3円を追加）に置き直して再判定＝_elH2EvalByFn（α詳細表と同じエンジン・同値は全列除外）。
 //   ★＝合計損益(Σ想定損益)が最大の行。想定損益が確定した件数(h2Cnt)が10件未満の行には付けない（ユーザー決定）。
-// ②記録ごとの余地: 約定した記録（OS最大がEPを上抜けた＝同値は約定と見なさない・×見送りは除く）について、
+// （2026-10-19 画面からは撤去・_vapMarginは未使用）②記録ごとの余地: 約定した記録（OS最大がEPを上抜けた＝同値は約定と見なさない・×見送りは除く）について、
 //   「あと何円上げても約定したか」＝ 余地 = ceil(OS最大 − VAP) − 1（整数円）。未約定の記録は分析から除外。
 // 母数 = 呼び出し側が渡した「VAP入力済み・算入・被り除外後」の記録。aiOf(r)→{cutLine,...}（損切りラインの取得に使う）。
 var _VAP_STAR_MIN = 10;
@@ -1827,36 +1827,11 @@ function _vapBoardV2(recs, aiOf, onEdit) {
           td(pct(e.stopRate), c++),
           td(isBest ? React.createElement("span", { title: "\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u304c\u78ba\u5b9a\u3057\u305f\u4ef6\u6570" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09", style: { color: "#CA8A04", fontWeight: 800 } }, "\u2605\u63a8\u5968") : "", c++));
       }))));
-  // 記録ごとの余地
-  var ms = [];
-  pool.forEach(function(r) { var m = _vapMargin(r.signal); if (m != null) ms.push({ r: r, m: m }); });
-  var vals = ms.map(function(x) { return x.m; }).sort(function(a, b) { return a - b; });
-  var avg = vals.length ? vals.reduce(function(a, b) { return a + b; }, 0) / vals.length : null;
-  var med = null; if (vals.length) { var mi = (vals.length - 1) / 2; med = (vals.length % 2) ? vals[mi] : (vals[Math.floor(mi)] + vals[Math.ceil(mi)]) / 2; }
-  var dist = []; for (var d = 0; d <= 10; d++) dist.push(0);
-  vals.forEach(function(v) { dist[Math.min(10, v)]++; });
-  var distBar = React.createElement("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 } }, dist.map(function(n, i) {
-    return React.createElement("span", { key: "d" + i, style: { fontSize: 10, fontWeight: 700, background: "#fff", border: "1px solid #DDD6FE", borderRadius: 5, padding: "1px 7px", whiteSpace: "nowrap", color: n ? "#5B21B6" : "#bbb" } }, (i === 10 ? "10+" : "+" + i) + "\u5186: " + n + "\u4ef6");
-  }));
-  var list = ms.slice().sort(function(a, b) { return (b.r.date + (b.r.signal.time || "")).localeCompare(a.r.date + (a.r.signal.time || "")); }).slice(0, 60);
-  var listEl = React.createElement("div", { style: { marginTop: 6, maxHeight: 260, overflowY: "auto", border: "1px solid #eee", borderRadius: 6 } },
-    list.map(function(x, i) {
-      var s = x.r.signal;
-      return React.createElement("div", { key: "m" + i, onClick: onEdit ? function() { onEdit(x.r); } : undefined, style: { display: "flex", gap: 8, alignItems: "center", padding: "3px 8px", fontSize: 11, borderBottom: "1px solid #f3f3f3", cursor: onEdit ? "pointer" : "default" } },
-        React.createElement("span", { style: { color: "#888", minWidth: 40 } }, (x.r.date || "").slice(5)),
-        React.createElement("span", { style: { minWidth: 70, fontWeight: 700 } }, x.r.stock),
-        React.createElement("span", { style: { color: "#888", minWidth: 40 } }, s.time || ""),
-        React.createElement("span", { style: { color: "#64748B" } }, "VAP " + _vapOf(s) + " / OS\u6700\u5927 " + _elOsMaxAll(s)),
-        React.createElement("span", { style: { marginLeft: "auto", fontWeight: 800, color: "#5B21B6" } }, "\u4f59\u5730 +" + x.m + "\u5186"));
-    }));
+  // 「記録ごとの余地」は2026-10-19に撤去（ユーザー指示「不要」）。
   return React.createElement("div", null,
     React.createElement("div", { style: Object.assign({ background: "#F5F3FF", border: "1px solid #DDD6FE", color: "#5B21B6", lineHeight: 1.5 }, box) },
       "EP\uff1d\u6c34\u6e96\u7dda\uff0bVAP\u5024\u3002\u5404\u8a18\u9332\u306eEP\u3092VAP\u304b\u3089\u300c\u8ffd\u52a0\u300d\u5186\u3060\u3051\u4e0a\u3052\uff08\u30de\u30a4\u30ca\u30b9\u306f\u4e0b\u3052\uff09\u3066\u6307\u3057\u76f4\u3057\u305f\u3068\u3057\u3066\u518d\u5224\u5b9a\u3002\u540c\u5024\uff08OS\u6700\u5927\uff1dEP\uff09\u306f\u672a\u7d04\u5b9a\uff08\u4e0a\u629c\u3051\u305f\u3068\u304d\u3060\u3051\u7d04\u5b9a\uff09\u3002\u2605\u306f\u5408\u8a08\u640d\u76ca\u6700\u5927\uff08\u60f3\u5b9a\u640d\u76ca\u78ba\u5b9a" + _VAP_STAR_MIN + "\u4ef6\u4ee5\u4e0a\u306e\u884c\u306e\u307f\uff09\u3002\u6bcd\u6570 " + pool.length + "\u4ef6\u3002"),
-    table,
-    React.createElement("div", { style: { marginTop: 12, fontSize: 12, fontWeight: 800, color: "#333" } }, "\u8a18\u9332\u3054\u3068\u306e\u4f59\u5730\uff08\u3042\u3068\u4f55\u5186\u4e0a\u3052\u3066\u3082\u7d04\u5b9a\u3057\u305f\u304b\uff09"),
-    React.createElement("div", { style: { fontSize: 10, color: "#888", margin: "2px 0" } }, "\u7d04\u5b9a\u3057\u305f\u8a18\u9332\uff08OS\u6700\u5927\u304cEP\u3092\u4e0a\u629c\u3051\uff09\u306e\u307f\u3002\u4f59\u5730\uff1dceil(OS\u6700\u5927\u2212VAP)\u22121\u3002\u7d04\u5b9a\u4ef6\u6570 " + ms.length + "/" + pool.length + "\u4ef6\u30fb\u5e73\u5747 " + (avg == null ? "\u2014" : (Math.round(avg * 10) / 10) + "\u5186") + "\u30fb\u4e2d\u592e\u5024 " + (med == null ? "\u2014" : med + "\u5186")),
-    distBar,
-    ms.length ? listEl : null);
+    table);
 }
 // ===== VAP分析ボード（シグナル別）2026-10-04 =====
 // 上段＝シグナルごとの比較表（±0の成績と、追加円数−3〜+10のうちΣ想定損益が最大の行）。行タップでそのシグナルだけの _vapBoardV2 に切替／「全シグナル」で戻る。
@@ -1899,9 +1874,6 @@ function _VapSigBoard(props) {
     var pool = rs.filter(function(r) { return r && r.signal && _vapPoolOk(r.signal); });
     if (!pool.length) return null;
     var rr = _vapRowsOf(pool, aiOf), z = _vapZeroRow(rr.rows).e, pick = rr.best || rr.ref, isRef = !rr.best;
-    var vals = []; pool.forEach(function(r) { var m = _vapMargin(r.signal); if (m != null) vals.push(m); });
-    vals.sort(function(a, b) { return a - b; });
-    var med = null; if (vals.length) { var mi = (vals.length - 1) / 2; med = (vals.length % 2) ? vals[mi] : (vals[Math.floor(mi)] + vals[Math.ceil(mi)]) / 2; }
     var on = sel === key, c = 0;
     var td = function(node, extra) { return React.createElement("td", { key: "c" + (c++), style: Object.assign({ padding: "4px 6px", textAlign: "right", fontSize: 11, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }, extra || {}) }, node); };
     return React.createElement("tr", { key: key, onClick: function() { setSel(key); }, style: { cursor: "pointer", background: on ? "#FEF9C3" : (isAll ? "#F5F3FF" : "transparent"), borderBottom: "1px solid #eee" } },
@@ -1913,14 +1885,13 @@ function _VapSigBoard(props) {
       td(pick ? React.createElement("span", { style: { fontWeight: 800, color: isRef ? "#94A3B8" : "#CA8A04" } }, _vapKLabel(pick.k) + (isRef ? " 参考" : " \u2605")) : "\u2014"),
       td(pick ? pnl(pick.e.h2Sum) : "\u2014"),
       td(pick && pick.e.avgH2 != null ? pnl(pick.e.avgH2, 400) : "\u2014"),
-      td(pick ? pick.e.entered + "/" + pick.e.n + "（" + pct(pick.e.eRate) + "）" : "\u2014"),
-      td(med == null ? "\u2014" : "+" + med + "円"));
+      td(pick ? pick.e.entered + "/" + pick.e.n + "（" + pct(pick.e.eRate) + "）" : "\u2014"));
   };
   var body = [line("__all__", "全" + ax, recs, true)].concat(groups.map(function(g) { return line(g.key, g.label, g.recs, false); })).filter(Boolean);
   var table = React.createElement("div", { style: { overflowX: "auto" } },
     React.createElement("table", { style: { borderCollapse: "collapse", width: "100%" } },
       React.createElement("thead", null, React.createElement("tr", null,
-        [ax, "件数", "±0 約定率", "±0 合計損益", "±0 平均", "損益最大の追加", "その合計損益", "その平均", "その約定率", "余地中央"].map(th))),
+        [ax, "件数", "±0 約定率", "±0 合計損益", "±0 平均", "損益最大の追加", "その合計損益", "その平均", "その約定率"].map(th))),
       React.createElement("tbody", null, body)));
   return React.createElement("div", null,
     axes.length > 1 ? React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" } },
@@ -8627,7 +8598,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   } else if (view === "alpha") {
     if (!legacy) {   // 2026-10-04 新システム(8/20以降)ではα値タブをVAP分析ボードに置換。旧システム枠(〜8/19)は従来のα分析
       _tabBody = _cardify([
-        _secH("📐 VAP値の分析", "8/20以降の記録。EP＝水準線＋VAP値。VAPから追加円数ごとの損益と、記録ごとの余地"),
+        _secH("📐 VAP値の分析", "8/20以降の記録。EP＝水準線＋VAP値。VAPから追加円数ごとの損益"),
         (function() { var _vp = _v2recsAll.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, _collScope); });
           // VAP補正の一括反映 2026-10-19（★＝全記録・今の絞りでの損益最大の追加円数を初期値に）
           var _sugg = null; if (_isAllStock) { var _rrS = _vapRowsOf(_vp.filter(function(r) { return _vapPoolOk(r.signal); }), _ai); var _bS = _rrS.best || _rrS.ref; _sugg = _bS ? _bS.k : null; }
