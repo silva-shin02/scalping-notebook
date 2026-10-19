@@ -1252,6 +1252,20 @@ function migrateData(d) {
     }
   } catch(e) { console.warn("[migrateData] lineCoexist error:", e); }
   // 追加α根拠の「詳細」機能を廃止（_migDropAddReasonDetail 2026-07-09）: 全記録の signal.addReasonDetail と候補マスター custom.addReasonDetails を削除（分析未組み込み＝記録のみだった機能）。フラグで一回性・以降スキップ。基本α/損益は不変。
+  // 【一回性 _migCeReasons1・2026-10-19】「5分足確定足」→「確定待ち」改称: チェック済み(ceOn===true)で理由が無い記録に「5分足確定足」を付けて引き継ぐ（ユーザー決定）。金額は不変。
+  if (!d._migCeReasons1) {
+    try {
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var cc = d.charts[ck]; if (!cc || !Array.isArray(cc.signals)) return;
+          cc.signals = cc.signals.map(function(s) {
+            return (s && s.ceOn === true && !(Array.isArray(s.ceReasons) && s.ceReasons.length)) ? Object.assign({}, s, { ceReasons: ["5分足確定足"] }) : s;
+          });
+        });
+      }
+      d._migCeReasons1 = true;
+    } catch(e) { console.warn("[migrateData] ceReasons1 error:", e); }
+  }
   if (!d._migDropAddReasonDetail) {
     try {
       if (d.charts && typeof d.charts === "object") {
