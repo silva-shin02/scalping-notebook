@@ -5052,7 +5052,7 @@ function EpNaviPanel(_refEPN) {
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDel(st, e.id); }, title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",
             style: { padding: "1px 6px", fontSize: armed ? 9 : 11, fontWeight: 800, lineHeight: 1.5, border: armed ? "1.5px solid #DC2626" : "1px solid " + C.bd, background: armed ? "#DC2626" : "#fff", color: armed ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, armed ? "削除?" : "×"))),
       // シグナル名は分足バッジと同じ行から独立させて全文表示（2026-08-07）: ボタンと同居していると狭い列で「指標…」と省略されて何のシグナルか分からなかった。長い名前は折り返す。
-      e.tag ? React.createElement("div", { style: { fontSize: 9.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", lineHeight: 1.3, marginTop: 1, wordBreak: "break-all" } }, e.tag) : null,
+      e.tag ? React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", lineHeight: 1.3, marginTop: 1, wordBreak: "break-all" } }, e.tag) : null,
       React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", lineHeight: 1.25 } },
         React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums" } }, "EP " + e.ep + "円"),
         e.b ? React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#475569" } }, e.b) : null),   // ③底抜けをEP価格の右に同サイズで表示（プレーン・底抜けライン欄のみ復活 2026-07-24）
