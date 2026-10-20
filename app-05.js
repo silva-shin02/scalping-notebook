@@ -3349,7 +3349,8 @@ function _vapPoolOk(s) { var v = _vapOf(s); return v != null && (_VAP_FIL === "n
 // signal.vapAdjBatch＝一括反映で付けた補正（元に戻すの対象）。設定 data.custom.vapAdj＝全体の補正値（新規フォームの初期値）。
 // 一括反映の対象＝8/20以降・VAP入力済み・実エントリー以外（実際に約定した記録は当時のEPのまま）。手で補正を付けた記録（vapAdjBatchなし）は触らない。
 function _vapAdjOf(s) { return (s && s.vapAdj != null && s.vapAdj !== "" && !isNaN(Number(s.vapAdj))) ? Number(s.vapAdj) : 0; }
-function _vapAdjSetting(data) { var v = data && data.custom && data.custom.vapAdj; return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : 0; }
+var _VAP_ADJ_DEF = -1;   // 設定が未設定のときの既定補正 2026-10-20（ユーザー指示「補正のデフォは−1円」）。「元に戻す」は明示的に0を書くので既定には戻らない
+function _vapAdjSetting(data) { var v = data && data.custom && data.custom.vapAdj; return (v != null && v !== "" && !isNaN(Number(v))) ? Number(v) : _VAP_ADJ_DEF; }
 function _vapAdjTargets(data) {
   var out = { tgt: [], entered: 0, manual: 0, batched: 0 };
   _elCollectAllSignals(data).forEach(function(r) {
