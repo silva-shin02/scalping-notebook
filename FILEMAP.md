@@ -3182,3 +3182,4 @@ HomeEventFormModal, App
 - 【VAP補正の既定を−1円に 2026-10-20b・sw v542】app-05 `_VAP_ADJ_DEF`=-1。`_vapAdjSetting` は custom.vapAdj 未設定なら−1（新規記録・EPナビ・一括反映パネルの初期値）。既存記録への反映はボタンのまま。「元に戻す」は custom.vapAdj=0 を明示保存。
 - 【EPナビのVAP日のα表記・挙動の残りを整理 2026-10-20c・sw v544】app-04 `EpNaviPanel` 早見カードの小書きをVAP日は「起点＋VAP n（読m・補正）」に、RN加算欄（`_EpnRnSection`）と「詳細で更新」ボタンをVAP日は非表示。`_epnRecalcBase` はVAP日なら推奨αで上書きせず読み値＋補正でEPだけ組み直す。リセットのtitleもVAP表記。
 - 【VAP補正の例外 2026-10-20d・sw v545】ユーザー指示: シグナル「底つきライン」×①(③)底抜けが大RN（特大RN含む）×読んだVAP値0円はマイナス補正なし（プラスはそのまま）。app-05 `_VAP_ADJ_EX_SIG`・`_vapBigRn(b)`・`_vapAdjExempt(pairs, vapRead)`・`_vapAdjExemptSig(s)`・`_vapAdjEff(adj, exempt)`。一括反映（`_vapAdjPreview`/`_vapAdjApply`）は例外の記録を0円に。記録フォーム（`_fVapEx`）とEPナビ（`_epnVapEx`）は条件がそろうと補正を0にし（外れたら元に戻す・手で変更可）、補正欄に理由を表示。
+- 【確定待ちの理由をチェック直後に表示 2026-10-21・sw v546】app-05 `EntryRecordForm`: 理由の選択肢（`_SnReasonPicker`・ceReasons）の表示条件から `_ef.k0>=0`（OS高値がα値に到達）を外し、`fCeOn` だけに。保存の必須チェックも `_fK0>=0` を外し、新規でチェックしたら未達でも必須（ユーザー決定）。
