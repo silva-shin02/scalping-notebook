@@ -1540,7 +1540,7 @@ function migrateData(d) {
           });
         });
       }
-      if (_vxN) console.log("[migrateData] vapAdjExAll: " + _vxN + " 記録のマイナス補正を0円へ（EPライン大RN×VAP0円）");
+      if (_vxN) console.log("[migrateData] vapAdjExAll: " + _vxN + " 記録のマイナス補正を0円へ（EP基準ライン大RN×VAP0円）");
       d._migVapAdjExAll = true;
     } catch(e) { console.warn("[migrateData] vapAdjExAll error:", e); }
   }

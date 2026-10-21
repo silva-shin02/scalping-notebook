@@ -4103,8 +4103,8 @@ function _elSpnTierBoardV2(recs, aiOf, fullRecs, sigKey, secH) {
     _elv2Td(_grand.skip ? React.createElement("span", { style: { fontSize: 10, color: "#B45309" } }, "推奨基本α無しで比較不可 " + _grand.skip + "件") : React.createElement("span", { style: { color: "#ccc" } }, "—"))));
   return React.createElement(React.Fragment, null,
     secH("🔎 中RN／大RN 別の補正効果",
-      "※ ①EPライン詳細（記録フォームで選ぶ手入力値）でRN段階に分けた同じ反実仮想。特大RNは大RNに合流（内訳は行の下に併記）。**下の①EPラインピルでは絞らない**＝押し直さずに中と大を見比べられる（帯ピルと根拠セレクタは効く）。件数が" + _EL_BASE_MIN_N + "件未満は（仮）"),
-    _elv2Table(["RN段階（①EPライン）", "件数", "実際（応用α）", "補正なし（基本α）", "補正の効果", "判定", "内訳"], _bodyRows));
+      "※ ①EP基準ライン詳細（記録フォームで選ぶ手入力値）でRN段階に分けた同じ反実仮想。特大RNは大RNに合流（内訳は行の下に併記）。**下の①EP基準ラインピルでは絞らない**＝押し直さずに中と大を見比べられる（帯ピルと根拠セレクタは効く）。件数が" + _EL_BASE_MIN_N + "件未満は（仮）"),
+    _elv2Table(["RN段階（①EP基準ライン）", "件数", "実際（応用α）", "補正なし（基本α）", "補正の効果", "判定", "内訳"], _bodyRows));
 }
 // 浮き足加算率ボードの基本/応用スコープ切替トグル（フォームの浮き足[浮き基本|浮き応用]と同スタイル）2026-07-18。sp=true→応用。onSet(boolean)で切替。分析ボード(シグナル総合/シグナル別)を_elUkiPctBoardScopedのmodeに連動させる。
 function _ukiScopeToggle(sp, onSet) {
@@ -7960,7 +7960,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     return React.createElement(React.Fragment, null,
       React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + _pbB.join("・") + "円）"),
       _subTabBar(_bAll, _bSelKey, setBandSel),
-      _bSecGroups ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 4px" } }, "① EPライン＝記録フォームのシグナル詳細①（単一選択）。上の帯ピルとANDで絞り込む。") : null,
+      _bSecGroups ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 4px" } }, "① EP基準ライン＝記録フォームのシグナル詳細①（単一選択）。上の帯ピルとANDで絞り込む。") : null,
       _bSecGroups ? _subTabBar(_bSecGroups, _bSecSelKey, setSigBSel) : null,
       (_panelRecs && _panelRecs.length)
         ? React.createElement(React.Fragment, null,
@@ -7969,7 +7969,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
               React.createElement("span", { style: { fontSize: 11, fontWeight: 600, color: "#94A3B8", marginLeft: 6 } }, "（" + _panelRecs.length + "件" + (cross ? "・銘柄" + _bStkN + "種・銘柄横断" : "") + "）")),
             _groupPanel(_panelRecs, null, _panelRecs, false, _bandSpanSel))
         : React.createElement("div", { style: { color: "#bbb", textAlign: "center", padding: "16px 0", fontSize: 12 } },
-            (_bSecSel && _bSecSelKey !== "__all__") ? "このEPラインの記録がありません（この帯では0件）"
+            (_bSecSel && _bSecSelKey !== "__all__") ? "このEP基準ラインの記録がありません（この帯では0件）"
               : (_bSel && _bSel.key === "all") ? "記録がありません" : "この帯の記録がありません"),
       // 🩹 補正は必要だったか 2026-09-02（旧・独立タブ「🩹補正要否」から移設）: 対象シグナル(_elSpnIsTargetSig＝既定「底つきライン」)のタブでだけ出す。
       //   母数の流れ＝**帯ピル → 根拠セレクタ → （明細だけ）①底抜けピル**。

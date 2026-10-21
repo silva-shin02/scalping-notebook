@@ -4711,7 +4711,7 @@ function _EpnCalcForm(_p) {
           style: { minWidth: 36, padding: "4px 12px", fontSize: 13, fontWeight: 800, border: on ? "1.5px solid #166534" : "1px solid #ddd", background: on ? "#EAF7EE" : "#fff", color: on ? "#166534" : "#888", borderRadius: 6, cursor: "pointer" } }, _mb);
       }))),
     _lrow(_mgmtHead("②", "シグナル", true), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: nTag ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", noAdd: true, onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),   // noAdd 2026-08-07: ここからのシグナル新規追加は廃止（②のマスターは記録フォーム/設定側で管理）
-    nTag ? _lrow(_mgmtHead("③", "EPライン"), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "EPライン名（例: 前日安値）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは②シグナルの直下に常時表示（底抜けライン欄のみ復活 2026-07-24）
+    nTag ? _lrow(_mgmtHead("③", "EP基準ライン"), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "EP基準ライン名（例: 前日安値）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは②シグナルの直下に常時表示（底抜けライン欄のみ復活 2026-07-24）
     // 「推奨基本α」の灰色枠（シグナル別/銘柄全体のn付き内訳＋★採用）はユーザー指示で撤去 2026-08-07。
     // ⚠️表示だけの撤去＝推奨基本αの計算(_epnCascade/autoPick)も、それを既定値に使う採用α欄も無改修。_pickLine は未使用になるが保持（無害）。
     _lrow("水準線", React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
@@ -4777,7 +4777,7 @@ function _EpnCalcForm(_p) {
       React.createElement("b", { style: { minWidth: 32, textAlign: "center", fontSize: 12, color: nVapAdj ? "#B45309" : "#94A3B8" } }, (nVapAdj > 0 ? "+" : "") + (nVapAdj || 0) + "円"),
       React.createElement("button", { type: "button", onClick: function() { setNVapAdj((nVapAdj || 0) + 1); }, style: { padding: "0 7px", fontSize: 12, fontWeight: 800, border: "1px solid #FCD34D", background: "#fff", color: "#92400E", borderRadius: 4, cursor: "pointer" } }, "＋"),
       baseV != null ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#4C1D95" } }, "→ 採用VAP " + (baseV + (nVapAdj || 0)) + "円") : null,
-      _epnVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E" } }, "（EPライン大RN・VAP0のためマイナス補正なし）") : null)) : null,
+      _epnVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E" } }, "（EP基準ライン大RN・VAP0のためマイナス補正なし）") : null)) : null,
     _epnVap ? React.createElement("div", { key: "vapana", style: { margin: "2px 0 6px" } }, React.createElement(_VapAnaPanel, { data: data, stock: stock, tags: nTag ? [nTag] : [], vap: nBase, adj: nVapAdj, onAdj: function(k) { setNVapAdj(k); } })) : null,
     (!_epnVap && nUkiUsed !== "○") ? _lrow("採用α", React.createElement("div", null,
       React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3, marginBottom: 5 } },
