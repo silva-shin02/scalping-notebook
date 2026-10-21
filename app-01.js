@@ -1524,6 +1524,26 @@ function migrateData(d) {
     if (_raN) console.log("[migrateData] rnAuto: " + _raN + " 記録をRN加算の自動判定ONへ");
     d._migRnAutoOn = true;
   } catch(e) { console.warn("[migrateData] rnAutoOn error:", e); }
+  // 【一回性 _migVapAdjExAll・2026-10-21】VAP補正の例外（底抜け大RN×VAP0円＝マイナス補正なし）を全シグナルへ広げた（旧＝底つきラインのみ）。
+  //   一括反映で付いたマイナス補正（vapAdjBatch===true かつ vapAdj<0）のうち例外に当たる記録を0円へ戻す＝採用VAP（alphaVal/baseAlphaVal）を読んだVAP値に戻す。
+  //   手で入れた補正（vapAdjBatch!==true）は触らない（ユーザー決定）。_vapAdjExemptSig（app-05）が未ロードなら何もしない（次回に回す）。
+  if (!d._migVapAdjExAll && typeof _vapAdjExemptSig === "function" && typeof _vapOf === "function") {
+    try {
+      var _vxN = 0;
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var c = d.charts[ck]; if (!c || !Array.isArray(c.signals)) return;
+          c.signals.forEach(function(s) {
+            if (!s || s.vapAdjBatch !== true || !(Number(s.vapAdj) < 0)) return;
+            var v = _vapOf(s); if (v == null || !_vapAdjExemptSig(s)) return;
+            s.vapAdj = null; s.vapAdjBatch = null; s.alphaVal = v; s.baseAlphaVal = v; _vxN++;
+          });
+        });
+      }
+      if (_vxN) console.log("[migrateData] vapAdjExAll: " + _vxN + " 記録のマイナス補正を0円へ（底抜け大RN×VAP0円）");
+      d._migVapAdjExAll = true;
+    } catch(e) { console.warn("[migrateData] vapAdjExAll error:", e); }
+  }
   return d;
 }
 function stLoad() {
