@@ -7432,7 +7432,8 @@ function _elTagLabel(s) {
 // 後方互換: 旧記録は sigDetail[t]=文字列（単一）/フラット配列（複数）＝③その他特徴(f)として読む（ユーザー決定 2026-07-07）。
 // _elSigDetailSec がセクション読み取りの正本・_elSigDetailList は全セクションをフラット配列へ正規化（詳細サブタブ等の従来読者用＝名前ベースの集計は不変）。
 // 表示(_elTagDisp)は「タグ（底:X・起:Y・特徴名...）」。分析のグループ化(_elTagEntries)は素のタグ名のまま＝シグナル全体の集計・名寄せは不変。
-var _EL_SIG_SECS = [{ key: "b", num: "①", name: "底抜け", label: "① 底抜け", multi: false }, { key: "k", num: "②", name: "起点", label: "② 起点", multi: false }, { key: "f", num: "③", name: "その他", label: "③ その他", multi: true }];
+// 2026-10-21 ①の表示名を「底抜け」→「EPライン」に改称（ユーザー指示）。保存キー b・保存値は不変＝表示名だけ。
+var _EL_SIG_SECS = [{ key: "b", num: "①", name: "EPライン", label: "① EPライン", multi: false }, { key: "k", num: "②", name: "起点", label: "② 起点", multi: false }, { key: "f", num: "③", name: "その他", label: "③ その他", multi: true }];
 // セクション名はシグナルごとに変えられる 2026-09-28（ユーザー要望「シグナルによって詳細の内容が変わるようにしたい」）。
 // 正本は custom.sigSecLabels = { <シグナル名>: { b:"区切りライン", k:"起点", f:"その他" } }。未設定のキーは上の既定に落ちる。
 // ⚠️**セクションの数と key/multi は共通のまま**（記録側 sigDetail は {b,k,f} 固定なので、ここを可変にすると過去記録が読めなくなる）。変わるのは表示名だけ。
@@ -10024,7 +10025,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("b", { style: { minWidth: 30, textAlign: "center", color: fVapAdj ? "#B45309" : "#94A3B8" } }, (fVapAdj > 0 ? "+" : "") + (fVapAdj || 0) + "円"),
             React.createElement("button", { type: "button", onClick: function() { setFVapAdj((fVapAdj || 0) + 1); }, style: { padding: "0 6px", fontSize: 12, fontWeight: 800, border: "1px solid #FCD34D", background: "#fff", color: "#92400E", borderRadius: 4, cursor: "pointer" } }, "＋"),
             fVap !== "" ? React.createElement("span", { style: { color: "#4C1D95", fontWeight: 700, whiteSpace: "nowrap" } }, "→ 採用VAP " + _fVapA + "円") : null,
-            _fVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E", whiteSpace: "nowrap" } }, "（底抜け大RN・VAP0のためマイナス補正なし）") : null),
+            _fVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E", whiteSpace: "nowrap" } }, "（EPライン大RN・VAP0のためマイナス補正なし）") : null),
           React.createElement("span", { title: "\u6c34\u6e96\u7dda\u5024\uff0bVAP\u5024\uff1d\u4e88\u5b9a\u30a8\u30f3\u30c8\u30ea\u30fc\u4fa1\u683c", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "\u2192 \u4e88\u5b9aEP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, _epTxt), "\u5186"));
       })(),
       React.createElement(_VapAnaPanel, { data: data, stock: fStock, tags: fTags, vap: fVap, adj: fVapAdj, onAdj: function(k) { setFVapAdj(k); }, excludeId: isEdit ? initSig.id : null })] : [
