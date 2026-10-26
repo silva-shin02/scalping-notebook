@@ -4513,7 +4513,7 @@ function _EpnCalcForm(_p) {
   var _epnVap = _vapWorld(date);   // 8/20以降＝α値→VAP値（EP＝水準線＋VAP。基本/応用・浮き足加算・RN加算は無し）2026-10-04。基本α欄の値をVAP値として使う
   var specialV = (!_epnVap && nSpecialUsed === "○") ? ((nSpecialAlpha !== "" && !isNaN(Number(nSpecialAlpha))) ? Number(nSpecialAlpha) : (daySpecialAlpha != null ? daySpecialAlpha : (specialReco && specialReco.v != null ? specialReco.v : (baseV != null ? baseV : 0)))) : null;   // 手入力＞本日の採用応用α値＞推奨応用α＞基本α 2026-07-21
   // 補正の例外（③底抜け大RN×VAP0円＝マイナス補正なし・2026-10-21から全シグナル）2026-10-20: 条件がそろったら補正を0に、外れたら元に戻す（記録フォームと同じ）
-  var _epnVapEx = _epnVap && _vapAdjExempt([[nTag, nSelB]], nBase);
+  var _epnVapEx = _epnVap && _vapAdjExemptLv(nLevel, nBase);   // 2026-10-26 水準線値が大RN（100円単位）×VAP0円
   var _epnVapExRef = useRef(null);
   useEffect(function() {
     if (_epnVapEx && nVapAdj < 0) { _epnVapExRef.current = nVapAdj; setNVapAdj(0); }
@@ -4777,7 +4777,7 @@ function _EpnCalcForm(_p) {
       React.createElement("b", { style: { minWidth: 32, textAlign: "center", fontSize: 12, color: nVapAdj ? "#B45309" : "#94A3B8" } }, (nVapAdj > 0 ? "+" : "") + (nVapAdj || 0) + "円"),
       React.createElement("button", { type: "button", onClick: function() { setNVapAdj((nVapAdj || 0) + 1); }, style: { padding: "0 7px", fontSize: 12, fontWeight: 800, border: "1px solid #FCD34D", background: "#fff", color: "#92400E", borderRadius: 4, cursor: "pointer" } }, "＋"),
       baseV != null ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#4C1D95" } }, "→ 採用VAP " + (baseV + (nVapAdj || 0)) + "円") : null,
-      _epnVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E" } }, "（EP基準ライン大RN・VAP0のためマイナス補正なし）") : null)) : null,
+      _epnVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E" } }, "（水準線が大RN・VAP0のためマイナス補正なし）") : null)) : null,
     _epnVap ? React.createElement("div", { key: "vapana", style: { margin: "2px 0 6px" } }, React.createElement(_VapAnaPanel, { data: data, stock: stock, tags: nTag ? [nTag] : [], vap: nBase, adj: nVapAdj, onAdj: function(k) { setNVapAdj(k); } })) : null,
     (!_epnVap && nUkiUsed !== "○") ? _lrow("採用α", React.createElement("div", null,
       React.createElement("div", { style: { display: "inline-flex", background: "#EFEBE4", borderRadius: 9, padding: 3, gap: 3, marginBottom: 5 } },
