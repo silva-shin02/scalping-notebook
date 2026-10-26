@@ -1544,6 +1544,29 @@ function migrateData(d) {
       d._migVapAdjExAll = true;
     } catch(e) { console.warn("[migrateData] vapAdjExAll error:", e); }
   }
+  // 【一回性 _migVapAdjExLv・2026-10-26】VAP補正の例外を「①EP基準ラインが大RN×VAP0円」→「水準線値が大RN（100円単位）×VAP0円」に置き換えた（ユーザー決定）。
+  //   付け直し: ①新条件に当たる記録の一括反映のマイナス補正（vapAdjBatch===true・vapAdj<0）は0円へ。
+  //   ②旧条件で補正なし（vapAdj＝0）だったが新条件に当たらない記録には、設定の補正値（custom.vapAdj・既定−1）を一括反映として付ける。
+  //   8/20以降・VAP入力済み・実エントリー以外だけ（一括反映と同じ対象）。手で入れた補正（vapAdjBatchなし・≠0）は触らない。
+  if (!d._migVapAdjExLv && typeof _vapAdjExemptSig === "function" && typeof _vapAdjExemptOldSig === "function" && typeof _vapAdjSetting === "function" && typeof _vapWorld === "function") {
+    try {
+      var _lvAdj = _vapAdjSetting(d), _lvA = 0, _lvB = 0;
+      if (d.charts && typeof d.charts === "object") {
+        Object.keys(d.charts).forEach(function(ck) {
+          var c = d.charts[ck], i = ck.lastIndexOf("_"); if (!c || !Array.isArray(c.signals) || i < 0 || !_vapWorld(ck.slice(i + 1))) return;
+          c.signals.forEach(function(s) {
+            if (!s || s.entered === true) return;
+            var v = _vapOf(s); if (v == null) return;
+            var a = _vapAdjOf(s), nw = _vapAdjExemptSig(s);
+            if (nw && s.vapAdjBatch === true && a < 0) { s.vapAdj = null; s.vapAdjBatch = null; s.alphaVal = v; s.baseAlphaVal = v; _lvA++; return; }
+            if (!nw && a === 0 && _lvAdj < 0 && _vapAdjExemptOldSig(s)) { s.vapAdj = _lvAdj; s.vapAdjBatch = true; s.alphaVal = v + _lvAdj; s.baseAlphaVal = v + _lvAdj; _lvB++; }
+          });
+        });
+      }
+      if (_lvA || _lvB) console.log("[migrateData] vapAdjExLv: 0円へ " + _lvA + "件・補正を付け直し " + _lvB + "件（水準線値が大RN×VAP0円）");
+      d._migVapAdjExLv = true;
+    } catch(e) { console.warn("[migrateData] vapAdjExLv error:", e); }
+  }
   return d;
 }
 function stLoad() {

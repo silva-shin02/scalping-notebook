@@ -3355,12 +3355,30 @@ function _vapAdjSetting(data) { var v = data && data.custom && data.custom.vapAd
 //   pairs＝[[シグナル名, 底抜け(b)]…]（記録＝tagsとsigDetail[tag].b／フォーム・EPナビ＝選択中のシグナルと③底抜け）。
 var _VAP_ADJ_EX_SIG = "底つきライン";   // 2026-10-21 以降は判定に使わない（全シグナルが対象）。表示・履歴のため名前だけ残す
 function _vapBigRn(b) { var s = String(b || ""); return s.indexOf("RN") >= 0 && s.indexOf("大") >= 0; }   // 大RN・特大RN（中RNは対象外）
+// ⚠️2026-10-26 以降、判定には使わない（旧条件＝①EP基準ラインが大RN）。既存記録の付け直し（移行 _migVapAdjExLv）で「旧条件で外れていた記録」を見つけるためだけに残す。
 function _vapAdjExempt(pairs, vapRead) {
   if (vapRead == null || vapRead === "" || Number(vapRead) !== 0) return false;
   // 2026-10-21 ユーザー指示「底つきラインだけはやめて全部に」＝シグナル名の絞りを撤去。どれかのシグナルの底抜け(b)が大RN（特大RN含む）なら対象。
   return (pairs || []).some(function(p) { return _vapBigRn(p[1]); });
 }
+// 補正の例外 2026-10-26（ユーザー決定・旧条件を置き換え）: **水準線値が大RN（100円単位ちょうど・1000円単位も含む）かつ読んだVAP値＝0円**ならマイナス補正なし。
+//   詳細①（EP基準ライン）の選択・シグナル名は見ない。水準線値が未入力なら対象外。
+function _vapLvBigRn(lv) {
+  if (lv == null || lv === "") return false;
+  var n = Number(lv);
+  if (!isFinite(n) || n <= 0) return false;
+  return Math.round(n * 100) % 10000 === 0;   // 100円単位ちょうど（小数の誤差を避けて銭単位で判定）
+}
+function _vapAdjExemptLv(lv, vapRead) {
+  if (vapRead == null || vapRead === "" || Number(vapRead) !== 0) return false;
+  return _vapLvBigRn(lv);
+}
 function _vapAdjExemptSig(s) {
+  if (!s) return false;
+  return _vapAdjExemptLv(s.levelPrice, _vapOf(s));
+}
+// 旧条件（①EP基準ラインが大RN×VAP0円）で外れていたか＝移行専用。
+function _vapAdjExemptOldSig(s) {
   if (!s) return false;
   var tg = (Array.isArray(s.tags) && s.tags.length) ? s.tags : (s.tag ? [s.tag] : []);
   return _vapAdjExempt(tg.map(function(x) { return [x, _elSigDetailSec(s, x).b]; }), _vapOf(s));
@@ -3410,7 +3428,7 @@ function _vapAdjApply(prev, adj, undo) {
       }
       if (!keys[ck + "|" + (s.id || "")] || v == null) return s;
       chg = true;
-      var ea = _vapAdjEff(adj, _vapAdjExemptSig(s));   // 底抜け大RN×VAP0円はマイナス補正なし（2026-10-21 全シグナル）
+      var ea = _vapAdjEff(adj, _vapAdjExemptSig(s));   // 水準線値が大RN×VAP0円はマイナス補正なし（2026-10-26）
       return Object.assign({}, s, { vapAdj: ea !== 0 ? ea : null, vapAdjBatch: ea !== 0 ? true : null, alphaVal: v + ea, baseAlphaVal: v + ea });
     });
     if (chg) charts[ck] = Object.assign({}, c, { signals: sigs });
@@ -8670,7 +8688,7 @@ function EntryRecordForm(_ref_erf) {
   var _effUkiPct = _elUkiEffPct(fUkiPct, _ukiReco.reco);   // 2026-07-14 共通化
   var _vapMode = _vapWorld(fDate);   // 8/20以降＝α値でなくVAP値で入力（浮き足・RN・基本/応用は無し）2026-10-04
   // 補正の例外（①底抜け大RN×VAP0円＝マイナス補正なし・2026-10-21から全シグナル）2026-10-20: 条件がそろったら補正を0に、外れたら元に戻す（手で変えるのは可）
-  var _fVapEx = _vapMode && _vapAdjExempt((fTags || []).map(function(x) { return [x, fSigDetail && fSigDetail[x] ? fSigDetail[x].b : null]; }), fVap);
+  var _fVapEx = _vapMode && _vapAdjExemptLv(fLevelPrice, fVap);   // 2026-10-26 水準線値が大RN（100円単位）×VAP0円
   useEffect(function() {
     if (_fVapEx && fVapAdj < 0) { _vapExAutoRef.current = fVapAdj; setFVapAdj(0); }
     else if (!_fVapEx && _vapExAutoRef.current != null) { if (fVapAdj === 0) setFVapAdj(_vapExAutoRef.current); _vapExAutoRef.current = null; }
@@ -10026,7 +10044,7 @@ function EntryRecordForm(_ref_erf) {
             React.createElement("b", { style: { minWidth: 30, textAlign: "center", color: fVapAdj ? "#B45309" : "#94A3B8" } }, (fVapAdj > 0 ? "+" : "") + (fVapAdj || 0) + "円"),
             React.createElement("button", { type: "button", onClick: function() { setFVapAdj((fVapAdj || 0) + 1); }, style: { padding: "0 6px", fontSize: 12, fontWeight: 800, border: "1px solid #FCD34D", background: "#fff", color: "#92400E", borderRadius: 4, cursor: "pointer" } }, "＋"),
             fVap !== "" ? React.createElement("span", { style: { color: "#4C1D95", fontWeight: 700, whiteSpace: "nowrap" } }, "→ 採用VAP " + _fVapA + "円") : null,
-            _fVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E", whiteSpace: "nowrap" } }, "（EP基準ライン大RN・VAP0のためマイナス補正なし）") : null),
+            _fVapEx ? React.createElement("span", { style: { fontSize: 9.5, color: "#92400E", whiteSpace: "nowrap" } }, "（水準線が大RN・VAP0のためマイナス補正なし）") : null),
           React.createElement("span", { title: "\u6c34\u6e96\u7dda\u5024\uff0bVAP\u5024\uff1d\u4e88\u5b9a\u30a8\u30f3\u30c8\u30ea\u30fc\u4fa1\u683c", style: { fontSize: 11, color: "#1D4ED8", fontWeight: 700, whiteSpace: "nowrap" } }, "\u2192 \u4e88\u5b9aEP ", React.createElement("span", { style: { fontSize: 13, fontWeight: 800, color: "#1E3A8A" } }, _epTxt), "\u5186"));
       })(),
       React.createElement(_VapAnaPanel, { data: data, stock: fStock, tags: fTags, vap: fVap, adj: fVapAdj, onAdj: function(k) { setFVapAdj(k); }, excludeId: isEdit ? initSig.id : null })] : [
