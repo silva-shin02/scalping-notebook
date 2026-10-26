@@ -4168,6 +4168,13 @@ function _epStopTouch(s, alpha, absIdx, cut) {
   return !!(lg && lg.h != null && (lg.h - alpha) >= cut && !_elStopHold(s, absIdx));
 }
 // OS1の時刻＋k分（"HH:MM"）。時刻なしはnull。
+// OS足kが5分足の確定足（1分足の時刻の分の1の位が4か9）か 2026-10-26。記録フォームのOS欄の目印専用（計算・確定待ちには使わない）。
+//   時刻＝OS1の1分足の時刻＋k分（分足の設定に関係なく常に1分ずつ・ユーザー決定）。時刻なしはfalse。
+function _epIs5mConf(time, k) {
+  var m = /^(\d{1,2}):(\d{2})/.exec(time || "");
+  if (!m) return false;
+  return ((Number(m[2]) + (k || 0)) % 5) === 4;
+}
 function _epCeTimeAt(time, k) {
   var m = /^(\d{1,2}):(\d{2})/.exec(time || "");
   if (!m) return null;
@@ -10655,10 +10662,16 @@ function EntryRecordForm(_ref_erf) {
         // role: "EP"(青枠)/"H1"/"H2"(グレーチップ)/null。役割は現在の採用αからライブ導出（_fRoleOf）。
         var _legCol = function(label, role, rows) {
           var isEp = role === "EP";
+          // 5分足の確定足の目印 2026-10-26: 時刻欄（OS1の1分足）＋足番号分で、各OSの時刻を見出しの右に小さく出し、確定足（分の1の位が4/9）には「5分確定」バッジ。表示だけ（計算・確定待ちとは連動しない）。
+          var _k = Number(String(label).replace(/\D/g, "")) - 1;
+          var _tm = (_k >= 0) ? _epCeTimeAt(fTime, _k) : null;
+          var _c5 = !!(_tm && _epIs5mConf(fTime, _k));
           return React.createElement("div", { key: label, style: { display: "flex", flexDirection: "column", gap: 4, padding: "6px 8px", border: "1px solid " + (isEp ? "#0369A1" : "#eee"), borderRadius: 6, background: isEp ? "#F0F9FF" : "#fff" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
               React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#9A3412" } }, label),
-              role ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#fff", background: isEp ? "#0369A1" : "#64748B", padding: "1px 5px", borderRadius: 4 } }, role) : null),
+              role ? React.createElement("span", { style: { fontSize: 9, fontWeight: 800, color: "#fff", background: isEp ? "#0369A1" : "#64748B", padding: "1px 5px", borderRadius: 4 } }, role) : null,
+              _c5 ? React.createElement("span", { title: "5分足の確定足（" + _tm + "＝分の1の位が4か9）", style: { fontSize: 9, fontWeight: 800, color: "#0E7490", background: "#CFFAFE", border: "1px solid #67E8F9", padding: "0 5px", borderRadius: 4, whiteSpace: "nowrap" } }, "5分確定") : null,
+              _tm ? React.createElement("span", { style: { marginLeft: "auto", fontSize: 10, fontVariantNumeric: "tabular-nums", fontWeight: _c5 ? 800 : 600, color: _c5 ? "#0E7490" : "#94A3B8" } }, _tm) : null),
             rows);
         };
         var _eChip = (function() {
