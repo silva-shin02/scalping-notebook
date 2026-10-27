@@ -269,6 +269,19 @@ function App() {
     return function() { window.removeEventListener("online", _on); window.removeEventListener("offline", _off); };
   }, []);
   useEffect(function() { if (fbStatus === "ok") { try { _setSnLastSync(new Date()); } catch (e) {} } }, [fbStatus]);
+  // 同期エラーの表示 2026-10-27: app-01 の _fbSetErr/_fbClearErr が飛ばす "sn_fb_err" を受けて、バッジを「⚠️ 同期エラー」にし画面上部に赤い帯を出す（成功で自動的に消える・×で一時的に閉じられる）。
+  var _uFbErr = useState(null), _fbErr = _uFbErr[0], _setFbErr = _uFbErr[1];
+  var _uFbErrHide = useState(false), _fbErrHide = _uFbErrHide[0], _setFbErrHide = _uFbErrHide[1];
+  useEffect(function() {
+    var on = function(ev) {
+      var d = ev && ev.detail;
+      _setFbErr(d || null); _setFbErrHide(false);
+      if (d) { fbStatusRef.current = "err"; setFbStatus("err"); }
+      else if (fbStatusRef.current === "err") { fbStatusRef.current = "ok"; setFbStatus("ok"); }
+    };
+    window.addEventListener("sn_fb_err", on);
+    return function() { window.removeEventListener("sn_fb_err", on); };
+  }, []);
   // CA のタグを読み込む（2026-10-14・_caTagsRefresh は app-05）。起動時＋Firebase 設定が変わったときだけ（あとはタグ欄の↻）。
   // 2026-10-17 画面に戻ったとき（focus/visibilitychange）の再取得を撤去＝CA下書き一覧を丸ごと取り直してDBダウンロードの無料枠を超えていた。
   // 中身が変わったら "sn_ca_tags_loaded" が来るので App ごと再描画（表示・絞り込み・DNF/Z 判定に反映）。custom はレンダー時に渡す（下の _caTagSetCustom）。
@@ -1142,7 +1155,14 @@ function App() {
       background: !_snOnline ? "#F3F4F6" : fbStatus === "ok" ? "#F0FDF4" : fbStatus === "syncing" ? "#FFFBEB" : "#FEF2F2",
       borderColor: !_snOnline ? "#D1D5DB" : fbStatus === "ok" ? "#A7F3D0" : fbStatus === "syncing" ? "#FDE68A" : "#FECACA"
     }
-  }, !_snOnline ? "📴 オフライン" : fbStatus === "ok" ? "🔥 同期済" : fbStatus === "syncing" ? "⏳ 同期中" : "⚠️ 接続エラー") : React.createElement("div", {
+  }, !_snOnline ? "📴 オフライン" : fbStatus === "ok" ? "🔥 同期済" : fbStatus === "syncing" ? "⏳ 同期中" : (_fbErr ? "⚠️ 同期エラー" : "⚠️ 接続エラー"),
+    // 画面上部の赤い帯（同期エラー時）2026-10-27
+    (_fbErr && !_fbErrHide) ? React.createElement("div", { role: "alert", style: { position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999, display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "#B91C1C", color: "#fff", fontSize: 12.5, fontWeight: 700, boxShadow: "0 2px 6px rgba(0,0,0,0.25)" } },
+      React.createElement("span", { style: { flex: 1, lineHeight: 1.5 } },
+        (_fbErr.status === 401 || _fbErr.status === 403)
+          ? "⚠️ 同期エラー（権限なし・HTTP " + _fbErr.status + "）：Firebase の Realtime Database のルールで" + (_fbErr.kind === "put" ? "書き込み" : "読み込み") + "が拒否されています。ルールの期限・設定を確認してください（この端末の変更は他の端末に届いていません）。"
+          : "⚠️ 同期エラー（" + (_fbErr.status ? "HTTP " + _fbErr.status : "通信できません") + "）：Firebase と" + (_fbErr.kind === "put" ? "書き込み" : "読み込み") + "できませんでした。通信状況と Firebase の設定を確認してください。"),
+      React.createElement("button", { type: "button", onClick: function() { _setFbErrHide(true); }, title: "閉じる（次にエラーが起きたらまた出ます）", style: { background: "transparent", border: "1px solid rgba(255,255,255,0.6)", color: "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontWeight: 800 } }, "×")) : null) : React.createElement("div", {
     style: {
       display: "flex",
       gap: 4
