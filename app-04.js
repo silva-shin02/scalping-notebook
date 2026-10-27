@@ -4465,11 +4465,13 @@ function _EpnCalcForm(_p) {
     if (casc && casc.all) casc.all.forEach(function(r) { _epnTagsOf(r.signal).forEach(function(t) { cnt[t] = (cnt[t] || 0) + 1; }); });
     return cnt;
   }, [casc]);
+  // 仮シグナル 2026-10-27（ユーザー要望「EPナビでも仮シグナルを」）: custom.provSignalTags を②の下に緑の別段で並べる（選択は通常か仮のどちらか1つ＝nTag 共通）。
+  var provTags = (data && data.custom && Array.isArray(data.custom.provSignalTags)) ? data.custom.provSignalTags : [];
   var sigOrphans = useMemo(function() {
     var out = [];
-    Object.keys(tagCount).forEach(function(t) { if (signalTags.indexOf(t) < 0) out.push(t); });
+    Object.keys(tagCount).forEach(function(t) { if (signalTags.indexOf(t) < 0 && provTags.indexOf(t) < 0) out.push(t); });   // 仮シグナルは下の段に出すので一覧外に混ぜない
     return out;
-  }, [tagCount, signalTags]);
+  }, [tagCount, signalTags, provTags]);
   var cands = useMemo(function() {
     if (!nTag) return { b: [], k: [], f: [] };
     var m2 = (custom.sigDetails2 || {})[nTag];
@@ -4611,6 +4613,10 @@ function _EpnCalcForm(_p) {
   var _sigAdd = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : []; if (cur.indexOf(nm) >= 0) return prev; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: cur.concat([nm]) }) }); }); };
   var _sigDelete = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.signalTags)) ? prev.custom.signalTags : []; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: cur.filter(function(x) { return x !== nm; }) }) }); }); };
   var _sigReorder = function(list) { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { signalTags: list.slice() }) }); }); };
+  // 仮シグナルの管理（追加・削除・並べ替え）2026-10-27: 設定の「仮シグナル管理」と同じ custom.provSignalTags を直接書く。改名は通常と同じ _sigRename（記録側のタグも追従）。
+  var _provAdd = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.provSignalTags)) ? prev.custom.provSignalTags : []; if (cur.indexOf(nm) >= 0) return prev; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { provSignalTags: cur.concat([nm]) }) }); }); };
+  var _provDelete = function(nm) { save(function(prev) { var cur = (prev.custom && Array.isArray(prev.custom.provSignalTags)) ? prev.custom.provSignalTags : []; return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { provSignalTags: cur.filter(function(x) { return x !== nm; }) }) }); }); if (nTag === nm) { setNTag(""); setNSelB(null); setNSelK(null); setNSelF([]); } };
+  var _provReorder = function(list) { save(function(prev) { return Object.assign({}, prev, { custom: Object.assign({}, prev.custom || {}, { provSignalTags: list.slice() }) }); }); };
   var _sigRename = function(oldNm, newNm) {
     // 改名は過去記録も全域追従（_elSignalRenameData・app-05）。旧実装は改名先が既存名だと中断＝マスターと記録がズレる事故の元だったため、
     // 既存名への改名も「統合」として実行する（記録/詳細候補/浮き足対象/出現欄メモ/EPナビ保存まで追従）2026-07-07g。削除(_sigDelete)は従来どおり記録に触らない。
@@ -4710,7 +4716,9 @@ function _EpnCalcForm(_p) {
         return React.createElement("button", { key: _mb, type: "button", onClick: function() { setNMinBars([_mb]); },
           style: { minWidth: 36, padding: "4px 12px", fontSize: 13, fontWeight: 800, border: on ? "1.5px solid #166534" : "1px solid #ddd", background: on ? "#EAF7EE" : "#fff", color: on ? "#166534" : "#888", borderRadius: 6, cursor: "pointer" } }, _mb);
       }))),
-    _lrow(_mgmtHead("②", "シグナル", true), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: nTag ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", noAdd: true, onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),   // noAdd 2026-08-07: ここからのシグナル新規追加は廃止（②のマスターは記録フォーム/設定側で管理）
+    _lrow(_mgmtHead("②", "シグナル", true), React.createElement(_EpnChipMgr, { items: signalTags, orphans: sigOrphans, selected: (nTag && provTags.indexOf(nTag) < 0) ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#EA580C", bg: "#FFEDD5", c: "#9A3412" }, addPh: "シグナル名", noAdd: true, onToggle: _sigToggle, onAdd: _sigAdd, onRename: _sigRename, onDelete: _sigDelete, onReorder: _sigReorder })),   // noAdd 2026-08-07: ここからのシグナル新規追加は廃止（②のマスターは記録フォーム/設定側で管理）
+    // 仮シグナル（緑の別段）2026-10-27: 選択は②と共通（nTag）。追加・改名・削除・並べ替えもここでできる（ユーザー決定）。
+    _lrow(React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: "#15803D" } }, "仮シグナル"), React.createElement(_EpnChipMgr, { items: provTags, selected: (nTag && provTags.indexOf(nTag) >= 0) ? [nTag] : [], countOf: function(t) { return tagCount[t] || 0; }, accent: { b: "#16A34A", bg: "#DCFCE7", c: "#15803D" }, addPh: "仮シグナル名", onToggle: _sigToggle, onAdd: _provAdd, onRename: _sigRename, onDelete: _provDelete, onReorder: _provReorder })),
     nTag ? _lrow(_mgmtHead("③", "EP基準ライン"), React.createElement(_EpnChipMgr, { items: cands.b, selected: nSelB ? [nSelB] : [], accent: { b: "#D97706", bg: "#FEF3C7", c: "#92400E" }, addPh: "EP基準ライン名（例: 前日安値）", onToggle: function(nm) { setNSelB(nSelB === nm ? null : nm); }, onAdd: function(nm) { _detAdd("b", nm); }, onRename: function(o, n) { _detRename("b", o, n); }, onDelete: function(nm) { _detDelete("b", nm); }, onReorder: function(l) { _detReorder("b", l); } })) : null,   // ③底抜けは②シグナルの直下に常時表示（底抜けライン欄のみ復活 2026-07-24）
     // 「推奨基本α」の灰色枠（シグナル別/銘柄全体のn付き内訳＋★採用）はユーザー指示で撤去 2026-08-07。
     // ⚠️表示だけの撤去＝推奨基本αの計算(_epnCascade/autoPick)も、それを既定値に使う採用α欄も無改修。_pickLine は未使用になるが保持（無害）。
@@ -5062,7 +5070,8 @@ function EpNaviPanel(_refEPN) {
           React.createElement("button", { type: "button", onClick: function(ev) { ev.stopPropagation(); onDel(st, e.id); }, title: armed ? "もう一度タップで削除" : "この保存EPを削除（2タップ確認）",
             style: { padding: "1px 6px", fontSize: armed ? 9 : 11, fontWeight: 800, lineHeight: 1.5, border: armed ? "1.5px solid #DC2626" : "1px solid " + C.bd, background: armed ? "#DC2626" : "#fff", color: armed ? "#fff" : "#94A3B8", borderRadius: 4, cursor: "pointer", minHeight: IS_TOUCH ? 24 : 18 } }, armed ? "削除?" : "×"))),
       // シグナル名は分足バッジと同じ行から独立させて全文表示（2026-08-07）: ボタンと同居していると狭い列で「指標…」と省略されて何のシグナルか分からなかった。長い名前は折り返す。
-      e.tag ? React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", lineHeight: 1.3, marginTop: 1, wordBreak: "break-all" } }, e.tag) : null,
+      e.tag ? React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: isDone ? "#94A3B8" : "#334155", lineHeight: 1.3, marginTop: 1, wordBreak: "break-all" } }, e.tag,
+        ((custom.provSignalTags || []).indexOf(e.tag) >= 0) ? React.createElement("span", { title: "仮シグナル", style: { marginLeft: 4, fontSize: 9.5, fontWeight: 800, color: "#15803D", background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: 4, padding: "0 4px", verticalAlign: "1px" } }, "仮") : null) : null,
       React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", lineHeight: 1.25 } },
         React.createElement("span", { style: { fontSize: 16, fontWeight: 800, color: epColor, fontVariantNumeric: "tabular-nums" } }, "EP " + e.ep + "円"),
         e.b ? React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "#475569" } }, e.b) : null),   // ③底抜けをEP価格の右に同サイズで表示（プレーン・底抜けライン欄のみ復活 2026-07-24）
