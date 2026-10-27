@@ -2089,6 +2089,7 @@ function fbGet(cfg) {
     var d = null;
     try { d = txt ? JSON.parse(txt) : null; } catch(e) { d = null; }
     if (d === null || d === undefined) return "EMPTY";
+    d = _fbDecKeys(d);
     return (d && _typeof(d) === "object" && (d.trades || d.charts)) ? d : "EMPTY";
   }
   return fetch(metaUrl)
@@ -2113,8 +2114,8 @@ var _fbLocalV = 0;
 //   版数確認(fbPollV)の拒否もコンソール警告だけ＝ルール期限切れ等で同期が止まっても画面で分からなかった。
 //   _fbSetErr(kind,status)で "sn_fb_err" イベントを飛ばし、App（app-08）が同期バッジを「⚠️ 同期エラー」にして画面上部に赤い帯を出す。成功したら _fbClearErr で消す。
 var _fbErrState = null;
-function _fbSetErr(kind, status) {
-  _fbErrState = { kind: kind, status: status, at: Date.now() };
+function _fbSetErr(kind, status, msg) {
+  _fbErrState = { kind: kind, status: status, msg: msg || "", at: Date.now() };
   try { window.dispatchEvent(new CustomEvent("sn_fb_err", { detail: _fbErrState })); } catch (e) {}
 }
 function _fbClearErr() {
@@ -2123,6 +2124,38 @@ function _fbClearErr() {
   try { window.dispatchEvent(new CustomEvent("sn_fb_err", { detail: null })); } catch (e) {}
 }
 
+
+// Firebase のキー（項目名）に使えない文字の置き換え 2026-10-27（同期エラー HTTP 400 対策）
+//   RTDB は項目名に . $ # [ ] / と制御文字・空文字を使えず、1か所でもあると meta.json の書き込みが丸ごと 400 で拒否される＝その端末の変更が一切届かない。
+//   選択肢名（シグナル名・カテゴリ名など）は項目名としても使われるので、送るときだけ %2E 等に置き換え、受け取ったら元に戻す（端末内のデータは元の名前のまま）。
+var _FB_BADKEY_RE = /[.$#\[\]\/\x00-\x1F\x7F]/;
+function _fbKeyEnc(k) {
+  if (k === "") return "%00";
+  if (!_FB_BADKEY_RE.test(k)) return k;
+  return k.replace(/[%.$#\[\]\/\x00-\x1F\x7F]/g, function(c) { var h = c.charCodeAt(0).toString(16).toUpperCase(); return "%" + (h.length < 2 ? "0" + h : h); });
+}
+function _fbKeyDec(k) {
+  if (k === "%00") return "";
+  if (k.indexOf("%") < 0) return k;
+  return k.replace(/%(2E|24|23|5B|5D|2F|25|[01][0-9A-F]|7F)/g, function(m, h) { return String.fromCharCode(parseInt(h, 16)); });
+}
+function _fbKeysMap(o, f) {
+  if (!o || typeof o !== "object") return o;
+  if (Array.isArray(o)) return o.map(function(x) { return _fbKeysMap(x, f); });
+  var out = {};
+  for (var k in o) { if (o.hasOwnProperty(k)) out[f(k)] = _fbKeysMap(o[k], f); }
+  return out;
+}
+function _fbEncKeys(o) { return _fbKeysMap(o, _fbKeyEnc); }
+function _fbDecKeys(o) { return _fbKeysMap(o, _fbKeyDec); }
+// 置き換えが必要な項目名の一覧（診断表示用）
+function _fbBadKeyPaths(o, path, out) {
+  out = out || [];
+  if (!o || typeof o !== "object" || out.length >= 20) return out;
+  if (Array.isArray(o)) { o.forEach(function(x, i) { _fbBadKeyPaths(x, path + "[" + i + "]", out); }); return out; }
+  for (var k in o) { if (!o.hasOwnProperty(k)) continue; var pk = path ? path + " › " + k : k; if (k === "" || _FB_BADKEY_RE.test(k)) out.push(pk || "（空の名前）"); _fbBadKeyPaths(o[k], pk, out); }
+  return out;
+}
 
 var _fbLastPutHash = null;     
 function _fbHashStr(s) {
@@ -2322,7 +2355,7 @@ function _fbPut() {
             _lightMeta._sv = _svMap;
             _lightMeta._svc = _svcMap;
           } catch(_esv) {}
-          var _metaBody = JSON.stringify(_lightMeta);
+          var _metaBody = JSON.stringify(_fbEncKeys(_lightMeta));   // 2026-10-27 使えない文字の項目名を置き換えて送る
           
           
           
@@ -2354,6 +2387,7 @@ function _fbPut() {
               _fbLastPutHash = null;
               console.warn("[fbPut] HTTP error: meta=" + r.status);
               _fbSetErr("put", r.status);   // 2026-10-27 拒否(401/403)等を画面に知らせる
+              try { r.clone().text().then(function(t) { var m = t; try { var j = JSON.parse(t); if (j && j.error) m = j.error; } catch (eJ) {} console.warn("[fbPut] server says:", m); _fbSetErr("put", r.status, String(m || "").slice(0, 200)); }); } catch (eT) {}
             } else {
               _fbClearErr();
               try { _fbBaseSet(_lightMeta, _lightMeta._v); } catch (eB) {}   // 送れた内容＝サーバーと一致した基準 2026-10-27
@@ -2480,7 +2514,7 @@ function fbGetDiff(cfg, localData, remoteV) {
   function _getJson(path) {
     return fetch(base + path + auth)
       .then(function(r) { if (!r.ok) return null; return r.text(); })
-      .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0, "同期（署名一覧）"); } catch(e) {} var o = null; try { o = t ? JSON.parse(t) : null; } catch(e) { o = null; } return o; });
+      .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0, "同期（署名一覧）"); } catch(e) {} var o = null; try { o = t ? JSON.parse(t) : null; } catch(e) { o = null; } return _fbDecKeys(o); });
   }
   // 署名マップ取得: 新形式 _svc(サブキー粒度)を優先、無ければ旧 _sv(セクション粒度)。
   function _fetchSig() {
@@ -2532,7 +2566,7 @@ function fbGetDiff(cfg, localData, remoteV) {
           if (lSec) { for (s in lSec) { if (lSec.hasOwnProperty(s)) base2[s] = lSec[s]; } }
           recon[k] = base2;
           changedSubs.forEach(function(sub) {
-            (function(kk, ss, ssig) { fetches.push({ sig: ssig, url: "/meta/" + encodeURIComponent(kk) + "/" + encodeURIComponent(ss) + ".json", apply: function(v) { recon[kk][ss] = v; } }); })(k, sub, rEntry[sub]);
+            (function(kk, ss, ssig) { fetches.push({ sig: ssig, url: "/meta/" + encodeURIComponent(_fbKeyEnc(kk)) + "/" + encodeURIComponent(_fbKeyEnc(ss)) + ".json", apply: function(v) { recon[kk][ss] = v; } }); })(k, sub, rEntry[sub]);
           });
         }
       } else {
@@ -2550,7 +2584,7 @@ function fbGetDiff(cfg, localData, remoteV) {
     return Promise.all(fetches.map(function(f) {
       return fetch(base + f.url + auth)
         .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status + " " + f.url); return r.text(); })
-        .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0, "同期（差分）"); } catch(e) {} return { f: f, v: t ? JSON.parse(t) : null }; });
+        .then(function(t) { try { _fbTrack("db_dl", t ? t.length : 0, "同期（差分）"); } catch(e) {} return { f: f, v: t ? _fbDecKeys(JSON.parse(t)) : null }; });
     })).then(function(parts) {
       for (var pi = 0; pi < parts.length; pi++) {
         var pp = parts[pi];
