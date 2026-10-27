@@ -2109,6 +2109,19 @@ function fbGet(cfg) {
 
 
 var _fbLocalV = 0;
+// 同期エラーの通知 2026-10-27（ユーザー報告「PCの入力がiPadに同期されない」）: 旧＝書き込み(fbPut)が401/403で拒否されても成功扱いで「🔥 同期済」のまま、
+//   版数確認(fbPollV)の拒否もコンソール警告だけ＝ルール期限切れ等で同期が止まっても画面で分からなかった。
+//   _fbSetErr(kind,status)で "sn_fb_err" イベントを飛ばし、App（app-08）が同期バッジを「⚠️ 同期エラー」にして画面上部に赤い帯を出す。成功したら _fbClearErr で消す。
+var _fbErrState = null;
+function _fbSetErr(kind, status) {
+  _fbErrState = { kind: kind, status: status, at: Date.now() };
+  try { window.dispatchEvent(new CustomEvent("sn_fb_err", { detail: _fbErrState })); } catch (e) {}
+}
+function _fbClearErr() {
+  if (!_fbErrState) return;
+  _fbErrState = null;
+  try { window.dispatchEvent(new CustomEvent("sn_fb_err", { detail: null })); } catch (e) {}
+}
 
 
 var _fbLastPutHash = null;     
@@ -2204,8 +2217,15 @@ function _fbPut() {
             if (!r.ok) {
               _fbLastPutHash = null;
               console.warn("[fbPut] HTTP error: meta=" + r.status);
+              _fbSetErr("put", r.status);   // 2026-10-27 拒否(401/403)等を画面に知らせる
+            } else {
+              _fbClearErr();
             }
             return r;
+          })["catch"](function(e) {
+            _fbLastPutHash = null;
+            _fbSetErr("put", 0);   // 通信そのものの失敗（オフライン等）
+            return null;
           });
         case 3:
           _context6.n = 5;
@@ -2243,10 +2263,10 @@ function _fbPollV() {
           return fetch(base + "/meta/_v.json" + auth);
         case 2:
           r = _ctx.v;
-          if (r.ok) { _ctx.n = 3; break; }
+          if (r.ok) { _fbClearErr(); _ctx.n = 3; break; }
           
           
-          if (r.status !== 404) console.warn("[fbPollV] HTTP " + r.status + " (not 404) — possible network/Firebase error");
+          if (r.status !== 404) { console.warn("[fbPollV] HTTP " + r.status + " (not 404) — possible network/Firebase error"); _fbSetErr("poll", r.status); }
           return _ctx.a(2, null);
         case 3:
           _ctx.n = 4;
