@@ -2078,7 +2078,8 @@ function _SnSyncDiag(props) {
     Promise.all([get("/meta/_v.json"), get("/meta/_svc.json"), get("/meta/custom/provSignalTags.json")]).then(function(r) {
       var svc = r[1] || {}, ck = (svc.charts && typeof svc.charts === "object") ? Object.keys(svc.charts) : [], last = "";
       ck.forEach(function(k) { var dt = k.slice(k.lastIndexOf("_") + 1); if (dt > last) last = dt; });
-      setRes({ remote: { v: typeof r[0] === "number" ? r[0] : null, charts: ck.length, last: last || null, trades: (svc.trades && typeof svc.trades === "object") ? Object.keys(svc.trades).length : null, prov: Array.isArray(r[2]) ? r[2] : [] }, local: _snSyncLocalSummary(data), at: Date.now() });
+      var bad = []; try { bad = _fbBadKeyPaths(_stripHeavy(data), ""); } catch (eB) {}
+      setRes({ bad: bad, remote: { v: typeof r[0] === "number" ? r[0] : null, charts: ck.length, last: last || null, trades: (svc.trades && typeof svc.trades === "object") ? Object.keys(svc.trades).length : null, prov: Array.isArray(r[2]) ? r[2] : [] }, local: _snSyncLocalSummary(data), at: Date.now() });
       setBusy("");
     })["catch"](function(e) { setBusy(""); setMsg("診断できませんでした：" + (e && e.message ? e.message : e)); });
   };
@@ -2137,6 +2138,7 @@ function _SnSyncDiag(props) {
         "⚠️ この端末とサーバーで内容が違います。正しい内容が入っている端末で「この端末を正としてサーバーへ送る」、届いていない端末で「サーバーを正として取り込む」を押すと揃います。") : null,
       provMissing.length ? React.createElement("div", { style: { fontSize: 11, color: "#B45309", marginBottom: 2 } }, "サーバーにだけある仮シグナル：" + provMissing.join("、")) : null,
       provExtra.length ? React.createElement("div", { style: { fontSize: 11, color: "#1D4ED8", marginBottom: 2 } }, "この端末にだけある仮シグナル：" + provExtra.join("、")) : null,
+      (res.bad && res.bad.length) ? React.createElement("div", { style: { fontSize: 11, color: "#475569", marginBottom: 4, lineHeight: 1.6 } }, "Firebase で使えない文字（. / $ # [ ]）を含む名前（送るときに自動で置き換えます）：" + res.bad.join("、")) : null,
       React.createElement("div", { style: { fontSize: 10, color: "#999" } }, "診断時刻 " + fmt(res.at))) : null);
 }
 function SettingsModal(_ref54) {
