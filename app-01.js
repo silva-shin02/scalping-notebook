@@ -2134,7 +2134,143 @@ function _fbHashStr(s) {
   }
   return h.toString(36);
 }
-function fbPut(_x3, _x4) {
+// ===== 3者統合の同期（基準・この端末・サーバー）2026-10-27 =====
+// 【なぜ】旧方式は「更新時刻(_v)が新しい方が全体を勝つ」＋「保存のたびに meta.json を丸ごと書き込む（相手の更新を確かめない）」だったため、
+//   更新時刻だけ新しく中身が古い端末（例: iPad）を開くと、起動時の自動保存でその古い内容がサーバーを上書きし、他端末（PC）の変更が消えていた
+//   （ユーザー報告「PCの入力がiPadに何もかも反映されない」・偽サーバーで再現済み）。
+// 【方式】各端末が「最後にサーバーと一致した内容＝基準(_fbSyncBase)」を IndexedDB に持ち、基準と比べて
+//   ・片方だけが変えた所 → その変更を採る／・両方が同じ所を変えた → 後から保存した方（ユーザー決定）。
+//   記録(signals/items/epNavi＝id付き配列)は id ごとに統合（片方の追加は両方残る・基準にあって片方で消えたものは削除）。選択肢の一覧（文字列配列）は追加・削除を両方反映。
+//   画像本体(base64)は比較しない（サーバー側は "__ref__"）。基準が無い（初回）ときは和集合＋衝突は pl の側。
+// 【保存時】fbPut の前にサーバーの版数を確認し、前回同期以降に他端末が書いていたら、先に取り込んで統合してから送る（上書きで消さない）。
+var _fbSyncBase = null, _FB_BASE_IDB = "fb_sync_base_v1", _FB_LASTV_KEY = "sn_fb_lastv_v1";
+function _fbBaseClean(m) { if (!m || typeof m !== "object") return null; var o = Object.assign({}, m); delete o._sv; delete o._svc; delete o._v; return o; }
+function _fbBaseSet(meta, v) {
+  _fbSyncBase = _fbBaseClean(_stripHeavy(meta));
+  try { snIdbSet(_FB_BASE_IDB, { meta: _fbSyncBase, v: v || null }); } catch (e) {}
+  try { if (v) localStorage.setItem(_FB_LASTV_KEY, String(v)); } catch (e) {}
+}
+function _fbBaseLastV() { try { var v = Number(localStorage.getItem(_FB_LASTV_KEY)); return v > 0 ? v : null; } catch (e) { return null; } }
+function _fbBaseLoad() {
+  if (_fbSyncBase) return Promise.resolve(_fbSyncBase);
+  var wait = function() { return new Promise(function(res) { if (_snIdbReady) return res(); var n = 0, t = setInterval(function() { n++; if (_snIdbReady || n >= 40) { clearInterval(t); res(); } }, 50); }); };
+  return wait().then(function() { return snIdbGet(_FB_BASE_IDB); }).then(function(o) { if (o && o.meta) _fbSyncBase = o.meta; return _fbSyncBase; }, function() { return null; });
+}
+function _m3Empty(x) {
+  if (x === undefined || x === null) return true;
+  if (Array.isArray(x)) return x.length === 0;
+  if (typeof x === "object") { for (var k in x) { if (x.hasOwnProperty(k)) return false; } return true; }
+  return false;
+}
+// 同じ内容か（RTDBは空の配列・オブジェクト・nullを保存しない＝空どうしは同じ扱い／画像本体のキーは見ない）
+function _m3Eq(a, b) {
+  if (a === b) return true;
+  var ea = _m3Empty(a), eb = _m3Empty(b);
+  if (ea || eb) return ea && eb;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) { if (a.length !== b.length) return false; for (var i = 0; i < a.length; i++) { if (!_m3Eq(a[i], b[i])) return false; } return true; }
+  var k;
+  for (k in a) { if (!a.hasOwnProperty(k) || _HEAVY_KEYS[k]) continue; if (!_m3Eq(a[k], b[k])) return false; }
+  for (k in b) { if (!b.hasOwnProperty(k) || _HEAVY_KEYS[k] || a.hasOwnProperty(k)) continue; if (!_m3Empty(b[k])) return false; }
+  return true;
+}
+function _m3IsIdArr(a) { return Array.isArray(a) && a.every(function(x) { return x && typeof x === "object" && x.id !== undefined && x.id !== null; }); }
+function _m3IsStrArr(a) { return Array.isArray(a) && a.every(function(x) { return typeof x === "string"; }); }
+// b=基準・l=この端末・r=サーバー・pl=両方が変えたときにこの端末を勝たせるか
+function _m3(b, l, r, pl) {
+  if (_m3Eq(l, r)) return l;
+  if (_m3Eq(l, b)) return r;
+  if (_m3Eq(r, b)) return l;
+  if (l && r && typeof l === "object" && typeof r === "object" && !Array.isArray(l) && !Array.isArray(r)) {
+    var out = {}, keys = {}, k;
+    for (k in l) { if (l.hasOwnProperty(k)) keys[k] = 1; }
+    for (k in r) { if (r.hasOwnProperty(k)) keys[k] = 1; }
+    var bo = (b && typeof b === "object" && !Array.isArray(b)) ? b : null;
+    for (k in keys) {
+      if (_HEAVY_KEYS[k]) { var lv = l[k]; out[k] = (lv !== undefined && lv !== null && lv !== "__ref__") ? lv : r[k]; continue; }
+      var v = _m3(bo ? bo[k] : undefined, l[k], r[k], pl);
+      if (v !== undefined) out[k] = v;
+    }
+    // 画像の差し替えがサーバー側から来たら、この端末の古い画像本体は使わない（旧マージと同じ扱い）
+    if (out.imageUrl && out.imageUrl !== "__ref__" && l.imageUrl && out.imageUrl !== l.imageUrl) out.base64 = null;
+    if (out.origImageUrl && out.origImageUrl !== "__ref__" && l.origImageUrl && out.origImageUrl !== l.origImageUrl) out.orig_base64 = null;
+    return out;
+  }
+  if (Array.isArray(l) && Array.isArray(r)) {
+    if (_m3IsIdArr(l) && _m3IsIdArr(r)) {
+      var bm = {}, lm = {}, rm = {}, ids = [], seen = {};
+      if (_m3IsIdArr(b)) b.forEach(function(x) { bm[String(x.id)] = x; });
+      l.forEach(function(x) { var id = String(x.id); lm[id] = x; if (!seen[id]) { seen[id] = 1; ids.push(id); } });
+      r.forEach(function(x) { var id = String(x.id); rm[id] = x; if (!seen[id]) { seen[id] = 1; ids.push(id); } });
+      var res = [];
+      ids.forEach(function(id) {
+        var bi = bm[id], li = lm[id], ri = rm[id];
+        if (li === undefined) { if (bi !== undefined && _m3Eq(ri, bi)) return; res.push(ri); return; }   // この端末で消した（サーバーは未変更）→消す／サーバーで追加→残す
+        if (ri === undefined) { if (bi !== undefined && _m3Eq(li, bi)) return; res.push(li); return; }   // サーバーで消した→消す／この端末で追加→残す
+        res.push(_m3(bi, li, ri, pl));
+      });
+      return res;
+    }
+    if (_m3IsStrArr(l) && _m3IsStrArr(r)) {
+      var bs = _m3IsStrArr(b) ? b : [];
+      var kept = l.filter(function(x) { return !(bs.indexOf(x) >= 0 && r.indexOf(x) < 0); });   // サーバーで消された名前は消す
+      r.forEach(function(x) { if (kept.indexOf(x) < 0 && bs.indexOf(x) < 0) kept.push(x); });   // サーバーで足された名前は足す
+      return kept;
+    }
+  }
+  return pl ? l : r;
+}
+// 削除トムストーン（_delSig/_delItem/_delEpNavi）を統合後に当て直す＝基準が無いときの和集合で消した記録が復活しないように。
+function _m3Tomb(d) {
+  var f = function(o, dk, ak) { if (!o || !Array.isArray(o[dk]) || !Array.isArray(o[ak])) return o; var set = {}; o[dk].forEach(function(x) { set[String(x)] = 1; }); var a = o[ak].filter(function(x) { return !x || set[String(x.id)] !== 1; }); return a.length === o[ak].length ? o : Object.assign({}, o, (function() { var t = {}; t[ak] = a; return t; })()); };
+  if (d && d.charts) { var ch = {}; Object.keys(d.charts).forEach(function(k) { var c = d.charts[k]; c = f(c, "_delSig", "signals"); c = f(c, "_delEpNavi", "epNavi"); ch[k] = c; }); d = Object.assign({}, d, { charts: ch }); }
+  if (d && d.trades) { var tr = {}; Object.keys(d.trades).forEach(function(k) { tr[k] = f(d.trades[k], "_delItem", "items"); }); d = Object.assign({}, d, { trades: tr }); }
+  return d;
+}
+// この端末(local)とサーバー(remote)を基準で統合した結果（_v は呼び出し側で決める）
+// noBase=true は基準を使わない統合（和集合＋食い違いは pl の側）＝設定の「取り込み直し」ボタン用。
+function _fbMerge3(local, remote, pl, noBase) {
+  var r = _fbBaseClean(remote) || {};
+  var l = _fbBaseClean(local) || {};
+  return _m3Tomb(_m3(noBase ? null : _fbSyncBase, l, r, pl));
+}
+// 起動時/定期確認でサーバーの内容を受け取ったときの統合。両方が変えた所は「後から保存した方」（基準が無い初回はこの端末を残す）。
+// 戻り値 merged（_v付き）と needPush（統合結果がサーバーと違う＝送り返す必要あり）。サーバーと一致したらそれを基準にする。
+function _fbResolveRemote(local, remote) {
+  var lv = (local && typeof local._v === "number") ? local._v : 0, rv = (remote && typeof remote._v === "number") ? remote._v : 0;
+  var pl = _fbSyncBase ? (lv > rv) : true;
+  var merged = _fbMerge3(local, remote, pl);
+  var needPush = !_m3Eq(merged, _fbBaseClean(remote));
+  merged._v = needPush ? Math.max(lv, rv) : rv;
+  if (!needPush) { try { _fbBaseSet(remote, rv); } catch (e) {} }
+  console.log("[FB] merge3: base=" + (_fbSyncBase ? "yes" : "no") + " pl=" + pl + " needPush=" + needPush);
+  return { merged: merged, needPush: needPush };
+}
+// 保存時の確認（CAS）: 前回同期以降にサーバーが更新されていたら、先に取り込んで統合した内容を返す（＋画面側へ反映）。
+function _fbCasPrep(cfg, data) {
+  var base = _fbBase(cfg), auth = _fbAuth(cfg);
+  if (!base || !data) return Promise.resolve(data);
+  return _fbBaseLoad().then(function() { return fetch(base + "/meta/_v.json" + auth); }).then(function(r) { return r.ok ? r.json() : null; }).then(function(rv) {
+    try { _fbTrack("db_dl", 13, "同期（版数確認）"); } catch (e) {}
+    if (typeof rv !== "number" || rv === _fbLocalV) return data;
+    return _fbPollFetch(cfg, data, rv).then(function(pf) {
+      if (pf && pf.ok && pf.nochange) { _fbLocalV = rv; return data; }
+      var remote = pf && pf.ok ? pf.data : null;
+      if (!remote || typeof remote !== "object") return data;
+      var merged = _fbMerge3(data, remote, true);   // 保存する側＝後から保存した方
+      merged._v = data._v;
+      _fbLocalV = rv;
+      console.log("[fbPut] server changed since last sync (rv=" + rv + ") → merged before push");
+      try { if (typeof window._snAdoptMerged === "function") window._snAdoptMerged(merged); } catch (e) {}
+      return merged;
+    });
+  })["catch"](function() { return data; });
+}
+function fbPut(cfg, data) {
+  return _fbCasPrep(cfg, data).then(function(d2) { return _fbPutRaw(cfg, d2); });
+}
+function _fbPutRaw(_x3, _x4) {
   return _fbPut.apply(this, arguments);
 }
 function _fbPut() {
@@ -2220,6 +2356,7 @@ function _fbPut() {
               _fbSetErr("put", r.status);   // 2026-10-27 拒否(401/403)等を画面に知らせる
             } else {
               _fbClearErr();
+              try { _fbBaseSet(_lightMeta, _lightMeta._v); } catch (eB) {}   // 送れた内容＝サーバーと一致した基準 2026-10-27
             }
             return r;
           })["catch"](function(e) {
@@ -2451,15 +2588,13 @@ function _fbPollFetch(cfg, localData, remoteV) {
 
 
 function fbInitialLoad(cfg, localData) {
-  return fbPollV(cfg).then(function(rv) {
-    var localV = (localData && typeof localData._v === "number") ? localData._v : 0;
-    
-    
-    
-    if (rv && localV > 0 && localV >= rv) {
+  return _fbBaseLoad().then(function() { return fbPollV(cfg); }).then(function(rv) {
+    // 2026-10-27 旧: 「この端末の更新時刻 >= サーバー」なら取得を省いていた＝更新時刻だけ新しく中身が古い端末がPCの変更を取り込まず上書きしていた。
+    //   新: サーバーが「前回この端末が同期した版」から変わっていない時だけ省く（基準が無ければ必ず取得して統合）。
+    if (rv && _fbSyncBase && rv === _fbBaseLastV()) {
       _fbLocalV = rv;
-      try { console.log("[FB] initial load: skip full DL (localV=" + localV + " >= rv=" + rv + ")"); } catch(e){}
-      return { status: "skip" };
+      try { console.log("[FB] initial load: server unchanged since last sync (rv=" + rv + ")"); } catch(e){}
+      return { status: "skip", dirty: !_m3Eq(_fbBaseClean(localData), _fbSyncBase) };
     }
     
     function _full() { return fbGet(cfg).then(function(fullData) {
@@ -2482,7 +2617,7 @@ function fbInitialLoad(cfg, localData) {
     if (rv && localData && typeof localData === "object" && (localData.trades || localData.charts)) {
       return fbGetDiff(cfg, localData, rv).then(function(res) {
         if (res && res.status === "diff") { _fbLocalV = rv; try { console.log("[FB] initial load: diff DL (" + (res.changed ? res.changed.length : "?") + " sec)"); } catch(e){} return { status: "ok", data: res.data }; }
-        if (res && res.status === "nochange") { _fbLocalV = rv; try { console.log("[FB] initial load: nochange (skip DL, rv=" + rv + ")"); } catch(e){} return { status: "skip" }; }
+        if (res && res.status === "nochange") { _fbLocalV = rv; try { _fbBaseSet(localData, rv); } catch(e){} try { console.log("[FB] initial load: nochange (skip DL, rv=" + rv + ")"); } catch(e){} return { status: "skip" }; }
         return _full();
       })["catch"](function() { return _full(); });
     }
