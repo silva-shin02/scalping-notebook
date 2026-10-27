@@ -2053,6 +2053,92 @@ function SearchView(_ref45) {
     }
   }, "\u8A18\u9332\u306F\u5168", allDates.length, "\u65E5\u5206\u3042\u308A\u307E\u3059", React.createElement("br", null), "\u30AD\u30FC\u30EF\u30FC\u30C9\u3092\u5165\u529B\u3059\u308B\u304B\u3001\u30BF\u30B0\u3092\u30BF\u30C3\u30D7\u3057\u3066\u691C\u7D22\u3057\u3066\u304F\u3060\u3055\u3044"));
 }
+// ===== 同期診断＋取り込み直し 2026-10-27（ユーザー報告「PCの入力がiPadに何もかも反映されない」）=====
+// 原因（旧同期）: 更新時刻(_v)だけ新しく中身が古い端末が、他端末の変更を取り込まずにサーバーを上書きしていた。同期の本体は3者統合（app-01 _fbMerge3）に直したが、
+//   すでに食い違ってしまった内容を揃えるための手動ボタンをここに置く。どちらも「記録は両方残す・選択肢の一覧は両方の名前を残す」統合で、違うのは食い違った値をどちらに合わせるかだけ。
+//   ・この端末を正としてサーバーへ送る（正しい内容が入っている端末＝PCで押す）
+//   ・サーバーを正として取り込む（届いていない端末＝iPadで押す。同期を一時停止中でも使える）
+function _snSyncLocalSummary(d) {
+  var charts = (d && d.charts) || {}, keys = Object.keys(charts), sig = 0, last = "";
+  keys.forEach(function(k) { var c = charts[k]; if (c && Array.isArray(c.signals)) sig += c.signals.length; var dt = k.slice(k.lastIndexOf("_") + 1); if (dt > last) last = dt; });
+  var cu = (d && d.custom) || {};
+  return { v: (d && typeof d._v === "number") ? d._v : null, charts: keys.length, signals: sig, last: last || null, trades: Object.keys((d && d.trades) || {}).length, prov: Array.isArray(cu.provSignalTags) ? cu.provSignalTags : [] };
+}
+function _SnSyncDiag(props) {
+  var cfg = props.cfg, data = props.data, save = props.save;
+  var _u1 = useState(null), res = _u1[0], setRes = _u1[1];
+  var _u2 = useState(""), busy = _u2[0], setBusy = _u2[1];
+  var _u3 = useState(""), msg = _u3[0], setMsg = _u3[1];
+  var fmt = function(v) { if (!v) return "—"; var d = new Date(v); return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0") + ":" + String(d.getSeconds()).padStart(2, "0"); };
+  var run = function() {
+    var base = _fbBase(cfg), auth = _fbAuth(cfg);
+    if (!base) { setMsg("Firebase URL が未設定です"); return; }
+    setBusy("diag"); setMsg("");
+    var get = function(p) { return fetch(base + p + auth).then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status + "（" + p + "）"); return r.json(); }); };
+    Promise.all([get("/meta/_v.json"), get("/meta/_svc.json"), get("/meta/custom/provSignalTags.json")]).then(function(r) {
+      var svc = r[1] || {}, ck = (svc.charts && typeof svc.charts === "object") ? Object.keys(svc.charts) : [], last = "";
+      ck.forEach(function(k) { var dt = k.slice(k.lastIndexOf("_") + 1); if (dt > last) last = dt; });
+      setRes({ remote: { v: typeof r[0] === "number" ? r[0] : null, charts: ck.length, last: last || null, trades: (svc.trades && typeof svc.trades === "object") ? Object.keys(svc.trades).length : null, prov: Array.isArray(r[2]) ? r[2] : [] }, local: _snSyncLocalSummary(data), at: Date.now() });
+      setBusy("");
+    })["catch"](function(e) { setBusy(""); setMsg("診断できませんでした：" + (e && e.message ? e.message : e)); });
+  };
+  var merge = function(mode) {
+    var mine = mode === "send";
+    var go = function() {
+      setBusy(mode); setMsg("");
+      fbGet(cfg).then(function(remote) {
+        if (!remote || remote === "EMPTY" || typeof remote !== "object") throw new Error("サーバーの内容を取得できませんでした");
+        remote = migrateData(remote);
+        var merged = migrateData(_fbMerge3(data, remote, mine, true));   // 基準を使わない統合＝記録・名前は両方残し、食い違いは mine の側
+        merged._v = Math.max(Date.now(), (typeof remote._v === "number" ? remote._v : 0) + 1);
+        if (typeof remote._v === "number") { _fbLocalV = remote._v; try { _fbBaseSet(remote, remote._v); } catch (e) {} }   // 今のサーバーを基準に＝この後の差分（この端末だけの分）が送られる
+        save(merged, { immediate: true });
+        var paused = !(cfg && cfg.fbPaused === false);
+        setBusy(""); setRes(null);
+        setMsg("✅ " + (mine ? "この端末の内容をサーバーへ送りました。もう一方の端末で「サーバーを正として取り込む」を押してください。" : (paused ? "サーバーの内容を取り込みました。同期を再開すると、この端末だけの分もサーバーへ送られます。" : "サーバーの内容を取り込みました。")));
+      })["catch"](function(e) { setBusy(""); setMsg("できませんでした：" + (e && e.message ? e.message : e)); });
+    };
+    var txt = mine
+      ? "この端末の内容を正として、サーバーへ送ります。\n・記録はこの端末とサーバーの両方を残します（消した記録は戻りません）\n・選択肢の一覧（シグナル・仮シグナル・理由など）は両方の名前を残します\n・同じ記録・設定の値が違うときは、この端末の値にします\nよろしいですか？"
+      : "サーバーの内容を正として、この端末へ取り込みます。\n・記録はサーバーとこの端末の両方を残します（消した記録は戻りません）\n・選択肢の一覧（シグナル・仮シグナル・理由など）は両方の名前を残します\n・同じ記録・設定の値が違うときは、サーバーの値にします\nよろしいですか？";
+    var p = (typeof window._snConfirm === "function") ? window._snConfirm(txt) : Promise.resolve(window.confirm(txt));
+    p.then(function(ok) { if (ok) go(); });
+  };
+  var row = function(lbl, a, b, warn) {
+    var td = { padding: "3px 8px", fontSize: 11.5, borderBottom: "1px solid #eee", fontVariantNumeric: "tabular-nums" };
+    return React.createElement("tr", { key: lbl, style: warn ? { background: "#FEF2F2" } : null },
+      React.createElement("td", { style: Object.assign({}, td, { color: "#666", whiteSpace: "nowrap" }) }, lbl),
+      React.createElement("td", { style: td }, a), React.createElement("td", { style: td }, b));
+  };
+  var L = res && res.local, R = res && res.remote;
+  var differ = L && R && (L.charts !== R.charts || (L.last || "") !== (R.last || "") || (R.trades != null && L.trades !== R.trades));
+  var provMissing = L && R ? R.prov.filter(function(x) { return L.prov.indexOf(x) < 0; }) : [];
+  var provExtra = L && R ? L.prov.filter(function(x) { return R.prov.indexOf(x) < 0; }) : [];
+  var btn = function(label, onClick, primary, dis) { return React.createElement("button", { type: "button", disabled: dis, onClick: onClick, style: { padding: "6px 12px", fontSize: 12, fontWeight: 700, borderRadius: 6, cursor: dis ? "default" : "pointer", border: primary ? "none" : "1px solid #ccc", background: primary ? (dis ? "#93C5FD" : "#1D4ED8") : "#fff", color: primary ? "#fff" : "#333" } }, label); };
+  return React.createElement("div", { style: { marginBottom: 20, padding: "12px 14px", background: "#F8FAFC", borderRadius: 10, border: "1px solid #E2E8F0" } },
+    React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "#444", marginBottom: 6 } }, "🩺 同期診断"),
+    React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 8, lineHeight: 1.6 } }, "この端末とサーバー（Firebase）の中身を並べて比べます。他の端末で入れた内容が届かないときに使ってください。"),
+    React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
+      btn(busy === "diag" ? "診断中…" : "診断する", run, false, !!busy),
+      btn(busy === "send" ? "送信中…" : "この端末を正としてサーバーへ送る", function() { merge("send"); }, true, !!busy),
+      btn(busy === "take" ? "取り込み中…" : "サーバーを正として取り込む", function() { merge("take"); }, true, !!busy)),
+    msg ? React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: /^✅/.test(msg) ? "#166534" : "#B91C1C", marginBottom: 6 } }, msg) : null,
+    res ? React.createElement(React.Fragment, null,
+      React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", background: "#fff", marginBottom: 6 } },
+        React.createElement("thead", null, React.createElement("tr", null, ["", "この端末", "サーバー"].map(function(h) { return React.createElement("th", { key: h, style: { textAlign: "left", fontSize: 10.5, color: "#888", padding: "3px 8px", borderBottom: "1px solid #ddd" } }, h); }))),
+        React.createElement("tbody", null,
+          row("更新時刻(_v)", fmt(L.v), fmt(R.v), false),
+          row("チャート（銘柄×日）", L.charts + "件", R.charts + "件", L.charts !== R.charts),
+          row("最新のチャート日付", L.last || "—", R.last || "—", (L.last || "") !== (R.last || "")),
+          row("取引日", L.trades + "日", R.trades == null ? "—" : R.trades + "日", R.trades != null && L.trades !== R.trades),
+          row("記録（エントリー記録）", L.signals + "件", "—", false),
+          row("仮シグナル", L.prov.length + "件", R.prov.length + "件", provMissing.length > 0 || provExtra.length > 0))),
+      (differ || provMissing.length || provExtra.length) ? React.createElement("div", { style: { fontSize: 11.5, color: "#B91C1C", fontWeight: 700, lineHeight: 1.6, marginBottom: 4 } },
+        "⚠️ この端末とサーバーで内容が違います。正しい内容が入っている端末で「この端末を正としてサーバーへ送る」、届いていない端末で「サーバーを正として取り込む」を押すと揃います。") : null,
+      provMissing.length ? React.createElement("div", { style: { fontSize: 11, color: "#B45309", marginBottom: 2 } }, "サーバーにだけある仮シグナル：" + provMissing.join("、")) : null,
+      provExtra.length ? React.createElement("div", { style: { fontSize: 11, color: "#1D4ED8", marginBottom: 2 } }, "この端末にだけある仮シグナル：" + provExtra.join("、")) : null,
+      React.createElement("div", { style: { fontSize: 10, color: "#999" } }, "診断時刻 " + fmt(res.at))) : null);
+}
 function SettingsModal(_ref54) {
   var cfg = _ref54.cfg,
     onSave = _ref54.onSave,
@@ -2347,6 +2433,8 @@ function SettingsModal(_ref54) {
   )),
   ), null,
 
+  // 同期診断＋取り込み直し 2026-10-27（_SnSyncDiag）
+  (_stTab === "sync" && cfg && cfg.fbUrl && save) ? React.createElement(_SnSyncDiag, { cfg: cfg, data: data, save: save }) : null,
   // 2026-10-17 再表示（以前は false で非表示だった）＋日別・種類別の内訳。Firebase の無料枠超過の原因を端末側で追えるように。
   _stTab === "sync" && React.createElement("div", {
     style: { marginBottom: 20, padding: "12px 14px", background: "#f5f4f0", borderRadius: 10, border: "1px solid #e8e5df" }

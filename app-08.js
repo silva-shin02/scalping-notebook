@@ -375,20 +375,15 @@ function App() {
               _fbLocalV = remoteV; // 同期成功 or 内容一致 → 版数を進める（取得失敗時は進めず次ポーリングで再試行）
               remoteMeta = _pf.data; // nochange時はnull＝マージ不要
               if (remoteMeta && typeof remoteMeta === "object" && (remoteMeta.trades || remoteMeta.charts)) {
-                var _pLv = (dataRef.current && typeof dataRef.current._v === "number") ? dataRef.current._v : 0;
-                var _pRv = (remoteMeta && typeof remoteMeta._v === "number") ? remoteMeta._v : 0;
-                if (_pLv > _pRv) {
-                  console.log("[FB] poll: local is newer (lv=" + _pLv + " > rv=" + _pRv + "), skipping merge and pushing local");
-                  if (cfgRef.current && cfgRef.current.fbUrl && cfgRef.current.fbPaused === false) {
-                    fbPut(cfgRef.current, dataRef.current)["catch"](function(e){ console.warn("fbPut(poll local-wins) failed:", e); });
-                  }
-                } else {
-                  merged = _mergeRemoteMeta(dataRef.current, remoteMeta);
-                  merged = migrateData(merged);
-                  setData(merged);
-                  stSave(merged);
-                  dataRef.current = merged;
-                  preloadImages(dataRef, setData, stSave, selRef.current);
+                // 2026-10-27 3者統合（基準・この端末・サーバー）。旧: この端末の更新時刻が新しいと取り込まずに丸ごと送り返していた＝他端末の変更が消えていた。
+                var _r3p = _fbResolveRemote(dataRef.current, migrateData(remoteMeta));
+                merged = migrateData(_r3p.merged);
+                setData(merged);
+                stSave(merged);
+                dataRef.current = merged;
+                preloadImages(dataRef, setData, stSave, selRef.current);
+                if (_r3p.needPush && cfgRef.current && cfgRef.current.fbUrl && cfgRef.current.fbPaused === false) {
+                  fbPut(cfgRef.current, merged)["catch"](function(e){ console.warn("fbPut(poll merge3) failed:", e); });
                 }
               }
             }
@@ -413,6 +408,14 @@ function App() {
       setCfg(lc);
       dataRef.current = ld;
       cfgRef.current = lc;
+      // 保存前の確認(fbPut)でサーバー側の更新を取り込んで統合したとき、その内容を画面と端末内保存へ反映する 2026-10-27
+      window._snAdoptMerged = function(m) {
+        m = migrateData(m);
+        setData(m);
+        stSave(m);
+        dataRef.current = m;
+        setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 500);
+      };
       
       if (lc && lc.fbUrl) fbStorageInit(lc.apiKey, lc.storageBucket);
       if (lc && lc.fbUrl && lc.fbPaused === false) {
@@ -421,6 +424,7 @@ function App() {
           if (res.status === "pushed") {
             setFbStatus("ok");
           } else if (res.status === "skip") {
+            if (res.dirty) fbPut(lc, dataRef.current)["catch"](function(e){ console.warn("fbPut(initial dirty) failed:", e); });   // 前回送れなかった変更
             
             
             setFbStatus("ok");
@@ -430,27 +434,14 @@ function App() {
             var remote = migrateData(res.data);
             
             
-            var _lv = (ld && typeof ld._v === "number") ? ld._v : 0;
-            var _rv = (remote && typeof remote._v === "number") ? remote._v : 0;
-            if (_lv > _rv) {
-              console.log("[FB] initial load: local is newer (lv=" + _lv + " > rv=" + _rv + "), pushing local to remote");
-              
-              setData(ld);
-              dataRef.current = ld;
-              fbPut(lc, ld)["catch"](function(e){ console.warn("fbPut(local-wins) failed:", e); });
-              setFbStatus("ok");
-              setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
-            } else {
-              var _mr1 = _mergeRemoteMeta(ld, remote);
-              console.log("[FB] initial load: merged remote into local",
-                "localImgCount:", (JSON.stringify(ld).match(/"base64":"/g) || []).length,
-                "remoteRefCount:", (JSON.stringify(remote).match(/"__ref__"/g) || []).length);
-              setData(_mr1);
-              stSave(_mr1);
-              dataRef.current = _mr1;
-              setFbStatus("ok");
-              setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
-            }
+            var _r3i = _fbResolveRemote(ld, remote);   // 2026-10-27 3者統合（旧: 更新時刻が新しい側が丸ごと勝つ）
+            var _mr1 = migrateData(_r3i.merged);
+            setData(_mr1);
+            stSave(_mr1);
+            dataRef.current = _mr1;
+            if (_r3i.needPush) fbPut(lc, _mr1)["catch"](function(e){ console.warn("fbPut(initial merge3) failed:", e); });
+            setFbStatus("ok");
+            setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
           } else setFbStatus("err");
           startPolling(lc);
           setLoading(false);
@@ -835,6 +826,7 @@ function App() {
         if (res.status === "pushed") {
           setFbStatus("ok");
         } else if (res.status === "skip") {
+          if (res.dirty) fbPut(c, dataRef.current)["catch"](function(e){ console.warn("fbPut(reconnect dirty) failed:", e); });
           
           setFbStatus("ok");
           setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
@@ -842,22 +834,14 @@ function App() {
           
           var remote = migrateData(res.data);
           
-          var _lv = (cur && typeof cur._v === "number") ? cur._v : 0;
-          var _rv = (remote && typeof remote._v === "number") ? remote._v : 0;
-          if (_lv > _rv && _lv - _rv > 1000) {
-            console.log("[FB] saveCfg reconnect: local is newer (lv=" + _lv + " > rv=" + _rv + "), pushing local to remote");
-            fbPut(c, cur)["catch"](function(e){ console.warn("fbPut(local-wins) failed:", e); });
-            setFbStatus("ok");
-            setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
-          } else {
-            var _mr2 = _mergeRemoteMeta(cur, remote);
-            console.log("[FB] saveCfg reconnect: merged remote into local");
-            setData(_mr2);
-            stSave(_mr2);
-            dataRef.current = _mr2;
-            setFbStatus("ok");
-            setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
-          }
+          var _r3c = _fbResolveRemote(cur, remote);   // 2026-10-27 3者統合
+          var _mr2 = migrateData(_r3c.merged);
+          setData(_mr2);
+          stSave(_mr2);
+          dataRef.current = _mr2;
+          if (_r3c.needPush) fbPut(c, _mr2)["catch"](function(e){ console.warn("fbPut(reconnect merge3) failed:", e); });
+          setFbStatus("ok");
+          setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
         } else setFbStatus("err");
         startPolling(c);
       })["catch"](function (e) {
