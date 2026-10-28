@@ -2257,7 +2257,19 @@ function _SnSyncDiag(props) {
         L.length ? React.createElement("details", null,
           React.createElement("summary", { style: { cursor: "pointer" } }, "同期の経過（" + L.length + "件）"),
           React.createElement("div", { style: { fontFamily: "monospace", fontSize: 10.5, whiteSpace: "pre-wrap" } },
-            L.map(function(x, i) { var nx = L[i + 1]; return hms(x.at) + "  " + x.s + (nx ? "（" + Math.round((nx.at - x.at) / 1000) + "秒）" : ""); }).join("\n"))) : null);
+            L.map(function(x, i) { var nx = L[i + 1]; return hms(x.at) + "  " + x.s + (nx ? "（" + Math.round((nx.at - x.at) / 1000) + "秒）" : ""); }).join("\n"))) : null,
+        // 前回（この画面を読み込む前）の経過 2026-10-28c＝途中で強制的に読み込み直されたかが分かる
+        (function() {
+          var P = (typeof window !== "undefined" && Array.isArray(window._snPrevSyncLog)) ? window._snPrevSyncLog : null;
+          if (!P || !P.length) return null;
+          var last = P[P.length - 1], cut = /^起動時：/.test(last.s) && !/時間切れ|失敗/.test(last.s);
+          return React.createElement(React.Fragment, null,
+            cut ? React.createElement("div", { style: { fontWeight: 700, color: "#B91C1C" } }, "⚠️ 前回は起動の途中（" + last.s + "）で終わっています＝iPadが画面を強制的に読み込み直した可能性があります") : null,
+            React.createElement("details", null,
+              React.createElement("summary", { style: { cursor: "pointer" } }, "前回の経過（" + P.length + "件）"),
+              React.createElement("div", { style: { fontFamily: "monospace", fontSize: 10.5, whiteSpace: "pre-wrap" } },
+                P.map(function(x, i) { var nx = P[i + 1]; return hms(x.at) + "  " + x.s + (nx ? "（" + Math.round((nx.at - x.at) / 1000) + "秒）" : ""); }).join("\n"))));
+        })());
     })(),
     React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
       btn(busy === "diag" ? "診断中…" : "診断する", run, false, !!busy),

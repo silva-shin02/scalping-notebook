@@ -454,7 +454,9 @@ function App() {
             
             _fbStage("起動時：統合");
             var _r3i = _fbResolveRemote(dataRef.current || ld, remote);   // 画面を先に出した後の編集も含めて統合   // 2026-10-27 3者統合（旧: 更新時刻が新しい側が丸ごと勝つ）
-            var _mr1 = migrateData(_r3i.merged);
+            _fbStage("起動時：統合後の整え");
+            var _mr1 = _r3i.merged === remote ? remote : migrateData(_r3i.merged);
+            _fbStage("起動時：画面へ反映");
             setData(_mr1);
             stSave(_mr1);
             dataRef.current = _mr1;
