@@ -420,6 +420,8 @@ function App() {
       if (lc && lc.fbUrl) fbStorageInit(lc.apiKey, lc.storageBucket);
       if (lc && lc.fbUrl && lc.fbPaused === false) {
         setFbStatus("syncing");
+        // 2026-10-28 起動時の同期が長引いても8秒で画面を出す（ユーザー報告「iPadで読み込み中のまま動かない」）。同期は裏で続き、終わったら統合して反映。
+        setTimeout(function() { setLoading(false); }, 8000);
         fbInitialLoad(lc, ld).then(function (res) {
           if (res.status === "pushed") {
             setFbStatus("ok");
@@ -434,7 +436,7 @@ function App() {
             var remote = migrateData(res.data);
             
             
-            var _r3i = _fbResolveRemote(ld, remote);   // 2026-10-27 3者統合（旧: 更新時刻が新しい側が丸ごと勝つ）
+            var _r3i = _fbResolveRemote(dataRef.current || ld, remote);   // 画面を先に出した後の編集も含めて統合   // 2026-10-27 3者統合（旧: 更新時刻が新しい側が丸ごと勝つ）
             var _mr1 = migrateData(_r3i.merged);
             setData(_mr1);
             stSave(_mr1);
