@@ -1573,7 +1573,9 @@ function stLoad() {
   try {
     var s = localStorage.getItem(ST_KEY) || localStorage.getItem("scalping_data_v5");
     if (!s) { console.log("[stLoad] localStorage empty, using EMPTY"); return EMPTY; }
-    var d = migrateData(JSON.parse(s));
+    var _raw = JSON.parse(s), d;
+    // 2026-10-28 移行処理(migrateData)で例外が出ても「空(EMPTY)」にしない＝空として同期されて全端末から消える事故の防止。
+    try { d = migrateData(_raw); } catch (eMig) { console.error("[stLoad] migrateData failed, using raw data:", eMig); d = _raw; }
     
     var b64count = (s.match(/"base64":"(?!__ref__)[^"]{100}/g) || []).length;
     var refcount = (s.match(/"base64":"__ref__"/g) || []).length;
@@ -1607,6 +1609,7 @@ function stLoad() {
     return d;
   } catch (_unused2) {
     console.warn("[stLoad] parse error, using EMPTY");
+    try { window._snLocalLoadFailed = true; } catch (e) {}
     return EMPTY;
   }
 }
@@ -2262,11 +2265,27 @@ function _m3Tomb(d) {
   return d;
 }
 // この端末(local)とサーバー(remote)を基準で統合した結果（_v は呼び出し側で決める）
+// ===== 大量消失の安全装置 2026-10-28（ユーザー報告「画面更新したら全端末でデータがほぼ全部消えた」）=====
+// 3者統合は「基準にあってこの端末に無い記録＝この端末で消した」と解釈するため、端末内のデータが読めず空になった（読み込み失敗・保存領域の消去など）だけで
+//   それを「全部削除」としてサーバーへ送り、他の端末にも広げてしまった。記録の量で見て、片方が基準より大きく減っていたら「消した」ではなく「失った」とみなす。
+function _fbVolume(d) {
+  if (!d || typeof d !== "object") return 0;
+  var n = 0, ch = d.charts, tr = d.trades, k;
+  if (ch && typeof ch === "object") { for (k in ch) { if (!ch.hasOwnProperty(k)) continue; n++; if (ch[k] && Array.isArray(ch[k].signals)) n += ch[k].signals.length; } }
+  if (tr && typeof tr === "object") { for (k in tr) { if (!tr.hasOwnProperty(k)) continue; n++; if (tr[k] && Array.isArray(tr[k].items)) n += tr[k].items.length; } }
+  return n;
+}
+// x が ref に比べて大きく減っているか（ref が20件以上・半分未満に減った）
+function _fbLooksWiped(x, ref) { var r = _fbVolume(ref); return r >= 20 && _fbVolume(x) < r * 0.5; }
+function _fbWipeWarn(msg) { console.error("[FB] " + msg); try { _fbSetErr("guard", 0, msg); } catch (e) {} }
 // noBase=true は基準を使わない統合（和集合＋食い違いは pl の側）＝設定の「取り込み直し」ボタン用。
 function _fbMerge3(local, remote, pl, noBase) {
   var r = _fbBaseClean(remote) || {};
   var l = _fbBaseClean(local) || {};
-  return _m3Tomb(_m3(noBase ? null : _fbSyncBase, l, r, pl));
+  var b = noBase ? null : _fbSyncBase;
+  if (b && _fbLooksWiped(l, b)) { _fbWipeWarn("この端末のデータが大きく減っていたため、削除として送らずサーバーの内容で補いました"); b = null; pl = false; }
+  else if (b && _fbLooksWiped(r, b)) { _fbWipeWarn("サーバーのデータが大きく減っていたため取り込まず、この端末の内容で補いました"); b = null; pl = true; }
+  return _m3Tomb(_m3(b, l, r, pl));
 }
 // 起動時/定期確認でサーバーの内容を受け取ったときの統合。両方が変えた所は「後から保存した方」（基準が無い初回はこの端末を残す）。
 // 戻り値 merged（_v付き）と needPush（統合結果がサーバーと違う＝送り返す必要あり）。サーバーと一致したらそれを基準にする。
@@ -2374,6 +2393,12 @@ function _fbPut() {
             // 次回ポーリングで無駄な再DL(remoteV !== _fbLocalV)が起きるのを防ぐ。2026-06-20
             _fbLocalV = _prevLocalV;
             console.log("[fbPut] skipped (no content change, _v=" + _fbLocalV + ")");
+            return _context6.a(2);
+          }
+          // 大量消失の安全装置: 最後にサーバーと一致した内容（基準）より大きく減った内容は送らない 2026-10-28
+          if (_fbSyncBase && _fbLooksWiped(_lightMeta, _fbSyncBase) && !window._snFbAllowShrink) {
+            _fbLastPutHash = null; _fbLocalV = _prevLocalV;
+            _fbWipeWarn("送ろうとした内容が前回の同期より大きく減っているため、送信を止めました（データ消失の防止）");
             return _context6.a(2);
           }
           _fbTrack("db_ul", _metaBody.length);
@@ -2625,7 +2650,7 @@ function fbInitialLoad(cfg, localData) {
   return _fbBaseLoad().then(function() { return fbPollV(cfg); }).then(function(rv) {
     // 2026-10-27 旧: 「この端末の更新時刻 >= サーバー」なら取得を省いていた＝更新時刻だけ新しく中身が古い端末がPCの変更を取り込まず上書きしていた。
     //   新: サーバーが「前回この端末が同期した版」から変わっていない時だけ省く（基準が無ければ必ず取得して統合）。
-    if (rv && _fbSyncBase && rv === _fbBaseLastV()) {
+    if (rv && _fbSyncBase && rv === _fbBaseLastV() && !_fbLooksWiped(_fbBaseClean(localData), _fbSyncBase)) {   // 端末内が大きく減っていたら省かず取り込む 2026-10-28
       _fbLocalV = rv;
       try { console.log("[FB] initial load: server unchanged since last sync (rv=" + rv + ")"); } catch(e){}
       return { status: "skip", dirty: !_m3Eq(_fbBaseClean(localData), _fbSyncBase) };

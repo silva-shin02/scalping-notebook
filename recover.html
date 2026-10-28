@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>データ復元ツール</title>
+<style>
+  :root { --bg:#f6f5f1; --card:#fff; --ink:#222; --sub:#666; --line:#e2dfd8; --accent:#1d4ed8; --ok:#166534; --ng:#b91c1c; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI","Hiragino Sans","Meiryo",sans-serif; font-size:14px; line-height:1.7; }
+  main { max-width:960px; margin:0 auto; padding:20px 16px 60px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:14px 0; }
+  ol { padding-left:22px; margin:6px 0; }
+  code { background:#f1efe9; padding:1px 5px; border-radius:4px; font-size:12.5px; word-break:break-all; }
+  button { font:inherit; font-weight:700; padding:7px 14px; border-radius:7px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border:none; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--sub); font-weight:600; font-size:12px; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .wrap { overflow-x:auto; }
+  #log { font-size:12px; color:var(--sub); white-space:pre-wrap; max-height:180px; overflow:auto; }
+  .ok { color:var(--ok); font-weight:700; } .ng { color:var(--ng); font-weight:700; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🛟 データ復元ツール</h1>
+  <div style="color:var(--sub)">Chrome が内部に保存しているファイルから、消える前のデータを探して取り出します。このページは何も書き換えません（読むだけ）。</div>
+
+  <div class="card">
+    <b>手順</b>
+    <ol>
+      <li><b>Chrome をすべて閉じる</b>（タスクバーの Chrome も右クリック→ウィンドウを閉じる）。</li>
+      <li>エクスプローラーのアドレス欄に <code>%LOCALAPPDATA%\Google\Chrome\User Data</code> と入れて開く。<br>
+        その中の <code>Default</code>（Chromeのユーザーを分けている場合は <code>Profile 1</code> など）→ <code>Local Storage</code> → <code>leveldb</code> フォルダを開く。</li>
+      <li>leveldb フォルダを<b>まるごとデスクトップにコピー</b>する（元のフォルダは触らない）。</li>
+      <li>Chrome を開くとき、「タブを復元」はしない。スキャルピングノートブックのタブは開かずに、このページだけを開く。</li>
+      <li>下の「ファイルを選ぶ」で、<b>デスクトップにコピーした leveldb フォルダの中のファイルを全部</b>選ぶ（Ctrl+A）。</li>
+    </ol>
+    <input type="file" id="files" multiple style="margin-top:6px">
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <b>見つかったデータ</b>
+    <div style="color:var(--sub);font-size:12.5px">記録の多い順。いちばん多いものが消える前のデータの可能性が高いです。「保存」で .json として保存し、アプリの 📥（インポート）で読み込みます。</div>
+    <div class="wrap"><table id="tbl"></table></div>
+    <div style="margin-top:10px">
+      <button class="primary" id="mergeBtn">見つかった全部をまとめて1つにして保存</button>
+      <div style="color:var(--sub);font-size:12px;margin-top:4px">すべての候補の記録を合わせます（同じ記録は新しい方）。消した記録が戻ることがあります。</div>
+    </div>
+  </div>
+
+  <div class="card"><b>処理の記録</b><div id="log">ファイルを選ぶと開始します。</div></div>
+</main>
+<script>
+(function () {
+  "use strict";
+  var logEl = document.getElementById("log");
+  function log(s) { logEl.textContent += "\n" + s; logEl.scrollTop = logEl.scrollHeight; }
+
+  // ---- 基本 ----
+  function varint(buf, pos) {
+    var r = 0, shift = 0, b;
+    do { b = buf[pos.p++]; r += (b & 127) * Math.pow(2, shift); shift += 7; } while (b & 128 && shift < 64);
+    return r;
+  }
+  function u32(buf, i) { return (buf[i] | (buf[i + 1] << 8) | (buf[i + 2] << 16)) + buf[i + 3] * 16777216; }
+
+  // ---- Snappy 解凍 ----
+  function snappy(src) {
+    var pos = { p: 0 }, len = varint(src, pos), out = new Uint8Array(len), o = 0, p = pos.p;
+    while (p < src.length) {
+      var tag = src[p++], t = tag & 3, l, off;
+      if (t === 0) {
+        l = tag >> 2;
+        if (l >= 60) { var nb = l - 59; l = 0; for (var i = 0; i < nb; i++) l |= src[p++] << (8 * i); }
+        l += 1;
+        out.set(src.subarray(p, p + l), o); o += l; p += l;
+        continue;
+      }
+      if (t === 1) { l = 4 + ((tag >> 2) & 7); off = ((tag >> 5) << 8) | src[p++]; }
+      else if (t === 2) { l = (tag >> 2) + 1; off = src[p] | (src[p + 1] << 8); p += 2; }
+      else { l = (tag >> 2) + 1; off = u32(src, p); p += 4; }
+      if (off <= 0 || off > o) throw new Error("snappy offset");
+      for (var j = 0; j < l; j++) { out[o] = out[o - off]; o++; }
+    }
+    return out;
+  }
+
+  // ---- LevelDB ブロック ----
+  function readBlock(buf, off, size) {
+    var data = buf.subarray(off, off + size), type = buf[off + size];
+    return type === 1 ? snappy(data) : data;
+  }
+  function blockEntries(blk, cb) {
+    var nRestart = u32(blk, blk.length - 4), end = blk.length - 4 - nRestart * 4, pos = { p: 0 }, key = new Uint8Array(0);
+    while (pos.p < end) {
+      var shared = varint(blk, pos), nonShared = varint(blk, pos), vlen = varint(blk, pos);
+      var k = new Uint8Array(shared + nonShared); k.set(key.subarray(0, shared)); k.set(blk.subarray(pos.p, pos.p + nonShared), shared);
+      pos.p += nonShared; key = k;
+      cb(k, blk.subarray(pos.p, pos.p + vlen)); pos.p += vlen;
+    }
+  }
+  function readTable(buf, emit) {
+    var f = buf.length - 48;
+    if (u32(buf, buf.length - 8) !== 0x8b80fb57 || u32(buf, buf.length - 4) !== 0xdb477524) throw new Error("LevelDB テーブルではありません");
+    var pos = { p: f }; varint(buf, pos); varint(buf, pos);
+    var io = varint(buf, pos), is = varint(buf, pos);
+    blockEntries(readBlock(buf, io, is), function (k, v) {
+      var hp = { p: 0 }, bo = varint(v, hp), bs = varint(v, hp);
+      try {
+        blockEntries(readBlock(buf, bo, bs), function (ik, val) {
+          if (ik.length < 8 || ik[ik.length - 8] !== 1) return;   // 1=値あり（0=削除）
+          emit(ik.subarray(0, ik.length - 8), val);
+        });
+      } catch (e) { log("  ブロック読込失敗: " + e.message); }
+    });
+  }
+  function readLog(buf, emit) {
+    var recs = [], cur = null, B = 32768;
+    for (var blk = 0; blk < buf.length; blk += B) {
+      var p = blk, lim = Math.min(blk + B, buf.length);
+      while (p + 7 <= lim) {
+        var len = buf[p + 4] | (buf[p + 5] << 8), type = buf[p + 6];
+        if (type === 0 && len === 0) break;
+        var data = buf.subarray(p + 7, p + 7 + len); p += 7 + len;
+        if (type === 1) recs.push([data]);
+        else if (type === 2) cur = [data];
+        else if (type === 3) { if (cur) cur.push(data); }
+        else if (type === 4) { if (cur) { cur.push(data); recs.push(cur); cur = null; } }
+        else break;
+      }
+    }
+    recs.forEach(function (parts) {
+      var n = 0; parts.forEach(function (x) { n += x.length; });
+      var r = new Uint8Array(n), o = 0; parts.forEach(function (x) { r.set(x, o); o += x.length; });
+      var pos = { p: 12 };
+      try {
+        while (pos.p < r.length) {
+          var tag = r[pos.p++], kl = varint(r, pos), key = r.subarray(pos.p, pos.p + kl); pos.p += kl;
+          if (tag === 1) { var vl = varint(r, pos); emit(key, r.subarray(pos.p, pos.p + vl)); pos.p += vl; }
+          else if (tag !== 0) break;
+        }
+      } catch (e) {}
+    });
+  }
+
+  // ---- Chrome localStorage の値 ----
+  var latin = new TextDecoder("latin1"), u16 = new TextDecoder("utf-16le");
+  function decodeVal(v) { if (!v.length) return ""; return v[0] === 0 ? u16.decode(v.subarray(1)) : latin.decode(v.subarray(1)); }
+  function keyName(k) {
+    var s = latin.decode(k), i = s.indexOf("\u0000");
+    if (s[0] !== "_" || i < 0) return null;
+    var origin = s.slice(1, i), rest = k.subarray(i + 1);
+    var name = rest[0] === 0 ? u16.decode(rest.subarray(1)) : latin.decode(rest.subarray(1));
+    return { origin: origin, name: name };
+  }
+
+  // ---- 集計 ----
+  function stats(d) {
+    var ch = d.charts || {}, tr = d.trades || {}, sig = 0, items = 0, last = "";
+    Object.keys(ch).forEach(function (k) { var c = ch[k]; if (c && Array.isArray(c.signals)) sig += c.signals.length; var dt = k.slice(k.lastIndexOf("_") + 1); if (dt > last) last = dt; });
+    Object.keys(tr).forEach(function (k) { var t = tr[k]; if (t && Array.isArray(t.items)) items += t.items.length; if (k > last) last = k; });
+    return { charts: Object.keys(ch).length, sig: sig, days: Object.keys(tr).length, items: items, last: last, v: typeof d._v === "number" ? d._v : 0 };
+  }
+  function fmt(v) { if (!v) return "—"; var d = new Date(v); return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); }
+  function download(obj, name) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(obj)], { type: "application/json" }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  var found = [];
+  function addCandidate(origin, name, text, src) {
+    if (!/^scalping_data_v\d+$/.test(name)) return;
+    var d; try { d = JSON.parse(text); } catch (e) { log("  " + src + ": " + name + " は途中までしか残っていません（読めません）"); return; }
+    if (!d || typeof d !== "object" || !(d.charts || d.trades)) return;
+    var key = text.length + ":" + (d._v || 0);
+    if (found.some(function (f) { return f.key === key; })) return;
+    found.push({ key: key, origin: origin, name: name, data: d, st: stats(d), src: src });
+  }
+  function render() {
+    found.sort(function (a, b) { return (b.st.sig + b.st.items + b.st.charts) - (a.st.sig + a.st.items + a.st.charts) || b.st.v - a.st.v; });
+    var t = document.getElementById("tbl");
+    t.innerHTML = "<tr><th></th><th>保存時刻</th><th class=num>チャート</th><th class=num>エントリー記録</th><th class=num>取引日</th><th class=num>取引</th><th>最新の日付</th><th>場所</th><th></th></tr>";
+    found.forEach(function (f, i) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + (i + 1) + "</td><td>" + fmt(f.st.v) + "</td><td class=num>" + f.st.charts + "</td><td class=num>" + f.st.sig + "</td><td class=num>" + f.st.days + "</td><td class=num>" + f.st.items + "</td><td>" + (f.st.last || "—") + "</td><td>" + f.origin + "<br><span style='color:#999;font-size:11px'>" + f.name + "・" + f.src + "</span></td><td></td>";
+      var b = document.createElement("button"); b.textContent = "保存";
+      b.onclick = function () { download(f.data, "scalping_復元_" + (i + 1) + "_" + (f.st.last || "x") + ".json"); };
+      tr.lastChild.appendChild(b); t.appendChild(tr);
+    });
+    document.getElementById("resultCard").style.display = found.length ? "" : "none";
+  }
+
+  // 全候補の統合（id付きの記録は id ごとに新しい保存時刻の方・チャート/取引日は和集合・設定は最新の候補）
+  function mergeAll() {
+    var list = found.slice().sort(function (a, b) { return a.st.v - b.st.v; });   // 古い→新しい
+    var out = JSON.parse(JSON.stringify(list[list.length - 1].data));
+    function mergeArr(a, b) {
+      if (!Array.isArray(a)) return b; if (!Array.isArray(b)) return a;
+      var ids = {}, res = a.slice();
+      res.forEach(function (x, i) { if (x && x.id != null) ids[String(x.id)] = i; });
+      b.forEach(function (x) { if (x && x.id != null && !(String(x.id) in ids)) res.push(x); });
+      return res;
+    }
+    list.slice(0, -1).reverse().forEach(function (f) {
+      var d = f.data;
+      ["charts", "trades"].forEach(function (sec) {
+        var src = d[sec] || {}; out[sec] = out[sec] || {};
+        Object.keys(src).forEach(function (k) {
+          if (!out[sec][k]) { out[sec][k] = src[k]; return; }
+          var o = out[sec][k], s = src[k];
+          ["signals", "items", "news", "epNavi"].forEach(function (ak) { if (Array.isArray(s[ak])) o[ak] = mergeArr(o[ak], s[ak]); });
+        });
+      });
+    });
+    out._v = Date.now();
+    return out;
+  }
+  document.getElementById("mergeBtn").onclick = function () {
+    if (!found.length) return;
+    var m = mergeAll(), s = stats(m);
+    log("まとめた結果: チャート " + s.charts + "・エントリー記録 " + s.sig + "・取引日 " + s.days + "・取引 " + s.items);
+    download(m, "scalping_復元_まとめ.json");
+  };
+
+  document.getElementById("files").onchange = function (e) {
+    var files = Array.prototype.slice.call(e.target.files);
+    found = []; logEl.textContent = files.length + " 個のファイルを読みます…";
+    var seq = Promise.resolve();
+    files.forEach(function (file) {
+      seq = seq.then(function () { return file.arrayBuffer(); }).then(function (ab) {
+        var buf = new Uint8Array(ab), n0 = found.length;
+        var emit = function (k, v) { var kn = keyName(k); if (kn) addCandidate(kn.origin, kn.name, decodeVal(v), file.name); };
+        try {
+          if (/\.ldb$|\.sst$/i.test(file.name)) readTable(buf, emit);
+          else if (/\.log$/i.test(file.name)) readLog(buf, emit);
+          else return;
+          log(file.name + "：候補 " + (found.length - n0) + " 件");
+        } catch (err) { log(file.name + "：読めませんでした（" + err.message + "）"); }
+      });
+    });
+    seq.then(function () {
+      render();
+      log(found.length ? ("\n完了：データ候補 " + found.length + " 件見つかりました。") : "\n完了：データは見つかりませんでした。選んだフォルダ（Default / Profile 1 など）が違うかもしれません。");
+    });
+  };
+})();
+</script>
+</body>
+</html>

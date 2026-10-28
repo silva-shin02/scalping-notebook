@@ -3,7 +3,7 @@
 //    2回目以降はオフラインでも起動できるようにする。（app-09.js は損益推移シミュレーター 2026-08-05。
 //    index.html では app-06.js の直後に読む＝app-08.js の render() より前でないと未定義になる）
 // 2) Firebase Storage の画像も従来どおりキャッシュして課金を削減する。
-var APP_CACHE = "sn-app-v555";
+var APP_CACHE = "sn-app-v556";
 var IMG_CACHE = "sn-images-v1";
 var FB_STORAGE_HOST = "firebasestorage.googleapis.com";
 var GSTATIC_HOST = "gstatic.com";
@@ -81,7 +81,8 @@ self.addEventListener("fetch", function(event) {
     event.respondWith(
       fetch(req).then(function(res) {
         var copy = res.clone();
-        caches.open(APP_CACHE).then(function(c) { c.put("./index.html", copy); });
+        // index.html（またはフォルダ直下）のときだけ保存＝recover.html など別ページで index.html のキャッシュを上書きしない 2026-10-28
+        if (/\/(index\.html)?$/.test(new URL(url).pathname)) caches.open(APP_CACHE).then(function(c) { c.put("./index.html", copy); });
         return res;
       })["catch"](function() {
         return caches.match("./index.html").then(function(c) { return c || caches.match("./"); });

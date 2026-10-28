@@ -1143,6 +1143,7 @@ function App() {
     // 画面上部の赤い帯（同期エラー時）2026-10-27
     (_fbErr && !_fbErrHide) ? React.createElement("div", { role: "alert", style: { position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999, display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "#B91C1C", color: "#fff", fontSize: 12.5, fontWeight: 700, boxShadow: "0 2px 6px rgba(0,0,0,0.25)" } },
       React.createElement("span", { style: { flex: 1, lineHeight: 1.5 } },
+        _fbErr.kind === "guard" ? "🛡️ データ消失の防止：" + _fbErr.msg + "。もし本当に大量に削除した場合は知らせてください。" :
         (_fbErr.status === 401 || _fbErr.status === 403)
           ? "⚠️ 同期エラー（権限なし・HTTP " + _fbErr.status + "）：Firebase の Realtime Database のルールで" + (_fbErr.kind === "put" ? "書き込み" : "読み込み") + "が拒否されています。ルールの期限・設定を確認してください（この端末の変更は他の端末に届いていません）。"
           : "⚠️ 同期エラー（" + (_fbErr.status ? "HTTP " + _fbErr.status : "通信できません") + "）：Firebase と" + (_fbErr.kind === "put" ? "書き込み" : "読み込み") + "できませんでした。通信状況と Firebase の設定を確認してください。" + (_fbErr.msg ? "［Firebase の応答: " + _fbErr.msg + "］" : "")),
