@@ -6374,7 +6374,7 @@ function DayView(_ref57) {
     exclCount: function(s) { return _elDayStockExclCount(data, s, date); },
     collCount: function(s) { return _elDayStockCollCount(data, s, date); },
     fmActive: fmActive,
-    onFmSelect: (data.custom && data.custom.hideFmTab) ? null : function() { setFmActive(true); },   // 2026-10-28 外国市場タブを出さない設定（ユーザー決定）
+    onFmSelect: (data.custom && data.custom.hideFmTab === false) ? function() { setFmActive(true); } : null,   // 2026-10-28 既定で出さない（設定が巻き戻っても出ない＝明示的に false のときだけ出す）   // 2026-10-28 外国市場タブを出さない設定（ユーザー決定）
     hasFmData: hasFmData,
     rotStocks: rotStocks,
     rotActive: rotTabActive,
