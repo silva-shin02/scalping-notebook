@@ -2064,6 +2064,56 @@ function _snSyncLocalSummary(d) {
   var cu = (d && d.custom) || {};
   return { v: (d && typeof d._v === "number") ? d._v : null, charts: keys.length, signals: sig, last: last || null, trades: Object.keys((d && d.trades) || {}).length, prov: Array.isArray(cu.provSignalTags) ? cu.provSignalTags : [] };
 }
+// ===== 記録から設定を戻す 2026-10-28（ユーザー報告「シグナルなどが全部消え、記録が『選定外の記録』に移った」）=====
+// 同期の不具合で設定(custom)が古い内容に戻ったが、記録は残っている。記録に使われている名前を拾って設定の一覧へ戻す（足すだけ・消さない）。
+//   ・シグナル名(signalTags)/仮シグナル(provSignalTags): 記録の tags から（provisional の記録は仮側）。並びは記録の多い順（ユーザー決定）。
+//   ・理由の選択肢: スルー(thruReasons)・要審議(reviewReasons)・確定待ち(ceReasons)・見送り(skipReasons／自動タグ「未達」は除く)・応用αの根拠(specialReasons)。
+//   ・日替わり銘柄の候補(rotatingStocks): data.dailyStock[日付] に指定された銘柄。
+//   ・銘柄タブ(stocks): 記録のある銘柄のうち日替わり候補でないもの。
+//   ・算入銘柄(amtStocks)は触らない（ユーザー決定＝自分で選び直す）。
+function _snRebuildCustom(d) {
+  var cu = Object.assign({}, (d && d.custom) || {}), rep = [];
+  var cnt = {}, provCnt = {}, rsn = { thruReasons: {}, reviewReasons: {}, ceReasons: {}, skipReasons: {}, specialReasons: {} }, stockCnt = {};
+  Object.keys((d && d.charts) || {}).forEach(function(ck) {
+    var c = d.charts[ck]; if (!c || !Array.isArray(c.signals) || !c.signals.length) return;
+    var st = ck.slice(0, ck.lastIndexOf("_")); if (st) stockCnt[st] = (stockCnt[st] || 0) + c.signals.length;
+    c.signals.forEach(function(sg) {
+      if (!sg) return;
+      (Array.isArray(sg.tags) ? sg.tags : []).forEach(function(t) { if (!t || typeof t !== "string") return; var m = sg.provisional === true ? provCnt : cnt; m[t] = (m[t] || 0) + 1; });
+      Object.keys(rsn).forEach(function(k) { (Array.isArray(sg[k]) ? sg[k] : []).forEach(function(x) { if (x && typeof x === "string") rsn[k][x] = (rsn[k][x] || 0) + 1; }); });
+    });
+  });
+  var byCnt = function(m) { return function(a, b) { return (m[b] || 0) - (m[a] || 0); }; };
+  var arr = function(x) { return Array.isArray(x) ? x.filter(function(v) { return typeof v === "string" && v; }) : []; };
+  // シグナル名（通常）：今の一覧＋記録の名前を、記録の多い順（記録0件のものは今の順のまま後ろ）
+  var sigCur = arr(cu.signalTags), provCur = arr(cu.provSignalTags);
+  Object.keys(cnt).forEach(function(t) { if (sigCur.indexOf(t) < 0 && provCur.indexOf(t) < 0) sigCur.push(t); });
+  Object.keys(provCnt).forEach(function(t) { if (provCur.indexOf(t) < 0 && sigCur.indexOf(t) < 0) provCur.push(t); });
+  var sortKeep = function(list, m) { var used = list.filter(function(t) { return m[t]; }).sort(byCnt(m)), unused = list.filter(function(t) { return !m[t]; }); return used.concat(unused); };
+  var allCnt = {}; Object.keys(cnt).forEach(function(t) { allCnt[t] = (allCnt[t] || 0) + cnt[t]; }); Object.keys(provCnt).forEach(function(t) { allCnt[t] = (allCnt[t] || 0) + provCnt[t]; });
+  var sigNew = sortKeep(sigCur, allCnt), provNew = sortKeep(provCur, allCnt);
+  rep.push({ lbl: "シグナル名", before: arr(cu.signalTags).length, after: sigNew.length }); cu.signalTags = sigNew;
+  rep.push({ lbl: "仮シグナル", before: arr(cu.provSignalTags).length, after: provNew.length }); cu.provSignalTags = provNew;
+  var defs = { thruReasons: typeof _DEF_THRU_REASONS !== "undefined" ? _DEF_THRU_REASONS : [], reviewReasons: typeof _DEF_REVIEW_REASONS !== "undefined" ? _DEF_REVIEW_REASONS : [],
+    ceReasons: typeof _DEF_CE_REASONS !== "undefined" ? _DEF_CE_REASONS : [], skipReasons: typeof _DEF_SKIP_REASONS !== "undefined" ? _DEF_SKIP_REASONS : [],
+    specialReasons: typeof _DEF_SPECIAL_REASONS !== "undefined" ? _DEF_SPECIAL_REASONS : [] };
+  var lbls = { thruReasons: "スルーの理由", reviewReasons: "要審議の理由", ceReasons: "確定待ちの理由", skipReasons: "見送りの理由", specialReasons: "応用αの根拠" };
+  Object.keys(rsn).forEach(function(k) {
+    var cur = Array.isArray(cu[k]) ? arr(cu[k]) : defs[k].slice(), n0 = cur.length;
+    Object.keys(rsn[k]).sort(byCnt(rsn[k])).forEach(function(x) { if (k === "skipReasons" && typeof _EL_SKIP_MISS !== "undefined" && x === _EL_SKIP_MISS) return; if (cur.indexOf(x) < 0) cur.push(x); });
+    if (cur.length !== n0 || !Array.isArray(cu[k])) { cu[k] = cur; }
+    rep.push({ lbl: lbls[k], before: n0, after: cur.length });
+  });
+  // 日替わり銘柄の候補
+  var rot = arr(cu.rotatingStocks), r0 = rot.length;
+  Object.keys((d && d.dailyStock) || {}).forEach(function(dt) { var v = d.dailyStock[dt]; (Array.isArray(v) ? v : [v]).forEach(function(x) { if (x && typeof x === "string" && rot.indexOf(x) < 0) rot.push(x); }); });
+  cu.rotatingStocks = rot; rep.push({ lbl: "日替わり銘柄の候補", before: r0, after: rot.length });
+  // 銘柄タブ（日替わり候補は除く）
+  var stk = (Array.isArray(cu.stocks) && cu.stocks.length) ? arr(cu.stocks) : (typeof _DEF_STOCKS_FROZEN !== "undefined" ? _DEF_STOCKS_FROZEN.slice() : []), s0 = arr(cu.stocks).length;
+  Object.keys(stockCnt).sort(byCnt(stockCnt)).forEach(function(x) { if (rot.indexOf(x) < 0 && stk.indexOf(x) < 0) stk.push(x); });
+  cu.stocks = stk; rep.push({ lbl: "銘柄タブ", before: s0, after: stk.length });
+  return { data: Object.assign({}, d, { custom: cu }), report: rep };
+}
 function _SnSyncDiag(props) {
   var cfg = props.cfg, data = props.data, save = props.save;
   var _u1 = useState(null), res = _u1[0], setRes = _u1[1];
@@ -2124,6 +2174,19 @@ function _SnSyncDiag(props) {
       btn(busy === "diag" ? "診断中…" : "診断する", run, false, !!busy),
       btn(busy === "send" ? "送信中…" : "この端末を正としてサーバーへ送る", function() { merge("send"); }, true, !!busy),
       btn(busy === "take" ? "取り込み中…" : "サーバーを正として取り込む", function() { merge("take"); }, true, !!busy)),
+    // 記録から設定を戻す 2026-10-28（_snRebuildCustom）
+    React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
+      btn("🔧 記録から設定を戻す（シグナル名・理由・銘柄）", function() {
+        var r = _snRebuildCustom(data);
+        var lines = r.report.map(function(x) { return "・" + x.lbl + "：" + x.before + " → " + x.after + "件" + (x.after > x.before ? "（" + (x.after - x.before) + "件戻す）" : ""); }).join("\n");
+        var txt = "記録に使われている名前を、設定の一覧に戻します（足すだけ・消しません）。\n" + lines + "\nシグナル名・仮シグナルは記録の多い順に並べ直します。合計に入れる銘柄（算入銘柄）は変えません。\nよろしいですか？";
+        var p = (typeof window._snConfirm === "function") ? window._snConfirm(txt) : Promise.resolve(window.confirm(txt));
+        p.then(function(ok) {
+          if (!ok) return;
+          save(r.data, { immediate: true });
+          setRes(null); setMsg("✅ 記録から設定を戻しました。" + r.report.filter(function(x) { return x.after > x.before; }).map(function(x) { return x.lbl + " +" + (x.after - x.before); }).join("・"));
+        });
+      }, true, !!busy)),
     // バックアップの書き出し・読み込み 2026-10-28（同期オン時はヘッダの📤📥が出ないため、ここに置く）
     React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
       btn("📤 バックアップを書き出す", function() {
