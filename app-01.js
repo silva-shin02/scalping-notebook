@@ -1593,6 +1593,27 @@ function migrateData(d) {
       console.log("[migrateData] restore1028: タブ=" + _rc.stocks.join("・") + " 日替わり候補=" + _rot.join("・"));
     } catch(e) { console.warn("[migrateData] restore1028 error:", e); }
   }
+  // 【毎回の整え・固定タブ 2026-10-28】ユーザー指示「銘柄タブは日替わり・フジクラ・SBGの3つ」。一回性(_migRestore1028)だけだと、古い版のアプリが残った端末が
+  //   古い設定を送り返したときに日替わり候補が巻き戻った（ユーザー報告）。そこで読み込むたびに揃える:
+  //   固定タブ＝custom.fixedTabs（未設定は フジクラ・SBG）。名簿(stocks)のうち固定タブと日経平均株価以外は日替わり候補(rotatingStocks)に入れる。
+  //   EPナビの表示銘柄(epnStocks)＝固定タブ（並びは今の選択を優先・日替わり候補は日替わり列で見る）。
+  try {
+    var _fxT = (Array.isArray(d.custom.fixedTabs) && d.custom.fixedTabs.length) ? d.custom.fixedTabs.slice() : ["フジクラ", "SBG"];
+    if (!Array.isArray(d.custom.fixedTabs) || !d.custom.fixedTabs.length) d.custom.fixedTabs = _fxT.slice();
+    var _stkT = Array.isArray(d.custom.stocks) ? d.custom.stocks.slice() : [], _stkChg = false;
+    _fxT.forEach(function(x) { if (_stkT.indexOf(x) < 0) { _stkT.push(x); _stkChg = true; } });
+    var _rotT0 = Array.isArray(d.custom.rotatingStocks) ? d.custom.rotatingStocks : [];
+    var _rotT = _rotT0.filter(function(x) { return typeof x === "string" && x && _fxT.indexOf(x) < 0 && x !== "日経平均株価"; });
+    _stkT.forEach(function(x) { if (typeof x === "string" && x && _fxT.indexOf(x) < 0 && x !== "日経平均株価" && _rotT.indexOf(x) < 0) _rotT.push(x); });
+    _rotT.forEach(function(x) { if (_stkT.indexOf(x) < 0) { _stkT.push(x); _stkChg = true; } });
+    if (_stkChg) d.custom.stocks = _stkT;
+    if (_rotT.length !== _rotT0.length || _rotT.some(function(x, i) { return _rotT0[i] !== x; })) d.custom.rotatingStocks = _rotT;
+    var _epT0 = Array.isArray(d.custom.epnStocks) ? d.custom.epnStocks : [];
+    var _epT = _epT0.filter(function(x) { return _fxT.indexOf(x) >= 0; });
+    _fxT.forEach(function(x) { if (_epT.indexOf(x) < 0) _epT.push(x); });   // 固定タブは全部EPナビに出す（ユーザー指示「EPナビは日替わり・フジクラ・SBG」）
+    _epT = _epT.slice(0, 3);
+    if (_epT.length !== _epT0.length || _epT.some(function(x, i) { return _epT0[i] !== x; })) d.custom.epnStocks = _epT;
+  } catch(e) { console.warn("[migrateData] fixedTabs error:", e); }
   return d;
 }
 function stLoad() {
