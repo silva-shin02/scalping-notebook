@@ -418,11 +418,27 @@ function App() {
       };
       
       if (lc && lc.fbUrl) fbStorageInit(lc.apiKey, lc.storageBucket);
+      // 2026-10-28 起動時の同期が長引いても8秒で画面を出す（ユーザー報告「iPadで読み込み中のまま動かない」）。同期は裏で続き、終わったら統合して反映。
+      if (lc && lc.fbUrl && lc.fbPaused === false) setTimeout(function() { setLoading(false); }, 8000);
+      // 2026-10-28b localStorage が一杯で書けなかった分の控え（IndexedDB・app-01 stLoadBackup）を先に読み戻してから同期を始める。
+      _stInfo({ bootLs: _fbVolume(ld) });
+      stLoadBackup(ld).then(function (bk) {
+      if (bk) { ld = bk; setData(bk); dataRef.current = bk; }
       if (lc && lc.fbUrl && lc.fbPaused === false) {
         setFbStatus("syncing");
-        // 2026-10-28 起動時の同期が長引いても8秒で画面を出す（ユーザー報告「iPadで読み込み中のまま動かない」）。同期は裏で続き、終わったら統合して反映。
-        setTimeout(function() { setLoading(false); }, 8000);
+        // 2026-10-28b 起動時の同期そのものにも時間切れ（150秒）＝「同期中」のまま止まらない。止まった段階を同期診断に残し、定期確認（ポーリング）で取り込み直す。
+        var _initDone = false;
+        var _initWd = setTimeout(function () {
+          if (_initDone) return;
+          var _sg = (window._snSyncStage && window._snSyncStage.s) || "?";
+          console.warn("[FB] initial load watchdog: stuck at " + _sg);
+          _fbStage("起動時：時間切れ（" + _sg + " で止まった）");
+          setFbStatus("err");
+          startPolling(lc);
+          setLoading(false);
+        }, 150000);
         fbInitialLoad(lc, ld).then(function (res) {
+          _initDone = true; clearTimeout(_initWd);
           if (res.status === "pushed") {
             setFbStatus("ok");
           } else if (res.status === "skip") {
@@ -450,7 +466,9 @@ function App() {
           startPolling(lc);
           setLoading(false);
         })["catch"](function (e) {
+          _initDone = true; clearTimeout(_initWd);
           console.warn("Firebase initial load failed:", e);
+          _fbStage("起動時：失敗（" + (e && e.message ? e.message : e) + "）");
           setFbStatus("err");
           startPolling(lc);
           setLoading(false);
@@ -461,6 +479,7 @@ function App() {
         
         setTimeout(function() { preloadImages(dataRef, setData, stSave, selRef.current); }, 2000);
       }
+      })["catch"](function (e) { console.error(e); setLoading(false); });
     } catch (e) {
       console.error(e);
       setLoading(false);

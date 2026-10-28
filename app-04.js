@@ -2244,6 +2244,21 @@ function _SnSyncDiag(props) {
     React.createElement("div", { style: { fontSize: 11, color: "#64748B", marginBottom: 8, lineHeight: 1.6 } }, "この端末とサーバー（Firebase）の中身を並べて比べます。他の端末で入れた内容が届かないときに使ってください。"),
     React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: _stg && !/^完了/.test(_stg.s) && Date.now() - _stg.at > 20000 ? "#B91C1C" : "#334155", marginBottom: 8 } },
       "いまの同期：" + (_stg ? _stg.s + "（" + Math.round((Date.now() - _stg.at) / 1000) + "秒前から）" : "まだ動いていません")),
+    // この端末への保存・起動時の読み込み・同期の経過 2026-10-28b（ユーザー報告「iPadで更新するとゼロ・同期中のまま」）
+    (function() {
+      var ls = (typeof window !== "undefined" && window._snLocalSave) || {}, L = (typeof window !== "undefined" && window._snSyncLog) || [];
+      var hms = function(v) { var d = new Date(v); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0") + ":" + String(d.getSeconds()).padStart(2, "0"); };
+      var lsUse = 0; try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); lsUse += (k || "").length + (localStorage.getItem(k) || "").length; } } catch (e) {}
+      var saveTxt = ls.ls == null ? "まだ保存していません" : ls.ls ? "OK（" + ls.kb + "KB）" : "localStorage が一杯で書けません（" + ls.kb + "KB）→ 控え（IndexedDB）：" + (ls.idb === "ok" ? "OK" : (ls.idb || "—"));
+      var bad = ls.ls === false && ls.idb !== "ok";
+      return React.createElement("div", { style: { fontSize: 11, color: "#475569", lineHeight: 1.6, marginBottom: 8 } },
+        React.createElement("div", { style: { fontWeight: 700, color: bad ? "#B91C1C" : "#475569" } }, "この端末への保存：" + saveTxt),
+        React.createElement("div", null, "起動時に端末内(localStorage)から読めた記録：" + (ls.bootLs == null ? "—" : ls.bootLs + "件") + (ls.boot ? "・" + ls.boot : "") + "／localStorage 使用量 約" + Math.round(lsUse / 1024) + "KB"),
+        L.length ? React.createElement("details", null,
+          React.createElement("summary", { style: { cursor: "pointer" } }, "同期の経過（" + L.length + "件）"),
+          React.createElement("div", { style: { fontFamily: "monospace", fontSize: 10.5, whiteSpace: "pre-wrap" } },
+            L.map(function(x, i) { var nx = L[i + 1]; return hms(x.at) + "  " + x.s + (nx ? "（" + Math.round((nx.at - x.at) / 1000) + "秒）" : ""); }).join("\n"))) : null);
+    })(),
     React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
       btn(busy === "diag" ? "診断中…" : "診断する", run, false, !!busy),
       btn(busy === "send" ? "送信中…" : "この端末を正としてサーバーへ送る", function() { merge("send"); }, true, !!busy),
