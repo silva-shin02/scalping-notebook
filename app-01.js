@@ -1567,6 +1567,32 @@ function migrateData(d) {
       d._migVapAdjExLv = true;
     } catch(e) { console.warn("[migrateData] vapAdjExLv error:", e); }
   }
+  // 【一回性 _migRestore1028・2026-10-28】同期の不具合で設定(custom)が古い内容に戻った件の復旧（ユーザー決定）。
+  //   ①記録から名前を戻す（app-04 _snRebuildCustom＝シグナル名・仮シグナル・理由・固有材料。足すだけ）
+  //   ②銘柄タブ＝フジクラ・SBG の2つだけ　③日替わり候補＝記録のある銘柄・名簿の銘柄すべて（フジクラ・SBG・日経平均株価を除く・今の候補の順＋記録の多い順）
+  //   ④算入銘柄＝フジクラ・SBG・📅日替わり　⑤外国市場タブを出さない（custom.hideFmTab）　⑥EPナビの表示銘柄＝フジクラ・SBG。フラグはトップレベル＝設定が巻き戻っても再実行しない。
+  if (!d._migRestore1028 && typeof _snRebuildCustom === "function") {
+    try {
+      d = _snRebuildCustom(d).data;
+      var _rc = Object.assign({}, d.custom || {}), _fixed = ["フジクラ", "SBG"], _rcnt = {};
+      Object.keys(d.charts || {}).forEach(function(ck) { var c = d.charts[ck], i = ck.lastIndexOf("_"); if (i < 0 || !c || !Array.isArray(c.signals) || !c.signals.length) return; var nm = ck.slice(0, i); _rcnt[nm] = (_rcnt[nm] || 0) + c.signals.length; });
+      Object.keys(d.dailyStock || {}).forEach(function(dt) { var v = d.dailyStock[dt]; (Array.isArray(v) ? v : [v]).forEach(function(x) { if (x && typeof x === "string" && !_rcnt[x]) _rcnt[x] = 0; }); });
+      var _rot = (Array.isArray(_rc.rotatingStocks) ? _rc.rotatingStocks : []).filter(function(x) { return typeof x === "string" && x && _fixed.indexOf(x) < 0 && x !== "日経平均株価"; });
+      Object.keys(_rcnt).sort(function(a, b) { return _rcnt[b] - _rcnt[a]; }).forEach(function(x) { if (_fixed.indexOf(x) < 0 && x !== "日経平均株価" && _rot.indexOf(x) < 0) _rot.push(x); });
+      // 名簿(stocks)は日替わり候補も含む全銘柄（タブ＝名簿−日経−日替わり候補）。固定タブがフジクラ・SBGだけになるよう、それ以外の名簿の銘柄は日替わり候補へ。
+      var _stk = (Array.isArray(_rc.stocks) ? _rc.stocks : []).filter(function(x) { return typeof x === "string" && x; });
+      _fixed.concat(_rot).forEach(function(x) { if (_stk.indexOf(x) < 0) _stk.push(x); });
+      _stk.forEach(function(x) { if (_fixed.indexOf(x) < 0 && x !== "日経平均株価" && _rot.indexOf(x) < 0) _rot.push(x); });
+      _rc.stocks = _stk;
+      _rc.rotatingStocks = _rot;
+      _rc.epnStocks = _fixed.slice();   // EPナビの表示銘柄＝フジクラ・SBG（＋日替わり列）
+      _rc.amtStocks = _fixed.concat([typeof _EL_AMT_ROT !== "undefined" ? _EL_AMT_ROT : "\uD83D\uDCC5\u65E5\u66FF\u308F\u308A"]);
+      _rc.hideFmTab = true;
+      d = Object.assign({}, d, { custom: _rc });
+      d._migRestore1028 = true;
+      console.log("[migrateData] restore1028: タブ=" + _rc.stocks.join("・") + " 日替わり候補=" + _rot.join("・"));
+    } catch(e) { console.warn("[migrateData] restore1028 error:", e); }
+  }
   return d;
 }
 function stLoad() {

@@ -2111,12 +2111,11 @@ function _snRebuildCustom(d) {
   Object.keys((d && d.dailyStock) || {}).forEach(function(dt) { if (dt < "2026-08-20") return; var v = d.dailyStock[dt]; (Array.isArray(v) ? v : [v]).forEach(function(x) { if (x && typeof x === "string") rotCnt[x] = (rotCnt[x] || 0) + 1; }); });
   Object.keys(rotCnt).sort(byCnt(rotCnt)).forEach(function(x) { if (rot.indexOf(x) < 0) rot.push(x); });
   cu.rotatingStocks = rot; rep.push({ lbl: "日替わり銘柄の候補", before: r0, after: rot.length });
-  // 銘柄タブ: 日替わり候補はタブから外し（日替わりタブで見る）、記録のある固定銘柄を足す
+  // 銘柄の名簿(custom.stocks)＝日替わり候補も含む全銘柄（タブ＝名簿−日経−日替わり候補・EPナビ/日替わり列も名簿にある銘柄だけ出す）。
+  //   ⚠️2026-10-28 初版は日替わり候補を名簿から外していた＝日替わりタブ・EPナビから候補が消えた（ユーザー報告）。名簿には必ず残す。
   var stk = (Array.isArray(cu.stocks) && cu.stocks.length) ? arr(cu.stocks) : (typeof _DEF_STOCKS_FROZEN !== "undefined" ? _DEF_STOCKS_FROZEN.slice() : []), s0 = arr(cu.stocks).length;
-  var moved = stk.filter(function(x) { return rot.indexOf(x) >= 0; });
-  stk = stk.filter(function(x) { return rot.indexOf(x) < 0; });
-  Object.keys(stockCnt).sort(byCnt(stockCnt)).forEach(function(x) { if (rot.indexOf(x) < 0 && stk.indexOf(x) < 0) stk.push(x); });
-  cu.stocks = stk; rep.push({ lbl: "銘柄タブ", before: s0, after: stk.length, note: moved.length ? "（" + moved.join("・") + " は日替わりへ）" : "" });
+  Object.keys(stockCnt).sort(byCnt(stockCnt)).concat(rot).forEach(function(x) { if (stk.indexOf(x) < 0) stk.push(x); });
+  cu.stocks = stk; rep.push({ lbl: "銘柄の名簿（日替わり候補を含む）", before: s0, after: stk.length });
   // 固有材料の名前（charts[*].dayMaterialTags）
   var mt = arr(cu.materialTags), m0 = mt.length, mCnt = {};
   Object.keys((d && d.charts) || {}).forEach(function(ck) { var c = d.charts[ck]; (c && Array.isArray(c.dayMaterialTags) ? c.dayMaterialTags : []).forEach(function(x) { if (x && typeof x === "string") mCnt[x] = (mCnt[x] || 0) + 1; }); });
@@ -5447,8 +5446,8 @@ function DayView(_ref57) {
       
       
       
-      if (initialTab) return initialTab;
-      try { var _v=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}"); return _v.tab || "news"; } catch(e){ return "news"; }
+      if (initialTab && initialTab !== "indicators") return initialTab;
+      try { var _v=JSON.parse(localStorage.getItem("scalping_view_v1")||"{}"); return (_v.tab && _v.tab !== "indicators") ? _v.tab : "news"; } catch(e){ return "news"; }   // 指標タブは外した 2026-10-28
     }),
     _useState144 = _slicedToArray(_useState143, 2),
     tab = _useState144[0],
@@ -6162,7 +6161,7 @@ function DayView(_ref57) {
       borderBottom: "2px solid #1a1a1a",
       overflowX: "auto"
     }
-  }, [["events", "\uD83D\uDCC5 \u4ECA\u65E5\u306E\u4E88\u5B9A\u30FB\u30E1\u30E2", hasEventsData || hasSummaryData], ["news", "📰 ニュース", hasNewsData], ["indicators", "📊 指標", hasFmData], ["charts", "銘柄別記録", hasChartData], ["trades", "📋 取引", hasTradeData]].map(function (_ref58) {
+  }, /* 2026-10-28 「📊 指標」タブは画面から外した（ユーザー決定・データはそのまま） */ [["events", "\uD83D\uDCC5 \u4ECA\u65E5\u306E\u4E88\u5B9A\u30FB\u30E1\u30E2", hasEventsData || hasSummaryData], ["news", "📰 ニュース", hasNewsData], ["charts", "銘柄別記録", hasChartData], ["trades", "📋 取引", hasTradeData]].map(function (_ref58) {
     var _ref59 = _slicedToArray(_ref58, 3),
       k = _ref59[0],
       la = _ref59[1],
@@ -6329,7 +6328,7 @@ function DayView(_ref57) {
     exclCount: function(s) { return _elDayStockExclCount(data, s, date); },
     collCount: function(s) { return _elDayStockCollCount(data, s, date); },
     fmActive: fmActive,
-    onFmSelect: function() { setFmActive(true); },
+    onFmSelect: (data.custom && data.custom.hideFmTab) ? null : function() { setFmActive(true); },   // 2026-10-28 外国市場タブを出さない設定（ユーザー決定）
     hasFmData: hasFmData,
     rotStocks: rotStocks,
     rotActive: rotTabActive,
@@ -6352,7 +6351,7 @@ function DayView(_ref57) {
       )
     : React.createElement(React.Fragment, null,
   rotTabActive ? _rotPickerBar : null,
-  React.createElement(_PbDayBandBar, { data: data, save: save, stock: dispStock, date: date }),
+  null,   // 2026-10-28 「本日の株価帯・固有材料」欄は画面から外した（ユーザー決定・データ/分析はそのまま）。旧: React.createElement(_PbDayBandBar, …)
   React.createElement(StockQuickRefTableWithChart, {
     data: data,
     activeStock: dispStock,
