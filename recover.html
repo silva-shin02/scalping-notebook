@@ -216,8 +216,8 @@
   }
   function findV8Objects(b, cb) {
     for (var i = 0; i + 2 < b.length; i++) {
-      if (b[i] === 0xFF && b[i + 1] >= 12 && b[i + 1] <= 15 && b[i + 2] === 0x6F) {
-        try { cb(v8decode(b, i + 2)); } catch (e) {}
+      if (b[i] === 0xFF && b[i + 1] >= 12 && b[i + 1] <= 20 && b[i + 2] === 0x6F) {
+        try { cb(v8decode(b, i + 2)); } catch (e) { if (diag.errs.length < 8) diag.errs.push(e.message); }
       }
     }
   }
@@ -233,7 +233,19 @@
   function addIdbCandidate(o, src) {
     if (!o || typeof o !== "object") return;
     var d = (o.meta && typeof o.meta === "object" && (o.meta.charts || o.meta.trades)) ? o.meta : ((o.charts || o.trades) ? o : null);
-    if (!d) return;
+    if (!d) {   // 入れ子・JSON文字列の中も探す
+      Object.keys(o).some(function (k) {
+        var x = o[k];
+        if (typeof x === "string" && x.length > 50 && x.charAt(0) === "{" && x.indexOf("charts") >= 0) { try { x = JSON.parse(x); } catch (e) { x = null; } }
+        if (x && typeof x === "object" && (x.charts || x.trades)) { d = x; if (typeof o._v === "number" && typeof d._v !== "number") d._v = o._v; return true; }
+        return false;
+      });
+    }
+    if (!d) {
+      var sig = Object.keys(o).slice(0, 12).map(function (k) { var x = o[k]; return k + ":" + (x === null ? "null" : Array.isArray(x) ? "配列" + x.length : typeof x === "object" ? "{" + Object.keys(x).slice(0, 6).join(",") + "}" : typeof x === "string" ? "文字" + x.length : typeof x === "number" && k === "_v" ? fmt(x) : typeof x); }).join(" / ");
+      if (diag.shapes.indexOf(sig) < 0 && diag.shapes.length < 10) diag.shapes.push(sig);
+      return;
+    }
     d = JSON.parse(JSON.stringify(d));
     if (typeof o.v === "number") d._v = o.v;
     var text = JSON.stringify(d), key = hashStr(text);
@@ -336,11 +348,11 @@
     return false;
   }
   var dbFileRe = /\.(ldb|sst|log)$|^(CURRENT|LOCK|LOG(\.old)?|MANIFEST-\d+)$/i;
-  var diag = { vals: [], blobs: [] };
+  var diag = { vals: [], blobs: [], errs: [], shapes: [] };
   function hexs(b, a, n) { var o = []; for (var i = a; i < Math.min(b.length, a + n); i++) o.push((b[i] < 16 ? "0" : "") + b[i].toString(16)); return o.join(" "); }
   function printable(k) { var s = ""; for (var i = 0; i < Math.min(k.length, 60); i++) { var c = k[i]; s += (c >= 32 && c < 127) ? String.fromCharCode(c) : "."; } return s; }
   function handleFiles(files) {
-    diag = { vals: [], blobs: [] };
+    diag = { vals: [], blobs: [], errs: [], shapes: [] };
     files = Array.prototype.slice.call(files);
     var skipped = 0, t0 = Date.now();
     logEl.textContent += "\n" + files.length + " 個のファイルを調べます…（前に選んだ分の結果に追加します）";
@@ -374,7 +386,9 @@
     seq.then(function () {
       if (!found.length || diag.vals.length || diag.blobs.length) {
         log("\n―― 診断情報（この部分を画面ごと送ってください）――");
-        log("大きな値: " + (diag.vals.length ? "\n" + diag.vals.join("\n") : "なし"));
+        log("読めた中身の形: " + (diag.shapes.length ? "\n" + diag.shapes.join("\n") : "なし"));
+        log("読めなかった理由: " + (diag.errs.length ? diag.errs.join(" | ") : "なし"));
+        log("大きな値: " + (diag.vals.length ? "\n" + diag.vals.slice(0, 5).join("\n") : "なし"));
         log("読み飛ばしたファイルの先頭: " + (diag.blobs.length ? "\n" + diag.blobs.join("\n") : "なし"));
         log("ファイル名: " + files.slice(0, 30).map(function (f) { return f.name + "(" + Math.round(f.size / 1024) + "KB)"; }).join(", "));
       }
