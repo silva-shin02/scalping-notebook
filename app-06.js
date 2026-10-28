@@ -6902,6 +6902,74 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     var t2 = _elHoldFinalParts(s, a, c);
     return (t2 && t2.main != null) ? t2.main : null;
   };
+  // ===== 🌱 仮シグナルの損益（月別）2026-10-28（ユーザー要望「各月の仮シグナルの損益額がわかるように」）=====
+  // 仮シグナルは合計に入れない規約（_elFinalPnlOf/_elTotAccumで金額から外す）なので、ここだけ仮の記録を集めて金額を出す。上の合計には一切足さない。
+  //   母数（ユーザー決定）: 画面上部の期間選択に従う（filtered）・算入銘柄の絞り込みは他の金額の表と同じ（銘柄タブは外す＝_EL_AMT_BYPASS）・
+  //   全銘柄はデータのみ(_isDataOnly)を外す・スルー／データ不算入／VAP未入力は外す。仮は時間かぶりの枠を占有しないので被り除外はかけない。
+  //   金額＝_elFinalPnlOf と同じ計算（想定損益）から仮のガードと被りだけを外したもの。
+  //   行（ユーザー決定）: 月ごとに仮シグナル別の行＋仮シグナル計。1件に仮シグナルが複数付いた記録は各行に数え、計は1件。列＝件数・勝率・純損益・1件平均。
+  var _provPnlOf = function(r) {
+    var s = r && r.signal; if (!s) return null;
+    var a = _ai(r).alpha, c = _ai(r).cutLine;
+    if (_epIsXSkip(s, a)) return null;
+    var t2 = _elHoldFinalParts(s, a, c);
+    return (t2 && t2.main != null) ? t2.main : null;
+  };
+  var _provRecsOf = function(rs) {
+    return (rs || []).filter(function(r) {
+      var s = r && r.signal;
+      if (!s || !_epIsV2(s) || !_elIsProvisional(s) || s.passThrough === true || !_elInclData(s)) return false;
+      if (!legacy && _vapOf(s) == null) return false;
+      if (addAlphaFil !== "all" && (addAlphaFil === "yes") !== !!_elSpecialUsed(s)) return false;   // v2recs と同じ追加αトグル
+      if (_isAllStock && _isDataOnly(data, r)) return false;
+      if (!_EL_AMT_BYPASS && !_elAmtRecOk(r)) return false;
+      return true;
+    });
+  };
+  var _provMonSection = function(rs) {
+    var pool = _provRecsOf(rs);
+    if (!pool.length) return null;
+    var order = _elProvTags(data).slice(), NOTAG = "（シグナル名なし）";
+    var acc = function() { return { amt: 0, noAmt: 0, win: 0, sum: 0 }; };
+    var add = function(o, v) { if (v == null) { o.noAmt++; return; } o.amt++; o.sum += v; if (v > 0) o.win++; };
+    var byM = {}, all = acc(), multi = false;
+    pool.forEach(function(r) {
+      var ym = String(r.date || "").slice(0, 7); if (!ym) return;
+      var m = byM[ym] || (byM[ym] = { tot: acc(), tags: {} }), v = _provPnlOf(r);
+      var tags = (Array.isArray(r.signal.tags) ? r.signal.tags : []).filter(function(x) { return typeof x === "string" && x; });
+      if (!tags.length) tags = [NOTAG];
+      if (tags.length > 1) multi = true;
+      tags.forEach(function(tg) { if (order.indexOf(tg) < 0) order.push(tg); add(m.tags[tg] || (m.tags[tg] = acc()), v); });
+      add(m.tot, v); add(all, v);
+    });
+    var cells = function(label, o, st) {
+      var avg = o.amt ? Math.round(o.sum / o.amt) : null, sum = o.amt ? o.sum : null;
+      return [
+        _elv2Td(label, Object.assign({ textAlign: "left", paddingLeft: 8, color: "#334155" }, st || {})),
+        _elv2Td(React.createElement("span", null, o.amt + "件",
+          o.noAmt ? React.createElement("span", { style: { fontSize: 9, color: "#94A3B8", marginLeft: 3 } }, "＋金額なし" + o.noAmt) : null)),
+        _elv2Td(o.amt ? Math.round(o.win / o.amt * 100) + "%" : "—"),
+        _elv2Td(React.createElement("b", { style: { color: _elPnlColor(sum) } }, _elPnlFmt(sum))),
+        _elv2Td(React.createElement("span", { style: { color: _elPnlColor(avg) } }, _elPnlFmt(avg)))];
+    };
+    var rows = [];
+    Object.keys(byM).sort().reverse().forEach(function(ym) {   // 新しい月が上＝「全体損益（期間別）」の並びに合わせる
+      var m = byM[ym];
+      rows.push(React.createElement("tr", { key: "pm_" + ym },
+        React.createElement("td", { colSpan: 5, style: { padding: "6px 8px 2px", fontSize: 11.5, fontWeight: 800, color: "#9A3412", borderTop: "1px solid #E4DFD7", textAlign: "left" } }, ym.replace("-", "/"))));
+      order.forEach(function(tg) {
+        if (!m.tags[tg]) return;
+        rows.push(React.createElement.apply(null, ["tr", { key: "pm_" + ym + "_" + tg }].concat(cells(tg, m.tags[tg], { paddingLeft: 16 }))));
+      });
+      rows.push(React.createElement.apply(null, ["tr", { key: "pm_" + ym + "__tot", style: { background: "#F0FDF4" } }].concat(cells("仮シグナル計", m.tot, { fontWeight: 700, paddingLeft: 16 }))));
+    });
+    rows.push(React.createElement.apply(null, ["tr", { key: "pm__all", style: { background: "#FFF7ED", fontWeight: 700 } }].concat(cells("合計（表示中の期間）", all, { fontWeight: 800 }))));
+    return [
+      _secH("🌱 仮シグナルの損益（月別）",
+        "仮シグナルの記録だけの想定損益（上の合計・カレンダー・ホームには入っていません）。純損益＝全体損益（期間別）と同じ想定損益の計算。勝率＝損益がプラスの件数÷金額が出た件数（0円の同値を含む）。期間は上部の期間選択に従う。" +
+        (multi ? "※1件に仮シグナルが複数付いた記録は各シグナルの行に数え、仮シグナル計では1件として数えるため、行の和と計が合わないことがあります。" : "")),
+      _elv2Table(["仮シグナル", "件数", "勝率", "純損益", "1件平均"], rows)];
+  };
   // ===== 🏷 銘柄別の損益割合（2026-08-03 ユーザー要望「銘柄別での損益割合分析も欲しい」）=====
   // 行は固定順（毎回同じ位置で読めるよう損益順に並べ替えない）: 固定銘柄＝custom.epnStocks（EPナビ⚙表示銘柄・最大3）を1行ずつ／
   //   📅日替わり＝custom.rotatingStocks をまとめて1行（展開で中の銘柄別内訳）／その他＝どちらにも属さない銘柄（0件なら行ごと出さない）。
@@ -8534,6 +8602,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
           _secH("💰 全体損益（期間別）", "全銘柄合算（今月縛り無し）。下のボタンで日別/週別/月別を切替。想定損益＝期待度○が途切れた所で手じまい・（）内=△含む（旧H2損益と同一基準・取引・銘柄別記録と同一・v2記録のみ）。6/29より前は集計ルールが違うため薄く表示し、合計・平均には算入していません（月別の2026/06は〜6/28と6/29〜の2行に分けています）。合計行の「月換算」は1か月＝20営業日として引き伸ばした目安（合計÷営業日数×20）で、実額ではありません"),
           _granSeg(gran, setGran, "ov_", _ovGradeLegend),
           legacy ? _ovPnlTbl(_v2recsAmt, gran === "custom" ? "week" : gran) : _ovPnlTbl(_v2recsAmt.concat(_preVapRecs), gran === "custom" ? "week" : gran, { preVap: true })],
+        _provMonSection(filtered),   // 🌱 仮シグナルの損益（月別）2026-10-28
         // 選定外の記録の参考表示 2026-10-05（ユーザー指示「選定外銘柄でも想定損益などは表示」・表示場所＝期間別表／合計は今のまま別建て／指標＝想定損益・到達・利確・損切り）。
         //   選定外＝日替わり候補でその日に指定していない記録(データのみ)＋合計算入銘柄に選んでいない銘柄(8/20以降)。上の合計・1日平均・グレードには一切入らない。
         //   同じ期間別表を母数だけ差し替えて再利用（列の定義が二重にならない）。金額は算入銘柄フィルタを外して出す(_amtBypass)。行展開キーは別接頭辞。
@@ -9157,6 +9226,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
               _thP("想定損益"), _thP("実現損益"))),
             React.createElement("tbody", null, _rows))))]); } }))]);
     })());
+    if (!_isAllStock && !_isSigTotal) { var _pmEl = _provMonSection(filtered); if (_pmEl) _tabBody = React.createElement(React.Fragment, null, _cardify([_pmEl]), _tabBody); }   // 🌱 仮シグナルの損益（月別）＝銘柄タブは月間・週間の一番上 2026-10-28
   } else if (view === "deep") {
     _tabBody = _selSigRecsScoped.length ? _cardify([
       React.createElement("div", { style: { fontSize: 10, color: "#9A3412", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "5px 9px", marginBottom: 8 } }, (legacy ? "ℹ 深掘りは" + (_floatMode ? "浮き足" : "その他") + "の全記録（応用あり＋応用なし）を各記録の採用α基準で分析（本数最適化・EP位置・執行の学習が目的）。応用α〇は採用αが高いため損切り率は高め・未達で母数から抜けやすい点に注意。基本α/応用αの分離は集計/損切り/未達タブの「分類」トグルで。" : "ℹ 深掘りはこのシグナルの全記録を各記録のVAP値基準で分析（本数最適化・EP位置・執行の学習が目的）。")),
