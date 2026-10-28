@@ -1593,6 +1593,10 @@ function migrateData(d) {
       console.log("[migrateData] restore1028: タブ=" + _rc.stocks.join("・") + " 日替わり候補=" + _rot.join("・"));
     } catch(e) { console.warn("[migrateData] restore1028 error:", e); }
   }
+  // 【一回性 _migRestore1028b・2026-10-28】シグナル詳細の選択肢（①②③）を記録から戻す（ユーザー報告「シグナルの詳細は戻らないの」）。足すだけ。
+  if (!d._migRestore1028b && typeof _snRebuildSigDetails === "function") {
+    try { var _sdM = _snRebuildSigDetails(d); d.custom.sigDetails2 = _sdM.sigDetails2; d._migRestore1028b = true; console.log("[migrateData] restore1028b: シグナル詳細 +" + _sdM.added); } catch(e) { console.warn("[migrateData] restore1028b error:", e); }
+  }
   // 【毎回の整え・固定タブ 2026-10-28】ユーザー指示「銘柄タブは日替わり・フジクラ・SBGの3つ」。一回性(_migRestore1028)だけだと、古い版のアプリが残った端末が
   //   古い設定を送り返したときに日替わり候補が巻き戻った（ユーザー報告）。そこで読み込むたびに揃える:
   //   固定タブ＝custom.fixedTabs（未設定は フジクラ・SBG）。名簿(stocks)のうち固定タブと日経平均株価以外は日替わり候補(rotatingStocks)に入れる。
@@ -2164,6 +2168,8 @@ var _fbLocalV = 0;
 //   版数確認(fbPollV)の拒否もコンソール警告だけ＝ルール期限切れ等で同期が止まっても画面で分からなかった。
 //   _fbSetErr(kind,status)で "sn_fb_err" イベントを飛ばし、App（app-08）が同期バッジを「⚠️ 同期エラー」にして画面上部に赤い帯を出す。成功したら _fbClearErr で消す。
 var _fbErrState = null;
+// 同期の進み具合 2026-10-28（ユーザー報告「iPadで同期中のまま」）: どの段階で止まっているかを設定→同期の🩺同期診断に出す。
+function _fbStage(s) { try { window._snSyncStage = { s: s, at: Date.now() }; } catch (e) {} }
 function _fbSetErr(kind, status, msg) {
   _fbErrState = { kind: kind, status: status, msg: msg || "", at: Date.now() };
   try { window.dispatchEvent(new CustomEvent("sn_fb_err", { detail: _fbErrState })); } catch (e) {}
@@ -2360,6 +2366,7 @@ function _fbResolveRemote(local, remote) {
 function _fbCasPrep(cfg, data) {
   var base = _fbBase(cfg), auth = _fbAuth(cfg);
   if (!base || !data) return Promise.resolve(data);
+  _fbStage("送信前の確認");
   return _fbBaseLoad().then(function() { return fetch(base + "/meta/_v.json" + auth); }).then(function(r) { return r.ok ? r.json() : null; }).then(function(rv) {
     try { _fbTrack("db_dl", 13, "同期（版数確認）"); } catch (e) {}
     if (typeof rv !== "number" || rv === _fbLocalV) return data;
@@ -2396,6 +2403,7 @@ function _fbPut() {
           _context6.p = 1;
           _context6.n = 2;
           
+          _fbStage("画像のアップロード");
           return _uploadAllImages(data);
         case 2:
           fbData = _context6.v;
@@ -2459,6 +2467,7 @@ function _fbPut() {
             return _context6.a(2);
           }
           _fbTrack("db_ul", _metaBody.length);
+          _fbStage("サーバーへ送信（" + Math.round(_metaBody.length / 1024) + "KB）");
           return fetch(base + "/meta.json" + auth, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -2472,6 +2481,7 @@ function _fbPut() {
               try { r.clone().text().then(function(t) { var m = t; try { var j = JSON.parse(t); if (j && j.error) m = j.error; } catch (eJ) {} console.warn("[fbPut] server says:", m); _fbSetErr("put", r.status, String(m || "").slice(0, 200)); }); } catch (eT) {}
             } else {
               _fbClearErr();
+              _fbStage("完了（送信）");
               try { _fbBaseSet(_lightMeta, _lightMeta._v); } catch (eB) {}   // 送れた内容＝サーバーと一致した基準 2026-10-27
             }
             return r;
@@ -2704,7 +2714,8 @@ function _fbPollFetch(cfg, localData, remoteV) {
 
 
 function fbInitialLoad(cfg, localData) {
-  return _fbBaseLoad().then(function() { return fbPollV(cfg); }).then(function(rv) {
+  _fbStage("起動時：同期の控えを読む");
+  return _fbBaseLoad().then(function() { _fbStage("起動時：版数の確認"); return fbPollV(cfg); }).then(function(rv) {
     // 2026-10-27 旧: 「この端末の更新時刻 >= サーバー」なら取得を省いていた＝更新時刻だけ新しく中身が古い端末がPCの変更を取り込まず上書きしていた。
     //   新: サーバーが「前回この端末が同期した版」から変わっていない時だけ省く（基準が無ければ必ず取得して統合）。
     if (rv && _fbSyncBase && rv === _fbBaseLastV() && !_fbLooksWiped(_fbBaseClean(localData), _fbSyncBase)) {   // 端末内が大きく減っていたら省かず取り込む 2026-10-28
@@ -2713,7 +2724,7 @@ function fbInitialLoad(cfg, localData) {
       return { status: "skip", dirty: !_m3Eq(_fbBaseClean(localData), _fbSyncBase) };
     }
     
-    function _full() { return fbGet(cfg).then(function(fullData) {
+    function _full() { _fbStage("起動時：全件を取得"); return fbGet(cfg).then(function(fullData) {
       if (rv) _fbLocalV = rv;
       if (fullData === "EMPTY") {
         
@@ -2731,6 +2742,7 @@ function fbInitialLoad(cfg, localData) {
     // セクションだけDLして起動時の全件DLを回避（RTDBダウンロード帯域の主因を削減）。2026-06-19
     // _sv(署名)が無い旧DB・取得失敗など不確実時はfbGetDiffが{status:"full"}を返し _full() で全件フォールバック。
     if (rv && localData && typeof localData === "object" && (localData.trades || localData.charts)) {
+      _fbStage("起動時：変わった所を取得");
       return fbGetDiff(cfg, localData, rv).then(function(res) {
         if (res && res.status === "diff") { _fbLocalV = rv; try { console.log("[FB] initial load: diff DL (" + (res.changed ? res.changed.length : "?") + " sec)"); } catch(e){} return { status: "ok", data: res.data }; }
         if (res && res.status === "nochange") { _fbLocalV = rv; try { _fbBaseSet(localData, rv); } catch(e){} try { console.log("[FB] initial load: nochange (skip DL, rv=" + rv + ")"); } catch(e){} return { status: "skip" }; }
@@ -2914,8 +2926,11 @@ function _uploadToStorage(path, b64, mime) {
   
   
   var metadata = { contentType: mime, cacheControl: "public, max-age=31536000" };
-  return ref.put(blob, metadata).then(function() { return ref.getDownloadURL(); })
+  var _up = ref.put(blob, metadata).then(function() { return ref.getDownloadURL(); })
     ["catch"](function(e) { console.warn("Storage upload err:", e); return null; });
+  // 2026-10-28 90秒で打ち切る（返ってこないアップロードで記録の同期ごと止まらないように）＝次の保存で再挑戦。
+  var _to = new Promise(function(res) { setTimeout(function() { res(null); }, 90000); });
+  return Promise.race([_up, _to]);
 }
 
 
