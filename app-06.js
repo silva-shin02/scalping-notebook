@@ -5593,7 +5593,7 @@ function _elKabuLadderSimV2(props) {
   var _uM = useState("manual"), _modeRaw = _uM[0], setMode = _uM[1], mode = (vap && _modeRaw === "auto") ? "manual" : _modeRaw;   // VAP枠は自動配分(α方式の総当たり)を持たない
   var _uF = useState("all"), _addFilRaw = _uF[0], setAddFil = _uF[1], addFil = vap ? "all" : _addFilRaw;   // 2026-08-06e 既定を「基本α」→「全記録」へ（ユーザー指定）。※浮き足〇は下の除外オプションが既定ONなので、全記録＝基本α＋応用α（浮き足〇は除外されたまま）
   var _uSk = useState("__all__"), stkFil = _uSk[0], setStkFil = _uSk[1];   // 対象銘柄フィルタ（全銘柄モードのみ表示・__all__=全て・既定＝全て）2026-07-22
-  var _uBd = useState("__all__"), bandFil = _uBd[0], setBandFil = _uBd[1];   // 対象株価帯フィルタ 2026-08-02（ユーザー要望「対象を株価帯・銘柄から選べるように」）。銘柄フィルタとは独立のAND＝両方「全て」なら従来と同じ母数。銘柄別モードでも効く（同じ銘柄でも日によって帯が変わるため）
+  var _uBd = useState("__all__"), _bandFilRaw = _uBd[0], setBandFil = _uBd[1], bandFil = vap ? "__all__" : _bandFilRaw;   // 2026-10-28 VAP枠は株価帯で絞らない（ユーザー指示）   // 対象株価帯フィルタ 2026-08-02（ユーザー要望「対象を株価帯・銘柄から選べるように」）。銘柄フィルタとは独立のAND＝両方「全て」なら従来と同じ母数。銘柄別モードでも効く（同じ銘柄でも日によって帯が変わるため）
   var _uAo = useState("act"), addOn = _uAo[0], setAddOn = _uAo[1];   // 追加α〇記録への上乗せ: act=実追加α(既定)/reco=記録日時点の推奨追加α/none=なし。〇記録がシミュ対象にいる時だけピル表示 2026-07-06
   // 除外チェック（⑥ 2026-07-13）→ 2026-07-20k **浮き足〇だけに縮小**（ユーザー決定）:
   //   ・RN〇の除外は意味を失った＝除外しても保存値rnUsedの記録を母数から外すだけで、掃引αに対する動的再判定(_simRnAt)は止まらず、
@@ -6359,7 +6359,7 @@ function _elKabuLadderSimV2(props) {
       React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, "全銘柄・全シグナルの記録に同じラダーを一律適用")) : null,
     React.createElement(_ElPeriodPicker, { value: pSel, onChange: function(s) { setPSel(s); setAutoExp(null); setMtExp(null); }, recs: recs, label: "対象期間" }), (allStock ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } }, React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0F766E" } }, "対象銘柄:"), [["__all__", "全て"]].concat(_stkOpts.map(function(s) { return [s, s]; })).map(function(kv) { return _pill(stkFil === kv[0], kv[1], function() { setStkFil(kv[0]); setAutoExp(null); setMtExp(null); }, "#0F766E"); }), React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, stkFil === "__all__" ? ("（" + _stkOpts.length + "銘柄）銘柄を選ぶと母数を絞り込みます") : ("（" + stkFil + "のみ）"))) : null),   // 2026-07-20i 年月週日カスケード（既定＝今月のみ）
     // 対象株価帯 2026-08-02（ユーザー要望）: 銘柄と独立のAND絞り込み。帯が1種類しか無い期間ではUIごと非表示（絞る意味が無いため）。銘柄別モードでも出す＝同じ銘柄でも日によって帯が変わる。
-    (_bandOpts.length >= 2) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
+    (!vap && _bandOpts.length >= 2) ? React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 } },
       React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#0369A1" } }, "対象株価帯:"),
       [["__all__", "全て"]].concat(_bandOpts.map(function(k) { return [k, _bandLabelOf(k) + "(" + _bandCntOf(k) + ")"]; })).map(function(kv) { return _pill(bandFil === kv[0], kv[1], function() { setBandFil(kv[0]); setAutoExp(null); setMtExp(null); }, "#0369A1"); }),
       React.createElement("span", { style: { fontSize: 9, color: "#aaa" } }, bandFil === "__all__" ? ("帯＝日×銘柄で判定（境界 " + _pbBoundsSim.join("・") + "円）。選ぶと母数を絞り込みます") : ("（" + _bandLabelOf(bandFil) + "のみ・銘柄フィルタとAND）"))) : null,
@@ -6682,7 +6682,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     ? [["sum", "📊 集計"]].concat(legacy ? [] : [["alpha", "📐 VAP値"]]).concat([["mw", "📅 月間・週間"], ["sim", "🧮 シミュ"], ["proj", "📈 損益推移シミュレーター"]])   // 2026-07-20f 全銘柄一括シミュを期間の右に新設（ユーザー要望）。2026-08-05 損益推移シミュレーター（app-09.js）をシミュの右に追加。2026-08-12 「📆 期間」(view:"period")を「📅 月間・週間」(view:"mw")へ作り替え（ユーザー要望＝期間タブは使っていないので廃止し、その場所に月間/週間の分析テーブルを置く）
     : [["sum", "📊 集計"], ["alpha", legacy ? "📐 α値" : "📐 VAP値"], ["stop", "🛑 損切り"], ["miss", "❌ 未達"], ["mw", "📅 月間・週間"], ["deep", "🔬 深掘り"], ["sim", "🧮 シミュ"]];
   // 2026-09-02 「🩹 補正要否」タブを撤去＝対象シグナル（既定「底つきライン」・_SPN_DEFAULT_SIGNALS）のタブ内へ移設（ユーザー指示「この補正は底つきラインでしか使わない」）。
-  var _SIG_TABS = (legacy ? [] : [["vap", "📐 VAP値"]]).concat([["band", "💴 株価帯別"], ["stop", "🛑 損切り"]].concat(legacy ? [["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]] : []));   // 2026-10-05 VAP枠に浮き足・RN加算は無い＝タブごと出さない。 2026-10-04 📐VAP値（シグナル別比較）を先頭に追加（8/20以降の枠のみ）。 2026-08-20b 「📥 確定待ち」はここに一度置いたが、ユーザー決定で💰損益タブ（_tabsの全銘柄側）へ移設した。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
+  var _SIG_TABS = (legacy ? [] : [["vap", "📐 VAP値"]]).concat((legacy ? [["band", "💴 株価帯別"]] : []).concat([["stop", "🛑 損切り"]]).concat(legacy ? [["uki", "⚡ 浮き足"], ["rn", "🔢 RN加算"]] : []));   // 2026-10-05 VAP枠に浮き足・RN加算は無い＝タブごと出さない。 2026-10-04 📐VAP値（シグナル別比較）を先頭に追加（8/20以降の枠のみ）。 2026-08-20b 「📥 確定待ち」はここに一度置いたが、ユーザー決定で💰損益タブ（_tabsの全銘柄側）へ移設した。   // 2026-08-18 %テーブル撤去にともない「⚡ 浮き足%」→「⚡ 浮き足」へ改称（中身は円建ての最適化表・記録一覧・🔁応用α換算）。   // 📡シグナル総合のサブタブ 2026-07-12（時間帯/曜日は2026-07-16撤去＝ユーザー不要）。RN→RN加算改名 2026-07-19。株価帯別を浮き足%の左へ移設 2026-07-22i（旧・全銘柄集計の分析軸トグルから移動）。損切りを株価帯別の右に追加 2026-07-27（銘柄別タブの🛑損切りは存続＝両方で見る・全銘柄側は株価帯で区切る＝円建ての損切り値を銘柄横断で混ぜても意味が壊れないように）
   var _byDateAsc = function(a, b) { return (a.date + (a.signal.time || "")).localeCompare(b.date + (b.signal.time || "")); };   // 記録一覧は日時（日付＋時刻）の早い順（昇順）に統一 2026-07-18
   // 日付だけ新しい順・各日付の中は時間が早い順（2段ソート）2026-07-27 ユーザー指定＝「新しい日から見て、その日は朝から順に読む」。
   // 日付＋時刻を繋げた文字列の単純降順にすると日内まで逆順になるので、日付と時刻を分けて比較するのが要。
@@ -7772,7 +7772,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   // 中身は💴株価帯別と同じ_bandAxisBody（帯ピル→_groupPanel）をそのシグナルの記録で呼ぶだけ＝分析内容が二重管理にならない。
   var _SIG_TAB_DIV = "__sigdiv__";
   if (legacy && sigSub === "vap") sigSub = "band";
-  if (!legacy && (sigSub === "uki" || sigSub === "rn")) sigSub = "band";   // VAP枠には浮き足・RNタブが無い 2026-10-05   // 旧システム枠にはVAPタブが無い＝枠切替で取り残されたら株価帯別へ
+  if (!legacy && (sigSub === "uki" || sigSub === "rn" || sigSub === "band")) sigSub = "vap";   // 2026-10-28 VAP枠に株価帯別タブは無い（ユーザー指示）   // VAP枠には浮き足・RNタブが無い 2026-10-05   // 旧システム枠にはVAPタブが無い＝枠切替で取り残されたら株価帯別へ
   var _sigTotTabs = _SIG_TABS.concat(_sigGroupsAll.length ? [[_SIG_TAB_DIV, ""]] : [])
     .concat(_sigGroupsAll.map(function(g) { return ["sig:" + g.key, g.label, g.recs.length, true]; }));
   var _selSigKey = (selSig != null && _sigAxisGroups.some(function(g) { return g.key === selSig; })) ? selSig : (_sigAxisGroups[0] ? _sigAxisGroups[0].key : null);
@@ -7926,8 +7926,9 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
   var _bandAxisBody = function(pool, cross, opts) {
     var _o = opts || {};
     var _pbSpl = _pbSplitByBand(pool), _pbB = _pbSpl.bounds;
-    var _bAll = (_o.withAll ? [{ key: "all", label: "すべて", recs: (pool || []) }] : []).concat(_pbSpl.groups);
-    var _bSelKey = (bandSel && _bAll.some(function(g) { return g.key === bandSel; })) ? bandSel : (function() { var bst = _bAll[0]; _bAll.forEach(function(g) { if (g.recs.length > bst.recs.length) bst = g; }); return bst.key; })();
+    // 2026-10-28 VAP枠（8/20以降）には株価帯の概念を出さない（ユーザー指示）＝noBand は「すべて」1つだけ・帯ピルと帯の説明を出さない。
+    var _bAll = _o.noBand ? [{ key: "all", label: "すべて", recs: (pool || []) }] : (_o.withAll ? [{ key: "all", label: "すべて", recs: (pool || []) }] : []).concat(_pbSpl.groups);
+    var _bSelKey = _o.noBand ? "all" : (bandSel && _bAll.some(function(g) { return g.key === bandSel; })) ? bandSel : (function() { var bst = _bAll[0]; _bAll.forEach(function(g) { if (g.recs.length > bst.recs.length) bst = g; }); return bst.key; })();
     var _bSel = _bAll.filter(function(g) { return g.key === _bSelKey; })[0] || null;
     var _bStkN = 0; if (_bSel) { var _bSeen = {}; _bSel.recs.forEach(function(r) { if (r.stock && !_bSeen[r.stock]) { _bSeen[r.stock] = 1; _bStkN++; } }); }
     // 頻度の帯基準化（2026-07-22j・ユーザー決定）: 実帯グループ（"bN"）は分母を_pbBandBizDays（その帯だった営業日）に＝本日の推奨α（帯）ピルと一致。材料あり/帯不明は帯基準の意味が無いのでundefined＝記録スパン。
@@ -7958,8 +7959,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     if (_bSecSel) { var _bSeen2 = {}; _bStkN = 0; _panelRecs.forEach(function(r) { if (r.stock && !_bSeen2[r.stock]) { _bSeen2[r.stock] = 1; _bStkN++; } }); }   // 見出しの銘柄種数も底抜け絞込後に合わせる
     // 頻度の分母(_bandSpanSel)は底抜けで絞っても帯のままにする＝「この帯で、この底抜けは何営業日に1回か」を見たいため。
     return React.createElement(React.Fragment, null,
-      React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + _pbB.join("・") + "円）"),
-      _subTabBar(_bAll, _bSelKey, setBandSel),
+      _o.noBand ? null : React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 6px" } }, "帯＝日×銘柄で判定（手動選択＞前日終値の自動・日別ページの銘柄タブ上のバーで設定）。境界は設定「📊データ・銘柄」で変更可（現在: " + _pbB.join("・") + "円）"),
+      _o.noBand ? null : _subTabBar(_bAll, _bSelKey, setBandSel),
       _bSecGroups ? React.createElement("div", { style: { fontSize: 9, color: "#aaa", margin: "0 0 4px" } }, "① EP基準ライン＝記録フォームのシグナル詳細①（単一選択）。上の帯ピルとANDで絞り込む。") : null,
       _bSecGroups ? _subTabBar(_bSecGroups, _bSecSelKey, setSigBSel) : null,
       (_panelRecs && _panelRecs.length)
@@ -8238,10 +8239,10 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
       var _stGrp = _sigGroupsAll.filter(function(g) { return g.key === _stKey; })[0] || null;
       // 2026-10-04 シグナルタブ内を「💴株価帯別／📐VAP値」の2枚に（8/20以降の枠のみ）。VAP値＝このシグナルの記録を銘柄別に比較（_VapSigBoardのaxis="銘柄"）。
       var _stVap = (!legacy && _stGrp) ? _stGrp.recs.filter(function(r) { return _vapAnalysisOk(r) && !_elCollExcluded(data, r, null); }) : [];
-      var _stBandBody = _stGrp ? _bandAxisBody(_stGrp.recs, true, { withAll: true, sigLabel: _stGrp.label, bSigKey: _stKey }) : null;
+      var _stBandBody = _stGrp ? _bandAxisBody(_stGrp.recs, true, { withAll: true, noBand: !legacy, sigLabel: _stGrp.label, bSigKey: _stKey }) : null;
       _tabBody = _stGrp
         ? (legacy ? _stBandBody : React.createElement(React.Fragment, null,
-            _sigInnerBar([["band", "💴 株価帯別", _stGrp.recs.length], ["vap", "📐 VAP値", _stVap.length]], sigInner, setSigInner),
+            _sigInnerBar([["band", "📊 分析", _stGrp.recs.length], ["vap", "📐 VAP値", _stVap.length]], sigInner, setSigInner),   // 2026-10-28 VAP枠は株価帯なし＝「分析」（中身は帯で分けない全体）
             sigInner === "vap"
               ? _cardify([
                   _secH("📐 VAP値の分析（" + _stGrp.label + "・銘柄／時間帯別）", "8/20以降・このシグナルの記録。「分け方」で銘柄・時間帯ごとにVAPからの追加円数を比較。同値（OS最大＝EP）は未約定"),
@@ -8563,7 +8564,8 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     } else {
       // 銘柄別の集計＝選択中シグナルの総合パネル（旧🎯シグナル別タブを昇格・上のシグナル軸で切替）。母数は選択中シグナル×サブタブ（前足浮き/その他）の固定母数（_selSigRecsScoped）。推奨基本α/追加αカードだけはシグナル全体（_selSigRecs）で算出＝サブタブ間で一貫。2026-07-01→前足浮き対応 2026-07-02
       // 分析軸トグル（2026-07-07）: 🎯シグナル別（従来）／🏷詳細タグ別（銘柄内・全シグナル横断で選んだ詳細タグの記録を _groupPanel で分析）。詳細タグが1件も無い銘柄ではトグル非表示＝従来どおり。
-      var _axisBtns = [["sig", "🎯 シグナル別"]].concat(_hasDetTags ? [["det", "🏷 詳細タグ別"]] : []).concat([["band", "💴 株価帯別"]]);   // 株価帯別を第3の軸に追加 2026-07-22（詳細タグが無い銘柄でも帯別は出す＝トグル常時表示化）
+      if (!legacy && detTagMode === "band") detTagMode = "sig";   // 2026-10-28 VAP枠は株価帯の軸なし
+      var _axisBtns = [["sig", "🎯 シグナル別"]].concat(_hasDetTags ? [["det", "🏷 詳細タグ別"]] : []).concat(legacy ? [["band", "💴 株価帯別"]] : []);   // 株価帯別を第3の軸に追加 2026-07-22（詳細タグが無い銘柄でも帯別は出す＝トグル常時表示化）
       var _detTagToggle = React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 10, fontWeight: 800, color: "#9A3412" } }, "分析軸:"),
         _axisBtns.map(function(kv) {
@@ -9278,7 +9280,7 @@ function EntryLogViewBody(_ref_elv2, legacy, setLegacy) {
     React.createElement("div", { style: { fontSize: 9.5, color: "#B45309", margin: "0 2px 7px", lineHeight: 1.4 } }, "※ 2026年4月以前はEMAの位置に間違いがあったため、記録帳の集計・分析・一覧すべてから除外しています（5月以降が正）。"),
     // 2026-08-05t 分析母数トグル。💰損益タブ（全銘柄）では_v2recsAllDataを使わない＝押しても何も変わらないので出さない。
     //   ただし🧮全銘柄一括シミュだけは💰損益タブにあって絞る対象なので view==="sim" のときは出す。
-    (_isSigTotal || !_isAllStock || view === "sim") ? React.createElement("div", { style: { margin: "0 2px 8px" } },
+    (legacy && (_isSigTotal || !_isAllStock || view === "sim")) ? React.createElement("div", { style: { margin: "0 2px 8px" } },   // 2026-10-28 VAP枠（8/20以降）は全記録が6/29以降＝トグル不要（ユーザー指示）
       React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
         React.createElement("span", { style: { fontSize: 9.5, fontWeight: 800, color: "#0F766E", letterSpacing: ".04em" } }, "分析の母数"),
         React.createElement("div", { style: { display: "flex", background: "#F1EEE8", borderRadius: 9, padding: 2, gap: 2 } },
